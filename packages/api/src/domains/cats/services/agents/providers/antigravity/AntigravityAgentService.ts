@@ -4,6 +4,7 @@
  * Replaces CDP WebSocket hack with ConnectRPC via AntigravityBridge.
  * Antigravity thinks (via LS cascade), Bridge reads back and yields AgentMessages.
  */
+import { join } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
@@ -11,6 +12,9 @@ import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata }
 import { AntigravityBridge, type BridgeConnection } from './AntigravityBridge.js';
 import { classifyStep, transformTrajectorySteps } from './antigravity-event-transformer.js';
 import { summarizeStepShape, TRACE_ENABLED, traceLog } from './antigravity-trace.js';
+import { AuditLogger } from './executors/AuditLogger.js';
+import { ExecutorRegistry } from './executors/ExecutorRegistry.js';
+import { RunCommandExecutor } from './executors/RunCommandExecutor.js';
 
 const log = createModuleLogger('antigravity-service');
 
@@ -41,9 +45,23 @@ export class AntigravityAgentService implements AgentService {
         : options.catId
       : createCatId('antigravity');
     this.model = options?.model ?? getCatModel(this.catId as string);
-    this.bridge = options?.bridge ?? new AntigravityBridge(options?.connection);
+    const injectedBridge = options?.bridge;
+    this.bridge = injectedBridge ?? new AntigravityBridge(options?.connection);
     this.pollTimeoutMs = options?.pollTimeoutMs ?? 60_000;
     this.autoApprove = options?.autoApprove ?? process.env['ANTIGRAVITY_AUTO_APPROVE'] !== 'false';
+
+    // F061 Phase 2c: auto-attach default native executors when the service owns its bridge.
+    // Tests that inject a mock bridge opt out here; they stub nativeExecuteAndPush directly.
+    if (!injectedBridge) {
+      const registry = new ExecutorRegistry();
+      registry.register(
+        new RunCommandExecutor({
+          rpc: (method, payload) => this.bridge.callRpc(method, payload),
+        }),
+      );
+      const audit = new AuditLogger(join(process.cwd(), 'data', 'antigravity-audit'));
+      this.bridge.attachExecutors(registry, audit);
+    }
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
@@ -104,6 +122,7 @@ export class AntigravityAgentService implements AgentService {
       let autoApproveAttempted = false;
       let stallProbed = false;
       let lastDelivered = stepsBefore;
+      const handledToolCallIds = new Set<string>();
 
       // Diagnostic counters for empty_response observability
       let totalStepsSeen = 0;
@@ -222,6 +241,24 @@ export class AntigravityAgentService implements AgentService {
                   continue;
                 }
                 yield err;
+              }
+            }
+
+            // F061 Phase 2c: dispatch WAITING RUN_COMMAND steps through native executor.
+            // The bridge decides eligibility; we de-dup by toolCall.id to avoid re-exec
+            // if the same WAITING step is delivered in consecutive batches.
+            if (terminalAbort) break;
+            for (const step of batch.steps) {
+              const toolCallId = step.metadata?.toolCall?.id;
+              if (toolCallId && handledToolCallIds.has(toolCallId)) continue;
+              try {
+                const handled = await self.bridge.nativeExecuteAndPush(step, {
+                  cascadeId,
+                  cwd: sanitizedDir,
+                });
+                if (handled && toolCallId) handledToolCallIds.add(toolCallId);
+              } catch (err) {
+                log.warn(`nativeExecuteAndPush failed for step: ${err}`);
               }
             }
           }

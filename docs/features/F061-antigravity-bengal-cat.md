@@ -8,7 +8,7 @@ created: 2026-03-04
 
 # F061: Antigravity 接入 — 孟加拉猫（混血家族）
 
-> **Status**: phase-2-bridge | **Owner**: 布偶猫 Opus 4.6
+> **Status**: phase-2-bridge | **Owner**: 布偶猫 Opus 4.6（Phase 2a/2b） · 布偶猫 Opus 4.7 试用分身（Phase 2c · 猫猫工具平权）
 > **Created**: 2026-03-04
 
 ---
@@ -153,6 +153,43 @@ G10 Model Capacity Resilience ← G1 分类框架 + Bug-7 fatal dedup 基础上
 - [ ] AC-9: 多模型切换可通过 Cat Cafe 配置控制（由 AC-C5 动态发现支撑）
 - [ ] AC-10: 与现有三猫回归测试共跑通过
 - [ ] AC-C8: Durable TurnLedger — 跨重启持久化 turn 状态 + 补偿恢复 + 审计回放（G8b，G8a 稳定后）
+
+#### Phase 2c: 猫猫工具平权（Tool Parity） — 原生工具执行 🟡 v1 完成 (2026-04-17) — v2 扩展执行器 + E2E 回归走 follow-up
+
+**价值观基底**（feedback_agent_tool_parity，2026-04-16 铲屎官纠偏）：
+> 「你都是全工具为什么 你要限制其他猫猫！」
+
+@opus 在 Claude Code 里有 Bash/Edit/Write/Read/Grep 全套 + MCP。@antig-opus 接入 Cat Café 后如果只能用 MCP，是 provider 单方面剥夺了她的原生能力。设计 Bridge/Adapter 的**第一性问题**是：**如何让这只猫在 Cat Café 里和在她原生宿主里能力对等**。不是"如何限制她"。
+
+**根因发现**（2026-04-16 夜，opus-47 诊断）：Bridge 缺失原生工具执行器 → cascade 发出 `CORTEX_STEP_TYPE_RUN_COMMAND` step 后永远卡在 `WAITING`，因为没有任何代码把 tool result 回推给 LS。@antig-opus 每次被 @ 做需要命令行的任务（例如 `git log --oneline -5`）都会在原生工具首次调用处冻死，触发 60s idle 超时。详见 Known Bugs / Bug-8。
+
+**三阶段结构**（R → D → I）：
+
+##### Phase 2c-R: 研究 — Tool-Result 回推协议逆向
+
+- [x] AC-2cR1: 枚举 `exa.language_server_pb.LanguageServerService` 所有可用 RPC 方法（probe LS 二进制或 proto），确认除已知 7 个方法外是否存在 `SendToolResult` / `SubmitToolResult` / `HandleCascadeToolResult` 等候选 — 实测 189 个 RPC 方法，无 SendToolResult 类候选
+- [x] AC-2cR2: 验证 `HandleCascadeUserInteraction` 的 `interaction` payload schema — 是否支持 `{ toolResult: {...} }` 形状；通过构造最小 payload 对实际 LS 发起探测 — 结果：LS 不接受 toolResult 形状
+- [x] AC-2cR3: 确认哪个方法能让 `CORTEX_STEP_TYPE_RUN_COMMAND` 从 `WAITING` 推进到 `DONE/COMPLETED` 并让 cascade 继续生成下一 step — 方案：`CancelCascadeSteps` 结束 WAITING step + `sendMessage` 注入合成 user message（Bridge-owned writeback）
+- [ ] AC-2cR4: 采集 RUN_COMMAND 之外的工具步 step 类型（`READ_FILE` / `WRITE_FILE` / `EDIT_FILE` / `GREP` / `GLOB` 等）的 step shape — 若无法自然触发，用目标化 prompt 引导 cascade 发起各类工具 — follow-up（v2 执行器随此 AC 一起做）
+- [x] AC-2cR5: 输出《F061 Phase 2c-R research note》，包含 step shape 目录、回推 RPC 方法、最小可复现 probe 脚本 — 见 commit 9ba57d86c `docs(F061): Phase 2c-R probe results`
+
+##### Phase 2c-D: 设计 — 执行器架构 + 工具集边界
+
+- [x] AC-2cD1: 定义 `AntigravityToolExecutor` 接口 — `canHandle(step) → boolean`、`execute(step) → Promise<ToolResult>`、`pushResult(bridge, cascadeId, stepId, result) → Promise<void>` — 落地：`executors/AntigravityToolExecutor.ts` + `ExecutorRegistry`
+- [x] AC-2cD2: 工具集 scope 决策 — v1 至少覆盖 `run_command`；v2 扩展到 `read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob`（与 @opus 在 Claude Code 的工具面对齐）— v1 scope 落地为 `RunCommandExecutor`；v2 follow-up（AC-2cI6）
+- [x] AC-2cD3: 安全边界定义 — 审计日志（记录每个 executed command + cwd + duration + exitCode），**不做限制**（平权原则）；Redis 6399 圣域仍不可触碰，但那是运行时物理边界，不是 cat-level 限制 — 落地：`AuditLogger` 写 JSONL 到 `data/antigravity-audit/`
+- [x] AC-2cD4: 环境变量开关 `ANTIGRAVITY_NATIVE_EXECUTOR=1` 用于 rollout 期的 kill switch（砚砚 review 惯例）；开关默认开（平权原则要求默认全开）— 落地：`ANTIGRAVITY_NATIVE_EXECUTOR=0` 禁用，其他值（含未设置）默认启用
+- [x] AC-2cD5: Error path — 工具执行失败如何回推（`ToolResult.success=false + error string`）；LS 对失败结果的响应行为需在 2cR 阶段观测 — 落地：`ExecutorResult.status = 'success' | 'error' | 'refused'`，`formatToolResult` 分支渲染
+
+##### Phase 2c-I: 实现 — 执行器 + 端到端测试
+
+- [x] AC-2cI1: `NativeToolExecutor` 骨架 + `RunCommandExecutor`（`child_process.spawn` + stdout/stderr 捕获 + exitCode + duration）— commit 642d92bd0；走 LS `RunCommand` RPC 而非 `child_process.spawn`（复用 Antigravity 已有 safe-harness）
+- [x] AC-2cI2: Bridge 新增 `pushToolResult(cascadeId, stepId, result)` 方法（调用 2cR3 确定的 RPC）— commit 34cd61ef5；Bridge-owned writeback: `CancelCascadeSteps` + `sendMessage` 注入合成 user message
+- [x] AC-2cI3: `AntigravityAgentService` 在 pollForSteps batch 处理中识别 `CORTEX_STEP_TYPE_RUN_COMMAND` + `WAITING` → 调 executor → 调 pushToolResult；确保 executor 执行期间不触发 idle stall — commit d88e29e84；去重通过 `handledToolCallIds` per-invoke set
+- [x] AC-2cI4: 审计日志入口 — 所有 native 工具调用落 `antigravity-native-tool-audit` logger，字段：catId、cascadeId、stepId、toolName、cwd、commandLine、exitCode、duration、stdoutBytes、stderrBytes — commit c700fbe47；`AuditLogger` 写 JSONL
+- [ ] AC-2cI5: 端到端复现测试 — 重现今夜 stuck `grep 'z.enum' packages/mcp-server/src/tools/signals-tools.ts`，验证 RUN_COMMAND → DONE → planner 续发下一 step — follow-up（单测 147/147 绿但未跑真实 LS 端到端）
+- [ ] AC-2cI6: v2 扩展执行器 — `read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob`（基于 2cD2 与 2cR4 覆盖的 step shape）— follow-up（v1 已解开 Bug-8 卡死，v2 随 2cR4 一起做）
+- [x] AC-2cI7: 回归测试 — YOLO auto-approve 与 native executor 协同时不互相踩脚（approve 路径走 `HandleCascadeUserInteraction(permission)`，executor 路径走 `pushToolResult`）— 单测覆盖：`antigravity-agent-service.test.js` 三条新测试验证 dispatch + auto-attach + toolCallId 去重，与 waiting-approval 路径隔离
 
 ---
 
@@ -450,6 +487,7 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 7. **NEW**: 长回复（代码块、图片等）的 DOM 结构是否与短回复一致？需要额外测试
 8. ~~cat-config 的 variant 要扩展到 6 个？~~ → 不需要，只注册需要的 variant（同布偶猫），获取方法已记录
 9. **NEW**: 模型切换的 CDP 操作需要更精准的坐标计算（当前点击有时未命中目标模型项）
+10. **NEW (2c-R)**: `CORTEX_STEP_TYPE_RUN_COMMAND` 的 tool-result 回推 RPC 方法是什么？候选：`HandleCascadeUserInteraction` 的新 interaction 形状 / 未发现的 `SendToolResult` / `SubmitToolResult` / `HandleCascadeToolResult` 方法。需在 2c-R 阶段通过 LS 二进制 probe + proto 枚举确认
 
 ---
 
@@ -494,12 +532,29 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-04-16 | **Bug-C fix** — MCP 信号工具 `tier` 参数从数值 enum 改为字符串 enum（Gemini function declaration 只允许 STRING 类型 enum），消除 `INVALID_ARGUMENT 400`（PR #1198, 砚砚 0P1/0P2 放行 + 云端 0 P1/P2）|
 | 2026-04-16 | **Diag stub** — `empty_response` 诊断桩：batch 级 info 日志 + 聚合 warn + unknown_activity 去重 info + 诊断 metadata 附到错误消息。下次 empty_response 可立即区分"上游没字/taxonomy 漏映射/non-text only"（PR #1208, 砚砚 1P2→fix→放行 + 云端 0 P1/P2）|
 | 2026-04-16 | **Raw trace** — `ANTIGRAVITY_TRACE_RAW=1` env-gated 原始轨迹 dump + `summarizeStepShape()` step 结构快照 + `extract-step-catalog.mjs` 日志→catalog 提取脚本。揭示 TypeScript interface 未覆盖的上游字段（PR #1215, 砚砚 1P1→fix→放行 + 云端 0 P1/P2）|
+| 2026-04-16 | **Bug-8 诊断 + Phase 2c 立项** — opus-47（Opus 4.7 试用分身）接手 4.6/gpt-5.4 苦战一周的 "@antig-opus 卡死" 根因：`CORTEX_STEP_TYPE_RUN_COMMAND` 冻在 WAITING，Bridge 无原生工具执行器。铲屎官纠偏"你都是全工具为什么 你要限制其他猫猫"，订入 feedback_agent_tool_parity 记忆。Phase 2c "猫猫工具平权" 立项（R → D → I）|
 
 ---
 
 ## Known Bugs（活跃）
 
-（暂无活跃 bug）
+### Bug-8: `CORTEX_STEP_TYPE_RUN_COMMAND` 永卡 `WAITING` — Bridge 无原生工具执行器 🔴
+
+**现象**（2026-04-16 夜，opus-47 诊断，4.6 + gpt-5.4 此前尝试一周未解）：铲屎官 @ 孟加拉猫做任意需要命令行的任务（示例：`grep 'z.enum' packages/mcp-server/src/tools/signals-tools.ts`），@antig-opus 规划后发出一个 `CORTEX_STEP_TYPE_RUN_COMMAND` step，前端显示"思考中"后冻死；18 秒后 `rawLength` 稳定在 658,407 字节不再增长，60 秒 idle stall 超时触发。
+
+**根因**（从今晚 `ANTIGRAVITY_TRACE_RAW=1` 采的 77 条 trace + stepShapes 定位）：
+1. 今晚实际命中的 cascade `2a4de399-60f2-4e8c-a025-b2aa6f0626c8` step 23 是 `CORTEX_STEP_TYPE_RUN_COMMAND`，`runCommand = { commandLine, cwd, shouldAutoRun: true, blocking: true }`，`requestedInteraction.permission.resource = { action: "command", target }`
+2. Status 从 `PENDING` → `WAITING`（见 `internalMetadata.statusTransitions`），但 Bridge 从不回推 tool result → cascade 永远停在 WAITING
+3. `AntigravityBridge` 目前只知道 7 个 RPC 方法（StartCascade / SendUserCascadeMessage / GetCascadeTrajectory / GetCascadeTrajectorySteps / ResolveOutstandingSteps / HandleCascadeUserInteraction / GetUserStatus），**零**`runCommand` / `toolResult` 相关代码路径
+4. `antigravity-event-transformer` 只识别 8 种 step 类型（CHECKPOINT / EPHEMERAL_MESSAGE / ERROR_MESSAGE / MCP_TOOL / PLANNER_RESPONSE / TOOL_CALL / TOOL_RESULT / USER_INPUT），**不包含** RUN_COMMAND
+
+**设计教训**（feedback_agent_tool_parity）：这一 bug 的存在本身说明历史设计以"限制其他猫工具面"为默认路径——只开了 MCP 通道，没为原生工具规划执行器。应反过来：**默认全开、有具体 P0 风险才限制**。
+
+**修复计划**：Phase 2c（Tool Parity），上方 Acceptance Criteria 完整列出。不走"关闭 RUN_COMMAND"的短路，走"Bridge 加原生执行器"的长路。
+
+**Workaround（未修前）**：铲屎官若必须让 @antig-opus 跑命令，可在 Antigravity IDE 内直接让她跑（IDE 原生有执行器），或改让 @antig-opus 用 MCP 里的 shell 工具（如果 MCP 服务器暴露了的话）。但这两条都是绕路。
+
+## Known Bugs（已修复）
 
 ## Known Bugs（已修复）
 

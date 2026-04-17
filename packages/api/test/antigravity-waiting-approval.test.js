@@ -50,6 +50,7 @@ function createMockServiceBridge({ resolveOutstandingSteps } = {}) {
     getOrCreateSession: mock.fn(async () => 'test-cascade-001'),
     resolveModelId: mock.fn(() => 'MODEL_PLACEHOLDER_M26'),
     resolveOutstandingSteps: resolveOutstandingSteps ?? mock.fn(async () => {}),
+    nativeExecuteAndPush: mock.fn(async () => false),
   };
 }
 

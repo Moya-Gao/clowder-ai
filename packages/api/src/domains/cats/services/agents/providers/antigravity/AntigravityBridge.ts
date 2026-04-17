@@ -5,6 +5,9 @@ import { dirname, join } from 'node:path';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 import { discoverAntigravityLS } from './antigravity-ls-discovery.js';
 import { RAW_RESPONSE_CAP, TRACE_ENABLED, TRACED_METHODS, traceLog } from './antigravity-trace.js';
+import type { AuditSink } from './executors/AntigravityToolExecutor.js';
+import type { ExecutorRegistry } from './executors/ExecutorRegistry.js';
+import { formatToolResult } from './executors/formatToolResult.js';
 
 const log = createModuleLogger('antigravity-bridge');
 
@@ -36,6 +39,27 @@ export interface TrajectoryStep {
   userInput?: { items?: Array<{ text?: string }> };
   toolCall?: { toolName?: string; input?: string };
   toolResult?: { toolName?: string; success?: boolean; output?: string; error?: string };
+  metadata?: {
+    toolCall?: { id?: string; name?: string; argumentsJson?: string };
+    sourceTrajectoryStepInfo?: {
+      trajectoryId?: string;
+      stepIndex?: number;
+      metadataIndex?: number;
+      cascadeId?: string;
+    };
+    [key: string]: unknown;
+  };
+  runCommand?: {
+    commandLine?: string;
+    proposedCommandLine?: string;
+    cwd?: string;
+    shouldAutoRun?: boolean;
+    blocking?: boolean;
+    stdout?: string;
+    stderr?: string;
+    exitCode?: number;
+  };
+  error?: { shortError?: string; fullError?: string };
 }
 
 export interface CascadeTrajectory {
@@ -72,12 +96,82 @@ export class AntigravityBridge {
   private readonly sessionStorePath: string;
   private modelMap: Record<string, string> = { ...HARDCODED_MODEL_MAP };
   private modelMapRefreshed = false;
+  private executorRegistry: ExecutorRegistry | null = null;
+  private executorAudit: AuditSink | null = null;
 
   constructor(
     private readonly connection?: Partial<BridgeConnection>,
     options?: BridgeOptions,
   ) {
     this.sessionStorePath = options?.sessionStorePath ?? DEFAULT_SESSION_STORE;
+  }
+
+  attachExecutors(registry: ExecutorRegistry, audit: AuditSink): void {
+    this.executorRegistry = registry;
+    this.executorAudit = audit;
+  }
+
+  /**
+   * Public RPC entrypoint for executors that need to reach the Antigravity LS.
+   * Resolves connection lazily. Keeps the private rpc() signature internal.
+   */
+  async callRpc<T = Record<string, unknown>>(method: string, payload: unknown): Promise<T> {
+    const conn = await this.ensureConnected();
+    return this.rpc<T>(conn, method, payload);
+  }
+
+  /**
+   * F061 Phase 2c Task 5: Coordinator for native tool execution.
+   * Dispatches a WAITING RUN_COMMAND step through the executor registry,
+   * then pushes the result back via pushToolResult.
+   * Returns true iff the step was handled; callers use this to gate polling behavior.
+   * Opt out via `ANTIGRAVITY_NATIVE_EXECUTOR=0` env var.
+   */
+  async nativeExecuteAndPush(step: TrajectoryStep, opts: { cascadeId: string; cwd: string }): Promise<boolean> {
+    if (process.env.ANTIGRAVITY_NATIVE_EXECUTOR === '0') return false;
+    if (!this.executorRegistry || !this.executorAudit) return false;
+    if (step.status !== 'CORTEX_STEP_STATUS_WAITING') return false;
+
+    const executor = this.executorRegistry.resolve(step);
+    if (!executor) return false;
+
+    const argsJson = step.metadata?.toolCall?.argumentsJson;
+    if (!argsJson) return false;
+    let args: Record<string, unknown>;
+    try {
+      args = JSON.parse(argsJson) as Record<string, unknown>;
+    } catch (err) {
+      log.warn(`nativeExecuteAndPush: failed to parse argumentsJson: ${err}`);
+      return false;
+    }
+
+    // Respect Antigravity's approval metadata: only auto-execute steps the model
+    // explicitly marked as safe-to-auto-run. SafeToAutoRun=false / missing → fall
+    // back to normal approval flow (user or autoApprove via HandleCascadeUserInteraction).
+    if (args.SafeToAutoRun !== true) return false;
+
+    const commandLine = ((args.CommandLine as string | undefined) ?? (args.commandLine as string | undefined))?.trim();
+    if (!commandLine) return false;
+    const cwd = (args.Cwd as string | undefined) ?? (args.cwd as string | undefined) ?? opts.cwd;
+    const input = { commandLine, cwd };
+
+    const trajectoryId = step.metadata?.sourceTrajectoryStepInfo?.trajectoryId ?? '';
+    const stepIndex = step.metadata?.sourceTrajectoryStepInfo?.stepIndex;
+    if (stepIndex == null) {
+      log.warn('nativeExecuteAndPush: stepIndex missing from sourceTrajectoryStepInfo, skipping to avoid cancelling wrong step');
+      return false;
+    }
+
+    const result = await executor.execute(input, {
+      cascadeId: opts.cascadeId,
+      trajectoryId,
+      stepIndex,
+      cwd,
+      audit: this.executorAudit,
+    });
+
+    await this.pushToolResult(opts.cascadeId, stepIndex, result, input);
+    return true;
   }
 
   async ensureConnected(): Promise<BridgeConnection> {
@@ -274,6 +368,29 @@ export class AntigravityBridge {
     const conn = await this.ensureConnected();
     await this.rpc(conn, 'HandleCascadeUserInteraction', { cascadeId, interaction });
     log.info(`approved interaction for cascade ${cascadeId}`);
+  }
+
+  /**
+   * F061 Phase 2c-I: Bridge-owned tool-result writeback.
+   * Cancels a stuck cortex step and injects the tool result as a synthetic user
+   * message. The cascade sees the result in a USER_INPUT step on its next turn
+   * and continues reasoning. Step shows CANCELED in trajectory (trade-off).
+   */
+  async pushToolResult(
+    cascadeId: string,
+    stepIndex: number,
+    result: import('./executors/AntigravityToolExecutor.js').ExecutorResult<unknown>,
+    input: { commandLine: string; cwd?: string },
+  ): Promise<void> {
+    try {
+      const conn = await this.ensureConnected();
+      await this.rpc(conn, 'CancelCascadeSteps', { cascadeId, stepIndices: [stepIndex] });
+    } catch (err) {
+      log.warn(`pushToolResult: CancelCascadeSteps failed (continuing): ${err}`);
+    }
+    const text = formatToolResult(input, result);
+    await this.sendMessage(cascadeId, text);
+    log.info(`pushed tool result for cascade=${cascadeId} step=${stepIndex} status=${result.status}`);
   }
 
   resolveModelId(modelName: string): string | undefined {
