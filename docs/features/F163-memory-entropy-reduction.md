@@ -253,7 +253,8 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | 2026-04-16 | Phase A 实施计划完成：13 tasks，AC-A1~A7 全覆盖 |
 | 2026-04-16 | Phase A merged (PR #1214) — 15 tasks, 91 new tests, 3 rounds codex review |
 | 2026-04-16 | Phase B merged (PR #1219) — Schema V14, DuplicateScanner, compression APIs, backstop suppression, 2 rounds codex review |
-| 2026-04-17 | Phase C merged (PR #1225) — Schema V15, contradiction detection, review queue, health report, 2 rounds codex review |
+| 2026-04-17 | Phase C backend merged (PR #1225) — Schema V15, contradiction detection, review queue, health report API, 2 rounds codex review |
+| 2026-04-17 | Phase C frontend merged (PR #1229) — Health tab in Memory Hub (donut chart + bar charts + action items), 2 rounds codex review |
 
 ## Review Gate
 
