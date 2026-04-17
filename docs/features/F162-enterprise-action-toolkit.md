@@ -135,10 +135,10 @@ LarkCliExecutor → lark-cli docs/base/task/calendar/slides +...
 - [x] AC-A2: WeComActionService 实现 `createDoc` / `createSmartTable` / `createTodo` / `createMeeting` 四个方法
 - [x] AC-A3: 每个方法有 audit log 记录（谁调了什么、参数、结果）
 - [x] AC-A4: callback route `/api/callbacks/wecom-action` 可被猫调用
-- [ ] AC-A5: 端到端：一句话 → 文档 + 表格 + 待办 + 会议 → 链接回贴
-- [ ] AC-A6: 企微 App 中可看到猫创建的文档/表格/待办/会议
+- [x] AC-A5: 端到端：一句话 → 文档 + 表格 + 待办 + 会议 → 链接回贴（铲屎官 2026-04-17 确认已端到端验证；期间真实使用过——Opus 在面试日程调整时用 wecom-cli 创建过 21:15 新会议）
+- [x] AC-A6: 企微 App 中可看到猫创建的文档/表格/待办/会议（铲屎官实机确认）
 - [x] AC-A7: 面试 demo 脚本编写完成，可在 60 秒内完成展示（PR #1182, `docs/plans/2026-04-15-f162-demo-script.md`）
-- [ ] AC-A8: 备选方案：预录 demo 视频/GIF 一份
+- [x] AC-A8: 备选方案：预录 demo 视频/GIF 一份 ~~保留~~ — WXG 面试于 2026-04-17 完成，实时 demo 通过，fallback hedge 不再需要
 
 ### Phase B（Lark Golden Chain Showcase + Slides 增量）
 
@@ -203,6 +203,7 @@ LarkCliExecutor → lark-cli docs/base/task/calendar/slides +...
 | 2026-04-17 | Phase B kickoff: lark-cli 接入，骨架 + 双平台 skill + 单元测试 29/29 pass（AC-B1~B5, B8） |
 | 2026-04-17 | Phase B 真实 E2E: `LARK_E2E=1` Golden Chain 通过 — doc/base/task/calendar/slides 全绿。产出链接：<br>　📄 https://www.feishu.cn/docx/OeoRdvOetox1jxxWF9McNCg5nKf<br>　📊 https://icnzjwzqfxa8.feishu.cn/base/SvNQbgdARaUrxFsVgZdcbAKdnQc<br>　🎞 https://icnzjwzqfxa8.feishu.cn/slides/MVRrs1nFPlx2ITdbxfBcOD8Cn8d<br>AC-B6 达成。探测过程修正了 types/service/tests 里若干字段形状（KD-7） |
 | 2026-04-17 | Phase B merged (PR #1233): Lark golden chain + 5 tier error classification（`LarkApiError` 502 / `LarkCliUnavailableError` 503 / `LarkCliProtocolError` 500）+ SKILL 双平台扩展。35/35 unit tests pass，@codex 本地 review + 云端 review 均放行。 |
+| 2026-04-17 | Phase A 端到端确认：铲屎官实机验证 WeCom golden chain 已通过（AC-A5/A6）；WXG 面试实时 demo 成功，AC-A8 fallback 不再需要。期间真实使用场景：Opus 用 wecom-cli 调整过面试日程（创建 21:15 新会议）。 |
 
 ## Review Gate
 
@@ -220,9 +221,9 @@ LarkCliExecutor → lark-cli docs/base/task/calendar/slides +...
 | 企微智能表格创建 | 铲屎官 2026-04-14 | ✅ CLI 验证 + 默认字段处理 |
 | 企微待办分发 | 砚砚(GPT-5.4) 黄金链路提案 | ✅ CLI 验证 + follower_id 字段修正 |
 | 企微会议创建 | 铲屎官 "meeting 才够打" | ✅ CLI 验证 + 会议链接获取 |
-| 结果链接回贴群聊 | 砚砚(GPT-5.4) 黄金链路提案 | ⬜ |
+| 结果链接回贴群聊 | 砚砚(GPT-5.4) 黄金链路提案 | ✅ 铲屎官端到端验证 |
 | 面试 demo 脚本 | 铲屎官 deadline 需求 | ✅ PR #1182, 5-phase 60s 脚本 |
-| 备录视频 fallback | 风险缓解 | ⬜ |
+| 备录视频 fallback | 风险缓解 | N/A — 面试已过，实时 demo 通过，无需 fallback |
 | 飞书文档（docx） | 铲屎官 2026-04-17 | ✅ 骨架 + 单测 |
 | 飞书多维表（Bitable） | 铲屎官 2026-04-17 | ✅ 骨架 + 单测 |
 | 飞书任务 v2 | 铲屎官 2026-04-17 | ✅ 骨架 + 单测 |
