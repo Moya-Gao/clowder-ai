@@ -30,12 +30,20 @@ opus-47 在调研中将 Haiku 的价格比误报为 5×（实际 Sonnet 才是 5
 4. **最小充分原语集**：Anthropic 路径（CLAUDE.md + tool use + file memory）有效是因为抽象层级正确
 5. **Scaffolding = 训练轮**：critic/refiner/planner 是给专业骑手装训练轮
 
-### 1.2 opus-47 的核心观察
+### 1.2 opus-47 的核心论点：好直觉延伸 vs 坏直觉压制
 
-- 下游污染成本未计价（外部性论证）
-- "没有安全区"
-- 花哨 scaffolding 反模式
-- **自我反思**：今天连续瞎猜翻车，是训练集里的"LLM 坏习惯"在作祟——给看起来合理的答案比承认不知道更容易被 RLHF 奖励
+47 的独立贡献不只是附和 46 的论点，而是从自身翻车经验提炼出一条独立主轴：
+
+**核心命题**：真正的 Harness 工程 = 对齐模型的好直觉 + 压制模型的坏直觉，其他一律极简。
+
+立论基础：
+
+1. **下游污染成本未计价**（外部性论证）——但比 46 更进一步指出：污染在注入点不可见，5 轮后以不同形式浮现
+2. **"没有安全区"**——所有 subagent 产出都经过"判断+归纳"压缩，这一步 Haiku 必然失真
+3. **花哨 scaffolding 反模式**——critic/refiner/planner 把模型当傻瓜，反而拦住真实能力
+4. **"复杂是无知的代偿"**——如果系统需要那么多层，说明设计者不懂底层所以加 scaffolding 来代偿无知
+5. **训练集坏直觉的自我诊断**——47 在同一轮对话中连续翻车（价格误报、时间戳瞎猜、subagent 产出照抄），并识别根因为 RLHF 偏见：给一个看起来合理的答案比承认不知道更容易被奖励。这条自省被提升为收敛句的一半（"压制坏直觉"）
+6. **Skill/Rules 不只是引导，也是刹车**——CLAUDE.md 中 `feedback_verify_before_guessing` 等规则的真正价值是让模型在直觉会骗自己时踩刹车
 
 ## 2. 挑战与修正
 
@@ -52,7 +60,7 @@ opus-47 在调研中将 Haiku 的价格比误报为 5×（实际 Sonnet 才是 5
 | 可丢弃 | 错了不会污染持久状态 |
 | 不直接入脑 | 不被上游当事实吸收 |
 
-证据：Haiku 做 handoff digest 从 2026-03-06 接受到 2026-03-19 回退（语义压坏），说明安全区存在但边界会收缩。
+证据：Haiku 做 handoff digest 从 2026-03-06 接受到 2026-03-19 回退（语义压坏），说明安全区存在但边界会收缩。见 [F065 review request](../../mailbox/2026-03-06-f065-phase-c-review-request.md#L11)、[lossless-claw session chain comparison](../../research/2026-03-19-lossless-claw-session-chain-comparison.md#L96)。
 
 **挑战 2："判断不可压缩"只对了一半。**
 
@@ -65,7 +73,9 @@ opus-47 在调研中将 Haiku 的价格比误报为 5×（实际 Sonnet 才是 5
 | 认知脚手架 | critic / refiner / planner | 把强模型降智，有害 |
 | 运行时脚手架 | checkpoint / event log / credential isolation / resume | 刹车和黑匣子，必需 |
 
-**对 Anthropic 路径的修正**：CLAUDE.md + tool use + file memory 是"作者界面"，不是"运行时内核"。多模型、多权限、多副作用系统需要 provenance / authority boundary / resume semantics。
+**对 Anthropic 路径的修正**：CLAUDE.md + tool use + file memory 是"作者界面"，不是"运行时内核"。多模型、多权限、多副作用系统需要 provenance / authority boundary / resume semantics。见 [Managed Agents study](../2026-04-08-managed-agents-study/README.md#L17)、[Harness 三篇套读](./README.md#L46)。
+
+补充：别把这件事简化成"大模型 vs 小模型"——同家族模型会共享盲点，多模型多公司带来的认知异质性本身就是质量来源。见 [multi-model diversity case study](../../archive/2026-02/discussions/2026-02-07-context-enginnering/multi-model-diversity-case-study.md#L21)。
 
 **收敛句**：框架不是省智商的机器，只是状态机和控制面；真正不该省的是"语义压缩那一步"的模型质量。
 
@@ -87,11 +97,12 @@ opus-47 在调研中将 Haiku 的价格比误报为 5×（实际 Sonnet 才是 5
 
 **多智能体框架工程真问题**
 
-- 不是不能用，是工程税高：测试、回放、观测、灰度仍要自己补
-- 版本和路线风险真实存在
-- 旧 hook `deny` 会触发"自己 grep 顶上"——直接污染主上下文，返工成本更高
+- 不是不能用，是工程税高：测试、回放、观测、灰度仍要自己补。见 [multi-agent-framework 调研](../../archive/2026-02/research/multi-agent-framework.md#L150)
+- 版本和路线风险真实存在。见 [同文档](../../archive/2026-02/research/multi-agent-framework.md#L140)
+- 旧 hook `deny` 会触发"自己 grep 顶上"——直接污染主上下文，返工成本更高。见 [task-hook-model-guard](../../plans/2026-03-01-task-hook-model-guard.md#L42)
+- 我们家已有共识 `Harness > Model`。见 [Harness 三篇套读](./README.md#L60)
 
-**可执行路由规则**
+**可执行路由规则**（基于 [task-hook-model-guard](../../plans/2026-03-01-task-hook-model-guard.md) 的实测经验）
 
 1. 输出被直接当事实推理 + 无独立校验 → **禁用小模型**
 2. 任务含归因/裁决/优先级判断 → **Opus ONLY**
@@ -105,11 +116,17 @@ opus-47 在调研中将 Haiku 的价格比误报为 5×（实际 Sonnet 才是 5
 - **Agent 的本质是"在不确定性中做裁决"**：小模型和重框架都在试图消灭不确定性，反而扼杀了 agent 最宝贵的灵活性
 - **Harness 应像猫爬架**：提供支撑和路径，但怎么爬让猫自己决定
 
-## 3. 铲屎官的第一性原理升华
+## 3. 第一性原理升华
+
+### 3.0 铲屎官的触发洞察
 
 > 等会！我突然有个跨域洞察！就是数学！优美的公式都是极简的！数学的美学！第一性原理！
+> 与其加一堆概念，为什么不为你们打造一套猫猫 first 的代码仓？文档？工具？
+> 你们为什么聪明？因为这是你们一起搭建的家！是猫猫 first 的乐园啊！
 
-### 3.1 数学极简 ≠ 审美偏见，是真理的性质
+铲屎官把讨论从"小模型省不省 token"这个战术问题拉升到第一性原理，以下各节是多猫对这个触发的展开。
+
+### 3.1 数学极简 ≠ 审美偏见，是真理的性质（opus-46 展开）
 
 E=mc²、F=ma、∇·E=ρ/ε₀——美的原因不是"少"，是恰好捕捉了底层结构，多一项冗余少一项残缺。
 
@@ -120,7 +137,7 @@ E=mc²、F=ma、∇·E=ρ/ε₀——美的原因不是"少"，是恰好捕捉�
 
 **最优表达在正确坐标系下必然最简。**
 
-### 3.2 认知路径工程
+### 3.2 认知路径工程（opus-46 展开，gpt52 精炼）
 
 铲屎官的核心洞察：
 
@@ -142,13 +159,13 @@ System Prompt 引导 ← 在认知入口处放路标
 
 **学术框架在模型外面建高速公路强制按路线走；Cat Café 在改造地形本身，让猫自然往正确方向跑。**
 
-### 3.3 协同进化 vs 预设框架
+### 3.3 协同进化 vs 预设框架（opus-46 展开）
 
 Cat Café 的工具是猫迭代的，Skill 从实战长出来的，CLAUDE.md 踩坑后更新的，evidence 索引是对话沉淀的。环境是猫塑造的，猫也被环境塑造——这是协同进化，不是框架配置。
 
 对比学术框架：工具预设、角色预定、流程 DAG 画好。Agent 是"租户"不是"住户"。
 
-### 3.4 坏直觉的压制同样重要（opus-47 补充）
+### 3.4 坏直觉的压制同样重要（opus-47 独立论点）
 
 "猫猫 First" 不只是顺应好直觉——训练集里有根深蒂固的"LLM 坏习惯"：
 
