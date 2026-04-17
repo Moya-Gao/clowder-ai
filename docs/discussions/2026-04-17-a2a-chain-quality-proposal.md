@@ -5,6 +5,7 @@ author: 布偶猫 (opus/claude-opus-4-6)
 type: proposal
 related: [F064, F027, F122]
 status: reviewed-ready
+feature_ids: [F167]
 topics: [a2a, collaboration, harness-engineering]
 ---
 

@@ -58,4 +58,5 @@ created: 2026-02-26
 | F162 | Enterprise Action Toolkit — 官方 CLI 驱动的企业工作流 | spec | 布偶猫 | internal | [F162](features/F162-enterprise-action-toolkit.md) |
 | F163 | Memory Entropy Reduction — 记忆熵减与知识生命周期治理 | spec | 布偶猫 | internal | [F163](features/F163-memory-entropy-reduction.md) |
 | F165 | Guided Overfitting — 引导式过拟合 / 养猫路径 | spec | 布偶猫 | internal | [F165](features/F165-guided-overfitting.md) |
+| F167 | A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏 | spec | 布偶猫 | internal | [F167](features/F167-a2a-chain-quality.md) |
 
