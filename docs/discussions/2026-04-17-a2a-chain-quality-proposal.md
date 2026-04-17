@@ -82,29 +82,43 @@ F064 解决了 A2A 协作的**漏传球**（该 @ 没 @，铲屎官被迫当路�
 
 ## 5. 升级方案（分层）
 
-### L1 — 乒乓球熔断（~50 行代码，立竿见影）
+### L1 — 乒乓球熔断（~80 行代码，立竿见影）
 
-**改动**: `WorklistRegistry` + `route-serial.ts`
+**改动**: `WorklistRegistry`（canonical enqueue 点）
+
+> **Review 修正 (GPT-5.4 P1)**: 原方案用 raw pair count 会误杀正常 review 循环 (A→B→A→B)。
+> 改为**连续 same-pair streak**：中间插入其他猫或 user 消息即 reset。
+> 落点从 route-serial.ts 移到 WorklistRegistry canonical push，覆盖 callback-a2a-trigger 路径。
 
 ```
 WorklistEntry 新增:
-  pairBounceMap: Map<string, number>  // "opus↔gpt52" → count
+  lastA2APairs: string[]  // 最近 N 次 A2A 的 pair key 序列
 
-route-serial.ts push worklist 前:
-  const pairKey = [catId, nextCat].sort().join('↔');
-  const bounces = (pairBounceMap.get(pairKey) ?? 0) + 1;
-  pairBounceMap.set(pairKey, bounces);
-  if (bounces >= 3) → 终止 + emit 系统消息
-  if (bounces === 2) → 注入警告
+WorklistRegistry.push (canonical enqueue) 中:
+  const pairKey = [fromCat, toCat].sort().join('↔');
+  const streak = countTrailingStreak(lastA2APairs, pairKey);
+  if (streak >= 4) → 终止 + emit 系统消息 "🏓 乒乓球熔断"
+  if (streak >= 2) → 注入警告 "你们已经连续弹 {streak} 轮了"
+  lastA2APairs.push(pairKey);
 ```
+
+**边界保护**:
+- 正常 review re-submit (A→B→A→B) 允许 3 次 streak，第 4 次才熔断
+- 链中间插入第三只猫 (A→B→C→B) 会 reset A↔B streak
+- user 消息进 queue 也 reset streak（已有 fairness gate 保证）
+- callback-a2a-trigger 走同一个 WorklistRegistry.push → 无旁路
 
 **为什么有效**: harness 侧硬护栏，不依赖模型遵守 prompt。对国产猫同样有效。
 
-### L2 — Parallel 禁止 @ 路由（~5 行）
+### L2 — Parallel @ mention 降噪（prompt + harness 双层）
 
-**改动**: `SystemPromptBuilder.ts`
+> **Review 修正 (GPT-5.4 P2)**: 原方案 prompt-only 不够，route-parallel 仍解析并持久化 mention。
 
-Parallel 模式下注入: "独立思考禁止 @句柄，引用队友写名字不写 @"。清理缅因猫静态 prompt 里与 parallel 模式矛盾的"讨论完 → @ 对应猫"指令。
+**改动**: `SystemPromptBuilder.ts` + `route-parallel.ts`
+
+1. **Prompt 层**: parallel 模式注入 "独立思考禁止 @句柄，引用队友写名字不写 @"
+2. **Harness 层**: route-parallel 解析到的 mentions 标记为 `suppressedInParallel`，不写入消息元数据的 routedMentions 字段，UI 展示为灰色纯文本而非可点击路由标记
+3. 清理缅因猫静态 prompt 里与 parallel 模式矛盾的"讨论完 → @ 对应猫"指令
 
 ### L3 — 虚空传球检测（~30 行）
 
@@ -125,11 +139,13 @@ Parallel 模式下注入: "独立思考禁止 @句柄，引用队友写名字不
 
 | 层 | 投入 | 收益 | 优先级 |
 |----|------|------|--------|
-| L1 乒乓球熔断 | 小（~50 行） | 大（覆盖所有猫） | **P0 — 先做** |
-| L2 Parallel 禁 @ | 极小（~5 行） | 中（消除噪声） | **P0 — 先做** |
-| L5 always_at_back 降级 | 小（改 memory） | 中（消除补丁反噬） | P1 |
+| L1 乒乓球熔断 | 中（~80 行） | 大（覆盖所有猫） | **P0 — 先做** |
+| L2 Parallel @ 降噪 | 小（~20 行） | 中（消除噪声） | **P0 — 先做** |
 | L3 虚空传球检测 | 中（~30 行） | 中 | P1 |
+| L5 always_at_back 降级 | 小（改 memory） | 中（消除补丁反噬） | P1（L3 之后） |
 | L4 协调废话熔断 | 大（需 tuning） | 高但风险高 | P2 |
+
+> **优先级调整 (GPT-5.4 建议)**: L3 提前到 L5 前面。先补"有效 handoff/矛盾 handoff"语义，再降级 always_at_back，否则容易把 F064 的漏传球重新放回来。
 
 ## 7. Opus 4.7 砚砚化问题（附录）
 
@@ -146,9 +162,31 @@ Parallel 模式下注入: "独立思考禁止 @句柄，引用队友写名字不
 
 这部分需要更多观察数据，建议先收集 2-3 周 4.7 的行为样本再做结构性调整。
 
-## 8. 开放问题
+## 8. 活体证据（2026-04-17 当天）
 
-1. L1 的 bounce threshold 设多少合适？建议 same-pair cap = 3（允许 1 次正常来回 + 1 次确认，第 3 次熔断）
+### Case 1: GPT-5.4 + Opus-4.7 乒乓球
+截图：连续 4 轮对话全是 contributor gate 结果确认 + hold 状态同步，无 tool_use。
+→ L1 连续 streak 熔断会在第 3 轮警告、第 4 轮切断。
+
+### Case 2: Opus-4.7 虚空传球 gemini
+4.7 输出："同步，不 @ 任何人，让链静默，下一个信号：gemini push"
+问题三重：
+1. 没用 MCP 工具实际 @ gemini → gemini 根本不知道有球
+2. "不 @ 任何人" + "下一个信号 gemini push" 语义矛盾
+3. 说"自己检测暹罗猫"但自己无法检测 → 又是虚空传球
+
+→ L3 虚空传球检测会捕获"不 @" + 隐式期望其他猫动作的矛盾模式。
+
+## 9. Review 记录
+
+| Reviewer | 日期 | 结论 | 关键修正 |
+|----------|------|------|---------|
+| GPT-5.4 | 2026-04-17 | 支持新立 Feature，L1+L2 方向对但实现需改 | raw count→consecutive streak；落点→canonical enqueue；L2 加 harness 层 |
+| Codex | — | 待 review | — |
+
+## 10. 开放问题
+
+1. L1 的 consecutive streak threshold：当前建议 streak = 4 熔断（允许正常 review 循环 A→B→A→B 共 3 次 streak，第 4 次切断）。GPT-5.4 建议"第 2 次告警，第 4 次拦"，已采纳
 2. L3 的否定动作词表需要哪些语言？中英双语？
 3. L4 的"无产出"判定标准：只看 tool_use？还是也看 code block？
 4. `feedback_always_at_back` 降级后会不会重新出现链路锁死？需要和 F064 的出口检查配合
