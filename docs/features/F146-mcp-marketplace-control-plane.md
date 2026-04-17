@@ -108,7 +108,7 @@ L3 不直接写入 L1，内部拆成三个状态面：
 - 写入能力必须串行化（锁）或带版本号 CAS，避免双猫并发安装导致覆盖
 - 所有写操作都通过同一编排入口，保证 `capabilities.json`、CLI 配置、probe 状态一致
 
-### Phase B: Marketplace 聚合（4 生态）
+### Phase B: Marketplace 聚合（4 生态）✅
 
 **核心原则（Phase R 结论）**：搜索统一，安装分流。
 
@@ -232,13 +232,13 @@ Skill 内容安全（防下毒）：
 - [x] AC-A5: 并发写入安全（锁或 CAS）可验证，双写场景不丢配置
 - [x] AC-A6: `install preview` 可显示”将写入项 + 将触发探测 + 风险提示”，用户确认后才执行
 
-### Phase B（Marketplace 聚合）
-- [ ] AC-B1: 支持统一搜索接口返回 Codex/Claude/OpenClaw/Antigravity 四方结果
-- [ ] AC-B2: 结果带 `trustLevel`，可按 `official/verified/community` 过滤
-- [ ] AC-B3: 能把 marketplace 条目映射成可执行 `installPlan`
-- [ ] AC-B4: 支持统一搜索接口返回 Antigravity 结果（至少 discovery + metadata）
-- [ ] AC-B5: Antigravity 结果与现有 `pencil` resolver 策略保持一致性（不互相冲突）
-- [ ] AC-B6: 统一搜索结果支持 `kind=pack`，可发现并安装来自 F129 产出的 Pack
+### Phase B（Marketplace 聚合）✅
+- [x] AC-B1: 支持统一搜索接口返回 Codex/Claude/OpenClaw/Antigravity 四方结果
+- [x] AC-B2: 结果带 `trustLevel`，可按 `official/verified/community` 过滤
+- [x] AC-B3: 能把 marketplace 条目映射成可执行 `installPlan`
+- [x] AC-B4: 支持统一搜索接口返回 Antigravity 结果（至少 discovery + metadata）
+- [x] AC-B5: Antigravity 结果与现有 `pencil` resolver 策略保持一致性（不互相冲突）
+- [x] AC-B6: 统一搜索结果支持 `kind=pack`，可发现并安装来自 F129 产出的 Pack
 
 ### Phase C（治理与版本）
 - [ ] AC-C1: 默认策略阻止一键安装 `community` 包（需二次确认）
@@ -316,6 +316,7 @@ Skill 内容安全（防下毒）：
 | 2026-04-04 | 与 F129 scope 对齐：F146 承接 Marketplace owner，Pack 纳入 L3 `kind=pack` |
 | 2026-04-16 | Phase A merged (PR #1220) — 能力中心写路径 + install preview + audit log + 并发安全 |
 | 2026-04-17 | Phase R complete — GPT Pro + Gemini Deep Think 两路咨询 + codebase 验证综合（`docs/research/2026-04-17-f146-phase-r-marketplace-ecosystem/synthesis.md`） |
+| 2026-04-17 | Phase B merged (PR #1231) — 4-ecosystem adapter backend, unified search API, install plan bridge, 60 tests |
 
 ## Review Gate
 
