@@ -143,7 +143,7 @@ search_evidence("{topic}", scope="all")  # 找历史讨论 + thread
 **Round 4 自检**（Design Gate 必问，F163 教训）🔴
 
 这个方案是**坐标变换**（改变问题结构，让复杂度消失）还是**多项式堆项**（在现有结构上叠补丁/层数/脚手架）？
-后者 → 先读 [Round 4](../../docs/discussions/2026-04-15-harness-engineering-triad-study/round4-mathematical-elegance-and-cat-first-architecture.md)，尝试找到更简的分解方式。删掉它还能跑 = 多余。
+后者 → 先读 [Round 4](../../docs/discussions/2026-04-15-harness-engineering-triad-study/round4-mathematical-elegance-and-cat-first-architecture.md)，尝试找到更简的分解方式。删掉它不影响安全/可验证性/权限边界，才是多余。
 审计未通过 → 回到 Kickoff 或重新设计。
 
 ## Phase 碰头（大 Feature 专属，3+ Phase）🔴
