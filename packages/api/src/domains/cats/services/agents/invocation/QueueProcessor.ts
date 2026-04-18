@@ -490,6 +490,7 @@ export class QueueProcessor {
     let invocationId: string | undefined;
     let finalStatus: 'succeeded' | 'failed' | 'canceled' = 'failed';
     let responseText = '';
+    const cursorBoundaries = new Map<string, string>();
 
     try {
       // 1. Create InvocationRecord
@@ -578,7 +579,6 @@ export class QueueProcessor {
       }
 
       // 7. Route execution
-      const cursorBoundaries = new Map<string, string>();
       const persistenceContext: { richBlocks?: Array<{ kind: string; [key: string]: unknown }> } = {};
       const collectedTextParts: string[] = [];
 
@@ -744,6 +744,10 @@ export class QueueProcessor {
       // 8. Check abort before marking succeeded (F122B B6 P1: abort→succeeded bug fix)
       if (controller.signal.aborted) {
         log.info({ threadId, entryId: entry.id }, '[QueueProcessor] Entry aborted during execution');
+        // F148 fix: ack cursors for cats that completed before abort (monotonic CAS, safe to call)
+        if (cursorBoundaries.size > 0) {
+          await router.ackCollectedCursors(userId, threadId, cursorBoundaries);
+        }
         await invocationRecordStore.update(invocationId, { status: 'canceled' });
         finalStatus = 'canceled';
         return 'canceled';
@@ -775,6 +779,14 @@ export class QueueProcessor {
       return 'succeeded';
     } catch (err) {
       log.error({ threadId, entryId: entry.id, err }, '[QueueProcessor] executeEntry failed');
+      // F148 fix: ack cursors for cats that completed before the exception
+      if (cursorBoundaries.size > 0) {
+        try {
+          await router.ackCollectedCursors(userId, threadId, cursorBoundaries);
+        } catch {
+          /* best-effort — don't mask the original error */
+        }
+      }
       const errMsg = err instanceof Error ? err.message : String(err);
       // Best-effort: mark record failed + broadcast error
       try {

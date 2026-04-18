@@ -1257,7 +1257,7 @@ export async function* routeSerial(
       // rounds (bug: "砚砚每次都疯狂回之前的消息").
       if (incrementalMode && deliveryBoundaryId) {
         if (options.cursorBoundaries) {
-          // ADR-008 S3: defer ack — caller acks after invocation succeeds
+          // ADR-008 S3: defer ack — caller acks after completion (or on abort/exception)
           upsertMaxBoundary(options.cursorBoundaries, catId, deliveryBoundaryId);
         } else if (deps.deliveryCursorStore) {
           // Legacy: ack immediately (deprecated route() path)

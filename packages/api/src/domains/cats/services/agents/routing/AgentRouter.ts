@@ -830,7 +830,7 @@ export class AgentRouter {
 
   /**
    * ADR-008 S3: Ack all cursor boundaries collected during execution.
-   * Call ONLY after InvocationRecord.status = 'succeeded'.
+   * Called after succeeded, and also on abort/exception for already-completed cats.
    */
   async ackCollectedCursors(userId: string, threadId: string, boundaries: Map<string, string>): Promise<void> {
     for (const [catId, boundaryId] of boundaries) {
