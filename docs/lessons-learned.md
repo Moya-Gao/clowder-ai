@@ -1055,6 +1055,30 @@ created: 2026-02-26
 
 ---
 
+### LL-052: `exec VAR=val cmd` 不设置环境变量——bash 把它当可执行名
+- 状态：draft
+- 更新时间：2026-04-18
+
+- 坑：shell 启动脚本里 `exec ${env_prefix}pnpm run start`（`env_prefix="NODE_ENV=production "`）直接启动失败，bash 报 "NODE_ENV=production: command not found"。结果不是"设置环境变量后再 exec pnpm"，而是把 `NODE_ENV=production` 当成可执行文件名去 PATH 里查找。F153 intake clowder-ai#512 合入当天社区小伙伴启动就挂。
+- 根因：
+  1. **`exec` builtin 不解析内联赋值**：bash 的 `VAR=val command arg` 形式，**只有当 command 是外部可执行程序**（如 `env`、`pnpm`）时，内联 `VAR=val` 才会作为临时环境变量传递。`exec` 是 shell builtin，走 replace-current-process 路径，第一个 token 直接被当成要 exec 的 program name——`NODE_ENV=production pnpm` 等同于 `exec 'NODE_ENV=production' pnpm`。
+  2. **字符串断言掩盖启动失败**：`test/start-dev-script.test.js` 只断言 `printf "$(api_launch_command)"` 输出 `"cd ... && exec NODE_ENV=... pnpm ..."` 这个字符串字面量，没有 `eval` 这段输出验证进程真能启动。CI 全绿但 `pnpm run start` 从未被实际执行过。
+- 触发条件：shell 脚本里 `exec ${prefix}command` 模式，`prefix` 含内联环境变量赋值（`VAR=value `）
+- 修复：改写成 `exec env ${prefix}command`——`env` 是 POSIX 外部程序，会正确解析内联赋值并把变量注入子进程
+- 防护：
+  1. Shell 启动脚本的单测不能只断言 `printf` 输出文本，至少一个 case 必须 `bash -n` 语法检查 + 在 mock 环境下 `eval` 这段命令验证 exit code（或跑 `pnpm dev:direct --dry-run`）
+  2. Intake 社区 PR 改动 `scripts/**` 尤其启动/runtime 脚本时，reviewer checklist 加一条"本地跑一次 `pnpm alpha:start` 或 `pnpm dev:direct` 确认实际能启动不报错"
+- 来源锚点：
+  - Bug report: `clowder-ai#526`（2026-04-18 社区小伙伴报挂）
+  - 引入 commit: `cat-cafe:206ae80c40`（F153 intake clowder-ai#512）
+  - 修复 commit: `cat-cafe:bf5f54b9`（PR #1257）+ `clowder-ai:6ab02c44`（PR #527）
+  - 修复位置: `scripts/start-dev.sh:683-685` `api_launch_command()`
+- 原理：**`VAR=val command arg` 语法中 `VAR=val` 是"赋值前缀"还是 argv[0] 取决于 command 的类别**——外部程序会被 shell 剥离前缀作为临时 env 传递；builtin（`exec` / `source` / `:`）则直接把前缀当成参数。`env` 这个 POSIX 工具的存在就是为了让"在指定环境下运行程序"成为一个可被任何 builtin/context 调用的显式动作。**任何需要给子进程设环境变量又必须经过 builtin（典型就是 `exec`）的场景，用 `env` 显式承接。**
+
+- 关联：F153 intake clowder-ai#512 | clowder-ai#526 | cat-cafe#1257 | clowder-ai#527
+
+---
+
 ## 8) 维护约定
 
 - 本文件是入口，不替代 ADR/bug-report 原文。
