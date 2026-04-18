@@ -1048,7 +1048,7 @@ created: 2026-02-26
 - 来源锚点：
   - F163 shadow 数据诊断：`evidence.sqlite` f163_logs 表 448 条 search、authority 分布 100% observed
   - 硬编码 confidence：`packages/api/src/routes/evidence.ts:117`
-  - Round 4 数学之美讨论：`docs/discussions/2026-04-15-harness-engineering-triad-study/round4-mathematical-elegance-and-cat-first-architecture.md`
+  - Meta-Aesthetics canon（从 Round 4 数学之美升格）：`docs/canon/meta-aesthetics.md`
 - 原理：**Agent Quality = Model Capability × Environment Fit**（Round 4）。F163 在 Environment 侧堆了大量维度（多项式拟合），但没有验证任何一个维度是否真正改善 Fit。正确的路径是坐标变换：找到"authority 信号已经在文档路径里"这个洞察，用一个纯函数解决，而不是建一整套实验框架去"发现"这个答案。最优表达在正确坐标系下必然最简。
 
 - 关联：F163 | Round 4 数学之美讨论 | LL-050（知识漂移）

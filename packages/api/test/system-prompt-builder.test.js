@@ -785,7 +785,7 @@ describe('SystemPromptBuilder', () => {
     }
   });
 
-  test('buildInvocationContext includes Direct message reply target when provided', async () => {
+  test('buildInvocationContext includes Direct message reply target + sender model (F167 anti-spoofing)', async () => {
     const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const ctx = buildInvocationContext({
       catId: 'codex',
@@ -797,6 +797,37 @@ describe('SystemPromptBuilder', () => {
     assert.match(ctx, /^Direct message from 布偶猫\(opus\)/m);
     assert.ok(ctx.includes('reply to 布偶猫(opus)'));
     assert.ok(!ctx.includes('Direct message from @opus'));
+    // F167 anti-spoofing: handoff must carry sender model marker explicitly
+    assert.ok(ctx.includes('[model='), 'handoff must include sender model marker');
+  });
+
+  // F167 P2 (cloud review 2026-04-18): sender model must also honor runtime env override,
+  // not just static config. Asymmetric resolution (self=runtime, other=static) weakens
+  // identity disambiguation when the sender's model is overridden at runtime.
+  test('buildInvocationContext handoff sender model respects CAT_<ID>_MODEL env override', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+
+    const prev = process.env.CAT_OPUS_MODEL;
+    process.env.CAT_OPUS_MODEL = 'claude-opus-runtime-override';
+    try {
+      const ctx = buildInvocationContext({
+        catId: 'codex',
+        mode: 'independent',
+        teammates: [],
+        mcpAvailable: false,
+        directMessageFrom: 'opus',
+      });
+      assert.ok(
+        ctx.includes('[model=claude-opus-runtime-override]'),
+        'sender [model=...] must use runtime-resolved model, not static defaultModel',
+      );
+    } finally {
+      if (prev === undefined) {
+        delete process.env.CAT_OPUS_MODEL;
+      } else {
+        process.env.CAT_OPUS_MODEL = prev;
+      }
+    }
   });
 
   test('buildInvocationContext supports runtime variant cat IDs (gpt52)', async () => {
@@ -822,6 +853,95 @@ describe('SystemPromptBuilder', () => {
       assert.ok(ctx.includes('@gpt52'));
       assert.match(ctx, /^Direct message from 缅因猫\(codex\)/m);
       assert.ok(ctx.includes('reply to 缅因猫(codex)'));
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
+  // F167 identity anti-spoofing: same-breed variant handoff must disambiguate model
+  // (Uses opus-45 which is in cat-template.json. Equivalent logic applies to opus-47.)
+  test('buildInvocationContext injects same-breed anti-spoofing line when opus-45 receives from opus', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+
+      const ctx = buildInvocationContext({
+        catId: 'opus-45',
+        mode: 'independent',
+        teammates: [],
+        mcpAvailable: false,
+        directMessageFrom: 'opus',
+      });
+      // variant label embedded in self-identity (handle-free label path now carries it)
+      assert.match(ctx, /^Identity:.*opus-45/m);
+      // same-breed sender shows up with model marker (anti-spoofing: explicit model differentiation)
+      assert.ok(ctx.includes('model=claude-opus-4-6'), 'sender model must be claude-opus-4-6');
+      // anti-spoofing notice must fire (same displayName 布偶猫, different catId)
+      assert.ok(
+        ctx.includes('同族分身') || ctx.includes('不是你'),
+        'same-breed handoff must inject anti-spoofing notice',
+      );
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
+  // F167: cross-breed handoff should NOT inject anti-spoofing (false positive guard)
+  test('buildInvocationContext does NOT inject anti-spoofing for cross-breed handoff', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      directMessageFrom: 'codex',
+    });
+    // model marker present (useful context)
+    assert.ok(ctx.includes('model='), 'handoff should carry model marker');
+    // but no anti-spoofing line — different breed = no identity confusion
+    assert.ok(!ctx.includes('同族分身'), 'cross-breed handoff must NOT inject 同族分身 notice');
+  });
+
+  // F167: variant label appears in handle-free label for peers with variantLabel
+  test('formatHandleFreeLabel includes variantLabel (via ping-pong warning path)', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+
+      const ctx = buildInvocationContext({
+        catId: 'opus',
+        mode: 'serial',
+        chainIndex: 2,
+        chainTotal: 3,
+        teammates: [],
+        mcpAvailable: false,
+        pingPongWarning: { pairedWith: 'opus-45', count: 2 },
+      });
+      // variant label must show in ping-pong paired-with label
+      assert.ok(
+        ctx.includes('Opus 4.5'),
+        'ping-pong warning must include variantLabel (Opus 4.5) to disambiguate from other opus variants',
+      );
     } finally {
       catRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {

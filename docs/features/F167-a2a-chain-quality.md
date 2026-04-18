@@ -159,6 +159,8 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | 2026-04-18 | Phase A PR 2 — L1 乒乓球熔断（WorklistRegistry streak + serial + callback 双路径 + reset triggers）|
 | 2026-04-18 | Phase A PR 2 R1 — codex P1×2 修复：modern InvocationQueue 分支接入 streak 门禁；`resetStreak` 无 parentInvocationId 时按 threadIndex 批量清除 |
 | 2026-04-18 | Phase A PR 2 merged (PR #1254) — L1 ping-pong breaker 落地 main；cloud review 零 P1/P2 |
+| 2026-04-18 | 身份反欺骗 fix：SystemPromptBuilder handoff 注入 `[model=...]` 标记 + 同族分身提醒（formatHandleFreeLabel 带 variantLabel） |
+| 2026-04-18 | Round 4 数学之美讨论升格为 `docs/canon/meta-aesthetics.md`；feat-lifecycle Design Gate 改称"元审美自检" |
 
 ## Review Gate
 
@@ -173,7 +175,7 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | **Feature** | `docs/features/F064-a2a-exit-check.md` | 前序：漏传球修复 |
 | **Proposal** | `docs/discussions/2026-04-17-a2a-chain-quality-proposal.md` | 完整提案 + review 记录 |
 | **Research** | `docs/research/2026-04-17-f167-benchmark-agent-gap-consult.md` | GPT Pro 深度推理 + 综合（参考但不照搬） |
-| **Philosophy** | `docs/discussions/2026-04-15-harness-engineering-triad-study/round4-mathematical-elegance-and-cat-first-architecture.md` | 数学之美 × 第一性原理（spec 设计哲学基础） |
+| **Philosophy** | `docs/canon/meta-aesthetics.md` | 数学之美 × 第一性原理（spec 设计哲学基础；Phase A 时从 Round 4 升格为 canon） |
 | **Feature** | `docs/features/F055-a2a-mcp-structured-routing.md` | Protocol 层：`targetCats` typed handoff |
 
 ## 需求点 Checklist

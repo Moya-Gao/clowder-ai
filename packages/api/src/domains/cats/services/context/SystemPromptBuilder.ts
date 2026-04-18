@@ -219,7 +219,10 @@ function buildCallableMentions(currentCatId: CatId): CallableMentionsResult {
 
 function formatHandleFreeLabel(catId: string, config: CatConfig | undefined): string {
   if (!config) return catId;
-  return `${config.displayName}(${catId})`;
+  // F167 identity anti-spoofing: carry variantLabel when present to disambiguate same-breed variants
+  // (e.g. "布偶猫 Opus 4.7(opus-47)" vs "布偶猫(opus)"), preventing A2A handoff identity confusion.
+  const variantPart = config.variantLabel ? ` ${config.variantLabel}` : '';
+  return `${config.displayName}${variantPart}(${catId})`;
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -506,11 +509,29 @@ export function buildInvocationContext(context: InvocationContext): string {
     `Identity: ${config.displayName}${config.nickname ? `/${config.nickname}` : ''} (@${context.catId}, model=${runtimeModel})`,
   );
 
-  // F042: A2A direct-message reply target.
+  // F042 + F167: A2A direct-message reply target + identity anti-spoofing.
+  // When handoff comes from a same-breed variant (same displayName, different catId),
+  // inject explicit model markers + "not-you" reminder to prevent identity collapse
+  // (e.g. opus-47 receiving from opus-default conflating itself with the 4.6 variant).
   if (context.directMessageFrom && context.directMessageFrom !== context.catId) {
     const fromConfig = getConfig(context.directMessageFrom as string);
     const fromLabel = formatHandleFreeLabel(context.directMessageFrom as string, fromConfig);
-    lines.push(`Direct message from ${fromLabel}; reply to ${fromLabel}`);
+    const fromModel = (() => {
+      try {
+        return getCatModel(context.directMessageFrom as string);
+      } catch {
+        return fromConfig?.defaultModel ?? 'unknown';
+      }
+    })();
+    lines.push(`Direct message from ${fromLabel} [model=${fromModel}]; reply to ${fromLabel}`);
+    // Anti-spoofing fires only for same-breed variant handoffs (displayName collision + catId differs)
+    if (fromConfig && fromConfig.displayName === config.displayName) {
+      const selfVariant = config.variantLabel ?? runtimeModel;
+      const fromVariant = fromConfig.variantLabel ?? fromModel;
+      lines.push(
+        `⚠️ 同族分身提醒：对方是 ${fromVariant}（model=${fromModel}），你是 ${selfVariant}（model=${runtimeModel}）——两个独立分身，不是你的旧版或新版。`,
+      );
+    }
   }
 
   // F167 L1: ping-pong streak warning — inject when this cat just received the ball
