@@ -132,6 +132,7 @@ description: >
 15. **Intake = 小 Feature，有 spec 有 review**：`absorbed` 决策的社区 PR 必须在 cat-cafe 建 Intake Intent Issue（逐 file 决策表），实现后走 `request-review` 让 reviewer 对照 Issue 验收。详见 [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md) Step 0 + Step 2.5
 16. **Outbound sync 前必须过 Community Diff Guard**：sync 前检查 clowder-ai 上是否有已 merge 但未完整 intake 的社区 PR，且其改动文件与 sync diff 有交集。交集不为空 = 会覆盖社区修复 → 必须先完成 intake 再 sync。详见 [Outbound Sync 文档](../refs/opensource-ops-outbound-sync.md) Step 1.5
 17. **Intake Intent Issue 必须闭环关闭**：absorb PR 的 body 必须写 `Closes #<intake-issue>`（同仓 auto-close 语法），让 issue 在 merge 时自动关闭；如果 merge 后 issue 仍 open，必须立刻手工关闭。open issue = intake 仍处于半状态。
+18. **🧬 伪 Fxxx 锚点 = 认知投毒（Feat Anchor Guard）**：`docs/features/Fxxx-*.md` 是家里知识图谱的根真相源。PR / commit / 代码注释里出现的每一个 `Fxxx` 都必须对应一个真实 feature doc。社区 PR 常把 issue `#NNN` 误写成 `FNNN`，或借 "F-pilot / F-phase" 自造编号；这些伪锚点一旦被 intake 进家，reviewer / 新猫会把它当成"方向已拍板"的证据，跳过方向评估（家规 P4 违反）。Inbound PR B1 Gate 的 ①-b Feat Anchor Guard 必做：扫 PR diff + body 里所有 `F[0-9]{2,4}` → 核 `docs/features/` → 伪锚点 = 请作者改写 `#NNN` 或删除；家里历史污染 = 校正后再 port + 开 cleanup issue。**不以伪 Fxxx 当决策论据。** 事故来源：clowder-ai#507 讨论中 maintainer 猫用 `pre-F340` 当 #506 决策论据，实际 `F340` 是代码注释里把 issue #340 写成 F 的误用，shared types 散布 13 处。详见 [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md) ①-b。
 
 ## 和其他 skill 的区别
 

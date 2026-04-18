@@ -23,6 +23,37 @@
   - 检查方法：`gh issue view {N} --repo zts212653/clowder-ai --json labels,state` → 有 `triaged` + 类型标签 + state=OPEN + 无 `needs-maintainer-decision` + 无 `needs-info`
   - 无 accepted issue → 请贡献者先开 issue，猫猫做 triage 后再提 PR
   - Feature 类：需确认有 F 编号（`feature:Fxxx` 标签）+ 关联检测已过
+- [ ] **①-b Feat Anchor Guard（必做，防认知投毒）**：
+
+  > **教训（2026-04-18，clowder-ai#507 讨论）**：代码注释和 PR 描述里出现过 `F340` 作为"accounts refactor 迁移期"的锚点，实际上 `docs/features/` 下**没有 F340** — 是 commit 作者把 issue `#340` 写成 `F340` 的误用，污染了家里 `packages/shared/src/types/*.ts` 和 `catalog-accounts.ts` 共 13 处注释。后来 maintainer 猫在 PR review 里又用 `pre-F340` 当决策论据，相当于引用一个不存在的员工手册条款。
+
+  **为什么是投毒而不是小瑕疵**：家规 P4（每个概念只在一处定义）+ 真相源权威性 — `docs/features/Fxxx-*.md` 是家里知识图谱的根。伪 `Fxxx` 注释会让 reviewer / 新猫误以为"方向已拍板"，跳过方向评估；ADR/lesson/memory 在 indexing 时也会把伪锚点当实体引用。**越是"Cats & U 温度"的项目，真相源误用的扩散速度越快，因为每只猫都真的引用它。**
+
+  **校验步骤**：
+
+  1. 抽出 PR diff + body + linked issue body 里的所有 `F[0-9]{2,4}` 模式：
+     ```bash
+     { gh pr view {N} --repo zts212653/clowder-ai --json body,title --jq '.title, .body';
+       gh pr diff {N} --repo zts212653/clowder-ai; } \
+       | grep -oE 'F[0-9]{2,4}' | sort -u
+     ```
+  2. 对每个命中，验证 `docs/features/F{NNN}-*.md` 存在：
+     ```bash
+     for f in $(...); do
+       ls docs/features/${f}-*.md 2>/dev/null >/dev/null \
+         && echo "✅ $f"  || echo "❌ 伪锚点: $f"
+     done
+     ```
+  3. 命中任一 `❌ 伪锚点` → 处理路径：
+
+  | 锚点来源 | 处理 |
+  |---------|-----|
+  | PR 作者在 PR body / diff 注释里写的 | 评论请贡献者改写为 `#NNN`（issue）或删除锚点；**不以"pre-Fxxx 时代"当决策论据** |
+  | 已在家里 shared types / 代码注释里散布的（历史污染） | intake 时必须校正为正确锚点（`#NNN` 或移除），不能原样 port；同时开一个 cleanup issue 扫清存量 |
+  | reviewer 自己打算在论证里引用的 | 方向判断只能引用 `docs/features/*.md` 或 `docs/decisions/` 真相源；伪 Fxxx 不是论据 |
+
+  4. ①-b fail → 停下来清锚点，**不直接进 ②**。方向五问不能建立在伪锚点上。
+
 - [ ] **② 方向（主人翁五问）**：
   > 详细判定标准 → [refs/ownership-gate.md](./ownership-gate.md)
   - 跑主人翁五问判定卡（Q1-Q5 逐问填结论 + 证据）
