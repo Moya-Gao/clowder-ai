@@ -54,7 +54,7 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import { detectInlineActionMentionsWithShadow, getMaxA2ADepth, parseA2AMentions } from '../routing/a2a-mentions.js';
 import { checkRoleCompat, type RoleLookup } from '../routing/role-gate.js';
-import { registerWorklist, unregisterWorklist } from '../routing/WorklistRegistry.js';
+import { registerWorklist, unregisterWorklist, updateStreakOnPush } from '../routing/WorklistRegistry.js';
 import { extractContextEvalSignals } from './context-eval.js';
 import { buildBriefingMessage } from './format-briefing.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
@@ -196,6 +196,15 @@ export async function* routeSerial(
         catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
       const teammates = [...new Set(worklist.filter((id) => id !== catId))];
       const directMessageFrom = worklistEntry.a2aFrom.get(catId);
+      // F167 L1: ping-pong warning — inject when this cat just received the ball
+      // in a same-pair streak >= 2 (streak=4 already blocked upstream, so max is 3 here).
+      const pingPongWarning =
+        worklistEntry.streakPair && worklistEntry.streakPair.to === catId && worklistEntry.streakPair.count >= 2
+          ? {
+              pairedWith: worklistEntry.streakPair.from,
+              count: worklistEntry.streakPair.count,
+            }
+          : undefined;
       const streamReplyTo = worklistEntry.a2aTriggerMessageId.get(catId);
       const streamReplyPreview = streamReplyTo
         ? await hydrateReplyPreview(deps.messageStore, streamReplyTo)
@@ -281,6 +290,7 @@ export async function* routeSerial(
         ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
         a2aEnabled: worklistEntry.a2aCount < maxDepth,
         ...(directMessageFrom ? { directMessageFrom } : {}),
+        ...(pingPongWarning ? { pingPongWarning } : {}),
         ...(mentionRoutingFeedback ? { mentionRoutingFeedback } : {}),
         ...(activeParticipants.length > 0 ? { activeParticipants } : {}),
         ...(routingPolicy ? { routingPolicy } : {}),
@@ -1044,6 +1054,28 @@ export async function* routeSerial(
                   fromCatId: catId,
                   action: gate.action,
                   reason: gate.reason,
+                }),
+                timestamp: Date.now(),
+              } as AgentMessage;
+              continue;
+            }
+
+            // F167 L1: ping-pong streak check (canonical enqueue point).
+            // streak=4+ → block enqueue + emit a2a_pingpong_terminated.
+            const streak = updateStreakOnPush(worklistEntry, catId, nextCat);
+            if (streak.blockPingPong) {
+              log.info(
+                { threadId, catId: nextCat, fromCat: catId, count: streak.count },
+                'F167 L1: A2A ping-pong terminated (streak >= 4)',
+              );
+              yield {
+                type: 'system_info' as AgentMessageType,
+                catId,
+                content: JSON.stringify({
+                  type: 'a2a_pingpong_terminated',
+                  fromCatId: catId,
+                  targetCatId: nextCat,
+                  pairCount: streak.count,
                 }),
                 timestamp: Date.now(),
               } as AgentMessage;

@@ -51,6 +51,18 @@ export interface InvocationContext {
    */
   directMessageFrom?: CatId;
   /**
+   * F167 L1: ping-pong streak warning.
+   * When present (streak >= 2), inject a warning prompt reminding the cat
+   * that they've been bouncing the same pair back and forth — consider
+   * third-party input / wrap up / escalate to 铲屎官 instead of another volley.
+   */
+  pingPongWarning?: {
+    /** The other cat in the ping-pong pair (not this cat). */
+    pairedWith: CatId;
+    /** Current streak count (≥2, <4). */
+    count: number;
+  };
+  /**
    * F046 D3: One-shot feedback injected when previous @mention was not routed.
    * Consumed from threadStore before invocation and cleared after injection.
    */
@@ -499,6 +511,16 @@ export function buildInvocationContext(context: InvocationContext): string {
     const fromConfig = getConfig(context.directMessageFrom as string);
     const fromLabel = formatHandleFreeLabel(context.directMessageFrom as string, fromConfig);
     lines.push(`Direct message from ${fromLabel}; reply to ${fromLabel}`);
+  }
+
+  // F167 L1: ping-pong streak warning — inject when this cat just received the ball
+  // in a same-pair streak >= 2 (but < 4, else it would have been blocked upstream).
+  if (context.pingPongWarning) {
+    const otherConfig = getConfig(context.pingPongWarning.pairedWith as string);
+    const otherLabel = formatHandleFreeLabel(context.pingPongWarning.pairedWith as string, otherConfig);
+    lines.push(
+      `🏓 乒乓球警告：你和 ${otherLabel} 已连续互相 @ ${context.pingPongWarning.count} 轮。思考是否真的需要再回一棒——第三方介入？收尾给铲屎官？还是这轮可以不 @？再 @ 2 轮将自动熔断。`,
+    );
   }
 
   // Teammates — only list cats actually in this invocation

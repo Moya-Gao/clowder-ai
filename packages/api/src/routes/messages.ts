@@ -26,6 +26,7 @@ import type { InvocationRegistry } from '../domains/cats/services/agents/invocat
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-helpers.js';
+import { resetStreak } from '../domains/cats/services/agents/routing/WorklistRegistry.js';
 import { createGameDriver } from '../domains/cats/services/game/createGameDriver.js';
 import type { GameDriver } from '../domains/cats/services/game/GameDriver.js';
 import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
@@ -238,6 +239,10 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
     // Default to 'default' thread for lobby (prevents global broadcast)
     const resolvedThreadId = threadId ?? 'default';
+
+    // F167 L1 AC-A3: user message is a fresh turn — clear any in-flight ping-pong
+    // streak on this thread's active worklist (no-op if none).
+    resetStreak(resolvedThreadId);
 
     // Ensure thread exists and auto-title on first message
     if (resolvedThreadId !== 'default' && opts.threadStore) {

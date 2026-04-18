@@ -92,15 +92,15 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 - [ ] AC-05: SOP 轻重路径给正反例 few-shot
 
 ### Phase A（Harness 硬护栏）
-- [ ] AC-A1: WorklistRegistry 追踪连续 same-pair streak，streak≥4 自动终止 A2A 链并 emit 系统消息
-- [ ] AC-A2: streak≥2 时向当前猫注入"乒乓球警告"提示
-- [ ] AC-A3: 正常 review 循环 A→B→A→B (streak=3) 不受影响；中间插入第三只猫或 user 消息 reset streak
-- [ ] AC-A4: callback-a2a-trigger 路径与 serial 文本路径走同一个 bounce 检测（无旁路）
+- [x] AC-A1: WorklistRegistry 追踪连续 same-pair streak，streak≥4 自动终止 A2A 链并 emit 系统消息（PR2 22e09f907 + 486edd804）
+- [x] AC-A2: streak≥2 时向当前猫注入"乒乓球警告"提示（PR2 486edd804 — `InvocationContext.pingPongWarning`）
+- [x] AC-A3: 正常 review 循环 A→B→A→B (streak=3) 不受影响；中间插入第三只猫或 user 消息 reset streak（PR2 d4636ba02 + codex R1 P1-2 修复：`resetStreak` 无 parentInvocationId 时按 threadIndex 批量清除）
+- [x] AC-A4: callback-a2a-trigger 路径与 serial 文本路径走同一个 bounce 检测（无旁路）（PR2 d6360194e — 共享 `updateStreakOnPush` helper；codex R1 P1-1 修复：modern `InvocationQueue` 分支同样经过 streak 门禁）
 - [x] AC-A5: parallel 模式 @mentions 日志标记 suppressedInParallel，不 emit a2a_followup_available；followupMentions 路径同步抑制（PR1 b496e83de）
 - [x] AC-A6: parallel 模式 SystemPrompt 注入"@句柄 在并行模式下无路由语义"提示（PR1 942809eb6）
 - [x] AC-A7: designer 角色 + coding/fix/test/merge 关键词 → route-serial handoff fail-closed + emit a2a_role_rejected（PR1 998e2274a / eec13be85）
 - [x] AC-A8: 所有现有 A2A/路由/system-prompt 测试通过（PR1 329+165 tests green）
-- [ ] AC-A9: 新增测试覆盖 L1 乒乓球（误杀保护 + 正常熔断）、L2 parallel 抑制（PR1 ✓）、L3 角色门禁（PR1 ✓）
+- [x] AC-A9: 新增测试覆盖 L1 乒乓球（误杀保护 + 正常熔断 — PR2 `worklist-registry-streak.test.js` + `callback-a2a-pingpong.test.js` + `pingpong-reset.test.js`）、L2 parallel 抑制（PR1 ✓）、L3 角色门禁（PR1 ✓）
 
 ### Phase B（观察 + 按需）
 - [ ] AC-B1: 6 个事故 case 回放测试通过（Phase 0+A 覆盖验证）
@@ -156,6 +156,8 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | 2026-04-17 | 铲屎官拉闸「第一性原理」「数学之美」→ 全员回溯 Round 4 → spec 极简化重写 |
 | 2026-04-18 | Phase 0 部分完成 — AC-01 负面指令清零（7 文件） + AC-04 GOVERNANCE_L0_DIGEST Rule 0 同步 |
 | 2026-04-18 | Phase A PR 1 merged (PR #1243) — L2 parallel @ 抑制 + L3 designer role gate MVP |
+| 2026-04-18 | Phase A PR 2 — L1 乒乓球熔断（WorklistRegistry streak + serial + callback 双路径 + reset triggers）|
+| 2026-04-18 | Phase A PR 2 R1 — codex P1×2 修复：modern InvocationQueue 分支接入 streak 门禁；`resetStreak` 无 parentInvocationId 时按 threadIndex 批量清除 |
 
 ## Review Gate
 
@@ -177,7 +179,7 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 
 | 需求来源 | 需求点 | AC 映射 | 状态 |
 |---------|--------|---------|------|
-| 铲屎官 2026-04-17 | 乒乓球：同对猫反复 @ 无产出 | AC-A1~A4 | ⬜ |
+| 铲屎官 2026-04-17 | 乒乓球：同对猫反复 @ 无产出 | AC-A1~A4 | ✅ PR2 |
 | 铲屎官 2026-04-17 | parallel 模式 @ 废话 | AC-A5~A6 | ✅ PR1 |
 | GPT-5.4 发现 | 角色不适配 handoff（designer 写代码） | AC-A7 | ✅ PR1 |
 | 铲屎官 2026-04-17 | 提示词正面化 + 边界显式化 | AC-01~05 | 🟡 AC-01/04 ✅，AC-02/03/05 待补 |
