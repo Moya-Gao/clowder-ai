@@ -24,9 +24,33 @@ triggers:
 
 1. Reviewer 有**明确放行信号**（"放行"/"LGTM"/"通过"/"可以合入"）
 2. **所有 P1/P2** 已修复且经 reviewer 确认
-3. Review 针对**当前分支/当前工作**（不是历史 review）
+3. Review 针对**当前分支/当前工作**（不是历史 review，且必须覆盖**当前 HEAD SHA**）
 4. BACKLOG 涉及条目已在 feature branch 上标 `[x]`
 5. **`pnpm gate` 全绿**（基于最新 `origin/main` rebase 后的全量 build + test + lint + check）
+
+### Review Continuity Guard（review 是否真的覆盖当前 HEAD）
+
+`pnpm gate`、rebase、fixup、feature index regeneration 都可能让 HEAD 变化。**只要 HEAD 变了，旧 review 默认不自动继承。**
+
+进入 Step 7 之前，author 必须核对：
+
+```bash
+CURRENT_HEAD="$(gh pr view {PR_NUMBER} --json headRefOid --jq '.headRefOid')"
+echo "$CURRENT_HEAD"
+```
+
+- reviewer 放行对应的 SHA = `CURRENT_HEAD` → 通过
+- reviewer 放行时的 SHA ≠ `CURRENT_HEAD` → **停止 merge-gate**
+  - 非行为性 delta（例如 `docs/features/index.json` regenerate、纯 rebase 无代码差异）：
+    reviewer 必须在 thread / PR 上**显式写出**“放行延续到 `{CURRENT_HEAD:0:8}`”
+  - 行为性 delta（代码、测试、配置、接口变化）：
+    重新 review，不能拿旧放行硬套新 HEAD
+- 只改 PR body / comment 不改 commit SHA → 不影响 review 覆盖范围
+
+**作者交接格式**（ping reviewer / 汇报 merge-gate 时必须带）：
+- 当前 HEAD：`{short_sha}`
+- reviewer 已覆盖：`yes/no`
+- 如果 `no`：说明是“请求延续到新 SHA”还是“请求重审”
 
 ### `pnpm gate` — Latest Main 全量门禁（Step 0，开 PR 前必跑）
 
@@ -261,6 +285,7 @@ gh api --paginate repos/{OWNER}/{REPO}/pulls/{PR_NUMBER}/comments \
 | 同一个 commit 连续发多条触发 comment | 先做 Step 5.1 去重检查；只有新 commit 才 re-trigger |
 | 触发后立刻轮询或手动重触发 | 5 分钟后查 👀（Step 6.1）；有 👀 = PR tracking 自动通知，不用管；无 👀 = 允许 re-trigger |
 | 修了 P1 不 re-trigger review | 修完 push 后**必须重新触发**云端 review |
+| `pnpm gate` rebase / fixup 后沿用旧 review 直接 merge | 先对齐 `headRefOid`；**只要 HEAD 变了，就拿 reviewer 对新 SHA 的显式延续或重审** |
 | 本地 `git rebase -i` 手动 squash | 用 `gh pr merge --squash`（GitHub 处理） |
 | 本地 merge 后 `gh pr close` | `gh pr close` = 放弃，`gh pr merge` = 合入 |
 | 不等云端 review 直接合入 | 必须等 0 P1/P2 |

@@ -275,12 +275,26 @@ Closes #<IntakeIntentIssue>
 - [ ] 每个标记 `skip` 的文件有合理理由
 - [ ] 社区 PR 的**每个行为改变**都在 cat-cafe 复现（不只是文件在不在，还要看逻辑等价）
 - [ ] Brand Guard 文件（如有）已走 Step 1.5 手工 diff-merge
+- [ ] Review 覆盖 absorb PR **当前 HEAD SHA**；如果 review 后又 rebase / fixup / regenerate feature index，reviewer 已显式确认“放行延续到新 SHA”或已重新 review
 
 **不过这个 gate = 不能 Record + Advance。** Reviewer 放行后才能执行 Step 3 (Record)。
 
 **Reviewer 必须在 GitHub PR 上留 formal review comment**：聊天里口头放行不算闭环。Reviewer 本人必须在 absorb PR 页面留一条包含完整 checklist 的 review comment（`gh pr comment`），author 不得代记。**不要用 `gh pr review --approve`**——所有猫猫共享同一个 GitHub 账号，self-approve 永远会报错，白费 token。review comment 就是标准路径，不是降级方案。（教训：cat-cafe#941 reviewer 只在 thread 里放行，PR `reviews=[]`，事后由 author 补 comment 才补救审计留痕。）
 
 **Reviewer 匹配**：和内部 PR 一样，跨 family 优先、同一个体不能 review 自己的 intake。
+
+**Review continuity（新增硬规则）**：
+
+- review 不是布尔量，是 **`reviewed_sha -> current_head_sha`** 的绑定关系
+- absorb PR 进入 merge-gate 前，author 必须带着当前 HEAD 去做 handoff：
+  - `当前 HEAD: {short_sha}`
+  - `review 覆盖: yes/no`
+  - 如果 `no`：说明是“请求延续到新 SHA”还是“请求重审”
+- 只要 HEAD 变化，就不能默认沿用旧 review
+  - 非行为性 delta（例如 `docs/features/index.json` regenerate、纯 rebase 无代码差异）→ 允许 reviewer **显式延续** 到新 SHA
+  - 行为性 delta（代码 / 测试 / 配置 / 接口变化）→ 必须重新 review
+
+> 教训：cat-cafe#1239 在 reviewer formal 放行后，merge-gate 又因为 rebase + feature index refresh 生成了新 HEAD `2c7351b6`。如果没有 reviewer 对新 SHA 的显式延续，这个 absorb PR 就会带着“旧 review 覆盖新 commit”的口径漏洞进入 merge。
 
 > 教训：clowder-ai#276 的 backend 部分（callbacks.ts invocationId）cat-cafe 已独立实现，
 > intake 猫看到就标了”已有”——但没人验证前端三个文件是否也”已有”。
