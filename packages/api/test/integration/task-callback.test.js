@@ -77,9 +77,8 @@ describe('Task Callback Integration', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/callbacks/update-task',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
       payload: {
-        invocationId,
-        callbackToken,
         taskId: task.id,
         status: 'doing',
       },
@@ -132,9 +131,8 @@ describe('Task Callback Integration', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/callbacks/update-task',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
       payload: {
-        invocationId,
-        callbackToken,
         taskId: task.id,
         status: 'done',
       },
@@ -159,9 +157,8 @@ describe('Task Callback Integration', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/callbacks/update-task',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
       payload: {
-        invocationId,
-        callbackToken,
         taskId: task.id,
         status: 'doing',
       },
@@ -189,9 +186,8 @@ describe('Task Callback Integration', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/callbacks/update-task',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
       payload: {
-        invocationId,
-        callbackToken,
         taskId: task.id,
         status: 'done',
       },

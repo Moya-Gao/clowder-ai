@@ -6,26 +6,24 @@ import type { CatId } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
-import { callbackAuthSchema } from './callback-auth-schema.js';
-import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
+import { requireCallbackAuth } from './callback-auth-prehandler.js';
 
-const updateTaskSchema = callbackAuthSchema.extend({
+const updateTaskSchema = z.object({
   taskId: z.string().min(1),
   status: z.enum(['todo', 'doing', 'blocked', 'done']).optional(),
   why: z.string().max(1000).optional(),
 });
 
-const createTaskSchema = callbackAuthSchema.extend({
+const createTaskSchema = z.object({
   title: z.string().min(1).max(200),
   why: z.string().max(1000).optional().default(''),
   ownerCatId: z.string().min(1).optional(),
 });
 
-const listTasksQuerySchema = callbackAuthSchema.extend({
+const listTasksQuerySchema = z.object({
   threadId: z.string().min(1).optional(),
   catId: z.string().min(1).optional(),
   status: z.enum(['todo', 'doing', 'blocked', 'done']).optional(),
@@ -35,27 +33,24 @@ const listTasksQuerySchema = callbackAuthSchema.extend({
 export function registerCallbackTaskRoutes(
   app: FastifyInstance,
   deps: {
-    registry: InvocationRegistry;
     taskStore: ITaskStore;
     socketManager: SocketManager;
     threadStore?: IThreadStore;
   },
 ): void {
-  const { registry, taskStore, socketManager, threadStore } = deps;
+  const { taskStore, socketManager, threadStore } = deps;
 
   app.post('/api/callbacks/update-task', async (request, reply) => {
+    const record = requireCallbackAuth(request, reply);
+    if (!record) return;
+
     const parsed = updateTaskSchema.safeParse(request.body);
     if (!parsed.success) {
       reply.status(400);
       return { error: 'Invalid request body', details: parsed.error.issues };
     }
 
-    const { invocationId, callbackToken, taskId, status, why } = parsed.data;
-    const record = registry.verify(invocationId, callbackToken);
-    if (!record) {
-      reply.status(401);
-      return EXPIRED_CREDENTIALS_ERROR;
-    }
+    const { taskId, status, why } = parsed.data;
 
     const existing = await taskStore.get(taskId);
     if (!existing) {
@@ -87,18 +82,16 @@ export function registerCallbackTaskRoutes(
 
   // F160: create-task — kind forced to 'work' (KD-4)
   app.post('/api/callbacks/create-task', async (request, reply) => {
+    const record = requireCallbackAuth(request, reply);
+    if (!record) return;
+
     const parsed = createTaskSchema.safeParse(request.body);
     if (!parsed.success) {
       reply.status(400);
       return { error: 'Invalid request body', details: parsed.error.issues };
     }
 
-    const { invocationId, callbackToken, title, why, ownerCatId } = parsed.data;
-    const record = registry.verify(invocationId, callbackToken);
-    if (!record) {
-      reply.status(401);
-      return EXPIRED_CREDENTIALS_ERROR;
-    }
+    const { title, why, ownerCatId } = parsed.data;
 
     if (ownerCatId && !catRegistry.has(ownerCatId)) {
       reply.status(400);
@@ -122,18 +115,16 @@ export function registerCallbackTaskRoutes(
   });
 
   app.get('/api/callbacks/list-tasks', async (request, reply) => {
+    const record = requireCallbackAuth(request, reply);
+    if (!record) return;
+
     const parsed = listTasksQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       reply.status(400);
       return { error: 'Invalid request query', details: parsed.error.issues };
     }
 
-    const { invocationId, callbackToken, threadId, catId, status, kind } = parsed.data;
-    const record = registry.verify(invocationId, callbackToken);
-    if (!record) {
-      reply.status(401);
-      return EXPIRED_CREDENTIALS_ERROR;
-    }
+    const { threadId, catId, status, kind } = parsed.data;
 
     if (catId && !catRegistry.has(catId)) {
       reply.status(400);
@@ -161,7 +152,7 @@ export function registerCallbackTaskRoutes(
       scopedThreadIds = userThreads.map((item) => item.id);
     } else {
       app.log.warn(
-        { userId: record.userId, invocationId },
+        { userId: record.userId, invocationId: record.invocationId },
         '[callbacks/list-tasks] threadStore unavailable, falling back to current thread only',
       );
       scopedThreadIds = [record.threadId];
