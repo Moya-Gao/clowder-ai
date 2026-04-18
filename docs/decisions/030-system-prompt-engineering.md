@@ -142,17 +142,59 @@ pnpm --filter @cat-cafe/api test:system-prompt
 
 **原则**：system prompt 应为 Literal Follower 写——意图明确、边界清晰、正面表述。Spirit Interpreter 自然能理解，Literal Follower 也不会偏。
 
+## Phase 0 审计发现（2026-04-17 三猫协作）
+
+### P1 漂移修复（已完成）
+
+| # | 问题 | 根因 | 修复 |
+|---|------|------|------|
+| 1 | Magic Words 不在 `shared-rules.md`（真相源），只在下游编译产物 | 新增时直接改了 `governance-l0.md` + `GOVERNANCE_L0_DIGEST`，跳过真相源 | 已补入 `shared-rules.md`，重跑 `sync --apply` |
+| 2 | `~/.codex/AGENTS.md` 和 `~/.gemini/GEMINI.md` 缺新 Magic Words + `@opus-47` | sync 脚本未在上次改动后执行 | `sync --apply` 已修复，两端 `✅ synced` |
+| 3 | `maine-coon` WORKFLOW_TRIGGERS "讨论完成 → @对应猫" 与 parallel 模式冲突 | parallel 模式猫猫独立思考，不走 A2A 链路 | 待 Phase A 加 "parallel 禁 @" 显式规则 |
+
+### 各族审计清单
+
+#### 缅因猫（砚砚审视）
+
+| 动作 | 内容 | 位置 |
+|------|------|------|
+| **保留** | 个体判定规则 + 家族分工 | `codex.md:5` |
+| **保留** | 完成 review / 修完 bug 后交棒条款 | `WORKFLOW_TRIGGERS.maine-coon` |
+| **重写** | "禁止式"执行纪律 → 状态迁移式正面表述（BLOCKED/REVIEW READY/DONE） | `codex.md:32` + `WORKFLOW_TRIGGERS:293` |
+| **重写** | "讨论完成就 @" → "仅 serial/handoff 场景且需要对方行动才 @；parallel 禁 @" | `WORKFLOW_TRIGGERS:288` |
+| **删除** | "Review 别人代码有立场"与"Review 布偶猫代码有立场"语义重复 | `WORKFLOW_TRIGGERS:290` |
+
+#### 暹罗猫（烁烁审视）
+
+| 动作 | 内容 | 位置 |
+|------|------|------|
+| **保留** | 性格与灵魂（热情、创意、审美基石） | `gemini.md:1-2` |
+| **删除** | `GEMINI.md` 中手动维护的队友名册（SystemPromptBuilder 自动生成） | `GEMINI.md` sync 产物 |
+| **删除** | `GEMINI.md` 中的 SOP 流程表（链接到 `docs/SOP.md` 即可） | `GEMINI.md` sync 产物 |
+| **重写** | "不要 X" 型指令 → "Used when / Not for" 正面模式 | `gemini.md` 全文 |
+| **新增** | siamese WORKFLOW_TRIGGERS 加执行纪律 + 出口一问（对齐 maine-coon） | `WORKFLOW_TRIGGERS.siamese` |
+| **新增** | 设计交接专项：Used when(设计定稿/资产导出) / Not for(灵感头脑风暴阶段) | `WORKFLOW_TRIGGERS.siamese` |
+
+#### 布偶猫（宪宪审视）
+
+| 动作 | 内容 | 位置 |
+|------|------|------|
+| **待审** | `CLAUDE.md` 铁律 vs `shared-rules.md` 纪律重叠度 | `CLAUDE.md` 五条铁律 |
+| **待审** | `GOVERNANCE_L0_DIGEST` vs `shared-rules.md` 三层覆盖差异量化 | `SystemPromptBuilder.ts:259` |
+| **待审** | `MCP_TOOLS_SECTION` 工具列表是否过时 | `SystemPromptBuilder.ts:223` |
+
 ## 后果
 
-- **正面**：新成员（猫/人）改提示词前有地图可查，不会重演"改了 A 忘了 B"
-- **正面**：Phase 0 审计有明确的写作原则可对照
-- **负面**：`GOVERNANCE_L0_DIGEST` 是硬编码常量，与 `shared-rules.md` 存在手动同步负担——长期应考虑编译自动化
-- **待定**：Phase 0 审计可能发现大量冗余，spec 需要多猫协作才能收敛
+- **正面**：注入链地图 + 同步纪律让"改了 A 忘了 B"可预防
+- **正面**：三猫审计产出了可落地的保留/重写/删除清单
+- **正面**：Magic Words 真相源已修正到 `shared-rules.md`
+- **负面**：`GOVERNANCE_L0_DIGEST` 仍是硬编码常量，手动同步负担存在——长期应考虑编译自动化
+- **待定**：Phase 0 正面重写改动量较大，需分批落地
 
-## 开放问题（Phase 0 审计范围）
+## 开放问题
 
-1. `shared-rules.md` 全文 vs `GOVERNANCE_L0_DIGEST` 摘要的覆盖差异
-2. `CLAUDE.md` 铁律 vs `shared-rules.md` 纪律的重叠程度
-3. Skills 中的 `refs/` 参考文档是否有过时内容
-4. `WORKFLOW_TRIGGERS` 是否应提取为外部配置
-5. Pack system 注入的 guardrails 是否与 L0 治理冲突
+1. `GOVERNANCE_L0_DIGEST` 是否应改为从 `shared-rules.md` 自动编译（消除手动同步）
+2. `CLAUDE.md` 铁律哪些是 `shared-rules.md` 纪律的重复（需逐条比对）
+3. `WORKFLOW_TRIGGERS` 是否应提取为外部配置文件（当前硬编码在 .ts 中）
+4. Pack system guardrails 与 L0 治理的优先级冲突如何仲裁
+5. Skills `refs/` 参考文档的过时检测机制
