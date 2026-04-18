@@ -183,6 +183,19 @@ export class InvocationTracker {
   }
 
   /**
+   * Mark a SINGLE slot from a batch invocation as complete.
+   * Unlike complete(), this also matches batchController so a startAll()/tryStartThreadAll()
+   * caller can retire finished cats one-by-one without waiting for the whole batch.
+   */
+  completeSlot(threadId: string, catId: string, controller?: AbortController): void {
+    const key = this.slotKey(threadId, catId);
+    const inv = this.active.get(key);
+    if (!inv) return;
+    if (controller && inv.controller !== controller && inv.batchController !== controller) return;
+    this.active.delete(key);
+  }
+
+  /**
    * Whether a thread/slot has an active invocation.
    * - has(threadId, catId) — specific slot check
    * - has(threadId) — any slot active in thread?

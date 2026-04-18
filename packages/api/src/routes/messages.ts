@@ -823,6 +823,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             if (msg.type === 'done' && msg.errorCode) {
               governanceErrorCode = msg.errorCode;
             }
+            if ((msg.type === 'done' || msg.type === 'error') && msg.catId) {
+              opts.invocationTracker?.completeSlot?.(resolvedThreadId, msg.catId, controller);
+            }
 
             // F088 ISSUE-15: Collect outbound turns (same pattern as QueueProcessor)
             if (msg.type === 'done' && msg.catId) {

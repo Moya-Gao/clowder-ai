@@ -17,6 +17,7 @@ interface TrackerLike {
   start(threadId: string, catId: string, userId: string, catIds?: string[]): AbortController;
   startAll(threadId: string, catIds: string[], userId?: string): AbortController;
   complete(threadId: string, catId: string, controller?: AbortController): void;
+  completeSlot?(threadId: string, catId: string, controller?: AbortController): void;
   completeAll(threadId: string, catIds: string[], controller?: AbortController): void;
   has(threadId: string, catId?: string): boolean;
 }
@@ -669,6 +670,9 @@ export class QueueProcessor {
         }
         if (hook && msg.catId === primaryCat && msg.type === 'text' && (msg as { content?: string }).content) {
           responseText += (msg as { content?: string }).content;
+        }
+        if ((msg.type === 'done' || msg.type === 'error') && msg.catId) {
+          invocationTracker.completeSlot?.(threadId, msg.catId, controller);
         }
 
         // F088 fix: collect per-turn content for outbound delivery
