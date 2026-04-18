@@ -514,6 +514,39 @@ describe('AntigravityAgentService (Bridge)', () => {
     assert.ok(diag.transformedMessageTypeCounts, 'should include transformed message type counts');
   });
 
+  test('thinking-only planner response still triggers empty_response with planner/system_info diagnostics', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = mock.fn(async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            plannerResponse: { thinking: 'Let me think...' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    });
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const messages = await collect(service.invoke('test'));
+
+    const thinkingMsg = messages.find((m) => m.type === 'system_info');
+    assert.ok(thinkingMsg, 'thinking-only planner response should still emit system_info');
+
+    const errMsg = messages.find((m) => m.type === 'error' && m.errorCode === 'empty_response');
+    assert.ok(errMsg, 'thinking-only planner response should still emit empty_response');
+    const diag = errMsg.metadata.diagnostics;
+    assert.deepEqual(diag.rawStepTypeCounts, {
+      CORTEX_STEP_TYPE_PLANNER_RESPONSE: 1,
+    });
+    assert.deepEqual(diag.transformedMessageTypeCounts, {
+      system_info: 1,
+    });
+    assert.deepEqual(diag.lastBatchStepTypes, ['CORTEX_STEP_TYPE_PLANNER_RESPONSE']);
+    assert.equal(diag.hasText, false);
+  });
+
   test('empty_response diagnostics tracks across multiple batches', async () => {
     const bridge = createMockBridge();
     bridge.pollForSteps = mock.fn(async function* () {
