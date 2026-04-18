@@ -200,6 +200,38 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 - [x] AC-C4: 有 skill 或 scheduled task 可生成 Harness 健康报告（膨胀率、冲突检测、ADR 断链、未验证清单）
 - [x] AC-C5: 铲屎官确认报告的 pruning 建议 actionable（不是无用的噪声）
 
+### Phase A-C 反思（2026-04-18，LL-051）
+
+**诊断**：Phase A-C 建了完整实验基础设施（schema + flags + logger + shadow + UI），但核心价值——让重要知识排前面——没有发生。
+
+- 1501 篇文档 authority 全部 `observed`（默认值），`applyAuthorityBoost()` 权重全 1.0 = 空转
+- Shadow 模式 448 次搜索只记 `{query, resultCount}`，无 before/after 排序对比
+- `evidence.ts:117` 硬编码 `confidence: 'mid' as const`，前端无信号差异
+
+**根因**：坐标系错误（Round 4 原理）。需求是"重要知识排前面"，最小方案是 `pathToAuthority()` 纯函数。但实际走了"先建完整实验框架"的路径，框架空转。
+
+**教训**：AC 验的是"能力存在"不是"能力有效"。Phase 拆分遮蔽了端到端空洞。详见 LL-051。
+
+### Phase D: Authority Backfill + Confidence 派生（装弹）
+
+**核心目标**：让 Phase A-C 建好的基础设施真正工作。不增加复杂度，只填充数据。
+
+1. **`pathToAuthority()` 纯函数**：索引时根据路径/frontmatter 自动派生 authority
+   - `docs/lessons-learned.md` 中 P0 铁律 → `constitutional`
+   - `docs/decisions/*.md` → `validated`
+   - `docs/features/*.md` → `validated`
+   - 其余 → `observed`（默认）
+2. **修 `confidence: 'mid' as const`**：从 authority 派生 `high | mid | low`
+3. **切 `F163_AUTHORITY_BOOST=on`**：跳过已证明无价值的 shadow 模式
+
+**约束**：Phase D 总代码量 ≤ 50 行核心逻辑。超过说明方向又偏了。
+
+### Phase D AC
+- [ ] AC-D1: `pathToAuthority()` 纯函数存在，从路径/frontmatter 派生 authority，有单元测试
+- [ ] AC-D2: 索引 rebuild 后 evidence_docs.authority 不再全部为 `observed`（至少 3 个不同 level）
+- [ ] AC-D3: `evidence.ts` 的 confidence 从 authority 派生，不再硬编码 `'mid'`
+- [ ] AC-D4: `F163_AUTHORITY_BOOST=on` 后，搜索 P0 铁律相关 query 时 lessons-learned 排在前 3
+
 ## Dependencies
 
 - **Evolved from**: F102（记忆基础设施——F163 在 F102 的索引/搜索能力上增加分层和权重）
@@ -255,6 +287,8 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | 2026-04-16 | Phase B merged (PR #1219) — Schema V14, DuplicateScanner, compression APIs, backstop suppression, 2 rounds codex review |
 | 2026-04-17 | Phase C backend merged (PR #1225) — Schema V15, contradiction detection, review queue, health report API, 2 rounds codex review |
 | 2026-04-17 | Phase C frontend merged (PR #1229) — Health tab in Memory Hub (donut chart + bar charts + action items), 2 rounds codex review |
+| 2026-04-18 | Shadow 数据诊断：448 次搜索全空转（authority 100% observed, confidence 硬编码 mid）。Round 4 反思 → LL-051 |
+| 2026-04-18 | Phase D 立项：authority backfill + confidence 派生（"装弹"）|
 
 ## Review Gate
 

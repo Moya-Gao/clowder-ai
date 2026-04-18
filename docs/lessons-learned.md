@@ -1028,6 +1028,33 @@ created: 2026-02-26
 
 ---
 
+### LL-051: 实验框架空转——造了铁路没装货物
+- 状态：draft
+- 更新时间：2026-04-18
+
+- 坑：F163 记忆熵减用 3 Phase 建了完整实验基础设施（schema V14 多轴元数据 + 7 flag + experiment logger + shadow mode + Health Tab UI），shadow 模式运行 32 小时、记录 448 次搜索。诊断发现三层空转：① 1501 篇文档 authority 全部是 `observed`（默认值），boost 权重全 1.0 等于无 boost；② shadow payload 只记 `{query, resultCount}`，没记录 before/after 排序对比；③ `evidence.ts:117` 硬编码 `confidence: 'mid' as const`，前端无信号差异。
+- 根因：
+  1. **坐标系错误（Round 4 原理）**：核心需求是"重要知识排前面"，最小方案是 `pathToAuthority()` 纯函数 + backfill。但选了"先建完整实验框架再灰度上线"的路径，把 70% 工作量花在框架本身而非核心价值。
+  2. **Phase 拆分遮蔽空洞**：每个 Phase 有自己的 AC 并全部通过，但 AC 验的是"能力存在"不是"能力有效"。`applyAuthorityBoost()` 存在且可调用 → AC pass，但所有文档权重 1.0 → 实际无效。
+  3. **Shadow mode 设计半成品**：spec 要求"后台并行跑新策略，记录差异"，实现只记了 flag snapshot + query，没记排序差异——因为差异计算依赖 authority 分化，而分化从未发生。
+- 触发条件：任何 feature 用"先建框架 → 再填数据"的顺序推进，且 AC 只验证框架存在性而非端到端效果
+- 修复：
+  1. 写 `pathToAuthority()` 纯函数，索引时从路径/frontmatter 自动派生 authority（而非手动 promotion）
+  2. 修 `confidence: 'mid' as const` → 从 authority 派生 high/mid/low
+  3. 直接切 `F163_AUTHORITY_BOOST=on`（跳过无价值的 shadow）
+- 防护：
+  1. Feature AC 必须包含至少一条"端到端效果验证"（不只是"能力存在"）
+  2. 实验 flag 开 shadow 后 48h 内必须检查 payload 是否包含对比数据——空跑 shadow 浪费资源且给人虚假安全感
+- 来源锚点：
+  - F163 shadow 数据诊断：`evidence.sqlite` f163_logs 表 448 条 search、authority 分布 100% observed
+  - 硬编码 confidence：`packages/api/src/routes/evidence.ts:117`
+  - Round 4 数学之美讨论：`docs/discussions/2026-04-15-harness-engineering-triad-study/round4-mathematical-elegance-and-cat-first-architecture.md`
+- 原理：**Agent Quality = Model Capability × Environment Fit**（Round 4）。F163 在 Environment 侧堆了大量维度（多项式拟合），但没有验证任何一个维度是否真正改善 Fit。正确的路径是坐标变换：找到"authority 信号已经在文档路径里"这个洞察，用一个纯函数解决，而不是建一整套实验框架去"发现"这个答案。最优表达在正确坐标系下必然最简。
+
+- 关联：F163 | Round 4 数学之美讨论 | LL-050（知识漂移）
+
+---
+
 ## 8) 维护约定
 
 - 本文件是入口，不替代 ADR/bug-report 原文。
