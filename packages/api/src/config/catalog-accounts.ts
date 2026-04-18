@@ -1,5 +1,5 @@
 /**
- * F340 — Accounts read/write layer
+ * clowder-ai#340 — Accounts read/write layer
  *
  * Storage: {projectRoot}/.cat-cafe/accounts.json (project-local by default).
  * Override: CAT_CAFE_GLOBAL_CONFIG_ROOT env → uses that root instead.
@@ -219,7 +219,7 @@ function migrateLegacyFrom(root: string, projectRoot?: string): void {
     const displayName = normalizeDisplayName(typeof p.displayName === 'string' ? p.displayName : undefined);
     const baseUrl = normalizeBaseUrl(typeof p.baseUrl === 'string' ? p.baseUrl : undefined);
     const models = normalizeModels(Array.isArray(p.models) ? p.models.map(String) : undefined);
-    // F340: protocol not migrated — derived at runtime from well-known account IDs.
+    // clowder-ai#340: protocol not migrated — derived at runtime from well-known account IDs.
     accounts[id] = {
       authType: inferLegacyAuthType(p),
       ...(displayName ? { displayName } : {}),
@@ -331,7 +331,7 @@ function migrateProjectAccountsToGlobal(projectRoot: string): void {
       skipConflicts: true,
     });
 
-    // F340: project catalog.accounts is intentionally left untouched.
+    // clowder-ai#340: project catalog.accounts is intentionally left untouched.
     // Runtime only reads global accounts.json, so the project section is
     // inert — keeping it provides free rollback compatibility and avoids
     // unnecessary writes to the project catalog file.
@@ -347,7 +347,7 @@ function migrateProjectAccountsToGlobal(projectRoot: string): void {
   }
 }
 
-// ── Homedir legacy migration (picks up secrets written by pre-F340 installer without --project-dir) ──
+// ── Homedir legacy migration (picks up secrets written by pre-clowder-ai#340 installer without --project-dir) ──
 
 const migratedHomedirLegacy = new Set<string>();
 
@@ -376,7 +376,7 @@ function migrateHomedirLegacyProviderProfiles(projectRoot?: string): void {
   }
 }
 
-// ── Homedir credentials.json migration (pre-F340 credentials written directly to homedir) ──
+// ── Homedir credentials.json migration (pre-clowder-ai#340 credentials written directly to homedir) ──
 
 const migratedHomedirCredentials = new Set<string>();
 

@@ -97,7 +97,7 @@ export type {
 export type {
   CatColor,
   CatConfig,
-  /** @deprecated F340: Use ClientId instead. */
+  /** @deprecated clowder-ai#340: Use ClientId instead. */
   CatProvider,
   CatState,
   CatStatus,

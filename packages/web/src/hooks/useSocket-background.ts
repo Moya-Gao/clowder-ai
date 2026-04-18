@@ -291,7 +291,7 @@ function markThreadInvocationComplete(msg: BackgroundAgentMessage, options: Hand
   // Cancel fallback: find and remove only this cat's latest active slot to avoid
   // clearing other cats' slots during multi-cat concurrent dispatch.
   if (msg.invocationId) {
-    // F869: Multi-cat slot-aware cleanup. Only remove the slot that belongs to
+    // cat-cafe#869: Multi-cat slot-aware cleanup. Only remove the slot that belongs to
     // THIS cat (primary key or synthetic key), not another cat's slot.
     const threadState = options.store.getThreadState(msg.threadId);
     const primarySlot = threadState.activeInvocations[msg.invocationId];

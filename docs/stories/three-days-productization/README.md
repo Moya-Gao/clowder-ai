@@ -829,7 +829,7 @@ PL 说："现在他们不是参与进来了吗？"
 即使在情绪最低谷的时候，工程也没有停：
 
 - **F136 配置热更新 Phase 1.5**：敏感环境变量写入加 owner gate + audit trail（PR #853）
-- **F189 OpenCode 路由修复**：provider/model 单一真相源恢复（PR #855），前后 7 轮 P1 review
+- **clowder-ai#223 OpenCode 路由修复**：provider/model 单一真相源恢复（PR #855），前后 7 轮 P1 review
 - **Chrome IME Enter 误提交**：useIMEGuard 全量修复 19 个输入组件（PR #850）
 - **Socket 重连**：reconciliation + done orphan cleanup（PR #852）
 - **F147 i18n**：立项 Hub 界面中英文切换

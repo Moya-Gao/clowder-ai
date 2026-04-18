@@ -54,7 +54,7 @@ beforeEach(async () => {
   process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = testGlobalConfigRoot;
   // Isolate homedir so the homedir migration doesn't pick up real ~/.cat-cafe/ files
   process.env.HOME = testGlobalConfigRoot;
-  // F340: reset global accounts migration cache between tests
+  // clowder-ai#340: reset global accounts migration cache between tests
   const { resetMigrationState } = await import('../dist/config/catalog-accounts.js');
   resetMigrationState();
 });
@@ -2843,7 +2843,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const codexBreed = runtimeCatalog.breeds.find((breed) => breed.catId === 'codex');
     assert.equal(codexBreed?.variants[0]?.accountRef, 'codex');
 
-    // F340: "activation" = updating the catalog variant's accountRef binding.
+    // clowder-ai#340: "activation" = updating the catalog variant's accountRef binding.
     // The old activate API was a no-op; explicitly bind the variant instead.
     const codexVariant = codexBreed?.variants[0];
     if (codexVariant) codexVariant.accountRef = activatedProfile.id;
@@ -3079,7 +3079,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
 
-    // F340: Seed builtin codex account in global accounts store
+    // clowder-ai#340: Seed builtin codex account in global accounts store
     const globalCatCafe = join(testGlobalConfigRoot, '.cat-cafe');
     await mkdir(globalCatCafe, { recursive: true });
     await writeFile(
@@ -3348,7 +3348,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }
   });
 
-  it('F329: rejects api_key account with no API key before spawning child process', async () => {
+  it('clowder-ai#329: rejects api_key account with no API key before spawning child process', async () => {
     const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f329-missing-apikey-'));
     const apiDir = join(root, 'packages', 'api');
@@ -3487,7 +3487,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(callbackEnv.OPENROUTER_API_KEY, 'sk-openrouter-key');
   });
 
-  it('F189: unknown canonical provider/model without ocProviderName writes invocation-scoped OPENCODE_CONFIG and cleans it up', async () => {
+  it('clowder-ai#223: unknown canonical provider/model without ocProviderName writes invocation-scoped OPENCODE_CONFIG and cleans it up', async () => {
     const mod = await import('../dist/domains/cats/services/agents/invocation/invoke-single-cat.js');
     mod._resetOpenCodeKnownModels(new Set(['anthropic/claude-opus-4-6']));
     const { createProviderProfile } = await import('./helpers/create-test-account.js');
@@ -3570,7 +3570,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     await assert.rejects(readFile(seenConfigPath, 'utf-8'));
   });
 
-  it('F189: bare model + provider assembles composite model for custom provider routing', async () => {
+  it('clowder-ai#223: bare model + provider assembles composite model for custom provider routing', async () => {
     const { createProviderProfile } = await import('./helpers/create-test-account.js');
     const root = await mkdtemp(join(tmpdir(), 'f189-oc-bare-model-'));
     process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
@@ -3651,7 +3651,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     await assert.rejects(readFile(seenConfigPath, 'utf-8'));
   });
 
-  it('F189-fix: builtin ocProviderName with custom baseUrl still generates OPENCODE_CONFIG', async () => {
+  it('clowder-ai#223-fix: builtin ocProviderName with custom baseUrl still generates OPENCODE_CONFIG', async () => {
     // Regression: ocProviderName="anthropic" + baseUrl="https://api.minimax.io/v1"
     // was skipped by BUILTIN_OPENCODE_PROVIDERS guard, leaving opencode without custom config.
     const { createProviderProfile } = await import('./helpers/create-test-account.js');
@@ -3812,10 +3812,10 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     await assert.rejects(readFile(seenConfigPath, 'utf-8'));
   });
 
-  it('known model with mcpServerPath enters F189 gate for deterministic MCP injection', async () => {
+  it('known model with mcpServerPath enters clowder-ai#223 gate for deterministic MCP injection', async () => {
     // When a model IS in the known-models set (so !knownModels.has(model) is false)
     // but resolveDefaultClaudeMcpServerPath() returns a path (mcpServerPath exists),
-    // the || mcpServerPath branch should trigger F189 config generation.
+    // the || mcpServerPath branch should trigger clowder-ai#223 config generation.
     // This ensures known models get deterministic MCP in game sessions.
     const mod = await import('../dist/domains/cats/services/agents/invocation/invoke-single-cat.js');
     mod._resetOpenCodeKnownModels(new Set(['anthropic/claude-opus-4-6']));
@@ -3916,7 +3916,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it(
-    'known model with CAT_CAFE_MCP_SERVER_PATH enters F189 gate without default candidates',
+    'known model with CAT_CAFE_MCP_SERVER_PATH enters clowder-ai#223 gate without default candidates',
     { concurrency: false },
     async () => {
       const mod = await import('../dist/domains/cats/services/agents/invocation/invoke-single-cat.js');
@@ -4096,7 +4096,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE, undefined);
   });
 
-  it('F189-P1: provider takes priority over parseOpenCodeModel for namespaced models', async () => {
+  it('clowder-ai#223-P1: provider takes priority over parseOpenCodeModel for namespaced models', async () => {
     // Regression (砚砚 review): defaultModel="z-ai/glm-4.7" + provider="openrouter"
     // parseOpenCodeModel parses "z-ai" as providerName, but the real provider is "openrouter".
     // provider must take priority when set — the "/" in the model is a namespace separator.
@@ -4180,7 +4180,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.ok(seenRuntimeConfig?.provider?.openrouter, 'runtime config provider must be openrouter, not z-ai');
   });
 
-  it('F189-P1-2: same-provider prefix in defaultModel + provider must NOT double-prefix', async () => {
+  it('clowder-ai#223-P1-2: same-provider prefix in defaultModel + provider must NOT double-prefix', async () => {
     // Regression (砚砚 review R2): defaultModel="openai/gpt-5.4" + provider="openai"
     // Must produce effectiveModel="openai/gpt-5.4", NOT "openai/openai/gpt-5.4".
     const { createProviderProfile } = await import('./helpers/create-test-account.js');
@@ -4262,7 +4262,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
-    // F340: Use well-known ID 'claude' so resolveForClient('anthropic') discovers it.
+    // clowder-ai#340: Use well-known ID 'claude' so resolveForClient('anthropic') discovers it.
     await createProviderProfile(root, {
       provider: 'anthropic',
       name: 'claude',

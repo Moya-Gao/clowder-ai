@@ -761,7 +761,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       );
     }
 
-    // F340: Protocol is fully derived from client/provider identity — account.protocol retired.
+    // clowder-ai#340: Protocol is fully derived from client/provider identity — account.protocol retired.
     // Non-opencode clients have a fixed protocol. OpenCode derives protocol from the
     // variant's model provider name or model string prefix, defaulting to anthropic.
     const protocolForProvider: Record<string, string> = {
@@ -878,7 +878,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const modelProviderName = catConfig?.provider?.trim() || undefined;
     const parsedOpenCodeModel =
       provider === 'opencode' && trimmedDefaultModel ? parseOpenCodeModel(trimmedDefaultModel) : null;
-    // F189 intake: determine effective provider + model.
+    // clowder-ai#223 intake: determine effective provider + model.
     // Three cases for defaultModel shape:
     //   1. Canonical "provider/model" where parsed provider === modelProviderName → use as-is
     //   2. Namespaced "ns/model" where parsed prefix ≠ modelProviderName → prefix with modelProviderName
@@ -926,7 +926,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         'Resolved OpenCode runtime inputs',
       );
     }
-    // fix(#280): explicit provider name means we must force the F189 path so the
+    // fix(#280): explicit provider name means we must force the clowder-ai#223 path so the
     // effective "provider/model" string is injected into opencode, even for builtin
     // providers. For legacy members without provider name, only synthesize runtime
     // config when the fully-qualified model is not already routable by `opencode models`.

@@ -755,13 +755,13 @@ export async function* routeSerial(
         // Line-start @mention = always actionable (no keyword gate)
         a2aMentions = parseA2AMentions(storedContent, catId);
 
-        // F479: baseline counter — line-start mentions
+        // clowder-ai#489: baseline counter — line-start mentions
         if (a2aMentions.length > 0) {
           lineStartDetected.add(a2aMentions.length, { 'agent.id': catId as string });
         }
 
         // #417 / F064 AC-B3: Write-side feedback for inline action-like @mentions
-        // F479: counters for detection, shadow, feedback, hint
+        // clowder-ai#489: counters for detection, shadow, feedback, hint
         if (deps.invocationDeps.threadStore) {
           const {
             strictHits: inlineHits,

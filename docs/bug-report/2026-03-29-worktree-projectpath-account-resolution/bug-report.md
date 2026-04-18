@@ -1,5 +1,6 @@
 ---
-feature_ids: [F136, F189]
+feature_ids: [F136]
+ext_refs: [clowder-ai#223]
 topics: [account-resolver, worktree, projectPath, invocation, opencode]
 doc_kind: bug-report
 created: 2026-03-29

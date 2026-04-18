@@ -14,7 +14,7 @@ import {
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
-// F340: installer now writes to accounts.json + credentials.json (global)
+// clowder-ai#340: installer now writes to accounts.json + credentials.json (global)
 function readInstallerState(projectRoot) {
   const catCafeDir = join(projectRoot, '.cat-cafe');
   const accountsFile = join(catCafeDir, 'accounts.json');
@@ -53,7 +53,7 @@ test('client-auth set creates a generic api key account for the selected client'
 
     assert.ok(account, 'installer-anthropic account should exist');
     assert.equal(account.authType, 'api_key');
-    // F340: protocol no longer persisted on new accounts — derived at runtime
+    // clowder-ai#340: protocol no longer persisted on new accounts — derived at runtime
     assert.equal(account.protocol, undefined, 'protocol should not be persisted');
     assert.equal(account.baseUrl, 'https://proxy.example.dev');
     assert.equal(credentials['installer-anthropic'].apiKey, 'generic-key');
@@ -198,7 +198,7 @@ test('claude-profile create and remove keeps installer-managed account in sync',
 
     assert.ok(installerManaged, 'installer-managed account should exist');
     assert.equal(installerManaged.authType, 'api_key');
-    // F340: protocol no longer persisted on new accounts — derived at runtime
+    // clowder-ai#340: protocol no longer persisted on new accounts — derived at runtime
     assert.equal(installerManaged.protocol, undefined, 'protocol should not be persisted');
     assert.equal(installerManaged.baseUrl, 'https://claude.example');
     assert.deepEqual(installerManaged.models, ['claude-model']);
@@ -383,12 +383,12 @@ test('claude-profile set migrates and preserves non-anthropic accounts from lega
     ]);
 
     const { accounts, credentials } = readInstallerState(projectRoot);
-    // Legacy openai-sponsor migrated (F340: protocol not migrated)
+    // Legacy openai-sponsor migrated (clowder-ai#340: protocol not migrated)
     assert.ok(accounts['openai-sponsor'], 'legacy openai-sponsor should be migrated');
     assert.equal(accounts['openai-sponsor'].protocol, undefined, 'protocol should not be migrated');
     assert.equal(accounts['openai-sponsor'].baseUrl, 'https://openai.example');
     assert.equal(credentials['openai-sponsor'].apiKey, 'openai-key');
-    // New installer-managed applied (F340: no protocol on new accounts)
+    // New installer-managed applied (clowder-ai#340: no protocol on new accounts)
     assert.equal(accounts['installer-managed'].protocol, undefined, 'new account should not have protocol');
     assert.equal(credentials['installer-managed'].apiKey, 'claude-key');
   } finally {

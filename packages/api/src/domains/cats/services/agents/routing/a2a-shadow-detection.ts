@@ -1,5 +1,5 @@
 /**
- * F479: Shadow detection for inline @mention observability.
+ * clowder-ai#489: Shadow detection for inline @mention observability.
  *
  * Split from a2a-mentions.ts for file-size compliance.
  * Provides relaxed detection to identify "vocab gap" candidates -
@@ -56,7 +56,7 @@ function hashContext(line: string): string {
 }
 
 /**
- * F479: Run strict detection + relaxed shadow detection in one pass.
+ * clowder-ai#489: Run strict detection + relaxed shadow detection in one pass.
  *
  * Shadow detection = "any inline @mention with relaxed action signal but not
  * caught by strict detection and not in routedSet". These are vocab gap

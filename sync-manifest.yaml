@@ -83,7 +83,7 @@ managed_scripts:
   # 安装向导
   - scripts/install.sh
   - scripts/setup.sh
-  # 跨平台启动入口（F172 — Windows/Unix 统一分发）
+  # 跨平台启动入口（clowder-ai#172 — Windows/Unix 统一分发）
   - scripts/start-entry.mjs
   # Windows 一键部署（F113 / clowder-ai#113）
   - scripts/install-auth-config.mjs

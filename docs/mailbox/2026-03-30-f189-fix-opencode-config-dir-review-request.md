@@ -1,4 +1,4 @@
-# Review Request: fix(F189): OPENCODE_CONFIG env var never read by opencode CLI
+# Review Request: fix(clowder-ai#223): OPENCODE_CONFIG env var never read by opencode CLI
 
 Review-Target-ID: f189-fix-opencode-config-dir
 Branch: (changes in working tree, will create branch at merge-gate)
@@ -78,11 +78,12 @@ how cat-cafe passes the config to the spawned process.
 ```
 opencode-config-template.test.js: 17 passed, 0 failed
 opencode-agent-service.test.js:   19 passed, 0 failed
-invoke-single-cat.test.js (F189): 7 passed, 0 failed
+invoke-single-cat.test.js (clowder-ai#223): 7 passed, 0 failed
 invoke-single-cat.test.js (full): 64 passed, 4 failed (pre-existing, unrelated)
 pnpm --filter @cat-cafe/api build: success
 ```
 
 ### 相关文档
-- Feature: F189
+- Feature: F127 (OpenCode provider/model routing)
+- Upstream: clowder-ai#223
 - 砚砚诊断：invocation handoff 层 bug，铲屎官配置正确

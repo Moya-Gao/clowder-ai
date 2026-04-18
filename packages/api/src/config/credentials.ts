@@ -1,5 +1,5 @@
 /**
- * F340 — Credential keychain
+ * clowder-ai#340 — Credential keychain
  *
  * Pure read/write layer for {projectRoot}/.cat-cafe/credentials.json.
  * Override: CAT_CAFE_GLOBAL_CONFIG_ROOT env → uses that root instead.

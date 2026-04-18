@@ -12,7 +12,7 @@ owner: 缅因猫-gpt5.4
 
 本轮处理社区 PR：
 
-- `clowder-ai#223` `feat(F189): ocProviderName + OpenCode custom provider config`
+- `clowder-ai#223` `feat(F189): ocProviderName + OpenCode custom provider config`（原文保留；`F189` 为伪锚点，实际映射 `clowder-ai#223`）
 
 upstream 已于 `2026-03-26T08:49:19Z` squash merge，merge commit 为 `24740ee8c3083b9e1e66abfff334f244d3fe82f7`。
 
@@ -62,7 +62,7 @@ upstream 已于 `2026-03-26T08:49:19Z` squash merge，merge commit 为 `24740ee8
 - `ClaudeAgentService` 的 `ANTHROPIC_AUTH_TOKEN` 兼容改动
 - `hub-cat-editor.sections.tsx` 里和本轮 intake 无关的 `autoSlug` / ComboField 结构变化
 
-以上项要么与 source truth 冲突，要么是独立问题，后续如有需要另立 intake / fix，不顺手混入这轮 F189 intake。
+以上项要么与 source truth 冲突，要么是独立问题，后续如有需要另立 intake / fix，不顺手混入这轮 clowder-ai#223 intake。
 
 ## Implementation Notes
 
@@ -90,6 +90,6 @@ upstream 已于 `2026-03-26T08:49:19Z` squash merge，merge commit 为 `24740ee8
 
 ## Tradeoff
 
-- 不把 `ocProviderName` 带回家，意味着 source / target 在 F189 上继续存在实现差异；但这是有意的 source-owned 差异，不是漏吸
+- 不把 `ocProviderName` 带回家，意味着 source / target 在 clowder-ai#223 上继续存在实现差异；但这是有意的 source-owned 差异，不是漏吸
 - 这轮吸收的是“custom provider runtime wiring”，不是“把 upstream 的表单契约原样复制”
 - 通过 manual-port 保住 source truth，可以避免再次引入双真相源和配置漂移

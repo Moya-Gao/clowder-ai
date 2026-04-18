@@ -22,7 +22,7 @@ export interface CatData {
   mentionPatterns: string[];
   breedId?: string;
   accountRef?: string;
-  /** F340 P5: CLI client identity (renamed from provider). */
+  /** clowder-ai#340 P5: CLI client identity (renamed from provider). */
   clientId: string;
   defaultModel: string;
   cli?: {
@@ -33,7 +33,7 @@ export interface CatData {
   };
   commandArgs?: string[];
   cliConfigArgs?: string[];
-  /** F340 P5: Model provider name (renamed from ocProviderName). */
+  /** clowder-ai#340 P5: Model provider name (renamed from ocProviderName). */
   provider?: string;
   contextBudget?: {
     maxPromptTokens: number;

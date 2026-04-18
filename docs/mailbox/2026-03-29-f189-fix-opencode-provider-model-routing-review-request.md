@@ -1,4 +1,4 @@
-# Review Request: fix(F189) restore provider/model single source of truth
+# Review Request: fix(clowder-ai#223) restore provider/model single source of truth
 
 Review-Target-ID: fix-opencode-provider-model-routing
 Branch: feat/fix-opencode-provider-model-routing
@@ -15,7 +15,7 @@ Branch: feat/fix-opencode-provider-model-routing
 
 ## Why
 
-F189 intake 文档（2026-03-26）明确禁止 `ocProviderName` 作为独立真相源，但当前代码全链路依赖它。铲屎官创建 MiniMax 成员时，`ocProviderName="anthropic"` 导致 builtin guard 跳过 custom config，opencode CLI 收到裸 `MiniMax-M2.7` 无法路由。
+F127 intake 决策（2026-03-26；Upstream: clowder-ai#223）明确禁止 `ocProviderName` 作为独立真相源，但当前代码全链路依赖它。铲屎官创建 MiniMax 成员时，`ocProviderName="anthropic"` 导致 builtin guard 跳过 custom config，opencode CLI 收到裸 `MiniMax-M2.7` 无法路由。
 
 ## Original Requirements
 

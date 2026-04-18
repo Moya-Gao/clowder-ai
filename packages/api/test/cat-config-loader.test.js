@@ -229,7 +229,7 @@ describe('cat-config-loader', () => {
       try {
         const config = loadCatConfig();
         const variant = config.breeds[0].variants[0];
-        // F340: catalog's provider='anthropic' is kept (matches clientId, but retained to
+        // clowder-ai#340: catalog's provider='anthropic' is kept (matches clientId, but retained to
         // prevent template's stale provider='openai' from leaking through the merge).
         assert.equal(variant.clientId, 'anthropic');
         assert.equal(variant.provider, 'anthropic', 'catalog provider must override template provider');

@@ -9,13 +9,13 @@ Branch: feat/opencode-mcp-injection
 
 1. **`opencode-config-template.ts`** — Added `mcpServerPath?: string` to `OpenCodeRuntimeConfigOptions`; `generateOpenCodeRuntimeConfig()` now injects `config.mcp = { 'cat-cafe': { command: 'node', args: [mcpServerPath] } }` when provided.
 
-2. **`invoke-single-cat.ts`** — Import `resolveDefaultClaudeMcpServerPath` from `ClaudeAgentService.js`; resolve `mcpServerPath` before the F189 gate; widen gate condition from `(hasExplicitOcProvider || !getOpenCodeKnownModels().has(effectiveModel))` to `(hasExplicitOcProvider || !getOpenCodeKnownModels().has(effectiveModel) || mcpServerPath)`.
+2. **`invoke-single-cat.ts`** — Import `resolveDefaultClaudeMcpServerPath` from `ClaudeAgentService.js`; resolve `mcpServerPath` before the clowder-ai#223 gate; widen gate condition from `(hasExplicitOcProvider || !getOpenCodeKnownModels().has(effectiveModel))` to `(hasExplicitOcProvider || !getOpenCodeKnownModels().has(effectiveModel) || mcpServerPath)`.
 
 3. **`opencode-config-template.test.js`** — 3 new tests: MCP injection when path provided, absence when not provided, disk persistence.
 
 ## Why
 
-OpenCode (@opencode) lacks Cat Cafe MCP tools in werewolf game sessions. Root cause: the F189 runtime config gate in `invoke-single-cat.ts` skips known models (`anthropic/claude-opus-4-6` IS in `opencode models` list), so no `OPENCODE_CONFIG` is generated, meaning no deterministic MCP injection. Game threads use virtual `projectPath='games/werewolf'` where project-level `opencode.json` is unreliable.
+OpenCode (@opencode) lacks Cat Cafe MCP tools in werewolf game sessions. Root cause: the clowder-ai#223 runtime config gate in `invoke-single-cat.ts` skips known models (`anthropic/claude-opus-4-6` IS in `opencode models` list), so no `OPENCODE_CONFIG` is generated, meaning no deterministic MCP injection. Game threads use virtual `projectPath='games/werewolf'` where project-level `opencode.json` is unreliable.
 
 Claude gets deterministic MCP via `--mcp-config`, Codex via `--config mcp_servers.*`. OpenCode now gets it via the runtime config's `mcp` section.
 
@@ -33,7 +33,7 @@ Claude gets deterministic MCP via `--mcp-config`, Codex via `--config mcp_server
 
 ## Open Questions
 
-1. The F189 gate is now entered for ALL known models when `mcpServerPath` exists. This means all OpenCode cats (not just game sessions) will get deterministic MCP. Is this acceptable? (I believe yes — project-level config already had MCP, this just makes it reliable.)
+1. The clowder-ai#223 gate is now entered for ALL known models when `mcpServerPath` exists. This means all OpenCode cats (not just game sessions) will get deterministic MCP. Is this acceptable? (I believe yes — project-level config already had MCP, this just makes it reliable.)
 2. `resolveDefaultClaudeMcpServerPath()` checks 3 candidate paths relative to cwd. Should OpenCode have its own resolver? (I believe no — same MCP server entry point for all agents.)
 
 ## Next Action
@@ -49,7 +49,7 @@ Please review the 3 files for correctness, security (MCP injection path validati
 
 ### Spec 合规
 - OpenCode MCP injection mirrors Claude's `--mcp-config` pattern and Codex's `--config mcp_servers.*` pattern
-- F189 gate condition widened minimally — only adds `|| mcpServerPath`
+- clowder-ai#223 gate condition widened minimally — only adds `|| mcpServerPath`
 - No type errors, no `as any`, no `@ts-ignore`
 
 ### 测试结果
@@ -59,5 +59,6 @@ Please review the 3 files for correctness, security (MCP injection path validati
 - `pnpm --filter @cat-cafe/api run build` — success
 
 ### 相关文档
-- Feature: F189 (OpenCode provider/model routing)
+- Feature: F127 (OpenCode provider/model routing)
+- Upstream: clowder-ai#223
 - No separate plan doc (targeted bugfix, 3 files)

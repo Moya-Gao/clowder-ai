@@ -30,7 +30,7 @@ Reviewed all 23 open bugs. 1 issue closed:
 
 | Issue | Title | Verdict | Reason |
 |-------|-------|---------|--------|
-| **#438** | **F340 regression: seed cats drift to installer-anthropic** | **closed** | **Fixed by `fix(anthropic): keep seed cats on builtin claude`** |
+| **#438** | **clowder-ai#340 regression: seed cats drift to installer-anthropic** | **closed** | **Fixed by `fix(anthropic): keep seed cats on builtin claude`** |
 | #441 | Community PR: remove runtime seed-cat accountRef suppression | keep open | Deeper refactor of same root cause; kept for intake evaluation |
 | #300 | Gemini 会话丢失 after restart | keep open | Gemini CLI exit code 42, not Redis TTL related |
 | #310 | 无法选取模型认证 | keep open | Cat editor UI auth dropdown, not resolver related |
@@ -41,7 +41,7 @@ Other open bugs (#440, #427, #386, #338, #263, #260, #236, #234, #200, #181, #16
 
 ## Actions Taken
 
-- Closed #438 (F340 regression: seed cats drift to installer-anthropic) — fixed by `fix(anthropic): keep seed cats on builtin claude`
+- Closed #438 (clowder-ai#340 regression: seed cats drift to installer-anthropic) — fixed by `fix(anthropic): keep seed cats on builtin claude`
 - Commented on #441 (community PR fixing same root cause with deeper refactor) — kept open for intake evaluation
 
 ## Deferred to Next Sync
