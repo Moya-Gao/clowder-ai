@@ -197,9 +197,9 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
 
     // Advance past RECONNECT_RECONCILE_DELAY_MS (2000ms)
     await act(async () => {
-      vi.advanceTimersByTime(2500);
-      // Let async apiFetch resolve
-      await vi.runAllTimersAsync();
+      // Bounded advance past RECONNECT_RECONCILE_DELAY_MS (2000ms).
+      // runAllTimersAsync would infinite-loop on the stale-watchdog setInterval.
+      await vi.advanceTimersByTimeAsync(2500);
     });
 
     // Server had no active invocations → stale state cleared → catch-up triggered
@@ -232,8 +232,7 @@ describe('useSocket reconnect catch-up (#276 intake)', () => {
     });
 
     await act(async () => {
-      vi.advanceTimersByTime(2500);
-      await vi.runAllTimersAsync();
+      await vi.advanceTimersByTimeAsync(2500);
     });
 
     // Server still active → re-hydrate, don't catch-up
