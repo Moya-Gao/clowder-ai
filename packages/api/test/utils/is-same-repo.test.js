@@ -7,6 +7,11 @@ import { after, before, describe, it } from 'node:test';
 
 import { initRepoIdentity, isSameRepo } from '../../dist/utils/is-same-repo.js';
 
+function configureTestRepo(repoPath) {
+  execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: repoPath });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: repoPath });
+}
+
 describe('isSameRepo', () => {
   let mainRepo;
   let worktreeDir;
@@ -16,6 +21,7 @@ describe('isSameRepo', () => {
     mainRepo = join(base, 'main');
     worktreeDir = join(base, 'wt');
     execFileSync('git', ['init', mainRepo]);
+    configureTestRepo(mainRepo);
     execFileSync('git', ['checkout', '-b', 'main'], { cwd: mainRepo });
     writeFileSync(join(mainRepo, 'README.md'), '# test');
     execFileSync('git', ['add', '.'], { cwd: mainRepo });
@@ -52,6 +58,7 @@ describe('isSameRepo', () => {
     const otherBase = mkdtempSync(join(tmpdir(), 'is-same-repo-other-'));
     const otherRepo = join(otherBase, 'other');
     execFileSync('git', ['init', otherRepo]);
+    configureTestRepo(otherRepo);
     writeFileSync(join(otherRepo, 'README.md'), '# other');
     execFileSync('git', ['add', '.'], { cwd: otherRepo });
     execFileSync('git', ['commit', '-m', 'init'], { cwd: otherRepo });
