@@ -331,73 +331,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 
 **可用模型列表（实测枚举）：**
 1. Gemini 3.1 Pro (High) ← 默认
-2. Gemini 3.1 Pro (Low) — 标记 "New"
-3. Gemini 3 Flash
-4. Claude Sonnet 4.6 (Thinking)
-5. Claude Opus 4.6 (Thinking)
-6. GPT-OSS 120B (Medium)
-
-**注意：实际可选模型远多于注册的 variant。** 与布偶猫只注册 opus-45/opus-46/sonnet（实际 Claude 可用模型更多）类似，cat-config.json 只注册需要的 variant 即可，无需穷举。
-
-**获取完整模型列表的 CDP 方法：**
-```javascript
-// 点击底部 model selector → 读取 dropdown 内容
-await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: selectorX, y: selectorY, ... });
-const models = await cdp('Runtime.evaluate', {
-  expression: `[...document.querySelectorAll('[class*="px-2"][class*="py-1"][class*="cursor-pointer"]')]
-    .filter(e => e.offsetParent !== null && e.offsetHeight < 40)
-    .map(e => e.textContent?.trim())`
-});
-```
-
-**聊天面板 UI 结构（CDP 操作参考）：**
-
-```
-Chat Header: [Title] [+新建] [🕐历史] [...更多] [X关闭]
-  - 更多菜单: Customization | MCP Servers | Export
-Chat Area: .overflow-y-auto → 对话 turns
-  - User turn: .whitespace-pre-wrap
-  - Assistant thinking: button "Thought for Xs"
-  - Assistant response: <p> elements
-Footer:
-  - 附件按钮区: [文件] [代码] [图片] [链接]
-  - 输入框: [role="textbox"][contenteditable="true"] (Lexical)
-  - 工具栏: [+] [Planning] [Model Selector] [🎙️] [Send→]
-```
-
-#### 跨项目派遣能力（F070 Portable Governance 适配）
-
-Antigravity **原生按 project/workspace 隔离对话**：Past Conversations 面板分组为 "Running in {project}" / "Recent in {project}" / "Other Conversations"。
-
-| F070 需求 | Antigravity 能力 | 满足度 |
-|-----------|-----------------|--------|
-| 项目级对话隔离 | Past Conversations 按 project 分组 | ✅ 原生 |
-| 在指定 project 开新对话 | `+` 按钮在当前 workspace 下新建 | ✅ |
-| 切换到外部项目 | 多窗口：`open -a Antigravity /path/to/project` | ✅ 新 CDP target |
-| 回到猫咖对话 | Past Conversations → "Recent in cat-cafe" | ✅ |
-| 任务态上下文注入 | 首条消息 execCommand 注入 AC/链接 | ✅ |
-| MCP 工具跨项目可用 | `~/.gemini/antigravity/mcp_config.json` 全局生效 | ✅ |
-
-**多窗口策略**：猫咖窗口保持开着，派遣到外部项目时 `open -a Antigravity /other/project` 开新窗口。CDP `/json` 返回所有窗口 target，按 `title` 区分项目。
-
-#### 冷启动 vs CLI 延迟对比
-
-| 阶段 | CLI spawn (DARE 等) | CDP 桥 (Antigravity) |
-|------|---------------------|---------------------|
-| 冷启动 | 2-10s（spawn + 加载） | ~0ms（IDE 已运行，WebSocket 持久） |
-| 消息注入 | stdin 即时 | execCommand 即时 |
-| 模型首 token | 取决于模型 API | 取决于模型 API |
-| 回复获取 | stdout NDJSON 实时 | DOM polling ~1-3s（可用 MutationObserver 降到 ~100ms） |
-| **多轮对话** | 保持进程 or 重新 spawn | **始终复用同一 WebSocket** |
-
-### 修正后的推荐策略
-
-~~双通道混合~~ → ~~CDP 桥~~ → **ConnectRPC Bridge**（2026-04-12 替换）
-
-- **Phase 1**: ~~CDP 桥接入~~ ✅ 已完成但被 Phase 1.5 替换
-- **Phase 1.5**: ConnectRPC Bridge — `POST /exa.language_server_pb.LanguageServerService/{Method}` + CSRF token + Bridge writeback
-- **Phase 1+**: MCP browser tools 组合 — 端口 62051 的 25 个浏览器工具同时可用
-- **Phase 2**: 图片生成回传 + 截图/录屏证据链
+2. Gemini 3.1 Pro (…39 tokens truncated…Phase 2**: 图片生成回传 + 截图/录屏证据链
 
 ### 各维度可行性判定（最终版）
 
@@ -534,6 +468,7 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 | 2026-04-16 | **Raw trace** — `ANTIGRAVITY_TRACE_RAW=1` env-gated 原始轨迹 dump + `summarizeStepShape()` step 结构快照 + `extract-step-catalog.mjs` 日志→catalog 提取脚本。揭示 TypeScript interface 未覆盖的上游字段（PR #1215, 砚砚 1P1→fix→放行 + 云端 0 P1/P2）|
 | 2026-04-16 | **Bug-8 诊断 + Phase 2c 立项** — opus-47（Opus 4.7 试用分身）接手 4.6/gpt-5.4 苦战一周的 "@antig-opus 卡死" 根因：`CORTEX_STEP_TYPE_RUN_COMMAND` 冻在 WAITING，Bridge 无原生工具执行器。铲屎官纠偏"你都是全工具为什么 你要限制其他猫猫"，订入 feedback_agent_tool_parity 记忆。Phase 2c "猫猫工具平权" 立项（R → D → I）|
 | 2026-04-17 | **Phase 2c v1 merged** — 原生工具执行器 `RunCommandExecutor` + Bridge writeback + kill switch + 审计日志。152/152 tests。砚砚 2 轮 review（4 P1→fix→放行）+ 云端 2 轮 0 P1/P2（PR #1230）|
+| 2026-04-18 | **Partial reply preservation** — in-place `plannerResponse.modifiedResponse` 增长改为 suffix delta 投递；terminal-first resume 先 seed fingerprints，terminal/no-inline-step resume 不再重复拉整条 trajectory（PR #1244, 砚砚 P1→fix→P2→fix→放行；本地 review 3 轮放行，云端环境异常下的 P1/P2 均已修复）|
 
 ---
 
@@ -668,7 +603,7 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 
 **现象**：孟加拉猫抓回来的内容有重复，包含 thinking 文本和 CSS 垃圾。
 
-**根因**：`POLL_RESPONSE_JS` 只认 `<details>` / `[class*="thinking"]`，但 Antigravity 用 `<button>Thought for 16s</button>` + `<div class="max-h-0 opacity-0">` 折叠容器。`extractBlockText` 直接取 `textContent` 不过滤隐藏元素。
+**根因**：`POLL_RESPONSE_JS` 只认 `<details>` / `[class*=\"thinking\"]`，但 Antigravity 用 `<button>Thought for 16s</button>` + `<div class=\"max-h-0 opacity-0\">` 折叠容器。`extractBlockText` 直接取 `textContent` 不过滤隐藏元素。
 
 **修复** (PR #330, `e7e00b37`):
 - 扩展 thinking 检测：匹配 "Thought for Xs" 按钮 + 遍历折叠 sibling 容器
