@@ -227,9 +227,9 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 **约束**：Phase D 总代码量 ≤ 50 行核心逻辑。超过说明方向又偏了。
 
 ### Phase D AC
-- [ ] AC-D1: `pathToAuthority()` 纯函数存在，从路径/frontmatter 派生 authority，有单元测试
-- [ ] AC-D2: 索引 rebuild 后 evidence_docs.authority 不再全部为 `observed`（至少 3 个不同 level）
-- [ ] AC-D3: `evidence.ts` 的 confidence 从 authority 派生，不再硬编码 `'mid'`
+- [x] AC-D1: `pathToAuthority()` 纯函数存在，从路径/frontmatter 派生 authority，有单元测试
+- [x] AC-D2: 索引 rebuild 后 evidence_docs.authority 不再全部为 `observed`（至少 3 个不同 level）
+- [x] AC-D3: `evidence.ts` 的 confidence 从 authority 派生，不再硬编码 `'mid'`
 - [ ] AC-D4: `F163_AUTHORITY_BOOST=on` 后，搜索 P0 铁律相关 query 时 lessons-learned 排在前 3
 
 ## Dependencies
@@ -289,6 +289,7 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | 2026-04-17 | Phase C frontend merged (PR #1229) — Health tab in Memory Hub (donut chart + bar charts + action items), 2 rounds codex review |
 | 2026-04-18 | Shadow 数据诊断：448 次搜索全空转（authority 100% observed, confidence 硬编码 mid）。Round 4 反思 → LL-051 |
 | 2026-04-18 | Phase D 立项：authority backfill + confidence 派生（"装弹"）|
+| 2026-04-18 | Phase D merged (PR #1256) — pathToAuthority + confidence derivation, 21 行核心逻辑, codex review (云端降级本地放行) |
 
 ## Review Gate
 
