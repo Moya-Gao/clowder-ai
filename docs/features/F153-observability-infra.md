@@ -54,12 +54,23 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 4. **主链路接入** — `route-serial` 在 feedback 持久化、hint 发射、routedSet overlap 处补 metrics
 5. **18 个回归测试** — narrative 过滤、same-line dual mention、routedSet skip、strict/shadow coexistence
 
-### Phase D: 后续增强
+### Phase D: Runtime 调试 exporter + 启动语义对齐（社区 PR intake）
+
+从 clowder-ai#512 intake 以下模块：
+
+1. **`TELEMETRY_DEBUG` 调试通道** — 用 `ConsoleSpanExporter` 输出 UNREDACTED spans，供本地维护者排查 tracing
+2. **default-deny guardrail** — 仅 `NODE_ENV=development|test` 默认允许；其他/未设置环境必须显式 `TELEMETRY_DEBUG_FORCE=true`
+3. **Hub 锁定** — `TELEMETRY_DEBUG` / `TELEMETRY_DEBUG_FORCE` 不出现在 Hub，不允许 runtime 编辑
+4. **启动链语义对齐** — Unix / Windows API 子进程显式注入 `NODE_ENV`，让 guardrail 和真实启动模式一致
+5. **guardrail 回归测试** — `telemetry-debug.test.js` 覆盖 env 组合 + exporter ordering
+6. **启动链回归测试** — `start-dev-profile-isolation.test.mjs` / `start-dev-script.test.js` 覆盖 Unix / Windows 的 `NODE_ENV` 注入
+
+### Phase E: 后续增强
 
 - Grafana 统一看板
 - burn-rate 告警规则
 - MCP call spans + tool execution duration spans（真实执行边界）
-- Runtime exporter 级 tracing tests（in-memory exporter 验证父子关系）
+- 更广的 runtime exporter 级 tracing tests（in-memory exporter 验证父子关系）
 
 ## Acceptance Criteria
 
@@ -90,6 +101,14 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 - [x] AC-C4: feedback 写入失败 / hint 发射失败从 silent catch 变为可观测 counter
 - [x] AC-C5: shadow miss metadata 只含 hash + length，不含 raw text
 - [x] AC-C6: regressions 覆盖 strict/shadow 同猫跨行、same-line dual mention、code block / blockquote 排除
+
+### Phase D（Runtime 调试 exporter + 启动语义对齐）✅
+- [x] AC-D1: `TELEMETRY_DEBUG` 通过 `ConsoleSpanExporter` 输出 spans，且 regular OTLP pipeline 仍保持 redaction
+- [x] AC-D2: `shouldEnableDebugMode()` 采用 default-deny guardrail；`NODE_ENV` 未设置时默认阻止
+- [x] AC-D3: `TELEMETRY_DEBUG` / `TELEMETRY_DEBUG_FORCE` 在 Hub 中隐藏且不可 runtime 编辑
+- [x] AC-D4: Unix `start-dev.sh` 按 API 启动模式注入 `NODE_ENV`
+- [x] AC-D5: Windows `start-windows.ps1` 通过 API Start-Job 注入同样的 `NODE_ENV` 语义
+- [x] AC-D6: `telemetry-debug.test.js` + `start-dev-profile-isolation.test.mjs` + `start-dev-script.test.js` 覆盖 guardrail 与启动链回归
 
 ## Dependencies
 
@@ -124,6 +143,7 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 | KD-6 | Phase B review: tool_use 改 addEvent + redactor-safe keys | 布偶猫+缅因猫双猫 review 发现零时长 span 反模式 + 脱敏穿透 | 2026-04-12 |
 | KD-7 | Phase B 2 轮 review 后放行 intake | P1（脱敏）+ P2（tool_use + scope）全部修完 | 2026-04-12 |
 | KD-8 | clowder-ai#489 双猫重审后放行 merge + absorb | strict/shadow/narrative 三级模型成立；剩余架构偏好降为 non-blocking | 2026-04-15 |
+| KD-9 | `TELEMETRY_DEBUG` 走 default-deny + 启动链显式注入 `NODE_ENV` | 只在真实 dev/test 语义下开放 raw exporter，避免 runtime/profile 脱钩 | 2026-04-18 |
 
 ## Timeline
 
@@ -138,6 +158,7 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 | 2026-04-12 | Phase B: R2 全部修完 → approve → merge → intake (PR #1128)，28/28 tests pass |
 | 2026-04-15 | Phase C: clowder-ai#489 / clowder-ai#479 经双猫重审后放行 merge；maintainer 结论从 hold 改为 approve |
 | 2026-04-15 | Phase C intake 启动：cat-cafe#1200 建立逐文件 Intake Intent Issue，吸收 inline @mention observability 5 个文件 |
+| 2026-04-18 | Phase D: clowder-ai#512 merged。slice 包含 TELEMETRY_DEBUG raw exporter、Hub 锁定、startup `NODE_ENV` 注入，以及对应回归测试 |
 
 ## Links
 
@@ -147,5 +168,6 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 | **Issue** | `zts212653/clowder-ai#388` | 对应 issue |
 | **PR** | `zts212653/clowder-ai#489` | Phase C 社区 PR（inline @mention observability） |
 | **Issue** | `zts212653/clowder-ai#479` | Phase C 对应 issue |
+| **PR** | `zts212653/clowder-ai#512` | Phase D 社区 PR（TELEMETRY_DEBUG + startup semantics） |
 | **Issue** | `zts212653/cat-cafe#1200` | Intake Intent Issue（逐文件 absorb spec） |
 | **Feature** | `docs/features/F130-api-log-governance.md` | 日志治理（logging 层） |
