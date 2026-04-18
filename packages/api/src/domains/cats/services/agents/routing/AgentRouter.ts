@@ -168,9 +168,9 @@ export interface AgentRouterOptions {
   evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
   /** F150: Tool usage counter */
   toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
-  /** F157: Growth XP service */
+  /** F160: Growth XP service */
   growthService?: import('../../growth/GrowthService.js').GrowthService;
-  /** F157 Phase C: Activity event bus — replaces direct awardXp calls */
+  /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
   activityBus?: import('../../../../activity/ActivityEventBus.js').ActivityEventBus;
   /** F155 B-4: Independent guide session store */
   guideSessionStore?: import('../../../../guides/GuideSessionRepository.js').IGuideSessionStore;
@@ -218,9 +218,9 @@ export class AgentRouter {
   private evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
   /** F150 */
   private toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
-  /** F157 */
+  /** F160 */
   private growthService?: import('../../growth/GrowthService.js').GrowthService;
-  /** F157 Phase C */
+  /** F160 Phase C */
   private activityBus?: import('../../../../activity/ActivityEventBus.js').ActivityEventBus;
   /** F155 B-4 */
   private guideSessionStore?: import('../../../../guides/GuideSessionRepository.js').IGuideSessionStore;
@@ -803,7 +803,7 @@ export class AgentRouter {
       persistenceContext?: PersistenceContext;
       /** F108: parentInvocationId for WorklistRegistry concurrent isolation */
       parentInvocationId?: string;
-      /** F157 Phase B: invocation purpose from queue entry */
+      /** F160 Phase B: invocation purpose from queue entry */
       a2aPurpose?: import('@cat-cafe/shared').InvocationPurpose;
     },
   ): AsyncIterable<AgentMessage> {

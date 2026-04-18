@@ -25,7 +25,7 @@ import type { IInvocationRecordStore } from '../domains/cats/services/stores/por
 import type { StoredMessage } from '../domains/cats/services/stores/ports/MessageStore.js';
 
 /**
- * F157 Phase B: Detect review intent from A2A trigger message content.
+ * F160 Phase B: Detect review intent from A2A trigger message content.
  * Matches keywords from request-review skill triggers + common review patterns.
  */
 const REVIEW_PATTERNS =

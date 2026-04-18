@@ -93,9 +93,9 @@ export interface CallbackRoutesOptions {
   limbRegistry?: import('../domains/limb/LimbRegistry.js').LimbRegistry;
   /** F126 Phase C: Limb pairing store for remote device approval */
   limbPairingStore?: import('../domains/limb/LimbPairingStore.js').LimbPairingStore;
-  /** F157: Growth XP service — awards discussion XP on cat messages */
+  /** F160: Growth XP service — awards discussion XP on cat messages */
   growthService?: import('../domains/cats/services/growth/GrowthService.js').GrowthService;
-  /** F157 Phase C: Activity event bus — replaces direct awardXp calls */
+  /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
   activityBus?: import('../domains/activity/ActivityEventBus.js').ActivityEventBus;
   /** F088: Outbound delivery hook for connector-bound threads (late-bound after gateway bootstrap). */
   outboundHook?: {
@@ -522,7 +522,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       ...(willEnqueueToQueue ? { deliveryStatus: 'queued' as const } : {}),
     });
 
-    // F157 Phase C: Record message_sent via activity bus (JourneyProjector handles co-creator)
+    // F160 Phase C: Record message_sent via activity bus (JourneyProjector handles co-creator)
     // Phase E (AC-E5): Enrich with intent for ideate distinction
     let messageSentMeta: Record<string, unknown> = {};
     if (record.parentInvocationId && invocationRecordStore) {
@@ -1154,7 +1154,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // Buffer the block — consumed at append time in route-serial/route-parallel
     const isNew = getRichBlockBuffer().add(record.threadId, record.catId as string, resolvedBlock, invocationId);
 
-    // F157 Phase C: Record rich block creation via activity bus (fire-and-forget, only for new blocks)
+    // F160 Phase C: Record rich block creation via activity bus (fire-and-forget, only for new blocks)
     if (isNew) activityBus?.record('rich_block_created', record.catId);
 
     // Only broadcast new blocks (dedup retries at server to prevent frontend duplicates)

@@ -1,13 +1,13 @@
-# ADR-023: F157 Journey — Naming Pivot + Activity Event Spine
+# ADR-023: F160 Journey — Naming Pivot + Activity Event Spine
 
 **Status:** Implemented (Phase A-E)  
 **Date:** 2026-04-15 (updated 2026-04-16)  
 **Authors:** opus (布偶猫), gpt52 (缅因猫), gemini (暹罗猫), sonnet (布偶猫)  
-**Supersedes:** Original F157 "Cat Growth RPG" naming
+**Supersedes:** Original F160 "Cat Growth RPG" naming
 
 ## Context
 
-F157 Phase A-C implemented a six-dimensional profiling system with XP, levels,
+F160 Phase A-C implemented a six-dimensional profiling system with XP, levels,
 achievements, and radar charts. External review (Issue #480) correctly identified
 that calling this "Growth" oversteps what the system actually does — it visualizes
 collaborative activity, not agent capability emergence.
@@ -220,7 +220,7 @@ paths in `GrowthService.getProfile()` and `LeadershipService`.
 3. *(Future)* F127 registry evolves to support a `participant` type that includes
    both cats and co-creator, eliminating special-case paths
 
-This is a **registry evolution** question, not a F157 question. F157 consumes
+This is a **registry evolution** question, not a F160 question. F160 consumes
 whatever identity model exists; it doesn't define one.
 
 ### Memory promotion rules (F102 integration boundary)

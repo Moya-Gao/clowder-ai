@@ -1,5 +1,5 @@
 /**
- * Redis key patterns for cat growth XP counters — F157.
+ * Redis key patterns for cat growth XP counters — F160.
  * Key: growth:{catId}:{dimension}  → total XP (INCRBY, no TTL — lifetime stat)
  * Key: growth:audit:{catId}        → sorted set of XP events (score = timestamp)
  */

@@ -227,7 +227,7 @@ export type {
   TriageIntentCardInput,
   TriageResult,
 } from './intent-card.js';
-// Journey types (F157 Cat Journey 猫猫足迹 — renamed from Growth RPG, ADR-023)
+// Journey types (F160 Cat Journey 猫猫足迹 — renamed from Growth RPG, ADR-023)
 export type {
   // Backward-compat aliases (deprecated)
   AchievementCategory,

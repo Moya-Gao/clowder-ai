@@ -1,5 +1,5 @@
 /**
- * F157 Phase D (AC-D4) — Leadership title definitions
+ * F160 Phase D (AC-D4) — Leadership title definitions
  *
  * Title path for the co-creator (铲屎官):
  *   初心铲屎官 → 协调新手 → 授权达人 → 开拓先锋 → 团队指挥官 → 猫猫军师

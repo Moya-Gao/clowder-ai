@@ -1053,7 +1053,7 @@ async function main(): Promise<void> {
     dailyTimer.unref();
   }
 
-  // F157: Cat Journey RPG — XP attributes + profiles (created early for AgentRouter injection)
+  // F160: Cat Journey RPG — XP attributes + profiles (created early for AgentRouter injection)
   const growthService = redis
     ? new (await import('./domains/cats/services/growth/GrowthService.js')).GrowthService(redis)
     : undefined;
@@ -1077,7 +1077,7 @@ async function main(): Promise<void> {
     new LeadershipProjector(activityBus, leadershipService);
   }
 
-  // F157 → F102: Promote high-value activity events to memory (ADR-023 MemoryProjector)
+  // F160 → F102: Promote high-value activity events to memory (ADR-023 MemoryProjector)
   if (memoryServices.evidenceStore) {
     const { MemoryProjector } = await import('./domains/activity/MemoryProjector.js');
     new MemoryProjector(activityBus, memoryServices.evidenceStore);
@@ -1247,12 +1247,12 @@ async function main(): Promise<void> {
     await app.register(leadershipRoutes, { leadershipService });
   }
   if (growthService) {
-    // F157 Phase E (AC-E1): Evolution event service — records milestone narrative events
+    // F160 Phase E (AC-E1): Evolution event service — records milestone narrative events
     const { EvolutionService } = await import('./domains/cats/services/growth/EvolutionService.js');
     const evolutionSvc = new EvolutionService(redis!);
     growthService.evolutionService = evolutionSvc;
     await app.register(journeyRoutes, { growthService, evolutionService: evolutionSvc });
-    // F157 Phase C: Achievement system — wire up bidirectional reference
+    // F160 Phase C: Achievement system — wire up bidirectional reference
     const { AchievementService } = await import('./domains/cats/services/growth/AchievementService.js');
     const achievementSvc = new AchievementService(redis!, growthService);
     growthService.achievementService = achievementSvc;
@@ -1277,7 +1277,7 @@ async function main(): Promise<void> {
     await app.register((await import('./routes/achievements.js')).achievementRoutes, {
       achievementService: achievementSvc,
     });
-    // F157 AC-E3: Monthly review template — requires both growth + evolution services
+    // F160 AC-E3: Monthly review template — requires both growth + evolution services
     const { MonthlyReviewService } = await import('./domains/cats/services/growth/MonthlyReviewService.js');
     const { createMonthlyReviewTemplate } = await import('./infrastructure/scheduler/templates/monthly-review.js');
     const reviewSvc = new MonthlyReviewService(growthService, evolutionSvc);

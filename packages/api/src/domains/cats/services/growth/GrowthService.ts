@@ -1,5 +1,5 @@
 /**
- * F157 Cat Journey RPG — Journey Service
+ * F160 Cat Journey RPG — Journey Service
  * Reads/writes XP counters in Redis, computes attributes and profiles.
  *
  * XP is stored as simple Redis integers: growth:{catId}:{dimension} → total XP.

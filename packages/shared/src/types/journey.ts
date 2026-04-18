@@ -1,5 +1,5 @@
 /**
- * F157 Cat Journey (猫猫足迹) — shared types
+ * F160 Cat Journey (猫猫足迹) — shared types
  * Activity footprint visualization: trait portrait + footfall + moments
  *
  * Naming pivot (ADR-023): "Growth" → "Journey"

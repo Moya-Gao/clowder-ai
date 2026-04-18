@@ -31,7 +31,7 @@ export interface InvocationsRoutesOptions {
   uploadDir?: string;
   /** F39: Queue processor for auto-dequeue on retry complete */
   queueProcessor?: QueueProcessor;
-  /** F157 Phase E: Activity bus for error recovery XP (AC-E6) */
+  /** F160 Phase E: Activity bus for error recovery XP (AC-E6) */
   activityBus?: import('../domains/activity/ActivityEventBus.js').ActivityEventBus;
 }
 

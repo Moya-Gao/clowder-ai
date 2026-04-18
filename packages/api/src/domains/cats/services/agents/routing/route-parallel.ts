@@ -516,7 +516,7 @@ export async function* routeParallel(
           effectiveMsg.toolName ?? 'unknown',
           toolInput,
         );
-        // F157 Phase C: Record tool usage via activity bus
+        // F160 Phase C: Record tool usage via activity bus
         const toolName = effectiveMsg.toolName ?? 'unknown';
         const { category } = classifyTool(toolName, toolInput);
         deps.activityBus?.record('tool_used', effectiveMsg.catId as string, { toolName, category });
@@ -760,7 +760,7 @@ export async function* routeParallel(
               ...(ownInvId ? { stream: { invocationId: ownInvId } } : {}),
             },
           });
-          // F157 Phase C: Record message_sent via activity bus (fire-and-forget)
+          // F160 Phase C: Record message_sent via activity bus (fire-and-forget)
           deps.activityBus?.record('message_sent', msg.catId as string);
           // F088-P3: Stash rich blocks for outbound delivery
           if (options.persistenceContext && allRichBlocks.length > 0) {

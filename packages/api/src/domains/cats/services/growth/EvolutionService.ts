@@ -1,5 +1,5 @@
 /**
- * F157 Phase E — Evolution Event Service (AC-E1)
+ * F160 Phase E — Evolution Event Service (AC-E1)
  *
  * Records narrative milestone events for the growth timeline:
  *   - Level-up (dimension or overall)

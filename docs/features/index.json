@@ -974,12 +974,6 @@
     },
     {
       "id": "F157",
-      "name": "Cat Journey (猫猫足迹) — Activity Footprint Visualization",
-      "status": "Phase A-C complete, Phase D 6/7, Phase E 3/7 | **Owner**: Ragdoll | **Priority**: P1",
-      "file": "F157-cat-growth-rpg.md"
-    },
-    {
-      "id": "F157",
       "name": "Feishu Receipt Ack — 猫猫即时接住替代\"思考中→撤回\"",
       "status": "done | **Completed**: 2026-04-10 | **Owner**: Ragdoll | **Priority**: P1",
       "file": "F157-feishu-receipt-ack.md"
@@ -995,7 +989,13 @@
       "name": "CatAgent Native Provider — Opt-in API Path",
       "status": "spec | **Owner**: 社区 (bouillipx) + Ragdoll + Maine Coon | **Priority**: P1",
       "file": "F159-catagent-native-provider.md"
+    },
+    {
+      "id": "F160",
+      "name": "Cat Journey (猫猫足迹) — Activity Footprint Visualization",
+      "status": "Phase A-C complete, Phase D 6/7, Phase E 3/7 | **Owner**: Ragdoll | **Priority**: P1",
+      "file": "F160-cat-journey.md"
     }
   ],
-  "generated_at": "2026-04-16T14:39:52.649Z"
+  "generated_at": "2026-04-18T00:54:19.136Z"
 }

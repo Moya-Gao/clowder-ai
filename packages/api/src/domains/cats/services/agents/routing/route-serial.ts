@@ -572,7 +572,7 @@ export async function* routeSerial(
             );
           }
 
-          // F157 Phase C: Record tool usage via activity bus
+          // F160 Phase C: Record tool usage via activity bus
           if (effectiveMsg.type === 'tool_use' && effectiveMsg.catId) {
             const toolInput = effectiveMsg.toolInput as Record<string, unknown> | undefined;
             const toolName = effectiveMsg.toolName ?? 'unknown';
@@ -922,7 +922,7 @@ export async function* routeSerial(
             },
           });
           storedMsgId = storedMsg.id;
-          // F157 Phase C: Record activity based on invocation purpose
+          // F160 Phase C: Record activity based on invocation purpose
           // Chain: worklist purpose (legacy F27) → content detection (A2A direct) → queue purpose (F122B queue)
           {
             const purpose =
@@ -1035,7 +1035,7 @@ export async function* routeSerial(
             worklistEntry.a2aFrom.set(nextCat, catId);
             // F121: response-text path — set trigger message for auto-replyTo
             if (storedMsgId) worklistEntry.a2aTriggerMessageId.set(nextCat, storedMsgId);
-            // F157 ADR-023: A2A bond via event bus — JourneyProjector is sole bond recorder
+            // F160 ADR-023: A2A bond via event bus — JourneyProjector is sole bond recorder
             deps.activityBus?.record('a2a_handoff_completed', catId as string, { participants: [catId, nextCat] });
           }
         }

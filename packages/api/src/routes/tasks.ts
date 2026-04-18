@@ -19,9 +19,9 @@ import type { SocketManager } from '../infrastructure/websocket/index.js';
 export interface TasksRoutesOptions {
   taskStore: ITaskStore;
   socketManager: SocketManager;
-  /** F157: Optional growth service for XP awards on task completion */
+  /** F160: Optional growth service for XP awards on task completion */
   growthService?: GrowthService;
-  /** F157 Phase C: Activity event bus — replaces direct awardXp calls */
+  /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
   activityBus?: import('../domains/activity/ActivityEventBus.js').ActivityEventBus;
 }
 
@@ -124,7 +124,7 @@ export const tasksRoutes: FastifyPluginAsync<TasksRoutesOptions> = async (app, o
       return { error: 'Invalid request body', details: result.error.issues };
     }
 
-    // F157: Read old status before update to detect actual state transition
+    // F160: Read old status before update to detect actual state transition
     const oldTask = result.data.status === 'done' ? await taskStore.get(id) : undefined;
 
     const updated = await taskStore.update(id, toUpdateInput(result.data));
@@ -135,7 +135,7 @@ export const tasksRoutes: FastifyPluginAsync<TasksRoutesOptions> = async (app, o
 
     socketManager.broadcastToRoom(`thread:${updated.threadId}`, 'task_updated', updated);
 
-    // F157: Award XP only on actual transition to 'done' (idempotent)
+    // F160: Award XP only on actual transition to 'done' (idempotent)
     if (result.data.status === 'done' && oldTask && oldTask.status !== 'done' && updated.ownerCatId) {
       activityBus?.record('task_completed', updated.ownerCatId);
     }

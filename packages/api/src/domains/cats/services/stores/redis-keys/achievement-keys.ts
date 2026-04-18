@@ -1,5 +1,5 @@
 /**
- * Redis key patterns for achievement system — F157 Phase C.
+ * Redis key patterns for achievement system — F160 Phase C.
  * Key: achievement:unlocked:{memberId} → sorted set (score = timestamp, member = JSON)
  * Key: achievement:counters:{memberId} → hash of event counters (tasks, reviews, sessions)
  */

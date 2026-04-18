@@ -1,5 +1,5 @@
 /**
- * F157 Phase B — Title definitions registry
+ * F160 Phase B — Title definitions registry
  *
  * Static list of all titles that can be unlocked via growth attributes.
  * Conditions use AND logic — all must be met for unlock.

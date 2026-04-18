@@ -71,9 +71,9 @@ export interface MultiMentionRouteDeps {
     ): void;
     unregisterEntryCompleteHook?(entryId: string): void;
   };
-  /** F157: Growth XP service — awards mention_collab XP */
+  /** F160: Growth XP service — awards mention_collab XP */
   growthService?: import('../domains/cats/services/growth/GrowthService.js').GrowthService;
-  /** F157 Phase C: Activity event bus — replaces direct awardXp calls */
+  /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
   activityBus?: import('../domains/activity/ActivityEventBus.js').ActivityEventBus;
 }
 
@@ -161,7 +161,7 @@ function dispatchViaQueue(
           status === 'failed'
             ? orch.recordFailure(requestId, catId, finalResponse)
             : orch.recordResponse(requestId, catId, finalResponse);
-        // F157 Phase C: Record multi-mention completion via activity bus (JourneyProjector handles bond + co-creator)
+        // F160 Phase C: Record multi-mention completion via activity bus (JourneyProjector handles bond + co-creator)
         // Only record for actual successes — failed dispatches should not earn collab XP or bond
         if (status !== 'failed') {
           deps.activityBus?.record('multi_mention_completed', catId, { participants: [initiator, catId] });
@@ -314,7 +314,7 @@ async function dispatchToTarget(
 
     // Record response in orchestrator
     const newStatus = orch.recordResponse(requestId, targetCatId, finalResponse);
-    // F157 Phase C: Record multi-mention completion via activity bus (JourneyProjector handles bond + co-creator)
+    // F160 Phase C: Record multi-mention completion via activity bus (JourneyProjector handles bond + co-creator)
     deps.activityBus?.record('multi_mention_completed', targetCatId, { participants: [initiator, targetCatId] });
     log.info(
       { requestId, targetCatId, newStatus, responseLength: finalResponse.length, toolsUsed: toolsUsed.length },
@@ -432,7 +432,7 @@ async function flushResult(
     },
   });
 
-  // F157 Phase C: deep_collab bonus — award all successful responders when 3+ cats participated
+  // F160 Phase C: deep_collab bonus — award all successful responders when 3+ cats participated
   // JourneyProjector handles co-creator awards automatically for collab events
   const successfulCats = result.responses.filter((r) => r.status === 'received');
   if (successfulCats.length >= 3 && deps.activityBus) {

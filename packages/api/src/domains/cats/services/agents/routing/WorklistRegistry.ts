@@ -46,7 +46,7 @@ export interface WorklistEntry {
    */
   a2aTriggerMessageId: Map<CatId, string>;
   /**
-   * F157 Phase B: Invocation purpose tag per target cat.
+   * F160 Phase B: Invocation purpose tag per target cat.
    * Enables dimension-aware XP routing (e.g. 'review' → review_given instead of discussion).
    */
   a2aPurpose: Map<CatId, InvocationPurpose>;

@@ -52,9 +52,9 @@ export interface RouteStrategyDeps {
   evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
   /** F150: Tool usage counter (fire-and-forget INCR on tool_use events) */
   toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
-  /** F157: Growth XP service (fire-and-forget INCRBY on XP-worthy events) */
+  /** F160: Growth XP service (fire-and-forget INCRBY on XP-worthy events) */
   growthService?: import('../../growth/GrowthService.js').GrowthService;
-  /** F157 Phase C: Activity event bus — replaces direct awardXp calls */
+  /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
   activityBus?: import('../../../../activity/ActivityEventBus.js').ActivityEventBus;
 }
 
@@ -102,7 +102,7 @@ export interface RouteOptions {
   /** F108: Unique invocation ID for WorklistRegistry isolation in concurrent execution.
    *  When provided, worklist is keyed by this ID instead of threadId. */
   parentInvocationId?: string | undefined;
-  /** F157 Phase B: invocation purpose from queue entry (review vs discussion).
+  /** F160 Phase B: invocation purpose from queue entry (review vs discussion).
    *  Used by route-serial when worklist a2aPurpose and directMessageFrom are both absent. */
   a2aPurpose?: InvocationPurpose | undefined;
 }

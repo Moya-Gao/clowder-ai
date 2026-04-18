@@ -11,9 +11,9 @@ interface CallbackMemoryRoutesDeps {
   evidenceStore: IEvidenceStore;
   markerQueue: IMarkerQueue;
   reflectionService: IReflectionService;
-  /** F157: Growth XP service — awards insight XP on evidence usage */
+  /** F160: Growth XP service — awards insight XP on evidence usage */
   growthService?: import('../domains/cats/services/growth/GrowthService.js').GrowthService;
-  /** F157 Phase C: Activity event bus — replaces direct awardXp calls */
+  /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
   activityBus?: import('../domains/activity/ActivityEventBus.js').ActivityEventBus;
 }
 
@@ -62,7 +62,7 @@ export async function registerCallbackMemoryRoutes(
           | 'phase'
           | 'discussion',
       }));
-      // F157: Award insight XP for evidence search (fire-and-forget)
+      // F160: Award insight XP for evidence search (fire-and-forget)
       if (results.length > 0) deps.activityBus?.record('evidence_cited', record.catId);
       return { results, degraded: false };
     } catch {
@@ -85,7 +85,7 @@ export async function registerCallbackMemoryRoutes(
 
     try {
       const reflection = await deps.reflectionService.reflect(query);
-      // F157: Award insight XP for evidence-based reflection (fire-and-forget)
+      // F160: Award insight XP for evidence-based reflection (fire-and-forget)
       deps.activityBus?.record('evidence_cited', record.catId);
       return { reflection, degraded: false, dispositionMode: 'off' as const };
     } catch {

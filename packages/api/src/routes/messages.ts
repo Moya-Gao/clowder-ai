@@ -112,7 +112,7 @@ export interface MessagesRoutesOptions {
   outboundHook?: OutboundDeliveryHookLike;
   /** F088 ISSUE-15: Streaming hook for connector platforms (late-bound after gateway bootstrap) */
   streamingHook?: StreamingHookLike;
-  /** F157 Phase E: Activity bus for fast execution bonus (AC-E7) */
+  /** F160 Phase E: Activity bus for fast execution bonus (AC-E7) */
   activityBus?: import('../domains/activity/ActivityEventBus.js').ActivityEventBus;
 }
 

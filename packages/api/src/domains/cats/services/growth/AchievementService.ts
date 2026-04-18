@@ -1,5 +1,5 @@
 /**
- * F157 Phase C — Achievement Service
+ * F160 Phase C — Achievement Service
  *
  * Checks achievement conditions against current state and unlocks achievements.
  * Integrates with GrowthService for attribute/title/bond data and Redis counters
