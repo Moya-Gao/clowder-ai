@@ -60,15 +60,6 @@
         ]
       },
       {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/f24-guard-post-compact.sh"
-          }
-        ]
-      },
-      {
         "matcher": "Bash|Edit|Write|Grep|Glob|Read|Agent|NotebookEdit|LSP|WebFetch|WebSearch",
         "hooks": [
           {
