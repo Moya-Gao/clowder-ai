@@ -581,6 +581,40 @@ describe('AntigravityAgentService (Bridge)', () => {
     assert.deepEqual(diag.lastBatchStepTypes, ['CORTEX_STEP_TYPE_TOOL_CALL', 'CORTEX_STEP_TYPE_TOOL_RESULT']);
   });
 
+  test('keeps partial text when the same planner step grows before terminal idle', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = mock.fn(async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            plannerResponse: { modifiedResponse: '铲屎官，我活着，' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            plannerResponse: { modifiedResponse: '喵。' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    });
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'claude-opus-4-6', bridge });
+    const messages = await collect(service.invoke('test'));
+
+    const texts = messages.filter((m) => m.type === 'text').map((m) => m.content);
+    assert.deepEqual(texts, ['铲屎官，我活着，', '喵。']);
+    const emptyErrs = messages.filter((m) => m.type === 'error' && m.errorCode === 'empty_response');
+    assert.equal(emptyErrs.length, 0, 'partial text path must not regress into empty_response');
+    assert.equal(messages.at(-1)?.type, 'done');
+  });
+
   test('no diagnostics metadata on successful text response', async () => {
     const bridge = createMockBridge();
     const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
