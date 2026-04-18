@@ -18,7 +18,7 @@
 | 缅因猫 (GPT-5.4) | 砚砚 | 架构思考、Review | `@gpt52` |
 | 暹罗猫 (Gemini) | 烁烁 | 视觉设计、创意 | `@gemini` |
 
-注：`@codex`（model=`gpt-5.3-codex`）和 `@gpt52`（model=`gpt-5.4`）是同族不同个体，不要写在同一行当成同一个句柄（见 `cat-config.json`）。
+注：`@codex`（model=`gpt-5.3-codex`）和 `@gpt52`（model=`gpt-5.4`）是同族不同个体，各自独立句柄（见 `cat-config.json`）。
 
 三猫都是公猫。Roster 详见 `cat-config.json`。@ 规则：另起一行行首写 `@句柄`。
 
@@ -58,10 +58,10 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 ## 五条铁律
 
 1. **Redis 6399 圣域** — Worktree 开发只用 6398，误触 6399 立即停服务通知铲屎官
-2. **同一个体不能 review 自己的代码** — 跨 family 优先，可降级到同 family 不同个体
-3. **不能冒充其他猫** — 身份是硬约束常量
-4. **Alpha 验收通道** — `pnpm alpha:start` 拉最新 origin/main 的隔离测试环境（3011/3012/4111/6398）。已合入 main 的改动用 alpha 验收（愿景守护/铲屎官测试），不得用 runtime（3001/3002）冒充；未合入改动的自测仍在 feature worktree 上做
-5. **禁止用户状态静默消失** — 用户可见、可追溯、可恢复预期的数据（thread/message/task/memory 等）默认持久化（TTL=0）。TTL 只能由用户主动 opt-in，不能 opt-out 默认过期。违反 = P0 bug（来源：LL-048）
+2. **Review 必须跨个体** — 跨 family 优先，可降级到同 family 不同个体（自己的代码由别人 review）
+3. **用自己的身份** — 身份是硬约束常量，用自己的签名 [宪宪/Opus-46🐾]
+4. **Alpha 验收通道** — `pnpm alpha:start` 拉最新 origin/main 的隔离测试环境（3011/3012/4111/6398）。已合入 main 的改动用 alpha 验收（愿景守护/铲屎官测试）；未合入改动的自测在 feature worktree 上做
+5. **用户状态默认持久化** — 用户可见、可追溯、可恢复预期的数据（thread/message/task/memory 等）默认持久化（TTL=0）。TTL 只能由用户主动 opt-in。违反 = P0 bug（来源：LL-048）
 
 ## 记忆系统（F102 — 开工前先 recall！）
 
@@ -105,8 +105,8 @@ search_evidence("session chain design")    # 找历史讨论 / 决策
 **你的职责**（提取上被动，协作上主动）：
 - **主动澄清**——发现长期决策/教训苗头时追问："这是不是正式定了？""记成 lesson 对吗？"这样摘要器能把它判为 `explicit`
 - **主动提醒**——大讨论收尾、bug 根因闭环、设计拍板后，提醒铲屎官查看 Feed
-- **不替铲屎官拍板**——inferred 级别的知识展示在 Feed 里等确认
-- **不要把实现细节包装成知识**——代码改动、regex 修复、文件路径不是 durable knowledge
+- **铲屎官拍板**——inferred 级别的知识展示在 Feed 里等确认，猫猫不自行定性
+- **知识 = 决策/教训/方法论**——代码改动、regex 修复、文件路径是实现细节，留在代码里
 - **打开方式**：`POST /api/workspace/navigate` + `action: 'knowledge-feed'`
 - **API**：`GET /api/knowledge/feed`、`POST /api/knowledge/approve`、`POST /api/knowledge/reject`
 
@@ -116,7 +116,7 @@ search_evidence("session chain design")    # 找历史讨论 / 决策
 |------|------|
 | 开 worktree 前 | Design Gate 过了？`docs/` 双向同步？（ahead=0 behind=0） |
 | **改了共享文档** | **Edit 完 → 同一消息内 commit + push，零延迟。** 共享文档 = `docs/features/`、`docs/BACKLOG.md`、`docs/decisions/` 等多猫可能同时编辑的文件。在非 main 分支改了也一样：改完立刻 commit push，不等下一轮对话。 |
-| feat close 前 | 主动 @ 其他猫做愿景守护（不要等铲屎官提醒）|
+| feat close 前 | 主动 @ 其他猫做愿景守护 |
 | 全流程 | 自主跑完 SOP，只在 feat close 时通知铲屎官 |
 
 ## 布偶猫专属规则
@@ -132,14 +132,14 @@ search_evidence("session chain design")    # 找历史讨论 / 决策
 ### Redis 测试隔离
 
 - 只用 `pnpm --filter @cat-cafe/api test:redis`（稳定性用 `test:redis:repeat`）
-- 禁止直连环境 Redis，测试脚本自动起临时 Redis
+- 测试用脚本自动起的临时 Redis（环境 Redis 只读诊断）
 - Redis bug 先红后绿（先有失败用例再修）
 
 ### JetBrains MCP
 
 - 必须传 `projectPath: /Users/lysander/projects/relay-station/cat-cafe`
 - 工具前缀 `mcp__jetbrains__*`（先用 ToolSearch 加载）
-- 重命名用 `rename_refactoring`（不要手动 grep 替换）
+- 重命名用 `rename_refactoring`（IDE 重构优先）
 
 ### SystemPromptBuilder 守护测试
 
@@ -148,7 +148,7 @@ search_evidence("session chain design")    # 找历史讨论 / 决策
 ## 代码规范速查
 
 - 文件 200 行警告 / 350 硬上限 | 目录 15 warn / 25 error（`pnpm check:dir-size`）
-- 禁止 `any` | 函数名自解释 | `docs/` .md 需 YAML frontmatter（ADR-011）
+- 类型明确（用具体类型代替 `any`） | 函数名自解释 | `docs/` .md 需 YAML frontmatter（ADR-011）
 - Biome: `pnpm check` / `pnpm check:fix` | 类型: `pnpm lint`
 - shared 包改后: `pnpm --filter @cat-cafe/shared build`
 - 详见 `docs/SOP.md`「代码质量工具」+「目录结构卫生」

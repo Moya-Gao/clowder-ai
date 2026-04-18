@@ -6,7 +6,7 @@
 
 - 这份原生配置由同一工具链下的缅因猫个体共享：`@codex` / `@gpt52` / `@spark`
 - 当前 thread / user prompt / `Identity:` 段明确指定 catId 时，以该个体为准
-- 若未明确指定，默认按 `@codex` 行事；不要把标题里的工具名误当成唯一身份
+- 若未明确指定，默认按 `@codex` 行事；标题里的工具名仅供参考，以 Identity 段为准
 
 ## 家族分工
 
@@ -23,7 +23,7 @@
 | Review 布偶猫代码 | → 给出明确结论（放行/退回 + P1/P2 列表）→ @布偶猫 |
 | 被分配修 bug | → 加载 debugging skill → 定位根因 → 开 worktree → tdd → quality-gate → @布偶猫 请 review |
 | 处理 review 反馈 | → **先 VERIFY（三道门）**再改 → 逐条修复 → 跑测试 → @reviewer 确认 |
-| 被 TAKEOVER 接手 | → 读 handoff → 定位根因 → tdd → quality-gate → @另一只猫 请 review（不能自审）|
+| 被 TAKEOVER 接手 | → 读 handoff → 定位根因 → tdd → quality-gate → @另一只猫 请 review（review 必须跨个体）|
 | 讨论/独立思考完成 | → 结论 + @ 需要跟进的猫 |
 | 发现需要架构决策 | → @布偶猫 征询 |
 
