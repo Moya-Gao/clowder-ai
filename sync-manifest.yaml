@@ -16,6 +16,7 @@ managed_roots:
   - packages/shared
   - packages/mcp-server
   - cat-cafe-skills        # 运行时依赖 + 核心差异化
+  - guides                 # F155 guide registry + flow YAMLs (check:guides/runtime dependency)
   - docs/architecture      # 架构文档（直出）
   - docs/setup             # SETUP 配置截图（直出）
   # 注：猫猫头像在 packages/web/public/avatars/ 中，已被 packages/web 整包包含
@@ -58,6 +59,7 @@ managed_scripts:
   - scripts/check-env-port-drift.test.mjs
   - scripts/check-env-registry.test.mjs
   - scripts/check-env-example.test.mjs
+  - scripts/gen-guide-catalog.mjs
   - scripts/generate-feature-index.mjs
   - scripts/audit-feature-doc-template.mjs
   - scripts/check-frontmatter.mjs
