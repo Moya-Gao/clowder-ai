@@ -276,9 +276,12 @@ commit body 补一行 `Why:` 说明决策理由。
 
 ### 路由方式
 
-- 同 thread：另起一行行首写 `@句柄`（句中 @ 无系统效果）
-- 跨 thread：用 `cat_cafe_cross_post_message`
-- 需要行动才 @；叙述性提及用名字不用 @（"布偶猫已完成 X"而非"@opus 已完成 X"）
+仅有的两种路由方式：
+1. **行首 @句柄**（文本路由，同 thread）——句中 @ 无系统效果
+2. **MCP targetCats**（结构化路由，A2A callback）
+
+跨 thread 传话用 `cat_cafe_cross_post_message`。
+需要行动才 @；叙述性提及用名字不用 @（"布偶猫已完成 X"而非"@opus 已完成 X"）。
 
 ## 11. Feature 生命周期 Skill
 
@@ -286,6 +289,15 @@ commit body 补一行 `Why:` 说明决策理由。
 |------|-------|--------|
 | 立项 | `feat-lifecycle` | "开个新功能"、"new feature"、"F0xx"、"立项" |
 | 完成 | `feat-lifecycle` | "feature 完成"、"F0xx done"、"验收通过" |
+
+**SOP 轻重路径判断**（few-shot）：
+
+| 场景 | 路径 | 加载什么 |
+|------|------|---------|
+| 一行 typo / ≤5 行 bug fix | **轻量**：直接改 → 测试 → commit push | 不需要 worktree/skill |
+| 共享文档 / 提示词修改 | **轻量**：改 → 跑测试 → sync → commit push | 不碰 runtime 代码 |
+| 跨模块 feature / 新 API | **完整**：feat-lifecycle → design gate → worktree → tdd → quality-gate → review → merge | 每步加载对应 skill |
+| 紧急 P0 bug | **中间**：debugging → 直接在 main 或 worktree 修 → 测试 → commit push → 事后补 review | 速度优先但留证据 |
 
 ## 12. Runtime 单实例保护（Anti-Self-TERM）
 

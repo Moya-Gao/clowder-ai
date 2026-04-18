@@ -86,10 +86,10 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 
 ### Phase 0（系统提示词正面化）
 - [x] AC-01: 所有 "禁止 X" 式规则改为 "允许 Y，禁止 Z" 显式边界格式（共享 + per-cat）— 7 文件负面指令清零（c34364da5 + b653b3021 + 13ab948c1）
-- [ ] AC-02: 路由规则正面化："行首 @ 或 MCP targetCats 是仅有的两种路由方式" 写入 shared-rules + per-cat prompt
-- [ ] AC-03: Skills 审视完成，每个 Skill 有 "Use when" + "Not for" 边界（参考 Anthropic skills 实践）
+- [x] AC-02: 路由规则正面化："行首 @ 或 MCP targetCats 是仅有的两种路由方式" 写入 shared-rules §10 路由方式 + runtime injection 球权检查
+- [x] AC-03: Skills 审视完成，33/33 Skill 有 "Use when" + "Not for" 边界（image-generation 补齐）
 - [x] AC-04: `GOVERNANCE_L0_DIGEST` 与 `governance-l0.md` 同步（含新增 Magic Words）— Rule 0 出口 + W4 正面化（c34364da5）
-- [ ] AC-05: SOP 轻重路径给正反例 few-shot
+- [x] AC-05: SOP 轻重路径给正反例 few-shot（shared-rules §11 四档 few-shot 表）
 
 ### Phase A（Harness 硬护栏）
 - [x] AC-A1: WorklistRegistry 追踪连续 same-pair streak，streak≥4 自动终止 A2A 链并 emit 系统消息（PR2 22e09f907 + 486edd804）
