@@ -152,7 +152,8 @@ describe('SystemPromptBuilder', () => {
       teammates: [],
       mcpAvailable: false,
     });
-    assert.ok(prompt.includes('不冒充'));
+    // Phase 0 正面化: 不冒充 → 用自己的身份签名 (L0 GOVERNANCE_L0_DIGEST)
+    assert.ok(prompt.includes('用自己的身份签名'));
   });
 
   test('is deterministic (identical inputs produce identical output)', async () => {
@@ -279,7 +280,8 @@ describe('SystemPromptBuilder', () => {
     assert.ok(identity.includes('布偶猫'), 'Should contain display name');
     assert.ok(identity.includes('Anthropic'), 'Should contain provider');
     assert.ok(identity.includes('## 协作'), 'Should contain collaboration guide');
-    assert.ok(identity.includes('不冒充'), 'Should contain anti-impersonation rule');
+    // Phase 0 正面化: 不冒充 → 用自己的身份签名 (L0 GOVERNANCE_L0_DIGEST)
+    assert.ok(identity.includes('用自己的身份签名'), 'Should contain identity-signature rule (anti-impersonation)');
     assert.ok(identity.includes('团队用"我们"'), 'Should contain identity contract (folded into L0)');
   });
 
@@ -498,8 +500,9 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: false,
       a2aEnabled: true,
     });
-    assert.ok(ctx.includes('A2A 出口检查'), 'Should include A2A exit check hint');
-    assert.ok(ctx.includes('句中 @ 无效'), 'Should teach inline @ is invalid for routing');
+    // F064 球权模型: A2A 出口检查 → A2A 球权检查
+    assert.ok(ctx.includes('A2A 球权检查'), 'Should include A2A ball-ownership check hint');
+    assert.ok(ctx.includes('句中无效'), 'Should teach inline @ is invalid for routing');
   });
 
   test('buildInvocationContext does not inject A2A exit check in parallel mode', async () => {
@@ -511,7 +514,33 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: false,
       a2aEnabled: true,
     });
-    assert.ok(!ctx.includes('A2A 出口检查'), 'Parallel mode should not encourage @mention chaining');
+    assert.ok(!ctx.includes('A2A 球权检查'), 'Parallel mode should not encourage @mention chaining');
+  });
+
+  // F167 L2 AC-A6: parallel 模式明确告知 @句柄 无路由语义
+  test('buildInvocationContext injects parallel-mode no-mention hint in parallel mode', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'parallel',
+      teammates: ['opus'],
+      mcpAvailable: false,
+      a2aEnabled: true,
+    });
+    assert.ok(ctx.includes('并行模式'), 'parallel mode prompt should mention 并行模式');
+    assert.ok(ctx.includes('无路由语义'), 'parallel mode should say @句柄 无路由语义');
+  });
+
+  test('buildInvocationContext does NOT inject parallel-mode no-mention hint in serial/independent mode', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: ['opus'],
+      mcpAvailable: false,
+      a2aEnabled: true,
+    });
+    assert.ok(!ctx.includes('无路由语义'), 'non-parallel mode should not inject parallel hint');
   });
 
   test('buildInvocationContext injects mention routing feedback when provided', async () => {
@@ -1115,7 +1144,8 @@ describe('SystemPromptBuilder', () => {
     });
     assert.ok(prompt.includes('静默执行'), 'maine-coon prompt must include 静默执行');
     assert.ok(prompt.includes('声明'), 'maine-coon prompt must include 声明 ≠ 执行');
-    assert.ok(prompt.includes('空气传球'), 'maine-coon prompt must include 空气传球 warning');
+    // F064 球权模型: 空气传球 警告并入 "A2A 球权检查" invocation context（矛盾 push back 语义）
+    assert.ok(prompt.includes('push back'), 'maine-coon prompt must include push back (phantom handoff guard)');
     assert.ok(prompt.includes('出口一问'), 'maine-coon prompt must include 出口一问');
   });
 

@@ -13,7 +13,7 @@
 import type { CatConfig, CatId } from '@cat-cafe/shared';
 import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
-import { getConfigSessionStrategy, isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
+import { getConfigSessionStrategy, getRoster, isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getCatVoice } from '../../../../../config/cat-voices.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import {
@@ -53,6 +53,7 @@ import { buildMcpCallbackInstructions, needsMcpInjection } from '../invocation/M
 import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import { detectInlineActionMentionsWithShadow, getMaxA2ADepth, parseA2AMentions } from '../routing/a2a-mentions.js';
+import { checkRoleCompat, type RoleLookup } from '../routing/role-gate.js';
 import { registerWorklist, unregisterWorklist } from '../routing/WorklistRegistry.js';
 import { extractContextEvalSignals } from './context-eval.js';
 import { buildBriefingMessage } from './format-briefing.js';
@@ -1000,6 +1001,12 @@ export async function* routeSerial(
         if (a2aMentions.length > 0 && worklistEntry.a2aCount < maxDepth && !signal?.aborted && !queuedMessagesPending) {
           const pendingTail = worklist.slice(index + 1);
           const pendingOriginalTargets = targetCats.slice(index + 1);
+          // F167 L3 AC-A7: lazy-init role lookup once per routeSerial call when a handoff is in play.
+          const roster = getRoster();
+          const roleLookup: RoleLookup = (cid) => {
+            const entry = roster[cid];
+            return entry ? { roles: entry.roles } : undefined;
+          };
           for (const nextCat of a2aMentions) {
             if (worklistEntry.a2aCount >= maxDepth) break;
             // A2A cross-path dedup: skip if this cat is actively processing via callback (InvocationQueue)
@@ -1017,6 +1024,29 @@ export async function* routeSerial(
                 // F121: response-text path — set trigger message for auto-replyTo
                 if (storedMsgId) worklistEntry.a2aTriggerMessageId.set(nextCat, storedMsgId);
               }
+              continue;
+            }
+            // F167 L3: reject handoff when target role cannot accept the action (MVP: designer + coding).
+            // MUST run AFTER dedup checks — otherwise we emit a rejection for a cat that's already
+            // pending as an original target (contradictory: event says rejected but cat still executes).
+            const gate = checkRoleCompat(nextCat, storedContent, roleLookup);
+            if (!gate.allowed) {
+              log.info(
+                { threadId, catId: nextCat, fromCat: catId, action: gate.action, reason: gate.reason },
+                'F167 L3: A2A handoff rejected by role-gate (role/action mismatch)',
+              );
+              yield {
+                type: 'system_info' as AgentMessageType,
+                catId,
+                content: JSON.stringify({
+                  type: 'a2a_role_rejected',
+                  targetCatId: nextCat,
+                  fromCatId: catId,
+                  action: gate.action,
+                  reason: gate.reason,
+                }),
+                timestamp: Date.now(),
+              } as AgentMessage;
               continue;
             }
 

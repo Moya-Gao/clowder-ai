@@ -96,11 +96,11 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 - [ ] AC-A2: streak≥2 时向当前猫注入"乒乓球警告"提示
 - [ ] AC-A3: 正常 review 循环 A→B→A→B (streak=3) 不受影响；中间插入第三只猫或 user 消息 reset streak
 - [ ] AC-A4: callback-a2a-trigger 路径与 serial 文本路径走同一个 bounce 检测（无旁路）
-- [ ] AC-A5: parallel 模式 @mentions 标记 suppressedInParallel，不写入 routedMentions；followupMentions 路径同步抑制
-- [ ] AC-A6: parallel 模式 SystemPrompt 注入"独立思考禁止 @句柄"
-- [ ] AC-A7: designer 角色 + coding/fix/test/merge 关键词 → fail-closed 报错
-- [ ] AC-A8: 所有现有 A2A 相关测试通过
-- [ ] AC-A9: 新增测试覆盖 L1 乒乓球（误杀保护 + 正常熔断）、L2 parallel 抑制、L3 角色门禁
+- [x] AC-A5: parallel 模式 @mentions 日志标记 suppressedInParallel，不 emit a2a_followup_available；followupMentions 路径同步抑制（PR1 b496e83de）
+- [x] AC-A6: parallel 模式 SystemPrompt 注入"@句柄 在并行模式下无路由语义"提示（PR1 942809eb6）
+- [x] AC-A7: designer 角色 + coding/fix/test/merge 关键词 → route-serial handoff fail-closed + emit a2a_role_rejected（PR1 998e2274a / eec13be85）
+- [x] AC-A8: 所有现有 A2A/路由/system-prompt 测试通过（PR1 329+165 tests green）
+- [ ] AC-A9: 新增测试覆盖 L1 乒乓球（误杀保护 + 正常熔断）、L2 parallel 抑制（PR1 ✓）、L3 角色门禁（PR1 ✓）
 
 ### Phase B（观察 + 按需）
 - [ ] AC-B1: 6 个事故 case 回放测试通过（Phase 0+A 覆盖验证）

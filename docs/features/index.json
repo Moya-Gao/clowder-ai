@@ -896,7 +896,7 @@
     },
     {
       "id": "F146",
-      "name": "MCP Marketplace Control Plane — 一键接入 + 多生态聚合",
+      "name": "Capability Marketplace Control Plane — 一键接入 + 多生态聚合",
       "status": "in-progress | **Owner**: 缅因猫 + 布偶猫 | **Priority**: P1",
       "file": "F146-mcp-marketplace-control-plane.md"
     },
@@ -1045,5 +1045,5 @@
       "file": "F167-a2a-chain-quality.md"
     }
   ],
-  "generated_at": "2026-04-17T22:56:18.509Z"
+  "generated_at": "2026-04-18T08:24:07.242Z"
 }

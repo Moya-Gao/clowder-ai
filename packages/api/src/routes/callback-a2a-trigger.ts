@@ -14,9 +14,10 @@
 
 import type { CatId } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
-import { getDefaultCatId } from '../config/cat-config-loader.js';
+import { getDefaultCatId, getRoster } from '../config/cat-config-loader.js';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
+import { checkRoleCompat, type RoleLookup } from '../domains/cats/services/agents/routing/role-gate.js';
 import { hasWorklist, pushToWorklist } from '../domains/cats/services/agents/routing/WorklistRegistry.js';
 import { parseIntent } from '../domains/cats/services/context/IntentParser.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
@@ -71,9 +72,54 @@ export async function enqueueA2ATargets(
   },
 ): Promise<{ enqueued: CatId[]; fallback: boolean }> {
   const { log } = deps;
-  const { targetCats, threadId, callerCatId } = opts;
+  const { threadId, callerCatId } = opts;
   const triggerMessageId = opts.triggerMessage.id;
   const { deliveryCursorStore } = deps;
+
+  // F167 L3 AC-A7: gate callback-path A2A handoff by role compatibility (designer + coding → reject).
+  // Upstream filter: rejected targets never reach invocationQueue/worklist/standalone paths.
+  // Emits a2a_role_rejected via socketManager (parity with route-serial text-scan path).
+  const roster = getRoster();
+  const roleLookup: RoleLookup = (cid) => {
+    const entry = roster[cid];
+    return entry ? { roles: entry.roles } : undefined;
+  };
+  const allowedTargets: CatId[] = [];
+  const fromCatId = callerCatId ?? opts.triggerMessage.catId ?? getDefaultCatId();
+  for (const cat of opts.targetCats) {
+    const gate = checkRoleCompat(cat, opts.content, roleLookup);
+    if (!gate.allowed) {
+      log.info(
+        { threadId, catId: cat, fromCat: fromCatId, action: gate.action, reason: gate.reason },
+        'F167 L3: callback-a2a role-gate rejected handoff',
+      );
+      deps.socketManager.broadcastAgentMessage(
+        {
+          type: 'system_info',
+          catId: fromCatId,
+          content: JSON.stringify({
+            type: 'a2a_role_rejected',
+            targetCatId: cat,
+            fromCatId,
+            action: gate.action,
+            reason: gate.reason,
+          }),
+          timestamp: Date.now(),
+        },
+        threadId,
+      );
+      continue;
+    }
+    allowedTargets.push(cat);
+  }
+  if (allowedTargets.length === 0) {
+    log.info(
+      { threadId, triggerMessageId, originalTargets: opts.targetCats },
+      'F167 L3: all callback targets rejected',
+    );
+    return { enqueued: [], fallback: false };
+  }
+  const targetCats = allowedTargets;
 
   // F122B: If InvocationQueue is available, enqueue as agent entry (unified dispatch).
   // This replaces both the worklist path and the fallback standalone invocation.
@@ -265,7 +311,9 @@ export async function enqueueA2ATargets(
     '[F27] A2A callback: no parent worklist found, falling back to standalone invocation',
   );
 
-  await triggerA2AInvocation(deps, opts);
+  // Cloud P1 (F167 PR1): must pass FILTERED targetCats — opts.targetCats is the
+  // pre-filter list; handing it to triggerA2AInvocation would bypass role-gate.
+  await triggerA2AInvocation(deps, { ...opts, targetCats });
   return { enqueued: targetCats, fallback: true };
 }
 

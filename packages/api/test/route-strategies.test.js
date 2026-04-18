@@ -2144,7 +2144,7 @@ describe('routeParallel degradation notification', () => {
 });
 
 describe('routeParallel A2A safety', () => {
-  it('does not chain A2A even when mentions are detected', async () => {
+  it('does not chain A2A even when mentions are detected (F167 L2 AC-A5: mentions NOT persisted in parallel)', async () => {
     const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
     const appendCalls = [];
     const deps = createMockDeps(
@@ -2164,10 +2164,12 @@ describe('routeParallel A2A safety', () => {
     const handoffs = messages.filter((m) => m.type === 'a2a_handoff');
     assert.equal(handoffs.length, 0, 'parallel mode should never chain A2A');
 
-    // But mentions should still be stored
+    // F167 L2 AC-A5: mentions must be persisted as [] in parallel mode so that
+    // MessageStore.getMentionsFor / pending-mentions flow does NOT surface parallel @ messages.
+    // The raw @ tokens are still captured in the `suppressedMentions` log for observability.
     const opusAppend = appendCalls.find((c) => c.catId === 'opus');
     assert.ok(opusAppend, 'opus response should be stored');
-    assert.deepEqual(opusAppend.mentions, ['codex'], 'mentions should be detected and stored');
+    assert.deepEqual(opusAppend.mentions, [], 'AC-A5: parallel-mode mentions must be []');
   });
 
   it('executes multiple cats independently and yields interleaved messages', async () => {
