@@ -110,7 +110,7 @@ apply_profile_defaults "opensource"
 [ "$_PROF_ASR_ENABLED" = "0" ] || { echo "FAIL: opensource profile ASR should be 0"; exit 1; }
 [ "$_PROF_TTS_ENABLED" = "0" ] || { echo "FAIL: opensource profile TTS should be 0"; exit 1; }
 [ "$_PROF_LLM_POSTPROCESS_ENABLED" = "0" ] || { echo "FAIL: opensource profile LLM should be 0"; exit 1; }
-[ "$_PROF_MESSAGE_TTL_SECONDS" = "86400" ] || { echo "FAIL: opensource TTL should be 86400"; exit 1; }
+[ "$_PROF_MESSAGE_TTL_SECONDS" = "0" ] || { echo "FAIL: opensource TTL should be 0"; exit 1; }
 [ "$_PROF_REDIS_PROFILE" = "opensource" ] || { echo "FAIL: opensource redis profile should be opensource"; exit 1; }
 echo "PASS: apply_profile_defaults opensource"
 
@@ -183,7 +183,7 @@ resolve_config "ASR_ENABLED"
 resolve_config "MESSAGE_TTL_SECONDS"
 [ "$ANTHROPIC_PROXY_ENABLED" = "0" ] || { echo "FAIL: opensource proxy should be 0"; exit 1; }
 [ "$ASR_ENABLED" = "0" ] || { echo "FAIL: opensource ASR should be 0"; exit 1; }
-[ "$MESSAGE_TTL_SECONDS" = "86400" ] || { echo "FAIL: opensource TTL should be 86400"; exit 1; }
+[ "$MESSAGE_TTL_SECONDS" = "0" ] || { echo "FAIL: opensource TTL should be 0"; exit 1; }
 echo "PASS: --profile=opensource full config (AC-A1)"
 
 # Test 13: .env override beats profile (AC-A4)
