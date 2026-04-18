@@ -318,10 +318,28 @@ gh api --paginate repos/{OWNER}/{REPO}/pulls/{PR_NUMBER}/comments \
 触发这个提示通常代表：
 - 你用了错误句柄（例如 `@chatgpt-codex-connector review`）
 - 或者把触发语句放错位置（body/非模板 comment）
+- **或者 comment body 里带了多行内容**——即使第一行是 `@codex review`，带附加描述（"Please review latest commit..."）在部分场景下仍会被 connector 解析成 code-write 意图
 
 正确做法：
 - 只在 PR comment 使用 `refs/pr-template.md` 的标准触发模板（含短 SHA 与 P1/P2 约束）
 - 先跑去重检查（Step 5.1），同一 SHA 不重复触发
+
+**Fallback：极简格式**（标准模板触发 create-environment bug 时的备用方案）:
+
+```
+@codex review
+```
+
+**就这三个字，整个 comment body 只有一行、无附加说明**。实测对付 connector 解析异常有效（PR #1258 Landy 实战验证：标准模板失败 → 极简格式 5 分钟内返回 review）。
+
+使用条件：
+- 同一 SHA 已用标准模板触发并失败（create-environment 回复）
+- 或 HEAD 刚变化、codex 对标准模板无 👀 超 5 分钟
+- 极简触发**不再带 SHA/P1/P2 约束** → review 默认覆盖当前 HEAD，P 标签由 reviewer 自行判断
+
+什么时候**不**用极简格式：
+- 首次触发优先走标准模板（信息更全，reviewer 上下文更准）
+- 多 commit 并行审查场景（需要 SHA 锚定时，标准模板不可替代）
 
 ### Q2: PR 里看到小眼睛（👀）是什么意思？
 
