@@ -138,6 +138,7 @@ created: 2026-03-12
 | 2026-03-28 | Scene 2 v2 rewrite: mention-like floating popup (PR #846) — 铲屎官 UX 反馈 |
 | 2026-03-28 | P1 hotfix: concurrent cancel isolation (PR #848) — 取消一只猫不再误清其他猫状态 |
 | 2026-03-28 | Feature closure: 愿景守护 by gemini (APPROVED), reflection capsule written |
+| 2026-04-18 | Watchdog fix: stale invocation recovery for dropped done(isFinal) + missed intent_mode (PR #1258) |
 
 ## UX Fidelity Gap（功能闭环 vs UX 闭环）
 
