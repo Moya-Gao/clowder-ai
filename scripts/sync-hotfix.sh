@@ -434,6 +434,7 @@ if [ "$DRY_RUN" = false ] && [ "$AUTO_PUSH" = false ]; then
   echo "  1. cd $TARGET_DIR && git push -u origin $BRANCH_NAME"
   echo "  2. gh pr create --title 'fix: ...' --body '...'"
   echo "  3. After merge, cherry-pick fix back to cat-cafe main"
-  echo "  4. Record: scripts/intake-from-opensource.sh --record --pr <N> --decision <absorbed|public-only>"
+  echo "  4. Record: scripts/intake-from-opensource.sh --record --pr <N> --decision <absorbed|public-only> [--skip-absorbed-guard]"
+  echo "     (hotfix is outbound-filed — absorbed record uses --skip-absorbed-guard, no intent issue exists)"
   echo "  5. Advance: scripts/intake-from-opensource.sh --advance-ledger"
 fi

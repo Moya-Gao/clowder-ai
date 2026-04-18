@@ -107,7 +107,10 @@ Hotfix PR merge 后，也需要走 intake 登记闭环（即使是我们自己�
 
 ```bash
 # 等 PR merge 后
-bash scripts/intake-from-opensource.sh --record --pr {N} --decision absorbed
+# Hotfix 是 outbound-filed PR（我们从 cat-cafe 侧推的修复），
+# 没有 cat-cafe 内的 Intake Intent Issue / absorb PR，
+# 因此用 --skip-absorbed-guard 跳过 record 时的 strict guard。
+bash scripts/intake-from-opensource.sh --record --pr {N} --decision absorbed --skip-absorbed-guard
 bash scripts/intake-from-opensource.sh --advance-ledger
 ```
 

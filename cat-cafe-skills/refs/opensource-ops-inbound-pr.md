@@ -305,7 +305,10 @@ Closes #<IntakeIntentIssue>
 （Intake Review Guard 通过后才执行此步。）
 
 ```bash
-bash scripts/intake-from-opensource.sh --record --pr {N} --decision absorbed
+bash scripts/intake-from-opensource.sh --record --pr {N} --decision absorbed \
+  --intent-issue {cat-cafe-intent-issue-id} \
+  --absorb-pr {cat-cafe-absorb-pr-id} \
+  --review-proof {github-review-url-or-local-proof-file}
 # 或: --decision public-only
 # 或: --decision rejected
 bash scripts/intake-from-opensource.sh --advance-ledger

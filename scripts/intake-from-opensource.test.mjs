@@ -8,7 +8,7 @@ import { afterEach, describe, it } from 'node:test';
 const SOURCE_SCRIPT = resolve(process.cwd(), 'scripts/intake-from-opensource.sh');
 const HOOK_SCRIPT = resolve(process.cwd(), '.githooks/pre-commit');
 
-function run(cmd, args, cwd) {
+function run(cmd, args, cwd, extraEnv = {}) {
   return execFileSync(cmd, args, {
     cwd,
     encoding: 'utf-8',
@@ -18,6 +18,7 @@ function run(cmd, args, cwd) {
       GIT_AUTHOR_EMAIL: 'cat-cafe@example.com',
       GIT_COMMITTER_NAME: 'Cat Cafe Test',
       GIT_COMMITTER_EMAIL: 'cat-cafe@example.com',
+      ...extraEnv,
     },
   });
 }
@@ -237,7 +238,7 @@ const BRAND_GOOD = {
   'packages/web/src/components/ChatContainerHeader.tsx':
     "const INTERNAL_BASENAMES = ['cat-cafe', 'cat-cafe-runtime', 'clowder-ai'];\n<h1>Cat Café</h1>",
   'packages/web/src/utils/api-client.ts':
-    "/** Unified API client for Cat Cafe frontend. */\nheaders.set('X-Cat-Cafe-User', getUserId());",
+    '/** Unified API client for Cat Cafe frontend. */\n// Auth uses HttpOnly session cookie.',
   'packages/web/public/icons/favicon.svg': '<svg></svg>',
 };
 
@@ -354,11 +355,11 @@ describe('intake-from-opensource.sh --validate-inbound', () => {
   it('catches polluted identity header even when api-client comment is correct', () => {
     const f = makeBrandFixture({
       'packages/web/src/utils/api-client.ts':
-        "/** Unified API client for Cat Cafe frontend. */\nheaders.set('X-Clowder-User', getUserId());",
+        "/** Unified API client for Cat Cafe frontend. */\nexport const API_URL = '';",
     });
     fixtures.push(f.sandboxRoot);
     const err = captureValidateFailure(f.repoRoot);
-    assert.match(err.stdout, /X-Cat-Cafe-User/);
+    assert.match(err.stdout, /HttpOnly session cookie/);
   });
 });
 
@@ -426,7 +427,7 @@ describe('pre-commit hook brand guard (--from-index)', () => {
     // Restore worktree to good (but don't re-stage)
     writeFileSync(
       apiClient,
-      "/** Unified API client for Cat Cafe frontend. */\nheaders.set('X-Cat-Cafe-User', getUserId());",
+      '/** Unified API client for Cat Cafe frontend. */\n// Auth uses HttpOnly session cookie.',
       'utf-8',
     );
 
@@ -447,7 +448,7 @@ describe('pre-commit hook brand guard (--from-index)', () => {
     // Stage a trivial change that keeps brand intact
     writeFileSync(
       apiClient,
-      "/** Unified API client for Cat Cafe frontend. */\nheaders.set('X-Cat-Cafe-User', getUserId());\n// trivial change",
+      '/** Unified API client for Cat Cafe frontend. */\n// Auth uses HttpOnly session cookie.\n// trivial change',
       'utf-8',
     );
     git(f.repoRoot, 'add', 'packages/web/src/utils/api-client.ts');
@@ -455,5 +456,317 @@ describe('pre-commit hook brand guard (--from-index)', () => {
     // Should succeed
     const output = git(f.repoRoot, 'commit', '-m', 'good brand commit');
     assert.match(output, /good brand commit/);
+  });
+});
+
+function makeRecordFixture(mock = {}) {
+  const fixture = makeFixture();
+  const baseHead = commitFile(fixture.targetRoot, 'README.md', 'base\n', 'chore: base');
+  writeLedger(fixture.ledgerPath, baseHead, []);
+  for (const [relPath, content] of Object.entries(BRAND_GOOD)) {
+    const absPath = join(fixture.repoRoot, relPath);
+    mkdirSync(join(absPath, '..'), { recursive: true });
+    writeFileSync(absPath, content, 'utf-8');
+  }
+
+  const mockIssueJson = JSON.stringify(
+    {
+      state: mock.issueState ?? 'OPEN',
+      labels: (mock.issueLabels ?? ['intake']).map((name) => ({ name })),
+      body:
+        mock.issueBody ??
+        [
+          '## 社区 PR 信息',
+          '- Source: clowder-ai#495',
+          '',
+          '## 逐文件决策表',
+          '| File | 社区改动摘要 | 决策 | 理由 |',
+          '| packages/web/src/components/hub-accounts.view.ts | fix | absorb | keep truthfulness |',
+          '| .env.example | generated | skip | public-only |',
+        ].join('\n'),
+      url: 'https://github.com/zts212653/cat-cafe/issues/1234',
+      title: 'intake(clowder-ai#495): test fixture',
+    },
+    null,
+    2,
+  );
+  const mockAbsorbPrJson = JSON.stringify(
+    {
+      state: mock.absorbPrState ?? 'OPEN',
+      body: mock.absorbPrBody ?? 'Closes #1234\nSource: clowder-ai#495',
+      url: 'https://github.com/zts212653/cat-cafe/pull/1236',
+      title: 'intake fixture absorb PR',
+    },
+    null,
+    2,
+  );
+  const mockTargetPrJson = JSON.stringify(
+    {
+      state: mock.targetPrState ?? 'MERGED',
+      mergeCommit: { oid: mock.targetMergeSha ?? '1111111111111111111111111111111111111111' },
+    },
+    null,
+    2,
+  );
+
+  const mockBin = join(fixture.sandboxRoot, 'mock-bin');
+  mkdirSync(mockBin, { recursive: true });
+  const ghPath = join(mockBin, 'gh');
+  writeFileSync(
+    ghPath,
+    `#!/usr/bin/env bash
+set -euo pipefail
+
+repo=""
+for ((i=1; i<=$#; i++)); do
+  if [ "\${!i}" = "--repo" ]; then
+    j=$((i + 1))
+    repo="\${!j}"
+    break
+  fi
+done
+
+if [ "\${1:-}" = "issue" ] && [ "\${2:-}" = "view" ]; then
+  if [ "$repo" != "zts212653/cat-cafe" ]; then
+    exit 1
+  fi
+  cat <<'JSON'
+${mockIssueJson}
+JSON
+  exit 0
+fi
+
+if [ "\${1:-}" = "pr" ] && [ "\${2:-}" = "view" ]; then
+  if [ "$repo" = "zts212653/cat-cafe" ]; then
+    cat <<'JSON'
+${mockAbsorbPrJson}
+JSON
+    exit 0
+  fi
+  if [ "$repo" = "zts212653/clowder-ai" ]; then
+    cat <<'JSON'
+${mockTargetPrJson}
+JSON
+    exit 0
+  fi
+fi
+
+exit 1
+`,
+    'utf-8',
+  );
+  chmodSync(ghPath, 0o755);
+
+  return { ...fixture, mockBin };
+}
+
+function runRecord(repoRoot, args, extraEnv = {}) {
+  return run('bash', ['scripts/intake-from-opensource.sh', '--record', ...args], repoRoot, extraEnv);
+}
+
+function captureRecordFailure(repoRoot, args, extraEnv = {}) {
+  try {
+    runRecord(repoRoot, args, extraEnv);
+    assert.fail('expected --record to fail');
+  } catch (error) {
+    return error;
+  }
+}
+
+describe('intake-from-opensource.sh --record strict guard (absorbed)', () => {
+  const fixtures = [];
+
+  afterEach(() => {
+    while (fixtures.length > 0) {
+      rmSync(fixtures.pop(), { recursive: true, force: true });
+    }
+  });
+
+  it('requires intent issue metadata for absorbed records', () => {
+    const f = makeRecordFixture();
+    fixtures.push(f.sandboxRoot);
+    const err = captureRecordFailure(f.repoRoot, ['--pr', '495', '--decision', 'absorbed']);
+    assert.match(err.stdout, /requires --intent-issue/);
+  });
+
+  it('blocks absorbed record when absorb PR body misses Closes #intent-issue', () => {
+    const f = makeRecordFixture({
+      absorbPrBody: 'Source: clowder-ai#495\n(no auto-close line)',
+    });
+    fixtures.push(f.sandboxRoot);
+    const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
+    const err = captureRecordFailure(
+      f.repoRoot,
+      [
+        '--pr',
+        '495',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '1236',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/1236#issuecomment-1',
+      ],
+      env,
+    );
+    assert.match(err.stdout, /body must contain: Closes #1234/);
+  });
+
+  it('records absorbed metadata when strict guard passes', () => {
+    const f = makeRecordFixture();
+    fixtures.push(f.sandboxRoot);
+    const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
+    const output = runRecord(
+      f.repoRoot,
+      [
+        '--pr',
+        '495',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '1236',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/1236#issuecomment-1',
+      ],
+      env,
+    );
+
+    assert.match(output, /Absorbed intake strict guard passed/);
+    assert.match(output, /Recorded PR #495 → absorbed/);
+
+    const ledger = JSON.parse(readFileSync(f.ledgerPath, 'utf-8'));
+    const record = ledger.entries.find((entry) => entry.pr_number === 495);
+    assert.ok(record);
+    assert.equal(record.intake_intent_issue, 1234);
+    assert.equal(record.absorb_pr, 1236);
+    assert.equal(record.review_proof, 'https://github.com/zts212653/cat-cafe/pull/1236#issuecomment-1');
+    assert.equal(record.intent_issue, undefined, 'must use intake_intent_issue (existing schema), not intent_issue');
+  });
+
+  it('records absorbed entry via --skip-absorbed-guard without intent/absorb/review fields', () => {
+    const f = makeRecordFixture();
+    fixtures.push(f.sandboxRoot);
+    const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
+    const output = runRecord(f.repoRoot, ['--pr', '495', '--decision', 'absorbed', '--skip-absorbed-guard'], env);
+
+    assert.match(output, /bypassing absorbed intake strict guard/);
+    assert.match(output, /Recorded PR #495 → absorbed/);
+
+    const ledger = JSON.parse(readFileSync(f.ledgerPath, 'utf-8'));
+    const record = ledger.entries.find((entry) => entry.pr_number === 495);
+    assert.ok(record);
+    assert.equal(record.decision, 'absorbed');
+    assert.ok(
+      typeof record.note === 'string' && record.note.includes('--skip-absorbed-guard'),
+      'skip path must leave a note explaining the bypass',
+    );
+    assert.equal(record.intake_intent_issue, undefined, 'skip path must not write intake_intent_issue: 0');
+    assert.equal(record.absorb_pr, undefined, 'skip path must not write absorb_pr: 0');
+    assert.equal(record.review_proof, undefined, 'skip path must not write review_proof: ""');
+    assert.equal(record.intent_issue, undefined, 'legacy field name must not appear');
+    assert.equal(record.notes, undefined, 'schema uses singular "note" not "notes"');
+  });
+
+  it('rejects intent issue that references wrong-repo /pull/<N> without clowder-ai prefix', () => {
+    const f = makeRecordFixture({
+      issueBody: [
+        '## 社区 PR 信息',
+        '- Source: https://github.com/zts212653/cat-cafe/pull/495',
+        '',
+        '## 逐文件决策表',
+        '| File | 社区改动摘要 | 决策 | 理由 |',
+        '| packages/web/src/components/hub-accounts.view.ts | fix | absorb | keep truthfulness |',
+      ].join('\n'),
+    });
+    fixtures.push(f.sandboxRoot);
+    const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
+    const err = captureRecordFailure(
+      f.repoRoot,
+      [
+        '--pr',
+        '495',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '1236',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/1236#issuecomment-1',
+      ],
+      env,
+    );
+    assert.match(err.stdout, /must reference source PR clowder-ai#495/);
+  });
+
+  it('rejects absorb PR body that references wrong-repo /pull/<N> without clowder-ai prefix', () => {
+    const f = makeRecordFixture({
+      absorbPrBody: 'Closes #1234\nSource: https://github.com/zts212653/cat-cafe/pull/495',
+    });
+    fixtures.push(f.sandboxRoot);
+    const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
+    const err = captureRecordFailure(
+      f.repoRoot,
+      [
+        '--pr',
+        '495',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '1236',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/1236#issuecomment-1',
+      ],
+      env,
+    );
+    assert.match(err.stdout, /Absorb PR #1236 body must reference source PR clowder-ai#495/);
+  });
+
+  it('preserves caller-supplied metadata when --skip-absorbed-guard is used with --intent-issue/--absorb-pr/--review-proof', () => {
+    const f = makeRecordFixture();
+    fixtures.push(f.sandboxRoot);
+    const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
+    const output = runRecord(
+      f.repoRoot,
+      [
+        '--pr',
+        '495',
+        '--decision',
+        'absorbed',
+        '--skip-absorbed-guard',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '1236',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/1236#issuecomment-1',
+      ],
+      env,
+    );
+
+    assert.match(output, /bypassing absorbed intake strict guard/);
+    assert.match(output, /Recorded PR #495 → absorbed/);
+
+    const ledger = JSON.parse(readFileSync(f.ledgerPath, 'utf-8'));
+    const record = ledger.entries.find((entry) => entry.pr_number === 495);
+    assert.ok(record);
+    assert.equal(record.decision, 'absorbed');
+    assert.equal(record.intake_intent_issue, 1234, 'caller-supplied intent issue must be preserved in skip mode');
+    assert.equal(record.absorb_pr, 1236, 'caller-supplied absorb PR must be preserved in skip mode');
+    assert.equal(
+      record.review_proof,
+      'https://github.com/zts212653/cat-cafe/pull/1236#issuecomment-1',
+      'caller-supplied review proof must be preserved in skip mode',
+    );
+    assert.ok(
+      typeof record.note === 'string' && record.note.includes('--skip-absorbed-guard'),
+      'skip path must still leave a note explaining the bypass',
+    );
   });
 });

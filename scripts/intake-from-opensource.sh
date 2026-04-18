@@ -19,6 +19,7 @@ SOURCE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TARGET_DIR="$SOURCE_DIR/../clowder-ai"
 INTAKE_LEDGER="$SOURCE_DIR/docs/ops/opensource-intake-ledger.json"
 TARGET_REPO="zts212653/clowder-ai"
+SOURCE_REPO="zts212653/cat-cafe"
 
 resolve_target_main_head() {
   if git -C "$TARGET_DIR" remote get-url origin >/dev/null 2>&1; then
@@ -42,6 +43,10 @@ RECORD_DECISION=false
 DECISION=""
 VALIDATE_INBOUND=false
 FROM_INDEX=false
+INTENT_ISSUE=""
+ABSORB_PR=""
+REVIEW_PROOF=""
+SKIP_ABSORBED_GUARD=false
 
 for arg in "$@"; do
   case "$arg" in
@@ -49,18 +54,25 @@ for arg in "$@"; do
     --pr) ;; # handled below with next arg
     --mode=*) MODE="${arg#--mode=}" ;;
     --decision=*) DECISION="${arg#--decision=}" ;;
+    --intent-issue=*) INTENT_ISSUE="${arg#--intent-issue=}" ;;
+    --absorb-pr=*) ABSORB_PR="${arg#--absorb-pr=}" ;;
+    --review-proof=*) REVIEW_PROOF="${arg#--review-proof=}" ;;
     --advance-ledger) ADVANCE_LEDGER=true ;;
     --force-overwrite) FORCE_OVERWRITE=true ;;
+    --skip-absorbed-guard) SKIP_ABSORBED_GUARD=true ;;
     --record) RECORD_DECISION=true ;;
     --validate-inbound) VALIDATE_INBOUND=true ;;
     --from-index) FROM_INDEX=true ;;
   esac
 done
-# Handle --pr N and --decision D (space-separated)
+# Handle space-separated args
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --pr) PR_NUMBER="$2"; shift 2 ;;
     --decision) DECISION="$2"; shift 2 ;;
+    --intent-issue) INTENT_ISSUE="$2"; shift 2 ;;
+    --absorb-pr) ABSORB_PR="$2"; shift 2 ;;
+    --review-proof) REVIEW_PROOF="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -211,6 +223,117 @@ run_brand_validation() {
   done
 }
 
+run_absorbed_record_guard() {
+  if [ "$SKIP_ABSORBED_GUARD" = true ]; then
+    echo -e "${YELLOW}⚠ --skip-absorbed-guard enabled: bypassing absorbed intake strict guard${NC}"
+    return 0
+  fi
+
+  if [ -z "$INTENT_ISSUE" ]; then
+    echo -e "${RED}✗ absorbed record requires --intent-issue <cat-cafe issue number>${NC}"
+    return 1
+  fi
+  if [ -z "$ABSORB_PR" ]; then
+    echo -e "${RED}✗ absorbed record requires --absorb-pr <cat-cafe PR number>${NC}"
+    return 1
+  fi
+  if [ -z "$REVIEW_PROOF" ]; then
+    echo -e "${RED}✗ absorbed record requires --review-proof <GitHub review URL or local proof file>${NC}"
+    return 1
+  fi
+  if ! [[ "$INTENT_ISSUE" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}✗ --intent-issue must be a numeric GitHub issue id${NC}"
+    return 1
+  fi
+  if ! [[ "$ABSORB_PR" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}✗ --absorb-pr must be a numeric GitHub PR id${NC}"
+    return 1
+  fi
+
+  local review_proof_mode="url"
+  if [[ "$REVIEW_PROOF" =~ ^https?:// ]]; then
+    if ! [[ "$REVIEW_PROOF" =~ github\.com/ ]]; then
+      echo -e "${RED}✗ --review-proof URL must point to GitHub evidence${NC}"
+      return 1
+    fi
+  elif [ -f "$REVIEW_PROOF" ]; then
+    review_proof_mode="file"
+  else
+    echo -e "${RED}✗ --review-proof must be a GitHub URL or an existing local file path${NC}"
+    return 1
+  fi
+
+  local intent_info
+  intent_info=$(gh issue view "$INTENT_ISSUE" --repo "$SOURCE_REPO" --json state,labels,body,url,title 2>/dev/null || true)
+  if [ -z "$intent_info" ]; then
+    echo -e "${RED}✗ Cannot fetch Intake Intent Issue #$INTENT_ISSUE from $SOURCE_REPO${NC}"
+    return 1
+  fi
+
+  local issue_state
+  issue_state=$(echo "$intent_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(d.state||'')")
+  if [ "$issue_state" != "OPEN" ]; then
+    echo -e "${RED}✗ Intake Intent Issue #$INTENT_ISSUE is $issue_state (expected OPEN before record)${NC}"
+    echo "  Backfilling historical data or recording an outbound-filed hotfix? rerun with --skip-absorbed-guard"
+    return 1
+  fi
+
+  local issue_label_ok
+  issue_label_ok=$(echo "$intent_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); const labels=(d.labels||[]).map(l=>String(l.name||'').toLowerCase()); console.log(labels.includes('intake') ? 'yes' : 'no')")
+  if [ "$issue_label_ok" != "yes" ]; then
+    echo -e "${RED}✗ Intake Intent Issue #$INTENT_ISSUE is missing required label: intake${NC}"
+    return 1
+  fi
+
+  local issue_table_ok
+  issue_table_ok=$(echo "$intent_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); const body=String(d.body||''); const hasHeader=/##\\s*逐文件决策表/.test(body); const hasRow=/\\|\\s*[^|\\n]+\\s*\\|\\s*[^|\\n]+\\s*\\|\\s*(absorb|skip)\\b/i.test(body); console.log(hasHeader && hasRow ? 'yes' : 'no')")
+  if [ "$issue_table_ok" != "yes" ]; then
+    echo -e "${RED}✗ Intake Intent Issue #$INTENT_ISSUE is missing a valid per-file decision table${NC}"
+    return 1
+  fi
+
+  local issue_source_ref_ok
+  issue_source_ref_ok=$(echo "$intent_info" | SOURCE_PR="$PR_NUMBER" node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); const body=String(d.body||''); const n=process.env.SOURCE_PR; const ok=body.includes('clowder-ai#'+n) || body.includes('zts212653/clowder-ai/pull/'+n); console.log(ok ? 'yes' : 'no')")
+  if [ "$issue_source_ref_ok" != "yes" ]; then
+    echo -e "${RED}✗ Intake Intent Issue #$INTENT_ISSUE must reference source PR clowder-ai#$PR_NUMBER${NC}"
+    return 1
+  fi
+
+  local absorb_pr_info
+  absorb_pr_info=$(gh pr view "$ABSORB_PR" --repo "$SOURCE_REPO" --json state,body,url,title 2>/dev/null || true)
+  if [ -z "$absorb_pr_info" ]; then
+    echo -e "${RED}✗ Cannot fetch absorb PR #$ABSORB_PR from $SOURCE_REPO${NC}"
+    return 1
+  fi
+
+  local absorb_pr_state
+  absorb_pr_state=$(echo "$absorb_pr_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(d.state||'')")
+  if [ "$absorb_pr_state" != "OPEN" ] && [ "$absorb_pr_state" != "MERGED" ]; then
+    echo -e "${RED}✗ Absorb PR #$ABSORB_PR is $absorb_pr_state (expected OPEN or MERGED)${NC}"
+    return 1
+  fi
+
+  local absorb_pr_closes_ok
+  absorb_pr_closes_ok=$(echo "$absorb_pr_info" | INTENT_ISSUE_ID="$INTENT_ISSUE" node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); const body=String(d.body||''); const i=process.env.INTENT_ISSUE_ID; const re=new RegExp('Closes\\\\s+(?:cat-cafe#|#)'+i+'\\\\b','i'); console.log(re.test(body) ? 'yes' : 'no')")
+  if [ "$absorb_pr_closes_ok" != "yes" ]; then
+    echo -e "${RED}✗ Absorb PR #$ABSORB_PR body must contain: Closes #$INTENT_ISSUE${NC}"
+    return 1
+  fi
+
+  local absorb_pr_source_ref_ok
+  absorb_pr_source_ref_ok=$(echo "$absorb_pr_info" | SOURCE_PR="$PR_NUMBER" node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); const body=String(d.body||''); const n=process.env.SOURCE_PR; const ok=body.includes('clowder-ai#'+n) || body.includes('zts212653/clowder-ai/pull/'+n); console.log(ok ? 'yes' : 'no')")
+  if [ "$absorb_pr_source_ref_ok" != "yes" ]; then
+    echo -e "${RED}✗ Absorb PR #$ABSORB_PR body must reference source PR clowder-ai#$PR_NUMBER${NC}"
+    return 1
+  fi
+
+  echo -e "${GREEN}✓ Absorbed intake strict guard passed.${NC}"
+  echo "  intent issue: #$INTENT_ISSUE"
+  echo "  absorb PR:    #$ABSORB_PR ($absorb_pr_state)"
+  echo "  review proof: $REVIEW_PROOF ($review_proof_mode)"
+  return 0
+}
+
 if [ "$VALIDATE_INBOUND" = true ]; then
   echo -e "${GREEN}=== 🛡 Inbound Brand Guard ===${NC}"
   echo ""
@@ -249,6 +372,9 @@ if [ "$RECORD_DECISION" = true ]; then
     fi
     echo -e "${GREEN}✓ Brand Guard passed.${NC}"
     echo ""
+    echo -e "${BLUE}── Mandatory Intake Strict Guard (pre-record) ──${NC}"
+    run_absorbed_record_guard || exit 1
+    echo ""
   fi
   case "$DECISION" in
     absorbed|public-only|rejected|outbound-sync) ;;
@@ -266,18 +392,47 @@ if [ "$RECORD_DECISION" = true ]; then
     echo -e "${RED}✗ PR #$PR_NUMBER is $PR_REC_STATE, not MERGED.${NC}"; exit 1
   fi
   PR_MERGE_SHA=$(echo "$PR_MERGE_INFO" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log((d.mergeCommit||{}).oid||'')")
+  PR_NUMBER_ENV="$PR_NUMBER" \
+  PR_MERGE_SHA_ENV="$PR_MERGE_SHA" \
+  DECISION_ENV="$DECISION" \
+  INTENT_ISSUE_ENV="$INTENT_ISSUE" \
+  ABSORB_PR_ENV="$ABSORB_PR" \
+  REVIEW_PROOF_ENV="$REVIEW_PROOF" \
+  SKIP_ABSORBED_GUARD_ENV="$SKIP_ABSORBED_GUARD" \
   node -e "
     const fs = require('fs');
+    const prNumber = Number(process.env.PR_NUMBER_ENV || '0');
+    const decision = process.env.DECISION_ENV || '';
     const ledger = JSON.parse(fs.readFileSync('$INTAKE_LEDGER', 'utf-8'));
-    if (ledger.entries.some(e => e.pr_number === $PR_NUMBER && e.action !== 'force_advance')) {
-      console.log('⚠ PR #$PR_NUMBER already recorded. Skipping.'); process.exit(0);
+    if (ledger.entries.some(e => e.pr_number === prNumber && e.action !== 'force_advance')) {
+      console.log('⚠ PR #' + prNumber + ' already recorded. Skipping.'); process.exit(0);
     }
-    ledger.entries.push({
-      pr_number: $PR_NUMBER, target_merge_commit: '$PR_MERGE_SHA',
-      decision: '$DECISION', timestamp: new Date().toISOString()
-    });
+    const entry = {
+      pr_number: prNumber,
+      target_merge_commit: process.env.PR_MERGE_SHA_ENV || '',
+      decision,
+      timestamp: new Date().toISOString(),
+    };
+    if (decision === 'absorbed') {
+      const skip = (process.env.SKIP_ABSORBED_GUARD_ENV || '').toLowerCase() === 'true';
+      const intentIssue = Number(process.env.INTENT_ISSUE_ENV || '0');
+      const absorbPr = Number(process.env.ABSORB_PR_ENV || '0');
+      const reviewProof = process.env.REVIEW_PROOF_ENV || '';
+      if (skip) {
+        entry.note = 'absorbed record created with --skip-absorbed-guard (outbound-filed hotfix or historical backfill)';
+        if (intentIssue > 0) entry.intake_intent_issue = intentIssue;
+        if (absorbPr > 0) entry.absorb_pr = absorbPr;
+        if (reviewProof) entry.review_proof = reviewProof;
+      } else {
+        entry.intake_intent_issue = intentIssue;
+        entry.absorb_pr = absorbPr;
+        entry.review_proof = reviewProof;
+      }
+    }
+    ledger.entries.push(entry);
     fs.writeFileSync('$INTAKE_LEDGER', JSON.stringify(ledger, null, 2) + '\n');
-    console.log('✓ Recorded PR #$PR_NUMBER → $DECISION (merge: ${PR_MERGE_SHA:0:12})');
+    const mergeShort = (process.env.PR_MERGE_SHA_ENV || '').slice(0, 12);
+    console.log('✓ Recorded PR #' + prNumber + ' → ' + decision + ' (merge: ' + mergeShort + ')');
   "
   # Auto-attempt advance-ledger after successful record
   echo ""
@@ -327,6 +482,7 @@ if [ "$ADVANCE_LEDGER" = true ]; then
     echo "  For each community PR, run:"
     echo "    bash scripts/intake-from-opensource.sh --pr <N> --mode=plan"
     echo "    bash scripts/intake-from-opensource.sh --record --pr <N> --decision <absorbed|public-only|rejected|outbound-sync>"
+    echo "      (absorbed requires --intent-issue <I> --absorb-pr <P> --review-proof <URL|file>)"
     echo ""
     echo "  Or force-advance (DANGEROUS — skips per-PR review):"
     echo "    bash scripts/intake-from-opensource.sh --advance-ledger --force-overwrite"
@@ -368,11 +524,13 @@ if [ -z "$PR_NUMBER" ]; then
   echo "Usage:"
   echo "  bash scripts/intake-from-opensource.sh --pr <N> --mode=plan              # Analyze PR"
   echo "  bash scripts/intake-from-opensource.sh --record --pr <N> --decision <D>  # Record decision"
+  echo "    absorbed requires: --intent-issue <I> --absorb-pr <P> --review-proof <URL|file>"
+  echo "    optional override: --skip-absorbed-guard  (historical backfill or outbound-filed hotfix)"
   echo "  bash scripts/intake-from-opensource.sh --advance-ledger                  # Advance ledger (sync-only commits)"
   echo "  bash scripts/intake-from-opensource.sh --validate-inbound                # 🛡 Check brand contamination (working tree)"
   echo "  bash scripts/intake-from-opensource.sh --validate-inbound --from-index   # 🛡 Check brand contamination (staged/index)"
   echo ""
-  echo "Decisions: absorbed | public-only | rejected"
+  echo "Decisions: absorbed | public-only | rejected | outbound-sync"
   exit 1
 fi
 
@@ -501,7 +659,8 @@ if [ "$MODE" = "plan" ]; then
   fi
   echo "  3. Open the cat-cafe absorb PR with PR body lines:"
   echo "     Closes #<IntakeIntentIssue>   (one line per issue; auto-close on merge)"
-  echo "  4. Record decision: --record --pr $PR_NUMBER --decision absorbed"
+  echo "  4. Record decision:"
+  echo "     --record --pr $PR_NUMBER --decision absorbed --intent-issue <I> --absorb-pr <P> --review-proof <URL|file>"
   echo "     (or: --decision public-only | --decision rejected)"
   echo "  5. After all PRs recorded: --advance-ledger"
   echo "  6. After absorb PR merge, confirm the Intake Intent Issue is closed"
