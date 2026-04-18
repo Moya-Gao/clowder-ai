@@ -242,19 +242,19 @@ Skill 内容安全（防下毒）：
 - [x] AC-B5: Antigravity 结果与现有 `pencil` resolver 策略保持一致性（不互相冲突）
 - [x] AC-B6: 统一搜索结果支持 `kind=pack`，可发现并安装来自 F129 产出的 Pack
 
-### Phase C（治理与版本）
-- [ ] AC-C1: 默认策略阻止一键安装 `community` 包（需二次确认）
-- [ ] AC-C2: 安装后写入版本锁（source/version/channel）
-- [ ] AC-C3: `mcp:doctor` 能显示“已安装但未就绪”的具体原因
-- [ ] AC-C4: 禁止未通过 probe 的 MCP 直接显示 ready
-- [ ] AC-C5: 禁止 install-time scripts（除非显式审批）
-- [ ] AC-C6: 声明态与实测态出现 diff 时强制告警并阻断 ready
-- [ ] AC-C7: 外来 SKILL.md 安装时必须经过内容安全扫描（prompt injection 检测），不通过则标 `quarantined`
-- [ ] AC-C8: 外来 skill 权限隔离（不允许访问写路径、不允许触发其他 skill、工具调用需逐次确认）
-- [ ] AC-C9: quarantined skill 只有铲屎官或审核猫显式 approve 后才能激活
-- [ ] AC-C10: 外来 skill 安装时记录不可变指纹（source + version + hash/signature），运行前校验一致性，不一致自动降级 `quarantined`
-- [ ] AC-C11: 外来 skill 首次运行默认最小权限（dry-run/只读），涉及写文件、网络外发、高危工具必须二次确认
-- [ ] AC-C12: 一键 `revoke`（全端停用 + 清理挂载 + 禁止再次激活），60s 内传播到 Hub/CLI/connector 侧
+### Phase C（治理与版本）✅
+- [x] AC-C1: 默认策略阻止一键安装 `community` 包（需二次确认）
+- [x] AC-C2: 安装后写入版本锁（source/version/channel）
+- [x] AC-C3: `mcp:doctor` 能显示”已安装但未就绪”的具体原因
+- [x] AC-C4: 禁止未通过 probe 的 MCP 直接显示 ready
+- [x] AC-C5: 禁止 install-time scripts（除非显式审批）
+- [x] AC-C6: 声明态与实测态出现 diff 时强制告警并阻断 ready
+- [x] AC-C7: 外来 SKILL.md 安装时必须经过内容安全扫描（prompt injection 检测），不通过则标 `quarantined`
+- [x] AC-C8: 外来 skill 权限隔离（不允许访问写路径、不允许触发其他 skill、工具调用需逐次确认）
+- [x] AC-C9: quarantined skill 只有铲屎官或审核猫显式 approve 后才能激活
+- [x] AC-C10: 外来 skill 安装时记录不可变指纹（source + version + hash/signature），运行前校验一致性，不一致自动降级 `quarantined`
+- [x] AC-C11: 外来 skill 首次运行默认最小权限（dry-run/只读），涉及写文件、网络外发、高危工具必须二次确认
+- [x] AC-C12: 一键 `revoke`（全端停用 + 清理挂载 + 禁止再次激活），60s 内传播到 Hub/CLI/connector 侧
 
 ### Phase D（联动体验）
 - [ ] AC-D1: Skills 页可从 `requires_mcp missing` 直接发起补齐
@@ -321,6 +321,7 @@ Skill 内容安全（防下毒）：
 | 2026-04-17 | Phase B merged (PR #1231) — 4-ecosystem adapter backend, unified search API, install plan bridge, 60 tests |
 | 2026-04-17 | Phase B frontend merged (PR #1235) — marketplace search UI, result cards, install plan detail, trust filter, Hub integration |
 | 2026-04-18 | **Scope 扩展（铲屎官拍板）**：市场不止 MCP，需覆盖 plugin/skill/tool。UI 标签从"MCP 市场"改为"能力市场"，搜索范围扩展到全 `artifactKind`（shared types 已支持） |
+| 2026-04-18 | Phase C merged (PR #1249) — install policy engine, version lock, probe state, content scanner (EN+CN), security store (quarantine state machine + fingerprint), permission isolation, revoke API. 78 tests |
 
 ## Review Gate
 
