@@ -32,7 +32,7 @@ F080 当时明确写了"不做前端本地缓存"，当时的决策是合理的�
 - **Write-through**：`setThreads()`/`replaceMessages()`/`pushMessage()` 成功后异步写 IndexedDB，不阻塞主线程
 - **Cold-start read**：`ThreadSidebar` mount 时先 `await idb.getAll('threads')` 立刻渲染；`useChatHistory` 先读 IndexedDB 快照再 kick off API fetch
 - **Hydration 策略**：API 成功 → 替换快照；API 失败 → 保留快照 + 显示离线标记
-- **不持久化**：`activeInvocations`、`catStatuses`、streaming draft、queue（实时态，存了反而有害）
+- **不持久化**：`activeInvocations`、`catStatuses`、streaming draft、queue、`isStreaming` 占位气泡（实时态，存了反而有害——PR #1261 修复了 `isStreaming` 渗入 IDB 导致 F5 双气泡的 bug）
 
 **改动范围**：
 - `packages/web/src/stores/chatStore.ts`：threadStates write-through 逻辑
