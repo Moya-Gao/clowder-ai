@@ -1034,7 +1034,7 @@ describe('SystemPromptBuilder', () => {
     assert.ok(!ctx.includes('Voice Mode ON'), 'Should not include voice mode header');
   });
 
-  test('buildSystemPrompt size stays under 3450 chars with voice mode + SOP hint (raised for F102-D17 MCP tools section)', async () => {
+  test('buildSystemPrompt size stays under 3900 chars with voice mode + SOP hint (raised for Magic Words 第一性原理/数学之美)', async () => {
     const build = await getBuilder();
     const prompt = build({
       catId: 'opus',
@@ -1052,7 +1052,7 @@ describe('SystemPromptBuilder', () => {
       },
       voiceMode: true,
     });
-    assert.ok(prompt.length < 3750, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 3750`);
+    assert.ok(prompt.length < 3900, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 3900`);
   });
 
   test('buildInvocationContext injects bootcamp mode when bootcampState provided', async () => {
