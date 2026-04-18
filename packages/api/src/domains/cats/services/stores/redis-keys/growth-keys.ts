@@ -1,43 +1,43 @@
 /**
- * Redis key patterns for cat growth XP counters — F160.
- * Key: growth:{catId}:{dimension}  → total XP (INCRBY, no TTL — lifetime stat)
- * Key: growth:audit:{catId}        → sorted set of XP events (score = timestamp)
+ * Redis key patterns for cat journey footfall counters — F160.
+ * Key: journey:{catId}:{dimension}  → total XP (INCRBY, no TTL — lifetime stat)
+ * Key: journey:audit:{catId}        → sorted set of XP events (score = timestamp)
  */
 
 /** Persistent XP counter per cat per dimension. */
 export function growthXpKey(catId: string, dimension: string): string {
-  return `growth:${catId}:${dimension}`;
+  return `journey:${catId}:${dimension}`;
 }
 
 /** Sorted set holding XP event audit trail for one cat. Score = epoch ms. */
 export function growthAuditKey(catId: string): string {
-  return `growth:audit:${catId}`;
+  return `journey:audit:${catId}`;
 }
 
-/** SCAN pattern to match all growth keys for one cat. */
+/** SCAN pattern to match all journey keys for one cat. */
 export function growthCatScan(catId: string): string {
-  return `growth:${catId}:*`;
+  return `journey:${catId}:*`;
 }
 
-/** SCAN pattern to match all growth keys. */
-export const GROWTH_SCAN_ALL = 'growth:*';
+/** SCAN pattern to match all journey keys. */
+export const GROWTH_SCAN_ALL = 'journey:*';
 
 // ── Phase B: Title + Bond keys ─────────────────────────────────────
 
 /** Sorted set of unlocked titles for one cat. Score = unlock timestamp, member = title JSON. */
 export function growthTitleKey(catId: string): string {
-  return `growth:titles:${catId}`;
+  return `journey:titles:${catId}`;
 }
 
 /** Bond score between two cats. Key is always sorted (catA < catB) to ensure uniqueness. */
 export function growthBondKey(catA: string, catB: string): string {
   const [a, b] = catA < catB ? [catA, catB] : [catB, catA];
-  return `growth:bond:${a}:${b}`;
+  return `journey:bond:${a}:${b}`;
 }
 
 /** SCAN pattern to match all bond keys for one cat. */
 export function growthBondScan(catId: string): string {
-  return `growth:bond:*${catId}*`;
+  return `journey:bond:*${catId}*`;
 }
 
 // ── Phase D: Leadership keys (铲屎官六维) ────────────────────────

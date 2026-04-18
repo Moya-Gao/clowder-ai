@@ -54,7 +54,7 @@ After team discussion (architecture + design + product), we converge on:
 - Level formula: `floor(sqrt(xp / 100))`
 - XP amounts per source
 - Achievement unlock conditions
-- Redis key structure (data migration deferred)
+- Redis key structure (prefix changed from `growth:` to `journey:`, no migration needed)
 
 ## Decision 2: Activity Event Spine
 
@@ -252,7 +252,8 @@ Implemented in `packages/api/src/domains/activity/MemoryProjector.ts`.
 - **Positive:** Shadow dimension mechanism allows safe iteration on new
   leadership dimensions without affecting user-visible stats.
 - **Negative:** Significant rename across ~26 files. Mechanical but tedious.
-- **Risk:** Redis keys keep old `growth:` prefix for backward compat.
-  Data migration to `journey:` prefix deferred.
+- **Done:** Redis keys use `journey:` prefix (no legacy `growth:` data to migrate).
 - **Risk:** `feedback_applied` has no emitter yet — the full feedback chain
   (co-creator feedback → cat code change → verification) requires future work.
+  Candidate approaches: review-fix cycle detection via PR tracking, task chain
+  linking, or explicit co-creator confirm block after cat applies feedback.
