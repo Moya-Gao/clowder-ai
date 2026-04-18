@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- test stubs use partial objects */
+import { openDB } from 'idb';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import 'fake-indexeddb/auto';
 import {
+  _getDBForTest,
   _resetDBForTest,
   clearAll,
   loadThreadMessages,
@@ -9,6 +11,22 @@ import {
   saveThreadMessages,
   saveThreads,
 } from '../offline-store';
+
+// Write a polluted snapshot directly, bypassing saveThreadMessages' save-side filter.
+// Simulates a client that was running the pre-fix build and left isStreaming placeholders
+// in their IndexedDB.
+async function rawPutPollutedSnapshot(threadId: string, messages: any[], hasMore = false): Promise<void> {
+  const db = await openDB('cat-cafe-offline', 1);
+  await db.put('thread-messages', { threadId, messages, hasMore, updatedAt: Date.now() });
+  db.close();
+}
+
+async function rawGetSnapshot(threadId: string): Promise<any> {
+  const db = await openDB('cat-cafe-offline', 1);
+  const record = await db.get('thread-messages', threadId);
+  db.close();
+  return record;
+}
 
 describe('offline-store', () => {
   beforeEach(async () => {
@@ -88,6 +106,47 @@ describe('offline-store', () => {
       const r2 = await loadThreadMessages('t2');
       expect(r1!.messages[0].id).toBe('m1');
       expect(r2!.messages[0].id).toBe('m2');
+    });
+
+    it('filters out isStreaming placeholder messages before persisting', async () => {
+      const messages = [
+        { id: 'msg_finished_1', content: [{ type: 'text', text: 'done' }] },
+        { id: 'msg_streaming', isStreaming: true, content: [{ type: 'text', text: 'partial' }] },
+        { id: 'msg_finished_2', content: [{ type: 'text', text: 'done too' }] },
+      ] as any[];
+      await saveThreadMessages('thread_1', messages, false);
+      const result = await loadThreadMessages('thread_1');
+      expect(result!.messages).toHaveLength(2);
+      expect(result!.messages.map((m: any) => m.id)).toEqual(['msg_finished_1', 'msg_finished_2']);
+    });
+
+    it('filters out isStreaming from an already-polluted snapshot on load (old-client migration)', async () => {
+      await rawPutPollutedSnapshot('t1', [{ id: 'm1' }, { id: 'm2_streaming', isStreaming: true }, { id: 'm3' }]);
+      const result = await loadThreadMessages('t1');
+      expect(result!.messages.map((m: any) => m.id)).toEqual(['m1', 'm3']);
+    });
+
+    it('rewrites cleaned snapshot back to IDB after loading polluted data (self-heal)', async () => {
+      await rawPutPollutedSnapshot('t1', [{ id: 'm1' }, { id: 'm_stream', isStreaming: true }]);
+      await loadThreadMessages('t1');
+      const raw = await rawGetSnapshot('t1');
+      expect(raw.messages.map((m: any) => m.id)).toEqual(['m1']);
+      expect(raw.messages.every((m: any) => !m.isStreaming)).toBe(true);
+    });
+
+    it('still returns filtered messages when self-heal write-back fails', async () => {
+      await rawPutPollutedSnapshot('t1', [{ id: 'm1' }, { id: 'm_stream', isStreaming: true }, { id: 'm2' }]);
+      const db = await _getDBForTest();
+      const origPut = db.put.bind(db);
+      db.put = (() => Promise.reject(new Error('IDB write failure (simulated)'))) as any;
+      let result: Awaited<ReturnType<typeof loadThreadMessages>>;
+      try {
+        result = await loadThreadMessages('t1');
+      } finally {
+        db.put = origPut;
+      }
+      expect(result).not.toBeNull();
+      expect(result!.messages.map((m: any) => m.id)).toEqual(['m1', 'm2']);
     });
   });
 
