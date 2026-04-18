@@ -6,7 +6,9 @@ doc_kind: spec
 created: 2026-03-28
 ---
 
-# F146: MCP Marketplace Control Plane — 一键接入 + 多生态聚合
+# F146: Capability Marketplace Control Plane — 一键接入 + 多生态聚合
+
+> **Scope 扩展（2026-04-18 铲屎官拍板）**：不止 MCP，覆盖 plugin / skill / tool / connector。UI 标签"能力市场"。
 
 > **Status**: in-progress | **Owner**: 缅因猫 + 布偶猫 | **Priority**: P1
 
@@ -318,6 +320,7 @@ Skill 内容安全（防下毒）：
 | 2026-04-17 | Phase R complete — GPT Pro + Gemini Deep Think 两路咨询 + codebase 验证综合（`docs/research/2026-04-17-f146-phase-r-marketplace-ecosystem/synthesis.md`） |
 | 2026-04-17 | Phase B merged (PR #1231) — 4-ecosystem adapter backend, unified search API, install plan bridge, 60 tests |
 | 2026-04-17 | Phase B frontend merged (PR #1235) — marketplace search UI, result cards, install plan detail, trust filter, Hub integration |
+| 2026-04-18 | **Scope 扩展（铲屎官拍板）**：市场不止 MCP，需覆盖 plugin/skill/tool。UI 标签从"MCP 市场"改为"能力市场"，搜索范围扩展到全 `artifactKind`（shared types 已支持） |
 
 ## Review Gate
 
