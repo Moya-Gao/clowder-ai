@@ -56,6 +56,10 @@ export interface CapabilityEntry {
   mcpServer?: Omit<McpServerDescriptor, 'name' | 'enabled' | 'source'>;
   /** Source origin */
   source: 'cat-cafe' | 'external';
+  /** F146-C: Version lock (AC-C2) */
+  lockVersion?: LockVersion;
+  /** F146-C: Persistent probe state (AC-C3/C4/C6) */
+  probeState?: ProbeState;
 }
 
 /** Root schema for .cat-cafe/capabilities.json */
@@ -220,6 +224,26 @@ export interface DispatchExecutionDigest {
   readonly nextSteps: readonly string[];
 }
 
+// ─── F146 Phase C: Install Governance Types ─────────────────────────
+
+/** Version lock record — written on install (AC-C2) */
+export interface LockVersion {
+  source: 'marketplace' | 'npm' | 'git' | 'local';
+  version: string;
+  channel?: string;
+  installedAt: string;
+  installedBy: string;
+}
+
+/** Persistent probe state (AC-C3/C4/C6) */
+export interface ProbeState {
+  status: 'ready' | 'probe_failed' | 'not_probed';
+  lastProbed?: string;
+  failureReason?: string;
+  declaredTools?: string[];
+  probedTools?: string[];
+}
+
 // ─── F146: MCP Marketplace Write-Path Types ─────────────────────────
 
 /** POST /api/capabilities/mcp/install request body */
@@ -253,7 +277,7 @@ export interface McpDeleteParams {
 export interface CapabilityAuditEntry {
   timestamp: string;
   userId: string;
-  action: 'install' | 'delete' | 'update' | 'toggle';
+  action: 'install' | 'delete' | 'update' | 'toggle' | 'revoke';
   capabilityId: string;
   before: CapabilityEntry | null;
   after: CapabilityEntry | null;

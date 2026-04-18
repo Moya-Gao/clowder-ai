@@ -85,12 +85,14 @@ export type {
   GovernanceHealthSummary,
   GovernancePackMeta,
   GovernanceRule,
+  LockVersion,
   McpDeleteParams,
   McpInstallPreview,
   McpInstallRequest,
   McpServerDescriptor,
   McpToolInfo,
   McpTransport,
+  ProbeState,
   SkillHealthSummary,
 } from './capability.js';
 // Cat types
@@ -399,6 +401,17 @@ export type {
   SignalSourceSchedule,
   SignalTier,
 } from './signals.js';
+// Skill security types (F146 Phase C)
+export type {
+  ContentScanFinding,
+  InstallPolicy,
+  PolicyEvaluation,
+  SkillFingerprint,
+  SkillPermissionSet,
+  SkillSecurityEntry,
+  SkillSecurityStatus,
+} from './skill-security.js';
+export { DEFAULT_INSTALL_POLICY } from './skill-security.js';
 // Slice types (F076 Phase 2 — 切片)
 export type {
   CreateSliceInput,

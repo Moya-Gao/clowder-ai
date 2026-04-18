@@ -42,6 +42,8 @@ export interface InstallPlan {
   mcpEntry?: McpInstallRequest;
   delegatedCommand?: string;
   manualSteps?: string[];
+  hasInstallScripts?: boolean;
+  scriptDetails?: string;
   metadata?: {
     versionRef?: string;
     publisherIdentity?: string;
