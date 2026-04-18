@@ -8,7 +8,7 @@ created: 2026-04-17
 
 # F167: A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P0
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P0
 
 ## Why
 
@@ -154,6 +154,7 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | 2026-04-17 | 4.7 + gemini + gpt52 二轮 review |
 | 2026-04-17 | GPT Pro 深度推理（Mode B 咨询）→ intake 后过度学术化 |
 | 2026-04-17 | 铲屎官拉闸「第一性原理」「数学之美」→ 全员回溯 Round 4 → spec 极简化重写 |
+| 2026-04-18 | Phase A PR 1 merged (PR #1243) — L2 parallel @ 抑制 + L3 designer role gate MVP |
 
 ## Review Gate
 
@@ -176,8 +177,8 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | 需求来源 | 需求点 | AC 映射 | 状态 |
 |---------|--------|---------|------|
 | 铲屎官 2026-04-17 | 乒乓球：同对猫反复 @ 无产出 | AC-A1~A4 | ⬜ |
-| 铲屎官 2026-04-17 | parallel 模式 @ 废话 | AC-A5~A6 | ⬜ |
-| GPT-5.4 发现 | 角色不适配 handoff（designer 写代码） | AC-A7 | ⬜ |
+| 铲屎官 2026-04-17 | parallel 模式 @ 废话 | AC-A5~A6 | ✅ PR1 |
+| GPT-5.4 发现 | 角色不适配 handoff（designer 写代码） | AC-A7 | ✅ PR1 |
 | 铲屎官 2026-04-17 | 提示词正面化 + 边界显式化 | AC-01~05 | ⬜ |
 | 铲屎官 2026-04-17 | Skills 审视 "used when / not for" 边界 | AC-03 | ⬜ |
 | 铲屎官 2026-04-17 | 路由可见性不退化 | Design Constraint #1 | ✅ 拍板 |
