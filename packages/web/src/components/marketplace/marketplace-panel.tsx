@@ -80,13 +80,13 @@ export function MarketplacePanel() {
       )}
 
       {!loading && !error && query && results.length === 0 && (
-        <div className="py-8 text-center text-sm text-cafe-muted">未找到匹配 &ldquo;{query}&rdquo; 的 MCP 服务</div>
+        <div className="py-8 text-center text-sm text-cafe-muted">未找到匹配 &ldquo;{query}&rdquo; 的能力</div>
       )}
 
       {!loading && !error && !query && (
         <div className="flex flex-col items-center py-12 text-cafe-muted">
           <HubIcon name="search" className="mb-3 h-8 w-8 opacity-30" />
-          <p className="text-sm">搜索关键词，发现 MCP 服务</p>
+          <p className="text-sm">搜索关键词，发现能力</p>
           <p className="mt-1 text-xs">支持 Claude · Codex · OpenClaw · Antigravity 四大生态</p>
         </div>
       )}

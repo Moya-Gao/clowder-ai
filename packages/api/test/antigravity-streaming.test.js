@@ -94,6 +94,128 @@ describe('G2: pollForSteps yields steps incrementally', () => {
       }
     }, /stall/i);
   });
+
+  test('yields delta when planner response grows in place without a new step', async () => {
+    const bridge = createBridge();
+    let callCount = 0;
+    const trajectories = [
+      {
+        status: 'CASCADE_RUN_STATUS_RUNNING',
+        numTotalSteps: 1,
+        trajectory: {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'DONE',
+              plannerResponse: { modifiedResponse: '铲屎官，我活着，' },
+            },
+          ],
+        },
+      },
+      {
+        status: 'CASCADE_RUN_STATUS_IDLE',
+        numTotalSteps: 1,
+        trajectory: {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'DONE',
+              plannerResponse: { modifiedResponse: '铲屎官，我活着，喵。' },
+            },
+          ],
+        },
+      },
+    ];
+    mock.method(bridge, 'getTrajectory', async () => trajectories[callCount++]);
+    mock.method(bridge, 'getTrajectorySteps', async () => []);
+
+    const yielded = [];
+    for await (const batch of bridge.pollForSteps('cascade-1', 0, 5000, 50)) {
+      yielded.push(batch);
+    }
+
+    assert.equal(yielded.length, 2, `should emit partial + terminal delta, got ${yielded.length} batches`);
+    assert.equal(yielded[0].steps[0].plannerResponse.modifiedResponse, '铲屎官，我活着，');
+    assert.equal(yielded[0].cursor.terminalSeen, false);
+    assert.equal(yielded[1].steps[0].plannerResponse.modifiedResponse, '喵。');
+    assert.equal(yielded[1].cursor.lastDeliveredStepCount, 1);
+    assert.equal(yielded[1].cursor.terminalSeen, true);
+  });
+
+  test('does not replay already-delivered steps on terminal-first resumed poll', async () => {
+    const bridge = createBridge();
+    mock.method(bridge, 'getTrajectory', async () => ({
+      status: 'CASCADE_RUN_STATUS_IDLE',
+      numTotalSteps: 4,
+      trajectory: {
+        steps: [
+          { type: 'CORTEX_STEP_TYPE_CHECKPOINT', status: 'DONE' },
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'DONE',
+            plannerResponse: { modifiedResponse: 'old partial' },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_TOOL_CALL',
+            status: 'DONE',
+            toolCall: { toolName: 'search' },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'DONE',
+            plannerResponse: { modifiedResponse: 'new delta' },
+          },
+        ],
+      },
+    }));
+    mock.method(bridge, 'getTrajectorySteps', async () => []);
+
+    const yielded = [];
+    for await (const batch of bridge.pollForSteps('cascade-1', 3, 5000, 50)) {
+      yielded.push(batch);
+    }
+
+    assert.equal(yielded.length, 1, `should emit exactly one terminal batch, got ${yielded.length}`);
+    assert.equal(yielded[0].steps.length, 1, 'should only emit the truly new step');
+    assert.equal(yielded[0].steps[0].plannerResponse.modifiedResponse, 'new delta');
+    assert.equal(yielded[0].cursor.lastDeliveredStepCount, 4);
+    assert.equal(yielded[0].cursor.terminalSeen, true);
+  });
+
+  test('does not repeatedly fetch full trajectory on terminal resume without inline steps', async () => {
+    const bridge = createBridge();
+    let trajectoryFetches = 0;
+    mock.method(bridge, 'getTrajectory', async () => ({
+      status: 'CASCADE_RUN_STATUS_IDLE',
+      numTotalSteps: 3,
+    }));
+    mock.method(bridge, 'getTrajectorySteps', async () => {
+      trajectoryFetches += 1;
+      return [
+        { type: 'CORTEX_STEP_TYPE_CHECKPOINT', status: 'DONE' },
+        {
+          type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+          status: 'DONE',
+          plannerResponse: { modifiedResponse: 'already delivered' },
+        },
+        {
+          type: 'CORTEX_STEP_TYPE_TOOL_CALL',
+          status: 'DONE',
+          toolCall: { toolName: 'search' },
+        },
+      ];
+    });
+
+    const yielded = [];
+    for await (const batch of bridge.pollForSteps('cascade-1', 3, 200, 10)) {
+      yielded.push(batch);
+    }
+
+    const last = yielded[yielded.length - 1];
+    assert.equal(last.cursor.terminalSeen, true);
+    assert.equal(last.cursor.lastDeliveredStepCount, 3);
+    assert.equal(trajectoryFetches, 1, 'terminal resume should seed at most once, not poll full history repeatedly');
+  });
 });
 
 // ── G8a: DeliveryCursor ────────────────────────────────────────────
@@ -288,6 +410,7 @@ describe('Cloud P1-r2: genuine empty terminal returns cleanly', () => {
       status: 'CASCADE_RUN_STATUS_IDLE',
       numTotalSteps: 3,
     }));
+    mock.method(bridge, 'getTrajectorySteps', async () => []);
 
     const yielded = [];
     for await (const batch of bridge.pollForSteps('cascade-1', 3, 200, 10)) {

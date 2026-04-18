@@ -4,6 +4,7 @@ import https from 'node:https';
 import { dirname, join } from 'node:path';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 import { discoverAntigravityLS } from './antigravity-ls-discovery.js';
+import { diffDeliveredSteps } from './antigravity-step-delta.js';
 import { RAW_RESPONSE_CAP, TRACE_ENABLED, TRACED_METHODS, traceLog } from './antigravity-trace.js';
 import type { AuditSink } from './executors/AntigravityToolExecutor.js';
 import type { ExecutorRegistry } from './executors/ExecutorRegistry.js';
@@ -241,6 +242,8 @@ export class AntigravityBridge {
     let waitingApprovalSignaled = false;
     let rpcRetries = 0;
     const maxRpcRetries = 3;
+    let deliveredFingerprints: string[] = [];
+    let deliveredPlannerTexts: string[] = [];
 
     while (true) {
       if (signal?.aborted) throw new Error('Aborted');
@@ -260,16 +263,50 @@ export class AntigravityBridge {
       const currentSteps = traj.numTotalSteps ?? 0;
       const isTerminal = traj.status === 'CASCADE_RUN_STATUS_IDLE';
       const awaitingUserInput = traj.awaitingUserInput === true;
+      const hasInlineSteps = Array.isArray(traj.trajectory?.steps);
+      const shouldFetchForNewSteps = currentSteps > delivered;
+      const shouldFetchForMutation = currentSteps > 0 && deliveredFingerprints.length > 0 && hasInlineSteps;
+      const shouldSeedDeliveredSnapshots = currentSteps > 0 && delivered > 0 && deliveredFingerprints.length === 0;
 
-      if (currentSteps > delivered) {
+      let allSteps: TrajectoryStep[] = [];
+      let replaySteps: TrajectoryStep[] = [];
+      let nextFingerprints = deliveredFingerprints;
+      let nextPlannerTexts = deliveredPlannerTexts;
+      let hadMutation = false;
+
+      if (shouldFetchForNewSteps || shouldFetchForMutation || shouldSeedDeliveredSnapshots) {
+        allSteps = traj.trajectory?.steps ?? (await this.getTrajectorySteps(cascadeId));
+      }
+
+      if (shouldSeedDeliveredSnapshots) {
+        const seeded = diffDeliveredSteps(allSteps, 0, [], []);
+        deliveredFingerprints = seeded.nextFingerprints;
+        deliveredPlannerTexts = seeded.nextPlannerTexts;
+        nextFingerprints = seeded.nextFingerprints;
+        nextPlannerTexts = seeded.nextPlannerTexts;
+      }
+
+      if (shouldFetchForNewSteps || shouldFetchForMutation) {
+        const diff = diffDeliveredSteps(allSteps, delivered, deliveredFingerprints, deliveredPlannerTexts);
+        replaySteps = diff.replaySteps;
+        nextFingerprints = diff.nextFingerprints;
+        nextPlannerTexts = diff.nextPlannerTexts;
+        hadMutation = diff.hadMutation;
+      }
+
+      if (currentSteps > delivered || hadMutation) {
         waitingApprovalSignaled = false;
         lastActivityAt = Date.now();
-        const allSteps = traj.trajectory?.steps ?? (await this.getTrajectorySteps(cascadeId));
         const newSteps = allSteps.slice(delivered, currentSteps);
+        const emittedSteps = replaySteps.concat(newSteps);
         delivered = currentSteps;
-        log.debug(`cascade delivery: ${newSteps.length} new steps (total=${currentSteps}, terminal=${isTerminal})`);
+        deliveredFingerprints = nextFingerprints;
+        deliveredPlannerTexts = nextPlannerTexts;
+        log.debug(
+          `cascade delivery: ${emittedSteps.length} emitted steps (new=${newSteps.length}, mutated=${replaySteps.length}, total=${currentSteps}, terminal=${isTerminal})`,
+        );
         yield {
-          steps: newSteps,
+          steps: emittedSteps,
           cursor: {
             baselineStepCount: stepsBefore,
             lastDeliveredStepCount: delivered,
