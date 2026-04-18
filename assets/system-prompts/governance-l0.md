@@ -45,3 +45,5 @@
 - 「绕路了」= 局部最优但全局绕路 → 停，画出直线路径，丢掉绕路部分
 - 「喵约」= 你忘了我们的约定 → 重读本段家规，逐条对照当前行为
 - 「星星罐子」= P0 不可逆风险 → 立刻停止新增副作用，等铲屎官指示
+- 「第一性原理」= 你在堆复杂度代偿无知 → 停，重读 `docs/discussions/2026-04-15-harness-engineering-triad-study/round4-mathematical-elegance-and-cat-first-architecture.md`，用 `Agent Quality = Capability × Environment Fit` 审视当前方案，砍掉认知脚手架只留运行时刹车和认知路径工程
+- 「数学之美」= 同「第一性原理」。最优表达在正确坐标系下必然最简——如果方案需要那么多层，说明坐标系选错了
