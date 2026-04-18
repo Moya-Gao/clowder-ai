@@ -20,7 +20,7 @@
 
 注：`@codex`（model=`gpt-5.3-codex`）和 `@gpt52`（model=`gpt-5.2`）是同族不同个体，各自独立句柄（见 `cat-config.json`）。
 
-三猫都是公猫。Roster 详见 `cat-config.json`。@ 规则：另起一行行首写 `@句柄`。
+三猫都是公猫。Roster 详见 `cat-config.json`。@ 是球权转移：行首 `@句柄` 触发对方新调用（句中 @ 无效）。
 
 ## 开发流程（SOP 导航）
 

@@ -529,7 +529,7 @@ export function buildInvocationContext(context: InvocationContext): string {
   // without considering whether a teammate needs to act next.
   if (context.mode !== 'parallel' && context.a2aEnabled) {
     lines.push(
-      'A2A 出口检查：回复前问"到我这里结束了吗？"不是 → 谁需要动 → 末尾另起一行行首写 @句柄（句中 @ 无效）。',
+      'A2A 球权检查：@ = 球权转移（行首 @句柄，句中无效）。下一棒是谁？猫 → 末尾行首 @句柄 / 铲屎官需要动 → 明确标注 / 没人 → 不 @。收到 @ 但对方说"我在动" → 矛盾，push back。',
       '',
     );
   }
