@@ -11,7 +11,7 @@ related: [F086, F129, ADR-012]
 
 > 状态：草稿（待多猫 Phase 0 审视后定稿）
 > 日期：2026-04-17
-> 决策者：铲屎官 + 布偶猫
+> 决策者：铲屎官 + 布偶猫(46/47) + 缅因猫(Codex/GPT-5.4) + 暹罗猫(Gemini)
 > 触发：F167 Phase 0 —— 发现改了 `governance-l0.md` 但忘了同步 `GOVERNANCE_L0_DIGEST`，Magic Words 在运行时对其他猫不生效
 
 ## 背景
@@ -113,14 +113,33 @@ pnpm --filter @cat-cafe/api test:system-prompt
 
 参考 Anthropic Skills 实践："Used when..." 先定适用场景，"Not for..." 再划排除。
 
-#### 4.2 第一性原理检验
+#### 4.2 对齐好直觉（鼓励元认知 + 主观能动性）
+
+刹车之外要给油门。每条规则问：
+1. **这条规则删掉，好的行为会消失吗？** 会 → 保留。不会 → 删。
+2. **会让 Agent 失去判断力吗？** 会 → 改写，加出口。
+3. **Agent 能质疑这条规则吗？** 不能 → 补 Push Back 出口。
+
+**Bad** — 只有纪律，无主观能动性出口：
+```
+- 接球后静默执行
+```
+
+**Good** — 纪律 + 保留判断权：
+```
+- 接球后静默执行；若识别到角色不匹配或方向有问题，先通知对方再执行
+```
+
+当规则字面与本地现实冲突时，允许 Agent 说明冲突、引用证据，并提出更合适的执行方式。
+
+#### 4.3 第一性原理检验
 
 每条规则问：
 1. **必要吗？** — 能从其他规则推导出来 → 删掉，引用
 2. **最简吗？** — 能用更少的字表达 → 精简（`Agent Quality = Capability × Environment Fit`）
 3. **坐标系对吗？** — 需要很多例外说明 → 坐标系选错了，重选
 
-#### 4.3 禁止冗余注入
+#### 4.4 禁止冗余注入
 
 同一条规则不在多处重复。当前已知冗余（待 Phase 0 审计）：
 - `shared-rules.md` 的纪律条款 vs `CLAUDE.md` 的铁律 → 应引用不重复
@@ -134,13 +153,27 @@ pnpm --filter @cat-cafe/api test:system-prompt
 - 改 `GOVERNANCE_L0_DIGEST` → 必须跑 `node --test packages/api/test/system-prompt-builder.test.js`
 - 测试会验证 digest 中包含 Magic Words、原则编号等关键字
 
-### 6. 模型演进适配
+### 6. 模型演进适配（双向原则）
 
-不同模型对 system prompt 的响应方式不同（F167 KD-8）：
-- **Spirit Interpreter**（如 Opus 4.6）：理解规则意图，适应性强
-- **Literal Follower**（如 Opus 4.7）：逐字执行，边界模糊则行为不可预期
+> 真正的 Harness 工程 = 对齐模型的好直觉 + 压制模型的坏直觉，其他一律极简。
 
-**原则**：system prompt 应为 Literal Follower 写——意图明确、边界清晰、正面表述。Spirit Interpreter 自然能理解，Literal Follower 也不会偏。
+双向原则（缺一不可）：
+
+| 目的 | 手段 |
+|------|------|
+| 压制坏直觉 | 正面优先、边界明确、出口一问 |
+| 对齐好直觉 | Rule 0 兜底、Push Back 显式许可 |
+
+**检验**：一条规则如果删掉，好的行为会消失吗？
+- 会 → 保留。不会 → 删。
+
+### 7. Rule 0 + Push Back 协议
+
+已落入 `shared-rules.md`（真相源）。核心：
+
+- **Rule 0**：规则是边界，不是全部。边界之内保留判断力。
+- **Push Back 协议**：质疑规则需带证据 + 适用性论证 + 替代方案。这是底线不是仪式——自然推理已附带等价信息时不必格式化。
+- **不设身份门槛**：任何猫都可以 push back，证据质量自然筛选。没证据的质疑 = 撒娇，可礼貌退回。
 
 ## Phase 0 审计发现（2026-04-17 三猫协作）
 
@@ -188,6 +221,8 @@ pnpm --filter @cat-cafe/api test:system-prompt
 - **正面**：注入链地图 + 同步纪律让"改了 A 忘了 B"可预防
 - **正面**：三猫审计产出了可落地的保留/重写/删除清单
 - **正面**：Magic Words 真相源已修正到 `shared-rules.md`
+- **正面**：Rule 0 + Push Back 协议补齐了"对齐好直觉"这半边——规则不再只有刹车没有油门
+- **正面**：双向检验标准（"删掉后好行为会消失吗"）与模型类型无关，测的是规则信息量
 - **负面**：`GOVERNANCE_L0_DIGEST` 仍是硬编码常量，手动同步负担存在——长期应考虑编译自动化
 - **待定**：Phase 0 正面重写改动量较大，需分批落地
 
