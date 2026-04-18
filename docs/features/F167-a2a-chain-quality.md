@@ -85,10 +85,10 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 ## Acceptance Criteria
 
 ### Phase 0（系统提示词正面化）
-- [ ] AC-01: 所有 "禁止 X" 式规则改为 "允许 Y，禁止 Z" 显式边界格式（共享 + per-cat）
+- [x] AC-01: 所有 "禁止 X" 式规则改为 "允许 Y，禁止 Z" 显式边界格式（共享 + per-cat）— 7 文件负面指令清零（c34364da5 + b653b3021 + 13ab948c1）
 - [ ] AC-02: 路由规则正面化："行首 @ 或 MCP targetCats 是仅有的两种路由方式" 写入 shared-rules + per-cat prompt
 - [ ] AC-03: Skills 审视完成，每个 Skill 有 "Use when" + "Not for" 边界（参考 Anthropic skills 实践）
-- [ ] AC-04: `GOVERNANCE_L0_DIGEST` 与 `governance-l0.md` 同步（含新增 Magic Words）
+- [x] AC-04: `GOVERNANCE_L0_DIGEST` 与 `governance-l0.md` 同步（含新增 Magic Words）— Rule 0 出口 + W4 正面化（c34364da5）
 - [ ] AC-05: SOP 轻重路径给正反例 few-shot
 
 ### Phase A（Harness 硬护栏）
@@ -154,6 +154,7 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | 2026-04-17 | 4.7 + gemini + gpt52 二轮 review |
 | 2026-04-17 | GPT Pro 深度推理（Mode B 咨询）→ intake 后过度学术化 |
 | 2026-04-17 | 铲屎官拉闸「第一性原理」「数学之美」→ 全员回溯 Round 4 → spec 极简化重写 |
+| 2026-04-18 | Phase 0 部分完成 — AC-01 负面指令清零（7 文件） + AC-04 GOVERNANCE_L0_DIGEST Rule 0 同步 |
 | 2026-04-18 | Phase A PR 1 merged (PR #1243) — L2 parallel @ 抑制 + L3 designer role gate MVP |
 
 ## Review Gate
@@ -179,7 +180,7 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | 铲屎官 2026-04-17 | 乒乓球：同对猫反复 @ 无产出 | AC-A1~A4 | ⬜ |
 | 铲屎官 2026-04-17 | parallel 模式 @ 废话 | AC-A5~A6 | ✅ PR1 |
 | GPT-5.4 发现 | 角色不适配 handoff（designer 写代码） | AC-A7 | ✅ PR1 |
-| 铲屎官 2026-04-17 | 提示词正面化 + 边界显式化 | AC-01~05 | ⬜ |
+| 铲屎官 2026-04-17 | 提示词正面化 + 边界显式化 | AC-01~05 | 🟡 AC-01/04 ✅，AC-02/03/05 待补 |
 | 铲屎官 2026-04-17 | Skills 审视 "used when / not for" 边界 | AC-03 | ⬜ |
 | 铲屎官 2026-04-17 | 路由可见性不退化 | Design Constraint #1 | ✅ 拍板 |
 | 铲屎官 2026-04-17 | 「第一性原理」「数学之美」Magic Words | governance-l0.md ✅ → SystemPromptBuilder 待同步 | ⬜ |
