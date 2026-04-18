@@ -269,7 +269,9 @@ Magic Words（铲屎官对你说以下词=手动拉闸，仅铲屎官当前指�
 -「脚手架」= 你在偷懒写临时方案 → 停，审视产物是否终态，不是→重写
 -「绕路了」= 局部最优但全局绕路 → 停，画出直线路径，丢掉绕路部分
 -「喵约」= 你忘了我们的约定 → 重读本段家规，逐条对照当前行为
--「星星罐子」= P0不可逆风险 → 立刻停止新增副作用（不发新命令、不写新文件、不push），等铲屎官指示`;
+-「星星罐子」= P0不可逆风险 → 立刻停止新增副作用（不发新命令、不写新文件、不push），等铲屎官指示
+-「第一性原理」= 你在堆复杂度代偿无知 → 停，重读 Round 4 数学美学讨论，用 Agent Quality = Capability × Environment Fit 审视当前方案，砍掉认知脚手架只留运行时刹车和认知路径工程
+-「数学之美」= 同「第一性原理」。最优表达在正确坐标系下必然最简——如果方案需要那么多层，说明坐标系选错了`;
 
 /** Per-breed workflow triggers: when to proactively @ other cats.
  *  Keyed by breedId so all variants of a breed share the same workflow. */
