@@ -170,7 +170,7 @@ describe('SystemPromptBuilder', () => {
     assert.equal(a, b);
   });
 
-  test('output size is under 3200 chars (raised for F102-D17 MCP tools section)', async () => {
+  test('output size stays under 3900 chars after Magic Words + runtime prompt growth', async () => {
     const build = await getBuilder();
     const prompt = build({
       catId: 'opus',
@@ -181,7 +181,7 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: true,
       promptTags: ['critique'],
     });
-    assert.ok(prompt.length < 3600, `Prompt is ${prompt.length} chars, expected < 3600`);
+    assert.ok(prompt.length < 3900, `Prompt is ${prompt.length} chars, expected < 3900`);
   });
 
   test('returns empty string for unknown catId', async () => {
@@ -433,7 +433,7 @@ describe('SystemPromptBuilder', () => {
     }
   });
 
-  test('buildStaticIdentity roster size with full runtime config is under 4100 (raised for F102-D17 MCP tools section)', async () => {
+  test('buildStaticIdentity roster size with full runtime config stays under 4700 chars after Magic Words growth', async () => {
     const { buildSystemPrompt } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
     const originalConfigs = catRegistry.getAllConfigs();
@@ -453,7 +453,7 @@ describe('SystemPromptBuilder', () => {
         mcpAvailable: true,
         promptTags: ['critique'],
       });
-      assert.ok(prompt.length < 4400, `Full runtime prompt is ${prompt.length} chars, expected < 4400`);
+      assert.ok(prompt.length < 4700, `Full runtime prompt is ${prompt.length} chars, expected < 4700`);
     } finally {
       catRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
@@ -698,7 +698,7 @@ describe('SystemPromptBuilder', () => {
     assert.ok(!ctx.includes('最近活跃'), 'Should not inject when no non-self participant has activity');
   });
 
-  test('buildSystemPrompt size with activeParticipants stays under 3250 chars (raised for F102-D17 MCP tools section)', async () => {
+  test('buildSystemPrompt size with activeParticipants stays under 3900 chars after Magic Words + runtime prompt growth', async () => {
     const build = await getBuilder();
     const prompt = build({
       catId: 'opus',
@@ -713,7 +713,7 @@ describe('SystemPromptBuilder', () => {
         { catId: 'opus', lastMessageAt: Date.now() - 1000, messageCount: 3 },
       ],
     });
-    assert.ok(prompt.length < 3600, `Prompt with activity is ${prompt.length} chars, expected < 3600`);
+    assert.ok(prompt.length < 3900, `Prompt with activity is ${prompt.length} chars, expected < 3900`);
   });
 
   // --- F042: pinned identity constant + direct-message reply target ---
@@ -988,7 +988,7 @@ describe('SystemPromptBuilder', () => {
     assert.ok(!ctx.includes('skill'), 'Should not contain skill reference when null');
   });
 
-  test('buildSystemPrompt size stays under 3300 chars with SOP hint (raised for F102-D17 MCP tools section)', async () => {
+  test('buildSystemPrompt size stays under 3900 chars with SOP hint after Magic Words + runtime prompt growth', async () => {
     const build = await getBuilder();
     const prompt = build({
       catId: 'opus',
@@ -1005,7 +1005,7 @@ describe('SystemPromptBuilder', () => {
         featureId: 'F073',
       },
     });
-    assert.ok(prompt.length < 3650, `Prompt with SOP hint is ${prompt.length} chars, expected < 3650`);
+    assert.ok(prompt.length < 3900, `Prompt with SOP hint is ${prompt.length} chars, expected < 3900`);
   });
 
   // --- F092: Voice Mode prompt injection ---
@@ -1034,7 +1034,7 @@ describe('SystemPromptBuilder', () => {
     assert.ok(!ctx.includes('Voice Mode ON'), 'Should not include voice mode header');
   });
 
-  test('buildSystemPrompt size stays under 3900 chars with voice mode + SOP hint (raised for Magic Words 第一性原理/数学之美)', async () => {
+  test('buildSystemPrompt size stays under 4000 chars with voice mode + SOP hint after Magic Words growth', async () => {
     const build = await getBuilder();
     const prompt = build({
       catId: 'opus',
@@ -1052,7 +1052,7 @@ describe('SystemPromptBuilder', () => {
       },
       voiceMode: true,
     });
-    assert.ok(prompt.length < 3900, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 3900`);
+    assert.ok(prompt.length < 4000, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 4000`);
   });
 
   test('buildInvocationContext injects bootcamp mode when bootcampState provided', async () => {
