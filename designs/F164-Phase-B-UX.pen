@@ -1,253 +1,510 @@
 {
-  "version": "2.10",
+  "version": "2.11",
   "children": [
     {
       "type": "frame",
-      "id": "ORuDN",
-      "x": 80,
-      "y": 80,
-      "name": "F164 Phase B - IM Sync States",
-      "fill": "#0B1220",
-      "cornerRadius": 16,
-      "gap": 24,
+      "id": "Z8JIp",
+      "x": 0,
+      "y": 0,
+      "name": "F164 Phase B: Default",
+      "width": 375,
+      "height": 667,
+      "fill": "#FFFFFF",
+      "cornerRadius": 12,
+      "stroke": {
+        "thickness": 1,
+        "fill": "#DEE2E6"
+      },
+      "layout": "vertical",
+      "gap": 16,
       "padding": 24,
       "children": [
         {
           "type": "frame",
-          "id": "59oyM",
-          "name": "Default",
-          "width": 320,
-          "height": 240,
-          "fill": "#0F172A",
-          "cornerRadius": 12,
+          "id": "LZfZw",
+          "layoutPosition": "absolute",
+          "x": 24,
+          "y": 24,
+          "name": "Header",
+          "width": 300,
+          "height": 100,
+          "fill": "#FF00FF",
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "dCjYV",
+              "layoutPosition": "absolute",
+              "x": 10,
+              "y": 10,
+              "fill": "#000000",
+              "content": "RENDER TEST",
+              "fontFamily": "Inter",
+              "fontSize": 18,
+              "fontWeight": "bold"
+            },
+            {
+              "id": "smKZm",
+              "type": "ref",
+              "ref": "4q68v",
+              "name": "StatusPill",
+              "width": "fit_content",
+              "x": 200,
+              "y": 0,
+              "opacity": 1,
+              "enabled": true,
+              "layoutPosition": "absolute",
+              "descendants": {
+                "JJDvb": {
+                  "fill": "$textSecondary"
+                },
+                "rB9Ni": {
+                  "content": "等待加载",
+                  "fill": "$textSecondary"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "1dtB0",
+      "x": 400,
+      "y": 0,
+      "name": "F164 Phase B: Online",
+      "width": 375,
+      "height": 667,
+      "fill": "#FFFFFF",
+      "cornerRadius": 12,
+      "stroke": {
+        "thickness": 1,
+        "fill": "#DEE2E6"
+      },
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 24,
+      "children": [
+        {
+          "type": "frame",
+          "id": "dVRIP",
+          "name": "Header",
+          "width": "fill_container",
+          "height": 60,
+          "padding": [
+            0,
+            24
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "l0GfC",
+              "fill": "#1F2937",
+              "content": "Cat Cafe Logic",
+              "fontFamily": "Inter",
+              "fontSize": 18,
+              "fontWeight": "bold"
+            },
+            {
+              "id": "HbNmm",
+              "type": "ref",
+              "ref": "4q68v",
+              "name": "StatusPill",
+              "width": "fit_content",
+              "x": 216,
+              "y": 17.5
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "b0X4J",
+          "name": "MessageList",
+          "width": "fill_container",
+          "height": "fill_container",
           "layout": "vertical",
+          "gap": 20,
+          "padding": [
+            0,
+            12
+          ],
+          "children": [
+            {
+              "id": "YXdPp",
+              "type": "ref",
+              "ref": "n6FU2",
+              "descendants": {
+                "o87tC": {
+                  "content": "猫猫"
+                },
+                "4Ro5d": {
+                  "content": "哈喽！现在信号满格，实时同步中哦~"
+                }
+              }
+            },
+            {
+              "id": "vzC6h",
+              "type": "ref",
+              "ref": "n6FU2",
+              "descendants": {
+                "o87tC": {
+                  "content": "铲屎官"
+                },
+                "4Ro5d": {
+                  "content": "收到！看到这绿点就很安心。"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "etyEs",
+          "type": "ref",
+          "ref": "rQmuV",
+          "name": "InputBar"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "T0n2m",
+      "x": 800,
+      "y": 0,
+      "name": "F164 Phase B: Syncing",
+      "width": 375,
+      "height": 667,
+      "fill": "#FFFFFF",
+      "cornerRadius": 12,
+      "stroke": {
+        "thickness": 1,
+        "fill": "#DEE2E6"
+      },
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 24,
+      "children": [
+        {
+          "type": "frame",
+          "id": "xlkuW",
+          "name": "Header",
+          "width": "fill_container",
+          "height": 60,
+          "padding": [
+            0,
+            24
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "QfdV1",
+              "fill": "#1F2937",
+              "content": "Cat Cafe Logic",
+              "fontFamily": "Inter",
+              "fontSize": 18,
+              "fontWeight": "bold"
+            },
+            {
+              "id": "vJiMS",
+              "type": "ref",
+              "ref": "4q68v",
+              "name": "StatusPill",
+              "width": "fit_content",
+              "x": 218,
+              "y": 17.5,
+              "descendants": {
+                "JJDvb": {
+                  "fill": "$colorSync"
+                },
+                "rB9Ni": {
+                  "content": "同步中..."
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "g3L8h",
+          "name": "MessageList",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "gap": 20,
+          "padding": [
+            0,
+            12
+          ],
+          "children": [
+            {
+              "id": "Itazj",
+              "type": "ref",
+              "ref": "n6FU2",
+              "descendants": {
+                "o87tC": {
+                  "content": "..."
+                },
+                "4Ro5d": {
+                  "content": "正在努力加载中..."
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "58e05",
+          "type": "ref",
+          "ref": "rQmuV",
+          "name": "InputBar"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "t8pjp",
+      "x": 1200,
+      "y": 0,
+      "name": "F164 Phase B: Offline",
+      "width": 375,
+      "height": 667,
+      "fill": "#FFFFFF",
+      "cornerRadius": 12,
+      "stroke": {
+        "thickness": 1,
+        "fill": "#DEE2E6"
+      },
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 24,
+      "children": [
+        {
+          "type": "frame",
+          "id": "3JTpi",
+          "name": "Header",
+          "width": "fill_container",
+          "height": 60,
+          "padding": [
+            0,
+            24
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "olAHw",
+              "fill": "#1F2937",
+              "content": "Cat Cafe Logic",
+              "fontFamily": "Inter",
+              "fontSize": 18,
+              "fontWeight": "bold"
+            },
+            {
+              "id": "QNlh8",
+              "type": "ref",
+              "ref": "4q68v",
+              "name": "StatusPill",
+              "width": "fit_content",
+              "x": 216,
+              "y": 17.5,
+              "descendants": {
+                "JJDvb": {
+                  "fill": "$colorOffline"
+                },
+                "rB9Ni": {
+                  "content": "离线快照"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "hHj5A",
+          "name": "OldTimeTip",
+          "width": "fill_container",
+          "fill": "#FFF5EB",
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#FD7E14"
+          },
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#0000001A",
+            "offset": {
+              "x": 0,
+              "y": 2
+            },
+            "blur": 4
+          },
           "gap": 12,
           "padding": 16,
           "children": [
             {
-              "type": "text",
-              "id": "KWEhU",
-              "name": "defaultTitle",
-              "fill": "#E2E8F0",
-              "content": "Default",
-              "fontFamily": "Inter",
-              "fontSize": 24,
-              "fontWeight": "normal"
-            },
-            {
-              "type": "frame",
-              "id": "dB3Jv",
-              "name": "Pill",
-              "fill": "#334155",
-              "cornerRadius": 999,
-              "gap": 8,
-              "padding": 8,
-              "children": [
-                {
-                  "type": "text",
-                  "id": "R6m8A",
-                  "name": "defaultPillText",
-                  "fill": "#CBD5E1",
-                  "content": "Idle",
-                  "fontFamily": "Inter",
-                  "fontSize": 14,
-                  "fontWeight": "normal"
-                }
-              ]
+              "type": "icon_font",
+              "id": "kUrJb",
+              "width": 20,
+              "height": 20,
+              "iconFontName": "history",
+              "iconFontFamily": "lucide",
+              "fill": "$colorOffline"
             },
             {
               "type": "text",
-              "id": "lG8AX",
-              "name": "defaultBody",
-              "fill": "#94A3B8",
-              "content": "Waiting for connection...",
+              "id": "Gtwxq",
+              "fill": "#854D0E",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "这是历史快照哦。联网后猫猫会立刻帮您同步最新消息！",
               "fontFamily": "Inter",
-              "fontSize": 14,
+              "fontSize": 13,
               "fontWeight": "normal"
             }
           ]
         },
         {
           "type": "frame",
-          "id": "dnCpu",
-          "name": "Online",
-          "width": 320,
-          "height": 240,
-          "fill": "#0F172A",
-          "cornerRadius": 12,
+          "id": "YhMzj",
+          "name": "MessageList",
+          "width": "fill_container",
+          "height": "fill_container",
           "layout": "vertical",
-          "gap": 12,
-          "padding": 16,
+          "gap": 20,
+          "padding": [
+            0,
+            12
+          ],
           "children": [
             {
-              "type": "text",
-              "id": "XC8VZ",
-              "name": "onlineTitle",
-              "fill": "#E2E8F0",
-              "content": "Online",
-              "fontFamily": "Inter",
-              "fontSize": 24,
-              "fontWeight": "normal"
-            },
-            {
-              "type": "frame",
-              "id": "770nM",
-              "name": "Pill",
-              "fill": "#14532D",
-              "cornerRadius": 999,
-              "gap": 8,
-              "padding": 8,
-              "children": [
-                {
-                  "type": "text",
-                  "id": "1VqPi",
-                  "name": "onlinePillText",
-                  "fill": "#86EFAC",
-                  "content": "Online",
-                  "fontFamily": "Inter",
-                  "fontSize": 14,
-                  "fontWeight": "normal"
+              "id": "NEKsf",
+              "type": "ref",
+              "ref": "n6FU2",
+              "descendants": {
+                "o87tC": {
+                  "content": "猫猫"
+                },
+                "4Ro5d": {
+                  "content": "这是刚才聊的内容，我先帮你记着啦。"
                 }
-              ]
-            },
-            {
-              "type": "text",
-              "id": "QgEx3",
-              "name": "onlineBody",
-              "fill": "#94A3B8",
-              "content": "Live updates are flowing.",
-              "fontFamily": "Inter",
-              "fontSize": 14,
-              "fontWeight": "normal"
+              }
             }
           ]
         },
         {
-          "type": "frame",
-          "id": "AwhbM",
-          "name": "Syncing",
-          "width": 320,
-          "height": 240,
-          "fill": "#0F172A",
-          "cornerRadius": 12,
-          "layout": "vertical",
-          "gap": 12,
-          "padding": 16,
-          "children": [
-            {
-              "type": "text",
-              "id": "Zw1f5",
-              "name": "syncTitle",
-              "fill": "#E2E8F0",
-              "content": "Syncing",
-              "fontFamily": "Inter",
-              "fontSize": 24,
-              "fontWeight": "normal"
+          "id": "o6f0k",
+          "type": "ref",
+          "ref": "rQmuV",
+          "name": "InputBar",
+          "fill": "#F2F2F2",
+          "opacity": 0.6,
+          "descendants": {
+            "ode4f": {
+              "content": "离线模式，消息将在联网后发送"
             },
-            {
-              "type": "frame",
-              "id": "M8ztg",
-              "name": "Pill",
-              "fill": "#1E3A8A",
-              "cornerRadius": 999,
-              "gap": 8,
-              "padding": 8,
-              "children": [
-                {
-                  "type": "text",
-                  "id": "S9Sw2",
-                  "name": "syncPillText",
-                  "fill": "#93C5FD",
-                  "content": "Syncing...",
-                  "fontFamily": "Inter",
-                  "fontSize": 14,
-                  "fontWeight": "normal"
-                }
-              ]
-            },
-            {
-              "type": "text",
-              "id": "80xJu",
-              "name": "syncBody",
-              "fill": "#94A3B8",
-              "content": "Applying latest messages.",
-              "fontFamily": "Inter",
-              "fontSize": 14,
-              "fontWeight": "normal"
+            "5Mifi": {
+              "fill": "$textSecondary"
             }
-          ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "4q68v",
+      "x": 0,
+      "y": 800,
+      "name": "Component/StatusPill",
+      "reusable": true,
+      "cornerRadius": 100,
+      "stroke": {
+        "thickness": 1,
+        "fill": "$colorBorder"
+      },
+      "gap": 6,
+      "padding": [
+        4,
+        12
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "JJDvb",
+          "name": "Indicator",
+          "fill": "$colorOnline",
+          "width": 8,
+          "height": 8
+        },
+        {
+          "type": "text",
+          "id": "rB9Ni",
+          "name": "Label",
+          "fill": "$textPrimary",
+          "content": "实时在线",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "normal"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "n6FU2",
+      "x": 400,
+      "y": 800,
+      "name": "Component/MessageItem",
+      "reusable": true,
+      "width": "fill_container(0)",
+      "gap": 12,
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "AEuTZ",
+          "name": "Avatar",
+          "fill": "$colorBorder",
+          "width": 32,
+          "height": 32
         },
         {
           "type": "frame",
-          "id": "RmWxh",
-          "name": "Offline",
-          "width": 320,
-          "height": 240,
-          "fill": "#0F172A",
-          "cornerRadius": 12,
+          "id": "75iT5",
+          "name": "Content",
+          "width": "fill_container",
           "layout": "vertical",
-          "gap": 12,
-          "padding": 16,
+          "gap": 4,
           "children": [
             {
               "type": "text",
-              "id": "U6Pml",
-              "name": "offlineTitle",
-              "fill": "#E2E8F0",
-              "content": "Offline",
+              "id": "o87tC",
+              "name": "Name",
+              "fill": "$textSecondary",
+              "content": "猫猫",
               "fontFamily": "Inter",
-              "fontSize": 24,
+              "fontSize": 12,
               "fontWeight": "normal"
             },
             {
               "type": "frame",
-              "id": "SCL9T",
-              "name": "Pill",
-              "fill": "#374151",
-              "cornerRadius": 999,
-              "gap": 8,
-              "padding": 8,
+              "id": "AopVU",
+              "name": "Bubble",
+              "fill": "$bgSecondary",
+              "cornerRadius": 12,
+              "padding": 12,
               "children": [
                 {
                   "type": "text",
-                  "id": "qyxsA",
-                  "name": "offlinePillText",
-                  "fill": "#D1D5DB",
-                  "content": "Offline",
+                  "id": "4Ro5d",
+                  "name": "Text",
+                  "fill": "$textPrimary",
+                  "content": "消息内容占位...",
                   "fontFamily": "Inter",
                   "fontSize": 14,
-                  "fontWeight": "normal"
-                }
-              ]
-            },
-            {
-              "type": "text",
-              "id": "OQwl9",
-              "name": "offlineBody",
-              "fill": "#94A3B8",
-              "content": "Last seen: 2 hours ago",
-              "fontFamily": "Inter",
-              "fontSize": 14,
-              "fontWeight": "normal"
-            },
-            {
-              "type": "frame",
-              "id": "2JvMb",
-              "name": "旧时光提示",
-              "fill": "#F4EFE6",
-              "cornerRadius": 10,
-              "layout": "vertical",
-              "gap": 6,
-              "padding": 10,
-              "children": [
-                {
-                  "type": "text",
-                  "id": "xtFJn",
-                  "name": "nostalgiaText",
-                  "fill": "#8C8782",
-                  "content": "旧时光提示：消息快照模式已启用",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
                   "fontWeight": "normal"
                 }
               ]
@@ -255,6 +512,83 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "rQmuV",
+      "x": 800,
+      "y": 800,
+      "name": "Component/InputBar",
+      "reusable": true,
+      "width": "fill_container(0)",
+      "fill": "$bgSecondary",
+      "cornerRadius": 24,
+      "stroke": {
+        "thickness": 1,
+        "fill": "$colorBorder"
+      },
+      "gap": 12,
+      "padding": [
+        12,
+        16
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "text",
+          "id": "ode4f",
+          "name": "Placeholder",
+          "fill": "$textSecondary",
+          "content": "输入消息...",
+          "fontFamily": "Inter",
+          "fontSize": 14,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "icon_font",
+          "id": "5Mifi",
+          "name": "Send",
+          "width": 20,
+          "height": 20,
+          "iconFontName": "send",
+          "iconFontFamily": "lucide",
+          "fill": "$colorSync"
+        }
+      ]
     }
-  ]
+  ],
+  "variables": {
+    "bgPrimary": {
+      "type": "color",
+      "value": "#FFFFFF"
+    },
+    "bgSecondary": {
+      "type": "color",
+      "value": "#F8F9FA"
+    },
+    "colorBorder": {
+      "type": "color",
+      "value": "#DEE2E6"
+    },
+    "colorOffline": {
+      "type": "color",
+      "value": "#FD7E14"
+    },
+    "colorOnline": {
+      "type": "color",
+      "value": "#28A745"
+    },
+    "colorSync": {
+      "type": "color",
+      "value": "#007BFF"
+    },
+    "textPrimary": {
+      "type": "color",
+      "value": "#212529"
+    },
+    "textSecondary": {
+      "type": "color",
+      "value": "#6C757D"
+    }
+  }
 }
