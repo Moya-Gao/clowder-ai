@@ -38,6 +38,30 @@ export function computeVariantId(flags: F163FlagSnapshot): string {
   return createHash('sha256').update(JSON.stringify(sorted)).digest('hex').slice(0, 12);
 }
 
+/** Phase D: derive authority from doc path — no manual promotion needed */
+export function pathToAuthority(sourcePath: string): F163Authority {
+  const p = sourcePath.replace(/^doc:/, '').replace(/^docs\//, '');
+  if (/^(lessons-learned|SOP)\.md$/i.test(p) || /shared-rules\.md$/i.test(p)) return 'constitutional';
+  if (/^(decisions|features)\//i.test(p)) return 'validated';
+  if (/^(discussions|plans|research|reflections)\//i.test(p)) return 'candidate';
+  return 'observed';
+}
+
+/** Phase D: derive user-facing confidence from authority level */
+export function authorityToConfidence(authority: F163Authority | undefined): 'high' | 'mid' | 'low' {
+  switch (authority) {
+    case 'constitutional':
+    case 'validated':
+      return 'high';
+    case 'candidate':
+      return 'mid';
+    case 'observed':
+      return 'low';
+    default:
+      return 'mid';
+  }
+}
+
 /**
  * Cohort sticky routing: assigns a thread to a variant on first encounter,
  * then returns the same variant on subsequent requests regardless of flag changes.

@@ -3,7 +3,7 @@
 import Database from 'better-sqlite3';
 import { EvidenceWriteQueue } from './evidence-write-queue.js';
 import { ContradictionDetector } from './f163-contradiction-detector.js';
-import { type F163Authority, freezeFlags } from './f163-types.js';
+import { type F163Authority, freezeFlags, pathToAuthority } from './f163-types.js';
 import type {
   Edge,
   EvidenceItem,
@@ -666,7 +666,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
             item.provenance?.tier ?? null,
             item.provenance?.source ?? null,
             item.generalizable == null ? null : item.generalizable ? 1 : 0,
-            item.authority ?? 'observed',
+            item.authority ?? pathToAuthority(item.sourcePath ?? item.anchor),
             item.activation ?? 'query',
             item.verifiedAt ?? null,
             item.sourceIds ? JSON.stringify(item.sourceIds) : null,

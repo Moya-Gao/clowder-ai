@@ -31,8 +31,9 @@ import type { VectorStore } from './VectorStore.js';
  * History:
  *   1 — initial (implicit, pre-versioning)
  *   2 — CatCafeScanner: section headings → keywords (PR #1179)
+ *   3 — Phase D: pathToAuthority backfill (authority derived from path)
  */
-export const INDEXING_VERSION = 2;
+export const INDEXING_VERSION = 3;
 
 /** Higher number = higher priority for anchor ownership */
 const KIND_PRIORITY: Record<EvidenceKind, number> = {

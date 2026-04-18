@@ -8,7 +8,12 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { F163ExperimentLogger } from '../domains/memory/f163-experiment-logger.js';
-import { computeVariantId, freezeFlags, getOrAssignCohort } from '../domains/memory/f163-types.js';
+import {
+  authorityToConfidence,
+  computeVariantId,
+  freezeFlags,
+  getOrAssignCohort,
+} from '../domains/memory/f163-types.js';
 import type { IEvidenceStore, IIndexBuilder, IKnowledgeResolver } from '../domains/memory/interfaces.js';
 import { type BoostSource, type EvidenceResult, mapKindToSourceType } from './evidence-helpers.js';
 
@@ -114,7 +119,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         title: item.title,
         anchor: item.anchor,
         snippet: item.summary ?? '',
-        confidence: 'mid' as const,
+        confidence: authorityToConfidence(item.authority),
         sourceType: mapKindToSourceType(item.kind),
         boostSource,
         ...(singleSource ? { source: singleSource } : {}),
