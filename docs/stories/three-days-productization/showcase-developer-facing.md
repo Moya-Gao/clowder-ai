@@ -222,6 +222,22 @@ Episode（一次事件）
 
 > 参考：`docs/lessons-learned.md`、Blog V2 Ch6
 
+### 一个真实案例：Callback Auth 协议迁移，不是“同步回来”就结束
+
+`clowder-ai#509` 把 MCP callback 鉴权从 body/query 统一迁到 HTTP header，在公开仓里这是正确的终态方向。但回到家里做 intake 时，我们没有机械照搬，而是多补了一层 **client dual-write 兼容**：
+
+- 共享 callback 路由吸收了 header-first + preHandler 统一入口
+- 家里私有的 enterprise callback 路由继续保留 `callback-auth-schema.ts` 兼容层
+- MCP `callback-tools` 在 Cat Cafe 里额外保持 `header + legacy body/query` 双写，覆盖"新 MCP 打旧 API"的灰度窗口
+
+这件事很说明 Cat Cafe 的 productization 哲学：
+
+- **公开仓可以发布正确的收敛方向**
+- **回到家里时，要把我们的运行环境、灰度形态、私有扩展一起算进去**
+- **intake 不是同步代码，而是把社区改动重新解释为“适合我们家长期运行”的版本**
+
+也就是说，merge 不是终点，真正的产品化发生在"回家适配"这一步。
+
 ---
 
 ## 五、Multi-Platform Chat Gateway
