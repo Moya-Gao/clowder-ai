@@ -69,14 +69,14 @@ describe('overallLevel active-dimension averaging', () => {
     const svc = new GrowthService(redis);
 
     // Set execution XP to 1 directly — bypasses awardXp fire-and-forget chain
-    redis.store.set('growth:testcat:execution', '1');
+    redis.store.set('journey:testcat:execution', '1');
 
     const attrs = await svc.getAttributes('testcat');
     // Only execution has XP → activeDimensions=1, 1 XP → level 0, so overallLevel = 0
     assert.equal(attrs.overallLevel, 0);
 
     // Set execution XP to 100 (level 1)
-    redis.store.set('growth:testcat:execution', '100');
+    redis.store.set('journey:testcat:execution', '100');
 
     const attrs2 = await svc.getAttributes('testcat');
     // 100 XP in execution → level 1. Only 1 active dimension → overallLevel = 1/1 = 1
@@ -161,11 +161,11 @@ describe('Title auto-unlock', () => {
     const svc = new GrowthService(redis);
 
     // Manually set execution XP to 400 (level 2) → should unlock 'doer' (execution Lv.2)
-    redis.pipeline().incrby('growth:testcat:execution', 400);
+    redis.pipeline().incrby('journey:testcat:execution', 400);
     await redis.pipeline().exec();
     // Manually store to make mget work
     const curStore = new Map();
-    curStore.set('growth:testcat:execution', '400');
+    curStore.set('journey:testcat:execution', '400');
     redis.mget = async (...keys) => keys.map((k) => curStore.get(k) ?? null);
 
     const attrs = await svc.getAttributes('testcat');
@@ -186,7 +186,7 @@ describe('Title auto-unlock', () => {
 
     // Pre-unlock 'first-step'
     await redis.zadd(
-      'growth:titles:testcat',
+      'journey:titles:testcat',
       Date.now(),
       JSON.stringify({
         titleId: 'first-step',
@@ -196,7 +196,7 @@ describe('Title auto-unlock', () => {
     );
 
     const curStore = new Map();
-    curStore.set('growth:testcat:execution', '400');
+    curStore.set('journey:testcat:execution', '400');
     redis.mget = async (...keys) => keys.map((k) => curStore.get(k) ?? null);
 
     const attrs = await svc.getAttributes('testcat');

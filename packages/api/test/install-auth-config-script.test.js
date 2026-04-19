@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
   runHelper,
   runHelperNoGlobalOverride,
@@ -11,7 +12,9 @@ import {
   runHelperWithEnv,
 } from './install-auth-config-test-helpers.js';
 
-// F340: installer now writes to accounts.json + credentials.json (global)
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+
+// clowder-ai#340: installer now writes to accounts.json + credentials.json (global)
 function readInstallerState(projectRoot) {
   const catCafeDir = join(projectRoot, '.cat-cafe');
   const accountsFile = join(catCafeDir, 'accounts.json');
@@ -50,7 +53,7 @@ test('client-auth set creates a generic api key account for the selected client'
 
     assert.ok(account, 'installer-anthropic account should exist');
     assert.equal(account.authType, 'api_key');
-    // F340: protocol no longer persisted on new accounts — derived at runtime
+    // clowder-ai#340: protocol no longer persisted on new accounts — derived at runtime
     assert.equal(account.protocol, undefined, 'protocol should not be persisted');
     assert.equal(account.baseUrl, 'https://proxy.example.dev');
     assert.equal(credentials['installer-anthropic'].apiKey, 'generic-key');
@@ -130,6 +133,49 @@ test('client-auth set oauth creates builtin accounts for dare and opencode', () 
   }
 });
 
+test('client-auth set oauth stores builtin default models for the selected client', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-client-auth-oauth-models-'));
+
+  try {
+    runHelper(['client-auth', 'set', '--project-dir', projectRoot, '--client', 'codex', '--mode', 'oauth']);
+
+    const { accounts } = readInstallerState(projectRoot);
+    assert.equal(accounts.codex?.authType, 'oauth');
+    assert.deepEqual(accounts.codex?.models, ['gpt-5.3-codex', 'gpt-5.4', 'gpt-5.3-codex-spark']);
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test('client-auth set oauth supports kimi and stores its default models', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-client-auth-kimi-oauth-'));
+
+  try {
+    runHelper(['client-auth', 'set', '--project-dir', projectRoot, '--client', 'kimi', '--mode', 'oauth']);
+
+    const { accounts } = readInstallerState(projectRoot);
+    assert.equal(accounts.kimi?.authType, 'oauth');
+    assert.equal(accounts.kimi?.displayName, 'Kimi');
+    assert.deepEqual(accounts.kimi?.models, ['kimi-code/kimi-for-coding']);
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test('client-auth set oauth sanitizes malformed builtin default models before writing state', () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-client-auth-claude-oauth-models-'));
+
+  try {
+    runHelper(['client-auth', 'set', '--project-dir', projectRoot, '--client', 'anthropic', '--mode', 'oauth']);
+
+    const { accounts } = readInstallerState(projectRoot);
+    assert.equal(accounts.claude?.authType, 'oauth');
+    assert.deepEqual(accounts.claude?.models, ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-opus-4-5-20251101']);
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test('claude-profile create and remove keeps installer-managed account in sync', () => {
   const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-claude-profile-'));
 
@@ -152,7 +198,7 @@ test('claude-profile create and remove keeps installer-managed account in sync',
 
     assert.ok(installerManaged, 'installer-managed account should exist');
     assert.equal(installerManaged.authType, 'api_key');
-    // F340: protocol no longer persisted on new accounts — derived at runtime
+    // clowder-ai#340: protocol no longer persisted on new accounts — derived at runtime
     assert.equal(installerManaged.protocol, undefined, 'protocol should not be persisted');
     assert.equal(installerManaged.baseUrl, 'https://claude.example');
     assert.deepEqual(installerManaged.models, ['claude-model']);
@@ -337,12 +383,12 @@ test('claude-profile set migrates and preserves non-anthropic accounts from lega
     ]);
 
     const { accounts, credentials } = readInstallerState(projectRoot);
-    // Legacy openai-sponsor migrated (F340: protocol not migrated)
+    // Legacy openai-sponsor migrated (clowder-ai#340: protocol not migrated)
     assert.ok(accounts['openai-sponsor'], 'legacy openai-sponsor should be migrated');
     assert.equal(accounts['openai-sponsor'].protocol, undefined, 'protocol should not be migrated');
     assert.equal(accounts['openai-sponsor'].baseUrl, 'https://openai.example');
     assert.equal(credentials['openai-sponsor'].apiKey, 'openai-key');
-    // New installer-managed applied (F340: no protocol on new accounts)
+    // New installer-managed applied (clowder-ai#340: no protocol on new accounts)
     assert.equal(accounts['installer-managed'].protocol, undefined, 'new account should not have protocol');
     assert.equal(credentials['installer-managed'].apiKey, 'claude-key');
   } finally {
@@ -829,5 +875,49 @@ test('client-auth remove --force fails closed when the runtime catalog cannot be
     );
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test('test sandbox blocks installer writes to the real repo root', () => {
+  const accountsPath = join(REPO_ROOT, '.cat-cafe', 'accounts.json');
+  const credentialsPath = join(REPO_ROOT, '.cat-cafe', 'credentials.json');
+  const beforeAccounts = existsSync(accountsPath) ? readFileSync(accountsPath, 'utf8') : null;
+  const beforeCredentials = existsSync(credentialsPath) ? readFileSync(credentialsPath, 'utf8') : null;
+  const helperScript = join(REPO_ROOT, 'scripts', 'install-auth-config.mjs');
+  const result = spawnSync(
+    'node',
+    [
+      helperScript,
+      'client-auth',
+      'set',
+      '--project-dir',
+      REPO_ROOT,
+      '--client',
+      'openai',
+      '--mode',
+      'api_key',
+      '--api-key',
+      'should-not-write',
+    ],
+    {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        CAT_CAFE_TEST_SANDBOX: '1',
+        CAT_CAFE_GLOBAL_CONFIG_ROOT: REPO_ROOT,
+        HOME: REPO_ROOT,
+      },
+    },
+  );
+
+  assert.notEqual(result.status, 0, 'script must fail closed when test sandbox targets repo root');
+  assert.match(String(result.stderr), /test sandbox|repo root|unsafe/i);
+  if (beforeAccounts === null) assert.equal(existsSync(accountsPath), false, 'repo accounts.json must stay absent');
+  else assert.equal(readFileSync(accountsPath, 'utf8'), beforeAccounts, 'repo accounts.json must stay unchanged');
+  if (beforeCredentials === null) {
+    assert.equal(existsSync(credentialsPath), false, 'repo credentials.json must stay absent');
+  } else {
+    assert.equal(readFileSync(credentialsPath, 'utf8'), beforeCredentials, 'repo credentials.json must stay unchanged');
   }
 });

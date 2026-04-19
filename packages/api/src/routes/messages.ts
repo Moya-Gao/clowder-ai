@@ -26,6 +26,7 @@ import type { InvocationRegistry } from '../domains/cats/services/agents/invocat
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-helpers.js';
+import { resetStreak } from '../domains/cats/services/agents/routing/WorklistRegistry.js';
 import { createGameDriver } from '../domains/cats/services/game/createGameDriver.js';
 import type { GameDriver } from '../domains/cats/services/game/GameDriver.js';
 import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
@@ -240,6 +241,10 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
     // Default to 'default' thread for lobby (prevents global broadcast)
     const resolvedThreadId = threadId ?? 'default';
+
+    // F167 L1 AC-A3: user message is a fresh turn — clear any in-flight ping-pong
+    // streak on this thread's active worklist (no-op if none).
+    resetStreak(resolvedThreadId);
 
     // Ensure thread exists and auto-title on first message
     if (resolvedThreadId !== 'default' && opts.threadStore) {
@@ -709,6 +714,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         // F088 ISSUE-15: Hoisted so catch/abort branches can clean up streaming sessions
         let streamStartPromise: Promise<void> | undefined;
 
+        // F148 fix: Hoisted so abort/catch branches can ack completed cats' cursors
+        const cursorBoundaries = new Map<string, string>();
+
         try {
           await opts.invocationRecordStore?.update(createResult.invocationId, {
             status: 'running',
@@ -716,9 +724,6 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
           // #768: intent_mode deferred to first CLI event (avoid "replying" when CLI never starts)
           let intentModeBroadcast = false;
-
-          // ADR-008 S3: collect cursor boundaries; ack only after succeeded
-          const cursorBoundaries = new Map<string, string>();
           // P1-2: track persistence failures across generator boundary
           const persistenceContext: PersistenceContext = { failed: false, errors: [] };
           // F8: collect per-cat token usage from done events
@@ -744,6 +749,17 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               .catch((err) => {
                 log.warn({ err, threadId: resolvedThreadId }, '[messages] StreamingHook.onStreamStart failed');
               });
+          }
+
+          // User stop can win the race before CLI produces the first event.
+          // Do not re-arm frontend state with spawn_started/intent_mode after abort.
+          if (controller?.signal.aborted) {
+            finalStatus = 'canceled';
+            await opts.invocationRecordStore?.update(createResult.invocationId, {
+              status: 'canceled',
+            });
+            await cleanupStreamingOnFailure(resolvedThreadId, createResult.invocationId, streamStartPromise, opts, log);
+            return;
           }
 
           // F118 D2: Broadcast spawn_started immediately — fills the intent_mode blind spot.
@@ -780,6 +796,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               parentInvocationId: createResult.invocationId,
             },
           )) {
+            if (controller?.signal.aborted) {
+              break;
+            }
             // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
             if (!intentModeBroadcast) {
               opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'intent_mode', {
@@ -810,6 +829,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             }
             if (msg.type === 'done' && msg.errorCode) {
               governanceErrorCode = msg.errorCode;
+            }
+            if ((msg.type === 'done' || msg.type === 'error') && msg.catId) {
+              opts.invocationTracker?.completeSlot?.(resolvedThreadId, msg.catId, controller);
             }
 
             // F088 ISSUE-15: Collect outbound turns (same pattern as QueueProcessor)
@@ -886,9 +908,12 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
                 resolvedThreadId,
               );
             }
+            // F148 fix: ack cursors for cats that completed before abort (monotonic CAS, safe to call)
+            if (cursorBoundaries.size > 0) {
+              await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
+            }
             // P1 fix: finalize streaming session on abort so external placeholders are cleaned up
             await cleanupStreamingOnFailure(resolvedThreadId, createResult.invocationId, streamStartPromise, opts, log);
-            // Skip ack/succeeded/push-notify — let finally handle cleanup
           } else if (persistenceContext.failed) {
             const errorDetail = persistenceContext.errors.map((e) => `${e.catId}: ${e.error}`).join('; ');
             await opts.invocationRecordStore?.update(createResult.invocationId, {
@@ -996,10 +1021,26 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             await opts.invocationRecordStore?.update(createResult.invocationId, {
               status: 'canceled',
             });
+            // F148 fix: ack cursors for cats that completed before the exception
+            if (cursorBoundaries.size > 0) {
+              try {
+                await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
+              } catch {
+                /* best-effort — don't mask the original error */
+              }
+            }
             // Don't broadcast error for intentional cancel
             // P1-A fix: clean up streaming placeholder even on abort/cancel
             await cleanupStreamingOnFailure(resolvedThreadId, createResult.invocationId, streamStartPromise, opts, log);
           } else {
+            // F148 fix: ack cursors for cats that completed before the exception
+            if (cursorBoundaries.size > 0) {
+              try {
+                await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
+              } catch {
+                /* best-effort — don't mask the original error */
+              }
+            }
             log.error({ err, invocationId: createResult.invocationId }, 'Background processing error');
             const errorMsg = normalizeErrorMessage(err);
             await opts.invocationRecordStore?.update(createResult.invocationId, {
@@ -1167,12 +1208,14 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     };
     const chatItems: TimelineItem[] = page.map((m) => ({
       id: m.id,
-      type: (isSystemUserMessage(m)
-        ? 'system'
-        : m.catId
-          ? 'assistant'
-          : m.source
-            ? 'connector'
+      type: (m.catId
+        ? isSystemUserMessage(m)
+          ? 'system'
+          : 'assistant'
+        : m.source
+          ? 'connector'
+          : isSystemUserMessage(m)
+            ? 'system'
             : 'user') as TimelineItem['type'],
       catId: m.catId,
       content: m.content,

@@ -28,6 +28,7 @@ import { HubLeaderboardTab } from './HubLeaderboardTab';
 import { HubMemoryTab } from './HubMemoryTab';
 import { HubRoutingPolicyTab } from './HubRoutingPolicyTab';
 import { HubToolUsageTab } from './HubToolUsageTab';
+import { MarketplacePanel } from './marketplace/marketplace-panel';
 import { PushSettingsPanel } from './PushSettingsPanel';
 import { VoiceSettingsPanel } from './VoiceSettingsPanel';
 
@@ -256,6 +257,7 @@ export function CatCafeHub() {
             {tab === 'rescue' && <HubClaudeRescueSection />}
             {tab === 'leaderboard' && <HubLeaderboardTab />}
             {tab === 'growth' && <HubGrowthTab />}
+            {tab === 'marketplace' && <MarketplacePanel />}
           </div>
         </div>
         <HubCatEditor

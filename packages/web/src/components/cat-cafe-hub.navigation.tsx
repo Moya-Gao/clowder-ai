@@ -25,7 +25,7 @@ export const HUB_GROUPS: HubGroup[] = [
     label: '成员协作',
     icon: 'cat',
     color: '#9B7EBD',
-    preview: '总览 · 能力 · 配额 · 工具 · 排行 · 足迹',
+    preview: '总览 · 能力 · 配额 · 工具 · 排行 · 足迹 · 市场',
     tabs: [
       { id: 'cats', label: '总览', icon: 'users' },
       { id: 'capabilities', label: '能力中心', icon: 'sparkles' },
@@ -33,6 +33,7 @@ export const HUB_GROUPS: HubGroup[] = [
       { id: 'tool-usage', label: '工具统计', icon: 'wrench' },
       { id: 'leaderboard', label: '排行榜', icon: 'trophy' },
       { id: 'growth', label: '足迹', icon: 'trending-up' },
+      { id: 'marketplace', label: '能力市场', icon: 'store' },
     ],
   },
   {
