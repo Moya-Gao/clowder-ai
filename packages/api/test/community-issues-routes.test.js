@@ -275,4 +275,56 @@ describe('Community Issues Routes', () => {
     assert.ok(body.issues.length >= 1);
     assert.ok(Array.isArray(body.prItems));
   });
+
+  test('GET /api/community-repos returns unique repo names', async () => {
+    const app = await createApp();
+    await app.inject({
+      method: 'POST',
+      url: '/api/community-issues',
+      payload: { repo: 'org/alpha', issueNumber: 1, issueType: 'bug', title: 'A1' },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/community-issues',
+      payload: { repo: 'org/beta', issueNumber: 2, issueType: 'feature', title: 'B1' },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/community-issues',
+      payload: { repo: 'org/alpha', issueNumber: 3, issueType: 'question', title: 'A2' },
+    });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/community-repos',
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.ok(Array.isArray(body.repos));
+    assert.equal(body.repos.length, 2);
+    assert.ok(body.repos.includes('org/alpha'));
+    assert.ok(body.repos.includes('org/beta'));
+  });
+
+  test('GET /api/community-repos includes repos from pr_tracking tasks', async () => {
+    const app = await createApp();
+    await app.inject({
+      method: 'POST',
+      url: '/api/community-issues',
+      payload: { repo: 'org/alpha', issueNumber: 1, issueType: 'bug', title: 'A1' },
+    });
+    taskStore.create({
+      kind: 'pr_tracking',
+      threadId: 'thread_test',
+      title: 'feat: gamma feature',
+      subjectKey: 'pr:org/gamma#10',
+    });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/community-repos',
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.ok(body.repos.includes('org/alpha'), 'should include issue repo');
+    assert.ok(body.repos.includes('org/gamma'), 'should include PR-only repo');
+  });
 });

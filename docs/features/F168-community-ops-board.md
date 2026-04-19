@@ -300,10 +300,10 @@ TTL=0（铁律 #5），用户数据默认持久化
 - [x] AC-C4: 看板分 Issues（`CommunityIssueItem`）/ Pull Requests（`pr_tracking` 投影）两区域
 - [x] AC-C5: 每个 item 一行摘要（repo + # + 标题 + 类型 + 负责猫 + 最后活跃）
 - [x] AC-C6: 点击 item 跳转到对应 feat thread（工作现场联动）
-- [ ] AC-C7: repo 下拉筛选 + 状态/负责猫/时间范围筛选 *(partial: 状态+猫筛选已实现, repo 下拉+时间范围 deferred)*
+- [x] AC-C7: repo 下拉筛选 + 状态/负责猫/时间范围筛选
 - [x] AC-C8: 手动同步按钮 + 定时刷新
 - [x] AC-C9: 所有图标用 SVG，不用 emoji
-- [ ] AC-C10: 最终 UI 用 Pencil 出设计稿
+- [x] AC-C10: 最终 UI 用 Pencil 出设计稿
 
 ### Phase D（Intake 硬门禁）
 - [ ] AC-D1: Intake 完成 + reviewer 放行 → 系统自动 @ guardian 猫

@@ -136,6 +136,17 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
     return updated;
   });
 
+  app.get('/api/community-repos', async () => {
+    const allIssues = await communityIssueStore.listAll();
+    const issueRepos = allIssues.map((i) => i.repo);
+
+    const prTasks = await taskStore.listByKind('pr_tracking');
+    const prRepos = prTasks.map((t) => t.subjectKey?.match(/^pr:(.+)#\d+$/)?.[1]).filter(Boolean) as string[];
+
+    const repos = [...new Set([...issueRepos, ...prRepos])].sort();
+    return { repos };
+  });
+
   app.get('/api/community-board', async (request, reply) => {
     const { repo } = request.query as { repo?: string };
     if (!repo) {

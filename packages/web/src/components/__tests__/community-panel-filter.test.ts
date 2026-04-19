@@ -142,4 +142,64 @@ describe('CommunityPanel filtering (C7)', () => {
     expect(issueRows.length).toBe(1);
     expect(issueRows[0].getAttribute('data-testid')).toBe('issue-row-iss-1');
   });
+
+  it('renders repo as a select dropdown populated from /api/community-repos', async () => {
+    vi.mocked(globalThis.fetch).mockImplementation(async (url) => {
+      if (String(url).includes('/api/community-repos')) {
+        return { ok: true, json: async () => ({ repos: ['org/alpha', 'org/beta'] }) } as Response;
+      }
+      return { ok: true, json: async () => MOCK_BOARD } as Response;
+    });
+
+    await React.act(async () => {
+      root.render(React.createElement(CommunityPanel));
+    });
+    await React.act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const repoSelect = container.querySelector('[data-testid="repo-filter"]') as HTMLSelectElement;
+    expect(repoSelect).toBeTruthy();
+    expect(repoSelect.tagName).toBe('SELECT');
+    const values = Array.from(repoSelect.options).map((o) => o.value);
+    expect(values).toContain('org/alpha');
+    expect(values).toContain('org/beta');
+  });
+
+  it('time range filter shows only recent issues', async () => {
+    const now = Date.now();
+    const boardWithDates = {
+      ...MOCK_BOARD,
+      issues: [
+        { ...MOCK_BOARD.issues[0], updatedAt: now - 2 * 86400000 },
+        { ...MOCK_BOARD.issues[1], updatedAt: now - 14 * 86400000 },
+        { ...MOCK_BOARD.issues[2], updatedAt: now - 60 * 86400000 },
+      ],
+    };
+
+    vi.mocked(globalThis.fetch).mockImplementation(async (url) => {
+      if (String(url).includes('/api/community-repos')) {
+        return { ok: true, json: async () => ({ repos: ['test/repo'] }) } as Response;
+      }
+      return { ok: true, json: async () => boardWithDates } as Response;
+    });
+
+    await React.act(async () => {
+      root.render(React.createElement(CommunityPanel));
+    });
+    await React.act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const timeFilter = container.querySelector('[data-testid="time-range-filter"]') as HTMLSelectElement;
+    expect(timeFilter).toBeTruthy();
+
+    await React.act(async () => {
+      timeFilter.value = '7d';
+      timeFilter.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    const issueRows = container.querySelectorAll('[data-testid^="issue-row-"]');
+    expect(issueRows.length).toBe(1);
+  });
 });

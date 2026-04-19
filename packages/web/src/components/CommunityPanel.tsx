@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { PR_ICON, SYNC_ICON, TYPE_ICONS } from '@/components/community-panel-icons';
+import { CommunityPanelFilters, TIME_RANGES } from '@/components/CommunityPanelFilters';
+import { PR_ICON, TYPE_ICONS } from '@/components/community-panel-icons';
 import { pushThreadRouteWithHistory } from '@/components/ThreadSidebar/thread-navigation';
 
 interface CommunityIssueItem {
@@ -167,6 +168,8 @@ export function CommunityPanel() {
   });
   const [stateFilter, setStateFilter] = useState('all');
   const [catFilter, setCatFilter] = useState('all');
+  const [timeRange, setTimeRange] = useState('all');
+  const [repos, setRepos] = useState<string[]>([]);
 
   const fetchBoard = useCallback(async () => {
     if (!repo) return;
@@ -189,6 +192,15 @@ export function CommunityPanel() {
     return () => clearInterval(timer);
   }, [fetchBoard]);
 
+  useEffect(() => {
+    fetch('/api/community-repos')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.repos) setRepos(data.repos);
+      })
+      .catch(() => {});
+  }, []);
+
   const dispatchIssue = useCallback(
     async (issueId: string) => {
       try {
@@ -208,6 +220,9 @@ export function CommunityPanel() {
   const filteredIssues = (board?.issues ?? []).filter((i) => {
     if (stateFilter !== 'all' && i.state !== stateFilter) return false;
     if (catFilter !== 'all' && i.assignedCatId !== catFilter) return false;
+    if (timeRange !== 'all' && TIME_RANGES[timeRange]) {
+      if (i.updatedAt < Date.now() - TIME_RANGES[timeRange]) return false;
+    }
     return true;
   });
   const issuesByState = (state: string) => filteredIssues.filter((i) => i.state === state);
@@ -221,57 +236,20 @@ export function CommunityPanel() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-cocreator-light/40">
-        <input
-          type="text"
-          value={repo}
-          onChange={(e) => setRepo(e.target.value)}
-          placeholder="owner/repo"
-          className="flex-1 text-xs bg-cafe-surface rounded px-2 py-1 border border-cocreator-light/30 text-cafe-secondary"
-        />
-        <button
-          type="button"
-          onClick={fetchBoard}
-          disabled={loading}
-          className="flex items-center gap-1 text-[10px] text-cocreator-dark/60 hover:text-cocreator-dark transition-colors disabled:opacity-50"
-          title="手动同步"
-        >
-          <span className={loading ? 'animate-spin' : ''}>{SYNC_ICON}</span>
-        </button>
-      </div>
-
-      {/* Filters */}
-      {board && (
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-cocreator-light/20">
-          <select
-            data-testid="issue-state-filter"
-            value={stateFilter}
-            onChange={(e) => setStateFilter(e.target.value)}
-            className="text-[10px] bg-cafe-surface rounded px-1.5 py-0.5 border border-cocreator-light/30 text-cafe-secondary"
-          >
-            <option value="all">全部状态</option>
-            {ISSUE_SECTIONS.map((s) => (
-              <option key={s.key} value={s.key}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-          <select
-            data-testid="cat-filter"
-            value={catFilter}
-            onChange={(e) => setCatFilter(e.target.value)}
-            className="text-[10px] bg-cafe-surface rounded px-1.5 py-0.5 border border-cocreator-light/30 text-cafe-secondary"
-          >
-            <option value="all">全部负责猫</option>
-            {uniqueCats.map((c) => (
-              <option key={c} value={c}>
-                @{c}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <CommunityPanelFilters
+        repos={repos}
+        repo={repo}
+        onRepoChange={setRepo}
+        stateFilter={stateFilter}
+        onStateFilterChange={setStateFilter}
+        catFilter={catFilter}
+        onCatFilterChange={setCatFilter}
+        timeRange={timeRange}
+        onTimeRangeChange={setTimeRange}
+        uniqueCats={uniqueCats}
+        loading={loading}
+        onSync={fetchBoard}
+      />
 
       {/* Stats */}
       <div className="flex items-center gap-3 px-3 py-1.5 text-[10px] text-cafe-muted border-b border-cocreator-light/20">
