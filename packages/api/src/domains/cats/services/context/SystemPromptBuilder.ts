@@ -575,7 +575,7 @@ export function buildInvocationContext(context: InvocationContext): string {
   if (context.mode !== 'parallel' && context.a2aEnabled) {
     const ccHandle = getCoCreatorConfig().mentionPatterns[0] ?? '@铲屎官';
     lines.push(
-      `A2A 球权检查：@ = 球权转移（行首 @句柄，句中无效）。下一棒是谁？猫 → 末尾行首 @句柄 / 铲屎官需要动 → 末尾行首 ${ccHandle} / 没人 → 不 @。收到 @ 但对方说"我在动" → 矛盾，push back + 立刻接/退/升（诊断≠解决，说完不@=球还在地上）。收了球却说"你等着/你别动" → 球权死锁，禁止——做不了就退回或升级。不 @ 但自己还在干活 → 结尾声明"球在我手上，继续 X"，防止倒装句让人误判你走了。`,
+      `A2A 球权检查：@ = 球权转移（行首 @句柄，句中无效）。下一棒是谁？猫 → 末尾行首 @句柄 / 铲屎官需要动 → 末尾行首 ${ccHandle} / 没人 → 不 @。收到 @ 但对方说"我在动" → 矛盾，push back + 立刻接/退/升（诊断≠解决，说完不@=球还在地上）。收了球却说"你等着/你别动" → 球权死锁，禁止——做不了就退回或升级。不 @ 但自己还在干活 → 结尾声明"球在我手上，继续 X"，防止倒装句让人误判你走了。Review/分析/建议完成后默认必须传球——结论≠终点，author 需要看到反馈并行动。"没人需要动"对 reviewer 几乎不成立。`,
       '',
     );
   }
