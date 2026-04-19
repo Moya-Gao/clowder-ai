@@ -321,10 +321,10 @@ TTL=0（铁律 #5），用户数据默认持久化
 - [x] AC-D4: Intake checklist 每项需要证据，系统验证非人工叮嘱 — DEFAULT_INTAKE_CHECKLIST + validateIntakeChecklist + signoff 端点强制验证
 
 ### Phase E（GitHub Issue 同步管线 — 地基）
-- [ ] AC-E1: 点击同步按钮 → 调 GitHub API 拉取指定 repo 的 open issues → 写入 CommunityIssueStore（增量去重，按 repo+issueNumber）
-- [ ] AC-E2: Issue 状态自动映射 — 未回复(no cat comment) / 讨论中(has cat comment, open) / 待决策(needs-decision label or triage pending) / 已接受 / 已拒绝 / 已关闭
-- [ ] AC-E3: 同步结果实时反映到看板 — Issues 分类计数与 GitHub 实际状态一致
-- [ ] AC-E4: 已有 CommunityIssueStore 条目的 issue 不重复创建，只更新状态
+- [x] AC-E1: 点击同步按钮 → 调 GitHub API 拉取指定 repo 的 open issues → 写入 CommunityIssueStore（增量去重，按 repo+issueNumber）
+- [x] AC-E2: Issue 状态自动映射 — 未回复(no cat comment) / 讨论中(has cat comment, open) / 待决策(needs-decision label or triage pending) / 已接受 / 已拒绝 / 已关闭
+- [x] AC-E3: 同步结果实时反映到看板 — Issues 分类计数与 GitHub 实际状态一致
+- [x] AC-E4: 已有 CommunityIssueStore 条目的 issue 不重复创建，只更新状态
 
 ## Dependencies
 
@@ -382,6 +382,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-04-19 | Phase A backend merged (PR #1281) — triage types+consensus+orchestrator+API endpoints+resolve，37 tests，AC-A4/A5/A6 ✅ |
 | 2026-04-19 | Phase D development — GuardianMatcher+IntakeChecklist+3 endpoints (request-guardian/signoff/status)，49 tests，AC-A1/A2/A3+D1/D2/D3/D4 ✅ |
 | 2026-04-19 | Phase D merged (PR #1285) — guardian auth hardening (9-round review), callback auth on all guardian endpoints, merge-gate Step 6.5 updated |
+| 2026-04-19 | Phase E merged (PR #1288) — GitHub issue sync pipeline: state mapper + sync endpoint + production wiring + frontend sync button, 19 new tests, AC-E1~E4 ✅ |
 
 ## Review Gate
 
