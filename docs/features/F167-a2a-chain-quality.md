@@ -97,24 +97,35 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 
 **根因**（砚砚自我剖析）："Hold 不是对外协议状态。要么静默执行，要么接/退/升。" RLHF "check in" 反射在 agent 链路里变成球权黑洞。
 
-### Phase C: Hold Ball MCP — 球权持有基础设施（P1）
+### Phase C: 球权出口闭环 — 砚砚不传球的两种根因（P1）
 
-**发现**：Phase B2 中猫声明"球在我手上，继续 X"后 CLI 进程退出，无人再唤醒 → 持球只有语义层没有执行层。
+**发现**：铲屎官审阅 5 个活跃线程，砚砚全部不传球。砚砚自我诊断两种不同的不传球模式：
+
+| 模式 | 表现 | 根因 | 解法 |
+|------|------|------|------|
+| **真持球** | "我想继续做"但 CLI 退出，球掉地上 | 持球没有执行层 | **C1: hold_ball MCP** |
+| **假终局** | review/分析给了结论就停了，不传球 | "结论 = 终点"错觉 | **C2: 强制传球护栏** |
+
+> **砚砚原话**："Phase C 治的是'我想继续拿球却拿不住'；治不了'我根本没意识到该传球'。"
+
+**共同设计约束**（砚砚 + 宪宪讨论收敛）：
+1. **"持"是例外态，不是四选一常态。** 默认三选一：接/退/升。（KD-13）
+2. **不先做独立 skill。** 球权管理是基础协议。踩坑经验收进 `refs/ball-ownership-patterns.md`。（KD-15）
+
+---
+
+#### C1: Hold Ball MCP — 有界持球（治"真持球"）
+
+**问题**：猫声明"球在我手上，继续 X"后 CLI 进程退出，无人再唤醒 → 持球只有语义层没有执行层。
 
 **方案**：`cat_cafe_hold_ball` MCP tool。猫调用 → 系统记录 → CLI 退出后自动再唤醒。
-
-**核心设计约束**（砚砚 + 宪宪讨论收敛）：
-
-1. **"持"是例外态，不是四选一常态。** 默认三选一：接/退/升。只有"球仍在我手上、当前无人能推进、短暂且有界等待后仍由我继续"才用持。
-2. **必须带有界唤醒。** `wakeAfterMs` 是必要参数——没有它系统不知道什么时候把球还给猫，会退化成语义持球。
-3. **不先做独立 skill。** 球权管理是基础协议（shared-rules + SystemPromptBuilder），不能靠按需加载。踩坑经验收进 `refs/ball-ownership-patterns.md`，成熟后再考虑 skill 化。
 
 **v1 Tool Signature**：
 ```typescript
 cat_cafe_hold_ball({
   reason: string,      // 为什么需要持球
   nextStep: string,    // 唤醒后的第一个动作
-  wakeAfterMs: number  // 多久后唤醒（有界等待）
+  wakeAfterMs: number  // 多久后唤醒（有界等待，KD-14）
 })
 ```
 
@@ -129,20 +140,49 @@ cat_cafe_hold_ball({
 
 **Guard**：`maxConsecutiveHolds`（默认 3），超限强制接/退/升 + 审计日志。
 
-**系统提示词球权段落草案**：
+---
+
+#### C2: Forced-Pass Guard — 强制传球护栏（治"假终局"）
+
+**问题**：砚砚给出 review 结论（approve/reject/P1/P2/修改建议）后，以为"结论 = 终点"就停了。但 review 后 **永远有下一棒**——author 需要看到反馈并行动。铲屎官实测 5 个线程全部命中。
+
+**根因**：exit check 的 `没人 → 不 @` 路径对 reviewer 来说太宽了。Reviewer 给出 verdict 后几乎不存在"没人需要动"的场景。
+
+**方案（双层）**：
+
+**L1 — Prompt 层**：exit check 增加 review 场景特殊规则：
+> Review 完成后**必须传球**：给了结论（approve/reject/P1/P2/建议）→ 末尾行首 @author 或 @landy。
+> Review 结论 ≠ 链条终点——author 需要看到你的反馈并行动。
+> "没人需要动"对 reviewer 来说几乎不成立。
+
+**L2 — Harness 层**（Phase B 观察后按需）：
+- 检测输出中的 review verdict 关键词（approve/reject/P1/P2/LGTM/修改建议）
+- 若有 verdict 但无行首 @mention 且无 hold_ball 调用 → 注入提示："你给了 review 结论但没传球，请 @ author 或 @landy"
+- 不阻断，只提示（prompt-first 原则，与 Phase A 乒乓球警告同模式）
+
+**推广**：不只是 review。所有"完工型"输出都适用——"分析完了""方案给了""诊断做了"——后面都该有球权决策。核心规则：
+
+> **给出结论/建议/分析后，默认必须传球。** "没人需要动"只在极少数场景成立（纯信息回答、无后续动作的独立查询）。
+
+---
+
+#### 已知踩坑模式（砚砚贡献 + 铲屎官 5 线程观察）
+
+| # | 坑 | 表现 | 归类 | 正确做法 |
+|---|---|------|------|---------|
+| 1 | RLHF check-in 反射 | "我想再确认一下"误说成持球 | C1 | 那是犹豫，不是 hold → 接/退/升 |
+| 2 | 状态描述代替声明 | "我先 hold""我继续看" | C1 | 不是球权动作 → 接/退/升 |
+| 3 | 诊断成瘾 | 先解释发生了什么，忘了接/退/升 | C2 | 诊断后必须紧跟球权决策 |
+| 4 | 持球当礼貌 | "我还在跟进"（人类礼仪） | C1 | agent 链路里这是黑洞 |
+| 5 | **Review 假终局** | 给了 verdict 就停了，不 @ author | C2 | review 结论 ≠ 终点，必须传球 |
+| 6 | **"结论即终点"错觉** | 分析/方案/建议写完以为链条结束 | C2 | 结论后默认必须传球 |
+
+**系统提示词球权段落草案**（含 C1 + C2）：
 > 球权默认三种合法出口：接、退、升。
 > 只有当球明确仍在你手上、当前无人能推进、且你只是在等待一个短暂且有界的时机再继续时，才调用 `cat_cafe_hold_ball`。
 > `hold_ball` 不是状态汇报，不替代 `@landy`，不替代传球。
 > 能继续做就继续做；需要别人动就传/升；只有"短暂等待后仍由我继续"才持。
-
-**已知踩坑模式**（砚砚贡献）：
-
-| # | 坑 | 表现 | 正确做法 |
-|---|---|------|---------|
-| 1 | RLHF check-in 反射 | "我想再确认一下"误说成持球 | 那是犹豫，不是 hold → 接/退/升 |
-| 2 | 状态描述代替声明 | "我先 hold""我继续看" | 不是球权动作 → 接/退/升 |
-| 3 | 诊断成瘾 | 先解释发生了什么，忘了接/退/升 | 诊断后必须紧跟球权决策 |
-| 4 | 持球当礼貌 | "我还在跟进"（人类礼仪） | agent 链路里这是黑洞 |
+> **Review / 分析 / 建议完成后，默认必须传球给 author 或 @landy。** "没人需要动"对 reviewer 几乎不成立。
 
 ## Acceptance Criteria
 
@@ -178,12 +218,16 @@ cat_cafe_hold_ball({
 - [x] AC-B9: 动态 contextWindow + autoCompactTokenLimit per codex variant（fa543ed61）
 - [x] AC-B10: 86/86 SystemPromptBuilder + 41/41 codex-agent-service + 31/31 config tests 全绿
 
-### Phase C（Hold Ball MCP）
-- [ ] AC-C1: `cat_cafe_hold_ball` MCP tool 注册（reason + nextStep 参数）
+### Phase C1（Hold Ball MCP — 有界持球）
+- [ ] AC-C1: `cat_cafe_hold_ball` MCP tool 注册（reason + nextStep + wakeAfterMs 参数）
 - [ ] AC-C2: CLI 退出后系统自动再唤醒持球猫（含唤醒注入上轮持球上下文）
 - [ ] AC-C3: maxConsecutiveHolds guard（默认 3），超限强制接/退/升
 - [ ] AC-C4: 审计日志（谁持了几轮、每轮 reason）
-- [ ] AC-C5: 系统提示词球权管理指引（含各猫踩坑经验）
+
+### Phase C2（Forced-Pass Guard — 强制传球）
+- [ ] AC-C5: exit check 增加 review 场景规则：verdict 后必须 @ author 或 @landy
+- [ ] AC-C6: 系统提示词球权段落更新（含 C1 持球 + C2 强制传球）
+- [ ] AC-C7:（按需）harness 层 review verdict 检测 + 无 @ 时注入传球提示
 
 ## Dependencies
 
@@ -228,6 +272,7 @@ cat_cafe_hold_ball({
 | KD-13 | "持"是例外态，不是四选一常态 | 砚砚提出：默认三选一（接/退/升），持只在"球仍在我、无人能推进、短暂有界等待"时用 | 2026-04-19 |
 | KD-14 | hold_ball 必须带 `wakeAfterMs` 有界唤醒 | 砚砚提出：没有时间上界 → 退化成语义持球 → 球还是掉地上 | 2026-04-19 |
 | KD-15 | 不先做球权管理独立 skill | 砚砚提出：球权是基础协议（always-on），不能靠按需加载的 skill；踩坑经验先落 refs 文档 | 2026-04-19 |
+| KD-16 | Phase C 拆分 C1+C2：两种不传球根因不同 | 砚砚自诊：C1 治"真持球"（想拿但拿不住），C2 治"假终局"（结论=终点错觉）。铲屎官 5 线程验证后者更普遍 | 2026-04-19 |
 
 ## Timeline
 
@@ -252,6 +297,7 @@ cat_cafe_hold_ball({
 | 2026-04-19 | Phase C 立项：hold_ball MCP（铲屎官拍板 MCP 路线 > self-@ 路线，防死循环） |
 | 2026-04-19 | 砚砚 Phase C 设计反馈：+wakeAfterMs 有界唤醒 / 持是例外态 / 不先 skill 化 / 4 个踩坑模式 |
 | 2026-04-19 | 宪宪综合：Phase C 设计收敛（KD-13~15），OQ-4/5 关闭 |
+| 2026-04-19 | 铲屎官 5 线程审视：砚砚全部不传球 → 砚砚自诊两种根因 → Phase C 拆分 C1（hold_ball）+ C2（forced-pass）（KD-16） |
 
 ## Behavioral Evidence（Phase B 观察记录）
 
@@ -315,5 +361,6 @@ cat_cafe_hold_ball({
 | 铲屎官 2026-04-17 | 「第一性原理」「数学之美」Magic Words | governance-l0.md ✅ → SystemPromptBuilder 待同步 | ⬜ |
 | 铲屎官 2026-04-19 | 球权协议漏洞（@landy / 死锁 / 虚假离场 / 接退升 / 诊断不解决） | AC-B4~B8 | ✅ |
 | 铲屎官 2026-04-19 | Codex context overflow（272k 用 900k limit） | AC-B9 | ✅ |
-| 铲屎官 2026-04-19 | 持球无执行机制 → hold_ball MCP | AC-C1~C5 | ⬜ 待设计 |
-| 铲屎官 2026-04-19 | 球权管理 skill 化（各猫贡献踩坑经验） | OQ-5 | ⬜ 待评估 |
+| 铲屎官 2026-04-19 | 持球无执行机制 → hold_ball MCP | AC-C1~C4 | ⬜ 待实现 |
+| 铲屎官 2026-04-19 | 砚砚不传球（5 线程验证） → 强制传球护栏 | AC-C5~C7 | ⬜ 待实现 |
+| 铲屎官 2026-04-19 | 球权管理 skill 化（各猫贡献踩坑经验） | OQ-5 | ✅ 现不做（KD-15），踩坑经验先入 refs |
