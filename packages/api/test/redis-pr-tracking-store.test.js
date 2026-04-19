@@ -2,7 +2,7 @@
 
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { assertRedisIsolationOrThrow } from './helpers/redis-test-helpers.js';
+import { assertRedisIsolationOrThrow, redisIsolationSkipReason } from './helpers/redis-test-helpers.js';
 
 let Redis;
 try {
@@ -29,7 +29,7 @@ function createTestRedis() {
   }
 }
 
-describe('RedisPrTrackingStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }, () => {
+describe('RedisPrTrackingStore', { skip: redisIsolationSkipReason(REDIS_URL) }, () => {
   /** @type {import('ioredis').default | null} */
   let redis;
   /** @type {InstanceType<typeof RedisPrTrackingStore> | null} */

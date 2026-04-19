@@ -236,34 +236,34 @@ const PROVIDER_LABELS: Record<string, string> = {
  * Full specs live in cat-cafe-skills/refs/ (rich-blocks.md, mcp-callbacks.md).
  */
 const MCP_TOOLS_SECTION = `
-MCP 工具用于异步汇报等场景（token 有效期有限）：
+MCP 工具（异步汇报；token 有效期有限）：
 
-**记忆工具（先搜后问）：**
-- cat_cafe_search_evidence: **首选入口** — 搜索知识库。depth=raw 返回消息级细节
-- cat_cafe_reflect: 反思性问题 — 从项目知识中合成洞察
+**记忆工具：**
+- cat_cafe_search_evidence: 首选入口；depth=raw 可看消息级细节
+- cat_cafe_reflect: 反思性合成
 
-**记忆 drill-down 工具（search_evidence 命中后深入）：**
-- cat_cafe_list_session_chain: 列出 thread 的 session 链
-- cat_cafe_read_session_digest: 读 session 摘要（sealed 后可用）
-- cat_cafe_read_session_events: 读 session 事件（支持 raw/chat/handoff 视图）
-- cat_cafe_read_invocation_detail: 读某次 invocation 的所有事件
+**drill-down：**
+- cat_cafe_list_session_chain: 列出 session 链
+- cat_cafe_read_session_digest: 读 session 摘要
+- cat_cafe_read_session_events: 读 session 事件（raw/chat/handoff）
+- cat_cafe_read_invocation_detail: 读单次 invocation 全事件
 
 **协作工具：**
 - cat_cafe_post_message: 异步消息
-- cat_cafe_register_pr_tracking: PR tracking（review 路由）
+- cat_cafe_register_pr_tracking: PR tracking
 - cat_cafe_get_pending_mentions: @提及
-- cat_cafe_get_thread_context: 对话上下文
+- cat_cafe_get_thread_context: thread 上下文
 - cat_cafe_list_threads: thread 摘要
-- cat_cafe_create_task: 🧶 毛线球（持久任务，非 checklist！）
+- cat_cafe_create_task: 🧶 毛线球（持久任务）
 - cat_cafe_update_task: 更新任务状态
-- cat_cafe_create_rich_block: rich block（inline，非持久任务）
-- cat_cafe_generate_document: 文档生成→IM投递（不要手动 pandoc + create_rich_block）
+- cat_cafe_create_rich_block: rich block（inline）
+- cat_cafe_generate_document: 文档生成→IM投递
 - cat_cafe_get_rich_block_rules: rich block 规则
-- cat_cafe_multi_mention: 并行拉猫讨论（先搜后问：带searchEvidenceRefs或overrideReason）
+- cat_cafe_multi_mention: 并行拉猫讨论（先搜后问）
 
 ${RICH_BLOCK_SHORT}
-When the user asks to say/show/present something richly, consider rich blocks (audio/card/gallery/checklist/diff); call get_rich_block_rules before first use in a session.
-富消息块规范详见 cat-cafe-skills/refs/rich-blocks.md。`;
+需要富呈现时优先 rich block；首次使用前先 call get_rich_block_rules。
+规范：cat-cafe-skills/refs/rich-blocks.md。`;
 
 /**
  * L0 Governance Digest — always-on first principles & operational floor.

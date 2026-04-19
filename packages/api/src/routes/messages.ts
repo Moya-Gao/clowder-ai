@@ -712,6 +712,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         // F088 ISSUE-15: Hoisted so catch/abort branches can clean up streaming sessions
         let streamStartPromise: Promise<void> | undefined;
 
+        // F148 fix: Hoisted so abort/catch branches can ack completed cats' cursors
+        const cursorBoundaries = new Map<string, string>();
+
         try {
           await opts.invocationRecordStore?.update(createResult.invocationId, {
             status: 'running',
@@ -719,9 +722,6 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
           // #768: intent_mode deferred to first CLI event (avoid "replying" when CLI never starts)
           let intentModeBroadcast = false;
-
-          // ADR-008 S3: collect cursor boundaries; ack only after succeeded
-          const cursorBoundaries = new Map<string, string>();
           // P1-2: track persistence failures across generator boundary
           const persistenceContext: PersistenceContext = { failed: false, errors: [] };
           // F8: collect per-cat token usage from done events
@@ -906,9 +906,12 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
                 resolvedThreadId,
               );
             }
+            // F148 fix: ack cursors for cats that completed before abort (monotonic CAS, safe to call)
+            if (cursorBoundaries.size > 0) {
+              await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
+            }
             // P1 fix: finalize streaming session on abort so external placeholders are cleaned up
             await cleanupStreamingOnFailure(resolvedThreadId, createResult.invocationId, streamStartPromise, opts, log);
-            // Skip ack/succeeded/push-notify — let finally handle cleanup
           } else if (persistenceContext.failed) {
             const errorDetail = persistenceContext.errors.map((e) => `${e.catId}: ${e.error}`).join('; ');
             await opts.invocationRecordStore?.update(createResult.invocationId, {
@@ -1006,10 +1009,26 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             await opts.invocationRecordStore?.update(createResult.invocationId, {
               status: 'canceled',
             });
+            // F148 fix: ack cursors for cats that completed before the exception
+            if (cursorBoundaries.size > 0) {
+              try {
+                await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
+              } catch {
+                /* best-effort — don't mask the original error */
+              }
+            }
             // Don't broadcast error for intentional cancel
             // P1-A fix: clean up streaming placeholder even on abort/cancel
             await cleanupStreamingOnFailure(resolvedThreadId, createResult.invocationId, streamStartPromise, opts, log);
           } else {
+            // F148 fix: ack cursors for cats that completed before the exception
+            if (cursorBoundaries.size > 0) {
+              try {
+                await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
+              } catch {
+                /* best-effort — don't mask the original error */
+              }
+            }
             log.error({ err, invocationId: createResult.invocationId }, 'Background processing error');
             const errorMsg = normalizeErrorMessage(err);
             await opts.invocationRecordStore?.update(createResult.invocationId, {
