@@ -200,9 +200,9 @@ created: 2026-03-31
 
 ### 导航缺口（7 个，含圆桌新增）
 
-> **猫冷启动第一屏该回答的 4 个问题**（圆桌共识）：
-> 1. 为什么叫我（Intent）
-> 2. 球在谁手上（Baton / Authority）
+> **猫冷启动第一屏该回答的 4 个问题**（圆桌共识 + 铲屎官修正）：
+> 1. 为什么叫我（Intent）— Intent 解码好了，传球方向自然就清楚了
+> 2. 球怎么来的、做完往哪传（Baton Context）— 铲屎官修正：被 @ 了球已经在你手上，"球在谁手上"是废话；真正有价值的是传球链上下文
 > 3. 真相源在哪（Task / Artifact / Spec）
 > 4. 不够时下一步查什么（Guided Navigation）
 
@@ -214,11 +214,24 @@ created: 2026-03-31
 | N-4 | Artifact 链路不可靠 | regex 碰运气（覆盖率低） | 确定性记录机制 | 布偶猫复盘 |
 | N-5 | Self-serve 反馈不闭环 | selfServeRetrievalCount 只记不回流 | 度量导航成功率（不只是 count） | 布偶猫复盘 + gpt52 精炼 |
 | N-6 | 跨 thread 无 bridge | per-thread 孤岛 | cross-thread context bridge | 布偶猫复盘 |
-| N-7 | Baton / Authority visibility | 猫不知道轮不轮到自己动 | 球权 + 决策权 + owner/reviewer/watcher | **gpt52 圆桌新增** |
+| N-7 | Baton Context（传球链上下文） | 猫不知道球怎么来的、做完往哪传 | 上一棒是谁+做了什么 / 当前 task owner+reviewer / intent 暗含的传球方向 | **gpt52 提出 → 铲屎官修正**：被 @ 了球已在手上，"球在谁手上"是废话，有价值的是传球链 |
 
 附加维度（内嵌到上述 Phase，不独立）：
 - **Freshness/Confidence 轴**（codex 提出）：每个导航槽位带时间标记 + 可信度
 - **Authority/Boundary 轴**（codex 提出）：与 N-7 合并
+
+### 触发条件（Phase A-E 现状）
+
+F148 smart window 仅在**冷启动**场景触发（`route-helpers.ts:601-619`）：
+
+| 触发条件 | 阈值 | 含义 |
+|----------|------|------|
+| Count trigger | `relevant.length > 15` | cursor 后超过 15 条未读消息 |
+| Token trigger | `totalTokens > 10,000` | 消息少但内容胖（长代码块/工具结果） |
+
+`isColdMention = countTrigger || tokenTrigger`。Warm path（未读 ≤15 且 token ≤10K）F148 完全不介入。
+
+> **OQ-4**（2026-04-19 铲屎官提出）：导航信息（Intent/Baton/Task）对 warm mention 也有价值。Phase F 是否应扩展触发条件到 warm path？还是导航层独立于 smart window？
 
 ### Phase F-J（圆桌收敛后确定）
 
@@ -228,7 +241,7 @@ created: 2026-03-31
 
 | Phase | 内容 | 缺口 | 状态 |
 |-------|------|------|------|
-| **F** | Intent + Baton — 为什么叫我 + 轮到我吗 + 决策权 | N-2 + N-7 | 📋 待拆 AC |
+| **F** | Intent + Baton Context — 为什么叫我 + 球怎么来的/做完往哪传 | N-2 + N-7 | 📋 待拆 AC |
 | **G** | Task + Narrative — 活跃毛线球 + 一句话故事弧（内嵌 Freshness） | N-3 + N-1 | 📋 待拆 AC |
 | **H** | Artifact Deterministic Tracking — 确定性产物记录 | N-4 | 📋 待拆 AC |
 | **I** | Eval Baseline — 导航成功率度量（不只是 count） | N-5 | 📋 待拆 AC |
