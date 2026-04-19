@@ -288,10 +288,10 @@ Skill 内容安全（防下毒）：
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | Codex 官方公共 Plugin Directory 发布 API 是否开放给第三方编程接入（不只是 App/CLI 交互） | ✅ Phase R 确认：CLI + JSON-RPC 双通道可用 |
-| OQ-2 | Claude marketplace 在 Team/Enterprise 下的组织级限制策略是否需要映射到我们的权限模型 | ⬜ 待确认（Phase B 实现时验证） |
+| OQ-2 | Claude marketplace 在 Team/Enterprise 下的组织级限制策略是否需要映射到我们的权限模型 | ⬜ Phase B 已完成，当前未映射组织级策略；如需支持再开新 AC |
 | OQ-3 | Antigravity 生态是否存在稳定公开 market API，还是只支持本地/手工模式（若无公开 API 的降级策略） | ✅ Phase R 确认：仍在 preview，先做 read-only adapter + manual handoff |
 | OQ-4 | 是否把 MCP 安装审批接入现有 permission center（统一审批轨） | ⬜ 待确认 |
-| OQ-5 | `secret_refs` 分离对 Phase A 写路径的影响范围（env 值从 capabilities.json 迁出） | ⬜ Phase C 前需验证 |
+| OQ-5 | `secret_refs` 分离对 Phase A 写路径的影响范围（env 值从 capabilities.json 迁出） | ✅ Phase C 已实现 secret_refs 分离（security store + env schema 不进 git） |
 
 ## Key Decisions
 
