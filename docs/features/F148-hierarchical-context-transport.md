@@ -167,6 +167,7 @@ created: 2026-03-31
 | KD-4 | search_evidence 负责"找"，get_thread_context 负责"看" | 工具边界清晰，避免功能重叠 | 2026-03-31 |
 | KD-5 | GPT Pro 主骨架 + Gemini 局部好点子 | GPT Pro 更贴我们真实代码和约束；Gemini 的 prompt caching 和 source tagging 独到 | 2026-03-31 |
 | KD-6 | VG-3 用 B+A（AutoSummarizer + regex），不一步到位 L1a/L1b | MVP 先闭环；DecisionSignals 在 SessionSealer 层组装保持纯函数可测试性 | 2026-04-02 |
+| KD-7 | 导航层独立于 smart window（warm mention 也注入） | 即使只有 5 条未读，猫也需要 Intent/Baton/Task。球权死锁案例证明不能靠猫从历史消息推理 | 2026-04-19 |
 
 ## Timeline
 
@@ -231,7 +232,14 @@ F148 smart window 仅在**冷启动**场景触发（`route-helpers.ts:601-619`�
 
 `isColdMention = countTrigger || tokenTrigger`。Warm path（未读 ≤15 且 token ≤10K）F148 完全不介入。
 
-> **OQ-4**（2026-04-19 铲屎官提出）：导航信息（Intent/Baton/Task）对 warm mention 也有价值。Phase F 是否应扩展触发条件到 warm path？还是导航层独立于 smart window？
+> **KD-7**（2026-04-19 铲屎官拍板）：导航层（Intent/Baton/Task）独立于 smart window，warm mention 也注入。理由：即使只有 5 条未读，猫也需要知道"为什么叫我"和"球怎么来的"。
+>
+> **关键场景**（铲屎官提供的球权死锁案例）：
+> - t0: 缅因猫说"我在干活，你别动" → 此刻 true
+> - t1: 缅因猫 @布偶猫（球权转移）→ "我在干活"变 false
+> - t2: 布偶猫冷启动，看到"你别动" → 把 t0 快照当 t2 现况 → 不动 → 死锁
+>
+> 根因：消息内容是过去的快照，球权是实时状态。系统应提供球权实时快照 + 矛盾检测，不靠猫从历史消息推理。
 
 ### Phase F-J（圆桌收敛后确定）
 
