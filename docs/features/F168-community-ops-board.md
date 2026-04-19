@@ -264,6 +264,15 @@ TTL=0（铁律 #5），用户数据默认持久化
 - **PRs**：重点是"谁在 review""有没有新 commit 要 re-review""intake 进度"
 - **Issue ↔ PR 关联**：PR 行显示 `<-#issue号`，一眼看到来龙去脉
 
+### Phase E: GitHub Issue 同步管线（地基）
+
+看板造好了但没有"进货通道"——GitHub issues 从未被拉进 CommunityIssueStore。点同步按钮只读空 store，所以全是 0。
+
+1. **同步入口**：点同步按钮 → 后端调 GitHub API (`GET /repos/{owner}/{repo}/issues`) → 写入 CommunityIssueStore
+2. **状态映射**：根据 issue labels + comments + state 映射到看板分类（未回复/讨论中/待决策/已接受/已拒绝/已关闭）
+3. **增量去重**：按 `repo + issueNumber` 唯一键，已有条目只更新状态
+4. **PR 不走这条路**：PR 已有 `pr_tracking` 管线（TaskStore），不需要改
+
 ### Phase D: Intake 硬门禁 + Guardian 自动触发
 
 把铲屎官的"你去守护一下"变成系统自动触发：
@@ -310,6 +319,12 @@ TTL=0（铁律 #5），用户数据默认持久化
 - [x] AC-D2: Guardian 从 roster 自动选择（≠ author ≠ reviewer）— GuardianMatcher 跨族优先 + 双排除 + 降级
 - [x] AC-D3: 缺 guardian sign-off → merge-gate 自动拦截 — guardian-status 端点供 merge-gate 查询
 - [x] AC-D4: Intake checklist 每项需要证据，系统验证非人工叮嘱 — DEFAULT_INTAKE_CHECKLIST + validateIntakeChecklist + signoff 端点强制验证
+
+### Phase E（GitHub Issue 同步管线 — 地基）
+- [ ] AC-E1: 点击同步按钮 → 调 GitHub API 拉取指定 repo 的 open issues → 写入 CommunityIssueStore（增量去重，按 repo+issueNumber）
+- [ ] AC-E2: Issue 状态自动映射 — 未回复(no cat comment) / 讨论中(has cat comment, open) / 待决策(needs-decision label or triage pending) / 已接受 / 已拒绝 / 已关闭
+- [ ] AC-E3: 同步结果实时反映到看板 — Issues 分类计数与 GitHub 实际状态一致
+- [ ] AC-E4: 已有 CommunityIssueStore 条目的 issue 不重复创建，只更新状态
 
 ## Dependencies
 
