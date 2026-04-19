@@ -129,15 +129,23 @@ unreplied → discussing → pending-decision → accepted / declined
 
 看板 PR 区域从 `TaskStore` 读取 `kind === 'pr_tracking'` 的 TaskItem，投影以下字段：
 
-| 看板展示 | 数据来源 |
-|---------|---------|
-| PR # + 标题 | `TaskItem.title` + `subjectKey` 解析 |
-| CI 状态 | `automationState.ci.status` |
-| Review 状态 | `automationState.review.cursor` / `timestamp` |
-| Merge 状态 | `automationState.closedAt` |
-| 负责猫 | `TaskItem.ownerCatId` |
-| 所在线程 | `TaskItem.threadId` |
-| 关联 issue | 从 `CommunityIssueItem.linkedPrNumbers` 反查 |
+| 看板展示 | 数据来源（真实字段） | 推导逻辑 |
+|---------|---------------------|---------|
+| PR # + 标题 | `TaskItem.title` + `subjectKey`（格式 `pr:{owner/repo}#{num}`） | 解析 subjectKey 得 repo + number |
+| CI 状态 | `automationState.ci.lastBucket` | `lastBucket === 'success'` → CI 绿；`'failure'` → CI 红；无值 → 未知 |
+| Review 活跃 | `automationState.review.lastCommentCursor` / `lastDecisionCursor` | cursor 递增 = 有新 review 活动；`lastNotifiedAt` 判断是否已通知 |
+| Re-review 需要 | `automationState.ci.headSha` + `ci.lastFingerprint` | headSha 变化 + lastBucket 变 success → 新 commit + CI 绿，需 re-review |
+| Merge 状态 | `automationState.closedAt` | 非 null → PR 已关闭/合并 |
+| Conflict | `automationState.conflict.mergeState` | `'dirty'` → 有冲突；`'clean'` → 无冲突 |
+| 负责猫 | `TaskItem.ownerCatId` | 直接读取 |
+| 所在线程 | `TaskItem.threadId` | 直接读取 |
+| 关联 issue | 从 `CommunityIssueItem.linkedPrNumbers` 反查 | 遍历 issue 表匹配 |
+
+**看板 PR 分组推导规则**：
+- **Review 中**：`closedAt` 为 null + `ci.lastBucket !== 'failure'` + `ci.headSha === ci.lastFingerprint`（无新 commit）
+- **待 re-review**：`closedAt` 为 null + `ci.headSha !== ci.lastFingerprint`（新 commit）+ `ci.lastBucket === 'success'`（CI 绿）
+- **Intake 中**：`closedAt` 非 null + intake 状态（Phase D 扩展）
+- **完成**：`closedAt` 非 null + intake done 或 public-only
 
 **PR re-review 信号**：已分配 PR 的新 commit + CI 绿 → F140 现有 `CiCdCheckTaskSpec` 已自动推送到 thread。看板只需读取最新状态，不需要自己发通知。
 
@@ -164,7 +172,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 **前置基础设施（KD-12 gpt52 review P2）**：现有 `workspaceMode` 枚举只有 `dev | recall | schedule | tasks`（`chatStore.ts`），`WorkspacePanel` 只渲染四种，无 thread-scoped 自动切换机制。Phase C 需要：
 1. 扩展 `workspaceMode` 枚举加 `community`
 2. `WorkspacePanel` 加 `CommunityPanel` 分支
-3. Thread metadata 加 `preferredWorkspaceMode?: string` 字段，打开社区系统 thread 时自动切到 `community`
+3. Thread metadata 加 `preferredWorkspaceMode (typed as WorkspaceMode enum, not string)?: string` 字段，打开社区系统 thread 时自动切到 `community`
 4. `useWorkspaceNavigate` 加 `community` 导航支持
 
 #### 布局（设计草图，最终 UI 用 Pencil 出稿）
@@ -270,7 +278,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 ### Phase C（管理视图 — Workspace tab）
 - [ ] AC-C1: 社区系统 thread 存在，作为中央对话入口
 - [ ] AC-C2: `workspaceMode` 枚举扩展 `community`；`WorkspacePanel` 渲染 `CommunityPanel`
-- [ ] AC-C3: Thread metadata 加 `preferredWorkspaceMode`，打开社区系统 thread 自动切到 `community`
+- [ ] AC-C3: Thread metadata 加 `preferredWorkspaceMode (typed as WorkspaceMode enum, not string)`，打开社区系统 thread 自动切到 `community`
 - [ ] AC-C4: 看板分 Issues（`CommunityIssueItem`）/ Pull Requests（`pr_tracking` 投影）两区域
 - [ ] AC-C5: 每个 item 一行摘要（repo + # + 标题 + 类型 + 负责猫 + 最后活跃）
 - [ ] AC-C6: 点击 item 跳转到对应 feat thread（工作现场联动）
@@ -309,7 +317,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | 首猫值班是固定还是轮班？初期固定一只，事项多了再考虑 | ⬜ 待定 |
-| OQ-2 | CommunityItem 存储用 Redis 还是 SQLite？ | ⬜ 待定 |
+| OQ-2 | CommunityIssueItem 存储用 Redis 还是 SQLite？ | ⬜ 待定 |
 | OQ-3 | 看板定时刷新频率？（建议 5 分钟，配合手动同步按钮） | ⬜ 待定 |
 
 ## Key Decisions
@@ -327,7 +335,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | KD-9 | 所有图标用 SVG 不用 emoji | 铲屎官明确要求 + 设计规范 | 2026-04-18 |
 | KD-10 | Direction Card 初版用 `card` + `fields` 文本 badge | `card.fields` 无 `icon` 字段，SVG 图标需后续扩展 `CardField`；初版接受 PASS/WARN/FAIL 文本降级（gpt52 review P2） | 2026-04-18 |
 | KD-11 | PR 不另建台账，投影自 `pr_tracking` | 现有 `TaskStore` 的 `pr_tracking` 已是 CI/review/conflict 权威数据源；双写会导致状态漂移（gpt52 review P1） | 2026-04-18 |
-| KD-12 | Phase C 需补 `community` workspace mode 基础设施 | 现有枚举只有 4 态，无 thread-scoped 自动切换机制；需扩展枚举 + 导航 + thread metadata（gpt52 review P2） | 2026-04-18 |
+| KD-12 | Phase C 需补 `community` workspace mode 基础设施 | 现有枚举只有 4 态；需扩展 `WorkspaceMode = 'dev' \| 'recall' \| 'schedule' \| 'tasks' \| 'community'`（fail-closed 有界枚举），thread metadata 用 `WorkspaceMode` 类型不用 string（gpt52 review P2） | 2026-04-18 |
 
 ## Timeline
 
