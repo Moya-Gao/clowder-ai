@@ -1434,14 +1434,16 @@ async function main(): Promise<void> {
   await app.register(auditRoutes, { threadStore });
   await app.register(capabilitiesRoutes);
 
-  // F146 Phase B: Marketplace adapter — stub loaders, real catalog fetchers in Phase C
   {
     const { createAdapterRegistry } = await import('./marketplace/index.js');
+    const { loadClaudeCatalog, loadCodexCatalog, loadOpenClawCatalog, loadAntigravityCatalog } = await import(
+      './marketplace/catalog-loaders.js'
+    );
     const registry = createAdapterRegistry({
-      claude: { catalogLoader: async () => [] },
-      codex: { catalogLoader: async () => [] },
-      openclaw: { catalogLoader: async () => [] },
-      antigravity: { catalogLoader: async () => [] },
+      claude: { catalogLoader: loadClaudeCatalog },
+      codex: { catalogLoader: loadCodexCatalog },
+      openclaw: { catalogLoader: loadOpenClawCatalog },
+      antigravity: { catalogLoader: loadAntigravityCatalog },
     });
     await app.register(marketplaceRoutes, { registry });
   }
