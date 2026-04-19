@@ -34,59 +34,68 @@ F061 Phase 2c merge 后连续修了两根因：
 
 ## Design
 
+### 实现口径：deadline-based grace（不是"数空 batch"）
+
+关键实现约束（@gpt52 在 tdd 前补充）：**bridge 不向 service yield 空 batch**。`pollForSteps()` 只在有新/变异 step、`awaitingUserInput`、或 terminal empty 时 yield；空轮询只在 bridge 内部 `setTimeout(2_000)`（见 `AntigravityBridge.ts:236` / `:323` / `:363`）。
+
+所以 v1 在"不改 bridge、不动 cadence"的约束下，**只能用 deadline，不能数空 batch**。
+
 ### 状态机
 
 ```
 初始:
   pendingStreamError = null
-  streamErrorPollBudget = 2   // 2 poll tick ≈ 4.5s wall clock
+  graceDeadline = 0   // absolute ms timestamp
 
 每批 messages 处理：
   for msg of messages:
     if msg.type === 'text':
       if pendingStreamError:
         log.info({cascadeId}, 'stream_error recovered mid-stream')
-        counter.recovered++
+        counter.recovered.add(1, attrs)
         pendingStreamError = null
+        graceDeadline = 0
       hasText = true
       yield msg
 
     elif msg.type === 'error' && msg.errorCode === 'stream_error' && hasText && !hasSpecificError:
       pendingStreamError = msg
-      streamErrorPollBudget = 2   // reset on new buffer
-      counter.buffered++
+      graceDeadline = Date.now() + GRACE_WINDOW_MS   // 4500ms
+      counter.buffered.add(1, attrs)
 
     elif msg.type === 'error' && (msg.errorCode === 'upstream_error' || 'model_capacity'):
       if pendingStreamError:
         log.info({cascadeId}, 'stream_error superseded by specific error')
-        pendingStreamError = null   // drop, don't count as expired
-      yield msg   // let specific error through
+        pendingStreamError = null   // drop, 不算 expired
+        graceDeadline = 0
+      yield msg
 
     else:
       yield msg
 
-批处理结束后（每 batch，含空 batch）：
-  if pendingStreamError:
-    streamErrorPollBudget--
-    if streamErrorPollBudget <= 0:
-      log.warn({cascadeId}, 'stream_error grace expired without recovery')
-      counter.expired++
-      yield pendingStreamError
-      pendingStreamError = null
-      terminalAbort = true
-      break
+每次 await bridge iterator.next() 时：
+  若 pendingStreamError：用 Promise.race(iterator.next(), setTimeout(graceDeadline - Date.now()))
+    - 新 batch 先到 → 进入上面的状态机
+    - timer 先到 → flush pending + terminalAbort:
+        log.warn({cascadeId}, 'stream_error grace expired without recovery')
+        counter.expired.add(1, attrs)
+        yield pendingStreamError
+        pendingStreamError = null
+        terminalAbort = true
+        break
+  若 pendingStreamError === null：正常 await iterator.next()（不加 timer）
+
+常量：
+  GRACE_WINDOW_MS = 4500   // ~= 2 poll tick × 2000ms + 500ms buffer
 ```
 
-### 为什么是 poll budget 而不是 wall-clock ms
+### 为什么 4500ms（产品语言"2 poll tick"）
 
 - Bridge poll cadence 固定 2s（`AntigravityBridge.ts:236`）
 - 唯一真实样本 partial_text → stream_error 间隔 2.015s
-- 裸 3s 只买 1.5 tick，尴尬；2 poll budget 等价 ~4.5s，和现有 cadence 自然对齐
+- 裸 3s 只买 1.5 tick，尴尬；4500ms 相当于两轮 poll cadence + 小 buffer
+- "2 poll tick" 是产品/设计口径，实现层是 wall-clock deadline — 代码注释里要写清楚这一点
 - v1 不动 cadence，避免"错误策略改造"扩大成"调度改造"
-
-### 为什么每 batch 减 1（含空 batch）
-
-保证 budget 与真实 wall clock 单调对应。空 batch（poll 了但 LS 没新 step）也要消耗 budget，否则空批续命会把 grace 拉长，用户等空气时间失控。
 
 ### Transformer 不动
 
@@ -115,12 +124,18 @@ F061 Phase 2c merge 后连续修了两根因：
 ### Task 2: Telemetry 三件 counter
 
 **Files:**
-- Modify: `packages/api/src/domains/cats/services/agents/providers/antigravity/AntigravityAgentService.ts`（埋点 buffered/recovered/expired）
-- （若项目已有 OTel counter 工厂则复用；没有就只 `log.info` 结构化字段，观察几天再决定是否挂 metrics）
+- Modify: `packages/api/src/infrastructure/telemetry/instruments.ts`（建 counter，@gpt52 指定的落点）
+- Modify: `packages/api/src/domains/cats/services/agents/providers/antigravity/AntigravityAgentService.ts`（`.add(1, attrs)`）
+
+**Counters:**
+- `antigravity_stream_error_buffered_total`
+- `antigravity_stream_error_recovered_total`
+- `antigravity_stream_error_expired_total`
 
 **Guardrails:**
 - 属性只允许：`provider="antigravity"`、`model_family`（若可得）、`path="partial_text"`
 - 禁止 `threadId` / `cascadeId` 等高基数字段（查细节走日志的 cascadeId）
+- **不要先用 log 假装 metric** — 直接挂 OTel counter
 
 ### Task 3: Regression
 
@@ -134,10 +149,11 @@ F061 Phase 2c merge 后连续修了两根因：
 
 | 风险 | 缓解 |
 |------|------|
-| Grace 期间用户等空气最多 4.5s | Budget 写死 2，有 log 可观察；若 recovery 率低再压到 1 |
-| `streamErrorPollBudget` 边界 off-by-one | 单测覆盖 budget=1 时精确烧完的场景 |
-| Buffered 期间 cascade cancel | `controller.signal.aborted` 检查点在 poll 循环入口，pending 会随 return 被 GC，不泄漏 |
+| Grace 期间用户等空气最多 4.5s | `GRACE_WINDOW_MS` 写死 4500，有 counter + log 可观察；若 recovery 率低再压到 2500 |
+| `Promise.race` 清理 setTimeout handle | timer fulfilled/rejected 后必须 `clearTimeout`，避免泄漏到下一轮 iterator.next() |
+| Buffered 期间 cascade cancel | `controller.signal.aborted` 检查点在 poll 循环入口，pending 会随 return 被 GC；timer 需要在 abort 时 clear |
 | 同一 batch 内 error + 后续 text | 状态机按 msg 顺序处理；如果 transformer 把 text 放在 error 之后，状态机会先 buffer 再 recover，行为正确 |
+| Timer 精度 vs `Date.now()` 漂移 | 用 `Date.now()` 算 `remaining = deadline - now`；精度秒级，漂移 <100ms 不影响用户体感 |
 
 **非目标：**
 - 不做 adaptive poll cadence（v1）
