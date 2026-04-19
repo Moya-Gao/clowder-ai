@@ -8,7 +8,7 @@ created: 2026-03-31
 
 # F148: Hierarchical Context Transport — 分层上下文传输
 
-> **Status**: done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1 | **Completed**: 2026-04-02
+> **Status**: in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1 | **Phase A-E Completed**: 2026-04-02 | **Reopened**: 2026-04-19（导航轴优化）
 
 ## Why
 
@@ -189,6 +189,36 @@ created: 2026-03-31
 | 2026-04-02 | **Feature closed** — 5 Phases + 3 VG gaps + search suggestions 全部 merged，愿景守护 by gpt52 放行 |
 | 2026-04-10 | OQ-2 briefing→invocation link telemetry merged (PR #1028) — route-serial + route-parallel 增加 briefing↔invocation 关联日志。缅因猫 review (R1: 1P1 TDZ fix, R2 pass) + 云端 review passed |
 | 2026-04-10 | OQ-2 automated context eval signals merged (PR #1037) — extractContextEvalSignals 纯函数 + route-serial/parallel 集成。缅因猫 review (R1: 1P1 timing, R2: 1P2 doc, R3 pass) + 云端 review passed |
+| 2026-04-18 | cursor-ack-on-abort fix merged (PR #1266) — messages.ts 直接调用路径缺失 cursor ack 导致重复冷启动注入。缅因猫 review + merge |
+| 2026-04-19 | **Feature reopened** — 铲屎官发起运行 17 天复盘，核心发现：优化了压缩轴但导航轴不足。多猫圆桌讨论启动 |
+
+## Phase F-J: 导航轴优化（2026-04-19 Reopened）
+
+> **来源**：铲屎官 + 布偶猫复盘（2026-04-19），基于 `docs/canon/meta-aesthetics.md` 的第一性原理审视。
+> **核心命题**：F148 Phase A-E 解决了"太胖"（token 降 80%），Phase F-J 要解决"不够聪明"——从 information delivery 升级为 situation awareness。
+
+### 复盘发现（6 个导航缺口）
+
+| # | 缺口 | 现状 | 期望 |
+|---|------|------|------|
+| N-1 | Tombstone 有结构没叙事 | TF-IDF 关键词碎片 | 一句话故事弧（利用已有 SessionSealer/AutoSummarizer 输出） |
+| N-2 | Intent modeling 缺失 | 所有冷启动一视同仁 | 根据 mention 意图动态调整 context 策略 |
+| N-3 | 毛线球（Task）不在视野里 | context packet 无 task 信息 | 活跃 task 及状态纳入 briefing |
+| N-4 | Artifact 链路不可靠 | regex 碰运气（覆盖率低） | 确定性记录机制 |
+| N-5 | Self-serve 反馈不闭环 | selfServeRetrievalCount 只记不回流 | 回流为下次 retrieval hint |
+| N-6 | 跨 thread 无 bridge | per-thread 孤岛 | cross-thread context bridge |
+
+### 待拆分 Phase（圆桌讨论后确定）
+
+以下为候选方向，具体拆分和优先级在多猫圆桌讨论后确定：
+
+- **Phase F: Narrative Tombstone** — 让 tombstone 从关键词列表升级为一句话叙事弧
+- **Phase G: Task-Aware Briefing** — context packet 集成 thread 的活跃毛线球
+- **Phase H: Eval Baseline** — 分析 17 天 telemetry 数据，建立 cold-start quality baseline
+- **Phase I: Intent-Aware Context** — mention intent 分类 + 动态 context 策略
+- **Phase J: Artifact Deterministic Tracking** — 从 regex 碰运气升级为确定性产物记录
+
+> **注意**：Phase F-J 是候选编号，圆桌讨论可能重新排序、合并或新增。
 
 ## Review Gate
 
@@ -202,4 +232,6 @@ created: 2026-03-31
 | **Source Study** | `third-party-studies/claude-code-sourcemap-v2.1.88/notes/` | Claude Code v2.1.88 源码学习笔记（架构 + 安全 + 综合） |
 | **Feature** | `docs/features/F102-memory-adapter-refactor.md` | 记忆系统（evidence.sqlite 是 L3 基础） |
 | **Feature** | `docs/features/F042-prompt-engineering-audit.md` | 三层信息架构（分层思想来源） |
-| **Reflection** | `docs/reflections/2026-04-02-f148-hierarchical-context-transport-capsule.md` | 完成反思胶囊 |
+| **Reflection** | `docs/reflections/2026-04-02-f148-hierarchical-context-transport-capsule.md` | Phase A-E 完成反思胶囊 |
+| **Retrospective** | `docs/reflections/2026-04-19-f148-retrospective-navigation-axis.md` | 17 天运行复盘：压缩轴 vs 导航轴 |
+| **Canon** | `docs/canon/meta-aesthetics.md` | 数学美学 × 第一性原理（复盘方法论基座） |
