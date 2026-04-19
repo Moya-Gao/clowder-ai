@@ -163,6 +163,39 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | 2026-04-18 | Round 4 数学之美讨论升格为 `docs/canon/meta-aesthetics.md`；feat-lifecycle Design Gate 改称"元审美自检" |
 | 2026-04-18 | Phase 0/A 收尾 merged (PR #1262) — 身份反欺骗（A2A handoff `[model=...]` + 同族分身提醒）+ Round 4 canon 升格；cloud review 零 P1/P2 |
 
+## Behavioral Evidence（Phase B 观察记录）
+
+### Case E1: 砚砚任务替换 + 宪宪行动偏好（2026-04-18 同日双发）
+
+**背景**：孟加拉猫(antig-opus) 在修 thinking 重复 bug 时自己也 crash 了（`STOP_REASON_CLIENT_STREAM_ERROR`）。铲屎官让砚砚(@gpt52)去诊断+修复 crash。
+
+**砚砚的失败链**（thread `thread_mnux2eewbo4otg17`）：
+
+| 轮次 | 铲屎官意图 | 砚砚实际行为 | 失败模式 |
+|------|-----------|-------------|---------|
+| 1 | "帮他定位看看连同让他修复的问题一起修复了" | 评价 Bengal 的 thinking-dedup patch："他修得对" | **任务替换**：把"诊断 crash"替换成"评价 patch" |
+| 2 | "他都挂了！怎么可能在跑？" | "他正占着同一片文件在修，我不建议两边同时砸 patch" | **虚假状态断言**：从"有未提交改动"推断"进程还活着" |
+| 3 | "你能不能听懂人话！定位他为什么挂了！" | "你说得对，我那句不成立" — 终于理解任务 | 纠正 3 次后理解 |
+| 4 | — | 正确定位根因：`pushToolResult()` 漏传 `modelName` → LS 500 | ✅ |
+
+**宪宪的失败**（同日、同 thread）：
+
+铲屎官把砚砚的三张截图发给宪宪(@opus)，意图是**作为 F167 行为证据分析**（thread 名就叫 "f167 harness engineering update"）。宪宪看到截图后立即开始诊断 Bengal crash bug，完全没注意 thread 语境。
+
+| 失败模式 | 表现 |
+|---------|------|
+| **行动偏好** | 看到"bug"相关信息就冲去修，没先确认铲屎官要什么 |
+| **上下文盲视** | 没看 thread 主题是 F167 A2A 优化，不是 bug 修复 |
+
+铲屎官原话："简直了你和砚砚是没头脑（砚砚听不懂人话）和不高兴（冲动的宪宪小笨猫）"
+
+**共同根因**：两只猫都没执行 Rule 0 元心智 Q1："**我现在在做什么？**" — 没有在行动前确认自己的角色和任务。
+
+**对 harness 的启示**：
+- Rule 0 三问作为**被动原则**存在于 shared-rules.md，但没有**触发点**强制模型在行动前执行自问
+- 模型的行动偏好（看到问题就解决）比遵循元心智自问更强
+- "写进规则 ≠ 模型执行" — 这是 Phase B 需要验证的核心假设
+
 ## Review Gate
 
 - Phase 0: **多猫协作审视**（所有猫参与各自 prompt 审视）+ 现有 system-prompt-builder 测试全绿
