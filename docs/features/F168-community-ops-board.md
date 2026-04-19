@@ -64,13 +64,15 @@ created: 2026-04-18
 3. **PR 更新信号**：贡献者 push 新 commit / CI 状态变化 → 通知负责猫 re-review（F140 PR tracking 信号消费）
 4. **多仓库支持**：repo 是绑定参数，一个 Cat Café 实例可管理多个 repo
 
-### Phase C: 管理视图
+### Phase C: 管理视图（Workspace tab，非独立页面）
 
-Workspace "社区" 模式，铲屎官一打开就看到全局：
+**设计决策**：不做独立页面（Mission Hub 教训：独立页面铲屎官几乎不打开）。社区管理作为 **Workspace 右侧 tab**，与对话流并存——用户心智不变，操作在自然语言中完成，看板是辅助视图。
 
-1. **按状态分组看板**：new / triaged / pending-decision / in-review / merged
-2. **每个 item 显示**：repo + issue/PR # + 标题 + 负责猫 + 线程 + 最后活跃
-3. **快捷操作**：点击跳转到关联线程 / GitHub 页面
+1. **社区系统 Thread**：类似 IM Hub 系统 thread，是社区事务的中央对话入口。首猫分拣、定方向卡片、铲屎官拍板都在这里发生
+2. **Workspace "社区" tab**：打开社区系统 thread 时，右侧面板自动展示社区看板
+   - 按状态分组：new / triaged / pending-decision / in-review / merged
+   - 每个 item 一行：repo + issue/PR # + 标题 + 负责猫 + 最后活跃
+3. **Thread 跳转联动**：点击 item → 跳转到对应 feat thread（猫猫的工作现场在 thread 里），看板是导航不是工作台
 4. **筛选**：按 repo / 状态 / 负责猫 / 时间范围
 
 ### Phase D: Intake 硬门禁 + Guardian 自动触发
@@ -99,11 +101,12 @@ Workspace "社区" 模式，铲屎官一打开就看到全局：
 - [ ] AC-B4: 支持多仓库绑定，repo 是配置参数非 hardcode
 - [ ] AC-B5: 台账数据持久化（TTL=0，铁律 #5）
 
-### Phase C（管理视图）
-- [ ] AC-C1: Workspace "社区" 模式可用，按状态分组展示所有 CommunityItem
-- [ ] AC-C2: 每个 item 显示 repo / issue-PR # / 标题 / 负责猫 / 线程 / 最后活跃
-- [ ] AC-C3: 点击 item 可跳转到关联线程或 GitHub 页面
-- [ ] AC-C4: 支持按 repo / 状态 / 负责猫筛选
+### Phase C（管理视图 — Workspace tab）
+- [ ] AC-C1: 社区系统 thread 存在，作为中央对话入口
+- [ ] AC-C2: 打开社区系统 thread 时，Workspace 右侧自动展示"社区" tab
+- [ ] AC-C3: 看板按状态分组展示所有 CommunityItem（一行摘要）
+- [ ] AC-C4: 点击 item 跳转到对应 feat thread（工作现场）
+- [ ] AC-C5: 支持按 repo / 状态 / 负责猫筛选
 
 ### Phase D（Intake 硬门禁）
 - [ ] AC-D1: Intake 完成 + reviewer 放行 → 系统自动 @ guardian 猫
@@ -145,6 +148,8 @@ Workspace "社区" 模式，铲屎官一打开就看到全局：
 | KD-2 | Inbox 首猫分拣制（模型 C） | 中央入口 + 分发，铲屎官只看 Inbox 就知全局 | 2026-04-18 |
 | KD-3 | 方向评估必须双猫 | 单猫视角大概率有偏颇，非 bugfix 场景强制双猫交叉 | 2026-04-18 |
 | KD-4 | Intake guardian 由系统自动触发 | 铲屎官"每次 intake 都出错"→ 不靠叮嘱靠门禁 | 2026-04-18 |
+| KD-5 | 管理视图是 Workspace tab 而非独立页面 | Mission Hub 教训：独立页面铲屎官几乎不打开；操作在自然语言中完成，看板是辅助视图 | 2026-04-18 |
+| KD-6 | 社区系统 thread 作为中央入口 | 类似 IM Hub 系统 thread，首猫分拣+铲屎官拍板都在对话中；看板通过 thread 跳转联动到 feat thread | 2026-04-18 |
 
 ## Timeline
 
