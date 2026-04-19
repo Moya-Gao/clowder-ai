@@ -64,9 +64,11 @@ created: 2026-04-18
    - 事项来源（issue/PR #、repo）
    - 是什么（一句话）
    - 关联 feat（如有）
-   - Ownership 5 问结果（Q1-Q5 pass/warn/fail，图标用 SVG 不用 emoji）
+   - Ownership 5 问结果（Q1-Q5 pass/warn/fail）
    - 猫的建议（WELCOME / NEEDS-DISCUSSION / POLITELY-DECLINE）
    - 需要铲屎官决定什么（明确标注 or "猫自决"）
+
+   **实现方式（KD-10 gpt52 review）**：初版用 `RichCardBlock`（`kind: 'card'`），5 问结果放 `fields` 数组（`{ label: 'Q1 愿景', value: 'PASS' }`），tone 映射建议结果。`card.fields` 目前不支持 `icon` 字段，SVG 图标需后续扩展 `CardField` 类型；初版接受文本 badge 降级（PASS/WARN/FAIL）
 2. **双猫方向交叉**：首猫 triage 后自动 @ 第二只猫独立评估方向（不等铲屎官喊），两猫意见汇总后再标记是否需要铲屎官拍板。bugfix 场景猫自决，不需双猫
 3. **路由分发**：
    - 已有 feat → 路由到该 feat thread，@ 负责猫
@@ -75,59 +77,95 @@ created: 2026-04-18
 
 ### Phase B: 社区事务台账 + 生命周期跟踪
 
-每个社区 issue/PR 进入视野后创建一条 `CommunityItem` 记录：
+**真相源原则（KD-11 gpt52 review P1）**：PR 侧**不另建平行台账**，直接投影自现有 `pr_tracking` TaskItem（`TaskStore` where `kind === 'pr_tracking'`），其 `automationState.ci/review/conflict` 已经是 CI/review 通知的权威数据。Issue 侧独立建模为 `CommunityIssueItem`。看板是两个 read model 的聚合视图。
 
-1. **数据模型**：
-   - `repo`: string — 来源仓库（多仓库支持，不 hardcode）
-   - `githubRef`: { number, type: 'issue' | 'pr' } — issue/PR 编号 + 类型
-   - `issueType`: 'bug' | 'feature' | 'enhancement' | 'question' — issue 子类型
-   - `state`: 见下方状态机
-   - `assignedThreadId`: string | null — 工作线程
-   - `assignedCatId`: string | null — 负责猫
-   - `linkedItems`: { issueNumber?, prNumber? } — issue ↔ PR 关联
-   - `directionCard`: object | null — 定方向卡片快照
-   - `ownerDecision`: 'accepted' | 'declined' | null — 铲屎官拍板结果
-   - `lastActivity`: { at: timestamp, event: string } — 最后活跃
+#### 1. Issue 数据模型（`CommunityIssueItem`，独立存储）
 
-2. **Issue 状态机**：
-   ```
-   unreplied → discussing → pending-decision → accepted / declined
-                    ↓                              ↓
-               consensus-reached            (closed)
-   ```
-   | 状态 | 含义 |
-   |------|------|
-   | unreplied | 新来的，还没人搭理 |
-   | discussing | 已回复，等对方补信息 / 方案讨论中 |
-   | pending-decision | 双猫看过了，需要铲屎官拍板（非 bugfix） |
-   | accepted | 铲屎官同意（等/有 PR） |
-   | declined | 礼貌回绝 |
+```typescript
+interface CommunityIssueItem {
+  id: string;
+  repo: string;                          // 来源仓库（多仓库，不 hardcode）
+  issueNumber: number;
+  issueType: 'bug' | 'feature' | 'enhancement' | 'question';
+  title: string;
+  state: IssueState;                     // 见下方状态机
+  replyState: 'unreplied' | 'replied';   // 有没有回复过对方
+  consensusState?: 'discussing' | 'consensus-reached' | 'stalled'; // 讨论进度
+  assignedThreadId: string | null;       // 工作线程
+  assignedCatId: string | null;          // 负责猫
+  linkedPrNumbers: number[];             // 关联的 PR（一个 issue 可能有多个 PR）
+  directionCard: object | null;          // 定方向卡片快照
+  ownerDecision: 'accepted' | 'declined' | null; // 铲屎官拍板
+  relatedFeature: string | null;         // 关联 feat（如 'F056'）
+  lastActivity: { at: number; event: string };
+  createdAt: number;
+  updatedAt: number;
+}
 
-3. **PR 状态机**：
-   ```
-   in-review → re-review-needed → in-review → approved → merged → intake-in-progress → intake-done
-   ```
-   | 状态 | 含义 |
-   |------|------|
-   | in-review | 猫在看，标注谁在 review |
-   | re-review-needed | 作者 push 了新代码 + CI 绿 → 需要猫重新看 |
-   | approved | review 通过 |
-   | merged | 已 merge 到 clowder-ai |
-   | intake-in-progress | 正在回家流程 |
-   | intake-done | intake 完成（或 public-only 不需 intake） |
+type IssueState = 'unreplied' | 'discussing' | 'pending-decision' | 'accepted' | 'declined' | 'closed';
+```
 
-4. **触发模式（初版 A-C）**：
-   - **Issue 未接单**：铲屎官在看板手动点击"发送给系统猫"触发 triage，不自动巡检
-   - **PR 已分配到线程**：自动推送——贡献者 push 新 commit + CI 绿 → 自动通知该 thread 的 channel（消费 F140 PR tracking 信号）
-   - **看板状态**：定时刷新 + **手动同步按钮**（铲屎官随时可点击强制刷新）
+#### 2. Issue 状态机
 
-5. **多仓库支持**：repo 是绑定参数，一个 Cat Café 实例可管理多个 repo
+```
+unreplied → discussing → pending-decision → accepted / declined
+                 ↓                              ↓
+            (replyState/consensusState         (closed)
+             独立于 state 更新)
+```
 
-6. **持久化**：TTL=0（铁律 #5），用户数据默认持久化
+| 状态 | 含义 | 触发 |
+|------|------|------|
+| unreplied | 新来的，还没人搭理 | 手动"发送给系统猫"创建 |
+| discussing | 已回复，讨论中 | 猫回复后 |
+| pending-decision | 双猫看过，需要铲屎官拍板 | 双猫意见汇总后 |
+| accepted | 铲屎官同意 | 铲屎官在对话中拍板 |
+| declined | 礼貌回绝 | 铲屎官/猫自决拒绝 |
+| closed | GitHub issue 已关闭 | 同步 GitHub 状态 |
+
+`replyState` 和 `consensusState` 独立于 `state` 更新——讨论中的 issue 可能是"已回复+待复现"也可能是"已回复+达成一致"。
+
+#### 3. PR 视图（投影自 `pr_tracking` TaskItem，不另建存储）
+
+看板 PR 区域从 `TaskStore` 读取 `kind === 'pr_tracking'` 的 TaskItem，投影以下字段：
+
+| 看板展示 | 数据来源 |
+|---------|---------|
+| PR # + 标题 | `TaskItem.title` + `subjectKey` 解析 |
+| CI 状态 | `automationState.ci.status` |
+| Review 状态 | `automationState.review.cursor` / `timestamp` |
+| Merge 状态 | `automationState.closedAt` |
+| 负责猫 | `TaskItem.ownerCatId` |
+| 所在线程 | `TaskItem.threadId` |
+| 关联 issue | 从 `CommunityIssueItem.linkedPrNumbers` 反查 |
+
+**PR re-review 信号**：已分配 PR 的新 commit + CI 绿 → F140 现有 `CiCdCheckTaskSpec` 已自动推送到 thread。看板只需读取最新状态，不需要自己发通知。
+
+**Intake 状态**：当前 `pr_tracking` 无 intake 字段。如需在看板展示 intake 进度，Phase D 时扩展 `AutomationState` 加 `intake?: { state, guardianCatId }`。
+
+#### 4. 触发模式（初版 A-C）
+
+- **Issue 未接单**：铲屎官在看板手动点击"发送给系统猫"触发 triage，不自动巡检
+- **PR 已分配到线程**：自动——F140 `CiCdCheckTaskSpec` 已有 commit+CI 推送能力，看板消费其状态
+- **看板状态**：定时刷新（建议 5 分钟）+ **手动同步按钮**（铲屎官随时可点击强制刷新）
+
+#### 5. 多仓库支持
+
+repo 是绑定参数，一个 Cat Café 实例可管理多个 repo。`CommunityIssueItem.repo` + `pr_tracking` 的 `subjectKey`（格式 `pr:{owner/repo}#{num}`）天然支持多仓库。
+
+#### 6. 持久化
+
+TTL=0（铁律 #5），用户数据默认持久化
 
 ### Phase C: 管理视图（Workspace tab + 社区系统 thread 联动）
 
 **设计决策**：不做独立页面（Mission Hub 教训：独立页面铲屎官几乎不打开）。社区管理作为 **Workspace 右侧 tab**，与对话流并存——用户心智不变，操作在自然语言中完成，看板是辅助视图。
+
+**前置基础设施（KD-12 gpt52 review P2）**：现有 `workspaceMode` 枚举只有 `dev | recall | schedule | tasks`（`chatStore.ts`），`WorkspacePanel` 只渲染四种，无 thread-scoped 自动切换机制。Phase C 需要：
+1. 扩展 `workspaceMode` 枚举加 `community`
+2. `WorkspacePanel` 加 `CommunityPanel` 分支
+3. Thread metadata 加 `preferredWorkspaceMode?: string` 字段，打开社区系统 thread 时自动切到 `community`
+4. `useWorkspaceNavigate` 加 `community` 导航支持
 
 #### 布局（设计草图，最终 UI 用 Pencil 出稿）
 
@@ -220,25 +258,26 @@ created: 2026-04-18
 - [ ] AC-A6: 全新事项经铲屎官 OK 后，首猫创建新 thread 并分配负责猫
 
 ### Phase B（台账 + 生命周期）
-- [ ] AC-B1: 每个社区 issue/PR 有持久化的 CommunityItem 记录（TTL=0）
-- [ ] AC-B2: Issue 状态机：unreplied → discussing → pending-decision → accepted/declined
-- [ ] AC-B3: PR 状态机：in-review → re-review-needed → approved → merged → intake
-- [ ] AC-B4: Issue ↔ PR 关联关系可追溯
+- [ ] AC-B1: `CommunityIssueItem` 独立存储，持久化（TTL=0）
+- [ ] AC-B2: Issue 状态机 6 态 + `replyState` / `consensusState` 独立更新
+- [ ] AC-B3: PR 视图投影自 `pr_tracking` TaskItem，不另建存储（单一真相源）
+- [ ] AC-B4: Issue ↔ PR 关联：`linkedPrNumbers` 可追溯
 - [ ] AC-B5: 未接单 issue 支持铲屎官手动触发"发送给系统猫"
-- [ ] AC-B6: 已分配 PR 的新 commit + CI 绿 → 自动推送到 thread channel
+- [ ] AC-B6: 已分配 PR 的 commit+CI 信号由 F140 现有 `CiCdCheckTaskSpec` 推送，看板消费状态
 - [ ] AC-B7: 支持多仓库绑定，repo 是配置参数非 hardcode
-- [ ] AC-B8: 看板支持手动同步状态按钮
+- [ ] AC-B8: 看板支持手动同步状态按钮 + 定时刷新（建议 5 分钟）
 
 ### Phase C（管理视图 — Workspace tab）
 - [ ] AC-C1: 社区系统 thread 存在，作为中央对话入口
-- [ ] AC-C2: 打开社区系统 thread 时，Workspace 右侧自动展示"社区" tab
-- [ ] AC-C3: 看板分 Issues / Pull Requests 两区域，各自按状态分组
-- [ ] AC-C4: 每个 item 一行摘要（repo + # + 标题 + 类型 + 负责猫 + 最后活跃）
-- [ ] AC-C5: 点击 item 跳转到对应 feat thread（工作现场联动）
-- [ ] AC-C6: repo 下拉筛选 + 状态/负责猫/时间范围筛选
-- [ ] AC-C7: 手动同步按钮 + 定时刷新
-- [ ] AC-C8: 所有图标用 SVG，不用 emoji
-- [ ] AC-C9: 最终 UI 用 Pencil 出设计稿
+- [ ] AC-C2: `workspaceMode` 枚举扩展 `community`；`WorkspacePanel` 渲染 `CommunityPanel`
+- [ ] AC-C3: Thread metadata 加 `preferredWorkspaceMode`，打开社区系统 thread 自动切到 `community`
+- [ ] AC-C4: 看板分 Issues（`CommunityIssueItem`）/ Pull Requests（`pr_tracking` 投影）两区域
+- [ ] AC-C5: 每个 item 一行摘要（repo + # + 标题 + 类型 + 负责猫 + 最后活跃）
+- [ ] AC-C6: 点击 item 跳转到对应 feat thread（工作现场联动）
+- [ ] AC-C7: repo 下拉筛选 + 状态/负责猫/时间范围筛选
+- [ ] AC-C8: 手动同步按钮 + 定时刷新
+- [ ] AC-C9: 所有图标用 SVG，不用 emoji
+- [ ] AC-C10: 最终 UI 用 Pencil 出设计稿
 
 ### Phase D（Intake 硬门禁）
 - [ ] AC-D1: Intake 完成 + reviewer 放行 → 系统自动 @ guardian 猫
@@ -286,12 +325,16 @@ created: 2026-04-18
 | KD-7 | Issue 和 PR 分区展示 | 生命周期不同：Issue 重"回复/讨论/定方向"，PR 重"review/re-review/intake" | 2026-04-18 |
 | KD-8 | 初版手动触发 + 手动同步 | 铲屎官："最开始别是自动巡检，而是我手动点击"。已分配 PR 的 commit+CI 通知除外（自动） | 2026-04-18 |
 | KD-9 | 所有图标用 SVG 不用 emoji | 铲屎官明确要求 + 设计规范 | 2026-04-18 |
+| KD-10 | Direction Card 初版用 `card` + `fields` 文本 badge | `card.fields` 无 `icon` 字段，SVG 图标需后续扩展 `CardField`；初版接受 PASS/WARN/FAIL 文本降级（gpt52 review P2） | 2026-04-18 |
+| KD-11 | PR 不另建台账，投影自 `pr_tracking` | 现有 `TaskStore` 的 `pr_tracking` 已是 CI/review/conflict 权威数据源；双写会导致状态漂移（gpt52 review P1） | 2026-04-18 |
+| KD-12 | Phase C 需补 `community` workspace mode 基础设施 | 现有枚举只有 4 态，无 thread-scoped 自动切换机制；需扩展枚举 + 导航 + thread metadata（gpt52 review P2） | 2026-04-18 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-04-18 | 立项 + 铲屎官 8 轮需求讨论，UX 草图确认 |
+| 2026-04-18 | gpt52 技术 review：4 个发现（2×P1 + 2×P2），spec 修订 KD-10/11/12 |
 
 ## Review Gate
 
