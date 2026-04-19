@@ -573,8 +573,9 @@ export function buildInvocationContext(context: InvocationContext): string {
   // A2A: Exit check reminder — prevents "chain termination blind spot" where cats finish output
   // without considering whether a teammate needs to act next.
   if (context.mode !== 'parallel' && context.a2aEnabled) {
+    const ccHandle = getCoCreatorConfig().mentionPatterns[0] ?? '@铲屎官';
     lines.push(
-      'A2A 球权检查：@ = 球权转移（行首 @句柄，句中无效）。下一棒是谁？猫 → 末尾行首 @句柄 / 铲屎官需要动 → 明确标注 / 没人 → 不 @。收到 @ 但对方说"我在动" → 矛盾，push back。',
+      `A2A 球权检查：@ = 球权转移（行首 @句柄，句中无效）。下一棒是谁？猫 → 末尾行首 @句柄 / 铲屎官需要动 → 末尾行首 ${ccHandle} / 没人 → 不 @。收到 @ 但对方说"我在动" → 矛盾，push back。`,
       '',
     );
   }
