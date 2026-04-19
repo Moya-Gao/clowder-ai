@@ -472,6 +472,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-19 | **Thinking + tool-result model preservation** — native executor writeback 补传 `modelName`，delta replay 去掉已交付的 `thinking`，避免 Antigravity 回写后走错模型与重复 thinking 污染消息流（PR #1267, gate 全绿 + opus 放行）|
 | 2026-04-19 | **Stream-error recovery tail preservation** — 已有 partial text 后的纯 `STOP_REASON_CLIENT_STREAM_ERROR` 不再被提前当作 terminal abort，允许 recovery tail 补齐；同时将 `AntigravityAgentService` 测试按职责拆分回 350 行硬上限内（PR #1268, gate 全绿 + opus continuity 放行到 `6b1bad29`）|
 | 2026-04-19 | **Grace-window stream recovery** — 当 partial text 后收到 `stream_error` 时，service 层先 buffer 错误并给 recovery tail 一个 4.5s deadline；若恢复文本到达则静默恢复，若更具体 fatal 抢占则丢弃 buffered error，只有超时才真正向前端抛错（PR #1274, gate 全绿 + opus-47 放行到 `7d80dd2c`）|
+| 2026-04-19 | **Thinking chunk boundary hardening** — 前端 thinking dedupe 改为结构化 `thinkingChunks` 边界，仅在与当前 `thinking` 一致时参与 dedupe；replace hydration 不再带入 stale `thinkingChunks`，避免内嵌分隔符与 hydration merge 共同导致重复或截断 thinking（PR #1279, gate 全绿 + opus continuity 放行到 `7ca31631` + cloud 0 P1/P2）|
 
 ---
 
