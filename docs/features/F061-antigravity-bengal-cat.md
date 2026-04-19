@@ -470,6 +470,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-17 | **Phase 2c v1 merged** — 原生工具执行器 `RunCommandExecutor` + Bridge writeback + kill switch + 审计日志。152/152 tests。砚砚 2 轮 review（4 P1→fix→放行）+ 云端 2 轮 0 P1/P2（PR #1230）|
 | 2026-04-18 | **Partial reply preservation** — in-place `plannerResponse.modifiedResponse` 增长改为 suffix delta 投递；terminal-first resume 先 seed fingerprints，terminal/no-inline-step resume 不再重复拉整条 trajectory（PR #1244, 砚砚 P1→fix→P2→fix→放行；本地 review 3 轮放行，云端环境异常下的 P1/P2 均已修复）|
 | 2026-04-19 | **Thinking + tool-result model preservation** — native executor writeback 补传 `modelName`，delta replay 去掉已交付的 `thinking`，避免 Antigravity 回写后走错模型与重复 thinking 污染消息流（PR #1267, gate 全绿 + opus 放行）|
+| 2026-04-19 | **Stream-error recovery tail preservation** — 已有 partial text 后的纯 `STOP_REASON_CLIENT_STREAM_ERROR` 不再被提前当作 terminal abort，允许 recovery tail 补齐；同时将 `AntigravityAgentService` 测试按职责拆分回 350 行硬上限内（PR #1268, gate 全绿 + opus continuity 放行到 `6b1bad29`）|
 
 ---
 
