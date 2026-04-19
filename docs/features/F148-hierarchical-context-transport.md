@@ -168,6 +168,7 @@ created: 2026-03-31
 | KD-5 | GPT Pro 主骨架 + Gemini 局部好点子 | GPT Pro 更贴我们真实代码和约束；Gemini 的 prompt caching 和 source tagging 独到 | 2026-03-31 |
 | KD-6 | VG-3 用 B+A（AutoSummarizer + regex），不一步到位 L1a/L1b | MVP 先闭环；DecisionSignals 在 SessionSealer 层组装保持纯函数可测试性 | 2026-04-02 |
 | KD-7 | 导航层独立于 smart window（warm mention 也注入） | 即使只有 5 条未读，猫也需要 Intent/Baton/Task。球权死锁案例证明不能靠猫从历史消息推理 | 2026-04-19 |
+| KD-8 | 不用 intent classifier（regex/小模型都不行）— 给数据不给结论 | 猫自己是 LLM，给了 @ 原文 + baton 事件 + task 列表，猫自己推理 intent。regex 分类器 = 认知脚手架，错误标签比没标签更糟（meta-aesthetics §2.3 + §3.4） | 2026-04-19 |
 
 ## Timeline
 
@@ -210,7 +211,7 @@ created: 2026-03-31
 | # | 缺口 | 现状 | 期望 | 来源 |
 |---|------|------|------|------|
 | N-1 | Tombstone 有结构没叙事 | TF-IDF 关键词碎片 | 一句话故事弧（利用 SessionSealer/AutoSummarizer 输出） | 布偶猫复盘 |
-| N-2 | Intent modeling 缺失 | 所有冷启动一视同仁 | 根据 mention 意图动态调整 context 策略 | 布偶猫复盘，**全员 #1 优先** |
+| N-2 | Intent 上下文缺失 | 猫看不到 @ 原文和传球链 | 把 @ 消息原文 + baton 事件呈现给猫，由猫自己推理 intent（KD-8：给数据不给结论） | 布偶猫复盘 → **铲屎官修正**：不用 classifier |
 | N-3 | 毛线球（Task）不在视野里 | context packet 无 task 信息 | 活跃 task 及状态纳入 briefing | 布偶猫复盘 + 铲屎官确认 |
 | N-4 | Artifact 链路不可靠 | regex 碰运气（覆盖率低） | 确定性记录机制 | 布偶猫复盘 |
 | N-5 | Self-serve 反馈不闭环 | selfServeRetrievalCount 只记不回流 | 度量导航成功率（不只是 count） | 布偶猫复盘 + gpt52 精炼 |

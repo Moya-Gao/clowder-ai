@@ -1,89 +1,29 @@
-# F148 Phase F: Intent + Baton Context Implementation Plan
+# F148 Phase F: Baton Context + Navigation Data Implementation Plan
 
 **Feature:** F148 — `docs/features/F148-hierarchical-context-transport.md`
-**Goal:** 猫冷启动/warm mention 时，context packet 第一屏回答"为什么叫我"和"球怎么来的/做完往哪传"
+**Goal:** 猫冷启动/warm mention 时，context packet 呈现"谁 @ 的我（原文）、球怎么来的、当前毛线球是什么"——给数据不给结论，猫自己推理 intent
 **Acceptance Criteria:**
-- AC-F1: Intent classifier 从 @-mention 消息提取 intent（review/continue/fix/advise/general），零 LLM
-- AC-F2: Baton context 从消息历史提取最后 @ 传球事件（谁传的、什么时候、从哪条消息）
+- AC-F1: ~~Intent classifier~~ → **删除**（KD-8：给数据不给结论，不替猫判断 intent）
+- AC-F2: Baton context 从消息历史提取最后 @ 传球事件（谁传的、什么时候、@ 消息原文）
 - AC-F3: Active tasks 从 TaskStore 查询当前 thread 的活跃毛线球（status != done，最多 3 条）
 - AC-F4: Navigation header 注入到 ALL mention paths（cold + warm），独立于 smart window（KD-7）
-- AC-F5: Briefing card 包含 intent + baton + tasks（cold path 的 format-briefing 扩展）
+- AC-F5: Briefing card 包含 baton + tasks（cold path 的 format-briefing 扩展）
 - AC-F6: Baton 矛盾检测：@ 传球时间 > 消息内容中"我在干活/你别动"时间 → 标注⚠️（球权死锁防护）
-**Architecture:** 新建 `navigation-context.ts` 纯函数模块（intent classifier + baton extractor + task summarizer）。修改 `route-helpers.ts` 在 cold/warm 分叉前注入 navigation header。修改 `format-briefing.ts` 扩展 briefing card。
+**Architecture:** 新建 `navigation-context.ts` 纯函数模块（baton extractor + task summarizer + 数据呈现格式化）。修改 `route-helpers.ts` 在 cold/warm 分叉前注入 navigation header。修改 `format-briefing.ts` 扩展 briefing card。**不做 intent 分类——猫自己是最好的推理器。**
 **Tech Stack:** TypeScript, node:test, zero LLM cost
 **前端验证:** No — navigation header 是 prompt-level 注入，不需要前端改动。Briefing card 扩展需验证展开态。
 
 ---
 
-### Task 1: Navigation Context — Types + Intent Classifier
+### ~~Task 1: Intent Classifier~~ — **DELETED (KD-8)**
 
-**Files:**
-- Create: `packages/api/src/domains/cats/services/agents/routing/navigation-context.ts`
-- Test: `packages/api/test/f148-navigation-context.test.js`
+> **铲屎官拍板（2026-04-19）**：不用 regex/小模型替猫判断 intent。猫自己是 LLM，给了 @ 原文 + baton 事件 + task 列表，猫自己推理比任何 classifier 都准。regex 标签 = 认知脚手架 = meta-aesthetics §2.3 反模式。
+>
+> 原来 Task 1 的类型定义移入 Task 2（Baton Context Extractor）。
 
-**Step 1: Write failing test — intent classification**
+---
 
-```javascript
-import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-const { classifyIntent } = await import(
-  '../dist/domains/cats/services/agents/routing/navigation-context.js'
-);
-
-describe('classifyIntent', () => {
-  it('detects review intent', () => {
-    assert.equal(classifyIntent('@opus 帮我 review 一下'), 'review');
-    assert.equal(classifyIntent('@opus please review this PR'), 'review');
-  });
-  it('detects continue intent', () => {
-    assert.equal(classifyIntent('@opus 继续上次的工作'), 'continue');
-    assert.equal(classifyIntent('@opus 接着昨天那个'), 'continue');
-  });
-  it('detects fix intent', () => {
-    assert.equal(classifyIntent('@opus 这个 bug 帮修一下'), 'fix');
-  });
-  it('detects advise intent', () => {
-    assert.equal(classifyIntent('@opus 你觉得这个方向怎么样？'), 'advise');
-  });
-  it('defaults to general', () => {
-    assert.equal(classifyIntent('@opus hello'), 'general');
-  });
-});
-```
-
-**Step 2: Run test — expect FAIL (module not found)**
-
-Run: `cd packages/api && npx tsc --noEmit && node --test test/f148-navigation-context.test.js`
-
-**Step 3: Implement classifyIntent**
-
-```typescript
-// navigation-context.ts
-export type MentionIntent = 'review' | 'continue' | 'fix' | 'advise' | 'general';
-
-const INTENT_PATTERNS: Array<[MentionIntent, RegExp]> = [
-  ['review', /\b(review|帮.*看|审[查阅]|code.?review|PR.*看|看.*PR)\b/i],
-  ['fix', /\b(bug|fix|修[复一]|坏了|报错|crash|error|broken)\b/i],
-  ['continue', /\b(继续|接着|上次|昨天|之前.*工作|resume|carry.?on)\b/i],
-  ['advise', /\b(觉得|怎么看|方向|建议|opinion|思考|想法|怎么样)\b/i],
-];
-
-export function classifyIntent(mentionText: string): MentionIntent {
-  for (const [intent, pattern] of INTENT_PATTERNS) {
-    if (pattern.test(mentionText)) return intent;
-  }
-  return 'general';
-}
-```
-
-**Step 4: Run test — expect PASS**
-
-**Step 5: Commit**
-
-```bash
-git add packages/api/src/domains/cats/services/agents/routing/navigation-context.ts \
-       packages/api/test/f148-navigation-context.test.js
-git commit -m "feat(F148-F): intent classifier — zero-LLM heuristic [宪宪/Opus-46🐾]"
+### Task 1: Baton Context Extractor (renumbered from Task 2)
 ```
 
 ---
@@ -249,7 +189,7 @@ export function summarizeActiveTasks(
 
 ---
 
-### Task 4: Format Navigation Header
+### Task 3: Format Navigation Header (data presentation, no conclusions)
 
 **Files:**
 - Modify: `packages/api/src/domains/cats/services/agents/routing/navigation-context.ts`
@@ -263,29 +203,29 @@ const { formatNavigationHeader } = await import(
 );
 
 describe('formatNavigationHeader', () => {
-  it('formats complete navigation context', () => {
+  it('formats baton with @ message excerpt', () => {
     const header = formatNavigationHeader({
-      intent: 'review',
-      baton: { fromMessageId: 'm1', fromSpeaker: 'codex', fromSpeakerDisplay: 'codex', timestamp: 1000, staleHoldWarning: false },
+      baton: { fromMessageId: 'm1', fromSpeaker: 'codex', fromSpeakerDisplay: 'codex',
+               timestamp: 1000, mentionExcerpt: '帮我看看这个 PR 的 Redis 改动', staleHoldWarning: false },
       tasks: [{ id: 't1', title: 'Fix Redis', status: 'in-progress', ownerCatId: 'opus' }],
     });
-    assert.ok(header.includes('review'));
     assert.ok(header.includes('codex'));
+    assert.ok(header.includes('帮我看看'));
     assert.ok(header.includes('Fix Redis'));
   });
 
   it('includes stale hold warning when present', () => {
     const header = formatNavigationHeader({
-      intent: 'general',
-      baton: { fromMessageId: 'm1', fromSpeaker: 'codex', fromSpeakerDisplay: 'codex', timestamp: 1000, staleHoldWarning: true },
+      baton: { fromMessageId: 'm1', fromSpeaker: 'codex', fromSpeakerDisplay: 'codex',
+               timestamp: 1000, mentionExcerpt: '看一下', staleHoldWarning: true },
       tasks: [],
     });
     assert.ok(header.includes('⚠️'));
   });
 
   it('handles missing baton and tasks gracefully', () => {
-    const header = formatNavigationHeader({ intent: 'fix', baton: null, tasks: [] });
-    assert.ok(header.includes('fix'));
+    const header = formatNavigationHeader({ baton: null, tasks: [] });
+    assert.ok(header.includes('[导航]'));
     assert.ok(!header.includes('undefined'));
   });
 });
@@ -293,24 +233,16 @@ describe('formatNavigationHeader', () => {
 
 **Step 2-5: Implement + test + commit**
 
+> **KD-8 核心**：不贴 intent 标签。呈现 @ 原文，让猫自己判断。
+
 ```typescript
 export interface NavigationContext {
-  intent: MentionIntent;
   baton: BatonContext | null;
   tasks: TaskSummary[];
 }
 
 export function formatNavigationHeader(ctx: NavigationContext): string {
   const lines: string[] = ['[导航]'];
-
-  const intentLabels: Record<MentionIntent, string> = {
-    review: '🔍 Review 请求',
-    continue: '🔄 继续之前的工作',
-    fix: '🐛 Bug 修复',
-    advise: '💬 征询意见',
-    general: '📌 一般提及',
-  };
-  lines.push(`意图: ${intentLabels[ctx.intent]}`);
 
   if (ctx.baton) {
     const timeStr = new Date(ctx.baton.timestamp).toISOString().slice(11, 16);
@@ -365,13 +297,11 @@ navigationHeader?: string;
 // After line 597 (currentMessageFilteredOut), before line 598 (cold mention detection):
 
 // F148 Phase F (KD-7): Navigation context — injected on ALL paths (cold + warm)
-const lastUserMessage = relevant.findLast((m) => m.catId === null);
-const intent = classifyIntent(lastUserMessage?.content ?? '');
 const baton = extractBatonContext(relevant, catId);
 const activeTasks = deps.taskStore
   ? summarizeActiveTasks(await deps.taskStore.listByThread(threadId))
   : [];
-const navigationCtx: NavigationContext = { intent, baton, tasks: activeTasks };
+const navigationCtx: NavigationContext = { baton, tasks: activeTasks };
 const navigationHeader = formatNavigationHeader(navigationCtx);
 ```
 
@@ -393,11 +323,11 @@ Cold path: pass into assembleSmartWindowContext, prepend there
 - Modify: `packages/api/src/domains/cats/services/agents/routing/route-serial.ts` (pass navigation to briefing)
 - Modify: `packages/api/src/domains/cats/services/agents/routing/route-parallel.ts` (same)
 
-**Step 1: Add intent + baton + tasks to briefing card expanded view**
+**Step 1: Add baton + tasks to briefing card expanded view**
 
 Add new section between one-line summary and participants:
 ```
-🏐 意图: Review 请求 | 传球: codex → 你 (08:05)
+🏐 传球: codex → 你 (08:05) | 原文: "帮我看看这个 PR 的 Redis 改动"
 🧶 活跃任务: Fix Redis [in-progress, @opus] | Deploy v2 [todo, 未分配]
 ```
 
@@ -429,7 +359,7 @@ Run: `pnpm --filter @cat-cafe/api test`
 
 ## Not Building (scope guard)
 
-- LLM-based intent classification — heuristic regex is sufficient for v1
+- **Any form of intent classification** (KD-8) — no regex, no LLM, no heuristic labels. 猫自己是最好的推理器，给数据不给结论
 - Cross-thread baton tracking (that's Phase J)
 - Warm path briefing cards (briefing card remains cold-only, navigation header covers warm)
 - Intent-aware evidence recall ranking (future Phase, depends on eval data)
