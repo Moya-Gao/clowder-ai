@@ -62,9 +62,10 @@ description: >
 
 1. `[clowder-ai]` 读 issue → 判断类型（bug / feature / enhancement / duplicate）
 2. `[cat-cafe]` + `[clowder-ai]` **主人翁 Gate**（含关联检测）→ 五问判定 → WELCOME / NEEDS-DISCUSSION / POLITELY-DECLINE
-3. `[clowder-ai]` 打标签 + 互链相关 issue
-4. `[cat-cafe]` 如果是新 Feature：BACKLOG 加条目（Source=community）
-5. 详细步骤 → [Issue Triage 文档](../refs/opensource-ops-issue-triage.md) | 判定卡 → [主人翁五问](../refs/ownership-gate.md)
+3. `[cat-cafe]` **发 Direction Card**（[模板](../refs/direction-card-template.md)）→ 更新台账 → 非 bugfix 双猫交叉
+4. `[clowder-ai]` 打标签 + 互链相关 issue
+5. `[cat-cafe]` 如果是新 Feature：BACKLOG 加条目（Source=community）
+6. 详细步骤 → [Issue Triage 文档](../refs/opensource-ops-issue-triage.md) | 判定卡 → [主人翁五问](../refs/ownership-gate.md) | Direction Card → [模板](../refs/direction-card-template.md)
 
 ### B: Inbound PR（评估 → 合入 → 吸收）
 
