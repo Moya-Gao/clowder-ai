@@ -256,10 +256,10 @@ Skill 内容安全（防下毒）：
 - [x] AC-C11: 外来 skill 首次运行默认最小权限（dry-run/只读），涉及写文件、网络外发、高危工具必须二次确认
 - [x] AC-C12: 一键 `revoke`（全端停用 + 清理挂载 + 禁止再次激活），60s 内传播到 Hub/CLI/connector 侧
 
-### Phase D（联动体验）
-- [ ] AC-D1: Skills 页可从 `requires_mcp missing` 直接发起补齐
-- [ ] AC-D2: 能力中心可按 `L1/L2/L3` 分层过滤
-- [ ] AC-D3: UI 中可追踪每个 MCP 的来源生态（Codex/Claude/OpenClaw/Antigravity）
+### Phase D（联动体验）✅
+- [x] AC-D1: Skills 页可从 `requires_mcp missing` 直接发起补齐
+- [x] AC-D2: 能力中心可按 `L1/L2/L3` 分层过滤
+- [x] AC-D3: UI 中可追踪每个 MCP 的来源生态（Codex/Claude/OpenClaw/Antigravity）
 
 ## Dependencies
 
@@ -322,6 +322,7 @@ Skill 内容安全（防下毒）：
 | 2026-04-17 | Phase B frontend merged (PR #1235) — marketplace search UI, result cards, install plan detail, trust filter, Hub integration |
 | 2026-04-18 | **Scope 扩展（铲屎官拍板）**：市场不止 MCP，需覆盖 plugin/skill/tool。UI 标签从"MCP 市场"改为"能力市场"，搜索范围扩展到全 `artifactKind`（shared types 已支持） |
 | 2026-04-18 | Phase C merged (PR #1249) — install policy engine, version lock, probe state, content scanner (EN+CN), security store (quarantine state machine + fingerprint), permission isolation, revoke API. 78 tests |
+| 2026-04-19 | Phase D merged (PR #1283) — L1/L2/L3 layer filter, ecosystem badge tracking, Skills 补齐 button, ecosystem validation. All ACs complete |
 
 ## Review Gate
 
