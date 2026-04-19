@@ -258,27 +258,23 @@ describe('incremental current-message fallback integration', () => {
       };
     });
 
-    const deps = createMockDeps(
-      { opus: captureService },
-      undefined,
-      {
-        async get() {
-          return {
-            id: 'thread1',
-            title: 'Test Thread',
-            createdBy: 'user1',
-            participants: [],
-            lastActiveAt: Date.now(),
-            createdAt: Date.now(),
-            projectPath: 'default',
-          };
-        },
-        async getParticipantsWithActivity() {
-          return [];
-        },
-        async updateParticipantActivity() {},
+    const deps = createMockDeps({ opus: captureService }, undefined, {
+      async get() {
+        return {
+          id: 'thread1',
+          title: 'Test Thread',
+          createdBy: 'user1',
+          participants: [],
+          lastActiveAt: Date.now(),
+          createdAt: Date.now(),
+          projectPath: 'default',
+        };
       },
-    );
+      async getParticipantsWithActivity() {
+        return [];
+      },
+      async updateParticipantActivity() {},
+    });
 
     deps.deliveryCursorStore = {
       getCursor: async () => undefined,
@@ -320,27 +316,23 @@ describe('incremental current-message fallback integration', () => {
       };
     });
 
-    const deps = createMockDeps(
-      { opus: captureService },
-      undefined,
-      {
-        async get() {
-          return {
-            id: 'thread1',
-            title: 'Test Thread',
-            createdBy: 'user1',
-            participants: [],
-            lastActiveAt: Date.now(),
-            createdAt: Date.now(),
-            projectPath: 'default',
-          };
-        },
-        async getParticipantsWithActivity() {
-          return [];
-        },
-        async updateParticipantActivity() {},
+    const deps = createMockDeps({ opus: captureService }, undefined, {
+      async get() {
+        return {
+          id: 'thread1',
+          title: 'Test Thread',
+          createdBy: 'user1',
+          participants: [],
+          lastActiveAt: Date.now(),
+          createdAt: Date.now(),
+          projectPath: 'default',
+        };
       },
-    );
+      async getParticipantsWithActivity() {
+        return [];
+      },
+      async updateParticipantActivity() {},
+    });
 
     deps.deliveryCursorStore = {
       getCursor: async () => undefined,

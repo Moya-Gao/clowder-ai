@@ -82,6 +82,9 @@ run_static_quality_gates() {
 
 run_public_acceptance_env() {
   env \
+    -u NODE_ENV \
+    -u npm_config_production \
+    -u NPM_CONFIG_PRODUCTION \
     -u REDIS_URL \
     -u REDIS_PROFILE \
     -u REDIS_STORAGE_KEY \
@@ -481,7 +484,7 @@ run_target_public_gate() {
   fi
 
   echo "  Installing dependencies..."
-  if ! pnpm install --frozen-lockfile 2>&1 | tail -5; then
+  if ! run_public_acceptance_env pnpm install --frozen-lockfile 2>&1 | tail -5; then
     echo -e "  ${RED}✗ pnpm install failed${NC}"
     step_fail=true
   fi
