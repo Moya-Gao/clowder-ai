@@ -14,13 +14,45 @@ created: 2026-04-18
 
 铲屎官现在是人肉 dispatcher：手动 @ 猫看 issue/PR、手动分配线程、手动跟进进度、手动叮嘱"好好看 skill"、手动触发 guardian 验证。现有 F141（发现层）+ F116（ops skill）有完整的流程定义，但缺少**状态管理**和**自动编排**——流程靠铲屎官口头驱动，进度靠铲屎官脑子记。
 
-铲屎官原话：
-> "现在全看我喊你们去看有点麻烦"
-> "你们得想想得做管理的啊，不然上次这个任务派发给什么线程的猫，然后他们进度如何"
-> "比如 issue xxx 的 pr yyy 现在正在 xxx 线程负责"
-> "猫猫们每次 intake 都会犯错，没有一次不是"
+### 铲屎官原话（需求讨论 2026-04-18，完整语境）
 
-目标：把铲屎官从"人肉编排器"解放成"决策者"——猫猫自动发现、分拣、分配、跟踪、守护，铲屎官只需要在关键节点拍板。
+**核心痛点**：
+> "现在全看我喊你们去看有点麻烦"
+> "你们得想想得做管理的啊，不然上次这个任务派发给什么线程的猫，然后他们进度如何，是合入还是正在拉扯还是 issue 怎么样了"
+> "比如 issue xxx 的 pr yyy 现在正在 xxx 线程负责"
+
+**铲屎官现在的人肉话术**（应被系统取代）：
+> - 看到新 issue/PR → "加载开源社区管理 skills，看看这个 PR inbound 流程，maintainer 身份而言这个 PR 对我们自己有益吗？他的内容是什么？我们值得 merge 和 intake 吗？"
+> - 方向评估 → "我一般会 at 两只猫，因为一只猫视角大概率有偏颇。但如果是二次 review 一般只会一只"
+> - 决定 intake → "那你走 intake 回家的流程吧，merge 然后读 SOP 走流程回家。记得一定要好好看看 intake skills，大多数猫猫都会犯错，而且是从以前到现在每次 intake 都会有各种错误没有一次不是"
+> - intake 完成后 → "我建议你守护一下这个 intake 流程，大概率猫猫会丢三落四，你自己加载 skills 看看"
+> - 卡点 → "卡点只在于这个 issue 和这个 PR 本质我们能不能 intake？除非是 bug fix 这种确定 bug 那你们不用找我"
+
+**社区系统 thread 调度模式**：
+> "比如是 feat153 的 PR，这个 feat 就是社区小伙伴负责，我们是全丢一个 thread？我们家自己开发 feat 是全丢一个 thread 的"
+> "但是新来一个假设社区小伙伴的 feat160，此时还没创建 thread，这个新的谁来分配？"
+
+**前端心智模型**：
+> "不应该和失败的 mission hub（我几乎不打开）那样放在独立的页面。应该和成功的 workspace 里面的开发、记忆、调度、任务那些 tab 一样挂在右边"
+> "大多数我们的操作！谁自己手点啊！都是和猫猫自然语言。所以似乎这个能力应该是打开了社区系统 thread，右边可以看到社区事务管理，然后里边就是看板了"
+> "比如说我可以点击跳转到 feat153 里面去看这个社区处理进度，毕竟猫猫跑在 thread 里！我觉得应该这样联动才是对的！"
+
+**架构约束**：
+> "未来这个 feat 最后一个阶段就是要允许社区其他小伙伴用你们这套管理他们自己的社区！你们在架构设计上必须是解耦的！"
+> "人家也是用自己家里搭建的猫猫咖啡呀！不是用这本地这个！但是必须是比如说你的 landy 可以管理 clowder-ai 也能管理其他 landy 的自己的仓"
+
+**初版交互策略**：
+> "我建议我们最开始的 A-C 的完整版本，这里的 issue 和 PR 触发别是自动的巡检，而是我手动点击"
+> "issue 112 发送给系统猫（如果没有被具体线程接单）"
+> "PR 555 已经分配给线程了，那可能就是走的自动的 review，就是对方一旦有新的 commit 且 CI 绿了，就自动推送到这个 thread 的 channel"
+> "社区管理看板虽然比如说多久更新一次状态，但是必须有一个按钮手动同步状态"
+
+**视觉规范**：
+> "别用 emoji 用 SVG"
+
+### 目标
+
+把铲屎官从"人肉编排器"解放成"决策者"——猫猫自动发现、分拣、分配、跟踪、守护，铲屎官只需要在关键节点拍板。
 
 ## What
 
@@ -32,10 +64,10 @@ created: 2026-04-18
    - 事项来源（issue/PR #、repo）
    - 是什么（一句话）
    - 关联 feat（如有）
-   - Ownership 5 问结果（Q1-Q5 ✅/⚠️/❌）
+   - Ownership 5 问结果（Q1-Q5 pass/warn/fail，图标用 SVG 不用 emoji）
    - 猫的建议（WELCOME / NEEDS-DISCUSSION / POLITELY-DECLINE）
    - 需要铲屎官决定什么（明确标注 or "猫自决"）
-2. **双猫方向交叉**：首猫 triage 后自动 @ 第二只猫独立评估方向（不等铲屎官喊），两猫意见汇总后再标记是否需要铲屎官拍板
+2. **双猫方向交叉**：首猫 triage 后自动 @ 第二只猫独立评估方向（不等铲屎官喊），两猫意见汇总后再标记是否需要铲屎官拍板。bugfix 场景猫自决，不需双猫
 3. **路由分发**：
    - 已有 feat → 路由到该 feat thread，@ 负责猫
    - 全新事项 + 铲屎官 OK → 首猫创建新 thread 并分配
@@ -46,34 +78,127 @@ created: 2026-04-18
 每个社区 issue/PR 进入视野后创建一条 `CommunityItem` 记录：
 
 1. **数据模型**：
-   - `repo`: 来源仓库（多仓库支持，不 hardcode）
-   - `githubRef`: issue/PR 编号 + 类型
-   - `state`: `new → triaged → pending-decision → accepted → in-review → merged/closed/declined`
-   - `assignedThreadId`: 工作线程
-   - `assignedCatId`: 负责猫
-   - `directionCard`: 定方向卡片快照
-   - `ownerDecision`: 铲屎官拍板结果
-   - `lastActivity`: 最后活跃时间 + 事件类型
-2. **状态自动流转**：
-   - F141 发现事件 → 自动创建 `CommunityItem`（state: new）
-   - 首猫发定方向卡片 → state: triaged
-   - 标记需要铲屎官 → state: pending-decision
-   - 铲屎官拍板 → state: accepted / declined
-   - PR review 开始 → state: in-review
-   - PR merged / issue closed → state: merged / closed
-3. **PR 更新信号**：贡献者 push 新 commit / CI 状态变化 → 通知负责猫 re-review（F140 PR tracking 信号消费）
-4. **多仓库支持**：repo 是绑定参数，一个 Cat Café 实例可管理多个 repo
+   - `repo`: string — 来源仓库（多仓库支持，不 hardcode）
+   - `githubRef`: { number, type: 'issue' | 'pr' } — issue/PR 编号 + 类型
+   - `issueType`: 'bug' | 'feature' | 'enhancement' | 'question' — issue 子类型
+   - `state`: 见下方状态机
+   - `assignedThreadId`: string | null — 工作线程
+   - `assignedCatId`: string | null — 负责猫
+   - `linkedItems`: { issueNumber?, prNumber? } — issue ↔ PR 关联
+   - `directionCard`: object | null — 定方向卡片快照
+   - `ownerDecision`: 'accepted' | 'declined' | null — 铲屎官拍板结果
+   - `lastActivity`: { at: timestamp, event: string } — 最后活跃
 
-### Phase C: 管理视图（Workspace tab，非独立页面）
+2. **Issue 状态机**：
+   ```
+   unreplied → discussing → pending-decision → accepted / declined
+                    ↓                              ↓
+               consensus-reached            (closed)
+   ```
+   | 状态 | 含义 |
+   |------|------|
+   | unreplied | 新来的，还没人搭理 |
+   | discussing | 已回复，等对方补信息 / 方案讨论中 |
+   | pending-decision | 双猫看过了，需要铲屎官拍板（非 bugfix） |
+   | accepted | 铲屎官同意（等/有 PR） |
+   | declined | 礼貌回绝 |
+
+3. **PR 状态机**：
+   ```
+   in-review → re-review-needed → in-review → approved → merged → intake-in-progress → intake-done
+   ```
+   | 状态 | 含义 |
+   |------|------|
+   | in-review | 猫在看，标注谁在 review |
+   | re-review-needed | 作者 push 了新代码 + CI 绿 → 需要猫重新看 |
+   | approved | review 通过 |
+   | merged | 已 merge 到 clowder-ai |
+   | intake-in-progress | 正在回家流程 |
+   | intake-done | intake 完成（或 public-only 不需 intake） |
+
+4. **触发模式（初版 A-C）**：
+   - **Issue 未接单**：铲屎官在看板手动点击"发送给系统猫"触发 triage，不自动巡检
+   - **PR 已分配到线程**：自动推送——贡献者 push 新 commit + CI 绿 → 自动通知该 thread 的 channel（消费 F140 PR tracking 信号）
+   - **看板状态**：定时刷新 + **手动同步按钮**（铲屎官随时可点击强制刷新）
+
+5. **多仓库支持**：repo 是绑定参数，一个 Cat Café 实例可管理多个 repo
+
+6. **持久化**：TTL=0（铁律 #5），用户数据默认持久化
+
+### Phase C: 管理视图（Workspace tab + 社区系统 thread 联动）
 
 **设计决策**：不做独立页面（Mission Hub 教训：独立页面铲屎官几乎不打开）。社区管理作为 **Workspace 右侧 tab**，与对话流并存——用户心智不变，操作在自然语言中完成，看板是辅助视图。
 
-1. **社区系统 Thread**：类似 IM Hub 系统 thread，是社区事务的中央对话入口。首猫分拣、定方向卡片、铲屎官拍板都在这里发生
-2. **Workspace "社区" tab**：打开社区系统 thread 时，右侧面板自动展示社区看板
-   - 按状态分组：new / triaged / pending-decision / in-review / merged
-   - 每个 item 一行：repo + issue/PR # + 标题 + 负责猫 + 最后活跃
-3. **Thread 跳转联动**：点击 item → 跳转到对应 feat thread（猫猫的工作现场在 thread 里），看板是导航不是工作台
-4. **筛选**：按 repo / 状态 / 负责猫 / 时间范围
+#### 布局（设计草图，最终 UI 用 Pencil 出稿）
+
+```
+┌─ 社区系统 Thread（左侧对话）─────┬─ Workspace 右侧面板 ─────────────────┐
+│                                  │ [开发] [记忆] [调度] [任务] [社区]    │
+│ [系统猫]：                        │                                      │
+│ ┌────────────────────────────┐   │ repo: [clowder-ai v]  [同步状态 ⟳]  │
+│ │ 定方向卡片 #42              │   │                                      │
+│ │ 深色模式支持                 │   │ == Issues ===========================│
+│ │ 关联: F056 (子需求)         │   │                                      │
+│ │ 5问: pass/pass/warn/pass   │   │ -- 未回复 (1) ---------------------- │
+│ │ 建议: WELCOME              │   │ #52 SSO支持  feature  2h ago        │
+│ │ !需要铲屎官: 纳入backlog?   │   │                                      │
+│ └────────────────────────────┘   │ -- 讨论中 (2) ---------------------- │
+│                                  │ #48 日志延迟  bug  已回复 待复现 1d  │
+│ 铲屎官: 要，挂 F056 下           │ #42 深色模式  feat  达成一致→PR#58 3h│
+│                                  │                                      │
+│ [系统猫]：                        │ -- 待铲屎官定方向 (1) --------------- │
+│ 已路由到 F056 thread，            │ #50 插件系统  feat  双猫看过 F056相关│
+│ @codex 开始 review               │    [发送给系统猫]                     │
+│                                  │                                      │
+│                                  │ -- 已结论 (3) ------------ [收起 v]  │
+│                                  │ #39 启动崩溃  bug  accepted→PR#401   │
+│                                  │ #35 ARM支持  feat  declined 已回复   │
+│                                  │                                      │
+│                                  │ == Pull Requests =================== │
+│                                  │                                      │
+│                                  │ -- Review 中 (2) ------------------- │
+│                                  │ PR#58  深色模式 <-#42 F056 @codex CI✓│
+│                                  │ PR#412 日志格式 <-#48 F153 @opus  CI✓│
+│                                  │                                      │
+│                                  │ -- 待 re-review (1) ---------------- │
+│                                  │ PR#405 配置热加载 <-#31 作者push CI…│
+│                                  │                                      │
+│                                  │ -- Intake 中 (1) ------------------- │
+│                                  │ PR#398 Docker <-#29 merged intake中  │
+│                                  │                                      │
+│                                  │ -- 完成 (8) ------------- [收起 v]   │
+│                                  │                                      │
+│                                  │       [点击 item → 跳转到工作线程]    │
+└──────────────────────────────────┴──────────────────────────────────────┘
+```
+
+#### 交互定义
+
+| 操作 | 行为 |
+|------|------|
+| 打开社区系统 thread | 右侧自动切到"社区" tab |
+| 点击 item 行 | 跳转到该 item 的工作 thread（如 F153 thread） |
+| 点击 issue/PR 编号 | 新 tab 打开 GitHub 页面 |
+| repo 下拉 | 切换仓库视图（多仓库场景） |
+| [同步状态] 按钮 | 手动触发从 GitHub 同步最新状态 |
+| 状态组折叠/展开 | 铲屎官自行收起不关心的组 |
+| [发送给系统猫] 按钮 | 未接单 issue 手动触发 triage（初版，非自动巡检） |
+| 定方向卡片里的拍板 | 在对话中自然语言回复即可（不需要 UI 按钮） |
+
+#### UX 原则
+
+1. **左边聊天，右边看板** — 跟现有 Workspace tab 一模一样的心智模型
+2. **拍板在对话里** — 不做额外的审批按钮，铲屎官直接在系统 thread 里回复
+3. **看板是只读导航** — 不在看板上做操作（除手动同步和发送给系统猫），所有操作都通过和猫对话完成
+4. **item 是入口不是终点** — 点进去到 thread 才是工作现场
+5. **图标用 SVG 不用 emoji** — 设计规范
+
+#### Issue 与 PR 分区
+
+看板分两个区域（Issues / Pull Requests），因为生命周期不同：
+- **Issues**：重点是"有没有回复""讨论到哪了""需不需要铲屎官定方向"
+- **PRs**：重点是"谁在 review""有没有新 commit 要 re-review""intake 进度"
+- **Issue ↔ PR 关联**：PR 行显示 `<-#issue号`，一眼看到来龙去脉
 
 ### Phase D: Intake 硬门禁 + Guardian 自动触发
 
@@ -95,18 +220,25 @@ created: 2026-04-18
 - [ ] AC-A6: 全新事项经铲屎官 OK 后，首猫创建新 thread 并分配负责猫
 
 ### Phase B（台账 + 生命周期）
-- [ ] AC-B1: 每个社区 issue/PR 有持久化的 CommunityItem 记录
-- [ ] AC-B2: CommunityItem 状态随流程自动流转（6 种状态）
-- [ ] AC-B3: PR push / CI 变化自动通知负责猫 re-review
-- [ ] AC-B4: 支持多仓库绑定，repo 是配置参数非 hardcode
-- [ ] AC-B5: 台账数据持久化（TTL=0，铁律 #5）
+- [ ] AC-B1: 每个社区 issue/PR 有持久化的 CommunityItem 记录（TTL=0）
+- [ ] AC-B2: Issue 状态机：unreplied → discussing → pending-decision → accepted/declined
+- [ ] AC-B3: PR 状态机：in-review → re-review-needed → approved → merged → intake
+- [ ] AC-B4: Issue ↔ PR 关联关系可追溯
+- [ ] AC-B5: 未接单 issue 支持铲屎官手动触发"发送给系统猫"
+- [ ] AC-B6: 已分配 PR 的新 commit + CI 绿 → 自动推送到 thread channel
+- [ ] AC-B7: 支持多仓库绑定，repo 是配置参数非 hardcode
+- [ ] AC-B8: 看板支持手动同步状态按钮
 
 ### Phase C（管理视图 — Workspace tab）
 - [ ] AC-C1: 社区系统 thread 存在，作为中央对话入口
 - [ ] AC-C2: 打开社区系统 thread 时，Workspace 右侧自动展示"社区" tab
-- [ ] AC-C3: 看板按状态分组展示所有 CommunityItem（一行摘要）
-- [ ] AC-C4: 点击 item 跳转到对应 feat thread（工作现场）
-- [ ] AC-C5: 支持按 repo / 状态 / 负责猫筛选
+- [ ] AC-C3: 看板分 Issues / Pull Requests 两区域，各自按状态分组
+- [ ] AC-C4: 每个 item 一行摘要（repo + # + 标题 + 类型 + 负责猫 + 最后活跃）
+- [ ] AC-C5: 点击 item 跳转到对应 feat thread（工作现场联动）
+- [ ] AC-C6: repo 下拉筛选 + 状态/负责猫/时间范围筛选
+- [ ] AC-C7: 手动同步按钮 + 定时刷新
+- [ ] AC-C8: 所有图标用 SVG，不用 emoji
+- [ ] AC-C9: 最终 UI 用 Pencil 出设计稿
 
 ### Phase D（Intake 硬门禁）
 - [ ] AC-D1: Intake 完成 + reviewer 放行 → 系统自动 @ guardian 猫
@@ -131,37 +263,41 @@ created: 2026-04-18
 | 多仓库 webhook 配置复杂度 | 复用 F141 已有的 allowlist 机制，扩展为 per-repo 配置 |
 | Guardian 自动触发可能产生 @ 风暴 | 限频：同一 item 最多触发一次 guardian |
 | 状态机复杂度 | Phase B 先实现线性状态流转，分支/回退后续迭代 |
+| 初版手动触发可能铲屎官还是觉得麻烦 | 验证 MVP 后 Phase E 再加自动巡检 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | 首猫值班是固定还是轮班？初期固定一只，事项多了再考虑 | ⬜ 待定 |
-| OQ-2 | 定方向卡片的铲屎官拍板是在 Inbox thread 还是管理视图？ | ⬜ 待定 |
-| OQ-3 | CommunityItem 存储用 Redis 还是 SQLite？ | ⬜ 待定 |
+| OQ-2 | CommunityItem 存储用 Redis 还是 SQLite？ | ⬜ 待定 |
+| OQ-3 | 看板定时刷新频率？（建议 5 分钟，配合手动同步按钮） | ⬜ 待定 |
 
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
 | KD-1 | 单实例多仓库，非多租户 | 每人自建 Cat Café 实例，不做 SaaS；data model 按 repo 隔离 | 2026-04-18 |
-| KD-2 | Inbox 首猫分拣制（模型 C） | 中央入口 + 分发，铲屎官只看 Inbox 就知全局 | 2026-04-18 |
-| KD-3 | 方向评估必须双猫 | 单猫视角大概率有偏颇，非 bugfix 场景强制双猫交叉 | 2026-04-18 |
-| KD-4 | Intake guardian 由系统自动触发 | 铲屎官"每次 intake 都出错"→ 不靠叮嘱靠门禁 | 2026-04-18 |
+| KD-2 | Inbox 首猫分拣制 | 中央入口 + 分发，铲屎官只看 Inbox 就知全局 | 2026-04-18 |
+| KD-3 | 方向评估必须双猫 | 铲屎官："一只猫视角大概率有偏颇"，非 bugfix 场景强制双猫交叉 | 2026-04-18 |
+| KD-4 | Intake guardian 由系统自动触发 | 铲屎官："每次 intake 都出错没有一次不是"→ 不靠叮嘱靠门禁 | 2026-04-18 |
 | KD-5 | 管理视图是 Workspace tab 而非独立页面 | Mission Hub 教训：独立页面铲屎官几乎不打开；操作在自然语言中完成，看板是辅助视图 | 2026-04-18 |
 | KD-6 | 社区系统 thread 作为中央入口 | 类似 IM Hub 系统 thread，首猫分拣+铲屎官拍板都在对话中；看板通过 thread 跳转联动到 feat thread | 2026-04-18 |
+| KD-7 | Issue 和 PR 分区展示 | 生命周期不同：Issue 重"回复/讨论/定方向"，PR 重"review/re-review/intake" | 2026-04-18 |
+| KD-8 | 初版手动触发 + 手动同步 | 铲屎官："最开始别是自动巡检，而是我手动点击"。已分配 PR 的 commit+CI 通知除外（自动） | 2026-04-18 |
+| KD-9 | 所有图标用 SVG 不用 emoji | 铲屎官明确要求 + 设计规范 | 2026-04-18 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
-| 2026-04-18 | 立项，铲屎官需求讨论 |
+| 2026-04-18 | 立项 + 铲屎官 8 轮需求讨论，UX 草图确认 |
 
 ## Review Gate
 
 - Phase A: 跨家族 review（skill 改动）
 - Phase B: 跨家族 review（数据模型 + API）
-- Phase C: 铲屎官 UX 审核（前端）
+- Phase C: Pencil 设计稿 → 铲屎官 UX 审核 → 实现。图标 SVG 不用 emoji
 - Phase D: 跨家族 review + 铲屎官确认门禁策略
 
 ## Links
