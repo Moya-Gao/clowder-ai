@@ -1390,7 +1390,38 @@ async function main(): Promise<void> {
     });
   }
   await app.register(tasksRoutes, { taskStore, socketManager });
-  await app.register(communityIssueRoutes, { communityIssueStore, taskStore, socketManager, registry });
+  const fetchIssuesForSync = async (repo: string) => {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const execFileAsync = promisify(execFile);
+    const { stdout } = await execFileAsync(
+      'gh',
+      [
+        'api',
+        `/repos/${repo}/issues`,
+        '--jq',
+        '.[] | select(.pull_request == null) | {number, title, state, labels: [.labels[].name], comments, user: .user.login, html_url}',
+        '--paginate',
+        '-f',
+        'state=all',
+        '-f',
+        'per_page=100',
+      ],
+      { timeout: 60_000 },
+    );
+    if (!stdout.trim()) return [];
+    return stdout
+      .trim()
+      .split('\n')
+      .map((line: string) => JSON.parse(line));
+  };
+  await app.register(communityIssueRoutes, {
+    communityIssueStore,
+    taskStore,
+    socketManager,
+    registry,
+    fetchIssues: fetchIssuesForSync,
+  });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
 
   // F076: External projects + Need Audit

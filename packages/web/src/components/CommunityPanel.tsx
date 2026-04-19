@@ -186,6 +186,19 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
     }
   }, [repo]);
 
+  const handleSync = useCallback(async () => {
+    if (!repo) return;
+    setLoading(true);
+    try {
+      await fetch(`/api/community-issues/sync?repo=${encodeURIComponent(repo)}`, { method: 'POST' });
+      await fetchBoard();
+    } catch {
+      /* network error — keep stale data */
+    } finally {
+      setLoading(false);
+    }
+  }, [repo, fetchBoard]);
+
   useEffect(() => {
     fetchBoard();
     const timer = setInterval(fetchBoard, AUTO_REFRESH_MS);
@@ -252,7 +265,7 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
         onTimeRangeChange={setTimeRange}
         uniqueCats={uniqueCats}
         loading={loading}
-        onSync={fetchBoard}
+        onSync={handleSync}
       />
 
       {/* Stats */}

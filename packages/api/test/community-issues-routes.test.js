@@ -818,6 +818,143 @@ describe('Community Issues Routes', () => {
     assert.ok(res.json().error.includes('token'), 'error should mention token');
   });
 
+  // --- Phase E: GitHub Issue Sync ---
+
+  test('POST /api/community-issues/sync creates issues from fetched GitHub data', async () => {
+    const mockFetchIssues = async () => [
+      {
+        number: 1,
+        title: 'Bug report',
+        state: 'open',
+        labels: ['bug'],
+        comments: 3,
+        user: 'alice',
+        html_url: 'https://github.com/org/repo/issues/1',
+      },
+      {
+        number: 2,
+        title: 'Feature request',
+        state: 'open',
+        labels: ['accepted'],
+        comments: 1,
+        user: 'bob',
+        html_url: 'https://github.com/org/repo/issues/2',
+      },
+    ];
+    const app = await createApp({ fetchIssues: mockFetchIssues });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/community-issues/sync?repo=org/repo',
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.created, 2);
+    assert.equal(body.total, 2);
+
+    const board = (await app.inject({ method: 'GET', url: '/api/community-board?repo=org/repo' })).json();
+    assert.equal(board.issues.length, 2);
+    const bug = board.issues.find((i) => i.issueNumber === 1);
+    assert.equal(bug.issueType, 'bug');
+    assert.equal(bug.state, 'discussing');
+    const feat = board.issues.find((i) => i.issueNumber === 2);
+    assert.equal(feat.state, 'accepted');
+  });
+
+  test('POST /api/community-issues/sync updates existing issues', async () => {
+    const app = await createApp({
+      fetchIssues: async () => [
+        {
+          number: 10,
+          title: 'Updated title',
+          state: 'open',
+          labels: ['bug'],
+          comments: 5,
+          user: 'alice',
+          html_url: '',
+        },
+      ],
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/community-issues',
+      payload: { repo: 'org/repo', issueNumber: 10, issueType: 'feature', title: 'Old title' },
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/community-issues/sync?repo=org/repo',
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.created, 0);
+    assert.equal(body.updated, 1);
+
+    const board = (await app.inject({ method: 'GET', url: '/api/community-board?repo=org/repo' })).json();
+    assert.equal(board.issues.length, 1);
+    assert.equal(board.issues[0].title, 'Updated title');
+    assert.equal(board.issues[0].state, 'discussing');
+  });
+
+  test('POST /api/community-issues/sync does not duplicate on repeated calls', async () => {
+    const mockFetchIssues = async () => [
+      { number: 20, title: 'Stable issue', state: 'open', labels: [], comments: 0, user: 'alice', html_url: '' },
+    ];
+    const app = await createApp({ fetchIssues: mockFetchIssues });
+    await app.inject({ method: 'POST', url: '/api/community-issues/sync?repo=org/repo' });
+    const res = await app.inject({ method: 'POST', url: '/api/community-issues/sync?repo=org/repo' });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().unchanged, 1);
+    assert.equal(res.json().created, 0);
+
+    const board = (await app.inject({ method: 'GET', url: '/api/community-board?repo=org/repo' })).json();
+    assert.equal(board.issues.length, 1);
+  });
+
+  test('POST /api/community-issues/sync preserves local triage lifecycle state', async () => {
+    const app = await createApp({
+      fetchIssues: async () => [
+        { number: 30, title: 'Triaged issue', state: 'open', labels: [], comments: 2, user: 'alice', html_url: '' },
+      ],
+    });
+    // Create and advance through triage to accepted
+    const created = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/community-issues',
+        payload: { repo: 'org/repo', issueNumber: 30, issueType: 'feature', title: 'Triaged issue' },
+      })
+    ).json();
+    await app.inject({ method: 'PATCH', url: `/api/community-issues/${created.id}`, payload: { state: 'accepted' } });
+
+    // Sync — GitHub says "discussing" but local says "accepted"
+    const res = await app.inject({ method: 'POST', url: '/api/community-issues/sync?repo=org/repo' });
+    assert.equal(res.statusCode, 200);
+
+    const board = (await app.inject({ method: 'GET', url: '/api/community-board?repo=org/repo' })).json();
+    const issue = board.issues.find((i) => i.issueNumber === 30);
+    assert.equal(issue.state, 'accepted', 'sync must not overwrite local triage state');
+  });
+
+  test('POST /api/community-issues/sync sets replyState to replied when state >= discussing', async () => {
+    const app = await createApp({
+      fetchIssues: async () => [
+        { number: 40, title: 'Discussed issue', state: 'open', labels: [], comments: 5, user: 'bob', html_url: '' },
+      ],
+    });
+    const res = await app.inject({ method: 'POST', url: '/api/community-issues/sync?repo=org/repo' });
+    assert.equal(res.statusCode, 200);
+
+    const board = (await app.inject({ method: 'GET', url: '/api/community-board?repo=org/repo' })).json();
+    const issue = board.issues.find((i) => i.issueNumber === 40);
+    assert.equal(issue.state, 'discussing');
+    assert.equal(issue.replyState, 'replied', 'discussing state must have replyState=replied');
+  });
+
+  test('POST /api/community-issues/sync returns 400 without repo', async () => {
+    const app = await createApp({ fetchIssues: async () => [] });
+    const res = await app.inject({ method: 'POST', url: '/api/community-issues/sync' });
+    assert.equal(res.statusCode, 400);
+  });
+
   test('GET /api/community-repos includes repos from pr_tracking tasks', async () => {
     const app = await createApp();
     await app.inject({

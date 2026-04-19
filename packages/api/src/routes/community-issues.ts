@@ -22,6 +22,7 @@ import type { ICommunityIssueStore } from '../domains/cats/services/stores/ports
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { derivePrGroup } from '../domains/community/derivePrGroup.js';
+import { type GhIssueFull, mapGitHubIssue } from '../domains/community/GitHubIssueFetcher.js';
 import { resolveGuardian } from '../domains/community/GuardianMatcher.js';
 import { TriageOrchestrator } from '../domains/community/TriageOrchestrator.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
@@ -38,6 +39,7 @@ export interface CommunityIssuesRoutesOptions {
   socketManager: SocketManager;
   threadStore?: Pick<IThreadStore, 'create'>;
   registry?: CallbackAuthVerifier;
+  fetchIssues?: (repo: string) => Promise<GhIssueFull[]>;
 }
 
 const VALID_ISSUE_TYPES = ['bug', 'feature', 'enhancement', 'question'] as const;
@@ -158,6 +160,59 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
       ...(threadId && { assignedThreadId: threadId }),
     });
     return updated;
+  });
+
+  app.post('/api/community-issues/sync', async (request, reply) => {
+    const { repo } = request.query as { repo?: string };
+    if (!repo) {
+      reply.status(400);
+      return { error: 'Missing repo query parameter' };
+    }
+    if (!opts.fetchIssues) {
+      reply.status(501);
+      return { error: 'GitHub issue fetching not configured' };
+    }
+
+    const ghIssues = await opts.fetchIssues(repo);
+    let created = 0;
+    let updated = 0;
+    let unchanged = 0;
+
+    const LOCAL_LIFECYCLE_STATES = new Set(['pending-decision', 'accepted', 'declined']);
+
+    for (const gh of ghIssues) {
+      const mapped = mapGitHubIssue(gh);
+      const replyState = mapped.state === 'unreplied' ? 'unreplied' : 'replied';
+      const existing = await communityIssueStore.getByRepoAndNumber(repo, gh.number);
+      if (!existing) {
+        await communityIssueStore.create({
+          repo,
+          issueNumber: gh.number,
+          issueType: mapped.issueType,
+          title: gh.title,
+        });
+        if (mapped.state !== 'unreplied' || replyState !== 'unreplied') {
+          const fresh = await communityIssueStore.getByRepoAndNumber(repo, gh.number);
+          if (fresh) await communityIssueStore.update(fresh.id, { state: mapped.state, replyState });
+        }
+        created++;
+      } else if (LOCAL_LIFECYCLE_STATES.has(existing.state) && mapped.state !== 'closed') {
+        const titleChanged = existing.title !== gh.title;
+        if (titleChanged) {
+          await communityIssueStore.update(existing.id, { title: gh.title });
+          updated++;
+        } else {
+          unchanged++;
+        }
+      } else if (existing.state !== mapped.state || existing.title !== gh.title || existing.replyState !== replyState) {
+        await communityIssueStore.update(existing.id, { state: mapped.state, title: gh.title, replyState });
+        updated++;
+      } else {
+        unchanged++;
+      }
+    }
+
+    return { repo, created, updated, unchanged, total: ghIssues.length };
   });
 
   const triageCompleteSchema = z.object({
