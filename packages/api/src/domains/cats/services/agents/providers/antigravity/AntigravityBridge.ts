@@ -128,7 +128,10 @@ export class AntigravityBridge {
    * Returns true iff the step was handled; callers use this to gate polling behavior.
    * Opt out via `ANTIGRAVITY_NATIVE_EXECUTOR=0` env var.
    */
-  async nativeExecuteAndPush(step: TrajectoryStep, opts: { cascadeId: string; cwd: string }): Promise<boolean> {
+  async nativeExecuteAndPush(
+    step: TrajectoryStep,
+    opts: { cascadeId: string; cwd: string; modelName?: string },
+  ): Promise<boolean> {
     if (process.env.ANTIGRAVITY_NATIVE_EXECUTOR === '0') return false;
     if (!this.executorRegistry || !this.executorAudit) return false;
     if (step.status !== 'CORTEX_STEP_STATUS_WAITING') return false;
@@ -173,7 +176,7 @@ export class AntigravityBridge {
       audit: this.executorAudit,
     });
 
-    await this.pushToolResult(opts.cascadeId, stepIndex, result, input);
+    await this.pushToolResult(opts.cascadeId, stepIndex, result, input, opts.modelName);
     return true;
   }
 
@@ -420,6 +423,7 @@ export class AntigravityBridge {
     stepIndex: number,
     result: import('./executors/AntigravityToolExecutor.js').ExecutorResult<unknown>,
     input: { commandLine: string; cwd?: string },
+    modelName?: string,
   ): Promise<void> {
     try {
       const conn = await this.ensureConnected();
@@ -428,7 +432,7 @@ export class AntigravityBridge {
       log.warn(`pushToolResult: CancelCascadeSteps failed (continuing): ${err}`);
     }
     const text = formatToolResult(input, result);
-    await this.sendMessage(cascadeId, text);
+    await this.sendMessage(cascadeId, text, modelName);
     log.info(`pushed tool result for cascade=${cascadeId} step=${stepIndex} status=${result.status}`);
   }
 

@@ -443,3 +443,69 @@ describe('G7: AbortSignal in pollForSteps', () => {
     }, /abort/i);
   });
 });
+
+// ── Regression: thinking duplication on delta replay ──────────────
+
+describe('thinking is stripped from delta replay steps', () => {
+  test('replay step carries text delta but NOT thinking when response grows in place', async () => {
+    const bridge = createBridge();
+    let callCount = 0;
+    const trajectories = [
+      {
+        status: 'CASCADE_RUN_STATUS_RUNNING',
+        numTotalSteps: 1,
+        trajectory: {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'DONE',
+              plannerResponse: {
+                thinking: 'Let me analyze this carefully...',
+                modifiedResponse: 'Hello',
+              },
+            },
+          ],
+        },
+      },
+      {
+        status: 'CASCADE_RUN_STATUS_IDLE',
+        numTotalSteps: 1,
+        trajectory: {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'DONE',
+              plannerResponse: {
+                thinking: 'Let me analyze this carefully...',
+                modifiedResponse: 'Hello World',
+              },
+            },
+          ],
+        },
+      },
+    ];
+    mock.method(bridge, 'getTrajectory', async () => trajectories[callCount++]);
+    mock.method(bridge, 'getTrajectorySteps', async () => []);
+
+    const yielded = [];
+    for await (const batch of bridge.pollForSteps('cascade-1', 0, 5000, 50)) {
+      yielded.push(batch);
+    }
+
+    assert.equal(yielded.length, 2, 'should emit initial + delta batch');
+
+    // First batch: full delivery including thinking
+    const firstStep = yielded[0].steps[0];
+    assert.equal(firstStep.plannerResponse.thinking, 'Let me analyze this carefully...');
+    assert.equal(firstStep.plannerResponse.modifiedResponse, 'Hello');
+
+    // Second batch (delta replay): text delta only, NO thinking
+    const replayStep = yielded[1].steps[0];
+    assert.equal(replayStep.plannerResponse.modifiedResponse, ' World');
+    assert.equal(
+      replayStep.plannerResponse.thinking,
+      undefined,
+      'replay step must NOT carry thinking — it was already delivered in the first batch',
+    );
+  });
+});

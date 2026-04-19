@@ -74,7 +74,11 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
   test('executes WAITING RUN_COMMAND step and pushes result', async () => {
     const { bridge, rpcMock } = makeBridge();
     const step = makeStep({ commandLine: 'echo probe' });
-    const handled = await bridge.nativeExecuteAndPush(step, { cascadeId: 'c1', cwd: '/tmp' });
+    const handled = await bridge.nativeExecuteAndPush(step, {
+      cascadeId: 'c1',
+      cwd: '/tmp',
+      modelName: 'claude-opus-4-6',
+    });
     assert.equal(handled, true);
     // rpcMock receives both executor calls (2-arg: method, payload) and bridge calls
     // (3-arg: conn, method, payload). Extract method from whichever position is a string.
@@ -85,6 +89,10 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
     assert.ok(methods.includes('RunCommand'), `expected RunCommand call, got ${methods.join(',')}`);
     assert.ok(methods.includes('CancelCascadeSteps'), `expected CancelCascadeSteps call, got ${methods.join(',')}`);
     assert.equal(bridge.sendMessage.mock.callCount(), 1);
+    const [cascadeIdArg, textArg, modelArg] = bridge.sendMessage.mock.calls[0].arguments;
+    assert.equal(cascadeIdArg, 'c1');
+    assert.match(textArg, /\[native-executor result for: echo probe\]/);
+    assert.equal(modelArg, 'claude-opus-4-6', 'tool-result writeback must preserve the requested model');
   });
 
   test('skips non-WAITING steps', async () => {

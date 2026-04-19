@@ -255,6 +255,7 @@ export class AntigravityAgentService implements AgentService {
                 const handled = await self.bridge.nativeExecuteAndPush(step, {
                   cascadeId,
                   cwd: sanitizedDir,
+                  modelName: self.model,
                 });
                 if (handled && toolCallId) handledToolCallIds.add(toolCallId);
               } catch (err) {
