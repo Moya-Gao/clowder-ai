@@ -11,7 +11,7 @@
     "prestart": "pnpm run sync:vendor-assets",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest run && node --test test/next-config.test.cjs && node eslint-plugins/no-hardcoded-colors.test.js",
+    "test": "node scripts/run-with-node-env-test.mjs pnpm exec vitest run && node scripts/run-with-node-env-test.mjs node --test test/next-config.test.cjs && node eslint-plugins/no-hardcoded-colors.test.js",
     "test:lint-rules": "node eslint-plugins/no-hardcoded-colors.test.js"
   },
   "dependencies": {
