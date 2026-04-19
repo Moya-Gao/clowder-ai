@@ -82,6 +82,37 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 - always_at_back 是否仍在放大 ping-pong？→ 调整为"有产出才 @ 回"
 - 6 个事故 case 做回放测试，验证 Phase 0+A 覆盖率
 
+#### B2 — Ball Ownership Protocol Hardening（2026-04-19 实战迭代）
+
+基于铲屎官实时观察 + 截图证据，迭代修复 6 个球权协议漏洞：
+
+| # | Anti-Pattern | 修复 | 位置 |
+|---|-------------|------|------|
+| 1 | 铲屎官球权盲区（不知 @ 谁） | exit check 注入 `@landy`（coCreator config 动态取） | SystemPromptBuilder |
+| 2 | 球权死锁（收球说"你等着"） | 禁止——做不了就退/升 | shared-rules §10 + exit check |
+| 3 | 虚假离场（不@但还在干，倒装句误导） | 结尾声明"球在我手上，继续 X" | exit check |
+| 4 | 状态描述代替球权声明 | 核心原则 + 接/退/升三选一 | shared-rules §10 |
+| 5 | 诊断不解决（push back 不接/退/升） | push back 后必须紧跟接/退/升 | exit check |
+| 6 | Codex context overflow（272k 用 900k limit） | 动态 contextWindow + autoCompactTokenLimit per variant | CliConfig + CodexAgentService |
+
+**根因**（砚砚自我剖析）："Hold 不是对外协议状态。要么静默执行，要么接/退/升。" RLHF "check in" 反射在 agent 链路里变成球权黑洞。
+
+### Phase C: Hold Ball MCP — 球权持有基础设施（P1）
+
+**发现**：Phase B2 中猫声明"球在我手上，继续 X"后 CLI 进程退出，无人再唤醒 → 持球只有语义层没有执行层。
+
+**方案**：`cat_cafe_hold_ball` MCP tool。猫调用 → 系统记录 → CLI 退出后自动再唤醒。
+
+**设计要点**：
+- MCP tool: `cat_cafe_hold_ball({ reason, nextStep })`
+- 唤醒注入："你上轮持球：{reason}，计划：{nextStep}"
+- Guard: `maxConsecutiveHolds`（默认 3），超限强制接/退/升
+- 审计日志：谁持了几轮、每轮 reason
+
+**待砚砚讨论**：
+- MCP description 如何写？持球提示词怎么触发正确使用？
+- 各猫特有的持球坏习惯 / 好经验 → 是否升格为 ball-management skill？
+
 ## Acceptance Criteria
 
 ### Phase 0（系统提示词正面化）
@@ -107,6 +138,22 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 - [ ] AC-B2: 如仍有虚空传球 → 按需加检测
 - [ ] AC-B3: 如 always_at_back 仍放大 ping-pong → 降级为"有产出才 @ 回"，且 F064 出口检查不回退
 
+### Phase B2（Ball Ownership Protocol Hardening）
+- [x] AC-B4: exit check 注入 @landy（coCreator 动态取），铲屎官球权可见（4e5795cc5）
+- [x] AC-B5: 球权死锁反模式写入 shared-rules §10 + exit check（2072f350f）
+- [x] AC-B6: 虚假离场防护写入 exit check（283b9dc90）
+- [x] AC-B7: "状态描述≠球权声明"核心原则 + 接/退/升三选一写入 shared-rules §10（089e6d5dd）
+- [x] AC-B8: 诊断不解决：push back 后必须接/退/升写入 exit check（eb459bc1d）
+- [x] AC-B9: 动态 contextWindow + autoCompactTokenLimit per codex variant（fa543ed61）
+- [x] AC-B10: 86/86 SystemPromptBuilder + 41/41 codex-agent-service + 31/31 config tests 全绿
+
+### Phase C（Hold Ball MCP）
+- [ ] AC-C1: `cat_cafe_hold_ball` MCP tool 注册（reason + nextStep 参数）
+- [ ] AC-C2: CLI 退出后系统自动再唤醒持球猫（含唤醒注入上轮持球上下文）
+- [ ] AC-C3: maxConsecutiveHolds guard（默认 3），超限强制接/退/升
+- [ ] AC-C4: 审计日志（谁持了几轮、每轮 reason）
+- [ ] AC-C5: 系统提示词球权管理指引（含各猫踩坑经验）
+
 ## Dependencies
 
 - **Evolved from**: F064（A2A 出口检查 — 链条终止盲区修复）
@@ -128,6 +175,8 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | OQ-1 | L1 streak threshold 最终值：4（当前）还是更宽松？ | ⬜ 需实测 |
 | OQ-2 | L3 角色门禁是否需要超越 designer+coding MVP？ | ⬜ MVP 后评估 |
 | OQ-3 | Benchmark ≠ Agent 根因？ | ✅ 模型不理解路由机制 + 提示词隐含假设 + 缺基本刹车。不是"@ 协议脆弱"——两条路都能用，4.7 都没用对 |
+| OQ-4 | Hold Ball MCP description + 系统提示词球权指引怎么写？ | ⬜ 待与砚砚讨论 |
+| OQ-5 | 球权管理是否升格为独立 skill（各猫贡献踩坑经验）？ | ⬜ 铲屎官提议，待评估 |
 
 ## Key Decisions
 
@@ -143,6 +192,8 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | KD-8 | 第一性原理回归：砍掉 GPT Pro 学术膨胀 | 铲屎官拉闸「数学之美」：L4/L6/9-dim eval/capability taxonomy/state-delta 检测 = 认知脚手架 = 复杂是无知的代偿 | 2026-04-17 |
 | KD-9 | Phase 0 先于 Phase A：先改地形再加刹车 | Agent Quality = Capability × Environment Fit，优化环境适配度的 ROI 远高于堆检测层 | 2026-04-17 |
 | KD-10 | Phase 0 多猫协作，不是一只猫独审 | 提示词/Skills 涉及所有猫的系统提示词注入链，需要各猫视角 | 2026-04-17 |
+| KD-11 | Hold Ball 用 MCP 而非 self-@ | self-@ 有死循环风险（RLHF 猫上下文里 @ 模式会被 cargo-cult），MCP 有结构化 guard | 2026-04-19 |
+| KD-12 | "状态描述 ≠ 球权声明" 作为球权核心原则 | 根因：猫用描述（"我先 hold"）逃避决策（接/退/升），RLHF "check in" 反射的 agent 场景副作用 | 2026-04-19 |
 
 ## Timeline
 
@@ -162,6 +213,9 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | 2026-04-18 | 身份反欺骗 fix：SystemPromptBuilder handoff 注入 `[model=...]` 标记 + 同族分身提醒（formatHandleFreeLabel 带 variantLabel） |
 | 2026-04-18 | Round 4 数学之美讨论升格为 `docs/canon/meta-aesthetics.md`；feat-lifecycle Design Gate 改称"元审美自检" |
 | 2026-04-18 | Phase 0/A 收尾 merged (PR #1262) — 身份反欺骗（A2A handoff `[model=...]` + 同族分身提醒）+ Round 4 canon 升格；cloud review 零 P1/P2 |
+| 2026-04-19 | Phase B2: Ball Ownership Protocol Hardening — 6 个球权协议漏洞修复（@landy exit / 死锁 / 虚假离场 / 接退升 / 诊断不解决 / context overflow） |
+| 2026-04-19 | 砚砚自我剖析：RLHF "check in" 反射 = 球权黑洞；"Hold 不是对外协议状态" |
+| 2026-04-19 | Phase C 立项：hold_ball MCP（铲屎官拍板 MCP 路线 > self-@ 路线，防死循环） |
 
 ## Behavioral Evidence（Phase B 观察记录）
 
@@ -223,3 +277,7 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | 铲屎官 2026-04-17 | Skills 审视 "used when / not for" 边界 | AC-03 | ✅ 33/33 Skill 完成（689925ef8） |
 | 铲屎官 2026-04-17 | 路由可见性不退化 | Design Constraint #1 | ✅ 拍板 |
 | 铲屎官 2026-04-17 | 「第一性原理」「数学之美」Magic Words | governance-l0.md ✅ → SystemPromptBuilder 待同步 | ⬜ |
+| 铲屎官 2026-04-19 | 球权协议漏洞（@landy / 死锁 / 虚假离场 / 接退升 / 诊断不解决） | AC-B4~B8 | ✅ |
+| 铲屎官 2026-04-19 | Codex context overflow（272k 用 900k limit） | AC-B9 | ✅ |
+| 铲屎官 2026-04-19 | 持球无执行机制 → hold_ball MCP | AC-C1~C5 | ⬜ 待设计 |
+| 铲屎官 2026-04-19 | 球权管理 skill 化（各猫贡献踩坑经验） | OQ-5 | ⬜ 待评估 |
