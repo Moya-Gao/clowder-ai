@@ -363,6 +363,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-04-18 | gpt52 技术 review：4 个发现（2×P1 + 2×P2），spec 修订 KD-10/11/12 |
 | 2026-04-19 | Phase A-C merged (PR #1270) — 台账+API+看板+WorkspacePanel 接入，31 tests |
 | 2026-04-19 | Phase C interactive merged (PR #1276) — C6 导航+C7 筛选(partial)+B5 dispatch，12 new tests |
+| 2026-04-19 | Phase C remaining merged (PR #1278) — C7 完整筛选(repo 下拉+时间范围)+C10 Pencil 设计稿+P1 fix，Phase C 100% |
 
 ## Review Gate
 
