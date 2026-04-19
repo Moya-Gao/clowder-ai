@@ -226,13 +226,13 @@ export class AntigravityAgentService implements AgentService {
               );
               // Bug-A: upstream_error is recoverable — model self-corrects in Antigravity LS.
               // model_capacity is always terminal (server overload trumps everything).
-              // stream_error is terminal only when upstream_error is absent — when both
-              // co-occur, stream_error is noise (suppressed below) and the model can
-              // still self-correct.
+              // stream_error is terminal only when upstream_error is absent AND no text has
+              // ever been delivered in this turn. Once partial text is already on screen,
+              // keep polling for a possible recovery tail instead of truncating the reply.
               const hasModelCapacity = fatalErrors.some((e) => e.errorCode === 'model_capacity');
               const hasStreamError = fatalErrors.some((e) => e.errorCode === 'stream_error');
               const hasUpstreamError = fatalErrors.some((e) => e.errorCode === 'upstream_error');
-              if (hasModelCapacity || (hasStreamError && !hasUpstreamError)) {
+              if (hasModelCapacity || (hasStreamError && !hasUpstreamError && !hasText)) {
                 terminalAbort = true;
               }
               for (const err of fatalErrors) {
