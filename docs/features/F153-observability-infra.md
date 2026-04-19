@@ -72,6 +72,24 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 - MCP call spans + tool execution duration spans（真实执行边界）
 - 更广的 runtime exporter 级 tracing tests（in-memory exporter 验证父子关系）
 
+### Phase F（方向性）: 从基础设施可观测到 Online Evaluation 可观测
+
+> **参考**：[Online Evaluation 行业趋势与猫咖对照](../research/2026-04-19-online-evaluation-trends-and-cat-cafe.md)
+
+Phase A-D 解决的是**基础设施层可观测性**（spans、metrics、health check）——这是必要的管道。但 2025.5-2026.4 行业趋势显示，真正高价值的可观测性正在从"系统在不在跑"迁移到"系统跑得好不好、在变好还是在退化"。
+
+Cat Cafe 有五层 online eval 信号目前尚未被 OTel 管道捕获：
+
+1. **路由层**：铲屎官的猫猫召唤模式（谁被叫去做什么、频率、切换原因）= trust routing signal
+2. **记忆层**：`search_evidence` 命中率、重搜次数、lesson 复用率、知识碎屑误报率
+3. **协作层**：A2A 断链率、handoff 信息完整度、multi-mention 回收的视角有用率
+4. **治理层**：SOP 遵循度、同类事故复发率、规则改动后的净收益
+5. **关系层**：长期使用中的模式切换准确度（分析 vs 共情 vs 发散）
+
+当前 F153 的 OTel instruments（invocation.duration、llm.call.duration 等）测的是**管道健康**。上述五层测的是**系统有没有越用越会**——后者才是 auto-eval 的真正前提。
+
+**方向**：Phase A-D 的 tracing 基础设施是载体，Phase F 的目标是往管道里注入更高阶的信号。具体落地需要独立讨论。
+
 ## Acceptance Criteria
 
 ### Phase B（OTel 全链路追踪）✅
@@ -171,3 +189,4 @@ Cat Cafe 当前缺乏系统性运行时可观测能力：异常难定位、超�
 | **PR** | `zts212653/clowder-ai#512` | Phase D 社区 PR（TELEMETRY_DEBUG + startup semantics） |
 | **Issue** | `zts212653/cat-cafe#1200` | Intake Intent Issue（逐文件 absorb spec） |
 | **Feature** | `docs/features/F130-api-log-governance.md` | 日志治理（logging 层） |
+| **Research** | `docs/research/2026-04-19-online-evaluation-trends-and-cat-cafe.md` | Online Eval 行业趋势与猫咖对照（Phase F 方向参考） |
