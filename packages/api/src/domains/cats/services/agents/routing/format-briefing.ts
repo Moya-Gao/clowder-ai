@@ -3,6 +3,7 @@
 import type { RichCardBlock, RichMessageExtra } from '@cat-cafe/shared';
 import type { AppendMessageInput } from '../../stores/ports/MessageStore.js';
 import type { CoverageMap } from './context-transport.js';
+import type { BatonContext, TaskSummary } from './navigation-context.js';
 
 /** Rich block payload for frontend rendering */
 export interface ContextBriefingBlock {
@@ -10,6 +11,8 @@ export interface ContextBriefingBlock {
   coverageMap: CoverageMap;
   threadMemorySummary?: string;
   anchorSummaries?: string[];
+  baton?: BatonContext;
+  activeTasks?: TaskSummary[];
 }
 
 /** Result from formatContextBriefing */
@@ -60,6 +63,8 @@ export function formatContextBriefing(
 interface BriefingMessageOptions {
   threadMemorySummary?: string;
   anchorSummaries?: string[];
+  baton?: BatonContext;
+  activeTasks?: TaskSummary[];
 }
 
 /**
@@ -108,6 +113,21 @@ export function buildBriefingMessage(
   if (coverageMap.threadMemory?.openQuestions?.length) {
     const top2 = coverageMap.threadMemory.openQuestions.slice(0, 2);
     bodyParts.push(`**待决问题**:\n${top2.map((q) => `- ${q}`).join('\n')}`);
+  }
+  if (options?.baton) {
+    const b = options.baton;
+    const timeStr = new Date(b.timestamp).toISOString().slice(11, 16);
+    let batonLine = `**传球**: ${b.fromSpeakerDisplay} → 你 (${timeStr})`;
+    if (b.mentionExcerpt) batonLine += ` | 原文: "${b.mentionExcerpt}"`;
+    if (b.staleHoldWarning) batonLine += ' ⚠️ 之前有"别动"指令';
+    bodyParts.push(batonLine);
+  }
+  if (options?.activeTasks?.length) {
+    const taskLines = options.activeTasks.map((t) => {
+      const owner = t.ownerCatId ? `@${t.ownerCatId}` : '未分配';
+      return `- [${t.status}] ${t.title} (${owner})`;
+    });
+    bodyParts.push(`**活跃任务**:\n${taskLines.join('\n')}`);
   }
   if (coverageMap.retrievalHints.length > 0) {
     bodyParts.push(`**证据召回**:\n${coverageMap.retrievalHints.map((h) => `- ${h}`).join('\n')}`);

@@ -30,6 +30,7 @@ import {
   scrubToolPayloads,
   selectAnchors,
 } from './context-transport.js';
+import { extractBatonContext, formatNavigationHeader, summarizeActiveTasks } from './navigation-context.js';
 
 /** Minimal broadcast interface — avoids coupling routing layer to SocketManager concrete class */
 export interface RouteBroadcaster {
@@ -52,6 +53,8 @@ export interface RouteStrategyDeps {
   evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
   /** F150: Tool usage counter (fire-and-forget INCR on tool_use events) */
   toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
+  /** F148 Phase F: Task store for navigation context (optional, fail-open) */
+  taskStore?: import('../../stores/ports/TaskStore.js').ITaskStore;
 }
 
 /** Mutable context for tracking persistence failures across the generator boundary.
@@ -116,7 +119,11 @@ export interface IncrementalContextResult {
   briefingContext?: {
     threadMemorySummary?: string;
     anchorSummaries?: string[];
+    baton?: import('./navigation-context.js').BatonContext;
+    activeTasks?: import('./navigation-context.js').TaskSummary[];
   };
+  /** F148 Phase F: Navigation context header (injected on ALL paths — KD-7) */
+  navigationHeader?: string;
 }
 
 /**
@@ -595,6 +602,20 @@ export async function assembleIncrementalContext(
       unseen.some((m) => m.id === currentUserMessageId),
   );
 
+  // F148 Phase F (KD-7): Navigation context — injected on ALL paths (cold + warm)
+  // P1 fix: extract baton from unseen (pre-stream-filter) so cat→cat @ mentions via stream are visible
+  const batonCandidates = unseen.filter((m) => (m.userId !== 'system' || m.catId !== null) && m.origin !== 'briefing');
+  const baton = extractBatonContext(batonCandidates, catId);
+  let activeTasks: import('./navigation-context.js').TaskSummary[] = [];
+  if (deps.taskStore) {
+    try {
+      activeTasks = summarizeActiveTasks(await Promise.resolve(deps.taskStore.listByThread(threadId)));
+    } catch {
+      // fail-open: tasks stay empty
+    }
+  }
+  const navigationHeader = formatNavigationHeader({ baton, tasks: activeTasks });
+
   // F148: Smart window — cold mention detection
   // P1-review: short-circuit on count first — avoid O(n) tokenize when count already triggers
   const hcConfig = DEFAULT_HIERARCHICAL_CONTEXT;
@@ -627,6 +648,9 @@ export async function assembleIncrementalContext(
       hcConfig,
       cursor,
       options,
+      navigationHeader,
+      baton,
+      activeTasks,
     );
   }
 
@@ -643,8 +667,14 @@ export async function assembleIncrementalContext(
 
   if (capped.length === 0) {
     return cursor
-      ? { contextText: '', boundaryId: cursor, includesCurrentUserMessage, currentMessageFilteredOut }
-      : { contextText: '', includesCurrentUserMessage, currentMessageFilteredOut };
+      ? {
+          contextText: navigationHeader,
+          boundaryId: cursor,
+          includesCurrentUserMessage,
+          currentMessageFilteredOut,
+          navigationHeader,
+        }
+      : { contextText: navigationHeader, includesCurrentUserMessage, currentMessageFilteredOut, navigationHeader };
   }
 
   const truncateLimit = budget.maxContentLengthPerMsg;
@@ -668,11 +698,12 @@ export async function assembleIncrementalContext(
     const zeroBudgetDegradation = `⚠️ 增量上下文预算耗尽: 系统提示已占满 prompt 预算，${capped.length} 条未读消息全部丢弃`;
     const zeroBoundaryId = capped[capped.length - 1]?.id;
     return {
-      contextText: '',
+      contextText: navigationHeader,
       boundaryId: zeroBoundaryId,
       includesCurrentUserMessage: false,
       currentMessageFilteredOut,
       degradation: zeroBudgetDegradation,
+      navigationHeader,
     };
   }
 
@@ -708,8 +739,19 @@ export async function assembleIncrementalContext(
 
   if (finalCapped.length === 0) {
     return cursor
-      ? { contextText: '', boundaryId: cursor, includesCurrentUserMessage: false, currentMessageFilteredOut }
-      : { contextText: '', includesCurrentUserMessage: false, currentMessageFilteredOut };
+      ? {
+          contextText: navigationHeader,
+          boundaryId: cursor,
+          includesCurrentUserMessage: false,
+          currentMessageFilteredOut,
+          navigationHeader,
+        }
+      : {
+          contextText: navigationHeader,
+          includesCurrentUserMessage: false,
+          currentMessageFilteredOut,
+          navigationHeader,
+        };
   }
 
   let degradation: string | undefined;
@@ -723,11 +765,12 @@ export async function assembleIncrementalContext(
 
   const boundaryId = finalCapped[finalCapped.length - 1]?.id;
   return {
-    contextText: `[对话历史增量 - 未发送过 ${finalCapped.length} 条]\n${finalLines.join('\n')}\n[/对话历史]`,
+    contextText: `${navigationHeader}\n[对话历史增量 - 未发送过 ${finalCapped.length} 条]\n${finalLines.join('\n')}\n[/对话历史]`,
     boundaryId,
     includesCurrentUserMessage: finalIncludesCurrentUserMessage,
     currentMessageFilteredOut,
     degradation,
+    navigationHeader,
   };
 }
 
@@ -745,6 +788,9 @@ async function assembleSmartWindowContext(
   hcConfig: import('../../../../../config/hierarchical-context-config.js').HierarchicalContextConfig,
   _cursor: string | undefined,
   options: IncrementalContextOptions | undefined,
+  navigationHeader: string,
+  baton: import('./navigation-context.js').BatonContext | null,
+  activeTasks: import('./navigation-context.js').TaskSummary[],
 ): Promise<IncrementalContextResult> {
   const budget = getCatContextBudget(catId as string);
   const truncateLimit = budget.maxContentLengthPerMsg;
@@ -1005,7 +1051,7 @@ async function assembleSmartWindowContext(
 
   const contextText =
     sections.length > 0
-      ? `[对话历史增量 - 智能窗口: ${omitted.length} 条已摘要, ${finalBurstMsgs.length} 条详细]\n${sections.join('\n')}\n[/对话历史]`
+      ? `${navigationHeader}\n[对话历史增量 - 智能窗口: ${omitted.length} 条已摘要, ${finalBurstMsgs.length} 条详细]\n${sections.join('\n')}\n[/对话历史]`
       : '';
 
   // Final hard cap: envelope overhead may push total over budget
@@ -1029,6 +1075,9 @@ async function assembleSmartWindowContext(
     briefingContext: {
       ...(threadMemorySummary ? { threadMemorySummary } : {}),
       ...(finalAnchorLines.length > 0 ? { anchorSummaries: finalAnchorLines } : {}),
+      ...(baton ? { baton } : {}),
+      ...(activeTasks.length > 0 ? { activeTasks } : {}),
     },
+    navigationHeader,
   };
 }

@@ -62,7 +62,8 @@ describe('F052: crossPost self-filter exemption', () => {
 
     const result = await assembleIncrementalContext(deps, 'user-1', 'thread-1', 'opus');
 
-    assert.equal(result.contextText, '', 'regular self message should still be excluded');
+    assert.ok(!result.contextText.includes('My own regular message'), 'regular self message should still be excluded');
+    assert.ok(result.contextText.includes('[导航]'), 'KD-7: navigation header present even on empty delta');
   });
 
   test('other-cat crossPost is also included (no regression)', async () => {

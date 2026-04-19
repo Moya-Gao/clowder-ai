@@ -269,3 +269,74 @@ describe('F148 Phase E: buildBriefingMessage (AC-E1)', () => {
     }
   });
 });
+
+describe('F148 Phase F: Briefing card navigation context (AC-F5)', () => {
+  const baseCoverageMap = {
+    omitted: {
+      count: 22,
+      timeRange: { from: 1712000000000, to: 1712003600000 },
+      participants: ['opus', 'codex'],
+    },
+    burst: { count: 8, timeRange: { from: 1712003600000, to: 1712004000000 } },
+    anchorIds: ['a1'],
+    threadMemory: null,
+    retrievalHints: [],
+  };
+
+  test('AC-F5: bodyMarkdown includes baton info when provided', () => {
+    const msg = buildBriefingMessage(baseCoverageMap, 'thread-1', {
+      baton: {
+        fromMessageId: 'm5',
+        fromSpeaker: 'codex',
+        fromSpeakerDisplay: 'codex',
+        timestamp: 1712004000000,
+        mentionExcerpt: '帮我看看这个 PR',
+        staleHoldWarning: false,
+      },
+    });
+    const card = msg.extra.rich.blocks[0];
+    assert.ok(card.bodyMarkdown, 'should have bodyMarkdown');
+    assert.ok(card.bodyMarkdown.includes('传球'), 'should have baton section');
+    assert.ok(card.bodyMarkdown.includes('codex'), 'should include speaker');
+    assert.ok(card.bodyMarkdown.includes('帮我看看'), 'should include excerpt');
+  });
+
+  test('AC-F5: bodyMarkdown includes stale hold warning', () => {
+    const msg = buildBriefingMessage(baseCoverageMap, 'thread-1', {
+      baton: {
+        fromMessageId: 'm5',
+        fromSpeaker: 'codex',
+        fromSpeakerDisplay: 'codex',
+        timestamp: 1712004000000,
+        mentionExcerpt: '看看',
+        staleHoldWarning: true,
+      },
+    });
+    const card = msg.extra.rich.blocks[0];
+    assert.ok(card.bodyMarkdown.includes('⚠️'), 'should include warning emoji');
+    assert.ok(card.bodyMarkdown.includes('别动'), 'should mention hold');
+  });
+
+  test('AC-F5: bodyMarkdown includes active tasks when provided', () => {
+    const msg = buildBriefingMessage(baseCoverageMap, 'thread-1', {
+      activeTasks: [
+        { id: 't1', title: 'Fix Redis bug', status: 'in-progress', ownerCatId: 'opus' },
+        { id: 't2', title: 'Deploy v2', status: 'todo', ownerCatId: null },
+      ],
+    });
+    const card = msg.extra.rich.blocks[0];
+    assert.ok(card.bodyMarkdown, 'should have bodyMarkdown');
+    assert.ok(card.bodyMarkdown.includes('活跃任务'), 'should have tasks section');
+    assert.ok(card.bodyMarkdown.includes('Fix Redis'), 'should include first task');
+    assert.ok(card.bodyMarkdown.includes('未分配'), 'null owner shows as 未分配');
+  });
+
+  test('AC-F5: omits navigation sections when no baton/tasks', () => {
+    const msg = buildBriefingMessage(baseCoverageMap, 'thread-1', {});
+    const card = msg.extra.rich.blocks[0];
+    if (card.bodyMarkdown) {
+      assert.ok(!card.bodyMarkdown.includes('传球'), 'no baton section');
+      assert.ok(!card.bodyMarkdown.includes('活跃任务'), 'no tasks section');
+    }
+  });
+});
