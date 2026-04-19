@@ -640,6 +640,9 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         source: cap.source,
         enabled: cap.enabled,
         cats,
+        layer: 'L1',
+        ...(cap.ecosystem && { ecosystem: cap.ecosystem }),
+        ...(cap.lockVersion && { lockVersion: cap.lockVersion }),
       };
       const mcpDesc = describeMcpCapability(cap);
       if (mcpDesc) mcpItem.description = mcpDesc;
@@ -665,6 +668,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         source: cap.source,
         enabled: cap.enabled,
         cats,
+        layer: cap.source === 'external' ? 'L3' : 'L2',
       };
       const meta =
         cap.source === 'cat-cafe'
