@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "585e324b65d45e4a43a15d24fd47bc5f849d7c9b",
+  "last_reviewed_target_head": "7d7eaa3b11024e96ab536b1b012c29b6e9b5246f",
   "entries": [
     {
       "pr_number": 90,
@@ -763,6 +763,16 @@
       "decision": "absorbed",
       "timestamp": "2026-04-18T18:42:00.000Z",
       "note": "outbound hotfix: opensource profile TTL 86400→0 (LL-048 companion). Source commit: cat-cafe 9b27f7aae"
+    },
+    {
+      "pr_number": 529,
+      "target_merge_commit": "7d7eaa3b11024e96ab536b1b012c29b6e9b5246f",
+      "decision": "absorbed",
+      "timestamp": "2026-04-19T12:16:26.012Z",
+      "note": "absorbed record created with --skip-absorbed-guard (outbound-filed hotfix or historical backfill)",
+      "intake_intent_issue": 1275,
+      "absorb_pr": 1277,
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/1277#issuecomment-4275873047"
     }
   ]
 }
