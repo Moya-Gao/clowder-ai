@@ -81,6 +81,7 @@ export async function handleSearchEvidence(input: {
         snippet: string;
         confidence: string;
         sourceType: string;
+        authority?: string;
         boostSource?: string[];
         passages?: Array<{
           passageId: string;
@@ -124,6 +125,9 @@ export async function handleSearchEvidence(input: {
       lines.push(`[${r.confidence}] ${r.title}`);
       lines.push(`  anchor: ${r.anchor}`);
       lines.push(`  type: ${r.sourceType}`);
+      if (r.authority) {
+        lines.push(`  authority: ${r.authority}`);
+      }
       if (r.boostSource && r.boostSource.length > 0 && !r.boostSource.every((s) => s === 'legacy')) {
         lines.push(`  boost: ${r.boostSource.join(', ')}`);
       }

@@ -230,7 +230,19 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 - [x] AC-D1: `pathToAuthority()` 纯函数存在，从路径/frontmatter 派生 authority，有单元测试
 - [x] AC-D2: 索引 rebuild 后 evidence_docs.authority 不再全部为 `observed`（至少 3 个不同 level）
 - [x] AC-D3: `evidence.ts` 的 confidence 从 authority 派生，不再硬编码 `'mid'`
-- [ ] AC-D4: `F163_AUTHORITY_BOOST=on` 后，搜索 P0 铁律相关 query 时 lessons-learned 排在前 3
+- [x] AC-D4: `F163_AUTHORITY_BOOST=on` 后，搜索 P0 铁律相关 query 时 lessons-learned 排在前 3
+
+### Phase E: Confidence 语义修正（confidence = f(rank)）
+
+**核心问题**（铲屎官 2026-04-19）：搜"数学之美 圆桌讨论"时最精准命中的 thread 标 `[low]`（因为它是 observed），半相关的 LL-051 标 `[high]`（因为它是 constitutional）。confidence 标签语义错误——反映文档权威性而非搜索匹配质量。
+
+**方案**（三猫共识）：confidence = f(rank)，authority 作为独立字段暴露。两个正交维度不再融合。
+
+### Phase E AC
+- [ ] AC-E1: `rankToConfidence(rank, totalResults)` 纯函数存在，从排序位置派生 confidence，有单元测试
+- [ ] AC-E2: `evidence.ts` 搜索结果的 confidence 从 rank 派生，不再从 authority 派生
+- [ ] AC-E3: `EvidenceResult` 接口新增 `authority` 可选字段，搜索结果携带 authority 元数据
+- [ ] AC-E4: `authorityToConfidence()` 保留但不再被搜索路由引用（向后兼容）
 
 ## Dependencies
 
@@ -290,6 +302,8 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | 2026-04-18 | Shadow 数据诊断：448 次搜索全空转（authority 100% observed, confidence 硬编码 mid）。Round 4 反思 → LL-051 |
 | 2026-04-18 | Phase D 立项：authority backfill + confidence 派生（"装弹"）|
 | 2026-04-18 | Phase D merged (PR #1256) — pathToAuthority + confidence derivation, 21 行核心逻辑, codex review (云端降级本地放行) |
+| 2026-04-19 | Phase E 方案草案 + gpt52 圆桌讨论 → 共识：confidence=f(rank), authority 独立字段 |
+| 2026-04-19 | Phase E 实现 — rankToConfidence, evidence.ts 接线, authority 独立暴露 |
 
 ## Review Gate
 
@@ -312,3 +326,4 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | **Feature** | `docs/features/F152-expedition-memory.md` | 记忆可移植性（前驱） |
 | **Decision** | `docs/decisions/026-agent-runtime-operational-boundaries.md` | Runtime 运行边界（相关） |
 | **Project Memory** | `memory/project_knowledge_lifecycle_gap.md` | 知识生命周期缺口的早期观察 |
+| **Discussion** | `docs/discussions/2026-04-19-f163-phase-e-confidence-redesign/README.md` | Phase E 方案草案 + gpt52 共识 |

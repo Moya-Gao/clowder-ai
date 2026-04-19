@@ -47,7 +47,7 @@ export function pathToAuthority(sourcePath: string): F163Authority {
   return 'observed';
 }
 
-/** Phase D: derive user-facing confidence from authority level */
+/** Phase D (kept for backward compat, but no longer used in search route) */
 export function authorityToConfidence(authority: F163Authority | undefined): 'high' | 'mid' | 'low' {
   switch (authority) {
     case 'constitutional':
@@ -60,6 +60,13 @@ export function authorityToConfidence(authority: F163Authority | undefined): 'hi
     default:
       return 'mid';
   }
+}
+
+/** Phase E: confidence = f(rank) — reflects search match quality, not document authority */
+export function rankToConfidence(rank: number): 'high' | 'mid' | 'low' {
+  if (rank <= 1) return 'high';
+  if (rank <= 4) return 'mid';
+  return 'low';
 }
 
 /**

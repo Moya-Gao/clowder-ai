@@ -8,12 +8,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { F163ExperimentLogger } from '../domains/memory/f163-experiment-logger.js';
-import {
-  authorityToConfidence,
-  computeVariantId,
-  freezeFlags,
-  getOrAssignCohort,
-} from '../domains/memory/f163-types.js';
+import { computeVariantId, freezeFlags, getOrAssignCohort, rankToConfidence } from '../domains/memory/f163-types.js';
 import type { IEvidenceStore, IIndexBuilder, IKnowledgeResolver } from '../domains/memory/interfaces.js';
 import { type BoostSource, type EvidenceResult, mapKindToSourceType } from './evidence-helpers.js';
 
@@ -115,13 +110,14 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       const resolvedSources = resolveResult?.sources;
       // Tag per-result source when dimension is explicit (single-source)
       const singleSource = resolvedSources && resolvedSources.length === 1 ? resolvedSources[0] : undefined;
-      const results: EvidenceResult[] = items.map((item) => ({
+      const results: EvidenceResult[] = items.map((item, index) => ({
         title: item.title,
         anchor: item.anchor,
         snippet: item.summary ?? '',
-        confidence: authorityToConfidence(item.authority),
+        confidence: rankToConfidence(index),
         sourceType: mapKindToSourceType(item.kind),
         boostSource,
+        ...(item.authority ? { authority: item.authority } : {}),
         ...(singleSource ? { source: singleSource } : {}),
         ...(item.passages ? { passages: item.passages } : {}),
       }));

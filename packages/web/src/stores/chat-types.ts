@@ -47,6 +47,7 @@ export interface EvidenceResultData {
   snippet: string;
   confidence: 'high' | 'mid' | 'low';
   sourceType: 'decision' | 'phase' | 'discussion' | 'commit';
+  authority?: string;
 }
 
 export interface EvidenceData {
