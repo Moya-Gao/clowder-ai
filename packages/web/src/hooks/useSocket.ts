@@ -275,8 +275,8 @@ function checkForStaleActiveInvocations(): void {
     toProbe.add(threadId);
   }
 
-  // Active thread: read directly from flat state.
   if (currentThreadId && canProbe(currentThreadId)) {
+    // Active thread: read directly from flat state.
     if (state.hasActiveInvocation) {
       // Direction 1 on active: derive staleness from oldest invocation.startedAt, since
       // snapshotActive.lastActivity is always Date.now() while streaming.
@@ -979,8 +979,8 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     });
   }, [threadId, storeThreadId]);
 
-  const cancelInvocation = useCallback((tid: string) => {
-    socketRef.current?.emit('cancel_invocation', { threadId: tid });
+  const cancelInvocation = useCallback((tid: string, catId?: string) => {
+    socketRef.current?.emit('cancel_invocation', catId ? { threadId: tid, catId } : { threadId: tid });
   }, []);
 
   return { socketRef, joinRoom, leaveRoom, syncRooms, cancelInvocation, socketConnected };

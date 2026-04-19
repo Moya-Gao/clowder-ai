@@ -1047,7 +1047,7 @@ export function useAgentMessages() {
         if (msg.isFinal) {
           // F108: clear this cat's invocation slot on terminal error
           if (msg.invocationId) {
-            // cat-cafe#869: Same multi-cat slot-aware cleanup as the done(isFinal) path.
+            // F869: Same multi-cat slot-aware cleanup as the done(isFinal) path.
             const slotState = useChatStore.getState();
             const primarySlot = slotState.activeInvocations[msg.invocationId];
             if (primarySlot?.catId === msg.catId) {
@@ -1110,6 +1110,7 @@ export function useAgentMessages() {
       getCurrentInvocationStateForCat,
       getOrRecoverActiveAssistantMessageId,
       ensureActiveAssistantMessage,
+      maybeMigrateSequentialInvocationOwnership,
       recordLateBindBubbleCreate,
       shouldSuppressLateStreamChunk,
       setHasActiveInvocation,
@@ -1120,9 +1121,13 @@ export function useAgentMessages() {
   );
 
   const handleStop = useCallback(
-    (cancelFn: (threadId: string) => void, threadId: string) => {
-      cancelFn(threadId);
+    (cancelFn: (threadId: string, catId?: string) => void, threadId: string) => {
       const store = useChatStore.getState();
+      // When exactly one cat is active, cancel only that cat to avoid
+      // thread-level cancelAll accidentally killing other cats.
+      const activeSlots = Object.values(store.getThreadState(threadId).activeInvocations ?? {});
+      const singleCatId = activeSlots.length === 1 ? activeSlots[0]?.catId : undefined;
+      cancelFn(threadId, singleCatId);
       const isActiveThreadStop = threadId === store.currentThreadId;
 
       if (!isActiveThreadStop) {

@@ -68,6 +68,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const {
     messages,
     hasActiveInvocation,
+    activeInvocations,
     intentMode,
     targetCats,
     catStatuses,
@@ -787,6 +788,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             targetCats={targetCats}
             catStatuses={catStatuses}
             catInvocations={catInvocations}
+            activeInvocations={activeInvocations}
+            hasActiveInvocation={hasActiveInvocation}
             threadId={threadId}
             messageSummary={messageSummary}
             width={statusPanelWidth}
@@ -806,6 +809,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         targetCats={targetCats}
         catStatuses={catStatuses}
         catInvocations={catInvocations}
+        activeInvocations={activeInvocations}
+        hasActiveInvocation={hasActiveInvocation}
         threadId={threadId}
         messageSummary={messageSummary}
       />
