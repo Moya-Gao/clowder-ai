@@ -103,15 +103,46 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 
 **方案**：`cat_cafe_hold_ball` MCP tool。猫调用 → 系统记录 → CLI 退出后自动再唤醒。
 
-**设计要点**：
-- MCP tool: `cat_cafe_hold_ball({ reason, nextStep })`
-- 唤醒注入："你上轮持球：{reason}，计划：{nextStep}"
-- Guard: `maxConsecutiveHolds`（默认 3），超限强制接/退/升
-- 审计日志：谁持了几轮、每轮 reason
+**核心设计约束**（砚砚 + 宪宪讨论收敛）：
 
-**待砚砚讨论**：
-- MCP description 如何写？持球提示词怎么触发正确使用？
-- 各猫特有的持球坏习惯 / 好经验 → 是否升格为 ball-management skill？
+1. **"持"是例外态，不是四选一常态。** 默认三选一：接/退/升。只有"球仍在我手上、当前无人能推进、短暂且有界等待后仍由我继续"才用持。
+2. **必须带有界唤醒。** `wakeAfterMs` 是必要参数——没有它系统不知道什么时候把球还给猫，会退化成语义持球。
+3. **不先做独立 skill。** 球权管理是基础协议（shared-rules + SystemPromptBuilder），不能靠按需加载。踩坑经验收进 `refs/ball-ownership-patterns.md`，成熟后再考虑 skill 化。
+
+**v1 Tool Signature**：
+```typescript
+cat_cafe_hold_ball({
+  reason: string,      // 为什么需要持球
+  nextStep: string,    // 唤醒后的第一个动作
+  wakeAfterMs: number  // 多久后唤醒（有界等待）
+})
+```
+
+**Use when**：球明确在你手上 + 无人能推进 + 短暂可预期等待 + 醒来后知道下一步。
+
+**Not for**：需要别人拍板/验收/人工操作 → `@landy`；需要另一只猫动 → `@句柄`；"我再想想""我先 hold 一下" → 这是犹豫不是持球；状态更新 → 直接说。
+
+**唤醒注入**：
+> 你上轮持球：{reason}
+> 球仍在你手上。现在执行：{nextStep}
+> 若条件仍未满足：再持一次或升级；禁止无限持球。
+
+**Guard**：`maxConsecutiveHolds`（默认 3），超限强制接/退/升 + 审计日志。
+
+**系统提示词球权段落草案**：
+> 球权默认三种合法出口：接、退、升。
+> 只有当球明确仍在你手上、当前无人能推进、且你只是在等待一个短暂且有界的时机再继续时，才调用 `cat_cafe_hold_ball`。
+> `hold_ball` 不是状态汇报，不替代 `@landy`，不替代传球。
+> 能继续做就继续做；需要别人动就传/升；只有"短暂等待后仍由我继续"才持。
+
+**已知踩坑模式**（砚砚贡献）：
+
+| # | 坑 | 表现 | 正确做法 |
+|---|---|------|---------|
+| 1 | RLHF check-in 反射 | "我想再确认一下"误说成持球 | 那是犹豫，不是 hold → 接/退/升 |
+| 2 | 状态描述代替声明 | "我先 hold""我继续看" | 不是球权动作 → 接/退/升 |
+| 3 | 诊断成瘾 | 先解释发生了什么，忘了接/退/升 | 诊断后必须紧跟球权决策 |
+| 4 | 持球当礼貌 | "我还在跟进"（人类礼仪） | agent 链路里这是黑洞 |
 
 ## Acceptance Criteria
 
@@ -175,8 +206,8 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | OQ-1 | L1 streak threshold 最终值：4（当前）还是更宽松？ | ⬜ 需实测 |
 | OQ-2 | L3 角色门禁是否需要超越 designer+coding MVP？ | ⬜ MVP 后评估 |
 | OQ-3 | Benchmark ≠ Agent 根因？ | ✅ 模型不理解路由机制 + 提示词隐含假设 + 缺基本刹车。不是"@ 协议脆弱"——两条路都能用，4.7 都没用对 |
-| OQ-4 | Hold Ball MCP description + 系统提示词球权指引怎么写？ | ⬜ 待与砚砚讨论 |
-| OQ-5 | 球权管理是否升格为独立 skill（各猫贡献踩坑经验）？ | ⬜ 铲屎官提议，待评估 |
+| OQ-4 | Hold Ball MCP description + 系统提示词球权指引怎么写？ | ✅ 砚砚+宪宪讨论收敛（KD-13/14），草案已入 Phase C |
+| OQ-5 | 球权管理是否升格为独立 skill（各猫贡献踩坑经验）？ | ✅ 现在不做（KD-15）。踩坑经验先落 `refs/ball-ownership-patterns.md`，成熟后再 skill 化 |
 
 ## Key Decisions
 
@@ -194,6 +225,9 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | KD-10 | Phase 0 多猫协作，不是一只猫独审 | 提示词/Skills 涉及所有猫的系统提示词注入链，需要各猫视角 | 2026-04-17 |
 | KD-11 | Hold Ball 用 MCP 而非 self-@ | self-@ 有死循环风险（RLHF 猫上下文里 @ 模式会被 cargo-cult），MCP 有结构化 guard | 2026-04-19 |
 | KD-12 | "状态描述 ≠ 球权声明" 作为球权核心原则 | 根因：猫用描述（"我先 hold"）逃避决策（接/退/升），RLHF "check in" 反射的 agent 场景副作用 | 2026-04-19 |
+| KD-13 | "持"是例外态，不是四选一常态 | 砚砚提出：默认三选一（接/退/升），持只在"球仍在我、无人能推进、短暂有界等待"时用 | 2026-04-19 |
+| KD-14 | hold_ball 必须带 `wakeAfterMs` 有界唤醒 | 砚砚提出：没有时间上界 → 退化成语义持球 → 球还是掉地上 | 2026-04-19 |
+| KD-15 | 不先做球权管理独立 skill | 砚砚提出：球权是基础协议（always-on），不能靠按需加载的 skill；踩坑经验先落 refs 文档 | 2026-04-19 |
 
 ## Timeline
 
@@ -216,6 +250,8 @@ Phase 0 正面化 + Phase A 刹车上线后观察。只有证据表明还有缝�
 | 2026-04-19 | Phase B2: Ball Ownership Protocol Hardening — 6 个球权协议漏洞修复（@landy exit / 死锁 / 虚假离场 / 接退升 / 诊断不解决 / context overflow） |
 | 2026-04-19 | 砚砚自我剖析：RLHF "check in" 反射 = 球权黑洞；"Hold 不是对外协议状态" |
 | 2026-04-19 | Phase C 立项：hold_ball MCP（铲屎官拍板 MCP 路线 > self-@ 路线，防死循环） |
+| 2026-04-19 | 砚砚 Phase C 设计反馈：+wakeAfterMs 有界唤醒 / 持是例外态 / 不先 skill 化 / 4 个踩坑模式 |
+| 2026-04-19 | 宪宪综合：Phase C 设计收敛（KD-13~15），OQ-4/5 关闭 |
 
 ## Behavioral Evidence（Phase B 观察记录）
 
