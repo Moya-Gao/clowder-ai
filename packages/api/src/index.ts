@@ -1329,6 +1329,12 @@ async function main(): Promise<void> {
     limbRegistry,
     limbPairingStore,
     guideSessionStore,
+    holdBallDeps: {
+      registry,
+      taskRunner: taskRunnerV2,
+      templateRegistry,
+      dynamicTaskStore,
+    },
   } as Parameters<typeof callbacksRoutes>[1];
   await app.register(callbacksRoutes, callbackOpts);
 

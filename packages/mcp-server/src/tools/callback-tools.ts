@@ -798,6 +798,18 @@ export async function handleGuideControl(input: { action: string }): Promise<Too
   return callbackPost('/api/callbacks/guide-control', { action: input.action });
 }
 
+export async function handleHoldBall(input: {
+  reason: string;
+  nextStep: string;
+  wakeAfterMs: number;
+}): Promise<ToolResult> {
+  return callbackPost('/api/callbacks/hold-ball', {
+    reason: input.reason,
+    nextStep: input.nextStep,
+    wakeAfterMs: input.wakeAfterMs,
+  });
+}
+
 export const callbackTools = [
   {
     name: 'cat_cafe_post_message',
@@ -1059,5 +1071,26 @@ export const callbackTools = [
       action: z.enum(['next', 'skip', 'exit']).describe('Guide control action'),
     },
     handler: handleGuideControl,
+  },
+  {
+    name: 'cat_cafe_hold_ball',
+    description:
+      'F167 C1: Declare ball hold — "球仍在我手上，但我需要一个短暂的有界等待再继续"。' +
+      'System will auto-re-invoke you after wakeAfterMs with your reason + nextStep as context. ' +
+      'Guard: max 3 consecutive holds, then you MUST pass (@ another cat or @landy). ' +
+      'USE WHEN: Ball is clearly yours + nobody else can advance + short predictable wait + you know what to do next. ' +
+      'NOT FOR: Need someone to review/approve → @landy; need another cat to act → @cat; ' +
+      '"let me think" / "I\'ll hold for now" → that\'s hesitation not hold, pick 接/退/升; status updates → just say it.',
+    inputSchema: {
+      reason: z.string().min(1).max(500).describe('Why you need to hold the ball (e.g. "tests still running")'),
+      nextStep: z.string().min(1).max(500).describe('What you will do when re-invoked (e.g. "check test results, then @ author")'),
+      wakeAfterMs: z
+        .number()
+        .int()
+        .min(5000)
+        .max(3600000)
+        .describe('Delay in ms before system re-invokes you (5s–1h)'),
+    },
+    handler: handleHoldBall,
   },
 ] as const;

@@ -34,6 +34,7 @@ import { registerCallbackBootcampRoutes } from './callback-bootcamp-routes.js';
 import { registerCallbackDocumentRoutes } from './callback-document-routes.js';
 import { registerCallbackGameRoutes } from './callback-game-routes.js';
 import { registerCallbackGuideRoutes } from './callback-guide-routes.js';
+import { registerCallbackHoldBallRoutes, type HoldBallRouteDeps } from './callback-hold-ball-routes.js';
 import { registerCallbackLarkActionRoutes } from './callback-lark-action-routes.js';
 import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
@@ -95,6 +96,8 @@ export interface CallbackRoutesOptions {
   limbRegistry?: import('../domains/limb/LimbRegistry.js').LimbRegistry;
   /** F126 Phase C: Limb pairing store for remote device approval */
   limbPairingStore?: import('../domains/limb/LimbPairingStore.js').LimbPairingStore;
+  /** F167 C1: Hold Ball — scheduler deps for delayed re-invocation */
+  holdBallDeps?: HoldBallRouteDeps;
   /** F088: Outbound delivery hook for connector-bound threads (late-bound after gateway bootstrap). */
   outboundHook?: {
     deliver(
@@ -1346,6 +1349,11 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
   // F101: Game action callback for non-Claude cats (OpenCode/Codex/Gemini)
   registerCallbackGameRoutes(app);
+
+  // F167 C1: Hold Ball — delayed re-invocation via reminder template
+  if (opts.holdBallDeps) {
+    registerCallbackHoldBallRoutes(app, opts.holdBallDeps);
+  }
 
   // F155: Guide engine — state-validated routes with ThreadStore authority
   if (opts.threadStore) {

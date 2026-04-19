@@ -219,14 +219,14 @@ cat_cafe_hold_ball({
 - [x] AC-B10: 86/86 SystemPromptBuilder + 41/41 codex-agent-service + 31/31 config tests 全绿
 
 ### Phase C1（Hold Ball MCP — 有界持球）
-- [ ] AC-C1: `cat_cafe_hold_ball` MCP tool 注册（reason + nextStep + wakeAfterMs 参数）
-- [ ] AC-C2: CLI 退出后系统自动再唤醒持球猫（含唤醒注入上轮持球上下文）
-- [ ] AC-C3: maxConsecutiveHolds guard（默认 3），超限强制接/退/升
-- [ ] AC-C4: 审计日志（谁持了几轮、每轮 reason）
+- [x] AC-C1: `cat_cafe_hold_ball` MCP tool 注册（reason + nextStep + wakeAfterMs 参数）
+- [x] AC-C2: CLI 退出后系统自动再唤醒持球猫（via reminder template one-shot scheduled task）
+- [x] AC-C3: maxConsecutiveHolds guard（默认 3），超限返回 429 + 强制传球提示
+- [x] AC-C4: 审计日志（pino structured log: threadId/catId/reason/nextStep/wakeAfterMs/consecutiveHolds）
 
 ### Phase C2（Forced-Pass Guard — 强制传球）
-- [ ] AC-C5: exit check 增加 review 场景规则：verdict 后必须 @ author 或 @landy
-- [ ] AC-C6: 系统提示词球权段落更新（含 C1 持球 + C2 强制传球）
+- [x] AC-C5: exit check 增加 review 场景规则：verdict 后必须 @ author 或 @landy（404f894fb）
+- [x] AC-C6: shared-rules §10 球权检查强化（reviewer "没人"几乎不成立 + review 必须传球 + 分析/建议传球）
 - [ ] AC-C7:（按需）harness 层 review verdict 检测 + 无 @ 时注入传球提示
 
 ## Dependencies
