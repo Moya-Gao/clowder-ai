@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { PR_ICON, SYNC_ICON, TYPE_ICONS } from '@/components/community-panel-icons';
+import { pushThreadRouteWithHistory } from '@/components/ThreadSidebar/thread-navigation';
 
 interface CommunityIssueItem {
   id: string;
@@ -12,6 +14,7 @@ interface CommunityIssueItem {
   replyState: string;
   consensusState?: string;
   assignedThreadId: string | null;
+  assignedCatId: string | null;
   updatedAt: number;
 }
 
@@ -62,93 +65,6 @@ const PR_GROUP_COLORS: Record<string, string> = {
   completed: 'text-green-600',
 };
 
-const TYPE_ICONS: Record<string, JSX.Element> = {
-  bug: (
-    <svg
-      className="w-3 h-3"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M8 2l1.88 1.88M14.12 3.88L16 2M9 7.13v-1a3.003 3.003 0 116 0v1" />
-      <path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 014-4h4a4 4 0 014 4v3c0 3.3-2.7 6-6 6M12 20v-9M6.53 9C4.6 8.8 3 7.1 3 5M6 13H2M3 21c0-2.1 1.7-3.9 3.8-4M20.97 5c0 2.1-1.6 3.8-3.5 4M22 13h-4M17.2 17c2.1.1 3.8 1.9 3.8 4" />
-    </svg>
-  ),
-  feature: (
-    <svg
-      className="w-3 h-3"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-    </svg>
-  ),
-  enhancement: (
-    <svg
-      className="w-3 h-3"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 3v18M3 12h18" />
-    </svg>
-  ),
-  question: (
-    <svg
-      className="w-3 h-3"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01" />
-    </svg>
-  ),
-};
-
-const PR_ICON = (
-  <svg
-    className="w-3 h-3"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <circle cx="18" cy="18" r="3" />
-    <circle cx="6" cy="6" r="3" />
-    <path d="M13 6h3a2 2 0 012 2v7M6 9v12" />
-  </svg>
-);
-
-const SYNC_ICON = (
-  <svg
-    className="w-3.5 h-3.5"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M21 2v6h-6M3 12a9 9 0 0115-6.7L21 8M3 22v-6h6M21 12a9 9 0 01-15 6.7L3 16" />
-  </svg>
-);
-
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
 function SectionHeader({
@@ -177,25 +93,60 @@ function SectionHeader({
   );
 }
 
-function IssueRow({ item }: { item: CommunityIssueItem }) {
+function IssueRow({
+  item,
+  onNavigate,
+  onDispatch,
+}: {
+  item: CommunityIssueItem;
+  onNavigate: (threadId: string) => void;
+  onDispatch: (issueId: string) => void;
+}) {
   const color = ISSUE_STATE_COLORS[item.state] ?? 'text-cafe-muted';
   const icon = TYPE_ICONS[item.issueType] ?? TYPE_ICONS.question;
+  const handleClick = () => {
+    if (item.assignedThreadId) onNavigate(item.assignedThreadId);
+  };
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-cafe-surface-elevated/30 cursor-pointer text-xs">
+    <div
+      data-testid={`issue-row-${item.id}`}
+      onClick={handleClick}
+      className={`flex items-center gap-2 px-3 py-1.5 hover:bg-cafe-surface-elevated/30 text-xs ${item.assignedThreadId ? 'cursor-pointer' : 'cursor-default opacity-70'}`}
+    >
       <span className={color}>{icon}</span>
       <span className="text-cafe-muted text-[10px]">#{item.issueNumber}</span>
       <span className="truncate flex-1 text-cafe-secondary">{item.title}</span>
-      {item.replyState === 'unreplied' && (
+      {item.state === 'unreplied' && (
+        <button
+          type="button"
+          data-testid={`dispatch-btn-${item.id}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDispatch(item.id);
+          }}
+          className="text-[9px] text-cafe-crosspost bg-cafe-crosspost/10 px-1.5 py-0.5 rounded hover:bg-cafe-crosspost/20 transition-colors"
+        >
+          发送给系统猫
+        </button>
+      )}
+      {item.replyState === 'unreplied' && item.state !== 'unreplied' && (
         <span className="text-[9px] text-cafe-accent bg-cafe-accent/10 px-1 rounded">未回复</span>
       )}
     </div>
   );
 }
 
-function PrRow({ item }: { item: PrBoardItem }) {
+function PrRow({ item, onNavigate }: { item: PrBoardItem; onNavigate: (threadId: string) => void }) {
   const color = PR_GROUP_COLORS[item.group] ?? 'text-cafe-muted';
+  const handleClick = () => {
+    if (item.threadId) onNavigate(item.threadId);
+  };
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-cafe-surface-elevated/30 cursor-pointer text-xs">
+    <div
+      data-testid={`pr-row-${item.taskId}`}
+      onClick={handleClick}
+      className={`flex items-center gap-2 px-3 py-1.5 hover:bg-cafe-surface-elevated/30 text-xs ${item.threadId ? 'cursor-pointer' : 'cursor-default opacity-70'}`}
+    >
       <span className={color}>{PR_ICON}</span>
       <span className="truncate flex-1 text-cafe-secondary">{item.title}</span>
       <span className="text-[10px] text-cafe-muted">{item.status}</span>
@@ -214,6 +165,8 @@ export function CommunityPanel() {
   const [collapsedPrs, setCollapsedPrs] = useState<Record<string, boolean>>({
     completed: true,
   });
+  const [stateFilter, setStateFilter] = useState('all');
+  const [catFilter, setCatFilter] = useState('all');
 
   const fetchBoard = useCallback(async () => {
     if (!repo) return;
@@ -236,11 +189,34 @@ export function CommunityPanel() {
     return () => clearInterval(timer);
   }, [fetchBoard]);
 
-  const issuesByState = (state: string) => board?.issues.filter((i) => i.state === state) ?? [];
+  const dispatchIssue = useCallback(
+    async (issueId: string) => {
+      try {
+        const res = await fetch(`/api/community-issues/${issueId}/dispatch`, { method: 'POST' });
+        if (res.ok) fetchBoard();
+      } catch {
+        /* ignore */
+      }
+    },
+    [fetchBoard],
+  );
+
+  const navigateToThread = useCallback((threadId: string) => {
+    pushThreadRouteWithHistory(threadId, window);
+  }, []);
+
+  const filteredIssues = (board?.issues ?? []).filter((i) => {
+    if (stateFilter !== 'all' && i.state !== stateFilter) return false;
+    if (catFilter !== 'all' && i.assignedCatId !== catFilter) return false;
+    return true;
+  });
+  const issuesByState = (state: string) => filteredIssues.filter((i) => i.state === state);
+
+  const uniqueCats = [...new Set((board?.issues ?? []).map((i) => i.assignedCatId).filter(Boolean) as string[])];
 
   const prsByGroup = (group: string) => board?.prItems.filter((p) => p.group === group) ?? [];
 
-  const totalIssues = board?.issues.length ?? 0;
+  const totalIssues = filteredIssues.length;
   const totalPrs = board?.prItems.length ?? 0;
 
   return (
@@ -264,6 +240,38 @@ export function CommunityPanel() {
           <span className={loading ? 'animate-spin' : ''}>{SYNC_ICON}</span>
         </button>
       </div>
+
+      {/* Filters */}
+      {board && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-cocreator-light/20">
+          <select
+            data-testid="issue-state-filter"
+            value={stateFilter}
+            onChange={(e) => setStateFilter(e.target.value)}
+            className="text-[10px] bg-cafe-surface rounded px-1.5 py-0.5 border border-cocreator-light/30 text-cafe-secondary"
+          >
+            <option value="all">全部状态</option>
+            {ISSUE_SECTIONS.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+          <select
+            data-testid="cat-filter"
+            value={catFilter}
+            onChange={(e) => setCatFilter(e.target.value)}
+            className="text-[10px] bg-cafe-surface rounded px-1.5 py-0.5 border border-cocreator-light/30 text-cafe-secondary"
+          >
+            <option value="all">全部负责猫</option>
+            {uniqueCats.map((c) => (
+              <option key={c} value={c}>
+                @{c}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="flex items-center gap-3 px-3 py-1.5 text-[10px] text-cafe-muted border-b border-cocreator-light/20">
@@ -298,7 +306,10 @@ export function CommunityPanel() {
                       collapsed={isCollapsed}
                       onToggle={() => setCollapsedIssues((p) => ({ ...p, [sec.key]: !p[sec.key] }))}
                     />
-                    {!isCollapsed && items.map((item) => <IssueRow key={item.id} item={item} />)}
+                    {!isCollapsed &&
+                      items.map((item) => (
+                        <IssueRow key={item.id} item={item} onNavigate={navigateToThread} onDispatch={dispatchIssue} />
+                      ))}
                   </div>
                 );
               })}
@@ -321,7 +332,8 @@ export function CommunityPanel() {
                       collapsed={isCollapsed}
                       onToggle={() => setCollapsedPrs((p) => ({ ...p, [sec.key]: !p[sec.key] }))}
                     />
-                    {!isCollapsed && items.map((item) => <PrRow key={item.taskId} item={item} />)}
+                    {!isCollapsed &&
+                      items.map((item) => <PrRow key={item.taskId} item={item} onNavigate={navigateToThread} />)}
                   </div>
                 );
               })}

@@ -119,6 +119,23 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
     reply.status(204);
   });
 
+  app.post('/api/community-issues/:id/dispatch', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const item = await communityIssueStore.get(id);
+    if (!item) {
+      reply.status(404);
+      return { error: 'Community issue not found' };
+    }
+    if (item.state !== 'unreplied') {
+      reply.status(409);
+      return { error: 'Issue already dispatched or assigned' };
+    }
+    const updated = await communityIssueStore.update(id, {
+      state: 'discussing',
+    });
+    return updated;
+  });
+
   app.get('/api/community-board', async (request, reply) => {
     const { repo } = request.query as { repo?: string };
     if (!repo) {

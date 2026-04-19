@@ -288,7 +288,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 - [x] AC-B2: Issue 状态机 6 态 + `replyState` / `consensusState` 独立更新
 - [x] AC-B3: PR 视图投影自 `pr_tracking` TaskItem，不另建存储（单一真相源）
 - [x] AC-B4: Issue ↔ PR 关联：`linkedPrNumbers` 可追溯
-- [ ] AC-B5: 未接单 issue 支持铲屎官手动触发"发送给系统猫"
+- [x] AC-B5: 未接单 issue 支持铲屎官手动触发"发送给系统猫"
 - [x] AC-B6: 已分配 PR 的 commit+CI 信号由 F140 现有 `CiCdCheckTaskSpec` 推送，看板消费状态
 - [x] AC-B7: 支持多仓库绑定，repo 是配置参数非 hardcode
 - [x] AC-B8: 看板支持手动同步状态按钮 + 定时刷新（建议 5 分钟）
@@ -299,8 +299,8 @@ TTL=0（铁律 #5），用户数据默认持久化
 - [x] AC-C3: Thread metadata 加 `preferredWorkspaceMode?: WorkspaceMode`，打开社区系统 thread 自动切到 `community`
 - [x] AC-C4: 看板分 Issues（`CommunityIssueItem`）/ Pull Requests（`pr_tracking` 投影）两区域
 - [x] AC-C5: 每个 item 一行摘要（repo + # + 标题 + 类型 + 负责猫 + 最后活跃）
-- [ ] AC-C6: 点击 item 跳转到对应 feat thread（工作现场联动）
-- [ ] AC-C7: repo 下拉筛选 + 状态/负责猫/时间范围筛选
+- [x] AC-C6: 点击 item 跳转到对应 feat thread（工作现场联动）
+- [ ] AC-C7: repo 下拉筛选 + 状态/负责猫/时间范围筛选 *(partial: 状态+猫筛选已实现, repo 下拉+时间范围 deferred)*
 - [x] AC-C8: 手动同步按钮 + 定时刷新
 - [x] AC-C9: 所有图标用 SVG，不用 emoji
 - [ ] AC-C10: 最终 UI 用 Pencil 出设计稿

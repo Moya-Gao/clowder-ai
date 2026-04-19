@@ -190,6 +190,68 @@ describe('Community Issues Routes', () => {
     assert.equal(res.json().error, 'Missing repo query parameter');
   });
 
+  test('POST /api/community-issues/:id/dispatch transitions unreplied to discussing', async () => {
+    const app = await createApp();
+    const created = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/community-issues',
+        payload: {
+          repo: 'x/y',
+          issueNumber: 99,
+          issueType: 'feature',
+          title: 'New feat',
+        },
+      })
+    ).json();
+    assert.equal(created.state, 'unreplied');
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${created.id}/dispatch`,
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.state, 'discussing');
+    assert.equal(body.replyState, 'unreplied');
+  });
+
+  test('POST /api/community-issues/:id/dispatch returns 404 for unknown', async () => {
+    const app = await createApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/community-issues/nonexistent/dispatch',
+    });
+    assert.equal(res.statusCode, 404);
+  });
+
+  test('POST /api/community-issues/:id/dispatch returns 409 if already assigned', async () => {
+    const app = await createApp();
+    const created = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/community-issues',
+        payload: {
+          repo: 'x/y',
+          issueNumber: 100,
+          issueType: 'bug',
+          title: 'Already assigned',
+        },
+      })
+    ).json();
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/community-issues/${created.id}`,
+      payload: { state: 'discussing' },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${created.id}/dispatch`,
+    });
+    assert.equal(res.statusCode, 409);
+  });
+
   test('GET /api/community-board returns issues + empty prItems', async () => {
     const app = await createApp();
     await app.inject({
