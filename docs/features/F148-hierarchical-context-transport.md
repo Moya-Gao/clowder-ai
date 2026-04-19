@@ -102,6 +102,15 @@ created: 2026-03-31
 - [x] AC-E3: 折叠态一行显示核心指标（看到/省略/锚点/记忆/证据数量）
 - [x] AC-E4: 展开态显示 participants、time range、anchor 文本、threadMemory 摘要
 
+### Phase F（Intent + Baton Context）✅
+- [x] AC-F1: `extractBatonContext` 从消息历史提取最后一个 @-mention 的传球上下文（谁传的、什么时候、原文摘要）
+- [x] AC-F2: 优先使用 canonical `mentions` 元数据匹配，regex 仅作 legacy fallback（`safeParseMentions` 返回 `[]` 时正确降级）
+- [x] AC-F3: 同一说话者先说"别动/等等"再 @-mention → `staleHoldWarning: true`（矛盾检测，KD-7 球权死锁案例）
+- [x] AC-F4: `origin: 'stream'` 消息的 excerpt 清空（思考内容不可见），stale-hold 检测跳过 stream 消息
+- [x] AC-F5: `summarizeActiveTasks` 返回 top 3 活跃 task（非 done，按 updatedAt 排序）
+- [x] AC-F6: `formatNavigationHeader` 渲染 `[导航]...[/导航]` 块（baton + tasks，KD-8：给数据不给结论，无 intent 分类标签）
+- [x] AC-F7: 导航 header 在所有路径注入（cold + warm + empty-return，KD-7：独立于 smart window）
+
 ## Dependencies
 
 - **Evolved from**: F102（记忆系统 — evidence.sqlite 是 L3 的基础）
@@ -194,6 +203,7 @@ created: 2026-03-31
 | 2026-04-18 | cursor-ack-on-abort fix merged (PR #1266) — messages.ts 直接调用路径缺失 cursor ack 导致重复冷启动注入。缅因猫 review + merge |
 | 2026-04-19 | **Feature reopened** — 铲屎官发起运行 17 天复盘，核心发现：优化了压缩轴但导航轴不足 |
 | 2026-04-19 | 多猫圆桌讨论（codex + gpt52 + opus）— 收敛 7 缺口 + Phase F-J 优先级。N-7 Baton/Authority 为 gpt52 新增。gemini 待补充 |
+| 2026-04-19 | Phase F merged (PR #1286) — extractBatonContext + summarizeActiveTasks + formatNavigationHeader + 全路径导航注入。GPT-5.4 review (R1: 1P1+1P2, R2 pass, R3 canonical mention P1, R4 pass) + 云端 review (R3: 1P1 empty-mentions fallback, fixed; R4 云端未接单降级 GPT-5.4 验证) |
 
 ## Phase F-J: 导航轴优化（2026-04-19 Reopened）
 
@@ -250,7 +260,7 @@ F148 smart window 仅在**冷启动**场景触发（`route-helpers.ts:601-619`�
 
 | Phase | 内容 | 缺口 | 状态 |
 |-------|------|------|------|
-| **F** | Intent + Baton Context — 为什么叫我 + 球怎么来的/做完往哪传 | N-2 + N-7 | 📋 待拆 AC |
+| **F** | Intent + Baton Context — 为什么叫我 + 球怎么来的/做完往哪传 | N-2 + N-7 | ✅ merged |
 | **G** | Task + Narrative — 活跃毛线球 + 一句话故事弧（内嵌 Freshness） | N-3 + N-1 | 📋 待拆 AC |
 | **H** | Artifact Deterministic Tracking — 确定性产物记录 | N-4 | 📋 待拆 AC |
 | **I** | Eval Baseline — 导航成功率度量（不只是 count） | N-5 | 📋 待拆 AC |
