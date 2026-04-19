@@ -366,6 +366,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-04-19 | Phase C remaining merged (PR #1278) — C7 完整筛选(repo 下拉+时间范围)+C10 Pencil 设计稿+P1 fix，Phase C 100% |
 | 2026-04-19 | Phase A backend merged (PR #1281) — triage types+consensus+orchestrator+API endpoints+resolve，37 tests，AC-A4/A5/A6 ✅ |
 | 2026-04-19 | Phase D development — GuardianMatcher+IntakeChecklist+3 endpoints (request-guardian/signoff/status)，49 tests，AC-A1/A2/A3+D1/D2/D3/D4 ✅ |
+| 2026-04-19 | Phase D merged (PR #1285) — guardian auth hardening (9-round review), callback auth on all guardian endpoints, merge-gate Step 6.5 updated |
 
 ## Review Gate
 
