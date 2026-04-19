@@ -10,7 +10,7 @@ created: 2026-03-28
 
 > **Scope 扩展（2026-04-18 铲屎官拍板）**：不止 MCP，覆盖 plugin / skill / tool / connector。UI 标签"能力市场"。
 
-> **Status**: in-progress | **Owner**: 缅因猫 + 布偶猫 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-04-19 | **Owner**: 缅因猫 + 布偶猫 | **Priority**: P1
 
 ## 铲屎官愿景
 
