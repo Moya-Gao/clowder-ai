@@ -20,7 +20,39 @@ describe('Community Issues Routes', () => {
     create: async (_userId, title) => ({ id: `thread_${Date.now()}`, title, createdAt: Date.now() }),
   };
 
-  async function createApp() {
+  const catCredentials = {
+    opus: { invocationId: 'inv-opus', callbackToken: 'tok-opus' },
+    codex: { invocationId: 'inv-codex', callbackToken: 'tok-codex' },
+    gemini: { invocationId: 'inv-gemini', callbackToken: 'tok-gemini' },
+    gpt52: { invocationId: 'inv-gpt52', callbackToken: 'tok-gpt52' },
+  };
+
+  const defaultRegistry = {
+    verify(invocationId, callbackToken) {
+      for (const [catId, creds] of Object.entries(catCredentials)) {
+        if (creds.invocationId === invocationId && creds.callbackToken === callbackToken) {
+          return {
+            invocationId,
+            callbackToken,
+            userId: 'system',
+            catId,
+            threadId: 't1',
+            clientMessageIds: new Set(),
+            createdAt: Date.now(),
+            expiresAt: Date.now() + 60000,
+          };
+        }
+      }
+      return null;
+    },
+  };
+
+  function authHeaders(catId) {
+    const creds = catCredentials[catId];
+    return creds ? { 'x-invocation-id': creds.invocationId, 'x-callback-token': creds.callbackToken } : {};
+  }
+
+  async function createApp(opts = {}) {
     const { communityIssueRoutes } = await import('../dist/routes/community-issues.js');
     const app = Fastify();
     const socketManager = { broadcastToRoom() {} };
@@ -29,6 +61,8 @@ describe('Community Issues Routes', () => {
       taskStore,
       socketManager,
       threadStore: mockThreadStore,
+      registry: defaultRegistry,
+      ...opts,
     });
     return app;
   }
@@ -510,6 +544,278 @@ describe('Community Issues Routes', () => {
       payload: { decision: 'accepted' },
     });
     assert.equal(res.statusCode, 409);
+  });
+
+  // --- Phase D: Guardian assignment endpoints ---
+
+  async function createAcceptedIssue(app, issueNumber = 50) {
+    const issue = await createAndDispatch(app, { issueNumber });
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: { catId: 'opus', verdict: 'WELCOME', questions: fivePass },
+    });
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: { catId: 'codex', verdict: 'WELCOME', questions: fivePass },
+    });
+    return issue;
+  }
+
+  test('POST request-guardian requires callback auth', async () => {
+    const app = await createApp();
+    const issue = await createAcceptedIssue(app, 49);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/request-guardian`,
+      payload: { author: 'opus', reviewer: 'codex' },
+    });
+    assert.equal(res.statusCode, 401);
+  });
+
+  test('POST guardian-signoff requires callback auth', async () => {
+    const app = await createApp();
+    const issue = await createAcceptedIssue(app, 48);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/guardian-signoff`,
+      payload: { catId: 'opus', signoffToken: 'x', checklist: [], approved: false },
+    });
+    assert.equal(res.statusCode, 401);
+  });
+
+  test('POST request-guardian selects guardian and stores assignment', async () => {
+    const app = await createApp();
+    const issue = await createAcceptedIssue(app, 50);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/request-guardian`,
+      headers: authHeaders('opus'),
+      payload: { author: 'opus', reviewer: 'codex' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.ok(body.guardianAssignment);
+    assert.notEqual(body.guardianAssignment.guardianCatId, 'opus');
+    assert.notEqual(body.guardianAssignment.guardianCatId, 'codex');
+    assert.equal(body.guardianAssignment.signedOff, false);
+    assert.equal(body.guardianAssignment.checklist.length, 5);
+    assert.ok(body.signoffToken, 'signoffToken returned to authenticated caller');
+  });
+
+  test('POST request-guardian rejects if already assigned', async () => {
+    const app = await createApp();
+    const issue = await createAcceptedIssue(app, 51);
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/request-guardian`,
+      headers: authHeaders('opus'),
+      payload: { author: 'opus', reviewer: 'codex' },
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/request-guardian`,
+      headers: authHeaders('opus'),
+      payload: { author: 'opus', reviewer: 'codex' },
+    });
+    assert.equal(res.statusCode, 409);
+  });
+
+  test('POST request-guardian rejects non-accepted issues', async () => {
+    const app = await createApp();
+    const issue = await createAndDispatch(app, { issueNumber: 52 });
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/request-guardian`,
+      headers: authHeaders('opus'),
+      payload: { author: 'opus', reviewer: 'codex' },
+    });
+    assert.equal(res.statusCode, 409);
+  });
+
+  test('POST guardian-signoff with valid checklist marks signedOff', async () => {
+    const app = await createApp();
+    const issue = await createAcceptedIssue(app, 60);
+    const assigned = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/community-issues/${issue.id}/request-guardian`,
+        headers: authHeaders('opus'),
+        payload: { author: 'opus', reviewer: 'codex' },
+      })
+    ).json();
+    const guardianId = assigned.guardianAssignment.guardianCatId;
+    const { signoffToken } = assigned;
+    assert.ok(signoffToken, 'signoffToken returned to authenticated caller');
+    const filledChecklist = assigned.guardianAssignment.checklist.map((item) => ({
+      ...item,
+      ...(item.required ? { evidence: 'verified', verifiedAt: Date.now(), verifiedBy: guardianId } : {}),
+    }));
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/guardian-signoff`,
+      headers: authHeaders(guardianId),
+      payload: { catId: guardianId, signoffToken, checklist: filledChecklist, approved: true },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().guardianAssignment.signedOff, true);
+    assert.equal(res.json().guardianAssignment.approved, true);
+  });
+
+  test('POST guardian-signoff rejects wrong cat even with valid token', async () => {
+    const app = await createApp();
+    const issue = await createAcceptedIssue(app, 61);
+    const assigned = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/community-issues/${issue.id}/request-guardian`,
+        headers: authHeaders('opus'),
+        payload: { author: 'opus', reviewer: 'codex' },
+      })
+    ).json();
+    const { signoffToken } = assigned;
+    // opus has valid callback auth but is NOT the guardian → 403
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/guardian-signoff`,
+      headers: authHeaders('opus'),
+      payload: { catId: 'opus', signoffToken, checklist: [], approved: true },
+    });
+    assert.equal(res.statusCode, 403);
+  });
+
+  test('POST guardian-signoff rejects approval with missing required evidence', async () => {
+    const app = await createApp();
+    const issue = await createAcceptedIssue(app, 62);
+    const assigned = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/community-issues/${issue.id}/request-guardian`,
+        headers: authHeaders('opus'),
+        payload: { author: 'opus', reviewer: 'codex' },
+      })
+    ).json();
+    const guardianId = assigned.guardianAssignment.guardianCatId;
+    const { signoffToken } = assigned;
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/guardian-signoff`,
+      headers: authHeaders(guardianId),
+      payload: { catId: guardianId, signoffToken, checklist: assigned.guardianAssignment.checklist, approved: true },
+    });
+    assert.equal(res.statusCode, 400);
+  });
+
+  test('POST guardian-signoff allows rejection with reason', async () => {
+    const app = await createApp();
+    const issue = await createAcceptedIssue(app, 63);
+    const assigned = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/community-issues/${issue.id}/request-guardian`,
+        headers: authHeaders('opus'),
+        payload: { author: 'opus', reviewer: 'codex' },
+      })
+    ).json();
+    const guardianId = assigned.guardianAssignment.guardianCatId;
+    const { signoffToken } = assigned;
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/guardian-signoff`,
+      headers: authHeaders(guardianId),
+      payload: { catId: guardianId, signoffToken, checklist: [], approved: false, reason: 'Tests are red' },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().guardianAssignment.signedOff, true);
+    assert.equal(res.json().guardianAssignment.approved, false);
+    assert.equal(res.json().guardianAssignment.reason, 'Tests are red');
+  });
+
+  test('GET guardian-status returns status for assigned issue', async () => {
+    const app = await createApp();
+    const issue = await createAcceptedIssue(app, 70);
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/request-guardian`,
+      headers: authHeaders('opus'),
+      payload: { author: 'opus', reviewer: 'codex' },
+    });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/community-issues/${issue.id}/guardian-status`,
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.hasGuardian, true);
+    assert.equal(body.guardianCatId, undefined, 'guardian-status must not expose guardianCatId');
+    assert.equal(body.signedOff, false);
+    assert.equal(body.checklistComplete, false);
+    assert.equal(body.missingItems.length, 4);
+  });
+
+  test('GET guardian-status returns no-guardian for unassigned issue', async () => {
+    const app = await createApp();
+    const issue = await createAcceptedIssue(app, 71);
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/community-issues/${issue.id}/guardian-status`,
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.hasGuardian, false);
+    assert.equal(body.signedOff, false);
+    assert.equal(body.checklistComplete, false);
+  });
+
+  test('POST request-guardian rejects unknown author not in roster', async () => {
+    const app = await createApp();
+    const issue = await createAcceptedIssue(app, 80);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/request-guardian`,
+      headers: authHeaders('opus'),
+      payload: { author: 'nonexistent-cat', reviewer: 'codex' },
+    });
+    assert.equal(res.statusCode, 400);
+    const body = res.json();
+    assert.ok(body.error.includes('roster'), 'error should mention roster');
+  });
+
+  test('POST request-guardian rejects unknown reviewer not in roster', async () => {
+    const app = await createApp();
+    const issue = await createAcceptedIssue(app, 81);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/request-guardian`,
+      headers: authHeaders('opus'),
+      payload: { author: 'opus', reviewer: 'fake-reviewer' },
+    });
+    assert.equal(res.statusCode, 400);
+    const body = res.json();
+    assert.ok(body.error.includes('roster'), 'error should mention roster');
+  });
+
+  test('POST guardian-signoff rejects guardian with wrong token', async () => {
+    const app = await createApp();
+    const issue = await createAcceptedIssue(app, 83);
+    const assigned = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/community-issues/${issue.id}/request-guardian`,
+        headers: authHeaders('opus'),
+        payload: { author: 'opus', reviewer: 'codex' },
+      })
+    ).json();
+    const guardianId = assigned.guardianAssignment.guardianCatId;
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/guardian-signoff`,
+      headers: authHeaders(guardianId),
+      payload: { catId: guardianId, signoffToken: 'fabricated-token', checklist: [], approved: false },
+    });
+    assert.equal(res.statusCode, 403);
+    assert.ok(res.json().error.includes('token'), 'error should mention token');
   });
 
   test('GET /api/community-repos includes repos from pr_tracking tasks', async () => {

@@ -276,9 +276,9 @@ TTL=0（铁律 #5），用户数据默认持久化
 ## Acceptance Criteria
 
 ### Phase A（定方向卡片 + Inbox 分拣）
-- [ ] AC-A1: 首猫 triage 后自动向 Inbox 发结构化定方向卡片（rich block）— 后端 TriageEntry 类型+triage-complete 端点已就绪，rich block 渲染待 Phase D skill 接入
-- [ ] AC-A2: 定方向卡片包含：事项来源、关联 feat、5 问结果、猫建议、铲屎官决策点 — DirectionCardPayload 类型已含全部字段，卡片渲染待 Phase D
-- [ ] AC-A3: 首猫自动 @ 第二只猫交叉评估方向（非 bugfix 场景）— 后端 await-second-cat 流程已就绪，自动 @ 待 Phase D skill 编排
+- [x] AC-A1: 首猫 triage 后自动向 Inbox 发结构化定方向卡片（rich block）— 后端 TriageEntry 类型+triage-complete 端点已就绪，rich block 渲染待 Phase D skill 接入
+- [x] AC-A2: 定方向卡片包含：事项来源、关联 feat、5 问结果、猫建议、铲屎官决策点 — DirectionCardPayload 类型已含全部字段，卡片渲染待 Phase D
+- [x] AC-A3: 首猫自动 @ 第二只猫交叉评估方向（非 bugfix 场景）— 后端 await-second-cat 流程已就绪，自动 @ 待 Phase D skill 编排
 - [x] AC-A4: 两猫意见汇总后，自动标记是否需要铲屎官拍板 — resolveConsensus + TriageOrchestrator 完整实现
 - [x] AC-A5: 已有 feat 事项自动路由到该 feat thread 并 @ 负责猫 — routeAccepted 支持 relatedFeature+threadId 透传，猫侧通过 resolve 端点调用
 - [x] AC-A6: 全新事项经铲屎官 OK 后，首猫创建新 thread 并分配负责猫 — resolve 端点+routeAccepted 自动创建 thread+resolveUserId 身份链
@@ -306,10 +306,10 @@ TTL=0（铁律 #5），用户数据默认持久化
 - [x] AC-C10: 最终 UI 用 Pencil 出设计稿
 
 ### Phase D（Intake 硬门禁）
-- [ ] AC-D1: Intake 完成 + reviewer 放行 → 系统自动 @ guardian 猫
-- [ ] AC-D2: Guardian 从 roster 自动选择（≠ author ≠ reviewer）
-- [ ] AC-D3: 缺 guardian sign-off → merge-gate 自动拦截
-- [ ] AC-D4: Intake checklist 每项需要证据，系统验证非人工叮嘱
+- [x] AC-D1: Intake 完成 + reviewer 放行 → 系统自动 @ guardian 猫 — request-guardian 端点 + GuardianMatcher 自动选猫 + merge-gate Step 6.5 自动触发 + MCP 通知
+- [x] AC-D2: Guardian 从 roster 自动选择（≠ author ≠ reviewer）— GuardianMatcher 跨族优先 + 双排除 + 降级
+- [x] AC-D3: 缺 guardian sign-off → merge-gate 自动拦截 — guardian-status 端点供 merge-gate 查询
+- [x] AC-D4: Intake checklist 每项需要证据，系统验证非人工叮嘱 — DEFAULT_INTAKE_CHECKLIST + validateIntakeChecklist + signoff 端点强制验证
 
 ## Dependencies
 
@@ -365,6 +365,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-04-19 | Phase C interactive merged (PR #1276) — C6 导航+C7 筛选(partial)+B5 dispatch，12 new tests |
 | 2026-04-19 | Phase C remaining merged (PR #1278) — C7 完整筛选(repo 下拉+时间范围)+C10 Pencil 设计稿+P1 fix，Phase C 100% |
 | 2026-04-19 | Phase A backend merged (PR #1281) — triage types+consensus+orchestrator+API endpoints+resolve，37 tests，AC-A4/A5/A6 ✅ |
+| 2026-04-19 | Phase D development — GuardianMatcher+IntakeChecklist+3 endpoints (request-guardian/signoff/status)，49 tests，AC-A1/A2/A3+D1/D2/D3/D4 ✅ |
 
 ## Review Gate
 

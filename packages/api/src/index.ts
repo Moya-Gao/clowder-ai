@@ -1390,7 +1390,7 @@ async function main(): Promise<void> {
     });
   }
   await app.register(tasksRoutes, { taskStore, socketManager });
-  await app.register(communityIssueRoutes, { communityIssueStore, taskStore, socketManager });
+  await app.register(communityIssueRoutes, { communityIssueStore, taskStore, socketManager, registry });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
 
   // F076: External projects + Need Audit

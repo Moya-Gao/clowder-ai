@@ -12,21 +12,32 @@
  * GET    /api/community-board?repo=xxx       → 聚合看板（issues + PR projection）
  */
 
+import { createHash, randomUUID } from 'node:crypto';
+import { type CatId, createCatId, DEFAULT_INTAKE_CHECKLIST, validateIntakeChecklist } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { getRoster } from '../config/cat-config-loader.js';
+import type { InvocationRecord } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { ICommunityIssueStore } from '../domains/cats/services/stores/ports/CommunityIssueStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { derivePrGroup } from '../domains/community/derivePrGroup.js';
+import { resolveGuardian } from '../domains/community/GuardianMatcher.js';
 import { TriageOrchestrator } from '../domains/community/TriageOrchestrator.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { registerCallbackAuthHook } from './callback-auth-prehandler.js';
+
+interface CallbackAuthVerifier {
+  verify(invocationId: string, callbackToken: string): InvocationRecord | null;
+}
 
 export interface CommunityIssuesRoutesOptions {
   communityIssueStore: ICommunityIssueStore;
   taskStore: ITaskStore;
   socketManager: SocketManager;
   threadStore?: Pick<IThreadStore, 'create'>;
+  registry?: CallbackAuthVerifier;
 }
 
 const VALID_ISSUE_TYPES = ['bug', 'feature', 'enhancement', 'question'] as const;
@@ -62,6 +73,10 @@ const updateSchema = z
 
 export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptions> = async (app, opts) => {
   const { communityIssueStore, taskStore, socketManager } = opts;
+
+  if (opts.registry) {
+    registerCallbackAuthHook(app, opts.registry);
+  }
 
   app.post('/api/community-issues', async (request, reply) => {
     const result = createSchema.safeParse(request.body);
@@ -225,6 +240,178 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
     }
 
     return communityIssueStore.get(id);
+  });
+
+  // --- Phase D: Guardian endpoints ---
+
+  const requestGuardianSchema = z.object({
+    author: z.string().min(1),
+    reviewer: z.string().min(1),
+  });
+
+  app.post('/api/community-issues/:id/request-guardian', async (request, reply) => {
+    if (!request.callbackAuth) {
+      reply.status(401);
+      return { error: 'Callback authentication required' };
+    }
+    const { id } = request.params as { id: string };
+    const result = requestGuardianSchema.safeParse(request.body);
+    if (!result.success) {
+      reply.status(400);
+      return { error: 'Invalid body', details: result.error.issues };
+    }
+
+    const roster = getRoster();
+    const authorId = result.data.author;
+    const reviewerId = result.data.reviewer;
+    if (!roster[authorId]) {
+      reply.status(400);
+      return { error: `Author '${authorId}' not found in roster` };
+    }
+    if (!roster[reviewerId]) {
+      reply.status(400);
+      return { error: `Reviewer '${reviewerId}' not found in roster` };
+    }
+
+    const issue = await communityIssueStore.get(id);
+    if (!issue) {
+      reply.status(404);
+      return { error: 'Community issue not found' };
+    }
+    if (issue.state !== 'accepted') {
+      reply.status(409);
+      return { error: 'Issue must be in accepted state', currentState: issue.state };
+    }
+    if (issue.guardianAssignment) {
+      reply.status(409);
+      return { error: 'Guardian already assigned' };
+    }
+
+    const match = await resolveGuardian({
+      author: createCatId(authorId),
+      reviewer: createCatId(reviewerId),
+    });
+
+    const checklist = DEFAULT_INTAKE_CHECKLIST.map((item) => ({
+      ...item,
+      evidence: undefined,
+      verifiedAt: undefined,
+      verifiedBy: undefined,
+    }));
+
+    const signoffToken = randomUUID();
+    const signoffTokenHash = createHash('sha256').update(signoffToken).digest('hex');
+
+    const guardianCatId = match.guardian as string;
+    const updated = await communityIssueStore.update(id, {
+      guardianAssignment: {
+        guardianCatId,
+        signoffTokenHash,
+        requestedAt: Date.now(),
+        requestedBy: result.data.author,
+        signedOff: false,
+        checklist,
+      },
+    });
+
+    return { ...updated, signoffToken };
+  });
+
+  const guardianSignoffSchema = z.object({
+    catId: z.string().min(1),
+    signoffToken: z.string().min(1),
+    checklist: z.array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        required: z.boolean(),
+        evidence: z.string().optional(),
+        verifiedAt: z.number().optional(),
+        verifiedBy: z.string().optional(),
+      }),
+    ),
+    approved: z.boolean(),
+    reason: z.string().optional(),
+  });
+
+  app.post('/api/community-issues/:id/guardian-signoff', async (request, reply) => {
+    if (!request.callbackAuth) {
+      reply.status(401);
+      return { error: 'Callback authentication required' };
+    }
+    const { id } = request.params as { id: string };
+    const result = guardianSignoffSchema.safeParse(request.body);
+    if (!result.success) {
+      reply.status(400);
+      return { error: 'Invalid body', details: result.error.issues };
+    }
+
+    const issue = await communityIssueStore.get(id);
+    if (!issue) {
+      reply.status(404);
+      return { error: 'Community issue not found' };
+    }
+    if (!issue.guardianAssignment) {
+      reply.status(409);
+      return { error: 'No guardian assigned' };
+    }
+    const providedHash = createHash('sha256').update(result.data.signoffToken).digest('hex');
+    if (providedHash !== issue.guardianAssignment.signoffTokenHash) {
+      reply.status(403);
+      return { error: 'Invalid signoff token' };
+    }
+    const callerCatId = request.callbackAuth.catId as string;
+    const signoffRoster = getRoster();
+    if (!signoffRoster[callerCatId]) {
+      reply.status(400);
+      return { error: `Cat '${callerCatId}' not found in roster` };
+    }
+    if (issue.guardianAssignment.guardianCatId !== callerCatId) {
+      reply.status(403);
+      return { error: 'Only the assigned guardian can sign off', expected: issue.guardianAssignment.guardianCatId };
+    }
+
+    if (result.data.approved) {
+      const validation = validateIntakeChecklist(result.data.checklist as any);
+      if (!validation.valid) {
+        reply.status(400);
+        return { error: 'Required checklist items missing evidence', missing: validation.missing };
+      }
+    }
+
+    const updated = await communityIssueStore.update(id, {
+      guardianAssignment: {
+        ...issue.guardianAssignment,
+        signedOff: true,
+        signedOffAt: Date.now(),
+        approved: result.data.approved,
+        reason: result.data.reason,
+        checklist: result.data.checklist,
+      },
+    });
+
+    return updated;
+  });
+
+  app.get('/api/community-issues/:id/guardian-status', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const issue = await communityIssueStore.get(id);
+    if (!issue) {
+      reply.status(404);
+      return { error: 'Community issue not found' };
+    }
+
+    if (!issue.guardianAssignment) {
+      return { hasGuardian: false, signedOff: false, checklistComplete: false, missingItems: [] };
+    }
+
+    const validation = validateIntakeChecklist(issue.guardianAssignment.checklist as any);
+    return {
+      hasGuardian: true,
+      signedOff: issue.guardianAssignment.signedOff,
+      checklistComplete: validation.valid,
+      missingItems: validation.missing,
+    };
   });
 
   app.get('/api/community-repos', async () => {

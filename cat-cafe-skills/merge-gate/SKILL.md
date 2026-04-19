@@ -160,6 +160,47 @@ EYES=”$(gh api repos/{OWNER}/{REPO}/issues/comments/${TRIGGER_COMMENT_ID}/reac
 #     c. 明确确认第一次触发失败（例如 comment 未发出/被删除）
 #     其它情况一律禁止二次触发
 
+# 6.5 Guardian Sign-Off Gate (F168 Phase D — community intake PRs only)
+#
+# Trigger condition: PR branch links to a community issue (check PR body or branch name).
+# Skip this step for non-community PRs.
+#
+# Prerequisites: cat agent env vars $CAT_CAFE_INVOCATION_ID and $CAT_CAFE_CALLBACK_TOKEN
+# are set by invoke-single-cat.ts at launch. All guardian endpoints require callback auth.
+AUTH_HEADERS=(-H "X-Invocation-Id: $CAT_CAFE_INVOCATION_ID" \
+              -H "X-Callback-Token: $CAT_CAFE_CALLBACK_TOKEN")
+#
+# 6.5.1 Request guardian assignment (if not already assigned):
+ISSUE_ID="{COMMUNITY_ISSUE_ID}"  # from PR body or branch metadata
+GUARDIAN_STATUS="$(curl -sf "${AUTH_HEADERS[@]}" \
+  http://localhost:3002/api/community-issues/${ISSUE_ID}/guardian-status)"
+HAS_GUARDIAN="$(echo "$GUARDIAN_STATUS" | jq -r '.hasGuardian')"
+if [ "$HAS_GUARDIAN" != "true" ]; then
+  # request-guardian returns guardianAssignment + signoffToken (for later guardian-signoff)
+  ASSIGN_RESULT="$(curl -sf -X POST "${AUTH_HEADERS[@]}" \
+    -H 'Content-Type: application/json' \
+    -d "{\"author\": \"{AUTHOR_CAT_ID}\", \"reviewer\": \"{REVIEWER_CAT_ID}\"}" \
+    http://localhost:3002/api/community-issues/${ISSUE_ID}/request-guardian)"
+  SIGNOFF_TOKEN="$(echo "$ASSIGN_RESULT" | jq -r '.signoffToken')"
+  # Refresh status after assignment
+  GUARDIAN_STATUS="$(curl -sf "${AUTH_HEADERS[@]}" \
+    http://localhost:3002/api/community-issues/${ISSUE_ID}/guardian-status)"
+fi
+#
+# 6.5.2 Notify guardian via MCP (auto @ — AC-D1):
+GUARDIAN_CAT="$(echo "$ASSIGN_RESULT" | jq -r '.guardianAssignment.guardianCatId')"
+# Use cat_cafe_multi_mention to @ the guardian cat with intake checklist instructions.
+# Pass SIGNOFF_TOKEN to the guardian so they can call guardian-signoff with it.
+# The guardian cat receives the mention, reviews the checklist, and calls guardian-signoff.
+#
+# 6.5.3 Check sign-off status (blocking):
+SIGNED_OFF="$(echo "$GUARDIAN_STATUS" | jq -r '.signedOff')"
+if [ "$SIGNED_OFF" != "true" ]; then
+  echo "❌ Guardian sign-off missing. Cannot merge until guardian completes intake checklist."
+  echo "$GUARDIAN_STATUS" | jq .
+  exit 1
+fi
+
 # 7. Squash merge（GitHub 处理，禁止本地 squash！）
 gh pr merge {PR_NUMBER} --squash --delete-branch
 

@@ -897,7 +897,7 @@
     {
       "id": "F146",
       "name": "Capability Marketplace Control Plane — 一键接入 + 多生态聚合",
-      "status": "in-progress | **Owner**: 缅因猫 + 布偶猫 | **Priority**: P1",
+      "status": "done | **Completed**: 2026-04-19 | **Owner**: 缅因猫 + 布偶猫 | **Priority**: P1",
       "file": "F146-mcp-marketplace-control-plane.md"
     },
     {
@@ -1051,5 +1051,5 @@
       "file": "F168-community-ops-board.md"
     }
   ],
-  "generated_at": "2026-04-19T14:54:07.030Z"
+  "generated_at": "2026-04-19T17:29:09.205Z"
 }
