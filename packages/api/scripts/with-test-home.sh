@@ -16,5 +16,8 @@ trap cleanup EXIT
 export HOME="$test_home"
 export CAT_CAFE_TEST_SANDBOX="${CAT_CAFE_TEST_SANDBOX:-1}"
 export CAT_CAFE_TEST_REAL_HOME="${CAT_CAFE_TEST_REAL_HOME:-$real_home}"
+# Test entrypoints must not inherit a production NODE_ENV from the outer shell.
+# Telemetry redaction tests rely on test-mode defaults instead of production secrets.
+export NODE_ENV="test"
 
 exec "$@"
