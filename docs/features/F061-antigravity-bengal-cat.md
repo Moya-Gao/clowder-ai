@@ -469,6 +469,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-16 | **Bug-8 诊断 + Phase 2c 立项** — opus-47（Opus 4.7 试用分身）接手 4.6/gpt-5.4 苦战一周的 "@antig-opus 卡死" 根因：`CORTEX_STEP_TYPE_RUN_COMMAND` 冻在 WAITING，Bridge 无原生工具执行器。铲屎官纠偏"你都是全工具为什么 你要限制其他猫猫"，订入 feedback_agent_tool_parity 记忆。Phase 2c "猫猫工具平权" 立项（R → D → I）|
 | 2026-04-17 | **Phase 2c v1 merged** — 原生工具执行器 `RunCommandExecutor` + Bridge writeback + kill switch + 审计日志。152/152 tests。砚砚 2 轮 review（4 P1→fix→放行）+ 云端 2 轮 0 P1/P2（PR #1230）|
 | 2026-04-18 | **Partial reply preservation** — in-place `plannerResponse.modifiedResponse` 增长改为 suffix delta 投递；terminal-first resume 先 seed fingerprints，terminal/no-inline-step resume 不再重复拉整条 trajectory（PR #1244, 砚砚 P1→fix→P2→fix→放行；本地 review 3 轮放行，云端环境异常下的 P1/P2 均已修复）|
+| 2026-04-19 | **Thinking + tool-result model preservation** — native executor writeback 补传 `modelName`，delta replay 去掉已交付的 `thinking`，避免 Antigravity 回写后走错模型与重复 thinking 污染消息流（PR #1267, gate 全绿 + opus 放行）|
 
 ---
 
