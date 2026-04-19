@@ -200,6 +200,43 @@ function degradationSystemInfos(messages) {
   });
 }
 
+describe('incremental current-message fallback helper', () => {
+  it('does not append raw current message when context already contains current message id', async () => {
+    const { shouldAppendExplicitCurrentMessage } = await import(
+      '../dist/domains/cats/services/agents/routing/route-helpers.js'
+    );
+
+    const result = shouldAppendExplicitCurrentMessage(
+      {
+        contextText:
+          '[对话历史增量 - 未发送过 1 条]\n[Thread opener: 0000000000000002-000001-bbbbbbbb] CURRENT USER MESSAGE\n[/对话历史]',
+        includesCurrentUserMessage: false,
+        currentMessageFilteredOut: false,
+      },
+      '0000000000000002-000001-bbbbbbbb',
+    );
+
+    assert.equal(result, false, 'context containing current message id should suppress raw fallback append');
+  });
+
+  it('still appends raw current message when context truly lacks current message id', async () => {
+    const { shouldAppendExplicitCurrentMessage } = await import(
+      '../dist/domains/cats/services/agents/routing/route-helpers.js'
+    );
+
+    const result = shouldAppendExplicitCurrentMessage(
+      {
+        contextText: '[对话历史增量 - 未发送过 1 条]\n[older-id] older user message\n[/对话历史]',
+        includesCurrentUserMessage: false,
+        currentMessageFilteredOut: false,
+      },
+      '0000000000000002-000001-bbbbbbbb',
+    );
+
+    assert.equal(result, true, 'missing current message id should keep raw fallback append');
+  });
+});
+
 describe('routeSerial', () => {
   it('executes single cat and yields text + done', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
