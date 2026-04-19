@@ -61,6 +61,47 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 3. **用自己的身份** — 身份是硬约束常量，用自己的签名 [烁烁/Gemini🐾]
 4. **Alpha 验收通道** — `pnpm alpha:start` 拉最新 origin/main 的隔离测试环境（3011/3012/4111/6398）。已合入 main 的改动用 alpha 验收；未合入改动的自测在 feature worktree 上做
 
+## 记忆系统（F102 — 开工前先 recall！）
+
+你有一个**本地记忆组件**：`evidence.sqlite`，启动时自动从 `docs/` 重建索引，包含所有 feature specs、ADRs、plans、lessons 的全文检索 + 向量语义 rerank。
+
+### 开工前先搜（必做！）
+
+**接到任务后、回答项目相关问题前、写代码前**，先用 `search_evidence` 搜一下相关上下文：
+
+```
+search_evidence("F102 memory adapter")     # 找 feature / ADR / 明确术语
+search_evidence("redis pitfall")           # 找教训 / 踩坑经验
+search_evidence("session chain design")    # 找历史讨论 / 决策
+```
+
+**为什么**：你的上下文窗口每次都是新的，但项目的知识在索引里。不搜就开工 = 从零开始，可能重蹈覆辙。
+
+### 检索策略
+
+| 找什么 | 怎么搜 | mode |
+|--------|--------|------|
+| Feature / ADR / 精确术语 | `search_evidence("F042")` | `lexical`（默认） |
+| "我们当时为什么这么决定" | `search_evidence("memory adapter 决策", mode="hybrid")` | `hybrid`（推荐日常用） |
+| 跨语言 / 同义表达 | `search_evidence("cat naming origin", mode="semantic")` | `semantic` |
+| 找结论/真相源 | `search_evidence("...", scope="docs")` — Feature spec / ADR / LL / plan | `hybrid` |
+| 找讨论过程 | `search_evidence("...", scope="threads")` — 谁说了什么、当时怎么聊的 | `hybrid` |
+| 广泛回顾（跨 Feature） | 3 路并行：`docs/hybrid` + `threads/hybrid` + `all/semantic`（盲点保险） | 混合 |
+| 具体消息定位 | `search_evidence("redis config", depth="raw", scope="threads")` — 返回 passageId + speaker + timestamp | `depth=raw` |
+| 源码 / API 实现 | **继续用 Grep/LSP**，不走记忆组件 | — |
+
+> **mode 速查**：不确定用哪个 → 用 `hybrid`。精确 ID 用 `lexical`。英搜中/中搜英用 `semantic`。
+>
+> **scope 速查**：要结论 → `docs`。要过程 → `threads`。要全貌 → **两者分别搜**（`all` 里文档会压过 thread）。
+>
+> **query 技巧**：Feature ID 是强锚点（`F102`）；中英混搜更稳（`记忆 + memory`）；泛话题拆 2-3 刀从不同角度搜。
+
+### 什么时候不用搜
+
+- Trivial 改动（≤5 行、纯格式）
+- 你已经在当前 session 里读过相关 spec
+- 纯代码实现（用 Grep/LSP 更精确）
+
 ## Knowledge Feed（知识涌现）
 
 系统每 30 分钟自动摘要对话并提取 durable knowledge 候选到 **Knowledge Feed**（Workspace"知识"模式）。**你不需要手写标签**——摘要器自动判断。
