@@ -33,6 +33,7 @@ import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
 import type { ScheduleLifecycleNotifier, TriggerSpec } from '../infrastructure/scheduler/types.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 import { registerCallbackAuthHook } from './callback-auth-prehandler.js';
+import { deriveCallbackActor } from './callback-scope-helpers.js';
 import { governanceRoutes } from './schedule-governance.js';
 
 /** #415: Normalize once-trigger input — accepts delayMs (relative) or fireAt (absolute) */
@@ -115,9 +116,10 @@ function resolveScopedDeliveryThreadId(
 
 function deriveScheduleActor(request: FastifyRequest, body: { createdBy?: string }): ScheduleActor {
   if (request.callbackAuth) {
+    const actor = deriveCallbackActor(request.callbackAuth);
     return {
-      triggerUserId: request.callbackAuth.userId,
-      createdBy: request.callbackAuth.catId,
+      triggerUserId: actor.userId,
+      createdBy: actor.catId,
     };
   }
   return {
