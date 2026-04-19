@@ -126,7 +126,7 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     );
   });
 
-  test('stream_error alone still triggers early abort', async () => {
+  test('stream_error before any text is buffered and later recovery text still arrives', async () => {
     const bridge = createMockBridge();
     bridge.pollForSteps = async function* () {
       yield {
@@ -153,13 +153,43 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
     const messages = await collect(service.invoke('hello'));
 
-    const texts = messages.filter((m) => m.type === 'text');
-    assert.equal(texts.length, 0, 'ghost text after stream_error should NOT be yielded');
+    const texts = messages.filter((m) => m.type === 'text').map((m) => m.content);
+    assert.deepEqual(texts, ['ghost text after stream error']);
     const errors = messages.filter((m) => m.type === 'error');
-    assert.ok(
+    assert.equal(
       errors.some((e) => e.errorCode === 'stream_error'),
-      'must have stream_error',
+      false,
+      'buffered no-text stream_error stays hidden if recovery text arrives',
     );
+  });
+
+  test('buffered no-text stream_error expires when no recovery text arrives before grace deadline', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    };
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      streamErrorGraceWindowMs: 10,
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    const texts = messages.filter((m) => m.type === 'text').map((m) => m.content);
+    assert.deepEqual(texts, []);
+    const streamErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'stream_error');
+    assert.equal(streamErrors.length, 1, 'stream_error should surface after no-text grace expires');
   });
 
   test('stream_error after partial text is buffered and later recovery text still arrives', async () => {

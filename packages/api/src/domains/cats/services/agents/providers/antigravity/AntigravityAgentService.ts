@@ -41,7 +41,7 @@ export interface AntigravityAgentServiceOptions {
   pollTimeoutMs?: number;
   /** Auto-approve pending Antigravity interactions — YOLO mode (default: true) */
   autoApprove?: boolean;
-  /** Grace window for buffered stream_error after partial text (default: 4500ms) */
+  /** Grace window for buffered recoverable stream_error before surfacing it (default: 4500ms) */
   streamErrorGraceWindowMs?: number;
 }
 
@@ -141,18 +141,18 @@ export class AntigravityAgentService implements AgentService {
       const handledToolCallIds = new Set<string>();
       let pendingStreamError: AgentMessage | null = null;
       let streamErrorGraceDeadline = 0;
-      const streamErrorMetricAttrs = {
+      let pendingStreamErrorMetricAttrs: Record<string, string> = {
         [GENAI_SYSTEM]: 'antigravity',
         [GENAI_MODEL]: normalizeModel(this.model),
         [STREAM_ERROR_PATH]: 'partial_text',
-      } as const;
+      };
 
       const clearPendingStreamError = (reason: 'recovered' | 'superseded' | 'expired') => {
         if (!pendingStreamError) return;
         if (reason === 'recovered') {
-          antigravityStreamErrorRecovered.add(1, streamErrorMetricAttrs);
+          antigravityStreamErrorRecovered.add(1, pendingStreamErrorMetricAttrs);
         } else if (reason === 'expired') {
-          antigravityStreamErrorExpired.add(1, streamErrorMetricAttrs);
+          antigravityStreamErrorExpired.add(1, pendingStreamErrorMetricAttrs);
         }
         pendingStreamError = null;
         streamErrorGraceDeadline = 0;
@@ -328,9 +328,14 @@ export class AntigravityAgentService implements AgentService {
                 continue;
               }
 
-              if (msg.errorCode === 'stream_error' && hasText) {
+              if (msg.errorCode === 'stream_error') {
+                pendingStreamErrorMetricAttrs = {
+                  [GENAI_SYSTEM]: 'antigravity',
+                  [GENAI_MODEL]: normalizeModel(self.model),
+                  [STREAM_ERROR_PATH]: hasText ? 'partial_text' : 'no_text',
+                };
                 if (!pendingStreamError) {
-                  antigravityStreamErrorBuffered.add(1, streamErrorMetricAttrs);
+                  antigravityStreamErrorBuffered.add(1, pendingStreamErrorMetricAttrs);
                 }
                 pendingStreamError = msg;
                 streamErrorGraceDeadline = Date.now() + self.streamErrorGraceWindowMs;

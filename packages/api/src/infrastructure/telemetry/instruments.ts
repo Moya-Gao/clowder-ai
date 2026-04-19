@@ -94,9 +94,9 @@ export const lineStartDetected = meter.createCounter('cat_cafe.a2a.line_start.de
 
 // --- F061 Phase 2d: Antigravity stream_error grace recovery ---
 
-/** Counter: stream_error buffered after partial text while waiting for recovery tail. */
+/** Counter: stream_error buffered while waiting for a possible recovery tail. */
 export const antigravityStreamErrorBuffered = meter.createCounter('cat_cafe.antigravity.stream_error.buffered_total', {
-  description: 'Buffered Antigravity stream_error after partial text while waiting for a recovery tail',
+  description: 'Buffered Antigravity stream_error while waiting for a possible recovery tail',
 });
 
 /** Counter: buffered stream_error recovered by later text. */
