@@ -11,13 +11,14 @@
 - **feat(F168)**: Community Operations Board Phase A-C — triage orchestration, dispatch controls, repo/time filtering, and Workspace-linked operations.
 - **feat(F146)**: capability marketplace groundwork with curated catalog loaders and install-governance plumbing.
 - **feat(F163)**: memory entropy-reduction groundwork and authority backfill improvements included in the public snapshot.
+- **enhance(long-text)**: message character limit raised from 10K to 100K; long messages (>20 lines) auto-fold with Show more/less toggle. Resolves clowder-ai#448.
 
 ## Community
 
 - Release-intended sync PR: `clowder-ai#538`
 - Source snapshot tag: `clowder-v0.8.0-source`
 - Sync baseline tag: `sync/2026-04-19-145655`
-- No additional GitHub issues were newly closed during the release gate; this release bundles already-merged community PR work plus the new source-owned sync fixes.
+- Closes clowder-ai#448 — long text paste support (community-reported).
 - Full reconciliation report: `docs/ops/reconciliation-v0.8.0.md`
 
 ---
@@ -35,11 +36,12 @@
 - **feat(F168)**：Community Operations Board Phase A-C —— 社区事务编排、派发控制、仓库/时间过滤、Workspace 联动。
 - **feat(F146)**：能力市场基础设施继续推进，包含 curated catalog loaders 与安装治理底座。
 - **feat(F163)**：记忆熵压缩 / authority backfill 的基础能力进入公开快照。
+- **enhance(long-text)**：消息字符上限从 10K 提升至 100K；超过 20 行的长消息自动折叠，支持"展开/收起"。修复 clowder-ai#448。
 
 ## 社区
 
 - 本次 release-intended sync PR：`clowder-ai#538`
 - source snapshot tag：`clowder-v0.8.0-source`
 - sync baseline tag：`sync/2026-04-19-145655`
-- 本轮 release gate **没有新增手工关单的 GitHub issue**；它发布的是已合入的社区 PR 修复，以及这次新完成的 source-owned sync 修复。
+- 关闭 clowder-ai#448 —— 长文本粘贴支持（社区反馈）。
 - 完整对账报告：`docs/ops/reconciliation-v0.8.0.md`
