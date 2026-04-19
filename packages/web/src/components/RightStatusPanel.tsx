@@ -121,7 +121,7 @@ function ThinkingModeToggle({ threadId }: { threadId: string }) {
   return (
     <div className="flex items-center justify-between">
       <span>
-        心里话: <span className="font-medium">{isDebug ? '🔍 调试' : '🎭 游戏'}</span>
+        心里话: <span className="font-medium">{isDebug ? '调试' : '游戏'}</span>
       </span>
       <button
         onClick={toggle}
