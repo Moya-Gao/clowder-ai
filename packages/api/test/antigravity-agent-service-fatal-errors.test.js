@@ -162,7 +162,7 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     );
   });
 
-  test('stream_error after partial text does NOT abort poll — later recovery text still arrives', async () => {
+  test('stream_error after partial text is buffered and later recovery text still arrives', async () => {
     const bridge = createMockBridge();
     bridge.pollForSteps = async function* () {
       yield {
@@ -206,36 +206,42 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
       'stream_error after partial text should not truncate later recovery text',
     );
     const errors = messages.filter((m) => m.type === 'error');
-    assert.ok(
+    assert.equal(
       errors.some((e) => e.errorCode === 'stream_error'),
-      'stream_error should still be surfaced',
+      false,
+      'buffered stream_error stays hidden',
     );
   });
 
-  test('stream_error does NOT abort when upstream_error co-occurs — stream_error is noise', async () => {
+  test('buffered stream_error is dropped when upstream_error arrives later', async () => {
     const bridge = createMockBridge();
     bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_GENERATING',
+            plannerResponse: { modifiedResponse: '好的，我来换个方式——' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+          },
+        ],
+        cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: false, lastActivityAt: Date.now() },
+      };
       yield {
         steps: [
           {
             type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
             status: 'FINISHED',
             errorMessage: { error: { userErrorMessage: 'The model produced an invalid tool call.' } },
-          },
-          {
-            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
-            status: 'FINISHED',
-            plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
-          },
-        ],
-        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: false, lastActivityAt: Date.now() },
-      };
-      yield {
-        steps: [
-          {
-            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
-            status: 'FINISHED',
-            plannerResponse: { response: 'Self-corrected after mixed errors.' },
           },
         ],
         cursor: { baselineStepCount: 2, lastDeliveredStepCount: 3, terminalSeen: true, lastActivityAt: Date.now() },
@@ -244,9 +250,98 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
     const messages = await collect(service.invoke('hello'));
 
-    const texts = messages.filter((m) => m.type === 'text');
-    assert.equal(texts.length, 1, 'self-corrected text must survive when stream_error is noise');
-    assert.equal(texts[0].content, 'Self-corrected after mixed errors.');
+    const streamErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'stream_error');
+    const upstreamErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'upstream_error');
+    assert.equal(streamErrors.length, 0, 'buffered stream_error should be dropped when upstream_error arrives');
+    assert.equal(upstreamErrors.length, 1, 'upstream_error should be surfaced');
+  });
+
+  test('buffered stream_error is dropped when model_capacity arrives later', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_GENERATING',
+            plannerResponse: { modifiedResponse: '好的，我来换个方式——' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+          },
+        ],
+        cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 2, lastDeliveredStepCount: 3, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const messages = await collect(service.invoke('hello'));
+
+    const streamErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'stream_error');
+    const capacityErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    const texts = messages.filter((m) => m.type === 'text').map((m) => m.content);
+    assert.deepEqual(texts, ['好的，我来换个方式——']);
+    assert.equal(streamErrors.length, 0, 'buffered stream_error should be dropped when model_capacity arrives');
+    assert.equal(capacityErrors.length, 1, 'model_capacity should be surfaced');
+  });
+
+  test('buffered stream_error expires when no recovery text arrives before grace deadline', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_GENERATING',
+            plannerResponse: { modifiedResponse: '好的，我来换个方式——' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+          },
+        ],
+        cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    };
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      streamErrorGraceWindowMs: 10,
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    const texts = messages.filter((m) => m.type === 'text').map((m) => m.content);
+    assert.deepEqual(texts, ['好的，我来换个方式——']);
+    const streamErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'stream_error');
+    assert.equal(streamErrors.length, 1, 'stream_error should surface after grace expires');
   });
 
   test('does NOT emit empty_response when fatalSeen', async () => {
