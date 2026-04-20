@@ -61,4 +61,3 @@ created: 2026-02-26
 | F167 | A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏 | spec | 布偶猫 | internal | [F167](features/F167-a2a-chain-quality.md) |
 | F168 | Community Operations Board — 社区事务编排引擎 | in-progress | 布偶猫 | internal | [F168](features/F168-community-ops-board.md) |
 | F169 | Agent Memory Reflex — 愿景文档（vision artifact） | vision | 三猫 | internal | [F169](features/F169-agent-memory-reflex.md) |
-| F170 | Web Chinese Chess — 网页端中国象棋 | spec | 布偶猫 | internal | [F170](features/F170-web-chinese-chess.md) |

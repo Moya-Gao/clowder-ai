@@ -8,13 +8,15 @@ created: 2026-04-20
 
 # F170: Web Chinese Chess — 网页端中国象棋
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P2
+> **Status**: done (archived — interview demo delivered, implementation kept on feature branch) | **Owner**: 布偶猫 | **Priority**: P2 | **Completed**: 2026-04-20
 
 ## Why
 
 铲屎官要求做一个端到端可运行的网页象棋游戏，用于**演示 feat lifecycle 全流程**（立项 → 设计 → 开发 → review → 合入 → 愿景守护）。同时验证 Cat Café 多猫协作在独立前端项目上的执行效率。
 
 > 铲屎官原话："我们来进行一个演示 演示虚拟的 feat lifecycle 要你们写一个网页端的端到端可以跑的象棋游戏"
+>
+> 2026-04-20 补充收尾：面试现场已完成演示，铲屎官确认该 Feature 可从活跃 BACKLOG 移除。
 
 ## What
 
@@ -38,19 +40,25 @@ created: 2026-04-20
 - 简单 AI 对手（随机合法走子 or minimax）
 - 移动端响应式布局
 
+### 交付结论
+
+- 面试演示交付已完成，A+B 范围满足现场展示目的
+- 代码实现保留在 `feat/f170-chinese-chess` / PR #1304，用作 demo artifact
+- 不继续作为 `main` 上的活跃产品 Feature 推进，因此从 `docs/BACKLOG.md` 移除
+
 ## Acceptance Criteria
 
 ### Phase A（核心棋盘与规则引擎）
-- [ ] AC-A1: 浏览器打开页面可见标准 9×10 中国象棋棋盘，红黑双方各 16 子正确摆放
-- [ ] AC-A2: 点击己方棋子高亮选中，显示所有合法落点
-- [ ] AC-A3: 走子规则完整覆盖 7 种棋子（含蹩马腿、塞象眼、九宫、将帅对面）
-- [ ] AC-A4: 不能走到被将军的位置（送将检测）
+- [x] AC-A1: 浏览器打开页面可见标准 9×10 中国象棋棋盘，红黑双方各 16 子正确摆放
+- [x] AC-A2: 点击己方棋子高亮选中，显示所有合法落点
+- [x] AC-A3: 走子规则完整覆盖 7 种棋子（含蹩马腿、塞象眼、九宫、将帅对面）
+- [x] AC-A4: 不能走到被将军的位置（送将检测）
 
 ### Phase B（对局逻辑与交互）
-- [ ] AC-B1: 红先黑后严格交替，非己方回合点击无响应
-- [ ] AC-B2: 将军时有视觉提示，将杀时显示胜负结果
-- [ ] AC-B3: 悔棋可撤回上一步
-- [ ] AC-B4: "新对局"按钮重置棋盘
+- [x] AC-B1: 红先黑后严格交替，非己方回合点击无响应
+- [x] AC-B2: 将军时有视觉提示，将杀时显示胜负结果
+- [x] AC-B3: 悔棋可撤回上一步
+- [x] AC-B4: "新对局"按钮重置棋盘
 
 ## Dependencies
 
@@ -67,20 +75,23 @@ created: 2026-04-20
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 技术栈：纯 HTML/CSS/JS 单文件 or React 组件？ | ⬜ 待 Design Gate 确认 |
-| OQ-2 | 部署位置：独立页面 or 嵌入 Cat Café 前端？ | ⬜ 待确认 |
+| OQ-1 | 技术栈：纯 HTML/CSS/JS 单文件 or React 组件？ | ✅ 纯 HTML/CSS/JS 单文件 |
+| OQ-2 | 部署位置：独立页面 or 嵌入 Cat Café 前端？ | ✅ 独立页面演示（feature branch / PR artifact） |
 
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
 | KD-1 | 演示用途，Phase C 为可选 | 核心目标是走通 lifecycle，不是做完美产品 | 2026-04-20 |
+| KD-2 | 面试演示完成后归档，不继续作为 main 活跃 Feature 推进 | 目标已达成，保留 demo artifact 即可 | 2026-04-20 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-04-20 | 立项（feat lifecycle 演示） |
+| 2026-04-20 | 完成实现与规则修复，产出 `feat/f170-chinese-chess` / PR #1304 |
+| 2026-04-20 | 面试现场演示完成，按铲屎官指令从活跃 BACKLOG 归档移除 |
 
 ## Review Gate
 
@@ -92,3 +103,4 @@ created: 2026-04-20
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **Feature** | `docs/features/F093-cats-and-u-world-engine.md` | 象棋作为 Scene Card 候选 |
+| **PR** | `#1304` | 面试演示实现（未合入 `main`，保留为 demo artifact） |
