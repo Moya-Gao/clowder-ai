@@ -119,17 +119,17 @@ created: 2026-03-31
 - [x] AC-H5: 原 regex artifact 提取（`extractDecisionSignals` 的 `ARTIFACT_PATTERN`）保留作为 fallback，确定性 > regex 优先级
 - [x] AC-H6: 测试覆盖：artifact 录入（SessionSealer 路径）/ 导航渲染（有/无 artifacts）/ ThreadMemory 向后兼容（v1→v2 读入无 recentArtifacts = []）
 
-### Phase G（Goal & Grounding — 真相源定位 + best-next-source）📋
+### Phase G（Goal & Grounding — 真相源定位 + best-next-source）✅
 
 > **设计来源**：GPT-5.4 作为 Phase H 用户的反馈（2026-04-20）："H 回答'最近有什么'，G 要回答'猫第一眼该看哪个真相源'"
 > **核心原则**：排序层，不是摘要层。确定性规则，不用 LLM/classifier（KD-8）。
 
-- [ ] AC-G1: **Thread-level artifact ledger** — `buildThreadMemory` 从 overwrite 改为 append+dedup+cap（上限 20 条，按 updatedAt 淘汰最旧）。跨 seal 累积，不只保留最近一次。`ThreadMemoryV1.recentArtifacts` 升级为 ledger 语义
-- [ ] AC-G2: **Source ranking** — 新增 `rankArtifactSources(ledger, activeTasks, threadMeta)` 纯函数，确定性优先级：① `thread.backlogItemId → workflowSop.featureId` canonical binding（一等信号，已在 route-serial 工作）② feature doc from canonical featureId ③ open PR（活跃 pr_tracking task）④ 最近修改的关键文件。Fallback：thread title / task title regex `F\d{2,3}` 仅在 canonical binding 缺失时启用。无 LLM，无 classifier
-- [ ] AC-G3: **Single best-next-source** — 从 ranked list 取 top-1，格式化为可行动指针（如 `先看 F148 spec: docs/features/F148-*.md`）。导航 header 新增 `真相源: {label}` 行
-- [ ] AC-G4: **Fail-closed confidence** — provenance-based（不发明 score schema）：canonical binding 命中 = 高确定性直接展示；regex fallback 命中 = 展示但标注 `(推断)`；ranked list 为空 = `真相源: 未定位`。不编造、不猜测
-- [ ] AC-G5: **UI 分层** — 导航 header：`真相源: {label}` + `下一步: {best-next-source}`（2 行，最小可行动信息）；briefing 展开态：完整 ledger 列表 + ranking 理由
-- [ ] AC-G6: **测试覆盖** — ledger 累积（跨 seal append+dedup）/ ranking 纯函数（各优先级路径）/ fail-closed（空 ledger / 无匹配）/ 导航渲染（有/无真相源）/ backward compat（旧 threadMemory 无 ledger）
+- [x] AC-G1: **Thread-level artifact ledger** — `buildThreadMemory` 从 overwrite 改为 append+dedup+cap（上限 20 条，按 updatedAt 淘汰最旧）。跨 seal 累积，不只保留最近一次。`ThreadMemoryV1.recentArtifacts` 升级为 ledger 语义
+- [x] AC-G2: **Source ranking** — 新增 `rankArtifactSources(ledger, activeTasks, threadMeta)` 纯函数，确定性优先级：① `thread.backlogItemId → workflowSop.featureId` canonical binding（一等信号，已在 route-serial 工作）② feature doc from canonical featureId ③ open PR（活跃 pr_tracking task）④ 最近修改的关键文件。Fallback：thread title / task title regex `F\d{2,3}` 仅在 canonical binding 缺失时启用。无 LLM，无 classifier
+- [x] AC-G3: **Single best-next-source** — 从 ranked list 取 top-1，格式化为可行动指针（如 `先看 F148 spec: docs/features/F148-*.md`）。导航 header 新增 `真相源: {label}` 行
+- [x] AC-G4: **Fail-closed confidence** — provenance-based（不发明 score schema）：canonical binding 命中 = 高确定性直接展示；regex fallback 命中 = 展示但标注 `(推断)`；ranked list 为空 = `真相源: 未定位`。不编造、不猜测
+- [x] AC-G5: **UI 分层** — 导航 header：`真相源: {label}` + `下一步: {best-next-source}`（2 行，最小可行动信息）；briefing 展开态：完整 ledger 列表 + ranking 理由
+- [x] AC-G6: **测试覆盖** — ledger 累积（跨 seal append+dedup）/ ranking 纯函数（各优先级路径）/ fail-closed（空 ledger / 无匹配）/ 导航渲染（有/无真相源）/ backward compat（旧 threadMemory 无 ledger）
 
 ## Dependencies
 
@@ -228,6 +228,7 @@ created: 2026-03-31
 | 2026-04-20 | Phase G→H 优先级调整 — 布偶猫 + GPT-5.4 共识：narrative tombstone 是压缩轴微调不值独立 Phase；H（artifact tracking）提前；G 重定义为 Goal & Grounding（等 H）。铲屎官确认 |
 | 2026-04-20 | Phase H merged (PR #1297) — artifact-tracking.ts + sortAndCapArtifacts + SessionSealer wiring + navigation/briefing rendering + ThreadMemory backward compat。GPT-5.4 review (R1: 2P2, R2 pass) + 云端 review passed |
 | 2026-04-20 | Phase G AC 定义 — GPT-5.4 作为 H 用户反馈（工程 80/体感 45）→ G1-G6 确定性真相源排序层设计收敛 |
+| 2026-04-20 | Phase G merged (PR #1303) — source-ranking.ts + thread-level ledger upgrade + production wiring (route-helpers mergeLedger PR preservation)。GPT-5.4 review (5 rounds + 延续) + 云端 review (4 rounds: 3P1+1P2 fixed via TDD) |
 
 ## Phase F-J: 导航轴优化（2026-04-19 Reopened）
 
