@@ -300,6 +300,7 @@ cat_cafe_hold_ball({
 | 2026-04-19 | 宪宪综合：Phase C 设计收敛（KD-13~15），OQ-4/5 关闭 |
 | 2026-04-19 | 铲屎官 5 线程审视：砚砚全部不传球 → 砚砚自诊两种根因 → Phase C 拆分 C1（hold_ball）+ C2（forced-pass）（KD-16） |
 | 2026-04-20 | Phase C1 merged (PR #1289, 08b6f7d15) — hold_ball MCP polish：MCP description 5-element 标准 + gpt52 review P1/P2（`maxHoldsPerWindow` 语义修正 + 进程内 best-effort 注记）；cloud Codex 零 P1/P2 放行 |
+| 2026-04-20 | Phase C1 route test merged (PR #1290, e34baa85b) — 补齐 gpt52 P3 遗留的 callback route 端到端行为测试（7 tests: 401 / 3×400 / 200 / 429 / 500）；cloud Codex P2（文件超 200 行）→ 按 scenario 拆分 2 文件后放行 |
 
 ## Behavioral Evidence（Phase B 观察记录）
 
