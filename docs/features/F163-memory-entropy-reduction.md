@@ -244,6 +244,25 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 - [x] AC-E3: `EvidenceResult` 接口新增 `authority` 可选字段，API/MCP/前端三层 consumer 均携带 authority 元数据
 - [x] AC-E4: `authorityToConfidence()` 保留但不再被搜索路由引用（向后兼容）
 
+### Phase F: Task-scoped Salience Gating（运行时上下文降权）📋
+
+**核心问题**：Phase A-E 的元数据是**静态**的。validated authority 文档在所有任务中都 boost，即使和当前任务无关（例：做 F169 时 F088 Chat Gateway 的 decision 也排前面）。需要一个运行时维度，让搜索结果感知"当前在做什么"。
+
+**方案**（来源：F169 愿景约束 VAC-C1~C5，opus-47 提出，opus-46 方向认可）：
+- 扩展 `activation` 体系，新增运行时 `salience` 维度
+- `salience = f(authority, relevance_to_task, recency_in_thread)`，当 relevance 低于阈值时降权
+- `criticality=high` 的铁律级知识**不参与 gating**（P0 铁律永远在场，对齐 KD-7）
+- Salience gating 是可逆的任务作用域降权，不是删除
+
+**与 F148 的协作**：F148 Phase F（Reflex Injection / memory spotlight）做"加相关"，F163 Phase F 做"减无关"——同一运行时层的正反面。
+
+### Phase F AC
+- [ ] AC-F1: `salience` 纯函数存在，输入 (authority, task_context, thread_context)，输出 0.0-1.0，有单元测试
+- [ ] AC-F2: `criticality=high` 知识**不参与 gating**（P0 铁律永远在场，对齐 KD-7 + ADR-009）
+- [ ] AC-F3: 运行时测试——在 feat X 开发 thread 里，feat Y 的无关决策 salience < 0.3，不进 spotlight
+- [ ] AC-F4: 可逆性——同一文档在不同 task context 下 salience 不同，切换任务后恢复
+- [ ] AC-F5: Gold set 验证——salience gating 后 NDCG@10 不低于 Phase E baseline（降噪不降召回）
+
 ## Dependencies
 
 - **Evolved from**: F102（记忆基础设施——F163 在 F102 的索引/搜索能力上增加分层和权重）
@@ -305,6 +324,7 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | 2026-04-19 | Phase E 方案草案 + gpt52 圆桌讨论 → 共识：confidence=f(rank), authority 独立字段 |
 | 2026-04-19 | Phase E 实现 — rankToConfidence, evidence.ts 接线, authority 独立暴露 |
 | 2026-04-19 | Phase E merged (PR #1284) — confidence=f(rank), authority 独立暴露到 API/MCP/前端, gpt52 review (R2 放行) |
+| 2026-04-19 | Phase F 立项：task-scoped salience gating（来源：F169 愿景约束 VAC-C1~C5，opus-47 提出，铲屎官确认加入） |
 
 ## Review Gate
 

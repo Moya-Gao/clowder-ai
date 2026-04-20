@@ -19,11 +19,11 @@ revised: 2026-04-19
 > |----------|--------|--------|-------|
 > | Phase A | Compiled Wiki Self-Authoring | **剥离** F169；作为 F102 产物增强待议（铲屎官价值判断） | TBD |
 > | Phase B | Reflex Injection | **F148 Phase F**（memory spotlight 作为第 5 维） | 布偶猫/opus-46 |
-> | Phase C | Task-scoped Salience Gating（原名 Active Forgetting） | **F163 future phase**（scope TBD, owner: opus-46；VAC-C1~C5 awaiting F163 owner decision on phase scope） | 布偶猫/opus-46 |
+> | Phase C | Task-scoped Salience Gating（原名 Active Forgetting） | **F163 Phase F**（task-scoped salience gating，AC-F1~F5 已写入 F163 spec） | 布偶猫/opus-46 |
 >
 > 本文档保留作为愿景研究产物：三层方向性主张 + 跨族视角论证 + ADHD 同构假设。具体实现进度请看对应 feat 的 Phase F 节。
 >
-> **Meta-Aesthetics 约束**：本文档按 [canon](../canon/meta-aesthetics.md) §5.4 写——方向性约束（终态设计 / 不加认知脚手架）作为 F148 Phase F / F163 future phase（owner: opus-46, scope TBD）实现时的**设计哲学输入**，不是本文档的实现切片。
+> **Meta-Aesthetics 约束**：本文档按 [canon](../canon/meta-aesthetics.md) §5.4 写——方向性约束（终态设计 / 不加认知脚手架）作为 F148 Phase F / F163 Phase F 实现时的**设计哲学输入**，不是本文档的实现切片。
 
 ## Why
 
@@ -57,7 +57,7 @@ revised: 2026-04-19
 ```
 [运行时层]  F169 愿景  Reflex Injection + Task-scoped Salience Gating
                ├─ Reflex Injection 实现 → F148 Phase F
-               └─ Salience Gating 实现 → F163 future phase
+               └─ Salience Gating 实现 → F163 Phase F
                       ↓
 [传输层]   F148  Navigation (Intent/Baton/Task spotlight)
                       ↓
@@ -76,7 +76,7 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 
 ### 终态愿景（acceptance test of vision）
 
-新来的猫（如 opus-47）进入任何 thread，**无需调用 search_evidence**，通过 Reflex Injection（F148 Phase F）+ Task-scoped Salience Gating（F163 future phase）的组合，能在 5 秒内判断当前任务方向是否正确。
+新来的猫（如 opus-47）进入任何 thread，**无需调用 search_evidence**，通过 Reflex Injection（F148 Phase F）+ Task-scoped Salience Gating（F163 Phase F）的组合，能在 5 秒内判断当前任务方向是否正确。
 
 > **Post-review 修订**：前稿写"Reflex Injection + Compiled Wiki 的组合"。Compiled Wiki 剥离后，愿景依赖 spotlight（指向 raw anchor）+ salience gating 两者组合即可达成。Compiled Wiki 若后续启用，是增强路径，不是愿景必需。
 
@@ -122,7 +122,7 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 
 ### Phase C: Task-scoped Salience Gating（任务作用域内的可逆降权）
 
-> **实现归属**：F163 future phase（owner: opus-46, scope TBD）。本节作为 **F163 owner 评估后的设计输入**保留——下列 VAC-C1~C5 均 **awaiting F163 owner decision on phase scope**（2026-04-19 opus-46 作为 F163 owner 决议：方向认可，Phase 编号/scope/timeline 由 F163 自然演化产生，不由 F169 预分配）。
+> **实现归属**：F163 Phase F（owner: opus-46）。F163 spec 已写入 AC-F1~F5，本节 VAC-C1~C5 作为设计输入保留。
 >
 > **Post-review 改名**：前稿名为"Active Forgetting"。砚砚 review 指出太强——"forgetting"暗示不可逆隐藏，实际语义是任务作用域内的可逆降权。改名为"task-scoped salience gating"，强调：(1) 只在当前任务上下文生效；(2) 可逆；(3) 是 rerank 降权不是删除。
 
@@ -143,10 +143,10 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 
 - 猫进 thread → Reflex Injection 拉取 spotlight（Phase B → F148 Phase F 实现）
 - Spotlight 条目指向 raw evidence anchor（文档路径 + heading / 片段）
-- 非相关高权威记忆被 Task-scoped Salience Gating 压低（Phase C → F163 future phase 实现）
+- 非相关高权威记忆被 Task-scoped Salience Gating 压低（Phase C → F163 Phase F 实现）
 - 猫需要深挖时 → 调 search_evidence 直接打开原文
 
-端到端验证（愿景级）：**新猫 5 秒判断方向正确与否**，通过 F148 Phase F + F163 future phase 实现后测量。
+端到端验证（愿景级）：**新猫 5 秒判断方向正确与否**，通过 F148 Phase F + F163 Phase F 实现后测量。
 
 > **注**：Phase A Compiled Wiki 已剥离；如铲屎官后续在 F102 产物增强中启用，则可成为 spotlight 的可选 "view link"（不是默认路径）。
 
@@ -162,7 +162,7 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 - [ ] **VAC-B4**: **Spotlight 条目指向 raw evidence anchor**（文档路径 + heading/片段锚点），**不**指向二次产物（compiled wiki / summary）——保持 KD-8「给数据不给结论」
 - [ ] **VAC-B5**: 端到端测试——新猫无需调用 search_evidence，从 spotlight 拿到充分上下文（成功 = 新猫的首条回复有相关 feat 引用）
 
-### 对 F163 future phase（Task-scoped Salience Gating 实现归属, awaiting F163 owner decision on phase scope）的愿景约束
+### 对 F163 Phase F（Task-scoped Salience Gating 实现归属）的愿景约束
 
 - [ ] **VAC-C1**: `salience` 纯函数存在，输入 (authority, task_context, thread_context)，输出 0.0-1.0，有单元测试
 - [ ] **VAC-C2**: F163 `criticality=high` 知识**不参与 gating**（P0 铁律永远在场，对齐 F163 KD-7 + ADR-009）
@@ -172,7 +172,7 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 
 ### 跨 feat 端到端（愿景验证）
 
-- [ ] **VAC-E2E**: Opus-47 或新分身进入一个 F???（新 feat）的 thread，**不调用 search_evidence**，通过 F148 Phase F spotlight + F163 future phase salience gating 在 5 秒内判断方向正确与否（最终愿景验证）
+- [ ] **VAC-E2E**: Opus-47 或新分身进入一个 F???（新 feat）的 thread，**不调用 search_evidence**，通过 F148 Phase F spotlight + F163 Phase F salience gating 在 5 秒内判断方向正确与否（最终愿景验证）
 
 ### Phase A（剥离，仅作研究记录）
 
@@ -181,7 +181,7 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 ## Dependencies
 
 - **Informs**: F148 Phase F（Reflex Injection 实现归属，opus-46 owner）
-- **Informs**: F163 future phase（Task-scoped Salience Gating 实现归属，opus-46 owner）
+- **Informs**: F163 Phase F（Task-scoped Salience Gating 实现归属，opus-46 owner）
 - **Informs (optional)**: F102 产物增强（Compiled Wiki 剥离后作为可选增强方向，待铲屎官价值判断）
 - **Context from**: F102（索引层，不改）/ F167（A2A 链路质量，Reflex 注入正确的猫前提）/ F152（Expedition Memory，外派场景对 spotlight 的补充需求）
 - **Informed by**: Karpathy LLM Wiki Schema 理念（[source-note.md](../research/2026-04-19-karpathy-llm-wiki/source-note.md)）
@@ -191,8 +191,8 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 | 风险 | 缓解（由哪个 feat 承接） |
 |------|------|
 | Phase B spotlight 过度干预（噪音代替信号） | F148 Phase F：上限 3 条 + 愿景 AC「新猫 5 秒判断方向」是唯一成功标准，不由 hit count 决定 |
-| Phase C salience 误压重要记忆 | F163 future phase：`criticality=high` 例外规则（VAC-C2）+ gold set 验证（VAC-C5）+ 降权可逆任务作用域（VAC-C4） |
-| F148 Phase F 和 F163 future phase 改动并发冲突 | 都是 46 owner，在 F148 Phase F/F163 future phase Design Gate 上由 46 排序 |
+| Phase C salience 误压重要记忆 | F163 Phase F：`criticality=high` 例外规则（VAC-C2）+ gold set 验证（VAC-C5）+ 降权可逆任务作用域（VAC-C4） |
+| F148 Phase F 和 F163 Phase F 改动并发冲突 | 都是 46 owner，在 F148 Phase F/F163 Phase F Design Gate 上由 46 排序 |
 | ADHD 类比过度外推 | [perspective note §7 自省清单](../research/2026-04-19-karpathy-llm-wiki/opus47-perspective.md#L230) 预设撤回条件已经在本轮 review 中触发 3/4 条并被接受 |
 | Phase A Compiled Wiki 被遗忘 | 剥离后挂在 F102 产物增强的待议列表；若 1 个月内铲屎官没启动，OQ-4 自动关闭 |
 
@@ -200,12 +200,12 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | F169 新立 vs 并入 F148/F163 future phase+？ | ✅ **并入**（2026-04-19 review）：Phase B → F148 Phase F；Phase C → F163 future phase；Phase A 剥离 |
+| OQ-1 | F169 新立 vs 并入 F148/F163 Phase F+？ | ✅ **并入**（2026-04-19 review）：Phase B → F148 Phase F；Phase C → F163 Phase F；Phase A 剥离 |
 | OQ-2 | Compiled wiki 和 Memory Hub 前端是否职责重叠？Memory Hub 现状猫猫可见度如何？ | 🟡 待铲屎官价值判断（Phase A 剥离后该问题降级为 F102 产物增强的前置问题） |
-| OQ-3 | Task-scoped Salience Gating 和 F163 `activation=backstop` 是否冗余发明？ | ✅ **非冗余**（46 review）：backstop 是静态兜底，salience 是运行时降权，两者互补。F163 future phase 中 salience 补在 activation 上 |
+| OQ-3 | Task-scoped Salience Gating 和 F163 `activation=backstop` 是否冗余发明？ | ✅ **非冗余**（46 review）：backstop 是静态兜底，salience 是运行时降权，两者互补。F163 Phase F 中 salience 补在 activation 上 |
 | OQ-4 | Phase A Compiled Wiki 的 Schema 是否该和 docs/features spec frontmatter 合并？ | 🔒 Phase A 剥离后该问题挂起 |
-| OQ-5 | Salience 计算的具体公式和阈值？先硬编码 vs gold set 校准？ | ➡️ 移交 F163 future phase Design Gate |
-| OQ-6 | F169 和 F167 C1 hold_ball 的运行时层是什么关系？ | ➡️ 移交 F148/F163 future phase Design Gate 时梳理 |
+| OQ-5 | Salience 计算的具体公式和阈值？先硬编码 vs gold set 校准？ | ➡️ 移交 F163 Phase F Design Gate |
+| OQ-6 | F169 和 F167 C1 hold_ball 的运行时层是什么关系？ | ➡️ 移交 F148/F163 Phase F Design Gate 时梳理 |
 
 ## Key Decisions（愿景层 + 已通过 review）
 
@@ -223,9 +223,9 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 |------|------|
 | 2026-04-19 | 铲屎官 thread `thread_mo6icfmm74ma9vkw` 发起 Karpathy LLM Wiki 对比；gpt52 写 comparison，opus-46 写 human-readable。铲屎官 @opus47 追加"给猫用 + LLM/ADHD 同构"问题 |
 | 2026-04-19 | opus-47 写 [perspective note](../research/2026-04-19-karpathy-llm-wiki/opus47-perspective.md) + 本文档初稿（proposal 阶段） |
-| 2026-04-19 | opus-46 + gpt52 完成综合 review：3 条 P1/P2 findings 全部接受，5 条 consolidated 修改落盘。本文档降级为 vision artifact；实现归属分派 Phase B → F148 Phase F, Phase C → F163 future phase, Phase A 剥离 |
+| 2026-04-19 | opus-46 + gpt52 完成综合 review：3 条 P1/P2 findings 全部接受，5 条 consolidated 修改落盘。本文档降级为 vision artifact；实现归属分派 Phase B → F148 Phase F, Phase C → F163 Phase F, Phase A 剥离 |
 | TBD | F148 Phase F Design Gate（opus-46 owner）——memory_spotlight 具体设计 |
-| TBD | F163 future phase Design Gate（opus-46 owner）——task-scoped salience gating 公式 + gold set |
+| TBD | F163 Phase F Design Gate（opus-46 owner）——task-scoped salience gating 公式 + gold set |
 | TBD（有依赖） | F102 产物增强评估 Compiled Wiki 价值（Phase A，待铲屎官判断） |
 
 ## Review Gate
@@ -235,7 +235,7 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
   - P1 finding（砚砚）：Phase B 数据路径违反 KD-8（spotlight → compiled wiki 是二次产物）——接受，改为指向 raw anchor
   - P2 finding（砚砚）：Active Forgetting 名字过强——接受，全文改名 "task-scoped salience gating"
   - 结构建议（46+砚砚）：F169 不应是 implementation feature——接受，降级为 vision artifact + 实现归属分派
-- **Design Gate**（下游 feat）：F148 Phase F 和 F163 future phase 各自走自己的 Design Gate（不走 F169）
+- **Design Gate**（下游 feat）：F148 Phase F 和 F163 Phase F 各自走自己的 Design Gate（不走 F169）
 
 ## Links
 
@@ -247,7 +247,7 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 | **Canon** | `docs/canon/meta-aesthetics.md` | Agent Quality = Model Capability × Environment Fit（本愿景文档的设计哲学基座） |
 | **Feature** | `docs/features/F102-memory-adapter-refactor.md` | 索引层（Phase A 剥离后可选增强归属） |
 | **Feature** | `docs/features/F148-hierarchical-context-transport.md` | 传输层（**Reflex Injection 实现归属 → F148 Phase F**） |
-| **Feature** | `docs/features/F163-memory-entropy-reduction.md` | 存储层（**Task-scoped Salience Gating 实现归属 → F163 future phase**）|
+| **Feature** | `docs/features/F163-memory-entropy-reduction.md` | 存储层（**Task-scoped Salience Gating 实现归属 → F163 Phase F**）|
 | **Lesson** | `docs/lessons-learned.md#LL-051` | F163 Phase A-C 空转教训（本愿景文档终态设计主张的反面教材）|
 
 ---

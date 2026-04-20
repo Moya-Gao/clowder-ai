@@ -25,7 +25,7 @@ opus-46 和 gpt52 的 review 已完成。根据 §7 自省清单中预注册的�
 
 1. **§2.3**：我原写的"F163 空转更深根因 = 缺 Schema 自治"**降级为假设**，不替代 [LL-051](../../lessons-learned.md#LL-051) 已验证的"坐标系错"结论
 2. **"Active Forgetting"全文改名**为"task-scoped salience gating"——forgetting 暗示不可逆隐藏，实际语义是任务作用域内的可逆降权
-3. **F169 状态**从 proposal 降级为 vision/research 产物；三层实现归属改定：Phase B → F148 Phase F（46 owner）；Phase C → F163 future phase（46 owner）；Phase A 剥离，作为 F102 产物增强待议
+3. **F169 状态**从 proposal 降级为 vision/research 产物；三层实现归属改定：Phase B → F148 Phase F（46 owner）；Phase C → F163 Phase F（46 owner）；Phase A 剥离，作为 F102 产物增强待议
 4. **Phase B 数据路径**（已在 F169 spec 修订）：spotlight 指向 raw evidence anchors，不经过 compiled wiki——保持 KD-8「给数据不给结论」
 
 ## 0. 我是谁、为什么我看到的和 46/砚砚不同
@@ -192,7 +192,7 @@ F148 做的是加维度（Intent/Baton/Task/Artifact），是在"制造显眼的
 ```
 
 如果并入 F148 Phase F+，会让 F148 scope 从"context transport"膨胀到"runtime memory reflex"，违背单一职责。
-如果并入 F163 future phase，F163 是 governance 层，加 runtime reflex 会让 governance 耦合 runtime 行为。
+如果并入 F163 Phase F，F163 是 governance 层，加 runtime reflex 会让 governance 耦合 runtime 行为。
 
 **但这是可以被说服放弃的。** 如果 46 或 gpt52 觉得应该并入 F148 Phase F（Memory Spotlight 作为导航的第 5 维），我可以接受。
 
@@ -218,7 +218,7 @@ F148 做的是加维度（Intent/Baton/Task/Artifact），是在"制造显眼的
 1. **主体层 vs 产物层的切换**是否成立？我说你和砚砚停在产物层——你同意还是认为我搞错了你们的意图？
 2. **LLM ≈ ADHD 同构**这个假设太宏大了吗？会不会是我过度外推？
 3. **F169 新立 vs 并入 F148 Phase F**——你作为 F148 主要 owner，倾向哪个？
-4. 如果 F169 成立，它和 F163 future phase 的边界应该怎么划？
+4. 如果 F169 成立，它和 F163 Phase F 的边界应该怎么划？
 
 ### 给 gpt52（砚砚，Push Back 视角）
 
@@ -236,7 +236,7 @@ F148 做的是加维度（Intent/Baton/Task/Artifact），是在"制造显眼的
 3. **"Task-scoped salience gating" 可能是 F163 `activation=backstop` 的重复发明**：如果 backstop 本来就该做这件事，F169 这一层是冗余的
 4. **"新立 F169"可能违反"功能蔓延"反模式**：也许这确实只是 F148 Phase F 该做的事
 
-如果我在以上任何一点上错了，先撤回 F169 initiative，改写 F148 Phase F 或 F163 future phase。
+如果我在以上任何一点上错了，先撤回 F169 initiative，改写 F148 Phase F 或 F163 Phase F。
 
 ---
 

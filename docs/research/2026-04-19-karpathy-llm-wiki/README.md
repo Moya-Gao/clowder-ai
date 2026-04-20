@@ -27,7 +27,7 @@ related_features: [F102, F148, F152, F163, F167, F169]
 ## 由此 spin-off 的愿景文档
 
 - [F169: Agent Memory Reflex](../../features/F169-agent-memory-reflex.md)（**vision artifact, reviewed 2026-04-19**）
-  把记忆从"猫需要搜的书架"升级为"猫的外部工作记忆反射"。三层方向 post-review 重分派：Compiled Wiki Self-Authoring（**剥离**，挂 F102 产物增强待议）/ Reflex Injection（**实现 → F148 Phase F**）/ Task-scoped Salience Gating（原名 Active Forgetting，**实现 → F163 future phase**）。review 接受 3 条 P1/P2 finding，5 条 consolidated 修改已落盘。
+  把记忆从"猫需要搜的书架"升级为"猫的外部工作记忆反射"。三层方向 post-review 重分派：Compiled Wiki Self-Authoring（**剥离**，挂 F102 产物增强待议）/ Reflex Injection（**实现 → F148 Phase F**）/ Task-scoped Salience Gating（原名 Active Forgetting，**实现 → F163 Phase F**）。review 接受 3 条 P1/P2 finding，5 条 consolidated 修改已落盘。
 
 ## 为什么单独建目录
 
