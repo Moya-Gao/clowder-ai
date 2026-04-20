@@ -273,7 +273,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 3. **增量去重**：按 `repo + issueNumber` 唯一键，已有条目只更新状态
 4. **PR 不走这条路**：PR 已有 `pr_tracking` 管线（TaskStore），不需要改
 
-### Phase F: GitHub PR 同步管线（Issue sync 的对称版）
+### Phase F: GitHub PR 同步管线（Issue sync 的对称版） ✅
 
 看板 Issue 已有进货通道（Phase E），但 PR 区只显示猫猫主动注册的 `pr_tracking` 条目。铲屎官需要看到**所有 PR**的回复状态——和 issue 一样的体验。
 
@@ -336,11 +336,11 @@ TTL=0（铁律 #5），用户数据默认持久化
 - [x] AC-D4: Intake checklist 每项需要证据，系统验证非人工叮嘱 — DEFAULT_INTAKE_CHECKLIST + validateIntakeChecklist + signoff 端点强制验证
 
 ### Phase F（GitHub PR 同步管线）
-- [ ] AC-F1: 点击同步按钮 → 调 GitHub API 拉取指定 repo 的所有 PR → 写入 CommunityPrStore（增量去重，按 repo+prNumber）
-- [ ] AC-F2: 回复状态检测 — 对 open PR 查 reviews，有非 author review → replied，否则 → unreplied
-- [ ] AC-F3: 新动态检测 — replied 状态的 PR，head SHA 变了 → has-new-activity
-- [ ] AC-F4: 看板 PR 区合并 CommunityPrStore + pr_tracking，按 PR number 去重（pr_tracking 优先）
-- [ ] AC-F5: 前端 PR 分组改为 unreplied/replied/has-new-activity/merged/closed
+- [x] AC-F1: 点击同步按钮 → 调 GitHub API 拉取指定 repo 的所有 PR → 写入 CommunityPrStore（增量去重，按 repo+prNumber）
+- [x] AC-F2: 回复状态检测 — 对 open PR 查 reviews，有非 author review → replied，否则 → unreplied
+- [x] AC-F3: 新动态检测 — replied 状态的 PR，head SHA 变了 → has-new-activity
+- [x] AC-F4: 看板 PR 区合并 CommunityPrStore + pr_tracking，按 PR number 去重（pr_tracking 优先）
+- [x] AC-F5: 前端 PR 分组改为 unreplied/replied/has-new-activity/merged/closed
 
 ### Phase E（GitHub Issue 同步管线 — 地基）
 - [x] AC-E1: 点击同步按钮 → 调 GitHub API 拉取指定 repo 的 open issues → 写入 CommunityIssueStore（增量去重，按 repo+issueNumber）
@@ -406,6 +406,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-04-19 | Phase D development — GuardianMatcher+IntakeChecklist+3 endpoints (request-guardian/signoff/status)，49 tests，AC-A1/A2/A3+D1/D2/D3/D4 ✅ |
 | 2026-04-19 | Phase D merged (PR #1285) — guardian auth hardening (9-round review), callback auth on all guardian endpoints, merge-gate Step 6.5 updated |
 | 2026-04-19 | Phase E merged (PR #1288) — GitHub issue sync pipeline: state mapper + sync endpoint + production wiring + frontend sync button, 19 new tests, AC-E1~E4 ✅ |
+| 2026-04-20 | Phase F merged (PR #1295) — GitHub PR sync pipeline: CommunityPrStore + mapGitHubPr + sync-prs endpoint + board merge + frontend PR sections, 66 new tests, AC-F1~F5 ✅ |
 
 ## Review Gate
 
