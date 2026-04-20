@@ -484,7 +484,8 @@ describe('cat-config-loader', () => {
   });
 
     it('project config keeps antigravity session chain enabled for both variants', () => {
-      const config = loadCatConfig();
+      const templatePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../cat-template.json');
+      const config = loadCatConfig(templatePath);
       assert.equal(isSessionChainEnabled('antigravity', config), true);
       assert.equal(isSessionChainEnabled('antig-opus', config), true);
     });
