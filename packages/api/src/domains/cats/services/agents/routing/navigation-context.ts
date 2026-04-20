@@ -80,9 +80,17 @@ export function summarizeActiveTasks(
     .map(({ id, title, status, ownerCatId }) => ({ id, title, status, ownerCatId }));
 }
 
+export interface NavigationArtifact {
+  type: string;
+  ref: string;
+  label: string;
+  updatedBy: string;
+}
+
 export interface NavigationContext {
   baton: BatonContext | null;
   tasks: TaskSummary[];
+  artifacts?: NavigationArtifact[];
 }
 
 export function formatNavigationHeader(ctx: NavigationContext): string {
@@ -104,6 +112,13 @@ export function formatNavigationHeader(ctx: NavigationContext): string {
     for (const t of ctx.tasks) {
       const owner = t.ownerCatId ? `@${t.ownerCatId}` : '未分配';
       lines.push(`  - [${t.status}] ${t.title} (${owner})`);
+    }
+  }
+
+  if (ctx.artifacts && ctx.artifacts.length > 0) {
+    lines.push('最近产物:');
+    for (const a of ctx.artifacts) {
+      lines.push(`  - [${a.type}] ${a.label} (${a.updatedBy})`);
     }
   }
 

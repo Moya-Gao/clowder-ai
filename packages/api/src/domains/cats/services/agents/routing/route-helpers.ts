@@ -19,6 +19,7 @@ import type { IMessageStore, StoredMessage, StoredToolEvent } from '../../stores
 import { canViewMessage } from '../../stores/visibility.js';
 import type { AgentMessage, AgentService } from '../../types.js';
 import type { InvocationDeps } from '../invocation/invoke-single-cat.js';
+import { extractRecentArtifacts, sortAndCapArtifacts } from './artifact-tracking.js';
 import type { CoverageMap } from './context-transport.js';
 import {
   buildCoverageMap,
@@ -121,6 +122,7 @@ export interface IncrementalContextResult {
     anchorSummaries?: string[];
     baton?: import('./navigation-context.js').BatonContext;
     activeTasks?: import('./navigation-context.js').TaskSummary[];
+    recentArtifacts?: import('./artifact-tracking.js').RecentArtifact[];
   };
   /** F148 Phase F: Navigation context header (injected on ALL paths — KD-7) */
   navigationHeader?: string;
@@ -556,6 +558,7 @@ export interface IncrementalContextOptions {
    * so the assembled context + system parts never exceed the model's input limit.
    */
   effectiveMaxContextTokens?: number;
+  recentFilesTouched?: Array<{ path: string; ops: string[] }>;
 }
 
 export async function assembleIncrementalContext(
@@ -609,14 +612,23 @@ export async function assembleIncrementalContext(
   );
   const baton = extractBatonContext(batonCandidates, catId);
   let activeTasks: import('./navigation-context.js').TaskSummary[] = [];
+  let allThreadTasks: import('./artifact-tracking.js').ArtifactExtractionInput['prTasks'] = [];
   if (deps.taskStore) {
     try {
-      activeTasks = summarizeActiveTasks(await Promise.resolve(deps.taskStore.listByThread(threadId)));
+      const tasks = await Promise.resolve(deps.taskStore.listByThread(threadId));
+      activeTasks = summarizeActiveTasks(tasks);
+      allThreadTasks = tasks;
     } catch {
       // fail-open: tasks stay empty
     }
   }
-  const navigationHeader = formatNavigationHeader({ baton, tasks: activeTasks });
+
+  const recentArtifacts = extractRecentArtifacts({
+    filesTouched: options?.recentFilesTouched ?? [],
+    prTasks: allThreadTasks,
+    catId,
+  });
+  const navigationHeader = formatNavigationHeader({ baton, tasks: activeTasks, artifacts: recentArtifacts });
 
   log.info({
     f148: 'navigation-header',
@@ -625,6 +637,7 @@ export async function assembleIncrementalContext(
     hasBaton: baton !== null,
     batonFrom: baton?.fromSpeakerDisplay ?? null,
     taskCount: activeTasks.length,
+    artifactCount: recentArtifacts.length,
     headerLength: navigationHeader.length,
     unseenCount: unseen.length,
     batonCandidateCount: batonCandidates.length,
@@ -665,6 +678,7 @@ export async function assembleIncrementalContext(
       navigationHeader,
       baton,
       activeTasks,
+      recentArtifacts,
     );
   }
 
@@ -805,6 +819,7 @@ async function assembleSmartWindowContext(
   navigationHeader: string,
   baton: import('./navigation-context.js').BatonContext | null,
   activeTasks: import('./navigation-context.js').TaskSummary[],
+  recentArtifacts: import('./artifact-tracking.js').RecentArtifact[],
 ): Promise<IncrementalContextResult> {
   const budget = getCatContextBudget(catId as string);
   const truncateLimit = budget.maxContentLengthPerMsg;
@@ -867,6 +882,7 @@ async function assembleSmartWindowContext(
 
   // 3.7 Phase D: Fetch thread memory (fail-open)
   let threadMemorySummary = '';
+  let storedFileArtifacts: import('./artifact-tracking.js').RecentArtifact[] = [];
   let threadMemoryMeta: {
     available: boolean;
     sessionsIncorporated: number;
@@ -896,6 +912,9 @@ async function assembleSmartWindowContext(
           summary = summary.slice(0, lo) + '…';
         }
         threadMemorySummary = summary;
+        if (Array.isArray(mem.recentArtifacts) && mem.recentArtifacts.length > 0) {
+          storedFileArtifacts = mem.recentArtifacts as import('./artifact-tracking.js').RecentArtifact[];
+        }
         threadMemoryMeta = {
           available: true,
           sessionsIncorporated: mem.sessionsIncorporated,
@@ -1091,6 +1110,10 @@ async function assembleSmartWindowContext(
       ...(finalAnchorLines.length > 0 ? { anchorSummaries: finalAnchorLines } : {}),
       ...(baton ? { baton } : {}),
       ...(activeTasks.length > 0 ? { activeTasks } : {}),
+      ...(() => {
+        const merged = sortAndCapArtifacts([...recentArtifacts, ...storedFileArtifacts.filter((a) => a.type !== 'pr')]);
+        return merged.length > 0 ? { recentArtifacts: merged } : {};
+      })(),
     },
     navigationHeader,
   };

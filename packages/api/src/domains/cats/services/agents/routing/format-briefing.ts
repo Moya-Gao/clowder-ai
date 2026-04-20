@@ -2,6 +2,7 @@
 
 import type { RichCardBlock, RichMessageExtra } from '@cat-cafe/shared';
 import type { AppendMessageInput } from '../../stores/ports/MessageStore.js';
+import type { RecentArtifact } from './artifact-tracking.js';
 import type { CoverageMap } from './context-transport.js';
 import type { BatonContext, TaskSummary } from './navigation-context.js';
 
@@ -65,6 +66,7 @@ interface BriefingMessageOptions {
   anchorSummaries?: string[];
   baton?: BatonContext;
   activeTasks?: TaskSummary[];
+  recentArtifacts?: RecentArtifact[];
 }
 
 /**
@@ -128,6 +130,10 @@ export function buildBriefingMessage(
       return `- [${t.status}] ${t.title} (${owner})`;
     });
     bodyParts.push(`**活跃任务**:\n${taskLines.join('\n')}`);
+  }
+  if (options?.recentArtifacts?.length) {
+    const artifactLines = options.recentArtifacts.map((a) => `- [${a.type}] ${a.label} (${a.updatedBy})`);
+    bodyParts.push(`**最近产物**:\n${artifactLines.join('\n')}`);
   }
   if (coverageMap.retrievalHints.length > 0) {
     bodyParts.push(`**证据召回**:\n${coverageMap.retrievalHints.map((h) => `- ${h}`).join('\n')}`);

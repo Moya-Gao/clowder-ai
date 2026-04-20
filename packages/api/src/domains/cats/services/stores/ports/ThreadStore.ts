@@ -66,6 +66,15 @@ export interface ThreadMemoryV1 {
   openQuestions?: string[];
   /** VG-3: Referenced artifacts — ADRs, Feature IDs (max 8) */
   artifacts?: string[];
+  /** F148 Phase H: Deterministic file/PR artifacts from session seal (max 5) */
+  recentArtifacts?: Array<{
+    type: string;
+    ref: string;
+    label: string;
+    updatedAt: number;
+    updatedBy: string;
+    ops?: string[];
+  }>;
 }
 
 export type MentionRoutingSuppressionReason = 'no_action' | 'cross_paragraph' | 'inline_action';

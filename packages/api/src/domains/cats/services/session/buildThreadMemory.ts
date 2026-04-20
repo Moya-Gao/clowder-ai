@@ -80,6 +80,7 @@ export function buildThreadMemory(
   newDigest: ExtractiveDigestV1,
   maxTokens: number,
   signals?: DecisionSignals,
+  recentArtifacts?: ThreadMemoryV1['recentArtifacts'],
 ): ThreadMemoryV1 {
   // R1 P1-1: session number comes from digest.seq (1-based display), not merge count
   const sessionNumber = newDigest.seq + 1;
@@ -133,6 +134,12 @@ export function buildThreadMemory(
       result.openQuestions = existing.openQuestions.slice(0, MAX_OPEN_QUESTIONS);
     if (Array.isArray(existing.artifacts) && existing.artifacts.length > 0)
       result.artifacts = existing.artifacts.slice(0, MAX_ARTIFACTS);
+  }
+
+  if (recentArtifacts && recentArtifacts.length > 0) {
+    result.recentArtifacts = recentArtifacts;
+  } else if (existing?.recentArtifacts && existing.recentArtifacts.length > 0) {
+    result.recentArtifacts = existing.recentArtifacts;
   }
 
   return result;
