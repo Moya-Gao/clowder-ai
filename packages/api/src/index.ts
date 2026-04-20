@@ -1405,6 +1405,8 @@ async function main(): Promise<void> {
       [
         'api',
         `/repos/${repo}/issues`,
+        '--method',
+        'GET',
         '--jq',
         '.[] | select(.pull_request == null) | {number, title, state, labels: [.labels[].name], comments, user: .user.login, html_url}',
         '--paginate',
