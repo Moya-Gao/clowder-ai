@@ -206,7 +206,7 @@ cat_cafe_hold_ball({
 - [x] AC-A9: 新增测试覆盖 L1 乒乓球（误杀保护 + 正常熔断 — PR2 `worklist-registry-streak.test.js` + `callback-a2a-pingpong.test.js` + `pingpong-reset.test.js`）、L2 parallel 抑制（PR1 ✓）、L3 角色门禁（PR1 ✓）
 
 ### Phase B（观察 + 按需）
-- [ ] AC-B1: 6 个事故 case 回放测试通过（Phase 0+A 覆盖验证）
+- [x] AC-B1: 6 个事故 case 回放验证通过（2026-04-20：runtime `/health` 正常 + 运行中猫 prompt 已吃到新球权护栏；Case E2 记录 5 个球权类 live replay + 1 个 codex context overflow 代码/测试回放）
 - [ ] AC-B2: 如仍有虚空传球 → 按需加检测
 - [ ] AC-B3: 如 always_at_back 仍放大 ping-pong → 降级为"有产出才 @ 回"，且 F064 出口检查不回退
 
@@ -302,6 +302,8 @@ cat_cafe_hold_ball({
 | 2026-04-20 | Phase C1 merged (PR #1289, 08b6f7d15) — hold_ball MCP polish：MCP description 5-element 标准 + gpt52 review P1/P2（`maxHoldsPerWindow` 语义修正 + 进程内 best-effort 注记）；cloud Codex 零 P1/P2 放行 |
 | 2026-04-20 | Phase C1 route test merged (PR #1290, e34baa85b) — 补齐 gpt52 P3 遗留的 callback route 端到端行为测试（7 tests: 401 / 3×400 / 200 / 429 / 500）；cloud Codex P2（文件超 200 行）→ 按 scenario 拆分 2 文件后放行 |
 | 2026-04-20 | Phase C2 merged (PR #1291, 73439a5e7) — harness-layer verdict-without-pass detector (AC-C7)：保守关键词扫描 + 三层合法出口豁免（行首 @mention / hold_ball / MCP 结构化路由 `targetCats`+`targets`）；gpt52 P2 修复（把 MCP 结构化路由作为第三合法出口，不仅看 tool name），延续放行到 rebased HEAD `6c6bffc0`|
+| 2026-04-20 | Runtime 已重启并吃到新护栏：`/health` 正常；活跃猫进程 prompt 已含最新球权检查压缩版（含 `@landy`、死锁/虚假离场、review 默认必须传球） |
+| 2026-04-20 | AC-B1 回放验证完成：Case E2 记录 6 case（5 个球权类 live prompt/source replay + 1 个 codex context overflow 代码/测试回放） |
 
 ## Behavioral Evidence（Phase B 观察记录）
 
@@ -336,6 +338,23 @@ cat_cafe_hold_ball({
 - 模型的行动偏好（看到问题就解决）比遵循元心智自问更强
 - "写进规则 ≠ 模型执行" — 这是 Phase B 需要验证的核心假设
 
+### Case E2: Runtime 已吃到新护栏 + 6-case replay（2026-04-20）
+
+**Runtime smoke**：
+- `curl http://127.0.0.1:3002/health` 返回 `{"status":"ok"}`，runtime 在线
+- 运行中的猫进程 prompt 已包含最新压缩版球权检查：`@landy`、死锁禁止、虚假离场防护、review/分析/建议完成后默认必须传球（见 `SystemPromptBuilder.ts:578`）
+
+**6-case replay 对照表**：
+
+| Case | 护栏/证据 | 结果 |
+|------|-----------|------|
+| 1. 铲屎官球权盲区 | runtime 注入已明确 `铲屎官需要动 → 末尾行首 @landy`（`SystemPromptBuilder.ts:578`） | ✅ |
+| 2. 球权死锁 | `shared-rules §10` 明确禁止“收了球却说你等着/你别动”（`shared-rules.md:252-253`） | ✅ |
+| 3. 虚假离场 | `shared-rules §10` + runtime prompt 都要求“不 @ 但自己还在干活 → 声明球在我手上，继续 X”（`shared-rules.md:268`, `SystemPromptBuilder.ts:578`） | ✅ |
+| 4. 状态描述代替球权声明 | `shared-rules §10` 核心原则已写死“状态描述 ≠ 球权声明”（`shared-rules.md:246`） | ✅ |
+| 5. 诊断不解决 | `shared-rules §10` 要求 push back 后必须接/退/升；runtime prompt 同步注入（`shared-rules.md:252`, `SystemPromptBuilder.ts:578`） | ✅ |
+| 6. Codex context overflow | `dynamic contextWindow + autoCompactTokenLimit per variant` 已合入 main，spec 记录 `41/41 codex-agent-service + 31/31 config tests` 全绿（AC-B9/B10） | ✅ |
+
 ## Review Gate
 
 - Phase 0: **多猫协作审视**（所有猫参与各自 prompt 审视）+ 现有 system-prompt-builder 测试全绿
@@ -362,9 +381,9 @@ cat_cafe_hold_ball({
 | 铲屎官 2026-04-17 | 提示词正面化 + 边界显式化 | AC-01~05 | ✅ 全部完成（689925ef8） |
 | 铲屎官 2026-04-17 | Skills 审视 "used when / not for" 边界 | AC-03 | ✅ 33/33 Skill 完成（689925ef8） |
 | 铲屎官 2026-04-17 | 路由可见性不退化 | Design Constraint #1 | ✅ 拍板 |
-| 铲屎官 2026-04-17 | 「第一性原理」「数学之美」Magic Words | governance-l0.md ✅ → SystemPromptBuilder 待同步 | ⬜ |
+| 铲屎官 2026-04-17 | 「第一性原理」「数学之美」Magic Words | governance-l0.md + SystemPromptBuilder + runtime prompt 全部同步 | ✅ |
 | 铲屎官 2026-04-19 | 球权协议漏洞（@landy / 死锁 / 虚假离场 / 接退升 / 诊断不解决） | AC-B4~B8 | ✅ |
 | 铲屎官 2026-04-19 | Codex context overflow（272k 用 900k limit） | AC-B9 | ✅ |
-| 铲屎官 2026-04-19 | 持球无执行机制 → hold_ball MCP | AC-C1~C4 | ⬜ 待实现 |
-| 铲屎官 2026-04-19 | 砚砚不传球（5 线程验证） → 强制传球护栏 | AC-C5~C7 | ⬜ 待实现 |
+| 铲屎官 2026-04-19 | 持球无执行机制 → hold_ball MCP | AC-C1~C4 | ✅ PR #1289 + #1290 |
+| 铲屎官 2026-04-19 | 砚砚不传球（5 线程验证） → 强制传球护栏 | AC-C5~C7 | ✅ PR #1291 |
 | 铲屎官 2026-04-19 | 球权管理 skill 化（各猫贡献踩坑经验） | OQ-5 | ✅ 现不做（KD-15），踩坑经验先入 refs |
