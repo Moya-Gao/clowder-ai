@@ -8,7 +8,7 @@ created: 2026-04-17
 
 # F167: A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P0
+> **Status**: monitoring | **Owner**: 布偶猫 | **Priority**: P0
 
 ## Why
 
@@ -207,8 +207,8 @@ cat_cafe_hold_ball({
 
 ### Phase B（观察 + 按需）
 - [x] AC-B1: 6 个事故 case 回放验证通过（2026-04-20：runtime `/health` 正常 + 运行中猫 prompt 已吃到新球权护栏；Case E2 记录 5 个球权类 live replay + 1 个 codex context overflow 代码/测试回放）
-- [ ] AC-B2: 如仍有虚空传球 → 按需加检测
-- [ ] AC-B3: 如 always_at_back 仍放大 ping-pong → 降级为"有产出才 @ 回"，且 F064 出口检查不回退
+- [ ] AC-B2: 如仍有虚空传球 → 按需加检测（2026-04-20：B2+C2 多层护栏已覆盖，进入观察期，无新 case 即 close）
+- [ ] AC-B3: 如 always_at_back 仍放大 ping-pong → 降级为"有产出才 @ 回"，且 F064 出口检查不回退（2026-04-20：L1 streak breaker + break-loop 已兜住，进入观察期）
 
 ### Phase B2（Ball Ownership Protocol Hardening）
 - [x] AC-B4: exit check 注入 @landy（coCreator 动态取），铲屎官球权可见（4e5795cc5）
@@ -304,6 +304,7 @@ cat_cafe_hold_ball({
 | 2026-04-20 | Phase C2 merged (PR #1291, 73439a5e7) — harness-layer verdict-without-pass detector (AC-C7)：保守关键词扫描 + 三层合法出口豁免（行首 @mention / hold_ball / MCP 结构化路由 `targetCats`+`targets`）；gpt52 P2 修复（把 MCP 结构化路由作为第三合法出口，不仅看 tool name），延续放行到 rebased HEAD `6c6bffc0`|
 | 2026-04-20 | Runtime 已重启并吃到新护栏：`/health` 正常；活跃猫进程 prompt 已含最新球权检查压缩版（含 `@landy`、死锁/虚假离场、review 默认必须传球） |
 | 2026-04-20 | AC-B1 回放验证完成：Case E2 记录 6 case（5 个球权类 live prompt/source replay + 1 个 codex context overflow 代码/测试回放） |
+| 2026-04-20 | Status → monitoring：宪宪+砚砚共识——AC-B2/B3 已被多层护栏覆盖（B2+C2 虚空传球 / L1 streak+break-loop ping-pong），进入观察期，无新 case 即 close。不再追加补丁 |
 
 ## Behavioral Evidence（Phase B 观察记录）
 
