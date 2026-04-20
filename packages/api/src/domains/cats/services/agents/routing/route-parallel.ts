@@ -48,8 +48,8 @@ import {
   toStoredToolEvent,
   upsertMaxBoundary,
 } from './route-helpers.js';
-import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
 import { appendThinkingChunk, renderThinkingChunks } from './thinking-chunks.js';
+import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
 
 const log = createModuleLogger('route-parallel');
 
@@ -281,7 +281,11 @@ export async function* routeParallel(
           catId,
           currentUserMessageId,
           thinkingMode,
-          { effectiveMaxContextTokens: parEffectiveContextBudget },
+          {
+            effectiveMaxContextTokens: parEffectiveContextBudget,
+            canonicalFeatureId: sopStageHint?.featureId,
+            threadTitle: routeThread?.title ?? undefined,
+          },
         );
         boundaryByCat.set(catId, inc.boundaryId);
         if (inc.degradation) {
@@ -823,7 +827,9 @@ export async function* routeParallel(
         const hasRichBlocks = noTextBlocks.length > 0;
         const sawUserFacingSystemInfo = catSawUserFacingSystemInfo.get(msg.catId) === true;
         const shouldPersistNoTextMessage =
-          hasRichBlocks || (catTools?.length ?? 0) > 0 || Boolean(thinking && renderThinkingChunks(thinking).trim().length > 0);
+          hasRichBlocks ||
+          (catTools?.length ?? 0) > 0 ||
+          Boolean(thinking && renderThinkingChunks(thinking).trim().length > 0);
         const shouldEmitSilentCompletion = (catTools?.length ?? 0) > 0 && !hasRichBlocks && !sawUserFacingSystemInfo;
 
         // Diagnostic: if cat ran tools but produced no text, emit a system_info so the

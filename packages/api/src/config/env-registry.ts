@@ -478,6 +478,14 @@ export const ENV_VARS: EnvDefinition[] = [
     runtimeEditable: false,
   },
   {
+    name: 'DEFAULT_CAT_ID',
+    defaultValue: '(cat-config 第一个 breed)',
+    description: '默认猫猫 ID（覆盖 cat-config 里的顺序）',
+    category: 'cli',
+    sensitive: false,
+    runtimeEditable: false,
+  },
+  {
     name: 'CAT_CAFE_MCP_SERVER_PATH',
     defaultValue: '(自动检测)',
     description: 'MCP Server 路径',

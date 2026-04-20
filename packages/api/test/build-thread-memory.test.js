@@ -358,8 +358,8 @@ describe('VG-3: buildThreadMemory with DecisionSignals', () => {
     assert.deepStrictEqual(result.artifacts, ['F148'], 'must preserve existing artifacts');
   });
 
-  // AC-H2: recentArtifacts stored in ThreadMemory
-  it('AC-H2: stores recentArtifacts when provided', () => {
+  // AC-H2 + G1: recentArtifacts stored as ledger (sorted by updatedAt DESC)
+  it('AC-H2: stores recentArtifacts when provided (sorted by updatedAt DESC)', () => {
     const artifacts = [
       { type: 'file', ref: 'src/index.ts', label: 'index.ts', updatedAt: 1000, updatedBy: 'opus', ops: ['edit'] },
       {
@@ -372,10 +372,12 @@ describe('VG-3: buildThreadMemory with DecisionSignals', () => {
       },
     ];
     const result = buildThreadMemory(null, baseDigest, 3000, undefined, artifacts);
-    assert.deepStrictEqual(result.recentArtifacts, artifacts);
+    assert.equal(result.recentArtifacts?.length, 2);
+    assert.equal(result.recentArtifacts[0].ref, 'docs/features/F148.md', 'newest first');
+    assert.equal(result.recentArtifacts[1].ref, 'src/index.ts', 'oldest second');
   });
 
-  it('AC-H2: overwrites previous recentArtifacts (latest seal wins)', () => {
+  it('AC-H2 + G1: appends new artifacts to existing ledger (not overwrite)', () => {
     const existing = {
       v: 1,
       summary: 'Session #1',
@@ -387,8 +389,9 @@ describe('VG-3: buildThreadMemory with DecisionSignals', () => {
       { type: 'file', ref: 'new.ts', label: 'new.ts', updatedAt: 2000, updatedBy: 'opus', ops: ['create'] },
     ];
     const result = buildThreadMemory(existing, { ...baseDigest, seq: 1 }, 3000, undefined, newArtifacts);
-    assert.equal(result.recentArtifacts?.length, 1);
-    assert.equal(result.recentArtifacts?.[0].ref, 'new.ts');
+    assert.equal(result.recentArtifacts?.length, 2, 'should accumulate both entries');
+    assert.equal(result.recentArtifacts?.[0].ref, 'new.ts', 'newest first');
+    assert.equal(result.recentArtifacts?.[1].ref, 'old.ts', 'oldest second');
   });
 
   it('AC-H2: preserves existing recentArtifacts when new artifacts param is undefined', () => {

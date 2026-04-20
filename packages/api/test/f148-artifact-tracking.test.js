@@ -67,7 +67,7 @@ describe('extractRecentArtifacts', () => {
     assert.deepEqual(result, []);
   });
 
-  it('prioritizes PRs over files', () => {
+  it('prioritizes PRs over files when PR is most recent', () => {
     const filesTouched = Array.from({ length: 5 }, (_, i) => ({
       path: `packages/api/src/file-${i}.ts`,
       ops: ['edit'],
@@ -80,11 +80,11 @@ describe('extractRecentArtifacts', () => {
         title: 'PR #1292',
         ownerCatId: 'opus',
         status: 'todo',
-        updatedAt: Date.now(),
+        updatedAt: Date.now() + 60_000,
       },
     ];
     const result = extractRecentArtifacts({ filesTouched, prTasks, catId: 'opus' });
-    assert.equal(result[0].type, 'pr', 'PR should be first');
+    assert.equal(result[0].type, 'pr', 'PR should be first when most recent');
   });
 
   it('sorts results by updatedAt DESC (P2-1: recency semantics)', () => {

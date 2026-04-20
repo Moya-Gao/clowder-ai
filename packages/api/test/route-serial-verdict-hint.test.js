@@ -224,6 +224,10 @@ describe('F167 C2 AC-C7: route-serial verdict-no-pass hint emission', () => {
       targetCats: ['codex'],
     });
     const hint = appended.find((m) => m.source?.connector === 'verdict-no-pass-hint');
-    assert.equal(hint, undefined, 'structured routing must be read from raw toolInput, not truncated StoredToolEvent.detail');
+    assert.equal(
+      hint,
+      undefined,
+      'structured routing must be read from raw toolInput, not truncated StoredToolEvent.detail',
+    );
   });
 });

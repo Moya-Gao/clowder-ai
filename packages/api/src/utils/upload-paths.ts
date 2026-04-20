@@ -19,10 +19,11 @@ const INTERNAL_ROUTE_PREFIXES = ['/uploads/', '/api/connector-media/', '/api/tts
 export function resolveInternalRouteUrl(url: string): string {
   if (url.startsWith('https://') || url.startsWith('http://')) return url;
   if (INTERNAL_ROUTE_PREFIXES.some((p) => url.startsWith(p))) {
-    const apiBase = (process.env.CAT_CAFE_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002').replace(
-      /\/$/,
-      '',
-    );
+    const apiBase = (
+      process.env.CAT_CAFE_API_URL ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      'http://localhost:3002'
+    ).replace(/\/$/, '');
     return `${apiBase}${url}`;
   }
   return url;

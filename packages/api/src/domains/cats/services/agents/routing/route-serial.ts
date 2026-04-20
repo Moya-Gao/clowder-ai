@@ -71,9 +71,9 @@ import {
   toStoredToolEvent,
   upsertMaxBoundary,
 } from './route-helpers.js';
-import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
 import { appendThinkingChunk, renderThinkingChunks } from './thinking-chunks.js';
 import { shouldWarnVerdictWithoutPass } from './verdict-detect.js';
+import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
 
 const log = createModuleLogger('route-serial');
 
@@ -81,7 +81,11 @@ function collectStructuredTargetCatsFromInput(input: unknown): string[] {
   if (!input || typeof input !== 'object') return [];
 
   const parsed = input as { targetCats?: unknown; targets?: unknown };
-  const values = Array.isArray(parsed.targetCats) ? parsed.targetCats : Array.isArray(parsed.targets) ? parsed.targets : [];
+  const values = Array.isArray(parsed.targetCats)
+    ? parsed.targetCats
+    : Array.isArray(parsed.targets)
+      ? parsed.targets
+      : [];
   return values.filter((value): value is string => typeof value === 'string' && value.length > 0);
 }
 
@@ -367,7 +371,11 @@ export async function* routeSerial(
           catId,
           currentUserMessageId,
           thinkingMode,
-          { effectiveMaxContextTokens: effectiveContextBudget },
+          {
+            effectiveMaxContextTokens: effectiveContextBudget,
+            canonicalFeatureId: sopStageHint?.featureId,
+            threadTitle: routeThread?.title ?? undefined,
+          },
         );
         deliveryBoundaryId = inc.boundaryId;
         if (inc.degradation) {
@@ -876,7 +884,8 @@ export async function* routeSerial(
               userId: 'system',
               catId: null,
               threadId,
-              content: '这条回复给了 review 结论，但还没有明确传球。请用行首 @、structured routing，或 `cat_cafe_hold_ball` 继续交接。',
+              content:
+                '这条回复给了 review 结论，但还没有明确传球。请用行首 @、structured routing，或 `cat_cafe_hold_ball` 继续交接。',
               mentions: [],
               timestamp: Date.now(),
               source: hintSource,
@@ -1191,7 +1200,9 @@ export async function* routeSerial(
         const noTextBlocks = [...bufferedBlocks, ...streamRichBlocks];
         const hasRichBlocks = noTextBlocks.length > 0;
         const shouldPersistNoTextMessage =
-          hasRichBlocks || collectedToolEvents.length > 0 || Boolean(renderThinkingChunks(thinkingChunks).trim().length > 0);
+          hasRichBlocks ||
+          collectedToolEvents.length > 0 ||
+          Boolean(renderThinkingChunks(thinkingChunks).trim().length > 0);
         const shouldEmitSilentCompletion = collectedToolEvents.length > 0 && !hasRichBlocks && !sawUserFacingSystemInfo;
 
         log.debug(

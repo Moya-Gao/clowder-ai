@@ -69,3 +69,18 @@ export function extractRecentArtifacts(input: ArtifactExtractionInput): RecentAr
 export function sortAndCapArtifacts(artifacts: RecentArtifact[], max = MAX_ARTIFACTS): RecentArtifact[] {
   return [...artifacts].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, max);
 }
+
+const MAX_LEDGER_ENTRIES = 20;
+
+export function mergeLedger(
+  existing: readonly RecentArtifact[],
+  incoming: readonly RecentArtifact[],
+): RecentArtifact[] {
+  const byRef = new Map<string, RecentArtifact>();
+  for (const a of existing) byRef.set(a.ref, a);
+  for (const a of incoming) {
+    const prev = byRef.get(a.ref);
+    if (!prev || a.updatedAt >= prev.updatedAt) byRef.set(a.ref, a);
+  }
+  return [...byRef.values()].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, MAX_LEDGER_ENTRIES);
+}

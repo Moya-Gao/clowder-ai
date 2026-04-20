@@ -19,7 +19,7 @@ import type { IMessageStore, StoredMessage, StoredToolEvent } from '../../stores
 import { canViewMessage } from '../../stores/visibility.js';
 import type { AgentMessage, AgentService } from '../../types.js';
 import type { InvocationDeps } from '../invocation/invoke-single-cat.js';
-import { extractRecentArtifacts, sortAndCapArtifacts } from './artifact-tracking.js';
+import { extractRecentArtifacts, mergeLedger, sortAndCapArtifacts } from './artifact-tracking.js';
 import type { CoverageMap } from './context-transport.js';
 import {
   buildCoverageMap,
@@ -32,6 +32,7 @@ import {
   selectAnchors,
 } from './context-transport.js';
 import { extractBatonContext, formatNavigationHeader, summarizeActiveTasks } from './navigation-context.js';
+import { rankArtifactSources } from './source-ranking.js';
 
 /** Minimal broadcast interface — avoids coupling routing layer to SocketManager concrete class */
 export interface RouteBroadcaster {
@@ -123,6 +124,7 @@ export interface IncrementalContextResult {
     baton?: import('./navigation-context.js').BatonContext;
     activeTasks?: import('./navigation-context.js').TaskSummary[];
     recentArtifacts?: import('./artifact-tracking.js').RecentArtifact[];
+    rankedSources?: import('./source-ranking.js').RankedSource[];
   };
   /** F148 Phase F: Navigation context header (injected on ALL paths — KD-7) */
   navigationHeader?: string;
@@ -559,6 +561,8 @@ export interface IncrementalContextOptions {
    */
   effectiveMaxContextTokens?: number;
   recentFilesTouched?: Array<{ path: string; ops: string[] }>;
+  canonicalFeatureId?: string;
+  threadTitle?: string;
 }
 
 export async function assembleIncrementalContext(
@@ -628,7 +632,36 @@ export async function assembleIncrementalContext(
     prTasks: allThreadTasks,
     catId,
   });
-  const navigationHeader = formatNavigationHeader({ baton, tasks: activeTasks, artifacts: recentArtifacts });
+
+  // G1→G2 bridge: read stored ledger from threadMemory to merge with current-invocation artifacts
+  let storedLedgerArtifacts: import('./artifact-tracking.js').RecentArtifact[] = [];
+  const threadStore = deps.invocationDeps.threadStore;
+  if (threadStore) {
+    try {
+      const mem = await Promise.resolve(threadStore.getThreadMemory(threadId));
+      if (mem && Array.isArray(mem.recentArtifacts) && mem.recentArtifacts.length > 0) {
+        storedLedgerArtifacts = mem.recentArtifacts as import('./artifact-tracking.js').RecentArtifact[];
+      }
+    } catch {
+      // fail-open: ranking degrades to current-invocation only
+    }
+  }
+  const mergedLedger = mergeLedger(storedLedgerArtifacts, recentArtifacts);
+
+  const rankedSources = rankArtifactSources(
+    mergedLedger,
+    allThreadTasks.map((t) => ({ kind: t.kind, subjectKey: t.subjectKey ?? null, title: t.title, status: t.status })),
+    { canonicalFeatureId: options?.canonicalFeatureId, threadTitle: options?.threadTitle },
+  );
+  const topSource = rankedSources[0] ?? null;
+  const bestNextSource = topSource ? `先看 ${topSource.label}: ${topSource.ref}` : undefined;
+  const navigationHeader = formatNavigationHeader({
+    baton,
+    tasks: activeTasks,
+    artifacts: recentArtifacts,
+    truthSource: topSource ? { label: topSource.label, ref: topSource.ref, provenance: topSource.provenance } : null,
+    bestNextSource,
+  });
 
   log.info({
     f148: 'navigation-header',
@@ -679,6 +712,8 @@ export async function assembleIncrementalContext(
       baton,
       activeTasks,
       recentArtifacts,
+      rankedSources,
+      storedLedgerArtifacts,
     );
   }
 
@@ -820,6 +855,8 @@ async function assembleSmartWindowContext(
   baton: import('./navigation-context.js').BatonContext | null,
   activeTasks: import('./navigation-context.js').TaskSummary[],
   recentArtifacts: import('./artifact-tracking.js').RecentArtifact[],
+  rankedSources: import('./source-ranking.js').RankedSource[],
+  preReadStoredArtifacts: import('./artifact-tracking.js').RecentArtifact[],
 ): Promise<IncrementalContextResult> {
   const budget = getCatContextBudget(catId as string);
   const truncateLimit = budget.maxContentLengthPerMsg;
@@ -882,7 +919,7 @@ async function assembleSmartWindowContext(
 
   // 3.7 Phase D: Fetch thread memory (fail-open)
   let threadMemorySummary = '';
-  let storedFileArtifacts: import('./artifact-tracking.js').RecentArtifact[] = [];
+  const storedFileArtifacts = preReadStoredArtifacts;
   let threadMemoryMeta: {
     available: boolean;
     sessionsIncorporated: number;
@@ -912,9 +949,7 @@ async function assembleSmartWindowContext(
           summary = summary.slice(0, lo) + '…';
         }
         threadMemorySummary = summary;
-        if (Array.isArray(mem.recentArtifacts) && mem.recentArtifacts.length > 0) {
-          storedFileArtifacts = mem.recentArtifacts as import('./artifact-tracking.js').RecentArtifact[];
-        }
+        // storedFileArtifacts already pre-read via preReadStoredArtifacts (G1→G2 bridge)
         threadMemoryMeta = {
           available: true,
           sessionsIncorporated: mem.sessionsIncorporated,
@@ -1111,9 +1146,10 @@ async function assembleSmartWindowContext(
       ...(baton ? { baton } : {}),
       ...(activeTasks.length > 0 ? { activeTasks } : {}),
       ...(() => {
-        const merged = sortAndCapArtifacts([...recentArtifacts, ...storedFileArtifacts.filter((a) => a.type !== 'pr')]);
+        const merged = mergeLedger(storedFileArtifacts, recentArtifacts);
         return merged.length > 0 ? { recentArtifacts: merged } : {};
       })(),
+      ...(rankedSources.length > 0 ? { rankedSources } : {}),
     },
     navigationHeader,
   };

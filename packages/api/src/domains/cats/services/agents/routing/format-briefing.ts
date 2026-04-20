@@ -5,6 +5,7 @@ import type { AppendMessageInput } from '../../stores/ports/MessageStore.js';
 import type { RecentArtifact } from './artifact-tracking.js';
 import type { CoverageMap } from './context-transport.js';
 import type { BatonContext, TaskSummary } from './navigation-context.js';
+import type { RankedSource } from './source-ranking.js';
 
 /** Rich block payload for frontend rendering */
 export interface ContextBriefingBlock {
@@ -67,6 +68,7 @@ interface BriefingMessageOptions {
   baton?: BatonContext;
   activeTasks?: TaskSummary[];
   recentArtifacts?: RecentArtifact[];
+  rankedSources?: RankedSource[];
 }
 
 /**
@@ -134,6 +136,13 @@ export function buildBriefingMessage(
   if (options?.recentArtifacts?.length) {
     const artifactLines = options.recentArtifacts.map((a) => `- [${a.type}] ${a.label} (${a.updatedBy})`);
     bodyParts.push(`**最近产物**:\n${artifactLines.join('\n')}`);
+  }
+  if (options?.rankedSources?.length) {
+    const sourceLines = options.rankedSources.map((s) => {
+      const tag = s.provenance === 'regex' ? ' (推断)' : '';
+      return `- [${s.type}] ${s.label}${tag}`;
+    });
+    bodyParts.push(`**真相源**:\n${sourceLines.join('\n')}`);
   }
   if (coverageMap.retrievalHints.length > 0) {
     bodyParts.push(`**证据召回**:\n${coverageMap.retrievalHints.map((h) => `- ${h}`).join('\n')}`);

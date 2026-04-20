@@ -87,10 +87,18 @@ export interface NavigationArtifact {
   updatedBy: string;
 }
 
+export interface TruthSourceInfo {
+  label: string;
+  ref: string;
+  provenance: 'canonical' | 'regex' | 'recency';
+}
+
 export interface NavigationContext {
   baton: BatonContext | null;
   tasks: TaskSummary[];
   artifacts?: NavigationArtifact[];
+  truthSource?: TruthSourceInfo | null;
+  bestNextSource?: string;
 }
 
 export function formatNavigationHeader(ctx: NavigationContext): string {
@@ -119,6 +127,18 @@ export function formatNavigationHeader(ctx: NavigationContext): string {
     lines.push('最近产物:');
     for (const a of ctx.artifacts) {
       lines.push(`  - [${a.type}] ${a.label} (${a.updatedBy})`);
+    }
+  }
+
+  if (ctx.truthSource !== undefined) {
+    if (ctx.truthSource === null) {
+      lines.push('真相源: 未定位');
+    } else {
+      const tag = ctx.truthSource.provenance === 'regex' ? ' (推断)' : '';
+      lines.push(`真相源: ${ctx.truthSource.label}${tag}`);
+    }
+    if (ctx.bestNextSource) {
+      lines.push(`下一步: ${ctx.bestNextSource}`);
     }
   }
 
