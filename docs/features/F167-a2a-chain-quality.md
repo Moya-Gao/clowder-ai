@@ -228,7 +228,7 @@ cat_cafe_hold_ball({
 ### Phase C2（Forced-Pass Guard — 强制传球）
 - [x] AC-C5: exit check 增加 review 场景规则：verdict 后必须 @ author 或 @landy（404f894fb）
 - [x] AC-C6: shared-rules §10 球权检查强化（reviewer "没人"几乎不成立 + review 必须传球 + 分析/建议传球）
-- [ ] AC-C7:（按需）harness 层 review verdict 检测 + 无 @ 时注入传球提示
+- [x] AC-C7: harness 层 review verdict 检测 + 无 @ 时注入传球提示（保守关键词 LGTM/approve/reject/P1/P2/修改建议/放行/打回；三层合法出口豁免：行首 @mention / hold_ball / MCP 结构化路由 `targetCats`+`targets`）
 
 ## Dependencies
 
@@ -301,6 +301,7 @@ cat_cafe_hold_ball({
 | 2026-04-19 | 铲屎官 5 线程审视：砚砚全部不传球 → 砚砚自诊两种根因 → Phase C 拆分 C1（hold_ball）+ C2（forced-pass）（KD-16） |
 | 2026-04-20 | Phase C1 merged (PR #1289, 08b6f7d15) — hold_ball MCP polish：MCP description 5-element 标准 + gpt52 review P1/P2（`maxHoldsPerWindow` 语义修正 + 进程内 best-effort 注记）；cloud Codex 零 P1/P2 放行 |
 | 2026-04-20 | Phase C1 route test merged (PR #1290, e34baa85b) — 补齐 gpt52 P3 遗留的 callback route 端到端行为测试（7 tests: 401 / 3×400 / 200 / 429 / 500）；cloud Codex P2（文件超 200 行）→ 按 scenario 拆分 2 文件后放行 |
+| 2026-04-20 | Phase C2 merged (PR #1291, 73439a5e7) — harness-layer verdict-without-pass detector (AC-C7)：保守关键词扫描 + 三层合法出口豁免（行首 @mention / hold_ball / MCP 结构化路由 `targetCats`+`targets`）；gpt52 P2 修复（把 MCP 结构化路由作为第三合法出口，不仅看 tool name），延续放行到 rebased HEAD `6c6bffc0`|
 
 ## Behavioral Evidence（Phase B 观察记录）
 
