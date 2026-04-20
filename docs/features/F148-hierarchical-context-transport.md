@@ -125,9 +125,9 @@ created: 2026-03-31
 > **核心原则**：排序层，不是摘要层。确定性规则，不用 LLM/classifier（KD-8）。
 
 - [ ] AC-G1: **Thread-level artifact ledger** — `buildThreadMemory` 从 overwrite 改为 append+dedup+cap（上限 20 条，按 updatedAt 淘汰最旧）。跨 seal 累积，不只保留最近一次。`ThreadMemoryV1.recentArtifacts` 升级为 ledger 语义
-- [ ] AC-G2: **Source ranking** — 新增 `rankArtifactSources(ledger, activeTasks, threadMeta)` 纯函数，确定性优先级：① 活跃 task 绑定的 source ② feature doc（从 thread title / task 推断 F-number）③ open PR ④ 最近修改的关键文件。无 LLM，无 classifier
+- [ ] AC-G2: **Source ranking** — 新增 `rankArtifactSources(ledger, activeTasks, threadMeta)` 纯函数，确定性优先级：① `thread.backlogItemId → workflowSop.featureId` canonical binding（一等信号，已在 route-serial 工作）② feature doc from canonical featureId ③ open PR（活跃 pr_tracking task）④ 最近修改的关键文件。Fallback：thread title / task title regex `F\d{2,3}` 仅在 canonical binding 缺失时启用。无 LLM，无 classifier
 - [ ] AC-G3: **Single best-next-source** — 从 ranked list 取 top-1，格式化为可行动指针（如 `先看 F148 spec: docs/features/F148-*.md`）。导航 header 新增 `真相源: {label}` 行
-- [ ] AC-G4: **Fail-closed confidence** — 定位不出来时显式输出 `真相源: 未定位`，不编造、不猜测。confidence 阈值：ranked list 为空或 top-1 分数低于下限 → fail-closed
+- [ ] AC-G4: **Fail-closed confidence** — provenance-based（不发明 score schema）：canonical binding 命中 = 高确定性直接展示；regex fallback 命中 = 展示但标注 `(推断)`；ranked list 为空 = `真相源: 未定位`。不编造、不猜测
 - [ ] AC-G5: **UI 分层** — 导航 header：`真相源: {label}` + `下一步: {best-next-source}`（2 行，最小可行动信息）；briefing 展开态：完整 ledger 列表 + ranking 理由
 - [ ] AC-G6: **测试覆盖** — ledger 累积（跨 seal append+dedup）/ ranking 纯函数（各优先级路径）/ fail-closed（空 ledger / 无匹配）/ 导航渲染（有/无真相源）/ backward compat（旧 threadMemory 无 ledger）
 
