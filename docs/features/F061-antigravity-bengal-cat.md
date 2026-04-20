@@ -474,6 +474,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-19 | **Grace-window stream recovery** — 当 partial text 后收到 `stream_error` 时，service 层先 buffer 错误并给 recovery tail 一个 4.5s deadline；若恢复文本到达则静默恢复，若更具体 fatal 抢占则丢弃 buffered error，只有超时才真正向前端抛错（PR #1274, gate 全绿 + opus-47 放行到 `7d80dd2c`）|
 | 2026-04-19 | **Thinking chunk boundary hardening** — 前端 thinking dedupe 改为结构化 `thinkingChunks` 边界，仅在与当前 `thinking` 一致时参与 dedupe；replace hydration 不再带入 stale `thinkingChunks`，避免内嵌分隔符与 hydration merge 共同导致重复或截断 thinking（PR #1279, gate 全绿 + opus continuity 放行到 `7ca31631` + cloud 0 P1/P2）|
 | 2026-04-19 | **Pure stream-error grace** — 无文本的纯 `STOP_REASON_CLIENT_STREAM_ERROR` 也纳入短 grace window；若稍后恢复文本到达则静默恢复，若 grace 过期才真正上报错误，同时 telemetry 区分 `partial_text` / `no_text` 两类路径（PR #1287, gate 全绿 + opus continuity 放行到 `1ef3bba1` + cloud 0 P1/P2）|
+| 2026-04-20 | **Reliability hardening merged** — Antigravity `model_capacity` 引入有限自动重试（fresh cascade/session + 120s bounded backoff），`thinking` snapshot 前缀增长改为 replace-last 去重，同时禁止在 pending tool steps 批次里触发 capacity retry，避免副作用重放（PR #1293, gate 全绿 + opus-47 continuity 放行到 `91d2ef8b` + cloud 0 P1/P2）|
 
 ---
 
