@@ -7,7 +7,7 @@ import { apiFetch } from '@/utils/api-client';
 import { GuideOverlayCompletion } from './guide-overlay/GuideOverlayCompletion';
 import { GuideHUD } from './guide-overlay/GuideOverlayHUD';
 import { GuideOverlaySpotlight } from './guide-overlay/GuideOverlaySpotlight';
-import { buildGuideTargetSelector, computeHUDPosition, getFocusableElements } from './guide-overlay/helpers';
+import { buildGuideTargetSelector, getFocusableElements } from './guide-overlay/helpers';
 import { useGuideAutoAdvance } from './guide-overlay/useGuideAutoAdvance';
 
 export { buildGuideTargetSelector, computeHUDPosition, computeShieldPanels } from './guide-overlay/helpers';
