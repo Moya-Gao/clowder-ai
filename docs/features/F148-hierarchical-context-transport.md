@@ -205,6 +205,7 @@ created: 2026-03-31
 | 2026-04-19 | 多猫圆桌讨论（codex + gpt52 + opus）— 收敛 7 缺口 + Phase F-J 优先级。N-7 Baton/Authority 为 gpt52 新增。gemini 待补充 |
 | 2026-04-19 | Phase F merged (PR #1286) — extractBatonContext + summarizeActiveTasks + formatNavigationHeader + 全路径导航注入。GPT-5.4 review (R1: 1P1+1P2, R2 pass, R3 canonical mention P1, R4 pass) + 云端 review (R3: 1P1 empty-mentions fallback, fixed; R4 云端未接单降级 GPT-5.4 验证) |
 | 2026-04-20 | Phase F fixes merged (PR #1292) — whisper visibility gate on batonCandidates (P1) + Unicode mention strip for Chinese handles (P2) + navigation telemetry。缅因猫 codex review (R1: 1P1+1P2, R2: 退回 1P1+1P2, R3 pass) + 云端 review passed |
+| 2026-04-20 | Phase G→H 优先级调整 — 布偶猫 + GPT-5.4 共识：narrative tombstone 是压缩轴微调不值独立 Phase；H（artifact tracking）提前；G 重定义为 Goal & Grounding（等 H）。铲屎官确认 |
 
 ## Phase F-J: 导航轴优化（2026-04-19 Reopened）
 
@@ -261,11 +262,18 @@ F148 smart window 仅在**冷启动**场景触发（`route-helpers.ts:601-619`�
 
 | Phase | 内容 | 缺口 | 状态 |
 |-------|------|------|------|
-| **F** | Intent + Baton Context — 为什么叫我 + 球怎么来的/做完往哪传 | N-2 + N-7 | ✅ merged |
-| **G** | Task + Narrative — 活跃毛线球 + 一句话故事弧（内嵌 Freshness） | N-3 + N-1 | 📋 待拆 AC |
-| **H** | Artifact Deterministic Tracking — 确定性产物记录 | N-4 | 📋 待拆 AC |
+| **F** | Intent + Baton Context — 为什么叫我 + 球怎么来的/做完往哪传 | N-2 + N-7 | ✅ merged (PR #1286 + #1292) |
+| **G** | ~~Task + Narrative~~ → **Goal & Grounding** — 真相源定位 + best-next-step（依赖 H 先完成） | N-3(已部分完成) + N-1(降级 polish) → N-4 grounding | ⏸️ 等 H |
+| **H** | Artifact Deterministic Tracking — 确定性产物记录 | N-4 | 🚧 **下一个** |
 | **I** | Eval Baseline — 导航成功率度量（不只是 count） | N-5 | 📋 待拆 AC |
 | **J** | Cross-thread Bridge — 跨 thread context bridge | N-6 | 📋 待拆 AC |
+
+> **2026-04-20 优先级调整**（布偶猫 + GPT-5.4 共识，铲屎官确认）：
+> - 原 Phase G（narrative tombstone）价值偏低——还是压缩轴微调，不是导航轴突破；且与 briefing 卡片信息重复
+> - N-3（Task 纳入导航）Phase F 已完成（navigation header + briefing 卡片都有了）
+> - N-1（tombstone narrative）降级为 polish，不占独立 Phase
+> - **H（确定性 artifact tracking）提前**：没有可靠真相源 → grounding 只能靠猜 → 猜不如不给
+> - G 重定义为 "Goal & Grounding"（真相源定位 + best-next-step），等 H 做完再拆 AC
 
 ## Review Gate
 
