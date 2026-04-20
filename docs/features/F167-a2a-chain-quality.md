@@ -299,6 +299,7 @@ cat_cafe_hold_ball({
 | 2026-04-19 | 砚砚 Phase C 设计反馈：+wakeAfterMs 有界唤醒 / 持是例外态 / 不先 skill 化 / 4 个踩坑模式 |
 | 2026-04-19 | 宪宪综合：Phase C 设计收敛（KD-13~15），OQ-4/5 关闭 |
 | 2026-04-19 | 铲屎官 5 线程审视：砚砚全部不传球 → 砚砚自诊两种根因 → Phase C 拆分 C1（hold_ball）+ C2（forced-pass）（KD-16） |
+| 2026-04-20 | Phase C1 merged (PR #1289, 08b6f7d15) — hold_ball MCP polish：MCP description 5-element 标准 + gpt52 review P1/P2（`maxHoldsPerWindow` 语义修正 + 进程内 best-effort 注记）；cloud Codex 零 P1/P2 放行 |
 
 ## Behavioral Evidence（Phase B 观察记录）
 
