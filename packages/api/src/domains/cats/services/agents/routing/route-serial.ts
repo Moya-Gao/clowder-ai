@@ -54,7 +54,6 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import { detectInlineActionMentionsWithShadow, getMaxA2ADepth, parseA2AMentions } from '../routing/a2a-mentions.js';
 import { checkRoleCompat, type RoleLookup } from '../routing/role-gate.js';
-import { shouldWarnVerdictWithoutPass } from '../routing/verdict-detect.js';
 import { registerWorklist, unregisterWorklist, updateStreakOnPush } from '../routing/WorklistRegistry.js';
 import { extractContextEvalSignals } from './context-eval.js';
 import { buildBriefingMessage } from './format-briefing.js';
@@ -72,10 +71,19 @@ import {
   toStoredToolEvent,
   upsertMaxBoundary,
 } from './route-helpers.js';
-import { appendThinkingChunk, renderThinkingChunks } from './thinking-chunks.js';
 import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
+import { appendThinkingChunk, renderThinkingChunks } from './thinking-chunks.js';
+import { shouldWarnVerdictWithoutPass } from './verdict-detect.js';
 
 const log = createModuleLogger('route-serial');
+
+function collectStructuredTargetCatsFromInput(input: unknown): string[] {
+  if (!input || typeof input !== 'object') return [];
+
+  const parsed = input as { targetCats?: unknown; targets?: unknown };
+  const values = Array.isArray(parsed.targetCats) ? parsed.targetCats : Array.isArray(parsed.targets) ? parsed.targets : [];
+  return values.filter((value): value is string => typeof value === 'string' && value.length > 0);
+}
 
 export async function* routeSerial(
   deps: RouteStrategyDeps,
@@ -163,7 +171,7 @@ export async function* routeSerial(
     }
   }
 
-  // F155: Guide interceptor — resolve existing state + match new candidates
+  // F155: Guide interceptor — resume existing guide state only
   const guideCtx = await prepareGuideContext({
     thread: routeThread,
     guideSessionStore: deps.invocationDeps.guideSessionStore,
@@ -172,7 +180,6 @@ export async function* routeSerial(
     userId,
     threadId,
     log,
-    dismissTracker: deps.invocationDeps.dismissTracker,
   });
 
   try {
@@ -454,8 +461,7 @@ export async function* routeSerial(
       }
 
       let textContent = '';
-      let thinkingChunks: string[] = [];
-      const getThinkingContent = () => renderThinkingChunks(thinkingChunks);
+      const thinkingChunks: string[] = [];
       let firstMetadata: MessageMetadata | undefined;
       let doneMsg: AgentMessage | undefined;
       let hadError = false;
@@ -469,10 +475,7 @@ export async function* routeSerial(
       const collectedToolEvents: StoredToolEvent[] = [];
       // F148 OQ-2: Collect tool names for context eval signals
       const collectedToolNames: string[] = [];
-      // F167 C2 AC-C7: CatIds routed to via structured MCP tool payloads this turn
-      // (post_message.targetCats + multi_mention.targets). Used by verdict-no-pass detector
-      // so cats using MCP structured routing don't trigger a false "ball dropped" hint.
-      const structuredTargetCats: string[] = [];
+      const structuredTargetCats = new Set<string>();
       // F060: Collect rich blocks emitted inline via system_info (not MCP buffer)
       const streamRichBlocks: import('@cat-cafe/shared').RichBlock[] = [];
       // F22 R2 P1-1: Capture own invocationId from stream (not getLatestId)
@@ -586,7 +589,7 @@ export async function* routeSerial(
             try {
               const parsed = JSON.parse(effectiveMsg.content);
               if (parsed.type === 'thinking' && typeof parsed.text === 'string') {
-                thinkingChunks = appendThinkingChunk(thinkingChunks, parsed.text);
+                thinkingChunks.splice(0, thinkingChunks.length, ...appendThinkingChunk(thinkingChunks, parsed.text));
               }
               // F060: Collect inline rich_block for persistence (P1 fix)
               if (parsed.type === 'rich_block' && parsed.block && isValidRichBlock(parsed.block)) {
@@ -602,28 +605,15 @@ export async function* routeSerial(
             collectedToolEvents.push(toolEvt);
           }
 
+          if (effectiveMsg.type === 'tool_use') {
+            for (const target of collectStructuredTargetCatsFromInput(effectiveMsg.toolInput)) {
+              structuredTargetCats.add(target);
+            }
+          }
+
           // F148 OQ-2: Collect tool names for context eval
           if (effectiveMsg.type === 'tool_use' && effectiveMsg.toolName) {
             collectedToolNames.push(effectiveMsg.toolName);
-
-            // F167 C2 AC-C7: Extract structured routing targets from MCP tool payloads.
-            // post_message.targetCats and multi_mention.targets both denote explicit
-            // ball-pass via structured routing (the third legitimate exit alongside
-            // line-start @mention and hold_ball).
-            const toolName = effectiveMsg.toolName;
-            const toolInput = effectiveMsg.toolInput as Record<string, unknown> | undefined;
-            if (toolInput) {
-              if (toolName.includes('cat_cafe_post_message') && Array.isArray(toolInput.targetCats)) {
-                for (const cid of toolInput.targetCats) {
-                  if (typeof cid === 'string' && cid.length > 0) structuredTargetCats.push(cid);
-                }
-              }
-              if (toolName.includes('cat_cafe_multi_mention') && Array.isArray(toolInput.targets)) {
-                for (const cid of toolInput.targets) {
-                  if (typeof cid === 'string' && cid.length > 0) structuredTargetCats.push(cid);
-                }
-              }
-            }
           }
 
           // F150: Fire-and-forget tool usage counter
@@ -653,7 +643,7 @@ export async function* routeSerial(
                   catId,
                   content: textContent,
                   ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
-                  ...(getThinkingContent() ? { thinking: getThinkingContent() } : {}),
+                  ...(thinkingChunks.length > 0 ? { thinking: renderThinkingChunks(thinkingChunks) } : {}),
                   updatedAt: now,
                 })
                 ?.catch?.(noop);
@@ -678,7 +668,7 @@ export async function* routeSerial(
                     catId,
                     content: textContent,
                     ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
-                    ...(getThinkingContent() ? { thinking: getThinkingContent() } : {}),
+                    ...(thinkingChunks.length > 0 ? { thinking: renderThinkingChunks(thinkingChunks) } : {}),
                     updatedAt: now,
                   })
                   ?.catch?.(noop);
@@ -867,21 +857,12 @@ export async function* routeSerial(
           }
         }
 
-        // F167 C2 AC-C7: harness-layer "verdict without ball-pass" warning.
-        // Conservative keyword-based scan: approve/reject/LGTM/P1/P2/修改建议/放行/打回.
-        // Three legitimate ball-pass routes are exempt:
-        //   (a) line-start @mention (a2aMentions) — text routing
-        //   (b) hold_ball MCP call (collectedToolNames) — explicit intentional hold
-        //   (c) structured MCP routing (structuredTargetCats) — post_message.targetCats
-        //       or multi_mention.targets
-        // Only when NONE of the three fired does the hint emit.
-        // Prompt-first, non-blocking — same pattern as the inline-action hint above.
         if (
           shouldWarnVerdictWithoutPass({
             text: storedContent,
             lineStartMentions: a2aMentions,
             toolNames: collectedToolNames,
-            structuredTargetCats,
+            structuredTargetCats: [...structuredTargetCats],
           })
         ) {
           try {
@@ -889,14 +870,13 @@ export async function* routeSerial(
               connector: 'verdict-no-pass-hint',
               label: '球权提醒',
               icon: '🏓',
-              meta: { presentation: 'system_notice', noticeTone: 'info' },
+              meta: { presentation: 'system_notice', noticeTone: 'warning' },
             };
             const stored = await deps.messageStore.append({
               userId: 'system',
               catId: null,
               threadId,
-              content:
-                '你给了 review 结论但没传球。Review / 分析 / 建议完成后默认必须传球——请在末尾起一行 @ author 或 @landy；如需短暂等待再继续，调 cat_cafe_hold_ball。',
+              content: '这条回复给了 review 结论，但还没有明确传球。请用行首 @、structured routing，或 `cat_cafe_hold_ball` 继续交接。',
               mentions: [],
               timestamp: Date.now(),
               source: hintSource,
@@ -913,9 +893,8 @@ export async function* routeSerial(
                 },
               });
             }
-            log.info({ threadId, catId: catId as string }, 'F167 C2 AC-C7: verdict-without-pass warning emitted');
-          } catch (err) {
-            log.warn({ threadId, catId: catId as string, err }, 'F167 C2 AC-C7 hint emit failed');
+          } catch {
+            /* non-blocking hint */
           }
         }
 
@@ -1017,7 +996,7 @@ export async function* routeSerial(
             timestamp: storedTimestamp,
             threadId,
             ...(mentionsUser ? { mentionsUser } : {}),
-            ...(getThinkingContent() ? { thinking: getThinkingContent() } : {}),
+            ...(thinkingChunks.length > 0 ? { thinking: renderThinkingChunks(thinkingChunks) } : {}),
             ...(firstMetadata ? { metadata: firstMetadata } : {}),
             ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
             ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
@@ -1212,7 +1191,7 @@ export async function* routeSerial(
         const noTextBlocks = [...bufferedBlocks, ...streamRichBlocks];
         const hasRichBlocks = noTextBlocks.length > 0;
         const shouldPersistNoTextMessage =
-          hasRichBlocks || collectedToolEvents.length > 0 || Boolean(getThinkingContent().trim().length > 0);
+          hasRichBlocks || collectedToolEvents.length > 0 || Boolean(renderThinkingChunks(thinkingChunks).trim().length > 0);
         const shouldEmitSilentCompletion = collectedToolEvents.length > 0 && !hasRichBlocks && !sawUserFacingSystemInfo;
 
         log.debug(
@@ -1223,7 +1202,7 @@ export async function* routeSerial(
             sawUserFacingSystemInfo,
             toolCount: collectedToolEvents.length,
             shouldPersist: shouldPersistNoTextMessage,
-            thinkingLen: getThinkingContent().length,
+            thinkingLen: renderThinkingChunks(thinkingChunks).length,
           },
           'Cat produced no text — evaluating silent_completion',
         );
@@ -1256,7 +1235,7 @@ export async function* routeSerial(
               timestamp: Date.now(),
               threadId,
               ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
-              ...(getThinkingContent() ? { thinking: getThinkingContent() } : {}),
+              ...(thinkingChunks.length > 0 ? { thinking: renderThinkingChunks(thinkingChunks) } : {}),
               ...(firstMetadata ? { metadata: firstMetadata } : {}),
               ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
               extra: {

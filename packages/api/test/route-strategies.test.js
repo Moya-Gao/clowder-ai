@@ -1246,8 +1246,8 @@ describe('F155 guide offer ownership', () => {
     }
 
     assert.ok(
-      codexService.calls[0].includes('Guide Matched:'),
-      'foreign guide state should be hidden so current user can receive a fresh guide offer',
+      !codexService.calls[0].includes('Guide Matched:'),
+      'foreign guide state should be hidden without creating a fresh guide offer from raw user text',
     );
     assert.ok(
       !codexService.calls[0].includes('Guide Completed:'),
@@ -1255,7 +1255,7 @@ describe('F155 guide offer ownership', () => {
     );
   });
 
-  it('serial: injects offered guide only to the first target cat', async () => {
+  it('serial: does not synthesize a fresh offered guide from raw user text', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const opusService = createCapturingService('opus', '我来处理引导');
     const codexService = createCapturingService('codex', '不该收到引导 offer');
@@ -1266,10 +1266,13 @@ describe('F155 guide offer ownership', () => {
 
     assert.equal(opusService.calls.length, 1, 'first cat should be invoked');
     assert.equal(codexService.calls.length, 1, 'second cat should still be invoked');
-    assert.ok(opusService.calls[0].includes('status="offered"'), 'first cat should receive guide offer instructions');
+    assert.ok(
+      !opusService.calls[0].includes('status="offered"'),
+      'raw user text should not cause routing to inject a fresh guide offer',
+    );
     assert.ok(
       !codexService.calls[0].includes('status="offered"'),
-      'second cat must not receive duplicate guide offer instructions',
+      'second cat must also remain free of any synthesized guide offer',
     );
   });
 
@@ -1551,10 +1554,13 @@ describe('F155 guide offer ownership', () => {
 
     assert.equal(opusService.calls.length, 1, 'first cat should be invoked');
     assert.equal(codexService.calls.length, 1, 'second cat should still be invoked');
-    assert.ok(opusService.calls[0].includes('status="offered"'), 'first cat should receive guide offer instructions');
+    assert.ok(
+      !opusService.calls[0].includes('status="offered"'),
+      'raw user text should not cause parallel routing to inject a fresh guide offer',
+    );
     assert.ok(
       !codexService.calls[0].includes('status="offered"'),
-      'second cat must not receive duplicate guide offer instructions',
+      'second cat must also remain free of any synthesized guide offer',
     );
   });
 
@@ -1603,8 +1609,8 @@ describe('F155 guide offer ownership', () => {
     }
 
     assert.ok(
-      codexService.calls[0].includes('Guide Matched:'),
-      'foreign guide state should be hidden so current user can receive a fresh guide offer',
+      !codexService.calls[0].includes('Guide Matched:'),
+      'foreign guide state should be hidden without creating a fresh guide offer from raw user text',
     );
     assert.ok(
       !codexService.calls[0].includes('Guide Completed:'),
@@ -2665,27 +2671,27 @@ describe('routeParallel thinking persistence (F045)', () => {
     assert.equal(appendCalls[0].thinking, 'First thought\n\n---\n\nSecond thought');
   });
 
-  it('replaces the last thinking block when a later snapshot grows by prefix append', async () => {
+  it('deduplicates cumulative thinking snapshots by prefix in parallel mode', async () => {
     const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
 
-    const snapshotService = {
+    const cumulativeService = {
       async *invoke(_prompt) {
         yield {
           type: 'system_info',
           catId: 'opus',
-          content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-think-grow-1' }),
+          content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-think-2b' }),
           timestamp: Date.now(),
         };
         yield {
           type: 'system_info',
           catId: 'opus',
-          content: JSON.stringify({ type: 'thinking', text: 'First thought' }),
+          content: JSON.stringify({ type: 'thinking', text: 'A' }),
           timestamp: Date.now(),
         };
         yield {
           type: 'system_info',
           catId: 'opus',
-          content: JSON.stringify({ type: 'thinking', text: 'First thought with more detail' }),
+          content: JSON.stringify({ type: 'thinking', text: 'A and more' }),
           timestamp: Date.now(),
         };
         yield { type: 'text', catId: 'opus', content: 'done', timestamp: Date.now() };
@@ -2694,13 +2700,13 @@ describe('routeParallel thinking persistence (F045)', () => {
     };
 
     const appendCalls = [];
-    const deps = createMockDeps({ opus: snapshotService }, appendCalls);
+    const deps = createMockDeps({ opus: cumulativeService }, appendCalls);
 
     for await (const _msg of routeParallel(deps, ['opus'], 'test', 'user1', 'thread1')) {
       /* drain */
     }
 
-    assert.equal(appendCalls[0].thinking, 'First thought with more detail');
+    assert.equal(appendCalls[0].thinking, 'A and more');
   });
 
   it('forwards invocation_created system_info to frontend while still persisting content', async () => {
@@ -2770,44 +2776,6 @@ describe('routeSerial thinking persistence (F045)', () => {
     assert.ok(appendCalls[0].content.includes('Serial answer'), 'text content must be persisted');
   });
 
-  it('replaces the last serial thinking block when a later snapshot grows by prefix append', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
-
-    const thinkingService = {
-      async *invoke(_prompt) {
-        yield {
-          type: 'system_info',
-          catId: 'opus',
-          content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-think-s2' }),
-          timestamp: Date.now(),
-        };
-        yield {
-          type: 'system_info',
-          catId: 'opus',
-          content: JSON.stringify({ type: 'thinking', text: 'Serial thinking...' }),
-          timestamp: Date.now(),
-        };
-        yield {
-          type: 'system_info',
-          catId: 'opus',
-          content: JSON.stringify({ type: 'thinking', text: 'Serial thinking... with extra detail' }),
-          timestamp: Date.now(),
-        };
-        yield { type: 'text', catId: 'opus', content: 'Serial answer', timestamp: Date.now() };
-        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
-      },
-    };
-
-    const appendCalls = [];
-    const deps = createMockDeps({ opus: thinkingService }, appendCalls);
-
-    for await (const _msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1')) {
-      /* drain */
-    }
-
-    assert.equal(appendCalls[0].thinking, 'Serial thinking... with extra detail');
-  });
-
   it('forwards invocation_created system_info to frontend while still persisting content', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
 
@@ -2837,5 +2805,43 @@ describe('routeSerial thinking persistence (F045)', () => {
     );
     assert.ok(invocationCreated, 'routeSerial must forward invocation_created');
     assert.equal(appendCalls.length, 1, 'content persistence should still work');
+  });
+
+  it('deduplicates cumulative thinking snapshots by prefix in serial mode', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+
+    const service = {
+      async *invoke(_prompt) {
+        yield {
+          type: 'system_info',
+          catId: 'opus',
+          content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-think-s2' }),
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'system_info',
+          catId: 'opus',
+          content: JSON.stringify({ type: 'thinking', text: 'A' }),
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'system_info',
+          catId: 'opus',
+          content: JSON.stringify({ type: 'thinking', text: 'A and more' }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'text', catId: 'opus', content: 'Serial answer', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: service }, appendCalls);
+
+    for await (const _msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1')) {
+      /* drain */
+    }
+
+    assert.equal(appendCalls[0].thinking, 'A and more', 'serial mode should keep only the latest cumulative snapshot');
   });
 });

@@ -48,8 +48,8 @@ import {
   toStoredToolEvent,
   upsertMaxBoundary,
 } from './route-helpers.js';
-import { appendThinkingChunk, renderThinkingChunks } from './thinking-chunks.js';
 import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
+import { appendThinkingChunk, renderThinkingChunks } from './thinking-chunks.js';
 
 const log = createModuleLogger('route-parallel');
 
@@ -126,7 +126,7 @@ export async function* routeParallel(
     }
   }
 
-  // F155: Guide interceptor — resolve existing state + match new candidates
+  // F155: Guide interceptor — resume existing guide state only
   const guideCtx = await prepareGuideContext({
     thread: routeThread,
     guideSessionStore: deps.invocationDeps.guideSessionStore,
@@ -135,7 +135,6 @@ export async function* routeParallel(
     userId,
     threadId,
     log,
-    dismissTracker: deps.invocationDeps.dismissTracker,
   });
 
   // F148 OQ-2: briefing→invocation link per cat (must be before Promise.all — TDZ fix)
@@ -568,7 +567,7 @@ export async function* routeParallel(
           charDelta > 0 &&
           (neverFlushedCat || now - lastFlush >= FLUSH_INTERVAL_MS || charDelta >= FLUSH_CHAR_DELTA)
         ) {
-          const curThinking = renderThinkingChunks(catThinking.get(effectiveMsg.catId) ?? []);
+          const curThinking = catThinking.get(effectiveMsg.catId);
           deps.draftStore
             .upsert({
               userId,
@@ -577,7 +576,7 @@ export async function* routeParallel(
               catId: effectiveMsg.catId as CatId,
               content: curText,
               ...(curTools && curToolLen > 0 ? { toolEvents: curTools } : {}),
-              ...(curThinking ? { thinking: curThinking } : {}),
+              ...(curThinking && curThinking.length > 0 ? { thinking: renderThinkingChunks(curThinking) } : {}),
               updatedAt: now,
             })
             ?.catch?.(noop);
@@ -593,7 +592,7 @@ export async function* routeParallel(
           // Cloud R6 P1: upsert when there's unsaved text OR new tool events —
           // tool-first invocations (no text yet) must still create a draft record.
           if (curText.length > lastLen || curToolLen > lastToolLen) {
-            const curThinkingTool = renderThinkingChunks(catThinking.get(effectiveMsg.catId) ?? []);
+            const curThinkingTool = catThinking.get(effectiveMsg.catId);
             deps.draftStore
               .upsert({
                 userId,
@@ -602,7 +601,9 @@ export async function* routeParallel(
                 catId: effectiveMsg.catId as CatId,
                 content: curText,
                 ...(curTools && curToolLen > 0 ? { toolEvents: curTools } : {}),
-                ...(curThinkingTool ? { thinking: curThinkingTool } : {}),
+                ...(curThinkingTool && curThinkingTool.length > 0
+                  ? { thinking: renderThinkingChunks(curThinkingTool) }
+                  : {}),
                 updatedAt: now,
               })
               ?.catch?.(noop);
@@ -759,7 +760,7 @@ export async function* routeParallel(
           }
         }
 
-        const thinking = renderThinkingChunks(catThinking.get(msg.catId) ?? []);
+        const thinking = catThinking.get(msg.catId);
         try {
           await deps.messageStore.append({
             userId,
@@ -769,7 +770,7 @@ export async function* routeParallel(
             origin: 'stream',
             timestamp: Date.now(),
             threadId,
-            ...(thinking ? { thinking } : {}),
+            ...(thinking && thinking.length > 0 ? { thinking: renderThinkingChunks(thinking) } : {}),
             ...(meta ? { metadata: meta } : {}),
             ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
             extra: {
@@ -817,12 +818,12 @@ export async function* routeParallel(
         // Purely empty turns should not create blank chat bubbles.
         const meta = catMeta.get(msg.catId);
         const catTools = catToolEvents.get(msg.catId);
-        const thinking = renderThinkingChunks(catThinking.get(msg.catId) ?? []);
+        const thinking = catThinking.get(msg.catId);
         const noTextBlocks = [...bufferedBlocks, ...(catStreamRichBlocks.get(msg.catId) ?? [])];
         const hasRichBlocks = noTextBlocks.length > 0;
         const sawUserFacingSystemInfo = catSawUserFacingSystemInfo.get(msg.catId) === true;
         const shouldPersistNoTextMessage =
-          hasRichBlocks || (catTools?.length ?? 0) > 0 || Boolean(thinking?.trim().length ?? 0);
+          hasRichBlocks || (catTools?.length ?? 0) > 0 || Boolean(thinking && renderThinkingChunks(thinking).trim().length > 0);
         const shouldEmitSilentCompletion = (catTools?.length ?? 0) > 0 && !hasRichBlocks && !sawUserFacingSystemInfo;
 
         // Diagnostic: if cat ran tools but produced no text, emit a system_info so the
@@ -854,7 +855,7 @@ export async function* routeParallel(
               origin: 'stream',
               timestamp: Date.now(),
               threadId,
-              ...(thinking ? { thinking } : {}),
+              ...(thinking && thinking.length > 0 ? { thinking: renderThinkingChunks(thinking) } : {}),
               ...(meta ? { metadata: meta } : {}),
               ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
               extra: {
@@ -919,7 +920,7 @@ export async function* routeParallel(
         const catTools = catToolEvents.get(msg.catId);
         if (catTools && catTools.length > 0) {
           const meta = catMeta.get(msg.catId);
-          const thinking = renderThinkingChunks(catThinking.get(msg.catId) ?? []);
+          const thinking = catThinking.get(msg.catId);
           try {
             await deps.messageStore.append({
               userId,
@@ -929,7 +930,7 @@ export async function* routeParallel(
               origin: 'stream',
               timestamp: Date.now(),
               threadId,
-              ...(thinking ? { thinking } : {}),
+              ...(thinking && thinking.length > 0 ? { thinking: renderThinkingChunks(thinking) } : {}),
               ...(meta ? { metadata: meta } : {}),
               toolEvents: catTools,
               ...(ownInvId ? { extra: { stream: { invocationId: ownInvId } } } : {}),

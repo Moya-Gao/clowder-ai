@@ -7,7 +7,7 @@ created: 2026-03-27
 
 # F155 引导场景清单
 
-> **Status**: note | **Scope**: F155 当前 intake 仅覆盖平台内场景；跨系统条目保留为延期探索草案
+> **Status**: note | **Scope**: F155 当前 intake 覆盖平台内场景，以及已有 Hub / IM Hub connector config surface；需要新增外部页签/外部画布的条目仍保留为延期探索草案
 > **原则**：核心引擎先做完 → P0 验收通过 → 再逐场景迭代补全。
 > 所有场景用同一套编排文件 + 元素标签体系，实现流程一致。
 
@@ -15,8 +15,8 @@ created: 2026-03-27
 
 ```
 Phase A: 核心引擎 + P0 内部场景（添加成员）
-Phase B: 平台内高价值场景扩展（API Provider / 权限 / 路由策略）
-Deferred: 跨系统流程与双向可观测拆出当前 F155 scope，另行立项
+Phase B: 平台内高价值场景扩展（成员/账户/Hub 设置 + 现有 IM Hub connector surface）
+Deferred: 需要新增外部页签/外部画布的流程，以及双向可观测 substrate
 ```
 
 ## 场景总览
@@ -26,30 +26,34 @@ Deferred: 跨系统流程与双向可观测拆出当前 F155 scope，另行立�
 | # | 场景 | 复杂度 | 跨系统 | 优先级 | 涉及组件 | 说明 |
 |---|------|--------|--------|--------|---------|------|
 | 1 | **添加成员** | 极高 | 否 | **P0** | HubCatEditor | 10+ 表单段（身份/路由/账号/策略/Codex 设置），新用户最常问 |
-| 2 | 配置 API Provider | 高 | 否 | P1 | HubProviderProfilesTab | 凭证管理 + 模型发现，新部署必经 |
-| 3 | 设置 Co-Creator 个人资料 | 中 | 否 | P2 | HubCoCreatorEditor | 头像/别名/品牌色，首次使用时引导 |
+| 2 | **配置第一个 Provider** | 高 | 否 | **P0** | HubAddMemberWizard + HubCatEditor | Provider → Account → Model 是首轮配置最高频卡点 |
+| 3 | 添加账户认证 | 高 | 否 | P1 | HubAccountsTab | API Key 账户创建和认证管理 |
+| 4 | 修改成员认证与模型 | 高 | 否 | P1 | HubCatEditor | 给已创建成员补齐/修改 Client、认证和默认模型 |
+| 5 | 设置 Co-Creator 个人资料 | 中 | 否 | P2 | HubCoCreatorEditor | 头像/别名/品牌色，首次使用时引导 |
 
 ### 二、平台内配置与治理
 
 | # | 场景 | 复杂度 | 跨系统 | 优先级 | 涉及组件 | 说明 |
 |---|------|--------|--------|--------|---------|------|
-| 4 | 开启推送通知 | 中 | 否 | P1 | PushSettingsPanel | 浏览器权限请求 → 订阅 → 测试推送 |
-| 5 | 管理猫猫能力 | 中 | 否 | P2 | HubCapabilityTab | MCP/Skills 全局 + 按猫开关，多作用域容易误操作 |
-| 6 | 治理看板配置 | 中 | 否 | P2 | HubGovernanceTab | 多项目发现 + 同步状态管理 |
-| 7 | 权限白名单/命令管理员配置 | 中 | 否 | P1 | HubPermissionsTab | 安全边界入口，误配会导致非管理员执行敏感命令 |
-| 8 | 路由策略配置 | 中 | 否 | P2 | HubRoutingPolicyTab | Review/Architecture 路由偏好，误配导致任务分发偏航 |
+| 6 | 微信对接（现有 connector config surface） | 高 | 是 | P1 | HubConnectorConfigTab | 复用当前 IM Hub 配置面板，不包含外部扫码联调 |
+| 7 | 飞书对接（现有 connector config surface） | 高 | 是 | P1 | HubConnectorConfigTab | 复用当前 IM Hub 配置面板，不包含开放平台完整联调 |
+| 8 | 开启推送通知 | 中 | 否 | P1 | PushSettingsPanel | 浏览器权限请求 → 订阅 → 测试推送 |
+| 9 | 管理猫猫能力 | 中 | 否 | P2 | HubCapabilityTab | MCP/Skills 全局 + 按猫开关，多作用域容易误操作 |
+| 10 | 治理看板配置 | 中 | 否 | P2 | HubGovernanceTab | 多项目发现 + 同步状态管理 |
+| 11 | 权限白名单/命令管理员配置 | 中 | 否 | P1 | HubPermissionsTab | 安全边界入口，误配会导致非管理员执行敏感命令 |
+| 12 | 路由策略配置 | 中 | 否 | P2 | HubRoutingPolicyTab | Review/Architecture 路由偏好，误配导致任务分发偏航 |
 
 ### 三、延期探索（不属于当前 F155 intake）
 
 | # | 场景 | 复杂度 | 跨系统 | 优先级 | 涉及组件 | 说明 |
 |---|------|--------|--------|--------|---------|------|
-| 9 | 飞书对接 | 高 | 是 | deferred | FeishuAdapter + HubConnectorConfigTab | 早期候选 P0，已在 KD-13 后移出 Guide Engine 当前 scope |
-| 10 | 微信个人号对接 | 高 | 是 | deferred | WeixinAdapter + WeixinQrPanel | 需要跨端观测与二维码链路，不纳入当前 F155 |
-| 11 | Telegram 对接 | 中 | 是 | deferred | TelegramAdapter | 保留为后续机会池 |
-| 12 | 钉钉对接 | 高 | 是 | deferred | DingTalkAdapter | 保留为后续机会池 |
-| 13 | 企业微信对接 | 高 | 是 | deferred | 待实现 (F132 Phase B/C) | 依赖 F132 后续 Phase |
-| 14 | GitHub PR 自动化配置 | 低 | 部分 | deferred | 内置连接器 | 保留为低优先级探索 |
-| 15 | 连接器失效恢复 | 中 | 是 | deferred | 各 Adapter + HubConnectorConfigTab | 保留为恢复类机会池 |
+| 13 | 飞书开放平台完整联调 | 高 | 是 | deferred | FeishuAdapter + HubConnectorConfigTab | 需要开放平台权限、回调 URL 和外部联调，不纳入当前 F155 |
+| 14 | 微信扫码联调 | 高 | 是 | deferred | WeixinAdapter + WeixinQrPanel | 需要跨端观测与二维码链路，不纳入当前 F155 |
+| 15 | Telegram 对接 | 中 | 是 | deferred | TelegramAdapter | 保留为后续机会池 |
+| 16 | 钉钉对接 | 高 | 是 | deferred | DingTalkAdapter | 保留为后续机会池 |
+| 17 | 企业微信对接 | 高 | 是 | deferred | 待实现 (F132 Phase B/C) | 依赖 F132 后续 Phase |
+| 18 | GitHub PR 自动化配置 | 低 | 部分 | deferred | 内置连接器 | 保留为低优先级探索 |
+| 19 | 连接器失效恢复 | 中 | 是 | deferred | 各 Adapter + HubConnectorConfigTab | 保留为恢复类机会池 |
 
 ## 场景详情（P0 + 部分 P1 展开）
 
@@ -70,7 +74,7 @@ Deferred: 跨系统流程与双向可观测拆出当前 F155 scope，另行立�
 预计时间: 5min
 ```
 
-### 延期草案 A: 飞书对接（跨系统，已 deferred）
+### 延期草案 A: 飞书开放平台完整联调（跨系统，已 deferred）
 
 ```
 前置: 无
@@ -91,7 +95,7 @@ Deferred: 跨系统流程与双向可观测拆出当前 F155 scope，另行立�
 预计时间: 10min
 ```
 
-### 延期草案 B: 微信个人号对接（跨系统，已 deferred）
+### 延期草案 B: 微信扫码联调（跨系统，已 deferred）
 
 ```
 前置: 微信版本 ≥ 8.0.50
@@ -150,8 +154,8 @@ Deferred: 跨系统流程与双向可观测拆出当前 F155 scope，另行立�
 
 | 场景 | 预计截图数 | 外部平台 |
 |------|----------|---------|
-| 飞书对接（deferred） | 4-5 张 | 飞书开放平台 |
-| 微信对接（deferred） | 3-4 张 | 微信 App |
+| 飞书开放平台完整联调（deferred） | 4-5 张 | 飞书开放平台 |
+| 微信扫码联调（deferred） | 3-4 张 | 微信 App |
 | Telegram 对接（deferred） | 2-3 张 | Telegram App |
 | 钉钉对接（deferred） | 3-4 张 | 钉钉开放平台 |
 | 企业微信对接（deferred） | 待定 | 企业微信管理后台 |
@@ -162,3 +166,4 @@ Deferred: 跨系统流程与双向可观测拆出当前 F155 scope，另行立�
 
 - 2026-03-27: 初版 12 场景 (宪宪)
 - 2026-03-27: 补 3 场景 (#13 权限配置 / #14 路由策略 / #15 连接器失效恢复)，基于砚砚补漏审计
+- 2026-04-20: 吸收 `clowder-ai#504` 后，新增 `configure-first-provider` / `add-account-auth` / `edit-member-auth`，并将现有 IM Hub surface 上的 `connect-wechat` / `connect-feishu` 归入 F155 当前 scope；开放平台深度联调保持 deferred

@@ -217,4 +217,13 @@ describe('F167 C2 AC-C7: route-serial verdict-no-pass hint emission', () => {
     const hint = appended.find((m) => m.source?.connector === 'verdict-no-pass-hint');
     assert.equal(hint, undefined, 'provider-wrapped tool names must still match structured routing');
   });
+
+  test('long post_message payload with targetCats still suppresses hint', async () => {
+    const { appended } = await runRouteWithTool('LGTM, review done', 'thread-vh-9', 'cat_cafe_post_message', {
+      content: 'x'.repeat(400),
+      targetCats: ['codex'],
+    });
+    const hint = appended.find((m) => m.source?.connector === 'verdict-no-pass-hint');
+    assert.equal(hint, undefined, 'structured routing must be read from raw toolInput, not truncated StoredToolEvent.detail');
+  });
 });

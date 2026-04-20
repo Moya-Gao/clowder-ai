@@ -957,13 +957,13 @@
     {
       "id": "F155",
       "name": "引导场景清单",
-      "status": "note | **Scope**: F155 当前 intake 仅覆盖平台内场景；跨系统条目保留为延期探索草案",
+      "status": "note | **Scope**: F155 当前 intake 覆盖平台内场景，以及已有 Hub / IM Hub connector config surface；需要新增外部页签/外部画布的条目仍保留为延期探索草案",
       "file": "F155-scene-catalog.md"
     },
     {
       "id": "F155",
       "name": "Scene-Based Guidance Engine — 场景式交互引导",
-      "status": "in-progress (Phase A merged in cat-cafe main via PR #1122; Phase B selective intake merged in cat-cafe main via PR #1147) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52",
+      "status": "in-progress (Phase A merged in cat-cafe main via PR #1122; Phase B selective intake merged in cat-cafe main via PR #1147; guided-scenarios intake in progress via cat-cafe#1294) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52",
       "file": "F155-scene-guidance-engine.md"
     },
     {
@@ -1057,5 +1057,5 @@
       "file": "F169-agent-memory-reflex.md"
     }
   ],
-  "generated_at": "2026-04-20T04:26:56.129Z"
+  "generated_at": "2026-04-20T06:24:06.771Z"
 }

@@ -34,7 +34,7 @@ import { registerCallbackBootcampRoutes } from './callback-bootcamp-routes.js';
 import { registerCallbackDocumentRoutes } from './callback-document-routes.js';
 import { registerCallbackGameRoutes } from './callback-game-routes.js';
 import { registerCallbackGuideRoutes } from './callback-guide-routes.js';
-import { type HoldBallRouteDeps, registerCallbackHoldBallRoutes } from './callback-hold-ball-routes.js';
+import { registerCallbackHoldBallRoutes, type HoldBallRouteDeps } from './callback-hold-ball-routes.js';
 import { registerCallbackLarkActionRoutes } from './callback-lark-action-routes.js';
 import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
@@ -56,6 +56,10 @@ export interface CallbackRoutesOptions {
   socketManager: SocketManager;
   /** F155 review fix: allow tests to inject a failing guide flow loader. */
   loadGuideFlow?: (guideId: string) => unknown;
+  /** F155 review fix: allow tests to inject guide availability prerequisites. */
+  getGuideAvailabilityContext?: (
+    threadId: string,
+  ) => Promise<{ memberCardCount: number }> | { memberCardCount: number };
   taskStore?: ITaskStore;
   backlogStore?: IBacklogStore;
   /** For thinking mode filtering in thread-context + thread-cats discovery */
@@ -80,6 +84,7 @@ export interface CallbackRoutesOptions {
   evidenceStore: IEvidenceStore;
   markerQueue: IMarkerQueue;
   reflectionService: IReflectionService;
+  holdBallDeps?: HoldBallRouteDeps;
   /** Queue auto-dequeue on A2A invocation completion */
   queueProcessor?: {
     onInvocationComplete(threadId: string, catId: string, status: 'succeeded' | 'failed' | 'canceled'): Promise<void>;
@@ -96,8 +101,6 @@ export interface CallbackRoutesOptions {
   limbRegistry?: import('../domains/limb/LimbRegistry.js').LimbRegistry;
   /** F126 Phase C: Limb pairing store for remote device approval */
   limbPairingStore?: import('../domains/limb/LimbPairingStore.js').LimbPairingStore;
-  /** F167 C1: Hold Ball — scheduler deps for delayed re-invocation */
-  holdBallDeps?: HoldBallRouteDeps;
   /** F088: Outbound delivery hook for connector-bound threads (late-bound after gateway bootstrap). */
   outboundHook?: {
     deliver(
@@ -1299,6 +1302,10 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     registerCallbackBootcampRoutes(app, { registry, threadStore: opts.threadStore });
   }
 
+  if (opts.holdBallDeps) {
+    registerCallbackHoldBallRoutes(app, opts.holdBallDeps);
+  }
+
   // Thread cats discovery for MCP
   if (opts.threadStore && opts.agentRegistry) {
     registerCallbackThreadCatsRoutes(app, {
@@ -1350,11 +1357,6 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
   // F101: Game action callback for non-Claude cats (OpenCode/Codex/Gemini)
   registerCallbackGameRoutes(app);
 
-  // F167 C1: Hold Ball — delayed re-invocation via reminder template
-  if (opts.holdBallDeps) {
-    registerCallbackHoldBallRoutes(app, opts.holdBallDeps);
-  }
-
   // F155: Guide engine — state-validated routes with ThreadStore authority
   if (opts.threadStore) {
     await registerCallbackGuideRoutes(app, {
@@ -1363,6 +1365,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       socketManager,
       ...(opts.guideSessionStore ? { guideSessionStore: opts.guideSessionStore } : {}),
       ...(opts.loadGuideFlow ? { loadGuideFlow: opts.loadGuideFlow } : {}),
+      ...(opts.getGuideAvailabilityContext ? { getGuideAvailabilityContext: opts.getGuideAvailabilityContext } : {}),
     });
   }
 };
