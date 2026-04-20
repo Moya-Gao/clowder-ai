@@ -111,6 +111,14 @@ created: 2026-03-31
 - [x] AC-F6: `formatNavigationHeader` 渲染 `[导航]...[/导航]` 块（baton + tasks，KD-8：给数据不给结论，无 intent 分类标签）
 - [x] AC-F7: 导航 header 在所有路径注入（cold + warm + empty-return，KD-7：独立于 smart window）
 
+### Phase H（Artifact Deterministic Tracking）🚧
+- [ ] AC-H1: `RecentArtifact` 类型 — `{ type: 'pr' | 'file' | 'plan' | 'feature-doc', ref: string, label: string, updatedAt: number, updatedBy: string }`，ThreadMemoryV2 新增 `recentArtifacts: RecentArtifact[]`（max 5，向后兼容）
+- [ ] AC-H2: SessionSealer 落盘时从 `filesTouched`（已有）+ PR tracking tasks 提取 artifacts 写入 ThreadMemory.recentArtifacts（确定性，不靠 regex）
+- [ ] AC-H3: 导航 header `[导航]` 新增"最近产物"行（有 artifacts 时显示 top 3，无则不显示——不加噪音）
+- [ ] AC-H4: Briefing 卡片展开态新增"产物"section（复用 AC-H1 数据，AC-E4 扩展）
+- [ ] AC-H5: 原 regex artifact 提取（`extractDecisionSignals` 的 `ARTIFACT_PATTERN`）保留作为 fallback，确定性 > regex 优先级
+- [ ] AC-H6: 测试覆盖：artifact 录入（SessionSealer 路径）/ 导航渲染（有/无 artifacts）/ ThreadMemory 向后兼容（v1→v2 读入无 recentArtifacts = []）
+
 ## Dependencies
 
 - **Evolved from**: F102（记忆系统 — evidence.sqlite 是 L3 的基础）
