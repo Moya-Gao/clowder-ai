@@ -154,6 +154,7 @@ community_issue: "clowder-ai#385, clowder-ai#391"
 | 2026-04-09 | **Design Gate 放行**（砚砚）— R2 三项全部落盘，无新增 P1/P2；烁烁 UX 已确认 |
 | 2026-04-09 | Phase A merged (PR #1020) — 95 tests, 0 failures; codex local review 放行 + cloud review 0 P1/P2 |
 | 2026-04-12 | Phase B merged (PR #1121) — codex local review 放行 + cloud review R4 0 P1/P2 |
+| 2026-04-20 | clowder-ai#543 enhancement merged (PR #1300) — dropdown migration + filter unavailable + persist to .env + atomicity fix |
 
 ## Review Gate
 
