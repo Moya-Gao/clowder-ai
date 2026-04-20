@@ -119,6 +119,18 @@ created: 2026-03-31
 - [x] AC-H5: 原 regex artifact 提取（`extractDecisionSignals` 的 `ARTIFACT_PATTERN`）保留作为 fallback，确定性 > regex 优先级
 - [x] AC-H6: 测试覆盖：artifact 录入（SessionSealer 路径）/ 导航渲染（有/无 artifacts）/ ThreadMemory 向后兼容（v1→v2 读入无 recentArtifacts = []）
 
+### Phase G（Goal & Grounding — 真相源定位 + best-next-source）📋
+
+> **设计来源**：GPT-5.4 作为 Phase H 用户的反馈（2026-04-20）："H 回答'最近有什么'，G 要回答'猫第一眼该看哪个真相源'"
+> **核心原则**：排序层，不是摘要层。确定性规则，不用 LLM/classifier（KD-8）。
+
+- [ ] AC-G1: **Thread-level artifact ledger** — `buildThreadMemory` 从 overwrite 改为 append+dedup+cap（上限 20 条，按 updatedAt 淘汰最旧）。跨 seal 累积，不只保留最近一次。`ThreadMemoryV1.recentArtifacts` 升级为 ledger 语义
+- [ ] AC-G2: **Source ranking** — 新增 `rankArtifactSources(ledger, activeTasks, threadMeta)` 纯函数，确定性优先级：① 活跃 task 绑定的 source ② feature doc（从 thread title / task 推断 F-number）③ open PR ④ 最近修改的关键文件。无 LLM，无 classifier
+- [ ] AC-G3: **Single best-next-source** — 从 ranked list 取 top-1，格式化为可行动指针（如 `先看 F148 spec: docs/features/F148-*.md`）。导航 header 新增 `真相源: {label}` 行
+- [ ] AC-G4: **Fail-closed confidence** — 定位不出来时显式输出 `真相源: 未定位`，不编造、不猜测。confidence 阈值：ranked list 为空或 top-1 分数低于下限 → fail-closed
+- [ ] AC-G5: **UI 分层** — 导航 header：`真相源: {label}` + `下一步: {best-next-source}`（2 行，最小可行动信息）；briefing 展开态：完整 ledger 列表 + ranking 理由
+- [ ] AC-G6: **测试覆盖** — ledger 累积（跨 seal append+dedup）/ ranking 纯函数（各优先级路径）/ fail-closed（空 ledger / 无匹配）/ 导航渲染（有/无真相源）/ backward compat（旧 threadMemory 无 ledger）
+
 ## Dependencies
 
 - **Evolved from**: F102（记忆系统 — evidence.sqlite 是 L3 的基础）
@@ -215,6 +227,7 @@ created: 2026-03-31
 | 2026-04-20 | Phase F fixes merged (PR #1292) — whisper visibility gate on batonCandidates (P1) + Unicode mention strip for Chinese handles (P2) + navigation telemetry。缅因猫 codex review (R1: 1P1+1P2, R2: 退回 1P1+1P2, R3 pass) + 云端 review passed |
 | 2026-04-20 | Phase G→H 优先级调整 — 布偶猫 + GPT-5.4 共识：narrative tombstone 是压缩轴微调不值独立 Phase；H（artifact tracking）提前；G 重定义为 Goal & Grounding（等 H）。铲屎官确认 |
 | 2026-04-20 | Phase H merged (PR #1297) — artifact-tracking.ts + sortAndCapArtifacts + SessionSealer wiring + navigation/briefing rendering + ThreadMemory backward compat。GPT-5.4 review (R1: 2P2, R2 pass) + 云端 review passed |
+| 2026-04-20 | Phase G AC 定义 — GPT-5.4 作为 H 用户反馈（工程 80/体感 45）→ G1-G6 确定性真相源排序层设计收敛 |
 
 ## Phase F-J: 导航轴优化（2026-04-19 Reopened）
 
@@ -272,7 +285,7 @@ F148 smart window 仅在**冷启动**场景触发（`route-helpers.ts:601-619`�
 | Phase | 内容 | 缺口 | 状态 |
 |-------|------|------|------|
 | **F** | Intent + Baton Context — 为什么叫我 + 球怎么来的/做完往哪传 | N-2 + N-7 | ✅ merged (PR #1286 + #1292) |
-| **G** | ~~Task + Narrative~~ → **Goal & Grounding** — 真相源定位 + best-next-step（依赖 H 先完成） | N-3(已部分完成) + N-1(降级 polish) → N-4 grounding | ⏸️ 等 H |
+| **G** | ~~Task + Narrative~~ → **Goal & Grounding** — 真相源定位 + best-next-source | N-3(已部分完成) + N-1(降级) → N-4 grounding | 📋 AC 已定义 |
 | **H** | Artifact Deterministic Tracking — 确定性产物记录 | N-4 | ✅ merged (PR #1297) |
 | **I** | Eval Baseline — 导航成功率度量（不只是 count） | N-5 | 📋 待拆 AC |
 | **J** | Cross-thread Bridge — 跨 thread context bridge | N-6 | 📋 待拆 AC |
