@@ -100,6 +100,155 @@ describe('PUT /api/config/default-cat works without DEFAULT_OWNER_USER_ID', () =
   });
 });
 
+describe('getDefaultCatId reads DEFAULT_CAT_ID env (clowder-ai#543)', () => {
+  after(() => {
+    clearRuntimeDefaultCatId();
+    delete process.env.DEFAULT_CAT_ID;
+  });
+
+  it('returns DEFAULT_CAT_ID when set and no runtime override', () => {
+    clearRuntimeDefaultCatId();
+    process.env.DEFAULT_CAT_ID = 'gemini';
+    assert.equal(getDefaultCatId(), 'gemini');
+    delete process.env.DEFAULT_CAT_ID;
+  });
+
+  it('runtime override takes priority over DEFAULT_CAT_ID env', () => {
+    process.env.DEFAULT_CAT_ID = 'gemini';
+    setRuntimeDefaultCatId('codex');
+    assert.equal(getDefaultCatId(), 'codex');
+    clearRuntimeDefaultCatId();
+    delete process.env.DEFAULT_CAT_ID;
+  });
+
+  it('ignores DEFAULT_CAT_ID when it references an unknown cat', () => {
+    clearRuntimeDefaultCatId();
+    catRegistry.reset();
+    catRegistry.register('opus', CAT_CONFIGS.opus);
+    catRegistry.register('codex', CAT_CONFIGS.codex);
+    process.env.DEFAULT_CAT_ID = 'not-a-cat';
+    const result = getDefaultCatId();
+    assert.notEqual(result, 'not-a-cat', 'should not return unknown catId from env');
+    delete process.env.DEFAULT_CAT_ID;
+    catRegistry.reset();
+  });
+});
+
+describe('PUT /api/config/default-cat persists to .env (clowder-ai#543)', () => {
+  let app;
+  const OWNER_ID = 'persist-test-owner';
+  let tmpEnvPath;
+
+  before(async () => {
+    const { mkdtempSync, writeFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const tmpDir = mkdtempSync(join(await import('node:os').then((m) => m.tmpdir()), 'cat-env-'));
+    tmpEnvPath = join(tmpDir, '.env');
+    writeFileSync(tmpEnvPath, '', 'utf8');
+
+    catRegistry.reset();
+    catRegistry.register('opus', CAT_CONFIGS.opus);
+    catRegistry.register('codex', CAT_CONFIGS.codex);
+    process.env.DEFAULT_OWNER_USER_ID = OWNER_ID;
+    clearRuntimeDefaultCatId();
+    const { configRoutes } = await import('../dist/routes/config.js');
+    app = Fastify();
+    await app.register(configRoutes, { envFilePath: tmpEnvPath });
+    await app.ready();
+  });
+
+  after(async () => {
+    clearRuntimeDefaultCatId();
+    catRegistry.reset();
+    delete process.env.DEFAULT_OWNER_USER_ID;
+    delete process.env.DEFAULT_CAT_ID;
+    await app?.close();
+  });
+
+  it('PUT writes DEFAULT_CAT_ID to .env file', async () => {
+    const { readFileSync } = await import('node:fs');
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/config/default-cat',
+      headers: { 'x-cat-cafe-user': OWNER_ID },
+      payload: { catId: 'codex' },
+    });
+    assert.equal(res.statusCode, 200);
+    const envContent = readFileSync(tmpEnvPath, 'utf8');
+    assert.ok(envContent.includes('DEFAULT_CAT_ID=codex'), `expected DEFAULT_CAT_ID=codex in .env, got: ${envContent}`);
+  });
+
+  it('PUT with null removes DEFAULT_CAT_ID from .env', async () => {
+    const { readFileSync } = await import('node:fs');
+    await app.inject({
+      method: 'PUT',
+      url: '/api/config/default-cat',
+      headers: { 'x-cat-cafe-user': OWNER_ID },
+      payload: { catId: 'codex' },
+    });
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/config/default-cat',
+      headers: { 'x-cat-cafe-user': OWNER_ID },
+      payload: { catId: null },
+    });
+    assert.equal(res.statusCode, 200);
+    const envContent = readFileSync(tmpEnvPath, 'utf8');
+    assert.ok(!envContent.includes('DEFAULT_CAT_ID'), `expected no DEFAULT_CAT_ID in .env, got: ${envContent}`);
+  });
+});
+
+describe('PUT /api/config/default-cat atomicity (cloud review P1)', () => {
+  let app;
+  const OWNER_ID = 'atomicity-test-owner';
+
+  before(async () => {
+    catRegistry.reset();
+    catRegistry.register('opus', CAT_CONFIGS.opus);
+    catRegistry.register('codex', CAT_CONFIGS.codex);
+    process.env.DEFAULT_OWNER_USER_ID = OWNER_ID;
+    clearRuntimeDefaultCatId();
+    const { configRoutes } = await import('../dist/routes/config.js');
+    app = Fastify();
+    // Point envFilePath to a non-existent directory → writeFileSync will throw
+    await app.register(configRoutes, { envFilePath: '/nonexistent-dir/no-such/.env' });
+    await app.ready();
+  });
+
+  after(async () => {
+    clearRuntimeDefaultCatId();
+    catRegistry.reset();
+    delete process.env.DEFAULT_OWNER_USER_ID;
+    await app?.close();
+  });
+
+  it('does not mutate runtime state when persist fails', async () => {
+    const before = getDefaultCatId();
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/config/default-cat',
+      headers: { 'x-cat-cafe-user': OWNER_ID },
+      payload: { catId: 'codex' },
+    });
+    assert.ok(res.statusCode >= 500, `expected 5xx but got ${res.statusCode}`);
+    assert.equal(getDefaultCatId(), before, 'runtime default should not change when persist fails');
+  });
+
+  it('does not mutate runtime state when clearing with persist failure', async () => {
+    setRuntimeDefaultCatId('codex');
+    const before = getDefaultCatId();
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/config/default-cat',
+      headers: { 'x-cat-cafe-user': OWNER_ID },
+      payload: { catId: null },
+    });
+    assert.ok(res.statusCode >= 500, `expected 5xx but got ${res.statusCode}`);
+    assert.equal(getDefaultCatId(), before, 'runtime default should not change when persist fails');
+    clearRuntimeDefaultCatId();
+  });
+});
+
 describe('GET/PUT /api/config/default-cat (F154 AC-A4)', () => {
   let app;
   const OWNER_ID = 'test-owner-123';

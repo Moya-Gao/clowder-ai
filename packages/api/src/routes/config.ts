@@ -360,6 +360,15 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
 
   // ── F154 AC-A4: Default cat runtime override (owner-gated) ──────────
 
+  function persistDefaultCatToEnv(catId: string | null): void {
+    const current = existsSync(envFilePath) ? readFileSync(envFilePath, 'utf8') : '';
+    const updates = new Map<string, string | null>([['DEFAULT_CAT_ID', catId]]);
+    const next = applyEnvUpdatesToFile(current, updates);
+    writeFileSync(envFilePath, next, 'utf8');
+    if (catId) process.env.DEFAULT_CAT_ID = catId;
+    else delete process.env.DEFAULT_CAT_ID;
+  }
+
   app.get('/api/config/default-cat', async () => ({
     catId: getDefaultCatId(),
     isOverride: hasRuntimeDefaultCatOverride(),
@@ -388,6 +397,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
     }
 
     if (parsed.data.catId === null) {
+      persistDefaultCatToEnv(null);
       clearRuntimeDefaultCatId();
       return { ok: true, catId: getDefaultCatId(), isOverride: false };
     }
@@ -398,6 +408,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       return { error: `Unknown catId: ${parsed.data.catId}` };
     }
 
+    persistDefaultCatToEnv(parsed.data.catId);
     setRuntimeDefaultCatId(parsed.data.catId);
     return { ok: true, catId: parsed.data.catId, isOverride: true };
   });

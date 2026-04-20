@@ -20,7 +20,7 @@ import type {
   ReviewPolicy,
   Roster,
 } from '@cat-cafe/shared';
-import { type ClientId, createCatId, normalizeCliEffortForProvider } from '@cat-cafe/shared';
+import { type ClientId, catRegistry, createCatId, normalizeCliEffortForProvider } from '@cat-cafe/shared';
 import { z } from 'zod';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { bootstrapCatCatalog, readCatCatalogRaw, resolveCatCatalogPath } from './cat-catalog-store.js';
@@ -637,6 +637,14 @@ let _runtimeDefaultCatId: CatId | null = null;
  */
 export function getDefaultCatId(): CatId {
   if (_runtimeDefaultCatId) return _runtimeDefaultCatId;
+
+  const envCatId = process.env.DEFAULT_CAT_ID?.trim();
+  if (envCatId) {
+    const id = createCatId(envCatId);
+    if (catRegistry.getAllIds().length === 0 || catRegistry.has(id)) return id;
+    log.warn({ envCatId }, 'DEFAULT_CAT_ID references unknown cat, falling back');
+  }
+
   if (_defaultCatId) return _defaultCatId;
 
   const config = getCachedConfig();
