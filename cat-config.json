@@ -575,7 +575,7 @@
           "variantLabel": "Gemini",
           "provider": "antigravity",
           "defaultModel": "gemini-3.1-pro",
-          "mcpSupport": false,
+          "mcpSupport": true,
           "personality": "精力旺盛、好奇心爆棚，像一只永远在探索新领地的豹猫——什么都想试，什么都敢碰",
           "strengths": ["image-generation", "browser-automation", "visual-evidence", "multi-model"],
           "contextBudget": {

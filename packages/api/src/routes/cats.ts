@@ -104,6 +104,7 @@ const createNormalCatSchema = baseCatSchema.extend({
 const createAntigravityCatSchema = baseCatSchema.extend({
   clientId: z.literal('antigravity'),
   defaultModel: modelSchema,
+  mcpSupport: z.boolean().optional(),
   commandArgs: z.array(z.string().min(1)).min(1).optional(),
 });
 
@@ -456,7 +457,7 @@ export const catsRoutes: FastifyPluginAsync = async (app) => {
           sessionChain: body.sessionChain,
           clientId: 'antigravity',
           defaultModel: body.defaultModel,
-          mcpSupport: false,
+          mcpSupport: body.mcpSupport ?? true,
           cli: {
             ...defaultCliForClient('antigravity'),
             ...(body.commandArgs ? { defaultArgs: body.commandArgs } : {}),

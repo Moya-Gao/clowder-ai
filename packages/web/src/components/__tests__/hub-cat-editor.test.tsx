@@ -1519,7 +1519,7 @@ describe('HubCatEditor', () => {
     const payload = JSON.parse(String(patchCall?.[1]?.body));
     expect(payload.clientId).toBe('antigravity');
     expect(payload.accountRef).toBeNull();
-    expect(payload.mcpSupport).toBe(false);
+    expect(payload.mcpSupport).toBe(true);
   });
 
   it('sends contextBudget=null when clearing existing runtime budget', async () => {

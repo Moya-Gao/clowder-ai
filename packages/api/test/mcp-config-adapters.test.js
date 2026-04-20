@@ -8,10 +8,12 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
   cleanStaleClaudeProjectOverrides,
+  readAntigravityMcpConfig,
   readClaudeMcpConfig,
   readCodexMcpConfig,
   readGeminiMcpConfig,
   readKimiMcpConfig,
+  writeAntigravityMcpConfig,
   writeClaudeMcpConfig,
   writeCodexMcpConfig,
   writeGeminiMcpConfig,
@@ -23,6 +25,10 @@ async function makeTmpDir(prefix) {
   const dir = join(tmpdir(), `mcp-config-test-${prefix}-${Date.now()}`);
   await mkdir(dir, { recursive: true });
   return dir;
+}
+
+function expectedAntigravityApiUrl() {
+  return process.env.CAT_CAFE_API_URL?.trim() || 'http://localhost:3002';
 }
 
 // ────────── Readers ──────────
@@ -266,6 +272,39 @@ describe('readKimiMcpConfig', () => {
     assert.equal(remote?.transport, 'streamableHttp');
     assert.equal(remote?.url, 'https://mcp.context7.com/mcp');
     assert.deepEqual(remote?.headers, { CONTEXT7_API_KEY: 'test-key' });
+  });
+});
+
+describe('readAntigravityMcpConfig', () => {
+  /** @type {string} */ let dir;
+
+  beforeEach(async () => {
+    dir = await makeTmpDir('antigravity-read');
+  });
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('parses serverUrl remote entries as streamableHttp transport', async () => {
+    const file = join(dir, 'mcp_config.json');
+    await writeFile(
+      file,
+      JSON.stringify({
+        mcpServers: {
+          remote_docs: {
+            serverUrl: 'https://mcp.example.com/remote',
+            headers: { Authorization: 'Bearer token' },
+          },
+        },
+      }),
+    );
+
+    const result = await readAntigravityMcpConfig(file);
+    assert.equal(result.length, 1);
+    assert.equal(result[0]?.name, 'remote_docs');
+    assert.equal(result[0]?.transport, 'streamableHttp');
+    assert.equal(result[0]?.url, 'https://mcp.example.com/remote');
+    assert.deepEqual(result[0]?.headers, { Authorization: 'Bearer token' });
   });
 });
 
@@ -525,6 +564,85 @@ describe('writeKimiMcpConfig', () => {
       CAT_CAFE_CALLBACK_TOKEN: '${CAT_CAFE_CALLBACK_TOKEN}',
       CAT_CAFE_USER_ID: '${CAT_CAFE_USER_ID}',
       CAT_CAFE_SIGNAL_USER: '${CAT_CAFE_SIGNAL_USER}',
+    });
+  });
+});
+
+describe('writeAntigravityMcpConfig', () => {
+  /** @type {string} */ let dir;
+
+  beforeEach(async () => {
+    dir = await makeTmpDir('antigravity-write');
+  });
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('injects readonly env for managed cat-cafe servers', async () => {
+    const file = join(dir, 'mcp_config.json');
+    await writeAntigravityMcpConfig(file, [
+      { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'cat-cafe' },
+    ]);
+
+    const raw = JSON.parse(await readFile(file, 'utf-8'));
+    assert.deepEqual(raw.mcpServers['cat-cafe'].env, {
+      CAT_CAFE_API_URL: expectedAntigravityApiUrl(),
+      CAT_CAFE_READONLY: 'true',
+    });
+  });
+
+  it('preserves legacy cat-cafe entry while backfilling readonly env', async () => {
+    const file = join(dir, 'mcp_config.json');
+    await writeFile(
+      file,
+      JSON.stringify({
+        mcpServers: {
+          'cat-cafe': { command: 'node', args: ['legacy-index.js'] },
+        },
+      }),
+    );
+
+    await writeAntigravityMcpConfig(file, [
+      { name: 'cat-cafe-memory', command: 'node', args: ['memory.js'], enabled: true, source: 'cat-cafe' },
+    ]);
+
+    const servers = await readAntigravityMcpConfig(file);
+    const legacy = servers.find((s) => s.name === 'cat-cafe');
+    assert.ok(legacy);
+    assert.deepEqual(legacy.env, {
+      CAT_CAFE_API_URL: expectedAntigravityApiUrl(),
+      CAT_CAFE_READONLY: 'true',
+    });
+  });
+
+  it('forces readonly env keys over legacy antigravity values while preserving unrelated env', async () => {
+    const file = join(dir, 'mcp_config.json');
+    await writeFile(
+      file,
+      JSON.stringify({
+        mcpServers: {
+          'cat-cafe': {
+            command: 'node',
+            args: ['legacy-index.js'],
+            env: {
+              CAT_CAFE_API_URL: 'http://legacy.invalid:9999',
+              CAT_CAFE_READONLY: 'false',
+              EXTRA_FLAG: 'keep-me',
+            },
+          },
+        },
+      }),
+    );
+
+    await writeAntigravityMcpConfig(file, [
+      { name: 'cat-cafe-memory', command: 'node', args: ['memory.js'], enabled: true, source: 'cat-cafe' },
+    ]);
+
+    const raw = JSON.parse(await readFile(file, 'utf-8'));
+    assert.deepEqual(raw.mcpServers['cat-cafe'].env, {
+      CAT_CAFE_API_URL: expectedAntigravityApiUrl(),
+      CAT_CAFE_READONLY: 'true',
+      EXTRA_FLAG: 'keep-me',
     });
   });
 });

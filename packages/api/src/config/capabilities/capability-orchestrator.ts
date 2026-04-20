@@ -16,10 +16,12 @@ import type { CapabilitiesConfig, CapabilityEntry, McpServerDescriptor } from '@
 import { catRegistry } from '@cat-cafe/shared';
 import {
   cleanStaleClaudeProjectOverrides,
+  readAntigravityMcpConfig,
   readClaudeMcpConfig,
   readCodexMcpConfig,
   readGeminiMcpConfig,
   readKimiMcpConfig,
+  writeAntigravityMcpConfig,
   writeClaudeMcpConfig,
   writeCodexMcpConfig,
   writeGeminiMcpConfig,
@@ -121,6 +123,7 @@ const PROVIDER_WRITERS = {
   anthropic: writeClaudeMcpConfig,
   openai: writeCodexMcpConfig,
   google: writeGeminiMcpConfig,
+  antigravity: writeAntigravityMcpConfig,
   kimi: writeKimiMcpConfig,
 } as const;
 
@@ -372,6 +375,7 @@ export interface DiscoveryPaths {
   codexConfig: string; // e.g. <projectRoot>/.codex/config.toml
   geminiConfig: string; // e.g. <projectRoot>/.gemini/settings.json
   kimiConfig: string; // e.g. <projectRoot>/.kimi/mcp.json
+  antigravityConfig?: string; // e.g. ~/.gemini/antigravity/mcp_config.json
 }
 
 /**
@@ -379,14 +383,15 @@ export interface DiscoveryPaths {
  * Merges by name; if same name appears in multiple, first wins.
  */
 export async function discoverExternalMcpServers(paths: DiscoveryPaths): Promise<McpServerDescriptor[]> {
-  const [claude, codex, gemini, kimi] = await Promise.all([
+  const [claude, codex, gemini, kimi, antigravity] = await Promise.all([
     readClaudeMcpConfig(paths.claudeConfig),
     readCodexMcpConfig(paths.codexConfig),
     readGeminiMcpConfig(paths.geminiConfig),
     readKimiMcpConfig(paths.kimiConfig),
+    paths.antigravityConfig ? readAntigravityMcpConfig(paths.antigravityConfig) : Promise.resolve([]),
   ]);
   return deduplicateDiscoveredMcpServers(
-    [...claude, ...codex, ...gemini, ...kimi]
+    [...claude, ...codex, ...gemini, ...kimi, ...antigravity]
       .filter((server) => hasUsableTransport(server))
       .map((server) => ({ ...server, source: 'external' as const })),
   );
@@ -629,6 +634,7 @@ export interface CliConfigPaths {
   openai: string; // e.g. <projectRoot>/.codex/config.toml
   google: string; // e.g. <projectRoot>/.gemini/settings.json
   kimi: string; // e.g. <projectRoot>/.kimi/mcp.json
+  antigravity?: string; // e.g. ~/.gemini/antigravity/mcp_config.json
 }
 
 /** Providers that support streamableHttp transport (URL-based MCP). */

@@ -214,9 +214,7 @@ describe('G1→G2 bridge: stored PR artifacts survive into merged ledger for tie
       },
     ];
     const merged = mergeLedger(storedLedger, currentArtifacts);
-    const activeTasks = [
-      { kind: 'pr_tracking', subjectKey: 'pr:org/repo#1297', title: 'PR #1297', status: 'todo' },
-    ];
+    const activeTasks = [{ kind: 'pr_tracking', subjectKey: 'pr:org/repo#1297', title: 'PR #1297', status: 'todo' }];
     const ranked = rankArtifactSources(merged, activeTasks, { canonicalFeatureId: 'F148' });
 
     assert.equal(ranked[0].type, 'feature-doc', 'feature doc tier-1');

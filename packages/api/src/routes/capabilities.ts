@@ -130,8 +130,8 @@ function resolveCatCafeSkillsSourceDir(): string {
 const CAT_CAFE_SKILLS_SRC = resolveCatCafeSkillsSourceDir();
 
 /**
- * P1-1 fix: All CLI config paths are project-level (not user-level).
- * This ensures multi-project isolation — different projects have different configs.
+ * Discovery reads project-local CLI configs for providers that are project scoped.
+ * Antigravity is the exception: its MCP config is global under ~/.gemini/antigravity.
  */
 function getDiscoveryPaths(projectRoot: string) {
   return {
@@ -139,6 +139,7 @@ function getDiscoveryPaths(projectRoot: string) {
     codexConfig: join(projectRoot, '.codex', 'config.toml'),
     geminiConfig: join(projectRoot, '.gemini', 'settings.json'),
     kimiConfig: join(projectRoot, '.kimi', 'mcp.json'),
+    antigravityConfig: join(homedir(), '.gemini', 'antigravity', 'mcp_config.json'),
   };
 }
 
@@ -148,6 +149,7 @@ function getCliConfigPaths(projectRoot: string) {
     openai: join(projectRoot, '.codex', 'config.toml'),
     google: join(projectRoot, '.gemini', 'settings.json'),
     kimi: join(projectRoot, '.kimi', 'mcp.json'),
+    antigravity: join(homedir(), '.gemini', 'antigravity', 'mcp_config.json'),
   };
 }
 
@@ -562,6 +564,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       codexConfig: join(home, '.codex', 'config.toml'),
       geminiConfig: join(home, '.gemini', 'settings.json'),
       kimiConfig: join(home, '.kimi', 'mcp.json'),
+      antigravityConfig: join(home, '.gemini', 'antigravity', 'mcp_config.json'),
     };
     const [projectLevelServers, userLevelServers] = await Promise.all([
       discoverExternalMcpServers(projectLevelPaths),

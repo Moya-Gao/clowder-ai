@@ -3,6 +3,7 @@
  * 后端 API 入口
  */
 
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { type CatConfig, type CatId, CORE_COMMANDS, catRegistry } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
@@ -1917,6 +1918,7 @@ async function main(): Promise<void> {
         openai: join(root, '.codex', 'config.toml'),
         google: join(root, '.gemini', 'settings.json'),
         kimi: join(root, '.kimi', 'mcp.json'),
+        antigravity: join(homedir(), '.gemini', 'antigravity', 'mcp_config.json'),
       });
       app.log.info('[api] CLI configs regenerated at startup');
     }

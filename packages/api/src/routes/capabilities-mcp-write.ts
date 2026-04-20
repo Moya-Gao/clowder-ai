@@ -28,6 +28,7 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
     openai: string;
     google: string;
     kimi: string;
+    antigravity?: string;
   };
 }> = async (app, opts) => {
   const { getProjectRoot, getCliConfigPaths } = opts;

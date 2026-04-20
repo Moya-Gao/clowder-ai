@@ -1055,7 +1055,13 @@
       "name": "Agent Memory Reflex — 愿景文档（vision artifact）",
       "status": "vision / research artifact — **NOT an implementation feature**",
       "file": "F169-agent-memory-reflex.md"
+    },
+    {
+      "id": "F170",
+      "name": "Web Chinese Chess — 网页端中国象棋",
+      "status": "done (archived — interview demo delivered, implementation kept on feature branch) | **Owner**: 布偶猫 | **Priority**: P2 | **Completed**: 2026-04-20",
+      "file": "F170-web-chinese-chess.md"
     }
   ],
-  "generated_at": "2026-04-20T09:38:01.063Z"
+  "generated_at": "2026-04-20T14:15:15.864Z"
 }

@@ -305,6 +305,14 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
+    name: 'CAT_CAFE_SKIP_HOMEDIR_MIGRATION',
+    defaultValue: '(未设置)',
+    description: '设为 1 跳过 legacy homedir credentials/provider-profile 迁移（新安装或 opensource profile 用）',
+    category: 'server',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
     name: 'ALLOWED_WORKSPACE_DIRS',
     defaultValue: '(未设置)',
     description: 'MCP Server 允许访问的工作目录列表（逗号分隔）',

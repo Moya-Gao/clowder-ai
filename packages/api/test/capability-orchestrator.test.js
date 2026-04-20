@@ -1242,6 +1242,48 @@ describe('generateCliConfigs', () => {
     assert.ok(data.mcpServers['cat-cafe-collab'], 'valid managed entry should remain');
   });
 
+  it('writes Antigravity global MCP config with readonly cat-cafe env', async () => {
+    if (!catRegistry.has('antigravity')) {
+      catRegistry.register('antigravity', {
+        id: 'antigravity',
+        name: '孟加拉猫',
+        displayName: '孟加拉猫',
+        avatar: '/avatars/antigravity.png',
+        color: { primary: '#D4853A', secondary: '#FAEBDB' },
+        mentionPatterns: ['@antigravity'],
+        clientId: 'antigravity',
+        defaultModel: 'gemini-3.1-pro',
+        mcpSupport: true,
+        roleDescription: 'bridge cat',
+        personality: 'steady',
+      });
+    }
+    const paths = {
+      anthropic: join(dir, '.mcp.json'),
+      openai: join(dir, '.codex', 'config.toml'),
+      google: join(dir, '.gemini', 'settings.json'),
+      antigravity: join(dir, '.gemini', 'antigravity', 'mcp_config.json'),
+    };
+
+    const config = makeConfig([
+      {
+        id: 'cat-cafe-collab',
+        type: 'mcp',
+        enabled: true,
+        source: 'cat-cafe',
+        mcpServer: { command: 'node', args: ['collab.js'] },
+      },
+    ]);
+
+    await generateCliConfigs(config, paths);
+    const data = JSON.parse(await readFile(paths.antigravity, 'utf-8'));
+
+    assert.deepEqual(data.mcpServers['cat-cafe-collab'].env, {
+      CAT_CAFE_API_URL: process.env.CAT_CAFE_API_URL?.trim() || 'http://localhost:3002',
+      CAT_CAFE_READONLY: 'true',
+    });
+  });
+
   it('resolves pencil from env override and records resolved state', async () => {
     const hasAnyCats = catRegistry.getAllIds().length > 0;
     if (!hasAnyCats) return;

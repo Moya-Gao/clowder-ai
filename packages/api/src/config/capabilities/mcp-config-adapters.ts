@@ -3,10 +3,11 @@
  *
  * 读写三种 MCP 配置格式，归一化为 McpServerDescriptor 内部模型。
  *
- * Claude:  .mcp.json        — { mcpServers: { name: { command, args, env } } }
- * Codex:   .codex/config.toml — [mcp_servers.<name>] command/args/env/enabled
- * Gemini:  .gemini/settings.json — { mcpServers: { name: { command, args, env, cwd } } }
- * Kimi:    .kimi/mcp.json       — { mcpServers: { name: { url|command, args, env, headers } } }
+ * Claude:      .mcp.json                         — { mcpServers: { name: { command, args, env } } }
+ * Codex:       .codex/config.toml               — [mcp_servers.<name>] command/args/env/enabled
+ * Gemini:      .gemini/settings.json            — { mcpServers: { name: { command, args, env, cwd } } }
+ * Antigravity: ~/.gemini/antigravity/mcp_config.json — { mcpServers: { name: { command, args, env, cwd } } }
+ * Kimi:        .kimi/mcp.json                   — { mcpServers: { name: { url|command, args, env, headers } } }
  */
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -29,6 +30,13 @@ const KIMI_CAT_CAFE_ENV_PLACEHOLDERS: Readonly<Record<string, string>> = {
   CAT_CAFE_SIGNAL_USER: '${CAT_CAFE_SIGNAL_USER}',
 };
 
+function buildAntigravityCatCafeEnvDefaults(): Readonly<Record<string, string>> {
+  return {
+    CAT_CAFE_API_URL: process.env.CAT_CAFE_API_URL?.trim() || 'http://localhost:3002',
+    CAT_CAFE_READONLY: 'true',
+  };
+}
+
 function isCatCafeServer(name: string): boolean {
   return name === 'cat-cafe' || name.startsWith('cat-cafe-');
 }
@@ -46,6 +54,14 @@ function ensureKimiCatCafeEnv(name: string, env?: Record<string, string>): Recor
   return {
     ...KIMI_CAT_CAFE_ENV_PLACEHOLDERS,
     ...(env ?? {}),
+  };
+}
+
+function ensureAntigravityCatCafeEnv(name: string, env?: Record<string, string>): Record<string, string> | undefined {
+  if (!isCatCafeServer(name)) return env;
+  return {
+    ...(env ?? {}),
+    ...buildAntigravityCatCafeEnvDefaults(),
   };
 }
 
@@ -116,6 +132,22 @@ export async function readKimiMcpConfig(filePath: string): Promise<McpServerDesc
 
   return Object.entries(servers as Record<string, Record<string, unknown>>).map(([name, cfg]) =>
     toDescriptor(name, cfg, true),
+  );
+}
+
+/** Read Antigravity ~/.gemini/antigravity/mcp_config.json → McpServerDescriptor[] */
+export async function readAntigravityMcpConfig(filePath: string): Promise<McpServerDescriptor[]> {
+  const raw = await safeReadFile(filePath);
+  if (!raw) return [];
+
+  const data = safeJsonParse(raw);
+  if (!data) return [];
+
+  const servers = data.mcpServers;
+  if (!servers || typeof servers !== 'object') return [];
+
+  return Object.entries(servers as Record<string, Record<string, unknown>>).map(([name, cfg]) =>
+    toDescriptor(name, normalizeAntigravityConfig(cfg), true),
   );
 }
 
@@ -359,6 +391,50 @@ export async function writeKimiMcpConfig(filePath: string, servers: McpServerDes
   await writeFile(filePath, `${JSON.stringify(existing, null, 2)}\n`, 'utf-8');
 }
 
+/** Write McpServerDescriptor[] → Antigravity ~/.gemini/antigravity/mcp_config.json */
+export async function writeAntigravityMcpConfig(filePath: string, servers: McpServerDescriptor[]): Promise<void> {
+  const raw = await safeReadFile(filePath);
+  let existing: Record<string, unknown> = {};
+  if (raw) {
+    const parsed = safeJsonParse(raw);
+    if (parsed) existing = parsed;
+  }
+
+  const existingMcp: Record<string, unknown> =
+    existing.mcpServers && typeof existing.mcpServers === 'object'
+      ? { ...(existing.mcpServers as Record<string, unknown>) }
+      : {};
+
+  for (const s of servers) {
+    if (s.transport === 'streamableHttp') {
+      delete existingMcp[s.name];
+      continue;
+    }
+    if (!s.command || s.command.trim().length === 0 || !s.enabled) {
+      delete existingMcp[s.name];
+      continue;
+    }
+    const entry: Record<string, unknown> = { command: s.command, args: s.args };
+    const env = ensureAntigravityCatCafeEnv(s.name, s.env);
+    if (env && Object.keys(env).length > 0) entry.env = env;
+    if (s.workingDir) entry.cwd = s.workingDir;
+    existingMcp[s.name] = entry;
+  }
+
+  for (const [name, value] of Object.entries(existingMcp)) {
+    if (!isCatCafeServer(name)) continue;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+    const cfg = value as Record<string, unknown>;
+    const currentEnv = toStringRecord(cfg.env);
+    cfg.env = ensureAntigravityCatCafeEnv(name, currentEnv);
+    existingMcp[name] = cfg;
+  }
+
+  existing.mcpServers = existingMcp;
+  await ensureDir(filePath);
+  await writeFile(filePath, `${JSON.stringify(existing, null, 2)}\n`, 'utf-8');
+}
+
 // ────────── Helpers ──────────
 
 async function safeReadFile(filePath?: string): Promise<string | null> {
@@ -392,6 +468,13 @@ function toStringRecord(val: unknown): Record<string, string> | undefined {
     result[k] = String(v);
   }
   return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function normalizeAntigravityConfig(cfg: Record<string, unknown>): Record<string, unknown> {
+  if (typeof cfg.serverUrl === 'string' && cfg.serverUrl && typeof cfg.url !== 'string') {
+    return { ...cfg, url: cfg.serverUrl };
+  }
+  return cfg;
 }
 
 function toDescriptor(name: string, cfg: Record<string, unknown>, enabled: boolean): McpServerDescriptor {
