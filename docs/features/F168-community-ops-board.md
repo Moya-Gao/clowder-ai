@@ -273,6 +273,21 @@ TTL=0（铁律 #5），用户数据默认持久化
 3. **增量去重**：按 `repo + issueNumber` 唯一键，已有条目只更新状态
 4. **PR 不走这条路**：PR 已有 `pr_tracking` 管线（TaskStore），不需要改
 
+### Phase F: GitHub PR 同步管线（Issue sync 的对称版）
+
+看板 Issue 已有进货通道（Phase E），但 PR 区只显示猫猫主动注册的 `pr_tracking` 条目。铲屎官需要看到**所有 PR**的回复状态——和 issue 一样的体验。
+
+1. **PR Sync 入口**：复用同步按钮 → 后端调 `GET /repos/{repo}/pulls`（`state=all --paginate`）→ 写入 `CommunityPrStore`
+2. **回复状态检测**（replyState）：对每个 open PR，查 `GET /repos/{repo}/pulls/{number}/reviews`，有非 author 的 review → `replied`，否则 → `unreplied`
+3. **新动态检测**（hasNewActivity）：已回复的 PR，如果 `head.sha` 与最后一次非 author review 时的 SHA 不同 → 对方 push 了新 commit
+4. **看板合并**：board endpoint 合并 `CommunityPrStore`（全量发现层）+ `pr_tracking`（已注册的富数据），按 PR number 去重，`pr_tracking` 优先
+5. **前端 PR 分组**：unreplied → "未回复" / replied → "已回复" / has-new-activity → "有新动态" / merged → "已合入" / closed → "已关闭"（替代旧的 in-review/re-review/has-conflict/completed 分组）
+
+**与 KD-11 的关系**：KD-11（"PR 不另建台账"）针对的是已注册 PR 的跟踪数据。Phase F 新增的 `CommunityPrStore` 是**发现层**——让铲屎官看到所有 PR，不只是猫猫注册过的。两层共存，board 合并展示。
+
+**铲屎官原话**（2026-04-19）：
+> "这里的 PR 我是想看到和 issue 那样，哪些我们回了哪些没回，比如上次回了之后对方有没有新的更新这些的"
+
 ### Phase D: Intake 硬门禁 + Guardian 自动触发
 
 把铲屎官的"你去守护一下"变成系统自动触发：
@@ -319,6 +334,13 @@ TTL=0（铁律 #5），用户数据默认持久化
 - [x] AC-D2: Guardian 从 roster 自动选择（≠ author ≠ reviewer）— GuardianMatcher 跨族优先 + 双排除 + 降级
 - [x] AC-D3: 缺 guardian sign-off → merge-gate 自动拦截 — guardian-status 端点供 merge-gate 查询
 - [x] AC-D4: Intake checklist 每项需要证据，系统验证非人工叮嘱 — DEFAULT_INTAKE_CHECKLIST + validateIntakeChecklist + signoff 端点强制验证
+
+### Phase F（GitHub PR 同步管线）
+- [ ] AC-F1: 点击同步按钮 → 调 GitHub API 拉取指定 repo 的所有 PR → 写入 CommunityPrStore（增量去重，按 repo+prNumber）
+- [ ] AC-F2: 回复状态检测 — 对 open PR 查 reviews，有非 author review → replied，否则 → unreplied
+- [ ] AC-F3: 新动态检测 — replied 状态的 PR，head SHA 变了 → has-new-activity
+- [ ] AC-F4: 看板 PR 区合并 CommunityPrStore + pr_tracking，按 PR number 去重（pr_tracking 优先）
+- [ ] AC-F5: 前端 PR 分组改为 unreplied/replied/has-new-activity/merged/closed
 
 ### Phase E（GitHub Issue 同步管线 — 地基）
 - [x] AC-E1: 点击同步按钮 → 调 GitHub API 拉取指定 repo 的 open issues → 写入 CommunityIssueStore（增量去重，按 repo+issueNumber）
@@ -369,6 +391,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | KD-10 | Direction Card 初版用 `card` + `fields` 文本 badge | `card.fields` 无 `icon` 字段，SVG 图标需后续扩展 `CardField`；初版接受 PASS/WARN/FAIL 文本降级（gpt52 review P2） | 2026-04-18 |
 | KD-11 | PR 不另建台账，投影自 `pr_tracking` | 现有 `TaskStore` 的 `pr_tracking` 已是 CI/review/conflict 权威数据源；双写会导致状态漂移（gpt52 review P1） | 2026-04-18 |
 | KD-12 | Phase C 需补 `community` workspace mode 基础设施 | 现有枚举只有 4 态；需扩展 `WorkspaceMode = 'dev' \| 'recall' \| 'schedule' \| 'tasks' \| 'community'`（fail-closed 有界枚举），thread metadata 用 `WorkspaceMode` 类型不用 string（gpt52 review P2） | 2026-04-18 |
+| KD-13 | Phase F: PR 发现层 `CommunityPrStore` 与 KD-11 `pr_tracking` 共存 | KD-11 解决已注册 PR 的富数据跟踪，Phase F 解决"看到所有 PR"的发现需求。board 合并两层数据，pr_tracking 优先（铲屎官 2026-04-19 确认需要看全量 PR 回复状态） | 2026-04-19 |
 
 ## Timeline
 
