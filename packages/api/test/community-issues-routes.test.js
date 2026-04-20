@@ -7,13 +7,19 @@ describe('Community Issues Routes', () => {
   let communityIssueStore;
   let taskStore;
 
+  let communityPrStore;
+
   beforeEach(async () => {
     const { createCommunityIssueStore } = await import(
       '../dist/domains/cats/services/stores/factories/CommunityIssueStoreFactory.js'
     );
     const { TaskStore } = await import('../dist/domains/cats/services/stores/ports/TaskStore.js');
+    const { InMemoryCommunityPrStore } = await import(
+      '../dist/domains/cats/services/stores/memory/InMemoryCommunityPrStore.js'
+    );
     communityIssueStore = createCommunityIssueStore();
     taskStore = new TaskStore();
+    communityPrStore = new InMemoryCommunityPrStore();
   });
 
   const mockThreadStore = {
@@ -59,6 +65,7 @@ describe('Community Issues Routes', () => {
     await app.register(communityIssueRoutes, {
       communityIssueStore,
       taskStore,
+      communityPrStore,
       socketManager,
       threadStore: mockThreadStore,
       registry: defaultRegistry,
@@ -976,5 +983,211 @@ describe('Community Issues Routes', () => {
     const body = res.json();
     assert.ok(body.repos.includes('org/alpha'), 'should include issue repo');
     assert.ok(body.repos.includes('org/gamma'), 'should include PR-only repo');
+  });
+
+  // --- Phase F: GitHub PR Sync ---
+
+  test('POST /api/community-issues/sync-prs creates PR items', async () => {
+    const app = await createApp({
+      fetchPrs: async () => [
+        {
+          number: 100,
+          title: 'Add feature',
+          state: 'open',
+          merged_at: null,
+          user: 'alice',
+          head_sha: 'abc',
+          draft: false,
+          labels: [],
+          updated_at: '2026-01-01',
+        },
+      ],
+      fetchPrReviews: async () => [],
+    });
+    const res = await app.inject({ method: 'POST', url: '/api/community-issues/sync-prs?repo=org/repo' });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.created, 1);
+    assert.equal(body.total, 1);
+  });
+
+  test('POST /api/community-issues/sync-prs detects replied state', async () => {
+    const app = await createApp({
+      fetchPrs: async () => [
+        {
+          number: 200,
+          title: 'Reviewed PR',
+          state: 'open',
+          merged_at: null,
+          user: 'alice',
+          head_sha: 'sha1',
+          draft: false,
+          labels: [],
+          updated_at: '2026-01-01',
+        },
+      ],
+      fetchPrReviews: async () => [{ user: 'bob', state: 'APPROVED', commit_id: 'sha1' }],
+    });
+    const res = await app.inject({ method: 'POST', url: '/api/community-issues/sync-prs?repo=org/repo' });
+    assert.equal(res.statusCode, 200);
+    const board = (await app.inject({ method: 'GET', url: '/api/community-board?repo=org/repo' })).json();
+    const pr = board.prItems.find((p) => p.prNumber === 200);
+    assert.ok(pr, 'PR should appear in board');
+    assert.equal(pr.replyState, 'replied');
+  });
+
+  test('POST /api/community-issues/sync-prs no duplicate on re-sync', async () => {
+    const app = await createApp({
+      fetchPrs: async () => [
+        {
+          number: 300,
+          title: 'Same PR',
+          state: 'open',
+          merged_at: null,
+          user: 'alice',
+          head_sha: 'x',
+          draft: false,
+          labels: [],
+          updated_at: '2026-01-01',
+        },
+      ],
+      fetchPrReviews: async () => [],
+    });
+    await app.inject({ method: 'POST', url: '/api/community-issues/sync-prs?repo=org/repo' });
+    const res = await app.inject({ method: 'POST', url: '/api/community-issues/sync-prs?repo=org/repo' });
+    assert.equal(res.json().unchanged, 1);
+    assert.equal(res.json().created, 0);
+  });
+
+  test('POST /api/community-issues/sync-prs missing repo returns 400', async () => {
+    const app = await createApp({ fetchPrs: async () => [], fetchPrReviews: async () => [] });
+    const res = await app.inject({ method: 'POST', url: '/api/community-issues/sync-prs' });
+    assert.equal(res.statusCode, 400);
+  });
+
+  test('GET /api/community-board merges CommunityPrStore with pr_tracking', async () => {
+    const app = await createApp({
+      fetchPrs: async () => [
+        {
+          number: 500,
+          title: 'Community PR',
+          state: 'open',
+          merged_at: null,
+          user: 'ext',
+          head_sha: 'h1',
+          draft: false,
+          labels: [],
+          updated_at: '2026-01-01',
+        },
+      ],
+      fetchPrReviews: async () => [],
+    });
+    await app.inject({ method: 'POST', url: '/api/community-issues/sync-prs?repo=org/repo' });
+    const board = (await app.inject({ method: 'GET', url: '/api/community-board?repo=org/repo' })).json();
+    const communityPr = board.prItems.find((p) => p.prNumber === 500);
+    assert.ok(communityPr, 'community PR should appear in board');
+    assert.equal(communityPr.group, 'unreplied');
+    assert.equal(communityPr.author, 'ext');
+    assert.equal(typeof communityPr.status, 'string', 'community PR must include status field');
+  });
+
+  // P1: tracked PRs must use new Phase F groups, not old derivePrGroup output
+  test('GET /api/community-board maps tracked PR groups to Phase F scheme', async () => {
+    const app = await createApp();
+    // Create a tracked PR task with automationState that produces 'in-review'
+    taskStore.create({
+      kind: 'pr_tracking',
+      threadId: 'thread_test',
+      title: 'feat: tracked PR',
+      subjectKey: 'pr:org/repo#50',
+    });
+    const board = (await app.inject({ method: 'GET', url: '/api/community-board?repo=org/repo' })).json();
+    const tracked = board.prItems.find((p) => p.title === 'feat: tracked PR');
+    assert.ok(tracked, 'tracked PR should appear in board');
+    assert.equal(tracked.group, 'replied', 'in-review should map to replied in Phase F scheme');
+  });
+
+  // P2: merged/closed community PRs must go to 'merged'/'closed' group, not 'replied'
+  test('GET /api/community-board groups merged community PR as merged', async () => {
+    const app = await createApp({
+      fetchPrs: async () => [
+        {
+          number: 600,
+          title: 'Merged PR',
+          state: 'closed',
+          merged_at: '2026-01-01',
+          user: 'ext',
+          head_sha: 'h6',
+          draft: false,
+          labels: [],
+          updated_at: '2026-01-01',
+        },
+      ],
+      fetchPrReviews: async () => [],
+    });
+    await app.inject({ method: 'POST', url: '/api/community-issues/sync-prs?repo=org/repo' });
+    const board = (await app.inject({ method: 'GET', url: '/api/community-board?repo=org/repo' })).json();
+    const mergedPr = board.prItems.find((p) => p.prNumber === 600);
+    assert.ok(mergedPr, 'merged PR should appear in board');
+    assert.equal(mergedPr.group, 'merged', 'merged PR must be in merged group, not replied');
+  });
+
+  test('GET /api/community-board groups closed community PR as closed', async () => {
+    const app = await createApp({
+      fetchPrs: async () => [
+        {
+          number: 601,
+          title: 'Closed PR',
+          state: 'closed',
+          merged_at: null,
+          user: 'ext',
+          head_sha: 'h7',
+          draft: false,
+          labels: [],
+          updated_at: '2026-01-01',
+        },
+      ],
+      fetchPrReviews: async () => [],
+    });
+    await app.inject({ method: 'POST', url: '/api/community-issues/sync-prs?repo=org/repo' });
+    const board = (await app.inject({ method: 'GET', url: '/api/community-board?repo=org/repo' })).json();
+    const closedPr = board.prItems.find((p) => p.prNumber === 601);
+    assert.ok(closedPr, 'closed PR should appear in board');
+    assert.equal(closedPr.group, 'closed', 'closed PR must be in closed group, not replied');
+  });
+
+  // P1 round 2: tracked completed PR uses CommunityPrStore state to distinguish merged vs closed
+  test('GET /api/community-board tracked completed PR shows closed when community store says closed', async () => {
+    const app = await createApp({
+      fetchPrs: async () => [
+        {
+          number: 700,
+          title: 'Closed tracked PR',
+          state: 'closed',
+          merged_at: null,
+          user: 'ext',
+          head_sha: 'h700',
+          draft: false,
+          labels: [],
+          updated_at: '2026-01-01',
+        },
+      ],
+      fetchPrReviews: async () => [],
+    });
+    // Sync to populate CommunityPrStore with state='closed'
+    await app.inject({ method: 'POST', url: '/api/community-issues/sync-prs?repo=org/repo' });
+    // Create a tracked PR task, then mark done (derivePrGroup → completed → merged)
+    const task = taskStore.create({
+      kind: 'pr_tracking',
+      threadId: 'thread_test',
+      title: 'Closed tracked PR',
+      subjectKey: 'pr:org/repo#700',
+    });
+    taskStore.update(task.id, { status: 'done' });
+    const board = (await app.inject({ method: 'GET', url: '/api/community-board?repo=org/repo' })).json();
+    // pr_tracking takes priority in dedup, so #700 should come from trackedPrItems
+    const tracked = board.prItems.find((p) => p.title === 'Closed tracked PR' && !p.prNumber);
+    assert.ok(tracked, 'tracked completed PR should appear in board');
+    assert.equal(tracked.group, 'closed', 'completed PR that is actually closed should show closed, not merged');
   });
 });

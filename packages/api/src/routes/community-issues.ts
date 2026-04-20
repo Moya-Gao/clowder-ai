@@ -19,10 +19,12 @@ import { z } from 'zod';
 import { getRoster } from '../config/cat-config-loader.js';
 import type { InvocationRecord } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { ICommunityIssueStore } from '../domains/cats/services/stores/ports/CommunityIssueStore.js';
+import type { ICommunityPrStore } from '../domains/cats/services/stores/ports/CommunityPrStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { derivePrGroup } from '../domains/community/derivePrGroup.js';
 import { type GhIssueFull, mapGitHubIssue } from '../domains/community/GitHubIssueFetcher.js';
+import { type GhPrFull, type GhPrReview, mapGitHubPr } from '../domains/community/GitHubPrFetcher.js';
 import { resolveGuardian } from '../domains/community/GuardianMatcher.js';
 import { TriageOrchestrator } from '../domains/community/TriageOrchestrator.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
@@ -40,6 +42,9 @@ export interface CommunityIssuesRoutesOptions {
   threadStore?: Pick<IThreadStore, 'create'>;
   registry?: CallbackAuthVerifier;
   fetchIssues?: (repo: string) => Promise<GhIssueFull[]>;
+  communityPrStore?: ICommunityPrStore;
+  fetchPrs?: (repo: string) => Promise<GhPrFull[]>;
+  fetchPrReviews?: (repo: string, prNumber: number) => Promise<GhPrReview[]>;
 }
 
 const VALID_ISSUE_TYPES = ['bug', 'feature', 'enhancement', 'question'] as const;
@@ -213,6 +218,65 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
     }
 
     return { repo, created, updated, unchanged, total: ghIssues.length };
+  });
+
+  app.post('/api/community-issues/sync-prs', async (request, reply) => {
+    const { repo } = request.query as { repo?: string };
+    if (!repo) {
+      reply.status(400);
+      return { error: 'Missing repo query parameter' };
+    }
+    if (!opts.fetchPrs || !opts.communityPrStore) {
+      reply.status(501);
+      return { error: 'GitHub PR fetching not configured' };
+    }
+
+    const ghPrs = await opts.fetchPrs(repo);
+    let created = 0;
+    let updated = 0;
+    let unchanged = 0;
+
+    for (const pr of ghPrs) {
+      const reviews = pr.state === 'open' && opts.fetchPrReviews ? await opts.fetchPrReviews(repo, pr.number) : [];
+      const mapped = mapGitHubPr(pr, reviews);
+      const existing = await opts.communityPrStore.getByRepoAndNumber(repo, pr.number);
+
+      if (!existing) {
+        await opts.communityPrStore.create({
+          repo,
+          prNumber: pr.number,
+          title: pr.title,
+          author: pr.user,
+          state: mapped.state,
+          replyState: mapped.replyState,
+          headSha: pr.head_sha,
+          draft: pr.draft,
+        });
+        if (mapped.lastReviewedSha) {
+          const fresh = await opts.communityPrStore.getByRepoAndNumber(repo, pr.number);
+          if (fresh) await opts.communityPrStore.update(fresh.id, { lastReviewedSha: mapped.lastReviewedSha });
+        }
+        created++;
+      } else if (
+        existing.state !== mapped.state ||
+        existing.replyState !== mapped.replyState ||
+        existing.title !== pr.title ||
+        existing.headSha !== pr.head_sha
+      ) {
+        await opts.communityPrStore.update(existing.id, {
+          state: mapped.state,
+          replyState: mapped.replyState,
+          title: pr.title,
+          headSha: pr.head_sha,
+          ...(mapped.lastReviewedSha ? { lastReviewedSha: mapped.lastReviewedSha } : {}),
+        });
+        updated++;
+      } else {
+        unchanged++;
+      }
+    }
+
+    return { repo, created, updated, unchanged, total: ghPrs.length };
   });
 
   const triageCompleteSchema = z.object({
@@ -493,15 +557,61 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
     const allTasks = await taskStore.listByKind('pr_tracking');
     const repoPrTasks = allTasks.filter((t) => t.subjectKey?.startsWith(subjectPrefix));
 
-    const prItems = repoPrTasks.map((t) => ({
-      taskId: t.id,
-      threadId: t.threadId,
-      title: t.title,
-      status: t.status,
-      group: derivePrGroup(t.automationState, t.status),
-      automationState: t.automationState,
-      updatedAt: t.updatedAt,
-    }));
+    const communityPrs = opts.communityPrStore ? await opts.communityPrStore.listByRepo(repo) : [];
+    const communityPrStateByNumber = new Map(communityPrs.map((p) => [p.prNumber, p.state]));
+
+    const oldGroupToPhaseF: Record<string, string> = {
+      'in-review': 'replied',
+      're-review-needed': 'has-new-activity',
+      'has-conflict': 'has-new-activity',
+      completed: 'merged',
+    };
+
+    const trackedPrItems = repoPrTasks.map((t) => {
+      const oldGroup = derivePrGroup(t.automationState, t.status);
+      let group = oldGroupToPhaseF[oldGroup] ?? oldGroup;
+      if (group === 'merged') {
+        const match = t.subjectKey?.match(/#(\d+)$/);
+        const prNum = match ? Number(match[1]) : null;
+        const actualState = prNum != null ? communityPrStateByNumber.get(prNum) : undefined;
+        if (actualState === 'closed') group = 'closed';
+      }
+      return {
+        taskId: t.id,
+        threadId: t.threadId,
+        title: t.title,
+        status: t.status,
+        group,
+        automationState: t.automationState,
+        updatedAt: t.updatedAt,
+      };
+    });
+    const trackedPrNumbers = new Set(
+      repoPrTasks
+        .map((t) => {
+          const match = t.subjectKey?.match(/#(\d+)$/);
+          return match ? Number(match[1]) : null;
+        })
+        .filter(Boolean),
+    );
+
+    const communityPrItems = communityPrs
+      .filter((p) => !trackedPrNumbers.has(p.prNumber))
+      .map((p) => ({
+        taskId: p.id,
+        prNumber: p.prNumber,
+        title: p.title,
+        author: p.author,
+        state: p.state,
+        status: p.state,
+        replyState: p.replyState,
+        group: p.state !== 'open' ? p.state : p.replyState,
+        headSha: p.headSha,
+        draft: p.draft,
+        updatedAt: p.updatedAt,
+      }));
+
+    const prItems = [...trackedPrItems, ...communityPrItems];
 
     return { repo, issues, prItems };
   });

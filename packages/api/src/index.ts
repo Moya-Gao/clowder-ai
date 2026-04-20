@@ -1423,12 +1423,69 @@ async function main(): Promise<void> {
       .split('\n')
       .map((line: string) => JSON.parse(line));
   };
+  const fetchPrsForSync = async (repo: string) => {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const execFileAsync = promisify(execFile);
+    const { stdout } = await execFileAsync(
+      'gh',
+      [
+        'api',
+        `/repos/${repo}/pulls`,
+        '--method',
+        'GET',
+        '--jq',
+        '.[] | {number, title, state, merged_at: .merged_at, user: .user.login, head_sha: .head.sha, draft, labels: [.labels[].name], updated_at: .updated_at}',
+        '--paginate',
+        '-f',
+        'state=all',
+        '-f',
+        'per_page=100',
+      ],
+      { timeout: 60_000 },
+    );
+    if (!stdout.trim()) return [];
+    return stdout
+      .trim()
+      .split('\n')
+      .map((line: string) => JSON.parse(line));
+  };
+  const fetchPrReviewsForSync = async (_repo: string, prNumber: number) => {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const execFileAsync = promisify(execFile);
+    const { stdout } = await execFileAsync(
+      'gh',
+      [
+        'api',
+        '--paginate',
+        `/repos/${_repo}/pulls/${prNumber}/reviews`,
+        '--method',
+        'GET',
+        '--jq',
+        '.[] | {user: .user.login, state, commit_id}',
+      ],
+      { timeout: 30_000 },
+    );
+    if (!stdout.trim()) return [];
+    return stdout
+      .trim()
+      .split('\n')
+      .map((line: string) => JSON.parse(line));
+  };
+  const { InMemoryCommunityPrStore } = await import(
+    './domains/cats/services/stores/memory/InMemoryCommunityPrStore.js'
+  );
+  const communityPrStore = new InMemoryCommunityPrStore();
   await app.register(communityIssueRoutes, {
     communityIssueStore,
     taskStore,
     socketManager,
     registry,
     fetchIssues: fetchIssuesForSync,
+    communityPrStore,
+    fetchPrs: fetchPrsForSync,
+    fetchPrReviews: fetchPrReviewsForSync,
   });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
 

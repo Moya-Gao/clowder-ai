@@ -21,10 +21,13 @@ interface CommunityIssueItem {
 
 interface PrBoardItem {
   taskId: string;
-  threadId: string;
+  threadId?: string | null;
   title: string;
   status: string;
   group: string;
+  prNumber?: number;
+  author?: string;
+  replyState?: string;
   updatedAt: number;
 }
 
@@ -44,10 +47,11 @@ const ISSUE_SECTIONS = [
 ] as const;
 
 const PR_SECTIONS = [
-  { key: 'in-review', label: '审核中' },
-  { key: 're-review-needed', label: '需重审' },
-  { key: 'has-conflict', label: '有冲突' },
-  { key: 'completed', label: '已完成' },
+  { key: 'unreplied', label: 'PR 未回复' },
+  { key: 'replied', label: 'PR 已回复' },
+  { key: 'has-new-activity', label: '有新动态' },
+  { key: 'merged', label: '已合入' },
+  { key: 'closed', label: '已关闭' },
 ] as const;
 
 const ISSUE_STATE_COLORS: Record<string, string> = {
@@ -60,10 +64,11 @@ const ISSUE_STATE_COLORS: Record<string, string> = {
 };
 
 const PR_GROUP_COLORS: Record<string, string> = {
-  'in-review': 'text-cafe-crosspost',
-  're-review-needed': 'text-amber-600',
-  'has-conflict': 'text-cafe-accent',
-  completed: 'text-green-600',
+  unreplied: 'text-cafe-accent',
+  replied: 'text-green-600',
+  'has-new-activity': 'text-amber-600',
+  merged: 'text-green-600',
+  closed: 'text-gray-400',
 };
 
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
@@ -149,7 +154,9 @@ function PrRow({ item, onNavigate }: { item: PrBoardItem; onNavigate: (threadId:
       className={`flex items-center gap-2 px-3 py-1.5 hover:bg-cafe-surface-elevated/30 text-xs ${item.threadId ? 'cursor-pointer' : 'cursor-default opacity-70'}`}
     >
       <span className={color}>{PR_ICON}</span>
+      {item.prNumber != null && <span className="text-cafe-muted text-[10px]">#{item.prNumber}</span>}
       <span className="truncate flex-1 text-cafe-secondary">{item.title}</span>
+      {item.author && <span className="text-[10px] text-cafe-muted">@{item.author}</span>}
       <span className="text-[10px] text-cafe-muted">{item.status}</span>
     </div>
   );
@@ -164,7 +171,8 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
     declined: true,
   });
   const [collapsedPrs, setCollapsedPrs] = useState<Record<string, boolean>>({
-    completed: true,
+    merged: true,
+    closed: true,
   });
   const [stateFilter, setStateFilter] = useState('all');
   const [catFilter, setCatFilter] = useState('all');
@@ -190,7 +198,10 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
     if (!repo) return;
     setLoading(true);
     try {
-      await fetch(`/api/community-issues/sync?repo=${encodeURIComponent(repo)}`, { method: 'POST' });
+      await Promise.all([
+        fetch(`/api/community-issues/sync?repo=${encodeURIComponent(repo)}`, { method: 'POST' }),
+        fetch(`/api/community-issues/sync-prs?repo=${encodeURIComponent(repo)}`, { method: 'POST' }),
+      ]);
       await fetchBoard();
     } catch {
       /* network error — keep stale data */
