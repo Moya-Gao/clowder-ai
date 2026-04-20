@@ -2263,6 +2263,7 @@ async function main(): Promise<void> {
     agentRegistry,
     commandRegistry,
     bindingStore: connectorBindingStore,
+    frontendBaseUrl,
   };
 
   /** Re-wire all hook consumers after gateway (re)start */

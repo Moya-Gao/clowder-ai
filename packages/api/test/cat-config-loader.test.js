@@ -279,11 +279,12 @@ describe('cat-config-loader', () => {
       assert.throws(() => loadCatConfig(path), /defaultVariantId.*not found/);
     });
 
-    it('rejects invalid provider', () => {
-      const bad = validConfig();
-      bad.breeds[0].variants[0].clientId = 'invalid-provider';
-      const path = writeTempConfig(bad);
-      assert.throws(() => loadCatConfig(path), /Invalid cat config/);
+    it('accepts unknown provider without crashing (#252)', () => {
+      const config = validConfig();
+      config.breeds[0].variants[0].clientId = 'relayclaw';
+      const path = writeTempConfig(config);
+      const result = loadCatConfig(path);
+      assert.ok(result, 'config with unknown clientId should load successfully');
     });
 
     it('accepts dare provider (F050)', () => {
@@ -475,13 +476,13 @@ describe('cat-config-loader', () => {
       assert.equal(isSessionChainEnabled('opus-sonnet', config), false);
     });
 
-  it('F053: loads project config for gemini (sessionChain: true after parity fix)', () => {
-    // Uses the actual project cat-config.json
-    const config = loadCatConfig();
-    assert.equal(isSessionChainEnabled('gemini', config), true);
-    assert.equal(isSessionChainEnabled('opus', config), true);
-    assert.equal(isSessionChainEnabled('codex', config), true);
-  });
+    it('F053: loads project config for gemini (sessionChain: true after parity fix)', () => {
+      // Uses the actual project cat-config.json
+      const config = loadCatConfig();
+      assert.equal(isSessionChainEnabled('gemini', config), true);
+      assert.equal(isSessionChainEnabled('opus', config), true);
+      assert.equal(isSessionChainEnabled('codex', config), true);
+    });
 
     it('project config keeps antigravity session chain enabled for both variants', () => {
       const templatePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../cat-template.json');
