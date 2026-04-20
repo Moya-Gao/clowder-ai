@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatCatName, useCatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
@@ -35,6 +35,8 @@ interface ThreadCatPillProps {
   threadId: string;
 }
 
+const EMPTY_CATS: string[] = [];
+
 /** F154 Phase B — Shows preferred cat in thread header, click to open CatSelector popover. */
 export function ThreadCatPill({ threadId }: ThreadCatPillProps) {
   const threads = useChatStore((s) => s.threads);
@@ -49,13 +51,23 @@ export function ThreadCatPill({ threadId }: ThreadCatPillProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
 
   const thread = threads.find((t) => t.id === threadId);
-  const preferredCats: string[] = thread?.preferredCats ?? [];
+  const rawPreferredCats = thread?.preferredCats;
+  // Stabilize reference: serialize to detect content changes, not reference changes
+  const preferredCatsKey = rawPreferredCats ? rawPreferredCats.join(',') : '';
+  const preferredCats: string[] = useMemo(
+    () => rawPreferredCats ?? EMPTY_CATS,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [preferredCatsKey],
+  );
 
   // Sync local selection when prop changes or popover closes; clear stale error on reopen
+  const prevPreferredRef = useRef(preferredCats);
   useEffect(() => {
+    const changed = prevPreferredRef.current !== preferredCats;
+    prevPreferredRef.current = preferredCats;
     if (isOpen) {
       setSaveError(false);
-    } else {
+    } else if (changed) {
       setSelectedCats(preferredCats);
     }
   }, [preferredCats, isOpen]);

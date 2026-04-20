@@ -30,7 +30,12 @@ const nextConfig = {
     // F156 D-3: Strict CSP baseline.
     // Next.js hydration requires 'unsafe-inline' for scripts — nonce-based CSP
     // needs middleware (future work). Blocking 'unsafe-eval' prevents eval() injection.
-    const csp = ["frame-ancestors 'none'", "script-src 'self' 'unsafe-inline'", "object-src 'none'"].join('; ');
+    // Dev mode: React Refresh (HMR) uses new Function() which requires 'unsafe-eval'.
+    const isDev = process.env.NODE_ENV === 'development';
+    const scriptSrc = isDev
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+      : "script-src 'self' 'unsafe-inline'";
+    const csp = ["frame-ancestors 'none'", scriptSrc, "object-src 'none'"].join('; ');
     return [
       {
         source: '/:path*',
