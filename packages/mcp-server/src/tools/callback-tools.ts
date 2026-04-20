@@ -1075,21 +1075,24 @@ export const callbackTools = [
   {
     name: 'cat_cafe_hold_ball',
     description:
-      'F167 C1: Declare ball hold — "球仍在我手上，但我需要一个短暂的有界等待再继续"。' +
-      'System will auto-re-invoke you after wakeAfterMs with your reason + nextStep as context. ' +
-      'Guard: max 3 consecutive holds, then you MUST pass (@ another cat or @landy). ' +
-      'USE WHEN: Ball is clearly yours + nobody else can advance + short predictable wait + you know what to do next. ' +
-      'NOT FOR: Need someone to review/approve → @landy; need another cat to act → @cat; ' +
-      '"let me think" / "I\'ll hold for now" → that\'s hesitation not hold, pick 接/退/升; status updates → just say it.',
+      'Declare a bounded ball hold: keep the ball while waiting for a short, predictable condition, then get auto-re-invoked with your context. ' +
+      'Use when: ball is clearly yours + nobody else can advance + short predictable wait ' +
+      '(e.g. CI running, build compiling, PR checks pending) + you know exactly what to do next. ' +
+      'NOT for: need review/approval → @ reviewer or @landy; need another cat to act → @ that cat; ' +
+      '"let me think" / "I\'ll hold for now" → hesitation not hold, pick 接/退/升; ' +
+      'review/analysis done → MUST @ author, conclusion ≠ endpoint; status updates → use post_message. ' +
+      'Output: system schedules a one-shot wake-up after wakeAfterMs; you get re-invoked with reason + nextStep as trigger context. ' +
+      'GOTCHA: max 3 holds per (thread, cat) within a rolling ~1h window — 4th call returns 429, you MUST pass (@ another cat or @landy). ' +
+      'GOTCHA: the counter is process-local best-effort (in-memory on the API node); API restart or multi-instance deploys may reset it, so do not treat the 429 as a hard security boundary — treat it as a self-discipline guardrail. ' +
+      'GOTCHA: hold is an EXCEPTION state, not a default exit. Most turns should end with @ someone, not hold.',
     inputSchema: {
       reason: z.string().min(1).max(500).describe('Why you need to hold the ball (e.g. "tests still running")'),
-      nextStep: z.string().min(1).max(500).describe('What you will do when re-invoked (e.g. "check test results, then @ author")'),
-      wakeAfterMs: z
-        .number()
-        .int()
-        .min(5000)
-        .max(3600000)
-        .describe('Delay in ms before system re-invokes you (5s–1h)'),
+      nextStep: z
+        .string()
+        .min(1)
+        .max(500)
+        .describe('What you will do when re-invoked (e.g. "check test results, then @ author")'),
+      wakeAfterMs: z.number().int().min(5000).max(3600000).describe('Delay in ms before system re-invokes you (5s–1h)'),
     },
     handler: handleHoldBall,
   },

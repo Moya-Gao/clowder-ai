@@ -85,6 +85,8 @@ const EXPECTED_TOOLS = [
   'cat_cafe_preview_scheduled_task',
   'cat_cafe_register_scheduled_task',
   'cat_cafe_remove_scheduled_task',
+  // F167 C1: Hold ball callback
+  'cat_cafe_hold_ball',
 ];
 
 const EXPECTED_COLLAB_TOOLS = [
@@ -120,6 +122,8 @@ const EXPECTED_COLLAB_TOOLS = [
   'cat_cafe_preview_scheduled_task',
   'cat_cafe_register_scheduled_task',
   'cat_cafe_remove_scheduled_task',
+  // F167 C1: Hold ball callback
+  'cat_cafe_hold_ball',
 ];
 
 const EXPECTED_MEMORY_TOOLS = [
@@ -285,6 +289,7 @@ const KNOWN_WRITE_TOOLS = [
   'cat_cafe_submit_game_action',
   'cat_cafe_register_scheduled_task',
   'cat_cafe_remove_scheduled_task',
+  'cat_cafe_hold_ball', // callbackPost → writes scheduled task
   'cat_cafe_feat_index', // requires callback credentials unavailable in readonly
   'signal_mark_read',
   'signal_summarize',

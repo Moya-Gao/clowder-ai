@@ -138,7 +138,8 @@ cat_cafe_hold_ball({
 > 球仍在你手上。现在执行：{nextStep}
 > 若条件仍未满足：再持一次或升级；禁止无限持球。
 
-**Guard**：`maxConsecutiveHolds`（默认 3），超限强制接/退/升 + 审计日志。
+**Guard**：`maxHoldsPerWindow`（默认 3，~1h rolling 窗口，per thread×cat），超限强制接/退/升 + 审计日志。
+*实现注记*（gpt52 review on PR #1289 P1/P2）：语义是"窗口内累计"而非"真·连续"；状态进程内 in-memory，best-effort，重启会重置。要做硬约束得把计数下沉到与 reminder scheduler 同源的持久化存储，当前不做。
 
 ---
 
@@ -221,8 +222,8 @@ cat_cafe_hold_ball({
 ### Phase C1（Hold Ball MCP — 有界持球）
 - [x] AC-C1: `cat_cafe_hold_ball` MCP tool 注册（reason + nextStep + wakeAfterMs 参数）
 - [x] AC-C2: CLI 退出后系统自动再唤醒持球猫（via reminder template one-shot scheduled task）
-- [x] AC-C3: maxConsecutiveHolds guard（默认 3），超限返回 429 + 强制传球提示
-- [x] AC-C4: 审计日志（pino structured log: threadId/catId/reason/nextStep/wakeAfterMs/consecutiveHolds）
+- [x] AC-C3: maxHoldsPerWindow guard（默认 3 per ~1h 滚动窗口 per thread×cat），超限返回 429 + 强制传球提示
+- [x] AC-C4: 审计日志（pino structured log: threadId/catId/reason/nextStep/wakeAfterMs/holdsInWindow/windowMs）
 
 ### Phase C2（Forced-Pass Guard — 强制传球）
 - [x] AC-C5: exit check 增加 review 场景规则：verdict 后必须 @ author 或 @landy（404f894fb）
