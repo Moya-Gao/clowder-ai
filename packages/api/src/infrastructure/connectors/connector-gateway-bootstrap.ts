@@ -18,6 +18,7 @@ import * as lark from '@larksuiteoapi/node-sdk';
 import type { FastifyBaseLogger } from 'fastify';
 import { isCatAvailable } from '../../config/cat-config-loader.js';
 import type { ConnectorWebhookHandler, WebhookHandleResult } from '../../routes/connector-webhooks.js';
+import { getDefaultUploadDir } from '../../utils/upload-paths.js';
 import { deliverConnectorMessage } from '../email/deliver-connector-message.js';
 import { DingTalkAdapter } from './adapters/DingTalkAdapter.js';
 import { FeishuAdapter } from './adapters/FeishuAdapter.js';
@@ -867,7 +868,7 @@ export async function startConnectorGateway(
   stopFns.push(async () => weixin.stopPolling());
 
   // R3-P1: Resolve route URLs to local file paths for real media delivery
-  const uploadDir = resolve(process.env.UPLOAD_DIR ?? './uploads');
+  const uploadDir = getDefaultUploadDir(process.env.UPLOAD_DIR);
   const ttsCacheDir = resolve(process.env.TTS_CACHE_DIR ?? './data/tts-cache');
   const resolvedMediaDir = resolve(mediaDir);
   const webPublicDir = resolve(process.env.WEB_PUBLIC_DIR ?? '../web/public');

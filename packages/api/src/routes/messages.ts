@@ -32,7 +32,6 @@ import type { GameDriver } from '../domains/cats/services/game/GameDriver.js';
 import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
 import { WerewolfLobby } from '../domains/cats/services/game/werewolf/WerewolfLobby.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
-
 import { getPushNotificationService } from '../domains/cats/services/push/PushNotificationService.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
@@ -45,6 +44,7 @@ import { isSystemUserMessage } from '../domains/cats/services/stores/visibility.
 import { mergeTokenUsage, type TokenUsage } from '../domains/cats/services/types.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { buildCancelMessages, type SocketManager } from '../infrastructure/websocket/index.js';
+import { getDefaultUploadDir } from '../utils/upload-paths.js';
 
 /** F088 ISSUE-15: Minimal outbound delivery interface — avoids importing full OutboundDeliveryHook. */
 interface OutboundDeliveryHookLike {
@@ -144,7 +144,7 @@ export function shouldMarkDecisionNotification(content: string): boolean {
 }
 
 export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (app, opts) => {
-  const uploadDir = opts.uploadDir ?? process.env.UPLOAD_DIR ?? './uploads';
+  const uploadDir = getDefaultUploadDir(opts.uploadDir ?? process.env.UPLOAD_DIR);
 
   // Register multipart parser for image uploads
   await app.register(multipart, {

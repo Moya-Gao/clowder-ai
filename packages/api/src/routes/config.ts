@@ -33,6 +33,7 @@ import { updateRuntimeCoCreator } from '../config/runtime-cat-catalog.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
+import { getDefaultUploadDir } from '../utils/upload-paths.js';
 import { configCatOrderRoutes } from './config-cat-order.js';
 
 const patchSchema = z.object({
@@ -261,7 +262,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
           runtimeLogs: resolve(apiCwd, './data/logs/api'),
           cliArchive: resolve(apiCwd, process.env.CLI_RAW_ARCHIVE_DIR ?? './data/cli-raw-archive'),
           redisDevSandbox: resolve(home, '.cat-cafe/redis-dev-sandbox'),
-          uploads: resolve(apiCwd, process.env.UPLOAD_DIR ?? './uploads'),
+          uploads: getDefaultUploadDir(process.env.UPLOAD_DIR),
         },
       },
     };

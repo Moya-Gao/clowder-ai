@@ -190,6 +190,7 @@ import { threadExportRoutes } from './routes/thread-export.js';
 import { ApiInstanceLease, type ApiInstanceLeaseInvalidation } from './services/ApiInstanceLease.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
 import { resolveUserId } from './utils/request-identity.js';
+import { getDefaultUploadDir } from './utils/upload-paths.js';
 
 const PORT = parseInt(process.env.API_SERVER_PORT ?? '3002', 10);
 const HOST = process.env.API_SERVER_HOST ?? '127.0.0.1';
@@ -1709,7 +1710,7 @@ async function main(): Promise<void> {
   });
 
   // Serve uploaded files (images)
-  const uploadDir = process.env.UPLOAD_DIR ?? './uploads';
+  const uploadDir = getDefaultUploadDir(process.env.UPLOAD_DIR);
   await app.register(uploadsRoutes, { uploadDir });
 
   // F088: Serve downloaded connector media files

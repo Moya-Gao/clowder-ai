@@ -7,6 +7,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { ConnectorMessageFormatter, type MessageEnvelope, type MessageOrigin } from './ConnectorMessageFormatter.js';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { renderAllRichBlocksPlaintext } from './rich-block-plaintext.js';
+import { resolveInternalRouteUrl } from '../../utils/upload-paths.js';
 
 export interface IOutboundAdapter {
   readonly connectorId: string;
@@ -305,10 +306,15 @@ export class OutboundDeliveryHook {
                       const absPath = resolve?.(item.url);
                       if (absPath) {
                         await adapter.sendMedia(binding.externalChatId, { type: 'image', absPath });
-                      } else if (item.url.startsWith('https://')) {
+                      } else if (
+                        item.url.startsWith('https://') ||
+                        item.url.startsWith('/uploads/') ||
+                        item.url.startsWith('/api/connector-media/')
+                      ) {
+                        const resolvedUrl = resolveInternalRouteUrl(item.url);
                         await adapter.sendMedia(binding.externalChatId, {
                           type: 'image',
-                          url: item.url,
+                          url: resolvedUrl,
                         });
                       } else {
                         this.opts.log.warn(
