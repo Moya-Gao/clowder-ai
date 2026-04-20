@@ -257,7 +257,7 @@ interface OrchestrationStep {
 | 2026-04-03 | guide completion callback 打通：前端 complete → 后端 `guideState=completed` → Socket `guide_complete` |
 | 2026-04-06 | CVO 方向校准：复用已有 Hub / IM Hub surface 覆盖 provider / connector 场景；新增外部页签和 observe substrate 另拆 |
 | 2026-04-09 | CVO 验收 Phase A 通过；Esc 误退修复（KD-14）；observe 拆出独立 feature（KD-15）；Phase A accepted/frozen |
-| 2026-04-20 | `clowder-ai#504` upstream squash merge；guided scenarios intake 在 `cat-cafe#1294` 执行中 |
+| 2026-04-20 | `clowder-ai#504` upstream squash merge；guided scenarios selective intake 经 `cat-cafe#1296` merge 到 cat-cafe main，`cat-cafe#1294` 自动关闭 |
 
 ## Links
 

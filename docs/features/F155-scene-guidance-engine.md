@@ -11,7 +11,7 @@ intake_issue: "cat-cafe#1294"
 
 # F155: Scene-Based Guidance Engine — 场景式交互引导
 
-> **Status**: in-progress (Phase A merged in cat-cafe main via PR #1122; Phase B selective intake merged in cat-cafe main via PR #1147; guided-scenarios intake in progress via cat-cafe#1294) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52
+> **Status**: in-progress (Phase A merged in cat-cafe main via PR #1122; Phase B selective intake merged in cat-cafe main via PR #1147; guided-scenarios selective intake merged in cat-cafe main via PR #1296) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52
 
 ## Why
 
@@ -142,7 +142,7 @@ TBD — 待 intake 讨论后确定。
 - 当前 intake 策略：Phase A / Phase B 均按 selective absorb 回流；Phase B 已完成 `ephemeral guide session` 分层与 extraction seams 的 file-level intake，不做 upstream 全量 replay
 - Phase A intake 已于 2026-04-12 merge 到 cat-cafe main（PR #1122）
 - `clowder-ai#504` 已于 2026-04-20 upstream squash merge（commit `2161cfcb32958c6c665ddfde5611c9fbee674ef8`）
-- 当前 guided scenarios intake issue：`cat-cafe#1294`
+- guided scenarios selective intake 已于 2026-04-20 merge 到 cat-cafe main（PR #1296, commit `3d886c72a9be7c788b1e461634be9bb711df538b`）；`cat-cafe#1294` 已自动关闭
 - `clowder-ai#504` 机械分类：50 `safe-cherry-pick` / 4 `manual-port`
 
 ### Intake Shape
@@ -185,3 +185,4 @@ PR 后半段（04-09 的 20+ commits）连续修了以下问题，说明 `guideS
 - Intake Issue: [cat-cafe#1144](https://github.com/zts212653/cat-cafe/issues/1144)
 - Intake Issue: [cat-cafe#1294](https://github.com/zts212653/cat-cafe/issues/1294)
 - Intake PR: [cat-cafe#1122](https://github.com/zts212653/cat-cafe/pull/1122)
+- Intake PR: [cat-cafe#1296](https://github.com/zts212653/cat-cafe/pull/1296)
