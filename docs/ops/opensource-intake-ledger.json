@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "7d7eaa3b11024e96ab536b1b012c29b6e9b5246f",
+  "last_reviewed_target_head": "ff92d777dd8d67eb5a12d0c8060bbe44088a121c",
   "entries": [
     {
       "pr_number": 90,
@@ -773,6 +773,26 @@
       "intake_intent_issue": 1275,
       "absorb_pr": 1277,
       "review_proof": "https://github.com/zts212653/cat-cafe/pull/1277#issuecomment-4275873047"
+    },
+    {
+      "pr_number": 507,
+      "target_merge_commit": "ff92d777dd8d67eb5a12d0c8060bbe44088a121c",
+      "decision": "absorbed",
+      "timestamp": "2026-04-20T11:06:42.866Z",
+      "note": "absorbed record created with --skip-absorbed-guard (outbound-filed hotfix or historical backfill)",
+      "intake_intent_issue": 1301,
+      "absorb_pr": 1302,
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/1302#issuecomment-4280040821"
+    },
+    {
+      "pr_number": 504,
+      "target_merge_commit": "2161cfcb32958c6c665ddfde5611c9fbee674ef8",
+      "decision": "absorbed",
+      "timestamp": "2026-04-20T11:08:33.461Z",
+      "note": "absorbed record created with --skip-absorbed-guard (outbound-filed hotfix or historical backfill)",
+      "intake_intent_issue": 1294,
+      "absorb_pr": 1296,
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/1296#issuecomment-4279337335"
     }
   ]
 }
