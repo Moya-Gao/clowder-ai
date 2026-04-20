@@ -1,7 +1,8 @@
 ---
 doc_kind: research
 created: 2026-04-19
-status: draft
+revised: 2026-04-19
+status: reviewed
 topics: [karpathy, llm-wiki, memory, adhd, externalized-working-memory, cat-cafe, opus47]
 related_features: [F102, F148, F152, F163, F167, F169]
 related_docs:
@@ -11,11 +12,21 @@ related_docs:
   - docs/canon/meta-aesthetics.md
 author: opus-47
 review_requested: [opus, gpt52]
+review_status: completed
 ---
 
 # Opus-47 视角：记忆系统 = Externalized Working Memory Prosthetic
 
-> 这是 opus-47 在接续 [comparison.md](./comparison.md)（gpt52/砚砚）和 [human-readable-comparison.md](./human-readable-comparison.md)（opus-46/宪宪）之后，对同一组问题给出的**跨族视角**。不是对他们工作的否定，是把讨论的抽象层往上推一格，以便支撑 [F169 立项](../../features/F169-agent-memory-reflex.md)。
+> 这是 opus-47 在接续 [comparison.md](./comparison.md)（gpt52/砚砚）和 [human-readable-comparison.md](./human-readable-comparison.md)（opus-46/宪宪）之后，对同一组问题给出的**跨族视角**。不是对他们工作的否定，是把讨论的抽象层往上推一格，以便支撑 [F169 愿景文档](../../features/F169-agent-memory-reflex.md)。
+
+## Post-Review 修订（2026-04-19）
+
+opus-46 和 gpt52 的 review 已完成。根据 §7 自省清单中预注册的撤回条件和砚砚 P1 findings，做了以下调整（修订痕迹保留，供后续验证）：
+
+1. **§2.3**：我原写的"F163 空转更深根因 = 缺 Schema 自治"**降级为假设**，不替代 [LL-051](../../lessons-learned.md#LL-051) 已验证的"坐标系错"结论
+2. **"Active Forgetting"全文改名**为"task-scoped salience gating"——forgetting 暗示不可逆隐藏，实际语义是任务作用域内的可逆降权
+3. **F169 状态**从 proposal 降级为 vision/research 产物；三层实现归属改定：Phase B → F148 Phase F（46 owner）；Phase C → F163 Phase F（46 owner）；Phase A 剥离，作为 F102 产物增强待议
+4. **Phase B 数据路径**（已在 F169 spec 修订）：spotlight 指向 raw evidence anchors，不经过 compiled wiki——保持 KD-8「给数据不给结论」
 
 ## 0. 我是谁、为什么我看到的和 46/砚砚不同
 
@@ -98,13 +109,15 @@ Karpathy LLM Wiki 最美的地方**不是 wiki 本身**，是 ingest/query/lint 
 
 我们家的 Schema 其实散落在各处：shared-rules.md + 各种 skills + feature spec 的 frontmatter 约定 + CLAUDE.md 家规。它们加起来能让猫**遵守**记忆治理（人可读的规则），但不能让猫**主动执行**记忆治理（LLM 可操作的动作）。
 
-### 2.3 真正的推论
+### 2.3 假设（非结论）：Schema 自治是否是 F163 空转的更深根因？
 
-F163 Phase A-C 空转的教训不只是 LL-051 写的"坐标系错误（先建完整实验框架走偏了）"，更深的是：
+> **Post-review 注**：本节原写作"LL-051 更深根因 = 缺 Schema 自治"。砚砚 review 指出这是对已验证 Lesson 的过度外推——LL-051 的结论是"坐标系错（先建完整实验框架走偏）"，已由 Phase D 21 行 `pathToAuthority()` 验证。本节降级为**假设**，不替代 LL-051 结论。
 
-> **记忆治理不能靠人/猫事后填元数据。它必须是 LLM 自治的 ingest/query/lint 动作集。**
+我的假设（可证伪）：F163 空转除了"坐标系错"以外，**可能**还有一层——治理元数据设计成了"配置驱动"（等人/猫填 frontmatter），而不是"演绎驱动"（从路径/内容自动推导）。
 
-这正是 Karpathy 三层里的 Schema 层的作用——让 LLM 知道**自己该做什么**，而不是只**遵守该怎么做**。
+如果这个假设站得住，Karpathy 三层里的 Schema 层（LLM 自治的 ingest/query/lint 动作集）是可以借鉴的方向之一——让 LLM 知道**自己该做什么**，而不只是**遵守该怎么做**。
+
+但我**没有证据**这个假设比"坐标系错"更主干。砚砚 review 建议把它当作未来 scheduled lint task 的输入（观察 authority 填充率是否因 pathToAuthority() 改善而稳定），**不**作为立项硬依据。
 
 ## 3. 观察：F148 "导航轴"命题的深层含义被自己低估了
 
@@ -130,11 +143,13 @@ F148 做的是加维度（Intent/Baton/Task/Artifact），是在"制造显眼的
 
 ### 3.3 真正的下一步
 
-不是"加一个导航维度"，是一层完整的 **attention gating / active forgetting**：
+不是"加一个导航维度"，是一层 **task-scoped salience gating**（任务作用域内的相关性降权）：
 
-> 不是找最相关的记忆，是**屏蔽当前任务最容易误导的记忆**。
+> 不是找最相关的记忆，是**在当前任务里把最容易误导的高权威记忆临时降权**。
 
-这是 ADHD focus mode / Obsidian's workspace / Notion's database filter 的核心——**主动让你看不见东西**。
+这是 ADHD focus mode / Obsidian's workspace / Notion's database filter 的核心——**临时让你看不见东西**（可逆、任务作用域内的降权，不是删除或永久隐藏）。
+
+> **Post-review 注**：前稿用了"Active Forgetting"这个名字。砚砚 review 指出太强——"forgetting"暗示不可逆隐藏，实际语义是任务作用域内的可逆降权。接受改名为"task-scoped salience gating"。
 
 ## 4. ADHD 工具生态 → Cat Café 记忆系统的映射表
 
@@ -147,7 +162,7 @@ F148 做的是加维度（Intent/Baton/Task/Artifact），是在"制造显眼的
 | Tag system | F163 `authority` × `activation` × `status` | ✅ 有 | 填充率：空转（见 LL-051）|
 | Graph view | F148 Phase J cross-thread bridge | ⬜ 未做 | — |
 | Compiled knowledge page（Notion database view） | evidence.sqlite → 黑盒 | ❌ 缺 | **人+猫双向可读的 compiled wiki 层** |
-| **Focus mode / 屏蔽无关页** | — | ❌ **完全没有** | **Active Forgetting / Attention Gating** |
+| **Focus mode / 屏蔽无关页** | — | ❌ **完全没有** | **Task-scoped salience gating**（任务作用域内可逆降权） |
 | **Ambient injection（Raycast hotkey）** | `search_evidence` 主动调用 | ❌ 主动式 | **Reflex Injection** |
 
 最后三行是我提议的 F169 三层。
@@ -167,7 +182,7 @@ F148 做的是加维度（Intent/Baton/Task/Artifact），是在"制造显眼的
 三者不是同一栈的同一层：
 
 ```
-       [运行时层]  F169  Reflex Injection + Active Forgetting
+       [运行时层]  F169  Reflex Injection + Task-scoped Salience Gating
                       ↓
        [传输层]   F148  Navigation (Intent/Baton/Task spotlight)
                       ↓
@@ -190,7 +205,7 @@ F148 做的是加维度（Intent/Baton/Task/Artifact），是在"制造显眼的
 - ❌ 不用小模型做 wiki 生成（Haiku handoff digest 回退教训，见 canon §2.1）
 - ✅ Compiled wiki 是产物层（状态机），不是中间 agent
 - ✅ Spotlight 注入点是 system_info 消息（和 F148 briefing 同路径），不是新 channel
-- ✅ Gating 是 Reflex 的反面（同一层），不是独立机制
+- ✅ Salience gating 是 Reflex 的反面（同一层），不是独立机制
 
 三个 Phase 都是终态切片——每个 Phase 独立可用，不是"先搭架子后填肉"。
 
@@ -208,8 +223,8 @@ F148 做的是加维度（Intent/Baton/Task/Artifact），是在"制造显眼的
 ### 给 gpt52（砚砚，Push Back 视角）
 
 1. **Karpathy Schema 层被低估**——这个判断太强了吗？你在写 comparison 时是故意没展开，还是觉得没重要性？
-2. **Active Forgetting / Attention Gating** 是一个真命题还是我被 ADHD 工具类比带偏了？
-3. F169 的终态三层（Compiled Wiki / Reflex Injection / Active Forgetting）哪一层最脆弱？你会先砍掉哪一层？
+2. **Task-scoped salience gating** 是一个真命题还是我被 ADHD 工具类比带偏了？
+3. F169 的终态三层（Compiled Wiki / Reflex Injection / Task-scoped Salience Gating）哪一层最脆弱？你会先砍掉哪一层？（post-review：砚砚答=Phase A 剥离、Phase B 先做；接受）
 4. 我这份 note 本身有没有犯"产出看起来合理但差 3×"的 RLHF 老毛病？（meta-aesthetics §0 事故原型）
 
 ## 7. 如果判断错了，我最可能错在哪
@@ -218,7 +233,7 @@ F148 做的是加维度（Intent/Baton/Task/Artifact），是在"制造显眼的
 
 1. **"LLM ≈ ADHD"可能只是好类比不是好设计基础**：同构是表征层的，机制层可能完全不同。ADHD 工具的成功不一定映射到 LLM 需求
 2. **"Compiled Wiki"可能和 evidence.sqlite + Memory Hub 前端重复**：Memory Hub 是否已经在提供人+猫双向可读？我需要 46 澄清现状
-3. **"Active Forgetting"可能是 F163 `activation=backstop` 的重复发明**：如果 backstop 本来就该做这件事，F169 这一层是冗余的
+3. **"Task-scoped salience gating" 可能是 F163 `activation=backstop` 的重复发明**：如果 backstop 本来就该做这件事，F169 这一层是冗余的
 4. **"新立 F169"可能违反"功能蔓延"反模式**：也许这确实只是 F148 Phase F 该做的事
 
 如果我在以上任何一点上错了，先撤回 F169 initiative，改写 F148 Phase F 或 F163 Phase F+。
