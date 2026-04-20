@@ -111,13 +111,13 @@ created: 2026-03-31
 - [x] AC-F6: `formatNavigationHeader` 渲染 `[导航]...[/导航]` 块（baton + tasks，KD-8：给数据不给结论，无 intent 分类标签）
 - [x] AC-F7: 导航 header 在所有路径注入（cold + warm + empty-return，KD-7：独立于 smart window）
 
-### Phase H（Artifact Deterministic Tracking）🚧
-- [ ] AC-H1: `RecentArtifact` 类型 — `{ type: 'pr' | 'file' | 'plan' | 'feature-doc', ref: string, label: string, updatedAt: number, updatedBy: string }`，ThreadMemoryV2 新增 `recentArtifacts: RecentArtifact[]`（max 5，向后兼容）
-- [ ] AC-H2: SessionSealer 落盘时从 `filesTouched`（已有）+ PR tracking tasks 提取 artifacts 写入 ThreadMemory.recentArtifacts（确定性，不靠 regex）
-- [ ] AC-H3: 导航 header `[导航]` 新增"最近产物"行（有 artifacts 时显示 top 3，无则不显示——不加噪音）
-- [ ] AC-H4: Briefing 卡片展开态新增"产物"section（复用 AC-H1 数据，AC-E4 扩展）
-- [ ] AC-H5: 原 regex artifact 提取（`extractDecisionSignals` 的 `ARTIFACT_PATTERN`）保留作为 fallback，确定性 > regex 优先级
-- [ ] AC-H6: 测试覆盖：artifact 录入（SessionSealer 路径）/ 导航渲染（有/无 artifacts）/ ThreadMemory 向后兼容（v1→v2 读入无 recentArtifacts = []）
+### Phase H（Artifact Deterministic Tracking）✅
+- [x] AC-H1: `RecentArtifact` 类型 — `{ type: 'pr' | 'file' | 'plan' | 'feature-doc', ref: string, label: string, updatedAt: number, updatedBy: string }`，ThreadMemoryV2 新增 `recentArtifacts: RecentArtifact[]`（max 5，向后兼容）
+- [x] AC-H2: SessionSealer 落盘时从 `filesTouched`（已有）+ PR tracking tasks 提取 artifacts 写入 ThreadMemory.recentArtifacts（确定性，不靠 regex）
+- [x] AC-H3: 导航 header `[导航]` 新增"最近产物"行（有 artifacts 时显示 top 3，无则不显示——不加噪音）
+- [x] AC-H4: Briefing 卡片展开态新增"产物"section（复用 AC-H1 数据，AC-E4 扩展）
+- [x] AC-H5: 原 regex artifact 提取（`extractDecisionSignals` 的 `ARTIFACT_PATTERN`）保留作为 fallback，确定性 > regex 优先级
+- [x] AC-H6: 测试覆盖：artifact 录入（SessionSealer 路径）/ 导航渲染（有/无 artifacts）/ ThreadMemory 向后兼容（v1→v2 读入无 recentArtifacts = []）
 
 ## Dependencies
 
@@ -214,6 +214,7 @@ created: 2026-03-31
 | 2026-04-19 | Phase F merged (PR #1286) — extractBatonContext + summarizeActiveTasks + formatNavigationHeader + 全路径导航注入。GPT-5.4 review (R1: 1P1+1P2, R2 pass, R3 canonical mention P1, R4 pass) + 云端 review (R3: 1P1 empty-mentions fallback, fixed; R4 云端未接单降级 GPT-5.4 验证) |
 | 2026-04-20 | Phase F fixes merged (PR #1292) — whisper visibility gate on batonCandidates (P1) + Unicode mention strip for Chinese handles (P2) + navigation telemetry。缅因猫 codex review (R1: 1P1+1P2, R2: 退回 1P1+1P2, R3 pass) + 云端 review passed |
 | 2026-04-20 | Phase G→H 优先级调整 — 布偶猫 + GPT-5.4 共识：narrative tombstone 是压缩轴微调不值独立 Phase；H（artifact tracking）提前；G 重定义为 Goal & Grounding（等 H）。铲屎官确认 |
+| 2026-04-20 | Phase H merged (PR #1297) — artifact-tracking.ts + sortAndCapArtifacts + SessionSealer wiring + navigation/briefing rendering + ThreadMemory backward compat。GPT-5.4 review (R1: 2P2, R2 pass) + 云端 review passed |
 
 ## Phase F-J: 导航轴优化（2026-04-19 Reopened）
 
@@ -272,7 +273,7 @@ F148 smart window 仅在**冷启动**场景触发（`route-helpers.ts:601-619`�
 |-------|------|------|------|
 | **F** | Intent + Baton Context — 为什么叫我 + 球怎么来的/做完往哪传 | N-2 + N-7 | ✅ merged (PR #1286 + #1292) |
 | **G** | ~~Task + Narrative~~ → **Goal & Grounding** — 真相源定位 + best-next-step（依赖 H 先完成） | N-3(已部分完成) + N-1(降级 polish) → N-4 grounding | ⏸️ 等 H |
-| **H** | Artifact Deterministic Tracking — 确定性产物记录 | N-4 | 🚧 **下一个** |
+| **H** | Artifact Deterministic Tracking — 确定性产物记录 | N-4 | ✅ merged (PR #1297) |
 | **I** | Eval Baseline — 导航成功率度量（不只是 count） | N-5 | 📋 待拆 AC |
 | **J** | Cross-thread Bridge — 跨 thread context bridge | N-6 | 📋 待拆 AC |
 
