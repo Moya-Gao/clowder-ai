@@ -286,7 +286,7 @@ F148 smart window 仅在**冷启动**场景触发（`route-helpers.ts:601-619`�
 | Phase | 内容 | 缺口 | 状态 |
 |-------|------|------|------|
 | **F** | Intent + Baton Context — 为什么叫我 + 球怎么来的/做完往哪传 | N-2 + N-7 | ✅ merged (PR #1286 + #1292) |
-| **G** | ~~Task + Narrative~~ → **Goal & Grounding** — 真相源定位 + best-next-source | N-3(已部分完成) + N-1(降级) → N-4 grounding | 📋 AC 已定义 |
+| **G** | ~~Task + Narrative~~ → **Goal & Grounding** — 真相源定位 + best-next-source | N-3(已部分完成) + N-1(降级) → N-4 grounding | ✅ merged (PR #1303) |
 | **H** | Artifact Deterministic Tracking — 确定性产物记录 | N-4 | ✅ merged (PR #1297) |
 | **I** | Eval Baseline — 导航成功率度量（不只是 count） | N-5 | 📋 待拆 AC |
 | **J** | Cross-thread Bridge — 跨 thread context bridge | N-6 | 📋 待拆 AC |
@@ -297,6 +297,13 @@ F148 smart window 仅在**冷启动**场景触发（`route-helpers.ts:601-619`�
 > - N-1（tombstone narrative）降级为 polish，不占独立 Phase
 > - **H（确定性 artifact tracking）提前**：没有可靠真相源 → grounding 只能靠猜 → 猜不如不给
 > - G 重定义为 "Goal & Grounding"（真相源定位 + best-next-step），等 H 做完再拆 AC
+
+> **2026-04-20 Briefing Card 概念收敛**（GPT-5.4 提出 + 布偶猫确认 + 铲屎官拍板"别搞出两个概念"）：
+> - **一个概念**：`F148 Context Briefing Card`。Phase E 定义的 briefing 卡 = Phase G 的真相源展示面 = 同一张卡
+> - **两个视图**：猫看 prompt 里的 `[导航]` header（navigation header）；铲屎官看线程里的 UI 卡片（briefing card）。两者是同一份数据（`coverageMap + briefingContext + rankedSources`），不是两张卡
+> - **冷启动无真相源也显示**：卡片 fail-closed 为 `真相源: 未定位` + `下一步: {检索建议}`，不隐藏
+> - **折叠态 3 项**：`为什么叫猫` / `真相源` / `下一步`（待铲屎官确认具体组合）
+> - **下一步**：后续 Phase 把现有 briefing 卡的铲屎官可见性做到"第一眼可依赖"，不新建概念
 
 ## Review Gate
 
