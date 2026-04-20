@@ -204,6 +204,7 @@ created: 2026-03-31
 | 2026-04-19 | **Feature reopened** — 铲屎官发起运行 17 天复盘，核心发现：优化了压缩轴但导航轴不足 |
 | 2026-04-19 | 多猫圆桌讨论（codex + gpt52 + opus）— 收敛 7 缺口 + Phase F-J 优先级。N-7 Baton/Authority 为 gpt52 新增。gemini 待补充 |
 | 2026-04-19 | Phase F merged (PR #1286) — extractBatonContext + summarizeActiveTasks + formatNavigationHeader + 全路径导航注入。GPT-5.4 review (R1: 1P1+1P2, R2 pass, R3 canonical mention P1, R4 pass) + 云端 review (R3: 1P1 empty-mentions fallback, fixed; R4 云端未接单降级 GPT-5.4 验证) |
+| 2026-04-20 | Phase F fixes merged (PR #1292) — whisper visibility gate on batonCandidates (P1) + Unicode mention strip for Chinese handles (P2) + navigation telemetry。缅因猫 codex review (R1: 1P1+1P2, R2: 退回 1P1+1P2, R3 pass) + 云端 review passed |
 
 ## Phase F-J: 导航轴优化（2026-04-19 Reopened）
 
