@@ -525,7 +525,7 @@
       "caution": "ConnectRPC Bridge；需要本机运行 Antigravity IDE",
       "defaultVariantId": "antigravity-gemini",
       "features": {
-        "sessionChain": false
+        "sessionChain": true
       },
       "variants": [
         {

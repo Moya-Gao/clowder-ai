@@ -567,7 +567,7 @@
       "caution": "CDP 桥延迟 ~3s；DOM 结构随 Antigravity 版本变动",
       "defaultVariantId": "antigravity-gemini",
       "features": {
-        "sessionChain": false
+        "sessionChain": true
       },
       "variants": [
         {

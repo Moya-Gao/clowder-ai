@@ -475,12 +475,18 @@ describe('cat-config-loader', () => {
       assert.equal(isSessionChainEnabled('opus-sonnet', config), false);
     });
 
-    it('F053: loads project config for gemini (sessionChain: true after parity fix)', () => {
-      // Uses the actual project cat-config.json
+  it('F053: loads project config for gemini (sessionChain: true after parity fix)', () => {
+    // Uses the actual project cat-config.json
+    const config = loadCatConfig();
+    assert.equal(isSessionChainEnabled('gemini', config), true);
+    assert.equal(isSessionChainEnabled('opus', config), true);
+    assert.equal(isSessionChainEnabled('codex', config), true);
+  });
+
+    it('project config keeps antigravity session chain enabled for both variants', () => {
       const config = loadCatConfig();
-      assert.equal(isSessionChainEnabled('gemini', config), true);
-      assert.equal(isSessionChainEnabled('opus', config), true);
-      assert.equal(isSessionChainEnabled('codex', config), true);
+      assert.equal(isSessionChainEnabled('antigravity', config), true);
+      assert.equal(isSessionChainEnabled('antig-opus', config), true);
     });
 
     it('accepts features with empty object (all defaults)', () => {
