@@ -43,7 +43,13 @@ export function extractBatonContext(
       break;
     }
 
-    const excerpt = m.origin === 'stream' ? '' : m.content.split('\n')[0].replace(mentionPattern, '').trim();
+    const excerpt =
+      m.origin === 'stream'
+        ? ''
+        : m.content
+            .split('\n')[0]
+            .replace(/@[\p{L}\p{N}_-]+/gu, '')
+            .trim();
 
     return {
       fromMessageId: m.id,

@@ -154,6 +154,86 @@ describe('extractBatonContext', () => {
     assert.equal(baton.fromMessageId, 'm80');
   });
 
+  it('strips all @mentions from excerpt, not just target (P3: multi-mention)', () => {
+    const msgs = [
+      {
+        id: 'm90',
+        catId: null,
+        content: '@opus @gemini 帮我看看这个',
+        timestamp: 1000,
+        userId: 'u1',
+        mentions: ['opus', 'gemini'],
+      },
+    ];
+    const baton = extractBatonContext(msgs, 'opus');
+    assert.ok(baton !== null);
+    assert.ok(
+      !baton.mentionExcerpt.includes('@'),
+      `excerpt "${baton.mentionExcerpt}" should not contain any @mentions`,
+    );
+    assert.ok(baton.mentionExcerpt.includes('帮我看看'));
+  });
+
+  it('strips Chinese @mentions from excerpt (P2-R2: Unicode handles)', () => {
+    const msgs = [
+      {
+        id: 'm92',
+        catId: null,
+        content: '@宪宪 帮我看看这个',
+        timestamp: 1000,
+        userId: 'u1',
+        mentions: ['opus'],
+      },
+    ];
+    const baton = extractBatonContext(msgs, 'opus');
+    assert.ok(baton !== null);
+    assert.ok(
+      !baton.mentionExcerpt.includes('@'),
+      `excerpt "${baton.mentionExcerpt}" should not contain Chinese @mentions`,
+    );
+    assert.ok(baton.mentionExcerpt.includes('帮我看看'));
+  });
+
+  it('strips mixed Chinese+ASCII @mentions from excerpt (P2-R2)', () => {
+    const msgs = [
+      {
+        id: 'm93',
+        catId: null,
+        content: '@opus @烁烁 一起验收',
+        timestamp: 1000,
+        userId: 'u1',
+        mentions: ['opus', 'gemini'],
+      },
+    ];
+    const baton = extractBatonContext(msgs, 'opus');
+    assert.ok(baton !== null);
+    assert.ok(
+      !baton.mentionExcerpt.includes('@'),
+      `excerpt "${baton.mentionExcerpt}" should not contain any @mentions`,
+    );
+    assert.ok(baton.mentionExcerpt.includes('验收'));
+  });
+
+  it('strips inline @mentions when target cat is not first (P3)', () => {
+    const msgs = [
+      {
+        id: 'm91',
+        catId: 'codex',
+        content: '@gemini @opus 验收一下猫粮',
+        timestamp: 2000,
+        userId: 'u1',
+        mentions: ['gemini', 'opus'],
+      },
+    ];
+    const baton = extractBatonContext(msgs, 'opus');
+    assert.ok(baton !== null);
+    assert.ok(
+      !baton.mentionExcerpt.includes('@'),
+      `excerpt "${baton.mentionExcerpt}" should not contain any @mentions`,
+    );
+    assert.ok(baton.mentionExcerpt.includes('验收'));
+  });
+
   it('still detects real hold instructions after P2-R2 narrowing', () => {
     const holdPhrases = ['别动，我来', '你等等', '稍等一下', 'hold on', 'wait for me'];
     for (const phrase of holdPhrases) {

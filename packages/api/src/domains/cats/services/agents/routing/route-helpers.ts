@@ -604,7 +604,9 @@ export async function assembleIncrementalContext(
 
   // F148 Phase F (KD-7): Navigation context — injected on ALL paths (cold + warm)
   // P1 fix: extract baton from unseen (pre-stream-filter) so cat→cat @ mentions via stream are visible
-  const batonCandidates = unseen.filter((m) => (m.userId !== 'system' || m.catId !== null) && m.origin !== 'briefing');
+  const batonCandidates = unseen.filter(
+    (m) => (m.userId !== 'system' || m.catId !== null) && m.origin !== 'briefing' && canViewMessage(m, viewer),
+  );
   const baton = extractBatonContext(batonCandidates, catId);
   let activeTasks: import('./navigation-context.js').TaskSummary[] = [];
   if (deps.taskStore) {
@@ -615,6 +617,18 @@ export async function assembleIncrementalContext(
     }
   }
   const navigationHeader = formatNavigationHeader({ baton, tasks: activeTasks });
+
+  log.info({
+    f148: 'navigation-header',
+    threadId,
+    catId,
+    hasBaton: baton !== null,
+    batonFrom: baton?.fromSpeakerDisplay ?? null,
+    taskCount: activeTasks.length,
+    headerLength: navigationHeader.length,
+    unseenCount: unseen.length,
+    batonCandidateCount: batonCandidates.length,
+  });
 
   // F148: Smart window — cold mention detection
   // P1-review: short-circuit on count first — avoid O(n) tokenize when count already triggers
