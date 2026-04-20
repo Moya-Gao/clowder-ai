@@ -54,6 +54,7 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import { detectInlineActionMentionsWithShadow, getMaxA2ADepth, parseA2AMentions } from '../routing/a2a-mentions.js';
 import { checkRoleCompat, type RoleLookup } from '../routing/role-gate.js';
+import { shouldWarnVerdictWithoutPass } from '../routing/verdict-detect.js';
 import { registerWorklist, unregisterWorklist, updateStreakOnPush } from '../routing/WorklistRegistry.js';
 import { extractContextEvalSignals } from './context-eval.js';
 import { buildBriefingMessage } from './format-briefing.js';
@@ -466,6 +467,10 @@ export async function* routeSerial(
       const collectedToolEvents: StoredToolEvent[] = [];
       // F148 OQ-2: Collect tool names for context eval signals
       const collectedToolNames: string[] = [];
+      // F167 C2 AC-C7: CatIds routed to via structured MCP tool payloads this turn
+      // (post_message.targetCats + multi_mention.targets). Used by verdict-no-pass detector
+      // so cats using MCP structured routing don't trigger a false "ball dropped" hint.
+      const structuredTargetCats: string[] = [];
       // F060: Collect rich blocks emitted inline via system_info (not MCP buffer)
       const streamRichBlocks: import('@cat-cafe/shared').RichBlock[] = [];
       // F22 R2 P1-1: Capture own invocationId from stream (not getLatestId)
@@ -598,6 +603,25 @@ export async function* routeSerial(
           // F148 OQ-2: Collect tool names for context eval
           if (effectiveMsg.type === 'tool_use' && effectiveMsg.toolName) {
             collectedToolNames.push(effectiveMsg.toolName);
+
+            // F167 C2 AC-C7: Extract structured routing targets from MCP tool payloads.
+            // post_message.targetCats and multi_mention.targets both denote explicit
+            // ball-pass via structured routing (the third legitimate exit alongside
+            // line-start @mention and hold_ball).
+            const toolName = effectiveMsg.toolName;
+            const toolInput = effectiveMsg.toolInput as Record<string, unknown> | undefined;
+            if (toolInput) {
+              if (toolName.includes('cat_cafe_post_message') && Array.isArray(toolInput.targetCats)) {
+                for (const cid of toolInput.targetCats) {
+                  if (typeof cid === 'string' && cid.length > 0) structuredTargetCats.push(cid);
+                }
+              }
+              if (toolName.includes('cat_cafe_multi_mention') && Array.isArray(toolInput.targets)) {
+                for (const cid of toolInput.targets) {
+                  if (typeof cid === 'string' && cid.length > 0) structuredTargetCats.push(cid);
+                }
+              }
+            }
           }
 
           // F150: Fire-and-forget tool usage counter
@@ -838,6 +862,58 @@ export async function* routeSerial(
                 inlineActionHintEmitFailed.add(1, agentAttr);
               }
             }
+          }
+        }
+
+        // F167 C2 AC-C7: harness-layer "verdict without ball-pass" warning.
+        // Conservative keyword-based scan: approve/reject/LGTM/P1/P2/修改建议/放行/打回.
+        // Three legitimate ball-pass routes are exempt:
+        //   (a) line-start @mention (a2aMentions) — text routing
+        //   (b) hold_ball MCP call (collectedToolNames) — explicit intentional hold
+        //   (c) structured MCP routing (structuredTargetCats) — post_message.targetCats
+        //       or multi_mention.targets
+        // Only when NONE of the three fired does the hint emit.
+        // Prompt-first, non-blocking — same pattern as the inline-action hint above.
+        if (
+          shouldWarnVerdictWithoutPass({
+            text: storedContent,
+            lineStartMentions: a2aMentions,
+            toolNames: collectedToolNames,
+            structuredTargetCats,
+          })
+        ) {
+          try {
+            const hintSource = {
+              connector: 'verdict-no-pass-hint',
+              label: '球权提醒',
+              icon: '🏓',
+              meta: { presentation: 'system_notice', noticeTone: 'info' },
+            };
+            const stored = await deps.messageStore.append({
+              userId: 'system',
+              catId: null,
+              threadId,
+              content:
+                '你给了 review 结论但没传球。Review / 分析 / 建议完成后默认必须传球——请在末尾起一行 @ author 或 @landy；如需短暂等待再继续，调 cat_cafe_hold_ball。',
+              mentions: [],
+              timestamp: Date.now(),
+              source: hintSource,
+            });
+            if (deps.socketManager) {
+              deps.socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+                threadId,
+                message: {
+                  id: stored.id,
+                  type: 'connector',
+                  content: stored.content,
+                  source: hintSource,
+                  timestamp: stored.timestamp,
+                },
+              });
+            }
+            log.info({ threadId, catId: catId as string }, 'F167 C2 AC-C7: verdict-without-pass warning emitted');
+          } catch (err) {
+            log.warn({ threadId, catId: catId as string, err }, 'F167 C2 AC-C7 hint emit failed');
           }
         }
 
