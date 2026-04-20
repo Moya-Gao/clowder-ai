@@ -306,11 +306,12 @@ export const ENV_VARS: EnvDefinition[] = [
   },
   {
     name: 'CAT_CAFE_SKIP_HOMEDIR_MIGRATION',
-    defaultValue: '(未设置)',
-    description: '设为 1 跳过 legacy homedir credentials/provider-profile 迁移（新安装或 opensource profile 用）',
+    defaultValue: '0',
+    description: '跳过 homedir credentials / legacy provider profiles 迁移（新安装或 opensource profile 可显式关闭）',
     category: 'server',
     sensitive: false,
     hubVisible: false,
+    runtimeEditable: false,
   },
   {
     name: 'ALLOWED_WORKSPACE_DIRS',

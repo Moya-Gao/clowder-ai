@@ -134,6 +134,15 @@ let reconcileGeneration = 0;
 /** Per-thread last-probe timestamp used by the watchdog cooldown. */
 const staleProbeCooldown = new Map<string, number>();
 
+function hasStaleActiveThreadPresentation(state: ReturnType<typeof useChatStore.getState>, threadId: string): boolean {
+  if (state.currentThreadId !== threadId) return false;
+  if (state.messages.some((msg) => msg.type === 'assistant' && msg.isStreaming)) return true;
+  if (state.intentMode === 'execute' && state.targetCats.length > 0) return true;
+  return Object.values(state.catStatuses ?? {}).some((status) =>
+    ['spawning', 'pending', 'streaming', 'alive_but_silent', 'suspected_stall'].includes(status),
+  );
+}
+
 /**
  * Query /queue for one thread and reconcile local state against server truth.
  * Shared by reconnect reconciliation and the stale-watchdog probe.
@@ -175,7 +184,7 @@ async function reconcileThreadWithServer(threadId: string, shouldAbort: () => bo
       return;
     }
 
-    if (isActiveThread && store.hasActiveInvocation) {
+    if (isActiveThread && (store.hasActiveInvocation || hasStaleActiveThreadPresentation(store, threadId))) {
       // Reconciliation is stale-state repair, not a real completion event.
       // Use the non-stamping clear so idle-thread recency is not artificially bumped.
       store.clearThreadActiveInvocation(threadId);
@@ -187,7 +196,8 @@ async function reconcileThreadWithServer(threadId: string, shouldAbort: () => bo
           store.setStreaming(msg.id, false);
         }
       }
-      // Server finished but done(isFinal) was lost → fetch missed messages so user doesn't need F5
+      // Server finished but done(isFinal) was lost — or local stream UI lingered
+      // after the slot ended. Fetch missed messages so user doesn't need F5.
       store.requestStreamCatchUp(threadId);
       console.log(`[ws] ${source} reconciliation: cleared stale active-thread invocation state`, { threadId });
     } else if (!isActiveThread) {
@@ -250,6 +260,7 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
  * Watchdog for two failure modes of the done/intent_mode pipeline on a live socket:
  *  Direction 1 — done(isFinal) dropped: hasActiveInvocation=true but the slot went quiet.
  *  Direction 2 — intent_mode dropped: server has a live slot but UI shows idle (no cancel button).
+ *  Direction 3 — local stream/cat-status UI lingered after server already finished.
  *
  * Active-thread truth lives in flat state (`state.hasActiveInvocation`, `state.activeInvocations`,
  * `state.messages`), not in `state.threadStates[currentThreadId]` — `setCurrentThread` only saves
@@ -292,7 +303,9 @@ function checkForStaleActiveInvocations(): void {
       // nothing to reconcile, and keying off "any recent activity" probes
       // healthy threads for 5 minutes after normal completion.
       const lastMsg = state.messages?.[state.messages.length - 1];
-      if (lastMsg?.type === 'user') {
+      if (hasStaleActiveThreadPresentation(state, currentThreadId)) {
+        toProbe.add(currentThreadId);
+      } else if (lastMsg?.type === 'user') {
         const lastActivity = lastMsg.deliveredAt ?? lastMsg.timestamp ?? 0;
         if (now - lastActivity < STALE_RECENT_ENGAGEMENT_MS) {
           toProbe.add(currentThreadId);

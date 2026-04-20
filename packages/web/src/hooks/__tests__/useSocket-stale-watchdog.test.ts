@@ -54,6 +54,9 @@ const mockGetThreadState = vi.fn(() => ({
 const mockStoreState = {
   currentThreadId: 'thread-1',
   hasActiveInvocation: true,
+  intentMode: null as 'execute' | 'ideate' | null,
+  targetCats: [] as string[],
+  catStatuses: {} as Record<string, string>,
   messages: [] as Array<{
     id: string;
     type: string;
@@ -161,6 +164,9 @@ describe('useSocket stale-invocation watchdog', () => {
     mockStoreState.activeInvocations = {};
     mockStoreState.threadStates = {};
     mockStoreState.currentThreadId = 'thread-1';
+    mockStoreState.intentMode = null;
+    mockStoreState.targetCats = [];
+    mockStoreState.catStatuses = {};
   });
 
   afterEach(() => {
@@ -350,6 +356,51 @@ describe('useSocket stale-invocation watchdog', () => {
     expect(mockApiFetch).not.toHaveBeenCalled();
   });
 
+  it('direction 3: clears a stale local streaming bubble when server has already finished', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ activeInvocations: [] }),
+    });
+
+    const now = Date.now();
+    mockStoreState.currentThreadId = 'thread-1';
+    mockStoreState.hasActiveInvocation = false;
+    mockStoreState.activeInvocations = {};
+    mockStoreState.intentMode = 'execute';
+    mockStoreState.targetCats = ['opus-47'];
+    mockStoreState.catStatuses = { 'opus-47': 'streaming' };
+    mockStoreState.messages = [
+      {
+        id: 'ghost-stream-1',
+        type: 'assistant',
+        isStreaming: true,
+        timestamp: now - 20_000,
+        deliveredAt: now - 20_000,
+      },
+    ];
+
+    act(() => {
+      root.render(
+        React.createElement(HookWrapper, {
+          callbacks: { onMessage: vi.fn() },
+          threadId: 'thread-1',
+        }),
+      );
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(31_000);
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/threads/thread-1/queue');
+    expect(mockClearThreadActiveInvocation).toHaveBeenCalledWith('thread-1');
+    expect(mockSetLoading).toHaveBeenCalledWith(false);
+    expect(mockSetIntentMode).toHaveBeenCalledWith(null);
+    expect(mockClearCatStatuses).toHaveBeenCalled();
+    expect(mockSetStreaming).toHaveBeenCalledWith('ghost-stream-1', false);
+    expect(mockRequestStreamCatchUp).toHaveBeenCalledWith('thread-1');
+  });
+
   it('respects cooldown: does not re-probe the same thread on subsequent watchdog ticks', async () => {
     // Server says no active invocations on first probe.
     mockApiFetch.mockResolvedValue({
@@ -358,6 +409,7 @@ describe('useSocket stale-invocation watchdog', () => {
     });
 
     const now = Date.now();
+    mockStoreState.currentThreadId = 'thread-cooldown';
     mockStoreState.hasActiveInvocation = true;
     mockStoreState.activeInvocations = {
       'inv-1': { catId: 'opus-47', mode: 'execute', startedAt: now - 5 * 60_000 },
@@ -367,7 +419,7 @@ describe('useSocket stale-invocation watchdog', () => {
       root.render(
         React.createElement(HookWrapper, {
           callbacks: { onMessage: vi.fn() },
-          threadId: 'thread-1',
+          threadId: 'thread-cooldown',
         }),
       );
     });
