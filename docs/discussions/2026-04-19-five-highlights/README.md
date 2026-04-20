@@ -124,6 +124,73 @@ Skill 系统、愿景守护、三层架构、自进化、经验沉淀——都�
 
 ---
 
+---
+
+### 五、Transparent Cohabitation（人猫共处的赛博物理空间）
+
+> **铲屎官补充**：四只猫全部漏了这个维度。0/4 命中。
+
+**一句话**：铲屎官不是在"使用 AI 工具"，是在"和猫猫住在一起"——猫在做什么、想什么、搜了什么，铲屎官全程可见。
+
+#### 包含的子能力
+
+| 子能力 | 关键 Feature | 说明 |
+|--------|-------------|------|
+| **NDJSON 事件流透明化** | F045 | CLI 事件流全量解析，猫猫的每个 tool call、subagent 进度实时可见 |
+| **Hub Terminal** | F089 | 浏览器内嵌终端 + tmux，铲屎官能实时观察猫猫操作、手动接管 |
+| **Evidence Card 实时展示** | EvidenceCard.tsx | 猫猫搜了什么记忆、命中了什么结果，在 Hub 里实时渲染为卡片，铲屎官看着猫"回忆" |
+| **Rich Block 交互** | rich block 体系 | 猫猫不只发文字——发卡片、图片、代码 diff、交互选择，铲屎官在 Hub 里直接操作 |
+| **Workspace Navigator** | workspace-navigator skill | 猫猫主动帮铲屎官导航到文件/功能/知识，不只报路径 |
+| **MCP 回传** | F043 callback 体系 | 猫猫通过 MCP 主动往 Hub 发消息/卡片/通知，不是等问才答 |
+
+#### 为什么四只猫都漏了
+
+因为这不是"一个 feature"——它是散布在整个系统里的**设计哲学**。每个 feature 都有一点透明度设计（evidence card、rich block、workspace navigate），但没有一个 Feature spec 叫"透明度"。这是 Cat Cafe 最"润物细无声"的亮点。
+
+#### 为什么它是独立的类
+
+它和前四类的关系：Harness Engineering 让猫可靠，A2A 让猫协作，Memory 让猫记忆，Platform 让猫触达——但 Transparent Cohabitation 让铲屎官**看见这一切正在发生**。没有透明度，其他四类都是黑箱。
+
+---
+
+### 六、Community-Driven Evolution（社区驱动的进化）
+
+> **铲屎官补充**：四只猫只提了内部贡献，完全忽略了社区小伙伴。
+
+**一句话**：Cat Cafe 不只是铲屎官 + 猫猫的项目，社区贡献者在推动关键能力的落地。
+
+#### 社区贡献者亮点
+
+| 贡献者 | 方向 | 关键 PR / Feature | 说明 |
+|--------|------|-------------------|------|
+| **bouillipx** | 可观测性 | F153, clowder-ai#393, PR #458, PR #489 | 运行时可观测基础设施：metrics/tracing/health + inline @mention counters + shadow detection |
+| **mindfn** | 可用性/易用性 | F087 Bootcamp 相关, PR #485, PR #398 | 猫猫训练营升级、引导高亮编排、猫猫成长体系 |
+
+#### 铲屎官视角补充
+
+> "虽然好像都还没做的很好 因为他们的理念和我的还有点点代差 比如可观测性我最新提出的 phase 就是 26 年 4 月 Anthropic/OpenAI/Google 的做法 他们还有点老。但是 mindfn 的一些东西 正在提的 PR 猫猫训练营的升级等等 好像也是特色。"
+
+社区贡献不是"完美的"——理念代差存在（可观测性的架构画风、训练营的交互设计）。但**有人愿意来贡献本身就是亮点**：说明 Cat Cafe 的架构足够开放，外部开发者能理解、能上手、能提 PR。
+
+#### 与其他类的关系
+
+社区贡献横跨多个类：bouillipx 的可观测性属于"Transparent Cohabitation"，mindfn 的训练营属于"Platform Engineering"。但"社区有人来"这件事本身是独立维度——它证明了架构的**可扩展性和可理解性**。
+
+---
+
+## 最终结构：6 大类
+
+| # | 大类 | 核心问题 | 提名来源 |
+|---|------|---------|---------|
+| 1 | **Harness Engineering** | 怎么让 AI agent 长期可靠 | 4/4 猫 |
+| 2 | **Multi-Agent A2A** | 怎么让多个 AI 协作 | 4/4 猫 |
+| 3 | **Memory & Knowledge** | 怎么让 AI 记忆精准 | 3/4 猫 |
+| 4 | **Platform Engineering** | 怎么让产品触达世界 | 2/4 猫 |
+| 5 | **Transparent Cohabitation** | 怎么让人看见 AI 在做什么 | 铲屎官补充（0/4 猫） |
+| 6 | **Community Evolution** | 怎么让外部人参与进来 | 铲屎官补充（0/4 猫） |
+
+---
+
 ## 各猫检索打法对比
 
 | | opus-46 | opus-47 | gpt52 | gemini |
