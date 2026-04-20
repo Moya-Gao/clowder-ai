@@ -181,7 +181,21 @@ function appendThinkingChunk(
   if (existingChunks.length === 0) {
     return { thinking: next, thinkingChunks: [next] };
   }
-  if (existingChunks.at(-1) === next) {
+  const lastChunk = existingChunks.at(-1)!;
+  if (lastChunk === next) {
+    return {
+      thinking: renderThinkingChunks(existingChunks),
+      thinkingChunks: existingChunks,
+    };
+  }
+  if (next.startsWith(lastChunk)) {
+    const thinkingChunks = [...existingChunks.slice(0, -1), next];
+    return {
+      thinking: renderThinkingChunks(thinkingChunks),
+      thinkingChunks,
+    };
+  }
+  if (lastChunk.startsWith(next)) {
     return {
       thinking: renderThinkingChunks(existingChunks),
       thinkingChunks: existingChunks,

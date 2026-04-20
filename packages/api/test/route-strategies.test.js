@@ -2665,6 +2665,44 @@ describe('routeParallel thinking persistence (F045)', () => {
     assert.equal(appendCalls[0].thinking, 'First thought\n\n---\n\nSecond thought');
   });
 
+  it('replaces the last thinking block when a later snapshot grows by prefix append', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
+
+    const snapshotService = {
+      async *invoke(_prompt) {
+        yield {
+          type: 'system_info',
+          catId: 'opus',
+          content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-think-grow-1' }),
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'system_info',
+          catId: 'opus',
+          content: JSON.stringify({ type: 'thinking', text: 'First thought' }),
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'system_info',
+          catId: 'opus',
+          content: JSON.stringify({ type: 'thinking', text: 'First thought with more detail' }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'text', catId: 'opus', content: 'done', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: snapshotService }, appendCalls);
+
+    for await (const _msg of routeParallel(deps, ['opus'], 'test', 'user1', 'thread1')) {
+      /* drain */
+    }
+
+    assert.equal(appendCalls[0].thinking, 'First thought with more detail');
+  });
+
   it('forwards invocation_created system_info to frontend while still persisting content', async () => {
     const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
 
@@ -2730,6 +2768,44 @@ describe('routeSerial thinking persistence (F045)', () => {
     assert.equal(appendCalls.length, 1, 'should store one message');
     assert.equal(appendCalls[0].thinking, 'Serial thinking...', 'thinking must be persisted in serial mode');
     assert.ok(appendCalls[0].content.includes('Serial answer'), 'text content must be persisted');
+  });
+
+  it('replaces the last serial thinking block when a later snapshot grows by prefix append', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+
+    const thinkingService = {
+      async *invoke(_prompt) {
+        yield {
+          type: 'system_info',
+          catId: 'opus',
+          content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-think-s2' }),
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'system_info',
+          catId: 'opus',
+          content: JSON.stringify({ type: 'thinking', text: 'Serial thinking...' }),
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'system_info',
+          catId: 'opus',
+          content: JSON.stringify({ type: 'thinking', text: 'Serial thinking... with extra detail' }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'text', catId: 'opus', content: 'Serial answer', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: thinkingService }, appendCalls);
+
+    for await (const _msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1')) {
+      /* drain */
+    }
+
+    assert.equal(appendCalls[0].thinking, 'Serial thinking... with extra detail');
   });
 
   it('forwards invocation_created system_info to frontend while still persisting content', async () => {

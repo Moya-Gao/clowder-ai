@@ -4,6 +4,66 @@ import { AntigravityAgentService } from '../dist/domains/cats/services/agents/pr
 import { collect, createMockBridge } from './antigravity-agent-service-test-helpers.js';
 
 describe('AntigravityAgentService (Bridge) — fatal errors', () => {
+  test('model_capacity retries on a fresh cascade and recovers without surfacing a final error', async () => {
+    const bridge = createMockBridge();
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () => ['cascade-1', 'cascade-2'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'FINISHED',
+              errorMessage: {
+                error: {
+                  userErrorMessage:
+                    'Our servers are experiencing high traffic right now, please try again in a minute.',
+                },
+              },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 1,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+        return;
+      }
+
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'Here is the recovered answer.' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    const texts = messages.filter((m) => m.type === 'text').map((m) => m.content);
+    assert.deepEqual(texts, ['Here is the recovered answer.']);
+    const warnings = messages.filter((m) => m.type === 'provider_signal');
+    assert.equal(warnings.length, 1, 'should yield one retry warning');
+    assert.match(warnings[0].content, /自动重试/);
+    const capacityErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.equal(capacityErrors.length, 0, 'capacity error should stay hidden when retry succeeds');
+    assert.equal(bridge.resetSession.mock.callCount(), 1, 'should reset the poisoned cascade before retry');
+    assert.equal(bridge.sendMessage.mock.callCount(), 2, 'should resend the prompt after capacity retry');
+  });
+
   test('upstream_error does NOT abort poll — model self-corrects in next batch', async () => {
     const bridge = createMockBridge();
     bridge.pollForSteps = async function* () {
@@ -28,7 +88,12 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
         cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
       };
     };
-    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [],
+    });
     const messages = await collect(service.invoke('hello'));
 
     const texts = messages.filter((m) => m.type === 'text');
@@ -69,7 +134,12 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
         cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
       };
     };
-    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [],
+    });
     const messages = await collect(service.invoke('hello'));
 
     const texts = messages.filter((m) => m.type === 'text');
@@ -114,7 +184,12 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
         cursor: { baselineStepCount: 2, lastDeliveredStepCount: 3, terminalSeen: true, lastActivityAt: Date.now() },
       };
     };
-    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [],
+    });
     const messages = await collect(service.invoke('hello'));
 
     const texts = messages.filter((m) => m.type === 'text');
@@ -150,7 +225,12 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
         cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
       };
     };
-    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [],
+    });
     const messages = await collect(service.invoke('hello'));
 
     const texts = messages.filter((m) => m.type === 'text').map((m) => m.content);

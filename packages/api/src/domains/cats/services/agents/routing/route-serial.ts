@@ -72,6 +72,7 @@ import {
   toStoredToolEvent,
   upsertMaxBoundary,
 } from './route-helpers.js';
+import { appendThinkingChunk, renderThinkingChunks } from './thinking-chunks.js';
 import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
 
 const log = createModuleLogger('route-serial');
@@ -453,7 +454,8 @@ export async function* routeSerial(
       }
 
       let textContent = '';
-      let thinkingContent = '';
+      let thinkingChunks: string[] = [];
+      const getThinkingContent = () => renderThinkingChunks(thinkingChunks);
       let firstMetadata: MessageMetadata | undefined;
       let doneMsg: AgentMessage | undefined;
       let hadError = false;
@@ -584,7 +586,7 @@ export async function* routeSerial(
             try {
               const parsed = JSON.parse(effectiveMsg.content);
               if (parsed.type === 'thinking' && typeof parsed.text === 'string') {
-                thinkingContent += (thinkingContent ? '\n\n---\n\n' : '') + parsed.text;
+                thinkingChunks = appendThinkingChunk(thinkingChunks, parsed.text);
               }
               // F060: Collect inline rich_block for persistence (P1 fix)
               if (parsed.type === 'rich_block' && parsed.block && isValidRichBlock(parsed.block)) {
@@ -651,7 +653,7 @@ export async function* routeSerial(
                   catId,
                   content: textContent,
                   ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
-                  ...(thinkingContent ? { thinking: thinkingContent } : {}),
+                  ...(getThinkingContent() ? { thinking: getThinkingContent() } : {}),
                   updatedAt: now,
                 })
                 ?.catch?.(noop);
@@ -676,7 +678,7 @@ export async function* routeSerial(
                     catId,
                     content: textContent,
                     ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
-                    ...(thinkingContent ? { thinking: thinkingContent } : {}),
+                    ...(getThinkingContent() ? { thinking: getThinkingContent() } : {}),
                     updatedAt: now,
                   })
                   ?.catch?.(noop);
@@ -1015,7 +1017,7 @@ export async function* routeSerial(
             timestamp: storedTimestamp,
             threadId,
             ...(mentionsUser ? { mentionsUser } : {}),
-            ...(thinkingContent ? { thinking: thinkingContent } : {}),
+            ...(getThinkingContent() ? { thinking: getThinkingContent() } : {}),
             ...(firstMetadata ? { metadata: firstMetadata } : {}),
             ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
             ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
@@ -1210,7 +1212,7 @@ export async function* routeSerial(
         const noTextBlocks = [...bufferedBlocks, ...streamRichBlocks];
         const hasRichBlocks = noTextBlocks.length > 0;
         const shouldPersistNoTextMessage =
-          hasRichBlocks || collectedToolEvents.length > 0 || Boolean(thinkingContent?.trim().length > 0);
+          hasRichBlocks || collectedToolEvents.length > 0 || Boolean(getThinkingContent().trim().length > 0);
         const shouldEmitSilentCompletion = collectedToolEvents.length > 0 && !hasRichBlocks && !sawUserFacingSystemInfo;
 
         log.debug(
@@ -1221,7 +1223,7 @@ export async function* routeSerial(
             sawUserFacingSystemInfo,
             toolCount: collectedToolEvents.length,
             shouldPersist: shouldPersistNoTextMessage,
-            thinkingLen: thinkingContent?.length ?? 0,
+            thinkingLen: getThinkingContent().length,
           },
           'Cat produced no text — evaluating silent_completion',
         );
@@ -1254,7 +1256,7 @@ export async function* routeSerial(
               timestamp: Date.now(),
               threadId,
               ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
-              ...(thinkingContent ? { thinking: thinkingContent } : {}),
+              ...(getThinkingContent() ? { thinking: getThinkingContent() } : {}),
               ...(firstMetadata ? { metadata: firstMetadata } : {}),
               ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
               extra: {

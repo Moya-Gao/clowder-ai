@@ -48,6 +48,7 @@ import {
   toStoredToolEvent,
   upsertMaxBoundary,
 } from './route-helpers.js';
+import { appendThinkingChunk, renderThinkingChunks } from './thinking-chunks.js';
 import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
 
 const log = createModuleLogger('route-parallel');
@@ -397,7 +398,7 @@ export async function* routeParallel(
   }
 
   const catText = new Map<string, string>();
-  const catThinking = new Map<string, string>();
+  const catThinking = new Map<string, string[]>();
   const catMeta = new Map<string, MessageMetadata>();
   const catSawUserFacingSystemInfo = new Map<string, boolean>();
   const catToolEvents = new Map<string, StoredToolEvent[]>();
@@ -499,8 +500,8 @@ export async function* routeParallel(
         try {
           const parsed = JSON.parse(effectiveMsg.content);
           if (parsed.type === 'thinking' && typeof parsed.text === 'string') {
-            const prev = catThinking.get(effectiveMsg.catId) ?? '';
-            catThinking.set(effectiveMsg.catId, prev ? `${prev}\n\n---\n\n${parsed.text}` : parsed.text);
+            const prev = catThinking.get(effectiveMsg.catId) ?? [];
+            catThinking.set(effectiveMsg.catId, appendThinkingChunk(prev, parsed.text));
           }
           // F060: Collect inline rich_block for persistence (P1 fix)
           if (parsed.type === 'rich_block' && parsed.block && isValidRichBlock(parsed.block)) {
@@ -567,7 +568,7 @@ export async function* routeParallel(
           charDelta > 0 &&
           (neverFlushedCat || now - lastFlush >= FLUSH_INTERVAL_MS || charDelta >= FLUSH_CHAR_DELTA)
         ) {
-          const curThinking = catThinking.get(effectiveMsg.catId);
+          const curThinking = renderThinkingChunks(catThinking.get(effectiveMsg.catId) ?? []);
           deps.draftStore
             .upsert({
               userId,
@@ -592,7 +593,7 @@ export async function* routeParallel(
           // Cloud R6 P1: upsert when there's unsaved text OR new tool events —
           // tool-first invocations (no text yet) must still create a draft record.
           if (curText.length > lastLen || curToolLen > lastToolLen) {
-            const curThinkingTool = catThinking.get(effectiveMsg.catId);
+            const curThinkingTool = renderThinkingChunks(catThinking.get(effectiveMsg.catId) ?? []);
             deps.draftStore
               .upsert({
                 userId,
@@ -758,7 +759,7 @@ export async function* routeParallel(
           }
         }
 
-        const thinking = catThinking.get(msg.catId);
+        const thinking = renderThinkingChunks(catThinking.get(msg.catId) ?? []);
         try {
           await deps.messageStore.append({
             userId,
@@ -816,7 +817,7 @@ export async function* routeParallel(
         // Purely empty turns should not create blank chat bubbles.
         const meta = catMeta.get(msg.catId);
         const catTools = catToolEvents.get(msg.catId);
-        const thinking = catThinking.get(msg.catId);
+        const thinking = renderThinkingChunks(catThinking.get(msg.catId) ?? []);
         const noTextBlocks = [...bufferedBlocks, ...(catStreamRichBlocks.get(msg.catId) ?? [])];
         const hasRichBlocks = noTextBlocks.length > 0;
         const sawUserFacingSystemInfo = catSawUserFacingSystemInfo.get(msg.catId) === true;
@@ -918,7 +919,7 @@ export async function* routeParallel(
         const catTools = catToolEvents.get(msg.catId);
         if (catTools && catTools.length > 0) {
           const meta = catMeta.get(msg.catId);
-          const thinking = catThinking.get(msg.catId);
+          const thinking = renderThinkingChunks(catThinking.get(msg.catId) ?? []);
           try {
             await deps.messageStore.append({
               userId,

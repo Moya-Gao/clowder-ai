@@ -400,6 +400,21 @@ export class AntigravityBridge {
     return newCascadeId;
   }
 
+  resetSession(threadId: string, catId?: string): void {
+    this.loadSessionMap();
+
+    const key = catId ? `${threadId}:${catId}` : threadId;
+    this.sessionMap.delete(key);
+    this.deletedKeys.add(key);
+
+    if (catId) {
+      this.sessionMap.delete(threadId);
+      this.deletedKeys.add(threadId);
+    }
+
+    this.persistSessionMap();
+  }
+
   async resolveOutstandingSteps(cascadeId: string): Promise<void> {
     const conn = await this.ensureConnected();
     await this.rpc(conn, 'ResolveOutstandingSteps', { cascadeId });
