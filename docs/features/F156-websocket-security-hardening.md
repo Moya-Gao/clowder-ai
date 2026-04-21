@@ -156,6 +156,24 @@ updated: 2026-04-16
 ### Phase D-6（DNS Rebinding） ✅
 - [x] AC-D6: HTTP 请求校验 Host header，allowlist 从 CORS origins + API base URL 动态派生
 
+#### 2026-04-21 行为变化（PR #1314 — 本地浏览器不再绕 Tunnel）
+
+**背景**：D-6 用 `NEXT_PUBLIC_API_URL` 做 Host allowlist 派生。当这个 env 同时被前端 `api-client.ts` 当作"API base URL"使用时，本地浏览器所有请求会被烘焙到云域名上，绕 Cloudflare Tunnel 一圈才回到本机 — 隧道一抖前端就瞎，即便本地 API 完全健康。
+
+**修改**：`resolveApiUrl()` 增加对称 mismatch 检测：
+- `NEXT_PUBLIC_API_URL` 是云域名 + 浏览器是 `localhost`/`127.0.0.1` → 跳过 env，回到 auto-detect → `localhost:{port+1}`
+- 其他场景行为完全不变（Host allowlist、WeixinAdapter callback URL、`cafe.clowder-ai.com` 远程访问、开源 `localhost:3004` 默认配置）
+
+**对社区用户的影响**：
+| 用户场景 | 是否受影响 |
+|---------|-----------|
+| 没设 `NEXT_PUBLIC_API_URL`（绝大多数） | 不受影响 |
+| 设了 `localhost:xxx` 本地默认 | 不受影响 |
+| 设了云域名做 webhook + 本地浏览器 | **行为变化**：原本绕云一圈，现在直连本地（一般是改善） |
+| 设了云域名 + 远程访问（手机/外网） | 不受影响 |
+
+**逃生口**：如果故意要让本地浏览器走云端链路（调试 nginx/CDN），改用非 `localhost`/`127.0.0.1` 的 hostname 访问（如 `192.168.x.x` 或自定义 hosts），mismatch 判定就不触发，env 照旧。
+
 ### Phase E（非浏览器身份入口收口） 🔲
 - [ ] AC-E1: relay-claw 反向审计清单落盘到本 spec，明确 sensitive route ledger（session-only / trusted browser fallback / non-browser automation）
 - [ ] AC-E2: `/api/authorization/*` 不再把 `X-Cat-Cafe-User` / fallback 作为充分身份来源；敏感审批与规则写入必须走更窄的身份语义
@@ -202,6 +220,7 @@ updated: 2026-04-16
 | 2026-04-12 | **Feature closed** — 愿景守护(codex) 放行，D-4/FU-1/FU-2 拆出为独立任务 |
 | 2026-04-14 | Fallout fix merged (PR #1159) — trusted-origin fallback + 401 retry (author: opus, reviewer: codex cloud) |
 | 2026-04-14 | Fallout perf merged (PR #1164) — trim thread-switch fan-out + per-thread caches (author: gpt52, reviewer: opus + codex cloud) |
+| 2026-04-21 | D-6 fallout merged (PR #1314) — 本地浏览器不再绕 Tunnel（symmetric mismatch 检测，emergency merge 因前端 messaging 不可用）|
 | 2026-04-14 | Fallout self-heal merged (PR #1165) — failed `sessionGate` no longer poisons future bootstrap attempts; `ThreadSidebar` now reloads on `online` after network blips (author: gpt52, reviewer: opus; cloud review unavailable, downgraded per merge-gate Q4) |
 | 2026-04-14 | Fallout hydration+bubble merged (PR #1167) — secondary thread hydration now starts in parallel with `messages`; bubble toggle no longer no-ops on first click when following an already-expanded global default (author: gpt52, reviewer: opus + codex cloud) |
 | 2026-04-14 | Bubble refresh restore merged (PR #1174) — thread-level bubble preference no longer flashes back to the global default before thread metadata finishes hydrating after F5 (author: gpt52, reviewer: codex cloud) |
