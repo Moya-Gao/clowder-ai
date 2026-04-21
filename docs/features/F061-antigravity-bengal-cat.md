@@ -506,6 +506,26 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 
 ---
 
+## Next Reliability Queue（2026-04-21）
+
+围绕 `run_command` 的 approval / dispatch / capacity 脆弱性，后续修复顺序先收敛为 4 条：
+
+1. **P0 — execution journal + layer-tagged errors**
+   - 把 `approval_sent / approval_resolved / rpc_sent / rpc_returned / writeback_sent / terminal_error` 明确打点
+   - 同时把错误拆成 `before_dispatch` / `after_dispatch`，并区分 Cat Cafe service 层 vs Antigravity IDE 层
+2. **P1 — approval correlation validation**
+   - 验证 `HandleCascadeUserInteraction { permission: { allowed: true }, trajectoryId, stepIndex }` 是否真的命中正确 step
+   - 继续区分“前置拦截（立即拒绝）”和“approval 等待（超时取消）”两条路径
+3. **P2 — safe retry for undispatched read-only commands**
+   - 只对确认**未 dispatch**且**只读**的命令（如 `pwd` / `ls` / `git log`）允许自动重试
+   - 避免对写文件/改状态类命令静默重放
+4. **P3 — evaluate IDE approval bypass / stream writeback**
+   - 只有在 P1 证明现有 approval correlation 永远不够时，才进入更重的 bypass / stream writeback 方案
+
+实施计划见：`docs/plans/2026-04-21-f061-run-command-reliability-hardening.md`
+
+---
+
 ## Known Bugs（活跃）
 
 ### Bug-D: Native file/code tool parity 仍不完整 ⚠️ OPEN
