@@ -122,7 +122,8 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
       return method === 'HandleCascadeUserInteraction';
     });
     assert.ok(approvalCall, 'approval call should be recorded');
-    const payload = typeof approvalCall.arguments[0] === 'string' ? approvalCall.arguments[1] : approvalCall.arguments[2];
+    const payload =
+      typeof approvalCall.arguments[0] === 'string' ? approvalCall.arguments[1] : approvalCall.arguments[2];
     assert.deepEqual(payload, {
       cascadeId: 'c1',
       interaction: {

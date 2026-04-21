@@ -230,8 +230,7 @@ describe('G10: model_capacity error classification', () => {
         status: 'DONE',
         errorMessage: {
           error: {
-            userErrorMessage:
-              'You have exhausted your capacity on this model. Your quota will reset after 0s.',
+            userErrorMessage: 'You have exhausted your capacity on this model. Your quota will reset after 0s.',
           },
         },
       },

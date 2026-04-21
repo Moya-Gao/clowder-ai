@@ -77,8 +77,7 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
               status: 'FINISHED',
               errorMessage: {
                 error: {
-                  userErrorMessage:
-                    'You have exhausted your capacity on this model. Your quota will reset after 0s.',
+                  userErrorMessage: 'You have exhausted your capacity on this model. Your quota will reset after 0s.',
                 },
               },
             },
