@@ -44,6 +44,7 @@
 - `exec_command` 返回 `session_id` = 命令还活着。长任务默认保持前台，后续优先用同一个 `session_id` 继续 `write_stdin`，不要因为暂时没输出就另起一条命令。
 - 在 **Codex CLI 无头 harness** 里，`bash ... &` / `nohup ... &` / `disown` / `setsid` 都只是 shell 层伪后台；父命令结束后子进程常会一起死。需要真正后台脱离时，优先用 Node `spawn(..., { detached: true, stdio: 'ignore' })` + `child.unref()`。
 - 轮询是**取进度/验结果**，不是给前台 session “续命”。Fire-and-forget 任务必须同时约定 `pid` / `log` / `result` 探针；没有外部探针，不算启动成功。
+- `pnpm gate` / `pnpm test` / merge-gate 这类**低交互、长时、只需要最终 verdict** 的任务：优先用 detached + `pid/log/exit` 探针模式，不要本能地守前台 CLI session。
 
 ## 语言
 
