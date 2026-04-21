@@ -477,6 +477,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-20 | **Reliability hardening merged** — Antigravity `model_capacity` 引入有限自动重试（fresh cascade/session + 120s bounded backoff），`thinking` snapshot 前缀增长改为 replace-last 去重，同时禁止在 pending tool steps 批次里触发 capacity retry，避免副作用重放（PR #1293, gate 全绿 + opus-47 continuity 放行到 `91d2ef8b` + cloud 0 P1/P2）|
 | 2026-04-20 | **Continuity fallback recovery** — 孟加拉猫 breed 级 `sessionChain` 重新打开，Antigravity provider 补 callback fallback instructions 以恢复 thread context / 回贴能力；同时正文 replay 改为 overlap 去重，且 public `/api/callbacks/instructions` 示例不再带 live callback credentials（PR #1299, targeted build/tests 绿；全量 gate 仍被无关 `community-panel-navigation.test.ts:127` 阻塞，经铲屎官允许先合入）|
 | 2026-04-20 | **Native MCP env recovery** — Antigravity 全局 `~/.gemini/antigravity/mcp_config.json` 正式纳管，`CAT_CAFE_API_URL`/`CAT_CAFE_READONLY=true` 锁为 managed 默认边界，同时修复 homedir discovery / `serverUrl` remote MCP 解析 / `dare-default` scope drift（PR #1307，云端 3 轮共 3 个 P2 全部闭环后 squash merge）|
+| 2026-04-21 | **Managed MCP path stabilization** — managed `cat-cafe*` MCP command path 在读写 `capabilities.json` 时会自动 realign 到 stable main repo root，避免 Antigravity 全局配置继续钉住已删除 feature worktree，导致 MCP read/write 链路飘到错误路径（PR #1317，已合入 main）|
 | 2026-04-21 | **Retry hang fix** — `model_capacity` retry → unsupported WAITING tool → hang 根因修复：`nativeExecuteAndPush` 四态区分（`true` / `'approval_pending'` / `'no_executor'` / `false`），fail-fast 收窄为仅 `'no_executor'`，kill-switch 和无 registry 路径的 `false` 不再误触 `unsupported_waiting_tool`（PR #1318，砚砚 2 P1→fix→放行 + gate 全绿）|
 
 ---
@@ -488,6 +489,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 状态 | 问题 | 修复 | 结果 |
 |------|------|------|------|
 | [x] | Antigravity 被误注入 HTTP callback 指令，触发 invalid tool call | PR #1145 | `needsMcpInjection` 对 `clientId='antigravity'` 返回 false；不再诱导 LS 调用拿不到 callback 凭证的工具 |
+| [x] | managed `cat-cafe*` MCP 路径会钉死到已删除 worktree，导致 Antigravity MCP read/write 链路飘到错误 repo root | PR #1317 | capability orchestrator / capabilities routes 会把 managed MCP command path 自动回正到 stable main repo root；删除 feature worktree 后不会把全局 provider 配置留在死路径 |
 | [x] | Native MCP config / env 没被 Cat Café 正确接管 | PR #1307 | 全局 `mcp_config.json` 纳管、readonly env 锁定、homedir discovery 对齐 writer、`serverUrl` 远程项保留 |
 | [x] | thread context / 回贴能力缺失，fatal 后更容易“重新认人” | PR #1299 | breed 级 `sessionChain` 重新打开，provider 补 callback fallback instructions，thread context / 回贴主路径恢复 |
 
@@ -497,7 +499,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 |------|------|----------|------|
 | [ ] | 写文件/改代码仍不稳定（截图描述：`run_command` 经常 `context canceled`） | Bug-8 v1 已解开 `WAITING` 死锁，但 native file/code parity 仍只覆盖 `run_command`。`read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob` 还在 follow-up，field report 仍可能表现为“写代码不稳” | **Phase 2c v2**：AC-2cR4 + AC-2cI6 |
 | [ ] | bug 炸掉后整段 conversation 仍可能“重新认人” | G0 resume 与 PR #1299 已恢复大部分 continuity，但目前还没有专门锁“fatal error → 下一轮仍保上下文”的回归用例；这是 field report，不该宣称已完全解决 | **G0/G10 follow-up**：补 repro + continuity regression test |
-| [~] | retry 经常只 retry 1 次然后直接挂住 | 已定位一条真实挂点：**capacity retry 后 fresh cascade 若落到 v2 尚未支持的 WAITING tool step（如 `grep_search`），当前 bridge 会静默等到 stall timeout**。`fix/antigravity-retry-hang` 已改成 fail-fast 显式报 `unsupported_waiting_tool`；retry 预算策略与 v2 executors 仍待继续 | **G10 follow-up（P1）**：当前分支已修 symptom；剩余继续跟 Phase 2c v2 / telemetry |
+| [~] | retry 经常只 retry 1 次然后直接挂住 | 已确认“只 retry 1 次然后挂住”不是 retry 预算天然只有 1 次，而是旧实现会在 capacity retry 后落到 v2 尚未支持的 WAITING tool step（如 `grep_search`）并静默 stall。PR #1318 已把这条路径改成 fail-fast 显式报 `unsupported_waiting_tool`；retry 预算策略、v2 executors 与 telemetry 仍待继续 | **G10 follow-up（P1）**：#1318 已止血 symptom；剩余继续跟 Phase 2c v2 / telemetry |
 
 ---
 
@@ -527,26 +529,28 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 
 **排期**：G0/G10 reliability follow-up（补 repro + continuity regression test）
 
-### Bug-F: retry 预算只有 1 次，retry 后仍可能挂起 ⚠️ OPEN
+### Bug-F: retry 后 unsupported WAITING step 不再静默挂死，但 retry / parity 闭环仍未完成 ⚠️ PARTIAL
 
 **现象**（2026-04-20 铲屎官新报告）：孟加拉猫“经常只 retry 1 次然后又直接挂了”。
 
-**当前判断（2026-04-20 夜更新）**：
+**当前判断（2026-04-21 合并后）**：
 - `invoke-single-cat.ts` 的 `maxAttempts = 2` 只约束 **外层 session/CLI self-heal**；它不是 Antigravity provider 内层 `model_capacity` bounded retry 的唯一预算
 - `AntigravityAgentService` 内层 `model_capacity` retry 状态机本身已验证可连续跑多轮 fresh cascade，不是“天然只能 retry 1 次”
-- 已定位的一条真实挂点是：**第一次 capacity retry 成功切到 fresh cascade 后，如果新 cascade 发出 v2 尚未支持的 `WAITING` tool step（例如 `grep_search`），bridge 不会执行它，也不会立即报错，而是原地等到 stall timeout**
-- 这正好解释了铲屎官体感里的“先看到 1 次 retry，再挂住”
+- 已定位的一条真实挂点是：**旧实现里，第一次 capacity retry 成功切到 fresh cascade 后，如果新 cascade 发出 v2 尚未支持的 `WAITING` tool step（例如 `grep_search`），bridge 不会执行它，也不会立即报错，而是原地等到 stall timeout**
+- 这正好解释了铲屎官体感里的“先看到 1 次 retry，再挂住”；这条路径现已被 PR #1318 改成显式失败
 
-**本轮修复（分支 `fix/antigravity-retry-hang`）**：
+**已合入修复（PR #1318, `0ae31c30d`）**：
 - 把这类 `unsupported WAITING tool step` 从“60s 后 stall”改成**立即显式失败**
 - 新错误码：`unsupported_waiting_tool`
 - 覆盖场景：`model_capacity` retry → fresh cascade → unsupported `grep_search` WAITING step → **立刻终止，不再挂到 stall timeout**
+- `nativeExecuteAndPush` 明确区分 `true` / `'approval_pending'` / `'no_executor'` / `false` 四种返回值，fail-fast 只在 `'no_executor'` 时触发
+- kill-switch（`ANTIGRAVITY_NATIVE_EXECUTOR=0`）与无 registry 路径继续返回 `false`，不再被误报成 `unsupported_waiting_tool`
 
 **剩余未闭环**：
 - 这次修的是 **symptom fix / terminalization**，不是把 `grep_search` / `read_file` / `write_file` / `edit_file` / `file_glob` 真正执行起来
 - 真正的长期闭环仍是 Phase 2c v2（AC-2cR4 + AC-2cI6）以及更细的 retry telemetry
 
-**排期**：G10 follow-up（P1，已建毛线球：`[P1] 调查 Antigravity 单次 retry 后仍挂起`）继续；本轮先消掉“retry 后静默挂到 stall”的直接症状
+**排期**：G10 follow-up（P1，已建毛线球：`[P1] 调查 Antigravity 单次 retry 后仍挂起`）继续；PR #1318 先消掉“retry 后静默挂到 stall”的直接症状，下一步继续补 parity / telemetry
 
 ## Known Bugs（已修复）
 
