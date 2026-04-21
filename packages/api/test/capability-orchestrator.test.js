@@ -21,6 +21,7 @@ import {
   parsePencilVersion,
   readCapabilitiesConfig,
   readResolvedMcpState,
+  realignManagedCatCafeServerPaths,
   resolveMachineSpecificServers,
   resolvePencilBinary,
   resolvePencilCommand,
@@ -1086,6 +1087,41 @@ describe('ensureCatCafeMainServer', () => {
     const main = result.config.capabilities.find((c) => c.id === 'cat-cafe');
     assert.ok(main);
     assert.ok(main.mcpServer?.args[0].includes('/custom-root'));
+  });
+
+  it('realigns managed cat-cafe server paths to stable repo root', () => {
+    const config = makeConfig([
+      {
+        id: 'cat-cafe',
+        type: 'mcp',
+        enabled: true,
+        source: 'cat-cafe',
+        mcpServer: { command: 'node', args: ['/tmp/deleted-worktree/packages/mcp-server/dist/index.js'] },
+      },
+      {
+        id: 'cat-cafe-memory',
+        type: 'mcp',
+        enabled: true,
+        source: 'cat-cafe',
+        mcpServer: { command: 'node', args: ['/tmp/deleted-worktree/packages/mcp-server/dist/memory.js'] },
+      },
+      {
+        id: 'external-tool',
+        type: 'mcp',
+        enabled: true,
+        source: 'external',
+        mcpServer: { command: 'echo', args: ['ok'] },
+      },
+    ]);
+
+    const result = realignManagedCatCafeServerPaths(config, { catCafeRepoRoot: '/stable-root' });
+    assert.equal(result.migrated, true);
+    const main = result.config.capabilities.find((c) => c.id === 'cat-cafe');
+    const memory = result.config.capabilities.find((c) => c.id === 'cat-cafe-memory');
+    const external = result.config.capabilities.find((c) => c.id === 'external-tool');
+    assert.ok(main?.mcpServer?.args[0].includes('/stable-root/packages/mcp-server/dist/index.js'));
+    assert.ok(memory?.mcpServer?.args[0].includes('/stable-root/packages/mcp-server/dist/memory.js'));
+    assert.deepEqual(external?.mcpServer?.args, ['ok']);
   });
 });
 

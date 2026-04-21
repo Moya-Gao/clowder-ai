@@ -37,10 +37,12 @@ import {
   type DiscoveryPaths,
   deduplicateDiscoveredMcpServers,
   discoverExternalMcpServers,
+  ensureCatCafeMainServer,
   generateCliConfigs,
   migrateLegacyCatCafeCapability,
   migrateResolverBackedCapabilities,
   readCapabilitiesConfig,
+  realignManagedCatCafeServerPaths,
   resolveServersForCat,
   toCapabilityEntry,
   withCapabilityLock,
@@ -421,6 +423,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const home = homedir();
+    const catCafeRepoRoot = await resolveMainRepoPath();
 
     // 1. Load or bootstrap capabilities.json
     let config = await readCapabilitiesConfig(projectRoot);
@@ -428,16 +431,18 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       // Multi-project: when bootstrapping a non-cat-cafe project, still point the
       // Cat Cafe MCP server to THIS repo (host), not the managed project root.
       config = await bootstrapCapabilities(projectRoot, getDiscoveryPaths(projectRoot), {
-        catCafeRepoRoot: getProjectRoot(),
+        catCafeRepoRoot,
       });
     } else {
-      const migrated = migrateLegacyCatCafeCapability(config, { catCafeRepoRoot: getProjectRoot() });
+      const migrated = migrateLegacyCatCafeCapability(config, { catCafeRepoRoot });
       const resolverMigrated = migrateResolverBackedCapabilities(migrated.config);
-      if (migrated.migrated || resolverMigrated.migrated) {
-        config = resolverMigrated.config;
+      const mainServerMigrated = ensureCatCafeMainServer(resolverMigrated.config, { catCafeRepoRoot });
+      const pathRealigned = realignManagedCatCafeServerPaths(mainServerMigrated.config, { catCafeRepoRoot });
+      if (migrated.migrated || resolverMigrated.migrated || mainServerMigrated.migrated || pathRealigned.migrated) {
+        config = pathRealigned.config;
         await writeCapabilitiesConfig(projectRoot, config);
       } else {
-        config = migrated.config;
+        config = pathRealigned.config;
       }
     }
 

@@ -742,6 +742,50 @@ export function ensureCatCafeMainServer(
   return { migrated: true, config: { ...config, capabilities } };
 }
 
+/**
+ * Rewrite managed Cat Cafe MCP command paths to a stable repo root.
+ * This prevents global provider configs from pinning deleted feature worktrees.
+ */
+export function realignManagedCatCafeServerPaths(
+  config: CapabilitiesConfig,
+  opts?: { catCafeRepoRoot?: string; projectRoot?: string },
+): { migrated: boolean; config: CapabilitiesConfig } {
+  const projectRoot = opts?.catCafeRepoRoot ?? opts?.projectRoot;
+  if (!projectRoot) return { migrated: false, config };
+
+  const desiredById = new Map<string, McpServerDescriptor>([
+    ['cat-cafe', buildCatCafeMcpDescriptor(projectRoot)],
+    ...buildCatCafeSplitMcpDescriptors(projectRoot).map((descriptor) => [descriptor.name, descriptor] as const),
+  ]);
+
+  let migrated = false;
+  const capabilities = config.capabilities.map((cap) => {
+    if (cap.type !== 'mcp' || cap.source !== 'cat-cafe' || !cap.mcpServer) return cap;
+    const desired = desiredById.get(cap.id);
+    if (!desired) return cap;
+
+    const currentCommand = cap.mcpServer.command ?? '';
+    const currentArgs = cap.mcpServer.args ?? [];
+    const sameCommand = currentCommand === desired.command;
+    const sameArgs =
+      currentArgs.length === desired.args.length && currentArgs.every((arg, idx) => arg === desired.args[idx]);
+    if (sameCommand && sameArgs) return cap;
+
+    migrated = true;
+    return {
+      ...cap,
+      mcpServer: {
+        ...cap.mcpServer,
+        command: desired.command,
+        args: [...desired.args],
+      },
+    };
+  });
+
+  if (!migrated) return { migrated: false, config };
+  return { migrated: true, config: { ...config, capabilities } };
+}
+
 // ────────── Bootstrap: Create initial capabilities.json ──────────
 
 /**
@@ -972,8 +1016,9 @@ export async function orchestrate(
     const migrated = migrateLegacyCatCafeCapability(config, rootOpts);
     const resolverMigrated = migrateResolverBackedCapabilities(migrated.config);
     const mainServerMigrated = ensureCatCafeMainServer(resolverMigrated.config, rootOpts);
-    config = mainServerMigrated.config;
-    if (migrated.migrated || resolverMigrated.migrated || mainServerMigrated.migrated) {
+    const pathRealigned = realignManagedCatCafeServerPaths(mainServerMigrated.config, rootOpts);
+    config = pathRealigned.config;
+    if (migrated.migrated || resolverMigrated.migrated || mainServerMigrated.migrated || pathRealigned.migrated) {
       await writeCapabilitiesConfig(projectRoot, config);
     }
   }
