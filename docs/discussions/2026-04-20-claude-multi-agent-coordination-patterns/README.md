@@ -33,6 +33,7 @@ sourceUrls:
 - **通俗文章**：`article-decentralized-judgment-unified-infra.md` — 五种模式 + Cat Cafe 的"第六种"
 - **A2A 硬核主稿**：`article-a2a-technical-deep-dive.md` — 球权协议 / queue / shared state / SOP runtime 串联
 - **Memory companion**：`article-memory-companion.md` — 检索 / 编译 / session continuity / 知识生命周期
+- **完整技术版（对外分享）**：`article-complete-technical-edition.md` — 五种模式 + 我们的选择 + A2A 拆解 + 记忆 + 数学验算
 - 官方页面：<https://claude.com/blog/multi-agent-coordination-patterns>
 - 发布日期：2026-04-10
 
