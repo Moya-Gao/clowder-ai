@@ -518,6 +518,72 @@ describe('useAgentMessages rich_block correlation (Bug A)', () => {
     ]);
   });
 
+  it('replaces an invocationless rich-block placeholder even when callback carries explicit invocationId', () => {
+    mockAddMessage.mockImplementation((message) => {
+      storeState.messages.push(message);
+    });
+    mockAppendRichBlock.mockImplementation((id: string, block: { id: string }) => {
+      storeState.messages = storeState.messages.map((message) => {
+        if (message.id !== id) return message;
+        const rich = message.extra?.rich ?? { v: 1 as const, blocks: [] };
+        if (rich.blocks.some((candidate) => candidate.id === block.id)) return message;
+        return {
+          ...message,
+          extra: {
+            ...message.extra,
+            rich: {
+              ...rich,
+              blocks: [...rich.blocks, block],
+            },
+          },
+        };
+      });
+    });
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'codex',
+        content: JSON.stringify({ type: 'rich_block', block: { id: 'block-explicit', kind: 'card', v: 1 } }),
+        invocationId: 'inv-explicit',
+      });
+    });
+
+    expect(storeState.messages[0]?.extra?.stream?.invocationId).toBeUndefined();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'codex',
+        content: 'command finished with explicit id',
+        origin: 'callback',
+        messageId: 'msg-callback-explicit',
+        invocationId: 'inv-explicit',
+      });
+    });
+
+    expect(storeState.messages).toEqual([
+      expect.objectContaining({
+        id: 'msg-callback-explicit',
+        catId: 'codex',
+        content: 'command finished with explicit id',
+        origin: 'callback',
+        isStreaming: false,
+        extra: {
+          stream: { invocationId: 'inv-explicit' },
+          rich: {
+            v: 1,
+            blocks: [expect.objectContaining({ id: 'block-explicit' })],
+          },
+        },
+      }),
+    ]);
+  });
+
   it('skips stale callback when active streaming message exists (cloud P1 fix)', () => {
     act(() => {
       root.render(React.createElement(Harness));

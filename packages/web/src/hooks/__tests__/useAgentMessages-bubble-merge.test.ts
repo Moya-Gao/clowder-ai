@@ -222,6 +222,42 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
     expect(newBubbleCalls[0][0].content).toBe('Final callback response');
   });
 
+  it('callback with explicit invocationId does not reclaim an empty placeholder without rich/tool markers', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    storeState.messages.push({
+      id: 'msg-empty-placeholder',
+      type: 'assistant',
+      catId: 'opus',
+      content: '',
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: {} },
+      timestamp: Date.now() - 1000,
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        origin: 'callback',
+        content: 'Final callback response',
+        invocationId: 'inv-empty',
+        messageId: 'msg-final-empty',
+      });
+    });
+
+    const newBubbleCalls = mockAddMessage.mock.calls.filter(
+      ([msg]) => msg.type === 'assistant' && msg.catId === 'opus',
+    );
+    expect(newBubbleCalls).toHaveLength(1);
+    expect(newBubbleCalls[0][0].id).toBe('msg-final-empty');
+  });
+
   it('new invocation text does not append to previous finalized message', () => {
     act(() => {
       root.render(React.createElement(Harness));

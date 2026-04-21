@@ -352,6 +352,46 @@ export function useAgentMessages() {
     return null;
   }, []);
 
+  /**
+   * Only reclaim rich/tool-only placeholders that have not started streaming text.
+   *
+   * Do not relax these guards:
+   * - Drop `content.trim() === 0` and a stale callback can steal a newer live run's
+   *   invocationless placeholder after real text already started streaming (#586-style regression).
+   * - Drop the rich/tool guard and empty placeholders created by ensureActiveAssistantMessage
+   *   can be reclaimed before their real callback lands, reintroducing split bubbles.
+   */
+  const findInvocationlessRichPlaceholder = useCallback((catId: string): { id: string } | null => {
+    const currentMessages = useChatStore.getState().messages;
+    const isRichOrToolOnlyPlaceholder = (
+      msg: (typeof currentMessages)[number] | undefined,
+    ): msg is NonNullable<typeof msg> =>
+      !!msg &&
+      msg.type === 'assistant' &&
+      msg.catId === catId &&
+      msg.origin === 'stream' &&
+      !msg.extra?.stream?.invocationId &&
+      msg.content.trim().length === 0 &&
+      ((msg.extra?.rich?.blocks.length ?? 0) > 0 || (msg.toolEvents?.length ?? 0) > 0);
+
+    const activeId = activeRefs.current.get(catId)?.id;
+    if (activeId) {
+      const activeMessage = currentMessages.find((msg) => msg.id === activeId);
+      if (isRichOrToolOnlyPlaceholder(activeMessage)) {
+        return { id: activeMessage.id };
+      }
+    }
+
+    for (let i = currentMessages.length - 1; i >= 0; i -= 1) {
+      const msg = currentMessages[i];
+      if (isRichOrToolOnlyPlaceholder(msg)) {
+        return { id: msg.id };
+      }
+    }
+
+    return null;
+  }, []);
+
   const getOrRecoverActiveAssistantMessageId = useCallback(
     (catId: string, metadata?: AgentMsg['metadata'], options?: { ensureStreaming?: boolean }): string | null => {
       const currentMessages = useChatStore.getState().messages;
@@ -460,9 +500,21 @@ export function useAgentMessages() {
         if (msg.origin === 'callback') {
           const invocationId = msg.invocationId ?? getCurrentInvocationIdForCat(msg.catId);
           const hasExplicitInvocationId = !!msg.invocationId;
+          // Callback broadcasts now reliably carry invocationId (callbacks.ts #454),
+          // but rich-block-only runs can still start with an invocationless stream
+          // placeholder before the stream identity is bound. Otherwise one logical
+          // response splits into a ghost stream bubble + formal callback bubble, and
+          // the finalized ghost can survive F5 via client-side snapshots / IDB restore.
+          //
+          // ⚠️ DO NOT TOUCH the narrow guards in findInvocationlessRichPlaceholder:
+          // - Drop `content.trim() === 0` and a stale callback can eat a different
+          //   in-flight invocation's placeholder after text already started streaming.
+          // - Drop the rich/tool guard and empty placeholders created by stream setup
+          //   get reclaimed before the real callback arrives, re-splitting bubbles.
+          // - Drop the stream.invocationId write-back below and F5 hydration loses
+          //   the identity binding, letting the ghost bubble come back after refresh.
           const replacementTarget = invocationId
-            ? (findCallbackReplacementTarget(msg.catId, invocationId) ??
-              (hasExplicitInvocationId ? null : findInvocationlessStreamPlaceholder(msg.catId)))
+            ? (findCallbackReplacementTarget(msg.catId, invocationId) ?? findInvocationlessRichPlaceholder(msg.catId))
             : findInvocationlessStreamPlaceholder(msg.catId);
 
           if (replacementTarget) {
@@ -470,12 +522,16 @@ export function useAgentMessages() {
             if (finalId !== replacementTarget.id) {
               replaceMessageId(replacementTarget.id, finalId);
             }
+            const extraForPatch = {
+              ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+              ...(hasExplicitInvocationId && msg.invocationId ? { stream: { invocationId: msg.invocationId } } : {}),
+            };
             patchMessage(finalId, {
               content: msg.content,
               origin: 'callback',
               isStreaming: false,
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
-              ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
+              ...(Object.keys(extraForPatch).length > 0 ? { extra: extraForPatch } : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
               ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
@@ -1105,6 +1161,7 @@ export function useAgentMessages() {
       resetTimeout,
       clearDoneTimeout,
       findCallbackReplacementTarget,
+      findInvocationlessRichPlaceholder,
       findInvocationlessStreamPlaceholder,
       getCurrentInvocationIdForCat,
       getCurrentInvocationStateForCat,
