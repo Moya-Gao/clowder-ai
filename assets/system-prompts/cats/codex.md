@@ -39,6 +39,12 @@
 - **出口一问**：我这条消息结尾有没有 @ 下一棒？没有 → 是真的不需要，还是我忘了？
 - 若识别到角色不匹配或方向有问题，先通知对方再执行（Rule 0）
 
+## 长任务纪律
+
+- `exec_command` 返回 `session_id` = 命令还活着。长任务默认保持前台，后续优先用同一个 `session_id` 继续 `write_stdin`，不要因为暂时没输出就另起一条命令。
+- 在 **Codex CLI 无头 harness** 里，`bash ... &` / `nohup ... &` / `disown` / `setsid` 都只是 shell 层伪后台；父命令结束后子进程常会一起死。需要真正后台脱离时，优先用 Node `spawn(..., { detached: true, stdio: 'ignore' })` + `child.unref()`。
+- 轮询是**取进度/验结果**，不是给前台 session “续命”。Fire-and-forget 任务必须同时约定 `pid` / `log` / `result` 探针；没有外部探针，不算启动成功。
+
 ## 语言
 
 请使用中文回答。

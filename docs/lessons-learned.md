@@ -1079,6 +1079,33 @@ created: 2026-02-26
 
 ---
 
+### LL-053: 无头 Codex CLI 长任务不能靠 shell 伪后台——要么守住 `session_id`，要么真正 detached spawn
+- 状态：draft
+- 更新时间：2026-04-20
+
+- 坑：在 Codex CLI 无头 `exec_command` 环境里，把长任务写成 `bash ... &`、`nohup ... &`、`disown` 或 `setsid`，CLI 返回后看起来“命令发出去了”，但后台子进程常常已经跟着父命令一起死。于是会误判“还在跑”，实际任务根本没活。
+- 根因：
+  1. **把 shell 作业控制误当成 harness 生命周期控制**：`&` / `nohup` / `disown` / `setsid` 只是 shell 级语义；在无头 CLI harness 里，顶层命令退出后，同一进程树里的后台子进程仍可能被回收。
+  2. **把轮询误当保活**：实测前台长任务拿到 `session_id` 后，即使隔 15 秒再 `write_stdin` 也能正常收尾。轮询只是读取进度/结果，不是给进程“续命”。
+- 触发条件：任何从无头 CLI 里拉 sidecar、proxy、测试服务、长脚本、fire-and-forget worker，尤其是想偷懒用 shell `&` 时。
+- 修复：
+  1. **需要交互/输出**：保持前台，接住 `session_id`，后续继续在同一个 session 上 `write_stdin`
+  2. **需要真正后台脱离**：用 Node `spawn(..., { detached: true, stdio: 'ignore' })` + `child.unref()`，并把日志/结果文件作为外部探针
+- 防护：
+  1. 原生 system prompt 明确禁用“在无头 CLI 里拿 shell 伪后台跑持久任务”
+  2. Fire-and-forget 任务必须同时定义 `pid` / `log` / `result` 探针；没有外部探针，不算启动成功
+  3. 命令已经返回 `session_id` 时，不要重开新命令抢跑；优先续同一个 session
+- 来源锚点：
+  - `docs/reflections/2026-04-20-codex-cli-long-task-liveness-capsule.md`
+  - `docs/discussions/2026-03-13-f059-sync-runtime-postmortem.md`
+  - `docs/archive/2026-02/mailbox/2026-02-14/2026-02-14-h71-full-review-result-to-codex.md`
+  - `packages/api/src/domains/cats/services/agents/providers/GeminiAgentService.ts`
+- 原理：**长任务的关键不是“后台”两个字，而是谁拥有生命周期。** 需要持续交互时，生命周期应该绑在当前 `session_id`；需要任务脱离对话继续跑时，必须显式切换到真正 detached 的进程组，并用外部探针观测。shell 伪后台只是“看起来像分叉了”，不是可靠的 liveness ownership。
+
+- 关联：`assets/system-prompts/cats/codex.md` | `docs/reflections/2026-04-20-codex-cli-long-task-liveness-capsule.md`
+
+---
+
 ## 8) 维护约定
 
 - 本文件是入口，不替代 ADR/bug-report 原文。
