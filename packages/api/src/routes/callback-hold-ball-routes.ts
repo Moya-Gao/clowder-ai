@@ -14,14 +14,22 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
+import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskStore.js';
 import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
 import type { TaskTemplate } from '../infrastructure/scheduler/templates/types.js';
+import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { requireCallbackAuth } from './callback-auth-prehandler.js';
 import { deriveCallbackActor } from './callback-scope-helpers.js';
 
 const log = createModuleLogger('routes/callback-hold-ball');
+
+const HOLD_BALL_SOURCE = {
+  connector: 'hold-ball',
+  label: '持球通知',
+  icon: '🏓',
+} as const;
 
 export const MAX_HOLDS_PER_WINDOW = 3;
 export const HOLD_WINDOW_MS = 3_600_000;
@@ -62,10 +70,12 @@ export interface HoldBallRouteDeps {
   taskRunner: TaskRunnerV2;
   templateRegistry: { get(id: string): TaskTemplate | undefined };
   dynamicTaskStore: DynamicTaskStore;
+  messageStore: IMessageStore;
+  socketManager: SocketManager;
 }
 
 export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldBallRouteDeps): void {
-  const { taskRunner, templateRegistry, dynamicTaskStore } = deps;
+  const { taskRunner, templateRegistry, dynamicTaskStore, messageStore, socketManager } = deps;
 
   app.post('/api/callbacks/hold-ball', async (request, reply) => {
     const record = requireCallbackAuth(request, reply);
@@ -141,6 +151,32 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
     taskRunner.registerDynamic(spec, taskId);
 
     const newCount = incrementHoldCount(threadId, catIdStr);
+
+    const wakeAtStr = new Date(fireAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    const holdMessage = `🏓 ${catIdStr} 持球中 — ${reason}。预计 ${wakeAtStr} 唤醒，下一步：${nextStep}`;
+    try {
+      const stored = await messageStore.append({
+        userId: 'system',
+        catId: null,
+        content: holdMessage,
+        mentions: [],
+        timestamp: Date.now(),
+        threadId,
+        source: HOLD_BALL_SOURCE,
+      });
+      socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+        threadId,
+        message: {
+          id: stored.id,
+          type: 'connector',
+          content: stored.content,
+          source: HOLD_BALL_SOURCE,
+          timestamp: stored.timestamp,
+        },
+      });
+    } catch (err) {
+      log.warn({ threadId, catId: catIdStr, err }, 'F167 C1: failed to post hold_ball visibility message');
+    }
 
     log.info(
       {

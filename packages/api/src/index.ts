@@ -1336,6 +1336,8 @@ async function main(): Promise<void> {
       taskRunner: taskRunnerV2,
       templateRegistry,
       dynamicTaskStore,
+      messageStore,
+      socketManager,
     },
   } as Parameters<typeof callbacksRoutes>[1];
   await app.register(callbacksRoutes, callbackOpts);
