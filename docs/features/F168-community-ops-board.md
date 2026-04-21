@@ -408,6 +408,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-04-19 | Phase D merged (PR #1285) — guardian auth hardening (9-round review), callback auth on all guardian endpoints, merge-gate Step 6.5 updated |
 | 2026-04-19 | Phase E merged (PR #1288) — GitHub issue sync pipeline: state mapper + sync endpoint + production wiring + frontend sync button, 19 new tests, AC-E1~E4 ✅ |
 | 2026-04-20 | Phase F merged (PR #1295) — GitHub PR sync pipeline: CommunityPrStore + mapGitHubPr + sync-prs endpoint + board merge + frontend PR sections, 66 new tests, AC-F1~F5 ✅ |
+| 2026-04-21 | Review fixes merged (PR #1326) — vision guard review fixes: preferredWorkspaceMode write path, board PR fields (prNumber/ownerCatId), clickable GitHub links, CommunityPrStore repos, workspace mode leakage fix |
 
 ## Review Gate
 
