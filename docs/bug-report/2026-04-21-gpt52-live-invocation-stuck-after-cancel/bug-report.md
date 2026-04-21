@@ -61,6 +61,7 @@ status: investigating
 ### Open Questions
 
 1. 被污染的到底是哪一层进程内状态？
+   - `SessionMutex`
    - `InvocationTracker`
    - `QueueProcessor.processingSlots`
    - `InvocationRecordStore` 的 live 记录
@@ -241,17 +242,40 @@ thread 历史里能看到用户消息和先前成功的 `gpt52` 回复。
 
 ## 5. 当前最可信的根因假设
 
-### 假设 A：live invocation 异常后，cancel cleanup 没有释放干净
+### 假设 A（当前最强）：`SessionMutex` 在异常/取消后没有被释放
+
+代码链：
+
+- `invoke-single-cat.ts` 在真正进入 `service.invoke()` 之前，会先对 `cliSessionId` 调 `sessionMutex.acquire()`。
+- 这一步发生在 `spawn_started` 广播之前。
+- `sessionMutexRelease?.()` 只在 `invoke-single-cat.ts` 的 `finally` 里执行。
+
+这意味着：
+
+1. 某次 invocation 如果卡在 provider/CLI 深处，导致 generator 没正常 unwind
+2. `finally` 就不会跑到
+3. `SessionMutex` 会继续持有这个 `cliSessionId`
+4. 后面同一 thread 再次 invoke 时，会先卡在 `SessionMutex.acquire()`
+5. 因为卡在 acquire 之前，所以前端**看不到新的 `spawn_started / intent_mode / 真正输出`**
+6. 而 `SessionMutex` 是纯进程内状态，**重启 Cat Cafe 就会清空**
+
+这条假设和现场高度吻合：
+
+- `cancel` 后同 thread 再 `@gpt52` 没有任何 UI 进展
+- 右侧审计里已有旧的 `cat_invoked`，但新的请求没有后续 response/error
+- 重启后恢复
+
+### 假设 B：live invocation 异常后，cancel cleanup 没有释放干净
 
 故障链：
 
 1. thread 内某次 `gpt52` live invocation 进入异常态
 2. 用户 `cancel`
-3. abort / routeExecution / tracker / queue 某处没释放干净
+3. abort / `routeExecution` / tracker / queue / mutex 某处没释放干净
 4. 这条 thread 对 `gpt52` 的后续调度继续被挡住
 5. 重启 Cat Cafe 清空进程内状态后恢复
 
-### 假设 B：断流/重连风暴是触发器，进程内状态污染是放大器
+### 假设 C：断流/重连风暴是触发器，进程内状态污染是放大器
 
 也就是：
 
@@ -272,9 +296,55 @@ thread 历史里能看到用户消息和先前成功的 `gpt52` 回复。
 - 重点不在“有没有新 session / 有没有 seal”
 - 而在“live invocation 中断后，为什么 thread 内状态还阻塞后续调度”
 
-## 7. 下一步建议（工程动作）
+## 7. 新增静态代码证据：为什么 `SessionMutex` 像头号嫌疑
 
-### 7.1 先加诊断，不要先猜修法
+关键代码事实：
+
+- `invoke-single-cat.ts` 顶部维护了进程级 `const sessionMutex = new SessionMutex()`。
+- 进入执行前，如果 `sessionId` 存在，会先：
+
+```ts
+sessionMutexRelease = await sessionMutex.acquire(sessionId, signal);
+```
+
+- 释放只在 finally：
+
+```ts
+sessionMutexRelease?.();
+```
+
+- `SessionMutex` 自身是纯内存的 `held` / `waiters` Map：
+  - `held: sessionId -> release`
+  - `waiters: sessionId -> queued waiters`
+
+结论：
+
+- 只要当前 invocation 没能正常跑到 `invoke-single-cat` 的 `finally`
+- 同一个 `cliSessionId` 的下一次请求就会被堵在 `acquire()`
+- 并且因为堵点发生在 `spawn_started` 之前，用户体验就是：
+  - thread 里没有新的“正在启动”
+  - 没有新的 `cat_responded`
+  - 没有新的 `cat_error`
+  - 看起来像“完全叫不出来”
+
+这正是当前现场的体验描述。
+
+## 8. 下一步建议（工程动作）
+
+### 8.1 先验证 `SessionMutex`，优先级高于 tracker/queue
+
+建议先加一次性诊断：
+
+- `SessionMutex.acquire(sessionId)`：
+  - 记录是 immediate acquire 还是 queued wait
+  - 记录当前 `held.has(sessionId)` / `waiters.length`
+- `invoke-single-cat` finally：
+  - 记录是否真的执行到 `sessionMutexRelease?.()`
+- `cancel_invocation` 后：
+  - 记录对应 thread/cat 的 active sessionId
+  - 记录这次 cancel 之后，下一次 invoke 是否卡在 acquire 前
+
+### 8.2 先加诊断，不要先猜修法
 
 在以下链路上加一次性诊断：
 
@@ -291,7 +361,7 @@ thread 历史里能看到用户消息和先前成功的 `gpt52` 回复。
 - `QueueProcessor.onInvocationComplete`
 - 如果存在 per-thread/per-cat queue guard，也打印 `has(threadId, catId)` 的判定依据
 
-### 7.2 补一个最贴脸的回归测试
+### 8.3 补一个最贴脸的回归测试
 
 目标不是测 reconnect，而是测用户体验链：
 
@@ -301,7 +371,7 @@ thread 历史里能看到用户消息和先前成功的 `gpt52` 回复。
 4. 再次在**同一个 thread** 对同一只猫发起请求
 5. 断言第二次必须能创建新 invocation / 进入执行
 
-### 7.3 断流风暴单独收口
+### 8.4 断流风暴单独收口
 
 如果未来继续抓到这类：
 
@@ -311,17 +381,21 @@ thread 历史里能看到用户消息和先前成功的 `gpt52` 回复。
 
 就应该单独加一条 provider 级 fail-fast / self-heal 策略，而不是只依赖 `idle-silent`。
 
-## 8. 对下一位接手缅因猫的直接建议
+## 9. 对下一位接手缅因猫的直接建议
 
 如果你接手后只能做一件事：
 
-**先盯 cancel 后的释放链，而不是先盯 session seal / token overflow。**
+**先盯 `SessionMutex` + cancel 后的释放链，而不是先盯 session seal / token overflow。**
 
 最值得先验证的问题是：
 
 > `cancel` 之后，是什么内存态还留着，导致同 thread 再次 `@gpt52` 仍然无法创建一个新的健康 invocation？
 
-## 9. 当前结论
+当前最值得先证伪/证实的是：
+
+> `invoke-single-cat` 的 `finally` 没有稳定执行到 `sessionMutexRelease?.()`，从而把同一 `cliSessionId` 永久卡在进程内锁里。
+
+## 10. 当前结论
 
 这次要解决的问题，不是“为什么 `@gpt52` 偶尔慢”。
 
@@ -330,4 +404,3 @@ thread 历史里能看到用户消息和先前成功的 `gpt52` 回复。
 1. live invocation 挂住时，能不能更快失败
 2. **cancel 之后，thread 能不能恢复到可再次调度的干净状态**
 3. 不能再让“重启 Cat Cafe”成为用户唯一的恢复手段
-
