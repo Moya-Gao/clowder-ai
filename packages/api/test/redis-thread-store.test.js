@@ -136,6 +136,51 @@ describe('RedisThreadStore', { skip: redisIsolationSkipReason(REDIS_URL) }, () =
     assert.ok(ids.indexOf(t2.id) < ids.indexOf(t1.id));
   });
 
+  it('list() self-heals when the user thread index zset is fully lost', async () => {
+    const userId = 'self-heal-full';
+    const first = await store.create(userId, 'Thread A');
+    const second = await store.create(userId, 'Thread B');
+
+    await redis.del(userListKey(userId));
+    assert.deepEqual(await redis.zrange(userListKey(userId), 0, -1), []);
+
+    const threads = await store.list(userId);
+    const ids = threads.map((t) => t.id);
+
+    assert.ok(ids.includes(first.id), 'list() should recover the first thread');
+    assert.ok(ids.includes(second.id), 'list() should recover the second thread');
+  });
+
+  it('list() self-heals when the user thread index zset is partially lost', async () => {
+    const userId = 'self-heal-partial';
+    const first = await store.create(userId, 'Thread A');
+    const second = await store.create(userId, 'Thread B');
+
+    await redis.zrem(userListKey(userId), second.id);
+    const idsBefore = await redis.zrange(userListKey(userId), 0, -1);
+    assert.deepEqual(idsBefore, [first.id]);
+
+    const threads = await store.list(userId);
+    const ids = threads.map((t) => t.id);
+
+    assert.ok(ids.includes(first.id), 'list() should preserve the existing thread');
+    assert.ok(ids.includes(second.id), 'list() should restore the missing thread');
+  });
+
+  it('repairIndex() rebuilds missing zset members before startup consumers read the thread list', async () => {
+    const userId = 'repair-index';
+    const first = await store.create(userId, 'Thread A');
+    const second = await store.create(userId, 'Thread B');
+
+    await redis.zrem(userListKey(userId), second.id);
+    assert.deepEqual(await redis.zrange(userListKey(userId), 0, -1), [first.id]);
+
+    const result = await store.repairIndex();
+    assert.equal(result.repairedUsers, 1);
+    assert.equal(result.repairedMembers, 1);
+    assert.deepEqual(await redis.zrange(userListKey(userId), 0, -1), [first.id, second.id]);
+  });
+
   it('updateTitle() updates the title', async () => {
     const thread = await store.create('user1', 'Old Title');
     await store.updateTitle(thread.id, 'New Title');

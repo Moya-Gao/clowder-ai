@@ -509,6 +509,20 @@ async function main(): Promise<void> {
   evidenceStoreRef = memoryServices.evidenceStore;
   app.log.info('[api] F102: SQLite memory services initialized');
 
+  if (threadStore.repairIndex) {
+    const startMs = Date.now();
+    try {
+      const result = await threadStore.repairIndex();
+      if (result.repairedMembers > 0) {
+        app.log.info(
+          `[api] thread index repair rebuilt ${result.repairedMembers} member(s) across ${result.repairedUsers} user index(es) (${Date.now() - startMs}ms)`,
+        );
+      }
+    } catch (err) {
+      app.log.warn(`[api] thread index repair failed (non-fatal): ${err}`);
+    }
+  }
+
   // F152 Phase B: Expedition Bootstrap — state manager + service
   const { IndexStateManager } = await import('./domains/memory/IndexStateManager.js');
   const { ExpeditionBootstrapService } = await import('./domains/memory/ExpeditionBootstrapService.js');

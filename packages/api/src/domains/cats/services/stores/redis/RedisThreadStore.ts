@@ -7,7 +7,7 @@
  *   cat-cafe:thread:{threadId}:participants  → Set (参与猫)
  *   cat-cafe:threads:user:{userId}          → Sorted Set (用户对话列表, score=lastActiveAt)
  *
- * TTL 默认 30 天。
+ * 默认持久化；用户可见状态禁止默认 TTL（LL-048）。
  */
 
 import type { CatId, ThreadPhase } from '@cat-cafe/shared';
@@ -140,9 +140,12 @@ function parseThreadMemoryJson(raw: string): ThreadMemoryV1 | null {
 }
 
 export class RedisThreadStore implements IThreadStore {
+  private static readonly LIST_REPAIR_COOLDOWN_MS = 5 * 60 * 1000;
   private readonly redis: RedisClient;
   /** null means no expiration. */
   private readonly ttlSeconds: number | null;
+  /** Avoid re-scanning every request when a user genuinely only has one thread. */
+  private readonly lastListRepairAt = new Map<string, number>();
 
   constructor(redis: RedisClient, options?: { ttlSeconds?: number }) {
     this.redis = redis;
@@ -198,7 +201,7 @@ export class RedisThreadStore implements IThreadStore {
   }
 
   async list(userId: string): Promise<Thread[]> {
-    const ids = await this.redis.zrevrange(ThreadKeys.userList(userId), 0, -1);
+    const ids = await this.loadUserThreadIds(userId);
 
     // Ensure default thread is included
     const hasDefault = ids.includes(DEFAULT_THREAD_ID);
@@ -213,6 +216,38 @@ export class RedisThreadStore implements IThreadStore {
     // Sort by lastActiveAt descending
     threads.sort((a, b) => b.lastActiveAt - a.lastActiveAt);
     return threads;
+  }
+
+  async repairIndex(userId?: string): Promise<{ repairedUsers: number; repairedMembers: number }> {
+    const indexedByUser = await this.collectIndexedThreadsFromDetails(userId);
+    let repairedUsers = 0;
+    let repairedMembers = 0;
+
+    for (const [ownerId, members] of indexedByUser) {
+      const userListKey = ThreadKeys.userList(ownerId);
+      const existingIds = new Set(await this.redis.zrange(userListKey, 0, -1));
+      const missing = [...members.entries()].filter(([threadId]) => !existingIds.has(threadId));
+      if (missing.length === 0) continue;
+
+      const zaddArgs: string[] = [];
+      for (const [threadId, score] of missing) {
+        zaddArgs.push(String(score), threadId);
+      }
+
+      const pipeline = this.redis.multi();
+      pipeline.zadd(userListKey, ...zaddArgs);
+      if (this.ttlSeconds === null) {
+        pipeline.persist(userListKey);
+      } else {
+        pipeline.expire(userListKey, this.ttlSeconds);
+      }
+      await pipeline.exec();
+
+      repairedUsers += 1;
+      repairedMembers += missing.length;
+    }
+
+    return { repairedUsers, repairedMembers };
   }
 
   async listByProject(userId: string, projectPath: string): Promise<Thread[]> {
@@ -528,7 +563,7 @@ export class RedisThreadStore implements IThreadStore {
 
   /** F095 Phase D: List soft-deleted threads (trash bin). */
   async listDeleted(userId: string): Promise<Thread[]> {
-    const ids = await this.redis.zrevrange(ThreadKeys.userList(userId), 0, -1);
+    const ids = await this.loadUserThreadIds(userId);
     const threads: Thread[] = [];
     for (const id of ids) {
       const thread = await this.get(id);
@@ -580,6 +615,71 @@ export class RedisThreadStore implements IThreadStore {
       await this.redis.expire(key, this.ttlSeconds);
     }
     return thread;
+  }
+
+  private async loadUserThreadIds(userId: string): Promise<string[]> {
+    let ids = await this.redis.zrevrange(ThreadKeys.userList(userId), 0, -1);
+    if (!this.canAttemptListRepair(userId, ids.length)) {
+      return ids;
+    }
+
+    this.lastListRepairAt.set(userId, Date.now());
+    const repaired = await this.repairIndex(userId);
+    if (repaired.repairedMembers === 0) {
+      return ids;
+    }
+    ids = await this.redis.zrevrange(ThreadKeys.userList(userId), 0, -1);
+    return ids;
+  }
+
+  private canAttemptListRepair(userId: string, indexedCount: number): boolean {
+    if (indexedCount > 1) return false;
+    const lastAttempt = this.lastListRepairAt.get(userId) ?? 0;
+    return Date.now() - lastAttempt >= RedisThreadStore.LIST_REPAIR_COOLDOWN_MS;
+  }
+
+  private async collectIndexedThreadsFromDetails(userId?: string): Promise<Map<string, Map<string, number>>> {
+    const matchPattern = `${this.keyPrefix}${ThreadKeys.detail('thread_*')}`;
+    let cursor = '0';
+    const indexedByUser = new Map<string, Map<string, number>>();
+
+    do {
+      const [nextCursor, rawKeys] = (await this.redis.scan(cursor, 'MATCH', matchPattern, 'COUNT', 200)) as [
+        string,
+        string[],
+      ];
+      cursor = nextCursor;
+
+      const detailKeys = rawKeys
+        .map((rawKey) => this.stripKeyPrefix(rawKey))
+        .filter((key) => /^thread:thread_[^:]+$/.test(key));
+      if (detailKeys.length === 0) continue;
+
+      const pipeline = this.redis.multi();
+      for (const key of detailKeys) {
+        pipeline.hgetall(key);
+      }
+      const results = await pipeline.exec();
+
+      for (let i = 0; i < detailKeys.length; i += 1) {
+        const data = results?.[i]?.[1];
+        if (!data || typeof data !== 'object') continue;
+        const hash = data as Record<string, string>;
+        if (!hash.id || !hash.createdBy || hash.createdBy === 'system') continue;
+        if (userId && hash.createdBy !== userId) continue;
+
+        const lastActiveAt = parseInt(hash.lastActiveAt ?? '0', 10);
+        const score = Number.isFinite(lastActiveAt) ? lastActiveAt : 0;
+        let members = indexedByUser.get(hash.createdBy);
+        if (!members) {
+          members = new Map<string, number>();
+          indexedByUser.set(hash.createdBy, members);
+        }
+        members.set(hash.id, score);
+      }
+    } while (cursor !== '0');
+
+    return indexedByUser;
   }
 
   private async recoverThreadFromMessages(threadId: string): Promise<Thread | null> {
@@ -714,6 +814,15 @@ export class RedisThreadStore implements IThreadStore {
     if (fields.length === 0) return;
     await this.redis.hdel(key, ...fields);
     await this.applyKeyRetention([key]);
+  }
+
+  private get keyPrefix(): string {
+    return (this.redis.options as { keyPrefix?: string }).keyPrefix ?? '';
+  }
+
+  private stripKeyPrefix(rawKey: string): string {
+    const prefix = this.keyPrefix;
+    return prefix && rawKey.startsWith(prefix) ? rawKey.slice(prefix.length) : rawKey;
   }
 
   private serializeThread(thread: Thread): Record<string, string> {
