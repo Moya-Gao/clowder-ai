@@ -12,6 +12,7 @@ doc_kind: discussion
 created: 2026-04-20
 participants:
   - gpt52
+  - opus
 sourceFiles:
   - sources/claude-multi-agent-coordination-patterns-source.md
 sourceUrls:
@@ -29,6 +30,7 @@ sourceUrls:
 - 来源归档：`sources/claude-multi-agent-coordination-patterns-source.md`
 - 架构映射表：`cat-cafe-architecture-mapping.md`
 - multi-agent 架构设计：`cat-cafe-multi-agent-architecture-design.md`
+- **通俗文章**：`article-decentralized-judgment-unified-infra.md` — 五种模式 + Cat Cafe 的"第六种"
 - 官方页面：<https://claude.com/blog/multi-agent-coordination-patterns>
 - 发布日期：2026-04-10
 
