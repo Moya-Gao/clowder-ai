@@ -1,3 +1,5 @@
+import { getSenderName } from '../../context/ContextAssembler.js';
+
 export interface BatonContext {
   fromMessageId: string;
   fromSpeaker: string;
@@ -18,6 +20,7 @@ export function extractBatonContext(
     userId: string;
     origin?: string;
     mentions?: readonly string[];
+    source?: { label: string };
   }>,
   targetCatId: string,
 ): BatonContext | null {
@@ -54,7 +57,7 @@ export function extractBatonContext(
     return {
       fromMessageId: m.id,
       fromSpeaker,
-      fromSpeakerDisplay: m.catId ?? m.userId,
+      fromSpeakerDisplay: m.source?.label || getSenderName(m.catId),
       timestamp: m.timestamp,
       mentionExcerpt: excerpt,
       staleHoldWarning,

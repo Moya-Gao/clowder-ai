@@ -39,7 +39,7 @@ const DEFAULT_MAX_TOTAL_TOKENS = 2000;
  * catId === null → user ("铲屎官"), otherwise look up CAT_CONFIGS.
  * For variant cats (e.g. sonnet, opus-45), includes variantLabel to distinguish same-family members.
  */
-function getSenderName(catId: string | null): string {
+export function getSenderName(catId: string | null): string {
   if (catId === null) return '铲屎官';
   const entry = catRegistry.tryGet(catId);
   const config = entry?.config ?? CAT_CONFIGS[catId];

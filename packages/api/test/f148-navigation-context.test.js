@@ -27,13 +27,13 @@ describe('extractBatonContext', () => {
   it('identifies cat speaker by catId', () => {
     const baton = extractBatonContext(messages.slice(0, 2), 'opus');
     assert.equal(baton.fromSpeaker, 'codex');
-    assert.equal(baton.fromSpeakerDisplay, 'codex');
+    assert.equal(baton.fromSpeakerDisplay, '缅因猫');
   });
 
   it('identifies human speaker as "user"', () => {
     const baton = extractBatonContext(messages, 'opus');
     assert.equal(baton.fromSpeaker, 'user');
-    assert.equal(baton.fromSpeakerDisplay, 'user1');
+    assert.equal(baton.fromSpeakerDisplay, '铲屎官');
   });
 
   it('detects stale hold contradiction', () => {
@@ -232,6 +232,33 @@ describe('extractBatonContext', () => {
       `excerpt "${baton.mentionExcerpt}" should not contain any @mentions`,
     );
     assert.ok(baton.mentionExcerpt.includes('验收'));
+  });
+
+  it('shows 铲屎官 instead of internal userId for human speaker display (Bug: default-user leak)', () => {
+    const msgs = [{ id: 'm100', catId: null, content: '@opus 帮我看看', timestamp: 1000, userId: 'default-user' }];
+    const baton = extractBatonContext(msgs, 'opus');
+    assert.ok(baton !== null);
+    assert.equal(
+      baton.fromSpeakerDisplay,
+      '铲屎官',
+      `expected '铲屎官', got '${baton.fromSpeakerDisplay}' — internal userId leaked to display`,
+    );
+  });
+
+  it('prefers source.label for connector-origin baton messages (cloud P2)', () => {
+    const msgs = [
+      {
+        id: 'm110',
+        catId: null,
+        content: '@opus CI pipeline failed',
+        timestamp: 1000,
+        userId: 'system',
+        source: { label: 'GitHub CI' },
+      },
+    ];
+    const baton = extractBatonContext(msgs, 'opus');
+    assert.ok(baton !== null);
+    assert.equal(baton.fromSpeakerDisplay, 'GitHub CI', 'connector baton must show source.label, not 铲屎官');
   });
 
   it('still detects real hold instructions after P2-R2 narrowing', () => {
