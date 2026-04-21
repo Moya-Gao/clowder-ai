@@ -496,7 +496,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 |------|------|----------|------|
 | [ ] | 写文件/改代码仍不稳定（截图描述：`run_command` 经常 `context canceled`） | Bug-8 v1 已解开 `WAITING` 死锁，但 native file/code parity 仍只覆盖 `run_command`。`read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob` 还在 follow-up，field report 仍可能表现为“写代码不稳” | **Phase 2c v2**：AC-2cR4 + AC-2cI6 |
 | [ ] | bug 炸掉后整段 conversation 仍可能“重新认人” | G0 resume 与 PR #1299 已恢复大部分 continuity，但目前还没有专门锁“fatal error → 下一轮仍保上下文”的回归用例；这是 field report，不该宣称已完全解决 | **G0/G10 follow-up**：补 repro + continuity regression test |
-| [ ] | retry 经常只 retry 1 次然后直接挂住 | 当前 Cat Café 自愈策略在 `invoke-single-cat.ts` 仍是 `maxAttempts = 2`，也就是**总共只允许 1 次 retry**。铲屎官最新 field report 说明“单次 retry 后仍挂住”尚未 root cause | **G10 follow-up（P1）**：已建毛线球 `[P1] 调查 Antigravity 单次 retry 后仍挂起` |
+| [~] | retry 经常只 retry 1 次然后直接挂住 | 已定位一条真实挂点：**capacity retry 后 fresh cascade 若落到 v2 尚未支持的 WAITING tool step（如 `grep_search`），当前 bridge 会静默等到 stall timeout**。`fix/antigravity-retry-hang` 已改成 fail-fast 显式报 `unsupported_waiting_tool`；retry 预算策略与 v2 executors 仍待继续 | **G10 follow-up（P1）**：当前分支已修 symptom；剩余继续跟 Phase 2c v2 / telemetry |
 
 ---
 
@@ -530,12 +530,22 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 
 **现象**（2026-04-20 铲屎官新报告）：孟加拉猫“经常只 retry 1 次然后又直接挂了”。
 
-**当前判断**：
-- `invoke-single-cat.ts` 当前自愈策略仍是 `maxAttempts = 2`，即 **首尝 + 1 次 retry**
-- PR #1293 做的是 **bounded retry + pending-tool guard**，不是“多次 retry 直到恢复”
-- 所以“只 retry 1 次”本身不是意外，而是当前策略设计；真正未闭环的是：**为什么那唯一一次 retry 后仍会挂住，以及是否需要更强的 retry / terminalization / telemetry 方案**
+**当前判断（2026-04-20 夜更新）**：
+- `invoke-single-cat.ts` 的 `maxAttempts = 2` 只约束 **外层 session/CLI self-heal**；它不是 Antigravity provider 内层 `model_capacity` bounded retry 的唯一预算
+- `AntigravityAgentService` 内层 `model_capacity` retry 状态机本身已验证可连续跑多轮 fresh cascade，不是“天然只能 retry 1 次”
+- 已定位的一条真实挂点是：**第一次 capacity retry 成功切到 fresh cascade 后，如果新 cascade 发出 v2 尚未支持的 `WAITING` tool step（例如 `grep_search`），bridge 不会执行它，也不会立即报错，而是原地等到 stall timeout**
+- 这正好解释了铲屎官体感里的“先看到 1 次 retry，再挂住”
 
-**排期**：G10 follow-up（P1，已建毛线球：`[P1] 调查 Antigravity 单次 retry 后仍挂起`）
+**本轮修复（分支 `fix/antigravity-retry-hang`）**：
+- 把这类 `unsupported WAITING tool step` 从“60s 后 stall”改成**立即显式失败**
+- 新错误码：`unsupported_waiting_tool`
+- 覆盖场景：`model_capacity` retry → fresh cascade → unsupported `grep_search` WAITING step → **立刻终止，不再挂到 stall timeout**
+
+**剩余未闭环**：
+- 这次修的是 **symptom fix / terminalization**，不是把 `grep_search` / `read_file` / `write_file` / `edit_file` / `file_glob` 真正执行起来
+- 真正的长期闭环仍是 Phase 2c v2（AC-2cR4 + AC-2cI6）以及更细的 retry telemetry
+
+**排期**：G10 follow-up（P1，已建毛线球：`[P1] 调查 Antigravity 单次 retry 后仍挂起`）继续；本轮先消掉“retry 后静默挂到 stall”的直接症状
 
 ## Known Bugs（已修复）
 

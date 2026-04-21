@@ -64,6 +64,90 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.equal(bridge.sendMessage.mock.callCount(), 2, 'should resend the prompt after capacity retry');
   });
 
+  test('capacity retry fails fast on unsupported waiting tool step instead of hanging for stall timeout', async () => {
+    const bridge = createMockBridge();
+    bridge.nativeExecuteAndPush = async (step) => {
+      if (step.metadata?.toolCall?.name === 'grep_search') return 'no_executor';
+      return false;
+    };
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () => ['cascade-1', 'cascade-2'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'FINISHED',
+              errorMessage: {
+                error: {
+                  userErrorMessage:
+                    'Our servers are experiencing high traffic right now, please try again in a minute.',
+                },
+              },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 1,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+        return;
+      }
+
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_GREP_SEARCH',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'tool-1',
+                name: 'grep_search',
+                argumentsJson: JSON.stringify({ Pattern: 'foo', Path: 'src' }),
+              },
+            },
+          },
+        ],
+        cursor: {
+          baselineStepCount: 0,
+          lastDeliveredStepCount: 1,
+          terminalSeen: false,
+          lastActivityAt: Date.now(),
+        },
+      };
+      throw new Error('Antigravity stall: no activity for 20ms (steps=1, status=CASCADE_RUN_STATUS_RUNNING)');
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+      pollTimeoutMs: 20,
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    const retryWarnings = messages.filter((m) => m.type === 'provider_signal');
+    assert.equal(retryWarnings.length, 1, 'should still emit the first retry warning');
+    const unsupported = messages.find((m) => m.type === 'error' && m.errorCode === 'unsupported_waiting_tool');
+    assert.ok(unsupported, 'unsupported waiting tool should surface as explicit fatal error');
+    assert.match(unsupported.error, /grep_search/i);
+    assert.equal(
+      messages.some((m) => m.type === 'error' && /^Antigravity stall:/i.test(m.error ?? '')),
+      false,
+      'should fail before the later stall timeout path fires',
+    );
+    assert.equal(
+      messages.some((m) => m.type === 'error' && m.errorCode === 'empty_response'),
+      false,
+      'unsupported waiting tool should be the single terminal error',
+    );
+    assert.equal(bridge.resetSession.mock.callCount(), 1, 'should still reset once for the capacity retry');
+  });
+
   test('upstream_error does NOT abort poll — model self-corrects in next batch', async () => {
     const bridge = createMockBridge();
     bridge.pollForSteps = async function* () {
@@ -504,5 +588,111 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
 
     const texts = messages.filter((m) => m.type === 'text');
     assert.equal(texts.length, 1, 'text after tool_error should still be yielded');
+  });
+
+  test('P1: approval_pending must not add toolCallId to handledToolCallIds — step must be re-tried in next batch', async () => {
+    const bridge = createMockBridge();
+    const toolCallId = 'toolu_approval_1';
+    let waitingStepCallCount = 0;
+    bridge.nativeExecuteAndPush = async (step) => {
+      if (step.metadata?.toolCall?.id === toolCallId) {
+        waitingStepCallCount++;
+        if (waitingStepCallCount === 1) return 'approval_pending';
+        return true;
+      }
+      return false;
+    };
+    const waitingStep = {
+      type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+      status: 'CORTEX_STEP_STATUS_WAITING',
+      metadata: {
+        toolCall: {
+          id: toolCallId,
+          name: 'run_command',
+          argumentsJson: JSON.stringify({ CommandLine: 'echo hi', Cwd: '/tmp', SafeToAutoRun: false }),
+        },
+      },
+    };
+    bridge.pollForSteps = async function* () {
+      // Batch 1: approval-pending (awaitingUserInput: false so step is processed by nativeExecuteAndPush loop)
+      yield {
+        steps: [waitingStep],
+        cursor: {
+          baselineStepCount: 0,
+          lastDeliveredStepCount: 0,
+          terminalSeen: false,
+          lastActivityAt: Date.now(),
+          awaitingUserInput: false,
+        },
+      };
+      // Batch 2: same step re-presented after approval + final response
+      yield {
+        steps: [
+          waitingStep,
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            plannerResponse: { response: 'all done' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const messages = await collect(service.invoke('test'));
+
+    assert.equal(
+      waitingStepCallCount,
+      2,
+      'approval_pending must not add toolCallId to handledToolCallIds — step must be re-tried in next batch',
+    );
+    const text = messages.find((m) => m.type === 'text');
+    assert.ok(text, 'text response must be yielded after re-processed step');
+  });
+
+  test('P1: false from nativeExecuteAndPush (kill-switch / no-registry) must NOT trigger unsupported_waiting_tool', async () => {
+    const bridge = createMockBridge();
+    bridge.nativeExecuteAndPush = async () => false;
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_ks',
+                name: 'run_command',
+                argumentsJson: JSON.stringify({ CommandLine: 'echo hi', Cwd: '/tmp', SafeToAutoRun: true }),
+              },
+              sourceTrajectoryStepInfo: { trajectoryId: 't1', stepIndex: 0, cascadeId: 'c1' },
+            },
+          },
+        ],
+        cursor: {
+          baselineStepCount: 0,
+          lastDeliveredStepCount: 1,
+          terminalSeen: false,
+          lastActivityAt: Date.now(),
+        },
+      };
+      throw new Error('Antigravity stall: no activity for 20ms (steps=1, status=CASCADE_RUN_STATUS_RUNNING)');
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      pollTimeoutMs: 20,
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    const unsupported = messages.find((m) => m.type === 'error' && m.errorCode === 'unsupported_waiting_tool');
+    assert.equal(
+      unsupported,
+      undefined,
+      'false from nativeExecuteAndPush (kill-switch / no-registry disabled) must NOT trigger unsupported_waiting_tool',
+    );
   });
 });

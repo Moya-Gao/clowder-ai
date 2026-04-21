@@ -125,19 +125,21 @@ export class AntigravityBridge {
    * F061 Phase 2c Task 5: Coordinator for native tool execution.
    * Dispatches a WAITING RUN_COMMAND step through the executor registry,
    * then pushes the result back via pushToolResult.
-   * Returns true iff the step was handled; callers use this to gate polling behavior.
+   * Returns true on success, 'approval_pending' when SafeToAutoRun is not set,
+   * 'no_executor' when no executor matches (caller should fail-fast), or false for
+   * all other early exits (kill-switch, missing registry, bad args — caller should not fail-fast).
    * Opt out via `ANTIGRAVITY_NATIVE_EXECUTOR=0` env var.
    */
   async nativeExecuteAndPush(
     step: TrajectoryStep,
     opts: { cascadeId: string; cwd: string; modelName?: string },
-  ): Promise<boolean> {
+  ): Promise<true | 'approval_pending' | 'no_executor' | false> {
     if (process.env.ANTIGRAVITY_NATIVE_EXECUTOR === '0') return false;
     if (!this.executorRegistry || !this.executorAudit) return false;
     if (step.status !== 'CORTEX_STEP_STATUS_WAITING') return false;
 
     const executor = this.executorRegistry.resolve(step);
-    if (!executor) return false;
+    if (!executor) return 'no_executor' as const;
 
     const argsJson = step.metadata?.toolCall?.argumentsJson;
     if (!argsJson) return false;
@@ -152,7 +154,8 @@ export class AntigravityBridge {
     // Respect Antigravity's approval metadata: only auto-execute steps the model
     // explicitly marked as safe-to-auto-run. SafeToAutoRun=false / missing → fall
     // back to normal approval flow (user or autoApprove via HandleCascadeUserInteraction).
-    if (args.SafeToAutoRun !== true) return false;
+    // Return 'approval_pending' (truthy) so callers can distinguish from genuinely unsupported steps (false).
+    if (args.SafeToAutoRun !== true) return 'approval_pending';
 
     const commandLine = ((args.CommandLine as string | undefined) ?? (args.commandLine as string | undefined))?.trim();
     if (!commandLine) return false;

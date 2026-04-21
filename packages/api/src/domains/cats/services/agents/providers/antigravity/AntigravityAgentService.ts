@@ -461,7 +461,29 @@ export class AntigravityAgentService implements AgentService {
                     cwd: sanitizedDir,
                     modelName: self.model,
                   });
-                  if (handled && toolCallId) handledToolCallIds.add(toolCallId);
+                  if (handled === true && toolCallId) handledToolCallIds.add(toolCallId);
+                  if (
+                    handled === 'no_executor' &&
+                    step.status === 'CORTEX_STEP_STATUS_WAITING' &&
+                    !batch.cursor.awaitingUserInput
+                  ) {
+                    const toolName = step.metadata?.toolCall?.name ?? step.toolCall?.toolName ?? step.type;
+                    log.error(
+                      { cascadeId, toolName, stepType: step.type, status: step.status },
+                      'unsupported waiting tool step would otherwise stall the retry path',
+                    );
+                    fatalSeen = true;
+                    terminalAbort = true;
+                    yield {
+                      type: 'error' as const,
+                      catId: self.catId,
+                      error: `Antigravity waiting tool step "${toolName}" is not supported by the current native executor; aborting instead of waiting for stall timeout.`,
+                      errorCode: 'unsupported_waiting_tool',
+                      metadata,
+                      timestamp: Date.now(),
+                    };
+                    break;
+                  }
                 } catch (err) {
                   log.warn(`nativeExecuteAndPush failed for step: ${err}`);
                 }

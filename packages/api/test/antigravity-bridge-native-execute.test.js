@@ -103,7 +103,7 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
     assert.equal(rpcMock.mock.callCount(), 0);
   });
 
-  test('skips non-run_command steps', async () => {
+  test('returns no_executor for step types not in registry', async () => {
     const { bridge, rpcMock } = makeBridge();
     const step = {
       type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
@@ -111,7 +111,7 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
       metadata: { toolCall: { name: 'read_file', argumentsJson: '{}' } },
     };
     const handled = await bridge.nativeExecuteAndPush(step, { cascadeId: 'c1', cwd: '/tmp' });
-    assert.equal(handled, false);
+    assert.equal(handled, 'no_executor', 'step with no matching executor must return no_executor (not false)');
     assert.equal(rpcMock.mock.callCount(), 0);
   });
 
@@ -136,7 +136,7 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
         toolCall: {
           id: 'toolu_no_step_info',
           name: 'run_command',
-          argumentsJson: JSON.stringify({ CommandLine: 'echo danger', Cwd: '/tmp' }),
+          argumentsJson: JSON.stringify({ CommandLine: 'echo danger', Cwd: '/tmp', SafeToAutoRun: true }),
         },
       },
     };
@@ -150,7 +150,7 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
     assert.equal(cancelCalls.length, 0, 'must not call CancelCascadeSteps without valid stepIndex');
   });
 
-  test('returns false when SafeToAutoRun is not true (respects Antigravity approval metadata)', async () => {
+  test('returns approval_pending when SafeToAutoRun is not true (respects Antigravity approval metadata)', async () => {
     const { bridge, rpcMock } = makeBridge();
     const variants = [
       { CommandLine: 'echo hi', Cwd: '/tmp', SafeToAutoRun: false },
@@ -170,8 +170,8 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
       const handled = await bridge.nativeExecuteAndPush(step, { cascadeId: 'c1', cwd: '/tmp' });
       assert.equal(
         handled,
-        false,
-        `must not execute when SafeToAutoRun=${JSON.stringify(args.SafeToAutoRun)} (approval still owed)`,
+        'approval_pending',
+        `must return approval_pending (not false) when SafeToAutoRun=${JSON.stringify(args.SafeToAutoRun)}`,
       );
     }
     // No RPC calls at all — neither RunCommand nor CancelCascadeSteps
