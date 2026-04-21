@@ -481,6 +481,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-21 | **Retry hang fix** — `model_capacity` retry → unsupported WAITING tool → hang 根因修复：`nativeExecuteAndPush` 四态区分（`true` / `'approval_pending'` / `'no_executor'` / `false`），fail-fast 收窄为仅 `'no_executor'`，kill-switch 和无 registry 路径的 `false` 不再误触 `unsupported_waiting_tool`（PR #1318，砚砚 2 P1→fix→放行 + gate 全绿）|
 | 2026-04-21 | **Real-world verification (partial)** — `@antig-opus` 在真实 Antigravity 环境验证：`grep_search` / `view_file` / `list_dir` 通过，但 `run_command` 在简单 `git log --oneline` 上 `context canceled` 稳定复现（2/2）。`write/edit`、`model_capacity retry`、fatal → continuity 本轮尚未完整覆盖。见 `docs/features/F061-verification-2026-04-21.md` |
 | 2026-04-21 | **Bundle A reliability sweep merged** — quota-style capacity 文案（`You have exhausted your capacity on this model. Your quota will reset after 0s.`）现在也会命中 `model_capacity`，并复用现有 fresh-cascade bounded retry；同时新增 service 回归，锁定 retry 后重发的 prompt 不会丢 `callback fallback` / thread-bound reply path（PR #1320） |
+| 2026-04-21 | **Bundle B parity sweep (branch)** — `nativeExecuteAndPush` 现在会在 `RunCommand` unary 前显式发 `HandleCascadeUserInteraction { permission: { allowed: true }, trajectoryId, stepIndex }`，先满足 LS `PermissionManager` 的权限关；本地 bridge/service/executor 定向测试已绿，真实 Antigravity 环境尚待复验 |
 
 ---
 
@@ -499,7 +500,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 
 | 状态 | 问题 | 当前判断 | 排期 |
 |------|------|----------|------|
-| [ ] | 写文件/改代码仍不稳定（截图描述：`run_command` 经常 `context canceled`） | Bug-8 v1 已解开 `WAITING` 死锁，但 native file/code parity 仍只覆盖 `run_command`。`read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob` 还在 follow-up。`@antig-opus` 2026-04-21 实测也确认：只读工具可用，但 `run_command` 在简单 `git log --oneline` 上仍 `context canceled` 2/2 复现 | **Phase 2c v2**：AC-2cR4 + AC-2cI6 |
+| [ ] | 写文件/改代码仍不稳定（截图描述：`run_command` 经常 `context canceled`） | Bug-8 v1 已解开 `WAITING` 死锁，但 native file/code parity 仍只覆盖 `run_command`。`read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob` 还在 follow-up。`@antig-opus` 2026-04-21 实测也确认：只读工具可用，但 `run_command` 在简单 `git log --oneline` 上仍 `context canceled` 2/2 复现。Bundle B 分支现已补上 `HandleCascadeUserInteraction { permission: { allowed: true } }` 前置调用，等待实机复验这条 guard 是否足以消掉 `PromptUser → context canceled` | **Phase 2c v2**：AC-2cR4 + AC-2cI6 |
 | [ ] | bug 炸掉后整段 conversation 仍可能“重新认人” | G0 resume 与 PR #1299 已恢复大部分 continuity，但目前还没有专门锁“fatal error → 下一轮仍保上下文”的回归用例；这是 field report，不该宣称已完全解决 | **G0/G10 follow-up**：补 repro + continuity regression test |
 | [~] | retry 经常只 retry 1 次然后直接挂住 | 已确认“只 retry 1 次然后挂住”不是 retry 预算天然只有 1 次，而是旧实现会在 capacity retry 后落到 v2 尚未支持的 WAITING tool step（如 `grep_search`）并静默 stall。PR #1318 已把这条路径改成 fail-fast 显式报 `unsupported_waiting_tool`；PR #1320 也已把 quota-style capacity 文案补进 `model_capacity` 分类并锁住 retry 后 callback fallback 不丢。剩余还是 v2 executors / telemetry / 实机复验 | **G10 follow-up（P1）**：本轮先收 classifier + continuity guard；剩余继续跟 Phase 2c v2 / telemetry |
 
@@ -517,6 +518,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
   - AC-2cR4：采集 `READ_FILE` / `WRITE_FILE` / `EDIT_FILE` / `GREP` / `GLOB` 等 step shape
   - AC-2cI6：v2 扩展执行器
 - `@antig-opus` 2026-04-21 真实环境验证已经把边界钉实：`grep_search` / `view_file` / `list_dir` PASS，但 `run_command` 在简单 `git log --oneline` 上 `context canceled` 2/2 稳定复现；见 `docs/features/F061-verification-2026-04-21.md`
+- Bundle B 分支的当前最小修复是：在 `RunCommand` unary 前显式发 `HandleCascadeUserInteraction { permission: { allowed: true }, trajectoryId, stepIndex }`，让 LS `PermissionManager` 先过权限关；本地 bridge/service/executor 回归已绿，但实机还没复验
 - 所以截图里的“写文件不稳”更接近 **tool parity 未完工**，不是 Bug-8 已修链路可以直接 claim 已解决
 
 **排期**：Phase 2c v2（AC-2cR4 + AC-2cI6）

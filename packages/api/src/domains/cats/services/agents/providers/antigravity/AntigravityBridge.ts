@@ -6,9 +6,10 @@ import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 import { discoverAntigravityLS } from './antigravity-ls-discovery.js';
 import { diffDeliveredSteps } from './antigravity-step-delta.js';
 import { RAW_RESPONSE_CAP, TRACE_ENABLED, TRACED_METHODS, traceLog } from './antigravity-trace.js';
-import type { AuditSink } from './executors/AntigravityToolExecutor.js';
+import type { AuditSink, ExecutorResult } from './executors/AntigravityToolExecutor.js';
 import type { ExecutorRegistry } from './executors/ExecutorRegistry.js';
 import { formatToolResult } from './executors/formatToolResult.js';
+import { getRunCommandRefusalReason } from './executors/RunCommandExecutor.js';
 
 const log = createModuleLogger('antigravity-bridge');
 
@@ -169,6 +170,36 @@ export class AntigravityBridge {
         'nativeExecuteAndPush: stepIndex missing from sourceTrajectoryStepInfo, skipping to avoid cancelling wrong step',
       );
       return false;
+    }
+
+    // Run local refusal rules before signaling LS-side approval. Otherwise an
+    // unsafe command could be permission-approved upstream before our native
+    // executor decides to refuse it.
+    const refusalReason = getRunCommandRefusalReason(commandLine);
+    if (refusalReason) {
+      const result: ExecutorResult<unknown> = { status: 'refused', reason: refusalReason };
+      await this.executorAudit.record({
+        tool: executor.toolName,
+        cascadeId: opts.cascadeId,
+        stepIndex,
+        input,
+        result,
+        timestamp: new Date(),
+      });
+      await this.pushToolResult(opts.cascadeId, stepIndex, result, input, opts.modelName);
+      return true;
+    }
+
+    // Stage 1: try to satisfy LS PermissionManager before invoking the native executor.
+    // If the hint RPC itself fails, still continue to the writeback fallback path.
+    try {
+      await this.approveInteraction(opts.cascadeId, {
+        permission: { allowed: true },
+        trajectoryId,
+        stepIndex,
+      });
+    } catch (err) {
+      log.warn(`nativeExecuteAndPush: permission guard RPC failed (continuing): ${err}`);
     }
 
     const result = await executor.execute(input, {

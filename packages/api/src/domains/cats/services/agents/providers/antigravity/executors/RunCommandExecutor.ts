@@ -28,6 +28,13 @@ const FORBIDDEN_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
   { pattern: /:\(\)\{\s*:\|:/i, reason: 'fork bomb pattern refused' },
 ];
 
+export function getRunCommandRefusalReason(commandLine: string): string | null {
+  for (const { pattern, reason } of FORBIDDEN_PATTERNS) {
+    if (pattern.test(commandLine)) return reason;
+  }
+  return null;
+}
+
 export class RunCommandExecutor implements AntigravityToolExecutor<RunCommandInput, { exitCode: number }> {
   readonly toolName = 'run_command';
 
@@ -38,19 +45,18 @@ export class RunCommandExecutor implements AntigravityToolExecutor<RunCommandInp
   }
 
   async execute(input: RunCommandInput, ctx: ExecutorContext): Promise<ExecutorResult<{ exitCode: number }>> {
-    for (const { pattern, reason } of FORBIDDEN_PATTERNS) {
-      if (pattern.test(input.commandLine)) {
-        const refused: ExecutorResult<{ exitCode: number }> = { status: 'refused', reason };
-        await ctx.audit.record({
-          tool: this.toolName,
-          cascadeId: ctx.cascadeId,
-          stepIndex: ctx.stepIndex,
-          input,
-          result: refused,
-          timestamp: new Date(),
-        });
-        return refused;
-      }
+    const refusalReason = getRunCommandRefusalReason(input.commandLine);
+    if (refusalReason) {
+      const refused: ExecutorResult<{ exitCode: number }> = { status: 'refused', reason: refusalReason };
+      await ctx.audit.record({
+        tool: this.toolName,
+        cascadeId: ctx.cascadeId,
+        stepIndex: ctx.stepIndex,
+        input,
+        result: refused,
+        timestamp: new Date(),
+      });
+      return refused;
     }
 
     const t0 = Date.now();
