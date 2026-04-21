@@ -185,9 +185,7 @@ function referencedArtifactExists(baseDir, args, env) {
   if (!Array.isArray(args)) return true;
   const artifactArgs = args.filter(isLocalArtifactArg).map(extractArtifactCandidate);
   if (artifactArgs.length === 0) return true;
-  return artifactArgs.every(
-    (artifactArg) => artifactArg && existsSync(resolveLocalPath(baseDir, artifactArg, env)),
-  );
+  return artifactArgs.every((artifactArg) => artifactArg && existsSync(resolveLocalPath(baseDir, artifactArg, env)));
 }
 
 export function inspectManifestSkills(repoRoot) {

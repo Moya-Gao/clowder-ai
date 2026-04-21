@@ -28,6 +28,7 @@ const ALLOWLIST = new Map([
   ['LC_ALL', 'OS-provided locale override'],
   ['APPDATA', 'Windows OS variable (cli-spawn-win.ts)'],
   ['SYSTEMROOT', 'Windows OS variable (project-path.ts)'],
+  ['PATHEXT', 'Windows OS variable (capability-orchestrator.ts executable extension lookup)'],
   ['NODE_ENV', 'Node.js standard'],
   ['https_proxy', 'Standard proxy convention (lowercase variant of HTTPS_PROXY)'],
   ['http_proxy', 'Standard proxy convention (lowercase variant of HTTP_PROXY)'],

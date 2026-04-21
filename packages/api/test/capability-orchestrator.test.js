@@ -155,7 +155,6 @@ describe('resolveRequiredMcpStatus', () => {
         },
       ]),
       projectRoot: dir,
-      projectRoot: dir,
     });
 
     try {
@@ -207,7 +206,6 @@ describe('resolveRequiredMcpStatus', () => {
           mcpServer: { command: 'npx', args: ['github:modelcontextprotocol/servers'] },
         },
       ]),
-      projectRoot: dir,
       projectRoot: dir,
     });
 

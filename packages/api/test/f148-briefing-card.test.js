@@ -170,11 +170,9 @@ describe('F148 briefing card — navigation-first collapsed view', () => {
 
     it('下一步 field sanitizes search suggestion (no backticks/newlines)', () => {
       const dirty = 'search_evidence(`F148`)\nwith newline\\backslash';
-      const result = buildBriefingMessage(
-        makeCoverage({ searchSuggestions: [dirty] }),
-        'thread-1',
-        { rankedSources: [] },
-      );
+      const result = buildBriefingMessage(makeCoverage({ searchSuggestions: [dirty] }), 'thread-1', {
+        rankedSources: [],
+      });
       const card = result.extra.rich.blocks[0];
       const nextField = card.fields.find((f) => f.label === '下一步');
       assert.ok(!nextField.value.includes('`'), `should not contain backticks, got: ${nextField.value}`);

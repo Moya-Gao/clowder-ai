@@ -81,6 +81,23 @@ describe('resolveApiUrl', () => {
     expect(resolve()).toBe('http://localhost:3002');
   });
 
+  // ── Symmetric fix: cloud env + local access → skip env, hit local API
+  //    (avoids forcing localhost browser through Cloudflare Tunnel round-trip)
+
+  it('skips cloud env when accessed from localhost (avoids tunnel round-trip)', async () => {
+    process.env.NEXT_PUBLIC_API_URL = 'https://api.clowder-ai.com';
+    stubLocation({ hostname: 'localhost', protocol: 'http:', port: '3001' });
+    const resolve = await loadResolveApiUrl();
+    expect(resolve()).toBe('http://localhost:3002');
+  });
+
+  it('skips cloud env when accessed from 127.0.0.1', async () => {
+    process.env.NEXT_PUBLIC_API_URL = 'https://api.clowder-ai.com';
+    stubLocation({ hostname: '127.0.0.1', protocol: 'http:', port: '3011' });
+    const resolve = await loadResolveApiUrl();
+    expect(resolve()).toBe('http://127.0.0.1:3012');
+  });
+
   // ── No env, browser, reverse proxy (empty port) → same origin ──
 
   it('returns same-origin when port is empty (reverse proxy)', async () => {
