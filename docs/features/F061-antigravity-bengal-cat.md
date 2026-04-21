@@ -479,6 +479,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-20 | **Native MCP env recovery** — Antigravity 全局 `~/.gemini/antigravity/mcp_config.json` 正式纳管，`CAT_CAFE_API_URL`/`CAT_CAFE_READONLY=true` 锁为 managed 默认边界，同时修复 homedir discovery / `serverUrl` remote MCP 解析 / `dare-default` scope drift（PR #1307，云端 3 轮共 3 个 P2 全部闭环后 squash merge）|
 | 2026-04-21 | **Managed MCP path stabilization** — managed `cat-cafe*` MCP command path 在读写 `capabilities.json` 时会自动 realign 到 stable main repo root，避免 Antigravity 全局配置继续钉住已删除 feature worktree，导致 MCP read/write 链路飘到错误路径（PR #1317，已合入 main）|
 | 2026-04-21 | **Retry hang fix** — `model_capacity` retry → unsupported WAITING tool → hang 根因修复：`nativeExecuteAndPush` 四态区分（`true` / `'approval_pending'` / `'no_executor'` / `false`），fail-fast 收窄为仅 `'no_executor'`，kill-switch 和无 registry 路径的 `false` 不再误触 `unsupported_waiting_tool`（PR #1318，砚砚 2 P1→fix→放行 + gate 全绿）|
+| 2026-04-21 | **Real-world verification (partial)** — `@antig-opus` 在真实 Antigravity 环境验证：`grep_search` / `view_file` / `list_dir` 通过，但 `run_command` 在简单 `git log --oneline` 上 `context canceled` 稳定复现（2/2）。`write/edit`、`model_capacity retry`、fatal → continuity 本轮尚未完整覆盖。见 `docs/features/F061-verification-2026-04-21.md` |
 
 ---
 
@@ -497,7 +498,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 
 | 状态 | 问题 | 当前判断 | 排期 |
 |------|------|----------|------|
-| [ ] | 写文件/改代码仍不稳定（截图描述：`run_command` 经常 `context canceled`） | Bug-8 v1 已解开 `WAITING` 死锁，但 native file/code parity 仍只覆盖 `run_command`。`read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob` 还在 follow-up，field report 仍可能表现为“写代码不稳” | **Phase 2c v2**：AC-2cR4 + AC-2cI6 |
+| [ ] | 写文件/改代码仍不稳定（截图描述：`run_command` 经常 `context canceled`） | Bug-8 v1 已解开 `WAITING` 死锁，但 native file/code parity 仍只覆盖 `run_command`。`read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob` 还在 follow-up。`@antig-opus` 2026-04-21 实测也确认：只读工具可用，但 `run_command` 在简单 `git log --oneline` 上仍 `context canceled` 2/2 复现 | **Phase 2c v2**：AC-2cR4 + AC-2cI6 |
 | [ ] | bug 炸掉后整段 conversation 仍可能“重新认人” | G0 resume 与 PR #1299 已恢复大部分 continuity，但目前还没有专门锁“fatal error → 下一轮仍保上下文”的回归用例；这是 field report，不该宣称已完全解决 | **G0/G10 follow-up**：补 repro + continuity regression test |
 | [~] | retry 经常只 retry 1 次然后直接挂住 | 已确认“只 retry 1 次然后挂住”不是 retry 预算天然只有 1 次，而是旧实现会在 capacity retry 后落到 v2 尚未支持的 WAITING tool step（如 `grep_search`）并静默 stall。PR #1318 已把这条路径改成 fail-fast 显式报 `unsupported_waiting_tool`；retry 预算策略、v2 executors 与 telemetry 仍待继续 | **G10 follow-up（P1）**：#1318 已止血 symptom；剩余继续跟 Phase 2c v2 / telemetry |
 
@@ -514,6 +515,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 - 文档里未完成的 AC 仍然存在：
   - AC-2cR4：采集 `READ_FILE` / `WRITE_FILE` / `EDIT_FILE` / `GREP` / `GLOB` 等 step shape
   - AC-2cI6：v2 扩展执行器
+- `@antig-opus` 2026-04-21 真实环境验证已经把边界钉实：`grep_search` / `view_file` / `list_dir` PASS，但 `run_command` 在简单 `git log --oneline` 上 `context canceled` 2/2 稳定复现；见 `docs/features/F061-verification-2026-04-21.md`
 - 所以截图里的“写文件不稳”更接近 **tool parity 未完工**，不是 Bug-8 已修链路可以直接 claim 已解决
 
 **排期**：Phase 2c v2（AC-2cR4 + AC-2cI6）
@@ -538,6 +540,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 - `AntigravityAgentService` 内层 `model_capacity` retry 状态机本身已验证可连续跑多轮 fresh cascade，不是“天然只能 retry 1 次”
 - 已定位的一条真实挂点是：**旧实现里，第一次 capacity retry 成功切到 fresh cascade 后，如果新 cascade 发出 v2 尚未支持的 `WAITING` tool step（例如 `grep_search`），bridge 不会执行它，也不会立即报错，而是原地等到 stall timeout**
 - 这正好解释了铲屎官体感里的“先看到 1 次 retry，再挂住”；这条路径现已被 PR #1318 改成显式失败
+- 新的可靠性 gap 也已经浮出：当前 Antigravity capacity classifier 只覆盖 `high traffic` / `rate limit` / `too many requests` / `try again` / `overloaded`。像 `You have exhausted your capacity on this model. Your quota will reset after 0s.` 这类 quota-style provider 文案还没有被验证会命中 `model_capacity`，存在“现有 bounded retry 没被触发”的风险
 
 **已合入修复（PR #1318, `0ae31c30d`）**：
 - 把这类 `unsupported WAITING tool step` 从“60s 后 stall”改成**立即显式失败**
@@ -549,6 +552,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 **剩余未闭环**：
 - 这次修的是 **symptom fix / terminalization**，不是把 `grep_search` / `read_file` / `write_file` / `edit_file` / `file_glob` 真正执行起来
 - 真正的长期闭环仍是 Phase 2c v2（AC-2cR4 + AC-2cI6）以及更细的 retry telemetry
+- quota-style capacity 文案（`exhausted your capacity` / `quota will reset after 0s`）需要补进 `model_capacity` 分类与回归测试，否则这条 provider 限流路径仍可能绕开现有 retry/backoff
 
 **排期**：G10 follow-up（P1，已建毛线球：`[P1] 调查 Antigravity 单次 retry 后仍挂起`）继续；PR #1318 先消掉“retry 后静默挂到 stall”的直接症状，下一步继续补 parity / telemetry
 
