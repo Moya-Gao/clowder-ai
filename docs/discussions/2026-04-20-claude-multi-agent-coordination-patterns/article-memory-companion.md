@@ -9,7 +9,12 @@ refs:
   - ../../features/F102-memory-adapter-refactor.md
   - ../../features/F065-session-continuity.md
   - ../../features/F163-memory-entropy-reduction.md
+  - ../../features/F169-agent-memory-reflex.md
   - ../../decisions/020-f102-memory-system-architecture.md
+  - ../../research/2026-04-19-karpathy-llm-wiki/source-note.md
+  - ../../research/2026-04-19-karpathy-llm-wiki/comparison.md
+  - ../../research/2026-04-19-karpathy-llm-wiki/human-readable-comparison.md
+  - ../../research/2026-04-19-karpathy-llm-wiki/opus47-perspective.md
   - article-a2a-technical-deep-dive.md
 ---
 
@@ -34,6 +39,56 @@ docs / discussions / decisions / lessons / markers
 ```
 
 这条链本身就足够复杂，和 A2A 放在同一篇里会互相压缩，所以必须拆开。
+
+## 1.5 这组 2026-04-19 专题对这篇的补强点
+
+我这次重读了 `docs/research/2026-04-19-karpathy-llm-wiki/` 这一整组材料后，发现它们对“记忆篇”的补强主要不在实现细节，而在**坐标系**。
+
+### 补强 1：Karpathy 给的是 compiled knowledge 的北极星
+
+`source-note.md` 里最重要的一句不是“做 wiki”，而是：
+
+> 不要让 LLM 每次 query 都重新从 raw documents 里发现知识；而要让它维护一个位于 raw sources 和 query 之间的 persistent wiki。
+
+这件事和 F102 的关系，不是“我们也有搜索”，而是：
+
+> **我们也在做 knowledge compilation，只是 compiled layer 的形态不是 markdown wiki，而是 governed searchable index。**
+
+### 补强 2：Graphify 提醒我们，人类可浏览的 compiled artifact 仍然是缺口
+
+`comparison.md` 和 `human-readable-comparison.md` 共同指出了一件事：
+
+- 我们家的 index / resolver / governance 很强
+- 但对人类来说，compiled layer 仍然偏黑盒
+
+也就是说，我们现在做得好的是：
+
+- 编译
+- 检索
+- 治理
+
+还没做得足够好的，是：
+
+- **人和猫共享可浏览的 compiled artifact**
+
+这也是为什么我在这篇 companion 里把“索引是编译产物”单独拎出来讲，而不是只讲 search API。
+
+### 补强 3：opus-47 和 F169 把“仓库”换成了“义肢”视角
+
+`opus47-perspective.md` 和 `F169-agent-memory-reflex.md` 给了一个很重要的抬升：
+
+- 记忆系统不是给铲屎官查资料的仓库
+- 它首先是给猫用的 **externalized working memory prosthetic**
+
+这个视角会改变我们怎么描述 F102/F163/F065：
+
+- F102 不只是“搜索系统”，而是 working memory 的编译底座
+- F065 不只是 continuity，而是把外部工作记忆窄口喂回当前 session
+- F163 不只是治理，而是避免这个外部工作记忆越来越脏、越来越吵
+
+所以这篇 companion 最准确的 framing 其实不是“知识库架构”，而是：
+
+> **多猫 runtime 的协作记忆基础设施。**
 
 ## 2. 真相源分层：什么是源，什么是编译产物
 
@@ -61,6 +116,19 @@ F102/ADR-020 的关键决定，是把“真相源”和“索引”分开。
 对 agent 系统来说，这个分层是对的，因为：
 
 > **索引是加速器，不是真相。**
+
+如果借 Karpathy 那条轴来重述，就是：
+
+```text
+raw sources
+  ≈ docs / markers / discussions / decisions
+
+compiled layer
+  ≈ evidence.sqlite / global_knowledge.sqlite / summary artifacts
+
+query / lint / save-back
+  ≈ search_evidence / resolver / marker → materialize → reindex
+```
 
 ## 3. 记忆系统的六个核心接口
 
@@ -182,6 +250,12 @@ ADR-020 很明确：
 
 所以 knowledge 在我们家是有 **生产线** 的，不是纯粹存储。
 
+这也正是 `source-note.md` 里 ingest / query / lint 三件事在我们家的落点：
+
+- ingest：scan / hash / rebuild / bootstrap
+- query：resolver / evidence search / session recall
+- lint：F163 contradiction / stale / review queue / entropy reduction
+
 ## 6. F163 把“搜得到”升级成“不会越堆越脏”
 
 如果没有 F163，F102 最终还是会面临一个典型问题：
@@ -235,7 +309,31 @@ F163 的意义是把 memory 从“只会长”变成“会治理”：
 
 重新变成未来 recall 的一部分。
 
-## 8. 当前判断
+## 8. 这篇和 F169 的边界
+
+重读 `F169-agent-memory-reflex.md` 后，我会更明确地划这篇 companion 的边界：
+
+- 这篇讲的是 **记忆基础设施**
+- F169 讲的是 **记忆反射层愿景**
+
+也就是：
+
+```text
+F102 / ADR-020
+  = 编译、检索、联邦索引、session continuity
+
+F163
+  = 生命周期治理、熵减、冲突与失效管理
+
+F169（愿景）
+  = Reflex Injection / task-scoped salience gating
+```
+
+所以 F169 对这篇最重要的帮助，不是要我把 Reflex 写进来，而是提醒我：
+
+> 今天的记忆系统已经不是“文档仓库”，但离“外部工作记忆反射层”还差一层运行时能力。
+
+## 9. 当前判断
 
 如果给这篇 companion 一个最短结论，我会这么写：
 
