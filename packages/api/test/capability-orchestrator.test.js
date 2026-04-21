@@ -1,7 +1,7 @@
 // @ts-check
 
 import assert from 'node:assert/strict';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -24,6 +24,7 @@ import {
   resolveMachineSpecificServers,
   resolvePencilBinary,
   resolvePencilCommand,
+  resolveRequiredMcpStatus,
   resolveServersForCat,
   writeCapabilitiesConfig,
 } from '../dist/config/capabilities/capability-orchestrator.js';
@@ -43,6 +44,11 @@ async function makeTmpDir(prefix) {
 /** Helper: minimal capabilities.json */
 function makeConfig(capabilities = []) {
   return { version: 1, capabilities };
+}
+
+async function writeExecutable(filePath) {
+  await writeFile(filePath, '#!/bin/sh\nexit 0\n');
+  await chmod(filePath, 0o755);
 }
 
 // ────────── Read/Write capabilities.json ──────────
@@ -132,6 +138,85 @@ describe('deduplicateDiscoveredMcpServers', () => {
 
     assert.equal(deduped.length, 1);
     assert.equal(deduped[0].enabled, true);
+  });
+});
+
+describe('resolveRequiredMcpStatus', () => {
+  it('marks missing local artifact args as unresolved', async () => {
+    const dir = await makeTmpDir('cap-required-artifact');
+    const status = await resolveRequiredMcpStatus('artifact-test', {
+      capabilities: makeConfig([
+        {
+          id: 'artifact-test',
+          type: 'mcp',
+          enabled: true,
+          source: 'external',
+          mcpServer: { command: 'node', args: ['./missing.json'] },
+        },
+      ]),
+      projectRoot: dir,
+      projectRoot: dir,
+    });
+
+    try {
+      assert.equal(status.status, 'unresolved');
+      assert.equal(status.reason, 'command args reference missing local artifact');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('accepts home-relative command paths when the binary exists', async () => {
+    const dir = await makeTmpDir('cap-required-home-command');
+    try {
+      const homeDir = join(dir, 'home');
+      await mkdir(join(homeDir, 'bin'), { recursive: true });
+      const commandPath = join(homeDir, 'bin', 'doctor-bin');
+      await writeExecutable(commandPath);
+
+      const status = await resolveRequiredMcpStatus('home-command', {
+        capabilities: makeConfig([
+          {
+            id: 'home-command',
+            type: 'mcp',
+            enabled: true,
+            source: 'external',
+            mcpServer: { command: '~/bin/doctor-bin', args: [] },
+          },
+        ]),
+        env: { ...process.env, HOME: homeDir, USERPROFILE: homeDir },
+        projectRoot: dir,
+      });
+
+      assert.equal(status.status, 'ready');
+      assert.match(status.reason, /stdio ~\/bin\/doctor-bin/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not treat slash-bearing package specs as local artifacts', async () => {
+    const dir = await makeTmpDir('cap-required-package-spec');
+    const status = await resolveRequiredMcpStatus('package-spec', {
+      capabilities: makeConfig([
+        {
+          id: 'package-spec',
+          type: 'mcp',
+          enabled: true,
+          source: 'external',
+          mcpServer: { command: 'npx', args: ['github:modelcontextprotocol/servers'] },
+        },
+      ]),
+      projectRoot: dir,
+      projectRoot: dir,
+    });
+
+    try {
+      assert.equal(status.status, 'ready');
+      assert.match(status.reason, /stdio npx/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -457,10 +542,10 @@ describe('resolvePencilBinary', () => {
     const vscodeInsidersDir = join(await makeTmpDir('pencil-vsi'), 'extensions');
 
     await mkdir(join(antigravityDir, 'highagency.pencildev-0.6.40-universal', 'out'), { recursive: true });
-    await writeFile(join(antigravityDir, 'highagency.pencildev-0.6.40-universal', PENCIL_BINARY_SUFFIX), '');
+    await writeExecutable(join(antigravityDir, 'highagency.pencildev-0.6.40-universal', PENCIL_BINARY_SUFFIX));
 
     await mkdir(join(cursorDir, 'highagency.pencildev-0.7.1-universal', 'out'), { recursive: true });
-    await writeFile(join(cursorDir, 'highagency.pencildev-0.7.1-universal', PENCIL_BINARY_SUFFIX), '');
+    await writeExecutable(join(cursorDir, 'highagency.pencildev-0.7.1-universal', PENCIL_BINARY_SUFFIX));
 
     // Newer version exists, but the binary is missing. resolvePencilBinary() should
     // skip it and fall back to the newest accessible install instead of returning
@@ -499,7 +584,7 @@ describe('resolvePencilCommand', () => {
     const antigravityDir = join(dir, 'ag');
     await mkdir(join(antigravityDir, 'highagency.pencildev-0.6.40-universal'), { recursive: true });
     const explicitBin = join(dir, 'custom-pencil-bin');
-    await writeFile(explicitBin, '');
+    await writeExecutable(explicitBin);
 
     const resolved = await resolvePencilCommand({
       env: { PENCIL_MCP_BIN: explicitBin, PENCIL_MCP_APP: 'vscode' },
@@ -516,7 +601,7 @@ describe('resolvePencilCommand', () => {
   it('falls back to VS Code when Antigravity is unavailable', async () => {
     const vscodeDir = join(dir, '.vscode', 'extensions');
     await mkdir(join(vscodeDir, 'highagency.pencildev-0.6.41-universal', 'out'), { recursive: true });
-    await writeFile(join(vscodeDir, 'highagency.pencildev-0.6.41-universal', PENCIL_BINARY_SUFFIX), '');
+    await writeExecutable(join(vscodeDir, 'highagency.pencildev-0.6.41-universal', PENCIL_BINARY_SUFFIX));
 
     const resolved = await resolvePencilCommand({
       antigravityDir: join(dir, 'missing-ag'),
@@ -533,9 +618,9 @@ describe('resolvePencilCommand', () => {
     const vscodeDir = join(dir, 'vsc');
     // Both have 0.6.40 — Antigravity as -universal suffix, VS Code without
     await mkdir(join(antigravityDir, 'highagency.pencildev-0.6.40-universal', 'out'), { recursive: true });
-    await writeFile(join(antigravityDir, 'highagency.pencildev-0.6.40-universal', PENCIL_BINARY_SUFFIX), '');
+    await writeExecutable(join(antigravityDir, 'highagency.pencildev-0.6.40-universal', PENCIL_BINARY_SUFFIX));
     await mkdir(join(vscodeDir, 'highagency.pencildev-0.6.40', 'out'), { recursive: true });
-    await writeFile(join(vscodeDir, 'highagency.pencildev-0.6.40', PENCIL_BINARY_SUFFIX), '');
+    await writeExecutable(join(vscodeDir, 'highagency.pencildev-0.6.40', PENCIL_BINARY_SUFFIX));
 
     const resolved = await resolvePencilCommand({
       antigravityDir,
@@ -554,9 +639,9 @@ describe('resolvePencilCommand', () => {
     const vscodeDir = join(dir, 'vsc');
     // Antigravity has older version, VS Code has newer — but env says prefer antigravity
     await mkdir(join(antigravityDir, 'highagency.pencildev-0.6.39-universal', 'out'), { recursive: true });
-    await writeFile(join(antigravityDir, 'highagency.pencildev-0.6.39-universal', PENCIL_BINARY_SUFFIX), '');
+    await writeExecutable(join(antigravityDir, 'highagency.pencildev-0.6.39-universal', PENCIL_BINARY_SUFFIX));
     await mkdir(join(vscodeDir, 'highagency.pencildev-0.6.40', 'out'), { recursive: true });
-    await writeFile(join(vscodeDir, 'highagency.pencildev-0.6.40', PENCIL_BINARY_SUFFIX), '');
+    await writeExecutable(join(vscodeDir, 'highagency.pencildev-0.6.40', PENCIL_BINARY_SUFFIX));
 
     const resolved = await resolvePencilCommand({
       env: { PENCIL_MCP_APP: 'antigravity' },
@@ -576,9 +661,9 @@ describe('resolvePencilCommand', () => {
     const vscodeDir = join(dir, 'vsc');
     // Both have same version — env says vscode-insiders (alias for vscode)
     await mkdir(join(antigravityDir, 'highagency.pencildev-0.6.40-universal', 'out'), { recursive: true });
-    await writeFile(join(antigravityDir, 'highagency.pencildev-0.6.40-universal', PENCIL_BINARY_SUFFIX), '');
+    await writeExecutable(join(antigravityDir, 'highagency.pencildev-0.6.40-universal', PENCIL_BINARY_SUFFIX));
     await mkdir(join(vscodeDir, 'highagency.pencildev-0.6.40', 'out'), { recursive: true });
-    await writeFile(join(vscodeDir, 'highagency.pencildev-0.6.40', PENCIL_BINARY_SUFFIX), '');
+    await writeExecutable(join(vscodeDir, 'highagency.pencildev-0.6.40', PENCIL_BINARY_SUFFIX));
 
     const resolved = await resolvePencilCommand({
       env: { PENCIL_MCP_APP: 'vscode-insiders' },
@@ -596,7 +681,7 @@ describe('resolvePencilCommand', () => {
   it('PENCIL_MCP_APP falls back to any candidate if preferred app has no installations', async () => {
     const vscodeDir = join(dir, 'vsc');
     await mkdir(join(vscodeDir, 'highagency.pencildev-0.6.40', 'out'), { recursive: true });
-    await writeFile(join(vscodeDir, 'highagency.pencildev-0.6.40', PENCIL_BINARY_SUFFIX), '');
+    await writeExecutable(join(vscodeDir, 'highagency.pencildev-0.6.40', PENCIL_BINARY_SUFFIX));
 
     const resolved = await resolvePencilCommand({
       env: { PENCIL_MCP_APP: 'antigravity' },
@@ -1307,7 +1392,7 @@ describe('generateCliConfigs', () => {
     const originalEnv = process.env.PENCIL_MCP_BIN;
     const originalApp = process.env.PENCIL_MCP_APP;
     const explicitBin = join(dir, 'custom-pencil');
-    await writeFile(explicitBin, '');
+    await writeExecutable(explicitBin);
     process.env.PENCIL_MCP_BIN = explicitBin;
     process.env.PENCIL_MCP_APP = 'vscode';
     try {

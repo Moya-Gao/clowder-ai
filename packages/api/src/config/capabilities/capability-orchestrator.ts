@@ -9,9 +9,10 @@
  * 连同 Cat Cafe 自有 MCP 一起写入 capabilities.json。
  */
 
-import { access, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { existsSync, statSync } from 'node:fs';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { relative, resolve, sep } from 'node:path';
+import { delimiter, extname, join, relative, resolve, sep } from 'node:path';
 import type { CapabilitiesConfig, CapabilityEntry, McpServerDescriptor } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
 import {
@@ -54,6 +55,29 @@ const VSCODE_EXTENSIONS_DIR = resolve(homedir(), '.vscode/extensions');
 const CURSOR_EXTENSIONS_DIR = resolve(homedir(), '.cursor/extensions');
 const VSCODE_INSIDERS_EXTENSIONS_DIR = resolve(homedir(), '.vscode-insiders/extensions');
 const PENCIL_DIR_PREFIX = 'highagency.pencildev-';
+const WINDOWS_DRIVE_PATH_RE = /^[A-Za-z]:[\\/]/;
+const URL_SCHEME_RE = /^[A-Za-z][A-Za-z\d+.-]*:\/\//;
+const SCHEME_LIKE_SPEC_RE = /^[A-Za-z][A-Za-z\d+.-]*:[^\\/]/;
+const LOCAL_ARTIFACT_EXTENSIONS = new Set([
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.ts',
+  '.mts',
+  '.cts',
+  '.jsx',
+  '.tsx',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.py',
+  '.sh',
+  '.bash',
+  '.zsh',
+  '.ps1',
+  '.cmd',
+  '.bat',
+]);
 /** @internal Exported for testing only */
 export function getPencilBinarySuffix(): string {
   const os = process.platform === 'win32' ? 'windows' : process.platform === 'linux' ? 'linux' : 'darwin';
@@ -77,6 +101,7 @@ export type ResolvedMcpState = Record<string, ResolvedMcpStateEntry>;
 
 interface PencilResolveOptions {
   env?: NodeJS.ProcessEnv;
+  projectRoot?: string;
   antigravityDir?: string;
   vscodeDir?: string;
   cursorDir?: string;
@@ -149,13 +174,122 @@ export interface RequiredMcpStatus {
   reason: string;
 }
 
+function resolveHomeDir(env?: NodeJS.ProcessEnv): string {
+  return env?.HOME || env?.USERPROFILE || homedir();
+}
+
+function resolveLocalPath(projectRoot: string, value: string, env?: NodeJS.ProcessEnv): string {
+  const resolvedHome = resolveHomeDir(env);
+  if (value === '~') return resolvedHome;
+  if (value.startsWith('~/') || value.startsWith('~\\')) {
+    return join(resolvedHome, value.slice(2));
+  }
+  if (WINDOWS_DRIVE_PATH_RE.test(value) || value.startsWith('/') || value.startsWith('\\')) {
+    return value;
+  }
+  return resolve(projectRoot, value);
+}
+
+function isExecutableCommandPath(filePath: string): boolean {
+  if (!existsSync(filePath)) return false;
+  try {
+    const stats = statSync(filePath);
+    if (!stats.isFile()) return false;
+    if (process.platform === 'win32') return true;
+    return (stats.mode & 0o111) !== 0;
+  } catch {
+    return false;
+  }
+}
+
+function resolveCommandOnPath(command: string): string | null {
+  const pathEntries = (process.env.PATH ?? '').split(delimiter).filter(Boolean);
+  if (pathEntries.length === 0) return null;
+
+  const suffixes =
+    process.platform === 'win32'
+      ? extname(command)
+        ? ['']
+        : (process.env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD')
+            .split(';')
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+      : [''];
+
+  for (const dir of pathEntries) {
+    for (const suffix of suffixes) {
+      const candidate = join(dir, `${command}${suffix}`);
+      if (isExecutableCommandPath(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  return null;
+}
+
+function commandExists(projectRoot: string, command: string, env?: NodeJS.ProcessEnv): boolean {
+  if (!command) return false;
+  if (command.includes('/') || command.includes('\\') || command.startsWith('.') || command.startsWith('~')) {
+    return isExecutableCommandPath(resolveLocalPath(projectRoot, command, env));
+  }
+  return resolveCommandOnPath(command) !== null;
+}
+
+function extractArtifactCandidate(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const equalIndex = trimmed.indexOf('=');
+  if (trimmed.startsWith('--') && equalIndex > 2 && equalIndex < trimmed.length - 1) {
+    return trimmed.slice(equalIndex + 1);
+  }
+  return trimmed;
+}
+
+function isLikelyPackageSpecifier(value: string): boolean {
+  return (
+    value.startsWith('@') ||
+    (SCHEME_LIKE_SPEC_RE.test(value) && !WINDOWS_DRIVE_PATH_RE.test(value) && !value.startsWith('~/'))
+  );
+}
+
+function isLocalArtifactArg(value: unknown): boolean {
+  const candidate = extractArtifactCandidate(value);
+  if (!candidate || candidate.startsWith('-')) return false;
+  if (URL_SCHEME_RE.test(candidate)) return false;
+  if (isLikelyPackageSpecifier(candidate)) return false;
+  if (
+    candidate.startsWith('.') ||
+    candidate.startsWith('~') ||
+    candidate.startsWith('/') ||
+    candidate.startsWith('\\') ||
+    WINDOWS_DRIVE_PATH_RE.test(candidate)
+  ) {
+    return true;
+  }
+  if (candidate.includes('/') || candidate.includes('\\')) return true;
+  return LOCAL_ARTIFACT_EXTENSIONS.has(extname(candidate).toLowerCase());
+}
+
+function referencedArtifactExists(projectRoot: string, args: unknown[] | undefined, env?: NodeJS.ProcessEnv): boolean {
+  if (!Array.isArray(args)) return true;
+  const artifactArgs = args.filter(isLocalArtifactArg).map(extractArtifactCandidate);
+  if (artifactArgs.length === 0) return true;
+  return artifactArgs.every(
+    (artifactArg) => artifactArg && existsSync(resolveLocalPath(projectRoot, artifactArg, env)),
+  );
+}
+
 export async function resolveRequiredMcpStatus(
   mcpId: string,
   options: {
     capabilities?: CapabilitiesConfig | null;
     env?: NodeJS.ProcessEnv;
+    projectRoot?: string;
   } = {},
 ): Promise<RequiredMcpStatus> {
+  const projectRoot = options.projectRoot ?? process.cwd();
   const capability = options.capabilities?.capabilities?.find((entry) => entry.id === mcpId && entry.type === 'mcp');
   if (!capability || capability.enabled === false || !capability.mcpServer) {
     return {
@@ -169,10 +303,27 @@ export async function resolveRequiredMcpStatus(
   }
 
   if (capability.mcpServer.resolver === 'pencil') {
-    const resolved = await resolvePencilCommand({ env: options.env });
+    const resolved = await resolvePencilCommand({ env: options.env, projectRoot });
     return resolved
       ? { id: mcpId, status: 'ready', reason: `resolved via ${resolved.args?.[1] ?? 'resolver'}` }
       : { id: mcpId, status: 'unresolved', reason: 'resolver declared but no local Pencil installation found' };
+  }
+
+  const command = capability.mcpServer.command?.trim() ?? '';
+  if (command && !commandExists(projectRoot, command, options.env)) {
+    return {
+      id: mcpId,
+      status: 'unresolved',
+      reason: `command not found: ${command}`,
+    };
+  }
+
+  if (!referencedArtifactExists(projectRoot, capability.mcpServer.args, options.env)) {
+    return {
+      id: mcpId,
+      status: 'unresolved',
+      reason: 'command args reference missing local artifact',
+    };
   }
 
   if (hasUsableTransport(capability.mcpServer)) {
@@ -247,8 +398,10 @@ async function collectAccessiblePencilCandidates(
     const candidates: PencilInstallCandidate[] = [];
     for (const dirName of pencilDirs) {
       const binaryPath = resolve(extensionsDir, dirName, PENCIL_BINARY_SUFFIX);
+      if (!isExecutableCommandPath(binaryPath)) {
+        continue;
+      }
       try {
-        await access(binaryPath);
         candidates.push({ app, binaryPath, dirName });
       } catch {
         // Skip incomplete installs; a newer directory may exist without a usable binary.
@@ -264,15 +417,15 @@ export async function resolvePencilCommand(
   options: PencilResolveOptions = {},
 ): Promise<{ command: string; args: string[] } | null> {
   const env = options.env ?? process.env;
+  const projectRoot = options.projectRoot ?? process.cwd();
   const explicitCommand = env.PENCIL_MCP_BIN?.trim();
   if (explicitCommand) {
-    try {
-      await access(explicitCommand);
-    } catch {
+    const resolvedCommand = resolveLocalPath(projectRoot, explicitCommand, env);
+    if (!isExecutableCommandPath(resolvedCommand)) {
       return null;
     }
-    const app = inferPencilApp(explicitCommand, env.PENCIL_MCP_APP);
-    return { command: explicitCommand, args: ['--app', app] };
+    const app = inferPencilApp(resolvedCommand, env.PENCIL_MCP_APP);
+    return { command: resolvedCommand, args: ['--app', app] };
   }
 
   const allCandidates = (

@@ -15,13 +15,54 @@
 #   - 全绿：打印 SHA + 通过标记
 #   - 任一步骤失败：exit 1，打印失败原因
 
-set -e
+set -euo pipefail
 
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
+
+NO_REBASE=false
+SKIP_INSTALL=false
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/pre-merge-check.sh [--no-rebase] [--skip-install]
+
+Default behavior:
+  1. Fail if the worktree is dirty
+  2. Fetch origin/main and rebase current branch onto it
+  3. Refresh dependencies with pnpm install --frozen-lockfile
+  4. Run build / tsc --noEmit / test / lint / check
+
+Flags:
+  --no-rebase    Skip fetch + rebase (local verification only)
+  --skip-install Skip dependency refresh after rebase
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-rebase)
+      NO_REBASE=true
+      shift
+      ;;
+    --skip-install)
+      SKIP_INSTALL=true
+      shift
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
 
 echo ""
 echo "╔══════════════════════════════════════════════════════╗"
@@ -40,11 +81,17 @@ fi
 
 UNCOMMITTED="$(git status --porcelain)"
 if [ -n "$UNCOMMITTED" ]; then
-  echo -e "${YELLOW}⚠️  有未提交的改动：${NC}"
-  echo "$UNCOMMITTED" | head -10
-  echo ""
-  echo -e "${RED}❌ 请先 commit 所有改动再执行 gate 检查${NC}"
-  exit 1
+  if [ "$NO_REBASE" = "true" ]; then
+    echo -e "${YELLOW}⚠️  检测到未提交改动，但因 --no-rebase 继续本地验证${NC}"
+    echo "$UNCOMMITTED" | head -10
+    echo ""
+  else
+    echo -e "${YELLOW}⚠️  有未提交的改动：${NC}"
+    echo "$UNCOMMITTED" | head -10
+    echo ""
+    echo -e "${RED}❌ 请先 commit 所有改动再执行 gate 检查${NC}"
+    exit 1
+  fi
 fi
 
 echo -e "${GREEN}✓ 分支: $BRANCH${NC}"
@@ -79,34 +126,59 @@ echo ""
 
 # ── Step 1: Fetch + Rebase origin/main ──
 
-echo "── Step 1/5: 同步 origin/main 并 rebase ──"
-git fetch origin main --quiet
-echo -e "${GREEN}✓ fetch origin/main${NC}"
+REBASE_SUMMARY="skipped (--no-rebase)"
+if [ "$NO_REBASE" = "true" ]; then
+  echo "── Step 1/6: 跳过 rebase（--no-rebase）──"
+  echo -e "${YELLOW}⚠ 已跳过 origin/main rebase，仅用于本地验证${NC}"
+  echo ""
+else
+  echo "── Step 1/6: 同步 origin/main 并 rebase ──"
+  git fetch origin main --quiet
+  echo -e "${GREEN}✓ fetch origin/main${NC}"
 
-REBASE_RESULT=0
-git rebase origin/main --quiet 2>&1 || REBASE_RESULT=$?
-if [ $REBASE_RESULT -ne 0 ]; then
+  REBASE_RESULT=0
+  git rebase origin/main --quiet 2>&1 || REBASE_RESULT=$?
+  if [ $REBASE_RESULT -ne 0 ]; then
+    echo ""
+    echo -e "${RED}❌ Rebase 有冲突！${NC}"
+    echo ""
+    echo "请手动解决冲突后重新执行 pnpm gate。"
+    echo "提示："
+    echo "  - git status 查看冲突文件"
+    echo "  - 冲突区域会显示 base/ours/theirs 三段（zdiff3 格式）"
+    echo "  - 解决后 git rebase --continue"
+    echo ""
+    echo "三屏对比命令（针对单个冲突文件）："
+    echo "  git show :1:<path>   # BASE（共同祖先）"
+    echo "  git show :2:<path>   # OURS（当前分支）"
+    echo "  git show :3:<path>   # THEIRS（main 上的改动）"
+    exit 1
+  fi
+  REBASE_SUMMARY="rebased onto origin/main"
+  echo -e "${GREEN}✓ rebase origin/main 成功${NC}"
   echo ""
-  echo -e "${RED}❌ Rebase 有冲突！${NC}"
-  echo ""
-  echo "请手动解决冲突后重新执行 pnpm gate。"
-  echo "提示："
-  echo "  - git status 查看冲突文件"
-  echo "  - 冲突区域会显示 base/ours/theirs 三段（zdiff3 格式）"
-  echo "  - 解决后 git rebase --continue"
-  echo ""
-  echo "三屏对比命令（针对单个冲突文件）："
-  echo "  git show :1:<path>   # BASE（共同祖先）"
-  echo "  git show :2:<path>   # OURS（当前分支）"
-  echo "  git show :3:<path>   # THEIRS（main 上的改动）"
-  exit 1
 fi
-echo -e "${GREEN}✓ rebase origin/main 成功${NC}"
-echo ""
 
-# ── Step 2: Build ──
+# ── Step 2: Dependency refresh ──
 
-echo "── Step 2/5: 全量 build ──"
+if [ "$SKIP_INSTALL" = "true" ]; then
+  echo "── Step 2/6: 跳过依赖刷新（--skip-install）──"
+  echo -e "${YELLOW}⚠ 已跳过 pnpm install --frozen-lockfile${NC}"
+  echo ""
+else
+  echo "── Step 2/6: 刷新依赖（frozen-lockfile）──"
+  if ! pnpm install --frozen-lockfile; then
+    echo ""
+    echo -e "${RED}❌ pnpm install --frozen-lockfile 失败${NC}"
+    exit 1
+  fi
+  echo -e "${GREEN}✓ 依赖刷新通过${NC}"
+  echo ""
+fi
+
+# ── Step 3: Build ──
+
+echo "── Step 3/6: 全量 build ──"
 if ! pnpm -r --if-present run build; then
   echo ""
   echo -e "${RED}❌ Build 失败${NC}"
@@ -115,7 +187,7 @@ fi
 echo -e "${GREEN}✓ build 通过${NC}"
 echo ""
 
-# ── Step 3: TypeScript 全量类型检查（含测试文件） ──
+# ── Step 4: TypeScript 全量类型检查（含测试文件） ──
 #
 # Next.js build 只对生产代码做 tsc，__tests__/ 目录被跳过。
 # 这导致测试文件的类型错误无法在 gate 阶段被发现——
@@ -124,7 +196,7 @@ echo ""
 #
 # 这一步对所有包（含测试文件）跑 tsc --noEmit，堵住盲区。
 
-echo "── Step 3/5: TypeScript 全量类型检查（含测试） ──"
+echo "── Step 4/6: TypeScript 全量类型检查（含测试） ──"
 if ! pnpm -r exec bash -lc 'if command -v tsc >/dev/null 2>&1; then tsc --noEmit; fi'; then
   echo ""
   echo -e "${RED}❌ TypeScript 类型检查失败${NC}"
@@ -134,9 +206,9 @@ fi
 echo -e "${GREEN}✓ tsc --noEmit 通过（含测试文件）${NC}"
 echo ""
 
-# ── Step 4: Test（全量，不是 --filter） ──
+# ── Step 5: Test（全量，不是 --filter） ──
 
-echo "── Step 4/5: 全量测试 ──"
+echo "── Step 5/6: 全量测试 ──"
 # 清除 REDIS_URL 以避免触发 Redis 隔离守卫。
 # Worktree 的 .env.local 设置了 REDIS_URL=6398（用于开发），
 # 但全量测试不应依赖 Redis——Redis 集成测试有专门的 test:redis 命令。
@@ -153,9 +225,9 @@ fi
 echo -e "${GREEN}✓ 全量测试通过${NC}"
 echo ""
 
-# ── Step 5: Lint + Check ──
+# ── Step 6: Lint + Check ──
 
-echo "── Step 5/5: lint + check ──"
+echo "── Step 6/6: lint + check ──"
 if ! pnpm lint; then
   echo ""
   echo -e "${RED}❌ lint 失败${NC}"
@@ -181,7 +253,7 @@ echo "║                  ✅ GATE PASSED                     ║"
 echo "╠══════════════════════════════════════════════════════╣"
 echo "║  Branch : $BRANCH"
 echo "║  SHA    : $SHORT_SHA"
-echo "║  Base   : origin/main (rebased)"
+echo "║  Base   : $REBASE_SUMMARY"
 echo "║  Tests  : all passed"
 echo "║  Lint   : passed"
 echo "║  Check  : passed"

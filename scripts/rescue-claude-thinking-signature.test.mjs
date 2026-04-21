@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   findBrokenSessionFiles,
   repairSessionFile,
   stripPureThinkingAssistantTurns,
 } from './rescue-claude-thinking-signature.mjs';
+
+const rescueScriptPath = fileURLToPath(new URL('./rescue-claude-thinking-signature.mjs', import.meta.url));
 
 function buildThinkingLine(sessionId, thinking = 'ponder') {
   return JSON.stringify({
@@ -94,4 +98,13 @@ test('findBrokenSessionFiles scans recursively for invalid thinking signature fa
     files.map((file) => path.basename(file)),
     ['bad.jsonl'],
   );
+});
+
+test('--session requires an argument value', () => {
+  const result = spawnSync(process.execPath, [rescueScriptPath, '--session', '--dry-run'], {
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 1, result.stderr || result.stdout);
+  assert.match(result.stderr, /--session requires a value/);
 });

@@ -181,6 +181,34 @@ export EMBED_MODE=off
 EOF
 }
 
+install_alpha_dependencies() {
+  info "installing dependencies in alpha worktree"
+  pnpm -C "$ALPHA_DIR" install --frozen-lockfile
+}
+
+ensure_alpha_dependencies() {
+  local missing=()
+
+  [ -d "$ALPHA_DIR/node_modules" ] || missing+=("node_modules")
+  [ -f "$ALPHA_DIR/packages/web/node_modules/next/package.json" ] || missing+=("packages/web:next")
+  [ -f "$ALPHA_DIR/packages/api/node_modules/tsx/package.json" ] || missing+=("packages/api:tsx")
+  [ -f "$ALPHA_DIR/packages/mcp-server/node_modules/typescript/package.json" ] || missing+=("packages/mcp-server:typescript")
+
+  if [ "${#missing[@]}" -eq 0 ]; then
+    return 0
+  fi
+
+  local joined_missing
+  joined_missing=$(IFS=', '; echo "${missing[*]}")
+  info "detected missing alpha prerequisites: $joined_missing"
+
+  if [ "$RUN_INSTALL" != "true" ]; then
+    die "alpha prerequisites missing ($joined_missing). Run 'pnpm -C \"$ALPHA_DIR\" install --frozen-lockfile' or omit --no-install."
+  fi
+
+  install_alpha_dependencies
+}
+
 source_env_if_present() {
   local resolved_env
   resolved_env="$(resolve_env_source_file || true)"
@@ -240,8 +268,7 @@ init_alpha_worktree() {
     migrate_legacy_alpha_worktree
     ensure_alpha_branch
     if [ "$RUN_INSTALL" = "true" ]; then
-      info "refreshing dependencies in migrated alpha worktree"
-      pnpm -C "$ALPHA_DIR" install
+      install_alpha_dependencies
     fi
     info "alpha worktree ready at $ALPHA_DIR"
     return 0
@@ -265,8 +292,7 @@ init_alpha_worktree() {
   fi
 
   if [ "$RUN_INSTALL" = "true" ]; then
-    info "installing dependencies in alpha worktree"
-    pnpm -C "$ALPHA_DIR" install
+    install_alpha_dependencies
   fi
 
   info "alpha worktree ready at $ALPHA_DIR"
@@ -285,8 +311,7 @@ sync_alpha_worktree() {
   git -C "$ALPHA_DIR" merge --ff-only "$REMOTE_NAME/main"
 
   if [ "$RUN_INSTALL" = "true" ]; then
-    info "refreshing dependencies in alpha worktree"
-    pnpm -C "$ALPHA_DIR" install
+    install_alpha_dependencies
 
     local lock_drift
     lock_drift=$(git -C "$ALPHA_DIR" diff --name-only 2>/dev/null || true)
@@ -356,6 +381,8 @@ start_alpha_worktree() {
   if [ "$SYNC_BEFORE_START" = "true" ]; then
     sync_alpha_worktree
   fi
+
+  ensure_alpha_dependencies
 
   source_env_if_present
   apply_alpha_env

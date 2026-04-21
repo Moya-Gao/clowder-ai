@@ -27,6 +27,14 @@ function defaultBackupDir() {
   return path.join(os.homedir(), '.claude', 'backups');
 }
 
+function readRequiredValue(argv, index, flagName) {
+  const value = argv[index + 1];
+  if (typeof value !== 'string' || value.length === 0 || value === '--' || value.startsWith('--')) {
+    throw new Error(`${flagName} requires a value`);
+  }
+  return value;
+}
+
 export function isPureThinkingAssistantTurn(entry) {
   if (!entry || typeof entry !== 'object') return false;
   if (entry.type !== 'assistant') return false;
@@ -168,20 +176,20 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--session') {
-      const sessionId = argv[++i];
-      if (!sessionId) throw new Error('Missing value for --session');
+      const sessionId = readRequiredValue(argv, i, '--session');
+      i += 1;
       args.sessions.push(sessionId);
     } else if (arg === '--all-broken') {
       args.allBroken = true;
     } else if (arg === '--dry-run') {
       args.dryRun = true;
     } else if (arg === '--root') {
-      const dir = argv[++i];
-      if (!dir) throw new Error('Missing value for --root');
+      const dir = readRequiredValue(argv, i, '--root');
+      i += 1;
       args.rootDir = path.resolve(dir);
     } else if (arg === '--backup-dir') {
-      const dir = argv[++i];
-      if (!dir) throw new Error('Missing value for --backup-dir');
+      const dir = readRequiredValue(argv, i, '--backup-dir');
+      i += 1;
       args.backupDir = path.resolve(dir);
     } else if (arg === '-h' || arg === '--help') {
       console.log(HELP);
