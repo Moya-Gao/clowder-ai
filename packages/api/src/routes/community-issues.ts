@@ -551,7 +551,11 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
     const prTasks = await taskStore.listByKind('pr_tracking');
     const prRepos = prTasks.map((t) => t.subjectKey?.match(/^pr:(.+)#\d+$/)?.[1]).filter(Boolean) as string[];
 
-    const repos = [...new Set([...issueRepos, ...prRepos])].sort();
+    const communityPrRepos = opts.communityPrStore
+      ? [...new Set((await opts.communityPrStore.listAll()).map((p) => p.repo))]
+      : [];
+
+    const repos = [...new Set([...issueRepos, ...prRepos, ...communityPrRepos])].sort();
     return { repos };
   });
 
@@ -581,15 +585,17 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
     const trackedPrItems = repoPrTasks.map((t) => {
       const oldGroup = derivePrGroup(t.automationState, t.status);
       let group = oldGroupToPhaseF[oldGroup] ?? oldGroup;
+      const prNumMatch = t.subjectKey?.match(/#(\d+)$/);
+      const prNumber = prNumMatch ? Number(prNumMatch[1]) : null;
       if (group === 'merged') {
-        const match = t.subjectKey?.match(/#(\d+)$/);
-        const prNum = match ? Number(match[1]) : null;
-        const actualState = prNum != null ? communityPrStateByNumber.get(prNum) : undefined;
+        const actualState = prNumber != null ? communityPrStateByNumber.get(prNumber) : undefined;
         if (actualState === 'closed') group = 'closed';
       }
       return {
         taskId: t.id,
         threadId: t.threadId,
+        prNumber,
+        ownerCatId: t.ownerCatId,
         title: t.title,
         status: t.status,
         group,

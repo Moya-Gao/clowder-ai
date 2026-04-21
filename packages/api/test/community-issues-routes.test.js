@@ -985,6 +985,29 @@ describe('Community Issues Routes', () => {
     assert.ok(body.repos.includes('org/gamma'), 'should include PR-only repo');
   });
 
+  test('GET /api/community-repos includes repos from CommunityPrStore', async () => {
+    const app = await createApp();
+    await app.inject({
+      method: 'POST',
+      url: '/api/community-issues',
+      payload: { repo: 'org/alpha', issueNumber: 1, issueType: 'bug', title: 'A1' },
+    });
+    communityPrStore.create({
+      repo: 'org/delta',
+      prNumber: 50,
+      title: 'feat: delta PR',
+      state: 'open',
+      author: 'bob',
+      headSha: 'abc123',
+      replyState: 'unreplied',
+    });
+    const res = await app.inject({ method: 'GET', url: '/api/community-repos' });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.ok(body.repos.includes('org/alpha'), 'should include issue repo');
+    assert.ok(body.repos.includes('org/delta'), 'should include CommunityPrStore repo');
+  });
+
   // --- Phase F: GitHub PR Sync ---
 
   test('POST /api/community-issues/sync-prs creates PR items', async () => {
@@ -1186,8 +1209,24 @@ describe('Community Issues Routes', () => {
     taskStore.update(task.id, { status: 'done' });
     const board = (await app.inject({ method: 'GET', url: '/api/community-board?repo=org/repo' })).json();
     // pr_tracking takes priority in dedup, so #700 should come from trackedPrItems
-    const tracked = board.prItems.find((p) => p.title === 'Closed tracked PR' && !p.prNumber);
+    const tracked = board.prItems.find((p) => p.title === 'Closed tracked PR' && p.prNumber === 700);
     assert.ok(tracked, 'tracked completed PR should appear in board');
     assert.equal(tracked.group, 'closed', 'completed PR that is actually closed should show closed, not merged');
+  });
+
+  test('GET /api/community-board tracked PR items include prNumber and ownerCatId', async () => {
+    const app = await createApp();
+    taskStore.create({
+      kind: 'pr_tracking',
+      threadId: 'thread_test',
+      title: 'feat: test fields PR',
+      subjectKey: 'pr:org/repo#42',
+      ownerCatId: 'opus',
+    });
+    const board = (await app.inject({ method: 'GET', url: '/api/community-board?repo=org/repo' })).json();
+    const tracked = board.prItems.find((p) => p.title === 'feat: test fields PR');
+    assert.ok(tracked, 'tracked PR should appear in board');
+    assert.equal(tracked.prNumber, 42, 'tracked PR must include prNumber extracted from subjectKey');
+    assert.equal(tracked.ownerCatId, 'opus', 'tracked PR must include ownerCatId');
   });
 });

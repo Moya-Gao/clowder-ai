@@ -5,6 +5,14 @@ import { CommunityPanelFilters, TIME_RANGES } from '@/components/CommunityPanelF
 import { PR_ICON, TYPE_ICONS } from '@/components/community-panel-icons';
 import { pushThreadRouteWithHistory } from '@/components/ThreadSidebar/thread-navigation';
 
+function relativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return '刚刚';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}分钟前`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}小时前`;
+  return `${Math.floor(diff / 86_400_000)}天前`;
+}
+
 interface CommunityIssueItem {
   id: string;
   repo: string;
@@ -25,7 +33,8 @@ interface PrBoardItem {
   title: string;
   status: string;
   group: string;
-  prNumber?: number;
+  prNumber?: number | null;
+  ownerCatId?: string | null;
   author?: string;
   replyState?: string;
   updatedAt: number;
@@ -120,8 +129,18 @@ function IssueRow({
       className={`flex items-center gap-2 px-3 py-1.5 hover:bg-cafe-surface-elevated/30 text-xs ${item.assignedThreadId ? 'cursor-pointer' : 'cursor-default opacity-70'}`}
     >
       <span className={color}>{icon}</span>
-      <span className="text-cafe-muted text-[10px]">#{item.issueNumber}</span>
+      <a
+        href={`https://github.com/${item.repo}/issues/${item.issueNumber}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="text-cafe-muted text-[10px] hover:text-cafe-accent hover:underline"
+      >
+        #{item.issueNumber}
+      </a>
       <span className="truncate flex-1 text-cafe-secondary">{item.title}</span>
+      {item.assignedCatId && <span className="text-[10px] text-cafe-accent/60">{item.assignedCatId}</span>}
+      <span className="text-[10px] text-cafe-muted">{relativeTime(item.updatedAt)}</span>
       {item.state === 'unreplied' && (
         <button
           type="button"
@@ -142,7 +161,15 @@ function IssueRow({
   );
 }
 
-function PrRow({ item, onNavigate }: { item: PrBoardItem; onNavigate: (threadId: string) => void }) {
+function PrRow({
+  item,
+  repo,
+  onNavigate,
+}: {
+  item: PrBoardItem;
+  repo: string;
+  onNavigate: (threadId: string) => void;
+}) {
   const color = PR_GROUP_COLORS[item.group] ?? 'text-cafe-muted';
   const handleClick = () => {
     if (item.threadId) onNavigate(item.threadId);
@@ -154,10 +181,21 @@ function PrRow({ item, onNavigate }: { item: PrBoardItem; onNavigate: (threadId:
       className={`flex items-center gap-2 px-3 py-1.5 hover:bg-cafe-surface-elevated/30 text-xs ${item.threadId ? 'cursor-pointer' : 'cursor-default opacity-70'}`}
     >
       <span className={color}>{PR_ICON}</span>
-      {item.prNumber != null && <span className="text-cafe-muted text-[10px]">#{item.prNumber}</span>}
+      {item.prNumber != null && (
+        <a
+          href={`https://github.com/${repo}/pull/${item.prNumber}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="text-cafe-muted text-[10px] hover:text-cafe-accent hover:underline"
+        >
+          #{item.prNumber}
+        </a>
+      )}
       <span className="truncate flex-1 text-cafe-secondary">{item.title}</span>
       {item.author && <span className="text-[10px] text-cafe-muted">@{item.author}</span>}
-      <span className="text-[10px] text-cafe-muted">{item.status}</span>
+      {item.ownerCatId && <span className="text-[10px] text-cafe-accent/60">{item.ownerCatId}</span>}
+      <span className="text-[10px] text-cafe-muted">{relativeTime(item.updatedAt)}</span>
     </div>
   );
 }
@@ -339,7 +377,9 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
                       onToggle={() => setCollapsedPrs((p) => ({ ...p, [sec.key]: !p[sec.key] }))}
                     />
                     {!isCollapsed &&
-                      items.map((item) => <PrRow key={item.taskId} item={item} onNavigate={navigateToThread} />)}
+                      items.map((item) => (
+                        <PrRow key={item.taskId} item={item} repo={board?.repo ?? repo} onNavigate={navigateToThread} />
+                      ))}
                   </div>
                 );
               })}

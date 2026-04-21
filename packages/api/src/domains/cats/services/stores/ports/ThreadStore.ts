@@ -279,6 +279,10 @@ export interface IThreadStore {
   updateBootcampState(threadId: string, state: BootcampStateV1 | null): void | Promise<void>;
   /** F088 Phase G: Get/update connector hub state. */
   updateConnectorHubState(threadId: string, state: ConnectorHubStateV1 | null): void | Promise<void>;
+  updatePreferredWorkspaceMode(
+    threadId: string,
+    mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | null,
+  ): void | Promise<void>;
   updateLastActive(threadId: string): void | Promise<void>;
   delete(threadId: string): boolean | Promise<boolean>;
   /** F095 Phase D: Soft-delete — mark thread as deleted without removing data. */
@@ -593,6 +597,19 @@ export class ThreadStore implements IThreadStore {
       delete thread.connectorHubState;
     } else {
       thread.connectorHubState = state;
+    }
+  }
+
+  updatePreferredWorkspaceMode(
+    threadId: string,
+    mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | null,
+  ): void {
+    const thread = this.get(threadId);
+    if (!thread) return;
+    if (mode === null) {
+      delete thread.preferredWorkspaceMode;
+    } else {
+      thread.preferredWorkspaceMode = mode;
     }
   }
 

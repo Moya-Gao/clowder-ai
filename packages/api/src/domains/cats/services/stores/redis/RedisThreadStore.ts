@@ -452,6 +452,18 @@ export class RedisThreadStore implements IThreadStore {
     }
   }
 
+  async updatePreferredWorkspaceMode(
+    threadId: string,
+    mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | null,
+  ): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    if (mode === null) {
+      await this.deleteDetailFields(key, 'preferredWorkspaceMode');
+    } else {
+      await this.setDetailFields(key, 'preferredWorkspaceMode', mode);
+    }
+  }
+
   async updateBubbleDisplay(
     threadId: string,
     field: 'bubbleThinking' | 'bubbleCli',
