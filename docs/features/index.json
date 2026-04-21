@@ -379,6 +379,12 @@
       "file": "F061-cdp-integration-retrospective.md"
     },
     {
+      "id": "F061",
+      "name": "Real-World Verification — 孟加拉猫 (Antigravity @antig-opus)",
+      "status": "unknown",
+      "file": "F061-verification-2026-04-21.md"
+    },
+    {
       "id": "F062",
       "name": "布偶猫账号配置中枢（订阅 / 赞助 API 切换）",
       "status": "done | **Owner**: 三猫",
@@ -1047,7 +1053,7 @@
     {
       "id": "F168",
       "name": "Community Operations Board — 社区事务编排引擎",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Completed**: 2026-04-20 | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F168-community-ops-board.md"
     },
     {
@@ -1063,5 +1069,5 @@
       "file": "F170-web-chinese-chess.md"
     }
   ],
-  "generated_at": "2026-04-21T02:29:02.110Z"
+  "generated_at": "2026-04-21T13:30:28.090Z"
 }
