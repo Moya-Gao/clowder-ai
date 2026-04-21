@@ -476,12 +476,66 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-19 | **Pure stream-error grace** — 无文本的纯 `STOP_REASON_CLIENT_STREAM_ERROR` 也纳入短 grace window；若稍后恢复文本到达则静默恢复，若 grace 过期才真正上报错误，同时 telemetry 区分 `partial_text` / `no_text` 两类路径（PR #1287, gate 全绿 + opus continuity 放行到 `1ef3bba1` + cloud 0 P1/P2）|
 | 2026-04-20 | **Reliability hardening merged** — Antigravity `model_capacity` 引入有限自动重试（fresh cascade/session + 120s bounded backoff），`thinking` snapshot 前缀增长改为 replace-last 去重，同时禁止在 pending tool steps 批次里触发 capacity retry，避免副作用重放（PR #1293, gate 全绿 + opus-47 continuity 放行到 `91d2ef8b` + cloud 0 P1/P2）|
 | 2026-04-20 | **Continuity fallback recovery** — 孟加拉猫 breed 级 `sessionChain` 重新打开，Antigravity provider 补 callback fallback instructions 以恢复 thread context / 回贴能力；同时正文 replay 改为 overlap 去重，且 public `/api/callbacks/instructions` 示例不再带 live callback credentials（PR #1299, targeted build/tests 绿；全量 gate 仍被无关 `community-panel-navigation.test.ts:127` 阻塞，经铲屎官允许先合入）|
+| 2026-04-20 | **Native MCP env recovery** — Antigravity 全局 `~/.gemini/antigravity/mcp_config.json` 正式纳管，`CAT_CAFE_API_URL`/`CAT_CAFE_READONLY=true` 锁为 managed 默认边界，同时修复 homedir discovery / `serverUrl` remote MCP 解析 / `dare-default` scope drift（PR #1307，云端 3 轮共 3 个 P2 全部闭环后 squash merge）|
+
+---
+
+## Issue Snapshot（2026-04-20 更新）
+
+### 已修：MCP / 接入链路
+
+| 状态 | 问题 | 修复 | 结果 |
+|------|------|------|------|
+| [x] | Antigravity 被误注入 HTTP callback 指令，触发 invalid tool call | PR #1145 | `needsMcpInjection` 对 `clientId='antigravity'` 返回 false；不再诱导 LS 调用拿不到 callback 凭证的工具 |
+| [x] | Native MCP config / env 没被 Cat Café 正确接管 | PR #1307 | 全局 `mcp_config.json` 纳管、readonly env 锁定、homedir discovery 对齐 writer、`serverUrl` 远程项保留 |
+| [x] | thread context / 回贴能力缺失，fatal 后更容易“重新认人” | PR #1299 | breed 级 `sessionChain` 重新打开，provider 补 callback fallback instructions，thread context / 回贴主路径恢复 |
+
+### 未修：已排期 / 待调查
+
+| 状态 | 问题 | 当前判断 | 排期 |
+|------|------|----------|------|
+| [ ] | 写文件/改代码仍不稳定（截图描述：`run_command` 经常 `context canceled`） | Bug-8 v1 已解开 `WAITING` 死锁，但 native file/code parity 仍只覆盖 `run_command`。`read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob` 还在 follow-up，field report 仍可能表现为“写代码不稳” | **Phase 2c v2**：AC-2cR4 + AC-2cI6 |
+| [ ] | bug 炸掉后整段 conversation 仍可能“重新认人” | G0 resume 与 PR #1299 已恢复大部分 continuity，但目前还没有专门锁“fatal error → 下一轮仍保上下文”的回归用例；这是 field report，不该宣称已完全解决 | **G0/G10 follow-up**：补 repro + continuity regression test |
+| [ ] | retry 经常只 retry 1 次然后直接挂住 | 当前 Cat Café 自愈策略在 `invoke-single-cat.ts` 仍是 `maxAttempts = 2`，也就是**总共只允许 1 次 retry**。铲屎官最新 field report 说明“单次 retry 后仍挂住”尚未 root cause | **G10 follow-up（P1）**：已建毛线球 `[P1] 调查 Antigravity 单次 retry 后仍挂起` |
 
 ---
 
 ## Known Bugs（活跃）
 
-（暂无活跃 bug）
+### Bug-D: Native file/code tool parity 仍不完整 ⚠️ OPEN
+
+**现象**（2026-04-20 截图 field report）：孟加拉猫当前“能读文件/搜代码”，但一旦进入写文件、改代码、复杂命令链，仍容易表现成 `run_command` / 工具执行不稳定，体感上像“写代码不稳”。
+
+**当前判断**：
+- Bug-8 / Phase 2c v1 已修掉的是 **`RUN_COMMAND` 永卡 `WAITING`**，不是“所有原生工具已完全平权”
+- 文档里未完成的 AC 仍然存在：
+  - AC-2cR4：采集 `READ_FILE` / `WRITE_FILE` / `EDIT_FILE` / `GREP` / `GLOB` 等 step shape
+  - AC-2cI6：v2 扩展执行器
+- 所以截图里的“写文件不稳”更接近 **tool parity 未完工**，不是 Bug-8 已修链路可以直接 claim 已解决
+
+**排期**：Phase 2c v2（AC-2cR4 + AC-2cI6）
+
+### Bug-E: fatal 后 continuity 仍有“重新认人” field report ⚠️ OPEN
+
+**现象**（2026-04-20 截图 field report）：孟加拉猫“出 bug 炸了之后整个 conversation 记忆清零，下轮重新认人”。
+
+**当前判断**：
+- G0 resume（PR #1135）和 Continuity fallback recovery（PR #1299）已经把**主路径** continuity 拉回来了
+- 但我们还没有一条专门的 regression 锁死：**fatal error / stream_error / model_capacity 之后，下一轮是否还能保持 thread continuity**
+- 所以这条目前应该按 **field report 未闭环** 记录，不能因为主路径修过就写成“已彻底解决”
+
+**排期**：G0/G10 reliability follow-up（补 repro + continuity regression test）
+
+### Bug-F: retry 预算只有 1 次，retry 后仍可能挂起 ⚠️ OPEN
+
+**现象**（2026-04-20 铲屎官新报告）：孟加拉猫“经常只 retry 1 次然后又直接挂了”。
+
+**当前判断**：
+- `invoke-single-cat.ts` 当前自愈策略仍是 `maxAttempts = 2`，即 **首尝 + 1 次 retry**
+- PR #1293 做的是 **bounded retry + pending-tool guard**，不是“多次 retry 直到恢复”
+- 所以“只 retry 1 次”本身不是意外，而是当前策略设计；真正未闭环的是：**为什么那唯一一次 retry 后仍会挂住，以及是否需要更强的 retry / terminalization / telemetry 方案**
+
+**排期**：G10 follow-up（P1，已建毛线球：`[P1] 调查 Antigravity 单次 retry 后仍挂起`）
 
 ## Known Bugs（已修复）
 
