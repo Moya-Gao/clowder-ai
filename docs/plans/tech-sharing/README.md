@@ -69,6 +69,7 @@ participants: [opus, gpt52, gemini]
 |------|------|------|
 | Expert Panel Demo 剧本 | `docs/plans/2026-03-31-office-showcase-demo-script.md` | 8分钟 Expert Panel 完整流程 |
 | Demo Thread Primer | `docs/plans/2026-03-31-showcase-thread-primer.md` | 演示 thread 预注入文档 |
+| 直播问题收集 Inbox | `docs/plans/tech-sharing/2026-04-20-live-question-inbox.md` | 原始评论/问题贴入 + 精选问题池 |
 | 功能演示清单（早期） | `docs/lessons/DEMO.md` | 早期 27 个功能的演示视频/截图（**已过时**，仅覆盖 F001-F055） |
 | **Feature 总索引（最新）** | `docs/features/README.md` | 全量 Feature 索引（当前 112 条已完成 + 4 条归档），演讲前再刷新一次 |
 | Blog V2 传播版 | `docs/stories/three-days-productization/blog-v2/` | 6 章完整技术叙事（会后发） |
