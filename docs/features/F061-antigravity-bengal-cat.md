@@ -477,10 +477,11 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-20 | **Reliability hardening merged** — Antigravity `model_capacity` 引入有限自动重试（fresh cascade/session + 120s bounded backoff），`thinking` snapshot 前缀增长改为 replace-last 去重，同时禁止在 pending tool steps 批次里触发 capacity retry，避免副作用重放（PR #1293, gate 全绿 + opus-47 continuity 放行到 `91d2ef8b` + cloud 0 P1/P2）|
 | 2026-04-20 | **Continuity fallback recovery** — 孟加拉猫 breed 级 `sessionChain` 重新打开，Antigravity provider 补 callback fallback instructions 以恢复 thread context / 回贴能力；同时正文 replay 改为 overlap 去重，且 public `/api/callbacks/instructions` 示例不再带 live callback credentials（PR #1299, targeted build/tests 绿；全量 gate 仍被无关 `community-panel-navigation.test.ts:127` 阻塞，经铲屎官允许先合入）|
 | 2026-04-20 | **Native MCP env recovery** — Antigravity 全局 `~/.gemini/antigravity/mcp_config.json` 正式纳管，`CAT_CAFE_API_URL`/`CAT_CAFE_READONLY=true` 锁为 managed 默认边界，同时修复 homedir discovery / `serverUrl` remote MCP 解析 / `dare-default` scope drift（PR #1307，云端 3 轮共 3 个 P2 全部闭环后 squash merge）|
+| 2026-04-21 | **Retry hang fix** — `model_capacity` retry → unsupported WAITING tool → hang 根因修复：`nativeExecuteAndPush` 四态区分（`true` / `'approval_pending'` / `'no_executor'` / `false`），fail-fast 收窄为仅 `'no_executor'`，kill-switch 和无 registry 路径的 `false` 不再误触 `unsupported_waiting_tool`（PR #1318，砚砚 2 P1→fix→放行 + gate 全绿）|
 
 ---
 
-## Issue Snapshot（2026-04-20 更新）
+## Issue Snapshot（2026-04-21 更新）
 
 ### 已修：MCP / 接入链路
 
