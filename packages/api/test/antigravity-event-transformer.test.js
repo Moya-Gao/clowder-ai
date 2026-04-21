@@ -223,6 +223,29 @@ describe('G10: model_capacity error classification', () => {
     assert.match(errMsg.error, /非 Cat Café/);
   });
 
+  test('ERROR_MESSAGE with quota-reset wording → provider_signal + model_capacity', () => {
+    const steps = [
+      {
+        type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+        status: 'DONE',
+        errorMessage: {
+          error: {
+            userErrorMessage:
+              'You have exhausted your capacity on this model. Your quota will reset after 0s.',
+          },
+        },
+      },
+    ];
+    const msgs = transformTrajectorySteps(steps, catId, metadata);
+    const warnMsg = msgs.find((m) => m.type === 'provider_signal');
+    assert.ok(warnMsg, 'quota-style capacity error should still emit provider_signal');
+    const errMsg = msgs.find((m) => m.type === 'error');
+    assert.ok(errMsg);
+    assert.equal(errMsg.errorCode, 'model_capacity');
+    assert.match(errMsg.error, /非 Cat Café/);
+    assert.match(errMsg.error, /quota will reset after 0s/i);
+  });
+
   test('ERROR_MESSAGE with non-capacity error → errorCode upstream_error (unchanged)', () => {
     const steps = [
       {

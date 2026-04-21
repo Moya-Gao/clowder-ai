@@ -5,7 +5,15 @@ import type { TrajectoryStep } from './AntigravityBridge.js';
 
 const log = createModuleLogger('antigravity-event-transformer');
 
-const CAPACITY_PATTERNS = [/high traffic/i, /rate limit/i, /too many requests/i, /try again/i, /overloaded/i];
+const CAPACITY_PATTERNS = [
+  /high traffic/i,
+  /rate limit/i,
+  /too many requests/i,
+  /try again/i,
+  /overloaded/i,
+  /exhausted your capacity/i,
+  /quota will reset/i,
+];
 
 export function isCapacityError(message: string): boolean {
   return CAPACITY_PATTERNS.some((p) => p.test(message));

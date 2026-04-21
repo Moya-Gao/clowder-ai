@@ -64,6 +64,76 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.equal(bridge.sendMessage.mock.callCount(), 2, 'should resend the prompt after capacity retry');
   });
 
+  test('quota-style model_capacity wording retries on a fresh cascade and preserves callback fallback prompt', async () => {
+    const bridge = createMockBridge();
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () => ['cascade-1', 'cascade-2'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'FINISHED',
+              errorMessage: {
+                error: {
+                  userErrorMessage:
+                    'You have exhausted your capacity on this model. Your quota will reset after 0s.',
+                },
+              },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 1,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+        return;
+      }
+
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'Recovered after quota-style retry.' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(
+      service.invoke('Read the latest thread context', {
+        callbackEnv: {
+          CAT_CAFE_API_URL: 'http://127.0.0.1:3002',
+          CAT_CAFE_INVOCATION_ID: 'inv-123',
+          CAT_CAFE_CALLBACK_TOKEN: 'tok-456',
+        },
+        auditContext: { threadId: 'thread-f061-capacity', invocationId: 'inv-123', userId: 'u1', catId: 'antigravity' },
+      }),
+    );
+
+    const texts = messages.filter((m) => m.type === 'text').map((m) => m.content);
+    assert.deepEqual(texts, ['Recovered after quota-style retry.']);
+    assert.equal(bridge.resetSession.mock.callCount(), 1, 'should reset once for quota-style capacity retry');
+    assert.equal(bridge.sendMessage.mock.callCount(), 2, 'should resend prompt after quota-style capacity retry');
+    const resentPrompt = bridge.sendMessage.mock.calls[1].arguments[1];
+    assert.match(resentPrompt, /Cat Cafe callback fallback/, 'retry prompt must preserve callback fallback');
+    assert.match(resentPrompt, /thread-context\?invocationId=inv-123&callbackToken=tok-456/);
+    assert.match(resentPrompt, /post-message/, 'retry prompt must preserve reply path');
+    const capacityErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.equal(capacityErrors.length, 0, 'capacity error should stay hidden when retry succeeds');
+  });
+
   test('capacity retry fails fast on unsupported waiting tool step instead of hanging for stall timeout', async () => {
     const bridge = createMockBridge();
     bridge.nativeExecuteAndPush = async (step) => {
