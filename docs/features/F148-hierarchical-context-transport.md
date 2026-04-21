@@ -231,6 +231,7 @@ created: 2026-03-31
 | 2026-04-20 | Phase G merged (PR #1303) — source-ranking.ts + thread-level ledger upgrade + production wiring (route-helpers mergeLedger PR preservation)。GPT-5.4 review (5 rounds + 延续) + 云端 review (4 rounds: 3P1+1P2 fixed via TDD) |
 | 2026-04-20 | Briefing Card 概念收敛 — 铲屎官"别搞出两个概念"→ 一个概念（Context Briefing Card）、两个视图（猫看 nav header、人看 UI card） |
 | 2026-04-21 | Navigation-first briefing card merged (PR #1312) — 折叠态从覆盖率改为导航信息（传球/真相源/下一步）+ responsive grid + search suggestion sanitization。GPT-5.4 review (R1: 2P2, R2 pass + 延续到 f2480ec2e) + 云端 review (3 rounds: 1P1 frontmatter + 1P2 sanitization, both fixed via TDD) |
+| 2026-04-21 | Speaker display bugfix merged (PR #1319) — formatAnchors 补 speaker attribution + extractBatonContext 修 default-user 泄漏 + connector source.label 优先。GPT-5.4 review (pass) + 云端 review (3 rounds: 2P2 connector source.label, both fixed via TDD) |
 
 ## Phase F-J: 导航轴优化（2026-04-19 Reopened）
 
