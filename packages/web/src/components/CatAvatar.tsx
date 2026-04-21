@@ -36,7 +36,7 @@ export function CatAvatar({ catId, size = 32, status }: CatAvatarProps) {
       }}
     >
       {imgError ? (
-        <PawIcon className="w-4 h-4 text-cafe-muted" />
+        <PawIcon className="text-base" />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img

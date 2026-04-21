@@ -254,7 +254,7 @@ export function ThreadItem({
             participants.map((catId) => <CatAvatar key={catId} catId={catId} size={16} />)
           ) : id !== 'default' ? (
             <>
-              <PawIcon className="w-3 h-3 text-cafe-muted" />
+              <PawIcon className="text-xs" />
               <span className="text-[10px] text-cafe-muted">还没有猫猫加入</span>
             </>
           ) : null}

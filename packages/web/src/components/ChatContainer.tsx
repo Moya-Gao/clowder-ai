@@ -591,7 +591,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             )}
             {messages.length === 0 && !isLoadingHistory ? (
               <div className="text-center mt-20">
-                <PawIcon className="w-12 h-12 text-cocreator-light mx-auto mb-4" />
+                <PawIcon className="text-5xl mx-auto mb-4" />
                 <p className="text-lg text-cafe-secondary mb-1">欢迎来到 Cat Café!</p>
                 <p className="text-sm text-cafe-muted">输入 @布偶 召唤布偶猫开始聊天</p>
                 {showSetupCard && govStatus && (
