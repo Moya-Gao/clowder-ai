@@ -480,7 +480,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-21 | **Managed MCP path stabilization** — managed `cat-cafe*` MCP command path 在读写 `capabilities.json` 时会自动 realign 到 stable main repo root，避免 Antigravity 全局配置继续钉住已删除 feature worktree，导致 MCP read/write 链路飘到错误路径（PR #1317，已合入 main）|
 | 2026-04-21 | **Retry hang fix** — `model_capacity` retry → unsupported WAITING tool → hang 根因修复：`nativeExecuteAndPush` 四态区分（`true` / `'approval_pending'` / `'no_executor'` / `false`），fail-fast 收窄为仅 `'no_executor'`，kill-switch 和无 registry 路径的 `false` 不再误触 `unsupported_waiting_tool`（PR #1318，砚砚 2 P1→fix→放行 + gate 全绿）|
 | 2026-04-21 | **Real-world verification (partial)** — `@antig-opus` 在真实 Antigravity 环境验证：`grep_search` / `view_file` / `list_dir` 通过，但 `run_command` 在简单 `git log --oneline` 上 `context canceled` 稳定复现（2/2）。`write/edit`、`model_capacity retry`、fatal → continuity 本轮尚未完整覆盖。见 `docs/features/F061-verification-2026-04-21.md` |
-| 2026-04-21 | **Bundle A reliability sweep (branch)** — quota-style capacity 文案（`You have exhausted your capacity on this model. Your quota will reset after 0s.`）现在也会命中 `model_capacity`，并复用现有 fresh-cascade bounded retry；同时新增 service 回归，锁定 retry 后重发的 prompt 不会丢 `callback fallback` / thread-bound reply path |
+| 2026-04-21 | **Bundle A reliability sweep merged** — quota-style capacity 文案（`You have exhausted your capacity on this model. Your quota will reset after 0s.`）现在也会命中 `model_capacity`，并复用现有 fresh-cascade bounded retry；同时新增 service 回归，锁定 retry 后重发的 prompt 不会丢 `callback fallback` / thread-bound reply path（PR #1320） |
 
 ---
 
@@ -501,7 +501,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 |------|------|----------|------|
 | [ ] | 写文件/改代码仍不稳定（截图描述：`run_command` 经常 `context canceled`） | Bug-8 v1 已解开 `WAITING` 死锁，但 native file/code parity 仍只覆盖 `run_command`。`read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob` 还在 follow-up。`@antig-opus` 2026-04-21 实测也确认：只读工具可用，但 `run_command` 在简单 `git log --oneline` 上仍 `context canceled` 2/2 复现 | **Phase 2c v2**：AC-2cR4 + AC-2cI6 |
 | [ ] | bug 炸掉后整段 conversation 仍可能“重新认人” | G0 resume 与 PR #1299 已恢复大部分 continuity，但目前还没有专门锁“fatal error → 下一轮仍保上下文”的回归用例；这是 field report，不该宣称已完全解决 | **G0/G10 follow-up**：补 repro + continuity regression test |
-| [~] | retry 经常只 retry 1 次然后直接挂住 | 已确认“只 retry 1 次然后挂住”不是 retry 预算天然只有 1 次，而是旧实现会在 capacity retry 后落到 v2 尚未支持的 WAITING tool step（如 `grep_search`）并静默 stall。PR #1318 已把这条路径改成 fail-fast 显式报 `unsupported_waiting_tool`；Bundle A 分支也已把 quota-style capacity 文案补进 `model_capacity` 分类并锁住 retry 后 callback fallback 不丢。剩余还是 v2 executors / telemetry / 实机复验 | **G10 follow-up（P1）**：本轮先收 classifier + continuity guard；剩余继续跟 Phase 2c v2 / telemetry |
+| [~] | retry 经常只 retry 1 次然后直接挂住 | 已确认“只 retry 1 次然后挂住”不是 retry 预算天然只有 1 次，而是旧实现会在 capacity retry 后落到 v2 尚未支持的 WAITING tool step（如 `grep_search`）并静默 stall。PR #1318 已把这条路径改成 fail-fast 显式报 `unsupported_waiting_tool`；PR #1320 也已把 quota-style capacity 文案补进 `model_capacity` 分类并锁住 retry 后 callback fallback 不丢。剩余还是 v2 executors / telemetry / 实机复验 | **G10 follow-up（P1）**：本轮先收 classifier + continuity guard；剩余继续跟 Phase 2c v2 / telemetry |
 
 ---
 
@@ -541,7 +541,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 - `AntigravityAgentService` 内层 `model_capacity` retry 状态机本身已验证可连续跑多轮 fresh cascade，不是“天然只能 retry 1 次”
 - 已定位的一条真实挂点是：**旧实现里，第一次 capacity retry 成功切到 fresh cascade 后，如果新 cascade 发出 v2 尚未支持的 `WAITING` tool step（例如 `grep_search`），bridge 不会执行它，也不会立即报错，而是原地等到 stall timeout**
 - 这正好解释了铲屎官体感里的“先看到 1 次 retry，再挂住”；这条路径现已被 PR #1318 改成显式失败
-- 之前浮出的 quota-style capacity gap（`You have exhausted your capacity on this model. Your quota will reset after 0s.`）已经在 Bundle A 分支补进 classifier，并新增回归测试锁住 fresh-cascade retry + callback fallback 保持不丢
+- 之前浮出的 quota-style capacity gap（`You have exhausted your capacity on this model. Your quota will reset after 0s.`）已经在 PR #1320 补进 classifier，并新增回归测试锁住 fresh-cascade retry + callback fallback 保持不丢
 
 **已合入修复（PR #1318, `0ae31c30d`）**：
 - 把这类 `unsupported WAITING tool step` 从“60s 后 stall”改成**立即显式失败**
@@ -553,7 +553,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 **剩余未闭环**：
 - 这次修的是 **symptom fix / terminalization**，不是把 `grep_search` / `read_file` / `write_file` / `edit_file` / `file_glob` 真正执行起来
 - 真正的长期闭环仍是 Phase 2c v2（AC-2cR4 + AC-2cI6）以及更细的 retry telemetry
-- quota-style capacity 文案的分类与回归已在 Bundle A 分支补上，但还需要真实 Antigravity 环境再打一次，确认这条 provider 限流路径在实机上确实会走进现有 retry/backoff
+- quota-style capacity 文案的分类与回归已在 PR #1320 补上，但还需要真实 Antigravity 环境再打一次，确认这条 provider 限流路径在实机上确实会走进现有 retry/backoff
 
 **排期**：G10 follow-up（P1，已建毛线球：`[P1] 调查 Antigravity 单次 retry 后仍挂起`）继续；本轮先收 quota-style classifier + continuity guard，下一步继续补 parity / telemetry / 实机复验
 
