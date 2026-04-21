@@ -61,6 +61,33 @@ export function formatContextBriefing(
   return { summary, richBlock };
 }
 
+function formatBatonField(baton?: BatonContext): string {
+  if (!baton) return '直接 @';
+  const timeStr = new Date(baton.timestamp).toISOString().slice(11, 16);
+  let value = `${baton.fromSpeakerDisplay} → 你 (${timeStr})`;
+  if (baton.staleHoldWarning) value += ' ⚠️';
+  return value;
+}
+
+function formatSourceField(sources?: RankedSource[]): string {
+  if (!sources?.length) return '未定位';
+  const top = sources[0];
+  return top.provenance === 'regex' ? `${top.label} (推断)` : top.label;
+}
+
+function formatNextStepField(sources?: RankedSource[], searchSuggestions?: string[]): string {
+  if (sources?.length) return `先看 ${sources[0].label}: ${sources[0].ref}`;
+  if (searchSuggestions?.length) return `搜索 ${searchSuggestions[0].replace(/[`\n\r\\]/g, ' ').trim()}`;
+  return '搜索 search_evidence() 定位真相源';
+}
+
+function buildNavigationTitle(baton?: BatonContext, sources?: RankedSource[]): string {
+  const parts: string[] = [];
+  if (baton) parts.push(`${baton.fromSpeakerDisplay} → 你`);
+  parts.push(`真相源: ${formatSourceField(sources)}`);
+  return parts.join(' · ');
+}
+
 /** Options for buildBriefingMessage */
 interface BriefingMessageOptions {
   threadMemorySummary?: string;
@@ -153,17 +180,19 @@ export function buildBriefingMessage(
     );
   }
 
+  const navTitle = buildNavigationTitle(options?.baton, options?.rankedSources);
+
   const card: RichCardBlock = {
     id: 'briefing-1',
     kind: 'card',
     v: 1,
-    title: summary,
+    title: navTitle,
     tone: 'info',
     bodyMarkdown: bodyParts.length > 0 ? bodyParts.join('\n\n') : undefined,
     fields: [
-      { label: '参与者', value: coverageMap.omitted.participants.join(', ') || '—' },
-      { label: '省略消息', value: `${coverageMap.omitted.count} 条` },
-      { label: '看到消息', value: `${coverageMap.burst.count} 条` },
+      { label: '传球', value: formatBatonField(options?.baton) },
+      { label: '真相源', value: formatSourceField(options?.rankedSources) },
+      { label: '下一步', value: formatNextStepField(options?.rankedSources, coverageMap.searchSuggestions) },
     ],
   };
 
@@ -173,7 +202,7 @@ export function buildBriefingMessage(
     threadId,
     userId: 'system',
     catId: null,
-    content: summary,
+    content: navTitle,
     mentions: [],
     timestamp: Date.now(),
     origin: 'briefing',

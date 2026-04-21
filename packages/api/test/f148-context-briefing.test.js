@@ -102,8 +102,7 @@ describe('F148 Phase E: buildBriefingMessage (AC-E1)', () => {
     assert.equal(msg.catId, null, 'briefing is system-generated, catId=null');
     assert.equal(msg.userId, 'system', 'userId should be system');
     assert.equal(msg.threadId, 'thread-1');
-    assert.ok(msg.content.includes('看到'), 'content is the one-line summary');
-    assert.ok(msg.content.includes('省略'), 'content includes omitted count');
+    assert.ok(msg.content.includes('真相源'), 'content is the navigation summary');
   });
 
   test('has rich block with card kind', () => {
@@ -112,7 +111,7 @@ describe('F148 Phase E: buildBriefingMessage (AC-E1)', () => {
     const card = msg.extra.rich.blocks[0];
     assert.equal(card.kind, 'card', 'rich block should be a card');
     assert.equal(card.tone, 'info', 'should use info tone');
-    assert.ok(card.title.includes('看到'), 'card title should be the summary');
+    assert.ok(card.title.includes('真相源'), 'card title should be the navigation summary');
   });
 
   test('card bodyMarkdown includes expanded details when threadMemory provided', () => {
@@ -131,7 +130,9 @@ describe('F148 Phase E: buildBriefingMessage (AC-E1)', () => {
     assert.ok(card.fields?.length > 0, 'should have fields');
     // Check key fields exist
     const labels = card.fields.map((f) => f.label);
-    assert.ok(labels.some((l) => l.includes('参与者') || l.includes('Participants')));
+    assert.ok(labels.includes('传球'), 'should have baton field');
+    assert.ok(labels.includes('真相源'), 'should have truth source field');
+    assert.ok(labels.includes('下一步'), 'should have next step field');
   });
 
   test('VG-2: bodyMarkdown includes retrieval hints when present', () => {
