@@ -31,6 +31,8 @@ sourceUrls:
 - 架构映射表：`cat-cafe-architecture-mapping.md`
 - multi-agent 架构设计：`cat-cafe-multi-agent-architecture-design.md`
 - **通俗文章**：`article-decentralized-judgment-unified-infra.md` — 五种模式 + Cat Cafe 的"第六种"
+- **A2A 硬核主稿**：`article-a2a-technical-deep-dive.md` — 球权协议 / queue / shared state / SOP runtime 串联
+- **Memory companion**：`article-memory-companion.md` — 检索 / 编译 / session continuity / 知识生命周期
 - 官方页面：<https://claude.com/blog/multi-agent-coordination-patterns>
 - 发布日期：2026-04-10
 
