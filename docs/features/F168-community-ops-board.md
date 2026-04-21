@@ -8,7 +8,7 @@ created: 2026-04-18
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-04-20 | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -268,9 +268,9 @@ TTL=0（铁律 #5），用户数据默认持久化
 
 看板造好了但没有"进货通道"——GitHub issues 从未被拉进 CommunityIssueStore。点同步按钮只读空 store，所以全是 0。
 
-1. **同步入口**：点同步按钮 → 后端调 GitHub API (`GET /repos/{owner}/{repo}/issues`) → 写入 CommunityIssueStore
-2. **状态映射**：根据 issue labels + comments + state 映射到看板分类（未回复/讨论中/待决策/已接受/已拒绝/已关闭）
-3. **增量去重**：按 `repo + issueNumber` 唯一键，已有条目只更新状态
+1. **同步入口**：点同步按钮 → 后端调 GitHub API (`GET /repos/{owner}/{repo}/issues`, `state=all --paginate`) → 写入 CommunityIssueStore
+2. **状态映射**：根据 issue labels + comments + state 映射到看板分类（未回复/讨论中/待决策/已接受/已拒绝/已关闭），并同步 `replyState`
+3. **增量去重 + 生命周期保护**：按 `repo + issueNumber` 唯一键；已有条目更新 `title/replyState`，并保护本地 `pending-decision / accepted / declined` 生命周期状态不被 open issue 同步覆盖（GitHub `closed` 仍可覆盖）
 4. **PR 不走这条路**：PR 已有 `pr_tracking` 管线（TaskStore），不需要改
 
 ### Phase F: GitHub PR 同步管线（Issue sync 的对称版） ✅
@@ -300,9 +300,9 @@ TTL=0（铁律 #5），用户数据默认持久化
 ## Acceptance Criteria
 
 ### Phase A（定方向卡片 + Inbox 分拣）
-- [x] AC-A1: 首猫 triage 后自动向 Inbox 发结构化定方向卡片（rich block）— 后端 TriageEntry 类型+triage-complete 端点已就绪，rich block 渲染待 Phase D skill 接入
-- [x] AC-A2: 定方向卡片包含：事项来源、关联 feat、5 问结果、猫建议、铲屎官决策点 — DirectionCardPayload 类型已含全部字段，卡片渲染待 Phase D
-- [x] AC-A3: 首猫自动 @ 第二只猫交叉评估方向（非 bugfix 场景）— 后端 await-second-cat 流程已就绪，自动 @ 待 Phase D skill 编排
+- [x] AC-A1: 首猫 triage 后自动向 Inbox 发结构化定方向卡片（rich block）— `opensource-ops` skill + Direction Card 模板 + `triage-complete` 端点已接通
+- [x] AC-A2: 定方向卡片包含：事项来源、关联 feat、5 问结果、猫建议、铲屎官决策点 — `DirectionCardPayload` + Direction Card 模板字段已覆盖
+- [x] AC-A3: 首猫自动 @ 第二只猫交叉评估方向（非 bugfix 场景）— `opensource-ops` skill 非 bugfix 双猫交叉 + backend `await-second-cat` 流程已接通
 - [x] AC-A4: 两猫意见汇总后，自动标记是否需要铲屎官拍板 — resolveConsensus + TriageOrchestrator 完整实现
 - [x] AC-A5: 已有 feat 事项自动路由到该 feat thread 并 @ 负责猫 — routeAccepted 支持 relatedFeature+threadId 透传，猫侧通过 resolve 端点调用
 - [x] AC-A6: 全新事项经铲屎官 OK 后，首猫创建新 thread 并分配负责猫 — resolve 端点+routeAccepted 自动创建 thread+resolveUserId 身份链
@@ -330,9 +330,9 @@ TTL=0（铁律 #5），用户数据默认持久化
 - [x] AC-C10: 最终 UI 用 Pencil 出设计稿
 
 ### Phase D（Intake 硬门禁）
-- [x] AC-D1: Intake 完成 + reviewer 放行 → 系统自动 @ guardian 猫 — request-guardian 端点 + GuardianMatcher 自动选猫 + merge-gate Step 6.5 自动触发 + MCP 通知
+- [x] AC-D1: Intake 完成 + reviewer 放行 → 系统自动 @ guardian 猫 — request-guardian 端点 + GuardianMatcher 自动选猫 + merge-gate Step 6.5 自动触发（callback auth headers）
 - [x] AC-D2: Guardian 从 roster 自动选择（≠ author ≠ reviewer）— GuardianMatcher 跨族优先 + 双排除 + 降级
-- [x] AC-D3: 缺 guardian sign-off → merge-gate 自动拦截 — guardian-status 端点供 merge-gate 查询
+- [x] AC-D3: 缺 guardian sign-off → merge-gate 自动拦截 — guardian-status 端点供 merge-gate 查询；signoff 需 callback auth + token
 - [x] AC-D4: Intake checklist 每项需要证据，系统验证非人工叮嘱 — DEFAULT_INTAKE_CHECKLIST + validateIntakeChecklist + signoff 端点强制验证
 
 ### Phase F（GitHub PR 同步管线）
@@ -343,10 +343,10 @@ TTL=0（铁律 #5），用户数据默认持久化
 - [x] AC-F5: 前端 PR 分组改为 unreplied/replied/has-new-activity/merged/closed
 
 ### Phase E（GitHub Issue 同步管线 — 地基）
-- [x] AC-E1: 点击同步按钮 → 调 GitHub API 拉取指定 repo 的 open issues → 写入 CommunityIssueStore（增量去重，按 repo+issueNumber）
+- [x] AC-E1: 点击同步按钮 → 调 GitHub API 拉取指定 repo 的所有 issues（`state=all`）→ 写入 CommunityIssueStore（增量去重，按 repo+issueNumber）
 - [x] AC-E2: Issue 状态自动映射 — 未回复(no cat comment) / 讨论中(has cat comment, open) / 待决策(needs-decision label or triage pending) / 已接受 / 已拒绝 / 已关闭
 - [x] AC-E3: 同步结果实时反映到看板 — Issues 分类计数与 GitHub 实际状态一致
-- [x] AC-E4: 已有 CommunityIssueStore 条目的 issue 不重复创建，只更新状态
+- [x] AC-E4: 已有 CommunityIssueStore 条目的 issue 不重复创建；更新 `title/replyState`，并保护本地 triage 生命周期状态
 
 ## Dependencies
 
@@ -374,6 +374,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | OQ-1 | 首猫值班是固定还是轮班？初期固定一只，事项多了再考虑 | ⬜ 待定 |
 | OQ-2 | CommunityIssueItem 存储用 Redis 还是 SQLite？ | ⬜ 待定 |
 | OQ-3 | 看板定时刷新频率？（建议 5 分钟，配合手动同步按钮） | ⬜ 待定 |
+| OQ-4 | PR 的 comment-level 新动态（无新 commit）是否要检测？当前只基于 head SHA 检测 push 后更新 | ⬜ 待定 |
 
 ## Key Decisions
 
