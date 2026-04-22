@@ -223,6 +223,89 @@ run_brand_validation() {
   done
 }
 
+review_proof_contains_head() {
+  local content="$1"
+  local head_full="$2"
+  local head_short="$3"
+
+  if echo "$content" | grep -qi "$head_full"; then return 0; fi
+  if echo "$content" | grep -qi "$head_short"; then return 0; fi
+  return 1
+}
+
+validate_review_proof_continuity() {
+  local absorb_pr_head="$1"
+  local review_proof_mode="$2"
+  local absorb_pr_head_short="${absorb_pr_head:0:8}"
+
+  if [ "$review_proof_mode" = "file" ]; then
+    if review_proof_contains_head "$(cat "$REVIEW_PROOF" 2>/dev/null || true)" "$absorb_pr_head" "$absorb_pr_head_short"; then
+      return 0
+    fi
+    echo -e "${RED}✗ --review-proof file must mention absorb PR current HEAD ($absorb_pr_head_short)${NC}"
+    return 1
+  fi
+
+  local expected_prefix="https://github.com/${SOURCE_REPO}/pull/${ABSORB_PR}"
+  if [[ "$REVIEW_PROOF" != "$expected_prefix"* ]]; then
+    echo -e "${RED}✗ --review-proof URL must point to absorb PR #$ABSORB_PR (${SOURCE_REPO})${NC}"
+    return 1
+  fi
+
+  local proof_json=""
+  local proof_body=""
+  local proof_commit=""
+  local proof_kind=""
+  local proof_id=""
+
+  if [[ "$REVIEW_PROOF" =~ \#issuecomment-([0-9]+)$ ]]; then
+    proof_kind="issuecomment"
+    proof_id="${BASH_REMATCH[1]}"
+    proof_json=$(gh api "repos/$SOURCE_REPO/issues/comments/$proof_id" 2>/dev/null || true)
+    if [ -z "$proof_json" ]; then
+      echo -e "${RED}✗ Cannot fetch review-proof issue comment #$proof_id from $SOURCE_REPO${NC}"
+      return 1
+    fi
+    proof_body=$(echo "$proof_json" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(String(d.body||''))")
+  elif [[ "$REVIEW_PROOF" =~ \#pullrequestreview-([0-9]+)$ ]]; then
+    proof_kind="pullrequestreview"
+    proof_id="${BASH_REMATCH[1]}"
+    proof_json=$(gh api "repos/$SOURCE_REPO/pulls/$ABSORB_PR/reviews/$proof_id" 2>/dev/null || true)
+    if [ -z "$proof_json" ]; then
+      echo -e "${RED}✗ Cannot fetch review-proof pull request review #$proof_id from $SOURCE_REPO${NC}"
+      return 1
+    fi
+    proof_body=$(echo "$proof_json" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(String(d.body||''))")
+    proof_commit=$(echo "$proof_json" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(String(d.commit_id||''))")
+  elif [[ "$REVIEW_PROOF" =~ \#discussion_r([0-9]+)$ ]]; then
+    proof_kind="discussion"
+    proof_id="${BASH_REMATCH[1]}"
+    proof_json=$(gh api "repos/$SOURCE_REPO/pulls/comments/$proof_id" 2>/dev/null || true)
+    if [ -z "$proof_json" ]; then
+      echo -e "${RED}✗ Cannot fetch review-proof inline comment #$proof_id from $SOURCE_REPO${NC}"
+      return 1
+    fi
+    proof_body=$(echo "$proof_json" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(String(d.body||''))")
+    proof_commit=$(echo "$proof_json" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(String(d.commit_id||''))")
+  else
+    echo -e "${RED}✗ --review-proof URL must include #issuecomment-*, #pullrequestreview-*, or #discussion_r*${NC}"
+    echo "  This guard must verify review evidence against absorb PR current HEAD."
+    return 1
+  fi
+
+  if [ -n "$proof_commit" ] && [ "$proof_commit" = "$absorb_pr_head" ]; then
+    return 0
+  fi
+
+  if review_proof_contains_head "$proof_body" "$absorb_pr_head" "$absorb_pr_head_short"; then
+    return 0
+  fi
+
+  echo -e "${RED}✗ review-proof ($proof_kind:$proof_id) does not cover absorb PR current HEAD $absorb_pr_head_short${NC}"
+  echo "  Ask reviewer to explicitly extend pass to current HEAD, then use that URL as --review-proof."
+  return 1
+}
+
 run_absorbed_record_guard() {
   if [ "$SKIP_ABSORBED_GUARD" = true ]; then
     echo -e "${YELLOW}⚠ --skip-absorbed-guard enabled: bypassing absorbed intake strict guard${NC}"
@@ -300,7 +383,7 @@ run_absorbed_record_guard() {
   fi
 
   local absorb_pr_info
-  absorb_pr_info=$(gh pr view "$ABSORB_PR" --repo "$SOURCE_REPO" --json state,body,url,title 2>/dev/null || true)
+  absorb_pr_info=$(gh pr view "$ABSORB_PR" --repo "$SOURCE_REPO" --json state,body,url,title,headRefOid 2>/dev/null || true)
   if [ -z "$absorb_pr_info" ]; then
     echo -e "${RED}✗ Cannot fetch absorb PR #$ABSORB_PR from $SOURCE_REPO${NC}"
     return 1
@@ -310,6 +393,13 @@ run_absorbed_record_guard() {
   absorb_pr_state=$(echo "$absorb_pr_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(d.state||'')")
   if [ "$absorb_pr_state" != "OPEN" ] && [ "$absorb_pr_state" != "MERGED" ]; then
     echo -e "${RED}✗ Absorb PR #$ABSORB_PR is $absorb_pr_state (expected OPEN or MERGED)${NC}"
+    return 1
+  fi
+
+  local absorb_pr_head
+  absorb_pr_head=$(echo "$absorb_pr_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(String(d.headRefOid||''))")
+  if [ -z "$absorb_pr_head" ]; then
+    echo -e "${RED}✗ Cannot resolve absorb PR #$ABSORB_PR headRefOid${NC}"
     return 1
   fi
 
@@ -327,9 +417,12 @@ run_absorbed_record_guard() {
     return 1
   fi
 
+  validate_review_proof_continuity "$absorb_pr_head" "$review_proof_mode" || return 1
+
   echo -e "${GREEN}✓ Absorbed intake strict guard passed.${NC}"
   echo "  intent issue: #$INTENT_ISSUE"
   echo "  absorb PR:    #$ABSORB_PR ($absorb_pr_state)"
+  echo "  review head:  ${absorb_pr_head:0:8}"
   echo "  review proof: $REVIEW_PROOF ($review_proof_mode)"
   return 0
 }
@@ -483,6 +576,7 @@ if [ "$ADVANCE_LEDGER" = true ]; then
     echo "    bash scripts/intake-from-opensource.sh --pr <N> --mode=plan"
     echo "    bash scripts/intake-from-opensource.sh --record --pr <N> --decision <absorbed|public-only|rejected|outbound-sync>"
     echo "      (absorbed requires --intent-issue <I> --absorb-pr <P> --review-proof <URL|file>)"
+    echo "      review-proof must explicitly cover absorb PR current HEAD SHA"
     echo ""
     echo "  Or force-advance (DANGEROUS — skips per-PR review):"
     echo "    bash scripts/intake-from-opensource.sh --advance-ledger --force-overwrite"
@@ -525,6 +619,7 @@ if [ -z "$PR_NUMBER" ]; then
   echo "  bash scripts/intake-from-opensource.sh --pr <N> --mode=plan              # Analyze PR"
   echo "  bash scripts/intake-from-opensource.sh --record --pr <N> --decision <D>  # Record decision"
   echo "    absorbed requires: --intent-issue <I> --absorb-pr <P> --review-proof <URL|file>"
+  echo "      review-proof must cover absorb PR current HEAD (comment/review URL or file with SHA)"
   echo "    optional override: --skip-absorbed-guard  (historical backfill or outbound-filed hotfix)"
   echo "  bash scripts/intake-from-opensource.sh --advance-ledger                  # Advance ledger (sync-only commits)"
   echo "  bash scripts/intake-from-opensource.sh --validate-inbound                # 🛡 Check brand contamination (working tree)"
@@ -661,6 +756,7 @@ if [ "$MODE" = "plan" ]; then
   echo "     Closes #<IntakeIntentIssue>   (one line per issue; auto-close on merge)"
   echo "  4. Record decision:"
   echo "     --record --pr $PR_NUMBER --decision absorbed --intent-issue <I> --absorb-pr <P> --review-proof <URL|file>"
+  echo "     (review-proof must explicitly cover current absorb PR HEAD SHA)"
   echo "     (or: --decision public-only | --decision rejected)"
   echo "  5. After all PRs recorded: --advance-ledger"
   echo "  6. After absorb PR merge, confirm the Intake Intent Issue is closed"

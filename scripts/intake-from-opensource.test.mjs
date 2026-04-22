@@ -468,6 +468,8 @@ function makeRecordFixture(mock = {}) {
     mkdirSync(join(absPath, '..'), { recursive: true });
     writeFileSync(absPath, content, 'utf-8');
   }
+  const absorbPrHead = mock.absorbPrHead ?? 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const absorbPrHeadShort = absorbPrHead.slice(0, 8);
 
   const mockIssueJson = JSON.stringify(
     {
@@ -496,6 +498,30 @@ function makeRecordFixture(mock = {}) {
       body: mock.absorbPrBody ?? 'Closes #1234\nSource: clowder-ai#495',
       url: 'https://github.com/zts212653/cat-cafe/pull/1236',
       title: 'intake fixture absorb PR',
+      headRefOid: absorbPrHead,
+    },
+    null,
+    2,
+  );
+  const mockIssueCommentJson = JSON.stringify(
+    {
+      body: mock.reviewIssueCommentBody ?? `Review pass extends to ${absorbPrHeadShort}`,
+    },
+    null,
+    2,
+  );
+  const mockPullReviewJson = JSON.stringify(
+    {
+      body: mock.reviewBody ?? '',
+      commit_id: mock.reviewCommitId ?? absorbPrHead,
+    },
+    null,
+    2,
+  );
+  const mockDiscussionCommentJson = JSON.stringify(
+    {
+      body: mock.inlineReviewBody ?? '',
+      commit_id: mock.inlineReviewCommitId ?? absorbPrHead,
     },
     null,
     2,
@@ -551,13 +577,35 @@ JSON
   fi
 fi
 
+if [ "\${1:-}" = "api" ]; then
+  path="\${2:-}"
+  if [[ "$path" =~ ^repos/zts212653/cat-cafe/issues/comments/ ]]; then
+    cat <<'JSON'
+${mockIssueCommentJson}
+JSON
+    exit 0
+  fi
+  if [[ "$path" =~ ^repos/zts212653/cat-cafe/pulls/1236/reviews/ ]]; then
+    cat <<'JSON'
+${mockPullReviewJson}
+JSON
+    exit 0
+  fi
+  if [[ "$path" =~ ^repos/zts212653/cat-cafe/pulls/comments/ ]]; then
+    cat <<'JSON'
+${mockDiscussionCommentJson}
+JSON
+    exit 0
+  fi
+fi
+
 exit 1
 `,
     'utf-8',
   );
   chmodSync(ghPath, 0o755);
 
-  return { ...fixture, mockBin };
+  return { ...fixture, mockBin, absorbPrHead };
 }
 
 function runRecord(repoRoot, args, extraEnv = {}) {
@@ -645,6 +693,83 @@ describe('intake-from-opensource.sh --record strict guard (absorbed)', () => {
     assert.equal(record.absorb_pr, 1236);
     assert.equal(record.review_proof, 'https://github.com/zts212653/cat-cafe/pull/1236#issuecomment-1');
     assert.equal(record.intent_issue, undefined, 'must use intake_intent_issue (existing schema), not intent_issue');
+  });
+
+  it('blocks absorbed record when review-proof URL points to another PR', () => {
+    const f = makeRecordFixture();
+    fixtures.push(f.sandboxRoot);
+    const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
+    const err = captureRecordFailure(
+      f.repoRoot,
+      [
+        '--pr',
+        '495',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '1236',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/9999#issuecomment-1',
+      ],
+      env,
+    );
+    assert.match(err.stdout, /must point to absorb PR #1236/);
+  });
+
+  it('blocks absorbed record when review-proof does not cover current absorb PR head', () => {
+    const f = makeRecordFixture({
+      reviewIssueCommentBody: 'LGTM, pass.',
+    });
+    fixtures.push(f.sandboxRoot);
+    const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
+    const err = captureRecordFailure(
+      f.repoRoot,
+      [
+        '--pr',
+        '495',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '1236',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/1236#issuecomment-1',
+      ],
+      env,
+    );
+    assert.match(err.stdout, /does not cover absorb PR current HEAD/);
+  });
+
+  it('accepts local review-proof file when it mentions current absorb PR head', () => {
+    const f = makeRecordFixture();
+    fixtures.push(f.sandboxRoot);
+    const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
+    const proofPath = join(f.repoRoot, 'tmp', 'review-proof.md');
+    mkdirSync(join(proofPath, '..'), { recursive: true });
+    writeFileSync(proofPath, `Formal review pass extends to ${f.absorbPrHead.slice(0, 8)}.\n`, 'utf-8');
+
+    const output = runRecord(
+      f.repoRoot,
+      [
+        '--pr',
+        '495',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '1236',
+        '--review-proof',
+        proofPath,
+      ],
+      env,
+    );
+
+    assert.match(output, /Absorbed intake strict guard passed/);
+    assert.match(output, /Recorded PR #495 → absorbed/);
   });
 
   it('records absorbed entry via --skip-absorbed-guard without intent/absorb/review fields', () => {
