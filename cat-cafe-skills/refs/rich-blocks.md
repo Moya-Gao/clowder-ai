@@ -48,6 +48,16 @@
 | `https://...` | `https://example.com/img.png` | 外部链接 |
 
 **禁止**：`/api/connector-media/../assets/...` 等含 `../` 的路径 — 会被路径遍历保护拒绝，前端裂图。
+
+### 关于本地生成图的额外说明
+
+如果图片是本地刚生成的（例如 Codex CLI 输出到 `~/.codex/generated_images/...`）：
+
+1. 需要先复制到**当前 runtime 正在服务的 uploadDir**
+2. 然后才能写成 `/uploads/filename.png`
+3. 最稳的验证方法是先请求一次该 URL，确认返回 `200 OK`
+
+不要把“源码仓里存在这个文件”和“当前 API 正在服务这个文件”混为一谈。runtime 可能跑在另一套 worktree / 另一份 `packages/api/uploads/`。
 | interactive | interactiveType, options (id+label) | title, description, maxSelect, allowRandom, messageTemplate |
 | html_widget | html | title, height (50-2000, default 300) |
 
