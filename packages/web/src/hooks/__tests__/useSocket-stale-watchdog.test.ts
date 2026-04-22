@@ -8,7 +8,7 @@
  * for threads with hasActiveInvocation=true but lastActivity older than 3 min,
  * and clears stale slots when server says they're done.
  */
-import EventEmitter from 'node:events';
+import EventEmitter from 'events';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';

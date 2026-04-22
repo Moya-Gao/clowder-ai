@@ -958,7 +958,11 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
 
     const texts = messages.filter((m) => m.type === 'text').map((m) => m.content);
     assert.deepEqual(texts, ['Recovered after missing-name retry.']);
-    assert.equal(bridge.resetSession.mock.callCount(), 1, 'missing-name run_command should still qualify for safe retry');
+    assert.equal(
+      bridge.resetSession.mock.callCount(),
+      1,
+      'missing-name run_command should still qualify for safe retry',
+    );
   });
 
   test('model_capacity still does not retry when the waiting run_command is mutating', async () => {
@@ -1118,7 +1122,8 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
               status: 'FINISHED',
               errorMessage: {
                 error: {
-                  userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+                  userErrorMessage:
+                    'Our servers are experiencing high traffic right now, please try again in a minute.',
                 },
               },
             },
@@ -1201,7 +1206,8 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
               status: 'FINISHED',
               errorMessage: {
                 error: {
-                  userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+                  userErrorMessage:
+                    'Our servers are experiencing high traffic right now, please try again in a minute.',
                 },
               },
             },
@@ -1238,7 +1244,11 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
 
     const capacity = messages.find((m) => m.type === 'error' && m.errorCode === 'model_capacity');
     assert.ok(capacity, 'must surface model_capacity after earlier finished tool step');
-    assert.equal(bridge.resetSession.mock.callCount(), 0, 'must not retry once an earlier batch already finished a toolish step');
+    assert.equal(
+      bridge.resetSession.mock.callCount(),
+      0,
+      'must not retry once an earlier batch already finished a toolish step',
+    );
     assert.equal(capacity.metadata?.diagnostics?.retrySuppressedBy, 'resolved_toolish_step_seen');
     assert.equal(capacity.metadata?.diagnostics?.dispatchState, 'after_dispatch');
   });
@@ -1370,7 +1380,11 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
 
     const capacity = messages.find((m) => m.type === 'error' && m.errorCode === 'model_capacity');
     assert.ok(capacity, 'mixed finished+waiting toolish batch should still surface model_capacity');
-    assert.equal(bridge.resetSession.mock.callCount(), 0, 'must not retry when another toolish step already exists in the batch');
+    assert.equal(
+      bridge.resetSession.mock.callCount(),
+      0,
+      'must not retry when another toolish step already exists in the batch',
+    );
     assert.equal(capacity.metadata?.diagnostics?.retryEligible, false);
   });
 

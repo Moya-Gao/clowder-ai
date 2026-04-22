@@ -133,6 +133,18 @@ const STALE_RECENT_ENGAGEMENT_MS = 5 * 60_000;
 let reconcileGeneration = 0;
 /** Per-thread last-probe timestamp used by the watchdog cooldown. */
 const staleProbeCooldown = new Map<string, number>();
+/** Per-thread epoch used to invalidate stale live queue-processing hydrates. */
+const liveQueueHydrateEpoch = new Map<string, number>();
+
+function bumpLiveQueueHydrateEpoch(threadId: string): number {
+  const next = (liveQueueHydrateEpoch.get(threadId) ?? 0) + 1;
+  liveQueueHydrateEpoch.set(threadId, next);
+  return next;
+}
+
+function getLiveQueueHydrateEpoch(threadId: string): number {
+  return liveQueueHydrateEpoch.get(threadId) ?? 0;
+}
 
 function hasStaleActiveThreadPresentation(state: ReturnType<typeof useChatStore.getState>, threadId: string): boolean {
   if (state.currentThreadId !== threadId) return false;
@@ -648,10 +660,40 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     socket.on('queue_updated', (data: { threadId: string; queue: unknown[]; action: string }) => {
       const store = useChatStore.getState();
       store.setQueue(data.threadId, data.queue as import('../stores/chat-types').QueueEntry[]);
-      // Queue processor started executing an entry: restore active invocation marker
-      // so ChatInput can show "正在回复中" and Stop/queue controls after thread switches/F5.
+      // Queue processor started executing an entry: restore the coarse "active"
+      // marker immediately, then hydrate current-thread slot truth from /queue.
+      // This covers the gap where processing resumes before intent_mode lands:
+      // without slot hydration, the top single-cat cancel can stay hidden even
+      // though the server is already executing this thread.
       if (data.action === 'processing') {
         store.setThreadHasActiveInvocation(data.threadId, true);
+        if (data.threadId === store.currentThreadId) {
+          const epoch = bumpLiveQueueHydrateEpoch(data.threadId);
+          void reconcileThreadWithServer(
+            data.threadId,
+            () =>
+              useChatStore.getState().currentThreadId !== data.threadId ||
+              getLiveQueueHydrateEpoch(data.threadId) !== epoch,
+            'QueueProcessing',
+          );
+        }
+      }
+      if (data.action === 'completed') {
+        bumpLiveQueueHydrateEpoch(data.threadId);
+        if (data.threadId === store.currentThreadId) {
+          const epoch = getLiveQueueHydrateEpoch(data.threadId);
+          // Queue `completed` is the thread-terminal signal for this processing
+          // path. We invalidate the earlier processing-time hydrate here, then
+          // fetch `/queue` once more so a stale response that already won the
+          // race gets actively cleared instead of lingering until watchdog.
+          void reconcileThreadWithServer(
+            data.threadId,
+            () =>
+              useChatStore.getState().currentThreadId !== data.threadId ||
+              getLiveQueueHydrateEpoch(data.threadId) !== epoch,
+            'QueueCompleted',
+          );
+        }
       }
       // P1 fix: 'processing' means continue/auto-dequeue resumed the queue — clear paused state
       if (data.action === 'processing' || data.action === 'cleared') {
@@ -696,6 +738,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       const store = useChatStore.getState();
       store.setQueue(data.threadId, data.queue as import('../stores/chat-types').QueueEntry[]);
       store.setQueuePaused(data.threadId, true, data.reason);
+      bumpLiveQueueHydrateEpoch(data.threadId);
       if (isDebugEnabled()) {
         recordInvocationEvent({
           event: 'queue_paused',

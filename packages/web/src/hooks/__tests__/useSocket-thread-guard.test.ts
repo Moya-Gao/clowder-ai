@@ -9,7 +9,7 @@
  * so events from thread A would leak into thread B's callback after a switch.
  */
 
-import EventEmitter from 'node:events';
+import EventEmitter from 'events';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -44,14 +44,19 @@ const mockSetThreadMessageUsage = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
 const mockSetThreadLoading = vi.fn();
 const mockSetThreadHasActiveInvocation = vi.fn();
-const mockSetQueue = vi.fn();
+const mockSetQueue = vi.fn((threadId: string, queue: unknown[]) => {
+  mockThreadQueues.set(threadId, queue);
+});
 const mockSetQueuePaused = vi.fn();
 const mockSetQueueFull = vi.fn();
 const mockSetThreadIntentMode = vi.fn();
 const mockSetThreadTargetCats = vi.fn();
+const mockReplaceThreadTargetCats = vi.fn();
 const mockUpdateThreadCatStatus = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
+const mockAddActiveInvocation = vi.fn();
 const mockAddToast = vi.fn();
+const mockThreadQueues = new Map<string, unknown[]>();
 const mockGetThreadState = vi.fn(() => ({
   messages: [],
   isLoading: false,
@@ -72,6 +77,7 @@ let mockStoreCurrentThreadId = 'thread-B';
 vi.mock('@/stores/chatStore', () => {
   const getState = () => ({
     currentThreadId: mockStoreCurrentThreadId,
+    queue: mockThreadQueues.get(mockStoreCurrentThreadId) ?? [],
     addMessageToThread: mockAddMessageToThread,
     appendToThreadMessage: mockAppendToThreadMessage,
     appendToolEventToThread: mockAppendToolEventToThread,
@@ -86,8 +92,10 @@ vi.mock('@/stores/chatStore', () => {
     setQueueFull: mockSetQueueFull,
     setThreadIntentMode: mockSetThreadIntentMode,
     setThreadTargetCats: mockSetThreadTargetCats,
+    replaceThreadTargetCats: mockReplaceThreadTargetCats,
     updateThreadCatStatus: mockUpdateThreadCatStatus,
     clearThreadActiveInvocation: mockClearThreadActiveInvocation,
+    addActiveInvocation: mockAddActiveInvocation,
     getThreadState: mockGetThreadState,
   });
   const useChatStore = ((selector?: (state: ReturnType<typeof getState>) => unknown) =>
@@ -108,12 +116,14 @@ vi.mock('@/stores/toastStore', () => ({
 }));
 
 let mockUserId = 'test-user';
+const mockApiFetch = vi.hoisted(() => vi.fn());
 vi.mock('@/utils/userId', () => ({
   getUserId: () => mockUserId,
 }));
 
 vi.mock('@/utils/api-client', () => ({
   API_URL: 'http://localhost:3100',
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
 import { configureDebug, invocationDebugConstants } from '@/debug/invocationEventDebug';
@@ -175,6 +185,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     delete (window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug;
     mockUserId = 'test-user';
     mockStoreCurrentThreadId = 'thread-B';
+    mockThreadQueues.clear();
     mockAddMessageToThread.mockClear();
     mockAppendToThreadMessage.mockClear();
     mockAppendToolEventToThread.mockClear();
@@ -189,10 +200,13 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     mockSetQueueFull.mockClear();
     mockSetThreadIntentMode.mockClear();
     mockSetThreadTargetCats.mockClear();
+    mockReplaceThreadTargetCats.mockClear();
     mockUpdateThreadCatStatus.mockClear();
     mockClearThreadActiveInvocation.mockClear();
+    mockAddActiveInvocation.mockClear();
     mockAddToast.mockClear();
     mockGetThreadState.mockClear();
+    mockApiFetch.mockReset();
     useGuideStore.setState({ session: null, completionPersisted: false, completionFailed: false, pendingStart: null });
     // Clear all socket listeners from previous tests
     mockSocket.removeAllListeners();
@@ -525,6 +539,324 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
 
     expect(mockSetQueue).toHaveBeenCalledWith('thread-B', expect.any(Array));
     expect(mockSetThreadHasActiveInvocation).toHaveBeenCalledWith('thread-B', true);
+  });
+
+  it('queue_updated processing hydrates current-thread slot truth when intent_mode is missing', async () => {
+    mockStoreCurrentThreadId = 'thread-B';
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        activeInvocations: [{ catId: 'gpt52', startedAt: 1234 }],
+      }),
+    });
+
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    await act(async () => {
+      simulateServerEvent('queue_updated', {
+        threadId: 'thread-B',
+        queue: [{ id: 'q1', status: 'processing' }],
+        action: 'processing',
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/threads/thread-B/queue');
+    expect(mockClearThreadActiveInvocation).toHaveBeenCalledWith('thread-B');
+    expect(mockReplaceThreadTargetCats).toHaveBeenCalledWith('thread-B', ['gpt52']);
+    expect(mockUpdateThreadCatStatus).toHaveBeenCalledWith('thread-B', 'gpt52', 'streaming');
+    expect(mockAddActiveInvocation).toHaveBeenCalledWith('hydrated-thread-B-gpt52', 'gpt52', 'execute', 1234);
+  });
+
+  it('ignores stale queue-processing hydrate after current-thread done is followed by queue completion', async () => {
+    mockStoreCurrentThreadId = 'thread-B';
+
+    let resolveQueueJson: ((value: { activeInvocations: Array<{ catId: string; startedAt: number }> }) => void) | null =
+      null;
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        new Promise<{ activeInvocations: Array<{ catId: string; startedAt: number }> }>((resolve) => {
+          resolveQueueJson = resolve;
+        }),
+    });
+
+    const onMessage = vi.fn();
+    const callbacks: SocketCallbacks = { onMessage };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    await act(async () => {
+      simulateServerEvent('queue_updated', {
+        threadId: 'thread-B',
+        queue: [{ id: 'q1', status: 'processing' }],
+        action: 'processing',
+      });
+      await Promise.resolve();
+    });
+
+    act(() => {
+      simulateServerEvent('agent_message', {
+        type: 'done',
+        catId: 'gpt52',
+        threadId: 'thread-B',
+        isFinal: true,
+        timestamp: Date.now(),
+      });
+    });
+
+    act(() => {
+      simulateServerEvent('queue_updated', {
+        threadId: 'thread-B',
+        queue: [],
+        action: 'completed',
+      });
+    });
+
+    await act(async () => {
+      resolveQueueJson?.({ activeInvocations: [{ catId: 'gpt52', startedAt: 1234 }] });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'done',
+        threadId: 'thread-B',
+        catId: 'gpt52',
+        isFinal: true,
+      }),
+    );
+    expect(mockReplaceThreadTargetCats).not.toHaveBeenCalled();
+    expect(mockUpdateThreadCatStatus).not.toHaveBeenCalled();
+    expect(mockAddActiveInvocation).not.toHaveBeenCalled();
+  });
+
+  it('keeps queue-processing hydrate alive when done is non-final and another cat may still be running', async () => {
+    mockStoreCurrentThreadId = 'thread-B';
+
+    let resolveQueueJson: ((value: { activeInvocations: Array<{ catId: string; startedAt: number }> }) => void) | null =
+      null;
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        new Promise<{ activeInvocations: Array<{ catId: string; startedAt: number }> }>((resolve) => {
+          resolveQueueJson = resolve;
+        }),
+    });
+
+    const onMessage = vi.fn();
+    const callbacks: SocketCallbacks = { onMessage };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    await act(async () => {
+      simulateServerEvent('queue_updated', {
+        threadId: 'thread-B',
+        queue: [{ id: 'q1', status: 'processing' }],
+        action: 'processing',
+      });
+      await Promise.resolve();
+    });
+
+    act(() => {
+      simulateServerEvent('agent_message', {
+        type: 'done',
+        catId: 'gpt52',
+        threadId: 'thread-B',
+        isFinal: false,
+        timestamp: Date.now(),
+      });
+    });
+
+    await act(async () => {
+      resolveQueueJson?.({ activeInvocations: [{ catId: 'codex', startedAt: 5678 }] });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'done',
+        threadId: 'thread-B',
+        catId: 'gpt52',
+        isFinal: false,
+      }),
+    );
+    expect(mockReplaceThreadTargetCats).toHaveBeenCalledWith('thread-B', ['codex']);
+    expect(mockUpdateThreadCatStatus).toHaveBeenCalledWith('thread-B', 'codex', 'streaming');
+    expect(mockAddActiveInvocation).toHaveBeenCalledWith('hydrated-thread-B-codex', 'codex', 'execute', 5678);
+  });
+
+  it('keeps queue-processing hydrate alive when a cat emits isFinal=true but queue still shows processing', async () => {
+    mockStoreCurrentThreadId = 'thread-B';
+
+    let resolveQueueJson: ((value: { activeInvocations: Array<{ catId: string; startedAt: number }> }) => void) | null =
+      null;
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        new Promise<{ activeInvocations: Array<{ catId: string; startedAt: number }> }>((resolve) => {
+          resolveQueueJson = resolve;
+        }),
+    });
+
+    const onMessage = vi.fn();
+    const callbacks: SocketCallbacks = { onMessage };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    await act(async () => {
+      simulateServerEvent('queue_updated', {
+        threadId: 'thread-B',
+        queue: [{ id: 'q1', status: 'processing' }],
+        action: 'processing',
+      });
+      await Promise.resolve();
+    });
+
+    act(() => {
+      simulateServerEvent('agent_message', {
+        type: 'done',
+        catId: 'gpt52',
+        threadId: 'thread-B',
+        isFinal: true,
+        timestamp: Date.now(),
+      });
+    });
+
+    await act(async () => {
+      resolveQueueJson?.({ activeInvocations: [{ catId: 'codex', startedAt: 6789 }] });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'done',
+        threadId: 'thread-B',
+        catId: 'gpt52',
+        isFinal: true,
+      }),
+    );
+    expect(mockReplaceThreadTargetCats).toHaveBeenCalledWith('thread-B', ['codex']);
+    expect(mockUpdateThreadCatStatus).toHaveBeenCalledWith('thread-B', 'codex', 'streaming');
+    expect(mockAddActiveInvocation).toHaveBeenCalledWith('hydrated-thread-B-codex', 'codex', 'execute', 6789);
+  });
+
+  it('keeps queue-processing hydrate alive when cleared only removes queued siblings in the background', async () => {
+    mockStoreCurrentThreadId = 'thread-B';
+
+    let resolveQueueJson: ((value: { activeInvocations: Array<{ catId: string; startedAt: number }> }) => void) | null =
+      null;
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        new Promise<{ activeInvocations: Array<{ catId: string; startedAt: number }> }>((resolve) => {
+          resolveQueueJson = resolve;
+        }),
+    });
+
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    await act(async () => {
+      simulateServerEvent('queue_updated', {
+        threadId: 'thread-B',
+        queue: [{ id: 'q1', status: 'processing' }],
+        action: 'processing',
+      });
+      await Promise.resolve();
+    });
+
+    mockStoreCurrentThreadId = 'thread-C';
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-C' }));
+    });
+
+    act(() => {
+      simulateServerEvent('queue_updated', {
+        threadId: 'thread-B',
+        queue: [],
+        action: 'cleared',
+      });
+    });
+
+    mockStoreCurrentThreadId = 'thread-B';
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    await act(async () => {
+      resolveQueueJson?.({ activeInvocations: [{ catId: 'gpt52', startedAt: 1234 }] });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockReplaceThreadTargetCats).toHaveBeenCalledWith('thread-B', ['gpt52']);
+    expect(mockUpdateThreadCatStatus).toHaveBeenCalledWith('thread-B', 'gpt52', 'streaming');
+    expect(mockAddActiveInvocation).toHaveBeenCalledWith('hydrated-thread-B-gpt52', 'gpt52', 'execute', 1234);
+  });
+
+  it('invalidates completed-state hydrate before a stale processing fetch resolves', async () => {
+    mockStoreCurrentThreadId = 'thread-B';
+
+    let resolveQueueJson: ((value: { activeInvocations: Array<{ catId: string; startedAt: number }> }) => void) | null =
+      null;
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: () =>
+        new Promise<{ activeInvocations: Array<{ catId: string; startedAt: number }> }>((resolve) => {
+          resolveQueueJson = resolve;
+        }),
+    });
+
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    await act(async () => {
+      simulateServerEvent('queue_updated', {
+        threadId: 'thread-B',
+        queue: [{ id: 'q1', status: 'processing' }],
+        action: 'processing',
+      });
+      await Promise.resolve();
+    });
+
+    act(() => {
+      simulateServerEvent('queue_updated', {
+        threadId: 'thread-B',
+        queue: [],
+        action: 'completed',
+      });
+    });
+
+    await act(async () => {
+      resolveQueueJson?.({ activeInvocations: [{ catId: 'gpt52', startedAt: 1234 }] });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockReplaceThreadTargetCats).not.toHaveBeenCalled();
+    expect(mockUpdateThreadCatStatus).not.toHaveBeenCalled();
+    expect(mockAddActiveInvocation).not.toHaveBeenCalled();
   });
 
   it('debug API stays unmounted by default (P0: default disabled)', () => {
