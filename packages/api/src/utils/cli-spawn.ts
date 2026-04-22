@@ -325,6 +325,23 @@ export async function* spawnCli(
       pendingNext = ndjson.next();
     }
 
+    if (probe) {
+      await probe.flushPendingWarnings();
+      for (const warning of probe.drainWarnings()) {
+        yield warning;
+        if (
+          options.livenessProbe?.stallAutoKill &&
+          warning.level === 'suspected_stall' &&
+          warning.state === 'idle-silent'
+        ) {
+          stallKilled = true;
+          timedOut = true;
+          processAliveAtTimeout = !childExited;
+          killChild();
+        }
+      }
+    }
+
     // Check for spawn error that arrived during/after iteration
     if (spawnError) throw spawnError;
 

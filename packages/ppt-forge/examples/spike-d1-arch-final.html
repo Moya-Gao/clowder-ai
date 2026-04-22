@@ -3,10 +3,46 @@
 <head>
 <meta charset="UTF-8">
 <title>Phase D Spike — 1280×720 Final v4</title>
-<script src="https://cdn.tailwindcss.com"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
-  * { margin:0; padding:0; box-sizing:border-box; font-family:'Noto Sans SC',sans-serif; }
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif; }
+  .flex { display:flex; }
+  .flex-1 { flex:1 1 0%; }
+  .flex-\[3\] { flex:3 1 0%; }
+  .items-center { align-items:center; }
+  .justify-center { justify-content:center; }
+  .min-h-screen { min-height:100vh; }
+  .text-center { text-align:center; }
+  .font-bold { font-weight:700; }
+  .leading-none { line-height:1; }
+  .leading-tight { line-height:1.25; }
+  .leading-snug { line-height:1.375; }
+  .gap-2 { gap:0.5rem; }
+  .border { border-width:1px; border-style:solid; }
+  .border-gray-200 { border-color:#e5e7eb; }
+  .rounded { border-radius:0.25rem; }
+  .rounded-t { border-top-left-radius:0.25rem; border-top-right-radius:0.25rem; }
+  .bg-white { background:#fff; }
+  .bg-gray-50 { background:#f9fafb; }
+  .bg-gray-100 { background:#f3f4f6; }
+  .text-gray-400 { color:#9ca3af; }
+  .text-gray-500 { color:#6b7280; }
+  .text-gray-600 { color:#4b5563; }
+  .text-gray-700 { color:#374151; }
+  .text-gray-800 { color:#1f2937; }
+  .text-\[10px\] { font-size:10px; }
+  .text-\[11px\] { font-size:11px; }
+  .text-\[12px\] { font-size:12px; }
+  .text-\[13px\] { font-size:13px; }
+  .text-\[14px\] { font-size:14px; }
+  .text-\[24px\] { font-size:24px; }
+  .text-\[30px\] { font-size:30px; }
+  .opacity-80 { opacity:0.8; }
+  .mb-0\.5 { margin-bottom:0.125rem; }
+  .mb-2 { margin-bottom:0.5rem; }
+  .ml-3 { margin-left:0.75rem; }
+  .mt-0\.5 { margin-top:0.125rem; }
+  .mt-1 { margin-top:0.25rem; }
+  .px-4 { padding-left:1rem; padding-right:1rem; }
   .ppt-slide { width:1280px; height:720px; overflow:hidden; background:#fff; display:grid;
     grid-template-rows: auto auto auto 1fr; align-content: start; }
   .accent { color:#c7020e; }

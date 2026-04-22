@@ -1,11 +1,12 @@
 import Link from 'next/link';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 
 export type MemoryTab = 'feed' | 'search' | 'status' | 'health';
 
 interface MemoryNavProps {
   readonly active: MemoryTab;
+  readonly initialReferrerThread?: string | null;
 }
 
 interface TabConfig {
@@ -43,18 +44,21 @@ export function buildMemoryTabItems(fromSuffix: string): readonly TabConfig[] {
   ];
 }
 
-function useReferrerThread(): string | null {
+function useReferrerThread(initialReferrerThread: string | null): string | null {
   const storeThreadId = useChatStore((s) => s.currentThreadId);
+  const [fromParam, setFromParam] = useState<string | null>(initialReferrerThread);
+  useEffect(() => {
+    const nextFromParam = new URLSearchParams(window.location.search).get('from');
+    if (nextFromParam) setFromParam(nextFromParam);
+  }, [initialReferrerThread]);
   return useMemo(() => {
-    if (typeof window !== 'undefined') {
-      return resolveReferrerThread(window.location.search, storeThreadId ?? null);
-    }
+    if (fromParam) return fromParam;
     return storeThreadId && storeThreadId !== 'default' ? storeThreadId : null;
-  }, [storeThreadId]);
+  }, [fromParam, storeThreadId]);
 }
 
-export function MemoryNav({ active }: MemoryNavProps) {
-  const referrerThread = useReferrerThread();
+export function MemoryNav({ active, initialReferrerThread = null }: MemoryNavProps) {
+  const referrerThread = useReferrerThread(initialReferrerThread);
   const fromSuffix = referrerThread ? `?from=${encodeURIComponent(referrerThread)}` : '';
 
   const items = useMemo(() => buildMemoryTabItems(fromSuffix), [fromSuffix]);
@@ -62,7 +66,7 @@ export function MemoryNav({ active }: MemoryNavProps) {
 
   return (
     <nav aria-label="Memory navigation" className="flex items-center gap-2">
-      <Link
+      <a
         href={backHref}
         className="inline-flex items-center gap-1.5 rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-3 py-1.5 text-xs font-medium text-[#8B6F47] transition-colors hover:bg-[#F7EEDB]"
         data-testid="memory-back-to-chat"
@@ -79,7 +83,7 @@ export function MemoryNav({ active }: MemoryNavProps) {
           <polyline points="15 18 9 12 15 6" />
         </svg>
         返回对话
-      </Link>
+      </a>
       {items.map((item) => {
         const isActive = item.id === active;
         return (

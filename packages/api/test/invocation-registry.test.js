@@ -298,19 +298,26 @@ describe('InvocationRegistry', () => {
       '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
     );
 
-    // 50ms TTL — short enough to test, long enough to not flake
-    const registry = new InvocationRegistry({ ttlMs: 50 });
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+    const originalDateNow = Date.now;
+    let now = 1_000_000;
+    Date.now = () => now;
 
-    // Wait 30ms (past 60% of TTL), then verify to renew
-    await new Promise((resolve) => setTimeout(resolve, 30));
-    const record = registry.verify(invocationId, callbackToken);
-    assert.ok(record !== null, 'should still be valid at 30ms');
+    try {
+      const registry = new InvocationRegistry({ ttlMs: 50 });
+      const { invocationId, callbackToken } = registry.create('user-1', 'opus');
 
-    // Wait another 30ms (60ms total from create, but only 30ms since renewal)
-    await new Promise((resolve) => setTimeout(resolve, 30));
-    const record2 = registry.verify(invocationId, callbackToken);
-    assert.ok(record2 !== null, 'sliding window should have extended TTL');
+      // Advance 30ms (past 60% of TTL), then verify to renew.
+      now += 30;
+      const record = registry.verify(invocationId, callbackToken);
+      assert.ok(record !== null, 'should still be valid at +30ms');
+
+      // Advance another 30ms (+60ms from create, but only +30ms since renewal).
+      now += 30;
+      const record2 = registry.verify(invocationId, callbackToken);
+      assert.ok(record2 !== null, 'sliding window should have extended TTL');
+    } finally {
+      Date.now = originalDateNow;
+    }
   });
 
   test('first callback after long delay succeeds with 2h TTL', async () => {

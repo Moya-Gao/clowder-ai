@@ -217,7 +217,9 @@ export async function flatExtract(html: string, options?: FlatExtractOptions): P
   const vh = options?.viewportHeight ?? 720;
   const browser = await getBrowser();
   const page = await browser.newPage({ viewport: { width: vw, height: vh } });
-  await page.setContent(inlineLocalAssetUrls(html), { waitUntil: 'networkidle' });
+  // Static fixture HTML may still kick off slow ancillary fetches under load.
+  // We only need the DOM + CSSOM ready for extraction, not full network quiescence.
+  await page.setContent(inlineLocalAssetUrls(html), { waitUntil: 'load' });
   const raw = (await page.evaluate(FLAT_EXTRACT_SCRIPT)) as RawResult;
   await page.close();
 

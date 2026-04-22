@@ -1,7 +1,6 @@
 'use client';
 
 import type { BacklogItem, CatId, ExternalProject, MissionHubSelfClaimScope, ThreadPhase } from '@cat-cafe/shared';
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { useExternalProjectStore } from '@/stores/externalProjectStore';
@@ -65,7 +64,7 @@ async function parseError(response: Response): Promise<string> {
   }
 }
 
-export function MissionControlPage() {
+export function MissionControlPage({ initialReferrerThread = null }: { initialReferrerThread?: string | null }) {
   const threadSituationRequestSeq = useRef(0);
   const [selfClaimScopes, setSelfClaimScopes] = useState<Record<string, MissionHubSelfClaimScope>>({});
   const [selfClaimPolicyBlocker, setSelfClaimPolicyBlocker] = useState<SelfClaimPolicyBlocker>(null);
@@ -437,14 +436,15 @@ export function MissionControlPage() {
   // AC-H2: Referrer-based back button — remember where we came from
   // Priority: URL ?from= param > store's currentThreadId (last active thread)
   const storeThreadId = useChatStore((s) => s.currentThreadId);
+  const [mcFromParam, setMcFromParam] = useState<string | null>(initialReferrerThread);
+  useEffect(() => {
+    const nextFromParam = new URLSearchParams(window.location.search).get('from');
+    if (nextFromParam) setMcFromParam(nextFromParam);
+  }, [initialReferrerThread]);
   const referrerThread = useMemo(() => {
-    if (typeof window !== 'undefined') {
-      const fromParam = new URLSearchParams(window.location.search).get('from');
-      if (fromParam) return fromParam;
-    }
-    // Fallback: use last active thread from store (survives navigation without ?from=)
+    if (mcFromParam) return mcFromParam;
     return storeThreadId && storeThreadId !== 'default' ? storeThreadId : null;
-  }, [storeThreadId]);
+  }, [mcFromParam, storeThreadId]);
 
   return (
     <div className="flex h-screen bg-[#F4EFE7]">
@@ -452,7 +452,7 @@ export function MissionControlPage() {
         {/* Header */}
         <header className="flex items-center justify-between border-b border-[#E7DAC7] bg-[#FFFDF8] px-6 py-3">
           <div className="flex items-center gap-3">
-            <Link
+            <a
               href={referrerThread && referrerThread !== 'default' ? `/thread/${referrerThread}` : '/'}
               className="inline-flex items-center gap-1.5 rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-3 py-1.5 text-xs font-medium text-[#8B6F47] transition-colors hover:bg-[#F7EEDB]"
               data-testid="mc-back-to-chat"
@@ -469,7 +469,7 @@ export function MissionControlPage() {
                 <polyline points="15 18 9 12 15 6" />
               </svg>
               返回线程
-            </Link>
+            </a>
             <div className="flex items-center gap-2">
               <svg
                 className="h-5 w-5 text-[#9A866F]"
