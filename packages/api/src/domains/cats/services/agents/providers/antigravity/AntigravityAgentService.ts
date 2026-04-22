@@ -79,7 +79,7 @@ function buildCallbackFallbackInstructions(callbackEnv?: Record<string, string>)
   const callbackToken = callbackEnv?.CAT_CAFE_CALLBACK_TOKEN?.trim();
   if (!apiUrl || !invocationId || !callbackToken) return '';
 
-  return `\n[Cat Cafe callback fallback]\nAntigravity 当前没有原生 MCP 注入；如需读取当前 thread 上下文或回贴消息，请直接用 run_command 调 HTTP callback。\n- 当前 thread 上下文: curl -fsS "${apiUrl}/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&limit=20"\n- 带关键词过滤: curl -fsS "${apiUrl}/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&keyword=review"\n- 发消息回当前 thread: curl -fsS -X POST "${apiUrl}/api/callbacks/post-message" -H 'Content-Type: application/json' -d '{"invocationId":"${invocationId}","callbackToken":"${callbackToken}","content":"<message>"}'\n- 完整文档（public / static，无需凭证）: curl -fsS "${apiUrl}/api/callbacks/instructions"`;
+  return `\n[Cat Cafe callback fallback]\n如果当前环境已挂载只读 Cat Cafe MCP（常见为 search_evidence / reflect / session-chain / signals），这些读工具可直接使用。当前 invocation / thread 的写回凭证不会随原生 MCP 一起注入；如需读取当前 thread 上下文或回贴消息，请直接用 run_command 调 HTTP callback。\n- 当前 thread 上下文: curl -fsS "${apiUrl}/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&limit=20"\n- 带关键词过滤: curl -fsS "${apiUrl}/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&keyword=review"\n- 发消息回当前 thread: curl -fsS -X POST "${apiUrl}/api/callbacks/post-message" -H 'Content-Type: application/json' -d '{"invocationId":"${invocationId}","callbackToken":"${callbackToken}","content":"<message>"}'\n- 完整文档（public / static，无需凭证）: curl -fsS "${apiUrl}/api/callbacks/instructions"`;
 }
 
 export interface AntigravityAgentServiceOptions {
