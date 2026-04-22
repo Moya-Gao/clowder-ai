@@ -370,6 +370,15 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const { cancelInvocation, syncRooms, socketConnected } = useSocket(socketCallbacks, threadId);
   const connectionStatus = useConnectionStatus(socketConnected);
 
+  // Single-slot execution can be recovered from queue truth even when the
+  // active-thread flat intentMode has not been restored yet (for example after
+  // queue hydration or a missed intent_mode event). In that case we still need
+  // the top cancel affordance — otherwise the thread looks active in the
+  // execution bar but offers no single-cat cancel control.
+  const showThinkingIndicator =
+    intentMode === 'execute' ||
+    (intentMode == null && hasActiveInvocation && Object.keys(activeInvocations).length === 1);
+
   useVoiceAutoPlay();
   useVoiceStream();
   useVadInterrupt();
@@ -568,7 +577,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         />
 
         {intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
-        {intentMode === 'execute' && <ThinkingIndicator onCancel={cancelInvocation} />}
+        {showThinkingIndicator && <ThinkingIndicator onCancel={cancelInvocation} />}
 
         <div className="flex-1 relative overflow-hidden">
           <main
