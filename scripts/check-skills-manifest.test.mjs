@@ -22,6 +22,10 @@ function writeBaseFixture(root) {
           codex: { family: 'maine-coon', roles: ['peer-reviewer'], lead: true, available: true, evaluation: 'test' },
           gpt52: { family: 'maine-coon', roles: ['peer-reviewer'], lead: false, available: true, evaluation: 'test' },
         },
+        breeds: {
+          0: { nickname: '宪宪', displayName: '布偶猫' },
+          1: { nickname: '砚砚', displayName: '缅因猫' },
+        },
       },
       null,
       2,
@@ -118,6 +122,56 @@ describe('check-skills-manifest.mjs', () => {
     writeFileSync(skillPath, '# skill-a\n\n请 @codex review\n', 'utf-8');
 
     assert.throws(() => runChecker(sandboxRoot), /hardcoded|@codex|failed|error/i);
+  });
+
+  it('fails when SKILL.md contains hardcoded cat nickname', () => {
+    const skillPath = join(sandboxRoot, 'cat-cafe-skills', 'skill-a', 'SKILL.md');
+    writeFileSync(skillPath, '# skill-a\n\n砚砚：布局审查 + Export Truth Gate\n', 'utf-8');
+
+    assert.throws(() => runChecker(sandboxRoot), /hardcoded|砚砚|failed|error/i);
+  });
+
+  it('allows cat nickname on exempted lines (signatures, attributions)', () => {
+    const skillPath = join(sandboxRoot, 'cat-cafe-skills', 'skill-a', 'SKILL.md');
+    const content = [
+      '# skill-a',
+      '',
+      '> 来源：2026-04-04 砚砚提议',
+      '签名表见 refs/commit-signatures.md。示例：宪宪/Opus-46',
+      '[宪宪/Opus-46🐾]',
+      '',
+    ].join('\n');
+    writeFileSync(skillPath, content, 'utf-8');
+
+    const output = runChecker(sandboxRoot);
+    assert.match(output, /PASS/i);
+  });
+
+  it('allows handle inside code fence', () => {
+    const skillPath = join(sandboxRoot, 'cat-cafe-skills', 'skill-a', 'SKILL.md');
+    const content = ['# skill-a', '', '```bash', 'gh pr comment 123 --body "@codex review"', '```', ''].join('\n');
+    writeFileSync(skillPath, content, 'utf-8');
+
+    const output = runChecker(sandboxRoot);
+    assert.match(output, /PASS/i);
+  });
+
+  it('allows handle inside backtick-quoted content', () => {
+    const skillPath = join(sandboxRoot, 'cat-cafe-skills', 'skill-a', 'SKILL.md');
+    const content = ['# skill-a', '', '只发 `@codex review` 一行', ''].join('\n');
+    writeFileSync(skillPath, content, 'utf-8');
+
+    const output = runChecker(sandboxRoot);
+    assert.match(output, /PASS/i);
+  });
+
+  it('allows nickname inside double-quoted content', () => {
+    const skillPath = join(sandboxRoot, 'cat-cafe-skills', 'skill-a', 'SKILL.md');
+    const content = ['# skill-a', '', '叙述性提及用名字（"砚砚已完成 X"而非"@codex 已完成 X"）', ''].join('\n');
+    writeFileSync(skillPath, content, 'utf-8');
+
+    const output = runChecker(sandboxRoot);
+    assert.match(output, /PASS/i);
   });
 
   it('fails when filesystem has SKILL.md that is missing from manifest', () => {

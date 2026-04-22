@@ -52,9 +52,20 @@ function loadRosterHandles() {
     throw new Error('cat-config.json missing "roster" object');
   }
 
-  return Object.keys(parsed.roster)
+  const handles = Object.keys(parsed.roster)
     .map((id) => `@${id}`)
     .sort((a, b) => b.length - a.length);
+
+  const nicknames = new Set();
+  if (parsed.breeds && typeof parsed.breeds === 'object') {
+    for (const breed of Object.values(parsed.breeds)) {
+      if (breed.nickname && typeof breed.nickname === 'string') {
+        nicknames.add(breed.nickname);
+      }
+    }
+  }
+
+  return { handles, nicknames: [...nicknames].sort((a, b) => b.length - a.length) };
 }
 
 function lintManifestStructure(skillsMap) {
@@ -126,27 +137,92 @@ function lintManifestStructure(skillsMap) {
   return errors;
 }
 
-function lintHardcodedHandles(skillsMap, handles) {
-  const errors = [];
+const NICKNAME_EXEMPT_PATTERNS = [/签名|signature/i, /来源：/, /教训/, /\[.*🐾\]/, /反面案例/];
+
+const REFS_EXEMPT_FILES = new Set([
+  'commit-signatures.md',
+  'hyperfocus-brake-messages.md',
+  'creator-context.md',
+  'mcp-tool-description-standard.md',
+]);
+
+const NICKNAME_EXEMPT_SKILLS = new Set(['hyperfocus-brake', 'bootcamp-guide', 'incident-response']);
+
+function isNicknameExemptLine(line) {
+  return NICKNAME_EXEMPT_PATTERNS.some((re) => re.test(line));
+}
+
+function stripQuotedContent(line) {
+  return line
+    .replace(/`[^`]*`/g, '')
+    .replace(/"[^"]*"/g, '')
+    .replace(/'[^']*'/g, '');
+}
+
+function collectLintTargets(skillsMap) {
+  const targets = [];
 
   for (const skillName of Object.keys(skillsMap)) {
     const skillDocPath = join(skillsRoot, skillName, 'SKILL.md');
-    if (!existsSync(skillDocPath)) continue;
+    if (existsSync(skillDocPath)) {
+      targets.push(skillDocPath);
+    }
+  }
 
-    const text = readFileSync(skillDocPath, 'utf-8');
+  const refsDir = join(skillsRoot, 'refs');
+  if (existsSync(refsDir)) {
+    for (const entry of readdirSync(refsDir, { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      if (REFS_EXEMPT_FILES.has(entry.name)) continue;
+      targets.push(join(refsDir, entry.name));
+    }
+  }
+
+  return targets;
+}
+
+function lintHardcodedHandles(skillsMap, handles, nicknames) {
+  const errors = [];
+  const targets = collectLintTargets(skillsMap);
+
+  for (const filePath of targets) {
+    const text = readFileSync(filePath, 'utf-8');
     const lines = text.split(/\r?\n/);
+    const relPath = relative(repoRoot, filePath);
+    const skillName = relPath.split('/')[1] ?? '';
+    const skipNicknames = NICKNAME_EXEMPT_SKILLS.has(skillName);
 
+    let inCodeFence = false;
     for (let index = 0; index < lines.length; index += 1) {
       const line = lines[index] ?? '';
+
+      if (/^```/.test(line.trimStart())) {
+        inCodeFence = !inCodeFence;
+        continue;
+      }
+      if (inCodeFence) continue;
+
       if (line.includes('@猫名') || line.includes('@显示名')) continue;
+
+      const stripped = stripQuotedContent(line);
 
       for (const handle of handles) {
         const re = new RegExp(`(^|[^A-Za-z0-9_.-])${escapeRegExp(handle)}(?![A-Za-z0-9_.-])`);
-        if (!re.test(line)) continue;
+        if (!re.test(stripped)) continue;
 
-        const relPath = relative(repoRoot, skillDocPath);
         errors.push(
           `[hardcoded-handle] ${relPath}:${index + 1} contains ${handle} — use role/roster reference instead`,
+        );
+      }
+
+      if (skipNicknames) continue;
+      if (isNicknameExemptLine(line)) continue;
+
+      for (const name of nicknames) {
+        if (!stripped.includes(name)) continue;
+
+        errors.push(
+          `[hardcoded-name] ${relPath}:${index + 1} contains "${name}" — use role description instead (主执行猫/QA审查猫/视觉把关猫)`,
         );
       }
     }
@@ -180,9 +256,9 @@ async function collectMcpWarnings(skillsMap) {
 async function lintManifest() {
   const parsed = loadManifest();
   const skillsMap = parsed.skills;
-  const handles = loadRosterHandles();
+  const { handles, nicknames } = loadRosterHandles();
 
-  const errors = [...lintManifestStructure(skillsMap), ...lintHardcodedHandles(skillsMap, handles)];
+  const errors = [...lintManifestStructure(skillsMap), ...lintHardcodedHandles(skillsMap, handles, nicknames)];
   const warnings = await collectMcpWarnings(skillsMap);
 
   return {

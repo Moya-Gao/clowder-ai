@@ -147,6 +147,24 @@ AI agent 100x 执行速度下，**方向正确性**的价值远大于**启动便
 
 ---
 
+## 角色词表（Skill 正文用角色词，禁用猫名）
+
+Skill/refs 中描述工作流分工时，用以下角色词代替具体猫名。运行时根据 roster 可用猫自动匹配。
+
+| 角色词 | 含义 | 匹配规则 |
+|--------|------|---------|
+| 主执行猫 / 当前持球猫 | 发起并主导当前任务的猫 | 当前 invocation 的 catId |
+| QA/审查猫 | 负责质量审查的猫 | 跨 family，有 peer-reviewer 角色 |
+| 视觉把关猫 | 负责审美/品牌/UX 审查的猫 | 跨 family，视觉设计能力猫 |
+| 守护猫 | 愿景守护（非 author 非 reviewer） | roster 排除 author + reviewer |
+| 全部参与猫 | 所有参与当前任务的猫 | 按 roster 可用猫列表 |
+
+**为什么**：猫名硬编码在 skill 里不受 roster disable 过滤，disable 猫后其他猫仍会按 skill 指令分配任务给已下线的猫。角色词 + 动态 roster = 增减猫只需改 cat-config.json。
+
+**例外**：commit 签名（`refs/commit-signatures.md`）、人格消息（`refs/hyperfocus-brake-messages.md`）、历史教训归属（"D1 教训"）可保留猫名——这些是身份/内容/归因，不是角色分配。
+
+---
+
 ## 操作规则（以下规则均为第一性原理与世界观的推论）
 
 ## 1. 交接五件套

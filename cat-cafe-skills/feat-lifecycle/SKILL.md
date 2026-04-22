@@ -194,12 +194,9 @@ AC 全打勾 ≠ 完成（F041 教训：12 项 AC ✅ 但 UI 不可用）。先�
 守护猫 ≠ 作者 且 ≠ reviewer
 选法：查 cat-config.json roster → 排除作者 catId + reviewer catId → 剩余猫中选一只
 ```
-| 作者 | Reviewer | 守护猫（示例） |
-|------|----------|---------------|
-| opus | codex | gpt52 或 gemini |
-| codex | opus | gpt52 |
-| gpt52 | codex | opus |
-| 任意 | 任意 | roster 中排除前两者，优先跨 family |
+| 作者 | Reviewer | 守护猫 |
+|------|----------|--------|
+| 猫 A | 猫 B | roster 中排除 A 和 B，优先跨 family |
 
 守护猫负责：愿景三问 + 不满足则踢回修改 + 满足则放行 close。
 

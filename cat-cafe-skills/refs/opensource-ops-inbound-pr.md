@@ -76,7 +76,7 @@
   | **为什么符合我们的架构画风 + 设计画风？** | （引用具体真相源） |
 
   - 非 user-facing PR（纯 bug fix / 内部重构）→ 跳过
-  - **UI/UX Design Gate**：带来新界面或新交互的 PR，Reframing 卡必须拉烁烁过一遍。不符合"温馨猫咖感"（F056）的，图纸阶段打回重塑，不进入 ③
+  - **UI/UX Design Gate**：带来新界面或新交互的 PR，Reframing 卡必须拉视觉把关猫过一遍。不符合"温馨猫咖感"（F056）的，图纸阶段打回重塑，不进入 ③
   - Reframing 卡结论写入 Intake Intent Issue（B3 Step 0）的补充段落
 - [ ] **③ 质量**（方向 + Reframing 通过后才审）：
   - CI / 测试通过
