@@ -29,22 +29,8 @@ let clearDoneTimeoutCalls: Array<string | undefined> = [];
 /**
  * Runs the extracted background-thread branch handler with real stores.
  */
-function simulateBackgroundMessage(msg: {
-  type: string;
-  catId: string;
-  threadId: string;
-  content?: string;
-  messageId?: string;
-  toolName?: string;
-  toolInput?: Record<string, unknown>;
-  error?: string;
-  isFinal?: boolean;
-  metadata?: { provider: string; model: string; sessionId?: string };
-  origin?: 'stream' | 'callback';
-  invocationId?: string;
-  timestamp: number;
-}) {
-  handleBackgroundAgentMessage(msg as BackgroundAgentMessage, {
+function simulateBackgroundMessage(msg: BackgroundAgentMessage) {
+  handleBackgroundAgentMessage(msg, {
     store: useChatStore.getState(),
     bgStreamRefs: testBgStreamRefs,
     finalizedBgRefs: testBgFinalizedRefs,

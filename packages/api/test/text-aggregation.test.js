@@ -16,7 +16,10 @@ describe('text aggregation helper', () => {
   });
 
   test('replace mode overwrites accumulated text', () => {
-    assert.equal(accumulateTextAggregate('第一段。第二段。', '第一段。插入一句。第二段。', 'replace'), '第一段。插入一句。第二段。');
+    assert.equal(
+      accumulateTextAggregate('第一段。第二段。', '第一段。插入一句。第二段。', 'replace'),
+      '第一段。插入一句。第二段。',
+    );
     const parts = ['第一段。第二段。'];
     const result = accumulateTextParts(parts, '第一段。插入一句。第二段。', 'replace');
     assert.strictEqual(result, parts, 'replace mode should also reuse the same array shell');
@@ -25,10 +28,7 @@ describe('text aggregation helper', () => {
 
   test('flattenTurnTextParts preserves other turns when one turn was replaced', () => {
     assert.equal(
-      flattenTurnTextParts([
-        { textParts: ['布偶猫前文。'] },
-        { textParts: ['孟加拉猫改写后的全文。'] },
-      ]),
+      flattenTurnTextParts([{ textParts: ['布偶猫前文。'] }, { textParts: ['孟加拉猫改写后的全文。'] }]),
       '布偶猫前文。孟加拉猫改写后的全文。',
     );
   });

@@ -6,7 +6,11 @@ function getPlannerText(step: TrajectoryStep): string | null {
   return planner.modifiedResponse ?? planner.response ?? null;
 }
 
-function clonePlannerStepWithText(step: TrajectoryStep, text: string, mode: 'append' | 'replace' = 'append'): TrajectoryStep {
+function clonePlannerStepWithText(
+  step: TrajectoryStep,
+  text: string,
+  mode: 'append' | 'replace' = 'append',
+): TrajectoryStep {
   const plannerResponse = { ...(step.plannerResponse ?? {}) };
   // Thinking was already emitted on first delivery — strip it from replay steps
   // to prevent duplicate system_info emissions on every delta poll cycle.
