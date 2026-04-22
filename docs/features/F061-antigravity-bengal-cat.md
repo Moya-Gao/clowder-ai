@@ -482,10 +482,11 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-21 | **Real-world verification (partial)** — `@antig-opus` 在真实 Antigravity 环境验证：`grep_search` / `view_file` / `list_dir` 通过，但 `run_command` 在简单 `git log --oneline` 上 `context canceled` 稳定复现（2/2）。`write/edit`、`model_capacity retry`、fatal → continuity 本轮尚未完整覆盖。见 `docs/features/F061-verification-2026-04-21.md` |
 | 2026-04-21 | **Bundle A reliability sweep merged** — quota-style capacity 文案（`You have exhausted your capacity on this model. Your quota will reset after 0s.`）现在也会命中 `model_capacity`，并复用现有 fresh-cascade bounded retry；同时新增 service 回归，锁定 retry 后重发的 prompt 不会丢 `callback fallback` / thread-bound reply path（PR #1320） |
 | 2026-04-21 | **Bundle B parity sweep merged** — `nativeExecuteAndPush` 现在会在 `RunCommand` unary 前显式发 `HandleCascadeUserInteraction { permission: { allowed: true }, trajectoryId, stepIndex }`，并且本地 refusal 规则会先于 permission approval 生效，危险命令不会先被上游放行；permission guard RPC 自身失败时也不再阻断 `pushToolResult` fallback（PR #1321） |
+| 2026-04-22 | **Runtime hardening merged** — `run_command` 失败现在会带 `failureLayer / dispatchState / executionJournal` 诊断；approval failures 拆成 `approval_gate.denied|timeout`；只对“未 dispatch + 只读 + `SafeToAutoRun=true`”的命令开放 bounded fresh-cascade retry；并补上多轮云端 review 发现的边界护栏（`git branch`/`git diff|show|log --output`/shell substitutions & var expansion/quoted split `--output`、历史 resolved tool step / native dispatch 抑制 retry、`RUN_COMMAND:ERROR` 仍归 `approval_gate` 等），对应 PR #1330 |
 
 ---
 
-## Issue Snapshot（2026-04-21 更新）
+## Issue Snapshot（2026-04-22 更新）
 
 ### 已修：MCP / 接入链路
 
@@ -502,25 +503,22 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 |------|------|----------|------|
 | [ ] | 写文件/改代码仍不稳定（截图描述：`run_command` 经常 `context canceled`） | Bug-8 v1 已解开 `WAITING` 死锁，但 native file/code parity 仍只覆盖 `run_command`。`read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob` 还在 follow-up。`@antig-opus` 2026-04-21 实测也确认：只读工具可用，但 `run_command` 在简单 `git log --oneline` 上仍 `context canceled` 2/2 复现。PR #1321 已补上 permission guard 前置调用，并确保危险命令先本地拒绝、permission RPC 失败时 fallback 不丢；下一步仍需实机复验这条 guard 是否足以消掉 `PromptUser → context canceled` | **Phase 2c v2**：AC-2cR4 + AC-2cI6 |
 | [ ] | bug 炸掉后整段 conversation 仍可能“重新认人” | G0 resume 与 PR #1299 已恢复大部分 continuity，但目前还没有专门锁“fatal error → 下一轮仍保上下文”的回归用例；这是 field report，不该宣称已完全解决 | **G0/G10 follow-up**：补 repro + continuity regression test |
-| [~] | retry 经常只 retry 1 次然后直接挂住 | 已确认“只 retry 1 次然后挂住”不是 retry 预算天然只有 1 次，而是旧实现会在 capacity retry 后落到 v2 尚未支持的 WAITING tool step（如 `grep_search`）并静默 stall。PR #1318 已把这条路径改成 fail-fast 显式报 `unsupported_waiting_tool`；PR #1320 也已把 quota-style capacity 文案补进 `model_capacity` 分类并锁住 retry 后 callback fallback 不丢。剩余还是 v2 executors / telemetry / 实机复验 | **G10 follow-up（P1）**：本轮先收 classifier + continuity guard；剩余继续跟 Phase 2c v2 / telemetry |
+| [~] | retry 经常只 retry 1 次然后直接挂住 | 已确认“只 retry 1 次然后挂住”不是 retry 预算天然只有 1 次，而是旧实现会在 capacity retry 后落到 v2 尚未支持的 WAITING tool step（如 `grep_search`）并静默 stall。PR #1318 已把这条路径改成 fail-fast 显式报 `unsupported_waiting_tool`；PR #1320 补上 quota-style capacity classifier；PR #1330 进一步把 retry 收窄到“未 dispatch + 只读 + `SafeToAutoRun=true`”，并补齐 `failureLayer / dispatchState / executionJournal` 诊断，避免把 approval-gated / 已执行 / 已完成 tool step 误当成可安全重试。剩余还是 v2 executors / telemetry / 实机复验 | **G10 follow-up（P1）**：剩余继续跟 Phase 2c v2 / telemetry / 实机复验 |
 
 ---
 
-## Next Reliability Queue（2026-04-21）
+## Next Reliability Queue（2026-04-22）
 
 围绕 `run_command` 的 approval / dispatch / capacity 脆弱性，后续修复顺序先收敛为 4 条：
 
-1. **P0 — execution journal + layer-tagged errors**
-   - 把 `approval_sent / approval_resolved / rpc_sent / rpc_returned / writeback_sent / terminal_error` 明确打点
-   - 同时把错误拆成 `before_dispatch` / `after_dispatch`，并区分 Cat Cafe service 层 vs Antigravity IDE 层
-2. **P1 — approval correlation validation**
-   - 验证 `HandleCascadeUserInteraction { permission: { allowed: true }, trajectoryId, stepIndex }` 是否真的命中正确 step
-   - 继续区分“前置拦截（立即拒绝）”和“approval 等待（超时取消）”两条路径
-3. **P2 — safe retry for undispatched read-only commands**
-   - 只对确认**未 dispatch**且**只读**的命令（如 `pwd` / `ls` / `git log`）允许自动重试
-   - 避免对写文件/改状态类命令静默重放
-4. **P3 — evaluate IDE approval bypass / stream writeback**
-   - 只有在 P1 证明现有 approval correlation 永远不够时，才进入更重的 bypass / stream writeback 方案
+1. **[x] P0 — execution journal + layer-tagged errors**
+   - `failureLayer / dispatchState / executionJournal / retrySuppressedBy` 已在 PR #1330 落地
+2. **[x] P1 — approval correlation validation**
+   - approval failures 已细分为 `approval_gate.denied|timeout`，且 `RUN_COMMAND:ERROR` 与缺 `toolCall.name` 形状都已覆盖
+3. **[x] P2 — safe retry for undispatched read-only commands**
+   - PR #1330 已把 retry 严格收窄到“未 dispatch + 只读 + `SafeToAutoRun=true`”，并挡住 quoted `--output` / shell substitutions / var expansion / 历史 resolved tool step 等重放风险
+4. **[ ] P3 — evaluate IDE approval bypass / stream writeback**
+   - 只有在后续实机证据证明现有 approval correlation 仍不够时，才进入更重的 bypass / stream writeback 方案
 
 实施计划见：`docs/plans/2026-04-21-f061-run-command-reliability-hardening.md`
 
