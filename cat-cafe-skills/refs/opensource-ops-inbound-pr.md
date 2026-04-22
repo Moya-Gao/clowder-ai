@@ -345,6 +345,11 @@ bash scripts/intake-from-opensource.sh --record --pr {N} --decision absorbed \
 bash scripts/intake-from-opensource.sh --advance-ledger
 ```
 
+`--review-proof` 不是“有链接就行”：
+- URL 证据必须指向同一个 absorb PR（`cat-cafe#<absorb-pr>`）的 `#issuecomment-*` / `#pullrequestreview-*` / `#discussion_r*`
+- 且证据内容必须显式覆盖 absorb PR 当前 HEAD（写出当前 SHA，或 review payload 的 `commit_id` = 当前 HEAD）
+- 本地文件证据也必须包含当前 HEAD SHA（全长或 short SHA）
+
 如果 `--advance-ledger` 失败，说明**还有别的社区 PR 没登记**，不能把当前 PR 停在”已吸收但没推进水位”的半状态。
 先把遗漏 PR 补 record，再重新跑 advance。
 
