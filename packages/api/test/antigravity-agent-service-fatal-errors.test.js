@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { describe, mock, test } from 'node:test';
 import { AntigravityAgentService } from '../dist/domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { collect, createMockBridge } from './antigravity-agent-service-test-helpers.js';
 
@@ -259,6 +259,300 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     );
   });
 
+  test('user denied permission on waiting run_command exposes approval_gate denied diagnostics', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: { error: { userErrorMessage: 'user denied permission' } },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_perm_denied',
+                name: 'run_command',
+                argumentsJson: '{"CommandLine":"curl -fsS https://example.com","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 5 },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const err = messages.find((m) => m.type === 'error' && m.errorCode === 'upstream_error');
+    assert.ok(err, 'must surface upstream_error');
+    const diag = err.metadata?.diagnostics;
+    assert.ok(diag, 'approval denial should carry diagnostics');
+    assert.equal(diag.failureLayer, 'approval_gate');
+    assert.equal(diag.dispatchState, 'before_dispatch');
+    assert.equal(diag.approvalState, 'denied');
+    assert.equal(diag.toolishToolName, 'run_command');
+    assert.deepEqual(diag.executionJournal, {
+      approvalSent: false,
+      dispatchAttempted: false,
+      dispatchReturned: false,
+      writebackSent: false,
+    });
+  });
+
+  test('context canceled on waiting run_command exposes approval_gate timeout diagnostics', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: { error: { userErrorMessage: 'context canceled' } },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_perm_timeout',
+                name: 'run_command',
+                argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 6 },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const err = messages.find((m) => m.type === 'error' && m.errorCode === 'upstream_error');
+    assert.ok(err, 'must surface upstream_error');
+    const diag = err.metadata?.diagnostics;
+    assert.ok(diag, 'approval timeout should carry diagnostics');
+    assert.equal(diag.failureLayer, 'approval_gate');
+    assert.equal(diag.dispatchState, 'before_dispatch');
+    assert.equal(diag.approvalState, 'timeout');
+    assert.equal(diag.toolishToolName, 'run_command');
+    assert.deepEqual(diag.executionJournal, {
+      approvalSent: false,
+      dispatchAttempted: false,
+      dispatchReturned: false,
+      writebackSent: false,
+    });
+  });
+
+  test('context canceled on run_command without toolCall.name still exposes approval_gate timeout diagnostics', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: { error: { userErrorMessage: 'context canceled' } },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_ERROR',
+            metadata: {
+              toolCall: {
+                id: 'toolu_perm_missing_name',
+                argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 9 },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const err = messages.find((m) => m.type === 'error' && m.errorCode === 'upstream_error');
+    assert.ok(err, 'must surface upstream_error');
+    const diag = err.metadata?.diagnostics;
+    assert.ok(diag, 'missing-name run_command should still carry approval diagnostics');
+    assert.equal(diag.failureLayer, 'approval_gate');
+    assert.equal(diag.dispatchState, 'before_dispatch');
+    assert.equal(diag.approvalState, 'timeout');
+    assert.equal(diag.toolishToolName, 'run_command');
+    assert.deepEqual(diag.executionJournal, {
+      approvalSent: false,
+      dispatchAttempted: false,
+      dispatchReturned: false,
+      writebackSent: false,
+    });
+  });
+
+  test('context canceled on errored run_command still carries approval_gate diagnostics', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: { error: { userErrorMessage: 'context canceled' } },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_ERROR',
+            metadata: {
+              toolCall: {
+                id: 'toolu_perm_error',
+                name: 'run_command',
+                argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 8 },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const err = messages.find((m) => m.type === 'error' && m.errorCode === 'upstream_error');
+    assert.ok(err, 'must surface upstream_error');
+    const diag = err.metadata?.diagnostics;
+    assert.ok(diag, 'errored run_command approval timeout should still carry diagnostics');
+    assert.equal(diag.failureLayer, 'approval_gate');
+    assert.equal(diag.approvalState, 'timeout');
+    assert.equal(diag.toolishStepType, 'CORTEX_STEP_TYPE_RUN_COMMAND');
+    assert.equal(diag.toolishToolName, 'run_command');
+  });
+
+  test('context canceled on non-run_command tool step stays upstream_error without approval_gate relabel', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: { error: { userErrorMessage: 'context canceled' } },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_GREP_SEARCH',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_grep_timeout',
+                name: 'grep_search',
+                argumentsJson: '{"Pattern":"foo","Path":"src"}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 7 },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const err = messages.find((m) => m.type === 'error' && m.errorCode === 'upstream_error');
+    assert.ok(err, 'must surface upstream_error');
+    assert.notEqual(
+      err.metadata?.diagnostics?.failureLayer,
+      'approval_gate',
+      'non-run_command tool steps must not be mislabeled as approval_gate failures',
+    );
+  });
+
+  test('context canceled with mixed toolish steps does not relabel approval_gate', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: { error: { userErrorMessage: 'context canceled' } },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_GREP_SEARCH',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_grep_pending',
+                name: 'grep_search',
+                argumentsJson: '{"Pattern":"foo","Path":"src"}',
+              },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_ERROR',
+            metadata: {
+              toolCall: {
+                id: 'toolu_runcommand_unrelated',
+                argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 3, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const err = messages.find((m) => m.type === 'error' && m.errorCode === 'upstream_error');
+    assert.ok(err, 'must surface upstream_error');
+    assert.notEqual(
+      err.metadata?.diagnostics?.failureLayer,
+      'approval_gate',
+      'mixed toolish batches must not attribute the failure to an unrelated run_command step',
+    );
+  });
+
   test('model_capacity still triggers early abort — no ghost text', async () => {
     const bridge = createMockBridge();
     bridge.pollForSteps = async function* () {
@@ -302,6 +596,782 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
       errors.some((e) => e.errorCode === 'model_capacity'),
       'must have model_capacity',
     );
+  });
+
+  test('model_capacity with waiting run_command exposes before_dispatch diagnostics', async () => {
+    const bridge = createMockBridge();
+    bridge.nativeExecuteAndPush = mock.fn(async () => true);
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_before_dispatch',
+                name: 'run_command',
+                argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 3 },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    assert.equal(
+      bridge.nativeExecuteAndPush.mock.callCount?.() ?? 0,
+      0,
+      'service must not dispatch native executor once terminalAbort is set by model_capacity',
+    );
+    const capacity = messages.find((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.ok(capacity, 'must surface model_capacity');
+    const diag = capacity.metadata?.diagnostics;
+    assert.ok(diag, 'model_capacity should carry diagnostics for dispatch triage');
+    assert.equal(diag.failureLayer, 'provider_capacity');
+    assert.equal(diag.dispatchState, 'before_dispatch');
+    assert.equal(diag.retryEligible, false);
+    assert.equal(diag.retrySuppressedBy, 'retry_budget_exhausted');
+    assert.equal(diag.toolishStepType, 'CORTEX_STEP_TYPE_RUN_COMMAND');
+    assert.equal(diag.toolishToolName, 'run_command');
+    assert.deepEqual(diag.executionJournal, {
+      approvalSent: false,
+      dispatchAttempted: false,
+      dispatchReturned: false,
+      writebackSent: false,
+    });
+  });
+
+  test('model_capacity with pending tool call stays before_dispatch', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_TOOL_CALL',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            toolCall: {
+              toolName: 'grep_search',
+              input: '{"Pattern":"foo","Path":"src"}',
+            },
+            metadata: {
+              toolCall: {
+                id: 'toolu_pending_grep',
+                name: 'grep_search',
+                argumentsJson: '{"Pattern":"foo","Path":"src"}',
+              },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const capacity = messages.find((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.ok(capacity, 'must surface model_capacity');
+    assert.equal(capacity.metadata?.diagnostics?.dispatchState, 'before_dispatch');
+    assert.deepEqual(capacity.metadata?.diagnostics?.executionJournal, {
+      approvalSent: false,
+      dispatchAttempted: false,
+      dispatchReturned: false,
+      writebackSent: false,
+    });
+  });
+
+  test('model_capacity retries when the blocked waiting run_command is read-only and undispatched', async () => {
+    const bridge = createMockBridge();
+    bridge.nativeExecuteAndPush = mock.fn(async () => true);
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () => ['cascade-1', 'cascade-2'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'FINISHED',
+              errorMessage: {
+                error: {
+                  userErrorMessage:
+                    'Our servers are experiencing high traffic right now, please try again in a minute.',
+                },
+              },
+            },
+            {
+              type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+              status: 'CORTEX_STEP_STATUS_WAITING',
+              metadata: {
+                toolCall: {
+                  id: 'toolu_read_only',
+                  name: 'run_command',
+                  argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":true}',
+                },
+                sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 3 },
+              },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 2,
+            terminalSeen: false,
+            lastActivityAt: Date.now(),
+          },
+        };
+        return;
+      }
+
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'Recovered after read-only retry.' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const texts = messages.filter((m) => m.type === 'text').map((m) => m.content);
+    assert.deepEqual(texts, ['Recovered after read-only retry.']);
+    const capacityErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.equal(capacityErrors.length, 0, 'read-only undispatched command should not surface terminal model_capacity');
+    const warnings = messages.filter((m) => m.type === 'provider_signal');
+    assert.equal(warnings.length, 1, 'should still emit retry warning');
+    assert.equal(bridge.nativeExecuteAndPush.mock.callCount(), 1, 'recovered cascade still probes bridge once');
+    assert.ok(
+      bridge.nativeExecuteAndPush.mock.calls.every(
+        (call) => call.arguments[0]?.metadata?.toolCall?.id !== 'toolu_read_only',
+      ),
+      'read-only retry must happen before the blocked waiting command itself is dispatched',
+    );
+    assert.equal(bridge.resetSession.mock.callCount(), 1, 'should reset and retry on a fresh cascade');
+  });
+
+  test('model_capacity does not retry a read-only waiting run_command when SafeToAutoRun is false', async () => {
+    const bridge = createMockBridge();
+    bridge.nativeExecuteAndPush = mock.fn(async () => true);
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_read_only_not_safe',
+                name: 'run_command',
+                argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":false}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 12 },
+            },
+          },
+        ],
+        cursor: {
+          baselineStepCount: 0,
+          lastDeliveredStepCount: 2,
+          terminalSeen: true,
+          lastActivityAt: Date.now(),
+        },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const capacity = messages.find((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.ok(capacity, 'must surface model_capacity when SafeToAutoRun is false');
+    assert.equal(bridge.resetSession.mock.callCount(), 0, 'must not retry approval-gated commands');
+    assert.equal(capacity.metadata?.diagnostics?.retryEligible, false);
+  });
+
+  test('model_capacity reports retry_budget_exhausted when a read-only waiting run_command has no retries left', async () => {
+    const bridge = createMockBridge();
+    bridge.nativeExecuteAndPush = mock.fn(async () => true);
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_budget_exhausted',
+                name: 'run_command',
+                argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 11 },
+            },
+          },
+        ],
+        cursor: {
+          baselineStepCount: 0,
+          lastDeliveredStepCount: 2,
+          terminalSeen: true,
+          lastActivityAt: Date.now(),
+        },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const capacity = messages.find((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.ok(capacity, 'must surface model_capacity once retry budget is exhausted');
+    assert.equal(capacity.metadata?.diagnostics?.retryEligible, false);
+    assert.equal(capacity.metadata?.diagnostics?.retrySuppressedBy, 'retry_budget_exhausted');
+    assert.equal(bridge.resetSession.mock.callCount(), 0, 'must not retry once budget is exhausted');
+  });
+
+  test('model_capacity retries for read-only waiting run_command even when toolCall.name is missing', async () => {
+    const bridge = createMockBridge();
+    bridge.nativeExecuteAndPush = mock.fn(async () => true);
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () => ['cascade-1', 'cascade-2'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'FINISHED',
+              errorMessage: {
+                error: {
+                  userErrorMessage:
+                    'Our servers are experiencing high traffic right now, please try again in a minute.',
+                },
+              },
+            },
+            {
+              type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+              status: 'CORTEX_STEP_STATUS_WAITING',
+              metadata: {
+                toolCall: {
+                  id: 'toolu_read_only_missing_name',
+                  argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":true}',
+                },
+                sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 10 },
+              },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 2,
+            terminalSeen: false,
+            lastActivityAt: Date.now(),
+          },
+        };
+        return;
+      }
+
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'Recovered after missing-name retry.' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const texts = messages.filter((m) => m.type === 'text').map((m) => m.content);
+    assert.deepEqual(texts, ['Recovered after missing-name retry.']);
+    assert.equal(bridge.resetSession.mock.callCount(), 1, 'missing-name run_command should still qualify for safe retry');
+  });
+
+  test('model_capacity still does not retry when the waiting run_command is mutating', async () => {
+    const bridge = createMockBridge();
+    bridge.nativeExecuteAndPush = mock.fn(async () => true);
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_mutating',
+                name: 'run_command',
+                argumentsJson:
+                  '{"CommandLine":"mkdir -p /tmp/cc-antig-probe && date > /tmp/cc-antig-probe/run.txt","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 3 },
+            },
+          },
+        ],
+        cursor: {
+          baselineStepCount: 0,
+          lastDeliveredStepCount: 2,
+          terminalSeen: true,
+          lastActivityAt: Date.now(),
+        },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const capacity = messages.find((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.ok(capacity, 'mutating command should still surface model_capacity');
+    assert.equal(bridge.resetSession.mock.callCount(), 0, 'must not retry mutating commands');
+    assert.equal(
+      bridge.nativeExecuteAndPush.mock.callCount(),
+      0,
+      'mutating command is still undispatched in this batch, but retry must remain disabled',
+    );
+    assert.equal(capacity.metadata?.diagnostics?.retryEligible, false);
+  });
+
+  test('model_capacity does not retry when waiting steps are mixed even if the first one is read-only', async () => {
+    const bridge = createMockBridge();
+    bridge.nativeExecuteAndPush = mock.fn(async () => true);
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_read_only_first',
+                name: 'run_command',
+                argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 3 },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_mutating_second',
+                name: 'run_command',
+                argumentsJson:
+                  '{"CommandLine":"mkdir -p /tmp/cc-antig-probe && date > /tmp/cc-antig-probe/run.txt","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 4 },
+            },
+          },
+        ],
+        cursor: {
+          baselineStepCount: 0,
+          lastDeliveredStepCount: 3,
+          terminalSeen: true,
+          lastActivityAt: Date.now(),
+        },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const capacity = messages.find((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.ok(capacity, 'mixed waiting steps should still surface model_capacity');
+    assert.equal(bridge.resetSession.mock.callCount(), 0, 'must not retry mixed waiting-step batches');
+    assert.equal(capacity.metadata?.diagnostics?.retryEligible, false);
+  });
+
+  test('model_capacity does not retry after native dispatch already happened earlier in the invoke', async () => {
+    const bridge = createMockBridge();
+    bridge.nativeExecuteAndPush = mock.fn(async () => true);
+    let pollCount = 0;
+    bridge.pollForSteps = async function* () {
+      pollCount += 1;
+      if (pollCount === 1) {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+              status: 'CORTEX_STEP_STATUS_WAITING',
+              metadata: {
+                toolCall: {
+                  id: 'toolu_prior_dispatch',
+                  name: 'run_command',
+                  argumentsJson: '{"CommandLine":"pwd","Cwd":"/tmp","SafeToAutoRun":true}',
+                },
+                sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 1 },
+              },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 1,
+            terminalSeen: false,
+            lastActivityAt: Date.now(),
+          },
+        };
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'FINISHED',
+              errorMessage: {
+                error: {
+                  userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+                },
+              },
+            },
+            {
+              type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+              status: 'CORTEX_STEP_STATUS_WAITING',
+              metadata: {
+                toolCall: {
+                  id: 'toolu_read_only_late',
+                  name: 'run_command',
+                  argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":true}',
+                },
+                sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 2 },
+              },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 3,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+      }
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const capacity = messages.find((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.ok(capacity, 'capacity should still surface once native dispatch already happened');
+    assert.equal(bridge.resetSession.mock.callCount(), 0, 'must not retry after native dispatch in the same invoke');
+    assert.equal(capacity.metadata?.diagnostics?.retrySuppressedBy, 'native_dispatch_seen');
+    assert.equal(capacity.metadata?.diagnostics?.dispatchState, 'after_dispatch');
+    assert.deepEqual(capacity.metadata?.diagnostics?.executionJournal, {
+      approvalSent: false,
+      dispatchAttempted: true,
+      dispatchReturned: true,
+      writebackSent: true,
+    });
+  });
+
+  test('model_capacity does not retry after an earlier batch already finished a run_command upstream', async () => {
+    const bridge = createMockBridge();
+    let pollCount = 0;
+    bridge.pollForSteps = async function* () {
+      pollCount += 1;
+      if (pollCount === 1) {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+              status: 'FINISHED',
+              metadata: {
+                toolCall: {
+                  id: 'toolu_upstream_finished',
+                  name: 'run_command',
+                  argumentsJson: '{"CommandLine":"mkdir -p /tmp/cc-antig-probe","Cwd":"/tmp","SafeToAutoRun":true}',
+                },
+                sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 1 },
+              },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 1,
+            terminalSeen: false,
+            lastActivityAt: Date.now(),
+          },
+        };
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'FINISHED',
+              errorMessage: {
+                error: {
+                  userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+                },
+              },
+            },
+            {
+              type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+              status: 'CORTEX_STEP_STATUS_WAITING',
+              metadata: {
+                toolCall: {
+                  id: 'toolu_waiting_after_finished',
+                  name: 'run_command',
+                  argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":true}',
+                },
+                sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 2 },
+              },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 3,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+      }
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const capacity = messages.find((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.ok(capacity, 'must surface model_capacity after earlier finished tool step');
+    assert.equal(bridge.resetSession.mock.callCount(), 0, 'must not retry once an earlier batch already finished a toolish step');
+    assert.equal(capacity.metadata?.diagnostics?.retrySuppressedBy, 'resolved_toolish_step_seen');
+    assert.equal(capacity.metadata?.diagnostics?.dispatchState, 'after_dispatch');
+  });
+
+  test('model_capacity in a mixed batch with a finished tool step reports after_dispatch diagnostics', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'FINISHED',
+            metadata: {
+              toolCall: {
+                id: 'toolu_finished_same_batch',
+                name: 'run_command',
+                argumentsJson: '{"CommandLine":"pwd","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 1 },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_waiting_same_batch',
+                name: 'run_command',
+                argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 2 },
+            },
+          },
+        ],
+        cursor: {
+          baselineStepCount: 0,
+          lastDeliveredStepCount: 3,
+          terminalSeen: true,
+          lastActivityAt: Date.now(),
+        },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const capacity = messages.find((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.ok(capacity, 'must surface model_capacity');
+    assert.equal(capacity.metadata?.diagnostics?.dispatchState, 'after_dispatch');
+    assert.equal(capacity.metadata?.diagnostics?.retrySuppressedBy, 'resolved_toolish_step_seen');
+    assert.deepEqual(capacity.metadata?.diagnostics?.executionJournal, {
+      approvalSent: false,
+      dispatchAttempted: true,
+      dispatchReturned: true,
+      writebackSent: true,
+    });
+  });
+
+  test('model_capacity does not retry when a finished toolish step shares the batch with a waiting read-only run_command', async () => {
+    const bridge = createMockBridge();
+    bridge.nativeExecuteAndPush = mock.fn(async () => true);
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'FINISHED',
+            metadata: {
+              toolCall: {
+                id: 'toolu_finished_prior',
+                name: 'run_command',
+                argumentsJson: '{"CommandLine":"pwd","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 1 },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_waiting_read_only',
+                name: 'run_command',
+                argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 2 },
+            },
+          },
+        ],
+        cursor: {
+          baselineStepCount: 0,
+          lastDeliveredStepCount: 3,
+          terminalSeen: true,
+          lastActivityAt: Date.now(),
+        },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const capacity = messages.find((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.ok(capacity, 'mixed finished+waiting toolish batch should still surface model_capacity');
+    assert.equal(bridge.resetSession.mock.callCount(), 0, 'must not retry when another toolish step already exists in the batch');
+    assert.equal(capacity.metadata?.diagnostics?.retryEligible, false);
   });
 
   test('model_capacity aborts even when upstream_error co-occurs in same batch', async () => {

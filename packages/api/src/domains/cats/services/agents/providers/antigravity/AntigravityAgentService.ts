@@ -25,7 +25,7 @@ import { classifyStep, transformTrajectorySteps } from './antigravity-event-tran
 import { summarizeStepShape, TRACE_ENABLED, traceLog } from './antigravity-trace.js';
 import { AuditLogger } from './executors/AuditLogger.js';
 import { ExecutorRegistry } from './executors/ExecutorRegistry.js';
-import { RunCommandExecutor } from './executors/RunCommandExecutor.js';
+import { isReadOnlyRunCommand, RunCommandExecutor } from './executors/RunCommandExecutor.js';
 
 const log = createModuleLogger('antigravity-service');
 const STREAM_ERROR_GRACE_WINDOW_MS = 4_500;
@@ -199,6 +199,9 @@ export class AntigravityAgentService implements AgentService {
         let stallProbed = false;
         let lastDelivered = stepsBefore;
         let attemptHasToolActivity = false;
+        let attemptHasDispatchedToolResult = false;
+        let attemptHasNativeDispatch = false;
+        let attemptHasResolvedToolishStep = false;
         let modelCapacityRetryDelayMs: number | null = null;
         const handledToolCallIds = new Set<string>();
         let pendingStreamError: AgentMessage | null = null;
@@ -331,14 +334,131 @@ export class AntigravityAgentService implements AgentService {
               const batchHasModelCapacity = messages.some(
                 (msg) => msg.type === 'error' && msg.errorCode === 'model_capacity',
               );
+              const getToolishToolName = (step: (typeof batch.steps)[number] | undefined) =>
+                step?.metadata?.toolCall?.name ?? step?.toolCall?.toolName ?? step?.toolResult?.toolName;
+              const firstToolishStep = batch.steps.find(
+                (step) =>
+                  step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND' ||
+                  step.status === 'CORTEX_STEP_STATUS_WAITING' ||
+                  Boolean(step.toolCall) ||
+                  Boolean(step.toolResult) ||
+                  Boolean(step.metadata?.toolCall?.id),
+              );
+              const allBatchToolishStepCount = batch.steps.filter(
+                (step) =>
+                  step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND' ||
+                  step.status === 'CORTEX_STEP_STATUS_WAITING' ||
+                  Boolean(step.toolCall) ||
+                  Boolean(step.toolResult) ||
+                  Boolean(step.metadata?.toolCall?.id),
+              ).length;
+              const batchHasResolvedToolishStep = batch.steps.some(
+                (step) => {
+                  const isToolish =
+                    step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND' ||
+                    Boolean(step.toolCall) ||
+                    Boolean(step.toolResult) ||
+                    Boolean(step.metadata?.toolCall?.id);
+                  if (!isToolish) return false;
+                  if (step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND') {
+                    return (
+                      step.status !== 'CORTEX_STEP_STATUS_WAITING' &&
+                      step.status !== 'CORTEX_STEP_STATUS_ERROR'
+                    );
+                  }
+                  return step.status !== 'CORTEX_STEP_STATUS_WAITING';
+                },
+              );
+              const waitingToolishSteps = batch.steps.filter((step) => step.status === 'CORTEX_STEP_STATUS_WAITING');
+              const blockingToolishStep = waitingToolishSteps[0] ?? firstToolishStep;
+              const blockingStepIsRunCommand = blockingToolishStep?.type === 'CORTEX_STEP_TYPE_RUN_COMMAND';
+              const approvalDiagnosticSteps = batch.steps.filter(
+                (step) =>
+                  step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND' &&
+                  (step.status === 'CORTEX_STEP_STATUS_WAITING' || step.status === 'CORTEX_STEP_STATUS_ERROR'),
+              );
+              const approvalDiagnosticStep =
+                allBatchToolishStepCount === 1 && approvalDiagnosticSteps.length === 1
+                  ? approvalDiagnosticSteps[0]
+                  : undefined;
+              const toolishToolName = getToolishToolName(blockingToolishStep) ?? (blockingStepIsRunCommand ? 'run_command' : undefined);
+              const approvalDiagnosticToolName =
+                getToolishToolName(approvalDiagnosticStep) ??
+                (approvalDiagnosticStep?.type === 'CORTEX_STEP_TYPE_RUN_COMMAND' ? 'run_command' : undefined);
+              let toolishCommandLine: string | undefined;
+              let toolishSafeToAutoRun = false;
+              if (blockingStepIsRunCommand) {
+                try {
+                  const args = JSON.parse(blockingToolishStep?.metadata?.toolCall?.argumentsJson ?? '{}') as Record<
+                    string,
+                    unknown
+                  >;
+                  toolishSafeToAutoRun = args.SafeToAutoRun === true;
+                  toolishCommandLine = (
+                    (args.CommandLine as string | undefined) ?? (args.commandLine as string | undefined)
+                  )?.trim();
+                } catch {
+                  toolishSafeToAutoRun = false;
+                  toolishCommandLine = undefined;
+                }
+              }
+              // Safe retry only applies when the blocking step is a read-only
+              // run_command. Any other waiting tool remains terminal until we
+              // can prove dispatch/writeback state more precisely.
+              const singleBlockingWaitingRunCommand =
+                allBatchToolishStepCount === 1 &&
+                waitingToolishSteps.length === 1 &&
+                blockingStepIsRunCommand &&
+                blockingToolishStep?.status === 'CORTEX_STEP_STATUS_WAITING' &&
+                true;
+              const toolishRetryEligible =
+                singleBlockingWaitingRunCommand && toolishSafeToAutoRun && toolishCommandLine
+                  ? isReadOnlyRunCommand(toolishCommandLine)
+                  : false;
+              const buildBeforeDispatchDiagnostics = (failureLayer: string, extra: Record<string, unknown> = {}) => ({
+                failureLayer,
+                dispatchState:
+                  batchHasResolvedToolishStep ||
+                  attemptHasResolvedToolishStep ||
+                  attemptHasNativeDispatch ||
+                  attemptHasDispatchedToolResult
+                    ? 'after_dispatch'
+                    : batchHasToolishStep
+                      ? 'before_dispatch'
+                      : 'unknown',
+                toolishStepType: blockingToolishStep?.type,
+                toolishToolName,
+                executionJournal: {
+                  approvalSent: false,
+                  dispatchAttempted:
+                    batchHasResolvedToolishStep ||
+                    attemptHasResolvedToolishStep ||
+                    attemptHasNativeDispatch ||
+                    attemptHasDispatchedToolResult,
+                  dispatchReturned:
+                    batchHasResolvedToolishStep ||
+                    attemptHasResolvedToolishStep ||
+                    attemptHasNativeDispatch ||
+                    attemptHasDispatchedToolResult,
+                  writebackSent:
+                    batchHasResolvedToolishStep ||
+                    attemptHasResolvedToolishStep ||
+                    attemptHasNativeDispatch ||
+                    attemptHasDispatchedToolResult,
+                },
+                toolishRetryEligible,
+                ...extra,
+              });
               const shouldRetryModelCapacity =
                 batchHasModelCapacity &&
                 !batchHasUpstreamError &&
                 !hasText &&
                 !batchHasText &&
+                !attemptHasResolvedToolishStep &&
+                !attemptHasNativeDispatch &&
                 !attemptHasToolActivity &&
                 !batchHasToolActivity &&
-                !batchHasToolishStep &&
+                (!batchHasToolishStep || toolishRetryEligible) &&
                 capacityRetryCount < self.modelCapacityRetryDelaysMs.length;
 
               const batchMsgTypeCounts: Record<string, number> = {};
@@ -384,8 +504,10 @@ export class AntigravityAgentService implements AgentService {
                     }
                     hasText = true;
                   }
-                  if (msg.type === 'tool_use' || msg.type === 'tool_result') {
+                  if (msg.type === 'tool_use') attemptHasToolActivity = true;
+                  if (msg.type === 'tool_result') {
                     attemptHasToolActivity = true;
+                    attemptHasDispatchedToolResult = true;
                   }
                   yield msg;
                   continue;
@@ -414,7 +536,39 @@ export class AntigravityAgentService implements AgentService {
                   }
                   fatalSeen = true;
                   terminalAbort = true;
-                  yield msg;
+                  const errorMetadata = msg.metadata ?? metadata;
+                  // This branch is exactly the ambiguity we are debugging:
+                  // the model has surfaced a capacity error, but we also saw a
+                  // tool-ish step in the same batch, so automatic retry is
+                  // intentionally suppressed until we know whether dispatch ran.
+                  yield {
+                    ...msg,
+                    metadata: {
+                      ...errorMetadata,
+                      diagnostics: {
+                        ...errorMetadata.diagnostics,
+                        ...buildBeforeDispatchDiagnostics('provider_capacity', {
+                          retryEligible: false,
+                          retrySuppressedBy: batchHasResolvedToolishStep || attemptHasResolvedToolishStep
+                            ? 'resolved_toolish_step_seen'
+                            : attemptHasNativeDispatch
+                              ? 'native_dispatch_seen'
+                            : attemptHasToolActivity || batchHasToolActivity
+                              ? 'tool_activity_seen'
+                              : batchHasToolishStep && !toolishRetryEligible
+                                ? 'toolish_step_present'
+                                : hasText || batchHasText
+                                  ? 'text_seen'
+                                  : batchHasUpstreamError
+                                  ? 'cooccurring_upstream_error'
+                                  : capacityRetryCount >= self.modelCapacityRetryDelaysMs.length
+                                    ? 'retry_budget_exhausted'
+                                    : 'terminal_policy',
+                        }),
+                        retryEligible: false,
+                      },
+                    },
+                  };
                   continue;
                 }
 
@@ -423,6 +577,27 @@ export class AntigravityAgentService implements AgentService {
                   if (pendingStreamError) {
                     log.info({ cascadeId }, 'stream_error superseded by upstream_error');
                     clearPendingStreamError('superseded');
+                  }
+                  const errorMetadata = msg.metadata ?? metadata;
+                  const rawError = msg.error ?? '';
+                  const looksLikeApprovalDenied = /user denied permission/i.test(rawError);
+                  const looksLikeApprovalTimeout = /context canceled/i.test(rawError);
+                  if (approvalDiagnosticStep?.type === 'CORTEX_STEP_TYPE_RUN_COMMAND' && (looksLikeApprovalDenied || looksLikeApprovalTimeout)) {
+                    yield {
+                      ...msg,
+                      metadata: {
+                        ...errorMetadata,
+                        diagnostics: {
+                          ...errorMetadata.diagnostics,
+                          ...buildBeforeDispatchDiagnostics('approval_gate', {
+                            approvalState: looksLikeApprovalDenied ? 'denied' : 'timeout',
+                            toolishStepType: approvalDiagnosticStep.type,
+                            toolishToolName: approvalDiagnosticToolName,
+                          }),
+                        },
+                      },
+                    };
+                    continue;
                   }
                   yield msg;
                   continue;
@@ -461,6 +636,12 @@ export class AntigravityAgentService implements AgentService {
                     cwd: sanitizedDir,
                     modelName: self.model,
                   });
+                  if (handled === true) {
+                    // Any truthy native step handling means this invoke already
+                    // advanced a local tool path, so later capacity errors must
+                    // not be treated as safely undispatched.
+                    attemptHasNativeDispatch = true;
+                  }
                   if (handled === true && toolCallId) handledToolCallIds.add(toolCallId);
                   if (
                     handled === 'no_executor' &&
@@ -487,6 +668,9 @@ export class AntigravityAgentService implements AgentService {
                 } catch (err) {
                   log.warn(`nativeExecuteAndPush failed for step: ${err}`);
                 }
+              }
+              if (batchHasResolvedToolishStep) {
+                attemptHasResolvedToolishStep = true;
               }
             }
             if (terminalAbort) {
