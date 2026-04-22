@@ -530,6 +530,11 @@ Karpathy 在 *LLM Wiki* 中提出一个方向：不要让 LLM 每次都从原始
 
 ## 架构总览
 
+![Cat Cafe 记忆系统架构图（砚砚/GPT-5.4 绘制）](memory-architecture-illustrated-by-codex.png)
+
+<details>
+<summary>文字版（无障碍 / 纯文本环境）</summary>
+
 ```
 ┌─ Truth Sources ──────────────────────────────────────┐
 │  docs · decisions · discussions · lessons · markers  │
@@ -563,6 +568,8 @@ Karpathy 在 *LLM Wiki* 中提出一个方向：不要让 LLM 每次都从原始
 │  stale detection · contradiction flagging · entropy ↓ │
 └─────────────────────────────────────────────────────────┘
 ```
+
+</details>
 
 关键设计原则：**索引是加速器，不是真相。** 真相源始终是 docs 目录下的文件——人能读、能改、能 git 追溯。SQLite 索引可以随时从真相源重建。
 
