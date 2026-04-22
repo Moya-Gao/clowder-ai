@@ -134,6 +134,29 @@ describe('consumeBackgroundSystemInfo web_search', () => {
     expect(result.consumed).toBe(true);
     expect(options.store.setThreadMessageStreamInvocation).toHaveBeenCalledWith('thread-1', 'bg-msg-1', 'inv-new-3');
   });
+
+  it('formats a2a_pingpong_terminated as readable system notice text', () => {
+    const options = createMockOptions();
+
+    const msg = {
+      type: 'system_info',
+      catId: 'sonnet',
+      threadId: 'thread-1',
+      content: JSON.stringify({
+        type: 'a2a_pingpong_terminated',
+        fromCatId: 'sonnet',
+        targetCatId: 'gpt52',
+        pairCount: 4,
+      }),
+      timestamp: Date.now(),
+    };
+
+    const result = consumeBackgroundSystemInfo(msg, undefined, options);
+
+    expect(result.consumed).toBe(false);
+    expect(result.variant).toBe('info');
+    expect(result.content).toBe('🏓 sonnet ↔ gpt52 已连续互相 @ 4 轮，链路已熔断。');
+  });
 });
 
 describe('consumeBackgroundSystemInfo rich_block placeholder', () => {

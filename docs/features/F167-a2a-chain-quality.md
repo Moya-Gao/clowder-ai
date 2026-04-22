@@ -304,6 +304,7 @@ cat_cafe_hold_ball({
 | 2026-04-20 | Phase C2 merged (PR #1291, 73439a5e7) — harness-layer verdict-without-pass detector (AC-C7)：保守关键词扫描 + 三层合法出口豁免（行首 @mention / hold_ball / MCP 结构化路由 `targetCats`+`targets`）；gpt52 P2 修复（把 MCP 结构化路由作为第三合法出口，不仅看 tool name），延续放行到 rebased HEAD `6c6bffc0`|
 | 2026-04-20 | Runtime 已重启并吃到新护栏：`/health` 正常；活跃猫进程 prompt 已含最新球权检查压缩版（含 `@landy`、死锁/虚假离场、review 默认必须传球） |
 | 2026-04-20 | AC-B1 回放验证完成：Case E2 记录 6 case（5 个球权类 live prompt/source replay + 1 个 codex context overflow 代码/测试回放） |
+| 2026-04-21 | 修复 F167 L1 ping-pong termination 前端显示：`a2a_pingpong_terminated`（顺带 `a2a_role_rejected`）从原始 JSON 蓝气泡改为可读 system notice（前景 + 背景线程消费逻辑同步） |
 | 2026-04-20 | Status → monitoring：宪宪+砚砚共识——AC-B2/B3 已被多层护栏覆盖（B2+C2 虚空传球 / L1 streak+break-loop ping-pong），进入观察期，无新 case 即 close。不再追加补丁 |
 
 ## Behavioral Evidence（Phase B 观察记录）

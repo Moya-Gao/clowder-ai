@@ -123,4 +123,31 @@ describe('useAgentMessages system_info warning', () => {
       }),
     );
   });
+
+  it('renders a2a_pingpong_terminated JSON as readable system message', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'sonnet',
+        content: JSON.stringify({
+          type: 'a2a_pingpong_terminated',
+          fromCatId: 'sonnet',
+          targetCatId: 'gpt52',
+          pairCount: 4,
+        }),
+      });
+    });
+
+    expect(mockAddMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'system',
+        variant: 'info',
+        content: '🏓 sonnet ↔ gpt52 已连续互相 @ 4 轮，链路已熔断。',
+      }),
+    );
+  });
 });

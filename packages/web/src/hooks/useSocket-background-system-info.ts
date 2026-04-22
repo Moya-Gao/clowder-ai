@@ -1,4 +1,5 @@
 import type { TaskProgressItem } from '@/stores/chat-types';
+import { formatVisibleSystemInfo } from './system-info-visible';
 import type {
   BackgroundAgentMessage,
   BackgroundStreamRef,
@@ -41,7 +42,11 @@ export function consumeBackgroundSystemInfo(
 
   try {
     const parsed = JSON.parse(sysContent);
-    if (parsed?.type === 'invocation_created') {
+    const visible = formatVisibleSystemInfo(parsed);
+    if (visible) {
+      sysContent = visible.content;
+      sysVariant = visible.variant;
+    } else if (parsed?.type === 'invocation_created') {
       const targetCatId = parsed.catId ?? msg.catId;
       const invocationId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
       // #586: Clear stale finalizedBgRef so previous invocation's finalized bubble
@@ -249,11 +254,6 @@ export function consumeBackgroundSystemInfo(
       // Foreground uses pendingTimeoutDiagRef (React ref) to attach to error messages;
       // background threads don't have that mechanism, so we just suppress the raw JSON.
       consumed = true;
-    } else if (parsed?.type === 'warning') {
-      // F045: item-level warning — render as readable system message (mirror foreground)
-      const warningText = typeof parsed.message === 'string' ? parsed.message : '';
-      sysContent = warningText ? `⚠️ ${warningText}` : '⚠️ Warning';
-      sysVariant = 'info';
     } else if (parsed?.type === 'governance_blocked') {
       const projectPath = typeof parsed.projectPath === 'string' ? parsed.projectPath : '';
       const reasonKind = (parsed.reasonKind as string) ?? 'needs_bootstrap';
@@ -292,12 +292,6 @@ export function consumeBackgroundSystemInfo(
         });
         const pct = parsed.healthSnapshot?.fillRatio ? Math.round(parsed.healthSnapshot.fillRatio * 100) : '?';
         sysContent = `${parsed.catId} 的会话 #${parsed.sessionSeq} 已封存（上下文 ${pct}%），下次调用将自动创建新会话`;
-      }
-    } else if (parsed?.type === 'a2a_followup_available') {
-      const mentions = parsed.mentions as Array<{ catId: string; mentionedBy: string }>;
-      if (Array.isArray(mentions) && mentions.length > 0) {
-        sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
-        sysVariant = 'a2a_followup';
       }
     } else if (parsed?.type === 'mode_switch_proposal') {
       const by = parsed.proposedBy ?? '猫猫';

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { useChatStore } from '@/stores/chatStore';
 import { compactToolResultDetail } from '@/utils/toolPreview';
+import { formatVisibleSystemInfo } from './system-info-visible';
 
 /** Timeout for done(isFinal) - 5 minutes */
 const DONE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -768,10 +769,10 @@ export function useAgentMessages() {
         let consumed = false;
         try {
           const parsed = JSON.parse(sysContent);
-          if (parsed?.type === 'a2a_followup_available') {
-            const mentions = parsed.mentions as Array<{ catId: string; mentionedBy: string }>;
-            sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
-            sysVariant = 'a2a_followup';
+          const visible = formatVisibleSystemInfo(parsed);
+          if (visible) {
+            sysContent = visible.content;
+            sysVariant = visible.variant;
           } else if (parsed?.type === 'invocation_created') {
             // New invocation boundary: clear stale task snapshot + finalized ref for this cat.
             // #586: Without clearing finalizedStreamRef here, a stale ref from the
@@ -932,11 +933,6 @@ export function useAgentMessages() {
               pendingTimeoutDiagRef.current.set(msg.catId, parsed as Record<string, unknown>);
             }
             consumed = true;
-          } else if (parsed?.type === 'warning') {
-            // F045: item-level warning — render as readable system message (avoid raw JSON blob)
-            const warningText = typeof parsed.message === 'string' ? parsed.message : '';
-            sysContent = warningText ? `⚠️ ${warningText}` : '⚠️ Warning';
-            sysVariant = 'info';
           } else if (parsed?.type === 'governance_blocked') {
             const projectPath = typeof parsed.projectPath === 'string' ? parsed.projectPath : '';
             const reasonKind = (parsed.reasonKind as string) ?? 'needs_bootstrap';
