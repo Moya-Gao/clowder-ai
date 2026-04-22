@@ -106,7 +106,7 @@ export interface QueueProcessorDeps {
 /** F122B B6: Completion hook — called when a queue entry finishes execution. */
 export type EntryCompleteHook = (
   entryId: string,
-  status: 'succeeded' | 'failed' | 'canceled',
+  status: 'succeeded' | 'failed' | 'canceled' | 'canceled_by_user',
   responseText: string,
 ) => void;
 
@@ -262,14 +262,17 @@ export class QueueProcessor {
   async onInvocationComplete(
     threadId: string,
     catId: string,
-    status: 'succeeded' | 'failed' | 'canceled',
+    status: 'succeeded' | 'failed' | 'canceled' | 'canceled_by_user',
   ): Promise<void> {
     const sk = QueueProcessor.slotKey(threadId, catId);
-    if (status === 'succeeded') {
+    if (status === 'succeeded' || status === 'canceled_by_user') {
       this.pausedSlots.delete(sk);
       if (this.deps.queue.hasQueuedForThread(threadId)) {
         await this.tryExecuteNextAcrossUsers(threadId, catId);
         await this.tryAutoExecute(threadId);
+        if (status === 'canceled_by_user') {
+          this.deps.log.info({ threadId, catId }, 'Auto-resumed queued entry after user cancel');
+        }
       }
     } else {
       // canceled or failed → pause ONLY if there are queued entries to manage.
@@ -482,14 +485,14 @@ export class QueueProcessor {
    * Creates InvocationRecord → tracker.start → route execution → complete → cleanup.
    * Returns final status for chain auto-dequeue (called by tryExecuteNext*).
    */
-  private async executeEntry(entry: QueueEntry): Promise<'succeeded' | 'failed' | 'canceled'> {
+  private async executeEntry(entry: QueueEntry): Promise<'succeeded' | 'failed' | 'canceled' | 'canceled_by_user'> {
     const { queue, invocationTracker, invocationRecordStore, router, socketManager, messageStore, log } = this.deps;
     const { threadId, userId, content, targetCats, intent, messageId } = entry;
     const primaryCat = targetCats[0] ?? 'unknown';
 
     let controller: AbortController | undefined;
     let invocationId: string | undefined;
-    let finalStatus: 'succeeded' | 'failed' | 'canceled' = 'failed';
+    let finalStatus: 'succeeded' | 'failed' | 'canceled' | 'canceled_by_user' = 'failed';
     let responseText = '';
     const cursorBoundaries = new Map<string, string>();
 
@@ -753,8 +756,8 @@ export class QueueProcessor {
           await router.ackCollectedCursors(userId, threadId, cursorBoundaries);
         }
         await invocationRecordStore.update(invocationId, { status: 'canceled' });
-        finalStatus = 'canceled';
-        return 'canceled';
+        finalStatus = controller.signal.reason === 'user_cancel' ? 'canceled_by_user' : 'canceled';
+        return finalStatus;
       }
 
       // 9. Ack cursors + mark succeeded

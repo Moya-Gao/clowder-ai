@@ -707,7 +707,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         }, HEARTBEAT_INTERVAL_MS);
 
         // F39: Track final status for queue auto-dequeue
-        let finalStatus: 'succeeded' | 'failed' | 'canceled' = 'failed';
+        let finalStatus: 'succeeded' | 'failed' | 'canceled' | 'canceled_by_user' = 'failed';
 
         // F088 ISSUE-15: Hoisted so catch/abort branches can clean up streaming sessions
         let streamStartPromise: Promise<void> | undefined;
@@ -752,7 +752,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           // User stop can win the race before CLI produces the first event.
           // Do not re-arm frontend state with spawn_started/intent_mode after abort.
           if (controller?.signal.aborted) {
-            finalStatus = 'canceled';
+            finalStatus = controller.signal.reason === 'user_cancel' ? 'canceled_by_user' : 'canceled';
             await opts.invocationRecordStore?.update(createResult.invocationId, {
               status: 'canceled',
             });
@@ -883,7 +883,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           // and the generator ends normally (no throw), the break exits the loop but
           // post-loop code would still run ack+succeeded. Guard explicitly.
           if (controller?.signal.aborted) {
-            finalStatus = 'canceled';
+            finalStatus = controller.signal.reason === 'user_cancel' ? 'canceled_by_user' : 'canceled';
             await opts.invocationRecordStore?.update(createResult.invocationId, {
               status: 'canceled',
             });
@@ -1005,7 +1005,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         } catch (err) {
           // F39 bugfix: detect abort (cancel/force) vs real failure
           if (controller?.signal.aborted) {
-            finalStatus = 'canceled';
+            finalStatus = controller.signal.reason === 'user_cancel' ? 'canceled_by_user' : 'canceled';
             await opts.invocationRecordStore?.update(createResult.invocationId, {
               status: 'canceled',
             });

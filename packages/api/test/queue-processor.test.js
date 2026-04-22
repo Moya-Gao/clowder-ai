@@ -104,6 +104,25 @@ describe('QueueProcessor', () => {
     assert.equal(pausedCall.arguments[2].reason, 'canceled');
   });
 
+  it('canceled_by_user → auto-dequeues and does not emit queue_paused', async () => {
+    deps.queue.enqueue({
+      threadId: 't1',
+      userId: 'u1',
+      content: 'resume after cancel',
+      source: 'user',
+      targetCats: ['opus'],
+      intent: 'execute',
+    });
+
+    await processor.onInvocationComplete('t1', 'opus', 'canceled_by_user');
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    assert.ok(deps.invocationTracker.startAll.mock.calls.length > 0, 'user cancel should auto-resume queued work');
+    const emitCalls = deps.socketManager.emitToUser.mock.calls;
+    const pausedCall = emitCalls.find((c) => c.arguments[1] === 'queue_paused');
+    assert.equal(pausedCall, undefined, 'user cancel should not pause the queue');
+  });
+
   it('canceled with processing-only queue → does not emit queue_paused', async () => {
     enqueueEntry(deps.queue);
     // Simulate steer immediate: queued entry is promoted to processing before the canceled cleanup runs.

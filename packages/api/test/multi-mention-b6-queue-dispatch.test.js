@@ -746,6 +746,31 @@ describe('B6: canceled hook skips recordResponse in dispatchViaQueue', () => {
     assert.equal(orch.getStatus(requestId), 'running');
   });
 
+  test('canceled_by_user hook does not record response in orchestrator', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/multi-mention',
+      headers: { 'x-invocation-id': creds.invocationId, 'x-callback-token': creds.callbackToken },
+      payload: {
+        targets: ['codex'],
+        question: 'User canceled scenario?',
+        callbackTo: 'opus',
+      },
+    });
+
+    const body = res.json();
+    const requestId = body.requestId;
+    const orch = getMultiMentionOrchestrator();
+
+    assert.equal(orch.getStatus(requestId), 'running');
+
+    const hooks = mockQueueProcessor.getHooks();
+    const [entryId] = hooks.keys();
+    mockQueueProcessor.simulateComplete(entryId, 'canceled_by_user', '');
+
+    assert.equal(orch.getStatus(requestId), 'running');
+  });
+
   test('P2: unregisterEntryCompleteHook cleans up on entry removal', async () => {
     const res = await app.inject({
       method: 'POST',

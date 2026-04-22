@@ -147,14 +147,14 @@ export class InvocationTracker {
    * Without requestUserId, cancels all (system/admin action, e.g. thread deletion).
    * Returns the catIds that were actually cancelled (for orchestrator scoping).
    */
-  cancelAll(threadId: string, requestUserId?: string): string[] {
+  cancelAll(threadId: string, requestUserId?: string, abortReason?: string): string[] {
     const prefix = `${threadId}:`;
     const cancelledCatIds: string[] = [];
     for (const [key, inv] of this.active) {
       if (key.startsWith(prefix)) {
         if (requestUserId && inv.userId !== requestUserId) continue;
         cancelledCatIds.push(inv.catId);
-        inv.controller.abort();
+        inv.controller.abort(abortReason);
         this.active.delete(key);
       }
     }
