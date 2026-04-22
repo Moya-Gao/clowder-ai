@@ -36,6 +36,11 @@ import type {
   RouterLike,
 } from './domains/cats/services/agents/invocation/QueueProcessor.js';
 import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueProcessor.js';
+import {
+  resolveAcpBootstrapArgs,
+  resolveAcpBootstrapCommand,
+  resolveAcpBootstrapCwd,
+} from './domains/cats/services/agents/providers/acp/acp-bootstrap-cwd.js';
 import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
 import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
@@ -895,6 +900,8 @@ async function main(): Promise<void> {
             const { AcpProcessPool } = await import('./domains/cats/services/agents/providers/acp/AcpProcessPool.js');
             const { AcpClient } = await import('./domains/cats/services/agents/providers/acp/AcpClient.js');
             const acpProjectRoot = findMonorepoRoot();
+            const acpCommand = resolveAcpBootstrapCommand(acpProjectRoot, acpConfig.command);
+            const acpArgs = resolveAcpBootstrapArgs(acpProjectRoot, acpConfig.startupArgs);
             const poolKey = { projectPath: acpProjectRoot, providerProfile: id };
             // Shared pool per variant — reused across cats with same variant
             if (!acpPoolRegistry.has(id)) {
@@ -907,9 +914,9 @@ async function main(): Promise<void> {
                 acpConfig,
                 () =>
                   new AcpClient({
-                    command: acpConfig.command,
-                    args: acpConfig.startupArgs,
-                    cwd: acpProjectRoot,
+                    command: acpCommand,
+                    args: acpArgs,
+                    cwd: resolveAcpBootstrapCwd(acpProjectRoot, id),
                   }),
               );
               acpPoolRegistry.set(id, pool);
