@@ -29,6 +29,8 @@ export interface BridgeConnection {
 export interface TrajectoryStep {
   type: string;
   status: string;
+  /** Internal replay hint for Cat Cafe consumers; never sent by Antigravity LS directly. */
+  catCafeTextMode?: 'append' | 'replace';
   plannerResponse?: {
     response?: string;
     modifiedResponse?: string;

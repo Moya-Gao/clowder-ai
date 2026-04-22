@@ -8,6 +8,12 @@
  */
 
 import { resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
+import {
+  accumulateTextAggregate,
+  accumulateTextParts,
+  flattenTextParts,
+  flattenTurnTextParts,
+} from '../text-aggregation.js';
 import type { IMessageStore } from '../../stores/ports/MessageStore.js';
 import type { InvocationQueue, QueueEntry } from './InvocationQueue.js';
 
@@ -672,7 +678,11 @@ export class QueueProcessor {
           intentModeBroadcast = true;
         }
         if (hook && msg.catId === primaryCat && msg.type === 'text' && (msg as { content?: string }).content) {
-          responseText += (msg as { content?: string }).content;
+          responseText = accumulateTextAggregate(
+            responseText,
+            (msg as { content?: string }).content!,
+            (msg as { textMode?: 'append' | 'replace' }).textMode,
+          );
         }
         if ((msg.type === 'done' || msg.type === 'error') && msg.catId) {
           invocationTracker.completeSlot?.(threadId, msg.catId, controller);
@@ -729,16 +739,19 @@ export class QueueProcessor {
         }
         if (msg.type === 'text' && typeof (msg as Record<string, unknown>).content === 'string') {
           const textContent = (msg as Record<string, unknown>).content as string;
-          collectedTextParts.push(textContent);
+          const textMode = (msg as { textMode?: 'append' | 'replace' }).textMode;
+          accumulateTextParts(collectedTextParts, textContent, textMode);
           if (msg.catId) {
             if (msg.catId !== currentTurnCatId) {
               outboundTurns.push({ catId: msg.catId, textParts: [] });
               currentTurnCatId = msg.catId;
             }
-            outboundTurns[outboundTurns.length - 1].textParts.push(textContent);
+            const turn = outboundTurns[outboundTurns.length - 1];
+            accumulateTextParts(turn.textParts, textContent, textMode);
           }
           if (this.deps.streamingHook) {
-            const accumulated = collectedTextParts.join('');
+            const accumulated =
+              outboundTurns.length > 0 ? flattenTurnTextParts(outboundTurns) : flattenTextParts(collectedTextParts);
             this.deps.streamingHook.onStreamChunk(threadId, accumulated, invocationId).catch((err) => {
               log.warn({ err, threadId }, '[QueueProcessor] StreamingHook.onStreamChunk failed');
             });
@@ -863,7 +876,8 @@ export class QueueProcessor {
     deliveredTurnIndices?: Set<number>,
     preResolvedMeta?: ThreadMetaLike | undefined,
   ): Promise<void> {
-    const finalContent = collectedTextParts.join('');
+    const finalContent =
+      outboundTurns.length > 0 ? flattenTurnTextParts(outboundTurns) : flattenTextParts(collectedTextParts);
 
     // Finalize streaming — ensure start completed before ending
     if (this.deps.streamingHook) {

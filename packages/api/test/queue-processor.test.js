@@ -900,6 +900,56 @@ describe('QueueProcessor', () => {
       );
     });
 
+    it('replace-mode text overwrites server-side aggregated outbound and streaming content', async () => {
+      const deliverCalls = [];
+      const outboundHook = {
+        deliver: mock.fn(async (threadId, content, catId) => {
+          deliverCalls.push({ threadId, content, catId });
+        }),
+      };
+      const streamingHook = {
+        onStreamStart: mock.fn(async () => {}),
+        onStreamChunk: mock.fn(async () => {}),
+        onStreamEnd: mock.fn(async () => {}),
+        cleanupPlaceholders: mock.fn(async () => {}),
+      };
+
+      const hookDeps = stubDeps({
+        router: {
+          routeExecution: mock.fn(async function* () {
+            yield { type: 'text', catId: 'opus', content: '第一段。第二段。', timestamp: Date.now() };
+            yield {
+              type: 'text',
+              catId: 'opus',
+              content: '第一段。插入一句。第二段。',
+              textMode: 'replace',
+              timestamp: Date.now(),
+            };
+            yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+          }),
+          ackCollectedCursors: mock.fn(async () => {}),
+        },
+        outboundHook,
+        streamingHook,
+        threadMetaLookup: mock.fn(async () => undefined),
+      });
+      const hookProcessor = new QueueProcessor(hookDeps);
+
+      const entry = enqueueEntry(hookDeps.queue);
+      hookDeps.queue.backfillMessageId('t1', 'u1', entry.id, 'msg-1');
+
+      await hookProcessor.processNext('t1', 'u1');
+      await waitFor(() => deliverCalls.length >= 1);
+
+      assert.equal(deliverCalls[0].content, '第一段。插入一句。第二段。');
+      const lastChunkCall = streamingHook.onStreamChunk.mock.calls.at(-1);
+      assert.ok(lastChunkCall, 'streaming hook should receive chunks');
+      assert.equal(lastChunkCall.arguments[1], '第一段。插入一句。第二段。');
+      const endCall = streamingHook.onStreamEnd.mock.calls.at(-1);
+      assert.ok(endCall, 'streaming hook should receive final end');
+      assert.equal(endCall.arguments[1], '第一段。插入一句。第二段。');
+    });
+
     it('multi-cat execution: outboundHook.deliver called per-turn with each catId', async () => {
       const deliverCalls = [];
       const outboundHook = {

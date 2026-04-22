@@ -1625,6 +1625,30 @@ describe('background thread socket handling', () => {
       expect(ts.messages[0].isStreaming).toBe(false);
       expect(ts.catStatuses.opus).toBe('done');
     });
+
+    it('replace-mode chunk overwrites existing background stream content instead of appending', () => {
+      const now = Date.now();
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: '第一段。第二段。',
+        timestamp: now,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: '第一段。插入一句。第二段。',
+        textMode: 'replace',
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0].content).toBe('第一段。插入一句。第二段。');
+    });
   });
 
   describe('F108: slot-aware background invocation tracking', () => {

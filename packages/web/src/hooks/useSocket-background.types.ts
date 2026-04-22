@@ -15,6 +15,7 @@ export interface BackgroundAgentMessage {
   catId: string;
   threadId: string;
   content?: string;
+  textMode?: 'append' | 'replace';
   messageId?: string;
   origin?: 'stream' | 'callback';
   toolName?: string;

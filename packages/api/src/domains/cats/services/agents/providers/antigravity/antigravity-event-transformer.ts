@@ -91,6 +91,7 @@ export function transformTrajectorySteps(
           type: 'text',
           catId,
           content: (pr.modifiedResponse || pr.response)!,
+          ...(step.catCafeTextMode ? { textMode: step.catCafeTextMode } : {}),
           metadata,
           timestamp: Date.now(),
         });

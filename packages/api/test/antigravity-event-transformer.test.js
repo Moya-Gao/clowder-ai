@@ -292,6 +292,21 @@ describe('Transformer regression', () => {
     assert.equal(textMsg.content, 'modified');
   });
 
+  test('propagates replace mode for corrected snapshot replay', () => {
+    const steps = [
+      {
+        type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+        status: 'CORTEX_STEP_STATUS_DONE',
+        catCafeTextMode: 'replace',
+        plannerResponse: { modifiedResponse: '第一段。插入一句。第二段。' },
+      },
+    ];
+    const msgs = transformTrajectorySteps(steps, catId, metadata);
+    const textMsg = msgs.find((m) => m.type === 'text');
+    assert.equal(textMsg.content, '第一段。插入一句。第二段。');
+    assert.equal(textMsg.textMode, 'replace');
+  });
+
   test('emits thinking as system_info before text', () => {
     const steps = [
       {

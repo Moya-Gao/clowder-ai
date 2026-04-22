@@ -17,6 +17,7 @@ interface AgentMsg {
   type: string;
   catId: string;
   content?: string;
+  textMode?: 'append' | 'replace';
   error?: string;
   isFinal?: boolean;
   metadata?: { provider: string; model: string; sessionId?: string; usage?: import('../stores/chat-types').TokenUsage };
@@ -578,7 +579,11 @@ export function useAgentMessages() {
           // CLI stream message (thinking): append to active stream bubble
           const messageId = getOrRecoverActiveAssistantMessageId(msg.catId, msg.metadata, { ensureStreaming: true });
           if (messageId) {
-            appendToMessage(messageId, msg.content);
+            if (msg.textMode === 'replace') {
+              patchMessage(messageId, { content: msg.content });
+            } else {
+              appendToMessage(messageId, msg.content);
+            }
             if (msg.replyTo || msg.replyPreview) {
               patchMessage(messageId, {
                 ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),

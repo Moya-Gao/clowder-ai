@@ -6,7 +6,7 @@ function getPlannerText(step: TrajectoryStep): string | null {
   return planner.modifiedResponse ?? planner.response ?? null;
 }
 
-function clonePlannerStepWithText(step: TrajectoryStep, text: string): TrajectoryStep {
+function clonePlannerStepWithText(step: TrajectoryStep, text: string, mode: 'append' | 'replace' = 'append'): TrajectoryStep {
   const plannerResponse = { ...(step.plannerResponse ?? {}) };
   // Thinking was already emitted on first delivery — strip it from replay steps
   // to prevent duplicate system_info emissions on every delta poll cycle.
@@ -18,7 +18,7 @@ function clonePlannerStepWithText(step: TrajectoryStep, text: string): Trajector
   } else {
     plannerResponse.modifiedResponse = text;
   }
-  return { ...step, plannerResponse };
+  return { ...step, plannerResponse, ...(mode === 'replace' ? { catCafeTextMode: 'replace' as const } : {}) };
 }
 
 function longestSuffixPrefixOverlap(previousText: string, currentText: string): number {
@@ -51,9 +51,10 @@ function toReplayStep(step: TrajectoryStep, previousPlannerText: string): Trajec
     return clonePlannerStepWithText(step, delta);
   }
 
-  // Non-prefix rewrites are rare. Fall back to the full snapshot so we do not
-  // silently drop the update, even though append-only consumers may still duplicate text.
-  return step;
+  // Non-prefix rewrites cannot be represented as a safe append-only suffix.
+  // Replay the corrected full snapshot with an explicit replace hint so
+  // downstream consumers overwrite the bubble instead of duplicating text.
+  return clonePlannerStepWithText(step, currentPlannerText, 'replace');
 }
 
 function fingerprintStep(step: TrajectoryStep): string {

@@ -42,6 +42,12 @@ import type { ISummaryStore } from '../domains/cats/services/stores/ports/Summar
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { isSystemUserMessage } from '../domains/cats/services/stores/visibility.js';
 import { mergeTokenUsage, type TokenUsage } from '../domains/cats/services/types.js';
+import {
+  accumulateTextAggregate,
+  accumulateTextParts,
+  flattenTextParts,
+  flattenTurnTextParts,
+} from '../domains/cats/services/agents/text-aggregation.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { buildCancelMessages, type SocketManager } from '../infrastructure/websocket/index.js';
 import { getDefaultUploadDir } from '../utils/upload-paths.js';
@@ -728,9 +734,6 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           const collectedUsage = new Map<string, TokenUsage>();
           // F070: track governance block errorCode for recoverable failure marking
           let governanceErrorCode: string | undefined;
-          // Aggregate streamed assistant text for push summary/decision classification.
-          let assistantReplyContent = '';
-
           // F088 ISSUE-15: Collect per-turn content for outbound delivery to connector platforms
           const outboundTurns: Array<{
             catId: string;
@@ -819,9 +822,6 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             }
             // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
             if (controller?.signal.aborted) break;
-            if (msg.type === 'text' && msg.content) {
-              assistantReplyContent += msg.content;
-            }
             if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
               collectedUsage.set(msg.catId, mergeTokenUsage(collectedUsage.get(msg.catId), msg.metadata.usage));
             }
@@ -851,17 +851,20 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             }
             if (msg.type === 'text' && typeof (msg as unknown as Record<string, unknown>).content === 'string') {
               const textContent = (msg as unknown as Record<string, unknown>).content as string;
-              collectedTextParts.push(textContent);
+              const textMode = (msg as { textMode?: 'append' | 'replace' }).textMode;
+              accumulateTextParts(collectedTextParts, textContent, textMode);
               if (msg.catId) {
                 if (msg.catId !== currentTurnCatId) {
                   outboundTurns.push({ catId: msg.catId, textParts: [] });
                   currentTurnCatId = msg.catId;
                 }
-                outboundTurns[outboundTurns.length - 1].textParts.push(textContent);
+                const turn = outboundTurns[outboundTurns.length - 1];
+                accumulateTextParts(turn.textParts, textContent, textMode);
               }
               // F088 ISSUE-15: Forward streaming chunks to external platforms
               if (opts.streamingHook) {
-                const accumulated = collectedTextParts.join('');
+                const accumulated =
+                  outboundTurns.length > 0 ? flattenTurnTextParts(outboundTurns) : flattenTextParts(collectedTextParts);
                 opts.streamingHook
                   .onStreamChunk(resolvedThreadId, accumulated, createResult.invocationId)
                   .catch((streamErr) => {
@@ -966,7 +969,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             const pushSvc = getPushNotificationService();
             if (pushSvc) {
               const catNames = targetCats.join(', ');
-              const assistantText = assistantReplyContent.trim();
+              const assistantText = (
+                outboundTurns.length > 0 ? flattenTurnTextParts(outboundTurns) : flattenTextParts(collectedTextParts)
+              ).trim();
               const needsDecision = assistantText.length > 0 ? shouldMarkDecisionNotification(assistantText) : false;
               const pushBodySource = assistantText || '猫猫已处理，请打开会话查看详情';
               pushSvc
@@ -1350,7 +1355,8 @@ export async function deliverOutboundFromWeb(
   opts: MessagesRoutesOptions,
   logger: typeof log,
 ): Promise<void> {
-  const finalContent = collectedTextParts.join('');
+  const finalContent =
+    outboundTurns.length > 0 ? flattenTurnTextParts(outboundTurns) : flattenTextParts(collectedTextParts);
 
   if (opts.streamingHook) {
     if (streamStartPromise) {

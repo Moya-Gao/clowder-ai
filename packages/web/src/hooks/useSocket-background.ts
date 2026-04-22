@@ -410,17 +410,26 @@ export function handleBackgroundAgentMessage(
         messageId = recoverStreamingMessage(msg, streamKey, options);
       }
       if (messageId) {
-        // HOT PATH: batch content + metadata + streaming + catStatus into ONE set()
-        // to prevent React update-depth overflow during high-frequency streaming.
-        options.store.batchStreamChunkUpdate({
-          threadId: msg.threadId,
-          messageId,
-          catId: msg.catId,
-          content: msg.content,
-          metadata: msg.metadata,
-          streaming: !msg.isFinal,
-          catStatus: msg.isFinal ? 'done' : 'streaming',
-        });
+        if (msg.textMode === 'replace') {
+          options.store.patchThreadMessage(msg.threadId, messageId, {
+            content: msg.content,
+            ...(msg.metadata ? { metadata: msg.metadata } : {}),
+            isStreaming: !msg.isFinal,
+          });
+          options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
+        } else {
+          // HOT PATH: batch content + metadata + streaming + catStatus into ONE set()
+          // to prevent React update-depth overflow during high-frequency streaming.
+          options.store.batchStreamChunkUpdate({
+            threadId: msg.threadId,
+            messageId,
+            catId: msg.catId,
+            content: msg.content,
+            metadata: msg.metadata,
+            streaming: !msg.isFinal,
+            catStatus: msg.isFinal ? 'done' : 'streaming',
+          });
+        }
         if (msg.replyTo || msg.replyPreview) {
           options.store.patchThreadMessage(msg.threadId, messageId, {
             ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),

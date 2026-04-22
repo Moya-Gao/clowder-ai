@@ -20,6 +20,7 @@ const mockRequestStreamCatchUp = vi.fn();
 const mockSetMessageMetadata = vi.fn();
 const mockSetMessageThinking = vi.fn();
 const mockSetMessageStreamInvocation = vi.fn();
+const mockPatchMessage = vi.fn();
 
 const mockAddMessageToThread = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
@@ -56,6 +57,7 @@ const storeState = {
   setMessageMetadata: mockSetMessageMetadata,
   setMessageThinking: mockSetMessageThinking,
   setMessageStreamInvocation: mockSetMessageStreamInvocation,
+  patchMessage: mockPatchMessage,
 
   addMessageToThread: mockAddMessageToThread,
   clearThreadActiveInvocation: mockClearThreadActiveInvocation,
@@ -104,7 +106,9 @@ describe('useAgentMessages placeholder recovery', () => {
     storeState.catInvocations = {};
     storeState.activeInvocations = {};
     mockAddMessage.mockClear();
+    mockAppendToMessage.mockClear();
     mockAppendRichBlock.mockClear();
+    mockPatchMessage.mockClear();
     mockSetMessageThinking.mockClear();
   });
 
@@ -320,5 +324,36 @@ describe('useAgentMessages placeholder recovery', () => {
         replyPreview: { senderCatId: 'opus', content: '@缅因猫 帮忙看一下' },
       }),
     );
+  });
+
+  it('replaces stream bubble content instead of appending on replace-mode text', () => {
+    storeState.messages = [
+      {
+        id: 'msg-live-rewrite',
+        type: 'assistant',
+        catId: 'opus',
+        content: '第一段。第二段。',
+        isStreaming: true,
+        origin: 'stream',
+        timestamp: Date.now(),
+      },
+    ];
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: '第一段。插入一句。第二段。',
+        textMode: 'replace',
+        origin: 'stream',
+      });
+    });
+
+    expect(mockPatchMessage).toHaveBeenCalledWith('msg-live-rewrite', { content: '第一段。插入一句。第二段。' });
+    expect(mockAppendToMessage).not.toHaveBeenCalled();
   });
 });
