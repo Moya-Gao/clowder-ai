@@ -1067,7 +1067,13 @@
       "name": "Web Chinese Chess — 网页端中国象棋",
       "status": "done (archived — interview demo delivered, implementation kept on feature branch) | **Owner**: 布偶猫 | **Priority**: P2 | **Completed**: 2026-04-20",
       "file": "F170-web-chinese-chess.md"
+    },
+    {
+      "id": "F171",
+      "name": "First Partner Onboarding — 领养第一只猫 / 配置第一位伙伴",
+      "status": "spec | **Owner**: 缅因猫/gpt52 | **Priority**: P1",
+      "file": "F171-first-partner-onboarding.md"
     }
   ],
-  "generated_at": "2026-04-21T13:30:28.090Z"
+  "generated_at": "2026-04-22T07:46:00.000Z"
 }
