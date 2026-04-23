@@ -947,6 +947,33 @@ export function useAgentMessages() {
           content: msg.content ?? '',
           timestamp: Date.now(),
         });
+      } else if (msg.type === 'provider_signal') {
+        // Bug-J: Surface provider-origin warnings (Antigravity capacity retries,
+        // stream_error grace window notices, etc.) as visible system messages.
+        // Before this handler the backend emitted provider_signal payloads that
+        // carried capacity retry notices ("上游模型服务端容量不足..."), but the
+        // frontend silently dropped them — the user saw the bubble just hang
+        // without explanation. Route them through the same `formatVisibleSystemInfo`
+        // pipeline as system_info so the warning text becomes a ⚠️ system bubble.
+        sawStreamDataRef.current.add(msg.catId);
+        let providerContent = msg.content ?? '';
+        try {
+          const parsed = JSON.parse(providerContent);
+          const visible = formatVisibleSystemInfo(parsed);
+          if (visible) providerContent = visible.content;
+        } catch {
+          /* non-JSON payload — display as-is */
+        }
+        if (providerContent) {
+          addMessage({
+            id: `provider-${Date.now()}-${msg.catId}`,
+            type: 'system',
+            variant: 'info',
+            catId: msg.catId,
+            content: providerContent,
+            timestamp: Date.now(),
+          });
+        }
       } else if (msg.type === 'system_info') {
         sawStreamDataRef.current.add(msg.catId);
         // System notifications: budget warnings, cancel feedback, A2A follow-up hints, invocation metrics

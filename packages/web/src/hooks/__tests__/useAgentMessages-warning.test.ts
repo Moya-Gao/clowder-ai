@@ -150,4 +150,75 @@ describe('useAgentMessages system_info warning', () => {
       }),
     );
   });
+
+  // Bug-J: provider_signal messages carry upstream-origin warnings (Antigravity
+  // capacity retry notices, stream_error grace-window hints). Before this
+  // handler they were silently dropped — users saw bubbles hang without any
+  // explanation. Route them through the same formatVisibleSystemInfo pipeline
+  // as system_info so capacity warnings become visible ⚠️ system bubbles.
+  it('Bug-J: renders Antigravity provider_signal capacity warning as visible system message', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'provider_signal',
+        catId: 'antig-opus',
+        content: JSON.stringify({
+          type: 'warning',
+          message: '上游模型服务端容量不足，系统将在 20s 后自动重试（1/3）',
+        }),
+      });
+    });
+
+    expect(mockAddMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'system',
+        variant: 'info',
+        catId: 'antig-opus',
+        content: '⚠️ 上游模型服务端容量不足，系统将在 20s 后自动重试（1/3）',
+      }),
+    );
+  });
+
+  it('Bug-J: renders provider_signal plain-text payload verbatim (non-JSON)', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'provider_signal',
+        catId: 'antig-opus',
+        content: 'raw upstream notice',
+      });
+    });
+
+    expect(mockAddMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'system',
+        variant: 'info',
+        catId: 'antig-opus',
+        content: 'raw upstream notice',
+      }),
+    );
+  });
+
+  it('Bug-J: empty provider_signal payload is not surfaced (no ghost bubble)', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    mockAddMessage.mockClear();
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'provider_signal',
+        catId: 'antig-opus',
+        content: '',
+      });
+    });
+
+    expect(mockAddMessage).not.toHaveBeenCalled();
+  });
 });
