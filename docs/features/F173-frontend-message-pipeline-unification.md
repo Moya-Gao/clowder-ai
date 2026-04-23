@@ -124,6 +124,21 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。
 - [ ] AC-B3: GC 三规则就位（delete 硬删 / done+empty 立刻删 / setCurrentThread+reconnect sweep idle）
 - [ ] AC-B4: thread switch 不再触发 ghost bubble（fixture 验证）
 
+#### Phase B Backlog: 双失/三失场景 race（hotfix PR #1352 cloud Codex 累积发现）
+
+`fix/f173-phase-a-hotfix` 是 Phase A merge 后的 ea0973e7 ghost hotfix。修了 8 处 fix（4-piece + 4 cloud P1）后云端 Codex 仍持续发现"done lost + invocation_created lost + reconnect/hydration"等多失场景的 race。铲屎官 2026-04-23 拍板：hotfix 现在 ship（原 ea0973e7 已修），剩余 race 进 Phase B 与 ledger consolidation 一并解决（thread-scoped runtime refs 会从结构上消除这些场景）。
+
+下表是 Phase B 必须覆盖的 follow-up backlog（来自 PR #1352 cloud Codex review 的真实 finding）：
+
+- [ ] **AC-B5**: invocationless 终端事件（legacy `done`/`error` 无 `msg.invocationId`）在 `activeRefs` 已 clear（thread switch / hydration）后必须能 finalize 已 bound 的 streaming bubble；当前 hotfix 的 Loop 2 unbound fallback 拒绝 bound bubble，导致 stuck-streaming 状态（cloud P1#10）。
+- [ ] **AC-B6**: `invocation_created` boundary 路径下 `markReplacedInvocation` 已升级为 `Set<invocationId>`，但旧 invocationId 只在 thread-level cleanup 时整体清掉；长会话下应在"该 invocation 真正 terminal + confirm-no-late-window"后用 `removeReplacedInvocation` 做细粒度回收，避免内存/维护债（砚砚 LGTM-5 非阻塞观察 + cloud P2 multi-value）。
+- [ ] **AC-B7**: 多个 stale unbound bubble 共存（reconnect / hydration）时，`invocation_created` 只 rebind 最新一个；其他 unbound bubble 应被 finalize 或 GC，不能继续作为"unbound 抽奖池"被 callback / late event 误捕。
+- [ ] **AC-B8**: callback path 的 strict-callback 契约（clowder-ai#305 absorb）与 stream→callback 关联机制需要在 thread-scoped runtime 重写，目前依赖 `extra.stream.invocationId` 严格匹配 + activeInvocations fallback 兜底，结构脆弱。
+- [ ] **AC-B9**: `shouldSuppressLateStreamChunk` 当前用"explicit `msg.invocationId` 优先 / 无则 catInvocations 兜底"+"surgical clean stale catInvocations"组合（cloud P1#6）。Phase B thread-scoped runtime 应直接用 `lastObservedExplicitInvocationId` 替代 catInvocations 兜底，消除 surgical clean。
+- [ ] **AC-B10**: 终端 permissive fallback 的 binding policy 现在用 slot-fresh 信号差异化（slot-fresh confirmed → 任何 streaming bubble；否则 → 仅 binding 匹配 / unbound）。Phase B 应让 `isStaleTerminalEvent` 显式返回 confirmation source，避免在 callsite 重新计算 slot-fresh。
+
+**Phase B 不需要逐条修这 6 条 AC**——thread-scoped runtime + ledger consolidation 完成后，这些 race 应该从结构上消失（每个 thread 单独的 runtime entry，不再共享可变 refs）。AC-B5..B10 是验收清单，不是单独修复任务。
+
 ### Phase C（读侧迁移 + hydration 简化 + liveness 对齐）
 - [ ] AC-C1: 关键读侧组件（ChatContainer/MessageList/RightStatusPanel/MissionHub/**ChatInputActionButton**）改为 thread-scoped selector
 - [ ] AC-C2: F5 后 0 ghost bubble（fixture 含 race window）

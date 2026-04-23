@@ -92,8 +92,12 @@ describe('F173 A.12 — invocation-driven suppression cleanup', () => {
     });
   });
 
-  describe('Invariant 2: invocation-driven cleanup', () => {
-    it('marker for invocation X is cleared when chunk with different invocation Y arrives', () => {
+  describe('Invariant 2: per-invocation suppression (cloud P2 PR#1352 — multi-value)', () => {
+    it('marker for invocation X stays — chunk with different invocation Y is independently un-suppressed', () => {
+      // Cloud P2 update: storage is now Set<invocationId> per (thread, cat). Different
+      // invocations are independent entries. Marker for inv-1 is NOT auto-cleared just
+      // because inv-2 arrived; inv-2 simply isn't in the set so it passes through.
+      // This preserves suppression for any other late inv-1 chunks that may follow.
       markReplacedInvocation('thread-bg', 'opus', 'inv-1');
 
       dispatchBg({
@@ -105,9 +109,9 @@ describe('F173 A.12 — invocation-driven suppression cleanup', () => {
         timestamp: Date.now(),
       });
 
-      // Marker cleared because a different invocation arrived
-      expect(getReplacedInvocation('thread-bg', 'opus')).toBeUndefined();
-      // Message processed (new bubble created)
+      // Marker for inv-1 is preserved (auto-clear-on-different is gone).
+      expect(getReplacedInvocation('thread-bg', 'opus')).toBe('inv-1');
+      // inv-2 message processed (new bubble created) — inv-2 isn't in the suppression set.
       const ts = useChatStore.getState().getThreadState('thread-bg');
       expect(ts.messages.length).toBe(1);
     });

@@ -7,10 +7,10 @@ import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { useChatStore } from '@/stores/chatStore';
 import { compactToolResultDetail } from '@/utils/toolPreview';
 import {
-  clearReplacedInvocation,
   clearReplacedInvocationsForThread,
-  getReplacedInvocation,
+  isInvocationReplaced,
   markReplacedInvocation,
+  removeReplacedInvocation,
 } from './shared-replaced-invocations';
 import { formatVisibleSystemInfo } from './system-info-visible';
 
@@ -373,23 +373,56 @@ export function useAgentMessages() {
   );
 
   const findRecoverableAssistantMessage = useCallback(
-    (catId: string) => {
+    (catId: string, explicitInvocationId?: string) => {
+      // F173 hotfix (砚砚 4 件套 #1) — recovery MUST be identity-aware.
+      // Old behavior: first pass matched any isStreaming=true bubble of this cat, which
+      // allowed new invocation's chunks to append onto a previous invocation's bubble
+      // whose done event was lost (the "ea0973e7 ghost" case at 2026-04-23 06:48).
+      // New behavior:
+      //   1) If we know the target invocationId (from event payload or active slot),
+      //      match it exactly via extra.stream.invocationId.
+      //   2) Otherwise, only adopt an UNBOUND placeholder (same cat, origin=stream,
+      //      isStreaming=true, NO stream.invocationId). Bound-to-old-invocation
+      //      bubbles are NEVER adopted — they must be finalized by invocation_created's
+      //      rebind step, not silently mutated by a newer invocation's stream chunk.
       const currentMessages = useChatStore.getState().messages;
-      for (let i = currentMessages.length - 1; i >= 0; i--) {
-        const msg = currentMessages[i];
-        if (msg.type === 'assistant' && msg.catId === catId && msg.isStreaming) {
+      const invocationId = explicitInvocationId ?? getCurrentInvocationIdForCat(catId);
+
+      if (invocationId) {
+        const lastFinalizedIdForCat = finalizedStreamRef.current.get(catId);
+        // Cloud P1#4 (PR#1352): streaming-first preference. With explicit invocationId,
+        // a newest→oldest scan could pick a non-streaming callback bubble before the
+        // still-streaming placeholder for the same invocation, leaving the real bubble
+        // open in done/error paths. Two passes — streaming match wins, non-streaming
+        // is fallback (preserves hydration recovery from "replace hydration swaps" test).
+        for (let i = currentMessages.length - 1; i >= 0; i--) {
+          const msg = currentMessages[i];
+          if (msg.type !== 'assistant' || msg.catId !== catId) continue;
+          if (msg.extra?.stream?.invocationId !== invocationId) continue;
+          if (!msg.isStreaming) continue;
           return { id: msg.id, needsStreamingRestore: false };
+        }
+        for (let i = currentMessages.length - 1; i >= 0; i--) {
+          const msg = currentMessages[i];
+          if (msg.type !== 'assistant' || msg.catId !== catId) continue;
+          if (msg.extra?.stream?.invocationId !== invocationId) continue;
+          // Cloud P1#3 (PR#1352) — reject bubbles this session's `done` has already
+          // finalized. Hydration-loaded non-streaming bubbles (no finalizedStreamRef
+          // entry) remain recoverable for the "replace hydration swaps" test.
+          if (lastFinalizedIdForCat === msg.id) continue;
+          return { id: msg.id, needsStreamingRestore: true };
         }
       }
 
-      const invocationId = getCurrentInvocationIdForCat(catId);
-      if (!invocationId) return null;
-
+      // Fallback: same-cat streaming bubble that's NOT bound to a different invocation.
+      // (Origin is not checked — tests/hydration paths may omit it; the binding check
+      // is the real safety gate against the ea0973e7 merge ghost.)
       for (let i = currentMessages.length - 1; i >= 0; i--) {
         const msg = currentMessages[i];
         if (msg.type !== 'assistant' || msg.catId !== catId) continue;
-        if (msg.extra?.stream?.invocationId !== invocationId) continue;
-        return { id: msg.id, needsStreamingRestore: !msg.isStreaming };
+        if (!msg.isStreaming) continue;
+        if (msg.extra?.stream?.invocationId) continue; // bound to some invocation — never adopt
+        return { id: msg.id, needsStreamingRestore: false };
       }
 
       return null;
@@ -399,6 +432,10 @@ export function useAgentMessages() {
 
   const findCallbackReplacementTarget = useCallback((catId: string, invocationId: string): { id: string } | null => {
     const currentMessages = useChatStore.getState().messages;
+    // Strict match only: exact invocationId. Do NOT adopt unbound placeholders —
+    // per clowder-ai#305 absorb (2026-04-01) the placeholder may belong to a newer
+    // invocation, and silently merging callback into it risks content mixing.
+    // invocation_created's rebind step handles the unbound → bound transition.
     for (let i = currentMessages.length - 1; i >= 0; i -= 1) {
       const msg = currentMessages[i];
       if (
@@ -502,24 +539,38 @@ export function useAgentMessages() {
   }, []);
 
   const getOrRecoverActiveAssistantMessageId = useCallback(
-    (catId: string, metadata?: AgentMsg['metadata'], options?: { ensureStreaming?: boolean }): string | null => {
+    (
+      catId: string,
+      metadata?: AgentMsg['metadata'],
+      options?: { ensureStreaming?: boolean; invocationId?: string },
+    ): string | null => {
       const currentMessages = useChatStore.getState().messages;
       const existing = activeRefs.current.get(catId);
       if (existing?.id) {
         const found = currentMessages.find((msg) => msg.id === existing.id && msg.type === 'assistant');
         if (found) {
-          if (options?.ensureStreaming && !found.isStreaming) {
-            setStreaming(found.id, true);
+          // F173 hotfix (砚砚 4 件套 #2) — identity-aware sticky: if caller passed an
+          // explicit invocationId AND the active ref is bound to a DIFFERENT invocation,
+          // the active ref is stale (previous invocation's bubble whose done was lost).
+          // Drop it and fall through to identity-aware recovery.
+          const boundInv = found.extra?.stream?.invocationId;
+          if (options?.invocationId && boundInv && boundInv !== options.invocationId) {
+            activeRefs.current.delete(catId);
+          } else {
+            if (options?.ensureStreaming && !found.isStreaming) {
+              setStreaming(found.id, true);
+            }
+            if (metadata) {
+              setMessageMetadata(found.id, metadata);
+            }
+            return found.id;
           }
-          if (metadata) {
-            setMessageMetadata(found.id, metadata);
-          }
-          return found.id;
+        } else {
+          activeRefs.current.delete(catId);
         }
-        activeRefs.current.delete(catId);
       }
 
-      const recovered = findRecoverableAssistantMessage(catId);
+      const recovered = findRecoverableAssistantMessage(catId, options?.invocationId);
       if (!recovered) return null;
 
       activeRefs.current.set(catId, { id: recovered.id, catId });
@@ -535,16 +586,26 @@ export function useAgentMessages() {
   );
 
   const ensureActiveAssistantMessage = useCallback(
-    (catId: string, metadata?: AgentMsg['metadata']): string => {
-      const existingId = getOrRecoverActiveAssistantMessageId(catId, metadata, { ensureStreaming: true });
+    (catId: string, metadata?: AgentMsg['metadata'], options?: { invocationId?: string }): string => {
+      const existingId = getOrRecoverActiveAssistantMessageId(catId, metadata, {
+        ensureStreaming: true,
+        ...(options?.invocationId ? { invocationId: options.invocationId } : {}),
+      });
       if (existingId) {
         return existingId;
       }
 
-      // F173 A.3 — deterministic id from invocationId so background-handler-created
-      // bubbles (in threadStates) match this active path on hydration/recovery.
-      const invocation = getCurrentInvocationStateForCat(catId);
-      const invocationId = invocation.invocationId;
+      // F173 hotfix (砚砚 4 件套 #2) — prefer explicit invocationId from event payload.
+      // Cloud P2#2 (PR#1352): when no explicit invocationId, fall back to activeInvocations
+      // (the FRESH signal — set by intent_mode UPSTREAM of invocation_created). Do NOT
+      // fall back to catInvocations (lags invocation_created — that's the original
+      // ea0973e7 trap). With activeInvocations binding, callback strict-match can correlate
+      // even when invocation_created was missed; without it, split bubbles result.
+      let invocationId = options?.invocationId;
+      if (!invocationId) {
+        const fallback = findLatestActiveInvocationIdForCat(useChatStore.getState().activeInvocations, catId);
+        if (fallback) invocationId = fallback;
+      }
       const id = deriveBubbleId(invocationId, catId, () => `msg-${Date.now()}-${catId}`);
       activeRefs.current.set(catId, { id, catId });
       addMessage({
@@ -558,32 +619,38 @@ export function useAgentMessages() {
         timestamp: Date.now(),
         isStreaming: true,
       });
-      if (invocation.source === 'activeInvocations') {
+      if (invocationId) {
         recordLateBindBubbleCreate(catId, id, invocationId);
       }
       return id;
     },
-    [addMessage, getCurrentInvocationStateForCat, getOrRecoverActiveAssistantMessageId, recordLateBindBubbleCreate],
+    [addMessage, getOrRecoverActiveAssistantMessageId, recordLateBindBubbleCreate],
   );
 
   const shouldSuppressLateStreamChunk = useCallback(
     (catId: string, invocationId?: string): boolean => {
       const tid = useChatStore.getState().currentThreadId;
-      const replacedInvocationId = getReplacedInvocation(tid, catId);
-      if (!replacedInvocationId) return false;
-
-      const currentInvocationId = invocationId ?? getCurrentInvocationIdForCat(catId);
-      // F173 A.12 砚砚 round 5 — invocation-driven cleanup (not navigation-driven):
-      // different invocationId observed = suppression is stale, clear it and pass.
-      if (currentInvocationId && currentInvocationId !== replacedInvocationId) {
-        clearReplacedInvocation(tid, catId);
+      // Cloud P2 (PR#1352): membership check against replaced Set (multi-value).
+      if (invocationId) {
+        if (isInvocationReplaced(tid, catId, invocationId)) return true;
+        // Cloud P1#6 (PR#1352): observing a fresh explicit invocationId that's NOT in
+        // the replaced set means the cat moved on. catInvocations may still be stale
+        // (prior done lost) — surgically remove the stale catInvocations value from the
+        // replaced set so subsequent invocationless follow-ups don't get mis-suppressed
+        // by the legacy fallback path below. We DON'T clear other replaced entries —
+        // they're independently in-flight stale invocations that may still get late chunks.
+        const stale = getCurrentInvocationIdForCat(catId);
+        if (stale && stale !== invocationId && isInvocationReplaced(tid, catId, stale)) {
+          removeReplacedInvocation(tid, catId, stale);
+        }
         return false;
       }
-      // F173 A.12 砚砚 round 5 — fail-open for invocationless flows (legacy /api/messages
-      // emits agent_messages without invocationId). Without this, suppression becomes
-      // permanent and drops legitimate new stream output (codex round 3 P2 case).
-      // Drop ONLY when invocationId is known AND matches the replaced one.
-      if (!currentInvocationId) return false;
+      // Invocationless: fall back to catInvocations to preserve "drops late chunks after
+      // callback replacement" semantics (callback marks inv-X, fresh same-inv chunks drop).
+      // Fail-open when catInvocations has nothing (round 5 P2 case).
+      const fallbackInv = getCurrentInvocationIdForCat(catId);
+      if (!fallbackInv) return false;
+      if (!isInvocationReplaced(tid, catId, fallbackInv)) return false;
 
       recordDebugEvent({
         event: 'bubble_lifecycle',
@@ -592,7 +659,7 @@ export function useAgentMessages() {
         action: 'drop',
         reason: 'late_stream_after_callback_replace',
         catId,
-        invocationId: replacedInvocationId,
+        invocationId: invocationId ?? fallbackInv,
         origin: 'stream',
       });
       return true;
@@ -691,17 +758,28 @@ export function useAgentMessages() {
             // placeholder existed yet. Mark the invocation as replaced so that
             // late-arriving stream chunks for the same invocation are suppressed
             // instead of spawning a second bubble.
-            const shouldLockReplacement =
-              invocationId &&
-              (!hasExplicitInvocationId || getCurrentInvocationIdForCat(msg.catId) === msg.invocationId);
-            if (shouldLockReplacement) {
+            //
+            // F173 hotfix round 5 (砚砚 non-blocking observation): the prior condition
+            // `(!hasExplicitInvocationId || getCurrentInvocationIdForCat === msg.invocationId)`
+            // only marked when catInvocations/activeInvocations confirmed the explicit
+            // invocationId. That breaks the "callback first + invocation_created lost + no
+            // active slot" branch: getCurrentInvocationIdForCat returns undefined, the
+            // condition becomes false, no mark, and the subsequent stream chunk appends
+            // onto the finalized callback bubble via identity-aware recovery. Stale-callback
+            // safety is already provided by `shouldSuppressLateStreamChunk`'s
+            // different-invocationId clear path, so unconditional mark-on-any-invocationId
+            // is both correct and complete here.
+            if (invocationId) {
               // F173 A.6 — shared module Map; both handlers see this suppression.
               markReplacedInvocation(useChatStore.getState().currentThreadId, msg.catId, invocationId);
             }
           }
         } else {
           // CLI stream message (thinking): append to active stream bubble
-          const messageId = getOrRecoverActiveAssistantMessageId(msg.catId, msg.metadata, { ensureStreaming: true });
+          const messageId = getOrRecoverActiveAssistantMessageId(msg.catId, msg.metadata, {
+            ensureStreaming: true,
+            ...(msg.invocationId ? { invocationId: msg.invocationId } : {}),
+          });
           if (messageId) {
             if (msg.textMode === 'replace') {
               patchMessage(messageId, { content: msg.content });
@@ -715,11 +793,21 @@ export function useAgentMessages() {
               });
             }
           } else {
-            // New stream message for this cat
-            // F173 A.3 — deterministic id via deriveBubbleId; matches background handler.
-            const invocation = getCurrentInvocationStateForCat(msg.catId);
-            const invocationId = msg.invocationId ?? invocation.invocationId;
-            const id = deriveBubbleId(invocationId, msg.catId, () => `msg-${Date.now()}-${msg.catId}`);
+            // New stream message for this cat.
+            // F173 hotfix (砚砚 4 件套 #2) — prefer explicit msg.invocationId from event.
+            // Cloud P1#8 (PR#1352): fall back to activeInvocations (the FRESH signal, set
+            // by intent_mode UPSTREAM of invocation_created) when msg.invocationId is missing.
+            // Do NOT fall back to catInvocations (lags invocation_created — original ea0973e7
+            // trap). With activeInvocations binding, callback strict-match can correlate;
+            // without any binding, mixed-delivery races produce duplicate ghost pairs.
+            let invocationId = msg.invocationId;
+            if (!invocationId) {
+              const fallback = findLatestActiveInvocationIdForCat(useChatStore.getState().activeInvocations, msg.catId);
+              if (fallback) invocationId = fallback;
+            }
+            const id = invocationId
+              ? deriveBubbleId(invocationId, msg.catId, () => `msg-${Date.now()}-${msg.catId}`)
+              : `msg-${Date.now()}-${msg.catId}`;
             activeRefs.current.set(msg.catId, { id, catId: msg.catId });
             addMessage({
               id,
@@ -734,12 +822,13 @@ export function useAgentMessages() {
               timestamp: Date.now(),
               isStreaming: true,
             });
-            if (invocation.source === 'activeInvocations') {
-              recordLateBindBubbleCreate(msg.catId, id, invocationId);
-            }
           }
         }
       } else if (msg.type === 'tool_use') {
+        // Cloud P1#3 (PR#1352): suppress stale tool_use for completed invocation.
+        // Done handler markReplacedInvocation for msg.invocationId; this check drops
+        // reordered events before they can collide with the deterministic bubble id.
+        if (shouldSuppressLateStreamChunk(msg.catId, msg.invocationId)) return;
         setCatStatus(msg.catId, 'streaming');
         sawStreamDataRef.current.add(msg.catId);
         const toolName = msg.toolName ?? 'unknown';
@@ -761,7 +850,9 @@ export function useAgentMessages() {
           }
         }
 
-        const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
+        const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata, {
+          ...(msg.invocationId ? { invocationId: msg.invocationId } : {}),
+        });
 
         appendToolEvent(messageId, {
           id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -778,8 +869,12 @@ export function useAgentMessages() {
           });
         }
       } else if (msg.type === 'tool_result') {
+        // Cloud P1#3 (PR#1352): see tool_use note — suppress stale tool_result.
+        if (shouldSuppressLateStreamChunk(msg.catId, msg.invocationId)) return;
         setCatStatus(msg.catId, 'streaming');
-        const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
+        const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata, {
+          ...(msg.invocationId ? { invocationId: msg.invocationId } : {}),
+        });
 
         const detail = compactToolResultDetail(msg.content ?? '');
         appendToolEvent(messageId, {
@@ -811,7 +906,45 @@ export function useAgentMessages() {
               },
             });
           }
-          messageId = getOrRecoverActiveAssistantMessageId(msg.catId);
+          messageId = getOrRecoverActiveAssistantMessageId(msg.catId, undefined, {
+            ...(msg.invocationId ? { invocationId: msg.invocationId } : {}),
+          });
+          // Cloud R15 permissive fallback for terminal events: when strict identity-
+          // aware recovery can't find a match but slot-fresh override confirmed this
+          // terminal is legitimate, finalize the same-cat streaming bubble.
+          //
+          // Cloud P1#1: gate on `msg.invocationId` presence (no invocationless reach).
+          // Cloud P1#7 (PR#1352): bubble-binding policy depends on confirmation source:
+          //   - SLOT-FRESH confirmed (activeInvocations[msg.invocationId] for this cat):
+          //     bubble's stale binding is unreliable (R15 reused-bubble scenario) →
+          //     finalize ANY same-cat streaming bubble.
+          //   - Only catInvocations / weaker signal confirmed: respect bubble binding
+          //     (only finalize bubbles bound to msg.invocationId or unbound) — protects
+          //     against late done(inv-1) closing a real inv-2 bubble.
+          if (!messageId && msg.invocationId) {
+            const slotFreshConfirmed = ((): boolean => {
+              const s = useChatStore.getState();
+              const suffix = `-${msg.catId}`;
+              const normalize = (k: string | undefined): string | undefined =>
+                k && k.endsWith(suffix) ? k.slice(0, -suffix.length) : k;
+              const entries = Object.entries(s.activeInvocations ?? {});
+              for (let i = entries.length - 1; i >= 0; i--) {
+                const [key, info] = entries[i]!;
+                if (info.catId !== msg.catId || key.startsWith('hydrated-')) continue;
+                return normalize(key) === msg.invocationId;
+              }
+              return false;
+            })();
+            const permissive = useChatStore.getState().messages.findLast((m) => {
+              if (m.type !== 'assistant' || m.catId !== msg.catId || !m.isStreaming) return false;
+              if (slotFreshConfirmed) return true;
+              const bound = m.extra?.stream?.invocationId;
+              return !bound || bound === msg.invocationId;
+            });
+            if (permissive) {
+              messageId = permissive.id;
+            }
+          }
           if (messageId) {
             setStreaming(messageId, false);
             // Bug-G: back-fill invocationId on bubbles that somehow missed the
@@ -830,6 +963,14 @@ export function useAgentMessages() {
             // scan, this is scoped to the exact just-finalized message only.
             finalizedStreamRef.current.set(msg.catId, messageId);
             activeRefs.current.delete(msg.catId);
+            // Cloud P1#3 (PR#1352): mark the just-closed invocation as replaced so
+            // that reordered / late non-terminal events (text / tool_use / tool_result
+            // / web_search / thinking / rich_block) for the SAME invocationId are
+            // suppressed by shouldSuppressLateStreamChunk instead of colliding with
+            // the deterministic bubble id and re-opening the finalized bubble.
+            if (msg.invocationId) {
+              markReplacedInvocation(useChatStore.getState().currentThreadId, msg.catId, msg.invocationId);
+            }
           }
           // Bugfix: clear stale invocationId so findRecoverableAssistantMessage
           // can't match this finalized message when the next invocation starts.
@@ -1004,10 +1145,88 @@ export function useAgentMessages() {
                   lastInvocationId: invocationId,
                 },
               });
-              const targetId = getOrRecoverActiveAssistantMessageId(targetCatId);
-              if (targetId) {
-                setMessageStreamInvocation(targetId, invocationId);
+
+              // F173 hotfix (砚砚 4 件套 #3) — invocation_created is a REBIND BOUNDARY for this cat:
+              // (a) Finalize any same-cat streaming bubble bound to a DIFFERENT invocationId,
+              //     so findRecoverableAssistantMessage no longer picks it up. This prevents
+              //     the ghost-bubble race where a previous invocation's done event was lost
+              //     and its streaming=true bubble got reused by the new invocation's chunks.
+              // (b) Pick the rebind target: prefer activeRef if it points to an unbound
+              //     streaming bubble (the live one we just created); otherwise take the
+              //     MOST RECENT (newest-to-oldest) unbound streaming bubble. Cloud Codex P1
+              //     on PR#1352 — the old oldest-to-newest loop would bind a stale historical
+              //     bubble when reconnect/hydration left multiple unbound ones, leaving the
+              //     live bubble unbound and reintroducing ghost/split behavior.
+              const messagesSnapshot = useChatStore.getState().messages;
+              // Pass (a): finalize any bubble bound to a different invocation.
+              // Cloud P1#5 (PR#1352): also markReplacedInvocation(oldInv) so subsequent
+              // late text/tool events for the closed invocation get suppressed via
+              // shouldSuppressLateStreamChunk (otherwise Loop 1 non-streaming fallback
+              // would resurrect the boundary-finalized bubble via ensureStreaming).
+              const boundaryReplacedInvs = new Set<string>();
+              for (const m of messagesSnapshot) {
+                if (m.type !== 'assistant' || m.catId !== targetCatId || m.origin !== 'stream') continue;
+                if (!m.isStreaming) continue;
+                const boundInv = m.extra?.stream?.invocationId;
+                if (boundInv && boundInv !== invocationId) {
+                  setStreaming(m.id, false);
+                  boundaryReplacedInvs.add(boundInv);
+                }
               }
+              const tidForBoundary = useChatStore.getState().currentThreadId;
+              for (const oldInv of boundaryReplacedInvs) {
+                markReplacedInvocation(tidForBoundary, targetCatId, oldInv);
+              }
+              // Pass (b): pick rebind target.
+              let unboundPlaceholderId: string | undefined;
+              const activeRefId = activeRefs.current.get(targetCatId)?.id;
+              if (activeRefId) {
+                const activeMsg = messagesSnapshot.find((m) => m.id === activeRefId);
+                if (
+                  activeMsg?.type === 'assistant' &&
+                  activeMsg.catId === targetCatId &&
+                  activeMsg.origin === 'stream' &&
+                  activeMsg.isStreaming &&
+                  !activeMsg.extra?.stream?.invocationId
+                ) {
+                  unboundPlaceholderId = activeMsg.id;
+                }
+              }
+              if (!unboundPlaceholderId) {
+                // Newest-to-oldest scan so historical unbound bubbles (e.g. hydrated) lose.
+                for (let i = messagesSnapshot.length - 1; i >= 0; i -= 1) {
+                  const m = messagesSnapshot[i];
+                  if (!m || m.type !== 'assistant' || m.catId !== targetCatId || m.origin !== 'stream') continue;
+                  if (!m.isStreaming) continue;
+                  if (m.extra?.stream?.invocationId) continue;
+                  unboundPlaceholderId = m.id;
+                  break;
+                }
+              }
+              if (unboundPlaceholderId) {
+                const deterministicId = deriveBubbleId(invocationId, targetCatId, () => unboundPlaceholderId!);
+                if (deterministicId !== unboundPlaceholderId) {
+                  replaceMessageId(unboundPlaceholderId, deterministicId);
+                  setMessageStreamInvocation(deterministicId, invocationId);
+                } else {
+                  setMessageStreamInvocation(unboundPlaceholderId, invocationId);
+                }
+                // Cloud P1#9 (PR#1352): unconditionally point activeRefs at the rebound
+                // bubble (even when it wasn't the prior activeRef target). Newest→oldest
+                // scan picked the LIVE bubble for inv-new — leaving activeRefs on a stale
+                // older bubble would let later invocationless chunks reuse it via
+                // ensureStreaming and append into the previous invocation's bubble.
+                const reboundId = deterministicId !== unboundPlaceholderId ? deterministicId : unboundPlaceholderId;
+                activeRefs.current.set(targetCatId, { id: reboundId, catId: targetCatId });
+              } else {
+                // Legacy path: no unbound placeholder but there's some existing message we can
+                // bind invocationId onto (preserves behavior for messages already matching newInv).
+                const targetId = getOrRecoverActiveAssistantMessageId(targetCatId, undefined, { invocationId });
+                if (targetId) {
+                  setMessageStreamInvocation(targetId, invocationId);
+                }
+              }
+
               maybeMigrateSequentialInvocationOwnership(targetCatId, invocationId);
               consumed = true;
             }
@@ -1106,22 +1325,34 @@ export function useAgentMessages() {
             consumed = true;
           } else if (parsed?.type === 'web_search') {
             // F045: web_search tool event (privacy: no query, count only) — render as ToolEvent, not raw JSON
-            setCatStatus(msg.catId, 'streaming');
-            const count = typeof parsed.count === 'number' ? parsed.count : 1;
-            const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
+            const parsedInv = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
+            const effectiveInv = parsedInv ?? msg.invocationId;
+            // Cloud P1#3 (PR#1352): suppress stale web_search for completed invocation.
+            if (!shouldSuppressLateStreamChunk(msg.catId, effectiveInv)) {
+              setCatStatus(msg.catId, 'streaming');
+              const count = typeof parsed.count === 'number' ? parsed.count : 1;
+              const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata, {
+                ...(effectiveInv ? { invocationId: effectiveInv as string } : {}),
+              });
 
-            appendToolEvent(messageId, {
-              id: `toolws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              type: 'tool_use',
-              label: `${msg.catId} → web_search${count > 1 ? ` x${count}` : ''}`,
-              timestamp: Date.now(),
-            });
+              appendToolEvent(messageId, {
+                id: `toolws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                type: 'tool_use',
+                label: `${msg.catId} → web_search${count > 1 ? ` x${count}` : ''}`,
+                timestamp: Date.now(),
+              });
+            }
             consumed = true;
           } else if (parsed?.type === 'thinking') {
             // F045: Embed thinking into the current assistant bubble (like Claude Code)
             const thinkingText = parsed.text ?? '';
-            if (thinkingText) {
-              const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
+            const parsedInv = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
+            const effectiveInv = parsedInv ?? msg.invocationId;
+            // Cloud P1#3 (PR#1352): suppress stale thinking for completed invocation.
+            if (thinkingText && !shouldSuppressLateStreamChunk(msg.catId, effectiveInv)) {
+              const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata, {
+                ...(effectiveInv ? { invocationId: effectiveInv as string } : {}),
+              });
               setMessageThinking(messageId, thinkingText);
             }
             consumed = true;
@@ -1185,6 +1416,11 @@ export function useAgentMessages() {
             sysContent = 'This response was superseded by a newer request.';
           } else if (parsed?.type === 'rich_block') {
             // F22: Append rich block — prefer messageId correlation (#83 P2), fallback to activeRefs
+            const parsedInv = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
+            const effectiveInv = parsedInv ?? msg.invocationId;
+            // Cloud P1#3 (PR#1352): suppress stale rich_block for completed invocation —
+            // explicit messageId correlation still wins (callback may be a re-emission
+            // of a known message), so only the bubble-creation fallback path is gated.
             let targetId: string | undefined;
 
             // P2 fix: use messageId from callback post-message path for precise correlation
@@ -1195,17 +1431,11 @@ export function useAgentMessages() {
 
             // Bugfix: standalone create_rich_block (no messageId) — prefer most recent
             // callback message from this cat over the active streaming message.
-            // Without this, blocks land on the CLI streaming bubble instead of the
-            // preceding post_message bubble, showing raw JSON until page refresh.
-            // Guard: if the most recent assistant message from this cat is a streaming
-            // message, skip callback lookup — the block likely came from the CLI stream
-            // (e.g. codex-event-transform image extraction), not a MCP callback.
             if (!targetId) {
               const currentMessages = useChatStore.getState().messages;
               for (let i = currentMessages.length - 1; i >= 0; i--) {
                 const m = currentMessages[i];
                 if (m.type !== 'assistant' || m.catId !== msg.catId) continue;
-                // If we hit an active streaming message first, callback is stale — stop
                 if (m.origin === 'stream' && m.isStreaming) break;
                 if (m.origin === 'callback') {
                   targetId = m.id;
@@ -1214,12 +1444,14 @@ export function useAgentMessages() {
               }
             }
 
-            if (!targetId) {
+            if (!targetId && !shouldSuppressLateStreamChunk(msg.catId, effectiveInv)) {
               // Final fallback: recover the active stream bubble before creating a placeholder.
-              targetId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
+              targetId = ensureActiveAssistantMessage(msg.catId, msg.metadata, {
+                ...(effectiveInv ? { invocationId: effectiveInv as string } : {}),
+              });
             }
 
-            if (parsed.block) {
+            if (targetId && parsed.block) {
               appendRichBlock(targetId, parsed.block);
             }
             consumed = true;
@@ -1274,7 +1506,34 @@ export function useAgentMessages() {
               },
             });
           }
-          const messageId = getOrRecoverActiveAssistantMessageId(msg.catId);
+          let messageId = getOrRecoverActiveAssistantMessageId(msg.catId, undefined, {
+            ...(msg.invocationId ? { invocationId: msg.invocationId } : {}),
+          });
+          // Cloud R15 + P1#1 + P1#7 permissive fallback (see done path for full rationale).
+          if (!messageId && msg.invocationId) {
+            const slotFreshConfirmed = ((): boolean => {
+              const s = useChatStore.getState();
+              const suffix = `-${msg.catId}`;
+              const normalize = (k: string | undefined): string | undefined =>
+                k && k.endsWith(suffix) ? k.slice(0, -suffix.length) : k;
+              const entries = Object.entries(s.activeInvocations ?? {});
+              for (let i = entries.length - 1; i >= 0; i--) {
+                const [key, info] = entries[i]!;
+                if (info.catId !== msg.catId || key.startsWith('hydrated-')) continue;
+                return normalize(key) === msg.invocationId;
+              }
+              return false;
+            })();
+            const permissive = useChatStore.getState().messages.findLast((m) => {
+              if (m.type !== 'assistant' || m.catId !== msg.catId || !m.isStreaming) return false;
+              if (slotFreshConfirmed) return true;
+              const bound = m.extra?.stream?.invocationId;
+              return !bound || bound === msg.invocationId;
+            });
+            if (permissive) {
+              messageId = permissive.id;
+            }
+          }
           if (messageId) {
             setStreaming(messageId, false);
             activeRefs.current.delete(msg.catId);

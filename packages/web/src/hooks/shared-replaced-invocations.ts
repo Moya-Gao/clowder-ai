@@ -18,26 +18,57 @@
  * for now we only collapse the one ref that has cross-handler suppression semantics.
  */
 
-const replacedInvocations = new Map<string, string>();
+// Cloud P2 (PR#1352): storage upgraded from Map<key, string> to Map<key, Set<string>>
+// so multiple in-flight stale invocations per (thread, cat) can be tracked. Earlier
+// single-value storage overwrote earlier invocations when invocation_created closed
+// multiple stale bubbles, leaving them un-suppressed and reopen-able.
+const replacedInvocations = new Map<string, Set<string>>();
 
 /** Compose the canonical stream key shared between active + background handlers. */
 export function makeReplacedKey(threadId: string, catId: string): string {
   return `${threadId}::${catId}`;
 }
 
-/** Mark an invocation as replaced (by callback). Idempotent overwrite. */
+/** Mark an invocation as replaced (by callback or boundary closure). Idempotent. */
 export function markReplacedInvocation(threadId: string, catId: string, invocationId: string): void {
-  replacedInvocations.set(makeReplacedKey(threadId, catId), invocationId);
+  const key = makeReplacedKey(threadId, catId);
+  let set = replacedInvocations.get(key);
+  if (!set) {
+    set = new Set<string>();
+    replacedInvocations.set(key, set);
+  }
+  set.add(invocationId);
 }
 
-/** Read the currently-replaced invocation id for a (threadId, catId) pair. */
+/** Membership check: is this specific invocationId replaced for the (threadId, catId) pair? */
+export function isInvocationReplaced(threadId: string, catId: string, invocationId: string): boolean {
+  return replacedInvocations.get(makeReplacedKey(threadId, catId))?.has(invocationId) ?? false;
+}
+
+/**
+ * Read any one stored invocationId (legacy single-value API).
+ * Returns the most recently added value (insertion order). Prefer
+ * `isInvocationReplaced` for membership checks.
+ */
 export function getReplacedInvocation(threadId: string, catId: string): string | undefined {
-  return replacedInvocations.get(makeReplacedKey(threadId, catId));
+  const set = replacedInvocations.get(makeReplacedKey(threadId, catId));
+  if (!set || set.size === 0) return undefined;
+  let last: string | undefined;
+  for (const v of set) last = v;
+  return last;
 }
 
-/** Clear the replaced flag once we observe a different invocation (caller decides when). */
+/** Clear ALL replaced invocations for a (threadId, catId) pair. */
 export function clearReplacedInvocation(threadId: string, catId: string): void {
   replacedInvocations.delete(makeReplacedKey(threadId, catId));
+}
+
+/** Remove a single invocationId from the replaced set (cloud P2 — surgical clear). */
+export function removeReplacedInvocation(threadId: string, catId: string, invocationId: string): void {
+  const set = replacedInvocations.get(makeReplacedKey(threadId, catId));
+  if (!set) return;
+  set.delete(invocationId);
+  if (set.size === 0) replacedInvocations.delete(makeReplacedKey(threadId, catId));
 }
 
 /** Test-only: reset all entries (call from beforeEach). */
@@ -58,7 +89,9 @@ export function clearReplacedInvocationsForThread(threadId: string): void {
   }
 }
 
-/** Read-only snapshot for debug / observability. */
-export function snapshotSharedReplacedInvocations(): Map<string, string> {
-  return new Map(replacedInvocations);
+/** Read-only snapshot for debug / observability. Set entries cloned per key. */
+export function snapshotSharedReplacedInvocations(): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>();
+  for (const [k, v] of replacedInvocations) out.set(k, new Set(v));
+  return out;
 }

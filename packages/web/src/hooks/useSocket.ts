@@ -14,7 +14,7 @@ import { useGuideStore } from '@/stores/guideStore';
 import { useToastStore } from '@/stores/toastStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
-import { getReplacedInvocation } from './shared-replaced-invocations';
+import { isInvocationReplaced } from './shared-replaced-invocations';
 import { reconnectGame } from './useGameReconnect';
 import {
   type BackgroundAgentMessage,
@@ -498,7 +498,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         // are dropped here as well; without this guard, store's hard-merge by (catId, invocationId)
         // would overwrite authoritative callback content with the late stream chunk.
         if (msg.type === 'text' && msg.origin !== 'callback' && msg.invocationId) {
-          if (getReplacedInvocation(msg.threadId, msg.catId) === msg.invocationId) {
+          if (isInvocationReplaced(msg.threadId, msg.catId, msg.invocationId)) {
             recordInvocationEvent({
               event: 'agent_message',
               threadId: msg.threadId,

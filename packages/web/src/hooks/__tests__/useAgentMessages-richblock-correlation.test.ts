@@ -1,6 +1,7 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetSharedReplacedInvocations } from '@/hooks/shared-replaced-invocations';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
 
 const mockAddMessage = vi.fn();
@@ -114,6 +115,7 @@ describe('useAgentMessages rich_block correlation (Bug A)', () => {
     captured = undefined;
     storeState.messages = [];
     storeState.catInvocations = {};
+    resetSharedReplacedInvocations();
     vi.clearAllMocks();
   });
 
@@ -560,7 +562,10 @@ describe('useAgentMessages rich_block correlation (Bug A)', () => {
       });
     });
 
-    expect(storeState.messages[0]?.extra?.stream?.invocationId).toBeUndefined();
+    // F173 hotfix: rich_block with explicit msg.invocationId binds the placeholder
+    // directly (no more invocationless rich-block fallback). The strict-match in
+    // findCallbackReplacementTarget then replaces it cleanly when callback arrives.
+    expect(storeState.messages[0]?.extra?.stream?.invocationId).toBe('inv-explicit');
 
     act(() => {
       captured?.handleAgentMessage({

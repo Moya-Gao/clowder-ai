@@ -2,7 +2,7 @@ import { deriveBubbleId } from '@/debug/bubbleIdentity';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import type { CatStatusType } from '@/stores/chat-types';
 import { compactToolResultDetail } from '@/utils/toolPreview';
-import { clearReplacedInvocation, getReplacedInvocation, markReplacedInvocation } from './shared-replaced-invocations';
+import { isInvocationReplaced, markReplacedInvocation, removeReplacedInvocation } from './shared-replaced-invocations';
 import type {
   ActiveRoutedAgentMessage,
   BackgroundAgentMessage,
@@ -213,21 +213,34 @@ function shouldSuppressLateBackgroundStreamChunk(
   options: HandleBackgroundMessageOptions,
 ): boolean {
   // F173 A.6 — read shared module Map (cross-handler suppression source of truth).
-  const replacedInvocationId = getReplacedInvocation(msg.threadId, msg.catId);
-  if (!replacedInvocationId) return false;
-
-  const currentInvocationId = msg.invocationId ?? getThreadInvocationId(msg, options);
-  // F173 A.12 砚砚 round 5 — invocation-driven cleanup (not navigation-driven).
-  // Different invocationId observed → suppression is stale, clear and pass.
-  if (currentInvocationId && currentInvocationId !== replacedInvocationId) {
-    clearReplacedInvocation(msg.threadId, msg.catId);
+  // Cloud P2 (PR#1352): membership check against replaced Set (multi-value).
+  if (msg.invocationId) {
+    if (isInvocationReplaced(msg.threadId, msg.catId, msg.invocationId)) {
+      recordDebugEvent({
+        event: 'bubble_lifecycle',
+        threadId: msg.threadId,
+        timestamp: msg.timestamp,
+        action: 'drop',
+        reason: 'late_stream_after_callback_replace',
+        catId: msg.catId,
+        invocationId: msg.invocationId,
+        origin: 'stream',
+      });
+      return true;
+    }
+    // Cloud P1#6 (PR#1352): fresh explicit invocationId — clean stale catInvocations
+    // entry from replaced set so subsequent invocationless follow-ups aren't mis-suppressed.
+    const stale = getThreadInvocationId(msg, options);
+    if (stale && stale !== msg.invocationId && isInvocationReplaced(msg.threadId, msg.catId, stale)) {
+      removeReplacedInvocation(msg.threadId, msg.catId, stale);
+    }
     return false;
   }
-  // F173 A.12 砚砚 round 5 — fail-open for invocationless flows (legacy /api/messages
-  // emits agent_messages without invocationId). Without this, an old suppression entry
-  // would permanently drop legitimate new stream output for the same (threadId, catId)
-  // — that's the round 3 P2 bug. Drop ONLY when invocationId is known AND matches.
-  if (!currentInvocationId) return false;
+  // Invocationless: fall back to thread-level inv (preserves drop-late-after-replace
+  // semantics for fresh same-inv chunks). Fail-open if no signal.
+  const fallbackInv = getThreadInvocationId(msg, options);
+  if (!fallbackInv) return false;
+  if (!isInvocationReplaced(msg.threadId, msg.catId, fallbackInv)) return false;
 
   recordDebugEvent({
     event: 'bubble_lifecycle',
@@ -236,7 +249,7 @@ function shouldSuppressLateBackgroundStreamChunk(
     action: 'drop',
     reason: 'late_stream_after_callback_replace',
     catId: msg.catId,
-    invocationId: replacedInvocationId,
+    invocationId: fallbackInv,
     origin: 'stream',
   });
   return true;

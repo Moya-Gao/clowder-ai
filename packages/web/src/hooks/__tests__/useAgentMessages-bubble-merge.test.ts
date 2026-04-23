@@ -228,6 +228,668 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
     expect(newBubbleCalls[0][0].content).toBe('Final callback response');
   });
 
+  it('callback-first with explicit invocationId + activeInvocations slot: late stream chunk is suppressed (branch A)', () => {
+    // 砚砚 round 5 follow-up regression: "callback(invocationId) 先到、invocation_created
+    // 丢失" when activeInvocations still carries the slot (intent_mode registered but
+    // invocation_created was lost). Callback path must mark the invocation as replaced
+    // so the subsequent stream chunk is suppressed instead of being appended onto the
+    // finalized callback bubble.
+    mockAddMessage.mockImplementation((msg) => {
+      storeState.messages.push(msg);
+    });
+    mockPatchMessage.mockImplementation((id: string, patch: Record<string, unknown>) => {
+      storeState.messages = storeState.messages.map((m) =>
+        m.id === id ? { ...m, ...(patch as Record<string, unknown>) } : m,
+      );
+    });
+    storeState.activeInvocations = { 'inv-callback-first-A': { catId: 'opus', mode: 'stream' } };
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    // Callback arrives first with explicit invocationId — no placeholder exists yet.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        origin: 'callback',
+        content: 'Final callback content',
+        invocationId: 'inv-callback-first-A',
+        messageId: 'msg-cb-first-A',
+      });
+    });
+
+    vi.clearAllMocks();
+
+    // Stream chunk for the SAME invocation arrives late (invocation_created never came).
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'late stream chunk should not pollute',
+        invocationId: 'inv-callback-first-A',
+      });
+    });
+
+    expect(mockAppendToMessage).not.toHaveBeenCalled();
+    expect(
+      mockAddMessage.mock.calls.filter(([m]) => m.type === 'assistant' && m.catId === 'opus'),
+      'late stream must not spawn a second bubble',
+    ).toHaveLength(0);
+    const cbBubble = storeState.messages.find((m) => m.id === 'msg-cb-first-A');
+    expect(cbBubble?.content, 'callback content must remain unmodified').toBe('Final callback content');
+  });
+
+  it('invocationless text bubble uses activeInvocations fallback so callback can correlate (cloud P1#8, PR#1352)', () => {
+    // Cloud Codex P1#8: text path created unbound bubble when msg.invocationId missing.
+    // Mixed-delivery race: stream text invocationless + callback with invocationId +
+    // delayed/lost invocation_created → callback strict-match fails on unbound bubble
+    // (only empty rich/tool placeholders are adopted) → split bubbles.
+    //
+    // Fix: text path also falls back to activeInvocations (parity with tool path P2#2).
+    mockAddMessage.mockImplementation((msg) => {
+      storeState.messages.push(msg);
+    });
+    storeState.activeInvocations = { 'inv-active-text': { catId: 'opus', mode: 'stream' } };
+    storeState.catInvocations = {};
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    // Invocationless stream text arrives.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'first chunk without invocationId',
+      });
+    });
+
+    const bubble = storeState.messages.find((m) => m.type === 'assistant' && m.catId === 'opus');
+    expect(bubble, 'text bubble must be created').toBeTruthy();
+    expect(
+      bubble?.extra?.stream?.invocationId,
+      'text bubble must be bound to fresh activeInvocations slot for callback correlation',
+    ).toBe('inv-active-text');
+  });
+
+  it('done permissive fallback must NOT finalize a bubble bound to a different invocation (cloud P1#7, PR#1352)', () => {
+    // Cloud Codex P1#7: done permissive fallback finalized the latest streaming bubble
+    // for the cat without checking extra.stream.invocationId. Race: late done(inv-1)
+    // passes isStaleTerminalEvent (e.g. via slot-fresh override OR no contradicting evidence
+    // when activeInvocations is empty) and closes inv-2's bubble.
+    //
+    // Fix: permissive fallback only matches bubbles bound to msg.invocationId OR unbound.
+    mockAddMessage.mockImplementation((msg) => {
+      storeState.messages.push(msg);
+    });
+
+    const inv2BubbleId = 'msg-inv2-active';
+    storeState.messages.push({
+      id: inv2BubbleId,
+      type: 'assistant',
+      catId: 'opus',
+      content: 'inv-2 currently streaming',
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-2' } },
+      timestamp: Date.now(),
+    });
+    // catInvocations.opus = inv-1 (stale, matches msg.invocationId so isStaleTerminalEvent returns false)
+    storeState.catInvocations = { opus: { invocationId: 'inv-1' } };
+    storeState.activeInvocations = {};
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    vi.clearAllMocks();
+
+    // Late done(inv-1) arrives — permissive fallback would close inv-2 bubble.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'opus',
+        invocationId: 'inv-1',
+        isFinal: true,
+      });
+    });
+
+    expect(mockSetStreaming).not.toHaveBeenCalledWith(inv2BubbleId, false);
+    const bubble = storeState.messages.find((m) => m.id === inv2BubbleId);
+    expect(bubble?.isStreaming, 'inv-2 bubble must NOT be closed by late done(inv-1)').toBe(true);
+  });
+
+  it('invocationless text uses activeInvocations fallback so callback can correlate (cloud P2#2, PR#1352)', () => {
+    // Cloud Codex P2#2: text-bubble creation only used explicit msg.invocationId, so
+    // invocationless stream text always created an unbound placeholder. If invocation_
+    // created is missed but callback later includes invocationId, strict callback match
+    // can't correlate → split/ghost duplicate bubbles.
+    //
+    // Fix: when no explicit options.invocationId, fall back to activeInvocations (fresh,
+    // set by intent_mode UPSTREAM of invocation_created). NOT catInvocations (lags
+    // invocation_created — that was the original ea0973e7 trap).
+    mockAddMessage.mockImplementation((msg) => {
+      storeState.messages.push(msg);
+    });
+    storeState.activeInvocations = { 'inv-active-fresh': { catId: 'opus', mode: 'stream' } };
+    storeState.catInvocations = {}; // no direct binding yet (invocation_created hasn't fired)
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    // Invocationless tool_use arrives (no msg.invocationId).
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'tool_use',
+        catId: 'opus',
+        toolName: 'command_execution',
+        toolInput: { command: 'ls' },
+      });
+    });
+
+    // Bubble should be bound to the fresh activeInvocations slot (inv-active-fresh).
+    const created = storeState.messages.find((m) => m.type === 'assistant' && m.catId === 'opus');
+    expect(created, 'bubble must be created').toBeTruthy();
+    expect(created?.extra?.stream?.invocationId, 'bubble must be bound to the fresh activeInvocations slot').toBe(
+      'inv-active-fresh',
+    );
+  });
+
+  it('mixed-id stream: invocationless chunks following an explicit new-inv chunk must NOT resolve to stale replaced inv (cloud P1#6, PR#1352)', () => {
+    // Cloud Codex P1#6: shouldSuppressLateStreamChunk's invocationless fallback used
+    // getCurrentInvocationIdForCat which reads catInvocations (potentially stale).
+    // Race: catInvocations=inv-old (prior done lost), inv-old is in replaced set.
+    // New run emits one explicit chunk for inv-new (passes membership check),
+    // followed by invocationless chunks. Old fallback resolved them to inv-old
+    // → suppressed as replaced → silent output loss.
+    //
+    // Fix: invocationless chunks fail open (don't resolve to catInvocations).
+    // Explicit invocationId is the authoritative signal; missing means "we can't
+    // prove this is stale, let it through".
+    mockAddMessage.mockImplementation((msg) => {
+      storeState.messages.push(msg);
+    });
+    storeState.catInvocations = { opus: { invocationId: 'inv-old' } }; // stale!
+    // Pre-seed: bubble bound to inv-old (still streaming so boundary will finalize it).
+    storeState.messages.push({
+      id: 'msg-old-pre-boundary',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'old run partial',
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-old' } },
+      timestamp: Date.now() - 5000,
+    });
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    // invocation_created for inv-new triggers boundary closure of inv-old + markReplaced('inv-old').
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus',
+        content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-new' }),
+      });
+    });
+    // catInvocations now has inv-new (set by invocation_created).
+    // For Codex's race: we need catInvocations to STILL look stale (inv-old) when invocationless chunks
+    // arrive. Simulate the race by re-setting catInvocations back to stale state (e.g. invocation_created
+    // wrote inv-new but a stale catInvocations setter lost it, OR getCurrentInvocationIdForCat falls back).
+    storeState.catInvocations = { opus: { invocationId: 'inv-old' } }; // re-stale to reproduce race
+
+    vi.clearAllMocks();
+
+    // Chunk 1: explicit msg.invocationId = inv-new → passes (not replaced).
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'explicit chunk for new run',
+        invocationId: 'inv-new',
+      });
+    });
+    // Should have created/appended for inv-new. Either way, mockAddMessage called or appendToMessage.
+    const addedForNew = mockAddMessage.mock.calls.some(([m]) => m.type === 'assistant' && m.catId === 'opus');
+    const appendedForNew = mockAppendToMessage.mock.calls.some((c) => c[1] === 'explicit chunk for new run');
+    expect(addedForNew || appendedForNew, 'explicit inv-new chunk must be processed').toBe(true);
+
+    vi.clearAllMocks();
+
+    // Chunk 2: invocationless follow-up — must NOT be suppressed under stale inv-old.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'legacy invocationless follow-up',
+        // no invocationId
+      });
+    });
+    const processedFollowup =
+      mockAppendToMessage.mock.calls.some((c) => c[1] === 'legacy invocationless follow-up') ||
+      mockAddMessage.mock.calls.some(
+        ([m]) => m.type === 'assistant' && m.catId === 'opus' && m.content === 'legacy invocationless follow-up',
+      );
+    expect(processedFollowup, 'invocationless follow-up must NOT be silently dropped').toBe(true);
+  });
+
+  it('invocation_created boundary must mark ALL closed invocations as replaced — not only the last (cloud P2, PR#1352)', () => {
+    // Cloud Codex P2: markReplacedInvocation stored only ONE value per (thread, cat).
+    // When invocation_created closes multiple stale bubbles in one pass, earlier inv
+    // ids got overwritten — leaving them un-suppressed. A delayed chunk for an earlier
+    // closed invocation could pass shouldSuppressLateStreamChunk (different inv =>
+    // stale signal => clear + pass) and reopen the boundary-finalized bubble via
+    // Loop 1 second pass + ensureStreaming.
+    //
+    // Fix: switch shared-replaced-invocations to a Set<string> per (thread, cat),
+    // membership check via isInvocationReplaced.
+    mockAddMessage.mockImplementation((msg) => {
+      storeState.messages.push(msg);
+    });
+
+    const inv1Id = 'msg-inv1-bound';
+    const inv2Id = 'msg-inv2-bound';
+    const inv3Id = 'msg-inv3-bound';
+    storeState.messages.push(
+      {
+        id: inv1Id,
+        type: 'assistant',
+        catId: 'opus',
+        content: 'inv-1 partial',
+        isStreaming: true,
+        origin: 'stream',
+        extra: { stream: { invocationId: 'inv-1' } },
+        timestamp: Date.now() - 10_000,
+      },
+      {
+        id: inv2Id,
+        type: 'assistant',
+        catId: 'opus',
+        content: 'inv-2 partial',
+        isStreaming: true,
+        origin: 'stream',
+        extra: { stream: { invocationId: 'inv-2' } },
+        timestamp: Date.now() - 5_000,
+      },
+      {
+        id: inv3Id,
+        type: 'assistant',
+        catId: 'opus',
+        content: 'inv-3 partial',
+        isStreaming: true,
+        origin: 'stream',
+        extra: { stream: { invocationId: 'inv-3' } },
+        timestamp: Date.now() - 2_000,
+      },
+    );
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    // invocation_created for inv-4 → boundary finalizes ALL 3 stale bubbles.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus',
+        content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-4' }),
+      });
+    });
+    expect(mockSetStreaming).toHaveBeenCalledWith(inv1Id, false);
+    expect(mockSetStreaming).toHaveBeenCalledWith(inv2Id, false);
+    expect(mockSetStreaming).toHaveBeenCalledWith(inv3Id, false);
+    vi.clearAllMocks();
+
+    // Delayed late chunk for the EARLIEST closed invocation (inv-1) arrives.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: ' should not revive earliest stale bubble',
+        invocationId: 'inv-1',
+      });
+    });
+
+    expect(mockSetStreaming).not.toHaveBeenCalledWith(inv1Id, true);
+    expect(mockAppendToMessage).not.toHaveBeenCalledWith(inv1Id, expect.anything());
+    const bubble = storeState.messages.find((m) => m.id === inv1Id);
+    expect(bubble?.isStreaming, 'earliest closed bubble must stay finalized').toBe(false);
+  });
+
+  it('invocation_created boundary closure must mark old invocation as replaced (cloud P1#5, PR#1352)', () => {
+    // Cloud Codex P1 on PR#1352: when invocation_created finalizes a same-cat
+    // bubble bound to a DIFFERENT invocationId via setStreaming(m.id, false),
+    // that closure was not tracked in finalizedStreamRef OR markReplacedInvocation.
+    // Effect: a delayed late chunk (text/tool_use) for the OLD invocationId
+    // could pass entry-level shouldSuppressLateStreamChunk (no replaced entry)
+    // AND get matched by Loop 1 non-streaming fallback → reopened via
+    // ensureStreaming → old ghost bubble revived after new invocation started.
+    //
+    // Fix: invocation_created boundary closure must markReplacedInvocation(oldInv).
+    mockAddMessage.mockImplementation((msg) => {
+      storeState.messages.push(msg);
+    });
+
+    const oldStaleId = 'msg-old-inv1-bound';
+    storeState.messages.push({
+      id: oldStaleId,
+      type: 'assistant',
+      catId: 'opus',
+      content: 'inv-1 partial (done event was lost)',
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-1' } },
+      timestamp: Date.now() - 5000,
+    });
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    // invocation_created for inv-2 arrives → boundary finalizes inv-1 bubble.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus',
+        content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-2' }),
+      });
+    });
+    // Boundary closure happened.
+    expect(mockSetStreaming).toHaveBeenCalledWith(oldStaleId, false);
+    vi.clearAllMocks();
+
+    // Delayed late text chunk for OLD inv-1 arrives.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: ' should not revive old bubble',
+        invocationId: 'inv-1',
+      });
+    });
+
+    // The old inv-1 bubble must NOT be reopened.
+    expect(mockSetStreaming).not.toHaveBeenCalledWith(oldStaleId, true);
+    const oldBubble = storeState.messages.find((m) => m.id === oldStaleId);
+    expect(oldBubble?.isStreaming, 'boundary-finalized bubble must stay finalized').toBe(false);
+    // Late chunk must NOT be appended to the old bubble (suppression caught it).
+    expect(mockAppendToMessage).not.toHaveBeenCalledWith(oldStaleId, expect.anything());
+  });
+
+  it('done with explicit invocationId must finalize the STREAMING bubble, not a finalized callback bubble (cloud P1#4, PR#1352)', () => {
+    // Cloud Codex P1 on PR#1352: when findRecoverableAssistantMessage matches by
+    // explicit invocationId via newest→oldest scan, it could pick a non-streaming
+    // callback bubble before the still-streaming placeholder for the same invocation.
+    // In done/error paths, this leaves the real streaming bubble open → ghost.
+    //
+    // Fix: streaming-first preference. Two passes — first streaming match, then
+    // non-streaming fallback (preserves hydration recovery while preventing the
+    // callback-bubble misroute).
+    mockAddMessage.mockImplementation((msg) => {
+      storeState.messages.push(msg);
+    });
+
+    const streamingBubbleId = 'msg-streaming-still-open';
+    const callbackBubbleId = 'msg-callback-finalized';
+    storeState.messages.push({
+      id: streamingBubbleId,
+      type: 'assistant',
+      catId: 'opus',
+      content: 'still streaming',
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-shared' } },
+      timestamp: Date.now() - 2000,
+    });
+    storeState.messages.push({
+      // Newer than streaming — would win in pure newest-first scan.
+      id: callbackBubbleId,
+      type: 'assistant',
+      catId: 'opus',
+      content: 'callback final',
+      isStreaming: false,
+      origin: 'callback',
+      extra: { stream: { invocationId: 'inv-shared' } },
+      timestamp: Date.now(),
+    });
+    storeState.activeInvocations = { 'inv-shared': { catId: 'opus', mode: 'stream' } };
+    storeState.catInvocations = { opus: { invocationId: 'inv-shared' } };
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'opus',
+        invocationId: 'inv-shared',
+        isFinal: true,
+      });
+    });
+
+    // setStreaming MUST target the still-streaming bubble, not the callback.
+    expect(mockSetStreaming).toHaveBeenCalledWith(streamingBubbleId, false);
+    expect(mockSetStreaming).not.toHaveBeenCalledWith(callbackBubbleId, expect.anything());
+    const streamingBubble = storeState.messages.find((m) => m.id === streamingBubbleId);
+    expect(streamingBubble?.isStreaming, 'streaming bubble must be finalized').toBe(false);
+  });
+
+  it('stale tool_use for a completed invocation must NOT re-open its finalized bubble (cloud P1#3, PR#1352)', () => {
+    // Cloud Codex P1 on PR#1352: with explicit invocationId, Loop 1 of
+    // findRecoverableAssistantMessage returned any bubble matching the invocation —
+    // even if it was already finalized (`isStreaming: false`). Downstream paths
+    // (tool_use / tool_result / web_search / thinking) invoke recovery with
+    // `ensureStreaming: true`, which then flips the finalized bubble back to
+    // streaming and appends out-of-order payloads AFTER done.
+    //
+    // Fix: Loop 1 now rejects bubbles that THIS SESSION's `done` has finalized
+    // (via finalizedStreamRef). Hydration-loaded non-streaming bubbles are still
+    // recoverable (see "replace hydration" test in placeholder-recovery.test.ts).
+    mockAddMessage.mockImplementation((msg) => {
+      storeState.messages.push(msg);
+    });
+    storeState.activeInvocations = { 'inv-done': { catId: 'opus', mode: 'stream' } };
+    storeState.catInvocations = { opus: { invocationId: 'inv-done' } };
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    // Step 1: stream chunk creates the bubble bound to inv-done.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'complete response',
+        invocationId: 'inv-done',
+      });
+    });
+    const finalizedBubbleId = mockAddMessage.mock.calls.find(([m]) => m.type === 'assistant' && m.catId === 'opus')?.[0]
+      ?.id as string;
+    expect(finalizedBubbleId).toBeTruthy();
+
+    // Step 2: done event finalizes the bubble and populates finalizedStreamRef.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'opus',
+        invocationId: 'inv-done',
+        isFinal: true,
+      });
+    });
+    expect(mockSetStreaming).toHaveBeenCalledWith(finalizedBubbleId, false);
+
+    vi.clearAllMocks();
+
+    // Step 3: stale tool_use arrives for the completed invocation (reordered / retry).
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'tool_use',
+        catId: 'opus',
+        invocationId: 'inv-done',
+        toolName: 'late_tool',
+        toolInput: { command: 'should not append to finalized bubble' },
+      });
+    });
+
+    // Finalized bubble must NOT be re-opened.
+    expect(mockSetStreaming).not.toHaveBeenCalledWith(finalizedBubbleId, true);
+    // Tool event must NOT land on the session-finalized bubble.
+    expect(mockAppendToolEvent).not.toHaveBeenCalledWith(finalizedBubbleId, expect.anything());
+  });
+
+  it('invocationless done does NOT reach the permissive fallback when strict recovery misses (cloud P1, PR#1352)', () => {
+    // Cloud Codex P1 on PR#1352: the permissive fallback in done/error paths finalizes
+    // the last streaming bubble even when strict identity lookup failed, but
+    // isStaleTerminalEvent treats missing msg.invocationId as non-stale. So a legacy
+    // invocationless `done` with no catInvocations link would fall into the permissive
+    // fallback and blindly close an in-flight streaming bubble.
+    //
+    // Gate: permissive fallback requires msg.invocationId (slot-fresh override is only
+    // meaningful when we have a concrete invocationId to compare against).
+    //
+    // Setup: bubble bound to a DIFFERENT invocation, catInvocations/activeInvocations
+    // empty so strict recovery misses and only the permissive fallback could match.
+    mockAddMessage.mockImplementation((msg) => {
+      storeState.messages.push(msg);
+    });
+
+    const orphanInFlightId = 'msg-orphan-streaming';
+    storeState.messages.push({
+      id: orphanInFlightId,
+      type: 'assistant',
+      catId: 'opus',
+      content: 'orphan in-flight',
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-orphan' } }, // bound, but catInvocations empty
+      timestamp: Date.now(),
+    });
+    storeState.catInvocations = {}; // direct binding lost / empty
+    storeState.activeInvocations = {}; // no slot either
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    vi.clearAllMocks();
+
+    // Invocationless done arrives.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'opus',
+        // no invocationId
+      });
+    });
+
+    expect(mockSetStreaming).not.toHaveBeenCalledWith(orphanInFlightId, false);
+    const bubble = storeState.messages.find((m) => m.id === orphanInFlightId);
+    expect(
+      bubble?.isStreaming,
+      'orphan bubble must stay streaming — invocationless done must not reach permissive fallback',
+    ).toBe(true);
+  });
+
+  it('invocationless error does NOT reach the permissive fallback when strict recovery misses (cloud P1, PR#1352)', () => {
+    mockAddMessage.mockImplementation((msg) => {
+      storeState.messages.push(msg);
+    });
+
+    const orphanInFlightId = 'msg-orphan-streaming-err';
+    storeState.messages.push({
+      id: orphanInFlightId,
+      type: 'assistant',
+      catId: 'opus',
+      content: 'orphan in-flight',
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-orphan' } },
+      timestamp: Date.now(),
+    });
+    storeState.catInvocations = {};
+    storeState.activeInvocations = {};
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'error',
+        catId: 'opus',
+        error: 'legacy invocationless error',
+      });
+    });
+
+    expect(mockSetStreaming).not.toHaveBeenCalledWith(orphanInFlightId, false);
+    const bubble = storeState.messages.find((m) => m.id === orphanInFlightId);
+    expect(bubble?.isStreaming, 'orphan bubble must stay streaming under invocationless error').toBe(true);
+  });
+
+  it('callback-first with explicit invocationId + empty activeInvocations: late stream chunk is suppressed (branch B)', () => {
+    // 砚砚 round 5 follow-up regression: same as branch A, but activeInvocations is ALSO
+    // empty (no active slot). Without the unconditional suppression lock, the late stream
+    // chunk would append onto the finalized callback bubble via identity-aware recovery
+    // (callback bubble is bound to the same invocationId) — content pollution.
+    mockAddMessage.mockImplementation((msg) => {
+      storeState.messages.push(msg);
+    });
+    mockPatchMessage.mockImplementation((id: string, patch: Record<string, unknown>) => {
+      storeState.messages = storeState.messages.map((m) =>
+        m.id === id ? { ...m, ...(patch as Record<string, unknown>) } : m,
+      );
+    });
+    // No activeInvocations, no catInvocations — invocation_created lost AND no slot.
+    storeState.activeInvocations = {};
+    storeState.catInvocations = {};
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        origin: 'callback',
+        content: 'Final callback content',
+        invocationId: 'inv-callback-first-B',
+        messageId: 'msg-cb-first-B',
+      });
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'late stream chunk should not pollute',
+        invocationId: 'inv-callback-first-B',
+      });
+    });
+
+    expect(mockAppendToMessage).not.toHaveBeenCalled();
+    expect(
+      mockAddMessage.mock.calls.filter(([m]) => m.type === 'assistant' && m.catId === 'opus'),
+      'late stream must not spawn a second bubble',
+    ).toHaveLength(0);
+    const cbBubble = storeState.messages.find((m) => m.id === 'msg-cb-first-B');
+    expect(cbBubble?.content, 'callback content must remain unmodified').toBe('Final callback content');
+  });
+
   it('callback with explicit invocationId does not reclaim an empty placeholder without rich/tool markers', () => {
     act(() => {
       root.render(React.createElement(Harness));

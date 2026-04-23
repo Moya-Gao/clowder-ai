@@ -180,10 +180,9 @@ describe('useAgentMessages placeholder recovery', () => {
     expect(mockAppendRichBlock).toHaveBeenCalledWith('msg-live-2', expect.objectContaining({ id: 'rb-1' }));
   });
 
-  it('seeds a new stream bubble with invocationId from activeInvocations before invocation_created arrives', () => {
-    storeState.activeInvocations = {
-      'inv-active-1': { catId: 'opus', mode: 'execute' },
-    };
+  it('seeds a new stream bubble with invocationId when tool_use carries msg.invocationId explicitly', () => {
+    // F173 hotfix: bubble creation uses ONLY explicit msg.invocationId (no catInvocations /
+    // activeInvocations fallback). Tool events that carry invocationId bind directly.
 
     act(() => {
       root.render(React.createElement(Harness));
@@ -193,6 +192,7 @@ describe('useAgentMessages placeholder recovery', () => {
       captured?.handleAgentMessage({
         type: 'tool_use',
         catId: 'opus',
+        invocationId: 'inv-active-1',
         toolName: 'command_execution',
         toolInput: { command: 'git status' },
       });
@@ -208,12 +208,9 @@ describe('useAgentMessages placeholder recovery', () => {
     );
   });
 
-  it('records bubble timeline when activeInvocations late-binds a new stream bubble', () => {
-    configureDebug({ enabled: true });
-    ensureWindowDebugApi();
-    storeState.activeInvocations = {
-      'inv-active-1': { catId: 'opus', mode: 'execute' },
-    };
+  it('creates an UNBOUND placeholder when tool_use arrives before invocation_created (no msg.invocationId)', () => {
+    // F173 hotfix: without explicit invocationId, bubble is unbound. invocation_created's
+    // rebind step (exercised in useAgentMessages-invocation-created.test.ts) will bind it.
 
     act(() => {
       root.render(React.createElement(Harness));
@@ -223,6 +220,31 @@ describe('useAgentMessages placeholder recovery', () => {
       captured?.handleAgentMessage({
         type: 'tool_use',
         catId: 'opus',
+        toolName: 'command_execution',
+        toolInput: { command: 'git status' },
+      });
+    });
+
+    const created = mockAddMessage.mock.calls.find(
+      ([m]) => m.type === 'assistant' && m.catId === 'opus' && m.origin === 'stream',
+    )?.[0];
+    expect(created).toBeTruthy();
+    expect(created?.extra?.stream?.invocationId).toBeUndefined();
+  });
+
+  it('records bubble timeline with explicit invocationId when tool_use binds the bubble', () => {
+    configureDebug({ enabled: true });
+    ensureWindowDebugApi();
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'tool_use',
+        catId: 'opus',
+        invocationId: 'inv-active-1',
         toolName: 'command_execution',
         toolInput: { command: 'git status' },
       });
