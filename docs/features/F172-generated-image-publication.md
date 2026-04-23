@@ -99,36 +99,66 @@ created: 2026-04-22
   - `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash ./scripts/with-test-home.sh node --test test/generated-image-publication.test.js test/image-storage.test.js test/image-upload.test.js`
 
 ### Phase B（Codex built-in 接入）
-- [ ] AC-B1: built-in `image_gen` 成功后，产物自动接入 Phase A 的 publication contract
-- [ ] AC-B2: Codex 生图消息不再停留在 `~/.codex/generated_images/...` 孤岛路径
+- [x] AC-B1: built-in `image_gen` 成功后，产物自动接入 Phase A 的 publication contract
+- [x] AC-B2: Codex 生图消息不再停留在 `~/.codex/generated_images/...` 孤岛路径
+
+#### Phase B 实施证据（2026-04-23）
+
+- Codex image scanner：`packages/api/src/domains/cats/services/agents/providers/codex-image-scanner.ts`
+- CodexAgentService 接线：post-invocation scan → yield `system_info` rich block before `done`
+- 新增测试：
+  - `packages/api/test/codex-image-scanner.test.js`（6 tests）
+  - `packages/api/test/codex-agent-service.test.js` integration test（F172 case）
+- 回归：42/42 codex-agent-service tests + 6/6 scanner tests all GREEN
 
 ### Phase C（Antigravity 接入）
-- [ ] AC-C1: Antigravity 图片生成完成后，产物可接入同一个 publication contract
-- [ ] AC-C2: 孟加拉猫生成的图片与 Codex 生图在 thread 中采用同一种 `/uploads/...` + `media_gallery` 呈现方式
+- [x] AC-C1: Antigravity 图片生成完成后，产物可接入同一个 publication contract
+- [x] AC-C2: 孟加拉猫生成的图片与 Codex 生图在 thread 中采用同一种 `/uploads/...` + `media_gallery` 呈现方式
+
+#### Phase C 实施证据（2026-04-23）
+
+- Antigravity image publisher：`packages/api/src/domains/cats/services/agents/providers/antigravity/antigravity-image-publisher.ts`
+- AntigravityAgentService 接线：collect image paths from `toolResult.output` + `runCommand.stdout` during batch loop → publish pre-done
+- 新增测试：`packages/api/test/antigravity-image-publisher.test.js`（10 tests）
+- 回归：all GREEN
 
 ### Phase D（Skill 契约收口）
-- [ ] AC-D1: `cat-cafe-skills/image-generation` 明确改为消费共享发布内核，不再把手工复制文件当终态
-- [ ] AC-D2: `cat-cafe-skills/rich-messaging` / `refs/rich-blocks.md` 更新为新的图片发布约定
+- [x] AC-D1: `cat-cafe-skills/image-generation` 明确改为消费共享发布内核，不再把手工复制文件当终态
+- [x] AC-D2: `cat-cafe-skills/rich-messaging` / `refs/rich-blocks.md` 更新为新的图片发布约定
+
+#### Phase D 实施证据（2026-04-23）
+
+- `cat-cafe-skills/image-generation/SKILL.md`：manual `cp` → `publishGeneratedImage()` auto-publish
+- `cat-cafe-skills/rich-messaging/SKILL.md`：manual uploadDir copy → F172 contract
+- `cat-cafe-skills/refs/rich-blocks.md`：manual copy instructions → auto-publish explanation
 
 ### Phase E（富块联动 + 归档）
-- [ ] AC-E1: 发布成功后，消息中自动生成 `media_gallery` rich block，展示该 `/uploads/...` 图片
-- [ ] AC-E2: 消息持久化 / jsonl / thread replay 使用发布后的 URL，可刷新后继续显示
-- [ ] AC-E3: 归档中保留最小 provenance：provider/tool、prompt、originalPath、publishedPath
-- [ ] AC-E4: connector outbound 在遇到该图片消息时，走现有 `/uploads/...` 媒体投递链路，无需额外特判 provider 私有路径
-- [ ] AC-E5: 发布后的图片默认仅以 `media_gallery` rich block 作为 canonical 呈现路径；不为同一张图再额外复制一份 image `contentBlocks` 造成上下文和存储重复
+- [x] AC-E1: 发布成功后，消息中自动生成 `media_gallery` rich block，展示该 `/uploads/...` 图片
+- [x] AC-E2: 消息持久化 / jsonl / thread replay 使用发布后的 URL，可刷新后继续显示
+- [x] AC-E3: 归档中保留最小 provenance：provider/tool、prompt、originalPath、publishedPath
+- [x] AC-E4: connector outbound 在遇到该图片消息时，走现有 `/uploads/...` 媒体投递链路，无需额外特判 provider 私有路径
+- [x] AC-E5: 发布后的图片默认仅以 `media_gallery` rich block 作为 canonical 呈现路径；不为同一张图再额外复制一份 image `contentBlocks` 造成上下文和存储重复
+
+#### Phase E 实施证据（2026-04-23）
+
+- AC-E1: Phase B/C 的 `system_info` yield 自动生成 `media_gallery` rich block
+- AC-E2: `route-serial.ts` 既有管线 — `streamRichBlocks[]` → `allRichBlocks` → `extra.rich.blocks[]` 持久化
+- AC-E3: provenance 对象（provider/toolName/prompt/originalPath/publishedPath）嵌入 `system_info` content
+- AC-E4: `persistenceContext.richBlocks` 传递给 connector outbound（F088）
+- AC-E5: 仅 `media_gallery` rich block，无重复 contentBlocks
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | “生成的图片我记得位置是在 user 下面的 .codex 并没有归档的” | AC-A1, AC-A2, AC-B2 | manual + test | [ ] |
-| R2 | “基础设置帮你生成的图片自动放过来” | AC-A1, AC-A3, AC-A4 | test | [ ] |
-| R3 | “包括孟加拉他的图片生成我估计也得对接到你这套基础设施” | AC-C1, AC-C2 | integration test | [ ] |
-| R4 | “这样你们生成完成之后 两只猫都能够直接呈现给我” | AC-B1, AC-C2, AC-E1 | manual + integration test | [ ] |
-| R5 | “图片生成 skills 也得挂在 F172 这里进行优化” | AC-D1, AC-D2 | doc + skill test | [ ] |
-| R6 | 能自动把你产出的图片归档 + 用富文本呈现 | AC-E2, AC-E3 | test + manual | [ ] |
-| R7 | 既有 rich block / connector 媒体链路继续复用 | AC-E4 | integration test | [ ] |
-| R8 | provider 恢复 / replay 时不应重复堆积图片文件或重复发块 | AC-A5, AC-E5 | integration test | [ ] |
+| R1 | “生成的图片我记得位置是在 user 下面的 .codex 并没有归档的” | AC-A1, AC-A2, AC-B2 | manual + test | [x] |
+| R2 | “基础设置帮你生成的图片自动放过来” | AC-A1, AC-A3, AC-A4 | test | [x] |
+| R3 | “包括孟加拉他的图片生成我估计也得对接到你这套基础设施” | AC-C1, AC-C2 | integration test | [x] |
+| R4 | “这样你们生成完成之后 两只猫都能够直接呈现给我” | AC-B1, AC-C2, AC-E1 | manual + integration test | [x] |
+| R5 | “图片生成 skills 也得挂在 F172 这里进行优化” | AC-D1, AC-D2 | doc + skill test | [x] |
+| R6 | 能自动把你产出的图片归档 + 用富文本呈现 | AC-E2, AC-E3 | test + manual | [x] |
+| R7 | 既有 rich block / connector 媒体链路继续复用 | AC-E4 | integration test | [x] |
+| R8 | provider 恢复 / replay 时不应重复堆积图片文件或重复发块 | AC-A5, AC-E5 | integration test | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -155,8 +185,8 @@ created: 2026-04-22
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | built-in `image_gen` 的完成事件在哪一层最稳妥地拿到原始文件路径？provider transform / harness 还是更外层？ | ⬜ 未定 |
-| OQ-2 | Antigravity 的图片生成完成信号/文件落点从哪个已完成 tool step / artifact 通道最稳妥拿？需要确认 toolName、toolResult shape 与绝对路径来源 | ⬜ 未定 |
+| OQ-1 | built-in `image_gen` 的完成事件在哪一层最稳妥地拿到原始文件路径？provider transform / harness 还是更外层？ | ✅ 已解决：post-invocation filesystem scan（`codex-image-scanner.ts`），在 `CodexAgentService.invoke()` 的 stream 结束后、yield done 前扫描 `~/.codex/generated_images/<sessionId>/` |
+| OQ-2 | Antigravity 的图片生成完成信号/文件落点从哪个已完成 tool step / artifact 通道最稳妥拿？需要确认 toolName、toolResult shape 与绝对路径来源 | ✅ 已解决：从 `step.toolResult.output` + `step.runCommand.stdout` 提取绝对图片路径（`antigravity-image-publisher.ts`），batch loop 中收集，invocation 结束前验证+发布 |
 
 ## Key Decisions
 

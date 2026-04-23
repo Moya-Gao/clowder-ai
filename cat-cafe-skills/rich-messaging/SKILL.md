@@ -114,11 +114,14 @@ triggers:
 
 如果图片来源是本地文件（例如 Codex CLI / 本地脚本刚生成的 PNG）：
 
-1. 先把文件放进**当前 runtime 实际在服务的 upload 目录**
-2. 再用 `/uploads/xxx.png` 作为 `media_gallery.items[].url`
-3. 最后用浏览器或 `curl` 验证该 URL 返回 `200`
+**优先使用 F172 共享发布合约**（自动处理 uploadDir 解析 + 幂等 + 富块生成）：
+- Codex `image_gen`：自动扫描 `~/.codex/generated_images/<sessionId>/`，无需手动操作
+- Antigravity 生成：工具结果中的文件路径自动检测并发布
+- 其他来源：调用 `publishGeneratedImage({ sourcePath, mimeType, publicationKey, provider, toolName })` 手动发布
 
-**重要**：不要想当然地把文件丢进源码仓里的 `packages/api/uploads/`。如果当前运行的是另一套 runtime/worktree，rich block 会发成功，但前端只会看到裂图。
+发布后自动获得 `/uploads/...` 稳定 URL + `media_gallery` 富块，无需手动复制或验证。
+
+**仅当共享合约不可用时**才手动复制到 runtime 的 uploadDir。
 
 ## 三条纪律
 
@@ -132,7 +135,7 @@ triggers:
 |------|------|----------|
 | 不知道自己能发语音 | 铲屎官说"发语音"你说"我是文字猫" | 你可以！用 audio block |
 | "发图"只想到 image-generation | 走 Chrome MCP 现场生成，慢且不稳定 | 先看家里有没有已有图片（`/avatars/`、`/uploads/`），有就 media_gallery 直接发 |
-| 本地生成图直接用 `file://` 或源码仓路径 | rich block 发得出去，但前端取不到 | 复制到**当前 runtime 的 uploadDir**，用 `/uploads/...`，并先验 `200 OK` |
+| 本地生成图直接用 `file://` 或源码仓路径 | rich block 发得出去，但前端取不到 | 用 `publishGeneratedImage()` 发布到 `/uploads/...`（F172 共享合约自动解析 uploadDir） |
 | audio 写长段话 | 合成效果差 | 短句口语化，1-2 句 |
 | 只发 block 不写文字 | 猫猫朋友看不懂上下文 | 先写 1-2 句自然语言摘要，再发 block |
 | `"type"` 而不是 `"kind"` | block 创建失败 | 字段是 `kind` 不是 `type` |

@@ -49,15 +49,16 @@
 
 **禁止**：`/api/connector-media/../assets/...` 等含 `../` 的路径 — 会被路径遍历保护拒绝，前端裂图。
 
-### 关于本地生成图的额外说明
+### 关于本地生成图的额外说明（F172 共享发布合约）
 
-如果图片是本地刚生成的（例如 Codex CLI 输出到 `~/.codex/generated_images/...`）：
+Codex `image_gen` 和 Antigravity 生成的图片现已**自动发布**：
+- Codex：`CodexAgentService` 在 invocation 结束后自动扫描 `~/.codex/generated_images/<sessionId>/` 并发布
+- Antigravity：`AntigravityAgentService` 自动从工具结果中检测图片路径并发布
+- 两者都通过 `publishGeneratedImage()` 合约，自动解析当前 runtime 的 `uploadDir`、生成幂等文件名、返回 `/uploads/...` URL + `media_gallery` 富块
 
-1. 需要先复制到**当前 runtime 正在服务的 uploadDir**
-2. 然后才能写成 `/uploads/filename.png`
-3. 最稳的验证方法是先请求一次该 URL，确认返回 `200 OK`
+**手动发布**（仅当自动路径不适用时）：调用 `publishGeneratedImage({ sourcePath, mimeType, publicationKey, provider, toolName })`。
 
-不要把“源码仓里存在这个文件”和“当前 API 正在服务这个文件”混为一谈。runtime 可能跑在另一套 worktree / 另一份 `packages/api/uploads/`。
+不要把”源码仓里存在这个文件”和”当前 API 正在服务这个文件”混为一谈。runtime 可能跑在另一套 worktree / 另一份 `packages/api/uploads/`。
 | interactive | interactiveType, options (id+label) | title, description, maxSelect, allowRandom, messageTemplate |
 | html_widget | html | title, height (50-2000, default 300) |
 

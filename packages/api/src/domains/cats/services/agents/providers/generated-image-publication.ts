@@ -1,7 +1,10 @@
 import { createHash } from 'node:crypto';
+import { access } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { RichMediaGalleryBlock } from '@cat-cafe/shared';
 import {
   copyImageFileToUploadDir,
+  mimeToImageExt,
   type SavedImageAsset,
   type SupportedImageMime,
   sanitizeFilenameStem,
@@ -35,11 +38,22 @@ export interface PublishedGeneratedImage extends SavedImageAsset {
   publicationKey: string;
   richBlock: RichMediaGalleryBlock;
   provenance: GeneratedImagePublicationProvenance;
+  isNew: boolean;
 }
 
 export async function publishGeneratedImage(input: GeneratedImagePublicationInput): Promise<PublishedGeneratedImage> {
   const resolvedUploadDir = getDefaultUploadDir(input.uploadDir ?? process.env.UPLOAD_DIR);
   const publicationStem = buildPublicationStem(input.publicationKey);
+
+  const expectedFilename = `${sanitizeFilenameStem(publicationStem)}${mimeToImageExt(input.mimeType)}`;
+  let isNew = true;
+  try {
+    await access(join(resolvedUploadDir, expectedFilename));
+    isNew = false;
+  } catch {
+    /* not yet published */
+  }
+
   const stored = await copyImageFileToUploadDir({
     sourcePath: input.sourcePath,
     mimeType: input.mimeType,
@@ -48,8 +62,18 @@ export async function publishGeneratedImage(input: GeneratedImagePublicationInpu
     onExists: 'reuse',
   });
 
+  const provenance: GeneratedImagePublicationProvenance = {
+    provider: input.provider,
+    toolName: input.toolName,
+    ...(input.prompt ? { prompt: input.prompt } : {}),
+    originalPath: input.sourcePath,
+    publishedPath: stored.urlPath,
+    publicationKey: input.publicationKey,
+  };
+
   return {
     ...stored,
+    isNew,
     mimeType: input.mimeType,
     originalPath: input.sourcePath,
     publicationKey: input.publicationKey,
@@ -59,15 +83,9 @@ export async function publishGeneratedImage(input: GeneratedImagePublicationInpu
       v: 1,
       ...(input.title ? { title: input.title } : {}),
       items: [{ url: stored.urlPath, ...(input.alt ? { alt: input.alt } : {}) }],
-    },
-    provenance: {
-      provider: input.provider,
-      toolName: input.toolName,
-      ...(input.prompt ? { prompt: input.prompt } : {}),
-      originalPath: input.sourcePath,
-      publishedPath: stored.urlPath,
-      publicationKey: input.publicationKey,
-    },
+      provenance,
+    } as RichMediaGalleryBlock,
+    provenance,
   };
 }
 

@@ -22,6 +22,7 @@ import { normalizeModel } from '../../../../../../infrastructure/telemetry/model
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../../types.js';
 import { AntigravityBridge, type BridgeConnection } from './AntigravityBridge.js';
 import { classifyStep, transformTrajectorySteps } from './antigravity-event-transformer.js';
+import { collectImagePathsFromSteps, publishAntigravityImages } from './antigravity-image-publisher.js';
 import { summarizeStepShape, TRACE_ENABLED, traceLog } from './antigravity-trace.js';
 import { AuditLogger } from './executors/AuditLogger.js';
 import { ExecutorRegistry } from './executors/ExecutorRegistry.js';
@@ -223,6 +224,9 @@ export class AntigravityAgentService implements AgentService {
           streamErrorGraceDeadline = 0;
         };
 
+        // F172 Phase C: collect image file paths from tool results
+        const collectedImagePaths = new Set<string>();
+
         // Diagnostic counters for empty_response observability
         let totalStepsSeen = 0;
         const rawStepTypeCounts: Record<string, number> = {};
@@ -316,6 +320,7 @@ export class AntigravityAgentService implements AgentService {
               }
 
               const messages = transformTrajectorySteps(batch.steps, self.catId, metadata);
+              for (const p of collectImagePathsFromSteps(batch.steps)) collectedImagePaths.add(p);
               const batchHasText = messages.some((msg) => msg.type === 'text' && Boolean(msg.content));
               const batchHasToolActivity = messages.some(
                 (msg) => msg.type === 'tool_use' || msg.type === 'tool_result',
@@ -758,6 +763,28 @@ export class AntigravityAgentService implements AgentService {
             metadata: { ...metadata, diagnostics },
             timestamp: Date.now(),
           };
+        }
+
+        // F172 Phase C: publish any images found in tool results
+        if (collectedImagePaths.size > 0 && cascadeId) {
+          try {
+            const published = await publishAntigravityImages({
+              candidatePaths: [...collectedImagePaths],
+              cascadeId,
+              uploadDir: options?.uploadDir,
+            });
+            for (const img of published) {
+              yield {
+                type: 'system_info' as const,
+                catId: this.catId,
+                content: JSON.stringify({ type: 'rich_block', block: img.richBlock, provenance: img.provenance }),
+                metadata,
+                timestamp: Date.now(),
+              };
+            }
+          } catch (err) {
+            log.warn({ cascadeId, err }, '[F172] antigravity image publish failed');
+          }
         }
 
         yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
