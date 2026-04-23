@@ -1077,15 +1077,21 @@
     {
       "id": "F172",
       "name": "Generated Image Publication — 内建生图产物归档与富块发布",
-      "status": "spec | **Owner**: 缅因猫/gpt52 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫/opus | **Priority**: P1",
       "file": "F172-generated-image-publication.md"
     },
     {
       "id": "F173",
       "name": "前端 Thread-Runtime State 统一（消除 dual write-path & liveness fragmentation）",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P0",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P0",
       "file": "F173-frontend-message-pipeline-unification.md"
+    },
+    {
+      "id": "F174",
+      "name": "Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级与可观测",
+      "status": "spec | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1",
+      "file": "F174-callback-auth-lifecycle.md"
     }
   ],
-  "generated_at": "2026-04-23T10:44:08.384Z"
+  "generated_at": "2026-04-23T16:19:39.545Z"
 }
