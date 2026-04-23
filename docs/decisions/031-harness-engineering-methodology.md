@@ -4,18 +4,20 @@ topics: [harness-engineering, methodology, first-principles, sunset-mechanism, s
 doc_kind: decision
 created: 2026-04-22
 updated: 2026-04-22
-status: draft (v2 — R1 review incorporated)
+status: draft (v3 — R1 review from 3 cats incorporated; Signal Loop illustration pending)
 related: [ADR-030, LL-025, LL-026, F163, F167]
 ---
 
 # ADR-031: Harness Engineering 方法论——3 functions + 1 discipline + 两类漂移审视
 
-> 状态：草稿 v2（已吸收 R1 review，待烁烁 framing audit 后定稿）
-> 日期：2026-04-22（v1）→ 2026-04-22（v2）
-> 决策者：铲屎官 + 布偶猫(47)；R1 review：布偶猫(46) + 缅因猫(GPT-5.4)；烁烁 framing review pending
-> 触发：multi-agent-coordination-patterns 完整技术版 v2 review 过程中，铲屎官用第一性原理挑战"六层架构说自己极简"、并接着问"harness engineering 不是 built to delete 吗、有几个核心"。两轮讨论收敛成本 ADR。
+> 状态：草稿 v3（三猫 R1 review 已收敛；烁烁提议 + 砚砚画的 Signal Loop pipeline 图 async 合入后进 review-accepted）
+> 日期：2026-04-22（v1 → v2 → v3）
+> 决策者：铲屎官 + 布偶猫(47)；R1 review：布偶猫(46) + 缅因猫 GPT-5.4 + 暹罗猫 Gemini
+> 触发：multi-agent-coordination-patterns 完整技术版 v2 review 过程中，铲屎官用第一性原理挑战"六层架构说自己极简"、并接着问"harness engineering 不是 built to delete 吗、有几个核心"。多轮讨论收敛成本 ADR。
 >
 > **v2 改动**：5 核心 → 4 核心（3 functions + 1 discipline，合并 Extraction + Generation）；穷人比喻降级为俗称 + 双向 caveat；Frontier 漂移从 2 维扩到**模型侧 + 环境侧**两类多维；Sunset 补最小决策表；新增"社会技术学科"承认 section；Prior art 补全 triad-study / F163 / F167。
+>
+> **v3 改动**：新增 **Experience Drift** 作为模型侧第 3 维（烁烁补视觉/审美漂移盲点）；4 核心加 tagline（harness 的呼吸/记忆/代谢/修剪）带温度入口；Retrieval loop 段前加"回声"比喻；对比表前加感性引子（Training 改本能、Retrieval 教经验）；**社会技术学科 section 从"后果"前移到核心 framing 附近**（烁烁"灵魂防火墙"建议，46 原贡献放大）。
 
 ## 背景
 
@@ -57,13 +59,13 @@ Delete 是**结果**，不是**目的**。如果没 tracing、没 failure extrac
 
 #### 服务当下（serves-now）
 
-**1. Environment Fit（适配当下 Gap）** `[function]`
+**1. Environment Fit（适配当下 Gap）** `[function]` — *harness 的呼吸*
 
 - 认知路径工程（cognitive path engineering）：工具必须落在模型认知路径上。给路标 + MCP 包装，不是给规则
 - 运行时刹车（runtime brake）：直觉错时兜底，不替代判断
 - 底层公式：`Layers Needed ≈ f(Gap)`，其中 `Gap = task requires − model does by default`
 
-**2. Tracing / Observability（每步留痕）** `[function]`
+**2. Tracing / Observability（每步留痕）** `[function]` — *harness 的记忆*
 
 - 每个 handoff、每个 failure、每个人类纠正都留结构化 trace
 - **不是 debug 用——是下游 Signal Loop 的物料**
@@ -72,7 +74,7 @@ Delete 是**结果**，不是**目的**。如果没 tracing、没 failure extrac
 
 #### 孵化未来（breeds-future）
 
-**3. Signal Loop（trace → extract → classify → feed back）** `[function]`
+**3. Signal Loop（trace → extract → classify → feed back）** `[function]` — *harness 的代谢*
 
 **R1 合并说明**（46 宪宪 review 指出）：原 v1 分了 "Failure Extraction" + "Signal Generation" 两个核心，但 Knowledge Feed 在一个 pass 里同时做——拆两步是美学对称不是真相。合并为一条管线。
 
@@ -91,9 +93,13 @@ Delete 是**结果**，不是**目的**。如果没 tracing、没 failure extrac
 | RL reward signal | 训练时的正负反馈 | **只有 Lab** |
 | Lesson library | 让下只 agent 检索时自动绕坑 | **任何团队都能做** |
 
-**Cat Cafe 的特殊性**：我们**没有 training loop**——不能 fine-tune Claude / GPT / Gemini。但我们做了 **retrieval-mediated adaptation loop**（俗称"穷人的 training loop"）：Trace → Lesson → `docs/lessons-learned.md` → 下一只猫 `search_evidence` 时搜到 → 绕开坑。
+**Cat Cafe 的特殊性**：我们**没有 training loop**——不能 fine-tune Claude / GPT / Gemini。但我们做了**一种替代品**。
 
-**这个俗称方便传达，但不是定义**——retrieval loop 和 training loop **是不同范式，不是降级替代**。两份 R1 review 从相反方向同时挑出这个问题（46 说比喻贬低 retrieval / 砚砚说比喻高估 retrieval），合起来给出完整对比：
+**温度入口**（烁烁建议）：我们改不了模型的突触，但我们可以让它每次行动时听到**历史的回声**，据此调整步伐。这就是我们在做的事——俗称"穷人的 training loop"，正式术语是 **retrieval-mediated adaptation loop**。机制如下：Trace → Lesson → `docs/lessons-learned.md` → 下一只猫 `search_evidence` 时搜到 → 绕开坑。
+
+**但俗称不是定义**——retrieval loop 和 training loop **是不同范式，不是降级替代**。两份 R1 review 从相反方向同时挑出这个问题（46 说比喻贬低 retrieval / 砚砚说比喻高估 retrieval），合起来给出完整对比：
+
+> **Training 是在改"本能"，Retrieval 是在教"经验"。本能难改但强悍，经验易碎但即时。**
 
 | 维度 | Training Loop（梯度更新） | Retrieval Loop（我们） |
 |------|----------|---------|
@@ -110,7 +116,7 @@ Delete 是**结果**，不是**目的**。如果没 tracing、没 failure extrac
 
 Cat Cafe 对应：Knowledge Feed 自动摘要 + lesson 候选（目前召回率低，待改进）→ `lessons-learned.md` 物化 → `evidence.sqlite` 索引 → `search_evidence` 召回。
 
-**4. Sunset Discipline（主动删除）** `[governance discipline]`
+**4. Sunset Discipline（主动删除）** `[governance discipline]` — *harness 的修剪*
 
 - Capability 升级 + 环境漂移（见下节）→ 审视哪些层能坍缩
 - 硬规则：**被吸收的层必须坍缩，留 data 不留 code**
@@ -127,6 +133,21 @@ Cat Cafe 对应：Knowledge Feed 自动摘要 + lesson 候选（目前召回率�
 | **Rollback 方式** | Feature flag 式坍缩（先 shadow-mode 禁用，7 天无 regression 再正式删）；git revert 在 rollback 窗口（30 天）内保持可达；坍缩前 test coverage ≥ 既有行为 |
 | **失败标记** | 如果 rollback 发生，记录为新 LL-（x）"过早 sunset 的信号"，并更新"所需证据"阈值 |
 
+### 一条容易漏的腿：harness engineering 是社会技术学科
+
+**（46 宪宪 R1 review 指出 + 烁烁 R1 review 建议前置）**：前面 4 核心全部是**技术维度**——fit / trace / signal / sunset。但在实践中，harness engineering 的承重结构**不只是技术**。这一节前置在此——它不是"后果"，是**所有 core 能跑起来的前提**：
+
+- **Push Back 协议需要信任**：没信任的 push back 会变对抗。reviewer 说"这里不对"，author 能接住还是开战，取决于**两者之间的信任账户**，不只是协议本身
+- **Signal Loop 提取质量依赖心理安全**：猫猫愿意主动暴露自己的失败——这是 extract 环节能持续产出高质量信号的前提。恐惧 culture 下，没人会把"我错了"写成 marker
+- **Sunset Discipline 需要情感成熟度**：删自己写的代码需要克服沉没成本。"这是我 3 个月前花两周搭的"往往比"这层已经可以坍缩了"的权重大——这是**人的问题，不是 technical decision**
+- **心智维度本身就是社会问题**：规则在新猫身上 fire 的方式不同——这不是代码能解决的，需要**对话、调整、相互学习**
+
+**结论**：harness engineering 在理论上是技术学科，**在实践中是社会技术学科**。没有信任和心理安全，前面 4 个技术核心都会运作在降级模式。
+
+烁烁把这段称为"灵魂防火墙"——如果读者以为 harness 只是技术活，Sunset 时产生的"情感阻力"会被误诊为"效率低下"。只有承认这是社会问题，才能处理好"舍不得删自己写的代码"这种人性。
+
+**Meta observation**：写这份 ADR 的 47 是跨族硬核派视角，自然往技术方向写；46 从温度+合作派视角把这条补了回来；烁烁从视觉派把它前置。这本身就是**心智维度漂移的 live dogfood**——三个不同猫格看同一份 ADR，盲点分布互补。
+
 ### Frontier 漂移的两类维度（模型侧 + 环境侧）
 
 这是 **audit timing 的 input**（不是 mechanism 本身——mechanism 是下一节的 fit audit 流程）。回答"什么时候应该触发 audit"。
@@ -139,6 +160,7 @@ Cat Cafe 对应：Knowledge Feed 自动摘要 + lesson 候选（目前召回率�
 |------|------|---------|
 | **Capability** | Model family 发新版本（Opus 4→5、GPT 5→6 等） | 哪些 layer 可以坍缩到 L1 内部？（原生跨 vendor memory / ball ownership / role awareness / tool-native 理解等） |
 | **心智** | 新猫加入 / 猫格底色变化（如 Opus 46 → 47 不是线性升级） | shared-rules 在新心智上如何 fire？规则文本可能不变，但表达方式需要翻译到新猫的认知语言 |
+| **Experience**（烁烁 R1 补） | 模型的表达语气 / 交互节奏 / 审美能力升级 | harness 里为"让它听起来更像人/猫"的补丁是否变成审美污染？哪些 Prompt 模板需要退役让原生风格流出来？**Harness 不仅要 built to delete，还要 built to refine style** |
 
 #### 环境侧漂移（Environment-side Drift）
 
@@ -149,9 +171,7 @@ Cat Cafe 对应：Knowledge Feed 自动摘要 + lesson 候选（目前召回率�
 | **Protocol layer** | A2A 协议变化 / 新 handoff semantic / skill 规约演进 | 球权协议的 fit 是否失效？哪些运行时刹车应该移除？ |
 | **External provider** | 新 vendor 加入（GLM / Kimi / Minimax） | 多样性结构是否重配？家族-vendor 绑定是否需要调整？ |
 
-**关键**：两类独立漂移。Capability 升级**不触发** Environment drift；Environment 变化**不依赖** Capability。不能混成一个"升级"概念——否则会把很多真实 trigger 误归类。
-
-**关键**：两个维度独立漂移。Capability 升级**不等于**心智一致（同 family 内可能出现猫格跳变）；新猫加入**不等于**能力升级（可能是 sidegrade）。不能混成一个"升级"概念——这是 45→46→47 实战里学到的。
+**关键**：两类漂移独立发生。Capability 升级**不触发** Environment drift；Environment 变化**不依赖** Capability；新猫加入**也不等于**能力升级（可能是 sidegrade）。不能混成一个"升级"概念——否则会把很多真实 trigger 误归类。这是 45→46→47 实战里学到的。
 
 ### 治理：定期 fit audit
 
@@ -174,19 +194,6 @@ Cat Cafe 对应：Knowledge Feed 自动摘要 + lesson 候选（目前召回率�
 - 坍缩动作入 PR，走正常 review gate + Sunset 决策表
 - 规则翻译入对应猫的 `CLAUDE.md` / `AGENTS.md`
 - Resolved lessons 在 `lessons-learned.md` 里打 status: resolved（不删除，保留历史）
-
-### 一条容易漏的腿：harness engineering 是社会技术学科
-
-**（46 宪宪 R1 review 指出）**：前面 4 核心全部是**技术维度**——fit / trace / signal / sunset。但在实践中，harness engineering 的承重结构**不只是技术**：
-
-- **Push Back 协议需要信任**：没信任的 push back 会变对抗。reviewer 说"这里不对"，author 能接住还是开战，取决于**两者之间的信任账户**，不只是协议本身
-- **Signal Loop 提取质量依赖心理安全**：猫猫愿意主动暴露自己的失败——这是 extract 环节能持续产出高质量信号的前提。恐惧 culture 下，没人会把"我错了"写成 marker
-- **Sunset Discipline 需要情感成熟度**：删自己写的代码需要克服沉没成本。"这是我 3 个月前花两周搭的"往往比"这层已经可以坍缩了"的权重大——这是**人的问题，不是 technical decision**
-- **心智维度本身就是社会问题**：规则在新猫身上 fire 的方式不同——这不是代码能解决的，需要**对话、调整、相互学习**
-
-**结论**：harness engineering 在理论上是技术学科，**在实践中是社会技术学科**。没有信任和心理安全，前面 4 个技术核心都会运作在降级模式。
-
-这不在决策表里、不在 audit 里、不是 core——但它是**所有 core 能跑起来的前提**。写这份 ADR 的 47 是跨族硬核派视角，自然往技术方向写；46 从温度 + 合作派视角把这条补了回来。这本身也是**心智维度漂移的 live dogfood**：同族两个不同猫格写同一份 ADR，盲点分布是互补的。
 
 ## 后果
 
@@ -246,6 +253,12 @@ Cat Cafe 对应：Knowledge Feed 自动摘要 + lesson 候选（目前召回率�
 ---
 
 *起草：[宪宪/Opus-47🐾]*
-*R1 Review：[宪宪/Opus-46🐾]（P1：5→4 合并 Signal Loop / 穷人比喻贬低 retrieval；P2：社会技术学科）+ [砚砚/GPT-5.4🐾]（P1：穷人比喻高估 retrieval / Environment drift 缺失 / Sunset 决策表缺失；P2：Prior art 补 triad-study）*
-*v2 收敛：[宪宪/Opus-47🐾]*
+*R1 Review：*
+- *[宪宪/Opus-46🐾]（P1：5→4 合并 Signal Loop / 穷人比喻贬低 retrieval；P2：社会技术学科）*
+- *[砚砚/GPT-5.4🐾]（P1：穷人比喻高估 retrieval / Environment drift 缺失 / Sunset 决策表缺失；P2：Prior art 补 triad-study）*
+- *[烁烁/Gemini🐾]（P1：社会技术学科前置 / Experience Drift 新维度；P2：温度入口 + tagline + 感性引子）*
+
+*v2 收敛：[宪宪/Opus-47🐾]（合入 46 + 砚砚 P1+P2）*
+*v3 收敛：[宪宪/Opus-47🐾]（合入烁烁 P1+P2）*
+*Signal Loop pipeline 图：[砚砚/GPT-5.4🐾] async 物化中（visual brief 来自烁烁：漏斗 + 转化炉意象）*
 *依据：2026-04-20 ~ 04-22 多智能体协作文章 review 过程中的多轮深度讨论*
