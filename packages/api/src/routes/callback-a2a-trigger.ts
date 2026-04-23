@@ -130,39 +130,15 @@ export async function enqueueA2ATargets(
   // This replaces both the worklist path and the fallback standalone invocation.
   // Guards mirror worklist protections: depth limit, duplicate detection.
   if (deps.invocationQueue) {
-    // F167 L1 AC-A4: streak check must cover modern InvocationQueue path too (no bypass).
-    // Only 1:1 A2A (single target + known caller) participates in streak — fan-out is excluded.
-    // Streak state lives on the parent's WorklistEntry; if no worklist is active, skip gracefully.
-    if (callerCatId !== undefined && targetCats.length === 1) {
-      const entry = getWorklist(threadId, opts.parentInvocationId);
-      if (entry) {
-        const streak = updateStreakOnPush(entry, callerCatId, targetCats[0]);
-        if (streak.blockPingPong) {
-          log.info(
-            { threadId, triggerMessageId, fromCatId, targetCats, pairCount: streak.count },
-            'F167 L1: callback A2A (invocationQueue) ping-pong terminated (streak >= 4)',
-          );
-          deps.socketManager.broadcastAgentMessage(
-            {
-              type: 'system_info',
-              catId: fromCatId,
-              content: JSON.stringify({
-                type: 'a2a_pingpong_terminated',
-                fromCatId,
-                targetCatId: targetCats[0],
-                pairCount: streak.count,
-              }),
-              timestamp: Date.now(),
-            },
-            threadId,
-          );
-          return { enqueued: [], fallback: false };
-        }
-        // streak.warnPingPong → injected via buildInvocationContext on next turn, no-op here.
-      }
-    }
-
     const MAX_A2A_DEPTH = 10;
+
+    // F167 L1 AC-A4 + Phase D (cloud Codex P1): streak check must cover modern path
+    // AND only fire when we know the target is actually about to enqueue — otherwise
+    // a callback that hits depth/dedup would still mutate the counter (reset by
+    // substantive content, ++ by inertia), weakening the breaker.
+    // Pre-resolve worklist entry once; updateStreakOnPush is called inside the loop.
+    const canTrackStreak = callerCatId !== undefined && targetCats.length === 1;
+    const streakEntry = canTrackStreak ? getWorklist(threadId, opts.parentInvocationId) : null;
 
     const enqueued: CatId[] = [];
     const queueDiagnostics: Array<{
@@ -185,6 +161,38 @@ export async function enqueueA2ATargets(
       if (deps.invocationQueue.hasQueuedAgentForCat(threadId, catId)) {
         log.info({ threadId, triggerMessageId, catId }, '[F122B] A2A callback: skipping duplicate agent entry for cat');
         continue;
+      }
+      // Guard 3 (F167 Phase D cloud Codex P1): streak check fires here — after
+      // depth + dedup — so a would-be-skipped target never mutates the counter.
+      // Callback path has no tool_use stream → fail-closed on hadSubstantiveToolCall
+      // (routing tool ≠ work). outputLength from content still exempts long-form MCP.
+      if (canTrackStreak && streakEntry) {
+        const streak = updateStreakOnPush(streakEntry, callerCatId!, catId, {
+          hadSubstantiveToolCall: false,
+          outputLength: opts.content.length,
+        });
+        if (streak.blockPingPong) {
+          log.info(
+            { threadId, triggerMessageId, fromCatId, catId, pairCount: streak.count },
+            'F167 L1: callback A2A (invocationQueue) ping-pong terminated (streak >= 4)',
+          );
+          deps.socketManager.broadcastAgentMessage(
+            {
+              type: 'system_info',
+              catId: fromCatId,
+              content: JSON.stringify({
+                type: 'a2a_pingpong_terminated',
+                fromCatId,
+                targetCatId: catId,
+                pairCount: streak.count,
+              }),
+              timestamp: Date.now(),
+            },
+            threadId,
+          );
+          break;
+        }
+        // streak.warnPingPong → injected via buildInvocationContext on next turn, no-op here.
       }
       const result = deps.invocationQueue.enqueue({
         threadId,
@@ -250,7 +258,12 @@ export async function enqueueA2ATargets(
   // Legacy path: F27 worklist + standalone fallback (when invocationQueue dep not wired)
   // F27: Try to push to parent worklist first
   if (hasWorklist(threadId)) {
-    const pushResult = pushToWorklist(threadId, targetCats, callerCatId, opts.parentInvocationId, triggerMessageId);
+    // F167 Phase D: fail-closed callerActivity — callback has no tool_use stream,
+    // outputLength from content exempts long-form discussion.
+    const pushResult = pushToWorklist(threadId, targetCats, callerCatId, opts.parentInvocationId, triggerMessageId, {
+      hadSubstantiveToolCall: false,
+      outputLength: opts.content.length,
+    });
     const enqueued = pushResult.added;
     if (enqueued.length > 0) {
       if (deliveryCursorStore) {

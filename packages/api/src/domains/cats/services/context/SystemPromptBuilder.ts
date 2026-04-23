@@ -716,13 +716,18 @@ export function buildInvocationContext(context: InvocationContext): string {
     }
   }
 
-  // F167 Phase D: Trailing anchor — three legal exits, no fourth option.
+  // F167 Phase D: Trailing anchor — decision tree, not flat three-choice.
+  // @landy is a hard-condition exit, not the safe default (KD-19).
   // Placed at the very end for maximum recency bias (critical for non-Claude models).
   if (context.mode !== 'parallel' && context.a2aEnabled) {
     const cc = getCoCreatorConfig().mentionPatterns[0] ?? '@铲屎官';
     lines.push(
       '',
-      `本轮只有三种合法完成方式（缺少 = 消息不完整）：1. @句柄（传球给猫） 2. ${cc}（铲屎官行动或任务完成等验收） 3. 实际调用 cat_cafe_hold_ball(...)（CLI 要退出但还需继续——口头说"我继续"不算）。没有第四种。`,
+      `下一棒传球决策树（本轮必选其一，缺 = 消息不完整）：先问"下一步谁能做"——`,
+      `1. 另一只猫能做 → @句柄（review 完→@author / 修完→@reviewer / merge 完→@愿景守护猫）`,
+      `2. 等外部条件 → 实际调用 cat_cafe_hold_ball(...)（CLI 要退出但还需继续；口头"我继续"不算）`,
+      `3. 只有铲屎官本人才能做 → ${cc}（硬条件：不可逆操作 / 愿景级决策 / 跨猫僵局）`,
+      `${cc} 不是默认出口——先问"哪只猫能接"。反问式 ping 非法（"要不要 X？"/"同意吗？"）：有立场就自决去做（错了能回滚），没立场根本不该 @。`,
     );
   }
 

@@ -505,6 +505,52 @@ describe('SystemPromptBuilder', () => {
     assert.ok(ctx.includes('句中无效'), 'Should teach inline @ is invalid for routing');
   });
 
+  test('F167-D2: trailing anchor uses decision-tree ordering (not flat three-choice)', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: ['opus'],
+      mcpAvailable: false,
+      a2aEnabled: true,
+    });
+    // Decision-tree structure: ask "who can do next?" first, then numbered answers.
+    assert.match(ctx, /(先问|谁能).*下一步|下一棒/, 'trailing anchor must ask "who can do next" first');
+    // 1. another cat can do
+    assert.match(ctx, /1\..*另一只猫.*@句柄/s, 'option 1 = another cat via @handle');
+    // 2. external condition
+    assert.match(ctx, /2\..*外部条件|hold_ball/, 'option 2 = external wait via hold_ball');
+    // 3. only co-creator (three hard conditions)
+    assert.match(ctx, /3\..*铲屎官|@landy|@co-creator/, 'option 3 = co-creator reserved for hard conditions');
+  });
+
+  test('F167-D2: trailing anchor names the three hard conditions for @landy', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: ['opus'],
+      mcpAvailable: false,
+      a2aEnabled: true,
+    });
+    assert.match(ctx, /不可逆/, 'hard condition 1: irreversible operation');
+    assert.match(ctx, /愿景|feat|VISION/, 'hard condition 2: vision-level decision');
+    assert.match(ctx, /僵局|冲突/, 'hard condition 3: cross-cat deadlock');
+  });
+
+  test('F167-D2: trailing anchor warns against 反问式 ping (soft @landy)', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: ['opus'],
+      mcpAvailable: false,
+      a2aEnabled: true,
+    });
+    // Must call out the anti-pattern and show "要不要/吗？" pattern
+    assert.match(ctx, /反问式|软性|要不要|吗？/, 'must warn about soft @ / reflexive ping');
+  });
+
   test('buildInvocationContext does not inject A2A exit check in parallel mode', async () => {
     const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const ctx = buildInvocationContext({

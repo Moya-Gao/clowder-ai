@@ -54,7 +54,12 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import { detectInlineActionMentionsWithShadow, getMaxA2ADepth, parseA2AMentions } from '../routing/a2a-mentions.js';
 import { checkRoleCompat, type RoleLookup } from '../routing/role-gate.js';
-import { registerWorklist, unregisterWorklist, updateStreakOnPush } from '../routing/WorklistRegistry.js';
+import {
+  isSubstantiveTool,
+  registerWorklist,
+  unregisterWorklist,
+  updateStreakOnPush,
+} from '../routing/WorklistRegistry.js';
 import { extractContextEvalSignals } from './context-eval.js';
 import { buildBriefingMessage } from './format-briefing.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
@@ -1128,9 +1133,15 @@ export async function* routeSerial(
               continue;
             }
 
-            // F167 L1: ping-pong streak check (canonical enqueue point).
-            // streak=4+ → block enqueue + emit a2a_pingpong_terminated.
-            const streak = updateStreakOnPush(worklistEntry, catId, nextCat);
+            // F167 L1 + Phase D: ping-pong streak check (canonical enqueue point).
+            // callerActivity (substantive tool + output length) gates streak accumulation —
+            // real work / long discussion no longer trips the breaker falsely.
+            // streak=4+ (pure language inertia) → block enqueue + emit a2a_pingpong_terminated.
+            const hadSubstantiveToolCall = collectedToolNames.some((n) => isSubstantiveTool(n));
+            const streak = updateStreakOnPush(worklistEntry, catId, nextCat, {
+              hadSubstantiveToolCall,
+              outputLength: storedContent.length,
+            });
             if (streak.blockPingPong) {
               log.info(
                 { threadId, catId: nextCat, fromCat: catId, count: streak.count },

@@ -28,6 +28,30 @@ function createCapturingService(catId, text) {
   };
 }
 
+/**
+ * F167 Phase D: service that emits a substantive tool_use before its text.
+ * Used to verify the breaker exempts real work (read/edit/write/task) from streak++.
+ */
+function createSubstantiveToolService(catId, text, toolName = 'Edit') {
+  const calls = [];
+  return {
+    calls,
+    async *invoke(prompt) {
+      calls.push(prompt);
+      yield {
+        type: 'tool_use',
+        catId,
+        toolName,
+        toolInput: {},
+        id: `tool-${Date.now()}-${Math.random()}`,
+        timestamp: Date.now(),
+      };
+      yield { type: 'text', catId, content: text, timestamp: Date.now() };
+      yield { type: 'done', catId, timestamp: Date.now() };
+    },
+  };
+}
+
 function createMockDeps(services) {
   let counter = 0;
   return {
@@ -127,6 +151,72 @@ describe('F167 L1: route-serial ping-pong circuit breaker', () => {
         secondOpusPrompt,
         /乒乓球|连续.*轮|ping[- ]?pong/,
         'second opus prompt (after streak=2) must contain ping-pong warning text',
+      );
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(original)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
+  test('F167-D1: 4 rounds with substantive tool (Edit) every round → NO termination', async () => {
+    const original = catRegistry.getAllConfigs();
+    await loadRealRoster();
+    try {
+      const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+      // Each cat calls a substantive tool (Edit) before emitting its @mention.
+      // Expected: breaker exempts every round → opus/codex each invoke 2+ times, no pingpong_terminated.
+      const opusService = createSubstantiveToolService('opus', '修完\n@codex review 一下', 'Edit');
+      const codexService = createSubstantiveToolService('codex', '补测试\n@opus 看看', 'Write');
+      const deps = createMockDeps({ opus: opusService, codex: codexService });
+
+      const events = [];
+      for await (const msg of routeSerial(deps, ['opus'], 'substantive review test', 'user1', 'thread-pp-substantive', {
+        thinkingMode: 'play',
+      })) {
+        events.push(msg);
+      }
+
+      const terminated = events.find(
+        (e) =>
+          e.type === 'system_info' && typeof e.content === 'string' && e.content.includes('a2a_pingpong_terminated'),
+      );
+      assert.ok(!terminated, 'substantive tool_use every round must exempt streak — no a2a_pingpong_terminated');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(original)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
+  test('F167-D1: 4 rounds with long text (>200 chars) every round → NO termination', async () => {
+    const original = catRegistry.getAllConfigs();
+    await loadRealRoster();
+    try {
+      const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+      // Output text must be > 200 chars (UTF-16 code units) to trigger the long-text exemption.
+      const longTextOpus = `${'架构讨论'.repeat(60)}\n@codex 这段你怎么看？`; // ~240+ code units
+      const longTextCodex = `${'架构回应'.repeat(60)}\n@opus 我的观点如上`;
+      const opusService = createCapturingService('opus', longTextOpus);
+      const codexService = createCapturingService('codex', longTextCodex);
+      const deps = createMockDeps({ opus: opusService, codex: codexService });
+
+      const events = [];
+      for await (const msg of routeSerial(deps, ['opus'], 'long-text discussion test', 'user1', 'thread-pp-longtext', {
+        thinkingMode: 'play',
+      })) {
+        events.push(msg);
+      }
+
+      const terminated = events.find(
+        (e) =>
+          e.type === 'system_info' && typeof e.content === 'string' && e.content.includes('a2a_pingpong_terminated'),
+      );
+      assert.ok(
+        !terminated,
+        'long-text discussion (>200 chars) every round must exempt streak — no a2a_pingpong_terminated',
       );
     } finally {
       catRegistry.reset();
