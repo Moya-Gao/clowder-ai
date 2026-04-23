@@ -8,7 +8,9 @@ created: 2026-04-23
 
 # F174: Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级与可观测
 
-> **Status**: spec | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1
+>
+> **Phase A**: ✅ merged 2026-04-23 via PR #1359
 
 ## Why
 
@@ -222,12 +224,13 @@ interface CallbackTool<T> {
 
 ## Acceptance Criteria
 
-### Phase A（Structured Failure Reasons — 前置）
-- [ ] AC-A1: `AuthFailureReason` 类型 + `VerifyResult` 落地（`InvocationRegistry.ts`）
-- [ ] AC-A2: `verify()` 返回 `VerifyResult`，所有调用点更新（含 preHandler、stale guard、claimClientMessageId）
-- [ ] AC-A3: preHandler 401 响应 body 包含 `reason` 字段（`callback-auth-prehandler.ts`）
-- [ ] AC-A4: `stale_invocation` 与 `expired` 在 reason 上明确分开
-- [ ] AC-A5: 客户端 `callbackPost`/`callbackGet` 解析 `reason`，不再用 regex 字符串匹配
+### Phase A（Structured Failure Reasons — 前置）— ✅ merged PR #1359
+- [x] AC-A1: `AuthFailureReason` 类型 + `VerifyResult` 落地（`InvocationRegistry.ts`）
+- [x] AC-A2: `verify()` 返回 `VerifyResult`，所有调用点更新（preHandler / wecom / lark / community-issues / wiring test）
+- [x] AC-A3: preHandler 401 响应 body 包含 `reason` 字段（`callback-auth-prehandler.ts` + `callback-errors.ts`）
+- [x] AC-A4: `stale_invocation` 与 `expired` 在 reason 上明确分开（taxonomy in `@cat-cafe/shared`）
+- [x] AC-A5: 客户端 `callbackPost`/`callbackGet` 解析 `reason`（typed marker `[reason=X]`），不再用 regex 字符串匹配
+- **Bonus**（砚砚 review reminder #2）: reason taxonomy 抽到 `@cat-cafe/shared/types/callback-auth-reasons.ts` 单一真相源 + contract test 防漂移
 
 ### Phase B（Persistence）
 - [ ] AC-B1: `InvocationRegistry` 支持 Redis backend，schema 设计参考 `RedisInvocationRecordStore.ts` 的 Hash + Lua 模式
@@ -348,6 +351,7 @@ interface CallbackTool<T> {
 | 2026-04-23 15:46 | spec 收敛 v2（含 KD-4~12），等铲屎官拍板最终方案后启动 Phase A |
 | 2026-04-23 16:00 | Phase A 实施完成（commits cb85ac1c0 + 640d154fe + 534b22daa + 3c8b024d2 on `feat/f174-phase-a-failure-reasons`），ready for PR |
 | 2026-04-23 16:24 | @缅因猫 GPT-5.4 cross-family review of Phase A → **PASS**（self-reran 36/36 + 45/45 tests）。Two non-blocking reminders → addressed in 3c8b024d2: shared reason taxonomy + contract test (drift prevention); mixed-version rollout note added to Risk |
+| 2026-04-23 22:20 | **Phase A merged via PR #1359** (squash commit `ef1c83c4`)，cloud Codex review: "no major issues, chef's kiss"，跨家族 review 全部延续到 final HEAD `74926347` |
 
 ## Review Gate
 
