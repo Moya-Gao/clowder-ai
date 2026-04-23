@@ -12,6 +12,8 @@ created: 2026-04-22
 >
 > **Phase A merged 2026-04-23 (PR #1347, squash 3feae9563)**：mirror invariant + 单指针 routing + deterministic bubble id + invocation-driven suppression cleanup（含 fail-open）。Phase B/C/D 留 follow-up PR。
 >
+> **Phase A hotfix merged 2026-04-23 (PR #1352, squash b4e46761d)**：close ea0973e7 ghost — explicit invocationId threaded through all event entry points (text/tool_use/tool_result/done/error/web_search/thinking/rich_block/invocation_created). 砚砚 LGTM-6 cycles + 9 cloud Codex P1 fix cycles. CVO 2026-04-23 拍板将剩余 multi-failure race scenarios (lost done + lost invocation_created + reconnect/hydration) defer 进 Phase B (AC-B5..B10) — thread-scoped runtime consolidation 会从结构上消除这些场景。
+>
 > **Scope 扩展（2026-04-22 22:05 铲屎官指示）**：原 scope 仅 message pipeline；新事故诊断把 cancel 按钮缺失 / queue gating 失效 / spawn ENOENT 三个症状同源到 **liveness truth source fragmentation**，与 message dual-write 是同一个病。铲屎官原话："不要小修小改"——一锅端。
 
 ## Why
