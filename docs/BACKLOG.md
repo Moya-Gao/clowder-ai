@@ -62,4 +62,4 @@ created: 2026-02-26
 | F169 | Agent Memory Reflex — 愿景文档（vision artifact） | vision | 三猫 | internal | [F169](features/F169-agent-memory-reflex.md) |
 | F171 | First Partner Onboarding — 领养第一只猫 / 配置第一位伙伴 | spec | 缅因猫/gpt52 | community [#520](https://github.com/zts212653/clowder-ai/pull/520) | [F171](features/F171-first-partner-onboarding.md) |
 | F172 | Generated Image Publication — 内建生图产物归档与富块发布 | spec | 缅因猫/gpt52 | internal | [F172](features/F172-generated-image-publication.md) |
-| F173 | 前端 Message State Pipeline 统一 — 消除 dual write-path | spec | 布偶猫 | internal | [F173](features/F173-frontend-message-pipeline-unification.md) |
+| F173 | 前端 Thread-Runtime State 统一 — 消除 dual write-path & liveness fragmentation | spec | 布偶猫 | internal | [F173](features/F173-frontend-message-pipeline-unification.md) |
