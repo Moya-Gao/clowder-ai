@@ -8,7 +8,7 @@ created: 2026-04-22
 
 # F172: Generated Image Publication — 内建生图产物归档与富块发布
 
-> **Status**: in-progress | **Owner**: 布偶猫/opus | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫/opus | **Priority**: P1
 
 ## Why
 
@@ -118,8 +118,9 @@ created: 2026-04-22
 #### Phase C 实施证据（2026-04-23）
 
 - Antigravity image publisher：`packages/api/src/domains/cats/services/agents/providers/antigravity/antigravity-image-publisher.ts`
-- AntigravityAgentService 接线：collect image paths from `toolResult.output` + `runCommand.stdout` during batch loop → publish pre-done
-- 新增测试：`packages/api/test/antigravity-image-publisher.test.js`（10 tests）
+- AntigravityAgentService 接线：collect image paths from image-gen `toolResult` steps → publish pre-done
+- Path scraping gated on `IMAGE_GEN_TOOL_NAMES` allowlist（cloud review P1 fix）; `metadata.toolCall.name` fallback（cloud review P2 fix）
+- 新增测试：`packages/api/test/antigravity-image-publisher.test.js`（16 tests）
 - 回归：all GREEN
 
 ### Phase D（Skill 契约收口）
@@ -204,6 +205,8 @@ created: 2026-04-22
 | 2026-04-22 | Kickoff：铲屎官确认采用“基础设施自动归档到 `/uploads/...` + 自动富块展示”方向，并同意立项为独立 feature |
 | 2026-04-22 | Scope 扩展：确认 F172 同时覆盖 Codex built-in、Antigravity、以及 repo-local 图片相关 skills 的契约收口，但不吞并 F061/F088 主线 |
 | 2026-04-22 | 孟加拉猫只读反馈：补充 publication contract 幂等要求；收敛为 `media_gallery` 单一路径，不重复写 image contentBlocks |
+| 2026-04-23 | Phase A merged（PR #1353）：共享 publication contract + image-storage 原语 |
+| 2026-04-23 | Phase B-E merged（PR #1355）：Codex scanner + Antigravity publisher + skill 收口 + 富块联动。砚砚 review 放行 + 3 轮云端 review（2 P1 + 2 P2 全修） |
 
 ## Review Gate
 

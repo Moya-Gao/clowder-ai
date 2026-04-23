@@ -1077,7 +1077,7 @@
     {
       "id": "F172",
       "name": "Generated Image Publication — 内建生图产物归档与富块发布",
-      "status": "in-progress | **Owner**: 布偶猫/opus | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫/opus | **Priority**: P1",
       "file": "F172-generated-image-publication.md"
     },
     {
@@ -1089,9 +1089,9 @@
     {
       "id": "F174",
       "name": "Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级与可观测",
-      "status": "spec | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1",
       "file": "F174-callback-auth-lifecycle.md"
     }
   ],
-  "generated_at": "2026-04-23T16:24:18.370Z"
+  "generated_at": "2026-04-23T22:27:01.223Z"
 }
