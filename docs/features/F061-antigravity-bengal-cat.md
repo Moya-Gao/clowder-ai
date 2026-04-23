@@ -486,6 +486,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-22 | **CLI 正文重复 fix** — Antigravity `plannerResponse` 非 prefix rewrite 原来被当成整段 text replay，前端 append-only 消费导致同 bubble 正文重复。引入 `textMode='append'\|'replace'` 协议：provider 把 non-prefix rewrite 标 `replace`，bridge/transformer 透传，active + background 两条前端流 + server 侧聚合链路（`messages.ts` / `QueueProcessor.ts`） 全部按 replace 覆写；多猫 cascade 下以 `outboundTurns` 为真相源 per-turn flatten，不再让后到猫的 replace chunk 覆盖前猫文本；`accumulateTextParts` O(1) 原地变更热路径。对应 PR #1337（opus-47 本地 4 轮 continuity + 云端 4 轮 P1→P2→P2→P2→clean）|
 | 2026-04-23 | **Bug-G bubble identity 闭环** — `isStaleTerminalEvent` helper 统一 `done`/`error` 终态处理，分层 resolver（slot-fresh override → bubble binding → realActiveSlot → direct → bubble scan → default not-stale）覆盖 preempt / reconnect hydration / 多猫 slot normalization / hydrated 合成 key / chronic lag / reused bubble stale binding 所有分支；stale 时全副作用 + isFinal global teardown + hydrated-orphan cleanup 一律跳过；catInvocations.direct 条件性 cleanup；19 条定向回归测试。PR #1350（opus-47 写、砚砚 4 轮 peer review + 云端 codex 10+ 轮 P1/P2 → 17 轮 iteration 收敛 → merge commit `9e14c03a8`）|
 | 2026-04-23 | **Bug-I run_command args dropping 闭环** — Bengal 实测发现 Antigravity LS 的 `RunCommand` RPC 是 `command + args` 空格 join 给 outer shell 的语义，不是 `execvp`。旧 payload `{ command: '/bin/sh', args: ['-c', cmd] }` 被拼成 `/bin/sh -c cmd` → outer shell 只消费第一 token → 带参命令全废。修法 2 行：把完整 `commandLine` 直接作为 `command` 传，outer shell verbatim 解析。Proto descriptor（从 `language_server_macos_arm` binary 挖出）确认 `RunCommandRequest{command, args, timeout_ms}` 无 `cwd` 字段。PR #1351（Bengal 实测 + 根因，opus-47 proto 验证 + 测试，砚砚 1 轮 peer review 退回过时 discussion doc，云端 2 轮 clean，merge `1b0a9af24`）|
+| 2026-04-23 | **Bug-E regression lock + Bug-J partial polish** — 两个小 PR 并行：#1353 补 fatal error → 下一轮 invocation 仍保留 `[Cat Cafe callback fallback]` 注入的回归测试（锁 AntigravityAgentService 在 invoke 之间的无状态不变量）；#1354 给 `useAgentMessages` 加 `provider_signal` 分支，走 `formatVisibleSystemInfo` 管线，让 backend 一直在 emit 但前端静默丢弃的 capacity retry warning（`⚠️ 上游模型服务端容量不足，系统将在 20s 后自动重试（1/3）`）变成可见 system bubble。两条都 gpt52 peer review clean + 云端 codex clean，#1353 merge `5f5e82849`，#1354 merge `9cb2de414`。Bug-J 剩余 retry 倒计时 badge + 模型切换建议属 UX redesign，拆 follow-up |
 
 ---
 
@@ -502,16 +503,17 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | [x] | 孟加拉猫 CLI 整段正文重复（non-prefix rewrite 被当全量 replay） | PR #1337 | `textMode='append'\|'replace'` 协议贯通 provider → bridge → transformer → 前端 active/background + server 聚合；多猫 cascade per-turn 隔离不覆盖前猫文本 |
 | [x] | 同一 invocation 落成两条 bubble 稳定共存（reconnect/preempt/reuse 导致身份错绑或 finalize 丢失） | PR #1350 | `isStaleTerminalEvent` 分层 resolver：slot-fresh override + bubble binding ground truth + direct/bubble-scan fallback，覆盖 17 轮 push back 里所有 preempt/hydrated/orphan/reuse/reconnect 场景；done + error 共用 helper + 全副作用/全局 teardown 都在 stale 下跳过；catInvocations.direct 在 stale 条件下仍 conditional cleanup |
 | [x] | `run_command` 带参数的命令参数被 LS 吞掉（`git log --oneline -3` → git usage） | PR #1351 | Antigravity LS 的 `RunCommand` RPC 把 `command + args` 空格 join 交 outer shell（非 execvp 语义），旧 payload `{ command: '/bin/sh', args: ['-c', cmd] }` 被拼成 `sh -c cmd` 让 outer shell 只消费第一 token；修法把完整 commandLine 直接作为 `command`，outer shell verbatim 解析（pipes / redirects / `&&` 全支持）|
+| [x] | fatal error 后 continuity regression 缺 test lock（G0/G10 follow-up） | PR #1353 | 在 `antigravity-agent-service-fatal-errors.test.js` 加回归：第一轮 capacity fatal → 第二轮同 callbackEnv → 断言 `bridge.sendMessage` 两次都携带 `[Cat Cafe callback fallback]` + invocationId + callbackToken + 新 prompt body。锁死 "service 在 invoke 之间无状态" 不变量，防止未来缓存优化意外切断 fallback 注入 |
+| [x] | `provider_signal` capacity warning 被前端静默丢弃 | PR #1354 | `useAgentMessages` 加 `provider_signal` 分支，走和 `system_info` 同一个 `formatVisibleSystemInfo` 管线；backend emit 的 capacity warning 现在会渲染成 `⚠️ 上游模型服务端容量不足，系统将在 20s 后自动重试（1/3）` 风格的 system bubble。用户不再看到 bubble 莫名 hang |
 
 ### 未修：已排期 / 待调查
 
 | 状态 | 问题 | 当前判断 | 排期 |
 |------|------|----------|------|
 | [ ] | 写文件/改代码仍不稳定（截图描述：`run_command` 经常 `context canceled`） | Bug-8 v1 已解开 `WAITING` 死锁，但 native file/code parity 仍只覆盖 `run_command`。`read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob` 还在 follow-up。`@antig-opus` 2026-04-21 实测也确认：只读工具可用，但 `run_command` 在简单 `git log --oneline` 上仍 `context canceled` 2/2 复现。PR #1321 已补上 permission guard 前置调用，并确保危险命令先本地拒绝、permission RPC 失败时 fallback 不丢；下一步仍需实机复验这条 guard 是否足以消掉 `PromptUser → context canceled` | **Phase 2c v2**：AC-2cR4 + AC-2cI6 |
-| [ ] | bug 炸掉后整段 conversation 仍可能“重新认人” | G0 resume 与 PR #1299 已恢复大部分 continuity，但目前还没有专门锁“fatal error → 下一轮仍保上下文”的回归用例；这是 field report，不该宣称已完全解决 | **G0/G10 follow-up**：补 repro + continuity regression test |
 | [~] | retry 经常只 retry 1 次然后直接挂住 | 已确认“只 retry 1 次然后挂住”不是 retry 预算天然只有 1 次，而是旧实现会在 capacity retry 后落到 v2 尚未支持的 WAITING tool step（如 `grep_search`）并静默 stall。PR #1318 已把这条路径改成 fail-fast 显式报 `unsupported_waiting_tool`；PR #1320 补上 quota-style capacity classifier；PR #1330 进一步把 retry 收窄到“未 dispatch + 只读 + `SafeToAutoRun=true`”，并补齐 `failureLayer / dispatchState / executionJournal` 诊断，避免把 approval-gated / 已执行 / 已完成 tool step 误当成可安全重试。剩余还是 v2 executors / telemetry / 实机复验 | **G10 follow-up（P1）**：剩余继续跟 Phase 2c v2 / telemetry / 实机复验 |
 | [ ] | Antigravity 原生 MCP 只能读不能写 | PR #1307 边界是 `CAT_CAFE_READONLY=true`；`post_message` / `get_thread_context` 等写操作仍然走 per-invocation callback token。持久进程无法在会话外主动写回 thread | **Bug-H**：persistent MCP write-path auth（会话外鉴权模型，例如 agent-key；需产品决策"原生 MCP 是否应该有写权"） |
-| [ ] | 上游 `⚠️ 模型服务端容量不足` 无降级 UX | PR #1185 已加 `provider_signal` warning + provider-neutral 文案，但没有自动 retry / fallback model / 等待提示。用户视角是"孟加拉猫卡死"。注意：`model_capacity` 已有 bounded retry（PR #1293/#1320），真正缺的是 UI 层的"正在重试"态 + 上游 hard limit 时的降级建议 | **Bug-J**：capacity 瞬态 UX（前端 retry 可视化 + 软降级）|
+| [~] | 上游 `⚠️ 模型服务端容量不足` UX polish | PR #1354 已修"provider_signal 被前端静默丢弃"的根因（frontend 现在能显示 `⚠️ 上游模型服务端容量不足，系统将在 20s 后自动重试（1/3）` 这类警告）。剩余 follow-up：retry in-flight 倒计时 badge + hard-limit 软降级模型切换建议，属于 UX redesign scope | **Bug-J follow-up**：倒计时 badge / 模型切换建议（UX，低优） |
 
 ---
 
@@ -549,17 +551,6 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 
 **排期**：Phase 2c v2（AC-2cR4 + AC-2cI6）
 
-### Bug-E: fatal 后 continuity 仍有“重新认人” field report ⚠️ OPEN
-
-**现象**（2026-04-20 截图 field report）：孟加拉猫“出 bug 炸了之后整个 conversation 记忆清零，下轮重新认人”。
-
-**当前判断**：
-- G0 resume（PR #1135）和 Continuity fallback recovery（PR #1299）已经把**主路径** continuity 拉回来了
-- 但我们还没有一条专门的 regression 锁死：**fatal error / stream_error / model_capacity 之后，下一轮是否还能保持 thread continuity**
-- 所以这条目前应该按 **field report 未闭环** 记录，不能因为主路径修过就写成“已彻底解决”
-
-**排期**：G0/G10 reliability follow-up（补 repro + continuity regression test）
-
 ### Bug-F: retry 后 unsupported WAITING step 不再静默挂死，但 retry / parity 闭环仍未完成 ⚠️ PARTIAL
 
 **现象**（2026-04-20 铲屎官新报告）：孟加拉猫“经常只 retry 1 次然后又直接挂了”。
@@ -596,23 +587,29 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 
 **排期**：Bug-H，**产品决策先行**——先确认"原生 MCP 读 + callback 写"是否是永久边界，还是要引入 agent-key / 会话外鉴权。
 
-### Bug-J: 上游 capacity 无降级 UX ⚠️ OPEN（UX polish）
+### Bug-J: capacity UX polish ⚠️ PARTIAL — provider_signal 可见化完成，倒计时 badge / 软降级提示另起
 
-**现象**：上游模型报 `⚠️ 模型服务端容量不足`（quota 耗尽或限流）时，用户视角是"孟加拉猫卡死"。
+**已修（PR #1354）**：`useAgentMessages` 加 `provider_signal` 分支，前端现在能收到并显示 capacity retry warning（`⚠️ 上游模型服务端容量不足，系统将在 20s 后自动重试（1/3）`）。原症状 "backend emit 了但 frontend 静默丢弃" 已解。
 
-**当前判断**：
-- 已有基础：
-  - PR #1185 加了 `provider_signal` warning + provider-neutral 文案
-  - PR #1293 有 bounded fresh-cascade retry
-  - PR #1320 补 quota-style classifier
-- 仍然缺：
-  - **"正在重试"可视化**：retry in-flight 时前端不知道在等什么
-  - **软降级提示**：hard limit 时建议切模型或等待具体时间
-- 不是代码 bug，是纯 UX polish
+**剩余 follow-up**：
+- retry in-flight 倒计时 badge（ThreadExecutionBar 显示 "重试中 1/3，15s 后"）
+- hard-limit 软降级提示（retry 耗尽后建议切模型或等待具体时间）
 
-**排期**：Bug-J，低优先级，等 retry telemetry 数据后一起做。
+这两部分是更大 UX redesign scope，拆开做。
 
 ## Known Bugs（已修复）
+
+### Bug-E: fatal 后 continuity regression lock ✅ FIXED (PR #1353)
+
+**Field report**（2026-04-20 截图）：孟加拉猫"出 bug 炸了之后整个 conversation 记忆清零，下轮重新认人"。
+
+**诊断**：G0 resume（PR #1135）+ Continuity fallback recovery（PR #1299）已经把**主路径** continuity 拉回来了。没有一条专门的 regression 锁 "fatal error / stream_error / model_capacity 之后，下一轮 invocation 仍保留 callback fallback 注入" 的不变量。
+
+**修法（PR #1353）**：在 `antigravity-agent-service-fatal-errors.test.js` 加回归用例——第一轮 capacity fatal（retry disabled）→ 第二轮同 callbackEnv → 断言 `bridge.sendMessage` 两次都携带 `[Cat Cafe callback fallback]` + invocationId + callbackToken + 新 prompt body。
+
+不变量：AntigravityAgentService 在 `.invoke()` 之间**无状态**——callbackEnv 通过 options 独立注入。未来 continuity 优化（比如加 session 级缓存）如果意外破坏这一点，测试会红。
+
+**Credit**：opus-47 scoping + 写。gpt52 peer review clean；云端 codex clean ("Didn't find any major issues 👍")。
 
 ### Bug-I: `run_command` args dropped by LS ✅ FIXED (PR #1351)
 
