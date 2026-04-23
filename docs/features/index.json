@@ -1073,7 +1073,13 @@
       "name": "First Partner Onboarding — 领养第一只猫 / 配置第一位伙伴",
       "status": "spec | **Owner**: 缅因猫/gpt52 | **Priority**: P1",
       "file": "F171-first-partner-onboarding.md"
+    },
+    {
+      "id": "F172",
+      "name": "Generated Image Publication — 内建生图产物归档与富块发布",
+      "status": "spec | **Owner**: 缅因猫/gpt52 | **Priority**: P1",
+      "file": "F172-generated-image-publication.md"
     }
   ],
-  "generated_at": "2026-04-22T07:46:00.000Z"
+  "generated_at": "2026-04-23T01:59:57.998Z"
 }
