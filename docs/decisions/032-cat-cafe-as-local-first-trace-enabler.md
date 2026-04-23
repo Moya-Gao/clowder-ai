@@ -4,7 +4,7 @@ topics: [product-positioning, business-model, data-sovereignty, local-first, tra
 doc_kind: decision
 created: 2026-04-22
 status: draft
-related: [ADR-031, F163, F167]
+related: [ADR-031, F153, F163, F167]
 ---
 
 # ADR-032: Cat Cafe as Local-First Trace Producer Enabler
@@ -121,34 +121,68 @@ Cat Cafe 提供所有路径的导出工具（schema 转换、脱敏、打包）�
 
 ## 技术设计层（粗粒度，细节留给未来 feature）
 
+### 关键原则：复用 F153 基础设施，不另起炉灶
+
+**F153 Observability Infrastructure** 已经建好了 ADR-032 trace export 需要的一大半基础设施——如果我们另起一套，既浪费又割裂。ADR-032 的技术架构**应该建在 F153 之上**，而不是平行于 F153：
+
+| ADR-032 需要 | F153 已有 | 关系 |
+|------------|----------|------|
+| 脱敏 pipeline | **TelemetryRedactor**（四级分类 A/B/C/D）| ✅ 直接复用，可能扩展 Class E "代码 IP" |
+| Trace 产生链路 | **OTel SDK + parentSpan 全链路穿透**（`cli_session` / `llm_call` / `tool_use` spans）| ✅ 直接复用，trace schema 对齐 OTel attribute 命名 |
+| 本地 trace 存储 | **LocalTraceExporter + Ring buffer**（在 `RedactingSpanProcessor` 之后）| ✅ 扩展为可控导出（Ring buffer → Transformer → export formats）|
+| 查询接口 | **`/api/telemetry/traces`**（session auth + HMAC 匹配）| ✅ 扩展加 export endpoint |
+| 粒度控制 | **MetricAttributeAllowlist**（bounded cardinality）| ✅ 扩展为 opt-in 粒度控制 |
+| "不碰数据" 的架构保证 | **KD-13**：`LocalTraceExporter` 放在 `RedactingSpanProcessor` **之后**——Hub 只看脱敏后数据 | ✅ ADR-032 neutral infra 原则的 live enforcement |
+
+**哲学对齐**：F153 **KD-16**（`F153 = descriptive observability, not normative eval`）和 ADR-032（`Cat Cafe = neutral infrastructure, not data broker`）是**同一思想的两个投影**——F153 不评判内容、ADR-032 不托管内容。
+
 ### Trace Schema 标准化
 
 - Open spec：`cat-cafe/specs/trace-schema.md`（待建）
 - 包含字段：handoff metadata / speaker / intent / resolution / human verdict / cross-vendor transitions / failure marker
+- **命名对齐 F153**：OTel attribute 名用 camelCase（`invocationId`、`sessionId`），和 F153 AC-B5 一致
 - 版本化：spec v1 → v2 向前兼容
 - 第三方可实现：不绑 Cat Cafe 自己的 runtime
 
 ### 脱敏 Pipeline（本地执行）
 
-- PII scrubbing：姓名 / 邮箱 / 电话 / 地址
-- Secrets scrubbing：API keys / tokens / credentials（regex + entropy detection）
-- 业务机密 scrubbing：自定义 pattern（企业版可配置）
-- 代码 IP：代码内容默认保留结构不保留实现（可 opt-in 完整分享）
-- 全部**本地跑**，Cat Cafe 后端永不见原始 trace
+**基座：F153 TelemetryRedactor 四级分类**（直接复用，不重建）：
+- **Class A**：凭证 / API keys / tokens → `[REDACTED]`
+- **Class B**：业务正文 / prompt-response 内容 → hash + length
+- **Class C**：系统标识符（invocationId / sessionId / catId）→ HMAC-SHA256
+- **Class D**：安全数值（timestamp / duration / counters）→ passthrough
 
-### 导出格式
+**ADR-032 扩展（待讨论，需要和 F153 作者对齐）**：
+- **Class E**：代码 IP——保留结构不保留实现（AST 骨架 + import names，去掉 function body）。默认启用，用户可 opt-in 完整分享
+- **自定义 pattern**（企业版）：公司特定的业务机密 regex / ML-based classifier
 
-- **SFT-ready JSONL**：prompt + response pair 格式，直接喂 fine-tune
-- **Eval benchmark**：带 ground truth + human verdict
-- **RL reward trace**：成功/失败 pairs，含 reward signal
-- **Raw trace**：完整 structured log，下游自己处理
-- **Lesson library markdown**：给 retrieval loop 消费（ADR-031 的内部形态）
+**强制执行**：所有 export 必须经过 `RedactingSpanProcessor`，这是 F153 KD-13 的架构级 enforcement，ADR-032 继承。
 
-### opt-in 机制
+### 导出格式（建在 F153 LocalTraceExporter 之上）
 
-- Granularity：per-thread / per-feature / per-timerange 三级粒度
-- Preview：导出前用户可预览脱敏后的结果
-- Revoke：用户可撤回已导出 dataset（和下游消费方的合同条款挂钩——超出 Cat Cafe 技术能力但在 schema 里保留 revocation signal）
+F153 的 `LocalTraceExporter` 负责把 redacted spans 写入 Ring buffer。ADR-032 新增一层 **ExportTransformer**：
+
+```
+F153 侧：
+  OTel span → RedactingSpanProcessor → LocalTraceExporter → Ring buffer
+
+ADR-032 扩展：
+  Ring buffer → ExportTransformer → 多种格式输出
+                                    ├── SFT-ready JSONL（prompt + response pair）
+                                    ├── Eval benchmark（含 ground truth + human verdict）
+                                    ├── RL reward trace（成功/失败 pairs）
+                                    ├── Raw trace（完整 structured log）
+                                    └── Lesson library markdown（给 retrieval loop）
+```
+
+**不新起 export server**——扩展 F153 已有的 `/api/telemetry/traces` endpoint 加 export action。
+
+### opt-in 机制（基于 F153 MetricAttributeAllowlist）
+
+- **Granularity**：per-thread / per-feature / per-timerange 三级粒度——基于 F153 的 `MetricAttributeAllowlist` 扩展
+- **Preview**：导出前用户可预览脱敏后的结果（走 F153 LocalTraceStore 读）
+- **Revoke**：用户可撤回已导出 dataset——和下游消费方的合同条款挂钩，超出 Cat Cafe 技术能力但在 schema 里保留 revocation signal
+- **审计**：所有 export 动作本地记录（不回传），用户可查自己导出过什么
 
 ## 商业模型
 

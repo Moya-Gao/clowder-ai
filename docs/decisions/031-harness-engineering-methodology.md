@@ -4,7 +4,7 @@ topics: [harness-engineering, methodology, first-principles, sunset-mechanism, s
 doc_kind: decision
 created: 2026-04-22
 updated: 2026-04-22
-status: draft (v3.1 — R1 review from 3 cats + signal-bidirectional section added)
+status: draft (v3.2 — F153 observability stack cross-referenced in Core 2)
 related: [ADR-030, ADR-032, LL-025, LL-026, F163, F167]
 ---
 
@@ -20,6 +20,8 @@ related: [ADR-030, ADR-032, LL-025, LL-026, F163, F167]
 > **v3 改动**：新增 **Experience Drift** 作为模型侧第 3 维（烁烁补视觉/审美漂移盲点）；4 核心加 tagline（harness 的呼吸/记忆/代谢/修剪）带温度入口；Retrieval loop 段前加"回声"比喻；对比表前加感性引子（Training 改本能、Retrieval 教经验）；**社会技术学科 section 从"后果"前移到核心 framing 附近**（烁烁"灵魂防火墙"建议，46 原贡献放大）。
 >
 > **v3.1 改动**：Signal Loop section 新增 **"Signal 的双向消费"** 子节——铲屎官点破：signal 不只是 internal retrieval 用，跨厂商协作 trace 也是独特的 external training-data 资产。但 Cat Cafe 是**本地产品**，**数据在用户手中**——我们是 open protocol + 本地 runtime，不托管、不回传、不碰用户数据。详细产品定位 / 技术设计 / 商业模型见 ADR-032。
+>
+> **v3.2 改动**：Core 2 Tracing 补 F153 Observability Infrastructure 引用——应用层 trace（`invocation_events` 等）和基础设施层 trace（F153 OTel stack）分两层描述。F153 的 `LocalTraceExporter` 放在 `RedactingSpanProcessor` 之后是 ADR-032 "Cat Cafe 不碰数据" 的架构级 enforcement，不是口头承诺。
 
 ## 背景
 
@@ -72,7 +74,10 @@ Delete 是**结果**，不是**目的**。如果没 tracing、没 failure extrac
 - 每个 handoff、每个 failure、每个人类纠正都留结构化 trace
 - **不是 debug 用——是下游 Signal Loop 的物料**
 - 没有 trace 的 harness 不具备自我演化能力
-- Cat Cafe 对应：`invocation_events`、`session chain`、`callback trace`、`ledger`
+- Cat Cafe 对应分两层：
+  - **应用层 trace**：`invocation_events`、`session chain`、`callback trace`、`ledger`
+  - **基础设施层 trace**：**F153** Observability Infrastructure（OTel SDK + parentSpan 全链路穿透 + `cat_cafe.cli_session` / `cat_cafe.llm_call` / `tool_use` spans + TelemetryRedactor 四级脱敏 + LocalTraceExporter + Ring buffer）
+- 两层**互补不冲突**：应用层 trace 是 domain-specific 语义，基础设施层是通用 OTel span。F153 的 `LocalTraceExporter` 在 `RedactingSpanProcessor` 之后消费脱敏 spans——这是 ADR-032 "Cat Cafe 不碰数据" 原则的架构级 enforcement，不是事后承诺
 
 #### 孵化未来（breeds-future）
 
