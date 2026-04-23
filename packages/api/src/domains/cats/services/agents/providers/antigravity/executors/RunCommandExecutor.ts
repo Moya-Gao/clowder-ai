@@ -91,9 +91,14 @@ export class RunCommandExecutor implements AntigravityToolExecutor<RunCommandInp
 
     const t0 = Date.now();
     try {
+      // Antigravity LS RunCommand joins `command + args` with spaces and passes
+      // to an outer shell. Sending `{ command: '/bin/sh', args: ['-c', cmd] }`
+      // causes the outer shell to parse "sh -c cmd" only consuming the first
+      // word of cmd — all flags/extra args get discarded. Pass the full command
+      // line directly as `command` with no args so the outer shell handles it
+      // verbatim (pipes, redirects, chained `&&` all work).
       const resp = await this.deps.rpc('RunCommand', {
-        command: '/bin/sh',
-        args: ['-c', input.commandLine],
+        command: input.commandLine,
         cwd: input.cwd,
       });
       const durationMs = Date.now() - t0;

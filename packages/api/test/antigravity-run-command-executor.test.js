@@ -44,7 +44,12 @@ describe('RunCommandExecutor', () => {
     const [method, payload] = rpc.mock.calls[0].arguments;
     assert.equal(method, 'RunCommand');
     assert.equal(payload.cwd, '/tmp');
-    assert.match(payload.args?.join(' ') ?? '', /echo hi/);
+    // Antigravity LS RunCommand joins command + args with spaces and passes to
+    // an outer shell. Sending `{ command: '/bin/sh', args: ['-c', 'cmd'] }` makes
+    // the outer shell parse "sh -c cmd" only consuming the first word of cmd.
+    // Fix: pass the full command line directly as `command`, no args.
+    assert.equal(payload.command, 'echo hi');
+    assert.equal(payload.args, undefined);
   });
 
   test('refuses Redis 6399 touches', async () => {
