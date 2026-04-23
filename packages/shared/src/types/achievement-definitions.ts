@@ -43,8 +43,8 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
   },
   {
     id: 'xp-collector',
-    label: { zh: '经验收集者', en: 'XP Collector' },
-    description: { zh: '累积 1,000 经验值', en: 'Accumulate 1,000 XP' },
+    label: { zh: '足迹收集者', en: 'Footfall Collector' },
+    description: { zh: '累积 1,000 足迹点', en: 'Accumulate 1,000 footfall' },
     category: 'individual',
     rarity: 'common',
     conditions: [{ type: 'total_xp', minXp: 1000 }],
@@ -81,8 +81,8 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
   },
   {
     id: 'xp-hoarder',
-    label: { zh: '经验富翁', en: 'XP Hoarder' },
-    description: { zh: '累积 10,000 经验值', en: 'Accumulate 10,000 XP' },
+    label: { zh: '足迹富翁', en: 'Footfall Hoarder' },
+    description: { zh: '累积 10,000 足迹点', en: 'Accumulate 10,000 footfall' },
     category: 'individual',
     rarity: 'rare',
     conditions: [{ type: 'total_xp', minXp: 10000 }],
@@ -178,7 +178,7 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
   {
     id: 'grand-opening',
     label: { zh: '开业大吉', en: 'Grand Opening' },
-    description: { zh: '团队总 XP 达到 1,000', en: 'Team reaches 1,000 total XP' },
+    description: { zh: '团队总足迹点达到 1,000', en: 'Team reaches 1,000 total footfall' },
     category: 'milestone',
     rarity: 'common',
     conditions: [{ type: 'total_xp', minXp: 1000 }],
