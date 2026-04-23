@@ -38,6 +38,7 @@ created: 2026-04-22
 - 发布目标必须跟随当前 runtime 的 `UPLOAD_DIR` / `getDefaultUploadDir()`，不能假设源码树里的固定目录。
 - 保留原始生成路径作为 provenance，但 thread / rich block / outbound 一律消费发布后的 `/uploads/...` 路径。
 - 发布是显式 artifact promotion，不覆盖已有同名文件，默认生成唯一文件名。
+- 发布动作必须具备幂等性：同一张已生成图片在 provider replay / recovery / retry 下再次进入 publication contract 时，应返回同一个 published artifact，而不是重复拷贝或重复发块。
 
 ### Phase B: Codex built-in `image_gen` 接入
 
@@ -83,6 +84,7 @@ created: 2026-04-22
 - [ ] AC-A2: 发布结果产出稳定 `/uploads/...` URL，而不是暴露原始本地路径
 - [ ] AC-A3: 发布路径遵循当前 runtime 的 `UPLOAD_DIR` 解析，不依赖固定 cwd 或源码目录
 - [ ] AC-A4: 文件命名避免覆盖已有资源，默认生成唯一文件名
+- [ ] AC-A5: 相同图片在 replay / retry / recovery 场景下重复进入 publication contract 时，能幂等返回同一个 `/uploads/...` URL，且不产生重复文件或重复 rich block
 
 ### Phase B（Codex built-in 接入）
 - [ ] AC-B1: built-in `image_gen` 成功后，产物自动接入 Phase A 的 publication contract
@@ -101,6 +103,7 @@ created: 2026-04-22
 - [ ] AC-E2: 消息持久化 / jsonl / thread replay 使用发布后的 URL，可刷新后继续显示
 - [ ] AC-E3: 归档中保留最小 provenance：provider/tool、prompt、originalPath、publishedPath
 - [ ] AC-E4: connector outbound 在遇到该图片消息时，走现有 `/uploads/...` 媒体投递链路，无需额外特判 provider 私有路径
+- [ ] AC-E5: 发布后的图片默认仅以 `media_gallery` rich block 作为 canonical 呈现路径；不为同一张图再额外复制一份 image `contentBlocks` 造成上下文和存储重复
 
 ## 需求点 Checklist
 
@@ -113,6 +116,7 @@ created: 2026-04-22
 | R5 | “图片生成 skills 也得挂在 F172 这里进行优化” | AC-D1, AC-D2 | doc + skill test | [ ] |
 | R6 | 能自动把你产出的图片归档 + 用富文本呈现 | AC-E2, AC-E3 | test + manual | [ ] |
 | R7 | 既有 rich block / connector 媒体链路继续复用 | AC-E4 | integration test | [ ] |
+| R8 | provider 恢复 / replay 时不应重复堆积图片文件或重复发块 | AC-A5, AC-E5 | integration test | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -132,6 +136,7 @@ created: 2026-04-22
 | 发布到了错误的 uploadDir，前端仍然裂图 | 统一走 `getDefaultUploadDir()` / runtime `UPLOAD_DIR`，并增加验证测试 |
 | 把 provider 主线能力和 artifact 发布层搅混，scope 失控 | 明确 F172 只管图片生成后的 publication contract，F061/F088 继续拥有各自主线 |
 | 只解决前端展示，没解决历史归档/重放 | Phase B 明确要求持久化 published URL + provenance |
+| provider replay / recovery 造成重复拷贝、重复 rich block、文件堆积 | publication contract 以原始路径 + provider step signature / provenance 做幂等键，重复命中直接返回已发布结果 |
 | prompt / 原始路径等元数据泄露过多 | provenance 只保留最小必要字段，不回流敏感上下文 |
 
 ## Open Questions
@@ -139,8 +144,7 @@ created: 2026-04-22
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | built-in `image_gen` 的完成事件在哪一层最稳妥地拿到原始文件路径？provider transform / harness 还是更外层？ | ⬜ 未定 |
-| OQ-2 | Antigravity 的图片生成完成信号/文件落点从哪个 step 或 artifact 通道最稳妥拿？ | ⬜ 未定 |
-| OQ-3 | 发布后的图片是同时写 rich block 和 message `contentBlocks`，还是只保留 rich block 即可？ | ⬜ 未定 |
+| OQ-2 | Antigravity 的图片生成完成信号/文件落点从哪个已完成 tool step / artifact 通道最稳妥拿？需要确认 toolName、toolResult shape 与绝对路径来源 | ⬜ 未定 |
 
 ## Key Decisions
 
@@ -149,6 +153,7 @@ created: 2026-04-22
 | KD-1 | 新开 F172，不回填到 F060 | F060 已闭环且边界明确为 MCP `output_image` 自动渲染；本需求新增 artifact publication / archive / outbound 语义，scope 更大 | 2026-04-22 |
 | KD-2 | 继续复用 `media_gallery`，不新增图片块类型 | 现有前端与 outbound 已围绕 `/uploads/...` + `media_gallery` 打通，新增类型只会制造第二套链路 | 2026-04-22 |
 | KD-3 | F172 覆盖 Codex built-in、Antigravity、repo-local skills 三个入口，但只统一“生成完成后的图片发布链路” | 铲屎官明确要求两只猫都能直接呈现；真正共享的不是各自的生图方式，而是 artifact publication contract | 2026-04-22 |
+| KD-4 | 发布后的图片默认只写 `media_gallery` rich block，不重复写 image `contentBlocks` | rich block 已足以覆盖前端展示、history replay 与 F088 outbound；重复写 contentBlocks 只会制造上下文与存储重复 | 2026-04-22 |
 
 ## Timeline
 
@@ -156,6 +161,7 @@ created: 2026-04-22
 |------|------|
 | 2026-04-22 | Kickoff：铲屎官确认采用“基础设施自动归档到 `/uploads/...` + 自动富块展示”方向，并同意立项为独立 feature |
 | 2026-04-22 | Scope 扩展：确认 F172 同时覆盖 Codex built-in、Antigravity、以及 repo-local 图片相关 skills 的契约收口，但不吞并 F061/F088 主线 |
+| 2026-04-22 | 孟加拉猫只读反馈：补充 publication contract 幂等要求；收敛为 `media_gallery` 单一路径，不重复写 image contentBlocks |
 
 ## Review Gate
 
