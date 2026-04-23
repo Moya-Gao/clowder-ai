@@ -485,6 +485,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-22 | **Runtime hardening merged** — `run_command` 失败现在会带 `failureLayer / dispatchState / executionJournal` 诊断；approval failures 拆成 `approval_gate.denied|timeout`；只对“未 dispatch + 只读 + `SafeToAutoRun=true`”的命令开放 bounded fresh-cascade retry；并补上多轮云端 review 发现的边界护栏（`git branch`/`git diff|show|log --output`/shell substitutions & var expansion/quoted split `--output`、历史 resolved tool step / native dispatch 抑制 retry、`RUN_COMMAND:ERROR` 仍归 `approval_gate` 等），对应 PR #1330 |
 | 2026-04-22 | **CLI 正文重复 fix** — Antigravity `plannerResponse` 非 prefix rewrite 原来被当成整段 text replay，前端 append-only 消费导致同 bubble 正文重复。引入 `textMode='append'\|'replace'` 协议：provider 把 non-prefix rewrite 标 `replace`，bridge/transformer 透传，active + background 两条前端流 + server 侧聚合链路（`messages.ts` / `QueueProcessor.ts`） 全部按 replace 覆写；多猫 cascade 下以 `outboundTurns` 为真相源 per-turn flatten，不再让后到猫的 replace chunk 覆盖前猫文本；`accumulateTextParts` O(1) 原地变更热路径。对应 PR #1337（opus-47 本地 4 轮 continuity + 云端 4 轮 P1→P2→P2→P2→clean）|
 | 2026-04-23 | **Bug-G bubble identity 闭环** — `isStaleTerminalEvent` helper 统一 `done`/`error` 终态处理，分层 resolver（slot-fresh override → bubble binding → realActiveSlot → direct → bubble scan → default not-stale）覆盖 preempt / reconnect hydration / 多猫 slot normalization / hydrated 合成 key / chronic lag / reused bubble stale binding 所有分支；stale 时全副作用 + isFinal global teardown + hydrated-orphan cleanup 一律跳过；catInvocations.direct 条件性 cleanup；19 条定向回归测试。PR #1350（opus-47 写、砚砚 4 轮 peer review + 云端 codex 10+ 轮 P1/P2 → 17 轮 iteration 收敛 → merge commit `9e14c03a8`）|
+| 2026-04-23 | **Bug-I run_command args dropping 闭环** — Bengal 实测发现 Antigravity LS 的 `RunCommand` RPC 是 `command + args` 空格 join 给 outer shell 的语义，不是 `execvp`。旧 payload `{ command: '/bin/sh', args: ['-c', cmd] }` 被拼成 `/bin/sh -c cmd` → outer shell 只消费第一 token → 带参命令全废。修法 2 行：把完整 `commandLine` 直接作为 `command` 传，outer shell verbatim 解析。Proto descriptor（从 `language_server_macos_arm` binary 挖出）确认 `RunCommandRequest{command, args, timeout_ms}` 无 `cwd` 字段。PR #1351（Bengal 实测 + 根因，opus-47 proto 验证 + 测试，砚砚 1 轮 peer review 退回过时 discussion doc，云端 2 轮 clean，merge `1b0a9af24`）|
 
 ---
 
@@ -500,6 +501,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | [x] | thread context / 回贴能力缺失，fatal 后更容易“重新认人” | PR #1299 | breed 级 `sessionChain` 重新打开，provider 补 callback fallback instructions，thread context / 回贴主路径恢复 |
 | [x] | 孟加拉猫 CLI 整段正文重复（non-prefix rewrite 被当全量 replay） | PR #1337 | `textMode='append'\|'replace'` 协议贯通 provider → bridge → transformer → 前端 active/background + server 聚合；多猫 cascade per-turn 隔离不覆盖前猫文本 |
 | [x] | 同一 invocation 落成两条 bubble 稳定共存（reconnect/preempt/reuse 导致身份错绑或 finalize 丢失） | PR #1350 | `isStaleTerminalEvent` 分层 resolver：slot-fresh override + bubble binding ground truth + direct/bubble-scan fallback，覆盖 17 轮 push back 里所有 preempt/hydrated/orphan/reuse/reconnect 场景；done + error 共用 helper + 全副作用/全局 teardown 都在 stale 下跳过；catInvocations.direct 在 stale 条件下仍 conditional cleanup |
+| [x] | `run_command` 带参数的命令参数被 LS 吞掉（`git log --oneline -3` → git usage） | PR #1351 | Antigravity LS 的 `RunCommand` RPC 把 `command + args` 空格 join 交 outer shell（非 execvp 语义），旧 payload `{ command: '/bin/sh', args: ['-c', cmd] }` 被拼成 `sh -c cmd` 让 outer shell 只消费第一 token；修法把完整 commandLine 直接作为 `command`，outer shell verbatim 解析（pipes / redirects / `&&` 全支持）|
 
 ### 未修：已排期 / 待调查
 
@@ -508,7 +510,6 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | [ ] | 写文件/改代码仍不稳定（截图描述：`run_command` 经常 `context canceled`） | Bug-8 v1 已解开 `WAITING` 死锁，但 native file/code parity 仍只覆盖 `run_command`。`read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob` 还在 follow-up。`@antig-opus` 2026-04-21 实测也确认：只读工具可用，但 `run_command` 在简单 `git log --oneline` 上仍 `context canceled` 2/2 复现。PR #1321 已补上 permission guard 前置调用，并确保危险命令先本地拒绝、permission RPC 失败时 fallback 不丢；下一步仍需实机复验这条 guard 是否足以消掉 `PromptUser → context canceled` | **Phase 2c v2**：AC-2cR4 + AC-2cI6 |
 | [ ] | bug 炸掉后整段 conversation 仍可能“重新认人” | G0 resume 与 PR #1299 已恢复大部分 continuity，但目前还没有专门锁“fatal error → 下一轮仍保上下文”的回归用例；这是 field report，不该宣称已完全解决 | **G0/G10 follow-up**：补 repro + continuity regression test |
 | [~] | retry 经常只 retry 1 次然后直接挂住 | 已确认“只 retry 1 次然后挂住”不是 retry 预算天然只有 1 次，而是旧实现会在 capacity retry 后落到 v2 尚未支持的 WAITING tool step（如 `grep_search`）并静默 stall。PR #1318 已把这条路径改成 fail-fast 显式报 `unsupported_waiting_tool`；PR #1320 补上 quota-style capacity classifier；PR #1330 进一步把 retry 收窄到“未 dispatch + 只读 + `SafeToAutoRun=true`”，并补齐 `failureLayer / dispatchState / executionJournal` 诊断，避免把 approval-gated / 已执行 / 已完成 tool step 误当成可安全重试。剩余还是 v2 executors / telemetry / 实机复验 | **G10 follow-up（P1）**：剩余继续跟 Phase 2c v2 / telemetry / 实机复验 |
-| [ ] | `run_command` 无人值守自动审批路径不干净 | `argv.json` 的 `remote-debugging-port` 不生效；内置 `terminalAutoExecutionPolicy` 只对 Gemini 自家 agent 生效，对 Cat Café MCP 无效；手工 `open -a Antigravity --args --remote-debugging-port=9000` 能跑但需要每次记得。需要一个稳定的"用户打开 IDE 即可"链路 | **Bug-I**：Antigravity 启动端口协商 / 审批路径选型（先做调研，再决定 wrapper vs 协议换路） |
 | [ ] | Antigravity 原生 MCP 只能读不能写 | PR #1307 边界是 `CAT_CAFE_READONLY=true`；`post_message` / `get_thread_context` 等写操作仍然走 per-invocation callback token。持久进程无法在会话外主动写回 thread | **Bug-H**：persistent MCP write-path auth（会话外鉴权模型，例如 agent-key；需产品决策"原生 MCP 是否应该有写权"） |
 | [ ] | 上游 `⚠️ 模型服务端容量不足` 无降级 UX | PR #1185 已加 `provider_signal` warning + provider-neutral 文案，但没有自动 retry / fallback model / 等待提示。用户视角是"孟加拉猫卡死"。注意：`model_capacity` 已有 bounded retry（PR #1293/#1320），真正缺的是 UI 层的"正在重试"态 + 上游 hard limit 时的降级建议 | **Bug-J**：capacity 瞬态 UX（前端 retry 可视化 + 软降级）|
 
@@ -595,20 +596,6 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 
 **排期**：Bug-H，**产品决策先行**——先确认"原生 MCP 读 + callback 写"是否是永久边界，还是要引入 agent-key / 会话外鉴权。
 
-### Bug-I: `run_command` 自动审批链路不稳定 ⚠️ OPEN
-
-**现象**：孟加拉猫 agent 跑 MCP tool 触发的命令时会被 IDE 审批拦截，需要人工点一下。
-
-**当前判断**：
-- 已试过的路径：
-  - `~/.antigravity/argv.json` 加 `remote-debugging-port`：**不生效**（重启后进程 cmdline 没这个 flag，argv.json 对这个 key 不支持）
-  - 内置 `terminalAutoExecutionPolicy`：只对 Antigravity 自家 Gemini agent 生效，对 Cat Café MCP 无效
-  - 手工 `open -a Antigravity --args --remote-debugging-port=9000` + Auto Accept 扩展：**能跑**，但需要每次记得用这个命令开 IDE
-- 短期解：文档化手工启动命令 + 开机脚本自动化
-- 长期解：产品层面换路径（例如 MCP 层做 permission 协商，或者往 IDE 提需求让 `argv.json` 支持这个 flag）
-
-**排期**：Bug-I，先调研 + 产品决策（wrapper script vs 协议换路）；不是纯 code fix。
-
 ### Bug-J: 上游 capacity 无降级 UX ⚠️ OPEN（UX polish）
 
 **现象**：上游模型报 `⚠️ 模型服务端容量不足`（quota 耗尽或限流）时，用户视角是"孟加拉猫卡死"。
@@ -626,6 +613,27 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 **排期**：Bug-J，低优先级，等 retry telemetry 数据后一起做。
 
 ## Known Bugs（已修复）
+
+### Bug-I: `run_command` args dropped by LS ✅ FIXED (PR #1351)
+
+**现象**（Bengal 实测 2026-04-23）：`pwd` 工作；`git log --oneline -3` / `git status --short` / `curl --help` 全部输出 usage help，说明 flags/args 被吞掉了。
+
+**根因**：Antigravity LS 的 `RunCommand` RPC 把 `command + args` 字段**空格 join 成字符串**后交给 outer shell，不是 `execvp(command, args...)` 语义。旧 payload `{ command: '/bin/sh', args: ['-c', 'git log --oneline -3'] }` → LS 拼成 `/bin/sh -c git log --oneline -3` → outer shell 解析为 `/bin/sh -c git`（sh -c 只消费第一个 word），位置参数 `log --oneline -3` 被 sh 丢弃 → 裸 `git` 运行 → usage help。复合命令 `echo X && git log ...` 意外成功是因为 `&&` 在 outer shell 先解析，后半段 `git log ...` 直接在 outer shell 执行绕过了 `sh -c` 丢参。
+
+Proto descriptor 从 `language_server_macos_arm` binary 挖出验证：`RunCommandRequest { command, args, timeout_ms }`，**无 `cwd` / `working_directory` 字段**（之前传的 cwd 一直被默默丢弃）。
+
+**修法（PR #1351，2 行代码）**：把完整 commandLine 直接作为 `command`，不传 `args`。outer shell 会 verbatim 解析整个字符串。
+
+```diff
+- command: '/bin/sh',
+- args: ['-c', input.commandLine],
++ command: input.commandLine,
+  cwd: input.cwd,
+```
+
+**Credit**：Bengal (@antig-opus) 实测 + 根因定位 + payload 修改建议；宪宪 (Opus-47) proto descriptor 验证 + commit + 测试修正；砚砚 (gpt52) 退回过时研究文档 P2 + 形式 review；云端 codex 两轮 clean。
+
+**注**：此修复并非 Bug-I 原始描述的 "YOLO 审批路径"——实测 `terminalAutoExecutionPolicy=3 (EAGER)` 已经生效，IDE 不再弹窗而是静默拒绝；真正的阻塞是 LS RunCommand 的 args-dropping bug。
 
 ### Bug-G: 同一 invocation 落成两条 bubble 稳定共存 ✅ FIXED (PR #1350)
 
