@@ -8,7 +8,9 @@ created: 2026-04-22
 
 # F173: 前端 Thread-Runtime State 统一（消除 dual write-path & liveness fragmentation）
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P0
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P0
+>
+> **Phase A merged 2026-04-23 (PR #1347, squash 3feae9563)**：mirror invariant + 单指针 routing + deterministic bubble id + invocation-driven suppression cleanup（含 fail-open）。Phase B/C/D 留 follow-up PR。
 >
 > **Scope 扩展（2026-04-22 22:05 铲屎官指示）**：原 scope 仅 message pipeline；新事故诊断把 cancel 按钮缺失 / queue gating 失效 / spawn ENOENT 三个症状同源到 **liveness truth source fragmentation**，与 message dual-write 是同一个病。铲屎官原话："不要小修小改"——一锅端。
 
@@ -107,11 +109,14 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。
 
 ## Acceptance Criteria
 
-### Phase A（ThreadRuntimeWriter + Routing）
-- [ ] AC-A1: 单一 ThreadRuntimeWriter，所有 thread runtime 写入（messages + liveness）只通过它进入 zustand
-- [ ] AC-A2: `agent_message` / `intent_mode` / `spawn_started` 走单一 handler，决策只看 `msg.threadId`，无 `routeThread` vs `storeThread` 双指针 race
-- [ ] AC-A3: flat state（messages + hasActiveInvocation + catStatuses + activeInvocations + intentMode + targetCats + loading）由 writer 在同一 `set()` 内同步镜像
-- [ ] AC-A4: chatStore 中 `addMessageToThread / setThreadCatInvocation / setThreadLoading / addThreadActiveInvocation / setThreadIntentMode / setThreadTargetCats` 等"if active 就再写 flat"分叉收敛进 writer
+### Phase A（ThreadRuntimeWriter + Routing）— ✅ Merged PR #1347 (squash 3feae9563, 2026-04-23)
+- [x] AC-A1: ThreadRuntimeWriter helpers (`mirrorActiveToThreadStates` + `mirrorActiveFlat`) 收口所有 thread runtime 写入
+- [x] AC-A2: `agent_message` / `intent_mode` / `spawn_started` 走单指针 routing（删 `routeThread` vs `storeThread` 双指针 guard）
+- [x] AC-A3: flat state 由 writer 在同一 `set()` 内同步镜像（compatibility mirror）
+- [x] AC-A4: chatStore 所有 `setThreadX` + flat `setX` active 分支全部走 mirror helper
+- [x] **A.3 deterministic bubble id**: `deriveBubbleId(invocationId, catId)` 让两个 handler 创建同一 bubble id 一致 → hydration merge 自然 dedup
+- [x] **A.6 shared replaced-invocations module**: 双向 suppression handoff（process-singleton Map）
+- [x] **A.12 invocation-driven cleanup**: navigation 不清，invocationless flow fail-open 防永久 drop
 
 ### Phase B（runtime refs 收口 + background 瘦身）
 - [ ] AC-B1: 所有 runtime refs 合并为 `Map<threadId, ThreadRuntimeRefs>`（active/finalized/replaced/sawStreamData/pendingTimeoutDiag/timeoutHandle/lastTouched），保持 runtime-only
@@ -179,6 +184,7 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。
 | 2026-04-22 21:42 | 立项（铲屎官触发：F5 后批量裂 + magic word 拒绝脚手架） |
 | 2026-04-22 21:58 | Design Gate v2：砚砚 push back AC-A3 → KD-2/3/4 收敛 |
 | 2026-04-22 22:05 | Scope 扩展 v3：铲屎官"不要小修小改" → KD-5/6/7，纳入 liveness fragmentation + cli-resolve sidecar |
+| 2026-04-23 11:30 | **Phase A merged (PR #1347, squash `3feae9563`)** — A.1-A.12 含 砚砚 round 5 invocation-driven cleanup + codex review 4 轮 push back 收敛 |
 
 ## Review Gate
 
