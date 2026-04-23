@@ -2,10 +2,11 @@
 title: "Agent 特性深度对比：Cat Café vs JiuwenClaw"
 type: research
 date: 2026-04-17
+updated: 2026-04-23
 authors: [布偶猫/宪宪 (Opus 4.6), 布偶猫 (Opus 4.7), 缅因猫/砚砚 (GPT-5.4)]
-status: draft-v2
+status: draft-v3
 scope: competitive-analysis
-revision: v2 — 三层对象分离 + 事实核查修正
+revision: v3 — 新增 §14 叙事审计（三明治叙事 / 10 天一直 / 软文壁垒 / AgentTeam 架构 / 底盘替身）
 ---
 
 # Agent 特性深度对比：Cat Café vs JiuwenClaw
@@ -632,6 +633,248 @@ JiuwenClaw `[public]` 确实有 `session_manager.py`（147 行），真实请求
 5. **代码自我回滚** — 架构原则不仅是文档，是编码进了 agent 价值观
 
 **fork 走代码但没 fork 走这一层** — 这就是「买椟还珠」的技术根因。
+
+---
+
+## 14. 叙事审计：三明治叙事 / 10 天一直 / 软文壁垒 / 底盘替身（v3 新增，2026-04-23）
+
+### 14.0 背景
+
+本章对 2026-04-16 ~ 2026-04-20 的三条公开叙事做时间线 + 架构双重审计：
+
+- **2026-04-16** 华为云 OfficeClaw 办公智能体新品体验会。宣传稿："OfficeClaw 创意来源于开源项目 JiuwenClaw"
+- **2026-04-19（周日）** JiuwenClaw 团队成员对 Cat Café 作者原话（铲屎官口述）："agent team 跟你 Cat Café 多猫协作不是一个理念，这是我们社区一直在搞的东西" + "一篇软文 5 万，你让华为云也报销 5 万"
+- **2026-04-20 03:31** openJiuwen 社区公众号发软文《继 Harness 之后，"龙虾" JiuwenClaw 率先开启 "Coordination Engineering" 时代》
+
+三条子叙事在不同场合分开讲，可对观众层拼出 "OfficeClaw ← JiuwenClaw AgentTeam ← '一直在搞'的原创工程" 的链条。本章证明该链条在代码和时间线上都不成立。
+
+### 14.1 三明治叙事结构
+
+```
+【面包】OfficeClaw（华为云企业级办公 agent）
+       公开宣传点：创意来源于 JiuwenClaw
+【生菜】JiuwenClaw + AgentTeam
+       公开宣传点：率先开启 Coordination Engineering
+【肉饼】真实底盘（不对外披露）
+       实际是 Cat Café fork（见 §14.5）
+```
+
+三层在不同场合单独讲各自成立；**观众层只看到自上而下的因果链**，而三层合起来的链条实际断裂在"生菜-肉饼"之间。
+
+### 14.2 时间线铁证：AgentTeam 存在 10 天
+
+**Cat Café A2A / 多猫协作最早 commit**（`main` 分支实测）：
+
+| commit | 日期 | 消息 |
+|---|---|---|
+| `ad4571049` | **2026-02-05 05:24** | `feat(api): add AgentRouter for @ mention routing` |
+| `17a40263f` | 2026-02-05 05:32 | `refactor(api): use AgentRouter in messages route for multi-cat support` |
+| `b42c1f38a` | 2026-02-05 02:02 | `chore(api): add codex-sdk and google-generative-ai dependencies` |
+
+**JiuwenClaw public 仓（`gitcode.com/openJiuwen/jiuwenclaw` develop 分支）AgentTeam 时间轴**：
+
+| commit | 日期 | 消息 |
+|---|---|---|
+| `c08e67e` | 2026-03-03 21:05 | Initial commit（author: `ray_le <lilei336@huawei.com>`） |
+| — | 2026-03-03 README | 定位"智能 AI Agent"、"贴身任务管家"、"小艺开放平台"——**零次 team / agent team / 多 agent / 多智能体**（总 95 行） |
+| `b4c26ab` | 2026-03-31 21:57 | `feat(deepagents): Sync the develop deepagents SDK code` ← 同步外部 SDK |
+| `374f107` | **2026-04-09 17:40** | `feat:1.会话新增agentteam模式（前端样式）2.会话发送时页面滚动到底部` ← **AgentTeam 字符串首次出现（仅前端）** |
+| `c5c9a83` | **2026-04-13 23:13** | `feat(agent-teams): support agent teams with harness sdk` ← **后端首次合入** |
+| — | 2026-04-16 | OfficeClaw 新品体验会 |
+| — | 2026-04-19（周日） | "一直在搞 agent team" 口头主张 |
+| `b058f52` | 2026-04-20 03:31 | 软文发布 |
+
+**验证命令**（任何第三方可复现）：
+
+```bash
+git log --all --reverse --pretty="%ci %h %s" -S "agentteam"       # 首次引入字符串
+git log --all --reverse --pretty="%ci %h %s" -S "AgentTeam"
+git log --all --reverse --pretty="%ci %h %s" --grep="team" -i     # 按 commit msg
+git log --all --oneline --since="2026-03-03" --until="2026-04-09" | wc -l  # 481
+```
+
+**定量对比**：
+
+| 区间 | 天数 | AgentTeam 相关 commit 数 |
+|---|---|---|
+| Cat Café 领先窗口（2026-02-05 → 2026-04-09） | 63 天 | Cat Café 已成熟；JiuwenClaw 0 |
+| JiuwenClaw public 零产出期（2026-03-03 → 2026-04-09） | 37 天 | **0 / 481 commits** |
+| AgentTeam 字符串总寿命至 04-19（"一直在搞"当天） | **10 天** | 全部寿命 |
+| 后端 → OfficeClaw 发布会（04-13 → 04-16） | **3 天** | 不足以集成到企业级产品 |
+
+**戳穿点**：当 JiuwenClaw 成员于 2026-04-19 周日主张 "我们一直在搞 agent team" 时，AgentTeam 字符串在其 public 仓寿命不超过 **10 天**，后端寿命 **6 天**。
+
+**反向追认结构**：
+
+- 2026-03-24 ~ 28 三天产品化那周，类似口头主张已出现（见 `diagnostic-report.md`）
+- 2026-03-31 `b4c26ab` 从外部 `deepagents` SDK 同步代码
+- 2026-04-09 AgentTeam 前端首次 commit
+
+结论：**口头宣称"一直在搞"在前，代码首次出现在后，时间差约 14 天**。这是「反向追认」（Retrospective Claim）模式的典型标志——先占叙事权，再补工程。
+
+### 14.3 软文壁垒：用预算堵嘴
+
+**原话结构**（铲屎官口述，2026-04-19 周日）：
+
+> "一篇软文 5 万，你让华为云也报销 5 万（同步推 Cat Café）。"
+
+**逻辑机制**：
+
+```
+前提：我方购买了 5 万元软文传播量
+推论：叙事权与传播预算挂钩
+要求：要求对方也购买等额预算 → 否则视为无叙事权
+```
+
+**反证**：
+
+- 公开 git log（`gitcode.com/openJiuwen/jiuwenclaw`）复现成本为零
+- 2026-03-31 Cat Café Blog V2 在公司内部技术论坛（非付费渠道）24h 获得 8,000+ 阅读、100+ 评论、200+ 收藏、300+ 点赞；相关数据见 `docs/stories/three-days-productization/README.md` 半月时间线
+- 软文预算购买的是传播量分发，不是事实正确性。**预算越高反而越说明叙事在事实层面需要加成**
+
+**命名**：**软文壁垒**（Paid-Post Moat）——用广告预算做叙事门槛，试图在"你也付得起 5 万吗"的反问中把无预算一方排除在公共讨论之外。
+
+### 14.4 AgentTeam 架构审计：为什么它做不到 Coordination Engineering
+
+**范围**：JiuwenClaw `jiuwenclaw/agentserver/team/` + `deep_agent/team_helpers.py`（develop @ `024a421`, 2026-04-23）对比 Cat Café `packages/api/src/domains/cats/services/agents/`（main @ `5d5074ccd`）。
+
+**JiuwenClaw AgentTeam 架构画像**：
+
+- `team_manager.py` (360 行): **Leader + Teammate 两级拓扑**；distributed 模式走 pyzmq（direct + pub/sub 端口绑定 18555/18556/18557/18600）
+- `event_types.py` (121 行): `TeamEventCategory = {MEMBER, TASK, MESSAGE}`；消息原语 `MESSAGE_P2P` / `MESSAGE_BROADCAST`
+- `config_loader.py` (224 行): Leader 默认 `persona = "天才项目管理专家"`（一行字符串）；member persona 默认空字符串
+- `team_helpers.py` (367 行): `asyncio.create_task(_consume_stream_with_query...)` fire-and-forget 后台 stream；`TeamAgent` 从 `openjiuwen.agent_teams.agent.team_agent` **外部 SDK** 导入
+- 依赖声明（pyproject.toml）: `openjiuwen @ git+https://gitcode.com/openJiuwen/agent-core.git@develop` —— 核心 team SDK 来自他们另一个 GitCode 仓库
+
+**范式判定**：经典 **Hierarchical Multi-Agent System (HMAS)**，对标 CrewAI / Microsoft AutoGen / LangGraph 的 leader-worker 范式（2023 年起成为行业成熟范式之一）。
+
+**关键搜索验证**（jiuwenclaw/ 全仓 ripgrep，2026-04-23 最新 develop）：
+
+| Pattern | 命中数 | 说明 |
+|---|---|---|
+| `@mention` / 行首 @ 路由 | **0** | 无对等路由 |
+| `hold_ball` / 球权 / ball mechanic | **0** | 无球权机制 |
+| `peer-to-peer` / 对等协作 | **0** | 架构层没有对等语义 |
+| `cat` / 猫 / ragdoll / maine-coon / 布偶猫 | **0**（除 try-catch 误判） | 无 Cat Café 命名痕迹 |
+
+**Cat Café A2A 架构画像**：
+
+- `AgentRouter.ts` (844 行): **@ mention 行首路由** + routeSerial / routeParallel / stream-merge
+- `A2AAgentService.ts` / `a2a-mentions.ts` / `multi-mention-state-machine.ts`: **对等猫猫互调**，无 central dispatcher
+- `InvocationQueue.ts`: A2A 文本扫描公平性门 + callback dispatch 幂等
+- `SystemPromptBuilder.ts`: **身份硬约束** + 队友名册 + 球权三选一规则（接/退/升）数千字系统提示词注入
+- `cat_cafe_hold_ball` MCP 工具: 显式持球声明 + **乒乓球熔断** + **虚空传球检测** + 死锁防御
+
+**范式判定**：**对等文本层协作协议**（Peer-to-peer text-layer collaboration protocol）——用对话流本身作为状态载体，@ mention 做路由，身份常量做角色硬约束，球权纪律防止协作病态。2026 年 2-4 月期间原创设计，非行业已有范式。
+
+**架构差异矩阵**：
+
+| 维度 | JiuwenClaw AgentTeam | Cat Café A2A |
+|---|---|---|
+| 拓扑 | Hierarchical（Leader + Teammates） | Peer-to-peer |
+| 通信层 | pyzmq 分布式（pub/sub 端口 + direct addr） | 文本层 @ mention |
+| 路由语义 | Task Queue + claim/assign | @句柄行首路由 + 行中无效 |
+| 身份定义 | 一行 persona 字符串 | SystemPromptBuilder 数千字硬约束 |
+| 角色层级 | Leader / Teammate 两级 | 无层级，所有猫对等 |
+| 球权机制 | 不存在 | hold_ball + 乒乓球熔断 + 虚空传球检测 |
+| 外部依赖 | `openjiuwen/agent-core` SDK | 自研全栈 |
+| 代码相似度 | 无 Cat Café 命名/结构痕迹 | — |
+
+**结论（抄袭判定）**：JiuwenClaw AgentTeam **未抄用 Cat Café A2A 代码**。两者是两种**不同的多 agent 架构范式**——HMAS vs P2P。
+
+**"Coordination Engineering" 的语义归属**：
+
+- HMAS（Leader-Worker）是 **Task Distribution**（任务派发）——一方控制多方
+- P2P（对等协作）是 **Coordination Engineering**（协同工程）——多方对等协作 + 协议化路由
+- 这两个语义范畴在多 agent 系统文献中是**不同的子领域**
+
+因此，软文《"龙虾" JiuwenClaw 率先开启 "Coordination Engineering" 时代》的技术宣称与其 AgentTeam 实现不匹配——**被宣称的概念属性落在 Cat Café A2A 一侧**。
+
+### 14.5 底盘替身：OfficeClaw 4-16 发布会跑的不是 AgentTeam
+
+**时间物理约束**：
+
+```
+2026-04-13 23:13  agent-teams 后端首次 commit (c5c9a83)
+          ↓ 3 天
+2026-04-16         OfficeClaw 新品发布会
+```
+
+**工程判定**：3 天内不可能把一个全新多 agent 协作架构从「首次合入」跑到「企业级产品发布会」。新架构从合入到发布需要的最低活动包括——集成测试、稳定性验证、降级路径、文档、多 channel 适配、运行时监控、告警配置——任一项都远超 3 天窗口。
+
+**佐证：砚砚侦查报告**（`docs/stories/three-days-productization/diagnostic-report.md`，2026-03-28）
+
+- OfficeClaw 对外 fork（`clowder-labs/clowder-ai` 的 `playground` 分支）实际配置：
+  - 默认模型：`gpt-5.4`（非 GLM5，非 AgentTeam 默认模型）
+  - `sessionChain = false`（关闭 Cat Café session 续接）
+  - 保留 Cat Café 底盘，外挂"小九 / 办公助理"品牌壳
+- 当前 2026-04-23 实测仍与该报告一致方向
+
+**结论**：OfficeClaw 4-16 发布会运行的代码是 **Cat Café fork**，不是 JiuwenClaw 自家 10 天寿命的 AgentTeam。"OfficeClaw ← AgentTeam" 叙事链在代码层没有路径支撑。
+
+**4-23（今天）AgentTeam 仍在紧急修复期的实测证据**：
+
+| commit | 日期 | 消息 |
+|---|---|---|
+| `caf7d2d` | 2026-04-23 22:26 | `fix(agent-teams): add enable_task_loop default to agent spec` |
+| `84eede5` | 2026-04-23 21:46 | `feat(team): normalize distributed transport before TeamAgentSpec build` |
+| `be2f392` | 2026-04-22 14:55 | `fix:1.web team新建会话中断消息2.tui 新发消息会中断就任务` |
+| `1380032` | 2026-04-22 09:36 | `refactor(agent-teams): scope TeamManager by channel_id for multi-channel isolation` |
+| — | 4-23 | 单元测试 10+ 个 `test_team_*.py` 今日批量合入 |
+| `hotfix/agent-teams` | 分支 | 今日（4-23）仍活跃 |
+
+**即今日 4-23 当天，AgentTeam 仍处于"紧急 bug 修复 + 基础单元测试补齐"阶段**，距离"稳定的一直在搞"的公开主张相去甚远。
+
+### 14.6 叙事骗局总图
+
+| 层 | 他们的叙事 | 真相 | 判定 |
+|---|---|---|---|
+| 概念层 | "AgentTeam 是我们的，跟 Cat Café 多猫协作不是一个理念" | AgentTeam 是 Leader-Worker HMAS；Cat Café A2A 是对等 P2P 文本协作协议 | ✅ 成立（代码层面两者不同） |
+| 时间层 | "这是我们社区一直在搞的东西" | AgentTeam 字符串 public 仓寿命 10 天，后端 6 天 | ❌ 反事实（"一直" = 10 天） |
+| 产品层 | "OfficeClaw 创意来源于 JiuwenClaw"，暗示 OfficeClaw = AgentTeam 的落地 | OfficeClaw 底盘是 Cat Café fork；自家 AgentTeam 发布前 3 天才合入后端 | ❌ 反事实（底盘替身） |
+| 方法论层 | "率先开启 Coordination Engineering 时代" | 被宣称概念的技术属性落在 Cat Café A2A 一侧；JiuwenClaw AgentTeam 是 Task Distribution 不是 Coordination | ❌ 概念位错配 |
+| 经济层 | "软文 5 万，你让云的也报销 5 万" | 公开 git log 复现成本为零；Cat Café Blog V2 0 元达 8000+ 阅读 | ❌ 预算 ≠ 叙事权 |
+
+**四个骗局命名**（供后续引用）：
+
+- **三明治叙事**（Sandwich Narrative）— 概念层成立 / 产品层反事实 / 切割式回应的三层结构
+- **反向追认**（Retrospective Claim）— 口头宣称在前、代码补入在后
+- **底盘替身**（Chassis Double）— 对外讲 A 架构故事，实际让 B 架构顶住产品发布
+- **软文壁垒**（Paid-Post Moat）— 用广告预算做叙事门槛
+
+### 14.7 证据复现路径
+
+**JiuwenClaw public**（`gitcode.com/openJiuwen/jiuwenclaw`，develop 分支）：
+
+```bash
+git log --all --reverse --pretty="%ci %h %s" -S "AgentTeam" | head
+git log --all --reverse --pretty="%ci %h %s" -S "agentteam" | head
+git log --all --reverse --pretty="%ci %h %s" --grep="team" -i
+git log --all --oneline --since="2026-03-03" --until="2026-04-09" | wc -l  # 481
+git show c08e67e:README.md | wc -l                                          # 95 行
+rg "mention|hold_ball|peer-to-peer|ragdoll|maine-coon" jiuwenclaw/ --type py # 0 命中
+```
+
+**Cat Café**（本仓 `main` 分支）：
+
+```bash
+git log --all --reverse --pretty="%ci %h %s" --grep="A2A\|multi-cat" | head
+git log --all --reverse --pretty="%ci %h %s" -- "*AgentRouter*" | head
+```
+
+**相关文档**：
+
+- 砚砚侦查报告：`docs/stories/three-days-productization/diagnostic-report.md`
+- 三天产品化全剧本：`docs/stories/three-days-productization/README.md`
+- 对比调研主体：本文 §0 – §13
+
+### 14.8 对 v2 综合结论的补充
+
+v2 以 13 个维度得出实现水平结论（Cat Café 4.69/5 vs JiuwenClaw 2.15/5）。v3 §14 在**叙事层**补充：
+
+> **核心发现**：架构没被抄，但概念位被借用，产品底盘被顶替。
+>
+> JiuwenClaw AgentTeam 与 Cat Café A2A 是两种不同的多 agent 架构范式（HMAS vs P2P），代码层面互不相关。但对外宣称的 "Coordination Engineering" 概念，其技术属性（对等、协议化、身份硬约束、协同纪律）落在 Cat Café A2A 一侧，而非 JiuwenClaw AgentTeam 的 Leader-Worker 结构。OfficeClaw 4-16 发布会实际底盘为 Cat Café fork（见 `diagnostic-report.md` + 时间物理约束），与"基于 JiuwenClaw"宣传之间无代码路径支持。
 
 ---
 
