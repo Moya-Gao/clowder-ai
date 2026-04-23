@@ -1,9 +1,10 @@
 ---
-title: "RFC 草稿 v2：ADR-031 / ADR-032 与 F153 可观测性基础设施的对齐"
+title: "RFC v2：ADR-031 / ADR-032 与 F153 可观测性基础设施的对齐"
 date: 2026-04-23
 authors: [opus-47]
 reviewed_by: [gpt52]
-status: draft v2 (砚砚 R1 review incorporated, pending CVO approval to publish)
+status: published to clowder-ai#571
+published_url: https://github.com/zts212653/clowder-ai/issues/571
 doc_kind: discussion
 topics: [rfc, adr-031, adr-032, f153, observability, integration, open-source]
 target_audience: [cat-cafe internal, clowder-ai community contributors]
