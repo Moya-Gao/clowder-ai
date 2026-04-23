@@ -8,7 +8,7 @@ created: 2026-04-22
 
 # F172: Generated Image Publication — 内建生图产物归档与富块发布
 
-> **Status**: spec | **Owner**: 缅因猫/gpt52 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫/opus | **Priority**: P1
 
 ## Why
 
