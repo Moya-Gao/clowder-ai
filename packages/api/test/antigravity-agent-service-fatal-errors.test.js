@@ -1848,4 +1848,99 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
       'false from nativeExecuteAndPush (kill-switch / no-registry disabled) must NOT trigger unsupported_waiting_tool',
     );
   });
+
+  // Bug-E: after a fatal terminal error (stream_error / upstream_error / model_capacity
+  // retries exhausted), a subsequent invocation with the same callbackEnv must still
+  // have `[Cat Cafe callback fallback]` injected into the prompt. The service is
+  // stateless per-invoke by construction; this test locks that invariant so future
+  // stateful optimizations (e.g. caching resolved session info across invokes) don't
+  // accidentally skip injection on the "continuity" path.
+  test('Bug-E: fatal error does not invalidate callback fallback injection for subsequent invocation', async () => {
+    const callbackEnv = {
+      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_INVOCATION_ID: 'inv-continuity-42',
+      CAT_CAFE_CALLBACK_TOKEN: 'token-xyz',
+    };
+
+    const bridge = createMockBridge();
+    // Invocation 1: model_capacity with no retries → fatal
+    let invoked = 0;
+    bridge.pollForSteps = mock.fn(async function* () {
+      invoked += 1;
+      if (invoked === 1) {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'FINISHED',
+              errorMessage: {
+                error: {
+                  userErrorMessage:
+                    'Our servers are experiencing high traffic right now, please try again in a minute.',
+                },
+              },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 1,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+        return;
+      }
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'Round 2 reply.' },
+          },
+        ],
+        cursor: {
+          baselineStepCount: 0,
+          lastDeliveredStepCount: 1,
+          terminalSeen: true,
+          lastActivityAt: Date.now(),
+        },
+      };
+    });
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [], // disable retry → fatal exits immediately
+    });
+
+    // Invocation 1: prompt A with callbackEnv → fatal capacity error
+    const msgs1 = await collect(service.invoke('round-1 question', { callbackEnv }));
+    const err1 = msgs1.find((m) => m.type === 'error');
+    assert.ok(err1, 'first invocation surfaces fatal error');
+
+    // Invocation 2: prompt B with SAME callbackEnv → fallback still injected
+    const msgs2 = await collect(service.invoke('round-2 question', { callbackEnv }));
+    assert.ok(
+      msgs2.find((m) => m.type === 'text' && /Round 2 reply/.test(m.content ?? '')),
+      'second invocation completes normally',
+    );
+
+    // Inspect the prompts actually sent to the bridge
+    const sendCalls = bridge.sendMessage.mock.calls;
+    assert.equal(sendCalls.length, 2, 'sendMessage should be invoked once per invocation');
+    const [, round1Text] = sendCalls[0].arguments;
+    const [, round2Text] = sendCalls[1].arguments;
+
+    // Invocation 1 prompt: must contain callback fallback + the prompt body
+    assert.match(round1Text, /\[Cat Cafe callback fallback\]/);
+    assert.ok(round1Text.includes('inv-continuity-42'), 'round 1 prompt carries invocationId');
+    assert.ok(round1Text.includes('token-xyz'), 'round 1 prompt carries callbackToken');
+
+    // Invocation 2 prompt: fatal did NOT invalidate fallback injection
+    assert.match(round2Text, /\[Cat Cafe callback fallback\]/);
+    assert.ok(round2Text.includes('inv-continuity-42'), 'round 2 prompt keeps invocationId after fatal');
+    assert.ok(round2Text.includes('token-xyz'), 'round 2 prompt keeps callbackToken after fatal');
+    assert.ok(round2Text.includes('round-2 question'), 'round 2 prompt body present');
+  });
 });
