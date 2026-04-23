@@ -484,6 +484,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-21 | **Bundle B parity sweep merged** — `nativeExecuteAndPush` 现在会在 `RunCommand` unary 前显式发 `HandleCascadeUserInteraction { permission: { allowed: true }, trajectoryId, stepIndex }`，并且本地 refusal 规则会先于 permission approval 生效，危险命令不会先被上游放行；permission guard RPC 自身失败时也不再阻断 `pushToolResult` fallback（PR #1321） |
 | 2026-04-22 | **Runtime hardening merged** — `run_command` 失败现在会带 `failureLayer / dispatchState / executionJournal` 诊断；approval failures 拆成 `approval_gate.denied|timeout`；只对“未 dispatch + 只读 + `SafeToAutoRun=true`”的命令开放 bounded fresh-cascade retry；并补上多轮云端 review 发现的边界护栏（`git branch`/`git diff|show|log --output`/shell substitutions & var expansion/quoted split `--output`、历史 resolved tool step / native dispatch 抑制 retry、`RUN_COMMAND:ERROR` 仍归 `approval_gate` 等），对应 PR #1330 |
 | 2026-04-22 | **CLI 正文重复 fix** — Antigravity `plannerResponse` 非 prefix rewrite 原来被当成整段 text replay，前端 append-only 消费导致同 bubble 正文重复。引入 `textMode='append'\|'replace'` 协议：provider 把 non-prefix rewrite 标 `replace`，bridge/transformer 透传，active + background 两条前端流 + server 侧聚合链路（`messages.ts` / `QueueProcessor.ts`） 全部按 replace 覆写；多猫 cascade 下以 `outboundTurns` 为真相源 per-turn flatten，不再让后到猫的 replace chunk 覆盖前猫文本；`accumulateTextParts` O(1) 原地变更热路径。对应 PR #1337（opus-47 本地 4 轮 continuity + 云端 4 轮 P1→P2→P2→P2→clean）|
+| 2026-04-23 | **Bug-G bubble identity 闭环** — `isStaleTerminalEvent` helper 统一 `done`/`error` 终态处理，分层 resolver（slot-fresh override → bubble binding → realActiveSlot → direct → bubble scan → default not-stale）覆盖 preempt / reconnect hydration / 多猫 slot normalization / hydrated 合成 key / chronic lag / reused bubble stale binding 所有分支；stale 时全副作用 + isFinal global teardown + hydrated-orphan cleanup 一律跳过；catInvocations.direct 条件性 cleanup；19 条定向回归测试。PR #1350（opus-47 写、砚砚 4 轮 peer review + 云端 codex 10+ 轮 P1/P2 → 17 轮 iteration 收敛 → merge commit `9e14c03a8`）|
 
 ---
 
@@ -498,6 +499,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | [x] | Native MCP config / env 没被 Cat Café 正确接管 | PR #1307 | 全局 `mcp_config.json` 纳管、readonly env 锁定、homedir discovery 对齐 writer、`serverUrl` 远程项保留 |
 | [x] | thread context / 回贴能力缺失，fatal 后更容易“重新认人” | PR #1299 | breed 级 `sessionChain` 重新打开，provider 补 callback fallback instructions，thread context / 回贴主路径恢复 |
 | [x] | 孟加拉猫 CLI 整段正文重复（non-prefix rewrite 被当全量 replay） | PR #1337 | `textMode='append'\|'replace'` 协议贯通 provider → bridge → transformer → 前端 active/background + server 聚合；多猫 cascade per-turn 隔离不覆盖前猫文本 |
+| [x] | 同一 invocation 落成两条 bubble 稳定共存（reconnect/preempt/reuse 导致身份错绑或 finalize 丢失） | PR #1350 | `isStaleTerminalEvent` 分层 resolver：slot-fresh override + bubble binding ground truth + direct/bubble-scan fallback，覆盖 17 轮 push back 里所有 preempt/hydrated/orphan/reuse/reconnect 场景；done + error 共用 helper + 全副作用/全局 teardown 都在 stale 下跳过；catInvocations.direct 在 stale 条件下仍 conditional cleanup |
 
 ### 未修：已排期 / 待调查
 
@@ -506,7 +508,6 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | [ ] | 写文件/改代码仍不稳定（截图描述：`run_command` 经常 `context canceled`） | Bug-8 v1 已解开 `WAITING` 死锁，但 native file/code parity 仍只覆盖 `run_command`。`read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob` 还在 follow-up。`@antig-opus` 2026-04-21 实测也确认：只读工具可用，但 `run_command` 在简单 `git log --oneline` 上仍 `context canceled` 2/2 复现。PR #1321 已补上 permission guard 前置调用，并确保危险命令先本地拒绝、permission RPC 失败时 fallback 不丢；下一步仍需实机复验这条 guard 是否足以消掉 `PromptUser → context canceled` | **Phase 2c v2**：AC-2cR4 + AC-2cI6 |
 | [ ] | bug 炸掉后整段 conversation 仍可能“重新认人” | G0 resume 与 PR #1299 已恢复大部分 continuity，但目前还没有专门锁“fatal error → 下一轮仍保上下文”的回归用例；这是 field report，不该宣称已完全解决 | **G0/G10 follow-up**：补 repro + continuity regression test |
 | [~] | retry 经常只 retry 1 次然后直接挂住 | 已确认“只 retry 1 次然后挂住”不是 retry 预算天然只有 1 次，而是旧实现会在 capacity retry 后落到 v2 尚未支持的 WAITING tool step（如 `grep_search`）并静默 stall。PR #1318 已把这条路径改成 fail-fast 显式报 `unsupported_waiting_tool`；PR #1320 补上 quota-style capacity classifier；PR #1330 进一步把 retry 收窄到“未 dispatch + 只读 + `SafeToAutoRun=true`”，并补齐 `failureLayer / dispatchState / executionJournal` 诊断，避免把 approval-gated / 已执行 / 已完成 tool step 误当成可安全重试。剩余还是 v2 executors / telemetry / 实机复验 | **G10 follow-up（P1）**：剩余继续跟 Phase 2c v2 / telemetry / 实机复验 |
-| [ ] | 同一 invocation 可能落成两条 bubble 稳定共存（callback 替换没贴回旧 bubble + `useChatHistory` hydration 合并不到同一 identity） | 这是 PR #1337 `textMode=replace` 协议 review 时我（opus-47）作为**次嫌疑**点出但明确 defer 的独立漂移路径，不是正文重复那条（已 PR #1337 修掉）。代码路径定位到 `useAgentMessages` 的 callback 替换分支 + `useChatHistory` hydration 的 bubble identity 比较 | **Bug-G**：前端 bubble identity / hydration 一致性（opus-47 自认，砚砚 review） |
 | [ ] | `run_command` 无人值守自动审批路径不干净 | `argv.json` 的 `remote-debugging-port` 不生效；内置 `terminalAutoExecutionPolicy` 只对 Gemini 自家 agent 生效，对 Cat Café MCP 无效；手工 `open -a Antigravity --args --remote-debugging-port=9000` 能跑但需要每次记得。需要一个稳定的"用户打开 IDE 即可"链路 | **Bug-I**：Antigravity 启动端口协商 / 审批路径选型（先做调研，再决定 wrapper vs 协议换路） |
 | [ ] | Antigravity 原生 MCP 只能读不能写 | PR #1307 边界是 `CAT_CAFE_READONLY=true`；`post_message` / `get_thread_context` 等写操作仍然走 per-invocation callback token。持久进程无法在会话外主动写回 thread | **Bug-H**：persistent MCP write-path auth（会话外鉴权模型，例如 agent-key；需产品决策"原生 MCP 是否应该有写权"） |
 | [ ] | 上游 `⚠️ 模型服务端容量不足` 无降级 UX | PR #1185 已加 `provider_signal` warning + provider-neutral 文案，但没有自动 retry / fallback model / 等待提示。用户视角是"孟加拉猫卡死"。注意：`model_capacity` 已有 bounded retry（PR #1293/#1320），真正缺的是 UI 层的"正在重试"态 + 上游 hard limit 时的降级建议 | **Bug-J**：capacity 瞬态 UX（前端 retry 可视化 + 软降级）|
@@ -583,19 +584,6 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 
 **排期**：G10 follow-up（P1，已建毛线球：`[P1] 调查 Antigravity 单次 retry 后仍挂起`）继续；本轮先收 quota-style classifier + continuity guard，下一步继续补 parity / telemetry / 实机复验
 
-### Bug-G: 同一 invocation 落成两条 bubble 稳定共存 ⚠️ OPEN
-
-**现象**：同一个 invocationId 在前端落成两条独立 bubble 而不是合并成一条。看起来很像 PR #1337 修的"正文重复"，但那条是**同一 bubble 内文字被二次 append**，这条是**两条独立 bubble 并列持久存在**，成因完全不同。
-
-**当前判断（2026-04-22 opus-47 在 PR #1337 review 时显式 defer）**：
-- PR #1337 修 CLI 正文重复时，我作为**次嫌疑**点出这条独立漂移路径：就算 provider 不重复 emit，前端 `useAgentMessages` 的 callback 替换分支 + `useChatHistory` 的 hydration merge 在特定时序下能独立落成双 bubble
-- 最可疑的两处：
-  - `useAgentMessages` 的 callback 替换逻辑：callback 拿到 final message 时，如果 activeRefs / finalizedStreamRef / replacedInvocationsRef 任何一条找不到正确的旧 bubble，就会 `addMessage({ origin: 'callback' })` 新开一条
-  - `useChatHistory` 的 hydration merge：刷新 / reconnect 时把 server 侧持久化的 message 与本地 store 合并，如果 invocationId 没对上或 `origin` 不匹配，会保留两条
-- 症状不匹配"正文块重复"，所以 PR #1337 不治这条
-
-**排期**：Bug-G（opus-47 自认写，砚砚 review）
-
 ### Bug-H: Antigravity 原生 MCP 只能读不能写 ⚠️ OPEN（架构 debt）
 
 **现象**：Cat Café 已经把 Antigravity 原生 MCP 纳管（PR #1307），但边界是 `CAT_CAFE_READONLY=true`。孟加拉猫可以通过原生 MCP 读 thread 上下文、list tasks、search evidence 等；但 `post_message` / `create_task` / `update_task` / `get_thread_context` 这类写操作仍然走 **per-invocation callback token**（会话外 token 会过期）。
@@ -638,6 +626,23 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 **排期**：Bug-J，低优先级，等 retry telemetry 数据后一起做。
 
 ## Known Bugs（已修复）
+
+### Bug-G: 同一 invocation 落成两条 bubble 稳定共存 ✅ FIXED (PR #1350)
+
+**现象**：同一 invocationId 在前端落成两条独立 bubble 并列持久存在（与 PR #1337 修的"同 bubble 内正文重复"不同——这条是身份层面的双 bubble）。
+
+**根因**：`done`/`error` 终态分支的副作用（`setStreaming=false` / `activeRefs.delete` / `finalizedStreamRef.set` / `setCatInvocation` / global teardown / addMessage 等）在 stale terminal 到达时会误终止活 bubble 或错绑身份；`isStaleTerminalEvent` 的 resolver 需要同时处理 preempt / reconnect hydration / 多猫 slot 格式 / hydrated 合成 key / 陈旧 direct lag / reused bubble stale binding 等 7-8 类并存场景。
+
+**修复（PR #1350，17 轮 review iteration 收敛）**：
+- `isStaleTerminalEvent` 分层 resolver：`slot-fresh override → activeBubble binding → realActiveSlot → direct → any streaming bubble binding → 默认 not-stale`
+- `done` 和 `error` 共用 helper，所有 cat+bubble 副作用 + isFinal global teardown + hydrated-orphan cleanup 都 gate 在 `!isStale*` 下
+- `catInvocations.direct` 在 stale 条件下仍做 **conditional cleanup**（只在 `direct === msg.invocationId` 时清，避免 clobber 新 invocation 的 direct）
+- multi-cat slot key 格式 `${invocationId}-${catId}` normalization
+- hydrated 合成 key 在 resolver 里被显式降级
+- `pendingTimeoutDiagRef` leak 无条件 cleanup
+- 19 条定向回归测试锁 preempt / reconnect / hydrated / 多猫 / lag / reused 所有分支
+
+**云端 Review 总结**：4 轮（R1 back-fill 出发）到 17 轮（R17 slot-fresh override）的每一轮都捕捉到真 regression / edge case，包括 砚砚 4 轮 peer review（含 R4 stale-done guard / R8 bubble-identity fallback / R10 hydrated slot 保留）+ 云端 codex 10+ 轮 P1（R13/R14/R15/R16 等 lag/orphan/hydrated/isFinal/slot-fresh）。resolver 最终形态是所有 contradiction 得到妥善分层。
 
 ### Bug-8: `CORTEX_STEP_TYPE_RUN_COMMAND` 永卡 `WAITING` — Bridge 无原生工具执行器 ✅ FIXED (v1, PR #1230)
 
