@@ -9,6 +9,7 @@
  */
 
 import type { ActivityEvent, ActivityEventType, XpSource } from '@cat-cafe/shared';
+import { CO_CREATOR_ACTOR_ID, isCoCreatorActor } from '@cat-cafe/shared';
 import { createModuleLogger } from '../../infrastructure/logger.js';
 import type { ActivityEventBus } from './ActivityEventBus.js';
 
@@ -101,8 +102,8 @@ export class JourneyProjector {
       }
 
       // Co-creator also gets footfall for collaborative events
-      if (event.actorId !== 'co-creator' && isCollabEvent(event.type)) {
-        this.growthService.awardXp('co-creator', source, mapping.multiplier);
+      if (!isCoCreatorActor(event.actorId) && isCollabEvent(event.type)) {
+        this.growthService.awardXp(CO_CREATOR_ACTOR_ID, source, mapping.multiplier);
       }
     } catch (err: unknown) {
       log.warn({ err, type: event.type, actorId: event.actorId }, 'JourneyProjector error');

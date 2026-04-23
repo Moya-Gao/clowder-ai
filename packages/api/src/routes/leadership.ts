@@ -6,7 +6,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import type { LeadershipService } from '../domains/cats/services/growth/LeadershipService.js';
+import type { LeadershipService } from '../domains/cats/services/journey/LeadershipService.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 export interface LeadershipRoutesOptions {

@@ -11,6 +11,7 @@
  */
 
 import type { ActivityEvent, LeadershipFootfallSource } from '@cat-cafe/shared';
+import { isCoCreatorActor } from '@cat-cafe/shared';
 import { createModuleLogger } from '../../infrastructure/logger.js';
 import type { ActivityEventBus } from './ActivityEventBus.js';
 
@@ -36,7 +37,7 @@ export class LeadershipProjector {
     try {
       // Leadership measures co-creator behaviour. Cat-originated coordination
       // events (e.g. cat-initiated multi-mention) must not inflate leadership scores.
-      const isCoCreator = event.actorId === 'co-creator';
+      const isCoCreator = isCoCreatorActor(event.actorId);
 
       switch (event.type) {
         // ── Coordination (协调力) ────────────────────────

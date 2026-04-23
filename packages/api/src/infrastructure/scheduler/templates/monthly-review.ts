@@ -7,7 +7,7 @@
  */
 
 import { catRegistry } from '@cat-cafe/shared';
-import type { MonthlyReviewService } from '../../../domains/cats/services/growth/MonthlyReviewService.js';
+import type { MonthlyReviewService } from '../../../domains/cats/services/journey/MonthlyReviewService.js';
 import type { TaskSpec_P1 } from '../types.js';
 import type { DynamicTaskParams, TaskTemplate } from './types.js';
 

@@ -53,7 +53,7 @@ export interface RouteStrategyDeps {
   /** F150: Tool usage counter (fire-and-forget INCR on tool_use events) */
   toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
   /** F160: Growth XP service (fire-and-forget INCRBY on XP-worthy events) */
-  growthService?: import('../../growth/GrowthService.js').GrowthService;
+  growthService?: import('../../journey/GrowthService.js').GrowthService;
   /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
   activityBus?: import('../../../../activity/ActivityEventBus.js').ActivityEventBus;
 }

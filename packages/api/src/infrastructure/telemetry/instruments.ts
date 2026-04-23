@@ -112,6 +112,29 @@ export const antigravityStreamErrorExpired = meter.createCounter('cat_cafe.antig
   description: 'Buffered Antigravity stream_error expired without recovery and was surfaced',
 });
 
+// --- L1-L3 Product-level instruments (Issue #480 / #544) ---
+
+/** Counter: task completions (attributes: status, agent.id). */
+export const taskCompleted = meter.createCounter('cat_cafe.task.completed', {
+  description: 'Task completion events',
+});
+
+/** Histogram: full task lifecycle duration (seconds). */
+export const taskDuration = meter.createHistogram('cat_cafe.task.duration', {
+  description: 'Duration from task creation to completion',
+  unit: 's',
+});
+
+/** Histogram: interaction rounds per session. */
+export const sessionRounds = meter.createHistogram('cat_cafe.session.rounds', {
+  description: 'Number of interaction rounds in a session',
+});
+
+/** Counter: per-cat invocation events (attributes: agent.id, trigger). */
+export const catInvocationCount = meter.createCounter('cat_cafe.cat.invocation.count', {
+  description: 'Cat invocation frequency for appearance rate tracking',
+});
+
 /** Liveness state type. */
 export type LivenessState = 'dead' | 'idle-silent' | 'busy-silent' | 'active';
 

@@ -300,8 +300,10 @@ export type {
   XpSource,
 } from './journey.js';
 export {
+  CO_CREATOR_ACTOR_ID,
   DIMENSION_LABELS,
   GROWTH_DIMENSIONS,
+  isCoCreatorActor,
   LEADERSHIP_DIMENSIONS,
   LEADERSHIP_LABELS,
   LEADERSHIP_LIVE_DIMS,

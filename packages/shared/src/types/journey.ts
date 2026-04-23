@@ -215,12 +215,26 @@ export interface UnlockedMoment {
   readonly triggerRef?: string;
 }
 
+// ── Co-creator Identity ───────────────────────────────────────────
+
+/**
+ * Well-known actor ID for the human co-creator (铲屎官).
+ * Pending F127 registry evolution to support participant types
+ * (cats + co-creator), this constant centralizes the identity
+ * to simplify future migration.
+ */
+export const CO_CREATOR_ACTOR_ID = 'co-creator' as const;
+
+export function isCoCreatorActor(actorId: string): boolean {
+  return actorId === CO_CREATOR_ACTOR_ID;
+}
+
 // ── Activity Event Spine (ADR-023) ────────────────────────────────
 
 /** Unified activity event — source of truth for all projectors */
 export interface ActivityEvent {
   readonly type: ActivityEventType;
-  /** Cat ID or 'co-creator' */
+  /** Cat ID or co-creator actor ID */
   readonly actorId: string;
   readonly timestamp: string;
   readonly threadId?: string;

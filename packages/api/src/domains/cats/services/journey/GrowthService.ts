@@ -22,7 +22,7 @@ import type {
   XpEvent,
   XpSource,
 } from '@cat-cafe/shared';
-import { catRegistry, GROWTH_DIMENSIONS, TITLE_DEFINITIONS } from '@cat-cafe/shared';
+import { catRegistry, CO_CREATOR_ACTOR_ID, GROWTH_DIMENSIONS, isCoCreatorActor, TITLE_DEFINITIONS } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { createModuleLogger } from '../../../../infrastructure/logger.js';
 import { growthAuditKey, growthBondKey, growthTitleKey, growthXpKey } from '../stores/redis-keys/growth-keys.js';
@@ -274,12 +274,11 @@ export class GrowthService {
     return bonds.sort((a, b) => b.score - a.score);
   }
 
-  /** AC-C6: Co-creator identity for growth tracking. */
-  static readonly CO_CREATOR_ID = 'co-creator';
+  static readonly CO_CREATOR_ID = CO_CREATOR_ACTOR_ID;
 
   /** Build full journey profile for a cat or the co-creator. */
   async getProfile(catId: string): Promise<CatGrowthProfile | null> {
-    if (catId === GrowthService.CO_CREATOR_ID) {
+    if (isCoCreatorActor(catId)) {
       return this.getCoCreatorProfile();
     }
     const entry = catRegistry.tryGet(catId);

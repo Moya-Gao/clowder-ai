@@ -169,7 +169,7 @@ export interface AgentRouterOptions {
   /** F150: Tool usage counter */
   toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
   /** F160: Growth XP service */
-  growthService?: import('../../growth/GrowthService.js').GrowthService;
+  growthService?: import('../../journey/GrowthService.js').GrowthService;
   /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
   activityBus?: import('../../../../activity/ActivityEventBus.js').ActivityEventBus;
   /** F155 B-4: Independent guide session store */
@@ -219,7 +219,7 @@ export class AgentRouter {
   /** F150 */
   private toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
   /** F160 */
-  private growthService?: import('../../growth/GrowthService.js').GrowthService;
+  private growthService?: import('../../journey/GrowthService.js').GrowthService;
   /** F160 Phase C */
   private activityBus?: import('../../../../activity/ActivityEventBus.js').ActivityEventBus;
   /** F155 B-4 */

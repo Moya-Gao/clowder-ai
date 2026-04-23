@@ -10,14 +10,14 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { resolveFrontendBaseUrl } from '../config/frontend-origin.js';
-import type { GrowthService } from '../domains/cats/services/growth/GrowthService.js';
+import type { GrowthService } from '../domains/cats/services/journey/GrowthService.js';
 import { ImageExporter } from '../services/ImageExporter.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 export interface GrowthRoutesOptions {
   growthService: GrowthService;
   /** Phase E (AC-E1): Evolution event service for milestone timeline */
-  evolutionService?: import('../domains/cats/services/growth/EvolutionService.js').EvolutionService;
+  evolutionService?: import('../domains/cats/services/journey/EvolutionService.js').EvolutionService;
 }
 
 export const journeyRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app, opts) => {

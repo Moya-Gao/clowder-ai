@@ -4,6 +4,7 @@
  * PATCH  /api/messages/:id/restore — restore soft-deleted message
  */
 
+import { CO_CREATOR_ACTOR_ID } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
@@ -255,7 +256,7 @@ export const messageActionsRoutes: FastifyPluginAsync<MessageActionsRoutesOption
         validatedIds.length > 0 &&
         (validatedIds.length !== oldSet.size || validatedIds.some((sid) => !oldSet.has(sid)));
       if (isChanged) {
-        opts.activityBus.record('decision_confirmed', 'co-creator', {
+        opts.activityBus.record('decision_confirmed', CO_CREATOR_ACTOR_ID, {
           source: 'explicit',
           confidence: 1.0,
           blockId,

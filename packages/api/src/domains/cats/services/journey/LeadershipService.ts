@@ -22,7 +22,7 @@ import type {
   LeadershipTitleDefinition,
   UnlockedTitle,
 } from '@cat-cafe/shared';
-import { LEADERSHIP_DIMENSIONS, LEADERSHIP_SHADOW_DIMS, LEADERSHIP_TITLE_DEFINITIONS } from '@cat-cafe/shared';
+import { CO_CREATOR_ACTOR_ID, LEADERSHIP_DIMENSIONS, LEADERSHIP_SHADOW_DIMS, LEADERSHIP_TITLE_DEFINITIONS } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { createModuleLogger } from '../../../../infrastructure/logger.js';
 import { leadershipAuditKey, leadershipTitleKey, leadershipXpKey } from '../stores/redis-keys/growth-keys.js';
@@ -156,7 +156,7 @@ export class LeadershipService {
       // Use titleId as member — ZADD is idempotent per member, so concurrent
       // fire-and-forget calls cannot create duplicate unlock records.
       await this.redis.zadd(leadershipTitleKey(), ts, def.id);
-      const unlock: UnlockedTitle = { titleId: def.id, catId: 'co-creator', unlockedAt: ts };
+      const unlock: UnlockedTitle = { titleId: def.id, catId: CO_CREATOR_ACTOR_ID, unlockedAt: ts };
       newlyUnlocked.push(unlock);
       log.info({ titleId: def.id }, 'Leadership title unlocked');
     }
@@ -168,7 +168,7 @@ export class LeadershipService {
     const raw = await this.redis.zrevrange(leadershipTitleKey(), 0, -1, 'WITHSCORES');
     const titles: UnlockedTitle[] = [];
     for (let i = 0; i < raw.length; i += 2) {
-      titles.push({ titleId: raw[i]!, catId: 'co-creator', unlockedAt: parseInt(raw[i + 1]!, 10) });
+      titles.push({ titleId: raw[i]!, catId: CO_CREATOR_ACTOR_ID, unlockedAt: parseInt(raw[i + 1]!, 10) });
     }
     return titles;
   }

@@ -12,7 +12,7 @@ import type { CatId, CreateTaskInput, UpdateTaskInput } from '@cat-cafe/shared';
 import { catIdSchema } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import type { GrowthService } from '../domains/cats/services/growth/GrowthService.js';
+import type { GrowthService } from '../domains/cats/services/journey/GrowthService.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 

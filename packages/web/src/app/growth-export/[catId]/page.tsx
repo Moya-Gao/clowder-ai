@@ -13,7 +13,7 @@
 import type { CatGrowthProfile } from '@cat-cafe/shared';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { CatProfileCard } from '@/components/growth/CatProfileCard';
+import { CatProfileCard } from '@/components/journey/CatProfileCard';
 import { apiFetch } from '@/utils/api-client';
 
 export default function GrowthExportPage() {

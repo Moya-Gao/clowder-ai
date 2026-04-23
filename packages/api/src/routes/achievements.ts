@@ -9,7 +9,7 @@
 import { ACHIEVEMENT_DEFINITIONS } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { resolveFrontendBaseUrl } from '../config/frontend-origin.js';
-import type { AchievementService } from '../domains/cats/services/growth/AchievementService.js';
+import type { AchievementService } from '../domains/cats/services/journey/AchievementService.js';
 import { ImageExporter } from '../services/ImageExporter.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 

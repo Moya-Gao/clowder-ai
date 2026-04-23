@@ -96,7 +96,7 @@ export interface CallbackRoutesOptions {
   /** F126 Phase C: Limb pairing store for remote device approval */
   limbPairingStore?: import('../domains/limb/LimbPairingStore.js').LimbPairingStore;
   /** F160: Growth XP service — awards discussion XP on cat messages */
-  growthService?: import('../domains/cats/services/growth/GrowthService.js').GrowthService;
+  growthService?: import('../domains/cats/services/journey/GrowthService.js').GrowthService;
   /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
   activityBus?: import('../domains/activity/ActivityEventBus.js').ActivityEventBus;
   /** F088: Outbound delivery hook for connector-bound threads (late-bound after gateway bootstrap). */

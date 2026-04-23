@@ -1078,7 +1078,7 @@ async function main(): Promise<void> {
 
   // F160: Cat Journey RPG — XP attributes + profiles (created early for AgentRouter injection)
   const growthService = redis
-    ? new (await import('./domains/cats/services/growth/GrowthService.js')).GrowthService(redis)
+    ? new (await import('./domains/cats/services/journey/GrowthService.js')).GrowthService(redis)
     : undefined;
 
   // ADR-023: Activity Event Spine
@@ -1087,7 +1087,7 @@ async function main(): Promise<void> {
 
   // Phase D: Co-Creator Leadership Service (铲屎官六维)
   const leadershipService = redis
-    ? new (await import('./domains/cats/services/growth/LeadershipService.js')).LeadershipService(redis)
+    ? new (await import('./domains/cats/services/journey/LeadershipService.js')).LeadershipService(redis)
     : undefined;
 
   if (growthService) {
@@ -1104,6 +1104,12 @@ async function main(): Promise<void> {
   if (memoryServices.evidenceStore) {
     const { MemoryProjector } = await import('./domains/activity/MemoryProjector.js');
     new MemoryProjector(activityBus, memoryServices.evidenceStore);
+  }
+
+  // OTel Bridge: forward L1-L3 product events to F153 instruments (Issue #480)
+  {
+    const { OtelBridgeProjector } = await import('./domains/activity/OtelBridgeProjector.js');
+    new OtelBridgeProjector(activityBus);
   }
 
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
@@ -1272,12 +1278,12 @@ async function main(): Promise<void> {
   }
   if (growthService) {
     // F160 Phase E (AC-E1): Evolution event service — records milestone narrative events
-    const { EvolutionService } = await import('./domains/cats/services/growth/EvolutionService.js');
+    const { EvolutionService } = await import('./domains/cats/services/journey/EvolutionService.js');
     const evolutionSvc = new EvolutionService(redis!);
     growthService.evolutionService = evolutionSvc;
     await app.register(journeyRoutes, { growthService, evolutionService: evolutionSvc });
     // F160 Phase C: Achievement system — wire up bidirectional reference
-    const { AchievementService } = await import('./domains/cats/services/growth/AchievementService.js');
+    const { AchievementService } = await import('./domains/cats/services/journey/AchievementService.js');
     const achievementSvc = new AchievementService(redis!, growthService);
     growthService.achievementService = achievementSvc;
     // AC-C5: Broadcast achievement unlock events via WebSocket
@@ -1302,7 +1308,7 @@ async function main(): Promise<void> {
       achievementService: achievementSvc,
     });
     // F160 AC-E3: Monthly review template — requires both growth + evolution services
-    const { MonthlyReviewService } = await import('./domains/cats/services/growth/MonthlyReviewService.js');
+    const { MonthlyReviewService } = await import('./domains/cats/services/journey/MonthlyReviewService.js');
     const { createMonthlyReviewTemplate } = await import('./infrastructure/scheduler/templates/monthly-review.js');
     const reviewSvc = new MonthlyReviewService(growthService, evolutionSvc);
     templateRegistry.register(createMonthlyReviewTemplate(reviewSvc));

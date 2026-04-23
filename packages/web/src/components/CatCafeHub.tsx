@@ -15,7 +15,7 @@ import {
   resolveRequestedHubTab,
 } from './cat-cafe-hub.navigation';
 import { CatOverviewTab, type ConfigData, SystemTab } from './config-viewer-tabs';
-import { HubGrowthTab } from './growth/HubGrowthTab';
+import { HubGrowthTab } from './journey/HubGrowthTab';
 import { HubAccountsTab } from './HubAccountsTab';
 import { HubCapabilityTab } from './HubCapabilityTab';
 import { HubCatEditor } from './HubCatEditor';

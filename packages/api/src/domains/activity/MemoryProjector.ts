@@ -13,6 +13,7 @@
  */
 
 import type { ActivityEvent, ActivityEventType } from '@cat-cafe/shared';
+import { isCoCreatorActor } from '@cat-cafe/shared';
 import { createModuleLogger } from '../../infrastructure/logger.js';
 import type { EvidenceKind } from '../memory/interfaces.js';
 import type { ActivityEventBus } from './ActivityEventBus.js';
@@ -181,7 +182,7 @@ export class MemoryProjector {
 
   private extractKeywords(event: ActivityEvent): string[] {
     const kw: string[] = [event.type];
-    if (event.actorId && event.actorId !== 'co-creator') kw.push(event.actorId);
+    if (event.actorId && !isCoCreatorActor(event.actorId)) kw.push(event.actorId);
     if (event.threadId) kw.push(`thread:${event.threadId}`);
     return kw;
   }
