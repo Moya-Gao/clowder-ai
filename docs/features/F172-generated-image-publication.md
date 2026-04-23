@@ -187,7 +187,7 @@ created: 2026-04-22
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | built-in `image_gen` 的完成事件在哪一层最稳妥地拿到原始文件路径？provider transform / harness 还是更外层？ | ✅ 已解决：post-invocation filesystem scan（`codex-image-scanner.ts`），在 `CodexAgentService.invoke()` 的 stream 结束后、yield done 前扫描 `~/.codex/generated_images/<sessionId>/` |
-| OQ-2 | Antigravity 的图片生成完成信号/文件落点从哪个已完成 tool step / artifact 通道最稳妥拿？需要确认 toolName、toolResult shape 与绝对路径来源 | ✅ 已解决：从 `step.toolResult.output` + `step.runCommand.stdout` 提取绝对图片路径（`antigravity-image-publisher.ts`），batch loop 中收集，invocation 结束前验证+发布 |
+| OQ-2 | Antigravity 的图片生成完成信号/文件落点从哪个已完成 tool step / artifact 通道最稳妥拿？需要确认 toolName、toolResult shape 与绝对路径来源 | ✅ 已解决：仅从 `step.toolResult.output` 提取绝对图片路径，且 step 必须命中 `IMAGE_GEN_TOOL_NAMES` 白名单（`image_gen` / `generate_image` / `create_image`，cloud review P1 fix 砍掉了 `runCommand.stdout` 通配扫描以避免误抓）。batch loop 中收集，invocation 结束前 mtime 校验 + 幂等发布（`antigravity-image-publisher.ts:32-41`、`:60-93`） |
 
 ## Key Decisions
 
