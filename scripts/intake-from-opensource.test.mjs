@@ -474,6 +474,7 @@ function makeRecordFixture(mock = {}) {
   const mockIssueJson = JSON.stringify(
     {
       state: mock.issueState ?? 'OPEN',
+      stateReason: mock.issueStateReason ?? ((mock.issueState ?? 'OPEN') === 'CLOSED' ? 'COMPLETED' : ''),
       labels: (mock.issueLabels ?? ['intake']).map((name) => ({ name })),
       body:
         mock.issueBody ??
@@ -693,6 +694,90 @@ describe('intake-from-opensource.sh --record strict guard (absorbed)', () => {
     assert.equal(record.absorb_pr, 1236);
     assert.equal(record.review_proof, 'https://github.com/zts212653/cat-cafe/pull/1236#issuecomment-1');
     assert.equal(record.intent_issue, undefined, 'must use intake_intent_issue (existing schema), not intent_issue');
+  });
+
+  it('allows post-merge record when intake intent issue is CLOSED and absorb PR is MERGED', () => {
+    const f = makeRecordFixture({
+      issueState: 'CLOSED',
+      issueStateReason: 'COMPLETED',
+      absorbPrState: 'MERGED',
+    });
+    fixtures.push(f.sandboxRoot);
+    const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
+    const output = runRecord(
+      f.repoRoot,
+      [
+        '--pr',
+        '495',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '1236',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/1236#issuecomment-1',
+      ],
+      env,
+    );
+
+    assert.match(output, /Absorbed intake strict guard passed/);
+    assert.match(output, /intent issue: #1234 \(CLOSED\)/);
+    assert.match(output, /Recorded PR #495 → absorbed/);
+  });
+
+  it('blocks closed intake intent issue when absorb PR is not merged', () => {
+    const f = makeRecordFixture({
+      issueState: 'CLOSED',
+      issueStateReason: 'COMPLETED',
+      absorbPrState: 'OPEN',
+    });
+    fixtures.push(f.sandboxRoot);
+    const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
+    const err = captureRecordFailure(
+      f.repoRoot,
+      [
+        '--pr',
+        '495',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '1236',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/1236#issuecomment-1',
+      ],
+      env,
+    );
+    assert.match(err.stdout, /must be MERGED/);
+  });
+
+  it('blocks CLOSED intake intent issue when stateReason is NOT_PLANNED', () => {
+    const f = makeRecordFixture({
+      issueState: 'CLOSED',
+      issueStateReason: 'NOT_PLANNED',
+      absorbPrState: 'MERGED',
+    });
+    fixtures.push(f.sandboxRoot);
+    const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
+    const err = captureRecordFailure(
+      f.repoRoot,
+      [
+        '--pr',
+        '495',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '1236',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/1236#issuecomment-1',
+      ],
+      env,
+    );
+    assert.match(err.stdout, /NOT_PLANNED/);
   });
 
   it('blocks absorbed record when review-proof URL points to another PR', () => {

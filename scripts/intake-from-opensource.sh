@@ -347,17 +347,29 @@ run_absorbed_record_guard() {
   fi
 
   local intent_info
-  intent_info=$(gh issue view "$INTENT_ISSUE" --repo "$SOURCE_REPO" --json state,labels,body,url,title 2>/dev/null || true)
+  intent_info=$(gh issue view "$INTENT_ISSUE" --repo "$SOURCE_REPO" --json state,stateReason,labels,body,url,title 2>/dev/null || true)
   if [ -z "$intent_info" ]; then
     echo -e "${RED}✗ Cannot fetch Intake Intent Issue #$INTENT_ISSUE from $SOURCE_REPO${NC}"
     return 1
   fi
 
   local issue_state
+  local issue_state_reason
+  local issue_is_closed=false
   issue_state=$(echo "$intent_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(d.state||'')")
-  if [ "$issue_state" != "OPEN" ]; then
-    echo -e "${RED}✗ Intake Intent Issue #$INTENT_ISSUE is $issue_state (expected OPEN before record)${NC}"
-    echo "  Backfilling historical data or recording an outbound-filed hotfix? rerun with --skip-absorbed-guard"
+  issue_state_reason=$(echo "$intent_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(d.stateReason||'')")
+  if [ "$issue_state" = "OPEN" ]; then
+    issue_is_closed=false
+  elif [ "$issue_state" = "CLOSED" ]; then
+    issue_is_closed=true
+    if [ "$issue_state_reason" = "NOT_PLANNED" ]; then
+      echo -e "${RED}✗ Intake Intent Issue #$INTENT_ISSUE is CLOSED as NOT_PLANNED; cannot use as absorbed proof${NC}"
+      echo "  If this is historical backfill or outbound-filed hotfix, rerun with --skip-absorbed-guard"
+      return 1
+    fi
+  else
+    echo -e "${RED}✗ Intake Intent Issue #$INTENT_ISSUE is $issue_state (expected OPEN or CLOSED)${NC}"
+    echo "  If this is historical backfill or outbound-filed hotfix, rerun with --skip-absorbed-guard"
     return 1
   fi
 
@@ -395,6 +407,11 @@ run_absorbed_record_guard() {
     echo -e "${RED}✗ Absorb PR #$ABSORB_PR is $absorb_pr_state (expected OPEN or MERGED)${NC}"
     return 1
   fi
+  if [ "$issue_is_closed" = true ] && [ "$absorb_pr_state" != "MERGED" ]; then
+    echo -e "${RED}✗ Intake Intent Issue #$INTENT_ISSUE is CLOSED, so absorb PR #$ABSORB_PR must be MERGED${NC}"
+    echo "  Closed issue + open absorb PR indicates a broken intake chain."
+    return 1
+  fi
 
   local absorb_pr_head
   absorb_pr_head=$(echo "$absorb_pr_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(String(d.headRefOid||''))")
@@ -420,7 +437,7 @@ run_absorbed_record_guard() {
   validate_review_proof_continuity "$absorb_pr_head" "$review_proof_mode" || return 1
 
   echo -e "${GREEN}✓ Absorbed intake strict guard passed.${NC}"
-  echo "  intent issue: #$INTENT_ISSUE"
+  echo "  intent issue: #$INTENT_ISSUE ($issue_state)"
   echo "  absorb PR:    #$ABSORB_PR ($absorb_pr_state)"
   echo "  review head:  ${absorb_pr_head:0:8}"
   echo "  review proof: $REVIEW_PROOF ($review_proof_mode)"
