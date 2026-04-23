@@ -4,8 +4,8 @@ topics: [harness-engineering, methodology, first-principles, sunset-mechanism, s
 doc_kind: decision
 created: 2026-04-22
 updated: 2026-04-22
-status: draft (v3 — R1 review from 3 cats incorporated; Signal Loop illustration pending)
-related: [ADR-030, LL-025, LL-026, F163, F167]
+status: draft (v3.1 — R1 review from 3 cats + signal-bidirectional section added)
+related: [ADR-030, ADR-032, LL-025, LL-026, F163, F167]
 ---
 
 # ADR-031: Harness Engineering 方法论——3 functions + 1 discipline + 两类漂移审视
@@ -18,6 +18,8 @@ related: [ADR-030, LL-025, LL-026, F163, F167]
 > **v2 改动**：5 核心 → 4 核心（3 functions + 1 discipline，合并 Extraction + Generation）；穷人比喻降级为俗称 + 双向 caveat；Frontier 漂移从 2 维扩到**模型侧 + 环境侧**两类多维；Sunset 补最小决策表；新增"社会技术学科"承认 section；Prior art 补全 triad-study / F163 / F167。
 >
 > **v3 改动**：新增 **Experience Drift** 作为模型侧第 3 维（烁烁补视觉/审美漂移盲点）；4 核心加 tagline（harness 的呼吸/记忆/代谢/修剪）带温度入口；Retrieval loop 段前加"回声"比喻；对比表前加感性引子（Training 改本能、Retrieval 教经验）；**社会技术学科 section 从"后果"前移到核心 framing 附近**（烁烁"灵魂防火墙"建议，46 原贡献放大）。
+>
+> **v3.1 改动**：Signal Loop section 新增 **"Signal 的双向消费"** 子节——铲屎官点破：signal 不只是 internal retrieval 用，跨厂商协作 trace 也是独特的 external training-data 资产。但 Cat Cafe 是**本地产品**，**数据在用户手中**——我们是 open protocol + 本地 runtime，不托管、不回传、不碰用户数据。详细产品定位 / 技术设计 / 商业模型见 ADR-032。
 
 ## 背景
 
@@ -133,6 +135,30 @@ Raw Trace（handoff / failure / 人类纠正 / session events）
 **结论**：retrieval loop 的覆盖范围比 training loop **窄**（只处理"能被召回的已知模式"），但在覆盖范围内有 training loop 没有的**独立优势**（即时、跨 provider、可审计、无灾难性遗忘）。**是另一种范式，不是穷人版**。
 
 Cat Cafe 对应：Knowledge Feed 自动摘要 + lesson 候选（目前召回率低，待改进）→ `lessons-learned.md` 物化 → `evidence.sqlite` 索引 → `search_evidence` 召回。
+
+#### Signal 的双向消费：内部 retrieval + 用户主导的外部导出（R2 新增）
+
+v3 上面那张表格假设 signal 形态中 "Dataset / Eval / RL reward" 只对 Lab 有效——这是 Cat Cafe 当 **signal consumer** 的视角（我们只消费 lesson library 那一种）。
+
+但 signal 还有**另一个消费方向**：跨厂商协作 trace 是任何单一 Lab 内部训练集里都不存在的数据（跨 provider / 长期 / 人在环 / 保留 failure+correction / 审美漂移 trace）——这对下一代 multi-agent 模型的训练是**独特价值**。
+
+**关键边界**：**Cat Cafe 自己不是这个数据的生产/持有方——用户是**。
+
+| 角色 | 拥有什么 | 决定什么 |
+|------|---------|---------|
+| **用户**（个人 / 企业） | Trace 数据（本地） | 用不用 / 卖不卖 / 捐不捐 / 导不导 |
+| **Cat Cafe** | 能力（harness + schema + 脱敏 pipeline + 导出工具） | 工具质量、**绝不托管 / 回传 / 碰用户数据** |
+| **Lab / 数据消费方** | 付费 / 合作意愿 | 要哪种 schema |
+
+Cat Cafe 是 **multi-vendor agent collaboration 的 open protocol + 本地 runtime**——类比 HTTP 之于 web：HTTP 不拥有 data，但定义 data 如何产生和传输。我们是 **neutral infrastructure**，不是 data middleman。
+
+用户可以选择：
+- 留本地（默认）
+- 卖 / 捐 / 合作给 Lab（个人用户）
+- 导到企业内部 ML 平台（企业版客户）
+- 开源捐献
+
+这个定位的详细展开（产品边界、技术设计、商业模型、合规）见 **ADR-032: Cat Cafe as Local-First Trace Producer Enabler**。本 ADR 只负责**指出 signal 的双向消费性**——signal 生产方法论归 ADR-031，signal 外销接口设计归 ADR-032。
 
 **4. Sunset Discipline（主动删除）** `[governance discipline]` — *harness 的修剪*
 
