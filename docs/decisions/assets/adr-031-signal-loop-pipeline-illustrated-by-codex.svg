@@ -1,0 +1,147 @@
+<svg width="1600" height="920" viewBox="0 0 1600 920" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="920" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#08111F"/>
+      <stop offset="1" stop-color="#13263C"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="220" y1="180" x2="1380" y2="780" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#10243C"/>
+      <stop offset="1" stop-color="#0B1A2C"/>
+    </linearGradient>
+    <linearGradient id="traceSmoke" x1="70" y1="280" x2="340" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#93A4B8" stop-opacity="0.72"/>
+      <stop offset="1" stop-color="#53657B" stop-opacity="0.18"/>
+    </linearGradient>
+    <linearGradient id="funnelGlow" x1="366" y1="252" x2="550" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6EE7F9"/>
+      <stop offset="1" stop-color="#0EA5E9"/>
+    </linearGradient>
+    <linearGradient id="furnaceBody" x1="560" y1="232" x2="905" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1F2937"/>
+      <stop offset="1" stop-color="#101827"/>
+    </linearGradient>
+    <radialGradient id="coreGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(734 446) rotate(90) scale(150 180)">
+      <stop stop-color="#FDE68A"/>
+      <stop offset="0.44" stop-color="#F59E0B"/>
+      <stop offset="1" stop-color="#EA580C" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="crystal" x1="664" y1="334" x2="798" y2="536" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDE68A"/>
+      <stop offset="0.5" stop-color="#F59E0B"/>
+      <stop offset="1" stop-color="#FB7185"/>
+    </linearGradient>
+    <linearGradient id="slotGreen" x1="1060" y1="228" x2="1425" y2="320" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="slotBlue" x1="1060" y1="358" x2="1425" y2="450" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60A5FA"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="slotPurple" x1="1060" y1="488" x2="1425" y2="580" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C084FC"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="slotCoral" x1="1060" y1="618" x2="1425" y2="710" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FB7185"/>
+      <stop offset="1" stop-color="#E11D48"/>
+    </linearGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="cardShadow" x="-10%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#020617" flood-opacity="0.45"/>
+    </filter>
+    <style>
+      .title { font: 700 44px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #F8FAFC; }
+      .subtitle { font: 500 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #B6C4D6; }
+      .label { font: 700 24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #F8FAFC; }
+      .body { font: 500 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #D6E0EB; }
+      .tiny { font: 600 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #D6E0EB; letter-spacing: 0.04em; }
+      .slotTitle { font: 700 26px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: white; }
+      .slotBody { font: 500 17px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: rgba(255,255,255,0.92); }
+    </style>
+  </defs>
+
+  <rect width="1600" height="920" rx="0" fill="url(#bg)"/>
+  <rect x="44" y="44" width="1512" height="832" rx="34" fill="url(#panel)" stroke="rgba(148, 163, 184, 0.18)"/>
+
+  <text x="96" y="118" class="title">ADR-031 Signal Loop Pipeline</text>
+  <text x="96" y="154" class="subtitle">Harness 不是在存废纸，而是在把 trace 炼成下一轮可复用的 signal</text>
+
+  <!-- Trace smoke -->
+  <g filter="url(#softGlow)">
+    <circle cx="168" cy="378" r="78" fill="url(#traceSmoke)"/>
+    <circle cx="224" cy="316" r="72" fill="url(#traceSmoke)"/>
+    <circle cx="256" cy="420" r="86" fill="url(#traceSmoke)"/>
+    <circle cx="154" cy="470" r="70" fill="url(#traceSmoke)"/>
+    <circle cx="302" cy="356" r="68" fill="url(#traceSmoke)"/>
+  </g>
+  <text x="94" y="248" class="tiny">RAW TRACE</text>
+  <text x="94" y="280" class="label">灰色烟雾</text>
+  <text x="94" y="314" class="body">handoff / failure / 人类纠正 / session events</text>
+
+  <!-- Funnel -->
+  <path d="M386 250H566L520 404V542L438 584V404L386 250Z" fill="#092034" stroke="url(#funnelGlow)" stroke-width="4"/>
+  <path d="M410 270H540L502 392V528L456 552V392L410 270Z" fill="rgba(110, 231, 249, 0.08)"/>
+  <text x="400" y="218" class="tiny">EXTRACT</text>
+  <text x="404" y="618" class="body">从杂乱事件里提取出有结构的 pattern</text>
+
+  <!-- Furnace -->
+  <g filter="url(#cardShadow)">
+    <path d="M608 250C608 227.909 625.909 210 648 210H820C842.091 210 860 227.909 860 250V605C860 627.091 842.091 645 820 645H648C625.909 645 608 627.091 608 605V250Z" fill="url(#furnaceBody)"/>
+    <path d="M640 246H828V294H640V246Z" fill="#243447"/>
+    <circle cx="698" cy="270" r="8" fill="#F87171"/>
+    <circle cx="734" cy="270" r="8" fill="#FBBF24"/>
+    <circle cx="770" cy="270" r="8" fill="#34D399"/>
+    <rect x="654" y="320" width="160" height="12" rx="6" fill="#28435B"/>
+    <rect x="654" y="342" width="124" height="12" rx="6" fill="#28435B"/>
+    <rect x="654" y="364" width="147" height="12" rx="6" fill="#28435B"/>
+    <circle cx="734" cy="446" r="118" fill="url(#coreGlow)"/>
+    <path d="M736 328L794 412L760 542L676 544L638 426L682 336L736 328Z" fill="url(#crystal)" stroke="#FDE68A" stroke-width="3"/>
+    <path d="M736 328L734 446L794 412" stroke="rgba(255,255,255,0.58)" stroke-width="2"/>
+    <path d="M734 446L676 544L638 426" stroke="rgba(255,255,255,0.42)" stroke-width="2"/>
+    <text x="648" y="690" class="tiny">CLASSIFY</text>
+    <text x="608" y="726" class="body">发光晶体 = 从 trace 中炼出的结构化 signal</text>
+  </g>
+
+  <!-- Arrows -->
+  <path d="M324 402C344 402 360 402 386 402" stroke="#7DD3FC" stroke-width="7" stroke-linecap="round"/>
+  <path d="M372 386L396 402L372 418" fill="none" stroke="#7DD3FC" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M860 446C934 446 958 446 1016 446" stroke="#F8FAFC" stroke-width="7" stroke-linecap="round"/>
+  <path d="M992 430L1018 446L992 462" fill="none" stroke="#F8FAFC" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M1022 446C1068 446 1088 276 1104 276" stroke="#34D399" stroke-width="5" stroke-linecap="round"/>
+  <path d="M1022 446C1068 446 1088 406 1104 406" stroke="#60A5FA" stroke-width="5" stroke-linecap="round"/>
+  <path d="M1022 446C1068 446 1088 536 1104 536" stroke="#C084FC" stroke-width="5" stroke-linecap="round"/>
+  <path d="M1022 446C1068 446 1088 666 1104 666" stroke="#FB7185" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Slots -->
+  <g filter="url(#cardShadow)">
+    <rect x="1104" y="220" width="382" height="98" rx="24" fill="url(#slotGreen)"/>
+    <text x="1134" y="260" class="slotTitle">Dataset / SFT</text>
+    <text x="1134" y="292" class="slotBody">训练下一代模型的结构化样本</text>
+
+    <rect x="1104" y="350" width="382" height="98" rx="24" fill="url(#slotBlue)"/>
+    <text x="1134" y="390" class="slotTitle">Eval Benchmark</text>
+    <text x="1134" y="422" class="slotBody">把失败模式固定成可回归的测试</text>
+
+    <rect x="1104" y="480" width="382" height="98" rx="24" fill="url(#slotPurple)"/>
+    <text x="1134" y="520" class="slotTitle">RL Reward Signal</text>
+    <text x="1134" y="552" class="slotBody">只有 Lab 能直接喂回训练环</text>
+
+    <rect x="1104" y="610" width="382" height="112" rx="24" fill="url(#slotCoral)"/>
+    <text x="1134" y="650" class="slotTitle">Lesson Library</text>
+    <text x="1134" y="682" class="slotBody">Cat Cafe 的 retrieval-mediated adaptation loop</text>
+    <text x="1134" y="706" class="slotBody">下一只猫通过 search_evidence 直接绕坑</text>
+  </g>
+
+  <!-- Footer notes -->
+  <text x="96" y="826" class="body">Input：trace 不是为了 debug 才保留，而是为了成为可提炼、可分类、可回流的物料。</text>
+  <text x="96" y="856" class="body">Output：Signal Loop 让 harness 不只是兜底当下，还能持续孵化未来的 fit / eval / lesson。</text>
+</svg>

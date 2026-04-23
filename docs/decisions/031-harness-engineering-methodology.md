@@ -76,6 +76,24 @@ Delete 是**结果**，不是**目的**。如果没 tracing、没 failure extrac
 
 **3. Signal Loop（trace → extract → classify → feed back）** `[function]` — *harness 的代谢*
 
+![ADR-031 Signal Loop Pipeline（砚砚/GPT-5.4 绘制）](assets/adr-031-signal-loop-pipeline-illustrated-by-codex.png)
+
+<details>
+<summary>文字版管线（便于 grep / review / 无图阅读）</summary>
+
+```text
+Raw Trace（handoff / failure / 人类纠正 / session events）
+  → Extract（提取 structured pattern）
+    → Classify（分类成四种 signal 形态）
+      → Feed Back
+         ├── Dataset / SFT
+         ├── Eval Benchmark
+         ├── RL Reward Signal
+         └── Lesson Library
+```
+
+</details>
+
 **R1 合并说明**（46 宪宪 review 指出）：原 v1 分了 "Failure Extraction" + "Signal Generation" 两个核心，但 Knowledge Feed 在一个 pass 里同时做——拆两步是美学对称不是真相。合并为一条管线。
 
 管线三段：
