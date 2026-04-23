@@ -8,7 +8,7 @@ created: 2026-04-17
 
 # F167: A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P0
+> **Status**: monitoring | **Owner**: 布偶猫 | **Priority**: P0
 
 ## Why
 
@@ -247,10 +247,10 @@ cat_cafe_hold_ball({
 **实质 tool 过滤**（砚砚 review 关键修正 — KD-18）：`cat_cafe_post_message` / `cat_cafe_multi_mention` / `cat_cafe_hold_ball` 是**路由/持球工具**，不算干活。否则 MCP 传球路径会永远豁免熔断。实质 tool = 任何留下工作证据的（read/grep/edit/write/test/git/update_task/search_evidence 等）。
 
 **AC**：
-- [ ] AC-D1: `updateStreakOnPush` 签名扩展 `callerActivity: { hadSubstantiveToolCall: boolean; outputLength: number }`；累加条件为 `samePair && !hadSubstantiveToolCall && outputLength <= T`（T=200 字符默认）
-- [ ] AC-D2: 实质 tool 白名单/黑名单——黑名单 `cat_cafe_post_message` / `cat_cafe_multi_mention` / `cat_cafe_hold_ball`（以 substring 匹配，兼容 `mcp__cat-cafe__*` 前缀）；其他所有 tool 都算实质
-- [ ] AC-D3: route-serial + callback-a2a-trigger 双路径都要传 `callerActivity`；callback 路径拿不到时默认 `hadSubstantiveToolCall=false`（保守熔断，不让 MCP 路由绕过）
-- [ ] AC-D4: 测试至少 4 case：有实质 tool + 短文本 → 不涨 / 无 tool + 短文本 → 涨 / 无 tool + 长文本 → 不涨 / 仅 `cat_cafe_post_message` + 短文本 → 涨（砚砚 review 要求关键 case）
+- [x] AC-D1: `updateStreakOnPush` 签名扩展 `callerActivity: { hadSubstantiveToolCall: boolean; outputLength: number }`；累加条件为 `samePair && !hadSubstantiveToolCall && outputLength <= T`（T=200 字符默认）；实质工作 RESET streak 到 1（P1-1 reviewer 砚砚发现的重要修正）
+- [x] AC-D2: 实质 tool 黑名单——`cat_cafe_post_message` / `cat_cafe_multi_mention` / `cat_cafe_hold_ball`（以 substring 匹配，兼容 `mcp__cat-cafe__*` 前缀）；其他所有 tool 都算实质
+- [x] AC-D3: route-serial + callback-a2a-trigger 双路径都传 `callerActivity`；callback 路径 fail-closed 默认 `hadSubstantiveToolCall=false`；streak 更新 gated on `wouldEnqueue`（post-dedup + post-depth）防止跳过的 push 误 mutate 计数器（云端 Codex P1 修正）
+- [x] AC-D4: 测试覆盖 2×2 矩阵 + reset-requires-enqueue（32/32 ping-pong 绿）
 
 #### D2 — @landy 反 catch-all 硬条件（P0）
 
@@ -264,8 +264,8 @@ cat_cafe_hold_ball({
 其他一律自决——技术细节、doc 修补、state 标注、timeline 记录 → 直接做，做错能回滚。
 
 **AC**：
-- [ ] AC-D5: `shared-rules §10` 加"@landy 三硬条件"子条款，明确"不是'我不想决定'的出口，是'我没资格单方面决定'的出口"；附反问式 ping 反例清单（`要不要 X？` / `同意吗？` / `如果你觉得 OK 我就落`）
-- [ ] AC-D6: `SystemPromptBuilder` trailing anchor 从平级三选一改成决策树优先级：
+- [x] AC-D5: `shared-rules §10.4` 新增"@铲屎官 三硬条件"子条款 + 反问式 ping 反例清单 + 合法示例；`§10` 顶层三选一也重排成决策树优先级（P1-2 reviewer 砚砚发现的一致性修正）
+- [x] AC-D6: `SystemPromptBuilder` trailing anchor 从平级三选一改成决策树优先级：
   ```
   先问：下一步谁能做？
   1. 另一只猫能做 → @句柄（review→@author / 修完→@reviewer / merge→@愿景守护猫）
@@ -273,7 +273,7 @@ cat_cafe_hold_ball({
   3. 只有铲屎官本人才能做（三硬条件）→ @landy
   @landy 不是默认出口——先问"哪只猫能接"。
   ```
-- [ ] AC-D7: exit check 增加"反问式 ping" 检测——末尾 `.*吗？` / `要不要.*` / `同意.*就.*` 等软性递球句式 + 同时存在 `@landy` → prompt-first 非阻断提示"这是反问式 ping，不是球权转移；你要么自决去做，要么写明硬条件"
+- [~] AC-D7: 反问式 ping 反制——**prompt 层已在 D6 trailing anchor + §10.4 落地**（写入决策树末句 + 反例清单）；**harness 层检测故意未做**（KD-8 反分类器原则——regex 判"是不是软性递球"本质是认知脚手架）。若线上观察仍频繁出现反问式 ping，再评估是否加 harness 检测。
 
 ## Dependencies
 
@@ -355,6 +355,7 @@ cat_cafe_hold_ball({
 | 2026-04-21 | 修复 F167 L1 ping-pong termination 前端显示：`a2a_pingpong_terminated`（顺带 `a2a_role_rejected`）从原始 JSON 蓝气泡改为可读 system notice（前景 + 背景线程消费逻辑同步） |
 | 2026-04-20 | Status → monitoring：宪宪+砚砚共识——AC-B2/B3 已被多层护栏覆盖（B2+C2 虚空传球 / L1 streak+break-loop ping-pong），进入观察期，无新 case 即 close。不再追加补丁 |
 | 2026-04-23 | Phase D reopened from monitoring：铲屎官发现两个系统性缺陷——(1) ping-pong streak 误杀正经 review（无 tool_call 维度）、(2) 猫猫倾向 @landy 做最安全默认，铲屎官变决策瓶颈；铲屎官拍板坐标系"干活 = tool_call"；砚砚 review 加入"实质 tool 过滤"关键修正（排除路由/持球工具）；KD-17/18/19 落定，D1+D2 AC 定稿待实现 |
+| 2026-04-23 | Phase D merged (PR #1349, `0fa92bfcf`) — D1 streak 实质工作豁免 + D2 @landy 硬条件出口。本地 gpt52 review 两轮（P1-1 substantive 必须 RESET streak 而非跳过 / P1-2 shared-rules §10 和 §10.4 一致性）；云端 Codex review P1（streak update 必须 gated on `wouldEnqueue` — 防 dedup/depth 跳过后仍误 mutate 计数器）；D1 5 commit + D2 1 commit + 3 个 P1 fix commit + 3 个 biome/index autofix commit，全量 32/32 ping-pong + 89/89 system-prompt-builder 绿。Status: monitoring（AC-D7 harness 反问式 ping 检测故意未做 — 避开 KD-8 反分类器原则，prompt 层已兜住）|
 
 ## Behavioral Evidence（Phase B 观察记录）
 
