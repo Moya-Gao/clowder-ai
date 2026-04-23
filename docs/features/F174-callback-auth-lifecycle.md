@@ -308,6 +308,7 @@ interface CallbackTool<T> {
 | Phase B 迁移期双 backend 并存导致 invocation id collision | 迁移期 memory + redis 同时写，read-through 优先 redis，迁移完成切 redis-only |
 | `stale_invocation` 被错算成 401，仪表盘低估真实失败面 | Phase A 把 `stale_invocation` 作为独立 reason，D1 单独 emit |
 | Compat window 永生（legacy body/query fallback 删不掉） | Phase F 设硬 deadline，即使命中率非零也按 deadline 切 |
+| Mixed-version rollout：新 MCP client（要求结构化 reason）打到老 API（仍返非结构化 401） → 401 全部被算作 "non-degradable"，rich block 等无法走 Route B | (i) #509 已合 + intaked，第一方 API 都是新版；(ii) Phase E 发布时在 release notes 写明客户端最低 API 版本；(iii) 监控未识别 401 的命中率，超阈值再补 server 探测降级 |
 
 ## Open Questions
 
@@ -345,6 +346,8 @@ interface CallbackTool<T> {
 | 2026-04-23 14:48 | 立项（布偶猫 Opus-47 主笔，铲屎官拍板） |
 | 2026-04-23 15:23 | @缅因猫 GPT-5.4 跨家族独立 review，全部接受 6 项立场 + 整体重排 + 加 Phase A |
 | 2026-04-23 15:46 | spec 收敛 v2（含 KD-4~12），等铲屎官拍板最终方案后启动 Phase A |
+| 2026-04-23 16:00 | Phase A 实施完成（commits cb85ac1c0 + 640d154fe + 534b22daa + 3c8b024d2 on `feat/f174-phase-a-failure-reasons`），ready for PR |
+| 2026-04-23 16:24 | @缅因猫 GPT-5.4 cross-family review of Phase A → **PASS**（self-reran 36/36 + 45/45 tests）。Two non-blocking reminders → addressed in 3c8b024d2: shared reason taxonomy + contract test (drift prevention); mixed-version rollout note added to Risk |
 
 ## Review Gate
 
