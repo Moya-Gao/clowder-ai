@@ -80,11 +80,23 @@ created: 2026-04-22
 ## Acceptance Criteria
 
 ### Phase A（共享发布内核）
-- [ ] AC-A1: 系统提供统一的 generated-image publication contract，可接收“本地图片路径 + provenance”并发布到当前 runtime 的 `uploadDir`
-- [ ] AC-A2: 发布结果产出稳定 `/uploads/...` URL，而不是暴露原始本地路径
-- [ ] AC-A3: 发布路径遵循当前 runtime 的 `UPLOAD_DIR` 解析，不依赖固定 cwd 或源码目录
-- [ ] AC-A4: 文件命名避免覆盖已有资源，默认生成唯一文件名
-- [ ] AC-A5: 相同图片在 replay / retry / recovery 场景下重复进入 publication contract 时，能幂等返回同一个 `/uploads/...` URL，且不产生重复文件或重复 rich block
+- [x] AC-A1: 系统提供统一的 generated-image publication contract，可接收“本地图片路径 + provenance”并发布到当前 runtime 的 `uploadDir`
+- [x] AC-A2: 发布结果产出稳定 `/uploads/...` URL，而不是暴露原始本地路径
+- [x] AC-A3: 发布路径遵循当前 runtime 的 `UPLOAD_DIR` 解析，不依赖固定 cwd 或源码目录
+- [x] AC-A4: 文件命名避免覆盖已有资源，默认生成唯一文件名
+- [x] AC-A5: 相同图片在 replay / retry / recovery 场景下重复进入 publication contract 时，能幂等返回同一个 `/uploads/...` URL，且不产生重复文件或重复 rich block
+
+#### Phase A 实施证据（2026-04-23）
+
+- 共享图片落盘原语已抽取：`packages/api/src/utils/image-storage.ts`
+- multipart 上传路径已复用共享原语：`packages/api/src/routes/image-upload.ts`
+- generated-image publication contract 已落地：`packages/api/src/domains/cats/services/agents/providers/generated-image-publication.ts`
+- 新增测试：
+  - `packages/api/test/image-storage.test.js`
+  - `packages/api/test/generated-image-publication.test.js`
+- 回归测试命令（已通过）：
+  - `pnpm run build`
+  - `CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash ./scripts/with-test-home.sh node --test test/generated-image-publication.test.js test/image-storage.test.js test/image-upload.test.js`
 
 ### Phase B（Codex built-in 接入）
 - [ ] AC-B1: built-in `image_gen` 成功后，产物自动接入 Phase A 的 publication contract
