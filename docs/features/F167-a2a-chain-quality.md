@@ -8,7 +8,7 @@ created: 2026-04-17
 
 # F167: A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏
 
-> **Status**: monitoring | **Owner**: 布偶猫 | **Priority**: P0
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P0
 
 ## Why
 
@@ -230,6 +230,51 @@ cat_cafe_hold_ball({
 - [x] AC-C6: shared-rules §10 球权检查强化（reviewer "没人"几乎不成立 + review 必须传球 + 分析/建议传球）
 - [x] AC-C7: harness 层 review verdict 检测 + 无 @ 时注入传球提示（保守关键词 LGTM/approve/reject/P1/P2/修改建议/放行/打回；三层合法出口豁免：行首 @mention / hold_ball / MCP 结构化路由 `targetCats`+`targets`）
 
+### Phase D（Streak 语义升级 + @landy 反 catch-all — 2026-04-23 reopened from monitoring）
+
+**触发**（monitoring 期铲屎官观察）：两个系统性缺陷同源——harness 判不了意图：
+1. Ping-pong breaker 误杀正经 review（10 轮 review 在 4 轮被硬断）——当前 streak 只看"同 pair 连续次数"，不看猫是否在干活
+2. 猫猫把 `@landy` 当 catch-all 安全港 — 三选一平级，@landy 成为"最低风险默认"，铲屎官变决策瓶颈
+
+**铲屎官拍板的第一性坐标系**（KD-17）：别再做"review vs 闲聊"的主观分类，看客观事实——**干活 = 实质 tool_call + 长内容；闲聊惯性 = 短文本 + 零 tool**。RLHF "接一句" 反射产生短文本惯性，正是乒乓球的真正 signature。
+
+#### D1 — Ping-pong Streak 实质工作豁免（P0）
+
+**问题**：`WorklistRegistry.updateStreakOnPush` 只计"同 pair 1:1 push 次数"，正经 review（每轮都有 read/edit/task-update）在第 4 轮被误杀。
+
+**解法**：streak 累加条件从 `samePair && 1:1 push` 改为 `samePair && 1:1 push && !callerHadSubstantiveToolCall && callerOutputLength <= T`。
+
+**实质 tool 过滤**（砚砚 review 关键修正 — KD-18）：`cat_cafe_post_message` / `cat_cafe_multi_mention` / `cat_cafe_hold_ball` 是**路由/持球工具**，不算干活。否则 MCP 传球路径会永远豁免熔断。实质 tool = 任何留下工作证据的（read/grep/edit/write/test/git/update_task/search_evidence 等）。
+
+**AC**：
+- [ ] AC-D1: `updateStreakOnPush` 签名扩展 `callerActivity: { hadSubstantiveToolCall: boolean; outputLength: number }`；累加条件为 `samePair && !hadSubstantiveToolCall && outputLength <= T`（T=200 字符默认）
+- [ ] AC-D2: 实质 tool 白名单/黑名单——黑名单 `cat_cafe_post_message` / `cat_cafe_multi_mention` / `cat_cafe_hold_ball`（以 substring 匹配，兼容 `mcp__cat-cafe__*` 前缀）；其他所有 tool 都算实质
+- [ ] AC-D3: route-serial + callback-a2a-trigger 双路径都要传 `callerActivity`；callback 路径拿不到时默认 `hadSubstantiveToolCall=false`（保守熔断，不让 MCP 路由绕过）
+- [ ] AC-D4: 测试至少 4 case：有实质 tool + 短文本 → 不涨 / 无 tool + 短文本 → 涨 / 无 tool + 长文本 → 不涨 / 仅 `cat_cafe_post_message` + 短文本 → 涨（砚砚 review 要求关键 case）
+
+#### D2 — @landy 反 catch-all 硬条件（P0）
+
+**问题**：三选一（@句柄 / @landy / hold_ball）平级，猫猫默认走 @landy = 最安全选择。模式：`要不要 X？` / `落 spec 吗？` / `同意我就做` — 这些是"软性 @"，有结论但把动作扳机塞回铲屎官。结果：铲屎官被当 human oracle 做所有拍板，即使事情本可自决。
+
+**解法**：@landy 从"可选出口"改成"硬条件出口"。三硬条件（不满足禁止 @landy）：
+1. **不可逆操作前**（删数据 / force push / 合第三方 PR / close feat）
+2. **愿景级决策**（改 VISION / 砍整块 feat / 开新 family）
+3. **跨猫僵局**（2+ 猫已直接冲突、push back 两轮无共识）
+
+其他一律自决——技术细节、doc 修补、state 标注、timeline 记录 → 直接做，做错能回滚。
+
+**AC**：
+- [ ] AC-D5: `shared-rules §10` 加"@landy 三硬条件"子条款，明确"不是'我不想决定'的出口，是'我没资格单方面决定'的出口"；附反问式 ping 反例清单（`要不要 X？` / `同意吗？` / `如果你觉得 OK 我就落`）
+- [ ] AC-D6: `SystemPromptBuilder` trailing anchor 从平级三选一改成决策树优先级：
+  ```
+  先问：下一步谁能做？
+  1. 另一只猫能做 → @句柄（review→@author / 修完→@reviewer / merge→@愿景守护猫）
+  2. 等外部条件 → hold_ball（CI / PR check / 长时间 build）
+  3. 只有铲屎官本人才能做（三硬条件）→ @landy
+  @landy 不是默认出口——先问"哪只猫能接"。
+  ```
+- [ ] AC-D7: exit check 增加"反问式 ping" 检测——末尾 `.*吗？` / `要不要.*` / `同意.*就.*` 等软性递球句式 + 同时存在 `@landy` → prompt-first 非阻断提示"这是反问式 ping，不是球权转移；你要么自决去做，要么写明硬条件"
+
 ## Dependencies
 
 - **Evolved from**: F064（A2A 出口检查 — 链条终止盲区修复）
@@ -274,6 +319,9 @@ cat_cafe_hold_ball({
 | KD-14 | hold_ball 必须带 `wakeAfterMs` 有界唤醒 | 砚砚提出：没有时间上界 → 退化成语义持球 → 球还是掉地上 | 2026-04-19 |
 | KD-15 | 不先做球权管理独立 skill | 砚砚提出：球权是基础协议（always-on），不能靠按需加载的 skill；踩坑经验先落 refs 文档 | 2026-04-19 |
 | KD-16 | Phase C 拆分 C1+C2：两种不传球根因不同 | 砚砚自诊：C1 治"真持球"（想拿但拿不住），C2 治"假终局"（结论=终点错觉）。铲屎官 5 线程验证后者更普遍 | 2026-04-19 |
+| KD-17 | Streak 判定维度从"连续次数"升级为"实质工作"（tool_call + 内容长度） | 铲屎官外部视角："干活 = 有 tool_call。闲聊 = 纯文本"。47 原本堆 ABCD 方案（白名单/similarity/review-target-id）全是主观分类器 = KD-8 反模式；tool_call + 长度是客观事实，代码不撒谎 | 2026-04-23 |
+| KD-18 | 实质 tool 必须排除路由/持球工具（post_message / multi_mention / hold_ball） | 砚砚 review 修正：这三个是传球/持球本身不是工作；若算实质 tool，MCP 路由路径会永远豁免熔断 = 熔断器打穿 | 2026-04-23 |
+| KD-19 | @landy 从"可选出口"升级为"硬条件出口"（不可逆 / 愿景级 / 僵局） | 铲屎官原话："你们现在会走向最安全的选择！就是！找我！"；三选一平级时 @landy 变成最低风险默认，铲屎官变决策瓶颈；必须抬门槛而非加 lint（KD-8） | 2026-04-23 |
 
 ## Timeline
 
@@ -306,6 +354,7 @@ cat_cafe_hold_ball({
 | 2026-04-20 | AC-B1 回放验证完成：Case E2 记录 6 case（5 个球权类 live prompt/source replay + 1 个 codex context overflow 代码/测试回放） |
 | 2026-04-21 | 修复 F167 L1 ping-pong termination 前端显示：`a2a_pingpong_terminated`（顺带 `a2a_role_rejected`）从原始 JSON 蓝气泡改为可读 system notice（前景 + 背景线程消费逻辑同步） |
 | 2026-04-20 | Status → monitoring：宪宪+砚砚共识——AC-B2/B3 已被多层护栏覆盖（B2+C2 虚空传球 / L1 streak+break-loop ping-pong），进入观察期，无新 case 即 close。不再追加补丁 |
+| 2026-04-23 | Phase D reopened from monitoring：铲屎官发现两个系统性缺陷——(1) ping-pong streak 误杀正经 review（无 tool_call 维度）、(2) 猫猫倾向 @landy 做最安全默认，铲屎官变决策瓶颈；铲屎官拍板坐标系"干活 = tool_call"；砚砚 review 加入"实质 tool 过滤"关键修正（排除路由/持球工具）；KD-17/18/19 落定，D1+D2 AC 定稿待实现 |
 
 ## Behavioral Evidence（Phase B 观察记录）
 
@@ -389,3 +438,5 @@ cat_cafe_hold_ball({
 | 铲屎官 2026-04-19 | 持球无执行机制 → hold_ball MCP | AC-C1~C4 | ✅ PR #1289 + #1290 |
 | 铲屎官 2026-04-19 | 砚砚不传球（5 线程验证） → 强制传球护栏 | AC-C5~C7 | ✅ PR #1291 |
 | 铲屎官 2026-04-19 | 球权管理 skill 化（各猫贡献踩坑经验） | OQ-5 | ✅ 现不做（KD-15），踩坑经验先入 refs |
+| 铲屎官 2026-04-23 | Streak breaker 误杀正经 review（不看 tool_call） | AC-D1~D4 | ⬜ Phase D 待实现 |
+| 铲屎官 2026-04-23 | 猫猫倾向 @landy 做最安全默认，铲屎官变决策瓶颈 | AC-D5~D7 | ⬜ Phase D 待实现 |
