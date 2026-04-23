@@ -8,7 +8,7 @@ created: 2026-04-17
 
 # F167: A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏
 
-> **Status**: monitoring | **Owner**: 布偶猫 | **Priority**: P0
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P0
 
 ## Why
 
@@ -275,6 +275,41 @@ cat_cafe_hold_ball({
   ```
 - [~] AC-D7: 反问式 ping 反制——**prompt 层已在 D6 trailing anchor + §10.4 落地**（写入决策树末句 + 反例清单）；**harness 层检测故意未做**（KD-8 反分类器原则——regex 判"是不是软性递球"本质是认知脚手架）。若线上观察仍频繁出现反问式 ping，再评估是否加 harness 检测。
 
+### Phase E（Retire L3 role-gate — 2026-04-23 reopened）
+
+**触发**：铲屎官实测发现 `F172 feature close → 愿景守护 @gemini` 链路被 L3 硬拦，理由 "合入"（designer 不接受 merge 任务）——但实际任务是 **愿景守护**，不是 coding/merge。根因是：
+1. `role-gate.ts` 硬编码字符串常量 `DESIGNER_ROLE = 'designer'` + 硬编码正则 `CODING_ACTION_RE`
+2. `actionText` 扫整条 storedContent，上文任意位置出现 `合入 / merge` 都误伤下一棒
+3. `buildTeammateRoster` **没读** cat-config 的 `evaluation`/硬限制字段，发送方 prompt 里根本看不到 "gemini 禁止写代码"
+
+铲屎官原话：
+> "你们之前的拦截是不是过度设计啊？ 要是人家gemini 出了4 比你厉害呢？"
+> "到底有没有看 cat config 人家不合适做的事情？ 还是硬编码？"
+> "要是我明天写的 minimax 禁止 coding， claude 禁止生成图片呢？"
+> "问题不是出在 gemini 身上，是出在 at 他的猫身上——队友注入出现问题，导致他不知道限制？"
+
+**根因判定（KD-20）**：L3 role-gate 是 KD-8 典型反模式（认知脚手架——harness 替模型判断 intent）。正确做法是把能力限制作为**数据**（cat-config）注入 **prompt**（双端：发送方队友名册 + 目标猫 self-awareness），让模型在正确坐标系里自判断。未来 model 升级 / 新增 model / 能力变化 → 改 cat-config 即可，**零代码改动**。
+
+#### E1 — 数据模型：cat-config 新增 `restrictions` 字段（P0）
+
+- [ ] AC-E1: `cat-config.json` roster 每只猫支持 `restrictions?: string[]`（自然语言硬限制数组，如 `["禁止写代码"]`）。`gemini` 初始化为 `["禁止写代码"]`（从 evaluation 叙述迁移出硬约束）。其他猫按需加（默认无）
+- [ ] AC-E2: `CatConfig`/`CatVariant` TS 类型 + loader 加 `restrictions?: readonly string[]`；向后兼容（缺省 `undefined`）
+
+#### E2 — 双端注入：发送方 + 目标猫都能看到限制（P0）
+
+- [ ] AC-E3: `buildTeammateRoster`（发送方队友名册）——合并或新增列显示每只队友的 `restrictions`；发送方 prompt 能一眼看到"gemini 禁止写代码"。未来 minimax 加 `restrictions: ["禁止 coding"]` / claude 加 `restrictions: ["不能生成图片"]` → **零代码变更**即生效
+- [ ] AC-E4: `buildStaticIdentity`（目标猫自身 prompt）——注入自己的 `restrictions`（self-awareness）。被错误 @ 时自己也能识别并 push back，不依赖 harness 拦
+
+#### E3 — 退役 L3 硬编码拦截（P0）
+
+- [ ] AC-E5: 删 `packages/api/src/domains/cats/services/agents/routing/role-gate.ts`
+- [ ] AC-E6: `route-serial.ts` + `callback-a2a-trigger.ts` 移除 `checkRoleCompat` 调用点 + `a2a_role_rejected` system_info emit（前端 `system-info-visible.ts` 可保留 handler 以免老数据崩）
+- [ ] AC-E7: 更新/删除相关测试：`route-serial` 里 role-gate related test 删除；`system-prompt-builder` 加 teammate roster restrictions + self restrictions 两项测试
+
+#### E4 — 回放验证（P0）
+
+- [ ] AC-E8: 回放 F172 愿景守护场景 —— 宪宪/砚砚 @gemini 做愿景守护，不再被 harness 拦截；发送方 prompt 里能看到 gemini 的 restrictions；gemini 自己 prompt 里也能看到 "你的硬限制: 禁止写代码"
+
 ## Dependencies
 
 - **Evolved from**: F064（A2A 出口检查 — 链条终止盲区修复）
@@ -322,6 +357,7 @@ cat_cafe_hold_ball({
 | KD-17 | Streak 判定维度从"连续次数"升级为"实质工作"（tool_call + 内容长度） | 铲屎官外部视角："干活 = 有 tool_call。闲聊 = 纯文本"。47 原本堆 ABCD 方案（白名单/similarity/review-target-id）全是主观分类器 = KD-8 反模式；tool_call + 长度是客观事实，代码不撒谎 | 2026-04-23 |
 | KD-18 | 实质 tool 必须排除路由/持球工具（post_message / multi_mention / hold_ball） | 砚砚 review 修正：这三个是传球/持球本身不是工作；若算实质 tool，MCP 路由路径会永远豁免熔断 = 熔断器打穿 | 2026-04-23 |
 | KD-19 | @landy 从"可选出口"升级为"硬条件出口"（不可逆 / 愿景级 / 僵局） | 铲屎官原话："你们现在会走向最安全的选择！就是！找我！"；三选一平级时 @landy 变成最低风险默认，铲屎官变决策瓶颈；必须抬门槛而非加 lint（KD-8） | 2026-04-23 |
+| KD-20 | 退役 L3 role-gate 硬编码拦截，能力限制改为数据驱动（cat-config.restrictions 双端 prompt 注入） | L3 硬编码（designer role 字符串 + coding regex）是 KD-8 反模式——harness 替模型判 intent，model 升级时规则无法自适应，且 actionText 扫全文会误杀（今天 F172 愿景守护被"合入"命中）；改数据驱动后，未来加 minimax / 限制 claude 多模态等场景 → 改 cat-config 即可，零代码变更 | 2026-04-23 |
 
 ## Timeline
 
@@ -356,6 +392,7 @@ cat_cafe_hold_ball({
 | 2026-04-20 | Status → monitoring：宪宪+砚砚共识——AC-B2/B3 已被多层护栏覆盖（B2+C2 虚空传球 / L1 streak+break-loop ping-pong），进入观察期，无新 case 即 close。不再追加补丁 |
 | 2026-04-23 | Phase D reopened from monitoring：铲屎官发现两个系统性缺陷——(1) ping-pong streak 误杀正经 review（无 tool_call 维度）、(2) 猫猫倾向 @landy 做最安全默认，铲屎官变决策瓶颈；铲屎官拍板坐标系"干活 = tool_call"；砚砚 review 加入"实质 tool 过滤"关键修正（排除路由/持球工具）；KD-17/18/19 落定，D1+D2 AC 定稿待实现 |
 | 2026-04-23 | Phase D merged (PR #1349, `0fa92bfcf`) — D1 streak 实质工作豁免 + D2 @landy 硬条件出口。本地 gpt52 review 两轮（P1-1 substantive 必须 RESET streak 而非跳过 / P1-2 shared-rules §10 和 §10.4 一致性）；云端 Codex review P1（streak update 必须 gated on `wouldEnqueue` — 防 dedup/depth 跳过后仍误 mutate 计数器）；D1 5 commit + D2 1 commit + 3 个 P1 fix commit + 3 个 biome/index autofix commit，全量 32/32 ping-pong + 89/89 system-prompt-builder 绿。Status: monitoring（AC-D7 harness 反问式 ping 检测故意未做 — 避开 KD-8 反分类器原则，prompt 层已兜住）|
+| 2026-04-23 | Phase E reopened from monitoring：F172 愿景守护 @gemini 被 L3 误拦（action="合入"因 storedContent 上文含 merge 历程）；铲屎官定性"硬编码 + 过度设计"——要求退役 L3 + cat-config restrictions 数据驱动双端注入（发送方队友名册 + 目标猫 self-awareness）；KD-20 落定，AC-E1~E8 定稿待实现 |
 
 ## Behavioral Evidence（Phase B 观察记录）
 
