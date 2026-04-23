@@ -167,7 +167,10 @@ if [ "$SKIP_INSTALL" = "true" ]; then
   echo ""
 else
   echo "── Step 2/6: 刷新依赖（frozen-lockfile）──"
-  if ! pnpm install --frozen-lockfile; then
+  # Gate build/test must install devDependencies even if the parent shell came in
+  # with production env flags set. Otherwise a fresh worktree can falsely go red
+  # on missing @types/* packages before we reach the real baseline verdict.
+  if ! env -u NODE_ENV -u npm_config_production -u NPM_CONFIG_PRODUCTION pnpm install --frozen-lockfile; then
     echo ""
     echo -e "${RED}❌ pnpm install --frozen-lockfile 失败${NC}"
     exit 1

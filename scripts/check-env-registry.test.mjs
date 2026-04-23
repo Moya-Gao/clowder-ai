@@ -24,6 +24,7 @@ const ALLOWLIST = new Map([
   ['SHELL', 'OS-provided shell path'],
   ['PATH', 'OS-provided executable search path'],
   ['USER', 'OS-provided username'],
+  ['USERNAME', 'Windows OS-provided username'],
   ['LANG', 'OS-provided locale'],
   ['LC_ALL', 'OS-provided locale override'],
   ['APPDATA', 'Windows OS variable (cli-spawn-win.ts)'],

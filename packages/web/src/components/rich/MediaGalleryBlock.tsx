@@ -7,7 +7,11 @@ import { API_URL } from '@/utils/api-client';
 
 function resolveMediaUrl(url: string): string {
   const trimmed = url.trim();
-  if (trimmed.startsWith('/uploads/') || trimmed.startsWith('/api/connector-media/') || trimmed.startsWith('/avatars/')) {
+  if (
+    trimmed.startsWith('/uploads/') ||
+    trimmed.startsWith('/api/connector-media/') ||
+    trimmed.startsWith('/avatars/')
+  ) {
     return `${API_URL}${trimmed}`;
   }
   return trimmed;

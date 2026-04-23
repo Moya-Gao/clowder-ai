@@ -70,6 +70,12 @@ function createPnpmStub(logPath) {
 const { appendFileSync } = require('node:fs');
 const args = process.argv.slice(2);
 appendFileSync(${JSON.stringify(logPath)}, \`pnpm \${args.join(' ')}\\n\`);
+if (args[0] === 'install') {
+  appendFileSync(
+    ${JSON.stringify(logPath)},
+    \`env NODE_ENV=\${process.env.NODE_ENV ?? '<unset>'} npm_config_production=\${process.env.npm_config_production ?? '<unset>'} NPM_CONFIG_PRODUCTION=\${process.env.NPM_CONFIG_PRODUCTION ?? '<unset>'}\\n\`,
+  );
+}
 
 const command = args[0] === '-r' ? args.slice(0, 4).join(' ') : args[0];
 const knownCommands = new Set(['install', 'build', 'test', 'lint', 'check', '-r --if-present run build', '-r exec bash -lc']);
@@ -82,7 +88,7 @@ process.exit(0);
 `;
 }
 
-function runGate(bash, args = []) {
+function runGate(bash, args = [], extraEnv = {}) {
   const tempDir = mkdtempSync(path.join(os.tmpdir(), 'pre-merge-check-test-'));
   const binDir = path.join(tempDir, 'bin');
   const logPath = path.join(tempDir, 'commands.log');
@@ -98,6 +104,7 @@ function runGate(bash, args = []) {
       encoding: 'utf8',
       env: {
         ...process.env,
+        ...extraEnv,
         PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ''}`,
       },
     });
@@ -124,5 +131,24 @@ describe('pre-merge-check dependency refresh order', () => {
     assert.notEqual(buildIndex, -1, 'expected pnpm build to run');
     assert.ok(rebaseIndex < installIndex, `expected install after rebase, got:\n${result.logLines.join('\n')}`);
     assert.ok(installIndex < buildIndex, `expected build after install, got:\n${result.logLines.join('\n')}`);
+  });
+
+  it('clears inherited production install env before pnpm install', (t) => {
+    const bash = requireBash(t);
+    const result = runGate(bash, [], {
+      NODE_ENV: 'production',
+      npm_config_production: 'true',
+      NPM_CONFIG_PRODUCTION: 'true',
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const envLine = result.logLines.find((line) => line.startsWith('env NODE_ENV='));
+
+    assert.ok(envLine, `expected install env line, got:\n${result.logLines.join('\n')}`);
+    assert.equal(
+      envLine,
+      'env NODE_ENV=<unset> npm_config_production=<unset> NPM_CONFIG_PRODUCTION=<unset>',
+      `expected gate to clear inherited production install env, got:\n${result.logLines.join('\n')}`,
+    );
   });
 });
