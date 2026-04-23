@@ -283,7 +283,7 @@ describe('useAgentMessages system_info invocation_created', () => {
     const oldStaleId = 'msg-stale-historical-unbound';
     const liveActiveId = 'msg-live-active-unbound';
     const replaceCalls: Array<[string, string]> = [];
-    mockSetMessageStreamInvocation.mockImplementation((id: string, _inv: string) => {
+    mockSetMessageStreamInvocation.mockImplementation(() => {
       // No-op for this test's purpose (we assert via mockSetMessageStreamInvocation calls).
     });
     // Track replaceMessageId calls (id transition for unbound → deterministic).
