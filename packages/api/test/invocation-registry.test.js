@@ -21,7 +21,7 @@ describe('InvocationRegistry', () => {
     assert.ok(result.callbackToken.length > 0);
   });
 
-  test('verify() returns record for valid credentials', async () => {
+  test('verify() returns ok:true with record for valid credentials', async () => {
     const { InvocationRegistry } = await import(
       '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
     );
@@ -29,15 +29,16 @@ describe('InvocationRegistry', () => {
     const registry = new InvocationRegistry();
     const { invocationId, callbackToken } = registry.create('user-1', 'opus');
 
-    const record = registry.verify(invocationId, callbackToken);
-    assert.ok(record !== null);
-    assert.equal(record.userId, 'user-1');
-    assert.equal(record.catId, 'opus');
-    assert.equal(record.invocationId, invocationId);
-    assert.equal(record.callbackToken, callbackToken);
+    const result = registry.verify(invocationId, callbackToken);
+    assert.equal(result.ok, true);
+    assert.equal(result.record.userId, 'user-1');
+    assert.equal(result.record.catId, 'opus');
+    assert.equal(result.record.invocationId, invocationId);
+    assert.equal(result.record.callbackToken, callbackToken);
   });
 
-  test('verify() returns null for wrong token', async () => {
+  // F174 Phase A — Structured failure reasons (KD-4)
+  test('verify() returns reason:invalid_token when token mismatches', async () => {
     const { InvocationRegistry } = await import(
       '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
     );
@@ -45,11 +46,12 @@ describe('InvocationRegistry', () => {
     const registry = new InvocationRegistry();
     const { invocationId } = registry.create('user-1', 'opus');
 
-    const record = registry.verify(invocationId, 'wrong-token');
-    assert.equal(record, null);
+    const result = registry.verify(invocationId, 'wrong-token');
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, 'invalid_token');
   });
 
-  test('verify() returns null for unknown invocationId', async () => {
+  test('verify() returns reason:unknown_invocation for unknown invocationId', async () => {
     const { InvocationRegistry } = await import(
       '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
     );
@@ -57,11 +59,12 @@ describe('InvocationRegistry', () => {
     const registry = new InvocationRegistry();
     registry.create('user-1', 'opus');
 
-    const record = registry.verify('unknown-id', 'any-token');
-    assert.equal(record, null);
+    const result = registry.verify('unknown-id', 'any-token');
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, 'unknown_invocation');
   });
 
-  test('verify() returns null for expired invocation', async () => {
+  test('verify() returns reason:expired for expired invocation', async () => {
     const { InvocationRegistry } = await import(
       '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
     );
@@ -73,8 +76,9 @@ describe('InvocationRegistry', () => {
     // Wait for expiry
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    const record = registry.verify(invocationId, callbackToken);
-    assert.equal(record, null);
+    const result = registry.verify(invocationId, callbackToken);
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, 'expired');
   });
 
   test('LRU eviction removes oldest unused when at capacity', async () => {
@@ -90,7 +94,7 @@ describe('InvocationRegistry', () => {
 
     // Adding a 4th should evict first (oldest, never verified/refreshed)
     registry.create('user-4', 'opus');
-    assert.equal(registry.verify(first.invocationId, first.callbackToken), null);
+    assert.equal(registry.verify(first.invocationId, first.callbackToken).ok, false);
   });
 
   test('verify() refreshes recency (true LRU)', async () => {
@@ -105,19 +109,18 @@ describe('InvocationRegistry', () => {
     const _third = registry.create('user-3', 'gemini');
 
     // Access first — refreshes its recency, making second the oldest
-    assert.ok(registry.verify(first.invocationId, first.callbackToken) !== null);
+    assert.equal(registry.verify(first.invocationId, first.callbackToken).ok, true);
 
     // Adding a 4th should evict second (oldest unused), not first (recently verified)
     registry.create('user-4', 'opus');
-    assert.ok(
-      registry.verify(first.invocationId, first.callbackToken) !== null,
+    assert.equal(
+      registry.verify(first.invocationId, first.callbackToken).ok,
+      true,
       'first should survive (recently used)',
     );
-    assert.equal(
-      registry.verify(second.invocationId, second.callbackToken),
-      null,
-      'second should be evicted (oldest unused)',
-    );
+    const evicted = registry.verify(second.invocationId, second.callbackToken);
+    assert.equal(evicted.ok, false, 'second should be evicted (oldest unused)');
+    assert.equal(evicted.reason, 'unknown_invocation');
   });
 
   test('multiple creates produce unique IDs', async () => {
@@ -241,7 +244,8 @@ describe('InvocationRegistry', () => {
 
     // Trigger TTL cleanup via verify() with correct token (reaches TTL check)
     const result = registry.verify(invocationId, callbackToken);
-    assert.equal(result, null, 'expired record should fail verify');
+    assert.equal(result.ok, false, 'expired record should fail verify');
+    assert.equal(result.reason, 'expired');
 
     // isLatest should now return false (record gone + pointer cleaned)
     assert.equal(registry.isLatest(invocationId), false);
@@ -308,13 +312,13 @@ describe('InvocationRegistry', () => {
 
       // Advance 30ms (past 60% of TTL), then verify to renew.
       now += 30;
-      const record = registry.verify(invocationId, callbackToken);
-      assert.ok(record !== null, 'should still be valid at +30ms');
+      const result = registry.verify(invocationId, callbackToken);
+      assert.equal(result.ok, true, 'should still be valid at +30ms');
 
       // Advance another 30ms (+60ms from create, but only +30ms since renewal).
       now += 30;
-      const record2 = registry.verify(invocationId, callbackToken);
-      assert.ok(record2 !== null, 'sliding window should have extended TTL');
+      const result2 = registry.verify(invocationId, callbackToken);
+      assert.equal(result2.ok, true, 'sliding window should have extended TTL');
     } finally {
       Date.now = originalDateNow;
     }
@@ -331,9 +335,9 @@ describe('InvocationRegistry', () => {
     const { invocationId, callbackToken } = registry.create('user-1', 'opus');
 
     // Verify the record's expiresAt is ~2h from now (not 10 min)
-    const record = registry.verify(invocationId, callbackToken);
-    assert.ok(record !== null);
-    const remainingMs = record.expiresAt - Date.now();
+    const result = registry.verify(invocationId, callbackToken);
+    assert.equal(result.ok, true);
+    const remainingMs = result.record.expiresAt - Date.now();
     // Should be close to 2h (allow 5s tolerance for test execution)
     assert.ok(remainingMs > 2 * 60 * 60 * 1000 - 5000, `TTL should be ~2h, got ${Math.round(remainingMs / 1000)}s`);
   });
@@ -348,9 +352,9 @@ describe('InvocationRegistry', () => {
     const registry = new InvocationRegistry();
     const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-1', 'parent-inv-123');
 
-    const record = registry.verify(invocationId, callbackToken);
-    assert.ok(record !== null);
-    assert.equal(record.parentInvocationId, 'parent-inv-123');
+    const result = registry.verify(invocationId, callbackToken);
+    assert.equal(result.ok, true);
+    assert.equal(result.record.parentInvocationId, 'parent-inv-123');
   });
 
   test('create() omits parentInvocationId from record when not provided', async () => {
@@ -361,9 +365,9 @@ describe('InvocationRegistry', () => {
     const registry = new InvocationRegistry();
     const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-1');
 
-    const record = registry.verify(invocationId, callbackToken);
-    assert.ok(record !== null);
-    assert.equal(record.parentInvocationId, undefined);
+    const result = registry.verify(invocationId, callbackToken);
+    assert.equal(result.ok, true);
+    assert.equal(result.record.parentInvocationId, undefined);
   });
 
   test('stale invocation still rejected despite sliding window', async () => {
@@ -377,8 +381,8 @@ describe('InvocationRegistry', () => {
     registry.create('user-1', 'opus', 'thread-1');
 
     // Old invocation can still verify() (token is valid)...
-    const record = registry.verify(old.invocationId, old.callbackToken);
-    assert.ok(record !== null, 'old token still valid');
+    const result = registry.verify(old.invocationId, old.callbackToken);
+    assert.equal(result.ok, true, 'old token still valid');
     // ...but isLatest() correctly rejects it
     assert.equal(
       registry.isLatest(old.invocationId),

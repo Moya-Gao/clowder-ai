@@ -65,6 +65,12 @@ export type {
   BrakeSettings,
   BrakeState,
 } from './brake.js';
+// F174 Phase A: shared reason taxonomy for callback auth failures
+export {
+  CALLBACK_AUTH_FAILURE_REASONS,
+  type CallbackAuthFailureReason,
+  isCallbackAuthFailureReason,
+} from './callback-auth-reasons.js';
 // Capability types (F041 统一能力模型)
 export type {
   BootstrapAction,

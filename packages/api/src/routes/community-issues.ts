@@ -17,7 +17,7 @@ import { type CatId, createCatId, DEFAULT_INTAKE_CHECKLIST, validateIntakeCheckl
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { getRoster } from '../config/cat-config-loader.js';
-import type { InvocationRecord } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
+import type { VerifyResult } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { ICommunityIssueStore } from '../domains/cats/services/stores/ports/CommunityIssueStore.js';
 import type { ICommunityPrStore } from '../domains/cats/services/stores/ports/CommunityPrStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
@@ -32,7 +32,7 @@ import { resolveUserId } from '../utils/request-identity.js';
 import { registerCallbackAuthHook } from './callback-auth-prehandler.js';
 
 interface CallbackAuthVerifier {
-  verify(invocationId: string, callbackToken: string): InvocationRecord | null;
+  verify(invocationId: string, callbackToken: string): VerifyResult;
 }
 
 export interface CommunityIssuesRoutesOptions {

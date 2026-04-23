@@ -38,18 +38,21 @@ describe('Community Issues Routes', () => {
       for (const [catId, creds] of Object.entries(catCredentials)) {
         if (creds.invocationId === invocationId && creds.callbackToken === callbackToken) {
           return {
-            invocationId,
-            callbackToken,
-            userId: 'system',
-            catId,
-            threadId: 't1',
-            clientMessageIds: new Set(),
-            createdAt: Date.now(),
-            expiresAt: Date.now() + 60000,
+            ok: true,
+            record: {
+              invocationId,
+              callbackToken,
+              userId: 'system',
+              catId,
+              threadId: 't1',
+              clientMessageIds: new Set(),
+              createdAt: Date.now(),
+              expiresAt: Date.now() + 60000,
+            },
           };
         }
       }
-      return null;
+      return { ok: false, reason: 'unknown_invocation' };
     },
   };
 

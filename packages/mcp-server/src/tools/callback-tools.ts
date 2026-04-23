@@ -4,11 +4,49 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { normalizeRichBlock } from '@cat-cafe/shared';
+import type { CallbackAuthFailureReason } from '@cat-cafe/shared';
+import { CALLBACK_AUTH_FAILURE_REASONS, isCallbackAuthFailureReason, normalizeRichBlock } from '@cat-cafe/shared';
 import { z } from 'zod';
 import { sendCallbackRequest } from './callback-outbox.js';
+import { extractReasonTag } from './callback-retry.js';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
+
+/**
+ * F174 Phase A — reason taxonomy lives in @cat-cafe/shared (single source of
+ * truth shared with the API). Aliased here for local readability.
+ */
+type AuthFailureReason = CallbackAuthFailureReason;
+const KNOWN_REASONS: ReadonlySet<AuthFailureReason> = new Set(CALLBACK_AUTH_FAILURE_REASONS);
+
+/**
+ * Parse the structured reason tag added by the retry layer (or callbackGet)
+ * into a typed AuthFailureReason. Returns undefined if no tag, the tag is
+ * malformed, or the reason is unknown — callers must handle that case.
+ */
+function parseAuthFailureReason(errorText: string): AuthFailureReason | undefined {
+  const match = /\[reason=([a-z_]+)\]/.exec(errorText);
+  if (!match) return undefined;
+  const reason = match[1];
+  // Use shared type guard so an unknown reason from a future server doesn't
+  // get silently coerced into our local enum.
+  if (reason && isCallbackAuthFailureReason(reason) && KNOWN_REASONS.has(reason)) {
+    return reason;
+  }
+  return undefined;
+}
+
+/**
+ * Reasons that imply the invocation token has stopped working and degradation
+ * (Phase E) should kick in. Distinct from `invalid_token` (mismatched token —
+ * likely client bug) and `stale_invocation` (succeeded but superseded).
+ */
+const DEGRADABLE_AUTH_REASONS: ReadonlySet<AuthFailureReason> = new Set(['expired', 'unknown_invocation']);
+
+function isDegradableAuthFailure(errorText: string): boolean {
+  const reason = parseAuthFailureReason(errorText);
+  return reason !== undefined && DEGRADABLE_AUTH_REASONS.has(reason);
+}
 
 interface CallbackConfig {
   apiUrl: string;
@@ -86,7 +124,10 @@ export async function callbackGet(path: string, params?: Record<string, string>)
     const response = await fetch(url, { headers: buildAuthHeaders(config) });
     if (!response.ok) {
       const text = await response.text();
-      return errorResult(`Callback failed (${response.status}): ${text}`);
+      // F174 Phase A: tag structured reason from 401 callback_auth_failed body
+      // so downstream routing matches the postJsonWithRetry error format.
+      const reasonTag = response.status === 401 ? extractReasonTag(text) : '';
+      return errorResult(`Callback failed (${response.status})${reasonTag}: ${text}`);
     }
     return successResult(JSON.stringify(await response.json()));
   } catch (err) {
@@ -259,17 +300,24 @@ export async function handlePostMessage(input: {
 
   // If post-message failed and content contains @mentions,
   // hint that text-based @mention is always available.
-  // Only mention credential issues when the error actually looks like auth failure.
+  // F174 Phase A: route on the structured reason tag (added by callback-retry)
+  // instead of regex-matching prose. Falls back to "generic failure" hint when
+  // no reason tag is present (e.g. network error, non-auth 4xx).
   if (result.isError && /[@＠]/.test(input.content)) {
     const original = (result.content[0] as { text: string }).text;
-    const lower = original.toLowerCase();
-    const looksLikeCredentialFailure =
-      lower.includes('callback failed (401)') ||
-      lower.includes('invalid or expired callback credentials') ||
-      lower.includes('callback token');
-    const reasonHint = looksLikeCredentialFailure
-      ? '这次 callback 凭证校验失败（可能是 token 过期，也可能 invocation/token 不匹配）。'
-      : '这次 post-message 调用失败。';
+    const reason = parseAuthFailureReason(original);
+    const reasonHint = ((): string => {
+      if (reason === 'expired' || reason === 'unknown_invocation') {
+        return '这次 callback 凭证已过期或对应的 invocation 已不在 registry（可能 API 重启过）。';
+      }
+      if (reason === 'invalid_token') {
+        return '这次 callback token 与 invocation 不匹配（客户端可能传错了凭证）。';
+      }
+      if (reason === 'missing_creds') {
+        return '这次 callback 缺少凭证 header（MCP 客户端环境变量可能没注入）。';
+      }
+      return '这次 post-message 调用失败。';
+    })();
     const hint =
       `\n\n💡 Tip: ${reasonHint}如果你想 @其他猫猫，` +
       '不需要用这个 MCP tool——直接在你的回复文本里另起一行写 @猫名 即可' +
@@ -422,9 +470,14 @@ export async function handleCreateRichBlock(input: { block: string }): Promise<T
 
   // P1 cloud-review: only fallback to Route B for auth/config failures.
   // Validation errors (400/422) must surface directly, not be silently swallowed.
+  // F174 Phase A: 401 routing is now reason-typed — only `expired` /
+  // `unknown_invocation` qualify for degradation. `invalid_token` (client bug)
+  // and `stale_invocation` (delivered but superseded) are NOT degraded; they
+  // surface to caller for separate handling. 403 + "not configured" stay as-is.
   const errorText = result.content[0]?.type === 'text' ? result.content[0].text : '';
-  const isAuthOrConfigFailure = /\(40[13]\)/.test(errorText) || /not configured/i.test(errorText);
-  if (!isAuthOrConfigFailure) return result;
+  const isDegradableAuth = isDegradableAuthFailure(errorText);
+  const isLegacyConfigFailure = /\(403\)/.test(errorText) || /not configured/i.test(errorText);
+  if (!isDegradableAuth && !isLegacyConfigFailure) return result;
 
   // Route A auth/config failed — try Route B: cc_rich text via post_message (#83 extracts it server-side)
   const ccRichText = `\`\`\`cc_rich\n${JSON.stringify({ v: 1, blocks: [parsed] })}\n\`\`\``;

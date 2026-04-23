@@ -337,10 +337,11 @@ describe('AgentRouter + Services wiring', () => {
     await collect(router.route('user-1', 'hello'));
 
     const env = claudeSpawn._calls[0].options.env;
-    const record = registry.verify(env.CAT_CAFE_INVOCATION_ID, env.CAT_CAFE_CALLBACK_TOKEN);
-    assert.ok(record, 'credentials should be verifiable');
-    assert.equal(record.userId, 'user-1');
-    assert.equal(record.catId, 'opus');
+    // F174 Phase A: verify() returns VerifyResult discriminated union
+    const result = registry.verify(env.CAT_CAFE_INVOCATION_ID, env.CAT_CAFE_CALLBACK_TOKEN);
+    assert.equal(result.ok, true, 'credentials should be verifiable');
+    assert.equal(result.record.userId, 'user-1');
+    assert.equal(result.record.catId, 'opus');
   });
 
   // --- MessageStore 接线验证 ---

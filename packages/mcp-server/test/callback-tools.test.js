@@ -358,21 +358,50 @@ describe('MCP Callback Tools', () => {
     assert.ok(text.includes('直接在你的回复文本里另起一行写 @猫名'));
   });
 
-  test('adds credential hint on callback credential failure with @mention', async () => {
+  test('adds reason-typed credential hint on expired callback failure with @mention', async () => {
     const { handlePostMessage } = await import('../dist/tools/callback-tools.js');
 
+    // F174 Phase A: structured 401 carries reason; client routes hint by typed reason.
     globalThis.fetch = async () => ({
       ok: false,
       status: 401,
-      text: async () => JSON.stringify({ error: 'Invalid or expired callback credentials' }),
+      text: async () =>
+        JSON.stringify({
+          error: 'callback_auth_failed',
+          reason: 'expired',
+          message: 'Callback credentials expired (TTL elapsed)',
+          hint: '...',
+        }),
     });
 
     const result = await handlePostMessage({ content: '@codex ping' });
     const text = result.content[0].text;
 
     assert.equal(result.isError, true);
-    assert.ok(text.includes('callback 凭证校验失败'));
-    assert.ok(text.includes('可能是 token 过期，也可能 invocation/token 不匹配'));
+    assert.ok(text.includes('callback 凭证已过期'));
+    assert.ok(text.includes('直接在你的回复文本里另起一行写 @猫名'));
+  });
+
+  test('adds invalid_token-specific hint on token mismatch with @mention', async () => {
+    const { handlePostMessage } = await import('../dist/tools/callback-tools.js');
+
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 401,
+      text: async () =>
+        JSON.stringify({
+          error: 'callback_auth_failed',
+          reason: 'invalid_token',
+          message: 'Callback token does not match invocation',
+          hint: '...',
+        }),
+    });
+
+    const result = await handlePostMessage({ content: '@gpt52 ping' });
+    const text = result.content[0].text;
+
+    assert.equal(result.isError, true);
+    assert.ok(text.includes('callback token 与 invocation 不匹配'));
   });
 
   test('handleSearchEvidence calls callback endpoint with encoded query params', async () => {
@@ -830,8 +859,18 @@ describe('MCP Callback Tools', () => {
     globalThis.fetch = async (url, _options) => {
       capturedUrls.push(url);
       if (url.includes('create-rich-block')) {
-        // Route A fails
-        return { ok: false, status: 401, text: async () => 'Expired' };
+        // Route A fails — F174 Phase A: structured 401 with reason=expired triggers degradation.
+        return {
+          ok: false,
+          status: 401,
+          text: async () =>
+            JSON.stringify({
+              error: 'callback_auth_failed',
+              reason: 'expired',
+              message: 'Callback credentials expired',
+              hint: '...',
+            }),
+        };
       }
       // Route B (post-message) succeeds
       return { ok: true, json: async () => ({ status: 'ok' }) };
@@ -857,10 +896,17 @@ describe('MCP Callback Tools', () => {
   test('handleCreateRichBlock returns error with cc_rich hint when both routes fail', async () => {
     const { handleCreateRichBlock } = await import('../dist/tools/callback-tools.js');
 
+    // F174 Phase A: 401 must include structured reason for degradation to trigger.
     globalThis.fetch = async () => ({
       ok: false,
       status: 401,
-      text: async () => 'Expired token',
+      text: async () =>
+        JSON.stringify({
+          error: 'callback_auth_failed',
+          reason: 'expired',
+          message: 'Callback credentials expired (TTL elapsed)',
+          hint: '...',
+        }),
     });
 
     const block = JSON.stringify({ id: 'c2', kind: 'card', v: 1, title: 'Hint Test' });
@@ -870,6 +916,56 @@ describe('MCP Callback Tools', () => {
     const text = result.content[0].text;
     assert.ok(text.includes('cc_rich'), 'error should contain cc_rich hint text');
     assert.ok(text.includes('Hint Test'), 'error should contain the block content');
+  });
+
+  // F174 Phase A — Reason-typed degradation contract (KD-7)
+  test('handleCreateRichBlock does NOT degrade on reason:invalid_token (client bug, not transient)', async () => {
+    const { handleCreateRichBlock } = await import('../dist/tools/callback-tools.js');
+
+    const capturedUrls = [];
+    globalThis.fetch = async (url) => {
+      capturedUrls.push(url);
+      return {
+        ok: false,
+        status: 401,
+        text: async () =>
+          JSON.stringify({
+            error: 'callback_auth_failed',
+            reason: 'invalid_token',
+            message: 'Callback token does not match invocation',
+            hint: '...',
+          }),
+      };
+    };
+
+    const block = JSON.stringify({ id: 'c3', kind: 'card', v: 1, title: 'No Degrade' });
+    const result = await handleCreateRichBlock({ block });
+
+    assert.equal(result.isError, true);
+    // Route A attempted; Route B (post-message) should NOT have been attempted
+    assert.ok(
+      !capturedUrls.some((u) => u.includes('post-message')),
+      'invalid_token must not trigger Route B fallback (it is a client bug, not transient auth failure)',
+    );
+  });
+
+  test('handleCreateRichBlock does NOT degrade on un-tagged 401 (legacy API or non-JSON body)', async () => {
+    const { handleCreateRichBlock } = await import('../dist/tools/callback-tools.js');
+
+    const capturedUrls = [];
+    globalThis.fetch = async (url) => {
+      capturedUrls.push(url);
+      return { ok: false, status: 401, text: async () => 'plain text 401' };
+    };
+
+    const block = JSON.stringify({ id: 'c4', kind: 'card', v: 1, title: 'No Degrade Legacy' });
+    const result = await handleCreateRichBlock({ block });
+
+    assert.equal(result.isError, true);
+    assert.ok(
+      !capturedUrls.some((u) => u.includes('post-message')),
+      'un-tagged 401 must surface to caller — degradation requires explicit reason from server',
+    );
   });
 
   test('handleCreateRichBlock does NOT fallback on validation error (400)', async () => {

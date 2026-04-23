@@ -42,7 +42,7 @@ describe('#774 CLI timeout retry on session resume', () => {
           invocationId: `inv-${++counter}`,
           callbackToken: `tok-${counter}`,
         }),
-        verify: () => null,
+        verify: () => ({ ok: false, reason: 'unknown_invocation' }),
       },
       sessionManager: {
         get: async () => 'cli-sess-stale',

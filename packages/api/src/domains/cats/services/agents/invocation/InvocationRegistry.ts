@@ -43,6 +43,18 @@ const MAX_INVOCATIONS = 500;
 const MAX_CLIENT_MESSAGE_IDS = 1000;
 
 /**
+ * F174 Phase A — Structured auth failure reasons.
+ *
+ * Discriminated union returned by verify() so downstream telemetry (Phase D)
+ * and degradation (Phase E) can branch on a typed reason instead of regex-matching
+ * error strings. `stale_invocation` is NOT emitted here — it lives at isLatest()
+ * call sites (post_message / schedule), which already had ad-hoc detection.
+ */
+export type AuthFailureReason = 'expired' | 'invalid_token' | 'unknown_invocation';
+
+export type VerifyResult = { ok: true; record: InvocationRecord } | { ok: false; reason: AuthFailureReason };
+
+/**
  * Registry for managing invocation auth tokens.
  * In-memory implementation — Phase 3 will migrate to Redis.
  */
@@ -105,20 +117,24 @@ export class InvocationRegistry {
 
   /**
    * Verify invocationId + callbackToken binding.
-   * Returns the record if valid, null if invalid or expired.
+   * Returns a discriminated VerifyResult — on failure, includes a typed reason
+   * so callers (preHandler / telemetry / degradation) can branch precisely
+   * instead of regex-matching error strings. (F174 Phase A — KD-4)
    */
-  verify(invocationId: string, callbackToken: string): InvocationRecord | null {
+  verify(invocationId: string, callbackToken: string): VerifyResult {
     const record = this.records.get(invocationId);
-    if (!record) return null;
+    if (!record) return { ok: false, reason: 'unknown_invocation' };
 
     // Check token match
-    if (record.callbackToken !== callbackToken) return null;
+    if (record.callbackToken !== callbackToken) {
+      return { ok: false, reason: 'invalid_token' };
+    }
 
     // Check TTL
     if (Date.now() > record.expiresAt) {
       this.cleanupLatestPointer(invocationId);
       this.records.delete(invocationId);
-      return null;
+      return { ok: false, reason: 'expired' };
     }
 
     // Sliding window: each successful verify extends the TTL
@@ -128,7 +144,7 @@ export class InvocationRegistry {
     this.records.delete(invocationId);
     this.records.set(invocationId, record);
 
-    return record;
+    return { ok: true, record };
   }
 
   /**

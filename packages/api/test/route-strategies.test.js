@@ -158,7 +158,7 @@ function createMockDeps(services, appendCalls, threadStore = null, guideSessionS
     invocationDeps: {
       registry: {
         create: () => ({ invocationId: `inv-${++counter}`, callbackToken: `tok-${counter}` }),
-        verify: () => null,
+        verify: () => ({ ok: false, reason: 'unknown_invocation' }),
       },
       sessionManager: {
         get: async () => undefined,
@@ -904,7 +904,7 @@ describe('routeSerial resilience', () => {
       invocationDeps: {
         registry: {
           create: () => ({ invocationId: `inv-${++counter}`, callbackToken: `tok-${counter}` }),
-          verify: () => null,
+          verify: () => ({ ok: false, reason: 'unknown_invocation' }),
         },
         sessionManager: {
           get: async () => undefined,

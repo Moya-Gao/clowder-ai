@@ -6,8 +6,8 @@
  */
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import type { InvocationRecord } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
-import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
+import type { InvocationRecord, VerifyResult } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
+import { makeCallbackAuthError } from './callback-errors.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -16,7 +16,7 @@ declare module 'fastify' {
 }
 
 interface CallbackAuthRegistry {
-  verify(invocationId: string, callbackToken: string): InvocationRecord | null;
+  verify(invocationId: string, callbackToken: string): VerifyResult;
 }
 
 /** Register the callbackAuth decoration + preHandler on a Fastify instance.
@@ -48,12 +48,12 @@ export function registerCallbackAuthHook(app: FastifyInstance, registry: Callbac
 
     if (!invocationId && !callbackToken) return;
     if (!invocationId || !callbackToken) {
-      reply.status(401).send(EXPIRED_CREDENTIALS_ERROR);
+      reply.status(401).send(makeCallbackAuthError('missing_creds'));
       return;
     }
-    const record = registry.verify(invocationId, callbackToken);
-    if (!record) {
-      reply.status(401).send(EXPIRED_CREDENTIALS_ERROR);
+    const result = registry.verify(invocationId, callbackToken);
+    if (!result.ok) {
+      reply.status(401).send(makeCallbackAuthError(result.reason));
       return;
     }
     if (legacy) {
@@ -62,7 +62,7 @@ export function registerCallbackAuthHook(app: FastifyInstance, registry: Callbac
         '[#476 DEPRECATED] Callback credentials received via body/query — migrate to X-Invocation-Id / X-Callback-Token headers',
       );
     }
-    request.callbackAuth = record;
+    request.callbackAuth = result.record;
   });
 }
 
@@ -91,7 +91,11 @@ function extractLegacyCredentials(
 export function requireCallbackAuth(request: FastifyRequest, reply: FastifyReply): InvocationRecord | null {
   if (request.callbackAuth) return request.callbackAuth;
   reply.status(401);
-  reply.send(EXPIRED_CREDENTIALS_ERROR);
+  // unknown_invocation: preHandler didn't decorate the request, which means
+  // either creds were missing entirely (handled above) or the route was hit
+  // without going through the preHandler chain. Surfacing as unknown is safer
+  // than expired (we don't actually know the registry state here).
+  reply.send(makeCallbackAuthError('unknown_invocation'));
   return null;
 }
 

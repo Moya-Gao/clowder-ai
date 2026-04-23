@@ -485,7 +485,10 @@ describe('Schedule Routes', () => {
 
       assert.equal(res.statusCode, 401);
       const body = res.json();
-      assert.ok(body.error.includes('expired'), 'preHandler rejects invalid creds before route handler');
+      // F174 Phase A: preHandler returns structured { error: 'callback_auth_failed', reason: '...' }.
+      // Invalid token (creds wrong) → reason === 'invalid_token'.
+      assert.equal(body.error, 'callback_auth_failed', 'preHandler rejects invalid creds before route handler');
+      assert.ok(['invalid_token', 'unknown_invocation', 'expired'].includes(body.reason));
     });
   });
 
@@ -785,7 +788,10 @@ describe('Schedule Routes', () => {
 
       assert.equal(res.statusCode, 401);
       const body = res.json();
-      assert.ok(body.error.includes('expired'), 'preHandler rejects invalid creds before route handler');
+      // F174 Phase A: preHandler returns structured { error: 'callback_auth_failed', reason: '...' }.
+      // Invalid token (creds wrong) → reason === 'invalid_token'.
+      assert.equal(body.error, 'callback_auth_failed', 'preHandler rejects invalid creds before route handler');
+      assert.ok(['invalid_token', 'unknown_invocation', 'expired'].includes(body.reason));
       const stored = store.getAll().find((d) => d.params?.message === 'invalid-create');
       assert.equal(stored, undefined);
     });
