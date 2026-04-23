@@ -5,11 +5,11 @@
  * coordinates, delegates, explores, and guides their cat team.
  *
  * Redis keys:
- *   leadership:{dimension} → total XP (INCRBY)
+ *   leadership:{dimension} → total footfall (INCRBY)
  *   leadership:audit       → sorted set of footfall events
  *   leadership:titles      → sorted set of unlocked titles
  *
- * Level formula: same quadratic curve as cat traits — level = floor(sqrt(xp / 100))
+ * Level formula: same quadratic curve as cat traits — level = floor(sqrt(footfall / 100))
  */
 
 import type {
@@ -29,40 +29,40 @@ import { leadershipAuditKey, leadershipTitleKey, leadershipXpKey } from '../stor
 
 const log = createModuleLogger('leadership');
 
-// ── XP Rules ─────────────────────────────────────────────────────
+// ── Footfall Rules ──────────────────────────────────────────────
 
-const LEADERSHIP_XP_RULES: Record<LeadershipFootfallSource, { dimension: LeadershipDimension; xp: number }> = {
-  multi_mention_dispatch: { dimension: 'coordination', xp: 15 },
-  multi_mention_success: { dimension: 'coordination', xp: 25 },
-  target_diversity: { dimension: 'coordination', xp: 10 },
-  task_no_intervention: { dimension: 'delegation', xp: 20 },
-  deep_collab_initiated: { dimension: 'delegation', xp: 15 },
-  tool_category_breadth: { dimension: 'exploration', xp: 10 },
-  new_skill_first_use: { dimension: 'exploration', xp: 30 },
-  feature_initiated: { dimension: 'exploration', xp: 20 },
-  one_shot_completion: { dimension: 'guidance', xp: 25 },
-  low_clarification: { dimension: 'guidance', xp: 15 },
-  direction_confirmed: { dimension: 'decision', xp: 20 },
-  direction_confirmed_explicit: { dimension: 'decision', xp: 20 },
-  feedback_applied: { dimension: 'feedback', xp: 20 },
-  clarification_observed: { dimension: 'decision', xp: 1 },
+const LEADERSHIP_FOOTFALL_RULES: Record<LeadershipFootfallSource, { dimension: LeadershipDimension; footfall: number }> = {
+  multi_mention_dispatch: { dimension: 'coordination', footfall: 15 },
+  multi_mention_success: { dimension: 'coordination', footfall: 25 },
+  target_diversity: { dimension: 'coordination', footfall: 10 },
+  task_no_intervention: { dimension: 'delegation', footfall: 20 },
+  deep_collab_initiated: { dimension: 'delegation', footfall: 15 },
+  tool_category_breadth: { dimension: 'exploration', footfall: 10 },
+  new_skill_first_use: { dimension: 'exploration', footfall: 30 },
+  feature_initiated: { dimension: 'exploration', footfall: 20 },
+  one_shot_completion: { dimension: 'guidance', footfall: 25 },
+  low_clarification: { dimension: 'guidance', footfall: 15 },
+  direction_confirmed: { dimension: 'decision', footfall: 20 },
+  direction_confirmed_explicit: { dimension: 'decision', footfall: 20 },
+  feedback_applied: { dimension: 'feedback', footfall: 20 },
+  clarification_observed: { dimension: 'decision', footfall: 1 },
 };
 
 // ── Level Math ───────────────────────────────────────────────────
 
-function levelFromXp(xp: number): number {
-  return Math.floor(Math.sqrt(xp / 100));
+function levelFromFootfall(footfall: number): number {
+  return Math.floor(Math.sqrt(footfall / 100));
 }
 
-function xpForLevel(level: number): number {
+function footfallForLevel(level: number): number {
   return level * level * 100;
 }
 
 const shadowSet = new Set<string>(LEADERSHIP_SHADOW_DIMS);
 
-function buildLeadershipStat(dimension: LeadershipDimension, xp: number): LeadershipStat {
-  const level = levelFromXp(xp);
-  return { dimension, xp, level, xpToNext: xpForLevel(level + 1) - xp, shadow: shadowSet.has(dimension) };
+function buildLeadershipStat(dimension: LeadershipDimension, footfall: number): LeadershipStat {
+  const level = levelFromFootfall(footfall);
+  return { dimension, footfall, level, footfallToNext: footfallForLevel(level + 1) - footfall, shadow: shadowSet.has(dimension) };
 }
 
 const RARITY_ORDER: Record<string, number> = { legendary: 4, epic: 3, rare: 2, common: 1 };
@@ -73,28 +73,28 @@ export class LeadershipService {
   constructor(private readonly redis: RedisClient) {}
 
   /** Award leadership footfall. Fire-and-forget. */
-  awardXp(source: LeadershipFootfallSource, multiplier = 1): void {
-    const rule = LEADERSHIP_XP_RULES[source];
+  awardFootfall(source: LeadershipFootfallSource, multiplier = 1): void {
+    const rule = LEADERSHIP_FOOTFALL_RULES[source];
     if (!rule) return;
-    const amount = Math.max(1, Math.round(rule.xp * multiplier));
+    const amount = Math.max(1, Math.round(rule.footfall * multiplier));
     const key = leadershipXpKey(rule.dimension);
     const ts = Date.now();
 
     const pipeline = this.redis.pipeline();
     pipeline.incrby(key, amount);
-    const event = { dimension: rule.dimension, xp: amount, source, timestamp: ts };
+    const event = { dimension: rule.dimension, footfall: amount, source, timestamp: ts };
     const member = JSON.stringify({ ...event, _seq: Math.random().toString(36).slice(2, 8) });
     pipeline.zadd(leadershipAuditKey(), ts, member);
     pipeline
       .exec()
       .then(() => {
-        // AC-D4: Check title unlocks after XP change (fire-and-forget)
+        // AC-D4: Check title unlocks after footfall change (fire-and-forget)
         this.getProfile()
           .then((profile) => this.checkTitleUnlocks(profile))
           .catch((err: unknown) => log.warn({ err }, 'Leadership title check failed'));
       })
       .catch((err: unknown) => {
-        log.warn({ err, source }, 'Failed to award leadership XP');
+        log.warn({ err, source }, 'Failed to award leadership footfall');
       });
   }
 
@@ -104,18 +104,18 @@ export class LeadershipService {
     const values = await this.redis.mget(...keys);
 
     const stats = {} as Record<LeadershipDimension, LeadershipStat>;
-    let totalXp = 0;
+    let totalFootfall = 0;
     let levelSum = 0;
     let activeDims = 0;
 
     for (let i = 0; i < LEADERSHIP_DIMENSIONS.length; i++) {
       const dim = LEADERSHIP_DIMENSIONS[i]!;
-      const xp = parseInt(values[i] ?? '0', 10) || 0;
-      stats[dim] = buildLeadershipStat(dim, xp);
-      totalXp += xp;
+      const footfall = parseInt(values[i] ?? '0', 10) || 0;
+      stats[dim] = buildLeadershipStat(dim, footfall);
+      totalFootfall += footfall;
       if (!shadowSet.has(dim)) {
         levelSum += stats[dim].level;
-        if (xp > 0) activeDims++;
+        if (footfall > 0) activeDims++;
       }
     }
 
@@ -124,7 +124,7 @@ export class LeadershipService {
     return {
       stats,
       leadershipLevel: activeDims > 0 ? Math.floor(levelSum / activeDims) : 0,
-      totalXp,
+      totalFootfall,
       currentTitle,
       updatedAt: Date.now(),
     };
@@ -138,8 +138,8 @@ export class LeadershipService {
         return (profile.stats[cond.dimension]?.level ?? 0) >= cond.minLevel;
       case 'leadership_level':
         return profile.leadershipLevel >= cond.minLevel;
-      case 'leadership_total_xp':
-        return profile.totalXp >= cond.minXp;
+      case 'leadership_total_footfall':
+        return profile.totalFootfall >= cond.minFootfall;
     }
   }
 

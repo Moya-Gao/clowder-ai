@@ -66,7 +66,7 @@ export function SkillTreePanel({ profile }: Props) {
     fetchData();
   }, [fetchData]);
 
-  const { stats, overallLevel, totalXp } = profile.attributes;
+  const { stats, overallLevel, totalFootfall } = profile.attributes;
 
   // Build dimension level map for condition display
   const dimensionLevels: Partial<Record<GrowthDimension, number>> = {};
@@ -117,7 +117,7 @@ export function SkillTreePanel({ profile }: Props) {
                         unlock={unlocked.find((u) => u.titleId === def.id)}
                         dimensionLevels={dimensionLevels}
                         overallLevel={overallLevel}
-                        totalXp={totalXp}
+                        totalFootfall={totalFootfall}
                       />
                     ))}
                   </div>

@@ -19,9 +19,9 @@ import type { SocketManager } from '../infrastructure/websocket/index.js';
 export interface TasksRoutesOptions {
   taskStore: ITaskStore;
   socketManager: SocketManager;
-  /** F160: Optional growth service for XP awards on task completion */
+  /** F160: Optional growth service for footfall awards on task completion */
   growthService?: GrowthService;
-  /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
+  /** F160 Phase C: Activity event bus — replaces direct awardFootfall calls */
   activityBus?: import('../domains/activity/ActivityEventBus.js').ActivityEventBus;
 }
 

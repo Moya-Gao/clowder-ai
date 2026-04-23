@@ -8,9 +8,9 @@ interface CallbackMemoryRoutesDeps {
   evidenceStore: IEvidenceStore;
   markerQueue: IMarkerQueue;
   reflectionService: IReflectionService;
-  /** F160: Growth XP service — awards insight XP on evidence usage */
+  /** F160: Growth service — awards insight footfall on evidence usage */
   growthService?: import('../domains/cats/services/journey/GrowthService.js').GrowthService;
-  /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
+  /** F160 Phase C: Activity event bus — replaces direct awardFootfall calls */
   activityBus?: import('../domains/activity/ActivityEventBus.js').ActivityEventBus;
 }
 

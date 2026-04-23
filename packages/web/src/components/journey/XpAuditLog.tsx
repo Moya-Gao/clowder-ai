@@ -5,7 +5,7 @@
  * Renders as an expandable section within the profile card.
  */
 
-import type { GrowthDimension, XpEvent } from '@cat-cafe/shared';
+import type { FootfallEvent, GrowthDimension } from '@cat-cafe/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 
@@ -49,7 +49,7 @@ interface Props {
 }
 
 export function XpAuditLog({ catId, color = '#9B7EBD', defaultOpen = false }: Props) {
-  const [events, setEvents] = useState<XpEvent[]>([]);
+  const [events, setEvents] = useState<FootfallEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState(false);
   const [fetched, setFetched] = useState(false);
@@ -62,7 +62,7 @@ export function XpAuditLog({ catId, color = '#9B7EBD', defaultOpen = false }: Pr
     try {
       const res = await apiFetch(`/api/journey/${catId}/events?limit=30`);
       if (res.ok) {
-        const data = (await res.json()) as { events: XpEvent[] };
+        const data = (await res.json()) as { events: FootfallEvent[] };
         setEvents(data.events);
         ok = true;
       } else {
@@ -117,7 +117,7 @@ export function XpAuditLog({ catId, color = '#9B7EBD', defaultOpen = false }: Pr
                   className="flex items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-cafe-surface-elevated"
                 >
                   <span className="font-medium" style={{ color }}>
-                    +{ev.xp}
+                    +{ev.footfall}
                   </span>
                   <span className="text-cafe-secondary">{DIM_LABELS[ev.dimension] ?? ev.dimension}</span>
                   <span className="flex-1 text-cafe-muted">{SOURCE_LABELS[ev.source] ?? ev.source}</span>

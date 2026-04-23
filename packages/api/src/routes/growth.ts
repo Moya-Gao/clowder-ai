@@ -54,7 +54,7 @@ export const journeyRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app
     return profile;
   });
 
-  /** AC-A5: XP event audit trail — newest first, with pagination. */
+  /** AC-A5: Footfall event audit trail — newest first, with pagination. */
   app.get<{ Params: { catId: string }; Querystring: { limit?: string; offset?: string } }>(
     '/api/journey/:catId/events',
     async (request, reply) => {
@@ -65,7 +65,7 @@ export const journeyRoutes: FastifyPluginAsync<GrowthRoutesOptions> = async (app
       const limit = Math.min(Math.max(parseInt(request.query.limit ?? '50', 10) || 50, 1), 200);
       const offset = Math.max(parseInt(request.query.offset ?? '0', 10) || 0, 0);
 
-      const events = await growthService.getXpEvents(catId, limit, offset);
+      const events = await growthService.getFootfallEvents(catId, limit, offset);
       return { catId, events, limit, offset };
     },
   );

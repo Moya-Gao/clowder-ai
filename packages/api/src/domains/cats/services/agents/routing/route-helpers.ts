@@ -52,9 +52,9 @@ export interface RouteStrategyDeps {
   evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
   /** F150: Tool usage counter (fire-and-forget INCR on tool_use events) */
   toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
-  /** F160: Growth XP service (fire-and-forget INCRBY on XP-worthy events) */
+  /** F160: Growth service (fire-and-forget INCRBY on footfall-worthy events) */
   growthService?: import('../../journey/GrowthService.js').GrowthService;
-  /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
+  /** F160 Phase C: Activity event bus — replaces direct awardFootfall calls */
   activityBus?: import('../../../../activity/ActivityEventBus.js').ActivityEventBus;
 }
 

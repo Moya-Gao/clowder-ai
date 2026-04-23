@@ -69,9 +69,9 @@ export interface MultiMentionRouteDeps {
     ): void;
     unregisterEntryCompleteHook?(entryId: string): void;
   };
-  /** F160: Growth XP service — awards mention_collab XP */
+  /** F160: Growth service — awards mention_collab footfall */
   growthService?: import('../domains/cats/services/journey/GrowthService.js').GrowthService;
-  /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
+  /** F160 Phase C: Activity event bus — replaces direct awardFootfall calls */
   activityBus?: import('../domains/activity/ActivityEventBus.js').ActivityEventBus;
 }
 

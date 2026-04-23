@@ -39,11 +39,11 @@ export const DIMENSION_LABELS: Record<TraitDimension, { zh: string; en: string }
 export interface DimensionStat {
   readonly dimension: TraitDimension;
   /** Accumulated footfall (足迹点) */
-  readonly xp: number;
+  readonly footfall: number;
   /** Seasoning tier (历练) */
   readonly level: number;
   /** Footfall needed to reach next seasoning tier */
-  readonly xpToNext: number;
+  readonly footfallToNext: number;
 }
 
 /** Six-dimensional trait snapshot for one cat */
@@ -53,7 +53,7 @@ export interface CatAttributes {
   /** Overall seasoning tier (avg of dimension tiers, floored) */
   readonly overallLevel: number;
   /** Total footfall across all dimensions */
-  readonly totalXp: number;
+  readonly totalFootfall: number;
   readonly updatedAt: number;
 }
 
@@ -86,7 +86,7 @@ export interface CatJourneyProfile {
 export interface JourneyOverview {
   readonly profiles: readonly CatJourneyProfile[];
   readonly teamLevel: number;
-  readonly teamTotalXp: number;
+  readonly teamTotalFootfall: number;
   readonly fetchedAt: string;
 }
 
@@ -113,7 +113,7 @@ export interface EvolutionEvent {
 export interface FootfallEvent {
   readonly catId: string;
   readonly dimension: TraitDimension;
-  readonly xp: number;
+  readonly footfall: number;
   readonly source: FootfallSource;
   readonly detail?: string;
   readonly timestamp: number;
@@ -146,7 +146,7 @@ export type FootfallSource =
 export type TitleCondition =
   | { readonly type: 'dimension_level'; readonly dimension: TraitDimension; readonly minLevel: number }
   | { readonly type: 'overall_level'; readonly minLevel: number }
-  | { readonly type: 'total_xp'; readonly minXp: number };
+  | { readonly type: 'total_footfall'; readonly minFootfall: number };
 
 export type TitleRarity = 'common' | 'rare' | 'epic' | 'legendary';
 
@@ -187,7 +187,7 @@ export type MomentCategory = 'individual' | 'team' | 'milestone' | 'hidden';
 export type MomentRarity = 'common' | 'rare' | 'epic' | 'legendary';
 
 export type MomentCondition =
-  | { readonly type: 'total_xp'; readonly minXp: number }
+  | { readonly type: 'total_footfall'; readonly minFootfall: number }
   | { readonly type: 'overall_level'; readonly minLevel: number }
   | { readonly type: 'dimension_level'; readonly dimension: TraitDimension; readonly minLevel: number }
   | { readonly type: 'title_count'; readonly minCount: number }
@@ -303,9 +303,9 @@ export const LEADERSHIP_LABELS: Record<LeadershipDimension, { zh: string; en: st
 /** Footfall and seasoning for a single leadership dimension */
 export interface LeadershipStat {
   readonly dimension: LeadershipDimension;
-  readonly xp: number;
+  readonly footfall: number;
   readonly level: number;
-  readonly xpToNext: number;
+  readonly footfallToNext: number;
   /** v1: shadow dimensions are recorded but flagged */
   readonly shadow: boolean;
 }
@@ -314,12 +314,12 @@ export interface LeadershipStat {
 export interface LeadershipProfile {
   readonly stats: Record<LeadershipDimension, LeadershipStat>;
   readonly leadershipLevel: number;
-  readonly totalXp: number;
+  readonly totalFootfall: number;
   readonly currentTitle?: CatTitle;
   readonly updatedAt: number;
 }
 
-/** Leadership footfall source — events that drive co-creator leadership XP */
+/** Leadership footfall source — events that drive co-creator leadership footfall */
 export type LeadershipFootfallSource =
   | 'multi_mention_dispatch' // 协调力: dispatched a multi-mention
   | 'multi_mention_success' // 协调力: multi-mention completed successfully
@@ -342,7 +342,7 @@ export type LeadershipFootfallSource =
 export type LeadershipTitleCondition =
   | { readonly type: 'leadership_dim_level'; readonly dimension: LeadershipDimension; readonly minLevel: number }
   | { readonly type: 'leadership_level'; readonly minLevel: number }
-  | { readonly type: 'leadership_total_xp'; readonly minXp: number };
+  | { readonly type: 'leadership_total_footfall'; readonly minFootfall: number };
 
 export interface LeadershipTitleDefinition {
   readonly id: string;

@@ -48,7 +48,7 @@ interface Props {
 export function CoCreatorCard({ profile, onClick }: Props) {
   const { cats } = useCatData();
   const { attributes } = profile;
-  const { stats, overallLevel, totalXp } = attributes;
+  const { stats, overallLevel, totalFootfall } = attributes;
   const [bonds, setBonds] = useState<BondEntry[]>([]);
 
   useEffect(() => {
@@ -64,8 +64,8 @@ export function CoCreatorCard({ profile, onClick }: Props) {
 
   // Determine contribution style from top dimensions
   const dimRanked = (Object.keys(stats) as GrowthDimension[])
-    .map((d) => ({ dim: d, xp: stats[d]?.xp ?? 0 }))
-    .sort((a, b) => b.xp - a.xp);
+    .map((d) => ({ dim: d, footfall: stats[d]?.footfall ?? 0 }))
+    .sort((a, b) => b.footfall - a.footfall);
   const topDims = new Set(dimRanked.slice(0, 2).map((d) => d.dim));
 
   const styleMatch = STYLE_PROFILES.find((s) => s.dims.some((d) => topDims.has(d)));
@@ -124,13 +124,13 @@ export function CoCreatorCard({ profile, onClick }: Props) {
           <p className="mt-0.5 text-xs text-cafe-muted">
             {profile.currentTitle?.label.zh ?? 'CVO'}
             {' · '}
-            {totalXp.toLocaleString()} 足迹点
+            {totalFootfall.toLocaleString()} 足迹点
           </p>
 
           {/* Top dimensions */}
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
             {dimRanked
-              .filter((d) => d.xp > 0)
+              .filter((d) => d.footfall > 0)
               .slice(0, 3)
               .map(({ dim }) => {
                 const s = stats[dim];
@@ -141,7 +141,7 @@ export function CoCreatorCard({ profile, onClick }: Props) {
                     <span className="font-medium" style={{ color: '#D4A574' }}>
                       Lv.{s.level}
                     </span>
-                    <span className="ml-0.5 text-cafe-muted">({s.xp.toLocaleString()})</span>
+                    <span className="ml-0.5 text-cafe-muted">({s.footfall.toLocaleString()})</span>
                   </span>
                 );
               })}

@@ -28,10 +28,10 @@ interface Props {
   /** Current dimension levels for progress display */
   dimensionLevels?: Partial<Record<GrowthDimension, number>>;
   overallLevel?: number;
-  totalXp?: number;
+  totalFootfall?: number;
 }
 
-export function TitleCard({ definition, unlock, dimensionLevels, overallLevel, totalXp }: Props) {
+export function TitleCard({ definition, unlock, dimensionLevels, overallLevel, totalFootfall }: Props) {
   const isUnlocked = !!unlock;
   const style = RARITY_COLORS[definition.rarity];
 
@@ -78,10 +78,10 @@ export function TitleCard({ definition, unlock, dimensionLevels, overallLevel, t
             label = `总历练 Lv.${cond.minLevel}`;
             current = overallLevel ?? 0;
             target = cond.minLevel;
-          } else if (cond.type === 'total_xp') {
-            label = `总足迹点 ${cond.minXp}`;
-            current = totalXp ?? 0;
-            target = cond.minXp;
+          } else if (cond.type === 'total_footfall') {
+            label = `总足迹点 ${cond.minFootfall}`;
+            current = totalFootfall ?? 0;
+            target = cond.minFootfall;
           }
 
           const met = current >= target;

@@ -58,7 +58,7 @@ export class MonthlyReviewService {
 
     const since = Date.now() - periodMs;
     const [allEvents, allMilestones, bonds] = await Promise.all([
-      this.growth.getXpEvents(catId, 200, 0),
+      this.growth.getFootfallEvents(catId, 200, 0),
       this.evolution.getEvents(catId, 50, 0),
       this.growth.getBonds(catId),
     ]);
@@ -87,7 +87,7 @@ function buildMarkdown(
 
   // Header
   lines.push(`# ${name} 月度足迹回顾`, '');
-  lines.push(`> ${month} · Lv.${attributes.overallLevel} · ${attributes.totalXp.toLocaleString()} 足迹点`);
+  lines.push(`> ${month} · Lv.${attributes.overallLevel} · ${attributes.totalFootfall.toLocaleString()} 足迹点`);
   if (profile.currentTitle) lines.push(`> 当前称号: 「${profile.currentTitle.label.zh}」`);
   lines.push('');
 
@@ -95,7 +95,7 @@ function buildMarkdown(
   lines.push('## 维度成长', '', '| 维度 | 等级 | 足迹点 |', '|------|------|--------|');
   for (const dim of GROWTH_DIMENSIONS) {
     const s = attributes.stats[dim];
-    if (s) lines.push(`| ${DIM_LABELS[dim]} | Lv.${s.level} | ${s.xp.toLocaleString()} |`);
+    if (s) lines.push(`| ${DIM_LABELS[dim]} | Lv.${s.level} | ${s.footfall.toLocaleString()} |`);
   }
   lines.push('');
 
@@ -106,18 +106,18 @@ function buildMarkdown(
     lines.push('');
   }
 
-  // Activity summary (aggregate by source, sort by total XP desc)
+  // Activity summary (aggregate by source, sort by total footfall desc)
   if (events.length > 0) {
-    const bySource = new Map<string, { count: number; xp: number }>();
+    const bySource = new Map<string, { count: number; footfall: number }>();
     for (const ev of events) {
-      const cur = bySource.get(ev.source) ?? { count: 0, xp: 0 };
+      const cur = bySource.get(ev.source) ?? { count: 0, footfall: 0 };
       cur.count++;
-      cur.xp += ev.xp;
+      cur.footfall += ev.footfall;
       bySource.set(ev.source, cur);
     }
     lines.push('## 活动概要', '');
-    for (const [source, { count, xp }] of [...bySource].sort((a, b) => b[1].xp - a[1].xp)) {
-      lines.push(`- ${SOURCE_LABELS[source] ?? source} ${count} 次 (+${xp.toLocaleString()} 足迹点)`);
+    for (const [source, { count, footfall }] of [...bySource].sort((a, b) => b[1].footfall - a[1].footfall)) {
+      lines.push(`- ${SOURCE_LABELS[source] ?? source} ${count} 次 (+${footfall.toLocaleString()} 足迹点)`);
     }
     lines.push('');
   }

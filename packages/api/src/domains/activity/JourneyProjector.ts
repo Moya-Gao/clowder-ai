@@ -2,13 +2,13 @@
  * Journey Projector (ADR-023)
  *
  * Subscribes to ActivityEventBus and translates events into footfall awards
- * via GrowthService.awardXp(). This decouples product logic (which event
+ * via GrowthService.awardFootfall(). This decouples product logic (which event
  * earns which footfall) from the transport layer (routes/hooks).
  *
- * Mapping: ActivityEventType → FootfallSource (XpSource)
+ * Mapping: ActivityEventType → FootfallSource
  */
 
-import type { ActivityEvent, ActivityEventType, XpSource } from '@cat-cafe/shared';
+import type { ActivityEvent, ActivityEventType, FootfallSource } from '@cat-cafe/shared';
 import { CO_CREATOR_ACTOR_ID, isCoCreatorActor } from '@cat-cafe/shared';
 import { createModuleLogger } from '../../infrastructure/logger.js';
 import type { ActivityEventBus } from './ActivityEventBus.js';
@@ -16,7 +16,7 @@ import type { ActivityEventBus } from './ActivityEventBus.js';
 const log = createModuleLogger('journey-projector');
 
 interface GrowthServiceLike {
-  awardXp(catId: string, source: XpSource, multiplier?: number): void;
+  awardFootfall(catId: string, source: FootfallSource, multiplier?: number): void;
   recordBondEvent?(catA: string, catB: string): void;
 }
 
@@ -24,7 +24,7 @@ interface GrowthServiceLike {
  * Maps ActivityEventType → FootfallSource + optional multiplier.
  * Events not listed here are silently ignored by the projector.
  */
-const EVENT_TO_FOOTFALL: Partial<Record<ActivityEventType, { source: XpSource; multiplier?: number }>> = {
+const EVENT_TO_FOOTFALL: Partial<Record<ActivityEventType, { source: FootfallSource; multiplier?: number }>> = {
   tool_used: { source: 'tool_use' },
   task_completed: { source: 'task_complete' },
   message_sent: { source: 'discussion' },
@@ -49,7 +49,7 @@ export class JourneyProjector {
 
   private handleEvent = (event: ActivityEvent): void => {
     try {
-      // Bond recording FIRST — runs for events that may not carry XP (e.g. a2a_handoff_completed)
+      // Bond recording FIRST — runs for events that may not carry footfall (e.g. a2a_handoff_completed)
       if (isBondEvent(event.type)) {
         const participants = event.metadata.participants as string[] | undefined;
         if (participants && this.growthService.recordBondEvent) {
@@ -61,7 +61,7 @@ export class JourneyProjector {
         }
       }
 
-      // XP / footfall — events not in the mapping are silently skipped
+      // Footfall — events not in the mapping are silently skipped
       const mapping = EVENT_TO_FOOTFALL[event.type];
       if (!mapping) return;
 
@@ -78,32 +78,32 @@ export class JourneyProjector {
         source = 'ideate_discussion';
       }
 
-      this.growthService.awardXp(event.actorId, source, mapping.multiplier);
+      this.growthService.awardFootfall(event.actorId, source, mapping.multiplier);
 
-      // AC-E6: Error recovery — retry succeeded after prior failure → bonus execution XP
+      // AC-E6: Error recovery — retry succeeded after prior failure → bonus execution footfall
       if (event.type === 'task_completed' && event.metadata.recoveredFromFailure) {
-        this.growthService.awardXp(event.actorId, 'error_recovery');
+        this.growthService.awardFootfall(event.actorId, 'error_recovery');
       }
 
-      // AC-E7: Fast execution — invocation completed quickly → bonus execution XP
+      // AC-E7: Fast execution — invocation completed quickly → bonus execution footfall
       if (event.type === 'task_completed' && event.metadata.fastExecution) {
-        this.growthService.awardXp(event.actorId, 'fast_execution');
+        this.growthService.awardFootfall(event.actorId, 'fast_execution');
       }
 
-      // AC-E4: Cache efficiency bonus — award insight XP when cache hit ratio ≥ 30%
+      // AC-E4: Cache efficiency bonus — award insight footfall when cache hit ratio ≥ 30%
       if (event.type === 'session_sealed') {
         const usage = event.metadata.lastUsage as { cacheReadTokens?: number; inputTokens?: number } | undefined;
         if (usage && usage.inputTokens && usage.inputTokens > 0) {
           const ratio = (usage.cacheReadTokens ?? 0) / usage.inputTokens;
           if (ratio >= 0.3) {
-            this.growthService.awardXp(event.actorId, 'cache_efficiency');
+            this.growthService.awardFootfall(event.actorId, 'cache_efficiency');
           }
         }
       }
 
       // Co-creator also gets footfall for collaborative events
       if (!isCoCreatorActor(event.actorId) && isCollabEvent(event.type)) {
-        this.growthService.awardXp(CO_CREATOR_ACTOR_ID, source, mapping.multiplier);
+        this.growthService.awardFootfall(CO_CREATOR_ACTOR_ID, source, mapping.multiplier);
       }
     } catch (err: unknown) {
       log.warn({ err, type: event.type, actorId: event.actorId }, 'JourneyProjector error');

@@ -35,9 +35,9 @@ interface SessionHooksRouteOptions extends FastifyPluginOptions {
   transcriptReader: TranscriptReader;
   /** Shared secret for hook authentication. If set, X-Cat-Cafe-Hook-Token header is required. */
   hookToken?: string;
-  /** F160: Growth XP service — awards session_seal XP on successful seal */
+  /** F160: Growth service — awards session_seal footfall on successful seal */
   growthService?: import('../domains/cats/services/journey/GrowthService.js').GrowthService;
-  /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
+  /** F160 Phase C: Activity event bus — replaces direct awardFootfall calls */
   activityBus?: import('../domains/activity/ActivityEventBus.js').ActivityEventBus;
 }
 

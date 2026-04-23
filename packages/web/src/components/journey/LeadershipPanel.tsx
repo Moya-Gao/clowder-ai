@@ -41,7 +41,7 @@ const SOURCE_LABELS: Record<string, string> = {
 
 interface AuditEvent {
   dimension: LeadershipDimension;
-  xp: number;
+  footfall: number;
   source: string;
   timestamp: number;
 }
@@ -55,7 +55,7 @@ function relativeTime(ts: number): string {
 }
 
 function KpiCard({ stat }: { stat: LeadershipStat }) {
-  const pct = stat.xpToNext > 0 ? Math.min(stat.xp / (stat.xp + stat.xpToNext), 1) : 1;
+  const pct = stat.footfallToNext > 0 ? Math.min(stat.footfall / (stat.footfall + stat.footfallToNext), 1) : 1;
   return (
     <div className="rounded-lg bg-cafe-surface-elevated px-3 py-2.5">
       <div className="flex items-baseline justify-between">
@@ -67,7 +67,7 @@ function KpiCard({ stat }: { stat: LeadershipStat }) {
       <div className="mt-1.5 h-1 rounded-full bg-cafe-surface">
         <div className="h-full rounded-full" style={{ width: `${pct * 100}%`, background: '#D4A574' }} />
       </div>
-      <p className="mt-1 text-[10px] text-cafe-muted">{stat.xp.toLocaleString()} 足迹点</p>
+      <p className="mt-1 text-[10px] text-cafe-muted">{stat.footfall.toLocaleString()} 足迹点</p>
     </div>
   );
 }
@@ -157,7 +157,7 @@ export function LeadershipPanel() {
             </span>
           </div>
           <p className="text-xs text-cafe-muted">
-            {titleLabel} · {profile.totalXp.toLocaleString()} 足迹点
+            {titleLabel} · {profile.totalFootfall.toLocaleString()} 足迹点
           </p>
         </div>
       </div>
@@ -210,7 +210,7 @@ export function LeadershipPanel() {
                     className="flex items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-cafe-surface-elevated"
                   >
                     <span className="font-medium" style={{ color: '#D4A574' }}>
-                      +{ev.xp}
+                      +{ev.footfall}
                     </span>
                     <span className="text-cafe-secondary">{DIM_LABELS[ev.dimension] ?? ev.dimension}</span>
                     <span className="flex-1 text-cafe-muted">{SOURCE_LABELS[ev.source] ?? ev.source}</span>

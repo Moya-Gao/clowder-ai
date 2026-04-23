@@ -168,9 +168,9 @@ export interface AgentRouterOptions {
   evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
   /** F150: Tool usage counter */
   toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
-  /** F160: Growth XP service */
+  /** F160: Growth service */
   growthService?: import('../../journey/GrowthService.js').GrowthService;
-  /** F160 Phase C: Activity event bus — replaces direct awardXp calls */
+  /** F160 Phase C: Activity event bus — replaces direct awardFootfall calls */
   activityBus?: import('../../../../activity/ActivityEventBus.js').ActivityEventBus;
   /** F155 B-4: Independent guide session store */
   guideSessionStore?: import('../../../../guides/GuideSessionRepository.js').IGuideSessionStore;

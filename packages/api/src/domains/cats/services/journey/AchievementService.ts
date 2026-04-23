@@ -147,8 +147,8 @@ export class AchievementService {
     bonds: { level: BondLevel }[],
   ): boolean {
     switch (cond.type) {
-      case 'total_xp':
-        return attrs.totalXp >= cond.minXp;
+      case 'total_footfall':
+        return attrs.totalFootfall >= cond.minFootfall;
       case 'overall_level':
         return attrs.overallLevel >= cond.minLevel;
       case 'dimension_level':

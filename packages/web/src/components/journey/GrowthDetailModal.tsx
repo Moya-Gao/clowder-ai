@@ -32,7 +32,7 @@ export function GrowthDetailModal({ profile, onClose }: Props) {
   const catData = getCatById(profile.catId);
   const primaryColor = catData?.color?.primary ?? '#9B7EBD';
   const { attributes } = profile;
-  const { stats, overallLevel, totalXp } = attributes;
+  const { stats, overallLevel, totalFootfall } = attributes;
 
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -102,7 +102,7 @@ export function GrowthDetailModal({ profile, onClose }: Props) {
             <span className="text-xs text-cafe-muted">
               {profile.currentTitle?.label.zh ?? profile.displayName}
               {' · '}
-              {totalXp.toLocaleString()} 足迹点
+              {totalFootfall.toLocaleString()} 足迹点
             </span>
           </div>
           <ExportButton exporting={exporting} error={exportError} onClick={handleExport} />
@@ -128,7 +128,7 @@ export function GrowthDetailModal({ profile, onClose }: Props) {
                 const s = stats[d];
                 if (!s) return null;
                 const progress =
-                  s.xpToNext > 0 ? (s.xp - s.level * s.level * 100) / (s.xpToNext + s.xp - s.level * s.level * 100) : 1;
+                  s.footfallToNext > 0 ? (s.footfall - s.level * s.level * 100) / (s.footfallToNext + s.footfall - s.level * s.level * 100) : 1;
                 return (
                   <div key={d} className="flex items-center gap-2 text-xs">
                     <span className="w-14 text-right text-cafe-secondary">{DIM_LABELS[d]}</span>
@@ -145,7 +145,7 @@ export function GrowthDetailModal({ profile, onClose }: Props) {
                         }}
                       />
                     </div>
-                    <span className="w-16 text-right text-cafe-muted">{s.xp.toLocaleString()} 足迹点</span>
+                    <span className="w-16 text-right text-cafe-muted">{s.footfall.toLocaleString()} 足迹点</span>
                   </div>
                 );
               })}

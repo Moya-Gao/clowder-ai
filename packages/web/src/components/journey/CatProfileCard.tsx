@@ -26,12 +26,12 @@ export function CatProfileCard({ profile, onClick }: Props) {
   const catData = getCatById(profile.catId);
   const primaryColor = catData?.color?.primary ?? '#9B7EBD';
   const { attributes } = profile;
-  const { stats, overallLevel, totalXp } = attributes;
+  const { stats, overallLevel, totalFootfall } = attributes;
 
-  // Find top 2 dimensions by XP
-  const ranked = DIMENSIONS.map((d) => ({ dim: d, xp: stats[d]?.xp ?? 0 }))
-    .filter((d) => d.xp > 0)
-    .sort((a, b) => b.xp - a.xp)
+  // Find top 2 dimensions by footfall
+  const ranked = DIMENSIONS.map((d) => ({ dim: d, footfall: stats[d]?.footfall ?? 0 }))
+    .filter((d) => d.footfall > 0)
+    .sort((a, b) => b.footfall - a.footfall)
     .slice(0, 2);
 
   return (
@@ -66,7 +66,7 @@ export function CatProfileCard({ profile, onClick }: Props) {
           <span className="text-[11px] text-cafe-muted">
             {profile.currentTitle?.label.zh ?? profile.displayName}
             {' · '}
-            {totalXp.toLocaleString()} 足迹点
+            {totalFootfall.toLocaleString()} 足迹点
           </span>
         </div>
       </div>
@@ -79,11 +79,11 @@ export function CatProfileCard({ profile, onClick }: Props) {
       {/* Top dimensions highlight */}
       {ranked.length > 0 && (
         <div className="mt-2 flex items-center justify-center gap-3">
-          {ranked.map(({ dim, xp }) => (
+          {ranked.map(({ dim, footfall }) => (
             <span key={dim} className="text-[11px] text-cafe-secondary">
               {/* Lv. maps to 历练 (Seasoning) */}
               {DIM_LABELS[dim]} Lv.{stats[dim]?.level ?? 0}
-              <span className="ml-0.5 text-cafe-muted">({xp})</span>
+              <span className="ml-0.5 text-cafe-muted">({footfall})</span>
             </span>
           ))}
         </div>

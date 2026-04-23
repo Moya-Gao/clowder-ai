@@ -47,7 +47,7 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     description: { zh: '累积 1,000 足迹点', en: 'Accumulate 1,000 footfall' },
     category: 'individual',
     rarity: 'common',
-    conditions: [{ type: 'total_xp', minXp: 1000 }],
+    conditions: [{ type: 'total_footfall', minFootfall: 1000 }],
     icon: 'gem',
   },
   {
@@ -85,7 +85,7 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     description: { zh: '累积 10,000 足迹点', en: 'Accumulate 10,000 footfall' },
     category: 'individual',
     rarity: 'rare',
-    conditions: [{ type: 'total_xp', minXp: 10000 }],
+    conditions: [{ type: 'total_footfall', minFootfall: 10000 }],
     icon: 'coins',
   },
   {
@@ -181,7 +181,7 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     description: { zh: '团队总足迹点达到 1,000', en: 'Team reaches 1,000 total footfall' },
     category: 'milestone',
     rarity: 'common',
-    conditions: [{ type: 'total_xp', minXp: 1000 }],
+    conditions: [{ type: 'total_footfall', minFootfall: 1000 }],
     icon: 'party',
   },
   {

@@ -54,7 +54,7 @@ export function HubGrowthTab() {
             <span className="text-2xl font-bold" style={{ color: '#9B7EBD' }}>
               Lv.{overview.teamLevel}
             </span>
-            <p className="text-xs text-cafe-muted">团队历练 · {overview.teamTotalXp.toLocaleString()} 足迹点</p>
+            <p className="text-xs text-cafe-muted">团队历练 · {overview.teamTotalFootfall.toLocaleString()} 足迹点</p>
           </div>
         ) : null}
       </div>
