@@ -35,38 +35,53 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。证�
 
 两套 refs 互不可见 → race window 期间产生的 ghost bubble 永远不会被另一边接管。
 
-### Phase A: Handler 统一（直接消除 ghost 来源）
+> **设计校准（2026-04-22 砚砚 push back）**：现状 chatStore 中 `threadStates[currentThreadId]` 只是 thread switch 时的 snapshot，不是持续真相源；大量 `addMessageToThread`/`setThreadCatInvocation`/`setThreadLoading`/`addThreadActiveInvocation`/`setThreadIntentMode`/`setThreadTargetCats` 都内置 `threadId === currentThreadId` 分叉，仍然把 active 写到 flat（`packages/web/src/stores/chatStore.ts:53,1365,1390,1572,1645,1683,1746,1768,1843`）。F123 也已拍过 "shared helper + invariant 渐进，不把统一 MessageWriter 当前置" 的路线（`docs/features/F123-bubble-runtime-correctness.md:45,140`）。所以 P2 的直线是**先把所有 thread-runtime 写入收口到一个 thread-scoped writer**，flat 降级成 compatibility mirror（同一 set() 内同步），延迟到读侧迁完再决定退休。**不**在 Phase A 把"删 flat"和"统一 writer"绑成一刀。
 
-合并 `handleAgentMessage` + `handleBackgroundAgentMessage` 为单一 handler。决策只用 **一个真相源**判断目标 thread：消息自带 `msg.threadId`，写到对应 thread state。当前 active thread 的 flat state 改为从 `threadStates[currentThreadId]` 派生（selector），不再独立维护。
+### Phase A: 统一 thread-scoped Writer + 统一 socket routing（消除 ghost 来源）
 
-### Phase B: refs 迁移到 thread-scoped
+1. **统一 ThreadRuntimeWriter**：抽出 `writeThreadMessage / patchThreadMessage / appendThreadStreamChunk / appendThreadToolEvent / setThreadStreaming / replaceThreadMessageId / setThreadCatInvocation / addThreadActiveInvocation / removeThreadActiveInvocation / setThreadLoading / setThreadIntentMode / replaceThreadTargetCats` 为单一 writer 接口；所有写入只走 thread-scoped 路径，flat state 在同一个 `set()` 内由 writer 同步镜像（compatibility mirror）。
+2. **socket routing 收口**：`agent_message` / `intent_mode` / `spawn_started` 都改用单一 handler，决策只看 `msg.threadId`，删除 `routeThread` (ref) vs `storeThread` (zustand) 双指针 guard（race 根因）。background system info / toast / 进度等"非 message creation"行为继续保留。
+3. **handler 合并**：`handleAgentMessage` + `handleBackgroundAgentMessage` 合为单一入口，按 `msg.threadId` dispatch 给 ThreadRuntimeWriter。
+4. flat state.messages **保留**作 compat mirror，不在本 phase 删；读侧组件继续读 flat 不动。
 
-`activeRefs` / `finalizedStreamRef` / `replacedInvocationsRef` / `bgStreamRefs` / `finalizedBgRefs` 全部合并为 per-thread `Map<threadId, Map<catId, ...>>`，由统一 handler 按 `msg.threadId` 操作。删除 `useSocket-background.ts` 整个文件（或保留为 thin shim 调用统一 handler）。
+### Phase B: refs 全量纳入 thread-scoped runtime + background 瘦身
 
-### Phase C: 回归 + 清理
+1. `useAgentMessages` 里所有 runtime refs 整体收口为 `Map<threadId, ThreadRuntimeRefs>`，每个 entry 至少含：`active / finalized / replaced / sawStreamData / pendingTimeoutDiag / timeoutHandle / lastTouched`。**保持 runtime-only，不进 zustand / threadStates**。
+2. `useSocket-background.ts` 瘦身为 ≤ 30 行 shim（仅做 toast/进度等非 writer 副作用），message creation 路径全部走 Phase A 的 ThreadRuntimeWriter。
+3. GC 策略：① thread delete 硬删；② `done/error/callback replace/resetThreadInvocationState/reconnect reconcile` 后若该 thread 无 active slots 且 refs 全空 → 立刻删；③ `setCurrentThread`/reconnect 时 sweep 一次长 idle entry。**不引入后台定时器**。
 
-- 跨场景回归测试（F5、thread switch、socket reconnect、cross-post、并发多猫）
-- 删除 `mergeReplaceHydrationMessages` 中针对 ghost bubble 的"宽容保留"分支（来源不再产生 ghost）
-- F081 AC-B2 关闭
+### Phase C: 读侧 selector 迁移 + hydration 简化
+
+1. 读侧组件逐步从 flat state 切换到 selector 派生（`useThreadMessages(threadId)` 等），用 zustand `subscribeWithSelector + shallow` 控制重渲染。
+2. `mergeReplaceHydrationMessages` 删除 ghost-tolerance 分支（来源不再产生 ghost）。
+3. 跨场景回归测试（F5 / thread switch / socket reconnect / cross-post / 并发多猫）全绿。
+4. F081 AC-B2 关闭。
+
+### Phase D（可选 / TD）: flat compat layer 退休
+
+如果 Phase C 完成后 flat state 已无独立读者，开一个轻量 TD 移除 flat mirror。**不在 F173 主路径强制做**。
 
 ## Acceptance Criteria
 
-### Phase A（Handler 统一）
-- [ ] AC-A1: 单一 `handleAgentMessage` 入口，决策只看 `msg.threadId`，无 `routeThread` vs `storeThread` 双指针 race
-- [ ] AC-A2: 任意 thread（active / background / 不存在的）收到 stream events 都写到 `threadStates[msg.threadId]`，不直接写 flat state
-- [ ] AC-A3: flat state.messages 改为 selector 从 `threadStates[currentThreadId]` 派生（zustand subscribeWithSelector）
+### Phase A（统一 Writer + Routing）
+- [ ] AC-A1: 单一 ThreadRuntimeWriter，所有 thread runtime 写入只通过它进入 zustand
+- [ ] AC-A2: `agent_message` / `intent_mode` / `spawn_started` 走单一 handler，决策只看 `msg.threadId`，无 `routeThread` vs `storeThread` 双指针 race
+- [ ] AC-A3: flat state 由 writer 在同一 `set()` 内同步镜像（compatibility mirror），读侧组件不变更
+- [ ] AC-A4: chatStore 中 `addMessageToThread / setThreadCatInvocation / setThreadLoading / addThreadActiveInvocation / setThreadIntentMode / setThreadTargetCats` 等"if active 就再写 flat"的分叉收敛进 writer，不再散布
 
-### Phase B（refs 迁移）
-- [ ] AC-B1: 所有 stream/callback refs 改为 `Map<threadId, Map<catId, RefData>>`
-- [ ] AC-B2: `useSocket-background.ts` 删除或缩为 ≤ 30 行 shim
-- [ ] AC-B3: thread switch 不再触发 ghost bubble（fixture 验证）
+### Phase B（runtime refs 收口 + background 瘦身）
+- [ ] AC-B1: 所有 runtime refs 合并为 `Map<threadId, ThreadRuntimeRefs>`（active/finalized/replaced/sawStreamData/pendingTimeoutDiag/timeoutHandle/lastTouched），保持 runtime-only
+- [ ] AC-B2: `useSocket-background.ts` 缩为 ≤ 30 行 shim，message creation 路径走 Phase A writer
+- [ ] AC-B3: GC 三规则就位（delete 硬删 / done+empty 立刻删 / setCurrentThread+reconnect sweep idle）
+- [ ] AC-B4: thread switch 不再触发 ghost bubble（fixture 验证）
 
-### Phase C（回归 + 清理）
-- [ ] AC-C1: F5 后 0 ghost bubble（fixture 含 race window）
-- [ ] AC-C2: socket reconnect 期间收的 events 在重连后正确合并到现有 bubble，不裂
-- [ ] AC-C3: cross-post + 当前 thread stream 同时进行不裂
-- [ ] AC-C4: `mergeReplaceHydrationMessages` 简化（移除 ghost-tolerance 分支）
-- [ ] AC-C5: F081 AC-B2 (Remaining Gaps) 关闭
+### Phase C（读侧迁移 + hydration 简化）
+- [ ] AC-C1: 关键读侧组件（ChatContainer/MessageList/RightStatusPanel/MissionHub）改为 thread-scoped selector
+- [ ] AC-C2: F5 后 0 ghost bubble（fixture 含 race window）
+- [ ] AC-C3: socket reconnect 期间收的 events 在重连后正确合并到现有 bubble，不裂
+- [ ] AC-C4: cross-post + 当前 thread stream 同时进行不裂
+- [ ] AC-C5: `mergeReplaceHydrationMessages` 简化（移除 ghost-tolerance 分支）
+- [ ] AC-C6: F081 AC-B2 (Remaining Gaps) 关闭
 
 ## Dependencies
 
@@ -85,20 +100,24 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。证�
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | flat state 派生方案：完全删 vs 保留作为 selector cache？性能权衡 | ⬜ Design Gate 决 |
-| OQ-2 | refs Map 的内存生命周期：thread 删除 / 长期不访问时如何清理？ | ⬜ Design Gate 决 |
+| OQ-1 | flat state 派生方案：完全删 vs 保留作为 selector cache？性能权衡 | ✅ 已决（KD-2） |
+| OQ-2 | refs Map 的内存生命周期：thread 删除 / 长期不访问时如何清理？ | ✅ 已决（KD-3） |
 
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
 | KD-1 | 不在 hydration merge 加 dedup 补丁 | 铲屎官 magic word "脚手架" + "绕路了"；F081 已预言写路径分散 = 反复出 bug | 2026-04-22 |
+| KD-2 | flat state 降级 compatibility mirror，**不**在 Phase A 删 | 砚砚 push back：直接 selector-only 把"统一 writer"和"删 flat"绑成一刀，scope 过大；F123 已拍 shared helper + invariant 渐进路线。先收口写入，flat 由 writer 同步，读侧迁完后再决定退休（Phase D / TD） | 2026-04-22 |
+| KD-3 | runtime refs 保持 runtime-only（不进 zustand），用 `Map<threadId, ThreadRuntimeRefs>` 单一聚合 entry；GC 三规则（delete 硬删 / done+empty 立刻删 / switch+reconnect sweep idle），不引入后台定时器 | refs 是过程性数据不该污染 store；聚合 entry 避免散成多张 top-level Map；GC 由 lifecycle 事件驱动比定时器更可预测 | 2026-04-22 |
+| KD-4 | socket routing 一并收口 `intent_mode` / `spawn_started`，不只 `agent_message` | 砚砚指出 race 不只在 message 路径；只收 message 路径，invocation owner 注册仍会双写，ghost 根因换壳回来 | 2026-04-22 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-04-22 | 立项（铲屎官触发：F5 后批量裂 + magic word 拒绝脚手架） |
+| 2026-04-22 | Design Gate：砚砚 push back AC-A3 → KD-2/3/4 收敛，Phase 重排（writer 统一→refs+background→读侧+hydration→可选 compat 退休） |
 
 ## Review Gate
 
@@ -111,8 +130,8 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。证�
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **Audit** | `docs/features/F081-write-path-audit.md` | dual write-path 已识别，AC-B2 未闭 |
-| **Fixture** | `docs/features/F123-symptom-fixture-matrix.md` | bubble symptom matrix |
-| **Discussion** | `docs/discussions/2026-04-22-F173-design/` | Design Gate 待生成 |
+| **Architecture** | `docs/features/F123-bubble-runtime-correctness.md` | shared helper + invariant 渐进路线（KD-2 来源） |
+| **Cache** | `docs/features/F164-*.md` | IndexedDB cache（ghost bubble 涌现源头之一） |
 
 ## 需求点 Checklist
 
