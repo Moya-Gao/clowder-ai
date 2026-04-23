@@ -121,20 +121,27 @@ Cat Cafe 提供所有路径的导出工具（schema 转换、脱敏、打包）�
 
 ## 技术设计层（粗粒度，细节留给未来 feature）
 
-### 关键原则：复用 F153 基础设施，不另起炉灶
+### 关键原则：建在 F153 设计之上（Phase E 落地后复用，不另起炉灶）
 
-**F153 Observability Infrastructure** 已经建好了 ADR-032 trace export 需要的一大半基础设施——如果我们另起一套，既浪费又割裂。ADR-032 的技术架构**应该建在 F153 之上**，而不是平行于 F153：
+**F153 Observability Infrastructure** 的 Phase A-D 已经 landed，Phase E 设计已定但未实现。ADR-032 的技术架构**应该建在 F153 之上**——落地分两段：**已有 landed 部分直接复用**（Phase A-D）+ **spec-only 部分等 Phase E landed 后复用**（Phase E）。
 
-| ADR-032 需要 | F153 已有 | 关系 |
-|------------|----------|------|
-| 脱敏 pipeline | **TelemetryRedactor**（四级分类 A/B/C/D）| ✅ 直接复用，可能扩展 Class E "代码 IP" |
-| Trace 产生链路 | **OTel SDK + parentSpan 全链路穿透**（`cli_session` / `llm_call` / `tool_use` spans）| ✅ 直接复用，trace schema 对齐 OTel attribute 命名 |
-| 本地 trace 存储 | **LocalTraceExporter + Ring buffer**（在 `RedactingSpanProcessor` 之后）| ✅ 扩展为可控导出（Ring buffer → Transformer → export formats）|
-| 查询接口 | **`/api/telemetry/traces`**（session auth + HMAC 匹配）| ✅ 扩展加 export endpoint |
-| 粒度控制 | **MetricAttributeAllowlist**（bounded cardinality）| ✅ 扩展为 opt-in 粒度控制 |
-| "不碰数据" 的架构保证 | **KD-13**：`LocalTraceExporter` 放在 `RedactingSpanProcessor` **之后**——Hub 只看脱敏后数据 | ✅ ADR-032 neutral infra 原则的 live enforcement |
+> **重要 clarification（砚砚 R1 review 指出）**：本节 v0.1 版本把 F153 Phase E 当成"已实现基础设施"——这是**事实错误**（AC-E1 到 AC-E19 全未勾，代码里无 `LocalTraceExporter` / `LocalTraceStore`）。v0.2 严格区分 landed 和 spec-only。
 
-**哲学对齐**：F153 **KD-16**（`F153 = descriptive observability, not normative eval`）和 ADR-032（`Cat Cafe = neutral infrastructure, not data broker`）是**同一思想的两个投影**——F153 不评判内容、ADR-032 不托管内容。
+| ADR-032 需要 | F153 对应 | 状态 | 关系 |
+|------------|----------|------|------|
+| 脱敏 pipeline | **TelemetryRedactor**（四级分类 A/B/C/D）| **`[landed]`** (Phase A) | ✅ 直接复用 |
+| Class E 代码 IP（AST 骨架）| N/A | **`[proposed extension, ADR-032 范畴]`** | ⚠️ **不扩大 F153 core**——content-aware transform 属 ADR-032 ExportTransformer |
+| Trace 产生链路 | **OTel SDK + parentSpan 全链路穿透** | **`[landed]`** (Phase B) | ✅ 直接复用，trace schema 对齐 OTel attribute 命名（AC-B5 camelCase）|
+| 本地 trace 存储 | **LocalTraceExporter + Ring buffer** | **`[spec-only]`** (Phase E) | ⏳ Phase E landed 后复用（只读消费，如果 F153 作者同意）|
+| 查询接口 | **`/api/telemetry/traces`** | **`[spec-only]`** (Phase E) | ⏳ Phase E landed 后扩展 export action（或独立接口，待 clowder-ai RFC 社区确认）|
+| 粒度控制 | **MetricAttributeAllowlist** | **`[landed]`** (Phase A) | 🟡 借鉴命名约定（不是 opt-in 底座——opt-in 应由独立 consent ledger 管）|
+| "不碰数据" 的架构保证 | **KD-13**：`LocalTraceExporter` 放 `RedactingSpanProcessor` 之后 | **`[spec-only]`** (Phase E 决策) | ⏳ **Phase E landed 后**才成为架构级 enforcement；当前是 enforcement principle |
+
+**哲学对齐（兼容但不等价）**：
+- F153 **KD-16**：`descriptive observability, not normative eval` — observability 功能边界，不做质量判断
+- ADR-032：`neutral infrastructure, not data broker` — 产品和数据的关系边界，不托管数据
+
+**二者是兼容价值观（都是"不越界"），但不是同一思想的两个投影**——针对的边界不同。对齐性需要 F153 作者在 clowder-ai RFC 里确认。
 
 ### Trace Schema 标准化
 
@@ -177,10 +184,13 @@ ADR-032 扩展：
 
 **不新起 export server**——扩展 F153 已有的 `/api/telemetry/traces` endpoint 加 export action。
 
-### opt-in 机制（基于 F153 MetricAttributeAllowlist）
+### opt-in 机制（独立 consent ledger，不建在 MetricAttributeAllowlist 之上）
 
-- **Granularity**：per-thread / per-feature / per-timerange 三级粒度——基于 F153 的 `MetricAttributeAllowlist` 扩展
-- **Preview**：导出前用户可预览脱敏后的结果（走 F153 LocalTraceStore 读）
+> **清理说明**（砚砚 R1 review 指出）：v0.1 说 opt-in 建在 F153 `MetricAttributeAllowlist` 之上——**overclaim**。Allowlist 是 cardinality 管控，不是 user consent/scope 控制。v0.2 改为独立 consent ledger，只借鉴 Allowlist 的命名约定，不复用其机制。
+
+- **Granularity**：per-thread / per-feature / per-timerange 三级粒度——由独立的 **export policy / consent ledger** 管理（ADR-032 自己的 component）
+- **命名约定借鉴 F153**：字段 key 对齐 F153 AC-B5（camelCase `invocationId` 等），保持整个 trace 生态系统命名一致
+- **Preview**：导出前用户可预览脱敏后的结果（等 Phase E landed 后走 F153 LocalTraceStore 读）
 - **Revoke**：用户可撤回已导出 dataset——和下游消费方的合同条款挂钩，超出 Cat Cafe 技术能力但在 schema 里保留 revocation signal
 - **审计**：所有 export 动作本地记录（不回传），用户可查自己导出过什么
 
