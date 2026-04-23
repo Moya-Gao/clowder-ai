@@ -120,8 +120,7 @@ export class AntigravityBridge {
    * Resolves connection lazily. Keeps the private rpc() signature internal.
    */
   async callRpc<T = Record<string, unknown>>(method: string, payload: unknown): Promise<T> {
-    const conn = await this.ensureConnected();
-    return this.rpc<T>(conn, method, payload);
+    return this.rpcSafe<T>(method, payload);
   }
 
   /**
@@ -234,14 +233,12 @@ export class AntigravityBridge {
     return this.conn;
   }
   async startCascade(): Promise<string> {
-    const conn = await this.ensureConnected();
-    const resp = await this.rpc<{ cascadeId?: string }>(conn, 'StartCascade', { source: 0 });
+    const resp = await this.rpcSafe<{ cascadeId?: string }>('StartCascade', { source: 0 });
     if (!resp.cascadeId) throw new Error('StartCascade: no cascadeId returned');
     log.debug(`cascade created: ${resp.cascadeId}`);
     return resp.cascadeId;
   }
   async sendMessage(cascadeId: string, text: string, modelName?: string): Promise<number> {
-    const conn = await this.ensureConnected();
     const traj = await this.getTrajectory(cascadeId);
     const stepsBefore = traj.numTotalSteps ?? 0;
     const modelId = modelName ? this.modelMap[modelName] : undefined;
@@ -255,18 +252,16 @@ export class AntigravityBridge {
         },
       },
     };
-    await this.rpc(conn, 'SendUserCascadeMessage', payload);
+    await this.rpcSafe('SendUserCascadeMessage', payload);
     return stepsBefore;
   }
   async getTrajectorySteps(cascadeId: string): Promise<TrajectoryStep[]> {
-    const conn = await this.ensureConnected();
-    const resp = await this.rpc<{ steps?: TrajectoryStep[] }>(conn, 'GetCascadeTrajectorySteps', { cascadeId });
+    const resp = await this.rpcSafe<{ steps?: TrajectoryStep[] }>('GetCascadeTrajectorySteps', { cascadeId });
     return resp.steps ?? [];
   }
 
   async getTrajectory(cascadeId: string): Promise<CascadeTrajectory> {
-    const conn = await this.ensureConnected();
-    return this.rpc<CascadeTrajectory>(conn, 'GetCascadeTrajectory', { cascadeId });
+    return this.rpcSafe<CascadeTrajectory>('GetCascadeTrajectory', { cascadeId });
   }
 
   async *pollForSteps(
@@ -452,14 +447,12 @@ export class AntigravityBridge {
   }
 
   async resolveOutstandingSteps(cascadeId: string): Promise<void> {
-    const conn = await this.ensureConnected();
-    await this.rpc(conn, 'ResolveOutstandingSteps', { cascadeId });
+    await this.rpcSafe('ResolveOutstandingSteps', { cascadeId });
     log.info(`resolved outstanding steps for cascade ${cascadeId}`);
   }
 
   async approveInteraction(cascadeId: string, interaction: Record<string, unknown>): Promise<void> {
-    const conn = await this.ensureConnected();
-    await this.rpc(conn, 'HandleCascadeUserInteraction', { cascadeId, interaction });
+    await this.rpcSafe('HandleCascadeUserInteraction', { cascadeId, interaction });
     log.info(`approved interaction for cascade ${cascadeId}`);
   }
 
@@ -477,8 +470,7 @@ export class AntigravityBridge {
     modelName?: string,
   ): Promise<void> {
     try {
-      const conn = await this.ensureConnected();
-      await this.rpc(conn, 'CancelCascadeSteps', { cascadeId, stepIndices: [stepIndex] });
+      await this.rpcSafe('CancelCascadeSteps', { cascadeId, stepIndices: [stepIndex] });
     } catch (err) {
       log.warn(`pushToolResult: CancelCascadeSteps failed (continuing): ${err}`);
     }
@@ -492,9 +484,7 @@ export class AntigravityBridge {
   }
   async refreshModelMap(): Promise<void> {
     try {
-      const conn = await this.ensureConnected();
-      const resp = await this.rpc<{ cascadeModelConfigData?: { modelId?: string; displayName?: string }[] }>(
-        conn,
+      const resp = await this.rpcSafe<{ cascadeModelConfigData?: { modelId?: string; displayName?: string }[] }>(
         'GetUserStatus',
         {},
       );
@@ -509,6 +499,26 @@ export class AntigravityBridge {
   }
   invalidateConnection(): void {
     this.conn = null;
+  }
+
+  private isConnectionError(err: unknown): boolean {
+    const msg = String(err);
+    return msg.includes('ECONNREFUSED') || msg.includes('ECONNRESET') || msg.includes('EHOSTUNREACH');
+  }
+
+  private async rpcSafe<T = Record<string, unknown>>(method: string, payload: unknown): Promise<T> {
+    let conn = await this.ensureConnected();
+    try {
+      return await this.rpc<T>(conn, method, payload);
+    } catch (err) {
+      if (this.isConnectionError(err)) {
+        log.warn(`connection lost on ${method}, rediscovering LS...`);
+        this.invalidateConnection();
+        conn = await this.ensureConnected();
+        return this.rpc<T>(conn, method, payload);
+      }
+      throw err;
+    }
   }
   private loadSessionMap(): void {
     if (this.sessionMapLoaded) return;
