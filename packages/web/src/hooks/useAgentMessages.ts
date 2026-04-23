@@ -245,6 +245,104 @@ export function useAgentMessages() {
     [getCurrentInvocationStateForCat],
   );
 
+  /**
+   * Stale terminal event guard (Bug-G, shared by `done` + `error`):
+   * Returns true when `msgInvocationId` identifies an older invocation than the
+   * one this cat is currently executing. Used to skip bubble/cat side effects
+   * for late arrivals that would otherwise terminate a newer invocation's bubble.
+   *
+   * Resolution order (latest real slot → catInvocations direct):
+   * 1. `activeInvocations` latest slot for catId, EXCLUDING synthetic
+   *    `hydrated-${threadId}-${catId}` keys from reconnect reconciliation
+   *    (cloud R7: hydrated slots do not represent a real in-flight invocation
+   *    and must yield to a concrete direct binding).
+   * 2. `catInvocations[catId].invocationId` as fallback.
+   *
+   * We prefer activeSlot over direct because `intent_mode` registers fresh
+   * `activeInvocations[inv-2]` BEFORE the new `invocation_created` clears the
+   * previous `catInvocations=inv-1`. A late `done/error(inv-1)` needs the
+   * freshest signal to be marked stale.
+   *
+   * Slot key normalization: non-primary cats are registered as
+   * `${invocationId}-${catId}` in activeInvocations (useSocket.ts), while
+   * terminal events broadcast the bare parent `invocationId`. Strip the
+   * `-${catId}` suffix before comparison so both key forms accept equivalently.
+   *
+   * Returns false when `msgInvocationId` is absent (we can't judge).
+   * Returns true when resolved signal is undefined (no authoritative source →
+   * can't prove the terminal event is for the current invocation → treat as
+   * stale to avoid touching a newer bubble whose events were also lost).
+   */
+  const isStaleTerminalEvent = useCallback((catId: string, msgInvocationId: string | undefined): boolean => {
+    if (!msgInvocationId) return false;
+    const state = useChatStore.getState();
+    const suffix = `-${catId}`;
+    const normalize = (k: string | undefined): string | undefined =>
+      k && k.endsWith(suffix) ? k.slice(0, -suffix.length) : k;
+
+    // Hierarchical resolver with slot-fresh override (cloud R15 fix):
+    //
+    // Order matters because signals have different freshness profiles:
+    //  - activeSlot (intent_mode): updates eagerly on every user-triggered
+    //    invocation — freshest.
+    //  - activeBinding / direct: updated by invocation_created — can lag if
+    //    that event is lost over a flaky WS.
+    //  - latest same-cat streaming bubble binding: reconnect fallback.
+    //
+    // Cloud R15 pathway: previous done(inv-1) lost → bubble.extra.stream.invocationId
+    // still inv-1; user starts inv-2 → activeInvocations[inv-2] set; invocation_created
+    // for inv-2 lost → bubble binding not updated. Real done(inv-2) arrives. Using
+    // bubble binding as primary says STALE (inv-1 ≠ inv-2) → legitimate terminal
+    // skipped.
+    //
+    // Fix: if activeSlot POSITIVELY confirms msg.invocationId, short-circuit to
+    // not-stale FIRST. Bubble binding is still consulted for contradictions when
+    // slot doesn't confirm (cloud R8 scenario: orphan slot + fresh bubble binding).
+    let latestRealSlot: string | undefined;
+    const activeEntries = Object.entries(state.activeInvocations ?? {});
+    for (let i = activeEntries.length - 1; i >= 0; i--) {
+      const [key, info] = activeEntries[i]!;
+      if (info.catId !== catId) continue;
+      if (key.startsWith('hydrated-')) continue;
+      latestRealSlot = normalize(key);
+      break;
+    }
+    if (latestRealSlot === msgInvocationId) return false; // slot-fresh override
+
+    const activeRefId = activeRefs.current.get(catId)?.id;
+    if (activeRefId) {
+      const activeBubble = state.messages.find((m) => m.id === activeRefId);
+      if (activeBubble?.type === 'assistant' && activeBubble.catId === catId) {
+        const activeBinding = activeBubble.extra?.stream?.invocationId;
+        if (activeBinding !== undefined) {
+          return activeBinding !== msgInvocationId;
+        }
+      }
+    }
+
+    if (latestRealSlot !== undefined) {
+      return latestRealSlot !== msgInvocationId;
+    }
+
+    const direct = state.catInvocations?.[catId]?.invocationId;
+    if (direct !== undefined) {
+      return direct !== msgInvocationId;
+    }
+
+    for (let i = state.messages.length - 1; i >= 0; i--) {
+      const m = state.messages[i];
+      if (m.type !== 'assistant' || m.catId !== catId) continue;
+      if (!m.isStreaming) continue;
+      const bound = m.extra?.stream?.invocationId;
+      if (bound !== undefined) {
+        return bound !== msgInvocationId;
+      }
+      break;
+    }
+
+    return false;
+  }, []);
+
   const maybeMigrateSequentialInvocationOwnership = useCallback(
     (nextCatId: string, invocationId: string) => {
       const store = useChatStore.getState();
@@ -692,34 +790,72 @@ export function useAgentMessages() {
           timestamp: Date.now(),
         });
       } else if (msg.type === 'done') {
-        setCatStatus(msg.catId, 'done');
-        const currentProgress = useChatStore.getState().catInvocations?.[msg.catId]?.taskProgress;
-        if (currentProgress?.tasks?.length) {
-          setCatInvocation(msg.catId, {
-            taskProgress: {
-              ...currentProgress,
-              snapshotStatus: currentProgress.snapshotStatus === 'interrupted' ? 'interrupted' : 'completed',
-              lastUpdate: Date.now(),
-            },
-          });
+        // Stale-terminal guard (Bug-G, shared with `error` via isStaleTerminalEvent):
+        // A stale done must NOT touch cat-level or bubble-level state — doing so
+        // terminates a newer invocation's bubble, clears its activeRef, and marks
+        // the cat as done while the newer invocation is mid-flight. Only slot
+        // cleanup for `msg.invocationId` is still safe (self-guarded below by
+        // `primarySlot?.catId === msg.catId`).
+        const isStaleDone = isStaleTerminalEvent(msg.catId, msg.invocationId);
+
+        let messageId: string | null = null;
+        if (!isStaleDone) {
+          setCatStatus(msg.catId, 'done');
+          const currentProgress = useChatStore.getState().catInvocations?.[msg.catId]?.taskProgress;
+          if (currentProgress?.tasks?.length) {
+            setCatInvocation(msg.catId, {
+              taskProgress: {
+                ...currentProgress,
+                snapshotStatus: currentProgress.snapshotStatus === 'interrupted' ? 'interrupted' : 'completed',
+                lastUpdate: Date.now(),
+              },
+            });
+          }
+          messageId = getOrRecoverActiveAssistantMessageId(msg.catId);
+          if (messageId) {
+            setStreaming(messageId, false);
+            // Bug-G: back-fill invocationId on bubbles that somehow missed the
+            // invocation_created binding path (the primary handler at :789-802
+            // already back-fills if invocation_created arrives; this is the
+            // rare-race net). Safety already holds via the outer !isStaleDone
+            // guard, which requires resolved === msg.invocationId when provided.
+            if (msg.invocationId) {
+              const finalized = useChatStore.getState().messages.find((m) => m.id === messageId);
+              if (finalized && !finalized.extra?.stream?.invocationId) {
+                setMessageStreamInvocation(messageId, msg.invocationId);
+              }
+            }
+            // #586 follow-up: Record the finalized bubble so callback can find it
+            // even after isStreaming=false + activeRefs cleared. Unlike a greedy
+            // scan, this is scoped to the exact just-finalized message only.
+            finalizedStreamRef.current.set(msg.catId, messageId);
+            activeRefs.current.delete(msg.catId);
+          }
+          // Bugfix: clear stale invocationId so findRecoverableAssistantMessage
+          // can't match this finalized message when the next invocation starts.
+          // Without this, a race (new text before invocation_created) appends to
+          // the old bubble, causing messages to visually merge until page refresh.
+          // Cloud review P2: Do NOT clear taskProgress here — lines 552-559 already
+          // transition it to 'completed'/'interrupted'. Wiping it would remove the
+          // cat from PlanBoardPanel and defeat clearCatStatuses' snapshot preservation.
+          setCatInvocation(msg.catId, { invocationId: undefined });
         }
-        const messageId = getOrRecoverActiveAssistantMessageId(msg.catId);
-        if (messageId) {
-          setStreaming(messageId, false);
-          // #586 follow-up: Record the finalized bubble so callback can find it
-          // even after isStreaming=false + activeRefs cleared. Unlike a greedy
-          // scan, this is scoped to the exact just-finalized message only.
-          finalizedStreamRef.current.set(msg.catId, messageId);
-          activeRefs.current.delete(msg.catId);
+        // Stale-done direct cleanup (cloud R12 P1): even when the bubble-side
+        // processing was skipped as stale, we MUST still clear `catInvocations
+        // [msg.catId].invocationId` when it matches `msg.invocationId` —
+        // otherwise a stale `inv-1` survives in direct binding while
+        // `activeInvocations` already holds the fresh `inv-2` slot, and
+        // downstream `getCurrentInvocationStateForCat` (catInvocations-first)
+        // would return the stale `inv-1` and misbind inv-2's first stream
+        // bubble. Conditional on `direct === msg.invocationId` so we never
+        // clobber a newer direct value set by the new invocation_created.
+        if (
+          isStaleDone &&
+          msg.invocationId &&
+          useChatStore.getState().catInvocations?.[msg.catId]?.invocationId === msg.invocationId
+        ) {
+          setCatInvocation(msg.catId, { invocationId: undefined });
         }
-        // Bugfix: clear stale invocationId so findRecoverableAssistantMessage
-        // can't match this finalized message when the next invocation starts.
-        // Without this, a race (new text before invocation_created) appends to
-        // the old bubble, causing messages to visually merge until page refresh.
-        // Cloud review P2: Do NOT clear taskProgress here — lines 552-559 already
-        // transition it to 'completed'/'interrupted'. Wiping it would remove the
-        // cat from PlanBoardPanel and defeat clearCatStatuses' snapshot preservation.
-        setCatInvocation(msg.catId, { invocationId: undefined });
         // Always remove the finishing cat's invocation slot, regardless of isFinal.
         // isFinal=false means "more cats coming" but THIS cat is done — its slot must go.
         // Without this, non-final cats (e.g. 缅因猫 in 缅因猫→布偶猫 sequence) leave
@@ -735,10 +871,16 @@ export function useAgentMessages() {
           // invocationId from the server. Only clean up hydrated- prefixed orphans to
           // avoid accidentally deleting a NEW invocation's slot during same-cat preempt
           // (where old done arrives after new invocation starts).
-          const stateAfter = useChatStore.getState();
-          const orphan = findLatestActiveInvocationIdForCat(stateAfter.activeInvocations, msg.catId);
-          if (orphan?.startsWith('hydrated-')) {
-            removeActiveInvocation(orphan);
+          //
+          // Stale-done P1 (砚砚 R10): in reconnect hydration the hydrated slot IS
+          // the representation of the current in-flight invocation — don't sweep it
+          // away on stale done. Gate on !isStaleDone.
+          if (!isStaleDone) {
+            const stateAfter = useChatStore.getState();
+            const orphan = findLatestActiveInvocationIdForCat(stateAfter.activeInvocations, msg.catId);
+            if (orphan?.startsWith('hydrated-')) {
+              removeActiveInvocation(orphan);
+            }
           }
         } else {
           const catSlot = findLatestActiveInvocationIdForCat(useChatStore.getState().activeInvocations, msg.catId);
@@ -755,8 +897,14 @@ export function useAgentMessages() {
           // F108 P1 fix: Only clear global state when the LAST active invocation ends.
           // During concurrent multi-cat execution, cancelling one cat must not wipe
           // the execution state (loading/intentMode/catStatuses) of remaining cats.
+          //
+          // Stale-done guard (cloud R14 P1): a stale done with isFinal=true must not
+          // trigger global teardown — in reconnect/loss windows the live invocation
+          // can have no tracked slot while still streaming, so `remainingInvocations
+          // === 0` spuriously fires and wipes `loading` / `intentMode` / `catStatuses`
+          // mid-run. Mirror the error branch gate on !isStaleDone.
           const remainingInvocations = Object.keys(useChatStore.getState().activeInvocations ?? {}).length;
-          if (remainingInvocations === 0) {
+          if (remainingInvocations === 0 && !isStaleDone) {
             clearDoneTimeout();
             setLoading(false);
             setIntentMode(null);
@@ -772,7 +920,11 @@ export function useAgentMessages() {
           // Request a history catch-up so the user sees the response without F5.
           // Unconditional: covers ghost-message scenario where ALL events
           // (stream + callback) were lost during disconnect (#266, #276).
-          if (!messageId) {
+          //
+          // Stale-done guard (砚砚 R4): a stale done did not compute messageId
+          // (we skipped phase-3 entirely), so `!messageId` would spuriously fire
+          // catch-up even though inv-2 is alive and has its own bubble. Skip.
+          if (!messageId && !isStaleDone) {
             const tid = useChatStore.getState().currentThreadId;
             console.warn('[stream-catchup] done(isFinal) with no active bubble — requesting catch-up', {
               catId: msg.catId,
@@ -783,7 +935,9 @@ export function useAgentMessages() {
               requestStreamCatchUp(tid);
             }
           }
-          sawStreamDataRef.current.delete(msg.catId);
+          if (!isStaleDone) {
+            sawStreamDataRef.current.delete(msg.catId);
+          }
         }
       } else if (msg.type === 'a2a_handoff') {
         addMessage({
@@ -1064,70 +1218,90 @@ export function useAgentMessages() {
           });
         }
       } else if (msg.type === 'error') {
-        setCatStatus(msg.catId, 'error');
-        const currentProgress = useChatStore.getState().catInvocations?.[msg.catId]?.taskProgress;
-        if (currentProgress?.tasks?.length) {
-          setCatInvocation(msg.catId, {
-            taskProgress: {
-              ...currentProgress,
-              snapshotStatus: 'interrupted',
-              interruptReason: msg.error ?? 'Unknown error',
-              lastUpdate: Date.now(),
-            },
-          });
-        }
-        const messageId = getOrRecoverActiveAssistantMessageId(msg.catId);
-        if (messageId) {
-          setStreaming(messageId, false);
-          activeRefs.current.delete(msg.catId);
-        }
-        // F118 AC-C3: Attach pending timeout diagnostics matched by catId
+        // Stale-terminal guard (砚砚 R6, shared with `done`): late error(inv-1)
+        // arriving after inv-2 has already started must NOT touch inv-2's bubble
+        // or clear activeRefs for the newer invocation. See isStaleTerminalEvent
+        // for the full resolver + normalization rationale.
+        const isStaleError = isStaleTerminalEvent(msg.catId, msg.invocationId);
+
+        // Cloud R9 P2: `pendingTimeoutDiagRef` is keyed by `catId` alone — if we
+        // skip cleanup under the stale guard, the entry leaks and would wrongly
+        // attach to a later non-stale error for the same cat on a different
+        // invocation. Delete unconditionally on any error arrival; the only
+        // read happens inside the `!isStaleError` branch below, so stale errors
+        // correctly drop the diagnostics (rather than consuming them for wrong
+        // invocation).
         const timeoutDiag = msg.catId ? (pendingTimeoutDiagRef.current.get(msg.catId) ?? null) : null;
         if (msg.catId) pendingTimeoutDiagRef.current.delete(msg.catId);
 
-        addMessage({
-          id: `err-${Date.now()}-${msg.catId}`,
-          type: 'system',
-          variant: 'error',
-          catId: msg.catId,
-          content: (() => {
-            const base = `Error: ${msg.error ?? 'Unknown error'}`;
-            try {
-              const meta = JSON.parse(msg.content ?? '{}');
-              const subtype = meta?.errorSubtype;
-              if (subtype) {
-                const labels: Record<string, string> = {
-                  error_max_turns: '超出 turn 限制',
-                  error_max_budget_usd: '预算用尽',
-                  error_during_execution: '运行时错误',
-                  error_max_structured_output_retries: '结构化输出重试超限',
-                };
-                return labels[subtype] ? `${base} (${labels[subtype]})` : base;
+        if (!isStaleError) {
+          setCatStatus(msg.catId, 'error');
+          const currentProgress = useChatStore.getState().catInvocations?.[msg.catId]?.taskProgress;
+          if (currentProgress?.tasks?.length) {
+            setCatInvocation(msg.catId, {
+              taskProgress: {
+                ...currentProgress,
+                snapshotStatus: 'interrupted',
+                interruptReason: msg.error ?? 'Unknown error',
+                lastUpdate: Date.now(),
+              },
+            });
+          }
+          const messageId = getOrRecoverActiveAssistantMessageId(msg.catId);
+          if (messageId) {
+            setStreaming(messageId, false);
+            activeRefs.current.delete(msg.catId);
+          }
+
+          addMessage({
+            id: `err-${Date.now()}-${msg.catId}`,
+            type: 'system',
+            variant: 'error',
+            catId: msg.catId,
+            content: (() => {
+              const base = `Error: ${msg.error ?? 'Unknown error'}`;
+              try {
+                const meta = JSON.parse(msg.content ?? '{}');
+                const subtype = meta?.errorSubtype;
+                if (subtype) {
+                  const labels: Record<string, string> = {
+                    error_max_turns: '超出 turn 限制',
+                    error_max_budget_usd: '预算用尽',
+                    error_during_execution: '运行时错误',
+                    error_max_structured_output_retries: '结构化输出重试超限',
+                  };
+                  return labels[subtype] ? `${base} (${labels[subtype]})` : base;
+                }
+              } catch {
+                /* no subtype */
               }
-            } catch {
-              /* no subtype */
-            }
-            return base;
-          })(),
-          timestamp: Date.now(),
-          ...(timeoutDiag
-            ? {
-                extra: {
-                  timeoutDiagnostics: {
-                    silenceDurationMs: timeoutDiag.silenceDurationMs as number,
-                    processAlive: timeoutDiag.processAlive as boolean,
-                    lastEventType: timeoutDiag.lastEventType as string | undefined,
-                    firstEventAt: timeoutDiag.firstEventAt as number | undefined,
-                    lastEventAt: timeoutDiag.lastEventAt as number | undefined,
-                    cliSessionId: timeoutDiag.cliSessionId as string | undefined,
-                    invocationId: timeoutDiag.invocationId as string | undefined,
-                    rawArchivePath: timeoutDiag.rawArchivePath as string | undefined,
+              return base;
+            })(),
+            timestamp: Date.now(),
+            ...(timeoutDiag
+              ? {
+                  extra: {
+                    timeoutDiagnostics: {
+                      silenceDurationMs: timeoutDiag.silenceDurationMs as number,
+                      processAlive: timeoutDiag.processAlive as boolean,
+                      lastEventType: timeoutDiag.lastEventType as string | undefined,
+                      firstEventAt: timeoutDiag.firstEventAt as number | undefined,
+                      lastEventAt: timeoutDiag.lastEventAt as number | undefined,
+                      cliSessionId: timeoutDiag.cliSessionId as string | undefined,
+                      invocationId: timeoutDiag.invocationId as string | undefined,
+                      rawArchivePath: timeoutDiag.rawArchivePath as string | undefined,
+                    },
                   },
-                },
-              }
-            : {}),
-        });
-        // Only stop loading on isFinal; size===0 would false-positive in serial gaps
+                }
+              : {}),
+          });
+        }
+        // Only stop loading on isFinal; size===0 would false-positive in serial gaps.
+        // Slot cleanup for `msg.invocationId` is always safe (self-guarded by
+        // `primarySlot?.catId === msg.catId`) — the old inv-1 slot really should
+        // be removed regardless of staleness. But global cleanup (catStatuses,
+        // loading, intentMode, streaming refs) must NOT fire for stale error —
+        // it would wipe inv-2's state.
         if (msg.isFinal) {
           // F108: clear this cat's invocation slot on terminal error
           if (msg.invocationId) {
@@ -1139,12 +1313,20 @@ export function useAgentMessages() {
             }
             removeActiveInvocation(`${msg.invocationId}-${msg.catId}`);
             // Hydrated-only orphan cleanup (same as done path).
-            const stateAfter = useChatStore.getState();
-            const orphan = findLatestActiveInvocationIdForCat(stateAfter.activeInvocations, msg.catId);
-            if (orphan?.startsWith('hydrated-')) {
-              removeActiveInvocation(orphan);
+            // Stale-error R10: gate on !isStaleError — hydrated slot may represent
+            // the current in-flight invocation (reconnect hydration).
+            if (!isStaleError) {
+              const stateAfter = useChatStore.getState();
+              const orphan = findLatestActiveInvocationIdForCat(stateAfter.activeInvocations, msg.catId);
+              if (orphan?.startsWith('hydrated-')) {
+                removeActiveInvocation(orphan);
+              }
             }
-          } else {
+          } else if (!isStaleError) {
+            // No msg.invocationId: fall back to "latest slot for this cat" removal.
+            // Skip under stale guard — without msg.invocationId we can't distinguish
+            // stale from current, and this branch is the dangerous one (removes the
+            // NEWER invocation's slot if it's the latest for this cat).
             const catSlot = findLatestActiveInvocationIdForCat(useChatStore.getState().activeInvocations, msg.catId);
             if (catSlot) {
               removeActiveInvocation(catSlot);
@@ -1153,18 +1335,22 @@ export function useAgentMessages() {
             }
           }
           // F108 P1 fix: Only clear global state when the LAST active invocation ends.
-          const remainingInvocations = Object.keys(useChatStore.getState().activeInvocations ?? {}).length;
-          if (remainingInvocations === 0) {
-            clearDoneTimeout();
-            setLoading(false);
-            setIntentMode(null);
-            clearCatStatuses();
-            // Clear ALL remaining streaming refs — global catch uses catId='opus' which may
-            // not match the cat that was actually running (e.g. codex/gemini)
-            for (const ref of activeRefs.current.values()) {
-              setStreaming(ref.id, false);
+          // Gate on !isStaleError: a stale error must not wipe newer invocation's
+          // streaming refs / catStatuses / loading flag.
+          if (!isStaleError) {
+            const remainingInvocations = Object.keys(useChatStore.getState().activeInvocations ?? {}).length;
+            if (remainingInvocations === 0) {
+              clearDoneTimeout();
+              setLoading(false);
+              setIntentMode(null);
+              clearCatStatuses();
+              // Clear ALL remaining streaming refs — global catch uses catId='opus' which may
+              // not match the cat that was actually running (e.g. codex/gemini)
+              for (const ref of activeRefs.current.values()) {
+                setStreaming(ref.id, false);
+              }
+              activeRefs.current.clear();
             }
-            activeRefs.current.clear();
           }
         }
       }
@@ -1194,6 +1380,7 @@ export function useAgentMessages() {
       getCurrentInvocationIdForCat,
       getCurrentInvocationStateForCat,
       getOrRecoverActiveAssistantMessageId,
+      isStaleTerminalEvent,
       ensureActiveAssistantMessage,
       maybeMigrateSequentialInvocationOwnership,
       recordLateBindBubbleCreate,
