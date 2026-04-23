@@ -55,6 +55,8 @@ const mockReplaceThreadTargetCats = vi.fn();
 const mockUpdateThreadCatStatus = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
 const mockAddActiveInvocation = vi.fn();
+const mockSetCatStatus = vi.fn();
+const mockRemoveActiveInvocation = vi.fn();
 const mockAddToast = vi.fn();
 const mockThreadQueues = new Map<string, unknown[]>();
 const mockGetThreadState = vi.fn(() => ({
@@ -96,6 +98,9 @@ vi.mock('@/stores/chatStore', () => {
     updateThreadCatStatus: mockUpdateThreadCatStatus,
     clearThreadActiveInvocation: mockClearThreadActiveInvocation,
     addActiveInvocation: mockAddActiveInvocation,
+    removeActiveInvocation: mockRemoveActiveInvocation,
+    setCatStatus: mockSetCatStatus,
+    activeInvocations: {} as Record<string, { catId: string; mode: string }>,
     getThreadState: mockGetThreadState,
   });
   const useChatStore = ((selector?: (state: ReturnType<typeof getState>) => unknown) =>
@@ -484,6 +489,94 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     // Must be routed as background so it lands in thread-B state map.
     expect(mockAddMessageToThread).toHaveBeenCalledTimes(1);
     expect(mockAddMessageToThread.mock.calls[0]?.[0]).toBe('thread-B');
+  });
+
+  // F173 Phase A.2 — single-pointer routing (KD-4)
+  // Original dual-pointer guard requires BOTH route and store to match msg.threadId,
+  // which mis-routes events when route is stale but store is the truth source.
+  // Single-pointer routing uses store as the only source of truth for active-thread decision.
+  it('F173 reverse race: route stale, store=msg.threadId → must go active (single-pointer routing)', () => {
+    const onMessage = vi.fn();
+    const callbacks: SocketCallbacks = {
+      onMessage,
+    };
+
+    // Reverse race: store has already switched to thread-B (the truth source), but
+    // route ref is still on stale thread-A (URL update lagging behind setCurrentThread).
+    mockStoreCurrentThreadId = 'thread-B';
+    act(() => {
+      // route=A (stale), store=B (truth)
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-A' }));
+    });
+
+    // Message belongs to thread-B (matches store truth)
+    act(() => {
+      simulateServerEvent('agent_message', {
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-B',
+        content: 'belongs to thread-B per store truth',
+        timestamp: Date.now(),
+      });
+    });
+
+    // Single-pointer (store) routing → onMessage MUST be called (active path)
+    // Original dual-pointer would mis-route to background because route ≠ msg.threadId.
+    expect(onMessage).toHaveBeenCalledTimes(1);
+    expect(onMessage.mock.calls[0]?.[0]).toMatchObject({
+      threadId: 'thread-B',
+      content: 'belongs to thread-B per store truth',
+    });
+    // Background path must NOT also fire
+    expect(mockAddMessageToThread).not.toHaveBeenCalled();
+  });
+
+  it('F173 reverse race intent_mode: route stale, store=data.threadId → must forward to callback', () => {
+    const onIntentMode = vi.fn();
+    const callbacks: SocketCallbacks = {
+      onMessage: vi.fn(),
+      onIntentMode,
+    };
+
+    mockStoreCurrentThreadId = 'thread-B';
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-A' }));
+    });
+
+    act(() => {
+      simulateServerEvent('intent_mode', {
+        threadId: 'thread-B',
+        mode: 'execute',
+        targetCats: ['opus'],
+      });
+    });
+
+    expect(onIntentMode).toHaveBeenCalledTimes(1);
+    expect(onIntentMode.mock.calls[0]?.[0]).toMatchObject({ threadId: 'thread-B', mode: 'execute' });
+  });
+
+  it('F173 reverse race spawn_started: route stale, store=data.threadId → must forward to callback', () => {
+    const onSpawnStarted = vi.fn();
+    const callbacks: SocketCallbacks = {
+      onMessage: vi.fn(),
+      onSpawnStarted,
+    };
+
+    mockStoreCurrentThreadId = 'thread-B';
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-A' }));
+    });
+
+    act(() => {
+      simulateServerEvent('spawn_started', {
+        threadId: 'thread-B',
+        targetCats: ['opus'],
+        invocationId: 'inv-1',
+      });
+    });
+
+    expect(onSpawnStarted).toHaveBeenCalledTimes(1);
+    expect(onSpawnStarted.mock.calls[0]?.[0]).toMatchObject({ threadId: 'thread-B' });
   });
 
   it('route/store mismatch: non-text tool_use event is preserved via background path', () => {

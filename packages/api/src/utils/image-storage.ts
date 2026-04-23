@@ -45,7 +45,10 @@ export function mimeToImageExt(mimeType: SupportedImageMime): string {
 }
 
 export function sanitizeFilenameStem(filenameStem: string): string {
-  const normalized = filenameStem.trim().replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/-+/g, '-');
+  const normalized = filenameStem
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/-+/g, '-');
   const sanitized = normalized.replace(/^[.-]+|[.-]+$/g, '');
   const stableSuffix = createHash('sha256').update(filenameStem).digest('hex').slice(0, 8);
   if (sanitized.length > MAX_FILENAME_STEM_LENGTH) {

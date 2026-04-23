@@ -2,9 +2,16 @@
 
 import type { ReplyPreview } from '@cat-cafe/shared';
 import { useCallback, useEffect, useRef } from 'react';
+import { deriveBubbleId } from '@/debug/bubbleIdentity';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { useChatStore } from '@/stores/chatStore';
 import { compactToolResultDetail } from '@/utils/toolPreview';
+import {
+  clearReplacedInvocation,
+  clearReplacedInvocationsForThread,
+  getReplacedInvocation,
+  markReplacedInvocation,
+} from './shared-replaced-invocations';
 import { formatVisibleSystemInfo } from './system-info-visible';
 
 /** Timeout for done(isFinal) - 5 minutes */
@@ -106,8 +113,10 @@ export function useAgentMessages() {
 
   /** Map<catId, { id: messageId, catId }> — one entry per active stream */
   const activeRefs = useRef<Map<string, { id: string; catId: string }>>(new Map());
-  /** Track callback-replaced invocations so delayed stream chunks do not recreate ghost bubbles. */
-  const replacedInvocationsRef = useRef<Map<string, string>>(new Map());
+  // F173 A.6 — replacedInvocations is now a shared module-level Map (`shared-replaced-invocations.ts`).
+  // Both active (this hook) and background (`useSocket-background.ts`) handlers read/write the SAME Map,
+  // keyed by `${threadId}::${catId}`, so suppression handoff works in BOTH directions
+  // (background→active was patched in A.5; A.6 closes the active→background gap that 砚砚 P1-1 round 2 found).
 
   /** #586 follow-up: Track just-finalized stream bubble per cat. Set on done when
    *  activeRefs entry existed, consumed by callback replacement or next invocation start.
@@ -434,9 +443,11 @@ export function useAgentMessages() {
         return existingId;
       }
 
-      const id = `msg-${Date.now()}-${catId}`;
+      // F173 A.3 — deterministic id from invocationId so background-handler-created
+      // bubbles (in threadStates) match this active path on hydration/recovery.
       const invocation = getCurrentInvocationStateForCat(catId);
       const invocationId = invocation.invocationId;
+      const id = deriveBubbleId(invocationId, catId, () => `msg-${Date.now()}-${catId}`);
       activeRefs.current.set(catId, { id, catId });
       addMessage({
         id,
@@ -459,18 +470,26 @@ export function useAgentMessages() {
 
   const shouldSuppressLateStreamChunk = useCallback(
     (catId: string, invocationId?: string): boolean => {
-      const replacedInvocationId = replacedInvocationsRef.current.get(catId);
+      const tid = useChatStore.getState().currentThreadId;
+      const replacedInvocationId = getReplacedInvocation(tid, catId);
       if (!replacedInvocationId) return false;
 
       const currentInvocationId = invocationId ?? getCurrentInvocationIdForCat(catId);
+      // F173 A.12 砚砚 round 5 — invocation-driven cleanup (not navigation-driven):
+      // different invocationId observed = suppression is stale, clear it and pass.
       if (currentInvocationId && currentInvocationId !== replacedInvocationId) {
-        replacedInvocationsRef.current.delete(catId);
+        clearReplacedInvocation(tid, catId);
         return false;
       }
+      // F173 A.12 砚砚 round 5 — fail-open for invocationless flows (legacy /api/messages
+      // emits agent_messages without invocationId). Without this, suppression becomes
+      // permanent and drops legitimate new stream output (codex round 3 P2 case).
+      // Drop ONLY when invocationId is known AND matches the replaced one.
+      if (!currentInvocationId) return false;
 
       recordDebugEvent({
         event: 'bubble_lifecycle',
-        threadId: useChatStore.getState().currentThreadId,
+        threadId: tid,
         timestamp: Date.now(),
         action: 'drop',
         reason: 'late_stream_after_callback_replace',
@@ -542,11 +561,17 @@ export function useAgentMessages() {
             // Consume the finalized ref — callback successfully replaced the bubble
             finalizedStreamRef.current.delete(msg.catId);
             if (invocationId) {
-              replacedInvocationsRef.current.set(msg.catId, invocationId);
+              // F173 A.6 — write to shared module so background handler also sees the suppression
+              // when user switches away after callback replace.
+              markReplacedInvocation(useChatStore.getState().currentThreadId, msg.catId, invocationId);
             }
           } else {
             // Use backend messageId when available for rich_block correlation (#83 P2)
-            const id = msg.messageId ?? `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`;
+            // F173 A.3 — fallback uses deterministic id from invocationId so a later stream
+            // recovery (after switching back) finds the same bubble instead of duplicating.
+            const id =
+              msg.messageId ??
+              deriveBubbleId(invocationId, msg.catId, () => `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`);
             const extraForAdd = {
               ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
               ...(hasExplicitInvocationId && msg.invocationId ? { stream: { invocationId: msg.invocationId } } : {}),
@@ -572,7 +597,8 @@ export function useAgentMessages() {
               invocationId &&
               (!hasExplicitInvocationId || getCurrentInvocationIdForCat(msg.catId) === msg.invocationId);
             if (shouldLockReplacement) {
-              replacedInvocationsRef.current.set(msg.catId, invocationId);
+              // F173 A.6 — shared module Map; both handlers see this suppression.
+              markReplacedInvocation(useChatStore.getState().currentThreadId, msg.catId, invocationId);
             }
           }
         } else {
@@ -592,9 +618,10 @@ export function useAgentMessages() {
             }
           } else {
             // New stream message for this cat
-            const id = `msg-${Date.now()}-${msg.catId}`;
+            // F173 A.3 — deterministic id via deriveBubbleId; matches background handler.
             const invocation = getCurrentInvocationStateForCat(msg.catId);
-            const invocationId = invocation.invocationId;
+            const invocationId = msg.invocationId ?? invocation.invocationId;
+            const id = deriveBubbleId(invocationId, msg.catId, () => `msg-${Date.now()}-${msg.catId}`);
             activeRefs.current.set(msg.catId, { id, catId: msg.catId });
             addMessage({
               id,
@@ -1197,6 +1224,10 @@ export function useAgentMessages() {
           }
         }
         store.resetThreadInvocationState(threadId);
+        // Codex review P2 — split-pane / background stop must also clear the stopped
+        // thread's suppression markers; otherwise switching back later sees stale
+        // replacement state and shouldSuppressLateStreamChunk drops legitimate text.
+        clearReplacedInvocationsForThread(threadId);
         return;
       }
 
@@ -1211,14 +1242,24 @@ export function useAgentMessages() {
         setStreaming(ref.id, false);
       }
       activeRefs.current.clear();
-      replacedInvocationsRef.current.clear();
+      // F173 A.12 砚砚 round 5 — handleStop is an EXPLICIT cancel by the user, so it's
+      // legitimate to clear suppression for the stopped thread. (Background-stop branch
+      // above also clears for the same reason.) This is invocation-lifecycle aligned:
+      // user's stop = invocation explicitly ended = suppression no longer relevant.
+      clearReplacedInvocationsForThread(threadId);
     },
     [setLoading, clearAllActiveInvocations, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout],
   );
 
   const resetRefs = useCallback(() => {
     activeRefs.current.clear();
-    replacedInvocationsRef.current.clear();
+    // F173 A.12 砚砚 round 5 — DO NOT clear suppression on thread switch / non-queue send.
+    // resetRefs is navigation-driven (URL change, follow-up send), NOT invocation lifecycle.
+    // Suppression cleanup must be invocation-driven only:
+    //   1) Different invocationId observed → cleared inline in shouldSuppressLateStreamChunk
+    //   2) Invocationless flow → fail-open, suppression doesn't drop legitimate output
+    //   3) Explicit user stop → handleStop clears (legitimate cancel boundary)
+    // Threading/navigation actions never invalidate an in-flight invocation's suppression.
     // clowder-ai#378: clear ALL ref maps so stale IDs from prior invocation
     // don't cause findInvocationlessStreamPlaceholder to match old bubbles.
     // Without this, scheduler callbacks (no invocationId) could patch a

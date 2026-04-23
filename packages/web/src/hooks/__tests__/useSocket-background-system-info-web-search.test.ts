@@ -34,7 +34,6 @@ function createMockOptions(storeOverrides: Record<string, unknown> = {}) {
     store: createMockStore(storeOverrides),
     bgStreamRefs: new Map(),
     finalizedBgRefs: new Map(),
-    replacedInvocations: new Map(),
     nextBgSeq: (() => {
       let i = 0;
       return () => ++i;

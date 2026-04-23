@@ -1,6 +1,8 @@
+import { deriveBubbleId } from '@/debug/bubbleIdentity';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import type { CatStatusType } from '@/stores/chat-types';
 import { compactToolResultDetail } from '@/utils/toolPreview';
+import { clearReplacedInvocation, getReplacedInvocation, markReplacedInvocation } from './shared-replaced-invocations';
 import type {
   ActiveRoutedAgentMessage,
   BackgroundAgentMessage,
@@ -207,17 +209,25 @@ function findBackgroundCallbackReplacementTarget(
 
 function shouldSuppressLateBackgroundStreamChunk(
   msg: BackgroundAgentMessage,
-  streamKey: string,
+  _streamKey: string,
   options: HandleBackgroundMessageOptions,
 ): boolean {
-  const replacedInvocationId = options.replacedInvocations.get(streamKey);
+  // F173 A.6 — read shared module Map (cross-handler suppression source of truth).
+  const replacedInvocationId = getReplacedInvocation(msg.threadId, msg.catId);
   if (!replacedInvocationId) return false;
 
   const currentInvocationId = msg.invocationId ?? getThreadInvocationId(msg, options);
+  // F173 A.12 砚砚 round 5 — invocation-driven cleanup (not navigation-driven).
+  // Different invocationId observed → suppression is stale, clear and pass.
   if (currentInvocationId && currentInvocationId !== replacedInvocationId) {
-    options.replacedInvocations.delete(streamKey);
+    clearReplacedInvocation(msg.threadId, msg.catId);
     return false;
   }
+  // F173 A.12 砚砚 round 5 — fail-open for invocationless flows (legacy /api/messages
+  // emits agent_messages without invocationId). Without this, an old suppression entry
+  // would permanently drop legitimate new stream output for the same (threadId, catId)
+  // — that's the round 3 P2 bug. Drop ONLY when invocationId is known AND matches.
+  if (!currentInvocationId) return false;
 
   recordDebugEvent({
     event: 'bubble_lifecycle',
@@ -254,8 +264,13 @@ function ensureBackgroundAssistantMessage(
     return recoveredId;
   }
 
-  const messageId = `bg-tool-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
-  const invocationId = getThreadInvocationId(msg, options);
+  // F173 A.3 — invocationId from event payload first; fallback to stale thread state.
+  const invocationId = msg.invocationId ?? getThreadInvocationId(msg, options);
+  const messageId = deriveBubbleId(
+    invocationId,
+    msg.catId,
+    () => `bg-tool-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`,
+  );
   options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
   options.store.addMessageToThread(msg.threadId, {
     id: messageId,
@@ -372,11 +387,16 @@ export function handleBackgroundAgentMessage(
         // Fallback matches return null — writing a pseudo ID would permanently suppress
         // future invocationless stream chunks via shouldSuppressLateBackgroundStreamChunk.
         if (replacementTarget.invocationId) {
-          options.replacedInvocations.set(streamKey, replacementTarget.invocationId);
+          // F173 A.6 — write to shared module so active handler also sees suppression on switch back.
+          markReplacedInvocation(msg.threadId, msg.catId, replacementTarget.invocationId);
         }
         finalMsgId = cbId;
       } else {
-        const cbId = msg.messageId ?? `bg-cb-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
+        // F173 A.3 — server-issued messageId wins; otherwise derive from invocationId.
+        const cbInvocationId = msg.invocationId ?? getThreadInvocationId(msg, options);
+        const cbId =
+          msg.messageId ??
+          deriveBubbleId(cbInvocationId, msg.catId, () => `bg-cb-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`);
         options.store.addMessageToThread(msg.threadId, {
           id: cbId,
           type: 'assistant',
@@ -395,7 +415,8 @@ export function handleBackgroundAgentMessage(
         // are suppressed instead of spawning a duplicate bubble.
         const bgInvocationId = msg.invocationId ?? getThreadInvocationId(msg, options);
         if (bgInvocationId) {
-          options.replacedInvocations.set(streamKey, bgInvocationId);
+          // F173 A.6 — shared module Map.
+          markReplacedInvocation(msg.threadId, msg.catId, bgInvocationId);
         }
         finalMsgId = cbId;
       }
@@ -440,8 +461,13 @@ export function handleBackgroundAgentMessage(
           options.bgStreamRefs.delete(streamKey);
         }
       } else {
-        messageId = `bg-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
-        const invocationId = getThreadInvocationId(msg, options);
+        // F173 A.3 — invocationId from event payload first (eliminates stale-state ghost).
+        const invocationId = msg.invocationId ?? getThreadInvocationId(msg, options);
+        messageId = deriveBubbleId(
+          invocationId,
+          msg.catId,
+          () => `bg-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`,
+        );
         options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
         options.store.addMessageToThread(msg.threadId, {
           id: messageId,

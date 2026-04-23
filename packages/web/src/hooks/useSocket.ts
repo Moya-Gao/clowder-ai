@@ -14,6 +14,7 @@ import { useGuideStore } from '@/stores/guideStore';
 import { useToastStore } from '@/stores/toastStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
+import { getReplacedInvocation } from './shared-replaced-invocations';
 import { reconnectGame } from './useGameReconnect';
 import {
   type BackgroundAgentMessage,
@@ -341,7 +342,9 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     new Map(),
   );
   const bgStreamRefsRef = useRef<Map<string, { id: string; threadId: string; catId: string }>>(new Map());
-  const bgReplacedInvocationsRef = useRef<Map<string, string>>(new Map());
+  // F173 A.6 — `replacedInvocations` is now a shared module-level Map (`shared-replaced-invocations.ts`),
+  // imported directly. No more local ref. Both active (useAgentMessages) and background (here) read
+  // and write the SAME state, fixing the bidirectional handoff gap (砚砚 P1-1 round 2).
   const bgFinalizedRefsRef = useRef<Map<string, string>>(new Map());
   const bgSeqRef = useRef(0);
   const userIdRef = useRef(getUserId());
@@ -464,17 +467,15 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     });
 
     socket.on('agent_message', (msg: AgentMessage) => {
-      const routeThread = threadIdRef.current;
       const storeThread = useChatStore.getState().currentThreadId;
 
-      // Active thread requires BOTH route-level and store-level agreement.
-      // This blocks a switch-window race where route already points to thread-B
-      // but flat store still belongs to thread-A.
-      const isActiveThreadMessage = Boolean(
-        msg.threadId && routeThread && storeThread && msg.threadId === routeThread && msg.threadId === storeThread,
-      );
-      // If either pointer is temporarily unavailable during thread switch,
-      // route thread-tagged events to background to avoid mutating stale flat state.
+      // F173 KD-4 — single-pointer routing.
+      // store.currentThreadId is the only source of truth. routeThread (URL ref)
+      // is removed because it caused the reverse-race ghost bubbles: when store
+      // had switched to B but URL ref was still A, events for B were mis-routed
+      // to background, creating bg-{ts}-{cat}-{seq} ghost bubbles whose
+      // invocationId came from stale thread-state — never matched on F5 hydration.
+      const isActiveThreadMessage = Boolean(msg.threadId && storeThread && msg.threadId === storeThread);
       recordInvocationEvent({
         event: msg.type === 'done' ? 'done' : 'agent_message',
         threadId: msg.threadId,
@@ -491,6 +492,25 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
       // Active thread → full processing via onMessage (streaming, tool events, etc.)
       if (isActiveThreadMessage) {
+        // F173 A.5 + A.6 — bidirectional suppression handoff.
+        // Both handlers read/write the same shared Map (`shared-replaced-invocations.ts`).
+        // After callback replace (in either direction), late stream chunks for that invocation
+        // are dropped here as well; without this guard, store's hard-merge by (catId, invocationId)
+        // would overwrite authoritative callback content with the late stream chunk.
+        if (msg.type === 'text' && msg.origin !== 'callback' && msg.invocationId) {
+          if (getReplacedInvocation(msg.threadId, msg.catId) === msg.invocationId) {
+            recordInvocationEvent({
+              event: 'agent_message',
+              threadId: msg.threadId,
+              action: 'drop_active_promotion_late_chunk',
+            });
+            // Codex review P1 — clear bgStreamRefs even on dropped chunk so a later
+            // background-handler reactivation (after thread switch away) doesn't reuse
+            // a stale ref to append into an old bubble.
+            clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current);
+            return;
+          }
+        }
         callbacksRef.current.onMessage(msg);
         clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current);
         return;
@@ -501,7 +521,6 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         store: useChatStore.getState(),
         bgStreamRefs: bgStreamRefsRef.current,
         finalizedBgRefs: bgFinalizedRefsRef.current,
-        replacedInvocations: bgReplacedInvocationsRef.current,
         nextBgSeq: () => bgSeqRef.current++,
         addToast: (toast) => useToastStore.getState().addToast(toast),
         clearDoneTimeout: callbacksRef.current.clearDoneTimeout,
@@ -515,7 +534,6 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     socket.on(
       'intent_mode',
       (data: { threadId: string; mode: string; targetCats: string[]; invocationId?: string }) => {
-        const routeThread = threadIdRef.current;
         const storeThread = useChatStore.getState().currentThreadId;
         recordInvocationEvent({
           event: 'intent_mode',
@@ -523,12 +541,8 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
           mode: data.mode,
         });
 
-        // Dual-pointer guard: both route and store must agree for active-thread processing.
-        // Mirrors agent_message pattern — blocks switch-window race where route already
-        // points to thread-B but flat store still belongs to thread-A.
-        const isActiveThread = Boolean(
-          data.threadId && routeThread && storeThread && data.threadId === routeThread && data.threadId === storeThread,
-        );
+        // F173 KD-4 — single-pointer routing (store as truth source). See agent_message comment.
+        const isActiveThread = Boolean(data.threadId && storeThread && data.threadId === storeThread);
 
         if (isActiveThread) {
           callbacksRef.current.onIntentMode?.(data);
@@ -582,12 +596,10 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
     // F118 D2: spawn_started — earliest per-cat spawning signal (fires before intent_mode).
     socket.on('spawn_started', (data: { threadId: string; targetCats: string[]; invocationId: string }) => {
-      const routeThread = threadIdRef.current;
       const storeThread = useChatStore.getState().currentThreadId;
 
-      const isActiveThread = Boolean(
-        data.threadId && routeThread && storeThread && data.threadId === routeThread && data.threadId === storeThread,
-      );
+      // F173 KD-4 — single-pointer routing (store as truth source). See agent_message comment.
+      const isActiveThread = Boolean(data.threadId && storeThread && data.threadId === storeThread);
 
       if (isActiveThread) {
         callbacksRef.current.onSpawnStarted?.(data);

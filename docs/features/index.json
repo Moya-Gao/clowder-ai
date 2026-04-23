@@ -1047,7 +1047,7 @@
     {
       "id": "F167",
       "name": "A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P0",
+      "status": "monitoring | **Owner**: 布偶猫 | **Priority**: P0",
       "file": "F167-a2a-chain-quality.md"
     },
     {
@@ -1087,5 +1087,5 @@
       "file": "F173-frontend-message-pipeline-unification.md"
     }
   ],
-  "generated_at": "2026-04-23T09:30:40.474Z"
+  "generated_at": "2026-04-23T10:44:08.384Z"
 }

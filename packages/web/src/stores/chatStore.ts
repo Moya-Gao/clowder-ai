@@ -88,6 +88,49 @@ function snapshotActive(s: ChatState): ThreadState {
   };
 }
 
+/** F173 Phase A — ThreadRuntimeWriter mirror helper.
+ *  When a setThreadX writes to the active thread's flat state, this also mirrors
+ *  the same patch into threadStates[currentThreadId] so threadStates is always
+ *  the source of truth (flat is a compatibility mirror, KD-2).
+ *
+ *  Returns the threadStates patch only — the caller must spread the flat patch
+ *  alongside this to emit a single zustand set() with both halves.
+ *
+ *  Pass the *new* values (post-mutation) so the mirror reflects the same outcome
+ *  as the flat update.
+ */
+function mirrorActiveToThreadStates(
+  state: ChatState,
+  threadId: string,
+  patch: Partial<ThreadState>,
+): { threadStates: Record<string, ThreadState> } {
+  const baseThreadState = state.threadStates[threadId] ?? snapshotActive(state);
+  // F173 receive-review fix for砚砚 P1-2 — do NOT stamp lastActivity on mirror.
+  // Mirror is field synchronization, not "real activity occurred". stampThreadCompletion
+  // handles completion timing. Stamping here would break the sidebar sort stability
+  // invariant: redundant setX calls on inactive threads would falsely bump their position.
+  return {
+    threadStates: {
+      ...state.threadStates,
+      [threadId]: {
+        ...baseThreadState,
+        ...patch,
+      },
+    },
+  };
+}
+
+/** F173 Phase A — receive-review fix for砚砚 P1-2.
+ *  Convenience wrapper: mirror an active-thread flat patch to threadStates[currentThreadId]
+ *  in a single set() call, eliminating the "active flat write skips mirror" gap.
+ */
+function mirrorActiveFlat(
+  state: ChatState,
+  patch: Partial<ThreadState>,
+): { threadStates: Record<string, ThreadState> } {
+  return mirrorActiveToThreadStates(state, state.currentThreadId, patch);
+}
+
 /** Stamp completion time into threadStates for a given thread.
  *  Centralizes the "real activity just ended" semantic so all invocation-clearing
  *  paths share one definition. Optional `patch` merges extra fields before stamping. */
@@ -1138,7 +1181,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: state.messages.map((m) => (m.id === id ? { ...m, isStreaming: streaming } : m)),
     })),
 
-  setLoading: (loading) => set({ isLoading: loading }),
+  setLoading: (loading) => set((state) => ({ isLoading: loading, ...mirrorActiveFlat(state, { isLoading: loading }) })),
   setThreadHasDraft: (threadId, hasDraft) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
@@ -1165,10 +1208,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (!v && state.hasActiveInvocation) {
         return {
           hasActiveInvocation: false,
-          threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId),
+          threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId, {
+            hasActiveInvocation: false,
+          }),
         };
       }
-      return { hasActiveInvocation: v };
+      return { hasActiveInvocation: v, ...mirrorActiveFlat(state, { hasActiveInvocation: v }) };
     }),
   /** F108: Register a new active invocation slot */
   addActiveInvocation: (invocationId, catId, mode, startedAt?) =>
@@ -1177,7 +1222,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ...state.activeInvocations,
         [invocationId]: { catId, mode, startedAt: startedAt ?? Date.now() },
       };
-      return { activeInvocations, hasActiveInvocation: true };
+      return {
+        activeInvocations,
+        hasActiveInvocation: true,
+        ...mirrorActiveFlat(state, { activeInvocations, hasActiveInvocation: true }),
+      };
     }),
   /** F108: Remove an active invocation slot; derives hasActiveInvocation */
   removeActiveInvocation: (invocationId) =>
@@ -1187,10 +1236,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (!hasActive && state.hasActiveInvocation) {
           return {
             hasActiveInvocation: false,
-            threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId),
+            threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId, {
+              hasActiveInvocation: false,
+            }),
           };
         }
-        return { hasActiveInvocation: hasActive };
+        return { hasActiveInvocation: hasActive, ...mirrorActiveFlat(state, { hasActiveInvocation: hasActive }) };
       }
       const rest = Object.fromEntries(Object.entries(state.activeInvocations).filter(([k]) => k !== invocationId));
       const hasActive = Object.keys(rest).length > 0;
@@ -1199,7 +1250,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return {
         activeInvocations: rest,
         hasActiveInvocation: hasActive,
-        ...(!hasActive ? { threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId) } : {}),
+        ...(!hasActive
+          ? {
+              threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId, {
+                activeInvocations: rest,
+                hasActiveInvocation: hasActive,
+              }),
+            }
+          : mirrorActiveFlat(state, { activeInvocations: rest, hasActiveInvocation: hasActive })),
       };
     }),
   /** F108: Clear all active invocations (timeout/error/stop recovery) */
@@ -1207,26 +1265,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => ({
       activeInvocations: {},
       hasActiveInvocation: false,
-      threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId),
+      threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId, {
+        activeInvocations: {},
+        hasActiveInvocation: false,
+      }),
     })),
   setLoadingHistory: (loading) => set({ isLoadingHistory: loading }),
-  setIntentMode: (mode) => set({ intentMode: mode }),
+  setIntentMode: (mode) => set((state) => ({ intentMode: mode, ...mirrorActiveFlat(state, { intentMode: mode }) })),
 
   setTargetCats: (cats) =>
     set((state) => {
-      if (cats.length === 0) return { targetCats: [], catStatuses: {} };
+      if (cats.length === 0) {
+        return { targetCats: [], catStatuses: {}, ...mirrorActiveFlat(state, { targetCats: [], catStatuses: {} }) };
+      }
       const merged = [...new Set([...state.targetCats, ...cats])];
       const statuses = { ...state.catStatuses };
       for (const c of cats) {
         if (!(c in statuses)) statuses[c] = 'pending' as const;
       }
-      return { targetCats: merged, catStatuses: statuses };
+      return {
+        targetCats: merged,
+        catStatuses: statuses,
+        ...mirrorActiveFlat(state, { targetCats: merged, catStatuses: statuses }),
+      };
     }),
 
   setCatStatus: (catId, status) =>
     set((state) => {
       if (state.catStatuses[catId] === status) return state;
-      return { catStatuses: { ...state.catStatuses, [catId]: status } };
+      const catStatuses = { ...state.catStatuses, [catId]: status };
+      return { catStatuses, ...mirrorActiveFlat(state, { catStatuses }) };
     }),
 
   clearCatStatuses: () =>
@@ -1246,16 +1314,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
           cleanedInvocations[catId] = info;
         }
       }
-      return { targetCats: [], catStatuses: {}, catInvocations: cleanedInvocations };
+      return {
+        targetCats: [],
+        catStatuses: {},
+        catInvocations: cleanedInvocations,
+        ...mirrorActiveFlat(state, { targetCats: [], catStatuses: {}, catInvocations: cleanedInvocations }),
+      };
     }),
 
   setCatInvocation: (catId, info) =>
-    set((state) => ({
-      catInvocations: {
+    set((state) => {
+      const catInvocations = {
         ...state.catInvocations,
         [catId]: { ...state.catInvocations[catId], ...info },
-      },
-    })),
+      };
+      return { catInvocations, ...mirrorActiveFlat(state, { catInvocations }) };
+    }),
 
   setMessageUsage: (messageId, usage) =>
     set((state) => ({
@@ -1414,7 +1488,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           if (msg.mentionsUser && typeof document !== 'undefined' && !document.hasFocus()) {
             fireOwnerMentionNotification(msg);
           }
-          return { messages };
+          return {
+            messages,
+            ...mirrorActiveToThreadStates(state, threadId, { messages }),
+          };
         }
 
         const messages = [...state.messages, msg];
@@ -1427,7 +1504,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (msg.mentionsUser && typeof document !== 'undefined' && !document.hasFocus()) {
           fireOwnerMentionNotification(msg);
         }
-        return { messages };
+        return {
+          messages,
+          ...mirrorActiveToThreadStates(state, threadId, { messages }),
+        };
       }
 
       // Background thread — update map + increment unread
@@ -1572,11 +1652,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setThreadCatInvocation: (threadId, catId, info) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
+        const catInvocations = {
+          ...state.catInvocations,
+          [catId]: { ...state.catInvocations[catId], ...info },
+        };
         return {
-          catInvocations: {
-            ...state.catInvocations,
-            [catId]: { ...state.catInvocations[catId], ...info },
-          },
+          catInvocations,
+          ...mirrorActiveToThreadStates(state, threadId, { catInvocations }),
         };
       }
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
@@ -1645,7 +1727,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setThreadLoading: (threadId, loading) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
-        return { isLoading: loading };
+        return {
+          isLoading: loading,
+          ...mirrorActiveToThreadStates(state, threadId, { isLoading: loading }),
+        };
       }
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
       return {
@@ -1664,7 +1749,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setThreadHasActiveInvocation: (threadId, active) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
-        return { hasActiveInvocation: active };
+        return {
+          hasActiveInvocation: active,
+          ...mirrorActiveToThreadStates(state, threadId, { hasActiveInvocation: active }),
+        };
       }
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
       return {
@@ -1688,7 +1776,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ...state.activeInvocations,
           [invocationId]: { catId, mode, startedAt: ts },
         };
-        return { activeInvocations, hasActiveInvocation: true };
+        return {
+          activeInvocations,
+          hasActiveInvocation: true,
+          ...mirrorActiveToThreadStates(state, threadId, { activeInvocations, hasActiveInvocation: true }),
+        };
       }
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
       const activeInvocations = {
@@ -1708,7 +1800,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => {
       if (threadId === state.currentThreadId) {
         const rest = Object.fromEntries(Object.entries(state.activeInvocations).filter(([k]) => k !== invocationId));
-        return { activeInvocations: rest, hasActiveInvocation: Object.keys(rest).length > 0 };
+        const hasActiveInvocation = Object.keys(rest).length > 0;
+        return {
+          activeInvocations: rest,
+          hasActiveInvocation,
+          ...mirrorActiveToThreadStates(state, threadId, { activeInvocations: rest, hasActiveInvocation }),
+        };
       }
       const existing = state.threadStates[threadId];
       if (!existing) return state;
@@ -1728,7 +1825,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return {
           activeInvocations: {},
           hasActiveInvocation: false,
-          threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId),
+          threadStates: stampThreadCompletion(state.threadStates, state.currentThreadId, {
+            activeInvocations: {},
+            hasActiveInvocation: false,
+          }),
         };
       }
       const existing = state.threadStates[threadId];
@@ -1746,7 +1846,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setThreadIntentMode: (threadId, mode) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
-        return { intentMode: mode, catStatuses: {} };
+        return {
+          intentMode: mode,
+          catStatuses: {},
+          ...mirrorActiveToThreadStates(state, threadId, { intentMode: mode, catStatuses: {} }),
+        };
       }
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
       return {
@@ -1768,13 +1872,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setThreadTargetCats: (threadId, cats) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
-        if (cats.length === 0) return { targetCats: [], catStatuses: {} };
+        if (cats.length === 0) {
+          return {
+            targetCats: [],
+            catStatuses: {},
+            ...mirrorActiveToThreadStates(state, threadId, { targetCats: [], catStatuses: {} }),
+          };
+        }
         const merged = [...new Set([...state.targetCats, ...cats])];
         const statuses = { ...state.catStatuses };
         for (const c of cats) {
           if (!(c in statuses)) statuses[c] = 'pending' as const;
         }
-        return { targetCats: merged, catStatuses: statuses };
+        return {
+          targetCats: merged,
+          catStatuses: statuses,
+          ...mirrorActiveToThreadStates(state, threadId, { targetCats: merged, catStatuses: statuses }),
+        };
       }
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
       if (cats.length === 0) {
@@ -1811,10 +1925,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
   replaceThreadTargetCats: (threadId, cats) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
-        if (cats.length === 0) return { targetCats: [], catStatuses: {} };
+        if (cats.length === 0) {
+          return {
+            targetCats: [],
+            catStatuses: {},
+            ...mirrorActiveToThreadStates(state, threadId, { targetCats: [], catStatuses: {} }),
+          };
+        }
         const statuses: Record<string, CatStatusType> = {};
         for (const c of cats) statuses[c] = 'pending' as const;
-        return { targetCats: [...cats], catStatuses: statuses };
+        const targetCats = [...cats];
+        return {
+          targetCats,
+          catStatuses: statuses,
+          ...mirrorActiveToThreadStates(state, threadId, { targetCats, catStatuses: statuses }),
+        };
       }
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
       if (cats.length === 0) {
@@ -1955,7 +2080,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => {
       if (threadId === state.currentThreadId) {
         if (state.catStatuses[catId] === status) return state;
-        return { catStatuses: { ...state.catStatuses, [catId]: status } };
+        const catStatuses = { ...state.catStatuses, [catId]: status };
+        return { catStatuses, ...mirrorActiveToThreadStates(state, threadId, { catStatuses }) };
       }
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
       if (existing.catStatuses[catId] === status) return state;
@@ -1985,9 +2111,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       if (threadId === state.currentThreadId) {
         const statusChanged = state.catStatuses[catId] !== catStatus;
+        const messages = state.messages.map(applyMessageUpdate);
+        const newCatStatuses = statusChanged ? { ...state.catStatuses, [catId]: catStatus } : state.catStatuses;
         return {
-          messages: state.messages.map(applyMessageUpdate),
-          ...(statusChanged ? { catStatuses: { ...state.catStatuses, [catId]: catStatus } } : {}),
+          messages,
+          ...(statusChanged ? { catStatuses: newCatStatuses } : {}),
+          ...mirrorActiveToThreadStates(state, threadId, {
+            messages,
+            ...(statusChanged ? { catStatuses: newCatStatuses } : {}),
+          }),
         };
       }
 

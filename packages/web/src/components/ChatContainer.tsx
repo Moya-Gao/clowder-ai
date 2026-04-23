@@ -287,7 +287,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     if (prevThreadRef.current !== threadId) {
       // Thread switch: store saves/restores per-thread state automatically
       setCurrentThread(threadId);
-      // Clean up non-thread-scoped refs
+      // F173 A.12 — resetRefs no longer touches suppression markers (invocation-driven cleanup).
+      // It still clears activeRefs / finalizedStreamRef / sawStreamData per the original purpose.
       resetRefs();
       clearTasks();
       prevThreadRef.current = threadId;

@@ -92,7 +92,9 @@ export interface BackgroundStoreLike {
 export interface HandleBackgroundMessageOptions {
   store: BackgroundStoreLike;
   bgStreamRefs: Map<string, BackgroundStreamRef>;
-  replacedInvocations: Map<string, string>;
+  // F173 A.6 — `replacedInvocations` removed. It is now a shared module-level Map
+  // (see `shared-replaced-invocations.ts`), accessed directly by both active and background
+  // handlers, so suppression handoff works in both directions.
   nextBgSeq: () => number;
   addToast: (toast: BackgroundToastInput) => void;
   /** #80 fix-C: Clear the done-timeout guard when a background thread completes */

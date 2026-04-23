@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { configureDebug, dumpBubbleTimeline, ensureWindowDebugApi } from '@/debug/invocationEventDebug';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
+import { resetSharedReplacedInvocations } from '../shared-replaced-invocations';
 import {
   type BackgroundAgentMessage,
   clearBackgroundStreamRefForActiveEvent,
@@ -20,7 +21,6 @@ import {
 /** Monotonic counter matching useSocket.ts bgSeq */
 let testBgSeq = 0;
 const testBgStreamRefs = new Map<string, { id: string; threadId: string; catId: string }>();
-const testBgReplacedInvocations = new Map<string, string>();
 const testBgFinalizedRefs = new Map<string, string>();
 
 /** #80 fix-C: Track clearDoneTimeout calls */
@@ -34,7 +34,6 @@ function simulateBackgroundMessage(msg: BackgroundAgentMessage) {
     store: useChatStore.getState(),
     bgStreamRefs: testBgStreamRefs,
     finalizedBgRefs: testBgFinalizedRefs,
-    replacedInvocations: testBgReplacedInvocations,
     nextBgSeq: () => testBgSeq++,
     addToast: (toast) => useToastStore.getState().addToast(toast),
     clearDoneTimeout: (threadId) => {
@@ -72,7 +71,7 @@ describe('background thread socket handling', () => {
     testBgSeq = 0;
     testBgStreamRefs.clear();
     testBgFinalizedRefs.clear();
-    testBgReplacedInvocations.clear();
+    resetSharedReplacedInvocations();
     clearDoneTimeoutCalls = [];
   });
 
@@ -379,7 +378,10 @@ describe('background thread socket handling', () => {
       );
     });
 
-    it('keeps suppressing unlabeled background late chunks until a different invocation is observed', () => {
+    it('unlabeled background late chunk fails open after invocation gone — callback bubble preserved (砚砚 A.12)', () => {
+      // F173 A.12 — original assertion was "keep suppressing"; 砚砚 round 5 reversed
+      // for invocationless flows (legacy /api/messages). Callback bubble integrity is
+      // still guaranteed by deterministic id (A.3) routing the chunk to a NEW bubble.
       const now = Date.now();
       useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-old' });
       useChatStore.getState().addMessageToThread('thread-bg', {
@@ -414,15 +416,13 @@ describe('background thread socket handling', () => {
         timestamp: now + 2,
       });
 
-      expect(useChatStore.getState().getThreadState('thread-bg').messages).toEqual([
-        expect.objectContaining({
-          id: 'bg-callback-old',
-          catId: 'opus',
-          content: 'final answer',
-          origin: 'callback',
-          isStreaming: false,
-        }),
-      ]);
+      // Callback bubble must remain untouched (content not overwritten).
+      const msgsAfterStale = useChatStore.getState().getThreadState('thread-bg').messages;
+      const callbackBubble = msgsAfterStale.find((m) => m.id === 'bg-callback-old');
+      expect(callbackBubble).toBeDefined();
+      expect(callbackBubble?.content).toBe('final answer');
+      expect(callbackBubble?.origin).toBe('callback');
+      expect(callbackBubble?.isStreaming).toBe(false);
 
       useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-new' });
 
@@ -435,22 +435,22 @@ describe('background thread socket handling', () => {
         timestamp: now + 3,
       });
 
-      expect(useChatStore.getState().getThreadState('thread-bg').messages).toEqual([
-        expect.objectContaining({
-          id: 'bg-callback-old',
-          catId: 'opus',
-          content: 'final answer',
-          origin: 'callback',
-          isStreaming: false,
-        }),
-        expect.objectContaining({
-          type: 'assistant',
-          catId: 'opus',
-          content: 'verified new invocation first chunk',
-          origin: 'stream',
-          isStreaming: true,
-        }),
-      ]);
+      // The critical invariant after fail-open + new invocation: callback bubble
+      // is still preserved (content not overwritten by intervening unlabeled chunk).
+      // The new-invocation chunk may be appended to an earlier bubble that the
+      // background handler recovered (recoverStreamingMessage); we don't assert its
+      // exact location since fail-open changes bubble ownership semantics. The
+      // important guarantee is that 'final answer' callback content survives.
+      const finalMsgs = useChatStore.getState().getThreadState('thread-bg').messages;
+      const callback = finalMsgs.find((m) => m.id === 'bg-callback-old');
+      expect(callback).toBeDefined();
+      expect(callback?.content).toBe('final answer');
+      // At least one stream bubble exists carrying the new chunk's content (possibly
+      // concatenated with the earlier unlabeled stale chunk via background recovery).
+      const streamBubblesAfter = finalMsgs.filter(
+        (m) => m.origin === 'stream' && m.content?.includes('verified new invocation first chunk'),
+      );
+      expect(streamBubblesAfter.length).toBeGreaterThanOrEqual(1);
     });
   });
 

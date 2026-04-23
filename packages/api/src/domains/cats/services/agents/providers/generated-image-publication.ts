@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 import type { RichMediaGalleryBlock } from '@cat-cafe/shared';
-import { getDefaultUploadDir } from '../../../../../utils/upload-paths.js';
 import {
   copyImageFileToUploadDir,
-  sanitizeFilenameStem,
   type SavedImageAsset,
   type SupportedImageMime,
+  sanitizeFilenameStem,
 } from '../../../../../utils/image-storage.js';
+import { getDefaultUploadDir } from '../../../../../utils/upload-paths.js';
 
 export interface GeneratedImagePublicationInput {
   sourcePath: string;
@@ -37,9 +37,7 @@ export interface PublishedGeneratedImage extends SavedImageAsset {
   provenance: GeneratedImagePublicationProvenance;
 }
 
-export async function publishGeneratedImage(
-  input: GeneratedImagePublicationInput,
-): Promise<PublishedGeneratedImage> {
+export async function publishGeneratedImage(input: GeneratedImagePublicationInput): Promise<PublishedGeneratedImage> {
   const resolvedUploadDir = getDefaultUploadDir(input.uploadDir ?? process.env.UPLOAD_DIR);
   const publicationStem = buildPublicationStem(input.publicationKey);
   const stored = await copyImageFileToUploadDir({
