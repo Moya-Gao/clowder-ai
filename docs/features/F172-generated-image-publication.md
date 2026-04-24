@@ -8,7 +8,11 @@ created: 2026-04-22
 
 # F172: Generated Image Publication — 内建生图产物归档与富块发布
 
-> **Status**: done (Phase G merged 2026-04-23) | **Owner**: 布偶猫/opus | **Priority**: P1
+> **Status**: in_progress (Phase H follow-up — empty_response false-positive) | **Owner**: 布偶猫/opus | **Priority**: P1
+>
+> **Phase G alpha smoke 通过 (2026-04-23 23:59)**: 铲屎官前端直接看到 antig-opus 生图 + F5 刷新还在 = R9 闭环 ✅
+>
+> **Phase H reopen (2026-04-23 23:59)**: 同次 alpha smoke 暴露副作用 — 第一次 @antig-opus 报错 `Antigravity returned no text response`（empty_response），第二次才成功。根因是 `AntigravityAgentService.ts:763` 的 `if (!hasText && !fatalSeen)` 判断在 Phase G 之前没考虑"image-only response 也是 valid user-visible output"。一行 condition fix。
 >
 > **诊断历程（务必读完，KD-8 元教训）**：
 >
@@ -197,7 +201,12 @@ Antigravity built-in `generate_image` 的真实交付链路：
 - [x] AC-G2: 实现 `scanAndPublishAntigravityBrainImages({steps, cascadeId, brainHome, uploadDir, maxAgeMs})` — 扫 `~/.gemini/antigravity/brain/<cascadeId>/<imageName>_*.<ext>`，调 `publishGeneratedImage`
 - [x] AC-G3: `AntigravityAgentService` 累积 done generate_image steps + invocation 结束前调 brain scanner，yield `system_info` rich_block
 - [x] AC-G4: `antigravity-event-transformer.classifyStep`: `CORTEX_STEP_TYPE_GENERATE_IMAGE` 归 `checkpoint`（消除 "unknown step type" 日志噪音）
-- [ ] AC-G5: Alpha smoke — antig-opus 真生一张图，铲屎官前端**直接看到** + F5 刷新还在（Phase G 真正闭环 R9）
+- [x] AC-G5: Alpha smoke — antig-opus 真生一张图，铲屎官前端**直接看到** + F5 刷新还在（2026-04-23 23:59 验证通过，铲屎官原话"我看到了！！看到了！！"）
+
+### Phase H（empty_response false-positive 修复 — Phase G 副作用兜底）
+- [ ] AC-H1: image-only response 不再误报 `Antigravity returned no text response` — `hasText` 判断需识别 GENERATE_IMAGE step 也算 valid user-visible output
+- [ ] AC-H2: 回归测试 — 单 GENERATE_IMAGE step + 0 plannerResponse text 的 invocation 不应 yield empty_response error
+- [ ] AC-H3: Alpha smoke — antig-opus 单纯生图（无文字回复）能正常完成 invocation，无 error 气泡
 
 ## 需求点 Checklist
 
@@ -211,7 +220,8 @@ Antigravity built-in `generate_image` 的真实交付链路：
 | R6 | 能自动把你产出的图片归档 + 用富文本呈现 | AC-E2, AC-E3 | test + manual | [x] |
 | R7 | 既有 rich block / connector 媒体链路继续复用 | AC-E4 | integration test | [x] |
 | R8 | provider 恢复 / replay 时不应重复堆积图片文件或重复发块 | AC-A5, AC-E5 | integration test | [x] |
-| R9 | Antigravity 真实生图必须能在 alpha 上直接呈现给铲屎官 | AC-F1~F5（Phase F 部分修复，alpha 仍失败）, AC-G1~G4（Phase G 真根因修复） | alpha smoke + integration test | [ ] |
+| R9 | Antigravity 真实生图必须能在 alpha 上直接呈现给铲屎官 | AC-F1~F5（Phase F 部分修复，alpha 仍失败）, AC-G1~G5（Phase G 真根因修复 + alpha smoke 通过） | alpha smoke + integration test | [x] |
+| R10 | image-only response 不应误报 empty_response（Phase G 副作用） | AC-H1, AC-H2, AC-H3 | unit test + alpha smoke | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -272,6 +282,8 @@ Antigravity built-in `generate_image` 的真实交付链路：
 | 2026-04-23 (晚) | **Alpha smoke 失败**：铲屎官重启 runtime（含 fd12a0a38 PR #1361），antig-opus 真调 generate_image 生成 `bengal_cuddle_portrait`，brain dir 有文件但前端无图。第三次定位用 runtime log 直接证据（`grep "unknown step type CORTEX_STEP_TYPE_GENERATE_IMAGE"` 命中），发现 Antigravity 走专属 step type，没有 toolResult.output——Phase F regex 路径根本无字符串可 extract |
 | 2026-04-23 (晚) | Reopen Phase G：实现 GENERATE_IMAGE step + brain dir scanner，扫 `~/.gemini/antigravity/brain/<cascadeId>/<imageName>_*.<ext>`。8 个新单测 + classifier 改动消除日志噪音，102/102 F172 + agent-service 测试 GREEN。新增 KD-8（runtime log 是唯一真相源，三次诊断都跳过的元教训）+ KD-9（专属 step type 必须显式分类）|
 | 2026-04-23 (晚) | PR #1365 — 云端 codex-connector review 三轮全 PASS（"Didn't find any major issues. Swish!"），第一次 P2 修复（regex 严格 `<imageName>_<unixMs>.<ext>` 防 prefix collision，命中 pre-register #2），砚砚（gpt52）二审 P2 修复（Phase F vs Phase G 双发布破坏 canonical single-artifact，按其方案 A 加 mutex），squash merged b1ff6112c。剩 AC-G5 alpha smoke 待 antig-opus 真生图验证 |
+| 2026-04-23 23:59 | **AC-G5 alpha smoke 通过** ✅ — 铲屎官重启 runtime 后 antig-opus 真调 generate_image，前端直接看到孟加拉猫贴贴图，刷新后还在。R9 闭环。同时 report 一个 follow-up：第一次调用报 `Antigravity returned no text response`，第二次才成功 → Phase H 立项 |
+| 2026-04-23 23:59 | Reopen Phase H — `AntigravityAgentService.ts:763` 的 `hasText` 判断没考虑 image-only response，误报 empty_response。一行 condition fix（`!hasText && !fatalSeen && collectedGenerateImageSteps.length === 0`）+ 回归测试覆盖 |
 | 2026-04-23 | Phase A merged（PR #1353）：共享 publication contract + image-storage 原语 |
 | 2026-04-23 | Phase B-E merged（PR #1355）：Codex scanner + Antigravity publisher + skill 收口 + 富块联动。砚砚 review 放行 + 3 轮云端 review（2 P1 + 2 P2 全修） |
 
