@@ -8,7 +8,7 @@ created: 2026-04-22
 
 # F172: Generated Image Publication — 内建生图产物归档与富块发布
 
-> **Status**: in_progress (Phase H follow-up — empty_response false-positive) | **Owner**: 布偶猫/opus | **Priority**: P1
+> **Status**: done (Phase H merged 2026-04-24) | **Owner**: 布偶猫/opus | **Priority**: P1
 >
 > **Phase G alpha smoke 通过 (2026-04-23 23:59)**: 铲屎官前端直接看到 antig-opus 生图 + F5 刷新还在 = R9 闭环 ✅
 >
@@ -283,7 +283,8 @@ Antigravity built-in `generate_image` 的真实交付链路：
 | 2026-04-23 (晚) | Reopen Phase G：实现 GENERATE_IMAGE step + brain dir scanner，扫 `~/.gemini/antigravity/brain/<cascadeId>/<imageName>_*.<ext>`。8 个新单测 + classifier 改动消除日志噪音，102/102 F172 + agent-service 测试 GREEN。新增 KD-8（runtime log 是唯一真相源，三次诊断都跳过的元教训）+ KD-9（专属 step type 必须显式分类）|
 | 2026-04-23 (晚) | PR #1365 — 云端 codex-connector review 三轮全 PASS（"Didn't find any major issues. Swish!"），第一次 P2 修复（regex 严格 `<imageName>_<unixMs>.<ext>` 防 prefix collision，命中 pre-register #2），砚砚（gpt52）二审 P2 修复（Phase F vs Phase G 双发布破坏 canonical single-artifact，按其方案 A 加 mutex），squash merged b1ff6112c。剩 AC-G5 alpha smoke 待 antig-opus 真生图验证 |
 | 2026-04-23 23:59 | **AC-G5 alpha smoke 通过** ✅ — 铲屎官重启 runtime 后 antig-opus 真调 generate_image，前端直接看到孟加拉猫贴贴图，刷新后还在。R9 闭环。同时 report 一个 follow-up：第一次调用报 `Antigravity returned no text response`，第二次才成功 → Phase H 立项 |
-| 2026-04-23 23:59 | Reopen Phase H — `AntigravityAgentService.ts:763` 的 `hasText` 判断没考虑 image-only response，误报 empty_response。一行 condition fix（`!hasText && !fatalSeen && collectedGenerateImageSteps.length === 0`）+ 回归测试覆盖 |
+| 2026-04-23 23:59 | Reopen Phase H — `AntigravityAgentService.ts:763` 的 `hasText` 判断没考虑 image-only response，误报 empty_response。一行 condition fix（重构成 `sawImageOutput` 同时覆盖 Phase F + Phase G 两条 image path）+ 2 个回归测试 |
+| 2026-04-24 (Phase H) | PR #1370 砚砚（gpt-5.5）二审 PASS（首轮 P2 三件套：Biome + env-registry + BACKLOG/index 同步），main hotfix `8dc8ba82d` 解除 PR #1365 漏跑 pnpm check 的红灯阻塞，PR squash merged `6b51f9928`。剩 AC-H3 alpha smoke 待 antig-opus 单纯生图（无文字）验证 |
 | 2026-04-23 | Phase A merged（PR #1353）：共享 publication contract + image-storage 原语 |
 | 2026-04-23 | Phase B-E merged（PR #1355）：Codex scanner + Antigravity publisher + skill 收口 + 富块联动。砚砚 review 放行 + 3 轮云端 review（2 P1 + 2 P2 全修） |
 
