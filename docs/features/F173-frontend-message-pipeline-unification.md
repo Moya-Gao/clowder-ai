@@ -152,6 +152,7 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。
 - [ ] AC-C6: **cancel 按钮一致性**：只要后端 `invocationTracker` 有 entry，前端 `hasActiveInvocation` 必为 true（fixture 验证 socket-drop / F5 / reconnect 三场景）
 - [ ] AC-C7: **queue gating 一致性**：发消息时前端门禁与后端门禁判定结果一致（fixture 验证）
 - [ ] AC-C8: F081 AC-B2 (Remaining Gaps) 关闭
+- [ ] AC-C9: **历史 dup tolerance**（来源：#1364 实机验证 06:17）— hydration 阶段对同 cat / 同 thread / `extra.stream.invocationId` 不一致但时间窗 < 5s + content prefix overlap 的旧 record 做视觉合并显示，不动持久化数据。范围：1364 部署前的脏数据；fix 后的写入路径不会再产生这种 pair。验收：fixture 含历史 INNER/OUTER pair 的 thread，hydration 后 UI 看到 1 个 bubble。
 
 ### Phase D（cli-resolve 防腐）
 - [ ] AC-D1: `cli-resolve.ts` spawn ENOENT 时 `resolvedCache.delete(command)`，下次请求重解析
@@ -205,6 +206,8 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。
 | 2026-04-22 22:05 | Scope 扩展 v3：铲屎官"不要小修小改" → KD-5/6/7，纳入 liveness fragmentation + cli-resolve sidecar |
 | 2026-04-23 11:30 | **Phase A merged (PR #1347, squash `3feae9563`)** — A.1-A.12 含 砚砚 round 5 invocation-driven cleanup + codex review 4 轮 push back 收敛 |
 | 2026-04-24 05:28 | **Phase A hotfix2 merged (PR #1364, squash `da928015e`)** — close clowder-ai#573，stream/callback/persistence 三路统一到 OUTER `parentInvocationId ?? ownInvocationId`；连带 piggyback fix（formatCatName mock + cli-spawn drainWarnings restore + env-registry register + biome auto-fix）解锁被 main 上 F174-B/clowder-ai#540 intake 误碰的 gate；Codex P1（A→B→A cross-turn merge）实测确认为 broadcast pre-existing，downgraded P3 |
+| 2026-04-24 06:17 | **#1364 实机验证（铲屎官 runtime 重启后）**：✅ 新发 invocation 单 bubble（fix 生效）；⚠️ 历史 dup record 不自愈（写入路径 fix 不回溯改写持久化数据，预期）— 拍板推进 Phase B → C 路线，历史 dup tolerance 进 Phase C 处理（写时不动数据，hydration 加近似 dup 视觉合并层），授权砚砚 + 宪宪 自主闭环 Phase B/C |
+| 2026-04-24 06:25 | **Phase B kickoff** — 启动 thread-scoped runtime refs 收口 + background handler 瘦身（AC-B1..B4 主线 + AC-B5..B10 race 验收清单）|
 
 ## Review Gate
 
