@@ -375,6 +375,128 @@ describe('ReviewFeedbackTaskSpec', () => {
     assert.equal(result.workItems[0].signal.newComments[0].author, 'external-reviewer');
   });
 
+  // ── F140 Phase E.1 Task 4: isNoiseComment option ───────────────
+
+  it('gate filters bot setup-only noise via isNoiseComment; human inline preserved', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const { router } = stubRouter();
+    const bots = new Set(['chatgpt-codex-connector[bot]']);
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: mockTaskStore([mockTaskItem]),
+      fetchComments: async () => [
+        {
+          id: 1,
+          author: 'chatgpt-codex-connector[bot]',
+          body: 'To use Codex here, create an environment for this repo.',
+          createdAt: '2026-04-24',
+          commentType: 'conversation',
+        },
+        {
+          id: 2,
+          author: 'octocat',
+          body: '[P1] real finding on line 42',
+          createdAt: '2026-04-24',
+          commentType: 'inline',
+          filePath: 'src/foo.ts',
+          line: 42,
+        },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      log: noopLog,
+      isNoiseComment: (c) => {
+        if (c.commentType !== 'conversation') return false;
+        if (!bots.has(c.author)) return false;
+        return (
+          /to use codex here,/i.test(c.body) &&
+          /environment for this repo\b/i.test(c.body) &&
+          !/\bcodex review\b/i.test(c.body)
+        );
+      },
+    });
+    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(result.run, true);
+    assert.equal(result.workItems[0].signal.newComments.length, 1);
+    assert.equal(result.workItems[0].signal.newComments[0].author, 'octocat');
+  });
+
+  it('isNoiseComment does NOT filter human quoting setup sentence (P1-1 guard)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const { router } = stubRouter();
+    const bots = new Set(['chatgpt-codex-connector[bot]']);
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: mockTaskStore([mockTaskItem]),
+      fetchComments: async () => [
+        {
+          id: 1,
+          author: 'octocat',
+          body: 'Quoting previous bot: To use Codex here, create an environment for this repo. FYI.',
+          createdAt: '2026-04-24',
+          commentType: 'conversation',
+        },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      log: noopLog,
+      isNoiseComment: (c) => {
+        if (c.commentType !== 'conversation') return false;
+        if (!bots.has(c.author)) return false;
+        return (
+          /to use codex here,/i.test(c.body) &&
+          /environment for this repo\b/i.test(c.body) &&
+          !/\bcodex review\b/i.test(c.body)
+        );
+      },
+    });
+    const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(result.run, true);
+    assert.equal(result.workItems[0].signal.newComments.length, 1, 'human quote must pass through');
+    assert.equal(result.workItems[0].signal.newComments[0].author, 'octocat');
+  });
+
+  it('isNoiseComment: all-skip of pure bot setup-only advances cursor', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const { router } = stubRouter();
+    const bots = new Set(['chatgpt-codex-connector[bot]']);
+    let fetchCount = 0;
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: mockTaskStore([mockTaskItem]),
+      fetchComments: async () => {
+        fetchCount++;
+        return [
+          {
+            id: 99,
+            author: 'chatgpt-codex-connector[bot]',
+            body: 'To use Codex here, create an environment for this repo.',
+            createdAt: '2026-04-24',
+            commentType: 'conversation',
+          },
+        ];
+      },
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      log: noopLog,
+      isNoiseComment: (c) => {
+        if (c.commentType !== 'conversation') return false;
+        if (!bots.has(c.author)) return false;
+        return (
+          /to use codex here,/i.test(c.body) &&
+          /environment for this repo\b/i.test(c.body) &&
+          !/\bcodex review\b/i.test(c.body)
+        );
+      },
+    });
+
+    // First gate: all noise → run=false, cursor should advance (persistFirst)
+    const r1 = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(r1.run, false, 'all filtered → run=false');
+
+    // Second gate: same comment won't re-trigger (cursor is past it)
+    const r2 = await spec.admission.gate({ taskId: spec.id, lastRunAt: Date.now(), tickCount: 2 });
+    assert.equal(r2.run, false, 'cursor must not stall');
+    assert.equal(fetchCount, 2, 'fetch ran twice but second gate still run=false');
+  });
+
   it('execute does not commit cursor when router skips', async () => {
     const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
     const { router } = stubRouter('skipped');

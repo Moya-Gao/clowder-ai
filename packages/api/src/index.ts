@@ -2065,6 +2065,7 @@ async function main(): Promise<void> {
 
   // F140: Shared feedback filter (Rule C) — used by BOTH email watcher and API polling
   const { createGitHubFeedbackFilter } = await import('./infrastructure/email/github-feedback-filter.js');
+  const { createSetupNoiseFilter } = await import('./infrastructure/email/setup-noise-filter.js');
   let selfGitHubLogin: string | undefined;
   try {
     const { execFile } = await import('node:child_process');
@@ -2084,6 +2085,12 @@ async function main(): Promise<void> {
     authoritativeReviewLogins: authoritativeLogins,
   });
   app.log.info(`[api] F140: authoritative review logins=${authoritativeLogins.join(', ')}`);
+
+  // F140 Phase E.1: polling-side setup-noise filter (migrated from email
+  // GithubReviewMailParser Rule 3). E.1 reuses GITHUB_AUTHORITATIVE_REVIEW_LOGINS
+  // as the bot allowlist — a temporary shell; E.2 will rename / replace / drop it
+  // explicitly when Rule B is removed (see F140 spec KD-14/15, 2026-04-24 timeline).
+  const setupNoiseFilter = createSetupNoiseFilter(authoritativeLogins);
 
   // Start email watcher AFTER listen (non-blocking, best-effort)
   await startGithubReviewWatcher({
@@ -2218,6 +2225,8 @@ async function main(): Promise<void> {
         // Unified feedback filter (Rule A: self-authored, Rule B: authoritative review bot)
         isEchoComment: (c) => feedbackFilter.shouldSkipComment(c),
         isEchoReview: (r) => feedbackFilter.shouldSkipReview(r),
+        // F140 Phase E.1: bot setup-only conversation noise (polling-side)
+        isNoiseComment: setupNoiseFilter,
       }),
     );
     app.log.info('[api] F139/F140: cicd-check, conflict-check, review-feedback specs registered');
