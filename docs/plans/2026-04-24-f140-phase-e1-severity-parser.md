@@ -20,7 +20,7 @@ created: 2026-04-24
 
 ### Pin the Finish Line
 
-- **B 定义（一句话）**：给定一个含 P2 inline comment 的 PR signal，`buildReviewFeedbackContent(signal)` 返回的第一行是 `**Review 检测到 P2**`；给定一个含 `To use Codex here, create an environment...` 的 conversation comment 的 signal，该 comment 在 polling gate 被过滤不投递。
+- **B 定义（一句话）**：给定一个含 P2 inline comment 的 PR signal，`buildReviewFeedbackContent(signal)` 返回的第一行是 `**Review 检测到 P2**`；给定一个**由 Codex bot 发的**、只含 `To use Codex here, create an environment...` setup 句子（无 review 内容）的 conversation comment，在 polling gate 被过滤不投递——但**人类 reviewer 引用该句作为上下文时不吞**（关键负例，对应 `github-review-mail-body-classifier.test.js:72`）。
 - **What we're NOT building in E.1**：
   - 不删除 Rule B（那是 E.2 — KD-15）
   - 不清理 `GITHUB_AUTHORITATIVE_REVIEW_LOGINS` env（E.2）
@@ -38,8 +38,15 @@ export function getMaxSeverity(
   decisions: readonly { body: string }[],
 ): Severity | null;
 
-// setup-noise-filter.ts
-export function isSetupNoiseComment(body: string): boolean;
+// setup-noise-filter.ts — context-aware + factory (砚砚 P1-1 修正：body-only 会误杀人类引用)
+export interface SetupNoiseContext {
+  readonly author: string;
+  readonly body: string;
+  readonly commentType: 'inline' | 'conversation';
+}
+export function createSetupNoiseFilter(
+  botLogins: readonly string[],
+): (c: SetupNoiseContext) => boolean;
 
 // ReviewFeedbackTaskSpec.ts — 新增 option（向后兼容）
 export interface ReviewFeedbackTaskSpecOptions {
@@ -146,7 +153,7 @@ test('getMaxSeverity: 无匹配 → null', () => {
 
 ### Step 1.4: 跑测试确认失败
 
-Run: `pnpm --filter @cat-cafe/api test --test-name-pattern=severity-parser`
+Run: `pnpm --filter @cat-cafe/api test -- --test-name-pattern=severity-parser`
 Expected: FAIL with "Cannot find module"
 
 ### Step 1.5: 写最小实现
@@ -211,7 +218,7 @@ export function getMaxSeverity(
 
 ### Step 1.6: 跑测试确认通过
 
-Run: `pnpm --filter @cat-cafe/api test --test-name-pattern=severity-parser`
+Run: `pnpm --filter @cat-cafe/api test -- --test-name-pattern=severity-parser`
 Expected: ALL PASS
 
 ### Step 1.7: Commit
@@ -224,115 +231,185 @@ git commit -m "feat(F140-E1): add strict severity parser with FP guards [宪宪/
 
 ---
 
-## Task 2: Setup-Noise Filter — 从 email parser 抽出
+## Task 2: Setup-Noise Filter — context-aware，只收 bot conversation setup-only
 
 **Files:**
 - Create: `packages/api/src/infrastructure/email/setup-noise-filter.ts`
 - Test: `packages/api/test/setup-noise-filter.test.js`
-- Reference: `packages/api/src/infrastructure/email/GithubReviewMailParser.ts:48` (`inferReviewActionFromEmailSource`) — 复用其判定逻辑
+- Reference: `packages/api/src/infrastructure/email/GithubReviewMailParser.ts:101-104` (Rule 3) + `test/github-review-mail-body-classifier.test.js:72` (关键负例)
 
-### Step 2.1: 写失败测试 — 正例（应被过滤）
+> **砚砚 P1-1 修正**：filter 不能 body-only——email classifier 明确规定只有 reviewer 是 Codex bot（或无 reviewer）时才算 setup noise，人类引用 setup 文案时 `ignorable=false`。polling 侧等价做法：用 `author` 判是不是 bot + `commentType` 限 conversation。
+>
+> **砚砚 P1-2 修正**：裸 `@codex review` 或我们的 trigger template 评论**不在 E.1 处理**——那些是 self-authored（铲屎官/猫发），由 Rule A（`shouldSkipComment` 的 self-authored skip）处理。E.1 的 setup-noise filter **只针对 bot 发的 setup-only conversation comment**。
+
+### Step 2.1: 写失败测试 — 正例（bot conversation setup-only，应被过滤）
 
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isSetupNoiseComment } from '../dist/infrastructure/email/setup-noise-filter.js';
+import { createSetupNoiseFilter } from '../dist/infrastructure/email/setup-noise-filter.js';
 
-test('isSetupNoiseComment: Codex setup guidance → true', () => {
-  const body = 'To use Codex here, create an environment for this repo';
-  assert.equal(isSetupNoiseComment(body), true);
+const BOTS = ['chatgpt-codex-connector[bot]'];
+
+test('bot conversation setup-only → true', () => {
+  const filter = createSetupNoiseFilter(BOTS);
+  assert.equal(
+    filter({
+      author: 'chatgpt-codex-connector[bot]',
+      body: 'To use Codex here, create an environment for this repo.',
+      commentType: 'conversation',
+    }),
+    true,
+  );
 });
 
-test('isSetupNoiseComment: 空 @codex review 触发 → true', () => {
-  assert.equal(isSetupNoiseComment('@codex review'), true);
-});
-
-test('isSetupNoiseComment: 我们的 review trigger template (中) → true', () => {
-  const body = '@codex review\n\n规则：任何 P1/P2 必须给可执行复现步骤';
-  assert.equal(isSetupNoiseComment(body), true);
-});
-
-test('isSetupNoiseComment: 我们的 review trigger template (英) → true', () => {
-  const body = '@codex review\nrules: any p1/p2 must include reproduction';
-  assert.equal(isSetupNoiseComment(body), true);
+test('bot conversation setup-only (markdown link variant) → true', () => {
+  const filter = createSetupNoiseFilter(BOTS);
+  assert.equal(
+    filter({
+      author: 'chatgpt-codex-connector[bot]',
+      body: 'To use Codex here, [create an environment for this repo](https://chatgpt.com/codex/settings/environments).',
+      commentType: 'conversation',
+    }),
+    true,
+  );
 });
 ```
 
-### Step 2.2: 写失败测试 — 负例（应通过）
+### Step 2.2: 写失败测试 — 负例（≥5 条，守护 P1-1 边界）
 
 ```js
-test('isSetupNoiseComment: 正常 bot review body → false', () => {
-  const body = '### 💡 Codex Review\n\nReviewed commit: abc123\n\nFound 2 issues.';
-  assert.equal(isSetupNoiseComment(body), false);
+test('human conversation quoting setup sentence → false（P1-1 关键负例）', () => {
+  const filter = createSetupNoiseFilter(BOTS);
+  assert.equal(
+    filter({
+      author: 'octocat',
+      body: 'Quoting for context: To use Codex here, create an environment for this repo.',
+      commentType: 'conversation',
+    }),
+    false,
+  );
 });
 
-test('isSetupNoiseComment: 人类 reviewer 评论 → false', () => {
-  assert.equal(isSetupNoiseComment('This looks good to me, LGTM'), false);
+test('bot conversation with real review content (setup + codex review) → false', () => {
+  const filter = createSetupNoiseFilter(BOTS);
+  assert.equal(
+    filter({
+      author: 'chatgpt-codex-connector[bot]',
+      body: 'Codex Review: Found 2 issues.\nReviewed commit: abc123\nTo use Codex here, create an environment for this repo.',
+      commentType: 'conversation',
+    }),
+    false,
+  );
 });
 
-test('isSetupNoiseComment: 含 P1 的真实 finding → false', () => {
-  const body = '[P1] Fix the null check in line 42';
-  assert.equal(isSetupNoiseComment(body), false);
+test('bot inline comment (not conversation) → false（不触达 inline）', () => {
+  const filter = createSetupNoiseFilter(BOTS);
+  assert.equal(
+    filter({
+      author: 'chatgpt-codex-connector[bot]',
+      body: 'To use Codex here, create an environment for this repo.',
+      commentType: 'inline',
+    }),
+    false,
+  );
 });
 
-test('isSetupNoiseComment: 空 body → false', () => {
-  assert.equal(isSetupNoiseComment(''), false);
+test('non-bot author even if setup-only → false（author 不在 allowlist）', () => {
+  const filter = createSetupNoiseFilter(BOTS);
+  assert.equal(
+    filter({
+      author: 'some-other-bot[bot]',
+      body: 'To use Codex here, create an environment for this repo.',
+      commentType: 'conversation',
+    }),
+    false,
+  );
+});
+
+test('normal human comment → false', () => {
+  const filter = createSetupNoiseFilter(BOTS);
+  assert.equal(
+    filter({
+      author: 'octocat',
+      body: 'LGTM',
+      commentType: 'conversation',
+    }),
+    false,
+  );
+});
+
+test('empty body → false', () => {
+  const filter = createSetupNoiseFilter(BOTS);
+  assert.equal(
+    filter({ author: 'chatgpt-codex-connector[bot]', body: '', commentType: 'conversation' }),
+    false,
+  );
 });
 ```
 
 ### Step 2.3: 跑测试确认失败
 
-Run: `pnpm --filter @cat-cafe/api test --test-name-pattern=setup-noise-filter`
+Run: `pnpm --filter @cat-cafe/api test -- --test-name-pattern=setup-noise-filter`
 Expected: FAIL with "Cannot find module"
 
-### Step 2.4: 写最小实现（逻辑搬自 `GithubReviewMailParser.inferReviewActionFromEmailSource`）
+### Step 2.4: 写最小实现（复刻 `GithubReviewMailParser.ts:101-104` Rule 3）
 
 ```ts
 // packages/api/src/infrastructure/email/setup-noise-filter.ts
 
+export interface SetupNoiseContext {
+  readonly author: string;
+  readonly body: string;
+  readonly commentType: 'inline' | 'conversation';
+}
+
 const SETUP_GUIDANCE_SENTENCE = /to use codex here,/i;
 const SETUP_GUIDANCE_ANCHOR = /environment for this repo\b/i;
-const CODEX_REVIEW_TRIGGER = /^\s*@codex\s+review\b/im;
-const OUR_TRIGGER_TEMPLATE_CN = /规则：任何\s*P1\/P2\s*必须给可执行复现/i;
-const OUR_TRIGGER_TEMPLATE_EN = /rules:\s*any\s*p1\/p2\s*must\s*include/i;
-const CODEX_REVIEW_BODY_ANCHOR = /\bReviewed commit:/i; // real review has this
+const CODEX_REVIEW_CONTENT = /\bcodex review\b/i;
 
 /**
- * Detect PR comments that are setup/trigger noise, not actionable review content.
- * Migrated from GithubReviewMailParser.inferReviewActionFromEmailSource (F140 Phase E.1).
+ * Factory: produce a predicate that identifies PR conversation comments posted
+ * by authoritative bots that contain ONLY setup/environment guidance — no real
+ * review content. Migrated from GithubReviewMailParser Rule 3 (email classifier).
+ *
+ * Scope narrowing (砚砚 P1-1):
+ * - conversation only (inline already belongs to a review submission)
+ * - bot author only (humans may legitimately quote setup sentence)
+ * - setup-only only (setup sentence + NO 'codex review' content)
  */
-export function isSetupNoiseComment(body: string): boolean {
-  if (!body) return false;
+export function createSetupNoiseFilter(
+  botLogins: readonly string[],
+): (c: SetupNoiseContext) => boolean {
+  const bots = new Set(botLogins);
+  return (c: SetupNoiseContext): boolean => {
+    if (!c.body) return false;
+    if (c.commentType !== 'conversation') return false;
+    if (!bots.has(c.author)) return false;
 
-  // Codex setup guidance ("create an environment...")
-  if (SETUP_GUIDANCE_SENTENCE.test(body) && SETUP_GUIDANCE_ANCHOR.test(body)) {
-    return true;
-  }
+    const hasSetupSentence =
+      SETUP_GUIDANCE_SENTENCE.test(c.body) && SETUP_GUIDANCE_ANCHOR.test(c.body);
+    if (!hasSetupSentence) return false;
 
-  // Our @codex review trigger template (empty or template-only, no review content)
-  const hasTrigger = CODEX_REVIEW_TRIGGER.test(body);
-  const hasTemplate = OUR_TRIGGER_TEMPLATE_CN.test(body) || OUR_TRIGGER_TEMPLATE_EN.test(body);
-  const hasRealReview = CODEX_REVIEW_BODY_ANCHOR.test(body);
-
-  if ((hasTrigger || hasTemplate) && !hasRealReview) {
-    return true;
-  }
-
-  return false;
+    // Rule 3 anchor: setup + real review content → not noise (real review that
+    // happens to include setup footer)
+    const hasCodexReviewContent = CODEX_REVIEW_CONTENT.test(c.body);
+    return !hasCodexReviewContent;
+  };
 }
 ```
 
 ### Step 2.5: 跑测试确认通过
 
-Run: `pnpm --filter @cat-cafe/api test --test-name-pattern=setup-noise-filter`
-Expected: ALL PASS
+Run: `pnpm --filter @cat-cafe/api test -- --test-name-pattern=setup-noise-filter`
+Expected: ALL PASS（正例 2 + 负例 6）
 
 ### Step 2.6: Commit
 
 ```bash
 git add packages/api/src/infrastructure/email/setup-noise-filter.ts \
         packages/api/test/setup-noise-filter.test.js
-git commit -m "feat(F140-E1): extract setup-noise filter predicate [宪宪/Opus-47🐾]"
+git commit -m "feat(F140-E1): context-aware setup-noise filter (bot conversation only) [宪宪/Opus-47🐾]"
 ```
 
 ---
@@ -402,7 +479,7 @@ test('buildReviewFeedbackContent: P0 + P2 → header P0（最高）', () => {
 
 ### Step 3.2: 跑测试确认失败
 
-Run: `pnpm --filter @cat-cafe/api test --test-name-pattern=review-feedback-router`
+Run: `pnpm --filter @cat-cafe/api test -- --test-name-pattern=review-feedback-router`
 Expected: FAIL — `Review 检测到` not present
 
 ### Step 3.3: 修改 `buildReviewFeedbackContent`
@@ -428,7 +505,7 @@ export function buildReviewFeedbackContent(signal: ReviewFeedbackSignal): string
 
 ### Step 3.4: 跑测试确认通过 + 现有 suite 不回归
 
-Run: `pnpm --filter @cat-cafe/api test --test-name-pattern=review-feedback-router`
+Run: `pnpm --filter @cat-cafe/api test -- --test-name-pattern=review-feedback-router`
 Expected: ALL PASS（新 3 条 + 现有用例）
 
 ### Step 3.5: Commit
@@ -445,17 +522,21 @@ git commit -m "feat(F140-E1): prepend severity header to review feedback message
 
 **Files:**
 - Modify: `packages/api/src/infrastructure/email/ReviewFeedbackTaskSpec.ts`（加 `isNoiseComment` option）
-- Modify: `packages/api/src/index.ts:2167` 附近（compose 新 filter）
-- Test: `packages/api/test/review-feedback-task-spec.test.js`（如已存在扩展；否则参考现有）
+- Modify: `packages/api/src/index.ts:2167` 附近（compose 新 filter，注入 bot logins）
+- Test: `packages/api/test/scheduler/review-feedback-spec.test.js`（已存在，扩展 — 砚砚 P2 修正：不是 `review-feedback-task-spec.test.js`）
 
-### Step 4.1: 写失败测试 — setup-noise comment 被 gate 过滤
+### Step 4.1: 写失败测试 — setup-noise 被 gate 过滤 + 人类引用不被吞
 
 ```js
-// review-feedback-task-spec.test.js（扩展或新增）
-test('gate: setup-noise comment 被 isNoiseComment 过滤', async () => {
-  // fixture: task registered, fetchComments returns 1 setup-noise + 1 real
-  // expect: workItem only contains real comment
-  // (按现有 test 骨架写 — 参考已有 review-feedback-task-spec 测试)
+// packages/api/test/scheduler/review-feedback-spec.test.js（扩展）
+test('gate: bot setup-only conversation comment 被 isNoiseComment 过滤', async () => {
+  // fixture: fetchComments 返回 [bot setup-only, real review inline]
+  // expect: workItem 只含 real review comment，bot setup 被过滤
+});
+
+test('gate: human 引用 setup 文案的 conversation comment 不被过滤（P1-1 守护）', async () => {
+  // fixture: fetchComments 返回 [human conversation 含 setup sentence]
+  // expect: workItem 保留该 comment，author != bot 所以不应用 setup-noise filter
 });
 ```
 
@@ -486,16 +567,20 @@ const newComments = allNewComments.filter((c) => {
 });
 ```
 
-### Step 4.4: `index.ts` 注册时传入
+### Step 4.4: `index.ts` 注册时 compose setup-noise filter
 
 ```ts
 // index.ts — 在 taskRunnerV2.register(createReviewFeedbackTaskSpec({...})) 里加
-import { isSetupNoiseComment } from './infrastructure/email/setup-noise-filter.js';
+import { createSetupNoiseFilter } from './infrastructure/email/setup-noise-filter.js';
+
+// AUTHORITATIVE_BOT_LOGINS 从 env `GITHUB_AUTHORITATIVE_REVIEW_LOGINS` 解析
+// （注意：E.1 复用该 env，E.2 会改名/删除并迁移到专用"bot setup-noise allowlist" env）
+const setupNoiseFilter = createSetupNoiseFilter(authoritativeBotLogins);
 
 // ...
 isEchoComment: (c) => feedbackFilter.shouldSkipComment(c),
 isEchoReview: (r) => feedbackFilter.shouldSkipReview(r),
-isNoiseComment: (c) => isSetupNoiseComment(c.body), // 新增
+isNoiseComment: setupNoiseFilter, // 新增 — predicate 直接传，已 context-aware
 ```
 
 ### Step 4.5: 跑测试确认通过 + 跨文件回归
@@ -508,7 +593,7 @@ Expected: ALL PASS（review-feedback + severity + setup-noise + 现有 suite）
 ```bash
 git add packages/api/src/infrastructure/email/ReviewFeedbackTaskSpec.ts \
         packages/api/src/index.ts \
-        packages/api/test/review-feedback-task-spec.test.js
+        packages/api/test/scheduler/review-feedback-spec.test.js
 git commit -m "feat(F140-E1): wire setup-noise filter into polling gate [宪宪/Opus-47🐾]"
 ```
 
@@ -553,6 +638,7 @@ PR scope：E.1 单独一个 PR，不和 E.2/E.3 混。PR 标题：`feat(F140-E1)
 
 | 放在哪 Phase | 事项 |
 |-------------|------|
+| 由 Rule A 处理 | **裸 `@codex review` 触发评论 / 我们自己的 trigger template**——这些是 self-authored，`shouldSkipComment` 的 Rule A 本身已覆盖，E.1 不在 setup-noise filter 里重复处理（砚砚 P1-2） |
 | E.2 | 删除 Rule B（`createGitHubFeedbackFilter` 简化为 Rule A only）|
 | E.2 | 清理 `GITHUB_AUTHORITATIVE_REVIEW_LOGINS` env + env-registry.ts 文案 |
 | E.2 | 下线 `startGithubReviewWatcher()` 调用 + `.env.example` 撤 IMAP 字段 |
@@ -566,6 +652,7 @@ PR scope：E.1 单独一个 PR，不和 E.2/E.3 混。PR 标题：`feat(F140-E1)
 | 风险 | 缓解 |
 |------|------|
 | Severity parser FP（误识别正常词如 "P100"） | AC-E3 要求 ≥5 条负例测试，Task 1.2 已覆盖 |
+| Setup-noise filter 误杀人类引用 setup 文案的评论（砚砚 P1-1） | **API context-aware**：filter 接收 `author + commentType`，只吞 `commentType=conversation + author∈botLogins + setup-only`（无 `codex review` 内容）；Task 2.2 负例含人类引用 setup 文案必须 false |
 | Setup-noise regex 漏识别新 bot 话术 | 保守策略：只吞明确匹配，未匹配时放行（nothing 消失）。后续 bot 话术变化由新增 regex 覆盖 |
 | 现有 review-feedback-router.test.js 用例被新 header 破坏 | Task 3.1 测试写"无 severity → 无 header" 确认向后兼容 |
 | polling gate filter chain 顺序导致 workItem 状态不一致 | `isEchoComment` 和 `isNoiseComment` 都是 skip 语义，OR 后顺序无关 |
