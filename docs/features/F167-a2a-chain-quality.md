@@ -8,7 +8,7 @@ created: 2026-04-17
 
 # F167: A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P0
+> **Status**: monitoring | **Owner**: 布偶猫 | **Priority**: P0
 
 ## Why
 
@@ -292,23 +292,23 @@ cat_cafe_hold_ball({
 
 #### E1 — 数据模型：cat-config 新增 `restrictions` 字段（P0）
 
-- [ ] AC-E1: `cat-config.json` roster 每只猫支持 `restrictions?: string[]`（自然语言硬限制数组，如 `["禁止写代码"]`）。`gemini` 初始化为 `["禁止写代码"]`（从 evaluation 叙述迁移出硬约束）。其他猫按需加（默认无）
-- [ ] AC-E2: `CatConfig`/`CatVariant` TS 类型 + loader 加 `restrictions?: readonly string[]`；向后兼容（缺省 `undefined`）
+- [x] AC-E1: `cat-config.json` + `cat-template.json` 支持 `restrictions?: string[]`；`gemini` 初始化为 `["禁止写代码"]`
+- [x] AC-E2: `CatConfig`/`CatVariant`/`CatBreed` TS 类型 + zod schema + loader merge（variant 覆盖 breed，不 merge）；向后兼容（缺省 `undefined`）
 
 #### E2 — 双端注入：发送方 + 目标猫都能看到限制（P0）
 
-- [ ] AC-E3: `buildTeammateRoster`（发送方队友名册）——合并或新增列显示每只队友的 `restrictions`；发送方 prompt 能一眼看到"gemini 禁止写代码"。未来 minimax 加 `restrictions: ["禁止 coding"]` / claude 加 `restrictions: ["不能生成图片"]` → **零代码变更**即生效
-- [ ] AC-E4: `buildStaticIdentity`（目标猫自身 prompt）——注入自己的 `restrictions`（self-awareness）。被错误 @ 时自己也能识别并 push back，不依赖 harness 拦
+- [x] AC-E3: `buildTeammateRoster` 合并 `**硬限制**：{list}` 到 caution 列；发送方 prompt 一眼看到 "gemini 禁止写代码"
+- [x] AC-E4: `buildStaticIdentity` 注入 `你的硬限制：{list}。被 @ 做这类任务时请 push back 或退回给 @ 你的猫`；目标猫 self-awareness 不依赖 harness
 
 #### E3 — 退役 L3 硬编码拦截（P0）
 
-- [ ] AC-E5: 删 `packages/api/src/domains/cats/services/agents/routing/role-gate.ts`
-- [ ] AC-E6: `route-serial.ts` + `callback-a2a-trigger.ts` 移除 `checkRoleCompat` 调用点 + `a2a_role_rejected` system_info emit（前端 `system-info-visible.ts` 可保留 handler 以免老数据崩）
-- [ ] AC-E7: 更新/删除相关测试：`route-serial` 里 role-gate related test 删除；`system-prompt-builder` 加 teammate roster restrictions + self restrictions 两项测试
+- [x] AC-E5: 删 `role-gate.ts` + 3 个 role-gate 测试文件（`role-gate.test.js` / `route-serial-role-gate.test.js` / `callback-a2a-role-gate.test.js`）
+- [x] AC-E6: `route-serial.ts` + `callback-a2a-trigger.ts` 移除 `checkRoleCompat` 调用 + `a2a_role_rejected` emit（前端 `system-info-visible.ts` handler 保留为死路径兼容，后续清理）
+- [x] AC-E7: `cat-config-loader` + `system-prompt-builder` 加 restrictions 相关 10 个新测试；204/204 相关测试绿
 
 #### E4 — 回放验证（P0）
 
-- [ ] AC-E8: 回放 F172 愿景守护场景 —— 宪宪/砚砚 @gemini 做愿景守护，不再被 harness 拦截；发送方 prompt 里能看到 gemini 的 restrictions；gemini 自己 prompt 里也能看到 "你的硬限制: 禁止写代码"
+- [x] AC-E8: F172 愿景守护回放测试：opus 输出含"已合入 main"narrative + @gemini 做愿景守护 → gemini 正常 invoke，无 `a2a_role_rejected`（`route-serial-pingpong.test.js` 新增 case）
 
 ## Dependencies
 
@@ -393,6 +393,7 @@ cat_cafe_hold_ball({
 | 2026-04-23 | Phase D reopened from monitoring：铲屎官发现两个系统性缺陷——(1) ping-pong streak 误杀正经 review（无 tool_call 维度）、(2) 猫猫倾向 @landy 做最安全默认，铲屎官变决策瓶颈；铲屎官拍板坐标系"干活 = tool_call"；砚砚 review 加入"实质 tool 过滤"关键修正（排除路由/持球工具）；KD-17/18/19 落定，D1+D2 AC 定稿待实现 |
 | 2026-04-23 | Phase D merged (PR #1349, `0fa92bfcf`) — D1 streak 实质工作豁免 + D2 @landy 硬条件出口。本地 gpt52 review 两轮（P1-1 substantive 必须 RESET streak 而非跳过 / P1-2 shared-rules §10 和 §10.4 一致性）；云端 Codex review P1（streak update 必须 gated on `wouldEnqueue` — 防 dedup/depth 跳过后仍误 mutate 计数器）；D1 5 commit + D2 1 commit + 3 个 P1 fix commit + 3 个 biome/index autofix commit，全量 32/32 ping-pong + 89/89 system-prompt-builder 绿。Status: monitoring（AC-D7 harness 反问式 ping 检测故意未做 — 避开 KD-8 反分类器原则，prompt 层已兜住）|
 | 2026-04-23 | Phase E reopened from monitoring：F172 愿景守护 @gemini 被 L3 误拦（action="合入"因 storedContent 上文含 merge 历程）；铲屎官定性"硬编码 + 过度设计"——要求退役 L3 + cat-config restrictions 数据驱动双端注入（发送方队友名册 + 目标猫 self-awareness）；KD-20 落定，AC-E1~E8 定稿待实现 |
+| 2026-04-24 | Phase E merged (PR #1360, `f8efcf46d`) — AC-E1~E8 全绿。8 commit（4 feat + 1 test + 3 chore）-735 净行数（删 role-gate.ts + 3 测试文件 + 2 调用点）+ cat-config schema 扩展 + 双端 prompt 注入；gpt52 review 首轮放行 `c967b59d0`（两个非阻塞：scrub 死注释 + 删 unused import 已顺手修），云端 Codex 零 P1/P2 "Hooray"；rebase 遇 F061 pre-existing 修复冲突 → skip 冗余 commit 后 clean merge；204/204 ping-pong + system-prompt-builder + cat-config-loader 绿。Status: monitoring |
 
 ## Behavioral Evidence（Phase B 观察记录）
 
