@@ -134,10 +134,7 @@ created: 2026-03-26
   - 排除 fenced code block（` ``` ` 内）
   - 排除 blockquote（`> ` 开头的行，通常是引用旧 finding）
   - 拒绝句内裸词（`I think this is P1` / `P100` / `MP3` 不触发）
-- **Setup-noise filter**（搬自 email）：`GithubReviewMailParser.inferReviewActionFromEmailSource()` 里的 `ignorable` 判定逻辑抽成通用谓词（`isSetupNoiseComment`），polling 侧在 `fetchComments` 后 / router 投递前应用，吞掉：
-  - `To use Codex here, create an environment...`
-  - `@codex review` 触发命令本身（空 body 或只含触发指令）
-  - `规则：任何 P1/P2 必须给可执行复现` / `rules: any p1/p2 must include` 的触发模板
+- **Setup-noise filter**（搬自 `GithubReviewMailParser.ts:101-104` Rule 3）：factory `createSetupNoiseFilter(botLogins)` 返回 context-aware predicate（接 `{author, body, commentType}`），polling gate 在 `fetchComments` 后应用。**Scope 严格收窄**：只吞满足所有三条的 comment——`author ∈ botLogins` + `commentType=conversation` + body 含 setup sentence 且无 `codex review` content。inline / 非 bot author / bot 含 review content 全不吞；**人类 reviewer 引用 setup 文案不被过滤**（关键守护，对齐 `github-review-mail-body-classifier.test.js:72`）。裸 `@codex review` 和触发模板回声**归 Rule A**（`shouldSkipComment` self-authored skip）处理，E.1 不在 setup-noise filter 重复判定
 
 **E.2 下线 email bootstrap + 删除 Rule B 语义（合流切换）**
 
