@@ -226,6 +226,47 @@ describe('F167 L1: route-serial ping-pong circuit breaker', () => {
     }
   });
 
+  test('F167-E AC-E8: F172 愿景守护 replay — @gemini with "合入" in prior narrative must route normally (L3 retired)', async () => {
+    // Exact reproduction of the bug:
+    //   opus reports "PR #1355 已合入 main" + asks @gemini 做愿景守护.
+    // Before Phase E: L3 regex matched "合入" anywhere in storedContent, a2a_role_rejected
+    // emitted, gemini NEVER invoked.
+    // After Phase E: no harness gate — gemini gets enqueued and invoked normally.
+    const original = catRegistry.getAllConfigs();
+    await loadRealRoster();
+    try {
+      const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+      const opusText = `PR #1355 已合入 main\n\nReview 历程：砚砚 review 2 轮放行 + 云端 review 3 轮（2 P1 + 2 P2 全修）\n\n请做愿景守护：对照 spec docs/features/F172-generated-image-publication.md 的 8 条需求点 (R1-R8)，判断交付物是否解决了铲屎官的问题。\n\n@gemini`;
+      const opusService = createCapturingService('opus', opusText);
+      const geminiService = createCapturingService('gemini', '愿景守护完成，方向对上了');
+      const deps = createMockDeps({ opus: opusService, gemini: geminiService });
+
+      const events = [];
+      for await (const msg of routeSerial(deps, ['opus'], 'F172 愿景守护 replay', 'user1', 'thread-f172-replay', {
+        thinkingMode: 'play',
+      })) {
+        events.push(msg);
+      }
+
+      // Gemini MUST have been invoked (L3 no longer pre-rejects based on "合入" text).
+      assert.strictEqual(
+        geminiService.calls.length,
+        1,
+        'gemini must be invoked for 愿景守护 despite "合入" in narrative',
+      );
+      // No a2a_role_rejected event should appear.
+      const rejected = events.find(
+        (e) => e.type === 'system_info' && typeof e.content === 'string' && e.content.includes('a2a_role_rejected'),
+      );
+      assert.ok(!rejected, 'L3 retired — a2a_role_rejected must NOT be emitted anymore');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(original)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
   test('no ping-pong (single handoff) → no warning, no termination', async () => {
     const original = catRegistry.getAllConfigs();
     await loadRealRoster();

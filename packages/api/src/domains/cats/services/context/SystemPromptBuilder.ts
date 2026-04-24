@@ -355,8 +355,13 @@ function buildTeammateRoster(currentCatId: CatId): string | null {
         : config.displayName;
     const mention = pickVariantMention(id, config);
     const strengths = config.teamStrengths ?? config.roleDescription;
-    const caution = config.caution ?? '—';
-    rows.push(`| ${label} | ${mention} | ${strengths} | ${caution} |`);
+    // F167 Phase E (KD-20): surface hard restrictions alongside caution — data-driven
+    // replacement for the retired L3 role-gate. Sender sees e.g. "禁止写代码" so they
+    // self-regulate which cat to @ for which task; no harness-side regex.
+    const restrictionsNote =
+      config.restrictions && config.restrictions.length > 0 ? `**硬限制**：${config.restrictions.join('、')}` : null;
+    const cautionCell = [config.caution ?? null, restrictionsNote].filter(Boolean).join('；') || '—';
+    rows.push(`| ${label} | ${mention} | ${strengths} | ${cautionCell} |`);
   }
 
   return ['## 队友名册', '| 猫猫 | @mention | 擅长 | 注意 |', '|------|---------|------|------|', ...rows].join('\n');
@@ -410,6 +415,14 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
     `性格：${config.personality}`,
     '',
   );
+
+  // F167 Phase E (KD-20): self-awareness — if this cat has hard restrictions,
+  // declare them inline so the cat can recognize illegitimate @-mentions and
+  // push back / retreat (instead of accepting and failing). Data-driven from
+  // cat-config.restrictions — no harness gate, the cat self-regulates.
+  if (config.restrictions && config.restrictions.length > 0) {
+    lines.push(`你的硬限制：${config.restrictions.join('、')}。被 @ 做这类任务时请 push back 或退回给 @ 你的猫。`, '');
+  }
 
   // F129: Pack masks — role overlay (never changes core identity, see KD-3)
   if (options?.packBlocks?.masksBlock) {

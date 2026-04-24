@@ -505,6 +505,99 @@ describe('SystemPromptBuilder', () => {
     assert.ok(ctx.includes('句中无效'), 'Should teach inline @ is invalid for routing');
   });
 
+  test('F167-E: teammate roster surfaces restrictions (硬限制) for teammates with them', async () => {
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+      const prompt = buildStaticIdentity('opus');
+      assert.match(prompt, /队友名册/, 'must include 队友名册 section');
+      assert.match(prompt, /禁止写代码/, 'teammate roster must surface gemini restrictions');
+      assert.match(prompt, /硬限制/, 'restrictions must carry a visible marker distinct from narrative caution');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
+  test('F167-E: cat sees its own restrictions in self identity (self-awareness)', async () => {
+    // gemini's own prompt must include its hard restrictions so it can
+    // recognize illegitimate @-mentions and push back, without relying on harness gate.
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+      const prompt = buildStaticIdentity('gemini');
+      assert.match(prompt, /你的硬限制/, 'gemini own prompt must declare its restrictions');
+      assert.match(prompt, /禁止写代码/, 'gemini own prompt must name the 禁止写代码 ban');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
+  test('F167-E: cat without restrictions has NO self-restrictions block', async () => {
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+      const prompt = buildStaticIdentity('opus');
+      // opus has no restrictions → 自我介绍里不应该出现 "你的硬限制"
+      assert.doesNotMatch(prompt, /你的硬限制/, 'opus own prompt must not declare restrictions it does not have');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
+  test('F167-E: teammate roster omits restrictions marker for teammates without them', async () => {
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+      const prompt = buildStaticIdentity('opus');
+      const rosterLines = prompt.split('\n').filter((l) => l.trim().startsWith('|'));
+      const geminiLine = rosterLines.find((l) => /@gemini|@烁烁|@暹罗/.test(l));
+      const codexLine = rosterLines.find((l) => /@codex/.test(l));
+      assert.ok(geminiLine && /硬限制/.test(geminiLine), `gemini row must include 硬限制; got: ${geminiLine}`);
+      assert.ok(
+        codexLine && !/硬限制/.test(codexLine),
+        `codex row (no restrictions) must NOT include 硬限制; got: ${codexLine}`,
+      );
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
   test('F167-D2: trailing anchor uses decision-tree ordering (not flat three-choice)', async () => {
     const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const ctx = buildInvocationContext({

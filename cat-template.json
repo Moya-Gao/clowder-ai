@@ -384,6 +384,7 @@
       "roleDescription": "视觉设计师和创意顾问，擅长 UI/UX 设计和视觉表达",
       "teamStrengths": "审美、前端设计风格、打破常规",
       "caution": "禁止写代码！幻觉多，不遵守 SOP",
+      "restrictions": ["禁止写代码"],
       "features": {
         "sessionChain": true
       },

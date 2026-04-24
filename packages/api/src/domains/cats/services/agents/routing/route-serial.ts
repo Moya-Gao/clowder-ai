@@ -53,7 +53,6 @@ import { buildMcpCallbackInstructions, needsMcpInjection } from '../invocation/M
 import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import { detectInlineActionMentionsWithShadow, getMaxA2ADepth, parseA2AMentions } from '../routing/a2a-mentions.js';
-import { checkRoleCompat, type RoleLookup } from '../routing/role-gate.js';
 import {
   isSubstantiveTool,
   registerWorklist,
@@ -1084,12 +1083,8 @@ export async function* routeSerial(
         if (a2aMentions.length > 0 && worklistEntry.a2aCount < maxDepth && !signal?.aborted && !queuedMessagesPending) {
           const pendingTail = worklist.slice(index + 1);
           const pendingOriginalTargets = targetCats.slice(index + 1);
-          // F167 L3 AC-A7: lazy-init role lookup once per routeSerial call when a handoff is in play.
-          const roster = getRoster();
-          const roleLookup: RoleLookup = (cid) => {
-            const entry = roster[cid];
-            return entry ? { roles: entry.roles } : undefined;
-          };
+          // F167 Phase E (KD-20): L3 role-gate retired. Handoff permission is a prompt-layer
+          // concern (cat-config.restrictions flows into teammate roster & self-identity).
           for (const nextCat of a2aMentions) {
             if (worklistEntry.a2aCount >= maxDepth) break;
             // A2A cross-path dedup: skip if this cat is actively processing via callback (InvocationQueue)
@@ -1109,30 +1104,6 @@ export async function* routeSerial(
               }
               continue;
             }
-            // F167 L3: reject handoff when target role cannot accept the action (MVP: designer + coding).
-            // MUST run AFTER dedup checks — otherwise we emit a rejection for a cat that's already
-            // pending as an original target (contradictory: event says rejected but cat still executes).
-            const gate = checkRoleCompat(nextCat, storedContent, roleLookup);
-            if (!gate.allowed) {
-              log.info(
-                { threadId, catId: nextCat, fromCat: catId, action: gate.action, reason: gate.reason },
-                'F167 L3: A2A handoff rejected by role-gate (role/action mismatch)',
-              );
-              yield {
-                type: 'system_info' as AgentMessageType,
-                catId,
-                content: JSON.stringify({
-                  type: 'a2a_role_rejected',
-                  targetCatId: nextCat,
-                  fromCatId: catId,
-                  action: gate.action,
-                  reason: gate.reason,
-                }),
-                timestamp: Date.now(),
-              } as AgentMessage;
-              continue;
-            }
-
             // F167 L1 + Phase D: ping-pong streak check (canonical enqueue point).
             // callerActivity (substantive tool + output length) gates streak accumulation —
             // real work / long discussion no longer trips the breaker falsely.

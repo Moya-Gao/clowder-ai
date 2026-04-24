@@ -99,6 +99,7 @@ const catVariantSchema = z.object({
     .optional(),
   teamStrengths: z.string().optional(), // F-Ground-3: human-readable strengths
   caution: z.string().nullable().optional(), // F-Ground-3: null = explicit no-caution (R1 fix)
+  restrictions: z.array(z.string().min(1)).optional(), // F167 Phase E: hard task bans
 });
 
 /** F33 Phase 2: session strategy config (matches SessionStrategyConfig from shared).
@@ -162,6 +163,7 @@ const catBreedSchema = z.object({
   features: catFeaturesSchema,
   teamStrengths: z.string().optional(), // F-Ground-3: breed-level default
   caution: z.string().nullable().optional(), // F-Ground-3: null = explicit no-caution (R1 fix)
+  restrictions: z.array(z.string().min(1)).optional(), // F167 Phase E: breed-level hard task bans
 });
 
 // ── F032: Roster schema for collaboration rules ──────────────────────
@@ -411,6 +413,9 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
       // R1 fix: null = "explicitly no caution" (don't inherit breed).
       // undefined (omitted) = inherit from breed. ?? treats null as nullish, so use !== undefined.
       const caution = variant.caution !== undefined ? variant.caution : breed.caution;
+      // F167 Phase E (KD-20): variant restrictions override breed (no merge);
+      // undefined (omitted) inherits breed-level restrictions.
+      const restrictions = variant.restrictions ?? breed.restrictions;
       const projectedCommandArgs =
         variant.commandArgs ??
         (variant.clientId === 'antigravity' && variant.cli?.defaultArgs && variant.cli.defaultArgs.length > 0
@@ -446,6 +451,8 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
         ...(teamStrengths != null ? { teamStrengths } : {}),
         // R1 fix: preserve null (explicit no-caution) in CatConfig; only omit if undefined
         ...(caution !== undefined ? { caution } : {}),
+        // F167 Phase E: preserve restrictions list for teammate roster + self-awareness injection
+        ...(restrictions != null && restrictions.length > 0 ? { restrictions: [...restrictions] } : {}),
         ...(variant.strengths != null ? { strengths: variant.strengths } : {}),
         ...(variant.sessionChain !== undefined
           ? { sessionChain: variant.sessionChain }

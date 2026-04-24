@@ -1036,3 +1036,53 @@ describe('GPT-5.2 variant mention aliases in project config', () => {
     assert.ok(gpt52.mentionPatterns.includes('@gpt'));
   });
 });
+
+/**
+ * F167 Phase E (KD-20): data-driven hard restrictions replace L3 role-gate.
+ * Each cat MAY declare `restrictions: string[]` — natural-language bans
+ * surfaced both to teammates (via buildTeammateRoster) and to the cat itself
+ * (via buildStaticIdentity). No harness-side matching.
+ */
+describe('F167 Phase E: cat-config restrictions', () => {
+  it('variant-level restrictions are preserved in CatConfig', () => {
+    const cfg = validConfig();
+    cfg.breeds[0].variants[0].restrictions = ['禁止写代码'];
+    const loaded = loadCatConfig(writeTempConfig(cfg));
+    const all = toAllCatConfigs(loaded);
+    assert.deepStrictEqual(all.opus.restrictions, ['禁止写代码']);
+  });
+
+  it('breed-level restrictions flow to variant when variant omits them', () => {
+    const cfg = validConfig();
+    cfg.breeds[0].restrictions = ['禁止生成图片'];
+    // variant does not override
+    const loaded = loadCatConfig(writeTempConfig(cfg));
+    const all = toAllCatConfigs(loaded);
+    assert.deepStrictEqual(all.opus.restrictions, ['禁止生成图片']);
+  });
+
+  it('variant restrictions override breed restrictions (no merge)', () => {
+    const cfg = validConfig();
+    cfg.breeds[0].restrictions = ['breed-ban'];
+    cfg.breeds[0].variants[0].restrictions = ['variant-ban'];
+    const loaded = loadCatConfig(writeTempConfig(cfg));
+    const all = toAllCatConfigs(loaded);
+    assert.deepStrictEqual(all.opus.restrictions, ['variant-ban']);
+  });
+
+  it('no restrictions declared → field absent (undefined), not empty array', () => {
+    const cfg = validConfig();
+    // neither breed nor variant set restrictions
+    const loaded = loadCatConfig(writeTempConfig(cfg));
+    const all = toAllCatConfigs(loaded);
+    assert.equal(all.opus.restrictions, undefined);
+  });
+
+  it('live project config: gemini has "禁止写代码" restriction', () => {
+    // Real cat-config.json: validates KD-20 data-driven migration for the
+    // primary flagged case (gemini was being harness-blocked by L3).
+    const config = loadCatConfig();
+    const all = toAllCatConfigs(config);
+    assert.ok(all.gemini?.restrictions?.includes('禁止写代码'), 'live gemini.restrictions must include 禁止写代码');
+  });
+});

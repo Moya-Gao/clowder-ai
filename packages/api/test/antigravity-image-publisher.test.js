@@ -89,7 +89,11 @@ describe('antigravity-image-publisher', () => {
       );
 
       const steps = [
-        { type: 'CORTEX_STEP_TYPE_TOOL_RESULT', status: 'done', toolResult: { toolName: 'image_gen', output: 'Saved /tmp/a.png' } },
+        {
+          type: 'CORTEX_STEP_TYPE_TOOL_RESULT',
+          status: 'done',
+          toolResult: { toolName: 'image_gen', output: 'Saved /tmp/a.png' },
+        },
         { type: 'CORTEX_STEP_TYPE_TOOL_CALL', status: 'done', toolCall: { toolName: 'something' } },
       ];
 
@@ -103,7 +107,11 @@ describe('antigravity-image-publisher', () => {
       );
 
       const steps = [
-        { type: 'CORTEX_STEP_TYPE_TOOL_RESULT', status: 'done', toolResult: { toolName: 'list_files', output: 'Found /tmp/cat.png' } },
+        {
+          type: 'CORTEX_STEP_TYPE_TOOL_RESULT',
+          status: 'done',
+          toolResult: { toolName: 'list_files', output: 'Found /tmp/cat.png' },
+        },
         { type: 'CORTEX_STEP_TYPE_TOOL_RESULT', status: 'done', toolResult: { output: 'Result: /tmp/mystery.jpg' } },
       ];
 
@@ -135,7 +143,11 @@ describe('antigravity-image-publisher', () => {
       );
 
       const steps = [
-        { type: 'CORTEX_STEP_TYPE_RUN_COMMAND', status: 'done', runCommand: { stdout: '/tmp/listed.png\n/tmp/found.jpg', commandLine: 'ls /tmp/*.png' } },
+        {
+          type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+          status: 'done',
+          runCommand: { stdout: '/tmp/listed.png\n/tmp/found.jpg', commandLine: 'ls /tmp/*.png' },
+        },
       ];
 
       const paths = collectImagePathsFromSteps(steps);
