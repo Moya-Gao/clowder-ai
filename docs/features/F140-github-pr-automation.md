@@ -188,12 +188,12 @@ created: 2026-03-26
 - [x] AC-D4: 测试覆盖：合法 repo 通过、不存在 repo 拒绝、格式错误 repo 拒绝
 
 ### Phase E（通知合流 — severity 抽取 + 下线 email 路径）🔴 in-progress
-- [ ] AC-E1: `buildReviewFeedbackContent()` 扫 `newComments` + `newDecisions` 所有 body，抽出最高 severity 生成 `**Review 检测到 P0/P1/P2**` 消息头（**P3 不识别** — informational）
-- [ ] AC-E2: severity 识别支持三种严格格式：shields.io `img.shields.io/badge/P[0-2]-` / 行首 `[P0-2]` / 行首 `P0-2:` `**P0-2**:`
-- [ ] AC-E3: FP 护栏：排除 fenced code block 内、排除 blockquote（`> ` 行）、拒绝句内裸词（`I think this is P1` / `P100` / `MP3` 都不触发）
-- [ ] AC-E4: 多条 findings 取最高 severity（P0 > P1 > P2）；无匹配则不加 header（保持现状）
-- [ ] AC-E5: 单元测试覆盖：各 severity 格式 × 各 commentType（inline / conversation / review body）+ 多条 findings 取最高 + 无 severity 不加 header + FP 负例集（至少 5 条：句内裸词 / `P100` / `MP3` / 代码块内 / blockquote 引用）
-- [ ] AC-E6: Setup-noise filter 搬自 `GithubReviewMailParser.ts:101-104` Rule 3，factory `createSetupNoiseFilter(botLogins)` 返回 context-aware predicate（接 `{author, body, commentType}`），polling 侧在 gate 应用。**Scope 严格收窄**：只吞 `author ∈ botLogins` + `commentType=conversation` + body 含 setup sentence 且无 `codex review` content；inline / 非 bot author / bot 含 review content 全不吞。守护负例：人类 reviewer 引用 setup 文案不被过滤（对齐 `github-review-mail-body-classifier.test.js:72`）。裸 `@codex review` / 触发模板回声**归 Rule A** 处理（self-authored skip），E.1 不重复
+- [x] AC-E1: `buildReviewFeedbackContent()` 扫 `newComments` + `newDecisions` 所有 body，抽出最高 severity 生成 `**Review 检测到 P0/P1/P2**` 消息头（**P3 不识别** — informational） — SHA 645ac9de8
+- [x] AC-E2: severity 识别支持三种严格格式：shields.io `img.shields.io/badge/P[0-2]-` / 行首 `[P0-2]` / 行首 `P0-2:` `**P0-2**:` — SHA 06cbe1959
+- [x] AC-E3: FP 护栏：排除 fenced code block 内、排除 blockquote（`> ` 行）、拒绝句内裸词（`I think this is P1` / `P100` / `MP3` 都不触发） — SHA 06cbe1959
+- [x] AC-E4: 多条 findings 取最高 severity（P0 > P1 > P2）；无匹配则不加 header（保持现状） — SHA 06cbe1959 + 645ac9de8
+- [x] AC-E5: 单元测试覆盖：severity-parser 18 / setup-noise 9 / review-feedback-router 12 / review-feedback-spec 31，**共 70 tests 4 suites 全绿**，含 FP 负例 9 条（fenced/blockquote/badge × P1/P2 + 句内裸词 + P100 + MP3 + P3 + empty）— SHA 06cbe1959 + 77cf7ec28
+- [x] AC-E6: Setup-noise filter 搬自 `GithubReviewMailParser.ts:101-104` Rule 3，factory `createSetupNoiseFilter(botLogins)` 返回 context-aware predicate（接 `{author, body, commentType}`），polling 侧在 gate 应用。**Scope 严格收窄**：只吞 `author ∈ botLogins` + `commentType=conversation` + body 含 setup sentence 且无 `codex review` content；inline / 非 bot author / bot 含 review content 全不吞。守护负例：人类 reviewer 引用 setup 文案不被过滤（对齐 `github-review-mail-body-classifier.test.js:72`）。裸 `@codex review` / 触发模板回声**归 Rule A** 处理（self-authored skip），E.1 不重复 — SHA 77cf7ec28 + 67a820f2c
 - [ ] AC-E7: **删除** Rule B（authoritative-source 语义）：`createGitHubFeedbackFilter()` 不再 skip bot review/inline comment，只保留 Rule A（self-authored）；`GITHUB_AUTHORITATIVE_REVIEW_LOGINS` env + 文案清理（env-registry.ts）
 - [ ] AC-E8: bootstrap 移除 `startGithubReviewWatcher()` 调用，`.env.example` 撤 `GITHUB_REVIEW_IMAP_*` 字段
 - [ ] AC-E9: Alpha 环境 3 场景证据门槛：(a) bot review 含 P2 → 消息头 P2；(b) bot pass no severity → 无 header；(c) 人类 CHANGES_REQUESTED → 正常渲染不被 Rule B 误吞
@@ -279,6 +279,7 @@ created: 2026-03-26
 | 2026-04-24 | Phase E Design Gate 通过（砚砚 GPT-5.4）with 3 条修正：KD-15（Rule B 删除，非迁移 — 我原 spec 把 filter 位置搞反）+ KD-16（severity 严格格式 + FP 护栏 + 负例集）+ KD-17（3 场景证据门槛替代时间窗口）。OQ-4/5 关闭 |
 | 2026-04-24 | Phase E.1 plan 双 reviewer 退回：砚砚 GPT-5.4 三条（body-only 谓词误杀 / trigger template 归 Rule A / 命令路径漂移）+ 砚砚 GPT-5.5 三条（badge 扫在 strip 前会让 blockquote 引用触发老 bug / AC-E6 与 plan 不一致 / Task 4.1 fixture 被 Rule B 污染）。AC-E6 scope 收窄到"bot-authored setup-only conversation"，trigger/template 明确归 Rule A |
 | 2026-04-24 | Phase E.1 plan 砚砚 GPT-5.4 复审放行（SHA 478a91403）。提醒：E.1 复用 `GITHUB_AUTHORITATIVE_REVIEW_LOGINS` 作 `botLogins` 来源是**临时借壳**，E.2 删 Rule B 时必须显式处理（改名 / 替换为 `GITHUB_SETUP_NOISE_BOT_LOGINS` / 删除三选一），不得"顺手清理" |
+| 2026-04-24 | Phase E.1 TDD 实现完成 — feat/f140-e1-severity-parser 4 commits（06cbe1959 severity-parser + 77cf7ec28 setup-noise-filter + 645ac9de8 ReviewFeedbackRouter header + 67a820f2c polling gate wiring）。AC-E1~E6 ✅，70 tests 4 suites 全绿，pending PR + cross-family review |
 
 ## Design Gate 讨论归档
 
