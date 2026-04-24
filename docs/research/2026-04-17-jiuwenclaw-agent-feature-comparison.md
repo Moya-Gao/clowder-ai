@@ -816,22 +816,57 @@ OfficeClaw 对外 fork（`clowder-labs/clowder-ai` 的 `playground` 分支）202
 - `sessionChain = false`（关闭 Cat Café session 续接）
 - 保留 Cat Café 底盘，外挂"小九 / 办公助理"品牌壳
 
-**推断依据 3：2026-04-23 当前状态实测**（`/Users/lysander/projects/freelance/clowder-ai/cat-config.json`）
+**推断依据 3：2026-04-23 当前 runtime 路由实测**（最强的那一条证据，`/Users/lysander/projects/freelance/clowder-ai/`）
 
-| 字段 | 位置 | 当前值 | 与 3-28 快照对比 |
+直接观察 `cat-config.json` 三个角色的 `provider` 字段：
+
+| 角色 | 位置 | `provider` 值 |
+|---|---|---|
+| 角色 1 | L57 | `"relayclaw"` |
+| 角色 2（office） | L100 | `"relayclaw"` |
+| 角色 3 | L144 | `"relayclaw"` |
+
+按 `packages/shared/src/types/cat.ts:45` 的 runtime 路由逻辑：
+
+```typescript
+export type EmbeddedRuntimeKind = 'agentteams_acp';
+
+const EMBEDDED_RUNTIME_SEEDS: Readonly<Record<string, ...>> = {
+  acp: { provider: 'acp', kind: 'agentteams_acp' },
+};
+
+export function resolveEmbeddedRuntimeKind(input: {...}): EmbeddedRuntimeKind | null {
+  if (input.source === 'runtime') return null;
+  const entry = input.provider ? EMBEDDED_RUNTIME_SEEDS[input.provider] : undefined;
+  if (!entry) return null;
+  return entry.kind;
+}
+
+export function usesEmbeddedAcpRuntime(input: {...}): boolean {
+  return resolveEmbeddedRuntimeKind(input) === 'agentteams_acp';
+}
+```
+
+**结论（代码级判定）**：`agentteams_acp` embedded runtime **当且仅当** `provider === 'acp'` 才会被激活。OfficeClaw 当前 `cat-config.json` 三个角色全部 `provider: 'relayclaw'`，**均不满足 `usesEmbeddedAcpRuntime()` 的激活条件**——即 OfficeClaw **当前运行路径（2026-04-23 实测）仍是 relayclaw-hosted，未启用 JiuwenClaw 的 agent-teams ACP runtime**。
+
+**推断依据 4：连续性快照**（弱证据，仅作与 3-28 的对照）
+
+以下字段与 3-28 快照对比显示"未发生切底盘的正向变更"，但**不能单独作为"使用 A 架构而非 B 架构"的证据**——它们是 host 侧 config，不是 runtime 绑定：
+
+| 字段 | 位置 | 当前值 | 3-28 → 4-23 变化 |
 |---|---|---|---|
-| `sessionChain` | L77 / L120 / L161（3 处角色配置） | **`true`** | **已从 3-28 的 `false` 改回 `true`** —— 存在修正动作 |
-| `defaultModel`（office 角色） | L101 | `gpt-5.4` | **仍沿袭 3-28 状态，未切到 AgentTeam / GLM-5 路线** |
-| `defaultModel`（其他角色） | L58 / L145 | `glm-5` | 其他角色确有 GLM-5 切换 |
+| `sessionChain` | L77 / L120 / L161 | `true` | false → true（host-side 配置修正，不反证底盘归属） |
+| `defaultModel`（office 角色） | L101 | `gpt-5.4` | 与 3-28 连续 |
+| `defaultModel`（其他角色） | L58 / L145 | `glm-5` | 其他角色有切换 |
 
 **推断合成**：
-- 3-28 观察 + 时间物理约束 → OfficeClaw 4-16 发布会底盘**大概率**不是 10 天寿命的 AgentTeam
-- 4-23 当前 `sessionChain = true` 表明他们在 3-28 之后做过修正（可能是为了让 session 续接工作，但这反过来证明底盘仍是依赖 Cat Café session 模型的 fork，不是 AgentTeam 自带的 session 机制）
-- 4-23 当前 office 角色默认 `gpt-5.4` 表明 OfficeClaw 对外 fork **仍然**以 Cat Café 模型选型为默认，没有切到自家 AgentTeam 路线
+- **强证据**：`provider: relayclaw` 三角色一致 + `cat.ts` runtime 路由逻辑 → OfficeClaw 当前不激活 `agentteams_acp` runtime，**走 relayclaw-hosted 路径**
+- **时间物理约束**：AgentTeam 后端 4-13 首次合入，4-16 发布会 3 天窗口不足以集成到企业级产品
+- **连续性快照（弱）**：cat-config 字段与 3-28 快照方向连续，未出现切底盘的正向变更
 
-**结论（推断等级）**：OfficeClaw 4-16 发布会运行的代码**高概率**仍是 Cat Café fork 的演进版，而非 JiuwenClaw 自家 10 天寿命的 AgentTeam。"OfficeClaw ← AgentTeam" 叙事链在**现有可获取证据下**无代码路径支持。
+**结论（推断等级）**：OfficeClaw **当前**运行路径（4-23 实测）是 relayclaw-hosted，不是 JiuwenClaw agent-teams ACP runtime；**4-16 发布会时刻**的 runtime 路由我们没有现场快照，但综合时间物理约束 + 3-28 诊断 + 4-23 连续性，**高概率**与当前路径一致（即 relayclaw-hosted 的 Cat Café fork 演进版，而非 AgentTeam）。"OfficeClaw ← AgentTeam" 叙事链在**现有可获取证据下**无代码路径支持。
 
-**反证条件声明**：若他们能展示 4-16 发布会现场代码 snapshot、运行时 trace、或任一关键模块调用了 `openjiuwen.agent_teams.agent.team_agent` 的证据，则本推断被推翻。
+**反证条件声明**：若他们能展示 4-16 发布会现场 `cat-config.json` 中 `provider === 'acp'`、或任一 OfficeClaw 模块在运行时调用了 `openjiuwen.agent_teams.agent.team_agent` 的 trace，则"底盘替身"推断被推翻。
 
 ---
 
@@ -868,7 +903,7 @@ OfficeClaw 对外 fork（`clowder-labs/clowder-ai` 的 `playground` 分支）202
 |---|---|---|---|
 | 概念层 | "AgentTeam 是我们的，跟 Cat Café 多猫协作不是一个理念" | AgentTeam 是 Leader-Worker HMAS；Cat Café A2A 是对等 P2P 文本协作协议 | ✅ 成立（代码层面两者不同） |
 | 时间层 | "这是我们社区一直在搞的东西" | AgentTeam 字符串 public 仓寿命 10 天，后端 6 天 | ❌ 反事实（"一直" = 10 天，commit history 直接观察） |
-| 产品层 | "OfficeClaw 创意来源于 JiuwenClaw"，暗示 OfficeClaw = AgentTeam 的落地 | 3-28 诊断 + 4-23 当前 cat-config（sessionChain=true / office 默认 gpt-5.4）+ 3 天物理约束 | ❌ 高概率反事实（推断；见 §14.5 反证条件） |
+| 产品层 | "OfficeClaw 创意来源于 JiuwenClaw"，暗示 OfficeClaw = AgentTeam 的落地 | 4-23 实测三角色 `provider: relayclaw` 不走 `agentteams_acp` runtime（`cat.ts:45` 路由逻辑代码级判定）+ 3-28 诊断 + 3 天物理约束 | ❌ 高概率反事实（推断；见 §14.5 反证条件） |
 | 方法论层 | "率先开启 Coordination Engineering 时代" | 被宣称概念的技术属性落在 Cat Café A2A 一侧；JiuwenClaw AgentTeam 是 Task Distribution 不是 Coordination | ⚠️ 概念位错配（架构归类论点） |
 | 经济层 | "软文 5 万，你让云的也报销 5 万" | 公开 git log 复现成本为零；Cat Café Blog V2 0 元达 8000+ 阅读 | ❌ 预算 ≠ 叙事权 |
 
@@ -900,6 +935,15 @@ done
 **clowder-ai**（OfficeClaw 对外 fork，`/Users/lysander/projects/freelance/clowder-ai`）：
 
 ```bash
+# 最强证据：runtime 路由判定
+grep -n "\"provider\"" cat-config.json
+# L57/L100/L144: "provider": "relayclaw"  ← 均非 "acp"
+
+sed -n '30,65p' packages/shared/src/types/cat.ts
+# 定义 EmbeddedRuntimeKind = 'agentteams_acp'
+# 定义 usesEmbeddedAcpRuntime(): 仅 provider === 'acp' 时返回 true
+
+# 弱证据（连续性快照，非底盘判定）
 grep -n "sessionChain\|defaultModel" cat-config.json
 # L77/L120/L161: sessionChain: true
 # L58/L101/L145: defaultModel 各自值
@@ -926,7 +970,7 @@ v2 以 13 个维度得出实现水平结论（Cat Café 4.69/5 vs JiuwenClaw 2.1
 >
 > - **直接观察（commit history）**：JiuwenClaw AgentTeam 与 Cat Café A2A 是两种不同的多 agent 架构范式（HMAS vs P2P），AgentTeam 范围内代码层面无 Cat Café 痕迹（§14.4）。AgentTeam 字符串在 public 仓寿命 ≤10 天（§14.2）。
 > - **架构归类论点**：对外宣称的 "Coordination Engineering" 概念，其技术属性（对等、协议化、身份硬约束、协同纪律）更匹配 Cat Café A2A 的 P2P 范式，而非 JiuwenClaw AgentTeam 的 Leader-Worker 结构（§14.4）。
-> - **高概率推断（非直接观察）**：OfficeClaw 4-16 发布会实际运行底盘**大概率**仍为 Cat Café fork 而非 10 天寿命的 AgentTeam——基于时间物理约束 + 2026-03-28 砚砚侦查 + 2026-04-23 当前 `clowder-ai/cat-config.json` 状态（`sessionChain=true` 已从 3-28 的 false 改回，office 默认 `gpt-5.4` 仍沿袭）。反证条件：若他们展示 4-16 现场代码 snapshot / 运行时 trace / AgentTeam 模块调用证据，推断被推翻。
+> - **高概率推断（非直接观察）**：OfficeClaw 4-16 发布会实际运行底盘**大概率**仍为 relayclaw-hosted 的 Cat Café fork 演进版，而非 10 天寿命的 AgentTeam——基于 **4-23 实测三角色 `provider: relayclaw` + `cat.ts:45` runtime 路由逻辑代码级判定（`agentteams_acp` 当且仅当 provider=='acp'）** + 3 天物理约束 + 2026-03-28 砚砚侦查 + 4-23 连续性快照（sessionChain/defaultModel 未切底盘）。反证条件：若他们展示 4-16 现场 `provider === 'acp'` 或任一 OfficeClaw 模块运行时调用 `openjiuwen.agent_teams.agent.team_agent` 的 trace，推断被推翻。
 >
 > 简言之：**架构没被抄；概念位被借用；产品底盘替身为推断，反证路径开放**。
 
