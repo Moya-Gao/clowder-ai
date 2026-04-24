@@ -488,6 +488,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-23 | **Bug-I run_command args dropping 闭环** — Bengal 实测发现 Antigravity LS 的 `RunCommand` RPC 是 `command + args` 空格 join 给 outer shell 的语义，不是 `execvp`。旧 payload `{ command: '/bin/sh', args: ['-c', cmd] }` 被拼成 `/bin/sh -c cmd` → outer shell 只消费第一 token → 带参命令全废。修法 2 行：把完整 `commandLine` 直接作为 `command` 传，outer shell verbatim 解析。Proto descriptor（从 `language_server_macos_arm` binary 挖出）确认 `RunCommandRequest{command, args, timeout_ms}` 无 `cwd` 字段。PR #1351（Bengal 实测 + 根因，opus-47 proto 验证 + 测试，砚砚 1 轮 peer review 退回过时 discussion doc，云端 2 轮 clean，merge `1b0a9af24`）|
 | 2026-04-23 | **Bug-E regression lock + Bug-J partial polish** — 两个小 PR 并行：#1353 补 fatal error → 下一轮 invocation 仍保留 `[Cat Cafe callback fallback]` 注入的回归测试（锁 AntigravityAgentService 在 invoke 之间的无状态不变量）；#1354 给 `useAgentMessages` 加 `provider_signal` 分支，走 `formatVisibleSystemInfo` 管线，让 backend 一直在 emit 但前端静默丢弃的 capacity retry warning（`⚠️ 上游模型服务端容量不足，系统将在 20s 后自动重试（1/3）`）变成可见 system bubble。两条都 gpt52 peer review clean + 云端 codex clean，#1353 merge `5f5e82849`，#1354 merge `9cb2de414`。Bug-J 剩余 retry 倒计时 badge + 模型切换建议属 UX redesign，拆 follow-up |
 | 2026-04-23 | **Phase 2c v2 close as no-op + stream_error 老 cascade 发现** — opus-47 本打算建 `ReadFileExecutor` 开工 Phase 2c v2，读 2026-04-21 verification 时发现 AC-2cD2 的 `read_file / write_file / edit_file / grep_search / file_glob` 愿望清单的前提（"这些工具需要 Bridge 代执行"）从未被实证验证。让 Bengal 真跑一遍：2026-04-21 已确认 `grep_search / view_file / list_dir` LS 内部搞定无 WAITING；2026-04-23 新 cascade 补测 `write_to_file / replace_file_content / multi_replace_file_content` 同样全部 LS 内部直接执行、无 WAITING step。结论：**Antigravity LS 进程有完整 workspace 文件系统权限，文件读/写/改/搜全自闭环，v2 scope 整个不需要建 executor**。AC-2cR4/AC-2cI6 close as no-op。**副产物发现**：第一次 Bengal 测试 `stream_error` 复现，诊断链指向老 cascade context 累积——cascadeId `b314ac38` 已 213 step 累积、2.4MB trajectory，`view_file` 后下一次 planner response 撞上下文限制被 upstream 切断；grace window 4.5s 正常启动但 no recovery。新 cascade 里同样流程一把过，确认根因。这是 Antigravity 持久 cascade 的自然边界，不是 F061 bug |
+| 2026-04-24 | **Bug-F `run_command` approval gate 实机复验 — 观察到 allowlist-like behavior** — runtime 更新到最新 main（含 PR #1321 permission guard 前置 + PR #1330 execution journal + #1362 Phase 2c v2 close + #1363 F174-B Redis persistence）后，@antig-opus 新 cascade 跑 5 条对照命令（`pwd` / `git log --oneline -3` / `git status --short` / `ls packages/` / `git branch`，全部 `SafeToAutoRun=true`）。**结果对照矩阵**：Antigravity `run_command` 只有 `ls packages/` 自动放行（instant success），`pwd` / `git *` 一律被 permission gate 拒成 `user denied permission`；同一条命令走 native executor 则 100% 成功。**三个观察（基于 5 条样本，非穷举验证）**：(1) PR #1321 permission guard 前置**生效**——错误精度从 `context canceled` 提升为 `user denied permission`，诊断链更清晰；(2) 5 条命令样本上 Antigravity permission gate 表现出 **allowlist-like behavior**（`ls` 放行，`pwd` / `git *` 被拒）；`SafeToAutoRun` flag 是 Cat Café 侧标记，从本次样本看对 Antigravity UI 决策无影响；(3) Bug-F 不能标 FIXED——**现有已落地修复已把 Cat Café 侧诊断做到位**，若要继续突破需走 Next Reliability Queue P3（approval bypass / stream writeback）或向 Antigravity 团队反馈平台侧 whitelist。Native executor 对照证明命令本身无问题；用户仍可通过 Antigravity UI 手动 accept 或走 native executor 独立绕开 |
 
 ---
 
@@ -511,7 +512,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 
 | 状态 | 问题 | 当前判断 | 排期 |
 |------|------|----------|------|
-| [~] | `run_command` approval gate 仍需实机复验 permission guard 链路 | 2026-04-23 Bengal 两轮实测证伪了"写文件不稳定=parity 未完工"的假设：`write_to_file / replace_file_content / multi_replace_file_content / view_file / grep_search / list_dir` 全部 LS 内部搞定无 WAITING，不需要 Bridge executor。Phase 2c v2 (AC-2cR4 + AC-2cI6) close as no-op。**残留只在 `run_command` 单条链路**：PR #1321 permission guard 前置调用 + PR #1330 的 `failureLayer/dispatchState/executionJournal` 已上，但 `SafeToAutoRun=false` 的命令仍依赖 Antigravity UI 审批弹窗，headless 下 62s timeout context canceled 不可避免。真正要修的是 approval bypass 或 stream writeback（见 Next Reliability Queue P3）| **Next Reliability Queue P3**：approval bypass / stream writeback（原 Phase 2c v2 依赖已移除） |
+| [~] | `run_command` 多数命令被 Antigravity permission gate 拦截（`user denied permission`） | 2026-04-24 Bengal 实机复验（5 条命令样本）观察到 **allowlist-like behavior**——`ls` 放行，`pwd`/`git *` 拒绝；`SafeToAutoRun` flag 在本次样本中对 Antigravity UI 决策无影响。PR #1321 permission guard 前置生效（错误精度从 `context canceled` 提升为 `user denied permission`），PR #1330 journal 诊断可用。**现有已落地修复已把 Cat Café 侧诊断做到位**；若要继续突破，需要走 P3 探索或上游配合。用户可通过 Antigravity UI 手动 accept 或走 native executor 独立绕开 | **Next Reliability Queue P3**：approval bypass / stream writeback（Cat Café 侧可探索的手段）；若平台侧 whitelist 确认存在，再向 Antigravity 团队反馈 |
 | [~] | retry 经常只 retry 1 次然后直接挂住 | 已确认“只 retry 1 次然后挂住”不是 retry 预算天然只有 1 次，而是旧实现会在 capacity retry 后落到 v2 尚未支持的 WAITING tool step（如 `grep_search`）并静默 stall。PR #1318 已把这条路径改成 fail-fast 显式报 `unsupported_waiting_tool`；PR #1320 补上 quota-style capacity classifier；PR #1330 进一步把 retry 收窄到“未 dispatch + 只读 + `SafeToAutoRun=true`”，并补齐 `failureLayer / dispatchState / executionJournal` 诊断，避免把 approval-gated / 已执行 / 已完成 tool step 误当成可安全重试。剩余还是 v2 executors / telemetry / 实机复验 | **G10 follow-up（P1）**：剩余继续跟 Phase 2c v2 / telemetry / 实机复验 |
 | [ ] | Antigravity 原生 MCP 只能读不能写 | PR #1307 边界是 `CAT_CAFE_READONLY=true`；`post_message` / `get_thread_context` 等写操作仍然走 per-invocation callback token。持久进程无法在会话外主动写回 thread | **Bug-H**：persistent MCP write-path auth（会话外鉴权模型，例如 agent-key；需产品决策"原生 MCP 是否应该有写权"） |
 | [~] | 上游 `⚠️ 模型服务端容量不足` UX polish | PR #1354 已修"provider_signal 被前端静默丢弃"的根因（frontend 现在能显示 `⚠️ 上游模型服务端容量不足，系统将在 20s 后自动重试（1/3）` 这类警告）。剩余 follow-up：retry in-flight 倒计时 badge + hard-limit 软降级模型切换建议，属于 UX redesign scope | **Bug-J follow-up**：倒计时 badge / 模型切换建议（UX，低优） |
@@ -558,7 +559,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 - AC-2cR4 + AC-2cI6 close as no-op
 - 只剩 `run_command` 的 approval / dispatch 链路在 Next Reliability Queue 继续跟
 
-### Bug-F: retry 后 unsupported WAITING step 不再静默挂死；parity 闭环 2026-04-23 已证伪为 no-op ⚠️ PARTIAL（仅剩 telemetry / 实机复验）
+### Bug-F: retry 后 unsupported WAITING step 不再静默挂死；2026-04-24 实机复验观察到 Antigravity permission gate allowlist-like behavior ⚠️ PARTIAL (Cat Café 侧诊断已到位，突破需走 P3)
 
 **现象**（2026-04-20 铲屎官新报告）：孟加拉猫“经常只 retry 1 次然后又直接挂了”。
 
@@ -579,10 +580,29 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 **剩余未闭环**：
 - 这次修的是 **symptom fix / terminalization**——让 `unsupported_waiting_tool` 不再静默挂死
 - 2026-04-23 Bengal 两轮实测后：`grep_search / view_file / list_dir / write_to_file / replace_file_content / multi_replace_file_content` 全部 LS 内部搞定无 WAITING（见 Bug-D 收尾），Phase 2c v2 close as no-op——retry 之后"掉进 unsupported WAITING tool"这条路径在实践中几乎不可达
-- 剩余真正风险只在 `run_command` 的 approval 链路（PR #1321 + PR #1330 permission guard + execution journal 已上，实机复验仍 pending），以及更细的 retry telemetry
 - quota-style capacity 文案的分类与回归已在 PR #1320 补上，但还需要真实 Antigravity 环境再打一次，确认这条 provider 限流路径在实机上确实会走进现有 retry/backoff
 
-**排期**：G10 follow-up（P1，已建毛线球：`[P1] 调查 Antigravity 单次 retry 后仍挂起`）继续；本轮先收 quota-style classifier + continuity guard；parity 已于 2026-04-23 Bengal 实测证伪为 no-op（见 Bug-D 收尾 + Timeline 2026-04-23 Phase 2c v2 close 条目），剩余只继续补 telemetry / 实机复验
+**2026-04-24 run_command 实机复验（Bengal 5 条命令对照矩阵）**：
+
+| # | 命令 | SafeToAutoRun | Antigravity `run_command` | Native Executor | 判定 |
+|---|------|:---:|:---:|:---:|------|
+| 1 | `pwd` | true | ❌ `user denied permission` | ✅ success (5ms) | permission gate 拦截 |
+| 2 | `git log --oneline -3` | true | ❌ `user denied permission` | ✅ success (12ms) | permission gate 拦截 |
+| 3 | `git status --short` | true | ❌ `user denied permission` | ✅ success (63ms) | permission gate 拦截 |
+| 4 | `ls packages/` | true | ✅ **success (instant)** | — | permission gate **放行** |
+| 5 | `git branch` | true | ❌ `user denied permission` | ✅ success | permission gate 拦截 |
+
+**三个钉实结论**：
+1. **PR #1321 permission guard 前置生效**——错误精度从 `context canceled` 提升为 `user denied permission`，诊断链更清晰，失败归因不再模糊
+2. **5 条命令样本上观察到 allowlist-like behavior**——`ls` 放行，`pwd` / `git *` 拒绝；`SafeToAutoRun` 是 Cat Café 侧标记，从本次样本看对 Antigravity UI permission 决策无影响（未做穷举验证）
+3. **现有已落地修复已把 Cat Café 侧诊断做到位**——若要继续突破，需要走 Next Reliability Queue P3（approval bypass / stream writeback）或向 Antigravity 团队反馈平台侧 whitelist 配置
+
+**未来动作分叉**：
+- **Cat Café 侧可做**：Next Reliability Queue P3 的 approval bypass / stream writeback 探索（bridge 能不能绕开 Antigravity UI permission gate 直接 dispatch）
+- **需上游沟通**：向 Antigravity 团队反馈"`SafeToAutoRun=true` 的只读 git/shell 命令应该进白名单"
+- **降级方案**（已可用）：用户手动在 Antigravity UI accept permission，或者走 native executor 独立绕开 UI gate
+
+**排期**：G10 follow-up（P1，已建毛线球：`[P1] 调查 Antigravity 单次 retry 后仍挂起`）继续；本轮 quota-style classifier + continuity guard 已收；parity 2026-04-23 证伪为 no-op；run_command approval 2026-04-24 实机复验观察到 allowlist-like behavior（5 条样本，非穷举）。现有已落地修复已把 Cat Café 侧诊断做到位；若要继续突破，走 Next Reliability Queue P3（approval bypass / stream writeback）或向 Antigravity 团队反馈平台侧 whitelist 配置
 
 ### Bug-H: Antigravity 原生 MCP 只能读不能写 ⚠️ OPEN（架构 debt）
 
