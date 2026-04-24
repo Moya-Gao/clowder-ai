@@ -280,6 +280,7 @@ created: 2026-03-26
 | 2026-04-24 | Phase E.1 plan 双 reviewer 退回：砚砚 GPT-5.4 三条（body-only 谓词误杀 / trigger template 归 Rule A / 命令路径漂移）+ 砚砚 GPT-5.5 三条（badge 扫在 strip 前会让 blockquote 引用触发老 bug / AC-E6 与 plan 不一致 / Task 4.1 fixture 被 Rule B 污染）。AC-E6 scope 收窄到"bot-authored setup-only conversation"，trigger/template 明确归 Rule A |
 | 2026-04-24 | Phase E.1 plan 砚砚 GPT-5.4 复审放行（SHA 478a91403）。提醒：E.1 复用 `GITHUB_AUTHORITATIVE_REVIEW_LOGINS` 作 `botLogins` 来源是**临时借壳**，E.2 删 Rule B 时必须显式处理（改名 / 替换为 `GITHUB_SETUP_NOISE_BOT_LOGINS` / 删除三选一），不得"顺手清理" |
 | 2026-04-24 | Phase E.1 TDD 实现完成 — feat/f140-e1-severity-parser 4 commits（06cbe1959 severity-parser + 77cf7ec28 setup-noise-filter + 645ac9de8 ReviewFeedbackRouter header + 67a820f2c polling gate wiring）。AC-E1~E6 ✅，70 tests 4 suites 全绿，pending PR + cross-family review |
+| 2026-04-24 | **Phase E.1 merged (PR #1380, squash 120748e5)** — 双家 review (gpt52 + codex) + 云端 codex P0 finding (parseSeverity 单 body 多 severity 降级) 修复 fix(F140-E1) 384c8f4e + re-trigger 云端 review pass "no major issues"。73/73 tests 全绿，gate passed |
 
 ## Design Gate 讨论归档
 
