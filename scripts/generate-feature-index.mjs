@@ -156,9 +156,12 @@ function runCli() {
   const featureFiles = listFeatureFiles(args.featuresDir);
   const records = featureFiles.map(inferFeatureRecord).sort(sortByFeatureId);
 
+  // Intentionally no `generated_at` timestamp: a derived index that changes
+  // every regeneration produces phantom dirty diffs that confuse session-start
+  // hooks and force noisy commits. Idempotent output keeps the working tree
+  // honest — only real spec changes show up as diffs.
   const index = {
     features: records,
-    generated_at: new Date().toISOString(),
   };
 
   const output = `${JSON.stringify(index, null, 2)}\n`;
