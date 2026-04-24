@@ -8,7 +8,7 @@ created: 2026-04-17
 
 # F167: A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏
 
-> **Status**: monitoring | **Owner**: 布偶猫 | **Priority**: P0
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P0
 
 ## Why
 
@@ -310,6 +310,49 @@ cat_cafe_hold_ball({
 
 - [x] AC-E8: F172 愿景守护回放测试：opus 输出含"已合入 main"narrative + @gemini 做愿景守护 → gemini 正常 invoke，无 `a2a_role_rejected`（`route-serial-pingpong.test.js` 新增 case）
 
+### Phase F（Identity truth source + external-identity hold_ball + inline-@ guard — 2026-04-24 reopened）
+
+**触发**（Phase E merge 后连环踩坑）：
+1. opus-47 在另一线程发"球权在云端 codex / No more action needed" **同时** 行首 `@gpt52` — 一句话里自相矛盾（说 hold 又传球）。根因：我把"云端 codex (GitHub bot)"误投射成"本地 @gpt52 砚砚"这个最像的 roster proxy
+2. 砚砚核真相源后定位：**路由 parser 本来就是数据驱动**（`normalize-cat-id.ts` 走 `mentionPatterns`），**漂移的是"句柄背后的模型认知"**——`cat-catalog.json:344` 显示 `@codex` 当前已切到 `gpt-5.5`，但 `AGENTS.md:25` 仍写"@codex = gpt-5.3-codex"；`buildTeammateRoster` 从不展示 resolved model，发送方 prompt 里没有"runtime model"这条真相
+3. 铲屎官观察：有 thread 里我把 `@codex` 写在**句中**（如 `+ @reviewer: @codex`）而非行首，按协议不路由 = 球掉地上
+
+铲屎官原话：
+> "球权在云端 codex 然后你 at 我们本地的 gpt 砚砚！"
+> "最早的时候是 gpt5.2 然后默认的写死了！如果要解决这个需要从根源解绑，注入队友的时候能知道 比如说 gpt52，到底是谁？codex 到底是谁？"
+> "有的 thread 的你忘记了 @ 的格式要一行 行首"
+> "你们说的这些 我不喜欢做 hot fix 我希望是完整的解决"
+
+**根因判定（KD-21）**：Phase A~E 已让**能力限制**（restrictions）和**球权路径**（decision tree）数据驱动，但**"@句柄 → 模型"的认知绑定**还留在静态 docs（`AGENTS.md` / `CLAUDE.md` 固定"@codex = gpt-5.3-codex"等）和猫的训练快照里。handle 是 identity 常量，model 是 runtime-resolved metadata；两者在 prompt 层必须解耦。**外部 identity**（`chatgpt-codex-connector[bot]` / CI / GitHub webhook）根本不在 cat-cafe roster，应该属于 `hold_ball` 域，绝不能投射成本地近似 proxy。
+
+**KD-22**：`@` 行首规则是协议常量，但模型会在 narrative context（如列表、quote、URL 前缀）不自觉把 @句柄写成句中。F064 `mentionRoutingFeedback` 是事后反馈（下一轮才纠），本轮错 @ 时球已经掉地上。Phase F 需要在 **prompt 首轮教学**里加强反例 + 让发送方看到 "live callable handles + resolved model"（认知真相和协议真相对齐）。
+
+#### F1 — handle/model 解绑：runtime model 注入发送方 prompt（P0）
+
+- [ ] AC-F1: `buildTeammateRoster` 新增一列或扩展 caution 列，显式打印 `@{mention} = {breed} · {resolved model}`（e.g. `@codex = 缅因猫 / 当前模型 gpt-5.5`）。`defaultModel` 已在 `CatConfig` 里，直接从 runtime catalog 读，无需新字段
+- [ ] AC-F2: `buildCallableMentions` 打印的"你可以 @ 队友"列表末尾追加 resolved model 摘要，避免 trailing anchor 决策树被认知快照误导
+
+#### F2 — 静态 docs 真相源清理（P0）
+
+- [ ] AC-F3: `AGENTS.md` / `CLAUDE.md` / 其他静态文档 grep `@x = model-y` 硬绑定，删除或改写为"模型以 runtime catalog 为准"（保留 handle + 角色描述）
+- [ ] AC-F4: `docs/canon/` 检查：如果任何 always-on 注入的文档里有模型版本号硬编码，一并清理
+
+#### F3 — 外部 identity 作为 hold_ball 场景（P0）
+
+- [ ] AC-F5: `shared-rules §10`（决策树选项 2 hold_ball）明确"**外部 identity** 场景"：`chatgpt-codex-connector[bot]` / GitHub Actions webhook / CI check / 外部 API ——**不在 cat-cafe roster，没有 @句柄**，等这类条件用 `hold_ball`，严禁投射成本地近似 proxy
+- [ ] AC-F6: `SystemPromptBuilder` trailing anchor 第 2 条（hold_ball 外部条件）追加具体示例：`CI / PR check / 云端 codex review / 长 build`——让"云端 xxx"在决策时显式匹配到 hold_ball，不再被同族 roster 猫 cargo-cult
+
+#### F4 — `@` 行首协议加固（P0）
+
+- [ ] AC-F7: `buildCallableMentions` 现有反例 `[错误] 行中 @sonnet` 强化视觉：改为显式 diff 对比 + 追加"URL / 列表 / quote 场景里 `@ 句柄` **句中永远不路由**，想路由必须另起一行"
+- [ ] AC-F8: `buildStaticIdentity` 结尾自检列表加一条"发前扫一遍：我的 @句柄都在行首吗？URL / 列表前缀 / quote 里的 @ 不是路由指令"
+- [ ] AC-F9: 探索型（Open Question 不阻塞 F）：`parseA2AMentions` 是否要记录"检测到但不在行首的近似 @句柄"作为 `mentionRoutingFeedback` 的增强输入（目前只反馈"你提到了但没 @"，不反馈"你 @ 了但不在行首"）
+
+#### F5 — 回放 + 跨族认知一致性（P0）
+
+- [ ] AC-F10: 测试锁 Phase F：teammate roster 包含 resolved model；`AGENTS.md` grep `gpt-5.3-codex.*@codex` 应为 0 条；trailing anchor 含 "云端 codex" 示例；句中 @ 反例测试
+- [ ] AC-F11: 回放 opus-47 的"球权在云端 codex / @gpt52"事故——同样 prompt 输入下 opus 应该选 hold_ball 而不是 @gpt52
+
 ## Dependencies
 
 - **Evolved from**: F064（A2A 出口检查 — 链条终止盲区修复）
@@ -358,6 +401,8 @@ cat_cafe_hold_ball({
 | KD-18 | 实质 tool 必须排除路由/持球工具（post_message / multi_mention / hold_ball） | 砚砚 review 修正：这三个是传球/持球本身不是工作；若算实质 tool，MCP 路由路径会永远豁免熔断 = 熔断器打穿 | 2026-04-23 |
 | KD-19 | @landy 从"可选出口"升级为"硬条件出口"（不可逆 / 愿景级 / 僵局） | 铲屎官原话："你们现在会走向最安全的选择！就是！找我！"；三选一平级时 @landy 变成最低风险默认，铲屎官变决策瓶颈；必须抬门槛而非加 lint（KD-8） | 2026-04-23 |
 | KD-20 | 退役 L3 role-gate 硬编码拦截，能力限制改为数据驱动（cat-config.restrictions 双端 prompt 注入） | L3 硬编码（designer role 字符串 + coding regex）是 KD-8 反模式——harness 替模型判 intent，model 升级时规则无法自适应，且 actionText 扫全文会误杀（今天 F172 愿景守护被"合入"命中）；改数据驱动后，未来加 minimax / 限制 claude 多模态等场景 → 改 cat-config 即可，零代码变更 | 2026-04-23 |
+| KD-21 | handle = identity 常量；model = runtime-resolved metadata；**外部 identity**（GitHub bot / CI / webhook）不在 roster、不可 @、必须用 hold_ball | 砚砚核实 `normalize-cat-id.ts` parser 本已数据驱动；漂移的是"句柄背后的模型认知"——runtime catalog 把 `@codex` 切到 `gpt-5.5` 但静态 docs 仍写 `gpt-5.3-codex`。handle 稳定、model 变化，两者必须在 prompt 层解耦（roster 里显式打 resolved model）。同理外部 identity 从来不在本地 roster，映射到 roster 近似猫 = cargo-cult 盲区 | 2026-04-24 |
+| KD-22 | `@` 行首规则是协议常量，但"发前自检"需要在 prompt 首轮教学 + 反例强化，F064 的事后 `mentionRoutingFeedback` 不够 | 下一轮反馈不救本轮错传；模型在 URL / 列表 / quote 语境会把 @句柄写在句中（以为会路由）。prompt 层要让"行首"规则有视觉反例 + 发前自检问 | 2026-04-24 |
 
 ## Timeline
 
@@ -392,6 +437,8 @@ cat_cafe_hold_ball({
 | 2026-04-20 | Status → monitoring：宪宪+砚砚共识——AC-B2/B3 已被多层护栏覆盖（B2+C2 虚空传球 / L1 streak+break-loop ping-pong），进入观察期，无新 case 即 close。不再追加补丁 |
 | 2026-04-23 | Phase D reopened from monitoring：铲屎官发现两个系统性缺陷——(1) ping-pong streak 误杀正经 review（无 tool_call 维度）、(2) 猫猫倾向 @landy 做最安全默认，铲屎官变决策瓶颈；铲屎官拍板坐标系"干活 = tool_call"；砚砚 review 加入"实质 tool 过滤"关键修正（排除路由/持球工具）；KD-17/18/19 落定，D1+D2 AC 定稿待实现 |
 | 2026-04-23 | Phase D merged (PR #1349, `0fa92bfcf`) — D1 streak 实质工作豁免 + D2 @landy 硬条件出口。本地 gpt52 review 两轮（P1-1 substantive 必须 RESET streak 而非跳过 / P1-2 shared-rules §10 和 §10.4 一致性）；云端 Codex review P1（streak update 必须 gated on `wouldEnqueue` — 防 dedup/depth 跳过后仍误 mutate 计数器）；D1 5 commit + D2 1 commit + 3 个 P1 fix commit + 3 个 biome/index autofix commit，全量 32/32 ping-pong + 89/89 system-prompt-builder 绿。Status: monitoring（AC-D7 harness 反问式 ping 检测故意未做 — 避开 KD-8 反分类器原则，prompt 层已兜住）|
+| 2026-04-23 | Phase E merged (PR #1360, `f8efcf46d`) — retire L3 role-gate，`cat-config.restrictions` 数据驱动双端 prompt 注入（AC-E1~E8）；KD-20 落定；-735 净行数；gpt52 本地 review 放行 + 云端 Codex "no major issues"；中间踩坑：PR tracking 增量扫描通知重复误导 → 下次看通知先 `gh pr view` 对照时间戳 |
+| 2026-04-24 | Phase F reopened from monitoring：(1) opus-47 "球权在云端 codex" 同句 @gpt52 的认知盲区；(2) AGENTS.md 里 `@codex = gpt-5.3-codex` 和 runtime catalog `gpt-5.5` 漂移；(3) 句中 @ 不路由的协议常量被模型忘掉。铲屎官拍板"完整做，不 hotfix"；砚砚核实 parser 已数据驱动，根修在注入层；KD-21/22 落定，AC-F1~F11 定稿待实现 |
 | 2026-04-23 | Phase E reopened from monitoring：F172 愿景守护 @gemini 被 L3 误拦（action="合入"因 storedContent 上文含 merge 历程）；铲屎官定性"硬编码 + 过度设计"——要求退役 L3 + cat-config restrictions 数据驱动双端注入（发送方队友名册 + 目标猫 self-awareness）；KD-20 落定，AC-E1~E8 定稿待实现 |
 | 2026-04-24 | Phase E merged (PR #1360, `f8efcf46d`) — AC-E1~E8 全绿。8 commit（4 feat + 1 test + 3 chore）-735 净行数（删 role-gate.ts + 3 测试文件 + 2 调用点）+ cat-config schema 扩展 + 双端 prompt 注入；gpt52 review 首轮放行 `c967b59d0`（两个非阻塞：scrub 死注释 + 删 unused import 已顺手修），云端 Codex 零 P1/P2 "Hooray"；rebase 遇 F061 pre-existing 修复冲突 → skip 冗余 commit 后 clean merge；204/204 ping-pong + system-prompt-builder + cat-config-loader 绿。Status: monitoring |
 
