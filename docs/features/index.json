@@ -1047,7 +1047,7 @@
     {
       "id": "F167",
       "name": "A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P0",
+      "status": "monitoring | **Owner**: 布偶猫 | **Priority**: P0",
       "file": "F167-a2a-chain-quality.md"
     },
     {
@@ -1077,7 +1077,7 @@
     {
       "id": "F172",
       "name": "Generated Image Publication — 内建生图产物归档与富块发布",
-      "status": "done | **Owner**: 布偶猫/opus | **Priority**: P1",
+      "status": "done (Phase F merged 2026-04-23) | **Owner**: 布偶猫/opus | **Priority**: P1",
       "file": "F172-generated-image-publication.md"
     },
     {
@@ -1093,5 +1093,5 @@
       "file": "F174-callback-auth-lifecycle.md"
     }
   ],
-  "generated_at": "2026-04-23T23:26:24.270Z"
+  "generated_at": "2026-04-24T02:41:08.937Z"
 }

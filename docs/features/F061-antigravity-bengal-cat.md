@@ -154,7 +154,7 @@ G10 Model Capacity Resilience ← G1 分类框架 + Bug-7 fatal dedup 基础上
 - [ ] AC-10: 与现有三猫回归测试共跑通过
 - [ ] AC-C8: Durable TurnLedger — 跨重启持久化 turn 状态 + 补偿恢复 + 审计回放（G8b，G8a 稳定后）
 
-#### Phase 2c: 猫猫工具平权（Tool Parity） — 原生工具执行 🟡 v1 完成 (2026-04-17) — v2 扩展执行器 + E2E 回归走 follow-up
+#### Phase 2c: 猫猫工具平权（Tool Parity） — 原生工具执行 ✅ v1 完成 (2026-04-17) + v2 实测证伪 (2026-04-23, close as no-op)
 
 **价值观基底**（feedback_agent_tool_parity，2026-04-16 铲屎官纠偏）：
 > 「你都是全工具为什么 你要限制其他猫猫！」
@@ -170,7 +170,7 @@ G10 Model Capacity Resilience ← G1 分类框架 + Bug-7 fatal dedup 基础上
 - [x] AC-2cR1: 枚举 `exa.language_server_pb.LanguageServerService` 所有可用 RPC 方法（probe LS 二进制或 proto），确认除已知 7 个方法外是否存在 `SendToolResult` / `SubmitToolResult` / `HandleCascadeToolResult` 等候选 — 实测 189 个 RPC 方法，无 SendToolResult 类候选
 - [x] AC-2cR2: 验证 `HandleCascadeUserInteraction` 的 `interaction` payload schema — 是否支持 `{ toolResult: {...} }` 形状；通过构造最小 payload 对实际 LS 发起探测 — 结果：LS 不接受 toolResult 形状
 - [x] AC-2cR3: 确认哪个方法能让 `CORTEX_STEP_TYPE_RUN_COMMAND` 从 `WAITING` 推进到 `DONE/COMPLETED` 并让 cascade 继续生成下一 step — 方案：`CancelCascadeSteps` 结束 WAITING step + `sendMessage` 注入合成 user message（Bridge-owned writeback）
-- [ ] AC-2cR4: 采集 RUN_COMMAND 之外的工具步 step 类型（`READ_FILE` / `WRITE_FILE` / `EDIT_FILE` / `GREP` / `GLOB` 等）的 step shape — 若无法自然触发，用目标化 prompt 引导 cascade 发起各类工具 — follow-up（v2 执行器随此 AC 一起做）
+- [x] AC-2cR4: 采集 RUN_COMMAND 之外的工具步 step shape — **实测证伪前提**。2026-04-21 @antig-opus 真实环境验证 `grep_search` / `view_file` / `list_dir` 全部 LS 内部执行无 WAITING step；2026-04-23 @antig-opus 新 cascade 补测 `write_to_file` / `replace_file_content` (edit_file) / `multi_replace_file_content` 同样全部 LS 内部搞定、无 WAITING。唯一在 trajectory 出现的文件类 step 是 `CORTEX_STEP_TYPE_VIEW_FILE (status=DONE)` —— 已是完成态，不需要 Bridge 代执行。Antigravity LS 进程有完整 workspace 文件系统权限，文件读/写/改/搜全自闭环，v2 扩展执行器的**前提不成立**
 - [x] AC-2cR5: 输出《F061 Phase 2c-R research note》，包含 step shape 目录、回推 RPC 方法、最小可复现 probe 脚本 — 见 commit 9ba57d86c `docs(F061): Phase 2c-R probe results`
 
 ##### Phase 2c-D: 设计 — 执行器架构 + 工具集边界
@@ -188,7 +188,7 @@ G10 Model Capacity Resilience ← G1 分类框架 + Bug-7 fatal dedup 基础上
 - [x] AC-2cI3: `AntigravityAgentService` 在 pollForSteps batch 处理中识别 `CORTEX_STEP_TYPE_RUN_COMMAND` + `WAITING` → 调 executor → 调 pushToolResult；确保 executor 执行期间不触发 idle stall — commit d88e29e84；去重通过 `handledToolCallIds` per-invoke set
 - [x] AC-2cI4: 审计日志入口 — 所有 native 工具调用落 `antigravity-native-tool-audit` logger，字段：catId、cascadeId、stepId、toolName、cwd、commandLine、exitCode、duration、stdoutBytes、stderrBytes — commit c700fbe47；`AuditLogger` 写 JSONL
 - [ ] AC-2cI5: 端到端复现测试 — 重现今夜 stuck `grep 'z.enum' packages/mcp-server/src/tools/signals-tools.ts`，验证 RUN_COMMAND → DONE → planner 续发下一 step — follow-up（单测 147/147 绿但未跑真实 LS 端到端）
-- [ ] AC-2cI6: v2 扩展执行器 — `read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob`（基于 2cD2 与 2cR4 覆盖的 step shape）— follow-up（v1 已解开 Bug-8 卡死，v2 随 2cR4 一起做）
+- [x] AC-2cI6: v2 扩展执行器 — **no-op close**：AC-2cR4 实测证伪了 v2 scope 的前提。原 AC-2cD2 列的 `read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob` 是当时"与 Claude Code 工具面对齐"的 symmetry 愿望清单——真实 Antigravity 的等价工具（`view_file` / `write_to_file` / `replace_file_content` / `multi_replace_file_content` / `grep_search` / `list_dir`）**全部 LS 内部执行**，不发 WAITING step。tool parity 的真实路径是 LS 自带全套文件能力；只有 `run_command`（shell/PTY 必须 IDE 外执行）才需要 Bridge executor，Phase 2c v1 已覆盖
 - [x] AC-2cI7: 回归测试 — YOLO auto-approve 与 native executor 协同时不互相踩脚（approve 路径走 `HandleCascadeUserInteraction(permission)`，executor 路径走 `pushToolResult`）— 单测覆盖：`antigravity-agent-service.test.js` 三条新测试验证 dispatch + auto-attach + toolCallId 去重，与 waiting-approval 路径隔离
 
 ---
@@ -487,6 +487,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-23 | **Bug-G bubble identity 闭环** — `isStaleTerminalEvent` helper 统一 `done`/`error` 终态处理，分层 resolver（slot-fresh override → bubble binding → realActiveSlot → direct → bubble scan → default not-stale）覆盖 preempt / reconnect hydration / 多猫 slot normalization / hydrated 合成 key / chronic lag / reused bubble stale binding 所有分支；stale 时全副作用 + isFinal global teardown + hydrated-orphan cleanup 一律跳过；catInvocations.direct 条件性 cleanup；19 条定向回归测试。PR #1350（opus-47 写、砚砚 4 轮 peer review + 云端 codex 10+ 轮 P1/P2 → 17 轮 iteration 收敛 → merge commit `9e14c03a8`）|
 | 2026-04-23 | **Bug-I run_command args dropping 闭环** — Bengal 实测发现 Antigravity LS 的 `RunCommand` RPC 是 `command + args` 空格 join 给 outer shell 的语义，不是 `execvp`。旧 payload `{ command: '/bin/sh', args: ['-c', cmd] }` 被拼成 `/bin/sh -c cmd` → outer shell 只消费第一 token → 带参命令全废。修法 2 行：把完整 `commandLine` 直接作为 `command` 传，outer shell verbatim 解析。Proto descriptor（从 `language_server_macos_arm` binary 挖出）确认 `RunCommandRequest{command, args, timeout_ms}` 无 `cwd` 字段。PR #1351（Bengal 实测 + 根因，opus-47 proto 验证 + 测试，砚砚 1 轮 peer review 退回过时 discussion doc，云端 2 轮 clean，merge `1b0a9af24`）|
 | 2026-04-23 | **Bug-E regression lock + Bug-J partial polish** — 两个小 PR 并行：#1353 补 fatal error → 下一轮 invocation 仍保留 `[Cat Cafe callback fallback]` 注入的回归测试（锁 AntigravityAgentService 在 invoke 之间的无状态不变量）；#1354 给 `useAgentMessages` 加 `provider_signal` 分支，走 `formatVisibleSystemInfo` 管线，让 backend 一直在 emit 但前端静默丢弃的 capacity retry warning（`⚠️ 上游模型服务端容量不足，系统将在 20s 后自动重试（1/3）`）变成可见 system bubble。两条都 gpt52 peer review clean + 云端 codex clean，#1353 merge `5f5e82849`，#1354 merge `9cb2de414`。Bug-J 剩余 retry 倒计时 badge + 模型切换建议属 UX redesign，拆 follow-up |
+| 2026-04-23 | **Phase 2c v2 close as no-op + stream_error 老 cascade 发现** — opus-47 本打算建 `ReadFileExecutor` 开工 Phase 2c v2，读 2026-04-21 verification 时发现 AC-2cD2 的 `read_file / write_file / edit_file / grep_search / file_glob` 愿望清单的前提（"这些工具需要 Bridge 代执行"）从未被实证验证。让 Bengal 真跑一遍：2026-04-21 已确认 `grep_search / view_file / list_dir` LS 内部搞定无 WAITING；2026-04-23 新 cascade 补测 `write_to_file / replace_file_content / multi_replace_file_content` 同样全部 LS 内部直接执行、无 WAITING step。结论：**Antigravity LS 进程有完整 workspace 文件系统权限，文件读/写/改/搜全自闭环，v2 scope 整个不需要建 executor**。AC-2cR4/AC-2cI6 close as no-op。**副产物发现**：第一次 Bengal 测试 `stream_error` 复现，诊断链指向老 cascade context 累积——cascadeId `b314ac38` 已 213 step 累积、2.4MB trajectory，`view_file` 后下一次 planner response 撞上下文限制被 upstream 切断；grace window 4.5s 正常启动但 no recovery。新 cascade 里同样流程一把过，确认根因。这是 Antigravity 持久 cascade 的自然边界，不是 F061 bug |
 
 ---
 
@@ -510,7 +511,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 
 | 状态 | 问题 | 当前判断 | 排期 |
 |------|------|----------|------|
-| [ ] | 写文件/改代码仍不稳定（截图描述：`run_command` 经常 `context canceled`） | Bug-8 v1 已解开 `WAITING` 死锁，但 native file/code parity 仍只覆盖 `run_command`。`read_file` / `write_file` / `edit_file` / `grep_search` / `file_glob` 还在 follow-up。`@antig-opus` 2026-04-21 实测也确认：只读工具可用，但 `run_command` 在简单 `git log --oneline` 上仍 `context canceled` 2/2 复现。PR #1321 已补上 permission guard 前置调用，并确保危险命令先本地拒绝、permission RPC 失败时 fallback 不丢；下一步仍需实机复验这条 guard 是否足以消掉 `PromptUser → context canceled` | **Phase 2c v2**：AC-2cR4 + AC-2cI6 |
+| [~] | `run_command` approval gate 仍需实机复验 permission guard 链路 | 2026-04-23 Bengal 两轮实测证伪了"写文件不稳定=parity 未完工"的假设：`write_to_file / replace_file_content / multi_replace_file_content / view_file / grep_search / list_dir` 全部 LS 内部搞定无 WAITING，不需要 Bridge executor。Phase 2c v2 (AC-2cR4 + AC-2cI6) close as no-op。**残留只在 `run_command` 单条链路**：PR #1321 permission guard 前置调用 + PR #1330 的 `failureLayer/dispatchState/executionJournal` 已上，但 `SafeToAutoRun=false` 的命令仍依赖 Antigravity UI 审批弹窗，headless 下 62s timeout context canceled 不可避免。真正要修的是 approval bypass 或 stream writeback（见 Next Reliability Queue P3）| **Next Reliability Queue P3**：approval bypass / stream writeback（原 Phase 2c v2 依赖已移除） |
 | [~] | retry 经常只 retry 1 次然后直接挂住 | 已确认“只 retry 1 次然后挂住”不是 retry 预算天然只有 1 次，而是旧实现会在 capacity retry 后落到 v2 尚未支持的 WAITING tool step（如 `grep_search`）并静默 stall。PR #1318 已把这条路径改成 fail-fast 显式报 `unsupported_waiting_tool`；PR #1320 补上 quota-style capacity classifier；PR #1330 进一步把 retry 收窄到“未 dispatch + 只读 + `SafeToAutoRun=true`”，并补齐 `failureLayer / dispatchState / executionJournal` 诊断，避免把 approval-gated / 已执行 / 已完成 tool step 误当成可安全重试。剩余还是 v2 executors / telemetry / 实机复验 | **G10 follow-up（P1）**：剩余继续跟 Phase 2c v2 / telemetry / 实机复验 |
 | [ ] | Antigravity 原生 MCP 只能读不能写 | PR #1307 边界是 `CAT_CAFE_READONLY=true`；`post_message` / `get_thread_context` 等写操作仍然走 per-invocation callback token。持久进程无法在会话外主动写回 thread | **Bug-H**：persistent MCP write-path auth（会话外鉴权模型，例如 agent-key；需产品决策"原生 MCP 是否应该有写权"） |
 | [~] | 上游 `⚠️ 模型服务端容量不足` UX polish | PR #1354 已修"provider_signal 被前端静默丢弃"的根因（frontend 现在能显示 `⚠️ 上游模型服务端容量不足，系统将在 20s 后自动重试（1/3）` 这类警告）。剩余 follow-up：retry in-flight 倒计时 badge + hard-limit 软降级模型切换建议，属于 UX redesign scope | **Bug-J follow-up**：倒计时 badge / 模型切换建议（UX，低优） |
@@ -536,22 +537,28 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 
 ## Known Bugs（活跃）
 
-### Bug-D: Native file/code tool parity 仍不完整 ⚠️ OPEN
+### Bug-D: Native file/code tool parity 的错误归因已澄清 ✅ CLOSED (2026-04-23)
 
-**现象**（2026-04-20 截图 field report）：孟加拉猫当前“能读文件/搜代码”，但一旦进入写文件、改代码、复杂命令链，仍容易表现成 `run_command` / 工具执行不稳定，体感上像“写代码不稳”。
+**原现象**（2026-04-20 截图 field report）：孟加拉猫“能读文件/搜代码”，但写文件、改代码、复杂命令链不稳定，体感上像“写代码不稳”。
 
-**当前判断**：
-- Bug-8 / Phase 2c v1 已修掉的是 **`RUN_COMMAND` 永卡 `WAITING`**，不是“所有原生工具已完全平权”
-- 文档里未完成的 AC 仍然存在：
-  - AC-2cR4：采集 `READ_FILE` / `WRITE_FILE` / `EDIT_FILE` / `GREP` / `GLOB` 等 step shape
-  - AC-2cI6：v2 扩展执行器
-- `@antig-opus` 2026-04-21 真实环境验证已经把边界钉实：`grep_search` / `view_file` / `list_dir` PASS，但 `run_command` 在简单 `git log --oneline` 上 `context canceled` 2/2 稳定复现；见 `docs/features/F061-verification-2026-04-21.md`
-- PR #1321 的当前最小修复是：在 `RunCommand` unary 前显式发 `HandleCascadeUserInteraction { permission: { allowed: true }, trajectoryId, stepIndex }`，让 LS `PermissionManager` 先过权限关；同时把本地 refusal 规则前移到 permission approval 之前，并保证 permission guard RPC 失败时 `pushToolResult` fallback 仍然完整；本地 bridge/service/executor 回归已绿，但实机还没复验
-- 所以截图里的“写文件不稳”更接近 **tool parity 未完工**，不是 Bug-8 已修链路可以直接 claim 已解决
+**2026-04-23 Bengal 两轮实测证伪了 parity 归因**：
 
-**排期**：Phase 2c v2（AC-2cR4 + AC-2cI6）
+| 工具 | 状态 | 验证日期 |
+|------|------|----------|
+| `grep_search` | ✅ LS 内部搞定无 WAITING | 2026-04-21 |
+| `view_file` | ✅ LS 内部搞定无 WAITING | 2026-04-21 |
+| `list_dir` | ✅ LS 内部搞定无 WAITING | 2026-04-21 |
+| `write_to_file` | ✅ LS 内部搞定无 WAITING | 2026-04-23 |
+| `replace_file_content` (edit_file) | ✅ LS 内部搞定无 WAITING | 2026-04-23 |
+| `multi_replace_file_content` | ✅ LS 内部搞定无 WAITING | 2026-04-23 |
 
-### Bug-F: retry 后 unsupported WAITING step 不再静默挂死，但 retry / parity 闭环仍未完成 ⚠️ PARTIAL
+**结论**：
+- AC-2cD2 列的 `read_file / write_file / edit_file / grep_search / file_glob` 是 Claude Code 工具面 symmetry 的愿望清单——Antigravity LS 进程直接拥有 workspace 文件系统权限，文件类工具全部 LS 内部闭环，**不需要 Bridge executor**
+- 原"写文件不稳"截图里的真实问题只出在 `run_command` 单条链路（permission gate + context canceled），不是 file tool parity
+- AC-2cR4 + AC-2cI6 close as no-op
+- 只剩 `run_command` 的 approval / dispatch 链路在 Next Reliability Queue 继续跟
+
+### Bug-F: retry 后 unsupported WAITING step 不再静默挂死；parity 闭环 2026-04-23 已证伪为 no-op ⚠️ PARTIAL（仅剩 telemetry / 实机复验）
 
 **现象**（2026-04-20 铲屎官新报告）：孟加拉猫“经常只 retry 1 次然后又直接挂了”。
 
@@ -570,11 +577,12 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 - kill-switch（`ANTIGRAVITY_NATIVE_EXECUTOR=0`）与无 registry 路径继续返回 `false`，不再被误报成 `unsupported_waiting_tool`
 
 **剩余未闭环**：
-- 这次修的是 **symptom fix / terminalization**，不是把 `grep_search` / `read_file` / `write_file` / `edit_file` / `file_glob` 真正执行起来
-- 真正的长期闭环仍是 Phase 2c v2（AC-2cR4 + AC-2cI6）以及更细的 retry telemetry
+- 这次修的是 **symptom fix / terminalization**——让 `unsupported_waiting_tool` 不再静默挂死
+- 2026-04-23 Bengal 两轮实测后：`grep_search / view_file / list_dir / write_to_file / replace_file_content / multi_replace_file_content` 全部 LS 内部搞定无 WAITING（见 Bug-D 收尾），Phase 2c v2 close as no-op——retry 之后"掉进 unsupported WAITING tool"这条路径在实践中几乎不可达
+- 剩余真正风险只在 `run_command` 的 approval 链路（PR #1321 + PR #1330 permission guard + execution journal 已上，实机复验仍 pending），以及更细的 retry telemetry
 - quota-style capacity 文案的分类与回归已在 PR #1320 补上，但还需要真实 Antigravity 环境再打一次，确认这条 provider 限流路径在实机上确实会走进现有 retry/backoff
 
-**排期**：G10 follow-up（P1，已建毛线球：`[P1] 调查 Antigravity 单次 retry 后仍挂起`）继续；本轮先收 quota-style classifier + continuity guard，下一步继续补 parity / telemetry / 实机复验
+**排期**：G10 follow-up（P1，已建毛线球：`[P1] 调查 Antigravity 单次 retry 后仍挂起`）继续；本轮先收 quota-style classifier + continuity guard；parity 已于 2026-04-23 Bengal 实测证伪为 no-op（见 Bug-D 收尾 + Timeline 2026-04-23 Phase 2c v2 close 条目），剩余只继续补 telemetry / 实机复验
 
 ### Bug-H: Antigravity 原生 MCP 只能读不能写 ⚠️ OPEN（架构 debt）
 
