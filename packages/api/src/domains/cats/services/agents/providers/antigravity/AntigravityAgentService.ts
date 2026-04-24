@@ -757,7 +757,12 @@ export class AntigravityAgentService implements AgentService {
           continue;
         }
 
-        if (!hasText && !fatalSeen) {
+        // F172 Phase H: image-only response is a valid user-visible output —
+        // Phase G yields a media_gallery rich block via the brain scanner and
+        // Phase F yields one via the toolResult-path publisher (future-proof).
+        // empty_response only fires when neither text NOR an image surfaced.
+        const sawImageOutput = collectedGenerateImageSteps.length > 0 || collectedImagePaths.size > 0;
+        if (!hasText && !fatalSeen && !sawImageOutput) {
           const diagnostics = {
             totalStepsSeen,
             rawStepTypeCounts,
