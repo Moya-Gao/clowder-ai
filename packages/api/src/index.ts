@@ -345,8 +345,9 @@ async function main(): Promise<void> {
   const registry =
     registryBackendKind === 'redis' && redis
       ? new InvocationRegistry({
-          backend: new (await import('./domains/cats/services/agents/invocation/RedisAuthInvocationBackend.js'))
-            .RedisAuthInvocationBackend(redis),
+          backend: new (
+            await import('./domains/cats/services/agents/invocation/RedisAuthInvocationBackend.js')
+          ).RedisAuthInvocationBackend(redis),
         })
       : new InvocationRegistry();
   app.log.info(`[api] InvocationRegistry backend: ${registryBackendKind === 'redis' && redis ? 'redis' : 'memory'}`);

@@ -1000,6 +1000,12 @@ export async function* routeSerial(
         // (缅因猫 review P1-2: Redis failure must not block done yield)
         let storedMsgId: string | undefined;
         try {
+          // #573: persist with the OUTER cat-cafe parentInvocationId (set by QueueProcessor)
+          // not the INNER CLI invocationId (claude/codex's own session UUID from
+          // invocation_created event). Socket broadcasts use parentInvocationId — if persisted
+          // record carries a different id, frontend creates two bubbles for one logical
+          // response (one from live stream broadcast, one from persisted-msg broadcast).
+          const persistedInvocationId = options.parentInvocationId ?? ownInvocationId;
           const storedMsg = await deps.messageStore.append({
             userId,
             catId,
@@ -1015,7 +1021,7 @@ export async function* routeSerial(
             ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
             extra: {
               ...(allRichBlocks.length > 0 ? { rich: { v: 1 as const, blocks: allRichBlocks } } : {}),
-              ...(ownInvocationId ? { stream: { invocationId: ownInvocationId } } : {}),
+              ...(persistedInvocationId ? { stream: { invocationId: persistedInvocationId } } : {}),
             },
           });
           storedMsgId = storedMsg.id;
@@ -1231,9 +1237,13 @@ export async function* routeSerial(
               ...(thinkingChunks.length > 0 ? { thinking: renderThinkingChunks(thinkingChunks) } : {}),
               ...(firstMetadata ? { metadata: firstMetadata } : {}),
               ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
+              // #573: see line ~1003 for rationale — use parentInvocationId to align
+              // persisted record with broadcast events.
               extra: {
                 ...(noTextBlocks.length > 0 ? { rich: { v: 1 as const, blocks: noTextBlocks } } : {}),
-                ...(ownInvocationId ? { stream: { invocationId: ownInvocationId } } : {}),
+                ...((options.parentInvocationId ?? ownInvocationId)
+                  ? { stream: { invocationId: (options.parentInvocationId ?? ownInvocationId) as string } }
+                  : {}),
               },
             });
             // F088-P3: Stash rich blocks for outbound delivery (no-text branch)
@@ -1303,7 +1313,10 @@ export async function* routeSerial(
             ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
             ...(firstMetadata ? { metadata: firstMetadata } : {}),
             toolEvents: collectedToolEvents,
-            ...(ownInvocationId ? { extra: { stream: { invocationId: ownInvocationId } } } : {}),
+            // #573: see line ~1003 — use parentInvocationId to align persisted/broadcast.
+            ...((options.parentInvocationId ?? ownInvocationId)
+              ? { extra: { stream: { invocationId: (options.parentInvocationId ?? ownInvocationId) as string } } }
+              : {}),
           });
           // #80: Clean up draft only after successful append
           if (deps.draftStore && ownInvocationId) {

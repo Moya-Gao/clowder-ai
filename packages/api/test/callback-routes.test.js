@@ -1803,7 +1803,43 @@ describe('Callback Routes', () => {
     }
   });
 
-  test('POST post-message without cc_rich blocks stores content as-is (no extra.rich)', async () => {
+  test('#573: callback POST broadcasts/persists with parentInvocationId (OUTER) when present, not invocationId (INNER)', async () => {
+    // Setup: create invocation with parentInvocationId — simulates QueueProcessor → routeExecution
+    // → invokeSingleCat hierarchy where the cat-cafe queue-level (OUTER) invocation has spawned
+    // a per-cat (INNER) sub-invocation. callback fires from inside CLI with INNER credentials,
+    // but broadcast/persist must use OUTER for cross-handler dedup with stream broadcasts.
+    const app = await createApp();
+    const outerParentInv = 'outer-parent-573';
+    const { invocationId: innerInv, callbackToken } = await registry.create(
+      'user-573',
+      'opus',
+      'thread-573',
+      outerParentInv,
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      headers: { 'x-invocation-id': innerInv, 'x-callback-token': callbackToken },
+      payload: { content: 'callback content' },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const recent = messageStore.getRecent(10);
+    const stored = recent.find((m) => m.content === 'callback content');
+    assert.ok(stored, 'callback message stored');
+    assert.equal(
+      stored.extra?.stream?.invocationId,
+      outerParentInv,
+      'persisted record uses OUTER parentInvocationId, not INNER',
+    );
+    assert.notEqual(stored.extra?.stream?.invocationId, innerInv, 'must NOT use the INNER per-cat invocation id');
+  });
+
+  test('POST post-message without cc_rich blocks stores content as-is (extra carries stream.invocationId only)', async () => {
+    // #573: callback path now always sets extra.stream.invocationId so frontend's
+    // (catId, invocationId) dedup can correlate callback persistence with stream broadcasts
+    // after F5/hydration. extra.rich must still be absent when no rich blocks were provided.
     const app = await createApp();
     const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-rb3');
 
@@ -1818,7 +1854,10 @@ describe('Callback Routes', () => {
     const recent = messageStore.getRecent(10);
     assert.equal(recent.length, 1);
     assert.equal(recent[0].content, 'Plain message, no blocks');
-    assert.equal(recent[0].extra, undefined);
+    // Extra now carries stream.invocationId (#573 alignment with stream/queue broadcasts).
+    assert.ok(recent[0].extra, 'extra is set');
+    assert.equal(recent[0].extra.rich, undefined, 'no rich blocks present');
+    assert.equal(recent[0].extra.stream?.invocationId, invocationId, 'stream.invocationId set to invocation id');
   });
 
   // ---- #85 T7: Route A create-rich-block normalizes type→kind ----

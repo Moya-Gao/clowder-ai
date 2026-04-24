@@ -4,6 +4,9 @@ import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadS
 
 export interface CallbackActor {
   invocationId: string;
+  /** #573: parent (queue-level) invocationId — when present, is the OUTER id used for
+   * broadcast/persistence identity. Falls back to `invocationId` if no parent. */
+  parentInvocationId?: string;
   threadId: string;
   userId: string;
   catId: CatId;
@@ -12,10 +15,21 @@ export interface CallbackActor {
 export function deriveCallbackActor(record: InvocationRecord): CallbackActor {
   return {
     invocationId: record.invocationId,
+    ...(record.parentInvocationId ? { parentInvocationId: record.parentInvocationId } : {}),
     threadId: record.threadId,
     userId: record.userId,
     catId: createCatId(record.catId),
   };
+}
+
+/**
+ * #573: identity used for cross-handler broadcast/persistence dedup.
+ * QueueProcessor:761 broadcasts agent_message with parent (outer) id; route-serial
+ * persists with parent (outer) id. Callback path must use the same to keep the
+ * frontend's `(catId, invocationId)` dedup contract intact across stream + callback.
+ */
+export function effectiveInvocationId(actor: Pick<CallbackActor, 'invocationId' | 'parentInvocationId'>): string {
+  return actor.parentInvocationId ?? actor.invocationId;
 }
 
 export function resolveBoundThreadScope(

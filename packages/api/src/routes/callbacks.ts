@@ -39,7 +39,7 @@ import { registerCallbackLarkActionRoutes } from './callback-lark-action-routes.
 import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
-import { deriveCallbackActor, resolveScopedThreadId } from './callback-scope-helpers.js';
+import { deriveCallbackActor, effectiveInvocationId, resolveScopedThreadId } from './callback-scope-helpers.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
 import { registerCallbackThreadCatsRoutes } from './callback-thread-cats-routes.js';
 import { registerCallbackWeComActionRoutes } from './callback-wecom-action-routes.js';
@@ -340,6 +340,10 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
     const { content, threadId, replyTo, clientMessageId, targetCats: explicitTargetCats } = parsed.data;
     const { invocationId } = actor;
+    // #573: identity for cross-handler dedup. stream + callback for same logical
+    // response must broadcast/persist with the same id; QueueProcessor + route-serial
+    // use the parent (outer) id, so callback aligns to it.
+    const effectiveInvId = effectiveInvocationId(actor);
 
     // Stale callback guard (cloud Codex P1 + 缅因猫 R3): reject callbacks from
     // preempted invocations. A newer invocation for the same thread+cat supersedes.
@@ -513,6 +517,13 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // from other invocations' context until QueueProcessor.executeEntry marks it delivered.
     const hasA2AMentions = mentions.length > 0 && router && invocationRecordStore && effectiveThreadId;
     const willEnqueueToQueue = hasA2AMentions && opts.invocationQueue;
+    // #573: persisted record's extra.stream.invocationId aligned to effectiveInvId
+    // (parent/outer) so F5/hydration broadcasts match what live broadcasts use.
+    // Merge with any existing extra (cross-post / explicit targets) without losing it.
+    const persistedExtra = {
+      ...(extra ?? {}),
+      stream: { invocationId: effectiveInvId },
+    };
     const storedMsg = await messageStore.append({
       userId: actor.userId,
       catId: actor.catId,
@@ -522,7 +533,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       origin: 'callback',
       timestamp: Date.now(),
       threadId: effectiveThreadId,
-      ...(extra ? { extra } : {}),
+      extra: persistedExtra,
       ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
       ...(willEnqueueToQueue ? { deliveryStatus: 'queued' as const } : {}),
     });
@@ -537,13 +548,15 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         content: storedContent,
         origin: 'callback',
         messageId: storedMsg.id,
-        invocationId, // #454: always propagate — required by callback auth
+        // #573: broadcast with effectiveInvId (parent/outer) so frontend's
+        // (catId, invocationId) dedup matches stream broadcasts.
+        invocationId: effectiveInvId,
         // F52+F098-C1: Include crossPost + targetCats in real-time broadcast
         ...(isCrossThread || validExplicitTargets.length
           ? {
               extra: {
                 ...(isCrossThread
-                  ? { crossPost: { sourceThreadId: actor.threadId, sourceInvocationId: invocationId } }
+                  ? { crossPost: { sourceThreadId: actor.threadId, sourceInvocationId: effectiveInvId } }
                   : {}),
                 ...(validExplicitTargets.length ? { targetCats: validExplicitTargets } : {}),
               },
@@ -559,14 +572,15 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
     // #83: Broadcast each extracted rich block as SSE event for live rendering
     // P2 cloud-review: include messageId for frontend correlation
-    // #454: include invocationId so frontend can exact-match callback to stream bubble
+    // #454/573: include effectiveInvId (parent/outer) so frontend can exact-match
+    // callback to stream bubble.
     for (const block of richBlocks) {
       socketManager.broadcastAgentMessage(
         {
           type: 'system_info' as const,
           catId: actor.catId,
           content: JSON.stringify({ type: 'rich_block', block, messageId: storedMsg.id }),
-          invocationId,
+          invocationId: effectiveInvId,
           timestamp: Date.now(),
         },
         effectiveThreadId,
@@ -1114,6 +1128,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
     const { block } = parsed.data;
     const { invocationId } = record;
+    // #573: parent (outer) id used for broadcast identity to align with stream/queue path.
+    const effectiveInvId = record.parentInvocationId ?? invocationId;
 
     // F34-b P2: audio blocks must have at least url or text (R10: trim whitespace)
     if (block.kind === 'audio' && !block.url?.trim() && !block.text?.trim()) {
@@ -1137,14 +1153,15 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     const isNew = getRichBlockBuffer().add(record.threadId, record.catId as string, resolvedBlock, invocationId);
 
     // Only broadcast new blocks (dedup retries at server to prevent frontend duplicates)
-    // #454: include invocationId so frontend can exact-match callback to stream bubble
+    // #454/573: include effectiveInvId (parent/outer) so frontend can exact-match
+    // callback to stream bubble.
     if (isNew) {
       socketManager.broadcastAgentMessage(
         {
           type: 'system_info' as const,
           catId: record.catId,
           content: JSON.stringify({ type: 'rich_block', block: resolvedBlock }),
-          invocationId,
+          invocationId: effectiveInvId,
           timestamp: Date.now(),
         },
         record.threadId,

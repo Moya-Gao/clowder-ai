@@ -20,7 +20,6 @@ describe('F174 Phase B — restart resilience (AC-B3, AC-B5)', () => {
   // test runner. The contract test below opt-in only when REDIS_URL=:6398, so
   // 6399 is naturally untouched. No standalone test needed.
 
-
   test('AC-B3: invocation token verifiable across simulated process restart', async () => {
     if (!HAS_REDIS) {
       // Skip when not running against Redis (memory-only CI).
