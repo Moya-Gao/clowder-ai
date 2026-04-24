@@ -5,6 +5,7 @@ const { app, BrowserWindow, Menu, Tray, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { resolveProjectRootFromDir } = require('./project-root');
 const ServiceManager = require('./service-manager');
 
 // Single instance lock — prevent multiple Cat Cafe processes
@@ -14,24 +15,7 @@ if (!gotTheLock) {
   process.exit(0);
 }
 
-function resolveProjectRoot() {
-  // Detect the install/workspace root by looking for packages/api/dist/index.js —
-  // the API entrypoint is the authoritative marker. Works for both dev layout
-  // (repo root) and installed layout ({app} with pnpm deploy).
-  let current = __dirname;
-  for (let i = 0; i < 6; i++) {
-    if (fs.existsSync(path.join(current, 'packages', 'api', 'dist', 'index.js'))) {
-      return current;
-    }
-    const parent = path.resolve(current, '..');
-    if (parent === current) break;
-    current = parent;
-  }
-  // Installed layout fallback: __dirname = {app}\desktop-dist\resources\app
-  return path.resolve(__dirname, '..', '..', '..');
-}
-
-const PROJECT_ROOT = resolveProjectRoot();
+const PROJECT_ROOT = resolveProjectRootFromDir(__dirname);
 const FRONTEND_PORT = 3003;
 const API_PORT = 3004;
 const APP_URL = `http://localhost:${FRONTEND_PORT}`;
