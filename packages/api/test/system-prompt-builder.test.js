@@ -455,7 +455,7 @@ describe('SystemPromptBuilder', () => {
         mcpAvailable: true,
         promptTags: ['critique'],
       });
-      assert.ok(prompt.length < 4700, `Full runtime prompt is ${prompt.length} chars, expected < 4700`);
+      assert.ok(prompt.length < 4900, `Full runtime prompt is ${prompt.length} chars, expected < 4900`);
     } finally {
       catRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
@@ -503,6 +503,35 @@ describe('SystemPromptBuilder', () => {
     // F064 球权模型: A2A 出口检查 → A2A 球权检查
     assert.ok(ctx.includes('A2A 球权检查'), 'Should include A2A ball-ownership check hint');
     assert.ok(ctx.includes('句中无效'), 'Should teach inline @ is invalid for routing');
+  });
+
+  test('F167-F AC-F1: teammate roster surfaces resolved model per cat (handle/model 解绑)', async () => {
+    // KD-21: handle = identity constant; model = runtime-resolved metadata.
+    // Sender must see {@mention} + defaultModel aligned —防止"云端 codex (bot)"
+    // 被投射成本地 @codex / @gpt52 的 cargo-cult 盲区 (opus-47 事故)。
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+      const prompt = buildStaticIdentity('opus');
+      // Cloud Codex P2 fix: don't hardcode model strings — production resolves
+      // via getCatModel (env CAT_{CATID}_MODEL → registry → defaults), so a legitimate
+      // env override would make hardcoded assertions fail. Assert structural presence
+      // instead: "@mention · <something>" adjacency for each roster row.
+      assert.match(prompt, /@codex\s*·\s*\S+/, 'codex row must show "@codex · <model>" adjacency');
+      assert.match(prompt, /@gpt52\s*·\s*\S+/, 'gpt52 row must show "@gpt52 · <model>" adjacency');
+      assert.match(prompt, /@gemini\s*·\s*\S+/, 'gemini row must show "@gemini · <model>" adjacency');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
   });
 
   test('F167-E: teammate roster surfaces restrictions (硬限制) for teammates with them', async () => {
@@ -596,6 +625,82 @@ describe('SystemPromptBuilder', () => {
         catRegistry.register(id, config);
       }
     }
+  });
+
+  test('F167-F AC-F10: AGENTS.md / CLAUDE.md have no hardcoded "@x = model-y" bindings', async () => {
+    // KD-21 invariant: handle/model must stay decoupled in static docs. If someone
+    // re-introduces "@codex（model=gpt-5.3-codex）" style hardcoding, this test traps it.
+    const fs = await import('node:fs');
+    const { readFileSync } = fs;
+    const path = await import('node:path');
+    const { dirname: dirFn, join } = path;
+    const { fileURLToPath: fromUrl } = await import('node:url');
+    const here = dirFn(fromUrl(import.meta.url));
+    const repoRoot = resolve(here, '../../..');
+    const readFlat = (name) => readFileSync(join(repoRoot, name), 'utf8');
+    for (const fname of ['AGENTS.md', 'CLAUDE.md']) {
+      const text = readFlat(fname);
+      // KD-21 regression guard (cloud Codex round-4 broadening): detect ANY
+      // static `@handle ... model=X` binding regardless of quoting style, model
+      // family, or handle charset. Covers:
+      //   - `@codex (model=`gpt-5.5`)`  — backticked
+      //   - `@codex (model=gpt-5.5)`    — unquoted (round-4 gap)
+      //   - `@codex (model="foo")`      — double-quoted
+      //   - `@opus-45` / `@缅因猫`      — non-\w handles
+      // @handle = `@` + non-whitespace/comma/open-paren chars.
+      // model value = any non-whitespace (accepts quoted + unquoted).
+      assert.doesNotMatch(
+        text,
+        /@[^\s,(（]+[^\n]{0,30}model=\S+/i,
+        `${fname} must not hardcode "@xxx (model=anything)" — use runtime catalog truth source`,
+      );
+    }
+  });
+
+  test('F167-F AC-F7/F8: A2A section has inline-@ bad examples (URL / list / quote) and pre-send self-check', async () => {
+    // KD-22: @ 行首 rule is protocol constant but model forgets in narrative context
+    // (URL prefix "+@reviewer:", list bullet "- @cat:", quote "> @cat said..."等).
+    // prompt 首轮教学要给具体视觉反例 + 发前自检问。
+    const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const prompt = buildStaticIdentity('opus');
+    // Existing 反例 "行中 @sonnet" 要保留，新增 URL / 列表 / quote 反例。
+    assert.match(
+      prompt,
+      /URL|列表|quote|引用|前缀/i,
+      'must show URL / list / quote / 前缀 scenarios as inline-@ traps',
+    );
+    // 发前自检问
+    assert.match(
+      prompt,
+      /发前自检|我的 @.*都在行首|发出前扫/,
+      'must include a pre-send self-check question about inline @',
+    );
+  });
+
+  test('F167-F AC-F6: trailing anchor lists 外部 identity as hold_ball scenarios (not @-eligible)', async () => {
+    // KD-21: external identities (GitHub bot / CI / webhook) are NOT in roster.
+    // Trailing anchor option 2 (hold_ball) must name these explicitly so the
+    // model doesn't cargo-cult-project "云端 codex" onto local @codex / @gpt52.
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: ['opus'],
+      mcpAvailable: false,
+      a2aEnabled: true,
+    });
+    // Hold_ball row must explicitly name external identities to prevent cargo-cult to @local-proxy.
+    assert.match(
+      ctx,
+      /云端\s*codex|GitHub\s*(?:bot|Actions|review)|PR\s*check|CI/i,
+      'trailing anchor hold_ball line must list 云端 codex / GitHub bot / CI as examples',
+    );
+    // And should warn not to @ local proxy for external identity.
+    assert.match(
+      ctx,
+      /外部\s*identity|外部条件|不在\s*roster|不可\s*@/,
+      'must state that external identities are not in roster / not @-eligible',
+    );
   });
 
   test('F167-D2: trailing anchor uses decision-tree ordering (not flat three-choice)', async () => {
@@ -881,7 +986,7 @@ describe('SystemPromptBuilder', () => {
         { catId: 'opus', lastMessageAt: Date.now() - 1000, messageCount: 3 },
       ],
     });
-    assert.ok(prompt.length < 3900, `Prompt with activity is ${prompt.length} chars, expected < 3900`);
+    assert.ok(prompt.length < 4000, `Prompt with activity is ${prompt.length} chars, expected < 4000`);
   });
 
   // --- F042: pinned identity constant + direct-message reply target ---
@@ -1293,7 +1398,7 @@ describe('SystemPromptBuilder', () => {
         featureId: 'F073',
       },
     });
-    assert.ok(prompt.length < 3900, `Prompt with SOP hint is ${prompt.length} chars, expected < 3900`);
+    assert.ok(prompt.length < 4000, `Prompt with SOP hint is ${prompt.length} chars, expected < 4000`);
   });
 
   // --- F092: Voice Mode prompt injection ---
@@ -1340,7 +1445,7 @@ describe('SystemPromptBuilder', () => {
       },
       voiceMode: true,
     });
-    assert.ok(prompt.length < 4000, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 4000`);
+    assert.ok(prompt.length < 4100, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 4100`);
   });
 
   test('buildInvocationContext injects bootcamp mode when bootcampState provided', async () => {

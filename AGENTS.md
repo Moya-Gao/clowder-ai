@@ -22,7 +22,7 @@
 | 缅因猫 (GPT-5.4) | 砚砚 | 架构思考、Review | `@gpt52` |
 | 暹罗猫 (Gemini) | 烁烁 | 视觉设计、创意 | `@gemini` |
 
-注：`@codex`（model=`gpt-5.3-codex`）和 `@gpt52`（model=`gpt-5.4`）是同族不同个体，不要写在同一行当成同一个句柄（见 `cat-config.json`）。
+注：`@codex` 和 `@gpt52` 是同族不同个体（各自独立句柄），当前 resolved model 以 runtime catalog 为准——看 prompt 里的队友名册"@mention · 当前模型"列，不要用这里的历史文案反推模型版本。
 
 三猫都是公猫。Roster 详见 `cat-config.json`。@ 规则：另起一行行首写 `@句柄`。
 

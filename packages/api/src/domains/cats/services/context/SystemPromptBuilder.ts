@@ -16,6 +16,9 @@ import {
   isCatLead,
 } from '../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../config/cat-models.js';
+// F167 Phase F P1 (cloud Codex): roster model cell must resolve via getCatModel
+// (env CAT_{CATID}_MODEL → registry → defaults), not from static config.defaultModel,
+// otherwise env overrides cause exactly the handle/model drift Phase F is killing.
 import { buildGuidePromptLines } from '../../../guides/GuidePromptSection.js';
 import type {
   BootcampStateV1,
@@ -354,6 +357,19 @@ function buildTeammateRoster(currentCatId: CatId): string | null {
         ? `${config.displayName}/${config.nickname}`
         : config.displayName;
     const mention = pickVariantMention(id, config);
+    // F167 Phase F (KD-21): surface resolved runtime model next to the @mention so
+    // sender's 认知真相 aligns with runtime catalog. Handle is identity constant;
+    // model is runtime-resolved metadata — the two must be visibly decoupled to
+    // prevent cargo-cult projection (e.g. "云端 codex bot" → 本地 @codex 快照).
+    // P1 fix (cloud Codex review): resolve via getCatModel so env overrides show through,
+    // not the static template's defaultModel. Fall back to defaultModel only on error.
+    let resolvedModel: string;
+    try {
+      resolvedModel = getCatModel(id);
+    } catch {
+      resolvedModel = config.defaultModel ?? '';
+    }
+    const mentionCell = resolvedModel ? `${mention} · ${resolvedModel}` : mention;
     const strengths = config.teamStrengths ?? config.roleDescription;
     // F167 Phase E (KD-20): surface hard restrictions alongside caution — data-driven
     // replacement for the retired L3 role-gate. Sender sees e.g. "禁止写代码" so they
@@ -361,10 +377,15 @@ function buildTeammateRoster(currentCatId: CatId): string | null {
     const restrictionsNote =
       config.restrictions && config.restrictions.length > 0 ? `**硬限制**：${config.restrictions.join('、')}` : null;
     const cautionCell = [config.caution ?? null, restrictionsNote].filter(Boolean).join('；') || '—';
-    rows.push(`| ${label} | ${mention} | ${strengths} | ${cautionCell} |`);
+    rows.push(`| ${label} | ${mentionCell} | ${strengths} | ${cautionCell} |`);
   }
 
-  return ['## 队友名册', '| 猫猫 | @mention | 擅长 | 注意 |', '|------|---------|------|------|', ...rows].join('\n');
+  return [
+    '## 队友名册',
+    '| 猫猫 | @mention · 当前模型 | 擅长 | 注意 |',
+    '|------|---------|------|------|',
+    ...rows,
+  ].join('\n');
 }
 
 /**
@@ -441,7 +462,15 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
       lines.push(`同名队友并存时，请优先使用唯一句柄（例如 \`${example}\`）避免歧义。`);
     }
     lines.push('格式：另起一行行首写 @猫名（行中无效，多猫各占一行），上文或下文写请求均可。');
-    lines.push(`[正确] ${exampleTarget}\\n请帮忙  [正确] 内容...\\n${exampleTarget}  [错误] 行中 ${exampleTarget}`);
+    lines.push(`[正确] ${exampleTarget}\\n请帮忙  [正确] 内容...\\n${exampleTarget}`);
+    // F167 Phase F KD-22: model 在 narrative context 会把 @句柄写句中以为会路由。
+    // 注意：parseA2AMentions 会 **剥离** markdown 前缀 (`> ` / `- ` / `* ` / `+ ` / `1. `)
+    // 再匹配，所以 `- @cat` / `> @cat` 是**合法路由**（不是陷阱）。真正的陷阱是
+    // @ 不在剥离后的行首位置——句中 / URL 内 / 任意非首字符。
+    lines.push(
+      `[错误] 句中 ${exampleTarget}（@ 不是行首也不是剥离 markdown 前缀后的首字符）· URL 内 ${exampleTarget} · 任何非行首位置的 @ 都不路由，球权掉地上。`,
+    );
+    lines.push(`发前自检：我消息里想路由的 @句柄 都在"独立一行的行首"或"markdown 列表/引用前缀后的首字符"吗？URL 内 / 句中任意位置的 @ 不是路由指令。`);
     lines.push('');
   }
 
@@ -586,7 +615,6 @@ export function buildInvocationContext(context: InvocationContext): string {
   // A2A: Exit check reminder — prevents "chain termination blind spot" where cats finish output
   // without considering whether a teammate needs to act next.
   if (context.mode !== 'parallel' && context.a2aEnabled) {
-    const ccHandle = getCoCreatorConfig().mentionPatterns[0] ?? '@铲屎官';
     lines.push(
       `A2A 球权检查：@ = 球权转移（行首 @句柄，句中无效）。收到 @ 但对方说"我在动" → 矛盾，push back + 立刻接/退/升（诊断≠解决，说完不@=球还在地上）。收了球却说"你等着/你别动" → 球权死锁，禁止——做不了就退回或升级。球权只有第一人称：只能声明自己持球，不能声明别人持球——没有 @ 或 hold_ball 动作，球权就没转移。`,
       '',
@@ -738,9 +766,9 @@ export function buildInvocationContext(context: InvocationContext): string {
       '',
       `下一棒传球决策树（本轮必选其一，缺 = 消息不完整）：先问"下一步谁能做"——`,
       `1. 另一只猫能做 → @句柄（review 完→@author / 修完→@reviewer / merge 完→@愿景守护猫）`,
-      `2. 等外部条件 → 实际调用 cat_cafe_hold_ball(...)（CLI 要退出但还需继续；口头"我继续"不算）`,
+      `2. 等外部条件 → 实际调用 cat_cafe_hold_ball(...)。外部条件包括：**云端 codex / GitHub bot review / PR check / CI / 长 build / 外部 webhook**——这些不是本地猫，不在 roster，不可 @ 任何本地近似 proxy；CLI 要退出但还需继续也走这条（口头"我继续"不算）`,
       `3. 只有铲屎官本人才能做 → ${cc}（硬条件：不可逆操作 / 愿景级决策 / 跨猫僵局）`,
-      `${cc} 不是默认出口——先问"哪只猫能接"。反问式 ping 非法（"要不要 X？"/"同意吗？"）：有立场就自决去做（错了能回滚），没立场根本不该 @。`,
+      `${cc} 不是默认出口——先问"哪只猫能接"。反问式 ping 非法（"要不要 X？"/"同意吗？"）：有立场就自决去做（错了能回滚），没立场根本不该 @。**外部 identity（云端 xxx / GitHub bot / CI）** 永远走选项 2（hold_ball），严禁投射成本地 @句柄。`,
     );
   }
 
