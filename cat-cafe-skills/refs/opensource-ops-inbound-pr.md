@@ -221,15 +221,15 @@ Title: intake(clowder-ai#{N}): {一句话描述}
 
 ## 逐文件决策表（必填，不能留空）
 
-| File | 社区改动摘要 | 决策 | 理由 |
-|------|-------------|------|------|
-| packages/api/src/routes/callbacks.ts | 加 invocationId 到广播 | absorb（已有） | cat-cafe 已独立实现 |
-| packages/web/src/hooks/useAgentMessages.ts | ?? fallback + 去 sawStreamDataRef guard | absorb（需 port） | 修复 ghost-message |
-| packages/web/src/hooks/useSocket.ts | reconnect catch-up safety net | absorb（需 port） | 防丢消息 |
-| packages/web/.../__tests__/bubble-merge.test.ts | 新回归测试 | absorb（需适配） | 防交叉 invocation |
-| README.md | 更新描述 | skip | public-only |
+| File | Source Behavior（社区想带回什么） | 决策 / 模式 | Must Preserve Home Behavior（家里必须保住什么） | Proof / Exception |
+|------|----------------------------------|-------------|----------------------------------------------|-------------------|
+| packages/api/src/routes/callbacks.ts | 加 invocationId 到广播 | absorb（已有） | 现有 callback auth / token 校验不能回退 | 已有测试覆盖 |
+| packages/web/src/hooks/useAgentMessages.ts | ?? fallback + 去 sawStreamDataRef guard | absorb（manual-port） | 家里当前消息合并 / streaming 状态机不回退 | 补 ghost-message 回归测试 |
+| packages/web/src/hooks/useSocket.ts | reconnect catch-up safety net | absorb（manual-port） | 家里现有 reconnect 去重逻辑不回退 | diff 对照 + socket 测试 |
+| packages/web/.../__tests__/bubble-merge.test.ts | 新回归测试 | absorb（适配） | 测试语义等价，夹具命名按家里规范 | 测试通过 |
+| README.md | 更新描述 | skip | public-only，不进入家里 | exception: public-only |
 
-决策只允许两种：`absorb` 或 `skip(with reason)`。不能留空。
+决策只允许两种：`absorb` 或 `skip(with reason)`。模式用于说明执行方式：`已有 / safe-cherry-pick / manual-port / 适配`。不能留空。
 
 ## 关联
 - Fixes: clowder-ai#{issue}
@@ -254,6 +254,27 @@ bash scripts/intake-from-opensource.sh --pr {N} --mode=plan
 - ✅ safe-cherry-pick（可直接吸收）
 - ⚠️ manual-port（需人工对照 diff）
 - ○ public-only（跳过）
+
+### Step 1.1: Intake 三真相 Guard — 硬约束 + 软约束 🔴
+
+**元认知规则**：intake 不是“把开源仓文件覆盖回家里”，而是“把 source intent replay 到当前 cat-cafe main 上”。最后结果必须同时满足：
+
+- `Result ⊇ Source Intent`：社区 PR 想带来的行为变化已经进家
+- `Result ⊇ Home Invariants`：家里 main 上已有的新功能 / bugfix / 安全边界没有被覆盖回退
+
+**硬约束（机器可拦，违反即阻塞 merge）：**
+
+1. **Path Guard**：absorb PR 最终 `merge diff` 的文件集合必须满足 `diff ⊆ Intake Intent Issue 文件表 + 显式 exception list`。新增测试、生成索引、review request 等合理文件也必须写进 exception list；不能靠 reviewer 人肉记忆。
+2. **Overlap Guard**：同一个文件同时满足“社区 PR 改过”且“cat-cafe 当前 main 相比 source base 已有家里演化”时，禁止标为 `safe-cherry-pick`，必须升级为 `manual-port / manual-merge`。
+3. **High-risk File Guard**：入口接线、route 注册、DI 参数、env registry、metric allowlist、auth/callback、sync 脚本、品牌敏感文件，即使 diff 看起来小，也默认要求 `Must Preserve Home Behavior` + proof。
+
+**软约束（猫的思考动作，写进 Issue / review request）：**
+
+1. 每个 `manual-port` 文件必须写三真相：`Source Behavior`、`Must Preserve Home Behavior`、`Proof`。
+2. 如果猫说不清“家里必须保住什么”，不能继续吸收；先看 cat-cafe main 的同文件历史、现有测试、feature spec，再决定。
+3. Reviewer 不能只说“测试绿 / 文件在”；必须检查行为等价：source intent 没漏，home invariant 没丢。
+
+> 教训：clowder-ai#546 → cat-cafe#1375 intake 中，`index.ts` / `route-serial.ts` / `route-parallel.ts` 被 upstream 旧逻辑覆盖过，文件表层面看似合理，但同文件里的家里主线能力被回退。后续靠 reviewer 抓 P1 + 源码守卫测试才补住。这个问题不能只靠 Path Guard，必须靠 Overlap + Preserve Proof。
 
 ### Step 1.5: 🛡 Inbound Brand Guard（Plan 输出有 ⚠️ 时必做）
 
@@ -285,6 +306,8 @@ bash scripts/intake-from-opensource.sh --pr {N} --mode=plan
 目前 V1 需要手工 cherry-pick safe 文件 + 手工 port manual 文件。
 **Brand Guard 文件必须走 Step 1.5 的手工 diff-merge 路径，不能直接 cherry-pick。**
 
+**默认执行方式**：以 cat-cafe 当前 main 为底，把 source patch 按行为 replay 进来。只有确认没有 home-only behavior / home invariant 风险时，才允许整文件复制或机械 cherry-pick。
+
 开 absorb PR 时，PR body 必须包含：
 
 ```md
@@ -302,9 +325,12 @@ Closes #<IntakeIntentIssue>
 **Reviewer checklist**：
 
 - [ ] Intent Issue 的逐文件决策表存在且无空行
+- [ ] absorb PR 最终文件集合没有超出 Intent Issue 文件表 + 显式 exception list
 - [ ] 每个标记 `absorb` 的文件都有对应的 commit/改动
 - [ ] 每个标记 `skip` 的文件有合理理由
 - [ ] 社区 PR 的**每个行为改变**都在 cat-cafe 复现（不只是文件在不在，还要看逻辑等价）
+- [ ] 同文件 overlap / high-risk 文件已升级 `manual-port`，并写清 `Source Behavior` / `Must Preserve Home Behavior` / `Proof`
+- [ ] cat-cafe main 已有行为没有被 upstream 旧版本覆盖回退；必要时有 zero-diff 对照、源码守卫测试或 targeted regression test
 - [ ] Brand Guard 文件（如有）已走 Step 1.5 手工 diff-merge
 - [ ] Review 覆盖 absorb PR **当前 HEAD SHA**；如果 review 后又 rebase / fixup / regenerate feature index，reviewer 已显式确认“放行延续到新 SHA”或已重新 review
 
