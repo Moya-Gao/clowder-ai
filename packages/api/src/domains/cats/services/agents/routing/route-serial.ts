@@ -529,6 +529,7 @@ export async function* routeSerial(
         ...(worklistEntry.a2aTriggerMessageId.get(catId)
           ? { a2aTriggerMessageId: worklistEntry.a2aTriggerMessageId.get(catId) }
           : {}),
+        ...(options.routeSpan ? { routeSpan: options.routeSpan } : {}),
         isLastCat: false,
       })) {
         // F39 bugfix: stop yielding after cancel (pipe buffer may still drain)
@@ -1089,8 +1090,6 @@ export async function* routeSerial(
         if (a2aMentions.length > 0 && worklistEntry.a2aCount < maxDepth && !signal?.aborted && !queuedMessagesPending) {
           const pendingTail = worklist.slice(index + 1);
           const pendingOriginalTargets = targetCats.slice(index + 1);
-          // F167 Phase E (KD-20): L3 role-gate retired. Handoff permission is a prompt-layer
-          // concern (cat-config.restrictions flows into teammate roster & self-identity).
           for (const nextCat of a2aMentions) {
             if (worklistEntry.a2aCount >= maxDepth) break;
             // A2A cross-path dedup: skip if this cat is actively processing via callback (InvocationQueue)
@@ -1237,8 +1236,6 @@ export async function* routeSerial(
               ...(thinkingChunks.length > 0 ? { thinking: renderThinkingChunks(thinkingChunks) } : {}),
               ...(firstMetadata ? { metadata: firstMetadata } : {}),
               ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
-              // #573: see line ~1003 for rationale — use parentInvocationId to align
-              // persisted record with broadcast events.
               extra: {
                 ...(noTextBlocks.length > 0 ? { rich: { v: 1 as const, blocks: noTextBlocks } } : {}),
                 ...((options.parentInvocationId ?? ownInvocationId)
@@ -1313,7 +1310,6 @@ export async function* routeSerial(
             ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
             ...(firstMetadata ? { metadata: firstMetadata } : {}),
             toolEvents: collectedToolEvents,
-            // #573: see line ~1003 — use parentInvocationId to align persisted/broadcast.
             ...((options.parentInvocationId ?? ownInvocationId)
               ? { extra: { stream: { invocationId: (options.parentInvocationId ?? ownInvocationId) as string } } }
               : {}),

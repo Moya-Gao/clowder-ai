@@ -390,6 +390,7 @@ export async function* routeParallel(
         ...(targetUploadDir ? { uploadDir: targetUploadDir } : {}),
         ...(signal ? { signal } : {}),
         ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
+        ...(options.routeSpan ? { routeSpan: options.routeSpan } : {}),
         isLastCat: false,
       });
     }),

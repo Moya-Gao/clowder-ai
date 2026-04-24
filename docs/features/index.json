@@ -867,7 +867,7 @@
     {
       "id": "F140",
       "name": "GitHub PR Signals — 冲突检测 + Review Feedback 全来源感知",
-      "status": "done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-27",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1 | **Phase A-D Completed**: 2026-03-27 | **Reopened**: 2026-04-24（Phase E — 通知合流：severity 抽取 + 下线 email 路径）",
       "file": "F140-github-pr-automation.md"
     },
     {
@@ -1047,7 +1047,7 @@
     {
       "id": "F167",
       "name": "A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏",
-      "status": "monitoring | **Owner**: 布偶猫 | **Priority**: P0",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P0",
       "file": "F167-a2a-chain-quality.md"
     },
     {
