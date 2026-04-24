@@ -379,24 +379,27 @@ cat_cafe_hold_ball({
 
 #### G1 — 行为文档化（当前实际 = 期望）
 
-- [ ] AC-G1: spec Phase C1 "Guard" 章节追加行为说明：外部 wake 到来时持球期内，hold wake 排队不打断；当前 invocation 结束后注入 `持球唤醒：{reason}...` 消息
-- [ ] AC-G2: spec 同一章节写清 hold wake stale 场景 + 猫的正确反应（看 thread 最近历史判断 nextStep 是否仍相关 → 若已不相关就接/退/升，不盲跟 stale nextStep）
+- [x] AC-G1: spec Phase C1 "Guard" 章节追加行为说明：外部 wake 到来时持球期内，hold wake 排队不打断；当前 invocation 结束后注入 `持球唤醒：{reason}...` 消息
+- [x] AC-G2: spec 同一章节写清 hold wake stale 场景 + 猫的正确反应（看 thread 最近历史判断 nextStep 是否仍相关 → 若已不相关就接/退/升，不盲跟 stale nextStep）
 
 #### G2 — 代码改 replace 语义（覆盖 pending hold）
 
-- [ ] AC-G3: `callback-hold-ball-routes.ts` 在 `dynamicTaskStore.insert` 前：
-  - 查 `dynamicTaskStore` / scheduler 同 `(threadId, catId)` 的 pending hold task（via `createdBy: hold-ball:{catId}` + `deliveryThreadId` 匹配或 new index）
+- [x] AC-G3: `callback-hold-ball-routes.ts` 在 `dynamicTaskStore.insert` 前：
+  - 查 `dynamicTaskStore` 同 `(threadId, catId)` 的 pending hold task（via `id.startsWith('hold-ball-')` + `templateId='reminder'` + `createdBy: hold-ball:{catId}` + `deliveryThreadId`；id 前缀是不可伪造主键——panel `/api/schedule/tasks` 生成 `dyn-*`，路由层独占 `hold-ball-*`）
   - `deregister` + `delete` 它（cancel 旧 scheduled fire）
-  - 再 insert 新的
-- [ ] AC-G4: `holdCount` rolling window 逻辑保持不变（这是防滥用 guard，与单-槽语义正交；cat 被连续覆盖 3 次还是算 3 次 hold）
+  - 原子序（cloud Codex P1 修正）：先 insert + register 新 task；register 失败则 rollback insert、prior hold 不动；只有新 task 完全 commit 后才 cancel prior
+- [x] AC-G4: `holdCount` rolling window 逻辑保持不变（这是防滥用 guard，与单-槽语义正交；cat 被连续覆盖 3 次还是算 3 次 hold）
 
 #### G3 — 测试锁 KD-23
 
-- [ ] AC-G5: 新测试 `test/callback-hold-ball-replace.test.js`（或加到现有 route test）：
+- [x] AC-G5: `test/callback-hold-ball-route-scheduling.test.js` 扩容至 7 tests：
   - 两次连续 `hold_ball` → `dynamicTaskStore` 只剩 1 个 task（第二个）
-  - 第一个 task 的 scheduled fire **不会触发**（已被 deregister）
-  - 第二个 task 按 `wakeAfterMs` 正常 fire
-- [ ] AC-G6: MCP `cat_cafe_hold_ball` description 更新：注明"单-槽语义，再次调用覆盖前一次 pending wake"
+  - 第一个 task 被 `taskRunner.unregister`（不会触发）
+  - 第二个 task 按 `wakeAfterMs` 正常注册
+  - atomic rollback：`registerDynamic` 失败时 insert 被撤销，prior hold 保留
+  - 不同 cat 互不干扰（per-cat slot 隔离）
+  - forged panel `dyn-*` task（同 `createdBy` + 同 thread）**不被**误删（id 前缀防御，gpt52 round-2 pushback 修正）
+- [x] AC-G6: MCP `cat_cafe_hold_ball` description GOTCHA 段落注明"SINGLE-SLOT per (thread, cat)，再次调用覆盖前一次 pending wake（KD-23）"
 
 ## Dependencies
 
@@ -487,6 +490,7 @@ cat_cafe_hold_ball({
 | 2026-04-24 | Phase F reopened from monitoring：(1) opus-47 "球权在云端 codex" 同句 @gpt52 的认知盲区；(2) AGENTS.md 里 `@codex = gpt-5.3-codex` 和 runtime catalog `gpt-5.5` 漂移；(3) 句中 @ 不路由的协议常量被模型忘掉。铲屎官拍板"完整做，不 hotfix"；砚砚核实 parser 已数据驱动，根修在注入层；KD-21/22 落定，AC-F1~F11 定稿待实现 |
 | 2026-04-24 | Phase F merged (PR #1374, `21ef97214`) — handle/model 解绑 + 外部 identity hold_ball + inline-@ guard。砚砚本地放行 + 4 轮云端 Codex review（round-1 P1+P2、round-2 P1+P2、round-3 P2、round-4 P2，每轮都是前次修补被指摘需更广覆盖），最终 cloud clean "no major issues"。97/97 system-prompt-builder 绿；+4 fix commit。Status: monitoring |
 | 2026-04-24 | Phase G reopened from monitoring：铲屎官审视 hold_ball 并发行为——(1) 外部 wake 撞持球期 vs (2) 二次 `hold_ball` 语义。实际行为查完：(1) 排队不打断（期望匹配，需文档化）；(2) 当前"追加"（累积 stale wake，需改 replace）。KD-23 单-槽语义落定，AC-G1~G6 定稿 |
+| 2026-04-24 | Phase G merged (PR #1378, `c525714cf`) — AC-G1~G6 全绿。hold_ball single-slot replace（KD-23）：spec 并发语义章节 + `callback-hold-ball-routes.ts` 原子 swap（先 insert+register 新 task，register 失败 rollback；新 task 完全 commit 后才 cancel prior）+ 不可伪造 id 前缀锚点（`hold-ball-*` vs panel `dyn-*`）+ MCP description GOTCHA。云端 Codex 三轮（round-1 P1 atomicity / round-2 P2 matching scope / round-3 clean），砚砚 review 三轮（原放行 → round-2 不放行 + id-prefix 建议 → 放行 `84473ea5` → 延续 `70f2d8de`）；7/7 scheduling tests 绿（含 forged `dyn-*` Red test 锁 gpt52 round-2 pushback）。Status: monitoring |
 | 2026-04-23 | Phase E reopened from monitoring：F172 愿景守护 @gemini 被 L3 误拦（action="合入"因 storedContent 上文含 merge 历程）；铲屎官定性"硬编码 + 过度设计"——要求退役 L3 + cat-config restrictions 数据驱动双端注入（发送方队友名册 + 目标猫 self-awareness）；KD-20 落定，AC-E1~E8 定稿待实现 |
 | 2026-04-24 | Phase E merged (PR #1360, `f8efcf46d`) — AC-E1~E8 全绿。8 commit（4 feat + 1 test + 3 chore）-735 净行数（删 role-gate.ts + 3 测试文件 + 2 调用点）+ cat-config schema 扩展 + 双端 prompt 注入；gpt52 review 首轮放行 `c967b59d0`（两个非阻塞：scrub 死注释 + 删 unused import 已顺手修），云端 Codex 零 P1/P2 "Hooray"；rebase 遇 F061 pre-existing 修复冲突 → skip 冗余 commit 后 clean merge；204/204 ping-pong + system-prompt-builder + cat-config-loader 绿。Status: monitoring |
 
