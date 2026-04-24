@@ -216,6 +216,8 @@ created: 2026-03-26
 | ~~OQ-1~~ | ~~冲突通知 priority~~ | ✅ 已定：`urgent`。冲突和 CI failure 同级，都是 merge blocker（Design Gate 共识） |
 | ~~OQ-2~~ | ~~Review comments 类型区分~~ | ✅ 已定：聚合通知分三区（Review Decisions / Inline Comments / PR Conversation），不逐条发（Design Gate 共识） |
 | ~~OQ-3~~ | ~~Phase B 自动 rebase 的触发条件是否需要铲屎官确认？~~ | ✅ 已定：选项 C「全自动 + 事后通知」。猫收到冲突通知 → 直接 rebase → 成功 push 后通知铲屎官。worktree 隔离低风险，失败不影响 main（铲屎官 2026-03-26 确认） |
+| OQ-4 | Phase E severity parser FP 风险：普通消息里的 "P1" / "P2" 是否被误识别？ | 倾向：只识别行首/独立 token + 特定结构（badge / `[Px]` / `Px:`），不识别句内裸词。Design Gate 需确认具体 regex + 负例集 |
+| OQ-5 | Phase E.3 代码清理时机：和 E.2 同一 PR 还是独立 PR？ | 倾向：独立 PR。E.2 切换（feature flag off），观察一周无回归再做 E.3 删除，防止出问题回滚成本高 |
 
 ## Key Decisions
 
@@ -260,6 +262,8 @@ created: 2026-03-26
 | 2026-03-27 | Phase C merged (PR #770) — ConflictAutoExecutor + CI pass wake-up + TriggerIntent pipeline。砚砚 R1 review 3 P1 修复后放行，云端 Codex R2 通过 |
 | 2026-03-27 | Phase D merged (PR #773) — PR tracking 注册校验护栏（`gh repo view` 通用校验）。云端 P1 修复后通过 |
 | 2026-03-27 | **Feature closed** — 愿景守护（砚砚 GPT-5.4）放行。4 Phase 全部完成 |
+| 2026-04-24 | 🔴 铲屎官发现 PR #1376 通知"bug"：Review Feedback（🚀）和 Review 检测到 P2 两条消息叙事冲突。诊断：双通道（email + polling）对同一 review 并行投递，severity 抽取只在 email 通道。**Feature reopened** for Phase E（通知合流） |
+| 2026-04-24 | Phase E kickoff — KD-14 记录，OQ-4/5 立项。拆 E.1（severity 前移）→ E.2（下线 email）→ E.3（代码清理） |
 
 ## Design Gate 讨论归档
 
