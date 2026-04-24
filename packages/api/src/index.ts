@@ -165,6 +165,7 @@ import {
   quotaRoutes,
   reflectRoutes,
   refluxRoutes,
+  registerCallbackAuthDebugRoute,
   registerCallbackDocsRoutes,
   resolutionRoutes,
   sessionChainRoutes,
@@ -1430,6 +1431,9 @@ async function main(): Promise<void> {
     },
   } as Parameters<typeof callbacksRoutes>[1];
   await app.register(callbacksRoutes, callbackOpts);
+
+  // F174 Phase D1 — callback auth failure telemetry debug endpoint (AC-D3).
+  registerCallbackAuthDebugRoute(app);
 
   // Authorization system — 猫猫动态权限 (Redis-backed when available)
   const authRuleStore = createAuthorizationRuleStore(redis);

@@ -34,6 +34,7 @@ import {
   registerCallbackAuthHook,
   requireCallbackAuth,
 } from './callback-auth-prehandler.js';
+import { recordCallbackAuthFailure } from './callback-auth-telemetry.js';
 import { registerCallbackBootcampRoutes } from './callback-bootcamp-routes.js';
 import { registerCallbackDocumentRoutes } from './callback-document-routes.js';
 import { registerCallbackGameRoutes } from './callback-game-routes.js';
@@ -1146,6 +1147,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           // total absence (panel-path), which would let handler fall through
           // to unknown_invocation and misclassify the reason. Emit
           // missing_creds locally to keep telemetry/diagnostics accurate.
+          recordCallbackAuthFailure({ reason: 'missing_creds', tool: 'refresh-token' });
           reply.status(401).send({
             error: 'callback_auth_failed',
             reason: 'missing_creds',
@@ -1156,7 +1158,11 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         }
 
         const peeked = await registry.peek(creds.invocationId, creds.callbackToken);
-        if (!peeked.ok) return; // Let preHandler emit the corresponding reason 401 (no cooldown burned)
+        if (!peeked.ok) {
+          // Let preHandler emit the corresponding reason 401 (no cooldown burned).
+          // preHandler's verify() path records the failure; we don't double-record here.
+          return;
+        }
 
         const cooldownClaimed = await registry.tryClaimRefreshCooldown(creds.invocationId, REFRESH_COOLDOWN_MS);
         if (!cooldownClaimed) {
@@ -1171,6 +1177,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         // request.callbackAuth so the preHandler early-returns).
         const result = await registry.verifyLatest(creds.invocationId, creds.callbackToken);
         if (!result.ok) {
+          const catId = peeked.ok ? peeked.record.catId : undefined;
+          recordCallbackAuthFailure({ reason: result.reason, tool: 'refresh-token', catId });
           if (result.reason === 'stale_invocation') {
             reply.status(401).send({
               error: 'callback_auth_failed',
@@ -1203,6 +1211,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       // Re-fetch to get the new expiresAt without triggering another slide.
       const fresh = await registry.getRecord(record.invocationId);
       if (!fresh) {
+        recordCallbackAuthFailure({ reason: 'unknown_invocation', tool: 'refresh-token', catId: record.catId });
         reply.status(401);
         return {
           error: 'callback_auth_failed',

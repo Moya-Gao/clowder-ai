@@ -7,7 +7,20 @@
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { InvocationRecord, VerifyResult } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
+import { recordCallbackAuthFailure } from './callback-auth-telemetry.js';
 import { makeCallbackAuthError } from './callback-errors.js';
+
+/**
+ * F174 Phase D1: derive a concise tool name from the request URL for
+ * `cat_cafe.callback_auth.failures{callback.tool}` attribute. Strips
+ * `/api/callbacks/` prefix and any query string; returns `unknown` if
+ * the URL doesn't follow the callback route shape (defensive default).
+ */
+function callbackToolFromUrl(url: string): string {
+  const path = url.split('?')[0];
+  const match = path.match(/^\/api\/callbacks\/([^/]+)/);
+  return match ? match[1] : 'unknown';
+}
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -53,12 +66,15 @@ export function registerCallbackAuthHook(app: FastifyInstance, registry: Callbac
     }
 
     if (!invocationId && !callbackToken) return;
+    const tool = callbackToolFromUrl(request.url);
     if (!invocationId || !callbackToken) {
+      recordCallbackAuthFailure({ reason: 'missing_creds', tool });
       reply.status(401).send(makeCallbackAuthError('missing_creds'));
       return;
     }
     const result = await registry.verify(invocationId, callbackToken);
     if (!result.ok) {
+      recordCallbackAuthFailure({ reason: result.reason, tool });
       reply.status(401).send(makeCallbackAuthError(result.reason));
       return;
     }
@@ -143,6 +159,7 @@ export function requireCallbackAuth(request: FastifyRequest, reply: FastifyReply
   // either creds were missing entirely (handled above) or the route was hit
   // without going through the preHandler chain. Surfacing as unknown is safer
   // than expired (we don't actually know the registry state here).
+  recordCallbackAuthFailure({ reason: 'unknown_invocation', tool: callbackToolFromUrl(request.url) });
   reply.send(makeCallbackAuthError('unknown_invocation'));
   return null;
 }
