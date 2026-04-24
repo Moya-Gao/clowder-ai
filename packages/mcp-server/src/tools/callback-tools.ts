@@ -1154,7 +1154,8 @@ export const callbackTools = [
       'Output: system schedules a one-shot wake-up after wakeAfterMs; you get re-invoked with reason + nextStep as trigger context. ' +
       'GOTCHA: max 3 holds per (thread, cat) within a rolling ~1h window — 4th call returns 429, you MUST pass (@ another cat or @landy). ' +
       'GOTCHA: the counter is process-local best-effort (in-memory on the API node); API restart or multi-instance deploys may reset it, so do not treat the 429 as a hard security boundary — treat it as a self-discipline guardrail. ' +
-      'GOTCHA: hold is an EXCEPTION state, not a default exit. Most turns should end with @ someone, not hold.',
+      'GOTCHA: hold is an EXCEPTION state, not a default exit. Most turns should end with @ someone, not hold. ' +
+      'GOTCHA: SINGLE-SLOT per (thread, cat) — calling hold_ball again while a previous hold is pending REPLACES the prior wake (prior taskId cancelled). This is intentional (KD-23): hold = "持一个球" exception, not a queue. If you need to track multiple waiting conditions, merge them into one nextStep (e.g. "等 CI + @landy 确认" 合并成一句). Rolling-window counter still ticks per call.',
     inputSchema: {
       reason: z.string().min(1).max(500).describe('Why you need to hold the ball (e.g. "tests still running")'),
       nextStep: z

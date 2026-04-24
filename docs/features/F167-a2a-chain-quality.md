@@ -141,6 +141,12 @@ cat_cafe_hold_ball({
 **Guard**：`maxHoldsPerWindow`（默认 3，~1h rolling 窗口，per thread×cat），超限强制接/退/升 + 审计日志。
 *实现注记*（gpt52 review on PR #1289 P1/P2）：语义是"窗口内累计"而非"真·连续"；状态进程内 in-memory，best-effort，重启会重置。要做硬约束得把计数下沉到与 reminder scheduler 同源的持久化存储，当前不做。
 
+**并发语义**（Phase G / KD-23 补充）：
+
+- **外部 wake 撞持球期**：hold wake 在 fire 时走 `ConnectorInvokeTrigger.trigger` normal priority，若 cat 有 active invocation 则 `enqueueWhileActive` 排队到 InvocationQueue，**不打断**当前工作。当前 invocation 结束后才会执行 hold wake 注入的 `持球唤醒：...` 消息。
+- **Stale wake 处理**：如果 external wake 已经改变 thread 语境（铲屎官发了新方向），排队后的 hold wake 消息里的 `nextStep` 可能过时。Cat 拿到 wake 时应根据 thread 最近历史判断 `nextStep` 是否仍相关——若已不相关，走接/退/升，**不盲跟 stale nextStep**。
+- **二次 `hold_ball` = 单-槽替换**（Phase G AC-G3）：同 `(threadId, catId)` 只能有一个 pending hold wake。再次调用 `hold_ball` 会：先 `taskRunner.unregister` + `dynamicTaskStore.remove` 前一个 pending task，再 insert 新的。避免 stale wake 累积。若需要等多件事 → merge 到一个 `nextStep`（如 `"等 CI 且 @landy 确认"`），不要分多次 hold。
+
 ---
 
 #### C2: Forced-Pass Guard — 强制传球护栏（治"假终局"）

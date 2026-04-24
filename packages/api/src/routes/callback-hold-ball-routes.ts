@@ -31,6 +31,16 @@ const HOLD_BALL_SOURCE = {
   icon: '🏓',
 } as const;
 
+/**
+ * F167 Phase G P2 fix (cloud Codex round-2 + gpt52 local review):
+ * pending-hold matching must rely on something NOT user-forgeable. Panel
+ * callers of /api/schedule/tasks can set body.createdBy AND body.display.category,
+ * but the taskId is always server-generated (`dyn-*` for panel, `hold-ball-*`
+ * for this route). So we anchor on id prefix + templateId + createdBy +
+ * deliveryThreadId — defense in depth with an unforgeable primary key.
+ */
+const HOLD_BALL_TASK_ID_PREFIX = 'hold-ball-';
+
 export const MAX_HOLDS_PER_WINDOW = 3;
 export const HOLD_WINDOW_MS = 3_600_000;
 
@@ -116,6 +126,32 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
       return { error: 'Internal error: reminder template not found' };
     }
 
+    // F167 Phase G (KD-23): single-slot semantics. Before scheduling a new hold
+    // wake, cancel + remove any pending hold task for the same (threadId, catId).
+    // Keyed on `createdBy === 'hold-ball:{catId}'` + `deliveryThreadId === threadId`.
+    // Per-cat rolling window counter is orthogonal (still enforced above).
+    //
+    // P1 fix (cloud Codex review on c04c5552a): the old sequence was
+    // "cancel prior → insert new → register new", so if insert/register threw
+    // partway we'd return 500 with NO scheduled wake (prior cancelled, new never
+    // committed). Fix: insert + register the NEW task first; only on success
+    // cancel prior. If any step throws, prior hold is retained untouched.
+    // P2 fix (cloud Codex round-2 + gpt52 pushback): panel /api/schedule/tasks
+    // lets users pass body.createdBy AND body.display.category, so both are
+    // forgeable. Anchor on id prefix: `hold-ball-*` ids are only minted by this
+    // route; `/api/schedule/tasks` mints `dyn-*`. Combine with templateId +
+    // createdBy + deliveryThreadId for defense in depth.
+    const pendingHoldCreatedBy = `hold-ball:${catIdStr}`;
+    const pendingHolds = dynamicTaskStore
+      .getAll()
+      .filter(
+        (t) =>
+          t.id.startsWith(HOLD_BALL_TASK_ID_PREFIX) &&
+          t.templateId === 'reminder' &&
+          t.createdBy === pendingHoldCreatedBy &&
+          t.deliveryThreadId === threadId,
+      );
+
     const taskId = `hold-ball-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const fireAt = Date.now() + wakeAfterMs;
     const wakeMessage =
@@ -148,7 +184,38 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
       createdBy: `hold-ball:${catIdStr}`,
       createdAt: new Date().toISOString(),
     });
-    taskRunner.registerDynamic(spec, taskId);
+    // Atomic swap: try register; on failure, remove the just-inserted row so
+    // prior hold stays authoritative (caller gets 500; prior wake still fires).
+    try {
+      taskRunner.registerDynamic(spec, taskId);
+    } catch (err) {
+      dynamicTaskStore.remove(taskId);
+      log.error(
+        { threadId, catId: catIdStr, taskId, err },
+        'F167 Phase G P1: taskRunner.registerDynamic failed — rolled back insert; prior hold (if any) retained',
+      );
+      reply.status(500);
+      return { error: 'Failed to register hold wake with scheduler' };
+    }
+
+    // New hold fully committed. Cancel prior pending holds (best-effort — a
+    // failure here leaves an extra stale wake, not zero wakes, which is the
+    // milder of the two failure modes).
+    for (const prior of pendingHolds) {
+      try {
+        taskRunner.unregister(prior.id);
+        dynamicTaskStore.remove(prior.id);
+        log.info(
+          { threadId, catId: catIdStr, priorTaskId: prior.id, newTaskId: taskId },
+          'F167 Phase G: cancelled prior pending hold wake (single-slot replace)',
+        );
+      } catch (err) {
+        log.warn(
+          { threadId, catId: catIdStr, priorTaskId: prior.id, err },
+          'F167 Phase G: failed to cancel prior hold — cat may see 2 wakes (prior + new)',
+        );
+      }
+    }
 
     const newCount = incrementHoldCount(threadId, catIdStr);
 
