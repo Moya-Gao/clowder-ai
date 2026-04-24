@@ -22,10 +22,40 @@ const MAX_CLIENT_MESSAGE_IDS = 1000;
 export class MemoryAuthInvocationBackend implements IAuthInvocationBackend {
   private records = new Map<string, InvocationRecord>();
   private latestByThreadCat = new Map<string, string>();
+  /** F174 Phase C — per-invocation refresh cooldown deadlines (ms epoch). */
+  private refreshCooldown = new Map<string, number>();
   private readonly maxRecords: number;
 
   constructor(options?: { maxRecords?: number }) {
     this.maxRecords = options?.maxRecords ?? DEFAULT_MAX_RECORDS;
+  }
+
+  async tryClaimRefreshCooldown(invocationId: string, cooldownMs: number): Promise<boolean> {
+    const now = Date.now();
+    // Cloud Codex P2 (PR #1368, 5160ea926): check existing FIRST. If the
+    // invocation is already in cooldown, return false without mutating the
+    // map. Otherwise repeated re-claims at capacity would churn unrelated
+    // valid cooldowns out of the map — letting victims bypass the 5min limit.
+    const existing = this.refreshCooldown.get(invocationId);
+    if (existing && existing > now) return false;
+
+    // We're going to insert/refresh — clean up first.
+    // Lazy GC of stale cooldown entries (cheap when most are expired).
+    if (this.refreshCooldown.size > 100) {
+      for (const [k, deadline] of this.refreshCooldown) {
+        if (deadline <= now) this.refreshCooldown.delete(k);
+      }
+    }
+    // Hard cap: if still over capacity after GC (all entries active), evict
+    // oldest insertion (Map iteration order). Cap = this.maxRecords so cooldown
+    // tracks parent invocation set — custom maxRecords govern both in lockstep.
+    while (this.refreshCooldown.size >= this.maxRecords) {
+      const oldest = this.refreshCooldown.keys().next().value;
+      if (oldest === undefined) break;
+      this.refreshCooldown.delete(oldest);
+    }
+    this.refreshCooldown.set(invocationId, now + cooldownMs);
+    return true;
   }
 
   async create(input: AuthInvocationInput, ttlMs: number): Promise<void> {
@@ -42,6 +72,48 @@ export class MemoryAuthInvocationBackend implements IAuthInvocationBackend {
     const record: InvocationRecord = { ...input, expiresAt };
     this.records.set(input.invocationId, record);
     this.latestByThreadCat.set(`${input.threadId}:${input.catId as string}`, input.invocationId);
+  }
+
+  /**
+   * F174-C — verify token without sliding TTL. Refresh-token endpoint uses
+   * this to authenticate before claiming cooldown, preventing bad-auth requests
+   * from burning the slot.
+   */
+  async peek(invocationId: string, callbackToken: string): Promise<VerifyResult> {
+    const record = this.records.get(invocationId);
+    if (!record) return { ok: false, reason: 'unknown_invocation' };
+    if (record.callbackToken !== callbackToken) {
+      return { ok: false, reason: 'invalid_token' };
+    }
+    if (Date.now() > record.expiresAt) {
+      return { ok: false, reason: 'expired' };
+    }
+    return { ok: true, record };
+  }
+
+  /**
+   * F174-C — atomic verify + isLatest + slide. Single JS turn for memory
+   * backend so no race window exists between staleness check and TTL slide.
+   */
+  async verifyLatest(invocationId: string, callbackToken: string, ttlMs: number): Promise<VerifyResult> {
+    const record = this.records.get(invocationId);
+    if (!record) return { ok: false, reason: 'unknown_invocation' };
+    if (record.callbackToken !== callbackToken) {
+      return { ok: false, reason: 'invalid_token' };
+    }
+    if (Date.now() > record.expiresAt) {
+      this.cleanupLatestPointer(invocationId);
+      this.records.delete(invocationId);
+      return { ok: false, reason: 'expired' };
+    }
+    const latestKey = `${record.threadId}:${record.catId as string}`;
+    if (this.latestByThreadCat.get(latestKey) !== invocationId) {
+      return { ok: false, reason: 'stale_invocation' };
+    }
+    record.expiresAt = Date.now() + ttlMs;
+    this.records.delete(invocationId);
+    this.records.set(invocationId, record);
+    return { ok: true, record };
   }
 
   async verify(invocationId: string, callbackToken: string, ttlMs: number): Promise<VerifyResult> {

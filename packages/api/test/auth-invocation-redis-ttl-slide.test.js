@@ -94,4 +94,64 @@ describe('F174 Phase B — Redis latest pointer TTL slide (P1: gpt52 #1363)', ()
       await redis.quit();
     }
   });
+
+  // Cloud Codex P2 (PR #1368, ef22153e1): verifyLatest must also slide msgs
+  // key TTL. Otherwise long sessions kept alive only by refresh-token lose
+  // the dedup set when the original create-time TTL expires, and previously-
+  // claimed clientMessageIds become first-seen again — dedup contract broken.
+  test('verifyLatest() extends msgs key TTL (cloud P2 #1368)', async () => {
+    const { createRedisClient } = await import('@cat-cafe/shared/utils');
+    const { RedisAuthInvocationBackend } = await import(
+      '../dist/domains/cats/services/agents/invocation/RedisAuthInvocationBackend.js'
+    );
+
+    const redis = createRedisClient({ url: REDIS_URL, keyPrefix: 'cat-cafe-msgs-ttl-test:' });
+    try {
+      const leftover = await redis.keys('cat-cafe-msgs-ttl-test:*');
+      if (leftover.length > 0) {
+        await redis.del(...leftover.map((k) => k.replace('cat-cafe-msgs-ttl-test:', '')));
+      }
+
+      const backend = new RedisAuthInvocationBackend(redis);
+      const ttlMs = 60_000;
+      await backend.create(
+        {
+          invocationId: 'msgs-test:inv-1',
+          callbackToken: 'tok-1',
+          userId: 'u-1',
+          catId: 'opus',
+          threadId: 'msgs-test:thread-1',
+          clientMessageIds: new Set(),
+          createdAt: Date.now(),
+        },
+        ttlMs,
+      );
+
+      // claimClientMessageId creates the msgs key (PEXPIREAT to record's expiresAt+grace).
+      assert.equal(await backend.claimClientMessageId('msgs-test:inv-1', 'msg-A'), true);
+
+      const msgsKey = 'auth:inv:msgs-test:inv-1:msgs';
+      const msgsPttlBefore = await redis.pttl(msgsKey);
+      assert.ok(msgsPttlBefore > 0, 'msgs PTTL must be set after first claim');
+
+      await new Promise((r) => setTimeout(r, 200));
+      const result = await backend.verifyLatest('msgs-test:inv-1', 'tok-1', ttlMs);
+      assert.equal(result.ok, true, 'verifyLatest must succeed');
+
+      const msgsPttlAfter = await redis.pttl(msgsKey);
+      // verifyLatest re-anchors PTTL to now+ttlMs+grace, so it should be at
+      // least the original (or larger). Without the fix, PTTL would drift
+      // down by ~200ms (the wait) since no slide happened.
+      assert.ok(
+        msgsPttlAfter > msgsPttlBefore - 100,
+        `msgs TTL must slide on verifyLatest (cloud P2 #1368). before=${msgsPttlBefore}ms after=${msgsPttlAfter}ms drift=${msgsPttlBefore - msgsPttlAfter}ms`,
+      );
+    } finally {
+      const leftover = await redis.keys('cat-cafe-msgs-ttl-test:*');
+      if (leftover.length > 0) {
+        await redis.del(...leftover.map((k) => k.replace('cat-cafe-msgs-ttl-test:', '')));
+      }
+      await redis.quit();
+    }
+  });
 });

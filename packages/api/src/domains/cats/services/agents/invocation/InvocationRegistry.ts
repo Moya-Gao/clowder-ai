@@ -64,10 +64,15 @@ export function selectInvocationBackendKind(envValue: string | undefined, redisA
  *
  * Discriminated union returned by verify() so downstream telemetry (Phase D)
  * and degradation (Phase E) can branch on a typed reason instead of regex-matching
- * error strings. `stale_invocation` is NOT emitted here — it lives at isLatest()
- * call sites (post_message / schedule), which already had ad-hoc detection.
+ * error strings.
+ *
+ * F174 Phase C (cloud Codex P2 #1368, 05de7c98b) added `stale_invocation` to
+ * the union so verifyLatest() can return it atomically alongside the verify
+ * + slide step (closing the preValidation/preHandler race window). Existing
+ * isLatest() call sites at post_message / schedule continue using their own
+ * ad-hoc 401 path; this just centralizes the refresh-token case.
  */
-export type AuthFailureReason = 'expired' | 'invalid_token' | 'unknown_invocation';
+export type AuthFailureReason = 'expired' | 'invalid_token' | 'unknown_invocation' | 'stale_invocation';
 
 export type VerifyResult = { ok: true; record: InvocationRecord } | { ok: false; reason: AuthFailureReason };
 
@@ -149,5 +154,40 @@ export class InvocationRegistry {
    */
   async claimClientMessageId(invocationId: string, clientMessageId: string): Promise<boolean> {
     return this.backend.claimClientMessageId(invocationId, clientMessageId);
+  }
+
+  /**
+   * F174 Phase C — claim per-invocation refresh cooldown atomically.
+   * Returns true if cooldown was claimed (refresh may proceed),
+   * false if a previous claim is still active (caller should reject 429).
+   */
+  async tryClaimRefreshCooldown(invocationId: string, cooldownMs: number): Promise<boolean> {
+    return this.backend.tryClaimRefreshCooldown(invocationId, cooldownMs);
+  }
+
+  /**
+   * Read-only fetch (does NOT slide TTL). Returns null when missing or expired.
+   * Used by Phase C refresh endpoint to read post-slide expiresAt without
+   * triggering another slide.
+   */
+  async getRecord(invocationId: string): Promise<InvocationRecord | null> {
+    return this.backend.getRecord(invocationId);
+  }
+
+  /**
+   * F174-C — verify token without sliding TTL (gpt52 P1 #2). Used by
+   * refresh-token onRequest hook so bad-auth requests can't burn cooldown.
+   */
+  async peek(invocationId: string, callbackToken: string): Promise<VerifyResult> {
+    return this.backend.peek(invocationId, callbackToken);
+  }
+
+  /**
+   * F174-C — atomic verify + isLatest + slide. Used by refresh-token route
+   * to close the race window between preValidation isLatest check and
+   * preHandler verify slide (cloud Codex P2 #1368).
+   */
+  async verifyLatest(invocationId: string, callbackToken: string): Promise<VerifyResult> {
+    return this.backend.verifyLatest(invocationId, callbackToken, this.ttlMs);
   }
 }

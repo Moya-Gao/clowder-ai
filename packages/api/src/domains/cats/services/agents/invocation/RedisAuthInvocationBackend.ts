@@ -27,6 +27,7 @@ import type { InvocationRecord, VerifyResult } from './InvocationRegistry.js';
 const KEY_INV = (id: string) => `auth:inv:${id}`;
 const KEY_MSGS = (id: string) => `auth:inv:${id}:msgs`;
 const KEY_LATEST = (threadId: string, catId: string) => `auth:latest:${threadId}:${catId}`;
+const KEY_REFRESH_COOLDOWN = (id: string) => `auth:refresh-cooldown:${id}`;
 
 const MAX_CLIENT_MESSAGE_IDS = 1000;
 
@@ -63,6 +64,50 @@ redis.call('HSET', KEYS[1], 'expiresAt', ARGV[3])
 -- Grace: keep key ~60s past logical expiry so Lua can distinguish 'expired'
 -- (key still around, expiresAt in past) from 'unknown_invocation' (truly gone).
 redis.call('PEXPIREAT', KEYS[1], tonumber(ARGV[3]) + 60000)
+
+return {'ok', redis.call('HGETALL', KEYS[1])}
+`;
+
+/**
+ * VERIFY_LATEST_LUA — atomic verify + isLatest + slide.
+ *
+ * KEYS[1] = auth:inv:{invocationId}
+ * KEYS[2] = auth:latest:{threadId}:{catId}
+ * ARGV[1] = callbackToken
+ * ARGV[2] = nowMs
+ * ARGV[3] = newExpiresAtMs
+ * ARGV[4] = invocationId  (so latest pointer comparison happens server-side)
+ *
+ * Closes race window between preValidation isLatest check and preHandler
+ * verify slide (cloud Codex P2 #1368, 05de7c98b). All checks + slide happen
+ * in one Redis round-trip — concurrent create() can't sneak in.
+ */
+const VERIFY_LATEST_LUA = `
+local exists = redis.call('EXISTS', KEYS[1])
+if exists == 0 then
+  return {'fail', 'unknown_invocation'}
+end
+
+local stored = redis.call('HGET', KEYS[1], 'callbackToken')
+if stored ~= ARGV[1] then
+  return {'fail', 'invalid_token'}
+end
+
+local expiresAt = tonumber(redis.call('HGET', KEYS[1], 'expiresAt'))
+if not expiresAt or tonumber(ARGV[2]) > expiresAt then
+  redis.call('DEL', KEYS[1])
+  return {'fail', 'expired'}
+end
+
+local latest = redis.call('GET', KEYS[2])
+if latest ~= ARGV[4] then
+  return {'fail', 'stale_invocation'}
+end
+
+redis.call('HSET', KEYS[1], 'expiresAt', ARGV[3])
+redis.call('PEXPIREAT', KEYS[1], tonumber(ARGV[3]) + 60000)
+-- Slide latest pointer alongside record so isLatest stays consistent.
+redis.call('PEXPIREAT', KEYS[2], tonumber(ARGV[3]) + 60000)
 
 return {'ok', redis.call('HGETALL', KEYS[1])}
 `;
@@ -153,6 +198,82 @@ export class RedisAuthInvocationBackend implements IAuthInvocationBackend {
       input.invocationId,
       String(expiresAt),
     );
+  }
+
+  /**
+   * F174-C — verify token without sliding TTL. Pure read path: HGETALL +
+   * comparisons. No PEXPIREAT calls. Used by refresh-token onRequest hook
+   * to validate before claiming cooldown (gpt52 P1 #2 — bad-auth请求 not
+   * allowed to burn cooldown slot).
+   */
+  async peek(invocationId: string, callbackToken: string): Promise<VerifyResult> {
+    const raw = await this.redis.hgetall(KEY_INV(invocationId));
+    if (!raw || Object.keys(raw).length === 0) {
+      return { ok: false, reason: 'unknown_invocation' };
+    }
+    if (raw.callbackToken !== callbackToken) {
+      return { ok: false, reason: 'invalid_token' };
+    }
+    const expiresAt = Number(raw.expiresAt ?? 0);
+    if (!expiresAt || Date.now() > expiresAt) {
+      return { ok: false, reason: 'expired' };
+    }
+    const record = recordFromHash(raw, new Set<string>());
+    if (!record) return { ok: false, reason: 'unknown_invocation' };
+    return { ok: true, record };
+  }
+
+  async verifyLatest(invocationId: string, callbackToken: string, ttlMs: number): Promise<VerifyResult> {
+    const now = Date.now();
+    const newExpiresAt = now + ttlMs;
+    // We need threadId/catId to build KEYS[2]. HGET them first; if record is
+    // gone, return unknown_invocation directly. The Lua script then re-checks
+    // record existence atomically — this preflight just lets us pass the right
+    // KEYS[2] to Lua (Redis Cluster needs all KEYS hashing to one slot but
+    // single-node Redis doesn't care; consistency is on Lua side).
+    const meta = await this.redis.hmget(KEY_INV(invocationId), 'threadId', 'catId');
+    const threadId = meta?.[0];
+    const catId = meta?.[1];
+    if (!threadId || !catId) {
+      return { ok: false, reason: 'unknown_invocation' };
+    }
+    const result = (await this.redis.eval(
+      VERIFY_LATEST_LUA,
+      2,
+      KEY_INV(invocationId),
+      KEY_LATEST(threadId, catId),
+      callbackToken,
+      String(now),
+      String(newExpiresAt),
+      invocationId,
+    )) as [string, string | string[]];
+
+    if (!Array.isArray(result) || result.length < 2) {
+      return { ok: false, reason: 'unknown_invocation' };
+    }
+    if (result[0] === 'fail') {
+      const reason = result[1];
+      if (
+        reason === 'expired' ||
+        reason === 'invalid_token' ||
+        reason === 'unknown_invocation' ||
+        reason === 'stale_invocation'
+      ) {
+        return { ok: false, reason };
+      }
+      return { ok: false, reason: 'unknown_invocation' };
+    }
+    const fields = parseHashArray(result[1]);
+    // Cloud Codex P2 (PR #1368, ef22153e1): regular verify() slides msgs key
+    // TTL alongside the invocation; verifyLatest must mirror that or
+    // long-running sessions kept alive only by refresh-token would lose
+    // their dedup set when the original create-time TTL expired (clientMessageId
+    // would be treated as first-seen again, breaking callback dedup contract).
+    // PEXPIREAT on a non-existent msgs key is a no-op so this is safe.
+    await this.redis.pexpireat(KEY_MSGS(invocationId), newExpiresAt + 60_000);
+    const record = recordFromHash(fields, new Set<string>());
+    if (!record) return { ok: false, reason: 'unknown_invocation' };
+    return { ok: true, record };
   }
 
   async verify(invocationId: string, callbackToken: string, ttlMs: number): Promise<VerifyResult> {
@@ -255,5 +376,12 @@ export class RedisAuthInvocationBackend implements IAuthInvocationBackend {
       await this.redis.spop(KEY_MSGS(invocationId));
     }
     return true;
+  }
+
+  async tryClaimRefreshCooldown(invocationId: string, cooldownMs: number): Promise<boolean> {
+    // SET key value PX <ms> NX → atomically write only if absent.
+    // Returns 'OK' on first claim, null when key already exists (still cooling down).
+    const result = await this.redis.set(KEY_REFRESH_COOLDOWN(invocationId), '1', 'PX', cooldownMs, 'NX');
+    return result === 'OK';
   }
 }

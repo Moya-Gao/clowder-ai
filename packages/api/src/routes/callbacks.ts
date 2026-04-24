@@ -29,7 +29,11 @@ import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { scoreKeywordRelevance, tokenizeKeyword } from '../utils/keyword-relevance.js';
 import { getFeatureTagId } from './backlog-doc-import.js';
 import { enqueueA2ATargets, triggerA2AInvocation } from './callback-a2a-trigger.js';
-import { registerCallbackAuthHook, requireCallbackAuth } from './callback-auth-prehandler.js';
+import {
+  extractCallbackCredentials,
+  registerCallbackAuthHook,
+  requireCallbackAuth,
+} from './callback-auth-prehandler.js';
 import { registerCallbackBootcampRoutes } from './callback-bootcamp-routes.js';
 import { registerCallbackDocumentRoutes } from './callback-document-routes.js';
 import { registerCallbackGameRoutes } from './callback-game-routes.js';
@@ -1108,6 +1112,109 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       throw error;
     }
   });
+
+  // F174 Phase C: refresh-token endpoint — keep tokens alive in long sessions
+  // where猫 has no incidental tool calls. Heartbeat = empty verify (preHandler
+  // slides TTL via Phase B mechanism); we just compute remaining TTL.
+  //
+  // P1 fix (gpt52 review): cooldown MUST run before app-level preHandler.
+  // Otherwise verify() in preHandler已经 slides TTL even on rate-limited
+  // requests → 429 is cosmetic, abuser still extends. Route-level onRequest
+  // hook fires before plugin-scoped preHandler in Fastify's lifecycle, so we
+  // claim the cooldown there and reply.send → preHandler is short-circuited.
+  const REFRESH_COOLDOWN_MS = 5 * 60_000;
+  app.post(
+    '/api/callbacks/refresh-token',
+    {
+      preValidation: async (request, reply) => {
+        // Cloud Codex P1 + gpt52 P1 #2/#3 (#1368): cooldown must mirror auth
+        // — same creds extraction rule as preHandler, then peek (no-slide)
+        // verify, claim cooldown, then atomic verifyLatest (replaces global
+        // preHandler verify so stale-check + slide happen in one step).
+        //
+        // Cloud Codex P2 (08:54Z #1368): isLatest check in preValidation +
+        // separate slide in preHandler had a race window — newer invocation
+        // could win between hooks. verifyLatest closes it atomically.
+        //
+        // Hook stage: preValidation fires AFTER body parse and BEFORE all
+        // preHandler hooks — body/query is accessible AND we can short-circuit
+        // before app preHandler runs verify-with-slide.
+        const creds = extractCallbackCredentials(request);
+        if (!creds) {
+          // Cloud Codex P2 (PR #1368, 6c8a4365): refresh-token route always
+          // requires auth — no panel-path here. Global preHandler no-ops on
+          // total absence (panel-path), which would let handler fall through
+          // to unknown_invocation and misclassify the reason. Emit
+          // missing_creds locally to keep telemetry/diagnostics accurate.
+          reply.status(401).send({
+            error: 'callback_auth_failed',
+            reason: 'missing_creds',
+            message: 'refresh-token requires X-Invocation-Id + X-Callback-Token headers',
+            hint: 'Both headers must be sent together; mixed-source (header + body) is not accepted.',
+          });
+          return;
+        }
+
+        const peeked = await registry.peek(creds.invocationId, creds.callbackToken);
+        if (!peeked.ok) return; // Let preHandler emit the corresponding reason 401 (no cooldown burned)
+
+        const cooldownClaimed = await registry.tryClaimRefreshCooldown(creds.invocationId, REFRESH_COOLDOWN_MS);
+        if (!cooldownClaimed) {
+          reply.status(429).send({ error: 'refresh_rate_limited', retryAfterMs: REFRESH_COOLDOWN_MS });
+          // reply.send short-circuits the lifecycle — preHandler/handler skipped,
+          // so verify() never slides TTL for the rate-limited request.
+          return;
+        }
+
+        // Atomic: verify token + check stale + slide TTL in one backend op.
+        // Replaces global preHandler.verify for this route (we set
+        // request.callbackAuth so the preHandler early-returns).
+        const result = await registry.verifyLatest(creds.invocationId, creds.callbackToken);
+        if (!result.ok) {
+          if (result.reason === 'stale_invocation') {
+            reply.status(401).send({
+              error: 'callback_auth_failed',
+              reason: 'stale_invocation',
+              message: 'Invocation has been superseded by a newer one for the same thread/cat slot',
+              hint: 'A newer invocation now owns this (threadId, catId) slot. Old invocations cannot be refreshed.',
+            });
+            return;
+          }
+          // expired / invalid_token / unknown_invocation — race against expiry
+          // or registry mutation between peek and verifyLatest. Surface the
+          // structured reason directly (we own the auth path now, preHandler
+          // will skip via the request.callbackAuth check).
+          reply.status(401).send({
+            error: 'callback_auth_failed',
+            reason: result.reason,
+            message: 'Auth state changed between peek and atomic verify',
+            hint: '',
+          });
+          return;
+        }
+        request.callbackAuth = result.record;
+      },
+    },
+    async (request, reply) => {
+      const record = requireCallbackAuth(request, reply);
+      if (!record) return; // preHandler already 401'd
+
+      // preHandler's verify() already slid the record TTL forward.
+      // Re-fetch to get the new expiresAt without triggering another slide.
+      const fresh = await registry.getRecord(record.invocationId);
+      if (!fresh) {
+        reply.status(401);
+        return {
+          error: 'callback_auth_failed',
+          reason: 'unknown_invocation',
+          message: 'Invocation vanished between preHandler verify and refresh re-fetch',
+          hint: '',
+        };
+      }
+      const ttlRemainingMs = Math.max(0, fresh.expiresAt - Date.now());
+      return { ok: true, expiresAt: fresh.expiresAt, ttlRemainingMs };
+    },
+  );
 
   // F22: Rich block creation via MCP callback
   app.post('/api/callbacks/create-rich-block', async (request, reply) => {

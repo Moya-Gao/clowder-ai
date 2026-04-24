@@ -32,6 +32,12 @@ export function registerCallbackAuthHook(app: FastifyInstance, registry: Callbac
     app.decorateRequest('callbackAuth', undefined);
   }
   app.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    // F174-C (cloud Codex P2 #1368, 05de7c98b): refresh-token route does its
+    // own atomic verifyLatest in preValidation and pre-populates callbackAuth.
+    // Skip the second verify here to avoid double-slide and to preserve the
+    // atomicity guarantee against the preValidation/preHandler race window.
+    if (request.callbackAuth) return;
+
     let invocationId = firstHeaderValue(request.headers['x-invocation-id']);
     let callbackToken = firstHeaderValue(request.headers['x-callback-token']);
     let legacy = false;
@@ -66,10 +72,52 @@ export function registerCallbackAuthHook(app: FastifyInstance, registry: Callbac
   });
 }
 
-/** Extract legacy credentials from body (POST) or query (GET).
- *  Returns partial results so the caller's `!id || !token` guard
- *  rejects malformed requests (fail-closed, consistent with headers). */
-function extractLegacyCredentials(
+/**
+ * F174-C — single source of truth for "what callback creds does this request
+ * actually present?" Used by both preHandler and refresh-token preValidation
+ * so the cooldown decision matches the auth decision (gpt52 P1 #3 #1368:
+ * mismatched rules let mixed-source bad-auth burn cooldown slot).
+ *
+ * Rule (mirror of preHandler's auth flow):
+ *   - If both headers present → headers win (returns the header pair)
+ *   - Else if BOTH headers absent and legacy body/query has both → legacy creds
+ *   - Otherwise (partial headers, mixed source, etc.) → null (request will
+ *     be rejected by preHandler as missing_creds)
+ *
+ * Returns canonical creds (both fields present) or null. Caller can detect
+ * "auth attempt happened" separately if it needs to distinguish panel path
+ * from missing_creds.
+ */
+export function extractCallbackCredentials(
+  request: FastifyRequest,
+): { invocationId: string; callbackToken: string } | null {
+  const headerInv = firstHeaderValue(request.headers['x-invocation-id']);
+  const headerTok = firstHeaderValue(request.headers['x-callback-token']);
+
+  if (headerInv && headerTok) {
+    return { invocationId: headerInv, callbackToken: headerTok };
+  }
+  // Legacy fallback ONLY when both headers absent (matches preHandler line 40).
+  // Mixed-source (e.g. header inv + body tok) explicitly returns null so
+  // cooldown is never claimed for a request that preHandler will 401.
+  if (!headerInv && !headerTok) {
+    const legacy = extractLegacyCredentials(request);
+    if (legacy?.invocationId && legacy?.callbackToken) {
+      return { invocationId: legacy.invocationId, callbackToken: legacy.callbackToken };
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract legacy credentials from body (POST) or query (GET).
+ * Returns partial results so the caller's `!id || !token` guard
+ * rejects malformed requests (fail-closed, consistent with headers).
+ *
+ * Exported for F174-C refresh-token cooldown — that hook needs to recognize
+ * legacy creds path so cooldown applies uniformly (cloud Codex P1 #1368).
+ */
+export function extractLegacyCredentials(
   request: FastifyRequest,
 ): { invocationId: string | undefined; callbackToken: string | undefined } | null {
   const body = request.body as Record<string, unknown> | undefined;

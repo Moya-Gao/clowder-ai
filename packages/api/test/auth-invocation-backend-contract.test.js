@@ -123,6 +123,47 @@ for (const [name, factory] of backends) {
       }
     });
 
+    // Cloud Codex P2 (PR #1368, 08:54Z, 05de7c98b): atomically combine
+    // verify + isLatest + slide so a stale invocation can't be refreshed in
+    // the race window between preValidation isLatest check and preHandler
+    // verify slide.
+    test('AC-C5 atomic verifyLatest: stale invocation rejected', async () => {
+      const { backend, cleanup } = await factory();
+      try {
+        await backend.create(fixture('inv-old', 'tok-old'), 60_000);
+        await backend.create(fixture('inv-new', 'tok-new'), 60_000); // supersedes inv-old
+        const stale = await backend.verifyLatest('inv-old', 'tok-old', 60_000);
+        assert.equal(stale.ok, false);
+        assert.equal(stale.reason, 'stale_invocation');
+        const fresh = await backend.verifyLatest('inv-new', 'tok-new', 60_000);
+        assert.equal(fresh.ok, true);
+        assert.equal(fresh.record?.invocationId, 'inv-new');
+      } finally {
+        await cleanup();
+      }
+    });
+
+    test('AC-C5 atomic verifyLatest: invalid token returns invalid_token (not stale)', async () => {
+      const { backend, cleanup } = await factory();
+      try {
+        await backend.create(fixture('inv-vl', 'tok-vl'), 60_000);
+        const result = await backend.verifyLatest('inv-vl', 'wrong', 60_000);
+        assert.deepEqual(result, { ok: false, reason: 'invalid_token' });
+      } finally {
+        await cleanup();
+      }
+    });
+
+    test('AC-C5 atomic verifyLatest: unknown invocation returns unknown_invocation', async () => {
+      const { backend, cleanup } = await factory();
+      try {
+        const result = await backend.verifyLatest('nonexistent', 'any', 60_000);
+        assert.deepEqual(result, { ok: false, reason: 'unknown_invocation' });
+      } finally {
+        await cleanup();
+      }
+    });
+
     // F174 Phase B P1 (gpt52 review #1363) — symptom check that survives
     // even with 60s grace: after a slide window, the latest pointer must
     // not have drifted relative to the record. The detailed PTTL check
@@ -157,5 +198,66 @@ for (const [name, factory] of backends) {
         await cleanup();
       }
     });
+
+    // Cloud Codex P2 (PR #1368, 08:15Z, 7de77a70d): refresh cooldown Map only
+    // does lazy GC at >100 entries but never enforces a hard cap. Under
+    // memory-mode high churn, all entries can be active (none expired) and
+    // accumulate unbounded — O(n) per claim + memory leak.
+    if (name === 'memory') {
+      test('AC-C5 cooldown bound: memory backend caps refresh cooldown map size', async () => {
+        const { backend, cleanup } = await factory();
+        try {
+          // Claim 1500 distinct invocations within 5min cooldown — all active.
+          for (let i = 0; i < 1500; i++) {
+            await backend.tryClaimRefreshCooldown(`inv-${i}`, 5 * 60_000);
+          }
+          // Inspect internal map size via the backend itself (non-public but
+          // we test the contract by re-claiming an old slot — if map is bounded
+          // via FIFO eviction, early entries got evicted and re-claim succeeds).
+          const earlyReclaim = await backend.tryClaimRefreshCooldown('inv-0', 5 * 60_000);
+          assert.equal(earlyReclaim, true, 'early entries must be evicted under bound');
+        } finally {
+          await cleanup();
+        }
+      });
+
+      // Cloud Codex P2 (PR #1368, 09:15Z, 5160ea926): the cap eviction loop
+      // ran BEFORE the `existing` check, so a no-op re-claim by an already-
+      // cooled invocation churned other valid cooldowns out of the map and
+      // let those victims bypass the 5min limit early.
+      test('AC-C5 cooldown bound: re-claim of active cooldown does NOT evict others', async () => {
+        const { MemoryAuthInvocationBackend } = await import(
+          '../dist/domains/cats/services/agents/invocation/MemoryAuthInvocationBackend.js'
+        );
+        const small = new MemoryAuthInvocationBackend({ maxRecords: 5 });
+        // Fill cap with 5 active cooldowns.
+        for (let i = 0; i < 5; i++) {
+          assert.equal(await small.tryClaimRefreshCooldown(`inv-${i}`, 5 * 60_000), true);
+        }
+        // inv-2 tries to re-claim while still in cooldown — must return false
+        // WITHOUT evicting any of inv-0..4 (no-op claim shouldn't churn).
+        assert.equal(await small.tryClaimRefreshCooldown('inv-2', 5 * 60_000), false);
+        // inv-0 still in cooldown? Yes — re-claim returns false (still active).
+        assert.equal(await small.tryClaimRefreshCooldown('inv-0', 5 * 60_000), false);
+        assert.equal(await small.tryClaimRefreshCooldown('inv-4', 5 * 60_000), false);
+      });
+
+      // Cloud Codex P2 (PR #1368, 08:38Z, 8cf95e028): cooldown cap was the
+      // module constant DEFAULT_MAX_RECORDS, not the instance maxRecords.
+      // Custom maxRecords now governs cooldown size too — they're in lockstep.
+      test('AC-C5 cooldown bound: custom maxRecords governs cooldown cap', async () => {
+        const { MemoryAuthInvocationBackend } = await import(
+          '../dist/domains/cats/services/agents/invocation/MemoryAuthInvocationBackend.js'
+        );
+        const small = new MemoryAuthInvocationBackend({ maxRecords: 50 });
+        // Claim 100 active cooldowns — should evict early ones around the 50 mark.
+        for (let i = 0; i < 100; i++) {
+          await small.tryClaimRefreshCooldown(`inv-${i}`, 5 * 60_000);
+        }
+        // inv-0 was evicted long ago (FIFO past cap=50)
+        const earlyReclaim = await small.tryClaimRefreshCooldown('inv-0', 5 * 60_000);
+        assert.equal(earlyReclaim, true, 'tiny cap must evict aggressively');
+      });
+    }
   });
 }
