@@ -311,4 +311,239 @@ describe('antigravity-image-publisher', () => {
       assert.equal(second.length, 0, 'second call should skip already-published');
     });
   });
+
+  // F172 Phase G — GENERATE_IMAGE step type → brain dir scanner
+  describe('collectGenerateImageSteps (Phase G)', () => {
+    it('extracts imageName + mimeType from DONE GENERATE_IMAGE steps', async () => {
+      const { collectGenerateImageSteps } = await import(
+        '../dist/domains/cats/services/agents/providers/antigravity/antigravity-image-publisher.js'
+      );
+      // Verbatim shape from runtime log (cascade 678b53ee, 2026-04-24T03:27:53Z).
+      const steps = [
+        {
+          type: 'CORTEX_STEP_TYPE_GENERATE_IMAGE',
+          status: 'CORTEX_STEP_STATUS_DONE',
+          metadata: { toolCall: { name: 'generate_image' } },
+          generateImage: {
+            imageName: 'bengal_cat_alpha_smoke',
+            modelName: 'gemini-3.1-flash-image',
+            generatedMedia: { mimeType: 'image/jpeg', uri: 'opaque' },
+          },
+        },
+      ];
+      const infos = collectGenerateImageSteps(steps);
+      assert.deepEqual(infos, [{ imageName: 'bengal_cat_alpha_smoke', mimeHint: 'image/jpeg' }]);
+    });
+
+    it('skips RUNNING / non-DONE GENERATE_IMAGE steps', async () => {
+      const { collectGenerateImageSteps } = await import(
+        '../dist/domains/cats/services/agents/providers/antigravity/antigravity-image-publisher.js'
+      );
+      const steps = [
+        {
+          type: 'CORTEX_STEP_TYPE_GENERATE_IMAGE',
+          status: 'CORTEX_STEP_STATUS_RUNNING',
+          generateImage: { imageName: 'wip' },
+        },
+      ];
+      assert.deepEqual(collectGenerateImageSteps(steps), []);
+    });
+
+    it('ignores non-GENERATE_IMAGE step types', async () => {
+      const { collectGenerateImageSteps } = await import(
+        '../dist/domains/cats/services/agents/providers/antigravity/antigravity-image-publisher.js'
+      );
+      const steps = [
+        { type: 'CORTEX_STEP_TYPE_TOOL_RESULT', status: 'CORTEX_STEP_STATUS_DONE' },
+        { type: 'CORTEX_STEP_TYPE_RUN_COMMAND', status: 'CORTEX_STEP_STATUS_DONE' },
+      ];
+      assert.deepEqual(collectGenerateImageSteps(steps), []);
+    });
+  });
+
+  describe('scanAndPublishAntigravityBrainImages (Phase G)', () => {
+    it('publishes image found in brain dir matching imageName prefix', async () => {
+      const { scanAndPublishAntigravityBrainImages } = await import(
+        '../dist/domains/cats/services/agents/providers/antigravity/antigravity-image-publisher.js'
+      );
+
+      const brainHome = await makeTempDir('antigravity-brain-');
+      const uploadDir = await makeTempDir('antigravity-uploads-');
+      const cascadeId = 'cascade-test-001';
+      const cascadeDir = join(brainHome, cascadeId);
+      await mkdir(cascadeDir, { recursive: true });
+      await writeFile(join(cascadeDir, 'bengal_cat_alpha_smoke_1777001271978.png'), Buffer.from('fake-img'));
+
+      const steps = [
+        {
+          type: 'CORTEX_STEP_TYPE_GENERATE_IMAGE',
+          status: 'CORTEX_STEP_STATUS_DONE',
+          generateImage: { imageName: 'bengal_cat_alpha_smoke', generatedMedia: { mimeType: 'image/png' } },
+        },
+      ];
+
+      const results = await scanAndPublishAntigravityBrainImages({
+        steps,
+        cascadeId,
+        brainHome,
+        uploadDir,
+      });
+
+      assert.equal(results.length, 1);
+      assert.match(results[0].urlPath, /^\/uploads\//);
+      assert.equal(results[0].provenance.provider, 'antigravity');
+      assert.equal(results[0].provenance.toolName, 'generate_image');
+    });
+
+    it('returns empty when brain dir missing', async () => {
+      const { scanAndPublishAntigravityBrainImages } = await import(
+        '../dist/domains/cats/services/agents/providers/antigravity/antigravity-image-publisher.js'
+      );
+
+      const brainHome = await makeTempDir('antigravity-brain-empty-');
+      const uploadDir = await makeTempDir('antigravity-uploads-');
+      const steps = [
+        {
+          type: 'CORTEX_STEP_TYPE_GENERATE_IMAGE',
+          status: 'CORTEX_STEP_STATUS_DONE',
+          generateImage: { imageName: 'foo' },
+        },
+      ];
+      const results = await scanAndPublishAntigravityBrainImages({
+        steps,
+        cascadeId: 'no-such-cascade',
+        brainHome,
+        uploadDir,
+      });
+      assert.deepEqual(results, []);
+    });
+
+    it('skips files outside the mtime cutoff', async () => {
+      const { scanAndPublishAntigravityBrainImages } = await import(
+        '../dist/domains/cats/services/agents/providers/antigravity/antigravity-image-publisher.js'
+      );
+
+      const brainHome = await makeTempDir('antigravity-brain-old-');
+      const uploadDir = await makeTempDir('antigravity-uploads-');
+      const cascadeId = 'cascade-old';
+      const cascadeDir = join(brainHome, cascadeId);
+      await mkdir(cascadeDir, { recursive: true });
+      const oldFile = join(cascadeDir, 'old_image_1.png');
+      await writeFile(oldFile, Buffer.from('old'));
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      await utimes(oldFile, twoHoursAgo, twoHoursAgo);
+
+      const steps = [
+        {
+          type: 'CORTEX_STEP_TYPE_GENERATE_IMAGE',
+          status: 'CORTEX_STEP_STATUS_DONE',
+          generateImage: { imageName: 'old_image' },
+        },
+      ];
+
+      const results = await scanAndPublishAntigravityBrainImages({
+        steps,
+        cascadeId,
+        brainHome,
+        uploadDir,
+        maxAgeMs: 60 * 60 * 1000,
+      });
+
+      assert.equal(results.length, 0);
+    });
+
+    it('is idempotent on replay (second call returns 0 new)', async () => {
+      const { scanAndPublishAntigravityBrainImages } = await import(
+        '../dist/domains/cats/services/agents/providers/antigravity/antigravity-image-publisher.js'
+      );
+
+      const brainHome = await makeTempDir('antigravity-brain-idem-');
+      const uploadDir = await makeTempDir('antigravity-uploads-');
+      const cascadeId = 'cascade-idem';
+      const cascadeDir = join(brainHome, cascadeId);
+      await mkdir(cascadeDir, { recursive: true });
+      await writeFile(join(cascadeDir, 'a_1.png'), Buffer.from('imgA'));
+
+      const opts = {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_GENERATE_IMAGE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            generateImage: { imageName: 'a' },
+          },
+        ],
+        cascadeId,
+        brainHome,
+        uploadDir,
+      };
+
+      const first = await scanAndPublishAntigravityBrainImages(opts);
+      const second = await scanAndPublishAntigravityBrainImages(opts);
+      assert.equal(first.length, 1);
+      assert.equal(second.length, 0);
+    });
+
+    it('does NOT match files with extra name parts before timestamp (P2: prefix collision)', async () => {
+      const { scanAndPublishAntigravityBrainImages } = await import(
+        '../dist/domains/cats/services/agents/providers/antigravity/antigravity-image-publisher.js'
+      );
+
+      const brainHome = await makeTempDir('antigravity-brain-prefix-');
+      const uploadDir = await makeTempDir('antigravity-uploads-');
+      const cascadeId = 'cascade-prefix';
+      const cascadeDir = join(brainHome, cascadeId);
+      await mkdir(cascadeDir, { recursive: true });
+      // imageName="wanted" must NOT publish "wanted_legacy_*.png" — that's a
+      // different image whose name happens to share a prefix. Cloud review P2.
+      await writeFile(join(cascadeDir, 'wanted_legacy_1777000000000.png'), Buffer.from('legacy'));
+      await writeFile(join(cascadeDir, 'wanted_1777001000000.png'), Buffer.from('actual'));
+
+      const results = await scanAndPublishAntigravityBrainImages({
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_GENERATE_IMAGE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            generateImage: { imageName: 'wanted' },
+          },
+        ],
+        cascadeId,
+        brainHome,
+        uploadDir,
+      });
+
+      assert.equal(results.length, 1, 'only the strict <imageName>_<unixMs>.<ext> file should publish');
+      // The published image must be the one whose name matches the strict shape,
+      // not the prefix-collision file.
+      assert.match(results[0].provenance.originalPath, /wanted_1777001000000\.png$/);
+    });
+
+    it('ignores files in cascade dir whose name does not match any imageName', async () => {
+      const { scanAndPublishAntigravityBrainImages } = await import(
+        '../dist/domains/cats/services/agents/providers/antigravity/antigravity-image-publisher.js'
+      );
+
+      const brainHome = await makeTempDir('antigravity-brain-noise-');
+      const uploadDir = await makeTempDir('antigravity-uploads-');
+      const cascadeId = 'cascade-noise';
+      const cascadeDir = join(brainHome, cascadeId);
+      await mkdir(cascadeDir, { recursive: true });
+      await writeFile(join(cascadeDir, 'wanted_1.png'), Buffer.from('wanted'));
+      await writeFile(join(cascadeDir, 'unrelated_legacy.png'), Buffer.from('legacy'));
+
+      const results = await scanAndPublishAntigravityBrainImages({
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_GENERATE_IMAGE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            generateImage: { imageName: 'wanted' },
+          },
+        ],
+        cascadeId,
+        brainHome,
+        uploadDir,
+      });
+
+      assert.equal(results.length, 1, 'only the imageName-matched file should publish');
+    });
+  });
 });

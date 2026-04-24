@@ -58,6 +58,13 @@ export function classifyStep(step: TrajectoryStep): StepBucket {
     return 'checkpoint';
   }
 
+  // F172 Phase G: built-in generate_image step — silent in the chat stream;
+  // surfaced via the post-invocation brain scanner that yields a media_gallery
+  // rich block. Suppresses the "unknown step type" log noise.
+  if (step.type === 'CORTEX_STEP_TYPE_GENERATE_IMAGE') {
+    return 'checkpoint';
+  }
+
   // Shape-based fallback for unknown types (e.g. GREP_SEARCH, FILE_EDIT, TERMINAL_COMMAND)
   if (step.toolResult?.success === false) return 'tool_error';
   if (step.toolCall || step.toolResult) return 'tool_pending';

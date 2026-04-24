@@ -63,6 +63,19 @@ export interface TrajectoryStep {
     stderr?: string;
     exitCode?: number;
   };
+  /** Antigravity built-in `generate_image` step payload. Present on
+   *  `CORTEX_STEP_TYPE_GENERATE_IMAGE` steps; the produced file lands at
+   *  `<brain>/<cascadeId>/<imageName>_<timestamp>.<ext>` (F172 Phase G). */
+  generateImage?: {
+    prompt?: string;
+    imageName?: string;
+    modelName?: string;
+    generatedMedia?: {
+      mimeType?: string;
+      inlineData?: string;
+      uri?: string;
+    };
+  };
   error?: { shortError?: string; fullError?: string };
 }
 

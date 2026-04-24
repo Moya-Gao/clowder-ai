@@ -20,9 +20,13 @@ import {
 } from '../../../../../../infrastructure/telemetry/instruments.js';
 import { normalizeModel } from '../../../../../../infrastructure/telemetry/model-normalizer.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../../types.js';
-import { AntigravityBridge, type BridgeConnection } from './AntigravityBridge.js';
+import { AntigravityBridge, type BridgeConnection, type TrajectoryStep } from './AntigravityBridge.js';
 import { classifyStep, transformTrajectorySteps } from './antigravity-event-transformer.js';
-import { collectImagePathsFromSteps, publishAntigravityImages } from './antigravity-image-publisher.js';
+import {
+  collectImagePathsFromSteps,
+  publishAntigravityImages,
+  scanAndPublishAntigravityBrainImages,
+} from './antigravity-image-publisher.js';
 import { summarizeStepShape, TRACE_ENABLED, traceLog } from './antigravity-trace.js';
 import { AuditLogger } from './executors/AuditLogger.js';
 import { ExecutorRegistry } from './executors/ExecutorRegistry.js';
@@ -226,6 +230,10 @@ export class AntigravityAgentService implements AgentService {
 
         // F172 Phase C: collect image file paths from tool results
         const collectedImagePaths = new Set<string>();
+        // F172 Phase G: accumulate raw DONE GENERATE_IMAGE steps so the brain
+        // scanner can resolve <imageName>_<unixMs>.<ext> in
+        // ~/.gemini/antigravity/brain/<cascadeId>/ before yielding `done`.
+        const collectedGenerateImageSteps: TrajectoryStep[] = [];
 
         // Diagnostic counters for empty_response observability
         let totalStepsSeen = 0;
@@ -321,6 +329,15 @@ export class AntigravityAgentService implements AgentService {
 
               const messages = transformTrajectorySteps(batch.steps, self.catId, metadata);
               for (const p of collectImagePathsFromSteps(batch.steps)) collectedImagePaths.add(p);
+              // F172 Phase G: capture DONE GENERATE_IMAGE steps for the post-invocation brain scan
+              for (const step of batch.steps) {
+                if (
+                  step.type === 'CORTEX_STEP_TYPE_GENERATE_IMAGE' &&
+                  step.status === 'CORTEX_STEP_STATUS_DONE'
+                ) {
+                  collectedGenerateImageSteps.push(step);
+                }
+              }
               const batchHasText = messages.some((msg) => msg.type === 'text' && Boolean(msg.content));
               const batchHasToolActivity = messages.some(
                 (msg) => msg.type === 'tool_use' || msg.type === 'tool_result',
@@ -765,8 +782,14 @@ export class AntigravityAgentService implements AgentService {
           };
         }
 
-        // F172 Phase C: publish any images found in tool results
-        if (collectedImagePaths.size > 0 && cascadeId) {
+        // F172 Phase C: publish any images found in tool results (legacy / future-proof path).
+        // MUTUALLY EXCLUSIVE with Phase G: when GENERATE_IMAGE steps were observed
+        // we trust the brain scanner and skip the legacy path — running both would
+        // double-publish the same physical file because the two paths use
+        // different publicationKey shapes (Phase F = pathHash+filename,
+        // Phase G = filename) and the F172 contract requires a single canonical
+        // /uploads/ artifact + media_gallery per image (KD-2 / KD-4).
+        if (collectedImagePaths.size > 0 && cascadeId && collectedGenerateImageSteps.length === 0) {
           try {
             const published = await publishAntigravityImages({
               candidatePaths: [...collectedImagePaths],
@@ -784,6 +807,31 @@ export class AntigravityAgentService implements AgentService {
             }
           } catch (err) {
             log.warn({ cascadeId, err }, '[F172] antigravity image publish failed');
+          }
+        }
+
+        // F172 Phase G: brain dir scanner — the primary path for built-in
+        // generate_image, whose product lands at
+        // ~/.gemini/antigravity/brain/<cascadeId>/<imageName>_<unixMs>.<ext>
+        // and never surfaces an absolute path in toolResult.output.
+        if (collectedGenerateImageSteps.length > 0 && cascadeId) {
+          try {
+            const published = await scanAndPublishAntigravityBrainImages({
+              steps: collectedGenerateImageSteps,
+              cascadeId,
+              uploadDir: options?.uploadDir,
+            });
+            for (const img of published) {
+              yield {
+                type: 'system_info' as const,
+                catId: this.catId,
+                content: JSON.stringify({ type: 'rich_block', block: img.richBlock, provenance: img.provenance }),
+                metadata,
+                timestamp: Date.now(),
+              };
+            }
+          } catch (err) {
+            log.warn({ cascadeId, err }, '[F172] antigravity brain scan failed');
           }
         }
 

@@ -8,17 +8,17 @@ created: 2026-04-22
 
 # F172: Generated Image Publication — 内建生图产物归档与富块发布
 
-> **Status**: done (Phase F merged 2026-04-23) | **Owner**: 布偶猫/opus | **Priority**: P1
+> **Status**: in_progress (reopened — Phase G) | **Owner**: 布偶猫/opus | **Priority**: P1
 >
-> **Reopen reason (2026-04-23)**: Alpha 验收暴露 Phase C 在真实 cascade 上从未抓到图。
+> **诊断历程（务必读完，KD-8 元教训）**：
 >
-> **二次诊断更正 (2026-04-23 晚)**: 第一次怀疑 spec OQ-2 设计假设错（"Antigravity 不在 output 暴露绝对路径"）—— 错。@antig-opus 提供真实 toolResult.output sample 后核实：路径**确实**在 output 里，长这样：
+> 1. **Phase C 实施 (2026-04-23 早)**: 假设 `toolResult.output` 含路径，写 `extractAbsoluteImagePaths`。16 单测全绿但**真实 cascade 从未抓到**——fixture 用 `"Saved /tmp/a.png"` 简化 shape，错过真实 edge case。
+> 2. **Phase F reopen (2026-04-23 中)**: 第一次怀疑 spec 设计 bug，方向锁定 brain scanner——但 @antig-opus 提供 IDE-side sample (`"Generated image is saved at <abs_path>."`) 后撤回，改为 5 行 trailing-punctuation regex 修复。
+> 3. **Phase G reopen (2026-04-23 晚)**: 真正的 alpha smoke 还是失败——铲屎官前端无图。**第三次定位用 runtime log 直接证据**：Antigravity `generate_image` 走专属 step type `CORTEX_STEP_TYPE_GENERATE_IMAGE`，runtime log 实测 `"unknown step type"`。这种 step **没有 `toolResult.output` 字段**。Phase F 的 regex 对真实 cascade 完全没用——**根本没字符串可 extract**。
 >
-> `Generated image is saved at /Users/lysander/.gemini/antigravity/brain/<convId>/<filename>.png.`
+> 真路径来自 `step.generateImage.imageName + cascadeId`，文件落在 `~/.gemini/antigravity/brain/<cascadeId>/<imageName>_<unixMs>.<ext>`。Phase G 真正实现 brain 目录 scanner（Phase F 撤回 brain scanner 是错的——第一次诊断方向对，被 IDE-side sample 误导回到 regex 路径）。Phase F 的 trailing-punctuation 修复保留作 future-proof（万一未来 antigravity 真在 toolResult 写路径），但**不再是主路径**。
 >
-> 真根因是 **`extractAbsoluteImagePaths` 的 token 分隔符不含句号 `.`**，导致路径末尾紧跟句号时 token 变成 `<path>.png.`，扩展名 regex `/\.(?:png|jpe?g|gif|webp)$/i` 因结尾是 `.` 而失败。Phase C 的 16 个单测 fixture 用了 `"Saved /tmp/a.png"` 简化 shape（无 trailing punctuation），错过了真实 edge case。
->
-> Phase F = **5 行 regex 修复**：split 后 strip trailing sentence punctuation 再做扩展名校验。**不需要** brain scanner 重写——OQ-2 的设计假设是对的，brain scanner 是过度设计。
+> **元教训（KD-8）**：spec / IDE-side sample 都是间接证据，**runtime log 才是唯一真相源**。三轮诊断都跳过 `grep runtime log`，错三次。下次类似 provider 集成 bug 必须**先 grep runtime trajectory step shape**，再做任何假设。
 
 ## Why
 
@@ -81,6 +81,23 @@ created: 2026-04-22
 - 保留原有 16 个 antigravity tests + 8 image-storage + 6 codex-scanner + 7 publication contract = 39 tests baseline
 
 明确**不做**：brain 目录 scanner、新 provider 接入、scope 扩张。
+
+### Phase G: GENERATE_IMAGE step + brain dir scanner（reopen 二次 — 修 Phase C/F 都没击中的真根因）
+
+Antigravity built-in `generate_image` 的真实交付链路：
+
+- Step type: `CORTEX_STEP_TYPE_GENERATE_IMAGE`（专属，不走 tool_call/tool_result）
+- Step status: `CORTEX_STEP_STATUS_DONE` 时 metadata 完整
+- 关键字段: `step.generateImage.imageName`（如 `"bengal_cat_alpha_smoke"`）+ `step.generateImage.generatedMedia.mimeType`
+- 文件落点: `~/.gemini/antigravity/brain/<cascadeId>/<imageName>_<unixMs>.<ext>`
+- **没有** `step.toolResult.output` 字段——Phase F 的 trailing-punctuation regex 在这里完全无用
+
+实施：
+- 新增 `collectGenerateImageSteps(steps): GenerateImageStepInfo[]` — 从 trajectory steps 提取 done generate_image step 的 imageName + mimeHint
+- 新增 `scanAndPublishAntigravityBrainImages({steps, cascadeId, brainHome, uploadDir, maxAgeMs})` — 用 cascadeId 拼 brain 子目录，按 `<imageName>_*` 前缀匹配文件，调 `publishGeneratedImage`
+- `AntigravityAgentService` 在 batch loop 累积 done generate_image steps，invocation 结束前 yield brain scanner 产物（与 Codex `system_info` rich_block 对齐）
+- `antigravity-event-transformer.classifyStep`: `CORTEX_STEP_TYPE_GENERATE_IMAGE` 归到 `checkpoint`（不再触发 "unknown step type" 日志噪音）
+- Phase F 的 `extractAbsoluteImagePaths` / `publishAntigravityImages` 路径**保留作 future-proof 兜底**，但不再是主路径
 
 ### Phase E: 富块联动 + 归档真相源
 
@@ -173,7 +190,14 @@ created: 2026-04-22
 - [x] AC-F2: 新增 verbatim 真实 antigravity output shape regression 测试（trailing period case）
 - [x] AC-F3: 新增混合 trailing punctuation 测试（`. , ; !` 各一例）
 - [x] AC-F4: 39/39 F172 tests GREEN（image-storage + codex-scanner + publication + antigravity-publisher 全部）
-- [ ] AC-F5: Alpha smoke — antig-opus 真实 `generate_image` 一张图，铲屎官前端直接看到 + F5 刷新后还在
+- [ ] AC-F5: Alpha smoke — antig-opus 真实 `generate_image` 一张图，铲屎官前端直接看到 + F5 刷新后还在 ⚠️ Phase F merged 后实测仍失败，根因转 Phase G
+
+### Phase G（GENERATE_IMAGE step + brain dir scanner — reopen 二次）
+- [x] AC-G1: 实现 `collectGenerateImageSteps(steps): GenerateImageStepInfo[]` — 从 trajectory steps 提取 done generate_image step 的 imageName + mimeHint
+- [x] AC-G2: 实现 `scanAndPublishAntigravityBrainImages({steps, cascadeId, brainHome, uploadDir, maxAgeMs})` — 扫 `~/.gemini/antigravity/brain/<cascadeId>/<imageName>_*.<ext>`，调 `publishGeneratedImage`
+- [x] AC-G3: `AntigravityAgentService` 累积 done generate_image steps + invocation 结束前调 brain scanner，yield `system_info` rich_block
+- [x] AC-G4: `antigravity-event-transformer.classifyStep`: `CORTEX_STEP_TYPE_GENERATE_IMAGE` 归 `checkpoint`（消除 "unknown step type" 日志噪音）
+- [ ] AC-G5: Alpha smoke — antig-opus 真生一张图，铲屎官前端**直接看到** + F5 刷新还在（Phase G 真正闭环 R9）
 
 ## 需求点 Checklist
 
@@ -187,7 +211,7 @@ created: 2026-04-22
 | R6 | 能自动把你产出的图片归档 + 用富文本呈现 | AC-E2, AC-E3 | test + manual | [x] |
 | R7 | 既有 rich block / connector 媒体链路继续复用 | AC-E4 | integration test | [x] |
 | R8 | provider 恢复 / replay 时不应重复堆积图片文件或重复发块 | AC-A5, AC-E5 | integration test | [x] |
-| R9 | Antigravity 真实生图必须能在 alpha 上直接呈现给铲屎官（修 Phase C 设计 bug） | AC-F1, AC-F2, AC-F3, AC-F4, AC-F5 | alpha smoke + integration test | [ ] |
+| R9 | Antigravity 真实生图必须能在 alpha 上直接呈现给铲屎官 | AC-F1~F5（Phase F 部分修复，alpha 仍失败）, AC-G1~G4（Phase G 真根因修复） | alpha smoke + integration test | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -227,7 +251,9 @@ created: 2026-04-22
 | KD-4 | 发布后的图片默认只写 `media_gallery` rich block，不重复写 image `contentBlocks` | rich block 已足以覆盖前端展示、history replay 与 F088 outbound；重复写 contentBlocks 只会制造上下文与存储重复 | 2026-04-22 |
 | KD-5 | ~~Phase F 改用「brain 目录 scanner」~~ **撤回**——后续 sample 验证 OQ-2 假设是对的（output 含绝对路径），真问题是 regex token 处理 bug | 二次诊断更正：Antigravity `generate_image` 实际 output 是 `"Generated image is saved at <abs_path>."`，路径**确实**在里面，不需要 fs scanner | 2026-04-23 (撤回) |
 | KD-6 | 单测的 toolResult.output fixture 必须以**真实 cascade 抓回的样本**为准，不允许用想象 shape | Phase C 单测的 `"Saved /tmp/a.png"` 太简化，错过了 trailing period edge case，导致 16 个测试全绿但真实 cascade 失败——典型的「测的是想象 shape 不是真实 shape」反模式。后续 provider-related 单测必须至少有一条 verbatim 真实 sample | 2026-04-23 |
-| KD-7 | 修复优先尝试最小变更（5 行 regex），不上 fs scanner 的过度设计 | 真根因是 token split 不含 `.` 分隔符。strip trailing punctuation 后 39/39 tests GREEN，方案验证；brain scanner 是 over-engineering（"don't add features beyond what task requires"原则） | 2026-04-23 |
+| KD-7 | ~~修复优先尝试最小变更（5 行 regex）~~ **撤回** | KD-7 基于"toolResult.output 含路径"假设，但真实 step 没有 toolResult。Phase G 实测发现真根因后这个决策本身错位 | 2026-04-23 (撤回) |
+| KD-8 | **诊断 provider 集成 bug 必须先 grep runtime log 真实 step shape，再做任何假设** | F172 三轮诊断 (Phase C→F→G) 都跳过 runtime log 直接证据，依赖 spec / IDE-side sample / 单测 fixture 这些间接证据，结果错三次。runtime log 是唯一真相源——具体到这个 cascade，第一次 grep `"unknown step type"` 就能定位真根因 | 2026-04-23 (晚) |
+| KD-9 | Antigravity 专属 step type (`CORTEX_STEP_TYPE_GENERATE_IMAGE`) 必须在 transformer 显式分类（即便归 checkpoint），不能依赖 "unknown" 兜底 | "unknown step type" 日志会持续刷屏，被人误以为是问题信号；显式归类后日志干净，未来真正的 unknown 才有信号价值 | 2026-04-23 (晚) |
 
 ## Timeline
 
@@ -243,6 +269,8 @@ created: 2026-04-22
 | 2026-04-23 (晚) | **二次诊断更正**：@antig-opus 提供真实 toolResult.output sample，路径**确实**在 output 里，只是末尾有句号 `.`。真根因是 `extractAbsoluteImagePaths` token 分隔符不含句号，token 变成 `<path>.png.` 而扩展名 regex 失败 |
 | 2026-04-23 (晚) | Phase F 实施：5 行 regex 修复（split 后 strip trailing punctuation）+ 2 个 verbatim regression 测试，39/39 GREEN，brain scanner 决策撤回 |
 | 2026-04-23 (晚) | PR #1361 — 砚砚（gpt-5.5）review PASS（0 P1/P2） + 云端 codex-connector review PASS（"Didn't find any major issues"），squash merged 5f8de66a7。剩 AC-F5 alpha smoke 待 antig-opus 真生图验证 |
+| 2026-04-23 (晚) | **Alpha smoke 失败**：铲屎官重启 runtime（含 fd12a0a38 PR #1361），antig-opus 真调 generate_image 生成 `bengal_cuddle_portrait`，brain dir 有文件但前端无图。第三次定位用 runtime log 直接证据（`grep "unknown step type CORTEX_STEP_TYPE_GENERATE_IMAGE"` 命中），发现 Antigravity 走专属 step type，没有 toolResult.output——Phase F regex 路径根本无字符串可 extract |
+| 2026-04-23 (晚) | Reopen Phase G：实现 GENERATE_IMAGE step + brain dir scanner，扫 `~/.gemini/antigravity/brain/<cascadeId>/<imageName>_*.<ext>`。8 个新单测 + classifier 改动消除日志噪音，102/102 F172 + agent-service 测试 GREEN。新增 KD-8（runtime log 是唯一真相源，三次诊断都跳过的元教训）+ KD-9（专属 step type 必须显式分类）|
 | 2026-04-23 | Phase A merged（PR #1353）：共享 publication contract + image-storage 原语 |
 | 2026-04-23 | Phase B-E merged（PR #1355）：Codex scanner + Antigravity publisher + skill 收口 + 富块联动。砚砚 review 放行 + 3 轮云端 review（2 P1 + 2 P2 全修） |
 
