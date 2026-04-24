@@ -8,7 +8,9 @@ created: 2026-04-22
 
 # F172: Generated Image Publication — 内建生图产物归档与富块发布
 
-> **Status**: done | **Owner**: 布偶猫/opus | **Priority**: P1
+> **Status**: in_progress (reopened — Phase F) | **Owner**: 布偶猫/opus | **Priority**: P1
+>
+> **Reopen reason (2026-04-23)**: Alpha 验收暴露 Phase C 设计盲区——`antigravity-image-publisher` 假设 Antigravity `generate_image` 的 `toolResult.output` 包含**绝对路径**字符串，但实际生图工具不会暴露 brain 目录的绝对路径，所以 `extractAbsoluteImagePaths` 在真实 cascade 上从未抓到任何图。单测全绿是因为测试 fixture 用了凭空构造的 `"Saved /tmp/a.png"` shape。Phase F 改用「brain 目录 scanner」复刻 `scanAndPublishCodexImages` 的成熟模式。
 
 ## Why
 
@@ -61,6 +63,18 @@ created: 2026-04-22
 - `cat-cafe-skills/image-generation`：不再把“下载到本地后手工 cp”当成终态
 - `cat-cafe-skills/rich-messaging` / `refs/rich-blocks.md`：从“手工搬运指南”升级为“共享发布内核的消费规则”
 - 对猫的最终使用体验是：不管走 Codex built-in、Antigravity，还是浏览器自动化生成，只要产物要进 thread，就统一晋升为 `/uploads/...` + `media_gallery`
+
+### Phase F: Antigravity brain 目录 scanner（reopen — 修 Phase C 设计 bug）
+
+复刻 `scanAndPublishCodexImages` 的成熟模式：
+
+- 输入：Antigravity cascade/conversation id + 当前 runtime uploadDir
+- 扫描：`<ANTIGRAVITY_BRAIN_HOME>/<conversationId>/*.{png,jpg,jpeg,gif,webp}`，默认 `~/.gemini/antigravity/brain/`
+- 过滤：mtime 在 cutoff（默认 1h）内 + 后缀命中 `EXT_TO_MIME`
+- 发布：调 `publishGeneratedImage({ provider: 'antigravity', publicationKey: \`antigravity-${cascadeId}-${filename}\` })`
+- 接线：在 `AntigravityAgentService` 的 `done` 之前调 scanner，yield `system_info` rich_block（与 Codex 对齐）
+
+`extractAbsoluteImagePaths` / `collectImagePathsFromSteps` 路径保留作为兜底（万一未来 Antigravity 在 toolResult 里真的暴露了绝对路径），但**不再是主路径**——主路径走 brain 目录扫描。
 
 ### Phase E: 富块联动 + 归档真相源
 
@@ -148,6 +162,13 @@ created: 2026-04-22
 - AC-E4: `persistenceContext.richBlocks` 传递给 connector outbound（F088）
 - AC-E5: 仅 `media_gallery` rich block，无重复 contentBlocks
 
+### Phase F（Antigravity brain scanner — reopen）
+- [ ] AC-F1: 实现 `scanAndPublishAntigravityImages({ cascadeId, uploadDir, brainHome })`，扫 `~/.gemini/antigravity/brain/<cascadeId>/` 下的图片并调 publication contract
+- [ ] AC-F2: `AntigravityAgentService` 在 `done` 之前调用 scanner，yield 与 Codex 对齐的 `system_info` rich_block
+- [ ] AC-F3: 单测必须验证「真实 brain 目录结构 + 真实 mtime」端到端管线，不只是凭空构造的 toolResult.output
+- [ ] AC-F4: Alpha smoke：让 antig-opus 真实 `generate_image` 一张图，铲屎官前端直接看到，刷新后还在
+- [ ] AC-F5: 旧 `extractAbsoluteImagePaths` 路径保留但降级为兜底，主路径切换到 brain scanner
+
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
@@ -160,6 +181,7 @@ created: 2026-04-22
 | R6 | 能自动把你产出的图片归档 + 用富文本呈现 | AC-E2, AC-E3 | test + manual | [x] |
 | R7 | 既有 rich block / connector 媒体链路继续复用 | AC-E4 | integration test | [x] |
 | R8 | provider 恢复 / replay 时不应重复堆积图片文件或重复发块 | AC-A5, AC-E5 | integration test | [x] |
+| R9 | Antigravity 真实生图必须能在 alpha 上直接呈现给铲屎官（修 Phase C 设计 bug） | AC-F1, AC-F2, AC-F3, AC-F4, AC-F5 | alpha smoke + integration test | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -197,6 +219,8 @@ created: 2026-04-22
 | KD-2 | 继续复用 `media_gallery`，不新增图片块类型 | 现有前端与 outbound 已围绕 `/uploads/...` + `media_gallery` 打通，新增类型只会制造第二套链路 | 2026-04-22 |
 | KD-3 | F172 覆盖 Codex built-in、Antigravity、repo-local skills 三个入口，但只统一“生成完成后的图片发布链路” | 铲屎官明确要求两只猫都能直接呈现；真正共享的不是各自的生图方式，而是 artifact publication contract | 2026-04-22 |
 | KD-4 | 发布后的图片默认只写 `media_gallery` rich block，不重复写 image `contentBlocks` | rich block 已足以覆盖前端展示、history replay 与 F088 outbound；重复写 contentBlocks 只会制造上下文与存储重复 | 2026-04-22 |
+| KD-5 | Phase F 改用「brain 目录 scanner」复刻 Codex scanner 模式，不再依赖 `toolResult.output` 字符串路径提取 | Alpha 验收发现 Antigravity `generate_image` 的 `toolResult.output` 不会暴露 brain 目录的绝对路径，原 spec OQ-2 的假设是凭空构造。Codex scanner 已经验证「post-invocation filesystem scan」是稳的，复用同一模式避免再造轮子 | 2026-04-23 |
+| KD-6 | 单测的 toolResult.output fixture 必须以**真实 cascade 抓回的样本**为准，不允许用想象 shape | Phase C 单测的 `"Saved /tmp/a.png"` 是凭空构造，导致 16 个测试全绿但实际 alpha 永远抓不到——典型的「测的是 spec 不是实现」反模式。后续 Antigravity-related 单测必须用真实 brain 目录 fixture | 2026-04-23 |
 
 ## Timeline
 
@@ -205,6 +229,10 @@ created: 2026-04-22
 | 2026-04-22 | Kickoff：铲屎官确认采用“基础设施自动归档到 `/uploads/...` + 自动富块展示”方向，并同意立项为独立 feature |
 | 2026-04-22 | Scope 扩展：确认 F172 同时覆盖 Codex built-in、Antigravity、以及 repo-local 图片相关 skills 的契约收口，但不吞并 F061/F088 主线 |
 | 2026-04-22 | 孟加拉猫只读反馈：补充 publication contract 幂等要求；收敛为 `media_gallery` 单一路径，不重复写 image contentBlocks |
+| 2026-04-23 | Phases B-E 实施完成 + 砚砚 review 2 轮 + 云端 review 3 轮 (2 P1 + 2 P2 全修)，PR #1353 + #1355 合入 main |
+| 2026-04-23 | 宪宪愿景守护 PASS（条件性）+ spec OQ-2 描述漂移修正（commit b81de096f）|
+| 2026-04-23 | **Alpha 验收暴露 Phase C 设计 bug**：antig-opus 真调 `generate_image` 生图 (`/Users/lysander/.gemini/antigravity/brain/<convId>/bengal_cat_portrait_xxx.png`)，但前端没有渲染。根因：`extractAbsoluteImagePaths` 假设 `toolResult.output` 含绝对路径字符串，实际 Antigravity 工具不暴露 brain 目录路径。Phase C 单测全绿但管线在真实 cascade 上从未生效 |
+| 2026-04-23 | Reopen F172 加 Phase F：复刻 Codex scanner 模式扫 brain 目录，宪宪自接（feature owner）|
 | 2026-04-23 | Phase A merged（PR #1353）：共享 publication contract + image-storage 原语 |
 | 2026-04-23 | Phase B-E merged（PR #1355）：Codex scanner + Antigravity publisher + skill 收口 + 富块联动。砚砚 review 放行 + 3 轮云端 review（2 P1 + 2 P2 全修） |
 
