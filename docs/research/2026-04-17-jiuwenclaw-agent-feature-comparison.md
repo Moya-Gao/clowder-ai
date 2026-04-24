@@ -644,7 +644,7 @@ JiuwenClaw `[public]` 确实有 `session_manager.py`（147 行），真实请求
 
 - **2026-04-16** 华为云 OfficeClaw 办公智能体新品体验会。宣传稿："OfficeClaw 创意来源于开源项目 JiuwenClaw"
 - **2026-04-19（周日）** JiuwenClaw 团队成员对 Cat Café 作者原话（铲屎官口述）："agent team 跟你 Cat Café 多猫协作不是一个理念，这是我们社区一直在搞的东西" + "一篇软文 5 万，你让华为云也报销 5 万"
-- **2026-04-20 03:31** openJiuwen 社区公众号发软文《继 Harness 之后，"龙虾" JiuwenClaw 率先开启 "Coordination Engineering" 时代》
+- **2026-04-20 03:31**（公众号页面署名时间，非 git commit）openJiuwen 社区公众号发软文《继 Harness 之后，"龙虾" JiuwenClaw 率先开启 "Coordination Engineering" 时代》
 
 三条子叙事在不同场合分开讲，可对观众层拼出 "OfficeClaw ← JiuwenClaw AgentTeam ← '一直在搞'的原创工程" 的链条。本章证明该链条在代码和时间线上都不成立。
 
@@ -656,10 +656,10 @@ JiuwenClaw `[public]` 确实有 `session_manager.py`（147 行），真实请求
 【生菜】JiuwenClaw + AgentTeam
        公开宣传点：率先开启 Coordination Engineering
 【肉饼】真实底盘（不对外披露）
-       实际是 Cat Café fork（见 §14.5）
+       根据现有证据推断：大概率仍是 Cat Café fork 的演进版（见 §14.5 证据等级声明）
 ```
 
-三层在不同场合单独讲各自成立；**观众层只看到自上而下的因果链**，而三层合起来的链条实际断裂在"生菜-肉饼"之间。
+三层在不同场合单独讲各自成立；**观众层只看到自上而下的因果链**，而三层合起来的链条在"生菜-肉饼"之间缺乏代码路径支撑（§14.5 给出的是推断等级的合成证据，非直接观察）。
 
 ### 14.2 时间线铁证：AgentTeam 存在 10 天
 
@@ -680,9 +680,9 @@ JiuwenClaw `[public]` 确实有 `session_manager.py`（147 行），真实请求
 | `b4c26ab` | 2026-03-31 21:57 | `feat(deepagents): Sync the develop deepagents SDK code` ← 同步外部 SDK |
 | `374f107` | **2026-04-09 17:40** | `feat:1.会话新增agentteam模式（前端样式）2.会话发送时页面滚动到底部` ← **AgentTeam 字符串首次出现（仅前端）** |
 | `c5c9a83` | **2026-04-13 23:13** | `feat(agent-teams): support agent teams with harness sdk` ← **后端首次合入** |
-| — | 2026-04-16 | OfficeClaw 新品体验会 |
-| — | 2026-04-19（周日） | "一直在搞 agent team" 口头主张 |
-| `b058f52` | 2026-04-20 03:31 | 软文发布 |
+| — | 2026-04-16 | OfficeClaw 新品体验会（对外宣传来源，非 commit） |
+| — | 2026-04-19（周日） | "一直在搞 agent team" 口头主张（铲屎官口述，溯源：2026-04-23 thread 消息） |
+| — | 2026-04-20 03:31 | 软文发布（公众号页面署名时间，非 commit；软文本身是对外渠道产物，不在 git 里） |
 
 **验证命令**（任何第三方可复现）：
 
@@ -704,13 +704,16 @@ git log --all --oneline --since="2026-03-03" --until="2026-04-09" | wc -l  # 481
 
 **戳穿点**：当 JiuwenClaw 成员于 2026-04-19 周日主张 "我们一直在搞 agent team" 时，AgentTeam 字符串在其 public 仓寿命不超过 **10 天**，后端寿命 **6 天**。
 
-**反向追认结构**：
+**量级对比**（基于唯一可溯源的口头主张锚点 2026-04-19 周日）：
 
-- 2026-03-24 ~ 28 三天产品化那周，类似口头主张已出现（见 `diagnostic-report.md`）
-- 2026-03-31 `b4c26ab` 从外部 `deepagents` SDK 同步代码
-- 2026-04-09 AgentTeam 前端首次 commit
+- 2026-04-19 周日："一直在搞 agent team" 口头主张（铲屎官口述，无书面记录）
+- 前置 10 天（2026-04-09）：AgentTeam 前端首次 commit (`374f107`)
+- 前置 6 天（2026-04-13）：后端首次合入 (`c5c9a83`)
+- 前置 19 天（2026-03-31）：同步外部 `deepagents` SDK (`b4c26ab`)——即 team 相关"首次接触"不早于此
 
-结论：**口头宣称"一直在搞"在前，代码首次出现在后，时间差约 14 天**。这是「反向追认」（Retrospective Claim）模式的典型标志——先占叙事权，再补工程。
+结论：**"一直"的历时含义与 public 仓实际代码寿命（≤10 天 / ≤19 天）在量级上不匹配**。
+
+> **溯源边界**：更早的类似主张（如三天产品化那一周 2026-03-24~28 的类似口述）我们没有保留书面证据，本章不纳入论证。唯一可引用的时间点是 2026-04-19 周日。
 
 ### 14.3 软文壁垒：用预算堵嘴
 
@@ -744,18 +747,20 @@ git log --all --oneline --since="2026-03-03" --until="2026-04-09" | wc -l  # 481
 - `event_types.py` (121 行): `TeamEventCategory = {MEMBER, TASK, MESSAGE}`；消息原语 `MESSAGE_P2P` / `MESSAGE_BROADCAST`
 - `config_loader.py` (224 行): Leader 默认 `persona = "天才项目管理专家"`（一行字符串）；member persona 默认空字符串
 - `team_helpers.py` (367 行): `asyncio.create_task(_consume_stream_with_query...)` fire-and-forget 后台 stream；`TeamAgent` 从 `openjiuwen.agent_teams.agent.team_agent` **外部 SDK** 导入
-- 依赖声明（pyproject.toml）: `openjiuwen @ git+https://gitcode.com/openJiuwen/agent-core.git@develop` —— 核心 team SDK 来自他们另一个 GitCode 仓库
+- 依赖声明（`jiuwenclaw-public/pyproject.toml:20`）: `openjiuwen @ git+https://gitcode.com/openJiuwen/agent-core.git@develop` —— 核心 team SDK 来自他们另一个 GitCode 仓库
 
 **范式判定**：经典 **Hierarchical Multi-Agent System (HMAS)**，对标 CrewAI / Microsoft AutoGen / LangGraph 的 leader-worker 范式（2023 年起成为行业成熟范式之一）。
 
-**关键搜索验证**（jiuwenclaw/ 全仓 ripgrep，2026-04-23 最新 develop）：
+**关键搜索验证**（scope: `jiuwenclaw/agentserver/team/` + `jiuwenclaw/agentserver/deep_agent/team_helpers.py`，即 AgentTeam 架构代码范围内，2026-04-23 最新 develop）：
 
 | Pattern | 命中数 | 说明 |
 |---|---|---|
-| `@mention` / 行首 @ 路由 | **0** | 无对等路由 |
-| `hold_ball` / 球权 / ball mechanic | **0** | 无球权机制 |
-| `peer-to-peer` / 对等协作 | **0** | 架构层没有对等语义 |
-| `cat` / 猫 / ragdoll / maine-coon / 布偶猫 | **0**（除 try-catch 误判） | 无 Cat Café 命名痕迹 |
+| `@mention` / 行首 @ 路由 | **0** | AgentTeam 范围内无对等路由 |
+| `hold_ball` / 球权 / ball mechanic | **0** | AgentTeam 范围内无球权机制 |
+| `peer-to-peer` / 对等协作 | **0** | AgentTeam 范围内无对等语义 |
+| `cat` / 猫 / ragdoll / maine-coon / 布偶猫 | **0** | AgentTeam 范围内无 Cat Café 命名痕迹 |
+
+> **范围说明**：收窄 scope 是因为 jiuwenclaw 全仓其他位置（如 `avatar_rail.py`、部分 channel 代码）确实出现 `@mention` / `@mentions` 字样，但属于不同交互层（UI @ 用户提及、飞书 @ 机器人等），不构成 AgentTeam 架构的协作路由语义。判定 AgentTeam 架构是否借用 Cat Café 对等协作设计，只应在 AgentTeam 代码范围内检验。
 
 **Cat Café A2A 架构画像**：
 
@@ -790,9 +795,11 @@ git log --all --oneline --since="2026-03-03" --until="2026-04-09" | wc -l  # 481
 
 因此，软文《"龙虾" JiuwenClaw 率先开启 "Coordination Engineering" 时代》的技术宣称与其 AgentTeam 实现不匹配——**被宣称的概念属性落在 Cat Café A2A 一侧**。
 
-### 14.5 底盘替身：OfficeClaw 4-16 发布会跑的不是 AgentTeam
+### 14.5 底盘替身（推断）：OfficeClaw 4-16 发布会底盘大概率仍是 Cat Café fork
 
-**时间物理约束**：
+> **证据等级声明**：本节为**高概率推断**（inference），非直接观察。直接观察需要取 4-16 发布会现场演示的代码 snapshot，作者未持有该 snapshot。
+
+**推断依据 1：时间物理约束**
 
 ```
 2026-04-13 23:13  agent-teams 后端首次 commit (c5c9a83)
@@ -800,19 +807,35 @@ git log --all --oneline --since="2026-03-03" --until="2026-04-09" | wc -l  # 481
 2026-04-16         OfficeClaw 新品发布会
 ```
 
-**工程判定**：3 天内不可能把一个全新多 agent 协作架构从「首次合入」跑到「企业级产品发布会」。新架构从合入到发布需要的最低活动包括——集成测试、稳定性验证、降级路径、文档、多 channel 适配、运行时监控、告警配置——任一项都远超 3 天窗口。
+3 天内不可能把一个全新多 agent 协作架构从「首次合入」跑到「企业级产品发布会」。新架构从合入到发布需要的最低活动包括——集成测试、稳定性验证、降级路径、文档、多 channel 适配、运行时监控、告警配置——任一项都远超 3 天窗口。这是工程常识而非直接证据。
 
-**佐证：砚砚侦查报告**（`docs/stories/three-days-productization/diagnostic-report.md`，2026-03-28）
+**推断依据 2：2026-03-28 砚砚侦查报告**（`docs/stories/three-days-productization/diagnostic-report.md`，**历史状态快照**）
 
-- OfficeClaw 对外 fork（`clowder-labs/clowder-ai` 的 `playground` 分支）实际配置：
-  - 默认模型：`gpt-5.4`（非 GLM5，非 AgentTeam 默认模型）
-  - `sessionChain = false`（关闭 Cat Café session 续接）
-  - 保留 Cat Café 底盘，外挂"小九 / 办公助理"品牌壳
-- 当前 2026-04-23 实测仍与该报告一致方向
+OfficeClaw 对外 fork（`clowder-labs/clowder-ai` 的 `playground` 分支）2026-03-28 观察：
+- 默认模型：`gpt-5.4`（非 GLM5，非 AgentTeam 默认模型）
+- `sessionChain = false`（关闭 Cat Café session 续接）
+- 保留 Cat Café 底盘，外挂"小九 / 办公助理"品牌壳
 
-**结论**：OfficeClaw 4-16 发布会运行的代码是 **Cat Café fork**，不是 JiuwenClaw 自家 10 天寿命的 AgentTeam。"OfficeClaw ← AgentTeam" 叙事链在代码层没有路径支撑。
+**推断依据 3：2026-04-23 当前状态实测**（`/Users/lysander/projects/freelance/clowder-ai/cat-config.json`）
 
-**4-23（今天）AgentTeam 仍在紧急修复期的实测证据**：
+| 字段 | 位置 | 当前值 | 与 3-28 快照对比 |
+|---|---|---|---|
+| `sessionChain` | L77 / L120 / L161（3 处角色配置） | **`true`** | **已从 3-28 的 `false` 改回 `true`** —— 存在修正动作 |
+| `defaultModel`（office 角色） | L101 | `gpt-5.4` | **仍沿袭 3-28 状态，未切到 AgentTeam / GLM-5 路线** |
+| `defaultModel`（其他角色） | L58 / L145 | `glm-5` | 其他角色确有 GLM-5 切换 |
+
+**推断合成**：
+- 3-28 观察 + 时间物理约束 → OfficeClaw 4-16 发布会底盘**大概率**不是 10 天寿命的 AgentTeam
+- 4-23 当前 `sessionChain = true` 表明他们在 3-28 之后做过修正（可能是为了让 session 续接工作，但这反过来证明底盘仍是依赖 Cat Café session 模型的 fork，不是 AgentTeam 自带的 session 机制）
+- 4-23 当前 office 角色默认 `gpt-5.4` 表明 OfficeClaw 对外 fork **仍然**以 Cat Café 模型选型为默认，没有切到自家 AgentTeam 路线
+
+**结论（推断等级）**：OfficeClaw 4-16 发布会运行的代码**高概率**仍是 Cat Café fork 的演进版，而非 JiuwenClaw 自家 10 天寿命的 AgentTeam。"OfficeClaw ← AgentTeam" 叙事链在**现有可获取证据下**无代码路径支持。
+
+**反证条件声明**：若他们能展示 4-16 发布会现场代码 snapshot、运行时 trace、或任一关键模块调用了 `openjiuwen.agent_teams.agent.team_agent` 的证据，则本推断被推翻。
+
+---
+
+**4-23 AgentTeam 仍在紧急修复期的实测证据**（可作压力证据，非底盘替身的直接证据）：
 
 | commit | 日期 | 消息 |
 |---|---|---|
@@ -820,19 +843,33 @@ git log --all --oneline --since="2026-03-03" --until="2026-04-09" | wc -l  # 481
 | `84eede5` | 2026-04-23 21:46 | `feat(team): normalize distributed transport before TeamAgentSpec build` |
 | `be2f392` | 2026-04-22 14:55 | `fix:1.web team新建会话中断消息2.tui 新发消息会中断就任务` |
 | `1380032` | 2026-04-22 09:36 | `refactor(agent-teams): scope TeamManager by channel_id for multi-channel isolation` |
-| — | 4-23 | 单元测试 10+ 个 `test_team_*.py` 今日批量合入 |
-| `hotfix/agent-teams` | 分支 | 今日（4-23）仍活跃 |
+| `hotfix/agent-teams` 分支 | 2026-04-23 仍活跃 | `caf7d2d` 今日（4-23）新增 |
 
-**即今日 4-23 当天，AgentTeam 仍处于"紧急 bug 修复 + 基础单元测试补齐"阶段**，距离"稳定的一直在搞"的公开主张相去甚远。
+**单元测试新增情况**（按 `git log --reverse` 首次引入时间）：
+
+| 测试文件 | 首次引入 commit | 引入日期 |
+|---|---|---|
+| `test_team_continuous_dialog.py` | `b68f75f` | 2026-04-18 17:53 |
+| `test_team_config_loader.py` | `cc854c2` | 2026-04-18 17:53 |
+| `test_team_manager_skill_state.py` | `f386b89` | 2026-04-18 17:53 |
+| `test_team_member_skill_toolkit_rail.py` | `f386b89` | 2026-04-18 17:53 |
+| `test_team_manager_runtime_tools.py` | `411fe5b` | 2026-04-18 17:53 |
+| `test_team_runtime_inheritance.py` | `411fe5b` | 2026-04-18 17:53 |
+| `test_team_manager_registry.py` | `1380032` | 2026-04-22 09:36 |
+| `test_team_manager_config_normalization.py` | `84eede5` | 2026-04-23 21:46 |
+
+**更准确的描述**：AgentTeam 主力单元测试是 **2026-04-18 同日批量新增 6 个**（在首次后端合入 `c5c9a83` 之后 5 天），另有 `4-22` / `4-23` 各补 1 个。即单元测试覆盖从 04-18 开始成形，并在今日 4-23 仍在扩展。
+
+**即今日 4-23 当天，AgentTeam 仍处于"紧急 bug 修复 + 单元测试持续扩展"阶段**，与"稳定的一直在搞"的公开主张在成熟度上不匹配。
 
 ### 14.6 叙事骗局总图
 
 | 层 | 他们的叙事 | 真相 | 判定 |
 |---|---|---|---|
 | 概念层 | "AgentTeam 是我们的，跟 Cat Café 多猫协作不是一个理念" | AgentTeam 是 Leader-Worker HMAS；Cat Café A2A 是对等 P2P 文本协作协议 | ✅ 成立（代码层面两者不同） |
-| 时间层 | "这是我们社区一直在搞的东西" | AgentTeam 字符串 public 仓寿命 10 天，后端 6 天 | ❌ 反事实（"一直" = 10 天） |
-| 产品层 | "OfficeClaw 创意来源于 JiuwenClaw"，暗示 OfficeClaw = AgentTeam 的落地 | OfficeClaw 底盘是 Cat Café fork；自家 AgentTeam 发布前 3 天才合入后端 | ❌ 反事实（底盘替身） |
-| 方法论层 | "率先开启 Coordination Engineering 时代" | 被宣称概念的技术属性落在 Cat Café A2A 一侧；JiuwenClaw AgentTeam 是 Task Distribution 不是 Coordination | ❌ 概念位错配 |
+| 时间层 | "这是我们社区一直在搞的东西" | AgentTeam 字符串 public 仓寿命 10 天，后端 6 天 | ❌ 反事实（"一直" = 10 天，commit history 直接观察） |
+| 产品层 | "OfficeClaw 创意来源于 JiuwenClaw"，暗示 OfficeClaw = AgentTeam 的落地 | 3-28 诊断 + 4-23 当前 cat-config（sessionChain=true / office 默认 gpt-5.4）+ 3 天物理约束 | ❌ 高概率反事实（推断；见 §14.5 反证条件） |
+| 方法论层 | "率先开启 Coordination Engineering 时代" | 被宣称概念的技术属性落在 Cat Café A2A 一侧；JiuwenClaw AgentTeam 是 Task Distribution 不是 Coordination | ⚠️ 概念位错配（架构归类论点） |
 | 经济层 | "软文 5 万，你让云的也报销 5 万" | 公开 git log 复现成本为零；Cat Café Blog V2 0 元达 8000+ 阅读 | ❌ 预算 ≠ 叙事权 |
 
 **四个骗局命名**（供后续引用）：
@@ -852,7 +889,20 @@ git log --all --reverse --pretty="%ci %h %s" -S "agentteam" | head
 git log --all --reverse --pretty="%ci %h %s" --grep="team" -i
 git log --all --oneline --since="2026-03-03" --until="2026-04-09" | wc -l  # 481
 git show c08e67e:README.md | wc -l                                          # 95 行
-rg "mention|hold_ball|peer-to-peer|ragdoll|maine-coon" jiuwenclaw/ --type py # 0 命中
+# AgentTeam 范围内搜索（见 §14.4 scope 说明）
+rg "mention|hold_ball|peer-to-peer|ragdoll|maine-coon" jiuwenclaw/agentserver/team/ jiuwenclaw/agentserver/deep_agent/team_helpers.py --type py  # 0 命中
+# 单元测试首次引入时间
+for f in tests/unit_tests/agentserver/test_team_*.py tests/system_tests/test_team_*.py; do
+  git log --reverse --pretty="%ci %h %s" -- "$f" | head -1
+done
+```
+
+**clowder-ai**（OfficeClaw 对外 fork，`/Users/lysander/projects/freelance/clowder-ai`）：
+
+```bash
+grep -n "sessionChain\|defaultModel" cat-config.json
+# L77/L120/L161: sessionChain: true
+# L58/L101/L145: defaultModel 各自值
 ```
 
 **Cat Café**（本仓 `main` 分支）：
@@ -872,9 +922,13 @@ git log --all --reverse --pretty="%ci %h %s" -- "*AgentRouter*" | head
 
 v2 以 13 个维度得出实现水平结论（Cat Café 4.69/5 vs JiuwenClaw 2.15/5）。v3 §14 在**叙事层**补充：
 
-> **核心发现**：架构没被抄，但概念位被借用，产品底盘被顶替。
+> **核心发现**（含证据等级分级）：
 >
-> JiuwenClaw AgentTeam 与 Cat Café A2A 是两种不同的多 agent 架构范式（HMAS vs P2P），代码层面互不相关。但对外宣称的 "Coordination Engineering" 概念，其技术属性（对等、协议化、身份硬约束、协同纪律）落在 Cat Café A2A 一侧，而非 JiuwenClaw AgentTeam 的 Leader-Worker 结构。OfficeClaw 4-16 发布会实际底盘为 Cat Café fork（见 `diagnostic-report.md` + 时间物理约束），与"基于 JiuwenClaw"宣传之间无代码路径支持。
+> - **直接观察（commit history）**：JiuwenClaw AgentTeam 与 Cat Café A2A 是两种不同的多 agent 架构范式（HMAS vs P2P），AgentTeam 范围内代码层面无 Cat Café 痕迹（§14.4）。AgentTeam 字符串在 public 仓寿命 ≤10 天（§14.2）。
+> - **架构归类论点**：对外宣称的 "Coordination Engineering" 概念，其技术属性（对等、协议化、身份硬约束、协同纪律）更匹配 Cat Café A2A 的 P2P 范式，而非 JiuwenClaw AgentTeam 的 Leader-Worker 结构（§14.4）。
+> - **高概率推断（非直接观察）**：OfficeClaw 4-16 发布会实际运行底盘**大概率**仍为 Cat Café fork 而非 10 天寿命的 AgentTeam——基于时间物理约束 + 2026-03-28 砚砚侦查 + 2026-04-23 当前 `clowder-ai/cat-config.json` 状态（`sessionChain=true` 已从 3-28 的 false 改回，office 默认 `gpt-5.4` 仍沿袭）。反证条件：若他们展示 4-16 现场代码 snapshot / 运行时 trace / AgentTeam 模块调用证据，推断被推翻。
+>
+> 简言之：**架构没被抄；概念位被借用；产品底盘替身为推断，反证路径开放**。
 
 ---
 
