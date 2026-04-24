@@ -331,10 +331,7 @@ export class AntigravityAgentService implements AgentService {
               for (const p of collectImagePathsFromSteps(batch.steps)) collectedImagePaths.add(p);
               // F172 Phase G: capture DONE GENERATE_IMAGE steps for the post-invocation brain scan
               for (const step of batch.steps) {
-                if (
-                  step.type === 'CORTEX_STEP_TYPE_GENERATE_IMAGE' &&
-                  step.status === 'CORTEX_STEP_STATUS_DONE'
-                ) {
+                if (step.type === 'CORTEX_STEP_TYPE_GENERATE_IMAGE' && step.status === 'CORTEX_STEP_STATUS_DONE') {
                   collectedGenerateImageSteps.push(step);
                 }
               }

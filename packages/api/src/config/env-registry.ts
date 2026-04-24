@@ -622,6 +622,13 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'ANTIGRAVITY_BRAIN_HOME',
+    defaultValue: '~/.gemini/antigravity/brain',
+    description: 'Antigravity built-in generate_image brain dir (F172 Phase G scanner)',
+    category: 'cli',
+    sensitive: false,
+  },
+  {
     name: 'CAT_CAFE_API_URL',
     defaultValue: 'http://localhost:3002',
     description: 'API 服务地址（由 API 进程注入 MCP Server 子进程 env）',
