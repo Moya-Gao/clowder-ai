@@ -123,28 +123,38 @@ created: 2026-03-26
 >
 > **愿景闭环**：Phase A 起的目标是"review feedback 全来源感知"，但 severity 感知能力只落在了遗留 email 通道。合流的前置是把 severity 能力搬到 polling 通道，再下线 email。
 
-**E.1 Severity parser 前移（前置 — 不能反序）**
+**E.1 Severity parser + setup-noise filter（前置 — 不能反序）**
 
-- 在 `buildReviewFeedbackContent()` 里加 severity parser：扫 `newComments`（inline + conversation）+ `newDecisions`（review body）每条 body，抽出最高 severity → 消息头追加 `**Review 检测到 P0/P1/P2**`
-- 复用 polling 已 fetch 的数据，不引入额外 API call
-- 支持三种 severity 格式：
-  - Codex bot shields.io badge：`![P1 Badge](https://img.shields.io/badge/P1-...)`
-  - 方括号前缀：`[P1]` `[P2]` `[P0]`（行首或独立 token）
-  - 冒号前缀：`P1:` `**P1**:`（行首）
-- 护栏：只识别特定格式，防止普通消息里出现"P1"被误判（FP 风险见 OQ-4）
+- **Severity 抽取**：在 `buildReviewFeedbackContent()` 里加严格 parser，扫 `newComments`（inline + conversation）+ `newDecisions`（review body）每条 body，抽出最高 severity（P0 > P1 > P2，**不识别 P3** — informational）→ 消息头追加 `**Review 检测到 P0/P1/P2**`。复用 polling 已 fetch 的数据，不引入额外 API call
+- **三种严格格式**（任一匹配才算）：
+  - shields.io badge：`img.shields.io/badge/P[0-2]-`
+  - 行首方括号：`^\[P[0-2]\]`（或独立 token 边界）
+  - 行首冒号：`^(\*\*)?P[0-2](\*\*)?:`
+- **护栏**（FP 防御）：
+  - 排除 fenced code block（` ``` ` 内）
+  - 排除 blockquote（`> ` 开头的行，通常是引用旧 finding）
+  - 拒绝句内裸词（`I think this is P1` / `P100` / `MP3` 不触发）
+- **Setup-noise filter**（搬自 email）：`GithubReviewMailParser.inferReviewActionFromEmailSource()` 里的 `ignorable` 判定逻辑抽成通用谓词（`isSetupNoiseComment`），polling 侧在 `fetchComments` 后 / router 投递前应用，吞掉：
+  - `To use Codex here, create an environment...`
+  - `@codex review` 触发命令本身（空 body 或只含触发指令）
+  - `规则：任何 P1/P2 必须给可执行复现` / `rules: any p1/p2 must include` 的触发模板
 
-**E.2 下线 email bootstrap（合流切换）**
+**E.2 下线 email bootstrap + 删除 Rule B 语义（合流切换）**
 
-- `startGithubReviewWatcher()` 在 bootstrap 层停用（feature flag `GITHUB_REVIEW_EMAIL_WATCHER=off` 默认，或直接移除 bootstrap 调用）
-- `.env.example` + deployment doc 撤 `GITHUB_REVIEW_IMAP_USER/PASS/HOST/PORT/PROXY/POLL_INTERVAL_MS` 字段
-- 观察一周：alpha 环境注册若干 PR 看通知完整度与 severity 头正确性
+- **删除 Rule B（authoritative-source 语义）**：`createGitHubFeedbackFilter()` 不再读 `authoritativeReviewLogins` 去 skip bot review/inline comment——cutover 后 polling 是唯一真相源，skip 掉 bot feedback = 数据丢失。只保留 Rule A（self-authored skip）
+- **配置清理**：`GITHUB_AUTHORITATIVE_REVIEW_LOGINS` 环境变量删除（或改名 + 语义改为"窄 setup-noise 识别 allowlist"），env-registry 文案同步更新（原"email channel is authoritative source"描述失效）
+- **bootstrap 停用**：`startGithubReviewWatcher()` 从 `src/index.ts` 移除调用，`.env.example` + deployment doc 撤 `GITHUB_REVIEW_IMAP_USER/PASS/HOST/PORT/PROXY/POLL_INTERVAL_MS` 字段
+- **证据门槛**：alpha 环境验证至少 3 个场景后才进 E.3：
+  - Scene 1：bot review 含 P2 inline comment（应在消息头显示 P2）
+  - Scene 2：bot review pass / no severity（应不加 header）
+  - Scene 3：人类 reviewer CHANGES_REQUESTED / COMMENTED（应正常渲染，不被 Rule B 吞）
 
 **E.3 代码清理（独立 PR）**
 
-- 删除文件：`GithubReviewWatcher.ts` / `github-review-bootstrap.ts` / `ReviewRouter.ts` / `ReviewContentFetcher.ts` / `GithubReviewMailParser.ts` / `ProcessedEmailStore.ts` / `github-feedback-filter.ts` 中只被 email 路径使用的部分 + 相关 tests
-- 从 `infrastructure/email/index.ts` 移除导出
-- `src/index.ts` 移除 watcher 启动逻辑
-- Rule B 的"权威 bot 过滤"迁移到 polling 侧（原先只在 email 通道跑）
+- 删除文件：`GithubReviewWatcher.ts` / `github-review-bootstrap.ts` / `ReviewRouter.ts` / `ReviewContentFetcher.ts` / `GithubReviewMailParser.ts` / `ProcessedEmailStore.ts` + 相关 tests（`review-router.test.js` / `review-content-fetcher.test.js` 等）
+- `github-feedback-filter.ts`：精简为只有 Rule A（self-authored skip），删除 `authoritativeReviewLogins` option
+- 从 `infrastructure/email/index.ts` 移除对应导出
+- `src/index.ts` 移除 watcher 启动逻辑和 Rule B 配置传递
 
 ## Acceptance Criteria
 
@@ -181,14 +191,16 @@ created: 2026-03-26
 - [x] AC-D4: 测试覆盖：合法 repo 通过、不存在 repo 拒绝、格式错误 repo 拒绝
 
 ### Phase E（通知合流 — severity 抽取 + 下线 email 路径）🔴 in-progress
-- [ ] AC-E1: `buildReviewFeedbackContent()` 扫 `newComments` + `newDecisions` 所有 body，抽出最高 severity 生成 `**Review 检测到 P0/P1/P2**` 消息头
-- [ ] AC-E2: severity 识别支持三种格式：shields.io badge / 方括号前缀 `[P1]` / 冒号前缀 `P1:`；行首或独立 token 锚定，拒绝裸 "P1" 避免误判
-- [ ] AC-E3: 多条 findings 取最高 severity（P0 > P1 > P2）；无匹配则不加 header（保持现状）
-- [ ] AC-E4: 单元测试覆盖：各 severity 格式 × 各 commentType（inline / conversation / review body）+ 多条 findings 取最高 + 无 severity 不加 header + FP 负例（普通句子含 "P1" 不触发）
-- [ ] AC-E5: bootstrap 停用 `startGithubReviewWatcher()`（feature flag 默认 off 或直接移除调用），`.env.example` 撤 `GITHUB_REVIEW_IMAP_*` 字段
-- [ ] AC-E6: Rule B（权威 bot 过滤）从 email 通道迁移到 polling 侧，继续生效
-- [ ] AC-E7: Alpha 环境验收：注册含 P2 的 bot review 的 PR → 消息头正确显示 P2 + 无双通道重复通知
-- [ ] AC-E8: 代码清理（独立清理 PR）：删除 `GithubReviewWatcher` / `ReviewRouter` / `ReviewContentFetcher` / `GithubReviewMailParser` / `ProcessedEmailStore` / email-only 的 `github-feedback-filter` 部分 + 相关 tests
+- [ ] AC-E1: `buildReviewFeedbackContent()` 扫 `newComments` + `newDecisions` 所有 body，抽出最高 severity 生成 `**Review 检测到 P0/P1/P2**` 消息头（**P3 不识别** — informational）
+- [ ] AC-E2: severity 识别支持三种严格格式：shields.io `img.shields.io/badge/P[0-2]-` / 行首 `[P0-2]` / 行首 `P0-2:` `**P0-2**:`
+- [ ] AC-E3: FP 护栏：排除 fenced code block 内、排除 blockquote（`> ` 行）、拒绝句内裸词（`I think this is P1` / `P100` / `MP3` 都不触发）
+- [ ] AC-E4: 多条 findings 取最高 severity（P0 > P1 > P2）；无匹配则不加 header（保持现状）
+- [ ] AC-E5: 单元测试覆盖：各 severity 格式 × 各 commentType（inline / conversation / review body）+ 多条 findings 取最高 + 无 severity 不加 header + FP 负例集（至少 5 条：句内裸词 / `P100` / `MP3` / 代码块内 / blockquote 引用）
+- [ ] AC-E6: Setup-noise filter 从 `GithubReviewMailParser.inferReviewActionFromEmailSource()` 抽取通用 `isSetupNoiseComment()` 谓词，polling 侧在 `fetchComments` 后应用（吞 `To use Codex here...` / 空触发 `@codex review` / 触发模板回声）
+- [ ] AC-E7: **删除** Rule B（authoritative-source 语义）：`createGitHubFeedbackFilter()` 不再 skip bot review/inline comment，只保留 Rule A（self-authored）；`GITHUB_AUTHORITATIVE_REVIEW_LOGINS` env + 文案清理（env-registry.ts）
+- [ ] AC-E8: bootstrap 移除 `startGithubReviewWatcher()` 调用，`.env.example` 撤 `GITHUB_REVIEW_IMAP_*` 字段
+- [ ] AC-E9: Alpha 环境 3 场景证据门槛：(a) bot review 含 P2 → 消息头 P2；(b) bot pass no severity → 无 header；(c) 人类 CHANGES_REQUESTED → 正常渲染不被 Rule B 误吞
+- [ ] AC-E10: 代码清理（独立 PR，3 场景全绿后执行）：删除 `GithubReviewWatcher` / `ReviewRouter` / `ReviewContentFetcher` / `GithubReviewMailParser` / `ProcessedEmailStore` + 相关 tests；精简 `github-feedback-filter.ts` 为 Rule A only
 
 ## Dependencies
 
@@ -216,8 +228,8 @@ created: 2026-03-26
 | ~~OQ-1~~ | ~~冲突通知 priority~~ | ✅ 已定：`urgent`。冲突和 CI failure 同级，都是 merge blocker（Design Gate 共识） |
 | ~~OQ-2~~ | ~~Review comments 类型区分~~ | ✅ 已定：聚合通知分三区（Review Decisions / Inline Comments / PR Conversation），不逐条发（Design Gate 共识） |
 | ~~OQ-3~~ | ~~Phase B 自动 rebase 的触发条件是否需要铲屎官确认？~~ | ✅ 已定：选项 C「全自动 + 事后通知」。猫收到冲突通知 → 直接 rebase → 成功 push 后通知铲屎官。worktree 隔离低风险，失败不影响 main（铲屎官 2026-03-26 确认） |
-| OQ-4 | Phase E severity parser FP 风险：普通消息里的 "P1" / "P2" 是否被误识别？ | 倾向：只识别行首/独立 token + 特定结构（badge / `[Px]` / `Px:`），不识别句内裸词。Design Gate 需确认具体 regex + 负例集 |
-| OQ-5 | Phase E.3 代码清理时机：和 E.2 同一 PR 还是独立 PR？ | 倾向：独立 PR。E.2 切换（feature flag off），观察一周无回归再做 E.3 删除，防止出问题回滚成本高 |
+| ~~OQ-4~~ | ~~Phase E severity parser FP 风险~~ | ✅ 已定（KD-16 / 砚砚 Design Gate 2026-04-24）：三种严格格式（badge / 行首 `[P0-2]` / 行首 `P0-2:`）+ 排除 fenced code / blockquote + 至少 5 条负例（句内裸词 / `P100` / `MP3` / 代码块 / blockquote）。**不识别 P3** |
+| ~~OQ-5~~ | ~~Phase E.3 清理时机~~ | ✅ 已定（KD-17 / 砚砚 Design Gate 2026-04-24）：独立 PR，以"alpha 3 场景证据门槛"触发（bot-P2 / bot-pass / 人类-CHANGES_REQUESTED），不用固定时间窗口 |
 
 ## Key Decisions
 
@@ -236,7 +248,10 @@ created: 2026-03-26
 | KD-11 | ReviewFeedbackTaskSpec 新建替换 ReviewCommentsTaskSpec | 最便宜的改名窗口，继续保留旧名字会造成语义债 | 2026-03-26 |
 | KD-12 | patchConflictState() 独立新增，不复用 patchCiState() | CI/conflict 状态语义不同，硬塞一起变成"大杂烩 patch" | 2026-03-26 |
 | KD-13 | 自动 rebase 采用「全自动 + 事后通知」（OQ-3 选项 C） | worktree 隔离低风险；半自动每次需人工确认违背自动化愿景；全自动无通知铲屎官不知情。选项 C 兼顾速度和可见性 | 2026-03-26 |
-| KD-14 | 下线 email 通道（ReviewRouter + GithubReviewWatcher），统一走 polling（ReviewFeedbackTaskSpec）；前置：severity parser 搬到 polling 侧（E.1 → E.2 → E.3） | Polling 的事件面严格覆盖 email（conversation + inline + review decisions）；两套并行导致对同一 review 产生冲突叙事（🚀 vs P2 header）；F140 Phase A 原愿景"review feedback 全来源感知"就是 polling 通道做全集，email 是历史遗留。铲屎官 2026-04-24 拍板 | 2026-04-24 |
+| KD-14 | 下线 email 通道（ReviewRouter + GithubReviewWatcher），统一走 polling（ReviewFeedbackTaskSpec）；前置：severity parser + setup-noise filter 搬到 polling 侧（E.1 → E.2 → E.3） | Polling 的事件面严格覆盖 email（conversation + inline + review decisions）；两套并行导致对同一 review 产生冲突叙事（🚀 vs P2 header）；F140 Phase A 原愿景"review feedback 全来源感知"就是 polling 通道做全集，email 是历史遗留。铲屎官 2026-04-24 拍板 | 2026-04-24 |
+| KD-15 | Phase E cutover 时**删除** Rule B（authoritative-source 语义），不是迁移 | 砚砚 GPT-5.4 Design Gate P1 push back（2026-04-24）：Rule B 本来就在 polling 侧（`shouldSkipComment/shouldSkipReview`），email watcher 只用 `isSelfAuthored`（Rule A）。Cutover 后 polling 是唯一真相源，继续 skip "authoritative bot feedback" = bot review/inline comment 直接消失。只保留 Rule A（self-authored skip） | 2026-04-24 |
+| KD-16 | Severity parser 严格格式 + FP 护栏 | 砚砚指出现有 `\bP([0-3])\b` 会吃 `MP3`/`P100`/句内裸词且识别 P3（informational 不应进消息头）。采用三种严格格式（badge / 行首方括号 / 行首冒号）+ 排除代码块和 blockquote + 至少 5 条负例测试 | 2026-04-24 |
+| KD-17 | E.3 代码清理以"3 场景证据门槛"触发，不以时间窗口 | 砚砚 P2：alpha 过 bot-P2 / bot-pass / 人类-CHANGES 三场景后才清，比"观察一周"更可执行。避免时间窗口既保守又不精确 | 2026-04-24 |
 
 ## Timeline
 
@@ -264,6 +279,7 @@ created: 2026-03-26
 | 2026-03-27 | **Feature closed** — 愿景守护（砚砚 GPT-5.4）放行。4 Phase 全部完成 |
 | 2026-04-24 | 🔴 铲屎官发现 PR #1376 通知"bug"：Review Feedback（🚀）和 Review 检测到 P2 两条消息叙事冲突。诊断：双通道（email + polling）对同一 review 并行投递，severity 抽取只在 email 通道。**Feature reopened** for Phase E（通知合流） |
 | 2026-04-24 | Phase E kickoff — KD-14 记录，OQ-4/5 立项。拆 E.1（severity 前移）→ E.2（下线 email）→ E.3（代码清理） |
+| 2026-04-24 | Phase E Design Gate 通过（砚砚 GPT-5.4）with 3 条修正：KD-15（Rule B 删除，非迁移 — 我原 spec 把 filter 位置搞反）+ KD-16（severity 严格格式 + FP 护栏 + 负例集）+ KD-17（3 场景证据门槛替代时间窗口）。OQ-4/5 关闭 |
 
 ## Design Gate 讨论归档
 
