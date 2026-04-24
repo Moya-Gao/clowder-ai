@@ -139,7 +139,7 @@ DraftStore 生命周期当前依赖 "invocation 成功 done" 或 "用户主动 c
 |------|------|-----|--------|
 | stream broadcast + 持久化 OUTER/INNER split | QueueProcessor:761 overrides msg.invocationId with parent, but route-serial persists with own (INNER) invocationId | PR #1364 (`da928015e`)：三路统一 OUTER `parentInvocationId ?? ownInvocationId` | ✅ 已 merged |
 | callback broadcast + 持久化 OUTER/INNER split | 同上，callback 路径漏了 | PR #1364 同一 commit | ✅ 已 merged |
-| **DraftStore 孤儿 draft** | **messages.ts draft merge 不验证 invocation 活着** | **本报告修法** | 🔜 待 hotfix |
+| **DraftStore 孤儿 draft** | **messages.ts draft merge 不验证 invocation 活着** | **Phase A hotfix3：GET `/api/messages` draft merge 过滤 missing / terminal / cross-scope invocation drafts，并懒删除 orphan draft；invocation lookup 失败时 fail open 保留 draft** | ✅ implemented, review pending |
 
 三条路径都是"后端没把 invocation identity 传到位 / 生命周期没闭合 → 前端看到两个 bubble"的系统性病。Phase C 的 "hydration 简化 + liveness 对齐" 会从结构上收口，本 hotfix 是过渡期的补丁。
 
@@ -149,7 +149,8 @@ DraftStore 生命周期当前依赖 "invocation 成功 done" 或 "用户主动 c
 - 2026-04-24 ~11:24 之前某时 — invocation `cc6df99a` 异常终止，留下 orphan draft
 - 2026-04-24 11:30 — 用户看到两个气泡，上报
 - 2026-04-24 11:46 — opus-47 runtime log + API 查询定位根因（本文）
-- TBD — 开 worktree 实施 hotfix
+- 2026-04-24 19:28 — `fix/f173-draft-hotfix3` 实施 hotfix：保留 running draft，过滤并删除 missing / non-running invocation draft；新增 running/missing/failed/succeeded/canceled 五条回归测试
+- 2026-04-24 20:29 — cloud Codex P1 修复：invocation record lookup transient failure 不再打崩 `/api/messages`；lookup 失败时保留 draft 可见并跳过 orphan cleanup；新增 lookup-failure 回归测试
 
 ## 9. 关联
 

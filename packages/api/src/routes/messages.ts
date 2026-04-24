@@ -1263,7 +1263,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
     // #80: Merge active streaming drafts (first page only — no before cursor)
     if (!before && opts.draftStore) {
-      const drafts = await opts.draftStore.getByThread(userId, resolvedThreadId);
+      const draftStore = opts.draftStore;
+      const drafts = await draftStore.getByThread(userId, resolvedThreadId);
       // #80 fix-B diagnostic: trace draft merge for F5 recovery verification
       if (drafts.length > 0) {
         request.log.info(
@@ -1287,6 +1288,51 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             if (invId) formalInvocationIds.add(invId);
           }
           activeDrafts = activeDrafts.filter((d) => !formalInvocationIds.has(d.invocationId));
+        }
+        // F173 Phase A hotfix3: draft persistence can outlive its invocation
+        // record when an invocation crashes or is replaced before a formal
+        // message is written. Such orphan drafts produce zombie bubbles on F5.
+        if (activeDrafts.length > 0 && opts.invocationRecordStore) {
+          const invocationRecordStore = opts.invocationRecordStore;
+          const orphanDrafts: typeof activeDrafts = [];
+          const checkedActiveDrafts: typeof activeDrafts = [];
+          for (const draft of activeDrafts) {
+            let record;
+            try {
+              record = await invocationRecordStore.get(draft.invocationId);
+            } catch (error) {
+              request.log.warn(
+                { err: error, threadId: resolvedThreadId, draftId: draft.invocationId },
+                '#80 draft merge: invocation liveness lookup failed',
+              );
+              checkedActiveDrafts.push(draft);
+              continue;
+            }
+            if (record?.status === 'running' && record.threadId === resolvedThreadId && record.userId === userId) {
+              checkedActiveDrafts.push(draft);
+            } else {
+              orphanDrafts.push(draft);
+            }
+          }
+          activeDrafts = checkedActiveDrafts;
+
+          if (orphanDrafts.length > 0) {
+            const deleteResults = await Promise.allSettled(
+              orphanDrafts.map((d) => draftStore.delete(userId, resolvedThreadId, d.invocationId)),
+            );
+            const failedDeletes = deleteResults.filter((r) => r.status === 'rejected').length;
+            const logPayload = {
+              threadId: resolvedThreadId,
+              orphanCount: orphanDrafts.length,
+              failedDeletes,
+              draftIds: orphanDrafts.map((d) => d.invocationId),
+            };
+            if (failedDeletes > 0) {
+              request.log.warn(logPayload, '#80 draft merge: filtered orphan drafts');
+            } else {
+              request.log.info(logPayload, '#80 draft merge: filtered orphan drafts');
+            }
+          }
         }
         // P2: stable sort by updatedAt for parallel multi-cat drafts
         activeDrafts.sort((a, b) => a.updatedAt - b.updatedAt);
