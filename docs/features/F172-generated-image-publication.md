@@ -204,9 +204,9 @@ Antigravity built-in `generate_image` 的真实交付链路：
 - [x] AC-G5: Alpha smoke — antig-opus 真生一张图，铲屎官前端**直接看到** + F5 刷新还在（2026-04-23 23:59 验证通过，铲屎官原话"我看到了！！看到了！！"）
 
 ### Phase H（empty_response false-positive 修复 — Phase G 副作用兜底）
-- [ ] AC-H1: image-only response 不再误报 `Antigravity returned no text response` — `hasText` 判断需识别 GENERATE_IMAGE step 也算 valid user-visible output
-- [ ] AC-H2: 回归测试 — 单 GENERATE_IMAGE step + 0 plannerResponse text 的 invocation 不应 yield empty_response error
-- [ ] AC-H3: Alpha smoke — antig-opus 单纯生图（无文字回复）能正常完成 invocation，无 error 气泡
+- [x] AC-H1: image-only response 不再误报 `Antigravity returned no text response` — `hasText` 判断需识别 GENERATE_IMAGE step 也算 valid user-visible output
+- [x] AC-H2: 回归测试 — 单 GENERATE_IMAGE step + 0 plannerResponse text 的 invocation 不应 yield empty_response error
+- [x] AC-H3: Alpha smoke — antig-opus 单纯生图（无文字回复）能正常完成 invocation，无 error 气泡（2026-04-24 01:18 验证通过，铲屎官原话"ok了！验证通过了！看到图片了！"）
 
 ## 需求点 Checklist
 
@@ -221,7 +221,7 @@ Antigravity built-in `generate_image` 的真实交付链路：
 | R7 | 既有 rich block / connector 媒体链路继续复用 | AC-E4 | integration test | [x] |
 | R8 | provider 恢复 / replay 时不应重复堆积图片文件或重复发块 | AC-A5, AC-E5 | integration test | [x] |
 | R9 | Antigravity 真实生图必须能在 alpha 上直接呈现给铲屎官 | AC-F1~F5（Phase F 部分修复，alpha 仍失败）, AC-G1~G5（Phase G 真根因修复 + alpha smoke 通过） | alpha smoke + integration test | [x] |
-| R10 | image-only response 不应误报 empty_response（Phase G 副作用） | AC-H1, AC-H2, AC-H3 | unit test + alpha smoke | [ ] |
+| R10 | image-only response 不应误报 empty_response（Phase G 副作用） | AC-H1, AC-H2, AC-H3 | unit test + alpha smoke | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -285,6 +285,7 @@ Antigravity built-in `generate_image` 的真实交付链路：
 | 2026-04-23 23:59 | **AC-G5 alpha smoke 通过** ✅ — 铲屎官重启 runtime 后 antig-opus 真调 generate_image，前端直接看到孟加拉猫贴贴图，刷新后还在。R9 闭环。同时 report 一个 follow-up：第一次调用报 `Antigravity returned no text response`，第二次才成功 → Phase H 立项 |
 | 2026-04-23 23:59 | Reopen Phase H — `AntigravityAgentService.ts:763` 的 `hasText` 判断没考虑 image-only response，误报 empty_response。一行 condition fix（重构成 `sawImageOutput` 同时覆盖 Phase F + Phase G 两条 image path）+ 2 个回归测试 |
 | 2026-04-24 (Phase H) | PR #1370 砚砚（gpt-5.5）二审 PASS（首轮 P2 三件套：Biome + env-registry + BACKLOG/index 同步），main hotfix `8dc8ba82d` 解除 PR #1365 漏跑 pnpm check 的红灯阻塞，PR squash merged `6b51f9928`。剩 AC-H3 alpha smoke 待 antig-opus 单纯生图（无文字）验证 |
+| 2026-04-24 01:18 | **AC-H3 alpha smoke PASS** ✅ — 铲屎官重启 runtime 拉到 `6b51f9928`，让 @antig-opus 明确"只生图不写文字"，前端直接看到豹纹猫图片 + 无 error 气泡。R10 闭环。**F172 全 phase（A→B→C→D→E + reopen Phase F→G→H）真闭环** |
 | 2026-04-23 | Phase A merged（PR #1353）：共享 publication contract + image-storage 原语 |
 | 2026-04-23 | Phase B-E merged（PR #1355）：Codex scanner + Antigravity publisher + skill 收口 + 富块联动。砚砚 review 放行 + 3 轮云端 review（2 P1 + 2 P2 全修） |
 
