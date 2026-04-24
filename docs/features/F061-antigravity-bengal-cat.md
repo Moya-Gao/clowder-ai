@@ -422,9 +422,6 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 8. ~~cat-config 的 variant 要扩展到 6 个？~~ → 不需要，只注册需要的 variant（同布偶猫），获取方法已记录
 9. **NEW**: 模型切换的 CDP 操作需要更精准的坐标计算（当前点击有时未命中目标模型项）
 10. **NEW (2c-R)**: `CORTEX_STEP_TYPE_RUN_COMMAND` 的 tool-result 回推 RPC 方法是什么？候选：`HandleCascadeUserInteraction` 的新 interaction 形状 / 未发现的 `SendToolResult` / `SubmitToolResult` / `HandleCascadeToolResult` 方法。需在 2c-R 阶段通过 LS 二进制 probe + proto 枚举确认
-
-11. **P0 (2026-04-24)**: `agent-browser` headless Chrome 僵尸进程反复出现（第 4 次）。agent-browser MCP server 退出时不清理子进程树（Chrome GPU / Renderer / Storage），僵尸进程持续 100% CPU × 多核 × 数天。历史：04-10 opencode ping + headless Chrome、04-12 headless Chrome、04-18 headless Chrome 导致前端 OOM 崩溃、04-24 一次性 7 个僵尸吃 570% CPU 导致掉电加速。**需要**：①runtime StartupReconciler 扫残留 `agent-browser-chrome-*` user-data-dir 的 Chrome 进程 ②agent-browser 自身修复退出清理 ③下次先抓 `ps -o pid,ppid,command` 再 kill
-
 ---
 
 ## Links
