@@ -14,6 +14,8 @@ created: 2026-04-22
 >
 > **Phase A hotfix merged 2026-04-23 (PR #1352, squash b4e46761d)**：close ea0973e7 ghost — explicit invocationId threaded through all event entry points (text/tool_use/tool_result/done/error/web_search/thinking/rich_block/invocation_created). 砚砚 LGTM-6 cycles + 9 cloud Codex P1 fix cycles. CVO 2026-04-23 拍板将剩余 multi-failure race scenarios (lost done + lost invocation_created + reconnect/hydration) defer 进 Phase B (AC-B5..B10) — thread-scoped runtime consolidation 会从结构上消除这些场景。
 >
+> **Phase A hotfix2 merged 2026-04-24 (PR #1364, squash da928015e)**：close clowder-ai#573 dup-bubble — stream + callback + persistence 三条路径在同一逻辑响应的 invocation identity 上收口（统一用 OUTER `parentInvocationId ?? ownInvocationId`）。Hotfix 后 1352 的前端 dedup 把 dup 从偶发暴露为 100% 复现，根因是 QueueProcessor:761 broadcast 用 OUTER、route-serial/callbacks 持久化用 INNER 的 split-brain。Codex P1（A→B→A re-enqueue cross-turn merge）实测验证为 broadcast-layer pre-existing 行为，本 PR 不引入新 regression — 真要分 turn 显示需另立 Feature 改 broadcast 契约 + bubble identity。
+>
 > **Scope 扩展（2026-04-22 22:05 铲屎官指示）**：原 scope 仅 message pipeline；新事故诊断把 cancel 按钮缺失 / queue gating 失效 / spawn ENOENT 三个症状同源到 **liveness truth source fragmentation**，与 message dual-write 是同一个病。铲屎官原话："不要小修小改"——一锅端。
 
 ## Why
@@ -202,6 +204,7 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。
 | 2026-04-22 21:58 | Design Gate v2：砚砚 push back AC-A3 → KD-2/3/4 收敛 |
 | 2026-04-22 22:05 | Scope 扩展 v3：铲屎官"不要小修小改" → KD-5/6/7，纳入 liveness fragmentation + cli-resolve sidecar |
 | 2026-04-23 11:30 | **Phase A merged (PR #1347, squash `3feae9563`)** — A.1-A.12 含 砚砚 round 5 invocation-driven cleanup + codex review 4 轮 push back 收敛 |
+| 2026-04-24 05:28 | **Phase A hotfix2 merged (PR #1364, squash `da928015e`)** — close clowder-ai#573，stream/callback/persistence 三路统一到 OUTER `parentInvocationId ?? ownInvocationId`；连带 piggyback fix（formatCatName mock + cli-spawn drainWarnings restore + env-registry register + biome auto-fix）解锁被 main 上 F174-B/clowder-ai#540 intake 误碰的 gate；Codex P1（A→B→A cross-turn merge）实测确认为 broadcast pre-existing，downgraded P3 |
 
 ## Review Gate
 
