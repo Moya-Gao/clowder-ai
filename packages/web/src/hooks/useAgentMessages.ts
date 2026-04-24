@@ -13,6 +13,32 @@ import {
   removeReplacedInvocation,
 } from './shared-replaced-invocations';
 import { formatVisibleSystemInfo } from './system-info-visible';
+import {
+  clearActiveBubble as clearActiveBubbleLedger,
+  clearAllActiveBubblesForThread as clearAllActiveBubblesForThreadLedger,
+  clearAllFinalizedForThread as clearAllFinalizedForThreadLedger,
+  clearFinalized as clearFinalizedLedger,
+  clearPendingTimeoutDiag as clearPendingTimeoutDiagLedger,
+  clearStreamData as clearStreamDataLedger,
+  decideTerminalEventTarget as decideTerminalEventTargetLedger,
+  getActiveBubbleCount as getActiveBubbleCountLedger,
+  getActiveBubble as getActiveBubbleLedger,
+  getAllActiveBubblesForThread as getAllActiveBubblesForThreadLedger,
+  getFinalizedMessageId as getFinalizedMessageIdLedger,
+  getLastObservedExplicit as getLastObservedExplicitLedger,
+  getPendingTimeoutDiag as getPendingTimeoutDiagLedger,
+  hadStreamData as hadStreamDataLedger,
+  markExplicitInvocationObserved as markExplicitInvocationObservedLedger,
+  markStreamData as markStreamDataLedger,
+  setActiveBubble as setActiveBubbleLedger,
+  setFinalizedBubble as setFinalizedBubbleLedger,
+  setPendingTimeoutDiag as setPendingTimeoutDiagLedger,
+  type TerminalDecision,
+} from './thread-runtime-ledger';
+import { getThreadRuntimeLedger } from './thread-runtime-singleton';
+
+/** F173 Phase B: callback merge window for finalized bubbles (5min). */
+const FINALIZED_TTL_MS = 5 * 60 * 1000;
 
 /** Timeout for done(isFinal) - 5 minutes */
 const DONE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -111,23 +137,137 @@ export function useAgentMessages() {
     replaceThreadTargetCats,
   } = useChatStore();
 
-  /** Map<catId, { id: messageId, catId }> — one entry per active stream */
-  const activeRefs = useRef<Map<string, { id: string; catId: string }>>(new Map());
+  /**
+   * F173 Phase B AC-B1 (integration step 4): activeRefs migrated to ledger.
+   * Old `Map<catId, {id, catId}>` ref → ledger setActiveBubble keyed by
+   * (threadId, catId). The wrappers below resolve threadId via useChatStore
+   * and delegate to the ledger.
+   *
+   * `id` field is renamed to `messageId` in the ledger schema; for callback
+   * shape compat we preserve the old field name in the iterator helper.
+   */
+  const setActive = useCallback((catId: string, messageId: string, invocationId?: string) => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return;
+    setActiveBubbleLedger(getThreadRuntimeLedger(), tid, catId, {
+      messageId,
+      ...(invocationId ? { invocationId } : {}),
+    });
+  }, []);
+  const getActive = useCallback((catId: string): { id: string; catId: string } | undefined => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return undefined;
+    const entry = getActiveBubbleLedger(getThreadRuntimeLedger(), tid, catId);
+    return entry ? { id: entry.messageId, catId } : undefined;
+  }, []);
+  const deleteActive = useCallback((catId: string) => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return;
+    clearActiveBubbleLedger(getThreadRuntimeLedger(), tid, catId);
+  }, []);
+  const getAllActiveValues = useCallback((): Iterable<{ id: string; catId: string }> => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return [];
+    const out: { id: string; catId: string }[] = [];
+    for (const [catId, entry] of getAllActiveBubblesForThreadLedger(getThreadRuntimeLedger(), tid)) {
+      out.push({ id: entry.messageId, catId });
+    }
+    return out;
+  }, []);
+  const getActiveCount = useCallback((): number => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return 0;
+    return getActiveBubbleCountLedger(getThreadRuntimeLedger(), tid);
+  }, []);
+  const clearAllActive = useCallback(() => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return;
+    clearAllActiveBubblesForThreadLedger(getThreadRuntimeLedger(), tid);
+  }, []);
   // F173 A.6 — replacedInvocations is now a shared module-level Map (`shared-replaced-invocations.ts`).
   // Both active (this hook) and background (`useSocket-background.ts`) handlers read/write the SAME Map,
   // keyed by `${threadId}::${catId}`, so suppression handoff works in BOTH directions
   // (background→active was patched in A.5; A.6 closes the active→background gap that 砚砚 P1-1 round 2 found).
 
-  /** #586 follow-up: Track just-finalized stream bubble per cat. Set on done when
-   *  activeRefs entry existed, consumed by callback replacement or next invocation start.
-   *  Prevents the greedy scan from matching arbitrary historical messages. */
-  const finalizedStreamRef = useRef<Map<string, string>>(new Map());
+  /**
+   * Bug C P2: Track whether stream data was received per cat (avoids false
+   * catch-up on callback-only flows).
+   *
+   * F173 Phase B AC-B1: migrated to thread-runtime-ledger singleton — state
+   * is now keyed by (threadId, catId) instead of a hook-local Set<catId>.
+   * The helpers below resolve threadId from `useChatStore.getState()` and
+   * delegate to the ledger so call sites stay short.
+   */
+  const markSawStream = useCallback((catId: string, invocationId?: string) => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return;
+    markStreamDataLedger(getThreadRuntimeLedger(), tid, catId, invocationId);
+    // AC-B9: also record explicit observation when invocationId is present so
+    // shouldSuppressLateStreamChunk can fall back to ledger-local state instead
+    // of the global catInvocations Map (which can drift on F5/thread switch).
+    if (invocationId) {
+      markExplicitInvocationObservedLedger(getThreadRuntimeLedger(), tid, catId, invocationId);
+    }
+  }, []);
+  const hadSawStream = useCallback((catId: string): boolean => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return false;
+    return hadStreamDataLedger(getThreadRuntimeLedger(), tid, catId);
+  }, []);
+  const clearSawStream = useCallback((catId: string) => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return;
+    clearStreamDataLedger(getThreadRuntimeLedger(), tid, catId);
+  }, []);
 
-  /** Bug C P2: Track whether stream data was received per cat (avoids false catch-up on callback-only flows) */
-  const sawStreamDataRef = useRef<Set<string>>(new Set());
+  /**
+   * F173 Phase B AC-B5: finalized bubble lookup migrated to ledger.
+   * Old `Map<catId, messageId>` ref → ledger setFinalizedBubble with TTL.
+   * TTL = FINALIZED_TTL_MS (5min) — generous callback merge window so a late
+   * callback can still bridge to an already-finalized stream bubble.
+   */
+  const setFinalized = useCallback((catId: string, messageId: string, invocationId?: string) => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return;
+    setFinalizedBubbleLedger(
+      getThreadRuntimeLedger(),
+      tid,
+      catId,
+      { messageId, ...(invocationId ? { invocationId } : {}) },
+      FINALIZED_TTL_MS,
+    );
+  }, []);
+  const getFinalized = useCallback((catId: string): string | undefined => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return undefined;
+    return getFinalizedMessageIdLedger(getThreadRuntimeLedger(), tid, catId);
+  }, []);
+  const clearFinalized = useCallback((catId: string) => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return;
+    clearFinalizedLedger(getThreadRuntimeLedger(), tid, catId);
+  }, []);
 
-  /** F118 AC-C3: Pending timeout diagnostics keyed by catId to prevent cross-cat mismatch */
-  const pendingTimeoutDiagRef = useRef<Map<string, Record<string, unknown>>>(new Map());
+  /**
+   * F118 AC-C3: Pending timeout diagnostics keyed by (thread, cat).
+   * F173 Phase B: migrated to ledger — was previously a top-level Map<catId>
+   * that risked cross-thread mismatch on rapid switches.
+   */
+  const setPendingTimeoutDiag = useCallback((catId: string, diag: Record<string, unknown>) => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return;
+    setPendingTimeoutDiagLedger(getThreadRuntimeLedger(), tid, catId, diag);
+  }, []);
+  const getPendingTimeoutDiag = useCallback((catId: string): Record<string, unknown> | null => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return null;
+    return getPendingTimeoutDiagLedger(getThreadRuntimeLedger(), tid, catId);
+  }, []);
+  const clearPendingTimeoutDiag = useCallback((catId: string) => {
+    const tid = useChatStore.getState().currentThreadId;
+    if (!tid) return;
+    clearPendingTimeoutDiagLedger(getThreadRuntimeLedger(), tid, catId);
+  }, []);
 
   /** Timeout ref for done(isFinal) reachability */
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -170,10 +310,10 @@ export function useAgentMessages() {
       clearAllActiveInvocations();
       setIntentMode(null);
       clearCatStatuses();
-      for (const ref of activeRefs.current.values()) {
+      for (const ref of getAllActiveValues()) {
         setStreaming(ref.id, false);
       }
-      activeRefs.current.clear();
+      clearAllActive();
       addMessage({
         id: `sysinfo-timeout-${Date.now()}`,
         type: 'system',
@@ -309,7 +449,7 @@ export function useAgentMessages() {
     }
     if (latestRealSlot === msgInvocationId) return false; // slot-fresh override
 
-    const activeRefId = activeRefs.current.get(catId)?.id;
+    const activeRefId = getActive(catId)?.id;
     if (activeRefId) {
       const activeBubble = state.messages.find((m) => m.id === activeRefId);
       if (activeBubble?.type === 'assistant' && activeBubble.catId === catId) {
@@ -342,6 +482,32 @@ export function useAgentMessages() {
 
     return false;
   }, []);
+
+  /**
+   * AC-B10 wired into production: returns the structured TerminalDecision so
+   * callers see source attribution, not just a boolean. Consults ledger first
+   * (active bubble + replaced markers on explicit invocation) — falls back to
+   * legacy `isStaleTerminalEvent` when ledger source is 'none'.
+   *
+   * Source values surface to logging:
+   *   - explicit / active → ledger had POSITIVE signal and decided
+   *   - none → ledger silent, decision delegated to legacy 4-source resolver
+   */
+  const decideTerminalEvent = useCallback(
+    (catId: string, msgInvocationId: string | undefined): TerminalDecision => {
+      const tid = useChatStore.getState().currentThreadId;
+      if (tid) {
+        const ledgerDecision = decideTerminalEventTargetLedger(getThreadRuntimeLedger(), tid, catId, msgInvocationId);
+        // If ledger has explicit signal (anything except 'none'), trust it.
+        if (ledgerDecision.source !== 'none') return ledgerDecision;
+      }
+      // Ledger silent → legacy 4-source resolver. Wrap its boolean in a decision
+      // object so callers always get the same shape.
+      const legacyStale = isStaleTerminalEvent(catId, msgInvocationId);
+      return { stale: legacyStale, source: 'none' };
+    },
+    [isStaleTerminalEvent],
+  );
 
   const maybeMigrateSequentialInvocationOwnership = useCallback(
     (nextCatId: string, invocationId: string) => {
@@ -389,7 +555,7 @@ export function useAgentMessages() {
       const invocationId = explicitInvocationId ?? getCurrentInvocationIdForCat(catId);
 
       if (invocationId) {
-        const lastFinalizedIdForCat = finalizedStreamRef.current.get(catId);
+        const lastFinalizedIdForCat = getFinalized(catId);
         // Cloud P1#4 (PR#1352): streaming-first preference. With explicit invocationId,
         // a newest→oldest scan could pick a non-streaming callback bubble before the
         // still-streaming placeholder for the same invocation, leaving the real bubble
@@ -452,7 +618,7 @@ export function useAgentMessages() {
 
   const findInvocationlessStreamPlaceholder = useCallback((catId: string): { id: string } | null => {
     const currentMessages = useChatStore.getState().messages;
-    const activeId = activeRefs.current.get(catId)?.id;
+    const activeId = getActive(catId)?.id;
 
     if (activeId) {
       const activeMessage = currentMessages.find(
@@ -485,7 +651,7 @@ export function useAgentMessages() {
     // #586 follow-up: Check finalizedStreamRef — the done handler records the
     // exact message ID of the just-finalized stream bubble. This avoids the
     // greedy scan that could match arbitrary historical messages (P1 from review).
-    const finalizedId = finalizedStreamRef.current.get(catId);
+    const finalizedId = getFinalized(catId);
     if (finalizedId) {
       const finalized = currentMessages.find(
         (m) => m.id === finalizedId && m.type === 'assistant' && m.catId === catId && m.origin === 'stream',
@@ -520,7 +686,7 @@ export function useAgentMessages() {
       msg.content.trim().length === 0 &&
       ((msg.extra?.rich?.blocks.length ?? 0) > 0 || (msg.toolEvents?.length ?? 0) > 0);
 
-    const activeId = activeRefs.current.get(catId)?.id;
+    const activeId = getActive(catId)?.id;
     if (activeId) {
       const activeMessage = currentMessages.find((msg) => msg.id === activeId);
       if (isRichOrToolOnlyPlaceholder(activeMessage)) {
@@ -545,7 +711,7 @@ export function useAgentMessages() {
       options?: { ensureStreaming?: boolean; invocationId?: string },
     ): string | null => {
       const currentMessages = useChatStore.getState().messages;
-      const existing = activeRefs.current.get(catId);
+      const existing = getActive(catId);
       if (existing?.id) {
         const found = currentMessages.find((msg) => msg.id === existing.id && msg.type === 'assistant');
         if (found) {
@@ -555,7 +721,7 @@ export function useAgentMessages() {
           // Drop it and fall through to identity-aware recovery.
           const boundInv = found.extra?.stream?.invocationId;
           if (options?.invocationId && boundInv && boundInv !== options.invocationId) {
-            activeRefs.current.delete(catId);
+            deleteActive(catId);
           } else {
             if (options?.ensureStreaming && !found.isStreaming) {
               setStreaming(found.id, true);
@@ -566,14 +732,14 @@ export function useAgentMessages() {
             return found.id;
           }
         } else {
-          activeRefs.current.delete(catId);
+          deleteActive(catId);
         }
       }
 
       const recovered = findRecoverableAssistantMessage(catId, options?.invocationId);
       if (!recovered) return null;
 
-      activeRefs.current.set(catId, { id: recovered.id, catId });
+      setActive(catId, recovered.id);
       if (options?.ensureStreaming && recovered.needsStreamingRestore) {
         setStreaming(recovered.id, true);
       }
@@ -607,7 +773,7 @@ export function useAgentMessages() {
         if (fallback) invocationId = fallback;
       }
       const id = deriveBubbleId(invocationId, catId, () => `msg-${Date.now()}-${catId}`);
-      activeRefs.current.set(catId, { id, catId });
+      setActive(catId, id, invocationId);
       addMessage({
         id,
         type: 'assistant',
@@ -645,10 +811,16 @@ export function useAgentMessages() {
         }
         return false;
       }
-      // Invocationless: fall back to catInvocations to preserve "drops late chunks after
-      // callback replacement" semantics (callback marks inv-X, fresh same-inv chunks drop).
-      // Fail-open when catInvocations has nothing (round 5 P2 case).
-      const fallbackInv = getCurrentInvocationIdForCat(catId);
+      // AC-B9: ledger `lastObservedExplicit` supplements but does NOT replace
+      // catInvocations. Cloud Codex P1 (2026-04-24): if inv-A is callback-replaced
+      // and inv-B starts running, `lastObservedExplicit` may still point to
+      // (replaced) inv-A while `catInvocations` already moved to inv-B. We must
+      // prefer the FRESHER signal — catInvocations is updated by `invocation_created`
+      // and is the source of truth for "what invocation is currently active for
+      // this cat". Ledger ledger fallback only kicks in when catInvocations is
+      // genuinely empty (cold start / cleared after done).
+      const fallbackInv =
+        getCurrentInvocationIdForCat(catId) ?? getLastObservedExplicitLedger(getThreadRuntimeLedger(), tid, catId);
       if (!fallbackInv) return false;
       if (!isInvocationReplaced(tid, catId, fallbackInv)) return false;
 
@@ -680,7 +852,7 @@ export function useAgentMessages() {
         // F118: Clear liveness warning when cat resumes output
         setCatInvocation(msg.catId, { livenessWarning: undefined });
         if (msg.origin !== 'callback') {
-          sawStreamDataRef.current.add(msg.catId);
+          markSawStream(msg.catId, msg.invocationId);
         }
 
         if (msg.origin === 'callback') {
@@ -722,9 +894,9 @@ export function useAgentMessages() {
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
               ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
             });
-            activeRefs.current.delete(msg.catId);
+            deleteActive(msg.catId);
             // Consume the finalized ref — callback successfully replaced the bubble
-            finalizedStreamRef.current.delete(msg.catId);
+            clearFinalized(msg.catId);
             if (invocationId) {
               // F173 A.6 — write to shared module so background handler also sees the suppression
               // when user switches away after callback replace.
@@ -808,7 +980,7 @@ export function useAgentMessages() {
             const id = invocationId
               ? deriveBubbleId(invocationId, msg.catId, () => `msg-${Date.now()}-${msg.catId}`)
               : `msg-${Date.now()}-${msg.catId}`;
-            activeRefs.current.set(msg.catId, { id, catId: msg.catId });
+            setActive(msg.catId, id, invocationId);
             addMessage({
               id,
               type: 'assistant',
@@ -830,14 +1002,14 @@ export function useAgentMessages() {
         // reordered events before they can collide with the deterministic bubble id.
         if (shouldSuppressLateStreamChunk(msg.catId, msg.invocationId)) return;
         setCatStatus(msg.catId, 'streaming');
-        sawStreamDataRef.current.add(msg.catId);
+        markSawStream(msg.catId, msg.invocationId);
         const toolName = msg.toolName ?? 'unknown';
         const detail = msg.toolInput ? safeJsonPreview(msg.toolInput, 200) : undefined;
         const isFileChange = toolName === 'file_change';
         if (isFileChange) {
           console.info('[agent_message] file_change tool_use received', {
             catId: msg.catId,
-            activeRefCount: activeRefs.current.size,
+            activeRefCount: getActiveCount(),
             skipUi: DEBUG_SKIP_FILE_CHANGE_UI,
             detail: detail ?? null,
           });
@@ -865,7 +1037,7 @@ export function useAgentMessages() {
           console.info('[agent_message] file_change tool_use appended', {
             catId: msg.catId,
             messageId,
-            activeRefCount: activeRefs.current.size,
+            activeRefCount: getActiveCount(),
           });
         }
       } else if (msg.type === 'tool_result') {
@@ -891,7 +1063,8 @@ export function useAgentMessages() {
         // the cat as done while the newer invocation is mid-flight. Only slot
         // cleanup for `msg.invocationId` is still safe (self-guarded below by
         // `primarySlot?.catId === msg.catId`).
-        const isStaleDone = isStaleTerminalEvent(msg.catId, msg.invocationId);
+        const doneDecision = decideTerminalEvent(msg.catId, msg.invocationId);
+        const isStaleDone = doneDecision.stale;
 
         let messageId: string | null = null;
         if (!isStaleDone) {
@@ -961,8 +1134,8 @@ export function useAgentMessages() {
             // #586 follow-up: Record the finalized bubble so callback can find it
             // even after isStreaming=false + activeRefs cleared. Unlike a greedy
             // scan, this is scoped to the exact just-finalized message only.
-            finalizedStreamRef.current.set(msg.catId, messageId);
-            activeRefs.current.delete(msg.catId);
+            setFinalized(msg.catId, messageId, msg.invocationId);
+            deleteActive(msg.catId);
             // Cloud P1#3 (PR#1352): mark the just-closed invocation as replaced so
             // that reordered / late non-terminal events (text / tool_use / tool_result
             // / web_search / thinking / rich_block) for the SAME invocationId are
@@ -1070,14 +1243,14 @@ export function useAgentMessages() {
             console.warn('[stream-catchup] done(isFinal) with no active bubble — requesting catch-up', {
               catId: msg.catId,
               threadId: tid,
-              hadStreamData: sawStreamDataRef.current.has(msg.catId),
+              hadStreamData: hadSawStream(msg.catId),
             });
             if (tid) {
               requestStreamCatchUp(tid);
             }
           }
           if (!isStaleDone) {
-            sawStreamDataRef.current.delete(msg.catId);
+            clearSawStream(msg.catId);
           }
         }
       } else if (msg.type === 'a2a_handoff') {
@@ -1096,7 +1269,7 @@ export function useAgentMessages() {
         // frontend silently dropped them — the user saw the bubble just hang
         // without explanation. Route them through the same `formatVisibleSystemInfo`
         // pipeline as system_info so the warning text becomes a ⚠️ system bubble.
-        sawStreamDataRef.current.add(msg.catId);
+        markSawStream(msg.catId, msg.invocationId);
         let providerContent = msg.content ?? '';
         try {
           const parsed = JSON.parse(providerContent);
@@ -1116,7 +1289,7 @@ export function useAgentMessages() {
           });
         }
       } else if (msg.type === 'system_info') {
-        sawStreamDataRef.current.add(msg.catId);
+        markSawStream(msg.catId, msg.invocationId);
         // System notifications: budget warnings, cancel feedback, A2A follow-up hints, invocation metrics
         let sysContent = msg.content ?? '';
         let sysVariant: 'info' | 'a2a_followup' = 'info';
@@ -1132,7 +1305,7 @@ export function useAgentMessages() {
             // #586: Without clearing finalizedStreamRef here, a stale ref from the
             // previous invocation could cause the next callback to overwrite the old message.
             const targetCatId = parsed.catId ?? msg.catId;
-            finalizedStreamRef.current.delete(targetCatId);
+            clearFinalized(targetCatId);
             const invocationId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
             if (targetCatId && invocationId) {
               setCatInvocation(targetCatId, {
@@ -1179,7 +1352,7 @@ export function useAgentMessages() {
               }
               // Pass (b): pick rebind target.
               let unboundPlaceholderId: string | undefined;
-              const activeRefId = activeRefs.current.get(targetCatId)?.id;
+              const activeRefId = getActive(targetCatId)?.id;
               if (activeRefId) {
                 const activeMsg = messagesSnapshot.find((m) => m.id === activeRefId);
                 if (
@@ -1217,7 +1390,7 @@ export function useAgentMessages() {
                 // older bubble would let later invocationless chunks reuse it via
                 // ensureStreaming and append into the previous invocation's bubble.
                 const reboundId = deterministicId !== unboundPlaceholderId ? deterministicId : unboundPlaceholderId;
-                activeRefs.current.set(targetCatId, { id: reboundId, catId: targetCatId });
+                setActive(targetCatId, reboundId);
               } else {
                 // Legacy path: no unbound placeholder but there's some existing message we can
                 // bind invocationId onto (preserves behavior for messages already matching newInv).
@@ -1253,7 +1426,7 @@ export function useAgentMessages() {
               usage: parsed.usage,
             });
             // Also persist usage on the cat's last assistant message (message-scoped)
-            const ref = activeRefs.current.get(msg.catId);
+            const ref = getActive(msg.catId);
             if (ref) {
               setMessageUsage(ref.id, parsed.usage);
             }
@@ -1374,7 +1547,7 @@ export function useAgentMessages() {
           } else if (parsed?.type === 'timeout_diagnostics') {
             // F118 AC-C3: Store diagnostics keyed by catId to prevent cross-cat mismatch
             if (msg.catId) {
-              pendingTimeoutDiagRef.current.set(msg.catId, parsed as Record<string, unknown>);
+              setPendingTimeoutDiag(msg.catId, parsed as Record<string, unknown>);
             }
             consumed = true;
           } else if (parsed?.type === 'governance_blocked') {
@@ -1481,7 +1654,8 @@ export function useAgentMessages() {
         // arriving after inv-2 has already started must NOT touch inv-2's bubble
         // or clear activeRefs for the newer invocation. See isStaleTerminalEvent
         // for the full resolver + normalization rationale.
-        const isStaleError = isStaleTerminalEvent(msg.catId, msg.invocationId);
+        const errorDecision = decideTerminalEvent(msg.catId, msg.invocationId);
+        const isStaleError = errorDecision.stale;
 
         // Cloud R9 P2: `pendingTimeoutDiagRef` is keyed by `catId` alone — if we
         // skip cleanup under the stale guard, the entry leaks and would wrongly
@@ -1490,8 +1664,8 @@ export function useAgentMessages() {
         // read happens inside the `!isStaleError` branch below, so stale errors
         // correctly drop the diagnostics (rather than consuming them for wrong
         // invocation).
-        const timeoutDiag = msg.catId ? (pendingTimeoutDiagRef.current.get(msg.catId) ?? null) : null;
-        if (msg.catId) pendingTimeoutDiagRef.current.delete(msg.catId);
+        const timeoutDiag = msg.catId ? getPendingTimeoutDiag(msg.catId) : null;
+        if (msg.catId) clearPendingTimeoutDiag(msg.catId);
 
         if (!isStaleError) {
           setCatStatus(msg.catId, 'error');
@@ -1536,7 +1710,7 @@ export function useAgentMessages() {
           }
           if (messageId) {
             setStreaming(messageId, false);
-            activeRefs.current.delete(msg.catId);
+            deleteActive(msg.catId);
           }
 
           addMessage({
@@ -1632,10 +1806,10 @@ export function useAgentMessages() {
               clearCatStatuses();
               // Clear ALL remaining streaming refs — global catch uses catId='opus' which may
               // not match the cat that was actually running (e.g. codex/gemini)
-              for (const ref of activeRefs.current.values()) {
+              for (const ref of getAllActiveValues()) {
                 setStreaming(ref.id, false);
               }
-              activeRefs.current.clear();
+              clearAllActive();
             }
           }
         }
@@ -1711,10 +1885,10 @@ export function useAgentMessages() {
       setIntentMode(null);
       clearCatStatuses();
       // Stop all active streams
-      for (const ref of activeRefs.current.values()) {
+      for (const ref of getAllActiveValues()) {
         setStreaming(ref.id, false);
       }
-      activeRefs.current.clear();
+      clearAllActive();
       // F173 A.12 砚砚 round 5 — handleStop is an EXPLICIT cancel by the user, so it's
       // legitimate to clear suppression for the stopped thread. (Background-stop branch
       // above also clears for the same reason.) This is invocation-lifecycle aligned:
@@ -1725,7 +1899,7 @@ export function useAgentMessages() {
   );
 
   const resetRefs = useCallback(() => {
-    activeRefs.current.clear();
+    clearAllActive();
     // F173 A.12 砚砚 round 5 — DO NOT clear suppression on thread switch / non-queue send.
     // resetRefs is navigation-driven (URL change, follow-up send), NOT invocation lifecycle.
     // Suppression cleanup must be invocation-driven only:
@@ -1737,8 +1911,13 @@ export function useAgentMessages() {
     // don't cause findInvocationlessStreamPlaceholder to match old bubbles.
     // Without this, scheduler callbacks (no invocationId) could patch a
     // finalized bubble from the previous invocation after thread switch.
-    finalizedStreamRef.current.clear();
-    sawStreamDataRef.current.clear();
+    // F173 Phase B: sawStreamData is thread-scoped in the ledger; per-thread
+    // isolation makes blanket clear unnecessary across threads. But within the
+    // current thread, finalized bubbles must still be cleared on resetRefs to
+    // preserve the "stale finalized must not patch new callback" semantic
+    // (#266 Round 2 regression test).
+    const tid = useChatStore.getState().currentThreadId;
+    if (tid) clearAllFinalizedForThreadLedger(getThreadRuntimeLedger(), tid);
   }, []);
 
   return { handleAgentMessage, handleStop, resetRefs, resetTimeout, clearDoneTimeout };

@@ -470,7 +470,9 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
     lines.push(
       `[错误] 句中 ${exampleTarget}（@ 不是行首也不是剥离 markdown 前缀后的首字符）· URL 内 ${exampleTarget} · 任何非行首位置的 @ 都不路由，球权掉地上。`,
     );
-    lines.push(`发前自检：我消息里想路由的 @句柄 都在"独立一行的行首"或"markdown 列表/引用前缀后的首字符"吗？URL 内 / 句中任意位置的 @ 不是路由指令。`);
+    lines.push(
+      `发前自检：我消息里想路由的 @句柄 都在"独立一行的行首"或"markdown 列表/引用前缀后的首字符"吗？URL 内 / 句中任意位置的 @ 不是路由指令。`,
+    );
     lines.push('');
   }
 

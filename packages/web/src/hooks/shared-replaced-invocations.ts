@@ -1,28 +1,35 @@
 /**
  * F173 Phase A.6 — Shared `replaced invocations` runtime state (bidirectional handoff).
+ * F173 Phase B AC-B6 (integration step 5) — internally delegates to the
+ * thread-runtime-ledger singleton. The exported API surface stays identical
+ * so existing callers (useAgentMessages, useSocket-background, useSocket,
+ * tests) keep working unchanged.
  *
- * 砚砚 review P1-1 round 2: A.5 only fixed background → active. The reverse direction
- * (active callback replace → user switches away → late stream lands in background) was
- * still broken because `replacedInvocationsRef` (active) and `bgReplacedInvocationsRef`
- * (background) lived in different React refs.
+ * Why the rewrite (砚砚 LGTM-5 non-blocking observation): the previous
+ * `Map<key, Set<invocationId>>` had no TTL — long sessions accumulated
+ * replaced invocationIds and only cleared on full thread-level cleanup.
+ * The ledger uses `Map<threadId, Map<catId, Map<invocationId, {expiresAt}>>>`
+ * with explicit TTL so each marker can be evicted independently.
  *
- * This module is a single source of truth: both handlers (active in `useAgentMessages.ts`
- * and background in `useSocket-background.ts` + `useSocket.ts`) read/write the same Map,
- * keyed by `${threadId}::${catId}`. Whichever side first marks an invocation as "replaced
- * by callback", the other side will see it and drop late stream chunks accordingly.
+ * TTL choice: SHARED_REPLACED_TTL_MS (10 min) — long enough that no realistic
+ * late-event reorder window misses suppression, short enough that abandoned
+ * sessions don't grow ledger memory unbounded.
  *
- * Lifetime: process-singleton (runtime-only, NOT in zustand per spec KD-3). Tests reset
- * via `resetSharedReplacedInvocations()` to avoid cross-test pollution.
- *
- * This is a stepping stone toward Phase B AC-B1 (full thread-scoped runtime refs Map);
- * for now we only collapse the one ref that has cross-handler suppression semantics.
+ * Lifetime: process-singleton (delegates to thread-runtime-singleton). Tests
+ * still call `resetSharedReplacedInvocations()` to wipe ledger between
+ * fixtures — preserves the BeforeEach pattern used across the codebase.
  */
 
-// Cloud P2 (PR#1352): storage upgraded from Map<key, string> to Map<key, Set<string>>
-// so multiple in-flight stale invocations per (thread, cat) can be tracked. Earlier
-// single-value storage overwrote earlier invocations when invocation_created closed
-// multiple stale bubbles, leaving them un-suppressed and reopen-able.
-const replacedInvocations = new Map<string, Set<string>>();
+import {
+  clearAllReplacedForThread,
+  isInvocationReplaced as isInvocationReplacedLedger,
+  markInvocationReplaced as markInvocationReplacedLedger,
+  removeReplacedInvocationFromLedger,
+} from './thread-runtime-ledger';
+import { getThreadRuntimeLedger, resetThreadRuntimeSingleton } from './thread-runtime-singleton';
+
+/** Late-event suppression window for replaced invocations. */
+const SHARED_REPLACED_TTL_MS = 10 * 60 * 1000;
 
 /** Compose the canonical stream key shared between active + background handlers. */
 export function makeReplacedKey(threadId: string, catId: string): string {
@@ -31,49 +38,48 @@ export function makeReplacedKey(threadId: string, catId: string): string {
 
 /** Mark an invocation as replaced (by callback or boundary closure). Idempotent. */
 export function markReplacedInvocation(threadId: string, catId: string, invocationId: string): void {
-  const key = makeReplacedKey(threadId, catId);
-  let set = replacedInvocations.get(key);
-  if (!set) {
-    set = new Set<string>();
-    replacedInvocations.set(key, set);
-  }
-  set.add(invocationId);
+  markInvocationReplacedLedger(getThreadRuntimeLedger(), threadId, catId, invocationId, SHARED_REPLACED_TTL_MS);
 }
 
 /** Membership check: is this specific invocationId replaced for the (threadId, catId) pair? */
 export function isInvocationReplaced(threadId: string, catId: string, invocationId: string): boolean {
-  return replacedInvocations.get(makeReplacedKey(threadId, catId))?.has(invocationId) ?? false;
+  return isInvocationReplacedLedger(getThreadRuntimeLedger(), threadId, catId, invocationId);
 }
 
 /**
  * Read any one stored invocationId (legacy single-value API).
  * Returns the most recently added value (insertion order). Prefer
  * `isInvocationReplaced` for membership checks.
+ *
+ * Returns the latest non-expired invocationId in insertion order; undefined
+ * if no live entries.
  */
 export function getReplacedInvocation(threadId: string, catId: string): string | undefined {
-  const set = replacedInvocations.get(makeReplacedKey(threadId, catId));
-  if (!set || set.size === 0) return undefined;
+  const entry = getThreadRuntimeLedger().getOrCreate(threadId);
+  const perCat = entry.replaced.get(catId);
+  if (!perCat || perCat.size === 0) return undefined;
+  const now = Date.now();
   let last: string | undefined;
-  for (const v of set) last = v;
+  for (const [invocationId, marker] of perCat) {
+    if (marker.expiresAt > now) last = invocationId;
+  }
   return last;
 }
 
 /** Clear ALL replaced invocations for a (threadId, catId) pair. */
 export function clearReplacedInvocation(threadId: string, catId: string): void {
-  replacedInvocations.delete(makeReplacedKey(threadId, catId));
+  const entry = getThreadRuntimeLedger().getOrCreate(threadId);
+  entry.replaced.delete(catId);
 }
 
 /** Remove a single invocationId from the replaced set (cloud P2 — surgical clear). */
 export function removeReplacedInvocation(threadId: string, catId: string, invocationId: string): void {
-  const set = replacedInvocations.get(makeReplacedKey(threadId, catId));
-  if (!set) return;
-  set.delete(invocationId);
-  if (set.size === 0) replacedInvocations.delete(makeReplacedKey(threadId, catId));
+  removeReplacedInvocationFromLedger(getThreadRuntimeLedger(), threadId, catId, invocationId);
 }
 
 /** Test-only: reset all entries (call from beforeEach). */
 export function resetSharedReplacedInvocations(): void {
-  replacedInvocations.clear();
+  resetThreadRuntimeSingleton();
 }
 
 /**
@@ -83,15 +89,24 @@ export function resetSharedReplacedInvocations(): void {
  * suppression and let late stream chunks overwrite their authoritative callback content.
  */
 export function clearReplacedInvocationsForThread(threadId: string): void {
-  const prefix = `${threadId}::`;
-  for (const key of [...replacedInvocations.keys()]) {
-    if (key.startsWith(prefix)) replacedInvocations.delete(key);
-  }
+  clearAllReplacedForThread(getThreadRuntimeLedger(), threadId);
 }
 
 /** Read-only snapshot for debug / observability. Set entries cloned per key. */
 export function snapshotSharedReplacedInvocations(): Map<string, Set<string>> {
   const out = new Map<string, Set<string>>();
-  for (const [k, v] of replacedInvocations) out.set(k, new Set(v));
+  const ledger = getThreadRuntimeLedger();
+  const now = Date.now();
+  for (const [threadId, entry] of ledger.entries()) {
+    for (const [catId, perCat] of entry.replaced) {
+      const live: string[] = [];
+      for (const [invocationId, marker] of perCat) {
+        if (marker.expiresAt > now) live.push(invocationId);
+      }
+      if (live.length > 0) {
+        out.set(makeReplacedKey(threadId, catId), new Set(live));
+      }
+    }
+  }
   return out;
 }

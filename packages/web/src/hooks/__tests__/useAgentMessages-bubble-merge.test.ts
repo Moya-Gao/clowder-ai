@@ -1,6 +1,7 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetThreadRuntimeSingleton } from '@/hooks/thread-runtime-singleton';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
 
 const mockAddMessage = vi.fn();
@@ -119,6 +120,10 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
     storeState.messages = [];
     storeState.catInvocations = {};
     storeState.activeInvocations = {};
+    // F173 Phase B: ledger singleton holds active/finalized/replaced state across
+    // tests; reset to avoid cross-test pollution (mirrors the pattern used by
+    // shared-suppression-lifecycle.test).
+    resetThreadRuntimeSingleton();
     vi.clearAllMocks();
   });
 
