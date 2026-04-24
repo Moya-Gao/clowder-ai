@@ -180,6 +180,16 @@ created: 2026-03-26
 - [x] AC-D3: 两条注册路径（`/api/pr-tracking` + `/api/callbacks/register-pr-tracking`）都加校验
 - [x] AC-D4: 测试覆盖：合法 repo 通过、不存在 repo 拒绝、格式错误 repo 拒绝
 
+### Phase E（通知合流 — severity 抽取 + 下线 email 路径）🔴 in-progress
+- [ ] AC-E1: `buildReviewFeedbackContent()` 扫 `newComments` + `newDecisions` 所有 body，抽出最高 severity 生成 `**Review 检测到 P0/P1/P2**` 消息头
+- [ ] AC-E2: severity 识别支持三种格式：shields.io badge / 方括号前缀 `[P1]` / 冒号前缀 `P1:`；行首或独立 token 锚定，拒绝裸 "P1" 避免误判
+- [ ] AC-E3: 多条 findings 取最高 severity（P0 > P1 > P2）；无匹配则不加 header（保持现状）
+- [ ] AC-E4: 单元测试覆盖：各 severity 格式 × 各 commentType（inline / conversation / review body）+ 多条 findings 取最高 + 无 severity 不加 header + FP 负例（普通句子含 "P1" 不触发）
+- [ ] AC-E5: bootstrap 停用 `startGithubReviewWatcher()`（feature flag 默认 off 或直接移除调用），`.env.example` 撤 `GITHUB_REVIEW_IMAP_*` 字段
+- [ ] AC-E6: Rule B（权威 bot 过滤）从 email 通道迁移到 polling 侧，继续生效
+- [ ] AC-E7: Alpha 环境验收：注册含 P2 的 bot review 的 PR → 消息头正确显示 P2 + 无双通道重复通知
+- [ ] AC-E8: 代码清理（独立清理 PR）：删除 `GithubReviewWatcher` / `ReviewRouter` / `ReviewContentFetcher` / `GithubReviewMailParser` / `ProcessedEmailStore` / email-only 的 `github-feedback-filter` 部分 + 相关 tests
+
 ## Dependencies
 
 - **Evolved from**: F133（CI/CD tracking — 投递管道模式复用）
@@ -224,6 +234,7 @@ created: 2026-03-26
 | KD-11 | ReviewFeedbackTaskSpec 新建替换 ReviewCommentsTaskSpec | 最便宜的改名窗口，继续保留旧名字会造成语义债 | 2026-03-26 |
 | KD-12 | patchConflictState() 独立新增，不复用 patchCiState() | CI/conflict 状态语义不同，硬塞一起变成"大杂烩 patch" | 2026-03-26 |
 | KD-13 | 自动 rebase 采用「全自动 + 事后通知」（OQ-3 选项 C） | worktree 隔离低风险；半自动每次需人工确认违背自动化愿景；全自动无通知铲屎官不知情。选项 C 兼顾速度和可见性 | 2026-03-26 |
+| KD-14 | 下线 email 通道（ReviewRouter + GithubReviewWatcher），统一走 polling（ReviewFeedbackTaskSpec）；前置：severity parser 搬到 polling 侧（E.1 → E.2 → E.3） | Polling 的事件面严格覆盖 email（conversation + inline + review decisions）；两套并行导致对同一 review 产生冲突叙事（🚀 vs P2 header）；F140 Phase A 原愿景"review feedback 全来源感知"就是 polling 通道做全集，email 是历史遗留。铲屎官 2026-04-24 拍板 | 2026-04-24 |
 
 ## Timeline
 
