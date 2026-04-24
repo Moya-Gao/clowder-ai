@@ -196,7 +196,7 @@ created: 2026-03-26
 - [ ] AC-E3: FP 护栏：排除 fenced code block 内、排除 blockquote（`> ` 行）、拒绝句内裸词（`I think this is P1` / `P100` / `MP3` 都不触发）
 - [ ] AC-E4: 多条 findings 取最高 severity（P0 > P1 > P2）；无匹配则不加 header（保持现状）
 - [ ] AC-E5: 单元测试覆盖：各 severity 格式 × 各 commentType（inline / conversation / review body）+ 多条 findings 取最高 + 无 severity 不加 header + FP 负例集（至少 5 条：句内裸词 / `P100` / `MP3` / 代码块内 / blockquote 引用）
-- [ ] AC-E6: Setup-noise filter 从 `GithubReviewMailParser.inferReviewActionFromEmailSource()` 抽取通用 `isSetupNoiseComment()` 谓词，polling 侧在 `fetchComments` 后应用（吞 `To use Codex here...` / 空触发 `@codex review` / 触发模板回声）
+- [ ] AC-E6: Setup-noise filter 搬自 `GithubReviewMailParser.ts:101-104` Rule 3，factory `createSetupNoiseFilter(botLogins)` 返回 context-aware predicate（接 `{author, body, commentType}`），polling 侧在 gate 应用。**Scope 严格收窄**：只吞 `author ∈ botLogins` + `commentType=conversation` + body 含 setup sentence 且无 `codex review` content；inline / 非 bot author / bot 含 review content 全不吞。守护负例：人类 reviewer 引用 setup 文案不被过滤（对齐 `github-review-mail-body-classifier.test.js:72`）。裸 `@codex review` / 触发模板回声**归 Rule A** 处理（self-authored skip），E.1 不重复
 - [ ] AC-E7: **删除** Rule B（authoritative-source 语义）：`createGitHubFeedbackFilter()` 不再 skip bot review/inline comment，只保留 Rule A（self-authored）；`GITHUB_AUTHORITATIVE_REVIEW_LOGINS` env + 文案清理（env-registry.ts）
 - [ ] AC-E8: bootstrap 移除 `startGithubReviewWatcher()` 调用，`.env.example` 撤 `GITHUB_REVIEW_IMAP_*` 字段
 - [ ] AC-E9: Alpha 环境 3 场景证据门槛：(a) bot review 含 P2 → 消息头 P2；(b) bot pass no severity → 无 header；(c) 人类 CHANGES_REQUESTED → 正常渲染不被 Rule B 误吞
@@ -280,6 +280,7 @@ created: 2026-03-26
 | 2026-04-24 | 🔴 铲屎官发现 PR #1376 通知"bug"：Review Feedback（🚀）和 Review 检测到 P2 两条消息叙事冲突。诊断：双通道（email + polling）对同一 review 并行投递，severity 抽取只在 email 通道。**Feature reopened** for Phase E（通知合流） |
 | 2026-04-24 | Phase E kickoff — KD-14 记录，OQ-4/5 立项。拆 E.1（severity 前移）→ E.2（下线 email）→ E.3（代码清理） |
 | 2026-04-24 | Phase E Design Gate 通过（砚砚 GPT-5.4）with 3 条修正：KD-15（Rule B 删除，非迁移 — 我原 spec 把 filter 位置搞反）+ KD-16（severity 严格格式 + FP 护栏 + 负例集）+ KD-17（3 场景证据门槛替代时间窗口）。OQ-4/5 关闭 |
+| 2026-04-24 | Phase E.1 plan 双 reviewer 退回：砚砚 GPT-5.4 三条（body-only 谓词误杀 / trigger template 归 Rule A / 命令路径漂移）+ 砚砚 GPT-5.5 三条（badge 扫在 strip 前会让 blockquote 引用触发老 bug / AC-E6 与 plan 不一致 / Task 4.1 fixture 被 Rule B 污染）。AC-E6 scope 收窄到"bot-authored setup-only conversation"，trigger/template 明确归 Rule A |
 
 ## Design Gate 讨论归档
 

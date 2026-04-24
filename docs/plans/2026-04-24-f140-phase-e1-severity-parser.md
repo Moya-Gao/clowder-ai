@@ -123,6 +123,17 @@ test('parseSeverity: blockquote > P1: → null（引用旧 finding）', () => {
   assert.equal(parseSeverity(body), null);
 });
 
+// 砚砚 GPT-5.5 P1-1 守护：badge 必须也被 strip 保护
+test('parseSeverity: fenced code 内的 badge → null（老 bug 结构性复发守护）', () => {
+  const body = 'Here is an example:\n```\n![P1 Badge](https://img.shields.io/badge/P1-yellow?style=flat) old\n```\nNo severity now.';
+  assert.equal(parseSeverity(body), null);
+});
+
+test('parseSeverity: blockquote 内的 badge → null（引用旧 finding 不触发）', () => {
+  const body = '> ![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat) previously addressed\n\nNow fixed';
+  assert.equal(parseSeverity(body), null);
+});
+
 test('parseSeverity: P3 不识别（informational）→ null', () => {
   assert.equal(parseSeverity('[P3] FYI — consider naming'), null);
 });
@@ -185,12 +196,15 @@ function stripNoise(body: string): string {
 export function parseSeverity(body: string): Severity | null {
   if (!body) return null;
 
-  // Badge can appear anywhere; check first (most specific)
-  const badge = BADGE_REGEX.exec(body);
-  if (badge) return badge[1] as Severity;
-
-  // Bracket/colon prefixes must be on their own line — strip fenced/blockquote first
+  // 砚砚 GPT-5.5 P1-1 修正：ALL three formats must match on cleaned body.
+  // Original (broken) version scanned BADGE before stripNoise — this let
+  // blockquote-quoted old findings (e.g. `> ![P2 Badge](...)`) and fenced
+  // code samples trigger a new "Review 检测到 P2" header, reproducing the
+  // exact "过期 P1/P2 冒出来" UX bug this feature exists to fix.
   const cleaned = stripNoise(body);
+
+  const badge = BADGE_REGEX.exec(cleaned);
+  if (badge) return badge[1] as Severity;
 
   const bracket = BRACKET_REGEX.exec(cleaned);
   if (bracket) return bracket[1] as Severity;
@@ -527,16 +541,27 @@ git commit -m "feat(F140-E1): prepend severity header to review feedback message
 
 ### Step 4.1: 写失败测试 — setup-noise 被 gate 过滤 + 人类引用不被吞
 
+> **砚砚 GPT-5.5 P2 修正**：E.1 不删 Rule B，Rule B 当前会过滤 authoritative bot 的 inline/review。fixture 里如果用"bot real inline"当 positive surviving case，会被 Rule B 吞，测不出 setup-noise filter 独立效果。Real surviving case 必须用 **human author**。
+
 ```js
 // packages/api/test/scheduler/review-feedback-spec.test.js（扩展）
-test('gate: bot setup-only conversation comment 被 isNoiseComment 过滤', async () => {
-  // fixture: fetchComments 返回 [bot setup-only, real review inline]
-  // expect: workItem 只含 real review comment，bot setup 被过滤
+test('gate: bot setup-only conversation 被 isNoiseComment 过滤; human inline 保留', async () => {
+  // fixture: fetchComments 返回:
+  //   [0] bot(chatgpt-codex-connector[bot]) conversation: "To use Codex here..."
+  //   [1] human(octocat) inline: "[P1] real finding on line 42"
+  // expect: workItem 只含 [1]（human 不被 Rule B 过滤，bot setup-only 被 isNoiseComment 过滤）
 });
 
-test('gate: human 引用 setup 文案的 conversation comment 不被过滤（P1-1 守护）', async () => {
-  // fixture: fetchComments 返回 [human conversation 含 setup sentence]
-  // expect: workItem 保留该 comment，author != bot 所以不应用 setup-noise filter
+test('gate: human conversation 引用 setup 文案 不被过滤（P1-1 守护）', async () => {
+  // fixture: fetchComments 返回:
+  //   [0] human(octocat) conversation: "quoting previous bot: To use Codex here, create an environment for this repo. FYI"
+  // expect: workItem 含 [0]（author != bot → setup-noise filter 返回 false → 保留）
+});
+
+test('gate: 纯 bot setup-only（无其他），all skip → cursor advance', async () => {
+  // fixture: fetchComments 返回 [bot setup-only conversation (id=10)]
+  // expect: workItem 为空；automationState.review.lastCommentCursor === 10
+  // （echo-skip / persistFirst policy — 确保 cursor 不停滞）
 });
 ```
 
