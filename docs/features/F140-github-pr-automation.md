@@ -281,6 +281,7 @@ created: 2026-03-26
 | 2026-04-24 | Phase E kickoff — KD-14 记录，OQ-4/5 立项。拆 E.1（severity 前移）→ E.2（下线 email）→ E.3（代码清理） |
 | 2026-04-24 | Phase E Design Gate 通过（砚砚 GPT-5.4）with 3 条修正：KD-15（Rule B 删除，非迁移 — 我原 spec 把 filter 位置搞反）+ KD-16（severity 严格格式 + FP 护栏 + 负例集）+ KD-17（3 场景证据门槛替代时间窗口）。OQ-4/5 关闭 |
 | 2026-04-24 | Phase E.1 plan 双 reviewer 退回：砚砚 GPT-5.4 三条（body-only 谓词误杀 / trigger template 归 Rule A / 命令路径漂移）+ 砚砚 GPT-5.5 三条（badge 扫在 strip 前会让 blockquote 引用触发老 bug / AC-E6 与 plan 不一致 / Task 4.1 fixture 被 Rule B 污染）。AC-E6 scope 收窄到"bot-authored setup-only conversation"，trigger/template 明确归 Rule A |
+| 2026-04-24 | Phase E.1 plan 砚砚 GPT-5.4 复审放行（SHA 478a91403）。提醒：E.1 复用 `GITHUB_AUTHORITATIVE_REVIEW_LOGINS` 作 `botLogins` 来源是**临时借壳**，E.2 删 Rule B 时必须显式处理（改名 / 替换为 `GITHUB_SETUP_NOISE_BOT_LOGINS` / 删除三选一），不得"顺手清理" |
 
 ## Design Gate 讨论归档
 
