@@ -208,6 +208,7 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。
 | 2026-04-24 05:28 | **Phase A hotfix2 merged (PR #1364, squash `da928015e`)** — close clowder-ai#573，stream/callback/persistence 三路统一到 OUTER `parentInvocationId ?? ownInvocationId`；连带 piggyback fix（formatCatName mock + cli-spawn drainWarnings restore + env-registry register + biome auto-fix）解锁被 main 上 F174-B/clowder-ai#540 intake 误碰的 gate；Codex P1（A→B→A cross-turn merge）实测确认为 broadcast pre-existing，downgraded P3 |
 | 2026-04-24 06:17 | **#1364 实机验证（铲屎官 runtime 重启后）**：✅ 新发 invocation 单 bubble（fix 生效）；⚠️ 历史 dup record 不自愈（写入路径 fix 不回溯改写持久化数据，预期）— 拍板推进 Phase B → C 路线，历史 dup tolerance 进 Phase C 处理（写时不动数据，hydration 加近似 dup 视觉合并层），授权砚砚 + 宪宪 自主闭环 Phase B/C |
 | 2026-04-24 06:25 | **Phase B kickoff** — 启动 thread-scoped runtime refs 收口 + background handler 瘦身（AC-B1..B4 主线 + AC-B5..B10 race 验收清单）|
+| 2026-04-24 12:46 | **Phase B-1 merged (PR #1373, squash `30cc69e70`)** — thread-runtime ledger module + 5 refs migration (sawStreamData / finalizedStream / pendingTimeoutDiag / activeRefs / shared-replaced-invocations) + AC-B9/B10 wired into useAgentMessages production path. 砚砚 review cycles: 7 (P1 wiring, 2 rounds biome, 2 rounds Codex P1 fresher-signal precedence, 1 round 契约残留 cleanup) + cloud Codex 3 P1 全部 push back/fix。491/491 hooks tests green throughout。Phase B-2 (thin useSocket-background ≤30 行) + Phase B-3 (thread switch fixture) 留 follow-up PR。 |
 
 ## Review Gate
 
