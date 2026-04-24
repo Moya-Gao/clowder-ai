@@ -11,6 +11,7 @@ created: 2026-04-23
 > **Status**: in-progress | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1
 >
 > **Phase A**: ✅ merged 2026-04-23 via PR #1359
+> **Phase B**: ✅ merged 2026-04-24 via PR #1363
 
 ## Why
 
@@ -232,13 +233,13 @@ interface CallbackTool<T> {
 - [x] AC-A5: 客户端 `callbackPost`/`callbackGet` 解析 `reason`（typed marker `[reason=X]`），不再用 regex 字符串匹配
 - **Bonus**（砚砚 review reminder #2）: reason taxonomy 抽到 `@cat-cafe/shared/types/callback-auth-reasons.ts` 单一真相源 + contract test 防漂移
 
-### Phase B（Persistence）
-- [ ] AC-B1: `InvocationRegistry` 支持 Redis backend，schema 设计参考 `RedisInvocationRecordStore.ts` 的 Hash + Lua 模式
-- [ ] AC-B2: `verify()` / `create()` / `isLatest()` / `claimClientMessageId()` 全部走 Redis，通过现有 `InvocationRegistry.test.ts` + 新增集成测试
-- [ ] AC-B3: API 进程重启后，活跃 invocation 仍可 `verify()` 成功（集成测试：启-停-启 + verify 流程）
-- [ ] AC-B4: `CAT_CAFE_INVOCATION_REGISTRY=memory` 回退可用（回滚保险）
-- [ ] AC-B5: Worktree 用 6398，main 用 6399，不误触圣域（Redis config test）
-- [ ] AC-B6: 不引入 Streams 作真相源；如做 audit 是副写
+### Phase B（Persistence）— ✅ merged PR #1363
+- [x] AC-B1: `InvocationRegistry` 支持 Redis backend，schema 设计参考 `RedisInvocationRecordStore.ts` 的 Hash + Lua 模式
+- [x] AC-B2: `verify()` / `create()` / `isLatest()` / `claimClientMessageId()` 全部走 Redis，通过现有 `InvocationRegistry.test.ts` + 新增集成测试
+- [x] AC-B3: API 进程重启后，活跃 invocation 仍可 `verify()` 成功（集成测试：启-停-启 + verify 流程）
+- [x] AC-B4: `CAT_CAFE_INVOCATION_REGISTRY=memory` 回退可用（回滚保险）
+- [x] AC-B5: Worktree 用 6398，main 用 6399，不误触圣域（Redis config test）
+- [x] AC-B6: 不引入 Streams 作真相源；如做 audit 是副写
 
 ### Phase C（Refresh）
 - [ ] AC-C1: `POST /api/callbacks/refresh-token` 端点落地，header 传 creds，fail-closed 401（reason 来自 A）
@@ -352,6 +353,7 @@ interface CallbackTool<T> {
 | 2026-04-23 16:00 | Phase A 实施完成（commits cb85ac1c0 + 640d154fe + 534b22daa + 3c8b024d2 on `feat/f174-phase-a-failure-reasons`），ready for PR |
 | 2026-04-23 16:24 | @缅因猫 GPT-5.4 cross-family review of Phase A → **PASS**（self-reran 36/36 + 45/45 tests）。Two non-blocking reminders → addressed in 3c8b024d2: shared reason taxonomy + contract test (drift prevention); mixed-version rollout note added to Risk |
 | 2026-04-23 22:20 | **Phase A merged via PR #1359** (squash commit `ef1c83c4`)，cloud Codex review: "no major issues, chef's kiss"，跨家族 review 全部延续到 final HEAD `74926347` |
+| 2026-04-24 03:35 | **Phase B merged via PR #1363** (squash commit `ca738c8f0`)，cloud Codex review: "Didn't find any major issues"，跨家族 gpt52 PASS + 3 P2 全处理（1 push-back + 2 fixed） |
 
 ## Review Gate
 
