@@ -8,7 +8,7 @@ created: 2026-04-22
 
 # F172: Generated Image Publication — 内建生图产物归档与富块发布
 
-> **Status**: in_progress (reopened — Phase F) | **Owner**: 布偶猫/opus | **Priority**: P1
+> **Status**: done (Phase F merged 2026-04-23) | **Owner**: 布偶猫/opus | **Priority**: P1
 >
 > **Reopen reason (2026-04-23)**: Alpha 验收暴露 Phase C 在真实 cascade 上从未抓到图。
 >
@@ -242,6 +242,7 @@ created: 2026-04-22
 | 2026-04-23 | Reopen F172 加 Phase F：初始假设是 spec 设计 bug，计划复刻 Codex scanner 模式扫 brain 目录 |
 | 2026-04-23 (晚) | **二次诊断更正**：@antig-opus 提供真实 toolResult.output sample，路径**确实**在 output 里，只是末尾有句号 `.`。真根因是 `extractAbsoluteImagePaths` token 分隔符不含句号，token 变成 `<path>.png.` 而扩展名 regex 失败 |
 | 2026-04-23 (晚) | Phase F 实施：5 行 regex 修复（split 后 strip trailing punctuation）+ 2 个 verbatim regression 测试，39/39 GREEN，brain scanner 决策撤回 |
+| 2026-04-23 (晚) | PR #1361 — 砚砚（gpt-5.5）review PASS（0 P1/P2） + 云端 codex-connector review PASS（"Didn't find any major issues"），squash merged 5f8de66a7。剩 AC-F5 alpha smoke 待 antig-opus 真生图验证 |
 | 2026-04-23 | Phase A merged（PR #1353）：共享 publication contract + image-storage 原语 |
 | 2026-04-23 | Phase B-E merged（PR #1355）：Codex scanner + Antigravity publisher + skill 收口 + 富块联动。砚砚 review 放行 + 3 轮云端 review（2 P1 + 2 P2 全修） |
 
