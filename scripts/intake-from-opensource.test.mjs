@@ -23,6 +23,10 @@ function run(cmd, args, cwd, extraEnv = {}) {
   });
 }
 
+function stripAnsi(text) {
+  return text.replace(/\x1B\[[0-9;]*m/g, '');
+}
+
 function git(cwd, ...args) {
   return run('git', args, cwd).trim();
 }
@@ -96,12 +100,85 @@ function captureAdvanceFailure(repoRoot) {
   }
 }
 
+function makePlanFixture(files) {
+  const fixture = makeFixture();
+  const mockPrJson = JSON.stringify(
+    {
+      title: 'test high-risk intake plan',
+      state: 'MERGED',
+      author: { login: 'contributor' },
+      mergedAt: '2026-04-24T20:00:00Z',
+      mergeCommit: { oid: '1111111111111111111111111111111111111111' },
+      files: files.map((path) => ({ path })),
+    },
+    null,
+    2,
+  );
+
+  const mockBin = join(fixture.sandboxRoot, 'mock-bin');
+  mkdirSync(mockBin, { recursive: true });
+  const ghPath = join(mockBin, 'gh');
+  writeFileSync(
+    ghPath,
+    `#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "\${1:-}" = "pr" ] && [ "\${2:-}" = "view" ]; then
+  cat <<'JSON'
+${mockPrJson}
+JSON
+  exit 0
+fi
+
+exit 1
+`,
+    'utf-8',
+  );
+  chmodSync(ghPath, 0o755);
+
+  return { ...fixture, mockBin };
+}
+
+function runPlan(repoRoot, extraEnv = {}) {
+  return run('bash', ['scripts/intake-from-opensource.sh', '--pr', '777', '--mode=plan'], repoRoot, extraEnv);
+}
+
 function commitFile(repoRoot, filePath, content, message) {
   writeFileSync(join(repoRoot, filePath), content, 'utf-8');
   git(repoRoot, 'add', filePath);
   git(repoRoot, 'commit', '-m', message);
   return git(repoRoot, 'rev-parse', 'HEAD');
 }
+
+describe('intake-from-opensource.sh --mode=plan high-risk guard', () => {
+  const fixtures = [];
+
+  afterEach(() => {
+    while (fixtures.length > 0) {
+      rmSync(fixtures.pop(), { recursive: true, force: true });
+    }
+  });
+
+  it('flags high-risk files separately from safe cherry-pick files', () => {
+    const fixture = makePlanFixture([
+      'packages/api/src/index.ts',
+      'packages/api/src/domains/cats/services/agents/routing/route-serial.ts',
+      'packages/api/src/config/env-registry.ts',
+      'packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts',
+    ]);
+    fixtures.push(fixture.sandboxRoot);
+
+    const output = runPlan(fixture.repoRoot, { PATH: `${fixture.mockBin}:${process.env.PATH}` });
+    const plainOutput = stripAnsi(output);
+
+    assert.match(output, /HIGH-RISK GUARD \(3 files\)/);
+    assert.match(output, /packages\/api\/src\/index\.ts/);
+    assert.match(output, /route-serial\.ts/);
+    assert.match(output, /packages\/api\/src\/config\/env-registry\.ts/);
+    assert.match(plainOutput, /High-risk:\s+3/);
+    assert.match(plainOutput, /Safe:\s+1/);
+  });
+});
 
 describe('intake-from-opensource.sh --advance-ledger', () => {
   const fixtures = [];

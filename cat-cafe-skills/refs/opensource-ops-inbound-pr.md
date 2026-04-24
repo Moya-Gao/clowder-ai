@@ -252,6 +252,7 @@ bash scripts/intake-from-opensource.sh --pr {N} --mode=plan
 
 输出会把文件分为：
 - ✅ safe-cherry-pick（可直接吸收）
+- ⚠ HIGH-RISK GUARD（需 manual-port/manual-merge + preserve proof）
 - ⚠️ manual-port（需人工对照 diff）
 - ○ public-only（跳过）
 
@@ -267,6 +268,7 @@ bash scripts/intake-from-opensource.sh --pr {N} --mode=plan
 1. **Path Guard**：absorb PR 最终 `merge diff` 的文件集合必须满足 `diff ⊆ Intake Intent Issue 文件表 + 显式 exception list`。新增测试、生成索引、review request 等合理文件也必须写进 exception list；不能靠 reviewer 人肉记忆。
 2. **Overlap Guard**：同一个文件同时满足“社区 PR 改过”且“cat-cafe 当前 main 相比 source base 已有家里演化”时，禁止标为 `safe-cherry-pick`，必须升级为 `manual-port / manual-merge`。
 3. **High-risk File Guard**：入口接线、route 注册、DI 参数、env registry、metric allowlist、auth/callback、sync 脚本、品牌敏感文件，即使 diff 看起来小，也默认要求 `Must Preserve Home Behavior` + proof。
+   - `--mode=plan` 会自动按 `HIGH_RISK_PATTERNS` 标红这类文件；命中后不能按普通 safe-cherry-pick 处理。
 
 **软约束（猫的思考动作，写进 Issue / review request）：**
 

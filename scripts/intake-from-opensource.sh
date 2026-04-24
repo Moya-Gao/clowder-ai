@@ -146,6 +146,33 @@ is_brand_sensitive() {
   return 1
 }
 
+# ── High-risk files (Intake Guard) ──
+# These files often carry route wiring, dependency injection, auth/callback,
+# env, allowlist, or sync behavior. They may still be mechanically mergeable,
+# but plan mode must not classify them as plain safe-cherry-pick.
+HIGH_RISK_PATTERNS=(
+  "packages/api/src/index.ts"
+  "packages/api/src/routes/*.ts"
+  "*/route-*.ts"
+  "packages/api/src/config/env-registry.ts"
+  "packages/api/src/infrastructure/telemetry/metric-allowlist.ts"
+  "*callback*.ts"
+  "*auth*.ts"
+  "scripts/intake-from-opensource.sh"
+  "scripts/sync-*.sh"
+)
+
+is_high_risk() {
+  local path="$1"
+  local pattern
+  for pattern in "${HIGH_RISK_PATTERNS[@]}"; do
+    case "$path" in
+      $pattern) return 0 ;;
+    esac
+  done
+  return 1
+}
+
 # ── Brand Expectations (single source of truth) ──
 # Format: file|check_type|pattern|description
 # check_type: must_not_contain, must_contain, file_exists
@@ -698,6 +725,8 @@ PUBLIC_FILES=""
 PUBLIC_COUNT=0
 BRAND_FILES=""
 BRAND_COUNT=0
+HIGH_RISK_FILES=""
+HIGH_RISK_COUNT=0
 
 while IFS= read -r file; do
   [ -z "$file" ] && continue
@@ -707,6 +736,9 @@ while IFS= read -r file; do
   elif is_brand_sensitive "$file"; then
     BRAND_FILES="${BRAND_FILES}  ${file}\n"
     BRAND_COUNT=$((BRAND_COUNT + 1))
+  elif is_high_risk "$file"; then
+    HIGH_RISK_FILES="${HIGH_RISK_FILES}  ${file}\n"
+    HIGH_RISK_COUNT=$((HIGH_RISK_COUNT + 1))
   elif is_manual_port "$file"; then
     MANUAL_FILES="${MANUAL_FILES}  ${file}\n"
     MANUAL_COUNT=$((MANUAL_COUNT + 1))
@@ -733,6 +765,14 @@ if [ "$BRAND_COUNT" -gt 0 ]; then
   echo ""
 fi
 
+if [ "$HIGH_RISK_COUNT" -gt 0 ]; then
+  echo -e "${RED}⚠ HIGH-RISK GUARD ($HIGH_RISK_COUNT files)${NC} — route/DI/env/auth/sync surface, do not treat as plain safe-cherry-pick"
+  echo -e "$HIGH_RISK_FILES"
+  echo -e "  ${YELLOW}→ Upgrade to manual-port/manual-merge in the Intake Intent Issue${NC}"
+  echo -e "  ${YELLOW}→ Fill Source Behavior + Must Preserve Home Behavior + Proof${NC}"
+  echo ""
+fi
+
 if [ "$MANUAL_COUNT" -gt 0 ]; then
   echo -e "${YELLOW}⚠ manual-port ($MANUAL_COUNT files)${NC} — has outbound transforms, review diff manually"
   echo -e "$MANUAL_FILES"
@@ -745,10 +785,13 @@ fi
 
 echo ""
 echo -e "${BLUE}── Summary ──${NC}"
-echo "  Total files: $((SAFE_COUNT + BRAND_COUNT + MANUAL_COUNT + PUBLIC_COUNT))"
+echo "  Total files: $((SAFE_COUNT + BRAND_COUNT + HIGH_RISK_COUNT + MANUAL_COUNT + PUBLIC_COUNT))"
 echo -e "  ${GREEN}Safe:${NC}   $SAFE_COUNT  (auto-absorbable)"
 if [ "$BRAND_COUNT" -gt 0 ]; then
   echo -e "  ${RED}Brand:${NC} $BRAND_COUNT  (🛡 manual diff-merge only!)"
+fi
+if [ "$HIGH_RISK_COUNT" -gt 0 ]; then
+  echo -e "  ${RED}High-risk:${NC} $HIGH_RISK_COUNT  (manual-port + preserve proof)"
 fi
 echo -e "  ${YELLOW}Manual:${NC} $MANUAL_COUNT  (needs human review)"
 echo -e "  ${BLUE}Skip:${NC}   $PUBLIC_COUNT  (public-only)"
@@ -760,6 +803,10 @@ if [ "$MODE" = "plan" ]; then
     echo -e "  ${RED}0. 🛡 BRAND GUARD: Manually diff-merge $BRAND_COUNT brand-sensitive file(s)${NC}"
     echo "     Compare clowder-ai version with cat-cafe version, keep cat-cafe brand values"
     echo "     Run: bash scripts/intake-from-opensource.sh --validate-inbound"
+  fi
+  if [ "$HIGH_RISK_COUNT" -gt 0 ]; then
+    echo -e "  ${RED}0. ⚠ HIGH-RISK GUARD: Treat $HIGH_RISK_COUNT high-risk file(s) as manual-port/manual-merge${NC}"
+    echo "     Write Source Behavior + Must Preserve Home Behavior + Proof in the Intake Intent Issue"
   fi
   if [ "$SAFE_COUNT" -gt 0 ]; then
     echo "  1. Cherry-pick safe files from clowder-ai PR #$PR_NUMBER"
