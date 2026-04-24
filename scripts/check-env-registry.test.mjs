@@ -28,6 +28,7 @@ const ALLOWLIST = new Map([
   ['LANG', 'OS-provided locale'],
   ['LC_ALL', 'OS-provided locale override'],
   ['APPDATA', 'Windows OS variable (cli-spawn-win.ts)'],
+  ['LOCALAPPDATA', 'Windows OS variable (cli-resolve.ts)'],
   ['SYSTEMROOT', 'Windows OS variable (project-path.ts)'],
   ['PATHEXT', 'Windows OS variable (capability-orchestrator.ts executable extension lookup)'],
   ['NODE_ENV', 'Node.js standard'],
