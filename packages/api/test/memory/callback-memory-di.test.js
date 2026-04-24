@@ -26,7 +26,7 @@ describe('callback-memory-routes DI (IEvidenceStore path)', () => {
   function createMockRegistry() {
     return {
       // F174 Phase A: verify() returns VerifyResult discriminated union
-      verify: () => ({
+      verify: async () => ({
         ok: true,
         record: {
           invocationId: 'inv-1',

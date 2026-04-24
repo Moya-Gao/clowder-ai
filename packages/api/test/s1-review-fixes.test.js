@@ -55,7 +55,7 @@ describe('P1-2: resolveTargetsAndIntent persist writes participants', () => {
     let counter = 0;
     return {
       create: () => ({ invocationId: `inv-${++counter}`, callbackToken: `tok-${counter}` }),
-      verify: () => ({ ok: false, reason: 'unknown_invocation' }),
+      verify: async () => ({ ok: false, reason: 'unknown_invocation' }),
     };
   }
 

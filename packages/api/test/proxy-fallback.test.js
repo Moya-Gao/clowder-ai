@@ -85,7 +85,7 @@ describe('F115 AC-C3: proxy fallback to direct upstream', () => {
     const deps = {
       registry: {
         create: () => ({ invocationId: 'inv-fallback', callbackToken: 'tok-fallback' }),
-        verify: () => ({ ok: false, reason: 'unknown_invocation' }),
+        verify: async () => ({ ok: false, reason: 'unknown_invocation' }),
       },
       sessionManager: {
         get: async () => undefined,
@@ -195,7 +195,7 @@ describe('F115 AC-C3: proxy fallback to direct upstream', () => {
     const deps = {
       registry: {
         create: () => ({ invocationId: 'inv-nan', callbackToken: 'tok-nan' }),
-        verify: () => ({ ok: false, reason: 'unknown_invocation' }),
+        verify: async () => ({ ok: false, reason: 'unknown_invocation' }),
       },
       sessionManager: {
         get: async () => undefined,

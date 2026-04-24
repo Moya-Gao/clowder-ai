@@ -79,7 +79,7 @@ describe('Callback Bootcamp State', () => {
 
     // Create a thread with initial bootcamp state
     const thread = await threadStore.create('user-1', '🎓 训练营');
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', thread.id);
     await threadStore.updateBootcampState(thread.id, {
       v: 1,
       phase: 'phase-0-select-cat',
@@ -108,7 +108,7 @@ describe('Callback Bootcamp State', () => {
     const app = await createApp();
 
     const thread = await threadStore.create('user-1', '🎓 训练营');
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', thread.id);
     await threadStore.updateBootcampState(thread.id, {
       v: 1,
       phase: 'phase-3-config-help',
@@ -138,7 +138,7 @@ describe('Callback Bootcamp State', () => {
 
   test('returns 404 for non-existent thread', async () => {
     const app = await createApp();
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'nonexistent');
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'nonexistent');
 
     const response = await app.inject({
       method: 'POST',
@@ -155,7 +155,7 @@ describe('Callback Bootcamp State', () => {
 
   test('returns 400 for invalid phase', async () => {
     const app = await createApp();
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus');
 
     const thread = await threadStore.create('user-1', '🎓 训练营');
 
@@ -183,7 +183,7 @@ describe('Callback Bootcamp State', () => {
     });
 
     // Invocation is bound to thread A
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', threadA.id);
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', threadA.id);
 
     // Try to write to thread B — should be rejected
     const response = await app.inject({
@@ -213,7 +213,7 @@ describe('Callback Bootcamp State', () => {
     });
 
     // Invocation with default thread (no threadId passed)
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus');
 
     // Try to write thread B — should be rejected
     const response = await app.inject({
@@ -241,9 +241,9 @@ describe('Callback Bootcamp State', () => {
     });
 
     // First invocation (will become stale)
-    const old = registry.create('user-1', 'opus', thread.id);
+    const old = await registry.create('user-1', 'opus', thread.id);
     // Second invocation supersedes the first
-    registry.create('user-1', 'opus', thread.id);
+    await registry.create('user-1', 'opus', thread.id);
 
     // Old invocation tries to write — should be ignored
     const response = await app.inject({
@@ -268,7 +268,7 @@ describe('Callback Bootcamp State', () => {
   test('P1: rejects phase skip (phase-0 → phase-11 directly)', async () => {
     const app = await createApp();
     const thread = await threadStore.create('user-1', '🎓 训练营');
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', thread.id);
     await threadStore.updateBootcampState(thread.id, {
       v: 1,
       phase: 'phase-0-select-cat',
@@ -298,7 +298,7 @@ describe('Callback Bootcamp State', () => {
   test('P1: rejects backward phase transition', async () => {
     const app = await createApp();
     const thread = await threadStore.create('user-1', '🎓 训练营');
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', thread.id);
     await threadStore.updateBootcampState(thread.id, {
       v: 1,
       phase: 'phase-5-kickoff',
@@ -320,7 +320,7 @@ describe('Callback Bootcamp State', () => {
   test('allows skipping phase-3.5-advanced (optional)', async () => {
     const app = await createApp();
     const thread = await threadStore.create('user-1', '🎓 训练营');
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', thread.id);
     await threadStore.updateBootcampState(thread.id, {
       v: 1,
       phase: 'phase-3-config-help',
@@ -342,7 +342,7 @@ describe('Callback Bootcamp State', () => {
   test('emits bootcamp-enrolled achievement on phase-1-intro transition', async () => {
     const app = await createApp();
     const thread = await threadStore.create('user-1', '🎓 训练营');
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', thread.id);
     await threadStore.updateBootcampState(thread.id, {
       v: 1,
       phase: 'phase-0-select-cat',
@@ -371,7 +371,7 @@ describe('Callback Bootcamp State', () => {
   test('emits bootcamp-graduated achievement on phase-11-farewell', async () => {
     const app = await createApp();
     const thread = await threadStore.create('user-1', '🎓 训练营');
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', thread.id);
     await threadStore.updateBootcampState(thread.id, {
       v: 1,
       phase: 'phase-10-retro',
@@ -402,7 +402,7 @@ describe('Callback Bootcamp State', () => {
   test('does not emit achievement for phases without mapping', async () => {
     const app = await createApp();
     const thread = await threadStore.create('user-1', '🎓 训练营');
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', thread.id);
     await threadStore.updateBootcampState(thread.id, {
       v: 1,
       phase: 'phase-1-intro',
@@ -436,7 +436,7 @@ describe('Callback Bootcamp State', () => {
     // Deliberately NOT registering leaderboardEventsRoutes
 
     const thread = await threadStore.create('user-1', '🎓 训练营');
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', thread.id);
     await threadStore.updateBootcampState(thread.id, {
       v: 1,
       phase: 'phase-0-select-cat',
@@ -460,7 +460,7 @@ describe('Callback Bootcamp State', () => {
   test('rejects re-submitting same phase (not forward)', async () => {
     const app = await createApp();
     const thread = await threadStore.create('user-1', '🎓 训练营');
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', thread.id);
     await threadStore.updateBootcampState(thread.id, {
       v: 1,
       phase: 'phase-1-intro',
@@ -484,7 +484,7 @@ describe('Callback Bootcamp State', () => {
   test('auto-pins thread when advancing to phase-11-farewell', async () => {
     const app = await createApp();
     const thread = await threadStore.create('user-1', '🎓 训练营');
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', thread.id);
     await threadStore.updateBootcampState(thread.id, {
       v: 1,
       phase: 'phase-10-retro',

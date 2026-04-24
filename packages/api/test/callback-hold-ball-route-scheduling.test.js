@@ -95,7 +95,7 @@ describe('F167 C1: /api/callbacks/hold-ball scheduling + errors', () => {
     const deps = makeStubDeps();
     const app = await createApp(deps);
     const thread = await threadStore.create('user-hb-200', 'hb200');
-    const { invocationId, callbackToken } = registry.create('user-hb-200', 'codex', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-hb-200', 'codex', thread.id);
 
     const response = await app.inject({
       method: 'POST',
@@ -132,7 +132,7 @@ describe('F167 C1: /api/callbacks/hold-ball scheduling + errors', () => {
     const deps = makeStubDeps();
     const app = await createApp(deps);
     const thread = await threadStore.create('user-hb-429', 'hb429');
-    const { invocationId, callbackToken } = registry.create('user-hb-429', 'codex', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-hb-429', 'codex', thread.id);
     const headers = { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken };
     const payload = { reason: 'waiting', nextStep: 'continue', wakeAfterMs: 10_000 };
 
@@ -159,7 +159,7 @@ describe('F167 C1: /api/callbacks/hold-ball scheduling + errors', () => {
     });
     const app = await createApp(deps);
     const thread = await threadStore.create('user-hb-500', 'hb500');
-    const { invocationId, callbackToken } = registry.create('user-hb-500', 'codex', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-hb-500', 'codex', thread.id);
 
     const response = await app.inject({
       method: 'POST',

@@ -80,7 +80,7 @@ describe('Bootcamp Flow Integration', () => {
     assert.equal(thread.bootcampState.phase, 'phase-0-select-cat');
 
     // Create invocation bound to the bootcamp thread
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', thread.id);
 
     // Step 2: Cat selects lead cat → advance to phase-1-intro
     const step2 = await app.inject({
@@ -101,7 +101,7 @@ describe('Bootcamp Flow Integration', () => {
 
     // Helper: advance phase (creates fresh invocation each time, simulating multiple turns)
     async function advancePhase(threadId, phase, extra = {}) {
-      const creds = registry.create('user-1', 'opus', threadId);
+      const creds = await registry.create('user-1', 'opus', threadId);
       const res = await app.inject({
         method: 'POST',
         url: '/api/callbacks/update-bootcamp-state',
@@ -116,7 +116,7 @@ describe('Bootcamp Flow Integration', () => {
     await advancePhase(thread.id, 'phase-2-env-check');
 
     // Step 3b: Run env check → auto-stores results
-    const envCreds = registry.create('user-1', 'opus', thread.id);
+    const envCreds = await registry.create('user-1', 'opus', thread.id);
     const step3 = await app.inject({
       method: 'POST',
       url: '/api/callbacks/bootcamp-env-check',

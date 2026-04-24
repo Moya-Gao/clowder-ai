@@ -94,7 +94,7 @@ export function registerCallbackWeComActionRoutes(app: FastifyInstance, deps: { 
     }
 
     const body = parsed.data;
-    const result = deps.registry.verify(body.invocationId, body.callbackToken);
+    const result = await deps.registry.verify(body.invocationId, body.callbackToken);
     if (!result.ok) {
       reply.status(401);
       return makeCallbackAuthError(result.reason);

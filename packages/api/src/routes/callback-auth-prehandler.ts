@@ -16,7 +16,7 @@ declare module 'fastify' {
 }
 
 interface CallbackAuthRegistry {
-  verify(invocationId: string, callbackToken: string): VerifyResult;
+  verify(invocationId: string, callbackToken: string): Promise<VerifyResult>;
 }
 
 /** Register the callbackAuth decoration + preHandler on a Fastify instance.
@@ -51,7 +51,7 @@ export function registerCallbackAuthHook(app: FastifyInstance, registry: Callbac
       reply.status(401).send(makeCallbackAuthError('missing_creds'));
       return;
     }
-    const result = registry.verify(invocationId, callbackToken);
+    const result = await registry.verify(invocationId, callbackToken);
     if (!result.ok) {
       reply.status(401).send(makeCallbackAuthError(result.reason));
       return;

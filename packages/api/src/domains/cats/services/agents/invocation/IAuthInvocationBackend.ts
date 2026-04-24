@@ -1,0 +1,42 @@
+/**
+ * F174 Phase B — Backend port for callback auth invocation storage.
+ *
+ * MemoryAuthInvocationBackend (in-memory Map, current default for tests) and
+ * RedisAuthInvocationBackend (Redis Hash + Lua, restart-resilient) both implement
+ * this interface. The InvocationRegistry facade delegates to whichever backend
+ * the factory wires up based on CAT_CAFE_INVOCATION_REGISTRY env.
+ *
+ * All methods are async to allow Redis IO uniformly; memory backend wraps in
+ * `Promise.resolve` (negligible overhead).
+ */
+
+import type { InvocationRecord, VerifyResult } from './InvocationRegistry.js';
+
+/** Subset of InvocationRecord fields the backend stores; expiresAt is computed by ttlMs. */
+export type AuthInvocationInput = Omit<InvocationRecord, 'expiresAt'>;
+
+export interface IAuthInvocationBackend {
+  /** Persist a new invocation record with a TTL relative to now. */
+  create(input: AuthInvocationInput, ttlMs: number): Promise<void>;
+
+  /**
+   * Validate token + slide TTL (extend expiresAt by ttlMs from now on success).
+   * Returns VerifyResult so callers can branch on typed reason.
+   */
+  verify(invocationId: string, callbackToken: string, ttlMs: number): Promise<VerifyResult>;
+
+  /** Read-only fetch (does NOT slide TTL). Returns null when missing or expired. */
+  getRecord(invocationId: string): Promise<InvocationRecord | null>;
+
+  /** Whether the invocationId is the latest for its (threadId, catId) slot. */
+  isLatest(invocationId: string): Promise<boolean>;
+
+  /** Latest invocationId for a (threadId, catId) slot, if any. */
+  getLatestId(threadId: string, catId: string): Promise<string | undefined>;
+
+  /**
+   * Claim a clientMessageId for an invocation. Returns true on first claim,
+   * false on duplicate or unknown invocation.
+   */
+  claimClientMessageId(invocationId: string, clientMessageId: string): Promise<boolean>;
+}

@@ -63,7 +63,7 @@ describe('Task Callback Integration', () => {
     const app = await createApp();
 
     // Create invocation for opus
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-1');
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-1');
 
     // Create a task owned by opus
     const task = taskStore.create({
@@ -117,7 +117,7 @@ describe('Task Callback Integration', () => {
     const app = await createApp();
 
     // Invocation for codex
-    const { invocationId, callbackToken } = registry.create('user-1', 'codex', 'thread-1');
+    const { invocationId, callbackToken } = await registry.create('user-1', 'codex', 'thread-1');
 
     // Task owned by opus
     const task = taskStore.create({
@@ -144,7 +144,7 @@ describe('Task Callback Integration', () => {
   test('MCP update-task allows unowned task', async () => {
     const app = await createApp();
 
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-1');
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-1');
 
     // Task with no owner
     const task = taskStore.create({
@@ -172,7 +172,7 @@ describe('Task Callback Integration', () => {
     const app = await createApp();
 
     // Invocation in thread-A
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-A');
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-A');
 
     // Task in thread-B
     const task = taskStore.create({
@@ -201,7 +201,7 @@ describe('Task Callback Integration', () => {
 
   test('MCP create-task succeeds with valid input', async () => {
     const app = await createApp();
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-1');
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-1');
 
     const response = await app.inject({
       method: 'POST',
@@ -247,7 +247,7 @@ describe('Task Callback Integration', () => {
 
   test('MCP create-task enforces kind=work even if kind field sent (AC-A4 regression guard)', async () => {
     const app = await createApp();
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-1');
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-1');
 
     const response = await app.inject({
       method: 'POST',
@@ -266,7 +266,7 @@ describe('Task Callback Integration', () => {
 
   test('MCP create-task with ownerCatId', async () => {
     const app = await createApp();
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-1');
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-1');
 
     const response = await app.inject({
       method: 'POST',
@@ -286,7 +286,7 @@ describe('Task Callback Integration', () => {
 
   test('MCP create-task rejects empty title', async () => {
     const app = await createApp();
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-1');
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-1');
 
     const response = await app.inject({
       method: 'POST',

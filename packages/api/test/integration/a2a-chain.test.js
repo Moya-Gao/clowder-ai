@@ -24,7 +24,7 @@ function createMockRegistry() {
   let counter = 0;
   return {
     create: () => ({ invocationId: `inv-${++counter}`, callbackToken: `tok-${counter}` }),
-    verify: () => ({ ok: false, reason: 'unknown_invocation' }),
+    verify: async () => ({ ok: false, reason: 'unknown_invocation' }),
   };
 }
 

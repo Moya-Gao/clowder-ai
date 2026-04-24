@@ -34,7 +34,7 @@ describe('Community Issues Routes', () => {
   };
 
   const defaultRegistry = {
-    verify(invocationId, callbackToken) {
+    async verify(invocationId, callbackToken) {
       for (const [catId, creds] of Object.entries(catCredentials)) {
         if (creds.invocationId === invocationId && creds.callbackToken === callbackToken) {
           return {

@@ -108,7 +108,7 @@ describe('F167 C1: /api/callbacks/hold-ball auth + body validation', () => {
     const deps = makeStubDeps();
     const app = await createApp(deps);
     const thread = await threadStore.create('user-hb-400a', 'hb400a');
-    const { invocationId, callbackToken } = registry.create('user-hb-400a', 'codex', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-hb-400a', 'codex', thread.id);
     const response = await app.inject({
       method: 'POST',
       url: '/api/callbacks/hold-ball',
@@ -123,7 +123,7 @@ describe('F167 C1: /api/callbacks/hold-ball auth + body validation', () => {
     const deps = makeStubDeps();
     const app = await createApp(deps);
     const thread = await threadStore.create('user-hb-400b', 'hb400b');
-    const { invocationId, callbackToken } = registry.create('user-hb-400b', 'codex', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-hb-400b', 'codex', thread.id);
     const response = await app.inject({
       method: 'POST',
       url: '/api/callbacks/hold-ball',
@@ -137,7 +137,7 @@ describe('F167 C1: /api/callbacks/hold-ball auth + body validation', () => {
     const deps = makeStubDeps();
     const app = await createApp(deps);
     const thread = await threadStore.create('user-hb-400c', 'hb400c');
-    const { invocationId, callbackToken } = registry.create('user-hb-400c', 'codex', thread.id);
+    const { invocationId, callbackToken } = await registry.create('user-hb-400c', 'codex', thread.id);
     const response = await app.inject({
       method: 'POST',
       url: '/api/callbacks/hold-ball',

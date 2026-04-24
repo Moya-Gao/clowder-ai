@@ -73,7 +73,7 @@ export function registerCallbackBootcampRoutes(
     const { threadId, ...updates } = parsed.data;
 
     // P2: Stale invocation guard — ignore if superseded by newer invocation
-    if (!registry.isLatest(actor.invocationId)) {
+    if (!(await registry.isLatest(actor.invocationId))) {
       return { status: 'stale_ignored' };
     }
 
@@ -186,7 +186,7 @@ export function registerCallbackBootcampRoutes(
     const { threadId } = parsed.data;
 
     // P2: Stale invocation guard
-    if (!registry.isLatest(actor.invocationId)) {
+    if (!(await registry.isLatest(actor.invocationId))) {
       return { status: 'stale_ignored' };
     }
 

@@ -50,7 +50,7 @@ export function registerCallbackDocumentRoutes(
     const { markdown, format, baseName } = parsed.data;
     const invocationId = record.invocationId;
 
-    if (!deps.registry.isLatest(invocationId)) {
+    if (!(await deps.registry.isLatest(invocationId))) {
       return { status: 'stale_ignored' };
     }
 

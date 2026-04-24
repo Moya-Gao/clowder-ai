@@ -32,7 +32,7 @@ import { resolveUserId } from '../utils/request-identity.js';
 import { registerCallbackAuthHook } from './callback-auth-prehandler.js';
 
 interface CallbackAuthVerifier {
-  verify(invocationId: string, callbackToken: string): VerifyResult;
+  verify(invocationId: string, callbackToken: string): Promise<VerifyResult>;
 }
 
 export interface CommunityIssuesRoutesOptions {

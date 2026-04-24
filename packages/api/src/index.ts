@@ -29,7 +29,10 @@ import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
 import { assertStorageReady } from './config/storage-guard.js';
 import { createTaskProgressStore } from './domains/cats/services/agents/invocation/createTaskProgressStore.js';
 import { InvocationQueue } from './domains/cats/services/agents/invocation/InvocationQueue.js';
-import { InvocationRegistry } from './domains/cats/services/agents/invocation/InvocationRegistry.js';
+import {
+  InvocationRegistry,
+  selectInvocationBackendKind,
+} from './domains/cats/services/agents/invocation/InvocationRegistry.js';
 import { InvocationTracker } from './domains/cats/services/agents/invocation/InvocationTracker.js';
 import type {
   InvocationRecordStoreLike,
@@ -327,10 +330,26 @@ async function main(): Promise<void> {
   });
 
   // Create shared service instances for MCP callback flow
-  const registry = new InvocationRegistry();
   const redisUrl = process.env.REDIS_URL;
   const redis = redisUrl ? createRedisClient({ url: redisUrl }) : undefined;
   redisClient = redis ?? null;
+
+  // F174 Phase B: select InvocationRegistry backend.
+  // - 'redis' (default when Redis available): API restart no longer drops tokens
+  // - 'memory' (fallback / opt-out): pre-Phase-B in-memory behavior
+  // - if Redis unavailable, force memory regardless of env (degraded mode)
+  // F174-B P2 fix (cloud Codex review #1363): reject unsupported env values
+  // via shared helper. Silent fallback masks typos (REDUS=...) → user thinks
+  // Redis is active but actually in-memory (defeats Phase B). Throw on unknown.
+  const registryBackendKind = selectInvocationBackendKind(process.env.CAT_CAFE_INVOCATION_REGISTRY, !!redis);
+  const registry =
+    registryBackendKind === 'redis' && redis
+      ? new InvocationRegistry({
+          backend: new (await import('./domains/cats/services/agents/invocation/RedisAuthInvocationBackend.js'))
+            .RedisAuthInvocationBackend(redis),
+        })
+      : new InvocationRegistry();
+  app.log.info(`[api] InvocationRegistry backend: ${registryBackendKind === 'redis' && redis ? 'redis' : 'memory'}`);
 
   // Fail-closed: refuse to start without Redis unless explicitly opted into memory mode.
   // Also verify Redis is actually reachable (PING), not just configured.

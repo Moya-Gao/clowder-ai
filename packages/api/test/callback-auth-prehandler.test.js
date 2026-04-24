@@ -9,7 +9,7 @@ describe('Callback Auth PreHandler (#476)', () => {
   /** Minimal InvocationRegistry mock — returns VerifyResult (F174 Phase A). */
   function createMockRegistry(records = new Map()) {
     return {
-      verify(invocationId, callbackToken) {
+      async verify(invocationId, callbackToken) {
         const record = records.get(invocationId);
         if (!record) return { ok: false, reason: 'unknown_invocation' };
         if (record.callbackToken !== callbackToken) {

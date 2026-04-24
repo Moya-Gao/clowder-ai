@@ -2,21 +2,20 @@
  * Invocation Registry
  * 管理 MCP 回传工具的调用鉴权
  *
- * 每次 AgentRouter 调用一只猫时，生成 invocationId + callbackToken pair。
- * MCP 回传工具通过 env var 获取这对凭证，调用 API callback 端点时由此模块验证。
+ * F174 Phase B — facade over IAuthInvocationBackend (memory or redis).
+ * Public API stays stable; storage swappable via constructor injection.
  *
  * 安全契约:
  * - invocationId → { userId, catId, callbackToken, expiresAt }
- * - verify() 同时检查 token 匹配 + TTL 过期
- * - LRU + TTL 双重清理
+ * - verify() 同时检查 token 匹配 + TTL 过期 (typed reason on failure)
+ * - 持久化 + LRU + TTL 由 backend 实现
  */
 
 import { randomUUID } from 'node:crypto';
 import type { CatId } from '@cat-cafe/shared';
+import type { IAuthInvocationBackend } from './IAuthInvocationBackend.js';
+import { MemoryAuthInvocationBackend } from './MemoryAuthInvocationBackend.js';
 
-/**
- * A registered invocation record
- */
 export interface InvocationRecord {
   invocationId: string;
   callbackToken: string;
@@ -37,10 +36,28 @@ export interface InvocationRecord {
 /** Default TTL: 2 hours (was 10 min — cats routinely run 20-40 min, first callback was 401) */
 const DEFAULT_TTL_MS = 2 * 60 * 60 * 1000;
 
-/** Max concurrent invocations before LRU eviction */
-const MAX_INVOCATIONS = 500;
-/** Max remembered callback idempotency keys per invocation */
-const MAX_CLIENT_MESSAGE_IDS = 1000;
+/**
+ * F174-B P2 (cloud Codex review #1363) — pure helper that picks the backend kind
+ * given the env var + Redis availability, throwing on unknown values so typos
+ * (e.g. `REDUS=...`) don't silently fall back to in-memory and defeat Phase B.
+ *
+ * Returns 'redis' | 'memory'. Caller is responsible for actually wiring the
+ * matching backend instance.
+ */
+export function selectInvocationBackendKind(envValue: string | undefined, redisAvailable: boolean): 'redis' | 'memory' {
+  if (envValue !== undefined && envValue !== 'redis' && envValue !== 'memory') {
+    throw new Error(
+      `Invalid CAT_CAFE_INVOCATION_REGISTRY="${envValue}". ` +
+        `Allowed values: 'redis' (default when Redis available), 'memory' (fallback / opt-out).`,
+    );
+  }
+  if (envValue === 'redis' && !redisAvailable) {
+    // Explicit redis selection but no client available — degrade with warning
+    // but don't throw (some test envs need this).
+    return 'memory';
+  }
+  return (envValue ?? (redisAvailable ? 'redis' : 'memory')) as 'redis' | 'memory';
+}
 
 /**
  * F174 Phase A — Structured auth failure reasons.
@@ -56,61 +73,48 @@ export type VerifyResult = { ok: true; record: InvocationRecord } | { ok: false;
 
 /**
  * Registry for managing invocation auth tokens.
- * In-memory implementation — Phase 3 will migrate to Redis.
+ *
+ * Backend (memory / redis) is injected via constructor; default is
+ * MemoryAuthInvocationBackend so existing tests work unchanged.
  */
 export class InvocationRegistry {
-  private records = new Map<string, InvocationRecord>();
-  /** Track the latest invocationId per thread+cat (stale callback guard, cloud Codex P1). */
-  private latestByThreadCat = new Map<string, string>();
+  private readonly backend: IAuthInvocationBackend;
   private readonly ttlMs: number;
-  private readonly maxRecords: number;
 
-  constructor(options?: { ttlMs?: number; maxRecords?: number }) {
+  constructor(options?: { ttlMs?: number; maxRecords?: number; backend?: IAuthInvocationBackend }) {
     this.ttlMs = options?.ttlMs ?? DEFAULT_TTL_MS;
-    this.maxRecords = options?.maxRecords ?? MAX_INVOCATIONS;
+    this.backend = options?.backend ?? new MemoryAuthInvocationBackend({ maxRecords: options?.maxRecords ?? 500 });
   }
 
   /**
    * Create a new invocation and return the auth credentials.
    * The caller should pass these as env vars to the CLI subprocess.
    */
-  create(
+  async create(
     userId: string,
     catId: CatId,
     threadId: string = 'default',
     parentInvocationId?: string,
     a2aTriggerMessageId?: string,
-  ): { invocationId: string; callbackToken: string } {
-    this.cleanup();
-
-    // Evict oldest if at capacity
-    while (this.records.size >= this.maxRecords) {
-      const oldestKey = this.records.keys().next().value;
-      if (oldestKey !== undefined) {
-        this.cleanupLatestPointer(oldestKey);
-        this.records.delete(oldestKey);
-      }
-    }
-
+  ): Promise<{ invocationId: string; callbackToken: string }> {
     const invocationId = randomUUID();
     const callbackToken = randomUUID();
     const now = Date.now();
 
-    this.records.set(invocationId, {
-      invocationId,
-      callbackToken,
-      userId,
-      catId,
-      threadId,
-      ...(parentInvocationId ? { parentInvocationId } : {}),
-      ...(a2aTriggerMessageId ? { a2aTriggerMessageId } : {}),
-      clientMessageIds: new Set<string>(),
-      createdAt: now,
-      expiresAt: now + this.ttlMs,
-    });
-
-    // Track latest invocation per thread+cat (stale callback guard)
-    this.latestByThreadCat.set(`${threadId}:${catId as string}`, invocationId);
+    await this.backend.create(
+      {
+        invocationId,
+        callbackToken,
+        userId,
+        catId,
+        threadId,
+        ...(parentInvocationId ? { parentInvocationId } : {}),
+        ...(a2aTriggerMessageId ? { a2aTriggerMessageId } : {}),
+        clientMessageIds: new Set<string>(),
+        createdAt: now,
+      },
+      this.ttlMs,
+    );
 
     return { invocationId, callbackToken };
   }
@@ -121,30 +125,8 @@ export class InvocationRegistry {
    * so callers (preHandler / telemetry / degradation) can branch precisely
    * instead of regex-matching error strings. (F174 Phase A — KD-4)
    */
-  verify(invocationId: string, callbackToken: string): VerifyResult {
-    const record = this.records.get(invocationId);
-    if (!record) return { ok: false, reason: 'unknown_invocation' };
-
-    // Check token match
-    if (record.callbackToken !== callbackToken) {
-      return { ok: false, reason: 'invalid_token' };
-    }
-
-    // Check TTL
-    if (Date.now() > record.expiresAt) {
-      this.cleanupLatestPointer(invocationId);
-      this.records.delete(invocationId);
-      return { ok: false, reason: 'expired' };
-    }
-
-    // Sliding window: each successful verify extends the TTL
-    record.expiresAt = Date.now() + this.ttlMs;
-
-    // Refresh recency (LRU): delete + re-set moves to end of Map iteration order
-    this.records.delete(invocationId);
-    this.records.set(invocationId, record);
-
-    return { ok: true, record };
+  async verify(invocationId: string, callbackToken: string): Promise<VerifyResult> {
+    return this.backend.verify(invocationId, callbackToken, this.ttlMs);
   }
 
   /**
@@ -152,64 +134,20 @@ export class InvocationRegistry {
    * Stale callbacks from preempted invocations return false.
    * (Cloud Codex P1 + 缅因猫 R3 suggestion)
    */
-  isLatest(invocationId: string): boolean {
-    const record = this.records.get(invocationId);
-    if (!record) return false;
-    const key = `${record.threadId}:${record.catId as string}`;
-    return this.latestByThreadCat.get(key) === invocationId;
+  async isLatest(invocationId: string): Promise<boolean> {
+    return this.backend.isLatest(invocationId);
   }
 
   /** Get the latest invocationId for a given thread+cat slot, if any. */
-  getLatestId(threadId: string, catId: string): string | undefined {
-    return this.latestByThreadCat.get(`${threadId}:${catId}`);
+  async getLatestId(threadId: string, catId: string): Promise<string | undefined> {
+    return this.backend.getLatestId(threadId, catId);
   }
 
   /**
    * Claim a callback clientMessageId for an invocation.
    * Returns true if this ID is first-seen, false if duplicate or invocation missing.
    */
-  claimClientMessageId(invocationId: string, clientMessageId: string): boolean {
-    const record = this.records.get(invocationId);
-    if (!record) return false;
-
-    if (record.clientMessageIds.has(clientMessageId)) {
-      return false;
-    }
-
-    while (record.clientMessageIds.size >= MAX_CLIENT_MESSAGE_IDS) {
-      const oldest = record.clientMessageIds.values().next().value;
-      if (oldest === undefined) break;
-      record.clientMessageIds.delete(oldest);
-    }
-
-    record.clientMessageIds.add(clientMessageId);
-    return true;
-  }
-
-  /**
-   * Clean up latestByThreadCat pointer when a record is about to be removed.
-   * Only removes the pointer if it still points to the record being deleted
-   * (a newer invocation may have already superseded it).
-   */
-  private cleanupLatestPointer(invocationId: string): void {
-    const record = this.records.get(invocationId);
-    if (!record) return;
-    const key = `${record.threadId}:${record.catId as string}`;
-    if (this.latestByThreadCat.get(key) === invocationId) {
-      this.latestByThreadCat.delete(key);
-    }
-  }
-
-  /**
-   * Remove expired records (and their latestByThreadCat pointers)
-   */
-  private cleanup(): void {
-    const now = Date.now();
-    for (const [key, record] of this.records) {
-      if (now > record.expiresAt) {
-        this.cleanupLatestPointer(key);
-        this.records.delete(key);
-      }
-    }
+  async claimClientMessageId(invocationId: string, clientMessageId: string): Promise<boolean> {
+    return this.backend.claimClientMessageId(invocationId, clientMessageId);
   }
 }

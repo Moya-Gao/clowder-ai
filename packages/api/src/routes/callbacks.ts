@@ -344,7 +344,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // Stale callback guard (cloud Codex P1 + 缅因猫 R3): reject callbacks from
     // preempted invocations. A newer invocation for the same thread+cat supersedes.
     // Return 200 + stale_ignored to avoid retry storms from the dying CLI process.
-    if (!registry.isLatest(invocationId)) {
+    if (!(await registry.isLatest(invocationId))) {
       return { status: 'stale_ignored', replyTo, ...(clientMessageId ? { clientMessageId } : {}) };
     }
 
@@ -374,7 +374,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
     // At-least-once de-duplication: retries with same clientMessageId are treated as duplicate.
     if (clientMessageId) {
-      const isFirstSeen = registry.claimClientMessageId(invocationId, clientMessageId);
+      const isFirstSeen = await registry.claimClientMessageId(invocationId, clientMessageId);
       if (!isFirstSeen) {
         return { status: 'duplicate', replyTo, clientMessageId };
       }
@@ -1121,7 +1121,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       return { error: 'audio block requires url or text' };
     }
 
-    if (!registry.isLatest(invocationId)) {
+    if (!(await registry.isLatest(invocationId))) {
       return { status: 'stale_ignored' };
     }
 
@@ -1181,7 +1181,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     const { question, options, anonymous, timeoutSec, voters } = parsed.data;
 
     // P1-2 fix: stale invocation guard (parity with post-message, create-rich-block)
-    if (!registry.isLatest(record.invocationId)) {
+    if (!(await registry.isLatest(record.invocationId))) {
       return { status: 'stale_ignored' };
     }
 
