@@ -8,7 +8,7 @@ created: 2026-03-26
 
 # F140: GitHub PR Signals — 冲突检测 + Review Feedback 全来源感知
 
-> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-03-27
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1 | **Phase A-D Completed**: 2026-03-27 | **Reopened**: 2026-04-24（Phase E — 通知合流：severity 抽取 + 下线 email 路径）
 
 ## 三层架构定位
 
@@ -116,6 +116,35 @@ created: 2026-03-26
 > **根因**：2026-03-25 一次 merge-gate 注册了 `anthropic-cat-cafe/cat-cafe#743`（repo 不存在），脏数据驻留导致 CI/CD Check 轮询假仓库。
 
 **改动**：`callbacks.ts` 和 `pr-tracking.ts` 的两条注册路径，在 `prTrackingStore.register()` 前加 `gh repo view` 校验
+
+### Phase E（通知合流 — severity 抽取 + 下线 email 路径）🔴 reopened 2026-04-24
+
+> **根因**：Phase A 上线后，`ReviewRouter`（email/IMAP）和 `ReviewFeedbackRouter`（F139 polling）两条通道对同一次 bot review 并行投递两条消息——前者做 severity 抽取（"Review 检测到 P2"），后者只贴 body（"🚀 no major issues"），两条叙事冲突，铲屎官体感"通知 bug"。详见 `docs/discussions/2026-04-24-f140-review-notification-merge/`。
+>
+> **愿景闭环**：Phase A 起的目标是"review feedback 全来源感知"，但 severity 感知能力只落在了遗留 email 通道。合流的前置是把 severity 能力搬到 polling 通道，再下线 email。
+
+**E.1 Severity parser 前移（前置 — 不能反序）**
+
+- 在 `buildReviewFeedbackContent()` 里加 severity parser：扫 `newComments`（inline + conversation）+ `newDecisions`（review body）每条 body，抽出最高 severity → 消息头追加 `**Review 检测到 P0/P1/P2**`
+- 复用 polling 已 fetch 的数据，不引入额外 API call
+- 支持三种 severity 格式：
+  - Codex bot shields.io badge：`![P1 Badge](https://img.shields.io/badge/P1-...)`
+  - 方括号前缀：`[P1]` `[P2]` `[P0]`（行首或独立 token）
+  - 冒号前缀：`P1:` `**P1**:`（行首）
+- 护栏：只识别特定格式，防止普通消息里出现"P1"被误判（FP 风险见 OQ-4）
+
+**E.2 下线 email bootstrap（合流切换）**
+
+- `startGithubReviewWatcher()` 在 bootstrap 层停用（feature flag `GITHUB_REVIEW_EMAIL_WATCHER=off` 默认，或直接移除 bootstrap 调用）
+- `.env.example` + deployment doc 撤 `GITHUB_REVIEW_IMAP_USER/PASS/HOST/PORT/PROXY/POLL_INTERVAL_MS` 字段
+- 观察一周：alpha 环境注册若干 PR 看通知完整度与 severity 头正确性
+
+**E.3 代码清理（独立 PR）**
+
+- 删除文件：`GithubReviewWatcher.ts` / `github-review-bootstrap.ts` / `ReviewRouter.ts` / `ReviewContentFetcher.ts` / `GithubReviewMailParser.ts` / `ProcessedEmailStore.ts` / `github-feedback-filter.ts` 中只被 email 路径使用的部分 + 相关 tests
+- 从 `infrastructure/email/index.ts` 移除导出
+- `src/index.ts` 移除 watcher 启动逻辑
+- Rule B 的"权威 bot 过滤"迁移到 polling 侧（原先只在 email 通道跑）
 
 ## Acceptance Criteria
 
