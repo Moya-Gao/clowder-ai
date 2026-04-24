@@ -8,7 +8,7 @@ created: 2026-04-22
 
 # F172: Generated Image Publication — 内建生图产物归档与富块发布
 
-> **Status**: in_progress (reopened — Phase G) | **Owner**: 布偶猫/opus | **Priority**: P1
+> **Status**: done (Phase G merged 2026-04-23) | **Owner**: 布偶猫/opus | **Priority**: P1
 >
 > **诊断历程（务必读完，KD-8 元教训）**：
 >
@@ -271,6 +271,7 @@ Antigravity built-in `generate_image` 的真实交付链路：
 | 2026-04-23 (晚) | PR #1361 — 砚砚（gpt-5.5）review PASS（0 P1/P2） + 云端 codex-connector review PASS（"Didn't find any major issues"），squash merged 5f8de66a7。剩 AC-F5 alpha smoke 待 antig-opus 真生图验证 |
 | 2026-04-23 (晚) | **Alpha smoke 失败**：铲屎官重启 runtime（含 fd12a0a38 PR #1361），antig-opus 真调 generate_image 生成 `bengal_cuddle_portrait`，brain dir 有文件但前端无图。第三次定位用 runtime log 直接证据（`grep "unknown step type CORTEX_STEP_TYPE_GENERATE_IMAGE"` 命中），发现 Antigravity 走专属 step type，没有 toolResult.output——Phase F regex 路径根本无字符串可 extract |
 | 2026-04-23 (晚) | Reopen Phase G：实现 GENERATE_IMAGE step + brain dir scanner，扫 `~/.gemini/antigravity/brain/<cascadeId>/<imageName>_*.<ext>`。8 个新单测 + classifier 改动消除日志噪音，102/102 F172 + agent-service 测试 GREEN。新增 KD-8（runtime log 是唯一真相源，三次诊断都跳过的元教训）+ KD-9（专属 step type 必须显式分类）|
+| 2026-04-23 (晚) | PR #1365 — 云端 codex-connector review 三轮全 PASS（"Didn't find any major issues. Swish!"），第一次 P2 修复（regex 严格 `<imageName>_<unixMs>.<ext>` 防 prefix collision，命中 pre-register #2），砚砚（gpt52）二审 P2 修复（Phase F vs Phase G 双发布破坏 canonical single-artifact，按其方案 A 加 mutex），squash merged b1ff6112c。剩 AC-G5 alpha smoke 待 antig-opus 真生图验证 |
 | 2026-04-23 | Phase A merged（PR #1353）：共享 publication contract + image-storage 原语 |
 | 2026-04-23 | Phase B-E merged（PR #1355）：Codex scanner + Antigravity publisher + skill 收口 + 富块联动。砚砚 review 放行 + 3 轮云端 review（2 P1 + 2 P2 全修） |
 
