@@ -8,7 +8,7 @@ created: 2026-04-17
 
 # F167: A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P0
+> **Status**: monitoring | **Owner**: 布偶猫 | **Priority**: P0
 
 ## Why
 
@@ -329,29 +329,29 @@ cat_cafe_hold_ball({
 
 #### F1 — handle/model 解绑：runtime model 注入发送方 prompt（P0）
 
-- [ ] AC-F1: `buildTeammateRoster` 新增一列或扩展 caution 列，显式打印 `@{mention} = {breed} · {resolved model}`（e.g. `@codex = 缅因猫 / 当前模型 gpt-5.5`）。`defaultModel` 已在 `CatConfig` 里，直接从 runtime catalog 读，无需新字段
-- [ ] AC-F2: `buildCallableMentions` 打印的"你可以 @ 队友"列表末尾追加 resolved model 摘要，避免 trailing anchor 决策树被认知快照误导
+- [x] AC-F1: `buildTeammateRoster` 每行 `@mention · {runtime resolved model}`（via `getCatModel` — 支持 env `CAT_{CATID}_MODEL` override → registry → default 优先级），列头改成 `@mention · 当前模型`；cloud P1 修正从 `config.defaultModel` 改为 `getCatModel`
+- [x] AC-F2: 队友名册合并式展示，callable mentions 列表承接 roster 真相（共享 `buildStaticIdentity` 链路）
 
 #### F2 — 静态 docs 真相源清理（P0）
 
-- [ ] AC-F3: `AGENTS.md` / `CLAUDE.md` / 其他静态文档 grep `@x = model-y` 硬绑定，删除或改写为"模型以 runtime catalog 为准"（保留 handle + 角色描述）
-- [ ] AC-F4: `docs/canon/` 检查：如果任何 always-on 注入的文档里有模型版本号硬编码，一并清理
+- [x] AC-F3: `AGENTS.md` / `CLAUDE.md` 删 `@codex (model=gpt-5.3-codex)` 硬绑定，改"以 runtime catalog 为准"；cloud round-3/4 broaden 校验 regex 到 `/@[^\s,(（]+ ... model=\S+/i` 覆盖任意 handle/value/quote 变体
+- [x] AC-F4: `docs/canon/` grep 干净，无模型硬编码
 
 #### F3 — 外部 identity 作为 hold_ball 场景（P0）
 
-- [ ] AC-F5: `shared-rules §10`（决策树选项 2 hold_ball）明确"**外部 identity** 场景"：`chatgpt-codex-connector[bot]` / GitHub Actions webhook / CI check / 外部 API ——**不在 cat-cafe roster，没有 @句柄**，等这类条件用 `hold_ball`，严禁投射成本地近似 proxy
-- [ ] AC-F6: `SystemPromptBuilder` trailing anchor 第 2 条（hold_ball 外部条件）追加具体示例：`CI / PR check / 云端 codex review / 长 build`——让"云端 xxx"在决策时显式匹配到 hold_ball，不再被同族 roster 猫 cargo-cult
+- [x] AC-F5: `shared-rules §10` option 2 列外部 identity 清单：云端 codex (`chatgpt-codex-connector[bot]`) / GitHub bot / PR check / CI / 长 build / 外部 webhook + "严禁投射成本地同族猫的任何 variant"
+- [x] AC-F6: Trailing anchor option 2 内联外部 identity 示例，closing line 硬规"外部 identity 永远走选项 2"
 
 #### F4 — `@` 行首协议加固（P0）
 
-- [ ] AC-F7: `buildCallableMentions` 现有反例 `[错误] 行中 @sonnet` 强化视觉：改为显式 diff 对比 + 追加"URL / 列表 / quote 场景里 `@ 句柄` **句中永远不路由**，想路由必须另起一行"
-- [ ] AC-F8: `buildStaticIdentity` 结尾自检列表加一条"发前扫一遍：我的 @句柄都在行首吗？URL / 列表前缀 / quote 里的 @ 不是路由指令"
-- [ ] AC-F9: 探索型（Open Question 不阻塞 F）：`parseA2AMentions` 是否要记录"检测到但不在行首的近似 @句柄"作为 `mentionRoutingFeedback` 的增强输入（目前只反馈"你提到了但没 @"，不反馈"你 @ 了但不在行首"）
+- [x] AC-F7: `buildCallableMentions` 加具体反例 + 发前自检（cloud round-2 纠正：markdown 列表/quote 前缀**会被 parser 剥离**——合法路由，不是陷阱；真正陷阱是句中/URL 内/非首字符位置）
+- [x] AC-F8: 发前自检问句注入 prompt（合入到 callable mentions 反例旁）
+- [~] AC-F9: 探索项未做——砚砚本地放行+云端 clean 验证 prompt 层教学已足够；若线上观察仍频出再评估 `parseA2AMentions` 增强
 
 #### F5 — 回放 + 跨族认知一致性（P0）
 
-- [ ] AC-F10: 测试锁 Phase F：teammate roster 包含 resolved model；`AGENTS.md` grep `gpt-5.3-codex.*@codex` 应为 0 条；trailing anchor 含 "云端 codex" 示例；句中 @ 反例测试
-- [ ] AC-F11: 回放 opus-47 的"球权在云端 codex / @gpt52"事故——同样 prompt 输入下 opus 应该选 hold_ball 而不是 @gpt52
+- [x] AC-F10: invariant lock 测试落地（AGENTS.md / CLAUDE.md no `@x ... model=anything` 硬绑定）；cloud round-3/4 纠正 regex 覆盖 quoted/unquoted/非 ASCII handle
+- [~] AC-F11: 认知行为回放未写 test（cloud 也提到这是覆盖缺口，非阻塞）——依赖 prompt 层教学 + trailing anchor 决策树，以线上观察为准
 
 ## Dependencies
 
@@ -439,6 +439,7 @@ cat_cafe_hold_ball({
 | 2026-04-23 | Phase D merged (PR #1349, `0fa92bfcf`) — D1 streak 实质工作豁免 + D2 @landy 硬条件出口。本地 gpt52 review 两轮（P1-1 substantive 必须 RESET streak 而非跳过 / P1-2 shared-rules §10 和 §10.4 一致性）；云端 Codex review P1（streak update 必须 gated on `wouldEnqueue` — 防 dedup/depth 跳过后仍误 mutate 计数器）；D1 5 commit + D2 1 commit + 3 个 P1 fix commit + 3 个 biome/index autofix commit，全量 32/32 ping-pong + 89/89 system-prompt-builder 绿。Status: monitoring（AC-D7 harness 反问式 ping 检测故意未做 — 避开 KD-8 反分类器原则，prompt 层已兜住）|
 | 2026-04-23 | Phase E merged (PR #1360, `f8efcf46d`) — retire L3 role-gate，`cat-config.restrictions` 数据驱动双端 prompt 注入（AC-E1~E8）；KD-20 落定；-735 净行数；gpt52 本地 review 放行 + 云端 Codex "no major issues"；中间踩坑：PR tracking 增量扫描通知重复误导 → 下次看通知先 `gh pr view` 对照时间戳 |
 | 2026-04-24 | Phase F reopened from monitoring：(1) opus-47 "球权在云端 codex" 同句 @gpt52 的认知盲区；(2) AGENTS.md 里 `@codex = gpt-5.3-codex` 和 runtime catalog `gpt-5.5` 漂移；(3) 句中 @ 不路由的协议常量被模型忘掉。铲屎官拍板"完整做，不 hotfix"；砚砚核实 parser 已数据驱动，根修在注入层；KD-21/22 落定，AC-F1~F11 定稿待实现 |
+| 2026-04-24 | Phase F merged (PR #1374, `21ef97214`) — handle/model 解绑 + 外部 identity hold_ball + inline-@ guard。砚砚本地放行 + 4 轮云端 Codex review（round-1 P1+P2、round-2 P1+P2、round-3 P2、round-4 P2，每轮都是前次修补被指摘需更广覆盖），最终 cloud clean "no major issues"。97/97 system-prompt-builder 绿；+4 fix commit。Status: monitoring |
 | 2026-04-23 | Phase E reopened from monitoring：F172 愿景守护 @gemini 被 L3 误拦（action="合入"因 storedContent 上文含 merge 历程）；铲屎官定性"硬编码 + 过度设计"——要求退役 L3 + cat-config restrictions 数据驱动双端注入（发送方队友名册 + 目标猫 self-awareness）；KD-20 落定，AC-E1~E8 定稿待实现 |
 | 2026-04-24 | Phase E merged (PR #1360, `f8efcf46d`) — AC-E1~E8 全绿。8 commit（4 feat + 1 test + 3 chore）-735 净行数（删 role-gate.ts + 3 测试文件 + 2 调用点）+ cat-config schema 扩展 + 双端 prompt 注入；gpt52 review 首轮放行 `c967b59d0`（两个非阻塞：scrub 死注释 + 删 unused import 已顺手修），云端 Codex 零 P1/P2 "Hooray"；rebase 遇 F061 pre-existing 修复冲突 → skip 冗余 commit 后 clean merge；204/204 ping-pong + system-prompt-builder + cat-config-loader 绿。Status: monitoring |
 
