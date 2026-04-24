@@ -1,6 +1,6 @@
 'use client';
 
-import type { CatData } from '@/hooks/useCatData';
+import { type CatData, formatCatName } from '@/hooks/useCatData';
 import { useCoCreatorConfig } from '@/hooks/useCoCreatorConfig';
 import { useTts } from '@/hooks/useTts';
 import { hexToRgba, tintedLight } from '@/lib/color-utils';
@@ -84,10 +84,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const catStyle = catData
     ? (() => {
         const breed = BREED_STYLES[catData.breedId ?? ''] ?? DEFAULT_BREED_STYLE;
-        const idLabel = catData.id.charAt(0).toUpperCase() + catData.id.slice(1);
-        const label = catData.variantLabel
-          ? `${catData.displayName}（${catData.variantLabel}）`
-          : `${catData.displayName}（${idLabel}）`;
+        const label = formatCatName(catData);
         const isCallback = message.origin === 'callback';
         return {
           label,

@@ -94,6 +94,7 @@ describe('HubCatEditor', () => {
       catId: 'runtime-codex',
       name: '运行时缅因猫',
       displayName: '运行时缅因猫',
+      variantLabel: 'GPT-5.5',
       nickname: '',
       avatar: '/avatars/codex.png',
       colorPrimary: '#16a34a',
@@ -131,6 +132,7 @@ describe('HubCatEditor', () => {
 
     const payload = buildCatPayload(form, existingCat) as Record<string, unknown>;
     expect(payload.name).toBe('运行时缅因猫');
+    expect(payload.variantLabel).toBe('GPT-5.5');
   });
 
   it('buildCatPayload recomputes mcpSupport when client changes on existing cat', () => {
@@ -138,6 +140,7 @@ describe('HubCatEditor', () => {
       catId: 'runtime-codex',
       name: '运行时缅因猫',
       displayName: '运行时缅因猫',
+      variantLabel: '',
       nickname: '',
       avatar: '/avatars/codex.png',
       colorPrimary: '#16a34a',
@@ -182,6 +185,7 @@ describe('HubCatEditor', () => {
       catId: 'runtime-bridge',
       name: '桥接猫',
       displayName: '桥接猫',
+      variantLabel: '',
       nickname: '',
       avatar: '/avatars/bridge.png',
       colorPrimary: '#16a34a',
@@ -1949,6 +1953,7 @@ describe('HubCatEditor', () => {
     await flushEffects();
 
     expect(container.textContent).toContain('昵称');
+    expect(container.textContent).toContain('显示后缀');
     expect(container.textContent).toContain('擅长领域');
     expect(container.textContent).toContain('注意事项');
     expect(container.textContent).toContain('Strengths');
@@ -1973,6 +1978,7 @@ describe('HubCatEditor', () => {
     expect(container.textContent).not.toContain('Display Name');
 
     await changeField(queryField(container, 'input[aria-label="Max Prompt Tokens"]'), '48000');
+    await changeField(queryField(container, 'input[aria-label="Variant Label"]'), 'GPT-5.5');
     await changeField(queryField(container, 'input[aria-label="Nickname"]'), '砚砚升级版');
     await changeField(queryField(container, 'input[aria-label="Team Strengths"]'), '代码审查、找 bug、深度思考');
     await changeField(queryField(container, 'input[aria-label="Strengths"]'), 'security, testing, debugging');
@@ -1997,6 +2003,7 @@ describe('HubCatEditor', () => {
     expect(catPatch).toBeTruthy();
     const catPayload = JSON.parse(String(catPatch?.[1]?.body));
     expect(catPayload.contextBudget.maxPromptTokens).toBe(48000);
+    expect(catPayload.variantLabel).toBe('GPT-5.5');
     expect(catPayload.nickname).toBe('砚砚升级版');
     expect(catPayload.teamStrengths).toBe('代码审查、找 bug、深度思考');
     expect(catPayload.strengths).toEqual(['security', 'testing', 'debugging']);

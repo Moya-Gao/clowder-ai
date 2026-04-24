@@ -22,6 +22,7 @@ export interface HubCatEditorFormState {
   catId: string;
   name: string;
   displayName: string;
+  variantLabel: string;
   nickname: string;
   avatar: string;
   colorPrimary: string;
@@ -285,6 +286,7 @@ export function initialState(cat?: CatData | null, draft?: HubCatEditorDraft | n
     catId,
     name: cat?.name ?? cat?.displayName ?? '',
     displayName: cat?.displayName ?? cat?.name ?? '',
+    variantLabel: cat?.variantLabel ?? '',
     nickname: cat?.nickname ?? '',
     avatar: cat?.avatar ?? '',
     colorPrimary: cat?.color.primary ?? '#9B7EBD',
