@@ -80,6 +80,42 @@ describe('antigravity-image-publisher', () => {
       const text = '/tmp/data.json /tmp/code.ts /tmp/notes.txt';
       assert.deepEqual(extractAbsoluteImagePaths(text), []);
     });
+
+    it('extracts paths with trailing punctuation (real antigravity generate_image output shape)', async () => {
+      const { extractAbsoluteImagePaths } = await import(
+        '../dist/domains/cats/services/agents/providers/antigravity/antigravity-image-publisher.js'
+      );
+
+      // Verbatim shape from antig-opus 2026-04-23 cascade replay.
+      // generate_image emits: "Generated image is saved at <abs_path>." — note the
+      // trailing period that previously broke the splitter (token kept ".png." suffix
+      // and failed the extension regex). Phase F regression guard.
+      const text = [
+        'Created At: 2026-04-24T01:21:12Z',
+        'Completed At: 2026-04-24T01:21:26Z',
+        'Using prompt: bengal cat portrait...',
+        '',
+        'Generated image is saved at /Users/lysander/.gemini/antigravity/brain/678b53ee-38c6-43b9-b3d6-298d801cfbde/bengal_cat_portrait_1776993686675.png.',
+        '',
+        ' Do not output the path of this image to show to the user since the user can already see it.',
+      ].join('\n');
+
+      const paths = extractAbsoluteImagePaths(text);
+
+      assert.deepEqual(paths, [
+        '/Users/lysander/.gemini/antigravity/brain/678b53ee-38c6-43b9-b3d6-298d801cfbde/bengal_cat_portrait_1776993686675.png',
+      ]);
+    });
+
+    it('strips multiple trailing punctuation kinds (.,;:!?)', async () => {
+      const { extractAbsoluteImagePaths } = await import(
+        '../dist/domains/cats/services/agents/providers/antigravity/antigravity-image-publisher.js'
+      );
+
+      const text = 'Saved /tmp/a.png. Then /tmp/b.jpg, also /tmp/c.webp; and /tmp/d.gif!';
+      const paths = extractAbsoluteImagePaths(text);
+      assert.deepEqual(paths, ['/tmp/a.png', '/tmp/b.jpg', '/tmp/c.webp', '/tmp/d.gif']);
+    });
   });
 
   describe('collectImagePathsFromSteps', () => {

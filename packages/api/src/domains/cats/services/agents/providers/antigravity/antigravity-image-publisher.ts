@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { access, stat } from 'node:fs/promises';
+import { stat } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 import { ALLOWED_IMAGE_MIMES, type SupportedImageMime } from '../../../../../../utils/image-storage.js';
@@ -19,7 +19,10 @@ const EXT_TO_MIME: Record<string, SupportedImageMime> = {
 export function extractAbsoluteImagePaths(text: string | undefined | null): string[] {
   if (!text) return [];
   const paths: string[] = [];
-  for (const token of text.split(/[\s"'`()[\]{}<>,;]+/)) {
+  for (const rawToken of text.split(/[\s"'`()[\]{}<>,;]+/)) {
+    // Antigravity generate_image emits "saved at <path>." with a trailing period;
+    // strip any trailing sentence punctuation before the extension check.
+    const token = rawToken.replace(/[.,;:!?]+$/, '');
     if (token.startsWith('/') && /\.(?:png|jpe?g|gif|webp)$/i.test(token)) {
       paths.push(token);
     }

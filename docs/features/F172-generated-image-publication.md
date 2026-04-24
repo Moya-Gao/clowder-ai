@@ -10,7 +10,15 @@ created: 2026-04-22
 
 > **Status**: in_progress (reopened — Phase F) | **Owner**: 布偶猫/opus | **Priority**: P1
 >
-> **Reopen reason (2026-04-23)**: Alpha 验收暴露 Phase C 设计盲区——`antigravity-image-publisher` 假设 Antigravity `generate_image` 的 `toolResult.output` 包含**绝对路径**字符串，但实际生图工具不会暴露 brain 目录的绝对路径，所以 `extractAbsoluteImagePaths` 在真实 cascade 上从未抓到任何图。单测全绿是因为测试 fixture 用了凭空构造的 `"Saved /tmp/a.png"` shape。Phase F 改用「brain 目录 scanner」复刻 `scanAndPublishCodexImages` 的成熟模式。
+> **Reopen reason (2026-04-23)**: Alpha 验收暴露 Phase C 在真实 cascade 上从未抓到图。
+>
+> **二次诊断更正 (2026-04-23 晚)**: 第一次怀疑 spec OQ-2 设计假设错（"Antigravity 不在 output 暴露绝对路径"）—— 错。@antig-opus 提供真实 toolResult.output sample 后核实：路径**确实**在 output 里，长这样：
+>
+> `Generated image is saved at /Users/lysander/.gemini/antigravity/brain/<convId>/<filename>.png.`
+>
+> 真根因是 **`extractAbsoluteImagePaths` 的 token 分隔符不含句号 `.`**，导致路径末尾紧跟句号时 token 变成 `<path>.png.`，扩展名 regex `/\.(?:png|jpe?g|gif|webp)$/i` 因结尾是 `.` 而失败。Phase C 的 16 个单测 fixture 用了 `"Saved /tmp/a.png"` 简化 shape（无 trailing punctuation），错过了真实 edge case。
+>
+> Phase F = **5 行 regex 修复**：split 后 strip trailing sentence punctuation 再做扩展名校验。**不需要** brain scanner 重写——OQ-2 的设计假设是对的，brain scanner 是过度设计。
 
 ## Why
 
@@ -64,17 +72,15 @@ created: 2026-04-22
 - `cat-cafe-skills/rich-messaging` / `refs/rich-blocks.md`：从“手工搬运指南”升级为“共享发布内核的消费规则”
 - 对猫的最终使用体验是：不管走 Codex built-in、Antigravity，还是浏览器自动化生成，只要产物要进 thread，就统一晋升为 `/uploads/...` + `media_gallery`
 
-### Phase F: Antigravity brain 目录 scanner（reopen — 修 Phase C 设计 bug）
+### Phase F: extractAbsoluteImagePaths trailing punctuation 修复（reopen — 修 Phase C regex bug）
 
-复刻 `scanAndPublishCodexImages` 的成熟模式：
+5 行 regex 修复 + regression 测试：
 
-- 输入：Antigravity cascade/conversation id + 当前 runtime uploadDir
-- 扫描：`<ANTIGRAVITY_BRAIN_HOME>/<conversationId>/*.{png,jpg,jpeg,gif,webp}`，默认 `~/.gemini/antigravity/brain/`
-- 过滤：mtime 在 cutoff（默认 1h）内 + 后缀命中 `EXT_TO_MIME`
-- 发布：调 `publishGeneratedImage({ provider: 'antigravity', publicationKey: \`antigravity-${cascadeId}-${filename}\` })`
-- 接线：在 `AntigravityAgentService` 的 `done` 之前调 scanner，yield `system_info` rich_block（与 Codex 对齐）
+- `extractAbsoluteImagePaths`：split 出 token 后，先 `replace(/[.,;:!?]+$/, '')` strip trailing sentence punctuation，再做 `startsWith('/')` + 扩展名校验
+- 新增 2 个测试 fixture：（1）verbatim antigravity output shape with trailing period；（2）混合 trailing punctuation `. , ; !`
+- 保留原有 16 个 antigravity tests + 8 image-storage + 6 codex-scanner + 7 publication contract = 39 tests baseline
 
-`extractAbsoluteImagePaths` / `collectImagePathsFromSteps` 路径保留作为兜底（万一未来 Antigravity 在 toolResult 里真的暴露了绝对路径），但**不再是主路径**——主路径走 brain 目录扫描。
+明确**不做**：brain 目录 scanner、新 provider 接入、scope 扩张。
 
 ### Phase E: 富块联动 + 归档真相源
 
@@ -162,12 +168,12 @@ created: 2026-04-22
 - AC-E4: `persistenceContext.richBlocks` 传递给 connector outbound（F088）
 - AC-E5: 仅 `media_gallery` rich block，无重复 contentBlocks
 
-### Phase F（Antigravity brain scanner — reopen）
-- [ ] AC-F1: 实现 `scanAndPublishAntigravityImages({ cascadeId, uploadDir, brainHome })`，扫 `~/.gemini/antigravity/brain/<cascadeId>/` 下的图片并调 publication contract
-- [ ] AC-F2: `AntigravityAgentService` 在 `done` 之前调用 scanner，yield 与 Codex 对齐的 `system_info` rich_block
-- [ ] AC-F3: 单测必须验证「真实 brain 目录结构 + 真实 mtime」端到端管线，不只是凭空构造的 toolResult.output
-- [ ] AC-F4: Alpha smoke：让 antig-opus 真实 `generate_image` 一张图，铲屎官前端直接看到，刷新后还在
-- [ ] AC-F5: 旧 `extractAbsoluteImagePaths` 路径保留但降级为兜底，主路径切换到 brain scanner
+### Phase F（regex trailing punctuation 修复 — reopen）
+- [x] AC-F1: `extractAbsoluteImagePaths` 在 token split 后 strip trailing sentence punctuation (`.,;:!?`)，再做扩展名校验
+- [x] AC-F2: 新增 verbatim 真实 antigravity output shape regression 测试（trailing period case）
+- [x] AC-F3: 新增混合 trailing punctuation 测试（`. , ; !` 各一例）
+- [x] AC-F4: 39/39 F172 tests GREEN（image-storage + codex-scanner + publication + antigravity-publisher 全部）
+- [ ] AC-F5: Alpha smoke — antig-opus 真实 `generate_image` 一张图，铲屎官前端直接看到 + F5 刷新后还在
 
 ## 需求点 Checklist
 
@@ -219,8 +225,9 @@ created: 2026-04-22
 | KD-2 | 继续复用 `media_gallery`，不新增图片块类型 | 现有前端与 outbound 已围绕 `/uploads/...` + `media_gallery` 打通，新增类型只会制造第二套链路 | 2026-04-22 |
 | KD-3 | F172 覆盖 Codex built-in、Antigravity、repo-local skills 三个入口，但只统一“生成完成后的图片发布链路” | 铲屎官明确要求两只猫都能直接呈现；真正共享的不是各自的生图方式，而是 artifact publication contract | 2026-04-22 |
 | KD-4 | 发布后的图片默认只写 `media_gallery` rich block，不重复写 image `contentBlocks` | rich block 已足以覆盖前端展示、history replay 与 F088 outbound；重复写 contentBlocks 只会制造上下文与存储重复 | 2026-04-22 |
-| KD-5 | Phase F 改用「brain 目录 scanner」复刻 Codex scanner 模式，不再依赖 `toolResult.output` 字符串路径提取 | Alpha 验收发现 Antigravity `generate_image` 的 `toolResult.output` 不会暴露 brain 目录的绝对路径，原 spec OQ-2 的假设是凭空构造。Codex scanner 已经验证「post-invocation filesystem scan」是稳的，复用同一模式避免再造轮子 | 2026-04-23 |
-| KD-6 | 单测的 toolResult.output fixture 必须以**真实 cascade 抓回的样本**为准，不允许用想象 shape | Phase C 单测的 `"Saved /tmp/a.png"` 是凭空构造，导致 16 个测试全绿但实际 alpha 永远抓不到——典型的「测的是 spec 不是实现」反模式。后续 Antigravity-related 单测必须用真实 brain 目录 fixture | 2026-04-23 |
+| KD-5 | ~~Phase F 改用「brain 目录 scanner」~~ **撤回**——后续 sample 验证 OQ-2 假设是对的（output 含绝对路径），真问题是 regex token 处理 bug | 二次诊断更正：Antigravity `generate_image` 实际 output 是 `"Generated image is saved at <abs_path>."`，路径**确实**在里面，不需要 fs scanner | 2026-04-23 (撤回) |
+| KD-6 | 单测的 toolResult.output fixture 必须以**真实 cascade 抓回的样本**为准，不允许用想象 shape | Phase C 单测的 `"Saved /tmp/a.png"` 太简化，错过了 trailing period edge case，导致 16 个测试全绿但真实 cascade 失败——典型的「测的是想象 shape 不是真实 shape」反模式。后续 provider-related 单测必须至少有一条 verbatim 真实 sample | 2026-04-23 |
+| KD-7 | 修复优先尝试最小变更（5 行 regex），不上 fs scanner 的过度设计 | 真根因是 token split 不含 `.` 分隔符。strip trailing punctuation 后 39/39 tests GREEN，方案验证；brain scanner 是 over-engineering（"don't add features beyond what task requires"原则） | 2026-04-23 |
 
 ## Timeline
 
@@ -232,7 +239,9 @@ created: 2026-04-22
 | 2026-04-23 | Phases B-E 实施完成 + 砚砚 review 2 轮 + 云端 review 3 轮 (2 P1 + 2 P2 全修)，PR #1353 + #1355 合入 main |
 | 2026-04-23 | 宪宪愿景守护 PASS（条件性）+ spec OQ-2 描述漂移修正（commit b81de096f）|
 | 2026-04-23 | **Alpha 验收暴露 Phase C 设计 bug**：antig-opus 真调 `generate_image` 生图 (`/Users/lysander/.gemini/antigravity/brain/<convId>/bengal_cat_portrait_xxx.png`)，但前端没有渲染。根因：`extractAbsoluteImagePaths` 假设 `toolResult.output` 含绝对路径字符串，实际 Antigravity 工具不暴露 brain 目录路径。Phase C 单测全绿但管线在真实 cascade 上从未生效 |
-| 2026-04-23 | Reopen F172 加 Phase F：复刻 Codex scanner 模式扫 brain 目录，宪宪自接（feature owner）|
+| 2026-04-23 | Reopen F172 加 Phase F：初始假设是 spec 设计 bug，计划复刻 Codex scanner 模式扫 brain 目录 |
+| 2026-04-23 (晚) | **二次诊断更正**：@antig-opus 提供真实 toolResult.output sample，路径**确实**在 output 里，只是末尾有句号 `.`。真根因是 `extractAbsoluteImagePaths` token 分隔符不含句号，token 变成 `<path>.png.` 而扩展名 regex 失败 |
+| 2026-04-23 (晚) | Phase F 实施：5 行 regex 修复（split 后 strip trailing punctuation）+ 2 个 verbatim regression 测试，39/39 GREEN，brain scanner 决策撤回 |
 | 2026-04-23 | Phase A merged（PR #1353）：共享 publication contract + image-storage 原语 |
 | 2026-04-23 | Phase B-E merged（PR #1355）：Codex scanner + Antigravity publisher + skill 收口 + 富块联动。砚砚 review 放行 + 3 轮云端 review（2 P1 + 2 P2 全修） |
 
