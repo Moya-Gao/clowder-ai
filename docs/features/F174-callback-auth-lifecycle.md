@@ -13,6 +13,7 @@ created: 2026-04-23
 > **Phase A**: ✅ merged 2026-04-23 via PR #1359
 > **Phase B**: ✅ merged 2026-04-24 via PR #1363
 > **Phase C**: ✅ merged 2026-04-24 via PR #1368
+> **Phase D1**: ✅ merged 2026-04-24 via PR #1377
 
 ## Why
 
@@ -250,9 +251,9 @@ interface CallbackTool<T> {
 - [x] AC-C5: refresh 失败时客户端不 crash，记录 warn 日志（含 AbortSignal.timeout 10s + SIGINT/SIGTERM exit code 128+signum）
 
 ### Phase D1（Counters/Reasons — 必做）
-- [ ] AC-D1: `callback_auth_failures_total{tool, cat, reason}` 指标上线
-- [ ] AC-D2: 5 个 reason 全部覆盖（含 `stale_invocation`）
-- [ ] AC-D3: `/api/debug/callback-auth` 端点返回结构化数据
+- [x] AC-D1: `cat_cafe.callback_auth.failures{callback.tool, callback.reason, agent.id}` OTel counter + allowlist 扩展
+- [x] AC-D2: 5 个 reason 全部覆盖（central recorder 接 prehandler 3 处 + refresh-token 4 处）
+- [x] AC-D3: `GET /api/debug/callback-auth` 端点返回 `{reasonCounts, toolCounts, recentSamples (cap 100), totalFailures, startedAt, uptimeMs}` — owner-gated（session + DEFAULT_OWNER_USER_ID 双层 fail-closed）
 
 ### Phase D2（Dashboard — 可后做）
 - [ ] AC-D4: Workspace 诊断面板加 "Callback Auth Health" 卡片
@@ -356,6 +357,7 @@ interface CallbackTool<T> {
 | 2026-04-23 22:20 | **Phase A merged via PR #1359** (squash commit `ef1c83c4`)，cloud Codex review: "no major issues, chef's kiss"，跨家族 review 全部延续到 final HEAD `74926347` |
 | 2026-04-24 03:35 | **Phase B merged via PR #1363** (squash commit `ca738c8f0`)，cloud Codex review: "Didn't find any major issues"，跨家族 gpt52 PASS + 3 P2 全处理（1 push-back + 2 fixed） |
 | 2026-04-24 13:28 | **Phase C merged via PR #1368** (squash commit `226ea4a4`)，cloud Codex review: "Bravo"，14 轮 cloud P0/P1/P2 全处理（route-level cooldown via preValidation peek+claim+verifyLatest，atomic backend port methods peek/verifyLatest/tryClaimRefreshCooldown，MCP client adaptive refresh loop with AbortSignal.timeout + signal exit code 128+signum + cooldown-safe MIN_DELAY，memory cooldown map 硬封顶 derived from instance maxRecords + existing-check-first eviction，Redis msgs key TTL slide on verifyLatest，refresh-token emits missing_creds locally，tests split under 350-line cap） |
+| 2026-04-24 21:28 | **Phase D1 merged via PR #1377** (squash commit `201a0742`)，cloud Codex review: "Tada"，6 轮 P1 全处理（debug endpoint owner-gate progressive hardening: public→owner-gate→explicit-identity→reject-spoofed-header→browser-needs-session→drop-DEFAULT_OWNER_USER_ID-mismatch→two-layer-with-default→fail-closed-explicit-required，最终 mirror config.ts sensitive-env pattern：require explicit DEFAULT_OWNER_USER_ID + session match） |
 
 ## Review Gate
 
