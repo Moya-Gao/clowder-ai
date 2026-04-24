@@ -12,6 +12,7 @@ created: 2026-04-23
 >
 > **Phase A**: ✅ merged 2026-04-23 via PR #1359
 > **Phase B**: ✅ merged 2026-04-24 via PR #1363
+> **Phase C**: ✅ merged 2026-04-24 via PR #1368
 
 ## Why
 
@@ -242,11 +243,11 @@ interface CallbackTool<T> {
 - [x] AC-B6: 不引入 Streams 作真相源；如做 audit 是副写
 
 ### Phase C（Refresh）
-- [ ] AC-C1: `POST /api/callbacks/refresh-token` 端点落地，header 传 creds，fail-closed 401（reason 来自 A）
-- [ ] AC-C2: 响应包含 `expiresAt` + `ttlRemainingMs`
-- [ ] AC-C3: MCP 客户端按 `clamp(ttlRemainingMs/4, 5m, 30m)` + jitter 自适应续期
-- [ ] AC-C4: rate limit：每 invocation 每 5min 最多 1 次 refresh（防滥用）
-- [ ] AC-C5: refresh 失败时客户端不 crash，记录 warn 日志
+- [x] AC-C1: `POST /api/callbacks/refresh-token` 端点落地，header 传 creds，fail-closed 401（reason 来自 A）
+- [x] AC-C2: 响应包含 `expiresAt` + `ttlRemainingMs`
+- [x] AC-C3: MCP 客户端按 `clamp(ttlRemainingMs/4, 5m, 30m)` + jitter 自适应续期（cooldown-safe min ≥6.18min × jitter floor 0.85 = 5.25min ≥ server cooldown）
+- [x] AC-C4: rate limit：每 invocation 每 5min 最多 1 次 refresh（防滥用，atomic verifyLatest 关闭 race window）
+- [x] AC-C5: refresh 失败时客户端不 crash，记录 warn 日志（含 AbortSignal.timeout 10s + SIGINT/SIGTERM exit code 128+signum）
 
 ### Phase D1（Counters/Reasons — 必做）
 - [ ] AC-D1: `callback_auth_failures_total{tool, cat, reason}` 指标上线
@@ -354,6 +355,7 @@ interface CallbackTool<T> {
 | 2026-04-23 16:24 | @缅因猫 GPT-5.4 cross-family review of Phase A → **PASS**（self-reran 36/36 + 45/45 tests）。Two non-blocking reminders → addressed in 3c8b024d2: shared reason taxonomy + contract test (drift prevention); mixed-version rollout note added to Risk |
 | 2026-04-23 22:20 | **Phase A merged via PR #1359** (squash commit `ef1c83c4`)，cloud Codex review: "no major issues, chef's kiss"，跨家族 review 全部延续到 final HEAD `74926347` |
 | 2026-04-24 03:35 | **Phase B merged via PR #1363** (squash commit `ca738c8f0`)，cloud Codex review: "Didn't find any major issues"，跨家族 gpt52 PASS + 3 P2 全处理（1 push-back + 2 fixed） |
+| 2026-04-24 13:28 | **Phase C merged via PR #1368** (squash commit `226ea4a4`)，cloud Codex review: "Bravo"，14 轮 cloud P0/P1/P2 全处理（route-level cooldown via preValidation peek+claim+verifyLatest，atomic backend port methods peek/verifyLatest/tryClaimRefreshCooldown，MCP client adaptive refresh loop with AbortSignal.timeout + signal exit code 128+signum + cooldown-safe MIN_DELAY，memory cooldown map 硬封顶 derived from instance maxRecords + existing-check-first eviction，Redis msgs key TTL slide on verifyLatest，refresh-token emits missing_creds locally，tests split under 350-line cap） |
 
 ## Review Gate
 
