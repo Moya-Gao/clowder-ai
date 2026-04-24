@@ -1982,7 +1982,6 @@ describe('HubCatEditor', () => {
     await changeField(queryField(container, 'input[aria-label="Nickname"]'), '砚砚升级版');
     await changeField(queryField(container, 'input[aria-label="Team Strengths"]'), '代码审查、找 bug、深度思考');
     await changeField(queryField(container, 'input[aria-label="Strengths"]'), 'security, testing, debugging');
-    await changeField(queryField(container, 'select[aria-label="Session Chain"]'), 'false', 'change');
     await changeField(queryField(container, 'select[aria-label="Session Strategy"]'), 'handoff', 'change');
     await changeField(queryField(container, 'input[aria-label="Session Warn Threshold"]'), '0.55', 'change');
     await changeField(queryField(container, 'select[aria-label^="Codex Sandbox"]'), 'danger-full-access', 'change');
@@ -2007,7 +2006,7 @@ describe('HubCatEditor', () => {
     expect(catPayload.nickname).toBe('砚砚升级版');
     expect(catPayload.teamStrengths).toBe('代码审查、找 bug、深度思考');
     expect(catPayload.strengths).toEqual(['security', 'testing', 'debugging']);
-    expect(catPayload.sessionChain).toBe(false);
+    expect(catPayload.sessionChain).toBe(true);
 
     const strategyPatch = mockApiFetch.mock.calls.find(
       ([path, init]) => path === '/api/config/session-strategy/codex' && init?.method === 'PATCH',
@@ -2143,6 +2142,93 @@ describe('HubCatEditor', () => {
       ([path, init]) => path === '/api/config/session-strategy/codex' && init?.method === 'PATCH',
     );
     expect(strategyPatch).toBeFalsy();
+  });
+
+  it('hides session strategy controls and skips invalid strategy validation when Session Chain is disabled', async () => {
+    const existingCat = {
+      id: 'opencode',
+      name: 'opencode',
+      displayName: '金渐层',
+      clientId: 'opencode',
+      accountRef: 'opencode',
+      defaultModel: 'anthropic/claude-opus-4-6',
+      color: { primary: '#C8A951', secondary: '#F5EDDA' },
+      mentionPatterns: ['@opencode'],
+      avatar: '/avatars/opencode.png',
+      roleDescription: 'coding',
+      sessionChain: false,
+    } as CatData;
+    const onSaved = vi.fn(() => Promise.resolve());
+
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/accounts') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: '/tmp/project',
+            activeProfileId: 'opencode',
+            providers: [],
+          }),
+        );
+      }
+      if (path === '/api/config/session-strategy') {
+        return Promise.resolve(
+          jsonResponse({
+            cats: [
+              {
+                catId: 'opencode',
+                displayName: '金渐层',
+                provider: 'opencode',
+                effective: {
+                  strategy: 'handoff',
+                  thresholds: { warn: 0.85, action: 0.75 },
+                },
+                source: 'provider',
+                hasOverride: false,
+                hybridCapable: false,
+                sessionChainEnabled: false,
+              },
+            ],
+          }),
+        );
+      }
+      if (path === '/api/config' && !init?.method) {
+        return Promise.resolve(jsonResponse({ config: {} }));
+      }
+      if (path === '/api/cats/opencode' && init?.method === 'PATCH') {
+        return Promise.resolve(jsonResponse({ cat: { id: 'opencode' } }));
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubCatEditor, { open: true, cat: existingCat, onClose: vi.fn(), onSaved }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('Session Chain 未开启');
+    expect(container.textContent).toContain('策略不会生效');
+    expect(container.querySelector('select[aria-label="Session Strategy"]')).toBeNull();
+    expect(container.querySelector('input[aria-label="Session Warn Threshold"]')).toBeNull();
+    expect(container.querySelector('input[aria-label="Session Action Threshold"]')).toBeNull();
+
+    const saveButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '保存修改',
+    );
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const catPatch = mockApiFetch.mock.calls.find(
+      ([path, init]) => path === '/api/cats/opencode' && init?.method === 'PATCH',
+    );
+    expect(catPatch).toBeTruthy();
+    const strategyPatch = mockApiFetch.mock.calls.find(
+      ([path, init]) => path === '/api/config/session-strategy/opencode' && init?.method === 'PATCH',
+    );
+    expect(strategyPatch).toBeFalsy();
+    expect(container.textContent).not.toContain('Warn Threshold 必须小于 Action Threshold');
+    expect(onSaved).toHaveBeenCalled();
   });
 
   it('shows Codex-only runtime controls for any Client=Codex and lets alias chips be removed', async () => {

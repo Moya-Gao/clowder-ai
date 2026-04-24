@@ -332,10 +332,14 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
     try {
       const catPayload = buildCatPayload(form, cat);
       const rollbackCatPayload = cat ? buildCatPayload(initialState(cat, null), cat) : null;
-      const nextStrategyPayload = cat && strategyForm ? buildStrategyPayload(strategyForm) : null;
-      const baselineStrategyPayload = cat && strategyBaseline ? buildStrategyPayload(strategyBaseline) : null;
+      const strategyEditable = Boolean(
+        cat && form.sessionChain === 'true' && (strategyForm?.sessionChainEnabled ?? true),
+      );
+      const nextStrategyPayload = strategyEditable && strategyForm ? buildStrategyPayload(strategyForm) : null;
+      const baselineStrategyPayload =
+        strategyEditable && strategyBaseline ? buildStrategyPayload(strategyBaseline) : null;
       const strategyChanged =
-        cat && nextStrategyPayload
+        cat && nextStrategyPayload && strategyEditable
           ? JSON.stringify(nextStrategyPayload) !== JSON.stringify(baselineStrategyPayload)
           : false;
 
