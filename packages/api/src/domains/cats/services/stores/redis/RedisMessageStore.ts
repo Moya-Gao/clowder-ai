@@ -835,6 +835,9 @@ export class RedisMessageStore {
         ...(d.origin === 'stream' || d.origin === 'callback' || d.origin === 'briefing'
           ? { origin: d.origin as 'stream' | 'callback' | 'briefing' }
           : {}),
+        ...(d.messageRole === 'final' || d.messageRole === 'thinking' || d.messageRole === 'cli_stdout'
+          ? { messageRole: d.messageRole as 'final' | 'thinking' | 'cli_stdout' }
+          : {}),
         ...(d.visibility === 'whisper' ? { visibility: 'whisper' as const } : {}),
         ...(d.whisperTo ? { whisperTo: safeParseMentions(d.whisperTo) } : {}),
         ...(d.revealedAt ? { revealedAt: parseInt(d.revealedAt, 10) } : {}),

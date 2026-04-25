@@ -189,6 +189,45 @@ describe('RedisMessageStore', { skip: redisIsolationSkipReason(REDIS_URL) }, () 
     assert.equal(refetched.origin, 'stream', 'origin should also be preserved');
   });
 
+  it('F176 R4: messageRole survives getByThread bulk hydration path', async () => {
+    const threadId = `thread-f176-r4-${Date.now()}`;
+    await store.append({
+      userId: 'u1',
+      catId: 'opus',
+      content: 'final speech bubble',
+      mentions: [],
+      origin: 'stream',
+      messageRole: 'final',
+      timestamp: Date.now(),
+      threadId,
+    });
+    await store.append({
+      userId: 'u1',
+      catId: 'opus',
+      content: 'cli stdout output',
+      mentions: [],
+      origin: 'stream',
+      messageRole: 'cli_stdout',
+      timestamp: Date.now() + 1,
+      threadId,
+    });
+    await store.append({
+      userId: 'u1',
+      catId: 'opus',
+      content: 'legacy no role',
+      mentions: [],
+      origin: 'stream',
+      timestamp: Date.now() + 2,
+      threadId,
+    });
+
+    const messages = await store.getByThread(threadId, 10, 'u1');
+    assert.equal(messages.length, 3, 'should return all 3 messages');
+    assert.equal(messages[0].messageRole, 'final', 'getByThread must preserve messageRole=final');
+    assert.equal(messages[1].messageRole, 'cli_stdout', 'getByThread must preserve messageRole=cli_stdout');
+    assert.equal(messages[2].messageRole, undefined, 'getByThread must preserve undefined messageRole');
+  });
+
   it('F176 R1: legacy messages (no messageRole) roundtrip undefined', async () => {
     // Backwards-compat: pre-F176 messages have no messageRole — must stay undefined,
     // not promoted to any value, so frontend fallback (CLI Output) still works.
