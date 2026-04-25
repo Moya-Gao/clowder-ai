@@ -512,7 +512,7 @@ function updateThreadMessage(
 
 // ── Store interface ──
 
-interface ChatState {
+export interface ChatState {
   // Per-thread state (flat — reflects the active thread for backward compat)
   messages: ChatMessage[];
   isLoading: boolean;
