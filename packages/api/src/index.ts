@@ -1960,6 +1960,14 @@ async function main(): Promise<void> {
     }
   }
 
+  // F145 P0: Kill orphan agent-browser headless Chrome processes from previous sessions.
+  try {
+    const { cleanOrphanAgentBrowserChrome } = await import('./utils/orphan-chrome-cleaner.js');
+    await cleanOrphanAgentBrowserChrome(app.log);
+  } catch (err) {
+    app.log.warn(`[api] Orphan Chrome cleanup failed (best-effort): ${String(err)}`);
+  }
+
   // F118 Hardening: Global session reaper — startup sweep + periodic scan.
   // Reconciles sessions stuck in 'sealing' state that the per-invoke lazy
   // reaper would never visit (e.g., threads with no subsequent invocations).
