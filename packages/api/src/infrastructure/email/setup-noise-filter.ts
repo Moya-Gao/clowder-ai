@@ -1,16 +1,15 @@
 /**
  * F140 Phase E.1 Task 2 — Setup-noise filter (context-aware, factory-based).
  *
- * Migrated from `GithubReviewMailParser.inferReviewActionFromEmailSource` Rule 3
- * (lines 101-104): strip ignorable Codex setup guidance emails. Polling side
- * needs the same suppression to prevent bot "To use Codex here, create an
- * environment..." conversation comments from getting routed as if they were
- * real review feedback.
+ * Migrated from the legacy email-channel Rule 3 (deleted in E.3 cleanup):
+ * strip ignorable Codex setup guidance comments. Polling side needs the same
+ * suppression to prevent bot "To use Codex here, create an environment..."
+ * conversation comments from getting routed as if they were real review feedback.
  *
  * Scope narrowing (砚砚 GPT-5.4 P1-1):
  *   - conversation only (inline comments belong to a review submission)
  *   - bot authors only (humans may legitimately quote the setup sentence —
- *     see github-review-mail-body-classifier.test.js:72 key negative case)
+ *     historical anchor: legacy classifier preserved this negative case before E.3)
  *   - setup-only: setup sentence + NO `codex review` content (a real review
  *     that happens to include the setup footer must not be suppressed)
  *

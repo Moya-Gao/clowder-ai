@@ -2,7 +2,7 @@
  * Connector Gateway Bootstrap
  * Wires all connector gateway components together.
  *
- * Follows github-review-bootstrap.ts pattern:
+ * Bootstrap pattern:
  * - Takes options with dependencies
  * - Checks env config before starting
  * - Returns lifecycle handle { stop }

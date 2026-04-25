@@ -10,7 +10,8 @@
  * to bot + conversation + setup-only bodies (see F140 spec AC-E6).
  *
  * Rule C (single predicate factory shared with email watcher) is also retired
- * because email watcher bootstrap is removed in E.2 (see github-review-bootstrap.ts).
+ * because email watcher bootstrap was removed in E.2 (and the source files
+ * physically deleted in E.3).
  *
  * @see docs/features/F140-github-pr-automation.md — Phase E.2 + KD-15
  */

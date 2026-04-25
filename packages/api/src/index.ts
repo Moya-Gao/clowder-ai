@@ -1842,11 +1842,6 @@ async function main(): Promise<void> {
   // F-BLOAT: Progressive disclosure docs endpoints (no auth, static content)
   await app.register(registerCallbackDocsRoutes);
 
-  // F140 Phase E.2 cutover (2026-04-24): GitHub Review Watcher (email/IMAP)
-  // bootstrap is disabled. ReviewRouter / ProcessedEmailStore /
-  // GhCliReviewContentFetcher constructions are now no-ops at boot — the source
-  // files remain in-tree pending E.3 physical cleanup PR.
-
   // F088: Register connector webhook routes BEFORE listen (Fastify requires it)
   const connectorWebhookHandlers = new Map<string, import('./routes/connector-webhooks.js').ConnectorWebhookHandler>();
   await app.register(connectorWebhookRoutes, { handlers: connectorWebhookHandlers });
@@ -2080,11 +2075,8 @@ async function main(): Promise<void> {
 
   const setupNoiseFilter = createSetupNoiseFilter(setupNoiseBotLogins);
 
-  // F140 Phase E.2 cutover (2026-04-24): email watcher bootstrap removed.
+  // F140 Phase E.3 cleanup (2026-04-25): email/IMAP watcher source files removed.
   // Polling (ReviewFeedbackTaskSpec) is the sole truth source for review feedback.
-  // The watcher source files (GithubReviewWatcher / ReviewRouter / etc.) are
-  // retained for E.3 cleanup PR; this just stops them being started at boot.
-  app.log.info('[api] F140 E.2: email review watcher bootstrap disabled (polling is sole source)');
 
   // F139 Phase 4b: late-bind invokeTrigger so templates can wake cats
   taskRunnerV2.setInvokeTrigger(invokeTrigger);
@@ -2463,8 +2455,6 @@ async function main(): Promise<void> {
           app.log.error(`[api] Redis BGSAVE failed: ${String(err)}`);
         }
       }
-
-      // F140 Phase E.2 cutover: GithubReviewWatcher no longer started → no-op stop
 
       taskRunnerV2.stop();
 
