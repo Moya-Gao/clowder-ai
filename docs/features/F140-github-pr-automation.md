@@ -197,7 +197,7 @@ created: 2026-03-26
 - [x] AC-E7: **删除** Rule B（authoritative-source 语义）：`createGitHubFeedbackFilter()` 简化为 Rule A only（self-authored）；`GITHUB_AUTHORITATIVE_REVIEW_LOGINS` env 改名 `GITHUB_SETUP_NOISE_BOT_LOGINS` + 老 env 标 `[DEPRECATED]` 兜底向后兼容（env-registry.ts 已注册新 entry） — SHA 00d7a834
 - [x] AC-E8: bootstrap 移除 `startGithubReviewWatcher()` 调用 + `ReviewRouter`/`GhCliReviewContentFetcher`/`MemoryProcessedEmailStore` 实例化删除（dead code post-watcher）+ shutdown handler `stopGithubReviewWatcher` call 移除 + 无用 imports 清理 — SHA 00d7a834（`.env.example` 原本就无 IMAP 字段）
 - [x] AC-E9: ~~Alpha 环境 3 场景证据门槛~~ — **降级 (2026-04-25 铲屎官拍板)**：alpha frontend 3011 webpack `.xterm` CSS loader 挂 + pinchtab MCP 503 → 浏览器端到端验收阻塞，且非 F140 scope。改用三件套凭证：(1) **Unit tests 79/79 全绿** 守护三场景核心 invariant（Scene 1 review-feedback-router test "P2 badge → header"; Scene 2 "no severity → no header"; Scene 3 filter Rule A only test + 人类 引用 setup 文案 not skip 守护）；(2) **双 family reviewer 复审 pass**（gpt52 + codex chat approve E.1+E.2 + 2 处 followup cleanup）；(3) **云端 codex bot 双 PR review pass**（PR #1380 "no major issues"; PR #1386 "Hooray"）。Production smoke：runtime 重启后下次实际 PR review 自然验证
-- [ ] AC-E10: 代码清理（独立 PR，3 场景全绿后执行）：删除 `GithubReviewWatcher` / `ReviewRouter` / `ReviewContentFetcher` / `GithubReviewMailParser` / `ProcessedEmailStore` + 相关 tests；精简 `github-feedback-filter.ts` 为 Rule A only
+- [x] AC-E10: 代码清理（独立 PR #1398, squash 397df85c）— 删除 11 文件（6 src: GithubReviewWatcher / github-review-bootstrap / ReviewRouter / ReviewContentFetcher / GithubReviewMailParser / ProcessedEmailStore + 5 tests）+ 清 `infrastructure/email/index.ts` 8 组 deprecated re-exports + 清 `src/index.ts` E.2 残注释 + 6 处其他文件残留注释。`github-feedback-filter.ts` Rule A only 已在 E.2 完成。砚砚 GPT-5.5 双轮 review (P2 6 处注释残留 → fix → no-findings) + 云端 codex "Swish! no major issues" — SHA 397df85c
 
 ## Dependencies
 
@@ -283,6 +283,7 @@ created: 2026-03-26
 | 2026-04-24 | **Phase E.1 merged (PR #1380, squash 120748e5)** — 双家 review (gpt52 + codex) + 云端 codex P0 finding (parseSeverity 单 body 多 severity 降级) 修复 fix(F140-E1) 384c8f4e + re-trigger 云端 review pass "no major issues"。73/73 tests 全绿，gate passed |
 | 2026-04-24 | **Phase E.2 cutover merged (PR #1386, squash 00d7a834)** — drop Rule B + env 改名 `GITHUB_SETUP_NOISE_BOT_LOGINS` + stop email watcher bootstrap。砚砚 GPT-5.5 P2 (5 处旧 Rule B/C/email-routing 注释/测试名) 修复 793446ff + re-trigger 云端 review pass "Hooray no major issues"。pnpm gate passed (build/test/lint/check 全过)。 |
 | 2026-04-25 | **AC-E9 cutover gate 降级凭证（CVO 拍板）** — alpha frontend `.xterm` CSS loader build 挂 + pinchtab MCP 503 浏览器路径阻塞，且非 F140 scope。三件套凭证替代：unit test 79/79 守护三场景核心 invariant + 双 family reviewer 二次复审 pass + 云端 codex bot 双 PR review pass。Production smoke 通过 runtime 重启后下次实际 PR review 自然验证。Phase E.2 完整闭环，进 E.3 物理清理 |
+| 2026-04-25 | **Phase E.3 cleanup merged (PR #1398, squash 397df85c)** — 11 dead files trashed (6 src + 5 tests) + index.ts re-exports 简化 + 6 处注释残留清理。砚砚 GPT-5.5 双轮 review (P2 fix → no-findings) + 云端 codex "Swish! no major issues"。pnpm gate PASSED。**Phase E 完整闭环（AC-E1~E10 全部 ✅）**，等待愿景守护猫做 feat-lifecycle close |
 
 ## Design Gate 讨论归档
 
