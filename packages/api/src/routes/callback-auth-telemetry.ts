@@ -6,6 +6,11 @@
  *        missing_creds/stale_invocation)
  * AC-D3: feed in-memory snapshot to `/api/debug/callback-auth`
  *
+ * F174 Phase D2a — dashboard prep:
+ *   - byCat counter (per-cat failure totals, mirrors toolCounts)
+ *   - 24h rolling window via per-hour ring buffer (24 buckets)
+ *   - recent24h section in snapshot for the dashboard card consumer
+ *
  * All 401 emission sites in routes/ funnel through `recordCallbackAuthFailure`
  * so observability is uniform regardless of which hook detected the failure.
  */
@@ -15,6 +20,8 @@ import { AGENT_ID, CALLBACK_REASON, CALLBACK_TOOL } from '../infrastructure/tele
 import { callbackAuthFailures } from '../infrastructure/telemetry/instruments.js';
 
 const RECENT_SAMPLES_CAP = 100;
+const HOUR_MS = 60 * 60 * 1000;
+const WINDOW_HOURS = 24;
 
 interface FailureSample {
   at: number;
@@ -33,17 +40,53 @@ const ZERO_REASON_COUNTS: Record<CallbackAuthFailureReason, number> = {
 
 let reasonCounts: Record<CallbackAuthFailureReason, number> = { ...ZERO_REASON_COUNTS };
 let toolCounts: Record<string, number> = {};
+let byCat: Record<string, number> = {};
 let recentSamples: FailureSample[] = [];
 let totalFailures = 0;
 const startedAt = Date.now();
 
 // F174 Phase F (AC-F3): per-tool counter for legacy body/query fallback hits.
-// First-party MCP client stopped dual-writing creds (AC-F2); any hit here means
-// an OLD MCP client (or external integrator) is still using the deprecated
-// path. Zero hits across a release window → safe to delete callback-auth-schema
-// and remove the body/query branch from preHandler (AC-F5).
 let legacyFallbackByTool: Record<string, number> = {};
 let legacyFallbackTotal = 0;
+
+/**
+ * F174 Phase D2a — 24h ring buffer. Each bucket holds aggregated counts for
+ * one hour. The bucket index is `floor(timestampMs / HOUR_MS) % WINDOW_HOURS`,
+ * with a stored `hourId` to detect stale slots that need clearing on read/write.
+ */
+interface HourBucket {
+  hourId: number; // floor(at / HOUR_MS) — strictly increasing
+  total: number;
+  byReason: Record<CallbackAuthFailureReason, number>;
+  byTool: Record<string, number>;
+  byCat: Record<string, number>;
+}
+
+function freshBucket(hourId: number): HourBucket {
+  return {
+    hourId,
+    total: 0,
+    byReason: { ...ZERO_REASON_COUNTS },
+    byTool: {},
+    byCat: {},
+  };
+}
+
+let buckets: HourBucket[] = Array.from({ length: WINDOW_HOURS }, () => freshBucket(-1));
+
+/**
+ * Test-only clock injection. Set to a fixed timestamp (ms) to drive
+ * `Date.now()`-equivalent reads through this module deterministically.
+ * Pass null to revert to wall clock.
+ */
+let nowOverride: number | null = null;
+function now(): number {
+  return nowOverride ?? Date.now();
+}
+
+export function __setNowForTest(value: number | null): void {
+  nowOverride = value;
+}
 
 export interface CallbackAuthFailureRecord {
   reason: CallbackAuthFailureReason;
@@ -54,16 +97,30 @@ export interface CallbackAuthFailureRecord {
 export function recordCallbackAuthFailure(record: CallbackAuthFailureRecord): void {
   reasonCounts[record.reason] = (reasonCounts[record.reason] ?? 0) + 1;
   toolCounts[record.tool] = (toolCounts[record.tool] ?? 0) + 1;
+  if (record.catId) {
+    byCat[record.catId] = (byCat[record.catId] ?? 0) + 1;
+  }
   totalFailures += 1;
 
-  recentSamples.push({
-    at: Date.now(),
-    reason: record.reason,
-    tool: record.tool,
-    catId: record.catId,
-  });
+  const at = now();
+  recentSamples.push({ at, reason: record.reason, tool: record.tool, catId: record.catId });
   if (recentSamples.length > RECENT_SAMPLES_CAP) {
     recentSamples.splice(0, recentSamples.length - RECENT_SAMPLES_CAP);
+  }
+
+  // 24h ring buffer: clear stale slot if rotated past, then accumulate.
+  const hourId = Math.floor(at / HOUR_MS);
+  const slot = hourId % WINDOW_HOURS;
+  const safeIdx = ((slot % WINDOW_HOURS) + WINDOW_HOURS) % WINDOW_HOURS;
+  if (buckets[safeIdx].hourId !== hourId) {
+    buckets[safeIdx] = freshBucket(hourId);
+  }
+  const bucket = buckets[safeIdx];
+  bucket.total += 1;
+  bucket.byReason[record.reason] = (bucket.byReason[record.reason] ?? 0) + 1;
+  bucket.byTool[record.tool] = (bucket.byTool[record.tool] ?? 0) + 1;
+  if (record.catId) {
+    bucket.byCat[record.catId] = (bucket.byCat[record.catId] ?? 0) + 1;
   }
 
   // OTel counter export — allowlist-filtered attributes (cat may be undefined
@@ -76,13 +133,24 @@ export function recordCallbackAuthFailure(record: CallbackAuthFailureRecord): vo
   callbackAuthFailures.add(1, attributes);
 }
 
+export interface Recent24hAggregate {
+  totalFailures: number;
+  byReason: Record<CallbackAuthFailureReason, number>;
+  byTool: Record<string, number>;
+  byCat: Record<string, number>;
+}
+
 export interface CallbackAuthFailureSnapshot {
   reasonCounts: Record<CallbackAuthFailureReason, number>;
   toolCounts: Record<string, number>;
+  /** F174 Phase D2a: per-cat failure counts (lifetime). */
+  byCat: Record<string, number>;
   recentSamples: FailureSample[];
   totalFailures: number;
   startedAt: number;
   uptimeMs: number;
+  /** F174 Phase D2a: rolling 24h window aggregate. */
+  recent24h: Recent24hAggregate;
   /** F174 Phase F (AC-F3): legacy body/query fallback usage per tool. */
   legacyFallbackHits: {
     byTool: Record<string, number>;
@@ -90,14 +158,42 @@ export interface CallbackAuthFailureSnapshot {
   };
 }
 
+function computeRecent24h(): Recent24hAggregate {
+  const at = now();
+  const currentHourId = Math.floor(at / HOUR_MS);
+  const minHourId = currentHourId - (WINDOW_HOURS - 1);
+  const agg: Recent24hAggregate = {
+    totalFailures: 0,
+    byReason: { ...ZERO_REASON_COUNTS },
+    byTool: {},
+    byCat: {},
+  };
+  for (const bucket of buckets) {
+    if (bucket.hourId < minHourId || bucket.hourId > currentHourId) continue;
+    agg.totalFailures += bucket.total;
+    for (const reason of Object.keys(bucket.byReason) as CallbackAuthFailureReason[]) {
+      agg.byReason[reason] += bucket.byReason[reason];
+    }
+    for (const [tool, count] of Object.entries(bucket.byTool)) {
+      agg.byTool[tool] = (agg.byTool[tool] ?? 0) + count;
+    }
+    for (const [cat, count] of Object.entries(bucket.byCat)) {
+      agg.byCat[cat] = (agg.byCat[cat] ?? 0) + count;
+    }
+  }
+  return agg;
+}
+
 export function getCallbackAuthFailureSnapshot(): CallbackAuthFailureSnapshot {
   return {
     reasonCounts: { ...reasonCounts },
     toolCounts: { ...toolCounts },
+    byCat: { ...byCat },
     recentSamples: [...recentSamples],
     totalFailures,
     startedAt,
-    uptimeMs: Date.now() - startedAt,
+    uptimeMs: now() - startedAt,
+    recent24h: computeRecent24h(),
     legacyFallbackHits: {
       byTool: { ...legacyFallbackByTool },
       total: legacyFallbackTotal,
@@ -124,10 +220,16 @@ export function getLegacyFallbackHitCount(): number {
 export function resetCallbackAuthFailureForTest(): void {
   reasonCounts = { ...ZERO_REASON_COUNTS };
   toolCounts = {};
+  byCat = {};
   recentSamples = [];
   totalFailures = 0;
   legacyFallbackByTool = {};
   legacyFallbackTotal = 0;
+  buckets = Array.from({ length: WINDOW_HOURS }, () => freshBucket(-1));
+  // Cloud Codex P2 (PR #1393): also clear the injected clock so a previous
+  // __setNowForTest(...) doesn't leak frozen time into a later test that
+  // only calls reset. Restores wall-clock behavior.
+  nowOverride = null;
 }
 
 /** Test-only — reset just the legacy fallback counters. */
