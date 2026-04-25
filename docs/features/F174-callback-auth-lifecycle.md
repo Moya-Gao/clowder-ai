@@ -15,7 +15,9 @@ created: 2026-04-23
 > **Phase C**: ✅ merged 2026-04-24 via PR #1368
 > **Phase D1**: ✅ merged 2026-04-24 via PR #1377
 > **Phase E**: ✅ merged 2026-04-25 via PR #1384
-> **Phase F**: 🚧 in PR (drop body.createdBy + dual-write + legacy fallback telemetry)
+> **Phase F**: ✅ merged 2026-04-25 via PR #1388
+> **Phase D2a (backend)**: ✅ merged 2026-04-25 via PR #1393 (byCat counter + 24h ring buffer)
+> **Phase D2b (frontend)**: 📐 design稿 pending (Pencil → @烁烁 review → implement)
 
 ## Why
 
@@ -257,9 +259,16 @@ interface CallbackTool<T> {
 - [x] AC-D2: 5 个 reason 全部覆盖（central recorder 接 prehandler 3 处 + refresh-token 4 处）
 - [x] AC-D3: `GET /api/debug/callback-auth` 端点返回 `{reasonCounts, toolCounts, recentSamples (cap 100), totalFailures, startedAt, uptimeMs}` — owner-gated（session + DEFAULT_OWNER_USER_ID 双层 fail-closed）
 
-### Phase D2（Dashboard — 可后做）
-- [ ] AC-D4: Workspace 诊断面板加 "Callback Auth Health" 卡片
-- [ ] AC-D5: 显示 24h 401 率 + reason 分布 + Top 工具 + Top 受影响猫
+### Phase D2（Dashboard）— 拆 D2a (backend) + D2b (frontend)
+- **D2a backend** ✅ merged 2026-04-25 via PR #1393
+  - [x] `byCat` lifetime counter in snapshot
+  - [x] 24h rolling window via per-hour ring buffer (24 buckets)
+  - [x] `snapshot.recent24h = {totalFailures, byReason, byTool, byCat}` for dashboard consumer
+  - [x] `__setNowForTest()` test seam for deterministic time-rotation tests
+- **D2b frontend** 📐 design稿 待出
+  - [ ] AC-D4: Workspace 诊断面板加 `CallbackAuthHealthCard` 组件
+  - [ ] AC-D5: 显示 24h 401 率 + reason 分布 + Top 工具 + Top 受影响猫
+  - 流程：Pencil 设计稿 → @烁烁 + @landy 视觉审视 → F056 design language alignment → 实现 worktree
 
 ### Phase E（Degradation — 在 D1 之后）
 - [x] AC-E1: `DegradePolicy = none|custom` + `withDegradation()` framework in `mcp-server/src/tools/degradation.ts`；`create_rich_block` Route B 重构进 framework（行为不变，legacy 403 path 保留 inline）
