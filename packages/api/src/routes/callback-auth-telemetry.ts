@@ -37,6 +37,14 @@ let recentSamples: FailureSample[] = [];
 let totalFailures = 0;
 const startedAt = Date.now();
 
+// F174 Phase F (AC-F3): per-tool counter for legacy body/query fallback hits.
+// First-party MCP client stopped dual-writing creds (AC-F2); any hit here means
+// an OLD MCP client (or external integrator) is still using the deprecated
+// path. Zero hits across a release window → safe to delete callback-auth-schema
+// and remove the body/query branch from preHandler (AC-F5).
+let legacyFallbackByTool: Record<string, number> = {};
+let legacyFallbackTotal = 0;
+
 export interface CallbackAuthFailureRecord {
   reason: CallbackAuthFailureReason;
   tool: string;
@@ -75,6 +83,11 @@ export interface CallbackAuthFailureSnapshot {
   totalFailures: number;
   startedAt: number;
   uptimeMs: number;
+  /** F174 Phase F (AC-F3): legacy body/query fallback usage per tool. */
+  legacyFallbackHits: {
+    byTool: Record<string, number>;
+    total: number;
+  };
 }
 
 export function getCallbackAuthFailureSnapshot(): CallbackAuthFailureSnapshot {
@@ -85,7 +98,26 @@ export function getCallbackAuthFailureSnapshot(): CallbackAuthFailureSnapshot {
     totalFailures,
     startedAt,
     uptimeMs: Date.now() - startedAt,
+    legacyFallbackHits: {
+      byTool: { ...legacyFallbackByTool },
+      total: legacyFallbackTotal,
+    },
   };
+}
+
+/**
+ * F174 Phase F (AC-F3): record a hit on the legacy body/query credentials
+ * fallback path. Called from preHandler when headers were absent but legacy
+ * fields succeeded. Tracks deprecation usage so we know when the compat path
+ * is safe to delete (zero hits across a release window).
+ */
+export function recordLegacyFallbackHit(record: { tool: string }): void {
+  legacyFallbackByTool[record.tool] = (legacyFallbackByTool[record.tool] ?? 0) + 1;
+  legacyFallbackTotal += 1;
+}
+
+export function getLegacyFallbackHitCount(): number {
+  return legacyFallbackTotal;
 }
 
 /** Test-only — reset internal counters between cases. NEVER call from prod code. */
@@ -94,4 +126,12 @@ export function resetCallbackAuthFailureForTest(): void {
   toolCounts = {};
   recentSamples = [];
   totalFailures = 0;
+  legacyFallbackByTool = {};
+  legacyFallbackTotal = 0;
+}
+
+/** Test-only — reset just the legacy fallback counters. */
+export function resetLegacyFallbackHitsForTest(): void {
+  legacyFallbackByTool = {};
+  legacyFallbackTotal = 0;
 }

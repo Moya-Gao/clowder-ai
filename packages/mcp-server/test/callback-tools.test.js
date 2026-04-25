@@ -68,8 +68,10 @@ describe('MCP Callback Tools', () => {
     assert.ok(capturedUrl.includes('/api/callbacks/post-message'));
     const body = JSON.parse(capturedOptions.body);
     assert.equal(body.content, 'Hello from cat!');
-    assert.equal(body.invocationId, 'test-invocation');
-    assert.equal(body.callbackToken, 'test-token');
+    // F174 Phase F (AC-F2): first-party MCP client stopped dual-writing creds.
+    // Headers are now the only place creds appear.
+    assert.equal(body.invocationId, undefined, 'creds must NOT be dual-written to body');
+    assert.equal(body.callbackToken, undefined, 'creds must NOT be dual-written to body');
     assert.equal(capturedOptions.headers['x-invocation-id'], 'test-invocation');
     assert.equal(capturedOptions.headers['x-callback-token'], 'test-token');
   });
@@ -154,8 +156,9 @@ describe('MCP Callback Tools', () => {
 
     assert.equal(result.isError, undefined);
     assert.ok(capturedUrl.includes('/api/callbacks/pending-mentions'));
-    assert.ok(capturedUrl.includes('invocationId=test-invocation'));
-    assert.ok(capturedUrl.includes('callbackToken=test-token'));
+    // F174 Phase F (AC-F2): creds no longer dual-written to query.
+    assert.ok(!capturedUrl.includes('invocationId='), 'creds must NOT be dual-written to query');
+    assert.ok(!capturedUrl.includes('callbackToken='), 'creds must NOT be dual-written to query');
     assert.equal(capturedOptions.headers['x-invocation-id'], 'test-invocation');
     assert.equal(capturedOptions.headers['x-callback-token'], 'test-token');
   });
@@ -651,8 +654,9 @@ describe('MCP Callback Tools', () => {
     assert.equal(body.action, 'git_commit');
     assert.equal(body.reason, 'Committing bug fix');
     assert.equal(body.context, 'Fix for issue #42');
-    assert.equal(body.invocationId, 'test-invocation');
-    assert.equal(body.callbackToken, 'test-token');
+    // F174 Phase F (AC-F2): creds headers-only.
+    assert.equal(body.invocationId, undefined);
+    assert.equal(body.callbackToken, undefined);
     assert.equal(capturedOptions.headers['x-invocation-id'], 'test-invocation');
     assert.equal(capturedOptions.headers['x-callback-token'], 'test-token');
     assert.ok(result.content[0].text.includes('granted'));
@@ -705,8 +709,9 @@ describe('MCP Callback Tools', () => {
     assert.equal(result.isError, undefined);
     assert.ok(capturedUrl.includes('/api/callbacks/permission-status'));
     assert.ok(capturedUrl.includes('requestId=req-123'));
-    assert.ok(capturedUrl.includes('invocationId=test-invocation'));
-    assert.ok(capturedUrl.includes('callbackToken=test-token'));
+    // F174 Phase F (AC-F2): creds headers-only.
+    assert.ok(!capturedUrl.includes('invocationId='));
+    assert.ok(!capturedUrl.includes('callbackToken='));
     assert.equal(capturedOptions.headers['x-invocation-id'], 'test-invocation');
     assert.equal(capturedOptions.headers['x-callback-token'], 'test-token');
     assert.ok(result.content[0].text.includes('granted'));

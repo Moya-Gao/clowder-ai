@@ -65,21 +65,11 @@ export function buildAuthHeaders(config: CallbackConfig): Record<string, string>
   };
 }
 
-function withLegacyAuthBody(config: CallbackConfig, body: Record<string, unknown>): Record<string, unknown> {
-  return {
-    ...body,
-    invocationId: config.invocationId,
-    callbackToken: config.callbackToken,
-  };
-}
-
-function withLegacyAuthQuery(config: CallbackConfig, params?: Record<string, string>): URLSearchParams {
-  return new URLSearchParams({
-    ...(params ?? {}),
-    invocationId: config.invocationId,
-    callbackToken: config.callbackToken,
-  });
-}
+// F174 Phase F (AC-F2): first-party MCP client stopped dual-writing creds to
+// body/query. Headers are now the only place we put credentials. Server still
+// accepts body/query as fallback for legacy MCP clients during the compat
+// window — that fallback usage is tracked via callback-auth-telemetry's
+// `recordLegacyFallbackHit` so we know when it's safe to delete the schema.
 
 export async function callbackPost(
   path: string,
@@ -93,9 +83,7 @@ export async function callbackPost(
     {
       apiUrl: config.apiUrl,
       path,
-      // Compat window: send credentials in both headers and legacy body fields
-      // so a newer MCP client can still talk to an older API during rollout.
-      body: withLegacyAuthBody(config, body),
+      body, // headers-only auth (Phase F AC-F2)
       headers: buildAuthHeaders(config),
     },
     { enableOutbox: options?.enableOutbox === true },
@@ -108,7 +96,7 @@ export async function callbackGet(path: string, params?: Record<string, string>)
   const config = getCallbackConfig();
   if (!config) return errorResult(NO_CONFIG_ERROR);
 
-  const query = withLegacyAuthQuery(config, params);
+  const query = new URLSearchParams(params ?? {}); // headers-only auth (Phase F AC-F2)
   const qs = query.toString();
   const url = qs ? `${config.apiUrl}${path}?${qs}` : `${config.apiUrl}${path}`;
 

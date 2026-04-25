@@ -15,6 +15,7 @@ created: 2026-04-23
 > **Phase C**: ✅ merged 2026-04-24 via PR #1368
 > **Phase D1**: ✅ merged 2026-04-24 via PR #1377
 > **Phase E**: ✅ merged 2026-04-25 via PR #1384
+> **Phase F**: 🚧 in PR (drop body.createdBy + dual-write + legacy fallback telemetry)
 
 ## Why
 
@@ -269,11 +270,11 @@ interface CallbackTool<T> {
 - [x] AC-E6: `stale_invocation` 不在 `DEGRADABLE_AUTH_REASONS`，degrade 跳过，surface clear `[reason=stale_invocation]` 提示
 
 ### Phase F（L3 残尾）
-- [ ] AC-F1: `schedule.ts` 不再从 body 读 `createdBy` / `triggerUserId`
-- [ ] AC-F2: `callback-tools.ts` first-party dual-write 关闭（不再往 body 写 cred）
-- [ ] AC-F3: 配套 telemetry 追踪 fallback-only 命中率
-- [ ] AC-F4: thread-context 读权限 open question 有结论（落地 or 转独立 feature）
-- [ ] AC-F5: 设硬 deadline 删 `callback-auth-schema.ts`（即使命中率非零也按 deadline 切）
+- [x] AC-F1: `schedule.ts` `deriveScheduleActor` 不再 fallback 到 `body.createdBy`，browser/Hub 路径硬写 `'user'`；MCP 路径继续用 verified `callbackAuth.catId`
+- [x] AC-F2: `callback-tools.ts` first-party dual-write 删除 — `withLegacyAuthBody` / `withLegacyAuthQuery` 移除，`callbackPost`/`callbackGet` headers-only auth
+- [x] AC-F3: `recordLegacyFallbackHit({tool})` + `legacyFallbackHits.{byTool, total}` 加进 snapshot；preHandler legacy fallback 命中时增 1
+- [x] AC-F4: thread-context 读权限 open question — **拆出独立 feature** (TBD)，不绑 F174 收尾。理由：原本属于 #509 callback intent 的派生权限语义，但与 F174 鉴权基础设施的解耦清晰，单独 review 收益更高
+- [x] AC-F5: `callback-auth-schema.ts` 删除 deadline = **2026-05-08**（Phase E merge 后两周）。条件：(a) 删除前查 `legacyFallbackHits.total` snapshot 已为 0，OR (b) 到 deadline 不论是否为 0 一律删 — Phase F 已停 first-party dual-write，剩余命中只能来自外部 legacy MCP 客户端，他们应该升级
 
 ## 需求点 Checklist
 

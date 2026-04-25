@@ -7,7 +7,7 @@
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { InvocationRecord, VerifyResult } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
-import { recordCallbackAuthFailure } from './callback-auth-telemetry.js';
+import { recordCallbackAuthFailure, recordLegacyFallbackHit } from './callback-auth-telemetry.js';
 import { makeCallbackAuthError } from './callback-errors.js';
 
 /**
@@ -79,6 +79,9 @@ export function registerCallbackAuthHook(app: FastifyInstance, registry: Callbac
       return;
     }
     if (legacy) {
+      // F174 Phase F (AC-F3): track legacy fallback usage so we know when the
+      // compat path is safe to delete (zero hits across a release window).
+      recordLegacyFallbackHit({ tool });
       request.log.warn(
         { invocationId, path: request.url },
         '[#476 DEPRECATED] Callback credentials received via body/query — migrate to X-Invocation-Id / X-Callback-Token headers',
