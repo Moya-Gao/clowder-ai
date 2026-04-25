@@ -194,8 +194,8 @@ created: 2026-03-26
 - [x] AC-E4: 多条 findings 取最高 severity（P0 > P1 > P2）；无匹配则不加 header（保持现状） — SHA 06cbe1959 + 645ac9de8
 - [x] AC-E5: 单元测试覆盖：severity-parser 18 / setup-noise 9 / review-feedback-router 12 / review-feedback-spec 31，**共 70 tests 4 suites 全绿**，含 FP 负例 9 条（fenced/blockquote/badge × P1/P2 + 句内裸词 + P100 + MP3 + P3 + empty）— SHA 06cbe1959 + 77cf7ec28
 - [x] AC-E6: Setup-noise filter 搬自 `GithubReviewMailParser.ts:101-104` Rule 3，factory `createSetupNoiseFilter(botLogins)` 返回 context-aware predicate（接 `{author, body, commentType}`），polling 侧在 gate 应用。**Scope 严格收窄**：只吞 `author ∈ botLogins` + `commentType=conversation` + body 含 setup sentence 且无 `codex review` content；inline / 非 bot author / bot 含 review content 全不吞。守护负例：人类 reviewer 引用 setup 文案不被过滤（对齐 `github-review-mail-body-classifier.test.js:72`）。裸 `@codex review` / 触发模板回声**归 Rule A** 处理（self-authored skip），E.1 不重复 — SHA 77cf7ec28 + 67a820f2c
-- [ ] AC-E7: **删除** Rule B（authoritative-source 语义）：`createGitHubFeedbackFilter()` 不再 skip bot review/inline comment，只保留 Rule A（self-authored）；`GITHUB_AUTHORITATIVE_REVIEW_LOGINS` env + 文案清理（env-registry.ts）
-- [ ] AC-E8: bootstrap 移除 `startGithubReviewWatcher()` 调用，`.env.example` 撤 `GITHUB_REVIEW_IMAP_*` 字段
+- [x] AC-E7: **删除** Rule B（authoritative-source 语义）：`createGitHubFeedbackFilter()` 简化为 Rule A only（self-authored）；`GITHUB_AUTHORITATIVE_REVIEW_LOGINS` env 改名 `GITHUB_SETUP_NOISE_BOT_LOGINS` + 老 env 标 `[DEPRECATED]` 兜底向后兼容（env-registry.ts 已注册新 entry） — SHA 00d7a834
+- [x] AC-E8: bootstrap 移除 `startGithubReviewWatcher()` 调用 + `ReviewRouter`/`GhCliReviewContentFetcher`/`MemoryProcessedEmailStore` 实例化删除（dead code post-watcher）+ shutdown handler `stopGithubReviewWatcher` call 移除 + 无用 imports 清理 — SHA 00d7a834（`.env.example` 原本就无 IMAP 字段）
 - [ ] AC-E9: Alpha 环境 3 场景证据门槛：(a) bot review 含 P2 → 消息头 P2；(b) bot pass no severity → 无 header；(c) 人类 CHANGES_REQUESTED → 正常渲染不被 Rule B 误吞
 - [ ] AC-E10: 代码清理（独立 PR，3 场景全绿后执行）：删除 `GithubReviewWatcher` / `ReviewRouter` / `ReviewContentFetcher` / `GithubReviewMailParser` / `ProcessedEmailStore` + 相关 tests；精简 `github-feedback-filter.ts` 为 Rule A only
 
@@ -281,6 +281,7 @@ created: 2026-03-26
 | 2026-04-24 | Phase E.1 plan 砚砚 GPT-5.4 复审放行（SHA 478a91403）。提醒：E.1 复用 `GITHUB_AUTHORITATIVE_REVIEW_LOGINS` 作 `botLogins` 来源是**临时借壳**，E.2 删 Rule B 时必须显式处理（改名 / 替换为 `GITHUB_SETUP_NOISE_BOT_LOGINS` / 删除三选一），不得"顺手清理" |
 | 2026-04-24 | Phase E.1 TDD 实现完成 — feat/f140-e1-severity-parser 4 commits（06cbe1959 severity-parser + 77cf7ec28 setup-noise-filter + 645ac9de8 ReviewFeedbackRouter header + 67a820f2c polling gate wiring）。AC-E1~E6 ✅，70 tests 4 suites 全绿，pending PR + cross-family review |
 | 2026-04-24 | **Phase E.1 merged (PR #1380, squash 120748e5)** — 双家 review (gpt52 + codex) + 云端 codex P0 finding (parseSeverity 单 body 多 severity 降级) 修复 fix(F140-E1) 384c8f4e + re-trigger 云端 review pass "no major issues"。73/73 tests 全绿，gate passed |
+| 2026-04-24 | **Phase E.2 cutover merged (PR #1386, squash 00d7a834)** — drop Rule B + env 改名 `GITHUB_SETUP_NOISE_BOT_LOGINS` + stop email watcher bootstrap。砚砚 GPT-5.5 P2 (5 处旧 Rule B/C/email-routing 注释/测试名) 修复 793446ff + re-trigger 云端 review pass "Hooray no major issues"。pnpm gate passed (build/test/lint/check 全过)。**剩 AC-E9 alpha 3 场景 hard gate 待 CVO 引导**（Scene 1 bot P2 inline → header / Scene 2 bot pass → 无 header / Scene 3 human CHANGES_REQUESTED → 不被旧 Rule B 误吞） |
 
 ## Design Gate 讨论归档
 
