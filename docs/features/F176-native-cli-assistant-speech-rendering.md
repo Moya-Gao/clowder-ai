@@ -8,14 +8,15 @@ created: 2026-04-25
 
 # F176: Native CLI Assistant-Speech vs CLI-Stdout 渲染语义分离
 
-> **Status**: done (Phase 1+2+3 merged) | **Owner**: 布偶猫（Opus-47） + 缅因猫（GPT-5.5，并行诊断 + cross-family review） | **Priority**: P1
+> **Status**: done | **Completed**: 2026-04-25 | **Owner**: 布偶猫（Opus-47, sonnet-4.6 接力 R4） + 缅因猫（GPT-5.5 R1-R4 cross-family review + GPT-5.4 vision guardian） | **Priority**: P1
 >
 > **Phase 1+2+3**: ✅ merged 2026-04-25 via PR #1401 (squash `2b41a5cc`)
+> **R4 hotfix (hydrateMessages bulk path)**: ✅ merged 2026-04-25 via PR #1402 (squash `11ce3111`)
 > **Phase 4**: 📋 deferred follow-up（历史兼容路径，用户清 IDB cache 即可，不做 hydration 启发式 promote）
 >
 > **Triggered by**: `thread_mnux2eewbo4otg17` 实测（2026-04-25 13:14），铲屎官报告"前端看到互相调用但看不到说话气泡"。@codex 砚砚（GPT-5.5）+ @opus47 宪宪（Opus-47）双独立诊断收敛到同一根因（5/5 一致）。
 >
-> **Review**: 砚砚 R1 退回（链路断点）→ R1 fix → R2 退回（existing-bubble path）→ R2 fix → R3 放行 + continuity 延续到 rebase 后 SHA 6dc698b4。云端 codex review 通过（no major issues）。
+> **Review trail**: 砚砚 R1 退回（链路断点）→ R1 fix → R2 退回（existing-bubble path）→ R2 fix → R3 放行 + continuity 延续到 rebase 后 SHA 6dc698b4。云端 codex review pass（no major issues）。**愿景守护 gpt52 (跨 family) push back**: AC-E1 alpha 实测必须做 → sonnet-4.6 接力 alpha 验收发现 R4 P1（`hydrateMessages` 批量路径丢 messageRole）→ R4 fix + 砚砚 R4 verify (20/20 Redis tests) + cloud review pass + merged。最终 AC-E1 hydration 端到端测试 4/4 PASS（含 R4 case `messageRole survives getByThread bulk hydration path`）。
 
 ## Why
 
@@ -211,4 +212,9 @@ type MessageRole = 'final' | 'thinking' | 'cli_stdout';
 - **2026-04-25 13:22** 提出 messageRole 完整方案 + F173 共存策略
 - **2026-04-25 13:36** 铲屎官 ack 立项 + 给号 F176
 - **2026-04-25 14:00-15:48** Phase 1+2+3 实现 + 砚砚 R1+R2+R3 三轮 review + cloud codex review
-- **2026-04-25 15:48** PR #1401 merged (squash `2b41a5cc`)。AC-E1 待 alpha 验收（`pnpm alpha:start` 复现 thread_mnux2eewbo4otg17 场景验证主气泡显示）
+- **2026-04-25 15:48** PR #1401 merged (squash `2b41a5cc`)。AC-E1 待 alpha 验收
+- **2026-04-25 16:04** 愿景守护 @gpt52（跨 family）push back：AC-E1 alpha 实测必须做才能 close
+- **2026-04-25 16:30** sonnet-4.6 接力 alpha 验收，发现 R4 P1：`hydrateMessages` 批量路径丢 messageRole（GET /api/messages 走的就是这条）
+- **2026-04-25 16:34** R4 fix merged (PR #1402, squash `11ce3111`) — 砚砚 R4 verify + cloud review pass
+- **2026-04-25 16:55** Opus-47 接力跑 R4 hydration end-to-end 测试 4/4 PASS（含 `F176 R4: messageRole survives getByThread bulk hydration path`）→ AC-E1 ✅
+- **F176 close** 2026-04-25
