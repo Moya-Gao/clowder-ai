@@ -9,6 +9,7 @@ import { CALLBACK_AUTH_FAILURE_REASONS, isCallbackAuthFailureReason, normalizeRi
 import { z } from 'zod';
 import { sendCallbackRequest } from './callback-outbox.js';
 import { extractReasonTag } from './callback-retry.js';
+import { withDegradation } from './degradation.js';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
@@ -36,17 +37,8 @@ function parseAuthFailureReason(errorText: string): AuthFailureReason | undefine
   return undefined;
 }
 
-/**
- * Reasons that imply the invocation token has stopped working and degradation
- * (Phase E) should kick in. Distinct from `invalid_token` (mismatched token —
- * likely client bug) and `stale_invocation` (succeeded but superseded).
- */
-const DEGRADABLE_AUTH_REASONS: ReadonlySet<AuthFailureReason> = new Set(['expired', 'unknown_invocation']);
-
-function isDegradableAuthFailure(errorText: string): boolean {
-  const reason = parseAuthFailureReason(errorText);
-  return reason !== undefined && DEGRADABLE_AUTH_REASONS.has(reason);
-}
+// F174 Phase E: degradation policy + DEGRADABLE_AUTH_REASONS moved to
+// ./degradation.ts so other write-class tools share a single source of truth.
 
 interface CallbackConfig {
   apiUrl: string;
@@ -268,17 +260,26 @@ export async function handlePostMessage(input: {
   clientMessageId?: string | undefined;
   targetCats?: string[] | undefined;
 }): Promise<ToolResult> {
-  const result = await callbackPost(
-    '/api/callbacks/post-message',
-    {
-      content: input.content,
-      ...(input.threadId ? { threadId: input.threadId } : {}),
-      ...(input.replyTo ? { replyTo: input.replyTo } : {}),
-      clientMessageId: input.clientMessageId ?? randomUUID(),
-      ...(input.targetCats?.length ? { targetCats: input.targetCats } : {}),
-    },
-    { enableOutbox: true },
-  );
+  // F174 Phase E (AC-E2/E5): explicit kind:'none' policy. There's no useful
+  // local fallback for post_message — losing the message is preferable to
+  // re-creating server state on a stale invocation. Cats see the structured
+  // `[degrade] reason=...` hint and the existing @mention-textual workaround.
+  const result = await withDegradation({
+    toolName: 'post_message',
+    primary: () =>
+      callbackPost(
+        '/api/callbacks/post-message',
+        {
+          content: input.content,
+          ...(input.threadId ? { threadId: input.threadId } : {}),
+          ...(input.replyTo ? { replyTo: input.replyTo } : {}),
+          clientMessageId: input.clientMessageId ?? randomUUID(),
+          ...(input.targetCats?.length ? { targetCats: input.targetCats } : {}),
+        },
+        { enableOutbox: true },
+      ),
+    policy: { kind: 'none' },
+  });
 
   // Detect stale_ignored: server returned 200 but message was NOT delivered
   // because a newer invocation for the same thread+cat has superseded this one.
@@ -383,10 +384,17 @@ export async function handleUpdateTask(input: {
   status?: string | undefined;
   why?: string | undefined;
 }): Promise<ToolResult> {
-  return callbackPost('/api/callbacks/update-task', {
-    taskId: input.taskId,
-    ...(input.status ? { status: input.status } : {}),
-    ...(input.why ? { why: input.why } : {}),
+  // F174 Phase E (AC-E2/E5): explicit kind:'none'. Task state lives in Redis;
+  // local fallback would diverge from server truth. Surface `[degrade]` hint.
+  return withDegradation({
+    toolName: 'update_task',
+    primary: () =>
+      callbackPost('/api/callbacks/update-task', {
+        taskId: input.taskId,
+        ...(input.status ? { status: input.status } : {}),
+        ...(input.why ? { why: input.why } : {}),
+      }),
+    policy: { kind: 'none' },
   });
 }
 
@@ -440,8 +448,12 @@ export const createRichBlockInputSchema = {
 
 /**
  * #84: Route A → Route B fallback for rich block creation.
- * Tries direct callback first; on failure, falls back to post_message with cc_rich text
- * (which is extracted server-side after #83 fix).
+ *
+ * F174 Phase E refactor: the typed-reason auth path (expired /
+ * unknown_invocation) now flows through `withDegradation` framework so
+ * other write-class tools can declare the same policy uniformly. The
+ * legacy 403 / "not configured" path predates Phase A typed reasons and
+ * stays inline (preserves pre-Phase-A behavior, marks DEGRADED:true).
  */
 export async function handleCreateRichBlock(input: { block: string }): Promise<ToolResult> {
   let parsed: unknown;
@@ -457,42 +469,45 @@ export async function handleCreateRichBlock(input: { block: string }): Promise<T
   if (!parsed || typeof parsed !== 'object' || !('id' in parsed) || !('kind' in parsed)) {
     return errorResult('Block must include id and kind fields');
   }
+  const block = parsed;
 
-  // Route A: direct rich block callback (buffers for invocation response)
-  const result = await callbackPost(
-    '/api/callbacks/create-rich-block',
-    {
-      block: parsed,
+  const ccRichText = `\`\`\`cc_rich\n${JSON.stringify({ v: 1, blocks: [block] })}\n\`\`\``;
+  const runRouteB = async (): Promise<ToolResult> => {
+    const fallback = await handlePostMessage({
+      content: ccRichText,
+      clientMessageId: randomUUID(),
+    });
+    if (!fallback.isError) {
+      // Cloud Codex P2 (PR #1384): legacy 403/not-configured branch returns
+      // runRouteB() from primary, where the framework treats it as primary
+      // success and skips DEGRADED:true tagging. Mark inline so both paths
+      // (legacy + framework custom degrade) get consistent telemetry. The
+      // framework's markDegraded is idempotent so re-tagging on the custom
+      // path is harmless.
+      return successResult(JSON.stringify({ status: 'ok', route: 'B_fallback', DEGRADED: true }));
+    }
+    return errorResult(
+      `Rich block creation failed (callback token expired or missing). As a workaround, include this in your message text:\n\n${ccRichText}`,
+    );
+  };
+
+  // Phase E: framework handles primary call + auth-degradable fallback.
+  // For the legacy 403/not-configured path (pre-Phase-A), inspect the
+  // returned error text and route to Route B explicitly — preserves the
+  // existing behavior without widening the framework's degradable set
+  // (AC-E3: framework triggers only on 401-degradable reasons).
+  return withDegradation({
+    toolName: 'create_rich_block',
+    primary: async () => {
+      const result = await callbackPost('/api/callbacks/create-rich-block', { block }, { enableOutbox: true });
+      if (!result.isError) return result;
+      const errorText = result.content[0]?.type === 'text' ? result.content[0].text : '';
+      const isLegacyConfigFailure = /\(403\)/.test(errorText) || /not configured/i.test(errorText);
+      if (isLegacyConfigFailure) return runRouteB(); // legacy compat path returns success directly
+      return result; // framework continues with auth-reason inspection
     },
-    { enableOutbox: true },
-  );
-  if (!result.isError) return result;
-
-  // P1 cloud-review: only fallback to Route B for auth/config failures.
-  // Validation errors (400/422) must surface directly, not be silently swallowed.
-  // F174 Phase A: 401 routing is now reason-typed — only `expired` /
-  // `unknown_invocation` qualify for degradation. `invalid_token` (client bug)
-  // and `stale_invocation` (delivered but superseded) are NOT degraded; they
-  // surface to caller for separate handling. 403 + "not configured" stay as-is.
-  const errorText = result.content[0]?.type === 'text' ? result.content[0].text : '';
-  const isDegradableAuth = isDegradableAuthFailure(errorText);
-  const isLegacyConfigFailure = /\(403\)/.test(errorText) || /not configured/i.test(errorText);
-  if (!isDegradableAuth && !isLegacyConfigFailure) return result;
-
-  // Route A auth/config failed — try Route B: cc_rich text via post_message (#83 extracts it server-side)
-  const ccRichText = `\`\`\`cc_rich\n${JSON.stringify({ v: 1, blocks: [parsed] })}\n\`\`\``;
-  const fallback = await handlePostMessage({
-    content: ccRichText,
-    clientMessageId: randomUUID(),
+    policy: { kind: 'custom', degrade: async () => runRouteB() },
   });
-  if (!fallback.isError) {
-    return successResult(JSON.stringify({ status: 'ok', route: 'B_fallback' }));
-  }
-
-  // Both routes failed — return error with embeddable cc_rich hint
-  return errorResult(
-    `Rich block creation failed (callback token expired or missing). As a workaround, include this in your message text:\n\n${ccRichText}`,
-  );
 }
 
 /** F088 Phase J2: Generate a document (PDF/DOCX/MD) from Markdown content */
@@ -569,10 +584,17 @@ export async function handleRegisterPrTracking(input: {
   prNumber: number;
   catId?: string;
 }): Promise<ToolResult> {
-  return callbackPost('/api/callbacks/register-pr-tracking', {
-    repoFullName: input.repoFullName,
-    prNumber: input.prNumber,
-    ...(input.catId ? { catId: input.catId } : {}),
+  // F174 Phase E (AC-E2/E5): explicit kind:'none'. PR tracking is one-shot
+  // registration, no useful local fallback. Surface `[degrade]` hint.
+  return withDegradation({
+    toolName: 'register_pr_tracking',
+    primary: () =>
+      callbackPost('/api/callbacks/register-pr-tracking', {
+        repoFullName: input.repoFullName,
+        prNumber: input.prNumber,
+        ...(input.catId ? { catId: input.catId } : {}),
+      }),
+    policy: { kind: 'none' },
   });
 }
 

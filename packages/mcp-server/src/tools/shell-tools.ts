@@ -210,12 +210,7 @@ export async function handleShellExec(input: { commandLine: string; cwd?: string
       shell: '/bin/sh',
     });
     const durationMs = Date.now() - t0;
-    const parts = [
-      `Status: success`,
-      `Exit code: 0`,
-      `Duration: ${durationMs}ms`,
-      `Cwd: ${resolvedCwd}`,
-    ];
+    const parts = [`Status: success`, `Exit code: 0`, `Duration: ${durationMs}ms`, `Cwd: ${resolvedCwd}`];
     if (stdout && stdout.length > 0) {
       parts.push('', '--- stdout ---', truncate(stdout, MAX_OUTPUT_BYTES));
     }

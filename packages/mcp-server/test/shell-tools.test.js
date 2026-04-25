@@ -11,8 +11,8 @@
  *  - Timeout path does not crash
  */
 
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
 
 // Widen ALLOWED_WORKSPACE_DIRS so /tmp (where most test exec's happen) is allowed.
 // Must be set BEFORE importing shell-tools so isPathAllowed picks it up.
@@ -21,12 +21,8 @@ process.env.ALLOWED_WORKSPACE_DIRS = `${process.env.ALLOWED_WORKSPACE_DIRS ?? ''
   .filter(Boolean)
   .join(':');
 
-const {
-  getPathBoundaryRefusalReason,
-  getShellExecRefusalReason,
-  handleShellExec,
-  isReadOnlyShellCommand,
-} = await import('../dist/tools/shell-tools.js');
+const { getPathBoundaryRefusalReason, getShellExecRefusalReason, handleShellExec, isReadOnlyShellCommand } =
+  await import('../dist/tools/shell-tools.js');
 
 test('whitelist passes common read-only commands', () => {
   assert.equal(isReadOnlyShellCommand('pwd'), true);
@@ -168,7 +164,7 @@ test('handleShellExec — refuses command with path arg outside allowed roots', 
 
 test('P1: refuses single-quoted absolute path outside allowed roots', () => {
   const reason = getPathBoundaryRefusalReason("cat '/etc/hosts'", process.cwd());
-  assert.ok(reason, 'should refuse cat \'/etc/hosts\' (quoted absolute outside allowed)');
+  assert.ok(reason, "should refuse cat '/etc/hosts' (quoted absolute outside allowed)");
   assert.match(reason, /outside allowed roots/);
 });
 
@@ -206,7 +202,9 @@ test('P1: bare filename arg (potential symlink) IS checked even without slash', 
     assert.ok(reason, 'symlink to /etc/hosts must be refused even via bare filename');
     assert.match(reason, /outside allowed roots/);
   } finally {
-    try { fs.rmSync(linkPath, { force: true }); } catch {}
+    try {
+      fs.rmSync(linkPath, { force: true });
+    } catch {}
   }
 });
 
@@ -248,7 +246,7 @@ test('P1: refuses quoted span containing whitespace', () => {
 
 // ============ Cloud P1 round-3 (be51518f review) — ANSI-C / all $-prefixed ============
 
-test('P1: refuses ANSI-C $\'...\' quoting (decodes escapes inside shell)', () => {
+test("P1: refuses ANSI-C $'...' quoting (decodes escapes inside shell)", () => {
   // $'\x2fetc\x2fhosts' decodes to /etc/hosts inside /bin/sh — bypass via
   // dollar-prefixed quote that earlier patterns missed.
   assert.equal(isReadOnlyShellCommand("cat $'\\x2fetc\\x2fhosts'"), false);
@@ -294,6 +292,8 @@ test('P1: handleShellExec — refuses cat * even when symlink exists in cwd', as
     assert.equal(result.isError, true);
     assert.match(result.content[0].text, /not on the read-only whitelist|whitelist/);
   } finally {
-    try { fs.rmSync(linkPath, { force: true }); } catch {}
+    try {
+      fs.rmSync(linkPath, { force: true });
+    } catch {}
   }
 });
