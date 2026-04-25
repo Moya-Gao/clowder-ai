@@ -3,7 +3,7 @@ topics: [career, interview, interaive, startup, multimodal, roleplay, agent-fram
 doc_kind: discussion
 created: 2026-04-25
 updated: 2026-04-25
-participants: [opus, landy]
+participants: [opus, codex, landy]
 ---
 
 # Interaive（灵动时刻）二面笔记 — 2026-04-25
@@ -114,6 +114,7 @@ participants: [opus, landy]
 
 ## 六、待 Research 的问题
 
+- 砚砚调研报告：[`docs/research/2026-04-25-interaive-company-research.md`](../../research/2026-04-25-interaive-company-research.md)
 - 岗位 A 和 B 分别在哪个城市？
 - 选 A 能不能同时参与 B 的架构定义？
 - 岗位 A 的"3D 版酒馆"技术栈是什么？（自研引擎 / Unity / Unreal / Web 3D？）

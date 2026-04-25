@@ -3,7 +3,7 @@ feature_ids: []
 topics: [career, recruiter, jd-map, job-search, strategy]
 doc_kind: discussion
 created: 2026-04-11
-updated: 2026-04-16
+updated: 2026-04-25
 participants: [gpt52, opus, gemini, codex, landy]
 thread_ids: [thread_mnpgz36wuta8m679]
 ---
@@ -26,7 +26,7 @@ thread_ids: [thread_mnpgz36wuta8m679]
 1. **阿里千问事业部 — 智能对话 Agent 开发专家**
 2. **阿里云智能 — Cloud-Native Agentic AI Architect**
 3. **阿里企业级 Agent 平台架构岗**（具体 BU 待确认）
-4. **灵动时刻 Interaive — Agent Harness / Context / Memory 核心岗**
+4. **灵动时刻 Interaive — 互动影游 Product Owner + Tech Lead / Agent Harness 核心岗**
 5. **阶跃星辰 — 多模态 Agent 系统架构岗**
 6. **小红书 — AI Agent 工程师（社区新交互探索）**
 
@@ -70,7 +70,7 @@ thread_ids: [thread_mnpgz36wuta8m679]
 | 阿里企业级 Agent 平台 | 企业级 Agent 平台架构岗 | 待确认 | 平台架构 owner | 9.0/10 | 推理/规划/工具/记忆/评测、RAG、CI/CD、SLA 五件套全中 | BU 未明确；可能偏业务交付 | 问清 BU、通用平台 vs 业务定制；**需先与千问渠道确认不冲突** | 未授权 / 未投 |
 | 阿里淘天集团-业务技术 | AI Agent 开发专家（急招） | 杭州 | 业务技术侧 Agent 运行平台 / 基础设施 | 8.9/10 | 已拿到明确 JD，方向与主线高度重合；`2026-04-17` 一面后进一步验证不是浅层应用岗 | 更像淘天业务技术平台，不一定是集团通用平台 owner；一面后新增待确认项：他们的 `OpenRouter / model gateway` 和 `agent runtime` 到底做到哪一层 | 下一轮重点确认平台通用性、业务定制占比、团队编制与 HC 独立性；复盘见 `2026-04-17-taotian-first-interview-notes.md` | **一面已完成（2026-04-17）** |
 | 阿里悟空事业部 | ⚠️ 业务线情报，非具体 HC | 杭州/钉钉生态待确认 | 企业级 AI-native 工作平台 | 8.5/10 | 线很对，但**还不是具体岗位** | 容易把产品线和 HC 混为一谈 | 以后猎头再提时先问具体团队与岗位 | 未授权 / 未投 |
-| 灵动时刻 Interaive | AI Native 全栈工程师 | 待确认（总部可能在海外） | AI-native 创业核心架构 | 9.0/10 | 创业主航道，想象空间高；Tier 1 首个进面机会 | 国内 office/remote 政策、期权价值、产品侧 vs 内部工具待确认 | 面试重点：team/location/equity/产品 vs 平台 | **已约一面（2026-04-23 15:00 视频）** |
+| 灵动时刻 Interaive | 岗位 A：互动影游 Product Owner + Tech Lead / 岗位 B：AI-native harness 平台 | 待确认（总部可能在海外） | AI-native 创业核心架构 + ToC 互动内容产品 | 9.3/10 | 二面后上调：两个岗位都匹配；A 是人生路径型机会，B 是技术确定性最高 | 实体/期权主体、Tiptap 现状、内容合规、岗位授权边界待确认 | 三面重点核实 A/B 是否可交叉、团队资源、runway、合同/期权主体；见 `docs/research/2026-04-25-interaive-company-research.md` | **二面已完成（2026-04-25）；待下一轮/offer 前尽调** |
 | 阶跃星辰 | 多模态 Agent 系统架构岗 | 北京 | Frontier AI 公司里的多模态 Agent 核心研发 | 8.8/10 | 方向正，是真正做多轮对话、工具调用、任务规划、监控评测与对齐机制的核心岗，离主航道很近 | JD 明确要求理解 `Post-training` 与训练/推理机制，和训练团队协作比重可能高于纯应用架构岗 | 先确认训练侧协作占比、是否偏 agent core platform 还是半算法半工程岗 | 未授权 / 未投 |
 | 小红书（社区新交互探索） | AI Agent 工程师 | 北京/上海/杭州/深圳 | 面向真实业务实验的 Agent Runtime / Harness / 评测与灰度平台 | 9.1/10 | 这条不是“加个 AI 功能”，而是明确写了 `Runtime`、`Harness`、`可测试/可评估/可回放/可比较`、`工具协议`、`记忆方案`、`发布与灰度机制`，和我们主线几乎正对 | 仍在业务场景内做探索，方向可能随业务优先级波动；需要确认这是独立平台能力建设还是特定场景试验组 | 优先确认团队归属、runtime/harness 是否核心主线、以及能否长期沉淀成通用能力 | 未授权 / 未投 |
 | 小红书 Hi Lab（点点） | AI 应用开发工程师 | 上海/待确认 | AI-native 对话产品 + Agent 工作流 + 高并发/跨端工程 | 8.7/10 | 产品方向很强，Agent/Workflow/Memory/State 命中度高，属于真正的 AI-native 消费级岗位；已进入面试流程 | 角色非常宽，可能同时吃服务端高并发、Agent 架构、跨端/移动端性能；需确认是否真要求强客户端背景 | 一面重点确认具体 HC 名称、汇报线、跨端/客户端要求与 team 分工 | **已约一面（2026-04-22 20:00）** |
@@ -115,7 +115,9 @@ thread_ids: [thread_mnpgz36wuta8m679]
 ### 5. 灵动时刻 Interaive
 
 - 这是唯一一个明确带有“创业主航道 + 高想象空间”的强机会。
-- 需要重点确认：团队所在地、产品内 agent vs 内部工具、期权结构。
+- `2026-04-25` 二面后信息更新：对方给出两个可选岗位，岗位 A 是互动影游 / RPG roleplay 的 product owner + tech lead，岗位 B 是创始人带队的 AI-native harness 平台。
+- 当前判断：岗位 A 更接近 Cats & U 路线，职业上限更高；岗位 B 更接近 Cat Cafe 方法论产品化，技术确定性最高。若能选择 A 并深度参与 B，优先级最高。
+- 需要重点确认：团队所在地、A/B 边界、产品内 agent vs 内部工具、Tiptap 现状、内容合规、合同/期权主体。详细尽调见 `docs/research/2026-04-25-interaive-company-research.md`。
 
 ### 6. 平安
 
