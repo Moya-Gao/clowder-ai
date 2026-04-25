@@ -133,6 +133,16 @@ search_evidence("{topic}", scope="all")  # 找历史讨论 + thread
 **在地设计检查 (Design in Context) 🔴**：
 凡是改动或往已有页面/组件添加新 UI 元素，必须逐项过 `cat-cafe-skills/refs/design-in-context-checklist.md`。禁止在真空中凭想象画已有页面的布局。
 
+**现场可感知性自检 (In-context Observability) 🔴**：
+
+> **核心铁律**：**统计是事后审计，现场可感知性是第一入口。**
+
+凡是涉及 **agent 状态 / runtime failure / 后台任务 / auth & degradation / diagnostics / health & status / 跨猫协作可见性** 的 feature，必须逐项过 `cat-cafe-skills/refs/in-context-observability-checklist.md`，并在 Design Gate 讨论文档里产出 `in_context_observability` 决策字段（`primary_surface` / `why_not_dashboard_only` / `deep_dive_surface` / `noise_dedup_policy`）。缺字段 = Design Gate 不放行。
+
+类比范式：memory entity 自带状态、browser-preview 把页面端上桌——entity carries its own state, surface it where it happens。反面：Datadog/前 agent 时代的 stats dashboard，等用户主动切到 tab 才看到数字 +1。
+
+来源：F174 callback auth lifecycle D2b 实战收敛（2026-04-25，铲屎官原话"新时代的明厨亮灶"）。
+
 **流程**：
 1. 判断功能类型 → 选择确认路径
 2. 前端：画 wireframe（Pencil / 文字版 ASCII）→ 发铲屎官 → 等 OK
