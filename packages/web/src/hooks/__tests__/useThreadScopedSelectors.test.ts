@@ -186,4 +186,46 @@ describe('F173 Phase C — selectThreadLiveness', () => {
     const result = selectThreadLiveness(state, null);
     expect(result.hasActive).toBe(false);
   });
+
+  it('returns catInvocations from threadStates path (Task 3)', () => {
+    const state = makeState({
+      currentThreadId: 'thread-a',
+      catInvocations: { opus: { invocationId: 'inv-flat-a', startedAt: 1 } },
+      threadStates: {
+        'thread-b': {
+          messages: [],
+          isLoading: false,
+          isLoadingHistory: false,
+          hasMore: true,
+          hasActiveInvocation: true,
+          activeInvocations: {},
+          intentMode: null,
+          targetCats: [],
+          catStatuses: {},
+          catInvocations: { codex: { invocationId: 'inv-b-codex', startedAt: 2 } },
+          currentGame: null,
+          unreadCount: 0,
+          hasUserMention: false,
+          lastActivity: 0,
+          queue: [],
+          queuePaused: false,
+          queueFull: false,
+          workspaceWorktreeId: null,
+          workspaceOpenTabs: [],
+          workspaceOpenFilePath: null,
+          workspaceOpenFileLine: null,
+        },
+      },
+    });
+
+    // Current thread → flat catInvocations
+    expect(selectThreadLiveness(state, 'thread-a').catInvocations).toEqual({
+      opus: { invocationId: 'inv-flat-a', startedAt: 1 },
+    });
+
+    // Other thread → threadStates catInvocations
+    expect(selectThreadLiveness(state, 'thread-b').catInvocations).toEqual({
+      codex: { invocationId: 'inv-b-codex', startedAt: 2 },
+    });
+  });
 });

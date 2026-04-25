@@ -16,7 +16,7 @@ import { usePreviewAutoOpen } from '@/hooks/usePreviewAutoOpen';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { useSocket } from '@/hooks/useSocket';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
-import { useThreadLiveness } from '@/hooks/useThreadScopedSelectors';
+import { useThreadLiveness, useThreadMessages } from '@/hooks/useThreadScopedSelectors';
 import { useVadInterrupt } from '@/hooks/useVadInterrupt';
 import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
 import { useVoiceStream } from '@/hooks/useVoiceStream';
@@ -73,12 +73,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const bottomChromeObserverRef = useRef<ResizeObserver | null>(null);
   const bottomChromeObserverRafRef = useRef<number | null>(null);
   const {
-    messages,
-    activeInvocations,
-    intentMode,
-    targetCats,
-    catStatuses,
-    catInvocations,
     setCurrentThread,
     viewMode,
     setViewMode,
@@ -88,13 +82,20 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     armUnreadSuppression,
     rightPanelMode,
   } = useChatStore();
-  // F173 Phase C Task 2 — `hasActiveInvocation` source-of-truth migrated to
-  // thread-scoped selector. Cancel button / queue gating now follow the
-  // current `threadId` (this prop) instead of the flat current-thread mirror,
-  // closing the AC-C6 race window where flat lagged behind a thread switch
-  // and the cancel button briefly disappeared. Other liveness fields
-  // (activeInvocations / catStatuses / etc) deferred to Task 3.
-  const { hasActive: hasActiveInvocation } = useThreadLiveness(threadId);
+  // F173 Phase C Task 3 — full read-side migration. All thread liveness +
+  // messages now flow through thread-scoped selectors keyed off this
+  // component's `threadId` prop, not the flat current-thread mirror. Closes
+  // AC-C6 race window for the entire ChatContainer surface (Task 2 only
+  // covered hasActiveInvocation; this finishes the job).
+  const messages = useThreadMessages(threadId);
+  const {
+    hasActive: hasActiveInvocation,
+    activeInvocations,
+    catStatuses,
+    catInvocations,
+    intentMode,
+    targetCats,
+  } = useThreadLiveness(threadId);
   const navigateToThread = useCallback((tid: string) => {
     pushThreadRouteWithHistory(tid, typeof window !== 'undefined' ? window : undefined);
   }, []);
@@ -801,7 +802,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           defaultCatId={targetCats[0] || 'opus'}
         />
 
-        {intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
+        {intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} threadId={threadId} />}
         {showThinkingIndicator && <ThinkingIndicator onCancel={cancelInvocation} />}
 
         <div className="flex-1 relative overflow-hidden">

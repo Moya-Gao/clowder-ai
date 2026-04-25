@@ -17,7 +17,7 @@
  * them with `useChatStore` + `useShallow` to control re-renders.
  */
 import { useShallow } from 'zustand/react/shallow';
-import type { CatStatusType, ChatMessage } from '@/stores/chat-types';
+import type { CatInvocationInfo, CatStatusType, ChatMessage } from '@/stores/chat-types';
 import { type ChatState, useChatStore } from '@/stores/chatStore';
 
 /** Inert defaults returned when threadId is null or has no entry. Frozen so
@@ -27,11 +27,13 @@ const EMPTY_CAT_STATUSES: Readonly<Record<string, CatStatusType>> = Object.freez
 const EMPTY_ACTIVE_INVOCATIONS: Readonly<Record<string, { catId: string; mode: string; startedAt?: number }>> =
   Object.freeze({});
 const EMPTY_TARGET_CATS: readonly string[] = Object.freeze([]);
+const EMPTY_CAT_INVOCATIONS: Readonly<Record<string, CatInvocationInfo>> = Object.freeze({});
 
 export interface ThreadLiveness {
   hasActive: boolean;
   catStatuses: Record<string, CatStatusType>;
   activeInvocations: Record<string, { catId: string; mode: string; startedAt?: number }>;
+  catInvocations: Record<string, CatInvocationInfo>;
   intentMode: 'execute' | 'ideate' | null;
   targetCats: string[];
 }
@@ -40,6 +42,7 @@ const DEFAULT_LIVENESS: ThreadLiveness = {
   hasActive: false,
   catStatuses: EMPTY_CAT_STATUSES as Record<string, CatStatusType>,
   activeInvocations: EMPTY_ACTIVE_INVOCATIONS as Record<string, { catId: string; mode: string; startedAt?: number }>,
+  catInvocations: EMPTY_CAT_INVOCATIONS as Record<string, CatInvocationInfo>,
   intentMode: null,
   targetCats: EMPTY_TARGET_CATS as string[],
 };
@@ -74,6 +77,7 @@ export function selectThreadLiveness(state: ChatState, threadId: string | null):
       hasActive: state.hasActiveInvocation ?? false,
       catStatuses: state.catStatuses ?? DEFAULT_LIVENESS.catStatuses,
       activeInvocations: state.activeInvocations ?? DEFAULT_LIVENESS.activeInvocations,
+      catInvocations: state.catInvocations ?? DEFAULT_LIVENESS.catInvocations,
       intentMode: state.intentMode ?? null,
       targetCats: state.targetCats ?? DEFAULT_LIVENESS.targetCats,
     };
@@ -84,6 +88,7 @@ export function selectThreadLiveness(state: ChatState, threadId: string | null):
     hasActive: ts.hasActiveInvocation ?? false,
     catStatuses: ts.catStatuses ?? DEFAULT_LIVENESS.catStatuses,
     activeInvocations: ts.activeInvocations ?? DEFAULT_LIVENESS.activeInvocations,
+    catInvocations: ts.catInvocations ?? DEFAULT_LIVENESS.catInvocations,
     intentMode: ts.intentMode ?? null,
     targetCats: ts.targetCats ?? DEFAULT_LIVENESS.targetCats,
   };
