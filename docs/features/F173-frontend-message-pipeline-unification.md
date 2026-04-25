@@ -124,9 +124,9 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。
 
 ### Phase B（runtime refs 收口 + background 瘦身）
 - [ ] AC-B1: 所有 runtime refs 合并为 `Map<threadId, ThreadRuntimeRefs>`（active/finalized/replaced/sawStreamData/pendingTimeoutDiag/timeoutHandle/lastTouched），保持 runtime-only
-- [ ] AC-B2: `useSocket-background.ts` 缩为 ≤ 30 行 shim，message creation 路径走 Phase A writer
+- [ ] AC-B2: ~~`useSocket-background.ts` 缩为 ≤ 30 行 shim~~ — **重新规划 2026-04-25**: end-state 是 0 行（删除整文件），不留 shim。当前 630 行核心职责（recoverStreamingMessage / ensureBackgroundAssistantMessage / shouldSuppressLateBackgroundStreamChunk / markThreadInvocationActive/Complete）会在 Phase C hydration 简化后变成 dead code，自然消解。**此 AC 作为 Phase C 的副产品，不再独立 Phase**。
 - [ ] AC-B3: GC 三规则就位（delete 硬删 / done+empty 立刻删 / setCurrentThread+reconnect sweep idle）
-- [ ] AC-B4: thread switch 不再触发 ghost bubble（fixture 验证）
+- [ ] AC-B4: thread switch 不再触发 ghost bubble（fixture 验证）— **重新规划 2026-04-25**: fixture 抽出作为 pre-Phase C 独立小 PR（B-3 fixture）由宪宪 own，给 Phase C 大改动提供回归基础设施
 
 #### Phase B Backlog: 双失/三失场景 race（hotfix PR #1352 cloud Codex 累积发现）
 
@@ -211,6 +211,7 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。
 | 2026-04-24 12:46 | **Phase B-1 merged (PR #1373, squash `30cc69e70`)** — thread-runtime ledger module + 5 refs migration (sawStreamData / finalizedStream / pendingTimeoutDiag / activeRefs / shared-replaced-invocations) + AC-B9/B10 wired into useAgentMessages production path. 砚砚 review cycles: 7 (P1 wiring, 2 rounds biome, 2 rounds Codex P1 fresher-signal precedence, 1 round 契约残留 cleanup) + cloud Codex 3 P1 全部 push back/fix。491/491 hooks tests green throughout。Phase B-2 (thin useSocket-background ≤30 行) + Phase B-3 (thread switch fixture) 留 follow-up PR。 |
 | 2026-04-24 18:47 | **Phase A hotfix3 诊断（Orphan Draft Bubble）** — Phase B-1 merge 后实机验收发现新 dup-bubble 变种：`draft-{inv}` 持久化占位 + `msg-{inv}-{cat}` live stream 并存。根因 = `messages.ts:1265-1312` draft merge 缺 invocation-alive 验证，invocation 在产生 formal message 前异常终止留下孤儿 draft。详见 [bug-report](../bug-report/2026-04-24-f173-orphan-draft-bubble/bug-report.md)。Hotfix 实施：GET `/api/messages` draft merge 只保留同 thread/user 且 `status=running` 的 invocation draft，并懒删除 missing / terminal invocation orphan draft；lookup transient failure 时 fail open 保留 draft；新增 6 条回归测试（running / missing / failed / succeeded / canceled / lookup failure）。 |
 | 2026-04-24 20:51 | **Phase A hotfix3 merged (PR #1379, squash `6f7d97ab`)** — Orphan Draft Bubble 修复合入 main。Gate 证据：`pnpm gate` on `96e02ee5`，rebased onto latest `origin/main=3e95847c`，build/test/lint/check 全绿；云端 Codex current-head review no major issues；宪宪 LGTM 延续链覆盖 `93da93602 → 94fe6cc21 → 0f1e63b7 → d8b6f70ec → 96e02ee5`。 |
+| 2026-04-25 03:08 | **路线图重新规划（铲屎官 + 宪宪 end-state 反推）** — 宪宪原计划"B-2 + B-3 follow-up 一起做" 经实际验证被 push back：`useSocket-background.ts` 当前 630 行，原 AC-B2 "缩 30 行 shim" 目标本身是过渡层，end-state 是 0 行（删整文件）。重新规划：**(1) B-3 thread switch fixture** 抽出作 pre-Phase C 独立小 PR（宪宪 own），给 Phase C 大改动提供回归基础设施；**(2) Phase C 主线 PR** = hydration 简化（统一走 ThreadRuntimeWriter）+ 历史 dup 视觉合并层 + 同 PR 砍 useSocket-background 的 hydration 协助函数；**(3) AC-B2 ≡ Phase C 收尾** = Phase C merge 后剩余 useSocket-background 是 dead code，直接删整文件不留 shim；**(4) Phase D** orthogonal 独立排。决策动因：避免"30 行 shim"过渡层 = 避免绕路。 |
 
 ## Review Gate
 
