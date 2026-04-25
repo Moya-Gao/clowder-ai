@@ -103,6 +103,12 @@ export interface RouteOptions {
   /** F108: Unique invocation ID for WorklistRegistry isolation in concurrent execution.
    *  When provided, worklist is keyed by this ID instead of threadId. */
   parentInvocationId?: string | undefined;
+  /** Parent invocation controller used to keep A2A worklist slots tied to the same cancel signal. */
+  invocationController?: AbortController | undefined;
+  /** Register an A2A worklist target with the outer invocation tracker before it executes. */
+  trackA2ASlot?: ((threadId: string, catId: CatId, userId: string, controller: AbortController) => void) | undefined;
+  /** Cleanup registered A2A worklist slots if the route exits before every target emits done. */
+  completeA2ASlots?: ((threadId: string, catIds: readonly CatId[], controller: AbortController) => void) | undefined;
   /** F153 Phase E: Root route span — invocation spans become children of this. */
   routeSpan?: import('@opentelemetry/api').Span | undefined;
 }

@@ -25,6 +25,13 @@ interface TrackerLike {
   complete(threadId: string, catId: string, controller?: AbortController): void;
   completeSlot?(threadId: string, catId: string, controller?: AbortController): void;
   completeAll(threadId: string, catIds: string[], controller?: AbortController): void;
+  trackExternalSlot?(
+    threadId: string,
+    catId: string,
+    controller: AbortController,
+    userId?: string,
+    catIds?: string[],
+  ): boolean;
   has(threadId: string, catId?: string): boolean;
 }
 
@@ -662,11 +669,21 @@ export class QueueProcessor {
           ...(controller.signal ? { signal: controller.signal } : {}),
           queueHasQueuedMessages: (tid: string) => queue.hasQueuedUserMessagesForThread(tid),
           hasQueuedOrActiveAgentForCat: (tid: string, catId: string) => queue.hasActiveOrQueuedAgentForCat(tid, catId),
+          invocationController: controller,
+          trackA2ASlot: (tid: string, catId: string, uid: string, ctrl: AbortController) => {
+            invocationTracker.trackExternalSlot?.(tid, catId, ctrl, uid, [catId]);
+          },
+          completeA2ASlots: (tid: string, catIds: readonly string[], ctrl: AbortController) => {
+            for (const catId of catIds) invocationTracker.completeSlot?.(tid, catId, ctrl);
+          },
           cursorBoundaries,
           persistenceContext,
           ...(invocationId ? { parentInvocationId: invocationId } : {}),
         },
       )) {
+        if (controller.signal.aborted) {
+          break;
+        }
         // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
         if (!intentModeBroadcast) {
           socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', {
@@ -756,6 +773,9 @@ export class QueueProcessor {
               log.warn({ err, threadId }, '[QueueProcessor] StreamingHook.onStreamChunk failed');
             });
           }
+        }
+        if (controller.signal.aborted) {
+          break;
         }
 
         socketManager.broadcastAgentMessage({ ...msg, ...(invocationId ? { invocationId } : {}) }, threadId);

@@ -134,6 +134,7 @@ export async function* routeSerial(
   let yieldedFinalDone = false;
   // F27: Track how many worklist entries have had a2a_handoff emitted
   let handoffEmitted = targetCats.length; // Original targets don't get handoff events
+  const activeTrackedA2ASlots = new Set<CatId>();
   // F042 Wave 3: Fetch thread participant activity once before loop (threadId doesn't change).
   let activeParticipants: { catId: CatId; lastMessageAt: number; messageCount: number }[] = [];
   if (deps.invocationDeps.threadStore) {
@@ -1213,41 +1214,6 @@ export async function* routeSerial(
             if (storedMsgId) worklistEntry.a2aTriggerMessageId.set(nextCat, storedMsgId);
           }
         }
-
-        // F27: Emit a2a_handoff for ALL new A2A targets (both response-text and callback-pushed).
-        // We track which targets have already been announced to avoid duplicate handoff events.
-        for (let wi = handoffEmitted; wi < worklist.length; wi++) {
-          const pendingCat = worklist[wi]!;
-          if (wi < targetCats.length) continue; // Skip original targets — not A2A
-
-          // === A2A_HANDOFF 审计 (fire-and-forget, 缅因猫 review P2-3) ===
-          const auditLog = getEventAuditLog();
-          auditLog
-            .append({
-              type: AuditEventTypes.A2A_HANDOFF,
-              threadId,
-              data: {
-                fromCat: catId,
-                toCat: pendingCat,
-                userId,
-                a2aDepth: worklistEntry.a2aCount,
-                maxDepth,
-              },
-            })
-            .catch((err) => {
-              log.warn({ threadId, fromCat: catId, toCat: pendingCat, err }, 'A2A_HANDOFF audit write failed');
-            });
-
-          const nextConfig: CatConfig | undefined =
-            catRegistry.tryGet(pendingCat as string)?.config ?? CAT_CONFIGS[pendingCat as string];
-          yield {
-            type: 'a2a_handoff' as AgentMessageType,
-            catId,
-            content: `${catConfig?.displayName ?? catId} → ${nextConfig?.displayName ?? pendingCat}`,
-            timestamp: Date.now(),
-          } as AgentMessage;
-        }
-        handoffEmitted = worklist.length;
       } else if (!hadError) {
         // No text content and no error.
         // Persist only when we have non-text payload (tool/thinking/rich).
@@ -1424,6 +1390,47 @@ export async function* routeSerial(
         }
       }
 
+      // F27: Emit a2a_handoff for ALL new A2A targets (both response-text and callback-pushed).
+      // Keep this outside the text branch: callback/tool-only turns can push worklist entries
+      // without producing text, but their child slots still must be tracked before parent done.
+      // We track which targets have already been announced to avoid duplicate handoff events.
+      for (let wi = handoffEmitted; wi < worklist.length; wi++) {
+        const pendingCat = worklist[wi]!;
+        if (wi < targetCats.length) continue; // Skip original targets — not A2A
+
+        // === A2A_HANDOFF 审计 (fire-and-forget, 缅因猫 review P2-3) ===
+        const auditLog = getEventAuditLog();
+        auditLog
+          .append({
+            type: AuditEventTypes.A2A_HANDOFF,
+            threadId,
+            data: {
+              fromCat: catId,
+              toCat: pendingCat,
+              userId,
+              a2aDepth: worklistEntry.a2aCount,
+              maxDepth,
+            },
+          })
+          .catch((err) => {
+            log.warn({ threadId, fromCat: catId, toCat: pendingCat, err }, 'A2A_HANDOFF audit write failed');
+          });
+
+        const nextConfig: CatConfig | undefined =
+          catRegistry.tryGet(pendingCat as string)?.config ?? CAT_CONFIGS[pendingCat as string];
+        if (options.invocationController && options.trackA2ASlot && !activeTrackedA2ASlots.has(pendingCat)) {
+          options.trackA2ASlot(threadId, pendingCat, userId, options.invocationController);
+          activeTrackedA2ASlots.add(pendingCat);
+        }
+        yield {
+          type: 'a2a_handoff' as AgentMessageType,
+          catId,
+          content: `${catConfig?.displayName ?? catId} → ${nextConfig?.displayName ?? pendingCat}`,
+          timestamp: Date.now(),
+        } as AgentMessage;
+      }
+      handoffEmitted = worklist.length;
+
       // Persist error as system message so it survives F5 reload.
       // During streaming, errors render as red badges via ephemeral frontend state.
       // Without persistence, they vanish on page refresh.
@@ -1501,6 +1508,7 @@ export async function* routeSerial(
       if (doneMsg) {
         const isFinal = index === worklist.length - 1;
         yield { ...doneMsg, ...(mentionsUser ? { mentionsUser } : {}), isFinal };
+        activeTrackedA2ASlots.delete(catId);
         if (isFinal) yieldedFinalDone = true;
       }
 
@@ -1509,6 +1517,10 @@ export async function* routeSerial(
       index++;
     }
   } finally {
+    if (options.invocationController && options.completeA2ASlots && activeTrackedA2ASlots.size > 0) {
+      options.completeA2ASlots(threadId, [...activeTrackedA2ASlots], options.invocationController);
+    }
+
     // F27: Always unregister worklist, even on error/abort.
     // Pass owner ref so preempting new invocation's worklist is not deleted (缅因猫 R1 P1-1)
     unregisterWorklist(threadId, worklistEntry, options.parentInvocationId);

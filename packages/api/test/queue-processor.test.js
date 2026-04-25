@@ -136,6 +136,47 @@ describe('QueueProcessor', () => {
     assert.equal(pausedCall, undefined);
   });
 
+  it('user cancel during queued execution stops broadcasting late agent events', async () => {
+    let controller;
+    deps.invocationTracker.startAll.mock.mockImplementation(() => {
+      controller = new AbortController();
+      return controller;
+    });
+    deps.router.routeExecution = mock.fn(async function* () {
+      yield { type: 'text', catId: 'opus', content: 'before cancel', timestamp: Date.now() };
+      controller.abort('user_cancel');
+      yield { type: 'text', catId: 'opus', content: 'after cancel', timestamp: Date.now() };
+      yield { type: 'done', catId: 'opus', isFinal: true, timestamp: Date.now() };
+    });
+
+    enqueueEntry(deps.queue);
+
+    const result = await processor.processNext('t1', 'u1');
+    assert.equal(result.started, true);
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    const broadcasts = deps.socketManager.broadcastAgentMessage.mock.calls.map((call) => call.arguments[0]);
+    assert.ok(
+      broadcasts.some((msg) => msg.type === 'text' && msg.content === 'before cancel'),
+      'pre-cancel text should be broadcast',
+    );
+    assert.equal(
+      broadcasts.some((msg) => msg.type === 'text' && msg.content === 'after cancel'),
+      false,
+      'post-cancel text must not be broadcast',
+    );
+    assert.equal(
+      broadcasts.some((msg) => msg.type === 'done' && msg.catId === 'opus'),
+      false,
+      'post-cancel done from the stale producer must not be broadcast',
+    );
+
+    const canceledUpdate = deps.invocationRecordStore.update.mock.calls.find(
+      (call) => call.arguments[1]?.status === 'canceled',
+    );
+    assert.ok(canceledUpdate, 'aborted queued invocation should be recorded as canceled');
+  });
+
   it('failed → pauses queue, emits queue_paused', async () => {
     enqueueEntry(deps.queue);
 

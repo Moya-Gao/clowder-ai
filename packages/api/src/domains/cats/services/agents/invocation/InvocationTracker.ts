@@ -240,6 +240,28 @@ export class InvocationTracker {
   }
 
   /**
+   * Track an additional slot that is executed by an already-running route.
+   * Used by routeSerial A2A worklist targets so thread-level queue gates stay
+   * busy after the original cat completes and before the A2A target runs.
+   */
+  trackExternalSlot(
+    threadId: string,
+    catId: string,
+    controller: AbortController,
+    userId: string = 'unknown',
+    catIds: string[] = [catId],
+  ): boolean {
+    if (this.deleting.has(threadId)) return false;
+    const key = this.slotKey(threadId, catId);
+    const existing = this.active.get(key);
+    if (existing && !this.isExpired(key, existing)) {
+      return existing.controller === controller || existing.batchController === controller;
+    }
+    this.active.set(key, { controller, userId, catId, catIds, startedAt: Date.now(), batchController: controller });
+    return true;
+  }
+
+  /**
    * Non-preemptive thread-level start for ALL target cats.
    * Atomically checks if ANY slot is active, then registers all cats with independent controllers.
    */

@@ -792,6 +792,13 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
                       opts.invocationQueue?.hasActiveOrQueuedAgentForCat(tid, catId) ?? false,
                   }
                 : {}),
+              ...(controller ? { invocationController: controller } : {}),
+              trackA2ASlot: (tid: string, catId: string, uid: string, ctrl: AbortController) => {
+                opts.invocationTracker?.trackExternalSlot(tid, catId, ctrl, uid, [catId]);
+              },
+              completeA2ASlots: (tid: string, catIds: readonly string[], ctrl: AbortController) => {
+                for (const catId of catIds) opts.invocationTracker?.completeSlot?.(tid, catId, ctrl);
+              },
               cursorBoundaries,
               persistenceContext,
               parentInvocationId: createResult.invocationId,
