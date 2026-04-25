@@ -14,6 +14,7 @@ created: 2026-04-23
 > **Phase B**: ✅ merged 2026-04-24 via PR #1363
 > **Phase C**: ✅ merged 2026-04-24 via PR #1368
 > **Phase D1**: ✅ merged 2026-04-24 via PR #1377
+> **Phase E**: ✅ merged 2026-04-25 via PR #1384
 
 ## Why
 
@@ -260,12 +261,12 @@ interface CallbackTool<T> {
 - [ ] AC-D5: 显示 24h 401 率 + reason 分布 + Top 工具 + Top 受影响猫
 
 ### Phase E（Degradation — 在 D1 之后）
-- [ ] AC-E1: `DegradePolicy` 类型 + framework 落地，`create_rich_block` 现有 Route B 重构进 framework（行为不变）
-- [ ] AC-E2: 每个写类 callback tool 显式声明 `degradePolicy`（含 `none`）
-- [ ] AC-E3: 降级只在 401-degradable reason 触发；5xx 仍走 retry（regression test）
-- [ ] AC-E4: 降级产物含 `DEGRADED: true` 字段
-- [ ] AC-E5: `post_message` / `register_pr_tracking` / `update_task` / `retain_memory_callback` 接入 framework
-- [ ] AC-E6: `stale_invocation` 不降级，给清晰提示
+- [x] AC-E1: `DegradePolicy = none|custom` + `withDegradation()` framework in `mcp-server/src/tools/degradation.ts`；`create_rich_block` Route B 重构进 framework（行为不变，legacy 403 path 保留 inline）
+- [x] AC-E2: 5 写类 callback tool 全显式声明 — `create_rich_block` (custom), `post_message`/`update_task`/`register_pr_tracking`/`retain_memory_callback` (none + `[degrade]` hint)
+- [x] AC-E3: framework 只在 degradable reason (`expired`/`unknown_invocation`) 触发；5xx + `invalid_token` + `stale_invocation` skip — regression tests cover all
+- [x] AC-E4: custom degrade 成功 → `markDegraded()` 加 `DEGRADED:true` 字段；legacy 403 path 也 inline 标记（cloud P2 修复）
+- [x] AC-E5: `post_message` / `register_pr_tracking` / `update_task` / `retain_memory_callback` 全接入 framework
+- [x] AC-E6: `stale_invocation` 不在 `DEGRADABLE_AUTH_REASONS`，degrade 跳过，surface clear `[reason=stale_invocation]` 提示
 
 ### Phase F（L3 残尾）
 - [ ] AC-F1: `schedule.ts` 不再从 body 读 `createdBy` / `triggerUserId`
@@ -358,6 +359,7 @@ interface CallbackTool<T> {
 | 2026-04-24 03:35 | **Phase B merged via PR #1363** (squash commit `ca738c8f0`)，cloud Codex review: "Didn't find any major issues"，跨家族 gpt52 PASS + 3 P2 全处理（1 push-back + 2 fixed） |
 | 2026-04-24 13:28 | **Phase C merged via PR #1368** (squash commit `226ea4a4`)，cloud Codex review: "Bravo"，14 轮 cloud P0/P1/P2 全处理（route-level cooldown via preValidation peek+claim+verifyLatest，atomic backend port methods peek/verifyLatest/tryClaimRefreshCooldown，MCP client adaptive refresh loop with AbortSignal.timeout + signal exit code 128+signum + cooldown-safe MIN_DELAY，memory cooldown map 硬封顶 derived from instance maxRecords + existing-check-first eviction，Redis msgs key TTL slide on verifyLatest，refresh-token emits missing_creds locally，tests split under 350-line cap） |
 | 2026-04-24 21:28 | **Phase D1 merged via PR #1377** (squash commit `201a0742`)，cloud Codex review: "Tada"，6 轮 P1 全处理（debug endpoint owner-gate progressive hardening: public→owner-gate→explicit-identity→reject-spoofed-header→browser-needs-session→drop-DEFAULT_OWNER_USER_ID-mismatch→two-layer-with-default→fail-closed-explicit-required，最终 mirror config.ts sensitive-env pattern：require explicit DEFAULT_OWNER_USER_ID + session match） |
+| 2026-04-25 02:14 | **Phase E merged via PR #1384** (squash commit `570c22d8`)，cloud Codex review: "Keep them coming!"，1 轮 P2 处理（legacy 403 fallback 也加 DEGRADED:true 与 framework custom path 一致）。`withDegradation()` framework 落地 + 5 写类 callback tool 全显式 policy（1 custom + 4 none + `[degrade]` hint） |
 
 ## Review Gate
 
