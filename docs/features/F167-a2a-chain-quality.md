@@ -423,7 +423,7 @@ cat_cafe_hold_ball({
 
 #### H1 — Final Routing Slot 定义（机械化边界）
 
-- [ ] AC-H1: 实现 `finalRoutingSlot(message: string, metadata?)` — slot = 结构剥离后的最后非空段落。结构剥离包括：
+- [x] AC-H1: 实现 `finalRoutingSlot(message: string, metadata?)` — slot = 结构剥离后的最后非空段落。结构剥离包括：
   - fenced code block（三反引号 fence）
   - blockquote（`> ...` 行）
   - URL（裸链接 / markdown 链接 URL 部分）
@@ -432,27 +432,27 @@ cat_cafe_hold_ball({
 
 #### H2 — 语法校验（只检查出口槽位）
 
-- [ ] AC-H2: 只检查 slot 内 roster handle 的**语法位置**：
+- [x] AC-H2: 只检查 slot 内 roster handle 的**语法位置**：
   - 合法行首 @（独立行首 / markdown 列表或引用前缀后首字符）→ 正常路由（既有 `parseA2AMentions` 路径不动）
   - 非法 inline @ → 候选 `invalid_route_syntax`
   - slot 外的 inline @ 一律不碰（narrative 默认通行）
-- [ ] AC-H3: slot 内存在非法 inline @handle 且**无合法出口**（行首 @handle / `hold_ball` tool call / MCP `targetCats` 路由）→ 触发 `invalid_route_syntax`。**不自动路由 / 不推断目标 / 不替猫决定意图**
+- [x] AC-H3: slot 内存在非法 inline @handle 且**无合法出口**（行首 @handle / `hold_ball` tool call / MCP `targetCats` 路由）→ 触发 `invalid_route_syntax`。**不自动路由 / 不推断目标 / 不替猫决定意图**
 
 #### H3 — One-shot Repair + System_info 兜底
 
-- [ ] AC-H4: 触发 `invalid_route_syntax` → 发 repair prompt（"重写最后交接段，不改正文"）让同一只猫重试。**repair 上限写死为 1**；repair 后仍不合法 → 发一次 `system_info`（"检测到无效 @ inline，未路由"），原输出照常存档、**禁止第二次 repair**
+- [~] AC-H4: 触发 `invalid_route_syntax` → 发 repair prompt（"重写最后交接段，不改正文"）让同一只猫重试。**repair 上限写死为 1**；repair 后仍不合法 → 发一次 `system_info`（"检测到无效 @ inline，未路由"），原输出照常存档、**禁止第二次 repair**
 
 #### H4 — AC-C7 协同
 
-- [ ] AC-H5: `invalid_route_syntax` 命中 → 同轮 suppress AC-C7 verdict-without-pass 警告（格式错是根因，verdict 无传球是后果）。反向不 suppress（AC-C7 命中不影响 AC-H3）
+- [x] AC-H5: `invalid_route_syntax` 命中 → 同轮 suppress AC-C7 verdict-without-pass 警告（格式错是根因，verdict 无传球是后果）。反向不 suppress（AC-C7 命中不影响 AC-H3）
 
 #### H5 — 豁免边界（结构，非语义）
 
-- [ ] AC-H6: 豁免基于 **结构边界**（fenced code / blockquote / URL / 有 metadata 则 tool output + cross-post body）。**禁止 handoff 动作词表、意图分类器、语义豁免表**——一个语义启发式都不给
+- [x] AC-H6: 豁免基于 **结构边界**（fenced code / blockquote / URL / 有 metadata 则 tool output + cross-post body）。**禁止 handoff 动作词表、意图分类器、语义豁免表**——一个语义启发式都不给
 
 #### H6 — 测试覆盖
 
-- [ ] AC-H7: 测试矩阵（slot 优先，~15 case）：
+- [x] AC-H7: 测试矩阵（slot 优先，~15 case）：
   - slot 内真非法 inline @ + 无合法出口 → 命中
   - slot 外正文 inline @ → 不命中（narrative 通行）
   - fenced code 内的 @ → 不命中（结构豁免）
@@ -558,6 +558,7 @@ cat_cafe_hold_ball({
 | 2026-04-24 | Phase G reopened from monitoring：铲屎官审视 hold_ball 并发行为——(1) 外部 wake 撞持球期 vs (2) 二次 `hold_ball` 语义。实际行为查完：(1) 排队不打断（期望匹配，需文档化）；(2) 当前"追加"（累积 stale wake，需改 replace）。KD-23 单-槽语义落定，AC-G1~G6 定稿 |
 | 2026-04-24 | Phase G merged (PR #1378, `c525714cf`) — AC-G1~G6 全绿。hold_ball single-slot replace（KD-23）：spec 并发语义章节 + `callback-hold-ball-routes.ts` 原子 swap（先 insert+register 新 task，register 失败 rollback；新 task 完全 commit 后才 cancel prior）+ 不可伪造 id 前缀锚点（`hold-ball-*` vs panel `dyn-*`）+ MCP description GOTCHA。云端 Codex 三轮（round-1 P1 atomicity / round-2 P2 matching scope / round-3 clean），砚砚 review 三轮（原放行 → round-2 不放行 + id-prefix 建议 → 放行 `84473ea5` → 延续 `70f2d8de`）；7/7 scheduling tests 绿（含 forged `dyn-*` Red test 锁 gpt52 round-2 pushback）。Status: monitoring |
 | 2026-04-24 | Phase H reopened from monitoring：Phase G merge 后铲屎官观察 opus-47 三 thread 复现 inline @ 不在行首。砚砚 GPT-5.5 诊断"叙述模式 / 路由模式没稳定切换"——4.7 写叙述时 @ 沦为普通 token。铲屎官驳回"迁结构化工具"路线（弱模型灾难），方向定在"外部语法最简 + 内部 harness 机械校验"。Design Gate 三轮收敛（1. 砚砚 short/mid/long → 2. 铲屎官 push back 弱模型友好 → 3. 砚砚收回迁移改为 runtime validator → 4. opus-47 提 D-1~D-4 细节 → 5. 砚砚收紧 KD-8 反模式 + scope 膨胀防御）。KD-24 落定：**final routing slot 机械校验 + one-shot repair 兜底 + 零意图分类器 + 结构边界豁免**，AC-H1~H7 定稿待实现 |
+| 2026-04-25 | Phase H merged (PR #1381, `1d9b294b2`) — AC-H1~H3/H5~H7 全绿，AC-H4 部分实现（Step A `system_info` 兜底已含；Step B one-shot repair re-invoke 暂未做，留作后续观察压制效果再评估）。`final-routing-slot.ts` pure validator（finalRoutingSlot / findInlineMentionsInSlot / validateRoutingSyntax）+ `route-serial.ts` 接入（命中 emit `routing-syntax-hint` + 单向 suppress legacy `inline-mention-hint` + AC-C7 `verdict-no-pass-hint`）。云端 Codex 三轮（round-1 P2 case-sensitive / round-2 P2 left-token-boundary / round-3 trigger 未接单）；砚砚本地 review 三轮（首轮 P2 Biome 格式 / 二轮 round-1 修复后 39/40 → 40/40 / 三轮 continuity 延续 `c50c9e525`）。21 unit + 8 integration + 1 contract = 30 Phase H tests + 9255/9258 全量 API 回归（0 fail, 3 skipped）。Status: monitoring |
 | 2026-04-23 | Phase E reopened from monitoring：F172 愿景守护 @gemini 被 L3 误拦（action="合入"因 storedContent 上文含 merge 历程）；铲屎官定性"硬编码 + 过度设计"——要求退役 L3 + cat-config restrictions 数据驱动双端注入（发送方队友名册 + 目标猫 self-awareness）；KD-20 落定，AC-E1~E8 定稿待实现 |
 | 2026-04-24 | Phase E merged (PR #1360, `f8efcf46d`) — AC-E1~E8 全绿。8 commit（4 feat + 1 test + 3 chore）-735 净行数（删 role-gate.ts + 3 测试文件 + 2 调用点）+ cat-config schema 扩展 + 双端 prompt 注入；gpt52 review 首轮放行 `c967b59d0`（两个非阻塞：scrub 死注释 + 删 unused import 已顺手修），云端 Codex 零 P1/P2 "Hooray"；rebase 遇 F061 pre-existing 修复冲突 → skip 冗余 commit 后 clean merge；204/204 ping-pong + system-prompt-builder + cat-config-loader 绿。Status: monitoring |
 
