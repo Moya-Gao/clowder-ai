@@ -230,4 +230,32 @@ describe('F167 C2 AC-C7: route-serial verdict-no-pass hint emission', () => {
       'structured routing must be read from raw toolInput, not truncated StoredToolEvent.detail',
     );
   });
+
+  test('verdict + line-start @co-creator → NO hint (砚砚 GPT-5.5 fix 2026-04-25)', async () => {
+    // Regression lock: cat ending its review/summary with line-start co-creator
+    // mention (legitimate escalation to user) was triggering false-positive
+    // verdict-no-pass-hint because parseA2AMentions only returns cat handles. Fix:
+    // route-serial now also calls detectUserMention and passes hasCoCreatorLineStartMention.
+    //
+    // NOTE: test fixture's coCreator config is `{mentionPatterns: ['@co-creator']}` +
+    // defaults `['@co-creator', '@铲屎官']`. Production cat-config.json adds
+    // ['@landy', '@l.s.', '@lysander']; the same code path covers all configured patterns.
+    const { appended } = await runRoute('放行延续到 abc12345。\n\n@co-creator', 'thread-vh-10');
+    const hint = appended.find((m) => m.source?.connector === 'verdict-no-pass-hint');
+    assert.equal(hint, undefined, 'line-start co-creator mention is a legitimate exit; no hint');
+  });
+
+  test('verdict + line-start @铲屎官 (CJK co-creator) → NO hint', async () => {
+    const { appended } = await runRoute('LGTM\n\n@铲屎官 已确认', 'thread-vh-11');
+    const hint = appended.find((m) => m.source?.connector === 'verdict-no-pass-hint');
+    assert.equal(hint, undefined, 'CJK co-creator handle 铲屎官 is also a legitimate exit');
+  });
+
+  test('verdict + inline @co-creator (NOT line-start) + no other exit → hint fires (control)', async () => {
+    // Negative control: inline (mid-line) co-creator mention doesn't count as
+    // line-start exit. Hint should still fire.
+    const { appended } = await runRoute('LGTM, ask @co-creator to confirm later please', 'thread-vh-12');
+    const hint = appended.find((m) => m.source?.connector === 'verdict-no-pass-hint');
+    assert.ok(hint, 'inline (mid-line) co-creator mention is not a line-start exit; hint must fire');
+  });
 });

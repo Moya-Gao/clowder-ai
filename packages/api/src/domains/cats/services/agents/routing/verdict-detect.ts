@@ -66,21 +66,31 @@ export interface VerdictWarningInput {
    * Present = structured routing occurred = legitimate ball-pass via MCP.
    */
   readonly structuredTargetCats: readonly string[];
+  /**
+   * 2026-04-25 (砚砚 GPT-5.5 fix): true iff text has a line-start co-creator
+   * mention (`@landy` / `@铲屎官` / configured coCreator patterns). Caller computes
+   * via `detectUserMention(text)`. parseA2AMentions only knows cat handles, so
+   * without this flag a cat ending its summary report with `@landy` (legitimate
+   * pass to co-creator) was being flagged as "verdict without pass".
+   */
+  readonly hasCoCreatorLineStartMention?: boolean;
 }
 
 /**
  * Decide whether to emit the harness-layer "verdict without ball-pass" warning.
  *
- * Triggers iff ALL four:
+ * Triggers iff ALL of the following:
  *   1. Output contains a verdict keyword
- *   2. No line-start @mention (would otherwise route the ball via text)
+ *   2. No line-start @cat mention (would otherwise route the ball via text)
  *   3. No hold_ball MCP call (would otherwise be an explicit intentional hold)
  *   4. No structured MCP routing (post_message.targetCats / multi_mention.targets)
+ *   5. No line-start co-creator mention (`@landy` / `@铲屎官` — escalation to user)
  */
 export function shouldWarnVerdictWithoutPass(input: VerdictWarningInput): boolean {
   if (!hasReviewVerdict(input.text)) return false;
   if (input.lineStartMentions.length > 0) return false;
   if (hasHoldBallCall(input.toolNames)) return false;
   if (input.structuredTargetCats.length > 0) return false;
+  if (input.hasCoCreatorLineStartMention) return false;
   return true;
 }

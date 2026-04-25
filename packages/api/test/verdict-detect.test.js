@@ -180,4 +180,51 @@ describe('F167 C2 AC-C7: shouldWarnVerdictWithoutPass', () => {
       true,
     );
   });
+
+  test('verdict + co-creator line-start mention (hasCoCreatorLineStartMention=true) → false (砚砚 GPT-5.5 fix)', () => {
+    // 2026-04-25 false-positive root cause: parseA2AMentions only parses cat handles,
+    // never returns co-creator handles like 'landy'. route-serial passes that empty
+    // array to shouldWarnVerdictWithoutPass, so a cat ending its summary report with
+    // line-start `@landy` (legitimate ball-pass to 铲屎官) gets flagged as
+    // "verdict without pass". Fix: route-serial computes hasCoCreatorLineStartMention
+    // via detectUserMention and passes it; shouldWarnVerdictWithoutPass treats it as
+    // a legitimate exit.
+    assert.equal(
+      shouldWarnVerdictWithoutPass({
+        text: '放行延续到 abc12345\n\n@landy',
+        lineStartMentions: [],
+        toolNames: [],
+        structuredTargetCats: [],
+        hasCoCreatorLineStartMention: true,
+      }),
+      false,
+    );
+  });
+
+  test('verdict + co-creator NOT line-start (hasCoCreatorLineStartMention=false) + no other exit → true (control)', () => {
+    // Control: co-creator flag absent / false → AC-C7 should still fire normally
+    assert.equal(
+      shouldWarnVerdictWithoutPass({
+        text: 'LGTM, ask @landy to confirm later',
+        lineStartMentions: [],
+        toolNames: [],
+        structuredTargetCats: [],
+        hasCoCreatorLineStartMention: false,
+      }),
+      true,
+    );
+  });
+
+  test('verdict + co-creator line-start (Chinese 铲屎官) → false (CJK co-creator handle)', () => {
+    assert.equal(
+      shouldWarnVerdictWithoutPass({
+        text: 'P1 已修\n\n@铲屎官',
+        lineStartMentions: [],
+        toolNames: [],
+        structuredTargetCats: [],
+        hasCoCreatorLineStartMention: true,
+      }),
+      false,
+    );
+  });
 });

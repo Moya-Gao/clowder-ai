@@ -932,6 +932,10 @@ export async function* routeSerial(
 
         // F167 Phase H AC-H5: suppress AC-C7 verdict-without-pass when Phase H hit
         // (format error is the root cause; verdict-without-pass is the consequence).
+        // 2026-04-25 fix (砚砚 GPT-5.5): pass hasCoCreatorLineStartMention so summary
+        // reports ending with `@landy` / `@铲屎官` (legitimate escalation to co-creator)
+        // don't trigger the verdict-no-pass-hint false-positive. parseA2AMentions only
+        // returns cat handles, never co-creator ones.
         if (
           !phaseHHit &&
           shouldWarnVerdictWithoutPass({
@@ -939,6 +943,7 @@ export async function* routeSerial(
             lineStartMentions: a2aMentions,
             toolNames: collectedToolNames,
             structuredTargetCats: [...structuredTargetCats],
+            hasCoCreatorLineStartMention: storedContent ? detectUserMention(storedContent) : false,
           })
         ) {
           try {
