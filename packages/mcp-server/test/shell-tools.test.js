@@ -278,6 +278,21 @@ test('P1: refuses shell glob metacharacters (* ? [ ]) — cat * bypass', () => {
   assert.equal(isReadOnlyShellCommand('cat README.md'), true);
 });
 
+test('P1 (cloud R7 missed in d007449e merge): refuses ~user expansion bypass', () => {
+  // /bin/sh expands `~root` to /var/root or /root, but unquoteAndExpandTilde
+  // only handles bare `~` and `~/...` — `~root/...` slips past path guard
+  // as a literal cwd-relative token then resolves to absolute path at exec.
+  // Refuse any ~ followed by username char (alphanumeric or underscore).
+  assert.equal(isReadOnlyShellCommand('cat ~root/.ssh/id_rsa'), false);
+  assert.equal(isReadOnlyShellCommand('cat ~admin/secret'), false);
+  assert.equal(isReadOnlyShellCommand('ls ~user1/'), false);
+  assert.equal(isReadOnlyShellCommand('cat ~_systemUser/file'), false);
+  // bare `~` and `~/...` are still allowed at gate (handled correctly by
+  // unquoteAndExpandTilde + path guard downstream).
+  assert.equal(isReadOnlyShellCommand('cat ~/file'), true);
+  assert.equal(isReadOnlyShellCommand('ls ~'), true);
+});
+
 test('P1: handleShellExec — refuses cat * even when symlink exists in cwd', async () => {
   // Direct end-to-end check: even if cwd has a symlink to /etc/hosts,
   // cat * must be refused at the gate before path guard / exec.
