@@ -17,7 +17,7 @@ created: 2026-04-23
 > **Phase E**: ✅ merged 2026-04-25 via PR #1384
 > **Phase F**: ✅ merged 2026-04-25 via PR #1388
 > **Phase D2a (backend)**: ✅ merged 2026-04-25 via PR #1393 (byCat counter + 24h ring buffer)
-> **Phase D2b (frontend)**: 📐 design稿 pending (Pencil → @烁烁 review → implement)
+> **Phase D2b (frontend)**: 📐 design稿 ready, awaiting review (`designs/F174-callback-auth-health-card.pen` → @烁烁 review → implement)
 
 ## Why
 
@@ -172,11 +172,63 @@ setTimeout(refresh, jitter);
 - 输出：Hub 已有的 `/api/debug/metrics` 或独立 `/api/debug/callback-auth` endpoint
 - **作为 Phase E 降级的输入信号**：哪些 tool × reason 组合高频，就先治哪个
 
-#### Phase D2: Dashboard UI（可后做）
+#### Phase D2: Frontend — In-context Observability（"明厨亮灶"三层模型）
 
-- Workspace 诊断面板加一个"Callback Auth Health"卡片
-- 显示近 24h 401 率、Top 3 失败工具、Top 3 受影响猫、按 reason 分布
-- **不是**实时 monitoring（这不是 oncall 级），是设计决策数据源
+> **设计哲学**：统计是事后审计，现场可感知性是第一入口。详见 `cat-cafe-skills/refs/in-context-observability-checklist.md`。
+>
+> 早稿（spec v1）只规划单个 dashboard card，被铲屎官 push back："F153 社区小伙伴设计的可观测性是上个世纪的——出问题了猫猫和铲屎官立刻应该看到，像 memory entity 自带状态、browser-preview 端上桌那样。" 收敛为三层结构。
+
+**`in_context_observability` 决策字段**（per checklist 模板）：
+
+```yaml
+in_context_observability:
+  primary_surface: "thread 内 system_info 富块（D2b-1） + cat avatar status dot（D2b-2）"
+  why_not_dashboard_only: |
+    callback auth 失败影响"当前正在做的事"——猫调 register_pr_tracking 401 了，
+    铲屎官需要立刻知道（不然以为 PR tracking 已建好）。dashboard 等用户主动切 tab
+    才看到数字 +1，错过现场。
+  deep_dive_surface: "HubObservabilityTab 子 tab（D2b-3）— 事后审计 + 跨周期趋势 + 批量诊断"
+  noise_dedup_policy: |
+    - 同一 reason+tool+cat 5 分钟内只发一条 in-context 富块（去重窗口）
+    - 富块带"隐藏类似消息"按钮，点击后该组合 24h 不再发
+    - 持续状态走 cat status dot（D2b-2），不重复发 thread 富块
+    - reason=stale_invocation 不发富块（只是被新 invocation 顶替，无需用户感知）
+```
+
+**三层结构**：
+
+##### D2b-1: In-context System 富块（P0 · 现场层）
+
+thread 内 callback auth 失败时，server 自动 post 一条系统富块（kind=system_info / cc_rich tinted）：
+
+- 头部：图标 🔌 + "CALLBACK AUTH FAILURE" 标签 + "FALLBACK OK" badge（有降级时）
+- Reason 行：amber chip 显示 reason（`expired` / `unknown_invocation` / ...） + 中文描述
+- Metadata 行：tool / cat / when（相对时间）
+- Action 按钮：[详情]（跳 D2b-3）+ [重试]（触发 retry）+ [隐藏类似消息]（dedup opt-out）
+
+触发条件：`ok=false` 且 `reason ∈ degradable_reasons`（不含 stale_invocation）。
+
+##### D2b-2: Cat Status Dot（P0 · 实体层）
+
+roster 每只猫 avatar 右下角加 status dot（绝对定位，white border 圈起来）：
+
+- 🟢 绿色 = healthy（24h 0 fail 或 < 阈值）
+- 🟡 黄色 = degraded（fail 在阈值内但有失败 / 有 fallback success）
+- 🔴 红色 = broken（fail 超阈值 / 401 率高）
+- ⚪ 灰色 = unknown（24h 无 callback 调用，状态未知）
+
+avatar 下方文字：`{name} · {status} · {N fails}`。
+hover popover：reason×N 分布 + Top 工具 + "点击 → 跳 D2b-3 详情" hint。
+
+##### D2b-3: Stats Deep-dive Card（P2 · 审计层）
+
+HubObservabilityTab 加一个子 tab "Callback Auth"，渲染原 spec v1 的 stats card：
+
+- 24h 401 率 + reason 分布 (bar chart) + Top 工具 + Top 受影响猫
+- legacy fallback hits 计数（监控 Phase F deadline 倒计时）
+- recent samples（cap 100）按时间倒序
+
+**不是** 实时 monitoring（不挂 oncall），是事后审计 + 跨周期趋势 + 批量诊断。从 D2b-1 / D2b-2 的 "详情" 入口跳转过来。
 
 #### Knowledge Feed 关系（缅因猫强调）
 
@@ -265,10 +317,16 @@ interface CallbackTool<T> {
   - [x] 24h rolling window via per-hour ring buffer (24 buckets)
   - [x] `snapshot.recent24h = {totalFailures, byReason, byTool, byCat}` for dashboard consumer
   - [x] `__setNowForTest()` test seam for deterministic time-rotation tests
-- **D2b frontend** 📐 design稿 待出
-  - [ ] AC-D4: Workspace 诊断面板加 `CallbackAuthHealthCard` 组件
-  - [ ] AC-D5: 显示 24h 401 率 + reason 分布 + Top 工具 + Top 受影响猫
-  - 流程：Pencil 设计稿 → @烁烁 + @landy 视觉审视 → F056 design language alignment → 实现 worktree
+- **D2b frontend** 📐 design稿 ready (`designs/F174-callback-auth-health-card.pen`)
+  - **D2b-1 in-context 富块**（P0 · 现场层）
+    - [ ] AC-D4: thread 内 callback auth 失败时，server post 一条 system_info 富块（reason badge + tool/cat/when + 详情/重试/隐藏类似消息）
+    - [ ] AC-D5: dedup 实现：同 reason+tool+cat 5min 窗口去重；"隐藏类似消息" 按钮触发 24h opt-out；`stale_invocation` 不发富块
+  - **D2b-2 cat status dot**（P0 · 实体层）
+    - [ ] AC-D6: roster 猫 avatar 角上 status dot（绿/黄/红/灰四态），driven by `snapshot.recent24h.byCat`
+    - [ ] AC-D7: hover popover 显示 reason×N + Top 工具 + 跳 D2b-3 详情入口
+  - **D2b-3 stats 深挖 card**（P2 · 审计层）
+    - [ ] AC-D8: HubObservabilityTab 加 "Callback Auth" 子 tab，渲染 24h 401 率 + reason 分布 + Top 工具 + Top 受影响猫 + legacy fallback hits + recent samples
+  - 流程：Pencil 设计稿 ✅ → @烁烁 + @landy 视觉审视 → F056 design language alignment → 实现 worktree
 
 ### Phase E（Degradation — 在 D1 之后）
 - [x] AC-E1: `DegradePolicy = none|custom` + `withDegradation()` framework in `mcp-server/src/tools/degradation.ts`；`create_rich_block` Route B 重构进 framework（行为不变，legacy 403 path 保留 inline）
@@ -370,6 +428,7 @@ interface CallbackTool<T> {
 | 2026-04-24 13:28 | **Phase C merged via PR #1368** (squash commit `226ea4a4`)，cloud Codex review: "Bravo"，14 轮 cloud P0/P1/P2 全处理（route-level cooldown via preValidation peek+claim+verifyLatest，atomic backend port methods peek/verifyLatest/tryClaimRefreshCooldown，MCP client adaptive refresh loop with AbortSignal.timeout + signal exit code 128+signum + cooldown-safe MIN_DELAY，memory cooldown map 硬封顶 derived from instance maxRecords + existing-check-first eviction，Redis msgs key TTL slide on verifyLatest，refresh-token emits missing_creds locally，tests split under 350-line cap） |
 | 2026-04-24 21:28 | **Phase D1 merged via PR #1377** (squash commit `201a0742`)，cloud Codex review: "Tada"，6 轮 P1 全处理（debug endpoint owner-gate progressive hardening: public→owner-gate→explicit-identity→reject-spoofed-header→browser-needs-session→drop-DEFAULT_OWNER_USER_ID-mismatch→two-layer-with-default→fail-closed-explicit-required，最终 mirror config.ts sensitive-env pattern：require explicit DEFAULT_OWNER_USER_ID + session match） |
 | 2026-04-25 02:14 | **Phase E merged via PR #1384** (squash commit `570c22d8`)，cloud Codex review: "Keep them coming!"，1 轮 P2 处理（legacy 403 fallback 也加 DEGRADED:true 与 framework custom path 一致）。`withDegradation()` framework 落地 + 5 写类 callback tool 全显式 policy（1 custom + 4 none + `[degrade]` hint） |
+| 2026-04-25 10:50 | **D2b 设计稿完成** (`designs/F174-callback-auth-health-card.pen` commit `73fad2941`)。铲屎官 push back v1 单 dashboard 设计 → 收敛到三层"明厨亮灶"模型 (D2b-1 现场富块 + D2b-2 cat status dot + D2b-3 深挖 card)。方法论沉淀到 `cat-cafe-skills/refs/in-context-observability-checklist.md` (commit `2c773b08b`)，砚砚 P1/P2 review 全接住 (rename to "现场可感知性"、必产出决策字段、触发范围、噪音约束) |
 
 ## Review Gate
 
@@ -379,7 +438,7 @@ interface CallbackTool<T> {
 - **Phase C**：跨家族 review，refresh 频率算法 + rate limit 是重点
 - **Phase D1**：跨家族 review，reason taxonomy 与 A 对齐
 - **Phase E**：跨家族 review，degradePolicy framework 边界是重点
-- **Phase D2**：内部 review 即可（只读仪表板）
+- **Phase D2**：D2a backend ✅；D2b frontend 走 Pencil 设计稿 → @烁烁 (视觉 + F056 alignment) + @landy 拍板 → 实现。**Design Gate 已过现场可感知性自检**（决策字段见 Phase D2 段），符合 `cat-cafe-skills/refs/in-context-observability-checklist.md` 三层模型
 - **Phase F**：clean-up，scope 内 review 即可
 
 ## Links
@@ -397,6 +456,8 @@ interface CallbackTool<T> {
 | **源代码** | `packages/mcp-server/src/tools/callback-retry.ts` | retry 只处理 408/429/5xx；401 不兜（Phase E 不动它） |
 | **源代码** | `packages/mcp-server/src/tools/callback-outbox.ts` | outbox 同样只处理 408/429/5xx |
 | **参考实现** | `packages/api/src/domains/cats/services/stores/redis/RedisInvocationRecordStore.ts` | Hash + Lua 原子操作范式（Phase B 参照） |
+| **设计稿** | `designs/F174-callback-auth-health-card.pen` | D2b 三层 mockup (D2b-1 现场富块 + D2b-2 cat status dot + D2b-3 stats card) |
+| **方法论** | `cat-cafe-skills/refs/in-context-observability-checklist.md` | Design Gate 现场可感知性自检 checklist (F174 D2b 实战收敛沉淀) |
 | **Feature** | `docs/features/F016-codex-oauth-memory-loop.md` | invocation-token 起源 |
 | **Feature** | `docs/features/F061-antigravity-bengal-cat.md` | Bug-H persistent MCP write-path auth（远房亲戚） |
 | **Feature** | `docs/features/F077-multi-user-secure-collaboration.md` | 依赖 F174 持久化 |
