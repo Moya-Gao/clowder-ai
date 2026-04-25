@@ -1091,6 +1091,18 @@
       "name": "Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级与可观测",
       "status": "in-progress | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1",
       "file": "F174-callback-auth-lifecycle.md"
+    },
+    {
+      "id": "F175",
+      "name": "Unified Message Queue — 优先级排序 + 用户可控编排（urgent bypass 收口）",
+      "status": "intake pending | **Owner**: @mindfn (community, original) + cat-cafe intake reviewer TBD | **Priority**: P1",
+      "file": "F175-unified-message-queue.md"
+    },
+    {
+      "id": "F176",
+      "name": "Native CLI Assistant-Speech vs CLI-Stdout 渲染语义分离",
+      "status": "design-gate | **Owner**: 布偶猫（Opus-47） + 缅因猫（GPT-5.5，并行诊断 + intake review） | **Priority**: P1",
+      "file": "F176-native-cli-assistant-speech-rendering.md"
     }
   ]
 }
