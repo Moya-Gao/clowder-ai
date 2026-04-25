@@ -276,7 +276,7 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
         /* ignore */
       }
     },
-    [fetchBoard],
+    [fetchBoard, threadId],
   );
 
   const navigateToThread = useCallback((threadId: string) => {

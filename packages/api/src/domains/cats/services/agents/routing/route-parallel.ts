@@ -443,6 +443,7 @@ export async function* routeParallel(
     return stripper;
   }
 
+  const invocationStartedAt = Date.now();
   for await (const msg of mergeStreams(streams, (idx, err) => {
     log.error({ streamIndex: idx, err }, 'Parallel stream error');
   })) {
@@ -778,7 +779,7 @@ export async function* routeParallel(
             origin: 'stream',
             // F176: persisted final response carries semantic role for hydration rendering
             messageRole: 'final',
-            timestamp: Date.now(),
+            timestamp: invocationStartedAt,
             threadId,
             ...(thinking && thinking.length > 0 ? { thinking: renderThinkingChunks(thinking) } : {}),
             ...(meta ? { metadata: meta } : {}),
@@ -865,7 +866,7 @@ export async function* routeParallel(
               content: '',
               mentions: [],
               origin: 'stream',
-              timestamp: Date.now(),
+              timestamp: invocationStartedAt,
               threadId,
               ...(thinking && thinking.length > 0 ? { thinking: renderThinkingChunks(thinking) } : {}),
               ...(meta ? { metadata: meta } : {}),
@@ -940,7 +941,7 @@ export async function* routeParallel(
               content: '',
               mentions: [],
               origin: 'stream',
-              timestamp: Date.now(),
+              timestamp: invocationStartedAt,
               threadId,
               ...(thinking && thinking.length > 0 ? { thinking: renderThinkingChunks(thinking) } : {}),
               ...(meta ? { metadata: meta } : {}),

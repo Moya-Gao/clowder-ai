@@ -518,6 +518,7 @@ export async function* routeSerial(
         'Invoking cat via invokeSingleCat',
       );
       const leakedPayloadStripper = createLeakedToolCallStreamStripper();
+      const invocationStartedAt = Date.now();
       for await (const msg of invokeSingleCat(deps.invocationDeps, {
         catId,
         service: getService(deps.services, catId),
@@ -1065,7 +1066,7 @@ export async function* routeSerial(
           }
         }
 
-        const storedTimestamp = Date.now();
+        const storedTimestamp = invocationStartedAt;
 
         // F061: Detect @co-creator mentions in agent response for browser notification
         mentionsUser = storedContent ? detectUserMention(storedContent) : false;
@@ -1308,7 +1309,7 @@ export async function* routeSerial(
               content: '',
               mentions: [],
               origin: 'stream',
-              timestamp: Date.now(),
+              timestamp: invocationStartedAt,
               threadId,
               ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
               ...(thinkingChunks.length > 0 ? { thinking: renderThinkingChunks(thinkingChunks) } : {}),
@@ -1383,7 +1384,7 @@ export async function* routeSerial(
             content: '',
             mentions: [],
             origin: 'stream',
-            timestamp: Date.now(),
+            timestamp: invocationStartedAt,
             threadId,
             ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
             ...(firstMetadata ? { metadata: firstMetadata } : {}),

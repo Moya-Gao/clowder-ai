@@ -46,6 +46,12 @@ const nextConfig = {
       },
     ];
   },
+  webpack: (config) => {
+    // Suppress onnxruntime-web "Critical dependency" warnings — dynamic require() in
+    // minified bundle is expected and cannot be statically analyzed by webpack.
+    config.ignoreWarnings = [{ module: /onnxruntime-web/ }];
+    return config;
+  },
   async rewrites() {
     return [
       {

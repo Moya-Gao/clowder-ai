@@ -18,6 +18,7 @@ import {
   getDefaultCatId,
   getOwnerUserId,
   hasRuntimeDefaultCatOverride,
+  isCatAvailable,
   setRuntimeDefaultCatId,
 } from '../config/cat-config-loader.js';
 import { configEventBus, createChangeSetId } from '../config/config-event-bus.js';
@@ -406,6 +407,11 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
     if (!catRegistry.has(parsed.data.catId)) {
       reply.status(400);
       return { error: `Unknown catId: ${parsed.data.catId}` };
+    }
+
+    if (!isCatAvailable(parsed.data.catId)) {
+      reply.status(400);
+      return { error: `Cat ${parsed.data.catId} is unavailable` };
     }
 
     persistDefaultCatToEnv(parsed.data.catId);

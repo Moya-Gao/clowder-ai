@@ -636,19 +636,37 @@ let _defaultCatId: CatId | null = null;
 /** F154 AC-A4: Runtime override for default cat (set via Hub API, owner-gated). */
 let _runtimeDefaultCatId: CatId | null = null;
 
+function isKnownAvailableDefaultCat(catId: string): boolean {
+  const config = getCachedConfig();
+  if (!config) {
+    const id = createCatId(catId);
+    return catRegistry.getAllIds().length === 0 || catRegistry.has(id);
+  }
+
+  if (!_catIdToBreed || _catIdToBreedSource !== config) {
+    _catIdToBreed = buildCatIdToBreedIndex(config);
+    _catIdToBreedSource = config;
+  }
+
+  return _catIdToBreed.has(catId) && isCatAvailable(catId, config);
+}
+
 /**
  * Get the default cat ID.
  * Priority: runtime override (F154) → breeds[0].defaultVariantId (F32-b R4).
  * Used as ultimate fallback in AgentRouter when no mentions/participants/preferredCats.
  */
 export function getDefaultCatId(): CatId {
-  if (_runtimeDefaultCatId) return _runtimeDefaultCatId;
+  if (_runtimeDefaultCatId) {
+    if (isKnownAvailableDefaultCat(_runtimeDefaultCatId)) return _runtimeDefaultCatId;
+    log.warn({ catId: _runtimeDefaultCatId }, 'Runtime default cat is unavailable or unknown, falling back');
+  }
 
   const envCatId = process.env.DEFAULT_CAT_ID?.trim();
   if (envCatId) {
     const id = createCatId(envCatId);
-    if (catRegistry.getAllIds().length === 0 || catRegistry.has(id)) return id;
-    log.warn({ envCatId }, 'DEFAULT_CAT_ID references unknown cat, falling back');
+    if (isKnownAvailableDefaultCat(id)) return id;
+    log.warn({ envCatId }, 'DEFAULT_CAT_ID references unavailable or unknown cat, falling back');
   }
 
   if (_defaultCatId) return _defaultCatId;
@@ -678,7 +696,7 @@ export function clearRuntimeDefaultCatId(): void {
 
 /** F154 AC-A4: Check whether a runtime override is active. */
 export function hasRuntimeDefaultCatOverride(): boolean {
-  return _runtimeDefaultCatId !== null;
+  return _runtimeDefaultCatId !== null && isKnownAvailableDefaultCat(_runtimeDefaultCatId);
 }
 
 /** Unified owner userId: configured env or single-user fallback. */

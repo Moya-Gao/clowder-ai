@@ -7,6 +7,7 @@ import {
   clearRuntimeDefaultCatId,
   getDefaultCatId,
   getOwnerUserId,
+  hasRuntimeDefaultCatOverride,
   loadCatConfig,
   setRuntimeDefaultCatId,
   toAllCatConfigs,
@@ -46,6 +47,19 @@ describe('getDefaultCatId runtime override (F154 AC-A4)', () => {
     setRuntimeDefaultCatId('gemini');
     assert.equal(getDefaultCatId(), 'gemini');
     clearRuntimeDefaultCatId();
+  });
+
+  it('ignores runtime override when the cat is unavailable', () => {
+    catRegistry.reset();
+    catRegistry.register('opus', _allConfigs.opus);
+    catRegistry.register('antigravity', _allConfigs.antigravity);
+    setRuntimeDefaultCatId('antigravity');
+
+    assert.notEqual(getDefaultCatId(), 'antigravity', 'should not use unavailable runtime override');
+    assert.equal(hasRuntimeDefaultCatOverride(), false, 'unavailable runtime override should not be reported active');
+
+    clearRuntimeDefaultCatId();
+    catRegistry.reset();
   });
 });
 
@@ -135,6 +149,19 @@ describe('getDefaultCatId reads DEFAULT_CAT_ID env (clowder-ai#543)', () => {
     process.env.DEFAULT_CAT_ID = 'not-a-cat';
     const result = getDefaultCatId();
     assert.notEqual(result, 'not-a-cat', 'should not return unknown catId from env');
+    delete process.env.DEFAULT_CAT_ID;
+    catRegistry.reset();
+  });
+
+  it('ignores DEFAULT_CAT_ID when the cat is unavailable', () => {
+    clearRuntimeDefaultCatId();
+    catRegistry.reset();
+    catRegistry.register('opus', _allConfigs.opus);
+    catRegistry.register('antigravity', _allConfigs.antigravity);
+    process.env.DEFAULT_CAT_ID = 'antigravity';
+
+    assert.notEqual(getDefaultCatId(), 'antigravity', 'should not use unavailable env default');
+
     delete process.env.DEFAULT_CAT_ID;
     catRegistry.reset();
   });
@@ -264,6 +291,7 @@ describe('GET/PUT /api/config/default-cat (F154 AC-A4)', () => {
     catRegistry.reset();
     catRegistry.register('opus', _allConfigs.opus);
     catRegistry.register('codex', _allConfigs.codex);
+    catRegistry.register('antigravity', _allConfigs.antigravity);
     // Set DEFAULT_OWNER_USER_ID for owner gate
     process.env.DEFAULT_OWNER_USER_ID = OWNER_ID;
     clearRuntimeDefaultCatId();
@@ -325,6 +353,18 @@ describe('GET/PUT /api/config/default-cat (F154 AC-A4)', () => {
       payload: { catId: 'codex' },
     });
     assert.equal(res.statusCode, 400);
+  });
+
+  it('PUT rejects unavailable catId → 400', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/config/default-cat',
+      headers: { 'x-cat-cafe-user': OWNER_ID },
+      payload: { catId: 'antigravity' },
+    });
+    assert.equal(res.statusCode, 400);
+    assert.match(res.payload, /unavailable/i);
+    assert.notEqual(getDefaultCatId(), 'antigravity');
   });
 
   it('PUT with empty catId → clears override', async () => {

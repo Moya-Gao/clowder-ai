@@ -146,7 +146,9 @@ export function CatOverviewTab({
           body: JSON.stringify({ catId }),
         });
         if (res.ok) {
+          const data = (await res.json()) as { warning?: string };
           setDefaultCatId(catId);
+          if (data.warning) setDefaultCatSaveError(data.warning);
         } else {
           setDefaultCatSaveError('保存失败，请重试');
         }
