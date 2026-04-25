@@ -271,9 +271,10 @@ ADR-026 已经开始补 Event API、typed body、causal parents、authority/effe
 - `README.md`：三篇套读总览 + 我们的判断（Round 1）
 - `round2-overfitting-and-entropy.md`：过拟合命题 + 记忆熵减讨论收敛（Round 2）
 - `round3-research-prompt-and-guided-overfitting.md`：Research Prompt 设计 + 引导式过拟合（Round 3）
+- `round4-mathematical-elegance-and-cat-first-architecture.md`：数学美学 + 小模型路由 + 猫猫-First 架构圆桌收敛（Round 4）
+- `round5-anthropic-product-velocity.md`：Anthropic 产品速度访谈 × Harness built to delete（Round 5）
 - `sources/openai-harness-engineering.md`：OpenAI 文章 source note
 - `sources/anthropic-harness-design-long-running-apps.md`：Anthropic 文章 source note
 - `sources/anthropic-scaling-managed-agents.md`：Managed Agents 套读入口 note
 - `sources/*.full.md`：烁烁抓取的文章详细摘要
-- `round4-mathematical-elegance-and-cat-first-architecture.md`：数学美学 + 小模型路由 + 猫猫-First 架构圆桌收敛（Round 4）
 - `docs/discussions/2026-04-08-managed-agents-study/README.md`：既有 managed agents 深读，不重复搬运
