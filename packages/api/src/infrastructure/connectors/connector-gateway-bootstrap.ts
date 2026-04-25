@@ -48,6 +48,7 @@ import {
 } from './OutboundDeliveryHook.js';
 import { RedisConnectorThreadBindingStore } from './RedisConnectorThreadBindingStore.js';
 import { StreamingOutboundHook } from './StreamingOutboundHook.js';
+import { normalizeTelegramBotToken } from './telegram-token.js';
 
 export interface ConnectorGatewayConfig {
   telegramBotToken?: string | undefined;
@@ -227,7 +228,9 @@ export async function startConnectorGateway(
 ): Promise<ConnectorGatewayHandle | null> {
   const { log } = deps;
 
-  const hasTelegram = Boolean(config.telegramBotToken);
+  const telegramBotToken = normalizeTelegramBotToken(config.telegramBotToken);
+  const hasInvalidTelegramToken = Boolean(config.telegramBotToken?.trim()) && !telegramBotToken;
+  const hasTelegram = telegramBotToken != null;
   const feishuWsMode = config.feishuConnectionMode === 'websocket';
   const hasFeishu = Boolean(
     config.feishuAppId && config.feishuAppSecret && (feishuWsMode || config.feishuVerificationToken),
@@ -246,6 +249,9 @@ export async function startConnectorGateway(
 
   if (!hasTelegram && !hasFeishu && !hasDingTalk && !hasWeComBot && !hasWeComAgent && !hasWeixin && !hasXiaoyi) {
     log.info('[ConnectorGateway] No pre-configured connectors — gateway created for WeChat QR login support');
+  }
+  if (hasInvalidTelegramToken) {
+    log.warn('[ConnectorGateway] Invalid TELEGRAM_BOT_TOKEN format — Telegram connector disabled');
   }
 
   const bindingStore =
@@ -341,8 +347,8 @@ export async function startConnectorGateway(
   });
 
   // ── Telegram (long polling) ──
-  if (hasTelegram) {
-    const telegram = new TelegramAdapter(config.telegramBotToken!, log);
+  if (telegramBotToken) {
+    const telegram = new TelegramAdapter(telegramBotToken, log);
     adapters.set('telegram', telegram);
 
     telegram.startPolling(async (msg) => {
