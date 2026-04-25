@@ -8,7 +8,7 @@ created: 2026-03-26
 
 # F140: GitHub PR Signals — 冲突检测 + Review Feedback 全来源感知
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1 | **Phase A-D Completed**: 2026-03-27 | **Reopened**: 2026-04-24（Phase E — 通知合流：severity 抽取 + 下线 email 路径）
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Phase A-D Completed**: 2026-03-27 | **Reopened**: 2026-04-24（Phase E — 通知合流：severity 抽取 + 下线 email 路径） | **Completed**: 2026-04-25
 
 ## 三层架构定位
 
@@ -117,7 +117,7 @@ created: 2026-03-26
 
 **改动**：`callbacks.ts` 和 `pr-tracking.ts` 的两条注册路径，在 `prTrackingStore.register()` 前加 `gh repo view` 校验
 
-### Phase E（通知合流 — severity 抽取 + 下线 email 路径）🔴 reopened 2026-04-24
+### Phase E（通知合流 — severity 抽取 + 下线 email 路径）✅ completed 2026-04-25
 
 > **根因**：Phase A 上线后，`ReviewRouter`（email/IMAP）和 `ReviewFeedbackRouter`（F139 polling）两条通道对同一次 bot review 并行投递两条消息——前者做 severity 抽取（"Review 检测到 P2"），后者只贴 body（"🚀 no major issues"），两条叙事冲突，铲屎官体感"通知 bug"。详见 `docs/discussions/2026-04-24-f140-review-notification-merge/`。
 >
@@ -134,7 +134,7 @@ created: 2026-03-26
   - 排除 fenced code block（` ``` ` 内）
   - 排除 blockquote（`> ` 开头的行，通常是引用旧 finding）
   - 拒绝句内裸词（`I think this is P1` / `P100` / `MP3` 不触发）
-- **Setup-noise filter**（搬自 `GithubReviewMailParser.ts:101-104` Rule 3）：factory `createSetupNoiseFilter(botLogins)` 返回 context-aware predicate（接 `{author, body, commentType}`），polling gate 在 `fetchComments` 后应用。**Scope 严格收窄**：只吞满足所有三条的 comment——`author ∈ botLogins` + `commentType=conversation` + body 含 setup sentence 且无 `codex review` content。inline / 非 bot author / bot 含 review content 全不吞；**人类 reviewer 引用 setup 文案不被过滤**（关键守护，对齐 `github-review-mail-body-classifier.test.js:72`）。裸 `@codex review` 和触发模板回声**归 Rule A**（`shouldSkipComment` self-authored skip）处理，E.1 不在 setup-noise filter 重复判定
+- **Setup-noise filter**（搬自 legacy email-channel Rule 3）：factory `createSetupNoiseFilter(botLogins)` 返回 context-aware predicate（接 `{author, body, commentType}`），polling gate 在 `fetchComments` 后应用。**Scope 严格收窄**：只吞满足所有三条的 comment——`author ∈ botLogins` + `commentType=conversation` + body 含 setup sentence 且无 `codex review` content。inline / 非 bot author / bot 含 review content 全不吞；**人类 reviewer 引用 setup 文案不被过滤**（关键守护，保留 legacy classifier 负例语义）。裸 `@codex review` 和触发模板回声**归 Rule A**（`shouldSkipComment` self-authored skip）处理，E.1 不在 setup-noise filter 重复判定
 
 **E.2 下线 email bootstrap + 删除 Rule B 语义（合流切换）**
 
@@ -187,13 +187,13 @@ created: 2026-03-26
 - [x] AC-D3: 两条注册路径（`/api/pr-tracking` + `/api/callbacks/register-pr-tracking`）都加校验
 - [x] AC-D4: 测试覆盖：合法 repo 通过、不存在 repo 拒绝、格式错误 repo 拒绝
 
-### Phase E（通知合流 — severity 抽取 + 下线 email 路径）🔴 in-progress
+### Phase E（通知合流 — severity 抽取 + 下线 email 路径）✅ done
 - [x] AC-E1: `buildReviewFeedbackContent()` 扫 `newComments` + `newDecisions` 所有 body，抽出最高 severity 生成 `**Review 检测到 P0/P1/P2**` 消息头（**P3 不识别** — informational） — SHA 645ac9de8
 - [x] AC-E2: severity 识别支持三种严格格式：shields.io `img.shields.io/badge/P[0-2]-` / 行首 `[P0-2]` / 行首 `P0-2:` `**P0-2**:` — SHA 06cbe1959
 - [x] AC-E3: FP 护栏：排除 fenced code block 内、排除 blockquote（`> ` 行）、拒绝句内裸词（`I think this is P1` / `P100` / `MP3` 都不触发） — SHA 06cbe1959
 - [x] AC-E4: 多条 findings 取最高 severity（P0 > P1 > P2）；无匹配则不加 header（保持现状） — SHA 06cbe1959 + 645ac9de8
 - [x] AC-E5: 单元测试覆盖：severity-parser 18 / setup-noise 9 / review-feedback-router 12 / review-feedback-spec 31，**共 70 tests 4 suites 全绿**，含 FP 负例 9 条（fenced/blockquote/badge × P1/P2 + 句内裸词 + P100 + MP3 + P3 + empty）— SHA 06cbe1959 + 77cf7ec28
-- [x] AC-E6: Setup-noise filter 搬自 `GithubReviewMailParser.ts:101-104` Rule 3，factory `createSetupNoiseFilter(botLogins)` 返回 context-aware predicate（接 `{author, body, commentType}`），polling 侧在 gate 应用。**Scope 严格收窄**：只吞 `author ∈ botLogins` + `commentType=conversation` + body 含 setup sentence 且无 `codex review` content；inline / 非 bot author / bot 含 review content 全不吞。守护负例：人类 reviewer 引用 setup 文案不被过滤（对齐 `github-review-mail-body-classifier.test.js:72`）。裸 `@codex review` / 触发模板回声**归 Rule A** 处理（self-authored skip），E.1 不重复 — SHA 77cf7ec28 + 67a820f2c
+- [x] AC-E6: Setup-noise filter 搬自 legacy email-channel Rule 3，factory `createSetupNoiseFilter(botLogins)` 返回 context-aware predicate（接 `{author, body, commentType}`），polling 侧在 gate 应用。**Scope 严格收窄**：只吞 `author ∈ botLogins` + `commentType=conversation` + body 含 setup sentence 且无 `codex review` content；inline / 非 bot author / bot 含 review content 全不吞。守护负例：人类 reviewer 引用 setup 文案不被过滤（保留 legacy classifier 负例语义）。裸 `@codex review` / 触发模板回声**归 Rule A** 处理（self-authored skip），E.1 不重复 — SHA 77cf7ec28 + 67a820f2c
 - [x] AC-E7: **删除** Rule B（authoritative-source 语义）：`createGitHubFeedbackFilter()` 简化为 Rule A only（self-authored）；`GITHUB_AUTHORITATIVE_REVIEW_LOGINS` env 改名 `GITHUB_SETUP_NOISE_BOT_LOGINS` + 老 env 标 `[DEPRECATED]` 兜底向后兼容（env-registry.ts 已注册新 entry） — SHA 00d7a834
 - [x] AC-E8: bootstrap 移除 `startGithubReviewWatcher()` 调用 + `ReviewRouter`/`GhCliReviewContentFetcher`/`MemoryProcessedEmailStore` 实例化删除（dead code post-watcher）+ shutdown handler `stopGithubReviewWatcher` call 移除 + 无用 imports 清理 — SHA 00d7a834（`.env.example` 原本就无 IMAP 字段）
 - [x] AC-E9: ~~Alpha 环境 3 场景证据门槛~~ — **降级 (2026-04-25 铲屎官拍板)**：alpha frontend 3011 webpack `.xterm` CSS loader 挂 + pinchtab MCP 503 → 浏览器端到端验收阻塞，且非 F140 scope。改用三件套凭证：(1) **Unit tests 79/79 全绿** 守护三场景核心 invariant（Scene 1 review-feedback-router test "P2 badge → header"; Scene 2 "no severity → no header"; Scene 3 filter Rule A only test + 人类 引用 setup 文案 not skip 守护）；(2) **双 family reviewer 复审 pass**（gpt52 + codex chat approve E.1+E.2 + 2 处 followup cleanup）；(3) **云端 codex bot 双 PR review pass**（PR #1380 "no major issues"; PR #1386 "Hooray"）。Production smoke：runtime 重启后下次实际 PR review 自然验证
@@ -284,6 +284,21 @@ created: 2026-03-26
 | 2026-04-24 | **Phase E.2 cutover merged (PR #1386, squash 00d7a834)** — drop Rule B + env 改名 `GITHUB_SETUP_NOISE_BOT_LOGINS` + stop email watcher bootstrap。砚砚 GPT-5.5 P2 (5 处旧 Rule B/C/email-routing 注释/测试名) 修复 793446ff + re-trigger 云端 review pass "Hooray no major issues"。pnpm gate passed (build/test/lint/check 全过)。 |
 | 2026-04-25 | **AC-E9 cutover gate 降级凭证（CVO 拍板）** — alpha frontend `.xterm` CSS loader build 挂 + pinchtab MCP 503 浏览器路径阻塞，且非 F140 scope。三件套凭证替代：unit test 79/79 守护三场景核心 invariant + 双 family reviewer 二次复审 pass + 云端 codex bot 双 PR review pass。Production smoke 通过 runtime 重启后下次实际 PR review 自然验证。Phase E.2 完整闭环，进 E.3 物理清理 |
 | 2026-04-25 | **Phase E.3 cleanup merged (PR #1398, squash 397df85c)** — 11 dead files trashed (6 src + 5 tests) + index.ts re-exports 简化 + 6 处注释残留清理。砚砚 GPT-5.5 双轮 review (P2 fix → no-findings) + 云端 codex "Swish! no major issues"。pnpm gate PASSED。**Phase E 完整闭环（AC-E1~E10 全部 ✅）**，等待愿景守护猫做 feat-lifecycle close |
+| 2026-04-25 | **Feature re-closed** — CVO 指派砚砚 GPT-5.5 完成 feat-lifecycle close。三 PR (#1380/#1386/#1398) merged，AC-E1~E10 全 ✅，反思胶囊已落盘，愿景对照 5/5 匹配。F140 从 BACKLOG 移除，进入 completed index |
+
+## Completion Sign-off (2026-04-25)
+
+**原始痛点**（2026-04-24 PR #1376 thread）：铲屎官看到同一次 GitHub review 先出现 pass/summary，再被旧通道拉出过期 P1/P2，体感为"GitHub 通知有 bug"。
+
+| 铲屎官原话 / 隐性愿景 | 当前实际状态 | 匹配？ |
+|----------------------|-------------|--------|
+| "我们的github通知有bug吧？" | 根因已定位为 email watcher + polling 双通道并行投递；Phase E 三 PR 完成合流 | ✅ |
+| "最新的是让你pass的消息" | Polling 通道保留 review summary / conversation 内容，并在同一条 Review Feedback 消息内呈现 | ✅ |
+| "又会拉之前的过期的 p1 p2 的消息" | Email watcher bootstrap 下线并物理删除 11 个 legacy 文件；旧通道不再能二次投递 | ✅ |
+| 隐性：severity 能力不能丢 | Severity parser 前移到 polling，支持 badge / 行首 `[P0-2]` / 行首 `P0-2:`，多 finding 取最高 | ✅ |
+| 隐性：不要引入新 FP / 误吞 | 79/79 targeted tests 覆盖 fenced code / blockquote / setup-noise / Rule A only；云端 Codex 三轮 review pass | ✅ |
+
+**Close verdict**：F140 Phase E 结构性消除了 review notification 双源冲突。Polling 是唯一真相源；email/IMAP review watcher 已从启动路径和源码层删除。功能状态重回 done。
 
 ## Design Gate 讨论归档
 
@@ -307,6 +322,9 @@ created: 2026-03-26
 - Phase B+ dedup fix: 砚砚 (codex/spark) cross-family review — 三审放行（P1×2 修复后）, 无 P1/P2
 - Phase C: 砚砚 (codex/spark) R1 review — 3 P1 发现 + 修复确认放行。云端 Codex R2 — "No major issues"
 - Phase D: 砚砚 (codex/spark) cross-family review — 放行, 无 P1/P2。云端 Codex R1 1 P1（catch-all→区分 infra failure）修复后 R2 通过
+- Phase E.1: 砚砚 (gpt52 + codex) cross-family review + 云端 Codex — P0/P1/P2 修复后通过
+- Phase E.2: 砚砚 (gpt52 + codex) cross-family review + 云端 Codex — P2 注释残留修复后通过
+- Phase E.3: 砚砚 GPT-5.5 双轮 review + 云端 Codex — P2 注释残留修复后 no-findings
 
 ## Links
 
@@ -315,5 +333,7 @@ created: 2026-03-26
 | **Feature** | `docs/features/F141-github-repo-inbox.md` | 发现层（Repo Inbox） |
 | **Feature** | `docs/features/F133-cicd-tracking.md` | CI Signals（追踪层兄弟） |
 | **Feature** | `docs/features/F139-unified-schedule-abstraction.md` | TaskSpec 框架依赖 |
+| **Reflection** | `docs/reflections/2026-03-27-f140-pr-signals-capsule.md` | Phase A-D 完成反思 |
+| **Reflection** | `docs/reflections/2026-04-25-f140-phase-e-cutover-capsule.md` | Phase E 通知合流反思 |
 | **Issue** | [#668](https://github.com/zts212653/cat-cafe/issues/668) | ReviewRouter fallback 清理（前置工作） |
 | **Issue** | [#669](https://github.com/zts212653/cat-cafe/issues/669) | F133 原始 issue |

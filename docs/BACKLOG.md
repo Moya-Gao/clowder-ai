@@ -45,7 +45,6 @@ created: 2026-02-26
 | F129 | Pack System — Multi-Agent 共创世界的 Mod 生态 | in-progress | 布偶猫 | internal | [F129](features/F129-pack-system-multi-agent-mod.md) |
 | F135 | 狸花猫开箱即用 — DARE Out-of-the-Box | spec | bouillipx | community [#195](https://github.com/zts212653/clowder-ai/issues/195) | [F135](features/F135-dare-ootb.md) |
 | F138 | Cat Café Video Studio — AI 视频制作管线 | spec | 金渐层 | internal | [F138](features/F138-video-studio.md) |
-| F140 | GitHub PR Signals — 通知合流（Phase E: severity 抽取 + 下线 email） | in-progress | 布偶猫 | internal | [F140](features/F140-github-pr-automation.md) |
 | F143 | Hostable Agent Runtime — 统一宿主抽象 | spec | 布偶猫 | internal | [F143](features/F143-hostable-agent-runtime.md) |
 | F144 | PPT Forge — AI 演示文稿生成引擎 | in-progress | 三猫 | internal | [F144](features/F144-ppt-forge.md) |
 | F147 | i18n — Hub 界面中英文切换 | idea | 待定 | internal | — |
