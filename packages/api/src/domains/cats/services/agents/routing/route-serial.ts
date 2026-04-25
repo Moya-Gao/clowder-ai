@@ -60,6 +60,7 @@ import {
   updateStreakOnPush,
 } from '../routing/WorklistRegistry.js';
 import { extractContextEvalSignals } from './context-eval.js';
+import { validateRoutingSyntax } from './final-routing-slot.js';
 import { buildBriefingMessage } from './format-briefing.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
 import type { RouteOptions, RouteStrategyDeps } from './route-helpers.js';
@@ -801,6 +802,63 @@ export async function* routeSerial(
           lineStartDetected.add(a2aMentions.length, { 'agent.id': catId as string });
         }
 
+        // F167 Phase H AC-H3/H5 (KD-24): final routing slot validator.
+        // Mechanical slot check with zero intent classifier. Runs BEFORE #417
+        // inline-mention-hint and AC-C7 verdict warn; hit suppresses the system_info
+        // emit on both (but keeps setMentionRoutingFeedback for next-turn correction).
+        const phaseHRosterHandles: string[] = [];
+        {
+          const allCfg =
+            Object.keys(catRegistry.getAllConfigs()).length > 0 ? catRegistry.getAllConfigs() : CAT_CONFIGS;
+          for (const cfg of Object.values(allCfg) as CatConfig[]) {
+            for (const pattern of cfg.mentionPatterns) phaseHRosterHandles.push(pattern);
+          }
+        }
+        const phaseHResult = validateRoutingSyntax({
+          text: storedContent,
+          lineStartMentions: a2aMentions,
+          toolNames: collectedToolNames,
+          structuredTargetCats: [...structuredTargetCats],
+          rosterHandles: phaseHRosterHandles,
+        });
+        const phaseHHit = phaseHResult.kind === 'invalid_route_syntax';
+        if (phaseHHit && phaseHResult.kind === 'invalid_route_syntax') {
+          try {
+            const inlineList = phaseHResult.inlineMentions.map((h) => `@${h}`).join(' ');
+            const hintSource = {
+              connector: 'routing-syntax-hint',
+              label: '路由语法提醒',
+              icon: '⚠️',
+              meta: { presentation: 'system_notice', noticeTone: 'warning' },
+            };
+            const stored = await deps.messageStore.append({
+              userId: 'system',
+              catId: null,
+              threadId,
+              content:
+                `检测到 ${inlineList} 写在行中，这样不会触发路由。` +
+                '若要传球，请把 @句柄 单独放在最后一行开头；若只是叙述，可以忽略此提醒。',
+              mentions: [],
+              timestamp: Date.now(),
+              source: hintSource,
+            });
+            if (deps.socketManager) {
+              deps.socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+                threadId,
+                message: {
+                  id: stored.id,
+                  type: 'connector',
+                  content: stored.content,
+                  source: hintSource,
+                  timestamp: stored.timestamp,
+                },
+              });
+            }
+          } catch {
+            /* non-blocking hint */
+          }
+        }
+
         // #417 / F064 AC-B3: Write-side feedback for inline action-like @mentions
         // clowder-ai#489: counters for detection, shadow, feedback, hint
         if (deps.invocationDeps.threadStore) {
@@ -831,7 +889,9 @@ export async function* routeSerial(
             }
             // #1062: User-visible system message when chain would break
             // (inline action detected but no line-start @ = no routing will happen)
-            if (a2aMentions.length === 0) {
+            // F167 Phase H AC-H5: suppress this legacy hint when Phase H already emitted
+            // routing-syntax-hint for the same turn (dedupe, single authoritative message).
+            if (a2aMentions.length === 0 && !phaseHHit) {
               try {
                 const targets = inlineHits.map((h) => `@${h.catId}`).join(', ');
                 const hintSource = {
@@ -870,7 +930,10 @@ export async function* routeSerial(
           }
         }
 
+        // F167 Phase H AC-H5: suppress AC-C7 verdict-without-pass when Phase H hit
+        // (format error is the root cause; verdict-without-pass is the consequence).
         if (
+          !phaseHHit &&
           shouldWarnVerdictWithoutPass({
             text: storedContent,
             lineStartMentions: a2aMentions,
