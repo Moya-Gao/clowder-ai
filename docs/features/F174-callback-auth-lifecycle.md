@@ -17,7 +17,9 @@ created: 2026-04-23
 > **Phase E**: ✅ merged 2026-04-25 via PR #1384
 > **Phase F**: ✅ merged 2026-04-25 via PR #1388
 > **Phase D2a (backend)**: ✅ merged 2026-04-25 via PR #1393 (byCat counter + 24h ring buffer)
-> **Phase D2b (frontend)**: 📐 design稿 ready, awaiting review (`designs/F174-callback-auth-health-card.pen` → @烁烁 review → implement)
+> **Phase D2b-1 (in-context surface)**: ✅ merged 2026-04-25 via PR #1397 (squash `74ea5ebec`)
+> **Phase D2b-2 (cat status dot)**: 📋 next
+> **Phase D2b-3 (deep-dive stats card)**: 📋 next
 
 ## Why
 
@@ -318,15 +320,14 @@ interface CallbackTool<T> {
   - [x] `snapshot.recent24h = {totalFailures, byReason, byTool, byCat}` for dashboard consumer
   - [x] `__setNowForTest()` test seam for deterministic time-rotation tests
 - **D2b frontend** 📐 design稿 ready (`designs/F174-callback-auth-health-card.pen`)
-  - **D2b-1 in-context 富块**（P0 · 现场层）
-    - [ ] AC-D4: thread 内 callback auth 失败时，server post 一条 system_info 富块（reason badge + tool/cat/when + 详情/重试/隐藏类似消息）
-    - [ ] AC-D5: dedup 实现：同 reason+tool+cat 5min 窗口去重；"隐藏类似消息" 按钮触发 24h opt-out；`stale_invocation` 不发富块
-  - **D2b-2 cat status dot**（P0 · 实体层）
+  - **D2b-1 in-context 富块**（P0 · 现场层）— ✅ merged 2026-04-25 via PR #1397
+    - [x] AC-D4: thread 内 callback auth 失败时，server post 一条 card 富块 (`meta.kind='callback_auth_failure'`)，使用 `CALLBACK_AUTH_SOURCE` connector，前端通过 `CallbackAuthFailureBlock` 渲染 amber 边框 + reason badge + tool/cat/when + 详情/重试(disabled, pending D2b-3/follow-up)/隐藏类似消息
+    - [x] AC-D5: dedup 实现：5-tuple `(reason, tool, catId, threadId, userId)` 5min 窗口去重；"隐藏类似消息" 按钮 → POST `/api/debug/callback-auth/hide-similar` 触发 24h opt-out；`stale_invocation` / `unknown_invocation` / `missing_creds` 不 surface in-context；dedup map 自动 prune 过期 entry；race-window-safe (synchronous slot reservation before async append)
+  - **D2b-2 cat status dot**（P0 · 实体层）— 📋 next
     - [ ] AC-D6: roster 猫 avatar 角上 status dot（绿/黄/红/灰四态），driven by `snapshot.recent24h.byCat`
     - [ ] AC-D7: hover popover 显示 reason×N + Top 工具 + 跳 D2b-3 详情入口
-  - **D2b-3 stats 深挖 card**（P2 · 审计层）
+  - **D2b-3 stats 深挖 card**（P2 · 审计层）— 📋 next
     - [ ] AC-D8: HubObservabilityTab 加 "Callback Auth" 子 tab，渲染 24h 401 率 + reason 分布 + Top 工具 + Top 受影响猫 + legacy fallback hits + recent samples
-  - 流程：Pencil 设计稿 ✅ → @烁烁 + @landy 视觉审视 → F056 design language alignment → 实现 worktree
 
 ### Phase E（Degradation — 在 D1 之后）
 - [x] AC-E1: `DegradePolicy = none|custom` + `withDegradation()` framework in `mcp-server/src/tools/degradation.ts`；`create_rich_block` Route B 重构进 framework（行为不变，legacy 403 path 保留 inline）
@@ -429,6 +430,7 @@ interface CallbackTool<T> {
 | 2026-04-24 21:28 | **Phase D1 merged via PR #1377** (squash commit `201a0742`)，cloud Codex review: "Tada"，6 轮 P1 全处理（debug endpoint owner-gate progressive hardening: public→owner-gate→explicit-identity→reject-spoofed-header→browser-needs-session→drop-DEFAULT_OWNER_USER_ID-mismatch→two-layer-with-default→fail-closed-explicit-required，最终 mirror config.ts sensitive-env pattern：require explicit DEFAULT_OWNER_USER_ID + session match） |
 | 2026-04-25 02:14 | **Phase E merged via PR #1384** (squash commit `570c22d8`)，cloud Codex review: "Keep them coming!"，1 轮 P2 处理（legacy 403 fallback 也加 DEGRADED:true 与 framework custom path 一致）。`withDegradation()` framework 落地 + 5 写类 callback tool 全显式 policy（1 custom + 4 none + `[degrade]` hint） |
 | 2026-04-25 10:50 | **D2b 设计稿完成** (`designs/F174-callback-auth-health-card.pen` commit `73fad2941`)。铲屎官 push back v1 单 dashboard 设计 → 收敛到三层"明厨亮灶"模型 (D2b-1 现场富块 + D2b-2 cat status dot + D2b-3 深挖 card)。方法论沉淀到 `cat-cafe-skills/refs/in-context-observability-checklist.md` (commit `2c773b08b`)，砚砚 P1/P2 review 全接住 (rename to "现场可感知性"、必产出决策字段、触发范围、噪音约束) |
+| 2026-04-25 14:42 | **Phase D2b-1 merged via PR #1397** (squash `74ea5ebec`)。砚砚 4 轮 review + cloud Codex 4 轮 review 全部 closed。砚砚 P1+P2: surface decision/dedup/owner gate/source classification/system_notice routing trap. Cloud Codex P1+P2: dedup keys 跨 thread/user 互吞 → 5-tuple key；RichBlocks dispatcher 信任 untrusted meta → trusted-provenance gate (`messageSource.connector === 'callback-auth'`)；dedup map monotonic growth → opportunistic pruneExpired；notify race window → synchronous slot reservation + rollback on persistence failure。新增 38 D2b-1 targeted tests (api 36 + web 4 components + 1 routing-trap + 1 source-classification + 4 cross-thread/user dedup + 2 race + 2 prune)，0 regression (api 9278 pass) |
 
 ## Review Gate
 
