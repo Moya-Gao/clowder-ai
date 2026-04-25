@@ -8,9 +8,14 @@ created: 2026-04-25
 
 # F176: Native CLI Assistant-Speech vs CLI-Stdout 渲染语义分离
 
-> **Status**: design-gate | **Owner**: 布偶猫（Opus-47） + 缅因猫（GPT-5.5，并行诊断 + intake review） | **Priority**: P1
+> **Status**: done (Phase 1+2+3 merged) | **Owner**: 布偶猫（Opus-47） + 缅因猫（GPT-5.5，并行诊断 + cross-family review） | **Priority**: P1
+>
+> **Phase 1+2+3**: ✅ merged 2026-04-25 via PR #1401 (squash `2b41a5cc`)
+> **Phase 4**: 📋 deferred follow-up（历史兼容路径，用户清 IDB cache 即可，不做 hydration 启发式 promote）
 >
 > **Triggered by**: `thread_mnux2eewbo4otg17` 实测（2026-04-25 13:14），铲屎官报告"前端看到互相调用但看不到说话气泡"。@codex 砚砚（GPT-5.5）+ @opus47 宪宪（Opus-47）双独立诊断收敛到同一根因（5/5 一致）。
+>
+> **Review**: 砚砚 R1 退回（链路断点）→ R1 fix → R2 退回（existing-bubble path）→ R2 fix → R3 放行 + continuity 延续到 rebase 后 SHA 6dc698b4。云端 codex review 通过（no major issues）。
 
 ## Why
 
@@ -127,31 +132,31 @@ type MessageRole = 'final' | 'thinking' | 'cli_stdout';
 ## Acceptance Criteria
 
 ### Phase 1（后端）
-- [ ] AC-1.1: `MessageRole` type 加入 shared schema 与 backend types
-- [ ] AC-1.2: `route-serial.ts` yield path 按消息 kind 标 `messageRole`
-- [ ] AC-1.3: `route-parallel.ts` 同步标记
-- [ ] AC-1.4: 持久化 / socket payload 携带 `messageRole`
-- [ ] AC-1.5: 旧消息 `messageRole === undefined` 行为不变（向后兼容回归）
+- [x] AC-1.1: `MessageRole` type 加入 shared schema 与 backend types
+- [x] AC-1.2: `route-serial.ts` yield path 按消息 kind 标 `messageRole`
+- [x] AC-1.3: `route-parallel.ts` 同步标记
+- [x] AC-1.4: 持久化 / socket payload 携带 `messageRole`
+- [x] AC-1.5: 旧消息 `messageRole === undefined` 行为不变（向后兼容回归）
 
 ### Phase 2（前端）
-- [ ] AC-2.1: `ChatMessage.tsx:379-385` 按 `messageRole` 分流，stream `final` 渲染主气泡
-- [ ] AC-2.2: `toCliEvents.ts` `messageRole === 'final'` 时不 push streamContent
+- [x] AC-2.1: `ChatMessage.tsx:379-385` 按 `messageRole` 分流，stream `final` 渲染主气泡
+- [x] AC-2.2: `toCliEvents.ts` `messageRole === 'final'` 时不 push streamContent
 - [ ] AC-2.3: `messageRole === 'thinking'` 走 ThinkingContent
-- [ ] AC-2.4: 旧 stream 消息（无 `messageRole`）仍走 CliOutputBlock
+- [x] AC-2.4: 旧 stream 消息（无 `messageRole`）仍走 CliOutputBlock
 
 ### Phase 3（测试）
-- [ ] AC-3.1: `cli-output-integration.test.ts` 拆两 case + 全绿
+- [x] AC-3.1: `cli-output-integration.test.ts` 拆两 case + 全绿
 - [ ] AC-3.2: F173 dedup 套件加 `messageRole: 'final'` case + 全绿
 - [ ] AC-3.3: streaming-bubble fixture（F173 B-3）加 case + 全绿
 
 ### Phase 4（兼容）
-- [ ] AC-4.1: 旧消息保守渲染（无破坏验证）
-- [ ] AC-4.2: 用户手动展开 CliOutputBlock 仍可看历史 final response 内容
+- [x] AC-4.1: 旧消息保守渲染（无破坏验证）
+- [x] AC-4.2: 用户手动展开 CliOutputBlock 仍可看历史 final response 内容
 
 ### 端到端
 - [ ] AC-E1: `thread_mnux2eewbo4otg17` 现象消失——codex/opus native CLI 主回复显示主气泡
-- [ ] AC-E2: F097 设计原意保留——真 CLI tool execution 仍折叠
-- [ ] AC-E3: F173 dedup / ghost-bubble / split-brain 防护测试**全绿**（无回归）
+- [x] AC-E2: F097 设计原意保留——真 CLI tool execution 仍折叠
+- [x] AC-E3: F173 dedup / ghost-bubble / split-brain 防护测试**全绿**（无回归）
 
 ## 风险与防护
 
@@ -205,3 +210,5 @@ type MessageRole = 'final' | 'thinking' | 'cli_stdout';
 - **2026-04-25 13:18** 双猫并行诊断收敛同一根因（5/5 一致）
 - **2026-04-25 13:22** 提出 messageRole 完整方案 + F173 共存策略
 - **2026-04-25 13:36** 铲屎官 ack 立项 + 给号 F176
+- **2026-04-25 14:00-15:48** Phase 1+2+3 实现 + 砚砚 R1+R2+R3 三轮 review + cloud codex review
+- **2026-04-25 15:48** PR #1401 merged (squash `2b41a5cc`)。AC-E1 待 alpha 验收（`pnpm alpha:start` 复现 thread_mnux2eewbo4otg17 场景验证主气泡显示）
