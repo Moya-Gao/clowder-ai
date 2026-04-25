@@ -16,6 +16,7 @@ import { usePreviewAutoOpen } from '@/hooks/usePreviewAutoOpen';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { useSocket } from '@/hooks/useSocket';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
+import { useThreadLiveness } from '@/hooks/useThreadScopedSelectors';
 import { useVadInterrupt } from '@/hooks/useVadInterrupt';
 import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
 import { useVoiceStream } from '@/hooks/useVoiceStream';
@@ -66,7 +67,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const bottomChromeObserverRafRef = useRef<number | null>(null);
   const {
     messages,
-    hasActiveInvocation,
     activeInvocations,
     intentMode,
     targetCats,
@@ -80,6 +80,13 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     armUnreadSuppression,
     rightPanelMode,
   } = useChatStore();
+  // F173 Phase C Task 2 — `hasActiveInvocation` source-of-truth migrated to
+  // thread-scoped selector. Cancel button / queue gating now follow the
+  // current `threadId` (this prop) instead of the flat current-thread mirror,
+  // closing the AC-C6 race window where flat lagged behind a thread switch
+  // and the cancel button briefly disappeared. Other liveness fields
+  // (activeInvocations / catStatuses / etc) deferred to Task 3.
+  const { hasActive: hasActiveInvocation } = useThreadLiveness(threadId);
   const navigateToThread = useCallback((tid: string) => {
     pushThreadRouteWithHistory(tid, typeof window !== 'undefined' ? window : undefined);
   }, []);

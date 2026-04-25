@@ -49,30 +49,43 @@ const DEFAULT_LIVENESS: ThreadLiveness = {
  *  source-of-truth and avoid cross-thread dup). */
 export function selectThreadMessages(state: ChatState, threadId: string | null): ChatMessage[] {
   if (!threadId) return EMPTY_MESSAGES as ChatMessage[];
-  if (threadId === state.currentThreadId) return state.messages;
-  return state.threadStates[threadId]?.messages ?? (EMPTY_MESSAGES as ChatMessage[]);
+  if (threadId === state.currentThreadId || !state.currentThreadId) {
+    return state.messages ?? (EMPTY_MESSAGES as ChatMessage[]);
+  }
+  return state.threadStates?.[threadId]?.messages ?? (EMPTY_MESSAGES as ChatMessage[]);
 }
 
-/** Pure selector — returns liveness fields for a thread. */
+/** Pure selector — returns liveness fields for a thread. Defensively
+ *  falls back to inert defaults for any field the (test) state may have
+ *  omitted. Production state from `useChatStore` always has all fields,
+ *  but unit-test mocks routinely partial-init it; selector must not throw.
+ *
+ *  When the current-thread branch matches (or `currentThreadId` is missing
+ *  in a partial test mock), reads the flat slice — this preserves the Phase
+ *  A mirror invariant: flat is always a valid mirror of the current thread,
+ *  so reading it for "the current thread" is identical to reading from
+ *  threadStates. */
 export function selectThreadLiveness(state: ChatState, threadId: string | null): ThreadLiveness {
   if (!threadId) return DEFAULT_LIVENESS;
-  if (threadId === state.currentThreadId) {
+  // Current-thread path. Also taken when `currentThreadId` is absent
+  // (incomplete test mocks) — flat is the only authoritative source then.
+  if (threadId === state.currentThreadId || !state.currentThreadId) {
     return {
-      hasActive: state.hasActiveInvocation,
-      catStatuses: state.catStatuses,
-      activeInvocations: state.activeInvocations,
-      intentMode: state.intentMode,
-      targetCats: state.targetCats,
+      hasActive: state.hasActiveInvocation ?? false,
+      catStatuses: state.catStatuses ?? DEFAULT_LIVENESS.catStatuses,
+      activeInvocations: state.activeInvocations ?? DEFAULT_LIVENESS.activeInvocations,
+      intentMode: state.intentMode ?? null,
+      targetCats: state.targetCats ?? DEFAULT_LIVENESS.targetCats,
     };
   }
-  const ts = state.threadStates[threadId];
+  const ts = state.threadStates?.[threadId];
   if (!ts) return DEFAULT_LIVENESS;
   return {
-    hasActive: ts.hasActiveInvocation,
-    catStatuses: ts.catStatuses,
-    activeInvocations: ts.activeInvocations,
-    intentMode: ts.intentMode,
-    targetCats: ts.targetCats,
+    hasActive: ts.hasActiveInvocation ?? false,
+    catStatuses: ts.catStatuses ?? DEFAULT_LIVENESS.catStatuses,
+    activeInvocations: ts.activeInvocations ?? DEFAULT_LIVENESS.activeInvocations,
+    intentMode: ts.intentMode ?? null,
+    targetCats: ts.targetCats ?? DEFAULT_LIVENESS.targetCats,
   };
 }
 
