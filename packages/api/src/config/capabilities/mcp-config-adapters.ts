@@ -31,10 +31,17 @@ const KIMI_CAT_CAFE_ENV_PLACEHOLDERS: Readonly<Record<string, string>> = {
 };
 
 function buildAntigravityCatCafeEnvDefaults(): Readonly<Record<string, string>> {
-  return {
+  const defaults: Record<string, string> = {
     CAT_CAFE_API_URL: process.env.CAT_CAFE_API_URL?.trim() || 'http://localhost:3002',
     CAT_CAFE_READONLY: 'true',
   };
+  // F061 Bug-F: cat_cafe_shell_exec needs ALLOWED_WORKSPACE_DIRS so path-guarded
+  // commands (pwd/ls/cat/git) can resolve within repo root. Default to API server's
+  // cwd at startup (== stable main repo root, same source capability-orchestrator
+  // uses for MCP cwd realignment). Respect pre-existing env override if set.
+  const allowedFromEnv = process.env.ALLOWED_WORKSPACE_DIRS?.trim();
+  defaults.ALLOWED_WORKSPACE_DIRS = allowedFromEnv || process.cwd();
+  return defaults;
 }
 
 function isCatCafeServer(name: string): boolean {

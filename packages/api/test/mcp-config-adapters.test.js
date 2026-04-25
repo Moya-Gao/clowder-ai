@@ -580,70 +580,110 @@ describe('writeAntigravityMcpConfig', () => {
 
   it('injects readonly env for managed cat-cafe servers', async () => {
     const file = join(dir, 'mcp_config.json');
-    await writeAntigravityMcpConfig(file, [
-      { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'cat-cafe' },
-    ]);
+    const originalAwd = process.env.ALLOWED_WORKSPACE_DIRS;
+    delete process.env.ALLOWED_WORKSPACE_DIRS;
+    try {
+      await writeAntigravityMcpConfig(file, [
+        { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'cat-cafe' },
+      ]);
 
-    const raw = JSON.parse(await readFile(file, 'utf-8'));
-    assert.deepEqual(raw.mcpServers['cat-cafe'].env, {
-      CAT_CAFE_API_URL: expectedAntigravityApiUrl(),
-      CAT_CAFE_READONLY: 'true',
-    });
+      const raw = JSON.parse(await readFile(file, 'utf-8'));
+      assert.deepEqual(raw.mcpServers['cat-cafe'].env, {
+        CAT_CAFE_API_URL: expectedAntigravityApiUrl(),
+        CAT_CAFE_READONLY: 'true',
+        ALLOWED_WORKSPACE_DIRS: process.cwd(),
+      });
+    } finally {
+      if (originalAwd === undefined) delete process.env.ALLOWED_WORKSPACE_DIRS;
+      else process.env.ALLOWED_WORKSPACE_DIRS = originalAwd;
+    }
   });
 
   it('preserves legacy cat-cafe entry while backfilling readonly env', async () => {
     const file = join(dir, 'mcp_config.json');
-    await writeFile(
-      file,
-      JSON.stringify({
-        mcpServers: {
-          'cat-cafe': { command: 'node', args: ['legacy-index.js'] },
-        },
-      }),
-    );
+    const originalAwd = process.env.ALLOWED_WORKSPACE_DIRS;
+    delete process.env.ALLOWED_WORKSPACE_DIRS;
+    try {
+      await writeFile(
+        file,
+        JSON.stringify({
+          mcpServers: {
+            'cat-cafe': { command: 'node', args: ['legacy-index.js'] },
+          },
+        }),
+      );
 
-    await writeAntigravityMcpConfig(file, [
-      { name: 'cat-cafe-memory', command: 'node', args: ['memory.js'], enabled: true, source: 'cat-cafe' },
-    ]);
+      await writeAntigravityMcpConfig(file, [
+        { name: 'cat-cafe-memory', command: 'node', args: ['memory.js'], enabled: true, source: 'cat-cafe' },
+      ]);
 
-    const servers = await readAntigravityMcpConfig(file);
-    const legacy = servers.find((s) => s.name === 'cat-cafe');
-    assert.ok(legacy);
-    assert.deepEqual(legacy.env, {
-      CAT_CAFE_API_URL: expectedAntigravityApiUrl(),
-      CAT_CAFE_READONLY: 'true',
-    });
+      const servers = await readAntigravityMcpConfig(file);
+      const legacy = servers.find((s) => s.name === 'cat-cafe');
+      assert.ok(legacy);
+      assert.deepEqual(legacy.env, {
+        CAT_CAFE_API_URL: expectedAntigravityApiUrl(),
+        CAT_CAFE_READONLY: 'true',
+        ALLOWED_WORKSPACE_DIRS: process.cwd(),
+      });
+    } finally {
+      if (originalAwd === undefined) delete process.env.ALLOWED_WORKSPACE_DIRS;
+      else process.env.ALLOWED_WORKSPACE_DIRS = originalAwd;
+    }
   });
 
   it('forces readonly env keys over legacy antigravity values while preserving unrelated env', async () => {
     const file = join(dir, 'mcp_config.json');
-    await writeFile(
-      file,
-      JSON.stringify({
-        mcpServers: {
-          'cat-cafe': {
-            command: 'node',
-            args: ['legacy-index.js'],
-            env: {
-              CAT_CAFE_API_URL: 'http://legacy.invalid:9999',
-              CAT_CAFE_READONLY: 'false',
-              EXTRA_FLAG: 'keep-me',
+    const originalAwd = process.env.ALLOWED_WORKSPACE_DIRS;
+    delete process.env.ALLOWED_WORKSPACE_DIRS;
+    try {
+      await writeFile(
+        file,
+        JSON.stringify({
+          mcpServers: {
+            'cat-cafe': {
+              command: 'node',
+              args: ['legacy-index.js'],
+              env: {
+                CAT_CAFE_API_URL: 'http://legacy.invalid:9999',
+                CAT_CAFE_READONLY: 'false',
+                EXTRA_FLAG: 'keep-me',
+              },
             },
           },
-        },
-      }),
-    );
+        }),
+      );
 
-    await writeAntigravityMcpConfig(file, [
-      { name: 'cat-cafe-memory', command: 'node', args: ['memory.js'], enabled: true, source: 'cat-cafe' },
-    ]);
+      await writeAntigravityMcpConfig(file, [
+        { name: 'cat-cafe-memory', command: 'node', args: ['memory.js'], enabled: true, source: 'cat-cafe' },
+      ]);
 
-    const raw = JSON.parse(await readFile(file, 'utf-8'));
-    assert.deepEqual(raw.mcpServers['cat-cafe'].env, {
-      CAT_CAFE_API_URL: expectedAntigravityApiUrl(),
-      CAT_CAFE_READONLY: 'true',
-      EXTRA_FLAG: 'keep-me',
-    });
+      const raw = JSON.parse(await readFile(file, 'utf-8'));
+      assert.deepEqual(raw.mcpServers['cat-cafe'].env, {
+        CAT_CAFE_API_URL: expectedAntigravityApiUrl(),
+        CAT_CAFE_READONLY: 'true',
+        ALLOWED_WORKSPACE_DIRS: process.cwd(),
+        EXTRA_FLAG: 'keep-me',
+      });
+    } finally {
+      if (originalAwd === undefined) delete process.env.ALLOWED_WORKSPACE_DIRS;
+      else process.env.ALLOWED_WORKSPACE_DIRS = originalAwd;
+    }
+  });
+
+  it('F061 Bug-F: respects ALLOWED_WORKSPACE_DIRS env override when set', async () => {
+    const file = join(dir, 'mcp_config.json');
+    const originalEnv = process.env.ALLOWED_WORKSPACE_DIRS;
+    try {
+      process.env.ALLOWED_WORKSPACE_DIRS = '/custom/workspace:/another/dir';
+      await writeAntigravityMcpConfig(file, [
+        { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'cat-cafe' },
+      ]);
+      const raw = JSON.parse(await readFile(file, 'utf-8'));
+      assert.equal(raw.mcpServers['cat-cafe'].env.ALLOWED_WORKSPACE_DIRS, '/custom/workspace:/another/dir');
+    } finally {
+      if (originalEnv === undefined) delete process.env.ALLOWED_WORKSPACE_DIRS;
+      else process.env.ALLOWED_WORKSPACE_DIRS = originalEnv;
+    }
   });
 });
 

@@ -87,6 +87,8 @@ const EXPECTED_TOOLS = [
   'cat_cafe_register_scheduled_task',
   'cat_cafe_remove_scheduled_task',
   'cat_cafe_hold_ball',
+  // F061 Bug-F workaround: MCP shell exec for read-only commands
+  'cat_cafe_shell_exec',
 ];
 
 const EXPECTED_COLLAB_TOOLS = [
@@ -124,6 +126,8 @@ const EXPECTED_COLLAB_TOOLS = [
   'cat_cafe_register_scheduled_task',
   'cat_cafe_remove_scheduled_task',
   'cat_cafe_hold_ball',
+  // F061 Bug-F workaround: MCP shell exec for read-only commands
+  'cat_cafe_shell_exec',
 ];
 
 const EXPECTED_MEMORY_TOOLS = [
@@ -326,6 +330,8 @@ const EXPECTED_READONLY_TOOLS = [
   'signal_get_article',
   'signal_search',
   'signal_list_studies',
+  // F061 Bug-F workaround: read-only shell exec whitelist enforced at handler level
+  'cat_cafe_shell_exec',
 ];
 
 describe('F061 READONLY_ALLOWED_TOOLS whitelist', () => {

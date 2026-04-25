@@ -1394,13 +1394,23 @@ describe('generateCliConfigs', () => {
       },
     ]);
 
-    await generateCliConfigs(config, paths);
-    const data = JSON.parse(await readFile(paths.antigravity, 'utf-8'));
+    const originalAwd = process.env.ALLOWED_WORKSPACE_DIRS;
+    delete process.env.ALLOWED_WORKSPACE_DIRS;
+    try {
+      await generateCliConfigs(config, paths);
+      const data = JSON.parse(await readFile(paths.antigravity, 'utf-8'));
 
-    assert.deepEqual(data.mcpServers['cat-cafe-collab'].env, {
-      CAT_CAFE_API_URL: process.env.CAT_CAFE_API_URL?.trim() || 'http://localhost:3002',
-      CAT_CAFE_READONLY: 'true',
-    });
+      assert.deepEqual(data.mcpServers['cat-cafe-collab'].env, {
+        CAT_CAFE_API_URL: process.env.CAT_CAFE_API_URL?.trim() || 'http://localhost:3002',
+        CAT_CAFE_READONLY: 'true',
+        // F061 Bug-F: ALLOWED_WORKSPACE_DIRS must be injected so MCP shell_exec
+        // path boundary guard can resolve project paths (default = process.cwd()).
+        ALLOWED_WORKSPACE_DIRS: process.cwd(),
+      });
+    } finally {
+      if (originalAwd === undefined) delete process.env.ALLOWED_WORKSPACE_DIRS;
+      else process.env.ALLOWED_WORKSPACE_DIRS = originalAwd;
+    }
   });
 
   it('resolves pencil from env override and records resolved state', async () => {

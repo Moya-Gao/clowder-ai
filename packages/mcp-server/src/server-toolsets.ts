@@ -10,6 +10,7 @@ import {
   richBlockRulesTools,
   scheduleTools,
   sessionChainTools,
+  shellTools,
   signalStudyTools,
   signalsTools,
 } from './tools/index.js';
@@ -44,6 +45,8 @@ export const READONLY_ALLOWED_TOOLS = new Set([
   'signal_get_article',
   'signal_search',
   'signal_list_studies',
+  // Shell exec (F061 Bug-F workaround — read-only whitelist enforced at tool level)
+  'cat_cafe_shell_exec',
 ]);
 
 const isReadonly = process.env['CAT_CAFE_READONLY'] === 'true';
@@ -57,6 +60,7 @@ const collabTools: readonly ToolDef[] = applyReadonlyFilter([
   ...richBlockRulesTools,
   ...gameActionTools,
   ...scheduleTools,
+  ...shellTools,
 ]);
 
 const memoryTools: readonly ToolDef[] = applyReadonlyFilter([
