@@ -11,7 +11,7 @@
  */
 
 import type { CatConfig, CatId } from '@cat-cafe/shared';
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import { catRegistry } from '@cat-cafe/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { getConfigSessionStrategy, getRoster, isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getCatVoice } from '../../../../../config/cat-voices.js';
@@ -69,6 +69,7 @@ import {
   createLeakedToolCallStreamStripper,
   detectContextDegradation,
   getService,
+  getThreadBootcampMemberCount,
   isUserFacingSystemInfoContent,
   routeContentBlocksForCat,
   sanitizeInjectedContent,
@@ -180,6 +181,7 @@ export async function* routeSerial(
       /* best-effort */
     }
   }
+  const bootcampMemberCount = getThreadBootcampMemberCount(routeThread);
 
   // F155: Guide interceptor — resume existing guide state only
   const guideCtx = await prepareGuideContext({
@@ -190,6 +192,7 @@ export async function* routeSerial(
     userId,
     threadId,
     log,
+    dismissTracker: deps.invocationDeps.dismissTracker,
   });
 
   try {
@@ -212,8 +215,7 @@ export async function* routeSerial(
       }
 
       // Build identity: static goes in -p content (+ systemPrompt as defense-in-depth), dynamic in -p only
-      const catConfig: CatConfig | undefined =
-        catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
+      const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config;
       const teammates = [...new Set(worklist.filter((id) => id !== catId))];
       const directMessageFrom = worklistEntry.a2aFrom.get(catId);
       // F167 L1: ping-pong warning — inject when this cat just received the ball
@@ -317,7 +319,7 @@ export async function* routeSerial(
         ...(sopStageHint ? { sopStageHint } : {}),
         ...(activeSignals ? { activeSignals } : {}),
         ...(voiceMode ? { voiceMode } : {}),
-        ...(bootcampState ? { bootcampState, threadId } : {}),
+        ...(bootcampState ? { bootcampState, threadId, bootcampMemberCount } : {}),
         ...(alwaysOnDocs && alwaysOnInjectionMode === 'on' ? { alwaysOnDocs } : {}),
         ...guideContextForCat(guideCtx, catId, targetCatIds, threadId),
       });
@@ -809,8 +811,7 @@ export async function* routeSerial(
         // emit on both (but keeps setMentionRoutingFeedback for next-turn correction).
         const phaseHRosterHandles: string[] = [];
         {
-          const allCfg =
-            Object.keys(catRegistry.getAllConfigs()).length > 0 ? catRegistry.getAllConfigs() : CAT_CONFIGS;
+          const allCfg = catRegistry.getAllConfigs();
           for (const cfg of Object.values(allCfg) as CatConfig[]) {
             for (const pattern of cfg.mentionPatterns) phaseHRosterHandles.push(pattern);
           }
@@ -1214,6 +1215,44 @@ export async function* routeSerial(
             if (storedMsgId) worklistEntry.a2aTriggerMessageId.set(nextCat, storedMsgId);
           }
         }
+
+        // F27: Emit a2a_handoff for ALL new A2A targets (both response-text and callback-pushed).
+        // We track which targets have already been announced to avoid duplicate handoff events.
+        for (let wi = handoffEmitted; wi < worklist.length; wi++) {
+          const pendingCat = worklist[wi]!;
+          if (wi < targetCats.length) continue; // Skip original targets — not A2A
+
+          // === A2A_HANDOFF 审计 (fire-and-forget, 缅因猫 review P2-3) ===
+          const auditLog = getEventAuditLog();
+          auditLog
+            .append({
+              type: AuditEventTypes.A2A_HANDOFF,
+              threadId,
+              data: {
+                fromCat: catId,
+                toCat: pendingCat,
+                userId,
+                a2aDepth: worklistEntry.a2aCount,
+                maxDepth,
+              },
+            })
+            .catch((err) => {
+              log.warn({ threadId, fromCat: catId, toCat: pendingCat, err }, 'A2A_HANDOFF audit write failed');
+            });
+
+          const nextConfig: CatConfig | undefined = catRegistry.tryGet(pendingCat as string)?.config;
+          if (options.invocationController && options.trackA2ASlot && !activeTrackedA2ASlots.has(pendingCat)) {
+            options.trackA2ASlot(threadId, pendingCat, userId, options.invocationController);
+            activeTrackedA2ASlots.add(pendingCat);
+          }
+          yield {
+            type: 'a2a_handoff' as AgentMessageType,
+            catId,
+            content: `${catConfig?.displayName ?? catId} → ${nextConfig?.displayName ?? pendingCat}`,
+            timestamp: Date.now(),
+          } as AgentMessage;
+        }
+        handoffEmitted = worklist.length;
       } else if (!hadError) {
         // No text content and no error.
         // Persist only when we have non-text payload (tool/thinking/rich).
@@ -1416,8 +1455,7 @@ export async function* routeSerial(
             log.warn({ threadId, fromCat: catId, toCat: pendingCat, err }, 'A2A_HANDOFF audit write failed');
           });
 
-        const nextConfig: CatConfig | undefined =
-          catRegistry.tryGet(pendingCat as string)?.config ?? CAT_CONFIGS[pendingCat as string];
+        const nextConfig: CatConfig | undefined = catRegistry.tryGet(pendingCat as string)?.config;
         if (options.invocationController && options.trackA2ASlot && !activeTrackedA2ASlots.has(pendingCat)) {
           options.trackA2ASlot(threadId, pendingCat, userId, options.invocationController);
           activeTrackedA2ASlots.add(pendingCat);

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { AntigravityAgentService } from '../dist/domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { collect, createMockBridge } from './antigravity-agent-service-test-helpers.js';
 
@@ -1950,13 +1951,10 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
   // with invocationId/callbackToken — that tool is NOT in the readonly whitelist
   // AND its schema doesn't accept those args. Lock the contract here.
   test('cold-start onboarding tools must match actual MCP whitelist + callback paths', async () => {
-    const { READONLY_ALLOWED_TOOLS } = await import(
-      '../../mcp-server/dist/server-toolsets.js'
-    );
+    const { READONLY_ALLOWED_TOOLS } = await import('../../mcp-server/dist/server-toolsets.js');
     const fs = await import('node:fs');
-    const path = await import('node:path');
-    const sourcePath = path.resolve(
-      'packages/api/dist/domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js',
+    const sourcePath = fileURLToPath(
+      new URL('../dist/domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js', import.meta.url),
     );
     const source = fs.readFileSync(sourcePath, 'utf-8');
 
@@ -1986,9 +1984,7 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     // rev-parse|diff|show). The R2 regression was using `curl ...` here, which
     // shell_exec refuses. Lock that against再犯.
     if (section.includes('cat_cafe_shell_exec')) {
-      const { isReadOnlyShellCommand } = await import(
-        '../../mcp-server/dist/tools/shell-tools.js'
-      );
+      const { isReadOnlyShellCommand } = await import('../../mcp-server/dist/tools/shell-tools.js');
       // Extract every commandLine: "..." occurrence inside cold-start section.
       const cmdLineMatches = [...section.matchAll(/commandLine:\s*"([^"]+)"/g)];
       for (const m of cmdLineMatches) {

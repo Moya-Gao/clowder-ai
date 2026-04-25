@@ -81,6 +81,12 @@ function GuideOverlayInner() {
       : null;
   const isComplete = session?.phase === 'complete';
   const usesHorizontalMedia = !!currentStep?.tipsMetadata && currentStep.tipsMetadata.layout === 'horizontal';
+  const lastStep = session ? session.flow.steps[session.flow.steps.length - 1] : null;
+  const isAutoConfirmFinish = lastStep?.advance === 'auto-confirm';
+
+  useEffect(() => {
+    if (isComplete && isAutoConfirmFinish) exitGuide();
+  }, [isComplete, isAutoConfirmFinish, exitGuide]);
 
   const handleExit = async () => {
     if (session?.threadId) {
@@ -92,11 +98,9 @@ function GuideOverlayInner() {
         });
         if (!response.ok) {
           console.error('[GuideOverlay] Failed to persist guide cancellation:', response.status);
-          return;
         }
       } catch (error) {
         console.error('[GuideOverlay] Failed to persist guide cancellation:', error);
-        return;
       }
     }
     exitGuide();
@@ -285,6 +289,7 @@ function GuideOverlayInner() {
         targetRect={targetRect}
         hudSize={hudSize}
         onExit={handleExit}
+        onNext={currentStep.advance === 'next' ? advanceStep : undefined}
       />
     </>
   );

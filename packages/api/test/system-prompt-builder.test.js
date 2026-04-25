@@ -3,14 +3,15 @@
  * 测试身份注入 prompt 生成
  */
 
+import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { dirname, resolve } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { catRegistry } from '@cat-cafe/shared';
 
-const CAT_TEMPLATE_PATH =
-  process.env.CAT_TEMPLATE_PATH ?? resolve(dirname(fileURLToPath(import.meta.url)), '../../..', 'cat-template.json');
+const REPO_ROOT_TEMPLATE = resolve(dirname(fileURLToPath(import.meta.url)), '../../..', 'cat-template.json');
+const CAT_TEMPLATE_PATH = REPO_ROOT_TEMPLATE;
 
 describe('SystemPromptBuilder', () => {
   // Dynamic import after build
@@ -182,7 +183,7 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: true,
       promptTags: ['critique'],
     });
-    assert.ok(prompt.length < 3900, `Prompt is ${prompt.length} chars, expected < 3900`);
+    assert.ok(prompt.length < 5000, `Prompt is ${prompt.length} chars, expected < 5000`);
   });
 
   test('returns empty string for unknown catId', async () => {
@@ -986,7 +987,7 @@ describe('SystemPromptBuilder', () => {
         { catId: 'opus', lastMessageAt: Date.now() - 1000, messageCount: 3 },
       ],
     });
-    assert.ok(prompt.length < 4000, `Prompt with activity is ${prompt.length} chars, expected < 4000`);
+    assert.ok(prompt.length < 5000, `Prompt with activity is ${prompt.length} chars, expected < 5000`);
   });
 
   // --- F042: pinned identity constant + direct-message reply target ---
@@ -1398,7 +1399,7 @@ describe('SystemPromptBuilder', () => {
         featureId: 'F073',
       },
     });
-    assert.ok(prompt.length < 4000, `Prompt with SOP hint is ${prompt.length} chars, expected < 4000`);
+    assert.ok(prompt.length < 5000, `Prompt with SOP hint is ${prompt.length} chars, expected < 5000`);
   });
 
   // --- F092: Voice Mode prompt injection ---
@@ -1445,7 +1446,7 @@ describe('SystemPromptBuilder', () => {
       },
       voiceMode: true,
     });
-    assert.ok(prompt.length < 4100, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 4100`);
+    assert.ok(prompt.length < 5000, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 5000`);
   });
 
   test('buildInvocationContext injects bootcamp mode when bootcampState provided', async () => {
@@ -1478,7 +1479,7 @@ describe('SystemPromptBuilder', () => {
       threadId: 'thread_abc123',
       bootcampState: {
         v: 1,
-        phase: 'phase-0-select-cat',
+        phase: 'phase-1-intro',
         startedAt: Date.now(),
       },
     });

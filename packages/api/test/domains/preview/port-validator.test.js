@@ -29,8 +29,8 @@ describe('validatePort', () => {
     assert.match(result.reason, /range/i);
   });
 
-  it('rejects Hub API port (3002)', () => {
-    const result = validatePort(3002);
+  it('rejects Hub API port (3004)', () => {
+    const result = validatePort(3004);
     assert.equal(result.allowed, false);
     assert.match(result.reason, /excluded/i);
   });
@@ -40,8 +40,8 @@ describe('validatePort', () => {
     assert.equal(result.allowed, false);
   });
 
-  it('rejects Hub frontend port (3001)', () => {
-    const result = validatePort(3001);
+  it('rejects Hub frontend port (3003)', () => {
+    const result = validatePort(3003);
     assert.equal(result.allowed, false);
   });
 

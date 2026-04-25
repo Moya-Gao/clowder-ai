@@ -68,14 +68,15 @@ describe('cat-config-loader', () => {
       assert.equal(config.breeds[0].id, 'ragdoll');
     });
 
-    it('loads default project cat-template.json when no path/env provided', () => {
+    it('loads default project config when no path/env provided', () => {
       const saved = process.env.CAT_TEMPLATE_PATH;
       delete process.env.CAT_TEMPLATE_PATH;
       try {
         const config = loadCatConfig();
         // F032: version can be 1 or 2 now
         assert.ok(config.version === 1 || config.version === 2);
-        assert.ok(config.breeds.length >= 1);
+        // F171: first-run empty bootstrap allows the default runtime catalog to start with zero members.
+        assert.ok(Array.isArray(config.breeds));
       } finally {
         if (saved === undefined) {
           delete process.env.CAT_TEMPLATE_PATH;
@@ -118,7 +119,6 @@ describe('cat-config-loader', () => {
       base.breeds[0].teamStrengths = 'base-only-strength';
       base.breeds[0].caution = 'base-only-caution';
       writeFileSync(templatePath, JSON.stringify(base));
-      writeFileSync(join(projectDir, 'cat-config.json'), JSON.stringify(base));
 
       // Catalog: same breed with different displayName, but missing teamStrengths/caution
       const runtimeDir = join(projectDir, '.cat-cafe');
@@ -163,7 +163,6 @@ describe('cat-config-loader', () => {
         effort: 'max',
       };
       writeFileSync(templatePath, JSON.stringify(base));
-      writeFileSync(join(projectDir, 'cat-config.json'), JSON.stringify(base));
 
       const runtimeDir = join(projectDir, '.cat-cafe');
       mkdirSync(runtimeDir, { recursive: true });
@@ -211,7 +210,6 @@ describe('cat-config-loader', () => {
         effort: 'xhigh',
       };
       writeFileSync(templatePath, JSON.stringify(base));
-      writeFileSync(join(projectDir, 'cat-config.json'), JSON.stringify(base));
 
       const runtimeDir = join(projectDir, '.cat-cafe');
       mkdirSync(runtimeDir, { recursive: true });
@@ -477,7 +475,7 @@ describe('cat-config-loader', () => {
     });
 
     it('F053: loads project config for gemini (sessionChain: true after parity fix)', () => {
-      // Uses the actual project cat-config.json
+      // Uses the actual project cat-template.json
       const config = loadCatConfig();
       assert.equal(isSessionChainEnabled('gemini', config), true);
       assert.equal(isSessionChainEnabled('opus', config), true);

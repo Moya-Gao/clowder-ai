@@ -12,10 +12,11 @@ interface GuideHUDProps {
   targetRect: DOMRect | null;
   hudSize: { width: number; height: number };
   onExit: () => void;
+  onNext?: () => void;
 }
 
 export const GuideHUD = React.forwardRef<HTMLDivElement, GuideHUDProps>(function GuideHUD(
-  { step, stepIndex, totalSteps, phase, targetRect, hudSize, onExit },
+  { step, stepIndex, totalSteps, phase, targetRect, hudSize, onExit, onNext },
   ref,
 ) {
   const hasMedia = !!step.tipsMetadata;
@@ -80,6 +81,16 @@ export const GuideHUD = React.forwardRef<HTMLDivElement, GuideHUDProps>(function
             aria-label="已完成该步骤"
           >
             已完成该步骤
+          </button>
+        )}
+        {onNext && (
+          <button
+            type="button"
+            onClick={onNext}
+            className="rounded-lg bg-[var(--guide-cutout-ring)] px-4 py-1.5 text-xs font-medium text-white transition hover:opacity-90"
+            aria-label={stepIndex === totalSteps - 1 ? '完成引导' : '下一步'}
+          >
+            {stepIndex === totalSteps - 1 ? '知道了!' : '下一步'}
           </button>
         )}
       </div>

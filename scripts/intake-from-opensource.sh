@@ -679,7 +679,7 @@ echo "Mode: $MODE"
 echo ""
 
 # Fetch PR info
-PR_INFO=$(gh pr view "$PR_NUMBER" --repo "$TARGET_REPO" --json title,state,author,mergedAt,mergeCommit,files 2>/dev/null || true)
+PR_INFO=$(gh pr view "$PR_NUMBER" --repo "$TARGET_REPO" --json title,state,author,mergedAt,mergeCommit 2>/dev/null || true)
 if [ -z "$PR_INFO" ]; then
   echo -e "${RED}✗ Cannot fetch PR #$PR_NUMBER from $TARGET_REPO${NC}"
   exit 1
@@ -704,11 +704,11 @@ if [ "$PR_STATE" != "MERGED" ]; then
   exit 1
 fi
 
-# Get changed files
-FILES=$(echo "$PR_INFO" | node -e "
-  const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8'));
-  (d.files || []).forEach(f => console.log(f.path));
-")
+# Get changed files.
+# `gh pr view --json files` only returns the first page for large PRs; use
+# the REST files endpoint with pagination so the intake table cannot silently
+# miss files beyond the first 100.
+FILES=$(gh api --paginate "repos/$TARGET_REPO/pulls/$PR_NUMBER/files" --jq '.[].filename' 2>/dev/null || true)
 
 if [ -z "$FILES" ]; then
   echo -e "${YELLOW}⚠ No files found in PR (may not be merged yet)${NC}"

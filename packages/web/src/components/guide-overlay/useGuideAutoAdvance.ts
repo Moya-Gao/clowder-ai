@@ -72,7 +72,7 @@ export function useGuideAutoAdvance(step: OrchestrationStep | null, advance: () 
         return;
       }
 
-      if (advanceType === 'confirm') {
+      if (advanceType === 'confirm' || advanceType === 'auto-confirm') {
         const handler = (event: Event) => {
           const detail = (event as CustomEvent<{ target?: string }>).detail;
           if (detail?.target !== target) return;

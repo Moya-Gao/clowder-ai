@@ -1,13 +1,19 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import { fileURLToPath } from 'node:url';
+import { catRegistry } from '@cat-cafe/shared';
 import Fastify from 'fastify';
 import {
   clearRuntimeDefaultCatId,
   getDefaultCatId,
   getOwnerUserId,
+  loadCatConfig,
   setRuntimeDefaultCatId,
+  toAllCatConfigs,
 } from '../dist/config/cat-config-loader.js';
+
+const REPO_TEMPLATE_PATH = fileURLToPath(new URL('../../../cat-template.json', import.meta.url));
+const _allConfigs = toAllCatConfigs(loadCatConfig(REPO_TEMPLATE_PATH));
 
 describe('getDefaultCatId runtime override (F154 AC-A4)', () => {
   let originalDefault;
@@ -71,8 +77,8 @@ describe('PUT /api/config/default-cat works without DEFAULT_OWNER_USER_ID', () =
 
   before(async () => {
     catRegistry.reset();
-    catRegistry.register('opus', CAT_CONFIGS.opus);
-    catRegistry.register('codex', CAT_CONFIGS.codex);
+    catRegistry.register('opus', _allConfigs.opus);
+    catRegistry.register('codex', _allConfigs.codex);
     delete process.env.DEFAULT_OWNER_USER_ID;
     clearRuntimeDefaultCatId();
     const { configRoutes } = await import('../dist/routes/config.js');
@@ -124,8 +130,8 @@ describe('getDefaultCatId reads DEFAULT_CAT_ID env (clowder-ai#543)', () => {
   it('ignores DEFAULT_CAT_ID when it references an unknown cat', () => {
     clearRuntimeDefaultCatId();
     catRegistry.reset();
-    catRegistry.register('opus', CAT_CONFIGS.opus);
-    catRegistry.register('codex', CAT_CONFIGS.codex);
+    catRegistry.register('opus', _allConfigs.opus);
+    catRegistry.register('codex', _allConfigs.codex);
     process.env.DEFAULT_CAT_ID = 'not-a-cat';
     const result = getDefaultCatId();
     assert.notEqual(result, 'not-a-cat', 'should not return unknown catId from env');
@@ -147,8 +153,8 @@ describe('PUT /api/config/default-cat persists to .env (clowder-ai#543)', () => 
     writeFileSync(tmpEnvPath, '', 'utf8');
 
     catRegistry.reset();
-    catRegistry.register('opus', CAT_CONFIGS.opus);
-    catRegistry.register('codex', CAT_CONFIGS.codex);
+    catRegistry.register('opus', _allConfigs.opus);
+    catRegistry.register('codex', _allConfigs.codex);
     process.env.DEFAULT_OWNER_USER_ID = OWNER_ID;
     clearRuntimeDefaultCatId();
     const { configRoutes } = await import('../dist/routes/config.js');
@@ -204,8 +210,8 @@ describe('PUT /api/config/default-cat atomicity (cloud review P1)', () => {
 
   before(async () => {
     catRegistry.reset();
-    catRegistry.register('opus', CAT_CONFIGS.opus);
-    catRegistry.register('codex', CAT_CONFIGS.codex);
+    catRegistry.register('opus', _allConfigs.opus);
+    catRegistry.register('codex', _allConfigs.codex);
     process.env.DEFAULT_OWNER_USER_ID = OWNER_ID;
     clearRuntimeDefaultCatId();
     const { configRoutes } = await import('../dist/routes/config.js');
@@ -256,8 +262,8 @@ describe('GET/PUT /api/config/default-cat (F154 AC-A4)', () => {
   before(async () => {
     // Register cats so catRegistry.has() validation works
     catRegistry.reset();
-    catRegistry.register('opus', CAT_CONFIGS.opus);
-    catRegistry.register('codex', CAT_CONFIGS.codex);
+    catRegistry.register('opus', _allConfigs.opus);
+    catRegistry.register('codex', _allConfigs.codex);
     // Set DEFAULT_OWNER_USER_ID for owner gate
     process.env.DEFAULT_OWNER_USER_ID = OWNER_ID;
     clearRuntimeDefaultCatId();

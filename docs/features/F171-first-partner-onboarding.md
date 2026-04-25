@@ -9,7 +9,7 @@ community_pr: ["clowder-ai#520"]
 
 # F171: First Partner Onboarding — 领养第一只猫 / 配置第一位伙伴
 
-> **Status**: spec | **Owner**: 缅因猫/gpt52 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 缅因猫/gpt52 | **Priority**: P1
 
 ## Why
 
@@ -66,6 +66,12 @@ community_pr: ["clowder-ai#520"]
   - “新手训练营”命名
   - 完整 bootcamp storyline
   - 与家里既有 guide / runtime 语义冲突的部分
+
+### Phase E: 回家吸收与 follow-up
+
+- `clowder-ai#520` 已合入开源仓，cat-cafe 侧通过 intake PR 吸收可复用实现
+- 吸收范围以 “First Partner Onboarding” 产品语意为准：保留 F171 的领养第一只猫 / 配置第一位伙伴 framing
+- 现有项目迁移、完整 E2E、README/SETUP 公开文档更新仍作为后续闭环，不作为本次 intake 的完成条件
 
 ## Acceptance Criteria
 
@@ -133,6 +139,7 @@ community_pr: ["clowder-ai#520"]
 | 日期 | 事件 |
 |------|------|
 | 2026-04-22 | 立项：F171 冷启动首位伙伴 onboarding |
+| 2026-04-25 | Intake `clowder-ai#520`：吸收零成员冷启动、first-run wizard、账号统一与 guide overlay 实现，保留家里 F171 产品语意 |
 
 ## Review Gate
 

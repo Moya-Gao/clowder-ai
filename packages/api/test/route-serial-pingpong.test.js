@@ -12,9 +12,13 @@
  * 共 4 次 invoke，opus 2 次、codex 2 次。
  */
 
+import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { catRegistry } from '@cat-cafe/shared';
+
+const REPO_TEMPLATE_PATH = fileURLToPath(new URL('../../../cat-template.json', import.meta.url));
 
 function createCapturingService(catId, text) {
   const calls = [];
@@ -90,14 +94,14 @@ function createMockDeps(services) {
 
 async function loadRealRoster() {
   const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
-  const runtimeConfigs = toAllCatConfigs(loadCatConfig());
+  const runtimeConfigs = toAllCatConfigs(loadCatConfig(REPO_TEMPLATE_PATH));
   catRegistry.reset();
   for (const [id, config] of Object.entries(runtimeConfigs)) {
     catRegistry.register(id, config);
   }
 }
 
-describe('F167 L1: route-serial ping-pong circuit breaker', () => {
+describe('F167 L1: route-serial ping-pong circuit breaker', { concurrency: false }, () => {
   test('streak=4 (opus↔codex × 4 rounds) → block enqueue + emit a2a_pingpong_terminated', async () => {
     const original = catRegistry.getAllConfigs();
     await loadRealRoster();

@@ -20,6 +20,14 @@ function connectClient(port, auth = { userId: 'default-user' }) {
   });
 }
 
+async function waitFor(predicate, { timeoutMs = 1000, intervalMs = 10 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
+
 describe('SocketManager cancel_invocation', () => {
   let httpServer;
   let socketManager;
@@ -65,7 +73,11 @@ describe('SocketManager cancel_invocation', () => {
     await new Promise((resolve) => setTimeout(resolve, 30));
 
     socket.emit('cancel_invocation', { threadId: 'thread-1' });
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await waitFor(
+      () =>
+        received.filter((msg) => msg.type === 'system_info').length === 1 &&
+        received.filter((msg) => msg.type === 'done').length === 2,
+    );
 
     assert.equal(invocationTracker.cancelAll.mock.calls.length, 1);
     assert.deepEqual(
@@ -106,7 +118,11 @@ describe('SocketManager cancel_invocation', () => {
     await new Promise((resolve) => setTimeout(resolve, 30));
 
     socket.emit('cancel_invocation', { threadId: 'thread-1', catId: 'opus' });
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await waitFor(
+      () =>
+        received.filter((msg) => msg.type === 'system_info').length === 1 &&
+        received.filter((msg) => msg.type === 'done').length === 1,
+    );
 
     assert.equal(invocationTracker.cancel.mock.calls.length, 1);
     assert.deepEqual(

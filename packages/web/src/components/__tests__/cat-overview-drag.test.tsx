@@ -30,7 +30,6 @@ function minimalCat(id: string, sessionChain?: boolean): import('@/hooks/useCatD
     avatar: '',
     roleDescription: '',
     personality: '',
-    source: 'seed',
     ...(sessionChain !== undefined ? { sessionChain } : {}),
   } as import('@/hooks/useCatData').CatData;
 }

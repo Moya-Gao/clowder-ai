@@ -194,9 +194,7 @@ export const shellExecInputSchema = {
   cwd: z
     .string()
     .optional()
-    .describe(
-      'Working directory (defaults to first ALLOWED_WORKSPACE_DIRS entry — typically the workspace repo root)',
-    ),
+    .describe('Working directory (defaults to first ALLOWED_WORKSPACE_DIRS entry — typically the workspace repo root)'),
 };
 
 function truncate(s: string, max: number): string {
