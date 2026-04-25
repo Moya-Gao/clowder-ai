@@ -715,11 +715,14 @@ export async function* routeSerial(
             if (effectiveMsg.type === 'text' && !effectiveMsg.content) {
               continue;
             }
-            // Tag CLI stdout text with origin: 'stream' (thinking/internal)
+            // F176: native-CLI text is the cat's final assistant response.
+            // origin='stream' for transport classification; messageRole='final'
+            // for semantic classification — frontend renders as main bubble.
             yield effectiveMsg.type === 'text'
               ? {
                   ...effectiveMsg,
                   origin: 'stream' as const,
+                  messageRole: 'final' as const,
                   ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
                   ...(streamReplyPreview ? { replyPreview: streamReplyPreview } : {}),
                 }
@@ -1083,6 +1086,8 @@ export async function* routeSerial(
             content: storedContent,
             mentions: a2aMentions,
             origin: 'stream',
+            // F176: persisted final response carries semantic role for hydration rendering
+            messageRole: 'final',
             timestamp: storedTimestamp,
             threadId,
             ...(mentionsUser ? { mentionsUser } : {}),

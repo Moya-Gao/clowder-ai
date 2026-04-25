@@ -624,7 +624,8 @@ export async function* routeParallel(
       }
 
       if (effectiveMsg.type === 'text' && !effectiveMsg.content) continue;
-      yield effectiveMsg;
+      // F176: parallel-mode text is the cat's final assistant response.
+      yield effectiveMsg.type === 'text' ? { ...effectiveMsg, messageRole: 'final' as const } : effectiveMsg;
     }
 
     if (msg.type === 'done' && msg.catId) {
@@ -775,6 +776,8 @@ export async function* routeParallel(
             content: storedContent,
             mentions: [],
             origin: 'stream',
+            // F176: persisted final response carries semantic role for hydration rendering
+            messageRole: 'final',
             timestamp: Date.now(),
             threadId,
             ...(thinking && thinking.length > 0 ? { thinking: renderThinkingChunks(thinking) } : {}),

@@ -1231,6 +1231,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       ...(m.toolEvents ? { toolEvents: m.toolEvents } : {}),
       ...(m.metadata ? { metadata: m.metadata } : {}),
       ...(m.origin ? { origin: m.origin } : {}),
+      ...(m.messageRole ? { messageRole: m.messageRole } : {}),
       ...(m.thinking ? { thinking: m.thinking } : {}),
       ...(m.extra?.rich || m.extra?.crossPost || m.extra?.stream || m.extra?.targetCats || m.extra?.scheduler
         ? {

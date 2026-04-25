@@ -168,6 +168,43 @@ describe('RedisMessageStore', { skip: redisIsolationSkipReason(REDIS_URL) }, () 
     assert.equal(before[1].content, 'msg4');
   });
 
+  it('F176 R1: messageRole roundtrips through Redis (hset + deserialize)', async () => {
+    // Closes the bug 砚砚 caught: backend tagged messageRole='final' but Redis
+    // serialize/deserialize stripped the field, so F5 hydration loses it and
+    // the cat's final response falls back to collapsed CLI Output.
+    const msg = await store.append({
+      userId: 'u1',
+      catId: 'opus',
+      content: 'cat final response text',
+      mentions: [],
+      origin: 'stream',
+      messageRole: 'final',
+      timestamp: Date.now(),
+    });
+    assert.equal(msg.messageRole, 'final', 'append() return value should preserve messageRole');
+
+    // Re-fetch from Redis to confirm persistence
+    const refetched = await store.getById(msg.id);
+    assert.equal(refetched.messageRole, 'final', 'Redis roundtrip should preserve messageRole');
+    assert.equal(refetched.origin, 'stream', 'origin should also be preserved');
+  });
+
+  it('F176 R1: legacy messages (no messageRole) roundtrip undefined', async () => {
+    // Backwards-compat: pre-F176 messages have no messageRole — must stay undefined,
+    // not promoted to any value, so frontend fallback (CLI Output) still works.
+    const msg = await store.append({
+      userId: 'u1',
+      catId: 'opus',
+      content: 'legacy cli output',
+      mentions: [],
+      origin: 'stream',
+      timestamp: Date.now(),
+    });
+    assert.equal(msg.messageRole, undefined, 'no messageRole input → no messageRole output');
+    const refetched = await store.getById(msg.id);
+    assert.equal(refetched.messageRole, undefined, 'Redis roundtrip preserves undefined');
+  });
+
   it('hardDelete clears toolEvents from returned object and Redis', async () => {
     const msg = await store.append({
       userId: 'u',

@@ -139,8 +139,16 @@ export interface AgentMessage {
   isFinal?: boolean;
   /** Provider/model metadata (set by agent services) */
   metadata?: MessageMetadata;
-  /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
+  /** Message origin: stream = CLI stdout, callback = MCP post_message */
   origin?: 'stream' | 'callback';
+  /**
+   * F176: Semantic role of the message text, independent of `origin` transport.
+   * - `final`: cat's final assistant response — frontend renders as main bubble
+   * - `thinking`: scratchpad/reasoning — frontend folds into ThinkingContent
+   * - `cli_stdout`: real CLI tool execution noise — frontend folds into CliOutputBlock
+   * - `undefined` (legacy): falls back to pre-F176 rendering (stream → CliOutputBlock)
+   */
+  messageRole?: 'final' | 'thinking' | 'cli_stdout';
   /** Backend stored-message ID (set for callback post-message, used for rich_block correlation) */
   messageId?: string;
   /** F52: Cross-thread origin metadata (set for cross-thread callback messages) */

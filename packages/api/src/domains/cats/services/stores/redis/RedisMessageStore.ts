@@ -125,6 +125,7 @@ export class RedisMessageStore {
       timestamp: String(msg.timestamp),
       ...(msg.thinking ? { thinking: msg.thinking } : {}),
       ...(msg.origin ? { origin: msg.origin } : {}),
+      ...(msg.messageRole ? { messageRole: msg.messageRole } : {}),
       ...(msg.visibility ? { visibility: msg.visibility } : {}),
       ...(msg.whisperTo ? { whisperTo: JSON.stringify(msg.whisperTo) } : {}),
       ...(msg.source ? { source: JSON.stringify(msg.source) } : {}),
@@ -224,6 +225,9 @@ export class RedisMessageStore {
       ...(data.thinking ? { thinking: data.thinking } : {}),
       ...(data.origin === 'stream' || data.origin === 'callback' || data.origin === 'briefing'
         ? { origin: data.origin as 'stream' | 'callback' | 'briefing' }
+        : {}),
+      ...(data.messageRole === 'final' || data.messageRole === 'thinking' || data.messageRole === 'cli_stdout'
+        ? { messageRole: data.messageRole as 'final' | 'thinking' | 'cli_stdout' }
         : {}),
       ...(data.visibility === 'whisper' ? { visibility: 'whisper' as const } : {}),
       ...(data.whisperTo ? { whisperTo: safeParseMentions(data.whisperTo) } : {}),

@@ -242,6 +242,40 @@ describe('background thread socket handling', () => {
       expect(ts.messages[0]?.origin).toBe('callback');
     });
 
+    it('F176 R2: text after tool_use patches messageRole onto existing background bubble', () => {
+      // Background sibling of the foreground F176 R2 case in useAgentMessages-bubble-merge.
+      // tool_use creates an empty stream bubble; subsequent text(messageRole='final') must
+      // patch messageRole onto that bubble, otherwise final-bubble rendering loses the field
+      // and the user sees only a collapsed CLI Output (the screenshot scenario).
+      const now = Date.now();
+      useChatStore.getState().setThreadCatInvocation('thread-bg-r2', 'opus', { invocationId: 'inv-bg-r2' });
+      useChatStore.getState().addMessageToThread('thread-bg-r2', {
+        id: 'bg-tool-first',
+        type: 'assistant',
+        catId: 'opus',
+        content: '',
+        origin: 'stream',
+        isStreaming: true,
+        extra: { stream: { invocationId: 'inv-bg-r2' } },
+        timestamp: now,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg-r2',
+        content: 'final answer text',
+        origin: 'stream',
+        invocationId: 'inv-bg-r2',
+        messageRole: 'final',
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg-r2');
+      const bubble = ts.messages.find((m) => m.id === 'bg-tool-first');
+      expect(bubble?.messageRole, 'existing background bubble must receive messageRole=final').toBe('final');
+    });
+
     it('callback-origin text replaces overlapping background stream bubble from the same invocation', () => {
       const now = Date.now();
       useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-bg-1' });
