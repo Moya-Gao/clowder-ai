@@ -14,6 +14,7 @@
 
 import { useCallback, useState } from 'react';
 import type { RichCardBlock } from '@/stores/chat-types';
+import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 
 const REASON_LABEL: Record<string, string> = {
@@ -50,6 +51,12 @@ export function CallbackAuthFailureBlock({ block }: { block: RichCardBlock }) {
   const [hidden, setHidden] = useState(false);
   const [hideError, setHideError] = useState<string | null>(null);
   const [hidePending, setHidePending] = useState(false);
+
+  const openHub = useChatStore((s) => s.openHub);
+
+  const handleOpenDetails = useCallback(() => {
+    openHub('observability', 'callback-auth');
+  }, [openHub]);
 
   const handleHide = useCallback(async () => {
     if (!meta) return;
@@ -139,19 +146,18 @@ export function CallbackAuthFailureBlock({ block }: { block: RichCardBlock }) {
 
       <div className="mt-3 flex items-center gap-2">
         {/*
-         * 砚砚 P2 #1397: 详情/重试 are P0-on-failure actions — must not look
-         * tappable when they're not wired. Render disabled with explicit
-         * "(pending Dxx)" hint so the user understands the state without
-         * trying and getting nothing back.
+         * D2b-3 (HubObservabilityTab Callback Auth subtab) is now wired — 详情
+         * opens the deep-dive panel via openHub('observability', 'callback-auth').
+         * 重试 still pending (needs callback-tools orchestration, separate concern).
          */}
         <button
           type="button"
-          disabled
-          title="待 D2b-3 (HubObservabilityTab 子 tab) 落地后启用"
-          className="rounded px-3 py-1 text-[11px] font-semibold border cursor-not-allowed opacity-50"
+          onClick={handleOpenDetails}
+          title="打开 HubObservabilityTab 的 Callback Auth 子 tab 看 24h 详情"
+          className="rounded px-3 py-1 text-[11px] font-semibold border"
           style={{ backgroundColor: '#FFFFFF', color: '#9A3412', borderColor: '#FED7AA' }}
         >
-          详情 (待 D2b-3)
+          详情
         </button>
         <button
           type="button"

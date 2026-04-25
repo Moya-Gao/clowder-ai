@@ -3,7 +3,7 @@ import { useCatData } from '@/hooks/useCatData';
 import { useIMEGuard } from '@/hooks/useIMEGuard';
 import type { ThreadState } from '@/stores/chat-types';
 import { API_URL } from '@/utils/api-client';
-import { CatAvatar } from '../CatAvatar';
+import { CallbackAuthCatAvatar } from '../CallbackAuthCatAvatar';
 import { HubIcon } from '../icons/HubIcon';
 import { PawIcon } from '../icons/PawIcon';
 import { ThreadCatStatus } from '../ThreadCatStatus';
@@ -251,7 +251,7 @@ export function ThreadItem({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
           {participants.length > 0 ? (
-            participants.map((catId) => <CatAvatar key={catId} catId={catId} size={16} />)
+            participants.map((catId) => <CallbackAuthCatAvatar key={catId} catId={catId} size={16} />)
           ) : id !== 'default' ? (
             <>
               <PawIcon className="text-xs" />

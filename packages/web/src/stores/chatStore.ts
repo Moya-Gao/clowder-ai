@@ -754,8 +754,12 @@ export interface ChatState {
   setPendingChatInsert: (insert: { threadId: string; text: string } | null) => void;
 
   // ── Hub modal (F12) ──
-  hubState: { open: boolean; tab?: string } | null;
-  openHub: (tab?: string) => void;
+  // F174 D2b-3 cloud P2 #1403: subTabNonce bumps on every openHub call so a
+  // second deep-link with the SAME (tab, subTab) still triggers a re-sync —
+  // value-only diff in HubObservabilityTab's useEffect would silently no-op.
+  hubState: { open: boolean; tab?: string; subTab?: string; subTabNonce?: number } | null;
+  /** F174 D2b-3: optional subTab for deep-linking into observability sub-routes etc. */
+  openHub: (tab?: string, subTab?: string) => void;
   closeHub: () => void;
 
   // ── F079: Vote modal ──
@@ -1052,7 +1056,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setPendingChatInsert: (insert) => set({ pendingChatInsert: insert }),
 
   hubState: null,
-  openHub: (tab) => set({ hubState: { open: true, tab } }),
+  openHub: (tab, subTab) =>
+    set({
+      hubState: {
+        open: true,
+        tab,
+        subTab,
+        // Per-invocation nonce so HubObservabilityTab.useEffect fires even when
+        // (tab, subTab) values repeat (e.g. user navigates away then re-clicks 详情).
+        subTabNonce: Date.now() + Math.random(),
+      },
+    }),
   closeHub: () => set({ hubState: null }),
   showVoteModal: false,
   setShowVoteModal: (show) => set({ showVoteModal: show }),
