@@ -1943,4 +1943,95 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.ok(round2Text.includes('token-xyz'), 'round 2 prompt keeps callbackToken after fatal');
     assert.ok(round2Text.includes('round-2 question'), 'round 2 prompt body present');
   });
+
+  // F061 Bug-F UX (codex peer review on 8b1a71ba): cold-start onboarding tools
+  // MUST exist in READONLY_ALLOWED_TOOLS or be accessed via callback HTTP.
+  // The previous version of the prompt referenced cat_cafe_get_thread_context
+  // with invocationId/callbackToken — that tool is NOT in the readonly whitelist
+  // AND its schema doesn't accept those args. Lock the contract here.
+  test('cold-start onboarding tools must match actual MCP whitelist + callback paths', async () => {
+    const { READONLY_ALLOWED_TOOLS } = await import(
+      '../../mcp-server/dist/server-toolsets.js'
+    );
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const sourcePath = path.resolve(
+      'packages/api/dist/domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js',
+    );
+    const source = fs.readFileSync(sourcePath, 'utf-8');
+
+    // Locate the cold-start onboarding section verbatim (compiled JS preserves it).
+    const startIdx = source.indexOf('Cold-start onboarding');
+    assert.ok(startIdx > 0, 'cold-start onboarding section must be present in compiled prompt');
+    const sectionEnd = source.indexOf('[F061 Bug-F workaround', startIdx);
+    assert.ok(sectionEnd > startIdx, 'cold-start onboarding section must end before Bug-F workaround section');
+    const section = source.slice(startIdx, sectionEnd);
+
+    // (1) Every cat_cafe_* tool referenced in cold-start MUST be in the readonly
+    // whitelist (otherwise Bengal calls it and gets "tool not found"). The
+    // previous prompt referenced cat_cafe_get_thread_context which was NOT in
+    // the whitelist — that was the R1 regression target.
+    const toolMatches = section.match(/cat_cafe_[a-z_]+/g) ?? [];
+    const uniqueTools = [...new Set(toolMatches)];
+    for (const tool of uniqueTools) {
+      assert.ok(
+        READONLY_ALLOWED_TOOLS.has(tool),
+        `cold-start onboarding references "${tool}" but it's not in READONLY_ALLOWED_TOOLS — ` +
+          `Bengal will fail to call it. Either add to whitelist or stop referencing it.`,
+      );
+    }
+
+    // (2) If cold-start references cat_cafe_shell_exec, every commandLine MUST
+    // pass shell_exec's own readonly whitelist (pwd / ls / cat / git log|status|
+    // rev-parse|diff|show). The R2 regression was using `curl ...` here, which
+    // shell_exec refuses. Lock that against再犯.
+    if (section.includes('cat_cafe_shell_exec')) {
+      const { isReadOnlyShellCommand } = await import(
+        '../../mcp-server/dist/tools/shell-tools.js'
+      );
+      // Extract every commandLine: "..." occurrence inside cold-start section.
+      const cmdLineMatches = [...section.matchAll(/commandLine:\s*"([^"]+)"/g)];
+      for (const m of cmdLineMatches) {
+        const cmd = m[1];
+        assert.ok(
+          isReadOnlyShellCommand(cmd),
+          `cold-start onboarding embeds shell_exec commandLine="${cmd}" but it fails ` +
+            `isReadOnlyShellCommand whitelist. Bengal will get a "Refused" error at runtime.`,
+        );
+      }
+    }
+
+    // (3) R3 regression target: cat_cafe_list_session_chain requires threadId,
+    // but callbackEnv didn't inject it before. With the fix, threadId must be
+    // a concrete string in the rendered prompt (or backtick template var that
+    // resolves at render time), NOT the bare token "threadId" or undefined.
+    // Drive it through the actual builder: invoke buildCallbackFallbackInstructions
+    // with a populated callbackEnv and assert the rendered string contains the
+    // threadId literal — not the variable name.
+    const fakeEnv = {
+      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_INVOCATION_ID: 'test-inv-001',
+      CAT_CAFE_CALLBACK_TOKEN: 'test-tok-xyz',
+      CAT_CAFE_USER_ID: 'default-user',
+      CAT_CAFE_CAT_ID: 'antig-opus',
+      CAT_CAFE_THREAD_ID: 'thread_test_001',
+    };
+    const svcSourceModule = await import(
+      '../dist/domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js'
+    );
+    // buildCallbackFallbackInstructions is internal — but it's invoked during
+    // invoke() and the rendered prompt ends up in bridge.sendMessage call.
+    // Easier: instantiate the prompt directly via a probe export OR just check
+    // the source template uses ${threadId} interpolation correctly.
+    // Source check is sufficient: verify section contains the interpolation
+    // pattern that resolves to a literal at runtime.
+    void svcSourceModule;
+    assert.match(
+      section,
+      /threadId:\s*"\$\{threadId/,
+      `cold-start onboarding must render concrete threadId via \${threadId} interpolation, ` +
+        `not the literal word "threadId" — Bengal needs the actual id to call list_session_chain`,
+    );
+    void fakeEnv;
+  });
 });

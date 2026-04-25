@@ -20,7 +20,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { z } from 'zod';
-import { isPathAllowed } from '../utils/path-validator.js';
+import { getDefaultConfig, isPathAllowed } from '../utils/path-validator.js';
 import { errorResult, successResult, type ToolResult } from './file-tools.js';
 
 const execAsync = promisify(exec);
@@ -171,9 +171,32 @@ export function getPathBoundaryRefusalReason(commandLine: string, cwd: string): 
   return null;
 }
 
+/**
+ * Pick the default cwd when caller doesn't pass one.
+ *
+ * Antigravity spawns MCP server processes with cwd=`/`, so process.cwd() lands
+ * outside ALLOWED_WORKSPACE_DIRS and every cwd-less call would self-reject.
+ * Instead, prefer the first non-cat-cafe-data entry from ALLOWED_WORKSPACE_DIRS
+ * (skip the cat-cafe data dir which is metadata-only, not a working repo).
+ * Fall back to process.cwd() only if no workspace dir is configured (the
+ * downstream guard will then reject it, which is correct).
+ */
+function pickDefaultCwd(): string {
+  const { catCafeDir, allowedDirs } = getDefaultConfig();
+  for (const dir of allowedDirs) {
+    if (path.resolve(dir) !== path.resolve(catCafeDir)) return dir;
+  }
+  return process.cwd();
+}
+
 export const shellExecInputSchema = {
   commandLine: z.string().min(1).describe('The shell command to execute (read-only whitelist enforced)'),
-  cwd: z.string().optional().describe('Working directory (defaults to current process cwd)'),
+  cwd: z
+    .string()
+    .optional()
+    .describe(
+      'Working directory (defaults to first ALLOWED_WORKSPACE_DIRS entry — typically the workspace repo root)',
+    ),
 };
 
 function truncate(s: string, max: number): string {
@@ -198,7 +221,13 @@ export async function handleShellExec(input: { commandLine: string; cwd?: string
     );
   }
 
-  const cwd = input.cwd ?? process.cwd();
+  // Default cwd: prefer the first allowed workspace dir over process.cwd().
+  // MCP server processes are spawned by Antigravity with cwd='/' by default, so
+  // process.cwd() falls outside ALLOWED_WORKSPACE_DIRS and every cwd-less call
+  // would self-reject. Picking the first non-cat-cafe-data allowed dir matches
+  // Bengal's actual workspace root and lets `cat_cafe_shell_exec({ commandLine })`
+  // work without the caller threading cwd through every invocation.
+  const cwd = input.cwd ?? pickDefaultCwd();
   const resolvedCwd = path.resolve(cwd);
   if (!isPathAllowed(resolvedCwd)) {
     return errorResult(`Refused: cwd outside allowed roots (${resolvedCwd}). See ALLOWED_WORKSPACE_DIRS env.`);

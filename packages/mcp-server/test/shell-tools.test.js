@@ -105,10 +105,32 @@ test('handleShellExec — pwd runs successfully + reports cwd/duration/stdout', 
   assert.match(text, /\/(private\/)?tmp/);
 });
 
-test('handleShellExec — default cwd uses process.cwd', async () => {
+test('handleShellExec — default cwd lands in an allowed workspace dir (Bengal UX fix)', async () => {
+  // Antigravity spawns MCP servers with cwd=`/`, so process.cwd() lands outside
+  // ALLOWED_WORKSPACE_DIRS and every cwd-less call would self-reject. Default
+  // now picks the first non-cat-cafe-data allowed dir.
   const result = await handleShellExec({ commandLine: 'pwd' });
-  assert.notEqual(result.isError, true);
-  assert.match(result.content[0].text, new RegExp(`Cwd: ${process.cwd().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+  assert.notEqual(result.isError, true, `expected success, got: ${result.content[0].text}`);
+  const text = result.content[0].text;
+  // Default cwd must NOT be `/` (the regression target).
+  assert.doesNotMatch(text, /Cwd: \/$/m, 'default cwd must not be `/`');
+  // It should be some allowed dir. Status should be success, not refused.
+  assert.match(text, /Status: success/);
+});
+
+test('handleShellExec — default cwd is NOT process.cwd when MCP runs from `/` (regression for Bengal Bug)', async () => {
+  // Simulate Antigravity behavior: real cwd is `/` but ALLOWED_WORKSPACE_DIRS
+  // contains workspace root. Verify pickDefaultCwd skips process.cwd() in
+  // favor of allowed dir.
+  const originalCwd = process.cwd();
+  try {
+    process.chdir('/');
+    const result = await handleShellExec({ commandLine: 'pwd' });
+    assert.notEqual(result.isError, true, `should succeed even with cwd=/, got: ${result.content[0].text}`);
+    assert.doesNotMatch(result.content[0].text, /Cwd: \/$/, 'default cwd must not be `/`');
+  } finally {
+    process.chdir(originalCwd);
+  }
 });
 
 // ============ Path boundary (砚砚 P1 guard) ============
