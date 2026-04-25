@@ -999,7 +999,7 @@
     {
       "id": "F159",
       "name": "CatAgent Native Provider — Opt-in API Path",
-      "status": "spec | **Owner**: 社区 (bouillipx) + 布偶猫 + 缅因猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 社区 (bouillipx) + 布偶猫 + 缅因猫 | **Priority**: P1",
       "file": "F159-catagent-native-provider.md"
     },
     {
