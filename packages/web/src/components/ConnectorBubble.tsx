@@ -148,7 +148,7 @@ export function ConnectorBubble({ message }: ConnectorBubbleProps) {
           className={`${theme.bubble} rounded-2xl rounded-bl-sm px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden`}
         >
           {hasBlocks ? renderContentBlocks(message.contentBlocks!) : <MarkdownContent content={message.content} />}
-          {richBlocks && richBlocks.length > 0 && <RichBlocks blocks={richBlocks} />}
+          {richBlocks && richBlocks.length > 0 && <RichBlocks blocks={richBlocks} messageSource={message.source} />}
         </div>
       </div>
     </div>

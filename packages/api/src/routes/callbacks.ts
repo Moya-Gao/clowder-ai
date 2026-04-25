@@ -34,6 +34,7 @@ import {
   registerCallbackAuthHook,
   requireCallbackAuth,
 } from './callback-auth-prehandler.js';
+import { CallbackAuthSystemMessageNotifier } from './callback-auth-system-message.js';
 import { recordCallbackAuthFailure } from './callback-auth-telemetry.js';
 import { registerCallbackBootcampRoutes } from './callback-bootcamp-routes.js';
 import { registerCallbackDocumentRoutes } from './callback-document-routes.js';
@@ -59,6 +60,8 @@ export interface CallbackRoutesOptions {
   registry: InvocationRegistry;
   messageStore: IMessageStore;
   socketManager: SocketManager;
+  /** F174 D2b-1: in-context surface for callback auth failures (optional — back-compat). */
+  callbackAuthNotifier?: CallbackAuthSystemMessageNotifier;
   /** F155 review fix: allow tests to inject a failing guide flow loader. */
   loadGuideFlow?: (guideId: string) => unknown;
   /** F155 review fix: allow tests to inject guide availability prerequisites. */
@@ -317,6 +320,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     registry,
     messageStore,
     socketManager,
+    callbackAuthNotifier,
     taskStore,
     backlogStore,
     threadStore,
@@ -329,8 +333,11 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     queueProcessor,
   } = opts;
 
-  // #476: Unified callback auth — extract credentials from headers, decorate request.callbackAuth
-  registerCallbackAuthHook(app, registry);
+  // #476: Unified callback auth — extract credentials from headers, decorate request.callbackAuth.
+  // F174 D2b-1: when callbackAuthNotifier is wired (via opts), surface in-context system message
+  // in the affected thread on surface-able 401 (expired/invalid_token). See
+  // cat-cafe-skills/refs/in-context-observability-checklist.md.
+  registerCallbackAuthHook(app, registry, callbackAuthNotifier ? { notifier: callbackAuthNotifier } : undefined);
 
   app.post('/api/callbacks/post-message', async (request, reply) => {
     const record = requireCallbackAuth(request, reply);

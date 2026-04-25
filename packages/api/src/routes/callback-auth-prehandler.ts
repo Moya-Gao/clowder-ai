@@ -7,6 +7,7 @@
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { InvocationRecord, VerifyResult } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
+import type { CallbackAuthSystemMessageNotifier } from './callback-auth-system-message.js';
 import { recordCallbackAuthFailure, recordLegacyFallbackHit } from './callback-auth-telemetry.js';
 import { makeCallbackAuthError } from './callback-errors.js';
 
@@ -30,6 +31,19 @@ declare module 'fastify' {
 
 interface CallbackAuthRegistry {
   verify(invocationId: string, callbackToken: string): Promise<VerifyResult>;
+  /**
+   * F174 D2b-1: pure record read, ignoring TTL. Used by the in-context
+   * surface to recover threadId/catId/userId for the notifier even when
+   * verify() has just deleted the record on `expired` (砚砚 P1 #1397
+   * review — getRecord() also deletes on expired so it can't be used for
+   * this purpose).
+   */
+  peekRecord?(invocationId: string): Promise<InvocationRecord | null>;
+}
+
+export interface CallbackAuthHookOptions {
+  /** F174 D2b-1: in-context system message notifier for surface-able 401s. */
+  notifier?: Pick<CallbackAuthSystemMessageNotifier, 'notify'>;
 }
 
 /** Register the callbackAuth decoration + preHandler on a Fastify instance.
@@ -39,8 +53,15 @@ interface CallbackAuthRegistry {
  *  2. Fallback: read from body/query (legacy compat window, logs deprecation)
  *  3. Neither present → no-op (panel / non-callback request)
  *  4. Credentials present but invalid → immediate 401 (fail-closed, #474)
+ *  5. F174 D2b-1: if `options.notifier` is provided + registry has getRecord,
+ *     a 401 with surface-able reason (`expired`/`invalid_token`) triggers
+ *     an in-context system message in the affected thread.
  */
-export function registerCallbackAuthHook(app: FastifyInstance, registry: CallbackAuthRegistry): void {
+export function registerCallbackAuthHook(
+  app: FastifyInstance,
+  registry: CallbackAuthRegistry,
+  options: CallbackAuthHookOptions = {},
+): void {
   if (!app.hasRequestDecorator('callbackAuth')) {
     app.decorateRequest('callbackAuth', undefined);
   }
@@ -72,9 +93,36 @@ export function registerCallbackAuthHook(app: FastifyInstance, registry: Callbac
       reply.status(401).send(makeCallbackAuthError('missing_creds'));
       return;
     }
+    // F174 D2b-1 (砚砚 P1 #1397 review): capture record metadata BEFORE verify().
+    // verify() deletes the record on `expired`, and getRecord() also deletes on
+    // expired — without this peek, the most important surface scenario ("token
+    // 干半小时过期") would silently miss the in-context message because the
+    // record was already gone by the time we tried to look it up. peekRecord()
+    // is non-destructive; the small race with concurrent verify is acceptable.
+    const recordSnapshot =
+      options.notifier && registry.peekRecord ? await registry.peekRecord(invocationId).catch(() => null) : null;
+
     const result = await registry.verify(invocationId, callbackToken);
     if (!result.ok) {
       recordCallbackAuthFailure({ reason: result.reason, tool });
+      // Surface in-context using the snapshot captured before verify ran.
+      // Notifier handles the surface decision (skips stale_invocation, etc).
+      if (options.notifier && recordSnapshot) {
+        try {
+          await options.notifier.notify({
+            threadId: recordSnapshot.threadId,
+            catId: recordSnapshot.catId,
+            userId: recordSnapshot.userId,
+            reason: result.reason,
+            tool,
+          });
+        } catch (err) {
+          request.log.warn(
+            { err, invocationId, reason: result.reason, tool },
+            '[F174-D2b-1] callback auth notifier failed (non-fatal)',
+          );
+        }
+      }
       reply.status(401).send(makeCallbackAuthError(result.reason));
       return;
     }

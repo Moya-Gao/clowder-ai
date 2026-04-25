@@ -114,6 +114,7 @@ import { runSchedulerReplyUserIdBackfill } from './infrastructure/scheduler/sche
 import { securityHeadersPlugin } from './infrastructure/security-headers.js';
 import { sessionAuthPlugin, sessionRoute } from './infrastructure/session-auth.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
+import { CallbackAuthSystemMessageNotifier } from './routes/callback-auth-system-message.js';
 import { configSecretsRoutes } from './routes/config-secrets.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
 import { gameRoutes } from './routes/games.js';
@@ -1394,10 +1395,16 @@ async function main(): Promise<void> {
   const limbPairingStore = new LimbPairingStore();
   registerLimbNodeRoutes(app, { limbRegistry, pairingStore: limbPairingStore });
 
+  // F174 D2b-1 — single notifier instance shared between callback auth preHandler
+  // (posts in-context surface on 401) and the hide-similar debug endpoint
+  // (lets the user 24h-suppress a (reason, tool, catId) tuple).
+  const callbackAuthNotifier = new CallbackAuthSystemMessageNotifier({ messageStore, socketManager });
+
   const callbackOpts = {
     registry,
     messageStore,
     socketManager,
+    callbackAuthNotifier,
     taskStore,
     backlogStore,
     threadStore,
@@ -1428,7 +1435,8 @@ async function main(): Promise<void> {
   await app.register(callbacksRoutes, callbackOpts);
 
   // F174 Phase D1 — callback auth failure telemetry debug endpoint (AC-D3).
-  registerCallbackAuthDebugRoute(app);
+  // D2b-1 adds POST /api/debug/callback-auth/hide-similar (24h opt-out) when notifier is wired.
+  registerCallbackAuthDebugRoute(app, { notifier: callbackAuthNotifier });
 
   // Authorization system — 猫猫动态权限 (Redis-backed when available)
   const authRuleStore = createAuthorizationRuleStore(redis);

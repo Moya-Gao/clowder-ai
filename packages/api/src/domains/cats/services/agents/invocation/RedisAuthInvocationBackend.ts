@@ -344,6 +344,18 @@ export class RedisAuthInvocationBackend implements IAuthInvocationBackend {
     return recordFromHash(raw, new Set<string>());
   }
 
+  /**
+   * F174 D2b-1 — pure record read, ignores expiry, never deletes. Returns
+   * whatever the hash currently contains (subject only to Redis-side TTL
+   * eviction). 砚砚 P1 review: PR #1397 — the notifier needs metadata for
+   * 401-causing invocations after verify() has just deleted them.
+   */
+  async peekRecord(invocationId: string): Promise<InvocationRecord | null> {
+    const raw = await this.redis.hgetall(KEY_INV(invocationId));
+    if (!raw || Object.keys(raw).length === 0) return null;
+    return recordFromHash(raw, new Set<string>());
+  }
+
   async isLatest(invocationId: string): Promise<boolean> {
     const record = await this.getRecord(invocationId);
     if (!record) return false;

@@ -21,7 +21,10 @@
  * extended (F156 future work) — better fail-closed than silently public.
  */
 
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { createCatId } from '@cat-cafe/shared';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
+import type { CallbackAuthSystemMessageNotifier } from './callback-auth-system-message.js';
 import { getCallbackAuthFailureSnapshot } from './callback-auth-telemetry.js';
 
 function resolveSessionUserId(request: FastifyRequest): string | null {
@@ -32,29 +35,71 @@ function resolveSessionUserId(request: FastifyRequest): string | null {
   return null;
 }
 
-export function registerCallbackAuthDebugRoute(app: FastifyInstance): void {
+/** Owner-gate guard shared by GET snapshot + POST hide-similar. Returns null on success. */
+function checkOwnerGate(request: FastifyRequest, reply: FastifyReply): { error: string } | null {
+  const operator = resolveSessionUserId(request);
+  if (!operator) {
+    reply.status(401);
+    return { error: 'Authenticated session required (establish via GET /api/session)' };
+  }
+  const ownerId = process.env.DEFAULT_OWNER_USER_ID?.trim();
+  if (!ownerId) {
+    reply.status(403);
+    return { error: 'Callback auth telemetry requires DEFAULT_OWNER_USER_ID to be explicitly configured' };
+  }
+  if (operator !== ownerId) {
+    reply.status(403);
+    return { error: 'Callback auth telemetry can only be accessed by the configured owner' };
+  }
+  return null;
+}
+
+const hideSimilarBodySchema = z.object({
+  reason: z.enum(['expired', 'invalid_token', 'unknown_invocation', 'stale_invocation', 'missing_creds']),
+  tool: z.string().min(1),
+  catId: z.string().min(1),
+  // Cloud Codex P1 #1397: scoped to thread + user so a hide doesn't
+  // cross-suppress unrelated conversations or tenants.
+  threadId: z.string().min(1),
+  userId: z.string().min(1),
+});
+
+export interface CallbackAuthDebugRouteOptions {
+  /** F174 D2b-1 — when wired, exposes POST /api/debug/callback-auth/hide-similar */
+  notifier?: Pick<CallbackAuthSystemMessageNotifier, 'hideSimilar'>;
+}
+
+export function registerCallbackAuthDebugRoute(
+  app: FastifyInstance,
+  options: CallbackAuthDebugRouteOptions = {},
+): void {
   app.get('/api/debug/callback-auth', async (request, reply) => {
-    const operator = resolveSessionUserId(request);
-    if (!operator) {
-      reply.status(401);
-      return { error: 'Authenticated session required (establish via GET /api/session)' };
-    }
-    // Cloud Codex P1 (PR #1377, 21:13Z): /api/session mints sessions for
-    // anonymous callers as 'default-user', so a default-fallback owner gate
-    // would let any network client read this telemetry. Mirror config.ts
-    // sensitive-env pattern: require DEFAULT_OWNER_USER_ID to be EXPLICITLY
-    // set — fail-closed beats permissive default. Operator opting in to
-    // 'default-user' explicitly is informed consent for the F156 D-1
-    // anonymous-minting limitation.
-    const ownerId = process.env.DEFAULT_OWNER_USER_ID?.trim();
-    if (!ownerId) {
-      reply.status(403);
-      return { error: 'Callback auth telemetry requires DEFAULT_OWNER_USER_ID to be explicitly configured' };
-    }
-    if (operator !== ownerId) {
-      reply.status(403);
-      return { error: 'Callback auth telemetry can only be accessed by the configured owner' };
-    }
+    const gateError = checkOwnerGate(request, reply);
+    if (gateError) return gateError;
     return getCallbackAuthFailureSnapshot();
   });
+
+  // F174 D2b-1: hide-similar opt-out (24h suppression for the (reason, tool, catId) tuple).
+  // Only exposed when the D2b-1 notifier is wired so that endpoint surface mirrors
+  // capability — back-compat callers without the notifier get 404 (route absent).
+  if (options.notifier) {
+    const { notifier } = options;
+    app.post('/api/debug/callback-auth/hide-similar', async (request, reply) => {
+      const gateError = checkOwnerGate(request, reply);
+      if (gateError) return gateError;
+      const parsed = hideSimilarBodySchema.safeParse(request.body);
+      if (!parsed.success) {
+        reply.status(400);
+        return { error: 'Invalid body', details: parsed.error.issues };
+      }
+      notifier.hideSimilar({
+        reason: parsed.data.reason,
+        tool: parsed.data.tool,
+        catId: createCatId(parsed.data.catId),
+        threadId: parsed.data.threadId,
+        userId: parsed.data.userId,
+      });
+      return { ok: true };
+    });
+  }
 }

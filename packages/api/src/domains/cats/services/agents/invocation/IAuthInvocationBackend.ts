@@ -44,6 +44,17 @@ export interface IAuthInvocationBackend {
   /** Read-only fetch (does NOT slide TTL). Returns null when missing or expired. */
   getRecord(invocationId: string): Promise<InvocationRecord | null>;
 
+  /**
+   * F174 D2b-1 — Read raw record metadata, ignoring TTL. Used by the in-context
+   * observability surface (notifier) to recover threadId/catId/userId for a
+   * 401-causing invocation even when it's just expired — both verify() and
+   * getRecord() delete the record on `expired`, so the only way to associate
+   * the failure back to a thread is to peek before verify runs (or after, if
+   * Redis TTL hasn't yet evicted the hash). Returns null only when the record
+   * was never present or has already been Redis-TTL-evicted.
+   */
+  peekRecord(invocationId: string): Promise<InvocationRecord | null>;
+
   /** Whether the invocationId is the latest for its (threadId, catId) slot. */
   isLatest(invocationId: string): Promise<boolean>;
 

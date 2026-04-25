@@ -411,7 +411,12 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
             />
           )}
           {message.extra?.rich?.blocks && message.extra.rich.blocks.length > 0 && (
-            <RichBlocks blocks={message.extra.rich.blocks} catId={message.catId} messageId={message.id} />
+            <RichBlocks
+              blocks={message.extra.rich.blocks}
+              catId={message.catId}
+              messageId={message.id}
+              messageSource={message.source}
+            />
           )}
           {message.isStreaming && !isStreamOrigin && (
             <span className="inline-block w-1.5 h-4 bg-current animate-pulse ml-0.5 rounded-full opacity-50" />

@@ -92,6 +92,8 @@ export interface RichCardBlock {
   fields?: Array<{ label: string; value: string }>;
   /** F066 Phase 4: Optional action buttons */
   actions?: CardAction[];
+  /** F174 D2b-1: opaque metadata for sub-renderer detection (e.g. callback_auth_failure) */
+  meta?: Record<string, unknown>;
 }
 
 export interface RichDiffBlock {

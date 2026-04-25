@@ -175,6 +175,15 @@ export class InvocationRegistry {
   }
 
   /**
+   * F174 D2b-1 — pure record read (ignores TTL, never deletes). Used by the
+   * callback auth in-context surface to recover threadId/catId for failures
+   * whose record verify() has just deleted on `expired` (砚砚 P1 #1397 review).
+   */
+  async peekRecord(invocationId: string): Promise<InvocationRecord | null> {
+    return this.backend.peekRecord(invocationId);
+  }
+
+  /**
    * F174-C — verify token without sliding TTL (gpt52 P1 #2). Used by
    * refresh-token onRequest hook so bad-auth requests can't burn cooldown.
    */

@@ -148,6 +148,15 @@ export class MemoryAuthInvocationBackend implements IAuthInvocationBackend {
     return record;
   }
 
+  /**
+   * F174 D2b-1 — pure record read, ignores expiry, never deletes. The notifier
+   * needs threadId/catId metadata for a 401-causing invocation even when verify()
+   * has just deleted it on expired (砚砚 P1 review: PR #1397).
+   */
+  async peekRecord(invocationId: string): Promise<InvocationRecord | null> {
+    return this.records.get(invocationId) ?? null;
+  }
+
   async isLatest(invocationId: string): Promise<boolean> {
     const record = this.records.get(invocationId);
     if (!record) return false;
