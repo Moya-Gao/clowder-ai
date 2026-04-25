@@ -18,8 +18,10 @@ created: 2026-04-23
 > **Phase F**: ✅ merged 2026-04-25 via PR #1388
 > **Phase D2a (backend)**: ✅ merged 2026-04-25 via PR #1393 (byCat counter + 24h ring buffer)
 > **Phase D2b-1 (in-context surface)**: ✅ merged 2026-04-25 via PR #1397 (squash `74ea5ebec`)
-> **Phase D2b-2 (cat status dot)**: 📋 next
-> **Phase D2b-3 (deep-dive stats card)**: 📋 next
+> **Phase D2b-2 (cat status dot)**: ✅ merged 2026-04-25 via PR #1403 (squash `b59eff071`)
+> **Phase D2b-3 (deep-dive stats card)**: ✅ merged 2026-04-25 via PR #1403 (squash `b59eff071`)
+>
+> **F174 D2b 三层"明厨亮灶"模型完整落地** — D2b-1 现场富块 + D2b-2 cat status dot + D2b-3 stats deep-dive。
 
 ## Why
 
@@ -323,11 +325,11 @@ interface CallbackTool<T> {
   - **D2b-1 in-context 富块**（P0 · 现场层）— ✅ merged 2026-04-25 via PR #1397
     - [x] AC-D4: thread 内 callback auth 失败时，server post 一条 card 富块 (`meta.kind='callback_auth_failure'`)，使用 `CALLBACK_AUTH_SOURCE` connector，前端通过 `CallbackAuthFailureBlock` 渲染 amber 边框 + reason badge + tool/cat/when + 详情/重试(disabled, pending D2b-3/follow-up)/隐藏类似消息
     - [x] AC-D5: dedup 实现：5-tuple `(reason, tool, catId, threadId, userId)` 5min 窗口去重；"隐藏类似消息" 按钮 → POST `/api/debug/callback-auth/hide-similar` 触发 24h opt-out；`stale_invocation` / `unknown_invocation` / `missing_creds` 不 surface in-context；dedup map 自动 prune 过期 entry；race-window-safe (synchronous slot reservation before async append)
-  - **D2b-2 cat status dot**（P0 · 实体层）— 📋 next
-    - [ ] AC-D6: roster 猫 avatar 角上 status dot（绿/黄/红/灰四态），driven by `snapshot.recent24h.byCat`
-    - [ ] AC-D7: hover popover 显示 reason×N + Top 工具 + 跳 D2b-3 详情入口
-  - **D2b-3 stats 深挖 card**（P2 · 审计层）— 📋 next
-    - [ ] AC-D8: HubObservabilityTab 加 "Callback Auth" 子 tab，渲染 24h 401 率 + reason 分布 + Top 工具 + Top 受影响猫 + legacy fallback hits + recent samples
+  - **D2b-2 cat status dot**（P0 · 实体层）— ✅ merged 2026-04-25 via PR #1403
+    - [x] AC-D6: ThreadItem 参与者 + HubCallbackAuthPanel roster avatars 角上 status dot（绿/黄/红/灰四态）。绿/黄/红 driven by `snapshot.recent24h.byCat`，灰为 absent (no-data, since backend 仅记录 failure 不记录 success)。CallbackAuthCatAvatar wrapper consumes global zustand store (单点 polling)
+    - [x] AC-D7: hover popover 显示 cat status + Top reasons (24h, all cats) + Top tools (24h, all cats) + 点击跳 D2b-3 详情入口（per-invocation nonce 让重复点击也 re-sync top tab + subtab）
+  - **D2b-3 stats 深挖 card**（P2 · 审计层）— ✅ merged 2026-04-25 via PR #1403
+    - [x] AC-D8: HubObservabilityTab 加 "Callback Auth" 子 tab，渲染 24h Failures + All-time + Affected Cats + Legacy Fallback (Phase F deadline 倒计时) + reason distribution bar + Top tools + Affected Cats roster (with status dots) + recent samples
 
 ### Phase E（Degradation — 在 D1 之后）
 - [x] AC-E1: `DegradePolicy = none|custom` + `withDegradation()` framework in `mcp-server/src/tools/degradation.ts`；`create_rich_block` Route B 重构进 framework（行为不变，legacy 403 path 保留 inline）
@@ -431,6 +433,7 @@ interface CallbackTool<T> {
 | 2026-04-25 02:14 | **Phase E merged via PR #1384** (squash commit `570c22d8`)，cloud Codex review: "Keep them coming!"，1 轮 P2 处理（legacy 403 fallback 也加 DEGRADED:true 与 framework custom path 一致）。`withDegradation()` framework 落地 + 5 写类 callback tool 全显式 policy（1 custom + 4 none + `[degrade]` hint） |
 | 2026-04-25 10:50 | **D2b 设计稿完成** (`designs/F174-callback-auth-health-card.pen` commit `73fad2941`)。铲屎官 push back v1 单 dashboard 设计 → 收敛到三层"明厨亮灶"模型 (D2b-1 现场富块 + D2b-2 cat status dot + D2b-3 深挖 card)。方法论沉淀到 `cat-cafe-skills/refs/in-context-observability-checklist.md` (commit `2c773b08b`)，砚砚 P1/P2 review 全接住 (rename to "现场可感知性"、必产出决策字段、触发范围、噪音约束) |
 | 2026-04-25 14:42 | **Phase D2b-1 merged via PR #1397** (squash `74ea5ebec`)。砚砚 4 轮 review + cloud Codex 4 轮 review 全部 closed。砚砚 P1+P2: surface decision/dedup/owner gate/source classification/system_notice routing trap. Cloud Codex P1+P2: dedup keys 跨 thread/user 互吞 → 5-tuple key；RichBlocks dispatcher 信任 untrusted meta → trusted-provenance gate (`messageSource.connector === 'callback-auth'`)；dedup map monotonic growth → opportunistic pruneExpired；notify race window → synchronous slot reservation + rollback on persistence failure。新增 38 D2b-1 targeted tests (api 36 + web 4 components + 1 routing-trap + 1 source-classification + 4 cross-thread/user dedup + 2 race + 2 prune)，0 regression (api 9278 pass) |
+| 2026-04-25 23:17 | **Phase D2b-2 + D2b-3 merged via PR #1403** (squash `b59eff071`)。三层"明厨亮灶"模型 close-out — D2b-1 现场 + D2b-2 实体 + D2b-3 审计。砚砚 9 轮 explicit 放行 + cloud Codex 11 轮 review 全部 closed。亮点 review 修复链：(1) D2b-2 wider 部署到 ThreadItem (砚砚 P1 — dashboard-internal 不算实体层); (2) AC-D7 hover popover + click navigation (砚砚 P1); (3) ThreadItem dot click stopPropagation (砚砚 P2); (4) deep-link useEffect prop sync (cloud P1 round 9); (5) per-invocation subTabNonce so repeated 详情 click 在 same-value 路径也 re-sync top + subtab (cloud P1+P2 多轮); (6) snapshot polling stop on first 401/403 → manual refetch latch (cloud P2 round 8); (7) absent byCat = unknown not healthy (cloud P1); (8) HubCallbackAuthPanel + CatAvatar dot 单一 store source 防 split-snapshot skew (cloud P2); (9) `<CallbackAuthSnapshotMount />` null-leaf 隔离 ChatLayout re-render (cloud P2 perf); (10) generation guard for in-flight fetch race (砚砚 P1)。新增 32 D2b-2/D2b-3 web tests，5 syncKey unit (web 2514/2514 pass)，0 regression |
 
 ## Review Gate
 
