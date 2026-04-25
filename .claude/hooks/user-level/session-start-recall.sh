@@ -54,6 +54,6 @@ if [ -n "$WARNINGS" ]; then
 fi
 
 # 通用提醒
-echo "📌 记得先用 search_evidence 搜索当前任务相关上下文（CLAUDE.md 家规）"
+echo "📌 Recall：先用 mcp__cat_cafe_memory__.cat_cafe_search_evidence（备选 mcp__cat_cafe__.cat_cafe_search_evidence）搜当前任务上下文；若未暴露，先用 tool_search 精确搜 cat_cafe_search_evidence（CLAUDE.md 家规）"
 
 exit 0

@@ -152,7 +152,7 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。
 - [ ] AC-C6: **cancel 按钮一致性**：只要后端 `invocationTracker` 有 entry，前端 `hasActiveInvocation` 必为 true（fixture 验证 socket-drop / F5 / reconnect 三场景）
 - [ ] AC-C7: **queue gating 一致性**：发消息时前端门禁与后端门禁判定结果一致（fixture 验证）
 - [ ] AC-C8: F081 AC-B2 (Remaining Gaps) 关闭
-- [ ] AC-C9: **历史 dup tolerance**（来源：#1364 实机验证 06:17）— hydration 阶段对同 cat / 同 thread / `extra.stream.invocationId` 不一致但时间窗 < 5s + content prefix overlap 的旧 record 做视觉合并显示，不动持久化数据。范围：1364 部署前的脏数据；fix 后的写入路径不会再产生这种 pair。验收：fixture 含历史 INNER/OUTER pair 的 thread，hydration 后 UI 看到 1 个 bubble。
+- [ ] AC-C9: ~~**历史 dup tolerance**~~ — **降级 P3 / deferred 2026-04-25**（来源：Phase C Task 0 Spike 真实数据）。原 spec 假设的 "时间窗 < 5s + content prefix overlap" 模糊匹配在真实数据里**不存在**（sample last 200 msgs of `thread_moay5tqumsbu17yr`，10 个 candidate dup pair 的 ts gap 全部 ≥15s，p50=31s，没有任何 < 5s pair）— 这些都是 user-driven 连续对话节奏，不是 OUTER/INNER race。模糊视觉合并会**误合并正常多轮回复**（false positive 比历史脏数据残留更糟）。**新方向**：仅在精确 metadata（`parentInvocationId` / `userMessageId` / `<100ms + 近 100% prefix`）能识别时才处理；hotfix2 之后写入路径已收口，不再产生新 race dup；历史脏数据用户清 site data 即可（与 AC-C10 IDB cache 覆盖一起处理）。详见 `docs/plans/2026-04-25-f173-phase-c.md` Spike Result 段。
 
 ### Phase D（cli-resolve 防腐）
 - [ ] AC-D1: `cli-resolve.ts` spawn ENOENT 时 `resolvedCache.delete(command)`，下次请求重解析
