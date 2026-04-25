@@ -594,7 +594,7 @@ describe('ReviewFeedbackTaskSpec', () => {
     assert.equal(result.workItems[0].signal.newComments[0].author, 'external-dev');
   });
 
-  it('authoritative bot (codex) comment + review are filtered in F140 (Rule B)', async () => {
+  it('isEcho predicates can filter all-bot batches (custom predicate, post-E.2)', async () => {
     const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
     const { router } = stubRouter();
     const bot = 'chatgpt-codex-connector[bot]';
@@ -917,7 +917,7 @@ describe('ReviewFeedbackTaskSpec', () => {
     assert.equal(r2.run, false, 'memory cursor prevents duplicate delivery');
   });
 
-  it('non-authoritative bot comment is NOT filtered (Rule B negative)', async () => {
+  it('isEchoComment custom predicate scoping: only matches configured bot, not other bots', async () => {
     const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
     const { router } = stubRouter();
     const authBot = 'chatgpt-codex-connector[bot]';

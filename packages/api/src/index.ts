@@ -108,12 +108,7 @@ import {
   CiCdRouter,
   ConflictRouter,
   ConnectorInvokeTrigger,
-  GhCliReviewContentFetcher,
-  MemoryProcessedEmailStore,
   ReviewFeedbackRouter,
-  ReviewRouter,
-  startGithubReviewWatcher,
-  stopGithubReviewWatcher,
 } from './infrastructure/email/index.js';
 import { runSchedulerReplyUserIdBackfill } from './infrastructure/scheduler/scheduler-reply-userid-backfill.js';
 import { securityHeadersPlugin } from './infrastructure/security-headers.js';
@@ -1847,19 +1842,10 @@ async function main(): Promise<void> {
   // F-BLOAT: Progressive disclosure docs endpoints (no auth, static content)
   await app.register(registerCallbackDocsRoutes);
 
-  // GitHub Review Watcher stores + routes (BACKLOG #81)
-  // Must register routes BEFORE app.listen()
-  const processedEmailStore = new MemoryProcessedEmailStore();
-  const reviewRouter = new ReviewRouter({
-    taskStore,
-    processedEmailStore,
-    threadStore,
-    messageStore,
-    socketManager,
-    log: app.log,
-    defaultUserId: 'default-user',
-    reviewContentFetcher: new GhCliReviewContentFetcher(app.log),
-  });
+  // F140 Phase E.2 cutover (2026-04-24): GitHub Review Watcher (email/IMAP)
+  // bootstrap is disabled. ReviewRouter / ProcessedEmailStore /
+  // GhCliReviewContentFetcher constructions are now no-ops at boot — the source
+  // files remain in-tree pending E.3 physical cleanup PR.
 
   // F088: Register connector webhook routes BEFORE listen (Fastify requires it)
   const connectorWebhookHandlers = new Map<string, import('./routes/connector-webhooks.js').ConnectorWebhookHandler>();
@@ -2042,7 +2028,7 @@ async function main(): Promise<void> {
     }
   }
 
-  // Phase 3b: connector invoke trigger (auto-invoke cat after review email routing)
+  // F140 Phase 3b: connector invoke trigger (auto-invoke cat after review feedback delivery via polling)
   const frontendBaseUrl = resolveFrontendBaseUrl(process.env, app.log);
   const invokeTrigger = new ConnectorInvokeTrigger({
     router,
@@ -2063,7 +2049,7 @@ async function main(): Promise<void> {
     log: app.log,
   });
 
-  // F140: Shared feedback filter (Rule C) — used by BOTH email watcher and API polling
+  // F140: Feedback filter (Rule A self-authored only post-E.2 cutover)
   const { createGitHubFeedbackFilter } = await import('./infrastructure/email/github-feedback-filter.js');
   const { createSetupNoiseFilter } = await import('./infrastructure/email/setup-noise-filter.js');
   let selfGitHubLogin: string | undefined;
@@ -2076,29 +2062,29 @@ async function main(): Promise<void> {
   } catch {
     app.log.warn('[api] F140: could not resolve GitHub login — self-filter disabled');
   }
-  const authoritativeLogins = (process.env.GITHUB_AUTHORITATIVE_REVIEW_LOGINS || 'chatgpt-codex-connector[bot]')
+  const feedbackFilter = createGitHubFeedbackFilter({ selfGitHubLogin });
+
+  // F140 Phase E.2 cutover: setup-noise bot allowlist env name切换
+  // GITHUB_SETUP_NOISE_BOT_LOGINS (new, post-E.2 semantics) takes precedence;
+  // GITHUB_AUTHORITATIVE_REVIEW_LOGINS (legacy E.1 借壳) falls back for
+  // backward compat — will be removed in a follow-up release.
+  const setupNoiseBotLogins = (
+    process.env.GITHUB_SETUP_NOISE_BOT_LOGINS ||
+    process.env.GITHUB_AUTHORITATIVE_REVIEW_LOGINS ||
+    'chatgpt-codex-connector[bot]'
+  )
     .split(',')
     .map((s: string) => s.trim())
     .filter(Boolean);
-  const feedbackFilter = createGitHubFeedbackFilter({
-    selfGitHubLogin,
-    authoritativeReviewLogins: authoritativeLogins,
-  });
-  app.log.info(`[api] F140: authoritative review logins=${authoritativeLogins.join(', ')}`);
+  app.log.info(`[api] F140: setup-noise bot logins=${setupNoiseBotLogins.join(', ')}`);
 
-  // F140 Phase E.1: polling-side setup-noise filter (migrated from email
-  // GithubReviewMailParser Rule 3). E.1 reuses GITHUB_AUTHORITATIVE_REVIEW_LOGINS
-  // as the bot allowlist — a temporary shell; E.2 will rename / replace / drop it
-  // explicitly when Rule B is removed (see F140 spec KD-14/15, 2026-04-24 timeline).
-  const setupNoiseFilter = createSetupNoiseFilter(authoritativeLogins);
+  const setupNoiseFilter = createSetupNoiseFilter(setupNoiseBotLogins);
 
-  // Start email watcher AFTER listen (non-blocking, best-effort)
-  await startGithubReviewWatcher({
-    log: app.log,
-    reviewRouter,
-    invokeTrigger,
-    feedbackFilter,
-  });
+  // F140 Phase E.2 cutover (2026-04-24): email watcher bootstrap removed.
+  // Polling (ReviewFeedbackTaskSpec) is the sole truth source for review feedback.
+  // The watcher source files (GithubReviewWatcher / ReviewRouter / etc.) are
+  // retained for E.3 cleanup PR; this just stops them being started at boot.
+  app.log.info('[api] F140 E.2: email review watcher bootstrap disabled (polling is sole source)');
 
   // F139 Phase 4b: late-bind invokeTrigger so templates can wake cats
   taskRunnerV2.setInvokeTrigger(invokeTrigger);
@@ -2222,7 +2208,8 @@ async function main(): Promise<void> {
         reviewFeedbackRouter,
         invokeTrigger,
         log: app.log,
-        // Unified feedback filter (Rule A: self-authored, Rule B: authoritative review bot)
+        // F140 Phase E.2 cutover: Rule A only (self-authored skip). Authoritative bot
+        // review feedback is now delivered through this polling channel — Rule B dropped.
         isEchoComment: (c) => feedbackFilter.shouldSkipComment(c),
         isEchoReview: (r) => feedbackFilter.shouldSkipReview(r),
         // F140 Phase E.1: bot setup-only conversation noise (polling-side)
@@ -2477,12 +2464,7 @@ async function main(): Promise<void> {
         }
       }
 
-      // Stop GitHub review watcher
-      try {
-        await stopGithubReviewWatcher();
-      } catch (err) {
-        app.log.error(`[api] GithubReviewWatcher stop failed: ${String(err)}`);
-      }
+      // F140 Phase E.2 cutover: GithubReviewWatcher no longer started → no-op stop
 
       taskRunnerV2.stop();
 

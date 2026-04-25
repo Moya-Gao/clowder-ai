@@ -929,7 +929,15 @@ export const ENV_VARS: EnvDefinition[] = [
     name: 'GITHUB_AUTHORITATIVE_REVIEW_LOGINS',
     defaultValue: 'chatgpt-codex-connector[bot]',
     description:
-      'Comma-separated GitHub logins whose review feedback is handled by the email channel (authoritative source). F140 API polling skips these to avoid double-delivery.',
+      '[DEPRECATED] F140 Phase E.2 cutover (2026-04-24): Rule B authoritative-source skip removed; this var now only serves as backward-compat fallback for GITHUB_SETUP_NOISE_BOT_LOGINS. Will be removed in a follow-up release.',
+    category: 'connector',
+    sensitive: false,
+  },
+  {
+    name: 'GITHUB_SETUP_NOISE_BOT_LOGINS',
+    defaultValue: 'chatgpt-codex-connector[bot]',
+    description:
+      'Comma-separated GitHub bot logins whose conversation comments may contain Codex setup-only guidance. F140 polling-side setup-noise filter skips those (bot + conversation + setup-only body, no codex review content). Falls back to GITHUB_AUTHORITATIVE_REVIEW_LOGINS for backward compat.',
     category: 'connector',
     sensitive: false,
   },
