@@ -935,7 +935,7 @@ describe('ReviewFeedbackTaskSpec', () => {
       fetchReviews: async () => [],
       reviewFeedbackRouter: router,
       log: noopLog,
-      // Only skip the authoritative bot, not all bots
+      // Custom predicate scope: only the configured bot, not other bots
       isEchoComment: (c) => c.author === authBot,
     });
     const result = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });

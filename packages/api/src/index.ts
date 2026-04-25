@@ -2149,7 +2149,7 @@ async function main(): Promise<void> {
     );
 
     // F140: review-feedback with ReviewFeedbackRouter (KD-11 replaces review-comments)
-    // feedbackFilter already created above (shared with email watcher — Rule C)
+    // feedbackFilter created above — Rule A only post-E.2 cutover (self-authored skip)
 
     const fetchPaginated = async (endpoint: string) => {
       const { execFile } = await import('node:child_process');
