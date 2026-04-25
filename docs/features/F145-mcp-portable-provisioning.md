@@ -165,16 +165,15 @@ created: 2026-03-27
 
 ## Known Issues
 
-### P0: agent-browser headless Chrome 僵尸进程反复出现（2026-04-24 记录，第 4 次）
+### ~~P0: agent-browser headless Chrome 僵尸进程反复出现~~ ✅ Fixed (PR #1407, 2026-04-25)
 
 `agent-browser` MCP server 退出时不清理子进程树（Chrome GPU / Renderer / Storage），僵尸进程持续 100% CPU × 多核 × 数天。
 
 **历史**：04-10 opencode ping + headless Chrome、04-12 headless Chrome、04-18 headless Chrome 导致前端 OOM 崩溃、04-24 一次性 7 个僵尸吃 570% CPU 导致掉电加速。
 
-**需要**：
-1. Runtime StartupReconciler 扫残留 `agent-browser-chrome-*` user-data-dir 的 Chrome 进程
-2. agent-browser 自身修复退出清理（进程树 kill）
-3. 应急：`ps aux | grep agent-browser-chrome | grep -v grep` → `kill -9`（SIGTERM 对 headless Chrome 常无效）
+**修复**：API 启动时 `cleanOrphanAgentBrowserChrome()` 自动扫描并 SIGKILL ppid=1 的 `agent-browser-chrome-*` Chrome 进程。三重过滤防误杀：Chrome 二进制路径前缀 + `--user-data-dir` agent-browser 标记 + ppid===1 孤儿检测。
+
+**仍需**：agent-browser 上游自身修复退出清理（进程树 kill）——当前方案是启动时事后清理，不是根治。
 
 ### Phase D: ~/.claude.json stale override 遮蔽 resolver 输出（2026-04-08 发现）
 
@@ -222,6 +221,7 @@ Claude Code 读配置时 per-project override > `.mcp.json` > global，拿到不
 | 2026-04-08 | Phase D merged (PR #1017, `b527aac0`)：`generateCliConfigs()` auto-clean per-project overrides |
 | 2026-04-12 | Phase E 立项：铲屎官提出社区用户 per-project MCP 需求。梳理三猫 MCP 读取现状：Claude Code ✅ / Codex ✅ / Gemini ACP ❌ |
 | 2026-04-12 | Phase E merged (PR #1113)：`resolveAcpMcpServers` + `resolveUserProjectMcpServers` per-invoke helper + GeminiAcpAdapter per-invocation merge |
+| 2026-04-25 | P0 Known Issue fixed (PR #1407)：startup orphan agent-browser Chrome cleanup |
 | 2026-04-12 | 愿景守护通过并正式关闭：新机器无需手挂 MCP、Pencil 双宿主解析、Gemini ACP per-project `.mcp.json` merge 三条主痛点均已有代码与测试证据 |
 
 ## Review Gate
