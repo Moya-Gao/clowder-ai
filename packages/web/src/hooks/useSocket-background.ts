@@ -103,6 +103,7 @@ function addBackgroundSystemMessage(
   options: HandleBackgroundMessageOptions,
   content: string,
   variant: 'info' | 'a2a_followup' = 'info',
+  extra?: { systemKind?: 'a2a_routing' },
 ): void {
   options.store.addMessageToThread(msg.threadId, {
     id: `bg-sys-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`,
@@ -111,6 +112,7 @@ function addBackgroundSystemMessage(
     catId: msg.catId,
     content,
     timestamp: msg.timestamp,
+    ...(extra ? { extra } : {}),
   });
 }
 
@@ -618,7 +620,9 @@ export function handleBackgroundAgentMessage(
   if (msg.type === 'system_info' || msg.type === 'a2a_handoff') {
     if (!msg.content) return;
     if (msg.type === 'a2a_handoff') {
-      addBackgroundSystemMessage(msg, options, msg.content);
+      // F173 bug fix: routing pill needs systemKind marker so chatStore
+      // inserts it at the right position vs. next cat's stream bubble.
+      addBackgroundSystemMessage(msg, options, msg.content, 'info', { systemKind: 'a2a_routing' });
       return;
     }
 

@@ -44,6 +44,14 @@ const FINALIZED_TTL_MS = 5 * 60 * 1000;
 const DONE_TIMEOUT_MS = 5 * 60 * 1000;
 /** Monotonic counter for collision-safe callback bubble IDs */
 let cbSeq = 0;
+// F173 a2a-handoff bug fix (cloud Codex R2 P2-2): monotonic suffix to prevent
+// id collisions when two same-ms handoff events from the same cat arrive.
+// Background path uses options.nextBgSeq for the same purpose.
+let activeA2AHandoffSeq = 0;
+function nextActiveA2AHandoffSeq(): number {
+  activeA2AHandoffSeq = (activeA2AHandoffSeq + 1) % 1_000_000;
+  return activeA2AHandoffSeq;
+}
 const DEBUG_SKIP_FILE_CHANGE_UI = process.env.NEXT_PUBLIC_DEBUG_SKIP_FILE_CHANGE_UI === '1';
 
 interface AgentMsg {
@@ -62,6 +70,9 @@ interface AgentMsg {
   origin?: 'stream' | 'callback';
   /** Backend stored-message ID (set for callback post-message, used for rich_block correlation) */
   messageId?: string;
+  /** F173 a2a-handoff bug fix: server-side timestamp (epoch ms). Required for
+   *  timestamp-ordered insert of a2a_handoff system messages. */
+  timestamp?: number;
   /** F67: Whether this message @mentions the co-creator */
   mentionsUser?: boolean;
   /** F52: Cross-thread origin metadata */
@@ -1254,12 +1265,20 @@ export function useAgentMessages() {
           }
         }
       } else if (msg.type === 'a2a_handoff') {
+        // F173 bug fix: use server timestamp + marker so chatStore inserts
+        // this routing pill at the right position relative to the next cat's
+        // stream bubble (WebSocket race could otherwise put it after).
+        // Cloud Codex R2 P2-2: include monotonic suffix so two same-ms handoff
+        // events from the same cat don't collide on `addMessage`'s id-based dedup
+        // (background path already uses nextBgSeq for the same reason).
+        const serverTs = msg.timestamp ?? Date.now();
         addMessage({
-          id: `a2a-${Date.now()}-${msg.catId}`,
+          id: `a2a-${serverTs}-${msg.catId}-${nextActiveA2AHandoffSeq()}`,
           type: 'system',
           variant: 'info',
           content: msg.content ?? '',
-          timestamp: Date.now(),
+          timestamp: serverTs,
+          extra: { systemKind: 'a2a_routing' },
         });
       } else if (msg.type === 'provider_signal') {
         // Bug-J: Surface provider-origin warnings (Antigravity capacity retries,
