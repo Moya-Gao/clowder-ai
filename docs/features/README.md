@@ -126,6 +126,7 @@
 | F164 | F164: Thread Snapshot Persistence — 刷新不失忆 | done | [F164-thread-snapshot-persistence.md](./F164-thread-snapshot-persistence.md) |
 | F166 | F166: Cat Order Customization — 猫猫排序自定义 | done | [F166-cat-order-customization.md](./F166-cat-order-customization.md) |
 | F146 | F146: MCP Marketplace Control Plane — 一键接入 + 多生态聚合 | done | [F146-mcp-marketplace-control-plane.md](./F146-mcp-marketplace-control-plane.md) |
+| F174 | F174: Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级、telemetry + D2b 三层明厨亮灶 | done | [F174-callback-auth-lifecycle.md](./F174-callback-auth-lifecycle.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |

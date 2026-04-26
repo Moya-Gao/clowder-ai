@@ -61,5 +61,4 @@ created: 2026-02-26
 | F169 | Agent Memory Reflex — 愿景文档（vision artifact） | vision | 三猫 | internal | [F169](features/F169-agent-memory-reflex.md) |
 | F171 | First Partner Onboarding — 领养第一只猫 / 配置第一位伙伴 | spec | 缅因猫/gpt52 | community [#520](https://github.com/zts212653/clowder-ai/pull/520) | [F171](features/F171-first-partner-onboarding.md) |
 | F173 | 前端 Thread-Runtime State 统一 — 消除 dual write-path & liveness fragmentation | spec | 布偶猫 | internal | [F173](features/F173-frontend-message-pipeline-unification.md) |
-| F174 | Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级、telemetry | spec | 布偶猫 | internal | [F174](features/F174-callback-auth-lifecycle.md) |
 | F175 | Unified Message Queue — 优先级排序 + 用户可控编排（urgent bypass 收口）| spec | @mindfn (community) | community [#575](https://github.com/zts212653/clowder-ai/pull/575) | [F175](features/F175-unified-message-queue.md) |

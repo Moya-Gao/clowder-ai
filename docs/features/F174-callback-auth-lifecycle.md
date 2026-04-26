@@ -8,7 +8,7 @@ created: 2026-04-23
 
 # F174: Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级与可观测
 
-> **Status**: in-progress | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1 | **Completed**: 2026-04-26
 >
 > **Phase A**: ✅ merged 2026-04-23 via PR #1359
 > **Phase B**: ✅ merged 2026-04-24 via PR #1363
@@ -354,12 +354,14 @@ interface CallbackTool<T> {
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "砚砚经常有 mcp pr tracking 挂不上 auth 过期" | AC-B1/B3 | 集成测试：模拟 API restart 后 verify 不 401 | [ ] |
-| R2 | "我干活，然后干了半小时，然后要发语音，结果mcp和我说token过期" | AC-C1/C3 | 集成测试：长 session + 自适应 refresh，voice callback 不 401 | [ ] |
-| R3 | "站在架构层面完整的优化实现最佳方案 不当补锅匠" | 四层架构 + Phase A-F 完整拆分 | 本文 + 砚砚跨家族 review | [ ] |
-| R4 | "#509：callback auth 基础设施统一/加固" | 本 Feature 命名 + Phase F 收口 #509 follow-up | #509 + #1263 + Phase F 三件合起来形成完整闭环 | [ ] |
-| R5 | "我需要一个完整的最终方案" | KD-4 ~ KD-11 收敛决策 + Phase 重排 | 砚砚 + 我达成共识，铲屎官拍板 | [ ] |
-| R6 | （隐含）401 故障归因不能靠字符串猜 | AC-A1~A5 | 单测：reason 枚举完整覆盖；regression：客户端不再 regex match | [ ] |
+| R1 | "砚砚经常有 mcp pr tracking 挂不上 auth 过期" | AC-B1/B3 | 集成测试：模拟 API restart 后 verify 不 401 | [x] |
+| R2 | "我干活，然后干了半小时，然后要发语音，结果mcp和我说token过期" | AC-C1/C3 | 集成测试：长 session + 自适应 refresh，voice callback 不 401 | [x] |
+| R3 | "站在架构层面完整的优化实现最佳方案 不当补锅匠" | 四层架构 + Phase A-F 完整拆分 | 本文 + 砚砚跨家族 review | [x] |
+| R4 | "#509：callback auth 基础设施统一/加固" | 本 Feature 命名 + Phase F 收口 #509 follow-up | #509 + #1263 + Phase F 三件合起来形成完整闭环 | [x] |
+| R5 | "我需要一个完整的最终方案" | KD-4 ~ KD-11 收敛决策 + Phase 重排 | 砚砚 + 我达成共识，铲屎官拍板 | [x] |
+| R6 | （隐含）401 故障归因不能靠字符串猜 | AC-A1~A5 | 单测：reason 枚举完整覆盖；regression：客户端不再 regex match | [x] |
+| R7 | "F153 社区小伙伴设计的可观测性是上个世纪的——出问题了猫猫和铲屎官立刻应该看到" (D2b 设计 push back) | D2b 三层"明厨亮灶"模型（D2b-1/D2b-2/D2b-3） | `cat-cafe-skills/refs/in-context-observability-checklist.md` 落地 + 三层全 merged | [x] |
+| R8 | "莫名其妙的颜色...你还差一层啊" (D2b-2 alpha 否决) + "用 SVG 不用 emoji" | D2b-2 rev: top-bar plug SVG indicator + emoji guard test | `CallbackAuthHealthIndicator.tsx` + `expect(html).not.toContain('🔌')` | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -402,7 +404,7 @@ interface CallbackTool<T> {
 | OQ-4 | Phase D telemetry 不直接写 Knowledge Feed（只在阈值触发后人工沉淀） | ✅ resolved → KD-8 |
 | OQ-5 | L4 Bearer 标准化独立 Feature，不在 F174 抢戏 | ✅ resolved → KD-9 |
 | OQ-6 | Legacy fallback 删除策略：停 first-party dual-write → 统计 fallback-only → 零命中一个 release window + 硬 deadline | ✅ resolved → KD-10 |
-| OQ-7 | Phase B 迁移期是否要 dual-backend（memory + redis 同时写）？还是直接切 redis 配回退 env？ | ⬜ 实施时定，倾向后者 |
+| OQ-7 | Phase B 迁移期是否要 dual-backend（memory + redis 同时写）？还是直接切 redis 配回退 env？ | ✅ resolved → 直接切 redis 配 `CAT_CAFE_INVOCATION_REGISTRY=memory` 回退 env (AC-B4)，无 dual-backend |
 
 ## Key Decisions
 
@@ -439,6 +441,7 @@ interface CallbackTool<T> {
 | 2026-04-25 14:42 | **Phase D2b-1 merged via PR #1397** (squash `74ea5ebec`)。砚砚 4 轮 review + cloud Codex 4 轮 review 全部 closed。砚砚 P1+P2: surface decision/dedup/owner gate/source classification/system_notice routing trap. Cloud Codex P1+P2: dedup keys 跨 thread/user 互吞 → 5-tuple key；RichBlocks dispatcher 信任 untrusted meta → trusted-provenance gate (`messageSource.connector === 'callback-auth'`)；dedup map monotonic growth → opportunistic pruneExpired；notify race window → synchronous slot reservation + rollback on persistence failure。新增 38 D2b-1 targeted tests (api 36 + web 4 components + 1 routing-trap + 1 source-classification + 4 cross-thread/user dedup + 2 race + 2 prune)，0 regression (api 9278 pass) |
 | 2026-04-25 23:17 | **Phase D2b-2 + D2b-3 merged via PR #1403** (squash `b59eff071`)。三层"明厨亮灶"模型 close-out — D2b-1 现场 + D2b-2 实体 + D2b-3 审计。砚砚 9 轮 explicit 放行 + cloud Codex 11 轮 review 全部 closed。亮点 review 修复链：(1) D2b-2 wider 部署到 ThreadItem (砚砚 P1 — dashboard-internal 不算实体层); (2) AC-D7 hover popover + click navigation (砚砚 P1); (3) ThreadItem dot click stopPropagation (砚砚 P2); (4) deep-link useEffect prop sync (cloud P1 round 9); (5) per-invocation subTabNonce so repeated 详情 click 在 same-value 路径也 re-sync top + subtab (cloud P1+P2 多轮); (6) snapshot polling stop on first 401/403 → manual refetch latch (cloud P2 round 8); (7) absent byCat = unknown not healthy (cloud P1); (8) HubCallbackAuthPanel + CatAvatar dot 单一 store source 防 split-snapshot skew (cloud P2); (9) `<CallbackAuthSnapshotMount />` null-leaf 隔离 ChatLayout re-render (cloud P2 perf); (10) generation guard for in-flight fetch race (砚砚 P1)。新增 32 D2b-2/D2b-3 web tests，5 syncKey unit (web 2514/2514 pass)，0 regression |
 | 2026-04-26 01:53 | **Phase D2b-2 revision merged via PR #1410** (squash `41bf612c8`)。铲屎官 alpha 验收否决了原 PR #1403 的 per-cat 头像角点 UX ("莫名其妙的颜色"——头像角点缺 affordance/legend)。**根本反思**：spec 错把"实体层"理解成"每只猫一个 dot"，实际 callback-auth 是 system-level entity 不是 cat-level；猫头像 16px 永远 too small + 没有用户 mental model。修法：撤回 ThreadItem dot，新增 top-bar `<CallbackAuthHealthIndicator />`——专属 plug SVG（不用 emoji 按铲屎官明确指示）+ 24h failure badge（gray=无失败记录/quiet, amber=1-5, red=6+）+ click 直达 D2b-3。砚砚 2 轮 review (factual tooltip 不 overclaim health + click affordance 必须有回归测试) + cloud Codex 0 P1/P2。**教训**：信号设计要附 affordance；"放在哪里"和"用户能 parse 吗"是 information design 问题，不只是 wider 部署问题。CallbackAuthCatAvatar 组件保留供 HubCallbackAuthPanel 内部 roster 使用，那里有 "AFFECTED CATS" 文本 affordance，context 明确。新增 7 indicator vitest（含 click event spy + SVG-not-emoji guard），0 regression |
+| 2026-04-26 02:30 | **F174 closed**。愿景守护 = 同族不同个体 @opus (布偶猫 4.6) — 9/9 证物对照表全部 ✅ + housekeeping (OQ-7 标 resolved) + action item (AC-F5 deadline 2026-05-08 立 reminder agent)。三猫家族 (布偶 opus-47 + 缅因 gpt52 + 布偶 opus 4.6) + cloud Codex multi-round 全签收。反思胶囊见 `docs/reflections/2026-04-26-f174-callback-auth-capsule.md`。Evolved into：(a) thread-context 读权限独立 feature (AC-F4) — 待立项；(b) Bearer scheme 标准化独立 feature (KD-9) — 触发条件未到；(c) L5 Identity Federation (F143 hostable runtime 推进后) |
 
 ## Review Gate
 
