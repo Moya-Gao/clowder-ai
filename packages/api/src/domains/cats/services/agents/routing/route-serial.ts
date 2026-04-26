@@ -1404,7 +1404,10 @@ export async function* routeSerial(
             content: JSON.stringify({
               type: 'silent_completion',
               detail: `${catConfig?.displayName ?? (catId as string)} completed without textual output.`,
-              toolCount: 0,
+              toolCount: collectedToolEvents.length,
+              provider: firstMetadata?.provider,
+              model: firstMetadata?.model,
+              invocationId: ownInvocationId,
             }),
             timestamp: Date.now(),
           } as AgentMessage;

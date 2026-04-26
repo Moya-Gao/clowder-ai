@@ -217,9 +217,21 @@ export function ThreadItem({
           {/* Export button */}
           {id !== 'default' && (
             <button
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation();
-                window.open(`${API_URL}/api/export/thread/${id}?format=md`);
+                try {
+                  const res = await fetch(`${API_URL}/api/export/thread/${id}?format=md`);
+                  if (!res.ok) return;
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `thread-${id}.md`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                } catch {
+                  /* silent */
+                }
               }}
               className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-blue-50 transition-all"
               title="导出对话"
