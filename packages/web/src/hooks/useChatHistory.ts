@@ -338,6 +338,7 @@ export function useChatHistory(threadId: string) {
     hasMore,
     prependHistory,
     replaceMessages,
+    hydrateThread,
     setLoadingHistory,
     clearMessages,
     setCatInvocation,
@@ -559,11 +560,12 @@ export function useChatHistory(threadId: string) {
               `replacedHistory=${mergeResult.stats.replacedHistoryCount}`,
             ].join(','),
           });
-          replaceMessages(mergedMsgs, data.hasMore ?? false);
-          // F164: Snapshot merged messages to IndexedDB (fire-and-forget)
-          if (useChatStore.getState().currentThreadId === fetchForThread) {
-            void saveMessagesSnapshot(fetchForThread, mergedMsgs, data.hasMore ?? false).catch(() => {});
-          }
+          // F173 Phase C Task 5+6+7 — single hydration entry. Atomic
+          // server-authoritative replace + IDB overwrite via writer
+          // (instead of bare replaceMessages + saveMessagesSnapshot pair).
+          // AC-C10: server GET 是 authoritative，IDB snapshot 必须被 GET
+          // 响应覆盖而不是合并。
+          hydrateThread(fetchForThread, mergedMsgs, data.hasMore ?? false);
           return true;
         }
         prependHistory(historyMsgs, data.hasMore ?? false);
@@ -585,7 +587,7 @@ export function useChatHistory(threadId: string) {
         }
       }
     },
-    [setLoadingHistory, prependHistory, replaceMessages, threadId],
+    [setLoadingHistory, prependHistory, replaceMessages, hydrateThread, threadId],
   );
 
   const fetchTasks = useCallback(async () => {

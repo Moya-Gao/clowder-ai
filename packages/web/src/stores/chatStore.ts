@@ -570,6 +570,12 @@ export interface ChatState {
   removeMessage: (id: string) => void;
   prependHistory: (msgs: ChatMessage[], hasMore: boolean) => void;
   replaceMessages: (msgs: ChatMessage[], hasMore: boolean) => void;
+  /** F173 Phase C Task 5+6+7 — single hydration entry point.
+   *  Server GET is authoritative: replaces flat messages AND overwrites
+   *  IDB snapshot in one atomic call. Use this instead of bare
+   *  replaceMessages + saveMessagesSnapshot whenever a server GET response
+   *  fully replaces the current thread timeline. AC-C10. */
+  hydrateThread: (threadId: string, msgs: ChatMessage[], hasMore: boolean) => void;
   replaceMessageId: (fromId: string, toId: string) => void;
   patchMessage: (id: string, patch: ChatMessagePatch) => void;
   appendToLastMessage: (content: string) => void;
@@ -1125,6 +1131,51 @@ export const useChatStore = create<ChatState>((set, get) => ({
       revokeRemovedBlobUrls(state.messages, msgs);
       return { messages: msgs, hasMore };
     }),
+
+  hydrateThread: (threadId, msgs, hasMore) => {
+    // F173 Phase C Task 5+6+7 — atomic server-authoritative hydration that
+    // honors KD-2 (threadStates is the writer source, flat is compat mirror).
+    //
+    // 砚砚 P1 (PR #1413): bare replaceMessages + IDB write doesn't mirror
+    // to threadStates → background hydrate would pollute flat / current-
+    // thread updates wouldn't keep threadStates in sync. This action is
+    // *the* thread-scoped writer for hydration:
+    //   - current thread: write flat + mirror to threadStates (single set())
+    //   - non-current thread: write only threadStates, never touch flat
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        revokeRemovedBlobUrls(state.messages, msgs);
+        return {
+          messages: msgs,
+          hasMore,
+          ...mirrorActiveFlat(state, { messages: msgs, hasMore }),
+        };
+      }
+      // background hydrate — confined to threadStates, flat untouched.
+      // 砚砚 P1 round 2 (PR #1413): cannot use mirrorActiveToThreadStates
+      // here because its fallback base is snapshotActive(state) — that
+      // would leak the active thread's liveness/queue/workspace into the
+      // background thread when threadStates[threadId] doesn't exist yet.
+      // Use DEFAULT_THREAD_STATE as base for never-seen threads instead.
+      const baseThreadState = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      // Cloud Codex P2 (PR #1413): revoke blob: URLs dropped by hydration
+      // to avoid leaking object URLs (locally uploaded images stay alive
+      // until reload otherwise). No-op when prev messages is [].
+      revokeRemovedBlobUrls(baseThreadState.messages, msgs);
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: { ...baseThreadState, messages: msgs, hasMore },
+        },
+      };
+    });
+    // IDB overwrite (fire-and-forget). Only persist when thread is still
+    // current — avoids race against a thread switch that already cleared
+    // the outgoing thread's IDB snapshot.
+    if (get().currentThreadId === threadId) {
+      void saveMessagesSnapshot(threadId, msgs, hasMore).catch(() => {});
+    }
+  },
 
   replaceMessageId: (fromId, toId) =>
     set((state) => {

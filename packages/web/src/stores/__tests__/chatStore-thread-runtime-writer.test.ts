@@ -15,9 +15,9 @@
  * 这些测试在引入 ThreadRuntimeWriter 之前应该全部 RED，证明分叉缺口存在；GREEN 后保护回归。
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearDebugEvents, configureDebug } from '@/debug/invocationEventDebug';
-import { useChatStore } from '../chatStore';
+import { DEFAULT_THREAD_STATE, useChatStore } from '../chatStore';
 
 const ACTIVE_TID = 'thread-active';
 const BG_TID = 'thread-background';
@@ -128,6 +128,99 @@ describe('F173 Phase A — ThreadRuntimeWriter mirror invariant', () => {
       expect(s.messages.find((m) => m.id === 'm1')).toBeDefined();
       // mirror (RED)
       expect(s.threadStates[ACTIVE_TID]?.messages.find((m) => m.id === 'm1')).toBeDefined();
+    });
+  });
+
+  describe('hydrateThread (Phase C Task 5+6+7 — atomic hydration writer, 砚砚 P1)', () => {
+    it('active thread: writes flat messages AND mirrors to threadStates', () => {
+      const msgs = [{ id: 'h1', type: 'assistant' as const, catId: 'opus', content: 'hydrated', timestamp: 1 }];
+      useChatStore.getState().hydrateThread(ACTIVE_TID, msgs, false);
+
+      const s = useChatStore.getState();
+      // flat (compat mirror)
+      expect(s.messages.find((m) => m.id === 'h1')).toBeDefined();
+      expect(s.hasMore).toBe(false);
+      // threadStates (writer source) — same payload
+      expect(s.threadStates[ACTIVE_TID]?.messages.find((m) => m.id === 'h1')).toBeDefined();
+      expect(s.threadStates[ACTIVE_TID]?.hasMore).toBe(false);
+    });
+
+    it('background thread (never-seen): does NOT leak active liveness/queue/workspace into target (砚砚 P1 round 2)', () => {
+      // Seed flat with active thread liveness — these fields must NOT bleed
+      // into the never-seen background thread via snapshotActive fallback.
+      useChatStore.setState({
+        messages: [{ id: 'active-msg', type: 'user', content: 'active', timestamp: 0 }],
+        hasActiveInvocation: true,
+        intentMode: 'execute',
+        targetCats: ['opus'],
+        catStatuses: { opus: 'streaming' },
+        catInvocations: { opus: { invocationId: 'active-inv', startedAt: 1 } },
+        activeInvocations: { 'active-inv': { catId: 'opus', mode: 'execute' } },
+      });
+      const bgMsgs = [{ id: 'bg-1', type: 'assistant' as const, catId: 'opus', content: 'bg', timestamp: 1 }];
+
+      useChatStore.getState().hydrateThread(BG_TID, bgMsgs, false);
+
+      const bgState = useChatStore.getState().threadStates[BG_TID];
+      expect(bgState).toBeDefined();
+      expect(bgState?.messages.find((m) => m.id === 'bg-1')).toBeDefined();
+      // Liveness must be DEFAULT (not active's liveness leaked via snapshotActive)
+      expect(bgState?.hasActiveInvocation).toBe(false);
+      expect(bgState?.intentMode).toBeNull();
+      expect(bgState?.targetCats).toEqual([]);
+      expect(bgState?.catStatuses).toEqual({});
+      expect(bgState?.catInvocations).toEqual({});
+      expect(bgState?.activeInvocations).toEqual({});
+    });
+
+    it('background thread: revokes blob URLs from prev messages dropped by hydration (云端 Codex P2)', () => {
+      const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+      const blobUrl = 'blob:http://localhost/abc-123';
+      // Seed BG thread with a message containing a blob: image URL
+      useChatStore.setState({
+        threadStates: {
+          [BG_TID]: {
+            ...DEFAULT_THREAD_STATE,
+            messages: [
+              {
+                id: 'old-1',
+                type: 'user',
+                content: '',
+                contentBlocks: [{ type: 'image', url: blobUrl }],
+                timestamp: 1,
+              },
+            ],
+            hasMore: true,
+          },
+        },
+      });
+      const newMsgs = [{ id: 'new-1', type: 'assistant' as const, catId: 'opus', content: 'hi', timestamp: 2 }];
+
+      useChatStore.getState().hydrateThread(BG_TID, newMsgs, false);
+
+      expect(revokeSpy).toHaveBeenCalledWith(blobUrl);
+      revokeSpy.mockRestore();
+    });
+
+    it('background thread: writes only threadStates, does NOT touch flat', () => {
+      // Seed flat with the active thread's existing messages so we can verify pollution
+      useChatStore.setState({
+        messages: [{ id: 'active-msg', type: 'user', content: 'active', timestamp: 0 }],
+        hasMore: true,
+      });
+      const bgMsgs = [{ id: 'bg-1', type: 'assistant' as const, catId: 'opus', content: 'bg hydrated', timestamp: 1 }];
+      useChatStore.getState().hydrateThread(BG_TID, bgMsgs, false);
+
+      const s = useChatStore.getState();
+      // threadStates[BG] has the bg payload
+      expect(s.threadStates[BG_TID]?.messages.find((m) => m.id === 'bg-1')).toBeDefined();
+      expect(s.threadStates[BG_TID]?.hasMore).toBe(false);
+      // flat untouched — active thread's existing data preserved
+      expect(s.messages.find((m) => m.id === 'active-msg')).toBeDefined();
+      expect(s.messages.find((m) => m.id === 'bg-1')).toBeUndefined();
+      expect(s.hasMore).toBe(true);
+      // threadStates[ACTIVE] not affected by bg hydrate
+      expect(s.threadStates[ACTIVE_TID]?.messages?.find((m) => m.id === 'bg-1')).toBeUndefined();
     });
   });
 
