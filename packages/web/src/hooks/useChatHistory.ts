@@ -284,6 +284,28 @@ function mergeReplaceHydrationMessages(
       }
     }
 
+    // F173 Phase C Task 9 — narrow ghost-tolerance guard (cloud Codex P1).
+    // Drop only the precise orphan-draft shape: id startsWith 'draft-' AND
+    // no live invocation in catInvocations claims its invocationId.
+    //
+    // Why narrow to draft-*:
+    //   - IDB-cached orphan drafts (hotfix3-filtered) always carry id
+    //     'draft-{invocationId}' (DraftStore write path).
+    //   - Just-completed live bubbles use 'msg-{inv}-{cat}' shape and may
+    //     have catInvocations cleared by the done handler before the server
+    //     persists them. An overly broad guard would drop those legitimate
+    //     bubbles on a fast thread switch — Codex P1 caught this.
+    //
+    // Result: orphan IDB drafts dropped; live just-completed bubbles preserved
+    // until server GET returns authoritative replacement.
+    if (invocationId && msg.id.startsWith('draft-')) {
+      const knownToLiveInvocation = Object.values(currentCatInvocations).some(
+        (info) => info.invocationId === invocationId,
+      );
+      if (!knownToLiveInvocation) {
+        continue;
+      }
+    }
     mergedMsgs.push(msg);
     preservedLocalCount++;
   }
