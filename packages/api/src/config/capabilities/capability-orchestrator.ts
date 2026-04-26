@@ -567,26 +567,52 @@ export function buildCatCafeMcpDescriptor(projectRoot: string): McpServerDescrip
 
 const CAT_CAFE_SPLIT_SERVER_IDS = ['cat-cafe-collab', 'cat-cafe-memory', 'cat-cafe-signals'] as const;
 
-function buildCatCafeSplitMcpDescriptors(projectRoot: string): McpServerDescriptor[] {
+/**
+ * Resolve the runtime binary root (where Cat Café MCP server code lives).
+ * codex peer review (PR #1414): explicit `opts.catCafeRepoRoot` from the
+ * production route is auto-detected via `resolveMainRepoPath()` (first git
+ * worktree line), which returns the canonical main repo even when API is
+ * running from the runtime worktree. Therefore `CAT_CAFE_RUNTIME_ROOT` must
+ * win over the explicit caller — env is the runtime-startup-explicit override
+ * of the auto-detection.
+ *
+ * Order of precedence:
+ *   1. CAT_CAFE_RUNTIME_ROOT env (highest — runtime startup script exports
+ *      `$RUNTIME_DIR` here so MCP config always points at the actual running
+ *      binary, regardless of what the calling route auto-detected)
+ *   2. explicit `catCafeRepoRoot` opt (typically `resolveMainRepoPath()` from
+ *      `routes/capabilities.ts`; correct in dev mode but stale in runtime mode
+ *      until env overrides)
+ *   3. process.cwd() fallback (the API process's cwd is by definition the
+ *      binary location when no explicit signal is set)
+ */
+export function resolveBinaryRoot(explicit?: string): string {
+  const runtimeRoot = process.env.CAT_CAFE_RUNTIME_ROOT?.trim();
+  if (runtimeRoot) return runtimeRoot;
+  if (explicit) return explicit;
+  return process.cwd();
+}
+
+function buildCatCafeSplitMcpDescriptors(binaryRoot: string): McpServerDescriptor[] {
   return [
     {
       name: 'cat-cafe-collab',
       command: 'node',
-      args: [resolve(projectRoot, 'packages/mcp-server/dist/collab.js')],
+      args: [resolve(binaryRoot, 'packages/mcp-server/dist/collab.js')],
       enabled: true,
       source: 'cat-cafe',
     },
     {
       name: 'cat-cafe-memory',
       command: 'node',
-      args: [resolve(projectRoot, 'packages/mcp-server/dist/memory.js')],
+      args: [resolve(binaryRoot, 'packages/mcp-server/dist/memory.js')],
       enabled: true,
       source: 'cat-cafe',
     },
     {
       name: 'cat-cafe-signals',
       command: 'node',
-      args: [resolve(projectRoot, 'packages/mcp-server/dist/signals.js')],
+      args: [resolve(binaryRoot, 'packages/mcp-server/dist/signals.js')],
       enabled: true,
       source: 'cat-cafe',
     },
@@ -645,9 +671,9 @@ export function migrateLegacyCatCafeCapability(
   config: CapabilitiesConfig,
   opts?: { catCafeRepoRoot?: string; projectRoot?: string },
 ): { migrated: boolean; config: CapabilitiesConfig } {
-  const projectRoot = opts?.catCafeRepoRoot ?? opts?.projectRoot;
-  if (!projectRoot) return { migrated: false, config };
-
+  // `projectRoot` is workspace, NOT binary root. Use resolveBinaryRoot for the
+  // binary path (codex review on PR #1396 R3). The opts.projectRoot field is
+  // accepted for backward-compatible callers but ignored for path resolution.
   const splitSet = new Set(CAT_CAFE_SPLIT_SERVER_IDS);
   const hasSplit = config.capabilities.some((cap) =>
     splitSet.has(cap.id as (typeof CAT_CAFE_SPLIT_SERVER_IDS)[number]),
@@ -657,12 +683,13 @@ export function migrateLegacyCatCafeCapability(
   const legacyCatCafe = config.capabilities.find((cap) => cap.type === 'mcp' && cap.id === 'cat-cafe');
   if (!legacyCatCafe) return { migrated: false, config };
 
+  const binaryRoot = resolveBinaryRoot(opts?.catCafeRepoRoot);
   const nextCapabilities = config.capabilities.filter((cap) => cap.id !== 'cat-cafe');
   const legacySeed: LegacyCatCafeSeed = { enabled: legacyCatCafe.enabled };
   if (legacyCatCafe.overrides) legacySeed.overrides = legacyCatCafe.overrides;
   if (legacyCatCafe.mcpServer?.env) legacySeed.env = legacyCatCafe.mcpServer.env;
   if (legacyCatCafe.mcpServer?.workingDir) legacySeed.workingDir = legacyCatCafe.mcpServer.workingDir;
-  const splitEntries = buildSplitCapabilityEntries(projectRoot, legacySeed);
+  const splitEntries = buildSplitCapabilityEntries(binaryRoot, legacySeed);
   for (const splitEntry of splitEntries) {
     nextCapabilities.unshift(splitEntry);
   }
@@ -715,9 +742,7 @@ export function ensureCatCafeMainServer(
   config: CapabilitiesConfig,
   opts?: { catCafeRepoRoot?: string; projectRoot?: string },
 ): { migrated: boolean; config: CapabilitiesConfig } {
-  const projectRoot = opts?.catCafeRepoRoot ?? opts?.projectRoot;
-  if (!projectRoot) return { migrated: false, config };
-
+  // `projectRoot` is workspace, NOT binary root (codex review PR #1396 R3).
   const splitSet = new Set<string>(CAT_CAFE_SPLIT_SERVER_IDS);
   const hasSplit = config.capabilities.some((cap) => splitSet.has(cap.id));
   if (!hasSplit) return { migrated: false, config };
@@ -725,10 +750,11 @@ export function ensureCatCafeMainServer(
   const hasMain = config.capabilities.some((cap) => cap.type === 'mcp' && cap.id === 'cat-cafe');
   if (hasMain) return { migrated: false, config };
 
+  const binaryRoot = resolveBinaryRoot(opts?.catCafeRepoRoot);
   // Inherit enabled/overrides/env/workingDir from the first split server,
   // so we don't re-enable a server the user explicitly disabled.
   const firstSplit = config.capabilities.find((cap) => splitSet.has(cap.id));
-  const mainEntry = toCapabilityEntry(buildCatCafeMcpDescriptor(projectRoot));
+  const mainEntry = toCapabilityEntry(buildCatCafeMcpDescriptor(binaryRoot));
   if (firstSplit) {
     mainEntry.enabled = firstSplit.enabled;
     if (firstSplit.overrides) mainEntry.overrides = firstSplit.overrides.map((o) => ({ ...o }));
@@ -750,12 +776,19 @@ export function realignManagedCatCafeServerPaths(
   config: CapabilitiesConfig,
   opts?: { catCafeRepoRoot?: string; projectRoot?: string },
 ): { migrated: boolean; config: CapabilitiesConfig } {
-  const projectRoot = opts?.catCafeRepoRoot ?? opts?.projectRoot;
-  if (!projectRoot) return { migrated: false, config };
+  // Realign rewrites managed MCP paths to a stable binary root. We only act
+  // when the caller has an explicit signal (catCafeRepoRoot opt OR runtime
+  // env), because falling back to process.cwd() here could clobber valid
+  // paths every time the API process moves cwd. `opts.projectRoot` is the
+  // workspace path and is NOT a substitute for binary root (codex PR #1396 R3).
+  if (!opts?.catCafeRepoRoot && !process.env.CAT_CAFE_RUNTIME_ROOT) {
+    return { migrated: false, config };
+  }
+  const binaryRoot = resolveBinaryRoot(opts?.catCafeRepoRoot);
 
   const desiredById = new Map<string, McpServerDescriptor>([
-    ['cat-cafe', buildCatCafeMcpDescriptor(projectRoot)],
-    ...buildCatCafeSplitMcpDescriptors(projectRoot).map((descriptor) => [descriptor.name, descriptor] as const),
+    ['cat-cafe', buildCatCafeMcpDescriptor(binaryRoot)],
+    ...buildCatCafeSplitMcpDescriptors(binaryRoot).map((descriptor) => [descriptor.name, descriptor] as const),
   ]);
 
   let migrated = false;
@@ -797,7 +830,13 @@ export async function bootstrapCapabilities(
   discoveryPaths: DiscoveryPaths,
   opts?: { catCafeRepoRoot?: string },
 ): Promise<CapabilitiesConfig> {
-  const catCafeRepoRoot = opts?.catCafeRepoRoot ?? projectRoot;
+  // `projectRoot` is the workspace project root (where capabilities.json gets
+  // written). It is NOT the binary root — those are conceptually different
+  // since codex peer review on PR #1396 R3. Binary path resolution chain:
+  //   1. opts.catCafeRepoRoot (explicit caller intent — e.g. multi-project)
+  //   2. CAT_CAFE_RUNTIME_ROOT env (runtime startup explicit)
+  //   3. process.cwd() (API process's location — == binary root by default)
+  const catCafeRepoRoot = resolveBinaryRoot(opts?.catCafeRepoRoot);
   const catCafeServers = buildCatCafeSplitMcpDescriptors(catCafeRepoRoot);
   const externals = await discoverExternalMcpServers(discoveryPaths);
 

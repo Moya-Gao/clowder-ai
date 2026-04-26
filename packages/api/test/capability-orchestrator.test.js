@@ -844,6 +844,101 @@ describe('bootstrapCapabilities', () => {
       );
     }
   });
+
+  it('F061 binary/workspace separation: CAT_CAFE_RUNTIME_ROOT env builds binary paths when no explicit opts', async () => {
+    const claudeFile = join(dir, '.mcp.json');
+    await writeFile(claudeFile, JSON.stringify({ mcpServers: {} }));
+    const originalRuntime = process.env.CAT_CAFE_RUNTIME_ROOT;
+    try {
+      process.env.CAT_CAFE_RUNTIME_ROOT = '/Users/landy/projects/cat-cafe-runtime';
+      // No catCafeRepoRoot opt — env should drive resolution. The first
+      // positional arg (`projectRoot`) is the workspace project's API root,
+      // which the orchestrator must NOT use as the binary root anymore.
+      const config = await bootstrapCapabilities(dir, {
+        claudeConfig: claudeFile,
+        codexConfig: join(dir, 'nonexistent.toml'),
+        geminiConfig: join(dir, 'nonexistent.json'),
+      });
+
+      const splits = ['cat-cafe-collab', 'cat-cafe-memory', 'cat-cafe-signals'];
+      for (const id of splits) {
+        const cap = config.capabilities.find((c) => c.id === id);
+        assert.ok(cap, `${id} should exist`);
+        assert.ok(
+          cap.mcpServer?.args[0].startsWith('/Users/landy/projects/cat-cafe-runtime/'),
+          `${id} args[0] should resolve under CAT_CAFE_RUNTIME_ROOT, got ${cap.mcpServer?.args[0]}`,
+        );
+        assert.ok(!cap.mcpServer?.args[0].includes(dir), `${id} args[0] must NOT use the projectRoot positional arg`);
+      }
+    } finally {
+      if (originalRuntime === undefined) delete process.env.CAT_CAFE_RUNTIME_ROOT;
+      else process.env.CAT_CAFE_RUNTIME_ROOT = originalRuntime;
+    }
+  });
+
+  it('F061 binary/workspace separation: CAT_CAFE_RUNTIME_ROOT env overrides explicit opts (codex PR #1414 P1-1)', async () => {
+    // Production route shape: routes/capabilities.ts always passes
+    // catCafeRepoRoot from resolveMainRepoPath() (canonical main repo, first
+    // git worktree). When API actually runs from cat-cafe-runtime worktree,
+    // that explicit opt is auto-detected and STALE — env must win so MCP
+    // config points at fresh runtime dist instead of stale main dist.
+    const claudeFile = join(dir, '.mcp.json');
+    await writeFile(claudeFile, JSON.stringify({ mcpServers: {} }));
+    const originalRuntime = process.env.CAT_CAFE_RUNTIME_ROOT;
+    try {
+      process.env.CAT_CAFE_RUNTIME_ROOT = '/runtime-binary';
+      const config = await bootstrapCapabilities(
+        dir,
+        {
+          claudeConfig: claudeFile,
+          codexConfig: join(dir, 'nonexistent.toml'),
+          geminiConfig: join(dir, 'nonexistent.json'),
+        },
+        // simulates `routes/capabilities.ts:426` calling resolveMainRepoPath()
+        { catCafeRepoRoot: '/stale-main-from-resolveMainRepoPath' },
+      );
+
+      const collab = config.capabilities.find((c) => c.id === 'cat-cafe-collab');
+      assert.ok(
+        collab?.mcpServer?.args[0].startsWith('/runtime-binary/'),
+        `expected runtime path to win, got ${collab?.mcpServer?.args[0]}`,
+      );
+      assert.ok(
+        !collab?.mcpServer?.args[0].includes('/stale-main-from-resolveMainRepoPath'),
+        'CAT_CAFE_RUNTIME_ROOT must override the auto-detected explicit opt',
+      );
+    } finally {
+      if (originalRuntime === undefined) delete process.env.CAT_CAFE_RUNTIME_ROOT;
+      else process.env.CAT_CAFE_RUNTIME_ROOT = originalRuntime;
+    }
+  });
+
+  it('F061 binary/workspace separation: explicit opts still used when env is unset (dev mode)', async () => {
+    const claudeFile = join(dir, '.mcp.json');
+    await writeFile(claudeFile, JSON.stringify({ mcpServers: {} }));
+    const originalRuntime = process.env.CAT_CAFE_RUNTIME_ROOT;
+    try {
+      delete process.env.CAT_CAFE_RUNTIME_ROOT;
+      const config = await bootstrapCapabilities(
+        dir,
+        {
+          claudeConfig: claudeFile,
+          codexConfig: join(dir, 'nonexistent.toml'),
+          geminiConfig: join(dir, 'nonexistent.json'),
+        },
+        { catCafeRepoRoot: '/dev-main-repo' },
+      );
+
+      const collab = config.capabilities.find((c) => c.id === 'cat-cafe-collab');
+      assert.ok(
+        collab?.mcpServer?.args[0].startsWith('/dev-main-repo/'),
+        `dev mode: explicit opt should win when env unset, got ${collab?.mcpServer?.args[0]}`,
+      );
+    } finally {
+      if (originalRuntime === undefined) delete process.env.CAT_CAFE_RUNTIME_ROOT;
+      else process.env.CAT_CAFE_RUNTIME_ROOT = originalRuntime;
+    }
+  });
 });
 
 describe('migrateLegacyCatCafeCapability', () => {
@@ -1016,7 +1111,10 @@ describe('ensureCatCafeMainServer', () => {
     assert.equal(result.migrated, false);
   });
 
-  it('no-op without projectRoot', () => {
+  it('falls back to process.cwd() for binary root when no opts (codex PR #1396 R3)', () => {
+    // Pre-PR #1396 R3 this returned no-op without explicit projectRoot. After
+    // the binary/workspace separation, "no opts" means "use process.cwd()" —
+    // because the API process's cwd is by definition the runtime binary root.
     const config = makeConfig([
       {
         id: 'cat-cafe-collab',
@@ -1028,7 +1126,9 @@ describe('ensureCatCafeMainServer', () => {
     ]);
 
     const result = ensureCatCafeMainServer(config);
-    assert.equal(result.migrated, false);
+    assert.equal(result.migrated, true, 'ensure should add main server using cwd fallback');
+    const main = result.config.capabilities.find((c) => c.id === 'cat-cafe');
+    assert.ok(main?.mcpServer?.args[0].startsWith(process.cwd()));
   });
 
   it('inherits disabled + overrides + env from split servers (R1 regression)', () => {
@@ -1118,6 +1218,63 @@ describe('ensureCatCafeMainServer', () => {
     assert.ok(main?.mcpServer?.args[0].includes('/stable-root/packages/mcp-server/dist/index.js'));
     assert.ok(memory?.mcpServer?.args[0].includes('/stable-root/packages/mcp-server/dist/memory.js'));
     assert.deepEqual(external?.mcpServer?.args, ['ok']);
+  });
+
+  it('F061 binary/workspace separation: realign activates from CAT_CAFE_RUNTIME_ROOT env alone (no opts)', () => {
+    const config = makeConfig([
+      {
+        id: 'cat-cafe-collab',
+        type: 'mcp',
+        enabled: true,
+        source: 'cat-cafe',
+        mcpServer: { command: 'node', args: ['/main-repo/packages/mcp-server/dist/collab.js'] },
+      },
+    ]);
+    const originalRuntime = process.env.CAT_CAFE_RUNTIME_ROOT;
+    try {
+      process.env.CAT_CAFE_RUNTIME_ROOT = '/runtime-worktree';
+      // No opts at all — env alone should activate realignment so runtime
+      // startup gets fresh dist paths even when the caller has no projectRoot.
+      const result = realignManagedCatCafeServerPaths(config);
+      assert.equal(result.migrated, true, 'env-only realign should migrate');
+      const collab = result.config.capabilities.find((c) => c.id === 'cat-cafe-collab');
+      assert.ok(
+        collab?.mcpServer?.args[0].includes('/runtime-worktree/packages/mcp-server/dist/collab.js'),
+        `expected runtime path, got ${collab?.mcpServer?.args[0]}`,
+      );
+    } finally {
+      if (originalRuntime === undefined) delete process.env.CAT_CAFE_RUNTIME_ROOT;
+      else process.env.CAT_CAFE_RUNTIME_ROOT = originalRuntime;
+    }
+  });
+
+  it('F061 binary/workspace separation: realign no-op when neither env nor opts provided', () => {
+    const config = makeConfig([
+      {
+        id: 'cat-cafe-collab',
+        type: 'mcp',
+        enabled: true,
+        source: 'cat-cafe',
+        mcpServer: { command: 'node', args: ['/main-repo/packages/mcp-server/dist/collab.js'] },
+      },
+    ]);
+    const originalRuntime = process.env.CAT_CAFE_RUNTIME_ROOT;
+    try {
+      delete process.env.CAT_CAFE_RUNTIME_ROOT;
+      // Without env and without opts, realign should preserve original paths
+      // (no inference from process.cwd — that would clobber valid paths).
+      const result = realignManagedCatCafeServerPaths(config);
+      assert.equal(result.migrated, false, 'no env + no opts should be a no-op');
+      const collab = result.config.capabilities.find((c) => c.id === 'cat-cafe-collab');
+      assert.equal(
+        collab?.mcpServer?.args[0],
+        '/main-repo/packages/mcp-server/dist/collab.js',
+        'paths should not be rewritten without explicit signal',
+      );
+    } finally {
+      if (originalRuntime === undefined) delete process.env.CAT_CAFE_RUNTIME_ROOT;
+      else process.env.CAT_CAFE_RUNTIME_ROOT = originalRuntime;
+    }
   });
 });
 

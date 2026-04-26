@@ -685,6 +685,200 @@ describe('writeAntigravityMcpConfig', () => {
       else process.env.ALLOWED_WORKSPACE_DIRS = originalEnv;
     }
   });
+
+  it('F061 binary/workspace separation: CAT_CAFE_WORKSPACE_ROOT scopes workspace independent of process.cwd', async () => {
+    const file = join(dir, 'mcp_config.json');
+    const originalAwd = process.env.ALLOWED_WORKSPACE_DIRS;
+    const originalWs = process.env.CAT_CAFE_WORKSPACE_ROOT;
+    try {
+      delete process.env.ALLOWED_WORKSPACE_DIRS;
+      process.env.CAT_CAFE_WORKSPACE_ROOT = '/Users/landy/projects/cat-cafe';
+      await writeAntigravityMcpConfig(file, [
+        { name: 'cat-cafe', command: 'node', args: ['/runtime/dist/collab.js'], enabled: true, source: 'cat-cafe' },
+      ]);
+      const raw = JSON.parse(await readFile(file, 'utf-8'));
+      // Workspace env reflects CAT_CAFE_WORKSPACE_ROOT (where Bengal operates)
+      assert.equal(
+        raw.mcpServers['cat-cafe'].env.ALLOWED_WORKSPACE_DIRS,
+        '/Users/landy/projects/cat-cafe',
+        'ALLOWED_WORKSPACE_DIRS should reflect CAT_CAFE_WORKSPACE_ROOT, not process.cwd()',
+      );
+      // Binary path stays at whatever the descriptor pointed at (runtime)
+      assert.equal(
+        raw.mcpServers['cat-cafe'].args[0],
+        '/runtime/dist/collab.js',
+        'args[0] (binary path) should not be rewritten by workspace env',
+      );
+    } finally {
+      if (originalAwd === undefined) delete process.env.ALLOWED_WORKSPACE_DIRS;
+      else process.env.ALLOWED_WORKSPACE_DIRS = originalAwd;
+      if (originalWs === undefined) delete process.env.CAT_CAFE_WORKSPACE_ROOT;
+      else process.env.CAT_CAFE_WORKSPACE_ROOT = originalWs;
+    }
+  });
+
+  it('F061 binary/workspace separation: ALLOWED_WORKSPACE_DIRS overrides CAT_CAFE_WORKSPACE_ROOT', async () => {
+    const file = join(dir, 'mcp_config.json');
+    const originalAwd = process.env.ALLOWED_WORKSPACE_DIRS;
+    const originalWs = process.env.CAT_CAFE_WORKSPACE_ROOT;
+    try {
+      // Both set: ALLOWED_WORKSPACE_DIRS wins (highest precedence)
+      process.env.ALLOWED_WORKSPACE_DIRS = '/explicit/allowed';
+      process.env.CAT_CAFE_WORKSPACE_ROOT = '/should-be-ignored';
+      await writeAntigravityMcpConfig(file, [
+        { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'cat-cafe' },
+      ]);
+      const raw = JSON.parse(await readFile(file, 'utf-8'));
+      assert.equal(
+        raw.mcpServers['cat-cafe'].env.ALLOWED_WORKSPACE_DIRS,
+        '/explicit/allowed',
+        'ALLOWED_WORKSPACE_DIRS env must take precedence over CAT_CAFE_WORKSPACE_ROOT',
+      );
+    } finally {
+      if (originalAwd === undefined) delete process.env.ALLOWED_WORKSPACE_DIRS;
+      else process.env.ALLOWED_WORKSPACE_DIRS = originalAwd;
+      if (originalWs === undefined) delete process.env.CAT_CAFE_WORKSPACE_ROOT;
+      else process.env.CAT_CAFE_WORKSPACE_ROOT = originalWs;
+    }
+  });
+
+  it('F061 codex P1-2 e2e: runtime mode → args[0] points at runtime dist, env.ALLOWED_WORKSPACE_DIRS points at workspace', async () => {
+    // The single end-to-end invariant codex required: when runtime root and
+    // workspace root are different (true production runtime config),
+    // generated Antigravity config MUST split them. Binary path = runtime
+    // dist (where freshly-built code lives), workspace env = active user
+    // workspace (where Bengal runs git/ls/cat).
+    const file = join(dir, 'mcp_config.json');
+    const originalAwd = process.env.ALLOWED_WORKSPACE_DIRS;
+    const originalWs = process.env.CAT_CAFE_WORKSPACE_ROOT;
+    const originalRuntime = process.env.CAT_CAFE_RUNTIME_ROOT;
+    try {
+      delete process.env.ALLOWED_WORKSPACE_DIRS;
+      // Simulate runtime startup having exported both env vars
+      process.env.CAT_CAFE_RUNTIME_ROOT = '/Users/lysander/projects/relay-station/cat-cafe-runtime';
+      process.env.CAT_CAFE_WORKSPACE_ROOT = '/Users/lysander/projects/relay-station/cat-cafe';
+
+      // Descriptors come pre-resolved with runtime dist paths (capability
+      // orchestrator's resolveBinaryRoot path). Writer must NOT clobber.
+      await writeAntigravityMcpConfig(file, [
+        {
+          name: 'cat-cafe-collab',
+          command: 'node',
+          args: ['/Users/lysander/projects/relay-station/cat-cafe-runtime/packages/mcp-server/dist/collab.js'],
+          enabled: true,
+          source: 'cat-cafe',
+        },
+      ]);
+
+      const raw = JSON.parse(await readFile(file, 'utf-8'));
+      const collab = raw.mcpServers['cat-cafe-collab'];
+
+      // Binary = runtime worktree dist (NOT workspace path)
+      assert.equal(
+        collab.args[0],
+        '/Users/lysander/projects/relay-station/cat-cafe-runtime/packages/mcp-server/dist/collab.js',
+        'args[0] must point at runtime binary dist, not workspace',
+      );
+      assert.ok(collab.args[0].includes('/cat-cafe-runtime/'), 'binary path must live under runtime root');
+
+      // Workspace = user's active workspace (NOT runtime internals)
+      assert.equal(
+        collab.env.ALLOWED_WORKSPACE_DIRS,
+        '/Users/lysander/projects/relay-station/cat-cafe',
+        'ALLOWED_WORKSPACE_DIRS must point at user workspace, not runtime internals',
+      );
+      assert.ok(
+        !collab.env.ALLOWED_WORKSPACE_DIRS.includes('cat-cafe-runtime'),
+        'workspace env must NOT include runtime worktree path',
+      );
+
+      // Security baseline preserved
+      assert.equal(collab.env.CAT_CAFE_READONLY, 'true', 'persistent MCP must stay read-only');
+    } finally {
+      if (originalAwd === undefined) delete process.env.ALLOWED_WORKSPACE_DIRS;
+      else process.env.ALLOWED_WORKSPACE_DIRS = originalAwd;
+      if (originalWs === undefined) delete process.env.CAT_CAFE_WORKSPACE_ROOT;
+      else process.env.CAT_CAFE_WORKSPACE_ROOT = originalWs;
+      if (originalRuntime === undefined) delete process.env.CAT_CAFE_RUNTIME_ROOT;
+      else process.env.CAT_CAFE_RUNTIME_ROOT = originalRuntime;
+    }
+  });
+
+  it('F061 codex P1-2 merge order: descriptor wins for user-controlled keys, enforced for security/deployment', async () => {
+    // Three-tier merge after PR #1414:
+    //   - ALLOWED_WORKSPACE_DIRS: user-controlled, descriptor wins
+    //   - CAT_CAFE_API_URL: deployment truth, ALWAYS overwritten by current process env
+    //   - CAT_CAFE_READONLY: security, ALWAYS 'true'
+    const file = join(dir, 'mcp_config.json');
+    const originalAwd = process.env.ALLOWED_WORKSPACE_DIRS;
+    const originalWs = process.env.CAT_CAFE_WORKSPACE_ROOT;
+    try {
+      delete process.env.ALLOWED_WORKSPACE_DIRS;
+      delete process.env.CAT_CAFE_WORKSPACE_ROOT;
+      await writeAntigravityMcpConfig(file, [
+        {
+          name: 'cat-cafe',
+          command: 'node',
+          args: ['index.js'],
+          enabled: true,
+          source: 'cat-cafe',
+          env: {
+            ALLOWED_WORKSPACE_DIRS: '/user-set/workspace',
+            CAT_CAFE_API_URL: 'https://stale.legacy.example.com',
+          },
+        },
+      ]);
+      const raw = JSON.parse(await readFile(file, 'utf-8'));
+      assert.equal(
+        raw.mcpServers['cat-cafe'].env.ALLOWED_WORKSPACE_DIRS,
+        '/user-set/workspace',
+        'user-controlled key: descriptor must win over process.cwd() default',
+      );
+      assert.equal(
+        raw.mcpServers['cat-cafe'].env.CAT_CAFE_API_URL,
+        expectedAntigravityApiUrl(),
+        'deployment key: enforced env must override stale descriptor URL',
+      );
+      assert.equal(
+        raw.mcpServers['cat-cafe'].env.CAT_CAFE_READONLY,
+        'true',
+        'security key: CAT_CAFE_READONLY must always be enforced',
+      );
+    } finally {
+      if (originalAwd === undefined) delete process.env.ALLOWED_WORKSPACE_DIRS;
+      else process.env.ALLOWED_WORKSPACE_DIRS = originalAwd;
+      if (originalWs === undefined) delete process.env.CAT_CAFE_WORKSPACE_ROOT;
+      else process.env.CAT_CAFE_WORKSPACE_ROOT = originalWs;
+    }
+  });
+
+  it('F061 codex P1-2 security: descriptor cannot opt out of CAT_CAFE_READONLY', async () => {
+    const file = join(dir, 'mcp_config.json');
+    const originalAwd = process.env.ALLOWED_WORKSPACE_DIRS;
+    try {
+      delete process.env.ALLOWED_WORKSPACE_DIRS;
+      // Malicious / buggy descriptor tries to disable read-only mode
+      await writeAntigravityMcpConfig(file, [
+        {
+          name: 'cat-cafe',
+          command: 'node',
+          args: ['index.js'],
+          enabled: true,
+          source: 'cat-cafe',
+          env: { CAT_CAFE_READONLY: 'false' },
+        },
+      ]);
+      const raw = JSON.parse(await readFile(file, 'utf-8'));
+      assert.equal(
+        raw.mcpServers['cat-cafe'].env.CAT_CAFE_READONLY,
+        'true',
+        'persistent MCP read-only boundary must be hard-enforced regardless of descriptor',
+      );
+    } finally {
+      if (originalAwd === undefined) delete process.env.ALLOWED_WORKSPACE_DIRS;
+      else process.env.ALLOWED_WORKSPACE_DIRS = originalAwd;
+    }
+  });
 });
 
 // ────────── P1-2 Regression: Preserve user's non-managed MCP servers ──────────

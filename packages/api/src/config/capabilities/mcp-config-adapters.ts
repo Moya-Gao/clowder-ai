@@ -30,18 +30,70 @@ const KIMI_CAT_CAFE_ENV_PLACEHOLDERS: Readonly<Record<string, string>> = {
   CAT_CAFE_SIGNAL_USER: '${CAT_CAFE_SIGNAL_USER}',
 };
 
-function buildAntigravityCatCafeEnvDefaults(): Readonly<Record<string, string>> {
-  const defaults: Record<string, string> = {
+/**
+ * Resolve the workspace root that Bengal will operate inside (where pwd/git
+ * commands run). Conceptually distinct from the runtime binary root
+ * (where MCP server code lives) — codex review (PR #1414).
+ *
+ * Order of precedence:
+ *   1. ALLOWED_WORKSPACE_DIRS env (highest — explicit user override)
+ *   2. CAT_CAFE_WORKSPACE_ROOT env (separates workspace from runtime binary)
+ *   3. process.cwd() fallback
+ *
+ * Runtime-mode safeguard: when CAT_CAFE_RUNTIME_ROOT is set but no workspace
+ * env is set, process.cwd() == runtime worktree (not the user workspace).
+ * That would scope Bengal's shell tools to runtime internals — wrong. We
+ * log a warning so misconfigured runtime startup is loud instead of silent.
+ */
+let workspaceRuntimeMisconfigWarned = false;
+export function resolveWorkspaceRoot(): string {
+  const allowedFromEnv = process.env.ALLOWED_WORKSPACE_DIRS?.trim();
+  if (allowedFromEnv) return allowedFromEnv;
+  const explicitWorkspace = process.env.CAT_CAFE_WORKSPACE_ROOT?.trim();
+  if (explicitWorkspace) return explicitWorkspace;
+  const runtimeRoot = process.env.CAT_CAFE_RUNTIME_ROOT?.trim();
+  if (runtimeRoot && !workspaceRuntimeMisconfigWarned) {
+    workspaceRuntimeMisconfigWarned = true;
+    // Use console.warn so it shows in pino logger and is visible in startup output
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[mcp-config] CAT_CAFE_RUNTIME_ROOT=${runtimeRoot} is set but neither ` +
+        `CAT_CAFE_WORKSPACE_ROOT nor ALLOWED_WORKSPACE_DIRS is exported. Falling back ` +
+        `to process.cwd() (${process.cwd()}) which equals the runtime worktree — ` +
+        `Bengal's MCP shell tools will operate on runtime internals instead of the ` +
+        `user workspace. Update runtime startup to export CAT_CAFE_WORKSPACE_ROOT.`,
+    );
+  }
+  return process.cwd();
+}
+
+/**
+ * Baseline defaults — only used as fallback when the descriptor doesn't
+ * supply the key. Descriptor / pre-existing config wins for these.
+ *
+ * ALLOWED_WORKSPACE_DIRS lives here (not in enforced) because users may
+ * have a correct value in their existing mcp_config.json that we should
+ * not clobber on regenerate — codex review (PR #1414) P1-2.
+ */
+function buildAntigravityCatCafeEnvBaseline(): Readonly<Record<string, string>> {
+  return {
+    ALLOWED_WORKSPACE_DIRS: resolveWorkspaceRoot(),
+  };
+}
+
+/**
+ * Hard-enforced env keys: writer ALWAYS overwrites regardless of what the
+ * descriptor or pre-existing config says.
+ *  - CAT_CAFE_API_URL: deployment truth — wherever the live API is, that's
+ *    the URL to call back to. Stale legacy URLs would break the callback path.
+ *  - CAT_CAFE_READONLY: security — persistent MCP must stay read-only.
+ *    The descriptor cannot opt out of this boundary.
+ */
+function buildAntigravityCatCafeEnforcedEnv(): Readonly<Record<string, string>> {
+  return {
     CAT_CAFE_API_URL: process.env.CAT_CAFE_API_URL?.trim() || 'http://localhost:3002',
     CAT_CAFE_READONLY: 'true',
   };
-  // F061 Bug-F: cat_cafe_shell_exec needs ALLOWED_WORKSPACE_DIRS so path-guarded
-  // commands (pwd/ls/cat/git) can resolve within repo root. Default to API server's
-  // cwd at startup (== stable main repo root, same source capability-orchestrator
-  // uses for MCP cwd realignment). Respect pre-existing env override if set.
-  const allowedFromEnv = process.env.ALLOWED_WORKSPACE_DIRS?.trim();
-  defaults.ALLOWED_WORKSPACE_DIRS = allowedFromEnv || process.cwd();
-  return defaults;
 }
 
 function isCatCafeServer(name: string): boolean {
@@ -66,9 +118,16 @@ function ensureKimiCatCafeEnv(name: string, env?: Record<string, string>): Recor
 
 function ensureAntigravityCatCafeEnv(name: string, env?: Record<string, string>): Record<string, string> | undefined {
   if (!isCatCafeServer(name)) return env;
+  // codex review (PR #1414) P1-2: previous merge order put defaults LAST,
+  // so process-derived defaults silently overwrote pre-existing user values.
+  // Correct order:
+  //   1. baseline (fillable defaults, e.g. ALLOWED_WORKSPACE_DIRS) — lowest priority
+  //   2. descriptor env / pre-existing config — wins for user-controllable keys
+  //   3. enforced (CAT_CAFE_API_URL, CAT_CAFE_READONLY) — highest, can't be opted out
   return {
+    ...buildAntigravityCatCafeEnvBaseline(),
     ...(env ?? {}),
-    ...buildAntigravityCatCafeEnvDefaults(),
+    ...buildAntigravityCatCafeEnforcedEnv(),
   };
 }
 

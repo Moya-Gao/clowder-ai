@@ -329,6 +329,24 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
     exampleRecommended: true,
   },
+  {
+    name: 'CAT_CAFE_RUNTIME_ROOT',
+    defaultValue: '(未设置 → process.cwd())',
+    description:
+      'F061: Cat Café runtime 二进制根目录（runtime startup 自动 export 为 $RUNTIME_DIR），优先级高于 capability orchestrator 的 auto-detection，用于 Antigravity MCP config args 路径',
+    category: 'server',
+    sensitive: false,
+    runtimeEditable: false,
+  },
+  {
+    name: 'CAT_CAFE_WORKSPACE_ROOT',
+    defaultValue: '(未设置 → process.cwd())',
+    description:
+      'F061: Bengal MCP 工具的 workspace 根目录（runtime startup 自动 export 为 $PROJECT_DIR），用于 Antigravity MCP config 的 ALLOWED_WORKSPACE_DIRS env 注入',
+    category: 'server',
+    sensitive: false,
+    runtimeEditable: false,
+  },
 
   // --- storage ---
   {
