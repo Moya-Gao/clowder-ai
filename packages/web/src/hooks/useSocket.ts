@@ -165,8 +165,14 @@ function hasStaleActiveThreadPresentation(state: ReturnType<typeof useChatStore.
  * Query /queue for one thread and reconcile local state against server truth.
  * Shared by reconnect reconciliation and the stale-watchdog probe.
  * `shouldAbort` lets the caller bail out when a newer reconciliation supersedes it.
+ *
+ * Exported for tests (F173 PR-C Task 10 — fixture asserts mirror invariant).
  */
-async function reconcileThreadWithServer(threadId: string, shouldAbort: () => boolean, source: string): Promise<void> {
+export async function reconcileThreadWithServer(
+  threadId: string,
+  shouldAbort: () => boolean,
+  source: string,
+): Promise<void> {
   try {
     const res = await apiFetch(`/api/threads/${threadId}/queue`);
     if (shouldAbort()) return;
@@ -183,17 +189,15 @@ async function reconcileThreadWithServer(threadId: string, shouldAbort: () => bo
       // Server still processing — re-hydrate local slots to match server truth.
       // Stale hydrated/mismatched invocationIds get replaced so done(isFinal)
       // cleanup works correctly when the response finishes.
+      // F173 PR-C Task 10: thread-scoped writers throughout — flat is mirror, no
+      // active vs background branch needed.
       const serverActiveCats = serverSlots.map((s) => s.catId);
       store.clearThreadActiveInvocation(threadId);
       store.replaceThreadTargetCats(threadId, serverActiveCats);
       for (const slot of serverSlots) {
         store.updateThreadCatStatus(threadId, slot.catId, 'streaming');
         const syntheticId = `hydrated-${threadId}-${slot.catId}`;
-        if (isActiveThread) {
-          store.addActiveInvocation(syntheticId, slot.catId, 'execute', slot.startedAt);
-        } else {
-          store.addThreadActiveInvocation(threadId, syntheticId, slot.catId, 'execute', slot.startedAt);
-        }
+        store.addThreadActiveInvocation(threadId, syntheticId, slot.catId, 'execute', slot.startedAt);
       }
       console.log(`[ws] ${source} reconciliation: re-hydrated active slots from server`, {
         threadId,
@@ -202,37 +206,35 @@ async function reconcileThreadWithServer(threadId: string, shouldAbort: () => bo
       return;
     }
 
-    if (isActiveThread && (store.hasActiveInvocation || hasStaleActiveThreadPresentation(store, threadId))) {
-      // Reconciliation is stale-state repair, not a real completion event.
-      // Use the non-stamping clear so idle-thread recency is not artificially bumped.
-      store.clearThreadActiveInvocation(threadId);
-      store.setLoading(false);
-      store.setIntentMode(null);
-      store.clearCatStatuses();
-      for (const msg of store.messages) {
-        if (msg.type === 'assistant' && msg.isStreaming) {
-          store.setStreaming(msg.id, false);
-        }
+    // F173 PR-C Task 10: server-no-slots clear path also goes through thread-scoped
+    // writers. Active-thread staleness check still uses flat (`hasActiveInvocation`
+    // + `hasStaleActiveThreadPresentation`) since stream/loading lingering is the
+    // active-only Direction 2/3 condition; background only checks ThreadState.
+    const ts = store.getThreadState(threadId);
+    const shouldClear = isActiveThread
+      ? store.hasActiveInvocation || hasStaleActiveThreadPresentation(store, threadId)
+      : ts.hasActiveInvocation;
+    if (!shouldClear) return;
+
+    store.clearThreadActiveInvocation(threadId);
+    store.setThreadLoading(threadId, false);
+    store.setThreadIntentMode(threadId, null);
+    store.clearThreadCatStatuses(threadId);
+    const messagesToCheck = isActiveThread ? store.messages : ts.messages;
+    for (const msg of messagesToCheck) {
+      if (msg.type === 'assistant' && msg.isStreaming) {
+        store.setThreadMessageStreaming(threadId, msg.id, false);
       }
+    }
+    if (isActiveThread) {
       // Server finished but done(isFinal) was lost — or local stream UI lingered
       // after the slot ended. Fetch missed messages so user doesn't need F5.
       store.requestStreamCatchUp(threadId);
-      console.log(`[ws] ${source} reconciliation: cleared stale active-thread invocation state`, { threadId });
-    } else if (!isActiveThread) {
-      const ts = store.getThreadState(threadId);
-      if (ts.hasActiveInvocation) {
-        store.clearThreadActiveInvocation(threadId);
-        store.setThreadLoading(threadId, false);
-        for (const msg of ts.messages) {
-          if (msg.type === 'assistant' && msg.isStreaming) {
-            store.setThreadMessageStreaming(threadId, msg.id, false);
-          }
-        }
-        console.log(`[ws] ${source} reconciliation: cleared stale background-thread invocation state`, {
-          threadId,
-        });
-      }
     }
+    console.log(
+      `[ws] ${source} reconciliation: cleared stale ${isActiveThread ? 'active-thread' : 'background-thread'} invocation state`,
+      { threadId },
+    );
   } catch {
     // Non-critical — don't break the caller
   }

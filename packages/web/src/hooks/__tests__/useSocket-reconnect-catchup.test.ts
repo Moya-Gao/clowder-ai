@@ -59,6 +59,7 @@ const mockStoreState = {
   setLoading: mockSetLoading,
   setIntentMode: mockSetIntentMode,
   clearCatStatuses: mockClearCatStatuses,
+  clearThreadCatStatuses: vi.fn(),
   setStreaming: mockSetStreaming,
   requestStreamCatchUp: mockRequestStreamCatchUp,
   clearThreadActiveInvocation: mockClearThreadActiveInvocation,

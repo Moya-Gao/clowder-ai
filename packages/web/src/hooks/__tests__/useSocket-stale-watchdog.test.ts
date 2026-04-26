@@ -70,6 +70,7 @@ const mockStoreState = {
   setLoading: mockSetLoading,
   setIntentMode: mockSetIntentMode,
   clearCatStatuses: mockClearCatStatuses,
+  clearThreadCatStatuses: vi.fn(),
   setStreaming: mockSetStreaming,
   requestStreamCatchUp: mockRequestStreamCatchUp,
   setThreadLoading: mockSetThreadLoading,
@@ -295,7 +296,9 @@ describe('useSocket stale-invocation watchdog', () => {
 
     expect(mockApiFetch).toHaveBeenCalledWith('/api/threads/thread-1/queue');
     expect(mockStoreState.updateThreadCatStatus).toHaveBeenCalledWith('thread-1', 'opus-47', 'streaming');
-    expect(mockStoreState.addActiveInvocation).toHaveBeenCalledWith(
+    // F173 PR-C Task 10: reconcile uses thread-scoped writer (mirror invariant)
+    expect(mockStoreState.addThreadActiveInvocation).toHaveBeenCalledWith(
+      'thread-1',
       'hydrated-thread-1-opus-47',
       'opus-47',
       'execute',
@@ -394,10 +397,11 @@ describe('useSocket stale-invocation watchdog', () => {
 
     expect(mockApiFetch).toHaveBeenCalledWith('/api/threads/thread-1/queue');
     expect(mockClearThreadActiveInvocation).toHaveBeenCalledWith('thread-1');
-    expect(mockSetLoading).toHaveBeenCalledWith(false);
-    expect(mockSetIntentMode).toHaveBeenCalledWith(null);
-    expect(mockClearCatStatuses).toHaveBeenCalled();
-    expect(mockSetStreaming).toHaveBeenCalledWith('ghost-stream-1', false);
+    // F173 PR-C Task 10: reconcile clears via thread-scoped writers (mirror invariant).
+    expect(mockStoreState.setThreadLoading).toHaveBeenCalledWith('thread-1', false);
+    expect(mockStoreState.setThreadIntentMode).toHaveBeenCalledWith('thread-1', null);
+    expect(mockStoreState.clearThreadCatStatuses).toHaveBeenCalledWith('thread-1');
+    expect(mockStoreState.setThreadMessageStreaming).toHaveBeenCalledWith('thread-1', 'ghost-stream-1', false);
     expect(mockRequestStreamCatchUp).toHaveBeenCalledWith('thread-1');
   });
 

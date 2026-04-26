@@ -97,7 +97,9 @@ vi.mock('@/stores/chatStore', () => {
     replaceThreadTargetCats: mockReplaceThreadTargetCats,
     updateThreadCatStatus: mockUpdateThreadCatStatus,
     clearThreadActiveInvocation: mockClearThreadActiveInvocation,
-    addActiveInvocation: mockAddActiveInvocation,
+    clearThreadCatStatuses: vi.fn(),
+    addThreadActiveInvocation: mockAddActiveInvocation,
+    addActiveInvocation: vi.fn(),
     removeActiveInvocation: mockRemoveActiveInvocation,
     setCatStatus: mockSetCatStatus,
     activeInvocations: {} as Record<string, { catId: string; mode: string }>,
@@ -663,7 +665,14 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     expect(mockClearThreadActiveInvocation).toHaveBeenCalledWith('thread-B');
     expect(mockReplaceThreadTargetCats).toHaveBeenCalledWith('thread-B', ['gpt52']);
     expect(mockUpdateThreadCatStatus).toHaveBeenCalledWith('thread-B', 'gpt52', 'streaming');
-    expect(mockAddActiveInvocation).toHaveBeenCalledWith('hydrated-thread-B-gpt52', 'gpt52', 'execute', 1234);
+    // F173 PR-C Task 10: reconcile uses thread-scoped writer; first arg is threadId.
+    expect(mockAddActiveInvocation).toHaveBeenCalledWith(
+      'thread-B',
+      'hydrated-thread-B-gpt52',
+      'gpt52',
+      'execute',
+      1234,
+    );
   });
 
   it('ignores stale queue-processing hydrate after current-thread done is followed by queue completion', async () => {
@@ -787,7 +796,13 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     );
     expect(mockReplaceThreadTargetCats).toHaveBeenCalledWith('thread-B', ['codex']);
     expect(mockUpdateThreadCatStatus).toHaveBeenCalledWith('thread-B', 'codex', 'streaming');
-    expect(mockAddActiveInvocation).toHaveBeenCalledWith('hydrated-thread-B-codex', 'codex', 'execute', 5678);
+    expect(mockAddActiveInvocation).toHaveBeenCalledWith(
+      'thread-B',
+      'hydrated-thread-B-codex',
+      'codex',
+      'execute',
+      5678,
+    );
   });
 
   it('keeps queue-processing hydrate alive when a cat emits isFinal=true but queue still shows processing', async () => {
@@ -845,7 +860,13 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     );
     expect(mockReplaceThreadTargetCats).toHaveBeenCalledWith('thread-B', ['codex']);
     expect(mockUpdateThreadCatStatus).toHaveBeenCalledWith('thread-B', 'codex', 'streaming');
-    expect(mockAddActiveInvocation).toHaveBeenCalledWith('hydrated-thread-B-codex', 'codex', 'execute', 6789);
+    expect(mockAddActiveInvocation).toHaveBeenCalledWith(
+      'thread-B',
+      'hydrated-thread-B-codex',
+      'codex',
+      'execute',
+      6789,
+    );
   });
 
   it('keeps queue-processing hydrate alive when cleared only removes queued siblings in the background', async () => {
@@ -902,7 +923,13 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
 
     expect(mockReplaceThreadTargetCats).toHaveBeenCalledWith('thread-B', ['gpt52']);
     expect(mockUpdateThreadCatStatus).toHaveBeenCalledWith('thread-B', 'gpt52', 'streaming');
-    expect(mockAddActiveInvocation).toHaveBeenCalledWith('hydrated-thread-B-gpt52', 'gpt52', 'execute', 1234);
+    expect(mockAddActiveInvocation).toHaveBeenCalledWith(
+      'thread-B',
+      'hydrated-thread-B-gpt52',
+      'gpt52',
+      'execute',
+      1234,
+    );
   });
 
   it('invalidates completed-state hydrate before a stale processing fetch resolves', async () => {

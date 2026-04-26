@@ -492,8 +492,12 @@ function updateThreadMessage(
   updater: (message: ChatMessage) => ChatMessage,
 ): ChatState | Partial<ChatState> {
   if (threadId === state.currentThreadId) {
+    // F173 KD-2 (PR-C Task 10): mirror message edits to threadStates[active]
+    // so reconcile / streaming-flag flips stay in lockstep with flat.
+    const messages = state.messages.map((m) => (m.id === messageId ? updater(m) : m));
     return {
-      messages: state.messages.map((m) => (m.id === messageId ? updater(m) : m)),
+      messages,
+      ...mirrorActiveFlat(state, { messages }),
     };
   }
 
@@ -678,6 +682,10 @@ export interface ChatState {
   /** F069: Initialize unread state from API (page load recovery) */
   initThreadUnread: (threadId: string, unreadCount: number, hasUserMention: boolean) => void;
   updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
+  /** F173 PR-C Task 10: clear targetCats / catStatuses + mark stale catInvocations completed
+   *  for a specific thread. Mirrors flat when active. Replaces the flat-only clearCatStatuses
+   *  inside reconcile / hydration paths so KD-2 mirror invariant holds. */
+  clearThreadCatStatuses: (threadId: string) => void;
   /** Batch content-append + metadata + streaming + catStatus into a single set() to prevent
    *  React update-depth overflow during high-frequency background streaming. */
   batchStreamChunkUpdate: (params: {
@@ -1385,6 +1393,51 @@ export const useChatStore = create<ChatState>((set, get) => ({
         catStatuses: {},
         catInvocations: cleanedInvocations,
         ...mirrorActiveFlat(state, { targetCats: [], catStatuses: {}, catInvocations: cleanedInvocations }),
+      };
+    }),
+
+  /** F173 PR-C Task 10: thread-scoped equivalent of clearCatStatuses.
+   *  Active path: clears flat targetCats / catStatuses + marks stale catInvocations
+   *  completed AND mirrors to threadStates[active] (KD-2). Background path: same
+   *  cleanup applied directly to threadStates[threadId]; flat untouched. */
+  clearThreadCatStatuses: (threadId) =>
+    set((state) => {
+      const cleanInvocations = (
+        src: Record<string, import('./chat-types').CatInvocationInfo>,
+      ): Record<string, import('./chat-types').CatInvocationInfo> => {
+        const out: Record<string, import('./chat-types').CatInvocationInfo> = {};
+        for (const [catId, info] of Object.entries(src)) {
+          if (info.taskProgress?.snapshotStatus === 'running') {
+            out[catId] = { ...info, taskProgress: { ...info.taskProgress, snapshotStatus: 'completed' } };
+          } else {
+            out[catId] = info;
+          }
+        }
+        return out;
+      };
+      if (threadId === state.currentThreadId) {
+        const cleaned = cleanInvocations(state.catInvocations);
+        const patch = { targetCats: [] as string[], catStatuses: {}, catInvocations: cleaned };
+        return {
+          targetCats: [],
+          catStatuses: {},
+          catInvocations: cleaned,
+          ...mirrorActiveFlat(state, patch),
+        };
+      }
+      const existing = state.threadStates[threadId];
+      if (!existing) return state;
+      const cleaned = cleanInvocations(existing.catInvocations);
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            targetCats: [],
+            catStatuses: {},
+            catInvocations: cleaned,
+          },
+        },
       };
     }),
 
@@ -2213,9 +2266,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Real completion paths stamp via removeActiveInvocation / setHasActiveInvocation(false) /
       // clearAllActiveInvocations / resetThreadInvocationState.
       if (threadId === state.currentThreadId) {
+        // F173 KD-2 (PR-C Task 10): mirror to threadStates[active] so reconcile
+        // sees the same view it would on a background thread.
+        const patch = { hasActiveInvocation: false, activeInvocations: {} };
         return {
           hasActiveInvocation: false,
           activeInvocations: {},
+          ...mirrorActiveFlat(state, patch),
         };
       }
       // Background thread — update in threadStates map (no-op if unknown)
