@@ -58,10 +58,8 @@ interface AgentMsg {
   toolName?: string;
   /** Tool input params (for 'tool_use' events from backend) */
   toolInput?: Record<string, unknown>;
-  /** Message origin: stream = CLI stdout, callback = MCP post_message */
+  /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
   origin?: 'stream' | 'callback';
-  /** F176: Semantic role of the message text (final / thinking / cli_stdout). undefined = legacy. */
-  messageRole?: 'final' | 'thinking' | 'cli_stdout';
   /** Backend stored-message ID (set for callback post-message, used for rich_block correlation) */
   messageId?: string;
   /** F67: Whether this message @mentions the co-creator */
@@ -956,22 +954,14 @@ export function useAgentMessages() {
           });
           if (messageId) {
             if (msg.textMode === 'replace') {
-              patchMessage(messageId, {
-                content: msg.content,
-                ...(msg.messageRole ? { messageRole: msg.messageRole } : {}),
-              });
+              patchMessage(messageId, { content: msg.content });
             } else {
               appendToMessage(messageId, msg.content);
             }
-            // F176 R2: ensure messageRole reaches existing-bubble case (tool_use/result first,
-            // then text). Without this, the "20 tools + final text" path loses messageRole and
-            // falls back to collapsed CLI Output. Patch unconditionally when msg.messageRole
-            // present — patchMessage is idempotent and chunk frequency is low enough.
-            if (msg.replyTo || msg.replyPreview || msg.messageRole) {
+            if (msg.replyTo || msg.replyPreview) {
               patchMessage(messageId, {
                 ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
                 ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
-                ...(msg.messageRole ? { messageRole: msg.messageRole } : {}),
               });
             }
           } else {
@@ -997,7 +987,6 @@ export function useAgentMessages() {
               catId: msg.catId,
               content: msg.content,
               origin: 'stream',
-              ...(msg.messageRole ? { messageRole: msg.messageRole } : {}),
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
               ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),

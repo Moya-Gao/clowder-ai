@@ -8,11 +8,18 @@ created: 2026-04-25
 
 # F176: Native CLI Assistant-Speech vs CLI-Stdout 渲染语义分离
 
-> **Status**: done | **Completed**: 2026-04-25 | **Owner**: 布偶猫（Opus-47, sonnet-4.6 接力 R4） + 缅因猫（GPT-5.5 R1-R4 cross-family review + GPT-5.4 vision guardian） | **Priority**: P1
+> **Status**: ❌ REVERTED 2026-04-26 | **Owner**: 布偶猫（Opus-47） | **Priority**: P1（已撤销）
 >
-> **Phase 1+2+3**: ✅ merged 2026-04-25 via PR #1401 (squash `2b41a5cc`)
-> **R4 hotfix (hydrateMessages bulk path)**: ✅ merged 2026-04-25 via PR #1402 (squash `11ce3111`)
-> **Phase 4**: 📋 deferred follow-up（历史兼容路径，用户清 IDB cache 即可，不做 hydration 启发式 promote）
+> **Reverted**: 铲屎官 2026-04-26 01:05 否决 ——
+> 1. **完全理解错原 bug**：原始问题 thread_mnux2eewbo4otg17 是"前端连他们的头像、CLI thinking 什么都看不到"——整个 ChatMessage 组件没渲染（DOM 缺失）。F176 把它误诊为"内容被折叠"，做了 messageRole 分流。**修了一个不存在的 bug，没修真 bug**。
+> 2. **视觉效果丑**：F176 的"主气泡 + 独立 CliOutputBlock 卡片"渲染分流让气泡裂开，铲屎官原话："你们现在这个气泡渲染行为 太丑了"。
+> 3. PR #1401 + #1402 全部 revert，messageRole 字段 + 所有相关代码移除。
+>
+> **真 bug 仍未解决**：thread_mnux2eewbo4otg17 里 opus/codex 互 @ 后 ChatMessage 整体不渲染（头像 + CLI Output 都没出来）。需要单独立项重新诊断（候选 F177）。
+>
+> **历史 commits**（已 reverted, 留作追溯）：
+> - PR #1401 (squash `2b41a5cc`) feat(F176): native CLI assistant-speech vs cli-stdout 渲染语义分离
+> - PR #1402 (squash `11ce3111`) fix(F176-R4): plumb messageRole through hydrateMessages bulk path
 >
 > **Triggered by**: `thread_mnux2eewbo4otg17` 实测（2026-04-25 13:14），铲屎官报告"前端看到互相调用但看不到说话气泡"。@codex 砚砚（GPT-5.5）+ @opus47 宪宪（Opus-47）双独立诊断收敛到同一根因（5/5 一致）。
 >

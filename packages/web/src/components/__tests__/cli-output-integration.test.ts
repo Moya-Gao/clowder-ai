@@ -103,73 +103,13 @@ describe('ChatMessage CLI Output integration', () => {
     expect(cliIdx).toBeGreaterThan(answerIdx);
   });
 
-  it('stream origin with only content (no tools, no messageRole) still renders CLI block (legacy)', () => {
-    // Pre-F176 messages have no messageRole → fall back to F097 CLI Output rendering.
+  it('stream origin with only content (no tools) still renders CLI block', () => {
     const msg = {
       id: 'msg-4',
       type: 'assistant' as const,
       catId: 'opus',
       content: 'some CLI output',
       origin: 'stream' as const,
-      timestamp: Date.now(),
-      isStreaming: false,
-    };
-    act(() => {
-      root.render(React.createElement(ChatMessage, { message: msg, getCatById }));
-    });
-    expect(container.textContent).toContain('CLI Output');
-  });
-
-  it('F176: stream + messageRole=final renders main bubble, NOT CLI Output (no tools)', () => {
-    const msg = {
-      id: 'msg-5',
-      type: 'assistant' as const,
-      catId: 'opus',
-      content: 'This is the cat final response',
-      origin: 'stream' as const,
-      messageRole: 'final' as const,
-      timestamp: Date.now(),
-      isStreaming: false,
-    };
-    act(() => {
-      root.render(React.createElement(ChatMessage, { message: msg, getCatById }));
-    });
-    const text = container.textContent ?? '';
-    expect(text).toContain('This is the cat final response');
-    expect(text).not.toContain('CLI Output');
-  });
-
-  it('F176: stream + messageRole=final + tools renders BOTH main bubble and CLI Output (tools only)', () => {
-    // Final response with tool calls: main text in bubble, tool events in (folded) CLI Output.
-    const msg = {
-      id: 'msg-6',
-      type: 'assistant' as const,
-      catId: 'opus',
-      content: 'Final answer with tool support',
-      origin: 'stream' as const,
-      messageRole: 'final' as const,
-      toolEvents: [{ id: 't1', type: 'tool_use' as const, label: 'Read foo.ts', timestamp: 1000 }],
-      timestamp: Date.now(),
-      isStreaming: false,
-    };
-    act(() => {
-      root.render(React.createElement(ChatMessage, { message: msg, getCatById }));
-    });
-    const text = container.textContent ?? '';
-    const answerIdx = text.indexOf('Final answer with tool support');
-    const cliIdx = text.indexOf('CLI Output');
-    expect(answerIdx).toBeGreaterThanOrEqual(0);
-    expect(cliIdx).toBeGreaterThan(answerIdx); // CLI Output (tools) below main bubble
-  });
-
-  it('F176: stream + messageRole=cli_stdout still renders CLI Output (F097 design preserved)', () => {
-    const msg = {
-      id: 'msg-7',
-      type: 'assistant' as const,
-      catId: 'opus',
-      content: 'real CLI stdout noise',
-      origin: 'stream' as const,
-      messageRole: 'cli_stdout' as const,
       timestamp: Date.now(),
       isStreaming: false,
     };

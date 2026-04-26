@@ -13,6 +13,16 @@ created: 2026-04-25
 - **F173 共存策略明确写在 spec**：守护证物表格列出 4 类 F173 历史风险（dup-bubble / ghost-bubble / streaming-partial / split-brain）+ 每条都对应"不动 invocation/bubble identity → 不会复发"。这让 reviewer 能定向核证而不是泛泛担心。
 - **rebase 后 patch-id 比对做 continuity**：砚砚用 `git range-diff` 比对 rebase 前后 6 commits 的 patch-id，18 个 F176 文件 stable patch-id 完全一致，证明纯 rebase 无代码差异。规避了 R4 重审。
 
+## ⚠️ Update 2026-04-26: F176 全部 REVERTED
+
+铲屎官 01:02 + 01:05 两轮三个感叹号纠正：
+1. **完全理解错了原 bug** — thread_mnux2eewbo4otg17 真 bug 是"前端连头像、CLI thinking 什么都看不到"（整个 ChatMessage 组件没渲染），不是"内容被折叠"。我们没诊断真 bug，做了一个不存在的 bug 的修复。
+2. **视觉效果被否决** — "现在这个气泡渲染行为太丑了"。messageRole='final' 分流出独立主气泡 + 单独 CliOutputBlock 折叠卡片，视觉上裂开。
+
+**反 What Worked 教训**：之前自夸"双猫并行诊断 5/5 收敛同一根因" — 实际是双猫一起跑偏到同一错误根因。**收敛 ≠ 正确**。F167 同质性陷阱（meta-aesthetics 反模式）：当多猫独立得到同一答案，不能直接当真相，要看是不是基于同一个错误前提。
+
+**真 bug 仍未解决**，需要重新立项诊断。
+
 ## What Failed
 
 - **R0 自检漏了链路下游**：我只追了 route-serial yield 入口标 messageRole，没追完整持久化/socket 链路。R1 砚砚命中 6 处链路断点（Redis hset/deserialize、GET API mapper、useChatHistory mapper、useAgentMessages AgentMsg、useSocket-background type）。教训：自检不能只看入口，要追整条链路（端到端）。

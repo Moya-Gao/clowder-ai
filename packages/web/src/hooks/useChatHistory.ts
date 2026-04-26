@@ -444,7 +444,6 @@ export function useChatHistory(threadId: string) {
             toolEvents?: unknown[];
             metadata?: { provider: string; model: string; sessionId?: string };
             origin?: 'stream' | 'callback' | 'briefing';
-            messageRole?: 'final' | 'thinking' | 'cli_stdout';
             thinking?: string;
             extra?: {
               rich?: { v: number; blocks: unknown[] };
@@ -481,7 +480,6 @@ export function useChatHistory(threadId: string) {
               ...(m.toolEvents ? { toolEvents: m.toolEvents as import('../stores/chat-types').ToolEvent[] } : {}),
               ...(m.metadata ? { metadata: m.metadata } : {}),
               ...(m.origin ? { origin: m.origin } : {}),
-              ...(m.messageRole ? { messageRole: m.messageRole } : {}),
               ...(m.thinking ? { thinking: m.thinking } : {}),
               ...(m.extra?.rich || m.extra?.crossPost || m.extra?.stream || m.extra?.scheduler
                 ? {

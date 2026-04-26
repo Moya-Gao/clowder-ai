@@ -126,11 +126,11 @@
 | F164 | F164: Thread Snapshot Persistence — 刷新不失忆 | done | [F164-thread-snapshot-persistence.md](./F164-thread-snapshot-persistence.md) |
 | F166 | F166: Cat Order Customization — 猫猫排序自定义 | done | [F166-cat-order-customization.md](./F166-cat-order-customization.md) |
 | F146 | F146: MCP Marketplace Control Plane — 一键接入 + 多生态聚合 | done | [F146-mcp-marketplace-control-plane.md](./F146-mcp-marketplace-control-plane.md) |
-| F176 | F176: Native CLI Assistant-Speech vs CLI-Stdout 渲染语义分离 | done | [F176-native-cli-assistant-speech-rendering.md](./F176-native-cli-assistant-speech-rendering.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |
 |----|------|--------|----------|
+| F176 | F176: Native CLI Assistant-Speech vs CLI-Stdout 渲染语义分离 | ❌ reverted (误诊原 bug + 视觉丑被铲屎官否决) | [F176-native-cli-assistant-speech-rendering.md](./F176-native-cli-assistant-speech-rendering.md) |
 | F037 | F037: Agent Swarm 协同模式 | done (archived — spawned F049) | [F037-agent-swarm.md](./F037-agent-swarm.md) |
 | F038 | F038: Skills 梳理 + 按需发现机制 | parked | [F038-skills-discovery.md](./F038-skills-discovery.md) |
 | F054 | F054: HCI 预热基础设施 — Social Media MCP + 内容管线 | parked (superseded by open-source) | [F054-hci-preheat-infra.md](./F054-hci-preheat-infra.md) |

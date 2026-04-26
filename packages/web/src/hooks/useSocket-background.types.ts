@@ -18,8 +18,6 @@ export interface BackgroundAgentMessage {
   textMode?: 'append' | 'replace';
   messageId?: string;
   origin?: 'stream' | 'callback';
-  /** F176: Semantic role of the message text (final / thinking / cli_stdout). */
-  messageRole?: 'final' | 'thinking' | 'cli_stdout';
   toolName?: string;
   toolInput?: Record<string, unknown>;
   error?: string;

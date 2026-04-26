@@ -271,16 +271,8 @@ export interface ChatMessage {
   thinking?: string;
   /** Internal chunk boundaries for robust thinking dedupe when payloads contain the visual separator. */
   thinkingChunks?: string[];
-  /** Message origin: stream = CLI stdout, callback = MCP post_message, briefing = F148 Phase E context briefing */
+  /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech), briefing = F148 Phase E context briefing */
   origin?: 'stream' | 'callback' | 'briefing';
-  /**
-   * F176: Semantic role of the message text, independent of `origin` transport.
-   * - `final`: cat's final assistant response — render as main bubble
-   * - `thinking`: scratchpad/reasoning — fold into ThinkingContent
-   * - `cli_stdout`: real CLI tool execution noise — fold into CliOutputBlock
-   * - `undefined` (legacy): falls back to pre-F176 rendering (stream → CliOutputBlock)
-   */
-  messageRole?: 'final' | 'thinking' | 'cli_stdout';
   /** F35: Message visibility. undefined/public = visible to all */
   visibility?: 'public' | 'whisper';
   /** F35: Whisper recipients (cat IDs). Only meaningful when visibility='whisper' */

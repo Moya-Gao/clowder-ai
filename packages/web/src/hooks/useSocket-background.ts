@@ -448,7 +448,6 @@ export function handleBackgroundAgentMessage(
           options.store.patchThreadMessage(msg.threadId, messageId, {
             content: msg.content,
             ...(msg.metadata ? { metadata: msg.metadata } : {}),
-            ...(msg.messageRole ? { messageRole: msg.messageRole } : {}),
             isStreaming: !msg.isFinal,
           });
           options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
@@ -465,14 +464,10 @@ export function handleBackgroundAgentMessage(
             catStatus: msg.isFinal ? 'done' : 'streaming',
           });
         }
-        // F176 R2: same fix as foreground — ensure messageRole reaches existing-bubble
-        // (tool_use/result first, then text) path. Without this, "20 tools + final text"
-        // loses role and falls back to collapsed CLI Output.
-        if (msg.replyTo || msg.replyPreview || msg.messageRole) {
+        if (msg.replyTo || msg.replyPreview) {
           options.store.patchThreadMessage(msg.threadId, messageId, {
             ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
             ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
-            ...(msg.messageRole ? { messageRole: msg.messageRole } : {}),
           });
         }
         if (msg.isFinal) {
@@ -499,8 +494,6 @@ export function handleBackgroundAgentMessage(
           timestamp: msg.timestamp,
           isStreaming: !msg.isFinal,
           origin: 'stream',
-          // F176 R1: pass through messageRole so final-bubble rendering survives background-thread path
-          ...(msg.messageRole ? { messageRole: msg.messageRole } : {}),
         });
         // Cat status for new message (not batched — fires once per stream start)
         options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');

@@ -134,50 +134,6 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
     container.remove();
   });
 
-  it('F176 R2: text after tool_use patches messageRole onto existing bubble (foreground)', () => {
-    // Reproduces 砚砚 R2 P1: native CLI emits tool_use first (creates empty stream
-    // bubble), then text with messageRole='final'. R1 only set messageRole on
-    // *new* bubble creation; existing-bubble patch path stripped the field, so
-    // the "20 tools + final text" screenshot scenario kept rendering as collapsed
-    // CLI Output.
-    const existingId = 'msg-existing-stream';
-    storeState.messages.push({
-      id: existingId,
-      type: 'assistant',
-      catId: 'opus',
-      content: '',
-      isStreaming: true,
-      origin: 'stream',
-      extra: { stream: { invocationId: 'inv-tool-first' } },
-      timestamp: Date.now() - 1000,
-    });
-    storeState.catInvocations = { opus: { invocationId: 'inv-tool-first' } };
-
-    act(() => {
-      root.render(React.createElement(Harness));
-    });
-
-    // text chunk with messageRole='final' arrives after tool_use already created the bubble
-    act(() => {
-      captured?.handleAgentMessage({
-        type: 'text',
-        catId: 'opus',
-        content: 'final answer text',
-        invocationId: 'inv-tool-first',
-        messageRole: 'final',
-      });
-    });
-
-    // Existing bubble should receive messageRole='final' through patchMessage
-    const messageRolePatchCalls = mockPatchMessage.mock.calls.filter(
-      ([id, patch]) => id === existingId && (patch as { messageRole?: string }).messageRole === 'final',
-    );
-    expect(
-      messageRolePatchCalls.length,
-      'patchMessage must be called with messageRole=final on the existing bubble',
-    ).toBeGreaterThanOrEqual(1);
-  });
-
   it('done event clears invocationId to prevent stale recovery of finalized messages', () => {
     act(() => {
       root.render(React.createElement(Harness));

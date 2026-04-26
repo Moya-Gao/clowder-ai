@@ -482,10 +482,6 @@ function mergeAssistantBubble(existing: ChatMessage, incoming: ChatMessage): Cha
     // Preserve extra from existing (CLI Output) + merge stream identity + crossPost
     extra: Object.keys(mergedExtra).length > 0 ? mergedExtra : undefined,
     ...(incoming.mentionsUser ? { mentionsUser: true } : {}),
-    // F176 R2: preserve messageRole from either side; incoming wins if present
-    ...(incoming.messageRole || existing.messageRole
-      ? { messageRole: incoming.messageRole ?? existing.messageRole }
-      : {}),
   };
 }
 

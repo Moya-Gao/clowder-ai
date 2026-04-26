@@ -119,12 +119,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const direction = catData ? parseDirection(message, () => ({ toCat: getMentionToCat(), re: getMentionRe() })) : null;
 
   const isStreamOrigin = message.origin === 'stream';
-  // F176: messageRole='final' is the cat's final assistant response → main bubble.
-  // Other roles (or undefined for legacy messages) keep pre-F176 CLI Output behavior.
-  const isFinalRole = message.messageRole === 'final';
-  // When finalRole, do NOT bundle main text into CliOutputBlock — render as main bubble.
-  // Tool events still flow into CliOutputBlock independently.
-  const cliEvents = toCliEvents(message.toolEvents, isStreamOrigin && !isFinalRole ? message.content : undefined);
+  const cliEvents = toCliEvents(message.toolEvents, isStreamOrigin ? message.content : undefined);
   const hasCliBlock = cliEvents.length > 0;
   const cliStatus = message.isStreaming
     ? ('streaming' as const)
@@ -384,9 +379,9 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               : undefined
           }
         >
-          {hasCliBlock && isStreamOrigin && !isFinalRole ? null : (!isStreamOrigin || isFinalRole) && hasBlocks ? (
+          {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
             <ContentBlocks blocks={message.contentBlocks!} />
-          ) : (!isStreamOrigin || isFinalRole) && hasTextContent ? (
+          ) : !isStreamOrigin && hasTextContent ? (
             <CollapsibleMarkdown content={message.content} className={catStyle?.font} />
           ) : message.isStreaming ? (
             <span className="text-xs text-cafe-secondary">Thinking...</span>
