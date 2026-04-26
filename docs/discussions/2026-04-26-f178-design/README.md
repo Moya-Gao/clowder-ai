@@ -181,25 +181,26 @@ issued → active → (rotated → grace → expired) | revoked | expired
 - F174 24h ring buffer 扩展：`recent24h.agentKey = {totalUsage, byTool, byCat, failures}`
 - Hub Observability Tab "Agent Keys" subtab 渲染 per-key 时间线（issuance / usage / rotation / revocation）
 
-## 5. Open Questions 状态表（等砚砚 + 铲屎官拍板）
+## 5. Open Questions 状态表
 
-| # | 我的立场 | 等谁拍板 | 我可能错在哪 (pre-register retraction) |
-|---|---------|---------|--------------------------------------|
-| OQ-1 | per-cat-per-user | 铲屎官 + 砚砚 | thread-level isolation 是更安全的默认，砚砚可能 push per-cat-per-thread + 配 cross-thread API |
-| OQ-2 | 混合（自动首发 + Hub 管理） | 铲屎官 | 铲屎官可能要求"全部我手动颁"以保留 100% 控制（friction 我接受） |
-| OQ-3 | Redis 6398/6399 + hash + 一次性 plaintext | 砚砚 + 铲屎官 | mcp_config.json plaintext 暴露面比想象大，砚砚可能 push 早期接 OS keychain |
-| OQ-4 | 90d + rotation + 实时 revocation | 砚砚 + 铲屎官 | 90d 太长，砚砚可能 push 30d；或永久 + revoke-only（去掉 rotation friction） |
-| OQ-5 | 全开 + server deny list | 铲屎官 + 砚砚 | deny list 武断，应改 per-key 显式 grant（默认空 + 颁发时勾选）|
-| OQ-6 | 复用 D2b-2 HubButton + 现场 "by agent-key" tag | 烁烁 + 铲屎官 | 后置到砚砚拍完技术 OQ 后单独拉烁烁 |
+| # | 状态 | 结论 | 依据 |
+|---|------|------|------|
+| OQ-1 | ✅ 两猫一致 | **per-cat-per-user**，route 级 thread 语义保留 | 宪宪 + 砚砚独立得出同一结论；砚砚补充：不是 blanket cross-thread，invocation-scoped route 仍绑 thread |
+| OQ-2 | ✅ **铲屎官拍板** | **默认全开，不需要审批**。猫注册即有写权限。Hub 做统一权限管理面板（查看/撤销/溯源），不是审批入口 | 铲屎官 2026-04-26 原话："为啥要点开启啊？难道不是默认大家都开启吗？" + "社区小伙伴问的最多的问题就是如何给宪宪砚砚开启 yolo 模式" → 用户痛点是减少限制，不是增加审批 |
+| OQ-3 | 🔧 猫猫自决 | **Redis 6398/6399 + hash + 客户端 0600 sidecar file**（不放 mcp_config.json） | 两猫一致 Redis+hash；砚砚 push 客户端 sidecar file，宪宪-46 采纳（mcp_config.json 易泄漏） |
+| OQ-4 | 🔧 猫猫自决 | **45d TTL + rotation API + ≤24h overlap + 实时 revocation** | 砚砚 push 30-45d（blast radius），宪宪-46 取中 45d；7d grace 无必要（capability orchestrator 自动改配置） |
+| OQ-5 | 🔧 猫猫自决 | **Phase C1 走 allowlist MVP**（`post_message` / `cross_post_message` / `get_thread_context` / `list_threads`），后续按 auth shape 逐个审 | 砚砚 push back"全开 + deny list"，按 auth shape 分三类（invocation-only / user-scoped / richer writeback），宪宪-46 采纳 |
+| OQ-6 | ⏳ 后置 | 降级为显示规则，Phase A 不阻塞。后续拉烁烁定 | 两猫一致后置 |
+| 架构补充 | 🔧 猫猫自决 | **Phase B 先引入 `CallbackPrincipal`**（`kind: 'invocation' | 'agent_key'`），不把 agent-key 硬塞 `InvocationRecord` | 砚砚提出，宪宪-46 采纳——这是 F178 真正的坐标变换点 |
 
 ## 6. 收敛流程
 
 ```
-本 strawman → @ 砚砚出独立 strawman → 两份 strawman 比对（in this README）
-  → 铲屎官拍板分歧 → 落 KD-3+（spec Key Decisions）→ Phase A close → writing-plans → Phase B
+✅ 两份 strawman 完成 → ✅ 宪宪-46 总结分歧 → ✅ 铲屎官拍板 OQ-2
+  → 落 KD-3+（spec Key Decisions）→ Phase A close → writing-plans → Phase B
 ```
 
-OQ-6（视觉/UX）单独拉 @烁烁，不阻塞 OQ-1~5 收敛。
+OQ-6（视觉/UX）后置拉 @烁烁，不阻塞。
 
 ## 7. 引用证据
 
