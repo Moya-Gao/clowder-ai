@@ -1083,7 +1083,7 @@
     {
       "id": "F174",
       "name": "Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级与可观测",
-      "status": "done | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1 | **Completed**: 2026-04-26 (close attempt #2 — D2b-2 rev2 alpha 验收 #2 闭环)",
+      "status": "in-progress (reopened — close attempt #2 失效，alpha 验收 #3 否决) | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1 | **Reopened**: 2026-04-26 (D2b-2 interaction semantics 三次否决 — badge 点不掉 + 强制跳 deep-link + 视觉撑爆)",
       "file": "F174-callback-auth-lifecycle.md"
     },
     {
@@ -1101,7 +1101,7 @@
     {
       "id": "F178",
       "name": "Persistent MCP Agent-Key Auth — 跨 invocation 写权限",
-      "status": "spec | **Owner**: 布偶猫（宪宪/Opus-47）+ 缅因猫（待 Design Gate 后确认 reviewer） | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫（宪宪） | **Reviewer**: 缅因猫（砚砚） | **Priority**: P1",
       "file": "F178-persistent-mcp-agent-key-auth.md"
     }
   ]
