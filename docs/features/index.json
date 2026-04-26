@@ -369,7 +369,7 @@
     {
       "id": "F061",
       "name": "Antigravity 接入 — 孟加拉猫（混血家族）",
-      "status": "phase-2-bridge | **Owner**: 布偶猫 Opus 4.6（Phase 2a/2b） · 布偶猫 Opus 4.7 试用分身（Phase 2c · 猫猫工具平权）",
+      "status": "done | **Owner**: 布偶猫 Opus 4.6（Phase 2a/2b） · 布偶猫 Opus 4.7（Phase 2c · 猫猫工具平权 + Bug-F UX + binary/workspace 分离）",
       "file": "F061-antigravity-bengal-cat.md"
     },
     {
@@ -1109,6 +1109,12 @@
       "name": "前端 Event Handler 统一（active + background 合并到 thread-aware useAgentMessages）",
       "status": "stub | **Owner**: TBD | **Priority**: P1",
       "file": "F177-frontend-event-handler-unification.md"
+    },
+    {
+      "id": "F178",
+      "name": "Persistent MCP Agent-Key Auth — 跨 invocation 写权限",
+      "status": "spec | **Owner**: 布偶猫（宪宪/Opus-47）+ 缅因猫（待 Design Gate 后确认 reviewer） | **Priority**: P1",
+      "file": "F178-persistent-mcp-agent-key-auth.md"
     }
   ]
 }

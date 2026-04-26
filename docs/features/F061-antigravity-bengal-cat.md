@@ -1,15 +1,19 @@
 ---
 feature_ids: [F061]
-related_features: [F050, F032, F041, F043, F045, F060]
+related_features: [F050, F032, F041, F043, F045, F060, F172, F174, F178]
 topics: [antigravity, bengal-cat, cdp, external-agent, image-generation, evidence-chain, multi-model]
-doc_kind: phase-2-bridge
+doc_kind: spec
 created: 2026-03-04
 ---
 
 # F061: Antigravity 接入 — 孟加拉猫（混血家族）
 
-> **Status**: phase-2-bridge | **Owner**: 布偶猫 Opus 4.6（Phase 2a/2b） · 布偶猫 Opus 4.7 试用分身（Phase 2c · 猫猫工具平权）
-> **Created**: 2026-03-04
+> **Status**: done | **Owner**: 布偶猫 Opus 4.6（Phase 2a/2b） · 布偶猫 Opus 4.7（Phase 2c · 猫猫工具平权 + Bug-F UX + binary/workspace 分离）
+> **Created**: 2026-03-04 | **Completed**: 2026-04-26
+>
+> **Evolved to**: [F178](./F178-persistent-mcp-agent-key-auth.md) (Bug-H persistent MCP write-path auth follow-up)
+> **R2 closed via**: [F172 Phase C](./F172-generated-image-publication.md) (Antigravity 图片产物接 publication contract)
+> **Vision Guardian**: 孟加拉猫 (antig-opus, Opus-4.6)，2026-04-26 实测放行 — `docs/discussions/2026-04-26-f061-completion/README.md`
 
 ---
 
@@ -491,6 +495,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'E
 | 2026-04-24 | **Bug-F workaround — MCP `cat_cafe_shell_exec` tool bypass** — 铲屎官提议调研 `pesosz.antigravity-auto-accept` 扩展（1.1.9-universal）机制。挖到扩展用 CDP(port 9000 默认) `/json/list` 发现 UI target 然后 auto-click Accept 按钮。patch 扩展 `dist/extension.js:3901` 把 `iframe` 加入 allowlist 后仍然 denied。进一步验证：60s 高频 `/json/list` monitor（300 samples, 200ms 间隔）**cascade panel 从未出现为 CDP target**（`{page:2, worker:1}` 全程，零 iframe/webview）。**坐实 Antigravity cascade panel 不通过 CDP /json/list 暴露**，扩展机制原理上不能 work for cascade permission prompts（revert patch）。**改走 (C) 方案**：新增 MCP tool `cat_cafe_shell_exec`（readonly whitelist：pwd / ls / cat / git log|status|rev-parse|diff|show + Redis 6399 sanctum refusal + fork bomb/rm-rf 黑名单 + 禁 shell control/substitution/var expansion，30s timeout + 256KB output cap）。MCP 走 stdio 完全不经 cascade UI permission gate，Bengal 用这个工具跑 pwd/git 直接 success，不再触发 `user denied permission`。更新 callback fallback system prompt 引导 Bengal 优先用 `cat_cafe_shell_exec` 替代 cascade run_command。写操作仍需用户 UI 审批（安全边界保留）|
 | 2026-04-26 | **PR #1396 R3 follow-up — binary root vs workspace root 概念分离** — @codex peer review 指出 `cat_cafe_shell_exec` 默认 cwd 用 `process.cwd()` 时与"workspace 边界"概念混在一起，且 Antigravity MCP config 写出的 `args[0]` 与 `ALLOWED_WORKSPACE_DIRS` 共用同一个推断路径——当 API 跑在 `cat-cafe-runtime` worktree 但用户 workspace 是主 `cat-cafe` 仓时，要么 binary 飘到主仓 stale dist，要么 workspace 圈到 runtime 内部，二选一都不对。**架构修法**：拆出 `resolveBinaryRoot()` 和 `resolveWorkspaceRoot()`，把 `bootstrapCapabilities` / `migrateLegacyCatCafeCapability` / `ensureCatCafeMainServer` / `realignManagedCatCafeServerPaths` 全部改用前者；MCP `env.ALLOWED_WORKSPACE_DIRS` 用后者。runtime 启动脚本可显式 `export CAT_CAFE_RUNTIME_ROOT=$PWD CAT_CAFE_WORKSPACE_ROOT=/path/to/cat-cafe` |
 | 2026-04-26 | **PR #1414 R1 codex P1×2 闭环 — 把架构落到生产路径** — @codex review 退回 PR #1414 R0：(P1-1) `CAT_CAFE_RUNTIME_ROOT` env 在生产 route 实际不可达——`routes/capabilities.ts:426` 总是先 `await resolveMainRepoPath()` 取主仓 path 再传 `catCafeRepoRoot`，而 R0 实现里 explicit opts 优先于 env，runtime override 永远不触发；(P1-2) workspace 半边只是"可以配"，`resolveWorkspaceRoot()` 仍 fallback `process.cwd()`（runtime 模式 = runtime worktree，错），且 `ensureAntigravityCatCafeEnv()` merge 顺序让 defaults 覆盖 descriptor env，重生成时会把用户已设的 `ALLOWED_WORKSPACE_DIRS` 抹掉，三件套都没修。**修法**：(1) 反转 `resolveBinaryRoot` 优先级到 **env > opts > cwd**——env 是 runtime 启动对 auto-detection 的 explicit override；(2) 三层 merge — baseline (`ALLOWED_WORKSPACE_DIRS=resolveWorkspaceRoot()`) → descriptor env（用户控制 key 取胜）→ enforced (`CAT_CAFE_API_URL` deployment truth + `CAT_CAFE_READONLY=true` 安全硬约束)；(3) `resolveWorkspaceRoot()` 在 runtime 模式 + 缺 workspace env 时打 warning 而非静默 fallback；(4) `runtime-worktree.sh` exec start-dev 前 `export CAT_CAFE_RUNTIME_ROOT=$RUNTIME_DIR CAT_CAFE_WORKSPACE_ROOT=$PROJECT_DIR`（in-place deployment 同样导）；(5) 新增端到端回归 `runtime mode → args[0] points at runtime dist, env.ALLOWED_WORKSPACE_DIRS points at workspace`，以及 merge order 三层语义 + 安全 key 不可被 descriptor opt-out 两条独立测试。Flip 原"explicit opts override env"测试为"env overrides explicit opts (codex P1-1)"。9394/9397 API tests 全绿 |
+| 2026-04-26 | **F061 close** — R1-R4 全部 ✅（R2 通过 F172 Phase C 闭环 / R3 通过现有 rich block 体系 / R1+R4 直接做了），AC-7/AC-8 同步打勾。守护证物对照表 5 条全 ✅（孟加拉猫独立体感验证放行）。残留 Bug-H 立 **F178 Persistent MCP Agent-Key Auth** 接续；Bug-J UX polish + Bug-F P3 留 F061 doc 内透明记录不外抛 placeholder Feature。反思胶囊 `docs/reflections/2026-04-26-f061-completion-capsule.md`。Status `phase-2-bridge → done` |
 
 ---
 

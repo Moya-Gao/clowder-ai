@@ -129,6 +129,7 @@
 | F171 | F171: First Partner Onboarding — 领养第一只猫 / 配置第一位伙伴 | done | [F171-first-partner-onboarding.md](./F171-first-partner-onboarding.md) |
 | F173 | F173: 前端 Thread-Runtime State 统一 — 消除 dual write-path & liveness fragmentation | done (realized 2026-04-26) | [F173-frontend-message-pipeline-unification.md](./F173-frontend-message-pipeline-unification.md) |
 | F163 | F163: Memory Entropy Reduction — 记忆熵减与知识生命周期治理 | done | [F163-memory-entropy-reduction.md](./F163-memory-entropy-reduction.md) |
+| F061 | F061: Antigravity 接入 — 孟加拉猫（混血家族） | done | [F061-antigravity-bengal-cat.md](./F061-antigravity-bengal-cat.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |
