@@ -3,12 +3,11 @@
  *
  * 钉 thread_mo6 双气泡场景外部行为不变量（observable，不绑内部 delegate）：
  *
- *   砚砚 PR #1423 review P1: 旧版 fixture mock 掉 `useSocket-background`，只验
+ *   砚砚 PR #1423 review P1: 旧版 fixture mock 掉 background helper，只验
  *   "delegate 被调用"，没钉 AC-E3 真正关心的 "active→background→active 期间同
- *   invocation 不产生第二个 bubble id"。Task 3-5 删 useSocket-background.ts 时
- *   该 fixture 必然要重写，不算稳定 pre-refactor guard。
+ *   invocation 不产生第二个 bubble id"。Task 3-5 迁移期间该 fixture 必须保持绿。
  *
- *   本版本不 mock useSocket-background — real handleBackgroundAgentMessage 跑通；
+ *   本版本不 mock useAgentMessages — real handleBackgroundAgentMessage 跑通；
  *   只 mock chatStore，断言 store 收到的 message id 在 active 和 bg 路径下都是
  *   同一份（deriveBubbleId(invocationId, catId) → msg-{inv}-{cat} 是 deterministic）。
  *
@@ -24,7 +23,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
 
-// 不 mock useSocket-background — real handleBackgroundAgentMessage 跑通
+// 不 mock useAgentMessages — real handleBackgroundAgentMessage 跑通
 
 const mockAddMessage = vi.fn();
 const mockSetCatStatus = vi.fn();

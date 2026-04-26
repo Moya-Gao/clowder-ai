@@ -16,7 +16,7 @@ import {
   type BackgroundAgentMessage,
   clearBackgroundStreamRefForActiveEvent,
   handleBackgroundAgentMessage,
-} from '../useSocket-background';
+} from '../useAgentMessages';
 
 /** Monotonic counter matching useSocket.ts bgSeq */
 let testBgSeq = 0;

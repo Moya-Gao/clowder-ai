@@ -7,7 +7,7 @@
  * background 误写 flat state，旧测试仍会绿。
  *
  * 这里钉真实 dispatch 行为：
- *   - currentThreadId=A，收 threadId=B 的 msg → background path（handleBackgroundAgentMessage 被调）
+ *   - currentThreadId=A，收 threadId=B 的 msg → background path（thread-scoped writer 被调）
  *   - currentThreadId=B，收 threadId=B 的 msg → active path（store.addMessage / setCatStatus 被调）
  */
 
@@ -15,15 +15,6 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
-
-// Mock the background handler so we can spy on its invocation.
-const mockHandleBackgroundAgentMessage = vi.fn();
-const mockClearBackgroundStreamRefForActiveEvent = vi.fn();
-vi.mock('@/hooks/useSocket-background', () => ({
-  handleBackgroundAgentMessage: (msg: unknown, options: unknown) => mockHandleBackgroundAgentMessage(msg, options),
-  clearBackgroundStreamRefForActiveEvent: (msg: unknown, refs: unknown) =>
-    mockClearBackgroundStreamRefForActiveEvent(msg, refs),
-}));
 
 const mockAddMessage = vi.fn();
 const mockSetCatStatus = vi.fn();
@@ -42,10 +33,36 @@ const mockSetMessageMetadata = vi.fn();
 const mockSetMessageThinking = vi.fn();
 
 const mockAddMessageToThread = vi.fn();
+const mockSetThreadLoading = vi.fn();
+const mockSetThreadHasActiveInvocation = vi.fn();
+const mockSetThreadCatInvocation = vi.fn();
+const mockAddThreadActiveInvocation = vi.fn();
+const mockRemoveThreadActiveInvocation = vi.fn();
+const mockUpdateThreadCatStatus = vi.fn();
+const mockBatchStreamChunkUpdate = vi.fn();
+const mockPatchThreadMessage = vi.fn();
+const mockReplaceThreadMessageId = vi.fn();
+const mockReplaceThreadTargetCats = vi.fn();
+const mockRemoveThreadMessage = vi.fn();
+const mockAppendToThreadMessage = vi.fn();
+const mockAppendToolEventToThread = vi.fn();
+const mockAppendRichBlockToThread = vi.fn();
+const mockSetThreadMessageMetadata = vi.fn();
+const mockSetThreadMessageUsage = vi.fn();
+const mockSetThreadMessageThinking = vi.fn();
+const mockSetThreadMessageStreamInvocation = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
 const mockResetThreadInvocationState = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
-const mockGetThreadState = vi.fn(() => ({ messages: [] }));
+const mockThreadState = {
+  messages: [] as Array<{ id: string; type: string; catId?: string; content: string; timestamp: number }>,
+  isLoading: false,
+  hasActiveInvocation: false,
+  activeInvocations: {} as Record<string, { catId: string; mode: string }>,
+  catInvocations: {} as Record<string, { invocationId?: string }>,
+  catStatuses: {} as Record<string, string>,
+};
+const mockGetThreadState = vi.fn(() => mockThreadState);
 
 const storeState = {
   messages: [] as Array<{ id: string; type: string; catId?: string; content: string; timestamp: number }>,
@@ -66,6 +83,24 @@ const storeState = {
   setMessageThinking: mockSetMessageThinking,
 
   addMessageToThread: mockAddMessageToThread,
+  setThreadLoading: mockSetThreadLoading,
+  setThreadHasActiveInvocation: mockSetThreadHasActiveInvocation,
+  setThreadCatInvocation: mockSetThreadCatInvocation,
+  addThreadActiveInvocation: mockAddThreadActiveInvocation,
+  removeThreadActiveInvocation: mockRemoveThreadActiveInvocation,
+  updateThreadCatStatus: mockUpdateThreadCatStatus,
+  batchStreamChunkUpdate: mockBatchStreamChunkUpdate,
+  patchThreadMessage: mockPatchThreadMessage,
+  replaceThreadMessageId: mockReplaceThreadMessageId,
+  replaceThreadTargetCats: mockReplaceThreadTargetCats,
+  removeThreadMessage: mockRemoveThreadMessage,
+  appendToThreadMessage: mockAppendToThreadMessage,
+  appendToolEventToThread: mockAppendToolEventToThread,
+  appendRichBlockToThread: mockAppendRichBlockToThread,
+  setThreadMessageMetadata: mockSetThreadMessageMetadata,
+  setThreadMessageUsage: mockSetThreadMessageUsage,
+  setThreadMessageThinking: mockSetThreadMessageThinking,
+  setThreadMessageStreamInvocation: mockSetThreadMessageStreamInvocation,
   clearThreadActiveInvocation: mockClearThreadActiveInvocation,
   resetThreadInvocationState: mockResetThreadInvocationState,
   setThreadMessageStreaming: mockSetThreadMessageStreaming,
@@ -111,6 +146,12 @@ describe('useAgentMessages — F173 Phase E single dispatch (KD-1 handler unific
     captured = undefined;
     storeState.currentThreadId = 'thread-active';
     storeState.messages = [];
+    mockThreadState.messages = [];
+    mockThreadState.isLoading = false;
+    mockThreadState.hasActiveInvocation = false;
+    mockThreadState.activeInvocations = {};
+    mockThreadState.catInvocations = {};
+    mockThreadState.catStatuses = {};
     vi.clearAllMocks();
   });
 
@@ -122,7 +163,7 @@ describe('useAgentMessages — F173 Phase E single dispatch (KD-1 handler unific
   });
 
   describe('background dispatch: currentThreadId !== msg.threadId', () => {
-    it('routes msg with threadId !== currentThreadId to handleBackgroundAgentMessage with bg context (砚砚 P1)', () => {
+    it('routes msg with threadId !== currentThreadId to background thread-scoped writers (砚砚 P1)', () => {
       storeState.currentThreadId = 'thread-active';
       act(() => {
         root.render(React.createElement(Harness));
@@ -134,22 +175,25 @@ describe('useAgentMessages — F173 Phase E single dispatch (KD-1 handler unific
           catId: 'opus',
           threadId: 'thread-background', // 不同于 currentThreadId
           content: 'hello from bg thread',
+          invocationId: 'inv-bg',
           timestamp: Date.now(),
         });
       });
 
-      // background path 必须被调，且收到正确的 bg context
-      expect(mockHandleBackgroundAgentMessage).toHaveBeenCalledTimes(1);
-      const [msg, options] = mockHandleBackgroundAgentMessage.mock.calls[0];
-      expect(msg).toMatchObject({ type: 'text', catId: 'opus', threadId: 'thread-background' });
-      expect(options).toMatchObject({
-        store: storeState,
-        bgStreamRefs: expect.any(Map),
-        finalizedBgRefs: expect.any(Map),
-        nextBgSeq: expect.any(Function),
-        addToast: expect.any(Function),
-        clearDoneTimeout: expect.any(Function),
-      });
+      // background path must write through thread-scoped writers, not flat active writers.
+      expect(mockAddMessageToThread).toHaveBeenCalledWith(
+        'thread-background',
+        expect.objectContaining({
+          id: 'msg-inv-bg-opus',
+          type: 'assistant',
+          catId: 'opus',
+          content: 'hello from bg thread',
+          origin: 'stream',
+          isStreaming: true,
+        }),
+      );
+      expect(mockAddThreadActiveInvocation).toHaveBeenCalledWith('thread-background', 'inv-bg', 'opus', 'execute');
+      expect(mockUpdateThreadCatStatus).toHaveBeenCalledWith('thread-background', 'opus', 'streaming');
 
       // active path writers 必须 NOT 被调（防止 background 误写 flat state）
       expect(mockAddMessage).not.toHaveBeenCalled();
@@ -171,8 +215,8 @@ describe('useAgentMessages — F173 Phase E single dispatch (KD-1 handler unific
         });
       });
 
-      // background must NOT be called (no threadId, falls to active legacy)
-      expect(mockHandleBackgroundAgentMessage).not.toHaveBeenCalled();
+      // background must NOT run (no threadId, falls to active legacy)
+      expect(mockAddMessageToThread).not.toHaveBeenCalled();
       // active path runs (setCatStatus from liveness_warning processing)
       expect(mockSetCatStatus).toHaveBeenCalledWith('opus', 'alive_but_silent');
     });
@@ -196,29 +240,9 @@ describe('useAgentMessages — F173 Phase E single dispatch (KD-1 handler unific
       });
 
       // background path NOT called
-      expect(mockHandleBackgroundAgentMessage).not.toHaveBeenCalled();
+      expect(mockAddMessageToThread).not.toHaveBeenCalled();
       // active path must update cat status (text event → 'streaming')
       expect(mockSetCatStatus).toHaveBeenCalledWith('opus', 'streaming');
-    });
-
-    it('runs defensive clearBackgroundStreamRefForActiveEvent for active path (matches pre-Phase E behavior)', () => {
-      storeState.currentThreadId = 'thread-active';
-      act(() => {
-        root.render(React.createElement(Harness));
-      });
-
-      act(() => {
-        captured?.handleAgentMessage({
-          type: 'text',
-          catId: 'opus',
-          threadId: 'thread-active',
-          content: 'hello',
-          timestamp: Date.now(),
-        });
-      });
-
-      // Defensive cleanup: clearBg called even on active path (was useSocket pre-Phase E behavior)
-      expect(mockClearBackgroundStreamRefForActiveEvent).toHaveBeenCalled();
     });
   });
 });

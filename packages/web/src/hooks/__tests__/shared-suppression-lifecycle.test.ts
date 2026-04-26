@@ -7,7 +7,7 @@
  *   2) invocationless stream must NOT be permanently dropped by an old suppression
  *      marker (codex round 3 case)
  *
- * Both surfaces (active = useAgentMessages, background = useSocket-background) read
+ * Both surfaces (active = useAgentMessages, background = useAgentMessages) read
  * the same shared module Map; we exercise the background-handler path here because
  * it's the simpler integration point — the active-handler path goes through the
  * same shouldSuppressLateStreamChunk semantics with identical fail-open and
@@ -23,7 +23,7 @@ import {
   markReplacedInvocation,
   resetSharedReplacedInvocations,
 } from '../shared-replaced-invocations';
-import { type BackgroundAgentMessage, handleBackgroundAgentMessage } from '../useSocket-background';
+import { type BackgroundAgentMessage, handleBackgroundAgentMessage } from '../useAgentMessages';
 
 let testBgSeq = 0;
 const testBgStreamRefs = new Map<string, { id: string; threadId: string; catId: string }>();

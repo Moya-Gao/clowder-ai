@@ -12,7 +12,7 @@
  *      thread's bubble without polluting the now-current thread
  *
  * Mechanism: drive {@link handleBackgroundAgentMessage} against the real
- * `useChatStore`, mirroring the pattern in `useSocket-background.test.ts`
+ * `useChatStore`, mirroring the pattern in `useAgentMessages.test.ts`
  * but isolated to the thread-switch race surface (not the full handler
  * matrix).
  */
@@ -21,7 +21,7 @@ import { configureDebug } from '@/debug/invocationEventDebug';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import { resetSharedReplacedInvocations } from '../shared-replaced-invocations';
-import { type BackgroundAgentMessage, handleBackgroundAgentMessage } from '../useSocket-background';
+import { type BackgroundAgentMessage, handleBackgroundAgentMessage } from '../useAgentMessages';
 
 let bgSeq = 0;
 const bgStreamRefs = new Map<string, { id: string; threadId: string; catId: string }>();

@@ -17,9 +17,8 @@ import { getUserId } from '@/utils/userId';
 // F173 Phase E: isInvocationReplaced 检查已下沉到 useAgentMessages.handleAgentMessage
 // dispatch entry，useSocket 不再做 active path drop guard。
 import { reconnectGame } from './useGameReconnect';
-// F173 Phase E (KD-1): bg refs + handleBackgroundAgentMessage call moved into
-// useAgentMessages — useSocket no longer dispatches active vs background。
-// useSocket-background.ts 仍是 useAgentMessages 内部的 bg delegate（Task 2-5 迁移再删）。
+// F173 Phase E (KD-1): bg refs + background message processing moved into
+// useAgentMessages — useSocket no longer dispatches active vs background.
 import { loadJoinedRoomsFromSession, saveJoinedRoomsToSession } from './useSocket-persistence';
 import { handleVoiceChunk, handleVoiceStreamEnd, handleVoiceStreamStart } from './useVoiceStream';
 

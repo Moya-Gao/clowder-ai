@@ -2,7 +2,7 @@
  * F173 Phase A.6 — Shared `replaced invocations` runtime state (bidirectional handoff).
  * F173 Phase B AC-B6 (integration step 5) — internally delegates to the
  * thread-runtime-ledger singleton. The exported API surface stays identical
- * so existing callers (useAgentMessages, useSocket-background, useSocket,
+ * so existing callers (useAgentMessages, useAgentMessages, useSocket,
  * tests) keep working unchanged.
  *
  * Why the rewrite (砚砚 LGTM-5 non-blocking observation): the previous

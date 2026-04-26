@@ -15,7 +15,7 @@
  *
  * 5 scenarios per Phase C plan (F5 / thread switch / reconnect / cross-post /
  * cancel-during-stream): F5 is covered by hydrateThread fixtures (PR #1413),
- * thread-switch by useSocket-background-thread-switch fixture (PR #1391).
+ * thread-switch by useAgentMessages-thread-switch fixture (PR #1391).
  * The three NEW scenarios live here:
  *   - reconnect: server has slots → re-hydrate writes flat AND threadStates[active]
  *   - cross-post: server has slots → background reconcile writes only threadStates[bg]

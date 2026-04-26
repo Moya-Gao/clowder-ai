@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { HandleBackgroundMessageOptions } from '@/hooks/useSocket-background.types';
-import { consumeBackgroundSystemInfo } from '@/hooks/useSocket-background-system-info';
+import type { HandleBackgroundMessageOptions } from '@/hooks/useAgentMessages';
+import { consumeBackgroundSystemInfo } from '@/hooks/useAgentMessages';
 
 function createMockStore(overrides: Record<string, unknown> = {}) {
   return {
