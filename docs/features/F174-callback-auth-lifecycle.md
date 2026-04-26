@@ -325,9 +325,13 @@ interface CallbackTool<T> {
   - **D2b-1 in-context 富块**（P0 · 现场层）— ✅ merged 2026-04-25 via PR #1397
     - [x] AC-D4: thread 内 callback auth 失败时，server post 一条 card 富块 (`meta.kind='callback_auth_failure'`)，使用 `CALLBACK_AUTH_SOURCE` connector，前端通过 `CallbackAuthFailureBlock` 渲染 amber 边框 + reason badge + tool/cat/when + 详情/重试(disabled, pending D2b-3/follow-up)/隐藏类似消息
     - [x] AC-D5: dedup 实现：5-tuple `(reason, tool, catId, threadId, userId)` 5min 窗口去重；"隐藏类似消息" 按钮 → POST `/api/debug/callback-auth/hide-similar` 触发 24h opt-out；`stale_invocation` / `unknown_invocation` / `missing_creds` 不 surface in-context；dedup map 自动 prune 过期 entry；race-window-safe (synchronous slot reservation before async append)
-  - **D2b-2 cat status dot**（P0 · 实体层）— ✅ merged 2026-04-25 via PR #1403
-    - [x] AC-D6: ThreadItem 参与者 + HubCallbackAuthPanel roster avatars 角上 status dot（绿/黄/红/灰四态）。绿/黄/红 driven by `snapshot.recent24h.byCat`，灰为 absent (no-data, since backend 仅记录 failure 不记录 success)。CallbackAuthCatAvatar wrapper consumes global zustand store (单点 polling)
-    - [x] AC-D7: hover popover 显示 cat status + Top reasons (24h, all cats) + Top tools (24h, all cats) + 点击跳 D2b-3 详情入口（per-invocation nonce 让重复点击也 re-sync top tab + subtab）
+  - **D2b-2 system-level health indicator**（P0 · 实体层 — rev after alpha 反馈）— original merged via PR #1403, **revised** in PR #1410
+    - 旧形态（已 revert）：ThreadItem 参与者 16px avatar 角上 colored dot。被铲屎官 alpha 验收否决（"莫名其妙的颜色"——头像角点缺 affordance/legend，用户没有 mental model 把"红点"和"callback auth"对应起来）。CatAvatar dot props 保留以备后用，但默认调用点不再启用
+    - 新形态（rev）：top-bar `<CallbackAuthHealthIndicator />`——专属 plug SVG 图标 + 24h failure badge + 颜色码（gray=24h 无失败记录/quiet, amber=1-5, red=6+）。click → openHub('observability', 'callback-auth') 直达 D2b-3 deep-dive
+    - [x] AC-D6: 系统级 affordance 在 ChatContainerHeader top-bar；非 owner 不渲染（zero pollution）；plug 图标自身是 mental-model 锚点（不依赖外部 legend）
+    - [x] AC-D7: hover tooltip "MCP Callback Auth · 24h N 次失败 — 点击查看详情"；click 跳 D2b-3（per-invocation nonce 让重复点击也 re-sync top tab + subtab）
+    - HubCallbackAuthPanel 内部的 affected-cats roster 仍使用 `<CallbackAuthCatAvatar>` (48px + "AFFECTED CATS" 文本 affordance)，那是 panel-internal context，用户主动打开后明确知道"这是 callback auth 数据"
+    - **教训**：信号设计要附 affordance；"放在哪里"和"用户能 parse 吗"是 information design 问题，不只是 wider 部署问题
   - **D2b-3 stats 深挖 card**（P2 · 审计层）— ✅ merged 2026-04-25 via PR #1403
     - [x] AC-D8: HubObservabilityTab 加 "Callback Auth" 子 tab，渲染 24h Failures + All-time + Affected Cats + Legacy Fallback (Phase F deadline 倒计时) + reason distribution bar + Top tools + Affected Cats roster (with status dots) + recent samples
 

@@ -1,4 +1,5 @@
 import { useChatStore } from '@/stores/chatStore';
+import { CallbackAuthHealthIndicator } from './CallbackAuthHealthIndicator';
 import { ExportButton } from './ExportButton';
 import { HubButton } from './HubButton';
 import { CatCafeLogo } from './icons/CatCafeLogo';
@@ -94,6 +95,9 @@ export function ChatContainerHeader({
         )}
         {/* F056 Phase D: Theme toggle */}
         <ThemeToggle />
+        {/* F174 D2b-2 (rev): system-level callback-auth health affordance.
+            Plug icon + 24h failure badge. Click → D2b-3 deep-dive. */}
+        <CallbackAuthHealthIndicator />
         {/* F099 P1-2: Hub gear in top bar — always reachable even when right panel shows workspace */}
         <HubButton />
         {/* Mobile/tablet: status sheet trigger */}
