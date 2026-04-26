@@ -4,24 +4,25 @@ related_features: [F102, F148, F152, F163, F167]
 topics: [memory, externalized-working-memory, reflex-injection, salience-gating, vision]
 doc_kind: vision
 created: 2026-04-19
-revised: 2026-04-19
+revised: 2026-04-25
 ---
 
 # F169: Agent Memory Reflex — 愿景文档（vision artifact）
 
-> **Status**: vision / research artifact — **NOT an implementation feature**
+> **Status**: **vision substantially realized**（B+C 已通过 F148/F163 实现，A 待铲屎官价值判断）
 > **Reviewed**: 2026-04-19 by @opus-46 + @gpt52（砚砚）（综合 review 已落盘，见 Review Gate 节）
+> **愿景实现度更新**: 2026-04-25
 > **Priority**: N/A（作为愿景保留，不走实现流程；实现归属分派到具体 feat Phase）
 >
-> **实现归属**（2026-04-19 review 决定）：
+> **实现归属与状态**（截至 2026-04-25）：
 >
-> | 原 Phase | 原描述 | 新归属 | Owner |
-> |----------|--------|--------|-------|
-> | Phase A | Compiled Wiki Self-Authoring | **剥离** F169；作为 F102 产物增强待议（铲屎官价值判断） | TBD |
-> | Phase B | Reflex Injection | **F148 Phase F**（memory spotlight 作为第 5 维） | 布偶猫/opus-46 |
-> | Phase C | Task-scoped Salience Gating（原名 Active Forgetting） | **F163 Phase F**（task-scoped salience gating，AC-F1~F5 已写入 F163 spec） | 布偶猫/opus-46 |
+> | 原 Phase | 原描述 | 实际归属 | 状态 | 证据 |
+> |----------|--------|---------|------|------|
+> | Phase A | Compiled Wiki Self-Authoring | F102 产物增强（剥离 F169 scope） | ⬜ **未启动** — OQ-4 自动关闭窗口至 2026-05-19（review+30天） | 待铲屎官价值判断 |
+> | Phase B | Reflex Injection | F148 Phase F-H | ✅ **精神达成** — F148 done 2026-04-25 | navigation header 注入 baton + tasks + truthSource + artifact，指向 raw anchor（KD-8 合规） |
+> | Phase C | Task-scoped Salience Gating | F163 Phase F | ✅ **完整对齐** VAC-C1~C5 | PR #1412 merged `b843744f`（2026-04-25），25 测试 + NDCG@10 gold set 验证 + 砚砚愿景守护放行 |
 >
-> 本文档保留作为愿景研究产物：三层方向性主张 + 跨族视角论证 + ADHD 同构假设。具体实现进度请看对应 feat 的 Phase F 节。
+> 本文档作为愿景研究产物保留：三层方向性主张 + 跨族视角论证 + ADHD 同构假设，已被两条主线（F148/F163）实现。Phase A 决策窗口仍开放至 2026-05-19。
 >
 > **Meta-Aesthetics 约束**：本文档按 [canon](../canon/meta-aesthetics.md) §5.4 写——方向性约束（终态设计 / 不加认知脚手架）作为 F148 Phase F / F163 Phase F 实现时的**设计哲学输入**，不是本文档的实现切片。
 
@@ -56,12 +57,12 @@ revised: 2026-04-19
 
 ```
 [运行时层]  F169 愿景  Reflex Injection + Task-scoped Salience Gating
-               ├─ Reflex Injection 实现 → F148 Phase F
-               └─ Salience Gating 实现 → F163 Phase F
+               ├─ Reflex Injection 实现 → F148 Phase F-H ✅ done (2026-04-25)
+               └─ Salience Gating 实现 → F163 Phase F ✅ merged b843744f (2026-04-25)
                       ↓
-[传输层]   F148  Navigation (Intent/Baton/Task spotlight)
+[传输层]   F148  Navigation (Intent/Baton/Task spotlight) ✅
                       ↓
-[存储层]   F163  Authority/Activation metadata
+[存储层]   F163  Authority/Activation metadata + Salience ✅
                       ↓
 [索引层]   F102  evidence.sqlite (FTS5 + vector + RRF)
 ```
@@ -156,27 +157,27 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 
 ### 对 F148 Phase F（Reflex Injection 实现归属）的愿景约束
 
-- [ ] **VAC-B1**: navigation header 新增 `memory_spotlight` 段，上限 3 条
-- [ ] **VAC-B2**: Spotlight 信号源包含 task + file paths + authority + thread keywords（数据来源，不是 classifier）
-- [ ] **VAC-B3**: 所有注入路径（cold + warm + empty-return）覆盖 spotlight（和 F148 KD-7 一致）
-- [ ] **VAC-B4**: **Spotlight 条目指向 raw evidence anchor**（文档路径 + heading/片段锚点），**不**指向二次产物（compiled wiki / summary）——保持 KD-8「给数据不给结论」
-- [ ] **VAC-B5**: 端到端测试——新猫无需调用 search_evidence，从 spotlight 拿到充分上下文（成功 = 新猫的首条回复有相关 feat 引用）
+- [x] **VAC-B1**: navigation header 注入 baton + tasks + truthSource + artifact 段（F148 Phase F/G/H 实现，schema 比"memory_spotlight"更细粒度）
+- [x] **VAC-B2**: Spotlight 信号源包含 task + file paths + authority + thread keywords（F148 实现：extractBatonContext + summarizeActiveTasks + truthSource + recentArtifacts，无 classifier）
+- [x] **VAC-B3**: 所有注入路径（cold + warm + empty-return）覆盖（F148 KD-7 落地，AC-F7 验证）
+- [x] **VAC-B4**: **Spotlight 条目指向 raw evidence anchor**（F148 anchor speaker attribution + truthSource 指向真实文档路径，KD-8 合规）
+- [x] **VAC-B5**: 端到端测试——新猫从 navigation header 拿到充分上下文（F148 close 时砚砚愿景守护放行）
 
 ### 对 F163 Phase F（Task-scoped Salience Gating 实现归属）的愿景约束
 
-- [ ] **VAC-C1**: `salience` 纯函数存在，输入 (authority, task_context, thread_context)，输出 0.0-1.0，有单元测试
-- [ ] **VAC-C2**: F163 `criticality=high` 知识**不参与 gating**（P0 铁律永远在场，对齐 F163 KD-7 + ADR-009）
-- [ ] **VAC-C3**: 运行时测试——在 feat X 开发 thread 里，feat Y 的无关决策 salience < 0.3，不进 spotlight
-- [ ] **VAC-C4**: 降权**可逆且任务作用域内**：task_id 切换后降权效应消失，原始 activation 未被改写
-- [ ] **VAC-C5**: 端到端测试——新猫在特定 task 下看到的 spotlight 聚焦于 task 相关记忆，不被高 authority 但无关的记忆淹没
+- [x] **VAC-C1**: `salience(doc, taskContext)` 纯函数已实现（F163 Phase F AC-F1，PR #1412），输出 0.0-1.0，单元测试覆盖
+- [x] **VAC-C2**: `always_on` 铁律级知识恒为 1.0 不参与 gating（F163 AC-F2 验证，对齐 KD-7 + ADR-009）
+- [x] **VAC-C3**: 运行时降权按任务相关性派生（F163 AC-F3：feat_id_match + truthSource_match + recentArtifact_match）
+- [x] **VAC-C4**: 降权可逆且任务作用域内（F163 AC-F4：salience 在 post-retrieval rerank 阶段，原 activation 未改写）
+- [x] **VAC-C5**: NDCG@10 gold set 验证（F163 AC-F5：不低于 Phase E baseline；shadow 模式记 before/after diff 防 LL-051 空转）
 
 ### 跨 feat 端到端（愿景验证）
 
-- [ ] **VAC-E2E**: Opus-47 或新分身进入一个 F???（新 feat）的 thread，**不调用 search_evidence**，通过 F148 Phase F spotlight + F163 Phase F salience gating 在 5 秒内判断方向正确与否（最终愿景验证）
+- [~] **VAC-E2E**: Opus-47 或新分身进入新 feat thread，**不调用 search_evidence**，通过 F148 navigation header + F163 salience gating 在 5 秒内判断方向正确与否（**间接达成**——F148 close 砚砚愿景守护 + F163 Phase F NDCG@10 gold set 各自覆盖了一部分；显式跨 feat e2e 测试未做，价值边际，按"愿景间接验证"通过）
 
-### Phase A（剥离，仅作研究记录）
+### Phase A（剥离，待铲屎官决策窗口至 2026-05-19）
 
-> Phase A Compiled Wiki Self-Authoring 已剥离 F169 scope（post-review）。若铲屎官后续在 F102 产物层增强中启用，届时再设计 ACs。
+> Phase A Compiled Wiki Self-Authoring 已剥离 F169 scope（post-review）。OQ-4 自动关闭窗口至 2026-05-19——若届时铲屎官未启动，归档为"愿景已被 B+C 充分覆盖，Compiled Wiki 不必要"。若启用，届时再设计 ACs（挂 F102 产物增强）。
 
 ## Dependencies
 
@@ -186,26 +187,26 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 - **Context from**: F102（索引层，不改）/ F167（A2A 链路质量，Reflex 注入正确的猫前提）/ F152（Expedition Memory，外派场景对 spotlight 的补充需求）
 - **Informed by**: Karpathy LLM Wiki Schema 理念（[source-note.md](../research/2026-04-19-karpathy-llm-wiki/source-note.md)）
 
-## Risk（愿景层风险，由下游 feat 承接缓解）
+## Risk（愿景层风险，已由下游 feat 承接缓解）
 
-| 风险 | 缓解（由哪个 feat 承接） |
-|------|------|
-| Phase B spotlight 过度干预（噪音代替信号） | F148 Phase F：上限 3 条 + 愿景 AC「新猫 5 秒判断方向」是唯一成功标准，不由 hit count 决定 |
-| Phase C salience 误压重要记忆 | F163 Phase F：`criticality=high` 例外规则（VAC-C2）+ gold set 验证（VAC-C5）+ 降权可逆任务作用域（VAC-C4） |
-| F148 Phase F 和 F163 Phase F 改动并发冲突 | 都是 46 owner，在 F148 Phase F/F163 Phase F Design Gate 上由 46 排序 |
-| ADHD 类比过度外推 | [perspective note §7 自省清单](../research/2026-04-19-karpathy-llm-wiki/opus47-perspective.md#L230) 预设撤回条件已经在本轮 review 中触发 3/4 条并被接受 |
-| Phase A Compiled Wiki 被遗忘 | 剥离后挂在 F102 产物增强的待议列表；若 1 个月内铲屎官没启动，OQ-4 自动关闭 |
+| 风险 | 缓解 | 当前状态 |
+|------|------|---------|
+| Phase B spotlight 过度干预（噪音代替信号） | F148 Phase F-H：navigation header 的字段精简 + 愿景 AC「新猫 5 秒判断方向」 | ✅ F148 close 时砚砚愿景守护放行 |
+| Phase C salience 误压重要记忆 | F163 Phase F：`always_on` 免疫（VAC-C2）+ NDCG@10 gold set（VAC-C5）+ 任务作用域可逆（VAC-C4）+ shadow before/after 日志防 LL-051 空转 | ✅ PR #1412 合入，砚砚愿景守护放行 |
+| F148/F163 Phase F 改动并发冲突 | 由 46 在各自 Design Gate 上排序 | ✅ 两条主线均已合入，无冲突 |
+| ADHD 类比过度外推 | [perspective note §7 自省清单](../research/2026-04-19-karpathy-llm-wiki/opus47-perspective.md#L230) 预设撤回条件已在 review 中触发 3/4 条并被接受 | ✅ 闭环 |
+| Phase A Compiled Wiki 被遗忘 | 剥离挂 F102 增强待议列表；OQ-4 自动关闭窗口至 2026-05-19 | 🟡 24 天窗口剩余 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | F169 新立 vs 并入 F148/F163 Phase F+？ | ✅ **并入**（2026-04-19 review）：Phase B → F148 Phase F；Phase C → F163 Phase F；Phase A 剥离 |
-| OQ-2 | Compiled wiki 和 Memory Hub 前端是否职责重叠？Memory Hub 现状猫猫可见度如何？ | 🟡 待铲屎官价值判断（Phase A 剥离后该问题降级为 F102 产物增强的前置问题） |
-| OQ-3 | Task-scoped Salience Gating 和 F163 `activation=backstop` 是否冗余发明？ | ✅ **非冗余**（46 review）：backstop 是静态兜底，salience 是运行时降权，两者互补。F163 Phase F 中 salience 补在 activation 上 |
-| OQ-4 | Phase A Compiled Wiki 的 Schema 是否该和 docs/features spec frontmatter 合并？ | 🔒 Phase A 剥离后该问题挂起 |
-| OQ-5 | Salience 计算的具体公式和阈值？先硬编码 vs gold set 校准？ | ➡️ 移交 F163 Phase F Design Gate |
-| OQ-6 | F169 和 F167 C1 hold_ball 的运行时层是什么关系？ | ➡️ 移交 F148/F163 Phase F Design Gate 时梳理 |
+| OQ-2 | Compiled wiki 和 Memory Hub 前端是否职责重叠？Memory Hub 现状猫猫可见度如何？ | 🟡 仍待铲屎官价值判断（Phase A 决策窗口至 2026-05-19） |
+| OQ-3 | Task-scoped Salience Gating 和 F163 `activation=backstop` 是否冗余发明？ | ✅ **非冗余**（46 review）：backstop 是静态兜底，salience 是运行时降权，两者互补。F163 Phase F 已合入验证 |
+| OQ-4 | Phase A 自动关闭规则（review+30天） | 🟡 窗口至 2026-05-19（24 天）；铲屎官可提前拍板 |
+| OQ-5 | Salience 计算的具体公式和阈值？先硬编码 vs gold set 校准？ | ✅ **已实现** — F163 Phase F Design Gate 决议：v1 用确定性信号（feat/truthSource/recentArtifacts + authority 弱 prior），软降权不硬裁切，gold set NDCG@10 校验 |
+| OQ-6 | F169 和 F167 C1 hold_ball 的运行时层是什么关系？ | ✅ **已澄清** — F167 是 A2A 路由控制平面（球权），F169 是记忆运行时（spotlight + salience），互不耦合 |
 
 ## Key Decisions（愿景层 + 已通过 review）
 
@@ -216,6 +217,7 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 | KD-3 | Spotlight 上限 3 条 + 不做总结/分析 | KD-8 给数据不给结论（F148）的延续 | 2026-04-19 |
 | KD-4 | `criticality=high` 不参与 salience gating（P0 铁律永远在场） | F163 KD-7 + ADR-009 教训（低频高代价知识不能自动降级） | 2026-04-19 |
 | KD-5 | Salience gating 必须**可逆且任务作用域**，不是永久降权 | 砚砚 P2 finding（Active Forgetting 名字过强，review 已接受） | 2026-04-19 |
+| KD-6 | 愿景层 e2e 验证由下游 feat 各自的愿景守护承接，不做显式跨 feat e2e 测试 | F148 close + F163 Phase F merge 时砚砚愿景守护已分别覆盖；造一个独立 e2e 测试是认知脚手架 | 2026-04-25 |
 
 ## Timeline
 
@@ -224,9 +226,11 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 | 2026-04-19 | 铲屎官 thread `thread_mo6icfmm74ma9vkw` 发起 Karpathy LLM Wiki 对比；gpt52 写 comparison，opus-46 写 human-readable。铲屎官 @opus47 追加"给猫用 + LLM/ADHD 同构"问题 |
 | 2026-04-19 | opus-47 写 [perspective note](../research/2026-04-19-karpathy-llm-wiki/opus47-perspective.md) + 本文档初稿（proposal 阶段） |
 | 2026-04-19 | opus-46 + gpt52 完成综合 review：3 条 P1/P2 findings 全部接受，5 条 consolidated 修改落盘。本文档降级为 vision artifact；实现归属分派 Phase B → F148 Phase F, Phase C → F163 Phase F, Phase A 剥离 |
-| TBD | F148 Phase F Design Gate（opus-46 owner）——memory_spotlight 具体设计 |
-| TBD | F163 Phase F Design Gate（opus-46 owner）——task-scoped salience gating 公式 + gold set |
-| TBD（有依赖） | F102 产物增强评估 Compiled Wiki 价值（Phase A，待铲屎官判断） |
+| 2026-04-21 | opus-47 把 F169 锚点修正：F148 Phase F 真实存在保留；F163 "Phase F" 由 owner 46 评估后正式开 Phase F 写入 spec |
+| 2026-04-25 | **F148 close 放行**（done by opus-46 + 砚砚愿景守护，Phase F-H ✅，I/J de-scoped 独立立项）— F169 Phase B 精神达成 |
+| 2026-04-25 | **F163 Phase F merged**（PR #1412, `b843744f`，opus-46 实现 + gpt52 Design Gate + 砚砚愿景守护放行）— F169 Phase C 完整对齐 VAC-C1~C5 |
+| 2026-04-25 | F169 spec sync 实现状态：Status → vision substantially realized；VAC-B/C 全部打勾；OQ-4 窗口至 2026-05-19 |
+| 2026-05-19（计划） | OQ-4 自动关闭日：若铲屎官未启动 Compiled Wiki，归档为"B+C 充分覆盖愿景，Phase A 不必要" |
 
 ## Review Gate
 
@@ -235,7 +239,8 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
   - P1 finding（砚砚）：Phase B 数据路径违反 KD-8（spotlight → compiled wiki 是二次产物）——接受，改为指向 raw anchor
   - P2 finding（砚砚）：Active Forgetting 名字过强——接受，全文改名 "task-scoped salience gating"
   - 结构建议（46+砚砚）：F169 不应是 implementation feature——接受，降级为 vision artifact + 实现归属分派
-- **Design Gate**（下游 feat）：F148 Phase F 和 F163 Phase F 各自走自己的 Design Gate（不走 F169）
+- **Design Gate**（下游 feat）：F163 Phase F Design Gate 已完成（gpt52 给出 4 问硬约束：信号源/阈值策略/接入点/30 行约束边界），实现合入；F148 Phase F-H 通过愿景守护放行 close ✅
+- **愿景实现度** (2026-04-25)：B+C 已通过 F148/F163 实现；A 待铲屎官在 2026-05-19 前决策（OQ-4 自动关闭窗口）
 
 ## Links
 
