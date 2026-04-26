@@ -18,10 +18,10 @@ created: 2026-04-23
 > **Phase F**: ✅ merged 2026-04-25 via PR #1388
 > **Phase D2a (backend)**: ✅ merged 2026-04-25 via PR #1393 (byCat counter + 24h ring buffer)
 > **Phase D2b-1 (in-context surface)**: ✅ merged 2026-04-25 via PR #1397 (squash `74ea5ebec`)
-> **Phase D2b-2 (cat status dot)**: ✅ merged 2026-04-25 via PR #1403 (squash `b59eff071`)
+> **Phase D2b-2 (system-level health indicator, rev)**: ✅ merged 2026-04-26 via PR #1410 (squash `41bf612c8`) — original PR #1403 per-cat dot 形态被 alpha 验收否决，rev 改成 top-bar plug SVG indicator
 > **Phase D2b-3 (deep-dive stats card)**: ✅ merged 2026-04-25 via PR #1403 (squash `b59eff071`)
 >
-> **F174 D2b 三层"明厨亮灶"模型完整落地** — D2b-1 现场富块 + D2b-2 cat status dot + D2b-3 stats deep-dive。
+> **F174 D2b 三层"明厨亮灶"模型完整落地** — D2b-1 现场富块 + D2b-2 system-level plug indicator + D2b-3 stats deep-dive。
 
 ## Why
 
@@ -438,6 +438,7 @@ interface CallbackTool<T> {
 | 2026-04-25 10:50 | **D2b 设计稿完成** (`designs/F174-callback-auth-health-card.pen` commit `73fad2941`)。铲屎官 push back v1 单 dashboard 设计 → 收敛到三层"明厨亮灶"模型 (D2b-1 现场富块 + D2b-2 cat status dot + D2b-3 深挖 card)。方法论沉淀到 `cat-cafe-skills/refs/in-context-observability-checklist.md` (commit `2c773b08b`)，砚砚 P1/P2 review 全接住 (rename to "现场可感知性"、必产出决策字段、触发范围、噪音约束) |
 | 2026-04-25 14:42 | **Phase D2b-1 merged via PR #1397** (squash `74ea5ebec`)。砚砚 4 轮 review + cloud Codex 4 轮 review 全部 closed。砚砚 P1+P2: surface decision/dedup/owner gate/source classification/system_notice routing trap. Cloud Codex P1+P2: dedup keys 跨 thread/user 互吞 → 5-tuple key；RichBlocks dispatcher 信任 untrusted meta → trusted-provenance gate (`messageSource.connector === 'callback-auth'`)；dedup map monotonic growth → opportunistic pruneExpired；notify race window → synchronous slot reservation + rollback on persistence failure。新增 38 D2b-1 targeted tests (api 36 + web 4 components + 1 routing-trap + 1 source-classification + 4 cross-thread/user dedup + 2 race + 2 prune)，0 regression (api 9278 pass) |
 | 2026-04-25 23:17 | **Phase D2b-2 + D2b-3 merged via PR #1403** (squash `b59eff071`)。三层"明厨亮灶"模型 close-out — D2b-1 现场 + D2b-2 实体 + D2b-3 审计。砚砚 9 轮 explicit 放行 + cloud Codex 11 轮 review 全部 closed。亮点 review 修复链：(1) D2b-2 wider 部署到 ThreadItem (砚砚 P1 — dashboard-internal 不算实体层); (2) AC-D7 hover popover + click navigation (砚砚 P1); (3) ThreadItem dot click stopPropagation (砚砚 P2); (4) deep-link useEffect prop sync (cloud P1 round 9); (5) per-invocation subTabNonce so repeated 详情 click 在 same-value 路径也 re-sync top + subtab (cloud P1+P2 多轮); (6) snapshot polling stop on first 401/403 → manual refetch latch (cloud P2 round 8); (7) absent byCat = unknown not healthy (cloud P1); (8) HubCallbackAuthPanel + CatAvatar dot 单一 store source 防 split-snapshot skew (cloud P2); (9) `<CallbackAuthSnapshotMount />` null-leaf 隔离 ChatLayout re-render (cloud P2 perf); (10) generation guard for in-flight fetch race (砚砚 P1)。新增 32 D2b-2/D2b-3 web tests，5 syncKey unit (web 2514/2514 pass)，0 regression |
+| 2026-04-26 01:53 | **Phase D2b-2 revision merged via PR #1410** (squash `41bf612c8`)。铲屎官 alpha 验收否决了原 PR #1403 的 per-cat 头像角点 UX ("莫名其妙的颜色"——头像角点缺 affordance/legend)。**根本反思**：spec 错把"实体层"理解成"每只猫一个 dot"，实际 callback-auth 是 system-level entity 不是 cat-level；猫头像 16px 永远 too small + 没有用户 mental model。修法：撤回 ThreadItem dot，新增 top-bar `<CallbackAuthHealthIndicator />`——专属 plug SVG（不用 emoji 按铲屎官明确指示）+ 24h failure badge（gray=无失败记录/quiet, amber=1-5, red=6+）+ click 直达 D2b-3。砚砚 2 轮 review (factual tooltip 不 overclaim health + click affordance 必须有回归测试) + cloud Codex 0 P1/P2。**教训**：信号设计要附 affordance；"放在哪里"和"用户能 parse 吗"是 information design 问题，不只是 wider 部署问题。CallbackAuthCatAvatar 组件保留供 HubCallbackAuthPanel 内部 roster 使用，那里有 "AFFECTED CATS" 文本 affordance，context 明确。新增 7 indicator vitest（含 click event spy + SVG-not-emoji guard），0 regression |
 
 ## Review Gate
 
