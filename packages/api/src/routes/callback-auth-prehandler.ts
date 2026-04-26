@@ -5,11 +5,13 @@
  * verifies via InvocationRegistry, and decorates request.callbackAuth.
  */
 
+import type { AgentKeyVerifyResult, CallbackPrincipal } from '@cat-cafe/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { InvocationRecord, VerifyResult } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { CallbackAuthSystemMessageNotifier } from './callback-auth-system-message.js';
 import { recordCallbackAuthFailure, recordLegacyFallbackHit } from './callback-auth-telemetry.js';
 import { makeCallbackAuthError } from './callback-errors.js';
+import { derivePrincipal } from './callback-scope-helpers.js';
 
 /**
  * F174 Phase D1: derive a concise tool name from the request URL for
@@ -26,6 +28,7 @@ function callbackToolFromUrl(url: string): string {
 declare module 'fastify' {
   interface FastifyRequest {
     callbackAuth?: InvocationRecord;
+    callbackPrincipal?: CallbackPrincipal;
   }
 }
 
@@ -41,9 +44,15 @@ interface CallbackAuthRegistry {
   peekRecord?(invocationId: string): Promise<InvocationRecord | null>;
 }
 
+interface AgentKeyAuthRegistry {
+  verify(secret: string): Promise<AgentKeyVerifyResult>;
+}
+
 export interface CallbackAuthHookOptions {
   /** F174 D2b-1: in-context system message notifier for surface-able 401s. */
   notifier?: Pick<CallbackAuthSystemMessageNotifier, 'notify'>;
+  /** F178 Phase C: agent-key registry for persistent agent auth. */
+  agentKeyRegistry?: AgentKeyAuthRegistry;
 }
 
 /** Register the callbackAuth decoration + preHandler on a Fastify instance.
@@ -64,6 +73,9 @@ export function registerCallbackAuthHook(
 ): void {
   if (!app.hasRequestDecorator('callbackAuth')) {
     app.decorateRequest('callbackAuth', undefined);
+  }
+  if (!app.hasRequestDecorator('callbackPrincipal')) {
+    app.decorateRequest('callbackPrincipal', undefined);
   }
   app.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     // F174-C (cloud Codex P2 #1368, 05de7c98b): refresh-token route does its
@@ -86,7 +98,23 @@ export function registerCallbackAuthHook(
       }
     }
 
-    if (!invocationId && !callbackToken) return;
+    // F178 Phase C: agent-key secret header (only checked when no invocation creds)
+    const agentKeySecret = firstHeaderValue(request.headers['x-agent-key-secret']);
+
+    if (!invocationId && !callbackToken) {
+      if (agentKeySecret && options.agentKeyRegistry) {
+        const tool = callbackToolFromUrl(request.url);
+        const akResult = await options.agentKeyRegistry.verify(agentKeySecret);
+        if (!akResult.ok) {
+          recordCallbackAuthFailure({ reason: akResult.reason, tool });
+          reply.status(401).send(makeCallbackAuthError(akResult.reason));
+          return;
+        }
+        request.callbackPrincipal = derivePrincipal(akResult.record);
+        return;
+      }
+      return;
+    }
     const tool = callbackToolFromUrl(request.url);
     if (!invocationId || !callbackToken) {
       recordCallbackAuthFailure({ reason: 'missing_creds', tool });
@@ -136,6 +164,7 @@ export function registerCallbackAuthHook(
       );
     }
     request.callbackAuth = result.record;
+    request.callbackPrincipal = derivePrincipal(result.record);
   });
 }
 
@@ -199,6 +228,15 @@ export function extractLegacyCredentials(
     const tok = typeof query.callbackToken === 'string' ? query.callbackToken : undefined;
     if (id || tok) return { invocationId: id, callbackToken: tok };
   }
+  return null;
+}
+
+/** Require callbackPrincipal on the request — returns principal or sends 401. */
+export function requireCallbackPrincipal(request: FastifyRequest, reply: FastifyReply): CallbackPrincipal | null {
+  if (request.callbackPrincipal) return request.callbackPrincipal;
+  reply.status(401);
+  recordCallbackAuthFailure({ reason: 'unknown_invocation', tool: callbackToolFromUrl(request.url) });
+  reply.send(makeCallbackAuthError('unknown_invocation'));
   return null;
 }
 

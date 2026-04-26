@@ -61,6 +61,10 @@ describe('GET /api/debug/callback-auth — session-only (F174-D1)', () => {
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
     assert.deepEqual(Object.keys(body.reasonCounts).sort(), [
+      'agent_key_expired',
+      'agent_key_revoked',
+      'agent_key_scope_mismatch',
+      'agent_key_unknown',
       'expired',
       'invalid_token',
       'missing_creds',

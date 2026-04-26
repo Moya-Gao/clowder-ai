@@ -54,6 +54,10 @@ describe('callback-auth-telemetry D2a (F174-D2a)', () => {
       unknown_invocation: 0,
       missing_creds: 0,
       stale_invocation: 0,
+      agent_key_expired: 0,
+      agent_key_revoked: 0,
+      agent_key_unknown: 0,
+      agent_key_scope_mismatch: 0,
     });
     assert.deepEqual(snap.recent24h.byTool, {});
     assert.deepEqual(snap.recent24h.byCat, {});

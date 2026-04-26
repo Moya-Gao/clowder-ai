@@ -4,6 +4,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import type { CallbackAuthFailureReason } from '@cat-cafe/shared';
 import { CALLBACK_AUTH_FAILURE_REASONS, isCallbackAuthFailureReason, normalizeRichBlock } from '@cat-cafe/shared';
 import { z } from 'zod';
@@ -42,16 +43,40 @@ function parseAuthFailureReason(errorText: string): AuthFailureReason | undefine
 
 interface CallbackConfig {
   apiUrl: string;
-  invocationId: string;
-  callbackToken: string;
+  invocationId?: string;
+  callbackToken?: string;
+  agentKeySecret?: string;
 }
 
 export function getCallbackConfig(): CallbackConfig | null {
   const apiUrl = process.env['CAT_CAFE_API_URL'];
+  if (!apiUrl) return null;
+
   const invocationId = process.env['CAT_CAFE_INVOCATION_ID'];
   const callbackToken = process.env['CAT_CAFE_CALLBACK_TOKEN'];
-  if (!apiUrl || !invocationId || !callbackToken) return null;
-  return { apiUrl, invocationId, callbackToken };
+
+  let agentKeySecret = process.env['CAT_CAFE_AGENT_KEY_SECRET'];
+  if (!agentKeySecret) {
+    const keyFile = process.env['CAT_CAFE_AGENT_KEY_FILE'];
+    if (keyFile) {
+      try {
+        agentKeySecret = readFileSync(keyFile, 'utf-8').trim();
+      } catch {
+        // sidecar missing = no agent-key (not an error)
+      }
+    }
+  }
+
+  if (!invocationId && !callbackToken && !agentKeySecret) return null;
+
+  const hasFullInvocation = invocationId && callbackToken;
+  if ((invocationId || callbackToken) && !hasFullInvocation && !agentKeySecret) return null;
+
+  return {
+    apiUrl,
+    ...(hasFullInvocation ? { invocationId, callbackToken } : {}),
+    ...(agentKeySecret ? { agentKeySecret } : {}),
+  };
 }
 
 export const NO_CONFIG_ERROR =
@@ -59,10 +84,16 @@ export const NO_CONFIG_ERROR =
 // ============ HTTP helpers ============
 
 export function buildAuthHeaders(config: CallbackConfig): Record<string, string> {
-  return {
-    'x-invocation-id': config.invocationId,
-    'x-callback-token': config.callbackToken,
-  };
+  if (config.invocationId && config.callbackToken) {
+    return {
+      'x-invocation-id': config.invocationId,
+      'x-callback-token': config.callbackToken,
+    };
+  }
+  if (config.agentKeySecret) {
+    return { 'x-agent-key-secret': config.agentKeySecret };
+  }
+  return {};
 }
 
 // F174 Phase F (AC-F2): first-party MCP client stopped dual-writing creds to
@@ -118,6 +149,13 @@ export async function callbackGet(path: string, params?: Record<string, string>)
 
 export const postMessageInputSchema = {
   content: z.string().min(1).describe('The message content to post'),
+  threadId: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      'Target thread ID. Required for agent-key auth (persistent agent with no default thread). Omit for invocation auth (defaults to invocation thread).',
+    ),
   replyTo: z.string().optional().describe('Optional message ID to reply to'),
   clientMessageId: z
     .string()

@@ -33,6 +33,7 @@ import {
   extractCallbackCredentials,
   registerCallbackAuthHook,
   requireCallbackAuth,
+  requireCallbackPrincipal,
 } from './callback-auth-prehandler.js';
 import { CallbackAuthSystemMessageNotifier } from './callback-auth-system-message.js';
 import { recordCallbackAuthFailure } from './callback-auth-telemetry.js';
@@ -46,7 +47,12 @@ import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
 import { registerCallbackQuestRoutes } from './callback-quest-routes.js';
-import { deriveCallbackActor, effectiveInvocationId, resolveScopedThreadId } from './callback-scope-helpers.js';
+import {
+  deriveCallbackActor,
+  effectiveInvocationId,
+  resolvePrincipalThread,
+  resolveScopedThreadId,
+} from './callback-scope-helpers.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
 import { registerCallbackThreadCatsRoutes } from './callback-thread-cats-routes.js';
 import { registerCallbackWeComActionRoutes } from './callback-wecom-action-routes.js';
@@ -59,6 +65,7 @@ const log = createModuleLogger('routes/callbacks');
 
 export interface CallbackRoutesOptions {
   registry: InvocationRegistry;
+  agentKeyRegistry?: import('../domains/cats/services/agents/agent-key/AgentKeyRegistry.js').AgentKeyRegistry;
   messageStore: IMessageStore;
   socketManager: SocketManager;
   /** F174 D2b-1: in-context surface for callback auth failures (optional — back-compat). */
@@ -319,6 +326,7 @@ async function buildThreadIdsByFeatId(
 export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async (app, opts) => {
   const {
     registry,
+    agentKeyRegistry,
     messageStore,
     socketManager,
     callbackAuthNotifier,
@@ -334,15 +342,186 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     queueProcessor,
   } = opts;
 
-  // #476: Unified callback auth — extract credentials from headers, decorate request.callbackAuth.
-  // F174 D2b-1: when callbackAuthNotifier is wired (via opts), surface in-context system message
-  // in the affected thread on surface-able 401 (expired/invalid_token). See
-  // cat-cafe-skills/refs/in-context-observability-checklist.md.
-  registerCallbackAuthHook(app, registry, callbackAuthNotifier ? { notifier: callbackAuthNotifier } : undefined);
+  registerCallbackAuthHook(app, registry, {
+    ...(callbackAuthNotifier ? { notifier: callbackAuthNotifier } : {}),
+    ...(agentKeyRegistry ? { agentKeyRegistry } : {}),
+  });
 
   app.post('/api/callbacks/post-message', async (request, reply) => {
-    const record = requireCallbackAuth(request, reply);
-    if (!record) return;
+    const principal = requireCallbackPrincipal(request, reply);
+    if (!principal) return;
+
+    if (principal.kind === 'agent_key') {
+      const parsed = postMessageSchema.safeParse(request.body);
+      if (!parsed.success) {
+        reply.status(400);
+        return { error: 'Invalid request body', details: parsed.error.issues };
+      }
+      const threadResult = await resolvePrincipalThread(principal, parsed.data.threadId, { threadStore });
+      if (!threadResult.ok) {
+        reply.status(threadResult.statusCode);
+        return { error: threadResult.error };
+      }
+      const effectiveThreadId = threadResult.threadId;
+      const { content, replyTo, clientMessageId, targetCats: explicitTargetCats } = parsed.data;
+
+      if (clientMessageId && agentKeyRegistry) {
+        const isFirst = await agentKeyRegistry.claimClientMessageId(principal.agentKeyId, clientMessageId);
+        if (!isFirst) {
+          return { status: 'duplicate', replyTo, clientMessageId };
+        }
+      }
+
+      const { cleanText: storedContent, blocks: richBlocks } = extractRichFromText(content);
+
+      const senderCatId = createCatId(principal.catId);
+      const contentTargets = parseA2AMentions(storedContent, senderCatId);
+      const validExplicitTargets: CatId[] = [];
+      for (const id of explicitTargetCats ?? []) {
+        if (catRegistry.has(id)) {
+          validExplicitTargets.push(createCatId(id));
+        }
+      }
+      const mergedTargets = new Set<CatId>([...contentTargets, ...validExplicitTargets]);
+      if (contentTargets.length === 1 && mergedTargets.size > 1) {
+        const [primaryTarget] = contentTargets;
+        if (primaryTarget) {
+          mergedTargets.clear();
+          mergedTargets.add(primaryTarget);
+        }
+      }
+      const mentions: CatId[] = [...mergedTargets];
+      const mentionsUser = detectUserMention(storedContent);
+
+      let validatedReplyTo: string | undefined;
+      if (replyTo) {
+        const parentMsg = await messageStore.getById(replyTo);
+        if (parentMsg && parentMsg.threadId === effectiveThreadId) {
+          validatedReplyTo = replyTo;
+        }
+      }
+
+      const richExtra = richBlocks.length > 0 ? { rich: { v: 1 as const, blocks: richBlocks } } : {};
+      const targetCatsExtra = validExplicitTargets.length ? { targetCats: validExplicitTargets } : {};
+      const extraParts = { ...richExtra, ...targetCatsExtra };
+      const extra = Object.keys(extraParts).length > 0 ? extraParts : undefined;
+
+      const hasA2AMentions = mentions.length > 0 && router && invocationRecordStore && effectiveThreadId;
+      const willEnqueueToQueue = hasA2AMentions && opts.invocationQueue;
+
+      const storedMsg = await messageStore.append({
+        threadId: effectiveThreadId,
+        userId: principal.userId,
+        catId: principal.catId,
+        content: storedContent,
+        mentions,
+        ...(mentionsUser ? { mentionsUser } : {}),
+        origin: 'callback',
+        timestamp: Date.now(),
+        ...(extra ? { extra } : {}),
+        ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
+        ...(willEnqueueToQueue ? { deliveryStatus: 'queued' as const } : {}),
+      });
+
+      const replyPreview = validatedReplyTo ? await hydrateReplyPreview(messageStore, validatedReplyTo) : undefined;
+
+      socketManager.broadcastAgentMessage(
+        {
+          type: 'text',
+          catId: principal.catId,
+          content: storedContent,
+          origin: 'callback',
+          messageId: storedMsg.id,
+          invocationId: storedMsg.id,
+          ...(validExplicitTargets.length ? { extra: { targetCats: validExplicitTargets } } : {}),
+          ...(mentionsUser ? { mentionsUser } : {}),
+          ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
+          ...(replyPreview ? { replyPreview } : {}),
+          timestamp: Date.now(),
+        },
+        effectiveThreadId,
+      );
+
+      for (const block of richBlocks) {
+        socketManager.broadcastAgentMessage(
+          {
+            type: 'system_info' as const,
+            catId: principal.catId,
+            content: JSON.stringify({ type: 'rich_block', block, messageId: storedMsg.id }),
+            invocationId: storedMsg.id,
+            timestamp: Date.now(),
+          },
+          effectiveThreadId,
+        );
+      }
+
+      if (mentions.length > 0 && router && invocationRecordStore && effectiveThreadId) {
+        const a2aResult = await enqueueA2ATargets(
+          {
+            router,
+            invocationRecordStore,
+            socketManager,
+            ...(invocationTracker ? { invocationTracker } : {}),
+            ...(deliveryCursorStore ? { deliveryCursorStore } : {}),
+            ...(queueProcessor ? { queueProcessor } : {}),
+            ...(opts.invocationQueue ? { invocationQueue: opts.invocationQueue } : {}),
+            log: app.log,
+          },
+          {
+            targetCats: mentions,
+            content: storedContent,
+            userId: principal.userId,
+            threadId: effectiveThreadId,
+            triggerMessage: storedMsg,
+            callerCatId: senderCatId,
+          },
+        );
+
+        if (willEnqueueToQueue && a2aResult.enqueued.length === 0) {
+          try {
+            await messageStore.markDelivered?.(storedMsg.id, Date.now());
+          } catch (err) {
+            app.log.warn(
+              { messageId: storedMsg.id, threadId: effectiveThreadId, err },
+              '[agent-key/post-message] Failed to recover ghost message',
+            );
+          }
+        }
+      }
+
+      if (opts.outboundHook) {
+        const frontendBase = resolveFrontendBaseUrl(process.env);
+        const thread = await threadStore?.get(effectiveThreadId);
+        const threadMeta = {
+          threadShortId: effectiveThreadId.slice(0, 15),
+          threadTitle: thread?.title ?? undefined,
+          deepLinkUrl: `${frontendBase}/threads/${effectiveThreadId}`,
+        };
+        opts.outboundHook
+          .deliver(
+            effectiveThreadId,
+            storedContent,
+            principal.catId,
+            richBlocks.length > 0 ? richBlocks : undefined,
+            threadMeta,
+            'callback',
+            validatedReplyTo,
+          )
+          .catch((err: unknown) => {
+            app.log.error({ err, threadId: effectiveThreadId }, '[agent-key/post-message] Outbound delivery failed');
+          });
+      }
+
+      return {
+        status: 'ok',
+        threadId: effectiveThreadId,
+        messageId: storedMsg.id,
+        ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
+        ...(clientMessageId ? { clientMessageId } : {}),
+      };
+    }
+
+    const record = request.callbackAuth!;
     const actor = deriveCallbackActor(record);
 
     const parsed = postMessageSchema.safeParse(request.body);
@@ -788,8 +967,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
   });
 
   app.get('/api/callbacks/thread-context', async (request, reply) => {
-    const record = requireCallbackAuth(request, reply);
-    if (!record) return;
+    const principal = requireCallbackPrincipal(request, reply);
+    if (!principal) return;
 
     const parsed = threadContextQuerySchema.safeParse(request.query);
     if (!parsed.success) {
@@ -804,8 +983,19 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       return { error: `Unknown catId filter: ${filterCatId}` };
     }
 
-    // F-Swarm-6: allow reading a different thread's context
-    const effectiveThreadId = overrideThreadId ?? record.threadId;
+    let effectiveThreadId: string;
+    if (principal.kind === 'agent_key') {
+      const threadResult = await resolvePrincipalThread(principal, overrideThreadId, { threadStore });
+      if (!threadResult.ok) {
+        reply.status(threadResult.statusCode);
+        return { error: threadResult.error };
+      }
+      effectiveThreadId = threadResult.threadId;
+    } else {
+      effectiveThreadId = overrideThreadId ?? principal.threadId;
+    }
+    const principalCatId = principal.kind === 'invocation' ? principal.catId : principal.catId;
+    const principalUserId = principal.userId;
     // F148 Phase B (AC-B2): tokenize keyword for relevance scoring
     const keywordTerms = keyword ? tokenizeKeyword(keyword) : [];
 
@@ -822,7 +1012,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // Debug mode: cats see everything (like 铲屎官) — full transparency for debugging.
     // Play mode: cats only see whispers addressed to them — game privacy.
     const viewer = needsPlayFilter
-      ? { type: 'cat' as const, catId: createCatId(record.catId) }
+      ? { type: 'cat' as const, catId: createCatId(principalCatId) }
       : { type: 'user' as const };
     const matchesExtraFilters = (item: Awaited<ReturnType<typeof messageStore.getByThread>>[number]): boolean => {
       // F148 Phase E (AC-E2): briefing messages are non-routing, never enter cat context
@@ -852,8 +1042,14 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
       while (visible.length < requestedLimit) {
         const batch = effectiveThreadId
-          ? await messageStore.getByThreadBefore(effectiveThreadId, cursorTimestamp, pageSize, cursorId, record.userId)
-          : await messageStore.getBefore(cursorTimestamp, pageSize, record.userId, cursorId);
+          ? await messageStore.getByThreadBefore(
+              effectiveThreadId,
+              cursorTimestamp,
+              pageSize,
+              cursorId,
+              principalUserId,
+            )
+          : await messageStore.getBefore(cursorTimestamp, pageSize, principalUserId, cursorId);
 
         if (batch.length === 0) break;
 
@@ -890,8 +1086,14 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
       while (visible.length < requestedLimit) {
         const batch = effectiveThreadId
-          ? await messageStore.getByThreadBefore(effectiveThreadId, cursorTimestamp, pageSize, cursorId, record.userId)
-          : await messageStore.getBefore(cursorTimestamp, pageSize, record.userId, cursorId);
+          ? await messageStore.getByThreadBefore(
+              effectiveThreadId,
+              cursorTimestamp,
+              pageSize,
+              cursorId,
+              principalUserId,
+            )
+          : await messageStore.getBefore(cursorTimestamp, pageSize, principalUserId, cursorId);
 
         if (batch.length === 0) break; // no more messages
 
@@ -902,7 +1104,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           // or other cats' messages that are NOT explicitly stream.
           // Legacy messages (no origin) are treated as visible for backward
           // compatibility — all new writes are tagged, so untagged = legacy callback.
-          const isOtherCat = item.catId && item.catId !== record.catId;
+          const isOtherCat = item.catId && item.catId !== principalCatId;
           if (!isOtherCat || item.origin !== 'stream') {
             if (!matchesExtraFilters(item)) continue;
             visible.push(item);
@@ -935,7 +1137,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     let workflowSop: Record<string, unknown> | undefined;
     if (effectiveThreadId && threadStore && opts.workflowSopStore) {
       const thread = await threadStore.get(effectiveThreadId);
-      const isOwnThread = thread && (thread.createdBy === record.userId || !overrideThreadId);
+      const isOwnThread = thread && (thread.createdBy === principalUserId || !overrideThreadId);
       if (isOwnThread && thread?.backlogItemId) {
         const sop = await opts.workflowSopStore.get(thread.backlogItemId);
         if (sop) {
@@ -969,8 +1171,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
   });
 
   app.get('/api/callbacks/list-threads', async (request, reply) => {
-    const record = requireCallbackAuth(request, reply);
-    if (!record) return;
+    const principal = requireCallbackPrincipal(request, reply);
+    if (!principal) return;
 
     const parsed = listThreadsQuerySchema.safeParse(request.query);
     if (!parsed.success) {
@@ -986,7 +1188,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     }
 
     const requestedLimit = limit ?? 20;
-    let threads = await threadStore.list(record.userId);
+    let threads = await threadStore.list(principal.userId);
     if (activeSince !== undefined) {
       threads = threads.filter((thread) => thread.lastActiveAt >= activeSince);
     }

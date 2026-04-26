@@ -207,7 +207,7 @@ describe('MCP Server Tool Registration', () => {
     assert.ok(checkTool, 'check_permission_status tool should exist');
   });
 
-  test('post_message schema must NOT expose threadId (#316 regression guard)', async () => {
+  test('post_message schema exposes threadId as optional (F178 agent-key auth)', async () => {
     const { createServer } = await import('../dist/index.js');
     const server = createServer();
 
@@ -215,8 +215,12 @@ describe('MCP Server Tool Registration', () => {
     assert.ok(postTool, 'post_message tool should exist');
     const shapeKeys = Object.keys(postTool.inputSchema.shape);
     assert.ok(
-      !shapeKeys.includes('threadId'),
-      'post_message must NOT expose threadId — use cross_post_message for cross-thread posting (#316)',
+      shapeKeys.includes('threadId'),
+      'post_message must expose threadId for agent-key auth (F178 — no default invocation thread)',
+    );
+    assert.ok(
+      postTool.inputSchema._def.shape().threadId.isOptional(),
+      'post_message threadId must be optional (backward-compatible for invocation auth)',
     );
   });
 

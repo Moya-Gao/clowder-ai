@@ -581,7 +581,9 @@ describe('writeAntigravityMcpConfig', () => {
   it('injects readonly env for managed cat-cafe servers', async () => {
     const file = join(dir, 'mcp_config.json');
     const originalAwd = process.env.ALLOWED_WORKSPACE_DIRS;
+    const originalWsr = process.env.CAT_CAFE_WORKSPACE_ROOT;
     delete process.env.ALLOWED_WORKSPACE_DIRS;
+    delete process.env.CAT_CAFE_WORKSPACE_ROOT;
     try {
       await writeAntigravityMcpConfig(file, [
         { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'cat-cafe' },
@@ -596,13 +598,17 @@ describe('writeAntigravityMcpConfig', () => {
     } finally {
       if (originalAwd === undefined) delete process.env.ALLOWED_WORKSPACE_DIRS;
       else process.env.ALLOWED_WORKSPACE_DIRS = originalAwd;
+      if (originalWsr === undefined) delete process.env.CAT_CAFE_WORKSPACE_ROOT;
+      else process.env.CAT_CAFE_WORKSPACE_ROOT = originalWsr;
     }
   });
 
   it('preserves legacy cat-cafe entry while backfilling readonly env', async () => {
     const file = join(dir, 'mcp_config.json');
     const originalAwd = process.env.ALLOWED_WORKSPACE_DIRS;
+    const originalWsr = process.env.CAT_CAFE_WORKSPACE_ROOT;
     delete process.env.ALLOWED_WORKSPACE_DIRS;
+    delete process.env.CAT_CAFE_WORKSPACE_ROOT;
     try {
       await writeFile(
         file,
@@ -628,13 +634,17 @@ describe('writeAntigravityMcpConfig', () => {
     } finally {
       if (originalAwd === undefined) delete process.env.ALLOWED_WORKSPACE_DIRS;
       else process.env.ALLOWED_WORKSPACE_DIRS = originalAwd;
+      if (originalWsr === undefined) delete process.env.CAT_CAFE_WORKSPACE_ROOT;
+      else process.env.CAT_CAFE_WORKSPACE_ROOT = originalWsr;
     }
   });
 
   it('forces readonly env keys over legacy antigravity values while preserving unrelated env', async () => {
     const file = join(dir, 'mcp_config.json');
     const originalAwd = process.env.ALLOWED_WORKSPACE_DIRS;
+    const originalWsr = process.env.CAT_CAFE_WORKSPACE_ROOT;
     delete process.env.ALLOWED_WORKSPACE_DIRS;
+    delete process.env.CAT_CAFE_WORKSPACE_ROOT;
     try {
       await writeFile(
         file,
@@ -667,6 +677,8 @@ describe('writeAntigravityMcpConfig', () => {
     } finally {
       if (originalAwd === undefined) delete process.env.ALLOWED_WORKSPACE_DIRS;
       else process.env.ALLOWED_WORKSPACE_DIRS = originalAwd;
+      if (originalWsr === undefined) delete process.env.CAT_CAFE_WORKSPACE_ROOT;
+      else process.env.CAT_CAFE_WORKSPACE_ROOT = originalWsr;
     }
   });
 

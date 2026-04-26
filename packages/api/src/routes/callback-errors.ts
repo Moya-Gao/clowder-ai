@@ -31,6 +31,10 @@ const MESSAGE_BY_REASON: Record<CallbackAuthErrorReason, string> = {
   unknown_invocation: 'Invocation id not found (registry may have restarted)',
   missing_creds: 'Callback credentials not provided in headers or body',
   stale_invocation: 'Invocation is no longer the latest for its thread/cat slot',
+  agent_key_expired: 'Agent key has expired (45d TTL)',
+  agent_key_revoked: 'Agent key has been revoked',
+  agent_key_unknown: 'Agent key secret not recognized',
+  agent_key_scope_mismatch: 'Agent key scope does not match request',
 };
 
 export function makeCallbackAuthError(reason: CallbackAuthErrorReason): CallbackAuthErrorBody {

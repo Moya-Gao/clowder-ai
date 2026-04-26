@@ -821,27 +821,33 @@ describe('bootstrapCapabilities', () => {
   it('uses catCafeRepoRoot for cat-cafe MCP descriptor when provided', async () => {
     const claudeFile = join(dir, '.mcp.json');
     await writeFile(claudeFile, JSON.stringify({ mcpServers: {} }));
-
-    const config = await bootstrapCapabilities(
-      dir,
-      {
-        claudeConfig: claudeFile,
-        codexConfig: join(dir, 'nonexistent.toml'),
-        geminiConfig: join(dir, 'nonexistent.json'),
-      },
-      { catCafeRepoRoot: '/host-repo' },
-    );
-
-    const allIds = ['cat-cafe', 'cat-cafe-collab', 'cat-cafe-memory', 'cat-cafe-signals'];
-    for (const id of allIds) {
-      const cap = config.capabilities.find((c) => c.id === id);
-      assert.ok(cap, `${id} should exist after bootstrap`);
-      assert.equal(cap.type, 'mcp');
-      assert.ok(cap.mcpServer);
-      assert.ok(
-        cap.mcpServer.args[0].includes('/host-repo'),
-        `${id} MCP serverPath should be built from catCafeRepoRoot`,
+    const origRuntimeRoot = process.env.CAT_CAFE_RUNTIME_ROOT;
+    delete process.env.CAT_CAFE_RUNTIME_ROOT;
+    try {
+      const config = await bootstrapCapabilities(
+        dir,
+        {
+          claudeConfig: claudeFile,
+          codexConfig: join(dir, 'nonexistent.toml'),
+          geminiConfig: join(dir, 'nonexistent.json'),
+        },
+        { catCafeRepoRoot: '/host-repo' },
       );
+
+      const allIds = ['cat-cafe', 'cat-cafe-collab', 'cat-cafe-memory', 'cat-cafe-signals'];
+      for (const id of allIds) {
+        const cap = config.capabilities.find((c) => c.id === id);
+        assert.ok(cap, `${id} should exist after bootstrap`);
+        assert.equal(cap.type, 'mcp');
+        assert.ok(cap.mcpServer);
+        assert.ok(
+          cap.mcpServer.args[0].includes('/host-repo'),
+          `${id} MCP serverPath should be built from catCafeRepoRoot`,
+        );
+      }
+    } finally {
+      if (origRuntimeRoot === undefined) delete process.env.CAT_CAFE_RUNTIME_ROOT;
+      else process.env.CAT_CAFE_RUNTIME_ROOT = origRuntimeRoot;
     }
   });
 
@@ -1112,23 +1118,27 @@ describe('ensureCatCafeMainServer', () => {
   });
 
   it('falls back to process.cwd() for binary root when no opts (codex PR #1396 R3)', () => {
-    // Pre-PR #1396 R3 this returned no-op without explicit projectRoot. After
-    // the binary/workspace separation, "no opts" means "use process.cwd()" —
-    // because the API process's cwd is by definition the runtime binary root.
-    const config = makeConfig([
-      {
-        id: 'cat-cafe-collab',
-        type: 'mcp',
-        enabled: true,
-        source: 'cat-cafe',
-        mcpServer: { command: 'node', args: ['collab.js'] },
-      },
-    ]);
+    const origRuntimeRoot = process.env.CAT_CAFE_RUNTIME_ROOT;
+    delete process.env.CAT_CAFE_RUNTIME_ROOT;
+    try {
+      const config = makeConfig([
+        {
+          id: 'cat-cafe-collab',
+          type: 'mcp',
+          enabled: true,
+          source: 'cat-cafe',
+          mcpServer: { command: 'node', args: ['collab.js'] },
+        },
+      ]);
 
-    const result = ensureCatCafeMainServer(config);
-    assert.equal(result.migrated, true, 'ensure should add main server using cwd fallback');
-    const main = result.config.capabilities.find((c) => c.id === 'cat-cafe');
-    assert.ok(main?.mcpServer?.args[0].startsWith(process.cwd()));
+      const result = ensureCatCafeMainServer(config);
+      assert.equal(result.migrated, true, 'ensure should add main server using cwd fallback');
+      const main = result.config.capabilities.find((c) => c.id === 'cat-cafe');
+      assert.ok(main?.mcpServer?.args[0].startsWith(process.cwd()));
+    } finally {
+      if (origRuntimeRoot === undefined) delete process.env.CAT_CAFE_RUNTIME_ROOT;
+      else process.env.CAT_CAFE_RUNTIME_ROOT = origRuntimeRoot;
+    }
   });
 
   it('inherits disabled + overrides + env from split servers (R1 regression)', () => {
@@ -1166,58 +1176,72 @@ describe('ensureCatCafeMainServer', () => {
   });
 
   it('uses catCafeRepoRoot for main server path', () => {
-    const config = makeConfig([
-      {
-        id: 'cat-cafe-memory',
-        type: 'mcp',
-        enabled: true,
-        source: 'cat-cafe',
-        mcpServer: { command: 'node', args: ['memory.js'] },
-      },
-    ]);
+    const origRuntimeRoot = process.env.CAT_CAFE_RUNTIME_ROOT;
+    delete process.env.CAT_CAFE_RUNTIME_ROOT;
+    try {
+      const config = makeConfig([
+        {
+          id: 'cat-cafe-memory',
+          type: 'mcp',
+          enabled: true,
+          source: 'cat-cafe',
+          mcpServer: { command: 'node', args: ['memory.js'] },
+        },
+      ]);
 
-    const result = ensureCatCafeMainServer(config, {
-      catCafeRepoRoot: '/custom-root',
-    });
-    assert.equal(result.migrated, true);
-    const main = result.config.capabilities.find((c) => c.id === 'cat-cafe');
-    assert.ok(main);
-    assert.ok(main.mcpServer?.args[0].includes('/custom-root'));
+      const result = ensureCatCafeMainServer(config, {
+        catCafeRepoRoot: '/custom-root',
+      });
+      assert.equal(result.migrated, true);
+      const main = result.config.capabilities.find((c) => c.id === 'cat-cafe');
+      assert.ok(main);
+      assert.ok(main.mcpServer?.args[0].includes('/custom-root'));
+    } finally {
+      if (origRuntimeRoot === undefined) delete process.env.CAT_CAFE_RUNTIME_ROOT;
+      else process.env.CAT_CAFE_RUNTIME_ROOT = origRuntimeRoot;
+    }
   });
 
   it('realigns managed cat-cafe server paths to stable repo root', () => {
-    const config = makeConfig([
-      {
-        id: 'cat-cafe',
-        type: 'mcp',
-        enabled: true,
-        source: 'cat-cafe',
-        mcpServer: { command: 'node', args: ['/tmp/deleted-worktree/packages/mcp-server/dist/index.js'] },
-      },
-      {
-        id: 'cat-cafe-memory',
-        type: 'mcp',
-        enabled: true,
-        source: 'cat-cafe',
-        mcpServer: { command: 'node', args: ['/tmp/deleted-worktree/packages/mcp-server/dist/memory.js'] },
-      },
-      {
-        id: 'external-tool',
-        type: 'mcp',
-        enabled: true,
-        source: 'external',
-        mcpServer: { command: 'echo', args: ['ok'] },
-      },
-    ]);
+    const origRuntimeRoot = process.env.CAT_CAFE_RUNTIME_ROOT;
+    delete process.env.CAT_CAFE_RUNTIME_ROOT;
+    try {
+      const config = makeConfig([
+        {
+          id: 'cat-cafe',
+          type: 'mcp',
+          enabled: true,
+          source: 'cat-cafe',
+          mcpServer: { command: 'node', args: ['/tmp/deleted-worktree/packages/mcp-server/dist/index.js'] },
+        },
+        {
+          id: 'cat-cafe-memory',
+          type: 'mcp',
+          enabled: true,
+          source: 'cat-cafe',
+          mcpServer: { command: 'node', args: ['/tmp/deleted-worktree/packages/mcp-server/dist/memory.js'] },
+        },
+        {
+          id: 'external-tool',
+          type: 'mcp',
+          enabled: true,
+          source: 'external',
+          mcpServer: { command: 'echo', args: ['ok'] },
+        },
+      ]);
 
-    const result = realignManagedCatCafeServerPaths(config, { catCafeRepoRoot: '/stable-root' });
-    assert.equal(result.migrated, true);
-    const main = result.config.capabilities.find((c) => c.id === 'cat-cafe');
-    const memory = result.config.capabilities.find((c) => c.id === 'cat-cafe-memory');
-    const external = result.config.capabilities.find((c) => c.id === 'external-tool');
-    assert.ok(main?.mcpServer?.args[0].includes('/stable-root/packages/mcp-server/dist/index.js'));
-    assert.ok(memory?.mcpServer?.args[0].includes('/stable-root/packages/mcp-server/dist/memory.js'));
-    assert.deepEqual(external?.mcpServer?.args, ['ok']);
+      const result = realignManagedCatCafeServerPaths(config, { catCafeRepoRoot: '/stable-root' });
+      assert.equal(result.migrated, true);
+      const main = result.config.capabilities.find((c) => c.id === 'cat-cafe');
+      const memory = result.config.capabilities.find((c) => c.id === 'cat-cafe-memory');
+      const external = result.config.capabilities.find((c) => c.id === 'external-tool');
+      assert.ok(main?.mcpServer?.args[0].includes('/stable-root/packages/mcp-server/dist/index.js'));
+      assert.ok(memory?.mcpServer?.args[0].includes('/stable-root/packages/mcp-server/dist/memory.js'));
+      assert.deepEqual(external?.mcpServer?.args, ['ok']);
+    } finally {
+      if (origRuntimeRoot === undefined) delete process.env.CAT_CAFE_RUNTIME_ROOT;
+      else process.env.CAT_CAFE_RUNTIME_ROOT = origRuntimeRoot;
+    }
   });
 
   it('F061 binary/workspace separation: realign activates from CAT_CAFE_RUNTIME_ROOT env alone (no opts)', () => {
@@ -1548,7 +1572,9 @@ describe('generateCliConfigs', () => {
     ]);
 
     const originalAwd = process.env.ALLOWED_WORKSPACE_DIRS;
+    const originalWsr = process.env.CAT_CAFE_WORKSPACE_ROOT;
     delete process.env.ALLOWED_WORKSPACE_DIRS;
+    delete process.env.CAT_CAFE_WORKSPACE_ROOT;
     try {
       await generateCliConfigs(config, paths);
       const data = JSON.parse(await readFile(paths.antigravity, 'utf-8'));
@@ -1556,13 +1582,13 @@ describe('generateCliConfigs', () => {
       assert.deepEqual(data.mcpServers['cat-cafe-collab'].env, {
         CAT_CAFE_API_URL: process.env.CAT_CAFE_API_URL?.trim() || 'http://localhost:3002',
         CAT_CAFE_READONLY: 'true',
-        // F061 Bug-F: ALLOWED_WORKSPACE_DIRS must be injected so MCP shell_exec
-        // path boundary guard can resolve project paths (default = process.cwd()).
         ALLOWED_WORKSPACE_DIRS: process.cwd(),
       });
     } finally {
       if (originalAwd === undefined) delete process.env.ALLOWED_WORKSPACE_DIRS;
       else process.env.ALLOWED_WORKSPACE_DIRS = originalAwd;
+      if (originalWsr === undefined) delete process.env.CAT_CAFE_WORKSPACE_ROOT;
+      else process.env.CAT_CAFE_WORKSPACE_ROOT = originalWsr;
     }
   });
 

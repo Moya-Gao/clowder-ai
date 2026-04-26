@@ -36,6 +36,10 @@ const ZERO_REASON_COUNTS: Record<CallbackAuthFailureReason, number> = {
   unknown_invocation: 0,
   missing_creds: 0,
   stale_invocation: 0,
+  agent_key_expired: 0,
+  agent_key_revoked: 0,
+  agent_key_unknown: 0,
+  agent_key_scope_mismatch: 0,
 };
 
 let reasonCounts: Record<CallbackAuthFailureReason, number> = { ...ZERO_REASON_COUNTS };

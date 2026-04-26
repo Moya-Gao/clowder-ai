@@ -386,6 +386,10 @@ async function main(): Promise<void> {
       : new InvocationRegistry();
   app.log.info(`[api] InvocationRegistry backend: ${registryBackendKind === 'redis' && redis ? 'redis' : 'memory'}`);
 
+  const { AgentKeyRegistry } = await import('./domains/cats/services/agents/agent-key/AgentKeyRegistry.js');
+  const agentKeyRegistry = new AgentKeyRegistry();
+  app.log.info('[api] AgentKeyRegistry initialized (memory backend)');
+
   // Fail-closed: refuse to start without Redis unless explicitly opted into memory mode.
   // Also verify Redis is actually reachable (PING), not just configured.
   if (redis) {
@@ -1401,6 +1405,7 @@ async function main(): Promise<void> {
 
   const callbackOpts = {
     registry,
+    agentKeyRegistry,
     messageStore,
     socketManager,
     callbackAuthNotifier,
