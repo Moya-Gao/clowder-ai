@@ -116,7 +116,14 @@ export class DareAgentService implements AgentService {
     }
 
     const endpoint = this.resolveEndpoint(options?.callbackEnv);
-    const args = this.buildArgs(prompt, options?.workingDirectory, options?.sessionId, endpoint, effectiveModel);
+    const args = this.buildArgs(
+      prompt,
+      options?.workingDirectory,
+      options?.sessionId,
+      endpoint,
+      effectiveModel,
+      options?.cliConfigArgs,
+    );
     // P1-1: cwd must ALWAYS be darePath (where `python -m client` can find the module).
     // Thread's workingDirectory goes to --workspace instead.
     const cwd = this.darePath;
@@ -230,6 +237,7 @@ export class DareAgentService implements AgentService {
     sessionId?: string,
     endpoint?: string,
     model?: string,
+    cliConfigArgs?: readonly string[],
   ): string[] {
     const args = ['-m', 'client'];
     const effectiveModel = model ?? this.model;
@@ -252,6 +260,24 @@ export class DareAgentService implements AgentService {
       args.push('--session-id', sessionId);
     }
     args.push('--task', prompt, '--auto-approve', '--headless');
+
+    // User-defined CLI args from the member editor (#567).
+    const userParts: string[] = [];
+    for (const arg of cliConfigArgs ?? []) {
+      userParts.push(...arg.trim().split(/\s+/));
+    }
+    if (userParts.length > 0) {
+      const userFlags = new Set(userParts.filter((p) => p.startsWith('-')));
+      const deduped: string[] = [];
+      for (let i = 0; i < args.length; i++) {
+        if (args[i].startsWith('-') && userFlags.has(args[i])) {
+          if (i + 1 < args.length && !args[i + 1].startsWith('-')) i++;
+          continue;
+        }
+        deduped.push(args[i]);
+      }
+      return [...deduped, ...userParts];
+    }
 
     return args;
   }

@@ -104,6 +104,25 @@ export class KimiAgentService implements AgentService {
     }
     args.push('--prompt', effectivePrompt);
 
+    // User-defined CLI args from the member editor (#567).
+    const userParts: string[] = [];
+    for (const arg of options?.cliConfigArgs ?? []) {
+      userParts.push(...arg.trim().split(/\s+/));
+    }
+    if (userParts.length > 0) {
+      const userFlags = new Set(userParts.filter((p) => p.startsWith('-')));
+      const deduped: string[] = [];
+      for (let i = 0; i < args.length; i++) {
+        if (args[i].startsWith('-') && userFlags.has(args[i])) {
+          if (i + 1 < args.length && !args[i + 1].startsWith('-')) i++;
+          continue;
+        }
+        deduped.push(args[i]);
+      }
+      args.length = 0;
+      args.push(...deduped, ...userParts);
+    }
+
     try {
       const kimiCommand = resolveCliCommand('kimi');
       if (!kimiCommand) {
