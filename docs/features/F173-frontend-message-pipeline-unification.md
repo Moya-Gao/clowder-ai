@@ -8,7 +8,7 @@ created: 2026-04-22
 
 # F173: 前端 Thread-Runtime State 统一（消除 dual write-path & liveness fragmentation）
 
-> **Status**: realized → closed 2026-04-26 | **Owner**: 布偶猫 | **Priority**: P0
+> **Status**: done (realized → closed 2026-04-26) | **Owner**: 布偶猫 | **Priority**: P0
 >
 > **Closure 2026-04-26 07:30**: 主线愿景达成 (KD-2 mirror invariant 全收口：read 选 selector / writer 自动 mirror flat / hydration 单一入口 / liveness reconcile 走 thread-scoped writer / cli-resolve 缓存自维护)。7 PR 闭环：#1347 Phase A → #1379 hotfix3 → #1391 Phase B-3 fixture → #1399 PR-A1 → #1400 PR-A2 → #1405 PR-A → #1411 PR-B Task 9 → #1413 PR-B-2 → #1416 PR-C → #1417 Phase D。AC-B2 (handler unification) deferred → **F177 (`docs/features/F177-frontend-event-handler-unification.md`) 接棒** — gpt52 愿景守护 P1: defer 必须留可点开的 follow-up anchor，不能只是注释。
 >

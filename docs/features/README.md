@@ -127,6 +127,7 @@
 | F166 | F166: Cat Order Customization — 猫猫排序自定义 | done | [F166-cat-order-customization.md](./F166-cat-order-customization.md) |
 | F146 | F146: MCP Marketplace Control Plane — 一键接入 + 多生态聚合 | done | [F146-mcp-marketplace-control-plane.md](./F146-mcp-marketplace-control-plane.md) |
 | F171 | F171: First Partner Onboarding — 领养第一只猫 / 配置第一位伙伴 | done | [F171-first-partner-onboarding.md](./F171-first-partner-onboarding.md) |
+| F173 | F173: 前端 Thread-Runtime State 统一 — 消除 dual write-path & liveness fragmentation | done (realized 2026-04-26) | [F173-frontend-message-pipeline-unification.md](./F173-frontend-message-pipeline-unification.md) |
 | F163 | F163: Memory Entropy Reduction — 记忆熵减与知识生命周期治理 | done | [F163-memory-entropy-reduction.md](./F163-memory-entropy-reduction.md) |
 
 ## 已搁置/已归档 Feature
