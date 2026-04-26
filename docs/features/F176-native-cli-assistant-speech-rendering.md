@@ -21,13 +21,92 @@ created: 2026-04-25
 > - PR #1401 (squash `2b41a5cc`) feat(F176): native CLI assistant-speech vs cli-stdout 渲染语义分离
 > - PR #1402 (squash `11ce3111`) fix(F176-R4): plumb messageRole through hydrateMessages bulk path
 >
-> **Triggered by**: `thread_mnux2eewbo4otg17` 实测（2026-04-25 13:14），铲屎官报告"前端看到互相调用但看不到说话气泡"。@codex 砚砚（GPT-5.5）+ @opus47 宪宪（Opus-47）双独立诊断收敛到同一根因（5/5 一致）。
+> **Triggered by**: `thread_mnux2eewbo4otg17` 实测（2026-04-25 13:14），铲屎官报告"前端看到互相调用但看不到说话气泡"。@codex 砚砚（GPT-5.5）+ @opus47 宪宪（Opus-47）双独立诊断收敛到同一根因（5/5 一致）—— **但收敛到的是同一个错误根因**。
 >
-> **Review trail**: 砚砚 R1 退回（链路断点）→ R1 fix → R2 退回（existing-bubble path）→ R2 fix → R3 放行 + continuity 延续到 rebase 后 SHA 6dc698b4。云端 codex review pass（no major issues）。**愿景守护 gpt52 (跨 family) push back**: AC-E1 alpha 实测必须做 → sonnet-4.6 接力 alpha 验收发现 R4 P1（`hydrateMessages` 批量路径丢 messageRole）→ R4 fix + 砚砚 R4 verify (20/20 Redis tests) + cloud review pass + merged。最终 AC-E1 hydration 端到端测试 4/4 PASS（含 R4 case `messageRole survives getByThread bulk hydration path`）。
+> **Review trail**: 砚砚 R1 退回（链路断点）→ R1 fix → R2 退回（existing-bubble path）→ R2 fix → R3 放行 + continuity 延续到 rebase 后 SHA 6dc698b4。云端 codex review pass（no major issues）。**愿景守护 gpt52 (跨 family) push back**: AC-E1 alpha 实测必须做 → sonnet-4.6 接力 alpha 验收发现 R4 P1（`hydrateMessages` 批量路径丢 messageRole）→ R4 fix + 砚砚 R4 verify (20/20 Redis tests) + cloud review pass + merged。**全程 4 轮 review + cloud + alpha 验收，没人发现真 bug 是什么 — 因为所有人都在验证"实现是否符合 spec"，没人验证"spec 本身是否正确"。**
 
-## Why
+## ⚠️ Postmortem 反思（铲屎官 2026-04-26 01:10 让写）🔴
 
-### 现象
+### 错在哪个具体位置
+
+**Spec § Why § 现象**（line 32-35，写于 2026-04-25 13:36 立项时）：
+
+```
+铲屎官在 thread_mnux2eewbo4otg17 看到：
+- ✅ Briefing card 正常显示
+- ✅ A2A 状态 / DirectionPill 正常显示
+- ❌ codex / opus 通过 native CLI provider 输出的正经回复内容
+     完全看不到主气泡——只看到一个折叠的 `CLI Output | done | N tools | XmYs` 卡片
+```
+
+**这一段的第 4 行就错了。** 铲屎官原图里 opus/codex 互 @ 的位置**根本没有 CLI Output 卡片**，只有 BriefingCard + DirectionPill 横标签。**整个 ChatMessage 组件没渲染**（DOM 缺失）。
+
+我读图时：
+- 看到顶部缅因猫 GPT-5.5 那条**有 CLI Output**
+- 推断"所有 cat 消息都被折叠成 CLI Output"
+- **完全没问"那为什么 opus/codex 那些位置连 CLI Output 都没？"**
+
+这是采样偏差 + 第一性原理失败：
+- 把"图里看到的一条"当成"普遍现象"
+- **没问"我看到的 vs 没看到的，差异在哪"** —— 真正的 bug 信号在"没看到的部分"
+
+### 铲屎官的原始意图（2026-04-26 01:02 + 01:05 三个感叹号才纠正过来）
+
+> "我滴吗 这个f176 你们完全理解错了啊，当时是为了修这个bug的，就是布偶猫和缅因猫互相 at 然后互相说话了，但是我前端连他们的头像 cli thinking 什么都看不到！！"
+
+铲屎官说"看不到说话气泡" = **整条 ChatMessage 不渲染（连头像、连 CLI thinking 都没出来）**，不是"内容被 CliOutputBlock 折叠"。我把"看不到"误读为"被折叠看不到"，是把同一个动词的两种语义搞混了：
+- 真意：DOM 缺失（看不到 = 不存在）
+- 误读：UI 折叠（看不到 = 默认隐藏）
+
+### 流程为什么没纠正方向
+
+1. **双猫并行诊断 5/5 收敛 ≠ 正确**：我和砚砚独立看图，独立得到"stream 内容被折叠"的结论。我以为是"双猫验证"，实际是**两猫基于同一个错误前提（误读图）独立到达同一个错误终点**。Meta-aesthetics 同质性陷阱：collaborative diversity 失效。
+2. **R1-R4 review 验证的是"实现是否符合 spec"**，不是"spec 是否正确"。砚砚每轮都精准命中实现层面的链路断点，但没人 push back § Why。
+3. **quality-gate Step 0 愿景对照表**也按错误前提走：我对照"铲屎官原话"，但**对照的不是图，是我自己写的 spec**——spec 里把"看不到"已经误读成"被折叠"。
+4. **AC-E1 alpha 验收**最后由 sonnet 接力做，但他验证的是"messageRole 是否端到端透传到主气泡"——**不是验证"thread_mnux2eewbo4otg17 现象消失"**。AC-E1 写的"现象消失"被偷换成了"messageRole 工作"。
+
+### 真根因 vs 我修的
+
+| | 真 bug | F176 修的 |
+|---|---|---|
+| 现象 | opus/codex 互 @ 后 ChatMessage 整体不渲染（DOM 缺失）| 误以为内容被折叠 |
+| 数据层 | 消息在 store 里但渲染层跳过了它们 | （在数据层加了 messageRole 字段）|
+| 渲染层 | ChatMessage 早 return null / dedup 误杀 / merge 吃掉 / catData 缺失 | 改了 line 379-385 的内容分流 |
+| F097 关系 | 跟 F097 完全无关 | 误以为是 F097 设计冲突 |
+| 修法 | 还没修 | messageRole 分流 + 全链路 plumbing |
+
+### 教训写到哪
+
+1. **Spec § Why 必须基于图/原话 verbatim quote**，不能加自己解读。如果原话有歧义 → 反问铲屎官澄清，不自己拍板。
+2. **"看不到"的两种语义**（DOM 缺失 vs UI 折叠）必须在 spec 立项时**显式区分**——加 DOM screenshot 比 UI screenshot 多一层证据。
+3. **quality-gate Step 0 愿景对照**应对照**原话**，不对照**spec**。spec 是衍生物，原话才是真相源。
+4. **多猫独立诊断收敛同一答案**不能直接当真相 — 要追问"会不会都基于同一错误前提"。Meta-aesthetics canon 已有这一条，但实操中没触发。
+5. **AC-E 端到端 acceptance 必须按"原话现象消失"而不是"实现层面 OK"** — 防 AC 偷换。
+6. **F167 同质性陷阱实例 +1**：写到 lessons-learned。
+
+> **真 bug（候选 F177）正确的 spec § Why**应该是：
+> ```
+> 铲屎官在 thread_mnux2eewbo4otg17 看到（图: thread.png）：
+> - ✅ 顶部缅因猫 GPT-5.5 那条消息：完整渲染（头像 + 标题 + CLI Output 折叠卡）
+> - ✅ BriefingCard 系统消息：正常渲染
+> - ✅ DirectionPill 路由标签（"缅因猫→布偶猫"）：正常渲染
+> - ❌ opus / codex 互 @ 之后的所有 cat 消息：**整条 ChatMessage 不渲染**
+>   - 没头像（CatAvatar）
+>   - 没标题（catStyle 头部）
+>   - 没气泡 div（line 366-419 整块）
+>   - 没 CLI Output 折叠卡
+>   - 但 DOM 中可能仍有占位（待 F12 确认）
+>
+> 数据层验证（thread context API 返回）：
+> - catId='opus-47' 和 'codex' 的 message.content 不为空
+> - 多条消息真实存在于 messageStore
+>
+> 真问题：为什么 store 里有数据，但前端 ChatMessage 不渲染它们？
+> ```
+
+## Why（原始 — 误诊版本，留作追溯）
+
+### 现象（误诊版）
 
 铲屎官在 `thread_mnux2eewbo4otg17` 看到：
 - ✅ Briefing card 正常显示（"传球 / 真相源 / 下一步"）
