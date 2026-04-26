@@ -127,7 +127,6 @@
 | F166 | F166: Cat Order Customization — 猫猫排序自定义 | done | [F166-cat-order-customization.md](./F166-cat-order-customization.md) |
 | F146 | F146: MCP Marketplace Control Plane — 一键接入 + 多生态聚合 | done | [F146-mcp-marketplace-control-plane.md](./F146-mcp-marketplace-control-plane.md) |
 | F171 | F171: First Partner Onboarding — 领养第一只猫 / 配置第一位伙伴 | done | [F171-first-partner-onboarding.md](./F171-first-partner-onboarding.md) |
-| F174 | F174: Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级、telemetry + D2b 三层明厨亮灶 | done | [F174-callback-auth-lifecycle.md](./F174-callback-auth-lifecycle.md) |
 | F163 | F163: Memory Entropy Reduction — 记忆熵减与知识生命周期治理 | done | [F163-memory-entropy-reduction.md](./F163-memory-entropy-reduction.md) |
 
 ## 已搁置/已归档 Feature
