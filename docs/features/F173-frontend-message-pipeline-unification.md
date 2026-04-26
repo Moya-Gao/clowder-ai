@@ -169,6 +169,7 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。
 ### Phase E（KD-1 handler unification — reopen 后新增）
 - [ ] AC-E1: `useSocket-background.ts:handleBackgroundAgentMessage` 业务逻辑 (~500 行 stream/callback/error/toast/late-suppression/cat-status) 迁到 thread-aware `useAgentMessages`；`useSocket.ts:485-534` 的 `if (isActiveThreadMessage) ... else handleBackgroundAgentMessage(...)` 双路径合并为单一 thread-aware handler 调用
 - [ ] AC-E2: 5 场景 fixture 复用 PR #1391/#1413/#1416 已有 + 新增 cross-thread message handoff fixture（确保 active→bg→active 切换时 stream key 追踪 / callback replacement / late chunk suppression 不裂）。F173 PR #1418 a2a_handoff hotfix 的 marker-gated insert 在 unified handler 中验证可简化（hotfix 自己注释提到这一点）
+- [ ] AC-E3: **`thread_mo6icfmm74ma9vkw` 复现的"前端渲染裂气泡"消失**——铲屎官 2026-04-26 11:45 报告 thread mo6 里 Opus 4.6 在 04/25 22:58 同时刻显示两个内容相同的气泡 (Thinking + CLI Output 20 tools 1m38s, 同 token 同 cached %)。后端 Redis 38 条 messages 全是 timestamp-prefix style，**store 干净没 race 痕迹**——裂在前端 store 创建了两个 bubble id（active path 和 background path 同时给同一 server message 各创建一份）。Phase E 单一 handler 落地后单一 bubble id 创建路径，此类症状从结构上消失。fixture 必须钉住"thread switch 后收到原 active thread 的 stream + callback 不再产生重复 bubble"
 
 ## Dependencies
 
