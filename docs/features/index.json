@@ -1059,7 +1059,7 @@
     {
       "id": "F169",
       "name": "Agent Memory Reflex — 愿景文档（vision artifact）",
-      "status": "vision / research artifact — **NOT an implementation feature**",
+      "status": "**realized → closed**（B+C 已通过 F148/F163 实现；A 铲屎官拍板关闭，不做持久 Compiled Wiki）",
       "file": "F169-agent-memory-reflex.md"
     },
     {
