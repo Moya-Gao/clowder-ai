@@ -8,7 +8,7 @@ created: 2026-03-31
 
 # F148: Hierarchical Context Transport — 分层上下文传输
 
-> **Status**: in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1 | **Phase A-E Completed**: 2026-04-02 | **Reopened**: 2026-04-19（导航轴优化）
+> **Status**: done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1 | **Phase A-E Completed**: 2026-04-02 | **Reopened**: 2026-04-19（导航轴优化）| **Phase F-H Completed**: 2026-04-21 | **Closed**: 2026-04-25
 
 ## Why
 
@@ -232,6 +232,7 @@ created: 2026-03-31
 | 2026-04-20 | Briefing Card 概念收敛 — 铲屎官"别搞出两个概念"→ 一个概念（Context Briefing Card）、两个视图（猫看 nav header、人看 UI card） |
 | 2026-04-21 | Navigation-first briefing card merged (PR #1312) — 折叠态从覆盖率改为导航信息（传球/真相源/下一步）+ responsive grid + search suggestion sanitization。GPT-5.4 review (R1: 2P2, R2 pass + 延续到 f2480ec2e) + 云端 review (3 rounds: 1P1 frontmatter + 1P2 sanitization, both fixed via TDD) |
 | 2026-04-21 | Speaker display bugfix merged (PR #1319) — formatAnchors 补 speaker attribution + extractBatonContext 修 default-user 泄漏 + connector source.label 优先。GPT-5.4 review (pass) + 云端 review (3 rounds: 2P2 connector source.label, both fixed via TDD) |
+| 2026-04-25 | **Feature closed** — Phase A-H + bugfix 全部 merged。Phase I (Eval Baseline) / J (Cross-thread Bridge) de-scope 为独立 feature：I 是运维度量工具非用户可感知导航能力，J 是全新跨 thread 能力值得独立立项。愿景守护 by GPT-5.5 codex |
 
 ## Phase F-J: 导航轴优化（2026-04-19 Reopened）
 
@@ -291,8 +292,8 @@ F148 smart window 仅在**冷启动**场景触发（`route-helpers.ts:601-619`�
 | **F** | Intent + Baton Context — 为什么叫我 + 球怎么来的/做完往哪传 | N-2 + N-7 | ✅ merged (PR #1286 + #1292) |
 | **G** | ~~Task + Narrative~~ → **Goal & Grounding** — 真相源定位 + best-next-source + navigation-first briefing card | N-3(已部分完成) + N-1(降级) → N-4 grounding | ✅ merged (PR #1303 + #1312) |
 | **H** | Artifact Deterministic Tracking — 确定性产物记录 | N-4 | ✅ merged (PR #1297) |
-| **I** | Eval Baseline — 导航成功率度量（不只是 count） | N-5 | 📋 待拆 AC |
-| **J** | Cross-thread Bridge — 跨 thread context bridge | N-6 | 📋 待拆 AC |
+| **I** | Eval Baseline — 导航成功率度量（不只是 count） | N-5 | 🔀 de-scoped（运维度量，非用户可感知导航，独立立项） |
+| **J** | Cross-thread Bridge — 跨 thread context bridge | N-6 | 🔀 de-scoped（全新跨 thread 能力，独立立项） |
 
 > **2026-04-20 优先级调整**（布偶猫 + GPT-5.4 共识，铲屎官确认）：
 > - 原 Phase G（narrative tombstone）价值偏低——还是压缩轴微调，不是导航轴突破；且与 briefing 卡片信息重复
