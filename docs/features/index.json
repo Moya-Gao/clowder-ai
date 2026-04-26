@@ -1083,7 +1083,7 @@
     {
       "id": "F174",
       "name": "Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级与可观测",
-      "status": "in-progress (rev2 merged, awaiting alpha re-验收) | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1 | **Reopened**: 2026-04-26 (D2b-2 placement 二次否决) | **rev2 merged**: 2026-04-26 via PR #1419",
+      "status": "done | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1 | **Completed**: 2026-04-26 (close attempt #2 — D2b-2 rev2 alpha 验收 #2 闭环)",
       "file": "F174-callback-auth-lifecycle.md"
     },
     {

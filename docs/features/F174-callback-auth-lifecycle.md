@@ -8,7 +8,7 @@ created: 2026-04-23
 
 # F174: Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级与可观测
 
-> **Status**: in-progress (rev2 merged, awaiting alpha re-验收) | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1 | **Reopened**: 2026-04-26 (D2b-2 placement 二次否决) | **rev2 merged**: 2026-04-26 via PR #1419
+> **Status**: done | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1 | **Completed**: 2026-04-26 (close attempt #2 — D2b-2 rev2 alpha 验收 #2 闭环)
 >
 > **Phase A**: ✅ merged 2026-04-23 via PR #1359
 > **Phase B**: ✅ merged 2026-04-24 via PR #1363
@@ -446,6 +446,7 @@ interface CallbackTool<T> {
 | 2026-04-26 08:30 | **F174 reopened — D2b-2 placement 二次否决**。铲屎官 alpha 验收 top 栏：「你们这前端展示图标丢在这里有点冗余吧？上方的这些位置很宝贵的，好像没必要展示在top 栏」+ 截图（top 栏已有 7 图标：⬇️ 🎧 📡 ☀️ 🔌 ⚙️ ⬜，plug 是第 5 位 visual noise）。**根因**：D2b-2 rev affordance 修对了（plug SVG 自带 mental model），但 placement 又错——top 栏本来就拥挤。三方案讨论（A=Hub button badge merge / B=conditional 显示 / C=完全移除实体层）→ 铲屎官 explicit 选 A：撤回 top 栏独立 plug 图标，把 callback auth failure badge merge 进 Hub button（复用 GitHub/iOS 通知 badge mental model），24h 0 失败 = 无 badge（top 栏视觉零增量），> 0 失败 = Hub button 角标显示数字。Status: done → in-progress (reopened)。Phase D2b-2 rev2 待实施 |
 | 2026-04-26 08:50 | **D2b-2 rev2 PR #1419 opened** (branch `feat/f174-d2b-2-rev2`，commit `a63b29ae9`)。实施铲屎官选定的方案 A：HubButton badge merge。变更：(1) `HubButton.tsx` 加 `useCallbackAuthAggregate` + `useCallbackAuthAvailable` hooks + badge logic（24h 0=无 badge / 1-5=amber / ≥6=red / >99=99+ cap）+ click semantics（无 badge=`openHub()` default / 有 badge=`openHub('observability', 'callback-auth')` deep-link）；(2) `ChatContainerHeader.tsx` 移除 `<CallbackAuthHealthIndicator />` import + 用法；(3) `CallbackAuthHealthIndicator.tsx` + 测试整组件删除；(4) 新增 `HubButton.test.tsx` 8 vitest 覆盖 badge behavior + click 语义 + SVG-not-emoji guard。Tests: 8/8 新增 + web 全套件 354/354 test files / 2528/2528 tests pass，0 regression；biome clean。砚砚 P2: spec 同步残留（已 fix in `a91243a7c`）。pnpm gate auto-rebase 带入 `f8ec49b1a` (F173 status normalize 解 backlog-missing pre-existing) → SHA `173996c6c`。砚砚 SHA continuity 放行延续。云端 Codex review: "Didn't find any major issues. Keep it up!" — 0 P1/P2 |
 | 2026-04-26 08:54 | **Phase D2b-2 rev2 merged via PR #1419** (squash `0a202dad1`)。AC-D6/D7 ✅。三猫家族 + cloud Codex multi-round review 全签收。教训沉淀：「affordance × placement × legend × **scarcity-of-realestate**」四件套——top-bar 是稀缺位，每个新增 icon 都要先问"能不能 merge 进现有 entity"。**待**：alpha 验收 plug→Hub badge merge 体感 → 如 OK 则 attempt feat-lifecycle close #2 |
+| 2026-04-26 12:10 | **F174 closed** (close attempt #2)。铲屎官 alpha 验收 #2 implicit 通过（"应该进行最后的 feat close 愿景守护啦"）。愿景守护 = @opus (布偶猫 4.6, 同族不同个体, 非 reviewer) — 增量 5/5 (D2b-2 rev2 alpha 验收 #2 闭环) + 累计 14 条证物全绿。两轮 alpha 否决都有根因修复：rev1 (per-cat dot → standalone plug indicator) 解 affordance；rev2 (standalone plug → HubButton badge merge) 解 placement/scarcity。反思胶囊 v2 (`docs/reflections/2026-04-26-f174-callback-auth-capsule.md`) 含四件套 + UI feature alpha-必经 新规。AC-F5 reminder agent `dyn-1777169563926-zk529h` 仍 active (2026-05-07 fire) 等 deadline 到自动唤醒删 legacy schema。Evolved into 同 close attempt #1 记载：(a) thread-context 读权限独立 feature (AC-F4) 待立项；(b) Bearer scheme 标准化独立 feature (KD-9) 触发条件未到；(c) L5 Identity Federation (F143 hostable runtime 推进后) |
 
 ## Review Gate
 
