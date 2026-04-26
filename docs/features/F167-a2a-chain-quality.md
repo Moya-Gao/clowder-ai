@@ -518,6 +518,8 @@ cat_cafe_hold_ball({
 | KD-22 | `@` 行首规则是协议常量，但"发前自检"需要在 prompt 首轮教学 + 反例强化，F064 的事后 `mentionRoutingFeedback` 不够 | 下一轮反馈不救本轮错传；模型在 URL / 列表 / quote 语境会把 @句柄写在句中（以为会路由）。prompt 层要让"行首"规则有视觉反例 + 发前自检问 | 2026-04-24 |
 | KD-23 | `hold_ball` 是单-槽语义：同 `(thread, cat)` 同时只有一个 pending hold wake，二次调用**覆盖**前者。不加 `mode: replace\|append` 参数 | KD-13 "持是例外态 / 持一个球"语义；append 会累积 stale wake 消息；`mode` 参数 = 认知脚手架反模式（每次调要判断用哪个）；真有多事等 → merge 到一个 nextStep | 2026-04-24 |
 | KD-24 | `@` 路由语法校验在 harness 层做 **final routing slot** 机械校验 + one-shot repair 兜底。禁止语义 intent 分类器（KD-8 反模式）；validator 只看"出口槽位语法"，不推断"猫想不想传球"；命中只产出 `invalid_route_syntax`，不自动路由 / 不推断目标 / 不替猫决定意图；豁免只走结构边界，禁止动作词表 / 语义豁免表 | Phase F 依赖的 prompt 层教学已到天花板（4.7 三 thread 复现）；结构化工具路线被铲屎官驳回（弱模型失败率更高）；终态 = 外部协议最简（行首 @）+ 内部机械语法校验；KD-22 prompt 层 + KD-24 harness 层双重守护 | 2026-04-24 |
+| KD-25 | 虚空持球检测 = 声明-动作一致性检查。文本含"持球"但无 `hold_ball` tool call → harness 警告。不是语义分类器（检查的是"你声称做了 X，tool call 是否存在"），KD-8 安全 | 47 反复声明"我持球"但未调工具，铲屎官多次手动干预；feedback 已记 3 次仍复发 = prompt 层天花板，需 harness 兜底 | 2026-04-25 |
+| KD-26 | `@` 路由不做"意图提取"——保持行首=路由/其他=叙述的绝对规则。弱模型无法理解"句中 @ 有时路由有时不路由"的语义边界 | 砚砚 review 修正：K-1 不做 Slack 式宽容路由（违反 KD-24）；只做机械 repair（AC-H4 Step B）| 2026-04-25 |
 
 ## Timeline
 
@@ -560,8 +562,81 @@ cat_cafe_hold_ball({
 | 2026-04-24 | Phase H reopened from monitoring：Phase G merge 后铲屎官观察 opus-47 三 thread 复现 inline @ 不在行首。砚砚 GPT-5.5 诊断"叙述模式 / 路由模式没稳定切换"——4.7 写叙述时 @ 沦为普通 token。铲屎官驳回"迁结构化工具"路线（弱模型灾难），方向定在"外部语法最简 + 内部 harness 机械校验"。Design Gate 三轮收敛（1. 砚砚 short/mid/long → 2. 铲屎官 push back 弱模型友好 → 3. 砚砚收回迁移改为 runtime validator → 4. opus-47 提 D-1~D-4 细节 → 5. 砚砚收紧 KD-8 反模式 + scope 膨胀防御）。KD-24 落定：**final routing slot 机械校验 + one-shot repair 兜底 + 零意图分类器 + 结构边界豁免**，AC-H1~H7 定稿待实现 |
 | 2026-04-25 | Phase H merged (PR #1381, `1d9b294b2`) — AC-H1~H3/H5~H7 全绿，AC-H4 部分实现（Step A `system_info` 兜底已含；Step B one-shot repair re-invoke 暂未做，留作后续观察压制效果再评估）。`final-routing-slot.ts` pure validator（finalRoutingSlot / findInlineMentionsInSlot / validateRoutingSyntax）+ `route-serial.ts` 接入（命中 emit `routing-syntax-hint` + 单向 suppress legacy `inline-mention-hint` + AC-C7 `verdict-no-pass-hint`）。云端 Codex 三轮（round-1 P2 case-sensitive / round-2 P2 left-token-boundary / round-3 trigger 未接单）；砚砚本地 review 三轮（首轮 P2 Biome 格式 / 二轮 round-1 修复后 39/40 → 40/40 / 三轮 continuity 延续 `c50c9e525`）。21 unit + 8 integration + 1 contract = 30 Phase H tests + 9255/9258 全量 API 回归（0 fail, 3 skipped）。Status: monitoring |
 | 2026-04-25 | AC-C7 long-tail fix merged (PR #1385, `96db71b50`) — 砚砚 GPT-5.5 诊断 false positive：`parseA2AMentions` 只识别猫 handle，`route-serial` 把空 `lineStartMentions` 传给 `shouldWarnVerdictWithoutPass`，导致猫给完 review 结论末尾 `@landy` / `@铲屎官`（合法升级 co-creator）被误判成"verdict 没传球" → emit `verdict-no-pass-hint` 噪声。修：`VerdictWarningInput` 加 `hasCoCreatorLineStartMention?: boolean`；`route-serial` 调用前 `detectUserMention(storedContent)` 计算并传入；新 6 case 覆盖（pure + integration，含 CJK 铲屎官 + 行中控制组）。云端 Codex 一轮 clean，砚砚本地 review 三轮放行（首轮 / 重复放行 / continuity `c83476309` 含 F061 pre-existing biome auto-fix）。9324/9327 全量 API（0 fail, 3 skipped）|
+| 2026-04-25 | 47 采访：4 个定向问题（反直觉规则 / "完整"定义 / 最想要的 harness 适配 / 与 4.6 差异）。47 自述核心差异："prove-to-the-reader vs trust-the-reader"。铲屎官拍板"harness 适配 47 风格，不是让 47 改风格" |
+| 2026-04-25 | 砚砚 review I/J/K 闭环计划：同意"别再一个小点一个小点补"；修正 K-1 不做 @ intent extraction（违反 KD-24）；I-3 蓝色 JSON 不归 F167（mixed scope）。KD-25/26 落定 |
+| 2026-04-25 | Phase I/J/K 写入 spec，从 Phase I 开工 |
 | 2026-04-23 | Phase E reopened from monitoring：F172 愿景守护 @gemini 被 L3 误拦（action="合入"因 storedContent 上文含 merge 历程）；铲屎官定性"硬编码 + 过度设计"——要求退役 L3 + cat-config restrictions 数据驱动双端注入（发送方队友名册 + 目标猫 self-awareness）；KD-20 落定，AC-E1~E8 定稿待实现 |
 | 2026-04-24 | Phase E merged (PR #1360, `f8efcf46d`) — AC-E1~E8 全绿。8 commit（4 feat + 1 test + 3 chore）-735 净行数（删 role-gate.ts + 3 测试文件 + 2 调用点）+ cat-config schema 扩展 + 双端 prompt 注入；gpt52 review 首轮放行 `c967b59d0`（两个非阻塞：scrub 死注释 + 删 unused import 已顺手修），云端 Codex 零 P1/P2 "Hooray"；rebase 遇 F061 pre-existing 修复冲突 → skip 冗余 commit 后 clean merge；204/204 ping-pong + system-prompt-builder + cat-config-loader 绿。Status: monitoring |
+
+### Phase I（A2A 声明-动作一致性 — 2026-04-25 reopened）
+
+**触发**（Phase H merge 后 47 采访 + 铲屎官反馈）：
+1. opus-47 写"我持球了"但未调用 `cat_cafe_hold_ball` MCP — 文字声明无机械效果（虚空持球 feedback 反复出现）
+2. 现有纠错/nudge 消息采用加法措辞（"加 X 检查"），47 明确反馈这让他越改越 verbose——纠错应用减法（"砍掉 X"）
+3. 现有 warning 文案（ping-pong 终止、verdict 警告、routing syntax hint）措辞不统一
+
+**47 采访关键自述**（2026-04-25 18:45）：
+> "我的'完整'是 prove-to-the-reader，不是 trust-the-reader。"
+> "认知反馈不要推 checklist——叫我'砍掉 X 步骤'，不是'加 X 检查'。"
+
+**KD-25（铲屎官 + 砚砚拍板 2026-04-25）**：虚空持球检测是"声明与动作一致性"检查——文本说"持球/hold"但本轮无 `cat_cafe_hold_ball` tool call → harness 注入警告。这是事实一致性验证（你说你做了 X → X 的 tool call 应存在），不是语义分类器（KD-8 安全）。
+
+#### I-1 — 虚空持球检测
+
+- [ ] AC-I1: post-generation 检查：若猫回复文本含「持球」/「hold ball」/「hold_ball」关键词且本轮 tool_calls 不含 `cat_cafe_hold_ball` → emit `system_info` 警告（"检测到持球声明但未调用 hold_ball MCP，请实际调用工具完成持球"）
+- [ ] AC-I2: 关键词匹配仅限裸词（排除 fenced code / blockquote / URL 结构），复用 Phase H 结构剥离逻辑
+- [ ] AC-I3: 测试覆盖：真虚空持球命中 / 有 tool call 不命中 / code fence 内不命中 / 叙述引用不命中
+
+#### I-2 — 减法纠错 prompt
+
+- [ ] AC-I4: 审视所有 harness 生成的 system_info / warning / repair 文案，将加法措辞改为减法措辞：
+  - ping-pong 终止通知：不说"添加实质工作"，说"停止无实质内容的往复"
+  - verdict-no-pass 警告：不说"请添加传球动作"，说"结论后直接传球，不要停在结论"
+  - routing-syntax-hint：不说"请在行首添加 @"，说"把 @ 移到行首独立一行"
+- [ ] AC-I5: 减法措辞不改变语义，只改表达方式。review 时对照原文确认等价
+
+#### I-3 — Warning 文案统一
+
+- [ ] AC-I6: 全部 system_info 消息遵循统一 pattern：`[类型]: [一句话描述] — [一句话修复指引]`
+- [ ] AC-I7: 中文为主，术语保留英文（`hold_ball`、`@`、`tool call`）
+
+### Phase J（Hold Ball UX / 生命周期闭环 — 2026-04-25 立项）
+
+**触发**：铲屎官测试持球后三个 UX 缺口：(1) 没有 cancel 按钮 (2) 用户发消息不取消 hold wake (3) 持球通知虽可见但不可操作。多个 thread 反馈同一问题（thread_moble6jfns1rdqrj "a2a前端没有cancel"）。
+
+#### J-1 — Hold Ball Cancel（前端 + 后端）
+
+- [ ] AC-J1: 后端：`DELETE /api/callbacks/hold-ball/:taskId` 端点 — unregister timer + remove dynamic task + 返回取消确认
+- [ ] AC-J2: 前端：ConnectorBubble 持球通知附带 Cancel 按钮，点击调用 DELETE 端点
+- [ ] AC-J3: Cancel 后 emit system_info / connector_message（"持球已取消"）
+
+#### J-2 — 用户消息自动失效 Pending Hold
+
+- [ ] AC-J4: 后端：用户在 thread 发新消息时，检查该 thread 是否有 pending hold task → 自动 unregister + remove（语义：用户已改变 thread 方向，旧 hold wake 不再有效）
+- [ ] AC-J5: 自动取消后 log + 不发前端通知（静默失效，避免噪音）
+- [ ] AC-J6: 测试覆盖：用户消息触发取消 / 系统消息不触发 / 无 pending hold 时 no-op
+
+### Phase K（47 风格适配 Design Gate — 2026-04-25 立项，需独立 Design Gate）
+
+**触发**：opus-47 采访（2026-04-25）暴露的核心差异——4.7 是 Literal Follower / Audit-Ready 模式，4.6 是 Spirit Interpreter / Trust-the-Reader 模式。铲屎官拍板"harness 适配 47 风格，不是让 47 改风格"。
+
+**砚砚 review 修正（2026-04-25）**：K-1 不做"句中 @ 自动路由"（违反 KD-24 零语义分类器原则）。只允许 AC-H4 Step B 机械 repair（one-shot re-invoke），不允许 Slack 式宽容路由。K-2 audit/surface 分层可以探索。
+
+**KD-26（砚砚拍板 2026-04-25）**：@ 路由不做"意图提取"——违反 KD-24。弱模型（minimax / kimi / qwen）更无法理解"句中 @ 有时路由有时不路由"的语义边界。保持"行首 @ = 路由，其他 = 叙述"的绝对规则，harness 层只做机械 repair。
+
+#### K-1 — AC-H4 Step B 落地（One-Shot Repair Re-invoke）
+
+- [ ] AC-K1: 评估 Phase H Step A（system_info 提示）的线上效果：47 在收到 `routing-syntax-hint` 后下一轮是否自纠？
+- [ ] AC-K2: 若自纠率 < 80% → 实现 one-shot repair：harness 发 repair prompt 让同猫重写出口段落。复用 Phase H 架构
+- [ ] AC-K3: 若自纠率 ≥ 80% → close K-1，Step A 足够
+
+#### K-2 — Audit / Surface 分层（探索性）
+
+- [ ] AC-K4: Design Gate：定义 audit section 标记约定（如 `<!-- audit -->...<!-- /audit -->`）
+- [ ] AC-K5: harness 提取 audit section 到 raw log / metadata，surface 版本不含审计信息
+- [ ] AC-K6: 前端：audit section 默认折叠，reviewer 可展开
+
+**关闭门禁**：Phase I + J 全部合入后观察 1 周无新 case → Phase K Design Gate → K 合入 → 2 周观察 → F167 正式 close。
 
 ## Behavioral Evidence（Phase B 观察记录）
 
@@ -645,5 +720,9 @@ cat_cafe_hold_ball({
 | 铲屎官 2026-04-19 | 持球无执行机制 → hold_ball MCP | AC-C1~C4 | ✅ PR #1289 + #1290 |
 | 铲屎官 2026-04-19 | 砚砚不传球（5 线程验证） → 强制传球护栏 | AC-C5~C7 | ✅ PR #1291 |
 | 铲屎官 2026-04-19 | 球权管理 skill 化（各猫贡献踩坑经验） | OQ-5 | ✅ 现不做（KD-15），踩坑经验先入 refs |
-| 铲屎官 2026-04-23 | Streak breaker 误杀正经 review（不看 tool_call） | AC-D1~D4 | ⬜ Phase D 待实现 |
-| 铲屎官 2026-04-23 | 猫猫倾向 @landy 做最安全默认，铲屎官变决策瓶颈 | AC-D5~D7 | ⬜ Phase D 待实现 |
+| 铲屎官 2026-04-23 | Streak breaker 误杀正经 review（不看 tool_call） | AC-D1~D4 | ✅ Phase D |
+| 铲屎官 2026-04-23 | 猫猫倾向 @landy 做最安全默认，铲屎官变决策瓶颈 | AC-D5~D7 | ✅ Phase D |
+| 铲屎官 2026-04-25 | 47 写"我持球"但未调 hold_ball MCP（虚空持球） | AC-I1~I3 | ⬜ Phase I |
+| 47 采访 2026-04-25 | 加法纠错让 47 越改越 verbose，需减法措辞 | AC-I4~I5 | ⬜ Phase I |
+| 铲屎官 2026-04-25 | 持球没 cancel 按钮 / 用户消息不取消 hold wake | AC-J1~J6 | ⬜ Phase J |
+| 铲屎官 + 砚砚 2026-04-25 | 47 风格适配需 Design Gate（audit/surface 分层 + repair 落地） | AC-K1~K6 | ⬜ Phase K |
