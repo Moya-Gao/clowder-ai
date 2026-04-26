@@ -55,7 +55,7 @@ created: 2026-04-26
 ### Phase C: MCP write tools 接入 agent-key auth path（allowlist MVP）
 
 - **Phase C1 只放 4 个工具**（KD-8 allowlist MVP）：`post_message` / `cross_post_message` / `get_thread_context` / `list_threads`
-  - agent-key 路径**必须显式 `threadId`**，省略直接报错，不猜"当前 thread"
+  - **thread-targeted tools**（`post_message` / `cross_post_message` / `get_thread_context`）必须显式 `threadId`，省略 → 400 报错，不猜"当前 thread"。`list_threads` 是 user-scoped discovery，不需要 `threadId`
   - 当 callback token 缺失/过期时，fallback 到 agent-key auth path（不影响现有 invocation token 主路径）
   - 透传 agent-key 到 `/api/callbacks/*` 端点，server 端 preHandler 通过 `CallbackPrincipal` 双路径分流
 - **Phase C2**（后续）：按 auth shape 三分类逐个审增更多工具（`create_rich_block` / `create_task` 等）
@@ -89,7 +89,7 @@ created: 2026-04-26
 
 ### Phase C（MCP write tools — allowlist MVP）
 - [ ] AC-C1: Phase C1 **仅** `post_message` / `cross_post_message` / `get_thread_context` / `list_threads` 接入 agent-key fallback path（KD-8 allowlist）
-- [ ] AC-C2: agent-key 路径**必须显式 `threadId`**，省略 → 400 报错（不猜"当前 thread"）
+- [ ] AC-C2: **thread-targeted tools**（`post_message` / `cross_post_message` / `get_thread_context`）必须显式 `threadId`，省略 → 400 报错。`list_threads` 是 user-scoped discovery，不需要 `threadId`
 - [ ] AC-C3: server 端 preHandler 通过 `CallbackPrincipal` 双路径分流，失败原因结构化 reason code 透传给 client
 - [ ] AC-C4: Bengal secret 注入走 `0600` sidecar file（不放 `mcp_config.json`），capability orchestrator reconcile 链路写入
 - [ ] AC-C5: `CAT_CAFE_READONLY=true` 总闸保留，F178 不解锁 file/shell mutators
@@ -129,7 +129,7 @@ created: 2026-04-26
 | OQ-2 | **Issuance flow** | ✅ 铲屎官拍板 | **默认全开**。persistent writeback 猫注册即有写权限。Hub 做 agent-key inventory/revoke/audit，不做审批。不等于跨 provider YOLO 总开关（那是另一层 feature） |
 | OQ-3 | **Storage** | ✅ 猫猫自决 | **Redis 6398/6399 + hash + 客户端 0600 sidecar file**（不放 mcp_config.json） |
 | OQ-4 | **Expiry / rotation** | ✅ 猫猫自决 | **45d TTL + rotation API + ≤24h overlap + 实时 revocation** |
-| OQ-5 | **Write tool scope** | ✅ 猫猫自决 | **Phase C1 走 allowlist MVP**（`post_message` / `cross_post_message` / `get_thread_context` / `list_threads`）。agent-key 路径必须显式 `threadId`，省略报错。后续按 auth shape 三分类逐个审 |
+| OQ-5 | **Write tool scope** | ✅ 猫猫自决 | **Phase C1 走 allowlist MVP**（`post_message` / `cross_post_message` / `get_thread_context` / `list_threads`）。thread-targeted tools 必须显式 `threadId`（省略 → 400）；`list_threads` 是 user-scoped discovery 不需要。后续按 auth shape 三分类逐个审 |
 | OQ-6 | **Plug indicator** | ⏳ deferred | 降级为显示规则，后置拉烁烁定，不阻塞 Phase B/C |
 
 ## Key Decisions
@@ -143,7 +143,7 @@ created: 2026-04-26
 | KD-5 | 默认全开，不做逐猫审批 | 铲屎官拍板："默认大家都开启"。用户痛点是减少限制。Hub 做 inventory/revoke/audit 管理面板 | 2026-04-26（铲屎官拍板） |
 | KD-6 | 服务端 Redis + hash，客户端 0600 sidecar file | Redis+hash 复用 F174 范式；客户端不放 mcp_config.json（git diff / 截图 / 复制链路泄漏面） | 2026-04-26（Design Gate） |
 | KD-7 | 45d TTL + rotation API + ≤24h overlap + 实时 revocation | 90d blast radius 过大；7d grace 无必要（capability orchestrator 自动改配置） | 2026-04-26（Design Gate） |
-| KD-8 | Phase C1 走 allowlist MVP（4 工具），agent-key 路径必须显式 `threadId` | 砚砚按 auth shape 分三类（invocation-only / user-scoped / richer writeback），deny list 语义不对——很多 route 天生 invocation-scoped 不是"高风险"。省略 threadId 报错，不猜 | 2026-04-26（Design Gate） |
+| KD-8 | Phase C1 走 allowlist MVP（4 工具），thread-targeted tools 必须显式 `threadId`（user-scoped discovery 如 `list_threads` 不需要） | 砚砚按 auth shape 分三类（invocation-only / user-scoped / richer writeback），deny list 语义不对——很多 route 天生 invocation-scoped 不是"高风险"。thread-targeted 省略 threadId 报错，不猜 | 2026-04-26（Design Gate） |
 | KD-9 | F178 scope boundary：不解决跨 provider YOLO/sandbox 总开关 | 铲屎官明确 Hub 权限总控（改 Claude/Codex 系统配置）是另一层 feature，F178 只管 persistent writeback agent-key | 2026-04-26（Design Gate） |
 
 ## Timeline
