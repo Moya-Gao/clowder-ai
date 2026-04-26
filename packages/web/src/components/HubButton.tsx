@@ -6,21 +6,28 @@ import { useChatStore } from '@/stores/chatStore';
 /**
  * F099 P1-2: Always-visible Hub entry in the top bar (gear icon).
  *
- * F174 D2b-2 (rev2): callback-auth failure badge merge — replaces standalone
- * top-bar plug indicator (rev1, PR #1410) which was rejected by 铲屎官 alpha
- * 验收 ("top 栏位置宝贵, plug 图标冗余"). Top-bar is scarce real estate,
- * and Hub button is the natural entity-level home for system signals.
+ * F174 D2b-2 (rev3): callback-auth UNREAD badge — replaces the rev2 "alert/CTA"
+ * badge form which was rejected by 铲屎官 alpha 验收 #3 ("红点点开也点不掉
+ * 很难受！点开直接进入了 可观测性！万一我想看的是原本的成员呢"). Three rev3
+ * changes implementing the GitHub bell icon / Slack unread / iOS app badge
+ * "未读 → 看过 → 消失" mental model:
+ *   1. Badge uses `unviewedFailures24h` (server-tracked since lastViewedAt),
+ *      not `totalFailures24h` — so it CAN be cleared.
+ *   2. Click ALWAYS opens default Hub — no deep-link to observability/callback-auth
+ *      (rev2 stole user's intent of opening default Hub).
+ *   3. Badge size capped at maxWidth 22px — even "99+" can't overflow the
+ *      hub icon (rev2's "16" badge was ~70% of hub icon visual area).
  *
- * Badge rules (复用 GitHub/iOS 通知 mental model):
- *   isAvailable=false                 → no badge (zero pollution for non-owner)
- *   24h totalFailures = 0             → no badge (top-bar visual zero increment)
- *   24h totalFailures 1-5             → amber badge with count
- *   24h totalFailures >= 6            → red badge with count
- *   total > 99                        → "99+" cap
+ * Badge clears when user opens observability/callback-auth subtab — that
+ * subtab calls `markViewed()` on mount, which POSTs to the server and
+ * optimistically zeros local state.
  *
- * Click semantics (badge-aware):
- *   no badge  → openHub()  (default)
- *   has badge → openHub('observability', 'callback-auth') (deep-link to source)
+ * Rules:
+ *   isAvailable=false                    → no badge (zero pollution for non-owner)
+ *   24h unviewedFailures = 0             → no badge (all viewed)
+ *   24h unviewedFailures 1-5             → amber badge with count
+ *   24h unviewedFailures >= 6            → red badge with count
+ *   total > 99                           → "99+" cap (with maxWidth 22px guard)
  */
 
 const DEGRADED_COLOR = '#F59E0B';
@@ -32,19 +39,21 @@ export function HubButton() {
   const aggregate = useCallbackAuthAggregate();
   const isAvailable = useCallbackAuthAvailable();
 
-  const failures = isAvailable ? aggregate.totalFailures24h : 0;
-  const showBadge = failures > 0;
-  const badgeColor = failures >= BROKEN_THRESHOLD ? BROKEN_COLOR : DEGRADED_COLOR;
-  const badgeText = failures > 99 ? '99+' : String(failures);
+  const unviewed = isAvailable ? aggregate.unviewedFailures24h : 0;
+  const showBadge = unviewed > 0;
+  const badgeColor = unviewed >= BROKEN_THRESHOLD ? BROKEN_COLOR : DEGRADED_COLOR;
+  const badgeText = unviewed > 99 ? '99+' : String(unviewed);
   // Factual tooltip — failure-only counter cannot prove "healthy" (砚砚 P2 #1410).
-  const tooltip = showBadge ? `Clowder AI Hub · MCP Callback Auth 24h ${failures} 次失败 — 点击查看` : 'Clowder AI Hub';
+  // rev3: tooltip emphasizes "unread" (未查看) so user knows clicking subtab clears it.
+  const tooltip = showBadge
+    ? `Clowder AI Hub · MCP Callback Auth 24h ${unviewed} 次未查看失败 — 打开 Hub 查看可观测性子 tab 即可清除`
+    : 'Clowder AI Hub';
 
+  // rev3: ALWAYS default openHub() — no deep-link, even with badge. Click hub
+  // = "open Hub at user's last/default state". User can navigate to observability/
+  // callback-auth subtab themselves (which clears the badge via markViewed).
   const handleClick = () => {
-    if (showBadge) {
-      openHub('observability', 'callback-auth');
-    } else {
-      openHub();
-    }
+    openHub();
   };
 
   return (
@@ -56,7 +65,7 @@ export function HubButton() {
       data-bootcamp-step="hub-button"
       data-guide-id="hub.trigger"
       data-testid="hub-button"
-      data-callback-auth-failures={showBadge ? String(failures) : undefined}
+      data-callback-auth-unviewed={showBadge ? String(unviewed) : undefined}
     >
       <svg
         className="w-5 h-5 text-cafe-secondary"
@@ -74,7 +83,18 @@ export function HubButton() {
         <span
           data-testid="hub-button-callback-auth-badge"
           className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center"
-          style={{ backgroundColor: badgeColor, color: '#FFFFFF' }}
+          // rev3: maxWidth 22px hard cap — even "99+" stays within budget so
+          // badge never visually dominates the hub icon (alpha #3 had "16"
+          // badge ~70% of hub icon area). overflow:hidden + ellipsis 防御性兜底
+          // 即使未来 cap 字符变长也不会撑爆。
+          style={{
+            backgroundColor: badgeColor,
+            color: '#FFFFFF',
+            maxWidth: '22px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
         >
           {badgeText}
         </span>

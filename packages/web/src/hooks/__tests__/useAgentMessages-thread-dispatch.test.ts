@@ -20,8 +20,7 @@ import { useAgentMessages } from '@/hooks/useAgentMessages';
 const mockHandleBackgroundAgentMessage = vi.fn();
 const mockClearBackgroundStreamRefForActiveEvent = vi.fn();
 vi.mock('@/hooks/useSocket-background', () => ({
-  handleBackgroundAgentMessage: (msg: unknown, options: unknown) =>
-    mockHandleBackgroundAgentMessage(msg, options),
+  handleBackgroundAgentMessage: (msg: unknown, options: unknown) => mockHandleBackgroundAgentMessage(msg, options),
   clearBackgroundStreamRefForActiveEvent: (msg: unknown, refs: unknown) =>
     mockClearBackgroundStreamRefForActiveEvent(msg, refs),
 }));

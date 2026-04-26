@@ -14,7 +14,13 @@
  *  - Legacy fallback hits (Phase F deadline countdown)
  */
 
-import { useCallbackAuthAvailable, useCallbackAuthError, useCallbackAuthRawSnapshot } from '@/stores/callbackAuthStore';
+import { useEffect } from 'react';
+import {
+  useCallbackAuthAvailable,
+  useCallbackAuthError,
+  useCallbackAuthMarkViewed,
+  useCallbackAuthRawSnapshot,
+} from '@/stores/callbackAuthStore';
 import { CallbackAuthCatAvatar } from './CallbackAuthCatAvatar';
 
 const REASON_LABEL: Record<string, string> = {
@@ -116,6 +122,17 @@ export function HubCallbackAuthPanel() {
   const snapshot = useCallbackAuthRawSnapshot();
   const isAvailable = useCallbackAuthAvailable();
   const error = useCallbackAuthError();
+  const markViewed = useCallbackAuthMarkViewed();
+
+  // F174 D2b-2 rev3: opening this panel = "看过 callback auth" → POST mark-viewed
+  // → HubButton unread badge clears. Implements GitHub bell icon / iOS app badge
+  // mental model. Effect runs once on mount (markViewed is a stable zustand
+  // action). Errors silently swallowed inside markViewed (badge updates on
+  // next successful poll regardless).
+  useEffect(() => {
+    if (!isAvailable) return;
+    void markViewed();
+  }, [isAvailable, markViewed]);
 
   if (error && !isAvailable) {
     return (

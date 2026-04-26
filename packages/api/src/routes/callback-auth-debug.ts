@@ -25,7 +25,11 @@ import { createCatId } from '@cat-cafe/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { CallbackAuthSystemMessageNotifier } from './callback-auth-system-message.js';
-import { getCallbackAuthFailureSnapshot } from './callback-auth-telemetry.js';
+import {
+  getCallbackAuthFailureSnapshot,
+  getCallbackAuthLastViewedAt,
+  markCallbackAuthViewed,
+} from './callback-auth-telemetry.js';
 
 function resolveSessionUserId(request: FastifyRequest): string | null {
   const fromSession = (request as FastifyRequest & { sessionUserId?: string }).sessionUserId;
@@ -64,6 +68,19 @@ const hideSimilarBodySchema = z.object({
   userId: z.string().min(1),
 });
 
+// F174 D2b-2 rev3 — Cloud Codex P2 #1425: optional `viewedUpTo` timestamp.
+// Without this, panel mount → markViewed advances lastViewedAt to "now",
+// permanently clearing failures that occurred between last 30s poll and
+// panel open (user never saw them). With `viewedUpTo` = snapshot's
+// effective "as of" time, only ack failures actually in the rendered
+// snapshot — newer failures stay unviewed until the next poll.
+const markViewedBodySchema = z
+  .object({
+    viewedUpTo: z.number().int().nonnegative().optional(),
+  })
+  .strict()
+  .optional();
+
 export interface CallbackAuthDebugRouteOptions {
   /** F174 D2b-1 — when wired, exposes POST /api/debug/callback-auth/hide-similar */
   notifier?: Pick<CallbackAuthSystemMessageNotifier, 'hideSimilar'>;
@@ -77,6 +94,30 @@ export function registerCallbackAuthDebugRoute(
     const gateError = checkOwnerGate(request, reply);
     if (gateError) return gateError;
     return getCallbackAuthFailureSnapshot();
+  });
+
+  // F174 D2b-2 rev3: mark callback-auth telemetry as viewed. Frontend calls
+  // this when user opens observability/callback-auth subtab → snapshot's
+  // unviewedFailures24h drops to 0 → HubButton badge clears. Owner-gated
+  // (same gate as snapshot read — telemetry exposure must match write surface).
+  //
+  // Cloud Codex P2 #1425: accept optional `viewedUpTo` so frontend can
+  // pass the snapshot's effective "as of" time, preventing acknowledgement
+  // of failures that occurred between last poll and panel open. Server
+  // clamps to <= Date.now() to defend against future timestamps.
+  app.post('/api/debug/callback-auth/mark-viewed', async (request, reply) => {
+    const gateError = checkOwnerGate(request, reply);
+    if (gateError) return gateError;
+    const parsed = markViewedBodySchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid body', details: parsed.error.issues };
+    }
+    const now = Date.now();
+    const provided = parsed.data?.viewedUpTo;
+    const viewedAt = provided !== undefined ? Math.min(provided, now) : now;
+    markCallbackAuthViewed(viewedAt);
+    return { ok: true, viewedAt, lastViewedAt: getCallbackAuthLastViewedAt() };
   });
 
   // F174 D2b-1: hide-similar opt-out (24h suppression for the (reason, tool, catId) tuple).

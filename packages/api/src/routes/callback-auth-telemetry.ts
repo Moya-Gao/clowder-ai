@@ -53,6 +53,14 @@ const startedAt = Date.now();
 let legacyFallbackByTool: Record<string, number> = {};
 let legacyFallbackTotal = 0;
 
+// F174 D2b-2 rev3: "unread notification" timestamp. HubButton badge uses
+// `unviewedFailures24h` (failures since lastViewedAt within 24h) instead of
+// totalFailures24h, so the badge clears when user actually looks at the
+// observability/callback-auth subtab. Single-user MVP: module-global; when
+// F077 multi-user lands this needs to key by userId. 0 = never viewed (badge
+// shows all 24h failures).
+let lastViewedAt = 0;
+
 /**
  * F174 Phase D2a — 24h ring buffer. Each bucket holds aggregated counts for
  * one hour. The bucket index is `floor(timestampMs / HOUR_MS) % WINDOW_HOURS`,
@@ -160,6 +168,16 @@ export interface CallbackAuthFailureSnapshot {
     byTool: Record<string, number>;
     total: number;
   };
+  /** F174 D2b-2 rev3: timestamp of last `mark-viewed`. 0 if never viewed. */
+  lastViewedAt: number;
+  /**
+   * F174 D2b-2 rev3: count of failures within last 24h that occurred AFTER
+   * lastViewedAt. Drives the HubButton "unread badge" — clears to 0 when user
+   * opens observability/callback-auth subtab (frontend triggers POST mark-viewed).
+   * Capped by recentSamples size (RECENT_SAMPLES_CAP = 100); badge UI further
+   * caps display at "99+".
+   */
+  unviewedFailures24h: number;
 }
 
 function computeRecent24h(): Recent24hAggregate {
@@ -188,6 +206,24 @@ function computeRecent24h(): Recent24hAggregate {
   return agg;
 }
 
+function computeUnviewedFailures24h(): number {
+  const at = now();
+  const minAt = at - 24 * HOUR_MS;
+  const cutoff = Math.max(lastViewedAt, minAt);
+  let count = 0;
+  for (const sample of recentSamples) {
+    // Cloud Codex P2 #1425 round 5: use `>=` instead of strict `>`. With
+    // Date.now() ms granularity, a failure recorded in the same ms as
+    // lastViewedAt/viewedUpTo can't reliably be classified as "in the
+    // snapshot user saw" — strict `>` would drop it (treat as viewed),
+    // potentially losing unread notifications under bursty traffic.
+    // Safe-side bias: count same-ms failures as unviewed (occasional
+    // over-count by 1 is acceptable; missing a notification is not).
+    if (sample.at >= cutoff) count += 1;
+  }
+  return count;
+}
+
 export function getCallbackAuthFailureSnapshot(): CallbackAuthFailureSnapshot {
   return {
     reasonCounts: { ...reasonCounts },
@@ -202,7 +238,33 @@ export function getCallbackAuthFailureSnapshot(): CallbackAuthFailureSnapshot {
       byTool: { ...legacyFallbackByTool },
       total: legacyFallbackTotal,
     },
+    lastViewedAt,
+    unviewedFailures24h: computeUnviewedFailures24h(),
   };
+}
+
+/**
+ * F174 D2b-2 rev3: mark callback-auth telemetry as viewed at `at` (ms).
+ * Called from POST /api/debug/callback-auth/mark-viewed when user opens the
+ * observability/callback-auth subtab. Implements the "unread → viewed → cleared"
+ * notification mental model — badge clears on view, only re-appears on new
+ * failures after this timestamp.
+ *
+ * Cloud Codex P2 #1425 round 2: enforce monotonic watermark — a delayed/stale
+ * mark-viewed request (e.g. tab/panel that loaded a much older snapshot) must
+ * NOT move lastViewedAt backwards, otherwise failures previously cleared would
+ * re-appear as unviewed when a fresher poll lands. Caller-provided `at` is
+ * upper-bounded by the route handler (clamped to <= now); this function guards
+ * the lower bound (never decreases).
+ */
+export function markCallbackAuthViewed(at: number = now()): void {
+  if (at > lastViewedAt) {
+    lastViewedAt = at;
+  }
+}
+
+export function getCallbackAuthLastViewedAt(): number {
+  return lastViewedAt;
 }
 
 /**
@@ -229,6 +291,7 @@ export function resetCallbackAuthFailureForTest(): void {
   totalFailures = 0;
   legacyFallbackByTool = {};
   legacyFallbackTotal = 0;
+  lastViewedAt = 0;
   buckets = Array.from({ length: WINDOW_HOURS }, () => freshBucket(-1));
   // Cloud Codex P2 (PR #1393): also clear the injected clock so a previous
   // __setNowForTest(...) doesn't leak frozen time into a later test that

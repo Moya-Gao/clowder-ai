@@ -14,14 +14,6 @@ import {
   removeReplacedInvocation,
 } from './shared-replaced-invocations';
 import { formatVisibleSystemInfo } from './system-info-visible';
-// F173 Phase E (KD-1 handler unification): handleAgentMessage 现在是 single dispatch
-// entry — active 路径走 useAgentMessages 内部，background 路径委托给 handleBackgroundAgentMessage
-// 直到 Task 2-5 把 bg 业务逻辑全部迁移过来后，再删 useSocket-background.ts。
-import {
-  type BackgroundAgentMessage,
-  clearBackgroundStreamRefForActiveEvent,
-  handleBackgroundAgentMessage,
-} from './useSocket-background';
 import {
   clearActiveBubble as clearActiveBubbleLedger,
   clearAllActiveBubblesForThread as clearAllActiveBubblesForThreadLedger,
@@ -45,6 +37,14 @@ import {
   type TerminalDecision,
 } from './thread-runtime-ledger';
 import { getThreadRuntimeLedger } from './thread-runtime-singleton';
+// F173 Phase E (KD-1 handler unification): handleAgentMessage 现在是 single dispatch
+// entry — active 路径走 useAgentMessages 内部，background 路径委托给 handleBackgroundAgentMessage
+// 直到 Task 2-5 把 bg 业务逻辑全部迁移过来后，再删 useSocket-background.ts。
+import {
+  type BackgroundAgentMessage,
+  clearBackgroundStreamRefForActiveEvent,
+  handleBackgroundAgentMessage,
+} from './useSocket-background';
 
 /** F173 Phase B: callback merge window for finalized bubbles (5min). */
 const FINALIZED_TTL_MS = 5 * 60 * 1000;
