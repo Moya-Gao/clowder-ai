@@ -8,7 +8,7 @@ created: 2026-04-26
 
 # F178: Persistent MCP Agent-Key Auth — 跨 invocation 写权限
 
-> **Status**: spec | **Owner**: 布偶猫（宪宪/Opus-47）+ 缅因猫（待 Design Gate 后确认 reviewer） | **Priority**: P1
+> **Status**: design-done | **Owner**: 布偶猫（宪宪） | **Reviewer**: 缅因猫（砚砚） | **Priority**: P1
 
 ## Why
 
@@ -66,11 +66,11 @@ created: 2026-04-26
 
 ## Acceptance Criteria
 
-### Phase A（Design Gate）
-- [ ] AC-A1: 5 个 Open Questions（OQ-1~OQ-5）全部 resolved 或显式 deferred 到具体 Phase
-- [ ] AC-A2: `docs/discussions/2026-04-26-f178-design/README.md` 落地，含砚砚 + 宪宪独立 strawman + 铲屎官拍板
-- [ ] AC-A3: agent-key schema 设计 doc + 安全模型分析（threat model：泄漏 / 滥用 / replay / scope escalation）
-- [ ] AC-A4: 元审美自检通过（坐标变换 vs 多项式堆项 + Meta-Aesthetics canon 对照）
+### Phase A（Design Gate）✅ done 2026-04-26
+- [x] AC-A1: OQ-1~OQ-5 resolved，OQ-6 显式 deferred（Design discussion §5）
+- [x] AC-A2: `docs/discussions/2026-04-26-f178-design/README.md` 落地（宪宪-47 strawman + 砚砚独立 strawman + 宪宪-46 总结 + 铲屎官拍板 OQ-2）
+- [x] AC-A3: threat model 含 7 威胁面（discussion §4.3）+ 砚砚补充 redaction gap / READONLY 总闸 / rotation overlap（§8.6）
+- [x] AC-A4: 元审美自检通过 — first-class agent-key = 坐标变换，真正变换点 = CallbackPrincipal 抽象（discussion §2 + §8.2）
 
 ### Phase B（Registry + API）
 - [ ] AC-B1: `AgentKeyRegistry` 实现 + Redis 持久化 + in-memory fallback（与 F174 InvocationRegistry 同 storage 模式）
@@ -111,14 +111,14 @@ created: 2026-04-26
 
 ## Open Questions
 
-| # | 问题 | 状态 | 谁拍板 |
-|---|------|------|--------|
-| OQ-1 | **Binding scope** — agent-key 绑定到 per-cat / per-cat-per-thread / per-cat-per-user？ | ⬜ 未定 | 铲屎官（安全/产品决策）+ 砚砚（架构 review） |
-| OQ-2 | **Issuance flow** — 铲屎官手动 Hub 颁发 / 系统按 cat 自动颁发 / 混合（首次自动 + 之后铲屎官管理）？ | ⬜ 未定 | 铲屎官 |
-| OQ-3 | **Storage** — 用现有 Redis（6398 dev / 6399 圣域）/ 独立 secret store / OS keychain？secret 是明文存 Redis 还是 hash？ | ⬜ 未定 | 砚砚（安全） + 铲屎官（圣域边界） |
-| OQ-4 | **Expiry / rotation** — 固定时长（30天/90天）/ 主动 rotate / 永久（依赖 revocation）？ | ⬜ 未定 | 砚砚 + 铲屎官 |
-| OQ-5 | **Write tool scope** — 全开 写工具白名单（`post_message` / `create_task` / `update_task` / `cross_post_message` 全开）vs 显式细粒度 scope（per-key 配置允许哪些工具）？ | ⬜ 未定 | 铲屎官（产品） + 砚砚（实现复杂度） |
-| OQ-6 | F174 D2b plug indicator 是否够用还是 agent-key 需要独立 indicator？ | ⬜ 未定 | 烁烁（视觉/UX）+ 铲屎官 |
+| # | 问题 | 状态 | 结论 |
+|---|------|------|------|
+| OQ-1 | **Binding scope** | ✅ resolved | **per-cat-per-user**，route 级 thread 语义保留（invocation-scoped route 仍绑 thread） |
+| OQ-2 | **Issuance flow** | ✅ 铲屎官拍板 | **默认全开**。persistent writeback 猫注册即有写权限。Hub 做 agent-key inventory/revoke/audit，不做审批。不等于跨 provider YOLO 总开关（那是另一层 feature） |
+| OQ-3 | **Storage** | ✅ 猫猫自决 | **Redis 6398/6399 + hash + 客户端 0600 sidecar file**（不放 mcp_config.json） |
+| OQ-4 | **Expiry / rotation** | ✅ 猫猫自决 | **45d TTL + rotation API + ≤24h overlap + 实时 revocation** |
+| OQ-5 | **Write tool scope** | ✅ 猫猫自决 | **Phase C1 走 allowlist MVP**（`post_message` / `cross_post_message` / `get_thread_context` / `list_threads`）。agent-key 路径必须显式 `threadId`，省略报错。后续按 auth shape 三分类逐个审 |
+| OQ-6 | **Plug indicator** | ⏳ deferred | 降级为显示规则，后置拉烁烁定，不阻塞 Phase B/C |
 
 ## Key Decisions
 
@@ -126,12 +126,20 @@ created: 2026-04-26
 |---|------|------|------|
 | KD-1 | F174 已 done，agent-key 在 F174 基建上加层而非另起独立 auth 体系 | 复用 Redis registry / 结构化错误 / Route B framework / telemetry，避免双套基础设施 | 2026-04-26（立项时） |
 | KD-2 | agent-key 是独立 first-class 概念（不是扩长 invocation token） | invocation token 必须短生命（隔离不变量），扩长会绕过 F174 Phase A 安全边界 | 2026-04-26（立项时） |
+| KD-3 | Phase B 先引入 `CallbackPrincipal`（`kind: 'invocation' \| 'agent_key'`），不把 agent-key 硬塞 `InvocationRecord` | 砚砚提出：`request.callbackAuth` 现被当 `InvocationRecord` 用，agent-key 需要另一种 principal；否则 route 里到处 `if (agentKey)` 补丁 = 多项式堆项。宪宪-46 采纳 | 2026-04-26（Design Gate） |
+| KD-4 | Binding scope = per-cat-per-user，route 级 thread 语义保留 | 持久 agent 价值 = 跨 thread 主动写；per-thread 等于换笼子。但 invocation-scoped route（`request_permission` / `hold_ball` / `guide_*` 等）仍绑 thread | 2026-04-26（Design Gate） |
+| KD-5 | 默认全开，不做逐猫审批 | 铲屎官拍板："默认大家都开启"。用户痛点是减少限制。Hub 做 inventory/revoke/audit 管理面板 | 2026-04-26（铲屎官拍板） |
+| KD-6 | 服务端 Redis + hash，客户端 0600 sidecar file | Redis+hash 复用 F174 范式；客户端不放 mcp_config.json（git diff / 截图 / 复制链路泄漏面） | 2026-04-26（Design Gate） |
+| KD-7 | 45d TTL + rotation API + ≤24h overlap + 实时 revocation | 90d blast radius 过大；7d grace 无必要（capability orchestrator 自动改配置） | 2026-04-26（Design Gate） |
+| KD-8 | Phase C1 走 allowlist MVP（4 工具），agent-key 路径必须显式 `threadId` | 砚砚按 auth shape 分三类（invocation-only / user-scoped / richer writeback），deny list 语义不对——很多 route 天生 invocation-scoped 不是"高风险"。省略 threadId 报错，不猜 | 2026-04-26（Design Gate） |
+| KD-9 | F178 scope boundary：不解决跨 provider YOLO/sandbox 总开关 | 铲屎官明确 Hub 权限总控（改 Claude/Codex 系统配置）是另一层 feature，F178 只管 persistent writeback agent-key | 2026-04-26（Design Gate） |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-04-26 | 立项（F061 Bug-H follow-up，铲屎官拍板"一定要做"） |
+| 2026-04-26 | Phase A Design Gate done — 宪宪-47 strawman + 砚砚独立 strawman + 宪宪-46 收敛 + 铲屎官拍板 OQ-2 + KD-3~KD-9 落 spec |
 
 ## Review Gate
 
@@ -145,4 +153,4 @@ created: 2026-04-26
 | **Feature** | `docs/features/F061-antigravity-bengal-cat.md` | Bug-H 源 — Antigravity 持久 MCP 写权限 |
 | **Feature** | `docs/features/F174-callback-auth-lifecycle.md` | 基础设施前置，本 feature 在其上加 agent-key 层（F174 line 377 自承认 persistent 场景未解） |
 | **Feature** | `docs/features/F077-...md` | 后续 multi-user 隔离会依赖 agent-key user binding |
-| **Discussion** | `docs/discussions/2026-04-26-f178-design/README.md` | （待创建）Design Gate 落盘 |
+| **Discussion** | `docs/discussions/2026-04-26-f178-design/README.md` | Design Gate 落盘（两份 strawman + 收敛表 + 铲屎官拍板） |
