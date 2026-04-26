@@ -244,7 +244,7 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 - [x] AC-E3: `EvidenceResult` 接口新增 `authority` 可选字段，API/MCP/前端三层 consumer 均携带 authority 元数据
 - [x] AC-E4: `authorityToConfidence()` 保留但不再被搜索路由引用（向后兼容）
 
-### Phase F: Task-scoped Salience Gating（运行时上下文降权）📋
+### Phase F: Task-scoped Salience Gating（运行时上下文降权）✅
 
 **核心问题**：Phase A-E 的元数据是**静态**的。validated authority 文档在所有任务中都 boost，即使和当前任务无关（例：做 F169 时 F088 Chat Gateway 的 decision 也排前面）。需要一个运行时维度，让搜索结果感知"当前在做什么"。
 
@@ -291,12 +291,12 @@ salience 在 authority boost 之后、confidence 派生之前。不塞进 `apply
 5. `boostSource` 字段标注 `salience_gating`，归因透明
 
 ### Phase F AC
-- [ ] AC-F1: `salience(doc, taskContext)` 纯函数存在（scoring 本体 ≤30 行），输出 0.0-1.0 降权因子，有单元测试
-- [ ] AC-F2: `criticality=high` 知识**不参与 gating**（salience 恒为 1.0，对齐 KD-7 + ADR-009）
-- [ ] AC-F3: 运行时验证——在 feat X 开发 thread 里搜索，feat Y 的无关决策排序靠后（软降权，仍返回）
-- [ ] AC-F4: 可逆性——同一文档在不同 task context 下 salience 不同，切换任务后自动恢复
-- [ ] AC-F5: Gold set 验证——salience gating 开启后 NDCG@10 不低于 Phase E baseline（降噪不降召回）
-- [ ] AC-F6: 复用 `F163_RETRIEVAL_RERANK` flag（off/shadow/on），shadow 模式扩展现有 logger 记录 before/after 排序差异 + `boostSource` 标注（LL-051 教训）
+- [x] AC-F1: `salience(doc, taskContext)` 纯函数存在（scoring 本体 ≤30 行），输出 0.0-1.0 降权因子，有单元测试
+- [x] AC-F2: `criticality=high` 知识**不参与 gating**（salience 恒为 1.0，对齐 KD-7 + ADR-009）
+- [x] AC-F3: 运行时验证——在 feat X 开发 thread 里搜索，feat Y 的无关决策排序靠后（软降权，仍返回）
+- [x] AC-F4: 可逆性——同一文档在不同 task context 下 salience 不同，切换任务后自动恢复
+- [x] AC-F5: Gold set 验证——salience gating 开启后 NDCG@10 不低于 Phase E baseline（降噪不降召回）
+- [x] AC-F6: 复用 `F163_RETRIEVAL_RERANK` flag（off/shadow/on），shadow 模式扩展现有 logger 记录 before/after 排序差异 + `boostSource` 标注（LL-051 教训）
 
 ## Dependencies
 
@@ -368,6 +368,7 @@ salience 在 authority boost 之后、confidence 派生之前。不塞进 `apply
 | 2026-04-19 | Phase F 立项：task-scoped salience gating（来源：F169 愿景约束 VAC-C1~C5，opus-47 提出，铲屎官确认加入） |
 | 2026-04-25 | Phase F spec 更新：补充前置依赖链（F148 F/G/H ✅）、实现路径（LL-051 约束）、AC-F6（shadow 对比数据）、新 Links |
 | 2026-04-25 | Phase F Design Gate by gpt52：放行。3 处修正——task context 用 F148 合成上下文（不是 extractBatonContext）、复用 F163_RETRIEVAL_RERANK flag（不新发明）、scoring ≤30 行（glue code 不计入）。排序管线：static boost → salience rerank → rankToConfidence()。search_evidence 软降权、spotlight 硬裁切 |
+| 2026-04-26 | Phase F merged (PR #1412) — salience() + applySalienceRerank(), shadow diff logging, 25 tests, gpt52 review + codex cloud review |
 
 ## Review Gate
 
