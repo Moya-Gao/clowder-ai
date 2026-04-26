@@ -438,7 +438,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     });
   });
 
-  it('agent_message from other thread goes to background handler, not onMessage', () => {
+  it('F173 Phase E (KD-1): agent_message from any thread forwards to onMessage (single dispatch)', () => {
     const onMessage = vi.fn();
     const callbacks: SocketCallbacks = {
       onMessage,
@@ -448,7 +448,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
       root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
     });
 
-    // agent_message from thread-A (background)
+    // agent_message from thread-A (would have been "background" pre-Phase E)
     act(() => {
       simulateServerEvent('agent_message', {
         type: 'text',
@@ -459,8 +459,11 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
       });
     });
 
-    // onMessage should NOT be called for background thread events
-    expect(onMessage).not.toHaveBeenCalled();
+    // Phase E: useSocket no longer dispatches active vs background.
+    // useAgentMessages.handleAgentMessage 是 single dispatch entry，自己路由。
+    // useSocket 的契约只是"转发到 onMessage"——所有 thread 都应该被 forward。
+    expect(onMessage).toHaveBeenCalledTimes(1);
+    expect(onMessage.mock.calls[0]?.[0]).toMatchObject({ threadId: 'thread-A', content: 'hello from thread A' });
   });
 
   it('route/store mismatch: message for route thread must go background until store switches', () => {
@@ -486,11 +489,12 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
       });
     });
 
-    // Must not mutate old active flat state via onMessage.
-    expect(onMessage).not.toHaveBeenCalled();
-    // Must be routed as background so it lands in thread-B state map.
-    expect(mockAddMessageToThread).toHaveBeenCalledTimes(1);
-    expect(mockAddMessageToThread.mock.calls[0]?.[0]).toBe('thread-B');
+    // Phase E: useSocket forwards everything to onMessage (single dispatch).
+    // useAgentMessages.handleAgentMessage 内部判断 active vs background，并对
+    // background path 调用 handleBackgroundAgentMessage（mockAddMessageToThread）。
+    // 这里 onMessage 是 vi.fn() 不真跑 useAgentMessages 内部逻辑——只验 forward。
+    expect(onMessage).toHaveBeenCalledTimes(1);
+    expect(onMessage.mock.calls[0]?.[0]).toMatchObject({ threadId: 'thread-B' });
   });
 
   // F173 Phase A.2 — single-pointer routing (KD-4)
@@ -603,12 +607,11 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
       });
     });
 
-    expect(onMessage).not.toHaveBeenCalled();
-    expect(mockAddMessageToThread).toHaveBeenCalledTimes(1);
-    expect(mockAddMessageToThread.mock.calls[0]?.[0]).toBe('thread-B');
-    expect(mockAddMessageToThread.mock.calls[0]?.[1]).toMatchObject({ type: 'assistant', catId: 'opus' });
-    expect(mockAppendToolEventToThread).toHaveBeenCalledTimes(1);
-    expect(mockAppendToolEventToThread.mock.calls[0]?.[0]).toBe('thread-B');
+    // Phase E: useSocket forwards all events to onMessage (single dispatch).
+    // useAgentMessages 内部判断 active vs background 并调 bg helpers (mockAddMessageToThread,
+    // mockAppendToolEventToThread)。这里 onMessage 是 vi.fn() 不真跑——仅验 forward。
+    expect(onMessage).toHaveBeenCalledTimes(1);
+    expect(onMessage.mock.calls[0]?.[0]).toMatchObject({ type: 'tool_use', threadId: 'thread-B', catId: 'opus' });
   });
 
   it('queue_updated processing marks thread as active invocation (P1 regression)', () => {

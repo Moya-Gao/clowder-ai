@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { deriveBubbleId } from '@/debug/bubbleIdentity';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { useChatStore } from '@/stores/chatStore';
+import { useToastStore } from '@/stores/toastStore';
 import { compactToolResultDetail } from '@/utils/toolPreview';
 import {
   clearReplacedInvocationsForThread,
@@ -13,6 +14,14 @@ import {
   removeReplacedInvocation,
 } from './shared-replaced-invocations';
 import { formatVisibleSystemInfo } from './system-info-visible';
+// F173 Phase E (KD-1 handler unification): handleAgentMessage 现在是 single dispatch
+// entry — active 路径走 useAgentMessages 内部，background 路径委托给 handleBackgroundAgentMessage
+// 直到 Task 2-5 把 bg 业务逻辑全部迁移过来后，再删 useSocket-background.ts。
+import {
+  type BackgroundAgentMessage,
+  clearBackgroundStreamRefForActiveEvent,
+  handleBackgroundAgentMessage,
+} from './useSocket-background';
 import {
   clearActiveBubble as clearActiveBubbleLedger,
   clearAllActiveBubblesForThread as clearAllActiveBubblesForThreadLedger,
@@ -83,6 +92,9 @@ interface AgentMsg {
   replyPreview?: ReplyPreview;
   /** F108: Invocation ID — distinguishes messages from concurrent invocations */
   invocationId?: string;
+  /** F173 Phase E (KD-1 handler unification): handleAgentMessage 现在是 single dispatch
+   *  entry，需要 threadId 区分 active vs background。useSocket 一直传 msg.threadId。 */
+  threadId?: string;
 }
 
 function truncate(text: string, maxLength: number): string {
@@ -147,6 +159,13 @@ export function useAgentMessages() {
     requestStreamCatchUp,
     replaceThreadTargetCats,
   } = useChatStore();
+
+  // F173 Phase E: bg-message processing refs (moved from useSocket).
+  // useAgentMessages 现在是 single dispatch entry — 这些 refs 给 background-thread
+  // delegation 用（handleBackgroundAgentMessage 内部的 stream key 追踪 / monotonic seq）。
+  const bgStreamRefsRef = useRef<Map<string, { id: string; threadId: string; catId: string }>>(new Map());
+  const bgFinalizedRefsRef = useRef<Map<string, string>>(new Map());
+  const bgSeqRef = useRef(0);
 
   /**
    * F173 Phase B AC-B1 (integration step 4): activeRefs migrated to ledger.
@@ -852,6 +871,58 @@ export function useAgentMessages() {
 
   const handleAgentMessage = useCallback(
     (msg: AgentMsg) => {
+      // F173 Phase E (KD-1 handler unification): single dispatch entry.
+      // useSocket.ts 不再做 active vs background 路由 — 所有 agent_message 进这里。
+      // 之前 useSocket.ts:485-534 的三段分发逻辑（malformed / active / bg）合并到此。
+      const store = useChatStore.getState();
+      const storeThread = store.currentThreadId;
+      const isActiveThreadMessage = Boolean(msg.threadId && storeThread && msg.threadId === storeThread);
+
+      if (msg.threadId && !isActiveThreadMessage) {
+        // Background thread → delegate to handleBackgroundAgentMessage with bg refs.
+        // Phase E Task 2-5 将把 bg 业务逻辑迁进来后删除此 import + 调用。
+        handleBackgroundAgentMessage(msg as BackgroundAgentMessage, {
+          store,
+          bgStreamRefs: bgStreamRefsRef.current,
+          finalizedBgRefs: bgFinalizedRefsRef.current,
+          nextBgSeq: () => bgSeqRef.current++,
+          addToast: (toast) => useToastStore.getState().addToast(toast),
+          clearDoneTimeout,
+        });
+        return;
+      }
+
+      // Active thread (or malformed missing threadId) — F173 A.5 + A.6 bidirectional
+      // suppression handoff. After callback replace (in either direction), late stream
+      // chunks for that invocation are dropped; without this guard, store's hard-merge
+      // by (catId, invocationId) would overwrite authoritative callback content.
+      if (
+        isActiveThreadMessage &&
+        msg.type === 'text' &&
+        msg.origin !== 'callback' &&
+        msg.invocationId &&
+        msg.threadId &&
+        isInvocationReplaced(msg.threadId, msg.catId, msg.invocationId)
+      ) {
+        recordDebugEvent({
+          event: 'agent_message',
+          threadId: msg.threadId,
+          action: 'drop_active_promotion_late_chunk',
+          timestamp: Date.now(),
+        });
+        // Codex review P1 — clear bgStreamRefs even on dropped chunk so a later
+        // background-handler reactivation (after thread switch away) doesn't reuse
+        // a stale ref to append into an old bubble.
+        clearBackgroundStreamRefForActiveEvent(msg as BackgroundAgentMessage, bgStreamRefsRef.current);
+        return;
+      }
+      // Active path runs handleBackgroundAgentMessage's clearBg defensive cleanup
+      // (matches useSocket.ts pre-Phase E behavior at lines 496/522 — clears stale
+      // bg ref entries left from prior bg activations of the same stream key).
+      if (msg.threadId) {
+        clearBackgroundStreamRefForActiveEvent(msg as BackgroundAgentMessage, bgStreamRefsRef.current);
+      }
+
       // Reset timeout on any message (keeps timer alive during streaming)
       resetTimeout();
 

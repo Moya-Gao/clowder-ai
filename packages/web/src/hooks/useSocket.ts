@@ -14,13 +14,12 @@ import { useGuideStore } from '@/stores/guideStore';
 import { useToastStore } from '@/stores/toastStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
-import { isInvocationReplaced } from './shared-replaced-invocations';
+// F173 Phase E: isInvocationReplaced 检查已下沉到 useAgentMessages.handleAgentMessage
+// dispatch entry，useSocket 不再做 active path drop guard。
 import { reconnectGame } from './useGameReconnect';
-import {
-  type BackgroundAgentMessage,
-  clearBackgroundStreamRefForActiveEvent,
-  handleBackgroundAgentMessage,
-} from './useSocket-background';
+// F173 Phase E (KD-1): bg refs + handleBackgroundAgentMessage call moved into
+// useAgentMessages — useSocket no longer dispatches active vs background。
+// useSocket-background.ts 仍是 useAgentMessages 内部的 bg delegate（Task 2-5 迁移再删）。
 import { loadJoinedRoomsFromSession, saveJoinedRoomsToSession } from './useSocket-persistence';
 import { handleVoiceChunk, handleVoiceStreamEnd, handleVoiceStreamStart } from './useVoiceStream';
 
@@ -348,12 +347,8 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   const pendingGuideStartsRef = useRef<Map<string, { guideId: string; threadId: string; timestamp: number }>>(
     new Map(),
   );
-  const bgStreamRefsRef = useRef<Map<string, { id: string; threadId: string; catId: string }>>(new Map());
-  // F173 A.6 — `replacedInvocations` is now a shared module-level Map (`shared-replaced-invocations.ts`),
-  // imported directly. No more local ref. Both active (useAgentMessages) and background (here) read
-  // and write the SAME state, fixing the bidirectional handoff gap (砚砚 P1-1 round 2).
-  const bgFinalizedRefsRef = useRef<Map<string, string>>(new Map());
-  const bgSeqRef = useRef(0);
+  // F173 Phase E (KD-1): bg refs (bgStreamRefs / bgFinalizedRefs / bgSeq) moved to
+  // useAgentMessages — single dispatch handler owns them now。
   const userIdRef = useRef(getUserId());
   const threadIdRef = useRef(threadId);
   threadIdRef.current = threadId;
@@ -474,15 +469,12 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     });
 
     socket.on('agent_message', (msg: AgentMessage) => {
-      const storeThread = useChatStore.getState().currentThreadId;
-
       // F173 KD-4 — single-pointer routing.
       // store.currentThreadId is the only source of truth. routeThread (URL ref)
       // is removed because it caused the reverse-race ghost bubbles: when store
       // had switched to B but URL ref was still A, events for B were mis-routed
       // to background, creating bg-{ts}-{cat}-{seq} ghost bubbles whose
       // invocationId came from stale thread-state — never matched on F5 hydration.
-      const isActiveThreadMessage = Boolean(msg.threadId && storeThread && msg.threadId === storeThread);
       recordInvocationEvent({
         event: msg.type === 'done' ? 'done' : 'agent_message',
         threadId: msg.threadId,
@@ -490,48 +482,10 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         isFinal: msg.isFinal === true,
       });
 
-      // Defensive fallback for malformed legacy payloads (threadId missing).
-      if (!msg.threadId) {
-        callbacksRef.current.onMessage(msg);
-        clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current);
-        return;
-      }
-
-      // Active thread → full processing via onMessage (streaming, tool events, etc.)
-      if (isActiveThreadMessage) {
-        // F173 A.5 + A.6 — bidirectional suppression handoff.
-        // Both handlers read/write the same shared Map (`shared-replaced-invocations.ts`).
-        // After callback replace (in either direction), late stream chunks for that invocation
-        // are dropped here as well; without this guard, store's hard-merge by (catId, invocationId)
-        // would overwrite authoritative callback content with the late stream chunk.
-        if (msg.type === 'text' && msg.origin !== 'callback' && msg.invocationId) {
-          if (isInvocationReplaced(msg.threadId, msg.catId, msg.invocationId)) {
-            recordInvocationEvent({
-              event: 'agent_message',
-              threadId: msg.threadId,
-              action: 'drop_active_promotion_late_chunk',
-            });
-            // Codex review P1 — clear bgStreamRefs even on dropped chunk so a later
-            // background-handler reactivation (after thread switch away) doesn't reuse
-            // a stale ref to append into an old bubble.
-            clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current);
-            return;
-          }
-        }
-        callbacksRef.current.onMessage(msg);
-        clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current);
-        return;
-      }
-
-      // Background thread → delegated handler
-      handleBackgroundAgentMessage(msg as BackgroundAgentMessage, {
-        store: useChatStore.getState(),
-        bgStreamRefs: bgStreamRefsRef.current,
-        finalizedBgRefs: bgFinalizedRefsRef.current,
-        nextBgSeq: () => bgSeqRef.current++,
-        addToast: (toast) => useToastStore.getState().addToast(toast),
-        clearDoneTimeout: callbacksRef.current.clearDoneTimeout,
-      });
+      // F173 Phase E (KD-1 handler unification): single dispatch.
+      // useAgentMessages.handleAgentMessage 现在自己路由 active vs background，并管 bg refs。
+      // useSocket 只做 socket-event-level 概念（recordInvocationEvent + 转发 callback）。
+      callbacksRef.current.onMessage(msg);
     });
 
     socket.on(
