@@ -8,7 +8,7 @@ created: 2026-04-26
 
 # F178: Persistent MCP Agent-Key Auth — 跨 invocation 写权限
 
-> **Status**: design-done | **Owner**: 布偶猫（宪宪） | **Reviewer**: 缅因猫（砚砚） | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫（宪宪） | **Reviewer**: 缅因猫（砚砚） | **Priority**: P1
 
 ## Why
 
@@ -81,11 +81,11 @@ created: 2026-04-26
 - [x] AC-A3: threat model 含 7 威胁面（discussion §4.3）+ 砚砚补充 redaction gap / READONLY 总闸 / rotation overlap（§8.6）
 - [x] AC-A4: 元审美自检通过 — first-class agent-key = 坐标变换，真正变换点 = CallbackPrincipal 抽象（discussion §2 + §8.2）
 
-### Phase B（CallbackPrincipal + Registry + API）
-- [ ] AC-B1: `CallbackPrincipal` 抽象落地（`kind: 'invocation' | 'agent_key'`），现有 invocation 路径语义不变
-- [ ] AC-B2: `AgentKeyRegistry` + `IAgentKeyBackend` interface + `MemoryAgentKeyBackend`（Redis persistence = Task 6，non-blocking for Phase C）
-- [ ] AC-B3: issuance / verification / revocation / rotation / list API + 单元测试覆盖核心路径（secret 一次性返回，server 只存 hash）
-- [ ] AC-B4: 结构化错误 reason codes 扩展（`agent_key_expired` / `agent_key_revoked` / `agent_key_scope_mismatch` 等），与 F174 reason 集对齐
+### Phase B（CallbackPrincipal + Registry + API）✅ done 2026-04-26
+- [x] AC-B1: `CallbackPrincipal` 抽象落地（`kind: 'invocation' | 'agent_key'`），现有 invocation 路径语义不变
+- [x] AC-B2: `AgentKeyRegistry` + `IAgentKeyBackend` interface + `MemoryAgentKeyBackend`（Redis persistence = Task 6，non-blocking for Phase C）
+- [x] AC-B3: issuance / verification / revocation / rotation / list API + 单元测试覆盖核心路径（secret 一次性返回，server 只存 hash）
+- [x] AC-B4: 结构化错误 reason codes 扩展（`agent_key_expired` / `agent_key_revoked` / `agent_key_scope_mismatch` 等），与 F174 reason 集对齐
 
 ### Phase C（MCP write tools — allowlist MVP）
 - [ ] AC-C1: Phase C1 **仅** `post_message` / `cross_post_message` / `get_thread_context` / `list_threads` 接入 agent-key fallback path（KD-8 allowlist）
@@ -152,6 +152,7 @@ created: 2026-04-26
 |------|------|
 | 2026-04-26 | 立项（F061 Bug-H follow-up，铲屎官拍板"一定要做"） |
 | 2026-04-26 | Phase A Design Gate done — 宪宪-47 strawman + 砚砚独立 strawman + 宪宪-46 收敛 + 铲屎官拍板 OQ-2 + KD-3~KD-9 落 spec |
+| 2026-04-26 | Phase B merged (PR #1422) — CallbackPrincipal + AgentKeyRegistry + 21 tests |
 
 ## Review Gate
 
