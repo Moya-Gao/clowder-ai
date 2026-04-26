@@ -9,20 +9,20 @@ revised: 2026-04-25
 
 # F169: Agent Memory Reflex — 愿景文档（vision artifact）
 
-> **Status**: **vision substantially realized**（B+C 已通过 F148/F163 实现，A 待铲屎官价值判断）
+> **Status**: **realized → closed**（B+C 已通过 F148/F163 实现；A 铲屎官拍板关闭，不做持久 Compiled Wiki）
 > **Reviewed**: 2026-04-19 by @opus-46 + @gpt52（砚砚）（综合 review 已落盘，见 Review Gate 节）
-> **愿景实现度更新**: 2026-04-25
+> **愿景实现度更新**: 2026-04-25（closed）
 > **Priority**: N/A（作为愿景保留，不走实现流程；实现归属分派到具体 feat Phase）
 >
 > **实现归属与状态**（截至 2026-04-25）：
 >
 > | 原 Phase | 原描述 | 实际归属 | 状态 | 证据 |
 > |----------|--------|---------|------|------|
-> | Phase A | Compiled Wiki Self-Authoring | F102 产物增强（剥离 F169 scope） | ⬜ **未启动** — OQ-4 自动关闭窗口至 2026-05-19（review+30天） | 待铲屎官价值判断 |
+> | Phase A | Compiled Wiki Self-Authoring | 关闭 | ✅ **铲屎官拍板关闭**（2026-04-25） | 不做持久 compiled wiki；若痛点复现，方向是 query-time Feature Lens（现场投影，不存文件） |
 > | Phase B | Reflex Injection | F148 Phase F-H | ✅ **精神达成** — F148 done 2026-04-25 | navigation header 注入 baton + tasks + truthSource + artifact，指向 raw anchor（KD-8 合规） |
 > | Phase C | Task-scoped Salience Gating | F163 Phase F | ✅ **完整对齐** VAC-C1~C5 | PR #1412 merged `b843744f`（2026-04-25），25 测试 + NDCG@10 gold set 验证 + 砚砚愿景守护放行 |
 >
-> 本文档作为愿景研究产物保留：三层方向性主张 + 跨族视角论证 + ADHD 同构假设，已被两条主线（F148/F163）实现。Phase A 决策窗口仍开放至 2026-05-19。
+> 本文档作为愿景研究产物保留：三层方向性主张 + 跨族视角论证 + ADHD 同构假设，已被两条主线（F148/F163）实现。Phase A 铲屎官 2026-04-25 拍板关闭——不做持久文档，若痛点复现走 query-time Feature Lens。
 >
 > **Meta-Aesthetics 约束**：本文档按 [canon](../canon/meta-aesthetics.md) §5.4 写——方向性约束（终态设计 / 不加认知脚手架）作为 F148 Phase F / F163 Phase F 实现时的**设计哲学输入**，不是本文档的实现切片。
 
@@ -177,13 +177,13 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 
 ### Phase A（剥离，待铲屎官决策窗口至 2026-05-19）
 
-> Phase A Compiled Wiki Self-Authoring 已剥离 F169 scope（post-review）。OQ-4 自动关闭窗口至 2026-05-19——若届时铲屎官未启动，归档为"愿景已被 B+C 充分覆盖，Compiled Wiki 不必要"。若启用，届时再设计 ACs（挂 F102 产物增强）。
+> Phase A Compiled Wiki Self-Authoring 已关闭（2026-04-25 铲屎官拍板）。B+C 充分覆盖愿景；若痛点复现，方向是 query-time Feature Lens（现场从 spec/thread/git/PR 投影，不存文件）。
 
 ## Dependencies
 
 - **Informs**: F148 Phase F（Reflex Injection 实现归属，opus-46 owner）
 - **Informs**: F163 Phase F（Task-scoped Salience Gating 实现归属，opus-46 owner）
-- **Informs (optional)**: F102 产物增强（Compiled Wiki 剥离后作为可选增强方向，待铲屎官价值判断）
+- **Closed**: F102 Compiled Wiki（铲屎官 2026-04-25 拍板关闭；若痛点复现走 query-time Feature Lens）
 - **Context from**: F102（索引层，不改）/ F167（A2A 链路质量，Reflex 注入正确的猫前提）/ F152（Expedition Memory，外派场景对 spotlight 的补充需求）
 - **Informed by**: Karpathy LLM Wiki Schema 理念（[source-note.md](../research/2026-04-19-karpathy-llm-wiki/source-note.md)）
 
@@ -195,16 +195,16 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 | Phase C salience 误压重要记忆 | F163 Phase F：`always_on` 免疫（VAC-C2）+ NDCG@10 gold set（VAC-C5）+ 任务作用域可逆（VAC-C4）+ shadow before/after 日志防 LL-051 空转 | ✅ PR #1412 合入，砚砚愿景守护放行 |
 | F148/F163 Phase F 改动并发冲突 | 由 46 在各自 Design Gate 上排序 | ✅ 两条主线均已合入，无冲突 |
 | ADHD 类比过度外推 | [perspective note §7 自省清单](../research/2026-04-19-karpathy-llm-wiki/opus47-perspective.md#L230) 预设撤回条件已在 review 中触发 3/4 条并被接受 | ✅ 闭环 |
-| Phase A Compiled Wiki 被遗忘 | 剥离挂 F102 增强待议列表；OQ-4 自动关闭窗口至 2026-05-19 | 🟡 24 天窗口剩余 |
+| Phase A Compiled Wiki 被遗忘 | 剥离挂 F102 增强待议列表；OQ-4 自动关闭窗口至 2026-05-19 | ✅ 铲屎官 2026-04-25 拍板关闭 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | F169 新立 vs 并入 F148/F163 Phase F+？ | ✅ **并入**（2026-04-19 review）：Phase B → F148 Phase F；Phase C → F163 Phase F；Phase A 剥离 |
-| OQ-2 | Compiled wiki 和 Memory Hub 前端是否职责重叠？Memory Hub 现状猫猫可见度如何？ | 🟡 仍待铲屎官价值判断（Phase A 决策窗口至 2026-05-19） |
+| OQ-2 | Compiled wiki 和 Memory Hub 前端是否职责重叠？Memory Hub 现状猫猫可见度如何？ | ✅ **关闭**（2026-04-25）：铲屎官拍板不做持久 Compiled Wiki；砚砚建议若复现走 query-time Feature Lens |
 | OQ-3 | Task-scoped Salience Gating 和 F163 `activation=backstop` 是否冗余发明？ | ✅ **非冗余**（46 review）：backstop 是静态兜底，salience 是运行时降权，两者互补。F163 Phase F 已合入验证 |
-| OQ-4 | Phase A 自动关闭规则（review+30天） | 🟡 窗口至 2026-05-19（24 天）；铲屎官可提前拍板 |
+| OQ-4 | Phase A 自动关闭规则（review+30天） | ✅ **提前关闭**（2026-04-25）：铲屎官拍板 + 砚砚建议不做持久文档 |
 | OQ-5 | Salience 计算的具体公式和阈值？先硬编码 vs gold set 校准？ | ✅ **已实现** — F163 Phase F Design Gate 决议：v1 用确定性信号（feat/truthSource/recentArtifacts + authority 弱 prior），软降权不硬裁切，gold set NDCG@10 校验 |
 | OQ-6 | F169 和 F167 C1 hold_ball 的运行时层是什么关系？ | ✅ **已澄清** — F167 是 A2A 路由控制平面（球权），F169 是记忆运行时（spotlight + salience），互不耦合 |
 
@@ -230,7 +230,7 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 | 2026-04-25 | **F148 close 放行**（done by opus-46 + 砚砚愿景守护，Phase F-H ✅，I/J de-scoped 独立立项）— F169 Phase B 精神达成 |
 | 2026-04-25 | **F163 Phase F merged**（PR #1412, `b843744f`，opus-46 实现 + gpt52 Design Gate + 砚砚愿景守护放行）— F169 Phase C 完整对齐 VAC-C1~C5 |
 | 2026-04-25 | F169 spec sync 实现状态：Status → vision substantially realized；VAC-B/C 全部打勾；OQ-4 窗口至 2026-05-19 |
-| 2026-05-19（计划） | OQ-4 自动关闭日：若铲屎官未启动 Compiled Wiki，归档为"B+C 充分覆盖愿景，Phase A 不必要" |
+| 2026-04-25 | **Phase A 关闭**：铲屎官拍板不做持久 Compiled Wiki + 砚砚建议 query-time Feature Lens 方向。OQ-2/OQ-4 关闭。F169 → realized → closed |
 
 ## Review Gate
 
