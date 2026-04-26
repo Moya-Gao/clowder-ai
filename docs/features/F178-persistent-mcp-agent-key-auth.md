@@ -87,13 +87,13 @@ created: 2026-04-26
 - [x] AC-B3: issuance / verification / revocation / rotation / list API + 单元测试覆盖核心路径（secret 一次性返回，server 只存 hash）
 - [x] AC-B4: 结构化错误 reason codes 扩展（`agent_key_expired` / `agent_key_revoked` / `agent_key_scope_mismatch` 等），与 F174 reason 集对齐
 
-### Phase C（MCP write tools — allowlist MVP）
-- [ ] AC-C1: Phase C1 **仅** `post_message` / `cross_post_message` / `get_thread_context` / `list_threads` 接入 agent-key fallback path（KD-8 allowlist）
-- [ ] AC-C2: **thread-targeted tools**（`post_message` / `cross_post_message` / `get_thread_context`）必须显式 `threadId`，省略 → 400 报错。`list_threads` 是 user-scoped discovery，不需要 `threadId`
-- [ ] AC-C3: server 端 preHandler 通过 `CallbackPrincipal` 双路径分流，失败原因结构化 reason code 透传给 client
+### Phase C（MCP write tools — allowlist MVP）✅ done 2026-04-26
+- [x] AC-C1: Phase C1 **仅** `post_message` / `cross_post_message` / `get_thread_context` / `list_threads` 接入 agent-key fallback path（KD-8 allowlist）
+- [x] AC-C2: **thread-targeted tools**（`post_message` / `cross_post_message` / `get_thread_context`）必须显式 `threadId`，省略 → 400 报错。`list_threads` 是 user-scoped discovery，不需要 `threadId`
+- [x] AC-C3: server 端 preHandler 通过 `CallbackPrincipal` 双路径分流，失败原因结构化 reason code 透传给 client
 - [ ] AC-C4: Bengal secret 注入走 `0600` sidecar file（不放 `mcp_config.json`），capability orchestrator reconcile 链路写入
-- [ ] AC-C5: `CAT_CAFE_READONLY=true` 总闸保留，F178 不解锁 file/shell mutators
-- [ ] AC-C6: 现有 invocation token 主路径无 regression（F174 测试套件全绿）
+- [x] AC-C5: `CAT_CAFE_READONLY=true` 总闸保留，F178 不解锁 file/shell mutators
+- [x] AC-C6: 现有 invocation token 主路径无 regression（F174 测试套件全绿）
 
 ### Phase D（UI + 审计 + telemetry）
 - [ ] AC-D1: Hub 设置面板 "Agent Keys" 页：inventory / rotate / revoke / audit（管理面板，不是审批入口）
@@ -153,6 +153,7 @@ created: 2026-04-26
 | 2026-04-26 | 立项（F061 Bug-H follow-up，铲屎官拍板"一定要做"） |
 | 2026-04-26 | Phase A Design Gate done — 宪宪-47 strawman + 砚砚独立 strawman + 宪宪-46 收敛 + 铲屎官拍板 OQ-2 + KD-3~KD-9 落 spec |
 | 2026-04-26 | Phase B merged (PR #1422) — CallbackPrincipal + AgentKeyRegistry + 21 tests |
+| 2026-04-26 | Phase C merged (PR #1424) — dual-path preHandler + 4-tool allowlist + MCP dual-cred config + 30 new tests |
 
 ## Review Gate
 
