@@ -585,6 +585,17 @@ export class InvocationQueue {
     return batch;
   }
 
+  /** #555: Whether a specific cat has any queued or processing entries in this thread (any source). */
+  hasQueuedOrProcessingForCat(threadId: string, catId: string): boolean {
+    for (const [key, q] of this.queues) {
+      if (!key.startsWith(`${threadId}:`)) continue;
+      if (q.some((e) => (e.status === 'queued' || e.status === 'processing') && e.targetCats.includes(catId))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Whether any user has queued entries for this thread. */
   hasQueuedForThread(threadId: string): boolean {
     for (const [key, q] of this.queues) {
