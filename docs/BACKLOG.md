@@ -61,3 +61,4 @@ created: 2026-02-26
 | F174 | Callback Auth Lifecycle & Resilience — D2b-2 placement 二次否决（reopened），rev2 待实施 Hub button badge merge | in-progress | 布偶猫 | internal | [F174](features/F174-callback-auth-lifecycle.md) |
 | F175 | Unified Message Queue — 优先级排序 + 用户可控编排（urgent bypass 收口）| spec | @mindfn (community) | community [#575](https://github.com/zts212653/clowder-ai/pull/575) | [F175](features/F175-unified-message-queue.md) |
 | F177 | 前端 Event Handler 统一 — active + background 合并到 thread-aware useAgentMessages（KD-1 收尾） | stub | TBD | internal | [F177](features/F177-frontend-event-handler-unification.md) |
+| F178 | Persistent MCP Agent-Key Auth — 跨 invocation 写权限（F061 Bug-H follow-up） | spec | 布偶猫 | internal | [F178](features/F178-persistent-mcp-agent-key-auth.md) |

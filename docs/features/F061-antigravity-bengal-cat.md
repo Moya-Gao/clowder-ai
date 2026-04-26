@@ -75,7 +75,7 @@ Cat Cafe AgentRouter
 - [x] AC-4: `cat-config.json` 可注册孟加拉猫（provider: `antigravity`）— CatProvider 类型 + Zod enum + switch case
 - [x] AC-5: `AntigravityAgentService` 实现 `AgentService` 接口 — mock CDP 注入 + 6 tests
 - [x] AC-6: AgentRouter 可路由消息到 Antigravity 并获取流式回复 — registration test 验证通过
-- [ ] AC-7: 图片生成结果可在 Hub 前端展示（F060 rich block 联动）
+- [x] AC-7: 图片生成结果可在 Hub 前端展示（F060 rich block 联动）— **F172 Phase C 实现**（`scanAndPublishAntigravityBrainImages` 接 publication contract → `/uploads/...` + `media_gallery`）
 
 ### Phase 1.5: ConnectRPC Bridge 架构替换 ✅ COMPLETE
 - [x] AC-B1: 用 ConnectRPC/gRPC 协议替换 CDP DOM hack（LanguageServerService RPC）
@@ -149,7 +149,7 @@ G10 Model Capacity Resilience ← G1 分类框架 + Bug-7 fatal dedup 基础上
 - [x] AC-C7: poll 循环内检查 AbortSignal（G7）
 
 #### Phase 2b: 证据链 + 高级能力 + 长期演进
-- [ ] AC-8: Antigravity 截图/录屏可作为证据附件回传
+- [x] AC-8: Antigravity 截图/录屏可作为证据附件回传 — **复用现有 rich block 体系**（`cat_cafe_create_rich_block` 发 `media_gallery` / `image`，与其他猫一致；铲屎官 2026-04-26 拍板"和你们一样上传就行"）
 - [ ] AC-9: 多模型切换可通过 Cat Cafe 配置控制（由 AC-C5 动态发现支撑）
 - [ ] AC-10: 与现有三猫回归测试共跑通过
 - [ ] AC-C8: Durable TurnLedger — 跨重启持久化 turn 状态 + 补偿恢复 + 审计回放（G8b，G8a 稳定后）
