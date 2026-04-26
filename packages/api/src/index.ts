@@ -1252,6 +1252,7 @@ async function main(): Promise<void> {
     queueProcessor,
     ...(f101GameStore ? { gameStore: f101GameStore } : {}),
     ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
+    holdBallCancelDeps: { dynamicTaskStore, taskRunner: taskRunnerV2 },
   };
   await app.register(messagesRoutes, messagesOpts);
   await app.register(queueRoutes, {
@@ -1428,6 +1429,7 @@ async function main(): Promise<void> {
       dynamicTaskStore,
       messageStore,
       socketManager,
+      threadStore,
     },
   } as Parameters<typeof callbacksRoutes>[1];
   await app.register(callbacksRoutes, callbackOpts);

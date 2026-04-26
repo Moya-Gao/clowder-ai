@@ -20,8 +20,10 @@ import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskSt
 import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
 import type { TaskTemplate } from '../infrastructure/scheduler/templates/types.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
+import { resolveUserId } from '../utils/request-identity.js';
 import { requireCallbackAuth } from './callback-auth-prehandler.js';
 import { deriveCallbackActor } from './callback-scope-helpers.js';
+import { executeHoldCancel, findHoldBallTask } from './hold-ball-cancel.js';
 
 const log = createModuleLogger('routes/callback-hold-ball');
 
@@ -82,6 +84,7 @@ export interface HoldBallRouteDeps {
   dynamicTaskStore: DynamicTaskStore;
   messageStore: IMessageStore;
   socketManager: SocketManager;
+  threadStore: { get(threadId: string): { createdBy: string } | null | Promise<{ createdBy: string } | null> };
 }
 
 export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldBallRouteDeps): void {
@@ -221,6 +224,7 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
 
     const wakeAtStr = new Date(fireAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
     const holdMessage = `🏓 ${catIdStr} 持球中 — ${reason}。预计 ${wakeAtStr} 唤醒，下一步：${nextStep}`;
+    const holdSource = { ...HOLD_BALL_SOURCE, meta: { taskId } };
     try {
       const stored = await messageStore.append({
         userId: 'system',
@@ -229,7 +233,7 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
         mentions: [],
         timestamp: Date.now(),
         threadId,
-        source: HOLD_BALL_SOURCE,
+        source: holdSource,
       });
       socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
         threadId,
@@ -237,7 +241,7 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
           id: stored.id,
           type: 'connector',
           content: stored.content,
-          source: HOLD_BALL_SOURCE,
+          source: holdSource,
           timestamp: stored.timestamp,
         },
       });
@@ -268,5 +272,62 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
       windowMs: HOLD_WINDOW_MS,
       wakeAt: new Date(fireAt).toISOString(),
     };
+  });
+
+  app.delete<{ Params: { taskId: string } }>('/api/callbacks/hold-ball/:taskId', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Unauthorized' };
+    }
+
+    const { taskId } = request.params;
+    const task = findHoldBallTask(taskId, dynamicTaskStore);
+    if (!task) {
+      reply.status(404);
+      return { error: 'Hold task not found or not a hold-ball task' };
+    }
+
+    const threadId = task.deliveryThreadId;
+    if (threadId) {
+      const thread = await deps.threadStore.get(threadId);
+      if (!thread || (thread.createdBy !== userId && thread.createdBy !== 'system')) {
+        reply.status(403);
+        return { error: 'Not authorized to cancel holds in this thread' };
+      }
+    }
+
+    executeHoldCancel(task, { dynamicTaskStore, taskRunner });
+    const catId = task.createdBy?.replace('hold-ball:', '') ?? 'unknown';
+    log.info({ taskId, threadId, catId, userId }, 'F167 Phase J: hold_ball cancelled by user');
+
+    if (threadId) {
+      try {
+        const cancelMessage = `🏓 ${catId} 持球已取消`;
+        const stored = await messageStore.append({
+          userId: 'system',
+          catId: null,
+          content: cancelMessage,
+          mentions: [],
+          timestamp: Date.now(),
+          threadId,
+          source: HOLD_BALL_SOURCE,
+        });
+        socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+          threadId,
+          message: {
+            id: stored.id,
+            type: 'connector',
+            content: stored.content,
+            source: HOLD_BALL_SOURCE,
+            timestamp: stored.timestamp,
+          },
+        });
+      } catch (err) {
+        log.warn({ taskId, threadId, err }, 'F167 Phase J: failed to post hold cancel visibility message');
+      }
+    }
+
+    return { status: 'ok', cancelled: true, taskId };
   });
 }

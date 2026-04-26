@@ -606,15 +606,15 @@ cat_cafe_hold_ball({
 
 #### J-1 — Hold Ball Cancel（前端 + 后端）
 
-- [ ] AC-J1: 后端：`DELETE /api/callbacks/hold-ball/:taskId` 端点 — unregister timer + remove dynamic task + 返回取消确认
-- [ ] AC-J2: 前端：ConnectorBubble 持球通知附带 Cancel 按钮，点击调用 DELETE 端点
-- [ ] AC-J3: Cancel 后 emit system_info / connector_message（"持球已取消"）
+- [x] AC-J1: 后端：`DELETE /api/callbacks/hold-ball/:taskId` 端点 — unregister timer + remove dynamic task + 返回取消确认（+ resolveUserId auth guard，砚砚 R1 P1 修复）
+- [x] AC-J2: 前端：ConnectorBubble 持球通知附带 Cancel 按钮，点击调用 DELETE 端点
+- [x] AC-J3: Cancel 后 emit system_info / connector_message（"持球已取消"）
 
 #### J-2 — 用户消息自动失效 Pending Hold
 
-- [ ] AC-J4: 后端：用户在 thread 发新消息时，检查该 thread 是否有 pending hold task → 自动 unregister + remove（语义：用户已改变 thread 方向，旧 hold wake 不再有效）
-- [ ] AC-J5: 自动取消后 log + 不发前端通知（静默失效，避免噪音）
-- [ ] AC-J6: 测试覆盖：用户消息触发取消 / 系统消息不触发 / 无 pending hold 时 no-op
+- [x] AC-J4: 后端：用户在 thread 发新消息时，检查该 thread 是否有 pending hold task → 自动 unregister + remove（砚砚 R1 P1 修复：queue + TOCTOU + immediate 三路径全覆盖）
+- [x] AC-J5: 自动取消后 log + 不发前端通知（静默失效，避免噪音）
+- [x] AC-J6: 测试覆盖：用户消息触发取消 / 系统消息不触发 / 无 pending hold 时 no-op
 
 ### Phase K（47 风格适配 Design Gate — 2026-04-25 立项，需独立 Design Gate）
 
@@ -724,5 +724,5 @@ cat_cafe_hold_ball({
 | 铲屎官 2026-04-23 | 猫猫倾向 @landy 做最安全默认，铲屎官变决策瓶颈 | AC-D5~D7 | ✅ Phase D |
 | 铲屎官 2026-04-25 | 47 写"我持球"但未调 hold_ball MCP（虚空持球） | AC-I1~I3 | ✅ Phase I |
 | 47 采访 2026-04-25 | 加法纠错让 47 越改越 verbose，需减法措辞 | AC-I4~I5 | ✅ Phase I |
-| 铲屎官 2026-04-25 | 持球没 cancel 按钮 / 用户消息不取消 hold wake | AC-J1~J6 | ⬜ Phase J |
+| 铲屎官 2026-04-25 | 持球没 cancel 按钮 / 用户消息不取消 hold wake | AC-J1~J6 | ✅ Phase J |
 | 铲屎官 + 砚砚 2026-04-25 | 47 风格适配需 Design Gate（audit/surface 分层 + repair 落地） | AC-K1~K6 | ⬜ Phase K |

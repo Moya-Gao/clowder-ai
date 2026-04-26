@@ -1023,7 +1023,7 @@
     {
       "id": "F163",
       "name": "Memory Entropy Reduction — 记忆熵减与知识生命周期治理",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-04-26",
       "file": "F163-memory-entropy-reduction.md"
     },
     {

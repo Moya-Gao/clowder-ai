@@ -83,6 +83,8 @@ interface StreamingHookLike {
 import { normalizeErrorMessage } from '../utils/normalize-error.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { buildGameSeats, parseGameCommand, sanitizeCatIds } from './game-command-interceptor.js';
+import type { HoldBallCancelDeps } from './hold-ball-cancel.js';
+import { cancelPendingHoldsForThread } from './hold-ball-cancel.js';
 import { sendMessageSchema } from './messages.schema.js';
 import { parseMultipart } from './parse-multipart.js';
 
@@ -119,9 +121,26 @@ export interface MessagesRoutesOptions {
   outboundHook?: OutboundDeliveryHookLike;
   /** F088 ISSUE-15: Streaming hook for connector platforms (late-bound after gateway bootstrap) */
   streamingHook?: StreamingHookLike;
+  /** F167 Phase J: deps for auto-cancelling pending hold-ball tasks on user message */
+  holdBallCancelDeps?: HoldBallCancelDeps;
 }
 
 const log = createModuleLogger('routes/messages');
+
+function tryAutoCancelPendingHolds(threadId: string, deps: HoldBallCancelDeps | undefined): void {
+  if (!deps) return;
+  try {
+    const cancelled = cancelPendingHoldsForThread(threadId, deps);
+    if (cancelled.length > 0) {
+      log.info(
+        { threadId, cancelledCount: cancelled.length, taskIds: cancelled.map((t) => t.id) },
+        'F167 Phase J: auto-cancelled pending hold-ball tasks on user message',
+      );
+    }
+  } catch (err) {
+    log.warn({ threadId, err }, 'F167 Phase J: failed to auto-cancel pending holds');
+  }
+}
 
 const getMessagesSchema = z.object({
   limit: z.coerce.number().int().min(1).max(10000).default(50),
@@ -496,6 +515,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         action: enqueueResult.outcome,
       });
 
+      tryAutoCancelPendingHolds(resolvedThreadId, opts.holdBallCancelDeps);
+
       reply.status(202);
       return {
         status: 'queued',
@@ -605,6 +626,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               queue: opts.invocationQueue.list(resolvedThreadId, userId),
               action: enqueueResult.outcome,
             });
+            tryAutoCancelPendingHolds(resolvedThreadId, opts.holdBallCancelDeps);
             reply.status(202);
             return {
               status: 'queued',
@@ -709,6 +731,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         userMessageId: storedUserMessage.id,
         timestamp: Date.now(),
       });
+
+      tryAutoCancelPendingHolds(resolvedThreadId, opts.holdBallCancelDeps);
 
       // ⑤ Background: execute cat invocation via routeExecution
       void (async () => {
