@@ -56,24 +56,77 @@ describe('F167 Phase I AC-I1: hasHoldTextClaim', () => {
   });
 });
 
+const base = {
+  toolNames: [],
+  lineStartMentions: [],
+  structuredTargetCats: [],
+  hasCoCreatorLineStartMention: false,
+};
+
 describe('F167 Phase I AC-I1: shouldWarnVoidHold', () => {
-  test('warns when text says hold but no tool call', () => {
-    assert.equal(shouldWarnVoidHold('我持球等云端 codex review', ['mcp__cat-cafe__cat_cafe_post_message']), true);
+  test('warns when text says hold but no tool call and no exit', () => {
+    assert.equal(
+      shouldWarnVoidHold({
+        ...base,
+        text: '我持球等云端 codex review',
+        toolNames: ['mcp__cat-cafe__cat_cafe_post_message'],
+      }),
+      true,
+    );
   });
 
   test('does not warn when hold_ball tool was called', () => {
-    assert.equal(shouldWarnVoidHold('我持球等云端 codex review', ['mcp__cat-cafe__cat_cafe_hold_ball']), false);
+    assert.equal(
+      shouldWarnVoidHold({
+        ...base,
+        text: '我持球等云端 codex review',
+        toolNames: ['mcp__cat-cafe__cat_cafe_hold_ball'],
+      }),
+      false,
+    );
   });
 
   test('does not warn when text has no hold claim', () => {
-    assert.equal(shouldWarnVoidHold('review 完成 LGTM', []), false);
+    assert.equal(shouldWarnVoidHold({ ...base, text: 'review 完成 LGTM' }), false);
   });
 
   test('does not warn on empty text', () => {
-    assert.equal(shouldWarnVoidHold('', []), false);
+    assert.equal(shouldWarnVoidHold({ ...base, text: '' }), false);
   });
 
   test('accepts provider-wrapped hold_ball tool name', () => {
-    assert.equal(shouldWarnVoidHold('我持球中', ['mcp__cat-cafe-collab__cat_cafe_hold_ball']), false);
+    assert.equal(
+      shouldWarnVoidHold({ ...base, text: '我持球中', toolNames: ['mcp__cat-cafe-collab__cat_cafe_hold_ball'] }),
+      false,
+    );
+  });
+
+  // P1 fix: legitimate exit exemptions (砚砚 review)
+  test('does not warn when line-start @mention exists (already passing ball)', () => {
+    assert.equal(
+      shouldWarnVoidHold({ ...base, text: '我不持球，直接传球\n@opus', lineStartMentions: ['opus'] }),
+      false,
+    );
+  });
+
+  test('does not warn when structured targetCats exist', () => {
+    assert.equal(
+      shouldWarnVoidHold({ ...base, text: '这不是持球，是把球传给 reviewer', structuredTargetCats: ['codex'] }),
+      false,
+    );
+  });
+
+  test('does not warn when co-creator mention exists (@landy)', () => {
+    assert.equal(
+      shouldWarnVoidHold({ ...base, text: '我不持球，升级给铲屎官\n@landy', hasCoCreatorLineStartMention: true }),
+      false,
+    );
+  });
+
+  test('still warns when hold text present but exits are all empty', () => {
+    assert.equal(
+      shouldWarnVoidHold({ ...base, text: '我持球等一下', lineStartMentions: [], structuredTargetCats: [] }),
+      true,
+    );
   });
 });

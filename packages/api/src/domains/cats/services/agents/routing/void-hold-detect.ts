@@ -38,8 +38,19 @@ function hasHoldBallToolCall(toolNames: readonly string[]): boolean {
   return toolNames.some((name) => name.includes('cat_cafe_hold_ball'));
 }
 
-export function shouldWarnVoidHold(text: string, toolNames: readonly string[]): boolean {
-  if (!hasHoldTextClaim(text)) return false;
-  if (hasHoldBallToolCall(toolNames)) return false;
+export interface VoidHoldInput {
+  readonly text: string;
+  readonly toolNames: readonly string[];
+  readonly lineStartMentions: readonly string[];
+  readonly structuredTargetCats: readonly string[];
+  readonly hasCoCreatorLineStartMention?: boolean;
+}
+
+export function shouldWarnVoidHold(input: VoidHoldInput): boolean {
+  if (!hasHoldTextClaim(input.text)) return false;
+  if (hasHoldBallToolCall(input.toolNames)) return false;
+  if (input.lineStartMentions.length > 0) return false;
+  if (input.structuredTargetCats.length > 0) return false;
+  if (input.hasCoCreatorLineStartMention) return false;
   return true;
 }

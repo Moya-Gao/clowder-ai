@@ -983,7 +983,15 @@ export async function* routeSerial(
 
         // F167 Phase I AC-I1 (KD-25): void hold detection — text says "持球" but
         // no cat_cafe_hold_ball tool call this turn.声明-动作一致性 check.
-        if (shouldWarnVoidHold(storedContent, collectedToolNames)) {
+        if (
+          shouldWarnVoidHold({
+            text: storedContent,
+            toolNames: collectedToolNames,
+            lineStartMentions: a2aMentions,
+            structuredTargetCats: [...structuredTargetCats],
+            hasCoCreatorLineStartMention: storedContent ? detectUserMention(storedContent) : false,
+          })
+        ) {
           try {
             const hintSource = {
               connector: 'void-hold-hint',
@@ -996,8 +1004,8 @@ export async function* routeSerial(
               catId: null,
               threadId,
               content:
-                '检测到持球声明但未调用 hold_ball MCP。' +
-                '文字声明不会设定唤醒计时器——请实际调用 `cat_cafe_hold_ball` 完成持球，或改为传球。',
+                '[持球提醒]: 检测到持球声明但未调用 hold_ball MCP — ' +
+                '文字声明不会设定唤醒计时器，请调用 `cat_cafe_hold_ball` 完成持球或改为传球。',
               mentions: [],
               timestamp: Date.now(),
               source: hintSource,
