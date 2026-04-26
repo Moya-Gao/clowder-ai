@@ -565,6 +565,7 @@ cat_cafe_hold_ball({
 | 2026-04-25 | 47 采访：4 个定向问题（反直觉规则 / "完整"定义 / 最想要的 harness 适配 / 与 4.6 差异）。47 自述核心差异："prove-to-the-reader vs trust-the-reader"。铲屎官拍板"harness 适配 47 风格，不是让 47 改风格" |
 | 2026-04-25 | 砚砚 review I/J/K 闭环计划：同意"别再一个小点一个小点补"；修正 K-1 不做 @ intent extraction（违反 KD-24）；I-3 蓝色 JSON 不归 F167（mixed scope）。KD-25/26 落定 |
 | 2026-04-25 | Phase I/J/K 写入 spec，从 Phase I 开工 |
+| 2026-04-25 | Phase I done（AC-I1~I7 ✅）— void-hold-detect.ts + 减法措辞 + warning 统一 pattern。砚砚首轮 P1 reject（缺合法出口豁免），fix commit `4a4f0d30a` 加 VoidHoldInput 接口（lineStartMentions / structuredTargetCats / coCreatorMention），砚砚二轮 approve。17/17 test green |
 | 2026-04-23 | Phase E reopened from monitoring：F172 愿景守护 @gemini 被 L3 误拦（action="合入"因 storedContent 上文含 merge 历程）；铲屎官定性"硬编码 + 过度设计"——要求退役 L3 + cat-config restrictions 数据驱动双端注入（发送方队友名册 + 目标猫 self-awareness）；KD-20 落定，AC-E1~E8 定稿待实现 |
 | 2026-04-24 | Phase E merged (PR #1360, `f8efcf46d`) — AC-E1~E8 全绿。8 commit（4 feat + 1 test + 3 chore）-735 净行数（删 role-gate.ts + 3 测试文件 + 2 调用点）+ cat-config schema 扩展 + 双端 prompt 注入；gpt52 review 首轮放行 `c967b59d0`（两个非阻塞：scrub 死注释 + 删 unused import 已顺手修），云端 Codex 零 P1/P2 "Hooray"；rebase 遇 F061 pre-existing 修复冲突 → skip 冗余 commit 后 clean merge；204/204 ping-pong + system-prompt-builder + cat-config-loader 绿。Status: monitoring |
 
@@ -583,22 +584,21 @@ cat_cafe_hold_ball({
 
 #### I-1 — 虚空持球检测
 
-- [ ] AC-I1: post-generation 检查：若猫回复文本含「持球」/「hold ball」/「hold_ball」关键词且本轮 tool_calls 不含 `cat_cafe_hold_ball` → emit `system_info` 警告（"检测到持球声明但未调用 hold_ball MCP，请实际调用工具完成持球"）
-- [ ] AC-I2: 关键词匹配仅限裸词（排除 fenced code / blockquote / URL 结构），复用 Phase H 结构剥离逻辑
-- [ ] AC-I3: 测试覆盖：真虚空持球命中 / 有 tool call 不命中 / code fence 内不命中 / 叙述引用不命中
+- [x] AC-I1: post-generation 检查：若猫回复文本含「持球」/「hold ball」/「hold_ball」关键词且本轮 tool_calls 不含 `cat_cafe_hold_ball` → emit `system_info` 警告（"检测到持球声明但未调用 hold_ball MCP，请实际调用工具完成持球"）。含合法出口豁免（lineStartMentions / structuredTargetCats / coCreatorMention），砚砚 P1 review 修
+- [x] AC-I2: 关键词匹配仅限裸词（排除 fenced code / blockquote / URL 结构），复用 Phase H 结构剥离逻辑
+- [x] AC-I3: 测试覆盖：真虚空持球命中 / 有 tool call 不命中 / code fence 内不命中 / 叙述引用不命中 / 合法出口不命中（4 个 P1 fix Red tests）— 17/17 green
 
 #### I-2 — 减法纠错 prompt
 
-- [ ] AC-I4: 审视所有 harness 生成的 system_info / warning / repair 文案，将加法措辞改为减法措辞：
-  - ping-pong 终止通知：不说"添加实质工作"，说"停止无实质内容的往复"
-  - verdict-no-pass 警告：不说"请添加传球动作"，说"结论后直接传球，不要停在结论"
-  - routing-syntax-hint：不说"请在行首添加 @"，说"把 @ 移到行首独立一行"
-- [ ] AC-I5: 减法措辞不改变语义，只改表达方式。review 时对照原文确认等价
+- [x] AC-I4: 审视所有 harness 生成的 system_info / warning / repair 文案，将加法措辞改为减法措辞：
+  - verdict-no-pass 警告：`[球权提醒]: 结论后直接传球，不要停在结论 — 末尾加一行行首 @句柄 或调用 cat_cafe_hold_ball。`
+  - routing-syntax-hint：`[路由语法]: {mentions} 写在行中不会触发路由 — 把 @句柄 移到最后一行行首独立一行即可。`
+- [x] AC-I5: 减法措辞不改变语义，只改表达方式。砚砚 review 确认等价
 
 #### I-3 — Warning 文案统一
 
-- [ ] AC-I6: 全部 system_info 消息遵循统一 pattern：`[类型]: [一句话描述] — [一句话修复指引]`
-- [ ] AC-I7: 中文为主，术语保留英文（`hold_ball`、`@`、`tool call`）
+- [x] AC-I6: 全部 system_info 消息遵循统一 pattern：`[类型]: [一句话描述] — [一句话修复指引]`（routing-syntax-hint / verdict-no-pass-hint / void-hold-hint 三处已统一）
+- [x] AC-I7: 中文为主，术语保留英文（`hold_ball`、`@`、`tool call`）
 
 ### Phase J（Hold Ball UX / 生命周期闭环 — 2026-04-25 立项）
 
@@ -722,7 +722,7 @@ cat_cafe_hold_ball({
 | 铲屎官 2026-04-19 | 球权管理 skill 化（各猫贡献踩坑经验） | OQ-5 | ✅ 现不做（KD-15），踩坑经验先入 refs |
 | 铲屎官 2026-04-23 | Streak breaker 误杀正经 review（不看 tool_call） | AC-D1~D4 | ✅ Phase D |
 | 铲屎官 2026-04-23 | 猫猫倾向 @landy 做最安全默认，铲屎官变决策瓶颈 | AC-D5~D7 | ✅ Phase D |
-| 铲屎官 2026-04-25 | 47 写"我持球"但未调 hold_ball MCP（虚空持球） | AC-I1~I3 | ⬜ Phase I |
-| 47 采访 2026-04-25 | 加法纠错让 47 越改越 verbose，需减法措辞 | AC-I4~I5 | ⬜ Phase I |
+| 铲屎官 2026-04-25 | 47 写"我持球"但未调 hold_ball MCP（虚空持球） | AC-I1~I3 | ✅ Phase I |
+| 47 采访 2026-04-25 | 加法纠错让 47 越改越 verbose，需减法措辞 | AC-I4~I5 | ✅ Phase I |
 | 铲屎官 2026-04-25 | 持球没 cancel 按钮 / 用户消息不取消 hold wake | AC-J1~J6 | ⬜ Phase J |
 | 铲屎官 + 砚砚 2026-04-25 | 47 风格适配需 Design Gate（audit/surface 分层 + repair 落地） | AC-K1~K6 | ⬜ Phase K |
