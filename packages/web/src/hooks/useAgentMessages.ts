@@ -1998,15 +1998,10 @@ export function useAgentMessages() {
           // #558: Only use the callback's own invocationId — don't fall back to
           // getCurrentInvocationIdForCat which risks matching a newer invocation's bubble.
           const invocationId = msg.invocationId;
-          // ⚠️ DO NOT TOUCH the narrow guards in findInvocationlessRichPlaceholder:
-          // - Drop `content.trim() === 0` and a stale callback can eat a different
-          //   in-flight invocation's placeholder after text already started streaming.
-          // - Drop the rich/tool guard and empty placeholders created by stream setup
-          //   get reclaimed before the real callback arrives, re-splitting bubbles.
-          // - Drop the stream.invocationId write-back below and F5 hydration loses
-          //   the identity binding, letting the ghost bubble come back after refresh.
+          // #558 R1: explicit invocationId must NOT fall back to invocationless placeholder —
+          // the placeholder may belong to a newer invocation.
           const replacementTarget = invocationId
-            ? (findCallbackReplacementTarget(msg.catId, invocationId) ?? findInvocationlessRichPlaceholder(msg.catId))
+            ? findCallbackReplacementTarget(msg.catId, invocationId)
             : findInvocationlessStreamPlaceholder(msg.catId);
 
           if (replacementTarget) {

@@ -431,17 +431,18 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     // #555: Include queueProcessor.isThreadBusy() to cover the gap between one
     // invocation ending (tracker cleared) and the next starting from queue
     // (tracker not yet registered). Without this, messages slip past as 'immediate'.
+    const queueBusy = opts.queueProcessor?.isThreadBusy(resolvedThreadId) ?? false;
     const hasActive = (() => {
-      if (!opts.invocationTracker) return false;
+      if (!opts.invocationTracker) return queueBusy;
       if (whisperVisibility === 'whisper' && primaryCat !== 'unknown') {
-        return opts.invocationTracker.has(resolvedThreadId, primaryCat);
+        return opts.invocationTracker.has(resolvedThreadId, primaryCat) || queueBusy;
       }
       if (hasMentions) {
-        return targetCats.some((cat) => cat !== 'unknown' && opts.invocationTracker!.has(resolvedThreadId, cat));
+        return (
+          targetCats.some((cat) => cat !== 'unknown' && opts.invocationTracker!.has(resolvedThreadId, cat)) || queueBusy
+        );
       }
-      return (
-        opts.invocationTracker.has(resolvedThreadId) || (opts.queueProcessor?.isThreadBusy(resolvedThreadId) ?? false)
-      );
+      return opts.invocationTracker.has(resolvedThreadId) || queueBusy;
     })();
     const mode = deliveryMode ?? (hasActive ? 'queue' : 'immediate');
     log.debug({ threadId: resolvedThreadId, targetCats, intent: intent.intent, mode, hasActive }, 'Dispatch decision');

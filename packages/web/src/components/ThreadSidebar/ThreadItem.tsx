@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { useIMEGuard } from '@/hooks/useIMEGuard';
 import type { ThreadState } from '@/stores/chat-types';
-import { API_URL } from '@/utils/api-client';
+import { apiFetch } from '@/utils/api-client';
 // F174 D2b-2 (rev): per-cat callback-auth dot was rejected (铲屎官 alpha 反馈
 // "莫名其妙的颜色" — 16px participant avatars lacked any affordance). Status now
 // surfaces system-level via <CallbackAuthHealthIndicator /> in ChatContainerHeader,
@@ -220,7 +220,7 @@ export function ThreadItem({
               onClick={async (e) => {
                 e.stopPropagation();
                 try {
-                  const res = await fetch(`${API_URL}/api/export/thread/${id}?format=md`);
+                  const res = await apiFetch(`/api/export/thread/${id}?format=md`);
                   if (!res.ok) return;
                   const blob = await res.blob();
                   const url = URL.createObjectURL(blob);
