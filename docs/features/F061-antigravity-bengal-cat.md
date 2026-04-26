@@ -198,14 +198,14 @@ G10 Model Capacity Resilience ← G1 分类框架 + Bug-7 fatal dedup 基础上
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
 | R1 | "他是独立的！人家还有两只布偶猫可以用呢" — 独立家族，不是暹罗猫替代 | AC-4 | cat-config 注册验证 | [x] |
-| R2 | "antigravity 他的猫猫是真的能够生成图片的，这才是我一直想要接入的原因" | AC-7 | 图片生成 → Hub 展示 e2e | [ ] |
-| R3 | "他能够录视频 截图" — 证据链能力 | AC-8 | 截图/录屏回传验证 | [ ] |
+| R2 | "antigravity 他的猫猫是真的能够生成图片的，这才是我一直想要接入的原因" | AC-7 | 图片生成 → Hub 展示 e2e | [x] **F172 Phase C 实现** — Antigravity 图片产物接同一个 generated-image publication contract（`scanAndPublishAntigravityBrainImages` 扫 `~/.gemini/antigravity/brain/<cascadeId>/`），与砚砚生图统一走 `/uploads/...` + `media_gallery` rich block 落 thread |
+| R3 | "他能够录视频 截图" — 证据链能力 | AC-8 | 截图/录屏回传验证 | [x] **复用现有富文本体系** — Bengal 在 invocation 内通过 `cat_cafe_create_rich_block` 发 `media_gallery`/`image` 上传截图录屏，与其他猫一致；铲屎官 2026-04-26 拍板"和你们一样上传就行"无需独立证据链通道 |
 | R4 | CDP 桥可行性（社区已验证） | AC-1, AC-2, AC-3 | spike 验证 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
-- [ ] 前端需求已准备需求→证据映射表（Phase 1 时补）
+- [x] R2/R3 通过 F172（图片）+ 现有 rich block 体系闭环（2026-04-26 铲屎官确认）
 
 ---
 
