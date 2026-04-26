@@ -108,12 +108,7 @@ describe('CatAvatar callback-auth status dot (F174 D2b-2)', () => {
     await act(async () => {
       root.render(
         <div data-testid="parent-row" onClick={() => parentClicks.push(1)}>
-          <CatAvatar
-            catId="opus"
-            size={48}
-            callbackAuthStatus="broken"
-            onCallbackAuthClick={() => dotClicks.push(1)}
-          />
+          <CatAvatar catId="opus" size={48} callbackAuthStatus="broken" onCallbackAuthClick={() => dotClicks.push(1)} />
         </div>,
       );
     });

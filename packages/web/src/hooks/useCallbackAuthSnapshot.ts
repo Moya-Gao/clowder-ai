@@ -110,41 +110,44 @@ export function useCallbackAuthSnapshot(options: Options = {}): UseCallbackAuthS
   // requires a page reload (acceptable trade-off given single-user setup).
   const authBlockedRef = useRef(false);
 
-  const fetchAndReschedule = useCallback(async (generation: number) => {
-    try {
-      const res = await apiFetch('/api/debug/callback-auth');
-      if (generationRef.current !== generation) return; // unmounted / disabled mid-flight
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        if (generationRef.current !== generation) return;
-        setError(body.error ?? `HTTP ${res.status}`);
-        if (res.status === 401 || res.status === 403) {
-          authBlockedRef.current = true;
+  const fetchAndReschedule = useCallback(
+    async (generation: number) => {
+      try {
+        const res = await apiFetch('/api/debug/callback-auth');
+        if (generationRef.current !== generation) return; // unmounted / disabled mid-flight
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          if (generationRef.current !== generation) return;
+          setError(body.error ?? `HTTP ${res.status}`);
+          if (res.status === 401 || res.status === 403) {
+            authBlockedRef.current = true;
+          }
+        } else {
+          const data = (await res.json()) as CallbackAuthSnapshot;
+          if (generationRef.current !== generation) return;
+          setSnapshot(data);
+          setError(null);
+          authBlockedRef.current = false;
         }
-      } else {
-        const data = (await res.json()) as CallbackAuthSnapshot;
+      } catch (err) {
         if (generationRef.current !== generation) return;
-        setSnapshot(data);
-        setError(null);
-        authBlockedRef.current = false;
+        setError(err instanceof Error ? err.message : 'fetch failed');
+      } finally {
+        if (generationRef.current === generation) {
+          setLoading(false);
+        }
       }
-    } catch (err) {
+      // Reschedule next poll unless: (a) we've been invalidated by cleanup, OR
+      // (b) the latch has flipped — non-owner sessions then sit idle.
       if (generationRef.current !== generation) return;
-      setError(err instanceof Error ? err.message : 'fetch failed');
-    } finally {
-      if (generationRef.current === generation) {
-        setLoading(false);
+      if (authBlockedRef.current) return;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (pollIntervalMs > 0) {
+        timerRef.current = setTimeout(() => void fetchAndReschedule(generation), pollIntervalMs);
       }
-    }
-    // Reschedule next poll unless: (a) we've been invalidated by cleanup, OR
-    // (b) the latch has flipped — non-owner sessions then sit idle.
-    if (generationRef.current !== generation) return;
-    if (authBlockedRef.current) return;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (pollIntervalMs > 0) {
-      timerRef.current = setTimeout(() => void fetchAndReschedule(generation), pollIntervalMs);
-    }
-  }, [pollIntervalMs]);
+    },
+    [pollIntervalMs],
+  );
 
   useEffect(() => {
     if (!enabled) {

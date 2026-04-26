@@ -8,7 +8,7 @@ created: 2026-04-25
 
 # F176: Native CLI Assistant-Speech vs CLI-Stdout 渲染语义分离
 
-> **Status**: ❌ REVERTED 2026-04-26 | **Owner**: 布偶猫（Opus-47） | **Priority**: P1（已撤销）
+> **Status**: done (reverted) | ❌ REVERTED 2026-04-26 | **Owner**: 布偶猫（Opus-47） | **Priority**: P1（已撤销）
 >
 > **Reverted**: 铲屎官 2026-04-26 01:05 否决 ——
 > 1. **完全理解错原 bug**：原始问题 thread_mnux2eewbo4otg17 是"前端连他们的头像、CLI thinking 什么都看不到"——整个 ChatMessage 组件没渲染（DOM 缺失）。F176 把它误诊为"内容被折叠"，做了 messageRole 分流。**修了一个不存在的 bug，没修真 bug**。

@@ -170,6 +170,7 @@ function GuideOverlayInner() {
       cancelAnimationFrame(rafId);
       observer.disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally watching specific sub-properties to avoid re-measuring on unrelated step changes
   }, [
     currentStep?.id,
     currentStep?.advance,

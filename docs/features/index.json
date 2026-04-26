@@ -1101,7 +1101,7 @@
     {
       "id": "F176",
       "name": "Native CLI Assistant-Speech vs CLI-Stdout 渲染语义分离",
-      "status": "done | **Completed**: 2026-04-25 | **Owner**: 布偶猫（Opus-47, sonnet-4.6 接力 R4） + 缅因猫（GPT-5.5 R1-R4 cross-family review + GPT-5.4 vision guardian） | **Priority**: P1",
+      "status": "done (reverted) | ❌ REVERTED 2026-04-26 | **Owner**: 布偶猫（Opus-47） | **Priority**: P1（已撤销）",
       "file": "F176-native-cli-assistant-speech-rendering.md"
     }
   ]
