@@ -8,9 +8,15 @@ created: 2026-04-22
 
 # F173: 前端 Thread-Runtime State 统一（消除 dual write-path & liveness fragmentation）
 
-> **Status**: done (realized → closed 2026-04-26) | **Owner**: 布偶猫 | **Priority**: P0
+> **Status**: reopened 2026-04-26 11:30 (was closed 07:30) | **Owner**: 布偶猫 | **Priority**: P0
 >
-> **Closure 2026-04-26 07:30**: 主线愿景达成 (KD-2 mirror invariant 全收口：read 选 selector / writer 自动 mirror flat / hydration 单一入口 / liveness reconcile 走 thread-scoped writer / cli-resolve 缓存自维护)。7 PR 闭环：#1347 Phase A → #1379 hotfix3 → #1391 Phase B-3 fixture → #1399 PR-A1 → #1400 PR-A2 → #1405 PR-A → #1411 PR-B Task 9 → #1413 PR-B-2 → #1416 PR-C → #1417 Phase D。AC-B2 (handler unification) deferred → **F177 (`docs/features/F177-frontend-event-handler-unification.md`) 接棒** — gpt52 愿景守护 P1: defer 必须留可点开的 follow-up anchor，不能只是注释。
+> **Reopen reason 2026-04-26 11:30**: 铲屎官 push back — "F177 stub 是 follow-up 话术包装，debt = never，TD = never，检查出来没完成的为什么不直接闭环？"。原 close 时把 deferred AC-B2 (handler unification) 抽出去开 F177 stub 的做法被识别为**虚假闭环**：feat 没真完成，只是把没完成的部分藏到一个新的 stub spec 文件里。**reopen，handler unification 必须做完才真闭环**。F177 stub 已删。
+>
+> **What 还没做**: KD-1 handler unification — `handleBackgroundAgentMessage` (~500 行 useSocket-background.ts) 业务逻辑迁移到 thread-aware `useAgentMessages`，消除 active vs background event handler 双路径。新增 Phase E AC-E1/E2 见下文。
+>
+> **PR 链 (主线已 merged)**：#1347 Phase A → #1379 hotfix3 → #1391 Phase B-3 fixture → #1399 PR-A1 → #1400 PR-A2 → #1405 PR-A → #1411 PR-B Task 9 → #1413 PR-B-2 → #1416 PR-C → #1417 Phase D → 🚧 Phase E 待开 (handler unification)。
+>
+> **闭环 closed 2026-04-26 07:30 段已撤销**（保留 Closure 时的 attempt 描述供 audit trail）：~~主线愿景达成 (KD-2 mirror invariant 全收口...)。AC-B2 (handler unification) deferred → F177 接棒 — gpt52 愿景守护 P1: defer 必须留可点开的 follow-up anchor~~ — 这套话术被铲屎官 11:30 识破，handler unification 是没完成不是 deferred，stub anchor 是 follow-up 包装不是真闭环。
 >
 > **Phase A merged 2026-04-23 (PR #1347, squash 3feae9563)**：mirror invariant + 单指针 routing + deterministic bubble id + invocation-driven suppression cleanup（含 fail-open）。Phase B/C/D 留 follow-up PR。
 >
@@ -126,7 +132,7 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。
 
 ### Phase B（runtime refs 收口 + background 瘦身）
 - [ ] AC-B1: 所有 runtime refs 合并为 `Map<threadId, ThreadRuntimeRefs>`（active/finalized/replaced/sawStreamData/pendingTimeoutDiag/timeoutHandle/lastTouched），保持 runtime-only
-- [ ] AC-B2: ~~`useSocket-background.ts` 缩为 ≤ 30 行 shim~~ ~~**重新规划 2026-04-25**: end-state 是 0 行（删除整文件），不留 shim~~ — **再次重新规划 2026-04-26 (deferred / re-scoped → F177 接棒)**: 后续工作真相源 = `docs/features/F177-frontend-event-handler-unification.md` (stub spec, P1)。PR-D 开工前实地审计发现 plan 假设错了。`recoverStreamingMessage` / `ensureBackgroundAssistantMessage` / `shouldSuppressLateBackgroundStreamChunk` / `markThreadInvocationActive/Complete` 不是 Phase C 后才 dead 的，它们是 `handleBackgroundAgentMessage` 的内部 helper，被 ~500 行 live business logic（active→bg stream 恢复 / callback replacement / late chunk suppression / tool placeholder / toast/status）调用。Phase C 关闭了 **writer 端**双路径（KD-2 mirror invariant），但 **event handler 端**（active 走 useAgentMessages.onMessage / background 走 handleBackgroundAgentMessage）仍是双实现。删整文件需要把 background handler 业务逻辑迁到 thread-aware useAgentMessages，是真正的 KD-1 handler unification 改动，不是 cleanup，单独立项再做。Phase C 主线（read 收口 + writer 收口 + hydration 收口 + liveness 收口）至此完成。
+- [ ] AC-B2: ~~`useSocket-background.ts` 缩为 ≤ 30 行 shim~~ ~~**重新规划 2026-04-25**: end-state 是 0 行（删除整文件），不留 shim~~ ~~**再次重新规划 2026-04-26 (deferred / re-scoped → F177 接棒)**~~ — **2026-04-26 11:30: F177 stub 撤销，handler unification 直接做，归到 Phase E (AC-E1/E2)**。PR-D 开工实地审计揭示 `handleBackgroundAgentMessage` (~500 行) 不是 dead code，是 active live runtime path；删整文件等价于 KD-1 handler unification。把它抽到 F177 stub 是话术包装，铲屎官 push back: debt = never。归到 Phase E 直接做。`recoverStreamingMessage` / `ensureBackgroundAssistantMessage` / `shouldSuppressLateBackgroundStreamChunk` / `markThreadInvocationActive/Complete` 不是 Phase C 后才 dead 的，它们是 `handleBackgroundAgentMessage` 的内部 helper，被 ~500 行 live business logic（active→bg stream 恢复 / callback replacement / late chunk suppression / tool placeholder / toast/status）调用。Phase C 关闭了 **writer 端**双路径（KD-2 mirror invariant），但 **event handler 端**（active 走 useAgentMessages.onMessage / background 走 handleBackgroundAgentMessage）仍是双实现。删整文件需要把 background handler 业务逻辑迁到 thread-aware useAgentMessages，是真正的 KD-1 handler unification 改动，不是 cleanup，单独立项再做。Phase C 主线（read 收口 + writer 收口 + hydration 收口 + liveness 收口）至此完成。
 - [ ] AC-B3: GC 三规则就位（delete 硬删 / done+empty 立刻删 / setCurrentThread+reconnect sweep idle）
 - [ ] AC-B4: thread switch 不再触发 ghost bubble（fixture 验证）— **重新规划 2026-04-25**: fixture 抽出作为 pre-Phase C 独立小 PR（B-3 fixture）由宪宪 own，给 Phase C 大改动提供回归基础设施。**Fixture 已 merged via PR #1391 (squash `94180b490`, 2026-04-25 09:42)**：3 条 invariant 锁定（routing isolation / concurrent isolation / terminal correctness），Phase C 改 hydration 时此 fixture 必须保持绿。AC-B4 完整闭合（含真实 race window 修复）等 Phase C。
 
@@ -159,6 +165,10 @@ F081 Risk #1 早已预言："**写路径分散导致修复互相覆盖**"。
 ### Phase D（cli-resolve 防腐）
 - [x] AC-D1: `cli-resolve.ts` 双管齐下：缓存命中时 `existsSync(cached)` 自维护 + 导出 `invalidateCliCommand(commandOrPath)` 显式信号（cli-spawn 的 ENOENT handler 自动调用，by-key 和 by-resolved-path 都支持） — PR #1417
 - [x] AC-D2: 单测覆盖"binary 删除后自愈" + "invalidate by absolute path"（双路径都钉） — PR #1417
+
+### Phase E（KD-1 handler unification — reopen 后新增）
+- [ ] AC-E1: `useSocket-background.ts:handleBackgroundAgentMessage` 业务逻辑 (~500 行 stream/callback/error/toast/late-suppression/cat-status) 迁到 thread-aware `useAgentMessages`；`useSocket.ts:485-534` 的 `if (isActiveThreadMessage) ... else handleBackgroundAgentMessage(...)` 双路径合并为单一 thread-aware handler 调用
+- [ ] AC-E2: 5 场景 fixture 复用 PR #1391/#1413/#1416 已有 + 新增 cross-thread message handoff fixture（确保 active→bg→active 切换时 stream key 追踪 / callback replacement / late chunk suppression 不裂）。F173 PR #1418 a2a_handoff hotfix 的 marker-gated insert 在 unified handler 中验证可简化（hotfix 自己注释提到这一点）
 
 ## Dependencies
 
