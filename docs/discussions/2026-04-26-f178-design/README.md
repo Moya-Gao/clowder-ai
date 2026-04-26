@@ -186,12 +186,14 @@ issued → active → (rotated → grace → expired) | revoked | expired
 | # | 状态 | 结论 | 依据 |
 |---|------|------|------|
 | OQ-1 | ✅ 两猫一致 | **per-cat-per-user**，route 级 thread 语义保留 | 宪宪 + 砚砚独立得出同一结论；砚砚补充：不是 blanket cross-thread，invocation-scoped route 仍绑 thread |
-| OQ-2 | ✅ **铲屎官拍板** | **默认全开，不需要审批**。猫注册即有写权限。Hub 做统一权限管理面板（查看/撤销/溯源），不是审批入口 | 铲屎官 2026-04-26 原话："为啥要点开启啊？难道不是默认大家都开启吗？" + "社区小伙伴问的最多的问题就是如何给宪宪砚砚开启 yolo 模式" → 用户痛点是减少限制，不是增加审批 |
+| OQ-2 | ✅ **铲屎官拍板** | **默认全开，不做逐猫审批**。但范围仅限**进入 persistent writeback 模式的猫**；不是“所有猫都新增一套长期 credential”。F178 里的 Hub 只做 **agent-key inventory / revoke / audit**，不是跨 provider 的 YOLO/sandbox 总开关 | 铲屎官 2026-04-26 原话："为啥要点开启啊？难道不是默认大家都开启吗？" + "社区小伙伴问的最多的问题就是如何给宪宪砚砚开启 yolo 模式" → 用户痛点是减少限制，不是增加审批；同时他也明确提示：如果以后做 Hub 权限总开关，那应该改 Claude/Codex 系统配置，那是**另一层 feature**，不该和 F178 agent-key 混写 |
 | OQ-3 | 🔧 猫猫自决 | **Redis 6398/6399 + hash + 客户端 0600 sidecar file**（不放 mcp_config.json） | 两猫一致 Redis+hash；砚砚 push 客户端 sidecar file，宪宪-46 采纳（mcp_config.json 易泄漏） |
 | OQ-4 | 🔧 猫猫自决 | **45d TTL + rotation API + ≤24h overlap + 实时 revocation** | 砚砚 push 30-45d（blast radius），宪宪-46 取中 45d；7d grace 无必要（capability orchestrator 自动改配置） |
-| OQ-5 | 🔧 猫猫自决 | **Phase C1 走 allowlist MVP**（`post_message` / `cross_post_message` / `get_thread_context` / `list_threads`），后续按 auth shape 逐个审 | 砚砚 push back"全开 + deny list"，按 auth shape 分三类（invocation-only / user-scoped / richer writeback），宪宪-46 采纳 |
+| OQ-5 | 🔧 猫猫自决 | **Phase C1 走 allowlist MVP**（`post_message` / `cross_post_message` / `get_thread_context` / `list_threads`），后续按 auth shape 逐个审。**补充 guard**：agent-key 路径下凡是 thread-targeted tool 都必须显式给 `threadId`，省略时直接报错，不猜“当前 thread” | 砚砚 push back"全开 + deny list"，按 auth shape 分三类（invocation-only / user-scoped / richer writeback），宪宪-46 采纳；显式 `threadId` 是避免把 agent-key principal 又偷偷退化回“伪当前 invocation” |
 | OQ-6 | ⏳ 后置 | 降级为显示规则，Phase A 不阻塞。后续拉烁烁定 | 两猫一致后置 |
 | 架构补充 | 🔧 猫猫自决 | **Phase B 先引入 `CallbackPrincipal`**（`kind: 'invocation' | 'agent_key'`），不把 agent-key 硬塞 `InvocationRecord` | 砚砚提出，宪宪-46 采纳——这是 F178 真正的坐标变换点 |
+
+> **Scope boundary reminder**：F178 解决的是 persistent MCP callback writeback 的长期身份问题，不解决 Claude/Codex provider 自身的 sandbox / YOLO / full-permission 开关。后者如果要进 Hub，应单独立 feature，改各 provider 的系统配置入口。
 
 ## 6. 收敛流程
 
