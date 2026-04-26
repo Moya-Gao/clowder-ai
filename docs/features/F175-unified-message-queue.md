@@ -13,7 +13,7 @@ intake_source: clowder-ai#575
 >
 > **Inbound source**: [clowder-ai#575](https://github.com/zts212653/clowder-ai/pull/575)
 > **Original tag**: clowder-ai 仓内编号为 F169（unified-queue-design）
-> **Rename reason**: cat-cafe 本地 F169 已被 `agent-memory-reflex` vision 文档占用，同号不同物会污染 search_evidence（参见 `feedback_fake_feat_anchor_is_poison`）。intake 时整篇 rename 为 F175。
+> **Rename reason**: cat-cafe 本地 F169 已被 `agent-memory-reflex` vision 文档占用，同号不同物会污染 search_evidence（参见 `feedback_fake_feat_anchor_is_poison`）。已要求 mindfn 在 PR #575 源头完成 F169 → F175 rename（maintainer 决策，supersede 前一轮 #564 comment 中"clowder-ai 可保留 F169"的口径）。
 >
 > **Fixes**: clowder-ai#564 — urgent connector 消息不再通过 bypass 抢占 A2A 链，改走队列内优先级排序。
 
@@ -78,12 +78,7 @@ bypass 不与 queue 共享排序/容量/可观测性逻辑，是"两套独立系
 
 ## Intake 操作清单（cat-cafe 侧）
 
-- [ ] 在 cat-cafe intake worktree 上 rename 所有 `F169` → `F175`：
-  - commit message
-  - 测试文件名（`queue-integration-f169.test.js` → `queue-integration-f175.test.js`）
-  - 计划文档（`f169-phase-a-implementation.md` → `f175-phase-a-implementation.md`）
-  - decision（`023-f169-queue-final-design.md` → `023-f175-queue-final-design.md`）
-  - spec 内任何 `F169` 字符引用
+- [ ] 确认 mindfn 已在 PR #575 源头完成 F169 → F175 rename（maintainer 决策已发 PR comment）
 - [ ] BACKLOG + index.json 加入口（本 PR 同步）
 - [ ] 跨家族 review（缅因猫优先）
 - [ ] merge 后愿景守护（非 author 非 reviewer 的猫）
