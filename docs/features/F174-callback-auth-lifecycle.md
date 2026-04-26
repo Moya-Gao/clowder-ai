@@ -8,7 +8,7 @@ created: 2026-04-23
 
 # F174: Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级与可观测
 
-> **Status**: in-progress (reopened) | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1 | **Reopened**: 2026-04-26 (D2b-2 placement 二次否决)
+> **Status**: in-progress (rev2 merged, awaiting alpha re-验收) | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1 | **Reopened**: 2026-04-26 (D2b-2 placement 二次否决) | **rev2 merged**: 2026-04-26 via PR #1419
 >
 > **Phase A**: ✅ merged 2026-04-23 via PR #1359
 > **Phase B**: ✅ merged 2026-04-24 via PR #1363
@@ -18,10 +18,10 @@ created: 2026-04-23
 > **Phase F**: ✅ merged 2026-04-25 via PR #1388
 > **Phase D2a (backend)**: ✅ merged 2026-04-25 via PR #1393 (byCat counter + 24h ring buffer)
 > **Phase D2b-1 (in-context surface)**: ✅ merged 2026-04-25 via PR #1397 (squash `74ea5ebec`)
-> **Phase D2b-2 (system-level health indicator, rev)**: ✅ merged 2026-04-26 via PR #1410 (squash `41bf612c8`) — original PR #1403 per-cat dot 形态被 alpha 验收否决，rev 改成 top-bar plug SVG indicator
+> **Phase D2b-2 (system-level health indicator, rev2)**: ✅ merged 2026-04-26 via PR #1419 (squash `0a202dad1`) — HubButton badge merge after rev0 (per-cat dot, PR #1403/#1410 否决) + rev1 (standalone plug indicator, PR #1419 否决) two alpha rejections
 > **Phase D2b-3 (deep-dive stats card)**: ✅ merged 2026-04-25 via PR #1403 (squash `b59eff071`)
 >
-> **F174 D2b 三层"明厨亮灶"模型完整落地** — D2b-1 现场富块 + D2b-2 system-level plug indicator + D2b-3 stats deep-dive。
+> **F174 D2b 三层"明厨亮灶"模型完整落地** — D2b-1 现场富块 + D2b-2 HubButton badge merge (复用通知 mental model，零 top-bar 增量) + D2b-3 stats deep-dive。
 
 ## Why
 
@@ -325,10 +325,10 @@ interface CallbackTool<T> {
   - **D2b-1 in-context 富块**（P0 · 现场层）— ✅ merged 2026-04-25 via PR #1397
     - [x] AC-D4: thread 内 callback auth 失败时，server post 一条 card 富块 (`meta.kind='callback_auth_failure'`)，使用 `CALLBACK_AUTH_SOURCE` connector，前端通过 `CallbackAuthFailureBlock` 渲染 amber 边框 + reason badge + tool/cat/when + 详情/重试(disabled, pending D2b-3/follow-up)/隐藏类似消息
     - [x] AC-D5: dedup 实现：5-tuple `(reason, tool, catId, threadId, userId)` 5min 窗口去重；"隐藏类似消息" 按钮 → POST `/api/debug/callback-auth/hide-similar` 触发 24h opt-out；`stale_invocation` / `unknown_invocation` / `missing_creds` 不 surface in-context；dedup map 自动 prune 过期 entry；race-window-safe (synchronous slot reservation before async append)
-  - **D2b-2 system-level health indicator**（P0 · 实体层 — twice revised after alpha 反馈）— PR #1403 (rev0 per-cat dot) → PR #1410 (rev1 standalone plug indicator) → PR #1419 (rev2 HubButton badge merge)
-    - **当前形态（rev2，PR #1419 待合）**：HubButton badge merge — `HubButton.tsx` 内部加 `useCallbackAuthAggregate` + `useCallbackAuthAvailable` hooks；24h failures > 0 时右上角渲染 amber/red 数字 badge（0 失败 = 无 badge，top-bar 视觉零增量）；click without badge = `openHub()` default，click with badge = `openHub('observability', 'callback-auth')` deep-link to D2b-3。复用 GitHub/iOS 通知 badge mental model，无新增 top-bar 图标
-    - [ ] AC-D6 (rev2): 系统级 affordance merge 进 HubButton (top-bar 现有 entity)，复用 GitHub/iOS 通知 badge mental model；非 owner 不渲染；不在 top-bar 增加新图标
-    - [ ] AC-D7 (rev2): HubButton 24h failures > 0 时右上角显示 amber/red 数字 badge（0 失败 = 无 badge，top-bar 视觉零增量）；点 HubButton 进入 observability tab → callback auth subtab (per-invocation nonce 保留 deep-link 行为)
+  - **D2b-2 system-level health indicator**（P0 · 实体层 — twice revised after alpha 反馈）— PR #1403 (rev0 per-cat dot) → PR #1410 (rev1 standalone plug indicator) → PR #1419 (rev2 HubButton badge merge ✅ merged)
+    - **当前形态（rev2）**：HubButton badge merge — `HubButton.tsx` 内部加 `useCallbackAuthAggregate` + `useCallbackAuthAvailable` hooks；24h failures > 0 时右上角渲染 amber/red 数字 badge（0 失败 = 无 badge，top-bar 视觉零增量）；click without badge = `openHub()` default，click with badge = `openHub('observability', 'callback-auth')` deep-link to D2b-3。复用 GitHub/iOS 通知 badge mental model，无新增 top-bar 图标
+    - [x] AC-D6 (rev2): 系统级 affordance merge 进 HubButton (top-bar 现有 entity)，复用 GitHub/iOS 通知 badge mental model；非 owner 不渲染；不在 top-bar 增加新图标
+    - [x] AC-D7 (rev2): HubButton 24h failures > 0 时右上角显示 amber/red 数字 badge（0 失败 = 无 badge，top-bar 视觉零增量）；点 HubButton 进入 observability tab → callback auth subtab (per-invocation nonce 保留 deep-link 行为)
     - ~~rev0 形态（已 revert via #1410）~~：ThreadItem 参与者 16px avatar 角上 colored dot。被铲屎官 alpha 验收 #1 否决（"莫名其妙的颜色"——头像角点缺 affordance/legend，用户没有 mental model 把"红点"和"callback auth"对应起来）。CatAvatar dot props 保留以备后用，但默认调用点不再启用
     - ~~rev1 形态（已 revert via #1419）~~：独立 `<CallbackAuthHealthIndicator />` 在 ChatContainerHeader top-bar 加专属 plug SVG 图标 + badge。被铲屎官 alpha 验收 #2 否决（"top 栏位置宝贵，plug 图标冗余"——affordance 修对了但 placement 又错，top-bar 是稀缺位）。整组件 + 测试在 #1419 删除
     - HubCallbackAuthPanel 内部的 affected-cats roster 仍使用 `<CallbackAuthCatAvatar>` (48px + "AFFECTED CATS" 文本 affordance)，那是 panel-internal context，用户主动打开后明确知道"这是 callback auth 数据"
@@ -444,7 +444,8 @@ interface CallbackTool<T> {
 | 2026-04-26 01:53 | **Phase D2b-2 revision merged via PR #1410** (squash `41bf612c8`)。铲屎官 alpha 验收否决了原 PR #1403 的 per-cat 头像角点 UX ("莫名其妙的颜色"——头像角点缺 affordance/legend)。**根本反思**：spec 错把"实体层"理解成"每只猫一个 dot"，实际 callback-auth 是 system-level entity 不是 cat-level；猫头像 16px 永远 too small + 没有用户 mental model。修法：撤回 ThreadItem dot，新增 top-bar `<CallbackAuthHealthIndicator />`——专属 plug SVG（不用 emoji 按铲屎官明确指示）+ 24h failure badge（gray=无失败记录/quiet, amber=1-5, red=6+）+ click 直达 D2b-3。砚砚 2 轮 review (factual tooltip 不 overclaim health + click affordance 必须有回归测试) + cloud Codex 0 P1/P2。**教训**：信号设计要附 affordance；"放在哪里"和"用户能 parse 吗"是 information design 问题，不只是 wider 部署问题。CallbackAuthCatAvatar 组件保留供 HubCallbackAuthPanel 内部 roster 使用，那里有 "AFFECTED CATS" 文本 affordance，context 明确。新增 7 indicator vitest（含 click event spy + SVG-not-emoji guard），0 regression |
 | 2026-04-26 02:30 | **F174 close 尝试**。愿景守护 = 同族不同个体 @opus (布偶猫 4.6) — 9/9 证物对照表全部 ✅ + housekeeping (OQ-7 标 resolved) + action item (AC-F5 deadline 2026-05-08 立 reminder agent `dyn-1777169563926-zk529h`)。三猫家族 (布偶 opus-47 + 缅因 gpt52 + 布偶 opus 4.6) + cloud Codex multi-round 全签收。反思胶囊见 `docs/reflections/2026-04-26-f174-callback-auth-capsule.md`。**注**：本次 close 未通过 alpha 验收，下一行 reopen |
 | 2026-04-26 08:30 | **F174 reopened — D2b-2 placement 二次否决**。铲屎官 alpha 验收 top 栏：「你们这前端展示图标丢在这里有点冗余吧？上方的这些位置很宝贵的，好像没必要展示在top 栏」+ 截图（top 栏已有 7 图标：⬇️ 🎧 📡 ☀️ 🔌 ⚙️ ⬜，plug 是第 5 位 visual noise）。**根因**：D2b-2 rev affordance 修对了（plug SVG 自带 mental model），但 placement 又错——top 栏本来就拥挤。三方案讨论（A=Hub button badge merge / B=conditional 显示 / C=完全移除实体层）→ 铲屎官 explicit 选 A：撤回 top 栏独立 plug 图标，把 callback auth failure badge merge 进 Hub button（复用 GitHub/iOS 通知 badge mental model），24h 0 失败 = 无 badge（top 栏视觉零增量），> 0 失败 = Hub button 角标显示数字。Status: done → in-progress (reopened)。Phase D2b-2 rev2 待实施 |
-| 2026-04-26 08:50 | **D2b-2 rev2 PR #1419 opened** (branch `feat/f174-d2b-2-rev2`，commit `a63b29ae9`)。实施铲屎官选定的方案 A：HubButton badge merge。变更：(1) `HubButton.tsx` 加 `useCallbackAuthAggregate` + `useCallbackAuthAvailable` hooks + badge logic（24h 0=无 badge / 1-5=amber / ≥6=red / >99=99+ cap）+ click semantics（无 badge=`openHub()` default / 有 badge=`openHub('observability', 'callback-auth')` deep-link）；(2) `ChatContainerHeader.tsx` 移除 `<CallbackAuthHealthIndicator />` import + 用法；(3) `CallbackAuthHealthIndicator.tsx` + 测试整组件删除；(4) 新增 `HubButton.test.tsx` 8 vitest 覆盖 badge behavior + click 语义 + SVG-not-emoji guard。Tests: 8/8 新增 + web 全套件 354/354 test files / 2528/2528 tests pass，0 regression；biome clean。砚砚 P2: spec 同步残留（本次提交后修复）。等 cloud Codex review + merge-gate |
+| 2026-04-26 08:50 | **D2b-2 rev2 PR #1419 opened** (branch `feat/f174-d2b-2-rev2`，commit `a63b29ae9`)。实施铲屎官选定的方案 A：HubButton badge merge。变更：(1) `HubButton.tsx` 加 `useCallbackAuthAggregate` + `useCallbackAuthAvailable` hooks + badge logic（24h 0=无 badge / 1-5=amber / ≥6=red / >99=99+ cap）+ click semantics（无 badge=`openHub()` default / 有 badge=`openHub('observability', 'callback-auth')` deep-link）；(2) `ChatContainerHeader.tsx` 移除 `<CallbackAuthHealthIndicator />` import + 用法；(3) `CallbackAuthHealthIndicator.tsx` + 测试整组件删除；(4) 新增 `HubButton.test.tsx` 8 vitest 覆盖 badge behavior + click 语义 + SVG-not-emoji guard。Tests: 8/8 新增 + web 全套件 354/354 test files / 2528/2528 tests pass，0 regression；biome clean。砚砚 P2: spec 同步残留（已 fix in `a91243a7c`）。pnpm gate auto-rebase 带入 `f8ec49b1a` (F173 status normalize 解 backlog-missing pre-existing) → SHA `173996c6c`。砚砚 SHA continuity 放行延续。云端 Codex review: "Didn't find any major issues. Keep it up!" — 0 P1/P2 |
+| 2026-04-26 08:54 | **Phase D2b-2 rev2 merged via PR #1419** (squash `0a202dad1`)。AC-D6/D7 ✅。三猫家族 + cloud Codex multi-round review 全签收。教训沉淀：「affordance × placement × legend × **scarcity-of-realestate**」四件套——top-bar 是稀缺位，每个新增 icon 都要先问"能不能 merge 进现有 entity"。**待**：alpha 验收 plug→Hub badge merge 体感 → 如 OK 则 attempt feat-lifecycle close #2 |
 
 ## Review Gate
 

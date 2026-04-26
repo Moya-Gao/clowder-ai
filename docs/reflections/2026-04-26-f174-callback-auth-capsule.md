@@ -16,7 +16,8 @@ created: 2026-04-26
 ## What Failed
 
 - **D2b-2 spec 错把"实体层"理解为 cat-level entity**：实际 callback-auth 是 system-level subsystem 不是 cat-level，但 spec 写"每只猫 avatar 角上 status dot"。Per-cat dot 在 ThreadItem 16px avatar 上永远 too small + 没有用户 mental model 把"红点"和"callback auth"对应起来。Alpha 验收 18:08 才发现："莫名其妙的颜色...你还差一层啊"。
-- **信号设计三件套缺一**：affordance（用户能不能 parse 这个信号）+ placement（放在哪里能被发现）+ legend（颜色/形状/位置的语义在哪里学）—— D2b-2 原版只解决了 placement（wider 部署），没解决 affordance（plug 图标 + 24h 数量 badge）和 legend（hover tooltip + click 直达 deep-dive panel）。
+- **信号设计三件套缺一**：affordance（用户能不能 parse 这个信号）+ placement（放在哪里能被发现）+ legend（颜色/形状/位置的语义在哪里学）—— D2b-2 原版（rev0 per-cat dot）只解决了 placement（wider 部署），没解决 affordance（plug 图标 + 24h 数量 badge）和 legend（hover tooltip + click 直达 deep-dive panel）。
+- **三件套修对了还不够 — placement × scarcity 是第四维度**（D2b-2 rev1 → rev2 二次否决教训）：rev1 加了独立 plug SVG indicator（affordance ✓ legend ✓），但 placement 选了 top-bar 第 5 位，被铲屎官 alpha 验收 #2 否决"top 栏位置宝贵"。**top-bar 是稀缺位**，每个新增 icon 都要先问"能不能 merge 进现有 entity 的 badge slot"。最终 rev2 把 badge merge 进 HubButton（GitHub/iOS 通知 mental model），实现 0 增量 + 满足 affordance — placement 粒度从"加新 icon"细化到"复用现有 entity 的次要属性"。
 - **需求点 Checklist (R1-R6) 立项时没追踪状态**：留到 close 才补勾。中间 Phase merge 时 Phase 文档同步是有的（merge-gate Step 7.5），但需求点级别的状态滚动没自动化。
 
 ## Trigger Missed
@@ -36,6 +37,7 @@ created: 2026-04-26
 
 ## Rule Update Target
 
-- `cat-cafe-skills/refs/in-context-observability-checklist.md` — 加新必检项：「信号设计 = affordance × placement × legend，三者缺一不可。affordance 自检：去掉所有外部解释（spec/legend/tooltip），用户能从信号本身 parse 出含义吗？」
-- `cat-cafe-skills/refs/in-context-observability-checklist.md` — 加新必检项：「实体层 = 用户可 mental model 锚点的最小粒度，不是技术 entity 粒度。callback-auth = 1 个 system-level entity，不是 N 个 per-cat entity」
+- `cat-cafe-skills/refs/in-context-observability-checklist.md` — 加新必检项：「信号设计 = affordance × placement × legend × **scarcity-of-realestate**，四件套缺一不可。affordance 自检：去掉所有外部解释（spec/legend/tooltip），用户能从信号本身 parse 出含义吗？scarcity 自检：top-bar 是稀缺位，新增 icon 前先问'能不能 merge 进现有 entity 的 badge slot'（GitHub/iOS 通知范式）」
+- `cat-cafe-skills/refs/in-context-observability-checklist.md` — 加新必检项：「实体层 = 用户可 mental model 锚点的最小粒度，不是技术 entity 粒度。callback-auth = 1 个 system-level entity，不是 N 个 per-cat entity；优先复用现有 entity 的次要属性（badge / status dot），不增加新 icon」
 - `cat-cafe-skills/feat-lifecycle/SKILL.md` Completion 段 — 加新步骤：「Step 4.5（建议）：扫描所有 AC 的硬 deadline 字段，触发 `/schedule` 立 one-time reminder agent。如果有任何 `deadline = YYYY-MM-DD` 文字未被自动化兜底，BLOCK close」
+- `cat-cafe-skills/feat-lifecycle/SKILL.md` Step 0 守护 — 加新步骤：「UI/UX 类 feature close 前**必须** alpha 验收 plug indicator / status badge 等视觉信号在真实环境效果，不只看 spec/test/screenshot — F174 D2b 经历两次 alpha 否决证明纯静态评估不足以发现 placement 问题」
