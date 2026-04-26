@@ -248,26 +248,46 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 
 **核心问题**：Phase A-E 的元数据是**静态**的。validated authority 文档在所有任务中都 boost，即使和当前任务无关（例：做 F169 时 F088 Chat Gateway 的 decision 也排前面）。需要一个运行时维度，让搜索结果感知"当前在做什么"。
 
-**方案**（来源：F169 愿景约束 VAC-C1~C5，opus-47 提出，opus-46 方向认可）：
-- 扩展 `activation` 体系，新增运行时 `salience` 维度
-- `salience = f(authority, relevance_to_task, recency_in_thread)`，当 relevance 低于阈值时降权
-- `criticality=high` 的铁律级知识**不参与 gating**（P0 铁律永远在场，对齐 KD-7）
-- Salience gating 是可逆的任务作用域降权，不是删除
+**前置条件（全部已满足 ✅）**：
+- F163 Phase A-E ✅ — 多轴元数据 + 压缩 + 审计 + authority backfill + confidence=f(rank)
+- F148 Phase F ✅ — Intent + Baton Context（`extractBatonContext` + `summarizeActiveTasks`，猫知道"我在做什么任务"）
+- F148 Phase G ✅ — Goal & Grounding（真相源排序 + `best-next-source`，猫知道"该先看哪个文档"）
+- F148 Phase H ✅ — Artifact Tracking（确定性追踪改动的 artifact）
 
-**与 F148 的协作**：F148 Phase F（Reflex Injection / memory spotlight）做"加相关"，F163 Phase F 做"减无关"——同一运行时层的正反面。
+**方案**（来源：F169 愿景约束 VAC-C1~C5，opus-47 提出，铲屎官确认加入）：
+- 新增运行时 `salience` 维度，作用于 `search_evidence` post-retrieval rerank
+- `salience = f(authority, relevance_to_task, recency_in_thread)`，当 relevance 低于阈值时降权
+- **task_context 来源**：F148 Phase F 已有的 `extractBatonContext()`（当前 feat/phase/活跃任务）
+- `criticality=high` 的铁律级知识**不参与 gating**（P0 铁律永远在场，对齐 KD-7 + ADR-009）
+- Salience gating 是可逆的任务作用域降权，不是删除
+- 遵守 KD-9：默认关闭，flag `F163_SALIENCE_GATING` 控制，可灰度可回滚
+
+**与 F148 的正反面关系**：
+- F148 Phase G 做"加相关"（best-next-source 排序，主动推相关文档）
+- F163 Phase F 做"减无关"（salience gating，降权无关文档）
+- 终态：猫进 thread 5 秒内有正确上下文，不用手动搜 5 次
+
+**实现路径（LL-051 教训：不建框架，直接解决问题）**：
+1. 写 `salience()` 纯函数（≤30 行核心逻辑）
+2. 在 `evidence.ts` search 路由的 post-retrieval 阶段接入
+3. Gold set 验证 NDCG@10 不降
+4. 接入 F163 实验框架（flag + shadow + variant_id 归因）
 
 ### Phase F AC
-- [ ] AC-F1: `salience` 纯函数存在，输入 (authority, task_context, thread_context)，输出 0.0-1.0，有单元测试
-- [ ] AC-F2: `criticality=high` 知识**不参与 gating**（P0 铁律永远在场，对齐 KD-7 + ADR-009）
-- [ ] AC-F3: 运行时测试——在 feat X 开发 thread 里，feat Y 的无关决策 salience < 0.3，不进 spotlight
-- [ ] AC-F4: 可逆性——同一文档在不同 task context 下 salience 不同，切换任务后恢复
-- [ ] AC-F5: Gold set 验证——salience gating 后 NDCG@10 不低于 Phase E baseline（降噪不降召回）
+- [ ] AC-F1: `salience(doc, taskContext, threadContext)` 纯函数存在，输出 0.0-1.0 降权因子，有单元测试
+- [ ] AC-F2: `criticality=high` 知识**不参与 gating**（salience 恒为 1.0，对齐 KD-7 + ADR-009）
+- [ ] AC-F3: 运行时验证——在 feat X 开发 thread 里搜索，feat Y 的无关决策 salience < 0.3，排序靠后
+- [ ] AC-F4: 可逆性——同一文档在不同 task context 下 salience 不同，切换任务后自动恢复
+- [ ] AC-F5: Gold set 验证——salience gating 开启后 NDCG@10 不低于 Phase E baseline（降噪不降召回）
+- [ ] AC-F6: `F163_SALIENCE_GATING` flag 控制（off/shadow/on），shadow 模式记录 before/after 排序差异（LL-051 教训：shadow 必须记对比数据）
 
 ## Dependencies
 
 - **Evolved from**: F102（记忆基础设施——F163 在 F102 的索引/搜索能力上增加分层和权重）
 - **Evolved from**: F152（记忆可移植性——F163 确保携带出去的记忆也是精准的，不是一堆噪声）
 - **Related**: F070（Portable Governance——治理包的膨胀也是 F163 要解决的问题之一）
+- **Phase F depends on**: F148 Phase F/G/H（task context extraction + goal grounding + artifact tracking——Phase F 的 salience 函数需要 F148 提供的任务感知信号）
+- **Phase F design input**: F169（Agent Memory Reflex 愿景文档——VAC-C1~C5 作为设计约束）
 
 ## Risk
 
@@ -278,6 +298,8 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | **非替代式压缩未实际改善信噪比** | 先试 LL 子集，用 NDCG@10 量化 before/after |
 | **冲突检测假阳性导致审批疲劳** | 冲突标记只进 review queue，不自动行动；监控假阳性率 |
 | **低频高代价知识被忽视** | `criticality: high` 标签 + 禁止自动降级（ADR-009 教训） |
+| **salience gating 误降关键文档** | criticality=high 免疫 gating + gold set 验证 NDCG 不降 + shadow 先行 |
+| **task context 提取不准** | 依赖 F148 已验证的 extractBatonContext()，不自建 |
 
 ## Open Questions
 
@@ -325,12 +347,14 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | 2026-04-19 | Phase E 实现 — rankToConfidence, evidence.ts 接线, authority 独立暴露 |
 | 2026-04-19 | Phase E merged (PR #1284) — confidence=f(rank), authority 独立暴露到 API/MCP/前端, gpt52 review (R2 放行) |
 | 2026-04-19 | Phase F 立项：task-scoped salience gating（来源：F169 愿景约束 VAC-C1~C5，opus-47 提出，铲屎官确认加入） |
+| 2026-04-25 | Phase F spec 更新：补充前置依赖链（F148 F/G/H ✅）、实现路径（LL-051 约束）、AC-F6（shadow 对比数据）、新 Links |
 
 ## Review Gate
 
 - Phase A: 跨家族 review（搜索权重逻辑变更影响所有猫的检索体验）
 - Phase B: 铲屎官 review（合并/删除知识需要 CVO 确认）
 - Phase C: 铲屎官 review（健康报告的 actionability 由铲屎官判断）
+- Phase F: 跨家族 review（搜索 rerank 逻辑变更影响所有猫的检索体验，同 Phase A）
 
 ## Links
 
@@ -348,3 +372,8 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | **Decision** | `docs/decisions/026-agent-runtime-operational-boundaries.md` | Runtime 运行边界（相关） |
 | **Project Memory** | `memory/project_knowledge_lifecycle_gap.md` | 知识生命周期缺口的早期观察 |
 | **Discussion** | `docs/discussions/2026-04-19-f163-phase-e-confidence-redesign/README.md` | Phase E 方案草案 + gpt52 共识 |
+| **Vision** | `docs/features/F169-agent-memory-reflex.md` | Agent Memory Reflex 愿景（Phase F 设计输入，VAC-C1~C5） |
+| **Research** | `docs/research/2026-04-19-karpathy-llm-wiki/opus47-perspective.md` | Karpathy LLM Wiki × 外部工作记忆假肢（Phase F 理论来源） |
+| **Feature** | `docs/features/F148-hierarchical-context-transport.md` | 层级上下文传输（Phase F/G/H 提供 task context） |
+| **Discussion** | `docs/discussions/2026-04-20-claude-multi-agent-coordination-patterns/article-memory-companion.md` | 记忆全链路拆解（gpt52，A2A 配套） |
+| **Lesson** | `docs/lessons-learned.md#LL-051` | 实验框架空转教训（Phase F 实现路径约束：不建框架直接解决） |
