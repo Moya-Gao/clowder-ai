@@ -15,6 +15,22 @@
 
 ## Quick Start
 
+### Choose an Installation Path
+
+For most non-developer users, start with the desktop installer when a release asset is available:
+
+| Platform | Recommended path | Notes |
+|----------|------------------|-------|
+| Windows | Download the `.exe` installer from [Releases](https://github.com/zts212653/clowder-ai/releases) | Bundles the runtime, portable Node.js, Redis, desktop shortcut, and first-run config generation |
+| macOS | Download the `.dmg` from [Releases](https://github.com/zts212653/clowder-ai/releases) | Drag to Applications; if the unsigned app is blocked, right-click → **Open** |
+| Linux | Source setup or `bash scripts/install.sh` | Desktop AppImage is not available yet |
+
+After launching the desktop app, go to **Hub → System Settings → Account Configuration** to connect provider API keys and CLI accounts. The installer prepares the local runtime; it does not complete your third-party provider login for you.
+
+Use the source setup below if you want to develop Clowder, run from a specific branch, or no desktop installer is available for your platform.
+
+### Source Setup
+
 ```bash
 # 1. Clone
 git clone https://github.com/zts212653/clowder-ai.git
