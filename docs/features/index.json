@@ -915,7 +915,7 @@
     {
       "id": "F148",
       "name": "Hierarchical Context Transport — 分层上下文传输",
-      "status": "in-progress | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1 | **Phase A-E Completed**: 2026-04-02 | **Reopened**: 2026-04-19（导航轴优化）",
+      "status": "done | **Owner**: 布偶猫 + 缅因猫 | **Priority**: P1 | **Phase A-E Completed**: 2026-04-02 | **Reopened**: 2026-04-19（导航轴优化）| **Phase F-H Completed**: 2026-04-21 | **Closed**: 2026-04-25",
       "file": "F148-hierarchical-context-transport.md"
     },
     {
@@ -1089,7 +1089,7 @@
     {
       "id": "F174",
       "name": "Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级与可观测",
-      "status": "in-progress | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1 | **Completed**: 2026-04-26",
       "file": "F174-callback-auth-lifecycle.md"
     },
     {
