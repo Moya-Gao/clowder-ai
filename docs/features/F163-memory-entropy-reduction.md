@@ -8,7 +8,7 @@ created: 2026-04-15
 
 # F163: Memory Entropy Reduction — 记忆熵减与知识生命周期治理
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-04-26
 
 ## Why
 
@@ -369,6 +369,7 @@ salience 在 authority boost 之后、confidence 派生之前。不塞进 `apply
 | 2026-04-25 | Phase F spec 更新：补充前置依赖链（F148 F/G/H ✅）、实现路径（LL-051 约束）、AC-F6（shadow 对比数据）、新 Links |
 | 2026-04-25 | Phase F Design Gate by gpt52：放行。3 处修正——task context 用 F148 合成上下文（不是 extractBatonContext）、复用 F163_RETRIEVAL_RERANK flag（不新发明）、scoring ≤30 行（glue code 不计入）。排序管线：static boost → salience rerank → rankToConfidence()。search_evidence 软降权、spotlight 硬裁切 |
 | 2026-04-26 | Phase F merged (PR #1412) — salience() + applySalienceRerank(), shadow diff logging, 25 tests, gpt52 review + codex cloud review |
+| 2026-04-26 | Feature closed — 愿景守护 by codex (GPT-5.5) 放行，反思胶囊 `docs/reflections/2026-04-26-f163-memory-entropy-reduction-capsule.md` |
 
 ## Review Gate
 

@@ -55,7 +55,6 @@ created: 2026-02-26
 | F159 | CatAgent Native Provider — Opt-in API Path | spec | 社区 + 布偶猫 + 缅因猫 | community [#434](https://github.com/zts212653/clowder-ai/issues/434) | [F159](features/F159-catagent-native-provider.md) |
 | F161 | ACP Carrier Generalization — 多载体复用同一 Runtime Policy | spec | TBD | internal | [F161](features/F161-acp-carrier-generalization.md) |
 | F162 | Enterprise Action Toolkit — 官方 CLI 驱动的企业工作流 | spec | 布偶猫 | internal | [F162](features/F162-enterprise-action-toolkit.md) |
-| F163 | Memory Entropy Reduction — 记忆熵减与知识生命周期治理 | spec | 布偶猫 | internal | [F163](features/F163-memory-entropy-reduction.md) |
 | F165 | Guided Overfitting — 引导式过拟合 / 养猫路径 | spec | 布偶猫 | internal | [F165](features/F165-guided-overfitting.md) |
 | F167 | A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏 | spec | 布偶猫 | internal | [F167](features/F167-a2a-chain-quality.md) |
 | F169 | Agent Memory Reflex — 愿景文档（vision artifact） | vision | 三猫 | internal | [F169](features/F169-agent-memory-reflex.md) |
