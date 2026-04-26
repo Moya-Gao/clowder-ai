@@ -1083,7 +1083,7 @@
     {
       "id": "F173",
       "name": "前端 Thread-Runtime State 统一（消除 dual write-path & liveness fragmentation）",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P0",
+      "status": "realized → closed 2026-04-26 | **Owner**: 布偶猫 | **Priority**: P0",
       "file": "F173-frontend-message-pipeline-unification.md"
     },
     {
@@ -1103,6 +1103,12 @@
       "name": "Native CLI Assistant-Speech vs CLI-Stdout 渲染语义分离",
       "status": "done (reverted) | ❌ REVERTED 2026-04-26 | **Owner**: 布偶猫（Opus-47） | **Priority**: P1（已撤销）",
       "file": "F176-native-cli-assistant-speech-rendering.md"
+    },
+    {
+      "id": "F177",
+      "name": "前端 Event Handler 统一（active + background 合并到 thread-aware useAgentMessages）",
+      "status": "stub | **Owner**: TBD | **Priority**: P1",
+      "file": "F177-frontend-event-handler-unification.md"
     }
   ]
 }
