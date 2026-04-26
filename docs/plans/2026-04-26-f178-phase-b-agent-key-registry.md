@@ -4,7 +4,7 @@
 **Goal:** Introduce `CallbackPrincipal` abstraction + `AgentKeyRegistry` with dual backends, so Phase C can plug agent-key auth into the MCP write tool path.
 **Acceptance Criteria:**
 - AC-B1: `CallbackPrincipal` abstraction (`kind: 'invocation' | 'agent_key'`), existing invocation path unchanged
-- AC-B2: `AgentKeyRegistry` + Redis persistence + in-memory fallback
+- AC-B2: `AgentKeyRegistry` with `IAgentKeyBackend` interface + `MemoryAgentKeyBackend` (Redis persistence = Task 6, non-blocking for Phase C)
 - AC-B3: issuance / verification / revocation / rotation / list API + unit tests (secret one-time return, server stores hash only)
 - AC-B4: Structured error reason codes (`agent_key_expired` / `agent_key_revoked` / `agent_key_scope_mismatch`), aligned with F174 reason set
 **Architecture:** Mirror F174 `InvocationRegistry` dual-backend pattern (interface → memory + Redis backends → facade). Key differences: secret hashing (sha256 + salt), no threadId binding (per-cat-per-user), rotation with ≤24h grace, no latest-pointer/refresh-cooldown (not applicable to long-lived keys).
@@ -387,33 +387,17 @@ import type { AgentKeyInput, IAgentKeyBackend } from './IAgentKeyBackend.js';
 
 export class MemoryAgentKeyBackend implements IAgentKeyBackend {
   private records = new Map<string, AgentKeyRecord>();
-  /** secret plaintext → agentKeyId (in-memory only, for verify lookup) */
-  private secretIndex = new Map<string, string>();
 
   async create(input: AgentKeyInput): Promise<void> {
     this.records.set(input.agentKeyId, { ...input });
   }
 
-  /** Called by registry after create to index the plaintext secret. */
-  indexSecret(secret: string, agentKeyId: string): void {
-    this.secretIndex.set(secret, agentKeyId);
-  }
-
   async verify(secret: string): Promise<AgentKeyVerifyResult> {
-    const agentKeyId = this.secretIndex.get(secret);
-    if (!agentKeyId) {
-      // Brute-force fallback: hash against all records
-      for (const record of this.records.values()) {
-        const hash = createHash('sha256').update(secret + record.salt).digest('hex');
-        if (hash === record.secretHash) {
-          return this.verifyRecord(record);
-        }
-      }
-      return { ok: false, reason: 'agent_key_unknown' };
+    for (const record of this.records.values()) {
+      const hash = createHash('sha256').update(secret + record.salt).digest('hex');
+      if (hash === record.secretHash) return this.verifyRecord(record);
     }
-    const record = this.records.get(agentKeyId);
-    if (!record) return { ok: false, reason: 'agent_key_unknown' };
-    return this.verifyRecord(record);
+    return { ok: false, reason: 'agent_key_unknown' };
   }
 
   private verifyRecord(record: AgentKeyRecord): AgentKeyVerifyResult {
@@ -490,7 +474,11 @@ export class AgentKeyRegistry {
     this.backend = options?.backend ?? new MemoryAgentKeyBackend();
   }
 
-  async issue(catId: CatId, userId: string): Promise<{ agentKeyId: string; secret: string }> {
+  async issue(
+    catId: CatId,
+    userId: string,
+    options?: { rotatedFrom?: string },
+  ): Promise<{ agentKeyId: string; secret: string }> {
     const agentKeyId = `ak_${randomUUID().replace(/-/g, '')}`;
     const secret = randomBytes(32).toString('hex');
     const salt = randomBytes(16).toString('hex');
@@ -506,12 +494,8 @@ export class AgentKeyRegistry {
       scope: 'user-bound',
       issuedAt: now,
       expiresAt: now + this.ttlMs,
+      ...(options?.rotatedFrom ? { rotatedFrom: options.rotatedFrom } : {}),
     });
-
-    // Memory backend needs secret index for O(1) verify
-    if (this.backend instanceof MemoryAgentKeyBackend) {
-      this.backend.indexSecret(secret, agentKeyId);
-    }
 
     return { agentKeyId, secret };
   }
@@ -528,21 +512,12 @@ export class AgentKeyRegistry {
     const old = await this.backend.get(agentKeyId);
     if (!old) throw new Error(`Agent key not found: ${agentKeyId}`);
     if (old.revokedAt) throw new Error(`Cannot rotate revoked key: ${agentKeyId}`);
+    if (Date.now() > old.expiresAt) throw new Error(`Cannot rotate expired key: ${agentKeyId}`);
 
-    // Set grace on old key
     const graceUntil = Date.now() + this.graceMs;
     await this.backend.updateGrace(agentKeyId, graceUntil);
 
-    // Issue new key with rotation chain
-    const newResult = await this.issue(old.catId, old.userId);
-    const newRecord = await this.backend.get(newResult.agentKeyId);
-    if (newRecord) {
-      // Patch rotatedFrom (backend.create doesn't set it, so we update in place)
-      // For memory backend this works; Redis backend will handle in Lua
-      (newRecord as AgentKeyRecord).rotatedFrom = agentKeyId;
-    }
-
-    return newResult;
+    return this.issue(old.catId, old.userId, { rotatedFrom: agentKeyId });
   }
 
   async list(filter: { catId?: string; userId?: string; includeRevoked?: boolean }): Promise<AgentKeyRecord[]> {
@@ -806,6 +781,6 @@ feat(F178-B): RedisAgentKeyBackend — Redis persistence with Lua atomicity
 | AC | Task | Verified by |
 |----|------|-------------|
 | AC-B1 | Task 1 (CallbackPrincipal type) + Task 4 (scope helpers) + existing tests green | `callback-principal-helpers.test.js` + `invocation-registry.test.js` regression |
-| AC-B2 | Task 3 (MemoryBackend) + Task 6 (RedisBackend) | `agent-key-registry.test.js` + `test:redis` |
-| AC-B3 | Task 3 (issue/verify/revoke/rotate/list + hash-only) | `agent-key-registry.test.js` all 10 cases |
+| AC-B2 | Task 3 (MemoryBackend + IAgentKeyBackend interface); Task 6 Redis = non-blocking stretch | `agent-key-registry.test.js` |
+| AC-B3 | Task 3 (issue/verify/revoke/rotate/list + hash-only) | `agent-key-registry.test.js` all 13 cases |
 | AC-B4 | Task 1 (reason codes in shared) | Type check + `agent-key-registry.test.js` reason assertions |

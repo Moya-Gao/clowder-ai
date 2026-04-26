@@ -83,7 +83,7 @@ created: 2026-04-26
 
 ### Phase B（CallbackPrincipal + Registry + API）
 - [ ] AC-B1: `CallbackPrincipal` 抽象落地（`kind: 'invocation' | 'agent_key'`），现有 invocation 路径语义不变
-- [ ] AC-B2: `AgentKeyRegistry` 实现 + Redis 持久化（hash + Lua）+ in-memory fallback
+- [ ] AC-B2: `AgentKeyRegistry` + `IAgentKeyBackend` interface + `MemoryAgentKeyBackend`（Redis persistence = Task 6，non-blocking for Phase C）
 - [ ] AC-B3: issuance / verification / revocation / rotation / list API + 单元测试覆盖核心路径（secret 一次性返回，server 只存 hash）
 - [ ] AC-B4: 结构化错误 reason codes 扩展（`agent_key_expired` / `agent_key_revoked` / `agent_key_scope_mismatch` 等），与 F174 reason 集对齐
 

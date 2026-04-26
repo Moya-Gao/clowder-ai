@@ -14,6 +14,14 @@ export type {
   A2ATask,
   A2ATaskStatus,
 } from './a2a.js';
+// F178 Phase B: agent-key record + verify result
+export type { AgentKeyRecord, AgentKeyVerifyResult } from './agent-key.js';
+// F178 Phase B: agent-key reason taxonomy
+export {
+  AGENT_KEY_FAILURE_REASONS,
+  type AgentKeyFailureReason,
+  isAgentKeyFailureReason,
+} from './agent-key-reasons.js';
 // Authorization types (猫猫授权系统)
 export type {
   AuthorizationAuditEntry,
@@ -71,6 +79,8 @@ export {
   type CallbackAuthFailureReason,
   isCallbackAuthFailureReason,
 } from './callback-auth-reasons.js';
+// F178 Phase B: unified callback principal (KD-3)
+export type { CallbackPrincipal } from './callback-principal.js';
 // Capability types (F041 统一能力模型)
 export type {
   BootstrapAction,
