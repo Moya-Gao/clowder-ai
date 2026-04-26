@@ -51,3 +51,21 @@ F173 主线只闭环了 KD-2 (writer 端 mirror invariant)，KD-1 (handler 端) 
 立项时再做完整 spec (Why/What/AC/Risk/Plan/Timeline)。当前 stub 只是 F173 close 时留的 follow-up anchor，避免 KD-1 收尾失踪在"已 truth-sync"模糊描述里。
 
 > 这是 F173 愿景守护 (gpt52, 2026-04-26 07:30) 提出的 P1 — "deferred 不能只是注释，要有可点开的下一站"。
+
+## Known Issues / Hotfixes (在 F177 主线落地前的 marker-gated 收窄修)
+
+| 日期 | Bug | Hotfix PR | Marker | 长期归属 |
+|------|-----|-----------|--------|---------|
+| 2026-04-26 | a2a_handoff 蓝条 timestamp 排序错位（铲屎官报告"消息乱了"，三猫并行诊断收敛同根因）| [#1418](https://github.com/zts212653/cat-cafe/pull/1418) (squash `73d3d018`) | `extra.systemKind === 'a2a_routing'` + foreground monotonic seq | F177 主线 unified handler 落地后，本 PR 的 marker-based hotfix 可以简化为 unified handler 内部一次性按 server timestamp insert（无需 marker 区分），取消 foreground/background 双 path 分工 |
+
+**Hotfix 范围说明**: PR #1418 在收窄边界内修：
+- 不动 streaming/dedup hot path（仅 marker-gated insert helper）
+- 不动 invocation/bubble identity（F173 ledger 不破）
+- 仅 marker (`extra.systemKind === 'a2a_routing'`) 触发 timestamp-aware insert
+- 4 step 收窄：types marker + foreground handler timestamp+marker+monotonic-id + background handler 透传 marker + chatStore insertOrAppendMessage helper
+- 测试：51 tests (9 store + 42 hook handler-level + cloud Codex review pass)
+- 4 轮 review cycles (砚砚 R1→R2→R3 + cloud R2→R3 + continuity)
+
+砚砚 R3 review 评价：「`insertOrAppendMessage` 现在仍然只对 `extra.systemKind === 'a2a_routing'` 做 timestamp-aware insert，没有碰普通 assistant/streaming append 路径；same-ts 多条 handoff 会保持到达/后端 emit 顺序，同时仍会排在 same-ts 非 routing 气泡前。handler-level 测试也已经覆盖 server timestamp、marker 注入和同毫秒 ID 唯一性」
+
+F177 主线落地后此 hotfix 可视为 transitional — handler unification 完成后，单一 handler 内部直接按 server timestamp insert，marker 字段可保留作为可选语义标签（不再是 store 路由必需）。
