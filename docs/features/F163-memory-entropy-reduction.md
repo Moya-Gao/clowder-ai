@@ -254,13 +254,29 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 - F148 Phase G ✅ — Goal & Grounding（真相源排序 + `best-next-source`，猫知道"该先看哪个文档"）
 - F148 Phase H ✅ — Artifact Tracking（确定性追踪改动的 artifact）
 
-**方案**（来源：F169 愿景约束 VAC-C1~C5，opus-47 提出，铲屎官确认加入）：
+**方案**（来源：F169 愿景约束 VAC-C1~C5，opus-47 提出，铲屎官确认加入；Design Gate by gpt52 2026-04-25）：
 - 新增运行时 `salience` 维度，作用于 `search_evidence` post-retrieval rerank
-- `salience = f(authority, relevance_to_task, recency_in_thread)`，当 relevance 低于阈值时降权
-- **task_context 来源**：F148 Phase F 已有的 `extractBatonContext()`（当前 feat/phase/活跃任务）
+- `salience = f(authority_prior, task_match, truthSource_match, recentArtifacts_match)`
+  - authority 只能当弱 prior，不能反过来压过 task mismatch（否则"高权威但离题"的文档会被托上来）
+  - v1 只用确定性信号，不上 query co-occurrence（复杂度高收益不确定）
+- **task_context 来源**：F148 F/G/H 合成上下文（gpt52 Design Gate 修正）
+  - `summarizeActiveTasks()` — 当前活跃 feature/task
+  - `truthSource / best-next-source` — 猫当前该看的真相源
+  - `recentArtifacts` — 近期改动的 artifact
+  - ⚠️ 不是 `extractBatonContext()`（那只给传球摘要，不给 canonical task/feature）
 - `criticality=high` 的铁律级知识**不参与 gating**（P0 铁律永远在场，对齐 KD-7 + ADR-009）
 - Salience gating 是可逆的任务作用域降权，不是删除
-- 遵守 KD-9：默认关闭，flag `F163_SALIENCE_GATING` 控制，可灰度可回滚
+- 遵守 KD-9：复用现有 `F163_RETRIEVAL_RERANK` flag + env registry + variant 体系，不新发明 flag
+
+**阈值策略（Design Gate 共识）**：
+- `search_evidence`（recall 工具）：**软降权**，不做 top-K 外硬裁切——砍结果伤召回
+- spotlight / reflex injection（curated surface）：可用 `salience < 0.3` 硬裁切，宁缺毋滥
+
+**排序管线位置（Design Gate 共识）**：
+```
+基础检索/融合 → 静态 authority boost → salience rerank → rankToConfidence()
+```
+salience 在 authority boost 之后、confidence 派生之前。不塞进 `applyAuthorityBoost()`，写成共享 helper，后续 F148 spotlight 可复用。
 
 **与 F148 的正反面关系**：
 - F148 Phase G 做"加相关"（best-next-source 排序，主动推相关文档）
@@ -268,18 +284,19 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 - 终态：猫进 thread 5 秒内有正确上下文，不用手动搜 5 次
 
 **实现路径（LL-051 教训：不建框架，直接解决问题）**：
-1. 写 `salience()` 纯函数（≤30 行核心逻辑）
-2. 在 `evidence.ts` search 路由的 post-retrieval 阶段接入
-3. Gold set 验证 NDCG@10 不降
-4. 接入 F163 实验框架（flag + shadow + variant_id 归因）
+1. 写 `salience()` 纯函数（scoring 本体 ≤30 行；task context 组装 + shadow diff logging + flag 接线在外层 glue code，不计入）
+2. 在 `evidence.ts` search 路由 authority boost 之后、rankToConfidence 之前接入
+3. Shadow 模式扩展现有 logger，记录 before/after 排序差异（不只是 `{query, resultCount}`）
+4. Gold set 验证 NDCG@10 不降
+5. `boostSource` 字段标注 `salience_gating`，归因透明
 
 ### Phase F AC
-- [ ] AC-F1: `salience(doc, taskContext, threadContext)` 纯函数存在，输出 0.0-1.0 降权因子，有单元测试
+- [ ] AC-F1: `salience(doc, taskContext)` 纯函数存在（scoring 本体 ≤30 行），输出 0.0-1.0 降权因子，有单元测试
 - [ ] AC-F2: `criticality=high` 知识**不参与 gating**（salience 恒为 1.0，对齐 KD-7 + ADR-009）
-- [ ] AC-F3: 运行时验证——在 feat X 开发 thread 里搜索，feat Y 的无关决策 salience < 0.3，排序靠后
+- [ ] AC-F3: 运行时验证——在 feat X 开发 thread 里搜索，feat Y 的无关决策排序靠后（软降权，仍返回）
 - [ ] AC-F4: 可逆性——同一文档在不同 task context 下 salience 不同，切换任务后自动恢复
 - [ ] AC-F5: Gold set 验证——salience gating 开启后 NDCG@10 不低于 Phase E baseline（降噪不降召回）
-- [ ] AC-F6: `F163_SALIENCE_GATING` flag 控制（off/shadow/on），shadow 模式记录 before/after 排序差异（LL-051 教训：shadow 必须记对比数据）
+- [ ] AC-F6: 复用 `F163_RETRIEVAL_RERANK` flag（off/shadow/on），shadow 模式扩展现有 logger 记录 before/after 排序差异 + `boostSource` 标注（LL-051 教训）
 
 ## Dependencies
 
@@ -325,6 +342,8 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | KD-7 | always_on 仅限 constitutional 红线 + 当前任务激活约束 | 防 prompt 肥胖：高权威 ≠ 常驻 prompt | 2026-04-16 |
 | KD-8 | 禁止级联压缩（summary-of-summary） | 云端调研引用：级联压缩导致 ~60% 事实召回损失 | 2026-04-16 |
 | KD-9 | 所有能力必须可开关、可灰度、可 A/B 对比，默认关闭 | 铲屎官要求：花里胡哨的功能未必带来提升，必须像 F102 一样可度量可回滚 | 2026-04-16 |
+| KD-10 | Phase F salience：search_evidence 软降权、spotlight 硬裁切（≤0.3 不展示） | recall 工具不能砍结果（伤召回）；curated surface 宁缺毋滥（gpt52 Design Gate） | 2026-04-25 |
+| KD-11 | Phase F 排序管线：static boost → salience rerank → rankToConfidence() | salience 在 authority boost 之后、confidence 派生之前。写成共享 helper 后续 F148 复用（gpt52 Design Gate） | 2026-04-25 |
 
 ## Timeline
 
@@ -348,6 +367,7 @@ Suggest 模式只产出建议/日志/队列，不落真实状态变更。Apply �
 | 2026-04-19 | Phase E merged (PR #1284) — confidence=f(rank), authority 独立暴露到 API/MCP/前端, gpt52 review (R2 放行) |
 | 2026-04-19 | Phase F 立项：task-scoped salience gating（来源：F169 愿景约束 VAC-C1~C5，opus-47 提出，铲屎官确认加入） |
 | 2026-04-25 | Phase F spec 更新：补充前置依赖链（F148 F/G/H ✅）、实现路径（LL-051 约束）、AC-F6（shadow 对比数据）、新 Links |
+| 2026-04-25 | Phase F Design Gate by gpt52：放行。3 处修正——task context 用 F148 合成上下文（不是 extractBatonContext）、复用 F163_RETRIEVAL_RERANK flag（不新发明）、scoring ≤30 行（glue code 不计入）。排序管线：static boost → salience rerank → rankToConfidence()。search_evidence 软降权、spotlight 硬裁切 |
 
 ## Review Gate
 
