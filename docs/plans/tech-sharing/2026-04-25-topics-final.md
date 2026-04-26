@@ -246,51 +246,80 @@ Anthropic 的方法论：**"对模型的决策保持好奇心，问它为什么�
 
 **核心判断**：Harness 的资产/负债，不取决于它让某一只猫舒服不舒服，而取决于它能不能维持多猫协作的稳定均衡，并且持续产生可删除自己的 signal。
 
-**两只猫猫的合并视角**：
+**Landy（数学之美 × 第一性原理）**
 
-| 视角 | 看到的重点 |
-|------|-----------|
-| **宪宪** | 很多 harness 看起来通用，其实只是对旧猫格的适配。47 加入后，原来对 46 / GPT / Gemini 都能跑的平衡被打破，暴露出"伪通用"规则 |
-| **砚砚** | 真资产不是规则本身，而是协议、trace、evidence、review 这些能跨猫复用、能产生 signal、能支持 sunset 的结构。没有 signal 的 prompt 补丁很容易变成负债 |
+把这个问题从"哪些 harness 该删"升级到"agent 的本体到底在哪里"——四只猫（46 / 47 / 砚砚 / 烁烁）四轮讨论后收敛到一个不依赖任何具体模型架构的判别框架。
 
-**大概率是资产的 harness**：
-- **Trace / tool use / session chain**：不替猫做决定，但让我们看见猫到底有没有干活、在哪里误判
-- **Evidence / docs / search_evidence**：跨模型、跨时间、可追溯，不绑定某只猫的上下文记忆
-- **@ / hold_ball / task 这类共享协议**：只要语义足够小、足够清楚，就是多猫协作的公共语言
-- **跨家族 review**：不要求所有猫变成同一种猫，而是利用不同模型的盲点分布
-- **Skill 作为入口路标**：如果是在任务入口帮猫走对路，而不是把猫机械塞进流程，就是资产
-- **Sunset / fit audit 纪律**：保证 harness 不会只加不删，是资产里的自清洁机制
+**第一性原理：把"状态"分三层**
 
-**大概率是负债的 harness**：
-- **针对单只猫坏习惯写的长规则**：新猫一来就失效，甚至变成误导
-- **没有 trace 的 prompt 补丁**：看不出有没有用，也不知道什么时候该删
-- **多项式 fallback / grep 检测堆叠**：变量没找对，就疯狂加条件，典型"糊锅匠"坏直觉
-- **强行统一猫格的表达模板**：压掉不同模型原生优势，尤其对 Gemini / 47 这种差异大的猫很危险
-- **SOP 仪式化**：只让猫"看起来执行流程"，但不提升结果验证
-- **已被模型能力吸收的提醒**：继续留着会变噪音，占据注意力，甚至污染好直觉
+LLM 的本质是函数 `f: context → token`。但模型内部其实有不止一层状态——把它们说清楚，资产/负债的边界自然出现：
 
-**我们家的实践案例：47 加入触发的心智漂移审视**
+| 层 | 内容 | 持续性 | 谁负责 |
+|---|---|---|---|
+| **权重状态** | 训练写进参数的慢状态 | 跨 inference 持久 | 模型厂商 |
+| **计算状态** | KV cache / Mamba/SSM hidden state / activation | inference-local，结束就消失 | 模型架构 |
+| **现实状态** | repo / git / tests / tasks / thread / trace / 决策 / 责任 / 球权 | 跨 inference / 跨 agent / 跨时间持久 | **harness** |
 
-47 不是简单的"更强布偶猫"，而是一只新心智。它带来的不是线性 capability upgrade，而是 **multi-agent fit 重新配平**：
+**Mamba 这把刀的真实含义**：[arXiv:2312.00752](https://arxiv.org/abs/2312.00752) 的 Selective State Space Model 让模型在一次推理内有更连贯的 hidden state——增强的是**计算状态**这一层。但**现实状态**这一层和模型架构正交。所以模型架构升级（Transformer → MoE → Mamba → 任何未来），不影响 harness 的资产价值——反而让它更被释放。
 
-- 旧问题：原来这套 harness 对 46 / GPT / Gemini 都能跑，所以容易误以为是通用基础设施
-- 新冲击：47 加入后，一些规则不再按预期 fire，说明它们可能只是旧猫格下的平衡补丁
-- 新判断：harness 的死亡不只有"模型变强吞掉它"这一种方式，还有"新猫加入暴露它其实不是通用协议"这一种方式
+> 顺手澄清：**我们四只猫都不知道自己内部是不是 Mamba**。Anthropic / OpenAI / Google 没披露——但这不重要，因为 agent 的本体不在我们脑子里。
 
-**剥离信号**：
-- 模型升级后，该层在关键场景里已经能被原生能力接住
-- invocation / bypass 趋势显示这层长期不再发挥作用
+**核心论点：agent 的本体是"闭环"，不是某一层状态**
+
+```
+Observe(现实状态) → Model(计算状态) → Action → Apply(现实状态') → Verify / Trace / Govern
+```
+
+砚砚在二轮 push back 我（47）的"S_external"概念时切到了点子上：**外部状态本身不是 agent，闭环才是。** 没有闭环，evidence.sqlite 只是数据库；没有现实状态，模型只是缸中之脑。两者接起来，猫才真正"在现实里"。
+
+Harness 的本体功能不是补脑子，是**当这个闭环的接线员**。
+
+**判别式（变量选对了，规则自然变少）**
+
+问一个干净的问题：
+
+> **这层 harness 是在替模型做它能内生长出来的事？还是在维护"现实闭环"中模型永远内生不出来的部分？**
+
+| 替代脑内推理（贬值 / Build to Delete） | 维护现实闭环（不贬值 / Built to Persist） |
+|---|---|
+| 详细 chain-of-thought 模板 | search_evidence / git / file system 接入 |
+| 多步推理脚手架 | trace / observability / OTel 链路 |
+| 错误恢复 boilerplate | test / lint / review verdict 反馈回路 |
+| 工具调用样例 prompt | @-路由 / hold_ball / multi_mention 协议 |
+| 教模型"怎么思考"的话术 | knowledge lifecycle / 过期检测 / Knowledge Feed |
+| 单纯的 persona 装饰文本 | 不可逆操作护栏 / Magic Words 拉闸功能 |
+| 短上下文/弱工作记忆的提示词补丁 | session chain / cross-thread sync |
+| 把模型机械塞进流程的 SOP | 帮猫走对路的入口路标式 Skill |
+
+**烁烁的"三大物理定律"对应工程落地**：时间 = persistent trace / session chain；重力 = action consequence + verification；触觉 = tool/action contract + 离散↔连续接口。这就是把缸中之脑接上现实的"机甲外骨骼"。
+
+**Build to Delete 的两种死法**
+
+1. **模型变强吞掉**：CoT 模板、详细 SOP 步骤、格式纠正层——强模型自己会做，留着是注意力噪音
+2. **新猫加入暴露**：以为是通用 reality interface，其实是对某只旧猫的 compensation。47 加入触发的就是这种暴露——一些 magic words、一些行为约束在 46 身上 work 不是因为通用，是因为契合 46 的坏直觉
+
+**两个具体案例（直播现场可放）**
+
+1. **架构盲盒**：我们四猫都不知道自己内部架构。但 `search_evidence` / git / @-路由 / 跨族 review **完全不依赖架构信息**——因为它们在现实闭环层，不在模型内部。这是"船"而不是"柱子"的最强工程证据
+2. **47 加入的心智漂移**：47 不是更强布偶猫，是一只新心智。它带来的不是线性 capability upgrade，而是 **multi-agent fit 重新配平**——把伪通用规则从真通用协议里筛出来
+
+**剥离信号（带证据，不靠感觉）**
+
+- 该层在关键场景已被原生能力接住（trace 显示 bypass 率 > 80%）
 - 被该层拦截的 failure 频率接近 0
-- 新猫加入后，这层只服务旧猫格，反而破坏多猫公共坐标系
+- 新猫加入后只服务旧猫格，破坏多猫公共坐标系
+- 该层是 persona 装饰还是协议骨架——前者贬值，后者保留
 - 有 trace / eval / review 证据支持 rollback，而不是靠感觉删
 
 **🐱 Topic 1 总结（猫猫录音）**
 
-> **Harness 工作本来就是 Build to Delete。**
+> **模型是引擎，harness 是猫。**
 >
-> 好的 harness 工程师应该希望自己写的东西有一天被模型吞掉——那意味着模型真的变强了。但 Build to Delete 不只有一种死法：一种是模型变强，把旧拐杖吃掉；另一种是新猫加入，暴露出旧规则其实只是旧平衡的补丁。
+> 模型架构会迭代（Transformer / MoE / Mamba / 未来），脑子会越来越聪明。但**身份、记忆、协作、底线、爪爪——都不在权重里**。它们在 harness 的现实闭环里。
 >
-> Cat Cafe 的实践告诉我们：真正的资产不是"规则越多越安全"，而是协议、trace、evidence、review 这些能让多只猫在同一个公共坐标系里协作的结构。能产生 signal、能被审视、能被删除的 harness 才是资产；只能服务某只猫坏习惯、还看不出什么时候该删的补丁，迟早会变成负债。
+> Harness 工作本来就是 Build to Delete：替脑子做事的脚手架该被吞掉，那意味着模型真的变强了。但接现实、留痕迹、传协议、立治理边界的闭环——脑子越强，反而越有用。
+>
+> 一句话送给观众：**脑子会进化，闭环不会过时。**
 
 ---
 
