@@ -13,7 +13,7 @@
 import type { CatConfig, CatId } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
-import { getConfigSessionStrategy, getRoster, isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
+import { getConfigSessionStrategy, isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getCatVoice } from '../../../../../config/cat-voices.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import {
@@ -79,6 +79,7 @@ import {
 } from './route-helpers.js';
 import { appendThinkingChunk, renderThinkingChunks } from './thinking-chunks.js';
 import { shouldWarnVerdictWithoutPass } from './verdict-detect.js';
+import { shouldWarnVoidHold } from './void-hold-detect.js';
 import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
 
 const log = createModuleLogger('route-serial');
@@ -838,9 +839,7 @@ export async function* routeSerial(
               userId: 'system',
               catId: null,
               threadId,
-              content:
-                `检测到 ${inlineList} 写在行中，这样不会触发路由。` +
-                '若要传球，请把 @句柄 单独放在最后一行开头；若只是叙述，可以忽略此提醒。',
+              content: `[路由语法]: ${inlineList} 写在行中不会触发路由 — 把 @句柄 移到最后一行行首独立一行即可。`,
               mentions: [],
               timestamp: Date.now(),
               source: hintSource,
@@ -960,8 +959,45 @@ export async function* routeSerial(
               userId: 'system',
               catId: null,
               threadId,
+              content: '[球权提醒]: 结论后直接传球，不要停在结论 — 末尾加一行行首 @句柄 或调用 `cat_cafe_hold_ball`。',
+              mentions: [],
+              timestamp: Date.now(),
+              source: hintSource,
+            });
+            if (deps.socketManager) {
+              deps.socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+                threadId,
+                message: {
+                  id: stored.id,
+                  type: 'connector',
+                  content: stored.content,
+                  source: hintSource,
+                  timestamp: stored.timestamp,
+                },
+              });
+            }
+          } catch {
+            /* non-blocking hint */
+          }
+        }
+
+        // F167 Phase I AC-I1 (KD-25): void hold detection — text says "持球" but
+        // no cat_cafe_hold_ball tool call this turn.声明-动作一致性 check.
+        if (shouldWarnVoidHold(storedContent, collectedToolNames)) {
+          try {
+            const hintSource = {
+              connector: 'void-hold-hint',
+              label: '持球提醒',
+              icon: '🏓',
+              meta: { presentation: 'system_notice', noticeTone: 'warning' },
+            };
+            const stored = await deps.messageStore.append({
+              userId: 'system',
+              catId: null,
+              threadId,
               content:
-                '这条回复给了 review 结论，但还没有明确传球。请用行首 @、structured routing，或 `cat_cafe_hold_ball` 继续交接。',
+                '检测到持球声明但未调用 hold_ball MCP。' +
+                '文字声明不会设定唤醒计时器——请实际调用 `cat_cafe_hold_ball` 完成持球，或改为传球。',
               mentions: [],
               timestamp: Date.now(),
               source: hintSource,

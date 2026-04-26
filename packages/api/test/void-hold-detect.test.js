@@ -1,0 +1,79 @@
+/**
+ * F167 Phase I AC-I1~I3 — void hold detection (声明-动作一致性).
+ *
+ * 场景：猫文本里声明"持球"但本轮 tool_calls 不含 cat_cafe_hold_ball →
+ * 虚空持球（文字声明无机械效果）。
+ *
+ * 只测纯检测函数；系统消息广播走 route-serial 集成路径。
+ * 原则（KD-25）：声明-动作一致性 ≠ 语义分类器（KD-8 safe）。
+ */
+
+import assert from 'node:assert/strict';
+import { describe, test } from 'node:test';
+import { hasHoldTextClaim, shouldWarnVoidHold } from '../dist/domains/cats/services/agents/routing/void-hold-detect.js';
+
+describe('F167 Phase I AC-I1: hasHoldTextClaim', () => {
+  test('detects 持球 in plain text', () => {
+    assert.equal(hasHoldTextClaim('我持球中，等云端 review'), true);
+    assert.equal(hasHoldTextClaim('持球等待唤醒'), true);
+  });
+
+  test('detects hold ball / hold_ball (case-insensitive)', () => {
+    assert.equal(hasHoldTextClaim('I will hold ball for now'), true);
+    assert.equal(hasHoldTextClaim('using hold_ball to wait'), true);
+    assert.equal(hasHoldTextClaim('Hold Ball for cloud review'), true);
+  });
+
+  test('detects cat_cafe_hold_ball reference in text', () => {
+    assert.equal(hasHoldTextClaim('调用 cat_cafe_hold_ball 持球'), true);
+  });
+
+  test('does not trigger on empty or unrelated text', () => {
+    assert.equal(hasHoldTextClaim(''), false);
+    assert.equal(hasHoldTextClaim('review 完成，LGTM'), false);
+    assert.equal(hasHoldTextClaim('我来接球继续做'), false);
+  });
+
+  // AC-I2: structural exemptions
+  test('does not trigger inside fenced code blocks', () => {
+    const text = '看这段代码：\n```\n持球等待\n```\n以上是示例';
+    assert.equal(hasHoldTextClaim(text), false);
+  });
+
+  test('does not trigger inside blockquote', () => {
+    const text = '引用之前的讨论：\n> 我持球中\n\n我已经传球了';
+    assert.equal(hasHoldTextClaim(text), false);
+  });
+
+  test('does not trigger inside URLs', () => {
+    const text = '参考 https://example.com/hold-ball-docs 这个链接';
+    assert.equal(hasHoldTextClaim(text), false);
+  });
+
+  test('triggers when hold text is outside structural exemptions', () => {
+    const text = '```\ncode\n```\n\n我持球等云端 review';
+    assert.equal(hasHoldTextClaim(text), true);
+  });
+});
+
+describe('F167 Phase I AC-I1: shouldWarnVoidHold', () => {
+  test('warns when text says hold but no tool call', () => {
+    assert.equal(shouldWarnVoidHold('我持球等云端 codex review', ['mcp__cat-cafe__cat_cafe_post_message']), true);
+  });
+
+  test('does not warn when hold_ball tool was called', () => {
+    assert.equal(shouldWarnVoidHold('我持球等云端 codex review', ['mcp__cat-cafe__cat_cafe_hold_ball']), false);
+  });
+
+  test('does not warn when text has no hold claim', () => {
+    assert.equal(shouldWarnVoidHold('review 完成 LGTM', []), false);
+  });
+
+  test('does not warn on empty text', () => {
+    assert.equal(shouldWarnVoidHold('', []), false);
+  });
+
+  test('accepts provider-wrapped hold_ball tool name', () => {
+    assert.equal(shouldWarnVoidHold('我持球中', ['mcp__cat-cafe-collab__cat_cafe_hold_ball']), false);
+  });
+});
