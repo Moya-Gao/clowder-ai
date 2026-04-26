@@ -12,13 +12,7 @@ created: 2026-04-22
 >
 > **Closure 2026-04-26 23:14**: AC-E1/E2/E3 真闭环。Phase E (KD-1 handler unification) 做完 — useSocket-background.ts (634 行) + useSocket-background.types.ts (111 行) + useSocket-background-system-info.ts (341 行) 全部删除，业务逻辑 inline 进 useAgentMessages.ts (+1038 行)。drift risk 结构性消除 (active+bg 同一份实现)。9 PR 闭环：#1347 Phase A → #1379 hotfix3 → #1391 Phase B-3 → #1399 → #1400 → #1405 PR-A → #1411 PR-B → #1413 PR-B-2 → #1416 PR-C → #1417 Phase D → #1421 Phase E Task 1+2 → #1423 Phase E Task 6 fixture → #1426 Phase E Task 3-5 (砚砚 GPT-5.5)。
 >
-> **Reopen-then-closed history**: 04-26 07:30 第一次 close 时 AC-B2 deferred 开 F177 stub 被铲屎官识破"虚假闭环"，11:30 reopen + 删 F177 stub，重新做 Phase E Task 3-5。两次反复后真闭环。教训沉淀：`feedback_no_anchor_as_followup_disguise.md` (P0 铁律)。
->
-> **What 还没做**: KD-1 handler unification — `handleBackgroundAgentMessage` (~500 行 useSocket-background.ts) 业务逻辑迁移到 thread-aware `useAgentMessages`，消除 active vs background event handler 双路径。新增 Phase E AC-E1/E2 见下文。
->
-> **PR 链 (主线已 merged)**：#1347 Phase A → #1379 hotfix3 → #1391 Phase B-3 fixture → #1399 PR-A1 → #1400 PR-A2 → #1405 PR-A → #1411 PR-B Task 9 → #1413 PR-B-2 → #1416 PR-C → #1417 Phase D → 🚧 Phase E 待开 (handler unification)。
->
-> **闭环 closed 2026-04-26 07:30 段已撤销**（保留 Closure 时的 attempt 描述供 audit trail）：~~主线愿景达成 (KD-2 mirror invariant 全收口...)。AC-B2 (handler unification) deferred → F177 接棒 — gpt52 愿景守护 P1: defer 必须留可点开的 follow-up anchor~~ — 这套话术被铲屎官 11:30 识破，handler unification 是没完成不是 deferred，stub anchor 是 follow-up 包装不是真闭环。
+> **Reopen-then-closed history**: 04-26 07:30 第一次 close 时 AC-B2 deferred 开 F177 stub 被铲屎官识破"虚假闭环"，11:30 reopen + 删 F177 stub，重新做 Phase E Task 3-5（砚砚 GPT-5.5 接手实施）。23:14 真闭环：F177 stub 删除 + handler 业务逻辑真 inline + bg 文件真删除。两次反复后真闭环。教训沉淀：`feedback_no_anchor_as_followup_disguise.md` (P0 铁律)。gpt52 守护 vote 3/3 通过 (2026-04-26 第二次 close)。
 >
 > **Phase A merged 2026-04-23 (PR #1347, squash 3feae9563)**：mirror invariant + 单指针 routing + deterministic bubble id + invocation-driven suppression cleanup（含 fail-open）。Phase B/C/D 留 follow-up PR。
 >
