@@ -59,6 +59,5 @@ created: 2026-02-26
 | F165 | Guided Overfitting — 引导式过拟合 / 养猫路径 | spec | 布偶猫 | internal | [F165](features/F165-guided-overfitting.md) |
 | F167 | A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏 | spec | 布偶猫 | internal | [F167](features/F167-a2a-chain-quality.md) |
 | F169 | Agent Memory Reflex — 愿景文档（vision artifact） | vision | 三猫 | internal | [F169](features/F169-agent-memory-reflex.md) |
-| F171 | First Partner Onboarding — 领养第一只猫 / 配置第一位伙伴 | spec | 缅因猫/gpt52 | community [#520](https://github.com/zts212653/clowder-ai/pull/520) | [F171](features/F171-first-partner-onboarding.md) |
 | F173 | 前端 Thread-Runtime State 统一 — 消除 dual write-path & liveness fragmentation | spec | 布偶猫 | internal | [F173](features/F173-frontend-message-pipeline-unification.md) |
 | F175 | Unified Message Queue — 优先级排序 + 用户可控编排（urgent bypass 收口）| spec | @mindfn (community) | community [#575](https://github.com/zts212653/clowder-ai/pull/575) | [F175](features/F175-unified-message-queue.md) |

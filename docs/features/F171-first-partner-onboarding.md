@@ -9,7 +9,7 @@ community_pr: ["clowder-ai#520"]
 
 # F171: First Partner Onboarding — 领养第一只猫 / 配置第一位伙伴
 
-> **Status**: in-progress | **Owner**: 缅因猫/gpt52 | **Priority**: P1
+> **Status**: done | **Owner**: 缅因猫/gpt52 | **Priority**: P1 | **Completed**: 2026-04-25
 
 ## Why
 
@@ -69,38 +69,38 @@ community_pr: ["clowder-ai#520"]
 
 ### Phase E: 回家吸收与 follow-up
 
-- `clowder-ai#520` 已合入开源仓，cat-cafe 侧通过 intake PR 吸收可复用实现
+- `clowder-ai#520` 已合入开源仓，cat-cafe 侧通过 intake PR `cat-cafe#1395` 吸收可复用实现
 - 吸收范围以 “First Partner Onboarding” 产品语意为准：保留 F171 的领养第一只猫 / 配置第一位伙伴 framing
 - 现有项目迁移、完整 E2E、README/SETUP 公开文档更新仍作为后续闭环，不作为本次 intake 的完成条件
 
 ## Acceptance Criteria
 
 ### Phase A（产品语意重写）
-- [ ] AC-A1: 冷启动默认文案不再要求用户先理解“训练营”概念，而是明确指向“配置第一位伙伴”
-- [ ] AC-A2: 首次进入的主 CTA 与空状态文案能让开源新用户理解下一步是“领养第一只猫”
+- [x] AC-A1: 冷启动默认文案不再要求用户先理解“训练营”概念，而是明确指向“配置第一位伙伴”
+- [x] AC-A2: 首次进入的主 CTA 与空状态文案能让开源新用户理解下一步是“领养第一只猫”
 
 ### Phase B（冷启动流程）
-- [ ] AC-B1: 首次进入且无活跃成员时，用户可在一个连续流程中完成模板选择、账号配置、连通性验证、创建第一只猫
-- [ ] AC-B2: 完成第一只猫创建后，用户可立即进入可工作的对话态
-- [ ] AC-B3: 首次成功协作前，不要求用户先理解多猫协作全貌
+- [x] AC-B1: 首次进入且无活跃成员时，用户可在一个连续流程中完成模板选择、账号配置、连通性验证、创建第一只猫
+- [x] AC-B2: 完成第一只猫创建后，用户可立即进入可工作的对话态
+- [x] AC-B3: 首次成功协作前，不要求用户先理解多猫协作全貌
 
 ### Phase C（边界对齐）
-- [ ] AC-C1: F171 的产品语意与 F127 / F155 / F110 的职责边界在 feature docs 中明确写清
-- [ ] AC-C2: 不再把 cold-start onboarding 错挂到 F110 或复写到已完成的 F087
+- [x] AC-C1: F171 的产品语意与 F127 / F155 / F110 的职责边界在 feature docs 中明确写清
+- [x] AC-C2: 不再把 cold-start onboarding 错挂到 F110 或复写到已完成的 F087
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | “我们家现在对于开源小白不太友好” | AC-A1, AC-B1 | 文案 review + 手动走查 | [ ] |
-| R2 | “不是每个人都这么了解每只猫、每只猫猫的 agent” | AC-A2, AC-B3 | 产品流程 review | [ ] |
-| R3 | “我支持吸收他的产品语意，但改写成领养第一只猫 / 配置第一位伙伴” | AC-A1, AC-C2 | feature spec review | [ ] |
-| R4 | “给他一个新的 feat 号，我们家这走 feat 立项流程” | AC-C2 | feature index / BACKLOG / 社区 comment | [ ] |
+| R1 | “我们家现在对于开源小白不太友好” | AC-A1, AC-B1 | 文案 review + 手动走查 | [x] |
+| R2 | “不是每个人都这么了解每只猫、每只猫猫的 agent” | AC-A2, AC-B3 | 产品流程 review | [x] |
+| R3 | “我支持吸收他的产品语意，但改写成领养第一只猫 / 配置第一位伙伴” | AC-A1, AC-C2 | feature spec review | [x] |
+| R4 | “给他一个新的 feat 号，我们家这走 feat 立项流程” | AC-C2 | feature index / BACKLOG / 社区 comment | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
-- [ ] 前端需求已准备需求→证据映射表（若适用）
+- [x] 前端需求已准备需求→证据映射表（若适用）
 
 ## Dependencies
 
@@ -122,9 +122,9 @@ community_pr: ["clowder-ai#520"]
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 冷启动入口最终对外叫“领养第一只猫”还是“配置第一位伙伴”？ | ⬜ 未定 |
-| OQ-2 | F087 是否保留为可选进阶体验，还是彻底被 F171 替代？ | ⬜ 未定 |
-| OQ-3 | 首位伙伴配置成功后，是否立即推荐第二只猫，还是等第一次成功协作后再推荐？ | ⬜ 未定 |
+| OQ-1 | 冷启动入口最终对外叫“领养第一只猫”还是“配置第一位伙伴”？ | ✅ 已定：对外 framing 用 First Partner Onboarding / 配置第一位伙伴，中文体验保留“领养第一只猫”的陪伴感 |
+| OQ-2 | F087 是否保留为可选进阶体验，还是彻底被 F171 替代？ | ✅ 已定：F087 保留为可选进阶体验，F171 只承接默认冷启动入口 |
+| OQ-3 | 首位伙伴配置成功后，是否立即推荐第二只猫，还是等第一次成功协作后再推荐？ | ✅ 已定：优先进入第一次成功协作，更多猫由后续 guide / Phase 7.5 承接 |
 
 ## Key Decisions
 
@@ -140,11 +140,13 @@ community_pr: ["clowder-ai#520"]
 |------|------|
 | 2026-04-22 | 立项：F171 冷启动首位伙伴 onboarding |
 | 2026-04-25 | Intake `clowder-ai#520`：吸收零成员冷启动、first-run wizard、账号统一与 guide overlay 实现，保留家里 F171 产品语意 |
+| 2026-04-25 | Completion：`cat-cafe#1395` merged，`#1394` closed，ledger advanced；GPT-5.4 守护审计确认 merge + intake 闭环 |
 
 ## Review Gate
 
-- Phase A: 铲屎官确认冷启动产品语意（“领养第一只猫 / 第一位伙伴”）
-- Phase B: 缅因猫 + 布偶猫确认与 F127/F155/F110 的边界
+- Phase A: ✅ 铲屎官确认冷启动产品语意（“领养第一只猫 / 第一位伙伴”）
+- Phase B: ✅ 缅因猫 + 布偶猫确认与 F127/F155/F110 的边界
+- Completion: ✅ GPT-5.4 守护审计确认 `merge + intake` 全流程闭环，无 brand 污染、无明显漏吸、定向回归通过
 
 ## Links
 
@@ -155,3 +157,6 @@ community_pr: ["clowder-ai#520"]
 | **Feature** | `docs/features/F127-cat-instance-management.md` | 账户配置与运行时建猫技术底座 |
 | **Feature** | `docs/features/F155-scene-guidance-engine.md` | 场景式 guide 引擎 |
 | **Community PR** | `clowder-ai#520` | 社区方向来源：First-Run Quest |
+| **Cat Café PR** | `cat-cafe#1395` | F171 intake absorb PR |
+| **Intake Issue** | `cat-cafe#1394` | Intake Intent Issue，已由 PR merge 自动关闭 |
+| **Reflection** | `docs/reflections/2026-04-25-f171-first-partner-onboarding-capsule.md` | Completion 反思胶囊 |
