@@ -258,6 +258,15 @@
             "maxContextTokens": 160000,
             "maxMessages": 200,
             "maxContentLengthPerMsg": 100000
+          },
+          "voiceConfig": {
+            "voice": "zm_yunjian",
+            "langCode": "zh",
+            "speed": 1.0,
+            "refAudio": "genshin/万叶/vo_kazuha_dialog_greetingMorning.wav",
+            "refText": "清晨的鸟鸣，是大自然的馈赠。启程吧，属于我们的旅途也要开始了。",
+            "instruct": "用一个清澈温和的少年语气说话，带着从容的力量感",
+            "temperature": 0.3
           }
         }
       ]
