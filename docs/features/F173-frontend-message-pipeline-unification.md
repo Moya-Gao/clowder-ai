@@ -8,7 +8,7 @@ created: 2026-04-22
 
 # F173: 前端 Thread-Runtime State 统一（消除 dual write-path & liveness fragmentation）
 
-> **Status**: realized → closed 2026-04-26 23:14 | **Owner**: 布偶猫 + 缅因猫 GPT-5.5 | **Priority**: P0
+> **Status**: done (realized → closed 2026-04-26 23:14) | **Owner**: 布偶猫 + 缅因猫 GPT-5.5 | **Priority**: P0
 >
 > **Closure 2026-04-26 23:14**: AC-E1/E2/E3 真闭环。Phase E (KD-1 handler unification) 做完 — useSocket-background.ts (634 行) + useSocket-background.types.ts (111 行) + useSocket-background-system-info.ts (341 行) 全部删除，业务逻辑 inline 进 useAgentMessages.ts (+1038 行)。drift risk 结构性消除 (active+bg 同一份实现)。9 PR 闭环：#1347 Phase A → #1379 hotfix3 → #1391 Phase B-3 → #1399 → #1400 → #1405 PR-A → #1411 PR-B → #1413 PR-B-2 → #1416 PR-C → #1417 Phase D → #1421 Phase E Task 1+2 → #1423 Phase E Task 6 fixture → #1426 Phase E Task 3-5 (砚砚 GPT-5.5)。
 >

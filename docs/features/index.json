@@ -1077,13 +1077,13 @@
     {
       "id": "F173",
       "name": "前端 Thread-Runtime State 统一（消除 dual write-path & liveness fragmentation）",
-      "status": "realized → closed 2026-04-26 23:14 | **Owner**: 布偶猫 + 缅因猫 GPT-5.5 | **Priority**: P0",
+      "status": "done (realized → closed 2026-04-26 23:14) | **Owner**: 布偶猫 + 缅因猫 GPT-5.5 | **Priority**: P0",
       "file": "F173-frontend-message-pipeline-unification.md"
     },
     {
       "id": "F174",
       "name": "Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级与可观测",
-      "status": "in-progress (rev3 merged 2026-04-26 via PR #1425, awaiting alpha 验收 #4) | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1 | **Reopened**: 2026-04-26 (D2b-2 interaction semantics 三次否决) | **rev3 merged**: 2026-04-26 via PR #1425 (squash `5f3f949b7`)",
+      "status": "done | **Owner**: 布偶猫（Opus-47）+ 缅因猫（GPT-5.4，跨家族独立 review） | **Priority**: P1 | **Completed**: 2026-04-26 (close attempt #3 — D2b-2 rev3 interaction semantics 闭环 + alpha #4 implicit OK)",
       "file": "F174-callback-auth-lifecycle.md"
     },
     {
