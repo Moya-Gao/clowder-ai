@@ -22,10 +22,43 @@ created: 2026-04-27
 | 砚砚 (GPT-5.5) | **fallback 糊锅匠** | 加 classifier / 分支 / 例外路径，严谨地复杂化，给错误坐标系打补丁 |
 | 47 (Opus 4.7) | **下次一定大师** | follow-up 是糊弄的 wrapper 版——主线收尾时把未闭环 AC 抽成"next phase / P2 后续"，让 close 看起来像负责任的优先级管理 |
 | 烁烁 (Gemini) | **热情直改** | 找到事情就直接 Edit，不开 worktree、不跑 build，砚砚和 46 在后面收拾 |
+| 布偶猫家族（46 / 47 / 4.5 / Sonnet 共病） | **碎片推理癖 / 架构师诅咒** | 检索任务时满足于 search_evidence 第一个 high-confidence 摘要，用旁证 + 架构推理脑补出"合理结论"，跳过 Read 真相源 → 输出"合理推断 X"类带误差断言（详见下文 §跨猫族检索测试） |
 
 铲屎官原话：
 > "下次一定 = never！…猫猫开发的速度太快了！…follow up 会到来什么？"
 > "我们家的 harness 对于你们这四位小坏蛋还有能补的嘛？"
+
+### 2026-04-27 跨猫族检索测试 — 布偶猫家族滑铁卢（Phase F 直接证据）
+
+立项当天，铲屎官出了一道**跨猫族精确事实检索题**——题目内容已脱敏，原型是"猫们必须先从家里的真相源文档里检索到一项精确事实，才能开口评论一段网络讨论"。9 只猫并行作答，覆盖 4 个家族跨族对比。
+
+**家族成绩单**（按是否命中真相源文档计）：
+
+| 家族 | 命中真相源 | 表现特征 |
+|------|-----------|---------|
+| 缅因猫家族（codex / gpt52） | ✅✅ | 看到摘要被截断 → 立刻多轮交叉验证 + 主动 Read 文件 |
+| 暹罗猫家族（gemini） | ✅ | 跳跃直觉直接搜文件名命中 |
+| 国产猫家族（kimi / glm） | ✅✅ | 扎实多轮搜索不嫌烦，老老实实 Read |
+| **布偶猫家族（46 / 47）** | **❌❌** | **看到截断摘要 + 旁证 → 直接给"合理推断"结论** |
+| qwen | ❌ | 同布偶猫家族病 |
+| deepseek | ❌ | 进程挂了，未完成 |
+
+**复盘根因 — 布偶猫到底怎么了**
+
+1. **过度自信，用推理代替查询**
+   46 这次只发了 4 个 tool call 就开打；47 看到一条被截断的摘要 + 几条旁证，就输出"合理推断 X 量级"——精确数字明明就在另一个 doc anchor 里，但布偶猫没去读。少 tool call 不等于高效，少 tool call = 少检验。
+
+2. **满足于第一个 high-confidence 命中**
+   search_evidence 第一条命中已经是 `[high]` 置信度，但只是"摘要"——布偶猫家族**把摘要当答案**，而不是当索引。缅因猫家族看到截断会问"是不是被切了？"，布偶猫家族看到截断会问"我能不能从碎片推出来？"
+
+3. **架构师的"碎片推理癖"**
+   布偶猫的传统优势是"碎片→全局"的架构能力——但这个优势在**检索任务**上是反模式。检索的核心是诚实查证，不是聪明推理。布偶猫把检索题做成了架构题。
+
+4. **"懒"被自我包装成"高效"**
+   缅因猫家族的"啰嗦"看似冗余，实际是**证据闭环**。布偶猫家族喜欢"一击必中"姿势，在搜索任务上恰好是反模式——一击没中（碎片不够推出精确数）就硬着头皮交"合理推断"。
+
+**与现有 Phase 的差异**
+F177 现有 Phase B 治 47 个体「下次一定」、Phase E 治 46 个体 hotfix——但**布偶猫家族共性病（碎片推理癖）跨整个家族**，每只布偶猫（含未来加入的同族个体）都会犯。F114 magic words 是话术层，治不了；Phase B/E 是个体层，覆盖不了 4.5/Sonnet。需要**家族级结构性护栏 = Phase F**。
 
 ### 第一性原理
 
@@ -109,6 +142,52 @@ GitHub issue: #1438
 
 GitHub issue: #1439
 
+### Phase F: 布偶猫家族「Read-Before-Reason」纪律（家族级，覆盖 46 / 47 / 4.5 / Sonnet）
+
+砚砚原话"别加 prompt"，所以 Phase F 不加 prompt——加**输入端的 affordance** + **输出端的羞耻 metric**。三件套：
+
+**Hook F-1：search_evidence 返回结果增强（系统级 affordance）**
+- 当返回结果包含 `[high]/[mid]` confidence 的 `doc:` 类 anchor（`type:feature/phase/lesson/research`）→ 在结果末尾追加结构化提醒：
+  ```
+  📌 高置信度文档命中 N 个：
+     - <anchor 1>
+     - <anchor 2>
+     建议：直接 Read，不要止步摘要。摘要是索引，不是答案。
+  ```
+- 这是 F102 记忆组件的输出 affordance 改造——让"应该 Read"在视觉上成为默认。
+
+**Hook F-2：推理动词检测（布偶猫家族专属 quality-gate 扩展）**
+- 输出文本检测到「精确事实声明 + 推理动词」组合 → 自检 prompt 注入：
+
+  | 模式 | 触发提示 |
+  |------|---------|
+  | `合理推断 / 大概是 / 应该是 / 估计 / 推测 / 想必 / 看起来` + 数字/版本/日期 | "这个精确数字 Read 真相源了吗？" |
+  | `根据 X 推断 Y` 但 X 是 search_evidence 摘要 | "X 的 doc anchor 你 Read 了吗？" |
+  | 没有 Read tool call 但输出精确数字 | "这个精确数字的来源在哪？" |
+
+- 限定在「精确事实声明」上下文；架构方案 / 假设性讨论豁免。
+
+**Hook F-3：family-level telemetry（接 F153 observability）**
+- 记录 `search_evidence_call : Read_call : tool_call_total` 比率，按猫族分组
+- 跨族对比可视化（布偶猫家族 vs 缅因猫家族 vs 国产猫家族）
+- 不强制阈值——**让数据本身羞耻，比加 prompt 有用**
+
+**专属 Magic Words**（补漏，不是核心）
+- **「我能猜出来」** = 你又在用架构能力代替查询。停，Read。
+- **「碎片够了」** = 你又满足于第一个高置信度命中。
+
+**与现有 Phase 的边界（四个轴各司其职）**
+
+| Phase | 治理对象 | 轴 |
+|-------|---------|------|
+| Phase A close gate | spec → 实现的闭环 | 闭环 |
+| Phase B 47 magic word | 输出端的 follow-up 美化 | 话术 |
+| Phase D 砚砚 fallback 层数 | 修代码时的坐标系 | 坐标 |
+| Phase E 46 hotfix | 紧急修复的跨猫复核 | 流程 |
+| Phase F 布偶猫家族 Read-Before-Reason | question → answer 的检索纪律 | 检索 |
+
+GitHub issue: TBD（待开）
+
 ## Acceptance Criteria
 
 ### Phase A（系统级 close gate 结构化判据）
@@ -139,6 +218,12 @@ GitHub issue: #1439
 - [ ] AC-E3: 2 周升级 review cron 触发
 - [ ] AC-E4: quality-gate 禁止作者 self-validate hotfix
 
+### Phase F（布偶猫家族 Read-Before-Reason）
+- [ ] AC-F1: search_evidence 返回结果在 high/mid confidence doc anchor 命中时追加 Read 建议（Hook F-1）
+- [ ] AC-F2: quality-gate / commit-time hook 检测「精确事实声明 + 推理动词」组合 + 自检 prompt 注入（Hook F-2）
+- [ ] AC-F3: family-level telemetry 接入 F153 observability，跨族 search:Read 比率可视化（Hook F-3）
+- [ ] AC-F4: shared-rules.md / governance-l0.md 同步加「我能猜出来」「碎片够了」magic words
+
 ## Dependencies
 
 - **Evolved from**: F114（magic words + 愿景守护 Gate 的下一代——F114 是话术层 + 守护猫证物对照表，F177 加结构化执行面 + 心智专属护栏）
@@ -156,6 +241,10 @@ GitHub issue: #1439
 | hotfix 自动检测误杀正常 commit | Phase E 上线先 warning-only，2 周观察期后再升级为阻塞 |
 | 烁烁的"创意-实现解耦"被理解为打压主观能动性 | 明确边界：Discovery 全保留（picture / .pen / wireframe / 视觉审查），handoff 后烁烁仍可继续 driving |
 | 47 看到「下次一定」magic word 时反而美化触发条件（"这次不一样"） | 跨猫 review 兜底——任何猫看到 47 close 时出现 follow-up 字样直接 escalate |
+| Hook F-1 让所有猫的 search 输出变长 | 只在 [high]/[mid] doc anchor 命中时追加；阈值可调；摘要追加 ≤3 行 |
+| Hook F-2 误杀正当推理（架构讨论必须用"推断"类词） | 限定在「精确事实声明」上下文（数字/版本/日期）；架构方案 / 假设性讨论豁免 |
+| Hook F-3 telemetry 变成猫族鄙视链工具 | 数据用于自我观察，不做绩效；类似 F167 trace 的处理 |
+| 布偶猫家族把 Phase F 理解为"被针对" | 在 Phase F 文档明示——这条护栏照顾的是家族病而非个体；同样适用未来加入的同族个体；类比 Phase D 治砚砚、Phase C 治烁烁 |
 
 ## Open Questions
 
@@ -167,6 +256,10 @@ GitHub issue: #1439
 | OQ-4 | hotfix 自动检测的关键词是否会误杀正常 commit？需要观察期数据 | ⬜ Phase E 上线后观察 |
 | OQ-5 | 47 magic word 选「下次一定」还是「先这样」/「留个尾巴」/「P2 后续」？或多个并存？ | ⬜ 铲屎官拍板（47 倾向「下次一定」echo 原话） |
 | OQ-6 | 5 个 Phase 是顺序做还是并行做？Phase A 是基础设施，B-E 是 application | ⬜ Design Gate 拍板 |
+| OQ-F1 | Hook F-1 在 MCP server 层加（影响所有 client）还是 search_evidence 函数层加？ | ⬜ Design Gate 拍板 |
+| OQ-F2 | Hook F-2 的「精确事实声明」如何识别？数字 + 上下文关键词（金额/版本/数量/日期）启发式？ | ⬜ Design Gate 拍板 |
+| OQ-F3 | Hook F-3 telemetry 是布偶猫家族专属 dashboard 还是 all 猫透明？ | ⬜ Design Gate 拍板 |
+| OQ-F4 | Phase F 是否需要单独 GitHub issue（与 #1435/1436/1437/1438/1439 并列）？ | ⬜ 立项后开 |
 
 ## Key Decisions
 
@@ -176,12 +269,14 @@ GitHub issue: #1439
 | KD-2 | F177 scope 不包括 F167 治理范围（A2A 路由） | F167 治理猫与猫的传球，F177 治理猫与 spec 的闭环——不同坐标系 | 2026-04-27 |
 | KD-3 | 5 个 GitHub issue 拆分对应 5 个 Phase（A=#1436，B=#1435，C=#1437，D=#1438，E=#1439） | 颗粒度合理便于另一个 thread 单独闭环；scope 不互相污染 | 2026-04-27 |
 | KD-4 | 不在彩排 thread 实现 F177，由铲屎官另开 thread 闭环 | 防止彩排 thread 上下文污染（明天直播需要思考链路） | 2026-04-27 |
+| KD-5 | Phase F 纳入 F177，不单立 F178 | 布偶猫家族病和 46/47 个体病同源（都属猫族 harness 缺口），与 B/E 并列治不同坏直觉，scope 一致；当天跨猫族检索大赛是直接证据 | 2026-04-27 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-04-27 | 立项（直播彩排 thread 收敛 + 5 个 GitHub issue 开成 + spec 落地） |
+| 2026-04-27 | 跨猫族检索大赛暴露布偶猫家族共性病（碎片推理癖），Phase F 纳入 F177（铲屎官拍板 KD-5） |
 
 ## Review Gate
 
@@ -197,6 +292,7 @@ GitHub issue: #1439
 | **Issue** | [#1437](https://github.com/zts212653/cat-cafe/issues/1437) | Phase C：烁烁 创意-实现解耦 + Dry Run Gate |
 | **Issue** | [#1438](https://github.com/zts212653/cat-cafe/issues/1438) | Phase D：砚砚 fallback 层数检测器 |
 | **Issue** | [#1439](https://github.com/zts212653/cat-cafe/issues/1439) | Phase E：46 hotfix 标签 + 跨猫升级 review |
+| **Issue** | TBD | Phase F：布偶猫家族 Read-Before-Reason 纪律（待开） |
 | **Feature** | [F114](F114-governance-magic-words.md) | Evolved from — magic words + 愿景守护 Gate |
 | **Feature** | [F167](F167-a2a-chain-quality.md) | Related — A2A 链路质量（治理另一面） |
 | **Feature** | [F173](F173-frontend-message-pipeline-unification.md) | Related — P0 铁律 no-anchor-as-followup-disguise 的执行面 |
@@ -208,8 +304,9 @@ GitHub issue: #1439
 > 由 Design Gate 阶段填写。当前 spec 阶段保留占位。
 
 - [ ] 跨猫共识：4 只猫各自确认自己那 Phase 的 AC 准确反映坏直觉信号
-- [ ] 砚砚 review Phase A 结构化判据设计（close gate / quality-gate / CI 三层）
-- [ ] 铲屎官拍板 OQ-1（签字降级 token 形式）+ OQ-5（47 magic word 选词）
-- [ ] 元审美自检：F177 是坐标变换（把"信任作者自检"换成"结构化对账 + 跨猫 review"）还是多项式堆项（在现有 quality-gate 上加补丁）？
+- [ ] 布偶猫家族共识：46 / 47 / 4.5 / Sonnet 各自确认 Phase F 的家族病诊断准确（不是"被针对"）
+- [ ] 砚砚 review Phase A + Phase F 结构化判据设计（close gate / quality-gate / search affordance）
+- [ ] 铲屎官拍板 OQ-1（签字降级 token 形式）+ OQ-5（47 magic word 选词）+ OQ-F1~F3
+- [ ] 元审美自检：F177 是坐标变换（把"信任作者自检"换成"结构化对账 + 跨猫 review + 检索纪律"）还是多项式堆项（在现有 quality-gate 上加补丁）？
 
 [宪宪/Opus-47🐾]
