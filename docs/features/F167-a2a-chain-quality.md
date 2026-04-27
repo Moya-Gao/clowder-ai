@@ -547,7 +547,7 @@ team experience："简直了你和Maine Coon是没头脑（Maine Coon听不懂�
 ### Case E2: Runtime 已吃到新护栏 + 6-case replay（2026-04-20）
 
 **Runtime smoke**：
-- `curl http://127.0.0.1:3004/health` 返回 `{"status":"ok"}`，runtime 在线
+- `curl http://127.0.0.1:3004/health` 返回 `{“status”:”ok”}`，runtime 在线
 - 运行中的猫进程 prompt 已包含最新压缩版球权检查：`@co-creator`、死锁禁止、虚假离场防护、review/分析/建议完成后默认必须传球（见 `SystemPromptBuilder.ts:578`）
 
 **6-case replay 对照表**：
@@ -555,11 +555,21 @@ team experience："简直了你和Maine Coon是没头脑（Maine Coon听不懂�
 | Case | 护栏/证据 | 结果 |
 |------|-----------|------|
 | 1. team lead球权盲区 | runtime 注入已明确 `team lead需要动 → 末尾行首 @co-creator`（`SystemPromptBuilder.ts:578`） | ✅ |
-| 2. 球权死锁 | `shared-rules §10` 明确禁止“收了球却说你等着/你别动”（`shared-rules.md:252-253`） | ✅ |
-| 3. 虚假离场 | `shared-rules §10` + runtime prompt 都要求“不 @ 但自己还在干活 → 声明球在我手上，继续 X”（`shared-rules.md:268`, `SystemPromptBuilder.ts:578`） | ✅ |
-| 4. 状态描述代替球权声明 | `shared-rules §10` 核心原则已写死“状态描述 ≠ 球权声明”（`shared-rules.md:246`） | ✅ |
+| 2. 球权死锁 | `shared-rules §10` 明确禁止”收了球却说你等着/你别动”（`shared-rules.md:252-253`） | ✅ |
+| 3. 虚假离场 | `shared-rules §10` + runtime prompt 都要求”不 @ 但自己还在干活 → 声明球在我手上，继续 X”（`shared-rules.md:268`, `SystemPromptBuilder.ts:578`） | ✅ |
+| 4. 状态描述代替球权声明 | `shared-rules §10` 核心原则已写死”状态描述 ≠ 球权声明”（`shared-rules.md:246`） | ✅ |
 | 5. 诊断不解决 | `shared-rules §10` 要求 push back 后必须接/退/升；runtime prompt 同步注入（`shared-rules.md:252`, `SystemPromptBuilder.ts:578`） | ✅ |
 | 6. Codex context overflow | `dynamic contextWindow + autoCompactTokenLimit per variant` 已合入 main，spec 记录 `41/41 codex-agent-service + 31/31 config tests` 全绿（AC-B9/B10） | ✅ |
+
+### Case E3: Playwright 验证被错误跳过（2026-04-27）
+
+| 维度 | 内容 |
+|------|------|
+| 我以为 | F170 多稿 review 中，若 dev server / 后端报错即可把页面验证标记为不可用，继续只做静态 diff 与单元测试 |
+| 实际要求 | CVO 明确要求：当前后端和 MCP 工具服务都可运行，不能用笼统”后端错误用不了”跳过；剩余稿件必须按真实启动 + Playwright 验证流程走，并推动 Opus 也采用该验证 |
+| 偏差根因 | 锚定偏差 + 证据不足：把一次启动/页面失败过早归因为环境不可用，没有继续区分 dev-mode 已知问题、production web 可运行路径、以及真实产品回归 |
+| 纠正轮次 | 1 次纠正后执行：fetch 目标分支、安装依赖、启动 3003/3004 memory/prod 服务、用 Playwright 验证页面并复核测试 |
+| 元心智哪条没执行 | Q2 信息验证不足：没有先穷尽可运行路径并收集服务日志/Playwright 证据，就准备接受”不可验证”前提 |
 
 ## Review Gate
 
