@@ -4,7 +4,7 @@ related_features: [F118, F167, F088]
 topics: [bug-report, stream-events, event-delivery, in-process-broadcast, long-invocation, status-message-discipline]
 doc_kind: bug-report
 created: 2026-04-27
-status: open
+status: fixed-awaiting-review
 severity: P1
 reporter: 铲屎官 (实测)
 diagnosed_by: 布偶猫/宪宪 (Opus-47)
@@ -23,6 +23,14 @@ diagnosed_by: 布偶猫/宪宪 (Opus-47)
 砚砚 GPT-5.5 在 thread `thread_moet2v6al4gfauvs` 跑 long invocation（开 PR #1430、跑 review、开 PR #1431），**后端持久化 message 完整存储**（store 真相源核过），但**铲屎官前端看不到他的中间过程消息**——只能从 GitHub 的 PR review feedback 自动通知里推断"砚砚还在干活"。同窗口出现 `Response timed out. The operation may still be running in the background.` + 一条 `in-process app-server event stream lagged; dropped 32 events` 警告。
 
 **此 Bug 跟 PR #1429 (前端 outer/inner invocationId canonicalization) 无因果关系**——PR #1429 修的是"同一响应渲染两次"，本 Bug 是"响应过程根本没渲染"。时间序也对不上（PR #1429 merge 在 04-27 02:45 UTC，砚砚 invocation 在那之后开始跑）。
+
+## 砚砚补充诊断（2026-04-27）
+
+**结论：是。** 这份 bug report 描述的链路可以解释铲屎官之前看到的"前端气泡消失"：后端 thread store 里消息完整，但前端实时事件丢失/延迟后进入 `DONE_TIMEOUT_MS` 分支，timeout 分支会清掉 active invocation 并插入系统提示，却没有触发 `requestStreamCatchUp(threadId)` 从持久化真相源补拉。此时 `useSocket` 的 stale watchdog 也容易因为最后一条消息变成 system timeout 而停止主动探测，所以用户只能等 F5/切线程等后续路径恢复。
+
+本分支修复点：`packages/web/src/hooks/useAgentMessages.ts` 在 active thread 和 background thread timeout 分支都触发 thread-scoped `requestStreamCatchUp(timeoutThreadId)`，让 timeout 从"清场结束"变成"提示用户仍在后台运行，同时立刻补拉已落库消息"。
+
+回归测试：`packages/web/src/hooks/__tests__/useAgentMessages-stream-catchup.test.ts` 新增 active/background timeout 两个失败用例；修复前均失败，修复后通过。
 
 ## 现象（铲屎官原话 + 截图证据）
 

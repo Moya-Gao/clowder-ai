@@ -1374,6 +1374,9 @@ export function useAgentMessages() {
           content: '⏱ Response timed out. The operation may still be running in the background.',
           timestamp: Date.now(),
         });
+        if (timeoutThreadId) {
+          store.requestStreamCatchUp(timeoutThreadId);
+        }
         return;
       }
 
@@ -1393,8 +1396,20 @@ export function useAgentMessages() {
         content: '⏱ Response timed out. The operation may still be running in the background.',
         timestamp: Date.now(),
       });
+      if (timeoutThreadId) {
+        store.requestStreamCatchUp(timeoutThreadId);
+      }
     }, DONE_TIMEOUT_MS);
-  }, [setLoading, clearAllActiveInvocations, setIntentMode, clearCatStatuses, setStreaming, addMessage]);
+  }, [
+    setLoading,
+    clearAllActiveInvocations,
+    setIntentMode,
+    clearCatStatuses,
+    getAllActiveValues,
+    setStreaming,
+    clearAllActive,
+    addMessage,
+  ]);
 
   /** Clear the timeout (called on done with isFinal) */
   const clearDoneTimeout = useCallback((threadId?: string) => {
