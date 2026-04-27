@@ -1,16 +1,19 @@
 ---
 feature_ids: []
-related_features: [F164, F173]
-topics: [bug-report, frontend, indexeddb, hydration, dedup, ghost-bubble, cache-stale]
+related_features: [F173, F164]
+topics: [bug-report, opencode-provider, callback-replacement, dedup, dup-bubble, invocationId-binding]
 doc_kind: bug-report
 created: 2026-04-27
+updated: 2026-04-28
 status: open
 severity: P2
-reporter: 铲屎官 (实测)
-diagnosed_by: 布偶猫/宪宪 (Opus-47)
+reporter: 铲屎官 (实测，2 个 thread 复现)
+diagnosed_by: 布偶猫/宪宪 (Opus-47, 待 缅因猫/砚砚 GPT-5.5 复审)
 ---
 
-# Bug Report：前端 IDB cache 残留导致每只猫渲染两个相同气泡（清 cache + F5 修复）
+# Bug Report：opencode 猫（qwen / kimi）每只渲染两个相同气泡
+
+> **更新 2026-04-28**：根因 hypothesis 从"前端 IDB cache 残留"修订为"**opencode provider stream events 不携带 invocationId → 前端 callback replacement strict-match 失败 → 走 else 创建新 bubble**"。代码层定位完整路径见下文。原 IDB hypothesis downgrade 为 secondary（IDB 持久化 dup → F5 后从 server GET 拿干净）。
 
 > **案发时间**: 2026-04-27 ~00:01–00:05 北京时间
 > **案发 thread**: `thread_mognv4l440bcwzbp`
@@ -59,33 +62,102 @@ id: 0001777273269123-000003-0b6a1c08   catId: kimi   "你好！我是 kimi（kim
 
 Chrome DevTools → Application → Storage → Clear site data → F5 → qwen × 1 + kimi × 1，正确。
 
-## 候选根因
+## 候选根因（更新后排序）
 
-按可疑度排序：
+### (1) **opencode provider stream events 不携带 invocationId → callback strict-match 失败**（**主嫌 — 代码层证据完整**）
 
-### (1) IDB messages cache + socket arrived message 双写未去重（**主嫌**）
+#### 证据链
 
-证据：
-- 清 IDB cache 修复 → 数据源在 IDB
-- 后端 store 只 1 条 → 不是后端写两次
+**A. 后端：opencode 流出的 events 不带 invocationId**
 
-机制（待源码核实）：
-- 用户点击 spawn qwen/kimi → 前端创建 placeholder bubble id（例如 `msg-{inv}-qwen`）写入 store + IDB
-- socket 收到 backend stream 完成消息（id `0001777273269123-000002`）→ append 到 store + IDB
-- 两条 id 不同（一个是前端 derived，一个是后端 server-issued）→ dedup 失败 → 看到两份
-- F5 reload → IDB hydrate 后 server-issued message 是真相源，前端 derived placeholder 不再 re-create → 正确
+`packages/api/src/domains/cats/services/agents/providers/opencode-event-transform.ts:52`
+```ts
+export function transformOpenCodeEvent(event: unknown, catId: CatId | string): AgentMessage | null {
+  // ... 转换 step_start / text / tool_use / error → AgentMessage
+  // 但生成的 AgentMessage 没有 invocationId 字段
+}
+```
 
-### (2) F164 IDB hydration 跟 socket race
+`packages/api/src/domains/cats/services/agents/providers/OpenCodeAgentService.ts:230-255`
+```ts
+const result = transformOpenCodeEvent(event, this.catId);
+// ...
+yield { ...result, metadata };  // ← 没注入 invocationId
+```
 
-参考 timeline 04-25 09:03 + PR #1411 已经修过的 `mergeReplaceHydrationMessages` ghost-tolerance guard（drop `draft-*` 前缀且无 live invocation 的 local-only message）。本 bug 现场是**完整 done CLI Output 气泡**重复，不是 draft——guard 范围不覆盖。
+`AgentMessage` interface (`packages/api/src/domains/cats/services/types.ts:114`)
+- 没有 `invocationId` 字段定义；invocationId 是 server route layer (route-serial) broadcast 时才注入
 
-候选方向：把 guard 扩展到非 draft prefix 的本地 only message？需要权衡，避免误删正在 streaming 的 placeholder。
+**B. 前端：placeholder 创建时绑不上 invocationId**
 
-### (3) WebSocket 重连 + 旧消息 replay
+opencode stream chunks 进 `useAgentMessages.handleAgentMessage` 时 `msg.invocationId` 是 undefined → placeholder bubble 的 `extra.stream.invocationId` 也是 undefined。
 
-如果 socket 重连后后端把已 ack 的 message 重新发了一份，且前端没用 server-issued id 做 dedup → 重复。
+**C. 前端：callback 来时 strict-match 找不到 placeholder**
 
-但这条不太合理：截图两条 message 时间差 1 分钟（00:01 vs 00:02），如果 replay 应该几乎同时。
+`packages/web/src/hooks/useAgentMessages.ts:1671-1689` `findCallbackReplacementTarget`
+```ts
+if (
+  msg.type === 'assistant' &&
+  msg.catId === catId &&
+  msg.origin === 'stream' &&
+  msg.extra?.stream?.invocationId === invocationId  // ← 严格匹配，但 placeholder 的是 undefined
+) {
+  return { id: msg.id };
+}
+return null;  // ← 找不到
+```
+
+**D. fallback `findInvocationlessRichPlaceholder` 也找不到**
+
+`packages/web/src/hooks/useAgentMessages.ts:1748-1759`
+```ts
+const isRichOrToolOnlyPlaceholder = (msg) =>
+  // ...
+  msg.content.trim().length === 0 &&  // ← 但 stream 已经写了 text
+  ((msg.extra?.rich?.blocks.length ?? 0) > 0 || (msg.toolEvents?.length ?? 0) > 0);
+```
+
+opencode stream 已经把 text 写进 placeholder（`content` 不空）→ 不匹配。
+
+**E. 走 else 分支 `addMessage` 创建新 bubble**
+
+`packages/web/src/hooks/useAgentMessages.ts:2029-2052`
+```ts
+const id = msg.messageId ?? deriveBubbleId(invocationId, msg.catId, ...);
+addMessage({
+  id,
+  type: 'assistant',
+  // ...
+  timestamp: Date.now(),  // ← 解释为什么 dup 的两个时间不同（00:01 vs 00:02）
+});
+```
+
+= **每只 opencode 猫 = stream placeholder + callback new bubble = 2 个气泡**
+
+#### 时间戳验证
+
+截图显示 qwen "00:01" + qwen "00:02" + kimi "00:01" + kimi "00:02"：
+- "00:01" = stream 期间创建的 placeholder timestamp（来自 stream event）
+- "00:02" = callback 到达后 `Date.now()` 创建的新 bubble timestamp
+→ 一一对应 hypothesis
+
+#### 为什么 PR #1429 修不到这条
+
+PR #1429 修的是 outer/inner invocationId 混用——前提是 placeholder 有 invocationId 可绑。opencode 这条根本没 invocationId 流到前端。
+
+#### 为什么 Claude/Codex 没这个 bug
+
+Claude / Codex provider 的 yield 链路里 invocationId 是显式注入到 metadata 或顶层 fields；opencode transform 漏了。需要看 ClaudeAgentService / CodexAgentService 怎么注入做对照。
+
+### (2) IDB cache 持久化 dup（secondary，downgraded）
+
+之前推断的"IDB cache 残留"是次因——dup bubble 被 (1) 创建后写入 IDB，F5 时从 IDB hydrate 仍然 dup；清 cache 后从 server GET 拿到干净的 1 份。
+
+**根本修在 (1)**：消除创建源头，IDB 自然不会再缓存到 dup。
+
+### (3) WebSocket 重连 + 旧消息 replay（已排除）
+
+不合理：两个 dup 时间差 1 分钟，如果 replay 应该几乎同时。
 
 ## 不是这些（已排除）
 
@@ -104,36 +176,49 @@ Chrome DevTools → Application → Storage → Clear site data → F5 → qwen 
 
 本 bug 跟 PR #1411 同源（都是 IDB hydration 层 dedup），但 PR #1411 的 guard 范围太窄。
 
-## 候选挂载点（请铲屎官拍板）
+## 候选修复方案
+
+### 方案 A（**推荐**）：OpenCodeAgentService 注入 invocationId 到所有 yield events
+
+**改动**：
+1. `packages/api/src/domains/cats/services/types.ts` `AgentMessage` 接口加 `invocationId?: string` 字段（已有 metadata.invocationId 的话先用现有字段）
+2. `packages/api/src/domains/cats/services/agents/providers/OpenCodeAgentService.ts` 所有 `yield {...}` 加 `...(options?.invocationId ? { invocationId: options.invocationId } : {})`
+3. 同步检查 ClaudeAgentService / CodexAgentService / GeminiAgentService 是否一致
+4. 前端 `useAgentMessages.handleAgentMessage` 收到 stream events 时 `extra.stream.invocationId = msg.invocationId`，让 placeholder 带上 invocationId
+
+**优点**：根因消除，前端 strict-match 重新生效（PR #1429 教训：保留 strict-match 是对的）。
+
+**风险**：要碰多个 provider，scope 不小；要核 metadata 当前是否就承担 invocationId 角色（避免重复定义）。
+
+### 方案 B：前端 fallback 放宽
+
+让 `findInvocationlessRichPlaceholder` 接受 `content` 不空的 placeholder（去掉 `content.trim().length === 0` 守护）。
+
+**风险高**：可能误吞别的并发 invocation 的 in-flight bubble（PR #1352 教训）。**不推荐**。
+
+### 方案 C：前端 catId-only fallback dedup
+
+callback path 在 strict-match 失败 + rich-only fallback 失败时，再 fallback 到"找最近一条同 catId 的 stream placeholder"。比 B 安全一点但仍有 race 风险。
+
+## 候选挂载点
 
 | 候选 | 适合度 | 理由 |
 |------|-------|------|
-| **挂在 F173 (closed) 作为 closed-state hotfix follow-up** | 高 | F173 主线就是收口前端 message pipeline 包括 hydration；PR #1411 已经在 F173 Phase C 修了同一类 ghost guard |
-| **挂在 F164 IDB cache feature** | 高 | F164 主导 IDB cache 层；本 bug 直接是 IDB hydration 问题 |
-| **新立 F: Hydration Dedup Hardening** | 中 | 独立立项可以一并处理"非 draft prefix 的 local-only message dedup" |
-| **挂在新 bug-report，不立 F** | 高 | 本文件本身就是 bug-report 登记；找到精确根因后再决定 |
+| **挂在 F173 closed-state hotfix follow-up（与 PR #1429 同源）** | 高 | F173 KD-1/KD-2 收口的就是前端 message pipeline，但前端 strict-match 假设是 stream events 带 invocationId——这次发现 opencode 没遵守这个契约，是后端 provider 层的契约缺口 |
+| **新立 F: Provider Stream Identity Contract**（包含所有 provider 一致性检查） | 中 | 如果检查发现 ≥2 个 provider 不带 invocationId，应该立项统一收口 |
+| **直接当 hotfix 修，不立 F** | 高 | 单点修 OpenCodeAgentService + AgentMessage type 加字段 |
 
-**我的推荐**：**先以 bug-report 形式登记**（本文件），然后在 follow-up 调查中：
+## 关键 follow-up（待 砚砚 GPT-5.5 复审 + ACK）
 
-1. 找到 IDB 里那两条 dup 的实际 message id 和 source（dev tools → Application → IndexedDB → cat-cafe-* → messages）
-2. 确认是 (1) 前端 derived placeholder + server-issued message 双 id，还是 (2) 同一个 id 写了两次
-3. 根据真根因决定：
-   - 如果是 (1) → 偏 F173 follow-up（mergeReplaceHydrationMessages 扩展 dedup 规则到 server-issued id 优先）
-   - 如果是 (2) → 偏 F164 follow-up（IDB write path 加 idempotency）
-
-## 关键 follow-up（待我做的事，铲屎官 ACK 后启动）
-
-1. **复现**：让铲屎官再 spawn qwen/kimi 各 1 次，**不清 cache**，把 chrome devtools → Application → IndexedDB 截图发我，看 IDB 里实际存了几条
-2. **追源码**：
-   - `packages/web/src/utils/offline-store.ts` 或类似 IDB writer
-   - `packages/web/src/hooks/useChatHistory.ts` 的 hydration replace path
-   - `mergeReplaceHydrationMessages` 当前 dedup 逻辑
-3. **fixture 复现**：构造 IDB 残留 + socket arrived 同 catId 不同 id 的 case，钉住 dedup invariant
+1. 砚砚复审 hypothesis（特别是"opencode 流出 events 没 invocationId"这个事实判断 — 我看的是源码静态分析，没看 runtime broadcast 实际 payload；砚砚可以从 runtime log 或 socket 协议层验证）
+2. 砚砚复审"Claude/Codex 没这个 bug"的对比 — 我没全看 ClaudeAgentService / CodexAgentService 的 yield，只看了 transform；砚砚可以补
+3. 修法决定 (A / B / C)
+4. 我和砚砚 pair 改：(a) 后端 provider 注入 invocationId (b) `AgentMessage` type 加字段 (c) 前端 `extra.stream.invocationId` 绑定 (d) fixture 钉死"opencode multi-mention 不再 dup"
 
 ## 临时 workaround（用户视角）
 
-清 IDB cache + F5 即可。但用户体验差——每次 spawn 新猫都需要做？需要核 reproducibility（铲屎官能否稳定复现）。
+清 IDB cache + F5 即可去除已经 dup 的 bubble。但每次 spawn 新 opencode 猫都会重新产生 dup——根因修复前 workaround 不解决问题。
 
 ## 签名
 
-[宪宪/Opus-47🐾] 2026-04-28
+[宪宪/Opus-47🐾] 2026-04-28（更新：opencode 根因 hypothesis）
