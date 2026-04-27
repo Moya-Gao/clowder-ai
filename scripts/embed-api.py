@@ -187,6 +187,10 @@ def _encode_mlx(texts: List[str]) -> np.ndarray:
     else:
         raw = np.array(output)
 
+    # Pool 3D last_hidden_state (batch × seq × hidden) → 2D (batch × hidden)
+    if raw.ndim == 3:
+        raw = raw.mean(axis=1)
+
     # MRL truncation to target dim
     truncated = raw[:, :embed_dim]
     # L2 normalize after truncation
