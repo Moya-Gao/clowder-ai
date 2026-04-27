@@ -585,12 +585,20 @@ export class InvocationQueue {
     return batch;
   }
 
-  /** #555: Whether a specific cat has any queued or processing entries in this thread (any source). */
+  /** #555: Whether a specific cat has any queued or processing entries in this thread (any source).
+   *  Stale defense: processing entries older than STALE_PROCESSING_THRESHOLD_MS are ignored
+   *  to prevent zombie entries from permanently blocking a cat. */
   hasQueuedOrProcessingForCat(threadId: string, catId: string): boolean {
+    const now = Date.now();
     for (const [key, q] of this.queues) {
       if (!key.startsWith(`${threadId}:`)) continue;
-      if (q.some((e) => (e.status === 'queued' || e.status === 'processing') && e.targetCats.includes(catId))) {
-        return true;
+      for (const e of q) {
+        if (!e.targetCats.includes(catId)) continue;
+        if (e.status === 'queued') return true;
+        if (e.status === 'processing') {
+          const age = now - (e.processingStartedAt ?? e.createdAt);
+          if (age < InvocationQueue.STALE_PROCESSING_THRESHOLD_MS) return true;
+        }
       }
     }
     return false;

@@ -228,7 +228,7 @@ export function ThreadItem({
                   a.href = url;
                   a.download = `thread-${id}.md`;
                   a.click();
-                  URL.revokeObjectURL(url);
+                  setTimeout(() => URL.revokeObjectURL(url), 1000);
                 } catch {
                   /* silent */
                 }
