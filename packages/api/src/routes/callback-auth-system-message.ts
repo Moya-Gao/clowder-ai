@@ -13,6 +13,11 @@
  *  - `stale_invocation` → skip (just got replaced by a newer invocation, no user action needed)
  *  - `unknown_invocation` → skip (record gone, no reliable metadata to attach)
  *  - `missing_creds` → skip (no invocationId means no thread context at all)
+ *  - **Background heartbeat tools** (refresh-token, etc.) → skip regardless of reason
+ *    — they fire on a timer not on user action, so user has no actionable
+ *    response. Telemetry still counts (D2b-3 panel + HubButton badge), but
+ *    no thread富块 noise. Source: alpha 验收 #5 — 铲屎官撞到 idle gemini 因后台
+ *    refresh-token 心跳触发的"幽灵失败"。
  *
  * Dedup (anti-noise per checklist):
  *  - Same (reason, tool, catId, threadId, userId) within 5min → suppressed
@@ -51,6 +56,24 @@ const DEDUP_WINDOW_MS = 5 * 60 * 1000;
 const HIDE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const SURFACEABLE_REASONS = new Set<AuthFailureReason | 'missing_creds'>(['expired', 'invalid_token']);
+
+/**
+ * F174 D2b-1 follow-up: tools that are SYSTEM-DRIVEN background heartbeats,
+ * not user-triggered work. Their callback auth failures are noise to the
+ * user — they happen automatically (timer-based), and the failure has no
+ * user-visible action item ("nothing the user can do; next user task will
+ * re-establish auth naturally"). Telemetry still records these for D2b-3
+ * panel + HubButton badge counts; we just don't surface them in-context.
+ *
+ * Source: alpha 验收 #5 (2026-04-26 16:31) — 铲屎官「gemini 都一小时没说话了
+ * 为什么会有这个奇怪的提醒？」 caused by refresh-token timer firing while
+ * cat was idle. 现场可感知性 = "用户驱动 callback 失败"，不是 "system 心跳失败"。
+ *
+ * Related: post_message / register_pr_tracking / update_task / retain_memory
+ * etc. ARE user-driven (cat invoked them as part of user task) — they remain
+ * surfaceable.
+ */
+const BACKGROUND_HEARTBEAT_TOOLS = new Set<string>(['refresh-token']);
 
 const REASON_DESCRIPTIONS: Record<AuthFailureReason | 'missing_creds', string> = {
   expired: 'callback token 已过期',
@@ -141,7 +164,20 @@ export class CallbackAuthSystemMessageNotifier {
    * Returns true if a message was actually sent.
    */
   async notify(params: NotifyParams): Promise<boolean> {
+    // Cloud Codex P2 #1427: prune dedup cache BEFORE any early-return guard.
+    // Otherwise a process that mainly sees suppressed heartbeat failures
+    // (refresh-token, etc.) would never call pruneExpired → stale entries
+    // accumulate, partially reintroducing the memory-retention class
+    // pruneExpired was designed to fix.
+    const now = this.now();
+    this.pruneExpired(now);
+
     if (!SURFACEABLE_REASONS.has(params.reason)) return false;
+    // D2b-1 follow-up: skip in-context surface for background heartbeat tools
+    // (e.g. refresh-token). User has no actionable response to a heartbeat
+    // failure when they're not currently driving the cat — telemetry still
+    // counts toward D2b-3 panel + HubButton badge.
+    if (BACKGROUND_HEARTBEAT_TOOLS.has(params.tool)) return false;
 
     const key = dedupKey({
       reason: params.reason,
@@ -150,8 +186,6 @@ export class CallbackAuthSystemMessageNotifier {
       threadId: params.threadId,
       userId: params.userId,
     });
-    const now = this.now();
-    this.pruneExpired(now);
     const state = this.dedup.get(key);
 
     if (state?.hiddenAt !== undefined && now - state.hiddenAt < HIDE_WINDOW_MS) {

@@ -179,6 +179,22 @@ export const ENV_VARS: EnvDefinition[] = [
     runtimeEditable: false,
   },
   {
+    name: 'CAT_CAFE_AGENT_KEY_SECRET',
+    defaultValue: '(空)',
+    description: 'F178 Persistent MCP Agent-Key Auth — 共享密钥（直接环境变量提供）',
+    category: 'server',
+    sensitive: true,
+    runtimeEditable: false,
+  },
+  {
+    name: 'CAT_CAFE_AGENT_KEY_FILE',
+    defaultValue: '(空)',
+    description: 'F178 Persistent MCP Agent-Key Auth — 密钥文件路径（CAT_CAFE_AGENT_KEY_SECRET 的备选）',
+    category: 'server',
+    sensitive: true,
+    runtimeEditable: false,
+  },
+  {
     name: 'CAT_CAFE_HOOK_TOKEN',
     defaultValue: '(空)',
     description: 'Hook 回调鉴权 token',

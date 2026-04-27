@@ -140,6 +140,84 @@ describe('CallbackAuthSystemMessageNotifier (F174-D2b-1)', () => {
     assert.equal(messageStore.appended.length, 0);
   });
 
+  // F174 D2b-1 follow-up (alpha 验收 #5): refresh-token is a SYSTEM-DRIVEN
+  // background heartbeat. Failures fire on a timer when the cat is idle —
+  // user has no actionable response, so don't surface the in-context card.
+  // Telemetry still records (D2b-3 panel + HubButton badge) so operator can
+  // diagnose; only the thread富块 noise is suppressed.
+  test('D2b-1 follow-up: refresh-token tool skipped even with surfaceable reason (background heartbeat)', async () => {
+    const sent = await notifier.notify({
+      threadId: 't1',
+      catId: 'opus',
+      userId: 'u1',
+      reason: 'expired', // would normally surface (in SURFACEABLE_REASONS)
+      tool: 'refresh-token', // BUT background heartbeat tool
+    });
+    assert.equal(sent, false, 'refresh-token failure must NOT surface in-context (alpha #5 fix)');
+    assert.equal(messageStore.appended.length, 0);
+    assert.equal(socketManager.broadcasts.length, 0);
+  });
+
+  // Cloud Codex P2 #1427: pruneExpired must run BEFORE any early-return guard
+  // (heartbeat-tool, non-surfaceable reason) so dedup cache eviction still
+  // progresses even when all failures are suppressed.
+  test('Cloud P2 #1427: heartbeat-tool early return still prunes expired dedup entries', async () => {
+    // Step 1: emit a real surfaceable failure — populates dedup
+    const sent1 = await notifier.notify({
+      threadId: 't1',
+      catId: 'opus',
+      userId: 'u1',
+      reason: 'expired',
+      tool: 'post_message',
+    });
+    assert.equal(sent1, true);
+    assert.equal(notifier.__getDedupSizeForTest(), 1, 'one dedup entry after first surface');
+
+    // Step 2: advance time past HIDE_WINDOW_MS (24h) so the entry is expired-eligible
+    now += 25 * 60 * 60 * 1000; // 25h
+
+    // Step 3: trigger a heartbeat-tool failure (would early-return)
+    const sentHeartbeat = await notifier.notify({
+      threadId: 't9',
+      catId: 'opus',
+      userId: 'u1',
+      reason: 'expired',
+      tool: 'refresh-token', // heartbeat — early return
+    });
+    assert.equal(sentHeartbeat, false, 'heartbeat tool skipped (D2b-1 follow-up)');
+
+    // Critical assertion: pruneExpired ran BEFORE the heartbeat guard, so the
+    // expired t1/post_message entry got evicted. Without the fix, this would
+    // still be 1 (stale entry retained).
+    assert.equal(
+      notifier.__getDedupSizeForTest(),
+      0,
+      'expired dedup entry must be evicted even when notify early-returns for heartbeat tool',
+    );
+  });
+
+  test('D2b-1 follow-up: user-driven tools (post_message, register_pr_tracking) still surface', async () => {
+    // Sanity check: the BACKGROUND_HEARTBEAT_TOOLS allowlist is precise — only
+    // refresh-token is suppressed; user-invoked tools remain surfaceable.
+    const sentPost = await notifier.notify({
+      threadId: 't1',
+      catId: 'opus',
+      userId: 'u1',
+      reason: 'expired',
+      tool: 'post_message',
+    });
+    assert.equal(sentPost, true, 'post_message remains surfaceable (user-driven)');
+
+    const sentPr = await notifier.notify({
+      threadId: 't2', // different thread to avoid dedup
+      catId: 'opus',
+      userId: 'u1',
+      reason: 'expired',
+      tool: 'register_pr_tracking',
+    });
+    assert.equal(sentPr, true, 'register_pr_tracking remains surfaceable (user-driven)');
+  });
+
   test('AC-D5: dedup — same (reason+tool+cat) within 5min window only sent once', async () => {
     const sent1 = await notifier.notify({
       threadId: 't1',
