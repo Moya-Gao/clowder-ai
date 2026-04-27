@@ -12,7 +12,7 @@ function createServiceWithPostMessage(catId) {
     async *invoke() {
       yield { type: 'text', catId, content: 'Let me post a reply.', timestamp: Date.now() };
       yield { type: 'tool_use', catId, toolName: 'cat_cafe_post_message', toolInput: '{}', timestamp: Date.now() };
-      yield { type: 'tool_result', catId, content: 'Message posted.', timestamp: Date.now() };
+      yield { type: 'tool_result', catId, content: '{"status":"ok","threadId":"thread-1"}', timestamp: Date.now() };
       yield { type: 'text', catId, content: '', timestamp: Date.now() };
       yield { type: 'done', catId, timestamp: Date.now() };
     },
@@ -122,5 +122,33 @@ describe('#573: stream store dedup when cat_cafe_post_message used', () => {
 
     const doneMsg = yielded.find((m) => m.type === 'done');
     assert.ok(doneMsg, 'done event should still be yielded to frontend');
+  });
+
+  it('preserves stream store when cat_cafe_post_message callback fails', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const appendCalls = [];
+
+    const failedCallbackService = {
+      async *invoke() {
+        yield { type: 'text', catId: 'opus', content: 'Trying to post.', timestamp: Date.now() };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'cat_cafe_post_message',
+          toolInput: '{}',
+          timestamp: Date.now(),
+        };
+        yield { type: 'tool_result', catId: 'opus', content: 'Error: callback token expired', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = createMockDeps({ opus: failedCallbackService }, appendCalls);
+    for await (const msg of routeSerial(deps, ['opus'], 'hello', 'user1', 'thread1')) {
+      // drain
+    }
+
+    const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
+    assert.equal(streamAppends.length, 1, 'should persist stream output when callback failed');
   });
 });

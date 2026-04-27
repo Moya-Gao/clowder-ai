@@ -492,6 +492,9 @@ export async function* routeSerial(
       const collectedToolEvents: StoredToolEvent[] = [];
       // F148 OQ-2: Collect tool names for context eval signals
       const collectedToolNames: string[] = [];
+      // #573: Track confirmed cat_cafe_post_message callback persistence
+      let callbackPostConfirmed = false;
+      let awaitingCallbackResult = false;
       const structuredTargetCats = new Set<string>();
       // F060: Collect rich blocks emitted inline via system_info (not MCP buffer)
       const streamRichBlocks: import('@cat-cafe/shared').RichBlock[] = [];
@@ -633,6 +636,12 @@ export async function* routeSerial(
           // F148 OQ-2: Collect tool names for context eval
           if (effectiveMsg.type === 'tool_use' && effectiveMsg.toolName) {
             collectedToolNames.push(effectiveMsg.toolName);
+            if (effectiveMsg.toolName === 'cat_cafe_post_message') awaitingCallbackResult = true;
+          }
+          // #573: Confirm callback persistence via tool_result success
+          if (effectiveMsg.type === 'tool_result' && awaitingCallbackResult) {
+            awaitingCallbackResult = false;
+            if (effectiveMsg.content?.includes('"status":"ok"')) callbackPostConfirmed = true;
           }
 
           // F150: Fire-and-forget tool usage counter
@@ -1112,8 +1121,8 @@ export async function* routeSerial(
         // F061: Detect @co-creator mentions in agent response for browser notification
         mentionsUser = storedContent ? detectUserMention(storedContent) : false;
 
-        // #573: callback already persisted reply — skip stream store to prevent double-write
-        const callbackAlreadyStored = collectedToolNames.includes('cat_cafe_post_message');
+        // #573: skip stream store only when callback confirmed persistence (not just invocation)
+        const callbackAlreadyStored = callbackPostConfirmed;
 
         // Store with actual mentions — degrade on failure to ensure done reaches frontend
         // (缅因猫 review P1-2: Redis failure must not block done yield)
