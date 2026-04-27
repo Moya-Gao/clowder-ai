@@ -173,10 +173,10 @@ def _encode_mlx(texts: List[str]) -> np.ndarray:
     # wrapper containing text_embeds / last_hidden_state (#586).
     output = generate(mlx_model, mlx_tokenizer, texts)
 
-    # Unwrap BaseModelOutput if present
-    if hasattr(output, 'text_embeds'):
+    # Unwrap BaseModelOutput if present (check value, not just attribute)
+    if hasattr(output, 'text_embeds') and output.text_embeds is not None:
         output = output.text_embeds
-    elif hasattr(output, 'last_hidden_state'):
+    elif hasattr(output, 'last_hidden_state') and output.last_hidden_state is not None:
         output = output.last_hidden_state
 
     # Convert to numpy
