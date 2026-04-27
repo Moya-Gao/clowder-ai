@@ -1112,41 +1112,47 @@ export async function* routeSerial(
         // F061: Detect @co-creator mentions in agent response for browser notification
         mentionsUser = storedContent ? detectUserMention(storedContent) : false;
 
+        // #573: callback already persisted reply — skip stream store to prevent double-write
+        const callbackAlreadyStored = collectedToolNames.includes('cat_cafe_post_message');
+
         // Store with actual mentions — degrade on failure to ensure done reaches frontend
         // (缅因猫 review P1-2: Redis failure must not block done yield)
         let storedMsgId: string | undefined;
         try {
           // #573: persist with the OUTER cat-cafe parentInvocationId (set by QueueProcessor)
-          // not the INNER CLI invocationId (claude/codex's own session UUID from
-          // invocation_created event). Socket broadcasts use parentInvocationId — if persisted
-          // record carries a different id, frontend creates two bubbles for one logical
-          // response (one from live stream broadcast, one from persisted-msg broadcast).
           const persistedInvocationId = options.parentInvocationId ?? ownInvocationId;
-          const storedMsg = await deps.messageStore.append({
-            userId,
-            catId,
-            content: storedContent,
-            mentions: a2aMentions,
-            origin: 'stream',
-            timestamp: storedTimestamp,
-            threadId,
-            ...(mentionsUser ? { mentionsUser } : {}),
-            ...(thinkingChunks.length > 0 ? { thinking: renderThinkingChunks(thinkingChunks) } : {}),
-            ...(firstMetadata ? { metadata: firstMetadata } : {}),
-            ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
-            ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
-            extra: {
-              ...(allRichBlocks.length > 0 ? { rich: { v: 1 as const, blocks: allRichBlocks } } : {}),
-              ...(persistedInvocationId ? { stream: { invocationId: persistedInvocationId } } : {}),
-              ...(doneMsg?.tracing ? { tracing: doneMsg.tracing } : {}),
-            },
-          });
-          storedMsgId = storedMsg.id;
-          // F088-P3: Stash rich blocks for outbound delivery
-          if (options.persistenceContext && allRichBlocks.length > 0) {
-            options.persistenceContext.richBlocks = allRichBlocks;
+          if (!callbackAlreadyStored) {
+            const storedMsg = await deps.messageStore.append({
+              userId,
+              catId,
+              content: storedContent,
+              mentions: a2aMentions,
+              origin: 'stream',
+              timestamp: storedTimestamp,
+              threadId,
+              ...(mentionsUser ? { mentionsUser } : {}),
+              ...(thinkingChunks.length > 0 ? { thinking: renderThinkingChunks(thinkingChunks) } : {}),
+              ...(firstMetadata ? { metadata: firstMetadata } : {}),
+              ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
+              ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
+              extra: {
+                ...(allRichBlocks.length > 0 ? { rich: { v: 1 as const, blocks: allRichBlocks } } : {}),
+                ...(persistedInvocationId ? { stream: { invocationId: persistedInvocationId } } : {}),
+                ...(doneMsg?.tracing ? { tracing: doneMsg.tracing } : {}),
+              },
+            });
+            storedMsgId = storedMsg.id;
+            // F088-P3: Stash rich blocks for outbound delivery
+            if (options.persistenceContext && allRichBlocks.length > 0) {
+              options.persistenceContext.richBlocks = allRichBlocks;
+            }
+          } else {
+            log.info(
+              { threadId, catId: catId as string },
+              'Stream store skipped — cat_cafe_post_message callback already persisted',
+            );
           }
-          // #80: Clean up draft only after successful append (guard: keep draft if append fails)
+          // #80: Clean up draft after message is persisted (either via append or callback)
           if (deps.draftStore && ownInvocationId) {
             deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
           }
