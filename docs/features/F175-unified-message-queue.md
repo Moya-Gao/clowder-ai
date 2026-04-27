@@ -8,7 +8,7 @@ created: 2026-04-24
 
 # F175: 消息队列统一设计 — 优先级排序 + 用户可控编排
 
-> **Status**: spec | **Owner**: Ragdoll | **Priority**: P1
+> **Status**: in-progress | **Owner**: @mindfn (community) | **Priority**: P1
 
 ## Why
 
@@ -120,17 +120,17 @@ QueueProcessor 出队时：
 
 ## Acceptance Criteria
 
-### Phase A（后端统一）
-- [ ] AC-A1: `handleUrgentTrigger()` 和 urgent 分支已删除，active-slot 时所有 connector 消息走 `enqueueWhileActive()`（idle slot 保留 fast path）
-- [ ] AC-A2: QueueEntry 有 `priority` 字段，4 个 urgent 调用方正确透传
-- [ ] AC-A3: 出队逻辑 priority-first — urgent 消息在 normal 前面被处理
-- [ ] AC-A4: 用户手动 position 覆盖 priority 排序（仅显式设置时）
-- [ ] AC-A5: 用户消息不再强制 merge — 每条独立 QueueEntry
-- [ ] AC-A6: 出队时 user-message batching — 连续同 userId + 同 intent + 同 targetCats 的 user entries 汇聚为一次 invocation
-- [ ] AC-A7: connector/agent 消息不受 MAX_QUEUE_DEPTH 限制
-- [ ] AC-A8: reorder API 可用（`PATCH /queue/reorder`）
-- [ ] AC-A9: 回归：urgent connector 不打断 A2A 链（#564 原始场景修复）
-- [ ] AC-A10: 回归：跨优先级自动 dequeue — urgent 处理完后自动继续 normal
+### Phase A（后端统一）✅ PR #575 merged 2026-04-28
+- [x] AC-A1: `handleUrgentTrigger()` 和 urgent 分支已删除，active-slot 时所有 connector 消息走 `enqueueWhileActive()`（idle slot 保留 fast path）
+- [x] AC-A2: QueueEntry 有 `priority` 字段，4 个 urgent 调用方正确透传
+- [x] AC-A3: 出队逻辑 priority-first — urgent 消息在 normal 前面被处理
+- [x] AC-A4: 用户手动 position 覆盖 priority 排序（仅显式设置时）
+- [x] AC-A5: 用户消息不再强制 merge — 每条独立 QueueEntry
+- [x] AC-A6: 出队时 user-message batching — 连续同 userId + 同 intent + 同 targetCats 的 user entries 汇聚为一次 invocation
+- [x] AC-A7: connector/agent 消息不受 MAX_QUEUE_DEPTH 限制
+- [x] AC-A8: reorder API 可用（`PATCH /queue/reorder`）
+- [x] AC-A9: 回归：urgent connector 不打断 A2A 链（#564 原始场景修复）
+- [x] AC-A10: 回归：跨优先级自动 dequeue — urgent 处理完后自动继续 normal
 
 ### Phase B（前端编排）
 - [ ] AC-B1: QueuePanel 支持拖动排序
@@ -138,11 +138,11 @@ QueueProcessor 出队时：
 - [ ] AC-B3: 视觉分组（sourceCategory + urgent 标记）
 - [ ] AC-B4: QueuePanel 收起/折叠
 
-### Phase C（Spec + ADR）
-- [ ] AC-C1: F133 KD-4 修正完成
-- [ ] AC-C2: F122 spec 标 "executor unification: complete"
-- [ ] AC-C3: F047 spec 加 reorder
-- [ ] AC-C4: 新 ADR 创建，含 guard story
+### Phase C（Spec + ADR）✅ PR #575 merged 2026-04-28
+- [x] AC-C1: F133 KD-4 修正完成
+- [x] AC-C2: F122 spec 标 "executor unification: complete"
+- [x] AC-C3: F047 spec 加 reorder
+- [x] AC-C4: 新 ADR 创建，含 guard story
 
 ## Dependencies
 
@@ -180,6 +180,7 @@ QueueProcessor 出队时：
 |------|------|
 | 2026-04-23 | #564 issue 创建，根因分析 + 设计调查 |
 | 2026-04-24 | Maintainer review 完成，设计共识达成，立项 F175 |
+| 2026-04-28 | Phase A + C merged (PR #575) — 后端 priority ordering + batching + connector dedup + spec/ADR 更新 |
 
 ## Review Gate
 
