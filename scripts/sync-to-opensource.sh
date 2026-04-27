@@ -1498,7 +1498,7 @@ if [ ! -f "$SANITIZER" ]; then
   echo -e "${RED}✗ _sanitize-rules.pl not found at $SANITIZER${NC}"
   exit 1
 fi
-find "$FILTERED_DIR" \( -name "*.md" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.yaml" -o -name "*.yml" -o -name "*.sh" \) -type f -print0 | \
+find "$FILTERED_DIR" \( -name "*.md" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.cjs" -o -name "*.json" -o -name "*.yaml" -o -name "*.yml" -o -name "*.sh" \) -type f -print0 | \
   xargs -0 perl -pi "$SANITIZER"
 echo "  ✓ Comprehensive sanitization complete (single-pass)"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))

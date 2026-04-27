@@ -447,6 +447,22 @@ describe(
       );
     });
 
+    it('_sanitize-rules.pl keeps api-client port+1 tests internally consistent', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/_sanitize-rules.pl'), 'utf-8');
+      assert.ok(
+        content.includes("s#port: '3001'#port: '3003'#g"),
+        'api-client-resolve test input ports should transform alongside expected port+1 assertions',
+      );
+    });
+
+    it('sync-to-opensource.sh runs sanitizer over CommonJS test files', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
+      assert.ok(
+        content.includes('-name "*.cjs"'),
+        'sync sanitizer should include .cjs files such as packages/web/test/next-config.test.cjs',
+      );
+    });
+
     it('sync-to-opensource.sh transforms start-dev.sh API fallback to 3004', () => {
       const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
       const expected = "'s/API_PORT=$" + '{API_SERVER_PORT:-3002}/API_PORT=$' + "{API_SERVER_PORT:-3004}/g'";

@@ -95,15 +95,17 @@ s/CONTRIBUTING\.opensource\.md/CONTRIBUTING.md/g;
 # test fixtures (governance-bootstrap.test.js, backlog-routes.test.js) for scaffolding
 # new projects — those MUST stay as BACKLOG.md.
 #
-# Four patterns to catch:
+# Five patterns to catch:
 #   1. 'docs/BACKLOG.md'  → 'docs/ROADMAP.md'  (string path literals)
 #   2. 'docs', 'BACKLOG.md' → 'docs', 'ROADMAP.md'  (join(root, 'docs', 'BACKLOG.md'))
 #   3. docs\/BACKLOG\.md → docs\/ROADMAP\.md  (regex patterns like SHARED_STATE_PATTERN)
-#   4. Comments mentioning docs/BACKLOG.md also get updated for consistency
+#   4. '../BACKLOG.md' → '../ROADMAP.md' (relative links from docs/features tests)
+#   5. Comments mentioning docs/BACKLOG.md also get updated for consistency
 if ($ARGV =~ m{\.(tsx?|js)$}) {
   s#docs/BACKLOG\.md#docs/ROADMAP.md#g;
   s#'docs', 'BACKLOG\.md'#'docs', 'ROADMAP.md'#g;
   s#docs\\/BACKLOG\\\.md#docs\\/ROADMAP\\.md#g;
+  s#\.\./BACKLOG\.md#../ROADMAP.md#g;
 }
 
 # ── Brand name: UI-facing "Cat Cafe" → "Clowder AI" (source + test files) ──
@@ -145,7 +147,22 @@ if ($ARGV =~ m{api-client-resolve\.test\.(ts|js)$}) {
   # Test uses non-loopback IPs (10.x, 192.168.x) with internal ports
   s#(\d+\.\d+\.\d+\.\d+):3002#$1:3004#g;
   s#(\d+\.\d+\.\d+\.\d+):3001#$1:3003#g;
+  s#port: '3001'#port: '3003'#g;
   s#3001→3002#3003→3004#g;
+}
+
+# ── review-start public guard: reserved runtime ports remap ──
+if ($ARGV =~ m{scripts/review-start\.sh$}) {
+  s#3001\|3002\|3011\|3012\|4111#3003|3004|3011|3012|4111#g;
+}
+if ($ARGV =~ m{packages/api/test/review-start-script\.test\.js$}) {
+  s#\{ web: '3001', api: '3002' \}#{ web: '3003', api: '3004' }#g;
+}
+
+# ── Public package scripts: remove internal-only desktop commands ──
+if ($ARGV =~ m{(^|/)package\.json$}) {
+  s/,\s*$/\n/ if /^\s+"check:start-profile-isolation":/;
+  $_ = "" if /^\s+"desktop:/;
 }
 
 # ── security-headers (source + test): Host header port references ──

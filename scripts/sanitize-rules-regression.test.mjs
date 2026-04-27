@@ -50,6 +50,13 @@ describe('sanitize-rules regression (home repo only)', { skip: !isHomeRepo }, ()
       assert.ok(!result.includes('docs\\/BACKLOG\\.md'));
     });
 
+    it('transforms relative ../BACKLOG.md links in .ts files', () => {
+      const input = `expect(resolveRelativePath('docs/features', '../BACKLOG.md')).toBe('docs/ROADMAP.md');\n`;
+      const result = applySanitizer(input, 'test-relative-link.ts');
+      assert.ok(result.includes('../ROADMAP.md'), `expected relative link transform, got: ${result}`);
+      assert.ok(!result.includes('../BACKLOG.md'));
+    });
+
     it('does NOT transform bare BACKLOG.md (governance templates)', () => {
       const input = `{ relativePath: 'BACKLOG.md', content: fill(BACKLOG_TEMPLATE) },\n`;
       const result = applySanitizer(input, 'test-bare.ts');
@@ -120,6 +127,40 @@ describe('sanitize-rules regression (home repo only)', { skip: !isHomeRepo }, ()
       const input = `const url = 'http://localhost:3001';\n`;
       const result = applySanitizer(input, 'test-port2.ts');
       assert.ok(result.includes('localhost:3003'), `expected 3003, got: ${result}`);
+    });
+
+    it('transforms review-start reserved internal ports to public defaults', () => {
+      const input = `case "$port" in\n        3001|3002|3011|3012|4111) return 0 ;;\n        *) return 1 ;;\nesac\n`;
+      const result = applySanitizer(input, 'scripts/review-start.sh');
+      assert.ok(result.includes('3003|3004|3011|3012|4111'), `expected public reserved port list, got: ${result}`);
+      assert.ok(!result.includes('3001|3002|3011|3012|4111'));
+    });
+
+    it('transforms review-start test expectations to public reserved ports', () => {
+      const input = `const ports = { web: '3001', api: '3002' };\n`;
+      const result = applySanitizer(input, 'packages/api/test/review-start-script.test.js');
+      assert.ok(result.includes("{ web: '3003', api: '3004' }"), `expected public test ports, got: ${result}`);
+      assert.ok(!result.includes("{ web: '3001', api: '3002' }"));
+    });
+  });
+
+  describe('public package scripts', () => {
+    it('removes desktop scripts from package.json when desktop/ is not synced', () => {
+      const input = [
+        '    "check:start-profile-isolation": "node --test scripts/start-dev-profile-isolation.test.mjs",',
+        '    "desktop:prepare": "npm --prefix ./desktop install --include=dev",',
+        '    "desktop:dev": "pnpm desktop:prepare && npm --prefix ./desktop run start"',
+      ].join('\n');
+      const result = applySanitizer(input, 'package.json');
+      assert.ok(!result.includes('"desktop:'), `expected desktop scripts removed, got: ${result}`);
+      assert.ok(
+        result.includes('"check:start-profile-isolation": "node --test scripts/start-dev-profile-isolation.test.mjs"'),
+        `expected preceding script to remain, got: ${result}`,
+      );
+      assert.ok(
+        !result.includes('start-profile-isolation.test.mjs",'),
+        `expected trailing comma removed, got: ${result}`,
+      );
     });
   });
 

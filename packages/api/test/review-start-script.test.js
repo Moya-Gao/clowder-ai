@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -66,9 +66,15 @@ afterEach(async () => {
 describe('review-start.sh', () => {
   it('falls back when lsof is unavailable and skips occupied review ports', async () => {
     const { root, binDir } = createSandbox();
-    await listen(3201);
+    const occupiedServer = await listen(0);
+    const occupiedPort = occupiedServer.address().port;
+    const scriptPath = join(root, 'scripts', 'review-start.sh');
+    const script = readFileSync(scriptPath, 'utf8')
+      .replace('DEFAULT_WEB_PORT=3201', `DEFAULT_WEB_PORT=${occupiedPort}`)
+      .replace('DEFAULT_API_PORT=3202', `DEFAULT_API_PORT=${occupiedPort + 1}`);
+    writeFileSync(scriptPath, script, { mode: 0o755 });
 
-    const result = spawnSync('bash', [join(root, 'scripts', 'review-start.sh')], {
+    const result = spawnSync('bash', [scriptPath], {
       cwd: root,
       encoding: 'utf8',
       env: {
@@ -82,6 +88,31 @@ describe('review-start.sh', () => {
     });
 
     assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.match(result.stdout, /START_DEV:3203\/3204/);
+    assert.match(result.stdout, new RegExp(`START_DEV:${occupiedPort + 2}/${occupiedPort + 3}`));
+  });
+
+  it('rejects documented runtime reserved ports', () => {
+    const { root, binDir } = createSandbox();
+    const ports = { web: '3001', api: '3002' };
+
+    const result = spawnSync(
+      'bash',
+      [join(root, 'scripts', 'review-start.sh'), `--web-port=${ports.web}`, '--api-port=3202', '--dry-run'],
+      {
+        cwd: root,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH ?? ''}`,
+          FRONTEND_PORT: '',
+          API_SERVER_PORT: '',
+          PREVIEW_GATEWAY_PORT: '',
+          CAT_CAFE_ALLOW_NON_SANDBOX_REVIEW: '1',
+        },
+      },
+    );
+
+    assert.notEqual(result.status, 0, result.stdout);
+    assert.match(result.stderr, new RegExp(`web port .*保留端口: ${ports.web}`));
   });
 });
