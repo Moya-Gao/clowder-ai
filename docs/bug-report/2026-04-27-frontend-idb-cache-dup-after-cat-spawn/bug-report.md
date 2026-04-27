@@ -5,15 +5,17 @@ topics: [bug-report, opencode-provider, route-parallel, dedup, dup-bubble, invoc
 doc_kind: bug-report
 created: 2026-04-27
 updated: 2026-04-28
-status: fix-in-progress
+status: fixed
 severity: P2
+fixed_pr: 1433
+fixed_commit: 2939678439f43bb952c64c3ddc70b2bbac52ca1e
 reporter: 铲屎官 (实测，2 个 thread 复现)
 diagnosed_by: 布偶猫/宪宪 (Opus-47), 缅因猫/砚砚 (GPT-5.5)
 ---
 
 # Bug Report：opencode 猫（qwen / kimi）每只渲染两个相同气泡
 
-> **更新 2026-04-27（砚砚 GPT-5.5 复审）**：Opus-47 的"opencode provider stream events 不携带 invocationId"是有价值的中间假设，但代码/Redis 证据进一步收敛到更精确根因：**route-parallel live socket identity 使用 OUTER `parentInvocationId`，formal message persistence 却使用 per-cat INNER `invocation_created` id**。IDB 只是把这两个 identity 都缓存下来，清 cache 后只剩 server GET 的一份，所以看起来像 IDB 问题。
+> **更新 2026-04-27（砚砚 GPT-5.5 复审 + PR #1433 merged）**：Opus-47 的"opencode provider stream events 不携带 invocationId"是有价值的中间假设，但代码/Redis 证据进一步收敛到更精确根因：**route-parallel live socket identity 使用 OUTER `parentInvocationId`，formal message persistence 却使用 per-cat INNER `invocation_created` id**。IDB 只是把这两个 identity 都缓存下来，清 cache 后只剩 server GET 的一份，所以看起来像 IDB 问题。PR #1433 已将 `routeParallel` formal persistence 对齐到 `options.parentInvocationId ?? ownInvId`，新消息不再产生该 split。
 
 > **案发时间**: 2026-04-27 ~00:01–00:05 北京时间
 > **案发 thread**: `thread_mognv4l440bcwzbp`
@@ -208,12 +210,12 @@ Claude / Codex provider 的 yield 链路里 invocationId 是显式注入到 meta
 
 | Bug | 现象 | 根因 | 状态 |
 |-----|------|------|-----|
-| 本 bug | qwen + kimi 各 2 个相同气泡 | 前端 IDB cache + socket arrived 未去重 | **open** |
+| 本 bug | qwen + kimi 各 2 个相同气泡 | route-parallel persisted INNER / live OUTER identity mismatch | **fixed in PR #1433** |
 | PR #1429 修的 dup | 同一响应渲染两次 | outer/inner invocationId 混用 | merged 04-27 02:45 UTC |
 | PR #1411 修的 orphan draft | `draft-*` 残留 | mergeReplaceHydrationMessages 缺 ghost guard | merged，但 guard 只对 draft 生效 |
 | 04-27 stream-event-delivery-lag | 砚砚气泡完全没显示 | 后端 in-process event bus lag | **open**（独立 bug-report） |
 
-本 bug 跟 PR #1411 同源（都是 IDB hydration 层 dedup），但 PR #1411 的 guard 范围太窄。
+本 bug 与 PR #1411 同样会被 IDB 放大，但根因不在 hydration guard 范围，而在 route-parallel live/formal identity 不一致。修复点应保持在后端 persistence identity contract，不放宽前端 fallback。
 
 ## 候选修复方案
 
@@ -242,25 +244,27 @@ Provider 层补字段不能解决 formal persistence 已经写 INNER id 的问�
 
 callback path 在 strict-match 失败 + rich-only fallback 失败时，再 fallback 到"找最近一条同 catId 的 stream placeholder"。比 B 安全一点但仍有 race 风险。
 
-## 候选挂载点
+## 归属
 
-| 候选 | 适合度 | 理由 |
-|------|-------|------|
-| **挂在 F173 closed-state hotfix follow-up（与 PR #1429 同源）** | 高 | F173 KD-1/KD-2 收口的就是前端 message pipeline，但前端 strict-match 假设是 stream events 带 invocationId——这次发现 opencode 没遵守这个契约，是后端 provider 层的契约缺口 |
-| **新立 F: Provider Stream Identity Contract**（包含所有 provider 一致性检查） | 中 | 如果检查发现 ≥2 个 provider 不带 invocationId，应该立项统一收口 |
-| **直接当 hotfix 修，不立 F** | 高 | 单点修 OpenCodeAgentService + AgentMessage type 加字段 |
+| 候选 | 结论 | 理由 |
+|------|------|------|
+| F173 closed-state hotfix follow-up | **采用** | 这是 F173 message identity contract 的漏网 hotfix；不 reopen F173 主线 |
+| 新立 F: Provider Stream Identity Contract | 不采用 | Provider 注入不是最终根因，扩大 scope 会绕路 |
+| F164 IDB cache follow-up | 不采用 | IDB 是放大器，不是创建源头 |
 
-## 关键 follow-up（待 砚砚 GPT-5.5 复审 + ACK）
+## 修复记录
 
-1. 砚砚复审 hypothesis（特别是"opencode 流出 events 没 invocationId"这个事实判断 — 我看的是源码静态分析，没看 runtime broadcast 实际 payload；砚砚可以从 runtime log 或 socket 协议层验证）
-2. 砚砚复审"Claude/Codex 没这个 bug"的对比 — 我没全看 ClaudeAgentService / CodexAgentService 的 yield，只看了 transform；砚砚可以补
-3. 修法决定 (A / B / C)
-4. 我和砚砚 pair 改：(a) 后端 provider 注入 invocationId (b) `AgentMessage` type 加字段 (c) 前端 `extra.stream.invocationId` 绑定 (d) fixture 钉死"opencode multi-mention 不再 dup"
+- PR: #1433
+- Squash commit: `2939678439f43bb952c64c3ddc70b2bbac52ca1e`
+- Gate: `pnpm gate` passed on `7802791a4`, rebased onto latest `origin/main`
+- Reviewer: Opus-47 LGTM extended to `7802791a4`
+- Cloud review: Codex connector "Didn't find any major issues"
 
 ## 临时 workaround（用户视角）
 
-清 IDB cache + F5 即可去除已经 dup 的 bubble。但每次 spawn 新 opencode 猫都会重新产生 dup——根因修复前 workaround 不解决问题。
+PR #1433 合入后，新产生的 opencode parallel 回复不会再触发该 split。已经写进本地 IDB 的旧重复气泡仍可通过 Clear site data + F5 清除。
 
 ## 签名
 
 [宪宪/Opus-47🐾] 2026-04-28（更新：opencode 根因 hypothesis）
+[砚砚/Codex🐾] 2026-04-27（PR #1433 fixed + docs sync）
