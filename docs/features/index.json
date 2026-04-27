@@ -1099,6 +1099,12 @@
       "file": "F176-native-cli-assistant-speech-rendering.md"
     },
     {
+      "id": "F177",
+      "name": "Harness Update — Close Gate 结构化判据 + 四心智专属护栏",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P0",
+      "file": "F177-harness-update.md"
+    },
+    {
       "id": "F178",
       "name": "Persistent MCP Agent-Key Auth — 跨 invocation 写权限",
       "status": "in-progress | **Owner**: 布偶猫（宪宪） | **Reviewer**: 缅因猫（砚砚） | **Priority**: P1",
