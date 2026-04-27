@@ -15,13 +15,9 @@ describe('chat route markers', () => {
     expect(html).toContain('data-thread-route="thread-123"');
   });
 
-  it('uses pathname for SSR/first render, then trusts browserThreadId after useLayoutEffect', () => {
-    // Before useLayoutEffect: browserThreadId is null → fall back to pathname (SSR-safe)
+  it('uses pathname for first render, then trusts the browser route store after hydration', () => {
     expect(resolveLayoutThreadId('thread-refresh', null)).toBe('thread-refresh');
-    // #578: No immediateBrowserThreadId — typeof window in render causes hydration mismatch.
-    // useLayoutEffect syncs browserThreadId before paint, so no visible flicker.
-    expect(resolveLayoutThreadId('default', null)).toBe('default');
-    // After useLayoutEffect: browserThreadId wins
+    expect(resolveLayoutThreadId('default', null, 'thread-refresh')).toBe('thread-refresh');
     expect(resolveLayoutThreadId('thread-stale', 'default')).toBe('default');
     expect(resolveLayoutThreadId('thread-stale', 'thread-current')).toBe('thread-current');
   });

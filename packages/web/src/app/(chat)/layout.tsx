@@ -11,8 +11,14 @@ function getThreadRouteSnapshot(): string {
   return getThreadIdFromPathname(window.location.pathname);
 }
 
-export function resolveLayoutThreadId(pathnameThreadId: string, browserThreadId: string | null): string {
-  return browserThreadId ?? pathnameThreadId;
+export function resolveLayoutThreadId(
+  pathnameThreadId: string,
+  browserThreadId: string | null,
+  immediateBrowserThreadId: string | null = null,
+): string {
+  if (browserThreadId !== null) return browserThreadId;
+  if (immediateBrowserThreadId !== null) return immediateBrowserThreadId;
+  return pathnameThreadId;
 }
 
 /**
@@ -25,6 +31,9 @@ export function resolveLayoutThreadId(pathnameThreadId: string, browserThreadId:
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const pathnameThreadId = getThreadIdFromPathname(pathname ?? '');
+  // Parent layouts can briefly see the default route during hard refresh; the
+  // address bar is the authority before chat history effects are allowed to run.
+  const immediateBrowserThreadId = typeof window !== 'undefined' ? getThreadRouteSnapshot() : null;
   const [browserThreadId, setBrowserThreadId] = useState<string | null>(null);
   useLayoutEffect(() => {
     const syncBrowserRoute = () => setBrowserThreadId(getThreadRouteSnapshot());
@@ -36,7 +45,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
       window.removeEventListener(CHAT_THREAD_ROUTE_EVENT, syncBrowserRoute);
     };
   }, []);
-  const threadId = resolveLayoutThreadId(pathnameThreadId, browserThreadId);
+  const threadId = resolveLayoutThreadId(pathnameThreadId, browserThreadId, immediateBrowserThreadId);
 
   return (
     <>

@@ -1995,13 +1995,23 @@ export function useAgentMessages() {
         }
 
         if (msg.origin === 'callback') {
-          // #558: Only use the callback's own invocationId — don't fall back to
-          // getCurrentInvocationIdForCat which risks matching a newer invocation's bubble.
-          const invocationId = msg.invocationId;
-          // #558 R1: explicit invocationId must NOT fall back to invocationless placeholder —
-          // the placeholder may belong to a newer invocation.
+          const invocationId = msg.invocationId ?? getCurrentInvocationIdForCat(msg.catId);
+          const hasExplicitInvocationId = !!msg.invocationId;
+          // Callback broadcasts now reliably carry invocationId (callbacks.ts #454),
+          // but rich-block-only runs can still start with an invocationless stream
+          // placeholder before the stream identity is bound. Otherwise one logical
+          // response splits into a ghost stream bubble + formal callback bubble, and
+          // the finalized ghost can survive F5 via client-side snapshots / IDB restore.
+          //
+          // ⚠️ DO NOT TOUCH the narrow guards in findInvocationlessRichPlaceholder:
+          // - Drop `content.trim() === 0` and a stale callback can eat a different
+          //   in-flight invocation's placeholder after text already started streaming.
+          // - Drop the rich/tool guard and empty placeholders created by stream setup
+          //   get reclaimed before the real callback arrives, re-splitting bubbles.
+          // - Drop the stream.invocationId write-back below and F5 hydration loses
+          //   the identity binding, letting the ghost bubble come back after refresh.
           const replacementTarget = invocationId
-            ? findCallbackReplacementTarget(msg.catId, invocationId)
+            ? (findCallbackReplacementTarget(msg.catId, invocationId) ?? findInvocationlessRichPlaceholder(msg.catId))
             : findInvocationlessStreamPlaceholder(msg.catId);
 
           if (replacementTarget) {
@@ -2040,7 +2050,7 @@ export function useAgentMessages() {
               deriveBubbleId(invocationId, msg.catId, () => `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`);
             const extraForAdd = {
               ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
-              ...(msg.invocationId ? { stream: { invocationId: msg.invocationId } } : {}),
+              ...(hasExplicitInvocationId && msg.invocationId ? { stream: { invocationId: msg.invocationId } } : {}),
             };
             addMessage({
               id,
@@ -2059,6 +2069,17 @@ export function useAgentMessages() {
             // placeholder existed yet. Mark the invocation as replaced so that
             // late-arriving stream chunks for the same invocation are suppressed
             // instead of spawning a second bubble.
+            //
+            // F173 hotfix round 5 (砚砚 non-blocking observation): the prior condition
+            // `(!hasExplicitInvocationId || getCurrentInvocationIdForCat === msg.invocationId)`
+            // only marked when catInvocations/activeInvocations confirmed the explicit
+            // invocationId. That breaks the "callback first + invocation_created lost + no
+            // active slot" branch: getCurrentInvocationIdForCat returns undefined, the
+            // condition becomes false, no mark, and the subsequent stream chunk appends
+            // onto the finalized callback bubble via identity-aware recovery. Stale-callback
+            // safety is already provided by `shouldSuppressLateStreamChunk`'s
+            // different-invocationId clear path, so unconditional mark-on-any-invocationId
+            // is both correct and complete here.
             if (invocationId) {
               // F173 A.6 — shared module Map; both handlers see this suppression.
               markReplacedInvocation(useChatStore.getState().currentThreadId, msg.catId, invocationId);

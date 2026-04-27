@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { useIMEGuard } from '@/hooks/useIMEGuard';
 import type { ThreadState } from '@/stores/chat-types';
-import { apiFetch } from '@/utils/api-client';
+import { API_URL } from '@/utils/api-client';
 // F174 D2b-2 (rev): per-cat callback-auth dot was rejected (铲屎官 alpha 反馈
 // "莫名其妙的颜色" — 16px participant avatars lacked any affordance). Status now
 // surfaces system-level via <CallbackAuthHealthIndicator /> in ChatContainerHeader,
@@ -217,21 +217,9 @@ export function ThreadItem({
           {/* Export button */}
           {id !== 'default' && (
             <button
-              onClick={async (e) => {
+              onClick={(e) => {
                 e.stopPropagation();
-                try {
-                  const res = await apiFetch(`/api/export/thread/${id}?format=md`);
-                  if (!res.ok) return;
-                  const blob = await res.blob();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `thread-${id}.md`;
-                  a.click();
-                  setTimeout(() => URL.revokeObjectURL(url), 1000);
-                } catch {
-                  /* silent */
-                }
+                window.open(`${API_URL}/api/export/thread/${id}?format=md`);
               }}
               className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-blue-50 transition-all"
               title="导出对话"
