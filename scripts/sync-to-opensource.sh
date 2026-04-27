@@ -102,6 +102,28 @@ run_public_acceptance_env() {
     "$@"
 }
 
+remaining_wall_clock_seconds() {
+  local deadline="$1"
+  local now
+  now=$(date +%s)
+  local remaining=$(( deadline - now ))
+  if [ "$remaining" -gt 0 ]; then
+    echo "$remaining"
+  else
+    echo 0
+  fi
+}
+
+curl_probe_timeout() {
+  local remaining="$1"
+  local max_timeout="$2"
+  if [ "$remaining" -lt "$max_timeout" ]; then
+    echo "$remaining"
+  else
+    echo "$max_timeout"
+  fi
+}
+
 resolve_physical_path() {
   local raw_path="$1"
   if command -v python3 >/dev/null 2>&1; then
@@ -526,9 +548,18 @@ run_target_public_gate() {
     local ports_after
     local new_ports
     local forbidden_found
+    local api_wait_seconds="${PUBLIC_GATE_API_WAIT_SECONDS:-20}"
+    local web_wait_seconds="${PUBLIC_GATE_FRONTEND_WAIT_SECONDS:-180}"
+    local api_deadline
+    local web_deadline
+    local api_log
+    local web_log
+    local startup_acceptance_failed=false
 
     accept_api_port="$(find_available_port 3004)"
     accept_web_port="$(find_available_port 3003 "$accept_api_port")"
+    api_log=$(mktemp "${TMPDIR:-/tmp}/cat-cafe-public-api.XXXXXX")
+    web_log=$(mktemp "${TMPDIR:-/tmp}/cat-cafe-public-web.XXXXXX")
     # 4100 is the public Preview Gateway default (F120), so treat it as an
     # exported surface, not an internal-port leak.
     forbidden_ports="3001|3002|3011|3012|4111|4000|6398|6399"
@@ -538,39 +569,83 @@ run_target_public_gate() {
       PROJECT_ALLOWED_ROOTS_APPEND=true \
       PROJECT_ALLOWED_ROOTS="$gate_target_real" \
       API_SERVER_PORT=$accept_api_port MEMORY_STORE=1 NODE_ENV=test \
-      pnpm --filter @cat-cafe/api start >/dev/null 2>&1 &
+      pnpm --filter @cat-cafe/api start >"$api_log" 2>&1 &
     local api_pid=$!
-    run_public_acceptance_env PORT=$accept_web_port pnpm --filter @cat-cafe/web dev -p $accept_web_port >/dev/null 2>&1 &
+    # Release machines can have many sibling worktrees open; watchpack native
+    # watchers may hit EMFILE and leave Next dev serving only /_not-found.
+    run_public_acceptance_env WATCHPACK_POLLING=true PORT=$accept_web_port \
+      pnpm --filter @cat-cafe/web dev -p $accept_web_port >"$web_log" 2>&1 &
     local web_pid=$!
 
     local api_ready=false
     local web_ready=false
-    for i in $(seq 1 20); do
-      if curl -sf "http://localhost:${accept_api_port}/health" >/dev/null 2>&1; then
+    api_deadline=$(( $(date +%s) + api_wait_seconds ))
+    while :; do
+      local remaining
+      remaining="$(remaining_wall_clock_seconds "$api_deadline")"
+      if [ "$remaining" -le 0 ]; then
+        break
+      fi
+      if ! kill -0 "$api_pid" 2>/dev/null; then
+        echo -e "  ${RED}✗ API process exited before health check passed${NC} (log: $api_log)"
+        startup_acceptance_failed=true
+        break
+      fi
+      local curl_timeout
+      curl_timeout="$(curl_probe_timeout "$remaining" 5)"
+      if curl -sf --max-time "$curl_timeout" "http://localhost:${accept_api_port}/health" >/dev/null 2>&1; then
         api_ready=true
         break
       fi
-      sleep 1
+      if [ "$remaining" -gt 1 ]; then
+        sleep 1
+      fi
     done
     if [ "$api_ready" = true ]; then
       echo "  ✓ API health check passed (port $accept_api_port)"
     else
-      echo -e "  ${RED}✗ API did not respond on port $accept_api_port within 20s${NC}"
+      echo -e "  ${RED}✗ API did not respond on port $accept_api_port within ${api_wait_seconds}s${NC} (log: $api_log)"
+      startup_acceptance_failed=true
       step_fail=true
     fi
 
-    for i in $(seq 1 45); do
-      if curl -sf "http://localhost:${accept_web_port}" >/dev/null 2>&1; then
+    web_deadline=$(( $(date +%s) + web_wait_seconds ))
+    while :; do
+      local remaining
+      remaining="$(remaining_wall_clock_seconds "$web_deadline")"
+      if [ "$remaining" -le 0 ]; then
+        break
+      fi
+      if ! kill -0 "$web_pid" 2>/dev/null; then
+        echo -e "  ${RED}✗ Frontend process exited before page responded${NC} (log: $web_log)"
+        startup_acceptance_failed=true
+        break
+      fi
+      local curl_timeout
+      curl_timeout="$(curl_probe_timeout "$remaining" 5)"
+      if curl -sf --max-time "$curl_timeout" "http://localhost:${accept_web_port}" >/dev/null 2>&1; then
         web_ready=true
         break
       fi
-      sleep 1
+      if [ "$remaining" -gt 1 ]; then
+        sleep 1
+      fi
     done
     if [ "$web_ready" = true ]; then
       echo "  ✓ Frontend page responded (port $accept_web_port)"
     else
-      echo -e "  ${RED}✗ Frontend did not respond on port $accept_web_port within 45s${NC}"
+      echo -e "  ${RED}✗ Frontend did not respond on port $accept_web_port within ${web_wait_seconds}s${NC} (log: $web_log)"
+      startup_acceptance_failed=true
       step_fail=true
+    fi
+
+    if [ "$startup_acceptance_failed" = true ]; then
+      echo "  API log tail:"
+      tail -40 "$api_log" 2>/dev/null || true
+      echo "  Frontend log tail:"
+      tail -80 "$web_log" 2>/dev/null || true
+    else
+      rm -f "$api_log" "$web_log"
     fi
 
     ports_after=$(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '{print $9}' | sort -u || true)
