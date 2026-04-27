@@ -662,6 +662,11 @@ export async function* routeParallel(
       // recreating an orphan Redis hash key via HSET.
       catInvocationId.delete(msg.catId);
       const bufferedBlocks = getRichBlockBuffer().consume(threadId, msg.catId, ownInvId);
+      // #573 parallel variant: socket broadcasts in messages.ts use the OUTER
+      // parentInvocationId for live bubble identity. Persist formal messages with
+      // the same id; otherwise IDB/live bubbles use parent id while hydration uses
+      // per-cat invocation_created id, creating duplicate bubbles after refresh.
+      const persistedInvocationId = options.parentInvocationId ?? ownInvId;
       let catProducedOutput = false;
       const text = catText.get(msg.catId);
       if (text) {
@@ -783,7 +788,7 @@ export async function* routeParallel(
             ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
             extra: {
               ...(allRichBlocks.length > 0 ? { rich: { v: 1 as const, blocks: allRichBlocks } } : {}),
-              ...(ownInvId ? { stream: { invocationId: ownInvId } } : {}),
+              ...(persistedInvocationId ? { stream: { invocationId: persistedInvocationId } } : {}),
             },
           });
           // F088-P3: Stash rich blocks for outbound delivery
@@ -870,7 +875,7 @@ export async function* routeParallel(
               ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
               extra: {
                 ...(noTextBlocks.length > 0 ? { rich: { v: 1 as const, blocks: noTextBlocks } } : {}),
-                ...(ownInvId ? { stream: { invocationId: ownInvId } } : {}),
+                ...(persistedInvocationId ? { stream: { invocationId: persistedInvocationId } } : {}),
               },
             });
             // F088-P3: Stash rich blocks for outbound delivery (no-text branch)
@@ -943,7 +948,7 @@ export async function* routeParallel(
               ...(thinking && thinking.length > 0 ? { thinking: renderThinkingChunks(thinking) } : {}),
               ...(meta ? { metadata: meta } : {}),
               toolEvents: catTools,
-              ...(ownInvId ? { extra: { stream: { invocationId: ownInvId } } } : {}),
+              ...(persistedInvocationId ? { extra: { stream: { invocationId: persistedInvocationId } } } : {}),
             });
             // #80: Clean up draft only after successful append
             if (deps.draftStore && ownInvId) {

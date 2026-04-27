@@ -1,19 +1,19 @@
 ---
 feature_ids: []
 related_features: [F173, F164]
-topics: [bug-report, opencode-provider, callback-replacement, dedup, dup-bubble, invocationId-binding]
+topics: [bug-report, opencode-provider, route-parallel, dedup, dup-bubble, invocationId-binding]
 doc_kind: bug-report
 created: 2026-04-27
 updated: 2026-04-28
-status: open
+status: fix-in-progress
 severity: P2
 reporter: 铲屎官 (实测，2 个 thread 复现)
-diagnosed_by: 布偶猫/宪宪 (Opus-47, 待 缅因猫/砚砚 GPT-5.5 复审)
+diagnosed_by: 布偶猫/宪宪 (Opus-47), 缅因猫/砚砚 (GPT-5.5)
 ---
 
 # Bug Report：opencode 猫（qwen / kimi）每只渲染两个相同气泡
 
-> **更新 2026-04-28**：根因 hypothesis 从"前端 IDB cache 残留"修订为"**opencode provider stream events 不携带 invocationId → 前端 callback replacement strict-match 失败 → 走 else 创建新 bubble**"。代码层定位完整路径见下文。原 IDB hypothesis downgrade 为 secondary（IDB 持久化 dup → F5 后从 server GET 拿干净）。
+> **更新 2026-04-27（砚砚 GPT-5.5 复审）**：Opus-47 的"opencode provider stream events 不携带 invocationId"是有价值的中间假设，但代码/Redis 证据进一步收敛到更精确根因：**route-parallel live socket identity 使用 OUTER `parentInvocationId`，formal message persistence 却使用 per-cat INNER `invocation_created` id**。IDB 只是把这两个 identity 都缓存下来，清 cache 后只剩 server GET 的一份，所以看起来像 IDB 问题。
 
 > **案发时间**: 2026-04-27 ~00:01–00:05 北京时间
 > **案发 thread**: `thread_mognv4l440bcwzbp`
@@ -24,9 +24,14 @@ diagnosed_by: 布偶猫/宪宪 (Opus-47, 待 缅因猫/砚砚 GPT-5.5 复审)
 
 ## TL;DR
 
-后端 messageStore 真相源：qwen × 1 message + kimi × 1 message（id `0001777273269123-000002` / `-000003`，timestamp 完全相同）；**前端实际渲染 qwen × 2 + kimi × 2**。F5 + 清 IndexedDB cache 后正确显示 1 + 1 → 锁定为**前端 IDB cache 持久化层 dedup 缺失**。
+后端 messageStore 真相源：qwen × 1 message + kimi × 1 message（id `0001777273269123-000002` / `-000003`，timestamp 完全相同）；**前端实际渲染 qwen × 2 + kimi × 2**。F5 + 清 IndexedDB cache 后正确显示 1 + 1。
 
-**和 PR #1429 (outer/inner invocationId canonicalization) 不是同一类**：PR #1429 修的是同一逻辑响应被绑两个不同 bubble id（live broadcast 路径）；本 bug 是 hydration 路径上 IDB cached old message + socket arrived new message 同时进 store 没去重。
+最终根因不是"IDB dedup 缺失"本身，而是 route-parallel 生产了两套合法-looking identity：
+
+- live socket broadcast: `messages.ts` 包装为 OUTER `parentInvocationId`
+- formal persisted message: `route-parallel.ts` 写 per-cat INNER `invocation_created` id
+
+前端/IDB 收到的是 `msg-${outer}-${cat}`，hydration/server GET 收到的是 `msg-${inner}-${cat}`，于是同一只 opencode 猫显示两条。
 
 ## 现象
 
@@ -62,11 +67,46 @@ id: 0001777273269123-000003-0b6a1c08   catId: kimi   "你好！我是 kimi（kim
 
 Chrome DevTools → Application → Storage → Clear site data → F5 → qwen × 1 + kimi × 1，正确。
 
-## 候选根因（更新后排序）
+## 最终根因（2026-04-27 砚砚复审）
 
-### (1) **opencode provider stream events 不携带 invocationId → callback strict-match 失败**（**主嫌 — 代码层证据完整**）
+### 1. serial 路径已修，parallel 路径漏了同一条 #573 contract
 
-#### 证据链
+`route-serial.ts` 已有明确防重逻辑：
+
+```ts
+const persistedInvocationId = options.parentInvocationId ?? ownInvocationId;
+extra: {
+  ...(persistedInvocationId ? { stream: { invocationId: persistedInvocationId } } : {}),
+}
+```
+
+注释也写明原因：socket broadcasts use parentInvocationId；如果 persisted record carries a different id，frontend 会为同一逻辑响应创建两条 bubble。
+
+但 `route-parallel.ts` 在三个 formal persistence 分支仍写 `ownInvId`：
+
+- text branch: `extra.stream.invocationId = ownInvId`
+- no-text/rich branch: `extra.stream.invocationId = ownInvId`
+- error+tools branch: `extra.stream.invocationId = ownInvId`
+
+这就是 qwen/kimi 每只两条气泡的 root mismatch。
+
+### 2. 为什么清 IDB cache 后恢复
+
+live 期间前端已经缓存了 OUTER bubble；F5 hydration 又从 server GET 拿到 INNER formal message。两个 id 不同，无法合并。
+
+清 cache 后，只从 server GET hydrate 一份 formal message，所以前端显示恢复 1 条/猫。这说明 IDB 是放大器，不是根因。
+
+### 3. 为什么这次集中出现在 qwen/kimi
+
+这两个现场都是 parallel 多猫 spawn，走 `routeParallel`。Claude/Codex 的 serial/callback 路径已经通过 PR #1364/#1429 做过 outer-priority canonicalization；parallel formal persistence 是漏网路径。
+
+## 已推翻/降级的中间假设
+
+### (1) opencode provider stream events 不携带 invocationId → callback strict-match 失败（已降级）
+
+这个假设解释了一部分现象，但不是最终根因：`AgentMessage` 现在已有 `invocationId?: string` 字段，且 route layer 会创建 per-cat invocation 并在 formal message 上写入 `extra.stream.invocationId`。现场 Redis 里 qwen/kimi formal message 均有 stream invocationId，只是它们是 INNER id。
+
+#### 旧证据链（保留作排查记录）
 
 **A. 后端：opencode 流出的 events 不带 invocationId**
 
@@ -85,8 +125,7 @@ const result = transformOpenCodeEvent(event, this.catId);
 yield { ...result, metadata };  // ← 没注入 invocationId
 ```
 
-`AgentMessage` interface (`packages/api/src/domains/cats/services/types.ts:114`)
-- 没有 `invocationId` 字段定义；invocationId 是 server route layer (route-serial) broadcast 时才注入
+`AgentMessage` interface 当前已包含 `invocationId?: string`；这个事实推翻了"必须先改 type"的修法前提。
 
 **B. 前端：placeholder 创建时绑不上 invocationId**
 
@@ -178,25 +217,28 @@ Claude / Codex provider 的 yield 链路里 invocationId 是显式注入到 meta
 
 ## 候选修复方案
 
-### 方案 A（**推荐**）：OpenCodeAgentService 注入 invocationId 到所有 yield events
+### 方案 A（已采用）：routeParallel formal persistence 对齐 parentInvocationId
 
 **改动**：
-1. `packages/api/src/domains/cats/services/types.ts` `AgentMessage` 接口加 `invocationId?: string` 字段（已有 metadata.invocationId 的话先用现有字段）
-2. `packages/api/src/domains/cats/services/agents/providers/OpenCodeAgentService.ts` 所有 `yield {...}` 加 `...(options?.invocationId ? { invocationId: options.invocationId } : {})`
-3. 同步检查 ClaudeAgentService / CodexAgentService / GeminiAgentService 是否一致
-4. 前端 `useAgentMessages.handleAgentMessage` 收到 stream events 时 `extra.stream.invocationId = msg.invocationId`，让 placeholder 带上 invocationId
+1. 给 `route-parallel` 增加与 `route-serial` 同等的 parent-id persistence contract
+2. formal text / no-text-rich / error+tools 三个 append 分支都用 `options.parentInvocationId ?? ownInvId`
+3. 保留 draftStore / richBlockBuffer / keepalive 的 per-cat `ownInvId`，因为这些是内部生命周期 key，不是前端 bubble identity
 
-**优点**：根因消除，前端 strict-match 重新生效（PR #1429 教训：保留 strict-match 是对的）。
+**优点**：与现有 #573 serial/callback contract 完全一致，最小改动，直接消除 live/IDB vs server hydration 的 identity mismatch。
 
-**风险**：要碰多个 provider，scope 不小；要核 metadata 当前是否就承担 invocationId 角色（避免重复定义）。
+**验证**：新增 `route-parallel-parent-invocation-id.test.js`，RED 时 qwen persisted id 为 `inner-inv-1`，GREEN 后为 `cat-cafe-outer-parallel-123`。
 
-### 方案 B：前端 fallback 放宽
+### 方案 B：OpenCodeAgentService 注入 invocationId 到所有 yield events（暂不采用）
+
+Provider 层补字段不能解决 formal persistence 已经写 INNER id 的问题；还会扩大 scope 到所有 provider 一致性审计。
+
+### 方案 C：前端 fallback 放宽
 
 让 `findInvocationlessRichPlaceholder` 接受 `content` 不空的 placeholder（去掉 `content.trim().length === 0` 守护）。
 
 **风险高**：可能误吞别的并发 invocation 的 in-flight bubble（PR #1352 教训）。**不推荐**。
 
-### 方案 C：前端 catId-only fallback dedup
+### 方案 D：前端 catId-only fallback dedup
 
 callback path 在 strict-match 失败 + rich-only fallback 失败时，再 fallback 到"找最近一条同 catId 的 stream placeholder"。比 B 安全一点但仍有 race 风险。
 
