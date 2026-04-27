@@ -55,11 +55,23 @@ managed_scripts:
   - scripts/download-source-overrides.sh
   - scripts/start-dev.sh
   - scripts/start-dev-profile-isolation.test.mjs
+  - scripts/pre-merge-check.sh
+  - scripts/pre-merge-check.test.mjs
+  - scripts/test-bash-runtime.mjs
+  - scripts/test-bash-runtime.test.mjs
+  - scripts/install-git-guards.sh
+  - scripts/review-start.sh
+  - scripts/alpha-worktree.sh
+  - scripts/alpha-worktree.test.sh
+  - scripts/logs-health.sh
   - scripts/check-feature-truth.mjs
   - scripts/check-env-port-drift.test.mjs
   - scripts/check-env-registry.test.mjs
   - scripts/check-env-example.test.mjs
+  - scripts/check-skills-mount.sh
+  - scripts/check-skills-manifest.mjs
   - scripts/gen-guide-catalog.mjs
+  - scripts/gen-env-reference.mjs
   - scripts/generate-feature-index.mjs
   - scripts/audit-feature-doc-template.mjs
   - scripts/check-frontmatter.mjs
@@ -67,8 +79,19 @@ managed_scripts:
   - scripts/preflight-shared-state.sh
   # 运行时可选服务（开源用户按需启用）
   - scripts/anthropic-proxy.mjs
+  - scripts/mcp-doctor.mjs
+  - scripts/lib/mcp-health.mjs
+  - scripts/sync-skills.sh
+  - scripts/rescue-claude-thinking-signature.mjs
   - scripts/init-cafe.sh
   - scripts/runtime-worktree.sh
+  - scripts/user-redis.sh
+  - scripts/user-redis-autobackup.sh
+  - scripts/find-redis-dumps.sh
+  - scripts/restore-chat-md-to-redis.mjs
+  - scripts/thread-exports-sync.sh
+  - scripts/export-threads-from-redis.mjs
+  - scripts/thread-exports-autosave.sh
   - scripts/qwen3-asr-server.sh
   - scripts/qwen3-asr-api.py
   - scripts/whisper-server.sh

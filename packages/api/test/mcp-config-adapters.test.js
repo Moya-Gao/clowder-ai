@@ -766,17 +766,21 @@ describe('writeAntigravityMcpConfig', () => {
     const originalRuntime = process.env.CAT_CAFE_RUNTIME_ROOT;
     try {
       delete process.env.ALLOWED_WORKSPACE_DIRS;
-      // Simulate runtime startup having exported both env vars
-      process.env.CAT_CAFE_RUNTIME_ROOT = '/Users/lysander/projects/relay-station/cat-cafe-runtime';
-      process.env.CAT_CAFE_WORKSPACE_ROOT = '/Users/lysander/projects/relay-station/cat-cafe';
+      // Simulate runtime startup having exported both env vars. Use neutral
+      // temp paths so public sync sanitization does not rewrite the assertion.
+      const runtimeRoot = join(dir, 'cat-cafe-runtime');
+      const workspaceRoot = join(dir, 'cat-cafe-workspace');
+      process.env.CAT_CAFE_RUNTIME_ROOT = runtimeRoot;
+      process.env.CAT_CAFE_WORKSPACE_ROOT = workspaceRoot;
 
       // Descriptors come pre-resolved with runtime dist paths (capability
       // orchestrator's resolveBinaryRoot path). Writer must NOT clobber.
+      const runtimeBinary = join(runtimeRoot, 'packages/mcp-server/dist/collab.js');
       await writeAntigravityMcpConfig(file, [
         {
           name: 'cat-cafe-collab',
           command: 'node',
-          args: ['/Users/lysander/projects/relay-station/cat-cafe-runtime/packages/mcp-server/dist/collab.js'],
+          args: [runtimeBinary],
           enabled: true,
           source: 'cat-cafe',
         },
@@ -786,17 +790,13 @@ describe('writeAntigravityMcpConfig', () => {
       const collab = raw.mcpServers['cat-cafe-collab'];
 
       // Binary = runtime worktree dist (NOT workspace path)
-      assert.equal(
-        collab.args[0],
-        '/Users/lysander/projects/relay-station/cat-cafe-runtime/packages/mcp-server/dist/collab.js',
-        'args[0] must point at runtime binary dist, not workspace',
-      );
-      assert.ok(collab.args[0].includes('/cat-cafe-runtime/'), 'binary path must live under runtime root');
+      assert.equal(collab.args[0], runtimeBinary, 'args[0] must point at runtime binary dist, not workspace');
+      assert.ok(collab.args[0].startsWith(runtimeRoot), 'binary path must live under runtime root');
 
       // Workspace = user's active workspace (NOT runtime internals)
       assert.equal(
         collab.env.ALLOWED_WORKSPACE_DIRS,
-        '/Users/lysander/projects/relay-station/cat-cafe',
+        workspaceRoot,
         'ALLOWED_WORKSPACE_DIRS must point at user workspace, not runtime internals',
       );
       assert.ok(

@@ -559,7 +559,7 @@ run_target_public_gate() {
       step_fail=true
     fi
 
-    for i in $(seq 1 15); do
+    for i in $(seq 1 45); do
       if curl -sf "http://localhost:${accept_web_port}" >/dev/null 2>&1; then
         web_ready=true
         break
@@ -569,7 +569,7 @@ run_target_public_gate() {
     if [ "$web_ready" = true ]; then
       echo "  ✓ Frontend page responded (port $accept_web_port)"
     else
-      echo -e "  ${RED}✗ Frontend did not respond on port $accept_web_port within 15s${NC}"
+      echo -e "  ${RED}✗ Frontend did not respond on port $accept_web_port within 45s${NC}"
       step_fail=true
     fi
 
