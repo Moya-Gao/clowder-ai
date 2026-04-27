@@ -4,10 +4,13 @@ related_features: [F118, F167, F088]
 topics: [bug-report, stream-events, event-delivery, in-process-broadcast, long-invocation, status-message-discipline]
 doc_kind: bug-report
 created: 2026-04-27
-status: fixed-awaiting-review
+status: fixed
 severity: P1
 reporter: 铲屎官 (实测)
 diagnosed_by: 布偶猫/宪宪 (Opus-47)
+fixed_by: 缅因猫/砚砚 (GPT-5.5)
+fixed_pr: 1432
+fixed_commit: ddda3a4cd0f00ebb3b3cf37005ce04707160caad
 ---
 
 # Bug Report：长 invocation 流式事件前端断流（"砚砚气泡看不到"）
@@ -31,6 +34,8 @@ diagnosed_by: 布偶猫/宪宪 (Opus-47)
 本分支修复点：`packages/web/src/hooks/useAgentMessages.ts` 在 active thread 和 background thread timeout 分支都触发 thread-scoped `requestStreamCatchUp(timeoutThreadId)`，让 timeout 从"清场结束"变成"提示用户仍在后台运行，同时立刻补拉已落库消息"。
 
 回归测试：`packages/web/src/hooks/__tests__/useAgentMessages-stream-catchup.test.ts` 新增 active/background timeout 两个失败用例；修复前均失败，修复后通过。
+
+合入状态：PR #1432 已于 2026-04-27 merge 到 `main`（merge commit `ddda3a4cd0f00ebb3b3cf37005ce04707160caad`）。本 bug report 状态从 `fixed-awaiting-review` 更新为 `fixed`。
 
 ## 现象（铲屎官原话 + 截图证据）
 
