@@ -274,7 +274,13 @@ export function consumeBackgroundSystemInfo(
       sysVariant = visible.variant;
     } else if (parsed?.type === 'invocation_created') {
       const targetCatId = parsed.catId ?? msg.catId;
-      const invocationId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
+      // Identity canonicalization (砚砚 GPT-5.5 2026-04-26): outer wrapper invocationId
+      // is the user-turn parent; parsed JSON content invocationId is inner auth child.
+      // Prefer outer to keep bubble identity stable across stream/callback/done events
+      // (otherwise active path gets `msg-outer-cat` and bg path gets `msg-inner-cat` →
+      // dup bubble). thread_mogj6kvwp3l80x56 case.
+      const invocationId =
+        msg.invocationId ?? (typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined);
       // #586: Clear stale finalizedBgRef so previous invocation's finalized bubble
       // can't be overwritten by the next invocation's callback.
       const bgStreamKey = `${msg.threadId}::${targetCatId}`;
@@ -298,9 +304,13 @@ export function consumeBackgroundSystemInfo(
       }
     } else if (parsed?.type === 'invocation_metrics') {
       if (parsed.kind === 'session_started') {
+        // Identity canonicalization (砚砚 GPT-5.5 2026-04-26): outer first to keep
+        // catInvocations[catId].invocationId aligned with bubble identity.
+        const sessionInvocationId =
+          msg.invocationId ?? (typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined);
         options.store.setThreadCatInvocation(msg.threadId, msg.catId, {
           sessionId: parsed.sessionId,
-          invocationId: parsed.invocationId,
+          invocationId: sessionInvocationId,
           startedAt: Date.now(),
           taskProgress: { tasks: [], lastUpdate: 0 },
           ...(parsed.sessionSeq !== undefined ? { sessionSeq: parsed.sessionSeq, sessionSealed: false } : {}),
@@ -360,10 +370,13 @@ export function consumeBackgroundSystemInfo(
       consumed = true;
     } else if (parsed?.type === 'task_progress') {
       const targetCatId = parsed.catId ?? msg.catId;
+      // Identity canonicalization (砚砚 GPT-5.5 2026-04-26): outer first so
+      // taskProgress.lastInvocationId stays consistent with bubble identity.
       const currentInvocationId =
-        typeof parsed.invocationId === 'string'
+        msg.invocationId ??
+        (typeof parsed.invocationId === 'string'
           ? parsed.invocationId
-          : options.store.getThreadState(msg.threadId).catInvocations[targetCatId]?.invocationId;
+          : options.store.getThreadState(msg.threadId).catInvocations[targetCatId]?.invocationId);
       const tasks = (parsed.tasks ?? []) as TaskProgressItem[];
       options.store.setThreadCatInvocation(msg.threadId, targetCatId, {
         taskProgress: {
@@ -2425,7 +2438,13 @@ export function useAgentMessages() {
             // previous invocation could cause the next callback to overwrite the old message.
             const targetCatId = parsed.catId ?? msg.catId;
             clearFinalized(targetCatId);
-            const invocationId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
+            // Identity canonicalization (砚砚 GPT-5.5 2026-04-26): outer wrapper
+            // invocationId is the user-turn parent; parsed JSON content invocationId
+            // is inner auth child. Prefer outer to keep bubble identity stable across
+            // active vs background streams (otherwise active path gets `msg-outer-cat`
+            // and bg path gets `msg-inner-cat` → dup bubble). thread_mogj6kvwp3l80x56 case.
+            const invocationId =
+              msg.invocationId ?? (typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined);
             if (targetCatId && invocationId) {
               setCatInvocation(targetCatId, {
                 invocationId,
@@ -2525,9 +2544,13 @@ export function useAgentMessages() {
           } else if (parsed?.type === 'invocation_metrics') {
             // Store metrics silently — don't show as system message
             if (parsed.kind === 'session_started') {
+              // Identity canonicalization (砚砚 GPT-5.5 2026-04-26): outer first to keep
+              // catInvocations[catId].invocationId aligned with bubble identity.
+              const sessionInvocationId =
+                msg.invocationId ?? (typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined);
               setCatInvocation(msg.catId, {
                 sessionId: parsed.sessionId,
-                invocationId: parsed.invocationId,
+                invocationId: sessionInvocationId,
                 startedAt: Date.now(),
                 taskProgress: { tasks: [], lastUpdate: 0 },
                 ...(parsed.sessionSeq !== undefined ? { sessionSeq: parsed.sessionSeq, sessionSealed: false } : {}),
@@ -2601,10 +2624,13 @@ export function useAgentMessages() {
           } else if (parsed?.type === 'task_progress') {
             // F26: Store task progress silently
             const targetCatId = parsed.catId ?? msg.catId;
+            // Identity canonicalization (砚砚 GPT-5.5 2026-04-26): outer first so
+            // taskProgress.lastInvocationId stays consistent with bubble identity.
             const currentInvocationId =
-              typeof parsed.invocationId === 'string'
+              msg.invocationId ??
+              (typeof parsed.invocationId === 'string'
                 ? parsed.invocationId
-                : useChatStore.getState().catInvocations?.[targetCatId]?.invocationId;
+                : useChatStore.getState().catInvocations?.[targetCatId]?.invocationId);
             const tasks = (parsed.tasks ?? []) as import('../stores/chat-types').TaskProgressItem[];
             setCatInvocation(targetCatId, {
               taskProgress: {
@@ -2617,8 +2643,10 @@ export function useAgentMessages() {
             consumed = true;
           } else if (parsed?.type === 'web_search') {
             // F045: web_search tool event (privacy: no query, count only) — render as ToolEvent, not raw JSON
+            // Identity canonicalization (砚砚 GPT-5.5 2026-04-26): outer wrapper first
+            // so tool event reuses the same bubble created by active path under outer id.
             const parsedInv = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
-            const effectiveInv = parsedInv ?? msg.invocationId;
+            const effectiveInv = msg.invocationId ?? parsedInv;
             // Cloud P1#3 (PR#1352): suppress stale web_search for completed invocation.
             if (!shouldSuppressLateStreamChunk(msg.catId, effectiveInv)) {
               setCatStatus(msg.catId, 'streaming');
@@ -2637,9 +2665,11 @@ export function useAgentMessages() {
             consumed = true;
           } else if (parsed?.type === 'thinking') {
             // F045: Embed thinking into the current assistant bubble (like Claude Code)
+            // Identity canonicalization (砚砚 GPT-5.5 2026-04-26): outer wrapper first
+            // so thinking attaches to the active-path bubble under outer id.
             const thinkingText = parsed.text ?? '';
             const parsedInv = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
-            const effectiveInv = parsedInv ?? msg.invocationId;
+            const effectiveInv = msg.invocationId ?? parsedInv;
             // Cloud P1#3 (PR#1352): suppress stale thinking for completed invocation.
             if (thinkingText && !shouldSuppressLateStreamChunk(msg.catId, effectiveInv)) {
               const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata, {
@@ -2708,8 +2738,10 @@ export function useAgentMessages() {
             sysContent = 'This response was superseded by a newer request.';
           } else if (parsed?.type === 'rich_block') {
             // F22: Append rich block — prefer messageId correlation (#83 P2), fallback to activeRefs
+            // Identity canonicalization (砚砚 GPT-5.5 2026-04-26): outer wrapper first
+            // so rich_block bubble fallback aligns with active-path identity.
             const parsedInv = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
-            const effectiveInv = parsedInv ?? msg.invocationId;
+            const effectiveInv = msg.invocationId ?? parsedInv;
             // Cloud P1#3 (PR#1352): suppress stale rich_block for completed invocation —
             // explicit messageId correlation still wins (callback may be a re-emission
             // of a known message), so only the bubble-creation fallback path is gated.
