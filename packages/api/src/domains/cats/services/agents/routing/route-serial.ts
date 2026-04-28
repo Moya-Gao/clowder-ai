@@ -641,7 +641,10 @@ export async function* routeSerial(
           // #573: Confirm callback persistence via tool_result success
           if (effectiveMsg.type === 'tool_result' && awaitingCallbackResult) {
             awaitingCallbackResult = false;
-            if (effectiveMsg.content?.includes('"status":"ok"') || effectiveMsg.content?.includes('"status":"duplicate"'))
+            if (
+              effectiveMsg.content?.includes('"status":"ok"') ||
+              effectiveMsg.content?.includes('"status":"duplicate"')
+            )
               callbackPostConfirmed = true;
           }
 
