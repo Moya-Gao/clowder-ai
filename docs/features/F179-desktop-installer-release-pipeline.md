@@ -33,18 +33,24 @@ created: 2026-04-28
 
 ### Phase A: Pipeline 基础设施
 
-**A1. desktop 配置修正**
-- `desktop/package.json` `build.win.target` 从 `"dir"` 改为 `"nsis"`（产 .exe）
-- 确认 `assets/icon.ico` / `assets/icon.icns` 存在；不存在则生成
-- 增加 `dist:win` script（对称 `dist:mac`）：`electron-builder --win nsis --x64`
+**实情核查（2026-04-28 推 worktree 时发现）**：win pipeline 实际不是 NSIS，是 **Inno Setup**（`desktop/installer/cat-cafe.iss`）。`desktop/scripts/build-desktop.ps1` 已经是完整的 Win build 脚本：electron-builder `--win --dir` 产 `desktop-dist/win-unpacked/` → Inno Setup `iscc.exe cat-cafe.iss` 产 `dist/CatCafe-Setup-X.Y.Z.exe`。`desktop/scripts/build-mac.sh` 同理已经做完 mac dmg pipeline。**所以 build 脚本已经齐全，只缺 CI workflow + 版本号同步。**
+
+v0.9.0 release notes 写 "Windows NSIS installer" 是术语写错了——实际是 Inno Setup。无需切换格式（Inno Setup 配置完整且能跑）。
+
+**A1. 版本号同步机制**
+- `desktop/installer/cat-cafe.iss` 当前 hardcode `MyAppVersion 0.2.0`
+- `desktop/package.json` 当前 `version: "0.2.0"`
+- release 触发时需要通过 `iscc /D` 参数或 sed 动态注入版本号，避免每次手动改两个地方
+- 实现：build 脚本接受 `CATCAFE_VERSION` 环境变量，CI workflow 从 release tag 推导（`v0.9.1` → `0.9.1`）注入
 
 **A2. GitHub Actions release workflow**
 - 文件：`.github/workflows/release-desktop.yml`
 - 触发条件：`on.release.types = [published]`（GitHub release 创建后触发）
-- Matrix：`{os: [windows-latest, macos-latest]}`
-- 步骤：checkout → setup pnpm → install → build runtime → desktop dist → upload to release assets
-- 产物命名：`CatCafe-${version}-${arch}.${ext}`（已对齐 electron-builder artifactName）
-- 签名暂跳过：`identity: null` (mac) / 不配 win cert（无证书）—— 在 release notes 注明"未签名，首次启动需手动放行"
+- 双 job（不用 matrix——win/mac build 步骤完全不同）：
+  - `build-mac` runs-on `macos-latest`：跑 `desktop/scripts/build-mac.sh` → 产 dmg arm64 + x64
+  - `build-windows` runs-on `windows-latest`：先 `choco install innosetup -y` → 跑 `desktop/scripts/build-desktop.ps1` → 产 `CatCafe-Setup-X.Y.Z.exe`
+- Upload：`softprops/action-gh-release@v2` 把 `dist/*.dmg` / `dist/*.exe` attach 到触发本次 workflow 的 release
+- 签名暂跳过：`identity: null` (mac) / 不配 win cert —— 在 release notes 注明"unsigned, manual approve on first launch"
 
 **A3. opensource-ops skill 加 Release Asset Gate**
 - 在 `cat-cafe-skills/refs/opensource-ops-outbound-sync.md` 加章节：发 release 前必须确认 assets workflow 已触发并完成；release publish 后 watch 一次 workflow run 状态
@@ -70,13 +76,13 @@ created: 2026-04-28
 ## Acceptance Criteria
 
 ### Phase A
-- [ ] AC-A1: `desktop/package.json` `build.win.target` = `nsis`
-- [ ] AC-A2: 本地（Mac）跑 `pnpm --filter cat-cafe-desktop dist:mac` 能产 dmg
-- [ ] AC-A3: `.github/workflows/release-desktop.yml` 存在，触发条件正确
-- [ ] AC-A4: workflow 在 macos-latest + windows-latest 上 build 成功（用一次手动 dispatch 或 dry-run release 验证）
-- [ ] AC-A5: build artifacts 自动 upload 到 release assets
+- [ ] AC-A1: 版本号同步机制——build 脚本接受 `CATCAFE_VERSION` 环境变量并注入到 `cat-cafe.iss` + `desktop/package.json`
+- [ ] AC-A2: 本地（Mac）跑 `desktop/scripts/build-mac.sh` 能产 `CatCafe-X.Y.Z-arm64.dmg` + `CatCafe-X.Y.Z-x64.dmg`
+- [ ] AC-A3: `.github/workflows/release-desktop.yml` 存在，触发条件 `on.release.types = [published]`
+- [ ] AC-A4: workflow 双 job（macos-latest + windows-latest）build 成功
+- [ ] AC-A5: build artifacts 自动 upload 到触发 workflow 的 release（softprops/action-gh-release）
 - [ ] AC-A6: `cat-cafe-skills/refs/opensource-ops-outbound-sync.md` 加 "Release Asset Gate" 章节
-- [ ] AC-A7: v0.9.0 release notes 加 forward pointer + clowder-ai 开 pinned self-build issue
+- [x] AC-A7: v0.9.0 release notes 加 forward pointer ✅（2026-04-28 已加）；clowder-ai 开 pinned self-build issue 等 Phase A 完成后给准确命令
 
 ### Phase B
 - [ ] AC-B1: v0.9.1 release 创建后，workflow 触发成功
