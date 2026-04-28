@@ -1109,6 +1109,12 @@
       "name": "Persistent MCP Agent-Key Auth — 跨 invocation 写权限",
       "status": "in-progress | **Owner**: 布偶猫（宪宪） | **Reviewer**: 缅因猫（砚砚） | **Priority**: P1",
       "file": "F178-persistent-mcp-agent-key-auth.md"
+    },
+    {
+      "id": "F179",
+      "name": "Desktop Installer Release Pipeline — 自动化产出 Win/Mac 安装包并附 release",
+      "status": "spec | **Owner**: 布偶猫（Opus-47/宪宪） | **Reviewer**: 待定 | **Priority**: P1",
+      "file": "F179-desktop-installer-release-pipeline.md"
     }
   ]
 }
