@@ -47,6 +47,7 @@ INTENT_ISSUE=""
 ABSORB_PR=""
 REVIEW_PROOF=""
 SKIP_ABSORBED_GUARD=false
+VERIFY_MERGE_READY=false
 
 for arg in "$@"; do
   case "$arg" in
@@ -60,6 +61,7 @@ for arg in "$@"; do
     --advance-ledger) ADVANCE_LEDGER=true ;;
     --force-overwrite) FORCE_OVERWRITE=true ;;
     --skip-absorbed-guard) SKIP_ABSORBED_GUARD=true ;;
+    --verify-merge-ready) VERIFY_MERGE_READY=true ;;
     --record) RECORD_DECISION=true ;;
     --validate-inbound) VALIDATE_INBOUND=true ;;
     --from-index) FROM_INDEX=true ;;
@@ -578,7 +580,17 @@ if [ "$RECORD_DECISION" = true ]; then
   echo ""
   echo -e "${BLUE}── Auto-attempting ledger advance ──${NC}"
   bash "$0" --advance-ledger
-  exit $?
+  _advance_rc=$?
+  if [ $_advance_rc -eq 0 ] && [ -n "$ABSORB_PR" ]; then
+    echo ""
+    echo -e "${BLUE}── Post-record continuity advisory ──${NC}"
+    echo "  Review proof was validated against absorb PR HEAD at record time."
+    echo "  After committing the ledger update, the absorb PR HEAD will advance."
+    echo -e "  Before merging, run:"
+    echo -e "    ${GREEN}bash scripts/intake-from-opensource.sh --verify-merge-ready --absorb-pr $ABSORB_PR${NC}"
+    echo "  This verifies the post-review delta is ledger-only (non-behavioral)."
+  fi
+  exit $_advance_rc
 fi
 
 # ── Advance ledger ──
@@ -660,6 +672,124 @@ if [ "$ADVANCE_LEDGER" = true ]; then
   exit 0
 fi
 
+# ── Verify merge readiness (post-record continuity check) ──
+if [ "$VERIFY_MERGE_READY" = true ]; then
+  if [ -z "$ABSORB_PR" ]; then
+    echo -e "${RED}✗ --verify-merge-ready requires --absorb-pr <number>${NC}"; exit 1
+  fi
+
+  echo -e "${GREEN}=== 🔍 Post-Record Merge Readiness Check ===${NC}"
+  echo ""
+
+  absorb_info=$(gh pr view "$ABSORB_PR" --repo "$SOURCE_REPO" --json headRefOid,state,headRefName 2>/dev/null || true)
+  if [ -z "$absorb_info" ]; then
+    echo -e "${RED}✗ Cannot fetch absorb PR #$ABSORB_PR from $SOURCE_REPO${NC}"; exit 1
+  fi
+
+  vmr_current_head=$(echo "$absorb_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(String(d.headRefOid||''))")
+  vmr_pr_state=$(echo "$absorb_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(String(d.state||''))")
+  vmr_branch=$(echo "$absorb_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(String(d.headRefName||''))")
+
+  if [ "$vmr_pr_state" = "MERGED" ]; then
+    echo -e "${GREEN}✓ Absorb PR #$ABSORB_PR is already MERGED. No pre-merge check needed.${NC}"
+    exit 0
+  fi
+  if [ "$vmr_pr_state" != "OPEN" ]; then
+    echo -e "${RED}✗ Absorb PR #$ABSORB_PR is $vmr_pr_state (expected OPEN or MERGED)${NC}"; exit 1
+  fi
+
+  vmr_proof_url="$REVIEW_PROOF"
+  if [ -z "$vmr_proof_url" ]; then
+    vmr_proof_url=$(ABSORB_PR_NUM="$ABSORB_PR" node -e "
+      const fs = require('fs');
+      const l = JSON.parse(fs.readFileSync('$INTAKE_LEDGER', 'utf-8'));
+      const n = Number(process.env.ABSORB_PR_NUM);
+      const entry = [...l.entries].reverse().find(e => e.absorb_pr === n);
+      console.log(String(entry?.review_proof || ''));
+    " 2>/dev/null || true)
+  fi
+  if [ -z "$vmr_proof_url" ]; then
+    echo -e "${RED}✗ No review proof found. Provide --review-proof <URL> or ensure ledger has a recorded entry.${NC}"
+    exit 1
+  fi
+
+  vmr_proof_commit=""
+  if [[ "$vmr_proof_url" =~ \#pullrequestreview-([0-9]+)$ ]]; then
+    vmr_proof_json=$(gh api "repos/$SOURCE_REPO/pulls/$ABSORB_PR/reviews/${BASH_REMATCH[1]}" 2>/dev/null || true)
+    if [ -n "$vmr_proof_json" ]; then
+      vmr_proof_commit=$(echo "$vmr_proof_json" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(String(d.commit_id||''))")
+    fi
+  elif [[ "$vmr_proof_url" =~ \#discussion_r([0-9]+)$ ]]; then
+    vmr_proof_json=$(gh api "repos/$SOURCE_REPO/pulls/comments/${BASH_REMATCH[1]}" 2>/dev/null || true)
+    if [ -n "$vmr_proof_json" ]; then
+      vmr_proof_commit=$(echo "$vmr_proof_json" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(String(d.commit_id||''))")
+    fi
+  elif [[ "$vmr_proof_url" =~ \#issuecomment-([0-9]+)$ ]]; then
+    vmr_proof_json=$(gh api "repos/$SOURCE_REPO/issues/comments/${BASH_REMATCH[1]}" 2>/dev/null || true)
+    if [ -n "$vmr_proof_json" ]; then
+      vmr_proof_body=$(echo "$vmr_proof_json" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(String(d.body||''))")
+      vmr_proof_commit=$(echo "$vmr_proof_body" | grep -oE '[0-9a-f]{40}' | head -1 || true)
+      if [ -z "$vmr_proof_commit" ]; then
+        vmr_proof_commit=$(echo "$vmr_proof_body" | grep -oE '[0-9a-f]{7,12}' | head -1 || true)
+      fi
+    fi
+  elif [ -f "$vmr_proof_url" ]; then
+    vmr_proof_commit=$(grep -oE '[0-9a-f]{40}' "$vmr_proof_url" | head -1 || true)
+  fi
+
+  if [ -z "$vmr_proof_commit" ]; then
+    echo -e "${YELLOW}⚠ Could not extract proof commit SHA from review proof.${NC}"
+    echo "  Review proof: $vmr_proof_url"
+    echo "  Cannot verify continuity automatically. Manual check required."
+    exit 1
+  fi
+
+  echo "  Absorb PR:     #$ABSORB_PR ($vmr_pr_state)"
+  echo "  Review proof:  ${vmr_proof_commit:0:8}"
+  echo "  Current HEAD:  ${vmr_current_head:0:8}"
+
+  if [ "$vmr_proof_commit" = "$vmr_current_head" ]; then
+    echo ""
+    echo -e "${GREEN}✓ Merge ready: current HEAD matches review proof exactly.${NC}"
+    exit 0
+  fi
+
+  echo ""
+  echo "  HEAD advanced since review. Checking delta..."
+
+  git fetch origin "$vmr_branch" --quiet 2>/dev/null || true
+
+  vmr_delta_files=$(git diff --name-only "$vmr_proof_commit".."$vmr_current_head" 2>/dev/null || true)
+  if [ -z "$vmr_delta_files" ]; then
+    echo -e "${GREEN}✓ Merge ready: no file changes between review proof and current HEAD.${NC}"
+    exit 0
+  fi
+
+  vmr_has_behavioral=false
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    case "$f" in
+      docs/ops/opensource-intake-ledger.json) ;;
+      docs/mailbox/*) ;;
+      *) vmr_has_behavioral=true ;;
+    esac
+  done <<< "$vmr_delta_files"
+
+  if [ "$vmr_has_behavioral" = false ]; then
+    echo -e "${GREEN}✓ Merge ready: post-review delta is non-behavioral (ledger/mailbox only).${NC}"
+    echo "  Delta files:"
+    echo "$vmr_delta_files" | sed 's/^/    /'
+    exit 0
+  else
+    echo -e "${RED}✗ Post-review delta contains behavioral changes:${NC}"
+    echo "$vmr_delta_files" | sed 's/^/    /'
+    echo ""
+    echo "  Ask reviewer to extend review to current HEAD (${vmr_current_head:0:8}),"
+    echo "  then re-run this check."
+    exit 1
+  fi
+fi
+
 # ── Plan mode ──
 if [ -z "$PR_NUMBER" ]; then
   echo "Usage:"
@@ -669,6 +799,8 @@ if [ -z "$PR_NUMBER" ]; then
   echo "      review-proof must cover absorb PR current HEAD (comment/review URL or file with SHA)"
   echo "    optional override: --skip-absorbed-guard  (historical backfill or outbound-filed hotfix)"
   echo "  bash scripts/intake-from-opensource.sh --advance-ledger                  # Advance ledger (sync-only commits)"
+  echo "  bash scripts/intake-from-opensource.sh --verify-merge-ready --absorb-pr <P> [--review-proof <URL>]"
+  echo "                                                                            # Post-record continuity check"
   echo "  bash scripts/intake-from-opensource.sh --validate-inbound                # 🛡 Check brand contamination (working tree)"
   echo "  bash scripts/intake-from-opensource.sh --validate-inbound --from-index   # 🛡 Check brand contamination (staged/index)"
   echo ""
