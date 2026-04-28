@@ -656,6 +656,48 @@ Agent 运行 → 产生 trace / metrics / 行为数据
 
 ---
 
+## 答疑检索索引（高价值材料）
+
+> 用途：最后答疑和现场追问时，猫猫可直接按本节路径 `search_evidence` / 打开原文。这里不是新增议程，只是把高价值材料集中挂到最终脚本，避免临场找不到真相源。
+
+### 总体叙事 / 对外 pitch
+
+- `docs/discussions/career-planning/2026-04-16-internal-speaking-script.md` — v1 原始骨架
+- `docs/discussions/career-planning/2026-04-19-internal-speaking-script-v2.md` — v2 三猫 review 收敛版
+- `docs/discussions/career-planning/2026-04-16-cat-cafe-universal-pitch.md` — Cat Cafe universal pitch
+- `docs/discussions/2026-04-19-five-highlights/README.md` — 四猫亮点收敛
+- `docs/stories/three-days-productization/showcase-user-facing.md` — 三天产品化，用户视角 showcase
+- `docs/stories/three-days-productization/showcase-developer-facing.md` — 三天产品化，开发者视角 showcase
+
+### Topic 1：Harness / 数学之美 / Build to Delete
+
+- `docs/canon/meta-aesthetics.md` — 数学之美圆桌；`Agent Quality = Model Capability × Environment Fit`
+- `docs/discussions/2026-04-15-harness-engineering-triad-study/round5-anthropic-product-velocity.md` — Anthropic PM 访谈 × Harness Built to Delete
+
+### Topic 2：Agent × Agent / Team 协作
+
+- `docs/discussions/2026-04-20-claude-multi-agent-coordination-patterns/article-complete-technical-edition-v2.md` — Anthropic 五种模式到 Cat Cafe 完整技术版
+
+### Topic 3：记忆 / 知识生命周期
+
+- `docs/features/F102-memory-adapter-refactor.md` — 记忆系统重构（Hindsight → evidence.sqlite）
+- `docs/decisions/020-f102-memory-system-architecture.md` — F102 记忆架构 ADR
+- `docs/features/F065-session-continuity.md` — session 连续性
+- `docs/features/F163-memory-entropy-reduction.md` — 记忆熵减与知识生命周期治理
+- `docs/features/F169-agent-memory-reflex.md` — 记忆反射层 vision artifact
+- `docs/research/2026-04-15-agent-mistake-memory-lifecycle.md` — agent mistake → memory lifecycle
+- `docs/research/2026-04-19-karpathy-llm-wiki/README.md` — Karpathy LLM Wiki 专题索引
+- `docs/research/2026-04-19-karpathy-llm-wiki/source-note.md` — Karpathy LLM Wiki source note
+- `docs/research/2026-04-19-karpathy-llm-wiki/comparison.md` — Karpathy vs Graphify vs Cat Cafe 三列对比
+- `docs/research/2026-04-19-karpathy-llm-wiki/human-readable-comparison.md` — 人话版对比
+- `docs/research/2026-04-19-karpathy-llm-wiki/opus47-perspective.md` — 47 的"外部工作记忆义肢"视角
+
+### Topic 4：可观测 / Eval / 数据飞轮
+
+- `docs/research/2026-04-19-online-evaluation-trends-and-cat-cafe.md` — online evaluation 趋势与 Cat Cafe
+
+---
+
 ## 应急预案
 
 | 故障 | 降级方案 |
