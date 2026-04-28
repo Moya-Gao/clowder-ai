@@ -603,6 +603,43 @@ describe('writeAntigravityMcpConfig', () => {
     }
   });
 
+  it('passes agent-key sidecar file path to managed cat-cafe servers', async () => {
+    const file = join(dir, 'mcp_config.json');
+    const keyFile = join(dir, 'agent-key.secret');
+    const keyFiles = JSON.stringify({ antigravity: keyFile, 'antig-opus': join(dir, 'antig-opus.secret') });
+    const originalKeyFile = process.env.CAT_CAFE_AGENT_KEY_FILE;
+    const originalKeyFiles = process.env.CAT_CAFE_AGENT_KEY_FILES;
+    try {
+      process.env.CAT_CAFE_AGENT_KEY_FILE = keyFile;
+      process.env.CAT_CAFE_AGENT_KEY_FILES = keyFiles;
+      await writeAntigravityMcpConfig(file, [
+        { name: 'cat-cafe-collab', command: 'node', args: ['collab.js'], enabled: true, source: 'cat-cafe' },
+      ]);
+
+      const raw = JSON.parse(await readFile(file, 'utf-8'));
+      assert.equal(
+        raw.mcpServers['cat-cafe-collab'].env.CAT_CAFE_AGENT_KEY_FILE,
+        keyFile,
+        'persistent Antigravity MCP needs the sidecar path so agent-key tools appear in tools/list',
+      );
+      assert.equal(
+        raw.mcpServers['cat-cafe-collab'].env.CAT_CAFE_AGENT_KEY_FILES,
+        keyFiles,
+        'shared Antigravity MCP needs variant-scoped sidecar file mapping for correct cat identity',
+      );
+      assert.equal(
+        raw.mcpServers['cat-cafe-collab'].env.CAT_CAFE_AGENT_KEY_SECRET,
+        undefined,
+        'long-lived agent-key secret must not be written directly into mcp_config.json',
+      );
+    } finally {
+      if (originalKeyFile === undefined) delete process.env.CAT_CAFE_AGENT_KEY_FILE;
+      else process.env.CAT_CAFE_AGENT_KEY_FILE = originalKeyFile;
+      if (originalKeyFiles === undefined) delete process.env.CAT_CAFE_AGENT_KEY_FILES;
+      else process.env.CAT_CAFE_AGENT_KEY_FILES = originalKeyFiles;
+    }
+  });
+
   it('preserves legacy cat-cafe entry while backfilling readonly env', async () => {
     const file = join(dir, 'mcp_config.json');
     const originalAwd = process.env.ALLOWED_WORKSPACE_DIRS;

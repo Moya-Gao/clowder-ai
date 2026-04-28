@@ -389,6 +389,15 @@ async function main(): Promise<void> {
   const { AgentKeyRegistry } = await import('./domains/cats/services/agents/agent-key/AgentKeyRegistry.js');
   const agentKeyRegistry = new AgentKeyRegistry();
   app.log.info('[api] AgentKeyRegistry initialized (memory backend)');
+  try {
+    const { ensureAntigravityAgentKeySidecar } = await import(
+      './domains/cats/services/agents/agent-key/antigravity-agent-key-sidecar.js'
+    );
+    const sidecar = await ensureAntigravityAgentKeySidecar(agentKeyRegistry);
+    app.log.info(`[api] Antigravity agent-key sidecar ready: ${sidecar.filePath} (${sidecar.catId}/${sidecar.userId})`);
+  } catch (err) {
+    app.log.warn(`[api] Antigravity agent-key sidecar setup failed (best-effort): ${String(err)}`);
+  }
 
   // Fail-closed: refuse to start without Redis unless explicitly opted into memory mode.
   // Also verify Redis is actually reachable (PING), not just configured.

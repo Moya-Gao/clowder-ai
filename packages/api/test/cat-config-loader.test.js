@@ -971,6 +971,13 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.equal(all.antigravity.cli, undefined);
     assert.equal(all['antig-opus'].cli, undefined);
   });
+
+  it('antigravity variants advertise MCP support through managed Antigravity config', () => {
+    const config = loadCatConfig();
+    const all = toAllCatConfigs(config);
+    assert.equal(all.antigravity.mcpSupport, true);
+    assert.equal(all['antig-opus'].mcpSupport, true);
+  });
 });
 
 // --- F-Ground-3 R1 fix: caution null semantics ---
