@@ -162,7 +162,7 @@ created: 2026-04-26
 | 2026-04-26 | Phase B merged (PR #1422) — CallbackPrincipal + AgentKeyRegistry + 21 tests |
 | 2026-04-26 | Phase C merged (PR #1424) — dual-path preHandler + 4-tool allowlist + MCP dual-cred config + 30 new tests |
 | 2026-04-27 | Antigravity follow-up — AC-C4 sidecar 注入落地，图片 prompt path hint 修复；review 记录 Phase D AC-D5 key orphaning guard |
-| 2026-04-28 | PR #1446 cloud review P1 修正 — sidecar 从单 key 改为 per-variant key file map，MCP callback tools 增加 `agentKeyCatId` 选择正确 cat identity；同轮追加 fail-closed 防线，共享 variant map 存在时遗漏 `agentKeyCatId` 或显式 variant 映射缺失/损坏都不再回退默认 key |
+| 2026-04-28 | PR #1446 merged — Antigravity 图片 path hint + MCP tool exposure 修复；sidecar 从单 key 改为 per-variant key file map，MCP callback tools 增加 `agentKeyCatId` 选择正确 cat identity；同轮追加 fail-closed 防线，共享 variant map 存在时遗漏 `agentKeyCatId` 或显式 variant 映射缺失/损坏都不再回退默认 key |
 
 ## Review Gate
 
