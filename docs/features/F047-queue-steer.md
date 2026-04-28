@@ -67,6 +67,15 @@ created: 2026-02-28
   - 立即执行（取消当前猫）
   - 提到队首（不取消）
 
+### Reorder（F175 扩展）
+
+F175 在 Steer 基础上扩展了用户可控编排能力：
+
+- **Drag & Drop 排序**：QueuePanel 支持拖动排序（`@dnd-kit`），拖拽后通过 `PATCH /queue/reorder` 批量设置 position
+- **Reorder API**：`PATCH /api/threads/:threadId/queue/reorder`，body: `{ positions: [{ entryId, position }] }`
+- **排序语义**：显式 position（用户手动拖动）仅在同 user 内覆盖 `priority`，未手动排序的 entry 仍按 `priority > createdAt`
+- **Optimistic UI**：前端立即按 comparator 重排，失败时 rollback
+
 ## Key Decisions
 
 - Steer 不改动消息内容（不做“编辑/追加内容”），只做“执行优先级/立即执行”的控制面

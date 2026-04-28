@@ -151,7 +151,7 @@ export interface ConnectorGatewayDeps {
       message: string,
       messageId: string,
       ...args: unknown[]
-    ): 'dispatched' | 'enqueued' | 'merged' | 'full';
+    ): 'dispatched' | 'enqueued' | 'full';
   };
   readonly socketManager?:
     | {
@@ -304,7 +304,7 @@ export async function startConnectorGateway(
     bindingStore,
     threadStore: deps.threadStore,
     ...(deps.backlogStore ? { backlogStore: deps.backlogStore } : {}),
-    frontendBaseUrl: deps.frontendBaseUrl ?? 'http://localhost:3001',
+    frontendBaseUrl: deps.frontendBaseUrl ?? 'http://localhost:3003',
     permissionStore,
     // F142: wire /cats and /status deps (threadStore has getParticipantsWithActivity at runtime)
     ...(deps.threadStore.getParticipantsWithActivity
