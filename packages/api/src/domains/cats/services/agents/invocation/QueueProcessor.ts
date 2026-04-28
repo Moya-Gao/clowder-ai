@@ -685,7 +685,6 @@ export class QueueProcessor {
         }
       }
 
-      const promptTags: string[] = suggestedSkill ? [`skill:${suggestedSkill}`] : [];
       for await (const msg of router.routeExecution(
         userId,
         content,
