@@ -594,7 +594,10 @@ export class InvocationQueue {
       if (!key.startsWith(`${threadId}:`)) continue;
       for (const e of q) {
         if (!e.targetCats.includes(catId)) continue;
-        if (e.status === 'queued') return true;
+        if (e.status === 'queued') {
+          if (now - e.createdAt < InvocationQueue.STALE_QUEUED_THRESHOLD_MS) return true;
+          continue;
+        }
         if (e.status === 'processing') {
           const age = now - (e.processingStartedAt ?? e.createdAt);
           if (age < InvocationQueue.STALE_PROCESSING_THRESHOLD_MS) return true;

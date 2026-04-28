@@ -636,7 +636,7 @@ export async function* routeSerial(
           // F148 OQ-2: Collect tool names for context eval
           if (effectiveMsg.type === 'tool_use' && effectiveMsg.toolName) {
             collectedToolNames.push(effectiveMsg.toolName);
-            if (effectiveMsg.toolName === 'cat_cafe_post_message') awaitingCallbackResult = true;
+            if (effectiveMsg.toolName.endsWith('cat_cafe_post_message')) awaitingCallbackResult = true;
           }
           // #573: Confirm callback persistence via tool_result success
           if (effectiveMsg.type === 'tool_result' && awaitingCallbackResult) {
