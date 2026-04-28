@@ -80,6 +80,14 @@ export function parseShimFile(cmdPath: string): string | null {
     }
   }
 
+  // Third pass: native .exe entrypoints (e.g. claude.exe in Claude Code 2.1+)
+  for (const scriptPath of candidates) {
+    const tail = scriptPath.split('/').pop() ?? '';
+    if (/\.exe$/i.test(tail) && !/^node(\.exe)?$/i.test(tail) && existsSync(scriptPath)) {
+      return scriptPath;
+    }
+  }
+
   return null;
 }
 
@@ -164,6 +172,9 @@ export function resolveWindowsShimSpawn(
 ): WindowsShimSpawn | null {
   const shimScript = shimScriptOverride ?? resolveCmdShimScript(command);
   if (!shimScript) return null;
+  if (/\.exe$/i.test(shimScript)) {
+    return { command: shimScript, args: [...args] };
+  }
   return {
     command: process.execPath,
     args: [shimScript, ...args],

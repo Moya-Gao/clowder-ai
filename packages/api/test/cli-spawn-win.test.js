@@ -474,6 +474,39 @@ test('parseShimFile prefers relative %dp0 paths over absolute %APPDATA% paths', 
   }
 });
 
+test('parseShimFile resolves native .exe entrypoints when no .js or extensionless match (#234)', () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), 'cli-spawn-win-exe-target-'));
+  mkdirSync(join(tempRoot, 'node_modules', '@anthropic-ai', 'claude-code', 'bin'), { recursive: true });
+
+  const cmdPath = join(tempRoot, 'claude.cmd');
+  const exePath = join(tempRoot, 'node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe');
+
+  writeFileSync(
+    cmdPath,
+    '@IF EXIST "%~dp0\\node.exe" (\r\n  "%~dp0\\node.exe" "%~dp0\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe" %*\r\n)\r\n',
+    'utf8',
+  );
+  writeFileSync(exePath, 'MZ fake exe', 'utf8');
+
+  try {
+    const resolved = parseShimFile(cmdPath);
+    assert.equal(resolved, exePath, 'must resolve to claude.exe, not node.exe');
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('resolveWindowsShimSpawn spawns native .exe directly instead of via node (#234)', () => {
+  const exePath = join(tmpdir(), 'claude-shim-exe-test.exe');
+
+  const resolved = resolveWindowsShimSpawn('claude', ['--json', '-p', 'hello'], exePath);
+
+  assert.deepEqual(resolved, {
+    command: exePath,
+    args: ['--json', '-p', 'hello'],
+  });
+});
+
 // --- resolveCmdShimScript full-path tests ---
 
 test('resolveCmdShimScript resolves full .cmd path directly without where fallback', () => {
