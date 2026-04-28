@@ -246,13 +246,13 @@ Phase E 实现引入了 `cat_cafe.route` 根 span（`AgentRouter` 创建），`c
 - [x] AC-E7: `MetricsSnapshotStore` 30s 采样，`/metrics/history` 返回趋势数据
 
 ### Phase F（Trace 持久化 — 指针关联方案）
-- [ ] AC-F1: 四类 span（route/invocation/cli_session/llm_call）统一携带 `invocationId` attribute（值 = outer InvocationRecord.id，键名不变）
-- [ ] AC-F2: Message `extra.tracing` 写入 `{ traceId, spanId, parentSpanId }` 指针（route → user message，invocation/cli/llm → assistant message）
-- [ ] AC-F3: `LocalTraceStore.hydrate()` 从消息数据合成 TraceSpanDTO 并回填 buffer，startTime 使用 `timestamp - duration` 反推（非直接用 message.timestamp）
-- [ ] AC-F4: 冷启动时从最近 2h 消息自动 hydrate，Hub Traces tab 可见历史 span
-- [ ] AC-F5: hydrate 使用 `msg:timeline` sorted set 范围查询，不做全表扫描
-- [ ] AC-F6: 每条消息 tracing 指针增量 ≤ 100 bytes，不存完整 span 快照
-- [ ] AC-F7: `StoredMessage.extra` 类型扩展含 `tracing`，parser round-trip 保留，`updateExtra()` 使用 merge 语义
+- [x] AC-F1: 四类 span（route/invocation/cli_session/llm_call）统一携带 `invocationId` attribute（值 = outer InvocationRecord.id，键名不变）
+- [x] AC-F2: Message `extra.tracing` 写入 `{ traceId, spanId, parentSpanId }` 指针（route → user message，invocation/cli/llm → assistant message）
+- [x] AC-F3: `LocalTraceStore.hydrate()` 从消息数据合成 TraceSpanDTO 并回填 buffer，startTime 使用 `timestamp - duration` 反推（非直接用 message.timestamp）
+- [x] AC-F4: 冷启动时从最近 2h 消息自动 hydrate，Hub Traces tab 可见历史 span
+- [x] AC-F5: hydrate 使用 `msg:timeline` sorted set 范围查询，不做全表扫描
+- [x] AC-F6: 每条消息 tracing 指针增量 ≤ 100 bytes，不存完整 span 快照
+- [x] AC-F7: `StoredMessage.extra` 类型扩展含 `tracing`，parser round-trip 保留，`updateExtra()` 使用 merge 语义
 - [ ] AC-F8: tool_use spans 暂不持久化（零时长点标记，待 Phase G 升级）
 
 ### Phase D（Runtime 调试 exporter + 启动语义对齐）✅
@@ -318,6 +318,7 @@ Phase E 实现引入了 `cat_cafe.route` 根 span（`AgentRouter` 创建），`c
 | 2026-04-18 | Phase D merge + intake 完成（`TELEMETRY_DEBUG` + startup semantics） |
 | 2026-04-22 | Phase E spec: `clowder-ai#545` merge；`cat-cafe#1341` 建立 Intake Intent Issue，按 `manual-port` 吸收 Phase E 真相源 |
 | 2026-04-24 | Phase E implementation: `clowder-ai#546` merge；`cat-cafe#1371` 建立 Intake Intent Issue，按 `safe-cherry-pick + manual-port` 回家吸收 |
+| 2026-04-28 | Phase F pointer persistence: `clowder-ai#579` merge；`cat-cafe#1448` 建立 Intake Intent Issue，按 `safe-cherry-pick + high-risk manual-merge` 回家吸收 |
 
 ## Links
 
@@ -331,7 +332,10 @@ Phase E 实现引入了 `cat_cafe.route` 根 span（`AgentRouter` 创建），`c
 | **Issue** | `zts212653/clowder-ai#544` | Phase E 对应 issue（Hub 嵌入式可观测） |
 | **PR** | `zts212653/clowder-ai#545` | Phase E spec PR |
 | **PR** | `zts212653/clowder-ai#546` | Phase E implementation PR |
+| **Issue** | `zts212653/clowder-ai#592` | Phase F 对应 issue（trace persistence via pointer association） |
+| **PR** | `zts212653/clowder-ai#579` | Phase F implementation PR |
 | **Issue** | `zts212653/cat-cafe#1341` | Phase E spec 的 Intake Intent Issue |
 | **Issue** | `zts212653/cat-cafe#1371` | Phase E implementation 的 Intake Intent Issue |
+| **Issue** | `zts212653/cat-cafe#1448` | Phase F implementation 的 Intake Intent Issue |
 | **Feature** | `docs/features/F130-api-log-governance.md` | 日志治理（logging 层） |
 | **Research** | `docs/research/2026-04-19-online-evaluation-trends-and-cat-cafe.md` | Online Eval 行业趋势与猫咖对照 |

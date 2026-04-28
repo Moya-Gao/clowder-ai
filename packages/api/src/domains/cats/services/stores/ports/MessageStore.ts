@@ -57,13 +57,14 @@ export interface StoredMessage {
   toolEvents?: readonly StoredToolEvent[];
   /** Provider/model metadata (for cat messages) */
   metadata?: MessageMetadata;
-  /** F22+F52+F098-C1: Extensible extra data (rich blocks, stream metadata, cross-post origin, explicit targets) */
+  /** F022+F052+F098-C1+F153-F: Extensible extra data (rich blocks, stream metadata, cross-post origin, explicit targets, tracing pointers) */
   extra?: {
     rich?: RichMessageExtra;
     stream?: { invocationId: string };
     crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
     targetCats?: string[];
     scheduler?: SchedulerMessageExtra['scheduler'];
+    tracing?: { traceId: string; spanId: string; parentSpanId?: string };
   };
   /** CatIds mentioned in this message */
   mentions: readonly CatId[];
@@ -80,7 +81,7 @@ export interface StoredMessage {
   whisperTo?: readonly CatId[];
   /** F35: Timestamp when a whisper was revealed (made public). Present = revealed */
   revealedAt?: number;
-  /** F97: External connector source. Present = connector message (not user/cat) */
+  /** F097: External connector source. Present = connector message (not user/cat) */
   source?: ConnectorSource;
   /** F098-D: Timestamp when a queued message was actually dequeued and processed by a cat */
   deliveredAt?: number;
