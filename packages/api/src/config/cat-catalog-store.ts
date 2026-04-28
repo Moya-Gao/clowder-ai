@@ -124,8 +124,7 @@ function migrateCatalogVariants(
     const variants = Array.isArray(breed.variants) ? (breed.variants as Record<string, unknown>[]) : [];
     if (variants.length === 0) continue;
     const filtered = variants.filter((variant) => {
-      const variantCatId =
-        (typeof variant.catId === 'string' ? variant.catId : undefined) ?? breedDefaultCatId;
+      const variantCatId = (typeof variant.catId === 'string' ? variant.catId : undefined) ?? breedDefaultCatId;
       if (!variantCatId) return true;
       // Keep variants whose catId matches their own breed's id (legitimate single-variant breed).
       if (variantCatId === breedId) return true;

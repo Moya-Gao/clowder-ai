@@ -180,6 +180,17 @@ function pickVariantMention(id: string, config: CatConfig): string {
   return `@${id}`;
 }
 
+function pickDisplayNameMention(config: CatConfig): string | null {
+  const expected = `@${config.displayName}`.toLowerCase();
+  return config.mentionPatterns.find((p) => p.toLowerCase() === expected) ?? null;
+}
+
+function pickDisplayNameOrVariantMention(id: string, config: CatConfig): string {
+  // Do not synthesize @displayName unless the registry actually routes it.
+  // Example: opus-47 shares displayName="布偶猫" but only registers @opus-47.
+  return pickDisplayNameMention(config) ?? pickVariantMention(id, config);
+}
+
 function buildCallableMentions(currentCatId: CatId): CallableMentionsResult {
   const entries: CallableCatEntry[] = Object.entries(getAllConfigs())
     .filter(([id]) => id !== currentCatId && isCatAvailable(id))
@@ -208,7 +219,7 @@ function buildCallableMentions(currentCatId: CatId): CallableMentionsResult {
     const group = byDisplayName.get(entry.config.displayName) ?? [];
     const mention =
       group.length <= 1 || entry.config.isDefaultVariant
-        ? `@${entry.config.displayName}`
+        ? pickDisplayNameOrVariantMention(entry.id, entry.config)
         : pickVariantMention(entry.id, entry.config);
     if (group.length > 1 && !entry.config.isDefaultVariant && uniqueHandleExample == null) {
       uniqueHandleExample = mention;
@@ -702,10 +713,8 @@ export function buildInvocationContext(context: InvocationContext): string {
   // F092: Voice companion mode — instruct cats to prioritize audio output
   if (context.voiceMode) {
     lines.push(
-      'Voice Mode ON: 铲屎官正在语音陪伴模式（AirPods，双手不空）。',
-      '- 每条回复用 audio rich block 发语音（call get_rich_block_rules if unsure）',
-      '- 文字是给日志看的，语音才是给铲屎官耳朵的输出',
-      '- 代码/表格/长内容仍用文字，但加一段语音摘要',
+      'Voice Mode ON: 铲屎官在语音陪伴模式。',
+      '- 默认用 audio rich block；代码/表格/长内容用文字并附语音摘要',
       '',
     );
   } else {

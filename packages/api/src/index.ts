@@ -3,7 +3,6 @@
  * 后端 API 入口
  */
 
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { type CatConfig, type CatId, CORE_COMMANDS, catRegistry } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
@@ -14,6 +13,7 @@ import fastifyWebsocket from '@fastify/websocket';
 import Fastify from 'fastify';
 import { resolveAnthropicRuntimeProfile, resolveForClient } from './config/account-resolver.js';
 import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
+import { resolveStartupCliConfigContext } from './config/capabilities/startup-cli-config.js';
 import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
 import {
@@ -2026,19 +2026,13 @@ async function main(): Promise<void> {
     app.log.warn(`[api] Audit log write failed (best-effort): ${String(err)}`);
   }
 
-  // Best-effort: regenerate CLI configs at startup so .gemini/settings.json
-  // always has the latest env placeholders (Gemini MCP env injection)
+  // Best-effort: regenerate CLI configs at startup so runtime-derived env
+  // (Gemini placeholders, Antigravity sidecar key files) reaches CLI config.
   try {
-    const root = process.cwd();
-    const capConfig = await readCapabilitiesConfig(root);
+    const { projectRoot, paths } = resolveStartupCliConfigContext(process.cwd());
+    const capConfig = await readCapabilitiesConfig(projectRoot);
     if (capConfig) {
-      await generateCliConfigs(capConfig, {
-        anthropic: join(root, '.mcp.json'),
-        openai: join(root, '.codex', 'config.toml'),
-        google: join(root, '.gemini', 'settings.json'),
-        kimi: join(root, '.kimi', 'mcp.json'),
-        antigravity: join(homedir(), '.gemini', 'antigravity', 'mcp_config.json'),
-      });
+      await generateCliConfigs(capConfig, paths);
       app.log.info('[api] CLI configs regenerated at startup');
     }
   } catch (err) {

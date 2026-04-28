@@ -570,11 +570,26 @@ describe('writeKimiMcpConfig', () => {
 
 describe('writeAntigravityMcpConfig', () => {
   /** @type {string} */ let dir;
+  /** @type {string | undefined} */ let originalAgentKeyFile;
+  /** @type {string | undefined} */ let originalAgentKeyFiles;
+  /** @type {string | undefined} */ let originalAgentKeySecret;
 
   beforeEach(async () => {
     dir = await makeTmpDir('antigravity-write');
+    originalAgentKeyFile = process.env.CAT_CAFE_AGENT_KEY_FILE;
+    originalAgentKeyFiles = process.env.CAT_CAFE_AGENT_KEY_FILES;
+    originalAgentKeySecret = process.env.CAT_CAFE_AGENT_KEY_SECRET;
+    delete process.env.CAT_CAFE_AGENT_KEY_FILE;
+    delete process.env.CAT_CAFE_AGENT_KEY_FILES;
+    delete process.env.CAT_CAFE_AGENT_KEY_SECRET;
   });
   afterEach(async () => {
+    if (originalAgentKeyFile === undefined) delete process.env.CAT_CAFE_AGENT_KEY_FILE;
+    else process.env.CAT_CAFE_AGENT_KEY_FILE = originalAgentKeyFile;
+    if (originalAgentKeyFiles === undefined) delete process.env.CAT_CAFE_AGENT_KEY_FILES;
+    else process.env.CAT_CAFE_AGENT_KEY_FILES = originalAgentKeyFiles;
+    if (originalAgentKeySecret === undefined) delete process.env.CAT_CAFE_AGENT_KEY_SECRET;
+    else process.env.CAT_CAFE_AGENT_KEY_SECRET = originalAgentKeySecret;
     await rm(dir, { recursive: true, force: true });
   });
 
