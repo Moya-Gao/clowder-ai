@@ -99,10 +99,17 @@ export function transformAcpEvent(
       };
     }
 
-    case 'tool_call_update':
-      // Progress update for an in-flight tool_call — the initial tool_call already
-      // emitted a tool_use bubble. Suppress to avoid duplicate display (#483).
-      return null;
+    case 'tool_call_update': {
+      const toolName = resolveToolName(inner);
+      return {
+        type: 'tool_use',
+        catId,
+        toolName,
+        content: content?.text,
+        metadata,
+        timestamp: now,
+      };
+    }
 
     case 'plan':
       return {
