@@ -316,6 +316,8 @@ const BRAND_GOOD = {
     "const INTERNAL_BASENAMES = ['cat-cafe', 'cat-cafe-runtime', 'clowder-ai'];\n<h1>Cat Café</h1>",
   'packages/web/src/utils/api-client.ts':
     '/** Unified API client for Cat Cafe frontend. */\n// Auth uses HttpOnly session cookie.',
+  'packages/api/src/infrastructure/connectors/connector-gateway-bootstrap.ts':
+    "frontendBaseUrl: deps.frontendBaseUrl ?? 'http://localhost:3001',",
   'packages/web/public/icons/favicon.svg': '<svg></svg>',
 };
 
@@ -437,6 +439,17 @@ describe('intake-from-opensource.sh --validate-inbound', () => {
     fixtures.push(f.sandboxRoot);
     const err = captureValidateFailure(f.repoRoot);
     assert.match(err.stdout, /HttpOnly session cookie/);
+  });
+
+  it('catches public frontend port contamination in connector-gateway-bootstrap.ts', () => {
+    const f = makeBrandFixture({
+      'packages/api/src/infrastructure/connectors/connector-gateway-bootstrap.ts':
+        "frontendBaseUrl: deps.frontendBaseUrl ?? 'http://localhost:3003',",
+    });
+    fixtures.push(f.sandboxRoot);
+    const err = captureValidateFailure(f.repoRoot);
+    assert.match(err.stdout, /brand violation/i);
+    assert.match(err.stdout, /connector-gateway-bootstrap/);
   });
 });
 

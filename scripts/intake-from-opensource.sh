@@ -195,6 +195,9 @@ BRAND_EXPECTATIONS=(
   # api-client.ts — comment AND real brand identity (F156: header → session cookie)
   "packages/web/src/utils/api-client.ts|must_not_contain|client for Clowder AI|comment should reference Cat Cafe"
   "packages/web/src/utils/api-client.ts|must_contain|HttpOnly session cookie|identity uses session cookie (F156 D-1)"
+  # connector command deep links — home runtime fallback must stay on 3001; public sync transforms it to 3003.
+  "packages/api/src/infrastructure/connectors/connector-gateway-bootstrap.ts|must_not_contain|http://localhost:3003|connector command fallback should use Cat Cafe frontend port"
+  "packages/api/src/infrastructure/connectors/connector-gateway-bootstrap.ts|must_contain|http://localhost:3001|connector command fallback should use Cat Cafe frontend port"
   # favicon.svg file
   "packages/web/public/icons/favicon.svg|file_exists||favicon SVG must exist"
 )
