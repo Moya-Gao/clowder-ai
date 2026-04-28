@@ -13,7 +13,11 @@
 ;   4. Creates desktop shortcut to the Electron app
 
 #define MyAppName      "Cat Cafe"
-#define MyAppVersion   "0.2.0"
+; MyAppVersion can be overridden by iscc /DMyAppVersion=X.Y.Z (CI release pipeline).
+; Default kept for local manual builds.
+#ifndef MyAppVersion
+  #define MyAppVersion "0.2.0"
+#endif
 #define MyAppPublisher "Cat Cafe"
 #define MyAppURL       "https://github.com/zts212653/cat-cafe"
 #define MyAppExeName   "Cat Cafe.exe"

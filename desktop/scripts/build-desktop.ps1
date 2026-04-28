@@ -293,6 +293,31 @@ if (-not $SkipElectronBuild) {
     New-Item -ItemType Directory -Path $desktopDist -Force | Out-Null
     Copy-Item -Path $electronOutput -Destination (Join-Path $desktopDist "win-unpacked") -Recurse
     Write-Ok "Electron app built -> desktop-dist/win-unpacked/"
+
+    # Sanity check: Windows build output must not carry darwin-only resources
+    # (extraResources is split — mac node/redis live under mac.extraResources).
+    # Failing fast here surfaces config drift instead of producing an installer
+    # that crashes at first launch on user machines.
+    #
+    # Regex covers two leak shapes (separator-agnostic, works on Windows paths):
+    #   1. source folder names: bundled/node-darwin-x64, bundled/redis-darwin-arm64
+    #      → matches via 'node-darwin' / 'redis-darwin'
+    #   2. packaged destination paths: resources\.cat-cafe\redis\darwin-x64\...
+    #      → matches via 'darwin-[a-z0-9]+' (e.g. darwin-arm64, darwin-x64)
+    # Substring match avoids slash-direction issues — Windows FullName uses '\',
+    # the patterns above contain no separators so they hit either way.
+    $winResources = Join-Path (Join-Path $desktopDist "win-unpacked") "resources"
+    if (Test-Path $winResources) {
+        $darwinLeak = Get-ChildItem -Path $winResources -Recurse -Force -ErrorAction SilentlyContinue | Where-Object {
+            $_.FullName -match 'node-darwin|redis-darwin|darwin-[a-z0-9]+'
+        }
+        if ($darwinLeak) {
+            Write-Err "Windows build leaked darwin resources (config drift):"
+            $darwinLeak | ForEach-Object { Write-Err "  $($_.FullName)" }
+            exit 1
+        }
+        Write-Ok "Windows build resources clean (no darwin leak)"
+    }
 } else {
     if (-not (Test-Path $desktopDist)) {
         Write-Err "desktop-dist/ not found. Run without -SkipElectronBuild first."
@@ -318,7 +343,15 @@ if (-not $SkipInstaller) {
         if ($c -and (Test-Path $c)) { $iscc = $c; break }
     }
 
-    & $iscc $issFile
+    # Read version from desktop/package.json so .iss MyAppVersion stays in sync
+    # with electron-builder. Override available via env CATCAFE_VERSION (CI sets
+    # this from the release tag, e.g. v0.9.1 -> 0.9.1).
+    $desktopPkg = Join-Path (Join-Path $ProjectRoot "desktop") "package.json"
+    $pkgJson = Get-Content $desktopPkg -Raw | ConvertFrom-Json
+    $catCafeVersion = if ($env:CATCAFE_VERSION) { $env:CATCAFE_VERSION } else { $pkgJson.version }
+    Write-Host "  Inno Setup MyAppVersion = $catCafeVersion" -ForegroundColor Cyan
+
+    & $iscc "/DMyAppVersion=$catCafeVersion" $issFile
     if ($LASTEXITCODE -ne 0) { Write-Err "Inno Setup compilation failed"; exit 1 }
     Write-Ok "Installer built"
 

@@ -471,3 +471,64 @@ bash scripts/publish-release-tag.sh \
 3. 脚本会在 tag push 后自动调用 `gh release create`，创建带双语 notes 的 GitHub Release。
 
 > 事故教训（v0.7.0）：tag 和 reconciliation 都完成了，但 GitHub Release 没创建——脚本没有这步，SOP 也没写。社区用户在 Releases 页面看到的最新版本停留在 v0.6.1。
+
+### Step 11: Release Asset Gate 🔴（v0.9.1+ 必做）
+
+GitHub Release 创建后，**必须确认 desktop 安装包 assets 已 attach**。release notes 写了卖点但 0 assets = 半成品发布。
+
+**为什么是硬门禁**：v0.9.0 事故——release notes 提了 "Electron Desktop Shell + Windows installer + macOS DMG" 卖点，但 release page 0 个 assets。社区小伙伴反馈"release 里好像没看到 exe 安装包"——半成品发布。
+
+**自动化（F179 Pipeline）：**
+
+`gh release create`（Step 10 由 `publish-release-tag.sh` 触发）会发出 `release.published` 事件，自动启动 `.github/workflows/release-desktop.yml` workflow，该 workflow 双 job 跑 mac DMG + Win .exe build 并上传到 release assets。
+
+**操作流程：**
+
+1. **release publish 后立刻 watch workflow**：
+   ```bash
+   # 等 workflow 启动（~30s）
+   sleep 30
+   # 找到 release-desktop workflow 的本次运行
+   gh run list --repo zts212653/clowder-ai \
+     --workflow=release-desktop.yml --limit 1 --json databaseId,status,conclusion
+   # watch 它跑完
+   gh run watch <run-id> --repo zts212653/clowder-ai
+   ```
+
+2. **验证 assets**：
+   ```bash
+   gh release view vX.Y.Z --repo zts212653/clowder-ai \
+     --json assets --jq '.assets[].name'
+   ```
+   预期至少 3 个：
+   - `CatCafe-X.Y.Z-arm64.dmg`（mac arm64）
+   - `CatCafe-X.Y.Z-x64.dmg`（mac intel）
+   - `CatCafe-Setup-X.Y.Z.exe`（win x64）
+
+3. **失败处理**（关键：rerun 必须保留原始 `release.published` 事件 context，否则 upload step 因 `if: github.event_name == 'release'` 守门会跳过）：
+   - mac job 失败 → 通常是 native module ABI / Node version mismatch；铲屎官本地跑 `desktop/scripts/build-mac.sh` → 手动 `gh release upload vX.Y.Z dist/CatCafe-*.dmg --repo zts212653/clowder-ai` 兜底
+   - win job 失败 → 通常是 Inno Setup 安装失败 / `pnpm deploy` 路径问题；查 workflow log 找根因，**修复后重跑同一个 release run**：
+     ```bash
+     # 找到失败的 release-desktop run（由 release.published 触发的，不是 dispatch）
+     gh run list --repo zts212653/clowder-ai \
+       --workflow=release-desktop.yml --event=release --limit 1 \
+       --json databaseId,conclusion
+     # 重跑那个 run（保留 release.tag_name 上下文 → upload step 会执行）
+     gh run rerun <failed-run-id> --repo zts212653/clowder-ai --failed
+     ```
+     **不要**用 `gh workflow run release-desktop.yml --ref vX.Y.Z` 触发新 run——那是 `workflow_dispatch`，upload step 因 `if: github.event_name == 'release'` 守门会跳过，只产 workflow artifact 不挂 release。
+   - 不要 publish 一个 0 assets 的 release —— 如果 build 都失败了，先把 release 回退为 draft，修复后再 publish
+
+**手动 dry-run（pre-release 测试）**：
+
+`workflow_dispatch` 触发可以 build 但不 upload 到 release，作为 pipeline smoke test：
+```bash
+gh workflow run release-desktop.yml --ref main \
+  -f version=0.9.1-rc1
+gh run watch <run-id>
+# 验证 workflow artifact（不在 release 上）
+```
+
+**与 outbound-sync 的关系**：Step 11 是 outbound-sync 的最后一关——不只是 sync 完，还要保证用户能下载到产品。Sync source 同步只完成"代码到位"，Release Asset Gate 完成"产品到位"。
+
+来源：F179（2026-04-28 立项），社区小伙伴 v0.9.0 反馈触发。

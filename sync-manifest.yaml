@@ -15,6 +15,7 @@ managed_roots:
   - packages/web
   - packages/shared
   - packages/mcp-server
+  - desktop                # F179: Electron desktop shell + Win/Mac build scripts (release-desktop.yml 依赖)
   - cat-cafe-skills        # 运行时依赖 + 核心差异化
   - guides                 # F155 guide registry + flow YAMLs (check:guides/runtime dependency)
   - docs/architecture      # 架构文档（直出）
@@ -37,6 +38,7 @@ managed_files:
   - CLA.md
   - TRADEMARKS.md
   - .github/workflows/ci.yml
+  - .github/workflows/release-desktop.yml
   # docs/ 单文件导出（需 transform）
   - docs/VISION.md
   - docs/SOP.md

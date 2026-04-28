@@ -37,7 +37,17 @@
       "icon": "assets/icon.icns",
       "identity": null,
       "hardenedRuntime": false,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "extraResources": [
+        {
+          "from": "../bundled/node-darwin-${arch}",
+          "to": "node"
+        },
+        {
+          "from": "../bundled/redis-darwin-${arch}",
+          "to": ".cat-cafe/redis/darwin-${arch}"
+        }
+      ]
     },
     "dmg": {
       "writeUpdateInfo": false
@@ -89,14 +99,6 @@
       {
         "from": "../bundled/cli-tools",
         "to": "bundled/cli-tools"
-      },
-      {
-        "from": "../bundled/node-darwin-${arch}",
-        "to": "node"
-      },
-      {
-        "from": "../bundled/redis-darwin-${arch}",
-        "to": ".cat-cafe/redis/darwin-${arch}"
       }
     ],
     "asar": false,

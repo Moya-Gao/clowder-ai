@@ -77,6 +77,23 @@ s#/Users/(?:[^\s,"'}\]/]+/)+([^\s,"'}\]/]+)#/home/user/$1#g;
 # Fallback: bare /Users/username (only 2 segments) → /home/user
 s#/Users/[^\s,"'}\]/]+#/home/user#g;
 
+# ── Internal repo URL → public repo URL (all files) ──
+# F179: desktop installer references the internal repo for AppPublisherURL etc.
+# When syncing to clowder-ai, those URLs must point to the public repo.
+#
+# Boundary: use (?![\w-]) instead of \b so we don't over-match repos that
+# legitimately start with `cat-cafe-` (e.g. cat-cafe-tutorials, cat-cafe-skills).
+# Match cases (rewrite):
+#   https://github.com/zts212653/cat-cafe              # bare repo URL (EOL)
+#   https://github.com/zts212653/cat-cafe/issues/1     # path
+#   https://github.com/zts212653/cat-cafe.git          # git URL
+#   https://github.com/zts212653/cat-cafe#readme       # anchor
+# Non-match (preserve):
+#   https://github.com/zts212653/cat-cafe-tutorials    # different repo
+#   https://github.com/zts212653/cat-cafe-skills/...   # different repo
+s#https://github\.com/zts212653/cat-cafe(?![\w-])#https://github.com/zts212653/clowder-ai#g;
+s#git\@github\.com:zts212653/cat-cafe(?![\w-])#git\@github.com:zts212653/clowder-ai#g;
+
 # ── *.opensource.md → *.md link rewriting (all files) ──
 # The sync script copies README.opensource.md → README.md, SETUP.opensource.md → SETUP.md, etc.
 # Cross-references inside these files must follow suit.
