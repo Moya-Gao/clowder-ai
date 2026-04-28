@@ -496,6 +496,39 @@ test('parseShimFile resolves native .exe entrypoints when no .js or extensionles
   }
 });
 
+test('parseShimFile skips sibling node.exe and resolves claude.exe in native .exe pass (#247 regression)', () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), 'cli-spawn-win-exe-node-sibling-'));
+  mkdirSync(join(tempRoot, 'node_modules', '@anthropic-ai', 'claude-code', 'bin'), { recursive: true });
+
+  const cmdPath = join(tempRoot, 'claude.cmd');
+  const fakeNodeExe = join(tempRoot, 'node.exe');
+  const claudeExe = join(tempRoot, 'node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe');
+
+  writeFileSync(
+    cmdPath,
+    [
+      '@ECHO off',
+      'SETLOCAL',
+      'SET dp0=%~dp0',
+      'IF EXIST "%dp0%\\node.exe" (',
+      '  "%dp0%\\node.exe" "%dp0%\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe" %*',
+      ') ELSE (',
+      '  "%dp0%\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe" %*',
+      ')',
+    ].join('\r\n'),
+    'utf8',
+  );
+  writeFileSync(fakeNodeExe, 'MZ fake node', 'utf8');
+  writeFileSync(claudeExe, 'MZ fake claude', 'utf8');
+
+  try {
+    const resolved = parseShimFile(cmdPath);
+    assert.equal(resolved, claudeExe, 'must resolve to claude.exe, not node.exe');
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('resolveWindowsShimSpawn spawns native .exe directly instead of via node (#234)', () => {
   const exePath = join(tmpdir(), 'claude-shim-exe-test.exe');
 

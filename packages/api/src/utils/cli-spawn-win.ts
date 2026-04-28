@@ -74,7 +74,7 @@ export function parseShimFile(cmdPath: string): string | null {
   }
 
   for (const scriptPath of candidates) {
-    const tail = scriptPath.split('/').pop() ?? '';
+    const tail = scriptPath.split(/[/\\]/).pop() ?? '';
     if (!/\.\w+$/i.test(tail) && !/^node(\.exe)?$/i.test(tail) && existsSync(scriptPath)) {
       return scriptPath;
     }
@@ -82,7 +82,7 @@ export function parseShimFile(cmdPath: string): string | null {
 
   // Third pass: native .exe entrypoints (e.g. claude.exe in Claude Code 2.1+)
   for (const scriptPath of candidates) {
-    const tail = scriptPath.split('/').pop() ?? '';
+    const tail = scriptPath.split(/[/\\]/).pop() ?? '';
     if (/\.exe$/i.test(tail) && !/^node(\.exe)?$/i.test(tail) && existsSync(scriptPath)) {
       return scriptPath;
     }
