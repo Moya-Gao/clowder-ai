@@ -1119,7 +1119,7 @@
     {
       "id": "F180",
       "name": "Agent CLI Hook Health and Sync",
-      "status": "spec | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
+      "status": "in-progress (Phase A+B merged via PR #1476; Phase C planned) | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
       "file": "F180-agent-cli-hook-health.md"
     }
   ]

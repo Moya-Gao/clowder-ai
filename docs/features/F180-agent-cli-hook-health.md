@@ -9,7 +9,7 @@ community_issue: "https://github.com/zts212653/clowder-ai/issues/614"
 
 # F180: Agent CLI Hook Health and Sync
 
-> **Status**: spec | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A+B merged via PR #1476; Phase C planned) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -19,7 +19,7 @@ Cat Cafe 的用户级 SessionStart/Stop hooks 已经是我们自己出征时的�
 
 ## What
 
-### Phase A: Hook Health Contract
+### Phase A: Hook Health Contract ✅
 
 定义 user-level hook 的期望态和检测结果：
 
@@ -28,7 +28,7 @@ Cat Cafe 的用户级 SessionStart/Stop hooks 已经是我们自己出征时的�
 - Codex: `~/.codex/hooks.json` 存在且指向同一组 hook 脚本；其中脚本绝对路径必须在目标机器上即时解析到当前用户 home，不得从仓库或 installer 预生成。
 - 检测结果以 `HealthResult` 扩展既有 `DriftResult`，区分 `missing` / `stale` / `configured` / `unsupported` / `error`。
 
-### Phase B: One-Click Sync API
+### Phase B: One-Click Sync API ✅
 
 把 `scripts/sync-system-prompts.ts` 里的 hook target 生成和同步逻辑抽成可复用模块，给 Hub/API 提供：
 
@@ -62,19 +62,19 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 
 ### Phase A（Hook Health Contract）
 
-- [ ] AC-A1: 后端能检测 Claude user-level hook scripts 是否存在、是否与 repo 模板一致；内容一致性对 shell scripts 使用与 `checkDrift` 相同的字节级相等比较，对 `hooks.json` 使用 `JSON.parse` + canonical stringify 后比较，避免缩进/换行差异误报 stale。
-- [ ] AC-A2: 后端能检测 `~/.claude/settings.json` 是否挂载 SessionStart/Stop。
-- [ ] AC-A3: 后端能检测 `~/.codex/hooks.json` 是否存在，并且命令路径解析后指向当前用户 home 下的 `~/.claude/hooks/{name}`，对应脚本文件存在。
-- [ ] AC-A4: 新建 `HealthResult` 类型扩展 `DriftResult`：`drifted=true + target file does not exist` 映射 `missing`，`drifted=true + content differs from rendered shards` 映射 `stale`，`drifted=false` 映射 `configured`；`unsupported` 用于 CLI 未安装/目录不存在等非错误状态，`error` 用于读取失败/权限异常等真实错误，并包含可展示的人类可读原因。
-- [ ] AC-A5: `missing` / `stale` 结果返回 diff-like 摘要；shell scripts 提供前后行号摘要，JSON config 提供字段路径摘要。
+- [x] AC-A1: 后端能检测 Claude user-level hook scripts 是否存在、是否与 repo 模板一致；内容一致性对 shell scripts 使用与 `checkDrift` 相同的字节级相等比较，对 `hooks.json` 使用 `JSON.parse` + canonical stringify 后比较，避免缩进/换行差异误报 stale。
+- [x] AC-A2: 后端能检测 `~/.claude/settings.json` 是否挂载 SessionStart/Stop。
+- [x] AC-A3: 后端能检测 `~/.codex/hooks.json` 是否存在，并且命令路径解析后指向当前用户 home 下的 `~/.claude/hooks/{name}`，对应脚本文件存在。
+- [x] AC-A4: 新建 `HealthResult` 类型扩展 `DriftResult`：`drifted=true + target file does not exist` 映射 `missing`，`drifted=true + content differs from rendered shards` 映射 `stale`，`drifted=false` 映射 `configured`；`unsupported` 用于 CLI 未安装/目录不存在等非错误状态，`error` 用于读取失败/权限异常等真实错误，并包含可展示的人类可读原因。
+- [x] AC-A5: `missing` / `stale` 结果返回 diff-like 摘要；shell scripts 提供前后行号摘要，JSON config 提供字段路径摘要。
 
 ### Phase B（One-Click Sync API）
 
-- [ ] AC-B1: Hook target 生成、drift 检测、写入逻辑从 `scripts/sync-system-prompts.ts` 抽成 `packages/api/src/agent-hooks/` 或等价可测试模块，CLI 和 API 共用 `buildTargets` / `checkDrift` / `applySync`；API 只通过 selector 过滤 `hooks/*` 与 `codex-hooks`，不重新实现 target 列表。
-- [ ] AC-B2: `POST /api/agent-hooks/sync` 能写入/更新 Claude hook scripts、Claude settings hooks、Codex hooks.json；写 `~/.claude/settings.json` 时只增删 Cat Cafe managed hook command entry，保留未知 user-defined hook entries。
-- [ ] AC-B3: 写入 user home 前有明确 API action，不在项目 bootstrap 中静默触发。
-- [ ] AC-B4: 同步后立刻重新检测，返回最新 status。
-- [ ] AC-B5: `pnpm exec tsx scripts/sync-system-prompts.ts --apply` 与 `POST /api/agent-hooks/sync` 的 hook scripts / Codex hooks.json 写入结果字节级一致。
+- [x] AC-B1: Hook target 生成、drift 检测、写入逻辑从 `scripts/sync-system-prompts.ts` 抽成 `packages/api/src/agent-hooks/` 或等价可测试模块，CLI 和 API 共用 `buildTargets` / `checkDrift` / `applySync`；API 只通过 selector 过滤 `hooks/*` 与 `codex-hooks`，不重新实现 target 列表。
+- [x] AC-B2: `POST /api/agent-hooks/sync` 能写入/更新 Claude hook scripts、Claude settings hooks、Codex hooks.json；写 `~/.claude/settings.json` 时只增删 Cat Cafe managed hook command entry，保留未知 user-defined hook entries。
+- [x] AC-B3: 写入 user home 前有明确 API action，不在项目 bootstrap 中静默触发。
+- [x] AC-B4: 同步后立刻重新检测，返回最新 status。
+- [x] AC-B5: `pnpm exec tsx scripts/sync-system-prompts.ts --apply` 与 `POST /api/agent-hooks/sync` 的 hook scripts / Codex hooks.json 写入结果字节级一致。
 
 ### Phase C（Source Install and Desktop First-Run Coverage）
 
@@ -134,6 +134,7 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 |------|------|
 | 2026-04-29 | 立项；开源 issue `clowder-ai#614` 创建并标记 accepted/triaged |
 | 2026-04-29 | Opus-47 spec review 提出 7 P1 + 4 P2；砚砚收敛到 spec v2，补齐 sync-manifest / 真相源复用 / 本机路径解析 / Phase D Design Gate |
+| 2026-04-29 | Phase A+B merged (PR #1476) — agent hook health/sync API, shared target module, Claude settings merge guard, Codex hooks canonical validation, 6 targeted tests |
 
 ## Review Gate
 
