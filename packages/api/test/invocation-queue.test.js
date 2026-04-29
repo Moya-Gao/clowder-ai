@@ -262,6 +262,18 @@ describe('InvocationQueue', () => {
     assert.equal(queue.hasQueuedForThread('t1'), true);
   });
 
+  it('hasQueuedForThread ignores stale queued entries', () => {
+    queue.enqueue(entry({ userId: 'alice' }));
+    const listed = queue.list('t1', 'alice');
+    listed[0].createdAt = Date.now() - InvocationQueue.STALE_QUEUED_THRESHOLD_MS - 1;
+
+    assert.equal(
+      queue.hasQueuedForThread('t1'),
+      false,
+      'stale queued entries must not permanently force thread-wide broadcast messages into queue mode',
+    );
+  });
+
   // ── Cross-thread isolation ──
 
   it('different threads are fully isolated', () => {
