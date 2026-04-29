@@ -91,7 +91,7 @@ F177 现有 Phase B 治 47 个体「下次一定」、Phase E 治 46 个体 hotf
 - `feat-lifecycle` close 命令强制输出 **AC → evidence 矩阵**（不是自由文本"我都做了"）：
   ```
   AC-A1 ✅ commit abc123 + test_xxx + screenshot_yyy
-  AC-A2 ❌ 未实现 → [immediate / delete(why) / landy_signoff(token)]
+  AC-A2 ❌ 未实现 → [immediate / delete(why) / cvo_signoff(消息ID)]
   AC-A3 ✅ commit def456
   ```
 - 任何 ❌ 必须当场处理三选一：
