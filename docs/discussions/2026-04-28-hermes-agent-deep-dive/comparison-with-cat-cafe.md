@@ -37,7 +37,7 @@ companion: [README.md, architecture-map.md, architecture-and-rl.md, skills-lifec
 | 5 | **Skill 质量门禁** | 同模型 fork + prompt 自评 | 多主体 review + 对口猫 + CVO 拍板 | Cat Café | skills-lifecycle §10 |
 | 6 | **Skill 过期/淘汰** | 手动禁用 + Hub hash update（不是 stale） | 缺口（F163 待补） | **都缺**，方向不同 | skills-lifecycle §8 |
 | 7 | **Skill 安全扫描** | regex + trust + quarantine（成熟） | 无（skill 全手写） | Hermes（场景需要） | skills-lifecycle §7 |
-| 8 | **Memory 抽象** | `IMemoryProvider`，**8 个真实 backend** 可插拔 | F102 IKnowledgeResolver 设计了，**只有 evidence.sqlite 一个实现** | Hermes | architecture-and-rl §3.2 |
+| 8 | **Memory 抽象** | `IMemoryProvider` 8 个 adapter，**全是外部 SaaS / API key**（mem0/honcho/hindsight/byterover/...），**零 benchmark / 零推荐 / 零默认排序**——accountability 全在用户 | F102 IKnowledgeResolver 1 个实现 evidence.sqlite，**自给自足 + hybrid (BM25+vec+RRF) 调过 + 零外部 token** | **Cat Café**（实证质量 > 接口齐全；Lysander 实测 hindsight 烧 token 效果烂） | architecture-and-rl §3.2 + 本文 §"Push back 修正" |
 | 9 | **Memory 内容** | session/skill/MEMORY.md/USER.md 平面 | docs/ + thread digest + provenance 分层 | Cat Café | F042 三层架构 |
 | 10 | **Multi-agent 协作** | `delegate_task` 匿名子 agent，无身份 | 7+ 命名猫 + 跨族 review + multi-mention | Cat Café 碾压 | architecture-and-rl §4.2 |
 | 11 | **RL/Eval** | Atropos environments（训用户 LLM，不回流） | F100 Eval Ledger（设计） + CI/quality gate | 不可比（目标不同） | architecture-and-rl §1 |
@@ -131,7 +131,8 @@ companion: [README.md, architecture-map.md, architecture-and-rl.md, skills-lifec
 | **不做 background review 自动写入 active** | UX 不顺滑 | "skill 是互动副产品"——只能进 candidate queue，过门禁才 active | 上轮讨论结论 |
 | **不做 reward = exit_code 通用进化** | 客观信号不足 | 客观任务可以这么做（CI/test）；开放任务必须人/猫判断——这是**评价分类法**问题，不是工具问题 | 上轮讨论 |
 
-**Tradeoff 总判决**：我们 8 件不做的事里，**6 件是哲学选择**（不是资源限制），**2 件是真缺口**（plugin context_engine 我们的对应 F102 也缺多 backend；background review UX 顺滑度）。
+**Tradeoff 总判决**：我们 8 件不做的事里，**7 件是哲学选择**（不是资源限制），**1 件是真缺口**（background review UX 顺滑度）。
+（修正前写"2 件真缺口"包含"plugin context_engine 我们也缺多 backend"——这条 push back 后撤回，见 §"Push back 修正"。）
 
 ---
 
@@ -141,7 +142,7 @@ companion: [README.md, architecture-map.md, architecture-and-rl.md, skills-lifec
 
 | # | 缺口 | 优先级 | 接到哪里 | 工作量估计 |
 |---|------|-------|---------|----------|
-| **G1** | Memory backend 可插拔（多 provider） | **P0** | F102 IKnowledgeResolver + 新增 IMemoryProvider 接口 | 2-3 周 |
+| ~~**G1**~~ | ~~Memory backend 可插拔（多 provider）~~ → **撤回** | ~~P0~~ → **不追** | 见 §"Push back 修正" | — |
 | **G2** | 动态 skill discovery（lazy loading）| **P0** | F038 已设计（按需发现机制），结合社区 #44536 SkillSearch 趋势 | 等 host 出方案，否则 1-2 周自家做 |
 | **G3** | Skill provenance frontmatter 标准化 | **P0** | cat-cafe-skills/ 全部 SKILL.md 加字段（when_thread_intent / origin_thread / cvo_approved / last_validated） | 0.5-1 周（前向兼容） |
 | **G4** | Background review UX（写入 candidate） | P1 | 接到 F100 Mode C + Knowledge Feed | 2 周 |
@@ -149,8 +150,9 @@ companion: [README.md, architecture-map.md, architecture-and-rl.md, skills-lifec
 | **G6** | F163 stale lifecycle 实施（时间触发审查）| P1 | F163 立项 → 实施 | 2-3 周 |
 | **G7** | Eval Ledger 实施（F100 设计已有）| P2 | F100 Mode C 落地 | 3-4 周 |
 | **G8** | Skill 多变体并存（不追求"更好"，追求 variant 库）| P2 | 配合 F100，开放任务专用 | 2 周 |
+| **G9** *(新增)* | Memory retrieval 质量提升（不换 backend，调当前 hybrid） | P2 | F102 evidence.sqlite 内部优化 | 1-2 周 |
 
-**P0 三件套（G1+G2+G3）的特殊关系**：
+**P0 二件套（G2+G3）的特殊关系**（修正前为三件套，G1 撤回后变二件套）：
 - G3 是 **risk-free 投资**（前向兼容，立刻能做）
 - G1 + G2 都需要 G3 的字段才能体现价值
 - 所以**实操顺序**应该是：G3 先做（标准化）→ G1 做（多 backend，让 IKnowledgeResolver 真正成立）→ G2 等 host 信号或我们独立做
@@ -204,11 +206,34 @@ companion: [README.md, architecture-map.md, architecture-and-rl.md, skills-lifec
 
 ---
 
-## 八、状态
+## 八、Push back 修正（2026-04-28 21:30 by Lysander）
+
+**铲屎官 push back**：本文初版 §1 #8 写"Memory 抽象 → Hermes 强（8 个真实 backend 可插拔）"——这是错的。
+
+**铲屎官提供的实证**："我们家曾经也是盯着 benchmark 上的记忆组件 然后 provider 拿下来用比如 hindsight 结果 token 花了效果稀烂"。
+
+**我重新读代码后的发现**（`/Users/lysander/projects/ref/hermes-agent/plugins/memory/`）：
+- 8 个 provider **全部依赖外部 SaaS / API key**：mem0/honcho/byterover/retaindb/supermemory（商业服务）+ hindsight（vectorize.io）+ holographic/openviking（混合）
+- LOC 差异巨大（373-4784），但**最薄的 mem0 / byterover < 400 行**——只是 SDK wrapper
+- `grep "benchmark|test_|recommend|default_provider"` 在 `plugins/memory/` 整目录基本零命中
+- **零 benchmark / 零质量推荐 / 零默认排序 / 零集成测试**——用户在 `hermes memory setup` wizard 里自己选一个，**质量风险全在用户**
+
+**修正后判决**：
+- "8 个 provider 可插拔"是 **accountability gap 的工程美感伪装**，不是"比我们强"
+- 我们家硬编码 evidence.sqlite 看似"少"，但**自给自足 + hybrid (BM25+vec+RRF) 调过 + 不烧外部 token + 出问题自己能修**——综合实战价值反而更高
+- §1 #8 行已修正、§3 真缺口数量从 2 改为 1、§4 G1 撤回（取而代之的是 G9：在 evidence.sqlite 内部调质量，不换 backend）
+
+**沉淀的 lesson 候选**：
+- **"接口齐全度 ≠ 已知质量"** —— Common Mistakes 表里"用'我们没有'替代 tradeoff"的反向版本是"用'对方有'误报为'对方强'"。next iteration 应该补进 `open-source-teardown` skill。
+- **铲屎官的实证比代码读起来的工程美感更可靠** —— 这次如果不是铲屎官 push back，错误判断会带着错误优先级（G1 P0）流入未来立项。审计师视角必须包含"使用者实证"这一镜头。
+
+---
+
+## 九、状态
 
 - 本文用 `architecture-and-rl.md` 和 `skills-lifecycle.md` 两份证据合流而成，**未引入新代码读取**
-- 全景表 §1 的 20 个维度都有证据出处（companion docs 章节号）
-- 算法清单 §2 的 16 + 9 项基于**两份 companion docs 的证据 + AGENTS.md 描述**，未做超出已有证据的判断
-- 本文是**第三轮文档**，距离最终 skill draft 只差最后一刀（SOP 落地）
+- 初版表格 §1 #8 + §3 真缺口数 + §4 G1 已被铲屎官 push back 后修正（见 §8）
+- 算法清单 §2 的 16 + 9 项基于**两份 companion docs 的证据 + AGENTS.md 描述**
+- 本文是**第三轮文档**，下一刀应该把 §8 的两条 lesson 沉淀进 `open-source-teardown` skill
 
-[宪宪/Opus-47🐾]
+[宪宪/Opus-47🐾]（initial）+ [Lysander]（push back ground truth）
