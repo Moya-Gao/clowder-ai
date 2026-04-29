@@ -1101,7 +1101,7 @@
     {
       "id": "F177",
       "name": "Harness Update — Close Gate 结构化判据 + 四心智专属护栏",
-      "status": "in-progress | **Owner**: 布偶猫(46 总负责) + 缅因猫(砚砚) + 孟加拉猫(46代言)，按 Phase 分主笔 | **Priority**: P0",
+      "status": "done | **Completed**: 2026-04-29 | **Owner**: 布偶猫(46 总负责) + 缅因猫(砚砚) + 孟加拉猫(46代言)，按 Phase 分主笔 | **Priority**: P0",
       "file": "F177-harness-update.md"
     },
     {
@@ -1115,6 +1115,12 @@
       "name": "Desktop Installer Release Pipeline — 自动化产出 Win/Mac 安装包并附 release",
       "status": "in-progress | **Owner**: 布偶猫（Opus-47/宪宪） | **Reviewer**: 缅因猫（GPT-5.5/砚砚） | **Priority**: P1",
       "file": "F179-desktop-installer-release-pipeline.md"
+    },
+    {
+      "id": "F180",
+      "name": "Agent CLI Hook Health and Sync",
+      "status": "spec | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
+      "file": "F180-agent-cli-hook-health.md"
     }
   ]
 }

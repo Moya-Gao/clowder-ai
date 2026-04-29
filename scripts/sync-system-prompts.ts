@@ -11,24 +11,17 @@
  *   npx tsx scripts/sync-system-prompts.ts --apply --dry-run  # Show rendered output only
  */
 
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
+import {
+  applySync,
+  buildAgentHookTargets,
+  checkDrift,
+  type SyncTarget,
+} from '../packages/api/src/agent-hooks/sync-targets.js';
 
-// --- Types ---
-
-export interface SyncTarget {
-  name: string;
-  render: () => string;
-  targetPath: string;
-}
-
-export interface DriftResult {
-  name: string;
-  drifted: boolean;
-  targetPath: string;
-  reason?: string;
-}
+export { checkDrift, type DriftResult, type SyncTarget } from '../packages/api/src/agent-hooks/sync-targets.js';
 
 interface PromptRosterEntry {
   family?: string;
@@ -208,97 +201,6 @@ export function renderForGemini(shardsDir: string): string {
   return [identity, '', '---', '', collab, '', '---', '', governance].join('\n');
 }
 
-// --- Drift Detection ---
-
-export function checkDrift(target: SyncTarget): DriftResult {
-  const rendered = target.render();
-
-  if (!existsSync(target.targetPath)) {
-    return {
-      name: target.name,
-      drifted: true,
-      targetPath: target.targetPath,
-      reason: 'target file does not exist',
-    };
-  }
-
-  const current = readFileSync(target.targetPath, 'utf-8');
-  const drifted = current !== rendered;
-
-  return {
-    name: target.name,
-    drifted,
-    targetPath: target.targetPath,
-    reason: drifted ? 'content differs from rendered shards' : undefined,
-  };
-}
-
-// --- Apply ---
-
-function applySync(target: SyncTarget, dryRun: boolean): void {
-  const rendered = target.render();
-
-  if (dryRun) {
-    console.log(`\n=== ${target.name} → ${target.targetPath} (dry-run) ===\n`);
-    console.log(rendered);
-    return;
-  }
-
-  const dir = dirname(target.targetPath);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-
-  writeFileSync(target.targetPath, rendered, 'utf-8');
-  // Hook scripts need execute permission
-  if (target.targetPath.endsWith('.sh')) {
-    chmodSync(target.targetPath, 0o755);
-  }
-  console.log(`✅ ${target.name} → ${target.targetPath}`);
-}
-
-// --- Hook Sync ---
-
-/**
- * Read a user-level hook script from the project's reference copy.
- * Source: .claude/hooks/user-level/{name}
- */
-function readUserHook(projectRoot: string, name: string): string {
-  const path = join(projectRoot, '.claude', 'hooks', 'user-level', name);
-  return readFileSync(path, 'utf-8');
-}
-
-/**
- * Render Codex CLI hooks.json — references the same scripts in ~/.claude/hooks/
- */
-function renderCodexHooksJson(root: string): string {
-  const config = {
-    hooks: {
-      SessionStart: [
-        {
-          hooks: [
-            {
-              type: 'command',
-              command: join(root, '.claude', 'hooks', 'session-start-recall.sh'),
-            },
-          ],
-        },
-      ],
-      Stop: [
-        {
-          hooks: [
-            {
-              type: 'command',
-              command: join(root, '.claude', 'hooks', 'session-stop-check.sh'),
-            },
-          ],
-        },
-      ],
-    },
-  };
-  return JSON.stringify(config, null, 2) + '\n';
-}
-
 // --- CLI ---
 
 /**
@@ -319,21 +221,7 @@ export function buildTargets(shardsDir: string, targetRoot?: string): SyncTarget
       render: () => renderForGemini(shardsDir),
       targetPath: join(root, '.gemini', 'GEMINI.md'),
     },
-    {
-      name: 'hooks/session-start',
-      render: () => readUserHook(projectRoot, 'session-start-recall.sh'),
-      targetPath: join(root, '.claude', 'hooks', 'session-start-recall.sh'),
-    },
-    {
-      name: 'hooks/session-stop',
-      render: () => readUserHook(projectRoot, 'session-stop-check.sh'),
-      targetPath: join(root, '.claude', 'hooks', 'session-stop-check.sh'),
-    },
-    {
-      name: 'codex-hooks',
-      render: () => renderCodexHooksJson(root),
-      targetPath: join(root, '.codex', 'hooks.json'),
-    },
+    ...buildAgentHookTargets({ projectRoot, targetRoot: root }),
   ];
 }
 

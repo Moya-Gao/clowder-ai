@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -30,9 +30,12 @@ describe('sync-system-prompts', () => {
 
     it('should include dynamic collab rules from cat-config roster', () => {
       const result = renderForCodex(SHARDS_DIR);
+      const config = JSON.parse(readFileSync(join(REPO_ROOT, 'cat-config.json'), 'utf-8')) as {
+        roster: Record<string, unknown>;
+      };
       assert.ok(result.includes('@opus'), 'missing @opus handle');
       assert.ok(result.includes('@opencode'), 'missing @opencode handle');
-      assert.ok(result.includes('共 11 只猫'), 'missing dynamic roster count');
+      assert.ok(result.includes(`共 ${Object.keys(config.roster).length} 只猫`), 'missing dynamic roster count');
       assert.ok(result.includes('到我这里结束了吗'), 'missing exit check');
     });
 

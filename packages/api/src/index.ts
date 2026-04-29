@@ -121,6 +121,7 @@ import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
 import { gameRoutes } from './routes/games.js';
 import {
   accountsRoutes,
+  agentHooksRoutes,
   auditRoutes,
   authorizationRoutes,
   backlogRoutes,
@@ -1636,6 +1637,7 @@ async function main(): Promise<void> {
   await app.register(summariesRoutes, { summaryStore, socketManager });
   await app.register(projectsRoutes);
   await app.register(mkdirRoute);
+  await app.register(agentHooksRoutes);
   await app.register(governanceStatusRoute);
   await app.register(projectSetupRoute, {
     memoryBootstrapService: expeditionBootstrapService as { bootstrap: (p: string, o?: unknown) => Promise<unknown> },
