@@ -16,6 +16,8 @@ import {
   isCatLead,
 } from '../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../config/cat-models.js';
+import { resolveWithLocalOverlay } from '../../../../utils/local-override.js';
+import { findMonorepoRoot } from '../../../../utils/monorepo-root.js';
 // F167 Phase F P1 (cloud Codex): roster model cell must resolve via getCatModel
 // (env CAT_{CATID}_MODEL → registry → defaults), not from static config.defaultModel,
 // otherwise env overrides cause exactly the handle/model drift Phase F is killing.
@@ -310,6 +312,28 @@ Magic Words（铲屎官对你说以下词=手动拉闸，仅铲屎官当前指�
 -「碎片够了」= 你满足于第一个高置信度命中就开始推理 → 停，至少再搜一轮不同角度，doc anchor 全部 Read 原文
 46 hotfix止血治理（F177 Phase E）：commit/PR含fix:/hotfix:/quick fix/minimal fix/band-aid/temp/workaround→归類hotfix。単文件≤50行+関鍵詞→自動加hotfix label。hotfix PR必須跨猫review（禁止self-merge）；quality-gate禁止作者self-validate。2週升級review cron：升級正式修復/接受永久方案/已不再相関 三選一`;
 
+// --- .local / .local-override support (#603) ---
+let _governanceDigestResolved: string = GOVERNANCE_L0_DIGEST;
+
+/**
+ * Preload governance overlay at startup. Call once before first prompt build.
+ * Checks for shared-rules.local-override.md (replaces digest) or
+ * shared-rules.local.md (appends to digest).
+ */
+export async function initGovernanceOverlay(): Promise<void> {
+  const root = findMonorepoRoot();
+  const basePath = `${root}/cat-cafe-skills/refs/shared-rules.md`;
+  const result = await resolveWithLocalOverlay(basePath, GOVERNANCE_L0_DIGEST);
+  _governanceDigestResolved = result.content;
+  if (result.source !== 'base') {
+    console.log(`[governance] shared-rules ${result.source}: ${result.path}`);
+  }
+}
+
+export function getGovernanceDigest(): string {
+  return _governanceDigestResolved;
+}
+
 /** Per-breed workflow triggers: when to proactively @ other cats.
  *  Keyed by breedId so all variants of a breed share the same workflow. */
 const WORKFLOW_TRIGGERS: Record<string, string> = {
@@ -520,8 +544,8 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
   lines.push(`${ccName}（铲屎官/CVO）。重要决策由${ccName}拍板。需要关注时行首写 ${ccHandles}。`, '');
 
   // L0 Governance Digest — always-on principles from shared-rules.md (F086 post-completion fix)
-  // Source of truth: cat-cafe-skills/refs/shared-rules.md
-  lines.push('', GOVERNANCE_L0_DIGEST);
+  // Source of truth: cat-cafe-skills/refs/shared-rules.md (supports .local-override, #603)
+  lines.push('', getGovernanceDigest());
 
   // F129: Pack guardrails — hard constraint track (only adds strictness, never relaxes Core Rails)
   if (packBlocks?.guardrailBlock) {
