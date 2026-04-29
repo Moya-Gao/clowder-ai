@@ -30,6 +30,8 @@ while has_tool_call:
 
 ## TeamAct 主循环（团队协作）
 
+![手绘风格 TeamAct 架构图：State → Owner → Action → Evidence → Verdict → Route，并展示 shared state 反馈方向和三层嵌套](assets/teamact-handdrawn-loop.svg)
+
 ```
 loop:
     State   → 读 shared state（docs / spec / task / 记忆 / resumeCapsule）
@@ -54,7 +56,7 @@ loop:
 核心特征：
 - 多 agent 的外部循环
 - 每一轮都有明确的球权归属（Owner）和证据产出（Evidence）
-- 结束不由单只猫判断，需要交叉验证 + 愿景确认
+- 结束不由单只猫判断，需要五项收敛（AC + 证据 + 交叉验证 + 无悬空球权 + 愿景确认）
 
 ## 嵌套关系（分形结构）
 

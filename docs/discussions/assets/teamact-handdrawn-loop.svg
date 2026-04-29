@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
+  <title id="title">TeamAct hand-drawn architecture diagram</title>
+  <desc id="desc">A sketch-style whiteboard diagram showing the TeamAct loop: State, Owner, Action, Evidence, Verdict, Route, with shared-state grounding, nested loops, and close conditions.</desc>
+  <defs>
+    <style>
+      .paper { fill: #fffaf0; }
+      .ink { fill: #24323d; font-family: "Chalkboard SE", "Comic Sans MS", "PingFang SC", "Hiragino Sans GB", sans-serif; }
+      .title { font-size: 42px; font-weight: 800; }
+      .subtitle { font-size: 22px; fill: #58616a; }
+      .label { font-size: 28px; font-weight: 800; }
+      .body { font-size: 20px; fill: #4e5964; }
+      .small { font-size: 17px; fill: #5e6872; }
+      .line { fill: none; stroke: #24323d; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+      .thin { fill: none; stroke: #24323d; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+      .dash { stroke-dasharray: 9 9; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#24323d"/>
+    </marker>
+  </defs>
+
+  <rect class="paper" width="1200" height="1200"/>
+  <path class="thin" d="M36 35 C238 21 428 31 590 24 C790 17 1000 26 1162 37" opacity="0.25"/>
+  <path class="thin" d="M42 780 C234 800 440 792 626 798 C814 805 1012 792 1160 781" opacity="0.25"/>
+
+  <text class="ink title" x="64" y="78">TeamAct：团队协作主循环</text>
+  <text class="ink subtitle" x="68" y="112">核心不是流程图，而是 shared state 反向喂回 reasoning。</text>
+
+  <!-- Shared state cloud -->
+  <path d="M78 185 C95 150 143 149 166 177 C189 137 251 151 259 194 C307 188 338 219 321 260 C342 294 304 324 266 310 C242 345 180 334 169 302 C130 328 76 301 91 257 C55 236 51 202 78 185 Z"
+        fill="#fffdfa" stroke="#24323d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M83 191 C101 158 142 157 163 183 C188 143 246 158 252 196 C296 194 326 224 313 258 C333 289 300 315 263 303 C236 333 183 326 174 296 C138 320 88 296 101 258 C64 238 60 206 83 191 Z"
+        fill="none" stroke="#24323d" stroke-width="1.8" opacity="0.35" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="ink label" x="116" y="218">Shared State</text>
+  <text class="ink body" x="112" y="250">docs · git · spec</text>
+  <text class="ink body" x="112" y="278">task · memory</text>
+  <text class="ink body" x="112" y="306">resumeCapsule</text>
+
+  <!-- Main TeamAct loop -->
+  <g>
+    <path d="M456 150 C529 132 633 135 705 154 C733 181 720 224 676 235 C592 248 499 242 445 222 C421 195 426 163 456 150 Z"
+          fill="#e7f1ff" stroke="#24323d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="ink label" x="545" y="190">State</text>
+    <text class="ink body" x="491" y="218">读真相源 / 胶囊</text>
+
+    <path d="M716 210 C780 195 869 204 912 244 C936 278 913 323 866 331 C791 341 729 321 700 281 C680 253 688 221 716 210 Z"
+          fill="#e7f7e8" stroke="#24323d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="ink label" x="772" y="263">Owner</text>
+    <text class="ink body" x="751" y="291">谁持球？</text>
+
+    <path d="M708 472 C777 456 873 466 920 510 C944 545 915 590 866 600 C788 612 719 590 690 546 C670 517 679 481 708 472 Z"
+          fill="#fff0bd" stroke="#24323d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="ink label" x="771" y="526">Action</text>
+    <text class="ink body" x="720" y="555">state-changing work</text>
+
+    <path d="M454 595 C527 576 629 580 699 602 C727 627 716 671 673 684 C583 700 493 693 444 669 C420 640 425 608 454 595 Z"
+          fill="#ffe3c3" stroke="#24323d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="ink label" x="525" y="638">Evidence</text>
+    <text class="ink body" x="482" y="666">commit · test · trace</text>
+
+    <path d="M247 470 C315 454 405 463 448 506 C471 542 445 587 398 596 C322 608 257 588 228 546 C208 516 219 480 247 470 Z"
+          fill="#ffe4e6" stroke="#24323d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="ink label" x="300" y="526">Verdict</text>
+    <text class="ink body" x="257" y="554">review / CVO oracle</text>
+
+    <path d="M321 212 C391 196 477 203 518 244 C541 280 514 323 467 332 C391 343 328 324 299 282 C280 253 291 222 321 212 Z"
+          fill="#eee7ff" stroke="#24323d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="ink label" x="385" y="263">Route</text>
+    <text class="ink body" x="340" y="291">@next / hold_ball</text>
+
+    <path class="line" marker-end="url(#arrow)" d="M691 211 C718 213 737 225 762 247"/>
+    <path class="line" marker-end="url(#arrow)" d="M866 332 C900 371 898 424 870 474"/>
+    <path class="line" marker-end="url(#arrow)" d="M710 573 C695 597 681 612 660 625"/>
+    <path class="line" marker-end="url(#arrow)" d="M452 635 C414 619 385 601 359 577"/>
+    <path class="line" marker-end="url(#arrow)" d="M323 471 C292 430 294 352 330 318"/>
+    <path class="line" marker-end="url(#arrow)" d="M491 228 C506 204 512 191 521 181"/>
+
+    <circle cx="600" cy="410" r="102" fill="#fffdfa" stroke="#24323d" stroke-width="4"/>
+    <text class="ink label" x="535" y="398">Team</text>
+    <text class="ink label" x="505" y="432">Reasoning</text>
+    <text class="ink body" x="508" y="462">被 shared state 纠偏</text>
+  </g>
+
+  <!-- Feedback arrows -->
+  <path class="line dash" marker-end="url(#arrow)" d="M318 232 C390 176 448 168 500 174"/>
+  <text class="ink small" x="346" y="170">grounding feedback</text>
+  <path class="thin dash" marker-end="url(#arrow)" d="M455 655 C333 645 235 512 201 318"/>
+  <text class="ink small" x="250" y="665">Evidence 写回 shared state</text>
+
+  <!-- Nested loops -->
+  <text class="ink label" x="78" y="442">三层嵌套</text>
+  <circle cx="162" cy="570" r="98" fill="#fffdfa" stroke="#24323d" stroke-width="3"/>
+  <circle cx="162" cy="570" r="62" fill="none" stroke="#24323d" stroke-width="2.5" stroke-dasharray="8 9"/>
+  <circle cx="162" cy="570" r="31" fill="none" stroke="#24323d" stroke-width="2.5"/>
+  <path class="thin" marker-end="url(#arrow)" d="M158 472 C211 485 250 530 250 587"/>
+  <path class="thin" marker-end="url(#arrow)" d="M105 522 C89 570 107 620 145 648"/>
+  <text class="ink small" x="76" y="509">feat creation</text>
+  <text class="ink small" x="92" y="560">@ mention</text>
+  <text class="ink small" x="136" y="582">tool</text>
+  <text class="ink small" x="132" y="607">call</text>
+
+  <!-- Close gate -->
+  <path d="M890 132 C968 118 1034 128 1069 161 C1088 194 1068 232 1027 242 C956 254 897 240 866 205 C845 178 856 142 890 132 Z"
+        fill="#fffdfa" stroke="#24323d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="ink label" x="906" y="170">Close Gate</text>
+  <text class="ink small" x="894" y="198">AC + Evidence + Review</text>
+  <text class="ink small" x="894" y="224">No unowned ball + Vision</text>
+  <path class="thin dash" marker-end="url(#arrow)" d="M865 210 C827 238 812 303 842 348"/>
+
+  <text class="ink body" x="720" y="728">Close = 五项收敛，不是“我觉得做完了”</text>
+  <path class="thin" d="M712 740 C830 754 982 753 1095 740" opacity="0.45"/>
+
+  <!-- Close predicate checklist uses the square canvas instead of leaving empty space. -->
+  <path d="M124 870 C352 850 622 858 1070 872 C1102 897 1092 1015 1055 1037 C798 1052 450 1048 145 1035 C109 1008 99 899 124 870 Z"
+        fill="#fffdfa" stroke="#24323d" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="ink label" x="157" y="918">TeamAct Close Predicate</text>
+  <text class="ink body" x="168" y="957">✓ AC 全部达成</text>
+  <text class="ink body" x="392" y="957">✓ 证据已附</text>
+  <text class="ink body" x="578" y="957">✓ 跨猫验证</text>
+  <text class="ink body" x="760" y="957">✓ 无悬空球权</text>
+  <text class="ink body" x="980" y="957">✓ 愿景收敛</text>
+  <text class="ink small" x="166" y="1002">如果还有 deferred AC / unowned ball / open question，TeamAct 不能 close。</text>
+</svg>
