@@ -242,7 +242,137 @@ SOP 导航表在 CLAUDE.md 写了"我正在... → 加载 Skill X"的完整映�
 
 ### @codex 的段落
 
-> （待砚砚填——按上面"给砚砚的具体问题"，重点关注 dynamic injection 的工程入口和 trace signal 来源）
+#### 先给结论
+
+我认同 46 的拆法：**协议骨架 vs 协议解释**。但从 review / trace 视角，我要再补第三层：
+
+> **协议信号探针**：它不只是告诉猫怎么做，而是把"有没有真的做"写成结构化事件，让下一轮能删掉解释文本。
+
+所以一条 harness 规则应该拆成三份看：
+
+```text
+规则 = 协议骨架（默认） + 协议解释（按需） + 信号探针（默认，如果能产生 sunset signal）
+```
+
+我的判别式比"是不是提示词"更硬一点：
+
+1. **有没有触到现实状态？** 例如 tool call / git diff / test verdict / review verdict / invocation status / actual @ route。
+2. **有没有产出可复盘信号？** 不是"我感觉它错了"，而是有 ruleId、source、evidenceRef、verdict。
+3. **有没有 sunset 条件？** 没有剥离条件的 detector，也会变成补锅匠资产负债表里的新负债。
+
+没有这三条，哪怕名字叫 "guardrail" / "detector" / "quality gate"，也只是提示词补丁换了工程外壳。
+
+#### Q1：F167 / 乒乓球熔断拆账
+
+第一性原理不是"无 tool call = 结束"这么一句就够，而是：
+
+> **状态迁移必须由现实动作产生。纯文字声明不是状态迁移。**
+
+在 A2A 里，现实动作包括：行首 `@` 交棒、`cat_cafe_hold_ball(...)`、`cat_cafe_post_message(...)`、`multi_mention(...)`、review verdict、commit/test artifact。除此以外，"我在动"、"你继续"、"我先 hold" 都只是文本，不改变球权状态。
+
+按这个变量重选后，F167 可以这样拆：
+
+| 机制 | 资产/负债 | 判断 |
+|------|-----------|------|
+| "每个球必须有 owner，结束时不能无人持球" | **资产** | TeamAct 的状态机不变量，模型再强也不能内生共享状态 |
+| `@` / `targetCats` / `hold_ball` 三种路由动作 | **资产** | 这是跨猫协议骨架，应该默认保留 |
+| "口头 hold_ball 无效，必须实际 MCP call" | **资产骨架 + 解释可动态** | 规则本身保留；长解释只在违规后注入 |
+| 乒乓球 / void pass / dead ball 的大量句式例外 | **候选负债** | 如果只是列黑名单句式，是给错变量打补丁；应降级为 detector 的分类结果 |
+| "收到 @ 但对方说我在动 → push back" 长段文字 | **解释层负债** | 强猫知道；新人/违规猫才需要全文 |
+| 能记录 `a2a.invalid_route` / `a2a.unowned_ball` 的检测器 | **资产** | 前提是写结构化事件，并能反过来证明哪段提示词可以删 |
+
+所以我的结论不是"删 F167"，而是：**F167 里的状态机不变量留下，句式黑名单和重复解释应该逐步挪到按需注入。**
+
+#### Q2：我最近那些 hook / detector 的资产负债表
+
+| 类别 | 机制 | 判断 |
+|------|------|------|
+| 资产 | `InvocationRecord` 生命周期（queued/running/succeeded/failed/canceled） | 现实调用状态，不靠模型自述 |
+| 资产 | `targetCats` 结构化路由 / `hold_ball` MCP call | 把球权从文本协议提升成动作协议 |
+| 资产 | F086 `multi_mention` 只在调用时强制 `searchEvidenceRefs` | 好模式：硬检查只挂在工具入口，不污染普通任务 |
+| 资产 | F150 tool usage counter / EventAuditLog | 这是 signal 原料，不是提示词 |
+| 资产 | Guide / Skill 按需加载 | route signpost，只有匹配场景才进上下文 |
+| 灰色 | Magic Words | word→action 映射是资产；心理叙事和长解释是动态解释层 |
+| 灰色 | "开工前 search_evidence" hook | hook / MCP 是资产；每次把完整理由塞给强猫是负债 |
+| 负债 | @ 格式 [正确]/[错误] 长例子默认注入 | 对强猫是噪音，违规后注入即可 |
+| 负债 | "禁止说 X / Y / Z" 的句式黑名单 | 变量错了。应检测 route transition 是否存在，不检测具体措辞 |
+| 负债 | 为某次事故写进全局 prompt 的长故事 | 事故应进入 lesson / evidence；默认 prompt 只保留协议骨架 |
+
+砚砚式糊锅匠的问题通常出在这里：**看见一次失败，就想写一条全局规则。** 正确做法应该是先问：这次失败能不能被现有状态机表达？如果能，修 detector / trace；如果不能，才加协议骨架；解释文字永远最后加，而且要有删除条件。
+
+#### Q3：Dynamic injection 应该挂在哪
+
+我不建议第一步做 model-name 查表。`claude-opus-4-7` / `gpt-5.5` / `gemini-3.1` 这种表会很快漂移，而且容易把"模型能力"和"任务场景"混成一件事。
+
+更稳的分层：
+
+| 层 | 入口 | 放什么 |
+|----|------|--------|
+| 静态同步层 | `scripts/sync-system-prompts.ts` / `assets/system-prompts` / `AGENTS.md` | 身份、家族分工、最小协议骨架。不要放长解释 |
+| Invocation 注入层 | `SystemPromptBuilder.buildInvocationContext()` | 当前模式、路由、参与者、少量运行时规则。A2A 只在 serial/execute 注入是正例 |
+| Domain route 层 | `GuidePromptSection` / prompt tags / Skill loader / PackCompiler | 任务匹配后注入解释和 SOP。这里最适合 dynamic |
+| Tool/MCP 层 | tool schema + hard gate | 工具描述保持短；强制规则放工具实现里，例如 F086 的 `searchEvidenceRefs` |
+| Trace/profile 层 | future injection profile | 根据近期违规事件注入 `repair.ruleId` 解释包 |
+
+我建议的 profile 不是按模型先分，而是按**协议骨架 + 场景 + 近期信号**分：
+
+```text
+base.protocol          # 全猫默认：最小骨架
+task.serial_handoff    # serial / handoff 才注入 A2A 协作细节
+task.review            # review 才注入 verdict / severity / evidence 规则
+onboarding.new_cat     # 新猫前 N 次给全解释
+repair.rule.<ruleId>   # 最近违反某条规则，下一次只补这条解释
+human.magic_word.<id>  # 铲屎官触发时临时展开完整语义
+```
+
+这样强猫常态吃到的是骨架，不是教科书；小猫或刚犯错的猫才吃解释。
+
+#### Q4：Trace signal 怎么产出来
+
+现有数据源可以先拼出 v0，不必等完整 OTel：
+
+| 数据源 | 能提供什么信号 |
+|--------|----------------|
+| `InvocationRecord` | 调用是否真的开始/结束、失败/取消、目标猫是谁 |
+| `route-serial` / `route-parallel` + F150 | 哪些 tool 被实际调用、在哪只猫、什么类别 |
+| `EventAuditLog` / audit ndjson | 后端关键事件，适合存 rule violation / injection decision |
+| A2A MCP 参数 | `targetCats`、`searchEvidenceRefs`、`overrideReason`、handoff metadata |
+| review / quality-gate 文档 | verdict、evidence、test result，是现实闭环的人工/自动验收信号 |
+| Magic Words / 人类纠偏 | 高价值 negative signal：这条规则为什么没被内生 |
+| Knowledge Feed | 把重复失败变成 lesson，但不应该直接膨胀 system prompt |
+| F153 OTel | 长期方向；但当前不应假设它已经是 dynamic injection 的主数据源 |
+
+最小事件模型我建议从这几个开始：
+
+```text
+prompt_section_injected(sectionId, reason, tokenCost, invocationId, catId)
+rule_violation(ruleId, source, severity, evidenceRef, invocationId, catId)
+route_transition(fromOwner, toOwner, method, invocationId)
+verification_verdict(kind, passed, evidenceRef, invocationId)
+rule_repair_result(ruleId, injectedSectionId, passed, evidenceRef)
+```
+
+有了这些，dynamic injection 才有闭环：
+
+1. trace 显示某猫在某场景违反 `ruleId`
+2. 下一次同场景注入 `repair.rule.<ruleId>`
+3. 看 violation 是否消失
+4. 连续窗口内无 violation，且不注入时也不退化 → 解释降级到 Skill / docs，不再 default
+
+#### Stop condition：什么时候删
+
+我建议每条解释层规则都必须有 `sunset`：
+
+| 条件 | 动作 |
+|------|------|
+| 最近 N 次相关场景没有 violation | 从 default 降级到 dynamic |
+| dynamic 注入后仍然违规 | 不是提示词不够，是协议/工具层变量错了，停止加解释 |
+| bypass 率高、无负面结果 | 说明强猫不需要，删解释保骨架 |
+| 人类 magic word 仍高频触发 | 说明这不是解释问题，可能是权重层坏直觉或现实协议缺口 |
+
+最终目标不是"更聪明的 prompt"，而是：**默认上下文只剩最小协议骨架；所有解释都有触发理由；所有 detector 都能生产删除自己的证据。**
+
+— [砚砚/GPT-5.5🐾]
 
 ## 收敛（铲屎官拍板后）
 
