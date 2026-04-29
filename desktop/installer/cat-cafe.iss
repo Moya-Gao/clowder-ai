@@ -10,7 +10,8 @@
 ;   2. Copies the pre-built Electron shell, portable Redis, and desktop assets
 ;   3. Runs post-install-offline.ps1 for .env / skills / CLI tools setup
 ;      (CLI installation uses bundled Node — no system npm dependency)
-;   4. Creates desktop shortcut to the Electron app
+;   4. Runs user-level Agent CLI hook sync under the invoking user profile
+;   5. Creates desktop shortcut to the Electron app
 
 #define MyAppName      "Cat Cafe"
 ; MyAppVersion can be overridden by iscc /DMyAppVersion=X.Y.Z (CI release pipeline).
@@ -95,6 +96,10 @@ Source: "..\..\bundled\node\*";                  DestDir: "{app}\node"; \
 ; Desktop scripts (post-install config generation)
 Source: "..\scripts\post-install-offline.ps1";   DestDir: "{app}\scripts"; Components: core
 Source: "..\scripts\generate-desktop-config.ps1"; DestDir: "{app}\scripts"; Components: core
+Source: "..\scripts\sync-agent-hooks-offline.mjs"; DestDir: "{app}\scripts"; Components: core
+; User-level Agent CLI hook truth source used by F180 health/sync.
+Source: "..\..\.claude\hooks\user-level\*";      DestDir: "{app}\.claude\hooks\user-level"; \
+  Flags: recursesubdirs createallsubdirs; Components: core
 ; Electron app (pre-built via electron-builder)
 Source: "..\..\desktop-dist\win-unpacked\*";     DestDir: "{app}\desktop-dist"; \
   Flags: recursesubdirs createallsubdirs; Components: core
@@ -126,6 +131,14 @@ Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\post-install-offline.ps1"" -AppDir ""{app}""{code:CliSwitches|}"; \
   StatusMsg: "Configuring Cat Cafe..."; \
   Flags: runhidden waituntilterminated; \
+  Components: core
+; User-level Agent CLI hook sync writes to ~/.claude and ~/.codex, so it must
+; run as the invoking user rather than the elevated installer account.
+; If Windows cannot recover the original credentials, Hub health check repairs it later.
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\post-install-offline.ps1"" -AppDir ""{app}"" -AgentHooksOnly"; \
+  StatusMsg: "Configuring Agent CLI hooks..."; \
+  Flags: runhidden waituntilterminated runasoriginaluser; \
   Components: core
 
 ; Generate desktop-config.json with selected components

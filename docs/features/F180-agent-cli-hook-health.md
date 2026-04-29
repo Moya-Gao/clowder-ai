@@ -9,7 +9,7 @@ community_issue: "https://github.com/zts212653/clowder-ai/issues/614"
 
 # F180: Agent CLI Hook Health and Sync
 
-> **Status**: in-progress (Phase A+B merged via PR #1476; Phase C AC-C5 merged via PR #1477; remaining Phase C/D planned) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A+B merged via PR #1476; Phase C AC-C5 merged via PR #1477; Phase C AC-C1~C3 implemented in branch; AC-C4/D planned) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -43,8 +43,8 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 
 覆盖三条入口：
 
-- source install: `scripts/install.sh` / `scripts/setup.sh` 调用同一同步逻辑；
-- Windows installer: `desktop/scripts/post-install-offline.ps1` 可以预装一次，但失败不得阻塞安装；
+- source install: `scripts/install.sh` / `scripts/setup.sh` 调用同一同步逻辑，并用 hook selector 只同步 `hooks/*` 与 `codex-hooks`，不顺手改写 AGENTS/GEMINI prompt；
+- Windows installer: `desktop/scripts/post-install-offline.ps1 -AgentHooksOnly` 在 original-user context 下预装一次 user-level hooks/settings；失败不得阻塞安装；
 - macOS DMG / desktop upgrade: App first-run / Hub health check 必须兜底，因为 DMG 不会跑源码 installer。
 - outbound sync: `sync-manifest.yaml` 必须放行 `.claude/hooks/user-level/`，并以模板形式携带 `.claude/settings.json` 的 hook 段；模板不得包含本机绝对路径。
 
@@ -78,9 +78,9 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 
 ### Phase C（Source Install and Desktop First-Run Coverage）
 
-- [ ] AC-C1: source install/setup 路径会尝试安装 hook，并在失败时给出非致命 warning；安装阶段视为用户已经对安装流程授权的延展同意。
-- [ ] AC-C2: Windows installer post-install 会尝试安装 hook，失败不阻塞安装；安装阶段写入失败必须由 Hub first-run health check 兜底。
-- [ ] AC-C3: macOS DMG / desktop first-run 能通过 Hub health check 发现缺失并一键修复。
+- [x] AC-C1: source install/setup 路径会尝试安装 hook，并在失败时给出非致命 warning；安装阶段视为用户已经对安装流程授权的延展同意。
+- [x] AC-C2: Windows installer 会用 original-user best-effort step 尝试安装 hook/settings，失败不阻塞安装；安装阶段写入失败必须由 Hub first-run health check 兜底。
+- [x] AC-C3: macOS DMG / desktop first-run 能通过 Hub health check 发现缺失并一键修复。
 - [ ] AC-C4: 现有用户升级后打开 Hub 或任意 thread 能看到缺失/过期提示；status 检测由 Hub 启动/first-run 触发一次并缓存到当前 app session，不能在每条消息上触发 N+1 检测。
 - [x] AC-C5: outbound sync 后，开源仓能找到 `.claude/hooks/user-level/session-start-recall.sh`、`.claude/hooks/user-level/session-stop-check.sh`，以及不含本机绝对路径的 `.claude/settings.json` hook 模板。
 
@@ -105,7 +105,7 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 |------|------|
 | 静默改写用户 `~/.claude/settings.json` / `~/.codex/hooks.json` 引发不信任 | Runtime 检测自动、修复必须由用户点击；source install / installer 阶段视为安装同意的延展，失败不阻塞；API 返回 diff-like summary |
 | Claude settings JSON 里已有用户自定义 hooks，被覆盖 | 合并写入，只管理 Cat Cafe 自己的 command entry，不删除未知 hooks |
-| 安装包 post-install 权限或路径失败 | post-install 只做 best-effort；Hub first-run health check 是兜底 |
+| 安装包 post-install 权限或路径失败 | elevated post-install 不写 user profile；user-level hook sync 作为 original-user best-effort step 单独跑；Hub first-run health check 是兜底 |
 | Codex hooks 支持版本差异 | `hooks.json` 写入与 CLI feature 检测分离；unsupported 作为诊断状态而不是安装失败 |
 | 开源仓缺少 hook 真相源导致 health check 无模板可比 | F180 implementation 必须更新 `sync-manifest.yaml`，放行 `.claude/hooks/user-level/` 与 settings hook 模板 |
 | Codex hooks.json 携带本机绝对路径导致跨机器失效 | 仓库/installer 不预生成 `hooks.json`；目标机器每次由 sync module 根据当前 home 即时渲染 |
@@ -136,6 +136,7 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 | 2026-04-29 | Opus-47 spec review 提出 7 P1 + 4 P2；砚砚收敛到 spec v2，补齐 sync-manifest / 真相源复用 / 本机路径解析 / Phase D Design Gate |
 | 2026-04-29 | Phase A+B merged (PR #1476) — agent hook health/sync API, shared target module, Claude settings merge guard, Codex hooks canonical validation, 6 targeted tests |
 | 2026-04-29 | Phase C AC-C5 merged (PR #1477) — outbound sync exports user-level hook scripts and portable Claude settings template; cloud review R3 and Opus-47 continuity review passed |
+| 2026-04-29 | Phase C AC-C1~C3 implemented — source install/setup best-effort hook sync, Windows original-user offline hook helper, desktop package hook truth source, and first-run `.claude` mirror for Hub health/sync |
 
 ## Review Gate
 

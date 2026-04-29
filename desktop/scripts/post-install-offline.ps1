@@ -12,7 +12,8 @@ param(
     [switch]$Claude,
     [switch]$Codex,
     [switch]$Gemini,
-    [switch]$Kimi
+    [switch]$Kimi,
+    [switch]$AgentHooksOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -90,6 +91,51 @@ function Install-CliToolFromNetwork {
     }
 }
 
+function Resolve-AgentHookTargetRoot {
+    if ($env:USERPROFILE) {
+        return $env:USERPROFILE
+    }
+
+    if ($env:HOMEDRIVE -and $env:HOMEPATH) {
+        return "$($env:HOMEDRIVE)$($env:HOMEPATH)"
+    }
+
+    return $null
+}
+
+function Invoke-AgentHookSync {
+    $syncScript = Join-Path $ProjectRoot "scripts\sync-agent-hooks-offline.mjs"
+    if (-not (Test-Path $syncScript)) {
+        Write-Warn "Agent CLI hook sync skipped -- helper not found"
+        return
+    }
+
+    $nodeCmd = Resolve-Command "node"
+    if (-not $nodeCmd) {
+        Write-Warn "Agent CLI hook sync skipped -- node not found"
+        return
+    }
+
+    $targetRoot = Resolve-AgentHookTargetRoot
+    if (-not $targetRoot) {
+        Write-Warn "Agent CLI hook sync skipped -- user profile not found"
+        return
+    }
+
+    try {
+        & $nodeCmd $syncScript --project-root $ProjectRoot --target-root $targetRoot 2>&1 | ForEach-Object {
+            Write-Host "    $_"
+        }
+        if ($LASTEXITCODE -eq 0) {
+            Write-Ok "Agent CLI hooks synced"
+        } else {
+            Write-Warn "Agent CLI hook sync failed -- Hub health check can repair it later"
+        }
+    } catch {
+        Write-Warn "Agent CLI hook sync failed -- Hub health check can repair it later: $_"
+    }
+}
+
 $ScriptDir = Split-Path -Parent $PSCommandPath
 $ProjectRoot = if ($AppDir) { $AppDir } else { Split-Path -Parent $ScriptDir }
 $BundleDir = Join-Path $ProjectRoot "bundled\cli-tools"
@@ -102,6 +148,12 @@ $BundledNodeDir = Join-Path $ProjectRoot "node"
 if (Test-Path (Join-Path $BundledNodeDir "node.exe")) {
     $env:PATH = "$BundledNodeDir;$env:PATH"
     Write-Ok "Bundled Node.js found — prepended to PATH"
+}
+
+if ($AgentHooksOnly) {
+    Write-Step "Agent CLI hooks"
+    Invoke-AgentHookSync
+    exit 0
 }
 
 Write-Step "Step 1/4 - Generate .env"

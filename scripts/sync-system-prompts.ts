@@ -9,16 +9,19 @@
  *   npx tsx scripts/sync-system-prompts.ts --check     # Drift detection (exit 1 if drifted)
  *   npx tsx scripts/sync-system-prompts.ts --apply      # Write to targets
  *   npx tsx scripts/sync-system-prompts.ts --apply --dry-run  # Show rendered output only
+ *   npx tsx scripts/sync-system-prompts.ts --apply --agent-hooks-only  # Write Agent CLI hook targets + Claude settings only
  */
 
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { syncClaudeSettings } from '../packages/api/src/agent-hooks/claude-settings.js';
 import {
   applySync,
   buildAgentHookTargets,
   checkDrift,
   type SyncTarget,
+  selectAgentHookTargets,
 } from '../packages/api/src/agent-hooks/sync-targets.js';
 
 export { checkDrift, type DriftResult, type SyncTarget } from '../packages/api/src/agent-hooks/sync-targets.js';
@@ -225,11 +228,12 @@ export function buildTargets(shardsDir: string, targetRoot?: string): SyncTarget
   ];
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const isCheck = args.includes('--check');
   const isApply = args.includes('--apply');
   const isDryRun = args.includes('--dry-run');
+  const isAgentHooksOnly = args.includes('--agent-hooks-only');
   const targetRootIdx = args.indexOf('--target-root');
   const targetRoot = targetRootIdx >= 0 ? args[targetRootIdx + 1] : undefined;
 
@@ -239,7 +243,9 @@ function main(): void {
   }
 
   if (!isCheck && !isApply) {
-    console.error('Usage: sync-system-prompts.ts --check | --apply [--dry-run] [--target-root <dir>]');
+    console.error(
+      'Usage: sync-system-prompts.ts --check | --apply [--dry-run] [--agent-hooks-only] [--target-root <dir>]',
+    );
     process.exit(2);
   }
 
@@ -247,7 +253,9 @@ function main(): void {
   const scriptDir = __dirname;
   const shardsDir = join(scriptDir, '..', 'assets', 'system-prompts');
 
-  const targets = buildTargets(shardsDir, targetRoot);
+  const syncTargetRoot = targetRoot ?? homedir();
+  const allTargets = buildTargets(shardsDir, syncTargetRoot);
+  const targets = isAgentHooksOnly ? selectAgentHookTargets(allTargets) : allTargets;
 
   if (isCheck) {
     let hasDrift = false;
@@ -267,6 +275,10 @@ function main(): void {
     for (const target of targets) {
       applySync(target, isDryRun);
     }
+    if (isAgentHooksOnly && !isDryRun) {
+      await syncClaudeSettings(syncTargetRoot);
+      console.log(`synced claude-settings -> ${join(syncTargetRoot, '.claude', 'settings.json')}`);
+    }
     if (!isDryRun) {
       console.log('\nDone. All targets synced.');
     }
@@ -276,5 +288,8 @@ function main(): void {
 // Only run CLI when executed directly (not imported as module)
 const isDirectRun = process.argv[1]?.endsWith('sync-system-prompts.ts');
 if (isDirectRun) {
-  main();
+  void main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
 }

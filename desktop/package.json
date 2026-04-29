@@ -93,6 +93,14 @@
         "to": "cat-cafe-skills"
       },
       {
+        "from": "../.claude/hooks/user-level",
+        "to": ".claude/hooks/user-level"
+      },
+      {
+        "from": "./scripts/sync-agent-hooks-offline.mjs",
+        "to": "scripts/sync-agent-hooks-offline.mjs"
+      },
+      {
         "from": "../docs",
         "to": "docs"
       },

@@ -628,6 +628,114 @@ excluded:
       }
     });
 
+    it('source install/setup attempts F180 agent hook sync as a nonfatal step', () => {
+      const install = readFileSync(resolve(ROOT, 'scripts/install.sh'), 'utf-8');
+      const setup = readFileSync(resolve(ROOT, 'scripts/setup.sh'), 'utf-8');
+
+      for (const [name, content] of [
+        ['install.sh', install],
+        ['setup.sh', setup],
+      ]) {
+        assert.match(content, /sync_agent_hooks_best_effort\(\)/, `${name} should call the shared hook sync step`);
+        assert.match(
+          content,
+          /pnpm exec tsx scripts\/sync-system-prompts\.ts --apply --agent-hooks-only/,
+          `${name} should reuse sync-system-prompts hook targets without syncing non-hook prompts`,
+        );
+        assert.match(
+          content,
+          /Agent CLI hook sync failed[\s\S]*continuing/,
+          `${name} should warn and continue when hook sync fails`,
+        );
+      }
+    });
+
+    it('sync-system-prompts agent hook mode also configures Claude settings', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/sync-system-prompts.ts'), 'utf-8');
+
+      assert.match(
+        content,
+        /syncClaudeSettings/,
+        'agent hook sync CLI should reuse the same Claude settings merge helper as the Hub sync API',
+      );
+      assert.match(
+        content,
+        /if\s*\(\s*isAgentHooksOnly\s*&&\s*!isDryRun\s*\)[\s\S]*await syncClaudeSettings\(syncTargetRoot\)/,
+        '--agent-hooks-only --apply must configure Claude settings, not only copy hook scripts and Codex hooks',
+      );
+    });
+
+    it('desktop installer bundles F180 hook truth source and offline sync helper', () => {
+      const inno = readFileSync(resolve(ROOT, 'desktop/installer/cat-cafe.iss'), 'utf-8');
+      const desktopPackage = readFileSync(resolve(ROOT, 'desktop/package.json'), 'utf-8');
+
+      assert.match(
+        inno,
+        /Source: "\.\.\\\.\.\\\.claude\\hooks\\user-level\\\*";\s+DestDir: "\{app\}\\\.claude\\hooks\\user-level"/,
+        'Windows installer should ship the user-level hook truth source',
+      );
+      assert.match(
+        inno,
+        /Source: "\.\.\\scripts\\sync-agent-hooks-offline\.mjs";\s+DestDir: "\{app\}\\scripts"/,
+        'Windows installer should ship the offline hook sync helper',
+      );
+      assert.match(
+        desktopPackage,
+        /"from": "\.\.\/\.claude\/hooks\/user-level"[\s\S]*"to": "\.claude\/hooks\/user-level"/,
+        'macOS DMG resources should ship the user-level hook truth source',
+      );
+      assert.match(
+        desktopPackage,
+        /"from": "\.\/scripts\/sync-agent-hooks-offline\.mjs"[\s\S]*"to": "scripts\/sync-agent-hooks-offline\.mjs"/,
+        'macOS DMG resources should ship the offline hook sync helper',
+      );
+    });
+
+    it('desktop installer runs F180 agent hook sync under the invoking user profile', () => {
+      const inno = readFileSync(resolve(ROOT, 'desktop/installer/cat-cafe.iss'), 'utf-8');
+      const postInstall = readFileSync(resolve(ROOT, 'desktop/scripts/post-install-offline.ps1'), 'utf-8');
+      const adminPostInstallEntry = inno.match(
+        /; Post-install:[\s\S]*?Filename: "powershell\.exe";[\s\S]*?Components: core/,
+      )?.[0];
+
+      assert.match(
+        inno,
+        /-AgentHooksOnly[\s\S]*Flags: runhidden waituntilterminated runasoriginaluser/,
+        'Windows installer should run user-level hook sync with original user credentials, not the elevated admin profile',
+      );
+      assert.ok(adminPostInstallEntry, 'Windows installer should keep the elevated post-install entry');
+      assert.doesNotMatch(
+        adminPostInstallEntry,
+        /-AgentHooksOnly/,
+        'admin post-install step should not also run AgentHooksOnly in the elevated profile',
+      );
+      assert.match(
+        postInstall,
+        /sync-agent-hooks-offline\.mjs/,
+        'post-install should invoke the offline hook sync helper',
+      );
+      assert.match(
+        postInstall,
+        /\$targetRoot = Resolve-AgentHookTargetRoot[\s\S]*--target-root[\s\S]*\$targetRoot/,
+        'offline helper should receive the resolved user profile explicitly as --target-root',
+      );
+      assert.match(
+        postInstall,
+        /Agent CLI hook sync failed[\s\S]*Hub health check can repair it later/,
+        'post-install hook sync failure should be a nonfatal warning',
+      );
+    });
+
+    it('desktop first-run mirrors F180 hook truth source into the writable API project', () => {
+      const serviceManager = readFileSync(resolve(ROOT, 'desktop/service-manager.js'), 'utf-8');
+
+      assert.match(
+        serviceManager,
+        /const mirrors = \['\.claude', 'cat-cafe-skills', 'docs', 'packages'\]/,
+        'desktop service manager should mirror .claude into the writable project root for API hook health',
+      );
+    });
+
     it('sync-to-opensource.sh transforms AgentRouter.ts API port to 3004', () => {
       const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
       assert.ok(

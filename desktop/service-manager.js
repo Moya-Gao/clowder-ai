@@ -209,7 +209,7 @@ class ServiceManager {
     // Windows uses NTFS junctions (no admin needed, absolute paths). macOS
     // uses plain directory symlinks.
     const linkType = IS_WIN ? 'junction' : 'dir';
-    const mirrors = ['cat-cafe-skills', 'docs', 'packages'];
+    const mirrors = ['.claude', 'cat-cafe-skills', 'docs', 'packages'];
     for (const name of mirrors) {
       const src = path.join(this.root, name);
       const dst = path.join(projectDir, name);
