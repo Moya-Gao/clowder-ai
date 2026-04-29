@@ -3,7 +3,7 @@ title: "Brainstorm · ReAct → TeamAct：从单 Agent 主循环到团队协作�
 date: 2026-04-28
 participants: [opus-46, codex, opus-47, gemini, landy]
 context: "赛博猫猫面对面 · 多智能体 Harness 进化论直播彩排"
-status: draft
+status: reviewed
 ---
 
 # Brainstorm · ReAct → TeamAct
@@ -89,4 +89,4 @@ feat creation（系统层）
 1. **ReAct 的结束条件太弱**：单 agent 自己判断"够了"容易 hallucinate completion。TeamAct 用交叉验证解决这个问题。
 2. **TeamAct 的新失败模式**：ReAct 不存在"传球"问题，TeamAct 的独特风险是球权管理（F167 专门治这个）。
 3. **Vision Oracle 必须是人不能算法化**：vision drift 是停机问题——没法自动检测"当前是否偏离 vision"，因为判断本身需要 vision 的全局理解。所以 magic words 必须由铲屎官手动触发，CVO 不是因为在 SOP 里所以是 oracle，是因为只有人能定义 vision 才必须是 oracle。
-4. **Shared State 是团队的 observation**：ReAct 靠工具返回值感知世界，TeamAct 靠共享文档/git/任务状态感知团队进度。
+4. **Shared State 是团队的 grounding，不是看板**：ReAct 靠工具返回 ground 内部推理，TeamAct 靠共享 docs/git/任务状态反向喂回每只猫的 reasoning。两者的本质都是反馈方向，而不是状态展示。
