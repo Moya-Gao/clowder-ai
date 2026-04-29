@@ -95,6 +95,7 @@
 | F120 | F120: Hub Embedded Browser — 在 Hub 内嵌浏览器预览运行中的前端应用 | done | [F120-hub-embedded-browser.md](./F120-hub-embedded-browser.md) |
 | F123 | F123: Bubble Runtime Correctness — 消息身份契约 + Reconcile 状态机 | done | [F123-bubble-runtime-correctness.md](./F123-bubble-runtime-correctness.md) |
 | F125 | F125: Alpha 验收通道 — main-test 升级为正式 alpha 测试基础设施 | done | [F125-alpha-test-channel.md](./F125-alpha-test-channel.md) |
+| F127 | F127: 猫猫管理重构 — 账户配置与猫猫实例分离，支持动态创建猫 + 自定义别名 @ 路由 | done | [F127-cat-instance-management.md](./F127-cat-instance-management.md) |
 | F092 | F092: Cats & U 语音陪伴体验 — P0 voice mode + auto-play (P1+ evolved to F124) | done | [F092-voice-companion-experience.md](./F092-voice-companion-experience.md) |
 | F121 | F121: Community Frontend UX Triage — 社区前端交互体验侦查与分诊 | done | [F121-community-frontend-ux-triage.md](./F121-community-frontend-ux-triage.md) |
 | F122 | F122: 执行通道统一 — A2A/multi_mention 入 Dispatch Queue | done | [F122-unified-dispatch-queue.md](./F122-unified-dispatch-queue.md) |

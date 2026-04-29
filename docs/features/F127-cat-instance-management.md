@@ -209,6 +209,7 @@ community_issue: "#109"
 | 2026-03-30 | R-11 合入 — PR #882 为 Hub 补齐 provider-aware `cli.effort` 结构化编辑，runtime catalog 持久化 + 新 invocation 生效路径已打通 |
 | 2026-04-29 | Runtime account pollution 修复 — PR #1457 限制 cross-root homedir legacy account import，只保留项目 catalog / credential 显式引用的账号（含 legacy `providerProfileId`）；`pnpm gate` + 云端 Codex review 通过 |
 | 2026-04-29 | Close gate 补齐 — AC-C2 默认模型别名、AC-B3 V-1/V-2 验收补齐；resume 会话在 runtime registry 变化后刷新 static identity |
+| 2026-04-29 | Completion 收尾 — PR #1464 merged；GPT-5.4 close-gate review + Opus 4.6 愿景守护放行；完成索引与反思胶囊补齐 |
 
 ## 遗留项（未来可能需要调整）
 
@@ -238,6 +239,28 @@ community_issue: "#109"
 
 > **F127 close 前提**：V-1 + V-2 已覆盖。V-3/V-4 仍属于增强验证，不阻塞 close。
 
+## Close Gate Report
+
+| AC | 处置 | Evidence |
+|----|------|----------|
+| AC-A1 | ✅ met | PR #626/#631 建立 Hub 账户配置 CRUD；F127 status 已在 #1464 后置为 done |
+| AC-A2 | ✅ met | 账户层支持 API Key + baseUrl；R-12 修复未改变显式项目账户导入 |
+| AC-A3 | ✅ met | provider-profile 迁移已由 F127 intake / F136 路径吸收，legacy `providerProfileId` 仍被 R-12 allowlist 识别 |
+| AC-B1 | ✅ met | Hub 猫猫实例 CRUD 已随 Phase B/D 落地 |
+| AC-B2 | ✅ met | CatRegistry 支持 runtime mutation；#1464 增加 registry revision |
+| AC-B3 | ✅ met | #1464 覆盖 runtime-created cat 新会话响应 + resume registry-change reinjection |
+| AC-B4 | ✅ met | seed/preconfigured cats 继续保留；运行时 catalog 是 overlay，不修改 `cat-config.json` |
+| AC-C1 | ✅ met | mention parser / A2A alias routing 从动态 registry 读取 aliases |
+| AC-C2 | ✅ met | #1464：Hub 新建 API key 猫且别名为空时从模型名派生默认 alias |
+| AC-C3 | ✅ met | 自动补全基于动态 registry 候选 |
+| AC-D1 | ✅ met | Hub 猫猫总览支持新建/编辑/删除猫猫实例 |
+| AC-D2 | ✅ met | Hub 编辑器支持别名、昵称、角色描述、账户绑定等配置 |
+| R-12 | ✅ met | #1457：homedir legacy account import 只保留项目显式引用账号，阻断 runtime account pollution |
+
+**Close review**:
+- `gpt52` close-gate review：确认 AC-C2 / V-1 / V-2 补齐，放行 PR #1464。
+- `opus` 愿景守护：确认原始痛点与当前状态匹配，放行 F127 close。
+
 ## Review Gate
 
 - Phase A~D: 每 Phase 独立 review + merge
@@ -254,6 +277,8 @@ community_issue: "#109"
 | **Fix PR** | [cat-cafe#632](https://github.com/zts212653/cat-cafe/pull/632) | catalog 读取改为字段级 deep merge |
 | **Fix PR** | [cat-cafe#714](https://github.com/zts212653/cat-cafe/pull/714) | R-6 二修：modal close button 固定 |
 | **Fix PR** | [cat-cafe#1457](https://github.com/zts212653/cat-cafe/pull/1457) | R-12：过滤 homedir legacy account 污染 |
+| **Close Gate PR** | [cat-cafe#1464](https://github.com/zts212653/cat-cafe/pull/1464) | AC-C2 + AC-B3 V-1/V-2 close-gate 补齐 |
+| **Reflection** | [2026-04-29-f127-cat-instance-management-capsule.md](../reflections/2026-04-29-f127-cat-instance-management-capsule.md) | Completion 反思胶囊 |
 | **Internal Issue** | [cat-cafe#621](https://github.com/zts212653/cat-cafe/issues/621) | 家里 intake 跟踪 issue |
 | **Evolved from** | `docs/features/F062-ragdoll-provider-profile-hub.md` | 布偶猫 provider profile（Anthropic-only） |
 | **Related** | `docs/features/F032-agent-plugin-architecture.md` | CatRegistry 基础架构 |
