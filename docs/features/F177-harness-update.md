@@ -268,11 +268,11 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 - [x] AC-E3: 2 周升级 review cron 触发 — merge-gate Step 7.6 注册 scheduled task + shared-rules.md 协议（三选一处置）
 - [x] AC-E4: quality-gate 禁止作者 self-validate hotfix — quality-gate Step 2.5
 
-### Phase F（布偶猫家族 Read-Before-Reason）
-- [ ] AC-F1: search_evidence 返回结果在 high/mid confidence doc anchor 命中时追加 Read 建议（Hook F-1）
-- [ ] AC-F2: quality-gate 检测 search_evidence → Read 调用链：有 doc anchor 命中 + 没有 Read + 输出精确结论 → 提醒（Hook F-2 修正版）
-- [ ] AC-F3: 搜索深度即时反馈（每次检索结束显示深度 vs 历史均值）+ family-level telemetry 接入 F153 observability（Hook F-3）
-- [ ] AC-F4: shared-rules.md / governance-l0.md 同步加「我能猜出来」「碎片够了」magic words
+### Phase F（布偶猫家族 Read-Before-Reason）✅
+- [x] AC-F1: search_evidence 返回结果在 high/mid confidence doc anchor 命中时追加 Read 建议（Hook F-1）
+- [x] AC-F2: quality-gate 检测 search_evidence → Read 调用链：有 doc anchor 命中 + 没有 Read + 输出精确结论 → 提醒（Hook F-2 修正版）
+- [x] AC-F3: 搜索深度即时反馈（每次检索结束显示本轮搜索次数）+ telemetry 接入 F153 observability（Hook F-3，invocation-scoped — stdio transport 每次 spawn 新进程）
+- [x] AC-F4: shared-rules.md / governance-l0.md / SystemPromptBuilder GOVERNANCE_L0_DIGEST 同步加「我能猜出来」「碎片够了」magic words
 
 ### Phase G（47 传球守卫 — Session End Hook 路由补全）
 - [ ] AC-G1: Session end hook 检测合法路由（行首 @ / hold_ball / targetCats），缺失时返回格式提醒
@@ -347,6 +347,7 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 | 2026-04-29 | Phase B merged (PR #1456) — 47 deferral-pattern harness: magic word + 7-moment self-check + blind audit + runtime GOVERNANCE_L0_DIGEST sync + drift guard test |
 | 2026-04-29 | Phase E merged (PR #1463) — hotfix auto-detect script + merge-gate cross-cat review enforcement + quality-gate self-validate block + governance sync + 2-week upgrade cron protocol |
 | 2026-04-29 | 47 不传球头脑风暴（46 + 47 + 砚砚 + 铲屎官）→ Phase G 纳入 F177。收敛路径：pass_ball MCP(❌ 重复造轮子) → hook grep 意图(❌ 补锅) → session end hook 格式提醒(✅ Gmail 模型) |
+| 2026-04-29 | Phase F merged (PR #1466) — Hook F-1 (doc anchor Read reminder) + Hook F-2 (quality-gate search→Read chain) + Hook F-3 (invocation search depth counter + telemetry) + magic words「我能猜出来」「碎片够了」synced to governance-l0 / shared-rules / SystemPromptBuilder |
 
 ## Review Gate
 
