@@ -9,7 +9,7 @@ community_issue: "https://github.com/zts212653/clowder-ai/issues/614"
 
 # F180: Agent CLI Hook Health and Sync
 
-> **Status**: in-progress (Phase A+B merged via PR #1476; Phase C planned) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A+B merged via PR #1476; Phase C AC-C5 merged via PR #1477; remaining Phase C/D planned) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -82,7 +82,7 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 - [ ] AC-C2: Windows installer post-install 会尝试安装 hook，失败不阻塞安装；安装阶段写入失败必须由 Hub first-run health check 兜底。
 - [ ] AC-C3: macOS DMG / desktop first-run 能通过 Hub health check 发现缺失并一键修复。
 - [ ] AC-C4: 现有用户升级后打开 Hub 或任意 thread 能看到缺失/过期提示；status 检测由 Hub 启动/first-run 触发一次并缓存到当前 app session，不能在每条消息上触发 N+1 检测。
-- [ ] AC-C5: outbound sync 后，开源仓能找到 `.claude/hooks/user-level/session-start-recall.sh`、`.claude/hooks/user-level/session-stop-check.sh`，以及不含本机绝对路径的 `.claude/settings.json` hook 模板。
+- [x] AC-C5: outbound sync 后，开源仓能找到 `.claude/hooks/user-level/session-start-recall.sh`、`.claude/hooks/user-level/session-stop-check.sh`，以及不含本机绝对路径的 `.claude/settings.json` hook 模板。
 
 ### Phase D（In-App Health Surface）
 
@@ -135,6 +135,7 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 | 2026-04-29 | 立项；开源 issue `clowder-ai#614` 创建并标记 accepted/triaged |
 | 2026-04-29 | Opus-47 spec review 提出 7 P1 + 4 P2；砚砚收敛到 spec v2，补齐 sync-manifest / 真相源复用 / 本机路径解析 / Phase D Design Gate |
 | 2026-04-29 | Phase A+B merged (PR #1476) — agent hook health/sync API, shared target module, Claude settings merge guard, Codex hooks canonical validation, 6 targeted tests |
+| 2026-04-29 | Phase C AC-C5 merged (PR #1477) — outbound sync exports user-level hook scripts and portable Claude settings template; cloud review R3 and Opus-47 continuity review passed |
 
 ## Review Gate
 
