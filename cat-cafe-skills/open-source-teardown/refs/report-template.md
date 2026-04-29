@@ -63,8 +63,10 @@ entrypoint -> core loop -> tools/providers/plugins -> state stores
 
 ## 6. Cat Café Comparison
 
-| Dimension | Project | Cat Café | Learn / Gap / Do Not Follow | Reason |
-|-----------|---------|----------|-----------------------------|--------|
+| Dimension | Project | Cat Café | Learn / Gap / Do Not Follow | Agent User Fit (L1/L2/L3) | Reason |
+|-----------|---------|----------|-----------------------------|---------------------------|--------|
+
+> Agent User Fit 列填 ✅/⚠️/❌ × L1(可继续) / L2(可分辨 observation vs generation) / L3(可闭环)；详见 [user-mind-evaluation.md](user-mind-evaluation.md)。
 
 ## 7. Lessons / Next Steps
 
