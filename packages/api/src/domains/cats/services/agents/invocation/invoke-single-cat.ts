@@ -111,11 +111,13 @@ import type { ISessionChainStore } from '../../stores/ports/SessionChainStore.js
 import type { IThreadStore } from '../../stores/ports/ThreadStore.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
 import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
+import { completeCapsuleForSeal, type RouteStateContinuityCapsule } from './CollaborationContinuityCapsule.js';
 import type { ResumeFailureKind } from './invoke-helpers.js';
 import {
   classifyResumeFailure,
   extractTaskProgress,
   isCliTimeoutError,
+  isContextWindowOverflowError,
   isMissingClaudeSessionError,
   isPromptTokenLimitExceededError,
   isTransientAcpPromptFailure,
@@ -276,6 +278,8 @@ export interface InvocationParams {
   readonly a2aTriggerMessageId?: string;
   /** F153 Phase E: Parent route span — invocation span becomes its child */
   readonly routeSpan?: import('@opentelemetry/api').Span;
+  /** #502 PR2: structured route control state to persist on threshold seal. */
+  readonly continuityCapsule?: RouteStateContinuityCapsule;
 }
 
 /**
@@ -1164,6 +1168,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                   // This is normal — NOT a "session replaced" event. Just update the tracked ID.
                   await deps.sessionChainStore.update(existing.id, {
                     cliSessionId: msg.sessionId,
+                    ...(params.continuityCapsule ? { continuityCapsule: params.continuityCapsule } : {}),
                     updatedAt: Date.now(),
                   });
                 } else {
@@ -1210,19 +1215,33 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                     if (inheritedFailures > 0) {
                       await deps.sessionChainStore.update(newRec.id, {
                         consecutiveRestoreFailures: inheritedFailures,
+                        ...(params.continuityCapsule ? { continuityCapsule: params.continuityCapsule } : {}),
+                      });
+                    } else if (params.continuityCapsule) {
+                      await deps.sessionChainStore.update(newRec.id, {
+                        continuityCapsule: params.continuityCapsule,
                       });
                     }
                   }
                 }
+              } else if (params.continuityCapsule) {
+                await deps.sessionChainStore.update(existing.id, {
+                  continuityCapsule: params.continuityCapsule,
+                });
               }
             } else {
               // No active session (first invocation or previous was sealed)
-              await deps.sessionChainStore.create({
+              const newRec = await deps.sessionChainStore.create({
                 cliSessionId: msg.sessionId,
                 threadId,
                 catId,
                 userId,
               });
+              if (params.continuityCapsule) {
+                await deps.sessionChainStore.update(newRec.id, {
+                  continuityCapsule: params.continuityCapsule,
+                });
+              }
             }
           } catch {
             // Best-effort — don't break the invocation chain
@@ -1491,7 +1510,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                           });
                           if (sealResult.accepted) {
                             sessionManager.delete(userId, catId, threadId).catch(() => {});
-                            outputs.push({
+                            const sealTimestamp = Date.now();
+                            const continuityCapsule = params.continuityCapsule
+                              ? completeCapsuleForSeal(params.continuityCapsule, {
+                                  invocationId,
+                                  createdAt: sealTimestamp,
+                                  seal: {
+                                    sessionId: activeRecord.id,
+                                    sessionSeq: activeRecord.seq + 1,
+                                    reason: action.reason,
+                                    healthSnapshot: health,
+                                  },
+                                })
+                              : undefined;
+                            const sealInfoMessage = {
                               type: 'system_info' as const,
                               catId,
                               content: JSON.stringify({
@@ -1501,9 +1533,39 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                                 sessionSeq: activeRecord.seq + 1,
                                 reason: action.reason,
                                 healthSnapshot: health,
+                                ...(continuityCapsule
+                                  ? {
+                                      continuityCapsule,
+                                      continuityDiagnostics: {
+                                        source: 'route_state',
+                                        boundary: continuityCapsule.continuationReason,
+                                        generated: true,
+                                        persistedVia: 'session_seal_requested',
+                                        threadId,
+                                        catId,
+                                        invocationId,
+                                        sessionId: activeRecord.id,
+                                      },
+                                    }
+                                  : {}),
                               }),
-                              timestamp: Date.now(),
-                            });
+                              timestamp: sealTimestamp,
+                            };
+                            outputs.push(sealInfoMessage);
+                            if (deps.transcriptWriter) {
+                              const sessInfo: TranscriptSessionInfo = {
+                                sessionId: activeRecord.id,
+                                threadId,
+                                catId: activeRecord.catId,
+                                cliSessionId: activeRecord.cliSessionId,
+                                seq: activeRecord.seq,
+                              };
+                              deps.transcriptWriter.appendEvent(
+                                sessInfo,
+                                sealInfoMessage as unknown as Record<string, unknown>,
+                                invocationId,
+                              );
+                            }
                             deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {});
                           }
                         }
@@ -1672,6 +1734,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       };
       let suppressedMissingSessionError: AgentMessage | undefined;
       let suppressedPromptLimitError: AgentMessage | undefined;
+      let suppressedContextOverflowError: AgentMessage | undefined;
       let suppressedTransientCliError: AgentMessage | undefined;
       let suppressedTimeoutError: AgentMessage | undefined;
       let shouldRetryWithoutSession = false;
@@ -1711,6 +1774,15 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           continue;
         }
         if (
+          allowSessionRetry &&
+          !attemptHasContentOutput &&
+          msg.type === 'error' &&
+          isContextWindowOverflowError(msg.error)
+        ) {
+          suppressedContextOverflowError = msg;
+          continue;
+        }
+        if (
           allowTransientRetry &&
           !attemptHasContentOutput &&
           msg.type === 'error' &&
@@ -1737,12 +1809,16 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         if (
           suppressedMissingSessionError ||
           suppressedPromptLimitError ||
+          suppressedContextOverflowError ||
           suppressedTransientCliError ||
           suppressedTimeoutError
         ) {
           if (msg.type === 'done') {
             shouldRetryWithoutSession = Boolean(
-              suppressedMissingSessionError || suppressedPromptLimitError || suppressedTimeoutError,
+              suppressedMissingSessionError ||
+                suppressedPromptLimitError ||
+                suppressedContextOverflowError ||
+                suppressedTimeoutError,
             );
             shouldRetryOnTransientCliExit = Boolean(suppressedTransientCliError);
             break;
@@ -1759,6 +1835,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
               yield out;
             }
             suppressedPromptLimitError = undefined;
+          }
+          if (suppressedContextOverflowError) {
+            for await (const out of streamProcessedOutputs(suppressedContextOverflowError)) {
+              yield out;
+            }
+            suppressedContextOverflowError = undefined;
           }
           if (suppressedTransientCliError) {
             for await (const out of streamProcessedOutputs(suppressedTransientCliError)) {
@@ -1815,9 +1897,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       if (shouldRetryWithoutSession && attempt + 1 < maxAttempts) {
         const retryReason = suppressedPromptLimitError
           ? 'prompt_token_limit'
-          : suppressedTimeoutError
-            ? 'cli_timeout'
-            : 'missing_session';
+          : suppressedContextOverflowError
+            ? 'context_window_overflow'
+            : suppressedTimeoutError
+              ? 'cli_timeout'
+              : 'missing_session';
         log.info(
           {
             catId,
@@ -1889,6 +1973,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
       if (suppressedPromptLimitError) {
         for await (const out of streamProcessedOutputs(suppressedPromptLimitError)) {
+          yield out;
+        }
+      }
+      if (suppressedContextOverflowError) {
+        for await (const out of streamProcessedOutputs(suppressedContextOverflowError)) {
           yield out;
         }
       }
