@@ -1101,7 +1101,7 @@
     {
       "id": "F177",
       "name": "Harness Update — Close Gate 结构化判据 + 四心智专属护栏",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P0",
+      "status": "spec → design gate | **Owner**: 布偶猫(46 总负责) + 缅因猫(砚砚) + 孟加拉猫(46代言)，按 Phase 分主笔 | **Priority**: P0",
       "file": "F177-harness-update.md"
     },
     {

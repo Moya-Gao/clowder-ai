@@ -60,6 +60,18 @@ Step 2: CREATE — 建检查清单
   - 列出每一个 AC / 功能点 / 边界条件
   - 列出 Discussion 里的 UX 描述和场景
 
+Step 2.5: CLOSE GATE MATRIX + FOLLOW-UP TAIL SCAN（F177 Phase A）🔴
+  - 检查 CloseGateReport 是否已生成（schema: `cat-cafe-skills/refs/close-gate.md`）
+  - 每个 unmet AC 是否三选一处置（immediate / delete / cvo_signoff）
+  - **Follow-up tail scan**：扫以下文本来源，命中阻塞关键词 = BLOCKED：
+    - 来源：close report、PR body、commit messages、spec 中 AC 注释、review 反馈回复
+    - 阻塞关键词（不区分大小写）：
+      `follow-up` `followup` `deferred` `next phase` `next PR` `P2` `stub` `TD`
+      `后续` `留个尾巴` `先这样` `下次一定` `回头` `以后再` `will address later`
+      `out of scope`（作为 close 借口时）`MVP 先上`（作为 close 借口时）
+    - 豁免：spec 的 Why/Risk/History 章节中引用历史上下文时使用这些词不触发
+  - cvo_signoff 四件套完整性验证（proposal + cvo message + quote + scope）
+
 Step 3: VERIFY — 逐项检查
   - 代码在哪？有测试覆盖？边界处理了？
   - 🔴 交付物必须核实 commit/PR 状态（git log --grep + gh pr list）
