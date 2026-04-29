@@ -843,6 +843,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     return {
       status: 'ok',
       threadId: effectiveThreadId,
+      messageId: storedMsg.id,
       ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
       ...(clientMessageId ? { clientMessageId } : {}),
     };

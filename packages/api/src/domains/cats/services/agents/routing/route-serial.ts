@@ -43,7 +43,11 @@ import {
 import { formatDegradationMessage } from '../../orchestration/DegradationPolicy.js';
 import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
 import { buildSessionBootstrap } from '../../session/SessionBootstrap.js';
-import { hydrateReplyPreview, type StoredToolEvent } from '../../stores/ports/MessageStore.js';
+import {
+  hydrateReplyPreview,
+  type StoredToolEvent,
+  type StreamMetadataAugmentInput,
+} from '../../stores/ports/MessageStore.js';
 import type { Thread, ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
 import { getStreamingTtsRegistry, StreamingTtsChunker } from '../../tts/StreamingTtsChunker.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
@@ -94,6 +98,28 @@ function collectStructuredTargetCatsFromInput(input: unknown): string[] {
       ? parsed.targets
       : [];
   return values.filter((value): value is string => typeof value === 'string' && value.length > 0);
+}
+
+function parseCallbackPostResult(content: string | undefined): { confirmed: boolean; messageId?: string } {
+  if (!content) return { confirmed: false };
+  try {
+    const parsed = JSON.parse(content) as { status?: unknown; messageId?: unknown };
+    const confirmed = parsed.status === 'ok' || parsed.status === 'duplicate';
+    return {
+      confirmed,
+      ...(typeof parsed.messageId === 'string' && parsed.messageId.length > 0 ? { messageId: parsed.messageId } : {}),
+    };
+  } catch {
+    return {
+      confirmed: content.includes('"status":"ok"') || content.includes('"status":"duplicate"'),
+    };
+  }
+}
+
+function hasStreamMetadataPatch(patch: StreamMetadataAugmentInput): boolean {
+  return Boolean(
+    patch.thinking || patch.metadata || patch.toolEvents?.length || patch.replyTo || patch.mentionsUser || patch.extra,
+  );
 }
 
 export async function* routeSerial(
@@ -494,6 +520,7 @@ export async function* routeSerial(
       const collectedToolNames: string[] = [];
       // #573: Track confirmed cat_cafe_post_message callback persistence
       let callbackPostConfirmed = false;
+      let callbackPostMessageId: string | undefined;
       let awaitingCallbackResult = false;
       const structuredTargetCats = new Set<string>();
       // F060: Collect rich blocks emitted inline via system_info (not MCP buffer)
@@ -641,11 +668,11 @@ export async function* routeSerial(
           // #573: Confirm callback persistence via tool_result success
           if (effectiveMsg.type === 'tool_result' && awaitingCallbackResult) {
             awaitingCallbackResult = false;
-            if (
-              effectiveMsg.content?.includes('"status":"ok"') ||
-              effectiveMsg.content?.includes('"status":"duplicate"')
-            )
+            const callbackResult = parseCallbackPostResult(effectiveMsg.content);
+            if (callbackResult.confirmed) {
               callbackPostConfirmed = true;
+              if (callbackResult.messageId) callbackPostMessageId = callbackResult.messageId;
+            }
           }
 
           // F150: Fire-and-forget tool usage counter
@@ -1161,9 +1188,41 @@ export async function* routeSerial(
             }
           } else {
             log.info(
-              { threadId, catId: catId as string },
+              { threadId, catId: catId as string, callbackMessageId: callbackPostMessageId },
               'Stream store skipped — cat_cafe_post_message callback already persisted',
             );
+            if (callbackPostMessageId) {
+              const metadataPatch: StreamMetadataAugmentInput = {
+                ...(thinkingChunks.length > 0 ? { thinking: renderThinkingChunks(thinkingChunks) } : {}),
+                ...(firstMetadata ? { metadata: firstMetadata } : {}),
+                ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
+                ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
+                ...(mentionsUser ? { mentionsUser } : {}),
+              };
+              const extraParts = {
+                ...(allRichBlocks.length > 0 ? { rich: { v: 1 as const, blocks: allRichBlocks } } : {}),
+                ...(persistedInvocationId ? { stream: { invocationId: persistedInvocationId } } : {}),
+                ...(doneMsg?.tracing ? { tracing: doneMsg.tracing } : {}),
+              };
+              if (Object.keys(extraParts).length > 0) metadataPatch.extra = extraParts;
+
+              if (hasStreamMetadataPatch(metadataPatch)) {
+                try {
+                  const augmented = await deps.messageStore.augmentStreamMetadata(callbackPostMessageId, metadataPatch);
+                  if (!augmented) {
+                    log.warn(
+                      { threadId, catId: catId as string, callbackMessageId: callbackPostMessageId },
+                      'Callback message metadata augment skipped: message not found',
+                    );
+                  }
+                } catch (augmentErr) {
+                  log.warn(
+                    { threadId, catId: catId as string, callbackMessageId: callbackPostMessageId, err: augmentErr },
+                    'Callback message metadata augment failed; continuing without duplicate stream append',
+                  );
+                }
+              }
+            }
           }
           // #80: Clean up draft after message is persisted (either via append or callback)
           if (deps.draftStore && ownInvocationId) {
