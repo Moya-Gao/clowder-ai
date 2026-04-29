@@ -9,7 +9,7 @@ community_issue: "#109"
 
 # F127: 猫猫管理重构 — 账户配置与猫猫实例分离，支持动态创建猫 + 自定义别名 @ 路由
 
-> **Status**: in-progress (intake + account pollution fix done, AC-B3/AC-C2 E2E pending) | **Owner**: 金渐层 + 砚砚 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-04-29 | **Owner**: 金渐层 + 砚砚 | **Priority**: P1
 
 ## Why
 
@@ -119,12 +119,12 @@ community_issue: "#109"
 ### Phase B（猫猫实例管理）
 - [x] AC-B1: Hub 里可以创建新的猫猫实例，绑定到某个账户配置
 - [x] AC-B2: CatRegistry 支持运行时增删改猫猫实例
-- [ ] AC-B3: 动态创建的猫可以正常被 @ 调用、正常响应 — **未完成端到端验收**（API 路由层 registry-first 已确认，但 resumed session 的 prompt reinjection 边界需 E2E 验证）
+- [x] AC-B3: 动态创建的猫可以正常被 @ 调用、正常响应 — close-gate 覆盖新会话动态猫响应 + resumed session registry-change reinjection（`invoke-single-cat.test.js` / `system-prompt-builder.test.js`）
 - [x] AC-B4: 现有预设猫（opus/codex/gemini 等）作为 seed 数据保留，不受影响
 
 ### Phase C（动态别名 @ 路由）
 - [x] AC-C1: 猫猫实例支持自定义别名，@ 路由基于别名工作
-- [ ] AC-C2: API key 接入的猫，默认别名包含实际模型名 — **未验证：无 API key 猫的端到端测试**
+- [x] AC-C2: API key 接入的猫，默认别名包含实际模型名 — Hub 新建 API key 猫在用户未显式填写别名时默认派生 `@{model}`（例如 `@gpt-5.4-mini`）
 - [x] AC-C3: @ 自动补全候选列表基于动态 registry
 
 ### Phase D（Hub 管理 UI）
@@ -179,7 +179,7 @@ community_issue: "#109"
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | 动态猫猫配置持久化方案（文件 vs 数据库 vs Redis）| ✅ 已决定：文件（`.cat-cafe/cat-catalog.json`）。详见 KD-2 |
-| OQ-2 | 运行时新增猫是否需要重启 CLI 进程 | ⚠️ **未完成端到端验收**。API 路由层（A2A 解析 / connector routing / SystemPromptBuilder）均为 registry-first，新会话理论上可即时路由动态猫。风险点在 resumed session：`invoke-single-cat.ts` 的 `canSkipOnResume` 逻辑可能跳过 system prompt reinjection，导致 roster 过时。需 E2E 验证（见验收矩阵） |
+| OQ-2 | 运行时新增猫是否需要重启 CLI 进程 | ✅ 不需要重启。新会话通过 registry-first roster 获取动态猫；resume 会话在 CatRegistry revision 变化后会重新注入 system prompt，刷新 roster，同时保留普通 resume 的 F-BLOAT 跳过行为 |
 | OQ-3 | 是否需要"猫猫模板"机制（预设品种 → 一键创建变体） | ⬜ 未做。当前 Hub 的"新建猫"是完全手动填表，没有品种模板一键创建 |
 | OQ-4 | cat-config.json Iron Law #3（禁止运行时修改）如何与动态层共存 | ✅ 已决定：cat-config.json 作为 seed/base，catalog 作为 delta overlay，loader 做字段级 deep merge（PR #632）。Iron Law #3 保持——运行时改动只写 catalog，不碰 cat-config.json |
 
@@ -208,14 +208,15 @@ community_issue: "#109"
 | 2026-03-30 | R-11 立项追踪 — `cli.effort` 结构化编辑缺口确认为 F127 residual，开源侧跟踪 issue [clowder-ai#315](https://github.com/zts212653/clowder-ai/issues/315) |
 | 2026-03-30 | R-11 合入 — PR #882 为 Hub 补齐 provider-aware `cli.effort` 结构化编辑，runtime catalog 持久化 + 新 invocation 生效路径已打通 |
 | 2026-04-29 | Runtime account pollution 修复 — PR #1457 限制 cross-root homedir legacy account import，只保留项目 catalog / credential 显式引用的账号（含 legacy `providerProfileId`）；`pnpm gate` + 云端 Codex review 通过 |
+| 2026-04-29 | Close gate 补齐 — AC-C2 默认模型别名、AC-B3 V-1/V-2 验收补齐；resume 会话在 runtime registry 变化后刷新 static identity |
 
 ## 遗留项（未来可能需要调整）
 
 | # | 遗留项 | 影响 | 触发点 | 建议处理 |
 |---|--------|------|--------|----------|
 | R-1 | **持久化层用文件而非 Redis** — 双 JSON 文件的复杂度已通过 deep merge 缓解，但仍比单一 Redis 存储多一层。社区 PR 选文件是合理的（零外部依赖），但如果未来需要多节点/分布式部署，文件方案不够 | 低（单节点够用） | 多节点部署需求 | 可在未来版本将 catalog 迁移到 Redis，接口层已解耦 |
-| R-2 | **resumed session 下动态猫 roster 可能过时** — API 路由层（A2A / connector / SystemPromptBuilder）均 registry-first，动态猫即时可见。但 resumed session 中 `invoke-single-cat.ts` 的 `canSkipOnResume` 可能跳过 system prompt reinjection，导致猫的 roster 上下文不含新猫。新会话无此问题 | 中（影响 resume 场景） | 用户通过 Hub 动态加猫 + 已有猫在 resume 会话中 | 需 E2E 验证（见验收矩阵）。若确认失效，可通过 forceReinjection 机制修复，scope 较小 |
-| R-3 | **AC-B3 / AC-C2 未端到端验证** — 动态创建猫的 @ 路由和 API key 猫的默认别名，缺少端到端测试 | 低（代码路径存在，但没有集成测试覆盖） | 有人真的通过 Hub 创建 API key 猫时 | 补集成测试 |
+| R-2 | ~~**resumed session 下动态猫 roster 可能过时**~~ — ✅ 已修复。CatRegistry 维护 revision；同一 user/cat/thread 的 resume 会话若 registry revision 变化，会重新注入 static identity 刷新 roster，同时保留普通 resume 跳过注入 | ~~中~~ done | — | — |
+| R-3 | ~~**AC-B3 / AC-C2 未端到端验证**~~ — ✅ 已补齐。AC-C2 覆盖 API key 新建默认模型别名；AC-B3 覆盖动态猫新会话响应和 resume registry-change reinjection | ~~低~~ done | — | — |
 | R-4 | **猫猫模板机制未做** — 社区 issue 里提到的"预设品种→一键创建变体"能力，当前 Hub 只有完全手动填表 | 低（非 MVP 范围） | 用户量增长后 onboarding 体验优化 | 未来 Feature |
 | R-5 | **社区 issue #109 仍 OPEN** — 应同步更新状态 | 低 | 和开源同步时 | 发 comment 说明进度 + 关闭或标为 phase 2 |
 | R-6 | ~~**Hub 编辑器滚动时右上角 X 按钮跟着滚**~~ — ✅ 已修复（PR #665 初版 + PR #714 二修）。3 个 modal 统一改为 flex-col 布局，header/footer 固定，仅 content 滚动 | ~~中~~ done | — | — |
@@ -230,12 +231,12 @@ community_issue: "#109"
 
 | # | 场景 | 预期 | 状态 |
 |---|------|------|------|
-| V-1 | 新会话：Hub 创建动态猫后，新对话中 @ 该猫 | API 路由成功，猫正常响应 | ⬜ 待验证 |
-| V-2 | resume 会话（无 reinjection）：已有 session 中 @ 新动态猫 | 需确认 roster 是否包含新猫 | ⬜ 待验证 |
+| V-1 | 新会话：Hub 创建动态猫后，新对话中 @ 该猫 | API 路由成功，猫正常响应 | ✅ `invoke-single-cat.test.js` 覆盖 runtime-created cat 新会话响应；`system-prompt-builder.test.js` 覆盖新 roster |
+| V-2 | resume 会话（无 reinjection）：已有 session 中 @ 新动态猫 | 需确认 roster 是否包含新猫 | ✅ CatRegistry revision 变化触发 static identity reinjection；测试确认保留同一 CLI sessionId 且刷新 roster |
 | V-3 | resume + forceReinjection（压缩触发）：压缩后 @ 新动态猫 | reinjection 刷新 roster，路由成功 | ⬜ 待验证 |
 | V-4 | API 路由链（connector/A2A）：外部消息 @ 动态猫 | catRegistry 实时生效，路由成功 | ⬜ 待验证 |
 
-> **F127 close 前提**：V-1 + V-2 必测（核心风险在 resume 边界，不测 = 绕过已知风险）。V-3/V-4 为增强验证，可选。若不测 V-2，需铲屎官显式风险接受后才可 close。
+> **F127 close 前提**：V-1 + V-2 已覆盖。V-3/V-4 仍属于增强验证，不阻塞 close。
 
 ## Review Gate
 

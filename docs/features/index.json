@@ -783,7 +783,7 @@
     {
       "id": "F127",
       "name": "猫猫管理重构 — 账户配置与猫猫实例分离，支持动态创建猫 + 自定义别名 @ 路由",
-      "status": "in-progress (intake + account pollution fix done, AC-B3/AC-C2 E2E pending) | **Owner**: 金渐层 + 砚砚 | **Priority**: P1",
+      "status": "done | **Completed**: 2026-04-29 | **Owner**: 金渐层 + 砚砚 | **Priority**: P1",
       "file": "F127-cat-instance-management.md"
     },
     {

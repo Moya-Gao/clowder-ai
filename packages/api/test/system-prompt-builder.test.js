@@ -371,6 +371,32 @@ describe('SystemPromptBuilder', () => {
     assert.ok(identity.includes('@暹罗猫') || identity.includes('@gemini'), 'Should list gemini mention');
   });
 
+  test('F127 V-1: buildStaticIdentity includes runtime-created cats in new-session roster', async () => {
+    const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const originalConfigs = catRegistry.getAllConfigs();
+    try {
+      catRegistry.register('runtime-spark', {
+        ...originalConfigs.codex,
+        displayName: '火花猫',
+        nickname: '小火花',
+        mentionPatterns: ['@runtime-spark', '@火花猫'],
+        defaultModel: 'gpt-5.4-mini',
+        roleDescription: '快速执行',
+        teamStrengths: '精确点改',
+      });
+
+      const identity = buildStaticIdentity('opus');
+      assert.match(identity, /## 队友名册/, 'new session identity must include roster');
+      assert.match(identity, /火花猫\/小火花/, 'runtime-created cat must be listed');
+      assert.match(identity, /@runtime-spark · gpt-5\.4-mini/, 'runtime-created model alias must be visible');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
   test('buildStaticIdentity roster excludes self', async () => {
     const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const opusRoster = buildStaticIdentity('opus');
