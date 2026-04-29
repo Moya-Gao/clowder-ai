@@ -257,10 +257,10 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 - [ ] AC-C2: 烁烁 Edit/Write 范围限定（非 src/ packages/ 目录）
 - [ ] AC-C3: 烁烁专属 pre-commit hook（pnpm build + test 通过）
 
-### Phase D（砚砚 fallback 层数检测器）
-- [ ] AC-D1: PR review 自动检测 fallback 层数 diff + 阈值告警
-- [ ] AC-D2: quality-gate / review skill 强制问坐标系
-- [ ] AC-D3: 「规则层数」telemetry signal 接 F153 observability
+### Phase D（砚砚 fallback 层数检测器）✅
+- [x] AC-D1: PR review 自动检测 fallback 层数 diff + 阈值告警 — `scripts/check-fallback-layers.mjs` (per-file added ≥3 + cumulative ≥5)
+- [x] AC-D2: quality-gate / review skill 强制问坐标系 — quality-gate Step 2.6 + shared-rules.md 协议
+- [x] AC-D3: 「规则层数」telemetry signal 接 F153 observability — `F153_TELEMETRY=1` env var triggers JSON telemetry output
 
 ### Phase E（46 hotfix 跨猫 review）✅
 - [x] AC-E1: hotfix 自动检测 + 自动加 label — `scripts/check-hotfix-pattern.mjs`
@@ -349,6 +349,7 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 | 2026-04-29 | 47 不传球头脑风暴（46 + 47 + 砚砚 + 铲屎官）→ Phase G 纳入 F177。收敛路径：pass_ball MCP(❌ 重复造轮子) → hook grep 意图(❌ 补锅) → session end hook 格式提醒(✅ Gmail 模型) |
 | 2026-04-29 | Phase F merged (PR #1466) — Hook F-1 (doc anchor Read reminder) + Hook F-2 (quality-gate search→Read chain) + Hook F-3 (invocation search depth counter + telemetry) + magic words「我能猜出来」「碎片够了」synced to governance-l0 / shared-rules / SystemPromptBuilder |
 | 2026-04-29 | Phase G merged (PR #1470) — Session end Stop hook routing guard: Gmail-style "forgot attachment?" for A2A ball passing. 24 bash tests. 7 review rounds with 砚砚 |
+| 2026-04-29 | Phase D merged (PR #1461) — Fallback layer detector: `check-fallback-layers.mjs` scans git diff for fallback pattern growth (per-file added ≥3 + cumulative ≥5 triggers coordinate-system self-check). Integrated into quality-gate + governance. 3 review rounds with 砚砚 + 2 cloud reviews |
 
 ## Review Gate
 
