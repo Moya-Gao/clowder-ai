@@ -119,6 +119,46 @@ describe('agent hook sync targets', () => {
     }
   });
 
+  it('recognizes quoted $HOME Claude template commands and avoids duplicate managed hooks on sync', async () => {
+    await rm(targetRoot, { recursive: true, force: true });
+    targetRoot = await mkdtemp(join(tmpdir(), 'agent hooks home-'));
+
+    const claudeHooksDir = join(targetRoot, '.claude', 'hooks');
+    await mkdir(claudeHooksDir, { recursive: true });
+    await writeFile(join(claudeHooksDir, 'session-start-recall.sh'), '#!/bin/bash\necho start\n', 'utf8');
+    await writeFile(join(claudeHooksDir, 'session-stop-check.sh'), '#!/bin/bash\necho stop\n', 'utf8');
+
+    const settingsPath = join(targetRoot, '.claude', 'settings.json');
+    await writeFile(
+      settingsPath,
+      JSON.stringify(
+        {
+          hooks: {
+            SessionStart: [{ hooks: [{ type: 'command', command: '"$HOME/.claude/hooks/session-start-recall.sh"' }] }],
+            Stop: [{ hooks: [{ type: 'command', command: '"$HOME/.claude/hooks/session-stop-check.sh"' }] }],
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const before = await getAgentHookStatus({ projectRoot, targetRoot });
+    const beforeClaudeSettings = before.targets.find((target) => target.name === 'claude-settings');
+    assert.equal(beforeClaudeSettings?.status, 'configured');
+
+    await syncAgentHooks({ projectRoot, targetRoot });
+
+    const settings = JSON.parse(await readFile(settingsPath, 'utf8'));
+    assert.deepEqual(settings.hooks.SessionStart, [
+      { hooks: [{ type: 'command', command: join(targetRoot, '.claude', 'hooks', 'session-start-recall.sh') }] },
+    ]);
+    assert.deepEqual(settings.hooks.Stop, [
+      { hooks: [{ type: 'command', command: join(targetRoot, '.claude', 'hooks', 'session-stop-check.sh') }] },
+    ]);
+  });
+
   it('reports stale scripts with a diff summary and canonicalizes Codex hooks JSON', async () => {
     await syncAgentHooks({ projectRoot, targetRoot });
 

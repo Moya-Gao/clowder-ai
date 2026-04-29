@@ -20,18 +20,39 @@ function expectedClaudeCommand(targetRoot: string, eventName: keyof typeof MANAG
   return join(targetRoot, '.claude', 'hooks', MANAGED_HOOKS[eventName]);
 }
 
-function commandBasename(command: unknown): string | null {
+function stripWrappingShellQuotes(command: string): string {
+  const trimmed = command.trim();
+  if (trimmed.length < 2) return trimmed;
+  const first = trimmed[0];
+  const last = trimmed.at(-1);
+  return (first === '"' && last === '"') || (first === "'" && last === "'") ? trimmed.slice(1, -1) : trimmed;
+}
+
+function normalizeHookCommand(command: unknown, targetRoot: string): string | null {
   if (typeof command !== 'string') return null;
-  const normalized = command.replace(/\\/g, '/');
+  const unquoted = stripWrappingShellQuotes(command);
+  const expanded = unquoted.startsWith('$HOME/')
+    ? join(targetRoot, unquoted.slice('$HOME/'.length))
+    : unquoted.startsWith('${HOME}/')
+      ? join(targetRoot, unquoted.slice('${HOME}/'.length))
+      : unquoted.startsWith('~/')
+        ? join(targetRoot, unquoted.slice('~/'.length))
+        : unquoted;
+  return expanded.replace(/\\/g, '/');
+}
+
+function commandBasename(command: unknown, targetRoot: string): string | null {
+  const normalized = normalizeHookCommand(command, targetRoot);
+  if (normalized === null) return null;
   return normalized.slice(normalized.lastIndexOf('/') + 1);
 }
 
 function isManagedHookCommand(command: unknown, targetRoot: string): boolean {
-  if (typeof command !== 'string') return false;
-  const normalized = command.replace(/\\/g, '/');
+  const normalized = normalizeHookCommand(command, targetRoot);
+  if (normalized === null) return false;
   const managedDir = join(targetRoot, '.claude', 'hooks').replace(/\\/g, '/');
   if (!normalized.startsWith(`${managedDir}/`)) return false;
-  const basename = commandBasename(command);
+  const basename = commandBasename(command, targetRoot);
   return basename !== null && MANAGED_HOOK_NAMES.has(basename);
 }
 
@@ -48,9 +69,17 @@ function entryHooks(entry: JsonObject): JsonObject[] {
     : [];
 }
 
-function eventHasCommand(settings: JsonObject, eventName: keyof typeof MANAGED_HOOKS, command: string): boolean {
+function eventHasCommand(
+  settings: JsonObject,
+  eventName: keyof typeof MANAGED_HOOKS,
+  command: string,
+  targetRoot: string,
+): boolean {
+  const expected = normalizeHookCommand(command, targetRoot);
   return eventEntries(settings, eventName).some((entry) =>
-    entryHooks(entry).some((hook) => hook.type === 'command' && hook.command === command),
+    entryHooks(entry).some(
+      (hook) => hook.type === 'command' && normalizeHookCommand(hook.command, targetRoot) === expected,
+    ),
   );
 }
 
@@ -60,9 +89,13 @@ function eventHasStaleManagedCommand(
   expected: string,
   targetRoot: string,
 ): boolean {
+  const expectedCommand = normalizeHookCommand(expected, targetRoot);
   return eventEntries(settings, eventName).some((entry) =>
     entryHooks(entry).some(
-      (hook) => hook.type === 'command' && isManagedHookCommand(hook.command, targetRoot) && hook.command !== expected,
+      (hook) =>
+        hook.type === 'command' &&
+        isManagedHookCommand(hook.command, targetRoot) &&
+        normalizeHookCommand(hook.command, targetRoot) !== expectedCommand,
     ),
   );
 }
@@ -92,8 +125,8 @@ export function claudeSettingsHealth(targetRoot: string): HealthResult {
     const settings = readJsonObject(targetPath);
     const startCommand = expectedClaudeCommand(targetRoot, 'SessionStart');
     const stopCommand = expectedClaudeCommand(targetRoot, 'Stop');
-    const hasStart = eventHasCommand(settings, 'SessionStart', startCommand);
-    const hasStop = eventHasCommand(settings, 'Stop', stopCommand);
+    const hasStart = eventHasCommand(settings, 'SessionStart', startCommand, targetRoot);
+    const hasStop = eventHasCommand(settings, 'Stop', stopCommand, targetRoot);
     if (hasStart && hasStop) {
       return { name: 'claude-settings', drifted: false, status: 'configured', targetPath, reason: 'configured' };
     }

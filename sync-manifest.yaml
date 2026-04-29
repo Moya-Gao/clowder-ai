@@ -39,6 +39,9 @@ managed_files:
   - TRADEMARKS.md
   - .github/workflows/ci.yml
   - .github/workflows/release-desktop.yml
+  # F180 user-level hook templates for open-source users
+  - .claude/hooks/user-level/README.md
+  - .claude/hooks/user-level/claude-settings.template.json
   # docs/ 单文件导出（需 transform）
   - docs/VISION.md
   - docs/SOP.md
@@ -119,6 +122,9 @@ managed_scripts:
   - scripts/stop-windows.ps1
   - scripts/windows-command-helpers.ps1
   - scripts/windows-installer-ui.ps1
+  # F180 user-level hook truth source
+  - .claude/hooks/user-level/session-start-recall.sh
+  - .claude/hooks/user-level/session-stop-check.sh
 
 # ── docs/ 生成型导出（由脚本生成，不直出原始文件）──────────────
 # 这些文件由 sync 脚本的 transform 步骤生成到目标仓

@@ -144,6 +144,15 @@ function readYamlTopLevelList(relPath, sectionName) {
   return parseYamlTopLevelList(readFileSync(resolve(ROOT, relPath), 'utf-8'), sectionName);
 }
 
+function assertPortableClaudeHookTemplate(template) {
+  assert.doesNotMatch(template, /(?:\/(?:Users|home)\/[^"'\s]+|[A-Za-z]:(?:\/|\\\\+)Users(?:\/|\\\\+)[^"'\s]+)/);
+}
+
+function readClaudeHookTemplateCommands(template) {
+  const parsed = JSON.parse(template);
+  return [parsed.hooks.SessionStart[0].hooks[0].command, parsed.hooks.Stop[0].hooks[0].command];
+}
+
 function readSyncScript() {
   return readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
 }
@@ -569,6 +578,53 @@ excluded:
           managedScripts.includes(scriptPath),
           `sync-manifest should export ${scriptPath} instead of deleting it from clowder-ai`,
         );
+      }
+    });
+
+    it('sync-manifest exports F180 user-level hook truth source', () => {
+      const managedScripts = readYamlTopLevelList('sync-manifest.yaml', 'managed_scripts');
+      const requiredHookScripts = [
+        '.claude/hooks/user-level/session-start-recall.sh',
+        '.claude/hooks/user-level/session-stop-check.sh',
+      ];
+
+      for (const scriptPath of requiredHookScripts) {
+        assert.ok(
+          managedScripts.includes(scriptPath),
+          `sync-manifest should export ${scriptPath} so open-source users have hook templates`,
+        );
+      }
+    });
+
+    it('sync-manifest exports a portable F180 Claude settings hook template', () => {
+      const managedFiles = readYamlTopLevelList('sync-manifest.yaml', 'managed_files');
+      const templatePath = '.claude/hooks/user-level/claude-settings.template.json';
+
+      assert.ok(
+        managedFiles.includes(templatePath),
+        `sync-manifest should export ${templatePath} as the Claude settings hook template`,
+      );
+
+      const template = readFileSync(resolve(ROOT, templatePath), 'utf-8');
+      assertPortableClaudeHookTemplate(template);
+      assert.doesNotThrow(() => JSON.parse(template));
+
+      const commands = readClaudeHookTemplateCommands(template);
+      assert.deepEqual(commands, [
+        '"$HOME/.claude/hooks/session-start-recall.sh"',
+        '"$HOME/.claude/hooks/session-stop-check.sh"',
+      ]);
+    });
+
+    it('F180 Claude settings hook template guard rejects maintainer absolute-path variants', () => {
+      const absolutePathTemplates = [
+        '{"hooks":{"SessionStart":[{"hooks":[{"command":"/home/alice/.claude/hooks/session-start-recall.sh"}]}]}}',
+        '{"hooks":{"SessionStart":[{"hooks":[{"command":"C:/Users/Alice/.claude/hooks/session-start-recall.sh"}]}]}}',
+        '{"hooks":{"SessionStart":[{"hooks":[{"command":"C:\\\\Users\\\\Alice\\\\.claude\\\\hooks\\\\session-start-recall.sh"}]}]}}',
+      ];
+
+      for (const template of absolutePathTemplates) {
+        assert.throws(() => assertPortableClaudeHookTemplate(template));
       }
     });
 
