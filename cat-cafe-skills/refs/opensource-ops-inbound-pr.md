@@ -199,13 +199,30 @@ PR merge 进 clowder-ai 后，**必须做 intake 登记闭环**（即使决定�
 **`--record` 和 `--advance-ledger` 视为同一检查点：record 完立刻尝试 advance。**
 
 **铁律：recorded ≠ absorbed-complete。** ledger 里有 record 只证明”看过了”，不证明”intake 完整”。
-complete 的判定标准：Intake Intent Issue 里每个 `absorb` 文件都有对应的 commit，且 reviewer 签字确认。
+默认 complete 的判定标准：Intake Intent Issue 里每个 `absorb` 文件都有对应的 commit，且 reviewer 签字确认。
 
-### Step 0: Intake Intent Issue `[cat-cafe]` 🔴（absorbed 决策时必做）
+### Step 0: Intake Intent Issue `[cat-cafe]` 🔴（默认 absorbed lane 必做）
 
 **事故背景（clowder-ai#290 覆盖 clowder-ai#276）**：sync PR 声称 “improved intake of #276”，但只 intake 了 backend 一个文件，前端三处修复全部遗漏。根因：intake 时只看了 PR title/摘要，没有逐 file 对比。没有 reviewer 对照验收。
 
-**规则**：决定 `absorbed` 的社区 PR，必须在 cat-cafe 建 GitHub Issue 作为 intake 的 “spec”。
+**规则**：决定 `absorbed` 的社区 PR，默认必须在 cat-cafe 建 GitHub Issue 作为 intake 的 “spec”。
+
+**受控例外：`direct-main historical backfill` / `outbound-filed hotfix`**
+
+当 source patch 已经直接落在 `cat-cafe main`，不存在可追溯的 cat-cafe absorb PR 路径时，允许：
+
+- 用 `--skip-absorbed-guard` 直接做 ledger backfill
+- 没有 `intake_intent_issue` / `absorb_pr` / `review_proof`
+- 不伪装成“正常 absorb PR 已走完”
+
+这类例外的 complete 标准改为：
+
+1. source patch 已落在 `cat-cafe main`
+2. commit message / diff / 测试输出能证明 `Result ⊇ Source Intent`
+3. `--record` 产物带 backfill note
+4. `--record` 后立刻 `--advance-ledger`
+
+**允许缺字段，不允许补假字段。** 如果只是懒得开 issue/PR，不算例外；只有“代码先 landed，后补账”的历史 backfill 和 outbound-filed hotfix 才能走这条。
 
 > **闭环规则（新增）**：后续的 cat-cafe absorb PR 必须在 **PR body** 写同仓 auto-close 语法：`Closes #<IntakeIntentIssue>`。如果一个 absorb PR 覆盖多个 intent issue，就逐行写多个 `Closes #...`。这样 merge 时 GitHub 会自动关 issue，不会留下“代码 merged 了但 spec 还 open”的半状态。
 
@@ -320,9 +337,10 @@ Closes #<IntakeIntentIssue>
 
 完成后走 `request-review` → reviewer 按 Step 2.5 对照 Intent Issue 验收。
 
-### Step 2.5: Intake Review Guard 🔴（absorbed 时必做）
+### Step 2.5: Intake Review Guard 🔴（默认 absorbed lane 必做）
 
 **Intake = 小 Feature，必须有 review 验收。** Reviewer 对照 Intake Intent Issue（Step 0）逐项检查。
+`direct-main historical backfill` / `outbound-filed hotfix` 不走本节，因为没有 cat-cafe absorb PR 可挂 formal review；它们依赖 Step 3 的 backfill note + commit/test evidence，而不是伪造 review URL。
 
 **Reviewer checklist**：
 
@@ -361,19 +379,21 @@ Closes #<IntakeIntentIssue>
 
 ### Step 3: Record + Immediate Advance — 登记决策并立刻尝试推进门禁
 
-（Intake Review Guard 通过后才执行此步。）
+（默认 absorbed lane：Intake Review Guard 通过后才执行此步。）
 
 ```bash
 bash scripts/intake-from-opensource.sh --record --pr {N} --decision absorbed \
   --intent-issue {cat-cafe-intent-issue-id} \
   --absorb-pr {cat-cafe-absorb-pr-id} \
   --review-proof {github-review-url-or-local-proof-file}
+# 例外: direct-main historical backfill / outbound-filed hotfix
+bash scripts/intake-from-opensource.sh --record --pr {N} --decision absorbed --skip-absorbed-guard
 # 或: --decision public-only
 # 或: --decision rejected
 bash scripts/intake-from-opensource.sh --advance-ledger
 ```
 
-`--review-proof` 不是“有链接就行”：
+默认 absorbed lane 下，`--review-proof` 不是“有链接就行”：
 - URL 证据必须指向同一个 absorb PR（`cat-cafe#<absorb-pr>`）的 `#issuecomment-*` / `#pullrequestreview-*` / `#discussion_r*`
 - 且证据内容必须显式覆盖 absorb PR 当前 HEAD（写出当前 SHA，或 review payload 的 `commit_id` = 当前 HEAD）
 - 本地文件证据也必须包含当前 HEAD SHA（全长或 short SHA）
@@ -381,7 +401,7 @@ bash scripts/intake-from-opensource.sh --advance-ledger
 如果 `--advance-ledger` 失败，说明**还有别的社区 PR 没登记**，不能把当前 PR 停在”已吸收但没推进水位”的半状态。
 先把遗漏 PR 补 record，再重新跑 advance。
 
-### Step 3.5: Merge Absorb PR + Close Intake Intent Issue
+### Step 3.5: Merge Absorb PR + Close Intake Intent Issue（默认 absorbed lane）
 
 absorb PR merge 后，Intake Intent Issue 必须同时闭环：
 
@@ -389,6 +409,7 @@ absorb PR merge 后，Intake Intent Issue 必须同时闭环：
 - 兜底：如果 PR 已 merge 但 issue 仍 open，必须立刻手工关闭并留言回链 merge PR / merge commit
 
 **为什么这步不能省**：`outbound-sync` 的 Community Diff Guard 已经把“intake issue 已 closed”当成 absorbed-complete 的信号之一。issue 留在 open，会把已完成 intake 伪装成半状态。
+如果是 `direct-main historical backfill` / `outbound-filed hotfix`，本节不适用；那条线的闭环信号是 backfill note + advanced ledger，而不是 issue closed。
 
 ### Step 4: Sync Gate 排错 — 区分”没登记”还是”水位没推进”
 
@@ -412,10 +433,16 @@ Issue accept → Merge Gate (B1):
   → ②-b Maintainer Reframing（user-facing 必填）+ UI/UX Design Gate
   → ③ 质量 → ④ Intake 预判
 → Merge (B2)
-  → Intake Intent Issue (B3.0) → Plan (B3.1) → Brand Guard (B3.1.5)
-  → Execute Absorb (B3.2) → Intake Review Guard (B3.2.5)
-  → Record + Advance (B3.3)
-  → Merge Absorb PR + Close Intent Issue (B3.5)
+  → 默认 absorbed lane:
+      Intake Intent Issue (B3.0) → Plan (B3.1) → Brand Guard (B3.1.5)
+      → Execute Absorb (B3.2) → Intake Review Guard (B3.2.5)
+      → Record + Advance (B3.3)
+      → Merge Absorb PR + Close Intent Issue (B3.5)
+  → 例外 lane:
+      direct-main historical backfill / outbound-filed hotfix
+      → targeted validation evidence
+      → Record with --skip-absorbed-guard
+      → Advance ledger
 ```
 
 每一步断了都不能跳。

@@ -71,7 +71,7 @@ description: >
 
 1. `[clowder-ai]` **Merge Gate**：accepted issue? → **方向(五问)?** → 质量? → intake 预判?
 2. `[clowder-ai]` Merge 执行（Patch 自主 / Feature 升级铲屎官）
-3. `[cat-cafe]` **Intake Gate**：Intake Intent Issue（逐 file 决策） → `plan` → 执行吸收 → **Intake Review Guard** → `record + advance-ledger` → merge absorb PR（auto-close Intake Intent Issue）
+3. `[cat-cafe]` **Intake Gate**：默认走 Intake Intent Issue（逐 file 决策） → `plan` → 执行吸收 → **Intake Review Guard** → `record + advance-ledger` → merge absorb PR（auto-close Intake Intent Issue）；例外：`direct-main historical backfill` / `outbound-filed hotfix` 可用 `--skip-absorbed-guard` 直接补 ledger，无需伪造 issue / absorb PR / review proof
 4. 详细步骤 → [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md)
 
 ### C: Outbound PR
@@ -129,13 +129,14 @@ description: >
 | `packages/web/src/utils/api-client.ts` | CORS origins / 域名 | 双仓域名共存 | 可能只有开源仓域名 |
 | `packages/web/public/icons/*` | favicon.svg / icon-*.png | 家里的三猫 logo | 可能不同 |
 
-14. **recorded ≠ absorbed-complete**：ledger 里有 `absorbed` 记录只证明"看过了"，不证明"intake 完整"。complete 的判定标准：Intake Intent Issue 里每个 `absorb` 文件都有对应的 commit，且 reviewer 对照 Intent Issue 签字确认。事故来源：clowder-ai#290 sync 覆盖了 clowder-ai#276 的社区修复——ledger 记了 absorbed 但只 intake 了 5 个文件中的 1 个
-15. **Intake = 小 Feature，有 spec 有 review**：`absorbed` 决策的社区 PR 必须在 cat-cafe 建 Intake Intent Issue（逐 file 决策表），实现后走 `request-review` 让 reviewer 对照 Issue 验收。详见 [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md) Step 0 + Step 2.5
-16. **Outbound sync 前必须过 Community Diff Guard**：sync 前检查 clowder-ai 上是否有已 merge 但未完整 intake 的社区 PR，且其改动文件与 sync diff 有交集。交集不为空 = 会覆盖社区修复 → 必须先完成 intake 再 sync。详见 [Outbound Sync 文档](../refs/opensource-ops-outbound-sync.md) Step 1.5
-17. **Intake Intent Issue 必须闭环关闭**：absorb PR 的 body 必须写 `Closes #<intake-issue>`（同仓 auto-close 语法），让 issue 在 merge 时自动关闭；如果 merge 后 issue 仍 open，必须立刻手工关闭。open issue = intake 仍处于半状态。
-18. **🧬 伪 Fxxx 锚点 = 认知投毒（Feat Anchor Guard）**：`docs/features/Fxxx-*.md` 是家里知识图谱的根真相源。PR / commit / 代码注释里出现的每一个 `Fxxx` 都必须对应一个真实 feature doc。社区 PR 常把 issue `#NNN` 误写成 `FNNN`，或借 "F-pilot / F-phase" 自造编号；这些伪锚点一旦被 intake 进家，reviewer / 新猫会把它当成"方向已拍板"的证据，跳过方向评估（家规 P4 违反）。Inbound PR B1 Gate 的 ①-b Feat Anchor Guard 必做：扫 PR diff + body 里所有 `F[0-9]{2,4}` → 核 `docs/features/` → 伪锚点 = 请作者改写 `#NNN` 或删除；家里历史污染 = 校正后再 port + 开 cleanup issue。**不以伪 Fxxx 当决策论据。** 事故来源：clowder-ai#507 讨论中 maintainer 猫用伪锚点 `pre-F340` 当 #506 决策论据，实际 `F340` 是代码注释里把 issue #340 写成 `FNNN` 格式的误用（正确 ref 应为 `clowder-ai#340`），shared types 散布 13 处。详见 [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md) ①-b。
-19. **Intake Guard = 硬约束 + 软约束**：硬约束负责机器阻塞：`Path Guard`（最终 merge diff 只能落在 Intent Issue 文件表 + exception list）、`Overlap Guard`（同文件社区改动 + 家里主线演化 = 禁止 safe-cherry-pick，强制 manual-port）、`High-risk File Guard`（入口接线、route 注册、DI、env、allowlist、auth/callback、sync 脚本等必须给 proof；`--mode=plan` 会自动标红）。软约束负责猫的元认知：intake 不是覆盖文件，而是把 source intent replay 到当前 cat-cafe main，同时保住 home invariants。详见 [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md) Step 1.1。
-20. **三真相不是三份文件表，而是两类行为 + 一个结果**：每个 manual-port 必须写清 `Source Behavior`（社区想带回什么）、`Must Preserve Home Behavior`（家里已有功能/bugfix/安全边界不能丢）、`Proof`（测试、zero-diff 对照、review 证据）。最终判定是 `Result ⊇ Source Intent` 且 `Result ⊇ Home Invariants`。如果猫说不清 home invariant，先停下来查 main 历史 / feature spec / 现有测试，不能继续吸收。
+14. **recorded ≠ absorbed-complete**：ledger 里有 `absorbed` 记录只证明"看过了"，不证明"intake 完整"。默认 complete 的判定标准：Intake Intent Issue 里每个 `absorb` 文件都有对应的 commit，且 reviewer 对照 Intent Issue 签字确认。事故来源：clowder-ai#290 sync 覆盖了 clowder-ai#276 的社区修复——ledger 记了 absorbed 但只 intake 了 5 个文件中的 1 个
+15. **`direct-main historical backfill` / `outbound-filed hotfix` 是受控例外，不伪装成 absorb PR 流程**：这两类 case 允许 `--skip-absorbed-guard`，可没有 `intake_intent_issue` / `absorb_pr` / `review_proof`。它们的 complete 标准改为：source patch 已落到 `cat-cafe main`、有可追溯 commit/测试证据、ledger 记录带 backfill note、并且立刻 `--advance-ledger`。允许缺字段，不允许伪造字段。
+16. **Intake = 小 Feature，有 spec 有 review（默认 absorbed lane）**：`absorbed` 决策的社区 PR 默认必须在 cat-cafe 建 Intake Intent Issue（逐 file 决策表），实现后走 `request-review` 让 reviewer 对照 Issue 验收。详见 [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md) Step 0 + Step 2.5
+17. **Outbound sync 前必须过 Community Diff Guard**：sync 前检查 clowder-ai 上是否有已 merge 但未完整 intake 的社区 PR，且其改动文件与 sync diff 有交集。交集不为空 = 会覆盖社区修复 → 必须先完成 intake 再 sync。详见 [Outbound Sync 文档](../refs/opensource-ops-outbound-sync.md) Step 1.5
+18. **Intake Intent Issue 必须闭环关闭（默认 absorbed lane）**：absorb PR 的 body 必须写 `Closes #<intake-issue>`（同仓 auto-close 语法），让 issue 在 merge 时自动关闭；如果 merge 后 issue 仍 open，必须立刻手工关闭。open issue = intake 仍处于半状态。
+19. **🧬 伪 Fxxx 锚点 = 认知投毒（Feat Anchor Guard）**：`docs/features/Fxxx-*.md` 是家里知识图谱的根真相源。PR / commit / 代码注释里出现的每一个 `Fxxx` 都必须对应一个真实 feature doc。社区 PR 常把 issue `#NNN` 误写成 `FNNN`，或借 "F-pilot / F-phase" 自造编号；这些伪锚点一旦被 intake 进家，reviewer / 新猫会把它当成"方向已拍板"的证据，跳过方向评估（家规 P4 违反）。Inbound PR B1 Gate 的 ①-b Feat Anchor Guard 必做：扫 PR diff + body 里所有 `F[0-9]{2,4}` → 核 `docs/features/` → 伪锚点 = 请作者改写 `#NNN` 或删除；家里历史污染 = 校正后再 port + 开 cleanup issue。**不以伪 Fxxx 当决策论据。** 事故来源：clowder-ai#507 讨论中 maintainer 猫用伪锚点 `pre-F340` 当 #506 决策论据，实际 `F340` 是代码注释里把 issue #340 写成 `FNNN` 格式的误用（正确 ref 应为 `clowder-ai#340`），shared types 散布 13 处。详见 [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md) ①-b。
+20. **Intake Guard = 硬约束 + 软约束**：硬约束负责机器阻塞：`Path Guard`（最终 merge diff 只能落在 Intent Issue 文件表 + exception list）、`Overlap Guard`（同文件社区改动 + 家里主线演化 = 禁止 safe-cherry-pick，强制 manual-port）、`High-risk File Guard`（入口接线、route 注册、DI、env、allowlist、auth/callback、sync 脚本等必须给 proof；`--mode=plan` 会自动标红）。软约束负责猫的元认知：intake 不是覆盖文件，而是把 source intent replay 到当前 cat-cafe main，同时保住 home invariants。详见 [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md) Step 1.1。
+21. **三真相不是三份文件表，而是两类行为 + 一个结果**：每个 manual-port 必须写清 `Source Behavior`（社区想带回什么）、`Must Preserve Home Behavior`（家里已有功能/bugfix/安全边界不能丢）、`Proof`（测试、zero-diff 对照、review 证据）。最终判定是 `Result ⊇ Source Intent` 且 `Result ⊇ Home Invariants`。如果猫说不清 home invariant，先停下来查 main 历史 / feature spec / 现有测试，不能继续吸收。
 
 ## 和其他 skill 的区别
 
