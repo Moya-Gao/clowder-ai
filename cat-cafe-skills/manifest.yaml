@@ -304,6 +304,10 @@ skills:
       - "我们能学什么"
       - "marketing vs reality"
       - "算法含量"
+      - "拆解 hermes"
+      - "看看 letta 怎么做的"
+      - "codex cli 源码"
+      - "agent runtime 拆解"
     not_for:
       - "普通资料搜索"
       - "社区 issue/PR 运营"

@@ -15,6 +15,10 @@ triggers:
   - "我们能学什么"
   - "marketing vs reality"
   - "算法含量"
+  - "拆解 hermes"
+  - "看看 letta 怎么做的"
+  - "codex cli 源码"
+  - "agent runtime 拆解"
 ---
 
 # Open Source Teardown
@@ -31,34 +35,32 @@ triggers:
 
 ## Required Output
 
-```text
-docs/discussions/YYYY-MM-DD-{project}-deep-dive/
-├── README.md
-├── architecture-map.md
-├── {star-feature-or-module}.md
-├── comparison-with-cat-cafe.md
-└── lessons-and-next-steps.md
-```
+默认落盘：`docs/discussions/YYYY-MM-DD-{project}-deep-dive/`，包含 README、architecture-map、明星特性深挖、comparison、lessons/next steps。
 
 最小合格产物必须包含：
 
 - source repo URL、local path、commit SHA、更新时间。
 - 宣传 claims ledger：claim / evidence files / verdict / caveat。
-- 架构图或模块地图：entrypoints、state stores、extension points、empty dirs。
+- 架构图或模块地图：entrypoints、state stores、extension points、empty dirs；用 ASCII tree 或 Mermaid，参考 `docs/discussions/2026-04-28-hermes-agent-deep-dive/architecture-map.md`。
 - 明星特性深挖：每个特性都写到代码路径和运行链路。
 - 算法剥皮表：真算法 / LLM judge / 启发式 / 规则 / 外部服务。
 - Cat Café 对比：能学、不能学、我们因为 tradeoff 不 follow 的理由。
 
 报告模板见 [refs/report-template.md](refs/report-template.md)。八个审计镜头和命令细节见 [refs/teardown-method.md](refs/teardown-method.md)。
 
-## SOP
+## 进度纪律
+
+- **分次推进**：每只猫每次只做 1-2 份产物，commit 后传球，不一气呵成。
+- **双视角交叉**：架构/明星特性/合流/skill draft 至少跨两只猫完成。
+- **对口 review**：最终报告或 skill draft 必须由非作者猫 review，跨族优先。
 
 ### Step 0 — 定边界和真相源
 
 1. 记录用户原始问题和最关心的 claims。
-2. clone 或 update 到 `/Users/lysander/projects/ref/{project}`。
-3. 记录 `git rev-parse HEAD`、最新 tag/release、`git status --short`。
-4. 把 README/PPT/官网中的明星特性拆成 claims ledger。
+2. `search_evidence` 查我们是否已有同项目/同类系统讨论、lesson、feature anchor；有矛盾就 flag。
+3. clone 或 update 到 `/Users/lysander/projects/ref/{project}`。
+4. 记录 `git rev-parse HEAD`、最新 tag/release、`git status --short`。
+5. 把 README/PPT/官网中的明星特性拆成 claims ledger。
 
 不要先评价。先把“它声称自己有什么”列成可验证对象。
 
@@ -70,6 +72,7 @@ docs/discussions/YYYY-MM-DD-{project}-deep-dive/
 - state stores：DB、files、cache、memory、lockfile、config。
 - extension points：plugin/provider/adapter/registry。
 - suspicious placeholders：空目录、TODO-only、docs-only 模块。
+- community signals：高赞 issue、roadmap、真实 bug/feature 请求，验证宣传和用户痛点是否一致。
 
 ### Step 2 — 明星特性逐个追链路
 
@@ -133,6 +136,7 @@ signal -> decision -> state mutation -> future behavior
 | 把 LLM judge 当算法 | 高估系统可验证性 | 算法表强制分栏 |
 | 把 hash update 当 stale | 混淆上游版本和知识失效 | 分开写 package update / knowledge stale |
 | 把 telemetry 当治理 | `last_used_at` 被过度解读 | 看它是否进入排序/淘汰/晋升 |
+| 只看源码不看社区 | 错过用户真实痛点和官方 roadmap | 查高赞 issue / bug / enhancement |
 | 用“我们没有”替代 tradeoff | 把设计选择误报成缺口 | 写清价值函数和哲学理由 |
 | 一只猫写完不找 review | 方法论未经挑战 | skill/report 交对口猫 review |
 
@@ -143,8 +147,4 @@ signal -> decision -> state mutation -> future behavior
 - `expert-panel`：多猫观点碰撞；本 skill 是**固定产物和检查项**。
 - `writing-skills`：写 skill 的质量纪律；本 skill 可产出候选 skill，但写入时仍要加载 `writing-skills`。
 
-## Next Step
-
-- 形成工程/产品决策 → `collaborative-thinking` 或 `feat-lifecycle`。
-- 形成新 skill / 修改 skill → `writing-skills`。
-- 需要外部社区情报 → `deep-research` 或 `opensource-ops`。
+下一步：工程/产品决策 → `collaborative-thinking` 或 `feat-lifecycle`；新 skill/修改 skill → `writing-skills`；外部社区情报 → `deep-research` 或 `opensource-ops`。

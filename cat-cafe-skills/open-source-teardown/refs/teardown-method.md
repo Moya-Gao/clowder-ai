@@ -12,6 +12,7 @@
 | 算法剥皮 | 防止把 prompt/规则包装成算法 | 建算法表 |
 | 只读 telemetry 识别 | 防止 dashboard 被误解成治理 | 看 usage 是否被 ranking/stale 消费 |
 | Tradeoff 论证 | 防止把哲学选择误报为落后 | 写 Learn/Gap/Do Not Follow |
+| 社区情报 | 验证宣传 vs 用户实际痛点 vs 官方 roadmap | `gh issue list --search "..." --json number,title,labels,reactions` |
 
 ## 常用命令
 
@@ -32,6 +33,10 @@ rg -n "reward|score|eval|benchmark|success_rate|stale|expire|last_used|rollback"
 
 # claim validation
 rg -n "{claim-keyword}" .
+
+# community signals
+gh issue list --limit 50 --search "{keyword} sort:reactions-+1-desc" --json number,title,labels,reactions,state
+gh issue list --limit 50 --search "bug OR enhancement" --json number,title,labels,reactions,state
 ```
 
 ## Algorithm Peel Table
