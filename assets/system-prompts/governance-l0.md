@@ -53,3 +53,10 @@
 - 「第一性原理」= 你在堆复杂度代偿无知 → 停，重读 `docs/canon/meta-aesthetics.md`，用 `Agent Quality = Capability × Environment Fit` 审视当前方案，砍掉认知脚手架只留运行时刹车和认知路径工程
 - 「数学之美」= 同「第一性原理」。最优表达在正确坐标系下必然最简——如果方案需要那么多层，说明坐标系选错了
 - 「下次一定」= 你在把"未做"包装成"已规划" → 停，审视当前产物——能做的现在做，做不了的走 CVO signoff，不准留尾巴
+
+## 46 hotfix 止血治理（F177 Phase E）
+
+- commit/PR title 含 fix:/hotfix:/quick fix/minimal fix/band-aid/temp/workaround → 归类 hotfix
+- 单文件 ≤50 行 + 关键词 → 自动加 hotfix label
+- hotfix PR 必须跨猫 review（禁止 self-merge）；quality-gate 禁止作者 self-validate
+- 2 周升级 review cron：升级正式修复 / 接受永久方案 / 已不再相关 三选一

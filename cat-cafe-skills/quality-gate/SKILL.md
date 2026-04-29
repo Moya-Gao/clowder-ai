@@ -72,6 +72,7 @@ Step 2.5: CLOSE GATE MATRIX + FOLLOW-UP TAIL SCAN（F177 Phase A）🔴
     - 豁免：spec 的 Why/Risk/History 章节中引用历史上下文时使用这些词不触发
   - cvo_signoff 四件套完整性验证（proposal + cvo message + quote + scope）
   - 🔴 **47 盲审规则**（F177 Phase B）：若 PR 作者是 opus-47，quality-gate 必须由对家猫执行（砚砚优先，46 兜底）。审核者由 reviewer/系统指定，47 无选择权，47 的自评不计入放行判据
+  - 🔴 **hotfix 自检禁止**（F177 Phase E）：执行 `node scripts/check-hotfix-pattern.mjs`，若检测到 hotfix 模式，作者不得自行通过 quality-gate——必须由另一只猫执行 quality-gate。原因：hotfix 心态容易自我说服"够用了"，跨猫审视打破惯性
 
 Step 3: VERIFY — 逐项检查
   - 代码在哪？有测试覆盖？边界处理了？

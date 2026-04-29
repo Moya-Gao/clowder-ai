@@ -162,6 +162,28 @@ AI agent 100x 执行速度下，**方向正确性**的价值远大于**启动便
 
 **盲审机制**：47 的 close PR 必须由对家猫跑 quality-gate。审核者由 reviewer/系统按 roster 与角色词动态指定，47 无选择权。
 
+### 46 hotfix 标签 + 跨猫升级 review（F177 Phase E — 止血治理）
+
+> **设计原则**：hotfix 是止血不是治本。止血必须快（不阻塞发版），但必须有回路（不让止血变永居）。
+
+**hotfix 自动检测**：commit message 或 PR title 匹配以下关键词（不区分大小写）：
+`fix:` `hotfix:` `quick fix` `minimal fix` `band-aid` `temp` `workaround`
+
+**自动加 label 条件**：单文件改动 ≤50 行 + 含上述关键词 → 自动加 `hotfix` label。
+自动检测：`scripts/check-hotfix-pattern.mjs`
+
+**跨猫 review 铁律**：hotfix PR 必须跨族（preferred）或同族不同个体 review，不允许 self-merge。
+- merge-gate 检测到 `hotfix` label → 强制校验 reviewer ≠ author
+- 无 review 放行 → merge-gate BLOCKED
+
+**quality-gate 自检禁止**：检测到 hotfix 模式时，作者不得自行通过 quality-gate（必须由另一只猫执行 quality-gate）。
+- 原因：hotfix 心态容易自我说服"够用了"，跨猫审视打破惯性
+
+**2 周升级 review（cron）**：hotfix 合入 2 周后自动触发升级 review。三选一处置：
+1. **升级正式修复**：开 feat 彻底解决根因
+2. **接受永久方案**：hotfix 本身就是最优解，标记为 permanent
+3. **已不再相关**：代码已被重写/删除，标记为 obsolete
+
 ---
 
 ## 角色词表（Skill 正文用角色词，禁用猫名）

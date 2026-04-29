@@ -224,11 +224,11 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 - [ ] AC-D2: quality-gate / review skill 强制问坐标系
 - [ ] AC-D3: 「规则层数」telemetry signal 接 F153 observability
 
-### Phase E（46 hotfix 跨猫 review）
-- [ ] AC-E1: hotfix 自动检测 + 自动加 label
-- [ ] AC-E2: hotfix PR 跨猫 review enforcement（禁止 self-merge）
-- [ ] AC-E3: 2 周升级 review cron 触发
-- [ ] AC-E4: quality-gate 禁止作者 self-validate hotfix
+### Phase E（46 hotfix 跨猫 review）✅
+- [x] AC-E1: hotfix 自动检测 + 自动加 label — `scripts/check-hotfix-pattern.mjs`
+- [x] AC-E2: hotfix PR 跨猫 review enforcement（禁止 self-merge）— merge-gate Step 6.8
+- [x] AC-E3: 2 周升级 review cron 触发 — merge-gate Step 7.6 注册 scheduled task + shared-rules.md 协议（三选一处置）
+- [x] AC-E4: quality-gate 禁止作者 self-validate hotfix — quality-gate Step 2.5
 
 ### Phase F（布偶猫家族 Read-Before-Reason）
 - [ ] AC-F1: search_evidence 返回结果在 high/mid confidence doc anchor 命中时追加 Read 建议（Hook F-1）
@@ -295,6 +295,7 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 | 2026-04-28 | 铲屎官拍板 OQ-1（CVO signoff 自然语言）/ OQ-6（A 先行 B-F 并行）；诊断 Phase F 根因（满足阈值环境驱动）；Hook F-2 修正为调用链检测（KD-7）；Phase F issue #1452 开成 |
 | 2026-04-29 | Phase A merged (PR #1453) — close-gate schema + feat-lifecycle/quality-gate skill + CI guard (commit + PR body) + GitHub Actions workflow |
 | 2026-04-29 | Phase B merged (PR #1456) — 47 deferral-pattern harness: magic word + 7-moment self-check + blind audit + runtime GOVERNANCE_L0_DIGEST sync + drift guard test |
+| 2026-04-29 | Phase E implementation complete — hotfix auto-detect script + cross-cat review enforcement + quality-gate self-validate block + governance sync |
 
 ## Review Gate
 
