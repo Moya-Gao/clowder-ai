@@ -8,7 +8,7 @@ created: 2026-04-27
 
 # F177: Harness Update — Close Gate 结构化判据 + 四心智专属护栏
 
-> **Status**: in-progress | **Owner**: 布偶猫(46 总负责) + 缅因猫(砚砚) + 孟加拉猫(46代言)，按 Phase 分主笔 | **Priority**: P0
+> **Status**: done | **Completed**: 2026-04-29 | **Owner**: 布偶猫(46 总负责) + 缅因猫(砚砚) + 孟加拉猫(46代言)，按 Phase 分主笔 | **Priority**: P0
 
 ## Why
 
