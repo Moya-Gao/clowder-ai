@@ -12,6 +12,9 @@ import { errorResult, successResult } from './file-tools.js';
 
 const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3002';
 
+const DOC_SOURCE_TYPES = new Set(['feature', 'decision', 'phase', 'lesson', 'plan', 'research']);
+let searchCount = 0;
+
 export const searchEvidenceInputSchema = {
   query: z.string().min(1).describe('Search query for project knowledge'),
   limit: z.number().int().min(1).max(20).optional().describe('Max results (default 5)'),
@@ -104,12 +107,27 @@ export async function handleSearchEvidence(input: {
 
     const degradedBanner = formatDegradedBanner(data.degraded, data.degradeReason, data.effectiveMode);
 
+    // Hook F-3: search depth tracking runs on ALL searches including empty results
+    searchCount++;
+    const depthLine = `📊 本轮第 ${searchCount} 次搜索 | 搜到 doc anchor → Read 源文件，不要用摘要推理`;
+    const docHitsForTelemetry = data.results.filter(
+      (r) => (r.confidence === 'high' || r.confidence === 'mid') && DOC_SOURCE_TYPES.has(r.sourceType),
+    );
+    console.error(
+      `[cat-cafe-search-depth] ${JSON.stringify({
+        metric: 'search_depth',
+        searchCount,
+        resultCount: data.results.length,
+        docHitCount: docHitsForTelemetry.length,
+        scope: input.scope ?? 'all',
+        mode: input.mode ?? 'lexical',
+      })}`,
+    );
+
     if (data.results.length === 0) {
-      return successResult(
-        degradedBanner
-          ? `${degradedBanner}\n\nNo results found for: ${input.query}`
-          : `No results found for: ${input.query}`,
-      );
+      const noResultMsg = `No results found for: ${input.query}`;
+      const parts = [degradedBanner, noResultMsg, depthLine].filter(Boolean);
+      return successResult(parts.join('\n\n'));
     }
 
     const lines: string[] = [];
@@ -153,6 +171,21 @@ export async function handleSearchEvidence(input: {
       }
       lines.push('');
     }
+
+    // Hook F-1: Read reminder for high/mid confidence doc anchors (F177 Phase F)
+    const docHits = data.results.filter(
+      (r) => (r.confidence === 'high' || r.confidence === 'mid') && DOC_SOURCE_TYPES.has(r.sourceType),
+    );
+    if (docHits.length > 0) {
+      lines.push(`📌 高置信度文档命中 ${docHits.length} 个：`);
+      for (const d of docHits) {
+        lines.push(`   - ${d.anchor}`);
+      }
+      lines.push('   建议：直接 Read，不要止步摘要。摘要是索引，不是答案。');
+      lines.push('');
+    }
+
+    lines.push(depthLine);
 
     return successResult(lines.join('\n'));
   } catch (err) {

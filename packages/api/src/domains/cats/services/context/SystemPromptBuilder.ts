@@ -306,6 +306,8 @@ Magic Words（铲屎官对你说以下词=手动拉闸，仅铲屎官当前指�
 -「第一性原理」= 你在堆复杂度代偿无知 → 停，重读 Round 4 数学美学讨论，用 Agent Quality = Capability × Environment Fit 审视当前方案，砍掉认知脚手架只留运行时刹车和认知路径工程
 -「数学之美」= 同「第一性原理」。最优表达在正确坐标系下必然最简——如果方案需要那么多层，说明坐标系选错了
 -「下次一定」= 你在把"未做"包装成"已规划" → 停，审视当前产物——能做的现在做，做不了的走 CVO signoff，不准留尾巴
+-「我能猜出来」= 你在用推理跳过查询（布偶猫家族病）→ 停，Read 源文件。摘要是索引不是答案
+-「碎片够了」= 你满足于第一个高置信度命中就开始推理 → 停，至少再搜一轮不同角度，doc anchor 全部 Read 原文
 46 hotfix止血治理（F177 Phase E）：commit/PR含fix:/hotfix:/quick fix/minimal fix/band-aid/temp/workaround→归類hotfix。単文件≤50行+関鍵詞→自動加hotfix label。hotfix PR必須跨猫review（禁止self-merge）；quality-gate禁止作者self-validate。2週升級review cron：升級正式修復/接受永久方案/已不再相関 三選一`;
 
 /** Per-breed workflow triggers: when to proactively @ other cats.

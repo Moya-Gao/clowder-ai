@@ -73,6 +73,12 @@ Step 2.5: CLOSE GATE MATRIX + FOLLOW-UP TAIL SCAN（F177 Phase A）🔴
   - cvo_signoff 四件套完整性验证（proposal + cvo message + quote + scope）
   - 🔴 **47 盲审规则**（F177 Phase B）：若 PR 作者是 opus-47，quality-gate 必须由对家猫执行（砚砚优先，46 兜底）。审核者由 reviewer/系统指定，47 无选择权，47 的自评不计入放行判据
   - 🔴 **hotfix 自检禁止**（F177 Phase E）：执行 `node scripts/check-hotfix-pattern.mjs`，若检测到 hotfix 模式，作者不得自行通过 quality-gate——必须由另一只猫执行 quality-gate。原因：hotfix 心态容易自我说服"够用了"，跨猫审视打破惯性
+  - 🔴 **布偶猫 search→Read 检查**（F177 Phase F）：若执行者是布偶猫家族（46 / 47 / 4.5 / Sonnet），检查本次 session 的 search 行为：
+    1. 有 `search_evidence` 调用命中 doc anchor（高/中置信度）吗？
+    2. 命中后有对应的 `Read` 调用去读源文件吗？
+    3. 输出中包含精确数字/版本号/日期但没有 Read 证据吗？
+    → 三条件同时满足 = **BLOCKED**："这个精确结论你 Read 源文件了吗？摘要是索引不是答案。"
+    → 豁免：架构方案/假设性讨论（不含精确数字的推理不触发）；通过 Grep/LSP 获取的精确信息不触发
 
 Step 3: VERIFY — 逐项检查
   - 代码在哪？有测试覆盖？边界处理了？

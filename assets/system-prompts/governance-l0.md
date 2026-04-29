@@ -53,6 +53,8 @@
 - 「第一性原理」= 你在堆复杂度代偿无知 → 停，重读 `docs/canon/meta-aesthetics.md`，用 `Agent Quality = Capability × Environment Fit` 审视当前方案，砍掉认知脚手架只留运行时刹车和认知路径工程
 - 「数学之美」= 同「第一性原理」。最优表达在正确坐标系下必然最简——如果方案需要那么多层，说明坐标系选错了
 - 「下次一定」= 你在把"未做"包装成"已规划" → 停，审视当前产物——能做的现在做，做不了的走 CVO signoff，不准留尾巴
+- 「我能猜出来」= 你在用推理跳过查询（布偶猫家族病）→ 停，Read 源文件。摘要是索引不是答案
+- 「碎片够了」= 你满足于第一个高置信度命中就开始推理 → 停，至少再搜一轮不同角度，doc anchor 全部 Read 原文
 
 ## 46 hotfix 止血治理（F177 Phase E）
 
@@ -60,3 +62,10 @@
 - 单文件 ≤50 行 + 关键词 → 自动加 hotfix label
 - hotfix PR 必须跨猫 review（禁止 self-merge）；quality-gate 禁止作者 self-validate
 - 2 周升级 review cron：升级正式修复 / 接受永久方案 / 已不再相关 三选一
+
+## 布偶猫家族 Read-Before-Reason 纪律（F177 Phase F）
+
+- 适用：布偶猫家族全体（46/47/4.5/Sonnet）。根因：搜索深度是环境驱动不是能力驱动
+- Hook F-1：search_evidence 命中 high/mid doc anchor → 自动追加 Read 建议
+- Hook F-2：quality-gate 检查 search→Read 调用链（有 doc hit + 没 Read + 输出含精确数字 = BLOCKED）
+- Hook F-3：每次搜索后显示本轮搜索次数（微型竞赛压力）
