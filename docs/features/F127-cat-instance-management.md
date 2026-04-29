@@ -9,7 +9,7 @@ community_issue: "#109"
 
 # F127: 猫猫管理重构 — 账户配置与猫猫实例分离，支持动态创建猫 + 自定义别名 @ 路由
 
-> **Status**: in-progress (intake + fix done, AC 部分验收) | **Owner**: 金渐层 + 砚砚 | **Priority**: P1
+> **Status**: in-progress (intake + account pollution fix done, AC-B3/AC-C2 E2E pending) | **Owner**: 金渐层 + 砚砚 | **Priority**: P1
 
 ## Why
 
@@ -207,6 +207,7 @@ community_issue: "#109"
 | 2026-03-25 | AC-B3 分析修正 — 铲屎官质疑 + GPT-5.4 代码审查确认：根因不在 A2A parser fallback，而在 resumed session prompt reinjection 边界。增加验收矩阵 |
 | 2026-03-30 | R-11 立项追踪 — `cli.effort` 结构化编辑缺口确认为 F127 residual，开源侧跟踪 issue [clowder-ai#315](https://github.com/zts212653/clowder-ai/issues/315) |
 | 2026-03-30 | R-11 合入 — PR #882 为 Hub 补齐 provider-aware `cli.effort` 结构化编辑，runtime catalog 持久化 + 新 invocation 生效路径已打通 |
+| 2026-04-29 | Runtime account pollution 修复 — PR #1457 限制 cross-root homedir legacy account import，只保留项目 catalog / credential 显式引用的账号（含 legacy `providerProfileId`）；`pnpm gate` + 云端 Codex review 通过 |
 
 ## 遗留项（未来可能需要调整）
 
@@ -223,6 +224,7 @@ community_issue: "#109"
 | R-9 | **nuoda.vip 代理 model name 格式混淆** — API 代理用 `claude-opus-4-6`（Anthropic 原生），但 opencode CLI 需要 `anthropic/claude-opus-4-6`（provider/model 格式），Hub 不知道该用哪个 | 中（配置困惑） | 用第三方 API 代理时 | Hub 编辑器应按 client 类型自动处理 model name 格式 |
 | R-10 | **本地反代 `anthropic-proxy.mjs` 的 upstream 配置未初始化** — `start-dev.sh` 启动的反代（端口 9877）依赖 `.cat-cafe/proxy-upstreams.json` 配置上游，但 F127 intake 后 runtime 里该文件不存在。API key profile 创建应自动注册 upstream 到反代 | 中（反代功能不可用） | 配置 API key profile 用本地反代时 | profile 创建/更新时自动写 `proxy-upstreams.json` |
 | R-11 | ~~**Hub 缺少结构化、provider-aware 的 `cli.effort` 编辑**~~ — ✅ 已修复（PR #882）。Hub 已提供结构化 effort 字段；Claude=`low/medium/high/max`，Codex=`low/medium/high/xhigh`；保存写 `variant.cli.effort`；只对新 invocation 生效，不强切旧 session；开源跟踪 issue: [clowder-ai#315](https://github.com/zts212653/clowder-ai/issues/315) | ~~高（易错 + UX 差）~~ done | — | — |
+| R-12 | ~~**跨项目 homedir legacy 账号污染 runtime 账号配置**~~ — ✅ 已修复（PR #1457）。启动迁移与 installer import 现在只导入项目显式引用的 homedir legacy account；引用源覆盖 `accountRef`、legacy `providerProfileId`、catalog `accounts` keys、credential refs，并保留 installer 内置账号 | ~~中（账号配置 UI 出现 Agent Teams / Local 等外部项目垃圾项）~~ done | — | — |
 
 ## AC-B3 验收矩阵（E2E 验证清单）
 
@@ -250,6 +252,7 @@ community_issue: "#109"
 | **Fix PR** | [cat-cafe#631](https://github.com/zts212653/cat-cafe/pull/631) | owner→coCreator 重命名 + avatar/color 修复 |
 | **Fix PR** | [cat-cafe#632](https://github.com/zts212653/cat-cafe/pull/632) | catalog 读取改为字段级 deep merge |
 | **Fix PR** | [cat-cafe#714](https://github.com/zts212653/cat-cafe/pull/714) | R-6 二修：modal close button 固定 |
+| **Fix PR** | [cat-cafe#1457](https://github.com/zts212653/cat-cafe/pull/1457) | R-12：过滤 homedir legacy account 污染 |
 | **Internal Issue** | [cat-cafe#621](https://github.com/zts212653/cat-cafe/issues/621) | 家里 intake 跟踪 issue |
 | **Evolved from** | `docs/features/F062-ragdoll-provider-profile-hub.md` | 布偶猫 provider profile（Anthropic-only） |
 | **Related** | `docs/features/F032-agent-plugin-architecture.md` | CatRegistry 基础架构 |
