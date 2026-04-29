@@ -310,7 +310,7 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 |---|------|------|
 | OQ-1 | close gate 的"CVO 签字降级"是什么形式？ | ✅ 铲屎官拍板（2026-04-28）：自然语言表态，猫录入追溯消息ID。不做固定 token——铲屎官说"ok"就是签字 |
 | OQ-2 | 烁烁的 Dry Run Gate 在哪一层落地？pre-commit hook（要求烁烁本地有环境）vs CI 后置 vs hub-side enforcement | ⬜ Design Gate 拍板 |
-| OQ-3 | 砚砚的 fallback 层数阈值如何定？硬编码 / 配置 / 启发式（基于 module 历史层数 baseline） | ⬜ Design Gate 拍板 |
+| OQ-3 | 砚砚的 fallback 层数阈值如何定？硬编码 / 配置 / 启发式（基于 module 历史层数 baseline） | ✅ 已决：硬编码阈值（同文件新增 ≥3 层触发自检，累计 ≥5 层触发），脚本常量可调。选硬编码因为 fallback 模式检测本身是启发式，精确阈值意义不大——目的是触发坐标系自检不是硬拦截（2026-04-29） |
 | OQ-4 | hotfix 自动检测的关键词是否会误杀正常 commit？需要观察期数据 | ⬜ Phase E 上线后观察 |
 | OQ-5 | 47 magic word 选「下次一定」还是「先这样」/「留个尾巴」/「P2 后续」？或多个并存？ | ✅ 已决：magic word 表只放「下次一定」，语义同族由 Phase A close-tail scan 自动覆盖（47 确认 2026-04-29） |
 | OQ-6 | 6 个 Phase 是顺序做还是并行做？ | ✅ 铲屎官拍板（2026-04-28）：Phase A 先行，B-F Design Gate 后并行 |

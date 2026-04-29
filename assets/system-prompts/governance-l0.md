@@ -69,3 +69,9 @@
 - Hook F-1：search_evidence 命中 high/mid doc anchor → 自动追加 Read 建议
 - Hook F-2：quality-gate 检查 search→Read 调用链（有 doc hit + 没 Read + 输出含精确数字 = BLOCKED）
 - Hook F-3：每次搜索后显示本轮搜索次数（微型竞赛压力）
+
+## 缅因猫 fallback 层数检测（F177 Phase D）
+
+- 同一文件新增 ≥3 层 fallback（try/catch, ??, ||, else if 级联）→ 触发坐标系自检
+- 自检三问：①修坐标系还是补错误坐标系？②能否用坐标变换消除？③每层为什么不能去掉？
+- 自动检测：`scripts/check-fallback-layers.mjs`；quality-gate Step 3 引用结果

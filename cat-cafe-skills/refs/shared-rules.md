@@ -203,6 +203,19 @@ AI agent 100x 执行速度下，**方向正确性**的价值远大于**启动便
 - 同一个根因也导致 debug 猜测（"一定是没更新/没 build"而不验证 PID+HEAD+日志）
 - 不加 prompt——加输入端 affordance（Hook F-1）+ 输出端 metric（Hook F-3）+ 质量门禁（Hook F-2）
 
+### 缅因猫 fallback 层数检测协议（F177 Phase D — 坐标系治理）
+
+> **设计原则**：QA 审查猫的严谨是核心资产，但"严谨地在错误坐标系打补丁"比粗糙更危险——补丁掩盖根因，层数越多越难回溯。检测 fallback 层数增长，不是禁止 fallback，而是触发坐标系自检。
+
+**触发条件**：PR review / quality-gate 检测到 **同一文件** fallback 模式（`try/catch` / `if (!x) fallback` / `?? fallback` / `|| defaultValue` / `else if` 级联 / classifier 分支）**新增 ≥3 层**，或**同一代码路径累计 ≥5 层**。
+
+**触发后必做**：
+1. **坐标系自检**："这个 fix 是在修坐标系，还是在给错误坐标系打补丁？"
+2. **替代方案评估**：能否用坐标变换（换一个问题分解方式）消除 fallback 层？
+3. **层数合理性论证**：如果 fallback 确实必要，在 PR 说明为什么每一层都不能去掉
+
+**自动检测**：`scripts/check-fallback-layers.mjs` 扫描 PR diff，输出每文件 fallback 层数变化。`quality-gate` Step 3 引用该脚本结果。
+
 ---
 
 ## 角色词表（Skill 正文用角色词，禁用猫名）

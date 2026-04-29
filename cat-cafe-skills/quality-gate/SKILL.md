@@ -80,6 +80,12 @@ Step 2.5: CLOSE GATE MATRIX + FOLLOW-UP TAIL SCAN（F177 Phase A）🔴
     → 三条件同时满足 = **BLOCKED**："这个精确结论你 Read 源文件了吗？摘要是索引不是答案。"
     → 豁免：架构方案/假设性讨论（不含精确数字的推理不触发）；通过 Grep/LSP 获取的精确信息不触发
 
+Step 2.6: FALLBACK LAYER CHECK（F177 Phase D）🔴
+  - 执行：`node scripts/check-fallback-layers.mjs` 扫描 PR diff
+  - 同一文件新增 ≥3 层 fallback 或累计 ≥5 层 → 触发坐标系自检
+  - 自检三问：①修坐标系还是补错误坐标系？②坐标变换能否消除？③每层为什么不能去掉？
+  - 层数合理时在报告中说明理由；不合理时重构后再过 gate
+
 Step 3: VERIFY — 逐项检查
   - 代码在哪？有测试覆盖？边界处理了？
   - 🔴 交付物必须核实 commit/PR 状态（git log --grep + gh pr list）
