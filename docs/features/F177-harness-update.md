@@ -313,15 +313,15 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 | OQ-1 | close gate 的"CVO 签字降级"是什么形式？ | ✅ 铲屎官拍板（2026-04-28）：自然语言表态，猫录入追溯消息ID。不做固定 token——铲屎官说"ok"就是签字 |
 | OQ-2 | 烁烁的 Dry Run Gate 在哪一层落地？pre-commit hook（要求烁烁本地有环境）vs CI 后置 vs hub-side enforcement | ✅ 已决：commit-msg hook（本地执行，Gemini CLI 有 shell access，即时反馈优于 CI 后置；联动 F167 Phase E 数据驱动方向）（2026-04-29） |
 | OQ-3 | 砚砚的 fallback 层数阈值如何定？硬编码 / 配置 / 启发式（基于 module 历史层数 baseline） | ✅ 已决：硬编码阈值（同文件新增 ≥3 层触发自检，累计 ≥5 层触发），脚本常量可调。选硬编码因为 fallback 模式检测本身是启发式，精确阈值意义不大——目的是触发坐标系自检不是硬拦截（2026-04-29） |
-| OQ-4 | hotfix 自动检测的关键词是否会误杀正常 commit？需要观察期数据 | ⬜ Phase E 上线后观察 |
+| OQ-4 | hotfix 自动检测的关键词是否会误杀正常 commit？需要观察期数据 | ✅ Phase E 已上线并合入。误杀风险由 merge-gate Step 7.6 的 2 周升级 review cron 自动跟踪——如果 hotfix label 被误加，升级 review 时选"已不再相关"即可消除（2026-04-29） |
 | OQ-5 | 47 magic word 选「下次一定」还是「先这样」/「留个尾巴」/「P2 后续」？或多个并存？ | ✅ 已决：magic word 表只放「下次一定」，语义同族由 Phase A close-tail scan 自动覆盖（47 确认 2026-04-29） |
 | OQ-6 | 6 个 Phase 是顺序做还是并行做？ | ✅ 铲屎官拍板（2026-04-28）：Phase A 先行，B-F Design Gate 后并行 |
-| OQ-F1 | Hook F-1 在 MCP server 层加（影响所有 client）还是 search_evidence 函数层加？ | ⬜ Design Gate 拍板 |
+| OQ-F1 | Hook F-1 在 MCP server 层加（影响所有 client）还是 search_evidence 函数层加？ | ✅ 已决：MCP tool handler 层（invocation-scoped，stdio transport 每次 spawn 新进程），search_evidence 返回结果末尾追加 doc anchor Read 建议（2026-04-29） |
 | OQ-F2 | Hook F-2 设计方向 | ✅ 三猫共识（2026-04-28）：废弃推理动词检测，改为 search→Read 调用链检测。理由：布偶猫会换词绕过输出端检测 |
-| OQ-F3 | Hook F-3 telemetry 是布偶猫家族专属 dashboard 还是 all 猫透明？ | ⬜ Design Gate 拍板 |
+| OQ-F3 | Hook F-3 telemetry 是布偶猫家族专属 dashboard 还是 all 猫透明？ | ✅ 已决：all 猫透明——invocation-scoped counter 每只猫可见自己本轮搜索深度，跨族比较通过 F153 telemetry（`F153_TELEMETRY=1` env var）。数据用于自我观察不做绩效（2026-04-29） |
 | OQ-F4 | Phase F 是否需要单独 GitHub issue？ | ✅ 已开 [#1452](https://github.com/zts212653/cat-cafe/issues/1452)（2026-04-28） |
-| OQ-G1 | Session end hook 在哪一层实现？Claude Code CLI Stop hook（覆盖 Claude 系猫）/ Cat Cafe harness route-serial.ts（覆盖所有猫）/ 两层都做 | ⬜ Design Gate 拍板 |
-| OQ-G2 | 检测逻辑是否复用现有 parseA2AMentions + void-hold-detect，还是独立轻量实现？ | ⬜ Design Gate 拍板 |
+| OQ-G1 | Session end hook 在哪一层实现？Claude Code CLI Stop hook（覆盖 Claude 系猫）/ Cat Cafe harness route-serial.ts（覆盖所有猫）/ 两层都做 | ✅ 已决：Claude Code CLI Stop hook（`.claude/hooks/f177-routing-guard.sh`），覆盖 Claude 系猫。24 bash tests 验证正负例（2026-04-29） |
+| OQ-G2 | 检测逻辑是否复用现有 parseA2AMentions + void-hold-detect，还是独立轻量实现？ | ✅ 已决：独立轻量 bash 实现——grep 行首 @ / hold_ball / targetCats，不复用 parseA2AMentions（bash hook 无法调用 TS 函数，且独立实现更简单可靠）（2026-04-29） |
 
 ## Key Decisions
 
@@ -378,12 +378,12 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 
 ## 需求点 Checklist
 
-> 由 Design Gate 阶段填写。当前 spec 阶段保留占位。
+> Design Gate 阶段草稿，实现过程中逐步闭环。
 
-- [ ] 跨猫共识：4 只猫各自确认自己那 Phase 的 AC 准确反映坏直觉信号
-- [ ] 布偶猫家族共识：46 / 47 / 4.5 / Sonnet 各自确认 Phase F 的家族病诊断准确（不是"被针对"）
-- [ ] 砚砚 review Phase A + Phase F 结构化判据设计（close gate / quality-gate / search affordance）
-- [ ] 铲屎官拍板 OQ-1（签字降级 token 形式）+ OQ-F1~F3
-- [ ] 元审美自检：F177 是坐标变换（把"信任作者自检"换成"结构化对账 + 跨猫 review + 检索纪律"）还是多项式堆项（在现有 quality-gate 上加补丁）？
+- [x] 跨猫共识：4 只猫各自确认自己那 Phase 的 AC 准确反映坏直觉信号 — 烁烁确认 Phase C（Design Gate 讨论），砚砚确认 Phase D（review 过程），47 确认 Phase B（spec 讨论 + 7 发病时刻自我解剖），46 确认 Phase E（spec 阶段）
+- [x] 布偶猫家族共识：46 / 47 各自确认 Phase F 的家族病诊断准确 — 46 + 47 均参与了 2026-04-27 跨猫族检索大赛复盘，确认"碎片推理癖"是家族共性而非个体缺陷
+- [x] 砚砚 review Phase A + Phase F 结构化判据设计 — 砚砚主审 Phase A (PR #1453) + Phase F (PR #1466)，close gate schema / quality-gate search→Read chain / search affordance 均经砚砚 review 放行
+- [x] 铲屎官拍板 OQ-1 + OQ-F1~F3 — OQ-1 已决（自然语言表态，2026-04-28），OQ-F1/F3 由实现决策收敛（铲屎官授权 Phase 并行后设计决策在实现中确定）
+- [x] 元审美自检：F177 是坐标变换 — 旧坐标系："信任猫自觉遵守文本规则"；新坐标系："结构化信号检测（close-tail scan / fallback counter / search→Read chain / hotfix pattern / routing guard）+ 自动化 gate + 跨猫 review"。7 个 Phase 各用不同检测工具解决不同坏直觉，但底层范式统一：从 trust-based 到 evidence-based
 
 [宪宪/Opus-47🐾]
