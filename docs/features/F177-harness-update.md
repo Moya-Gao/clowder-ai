@@ -208,11 +208,11 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 - [x] AC-A4: PR description / commit message 出现 follow-up 类字样 CI 阻塞
 - [x] AC-A5: 愿景守护猫显式检查 follow-up 标记的未闭环 AC
 
-### Phase B（47 专属 magic word）
-- [ ] AC-B1: shared-rules.md / governance-l0.md 同步加「下次一定」magic word
-- [ ] AC-B2: F114 spec 加 47 magic word 条目
-- [ ] AC-B3: 47 自检协议覆盖 7 个发病时刻（spec 写作 / Phase 拆分 / review 反馈 / close / PR / 跨猫 handoff / OQ 留白）
-- [ ] AC-B4: 47 的 close PR 必须对家猫盲审 quality-gate（砚砚优先，46 兜底，47 无选择权），禁止 47 自我评分
+### Phase B（47 专属 magic word）✅
+- [x] AC-B1: shared-rules.md / governance-l0.md 同步加「下次一定」magic word
+- [x] AC-B2: F114 spec 加 47 magic word 条目
+- [x] AC-B3: 47 自检协议覆盖 7 个发病时刻（spec 写作 / Phase 拆分 / review 反馈 / close / PR / 跨猫 handoff / OQ 留白）
+- [x] AC-B4: 47 的 close PR 必须对家猫盲审 quality-gate（砚砚优先，46 兜底，47 无选择权），禁止 47 自我评分
 
 ### Phase C（烁烁 创意-实现解耦 + Dry Run Gate）
 - [ ] AC-C1: 烁烁 system prompt 加创意-实现解耦原则
@@ -294,6 +294,7 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 | 2026-04-27 | 跨猫族检索大赛暴露布偶猫家族共性病（碎片推理癖），Phase F 纳入 F177（铲屎官拍板 KD-5） |
 | 2026-04-28 | 铲屎官拍板 OQ-1（CVO signoff 自然语言）/ OQ-6（A 先行 B-F 并行）；诊断 Phase F 根因（满足阈值环境驱动）；Hook F-2 修正为调用链检测（KD-7）；Phase F issue #1452 开成 |
 | 2026-04-29 | Phase A merged (PR #1453) — close-gate schema + feat-lifecycle/quality-gate skill + CI guard (commit + PR body) + GitHub Actions workflow |
+| 2026-04-29 | Phase B merged (PR #1456) — 47 deferral-pattern harness: magic word + 7-moment self-check + blind audit + runtime GOVERNANCE_L0_DIGEST sync + drift guard test |
 
 ## Review Gate
 
@@ -323,7 +324,7 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 - [ ] 跨猫共识：4 只猫各自确认自己那 Phase 的 AC 准确反映坏直觉信号
 - [ ] 布偶猫家族共识：46 / 47 / 4.5 / Sonnet 各自确认 Phase F 的家族病诊断准确（不是"被针对"）
 - [ ] 砚砚 review Phase A + Phase F 结构化判据设计（close gate / quality-gate / search affordance）
-- [ ] 铲屎官拍板 OQ-1（签字降级 token 形式）+ OQ-5（47 magic word 选词）+ OQ-F1~F3
+- [ ] 铲屎官拍板 OQ-1（签字降级 token 形式）+ OQ-F1~F3
 - [ ] 元审美自检：F177 是坐标变换（把"信任作者自检"换成"结构化对账 + 跨猫 review + 检索纪律"）还是多项式堆项（在现有 quality-gate 上加补丁）？
 
 [宪宪/Opus-47🐾]
