@@ -318,9 +318,14 @@ export class AntigravityAgentService implements AgentService {
               continue;
             }
             if (batch.steps.length > 0) {
-              autoApproveAttempted = false;
-              stallProbed = false;
-              lastDelivered = batch.cursor.lastDeliveredStepCount;
+              const previousLastDelivered = lastDelivered;
+              const nextLastDelivered = batch.cursor.lastDeliveredStepCount;
+              const deliveryAdvanced = nextLastDelivered > previousLastDelivered;
+              if (deliveryAdvanced) {
+                autoApproveAttempted = false;
+                stallProbed = false;
+              }
+              lastDelivered = nextLastDelivered;
 
               totalStepsSeen += batch.steps.length;
               lastBatchStepTypes = batch.steps.map((s) => s.type);
@@ -666,6 +671,27 @@ export class AntigravityAgentService implements AgentService {
                     // advanced a local tool path, so later capacity errors must
                     // not be treated as safely undispatched.
                     attemptHasNativeDispatch = true;
+                  }
+                  if (handled === 'approval_pending') {
+                    if (self.autoApprove && !autoApproveAttempted) {
+                      autoApproveAttempted = true;
+                      try {
+                        await self.bridge.resolveOutstandingSteps(cascadeId);
+                        log.info(`auto-approved pending native tool interaction for cascade ${cascadeId}`);
+                        continue;
+                      } catch (err) {
+                        log.warn(`auto-approve pending native tool interaction failed: ${err}`);
+                      }
+                    }
+                    yield {
+                      type: 'liveness_signal' as const,
+                      catId: self.catId,
+                      content: JSON.stringify({ type: 'info', message: 'Antigravity 正在等待权限批准' }),
+                      metadata,
+                      errorCode: 'waiting_approval',
+                      timestamp: Date.now(),
+                    };
+                    continue;
                   }
                   if (handled === true && toolCallId) handledToolCallIds.add(toolCallId);
                   if (
