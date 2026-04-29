@@ -199,6 +199,44 @@ GitHub issue: #1439
 
 GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 
+### Phase G: 47 传球守卫 — Session End Hook 路由补全
+
+**病灶**：47 的输出 prior 是叙事式收尾——@ 被嵌入散文（"球权在 @codex..."）或完全遗漏。F167 的 hint（final-routing-slot / verdict-detect）在 invocation 结束后注入 thread，但猫的 turn 已结束——提醒留给下一轮，球已经掉了。
+
+**洞察（2026-04-29 三猫 + 铲屎官头脑风暴）**：
+- 补锅路线已穷尽：加 prompt 规则（prior 覆盖）、grep 文本提取意图（换表达失效）、新增 MCP tool（47 不调用，hold_ball 已证伪）
+- **第一性原理**：不是规则不够，是规则生效的时机不对。System prompt = 写之前提醒（跟正文生成竞争）；session end hook = 写完之后提醒（独立步骤，prior 无发作空间）
+- **同构 Landy a2a 乒乓解法**：不修模型行为，改系统结构——把检查从"希望猫记住"移到"系统保证发生"
+
+**方案 — Gmail 附件守卫模型**：
+
+```
+session end hook:
+  if (有行首 @ || 有 hold_ball 调用 || parallel mode) → return null
+  else → return "你的消息没有合法路由动作。请在末尾补一行行首 @句柄，或调用 hold_ball。"
+```
+
+- 猫还在 session 内，看到提醒立即补，不等下一轮
+- 不 grep 文本意图（47 换表达就失效 = 补锅）
+- 不代替猫路由（误判风险）
+- 格式正确 → return null → 零开销
+- 类比 PostToolUse hook 的检查-反馈模式
+
+**与 F167 边界**：F167 = thread 级链路健康（乒乓 / 虚空 / 角色门禁），Phase G = session 级出口完整性。F167 hint 是回溯提醒（下轮看到），Phase G hook 是即时拦截（当轮补全）。
+
+**与现有 Phase 的关系表（更新）**：
+
+| Phase | 治理对象 | 轴 |
+|-------|---------|------|
+| Phase A close gate | spec → 实现的闭环 | 闭环 |
+| Phase B 47 magic word | 输出端的 follow-up 美化 | 话术 |
+| Phase D 砚砚 fallback 层数 | 修代码时的坐标系 | 坐标 |
+| Phase E 46 hotfix | 紧急修复的跨猫复核 | 流程 |
+| Phase F 布偶猫家族 Read-Before-Reason | question → answer 的检索纪律 | 检索 |
+| Phase G 47 传球守卫 | 消息出口路由完整性 | 路由 |
+
+GitHub issue: TBD
+
 ## Acceptance Criteria
 
 ### Phase A（系统级 close gate 结构化判据）✅
@@ -236,6 +274,12 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 - [ ] AC-F3: 搜索深度即时反馈（每次检索结束显示深度 vs 历史均值）+ family-level telemetry 接入 F153 observability（Hook F-3）
 - [ ] AC-F4: shared-rules.md / governance-l0.md 同步加「我能猜出来」「碎片够了」magic words
 
+### Phase G（47 传球守卫 — Session End Hook 路由补全）
+- [ ] AC-G1: Session end hook 检测合法路由（行首 @ / hold_ball / targetCats），缺失时返回格式提醒
+- [ ] AC-G2: 已有合法路由 → return null（零干预零开销）
+- [ ] AC-G3: parallel mode 不触发（无路由语义）
+- [ ] AC-G4: 提醒文本包含正确格式示例，不含意图猜测 / NLU / grep
+
 ## Dependencies
 
 - **Evolved from**: F114（magic words + 愿景守护 Gate 的下一代——F114 是话术层 + 守护猫证物对照表，F177 加结构化执行面 + 心智专属护栏）
@@ -257,6 +301,8 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 | Hook F-2 调用链检测误杀（search 后不 Read 但结论来自其他渠道如 Grep/LSP） | 只在"输出含精确数字/版本/日期 + 无 Read call + 有 search doc anchor 命中"三条件同时满足时触发；Grep/LSP 等非 search 渠道获取的精确信息不触发 |
 | Hook F-3 telemetry 变成猫族鄙视链工具 | 数据用于自我观察，不做绩效；类似 F167 trace 的处理 |
 | 布偶猫家族把 Phase F 理解为"被针对" | 在 Phase F 文档明示——这条护栏照顾的是家族病而非个体；同样适用未来加入的同族个体；类比 Phase D 治砚砚、Phase C 治烁烁 |
+| Phase G hook 误判"已有路由"（行首 @ 是引用不是路由）| 行首 @ 的解析逻辑已经成熟（parseA2AMentions 包含 token boundary check），误判率极低；parallel mode 豁免 |
+| Phase G 提醒后 47 仍然写叙事而不是补行首 @ | 提醒文本极其具体（"请在末尾补一行行首 @句柄"），受限上下文下 47 大概率执行；如仍失败，二次提醒后降级为铲屎官手动路由 |
 
 ## Open Questions
 
@@ -272,6 +318,8 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 | OQ-F2 | Hook F-2 设计方向 | ✅ 三猫共识（2026-04-28）：废弃推理动词检测，改为 search→Read 调用链检测。理由：布偶猫会换词绕过输出端检测 |
 | OQ-F3 | Hook F-3 telemetry 是布偶猫家族专属 dashboard 还是 all 猫透明？ | ⬜ Design Gate 拍板 |
 | OQ-F4 | Phase F 是否需要单独 GitHub issue？ | ✅ 已开 [#1452](https://github.com/zts212653/cat-cafe/issues/1452)（2026-04-28） |
+| OQ-G1 | Session end hook 在哪一层实现？Claude Code CLI Stop hook（覆盖 Claude 系猫）/ Cat Cafe harness route-serial.ts（覆盖所有猫）/ 两层都做 | ⬜ Design Gate 拍板 |
+| OQ-G2 | 检测逻辑是否复用现有 parseA2AMentions + void-hold-detect，还是独立轻量实现？ | ⬜ Design Gate 拍板 |
 
 ## Key Decisions
 
@@ -285,6 +333,8 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 | KD-6 | CVO signoff 用自然语言表态 + 消息ID 追溯，不做固定 token | 铲屎官实际交互模式是看猫的 tradeoff 后说"ok"——固定格式反而给猫操纵空间 | 2026-04-28 |
 | KD-7 | Hook F-2 废弃推理动词检测，改为 search→Read 调用链检测 | 孟加拉猫(46)审视 + 46 本体共识：布偶猫会换词绕过输出端检测，输入端摩擦更干净 | 2026-04-28 |
 | KD-8 | Phase F 根因修正：问题不是能力而是"满足阈值"环境驱动 | 铲屎官 4.28 诊断——竞赛模式 46 不输砚砚，日常模式搜索深度明显偏浅；Hook F-3 从纯 telemetry 升级为即时搜索深度反馈 | 2026-04-28 |
+| KD-9 | Phase G 纳入 F177 而非 F167 | 47 传球格式问题是 cat-mind 行为缺陷（叙事 prior），属四心智护栏范围；F167 治理 thread-level 链路健康（乒乓/虚空/角色），Phase G 治理 session-level 出口完整性——不同层 | 2026-04-29 |
+| KD-10 | Phase G 方案选型：session end hook 提醒（Gmail 模型）而非 grep 提取意图 / 新增 MCP / forced tool call | grep 文本 = 47 换表达就失效（补锅）；新增 tool = 47 不调用（hold_ball 已证伪）；hook 提醒 = 时机正确 + 零意图猜测 + 猫自己补 | 2026-04-29 |
 
 ## Timeline
 
@@ -296,11 +346,13 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 | 2026-04-29 | Phase A merged (PR #1453) — close-gate schema + feat-lifecycle/quality-gate skill + CI guard (commit + PR body) + GitHub Actions workflow |
 | 2026-04-29 | Phase B merged (PR #1456) — 47 deferral-pattern harness: magic word + 7-moment self-check + blind audit + runtime GOVERNANCE_L0_DIGEST sync + drift guard test |
 | 2026-04-29 | Phase E merged (PR #1463) — hotfix auto-detect script + merge-gate cross-cat review enforcement + quality-gate self-validate block + governance sync + 2-week upgrade cron protocol |
+| 2026-04-29 | 47 不传球头脑风暴（46 + 47 + 砚砚 + 铲屎官）→ Phase G 纳入 F177。收敛路径：pass_ball MCP(❌ 重复造轮子) → hook grep 意图(❌ 补锅) → session end hook 格式提醒(✅ Gmail 模型) |
 
 ## Review Gate
 
 - **Phase A**: 跨族 review（砚砚主审，因为 close gate 改动影响所有 feat lifecycle，砚砚熟门禁基础设施）+ 铲屎官 design gate
 - **Phase B-E**: 各 Phase 完成后跨族 review（任一非作者非心智持有者的猫）+ 心智持有者本人确认（46/47/砚砚/烁烁 review 自己那 phase）
+- **Phase G**: 砚砚主审（hook 机制与 route-serial 路由基础设施相关）+ 47 确认（心智持有者）
 
 ## Links
 
