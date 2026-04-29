@@ -125,10 +125,12 @@ GitHub issue: #1435
 
 ### Phase C: 烁烁「创意-实现强制解耦」+ Dry Run Gate
 
-- 烁烁 system prompt / skill 配置加一条：找到问题 ≠ 动手实现，理工活儿强行 handoff 给 @opus / @codex
-- 烁烁可使用的 Edit/Write 范围限定在 `design/` `docs/` `assets/` 等非代码目录，碰核心 `src/` `packages/` 必须 handoff
-- 烁烁专属 pre-commit hook（其他猫不强制）：`pnpm build` + 关键测试通过才允许 commit
-- 联动 F167 Phase A L3 角色门禁的反向流向
+- `cat-cafe-skills/refs/shared-rules.md` 加烁烁创意-实现解耦协议：发现问题 ≠ 动手实现，发现→记录→handoff @opus/@codex
+- `assets/system-prompts/governance-l0.md` + `SystemPromptBuilder.ts` GOVERNANCE_L0_DIGEST 同步烁烁解耦规则
+- Edit/Write 白名单：`designs/` `docs/` `assets/` 根目录 `.md`，碰 `packages/` `src/` 必须 handoff（唯一例外：样式/文案且通过 Dry Run Gate）
+- `quality-gate/SKILL.md` Step 2.5 加烁烁 edit scope 检查
+- `.githooks/commit-msg` 新增 Dry Run Gate：检测烁烁签名 + 代码目录改动 → 自动跑 `pnpm build` + `pnpm test`（OQ-2 已决：commit-msg hook 层）
+- 联动 F167 Phase E 数据驱动 restrictions（cat-config.json `"禁止写代码"` 双端注入）的本地执行面
 
 GitHub issue: #1437
 
@@ -309,7 +311,7 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | close gate 的"CVO 签字降级"是什么形式？ | ✅ 铲屎官拍板（2026-04-28）：自然语言表态，猫录入追溯消息ID。不做固定 token——铲屎官说"ok"就是签字 |
-| OQ-2 | 烁烁的 Dry Run Gate 在哪一层落地？pre-commit hook（要求烁烁本地有环境）vs CI 后置 vs hub-side enforcement | ⬜ Design Gate 拍板 |
+| OQ-2 | 烁烁的 Dry Run Gate 在哪一层落地？pre-commit hook（要求烁烁本地有环境）vs CI 后置 vs hub-side enforcement | ✅ 已决：commit-msg hook（本地执行，Gemini CLI 有 shell access，即时反馈优于 CI 后置；联动 F167 Phase E 数据驱动方向）（2026-04-29） |
 | OQ-3 | 砚砚的 fallback 层数阈值如何定？硬编码 / 配置 / 启发式（基于 module 历史层数 baseline） | ✅ 已决：硬编码阈值（同文件新增 ≥3 层触发自检，累计 ≥5 层触发），脚本常量可调。选硬编码因为 fallback 模式检测本身是启发式，精确阈值意义不大——目的是触发坐标系自检不是硬拦截（2026-04-29） |
 | OQ-4 | hotfix 自动检测的关键词是否会误杀正常 commit？需要观察期数据 | ⬜ Phase E 上线后观察 |
 | OQ-5 | 47 magic word 选「下次一定」还是「先这样」/「留个尾巴」/「P2 后续」？或多个并存？ | ✅ 已决：magic word 表只放「下次一定」，语义同族由 Phase A close-tail scan 自动覆盖（47 确认 2026-04-29） |

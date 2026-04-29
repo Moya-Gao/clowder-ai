@@ -1,0 +1,57 @@
+#!/bin/bash
+# .githooks/commit-msg — Dry Run Gate (F177 Phase C)
+#
+# 烁烁（暹罗猫/Gemini）专属：当 commit message 包含烁烁签名且
+# 暂存区改动了白名单外的文件时，自动跑 pnpm build + pnpm test。
+# 失败则阻止 commit。其他猫不受影响。
+#
+# 设计来源：F177 Phase C AC-C3
+# 联动：F167 Phase E — 数据驱动 restrictions（cat-config.json）的本地执行面
+
+COMMIT_MSG_FILE="$1"
+MSG=$(cat "$COMMIT_MSG_FILE")
+
+# ── 检测烁烁签名 ──
+# 匹配 [烁烁🐾] [烁烁/Model🐾] [暹罗猫/Model🐾] [Gemini-2.5🐾] 等
+if ! echo "$MSG" | grep -qE '\[(烁烁|暹罗猫|Gemini)[^]]*🐾\]'; then
+  exit 0
+fi
+
+# ── 检测白名单外改动 ──
+# 烁烁白名单：designs/ docs/ assets/ 根目录 .md 文件
+# 任何白名单外的文件改动都触发 dry-run gate
+NON_WHITELIST_FILES=$(git diff --cached --name-only | grep -vE '^(designs/|docs/|assets/)|^[^/]+\.md$' || true)
+
+if [ -z "$NON_WHITELIST_FILES" ]; then
+  exit 0
+fi
+
+echo "" >&2
+echo "🔧 DRY RUN GATE (F177 Phase C): 烁烁的 commit 改动了白名单外文件" >&2
+echo "   改动文件：" >&2
+echo "$NON_WHITELIST_FILES" | sed 's/^/     /' >&2
+echo "" >&2
+echo "   正在运行 build + test 门禁..." >&2
+echo "" >&2
+
+# ── 运行 build ──
+if ! pnpm -r --if-present run build >&2 2>&1; then
+  echo "" >&2
+  echo "🚫 DRY RUN GATE: pnpm build 失败！" >&2
+  echo "   烁烁碰了白名单外文件，必须 build 通过才能 commit。" >&2
+  echo "   建议：handoff 给 @opus / @codex 处理代码改动。" >&2
+  exit 1
+fi
+
+# ── 运行 test ──
+if ! pnpm test >&2 2>&1; then
+  echo "" >&2
+  echo "🚫 DRY RUN GATE: pnpm test 失败！" >&2
+  echo "   烁烁碰了白名单外文件，必须测试通过才能 commit。" >&2
+  echo "   建议：handoff 给 @opus / @codex 处理代码改动。" >&2
+  exit 1
+fi
+
+echo "" >&2
+echo "✅ DRY RUN GATE: build + test 通过，允许 commit。" >&2
+exit 0

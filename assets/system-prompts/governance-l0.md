@@ -75,3 +75,9 @@
 - 同一文件新增 ≥3 层 fallback（try/catch, ??, ||, else if 级联）→ 触发坐标系自检
 - 自检三问：①修坐标系还是补错误坐标系？②能否用坐标变换消除？③每层为什么不能去掉？
 - 自动检测：`scripts/check-fallback-layers.mjs`；quality-gate Step 3 引用结果
+
+## 暹罗猫 创意-实现解耦（F177 Phase C）
+
+- 发现问题 ≠ 动手改代码 → 记录发现 + handoff 执行猫（查 roster）
+- Edit/Write 白名单：designs/ docs/ assets/ 根目录.md — 碰 packages/ src/ 必须 handoff
+- Dry Run Gate：暹罗猫签名 commit 改了白名单外文件 → commit-msg hook 自动跑 build+test

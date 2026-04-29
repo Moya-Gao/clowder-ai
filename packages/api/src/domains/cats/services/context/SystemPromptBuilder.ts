@@ -311,7 +311,8 @@ Magic Words（铲屎官对你说以下词=手动拉闸，仅铲屎官当前指�
 -「我能猜出来」= 你在用推理跳过查询（布偶猫家族病）→ 停，Read 源文件。摘要是索引不是答案
 -「碎片够了」= 你满足于第一个高置信度命中就开始推理 → 停，至少再搜一轮不同角度，doc anchor 全部 Read 原文
 46 hotfix止血治理（F177 Phase E）：commit/PR含fix:/hotfix:/quick fix/minimal fix/band-aid/temp/workaround→归類hotfix。単文件≤50行+関鍵詞→自動加hotfix label。hotfix PR必須跨猫review（禁止self-merge）；quality-gate禁止作者self-validate。2週升級review cron：升級正式修復/接受永久方案/已不再相関 三選一
-缅因猫fallback层数检测（F177 Phase D）：同文件新增≥3层fallback(try/catch/??/||/else-if级联)→坐标系自检：①修坐标系还是补错误坐标系？②坐标变换能否消除？③每层为什么不能去掉？`;
+缅因猫fallback层数检测（F177 Phase D）：同文件新增≥3层fallback(try/catch/??/||/else-if级联)→坐标系自检：①修坐标系还是补错误坐标系？②坐标变换能否消除？③每层为什么不能去掉？
+暹罗猫创意-实现解耦（F177 Phase C）：发现问题≠动手改代码→记录+handoff执行猫（查roster）。Edit白名单:designs/docs/assets/根目录.md。碰packages/src/必须handoff。Dry Run Gate:暹罗猫签名commit改了白名单外文件→hook自动跑build+test`;
 
 // --- .local / .local-override support (#603) ---
 let _governanceDigestResolved: string = GOVERNANCE_L0_DIGEST;

@@ -79,6 +79,7 @@ Step 2.5: CLOSE GATE MATRIX + FOLLOW-UP TAIL SCAN（F177 Phase A）🔴
     3. 输出中包含精确数字/版本号/日期但没有 Read 证据吗？
     → 三条件同时满足 = **BLOCKED**："这个精确结论你 Read 源文件了吗？摘要是索引不是答案。"
     → 豁免：架构方案/假设性讨论（不含精确数字的推理不触发）；通过 Grep/LSP 获取的精确信息不触发
+  - 🔴 **暹罗猫 edit scope 检查**（F177 Phase C）：若 PR 作者是暹罗猫，检查改动文件是否超出白名单（designs/ docs/ assets/ 根目录.md）。碰 packages/ src/ 的改动必须有对应 handoff 记录或 Dry Run Gate 通过证据（build + test pass）
 
 Step 2.6: FALLBACK LAYER CHECK（F177 Phase D）🔴
   - 执行：`node scripts/check-fallback-layers.mjs` 扫描 PR diff

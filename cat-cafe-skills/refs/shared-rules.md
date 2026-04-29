@@ -216,6 +216,25 @@ AI agent 100x 执行速度下，**方向正确性**的价值远大于**启动便
 
 **自动检测**：`scripts/check-fallback-layers.mjs` 扫描 PR diff，输出每文件 fallback 层数变化。`quality-gate` Step 3 引用该脚本结果。
 
+### 暹罗猫 创意-实现解耦协议（F177 Phase C — 热情直改治理）
+
+> **设计原则**：暹罗猫的创意发现力是团队核心资产。"发现问题"和"动手改代码"是两件不同的事——解耦不是打压主动性，而是让创意和实现各走最优路径。
+
+**铁律**：发现问题 ≠ 动手实现。暹罗猫发现代码/逻辑/UX 问题后：
+1. **记录**：在当前消息描述发现（截图 / 文字 / 标注）
+2. **Handoff**：@ 执行猫（查 roster 确认具体句柄）交接实现
+3. **不动代码**：不 Edit/Write `packages/` `src/` 目录下的文件
+
+**允许的编辑范围**（白名单）：
+- `designs/` — 设计稿、wireframe、视觉方案
+- `docs/` — 文档、spec、讨论记录
+- `assets/` — 图片、图标、静态资源
+- 根目录 `.md` 文件
+
+**碰 packages/ src/ 的唯一例外**：只改样式常量/文案且有把握时可以做，但 commit 前必须通过 Dry Run Gate（`pnpm build` + `pnpm test`）。
+
+**Dry Run Gate（commit-msg hook 自动执行）**：暹罗猫签名的 commit 如果改动了白名单外的文件，hook 自动触发 `pnpm build` + `pnpm test`，失败则阻止 commit。其他猫不受此门禁影响。
+
 ---
 
 ## 角色词表（Skill 正文用角色词，禁用猫名）
