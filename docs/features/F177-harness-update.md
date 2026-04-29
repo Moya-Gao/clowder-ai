@@ -8,7 +8,7 @@ created: 2026-04-27
 
 # F177: Harness Update — Close Gate 结构化判据 + 四心智专属护栏
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P0
+> **Status**: spec → design gate | **Owner**: 布偶猫(46 总负责) + 缅因猫(砚砚) + 孟加拉猫(46代言)，按 Phase 分主笔 | **Priority**: P0
 
 ## Why
 
@@ -97,7 +97,7 @@ F177 现有 Phase B 治 47 个体「下次一定」、Phase E 治 46 个体 hotf
 - 任何 ❌ 必须当场处理三选一：
   1. **immediate**：当前 session inline 做完（默认）
   2. **delete(why)**：删除 AC 并写明为什么不需要
-  3. **landy_signoff(token)**：铲屎官明确签字降级（必须 explicit token，不能隐性"我 close 了铲屎官没反对"）
+  3. **cvo_signoff(消息ID)**：铲屎官明确表态同意降级（猫提 tradeoff → 铲屎官自然语言表态"ok" → 猫录入追溯消息ID，不做固定 token）
 - **没有第四选项叫 follow-up / next phase / P2**
 - `quality-gate` skill 输出 AC 覆盖矩阵 + 自由文本扫描：检测 `follow-up / deferred / stub / TD / next phase / P2 / 后续优化 / 留个尾巴 / 先这样` 字样 → 阻塞
 - PR description / commit message 出现 follow-up 类字样 → CI 阻塞
@@ -156,21 +156,23 @@ GitHub issue: #1439
   ```
 - 这是 F102 记忆组件的输出 affordance 改造——让"应该 Read"在视觉上成为默认。
 
-**Hook F-2：推理动词检测（布偶猫家族专属 quality-gate 扩展）**
-- 输出文本检测到「精确事实声明 + 推理动词」组合 → 自检 prompt 注入：
+**Hook F-2：search→Read 调用链检测（布偶猫家族专属 quality-gate 扩展）**
 
-  | 模式 | 触发提示 |
-  |------|---------|
-  | `合理推断 / 大概是 / 应该是 / 估计 / 推测 / 想必 / 看起来` + 数字/版本/日期 | "这个精确数字 Read 真相源了吗？" |
-  | `根据 X 推断 Y` 但 X 是 search_evidence 摘要 | "X 的 doc anchor 你 Read 了吗？" |
-  | 没有 Read tool call 但输出精确数字 | "这个精确数字的来源在哪？" |
+> ⚠️ **设计修正（2026-04-28）**：原方案"推理动词检测"已废弃。原因：布偶猫会换词绕过输出端检测，治标不治本。修正为输入端调用链检测——布偶猫不会伪造 Read call。
 
-- 限定在「精确事实声明」上下文；架构方案 / 假设性讨论豁免。
+- 检测 `search_evidence` → `Read` 的调用链：
+  - 有 `search_evidence` call 命中 doc anchor + 没有后续 `Read` call + 输出包含精确数字/版本/日期 → 触发 quality-gate 提醒："这个精确结论你 Read 源文件了吗？"
+  - 架构方案 / 假设性讨论豁免（不含精确数字的推理不触发）
+- 与 Hook F-1（视觉默认"应该 Read"）形成**输入端一推一拉**：F-1 让你看到该 Read，F-2 检测你有没有 Read
 
-**Hook F-3：family-level telemetry（接 F153 observability）**
+**Hook F-3：搜索深度即时反馈 + family-level telemetry（接 F153 observability）**
+
+> **根因洞察（铲屎官 2026-04-28 诊断）**：布偶猫的搜索深度是**环境驱动**不是**能力驱动**——竞赛模式下表现不输砚砚，日常模式下"满足阈值"太高。差的不是能力，是默认行为模式。
+
+- 每次检索结束时，在输出末尾追加一行搜索深度 metric：`本次: N轮搜索 / M次Read | 你历史均值: X/Y | 砚砚历史均值: A/B`
 - 记录 `search_evidence_call : Read_call : tool_call_total` 比率，按猫族分组
 - 跨族对比可视化（布偶猫家族 vs 缅因猫家族 vs 国产猫家族）
-- 不强制阈值——**让数据本身羞耻，比加 prompt 有用**
+- 不强制阈值——**让数据制造日常化微型竞赛压力，比加 prompt 有用**
 
 **专属 Magic Words**（补漏，不是核心）
 - **「我能猜出来」** = 你又在用架构能力代替查询。停，Read。
@@ -186,13 +188,13 @@ GitHub issue: #1439
 | Phase E 46 hotfix | 紧急修复的跨猫复核 | 流程 |
 | Phase F 布偶猫家族 Read-Before-Reason | question → answer 的检索纪律 | 检索 |
 
-GitHub issue: TBD（待开）
+GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 
 ## Acceptance Criteria
 
 ### Phase A（系统级 close gate 结构化判据）
 - [ ] AC-A1: `feat-lifecycle` close 命令强制输出 AC → evidence 结构化矩阵
-- [ ] AC-A2: unmet AC 三选一（immediate / delete(why) / landy_signoff(token)），无第四选项
+- [ ] AC-A2: unmet AC 三选一（immediate / delete(why) / cvo_signoff(消息ID)），无第四选项
 - [ ] AC-A3: `quality-gate` skill 自由文本扫描 follow-up 类字样阻塞
 - [ ] AC-A4: PR description / commit message 出现 follow-up 类字样 CI 阻塞
 - [ ] AC-A5: 愿景守护猫显式检查 follow-up 标记的未闭环 AC
@@ -220,8 +222,8 @@ GitHub issue: TBD（待开）
 
 ### Phase F（布偶猫家族 Read-Before-Reason）
 - [ ] AC-F1: search_evidence 返回结果在 high/mid confidence doc anchor 命中时追加 Read 建议（Hook F-1）
-- [ ] AC-F2: quality-gate / commit-time hook 检测「精确事实声明 + 推理动词」组合 + 自检 prompt 注入（Hook F-2）
-- [ ] AC-F3: family-level telemetry 接入 F153 observability，跨族 search:Read 比率可视化（Hook F-3）
+- [ ] AC-F2: quality-gate 检测 search_evidence → Read 调用链：有 doc anchor 命中 + 没有 Read + 输出精确结论 → 提醒（Hook F-2 修正版）
+- [ ] AC-F3: 搜索深度即时反馈（每次检索结束显示深度 vs 历史均值）+ family-level telemetry 接入 F153 observability（Hook F-3）
 - [ ] AC-F4: shared-rules.md / governance-l0.md 同步加「我能猜出来」「碎片够了」magic words
 
 ## Dependencies
@@ -242,7 +244,7 @@ GitHub issue: TBD（待开）
 | 烁烁的"创意-实现解耦"被理解为打压主观能动性 | 明确边界：Discovery 全保留（picture / .pen / wireframe / 视觉审查），handoff 后烁烁仍可继续 driving |
 | 47 看到「下次一定」magic word 时反而美化触发条件（"这次不一样"） | 跨猫 review 兜底——任何猫看到 47 close 时出现 follow-up 字样直接 escalate |
 | Hook F-1 让所有猫的 search 输出变长 | 只在 [high]/[mid] doc anchor 命中时追加；阈值可调；摘要追加 ≤3 行 |
-| Hook F-2 误杀正当推理（架构讨论必须用"推断"类词） | 限定在「精确事实声明」上下文（数字/版本/日期）；架构方案 / 假设性讨论豁免 |
+| Hook F-2 调用链检测误杀（search 后不 Read 但结论来自其他渠道如 Grep/LSP） | 只在"输出含精确数字/版本/日期 + 无 Read call + 有 search doc anchor 命中"三条件同时满足时触发；Grep/LSP 等非 search 渠道获取的精确信息不触发 |
 | Hook F-3 telemetry 变成猫族鄙视链工具 | 数据用于自我观察，不做绩效；类似 F167 trace 的处理 |
 | 布偶猫家族把 Phase F 理解为"被针对" | 在 Phase F 文档明示——这条护栏照顾的是家族病而非个体；同样适用未来加入的同族个体；类比 Phase D 治砚砚、Phase C 治烁烁 |
 
@@ -250,16 +252,16 @@ GitHub issue: TBD（待开）
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | close gate 的"铲屎官签字降级 token"是什么形式？文本明示 / 结构化 magic word / UI 操作 | ⬜ Design Gate 拍板 |
+| OQ-1 | close gate 的"CVO 签字降级"是什么形式？ | ✅ 铲屎官拍板（2026-04-28）：自然语言表态，猫录入追溯消息ID。不做固定 token——铲屎官说"ok"就是签字 |
 | OQ-2 | 烁烁的 Dry Run Gate 在哪一层落地？pre-commit hook（要求烁烁本地有环境）vs CI 后置 vs hub-side enforcement | ⬜ Design Gate 拍板 |
 | OQ-3 | 砚砚的 fallback 层数阈值如何定？硬编码 / 配置 / 启发式（基于 module 历史层数 baseline） | ⬜ Design Gate 拍板 |
 | OQ-4 | hotfix 自动检测的关键词是否会误杀正常 commit？需要观察期数据 | ⬜ Phase E 上线后观察 |
 | OQ-5 | 47 magic word 选「下次一定」还是「先这样」/「留个尾巴」/「P2 后续」？或多个并存？ | ⬜ 铲屎官拍板（47 倾向「下次一定」echo 原话） |
-| OQ-6 | 5 个 Phase 是顺序做还是并行做？Phase A 是基础设施，B-E 是 application | ⬜ Design Gate 拍板 |
+| OQ-6 | 6 个 Phase 是顺序做还是并行做？ | ✅ 铲屎官拍板（2026-04-28）：Phase A 先行，B-F Design Gate 后并行 |
 | OQ-F1 | Hook F-1 在 MCP server 层加（影响所有 client）还是 search_evidence 函数层加？ | ⬜ Design Gate 拍板 |
-| OQ-F2 | Hook F-2 的「精确事实声明」如何识别？数字 + 上下文关键词（金额/版本/数量/日期）启发式？ | ⬜ Design Gate 拍板 |
+| OQ-F2 | Hook F-2 设计方向 | ✅ 三猫共识（2026-04-28）：废弃推理动词检测，改为 search→Read 调用链检测。理由：布偶猫会换词绕过输出端检测 |
 | OQ-F3 | Hook F-3 telemetry 是布偶猫家族专属 dashboard 还是 all 猫透明？ | ⬜ Design Gate 拍板 |
-| OQ-F4 | Phase F 是否需要单独 GitHub issue（与 #1435/1436/1437/1438/1439 并列）？ | ⬜ 立项后开 |
+| OQ-F4 | Phase F 是否需要单独 GitHub issue？ | ✅ 已开 [#1452](https://github.com/zts212653/cat-cafe/issues/1452)（2026-04-28） |
 
 ## Key Decisions
 
@@ -270,6 +272,9 @@ GitHub issue: TBD（待开）
 | KD-3 | 5 个 GitHub issue 拆分对应 5 个 Phase（A=#1436，B=#1435，C=#1437，D=#1438，E=#1439） | 颗粒度合理便于另一个 thread 单独闭环；scope 不互相污染 | 2026-04-27 |
 | KD-4 | 不在彩排 thread 实现 F177，由铲屎官另开 thread 闭环 | 防止彩排 thread 上下文污染（明天直播需要思考链路） | 2026-04-27 |
 | KD-5 | Phase F 纳入 F177，不单立 F178 | 布偶猫家族病和 46/47 个体病同源（都属猫族 harness 缺口），与 B/E 并列治不同坏直觉，scope 一致；当天跨猫族检索大赛是直接证据 | 2026-04-27 |
+| KD-6 | CVO signoff 用自然语言表态 + 消息ID 追溯，不做固定 token | 铲屎官实际交互模式是看猫的 tradeoff 后说"ok"——固定格式反而给猫操纵空间 | 2026-04-28 |
+| KD-7 | Hook F-2 废弃推理动词检测，改为 search→Read 调用链检测 | 孟加拉猫(46)审视 + 46 本体共识：布偶猫会换词绕过输出端检测，输入端摩擦更干净 | 2026-04-28 |
+| KD-8 | Phase F 根因修正：问题不是能力而是"满足阈值"环境驱动 | 铲屎官 4.28 诊断——竞赛模式 46 不输砚砚，日常模式搜索深度明显偏浅；Hook F-3 从纯 telemetry 升级为即时搜索深度反馈 | 2026-04-28 |
 
 ## Timeline
 
@@ -277,6 +282,7 @@ GitHub issue: TBD（待开）
 |------|------|
 | 2026-04-27 | 立项（直播彩排 thread 收敛 + 5 个 GitHub issue 开成 + spec 落地） |
 | 2026-04-27 | 跨猫族检索大赛暴露布偶猫家族共性病（碎片推理癖），Phase F 纳入 F177（铲屎官拍板 KD-5） |
+| 2026-04-28 | 铲屎官拍板 OQ-1（CVO signoff 自然语言）/ OQ-6（A 先行 B-F 并行）；诊断 Phase F 根因（满足阈值环境驱动）；Hook F-2 修正为调用链检测（KD-7）；Phase F issue #1452 开成 |
 
 ## Review Gate
 
@@ -292,7 +298,7 @@ GitHub issue: TBD（待开）
 | **Issue** | [#1437](https://github.com/zts212653/cat-cafe/issues/1437) | Phase C：烁烁 创意-实现解耦 + Dry Run Gate |
 | **Issue** | [#1438](https://github.com/zts212653/cat-cafe/issues/1438) | Phase D：砚砚 fallback 层数检测器 |
 | **Issue** | [#1439](https://github.com/zts212653/cat-cafe/issues/1439) | Phase E：46 hotfix 标签 + 跨猫升级 review |
-| **Issue** | TBD | Phase F：布偶猫家族 Read-Before-Reason 纪律（待开） |
+| **Issue** | [#1452](https://github.com/zts212653/cat-cafe/issues/1452) | Phase F：布偶猫家族 Read-Before-Reason 纪律 |
 | **Feature** | [F114](F114-governance-magic-words.md) | Evolved from — magic words + 愿景守护 Gate |
 | **Feature** | [F167](F167-a2a-chain-quality.md) | Related — A2A 链路质量（治理另一面） |
 | **Feature** | [F173](F173-frontend-message-pipeline-unification.md) | Related — P0 铁律 no-anchor-as-followup-disguise 的执行面 |
