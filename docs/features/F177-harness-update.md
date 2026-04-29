@@ -274,11 +274,11 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 - [x] AC-F3: 搜索深度即时反馈（每次检索结束显示本轮搜索次数）+ telemetry 接入 F153 observability（Hook F-3，invocation-scoped — stdio transport 每次 spawn 新进程）
 - [x] AC-F4: shared-rules.md / governance-l0.md / SystemPromptBuilder GOVERNANCE_L0_DIGEST 同步加「我能猜出来」「碎片够了」magic words
 
-### Phase G（47 传球守卫 — Session End Hook 路由补全）
-- [ ] AC-G1: Session end hook 检测合法路由（行首 @ / hold_ball / targetCats），缺失时返回格式提醒
-- [ ] AC-G2: 已有合法路由 → return null（零干预零开销）
-- [ ] AC-G3: parallel mode 不触发（无路由语义）
-- [ ] AC-G4: 提醒文本包含正确格式示例，不含意图猜测 / NLU / grep
+### Phase G（47 传球守卫 — Session End Hook 路由补全）✅
+- [x] AC-G1: Session end hook 检测合法路由（行首 @ / hold_ball / targetCats），缺失时返回格式提醒
+- [x] AC-G2: 已有合法路由 → return null（零干预零开销）
+- [x] AC-G3: parallel mode 不触发（无路由语义）
+- [x] AC-G4: 提醒文本包含正确格式示例，不含意图猜测 / NLU / grep
 
 ## Dependencies
 
@@ -348,6 +348,7 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 | 2026-04-29 | Phase E merged (PR #1463) — hotfix auto-detect script + merge-gate cross-cat review enforcement + quality-gate self-validate block + governance sync + 2-week upgrade cron protocol |
 | 2026-04-29 | 47 不传球头脑风暴（46 + 47 + 砚砚 + 铲屎官）→ Phase G 纳入 F177。收敛路径：pass_ball MCP(❌ 重复造轮子) → hook grep 意图(❌ 补锅) → session end hook 格式提醒(✅ Gmail 模型) |
 | 2026-04-29 | Phase F merged (PR #1466) — Hook F-1 (doc anchor Read reminder) + Hook F-2 (quality-gate search→Read chain) + Hook F-3 (invocation search depth counter + telemetry) + magic words「我能猜出来」「碎片够了」synced to governance-l0 / shared-rules / SystemPromptBuilder |
+| 2026-04-29 | Phase G merged (PR #1470) — Session end Stop hook routing guard: Gmail-style "forgot attachment?" for A2A ball passing. 24 bash tests. 7 review rounds with 砚砚 |
 
 ## Review Gate
 
