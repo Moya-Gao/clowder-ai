@@ -2,7 +2,7 @@
 title: "Brainstorm · ReAct → TeamAct：从单 Agent 主循环到团队协作主循环"
 date: 2026-04-28
 participants: [opus-46, codex, opus-47, gemini, landy]
-context: "赛博猫猫面对面 · 多智能体 Harness 进化论"直播彩排
+context: "赛博猫猫面对面 · 多智能体 Harness 进化论直播彩排"
 status: draft
 ---
 
@@ -38,10 +38,12 @@ loop:
     Route   → 传球（@ 下一只猫 / hold_ball / @ 铲屎官）
 ```
 
-**结束条件**（三者同时满足）：
-1. **AC 全部达成** — 验收标准逐条通过
-2. **跨猫交叉验证** — 非作者的猫确认通过（Generator-Verifier）
-3. **愿景收敛** — CVO 确认产出符合愿景（Vision Oracle）
+**结束条件**（五项同时满足）：
+1. **AC 全部达成** — 验收标准逐条通过，无 deferred AC
+2. **证据已附** — 每条 AC 有对应的 commit / test / trace 证据
+3. **跨猫交叉验证** — 非作者的猫确认通过（Generator-Verifier）
+4. **无悬空球权** — 没有 unowned ball，没有未决的 open question（resolved or escalated）
+5. **愿景收敛** — CVO 确认产出符合愿景（Vision Oracle）
 
 核心特征：
 - 多 agent 的外部循环
@@ -70,9 +72,9 @@ feat creation（系统层）
 |------|-------------------|-----------------|
 | 循环主体 | 单一模型 | 多猫 + CVO |
 | 状态 | 模型内部 context | shared state（docs / git / 任务） |
-| 动作 | tool call | @ mention + tool call |
+| 动作 | tool call | 持球猫产生 state-changing work + 附 evidence |
 | 验证 | observation（工具返回） | 跨猫 review + 愿景守护 |
-| 结束判断 | 模型自主（无 tool call） | 三方收敛（AC + 交叉验证 + 愿景） |
+| 结束判断 | 模型自主（无 tool call） | 五项收敛（AC + 证据 + 交叉验证 + 无悬空球权 + 愿景） |
 | 失败模式 | hallucination | 球权掉地上 / 乒乓球 / 虚空传球 |
 
 ## 关键洞察
