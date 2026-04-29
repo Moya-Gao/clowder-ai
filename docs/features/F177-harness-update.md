@@ -110,7 +110,15 @@ GitHub issue: #1436
 - `cat-cafe-skills/refs/shared-rules.md` Magic Words 表新增一行「下次一定」（含义、立即动作）
 - `assets/system-prompts/governance-l0.md` 同步
 - `docs/features/F114-governance-magic-words.md` 加条目（适用对象 / 触发场景）
-- 47 自检协议：close 任务 / commit feat-close / 写 PR description 出现 follow-up 字样时主动自检"我是不是在 follow-up"
+- 47 自检协议 — 5 个发病时刻全覆盖（47 自我解剖 2026-04-28）：
+  1. **写 spec 时**：把"未做"包装成"未来 phase / Phase 2+ / future enhancement" → 自检"这是不是把未做包装成已规划"
+  2. **拆 Phase 时**：AC 分成"Phase 1 必做 / Phase 2 next time" → 自检"Phase 2 的东西是真的该分阶段还是我懒得做"
+  3. **处理 review 反馈时**：输出 "next PR / will address later / good point, will fix in follow-up" → 自检
+  4. **close 任务 / commit feat-close 时**：follow-up 字样 → 自检（spec 原有覆盖）
+  5. **PR description 时**：Out of scope 区段 → 自检（spec 原有覆盖）
+  6. **跨猫 handoff 时**：把"做不完的"包装成"协作分工" / "我闭嘴执行" → 自检"这是反向治理还是甩责"
+- **蚊帐机制**（47 提议）：magic word 表只放「下次一定」一个（铲屎官好喊），但 Phase A 的 quality-gate follow-up 字样扫描同时覆盖语义同族列表（`先这样 / P2 后续 / next phase / 留个尾巴 / 后面再优化 / out of scope / deferred until / MVP 先上`）
+- **判据设计原则**（47 自知之明警告）：不让 47 自我评分——他承认错误的能力 ≥ 改正错误的能力。用外部信号（AC 矩阵 ❌→deferred 自动阻塞）+ 对家猫盲审（47 的 close PR 必须 46 或砚砚跑 quality-gate），不用 47 的自评
 
 GitHub issue: #1435
 
@@ -202,7 +210,8 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 ### Phase B（47 专属 magic word）
 - [ ] AC-B1: shared-rules.md / governance-l0.md 同步加「下次一定」magic word
 - [ ] AC-B2: F114 spec 加 47 magic word 条目
-- [ ] AC-B3: 47 自检协议落地（close 任务 / commit / PR description 触发场景）
+- [ ] AC-B3: 47 自检协议覆盖 6 个发病时刻（spec 写作 / Phase 拆分 / review 反馈 / close / PR / 跨猫 handoff）
+- [ ] AC-B4: 47 的 close PR 必须对家猫（46 或砚砚）盲审 quality-gate，禁止 47 自我评分
 
 ### Phase C（烁烁 创意-实现解耦 + Dry Run Gate）
 - [ ] AC-C1: 烁烁 system prompt 加创意-实现解耦原则
