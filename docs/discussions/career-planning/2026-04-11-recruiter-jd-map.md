@@ -3,7 +3,7 @@ feature_ids: []
 topics: [career, recruiter, jd-map, job-search, strategy]
 doc_kind: discussion
 created: 2026-04-11
-updated: 2026-04-25
+updated: 2026-04-29
 participants: [gpt52, opus, gemini, codex, landy]
 thread_ids: [thread_mnpgz36wuta8m679]
 ---
@@ -68,7 +68,7 @@ thread_ids: [thread_mnpgz36wuta8m679]
 | 阿里千问事业部 | 智能对话 Agent 开发专家 | 杭州 | Agent 核心研发/平台 | 9.5/10 | **首选**，主线高度重合 | **疑似双猎头撞车** | 先确认 BU/HC 是否同一，再推 | 未授权 / 未投 |
 | 阿里云智能 | Cloud-Native Agentic AI Architect | 杭州 | 云原生 Agent 底座 | 9.2/10 | **量身定做**，云 infra + Agent 交叉点 | base 杭州；FinOps 需补口径 | 优先电话聊；**需先与千问渠道确认不冲突** | 未授权 / 未投 |
 | 阿里企业级 Agent 平台 | 企业级 Agent 平台架构岗 | 待确认 | 平台架构 owner | 9.0/10 | 推理/规划/工具/记忆/评测、RAG、CI/CD、SLA 五件套全中 | BU 未明确；可能偏业务交付 | 问清 BU、通用平台 vs 业务定制；**需先与千问渠道确认不冲突** | 未授权 / 未投 |
-| 阿里淘天集团-业务技术 | AI Agent 开发专家（急招） | 杭州 | 业务技术侧 Agent 运行平台 / 基础设施 | 8.9/10 | 已拿到明确 JD，方向与主线高度重合；`2026-04-17` 一面后进一步验证不是浅层应用岗 | 更像淘天业务技术平台，不一定是集团通用平台 owner；一面后新增待确认项：他们的 `OpenRouter / model gateway` 和 `agent runtime` 到底做到哪一层 | 下一轮重点确认平台通用性、业务定制占比、团队编制与 HC 独立性；复盘见 `2026-04-17-taotian-first-interview-notes.md` | **一面已完成（2026-04-17）** |
+| 阿里淘天集团-业务技术 | AI Agent 开发专家（急招） | 杭州 | 业务技术侧 Agent 运行平台 / 基础设施 | 7.2/10 | 一面信号强，但 `2026-04-29` 二面出现信息不对等：对方深挖 Cat Cafe 架构方案，却对团队方向/实际工作/建设目标披露敷衍 | 存在“技术方案收集”风险；团队透明度不足；可能只是业务技术内部平台化小队而非集团级 owner | 后续如继续推进，先要求明确团队职责、汇报线、前三个月目标与岗位授权；未明确前暂停继续输出架构细节 | **二面已完成（2026-04-29），体验不佳；降权观察** |
 | 阿里悟空事业部 | ⚠️ 业务线情报，非具体 HC | 杭州/钉钉生态待确认 | 企业级 AI-native 工作平台 | 8.5/10 | 线很对，但**还不是具体岗位** | 容易把产品线和 HC 混为一谈 | 以后猎头再提时先问具体团队与岗位 | 未授权 / 未投 |
 | 灵动时刻 Interaive | 岗位 A：互动影游 Product Owner + Tech Lead / 岗位 B：AI-native harness 平台 | 待确认（总部可能在海外） | AI-native 创业核心架构 + ToC 互动内容产品 | 9.3/10 | 二面后上调：两个岗位都匹配；A 是人生路径型机会，B 是技术确定性最高 | 实体/期权主体、Tiptap 现状、内容合规、岗位授权边界待确认 | 三面重点核实 A/B 是否可交叉、团队资源、runway、合同/期权主体；见 `docs/research/2026-04-25-interaive-company-research.md` | **二面已完成（2026-04-25）；待下一轮/offer 前尽调** |
 | 阶跃星辰 | 多模态 Agent 系统架构岗 | 北京 | Frontier AI 公司里的多模态 Agent 核心研发 | 8.8/10 | 方向正，是真正做多轮对话、工具调用、任务规划、监控评测与对齐机制的核心岗，离主航道很近 | JD 明确要求理解 `Post-training` 与训练/推理机制，和训练团队协作比重可能高于纯应用架构岗 | 先确认训练侧协作占比、是否偏 agent core platform 还是半算法半工程岗 | 未授权 / 未投 |
