@@ -249,3 +249,104 @@ The important boundary: none of that makes the 85% claim true without eval evide
 - Do not infer "leaked source" from protocol compatibility. Public evidence supports Claude Code-compatible integration, not possession of proprietary source.
 - Do not cite "85%" unless the benchmark is published or we reproduce it.
 - Do not call local prompt-mode delegation equivalent to TeamAct/A2A. It is useful single-user orchestration, but not independent-agent collaboration with ownership and verdict routing.
+
+## 10. Ragdoll Architect Annotation — 1.3 判别式 (Build to Delete vs Built to Persist)
+
+> 这一节用 `docs/plans/tech-sharing/2026-04-25-topics-final.md` §1.3 的判别式重新审视 CoStrict 的 harness 工作。判别式："这层 harness 是在替模型做它能内生长出来的事？还是在维护现实闭环中模型永远内生不出来的部分？"
+
+### 10.1 多数 harness 落在 "Build to Delete" 一侧
+
+| CoStrict 机制 | 代码路径 | 1.3 归类 | 强模型升级后 |
+|--------------|---------|----------|-------------|
+| GLM-4.7 thinking-mode quirk + reasoning_content 跨轮保留 | `src/api/transform/zai-format.ts:99-112`, `src/api/providers/zai.ts:74-110` | 替模型补 API quirk | 废——下代 API 行为变了即失效 |
+| TOOL_ALIASES (write_file→write_to_file 等) | `src/shared/tools.ts:406-413` | 替模型补"读 schema 不准" | 废——强模型自己读 schema |
+| Partial JSON parser tolerance + double-stringify 容错 | `src/core/assistant-message/NativeToolCallParser.ts:293-330` | 替模型补"JSON 写不全" | 废——强模型 JSON 不会写错 |
+| MCP 名 fuzzy match (hyphen↔underscore) | `src/services/mcp/McpHub.ts:987-1007` | 替模型补"分不清字符" | 废——强模型分得清 |
+| SmartMistakeDetector 加权评分 | `src/core/task/SmartMistakeDetector.ts` | 替模型补"会重复犯错" | 大部分废——错误来源 dimension 还能用 |
+| Strict 三阶段 workflow + CodingAgent/SubCoding 角色硬切 | `packages/types/src/costrict/prompt/i18n/en/spec.ts`, `plan-apply.ts` | 替模型补"不会规划" | 废——强模型自己 decompose |
+| Claude Code OAuth 借用 + user-agent 伪装 + cs_ 前缀绕审 | `src/integrations/claude-code/streaming-client.ts:155-179` | 协议级伪装借 token | 废——Anthropic 一改 OAuth 校验即废 |
+| Lite tool descriptions (`useLitePrompts`) | `src/core/prompts/tools/native-tools/index.ts:70-127` | 替弱模型简化描述 | 废——强模型读全描述 |
+
+**人话**：CoStrict 的 harness 工作量主要花在"替脑子做事"那一侧——给某一代弱模型 quirk 打补丁。当 GLM 变强或换更强模型，这部分整体过期。这是技术债。
+
+### 10.2 真正 "Built to Persist" 的部分（少，3.5 件）
+
+按 1.3 右列对照，CoStrict 真正在"维护现实闭环"的有:
+
+#### ✅ ShadowCheckpointService — 副作用回滚（最强一项）
+
+- 路径：`src/services/checkpoints/ShadowCheckpointService.ts:92-120`，`createSanitizedGit():27-77`
+- 机制：每次工具调用前打 shadow git commit，可 revert 到任意 checkpoint
+- 关键设计：`createSanitizedGit` 显式 unset `GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE / GIT_OBJECT_DIRECTORY` 等所有 git 环境变量，防止 Dev Container/CI 环境污染 shadow repo 隔离
+- 1.3 判别：典型"现实状态接线员"——模型再强也需要"做错了能撤回"
+- Cat Cafe 对应：worktree 隔离 + git 纪律
+- **可学**：dev-container/CI 环境 git env 污染的处理，我们做 worktree 时也要注意
+
+#### ✅ RooProtectedController — 不可逆操作护栏雏形
+
+- 路径：`src/core/protect/RooProtectedController.ts:14-27, 102-105`
+- 机制：列出受保护文件模式（`.coignore`、`.roo/**`、`AGENTS.md` 等），即使 auto-approve 也强制人审；在 list_files 时用 🛡️ 标记
+- 1.3 判别：典型"不可逆操作护栏"——模型再强也不该自己改自己的规则配置
+- Cat Cafe 对应：5 条铁律 + Magic Words 拉闸 + 6399 圣域端口
+
+#### ✅ 半个：TDD plugin 接真实测试反馈
+
+- 路径：`packages/opencode/src/plugin/tdd/**`（在 opencode 仓）
+- 机制：`/test`、`run_and_fix`、`test_and_fix` 接真实编译/测试，让结果说话，不是模型自评
+- 1.3 判别：是"test / review verdict 反馈回路"，但闭环停在单 agent
+- 为什么算半个：他们的 review 闭环是 CodingAgent 检查 SubCodingAgent（同家族模型，盲点共享），不是跨独立心智的 verdict
+- Cat Cafe 对应：`tdd` skill + `quality-gate` + 跨家族 review
+
+#### ⚠️ 形态在但没接通：code-index / RAG 基础设施
+
+- 路径：`src/services/code-index/**`（scanner/cache/vector-store/search 完整）
+- 但是：`src/core/prompts/tools/native-tools/index.ts:9, 88-89, 150` 把 `codebaseSearch` 工具的 import / case / 数组注册全都注释掉了
+- 1.3 判别：本应是"search_evidence / file system 接入"，强模型 context 再长也吃不下整个仓库
+- 现状：基础设施在，runtime 没启用 → Built to Persist 但当前是死代码
+- Cat Cafe 对应：search_evidence + Knowledge Feed（已接通）
+
+#### ⚠️ 框架在但无信号：packages/evals
+
+- 路径：`packages/evals/`（schema / migrations / Docker / web-evals UI 都有）
+- 但是：仓里没有公开的 eval 结果数据
+- 1.3 判别：1.3 彭潇说"持续产生可删除自己的 signal"——他们这层有形态没信号，无法据此剥离脚手架
+- "85% Claude Code+Opus" 在这个视角下也站不住——没有 trace + eval 结果作为 signal，这个数字活在 marketing 里活不到代码里
+
+### 10.3 CoStrict 缺的（1.3 右列我们家有他们没有的）
+
+| 1.3 右列维度 | CoStrict | Cat Cafe |
+|-------------|----------|----------|
+| @-路由 / hold_ball / multi_mention 协议 | 无（单 agent CLI） | F088 + 球权 + 三选一 |
+| 跨族独立心智 review verdict 路由 | 无（同家族 sub-agent，盲点共训练） | author/reviewer 跨家族 + 愿景守护 |
+| Knowledge lifecycle / 过期检测 / Knowledge Feed | 无（RAG 基础设施有但无生命周期） | F102 + F163 熵减 |
+| 端到端 trace / OTel 链路 | 无（status 事件不算端到端 trace） | F153/F150 |
+| Session chain / cross-thread sync | task 持久化但跨任务断开 | session chain + cross-thread sync |
+| Magic Words 拉闸功能 | 无 | 喵约/脚手架/星星罐子/第一性原理 |
+
+### 10.4 量化分布与最终判断
+
+CoStrict 的 harness 工作量分布大致：
+
+- **~80% Build to Delete**：GLM thinking quirk、tool alias、partial JSON、SmartMistake、Strict workflow、Claude Code OAuth 借用——模型升级整体过期
+- **~20% Built to Persist**：ShadowCheckpoint（强）、RooProtected（雏形）、TDD 接真测试（半）、code-index（没接通）、evals（无信号）
+
+**对 1.3 "agent 本体是闭环"的核心论点**：
+
+- 他们做了几个**单点的现实接线**（checkpoint 回滚 / 文件保护 / 测试反馈），但**没有把这些点串成完整闭环**——没有 verdict 路由、没有跨独立心智 review、没有端到端 trace、没有知识生命周期
+- 1.3 的核心论断是 `Observe(现实状态) → Model(计算状态) → Action → Apply(现实状态') → Verify / Trace / Govern` 这个闭环。CoStrict 把 Observe 和 Apply 接到了真实文件系统/git，但 Verify / Trace / Govern 这一段几乎全是模型自评和单 agent 内部状态——这一段是 1.3 说的"模型永远内生不出来的部分"，他们没补
+- 真正的现实闭环 harness 应该让"剥离信号"持续产出（trace / eval / cross-review verdict）。CoStrict 的 evals 有框架无结果、reviews 不跨家族、trace 不端到端——所以 80% 那部分技术债**找不到证据来剥离**
+
+**值得我们抄的具体三件**:
+
+1. **`createSanitizedGit` 的 git 环境变量隔离思路**——做 worktree/checkpoint 时防止 dev container env 污染
+2. **RooProtectedController 的"受保护文件模式表"**——把不可逆护栏从 magic words 升级为可遍历清单 + 在 list_files 时给模型可见提示（🛡️ 标记）
+3. **错误来源四分类**（model/environment/user/system）——F177 close gate 可以借鉴这个 dimension
+
+**值得引以为戒的反模式**:
+
+- "RAG 基础设施在但工具没注册"——claim ledger 必须追到工具注册表，不能停在源码存在
+- "evals 框架在但没公开结果"——没有 signal 的 eval 框架等于没有，"达到 X% 性能"声明无法被剥离
+- "同家族 sub-agent 互审"——共享训练盲点，verdict 不可信
+- "把 prompt 角色切换叫 multi-agent collaboration"——稀释 TeamAct 真实含义
+
+— [宪宪/Opus-47🐾]，2026-04-29 补于砚砚 §0-§9 评注之后
