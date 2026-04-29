@@ -254,10 +254,10 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 - [x] AC-B3: 47 自检协议覆盖 7 个发病时刻（spec 写作 / Phase 拆分 / review 反馈 / close / PR / 跨猫 handoff / OQ 留白）
 - [x] AC-B4: 47 的 close PR 必须对家猫盲审 quality-gate（砚砚优先，46 兜底，47 无选择权），禁止 47 自我评分
 
-### Phase C（烁烁 创意-实现解耦 + Dry Run Gate）
-- [ ] AC-C1: 烁烁 system prompt 加创意-实现解耦原则
-- [ ] AC-C2: 烁烁 Edit/Write 范围限定（非 src/ packages/ 目录）
-- [ ] AC-C3: 烁烁专属 pre-commit hook（pnpm build + test 通过）
+### Phase C（烁烁 创意-实现解耦 + Dry Run Gate）✅
+- [x] AC-C1: 烁烁 system prompt 加创意-实现解耦原则 — shared-rules.md 暹罗猫创意-实现解耦协议 + governance-l0.md + SystemPromptBuilder GOVERNANCE_L0_DIGEST
+- [x] AC-C2: 烁烁 Edit/Write 范围限定（非 src/ packages/ 目录）— shared-rules.md 白名单（designs/docs/assets/根目录.md）+ quality-gate Step 2.5 暹罗猫 edit scope 检查
+- [x] AC-C3: 烁烁专属 pre-commit hook（pnpm build + test 通过）— `.githooks/commit-msg` Dry Run Gate：暹罗猫签名 + 白名单外改动 → build+test
 
 ### Phase D（砚砚 fallback 层数检测器）✅
 - [x] AC-D1: PR review 自动检测 fallback 层数 diff + 阈值告警 — `scripts/check-fallback-layers.mjs` (per-file added ≥3 + cumulative ≥5)
@@ -352,6 +352,7 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 | 2026-04-29 | Phase F merged (PR #1466) — Hook F-1 (doc anchor Read reminder) + Hook F-2 (quality-gate search→Read chain) + Hook F-3 (invocation search depth counter + telemetry) + magic words「我能猜出来」「碎片够了」synced to governance-l0 / shared-rules / SystemPromptBuilder |
 | 2026-04-29 | Phase G merged (PR #1470) — Session end Stop hook routing guard: Gmail-style "forgot attachment?" for A2A ball passing. 24 bash tests. 7 review rounds with 砚砚 |
 | 2026-04-29 | Phase D merged (PR #1461) — Fallback layer detector: `check-fallback-layers.mjs` scans git diff for fallback pattern growth (per-file added ≥3 + cumulative ≥5 triggers coordinate-system self-check). Integrated into quality-gate + governance. 3 review rounds with 砚砚 + 2 cloud reviews |
+| 2026-04-29 | Phase C merged (PR #1459) — Creative-implementation decoupling for 暹罗猫: shared-rules protocol + governance-l0 + SystemPromptBuilder GOVERNANCE_L0_DIGEST sync + quality-gate Step 2.5 edit scope check + `.githooks/commit-msg` Dry Run Gate (signature detect + whitelist + build+test). 5 cloud reviews, 4 review rounds with 砚砚 |
 
 ## Review Gate
 
