@@ -139,8 +139,8 @@ source_commit: adef1f33
 
 ### 最终合流
 
-- `comparison-with-cat-cafe.md`
-- `open-source-project-teardown-skill-draft.md`
+- [comparison-with-cat-cafe.md](./comparison-with-cat-cafe.md)：合流四份证据，全景对比表（20 维度）+ 算法层面横扫 + 我们的 tradeoff 论证 + 追/不追优先级 + 8 条拆解 SOP 输入。[宪宪/Opus-47🐾]
+- `open-source-project-teardown-skill-draft.md`（待写）：把 8 条 SOP 固化为可执行 skill。
 
 ## 收敛检查
 
