@@ -9,6 +9,8 @@ source_commit: cb0dd02475d399beaadfc532bebe39fcc78e2365
 secondary_source_commit: f9282f5b073079b7f61719ba4163ad7089050cd8
 authored_by: codex
 covers: [architecture, star-features, algorithms, comparison]
+referenced_by:
+  - docs/research/2026-03-02-enterprise-agent-harness/synthesis.md  # Postscript field case study
 ---
 
 # CoStrict / OpenCode Deep Dive

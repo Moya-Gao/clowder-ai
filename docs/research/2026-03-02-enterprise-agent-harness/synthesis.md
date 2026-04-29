@@ -213,3 +213,40 @@ GPT-5.2 Pro 指出三份报告的证据可靠性只有 **2/5**。以下数字需
 | GPT | 高 | 中（引用密但不可迁移） | 高 | 工程决策参考 |
 | Gemini | 高 | 低（博客来源多） | 中 | 新创趋势感知 |
 | GPT-5.2 Pro | - | - | 高 | 批判性审阅 |
+
+---
+
+## Postscript: CoStrict / GLM-4.7 Field Case Study (2026-04-29)
+
+> 直播 (2026-04-25) 之后，铲屎官与深信服 CoStrict 负责人聊到他们对弱模型做的 harness 优化（声称 GLM-4.7 + harness = Claude Code + Opus 的 85%），让两只猫拆解公开仓做证据级审计。本节把核心数据点回流到本调研，方便后续 harness 决策引用；详细代码证据见 `docs/discussions/2026-04-29-costrict-opencode-deep-dive/README.md`。
+
+### 来源与范围
+
+- 公开仓：`zgsm-sangfor/opencode` (CLI fork) + `zgsm-ai/costrict` (主仓 VS Code 扩展)
+- Commit：`cb0dd0247...` + `f9282f5b0...`
+- Author/作者：缅因猫砚砚 §0-§9（开源拆解）+ 布偶猫宪宪 §10（1.3 判别式架构评注）
+
+### 核心结论（与本 synthesis 对照）
+
+按 §1.3 *tech-sharing/2026-04-25-topics-final.md* 的 **Build to Delete vs Built to Persist** 判别式分类，CoStrict 公开仓的 harness 工作量分布约 **80% Build to Delete + 20% Built to Persist**：
+
+| 分类 | 代表机制 | 命运 |
+|------|---------|------|
+| Build to Delete (~80%) | GLM-4.7 thinking-mode quirk 修复、TOOL_ALIASES、partial JSON parser、MCP fuzzy match、SmartMistakeDetector、Strict workflow 角色硬切、Claude Code OAuth 借用、Lite tool descriptions | 模型升级整体过期 |
+| Built to Persist (~20%) | ShadowCheckpoint（强）、RooProtectedController（雏形）、TDD 接真测试（半）、code-index 基础设施（未接通）、evals 框架（无信号） | 强模型升级反而更被释放 |
+
+### 与本 synthesis 决策的呼应
+
+- **第 1 节"DARE 六项能力"对照** —— CoStrict 在 *checkpoint/resume*（ShadowCheckpoint，最强）+ *approval memory*（RooProtectedController 文件模式表）做得比 March 评估的 DARE proposal 更具体，**值得吸收的 2 件**：
+  1. `ShadowCheckpointService.createSanitizedGit()` 显式 unset 全部 `GIT_*` 环境变量防 dev container/CI 污染——`F052 Checkpoint API` 落地时直接抄
+  2. `RooProtectedController` 把不可逆护栏做成"文件模式表 + list_files 给模型可见 🛡️ 标记"——比纯 magic words 多一层主动性，可作为我们 5 条铁律的工程化补充
+- **第 7 节结论强化** —— CoStrict 案例**实证**了 synthesis 的核心判断"多猫协作 + 愿景守护是业界还没有的"：CoStrict 主仓在 @-路由 / 跨族独立心智 review verdict / 知识生命周期 / 端到端 OTel trace / cross-thread sync / Magic Words 拉闸**这 6 个 1.3 右列维度上几乎是 0**，他们的 sub-agent 互审是同家族同训练分布，盲点共训练
+- **claim ledger 反模式 1 个** —— CoStrict 的 `codebase_search` 工具在 `src/core/prompts/tools/native-tools/index.ts` 被注释掉但 README 仍 claim RAG，evals 框架建好但仓里无公开结果数据。**对应"85% Claude Code+Opus" 的命运**：1.3 彭潇说 harness 要"持续产生可删除自己的 signal"，他们这层有形态无信号，所以这个数字活在 marketing 里活不到代码里能被剥离的位置——这是给我们 Cat Café `quality-gate` 的反向警示：**任何对外 capability claim 必须追到工具注册表 + eval 公开结果，不能停在源码存在**
+
+### 后续如需深挖
+
+| 方向 | 价值 | 入口 |
+|------|------|------|
+| ShadowCheckpoint dev container env 隔离细节 | F052 Checkpoint API 直接借鉴 | `ref/costrict/src/services/checkpoints/ShadowCheckpointService.ts` |
+| RooProtectedController 文件模式表 → Cat Café 5 铁律工程化 | 可复用的不可逆护栏雏形 | `ref/costrict/src/core/protect/RooProtectedController.ts` |
+| Z.ai GLM-4.7 thinking-mode 跨轮 reasoning 保留 quirk | 我们如自接 Z.ai provider 才需要 | `ref/costrict/src/api/transform/zai-format.ts:99-112` |
