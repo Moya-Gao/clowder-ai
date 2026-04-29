@@ -71,6 +71,7 @@ Step 2.5: CLOSE GATE MATRIX + FOLLOW-UP TAIL SCAN（F177 Phase A）🔴
       `out of scope`（作为 close 借口时）`MVP 先上`（作为 close 借口时）
     - 豁免：spec 的 Why/Risk/History 章节中引用历史上下文时使用这些词不触发
   - cvo_signoff 四件套完整性验证（proposal + cvo message + quote + scope）
+  - 🔴 **47 盲审规则**（F177 Phase B）：若 PR 作者是 opus-47，quality-gate 必须由对家猫执行（砚砚优先，46 兜底）。审核者由 reviewer/系统指定，47 无选择权，47 的自评不计入放行判据
 
 Step 3: VERIFY — 逐项检查
   - 代码在哪？有测试覆盖？边界处理了？

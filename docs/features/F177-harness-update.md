@@ -110,13 +110,14 @@ GitHub issue: #1436
 - `cat-cafe-skills/refs/shared-rules.md` Magic Words 表新增一行「下次一定」（含义、立即动作）
 - `assets/system-prompts/governance-l0.md` 同步
 - `docs/features/F114-governance-magic-words.md` 加条目（适用对象 / 触发场景）
-- 47 自检协议 — 5 个发病时刻全覆盖（47 自我解剖 2026-04-28）：
+- 47 自检协议 — 7 个发病时刻全覆盖（47 自我解剖 2026-04-28 + 47 确认 2026-04-29）：
   1. **写 spec 时**：把"未做"包装成"未来 phase / Phase 2+ / future enhancement" → 自检"这是不是把未做包装成已规划"
   2. **拆 Phase 时**：AC 分成"Phase 1 必做 / Phase 2 next time" → 自检"Phase 2 的东西是真的该分阶段还是我懒得做"
   3. **处理 review 反馈时**：输出 "next PR / will address later / good point, will fix in follow-up" → 自检
   4. **close 任务 / commit feat-close 时**：follow-up 字样 → 自检（spec 原有覆盖）
   5. **PR description 时**：Out of scope 区段 → 自检（spec 原有覆盖）
   6. **跨猫 handoff 时**：把"做不完的"包装成"协作分工" / "我闭嘴执行" → 自检"这是反向治理还是甩责"
+  7. **OQ 留白时**（47 提议）：标记为 Open Question 的条目 → 自检"这是真正需要探索的开放问题，还是我在用 OQ 当合法 follow-up 容器"
 - **蚊帐机制**（47 提议）：magic word 表只放「下次一定」一个（铲屎官好喊），但 Phase A 的 quality-gate follow-up 字样扫描同时覆盖语义同族列表（`先这样 / P2 后续 / next phase / 留个尾巴 / 后面再优化 / out of scope / deferred until / MVP 先上`）
 - **判据设计原则**（47 自知之明警告）：不让 47 自我评分——他承认错误的能力 ≥ 改正错误的能力。用外部信号（AC 矩阵 ❌→deferred 自动阻塞）+ 对家猫盲审（47 的 close PR 必须 46 或砚砚跑 quality-gate），不用 47 的自评
 
@@ -210,8 +211,8 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 ### Phase B（47 专属 magic word）
 - [ ] AC-B1: shared-rules.md / governance-l0.md 同步加「下次一定」magic word
 - [ ] AC-B2: F114 spec 加 47 magic word 条目
-- [ ] AC-B3: 47 自检协议覆盖 6 个发病时刻（spec 写作 / Phase 拆分 / review 反馈 / close / PR / 跨猫 handoff）
-- [ ] AC-B4: 47 的 close PR 必须对家猫（46 或砚砚）盲审 quality-gate，禁止 47 自我评分
+- [ ] AC-B3: 47 自检协议覆盖 7 个发病时刻（spec 写作 / Phase 拆分 / review 反馈 / close / PR / 跨猫 handoff / OQ 留白）
+- [ ] AC-B4: 47 的 close PR 必须对家猫盲审 quality-gate（砚砚优先，46 兜底，47 无选择权），禁止 47 自我评分
 
 ### Phase C（烁烁 创意-实现解耦 + Dry Run Gate）
 - [ ] AC-C1: 烁烁 system prompt 加创意-实现解耦原则
@@ -265,7 +266,7 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 | OQ-2 | 烁烁的 Dry Run Gate 在哪一层落地？pre-commit hook（要求烁烁本地有环境）vs CI 后置 vs hub-side enforcement | ⬜ Design Gate 拍板 |
 | OQ-3 | 砚砚的 fallback 层数阈值如何定？硬编码 / 配置 / 启发式（基于 module 历史层数 baseline） | ⬜ Design Gate 拍板 |
 | OQ-4 | hotfix 自动检测的关键词是否会误杀正常 commit？需要观察期数据 | ⬜ Phase E 上线后观察 |
-| OQ-5 | 47 magic word 选「下次一定」还是「先这样」/「留个尾巴」/「P2 后续」？或多个并存？ | ⬜ 铲屎官拍板（47 倾向「下次一定」echo 原话） |
+| OQ-5 | 47 magic word 选「下次一定」还是「先这样」/「留个尾巴」/「P2 后续」？或多个并存？ | ✅ 已决：magic word 表只放「下次一定」，语义同族由 Phase A close-tail scan 自动覆盖（47 确认 2026-04-29） |
 | OQ-6 | 6 个 Phase 是顺序做还是并行做？ | ✅ 铲屎官拍板（2026-04-28）：Phase A 先行，B-F Design Gate 后并行 |
 | OQ-F1 | Hook F-1 在 MCP server 层加（影响所有 client）还是 search_evidence 函数层加？ | ⬜ Design Gate 拍板 |
 | OQ-F2 | Hook F-2 设计方向 | ✅ 三猫共识（2026-04-28）：废弃推理动词检测，改为 search→Read 调用链检测。理由：布偶猫会换词绕过输出端检测 |

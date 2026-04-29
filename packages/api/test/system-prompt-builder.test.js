@@ -456,7 +456,7 @@ describe('SystemPromptBuilder', () => {
         mcpAvailable: true,
         promptTags: ['critique'],
       });
-      assert.ok(prompt.length < 4900, `Full runtime prompt is ${prompt.length} chars, expected < 4900`);
+      assert.ok(prompt.length < 5100, `Full runtime prompt is ${prompt.length} chars, expected < 5100`);
     } finally {
       catRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
@@ -1399,7 +1399,7 @@ describe('SystemPromptBuilder', () => {
         featureId: 'F073',
       },
     });
-    assert.ok(prompt.length < 5000, `Prompt with SOP hint is ${prompt.length} chars, expected < 5000`);
+    assert.ok(prompt.length < 5200, `Prompt with SOP hint is ${prompt.length} chars, expected < 5200`);
   });
 
   // --- F092: Voice Mode prompt injection ---
@@ -1428,7 +1428,7 @@ describe('SystemPromptBuilder', () => {
     assert.ok(!ctx.includes('Voice Mode ON'), 'Should not include voice mode header');
   });
 
-  test('buildSystemPrompt size stays under 4000 chars with voice mode + SOP hint after Magic Words growth', async () => {
+  test('buildSystemPrompt size stays under 5200 chars with voice mode + SOP hint after Magic Words growth', async () => {
     const build = await getBuilder();
     const prompt = build({
       catId: 'opus',
@@ -1446,7 +1446,7 @@ describe('SystemPromptBuilder', () => {
       },
       voiceMode: true,
     });
-    assert.ok(prompt.length < 5000, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 5000`);
+    assert.ok(prompt.length < 5200, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 5200`);
   });
 
   test('buildInvocationContext injects bootcamp mode when bootcampState provided', async () => {
@@ -1638,6 +1638,29 @@ describe('SystemPromptBuilder', () => {
     assert.ok(prompt.includes('ONLY_GUARDRAILS_HERE'), 'Should inject the one present block');
     assert.ok(!prompt.includes('角色叠加'), 'Should not inject null masks');
     assert.ok(!prompt.includes('默认行为'), 'Should not inject null defaults');
+  });
+
+  // ── Drift guard: magic words in shared-rules.md ↔ GOVERNANCE_L0_DIGEST ──
+  test('GOVERNANCE_L0_DIGEST contains all magic words from shared-rules.md', async () => {
+    const { readFileSync } = await import('node:fs');
+    const rulesPath = resolve(import.meta.dirname, '../../../cat-cafe-skills/refs/shared-rules.md');
+    const rulesText = readFileSync(rulesPath, 'utf8');
+    const magicWordPattern = /\|.*?「(.+?)」/g;
+    const rulesMagicWords = [...rulesText.matchAll(magicWordPattern)].map((m) => m[1]);
+    assert.ok(
+      rulesMagicWords.length >= 7,
+      `Expected >=7 magic words in shared-rules.md, got ${rulesMagicWords.length}`,
+    );
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+    });
+    for (const word of rulesMagicWords) {
+      assert.ok(prompt.includes(`「${word}」`), `Missing magic word 「${word}」 in GOVERNANCE_L0_DIGEST`);
+    }
   });
 
   // ── Drift guard: shared-rules.md ↔ GOVERNANCE_L0_DIGEST ──────

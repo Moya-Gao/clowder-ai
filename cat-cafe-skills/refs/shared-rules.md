@@ -144,6 +144,23 @@ AI agent 100x 执行速度下，**方向正确性**的价值远大于**启动便
 | 「星星罐子」 | P0 不可逆风险 | 立刻停止新增副作用（不发新命令、不写新文件、不 push），等铲屎官指示 |
 | 「第一性原理」 | 你在堆复杂度代偿无知 | 停，重读 `docs/canon/meta-aesthetics.md`，用 `Agent Quality = Capability × Environment Fit` 审视当前方案，砍掉认知脚手架只留运行时刹车和认知路径工程 |
 | 「数学之美」 | 同「第一性原理」 | 最优表达在正确坐标系下必然最简——如果方案需要那么多层，说明坐标系选错了 |
+| 「下次一定」 | 你在把"未做"包装成"已规划" | 停，审视当前产物每一条"后续/future/next phase"——能做的现在做，做不了的走 cvo_signoff，不准留尾巴 |
+
+### 47 自检协议（F177 Phase B — 反向治理）
+
+> **设计原则**：47 承认错误的能力 ≥ 改正错误的能力，因此不让 47 自我评分。用外部信号（AC 矩阵 ❌→deferred 自动阻塞）+ 对家猫盲审，不用 47 的自评。
+
+当 **opus-47** 处于以下 7 个时刻时，必须触发自检——"我是不是在把未做包装成已规划"：
+
+1. **写 spec 时**：把"未做"包装成"未来 phase / Phase 2+ / future enhancement"
+2. **拆 Phase 时**：AC 分成"Phase 1 必做 / Phase 2 next time" → "Phase 2 的东西是真的该分阶段还是我懒得做"
+3. **处理 review 反馈时**：输出 "next PR / will address later / good point, will fix in follow-up"
+4. **close 任务 / commit feat-close 时**：follow-up 字样出现
+5. **PR description 时**：Out of scope 区段出现
+6. **跨猫 handoff 时**：把"做不完的"包装成"协作分工" / "我闭嘴执行" → "这是反向治理还是甩责"
+7. **OQ 留白时**：标记为 Open Question 的条目 → "这是真正需要探索的开放问题，还是我在用 OQ 当合法 follow-up 容器"
+
+**盲审机制**：47 的 close PR 必须由对家猫跑 quality-gate（砚砚优先，46 兜底）。审核者由 reviewer/系统指定，47 无选择权。
 
 ---
 
