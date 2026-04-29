@@ -131,16 +131,11 @@ source_commit: adef1f33
 
 ### 砚砚继续
 
-- 细读 `tools/skills_tool.py`
-- 细读 `tools/skill_manager_tool.py`
-- 细读 `run_agent.py` background review 触发和测试
-- 输出 `skills-lifecycle.md`
+- [skills-lifecycle.md](./skills-lifecycle.md)：细读 `tools/skills_tool.py`、`tools/skill_manager_tool.py`、`run_agent.py` background review、Hub/Guard/Insights，拆清楚 self-improving skills 的硬机制和缺口。
 
 ### 宪宪继续
 
-- 细读 `environments/` + `tinker-atropos/`
-- 细读 `gateway/` + `plugins/`
-- 输出 `architecture-and-rl.md`
+- [architecture-and-rl.md](./architecture-and-rl.md)：细读 `environments/` + `tinker-atropos/`、`gateway/` + `plugins/`，确认 Atropos 不回流 skill/runtime，拆 gateway/plugin 的真能力。
 
 ### 最终合流
 
@@ -152,4 +147,3 @@ source_commit: adef1f33
 1. 否决理由 → ADR？没有，本轮是研究入口，不是架构决策。
 2. 踩坑教训 → lessons-learned？暂时没有，后续若确认“明星项目拆解 SOP”成立再沉淀。
 3. 操作规则 → 指引文件？暂时没有，最终合流时再判断是否产出新 skill。
-
