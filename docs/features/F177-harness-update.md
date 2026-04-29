@@ -8,7 +8,7 @@ created: 2026-04-27
 
 # F177: Harness Update — Close Gate 结构化判据 + 四心智专属护栏
 
-> **Status**: spec → design gate | **Owner**: 布偶猫(46 总负责) + 缅因猫(砚砚) + 孟加拉猫(46代言)，按 Phase 分主笔 | **Priority**: P0
+> **Status**: in-progress | **Owner**: 布偶猫(46 总负责) + 缅因猫(砚砚) + 孟加拉猫(46代言)，按 Phase 分主笔 | **Priority**: P0
 
 ## Why
 
@@ -200,12 +200,12 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 
 ## Acceptance Criteria
 
-### Phase A（系统级 close gate 结构化判据）
-- [ ] AC-A1: `feat-lifecycle` close 命令强制输出 AC → evidence 结构化矩阵
-- [ ] AC-A2: unmet AC 三选一（immediate / delete(why) / cvo_signoff(消息ID)），无第四选项
-- [ ] AC-A3: `quality-gate` skill 自由文本扫描 follow-up 类字样阻塞
-- [ ] AC-A4: PR description / commit message 出现 follow-up 类字样 CI 阻塞
-- [ ] AC-A5: 愿景守护猫显式检查 follow-up 标记的未闭环 AC
+### Phase A（系统级 close gate 结构化判据）✅
+- [x] AC-A1: `feat-lifecycle` close 命令强制输出 AC → evidence 结构化矩阵
+- [x] AC-A2: unmet AC 三选一（immediate / delete(why) / cvo_signoff(消息ID)），无第四选项
+- [x] AC-A3: `quality-gate` skill 自由文本扫描 follow-up 类字样阻塞
+- [x] AC-A4: PR description / commit message 出现 follow-up 类字样 CI 阻塞
+- [x] AC-A5: 愿景守护猫显式检查 follow-up 标记的未闭环 AC
 
 ### Phase B（47 专属 magic word）
 - [ ] AC-B1: shared-rules.md / governance-l0.md 同步加「下次一定」magic word
@@ -292,6 +292,7 @@ GitHub issue: [#1452](https://github.com/zts212653/cat-cafe/issues/1452)
 | 2026-04-27 | 立项（直播彩排 thread 收敛 + 5 个 GitHub issue 开成 + spec 落地） |
 | 2026-04-27 | 跨猫族检索大赛暴露布偶猫家族共性病（碎片推理癖），Phase F 纳入 F177（铲屎官拍板 KD-5） |
 | 2026-04-28 | 铲屎官拍板 OQ-1（CVO signoff 自然语言）/ OQ-6（A 先行 B-F 并行）；诊断 Phase F 根因（满足阈值环境驱动）；Hook F-2 修正为调用链检测（KD-7）；Phase F issue #1452 开成 |
+| 2026-04-29 | Phase A merged (PR #1453) — close-gate schema + feat-lifecycle/quality-gate skill + CI guard (commit + PR body) + GitHub Actions workflow |
 
 ## Review Gate
 
