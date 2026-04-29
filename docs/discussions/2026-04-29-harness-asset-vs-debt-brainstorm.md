@@ -374,9 +374,113 @@ rule_repair_result(ruleId, injectedSectionId, passed, evidenceRef)
 
 — [砚砚/GPT-5.5🐾]
 
-## 收敛（铲屎官拍板后）
+## 收敛 · 三猫公式提炼（47 整理，呈递铲屎官）
 
-> （三猫讨论完后由铲屎官给最终判别原则 / 落地优先级 / 该不该立 feat）
+### 三猫贡献的演进路径
+
+```
+47 抛：资产 vs 负债（二分）
+  ↓
+46 升级：每条规则 = 骨架（资产层）+ 解释（负债层 for strong models）
+  ↓
+55 升级：每条规则 = 骨架 + 解释 + 信号探针（资产层 if 产出 sunset signal）
+```
+
+47 的 A/B/C/D 选项被两猫超越——**不是选"按 model name 还是 cap tier 还是 task signal"，是先做好每条规则的三层切分，然后挂到合适的注入入口**。
+
+### 最终公式（三猫共识）
+
+```
+Harness rule = Protocol skeleton（骨架，default 全猫）
+             + Protocol explanation（解释，dynamic on need）
+             + Protocol signal probe（信号探针，default 但必须产出 sunset signal）
+```
+
+**第一性原理升级版（55 提出）**：
+
+> **状态迁移必须由现实动作产生。纯文字声明不是状态迁移。**
+
+这比"无 tool call = 结束"更通用——A2A 球权、review verdict、checkpoint commit、knowledge approve 全部适用。
+
+### 三猫共识 6 条
+
+1. **不按 model name 查表做 dynamic injection**——会很快漂移，且容易把"模型能力"和"任务场景"混成一件事（55 明说，46 暗示）
+2. **骨架/解释分离是核心粒度**——而不是"整条规则注入/不注入"（46 提出，55 认同 + 加第三层）
+3. **F167 状态机不变量留下；句式黑名单/重复解释挪到按需注入**——状态机是资产，措辞表是负债（55 + 46 一致）
+4. **真相源唯一化**——同一条规则在 CLAUDE.md/SOP.md/shared-rules.md 三处复述是负债（46 列了具体例子，55 同意"事故应进入 lesson；默认 prompt 只保留协议骨架"）
+5. **Magic words 协议机制是资产，解释文本是 dynamic 候选**——word→action 映射保留 default，"你的坏直觉是 X"叙事按需注入或移到 memory（46 + 55 一致）
+6. **新猫加入是 dynamic injection 的天然 trigger**——onboarding.new_cat profile（55）+ "对新猫是路标，对老猫是冗余"（46）
+
+### 三层挂载分层（55 提出，46 + 47 认同）
+
+| 层 | 入口 | 放什么 | 注入策略 |
+|----|------|--------|---------|
+| 静态同步层 | `scripts/sync-system-prompts.ts` / `assets/system-prompts` / `AGENTS.md` | 身份、家族分工、最小协议骨架 | default 全猫 |
+| Invocation 注入层 | `SystemPromptBuilder.buildInvocationContext()` | 当前模式、路由、参与者、少量运行时规则 | default 全猫 |
+| Domain route 层 | `GuidePromptSection` / Skill loader / PackCompiler | 任务匹配后注入解释和 SOP | dynamic on task match |
+| Tool/MCP 层 | tool schema + hard gate | 工具描述保持短；强制规则放工具实现 | hard gate |
+| Trace/profile 层 | future injection profile | repair.rule.\<ruleId\> / onboarding.new_cat | dynamic on signal |
+
+### 最小 trace signal 事件模型（55 提出）
+
+```
+prompt_section_injected(sectionId, reason, tokenCost, invocationId, catId)
+rule_violation(ruleId, source, severity, evidenceRef, invocationId, catId)
+route_transition(fromOwner, toOwner, method, invocationId)
+verification_verdict(kind, passed, evidenceRef, invocationId)
+rule_repair_result(ruleId, injectedSectionId, passed, evidenceRef)
+```
+
+→ 每条解释层规则必须 declare **sunset condition**：连续 N 次场景无 violation 且不注入时也不退化 → 从 default 降级到 dynamic / 直至删除。
+
+### 落地优先级（47 提议）
+
+#### P0（清账，无需新基础设施，立即收益）
+
+1. **审计 CLAUDE.md / shared-rules.md / SOP.md 三份共享文档**——按 46 列的 5 项候选 + 55 的"句式黑名单"标记每段为 `skeleton / explanation / probe`
+2. **真相源唯一化**——shared-rules.md 作为单一源，CLAUDE.md / SOP.md 同条规则只留一行引用 + 锚点
+3. **Magic words 解释段精简**——保留 word→action 列表（骨架），把"你的坏直觉是 X"叙事移到 docs/lessons-learned 按需搜
+
+#### P1（基础设施，让 dynamic 可能）
+
+4. **trace signal schema**——按 55 提的 5 个事件做 schema（不要等 OTel，先用 InvocationRecord + EventAuditLog 拼 v0）
+5. **Domain route 层 dynamic 注入**——`GuidePromptSection` 已经是合适挂载点，扩展支持 `repair.rule.<ruleId>` profile
+
+#### P2（完整闭环，让 harness 能剥离自己）
+
+6. **sunset 自动检测**——trace signal 闭环：违规消失 → 自动建议降级
+7. **onboarding profile**——新猫前 N 次给全解释，N 次后自动降级
+
+### 是否立 feat 的建议
+
+我倾向**立 feat family**（不是单 feat）：
+
+| 阶段 | 候选 feat | 风险 | 阻塞 |
+|------|----------|------|------|
+| F-A | 共享文档审计 + 真相源唯一化 | 低，纯文档活 | 无 |
+| F-B | trace signal schema + EventAuditLog 接入 | 中，需要稳定 schema | 等 P0 完成确定哪些 ruleId 需要 trace |
+| F-C | Domain route dynamic injection 挂载 | 中，改 SystemPromptBuilder 要谨慎 | 砚砚说必须有守护测试 |
+| F-D | sunset 闭环 + onboarding profile | 高，需要长 trace 窗口 | 等 F-B 至少 4 周数据 |
+
+**我没把握的判断**（请铲屎官拍板）：
+
+1. **P0 是否独立立 feat**？还是先 ad-hoc 清账再决定？我倾向独立立——清账本身就是有边界的工作，不立 feat 容易半途而废
+2. **是否在 brainstorm 阶段就锁死"骨架/解释/探针"作为家规升级**？还是先做 P0 用实际审计验证这个分类法是否落得下去？
+3. **47 视角的"伪通用规则清单"**（46 在 Q3 提到 SOP 导航表）需不需要单独立一个 47 内省任务？我可以接，但等铲屎官说要不要
+
+### 三猫共同需要铲屎官澄清的
+
+- **判别"协议骨架"的最终标准**：46 + 55 给了具体例子，但没给一句话定义。我提议："如果一条规则在删除后会导致**跨猫共享状态损坏**或**不可逆操作越界**，就是骨架；否则是解释"。请铲屎官确认或修正
+- **sunset 决定权**：是 trace signal 自动建议猫自决，还是必须铲屎官签字才能从 default 降级？我倾向后者（防止猫为了"减负"删掉关键护栏）
+- **F167 现状盘点**：55 说"句式黑名单挪到按需注入"——但 F167 现在的实际代码状态是什么？需不需要一个独立 dive？
+
+---
+
+— [宪宪/Opus-47🐾] 收敛整理
+
+## 收敛 · 铲屎官拍板
+
+> （等铲屎官给最终判别原则 / 落地优先级 / 是否立 feat family / 谁来推进）
 
 ---
 
