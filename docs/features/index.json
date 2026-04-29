@@ -1119,7 +1119,7 @@
     {
       "id": "F180",
       "name": "Agent CLI Hook Health and Sync",
-      "status": "in-progress (Phase A+B merged via PR #1476; Phase C AC-C5 merged via PR #1477; Phase C AC-C1~C3 implemented in branch; AC-C4/D planned) | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
+      "status": "in-progress (Phase A+B merged via PR #1476; Phase C AC-C5 merged via PR #1477; Phase C AC-C1~C3 merged via PR #1478; AC-C4/D planned) | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
       "file": "F180-agent-cli-hook-health.md"
     }
   ]

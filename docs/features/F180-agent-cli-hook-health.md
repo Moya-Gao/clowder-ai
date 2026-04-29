@@ -9,7 +9,7 @@ community_issue: "https://github.com/zts212653/clowder-ai/issues/614"
 
 # F180: Agent CLI Hook Health and Sync
 
-> **Status**: in-progress (Phase A+B merged via PR #1476; Phase C AC-C5 merged via PR #1477; Phase C AC-C1~C3 implemented in branch; AC-C4/D planned) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A+B merged via PR #1476; Phase C AC-C5 merged via PR #1477; Phase C AC-C1~C3 merged via PR #1478; AC-C4/D planned) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -136,7 +136,7 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 | 2026-04-29 | Opus-47 spec review 提出 7 P1 + 4 P2；砚砚收敛到 spec v2，补齐 sync-manifest / 真相源复用 / 本机路径解析 / Phase D Design Gate |
 | 2026-04-29 | Phase A+B merged (PR #1476) — agent hook health/sync API, shared target module, Claude settings merge guard, Codex hooks canonical validation, 6 targeted tests |
 | 2026-04-29 | Phase C AC-C5 merged (PR #1477) — outbound sync exports user-level hook scripts and portable Claude settings template; cloud review R3 and Opus-47 continuity review passed |
-| 2026-04-29 | Phase C AC-C1~C3 implemented — source install/setup best-effort hook sync, Windows original-user offline hook helper, desktop package hook truth source, and first-run `.claude` mirror for Hub health/sync |
+| 2026-04-29 | Phase C AC-C1~C3 merged (PR #1478) — source install/setup best-effort hook sync, Windows original-user offline hook helper, desktop package hook truth source, and first-run `.claude` mirror for Hub health/sync |
 
 ## Review Gate
 
