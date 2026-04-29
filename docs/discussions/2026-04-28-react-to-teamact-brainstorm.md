@@ -21,16 +21,18 @@ while has_tool_call:
 
 **结束条件**：没有 tool call 了（模型认为信息足够，直接输出 final answer）。
 
+**本质是反馈方向，不是三拍顺序。** Thought → Action → Observation 是叙事，真正的引擎是 Observation 反向喂回 Thought——让外部世界 ground 内部推理。没有这个反向反馈，ReAct 退化成普通 pipeline。
+
 核心特征：
 - 单一 agent 的内部循环
-- 每一轮都是 think → act → observe 的三拍
+- 每一轮都是 think → act → observe 的三拍，**关键是 observe 反向喂回 think**
 - 结束由模型自主判断
 
 ## TeamAct 主循环（团队协作）
 
 ```
 loop:
-    State   → 读 shared state（docs / spec / task / 记忆）
+    State   → 读 shared state（docs / spec / task / 记忆 / resumeCapsule）
     Owner   → 谁持球？（@ 路由 / hold_ball）
     Action  → 持球猫执行（写代码 / review / 设计 / 调研）
     Evidence → 产出证据（commit / test / trace / 截图）
@@ -44,6 +46,10 @@ loop:
 3. **跨猫交叉验证** — 非作者的猫确认通过（Generator-Verifier）
 4. **无悬空球权** — 没有 unowned ball，没有未决的 open question（resolved or escalated）
 5. **愿景收敛** — CVO 确认产出符合愿景（Vision Oracle）
+
+**TeamAct 同理：六步是叙事，本质是 shared state 反向喂回每只猫的 context**——让团队的"集体外部世界"ground 个体 reasoning。State 不只是被动读 docs，还包括 **resumeCapsule**（烁烁观察）——前一只猫主动留下 What/Why/Tradeoff 胶囊作为下一棒的 fast bootstrap，这是 cross-cat-handoff 的本质。
+
+**AC 是 vision 的 proxy，proxy 会漂移。** 五项结束条件不是平行的：AC + 证据 + 交叉验证是局部最优 proxy，CVO 的愿景确认是全局 oracle——proxy 和 oracle 缺一不可。历史教训：F101 Phase D 12 项 AC ✅ 但 UI 不可用；F173 close 事件 AC 抽出去开 stub feat 假装"已闭环"。
 
 核心特征：
 - 多 agent 的外部循环
@@ -75,11 +81,12 @@ feat creation（系统层）
 | 动作 | tool call | 持球猫产生 state-changing work + 附 evidence |
 | 验证 | observation（工具返回） | 跨猫 review + 愿景守护 |
 | 结束判断 | 模型自主（无 tool call） | 五项收敛（AC + 证据 + 交叉验证 + 无悬空球权 + 愿景） |
-| 失败模式 | hallucination | 球权掉地上 / 乒乓球 / 虚空传球 |
+| 路由失败 | —（单 agent 无传球） | 球权掉地上 / 乒乓球 / 虚空传球 |
+| Grounding 失败 | hallucination（伪 observation 喂回 thought） | 碎片推理代替 shared state read / 同族 echo chamber |
 
 ## 关键洞察
 
 1. **ReAct 的结束条件太弱**：单 agent 自己判断"够了"容易 hallucinate completion。TeamAct 用交叉验证解决这个问题。
 2. **TeamAct 的新失败模式**：ReAct 不存在"传球"问题，TeamAct 的独特风险是球权管理（F167 专门治这个）。
-3. **Vision Oracle 是硬约束**：ReAct 没有外部终止者，TeamAct 的 CVO 是系统最终一致性的保证。
+3. **Vision Oracle 必须是人不能算法化**：vision drift 是停机问题——没法自动检测"当前是否偏离 vision"，因为判断本身需要 vision 的全局理解。所以 magic words 必须由铲屎官手动触发，CVO 不是因为在 SOP 里所以是 oracle，是因为只有人能定义 vision 才必须是 oracle。
 4. **Shared State 是团队的 observation**：ReAct 靠工具返回值感知世界，TeamAct 靠共享文档/git/任务状态感知团队进度。
