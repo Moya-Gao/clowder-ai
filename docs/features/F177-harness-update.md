@@ -235,7 +235,7 @@ session end hook:
 | Phase F 布偶猫家族 Read-Before-Reason | question → answer 的检索纪律 | 检索 |
 | Phase G 47 传球守卫 | 消息出口路由完整性 | 路由 |
 
-GitHub issue: TBD
+GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 
 ## Acceptance Criteria
 
