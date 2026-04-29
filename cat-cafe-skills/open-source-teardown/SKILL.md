@@ -46,7 +46,7 @@ triggers:
 - 算法剥皮表：真算法 / LLM judge / 启发式 / 规则 / 外部服务。
 - Cat Café 对比：能学、不能学、我们因为 tradeoff 不 follow 的理由。
 
-报告模板见 [refs/report-template.md](refs/report-template.md)。八个审计镜头和命令细节见 [refs/teardown-method.md](refs/teardown-method.md)。
+报告模板见 [refs/report-template.md](refs/report-template.md)；八审计镜头 + 命令见 [refs/teardown-method.md](refs/teardown-method.md)；用户视角第一性原理（第 9 镜头）见 [refs/user-mind-evaluation.md](refs/user-mind-evaluation.md)。
 
 ## 进度纪律
 
@@ -137,7 +137,7 @@ signal -> decision -> state mutation -> future behavior
 | 把 hash update 当 stale | 混淆上游版本和知识失效 | 分开写 package update / knowledge stale |
 | 把 telemetry 当治理 | `last_used_at` 被过度解读 | 看它是否进入排序/淘汰/晋升 |
 | 只看源码不看社区 | 错过用户真实痛点和官方 roadmap | 查高赞 issue / bug / enhancement |
-| 用“我们没有”替代 tradeoff | 把设计选择误报成缺口 | 写清价值函数和哲学理由 |
+| 用”我们没有”替代 tradeoff / 用”对方有”误报为”对方强” | 把设计选择误报成缺口 / 接口齐全度误读为质量 | 写清价值函数 + 用户视角第一性原理（refs/user-mind-evaluation.md）|
 | 一只猫写完不找 review | 方法论未经挑战 | skill/report 交对口猫 review |
 
 ## 和其他 Skill 的区别
