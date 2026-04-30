@@ -157,7 +157,7 @@ function consumePendingToolResult(
     return pendingToolResults.shift();
   }
 
-  if (hasConfirmingContent && pendingToolResults.length === 1) {
+  if (hasConfirmingContent) {
     return pendingToolResults.shift();
   }
 

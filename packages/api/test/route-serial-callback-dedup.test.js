@@ -338,6 +338,52 @@ describe('#573: stream store dedup when cat_cafe_post_message used', () => {
     assert.equal(streamAppends.length, 1, 'unrelated ok tool_result must not suppress stream persistence');
   });
 
+  it('confirms an unlabeled callback result when the post tool is first pending among multiple tools', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const appendCalls = [];
+
+    const parallelToolService = {
+      async *invoke() {
+        yield { type: 'text', catId: 'opus', content: 'Posting through callback.', timestamp: Date.now() };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'mcp:cat-cafe/cat_cafe_post_message',
+          toolInput: '{}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'command_execution',
+          toolInput: 'echo ok',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          content: '{"status":"ok","messageId":"msg-123"}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          content: 'ok',
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = createMockDeps({ opus: parallelToolService }, appendCalls);
+    for await (const msg of routeSerial(deps, ['opus'], 'hello', 'user1', 'thread1')) {
+      // drain
+    }
+
+    const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
+    assert.equal(streamAppends.length, 0, 'unlabeled callback result should suppress duplicate stream persistence');
+  });
+
   it('does not confirm callback persistence from a duplicate labeled post result after a failed callback', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const appendCalls = [];
