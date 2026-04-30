@@ -9,7 +9,7 @@ community_issue: "https://github.com/zts212653/clowder-ai/issues/614"
 
 # F180: Agent CLI Hook Health and Sync
 
-> **Status**: in-progress (Phase A+B merged via PR #1476; Phase C AC-C5 merged via PR #1477; Phase C AC-C1~C3 merged via PR #1478; AC-C4/D planned) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A+B merged via PR #1476; Phase C AC-C5 merged via PR #1477; Phase C AC-C1~C3 merged via PR #1478; AC-C4 + Phase D health entry in review) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -50,9 +50,10 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 
 ### Phase D: In-App Health Surface
 
-在 Hub 或 first-run/setup surface 增加 Agent CLI Hook Health：
+在新 thread / project setup surface 增加 Agent CLI Hook Health：
 
-- Phase D 进入实施前必须先关闭 OQ-1/OQ-2，由铲屎官 + 烁烁完成 Design Gate；Phase A/B/C 不被这两个 UX 决策阻塞。
+- OQ-1 Design Gate 已按铲屎官对 ProjectSetupCard 治理入口的判断收敛：Agent Hook Health 的主入口与项目治理初始化同栖，避免用户带病开工；Hub 能力中心可以后续承载深诊断，但不是本片阻塞项。
+- OQ-2 已由烁烁于 2026-04-29 Design Gate 追认：当前片的 inline compact summary（target + status + diff message）足够作为现场急救站的 patch preview；完整 settings JSON patch modal 留给 Hub 大本营 deep-dive panel / UX polish。
 - Hub 启动 / first-run 时做一次 status 检测并缓存到当前 app session；新线程 / 项目切换可以复用缓存或触发轻量 refresh，但不能在每条消息上重复检测。
 - 缺失或过期时显示可操作提示；
 - 点击同步后重新检测并显示 green；
@@ -81,14 +82,14 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 - [x] AC-C1: source install/setup 路径会尝试安装 hook，并在失败时给出非致命 warning；安装阶段视为用户已经对安装流程授权的延展同意。
 - [x] AC-C2: Windows installer 会用 original-user best-effort step 尝试安装 hook/settings，失败不阻塞安装；安装阶段写入失败必须由 Hub first-run health check 兜底。
 - [x] AC-C3: macOS DMG / desktop first-run 能通过 Hub health check 发现缺失并一键修复。
-- [ ] AC-C4: 现有用户升级后打开 Hub 或任意 thread 能看到缺失/过期提示；status 检测由 Hub 启动/first-run 触发一次并缓存到当前 app session，不能在每条消息上触发 N+1 检测。
+- [x] AC-C4: 现有用户升级后打开 Hub 或任意 thread 能看到缺失/过期提示；status 检测由 Hub 启动/first-run 触发一次并缓存到当前 app session，不能在每条消息上触发 N+1 检测。
 - [x] AC-C5: outbound sync 后，开源仓能找到 `.claude/hooks/user-level/session-start-recall.sh`、`.claude/hooks/user-level/session-stop-check.sh`，以及不含本机绝对路径的 `.claude/settings.json` hook 模板。
 
 ### Phase D（In-App Health Surface）
 
-- [ ] AC-D1: 前端有 Agent CLI Hook Health UI，展示 Claude/Codex 分项状态。
-- [ ] AC-D2: 点击同步按钮后，UI 从 warning/error 变为 configured green。
-- [ ] AC-D3: 外部 project governance bootstrap 仍只处理 `CLAUDE.md` / `AGENTS.md` / skills，不写 user-level hooks。
+- [x] AC-D1: 前端有 Agent CLI Hook Health UI，展示 Claude/Codex 分项状态。
+- [x] AC-D2: 点击同步按钮后，UI 从 warning/error 变为 configured green。
+- [x] AC-D3: 外部 project governance bootstrap 仍只处理 `CLAUDE.md` / `AGENTS.md` / skills，不写 user-level hooks。
 - [ ] AC-D4: 开源同步后 `clowder-ai#614` 可以用 fixed-internal → synced → close 的链路收口。
 
 ## Dependencies
@@ -114,8 +115,8 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Hook Health UI 放 Hub 能力中心，还是新线程空态 ProjectSetupCard 下方？ | ⬜ Phase D Design Gate blocker |
-| OQ-2 | 同步 API 是否展示将写入的 settings patch preview？ | ⬜ Phase D Design Gate blocker |
+| OQ-1 | Hook Health UI 放 Hub 能力中心，还是新线程空态 ProjectSetupCard 下方？ | ✅ 决策：ProjectSetupCard / thread setup surface 作为主入口；Hub 深诊断后置 |
+| OQ-2 | 同步 API 是否展示将写入的 settings patch preview？ | 🟨 烁烁 2026-04-29 追认通过：compact summary 够用；完整 JSON patch modal 留 Hub 大本营 UX polish |
 | OQ-3 | 未来 Linux `.deb` / `.rpm` 安装包是否需要 post-install hook sync？ | ⬜ Future feature；当前 Linux 走 source install，Hub first-run 兜底 |
 
 ## Key Decisions
@@ -127,6 +128,7 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 | KD-3 | Runtime 检测自动，修复显式点击；source install / installer 阶段可 best-effort 自动写入 | Runtime 写用户 home 配置必须可见、可解释；安装阶段已有用户对安装流程的延展同意，失败由 Hub first-run 兜底 | 2026-04-29 |
 | KD-4 | Hook target 真相源是 `scripts/sync-system-prompts.ts:buildTargets()` | 避免 API / CLI 双写 target 列表，后续 hook 内容变更只改一处 | 2026-04-29 |
 | KD-5 | Codex hook 配置里的脚本绝对路径必须在目标机器即时解析 | `~/.codex/hooks.json` 是本机解析态，不是可跨机器 ship 的静态模板；沿用 F145 声明式期望态 vs 本机解析态模式 | 2026-04-29 |
+| KD-6 | Hook Health 的可见入口跟 ProjectSetupCard 治理初始化同栖，并在任意 thread 对异常状态给出轻量预警 | Hook 是用户级 runtime 前置条件，但风险暴露发生在开新 thread / 项目开工时；放在治理入口比藏在 Hub 更符合用户发现路径 | 2026-04-29 |
 
 ## Timeline
 
@@ -137,6 +139,7 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 | 2026-04-29 | Phase A+B merged (PR #1476) — agent hook health/sync API, shared target module, Claude settings merge guard, Codex hooks canonical validation, 6 targeted tests |
 | 2026-04-29 | Phase C AC-C5 merged (PR #1477) — outbound sync exports user-level hook scripts and portable Claude settings template; cloud review R3 and Opus-47 continuity review passed |
 | 2026-04-29 | Phase C AC-C1~C3 merged (PR #1478) — source install/setup best-effort hook sync, Windows original-user offline hook helper, desktop package hook truth source, and first-run `.claude` mirror for Hub health/sync |
+| 2026-04-29 | Phase C AC-C4 + Phase D health entry implemented — ProjectSetupCard / thread setup surface shows Agent Hook Health, session-cached status avoids N+1 checks, and one-click sync returns configured state |
 
 ## Review Gate
 
