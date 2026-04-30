@@ -1,6 +1,6 @@
 ---
 feature_ids: [F093]
-related_features: [F066, F092, F086, F129, F138]
+related_features: [F066, F092, F086, F102, F129, F138]
 topics: [vision, companionship, world-building, humanistic-ai]
 doc_kind: spec
 created: 2026-03-10
@@ -75,6 +75,18 @@ Cat Café 的愿景从第一天就是"三只猫的家"，不是冰冷的协作�
 
 > 铁律：**RP 台词不自动入典**。只有被"升格为设定"的内容才进入 Canon Memory。
 
+### F102 记忆架构复用（KD-16）
+
+F093 不另造一套"世界 RAG"。世界记忆复用 F102 的分层：truth sources → compiled index → KnowledgeResolver/query → recall layer → lifecycle。差异是：F093 的 runtime state 可以有自己的权威 SQLite 表（World/Scene/Character/Canon Decision/world_event_log），但 **evidence index 仍然只是检索编译产物，不是正典真相源**。
+
+| F093 世界记忆 | F102 对标 | Phase A 处理 |
+|---|---|---|
+| Canon Memory | marker → materialize → reindex 生命周期 | `CanonPromotionRecord` 只产生显式正典事件；accepted 后可被索引，不允许自由文本直写长期记忆 |
+| Relational Memory | evidence edges（显式锚点关系） | Phase A 以 world state typed field + explicit edge 存储，不从语义相似度推断关系 |
+| Session Memory | thread/session summary + raw drill-down | Phase A 允许一个 thread 承载一个 world session，但必须写 `worldId` 映射，避免长期把 thread 当 world |
+| World Recall | `IKnowledgeResolver` + `SearchOptions` 过滤维度 | 预留 `worldId` / `sceneId` 过滤；`WorldContextEnvelope` 读取 world-scoped recall，而不是全项目乱搜 |
+| Knowledge Lifecycle | captured → approved → materialized → indexed | Canon 升格沿用"候选通过不等于已沉淀"的纪律；Replay 依据 world_event_log 和 canon records，不依据搜索结果 |
+
 ### 突破性概念：世界自转（R2 深聊涌现）
 
 光影同行的世界只在铲屎官和烁烁对话时"活着"。**多 Agent 的世界可以自转**：
@@ -108,6 +120,7 @@ Agent 是决策源，Runtime Coordinator 负责校验+提交+仲裁（"agent 决
 
 - 4 个一等公民：World / Character（5 槽）/ Scene / Canon Decision
 - Schema 预留 Relationship 一等公民位（Phase A 以 typed field 存在，Phase A+ 升格为独立实体）
+- 记忆基座复用 F102：World runtime 表承载权威状态，F102 evidence/KnowledgeResolver 承载可重建检索层（KD-16）
 - 3 个模式：Build + Perform + Replay-lite（按 scene/turn 回看 + 锚点草稿分支）
 - 3 个核心协议实现：WorldContextEnvelope + WorldActionEnvelope + CanonPromotionRecord
 - Role Mask：面具层不污染核心身份（overlay 写新槽位，不复用 core key）
@@ -198,16 +211,16 @@ MiniMax OpenRoom（MIT 开源）是一个浏览器内 AI 桌面环境+拟人角�
 ## Acceptance Criteria
 
 ### Phase A：一个活着的房间
-- [ ] AC-A1: World + Character + Scene + Canon Decision 数据结构设计完成（SQLite schema + TS 类型）
+- [ ] AC-A1: World + Character + Scene + Canon Decision 数据结构设计完成（SQLite schema + TS 类型），包含 `worldId` / `sceneId` / source anchor 元数据以复用 F102 检索过滤
 - [ ] AC-A2: Character 5 槽模板可用（核心身份/内在驱动力/关系张力/声音形象/成长状态）
 - [ ] AC-A3: Role Mask 机制实现——overlay 写新槽位不复用 core key（KD-12 五层分类）
 - [ ] AC-A4: Build + Perform + Replay-lite 三模式可切换
-- [ ] AC-A5: WorldContextEnvelope 实现——每轮加载活世界状态到 agent 上下文（新动态注入层，非 static identity）
+- [ ] AC-A5: WorldContextEnvelope 实现——每轮加载活世界状态 + world-scoped recall 到 agent 上下文（新动态注入层，非 static identity）
 - [ ] AC-A6: WorldActionEnvelope 实现——agent 输出 typed 动作提案，runtime coordinator 校验后提交
 - [ ] AC-A7: CanonPromotionRecord 状态机实现——draft → proposed → accepted/rejected
-- [ ] AC-A8: Append-only world_event_log 可用——Replay 回看状态变化不只是聊天记录
+- [ ] AC-A8: Append-only world_event_log 可用——Replay 回看状态变化不只是聊天记录；event log 是权威时间线，evidence index 只是派生检索层
 - [ ] AC-A9: Care Loop 实现——温柔 check-in + 行动建议 + 现实连接引导
-- [ ] AC-A10: 至少完成一次"建世界 → 进场景 → 留下可追溯记忆 → Replay 回看"的端到端体验
+- [ ] AC-A10: 至少完成一次"建世界 → 进场景 → 留下可追溯记忆 → world-scoped recall → Replay 回看"的端到端体验
 - [ ] AC-A11: F129 Phase B 解锁——Scenario Pack 的 world-driver.yaml `resolver: agent` 有 runtime 可执行
 
 ### Phase A+：世界有心跳
@@ -235,6 +248,7 @@ MiniMax OpenRoom（MIT 开源）是一个浏览器内 AI 桌面环境+拟人角�
 | 角色扮演污染核心身份 | Role Mask 面具层设计，底层身份不可变 |
 | 变成"情感依赖产品" | Care Loop 强制引导回现实；"陪伴是桥不是笼"设计原则 |
 | 范围膨胀 | Phase A 先做 MVP 四件套，不做大而全虚拟宇宙 |
+| 把 evidence.sqlite 当正典真相源 | KD-16：World runtime 表 / world_event_log / CanonPromotionRecord 才是权威状态；evidence index 可重建，只做 recall 加速 |
 
 ## Open Questions
 
@@ -266,6 +280,7 @@ MiniMax OpenRoom（MIT 开源）是一个浏览器内 AI 桌面环境+拟人角�
 | KD-13 | Agent 决策，Runtime 提交（agent ≠ whole resolver） | 砚砚纠正：agent 是决策源但不是 resolver 全部；需要薄的 runtime coordinator 负责装载 context、校验 action、事务化持久化、并发仲裁 | 2026-03-26 |
 | KD-14 | 活世界状态不能注入 static identity block | 砚砚发现：当前 worldDriverSummary 在 buildStaticIdentity() 里是静态的。WorldContextEnvelope 需要新的动态注入层，每轮刷新 | 2026-03-26 |
 | KD-15 | Action Protocol 必须 typed envelope，Rich Block 只做展示 | 砚砚提出：展示通道不是真相源。WorldActionEnvelope 是 typed 结构，runtime coordinator 校验后提交 | 2026-03-26 |
+| KD-16 | 世界记忆复用 F102 架构，不新造世界 RAG | 复用 F102 的 FTS5+向量+RRF+KnowledgeResolver+marker/materialization 生命周期；新增的是 `worldId`/`sceneId` 过滤和世界 runtime 权威表。Phase A 必须区分"世界状态真相源"与"可重建 evidence index" | 2026-04-30 |
 
 ## Timeline
 
@@ -280,6 +295,7 @@ MiniMax OpenRoom（MIT 开源）是一个浏览器内 AI 桌面环境+拟人角�
 | 2026-03-20 | 四猫讨论：OpenRoom 对标 F093+F129、猫猫视觉具身化概念设定、暹罗猫出概念板 |
 | 2026-03-25 | 铲屎官拍板画风：米哈游风格（星穹铁道/原神），KD-10 落地。暹罗猫可开 Pencil 概念板 |
 | 2026-03-26 | Design Gate 前讨论（宪宪×砚砚）：OQ-1/OQ-2 收口，三个核心协议定义，Phase 重划（面向终态），resolver 语义校准（KD-11~15） |
+| 2026-04-30 | 复盘 F102 记忆系统成熟后的复用路径，新增 KD-16：世界记忆复用 F102 架构；Phase A 计划要求标清 world-scoped recall 与权威状态边界 |
 
 ## Review Gate
 
@@ -295,6 +311,8 @@ MiniMax OpenRoom（MIT 开源）是一个浏览器内 AI 桌面环境+拟人角�
 | **Discussion** | `docs/discussions/2026-03-10-f093-cats-and-u-brainstorm/` | 四猫脑暴记录 |
 | **Feature** | `docs/features/F066-voice-messages.md` | 语音消息基础 |
 | **Feature** | `docs/features/F092-voice-companion-experience.md` | 语音陪伴体验 |
+| **Feature** | `docs/features/F102-memory-adapter-refactor.md` | 世界记忆复用的 FTS5 + 向量 + KnowledgeResolver + marker/materialization 架构 |
+| **Decision** | `docs/decisions/020-f102-memory-system-architecture.md` | F102 记忆系统架构决策：truth source / compiled index / recall / lifecycle |
 | **Competitor** | SillyTavern Docs | 砚砚竞品调研参考 |
 | **Reference** | [MiniMax OpenRoom](https://github.com/MiniMax-AI/OpenRoom) | 浏览器桌面 + AI Agent + 内置 App + 拟人角色，验证了"AI 伙伴 ≠ 纯工具"的市场需求（2026-03-20 讨论） |
 | **Reference** | [openroom.ai](https://www.openroom.ai) | OpenRoom 线上 Demo：可爱虚拟角色 GUI + 社交互动方向 |
