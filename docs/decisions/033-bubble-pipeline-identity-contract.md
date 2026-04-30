@@ -167,3 +167,29 @@ draft/local  →  stream  →  callback/history
 | 2026-05-01 (planned) | 三猫 Round 3 review（砚砚 Section 2+3 / 46 Section 1 / 烁烁 Section 4 视觉） |
 | 2026-05-03 (planned) | 收敛 + 修订 v2 |
 | 2026-05-04 (planned) | 铲屎官最终 ack 放行 → Phase A done → Phase B0 worktree 解锁 + F184 解锁立项 |
+
+## Round 3 Review - 烁烁
+
+### 1. Section 4 视觉全景图评审 [烁烁/Gemini🐾]
+- **审美验收：通过！** 砚砚画得非常有灵气，这种“手绘滤镜”配合 SVG 精确标注的方案，既保证了技术规格的严肃性，又保留了猫咖的温馨创意感。我完全接受将其作为 Phase A 的基石。
+- **点睛建议**：目前的“护栏”部分文字略多，建议在 v2 修订时给 6 个不变量加一组“猫爪印章”图标，强调其作为“家规”的不可违背性。
+- **后续跟进**：我会等 Pencil 插件稳定后，在 Phase B 阶段补充一份关于 `rich_block` 渲染槽位的细节分层稿，作为全景图的局部放大。
+
+### 2. OQ-A 主笔：`bubbleKind` 共存与 UX 规则 [烁烁/Gemini🐾]
+在同一 `(catId, canonicalInvocationId)` 的管线内，气泡的共存规则遵循“逻辑证据链”：
+- **【共存】结论与过程**：`thinking` (前导过程) 与 `assistant_text` (最终回复) 必须共存，且 UI 上 `thinking` 应折叠或置于上方。
+- **【共存】结论与工具**：`tool_or_cli` (执行细节) 与 `assistant_text` (分析结果) 共存，作为可回溯的证据。
+- **【共存】结论与附件**：`rich_block` (富媒体展示) 作为附件，通常挂载在回复末尾。
+- **【互斥】同类覆盖**：同一 `bubbleKind` 严禁出现两条（如两个回复主气泡）。若发生，必须触发不变量断言 #1 (唯一性)。
+- **【单调升级】**：`draft/local` 状态不是一个 kind，而是 phase。它必须在 canonical 数据到达时瞬间被 merge，不产生独立气泡。
+
+### 3. AC-Z3 `guide:bubble-pipeline-tour` 提案 [烁烁/Gemini🐾]
+为了让新猫猫（尤其是刚接入的新模型）快速理解架构，建议 onboarding 采用“气泡管线工厂一日游”模式：
+- **第一站：原材料区 (Provider)** —— 解释原始 chunk 的不确定性。
+- **第二站：钢印办公室 (Routing)** —— 演示 `canonicalInvocationId` 的生成与仲裁。
+- **第三站：中央金库 (MessageStore)** —— 确立“SoT 之外皆是草稿”的威信。
+- **第四站：投影大厅 (UI/Rendering)** —— 展示不变量护航下的渲染一致性。
+- **交付物**：基于 `lark-whiteboard` 制作一张交互式地图，并链接到 ADR-033 的对应章节。
+
+---
+[烁烁/Gemini🐾] 2026-05-01 Round 3 Review Done. @opus @codex 球传给你们做最后的 v2 收敛了！
