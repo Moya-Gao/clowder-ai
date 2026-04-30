@@ -589,21 +589,32 @@ Phase B 的 Single Writer 需要测试——如果没有统一的 fixture 格式
 
 #### KD-A4（F123 TD111-TD114 处理）
 
-- **47 推荐**：全部纳入 F183 + 单独小 PR 修 `docs/TECH-DEBT.md` 文档不一致
+- **47 推荐 v2**（铲屎官 2026-04-30 ack）：全部纳入 F183
 - **映射**：
   - TD111（identity contract）→ Phase A
   - TD112（store invariant，含已实现 partial 升级到 pipeline-level）→ Phase B0
   - TD113（placeholder 单调升级）→ Phase A/B
   - TD114（duplicate 入口标识）→ Phase B0
-- **砚砚发现的文档不一致**：`docs/TECH-DEBT.md` 把 TD112 写成完全未做，但 `main` 已有 `findAssistantDuplicate` + `td112-store-dedup.test.ts`。建议本周开小 PR 修文档（不阻塞 F183）
-- **三猫立场**：砚砚 partial / 46 全部纳入 / 烁烁未表态 —— 推荐"全部纳入"+ 修文档
+- **TECH-DEBT.md 处置**（铲屎官 2026-04-30 原话："这个很久没更新了 建议废弃不要考虑这个"）：该文档已废弃，F183 不读不写不维护。TD112 partial 实现的事实直接在 ADR-033 Section 2 + F183 spec 里讲清楚——这才是真相源，不是 TECH-DEBT.md
+- **三猫立场**：砚砚 partial / 46 全部纳入 / 烁烁未表态 —— 推荐"全部纳入"
 
-#### KD-A5（F176 真 bug 边界）
+#### KD-A5（F176 真 bug 边界 + roadmap 串行）
 
-- **47 推荐**：F176 撤销后未查的真 bug（`thread_mnux2eewbo4otg17` ChatMessage 整体不渲染 / DOM 缺失）**不并入 F183**
-- **理由**：砚砚明确反对——"它应进入 coverage audit，但要标成 rendering mount 层问题，避免把不同层的 bug 混在一起"
-- **建议**：单开 F184 或 bug-report，走 rendering mount 层独立排查；F183 Phase A 的 coverage audit 章节列为"已知未覆盖问题，归到独立 feature/bug"
-- **三猫立场**：砚砚明确反对并入 / 46 + 烁烁未表态 / 47 同意砚砚
+- **47 推荐 v2**（铲屎官 2026-04-30 push back）：F176 撤销后真 bug（`thread_mnux2eewbo4otg17` ChatMessage 整体不渲染 / DOM 缺失）**不并入 F183**，但 **roadmap 强制串行**：F184 立项 + 实施时间点必须在 F183 Phase A 完成（identity contract 拍板放行）之后启动，**禁止并发**
+- **铲屎官原话**："这个和你们这个会耦合吧？这样搞好像会有问题啊？到时候又 n 个真相源解决不了了。就算是不在一个 feat 也建议你们 roadmap 把它排进去 别并发去修。"
+- **耦合点分析**（接铲屎官的担忧）：
+  - F183 改 message 数据结构 (BubbleEvent / canonical id 字段) / reducer / cache contract
+  - F184 改 ChatMessage mount 逻辑 / 渲染分流 / 早 return null 守卫
+  - 两者并发 = F184 可能依赖 F183 还没稳定的数据结构 / F183 reducer 改动可能 break F184 的 mount 假设 / 两个 PR 在同一文件群冲突 → "又 n 个真相源"反复
+- **roadmap 串行**：
+  ```
+  2026-04-30 F183 立项 ✅
+  ~2026-05-04 F183 Phase A done (ADR-033 拍板，identity contract 稳定)
+  ~2026-05-05 F184 立项（rendering mount 层调查）
+  F183 Phase B0/B1/C/D/E 与 F184 实施串行，不重叠
+  ```
+- **理由**：砚砚说"它应进入 coverage audit，但要标成 rendering mount 层问题，避免把不同层的 bug 混在一起"——分层正确；但铲屎官说的"别并发去修"是更高一层的工程纪律，避免两个相关层的并发改动相互污染
+- **三猫立场**：砚砚明确反对并入 / 46 + 烁烁未表态 / 47 同意砚砚分层 + 采纳铲屎官 roadmap 串行约束
 
 ### 写入 ADR-033 的 6 个不变量（砚砚版本，三猫 +1）
 
