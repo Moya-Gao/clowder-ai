@@ -433,10 +433,11 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     // Broadcast without @mention → thread-level check (any active → queue)
     // #555: Cover the gap between one invocation ending (tracker cleared) and the
     // next starting from queue (tracker not yet registered).
-    // Whisper / @mention use cat-specific isCatBusy; broadcast uses thread-wide isThreadBusy.
+    // Whisper / @mention use cat-specific isCatBusy; broadcast uses active execution,
+    // not queued leftovers, to avoid enqueue-only dead ends.
     const hasActive = (() => {
       if (!opts.invocationTracker) {
-        return opts.queueProcessor?.isThreadBusy?.(resolvedThreadId) ?? false;
+        return opts.queueProcessor?.hasActiveExecution?.(resolvedThreadId) ?? false;
       }
       if (whisperVisibility === 'whisper' && primaryCat !== 'unknown') {
         return (
@@ -453,7 +454,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         );
       }
       return (
-        opts.invocationTracker.has(resolvedThreadId) || (opts.queueProcessor?.isThreadBusy?.(resolvedThreadId) ?? false)
+        opts.invocationTracker.has(resolvedThreadId) ||
+        (opts.queueProcessor?.hasActiveExecution?.(resolvedThreadId) ?? false)
       );
     })();
     const mode = deliveryMode ?? (hasActive ? 'queue' : 'immediate');

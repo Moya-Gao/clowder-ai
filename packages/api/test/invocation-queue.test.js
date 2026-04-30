@@ -757,6 +757,24 @@ describe('InvocationQueue', () => {
     assert.equal(queue.hasActiveOrQueuedAgentForCat('t1', 'codex'), false);
   });
 
+  it('hasQueuedOrProcessingForCat does not match another thread by prefix collision', () => {
+    queue.enqueue({
+      threadId: 't1:child',
+      userId: 'u1',
+      content: 'queued in another thread',
+      source: 'user',
+      targetCats: ['codex'],
+      intent: 'execute',
+    });
+
+    assert.equal(
+      queue.hasQueuedOrProcessingForCat('t1', 'codex'),
+      false,
+      'thread t1 must not inherit queued entries from thread t1:child',
+    );
+    assert.equal(queue.hasQueuedOrProcessingForCat('t1:child', 'codex'), true);
+  });
+
   it('hasActiveOrQueuedAgentForCat still blocks for fresh processing entry (< STALE_PROCESSING_THRESHOLD)', () => {
     queue.enqueue({
       threadId: 't1',
