@@ -999,7 +999,8 @@
       "timestamp": "2026-04-30T04:41:43.576Z",
       "intake_intent_issue": 1482,
       "absorb_pr": 1484,
-      "review_proof": "https://github.com/zts212653/cat-cafe/pull/1484#pullrequestreview-4202459255"
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/1484#pullrequestreview-4202459255",
+      "notes": "Final hardening continued in cat-cafe PRs #1485 and #1486 for unlabeled and ambiguous callback-result correlation after absorb PR #1484 merged."
     }
   ]
 }
