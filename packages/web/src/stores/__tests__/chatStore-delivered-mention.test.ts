@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useChatStore } from '../chatStore';
+import { DEFAULT_THREAD_STATE, useChatStore } from '../chatStore';
 
 const NOW = 1700000000000;
 
@@ -61,6 +61,7 @@ describe('markMessagesDelivered mentionsUser notification', () => {
     useChatStore.setState({
       threadStates: {
         'thread-bg': {
+          ...DEFAULT_THREAD_STATE,
           messages: [
             {
               id: 'm1',
@@ -72,18 +73,6 @@ describe('markMessagesDelivered mentionsUser notification', () => {
               deliveredAt: NOW,
             },
           ],
-          isLoading: false,
-          isLoadingHistory: false,
-          hasMore: true,
-          hasActiveInvocation: false,
-          catStatuses: {},
-          catInvocations: {},
-          hasDraft: false,
-          intentMode: null,
-          targetCats: [],
-          queue: [],
-          queuePaused: false,
-          queueFull: false,
           hasUserMention: false,
         },
       },
