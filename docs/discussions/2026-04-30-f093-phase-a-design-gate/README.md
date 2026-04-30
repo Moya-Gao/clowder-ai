@@ -35,6 +35,14 @@ type WorldStatus = 'draft' | 'active' | 'archived';
 type SceneStatus = 'draft' | 'active' | 'completed';
 
 type WorldMode = 'build' | 'perform' | 'replay';
+
+type WorldActorKind = 'user' | 'cat' | 'system';
+
+interface WorldActorRef {
+  kind: WorldActorKind;
+  id: string;                // userId / catId / system component id
+  displayName?: string;
+}
 ```
 
 ### WorldRecord
@@ -47,7 +55,7 @@ interface WorldRecord {
   constitution?: string;    // 世界宪法：基本规则和风格基调
   status: WorldStatus;
   threadId?: string;         // 可选的 thread 绑定
-  createdBy: string;         // userId
+  createdBy: WorldActorRef;
   createdAt: string;         // ISO8601
   updatedAt: string;
 }
@@ -206,12 +214,26 @@ interface WorldActionEnvelope {
 }
 
 type WorldAction =
+  | EditCharacterDefinitionAction
   | PerformDialogueAction
   | NarrateAction
   | UpdateCharacterStateAction
   | ProposeCanonAction
+  | DecideCanonAction
   | TransitionSceneAction
   | CareCheckInAction;
+
+type JsonPatchOperation =
+  | { op: 'add' | 'replace'; path: string; value: unknown }
+  | { op: 'remove'; path: string };
+
+interface EditCharacterDefinitionAction {
+  type: 'edit_character_definition';
+  characterId: string;
+  // Build-mode only: definition edits are explicit, not accidental Perform drift.
+  slot: 'coreIdentity' | 'innerDrive' | 'voiceAndImage';
+  patch: JsonPatchOperation[];
+}
 
 interface PerformDialogueAction {
   type: 'perform_dialogue';
@@ -227,8 +249,9 @@ interface NarrateAction {
 interface UpdateCharacterStateAction {
   type: 'update_character_state';
   characterId: string;
-  slot: 'coreIdentity' | 'innerDrive' | 'relationshipTension' | 'voiceAndImage' | 'growthState';
-  patch: Record<string, unknown>;
+  // Perform/Build mutable state. Core definition edits use EditCharacterDefinitionAction.
+  slot: 'relationshipTension' | 'growthState';
+  patch: JsonPatchOperation[];
 }
 
 interface ProposeCanonAction {
@@ -236,6 +259,13 @@ interface ProposeCanonAction {
   sourceEventId: string;     // 来源事件
   summary: string;           // 正典摘要
   category?: string;         // e.g. "world_rule", "character_trait", "plot_event"
+}
+
+interface DecideCanonAction {
+  type: 'decide_canon';
+  recordId: string;
+  decision: 'accepted' | 'rejected';
+  reason?: string;
 }
 
 interface TransitionSceneAction {
@@ -265,8 +295,8 @@ interface CanonPromotionRecord {
   status: CanonStatus;
   summary: string;
   category?: string;
-  proposedBy: string;        // catId
-  decidedBy?: string;        // catId or userId
+  proposedBy: WorldActorRef;
+  decidedBy?: WorldActorRef;
   reason?: string;           // 接受/拒绝理由
   createdAt: string;
   decidedAt?: string;
@@ -281,7 +311,7 @@ draft → proposed → accepted
 
 Coordinator 校验规则:
 - `propose_canon` 创建 `status='proposed'` 的记录
-- `accept_canon` / `reject_canon` 需要和 proposer 不同身份（或用户确认）
+- `decide_canon` 需要和 proposer 不同身份（或用户确认），并生成 `canon_accepted` / `canon_rejected` 事件
 - accepted 后自动触发 `WorldKnowledgeAdapter.indexCanon()` 写入 evidence 派生层
 - rejected 不删除记录，保留审计轨迹
 
@@ -296,6 +326,7 @@ type WorldEventType =
   | 'scene_completed'
   | 'dialogue'
   | 'narration'
+  | 'character_definition_change'
   | 'character_state_change'
   | 'canon_proposed'
   | 'canon_accepted'
@@ -308,7 +339,7 @@ interface WorldEventEntry {
   worldId: string;
   sceneId: string;
   type: WorldEventType;
-  actorCatId: string;
+  actor: WorldActorRef;
   characterId?: string;      // 如果是角色扮演动作
   payload: Record<string, unknown>;
   canonRecordId?: string;    // 如果此事件被升格为正典
@@ -324,13 +355,19 @@ interface WorldEventEntry {
 
 ### SearchOptions 扩展
 
-在现有 `SearchOptions` 上增加两个可选过滤维度：
+在现有 `SearchOptions` / `EvidenceItem` 上增加两个可选过滤维度。只有 SearchOptions 没有 EvidenceItem 元数据会导致 `upsert → rowToItem → recall` 链路无法保留 world scope。
 
 ```typescript
 interface SearchOptions {
   // ... 现有字段不变 ...
   worldId?: string;          // 过滤到指定世界的知识
   sceneId?: string;          // 进一步过滤到指定场景
+}
+
+interface EvidenceItem {
+  // ... 现有字段不变 ...
+  worldId?: string;
+  sceneId?: string;
 }
 ```
 
@@ -365,18 +402,29 @@ Schema V16（在现有 V15 基础上）：
 ALTER TABLE evidence_docs ADD COLUMN world_id TEXT;
 ALTER TABLE evidence_docs ADD COLUMN scene_id TEXT;
 CREATE INDEX idx_evidence_docs_world ON evidence_docs(world_id);
+CREATE INDEX idx_evidence_docs_world_scene ON evidence_docs(world_id, scene_id);
 ```
 
 `world_id` / `scene_id` 仅用于 world-scoped 的派生 evidence。现有 docs/threads evidence 的这两列为 NULL，查询行为不变。
 
 ---
 
-## 5. 开放问题（需 review 讨论）
+## 5. 开放问题（review 决策）
 
-| # | 问题 | 宪宪立场 |
-|---|------|---------|
-| DG-1 | 世界 runtime 表放 evidence.sqlite 里还是独立 world.sqlite？ | 倾向独立 `world.sqlite`——runtime 权威表和检索索引物理隔离更安全，evidence.sqlite rebuild 不会影响世界状态 |
-| DG-2 | `WorldContextEnvelope.recentEvents` 取多少条？硬编码还是配置化？ | 倾向 world 级别可配置（constitution 里声明），默认 20 条 |
-| DG-3 | Perform 模式下 agent 可以同时输出多个 action 吗（如对话 + 状态变更）？ | 是，`actions[]` 数组支持批量提交，coordinator 在同一事务内处理 |
-| DG-4 | `UpdateCharacterStateAction.patch` 用 JSON Merge Patch 还是自定义？ | 倾向 JSON Merge Patch (RFC 7396)——简单、无歧义、已有生态 |
-| DG-5 | Care Loop 触发条件（OQ-3 仍未解决） | Phase A 先做显式触发（场景策略声明 + 用户手动），不做情感推断 |
+| # | 问题 | 决策 |
+|---|------|------|
+| DG-1 | 世界 runtime 表放 evidence.sqlite 里还是独立 world.sqlite？ | ✅ 独立 `world.sqlite`。World runtime 表是权威状态，evidence index 是派生层；物理隔离避免 rebuild / migration / FTS 维护影响世界状态。 |
+| DG-2 | `WorldContextEnvelope.recentEvents` 取多少条？硬编码还是配置化？ | ✅ world 级别可配置，默认 20 条，但 runtime 必须有全局 token-budget hard cap。 |
+| DG-3 | Perform 模式下 agent 可以同时输出多个 action 吗（如对话 + 状态变更）？ | ✅ 可以。`actions[]` 同事务提交；coordinator 必须按 action type 做 mode allowlist 和 idempotency 校验。 |
+| DG-4 | `UpdateCharacterStateAction.patch` 用 JSON Merge Patch 还是自定义？ | ✅ 用 JSON Patch (RFC 6902) 的受限子集：`add` / `replace` / `remove` + JSON Pointer path allowlist。原因：Replay/审计需要精确 diff，Merge Patch 对数组是整体替换，容易误删 milestones/bonds。 |
+| DG-5 | Care Loop 触发条件（OQ-3 仍未解决） | ✅ Phase A 先做显式触发（场景策略声明 + 用户手动），不做情感推断。 |
+
+---
+
+## 6. Review Verdict（砚砚/GPT-5.5）
+
+**结论：Design Gate 条件放行。** 上面的修正解决了 3 个 blocker：正典 accept/reject 有 typed action、用户/系统 actor 不再被迫伪装成 cat、角色定义编辑和角色状态演化分离。Phase A 可以进入 worktree + TDD，但实现时必须保留这些约束：
+
+1. `world.sqlite` 是权威状态；`evidence.sqlite` 只存派生 recall。
+2. `WorldActionEnvelope` 的每个 action 都要有 mode allowlist。
+3. 所有 world-scoped evidence 必须写入并返回 `worldId`；缺这个字段就是 recall 隔离失败。
