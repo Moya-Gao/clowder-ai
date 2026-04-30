@@ -47,7 +47,7 @@ Evidence labels:
 | Cantor Nature Tfh suppression paper | Verified: Kim et al., *Nature* 2010, PMID 20844537, DOI 10.1038/nature09370. | Anchor for Qa-1-dependent CD8 regulatory control of Tfh/self-tolerance. |
 | Cantor PNAS Ly49 CD8 Treg marker paper | Corrected: PMID is 21233417, not 21233414. DOI 10.1073/pnas.1018974108. | Cloud citation hygiene issue; keep PMIDs checked before external use. |
 | Saligrama EAE paper | Corrected: PMID is 31391585, not 31391584. DOI 10.1038/s41586-019-1467-x. | Another cloud citation hygiene issue; do not trust model PMIDs without verification. |
-| CM4 antibody specificity | Verified via Thermo Fisher product page: clone CM4 is anti-Ly-49E/F, reacting with Ly49E and Ly49F. | Top-level methodology risk if Klra5/Ly49E protein calls rely on CM4 alone. |
+| CM4 antibody specificity | Verified via Thermo Fisher product page: clone CM4 is anti-Ly-49E/F, reacting with Ly49E and Ly49F. | Prerequisite-level methodology risk: CM4-only sorting definitionally yields a Ly49E/F+ population, not a clean Ly49E/Klra5+ population. |
 
 ## Evidence Matrix
 
@@ -62,7 +62,7 @@ Evidence labels:
 | uPA-Ly49E is the leading mechanism | Claude: plausible H6, but not top mechanism. | Gemini: leading narrative. | Reject as default framework; keep as one decisive branch, likely Tier 2 unless early data point strongly to it. | conflict | E2 from NK/uPA + tumor uPA context; E0 for CD8 tumor cells | pending |
 | uPA-Ly49E is a narrative overfit risk | Mentions caveat and Van Acker null result. | Self-criticizes but still overweights uPA. | Strongly agree: tempting story, weak direct CD8 evidence, negative Ly49E KO tumor evidence. | reviewer-added / conflict resolution | E2/E0 | pending |
 | Ly49E KO null in intestinal tumor models should downweight uPA-Ly49E | Yes; explicit counter-evidence. | Not clearly incorporated into mechanism weighting. | Treat as important counter-signal, while noting different model/cell context. | single-source: Claude | E1 in IEL/CRC context, E2 counterweight | pending |
-| CM4 antibody cross-reactivity is top-level methodology risk | Claude mentions in H1/Tier 1. | Gemini mentions generic Ly49 clone cross-reactivity but not as top risk. | Elevate to top-level: CM4 is Ly49E/F; CM4-only sorting cannot define true Ly49E/Klra5 protein cells. | reviewer-added | E1 vendor specificity; experiment-specific risk | pending |
+| CM4 antibody cross-reactivity is top-level methodology risk | Claude mentions in H1/Tier 1. | Gemini mentions generic Ly49 clone cross-reactivity but not as top risk. | Elevate to top-level: CM4 is Ly49E/F; CM4-only sorting definitionally includes Ly49F+ cells and cannot support Ly49E/Klra5-specific claims until orthogonal separation is shown. | reviewer-added | E1 vendor specificity; experiment-specific risk | pending |
 | Protein validation must precede mechanism claims | Yes. | Yes. | Agree; RNA-level Klra5 and CM4-only flow are insufficient. | dual-consensus | E0 methodological rule | pending |
 | Tumor-specificity definition is prerequisite | Yes. | Yes, via TCR lineage/dextramer emphasis. | Agree; tetramer/dextramer, OT-I/OVA, activation marker, and scTCR inference have different evidentiary weights. | dual-consensus | E0 methodological rule | pending |
 | Adoptive-transfer phenotype proves active suppression | No; warns alternatives. | Often frames active uPA-driven suppression, but caveats artifact/sink. | Do not infer active suppression until matched Klra5+ vs Klra5- transfer and in vitro assays. | conflict | E0 until direct assays | pending |
@@ -79,7 +79,7 @@ Evidence labels:
 ## Synthesis Rules Derived From The Matrix
 
 1. Use observation-first naming. Avoid `CD8 Treg`, `exhausted`, `suppressive`, or `uPA-driven` as labels until specific assays prove them.
-2. Put CM4/Ly49E/F ambiguity and tumor-specificity definition before all mechanism discussion.
+2. Put CM4/Ly49E/F ambiguity and tumor-specificity definition before all mechanism discussion; treat CM4-only data as Ly49E/F+ until resolved.
 3. Treat uPA-Ly49E as a mechanistic branch to test, not the organizing story.
 4. Move Qa-1/H2-T23 forward if protein data show Ly49F or unresolved Ly49E/F ambiguity.
 5. Preserve model disagreement. Claude's conservatism and Gemini's strong uPA narrative define the crucial experiments.

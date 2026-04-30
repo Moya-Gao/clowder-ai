@@ -57,7 +57,7 @@ Why this position:
 
 ### Risk A: CM4 antibody ambiguity
 
-CM4 is an anti-Ly49E/F antibody. If the current cell definition depends on CM4 alone, the population may include Ly49F+ cells from the canonical CD8 Treg axis rather than true Ly49E/Klra5 cells.
+CM4 is an anti-Ly49E/F antibody: it cross-reacts with both Ly49E and Ly49F by design. If the current cell definition uses CM4 as the sole Ly49/Klra5 sorting reagent, the population definitionally includes Ly49F+ cells, and all downstream Klra5/Ly49E-specific claims are unsupported until orthogonal separation is demonstrated. This is not a caveat; it is a prerequisite.
 
 Decision consequence:
 
@@ -90,7 +90,7 @@ Decision consequence:
 | H2: Convergent tumor-induced regulatory-like CD8 state | Chronic tumor-antigen/TME signals induce a regulatory-like transcriptome and pro-tumor function without classical lineage identity. | Leading working frame | True tumor-reactive Klra5+ clones; regulatory-like module; active suppression or niche displacement; not explained by Ly49F/Qa-1. | No functional suppression/sink effect after proper matched controls. |
 | H3: Terminal exhausted / sink state | Klra5 marks a terminal dysfunctional fate; pro-tumor transfer reflects sink, poor persistence, cytokine competition, or artifact. | Strong competitor | TOX/TIM-3/Lgals3 high, TCF1 low; clonally downstream of Tpex/Tex; no active suppression in co-culture. | Clear contact/perforin-dependent killing or cytokine-mediated suppression by Klra5+ cells. |
 | H4: Ly49E-uPA-associated checkpoint-like branch | Tumor/stromal uPA functionally engages Ly49E and disables or maintains the pro-tumor state. | Interesting branch, not default | Klra5 loss-of-function or uPA/PLAU/PLAUR perturbation abolishes pro-tumor transfer and/or improves anti-PD-1 response. | Perturbing uPA/Klra5 has no effect while other suppression assays stay positive. |
-| H5: IL-10/TGF-beta / Tr1-like CD8 | Cells are regulatory-like through soluble cytokines rather than Ly49/Qa-1/uPA axes. | Lower but plausible | IL-10/TGF-beta enriched; neutralization/KO rescues effector function. | Contact/perforin-only phenotype, no cytokine dependency. |
+| H5: IL-10/TGF-beta / Tr1-like CD8 | Cells are regulatory-like through soluble cytokines rather than Ly49/Qa-1/uPA axes. | Lower but plausible | IL-10/TGF-beta enriched; neutralization/KO in T1.6 rescues effector function. | Contact/perforin-only phenotype, no cytokine dependency. |
 
 ## 4. Tier 0: Information Required Before New Mechanism Claims
 
@@ -111,7 +111,7 @@ These are ordered by decision-tree logic. The point is to prevent six months of 
 | Priority | Experiment | Tests | Decision Rule |
 |----------|------------|-------|---------------|
 | T1.1 | Ly49E vs Ly49F protein disambiguation with two independent approaches | Is the population truly Klra5/Ly49E-defined, or CM4/Ly49E/F mixed? | If CM4+ cells are Ly49F+ or cannot be separated from Ly49F, stop using "Klra5/Ly49E" as a clean protein label. |
-| T1.2 | High-dimensional phenotype panel: Helios, Eomes, CD122, TOX, TCF1, PD-1, TIM-3, TIGIT, NKG2A, Lgals3 | H1 vs H2 vs H3 | Helios/Eomes/CD122 high with low TOX favors regulatory lineage; TOX/TIM-3/Lgals3 high with low TCF1 favors terminal exhaustion/sink. |
+| T1.2 | High-dimensional phenotype panel: Helios, Eomes, CD122, TOX, TCF1, PD-1, TIM-3, TIGIT, NKG2A, Lgals3 | H1 vs H2 vs H3 | Helios/Eomes/CD122 high with low TOX favors regulatory lineage; TOX high + TCF1 low + Lgals3 high is a strong H3 terminal exhaustion/sink signal; Lgals3 low deprioritizes a simple terminal-exhaustion read. |
 | T1.3 | Tumor-specificity validation by dextramer/tetramer plus scTCR-seq | Is this really tumor-antigen-reactive? | If tumor-reactive clonotypes are not enriched, redefine the population before functional claims. |
 | T1.4 | Lineage bifurcation analysis using scTCR sharing across Tpex/TEFF/Tex/Klra5+ states | Is Klra5+ a Tpex-derived branch, Tex endpoint, or separate lineage? | Shared clonotypes with Tpex/TEFF imply fate transition; separate clone pool implies independent selection. |
 | T1.5 | Matched Klra5+ vs Klra5- tumor-antigen-specific adoptive transfer | Is pro-tumor function specific to Klra5+ state? | If Klra5- matched cells also promote growth, the current functional interpretation is not Klra5-specific. |
@@ -149,7 +149,7 @@ Do not infer causality from population reduction alone. The clean causal design 
 
 If they can only do a small first wave:
 
-1. Re-audit the gating and reagents, especially whether CM4 is being used as if it were Ly49E-specific.
+1. Re-audit the gating and reagents, especially whether CM4 is being used as if it were Ly49E-specific. If CM4 is the only Ly49 reagent, treat all current "Klra5+" data as "Ly49E/F+" until resolved; do not use "Klra5+" or "Ly49E+" in talks or drafts until T1.1 is complete.
 2. Validate true tumor specificity with dextramer/tetramer and scTCR.
 3. Run matched Klra5+ vs Klra5- transfer, not Klra5+ vs empty only.
 4. Run the suppression/sink assay before naming the cells "regulatory."
@@ -188,7 +188,9 @@ When ChatGPT Deep Research becomes available:
 
 ## 12. Next Review Request
 
-Ask Opus 4.6 and Opus 4.7 to review:
+Review status: Opus 4.6 conditionally approved after hardening CM4 language; Opus 4.7 review is still pending.
+
+Ask Opus 4.7 to review:
 
 - Did the synthesis correctly downweight uPA-Ly49E without discarding it?
 - Is the Tier 1 sequence scientifically defensible?
