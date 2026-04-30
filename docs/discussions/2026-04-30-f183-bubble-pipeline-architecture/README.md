@@ -699,3 +699,26 @@ Phase B 的 Single Writer 需要测试——如果没有统一的 fixture 格式
 - F184 status: idea → **spec** → 解锁立项（按 roadmap 与 F183 Phase B-E 串行）
 
 **下一步**：47 开 Phase B0 worktree（替换为 next session 工作）；按 KD-A2 顺序推进 B0 → B1 → C → D → E。
+
+---
+
+## Phase B0 done（2026-04-30）
+
+**Merge**：PR #1496 squash merged，commit `a6be5970e`。
+
+**落地范围**：
+- Shared contract：`BubbleEvent` 14 类枚举 + `BubbleKind` 5 类枚举
+- Store invariant gate：duplicate stable identity / phase regression / canonical key split
+- Diagnostics：13 字段 `BubbleInvariantViolation` + bubble timeline filter
+- Replay harness：thread-scoped replay、reducer 注入、deterministic timestamp、empty-event initial state
+- Fixture schema：`docs/features/assets/F183/fixture-schema.md`
+
+**Review 证据**：
+- `pnpm gate` 全绿，SHA `db8efdfd`，已 rebase 到 `origin/main`
+- 云端 Codex latest review：`Didn't find any major issues`
+- Opus-47 delta review：LGTM continuation 到 `db8efdfd`
+
+**B1 follow-up**：
+- `recoveryAction` 默认值从 B0 带入 B1 review checklist：Single Writer / reducer 落地时检查 duplicate 是否都应默认 `quarantine`，尤其是 `callback_final` 后到达的 late stream chunk 是否应改走 catch-up。
+
+**下一步**：Phase B1（Single Writer / Reconcile Reducer）解锁；F184 按 KD-A5 仍与 F183 后续实施串行协调，禁止并发改同一假设面。

@@ -10,7 +10,7 @@ created: 2026-04-30
 
 > **Status**: in-progress | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1
 >
-> Phase A 已 done（2026-04-30，铲屎官自治放行 ADR-033 v2）。Phase B0 worktree 解锁；F184 立项解锁（roadmap 串行）。
+> Phase A 已 done（2026-04-30，铲屎官自治放行 ADR-033 v2）。Phase B0 已 merged（PR #1496，commit `a6be5970e`）；Phase B1 worktree + F184 实施解锁（roadmap 串行）。
 
 ## Why
 
@@ -50,7 +50,15 @@ created: 2026-04-30
 - 拍板 sunset 路径：F123 TD111-TD114 接收范围 + IDB cache invalidation contract + websocket 序列号 contract
 - 产出 ADR-033（或在本 spec 内嵌 architecture map，由 Phase A discussion 拍板）
 
-### Phase B: Single Writer / Reconcile Reducer（统一写路径）
+### Phase B0: Replay Harness + Store Invariant Gate（先立防线，不改热路径）
+
+- `BubbleEvent` 14 类 TypeScript 枚举 + `BubbleKind` 5 类枚举落地为 shared contract
+- dev/test 模式 store invariant 硬断言（duplicate stable identity / phase 逆行 / canonical key split）
+- runtime diagnostics 最低契约落地：13 字段 violation log + bubble timeline dump 入口
+- Replay harness 框架接住 F123 既有 fixture 套件，预留 BubbleEvent payload schema 扩展位
+- 不修任何已有写入口，避免在没有 Single Writer 之前改热路径
+
+### Phase B1: Single Writer / Reconcile Reducer（统一写路径）
 
 - 所有 stream/callback/draft/queue/hydration 入口收敛到单个 `MessageWriter` / reconcile reducer
 - `mergeReplaceHydrationMessages()` 5 种匹配策略简化到 ≤ 2 种（按 stable identity 直接 dedup + monotonic upgrade）
@@ -68,9 +76,9 @@ created: 2026-04-30
 - IDB 降级为离线 fallback：在线时不参与渲染路径 merge，只在网络断开时使用
 - F164 IDB 缓存层补 invalidation hook
 
-### Phase E: Store Invariant Assertions + Replay Harness（防御层 + 闭环 F123 TD）
+### Phase E: Closure + Alpha Soak（防御层补齐 + 闭环 F123 TD）
 
-- dev/runtime 加硬断言："同一 catId + invocationId + bubbleKind 不能进两条 assistant bubble" → 直接报警
+- dev/runtime 加硬断言："同一 catId + invocationId + bubbleKind 不能进两条 assistant bubble" → 直接报警（B0 已立最小 gate，E 做 full closure）
 - F123 TD112（store invariant）+ TD114（duplicate 断言）落地
 - replay harness 每条 PR 跑一次完整 fixture 套件
 
@@ -82,15 +90,24 @@ created: 2026-04-30
 
 - [x] AC-A1: 四猫诊断已收敛到一份 architecture map（assets/F183/architecture-map.{cn,en}.png + .svg by 砚砚）
 - [x] AC-A2: bubble identity 真相源契约（OUTER vs INNER 仲裁规则）已写入 ADR-033 Section 2
-- [~] AC-A3: `messages` 写入口完整清单 → 推迟到 Phase B0（fixture schema 配套），保留 F081 audit 的 104 项作为基线
+- [~] AC-A3: fixture schema 已落地到 `docs/features/assets/F183/fixture-schema.md`；`messages` 写入口完整清单仍保留 F081 audit 的 104 项作为 B1 baseline
 - [x] AC-A4: F123 TD111-TD114 全部纳入 F183（KD-A4 拍板，TECH-DEBT.md 已废弃）
 - [x] AC-A5: ADR-033 v2 经铲屎官 2026-04-30 自治放行（"按照家里的要求 好像没有我需要一条条看的，你们自己决策就行"）
 
-### Phase B（Single Writer）
+### Phase B0（Replay Harness + Invariant Gate）✅ DONE 2026-04-30
+
+- [x] AC-B0-1: `BubbleEvent` 14 类 TypeScript 枚举 + `BubbleKind` 5 类枚举落地到 `packages/shared/src/types/bubble-pipeline.ts`
+- [x] AC-B0-2: dev/test 模式 store invariant gate 覆盖 duplicate stable identity / phase regression / canonical key split
+- [x] AC-B0-3: 13 字段 `BubbleInvariantViolation` 结构化诊断输出 + `dumpBubbleTimeline` filter 接入
+- [x] AC-B0-4: Replay harness 框架落地，支持 reducer 注入、thread-scoped replay、deterministic timestamp、empty-event initial state
+- [x] AC-B0-5: PR #1496 通过 `pnpm gate`、云端 Codex review、Opus-47 delta review 后 squash merge（commit `a6be5970e`）
+
+### Phase B1（Single Writer）
 
 - [ ] AC-B1: `MessageWriter` / reconcile reducer 落地，所有写入口收敛
 - [ ] AC-B2: `mergeReplaceHydrationMessages()` 简化到 ≤ 2 种匹配策略
 - [ ] AC-B3: F123 TD111 + TD113 收编完成
+- [ ] AC-B4: Review `recoveryAction` 默认值是否需要 reducer 覆盖（B0 P2 follow-up：late stream chunk after `callback_final` 可能应走 catch-up 而非 quarantine）
 
 ### Phase C（Sequence + Gap）
 
@@ -188,11 +205,12 @@ created: 2026-04-30
 | 2026-04-30 | KD-A1 砚砚画手绘架构图（中英双版，commit `ba1e35d94`）|
 | 2026-04-30 | ADR-033 v1 草稿 → Round 3 三猫同日全部到齐（烁烁 / 46 / 砚砚）→ v2 修订（11 改动，commit `9414d1288`）|
 | 2026-04-30 | **Phase A done**：铲屎官自治放行 ADR-033 v2（"技术细节自决"）。F183 status: idea → in-progress；F184 解锁立项（roadmap 串行）|
+| 2026-04-30 | **Phase B0 done**：PR #1496 squash merged（`a6be5970e`）—— shared contract / invariant gate / diagnostics / replay harness 框架落地；Phase B1 + F184 实施解锁 |
 
 ## Review Gate
 
 - Phase A: discussion 收敛报告 + architecture map asset + identity contract 拍板（铲屎官 + 至少 1 只跨 family 猫签字放行）
-- Phase B-E: 每个 Phase merge 前必须满足 F123 全套 replay 测试 + alpha 双周验证
+- Phase B0-E: 每个 Phase merge 前必须满足 relevant replay/invariant tests + `pnpm gate`；涉及 UI/体验的 Phase 还需 alpha 验证
 - 全 feature close: 愿景守护猫（非作者非 reviewer 的猫）输出"5 类症状全部消失"的对照表
 
 ## Links
@@ -205,5 +223,6 @@ created: 2026-04-30
 | **Feature** | `docs/features/F117-message-delivery-lifecycle.md` | delivery 真相源（queue 模式 dedup） |
 | **Bug Report** | `docs/bug-report/2026-04-27-frontend-idb-cache-dup-after-cat-spawn/bug-report.md` | OUTER vs INNER identity split 案 |
 | **Bug Report** | `docs/bug-report/2026-04-27-stream-event-delivery-lag/bug-report.md` | event bus backpressure + 5min timeout 案 |
-| **Asset (TBD)** | `docs/features/assets/F183/architecture-map.md` | Phase A 产物：消息管线全景图 |
-| **ADR (TBD)** | `docs/decisions/033-bubble-pipeline-identity-contract.md` | identity contract（Phase A 拍板后） |
+| **Assets** | `docs/features/assets/F183/architecture-map.{cn,en}.png` + `.svg` | Phase A 产物：消息管线全景图 |
+| **Fixture Schema** | `docs/features/assets/F183/fixture-schema.md` | Phase B0 产物：BubbleEvent replay fixture schema |
+| **ADR** | `docs/decisions/033-bubble-pipeline-identity-contract.md` | identity contract（accepted，Phase A 拍板后） |
