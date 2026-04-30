@@ -1,18 +1,33 @@
 ---
 feature_ids: [F183]
 related_features: [F081, F123, F176, F184]
-topics: [bubble, message-pipeline, identity-contract, reconcile, idb-cache, websocket, sequence-number, store-invariant]
+topics: [bubble, message-pipeline, identity-contract, reconcile, idb-cache, websocket, sequence-number, store-invariant, bubble-event, runtime-diagnostics]
 doc_kind: decision
 created: 2026-04-30
-status: draft v1 — 三猫 Round 3 review pending
+status: draft v2 — 待铲屎官最终 ack 放行 Phase A
 related: [F081, F123, F176, F183, F184, ADR-031]
 ---
 
 # ADR-033: Bubble Pipeline Identity Contract — 消息气泡管线身份契约与不变量
 
-> 状态：v1 草稿（2026-04-30，47 起草，吸收 Round 1 三猫素材；待 Round 3 review）
+> 状态：v2 草稿（2026-04-30，47 收敛三猫 Round 3 review）
 > 决策者：铲屎官 + 布偶猫(46/47) + 缅因猫(GPT-5.5) + 暹罗猫(Gemini)
 > 触发：F183 立项 — F081 (done 2026-03-10) + F123 (done 2026-03-16) 修过的"气泡 bug"在新 provider / 新分支上反复发作，铲屎官 2026-04-30 报告 5 类症状（裂 / 不见 / F5 才正常 / F5 才出来 / 发完才出来）
+>
+> **v2 改动**（吸收三猫 Round 3 review）：
+> 1. Section 1 IDB TTL 列分开"现状（无自动过期）"vs"行动项（schema invalidation hook 留 Phase D AC-D1）"（46）
+> 2. Section 2 加"phase 与 kind 正交"一句（46 + 烁烁 + 砚砚 三猫共同）
+> 3. Section 2 补 system_status 边界（无自然 cat 时用 sentinel `catId = system` 或 `actorId`，砚砚）
+> 4. Section 2 加 OQ-A 决议：bubbleKind 共存规则（烁烁主笔）—— thinking/tool/rich 与 assistant_text 共存、同类互斥、draft/local 是 phase 不是 kind
+> 5. **新 Section 2.5**：`BubbleEvent` 14 类契约级枚举（OQ-B 决议，砚砚主笔）—— ADR 写枚举，payload 细节留 `fixture-schema.md`
+> 6. Section 3 不变量 #3 显式包含 `callback_final`（砚砚）
+> 7. Section 3 不变量 #6 补 recovery action（warn + debug dump + 可恢复动作；禁止 warn 后继续启发式 merge，砚砚）
+> 8. **新 Section 3.1**：Runtime Diagnostics Minimum Contract（OQ-C 决议，砚砚主笔）—— ADR 写最低观测契约 + 13 字段；具体 logger/dump 接口留 Phase B0
+> 9. AC-Z3 onboarding tour 4 站点决议（烁烁）—— 写入 Section 4 末尾
+> 10. OQ table 全部标 ✅ 已收敛（A by 烁烁 / B by 砚砚 / C by 砚砚）
+> 11. Review Trail 加 Round 3 全员到齐 + Round 4 v2 修订事件
+>
+> **deferred 到 Phase B 视觉补强**：6 不变量加"猫爪印章"图标（烁烁，Pencil 修复后做）
 
 ## 背景
 
@@ -35,7 +50,9 @@ F081 (done) → F123 (done) → 至今"气泡 bug"以新 provider / 新 origin /
 | **Redis MessageStore** | Redis hash + sorted set | 永久 | `route-{serial,parallel}.ts` persist 路径 | `GET /api/messages` | **1（SoT 真相源）** |
 | **Redis DraftStore** | Redis hash | 5min TTL | `route-*.ts` stream 路径 | `GET /api/messages` draft merge | 2（仅在线时补位流式中间态） |
 | **Zustand chatStore + Ledger** | 浏览器内存 | 页面生命周期 | `handleAgentMessage()` | React render | 3（实时优先但不权威） |
-| **IndexedDB** | 浏览器持久化 | 手动清理（本 ADR 起加 schema invalidation hook） | `saveThreadMessages()` | 首屏 + 离线 fallback | 4（provisional cache，**不参与在线 merge**） |
+| **IndexedDB** | 浏览器持久化 | 无自动过期 | `saveThreadMessages()` | 首屏 + 离线 fallback | 4（provisional cache，**不参与在线 merge**） |
+
+> **行动项（不在对照表中）**：IDB schema invalidation hook 在 Phase D AC-D1 落地（带 5 metadata 字段：`identityContractVersion / cacheSchemaVersion / savedAt / containsLocalOnly / containsDuplicateStableIdentity`）。本 ADR 仅声明降级原则，不写实现。
 
 **冲突仲裁原则**：在线时永远以 MessageStore 为最终真相源。Zustand 实时优先用于 UX 流畅，但 hydration / replace 永远以 SoT 覆盖。IndexedDB 在本 ADR 后**降级为 provisional cache**——只在冷启动减少白屏 + 网络断连时做 fallback，不参与 in-flight merge 仲裁。
 
@@ -67,7 +84,24 @@ rich_block           — interactive / media / card / diff / checklist 等
 system_status        — briefing / direction / handoff / timeout 等系统消息
 ```
 
-同一个 `(catId, canonicalInvocationId)` 下哪些 kind 可共存、哪些是同一 bubble 的不同 phase，**Phase A 三猫 review 时收敛**（OQ-A）。
+> **phase 与 kind 正交**（v2 澄清，46 + 烁烁 + 砚砚 共识）：
+> - **kind 维度**：`assistant_text / thinking / tool_or_cli / rich_block / system_status` —— 决定 UI 在哪条 bubble identity 下归类
+> - **phase 维度**：`draft/local → stream → callback/history` —— 决定单调升级链
+> - 两个轴**正交**：`draft/local` 不是一个 `bubbleKind`；它是 phase。`bubbleKind` 选定后不会因为升级而变。
+
+> **system_status 的 actor 边界**（v2，砚砚补）：无自然 cat 归属的 `system_status`（如 timeout / briefing 系统消息）**不能绕过 identity contract**。必须用 sentinel `catId = system`，或把字段名提升成 `actorId = catId | "system"`。禁止"系统消息 = 无 key 写入路径"的 backdoor。
+
+#### `bubbleKind` 共存规则（v2 OQ-A 决议，烁烁主笔）
+
+同一个 `(catId, canonicalInvocationId)` 下，气泡共存遵循"逻辑证据链"：
+
+| 关系 | 规则 | 例子 |
+|------|------|------|
+| **共存** | `thinking` (前导过程) + `assistant_text` (最终回复) | UI 上 `thinking` 折叠或置于上方 |
+| **共存** | `tool_or_cli` (执行细节) + `assistant_text` (分析结果) | 作为可回溯的证据 |
+| **共存** | `rich_block` (富媒体附件) + `assistant_text` | 通常挂在回复末尾 |
+| **互斥** | 同一 `bubbleKind` 严禁出现两条 | 触发不变量 #1（唯一性）断言 |
+| **phase 升级** | `draft/local` 不产生独立气泡，必须在 canonical 数据到达时瞬间被 merge | 单调升级链 |
 
 #### 无 `invocationId` 的 placeholder 规则
 
@@ -85,16 +119,102 @@ draft/local  →  stream  →  callback/history
 
 只能变强，不能降级，也不能分叉。F123 已经把高频症状压住，但 TD113（placeholder 单调升级）需要在 F183 写成系统契约。
 
+### Section 2.5 — `BubbleEvent` 契约级枚举（v2 OQ-B 决议，砚砚主笔）
+
+> 不变量 #5（provider 准入门槛）要求新 provider / origin 合入前必须**声明它产生哪类 BubbleEvent**。如果枚举只藏在 fixture schema 里，reviewer 看 ADR 时无法判断"新 provider 需要声明哪类事件"——契约会再次散落（这就是 PR #1433 / Codex MCP 一再复发的根因之一）。
+>
+> 因此 `BubbleEvent` 必须在 ADR 写**契约级枚举**；payload 细节（必填字段、replay fixture）留 `docs/features/assets/F183/fixture-schema.md`。
+
+```text
+local_placeholder_created
+stream_started
+stream_chunk
+thinking_chunk
+tool_event
+cli_output
+rich_block
+callback_final
+history_hydrate
+draft_restore
+cache_restore
+done
+error
+timeout
+```
+
+#### `BubbleEvent` 与 `bubbleKind` 是两个独立的轴
+
+- **BubbleEvent** 回答："输入从哪里来 / 发生了什么"（生产侧语义）
+- **bubbleKind** 回答："UI 和 store 里归到哪条 bubble identity"（消费侧语义）
+
+例子：
+- `tool_event` + `cli_output` 都可能落到 `tool_or_cli` kind
+- `timeout` 通常落到 `system_status` kind
+- `rich_block` event 落到 `rich_block` kind
+- `stream_chunk` + `callback_final` + `history_hydrate` 都可能落到 `assistant_text` kind（同一逻辑回复的不同 phase）
+
+#### Provider 准入门槛（不变量 #5 强化）
+
+新 provider / 新 origin / 新 bubble kind 在合入前的 PR review 必须声明：
+
+1. **该 provider 产生哪些 `BubbleEvent` 类型**（必须在上述 14 类枚举内；如需扩展枚举，必须先改本 ADR）
+2. **每类 event 的 canonical id 来源**（OUTER `parentInvocationId` 从哪来 / 是否可能为空）
+3. **每类 event 落到哪个 `bubbleKind`**
+4. **payload 字段定义**（写入 `fixture-schema.md` + replay fixture）
+
+这条门槛即是新 provider review 的 5-point checklist。如果作者无法回答，reviewer 必须 BLOCKED。
+
 ### Section 3 — 6 个不变量（砚砚版本，三猫 +1）
 
 > 这 6 条在 Phase B-E 必须以 store invariant 形式落地（dev/test 硬断言；runtime warn + debug dump）。
 
 1. **唯一性**：一个 thread 内同一 `(catId, canonicalInvocationId, bubbleKind)` 最多只能有一条 active bubble
 2. **单调性**：`draft/local/stream` 可以被 `callback/history` 替换或升级，反向不允许
-3. **同一 canonical key**：live socket、history API、IDB cache 对同一逻辑 bubble 必须给出同一个 canonical key
+3. **同一 canonical key**：live socket、history API、IDB cache、**`callback_final`** 对同一逻辑 bubble 必须给出同一个 canonical key（v2 显式纳入 callback 路径——这是过去最容易漏 metadata 的路径）
 4. **placeholder 临时态**：无 canonical id 的 placeholder 是临时态，不能持久化为正常缓存真相
-5. **provider 准入门槛**：新 provider / 新 origin / 新 bubble kind 合入前，**必须声明它产生哪类 `BubbleEvent`，以及 canonical id 从哪里来**——这是 F183 之后 review 路径的强制门槛
-6. **dup invariant**：任何 duplicate stable identity 在 dev/test **必须失败**；runtime 可以先 warn + debug dump，但**不能静默吞掉**
+5. **provider 准入门槛**：新 provider / 新 origin / 新 bubble kind 合入前，**必须声明它产生哪类 `BubbleEvent`（见 Section 2.5），以及 canonical id 从哪里来**——这是 F183 之后 review 路径的强制门槛（5-point checklist 见 Section 2.5）
+6. **dup invariant**：任何 duplicate stable identity 在 dev/test **必须失败**；runtime 必须 **warn + debug dump + 可恢复动作**（catch-up / quarantine incoming event / 保留 SoT 覆盖之一）；**禁止 warn 之后继续按启发式 merge**——这就是 F123 mergeReplaceHydrationMessages 5 种启发式失控的根因
+
+### Section 3.1 — Runtime Diagnostics Minimum Contract（v2 OQ-C 决议，砚砚主笔）
+
+> ADR **不写死** logger 名 / endpoint 名 / dump 文件格式；但必须写清**最低观测契约**。具体 log level、sampling 策略、debug dump API 在 Phase B0 实施时定。
+
+#### 3 层环境的最低契约
+
+| 环境 | 不变量违反时的最低行为 |
+|------|----------------------|
+| **dev / test** | duplicate stable identity / phase 逆行 / canonical key split **必须 fail test**（不可降级为 warn） |
+| **local / alpha runtime** | 上述 invariant violation **必须 100% structured warn/error**，不采样 |
+| **production runtime** | 可对重复同类 warning 做限流 / 聚合，但**第一条 violation 不能被采样丢失** |
+
+#### 每条 violation 必须包含的 13 字段
+
+```
+threadId
+catId / actorId
+canonicalInvocationId
+bubbleKind
+eventType                  ← BubbleEvent 14 类之一
+originPhase                ← draft/local | stream | callback/history
+sourcePath                 ← 写入入口（active / background / callback / hydration / queue / draft）
+existingMessageId          ← store 里已有的实例 id
+incomingMessageId          ← 触发 violation 的事件实例 id
+seq                        ← thread-scoped sequence（如有）
+recoveryAction             ← catch-up | quarantine | sot-override | none
+violationKind              ← duplicate | phase-regression | canonical-split
+timestamp
+```
+
+#### Debug Dump 必须能重建 bubble timeline
+
+按 event 顺序展示：source event → canonical key → phase 迁移 → 最终 reducer action。这是 F123 `dumpBubbleTimeline()` 的 ADR 级正式化。
+
+#### Log Level 边界（写原则不写实现）
+
+- **`warn`**：可恢复的不变量冲突（duplicate incoming event 被 quarantine / catch-up 覆盖）
+- **`error`**：不可自动恢复或可能导致数据丢失 / UI 消失的冲突（phase 逆行导致 SoT 与 runtime 分叉）
+
+具体接口形态（browser `window.__catCafeDebug` / server debug endpoint / Pino child logger / replay artifact）由 **Phase B0 实施时**决定。ADR 只规定"必须能拿到 timeline 证据 + 上述 13 字段"，不规定工具形态。
 
 ### Section 4 — 视觉全景图（砚砚 SVG 渲染主笔；烁烁 Pencil 修复后补细节稿）
 
@@ -107,6 +227,21 @@ draft/local  →  stream  →  callback/history
 ![F183 Bubble Pipeline Architecture Map (EN)](../features/assets/F183/architecture-map.en.png)
 
 > **载体说明**：当前手绘风格架构图由砚砚 GPT-5.5 通过 SVG 模板渲染（保证文字精确，避免模型直接出图乱字）；SVG 源同步提交在 `docs/features/assets/F183/architecture-map.{cn,en}.svg`，可在 Phase B-E 持续微调。烁烁的 Pencil 插件修复后做细节分层稿补充（KD-A1 v2 路径）。
+>
+> **deferred 视觉补强**（Phase B 烁烁负责）：6 不变量加"猫爪印章"图标，强调"家规"不可违背；`rich_block` 渲染槽位的 Pencil 细节分层稿。
+
+#### AC-Z3 Onboarding Tour — "气泡管线工厂一日游"（v2，烁烁主笔）
+
+为让新猫猫（尤其是新接入的模型）+ 改动消息管线的开发者快速理解架构，AC-Z3 onboarding tour 以"工厂一日游"模式串联：
+
+| 站点 | 内容 | 对应 ADR Section |
+|------|------|------------------|
+| **第一站：原材料区 (Provider)** | 解释原始 chunk 的不确定性 / 不同 provider 的 metadata 差异 | Section 2.5 BubbleEvent 14 类 |
+| **第二站：钢印办公室 (Routing)** | 演示 `canonicalInvocationId` 的生成与仲裁（OUTER 优先） | Section 2 仲裁规则 |
+| **第三站：中央金库 (MessageStore)** | 确立"SoT 之外皆是草稿"的威信（4 真相源优先级） | Section 1 持久性表 |
+| **第四站：投影大厅 (UI / Rendering)** | 展示不变量护航下的渲染一致性（6 不变量） | Section 3 + 3.1 |
+
+**交付物**：基于 `lark-whiteboard` 制作交互式地图，每个站点链接到 ADR-033 对应章节。改动消息管线的 PR 模板新增"是否需要更新 onboarding tour" checkbox。
 
 ## 决策依据
 
@@ -139,13 +274,13 @@ draft/local  →  stream  →  callback/history
 - **F184 (rendering mount 层) 不属于本 ADR scope**：F176 撤销后真 bug 走独立排查路径（F184 spec），ADR-033 不收编
 - **ADR-031（Harness Engineering）的"signal loop"原则在本 ADR 落地**：本 ADR 自身就是 F081/F123 失败信号 → 改进规格的产物（"签字时也要看代码已经吃了多少 hotfix"）
 
-## Open Questions（Phase A 三猫 review 收敛）
+## Open Questions（Phase A 三猫 Round 3 review 已全部收敛）
 
-| # | 问题 | 状态 |
-|---|------|------|
-| OQ-A | 同一 `(catId, canonicalInvocationId)` 下，哪些 `bubbleKind` 可共存？哪些是同一 bubble 的不同 phase？ | ⬜ Round 3 review 收敛 |
-| OQ-B | `BubbleEvent` 类型枚举（砚砚 Round 1 给的 14 类）是否要在本 ADR 列出还是留 fixture-schema.md？ | ⬜ Round 3 review 收敛 |
-| OQ-C | runtime warn + debug dump 的具体形态（log level / sampling / dump 接口）是否在本 ADR 写细，还是 Phase B0 实施时再定？ | ⬜ Round 3 review 收敛 |
+| # | 问题 | 状态 | 决议 |
+|---|------|------|------|
+| OQ-A | 同一 `(catId, canonicalInvocationId)` 下，哪些 `bubbleKind` 可共存？哪些是同一 bubble 的不同 phase？ | ✅ 收敛（烁烁 Round 3 主笔） | thinking/tool/rich 与 assistant_text 共存；同类互斥；draft/local 是 phase 不是 kind。详见 Section 2 共存规则表 |
+| OQ-B | `BubbleEvent` 类型枚举（砚砚 Round 1 给的 14 类）是否要在本 ADR 列出还是留 fixture-schema.md？ | ✅ 收敛（砚砚 Round 3 主笔） | ADR Section 2.5 写**契约级枚举**；`fixture-schema.md` 写 payload 细节 + replay fixture |
+| OQ-C | runtime warn + debug dump 的具体形态（log level / sampling / dump 接口）是否在本 ADR 写细，还是 Phase B0 实施时再定？ | ✅ 收敛（砚砚 Round 3 主笔） | ADR Section 3.1 写**最低观测契约 + 13 字段**；具体 logger / dump API 形态留 Phase B0 |
 
 ## 链接
 
@@ -164,9 +299,9 @@ draft/local  →  stream  →  callback/history
 | 日期 | 事件 |
 |------|------|
 | 2026-04-30 | ADR-033 v1 草稿（47 起，吸收 46 Round 1 Section 1 + 砚砚 Round 1 Section 2/3 + 砚砚画的 Section 4 视觉图） |
-| 2026-05-01 (planned) | 三猫 Round 3 review（砚砚 Section 2+3 / 46 Section 1 / 烁烁 Section 4 视觉） |
-| 2026-05-03 (planned) | 收敛 + 修订 v2 |
-| 2026-05-04 (planned) | 铲屎官最终 ack 放行 → Phase A done → Phase B0 worktree 解锁 + F184 解锁立项 |
+| 2026-04-30 | 三猫 Round 3 review 同日全部到齐（烁烁 9b4ba194a / 46 82221829e / 砚砚 74992c451）—— 提前于 Roadmap 05-01 |
+| 2026-04-30 | 47 收敛 Round 4 + ADR-033 v2 修订（11 个 v2 改动，详见文首 v2 改动清单） |
+| 2026-05-01 (planned) | 铲屎官最终 ack 放行 → Phase A done → Phase B0 worktree 解锁 + F184 解锁立项 |
 
 ## Round 3 Review - 烁烁
 
