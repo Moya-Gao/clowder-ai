@@ -81,28 +81,20 @@ export interface CatAlternative {
 
 3. **Resolver 必须是纯函数 30-40 行** — 4.6 警告"如果 >50 行说明抽象膨胀"。alternatives 排序 + dedupe + family/lead 优先用纯比较函数实现，不引入 class/service。
 
-### Phase B: System Prompt 降级提示（让猫自己感知）
+### Phase B: Roster 不可见性守护（防回归）
 
-当前 buildTeammateRoster 直接过滤掉 disabled 猫，**但调用猫不知道**自己曾经的队友被停用了——会反复 @ 不存在的人。
+**OQ-3 铲屎官拍板（2026-04-30）：方案 C — 完全不出现**。原话：
 
-**OQ-3 两猫分歧，待铲屎官拍板**（见 Open Questions）。两个候选方案 + 各自论据：
+> "别出现啊！直接别再系统提示词里出现做不到吗？！人家都 disable 好像不需要提到吧？"
 
-**A. 独立"已停用成员"区段**（砚砚倾向）：
-- 主名册只放可用猫；末尾新增 `## 已停用成员` 区段
-- 短句 "不要 @ 这只猫；如需她的能力请改 @ X / Y"
-- 论据：行内标注 `[已停用]` 会让 LLM 把 disabled 猫继续塞进主名册主体，弱化"别 @"信号
+也就是说——砚砚（独立区段）和 4.6（行内标注）都想多了，铲屎官选**最简方案**：disabled 猫从 system prompt **完全消失**，不需要任何标注或替代提示。
 
-**B. 行内 `[已停用]` 标注**（4.6 倾向）：
-- disabled 猫保留在主名册，紧邻同族，标 `[已停用，请改 @X/@Y]`
-- 论据：单独区段 = "墓地"，LLM 学会跳过末尾内容的概率不低；inline 保留家族上下文，alternatives 就在视野内
-- 符合 lifecycle toggle 的"位置存在但暂时不可用"语义（不是"被开除"）
+**当前行为已经满足**：`buildTeammateRoster` 的 line 392 已经用 `isCatAvailable(id)` 过滤掉 disabled 猫。Phase B 不改 prompt 注入逻辑。
 
-具体格式样例（B 方案）：
-```
-| 缅因猫 GPT-5.5 | @codex · gpt-5.5 [已停用] | ... | ⚠️ 已停用，请改 @gpt52 或 @spark |
-```
-
-替代 mention 排序：同 family + lead 优先（两方案一致）
+**Phase B 降级为守护测试**（防止未来重构回归）：
+- 测试覆盖 disabled 猫**不出现在** buildTeammateRoster 输出
+- 测试覆盖 disabled 猫**不出现在** system prompt 任何区段（pattern grep）
+- 兜底依靠 Phase C 的 MCP 错误反馈 + alternatives——猫如果（凭旧记忆）误 @ disabled 猫，会拿到结构化错误 + natural language message 引导换人
 
 ### Phase C: MCP 写工具接入降级反馈（修订清单）
 
@@ -174,8 +166,9 @@ Alternatives: @gemini, @opus-45.
 - [ ] AC-A3: Resolver 接入 **5 个入口**（KD-4）：文本 @ parser / `targetCats` / `multi_mention.targets+callbackTo` / `start_vote.voters` / `register_scheduled_task.params.targetCatId`。a2a-mentions.ts:92 改造（pattern building 阶段）和 AgentRouter.ts:415 改造（match-time skip）**分别处理**（KD-10）；保留向后兼容（mentions 列表不变，新增 errors 列表）
 
 ### Phase B（Prompt 降级提示）
-- [ ] AC-B1: ⚠️ **OQ-3 待拍板** — 选 A 独立区段 / B 行内标注后实施。任一方案都需明确"不要 @"+ alternatives 提示文案
-- [ ] AC-B2: `system-prompt-builder.test.js` 覆盖 disabled 猫场景：disabled 猫的位置（主名册 vs 独立区段）、stranded mention 提示文案、alternatives 排序
+- [ ] AC-B1: 守护测试 — disabled 猫**不出现在** `buildTeammateRoster` 输出（基于 OQ-3 拍板，铲屎官选方案 C 完全不出现）
+- [ ] AC-B2: 守护测试 — disabled 猫的 catId / mention pattern **不出现在** `buildStaticIdentityPrompt` 任何区段（pattern grep 整个 prompt）
+- [ ] AC-B3: 不改 `buildTeammateRoster` 逻辑 — 当前 line 392 `isCatAvailable` 过滤已正确，仅补测试
 
 ### Phase C（MCP 工具降级反馈）
 - [ ] AC-C1: 3 个 A 类工具（post / cross / rich）软降级 — 在线 @ 继续路由 + `routing_warnings`；**结构化目标全不可路由时 `isError: true` + `routed: []`**（防 final-routing guard 误判）；响应 **必须含 natural language `message` 字段**（KD-7），单元测试覆盖文案模板
@@ -210,7 +203,7 @@ Alternatives: @gemini, @opus-45.
 |---|------|------|------|------|
 | OQ-1 | A 类工具软降级 vs 硬阻断 | ✅ 已拍板 | **细分三档**：post/cross/rich 软降级 + 结构化全失败 isError；multi_mention 契约式 hard fail；**外加 natural language `message` 字段**让 LLM 不必依赖 metadata 解析（KD-7） | 砚砚 + 4.6 review |
 | OQ-2 | Phase D 进行中引用聚合 | ✅ 已拍板 | server-side impact preview endpoint，不在 useCatData 拼三套；不增索引；不统一底层 schema（4.6 强化）；用 thin `aggregateActiveReferences(catId)` 纯函数；PR tracking 不在范围 | 砚砚 + 4.6 review |
-| OQ-3 | 已停用成员**独立区段** vs **行内 `[已停用]`** 标注 | ⚠️ **两猫分歧，待铲屎官拍板** | A. 独立区段（砚砚）— 强信号防 LLM 把 disabled 塞回主名册；<br>B. 行内标注（4.6）— 末尾区段会被 LLM 跳过，inline 保留同族上下文 + alternatives 在视野内 | 砚砚 + 4.6 review，分歧待铲屎官 |
+| OQ-3 | 已停用成员**独立区段** vs **行内 `[已停用]`** 标注 | ✅ 已拍板 | **方案 C — 完全不出现**（铲屎官 2026-04-30 拍板）。原话："别出现啊！直接别再系统提示词里出现做不到吗？！人家都 disable 好像不需要提到吧？"<br>当前 buildTeammateRoster:392 的过滤行为已满足；Phase B 降级为守护测试，不改注入逻辑 | 铲屎官拍板（驳回砚砚 A + 4.6 B 双方案） |
 | OQ-4 | reviewer matcher 的 "没猫粮" 是否纳入 `CatRoutingError` | ✅ 已拍板 | **不纳入**——reviewer-matcher 是"自动选择"逻辑（从候选池排除），CatRoutingError 是"指名路由"逻辑（指定了 @X 但她不可用），两种失败模式（4.6 精化）；reviewer matcher 内部保留独立路径 | 砚砚 + 4.6 review |
 
 **4.6 命名纠正**：spec 之前写"现有 `cat_no_quota`"语义有误——实际代码里 `reviewer-matcher.ts:207` 用的是字符串 `"is not available (没猫粮！)"`，field 名 `excludeUnavailable`（`cat-breed.ts:202`）。`cat_no_quota` 是 spec 拟的新名字，OQ-4 真实命题是"是否在 CatRoutingError 里**新增**第三种 kind"，已拍板 → 不新增。
@@ -231,6 +224,7 @@ Alternatives: @gemini, @opus-45.
 | KD-8 | Resolver 必须是纯函数（30-40 行硬上限），不引入 class/service | 4.6 retraction 回应：resolver 抽象的价值在 alternatives 排序 + 类型安全，超过 50 行说明抽象膨胀；alternatives 排序用纯比较函数 |
 | KD-9 | Resolver 的 `cat_not_found` 路径不能直接复用 `isCatAvailable` | 4.6 实现纠正：`isCatAvailable` 当前 `entry?.available !== false`——不在 roster 的猫返回 true（backward compat）；resolver 必须先查 roster 区分"不在"（cat_not_found）和"在但 disabled"（cat_disabled） |
 | KD-10 | a2a-mentions.ts:92 改造和 AgentRouter:415 改造分别处理 | 4.6 实现纠正：92 行 skip 在 pattern building 阶段（disabled 的 patterns 根本不进 entries），需要先让全部 pattern 参与匹配再调 resolver；415 行 skip 是 match-time skip，改造直接；不能用同一套 patch |
+| KD-11 | disabled 猫从 system prompt 完全消失，不加任何标注 / 替代提示 / 区段 | 铲屎官 OQ-3 拍板（2026-04-30）："已 disable = 不需要提到"。当前 buildTeammateRoster:392 的过滤行为已满足；Phase B 仅加守护测试防回归；猫如凭旧记忆误 @ 由 Phase C 的 MCP 错误反馈兜底 |
 
 ## 涉及文件
 
@@ -259,7 +253,7 @@ Alternatives: @gemini, @opus-45.
 | 2026-04-30 | 立项 — 铲屎官 thread `thread_molhvy2v84woqas9` 提出，宪宪盘点确认 4 层水位 |
 | 2026-04-30 | 砚砚（缅因猫 GPT-5.5）spec review — 提两个 P1（结构化字段缺口 / B 类清单错误）+ 拍板 4 个 OQ；spec 修订到 v2 |
 | 2026-04-30 | 4.6（布偶猫 Opus）spec review — 3 处技术纠正（KD-9/10 + 命名）+ OQ-1 增强（KD-7 natural language message）+ KD-8（resolver ≤40 行）；OQ-3 与砚砚分歧（独立区段 vs 行内标注），转铲屎官拍板；spec 修订到 v3 |
-| TBD | OQ-3 铲屎官拍板 → Design Gate 收尾 → 进 worktree |
+| 2026-04-30 | 铲屎官 OQ-3 拍板 — 方案 C "完全不出现"（驳回砚砚 A + 4.6 B），Phase B 降级为守护测试；KD-11 落定；spec 修订到 v4，**Design Gate 收尾，进 worktree** |
 | TBD | Phase A 实施 — 错误契约 + 5-入口 resolver |
 | TBD | Phase B 实施 — prompt 降级（独立区段） |
 | TBD | Phase C 实施 — 7 个 MCP 工具接入（A=3 软 + A'=1 硬 + B=3 硬）+ wrapper 前缀 |
