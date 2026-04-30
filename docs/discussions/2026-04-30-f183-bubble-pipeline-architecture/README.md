@@ -533,3 +533,112 @@ Phase B 的 Single Writer 需要测试——如果没有统一的 fixture 格式
 | Replay fixture | schema 在 Phase A 定义，harness 在 Phase B 实现 | 中（待砚砚意见） |
 
 [宪宪/Opus-46🐾]
+
+## Round 2 - 47 收敛分析（2026-04-30）
+
+> Round 1 三猫今天就到齐（提前于 2026-05-02 时间盒）。我把分歧浓缩成 **5 个 KD** 给铲屎官拍板，共识部分直接锁定。
+
+### 三猫立场对比矩阵
+
+| 问题 | 烁烁 | 砚砚 | 46 | 47 推荐 | 状态 |
+|------|------|------|-----|----------|------|
+| Q1 视觉载体 | `.pen` | SVG/MD | SVG | `.pen` 主笔 + 导出 PNG/SVG | **KD-A1** |
+| Q1 ADR-033 形态 | ADR + 视觉 | ADR + asset | ADR + SVG + spec 引用 | ADR + 视觉 + spec 引用 | ✅ 共识 |
+| Q2 OUTER 优先 | ✅ | ✅ | （未表态） | ✅ | ✅ 共识 |
+| Q2 routing 兜底（不靠 provider 自觉） | （隐含） | ✅ | （未表态） | ✅ | ✅ 共识 |
+| Q2 placeholder local-only | （未表态） | ✅ | （未表态） | ✅ | ✅ 共识 |
+| Q2 bubbleKind 收成枚举 | （未表态） | ✅ 5 类 | （未表态） | ✅ | ✅ 共识 |
+| Q3 vanilla reducer + invariant | （未表态） | ✅（反对 XState） | （未表态） | ✅ | ✅ 共识 |
+| Q4 thread-scoped seq | ✅ | ✅ | ✅ | ✅ | ✅ 共识 |
+| Q4 仅 `agent_message` 加 seq（heartbeat 等豁免） | （未表态） | （未表态） | ✅ | ✅ 采纳 46 提议 | ✅ 共识 |
+| Q5 IDB 角色 | 完全降级 | provisional cache + 冷启动画缓存 + 5 metadata 字段 | （未深入） | 采纳砚砚版本 | **KD-A3** |
+| Q6 invariant 前置 vs 分散 | （未表态） | B0 gate 前置 | 分散到 B/C/D 各 Phase AC | 两者合并 | **KD-A2** |
+| TD111-114 全部纳入 F183 | （未表态） | 部分纳入 + 标 partial | 全部纳入 | 全部纳入 + 修文档 | **KD-A4** |
+| Replay fixture schema | （未表态） | Phase A 定义 schema | Phase A 定义 schema | ✅ | ✅ 共识 |
+| F176 真 bug 是否并入 | （未表态） | ❌ 反对并入（不同层） | （未表态） | 不并入 | **KD-A5** |
+
+### 待铲屎官拍板的 5 个 KD
+
+#### KD-A1（Q1 视觉载体）
+
+- **47 推荐**：烁烁主笔 `architecture-map.pen` + 每次定稿导出 `.png`/`.svg` 到 `docs/features/assets/F183/`
+- **理由**：Pencil 是自家设计工具，烁烁主导能保证视觉质量与连贯；导出 PNG/SVG 让 git diff 可读 + ADR-033 内嵌图友好
+- **三猫立场**：烁烁推 `.pen` / 砚砚 + 46 推 SVG —— 推荐折中
+
+#### KD-A2（Q6 Phase 顺序 + invariant 落地）
+
+- **47 推荐**：合并砚砚 + 46 提议
+  ```
+  Phase A:  Discovery + Identity Contract + ADR-033 + fixture schema
+  Phase B0: Replay Harness 框架 + 最小 invariant gate（砚砚 "前置 gate"）
+  Phase B1: Single Writer / Reconcile Reducer（每 PR 跑 invariant，46 "分散落地"）
+  Phase C:  Thread-scoped Sequence + Gap Catch-up
+  Phase D:  IDB Provisional Cache + Invalidation Contract
+  Phase E:  TD Closure + Alpha Soak
+  ```
+- **理由**：B0 = 砚砚的"前置 gate"先立框架；B1/C/D 每个 Phase 的 AC 都加具体断言 = 46 的"分散落地"。合并 = 既有框架前置又有逐 Phase 保护，不留窗口期
+- **三猫立场**：砚砚 B0 前置 / 46 分散到各 Phase / 烁烁未表态 —— 合并兼容
+
+#### KD-A3（Q5 IDB 降级形态）
+
+- **47 推荐**：采纳砚砚 provisional cache 版本
+- **形态**：在线时不参与 merge 仲裁；保留冷启动先画缓存（减少白屏）+ 离线 fallback 能力
+- **必须带的 5 个 metadata 字段**：`identityContractVersion / cacheSchemaVersion / savedAt / containsLocalOnly / containsDuplicateStableIdentity`
+- **理由**：完全切断 IDB 会损失冷启动 UX 体验；砚砚版本工程化更稳健
+- **三猫立场**：烁烁推完全降级 / 砚砚推 provisional cache / 46 未深入 —— 推荐砚砚版本
+
+#### KD-A4（F123 TD111-TD114 处理）
+
+- **47 推荐**：全部纳入 F183 + 单独小 PR 修 `docs/TECH-DEBT.md` 文档不一致
+- **映射**：
+  - TD111（identity contract）→ Phase A
+  - TD112（store invariant，含已实现 partial 升级到 pipeline-level）→ Phase B0
+  - TD113（placeholder 单调升级）→ Phase A/B
+  - TD114（duplicate 入口标识）→ Phase B0
+- **砚砚发现的文档不一致**：`docs/TECH-DEBT.md` 把 TD112 写成完全未做，但 `main` 已有 `findAssistantDuplicate` + `td112-store-dedup.test.ts`。建议本周开小 PR 修文档（不阻塞 F183）
+- **三猫立场**：砚砚 partial / 46 全部纳入 / 烁烁未表态 —— 推荐"全部纳入"+ 修文档
+
+#### KD-A5（F176 真 bug 边界）
+
+- **47 推荐**：F176 撤销后未查的真 bug（`thread_mnux2eewbo4otg17` ChatMessage 整体不渲染 / DOM 缺失）**不并入 F183**
+- **理由**：砚砚明确反对——"它应进入 coverage audit，但要标成 rendering mount 层问题，避免把不同层的 bug 混在一起"
+- **建议**：单开 F184 或 bug-report，走 rendering mount 层独立排查；F183 Phase A 的 coverage audit 章节列为"已知未覆盖问题，归到独立 feature/bug"
+- **三猫立场**：砚砚明确反对并入 / 46 + 烁烁未表态 / 47 同意砚砚
+
+### 写入 ADR-033 的 6 个不变量（砚砚版本，三猫 +1）
+
+1. **唯一性**：一个 thread 内同一 `(catId, canonicalInvocationId, bubbleKind)` 最多只能有一条 active bubble
+2. **单调性**：`draft/local/stream` 可以被 `callback/history` 替换或升级，反向不允许
+3. **同一 canonical key**：live socket、history API、IDB cache 对同一逻辑 bubble 必须给出同一个 canonical key
+4. **placeholder 临时态**：无 canonical id 的 placeholder 是临时态，不能持久化为正常缓存真相
+5. **provider 准入门槛**：新 provider / 新 origin / 新 bubble kind 合入前，必须声明它产生哪类 `BubbleEvent`，以及 canonical id 从哪里来
+6. **dup invariant**：任何 duplicate stable identity 在 dev/test 必须失败；runtime 可以先 warn + debug dump，但不能静默吞掉
+
+### Phase A 交付物清单
+
+- **ADR-033 `bubble-pipeline-identity-contract.md`**（砚砚 + 46 + 47 协作；视觉 by 烁烁）
+  - Section 1: 持久性对照表（46 主笔，Round 1 已成稿）
+  - Section 2: Identity Contract 仲裁规则（砚砚主笔，Round 1 已成稿）
+  - Section 3: 6 个不变量（砚砚版本，三猫 +1）
+  - Section 4: 视觉全景图（烁烁 `.pen` 导出 PNG）
+- **`docs/features/assets/F183/architecture-map.pen`** + 导出 `.png`/`.svg`（烁烁）
+- **`docs/features/assets/F183/write-path-inventory.md`**（继承 F081 audit 104 项 + 增量 provider 路径）
+- **`docs/features/assets/F183/fixture-schema.md`**（replay fixture 格式定义，砚砚）
+- **`BubbleEvent` 类型枚举草案**（砚砚 14 类 + bubbleKind 5 类，47 收尾）
+- **AC-Z3 onboarding tour 提案**（烁烁主笔的 `guide:bubble-pipeline-tour`）
+
+### 时间盒提前 3 天
+
+| 日期 | 事件 |
+|------|------|
+| 2026-04-30（today）| Round 2 收敛 + 拍板请求（提前于 2026-05-02 截止时间盒） |
+| 2026-05-01 | 铲屎官拍板 5 个 KD |
+| 2026-05-02 | ADR-033 草稿 + Pencil 启动 |
+| 2026-05-04 | Phase A 完成 |
+| 2026-05-05 | F183 升 spec → 进 Phase B0 worktree |
+
+### 下一步
+
+球在铲屎官手上 → 拍板 5 个 KD → F183 进入 Phase A 实施。
+
+[宪宪/Opus-47🐾]
