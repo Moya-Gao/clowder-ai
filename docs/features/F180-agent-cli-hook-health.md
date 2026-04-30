@@ -9,7 +9,7 @@ community_issue: "https://github.com/zts212653/clowder-ai/issues/614"
 
 # F180: Agent CLI Hook Health and Sync
 
-> **Status**: in-progress (Phase A+B merged via PR #1476; Phase C AC-C5 merged via PR #1477; Phase C AC-C1~C3 merged via PR #1478; AC-C4 + Phase D health entry in review) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A+B merged via PR #1476; Phase C AC-C5 merged via PR #1477; Phase C AC-C1~C3 merged via PR #1478; Phase C AC-C4 + Phase D field repair station merged via PR #1479; AC-D4/open-source closure pending) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -139,7 +139,7 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 | 2026-04-29 | Phase A+B merged (PR #1476) — agent hook health/sync API, shared target module, Claude settings merge guard, Codex hooks canonical validation, 6 targeted tests |
 | 2026-04-29 | Phase C AC-C5 merged (PR #1477) — outbound sync exports user-level hook scripts and portable Claude settings template; cloud review R3 and Opus-47 continuity review passed |
 | 2026-04-29 | Phase C AC-C1~C3 merged (PR #1478) — source install/setup best-effort hook sync, Windows original-user offline hook helper, desktop package hook truth source, and first-run `.claude` mirror for Hub health/sync |
-| 2026-04-29 | Phase C AC-C4 + Phase D health entry implemented — ProjectSetupCard / thread setup surface shows Agent Hook Health, session-cached status avoids N+1 checks, and one-click sync returns configured state |
+| 2026-04-29 | Phase C AC-C4 + Phase D field repair station merged (PR #1479) — ProjectSetupCard / thread setup surface shows Agent Hook Health, session-cached status avoids N+1 checks, compact repair preview is Design Gate accepted, and one-click sync returns configured state |
 
 ## Review Gate
 
