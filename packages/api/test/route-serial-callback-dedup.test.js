@@ -384,6 +384,52 @@ describe('#573: stream store dedup when cat_cafe_post_message used', () => {
     assert.equal(streamAppends.length, 0, 'unlabeled callback result should suppress duplicate stream persistence');
   });
 
+  it('does not confirm an ambiguous unlabeled ok result while another tool is pending', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const appendCalls = [];
+
+    const ambiguousToolService = {
+      async *invoke() {
+        yield { type: 'text', catId: 'opus', content: 'Posting through callback.', timestamp: Date.now() };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'mcp:cat-cafe/cat_cafe_post_message',
+          toolInput: '{}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'mcp:example/status_probe',
+          toolInput: '{}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          content: '{"status":"ok","source":"status_probe"}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          content: 'Error: callback token expired',
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = createMockDeps({ opus: ambiguousToolService }, appendCalls);
+    for await (const msg of routeSerial(deps, ['opus'], 'hello', 'user1', 'thread1')) {
+      // drain
+    }
+
+    const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
+    assert.equal(streamAppends.length, 1, 'ambiguous ok tool_result must not suppress stream persistence');
+  });
+
   it('does not confirm callback persistence from a duplicate labeled post result after a failed callback', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const appendCalls = [];

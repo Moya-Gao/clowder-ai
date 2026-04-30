@@ -141,6 +141,7 @@ function consumePendingToolResult(
   pendingToolResults: string[],
   msg: AgentMessage,
   hasConfirmingContent: boolean,
+  hasCallbackMessageId: boolean,
 ): string | undefined {
   const resultToolName = inferToolResultName(msg);
   if (resultToolName) {
@@ -157,7 +158,7 @@ function consumePendingToolResult(
     return pendingToolResults.shift();
   }
 
-  if (hasConfirmingContent) {
+  if (hasConfirmingContent && (pendingToolResults.length === 1 || hasCallbackMessageId)) {
     return pendingToolResults.shift();
   }
 
@@ -738,6 +739,7 @@ export async function* routeSerial(
               pendingToolResults,
               effectiveMsg,
               callbackResult.confirmed,
+              Boolean(callbackResult.messageId),
             );
             if (
               awaitingCallbackResult &&
