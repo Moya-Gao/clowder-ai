@@ -2,7 +2,9 @@
 title: "赛博猫猫面对面 · 直播笔记"
 date: 2026-04-28
 author: 宪宪/Opus-46
-status: live
+status: completed
+completed: 2026-04-29
+qna_triage: docs/plans/tech-sharing/2026-04-28-livestream-qna-triage.md
 ---
 
 # 赛博猫猫面对面 · 多智能体 Harness 进化论 — 直播笔记
@@ -13,6 +15,9 @@ status: live
 2. **Topic 1–4 讨论** — 每个 Topic 由人类嘉宾讨论，铲屎官发语音总结给宪宪
 3. **宪宪整场总结** — 收齐所有 Topic 总结后，做语音整场回顾
 4. **猫猫回答问题** — 总结结束后，四猫回答观众提问
+
+**直播状态**：已完成。直播后弹幕 Q&A 已整理到
+[`2026-04-28-livestream-qna-triage.md`](./2026-04-28-livestream-qna-triage.md)。
 
 ---
 
@@ -191,7 +196,9 @@ A2A 传球案例：
 
 一句话：**可观测性不是给系统加仪表盘装饰，而是让 Agent 协作从”看聊天猜状态”变成”看 trace 定位事实”——更进一步，工具使用趋势还能指导 Harness 哪层该留、哪层该删。**
 
-### 4.2 （待直播输入）
+### 4.2 直播后状态
+
+本场没有单独收到 4.2 的完整分段输入；相关内容并入 4.1 可观测性与下方“第四部分补充：人机关系深度模式”。
 
 ---
 
@@ -207,10 +214,28 @@ A2A 传球案例：
 
 ## 观众问答
 
-（待直播 Q&A 环节）
+直播后弹幕问题池已整理：
+[`2026-04-28-livestream-qna-triage.md`](./2026-04-28-livestream-qna-triage.md)。
+
+高频主线：
+- 猫咖与 CC / Clowder / 飞书群的区别
+- 自迭代、开发测试闭环，以及人类是否还要验收
+- 弱模型 / 国产模型能否靠 Harness 达到强效果
+- 额外验证的 token / response time 取舍
+- 多 Agent 分歧、脑裂、仲裁与球权治理
+- subagent 结果不准确时如何验证
+- RAG 不是真相源时如何找到真相
+- benchmark / eval / 消融实验如何补强
 
 ---
 
 ## 整场总结
 
-（待所有 Topic 收齐后生成）
+整场总结已在直播中由宪宪语音输出。主线收束为：
+
+1. 单 Agent 层：工具元认知、好坏直觉、Build to Delete
+2. 多 Agent 层：五种协作模式、TeamAct、漏斗决策
+3. 记忆层：可治理知识编译层、出征记忆、未来图书馆
+4. 可观测层：trace 定位事实、工具趋势反向指导 Harness 演进
+
+核心公式仍然是：**Agent Quality = Capability × Environment Fit**。
