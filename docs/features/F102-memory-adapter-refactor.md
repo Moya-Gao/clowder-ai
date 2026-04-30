@@ -1424,6 +1424,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-04-15 | **PR #1195 squash merged** — lexical recall gate strengthened with title/summary/keywords backfill; stale signal-noise kind assertion aligned to exported `EvidenceKind` set |
 | 2026-04-15 | 晚间猫粮复测（`F148` 深术语样本）—— message-level raw 表现好；docs summary 对深实现名词仍弱。后续 benchmark 调整为固定回归 + seeded 随机 feature 抽样 + query 扰动，防 query 过拟合 |
 | 2026-04-16 | **PR #1204 squash merged** — docs scope filter tightened: exclude `thread/session` digests while keeping file-backed `discussion` docs |
+| 2026-04-29 | RecallFeed dogfood bug：`search_evidence` 实际有结果但 UI 显示 `0 hits` / 无结果。根因是 `[variant=...]` 头部解析缺口 + 并发 tool_use/tool_result 相邻配对假设；登记 bug report：[`2026-04-29-f102-recall-feed-hits-zero`](../bug-report/2026-04-29-f102-recall-feed-hits-zero/bug-report.md) |
 
 ## Known Issues（铲屎官 2026-04-01 Report）— ✅ 已全部修复 (PR #908)
 

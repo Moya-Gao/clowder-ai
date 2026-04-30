@@ -125,6 +125,8 @@ describe('MCP Evidence Tools', () => {
     const result = await handleSearchEvidence({ query: 'F177 hooks' });
     const text = result.content[0].text;
 
+    assert.ok(text.includes('Evidence search results:'), 'should include evidence result marker');
+    assert.ok(text.includes('Found 3 result(s) for "F177 hooks":'), 'should include query in result header');
     assert.ok(
       text.includes('📌 高置信度文档命中 2 个'),
       'should count only doc-type hits (feature+decision, not thread)',
@@ -206,8 +208,29 @@ describe('MCP Evidence Tools', () => {
     const result = await handleSearchEvidence({ query: 'nonexistent topic' });
     const text = result.content[0].text;
 
+    assert.ok(
+      text.includes('Evidence search results: No results found for: nonexistent topic'),
+      'empty results should include evidence result marker',
+    );
     assert.ok(text.includes('No results found'), 'should report no results');
     assert.ok(text.includes('📊 本轮第'), 'empty results must still include depth counter');
     assert.ok(text.includes('次搜索'), 'empty results must still show search count');
+  });
+
+  test('handleSearchEvidence includes query in error output for frontend correlation', async () => {
+    const { handleSearchEvidence } = await import('../dist/tools/evidence-tools.js');
+
+    globalThis.fetch = async () => {
+      throw new Error('connection refused');
+    };
+
+    const result = await handleSearchEvidence({ query: 'quoted "topic"' });
+    const text = result.content[0].text;
+
+    assert.equal(result.isError, true);
+    assert.ok(
+      text.includes('Evidence search request failed for "quoted \\"topic\\"": connection refused'),
+      'should include JSON-quoted query in request error output',
+    );
   });
 });

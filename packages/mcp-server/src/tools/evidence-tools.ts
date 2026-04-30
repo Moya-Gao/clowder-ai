@@ -13,6 +13,7 @@ import { errorResult, successResult } from './file-tools.js';
 const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3002';
 
 const DOC_SOURCE_TYPES = new Set(['feature', 'decision', 'phase', 'lesson', 'plan', 'research']);
+const EVIDENCE_RESULT_MARKER = 'Evidence search results:';
 let searchCount = 0;
 
 export const searchEvidenceInputSchema = {
@@ -68,13 +69,14 @@ export async function handleSearchEvidence(input: {
   if (input.threadId) params.set('threadId', input.threadId);
 
   const url = `${API_URL}/api/evidence/search?${params.toString()}`;
+  const queryLabel = JSON.stringify(input.query);
 
   try {
     const response = await fetch(url);
 
     if (!response.ok) {
       const text = await response.text();
-      return errorResult(`Evidence search failed (${response.status}): ${text}`);
+      return errorResult(`Evidence search failed for ${queryLabel} (${response.status}): ${text}`);
     }
 
     const data = (await response.json()) as {
@@ -125,7 +127,7 @@ export async function handleSearchEvidence(input: {
     );
 
     if (data.results.length === 0) {
-      const noResultMsg = `No results found for: ${input.query}`;
+      const noResultMsg = `${EVIDENCE_RESULT_MARKER} No results found for: ${input.query}`;
       const parts = [degradedBanner, noResultMsg, depthLine].filter(Boolean);
       return successResult(parts.join('\n\n'));
     }
@@ -136,7 +138,11 @@ export async function handleSearchEvidence(input: {
       lines.push('');
     }
 
-    lines.push(`Found ${data.results.length} result(s)${data.variantId ? ` [variant=${data.variantId}]` : ''}:`);
+    lines.push(
+      `${EVIDENCE_RESULT_MARKER} Found ${data.results.length} result(s) for ${queryLabel}${
+        data.variantId ? ` [variant=${data.variantId}]` : ''
+      }:`,
+    );
     lines.push('');
 
     for (const r of data.results) {
@@ -190,7 +196,7 @@ export async function handleSearchEvidence(input: {
     return successResult(lines.join('\n'));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return errorResult(`Evidence search request failed: ${message}`);
+    return errorResult(`Evidence search request failed for ${queryLabel}: ${message}`);
   }
 }
 
