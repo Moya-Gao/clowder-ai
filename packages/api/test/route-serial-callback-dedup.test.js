@@ -362,7 +362,7 @@ describe('#573: stream store dedup when cat_cafe_post_message used', () => {
         yield {
           type: 'tool_result',
           catId: 'opus',
-          content: '{"status":"ok","messageId":"msg-123"}',
+          content: '{"status":"ok","threadId":"thread1","messageId":"msg-123"}',
           timestamp: Date.now(),
         };
         yield {
@@ -382,6 +382,156 @@ describe('#573: stream store dedup when cat_cafe_post_message used', () => {
 
     const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
     assert.equal(streamAppends.length, 0, 'unlabeled callback result should suppress duplicate stream persistence');
+  });
+
+  it('keeps FIFO when a callback-shaped result arrives before a later pending post tool', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const appendCalls = [];
+
+    const outOfOrderService = {
+      async *invoke() {
+        yield { type: 'text', catId: 'opus', content: 'Checking status then posting.', timestamp: Date.now() };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'mcp:example/status_probe',
+          toolInput: '{}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'mcp:cat-cafe/cat_cafe_post_message',
+          toolInput: '{}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          content: '{"status":"ok","threadId":"thread1","messageId":"status-probe-msg"}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          content: 'Error: callback token expired',
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = createMockDeps({ opus: outOfOrderService }, appendCalls);
+    for await (const msg of routeSerial(deps, ['opus'], 'hello', 'user1', 'thread1')) {
+      // drain
+    }
+
+    const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
+    assert.equal(
+      streamAppends.length,
+      1,
+      'callback-shaped result from the first pending tool must not suppress stream persistence for a later failed post',
+    );
+  });
+
+  it('does not consume a later pending post when cross-post returns the same message shape first', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const appendCalls = [];
+
+    const crossPostLikeService = {
+      async *invoke() {
+        yield { type: 'text', catId: 'opus', content: 'Cross-posting then local callback.', timestamp: Date.now() };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'mcp:cat-cafe/cat_cafe_cross_post_message',
+          toolInput: '{}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'mcp:cat-cafe/cat_cafe_post_message',
+          toolInput: '{}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          content: '{"status":"ok","threadId":"thread1","messageId":"cross-post-msg"}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          content: 'Error: callback token expired',
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = createMockDeps({ opus: crossPostLikeService }, appendCalls);
+    for await (const msg of routeSerial(deps, ['opus'], 'hello', 'user1', 'thread1')) {
+      // drain
+    }
+
+    const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
+    assert.equal(
+      streamAppends.length,
+      1,
+      'cross-post result with messageId+threadId must not be treated as the later pending post callback',
+    );
+  });
+
+  it('does not match another tool result with messageId shape to a later pending post tool', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const appendCalls = [];
+
+    const statusLikeService = {
+      async *invoke() {
+        yield { type: 'text', catId: 'opus', content: 'Checking status then posting.', timestamp: Date.now() };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'mcp:example/status_probe',
+          toolInput: '{}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'mcp:cat-cafe/cat_cafe_post_message',
+          toolInput: '{}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          content: '{"status":"ok","messageId":"status-probe-msg"}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          content: 'Error: callback token expired',
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = createMockDeps({ opus: statusLikeService }, appendCalls);
+    for await (const msg of routeSerial(deps, ['opus'], 'hello', 'user1', 'thread1')) {
+      // drain
+    }
+
+    const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
+    assert.equal(
+      streamAppends.length,
+      1,
+      'status-like result from another tool must not suppress stream persistence for a failed post callback',
+    );
   });
 
   it('does not confirm an ambiguous unlabeled ok result while another tool is pending', async () => {

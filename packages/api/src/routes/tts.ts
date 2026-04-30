@@ -286,8 +286,10 @@ export async function ttsRoutes(app: FastifyInstance, opts: TtsRouteOptions): Pr
 
         sendEvent({
           type: 'chunk',
-          index: i,
+          index: successfulChunks,
           total: chunks.length,
+          sourceIndex: i,
+          sourceTotal: chunks.length,
           audioBase64,
           text: chunk.text,
           durationSec: result.durationSec,
@@ -307,7 +309,7 @@ export async function ttsRoutes(app: FastifyInstance, opts: TtsRouteOptions): Pr
         { totalMs: Date.now() - startTime, chunks: chunks.length, successfulChunks },
         '[TTS-STREAM] complete',
       );
-      sendEvent({ type: 'done' });
+      sendEvent({ type: 'done', total: successfulChunks });
     }
     reply.raw.end();
   });

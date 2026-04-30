@@ -264,7 +264,14 @@ describe('POST /api/tts/stream — chunk failure resilience', () => {
     assert.equal(doneEvents.length, 1, 'Should still emit done');
     assert.equal(errorEvents.length, 0, 'Partial failure should not emit error');
     assert.equal(chunkEvents[0].index, 0);
-    assert.equal(chunkEvents[1].index, 2);
+    assert.equal(chunkEvents[0].total, 3);
+    assert.equal(chunkEvents[0].sourceIndex, 0);
+    assert.equal(chunkEvents[0].sourceTotal, 3);
+    assert.equal(chunkEvents[1].index, 1);
+    assert.equal(chunkEvents[1].total, 3);
+    assert.equal(chunkEvents[1].sourceIndex, 2);
+    assert.equal(chunkEvents[1].sourceTotal, 3);
+    assert.equal(doneEvents[0].total, 2);
 
     await partialApp.close();
     await rm(tempDir, { recursive: true, force: true });

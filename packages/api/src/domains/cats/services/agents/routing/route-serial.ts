@@ -107,14 +107,19 @@ function isPostMessageToolName(toolName: string | undefined): boolean {
   return toolName === 'mcp:cat-cafe/post_message' || toolName === 'cat_cafe_post_message';
 }
 
-function parseCallbackPostResult(content: string | undefined): { confirmed: boolean; messageId?: string } {
+function parseCallbackPostResult(content: string | undefined): {
+  confirmed: boolean;
+  messageId?: string;
+  threadId?: string;
+} {
   if (!content) return { confirmed: false };
   try {
-    const parsed = JSON.parse(content) as { status?: unknown; messageId?: unknown };
+    const parsed = JSON.parse(content) as { status?: unknown; messageId?: unknown; threadId?: unknown };
     const confirmed = parsed.status === 'ok' || parsed.status === 'duplicate';
     return {
       confirmed,
       ...(typeof parsed.messageId === 'string' && parsed.messageId.length > 0 ? { messageId: parsed.messageId } : {}),
+      ...(typeof parsed.threadId === 'string' && parsed.threadId.length > 0 ? { threadId: parsed.threadId } : {}),
     };
   } catch {
     return {
@@ -141,7 +146,7 @@ function consumePendingToolResult(
   pendingToolResults: string[],
   msg: AgentMessage,
   hasConfirmingContent: boolean,
-  hasCallbackMessageId: boolean,
+  hasCallbackPostEvidence: boolean,
 ): string | undefined {
   const resultToolName = inferToolResultName(msg);
   if (resultToolName) {
@@ -158,7 +163,11 @@ function consumePendingToolResult(
     return pendingToolResults.shift();
   }
 
-  if (hasConfirmingContent && (pendingToolResults.length === 1 || hasCallbackMessageId)) {
+  if (hasConfirmingContent && hasCallbackPostEvidence) {
+    return pendingToolResults.shift();
+  }
+
+  if (hasConfirmingContent && pendingToolResults.length === 1) {
     return pendingToolResults.shift();
   }
 
@@ -739,7 +748,7 @@ export async function* routeSerial(
               pendingToolResults,
               effectiveMsg,
               callbackResult.confirmed,
-              Boolean(callbackResult.messageId),
+              Boolean(callbackResult.messageId && callbackResult.threadId),
             );
             if (
               awaitingCallbackResult &&

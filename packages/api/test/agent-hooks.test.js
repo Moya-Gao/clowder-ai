@@ -195,6 +195,12 @@ describe('agent hook routes', () => {
     projectRoot = await createProjectRoot();
     targetRoot = await mkdtemp(join(tmpdir(), `agent-hooks-route-${randomUUID()}-`));
     app = Fastify();
+    app.addHook('preHandler', async (request) => {
+      const sessionUser = request.headers['x-test-session-user'];
+      if (typeof sessionUser === 'string' && sessionUser.trim()) {
+        request.sessionUserId = sessionUser.trim();
+      }
+    });
     await app.register(agentHooksRoutes, { projectRoot, targetRoot });
     await app.ready();
   });
@@ -221,6 +227,66 @@ describe('agent hook routes', () => {
     assert.equal(codex?.drifted, false);
 
     await assert.rejects(readFile(join(targetRoot, '.codex', 'hooks.json'), 'utf8'));
+  });
+
+  it('browser requests require a real session before hook sync can write files', async () => {
+    const unauthorized = await app.inject({
+      method: 'POST',
+      url: '/api/agent-hooks/sync',
+      headers: { origin: 'http://localhost:3001', host: 'localhost:3001' },
+    });
+    assert.equal(unauthorized.statusCode, 401);
+    await assert.rejects(readFile(join(targetRoot, '.codex', 'hooks.json'), 'utf8'));
+
+    const authorized = await app.inject({
+      method: 'POST',
+      url: '/api/agent-hooks/sync',
+      headers: { origin: 'http://localhost:3001', host: 'localhost:3001', 'x-test-session-user': 'session-user' },
+    });
+    assert.equal(authorized.statusCode, 200);
+    const hooksJson = JSON.parse(await readFile(join(targetRoot, '.codex', 'hooks.json'), 'utf8'));
+    assert.equal(
+      hooksJson.hooks.SessionStart[0].hooks[0].command,
+      join(targetRoot, '.claude', 'hooks', 'session-start-recall.sh'),
+    );
+  });
+
+  it('does not fall back to the API process home for non-local peers', async () => {
+    const implicitApp = Fastify();
+    await implicitApp.register(agentHooksRoutes, { projectRoot });
+    await implicitApp.ready();
+
+    try {
+      const res = await implicitApp.inject({
+        method: 'GET',
+        url: '/api/agent-hooks/status',
+        headers: { ...HEADERS, host: 'cat-cafe.example.com' },
+        remoteAddress: '203.0.113.10',
+      });
+      assert.equal(res.statusCode, 403);
+      assert.match(res.payload, /local API host/);
+    } finally {
+      await implicitApp.close();
+    }
+  });
+
+  it('does not trust a forged localhost Host header from a remote peer', async () => {
+    const implicitApp = Fastify();
+    await implicitApp.register(agentHooksRoutes, { projectRoot });
+    await implicitApp.ready();
+
+    try {
+      const res = await implicitApp.inject({
+        method: 'GET',
+        url: '/api/agent-hooks/status',
+        headers: { ...HEADERS, host: 'localhost:3001' },
+        remoteAddress: '203.0.113.10',
+      });
+      assert.equal(res.statusCode, 403);
+      assert.match(res.payload, /local API host/);
+    } finally {
+      await implicitApp.close();
+    }
   });
 
   it('POST is the explicit action that syncs and returns configured status', async () => {
