@@ -107,25 +107,58 @@ function isPostMessageToolName(toolName: string | undefined): boolean {
   return toolName === 'mcp:cat-cafe/post_message' || toolName === 'cat_cafe_post_message';
 }
 
+type CallbackPostResult = {
+  confirmed: boolean;
+  messageId?: string;
+  threadId?: string;
+};
+
+function collectCallbackPostResultCandidates(content: string): string[] {
+  const candidates = new Set<string>();
+  const trimmed = content.trim();
+  if (trimmed) candidates.add(trimmed);
+  for (const line of trimmed.split(/\r?\n/)) {
+    const candidate = line.trim();
+    if (candidate.startsWith('{') && candidate.endsWith('}')) candidates.add(candidate);
+  }
+  const jsonStart = trimmed.indexOf('{');
+  if (jsonStart > 0) candidates.add(trimmed.slice(jsonStart));
+  return [...candidates];
+}
+
+function callbackPostResultFromPayload(parsed: {
+  status?: unknown;
+  messageId?: unknown;
+  threadId?: unknown;
+}): CallbackPostResult | null {
+  const confirmed = parsed.status === 'ok' || parsed.status === 'duplicate';
+  if (!confirmed && parsed.status === undefined) return null;
+  return {
+    confirmed,
+    ...(typeof parsed.messageId === 'string' && parsed.messageId.length > 0 ? { messageId: parsed.messageId } : {}),
+    ...(typeof parsed.threadId === 'string' && parsed.threadId.length > 0 ? { threadId: parsed.threadId } : {}),
+  };
+}
+
 function parseCallbackPostResult(content: string | undefined): {
   confirmed: boolean;
   messageId?: string;
   threadId?: string;
 } {
   if (!content) return { confirmed: false };
-  try {
-    const parsed = JSON.parse(content) as { status?: unknown; messageId?: unknown; threadId?: unknown };
-    const confirmed = parsed.status === 'ok' || parsed.status === 'duplicate';
-    return {
-      confirmed,
-      ...(typeof parsed.messageId === 'string' && parsed.messageId.length > 0 ? { messageId: parsed.messageId } : {}),
-      ...(typeof parsed.threadId === 'string' && parsed.threadId.length > 0 ? { threadId: parsed.threadId } : {}),
-    };
-  } catch {
-    return {
-      confirmed: content.includes('"status":"ok"') || content.includes('"status":"duplicate"'),
-    };
+  for (const candidate of collectCallbackPostResultCandidates(content)) {
+    try {
+      const parsed = JSON.parse(candidate) as { status?: unknown; messageId?: unknown; threadId?: unknown };
+      const result = callbackPostResultFromPayload(parsed);
+      if (result) return result;
+    } catch {
+      // Try the next candidate shape.
+    }
   }
+
+  return {
+    confirmed: /"status"\s*:\s*"(ok|duplicate)"/.test(content),
+  };
 }
 
 function inferToolResultName(msg: AgentMessage): string | undefined {

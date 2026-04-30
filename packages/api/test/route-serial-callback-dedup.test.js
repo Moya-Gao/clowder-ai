@@ -68,6 +68,36 @@ function createServiceWithPostMessageAndStreamMetadata(catId) {
   };
 }
 
+function createServiceWithPrefixedPostMessageResult(catId) {
+  return {
+    async *invoke() {
+      yield {
+        type: 'system_info',
+        catId,
+        content: JSON.stringify({ type: 'invocation_created', invocationId: 'inner-inv-prefixed' }),
+        timestamp: Date.now(),
+      };
+      yield {
+        type: 'system_info',
+        catId,
+        content: JSON.stringify({ type: 'thinking', text: 'prefixed stream thinking' }),
+        timestamp: Date.now(),
+      };
+      yield { type: 'text', catId, content: 'Posting via prefixed callback result.', timestamp: Date.now() };
+      yield { type: 'tool_use', catId, toolName: 'cat_cafe_post_message', toolInput: '{}', timestamp: Date.now() };
+      yield {
+        type: 'tool_result',
+        catId,
+        content:
+          'mcp:cat_cafe/cat_cafe_post_message (completed)\n' +
+          JSON.stringify({ status: 'ok', threadId: 'thread1', messageId: 'callback-msg-prefixed' }),
+        timestamp: Date.now(),
+      };
+      yield { type: 'done', catId, timestamp: Date.now() };
+    },
+  };
+}
+
 function createServiceWithoutPostMessage(catId) {
   return {
     async *invoke() {
@@ -174,6 +204,43 @@ describe('#573: stream store dedup when cat_cafe_post_message used', () => {
     assert.deepEqual(patch.extra.stream, { invocationId: 'parent-inv-1' });
     assert.deepEqual(patch.extra.tracing, { traceId: 'trace-1', spanId: 'span-1' });
     assert.deepEqual(patch.extra.rich.blocks, [service.richBlock]);
+  });
+
+  it('extracts messageId from Codex-style prefixed MCP tool results before metadata augment', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const { getRichBlockBuffer } = await import('../dist/domains/cats/services/agents/invocation/RichBlockBuffer.js');
+    const appendCalls = [];
+    const augmentCalls = [];
+    const bufferedBlock = {
+      id: 'prefixed-audio-1',
+      kind: 'audio',
+      v: 1,
+      url: '/api/tts/audio/prefixed.wav',
+      text: 'persist this buffered voice block',
+    };
+    getRichBlockBuffer().add('thread1', 'opus', bufferedBlock, 'inv-1');
+    const deps = createMockDeps(
+      { opus: createServiceWithPrefixedPostMessageResult('opus') },
+      appendCalls,
+      augmentCalls,
+    );
+
+    for await (const msg of routeSerial(deps, ['opus'], 'hello', 'user1', 'thread1', {
+      parentInvocationId: 'parent-inv-prefixed',
+    })) {
+      // drain
+    }
+
+    const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
+    assert.equal(streamAppends.length, 0, 'prefixed callback success must not create a duplicate stream bubble');
+    assert.equal(augmentCalls.length, 1, 'prefixed callback result should still augment callback message');
+
+    const [{ id, patch }] = augmentCalls;
+    assert.equal(id, 'callback-msg-prefixed');
+    assert.match(patch.thinking, /prefixed stream thinking/);
+    assert.equal(patch.toolEvents.length, 2, 'tool_use/tool_result should survive F5 reload');
+    assert.deepEqual(patch.extra.stream, { invocationId: 'parent-inv-prefixed' });
+    assert.deepEqual(patch.extra.rich.blocks, [bufferedBlock]);
   });
 
   it('skips stream append for namespaced cat_cafe_post_message tool names', async () => {
