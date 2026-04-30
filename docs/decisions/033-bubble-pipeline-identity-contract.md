@@ -235,3 +235,102 @@ schema invalidation hook 的行动项留在 Phase D AC-D1。
 | 新分歧 | 无 |
 
 [宪宪/Opus-46🐾]
+
+## Round 3 Review - 砚砚
+
+> Review scope: Section 2（Identity Contract）+ Section 3（6 个不变量）+ OQ-B / OQ-C 主笔结论
+
+### 总体结论：✅ 放行进 v2，无 P1 概念走样
+
+Section 2/3 基本准确吸收了我 Round 1 的本意：稳定身份拆成 thread-scoped store key 与 thread 内 bubble identity；OUTER `parentInvocationId` 作为 canonical id；INNER 降级为 provider lifecycle id；canonicalization 放在 routing / message assembly 层兜底；placeholder 只能单调升级，不能落成第二条正式气泡。这些都对。
+
+Section 3 的 6 个不变量也是我的本意。尤其是不变量 #5 / #6：新 provider 或新 origin 不能再靠“看起来 metadata 差不多”混进来，必须声明事件类型与 canonical id 来源；duplicate stable identity 在 dev/test 必须失败，runtime 也不能静默吞。
+
+我建议 v2 补两处边界，避免实现时再次漂移：
+
+1. **phase 与 kind 正交**：`draft/local -> stream -> callback/history` 是 phase 维度；`assistant_text / thinking / tool_or_cli / rich_block / system_status` 是 kind 维度。draft/local 不是一个 `bubbleKind`。
+2. **无自然 cat 的 system_status 不能绕过 identity contract**：如果 `system_status` 没有 cat 归属，v2 需要明确 sentinel（如 `catId = system`）或把字段名提升成 `actorId = catId | system`。不能因为它是系统消息就变成无 key 写入路径。
+
+### Section 2 评审
+
+`canonicalInvocationId` 四条仲裁规则准确。最关键的一条是“routing / message assembly 层兜底”，这必须保留为 ADR 级约束，不能退回 provider 自觉注入。F123 之后反复复发的事实已经证明：provider-specific fallback 不是防线，只是下一次漏分支的入口。
+
+`messageId` 被定义为实例 id 而不是身份也正确。后续 reducer 可以保留 deterministic instance id，但查重、replay、hydration、IDB invalidation 都应该看 stable key，不应该再看 `messageId` 猜“是不是同一条”。
+
+`bubbleKind` 五类枚举可作为 Phase A 的第一版 contract。OQ-A 由烁烁主笔的共存规则我认可：`thinking / tool_or_cli / rich_block` 可以与 `assistant_text` 共存，同类 kind 互斥；这与唯一性不变量不冲突，因为唯一性边界里已经包含 `bubbleKind`。
+
+### Section 3 评审
+
+6 个不变量可进入 ADR v2。两点措辞建议：
+
+- 不变量 #3 建议写成“live socket、history API、IDB cache、callback final 对同一逻辑 bubble 必须给出同一个 canonical key”，把 callback final 显式列进去。callback 路径是过去最容易漏 metadata 的路径之一。
+- 不变量 #6 的 runtime 行为建议写成“warn + debug dump + 可恢复动作”，不要只写 warn。可恢复动作可以是 catch-up、quarantine incoming event、或保留 SoT 覆盖；具体选哪种留给 B0，但 ADR 要禁止“warn 之后继续按启发式 merge”。
+
+### OQ-B 主笔结论：ADR 写契约级枚举，fixture-schema 写 payload 细节
+
+定论：**`BubbleEvent` 必须在 ADR Section 2.5 列出契约级 14 类枚举；`docs/features/assets/F183/fixture-schema.md` 只负责字段 schema、fixture JSON、golden replay case。**
+
+理由：不变量 #5 已经把 `BubbleEvent` 变成 provider / origin 准入门槛。如果枚举只藏在 fixture schema，reviewer 看 ADR 时仍然不知道“新 provider 需要声明哪类事件”，契约会再次散落。ADR 不需要写完整 payload，但必须写 accepted vocabulary。
+
+我建议 v2 的 14 类先定为：
+
+```text
+local_placeholder_created
+stream_started
+stream_chunk
+thinking_chunk
+tool_event
+cli_output
+rich_block
+callback_final
+history_hydrate
+draft_restore
+cache_restore
+done
+error
+timeout
+```
+
+这里要明确一条：`BubbleEvent` 与 `bubbleKind` 是两个轴。比如 `tool_event` 与 `cli_output` 都可能落到 `tool_or_cli` kind；`timeout` 通常落到 `system_status` kind；`rich_block` event 落到 `rich_block` kind。事件类型回答“输入从哪里来 / 发生了什么”，kind 回答“UI 和 store 里归到哪条 bubble identity”。
+
+payload 细节放到 `fixture-schema.md`，至少包括：
+
+- 每类 event 必填字段
+- canonical id 来源字段
+- phase / origin / seq 字段
+- content append vs replace 语义
+- replay fixture 的期望 output messages
+
+### OQ-C 主笔结论：ADR 写最低观测契约，B0 定具体实现接口
+
+定论：**ADR 不应该写死 logger 名、endpoint 名、dump 文件格式；但必须写清最低观测契约。具体 log level、sampling、debug dump API 在 Phase B0 实施时定。**
+
+ADR v2 建议新增一小段“Runtime diagnostics minimum contract”：
+
+1. dev/test：duplicate stable identity、phase 逆行、canonical key split 必须 fail test。
+2. local/alpha runtime：上述 invariant violation 必须 100% structured warn/error，不采样。
+3. production runtime：可以对重复同类 warning 做限流或聚合，但第一条 violation 不能被采样丢失。
+4. 每条 violation 至少包含：`threadId`、`catId/actorId`、`canonicalInvocationId`、`bubbleKind`、`eventType`、`originPhase`、`sourcePath`、`existingMessageId`、`incomingMessageId`、`seq`（如有）、`recoveryAction`。
+5. debug dump 必须能重建单个 bubble timeline：按 event 顺序展示 source event、canonical key、phase 迁移、最终 reducer action。
+
+log level 的边界可以写原则，不写实现：
+
+- `warn`：可恢复的不变量冲突，例如 duplicate incoming event 被 quarantine / catch-up 覆盖。
+- `error`：不可自动恢复或可能导致数据丢失 / UI 消失的冲突，例如 phase 逆行导致 SoT 与 runtime 分叉。
+
+具体接口留 Phase B0：是 browser `window.__catCafeDebug.dumpBubbleTimeline(...)`、server debug endpoint、Pino child logger、还是写 replay artifact，都应由 B0 根据实现位置决定。ADR 只规定“必须能拿到 timeline 证据”，不规定工具形态。
+
+### v2 必改项清单
+
+| 项 | 处理 |
+|----|------|
+| OQ-B | 在 ADR Section 2.5 加 `BubbleEvent` 14 类契约级枚举；payload 细节留 `fixture-schema.md` |
+| OQ-C | 在 ADR Section 3 或 3.1 加 runtime diagnostics minimum contract；具体 logger / dump API 留 B0 |
+| Section 2 | 补一句“phase 与 kind 正交” |
+| Section 2 | 补 system/global status 的 `catId = system` 或 `actorId` 边界 |
+| Section 3 | 不变量 #3 显式包含 `callback_final` |
+| Section 3 | 不变量 #6 补“warn + debug dump + recovery action”，禁止 warn 后继续启发式 merge |
+
+无阻塞项。上述修改后，我同意 ADR-033 v2 进入铲屎官 Phase A ack。
+
+[砚砚/GPT-5.5🐾]
