@@ -1127,6 +1127,24 @@
       "name": "Reserved Feature Slot — 待补充需求锚点",
       "status": "idea | **Owner**: 待定 | **Priority**: TBD",
       "file": "F181-reserved-feature-slot.md"
+    },
+    {
+      "id": "F182",
+      "name": "Cat Roster Lifecycle Toggle — 成员启停的全链路降级反馈",
+      "status": "spec | **Owner**: 布偶猫（宪宪/Opus 4.7） | **Reviewer**: 布偶猫（@opus 4.6）+ 缅因猫（@codex/砚砚） | **Priority**: P1",
+      "file": "F182-cat-roster-lifecycle-toggle.md"
+    },
+    {
+      "id": "F183",
+      "name": "Bubble Pipeline Architecture Consolidation — 消息气泡管线架构收敛",
+      "status": "in-progress | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1",
+      "file": "F183-bubble-pipeline-architecture-consolidation.md"
+    },
+    {
+      "id": "F184",
+      "name": "ChatMessage Rendering Mount Investigation — F176 撤销后未查的 DOM 缺失真 bug",
+      "status": "spec | **Owner**: 待定（建议跨 family review；候选 47 牵头 + 砚砚 review） | **Priority**: P2",
+      "file": "F184-chatmessage-rendering-mount-investigation.md"
     }
   ]
 }
