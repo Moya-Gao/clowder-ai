@@ -559,11 +559,19 @@ Phase B 的 Single Writer 需要测试——如果没有统一的 fixture 格式
 
 ### 待铲屎官拍板的 5 个 KD
 
-#### KD-A1（Q1 视觉载体）
+#### KD-A1（Q1 视觉载体 v2）
 
-- **47 推荐**：烁烁主笔 `architecture-map.pen` + 每次定稿导出 `.png`/`.svg` 到 `docs/features/assets/F183/`
-- **理由**：Pencil 是自家设计工具，烁烁主导能保证视觉质量与连贯；导出 PNG/SVG 让 git diff 可读 + ADR-033 内嵌图友好
-- **三猫立场**：烁烁推 `.pen` / 砚砚 + 46 推 SVG —— 推荐折中
+- **47 推荐 v2**（铲屎官 2026-04-30 ack）：**砚砚（GPT-5.5）主笔**，用图片生成能力生产手绘风格架构图（中英文双版本，可发布到 README/onboarding）；烁烁等 Pencil 插件修好后做细节分层设计稿作为补充
+- **铲屎官原话**："pen 你要是用不了其实我推荐你让砚砚用他的图片生成能力 生产架构图 巨强 我们家记忆和整体架构图都是砚砚生成的手绘风格的，中文英文都可以超级强"
+- **改主笔的原因**：
+  - 烁烁的 Pencil 插件在 CLI 环境连不上（已确认 known issue，进 Phase B 一起查修）
+  - 砚砚的图片生成是 Cat Café 已验证的视觉资产路径（家里记忆系统图 / 整体架构图都是砚砚做的手绘风格）
+  - 不阻塞 Phase A 时间盒
+- **资产路径**：
+  - `docs/features/assets/F183/architecture-map.cn.png`（砚砚手绘风格中文版，主图）
+  - `docs/features/assets/F183/architecture-map.en.png`（英文版，对外/社区可用）
+  - `docs/features/assets/F183/architecture-map.pen`（Pencil 修好后烁烁补细节分层稿）
+- **三猫立场 v2**：砚砚主笔（图片生成）/ 烁烁补细节（Pencil 修复后）/ 46 + 47 ack 铲屎官路线
 
 #### KD-A2（Q6 Phase 顺序 + invariant 落地）
 
