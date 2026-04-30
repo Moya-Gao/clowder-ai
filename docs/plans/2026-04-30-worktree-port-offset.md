@@ -114,7 +114,7 @@ async function preflightCheck(ports: WorktreePorts): Promise<void> {
 | # | 改动 | 文件 |
 |---|---|---|
 | 1 | 新增 `derive-worktree-ports.ts` 工具函数 | `packages/api/src/config/derive-worktree-ports.ts`（或 `scripts/lib/`） |
-| 2 | 改造启动脚本读 `WORKTREE_PORT_OFFSET` | `scripts/start-dev.sh`、`scripts/start-dev.mjs` 之类 |
+| 2 | 改造启动脚本读 `WORKTREE_PORT_OFFSET` | `scripts/start-dev.sh`（+ 必要时 `scripts/start-entry.mjs` env 透传，但不新建 .mjs 文件） |
 | 3 | `.env.local` 模板支持 OFFSET | worktree skill 文档里的 `cat > .env.local <<EOF` 改成"先 export OFFSET 再启动" |
 | 4 | worktree skill 添加 PORT_OFFSET 段落 | `cat-cafe-skills/worktree/SKILL.md` |
 | 5 | 单元测试覆盖 safety checks | `packages/api/test/derive-worktree-ports.test.js` |

@@ -192,21 +192,18 @@ created: 2026-04-30
 
 参赛前必须先做的基建升级（独立小 feat，不是 F182 范围）：
 
-### 现状
-- 当前 `cat-cafe-skills/worktree/SKILL.md` 假设单 worktree 并发，硬编码 Redis 6398 / API 3102
-- `start-dev.sh` 类启动脚本不读 PORT_OFFSET
-- `.env.local` 模板硬编码端口
-
-### 改动 plan
-1. **新增环境变量** `WORKTREE_PORT_OFFSET`（int，默认 0）
-2. **改造启动脚本** — Redis/API/Web/A2A Bridge 端口都基于 offset 计算
-3. **改造 .env.local 模板** — worktree skill 文档里的 `cat > .env.local <<EOF` 改成基于 offset 派生
-4. **safety check** — offset 必须使 Redis 端口 ≠ 6399（圣域）；offset 范围 [-50, 0] 阶梯 -10
-5. **worktree skill 文档更新** — 添加 PORT_OFFSET 段落 + 端口分配表（指向本参赛文档）
+### 摘要
+- 改造 `start-dev.sh` 读 `WORKTREE_PORT_OFFSET`，派生**核心 4 服务**（Redis / API / Web / NEXT_PUBLIC_API_URL）
+- Sidecar（Preview Gateway / Anthropic Proxy / ASR / TTS / LLM Postprocess / Embedding）**全禁用**，不参与 offset
+- Preflight 接 `start-dev.sh` 内置 — `pnpm dev:direct` 必经；`pnpm dev` 走 `pnpm -r --parallel run dev` 绕过 preflight，禁用
+- OFFSET 非 0 时 managed startup keys 优先级 **高于** `.env.local` 和 `CAT_CAFE_RESPECT_DOTENV_PORTS`
+- Redis data/backup dir 用现有 `default_redis_data_dir(profile, port)` 派生，不发明新格式
 
 ### 优先级
-- 这个基建改动**先于参赛启动**完成 + 砚砚 review 通过
+- 基建改动**先于参赛启动**完成 + 砚砚 review 通过（已 closure 放行 v4，commit `e9b648eec`）
 - 实施估计 1-2h，由 opus-47 完成（基建不算 F182 比赛范围）
+
+详见 [基建 plan](../../plans/2026-04-30-worktree-port-offset.md) 真相源。
 
 ## 链接
 
