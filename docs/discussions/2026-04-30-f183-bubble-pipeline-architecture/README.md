@@ -677,3 +677,25 @@ Phase B 的 Single Writer 需要测试——如果没有统一的 fixture 格式
 铲屎官同时给了 F183 + F184 自治闭环授权（"你们自己闭环这个 F183 + F184"）。
 
 下一棒：47 起草 ADR-033 + 喊砚砚开始画手绘架构图，时间盒 2026-05-04 完成 Phase A。
+
+---
+
+## Phase A done（2026-04-30，提前于时间盒 4 天完成）
+
+**铲屎官自治放行**（原话）：
+> "哈哈哈这个太技术细节了 按照家里的要求 好像没有我需要一条条看的，你们自己决策就行！"
+
+这是对 KD-2（架构级 = 猫猫讨论 → 铲屎官拍板）的边界澄清——**架构级技术细节如三猫已 review 收敛 + 无新分歧，铲屎官信任自治判断，不需要逐条 ack**。
+
+**Phase A 交付物全齐**：
+- ✅ ADR-033 v2 (commit `9414d1288`，471 行)
+- ✅ Architecture Map 中英双版 (`docs/features/assets/F183/architecture-map.{cn,en}.png` + `.svg`，commit `ba1e35d94`)
+- ✅ 三轮 review 全程归档（Round 1 + Round 2 收敛 + Round 3 + 拍板结果）
+- ✅ 5 KD（A1-A5）+ 8 KD（KD-1~KD-8）+ 6 不变量 + BubbleEvent 14 类枚举 + Runtime Diagnostics 13 字段契约
+- ✅ AC-Z3 onboarding tour 4 站点提案
+
+**解锁状态**：
+- F183 status: idea → **in-progress** → 进 Phase B0 worktree（建 replay harness 框架 + 最小 invariant gate）
+- F184 status: idea → **spec** → 解锁立项（按 roadmap 与 F183 Phase B-E 串行）
+
+**下一步**：47 开 Phase B0 worktree（替换为 next session 工作）；按 KD-A2 顺序推进 B0 → B1 → C → D → E。

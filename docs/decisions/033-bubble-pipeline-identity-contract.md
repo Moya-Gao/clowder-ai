@@ -4,7 +4,7 @@ related_features: [F081, F123, F176, F184]
 topics: [bubble, message-pipeline, identity-contract, reconcile, idb-cache, websocket, sequence-number, store-invariant, bubble-event, runtime-diagnostics]
 doc_kind: decision
 created: 2026-04-30
-status: draft v2 — 待铲屎官最终 ack 放行 Phase A
+status: accepted — Phase A done (铲屎官 2026-04-30 自治放行)
 related: [F081, F123, F176, F183, F184, ADR-031]
 ---
 
@@ -301,7 +301,7 @@ timestamp
 | 2026-04-30 | ADR-033 v1 草稿（47 起，吸收 46 Round 1 Section 1 + 砚砚 Round 1 Section 2/3 + 砚砚画的 Section 4 视觉图） |
 | 2026-04-30 | 三猫 Round 3 review 同日全部到齐（烁烁 9b4ba194a / 46 82221829e / 砚砚 74992c451）—— 提前于 Roadmap 05-01 |
 | 2026-04-30 | 47 收敛 Round 4 + ADR-033 v2 修订（11 个 v2 改动，详见文首 v2 改动清单） |
-| 2026-05-01 (planned) | 铲屎官最终 ack 放行 → Phase A done → Phase B0 worktree 解锁 + F184 解锁立项 |
+| 2026-04-30 | **铲屎官自治放行 → Phase A done**。原话："哈哈哈这个太技术细节了 按照家里的要求 好像没有我需要一条条看的，你们自己决策就行！" → 解锁 Phase B0 worktree + F184 立项（提前于 Roadmap 05-01） |
 
 ## Round 3 Review - 烁烁
 

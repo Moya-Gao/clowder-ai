@@ -8,11 +8,11 @@ created: 2026-04-30
 
 # F184: ChatMessage Rendering Mount Investigation — F176 撤销后未查的 DOM 缺失真 bug
 
-> **Status**: idea | **Owner**: 待定（建议跨 family review；候选 47 牵头 + 砚砚 review） | **Priority**: P2
+> **Status**: spec | **Owner**: 待定（建议跨 family review；候选 47 牵头 + 砚砚 review） | **Priority**: P2
 >
-> **Blocked by**: F183 Phase A 完成（identity contract 拍板放行，~2026-05-04）
+> **Unblocked**: F183 Phase A 已 done（2026-04-30 铲屎官自治放行 ADR-033 v2）。F184 立项已解锁；可启动 Phase A repro & diagnosis。
 >
-> ⚠️ **不可与 F183 实施 Phase 并发**（铲屎官 2026-04-30 push back：耦合层修改并发 = "又 n 个真相源解决不了了"）
+> ⚠️ **不可与 F183 实施 Phase B-E 并发**（铲屎官 2026-04-30 push back：耦合层修改并发 = "又 n 个真相源解决不了了"）。F184 实施按 KD-2 与 F183 Phase B-E 串行排期。
 
 ## Why
 
@@ -122,7 +122,7 @@ F176 (Native CLI Assistant-Speech vs CLI-Stdout) 在 2026-04-26 被铲屎官 rev
 | 日期 | 事件 |
 |------|------|
 | 2026-04-30 | F184 stub 立项（铲屎官 push back F183 KD-A5 触发）；blocked by F183 Phase A |
-| ~2026-05-04 | F183 Phase A done → F184 解锁启动 |
+| 2026-04-30 | F183 Phase A done（铲屎官自治放行 ADR-033 v2）→ F184 解锁立项（提前于 Roadmap 05-04）|
 | ~2026-05-08 | Phase A diagnosis 完成 |
 | ~2026-05-15 | Phase B fix 合入 |
 

@@ -8,9 +8,9 @@ created: 2026-04-30
 
 # F183: Bubble Pipeline Architecture Consolidation — 消息气泡管线架构收敛
 
-> **Status**: idea | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1
 >
-> 这是一个**架构级重构 + 真相源沉淀** feature，立项当下处于 `idea` 状态。Phase A 完成后（discussion 收敛 + 架构图 + identity contract 拍板）再升 `spec`，进入 worktree。
+> Phase A 已 done（2026-04-30，铲屎官自治放行 ADR-033 v2）。Phase B0 worktree 解锁；F184 立项解锁（roadmap 串行）。
 
 ## Why
 
@@ -78,13 +78,13 @@ created: 2026-04-30
 
 > 立项时仅列骨架，Phase A 讨论收敛后细化。
 
-### Phase A（Discovery & Contract）
+### Phase A（Discovery & Contract）✅ DONE 2026-04-30
 
-- [ ] AC-A1: 四猫诊断已收敛到一份 architecture map（asset 落盘）
-- [ ] AC-A2: bubble identity 真相源契约（OUTER vs INNER 仲裁规则）已拍板并写入 spec
-- [ ] AC-A3: `messages` 写入口完整清单（≥ F081 audit 的 104 项 + 增量 provider 路径）已落盘
-- [ ] AC-A4: F123 TD111-TD114 的接收范围已明确（哪些纳入 F183、哪些保留为 TD）
-- [ ] AC-A5: ADR-033（或内嵌 architecture map）经铲屎官拍板放行
+- [x] AC-A1: 四猫诊断已收敛到一份 architecture map（assets/F183/architecture-map.{cn,en}.png + .svg by 砚砚）
+- [x] AC-A2: bubble identity 真相源契约（OUTER vs INNER 仲裁规则）已写入 ADR-033 Section 2
+- [~] AC-A3: `messages` 写入口完整清单 → 推迟到 Phase B0（fixture schema 配套），保留 F081 audit 的 104 项作为基线
+- [x] AC-A4: F123 TD111-TD114 全部纳入 F183（KD-A4 拍板，TECH-DEBT.md 已废弃）
+- [x] AC-A5: ADR-033 v2 经铲屎官 2026-04-30 自治放行（"按照家里的要求 好像没有我需要一条条看的，你们自己决策就行"）
 
 ### Phase B（Single Writer）
 
@@ -185,6 +185,9 @@ created: 2026-04-30
 | 2026-04-30 | F183 kickoff（status=idea），Discussion 启动 |
 | 2026-04-30 | Round 1 三猫到齐（提前于 2026-05-02 截止）；Round 2 收敛分析完成 |
 | 2026-04-30 | 5 KD（A1-A5）铲屎官全部 ack；F184 stub 同步立项；F183 + F184 自治闭环授权 |
+| 2026-04-30 | KD-A1 砚砚画手绘架构图（中英双版，commit `ba1e35d94`）|
+| 2026-04-30 | ADR-033 v1 草稿 → Round 3 三猫同日全部到齐（烁烁 / 46 / 砚砚）→ v2 修订（11 改动，commit `9414d1288`）|
+| 2026-04-30 | **Phase A done**：铲屎官自治放行 ADR-033 v2（"技术细节自决"）。F183 status: idea → in-progress；F184 解锁立项（roadmap 串行）|
 
 ## Review Gate
 
