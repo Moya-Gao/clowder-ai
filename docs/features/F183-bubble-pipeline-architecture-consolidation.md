@@ -171,6 +171,11 @@ created: 2026-04-30
 | KD-1 | 立项 F183 而非 reopen F123 | F123 KD-4 主动推迟统一 MessageWriter，本 scope 是架构级重构，需要独立 owner 与 phase 节奏 | 2026-04-30 |
 | KD-2 | Phase A 必须以"四猫独立诊断收敛"为产出 | 铲屎官原话"不要当独裁猫猫，加在一起视角可能最全" + F176 误诊教训"双猫并行 5/5 收敛 ≠ 正确" | 2026-04-30 |
 | KD-3 | scope 显式排除 Provider 协议 / A2A 语义 / thread 模型 | 防止"消息系统全重写"风险，本 feature 只动 identity contract / writer / reconcile / cache 四层 | 2026-04-30 |
+| KD-4 | 视觉载体：砚砚 GPT-5.5 主笔图片生成（手绘风格中英双版）；烁烁 Pencil 修复后补细节稿 | 烁烁 Pencil 插件 CLI 环境连不上；砚砚的图片生成是已验证的视觉路径（家里记忆系统图 / 整体架构图都是砚砚做的）；不阻塞 Phase A 时间盒 | 2026-04-30 |
+| KD-5 | Phase 顺序合并：A → B0 (invariant gate 前置) → B1 (Single Writer) → C (seq) → D (IDB) → E (closure) | 砚砚 + 46 提议合并：B0 立 harness/invariant 框架 + B1/C/D 各 Phase AC 落具体断言，不留窗口期 | 2026-04-30 |
+| KD-6 | IDB 形态：provisional cache + 5 metadata 字段（identityContractVersion / cacheSchemaVersion / savedAt / containsLocalOnly / containsDuplicateStableIdentity） | 砚砚版本：在线不参与 merge 仲裁，保留冷启动画缓存（减少白屏）+ 离线 fallback 能力。比"完全降级"更稳健 | 2026-04-30 |
+| KD-7 | TD111-TD114 全部纳入 F183；`docs/TECH-DEBT.md` 已废弃不维护 | 铲屎官原话"docs/TECH-DEBT.md 这个很久没更新了 建议废弃不要考虑这个"。TD112 partial 实现的事实直接在 ADR-033 + spec 里说清楚 | 2026-04-30 |
+| KD-8 | F184（F176 撤销后真 bug）不并入 F183；roadmap 强制串行（F183 Phase A done → F184 启动，禁止并发） | 铲屎官原话"这个和你们这个会耦合吧... 别并发去修"。耦合点：F183 改 message 数据结构 / reducer / cache contract；F184 改 ChatMessage mount 逻辑——并发会引入新不一致 | 2026-04-30 |
 
 ## Timeline
 
@@ -178,6 +183,8 @@ created: 2026-04-30
 |------|------|
 | 2026-04-30 | 铲屎官原话立项触发；四猫并行诊断（46 / 47 / 砚砚 / 烁烁）已收敛同一根因 |
 | 2026-04-30 | F183 kickoff（status=idea），Discussion 启动 |
+| 2026-04-30 | Round 1 三猫到齐（提前于 2026-05-02 截止）；Round 2 收敛分析完成 |
+| 2026-04-30 | 5 KD（A1-A5）铲屎官全部 ack；F184 stub 同步立项；F183 + F184 自治闭环授权 |
 
 ## Review Gate
 
