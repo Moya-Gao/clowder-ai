@@ -7,14 +7,63 @@ import { describe, it } from 'node:test';
  * the frontend sees a duplicate message.
  */
 
-function createServiceWithPostMessage(catId) {
+function createServiceWithPostMessage(catId, toolName = 'cat_cafe_post_message') {
   return {
     async *invoke() {
       yield { type: 'text', catId, content: 'Let me post a reply.', timestamp: Date.now() };
-      yield { type: 'tool_use', catId, toolName: 'cat_cafe_post_message', toolInput: '{}', timestamp: Date.now() };
+      yield { type: 'tool_use', catId, toolName, toolInput: '{}', timestamp: Date.now() };
       yield { type: 'tool_result', catId, content: '{"status":"ok","threadId":"thread-1"}', timestamp: Date.now() };
       yield { type: 'text', catId, content: '', timestamp: Date.now() };
       yield { type: 'done', catId, timestamp: Date.now() };
+    },
+  };
+}
+
+function createServiceWithPostMessageAndStreamMetadata(catId) {
+  const richBlock = {
+    id: 'stream-card-1',
+    kind: 'card',
+    v: 1,
+    title: 'Stream-only card',
+    bodyMarkdown: 'persist me',
+  };
+
+  return {
+    richBlock,
+    async *invoke() {
+      yield {
+        type: 'system_info',
+        catId,
+        content: JSON.stringify({ type: 'invocation_created', invocationId: 'inner-inv-1' }),
+        timestamp: Date.now(),
+      };
+      yield {
+        type: 'system_info',
+        catId,
+        content: JSON.stringify({ type: 'thinking', text: 'stream thinking chunk' }),
+        timestamp: Date.now(),
+      };
+      yield {
+        type: 'system_info',
+        catId,
+        content: JSON.stringify({ type: 'rich_block', block: richBlock }),
+        timestamp: Date.now(),
+      };
+      yield { type: 'text', catId, content: '@铲屎官\nCallback body with stream metadata.', timestamp: Date.now() };
+      yield { type: 'tool_use', catId, toolName: 'cat_cafe_post_message', toolInput: '{}', timestamp: Date.now() };
+      yield {
+        type: 'tool_result',
+        catId,
+        content: JSON.stringify({ status: 'ok', threadId: 'thread1', messageId: 'callback-msg-1' }),
+        timestamp: Date.now(),
+      };
+      yield {
+        type: 'done',
+        catId,
+        metadata: { provider: 'mock-provider', model: 'mock-model' },
+        tracing: { traceId: 'trace-1', spanId: 'span-1' },
+        timestamp: Date.now(),
+      };
     },
   };
 }
@@ -30,7 +79,7 @@ function createServiceWithoutPostMessage(catId) {
   };
 }
 
-function createMockDeps(services, appendCalls) {
+function createMockDeps(services, appendCalls, augmentCalls = []) {
   let invocationSeq = 0;
   let messageSeq = 0;
 
@@ -69,6 +118,10 @@ function createMockDeps(services, appendCalls) {
       getByThread: () => [],
       getByThreadAfter: () => [],
       getByThreadBefore: () => [],
+      augmentStreamMetadata: async (id, patch) => {
+        augmentCalls.push({ id, patch });
+        return { id, ...patch };
+      },
     },
     draftStore: {
       upsert: () => {},
@@ -93,6 +146,54 @@ describe('#573: stream store dedup when cat_cafe_post_message used', () => {
 
     const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
     assert.equal(streamAppends.length, 0, 'should NOT persist stream output when cat_cafe_post_message was used');
+  });
+
+  it('augments the callback-stored message with stream-only metadata without duplicating the stream bubble', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const appendCalls = [];
+    const augmentCalls = [];
+    const service = createServiceWithPostMessageAndStreamMetadata('opus');
+    const deps = createMockDeps({ opus: service }, appendCalls, augmentCalls);
+
+    for await (const msg of routeSerial(deps, ['opus'], 'hello', 'user1', 'thread1', {
+      parentInvocationId: 'parent-inv-1',
+    })) {
+      // drain
+    }
+
+    const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
+    assert.equal(streamAppends.length, 0, 'callback path must remain the only user-visible bubble');
+    assert.equal(augmentCalls.length, 1, 'callback message should receive stream-only metadata');
+
+    const [{ id, patch }] = augmentCalls;
+    assert.equal(id, 'callback-msg-1');
+    assert.equal(patch.mentionsUser, true, 'line-start co-creator mention should be preserved');
+    assert.match(patch.thinking, /stream thinking chunk/);
+    assert.deepEqual(patch.metadata, { provider: 'mock-provider', model: 'mock-model' });
+    assert.equal(patch.toolEvents.length, 2, 'tool_use/tool_result should be retained for reload');
+    assert.deepEqual(patch.extra.stream, { invocationId: 'parent-inv-1' });
+    assert.deepEqual(patch.extra.tracing, { traceId: 'trace-1', spanId: 'span-1' });
+    assert.deepEqual(patch.extra.rich.blocks, [service.richBlock]);
+  });
+
+  it('skips stream append for namespaced cat_cafe_post_message tool names', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const appendCalls = [];
+    const deps = createMockDeps(
+      { opus: createServiceWithPostMessage('opus', 'mcp:cat-cafe/cat_cafe_post_message') },
+      appendCalls,
+    );
+
+    for await (const msg of routeSerial(deps, ['opus'], 'hello', 'user1', 'thread1')) {
+      // drain
+    }
+
+    const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
+    assert.equal(
+      streamAppends.length,
+      0,
+      'namespaced cat_cafe_post_message should confirm callback persistence and skip stream append',
+    );
   });
 
   it('still persists stream output when no cat_cafe_post_message was called', async () => {
@@ -235,5 +336,142 @@ describe('#573: stream store dedup when cat_cafe_post_message used', () => {
 
     const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
     assert.equal(streamAppends.length, 1, 'unrelated ok tool_result must not suppress stream persistence');
+  });
+
+  it('confirms an unlabeled callback result when the post tool is first pending among multiple tools', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const appendCalls = [];
+
+    const parallelToolService = {
+      async *invoke() {
+        yield { type: 'text', catId: 'opus', content: 'Posting through callback.', timestamp: Date.now() };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'mcp:cat-cafe/cat_cafe_post_message',
+          toolInput: '{}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'command_execution',
+          toolInput: 'echo ok',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          content: '{"status":"ok","messageId":"msg-123"}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          content: 'ok',
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = createMockDeps({ opus: parallelToolService }, appendCalls);
+    for await (const msg of routeSerial(deps, ['opus'], 'hello', 'user1', 'thread1')) {
+      // drain
+    }
+
+    const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
+    assert.equal(streamAppends.length, 0, 'unlabeled callback result should suppress duplicate stream persistence');
+  });
+
+  it('does not confirm an ambiguous unlabeled ok result while another tool is pending', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const appendCalls = [];
+
+    const ambiguousToolService = {
+      async *invoke() {
+        yield { type: 'text', catId: 'opus', content: 'Posting through callback.', timestamp: Date.now() };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'mcp:cat-cafe/cat_cafe_post_message',
+          toolInput: '{}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'mcp:example/status_probe',
+          toolInput: '{}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          content: '{"status":"ok","source":"status_probe"}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          content: 'Error: callback token expired',
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = createMockDeps({ opus: ambiguousToolService }, appendCalls);
+    for await (const msg of routeSerial(deps, ['opus'], 'hello', 'user1', 'thread1')) {
+      // drain
+    }
+
+    const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
+    assert.equal(streamAppends.length, 1, 'ambiguous ok tool_result must not suppress stream persistence');
+  });
+
+  it('does not confirm callback persistence from a duplicate labeled post result after a failed callback', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const appendCalls = [];
+
+    const duplicatedResultService = {
+      async *invoke() {
+        yield { type: 'text', catId: 'opus', content: 'Trying callback post.', timestamp: Date.now() };
+        yield {
+          type: 'tool_use',
+          catId: 'opus',
+          toolName: 'mcp:cat-cafe/cat_cafe_post_message',
+          toolInput: '{}',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          toolName: 'mcp:cat-cafe/cat_cafe_post_message',
+          content: 'Error: callback token expired',
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'tool_result',
+          catId: 'opus',
+          toolName: 'mcp:cat-cafe/cat_cafe_post_message',
+          content: '{"status":"ok","threadId":"thread-1"}',
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = createMockDeps({ opus: duplicatedResultService }, appendCalls);
+    for await (const msg of routeSerial(deps, ['opus'], 'hello', 'user1', 'thread1')) {
+      // drain
+    }
+
+    const streamAppends = appendCalls.filter((m) => m.origin === 'stream' && m.catId === 'opus');
+    assert.equal(
+      streamAppends.length,
+      1,
+      'duplicate labeled post result without a pending match must not suppress stream persistence',
+    );
   });
 });

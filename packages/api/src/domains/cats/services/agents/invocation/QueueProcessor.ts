@@ -384,6 +384,7 @@ export class QueueProcessor {
   /** F151: Check if thread has any queued or processing entries (used by delivery-batch-done signal). */
   isThreadBusy(threadId: string): boolean {
     if (this.deps.queue.hasQueuedForThread(threadId)) return true;
+    this.sweepZombieSlots(threadId);
     for (const key of this.processingSlots.keys()) {
       if (QueueProcessor.slotMatchesThread(key, threadId)) return true;
     }

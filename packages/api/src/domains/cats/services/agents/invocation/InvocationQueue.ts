@@ -642,11 +642,24 @@ export class InvocationQueue {
     return false;
   }
 
-  /** Whether any user has queued entries for this thread. */
+  /** Whether any scope has queued entries for this thread.
+   *  Agent-sourced entries are dispatchable pending work regardless of age;
+   *  user/connector entries keep the stale guard so old interactive messages
+   *  do not permanently force thread-wide queue/busy mode.
+   */
   hasQueuedForThread(threadId: string): boolean {
+    const now = Date.now();
     for (const q of this.queues.values()) {
       if (!this.queueMatchesThread(q, threadId)) continue;
-      if (q.some((e) => e.status === 'queued')) return true;
+      if (
+        q.some((e) => {
+          if (e.status !== 'queued') return false;
+          if (e.source === 'agent') return true;
+          return now - e.createdAt < InvocationQueue.STALE_QUEUED_THRESHOLD_MS;
+        })
+      ) {
+        return true;
+      }
     }
     return false;
   }
