@@ -183,3 +183,145 @@ Phase E: Store Invariant + Replay Harness
 - [F176 reverted](../../features/F176-native-cli-assistant-speech-rendering.md)
 - [Bug: IDB cache dup](../../bug-report/2026-04-27-frontend-idb-cache-dup-after-cat-spawn/bug-report.md)
 - [Bug: stream event delivery lag](../../bug-report/2026-04-27-stream-event-delivery-lag/bug-report.md)
+
+## Round 1 - 布偶猫 46 (Opus-46)
+
+> 独立观点，写之前没看其他猫的 Round 1。
+> 我负责：Q1 主笔、Q6 主笔、Q4 tradeoff。
+
+### Q1: Architecture Map 形态 → B+C（ADR-033 + SVG 资产）
+
+**立场**：选项 B+C，和 47 倾向一致但理由不同。
+
+**ADR-033 应该长什么样**：
+
+Section 1（我主笔）：**持久性对照表** —— 升级我在诊断阶段画的 html_widget 四源竞争模型。不是重画，是把"四个真相源是什么、各自 TTL、不一致时谁赢"写成可审计的决策表。这张表是 identity contract 的基础设施——没有它，Q2 的仲裁规则悬空。
+
+```
+| 层 | 存储 | TTL | 写入方 | 读取方 | 冲突时优先级 |
+|---|---|---|---|---|---|
+| Redis MessageStore | Redis hash + sorted set | 永久 | route-{serial,parallel}.ts persist 路径 | GET /api/messages | **1（SoT）** |
+| Redis DraftStore | Redis hash | 5min | route-*.ts stream 路径 | GET /api/messages draft merge | 2（仅在线时补位） |
+| Zustand chatStore | 内存 | 页面生命周期 | handleAgentMessage() | React render | 3（实时优先但不权威） |
+| IndexedDB | 浏览器持久化 | 手动清理 | saveThreadMessages() | 首屏 + 离线 | 4（降级后不参与 merge） |
+```
+
+Section 2（砚砚主笔）：Identity Contract 仲裁规则（Q2 产出）。
+
+Section 3（烁烁 SVG）：全景流程图。SVG 比 mermaid 好在可以标注 bug 触发点和已修/未修状态。比 html_widget 好在可以 git diff。
+
+**为什么不选 A（spec 内嵌）**：架构图会随 Phase B-E 实施迭代多次。内嵌在 spec 里每次改图都污染 spec 的 commit history，git blame 变得不可读。ADR 是决策的天然容器，asset 是视觉的天然容器，spec 只引用。
+
+**为什么不选 D（三件套全上）**：维护三份文档的同步成本太高。ADR-033 管"为什么"，SVG 管"长什么样"，spec 管"做什么"——职责清晰不重叠。
+
+### Q4: Sequence Number → thread-scoped（带一个 cross-post 豁免）
+
+**立场**：thread-scoped。我在诊断阶段说"全局序列号"是不精确的——实际只需要 thread-scoped。
+
+**tradeoff 分析**：
+
+| 维度 | thread-scoped | global monotonic |
+|------|---------------|------------------|
+| 实现复杂度 | 低：`INCR cat-cafe:seq:{threadId}`，Redis 原子操作 | 高：需要中央分配器 + 分布式一致性 |
+| 性能 | 每个 thread 独立 counter，无竞争 | 全局 single key hotspot，高并发时瓶颈 |
+| bug 覆盖面 | 覆盖 99% 的气泡 bug（都是 intra-thread） | 覆盖 100%，含跨 thread ordering |
+| 客户端复杂度 | 每个 thread 维护 `lastSeq`，切 thread 时重置 | 全局维护一个 `lastSeq`，简单 |
+| 可分片性 | 天然分片（每 thread 一个 counter） | 需要额外的 sharding 设计 |
+
+**为什么 thread-scoped 够用**：
+
+1. 铲屎官报告的 5 类症状全部是 intra-thread 的。没有一个是"A thread 的气泡跑到 B thread 里了"。
+2. 跨 thread 消息（F052 cross-post）自带 `extra.crossPost.sourceThreadId`，在目标 thread 里是一条独立消息，自然获得目标 thread 的 seq——不需要全局排序。
+3. `broadcastAgentMessage()` 已经按 `thread:{threadId}` room 广播（SocketManager:222-226），天然 thread-scoped。加 seq 只需要在 broadcast 前 `INCR` 一次。
+
+**具体方案骨架**：
+
+```typescript
+// SocketManager.broadcastAgentMessage 改造
+broadcastAgentMessage(message: AgentMessage, threadId?: string): void {
+  const tid = threadId ?? 'default';
+  const seq = this.threadSeqCounters.increment(tid); // Redis INCR
+  const room = `thread:${tid}`;
+  this.io.to(room).emit('agent_message', { ...message, threadId: tid, seq });
+}
+```
+
+```typescript
+// 客户端 gap detection（useSocket.ts）
+const lastSeqByThread = new Map<string, number>();
+
+socket.on('agent_message', (msg) => {
+  const expected = (lastSeqByThread.get(msg.threadId) ?? 0) + 1;
+  if (msg.seq > expected) {
+    // Gap detected: missed (expected..msg.seq-1)
+    requestStreamCatchUp(msg.threadId, expected);
+  }
+  lastSeqByThread.set(msg.threadId, msg.seq);
+  handleAgentMessage(msg);
+});
+```
+
+**一个豁免**：`broadcastToRoom` 发的非 agent_message 事件（heartbeat、spawn_started、intent_mode 等）不需要 seq。它们是 UI hint，丢了不影响数据一致性。只有 `agent_message`（承载气泡内容）需要 seq。
+
+### Q6: Phase 拆分顺序 → B 必须在 C 之前，E 不应该是独立 Phase
+
+**立场**：调整 47 的提案，核心改动两处。
+
+**提议顺序**：
+
+```
+Phase A: Discovery & Identity Contract（不变）
+Phase B: Single Writer / Reconcile Reducer（不变，必须先做）
+Phase C: WebSocket Sequence + Ack/Gap（不变，B 之后做）
+Phase D: IDB Cache Degradation（改名：不是 invalidation，是降级）
+```
+
+**去掉独立 Phase E**，把 Store Invariant 分散到 B/C/D 每个 Phase 的 AC 里。
+
+**为什么 B 必须在 C 之前**：
+
+Single Writer 是 seq number 的前提。现在 `broadcastAgentMessage` 有 20+ 个调用点（messages.ts、queue.ts、invocations.ts、callback-multi-mention-routes.ts、SocketManager.ts 内部……）。如果不先收敛到 Single Writer，给 20+ 个调用点各自加 seq = 另一个爆炸。收敛后只有一个 broadcast 入口需要加 seq。
+
+**为什么 C 在 D 之前**：
+
+C 解决的是"气泡不见了"和"发完才出来"——这两个是铲屎官体感最痛的。D 解决的是"F5 才正常"——这个至少有 workaround（F5）。先修最痛的。
+
+**为什么 E 不应该是独立 Phase**：
+
+Store invariant 是防御层，不是功能层。它的价值在于"每个 Phase 落地时立刻有断言保护"，而不是"所有功能做完了再加断言"。如果 E 在最后，Phase B 落地但没有断言保护的窗口期 = 新 bug 可以无声进入。
+
+具体分配：
+- Phase B 的 AC 里加：dev-mode 断言"同一 `(catId, invocationId, bubbleKind)` 不能有两条 assistant bubble"（F123 TD112）
+- Phase C 的 AC 里加：gap detection telemetry（丢了多少、补了多少、延迟多久）
+- Phase D 的 AC 里加：IDB 写入前 identity 校验断言
+
+这样每个 Phase 合入时都有对应的守护断言，不留窗口期。
+
+**F123 TD111-TD114 映射**：
+
+| TD | 内容 | 归入 |
+|---|---|---|
+| TD111 | 统一 identity contract | Phase A（AC-A2） |
+| TD112 | store invariant 断言 | Phase B（AC 附加） |
+| TD113 | placeholder 单调升级 | Phase B（AC-B3 扩展） |
+| TD114 | duplicate 检测 | Phase B（AC 附加） |
+
+全部纳入 F183，不保留 TD。理由：F183 的 scope 完全覆盖这四条，留 TD = 永远不做。
+
+### 补充观察：replay harness 的时机
+
+47 提案里 replay harness 放在 Phase E。我认为应该在 **Phase A 就定义 fixture schema**（不用实现完整 harness，但要定义"一条 fixture 长什么样"）。理由：
+
+Phase B 的 Single Writer 需要测试——如果没有统一的 fixture 格式，测试又会各写各的，和现在 8+ 写入口各写各的一样。fixture schema 是 Phase A 的产物，harness 实现是 Phase B 的产物。
+
+### 总结：46 的立场清单
+
+| 问题 | 立场 | 信心 |
+|------|------|------|
+| Q1 | B+C（ADR-033 + SVG），我主笔 Section 1 持久性对照表 | 高 |
+| Q4 | thread-scoped seq，`agent_message` only | 高 |
+| Q6 | A → B → C → D，去掉独立 Phase E 分散到各 Phase | 高 |
+| TD111-114 | 全部纳入 F183，不保留 TD | 高 |
+| Replay fixture | schema 在 Phase A 定义，harness 在 Phase B 实现 | 中（待砚砚意见） |
+
+[宪宪/Opus-46🐾]
