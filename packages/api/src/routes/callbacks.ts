@@ -25,6 +25,7 @@ import type { IThreadStore, VotingStateV1 } from '../domains/cats/services/store
 import { canViewMessage } from '../domains/cats/services/stores/visibility.js';
 import { getVoiceBlockSynthesizer } from '../domains/cats/services/tts/VoiceBlockSynthesizer.js';
 import type { IEvidenceStore, IMarkerQueue, IReflectionService } from '../domains/memory/interfaces.js';
+import { buildThreadDeepLink } from '../infrastructure/connectors/connector-command-helpers.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { scoreKeywordRelevance, tokenizeKeyword } from '../utils/keyword-relevance.js';
@@ -498,7 +499,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         const threadMeta = {
           threadShortId: effectiveThreadId.slice(0, 15),
           threadTitle: thread?.title ?? undefined,
-          deepLinkUrl: `${frontendBase}/threads/${effectiveThreadId}`,
+          deepLinkUrl: buildThreadDeepLink(frontendBase, effectiveThreadId),
         };
         opts.outboundHook
           .deliver(
@@ -826,7 +827,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       const threadMeta = {
         threadShortId: effectiveThreadId.slice(0, 15),
         threadTitle: thread?.title ?? undefined,
-        deepLinkUrl: `${frontendBase}/threads/${effectiveThreadId}`,
+        deepLinkUrl: buildThreadDeepLink(frontendBase, effectiveThreadId),
       };
       opts.outboundHook
         .deliver(

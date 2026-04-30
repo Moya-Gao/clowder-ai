@@ -99,6 +99,7 @@ import { AgentPaneRegistry } from './domains/terminal/agent-pane-registry.js';
 import { TmuxGateway } from './domains/terminal/tmux-gateway.js';
 import { CommandRegistry } from './infrastructure/commands/CommandRegistry.js';
 import { parseManifestSlashCommands } from './infrastructure/commands/manifest-commands.js';
+import { buildThreadDeepLink } from './infrastructure/connectors/connector-command-helpers.js';
 import {
   loadConnectorGatewayConfig,
   startConnectorGateway,
@@ -2088,7 +2089,7 @@ async function main(): Promise<void> {
       return {
         threadShortId: threadId.slice(0, 15),
         threadTitle: thread.title ?? undefined,
-        deepLinkUrl: `${frontendBaseUrl}/threads/${threadId}`,
+        deepLinkUrl: buildThreadDeepLink(frontendBaseUrl, threadId),
       };
     },
     log: app.log,
@@ -2440,7 +2441,7 @@ async function main(): Promise<void> {
         return {
           threadShortId: threadId.slice(0, 15),
           threadTitle: thread.title ?? undefined,
-          deepLinkUrl: `${frontendBaseUrl}/threads/${threadId}`,
+          deepLinkUrl: buildThreadDeepLink(frontendBaseUrl, threadId),
         };
       });
 

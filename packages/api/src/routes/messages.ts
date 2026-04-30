@@ -51,6 +51,7 @@ import type { ISummaryStore } from '../domains/cats/services/stores/ports/Summar
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { isSystemUserMessage } from '../domains/cats/services/stores/visibility.js';
 import { mergeTokenUsage, type TokenUsage } from '../domains/cats/services/types.js';
+import { buildThreadDeepLink } from '../infrastructure/connectors/connector-command-helpers.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { buildCancelMessages, type SocketManager } from '../infrastructure/websocket/index.js';
 import { getDefaultUploadDir } from '../utils/upload-paths.js';
@@ -1527,7 +1528,7 @@ export async function deliverOutboundFromWeb(
         threadMeta = {
           threadShortId: threadId.slice(0, 15),
           threadTitle: resolved.title ?? undefined,
-          deepLinkUrl: `${frontendBase}/threads/${threadId}`,
+          deepLinkUrl: buildThreadDeepLink(frontendBase, threadId),
         };
       }
     }
