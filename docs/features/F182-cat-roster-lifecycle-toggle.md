@@ -41,14 +41,14 @@ F127 已经 close（done），ledger 不该 reopen。这是 F127 完成度水位
 
 ### Phase A: 结构化错误契约 + Resolver 闸门
 
-**新增公共类型 + Resolver 单点闸**——所有 9 个 MCP 写工具 + 前端 @ 入口共享一套：
+**新增公共类型 + Resolver 单点闸**——所有 MCP 写工具 + 前端 @ 入口共享一套：
 
 ```ts
-// packages/shared/src/types/cat.ts (or new cat-routing.ts)
+// packages/shared/src/types/cat-routing.ts
 export type CatRoutingError =
   | { kind: 'cat_not_found'; mention: string; alternatives: CatAlternative[] }
-  | { kind: 'cat_disabled'; catId: CatId; displayName: string; alternatives: CatAlternative[] }
-  | { kind: 'cat_no_quota'; catId: CatId; displayName: string; alternatives: CatAlternative[] };
+  | { kind: 'cat_disabled'; catId: CatId; displayName: string; alternatives: CatAlternative[] };
+// NOTE: cat_no_quota 不在 F182 范围（KD-5），reviewer matcher 的"没猫粮"暂保留独立语义
 
 export interface CatAlternative {
   readonly catId: CatId;
@@ -60,50 +60,98 @@ export interface CatAlternative {
 
 **位置**：在现有 `mention-parser.ts` / `AgentRouter.isRoutableCat` 之上加一层 `resolveCatTarget(mentionOrId): { ok: CatId } | { error: CatRoutingError }`，作为所有 MCP 写工具和 A2A 调度的统一闸。
 
+**Resolver 必须覆盖 5 个入口（KD-4，砚砚 P1-1 反馈）**——不止"消息体 @ parser"：
+
+| 入口 | 字段 | 当前现状 |
+|---|---|---|
+| 文本 @ | 消息 content body 里的 `@xxx` | a2a-mentions.ts 已 skip，但需改为返回结构化 errors |
+| `post_message.targetCats` | 结构化数组 | callbacks.ts:613 只做 `catRegistry.has()`，**未校验 available** ⚠️ |
+| `cross_post_message.targetCats` | 同上 | 同上 ⚠️ |
+| `multi_mention.targets/callbackTo` | targets 数组 + callback 字段 | 仅做 catRegistry.has，未校验 available ⚠️ |
+| `start_vote.voters` | 投票 voters 数组 | 同上 ⚠️ |
+| `register_scheduled_task.params.targetCatId` | 单字段 | 同上 ⚠️ |
+
+**关键**：disabled 在文本 @ parser 被过滤但**结构化目标字段直进 enqueueA2ATargets** = disable 不是闸，只是提示词/UI 层过滤。砚砚 review 锚点：[callback-tools.ts:214](packages/mcp-server/src/tools/callback-tools.ts) + [callbacks.ts:613](packages/api/src/routes/callbacks.ts)。
+
 ### Phase B: System Prompt 降级提示（让猫自己感知）
 
-当前 buildTeammateRoster 直接过滤掉 disabled 猫，**但调用猫不知道**自己曾经的队友被停用了——会反复 @ 不存在的人。改进：
+当前 buildTeammateRoster 直接过滤掉 disabled 猫，**但调用猫不知道**自己曾经的队友被停用了——会反复 @ 不存在的人。改进（**OQ-3 拍板：单独区段**，砚砚反馈 — LLM 看不到灰色，行内标注会把 disabled 猫塞回主名册）：
 
-- **可见但标灰**的"暂停成员"小区段（disabled 猫单独列在 roster 末尾，标"已停用，请改 @ X / Y"）
-- 配合 F167 KD-21 风格 — 显示替代 mention，避免 cargo-cult 投射
+- 主名册（`## 队友名册`）只放可用猫，**保持当前行为**
+- 新增独立区段 `## 已停用成员`（在主名册下方），列出 disabled 猫 + **明确人话**："不要 @ 这只猫；如需她的能力请改 @ X / Y"
+- 替代 mention 用 alternatives 排序：同 family + lead 优先
 
-### Phase C: 9 个 MCP 写工具接入降级反馈
+### Phase C: MCP 写工具接入降级反馈（修订清单）
 
-A 类工具（消息路由）直接接 resolver：
-- `cat_cafe_post_message` / `cat_cafe_multi_mention` / `cat_cafe_cross_post_message` / `cat_cafe_create_rich_block`
-- 解析消息体里的 @ → resolver 闸 → 命中 disabled 猫则在工具返回里附 `routing_warnings: [{ kind: 'cat_disabled', alternatives: [...] }]`，**不阻断**主路径（仍发送给在线的其他 @ 目标），让调用猫看到 warning 后自决换人
+> **砚砚 P1-2 反馈**：之前清单里 `update_task` / `register_pr_tracking` 是错的——`update_task` 没 assignee 字段，`register_pr_tracking.catId` deprecated 被服务端忽略。
 
-B 类工具（assignee/owner 是猫）显式校验：
-- `cat_cafe_create_task` / `cat_cafe_update_task` (assignee) / `cat_cafe_register_pr_tracking` (guardian/reviewer) / `cat_cafe_start_vote` (candidates) / `cat_cafe_register_scheduled_task` (owner)
-- 命中 disabled 猫直接 400 + `CatRoutingError`，调用猫必须换人才能继续
+**A 类（消息路由 — 软降级 best-effort）**：
+
+| 工具 | 入口字段 | 行为 |
+|---|---|---|
+| `cat_cafe_post_message` | 消息体 @ + `targetCats` | 在线目标继续发，disabled 目标返回 `routing_warnings`；**结构化 targetCats 全不可路由 → `isError: true` + `routed: []`**（KD-4，避免 final-routing guard 误判"已传球"） |
+| `cat_cafe_cross_post_message` | 同上 | 同上 |
+| `cat_cafe_create_rich_block` | mentions 字段 | 同上 |
+
+**A' 类（multi_mention — 契约式硬失败）**（OQ-1 拍板，砚砚反馈）：
+
+| 工具 | 入口字段 | 行为 |
+|---|---|---|
+| `cat_cafe_multi_mention` | `targets` / `callbackTo` | request/response 契约，**hard fail**——disabled targets 直接 400 `cat_disabled` + alternatives，调用猫必须重发；不引入 `skipped` 状态膨胀 orchestrator |
+
+**B 类（assignee/owner 是猫 — 契约式 400）**：
+
+| 工具 | 入口字段 | 行为 |
+|---|---|---|
+| `cat_cafe_create_task` | `ownerCatId` | 400 `cat_disabled` + alternatives |
+| `cat_cafe_start_vote` | `voters[]` | 400（任一 voter disabled） |
+| `cat_cafe_register_scheduled_task` | `params.targetCatId` | 400 `cat_disabled` + alternatives |
+
+**剔除（之前清单错）**：
+- `cat_cafe_update_task` — 当前 schema 没 assignee 字段（[callback-tools.ts:471](packages/mcp-server/src/tools/callback-tools.ts)）
+- `cat_cafe_register_pr_tracking.catId` — deprecated 字段服务端已忽略（[callbacks.ts:1269](packages/api/src/routes/callbacks.ts)）。PR tracking 涉及的"调用猫自身被 disable 但旧 invocation 还活着"是另一个问题，留独立 issue
+
+**P2（砚砚补充）— MCP wrapper 错误前缀**：MCP 协议把 400 包装成 `Callback failed (400): <body>` 文本，LLM 解析不稳定。要求 mcp-server 对 `CatRoutingError` 生成**固定人类可读前缀** + JSON 双轨：
+
+```
+Cat routing failed [kind=cat_disabled] target=@gemini25 disabled.
+Alternatives: @gemini, @opus-45.
+{"kind":"cat_disabled","catId":"gemini25","alternatives":[...]}
+```
 
 ### Phase D: Hub Toggle UX + Side-Effect Awareness
 
-- 当前 toggle 静默写入，铲屎官看不到副作用
-- Toggle disable 时检查：这只猫是否有进行中的 task / PR tracking / scheduled task？
-- 弹个轻量确认："禁用 X 后，以下进行中的引用会处于待确认状态：[列表]，是否继续？"
-- 不强制阻断，只让铲屎官知情
+> **OQ-2 拍板（砚砚反馈）**：进 F182，但做 server-side impact preview endpoint，不在 useCatData 拼三套查询。
+
+- 新增 `GET /api/cats/:catId/disable-impact` 端点 — server 端聚合该猫的进行中引用：
+  - `tasks`：assignee 是该猫的开放 task（直接扫 task store）
+  - `scheduledTasks`：owner 是该猫的活跃 schedule（直接扫 schedule meta）
+  - PR tracking 不在 caller-replaceable scope，不聚合
+- **首版不增索引**，扫描当前存储够用（量小）；响应 shape 统一，不强迁移底层模型
+- Hub UI toggle disable 前先 GET 该端点，弹轻量确认："禁用 X 后，以下进行中引用会变为待重指派：[N 个 task / M 个 schedule]，是否继续？"
+- 确认后 disable，引用不强迁移，**只标 "owner 已停用，等待重指派"**（AC-D2）
 
 ## Acceptance Criteria
 
 ### Phase A（错误契约 + Resolver 闸）
-- [ ] AC-A1: `CatRoutingError` 类型 export 到 `@cat-cafe/shared`，三种 kind 覆盖完整
-- [ ] AC-A2: `resolveCatTarget()` 单点 resolver 实现，单元测试覆盖三种错误路径 + alternatives 排序（同族优先）
-- [ ] AC-A3: `a2a-mentions.ts` 静默 skip 改为 resolver 调用，保留向后兼容（mentions 列表不变，新增 errors 列表）
+- [ ] AC-A1: `CatRoutingError` 类型 export 到 `@cat-cafe/shared`，**两种** kind（`cat_not_found` / `cat_disabled`）— `cat_no_quota` 不在范围（KD-5）
+- [ ] AC-A2: `resolveCatTarget()` 单点 resolver 实现，单元测试覆盖两种错误路径 + alternatives 排序（同族 + lead 优先 + dedupe + 稳定排序避免竞态）
+- [ ] AC-A3: Resolver 接入 **5 个入口**（KD-4）：文本 @ parser / `targetCats` / `multi_mention.targets+callbackTo` / `start_vote.voters` / `register_scheduled_task.params.targetCatId`。a2a-mentions.ts 静默 skip 改为 resolver 调用，保留向后兼容（mentions 列表不变，新增 errors 列表）
 
 ### Phase B（Prompt 降级提示）
-- [ ] AC-B1: `buildTeammateRoster` 增加"已停用成员"小区段，列出 disabled 猫 + 替代 mention 提示
-- [ ] AC-B2: `system-prompt-builder.test.js` 覆盖 disabled 猫场景：在/不在 roster、stranded mention 提示文案
+- [ ] AC-B1: 主名册保持只列可用猫；新增独立 `## 已停用成员` 区段，列出 disabled 猫 + 明确"不要 @，请改 @ X/Y"短句
+- [ ] AC-B2: `system-prompt-builder.test.js` 覆盖 disabled 猫场景：未出现在主名册、出现在停用区段、stranded mention 提示文案
 
 ### Phase C（MCP 工具降级反馈）
-- [ ] AC-C1: 4 个 A 类工具（post/multi/cross/rich）在消息体含 disabled @ 时返回 `routing_warnings`，主路径不阻断，单元测试覆盖
-- [ ] AC-C2: 5 个 B 类工具（task/pr/vote/scheduled）在 assignee 是 disabled 猫时返回 400 `cat_disabled` + alternatives
-- [ ] AC-C3: MCP 工具描述更新，让 caller LLM 知道 `routing_warnings` 含义
+- [ ] AC-C1: 3 个 A 类工具（post / cross / rich）软降级 — 在线 @ 继续路由 + `routing_warnings`；**结构化目标全不可路由时 `isError: true` + `routed: []`**（防 final-routing guard 误判）
+- [ ] AC-C2: 1 个 A' 类工具（`multi_mention`）+ 3 个 B 类工具（`create_task.ownerCatId` / `start_vote.voters` / `register_scheduled_task.params.targetCatId`）契约式 **400** `cat_disabled` + alternatives
+- [ ] AC-C3: MCP wrapper 对 `CatRoutingError` 生成固定人类可读前缀 + JSON 双轨（KD-6），单元测试覆盖文本格式
+- [ ] AC-C4: MCP 工具描述更新，让 caller LLM 知道 `routing_warnings` / 400 `cat_disabled` 含义和如何选 alternatives
 
 ### Phase D（Hub UX）
-- [ ] AC-D1: Toggle disable 时聚合该猫所有进行中的引用（task assignee / PR guardian / scheduled owner），列在确认弹窗
-- [ ] AC-D2: 确认通过后正常 disable；进行中引用不强制迁移，只标 "owner 已停用，等待重指派"
-- [ ] AC-D3: Hub 上单独一行显示 disabled 成员（标"已停用"灰色 badge），可一键启用
+- [ ] AC-D1: 新增 `GET /api/cats/:catId/disable-impact` 端点，server-side 聚合 task / scheduledTask 引用（PR tracking 不在范围）
+- [ ] AC-D2: Hub Toggle disable 前调用该端点，弹确认弹窗显示影响；确认通过后 disable 不强迁移，引用标"owner 已停用，等待重指派"
+- [ ] AC-D3: Hub 上单独一行显示 disabled 成员（"已停用"灰色 badge），可一键启用
 
 ## Dependencies
 
@@ -121,24 +169,27 @@ B 类工具（assignee/owner 是猫）显式校验：
 | disabled 猫的进行中 task/PR 强制迁移 = 丢工作 | 选择"标记 + 等重指派"而非强迁移，AC-D2 显式约束 |
 | 两猫同 alias 但一只 disabled — alternatives 排序歧义 | resolver 内部 dedupe，alternatives 按 family 同/跨 + lead 标签排 |
 
-## Open Questions
+## Open Questions（全部已拍板 — 砚砚 review 2026-04-30）
 
-| # | 问题 | 待定方 |
-|---|------|------|
-| OQ-1 | A 类工具的 `routing_warnings` 应否同时阻断 send 给 disabled 猫但**继续发送给在线 @**？还是全部阻断让调用猫重发？ | @opus + @codex review |
-| OQ-2 | Phase D 的"进行中引用"聚合是否需要新增数据库索引？目前 task assignee 是单字段查询，PR guardian 在 PR tracking JSON 里，scheduled owner 在 schedule meta 里——三处口径要不要在 F182 范围内统一 | @codex review（性能/数据模型） |
-| OQ-3 | system prompt 的"已停用成员"区段是否应该和"队友名册"合并标注（例如灰色行内标"[已停用]"），还是单独区段？两种交互信号强度不同 | 设计偏好题，铲屎官拍 |
-| OQ-4 | `cat_no_quota` 是否在本 feat 范围？现有"没猫粮"语义是 reviewer matcher 内部用的，要不要顺手统一到 `CatRoutingError`？还是留给独立 follow-up | @codex review |
+| # | 原问题 | 拍板结果 | 来源 |
+|---|------|------|------|
+| OQ-1 | A 类工具软降级 vs 硬阻断 | **细分**：post/cross/rich 软降级 + 结构化全失败 isError；multi_mention 是契约式 hard fail | 砚砚 review |
+| OQ-2 | Phase D 进行中引用聚合 | **进 F182**，做 server-side impact preview endpoint（不在 useCatData 拼三套）；首版不增索引；PR tracking 不在范围 | 砚砚 review |
+| OQ-3 | 已停用成员独立区段 vs 行内标注 | **独立区段**——LLM 看不到灰色，行内会把 disabled 猫塞回主名册 | 砚砚 review |
+| OQ-4 | `cat_no_quota` 是否进 F182 | **不进**——避免把人工 disable 和 quota exhaustion 混成不稳定语义；reviewer matcher 文案后续可做独立 quota feature | 砚砚 review |
 
 ## Key Decisions
 
-> Design Gate 后落定，当前留 strawman。
+> 砚砚 review 2026-04-30 拍板。
 
-| # | 决策（草案） | 理由 |
+| # | 决策 | 理由 |
 |---|---|---|
-| KD-1 (草) | `available: false` 是 disable 的唯一真相源，不引入新字段 | 现有 `roster.available` 已贯通 UI/prompt/A2A 三层，避免双真相源 |
-| KD-2 (草) | 错误路径用 routing_warnings (软) + 400 (硬) 两档，不一刀切 | A 类消息路由是 best-effort（部分 @ 失败也应送达其他猫），B 类任务指派是契约式（assignee 必须有效） |
-| KD-3 (草) | Phase B 改 buildTeammateRoster 时加 SystemPromptBuilder 守护测试 | CLAUDE.md 布偶猫专属规则：改 SystemPromptBuilder 必跑 `node --test test/system-prompt-builder.test.js` |
+| KD-1 | `available: false` 是 disable 的唯一真相源，不引入新字段 | 现有 `roster.available` 已贯通 UI/prompt/A2A 三层，避免双真相源 |
+| KD-2 | 错误路径细分 — 三档：A 软降级 + warning / A' 结构化全失败 isError / B/A' 契约式 400 | post/cross/rich 是 best-effort 消息路由；multi_mention 是 request/response 契约；create_task/start_vote/scheduled_task 的 owner/voter 必须有效；不一刀切 |
+| KD-3 | 改 buildTeammateRoster 必跑 SystemPromptBuilder 守护测试 | CLAUDE.md 布偶猫专属规则：`node --test test/system-prompt-builder.test.js` |
+| KD-4 | Resolver 必须覆盖 5 个入口（不止文本 @） | 砚砚 P1-1：`post_message.targetCats` 等结构化字段当前只校验 `catRegistry.has()`，disabled 直进 enqueueA2ATargets；不修等于 disable 只是 UI 装饰 |
+| KD-5 | `cat_no_quota` 不在 F182 公共类型 | 砚砚 OQ-4：人工 disable 和 quota exhaustion 是两套独立信号，混合会污染语义；reviewer matcher 现有"没猫粮"暂保留独立路径 |
+| KD-6 | MCP wrapper 对 `CatRoutingError` 输出固定人类可读前缀 + JSON 双轨 | 砚砚 P2：MCP 协议把 400 包装成 `Callback failed (400): <body>` 文本，LLM 解析不稳定；前缀格式 `Cat routing failed [kind=...] target=@x ...` 让 LLM 即使 JSON 解析失败也能识别 |
 
 ## 涉及文件
 
@@ -165,11 +216,13 @@ B 类工具（assignee/owner 是猫）显式校验：
 | 日期 | 事件 |
 |---|---|
 | 2026-04-30 | 立项 — 铲屎官 thread `thread_molhvy2v84woqas9` 提出，宪宪盘点确认 4 层水位 |
-| TBD | Design Gate — @opus 4.6 + @codex 砚砚 review spec md |
-| TBD | Phase A 实施 — 错误契约 + resolver |
-| TBD | Phase B 实施 — prompt 降级提示 |
-| TBD | Phase C 实施 — 9 个 MCP 工具接入 |
-| TBD | Phase D 实施 — Hub UX |
+| 2026-04-30 | 砚砚（缅因猫 GPT-5.5）spec review — 提两个 P1（结构化字段缺口 / B 类清单错误）+ 拍板 4 个 OQ；spec 修订到 v2 |
+| TBD | @opus 4.6 spec review（multi_mention 首轮未返回，待补） |
+| TBD | Design Gate 收尾 — opus 4.6 review 回来后整合，进 worktree |
+| TBD | Phase A 实施 — 错误契约 + 5-入口 resolver |
+| TBD | Phase B 实施 — prompt 降级（独立区段） |
+| TBD | Phase C 实施 — 7 个 MCP 工具接入（A=3 软 + A'=1 硬 + B=3 硬）+ wrapper 前缀 |
+| TBD | Phase D 实施 — Hub UX + impact preview endpoint |
 
 ## Review Gate
 
