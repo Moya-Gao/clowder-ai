@@ -331,11 +331,30 @@ bash scripts/intake-from-opensource.sh --pr {N} --mode=plan
 
 ```md
 Closes #<IntakeIntentIssue>
+
+## Validation
+# 列出 absorb PR 实际跑过的命令；reviewer 在 PR worktree 裸跑必须能复现。
+# 依赖顺序：build 必须先于依赖 dist/ 的 targeted test；API targeted test 先于 web targeted test。
+pnpm --filter @cat-cafe/api run build  # 仅当 targeted API test import 了 dist/ 时
+bash packages/api/scripts/with-test-home.sh node --test \
+  packages/api/test/<targeted-file>.test.js
+pnpm --filter @cat-cafe/web exec vitest run \
+  src/<targeted-path>.test.ts
 ```
 
 如果一个 absorb PR 吸收多条社区 PR，对应多个 Intake Intent Issue，就逐行列出多个 `Closes #...`。
 
-完成后走 `request-review` → reviewer 按 Step 2.5 对照 Intent Issue 验收。
+**`## Validation` 段落硬要求（Step 2.5 reviewer 必查）：**
+
+- **路径必须从 repo root 可裸跑**——脚本写真实相对路径（例：`packages/api/scripts/with-test-home.sh`），不能写不存在的 `./scripts/with-test-home.sh` 之类的快捷写法
+- 列出 absorb PR **实际跑过**的命令，按依赖顺序：build → targeted API test → targeted web test；**范围跟着 PR diff**——只改 API 的 PR 不写 web 段，只改 docs/skill 的 PR 可只列 `pnpm check`
+- 任何 `pnpm test` / `pnpm check` 一笔糊弄、或"CI 已绿"代替命令的，不通过 Step 2.5
+- targeted 测试只列改动相关的文件路径，不要复制全量 test 命令；env wrapper（如 `with-test-home.sh`、`CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1`）必须显式列出
+- pre-rebase / post-rebase 验证有差异时分段列（pre-rebase 跑过的 full gate vs. post-rebase 的 targeted code gate）
+
+完成后走 `request-review` → reviewer 按 Step 2.5 对照 Intent Issue + Validation 段落验收（含**裸跑命令至少一条**复现）。
+
+> 教训：cat-cafe#1489（intake clowder-ai#616）Validation 段落写的 `./scripts/with-test-home.sh` 在 repo root 不存在（实际在 `packages/api/scripts/`），且 `activity-route-filter.test.js` import `../dist/...` 但漏写 `pnpm --filter @cat-cafe/api run build`。reviewer 当时只核了代码逻辑等价 + home invariant，没复跑命令；事后由守护猫复跑才连撞两次失败（先脚本不存在、修后未 build 报 `ERR_MODULE_NOT_FOUND`）。审计证据"看似绿、实际不可复现"——这正是本节硬要求的背景。
 
 ### Step 2.5: Intake Review Guard 🔴（默认 absorbed lane 必做）
 
@@ -352,6 +371,7 @@ Closes #<IntakeIntentIssue>
 - [ ] 同文件 overlap / high-risk 文件已升级 `manual-port`，并写清 `Source Behavior` / `Must Preserve Home Behavior` / `Proof`
 - [ ] cat-cafe main 已有行为没有被 upstream 旧版本覆盖回退；必要时有 zero-diff 对照、源码守卫测试或 targeted regression test
 - [ ] Brand Guard 文件（如有）已走 Step 1.5 手工 diff-merge
+- [ ] **Validation 段落命令裸跑可复现**：reviewer 必须在 PR worktree 复跑**最高风险 validation 链的一条终端命令及其声明的前置依赖**（典型：先跑前置 `pnpm --filter @cat-cafe/api run build` 或 env wrapper，再跑 high-risk 文件相关的 targeted test）；只跑 `pnpm check` / 只跑 build 而不跑下游 targeted test = 不算复现，不放行。docs/skill-only PR 例外：可仅复跑 `pnpm check`（教训：cat-cafe#1489）
 - [ ] Review 覆盖 absorb PR **当前 HEAD SHA**；如果 review 后又 rebase / fixup / regenerate feature index，reviewer 已显式确认“放行延续到新 SHA”或已重新 review
 
 **不过这个 gate = 不能 Record + Advance。** Reviewer 放行后才能执行 Step 3 (Record)。
