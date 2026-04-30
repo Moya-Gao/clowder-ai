@@ -230,21 +230,23 @@ Alternatives: @gemini, @opus-45.
 
 ### 新增
 - `packages/shared/src/types/cat-routing.ts` — `CatRoutingError` + `CatAlternative` 类型
-- `packages/api/src/domains/cats/services/agents/routing/cat-target-resolver.ts` — 单点 resolver
+- `packages/api/src/domains/cats/services/agents/routing/cat-target-resolver.ts` — 单点 resolver（纯函数 ≤40 行，KD-8）
+- `packages/api/src/routes/disable-impact.ts` — `GET /api/cats/:catId/disable-impact` endpoint（Phase D，OQ-2 服务端聚合）
 - `packages/api/test/cat-target-resolver.test.js` — resolver 单元测试
 
 ### 修改
-- `packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts:390` — buildTeammateRoster 增加"已停用"区段
-- `packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts:92` — 静默 skip → resolver 闸
-- `packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts:275, 415` — 同步改造
-- `packages/api/src/routes/callbacks.ts` 或 9 个 MCP 写工具的 handler — 接 resolver
-- `packages/web/src/components/HubMemberOverviewCard.tsx` — disabled 行 + side-effect 弹窗
-- `packages/web/src/hooks/useCatData.ts` — 进行中引用聚合查询
+- `packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts:392` — **不改注入逻辑**（KD-11 铲屎官拍板：disabled 不出现）；仅 Phase B 守护测试覆盖
+- `packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts:92` — pattern building 阶段改造（KD-10）：先让全部 pattern 参与匹配，再 resolver 检查 → 生成 warning
+- `packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts:275, 415` — match-time skip 改造（KD-10），改造路径与 a2a-mentions 不同
+- `packages/api/src/routes/callbacks.ts` — 7 个 MCP 写工具 handler 接 resolver（A=3 软降级 + A'=1 硬 + B=3 硬，见 Phase C 表）
+- `packages/web/src/components/HubMemberOverviewCard.tsx` — disabled 灰行 + side-effect 弹窗（调用 disable-impact endpoint）
+- `packages/web/src/hooks/useCatData.ts` — 调用 `/api/cats/:catId/disable-impact`，**不在前端拼三套查询**（OQ-2 拍板）
+- `packages/mcp-server/src/tools/callback-tools.ts` — wrapper 错误前缀双轨（KD-6）
 
 ### 测试
-- `packages/api/test/system-prompt-builder.test.js` — 增加 disabled roster 注入用例
-- `packages/api/test/connector-command-layer.test.js` — A 类工具 routing_warnings 用例
-- `packages/api/test/callbacks.test.js`（如有） — B 类工具 400 错误用例
+- `packages/api/test/system-prompt-builder.test.js` — 守护测试：disabled 猫不出现在 buildTeammateRoster + 不出现在 buildStaticIdentityPrompt 任何区段（pattern grep）
+- `packages/api/test/connector-command-layer.test.js` — A 类工具软降级 + 结构化全失败 isError + natural language message 模板
+- `packages/api/test/callbacks.test.js`（如有） — A'/B 类工具 400 错误 + alternatives + wrapper 文本前缀
 
 ## Phases / Timeline
 
@@ -254,10 +256,10 @@ Alternatives: @gemini, @opus-45.
 | 2026-04-30 | 砚砚（缅因猫 GPT-5.5）spec review — 提两个 P1（结构化字段缺口 / B 类清单错误）+ 拍板 4 个 OQ；spec 修订到 v2 |
 | 2026-04-30 | 4.6（布偶猫 Opus）spec review — 3 处技术纠正（KD-9/10 + 命名）+ OQ-1 增强（KD-7 natural language message）+ KD-8（resolver ≤40 行）；OQ-3 与砚砚分歧（独立区段 vs 行内标注），转铲屎官拍板；spec 修订到 v3 |
 | 2026-04-30 | 铲屎官 OQ-3 拍板 — 方案 C "完全不出现"（驳回砚砚 A + 4.6 B），Phase B 降级为守护测试；KD-11 落定；spec 修订到 v4，**Design Gate 收尾，进 worktree** |
-| TBD | Phase A 实施 — 错误契约 + 5-入口 resolver |
-| TBD | Phase B 实施 — prompt 降级（独立区段） |
-| TBD | Phase C 实施 — 7 个 MCP 工具接入（A=3 软 + A'=1 硬 + B=3 硬）+ wrapper 前缀 |
-| TBD | Phase D 实施 — Hub UX + impact preview endpoint |
+| TBD | Phase A 实施 — 错误契约 + 5-入口 resolver（types + cat-target-resolver.ts ≤40 行） |
+| TBD | Phase B 实施 — 守护测试防回归（不改注入逻辑，KD-11） |
+| TBD | Phase C 实施 — 7 个 MCP 工具接入（A=3 软 + A'=1 硬 + B=3 硬）+ wrapper 前缀双轨 + KD-7 message 模板 |
+| TBD | Phase D 实施 — Hub UX（disabled 灰行 + 弹窗）+ disable-impact endpoint（服务端聚合，不在 useCatData 拼） |
 
 ## Review Gate
 
