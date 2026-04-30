@@ -273,3 +273,4 @@ Alternatives: @gemini, @opus-45.
 | **立项 thread** | `thread_molhvy2v84woqas9` | 铲屎官原始问题 + 宪宪盘点 |
 | **Evolved from** | `docs/features/F127-cat-instance-management.md` | F127 CRUD 基建 |
 | **Routing 参考** | `docs/features/F167-a2a-chain-quality.md` | KD-20/21 设计语言（restrictions / model surface） |
+| **🏆 实施大赛** | [`docs/discussions/2026-04-30-f182-contest/README.md`](../discussions/2026-04-30-f182-contest/README.md) | 6 猫同台竞技（含 opus-47 自己），砚砚单裁判，100 分 rubric，48h+24h 双轮制 |
