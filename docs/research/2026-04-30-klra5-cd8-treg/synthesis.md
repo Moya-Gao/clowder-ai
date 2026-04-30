@@ -11,7 +11,7 @@ inputs:
   - docs/research/2026-04-30-klra5-cd8-treg/cross-model-intake-brief.md
 ---
 
-# Synthesis: Klra5+ Tumor-Specific CD8 T Cells
+# Synthesis: Klra5 Transcript-Associated / CM4+ Tumor-Specific CD8 T Cells
 
 This synthesis integrates the Claude and Gemini Deep Research outputs plus cross-cat adversarial review. ChatGPT Deep Research is still missing; when it becomes available, add `chatgpt-deep-research.md` and a delta section instead of restarting the analysis.
 
@@ -19,17 +19,25 @@ This synthesis integrates the Claude and Gemini Deep Research outputs plus cross
 
 ### 30-second version
 
-You found a real and potentially important **Klra5/Ly49E+ tumor-specific CD8 T-cell state** with a pro-tumor adoptive-transfer phenotype. It overlaps transcriptionally with known Ly49+/KIR+ CD8 regulatory programs, but **it should not be called a bona fide CD8 Treg yet**. The immediate priority is not to pick a story; it is to prove whether the population is truly Ly49E/Klra5-defined, truly tumor-specific, and actively suppressive rather than an exhausted/sink/transfer artifact.
+You found a real and potentially important **tumor-specific CD8 T-cell state associated with Klra5 transcript expression and/or anti-Ly49E/F (CM4) staining**, with a pro-tumor adoptive-transfer phenotype. It overlaps transcriptionally with known Ly49+/KIR+ CD8 regulatory programs, but **it should not be called a bona fide CD8 Treg yet**. The immediate priority is not to pick a story; it is to prove whether the population is truly Ly49E/Klra5-defined, truly tumor-specific, and actively suppressive rather than an exhausted/sink/transfer artifact.
 
 ### Safe labels for now
 
-For grants / paper draft:
+For grants / paper draft, before T1.1 completes orthogonal Ly49E/F separation:
+
+> A tumor-infiltrating CD8+ T-cell subset defined by anti-Ly49E/F (CM4) surface staining with concordant Klra5 transcript expression, exhibiting a pro-tumor adoptive-transfer phenotype, with transcriptomic features partially overlapping published Ly49+/KIR+ CD8 regulatory programs but mechanistically distinct from the canonical Ly49F/Qa-1 axis.
+
+For grants / paper draft, after T1.1 confirms Ly49E+ / Ly49F- identity:
 
 > A tumor-specific CD8+ T-cell subset characterized by Klra5/Ly49E expression and a pro-tumor adoptive-transfer phenotype, with transcriptomic features partially overlapping published Ly49+/KIR+ CD8 regulatory programs but mechanistically distinct from the canonical Ly49F/Qa-1 axis.
 
-For lab meeting:
+For lab meeting before T1.1:
 
-> Klra5+ tumor-specific CD8 state with a regulatory-like transcriptome.
+> CM4+ tumor-specific CD8 state with a regulatory-like transcriptome.
+
+For lab meeting after T1.1 confirms Ly49E+ / Ly49F- identity:
+
+> Klra5/Ly49E+ tumor-specific CD8 state with a regulatory-like transcriptome.
 
 Avoid these as labels until proven:
 
@@ -37,6 +45,7 @@ Avoid these as labels until proven:
 - `exhausted CD8`
 - `uPA-driven CD8`
 - `suppressive CD8`
+- `Klra5+` / `Ly49E+` as a protein-level identity claim, until T1.1 / orthogonal separation is complete
 
 Those may become mechanisms or interpretations later; right now they are hypotheses.
 
@@ -44,7 +53,9 @@ Those may become mechanisms or interpretations later; right now they are hypothe
 
 The best current interpretation is:
 
-> This is a **Klra5/Ly49E-marked tumor-specific CD8 state with pro-tumor function**, partially overlapping Ly49+/KIR+ CD8 regulatory biology, but not yet proven to be the classical Cantor/Davis CD8 Treg lineage or a uPA-Ly49E-driven checkpoint state.
+> Before T1.1, this is a **Klra5 transcript-associated / CM4+ tumor-specific CD8 state with pro-tumor function**, partially overlapping Ly49+/KIR+ CD8 regulatory biology, but not yet proven to be Ly49E-specific, the classical Cantor/Davis CD8 Treg lineage, or a uPA-Ly49E-driven checkpoint state.
+>
+> After T1.1 confirms Ly49E+ / Ly49F- identity, the stricter label becomes: **Klra5/Ly49E-marked tumor-specific CD8 state with pro-tumor function**.
 
 Why this position:
 
@@ -73,14 +84,18 @@ Decision consequence:
 - If Klra5+ cells are not enriched for verified tumor-reactive clonotypes, the transfer phenotype should be interpreted as a tumor-ecosystem or bystander effect until redefined.
 - If they share tumor-reactive TCRs with Tpex/TEFF/Tex compartments, lineage and fate mapping become central.
 
-### Risk C: uPA-Ly49E is elegant but underproven in CD8 alpha-beta T cells
+### Risk C: uPA-Ly49E is elegant but mechanistically unproven in tumor-specific CD8 alpha-beta T cells
 
-Ly49E-uPA is real in NK-cell contexts, and tumors can be uPA/PLAUR-rich. But direct evidence that mature tumor-specific CD8 alpha-beta T cells are functionally suppressed through Ly49E-uPA remains extrapolated.
+Three orthogonal signals warrant downweighting:
+
+1. Direct Ly49E-uPA evidence comes from NK-cell / reporter contexts (Van Den Broeck et al., *Blood* 2008, PMID 18784372). CD8 alpha-beta T-cell functional dependence on this axis is not demonstrated.
+2. Ly49E loss-of-function had no detectable effect on intestinal tumor burden in Apc^Min/+ and AOM colorectal cancer models (Van Acker et al., *Cancer Immunol Immunother* 2016, PMID 27585789). [needs verification: tumor model and IEL context differ from this PhD project's tumor models.]
+3. Reported uPA/PLAUR-axis anti-PD-1 resistance in the cloud reports appears PLAUR+ neutrophil-mediated, not CD8-T-cell-mediated. [needs verification: cite the exact paper before external use.]
 
 Decision consequence:
 
-- Test uPA-Ly49E decisively.
-- Do not organize the whole thesis around it before the perturbation result.
+- Test uPA-Ly49E decisively in Tier 2 with Klra5 loss-of-function and uPA/PLAU/PLAUR perturbation.
+- Do not organize the thesis around it before the perturbation result.
 
 ## 3. Hypothesis Set
 
@@ -186,13 +201,11 @@ When ChatGPT Deep Research becomes available:
 2. Lesson needed? No durable process lesson yet. The source-hygiene issue is captured inside this research folder; if it recurs across projects, promote it to lessons-learned.
 3. Shared rule update needed? No. Existing deep-research process already requires citation verification and synthesis before decision.
 
-## 12. Next Review Request
+## 12. Next Step
 
-Review status: Opus 4.6 conditionally approved after hardening CM4 language; Opus 4.7 review is still pending.
+Review status: Opus 4.6 and Opus 4.7 both gave conditional approval. Their required hardening changes have been incorporated: CM4 prerequisite language, conditional safe labels, Risk C negative anchors, Lgals3 decision rule, and H5/T1.6 linkage.
 
-Ask Opus 4.7 to review:
+Next artifact requested by Landy:
 
-- Did the synthesis correctly downweight uPA-Ly49E without discarding it?
-- Is the Tier 1 sequence scientifically defensible?
-- Is the safe label strict enough for lab meeting / thesis committee use?
-- Are there any remaining overclaims that should be downgraded to `needs verification`?
+- Ask Opus 4.6 to write a pure plain-language version for the PhD friend, because the cloud reports are too dense.
+- Keep this synthesis as the technical source of truth.

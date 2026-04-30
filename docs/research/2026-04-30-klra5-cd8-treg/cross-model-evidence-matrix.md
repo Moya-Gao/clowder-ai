@@ -11,7 +11,7 @@ inputs:
   - docs/prompts/2026-04-30-klra5-cd8-treg-deep-research-prompt.md
 ---
 
-# Cross-Model Evidence Matrix: Klra5+ Tumor-Specific CD8 T Cells
+# Cross-Model Evidence Matrix: Klra5 Transcript-Associated / CM4+ Tumor-Specific CD8 T Cells
 
 This matrix compares the Claude and Gemini cloud reports plus cross-cat review from Opus 4.6 / Opus 4.7. ChatGPT Deep Research is unavailable at this point, so all GPT columns are left as `pending`.
 
@@ -53,7 +53,7 @@ Evidence labels:
 
 | Claim / Decision Point | Claude Stance | Gemini Stance | Cross-Cat Review | Consistency | Evidence Strength | GPT Slot |
 |------------------------|---------------|----------------|------------------|-------------|-------------------|----------|
-| Current safest label | "Related but distinct suppressive CD8 state with partial Ly49/KIR CD8 Treg features." | "Exhausted, uPA-responsive, NK-like chronically stimulated CD8 state." | Use observation-first label: `Klra5+ tumor-specific CD8 state with pro-tumor adoptive-transfer phenotype`; optional lab shorthand: `regulatory-like transcriptome`. | conflict | E0/E3; label choice, not a fact | pending |
+| Current safest label | "Related but distinct suppressive CD8 state with partial Ly49/KIR CD8 Treg features." | "Exhausted, uPA-responsive, NK-like chronically stimulated CD8 state." | Before T1.1, use observation-first label: `CM4+ / Klra5 transcript-associated tumor-specific CD8 state with pro-tumor adoptive-transfer phenotype`; after Ly49E/F separation, `Klra5/Ly49E+ tumor-specific CD8 state` is acceptable. | conflict | E0/E3; label choice, not a fact | pending |
 | Do not call bona fide CD8 Treg yet | Yes; H1 lower than convergent suppressive state. | Yes; H1 unlikely. | Strongly agree. "CD8 Treg" encodes unproven lineage and mechanism. | dual-consensus | E0 decision supported by missing functional evidence | pending |
 | Klra5/Ly49E is not Klra6/Ly49F and cannot be collapsed into Qa-1/H2-T23 | Strong emphasis; Ly49E-uPA diverges from Cantor axis. | Strong emphasis; treats Ly49E-uPA as core. | Agree; this is the first identity split. | dual-consensus | E1 for receptor/ligand distinction, E0 for this tumor subset | pending |
 | Classical Cantor CD8 Treg axis is relevant background | Yes; includes Nature 2010, PNAS 2011, Science 2015, JCI 2024. | Yes; focuses on Ly49F/Qa-1/Helios divergence. | Agree as comparator, not identity proof. | dual-consensus | E1 for classical biology | pending |
@@ -78,7 +78,7 @@ Evidence labels:
 
 ## Synthesis Rules Derived From The Matrix
 
-1. Use observation-first naming. Avoid `CD8 Treg`, `exhausted`, `suppressive`, or `uPA-driven` as labels until specific assays prove them.
+1. Use observation-first naming. Before T1.1, avoid `Klra5+`, `Ly49E+`, `CD8 Treg`, `exhausted`, `suppressive`, or `uPA-driven` as labels until specific assays prove them.
 2. Put CM4/Ly49E/F ambiguity and tumor-specificity definition before all mechanism discussion; treat CM4-only data as Ly49E/F+ until resolved.
 3. Treat uPA-Ly49E as a mechanistic branch to test, not the organizing story.
 4. Move Qa-1/H2-T23 forward if protein data show Ly49F or unresolved Ly49E/F ambiguity.
