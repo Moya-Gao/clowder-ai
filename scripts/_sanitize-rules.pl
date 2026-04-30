@@ -200,6 +200,9 @@ if ($ARGV =~ m{governance-pack\.test\.(js|ts)$}) {
 # ── KD-5: Remove opensource-ops from public-facing files ──
 if ($ARGV =~ m{cat-cafe-skills/manifest\.yaml$}) {
   $_ = "" if /^  # ── .*(?:opensource-ops|开源社区运营)/;
+  s/,\s*"opensource-ops"//g;
+  s/"opensource-ops"\s*,\s*//g;
+  s/\[\s*"opensource-ops"\s*\]/[]/g;
   if (/^  opensource-ops:\s*$/) { $__skip_oo = 1; $_ = ""; }
   if ($__skip_oo && $_ ne "") {
     if (/^  \S/ || /^\S/) { $__skip_oo = 0; }

@@ -75,6 +75,7 @@ managed_scripts:
   - scripts/check-env-example.test.mjs
   - scripts/check-skills-mount.sh
   - scripts/check-skills-manifest.mjs
+  - scripts/check-followup-tails.mjs
   - scripts/gen-guide-catalog.mjs
   - scripts/gen-env-reference.mjs
   - scripts/generate-feature-index.mjs

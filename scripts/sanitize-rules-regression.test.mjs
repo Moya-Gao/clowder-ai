@@ -164,6 +164,32 @@ describe('sanitize-rules regression (home repo only)', { skip: !isHomeRepo }, ()
     });
   });
 
+  describe('public skill manifest', () => {
+    it('removes opensource-ops from next arrays when the skill itself is hidden', () => {
+      const input = [
+        'skills:',
+        '  open-source-teardown:',
+        '    output: "report"',
+        '    next: ["collaborative-thinking", "writing-skills", "deep-research", "opensource-ops"]',
+        '  opensource-ops:',
+        '    output: "internal ops"',
+        '    next: []',
+        '  writing-skills:',
+        '    output: "skill edits"',
+        '    next: []',
+        '',
+      ].join('\n');
+      const result = applySanitizer(input, 'cat-cafe-skills/manifest.yaml');
+
+      assert.ok(!result.includes('  opensource-ops:'), `expected opensource-ops skill to be hidden, got: ${result}`);
+      assert.ok(!result.includes('"opensource-ops"'), `expected no dangling next reference, got: ${result}`);
+      assert.ok(
+        result.includes('next: ["collaborative-thinking", "writing-skills", "deep-research"]'),
+        `expected next array to keep remaining targets, got: ${result}`,
+      );
+    });
+  });
+
   describe('*.opensource.md → *.md link rewriting', () => {
     it('transforms SETUP.opensource.md link in .md files', () => {
       const input = `**[SETUP.opensource.md](SETUP.opensource.md)**\n`;

@@ -581,6 +581,15 @@ excluded:
       }
     });
 
+    it('sync-manifest exports root package check script targets', () => {
+      const managedScripts = readYamlTopLevelList('sync-manifest.yaml', 'managed_scripts');
+
+      assert.ok(
+        managedScripts.includes('scripts/check-followup-tails.mjs'),
+        'sync-manifest should export scripts/check-followup-tails.mjs because root package.json references it',
+      );
+    });
+
     it('sync-manifest exports F180 user-level hook truth source', () => {
       const managedScripts = readYamlTopLevelList('sync-manifest.yaml', 'managed_scripts');
       const requiredHookScripts = [
