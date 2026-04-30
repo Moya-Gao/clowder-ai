@@ -130,7 +130,7 @@ async function preflightCheck(ports: WorktreePorts): Promise<void> {
 
 - [ ] AC-1: `derive-worktree-ports.ts` 实现，单元测试覆盖**全部** safety checks：offset > 0 / 圣域 6399 / Redis < 6000 / 非 10 倍数 / range > -100
 - [ ] AC-2: 启动脚本读 `WORKTREE_PORT_OFFSET`，未设默认 0，派生**核心 4 服务**（Redis + API + Web + NEXT_PUBLIC_API_URL），sidecar 全禁用（不在派生范围）；输出 console 表格
-- [ ] AC-3: **Preflight 接入 `scripts/start-dev.sh`**（不是独立 pnpm preflight，砚砚 P1-2）— 启动前 (a) 检查 `.env.local` 是否硬编码会覆盖 OFFSET 的端口值 → 拒绝启动 + 提示删除该行；(b) 派生端口是否被占用 → 拒绝启动；(c) 验证 sidecar 都禁用
+- [ ] AC-3: **Preflight 接入 `scripts/start-dev.sh`**（不是独立 pnpm preflight，砚砚 P1-2）— 启动前 (a) 检查 `.env.local` 是否硬编码会覆盖 OFFSET 的端口值 → 拒绝启动 + 提示删除该行；(b) 派生端口是否被占用 → 拒绝启动；(c) 验证 sidecar 都禁用；(d) **OFFSET 优先级规则**（砚砚三审 P2-3）：当 `WORKTREE_PORT_OFFSET` 非 0，对 managed startup keys（API_SERVER_PORT / FRONTEND_PORT / REDIS_PORT / NEXT_PUBLIC_API_URL）优先级**高于** `.env.local` 和 `CAT_CAFE_RESPECT_DOTENV_PORTS`；OFFSET 设置后无视 dotenv ports 残留值
 - [ ] AC-4: **REDIS_URL 主动派生**——不读 .env.local 既有值，启动时 `export REDIS_URL=redis://localhost:${derivedRedisPort}` 覆盖；对应单元测试覆盖 `.env.local` 残留场景（LL-015 防回归）
 - [ ] AC-5: **Redis data dir 用现有 `default_redis_data_dir(profile, port)`**（start-dev.sh:324），派生 `~/.cat-cafe/redis-dev-${port}`；不发明 `.cat-cafe/redis-data-10` 新格式（砚砚二审 P2-4）
 - [ ] AC-6: worktree SKILL.md 添加 PORT_OFFSET 段落，含端口分配示例（链 F182 contest）+ "如何检查 .env.local 是否会冲突" + "为什么必须用 `pnpm dev:direct` 而不是 `pnpm dev`"（砚砚二审 P1-2）
@@ -139,15 +139,16 @@ async function preflightCheck(ports: WorktreePorts): Promise<void> {
 - [ ] AC-9: 加 `pnpm check:worktree-port-offset` 诊断脚本（CI 可用，不是唯一 gate；唯一 gate 是 start-dev.sh 内的 preflight）
 - [ ] AC-10: **资源压力测试**——并发启动 6 个 worktree（OFFSET=-10 ~ -60），监测 CPU/RAM/FD 能否承受；若不行降级到错峰
 
-## Risk
+## Risk（砚砚三审 P1-2 后修订）
 
 | 风险 | 缓解 |
 |---|---|
-| 启动脚本管理 11 个端口/路径，改造覆盖不全 → sidecar 撞端口 | AC-2 全量覆盖，CI 加 lint：派生端口数 = 11 |
+| Core 4 派生不完整（少派生 API / NEXT_PUBLIC_API_URL）→ 端口冲突 | AC-2 严格覆盖 4 项；CI 加单测断言派生 keys = 4 个核心 |
 | **LL-015 重演**：`.env.local` 硬编码 REDIS_URL=...6398 覆盖 OFFSET，看似生效实际撞圣域 | AC-3 preflight 主动检查 + AC-4 主动 export 覆盖 + 单元测试防回归 |
 | OFFSET 写错（比如 +10 而不是 -10）撞 6399 圣域 | safety check 在启动时拦截，throw + 日志提示 |
-| Redis data dir 没隔离 → 两个 Redis 进程抢同一份 RDB | dataDir / backupDir 一起 OFFSET 化（已加进派生公式） |
-| 6 只猫并发对单机资源压力（CPU / RAM / FD / TCP socket） | AC-8 资源压力测试，监控 watch CPU/RAM/FD；6 套 Next.js + API + watcher 大概率扛不住，必要时回退到 3 并发 + 2 轮错峰 |
+| **OFFSET 优先级被 .env.local 压过**（`pnpm dev:direct` 经 start-entry.mjs 设置 `CAT_CAFE_RESPECT_DOTENV_PORTS=1`，旧 .env.local 的 API_SERVER_PORT/FRONTEND_PORT 可能压过 OFFSET）| AC-3 加优先级规则：当 `WORKTREE_PORT_OFFSET` 非 0，对 managed startup keys 优先级 **高于** .env.local 和 RESPECT_DOTENV_PORTS |
+| Redis data/backup dir 用旧路径 → 两个 Redis 进程抢同一份 RDB | 必须用现有 `default_redis_data_dir(profile, port)` / `default_redis_backup_dir` 派生（基于派生后的 port），不发明新路径 |
+| 6 只猫并发对单机资源压力（CPU / RAM / FD / TCP socket） | AC-10 资源压力测试，监控 CPU/RAM/FD；6 套 Next.js + API + watcher 大概率扛不住，必要时回退到 3 并发 + 2 轮错峰 |
 | 老 worktree 里 .env.local 已有硬编码 6398 不会自动迁移 | preflight check 拒绝启动 + 文档说明迁移步骤 |
 
 ## Timeline

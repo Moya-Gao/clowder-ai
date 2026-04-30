@@ -47,17 +47,21 @@ created: 2026-04-30
 ⚠️ **6399 是用户 Redis 圣域，不可触碰**（铁律 #1）。所有选手 OFFSET ≤ -10。
 ⚠️ **OFFSET=0 保留给 alpha / 默认开发环境**（砚砚 P2-6 反馈，3011/3012/4111/6398 是 alpha 默认端口段，不参赛者占用）。
 
-| 选手 | OFFSET | Redis | API | Web | A2A Bridge | 备注 |
-|---|---|---|---|---|---|---|
-| **(保留 alpha)** | **0** | 6398 | 3102 | 5102 | 4111 | 不分配，留给 alpha-worktree.sh |
-| opus-47 | -10 | 6388 | 3112 | 5112 | 4121 | spec 作者，标 `seeded/reference competitor`（砚砚 P2-4） |
-| sonnet | -20 | 6378 | 3122 | 5122 | 4131 | — |
-| glm | -30 | 6368 | 3132 | 5132 | 4141 | — |
-| deepseek | -40 | 6358 | 3142 | 5142 | 4151 | — |
-| kimi | -50 | 6348 | 3152 | 5152 | 4161 | — |
-| qwen | -60 | 6338 | 3162 | 5162 | 4171 | — |
+| 选手 | OFFSET | Redis | API | Web | 备注 |
+|---|---|---|---|---|---|
+| **(保留 alpha)** | **0** | 6398 | 3102 | 5102 | 不分配，留给 alpha-worktree.sh |
+| opus-47 | -10 | 6388 | 3112 | 5112 | spec 作者，标 `seeded/reference competitor`（砚砚 P2-4） |
+| sonnet | -20 | 6378 | 3122 | 5122 | — |
+| glm | -30 | 6368 | 3132 | 5132 | — |
+| deepseek | -40 | 6358 | 3142 | 5142 | — |
+| kimi | -50 | 6348 | 3152 | 5152 | — |
+| qwen | -60 | 6338 | 3162 | 5162 | — |
 
-派生公式统一：`非 Redis 端口 = base - OFFSET`（OFFSET 是负数 → 实际端口向上加）。Redis = `6398 + OFFSET`（向下减避圣域）。具体 11 个端口/路径派生见基建 plan。
+`NEXT_PUBLIC_API_URL` 从派生 API 端口拼接（例：OFFSET=-20 → `http://localhost:3122`）。
+
+派生公式统一：`非 Redis 端口 = base - OFFSET`（OFFSET 是负数 → 实际端口向上加）。Redis = `6398 + OFFSET`（向下减避圣域）。
+
+**核心 4 服务参与 OFFSET**（Redis / API / Web / NEXT_PUBLIC_API_URL）；**sidecar 全禁用**（Preview Gateway / Anthropic Proxy / Whisper / TTS / LLM Postprocess / Embedding）—— 大赛 worktree 不需要这些 sidecar，禁用比 offset 化更稳。详见基建 plan。
 
 ## 起手提示（铲屎官分发给每只猫）
 
@@ -116,18 +120,19 @@ created: 2026-04-30
   # 2. 检查 author 一致性
   git log feat/F182-${cat} --format='%an %ae' | sort -u
 
-  # 3. Cherry-pick 辅助检测（截止后跑）
-  for other in opus-47 sonnet glm deepseek kimi qwen; do
-    [ "$other" = "$cat" ] && continue
-    git cherry feat/F182-${cat} feat/F182-${other}  # = 标 patch 已存在于另一分支
-    git log feat/F182-${cat} --format='%H %s' | while read hash subj; do
-      pid=$(git show $hash | git patch-id | awk '{print $1}')
-      git log feat/F182-${other} --format='%H' | while read other_hash; do
-        other_pid=$(git show $other_hash | git patch-id | awk '{print $1}')
-        [ "$pid" = "$other_pid" ] && echo "⚠️ ${cat}/${hash} 与 ${other}/${other_hash} patch-id 一致"
-      done
+  # 3. Cherry-pick 辅助检测（截止后跑，砚砚三审 P2-4：按 contestStartCommit 截断 + 预计算 patch-id）
+  # 先为每个分支预生成 patch-id 文件（仅 contest 区段）
+  for c in opus-47 sonnet glm deepseek kimi qwen; do
+    git log feat/F182-${c} ^${contestStartCommit} --format='%H' | while read h; do
+      pid=$(git show $h | git patch-id --stable | awk '{print $1}')
+      echo "$pid $h $c" >> /tmp/contest-patch-ids.txt
     done
   done
+  # 同 patch-id 跨选手 = 可疑 cherry-pick（用 sort+awk 替代双层循环 git show）
+  sort /tmp/contest-patch-ids.txt | awk '
+    { if ($1 == prev_pid && $3 != prev_cat) print "⚠️", prev_cat, prev_h, "vs", $3, $2, "patch-id 一致";
+      prev_pid=$1; prev_h=$2; prev_cat=$3 }
+  '
   ```
 
 ## 评分 Rubric（100 分制 + Hard Fail / Cap，砚砚 P2-5 反馈）
@@ -228,3 +233,4 @@ TBD-启动时填入
 | v1 | 2026-04-30 | opus-47 | 初稿 — 6 选手 / 100 分 rubric / 48h+24h |
 | v2 | 2026-04-30 | opus-47 | **吸收砚砚 P1+P2 全部反馈**：①F182 spec 残留清理（OQ-3 全文一致）②端口 offset=0 留给 alpha，6 只猫用 -10 ~ -60；统一公式 `base - OFFSET`；③时间窗口 88h → 168h，第一轮改 triage / 第二轮才完整 review；④rubric 加 Hard Fail（圣域 / merge main / 身份混淆 0 分）+ Cap（无基线 / 关键测试缺失 / 第一轮 < 60）；⑤公平性 git 层可审计（contestStartCommit / merge-base 检查 / 单线提交 / author 校验）；⑥opus-47 标 seeded/reference competitor |
 | v3 | 2026-04-30 | opus-47 | **吸收砚砚二审 P1+P2 全部反馈**：①sidecar 禁用不 offset（Preview/Proxy/ASR/TTS/LLM/Embed 全设 0）— 不增 attack surface；②起手提示明确用 `pnpm dev:direct` 不用 `pnpm dev`（后者绕过 preflight）；③三处 48h/24h 残留全清；④Redis data dir 用现有 `default_redis_data_dir` 派生不发明新格式；⑤Cherry-pick 检测改成 honor + patch-id 辅助（`git --merges` 抓不到）；⑥preflight 接入 start-dev.sh 而非独立 pnpm preflight |
+| v4 | 2026-04-30 | opus-47 | **吸收砚砚三审 P1+P2**：①端口表删 A2A Bridge 列（与 sidecar 禁用决策不一致），表下删"11 个端口"残留口径，明确"核心 4 服务"；②基建 plan Risk 表删"11 个端口/全量覆盖"残留，加 OFFSET 优先级风险（`pnpm dev:direct` 经 start-entry.mjs 设 `CAT_CAFE_RESPECT_DOTENV_PORTS=1` 可能压过 OFFSET）；③AC-3 加优先级规则：OFFSET 非 0 时 managed startup keys 优先级高于 .env.local；④patch-id 检测脚本改成预生成 + sort/awk，按 contestStartCommit 截断（避免扫全历史），从双层 git show 改为 `git patch-id --stable` |
