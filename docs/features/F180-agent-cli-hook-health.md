@@ -140,6 +140,7 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 | 2026-04-29 | Phase C AC-C5 merged (PR #1477) — outbound sync exports user-level hook scripts and portable Claude settings template; cloud review R3 and Opus-47 continuity review passed |
 | 2026-04-29 | Phase C AC-C1~C3 merged (PR #1478) — source install/setup best-effort hook sync, Windows original-user offline hook helper, desktop package hook truth source, and first-run `.claude` mirror for Hub health/sync |
 | 2026-04-29 | Phase C AC-C4 + Phase D field repair station merged (PR #1479) — ProjectSetupCard / thread setup surface shows Agent Hook Health, session-cached status avoids N+1 checks, compact repair preview is Design Gate accepted, and one-click sync returns configured state |
+| 2026-04-30 | Outbound sync review fixes merged (PR #1487) — fixed home-side Agent Hook auth, unlabeled tool-result FIFO handling, and TTS partial-failure counters before regenerating the public sync; AC-D4 remains pending until `clowder-ai#614` is synced and closed |
 
 ## Review Gate
 
