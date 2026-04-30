@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "b980cb6abdc299d53b1e8bf1cd26264ee16a8b24",
+  "last_reviewed_target_head": "b1d26f06712af41cf49a314dbf6a0d9780437a03",
   "entries": [
     {
       "pr_number": 90,
@@ -1001,6 +1001,15 @@
       "absorb_pr": 1484,
       "review_proof": "https://github.com/zts212653/cat-cafe/pull/1484#pullrequestreview-4202459255",
       "notes": "Final hardening continued in cat-cafe PRs #1485 and #1486 for unlabeled and ambiguous callback-result correlation after absorb PR #1484 merged."
+    },
+    {
+      "pr_number": 616,
+      "target_merge_commit": "b1d26f06712af41cf49a314dbf6a0d9780437a03",
+      "decision": "absorbed",
+      "timestamp": "2026-04-30T08:31:13.879Z",
+      "intake_intent_issue": 1488,
+      "absorb_pr": 1489,
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/1489#issuecomment-4350810127"
     }
   ]
 }
