@@ -22,30 +22,39 @@ created: 2026-04-30
 
 新增环境变量 `WORKTREE_PORT_OFFSET`（int，默认 0），所有服务端口基于该偏移派生。
 
-### 端口派生规则（砚砚 P1-2 反馈：覆盖**全部** sidecar 端口 + 数据目录，不止 4 个）
+### 端口派生规则（砚砚二审 P1-1 收紧：sidecar 禁用不 offset）
 
-`start-dev.sh:93-103` 实际管理 11 个端口/路径：
+**架构决策**：F182 大赛 worktree **默认禁用 sidecar**（沿用 `scripts/review-start.sh:224` 的模式），仅 offset 化核心服务。理由：F182 不需要 Proxy/ASR/TTS/LLM/Embedding；offset 化全部 sidecar = 增加 attack surface 但 ROI 为零。未来如有需要，单独做 sidecar offset feat。
+
+**核心服务（必须 offset）**：
 
 | 服务 | 基础值 | 派生公式 | 备注 |
 |---|---|---|---|
 | Redis 端口 | 6398 | `6398 + OFFSET`（OFFSET ≤ 0） | **必须 ≤ 0**——避免向上撞 6399 圣域 |
-| Redis data dir | `.cat-cafe/redis-data` | `.cat-cafe/redis-data-${OFFSET}` | 数据目录隔离，否则两个 Redis 进程抢同一份 RDB |
-| Redis backup dir | `.cat-cafe/redis-backup` | `.cat-cafe/redis-backup-${OFFSET}` | 备份目录隔离 |
-| API server | 3102 | `3102 - OFFSET` | OFFSET ≤ 0 → 端口向上加 |
-| Frontend (Web/Next) | 5102 | `5102 - OFFSET` | 同上 |
-| NEXT_PUBLIC_API_URL | `http://localhost:3102` | 基于上面 API 端口拼接 | **必须派生**——否则前端打到错误 API |
-| A2A Bridge | 4111 | `4111 - OFFSET` | 同上 |
-| Preview Gateway | TBD | `${BASE} - OFFSET` | sidecar 一起 offset |
-| Anthropic Proxy | TBD | `${BASE} - OFFSET` | sidecar |
-| Whisper (ASR) | TBD | `${BASE} - OFFSET` | sidecar |
-| TTS | TBD | `${BASE} - OFFSET` | sidecar |
-| LLM Postprocess | TBD | `${BASE} - OFFSET` | sidecar |
+| Redis data dir | — | `default_redis_data_dir(profile, port)` 派生 → `~/.cat-cafe/redis-dev-${port}` | 砚砚二审 P2-4：用现有 start-dev.sh:324 函数，不发明新格式 |
+| API server | 3102 | `3102 - OFFSET` | |
+| Frontend (Web/Next) | 5102 | `5102 - OFFSET` | |
+| NEXT_PUBLIC_API_URL | — | `http://localhost:${API_SERVER_PORT}` | 必须从派生 API 端口拼接 |
 
-**公式统一写法**（砚砚 P2-6）：所有非 Redis 端口都用 `BASE - OFFSET`（OFFSET 是负数 → 实际效果是端口向上加）。文档里**不再写"向上加 offset"**，避免歧义。
+**Sidecar（默认禁用，不参与 offset）**：
 
-### Safety Checks（扩展，覆盖砚砚 P1-2 全部场景）
+| 服务 | 实际默认 base | 大赛 worktree 处理 |
+|---|---|---|
+| Preview Gateway | 4100（alpha 才覆盖 4111）| `PREVIEW_GATEWAY_PORT=0` 禁用 |
+| Anthropic Proxy | 9877 | `ANTHROPIC_PROXY_ENABLED=0` 禁用 |
+| Whisper (ASR) | 9876 | `ASR_ENABLED=0` 禁用 |
+| TTS | 9879 | `TTS_ENABLED=0` 禁用 |
+| LLM Postprocess | 9878 | `LLM_POSTPROCESS_ENABLED=0` 禁用 |
+| Embedding | 9880 | `EMBED_ENABLED=0` + `EMBED_MODE=off` 禁用（注：现在 EMBED_ENABLED 没在 CLI_*_OVERRIDE 列表里，但通过 .env.local 可设） |
+
+**公式统一写法**（砚砚 P2-6）：核心服务非 Redis 用 `BASE - OFFSET`（OFFSET 是负数 → 端口向上加）。文档里**不再写"向上加 offset"**，避免歧义。
+
+### Safety Checks（砚砚二审 P1-2：preflight 必须接 start-dev.sh，不只独立脚本）
+
+**接入位置**（砚砚 P1-2 拍板）：preflight 主接进 `scripts/start-dev.sh` 的配置解析路径（见 line 85-103 env override 加载段附近），保证 `pnpm dev:direct` / `start:direct` 必经；另加 `pnpm check:worktree-port-offset` 诊断脚本（CI 用，不是唯一 gate）。**不要**只做独立 `pnpm preflight`——根 `pnpm dev` 走 `pnpm -r --parallel run dev` 会绕过。
 
 ```ts
+// derive-worktree-ports.ts（基础派生）
 function deriveWorktreePorts(offset: number): WorktreePorts {
   // === 数学约束 ===
   if (offset > 0) throw new Error('WORKTREE_PORT_OFFSET must be ≤ 0 (圣域 6399)');
@@ -59,21 +68,14 @@ function deriveWorktreePorts(offset: number): WorktreePorts {
 
   return {
     redis,
-    redisDataDir: `.cat-cafe/redis-data${offset === 0 ? '' : offset}`,
-    redisBackupDir: `.cat-cafe/redis-backup${offset === 0 ? '' : offset}`,
     api: 3102 - offset,
     web: 5102 - offset,
     nextPublicApiUrl: `http://localhost:${3102 - offset}`,
-    a2aBridge: 4111 - offset,
-    previewGateway: PREVIEW_GATEWAY_BASE - offset,
-    anthropicProxy: ANTHROPIC_PROXY_BASE - offset,
-    whisper: WHISPER_BASE - offset,
-    tts: TTS_BASE - offset,
-    llmPostprocess: LLM_POSTPROCESS_BASE - offset,
+    // sidecar 不在派生范围 — 大赛 worktree 全禁用
   };
 }
 
-// 启动时还要做这些 runtime check（不只是数学）：
+// preflight check（接入 start-dev.sh）
 async function preflightCheck(ports: WorktreePorts): Promise<void> {
   // 1. .env.local 不能硬编码会覆盖 OFFSET 派生的值
   if (envLocalHasHardcodedPort('REDIS_URL', '6398', '6399')) {
@@ -89,7 +91,18 @@ async function preflightCheck(ports: WorktreePorts): Promise<void> {
 
   // 3. REDIS_URL 必须从 OFFSET 派生，不读 .env.local 旧值
   process.env.REDIS_URL = `redis://localhost:${ports.redis}`;
+
+  // 4. 验证 sidecar 都被禁用（大赛 worktree 默认）
+  const requiredOff = ['ANTHROPIC_PROXY_ENABLED', 'ASR_ENABLED', 'TTS_ENABLED', 'LLM_POSTPROCESS_ENABLED', 'EMBED_ENABLED'];
+  for (const k of requiredOff) {
+    if (process.env[k] && process.env[k] !== '0' && process.env[k] !== 'false') {
+      throw new Error(`Sidecar ${k} should be disabled in contest worktree (set to 0)`);
+    }
+  }
 }
+
+// Redis data dir 用现有 start-dev.sh:324 函数，不发明新格式
+// default_redis_data_dir(profile, port) → ~/.cat-cafe/redis-dev-${port}
 ```
 
 ### LL-015 历史教训锚定
@@ -113,16 +126,18 @@ async function preflightCheck(ports: WorktreePorts): Promise<void> {
 - **不动 runtime 3001/3002** — runtime 是 cat-cafe-runtime，独立路径
 - **不改 alpha 端口（3011/3012/4111/6398）** — alpha 用默认 OFFSET=0
 
-## Acceptance Criteria（砚砚 P1-2 后扩展）
+## Acceptance Criteria（砚砚二审 P1-1/P1-2 后修订）
 
 - [ ] AC-1: `derive-worktree-ports.ts` 实现，单元测试覆盖**全部** safety checks：offset > 0 / 圣域 6399 / Redis < 6000 / 非 10 倍数 / range > -100
-- [ ] AC-2: 启动脚本读 `WORKTREE_PORT_OFFSET`，未设默认 0，**派生全部 11 个端口/路径**（Redis + dataDir + backupDir + API + Web + NEXT_PUBLIC_API_URL + Bridge + Preview Gateway + Anthropic Proxy + Whisper + TTS + LLM Postprocess），输出 console 表格
-- [ ] AC-3: **Preflight runtime check**：启动前检查 (a) `.env.local` 是否硬编码会覆盖 OFFSET 的端口值（如硬写 REDIS_URL=...:6398）→ 拒绝启动 + 提示删除该行；(b) 派生端口是否被占用 → 拒绝启动
+- [ ] AC-2: 启动脚本读 `WORKTREE_PORT_OFFSET`，未设默认 0，派生**核心 4 服务**（Redis + API + Web + NEXT_PUBLIC_API_URL），sidecar 全禁用（不在派生范围）；输出 console 表格
+- [ ] AC-3: **Preflight 接入 `scripts/start-dev.sh`**（不是独立 pnpm preflight，砚砚 P1-2）— 启动前 (a) 检查 `.env.local` 是否硬编码会覆盖 OFFSET 的端口值 → 拒绝启动 + 提示删除该行；(b) 派生端口是否被占用 → 拒绝启动；(c) 验证 sidecar 都禁用
 - [ ] AC-4: **REDIS_URL 主动派生**——不读 .env.local 既有值，启动时 `export REDIS_URL=redis://localhost:${derivedRedisPort}` 覆盖；对应单元测试覆盖 `.env.local` 残留场景（LL-015 防回归）
-- [ ] AC-5: worktree SKILL.md 添加 PORT_OFFSET 段落，含端口分配示例（链 F182 contest）+ "如何检查 .env.local 是否会冲突"
-- [ ] AC-6: 在 worktree 里 `WORKTREE_PORT_OFFSET=-10 pnpm dev` 启动，验证 API 在 3112、Redis 用 6388、Redis data dir 用 `.cat-cafe/redis-data-10`
-- [ ] AC-7: 同时跑两个 worktree（offset=-10 + offset=-20），互不冲突，互不读对方 Redis 数据，sidecar（Whisper/TTS/Proxy）端口都隔离
-- [ ] AC-8: **资源压力测试**——并发启动 6 个 worktree（OFFSET=-10 ~ -60），监测 CPU/RAM/FD（fd 数）能否承受；若不行降级到错峰
+- [ ] AC-5: **Redis data dir 用现有 `default_redis_data_dir(profile, port)`**（start-dev.sh:324），派生 `~/.cat-cafe/redis-dev-${port}`；不发明 `.cat-cafe/redis-data-10` 新格式（砚砚二审 P2-4）
+- [ ] AC-6: worktree SKILL.md 添加 PORT_OFFSET 段落，含端口分配示例（链 F182 contest）+ "如何检查 .env.local 是否会冲突" + "为什么必须用 `pnpm dev:direct` 而不是 `pnpm dev`"（砚砚二审 P1-2）
+- [ ] AC-7: 在 worktree 里 `WORKTREE_PORT_OFFSET=-10 bash scripts/start-dev.sh` 启动，验证 API 在 3112、Redis 用 6388、Redis data dir 派生为 `~/.cat-cafe/redis-dev-6388`
+- [ ] AC-8: 同时跑两个 worktree（offset=-10 + offset=-20），互不冲突，互不读对方 Redis 数据
+- [ ] AC-9: 加 `pnpm check:worktree-port-offset` 诊断脚本（CI 可用，不是唯一 gate；唯一 gate 是 start-dev.sh 内的 preflight）
+- [ ] AC-10: **资源压力测试**——并发启动 6 个 worktree（OFFSET=-10 ~ -60），监测 CPU/RAM/FD 能否承受；若不行降级到错峰
 
 ## Risk
 

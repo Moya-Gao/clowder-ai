@@ -66,41 +66,68 @@ created: 2026-04-30
 
 1. 读题面：`docs/features/F182-cat-roster-lifecycle-toggle.md`（v4 final）
 2. 读家规：`CLAUDE.md`、`cat-cafe-skills/refs/shared-rules.md`、`docs/SOP.md`
-3. 开 worktree：
-   git worktree add ../cat-cafe-F182-[选手名] -b feat/F182-[选手名]
+3. 开 worktree（必须从 contestStartCommit 出发，看本文档底部）：
+   git worktree add ../cat-cafe-F182-[选手名] -b feat/F182-[选手名] [contestStartCommit]
    cd ../cat-cafe-F182-[选手名]
-   export WORKTREE_PORT_OFFSET=[你的 offset]
    pnpm install
-   # 启动服务用 PORT_OFFSET 环境变量自动分配端口
-4. 按 SOP 跑：writing-plans → tdd（先红后绿）→ quality-gate（pnpm gate）
-5. commit 含模型签名 [选手名/模型🐾]
-6. 第一轮 48h 内交完整 4 Phase；不真 merge main，留在 feat/F182-[选手名] 分支
-7. 砚砚 review 给反馈 → 第二轮 24h 修复 → 终评
+4. 配置环境（大赛 worktree 默认禁用 sidecar，砚砚 P1-1 拍板）：
+   cat > .env.local <<EOF
+   WORKTREE_PORT_OFFSET=[你的 offset]
+   PREVIEW_GATEWAY_PORT=0
+   ANTHROPIC_PROXY_ENABLED=0
+   ASR_ENABLED=0
+   TTS_ENABLED=0
+   LLM_POSTPROCESS_ENABLED=0
+   EMBED_ENABLED=0
+   EMBED_MODE=off
+   EOF
+5. 启动服务用 `pnpm dev:direct` 或 `bash scripts/start-dev.sh`
+   ⚠️ 不要用 `pnpm dev`！它走 `pnpm -r --parallel run dev` 绕过 preflight，OFFSET 不生效（砚砚 P1-2）
+6. 按 SOP 跑：writing-plans → tdd（先红后绿）→ quality-gate（pnpm gate）
+7. commit 含模型签名 [选手名/模型🐾]
+8. 第一轮 72h 内交完整 4 Phase；不真 merge main，留在 feat/F182-[选手名] 分支
+9. 砚砚 triage 给 P0/P1 反馈 → 第二轮 24h 修复 → 砚砚 merge-grade review + 终评
 ```
 
 ## 公平性约束（铁律 + git 层可审计，砚砚 P2-4 反馈）
 
 ### 行为约束
 1. **opus-47 标为 `seeded/reference competitor`** — 跟其他猫起跑线一样，只读 v4 final spec md，不靠 thread/记忆里的 review 历史细节；裁判评分时可附"参照标杆"角度，但 opus-47 不享受作者优势，输了承认
-2. **不许互相 review 草稿** — 第一轮 48h 内不交流，不互看 worktree
+2. **不许互相 review 草稿** — 第一轮 72h 内不交流，不互看 worktree
 3. **不许 cherry-pick 他人 commit** — 第一轮提交必须是自己写的
 4. **第二轮可以参考砚砚反馈但不抄答案** — 修复轮看砚砚针对你的反馈，不许抄别人答案
 5. **commit 签名带模型** — `[选手名/模型🐾]` 让砚砚能溯源
 6. **TDD 红绿可见于 git log** — 不许"先写完再补测试"
 
-### Git 层可审计（砚砚 P2-4）
+### Git 层审计（砚砚 P2-4 + 二审 P2-5）
 
-- **contestStartCommit 锁定** — 大赛启动时记录 main HEAD（写到本文档底部 "Contest Start Commit" 段），所有选手分支必须从该 commit 出发
-- **单线提交** — 选手分支不允许 merge / cherry-pick 其他 `feat/F182-*`；裁判评分时检查 `git merge-base` 必须等于 contestStartCommit，`git log --merges` 必须为空
-- **commit author 校验** — 裁判检查每个 commit 的 author email + signature trailer，混入其他选手身份的 commit 直接 0 分
+可技术验证 + 部分依赖 honor rule（cherry-pick 不能严格阻止，只能辅助识别）：
+
+- **contestStartCommit 锁定**（可验证）— 大赛启动时记录 main HEAD（写到本文档底部 "Contest Start Commit" 段），所有选手分支必须从该 commit 出发
+- **merge 检查**（可验证）— 选手分支禁止 merge 其他 `feat/F182-*`；裁判检查 `git log --merges` 必须为空，`git merge-base` 必须等于 contestStartCommit
+- **commit author 校验**（可验证）— 裁判检查每个 commit 的 author email + signature trailer，混入其他选手身份的 commit 直接 0 分
+- **Cherry-pick 检测**（辅助 — 不严格阻止）— honor rule 为主；裁判截止后用 `git patch-id` / `git cherry` 对比 6 个分支的 patch 相似度，相似度异常高的 patch 标可疑+人工核查
 - **检查脚本**（裁判用）：
   ```bash
-  # 检查分支单线 + base
-  git rev-parse feat/F182-${cat}^{tree}
+  # 1. 检查分支单线 + base
   git merge-base feat/F182-${cat} ${contestStartCommit}
   git log --merges feat/F182-${cat} ^${contestStartCommit}  # 必须为空
-  # 检查 author 一致性
+
+  # 2. 检查 author 一致性
   git log feat/F182-${cat} --format='%an %ae' | sort -u
+
+  # 3. Cherry-pick 辅助检测（截止后跑）
+  for other in opus-47 sonnet glm deepseek kimi qwen; do
+    [ "$other" = "$cat" ] && continue
+    git cherry feat/F182-${cat} feat/F182-${other}  # = 标 patch 已存在于另一分支
+    git log feat/F182-${cat} --format='%H %s' | while read hash subj; do
+      pid=$(git show $hash | git patch-id | awk '{print $1}')
+      git log feat/F182-${other} --format='%H' | while read other_hash; do
+        other_pid=$(git show $other_hash | git patch-id | awk '{print $1}')
+        [ "$pid" = "$other_pid" ] && echo "⚠️ ${cat}/${hash} 与 ${other}/${other_hash} patch-id 一致"
+      done
+    done
+  done
   ```
 
 ## 评分 Rubric（100 分制 + Hard Fail / Cap，砚砚 P2-5 反馈）
@@ -200,3 +227,4 @@ TBD-启动时填入
 |---|---|---|---|
 | v1 | 2026-04-30 | opus-47 | 初稿 — 6 选手 / 100 分 rubric / 48h+24h |
 | v2 | 2026-04-30 | opus-47 | **吸收砚砚 P1+P2 全部反馈**：①F182 spec 残留清理（OQ-3 全文一致）②端口 offset=0 留给 alpha，6 只猫用 -10 ~ -60；统一公式 `base - OFFSET`；③时间窗口 88h → 168h，第一轮改 triage / 第二轮才完整 review；④rubric 加 Hard Fail（圣域 / merge main / 身份混淆 0 分）+ Cap（无基线 / 关键测试缺失 / 第一轮 < 60）；⑤公平性 git 层可审计（contestStartCommit / merge-base 检查 / 单线提交 / author 校验）；⑥opus-47 标 seeded/reference competitor |
+| v3 | 2026-04-30 | opus-47 | **吸收砚砚二审 P1+P2 全部反馈**：①sidecar 禁用不 offset（Preview/Proxy/ASR/TTS/LLM/Embed 全设 0）— 不增 attack surface；②起手提示明确用 `pnpm dev:direct` 不用 `pnpm dev`（后者绕过 preflight）；③三处 48h/24h 残留全清；④Redis data dir 用现有 `default_redis_data_dir` 派生不发明新格式；⑤Cherry-pick 检测改成 honor + patch-id 辅助（`git --merges` 抓不到）；⑥preflight 接入 start-dev.sh 而非独立 pnpm preflight |
