@@ -1477,4 +1477,280 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
       origin: 'callback',
     });
   });
+
+  // F183 Phase B1.6 — tool_event reducer: append toolEvent to existing
+  // assistant_text bubble's toolEvents field (UI-compat data model). 当前 UI
+  // 把 tool events 当 assistant_text 子字段 toolEvents 渲染，reducer 维持这个
+  // 约定不另开 tool_or_cli kind bubble（ADR-033 设计的 tool_or_cli 独立 bubble
+  // 留给后续 UI 重构落地）。
+  it('B1.6: tool_event appends toolEvent to existing assistant_text bubble for same invocation', () => {
+    const existingText: ChatMessage = {
+      id: 'msg-inv-tool-codex',
+      type: 'assistant',
+      catId: 'codex',
+      content: 'analyzing...',
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-tool' } },
+    };
+    const toolEvent = {
+      id: 'te-1',
+      type: 'tool_use' as const,
+      label: 'codex → Read',
+      detail: '{"path":"/foo"}',
+      timestamp: 1100,
+    };
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'tool_event',
+        bubbleKind: 'tool_or_cli',
+        canonicalInvocationId: 'inv-tool',
+        messageId: undefined,
+        timestamp: 1100,
+        payload: { toolEvent },
+      },
+      currentMessages: [existingText],
+    });
+
+    expect(output.nextMessages).toHaveLength(1);
+    const updated = output.nextMessages[0];
+    expect(updated.id).toBe('msg-inv-tool-codex');
+    expect(updated.toolEvents).toHaveLength(1);
+    expect(updated.toolEvents?.[0]).toEqual(toolEvent);
+    expect(output.violations).toEqual([]);
+    expect(output.recoveryAction).toBe('none');
+  });
+
+  it('B1.6: tool_event appends to existing toolEvents array (preserves prior events)', () => {
+    const priorEvent = { id: 'te-0', type: 'tool_use' as const, label: 'codex → list', timestamp: 900 };
+    const existingText: ChatMessage = {
+      id: 'msg-inv-tool2-codex',
+      type: 'assistant',
+      catId: 'codex',
+      content: '',
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-tool2' } },
+      toolEvents: [priorEvent],
+    };
+    const newEvent = {
+      id: 'te-1',
+      type: 'tool_result' as const,
+      label: 'codex ← result',
+      detail: 'ok',
+      timestamp: 1200,
+    };
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'tool_event',
+        bubbleKind: 'tool_or_cli',
+        canonicalInvocationId: 'inv-tool2',
+        messageId: undefined,
+        timestamp: 1200,
+        payload: { toolEvent: newEvent },
+      },
+      currentMessages: [existingText],
+    });
+
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0].toolEvents).toEqual([priorEvent, newEvent]);
+  });
+
+  it('B1.6: tool_event with no existing assistant bubble is reducer no-op (caller seeds via legacy)', () => {
+    // 砚砚 R1 P1 (B1.6 review): empty content + toolEvents 的 placeholder 跟后续
+    // stream_chunk(assistant_text) 会触发 canonical-split。改成 no-op，由 caller
+    // (active path 的 ensureActiveAssistantMessage / bg 的等价语义) 负责 bubble
+    // 的创建出口。reducer 在此场景下不修改 messages，wire-up 通过引用相等检测
+    // no-op 后回退 legacy appendToolEvent。
+    const toolEvent = {
+      id: 'te-2',
+      type: 'tool_use' as const,
+      label: 'codex → Run',
+      timestamp: 1100,
+    };
+    const currentMessages: ChatMessage[] = [];
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'tool_event',
+        bubbleKind: 'tool_or_cli',
+        canonicalInvocationId: 'inv-fresh',
+        messageId: undefined,
+        timestamp: 1100,
+        payload: { toolEvent },
+      },
+      currentMessages,
+    });
+
+    expect(output.nextMessages).toBe(currentMessages); // 引用相等：reducer 没改
+    expect(output.recoveryAction).toBe('none');
+  });
+
+  it('B1.6: cli_output event uses same path as tool_event (UI compat) — no-op when no existing bubble', () => {
+    const cliEvent = { id: 'cli-1', type: 'cli_output' as const, label: 'stdout', detail: 'hello', timestamp: 1100 };
+    const currentMessages: ChatMessage[] = [];
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'cli_output',
+        bubbleKind: 'tool_or_cli',
+        canonicalInvocationId: 'inv-cli',
+        messageId: undefined,
+        timestamp: 1100,
+        payload: { toolEvent: cliEvent },
+      },
+      currentMessages,
+    });
+
+    expect(output.nextMessages).toBe(currentMessages); // 引用相等：reducer 没改
+    expect(output.recoveryAction).toBe('none');
+  });
+
+  // F183 Phase B1.6 (砚砚 R2 P1 regression test): active path 真实序列。
+  // 1) caller (ensureActiveAssistantMessage) seed empty assistant_text bubble；
+  // 2) tool_event arrives → reducer append toolEvent；
+  // 3) stream_chunk(same id, bubbleKind='assistant_text') arrives；
+  // 4) 关键：没 canonical-split violation, content 落到同一气泡, toolEvents 保留。
+  // 这个序列在 R2 之前会因为 step 2 后的 bubble 推断成 tool_or_cli + step 3
+  // incoming assistant_text 不同 stable key 触发 canonical-split + sot-override
+  // 让 text content 丢失。R2 修法：deriveBubbleKindFromMessage 把 stream-bound
+  // streaming UI-compat container（empty + toolEvents + isStreaming + origin='stream'
+  // + invocationId）视作 assistant_text。
+  it('B1.6 砚砚 R2 P1: seed → tool_event → stream_chunk same id 不触发 canonical-split, content + toolEvents 共存', () => {
+    // step 1: seed (legacy ensureActiveAssistantMessage 的等价产物)
+    const seed: ChatMessage = {
+      id: 'msg-inv-tool-seq-codex',
+      type: 'assistant',
+      catId: 'codex',
+      content: '',
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-tool-seq' } },
+    };
+
+    // step 2: tool_event → reducer append toolEvent on existing bubble
+    const toolEvent = { id: 'te-1', type: 'tool_use' as const, label: 'codex → Read', timestamp: 1100 };
+    const r1 = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'tool_event',
+        bubbleKind: 'tool_or_cli',
+        canonicalInvocationId: 'inv-tool-seq',
+        messageId: undefined,
+        timestamp: 1100,
+        payload: { toolEvent },
+      },
+      currentMessages: [seed],
+    });
+    expect(r1.recoveryAction).toBe('none');
+    expect(r1.nextMessages).toHaveLength(1);
+    expect(r1.nextMessages[0].toolEvents).toHaveLength(1);
+
+    // step 3: stream_chunk same id, bubbleKind='assistant_text'
+    const r2 = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'stream_chunk',
+        bubbleKind: 'assistant_text',
+        canonicalInvocationId: 'inv-tool-seq',
+        messageId: 'msg-inv-tool-seq-codex',
+        timestamp: 1200,
+        payload: { content: 'analysis text' },
+      },
+      currentMessages: r1.nextMessages,
+    });
+
+    // step 4: 关键断言 — 无 violation + content 落 + toolEvents 保留
+    expect(r2.recoveryAction).toBe('none');
+    expect(r2.violations).toEqual([]);
+    expect(r2.nextMessages).toHaveLength(1);
+    expect(r2.nextMessages[0]).toMatchObject({
+      id: 'msg-inv-tool-seq-codex',
+      content: 'analysis text',
+    });
+    expect(r2.nextMessages[0].toolEvents).toHaveLength(1);
+  });
+
+  // F183 Phase B1.6 (cloud P1): reduceToolEvent must restrict target to
+  // assistant_text bubbles. ADR-033 允许 thinking + assistant_text 在同
+  // invocation 共存；如果 reducer 不区分 kind 直接拿第一个 streaming assistant
+  // bubble，tool event 会落到 thinking bubble，UI-compat 模型 (toolEvents on
+  // assistant_text) 失败。
+  it('B1.6 cloud P1: reduceToolEvent only appends toolEvent to assistant_text bubble (not thinking) when both co-exist', () => {
+    const thinkingBubble: ChatMessage = {
+      id: 'msg-thinking-codex',
+      type: 'assistant',
+      catId: 'codex',
+      content: '',
+      thinking: 'reasoning step 1',
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-coexist' } },
+    };
+    const assistantTextBubble: ChatMessage = {
+      id: 'msg-text-codex',
+      type: 'assistant',
+      catId: 'codex',
+      content: 'partial answer',
+      timestamp: 1100,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-coexist' } },
+    };
+    const toolEvent = { id: 'te-1', type: 'tool_use' as const, label: 'codex → Read', timestamp: 1200 };
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'tool_event',
+        bubbleKind: 'tool_or_cli',
+        canonicalInvocationId: 'inv-coexist',
+        messageId: undefined,
+        timestamp: 1200,
+        payload: { toolEvent },
+      },
+      currentMessages: [thinkingBubble, assistantTextBubble],
+    });
+
+    // 两条 bubble 都保留
+    expect(output.nextMessages).toHaveLength(2);
+    // thinking bubble 不应该收到 toolEvent
+    const thinkingAfter = output.nextMessages.find((m) => m.id === 'msg-thinking-codex');
+    expect(thinkingAfter?.toolEvents).toBeUndefined();
+    // assistant_text bubble 应该收到 toolEvent
+    const textAfter = output.nextMessages.find((m) => m.id === 'msg-text-codex');
+    expect(textAfter?.toolEvents).toHaveLength(1);
+    expect(textAfter?.toolEvents?.[0]).toEqual(toolEvent);
+  });
+
+  it('B1.6: invocationless tool_event is reducer no-op (caller still drives via legacy)', () => {
+    const toolEvent = { id: 'te-3', type: 'tool_use' as const, label: 'codex → noop', timestamp: 1100 };
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'tool_event',
+        bubbleKind: 'tool_or_cli',
+        canonicalInvocationId: undefined, // invocationless
+        messageId: undefined,
+        timestamp: 1100,
+        payload: { toolEvent },
+      },
+      currentMessages: [],
+    });
+    expect(output.nextMessages).toHaveLength(0);
+    expect(output.recoveryAction).toBe('none');
+  });
 });

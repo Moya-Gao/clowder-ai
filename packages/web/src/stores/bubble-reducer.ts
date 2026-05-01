@@ -104,7 +104,16 @@ function makeIncomingProxy(event: BubbleEvent, currentMessages: ChatMessage[] = 
     case 'thinking':
       return { ...base, thinking: '​' };
     case 'tool_or_cli':
-      return { ...base, toolEvents: [{ id: 'proxy', kind: 'tool_use', name: 'proxy' } as never] };
+      // F183 Phase B1.6 (砚砚 R2 P1) — proxy 必须 derive 回 tool_or_cli 跟 event.
+      // bubbleKind 一致。我们把 stream-bound streaming UI-compat container 视作
+      // assistant_text，所以 proxy 必须不带 streaming 标记，否则会被推成
+      // assistant_text 让 round 5 P1 canonical-split 测试 bubbleKind 报错。
+      return {
+        ...base,
+        isStreaming: false,
+        origin: undefined,
+        toolEvents: [{ id: 'proxy', kind: 'tool_use', name: 'proxy' } as never],
+      };
     case 'rich_block':
       return {
         ...base,
@@ -238,6 +247,56 @@ function reduceStreamChunk(messages: ChatMessage[], event: BubbleEvent): ChatMes
 // tool_or_cli、thinking 等共存 kind 全部）isStreaming=false。invocationless `done`
 // 在 reducer 是 no-op（lifecycle 在 caller 用 cat status / slot cleanup 等 side-effect
 // 处理；ADR-033 不变量 #4 禁止 invocationless 参与 stable key 查重）。
+// F183 Phase B1.6 — tool_event / cli_output reducer: append toolEvent 到对应
+// invocation 的 assistant_text bubble 的 toolEvents 字段（UI-compat 数据模型）。
+// ADR-033 设计 tool_or_cli 为独立 kind bubble，但当前 UI 把 tool events 当
+// assistant_text 子字段渲染，reducer 维持 UI 约定。caller 通过 payload.toolEvent
+// 传入 ToolEvent 结构（id/type/label/detail/timestamp）。invocationless 是
+// reducer no-op（caller 走 legacy ensureActiveAssistantMessage + appendToolEvent）。
+function reduceToolEvent(messages: ChatMessage[], event: BubbleEvent): ChatMessage[] {
+  if (!event.canonicalInvocationId) return messages;
+  const toolEvent = event.payload?.toolEvent as ChatMessage['toolEvents'] extends (infer T)[] | undefined ? T : never;
+  if (!toolEvent) return messages;
+
+  // 找匹配 invocation+cat 的 assistant_text bubble。优先 isStreaming（active），
+  // 找不到再找已 finalize 的同 invocation bubble（late tool event after done）。
+  // F183 Phase B1.6 (cloud P1): 必须 kind filter 'assistant_text'。ADR-033
+  // 允许 thinking + assistant_text 同 invocation 共存；如果不区分 kind 直接拿
+  // 第一个 streaming assistant bubble，tool event 可能落到 thinking bubble，
+  // UI-compat 模型 (toolEvents on assistant_text) 失败。R2 修法已让 streaming
+  // UI-compat container（empty + toolEvents + 三件套）derive 回 assistant_text，
+  // 所以 'assistant_text' filter 同时覆盖 fresh seed (no toolEvents) 和后续追加
+  // toolEvents 的 transient 状态。
+  const isAssistantTextTarget = (m: ChatMessage): boolean =>
+    m.type === 'assistant' &&
+    m.catId === event.actorId &&
+    m.extra?.stream?.invocationId === event.canonicalInvocationId &&
+    deriveBubbleKindFromMessage(m) === 'assistant_text';
+  let targetIdx = messages.findIndex((m) => isAssistantTextTarget(m) && m.isStreaming === true);
+  if (targetIdx === -1) {
+    targetIdx = messages.findIndex(isAssistantTextTarget);
+  }
+
+  if (targetIdx !== -1) {
+    const next = [...messages];
+    const target = next[targetIdx];
+    next[targetIdx] = {
+      ...target,
+      toolEvents: [...(target.toolEvents ?? []), toolEvent],
+    };
+    return next;
+  }
+
+  // F183 Phase B1.6 (砚砚 R1 P1) — 没现成 bubble 时 reducer 不创建 placeholder。
+  // 原因：empty content + toolEvents 的气泡 deriveBubbleKindFromMessage 推成
+  // 'tool_or_cli'，跟后续 stream_chunk(assistant_text) 同 id 触发 canonical-split。
+  // 改成 no-op 返回 messages 原引用，caller (active path 的 ensureActive
+  // AssistantMessage + appendToolEvent，bg path 的等价语义) 是 bubble 创建出口。
+  // wire-up 通过 `nextMessages === currentMessages` 引用相等判断 reducer 是否
+  // handled，未 handled 就走 legacy appendToolEvent 兜底。
+  return messages;
+}
+
 function reduceDoneEvent(messages: ChatMessage[], event: BubbleEvent): ChatMessage[] {
   if (!event.canonicalInvocationId) return messages;
   let changed = false;
@@ -525,6 +584,10 @@ export function applyBubbleEvent(input: BubbleReducerInput): BubbleReducerOutput
     case 'error':
     case 'timeout':
       nextMessages = reduceErrorEvent(currentMessages, event);
+      break;
+    case 'tool_event':
+    case 'cli_output':
+      nextMessages = reduceToolEvent(currentMessages, event);
       break;
     default:
       break;

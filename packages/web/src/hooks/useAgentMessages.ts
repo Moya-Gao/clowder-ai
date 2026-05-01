@@ -2369,13 +2369,53 @@ export function useAgentMessages() {
           ...(msg.invocationId ? { invocationId: msg.invocationId } : {}),
         });
 
-        appendToolEvent(messageId, {
+        // F183 Phase B1.6 — tool_use wire-up via reducer (single-writer)。
+        // ensureActiveAssistantMessage 仍跑，因为它管 activeRefs ledger。reducer
+        // 的 reduceToolEvent 把 toolEvent append 到同 invocation 的 assistant
+        // bubble.toolEvents（找的是 extra.stream.invocationId === canonical 的气泡，
+        // 跟 ensureActiveAssistantMessage 创建的 id 无关）。recoveryAction !== 'none'
+        // 或 invocationless 回退 legacy appendToolEvent。
+        const toolUseEventData: ToolEvent = {
           id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           type: 'tool_use',
           label: `${msg.catId} → ${toolName}`,
           ...(detail ? { detail } : {}),
           timestamp: Date.now(),
-        });
+        };
+        let toolUseReducerHandled = false;
+        if (msg.invocationId) {
+          const threadIdForTool = msg.threadId ?? useChatStore.getState().currentThreadId;
+          const event = adaptIncomingToBubbleEvent({ ...msg, threadId: threadIdForTool } as BackgroundAgentMessage, {
+            sourcePath: 'active',
+          });
+          if (event) {
+            const eventWithToolEvent = {
+              ...event,
+              payload: { ...(event.payload ?? {}), toolEvent: toolUseEventData },
+            };
+            const storeSnapshot = useChatStore.getState();
+            const result = applyBubbleEvent({
+              threadId: threadIdForTool,
+              event: eventWithToolEvent,
+              currentMessages: storeSnapshot.messages,
+            });
+            // F183 Phase B1.6 (砚砚 R1 P1) — reducer 在没现成 bubble 时是 no-op
+            // (返回 messages 原引用)，wire-up 用引用相等检测 reducer 是否真 mutated。
+            // recoveryAction === 'none' 但 nextMessages === currentMessages 时
+            // reducer 没添 toolEvent，回退 legacy appendToolEvent 兜底。
+            if (result.recoveryAction === 'none' && result.nextMessages !== storeSnapshot.messages) {
+              storeSnapshot.replaceMessages(result.nextMessages, storeSnapshot.hasMore);
+              toolUseReducerHandled = true;
+            }
+            if (result.violations.length > 0) {
+              for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+            }
+          }
+        }
+        if (!toolUseReducerHandled) {
+          appendToolEvent(messageId, toolUseEventData);
+        }
+
         if (isFileChange) {
           console.info('[agent_message] file_change tool_use appended', {
             catId: msg.catId,
@@ -2392,13 +2432,44 @@ export function useAgentMessages() {
         });
 
         const detail = compactToolResultDetail(msg.content ?? '');
-        appendToolEvent(messageId, {
+        // F183 Phase B1.6 — tool_result wire-up via reducer (same pattern as tool_use).
+        const toolResultEventData: ToolEvent = {
           id: `toolr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           type: 'tool_result',
           label: `${msg.catId} ← result`,
           detail,
           timestamp: Date.now(),
-        });
+        };
+        let toolResultReducerHandled = false;
+        if (msg.invocationId) {
+          const threadIdForTool = msg.threadId ?? useChatStore.getState().currentThreadId;
+          const event = adaptIncomingToBubbleEvent({ ...msg, threadId: threadIdForTool } as BackgroundAgentMessage, {
+            sourcePath: 'active',
+          });
+          if (event) {
+            const eventWithToolEvent = {
+              ...event,
+              payload: { ...(event.payload ?? {}), toolEvent: toolResultEventData },
+            };
+            const storeSnapshot = useChatStore.getState();
+            const result = applyBubbleEvent({
+              threadId: threadIdForTool,
+              event: eventWithToolEvent,
+              currentMessages: storeSnapshot.messages,
+            });
+            // 同 tool_use 路径 (砚砚 R1 P1)：no-op 引用相等检测 + 回退 legacy。
+            if (result.recoveryAction === 'none' && result.nextMessages !== storeSnapshot.messages) {
+              storeSnapshot.replaceMessages(result.nextMessages, storeSnapshot.hasMore);
+              toolResultReducerHandled = true;
+            }
+            if (result.violations.length > 0) {
+              for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+            }
+          }
+        }
+        if (!toolResultReducerHandled) {
+          appendToolEvent(messageId, toolResultEventData);
+        }
       } else if (msg.type === 'done') {
         // Stale-terminal guard (Bug-G, shared with `error` via isStaleTerminalEvent):
         // A stale done must NOT touch cat-level or bubble-level state — doing so
