@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">MCP tool chain progression hand drawn diagram</title>
+  <desc id="desc">Hand drawn style two-column flow showing tool explosion, ToolSearch, code execution, tool use examples, and Skills.</desc>
+  <defs>
+    <filter id="paperNoise" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="2" seed="41" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 0.06"/>
+      </feComponentTransfer>
+      <feBlend in="SourceGraphic" mode="multiply"/>
+    </filter>
+    <marker id="arrowInk" markerWidth="16" markerHeight="14" refX="13" refY="7" orient="auto" markerUnits="strokeWidth">
+      <path d="M1,1 L14,7 L1,13 C4,9 4,5 1,1" fill="#24313a"/>
+    </marker>
+    <style>
+      .bg { fill: #fbf4df; }
+      .ink { stroke: #24313a; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .ink2 { stroke: #24313a; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; fill: none; opacity: 0.5; }
+      .title { font: 700 38px "Comic Sans MS", "Bradley Hand", "Hiragino Sans GB", "PingFang SC", sans-serif; fill: #1f2a33; }
+      .step { font: 700 26px "Comic Sans MS", "Bradley Hand", "Hiragino Sans GB", "PingFang SC", sans-serif; fill: #1f2a33; }
+      .sub { font: 500 20px "Comic Sans MS", "Bradley Hand", "Hiragino Sans GB", "PingFang SC", sans-serif; fill: #34434c; }
+      .tiny { font: 500 17px "Comic Sans MS", "Bradley Hand", "Hiragino Sans GB", "PingFang SC", sans-serif; fill: #34434c; }
+      .chip { font: 700 18px "Comic Sans MS", "Bradley Hand", "Hiragino Sans GB", "PingFang SC", sans-serif; fill: #24313a; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1600" height="900"/>
+  <g filter="url(#paperNoise)">
+    <text x="74" y="82" class="title">MCP 工具链进化：问题是一串</text>
+    <text x="78" y="119" class="sub">面试里讲清“问题 → 解法 → 新问题”，比背定义更有杀伤力。</text>
+
+    <path d="M94 184 C166 152, 350 158, 416 190 C449 236, 429 303, 374 326 C265 356, 145 343, 93 304 C60 264, 59 217, 94 184 Z" fill="#f8cfd4"/>
+    <path d="M88 194 C164 162, 344 164, 410 194 C439 235, 421 294, 370 318 C264 346, 151 335, 98 299 C68 263, 69 221, 88 194 Z" class="ink"/>
+    <text x="134" y="226" class="step">1. 工具爆炸</text>
+    <text x="134" y="262" class="sub">93 tools / 55K tokens</text>
+    <text x="134" y="293" class="sub">全量注入撑爆 context</text>
+
+    <path d="M445 253 C486 236, 514 236, 552 253" class="ink" marker-end="url(#arrowInk)"/>
+
+    <path d="M578 184 C650 151, 842 158, 910 190 C942 237, 924 303, 868 326 C758 355, 629 344, 580 304 C546 263, 545 218, 578 184 Z" fill="#a7d8f0"/>
+    <path d="M572 194 C648 162, 835 164, 904 194 C932 236, 915 294, 864 318 C756 345, 635 336, 586 299 C556 263, 555 221, 572 194 Z" class="ink"/>
+    <text x="628" y="226" class="step">2. ToolSearch</text>
+    <text x="628" y="262" class="sub">deferred loading</text>
+    <text x="628" y="293" class="sub">77K → 8.7K</text>
+
+    <path d="M738 337 C738 367, 738 385, 738 413" class="ink" marker-end="url(#arrowInk)"/>
+
+    <path d="M578 432 C650 399, 842 406, 910 439 C942 485, 924 550, 868 574 C758 604, 629 592, 580 552 C546 512, 545 466, 578 432 Z" fill="#c9e7a6"/>
+    <path d="M572 442 C648 409, 835 412, 904 443 C932 484, 915 542, 864 566 C756 594, 635 584, 586 548 C556 511, 555 469, 572 442 Z" class="ink"/>
+    <text x="616" y="474" class="step">3. Code Execution</text>
+    <text x="616" y="510" class="sub">Programmatic Tool Calling</text>
+    <text x="616" y="541" class="sub">150K → 2K，只回最终结果</text>
+
+    <path d="M552 513 C512 497, 486 497, 445 513" class="ink" marker-end="url(#arrowInk)"/>
+
+    <path d="M94 432 C166 400, 350 405, 416 438 C449 485, 429 550, 374 574 C265 604, 145 591, 93 552 C60 512, 59 466, 94 432 Z" fill="#f4dd8a"/>
+    <path d="M88 442 C164 410, 344 412, 410 442 C439 484, 421 542, 370 566 C264 594, 151 583, 98 548 C68 511, 69 469, 88 442 Z" class="ink"/>
+    <text x="129" y="474" class="step">4. Tool Use Examples</text>
+    <text x="129" y="510" class="sub">schema 说“参数是什么”</text>
+    <text x="129" y="541" class="sub">examples 教“怎么传才对”</text>
+
+    <path d="M281 586 C318 620, 358 638, 408 655" class="ink" marker-end="url(#arrowInk)"/>
+
+    <path d="M406 653 C479 622, 671 626, 739 657 C771 704, 753 768, 699 792 C590 820, 462 810, 413 772 C379 732, 377 687, 406 653 Z" fill="#d9c2f0"/>
+    <path d="M400 663 C478 632, 665 634, 733 662 C761 704, 745 759, 695 784 C588 810, 468 802, 418 768 C388 731, 387 690, 400 663 Z" class="ink"/>
+    <text x="467" y="695" class="step">5. Skills</text>
+    <text x="442" y="731" class="sub">流程知识：什么时候用</text>
+    <text x="442" y="762" class="sub">怎么组合、坑在哪</text>
+
+    <path d="M87 838 C237 864, 444 872, 643 862 C824 852, 979 854, 1135 877" class="ink2"/>
+    <text x="98" y="828" class="chip">一句话版本：工具层靠检索、代码执行、例子；知识层靠 Skills。</text>
+  </g>
+</svg>

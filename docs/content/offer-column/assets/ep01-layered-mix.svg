@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">CLI MCP Skills layered mix hand drawn diagram</title>
+  <desc id="desc">Hand drawn style diagram showing CLI as runtime, MCP as tool access layer, and Skills as process knowledge layer.</desc>
+  <defs>
+    <filter id="paperNoise" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="17" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 0.055"/>
+      </feComponentTransfer>
+      <feBlend in="SourceGraphic" mode="multiply"/>
+    </filter>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#1c2430" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrowInk" markerWidth="16" markerHeight="14" refX="13" refY="7" orient="auto" markerUnits="strokeWidth">
+      <path d="M1,1 L14,7 L1,13 C4,9 4,5 1,1" fill="#263238"/>
+    </marker>
+    <style>
+      .bg { fill: #fbf4df; }
+      .ink { stroke: #263238; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .ink2 { stroke: #263238; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; fill: none; opacity: 0.55; }
+      .label { font: 700 38px "Comic Sans MS", "Bradley Hand", "Hiragino Sans GB", "PingFang SC", sans-serif; fill: #1f2a33; }
+      .sub { font: 500 24px "Comic Sans MS", "Bradley Hand", "Hiragino Sans GB", "PingFang SC", sans-serif; fill: #34434c; }
+      .small { font: 500 20px "Comic Sans MS", "Bradley Hand", "Hiragino Sans GB", "PingFang SC", sans-serif; fill: #34434c; }
+      .note { font: 700 28px "Comic Sans MS", "Bradley Hand", "Hiragino Sans GB", "PingFang SC", sans-serif; fill: #263238; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1600" height="900"/>
+  <g filter="url(#paperNoise)">
+    <path d="M52 65 C250 38, 492 50, 720 46 C902 42, 1100 51, 1225 78" class="ink2"/>
+    <text x="78" y="88" class="label">不是三选一，是分层混用</text>
+    <text x="82" y="126" class="sub">CLI 管运行时和 OS 组合；MCP 管工具接入；Skills 管流程知识。</text>
+
+    <g filter="url(#softShadow)">
+      <path d="M164 482 C266 456, 999 456, 1098 486 C1122 553, 1105 634, 1054 657 C820 676, 407 672, 187 656 C143 612, 130 534, 164 482 Z" fill="#f6d56f" opacity="0.92"/>
+      <path d="M158 489 C278 463, 1002 461, 1093 491 C1125 548, 1111 624, 1050 649 C809 668, 407 666, 190 649 C150 606, 137 532, 158 489 Z" class="ink"/>
+      <path d="M176 498 C300 476, 984 474, 1070 502 C1089 551, 1080 603, 1034 628 C803 646, 430 643, 209 631" class="ink2"/>
+      <text x="220" y="535" class="note">CLI / Terminal</text>
+      <text x="220" y="575" class="sub">agent 运行时：Claude Code / Codex CLI / Gemini CLI</text>
+      <text x="220" y="612" class="sub">pipe · redirect · subprocess · 文件系统</text>
+    </g>
+
+    <g filter="url(#softShadow)">
+      <path d="M202 319 C352 285, 930 288, 1038 316 C1073 370, 1062 447, 1019 473 C800 496, 448 491, 224 467 C179 426, 171 357, 202 319 Z" fill="#98d7c2" opacity="0.95"/>
+      <path d="M196 327 C346 292, 928 291, 1033 323 C1066 376, 1056 439, 1012 466 C793 488, 447 484, 226 461 C185 423, 175 359, 196 327 Z" class="ink"/>
+      <path d="M218 334 C365 308, 907 306, 1002 333 C1020 371, 1012 418, 979 442 C774 462, 472 458, 248 446" class="ink2"/>
+      <text x="257" y="372" class="note">MCP</text>
+      <text x="257" y="412" class="sub">工具接入层：typed schema · discovery · auth · audit</text>
+      <text x="257" y="449" class="sub">stdio / Streamable HTTP / resources / prompts / tools</text>
+    </g>
+
+    <g filter="url(#softShadow)">
+      <path d="M238 160 C395 134, 890 134, 1006 165 C1033 215, 1023 279, 980 300 C765 323, 486 318, 260 300 C223 264, 211 200, 238 160 Z" fill="#f6a6a6" opacity="0.94"/>
+      <path d="M232 168 C390 141, 888 139, 1000 171 C1028 219, 1017 271, 974 294 C759 313, 488 310, 264 293 C227 261, 217 201, 232 168 Z" class="ink"/>
+      <path d="M256 176 C412 154, 865 153, 966 178 C986 213, 981 252, 946 273 C735 290, 503 289, 286 277" class="ink2"/>
+      <text x="294" y="213" class="note">Skills</text>
+      <text x="294" y="253" class="sub">流程知识层：什么时候用、怎么组合、踩坑怎么避</text>
+      <text x="294" y="288" class="sub">SOP · examples · scripts · gotchas</text>
+    </g>
+
+    <path d="M1110 579 C1162 520, 1168 455, 1118 398" class="ink" marker-end="url(#arrowInk)"/>
+    <path d="M1106 405 C1161 346, 1154 280, 1088 230" class="ink" marker-end="url(#arrowInk)"/>
+    <text x="1120" y="480" class="small">标准化</text>
+    <text x="1122" y="508" class="small">接入</text>
+    <text x="1112" y="312" class="small">流程</text>
+    <text x="1112" y="340" class="small">上浮</text>
+
+    <path d="M103 548 C66 545, 52 579, 78 602 C100 621, 135 607, 134 578 C133 555, 121 548, 103 548 Z" fill="#ffffff" opacity="0.76" class="ink"/>
+    <circle cx="89" cy="574" r="4" fill="#263238"/>
+    <circle cx="116" cy="574" r="4" fill="#263238"/>
+    <path d="M101 585 C106 591, 111 586, 116 585" class="ink2"/>
+    <path d="M79 552 L88 532 L99 551" fill="#ffffff" class="ink"/>
+    <path d="M117 552 L128 532 L132 556" fill="#ffffff" class="ink"/>
+    <text x="48" y="645" class="small">砚砚手绘：面试回答别说“选哪个”，先问“哪一层？”</text>
+  </g>
+</svg>
