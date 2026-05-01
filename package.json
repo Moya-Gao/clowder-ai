@@ -56,6 +56,7 @@
     "check:env-ports": "node --test scripts/check-env-port-drift.test.mjs",
     "check:env-registry": "node --test scripts/check-env-registry.test.mjs",
     "check:env-example": "node --test scripts/check-env-example.test.mjs",
+    "check:worktree-port-offset": "node --test scripts/derive-worktree-ports.test.mjs && node scripts/check-worktree-port-offset.mjs",
     "gen:env-reference": "node scripts/gen-env-reference.mjs",
     "check:features": "node scripts/check-feature-truth.mjs",
     "check:followup-tails": "node scripts/check-followup-tails.mjs",
