@@ -642,7 +642,7 @@ export class InvocationQueue {
     return false;
   }
 
-  /** Whether any scope has queued entries for this thread.
+  /** Whether any scope has fresh queued entries for this thread.
    *  Agent-sourced entries are dispatchable pending work regardless of age;
    *  user/connector entries keep the stale guard so old interactive messages
    *  do not permanently force thread-wide queue/busy mode.
@@ -660,6 +660,21 @@ export class InvocationQueue {
       ) {
         return true;
       }
+    }
+    return false;
+  }
+
+  /**
+   * Whether any scope has dispatchable queued work for this thread.
+   *
+   * This deliberately has no stale queued guard: a queued entry is pending work
+   * until it is dispatched, canceled, or cleared. The stale guard in
+   * hasQueuedForThread is only for fairness/queue-mode routing decisions.
+   */
+  hasDispatchableQueuedForThread(threadId: string): boolean {
+    for (const q of this.queues.values()) {
+      if (!this.queueMatchesThread(q, threadId)) continue;
+      if (q.some((e) => e.status === 'queued')) return true;
     }
     return false;
   }

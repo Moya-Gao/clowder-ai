@@ -310,6 +310,36 @@ describe('InvocationQueue', () => {
     );
   });
 
+  it('hasDispatchableQueuedForThread keeps stale user entries visible for dispatch', () => {
+    queue.enqueue(entry({ userId: 'alice', source: 'user' }));
+    const listed = queue.list('t1', 'alice');
+    listed[0].createdAt = Date.now() - InvocationQueue.STALE_QUEUED_THRESHOLD_MS - 1;
+
+    assert.equal(queue.hasQueuedForThread('t1'), false, 'freshness/fairness gate should still ignore stale user work');
+    assert.equal(
+      queue.hasDispatchableQueuedForThread('t1'),
+      true,
+      'dispatch gate must still see stale user work as pending queue work',
+    );
+  });
+
+  it('hasDispatchableQueuedForThread keeps stale connector entries visible for dispatch', () => {
+    queue.enqueue(entry({ userId: 'alice', source: 'connector' }));
+    const listed = queue.list('t1', 'alice');
+    listed[0].createdAt = Date.now() - InvocationQueue.STALE_QUEUED_THRESHOLD_MS - 1;
+
+    assert.equal(
+      queue.hasQueuedForThread('t1'),
+      false,
+      'freshness/fairness gate should still ignore stale connector work',
+    );
+    assert.equal(
+      queue.hasDispatchableQueuedForThread('t1'),
+      true,
+      'dispatch gate must still see stale connector work as pending queue work',
+    );
+  });
+
   // ── Cross-thread isolation ──
 
   it('different threads are fully isolated', () => {

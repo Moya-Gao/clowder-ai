@@ -8,6 +8,7 @@ function depsWithQueuedThread() {
   return {
     queue: {
       hasQueuedForThread: mock.fn(() => true),
+      hasDispatchableQueuedForThread: mock.fn(() => true),
       listUsersForThread: mock.fn(() => []),
       list: mock.fn(() => []),
     },
