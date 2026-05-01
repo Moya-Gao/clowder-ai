@@ -8,7 +8,7 @@ created: 2026-03-10
 
 # F093: Cats & U — 陪伴式共创世界引擎
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -211,14 +211,14 @@ MiniMax OpenRoom（MIT 开源）是一个浏览器内 AI 桌面环境+拟人角�
 ## Acceptance Criteria
 
 ### Phase A：一个活着的房间
-- [ ] AC-A1: World + Character + Scene + Canon Decision 数据结构设计完成（SQLite schema + TS 类型），包含 `worldId` / `sceneId` / source anchor 元数据以复用 F102 检索过滤
-- [ ] AC-A2: Character 5 槽模板可用（核心身份/内在驱动力/关系张力/声音形象/成长状态）
-- [ ] AC-A3: Role Mask 机制实现——overlay 写新槽位不复用 core key（KD-12 五层分类）
+- [x] AC-A1: World + Character + Scene + Canon Decision 数据结构设计完成（SQLite schema + TS 类型），包含 `worldId` / `sceneId` / source anchor 元数据以复用 F102 检索过滤
+- [x] AC-A2: Character 5 槽模板可用（核心身份/内在驱动力/关系张力/声音形象/成长状态）
+- [x] AC-A3: Role Mask 机制实现——overlay 写新槽位不复用 core key（KD-12 五层分类）
 - [ ] AC-A4: Build + Perform + Replay-lite 三模式可切换
 - [ ] AC-A5: WorldContextEnvelope 实现——每轮加载活世界状态 + world-scoped recall 到 agent 上下文（新动态注入层，非 static identity）
-- [ ] AC-A6: WorldActionEnvelope 实现——agent 输出 typed 动作提案，runtime coordinator 校验后提交
-- [ ] AC-A7: CanonPromotionRecord 状态机实现——draft → proposed → accepted/rejected
-- [ ] AC-A8: Append-only world_event_log 可用——Replay 回看状态变化不只是聊天记录；event log 是权威时间线，evidence index 只是派生检索层
+- [x] AC-A6: WorldActionEnvelope 实现——agent 输出 typed 动作提案，runtime coordinator 校验后提交
+- [x] AC-A7: CanonPromotionRecord 状态机实现——draft → proposed → accepted/rejected
+- [x] AC-A8: Append-only world_event_log 可用——Replay 回看状态变化不只是聊天记录；event log 是权威时间线，evidence index 只是派生检索层
 - [ ] AC-A9: Care Loop 实现——温柔 check-in + 行动建议 + 现实连接引导
 - [ ] AC-A10: 至少完成一次"建世界 → 进场景 → 留下可追溯记忆 → world-scoped recall → Replay 回看"的端到端体验
 - [ ] AC-A11: F129 Phase B 解锁——Scenario Pack 的 world-driver.yaml `resolver: agent` 有 runtime 可执行
@@ -296,6 +296,7 @@ MiniMax OpenRoom（MIT 开源）是一个浏览器内 AI 桌面环境+拟人角�
 | 2026-03-25 | 铲屎官拍板画风：米哈游风格（星穹铁道/原神），KD-10 落地。暹罗猫可开 Pencil 概念板 |
 | 2026-03-26 | Design Gate 前讨论（宪宪×砚砚）：OQ-1/OQ-2 收口，三个核心协议定义，Phase 重划（面向终态），resolver 语义校准（KD-11~15） |
 | 2026-04-30 | 复盘 F102 记忆系统成熟后的复用路径，新增 KD-16：世界记忆复用 F102 架构；Phase A 计划要求标清 world-scoped recall 与权威状态边界 |
+| 2026-05-01 | Phase A typed protocols + runtime coordinator merged (PR #1515) — schemas, SQLite store, coordinator, routes, action handlers, JSON patch, 104 tests |
 
 ## Review Gate
 
