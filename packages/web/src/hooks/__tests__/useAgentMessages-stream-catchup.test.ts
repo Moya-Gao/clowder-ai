@@ -31,6 +31,10 @@ const mockClearThreadActiveInvocation = vi.fn();
 const mockResetThreadInvocationState = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
 const mockGetThreadState = vi.fn((): { messages: TestMessage[] } => ({ messages: [] }));
+// F183 B1.2.2: active text stream → reducer → replaceMessages
+const mockReplaceMessages = vi.fn((msgs: TestMessage[]) => {
+  storeState.messages = msgs;
+});
 
 const storeState = {
   messages: [] as TestMessage[],
@@ -49,6 +53,7 @@ const storeState = {
   requestStreamCatchUp: mockRequestStreamCatchUp,
 
   addMessageToThread: mockAddMessageToThread,
+  replaceMessages: mockReplaceMessages,
   clearThreadActiveInvocation: mockClearThreadActiveInvocation,
   resetThreadInvocationState: mockResetThreadInvocationState,
   setThreadMessageStreaming: mockSetThreadMessageStreaming,

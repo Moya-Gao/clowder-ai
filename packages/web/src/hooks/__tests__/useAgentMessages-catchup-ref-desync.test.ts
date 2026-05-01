@@ -44,6 +44,10 @@ const mockPatchMessage = vi.fn();
 const mockRemoveMessage = vi.fn();
 const mockRemoveActiveInvocation = vi.fn();
 const mockClearAllActiveInvocations = vi.fn();
+// F183 B1.2.2: active text stream → reducer → replaceMessages
+const mockReplaceMessages = vi.fn((msgs: unknown[]) => {
+  storeState.messages = msgs as typeof storeState.messages;
+});
 
 const mockAddMessageToThread = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
@@ -85,6 +89,7 @@ const storeState = {
   clearAllActiveInvocations: mockClearAllActiveInvocations,
 
   addMessageToThread: mockAddMessageToThread,
+  replaceMessages: mockReplaceMessages,
   clearThreadActiveInvocation: mockClearThreadActiveInvocation,
   resetThreadInvocationState: mockResetThreadInvocationState,
   setThreadMessageStreaming: mockSetThreadMessageStreaming,

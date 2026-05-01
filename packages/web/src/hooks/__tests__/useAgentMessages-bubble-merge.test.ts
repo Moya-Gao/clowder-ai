@@ -38,6 +38,11 @@ const mockRemoveActiveInvocation = vi.fn((invocationId: string) => {
 });
 
 const mockAddMessageToThread = vi.fn();
+// F183 B1.2.2: mockReplaceMessages mirrors store API; impl applies new array
+// so downstream test assertions on storeState.messages see updated state.
+const mockReplaceMessages = vi.fn((msgs: unknown[]) => {
+  storeState.messages = msgs as typeof storeState.messages;
+});
 const mockClearThreadActiveInvocation = vi.fn();
 const mockResetThreadInvocationState = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
@@ -74,6 +79,8 @@ const storeState = {
   setMessageStreamInvocation: mockSetMessageStreamInvocation,
 
   addMessageToThread: mockAddMessageToThread,
+  // F183 B1.2.2 wire-up: active text stream → reducer → replaceMessages
+  replaceMessages: mockReplaceMessages,
   clearThreadActiveInvocation: mockClearThreadActiveInvocation,
   resetThreadInvocationState: mockResetThreadInvocationState,
   setThreadMessageStreaming: mockSetThreadMessageStreaming,
@@ -535,10 +542,14 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
         invocationId: 'inv-new',
       });
     });
-    // Should have created/appended for inv-new. Either way, mockAddMessage called or appendToMessage.
+    // Should have created/appended for inv-new. Either way, mockAddMessage called or appendToMessage
+    // OR replaceMessages (F183 B1.2.2 reducer wire-up for existing-bubble append).
     const addedForNew = mockAddMessage.mock.calls.some(([m]) => m.type === 'assistant' && m.catId === 'opus');
     const appendedForNew = mockAppendToMessage.mock.calls.some((c) => c[1] === 'explicit chunk for new run');
-    expect(addedForNew || appendedForNew, 'explicit inv-new chunk must be processed').toBe(true);
+    const replacedForNew = mockReplaceMessages.mock.calls.some((c) =>
+      (c[0] as Array<{ content?: string }>).some((m) => m.content?.includes('explicit chunk for new run')),
+    );
+    expect(addedForNew || appendedForNew || replacedForNew, 'explicit inv-new chunk must be processed').toBe(true);
 
     vi.clearAllMocks();
 
@@ -555,6 +566,10 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
       mockAppendToMessage.mock.calls.some((c) => c[1] === 'legacy invocationless follow-up') ||
       mockAddMessage.mock.calls.some(
         ([m]) => m.type === 'assistant' && m.catId === 'opus' && m.content === 'legacy invocationless follow-up',
+      ) ||
+      // F183 B1.2.2: reducer-routed path also acceptable
+      mockReplaceMessages.mock.calls.some((c) =>
+        (c[0] as Array<{ content?: string }>).some((m) => m.content?.includes('legacy invocationless follow-up')),
       );
     expect(processedFollowup, 'invocationless follow-up must NOT be silently dropped').toBe(true);
   });
@@ -1205,7 +1220,15 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
     });
 
     const appendCalls = mockAppendToMessage.mock.calls.filter(([id]) => id === 'msg-live');
-    expect(appendCalls.length).toBeGreaterThanOrEqual(1);
+    // F183 B1.2.2: reducer wire-up may route through replaceMessages instead of appendToMessage
+    const replaceCalls = mockReplaceMessages.mock.calls.filter((c) =>
+      (c[0] as Array<{ id?: string; content?: string }>).some(
+        (m) => m.id === 'msg-live' && m.content?.includes(' more live text'),
+      ),
+    );
+    expect(appendCalls.length + replaceCalls.length, 'live stream chunk must not be suppressed').toBeGreaterThanOrEqual(
+      1,
+    );
   });
 
   it('final done preserves a recovered partial stream bubble', () => {

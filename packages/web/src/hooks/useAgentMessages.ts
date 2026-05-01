@@ -3,7 +3,10 @@
 import type { ReplyPreview } from '@cat-cafe/shared';
 import { useCallback, useEffect, useRef } from 'react';
 import { deriveBubbleId } from '@/debug/bubbleIdentity';
+import { recordBubbleInvariantViolation } from '@/debug/bubbleInvariantDiagnostics';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
+import { adaptIncomingToBubbleEvent } from '@/hooks/bubble-event-adapter';
+import { applyBubbleEvent } from '@/stores/bubble-reducer';
 import type {
   CatInvocationInfo,
   CatStatusType,
@@ -2106,7 +2109,39 @@ export function useAgentMessages() {
             ...(msg.invocationId ? { invocationId: msg.invocationId } : {}),
           });
           if (messageId) {
-            if (msg.textMode === 'replace') {
+            // F183 Phase B1.2.2 — active text stream chunk into existing bubble
+            // routes through BubbleReducer (single-writer) **only when msg has a
+            // canonical invocationId**. Invocationless legacy chunks stay on the
+            // direct-mutation path (reducer 的 stable-key 查重需要 canonicalInvocationId)。
+            // New-bubble 创建仍走旧路径（B1.2.3 收口）。
+            if (msg.invocationId) {
+              const threadId = msg.threadId ?? useChatStore.getState().currentThreadId;
+              const event = adaptIncomingToBubbleEvent({ ...msg, threadId } as BackgroundAgentMessage, {
+                sourcePath: 'active',
+              });
+              if (event) {
+                // Caller-provided id 优先于 reducer 自己 derive，保持与 deriveBubbleId
+                // 的 `msg-${inv}-${cat}` 兼容（不带 bubbleKind 后缀），避免 callback
+                // strict-match 用 deriveBubbleId 找不到。
+                const eventWithId = event.messageId ? event : { ...event, messageId };
+                // Round 1 P1 (云端 codex): replaceMessages 同时写 messages 和 hasMore；
+                // 强制 false 会让 `useChatHistory` gate on hasMore 永远为 false，杀掉
+                // 老历史 pagination。复用当前 store hasMore，保持 live chunk 不动 pagination。
+                const storeSnapshot = useChatStore.getState();
+                const result = applyBubbleEvent({
+                  threadId,
+                  event: eventWithId,
+                  currentMessages: storeSnapshot.messages,
+                });
+                storeSnapshot.replaceMessages(result.nextMessages, storeSnapshot.hasMore);
+                // Round 1 P1 #2 (砚砚): forward reducer violations to invariant gate；
+                // F183 plan 明确要求每条收口 callsite `result.violations.forEach(...)`，
+                // 不接 = canonical-split / phase-regression / duplicate 在 hot path 静默。
+                if (result.violations.length > 0) {
+                  for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+                }
+              }
+            } else if (msg.textMode === 'replace') {
               patchMessage(messageId, { content: msg.content });
             } else {
               appendToMessage(messageId, msg.content);
