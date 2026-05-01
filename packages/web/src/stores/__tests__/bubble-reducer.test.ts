@@ -1313,4 +1313,116 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
     expect(output.nextMessages).toHaveLength(1);
     expect(output.nextMessages[0].content).toBe('Error: Unknown error');
   });
+
+  // F183 Phase B1.4 — invocationless callback wire-up via reducer。
+  // 旧 path: replacementTarget (recently finalized stream bubble) + patchMessage 直接修改。
+  // 新 path: 把 replacementTarget.id 当 messageId hint 传给 reducer；reducer 在 invocationless
+  // event + messageId hit 现有气泡时就地 patch（不创建新 standalone bubble）。
+  it('B1.4: invocationless callback with messageId hint patches existing bubble in place', () => {
+    const existing: ChatMessage = {
+      id: 'msg-stream-target',
+      type: 'assistant',
+      catId: 'codex',
+      content: 'partial stream content',
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      // invocationless — 真实 replacementTarget 场景：rich/tool placeholder 没绑 invocationId
+    };
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'callback_final',
+        originPhase: 'callback/history',
+        sourcePath: 'callback',
+        canonicalInvocationId: undefined, // invocationless
+        bubbleKind: 'assistant_text',
+        messageId: 'msg-stream-target', // hint: patch this id
+        timestamp: 1500,
+        payload: { content: 'final callback answer' },
+      },
+      currentMessages: [existing],
+    });
+
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0]).toMatchObject({
+      id: 'msg-stream-target',
+      content: 'final callback answer',
+      isStreaming: false,
+      origin: 'callback',
+    });
+    expect(output.violations).toEqual([]);
+    expect(output.recoveryAction).toBe('none');
+  });
+
+  it('B1.4: invocationless callback with messageId hint pointing to non-existent bubble falls back to makePlaceholder (creates new)', () => {
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'callback_final',
+        originPhase: 'callback/history',
+        sourcePath: 'callback',
+        canonicalInvocationId: undefined,
+        bubbleKind: 'assistant_text',
+        messageId: 'msg-cb-fresh-id',
+        timestamp: 1500,
+        payload: { content: 'standalone callback' },
+      },
+      currentMessages: [], // no target bubble
+    });
+
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0]).toMatchObject({
+      id: 'msg-cb-fresh-id',
+      content: 'standalone callback',
+      isStreaming: false,
+      origin: 'callback',
+    });
+  });
+
+  it('B1.4: invocationless callback WITHOUT messageId hint creates standalone bubble (no hijack of unrelated existing bubble)', () => {
+    // 没 messageId hint 时不能扫所有气泡找 invocationless target —— 那会 hijack
+    // 别的 invocation 的 stream bubble。caller 没传 hint = caller 不知道 patch 哪条 = 创建新
+    const unrelated: ChatMessage = {
+      id: 'msg-unrelated',
+      type: 'assistant',
+      catId: 'codex',
+      content: 'unrelated stream',
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+    };
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'callback_final',
+        originPhase: 'callback/history',
+        sourcePath: 'callback',
+        canonicalInvocationId: undefined,
+        bubbleKind: 'assistant_text',
+        messageId: undefined, // NO hint
+        timestamp: 1500,
+        payload: { content: 'orphan callback' },
+      },
+      currentMessages: [unrelated],
+    });
+
+    // unrelated 留着；callback 落 standalone 新 bubble
+    expect(output.nextMessages).toHaveLength(2);
+    expect(output.nextMessages.find((m) => m.id === 'msg-unrelated')).toMatchObject({
+      content: 'unrelated stream',
+      isStreaming: true,
+      origin: 'stream',
+    });
+    expect(
+      output.nextMessages.find((m) => m.id !== 'msg-unrelated'),
+    ).toMatchObject({
+      content: 'orphan callback',
+      isStreaming: false,
+      origin: 'callback',
+    });
+  });
 });

@@ -310,6 +310,27 @@ function reduceErrorEvent(messages: ChatMessage[], event: BubbleEvent): ChatMess
 
 function reduceCallbackFinal(messages: ChatMessage[], event: BubbleEvent): ChatMessage[] {
   const finalContent = (event.payload?.content as string) ?? '';
+
+  // F183 Phase B1.4 — invocationless callback wire-up: caller resolved a target
+  // bubble (e.g. replacementTarget = recently finalized stream / rich placeholder)
+  // and passes its id via event.messageId as a patch hint. ADR-033 #4 禁止 invocationless
+  // 参与 stable key 查重，所以走显式 id lookup —— 命中就地 patch；未命中走
+  // makePlaceholder fallback（与 caller 没传 hint 时的"创建 standalone bubble"语义一致）。
+  // 只在 invocationless 路径生效；canonical event 仍走下方 findExistingByStableKey。
+  if (!event.canonicalInvocationId && event.messageId) {
+    const idx = messages.findIndex((m) => m.id === event.messageId);
+    if (idx !== -1) {
+      const next = [...messages];
+      next[idx] = {
+        ...next[idx],
+        content: finalContent,
+        isStreaming: false,
+        origin: 'callback',
+      };
+      return next;
+    }
+  }
+
   const existing = findExistingByStableKey(messages, event);
   if (existing) {
     const next = [...messages];

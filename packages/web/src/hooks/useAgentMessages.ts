@@ -2130,20 +2130,74 @@ export function useAgentMessages() {
             if (finalId !== replacementTarget.id) {
               replaceMessageId(replacementTarget.id, finalId);
             }
+
+            // F183 Phase B1.4 — invocationless callback path wire-up to reducer
+            // (single-writer). Pass finalId (= replacementTarget.id 或 msg.messageId
+            // 覆盖) 作为 event.messageId hint，reduceCallbackFinal 的 invocationless
+            // 分支命中现有 bubble → 就地 patch (content/origin/isStreaming)。
+            // recoveryAction !== 'none' 时 fallback 到 legacy patchMessage 保 content。
+            // 共存 side-effects (deleteActive / clearFinalized / markReplacedInvocation)
+            // 跟 legacy 一致保留。
+            const threadIdForCallback = msg.threadId ?? useChatStore.getState().currentThreadId;
+            const event = adaptIncomingToBubbleEvent(
+              { ...msg, threadId: threadIdForCallback } as BackgroundAgentMessage,
+              { sourcePath: 'callback' },
+            );
+            let reducerHandled = false;
+            if (event) {
+              const eventWithHint = { ...event, messageId: finalId };
+              const storeSnapshot = useChatStore.getState();
+              const result = applyBubbleEvent({
+                threadId: threadIdForCallback,
+                event: eventWithHint,
+                currentMessages: storeSnapshot.messages,
+              });
+              if (result.recoveryAction === 'none') {
+                storeSnapshot.replaceMessages(result.nextMessages, storeSnapshot.hasMore);
+                reducerHandled = true;
+              }
+              if (result.violations.length > 0) {
+                for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+              }
+            }
+
+            // metadata / extra.crossPost / mentionsUser / replyTo / replyPreview
+            // 是 reducer 不 model 的 side fields —— reducer 命中后用 patchMessage
+            // 单独写，保持 B1.2.4 active callback explicit 路径同款语义。
             const extraForPatch = {
               ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
               ...(hasExplicitInvocationId && msg.invocationId ? { stream: { invocationId: msg.invocationId } } : {}),
             };
-            patchMessage(finalId, {
-              content: msg.content,
-              origin: 'callback',
-              isStreaming: false,
-              ...(msg.metadata ? { metadata: msg.metadata } : {}),
-              ...(Object.keys(extraForPatch).length > 0 ? { extra: extraForPatch } : {}),
-              ...(msg.mentionsUser ? { mentionsUser: true } : {}),
-              ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
-              ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
-            });
+            if (reducerHandled) {
+              if (
+                msg.metadata ||
+                Object.keys(extraForPatch).length > 0 ||
+                msg.mentionsUser ||
+                msg.replyTo ||
+                msg.replyPreview
+              ) {
+                patchMessage(finalId, {
+                  ...(msg.metadata ? { metadata: msg.metadata } : {}),
+                  ...(Object.keys(extraForPatch).length > 0 ? { extra: extraForPatch } : {}),
+                  ...(msg.mentionsUser ? { mentionsUser: true } : {}),
+                  ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+                  ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
+                });
+              }
+            } else {
+              // legacy fallback: reducer 拒绝（quarantine / sot-override），
+              // 保持原本的 patchMessage 行为，content 一定要落到 store。
+              patchMessage(finalId, {
+                content: msg.content,
+                origin: 'callback',
+                isStreaming: false,
+                ...(msg.metadata ? { metadata: msg.metadata } : {}),
+                ...(Object.keys(extraForPatch).length > 0 ? { extra: extraForPatch } : {}),
+                ...(msg.mentionsUser ? { mentionsUser: true } : {}),
+                ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+                ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
+              });
+            }
             deleteActive(msg.catId);
             clearFinalized(msg.catId);
             if (invocationId) {

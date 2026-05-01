@@ -223,15 +223,9 @@ describe('useAgentMessages rich_block correlation (Bug A)', () => {
 
     expect(mockAddMessage).not.toHaveBeenCalled();
     expect(mockReplaceMessageId).toHaveBeenCalledWith('msg-stream-opus', 'msg-callback-opus');
-    expect(mockPatchMessage).toHaveBeenCalledWith(
-      'msg-callback-opus',
-      expect.objectContaining({
-        content: 'final answer',
-        origin: 'callback',
-        isStreaming: false,
-      }),
-    );
-
+    // F183 Phase B1.4: invocationless callback path now flows through reducer →
+    // replaceMessages. Legacy patchMessage with content/origin/isStreaming is
+    // no longer the writer; storeState end-state below验证 same behavior。
     expect(storeState.messages).toEqual([
       expect.objectContaining({
         id: 'msg-callback-opus',
@@ -273,14 +267,8 @@ describe('useAgentMessages rich_block correlation (Bug A)', () => {
 
     expect(mockAddMessage).not.toHaveBeenCalled();
     expect(mockReplaceMessageId).toHaveBeenCalledWith('msg-stream-finalized', 'msg-callback-final');
-    expect(mockPatchMessage).toHaveBeenCalledWith(
-      'msg-callback-final',
-      expect.objectContaining({
-        content: 'final answer',
-        origin: 'callback',
-        isStreaming: false,
-      }),
-    );
+    // F183 Phase B1.4: invocationless callback path flows through reducer; storeState
+    // end-state assertion below验证 patched bubble （content/origin/isStreaming）。
     expect(storeState.messages).toEqual([
       expect.objectContaining({
         id: 'msg-callback-final',
