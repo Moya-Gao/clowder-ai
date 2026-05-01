@@ -70,6 +70,42 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
     expect(output.recoveryAction).toBe('none');
   });
 
+  // 云端 codex round 5 P1 (F183-B1.2.1): textMode='replace' 重写 bubble content（不
+  // 累加），对齐 useAgentMessages.ts:991 patchThreadMessage('replace') 既有语义。
+  it('replaces content via stream_chunk when textMode=replace (round 5 P1)', () => {
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'stream_chunk',
+        timestamp: 1100,
+        payload: { content: 'rewritten output', textMode: 'replace' },
+      },
+      currentMessages: [streamPlaceholder({ content: 'old content that should be gone' })],
+    });
+
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0].content).toBe('rewritten output');
+    expect(output.violations).toEqual([]);
+    expect(output.recoveryAction).toBe('none');
+  });
+
+  // 默认 textMode='append'（不传也累加）— 防止 round 5 P1 修复带来的回归
+  it('appends content via stream_chunk when textMode is omitted (round 5 P1 regression guard)', () => {
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'stream_chunk',
+        timestamp: 1100,
+        payload: { content: ' tail' },
+      },
+      currentMessages: [streamPlaceholder({ content: 'head' })],
+    });
+
+    expect(output.nextMessages[0].content).toBe('head tail');
+  });
+
   it('replaces stream placeholder via callback_final without splitting bubble', () => {
     const output = applyBubbleEvent({
       threadId: 'thread-1',

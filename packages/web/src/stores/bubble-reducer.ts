@@ -205,20 +205,26 @@ function reduceStreamStarted(messages: ChatMessage[], event: BubbleEvent): ChatM
 
 function reduceStreamChunk(messages: ChatMessage[], event: BubbleEvent): ChatMessage[] {
   const chunkContent = (event.payload?.content as string) ?? '';
+  // Round 5 P1 (云端 codex F183-B1.2.1): textMode='replace' 重写 bubble content（不
+  // 累加），对齐 useAgentMessages.ts:991 patchThreadMessage('replace') 既有语义。
+  // 默认 'append'（连续 stream chunks 累加）。
+  const isReplace = event.payload?.textMode === 'replace';
   const existing = findExistingByStableKey(messages, event);
   if (existing) {
     const next = [...messages];
-    next[existing.index] = { ...existing.message, content: existing.message.content + chunkContent };
+    const nextContent = isReplace ? chunkContent : existing.message.content + chunkContent;
+    next[existing.index] = { ...existing.message, content: nextContent };
     return next;
   }
   const upgrade = findUpgradableLocalPlaceholder(messages, event);
   if (upgrade) {
     const next = [...messages];
+    const nextContent = isReplace ? chunkContent : upgrade.message.content + chunkContent;
     next[upgrade.index] = withCanonicalUpgrade(
       upgrade.message,
       event,
       {
-        content: upgrade.message.content + chunkContent,
+        content: nextContent,
       },
       messages,
     );
