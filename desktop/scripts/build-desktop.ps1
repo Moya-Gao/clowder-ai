@@ -77,10 +77,14 @@ if (-not $SkipBundleDeps) {
     if (Test-Path $deployRoot) { Remove-Item $deployRoot -Recurse -Force }
     New-Item -ItemType Directory -Path $deployRoot -Force | Out-Null
 
-    # Force disable bin-link creation via env var. The CLI flag
-    # --config.bin-links=false is not propagated by pnpm deploy's internal
-    # install step; the env var is the only reliable override.
+    # Force disable bin-link creation for pnpm deploy's internal install step.
+    # `pnpm deploy` has ignored both the CLI flag and npm_config env override on
+    # Windows release runners, so write a temporary project-level .npmrc and
+    # restore it before leaving this step.
     $prevBinLinks = $env:npm_config_bin_links
+    $npmrcPath = Join-Path $ProjectRoot ".npmrc"
+    $npmrcHadOriginal = Test-Path $npmrcPath
+    $npmrcOriginalContent = if ($npmrcHadOriginal) { Get-Content $npmrcPath -Raw } else { $null }
     $defenderExclusionAdded = $false
     $deployFailed = $false
 
@@ -96,6 +100,16 @@ if (-not $SkipBundleDeps) {
 
     try {
         $env:npm_config_bin_links = "false"
+        $npmrcDeployContent = if ($npmrcHadOriginal) {
+            $npmrcOriginalContent -replace "(?m)^\s*bin-links\s*=.*\r?\n?", ""
+        } else {
+            ""
+        }
+        if ($npmrcDeployContent.Length -gt 0 -and -not $npmrcDeployContent.EndsWith("`n")) {
+            $npmrcDeployContent += "`n"
+        }
+        $npmrcDeployContent += "bin-links=false`n"
+        Set-Content -Path $npmrcPath -Value $npmrcDeployContent -NoNewline -Encoding utf8
 
         Push-Location $ProjectRoot
         try {
@@ -116,6 +130,11 @@ if (-not $SkipBundleDeps) {
             Remove-Item Env:npm_config_bin_links -ErrorAction SilentlyContinue
         } else {
             $env:npm_config_bin_links = $prevBinLinks
+        }
+        if ($npmrcHadOriginal) {
+            Set-Content -Path $npmrcPath -Value $npmrcOriginalContent -NoNewline -Encoding utf8
+        } else {
+            Remove-Item $npmrcPath -ErrorAction SilentlyContinue
         }
         if ($defenderExclusionAdded) {
             try { Remove-MpPreference -ExclusionPath $deployRoot -ErrorAction SilentlyContinue } catch {}

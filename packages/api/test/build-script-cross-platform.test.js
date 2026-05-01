@@ -35,3 +35,17 @@ test('windows desktop build script restores npm_config_bin_links after deploy', 
   );
   assert.match(buildScript, /else\s*\{\s*\$env:npm_config_bin_links = \$prevBinLinks/s);
 });
+
+test('windows desktop build script restores temporary pnpm deploy npmrc config', async () => {
+  const buildScript = await readFile(desktopBuildScriptPath, 'utf8');
+
+  assert.match(buildScript, /\$npmrcPath = Join-Path \$ProjectRoot "\.npmrc"/);
+  assert.match(buildScript, /\$npmrcOriginalContent = if \(\$npmrcHadOriginal\) \{ Get-Content \$npmrcPath -Raw \}/);
+  assert.match(buildScript, /bin-links=false`n/);
+  assert.match(buildScript, /Set-Content -Path \$npmrcPath -Value \$npmrcDeployContent -NoNewline -Encoding utf8/);
+  assert.match(
+    buildScript,
+    /if \(\$npmrcHadOriginal\)\s*\{\s*Set-Content -Path \$npmrcPath -Value \$npmrcOriginalContent -NoNewline -Encoding utf8/s,
+  );
+  assert.match(buildScript, /else\s*\{\s*Remove-Item \$npmrcPath -ErrorAction SilentlyContinue\s*\}/s);
+});
