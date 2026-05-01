@@ -4,7 +4,7 @@ related_features: [F081, F123, F176, F184]
 topics: [bubble, message-pipeline, identity-contract, reconcile, idb-cache, websocket, sequence-number, store-invariant, bubble-event, runtime-diagnostics]
 doc_kind: decision
 created: 2026-04-30
-status: accepted — Phase A done; Phase B0 implementation merged (PR #1496)
+status: accepted — Phase A done; Phase B0 implementation merged (PR #1496); Phase B1.1 reducer core merged (PR #1500)
 related: [F081, F123, F176, F183, F184, ADR-031]
 ---
 
@@ -303,6 +303,7 @@ timestamp
 | 2026-04-30 | 47 收敛 Round 4 + ADR-033 v2 修订（11 个 v2 改动，详见文首 v2 改动清单） |
 | 2026-04-30 | **铲屎官自治放行 → Phase A done**。原话："哈哈哈这个太技术细节了 按照家里的要求 好像没有我需要一条条看的，你们自己决策就行！" → 解锁 Phase B0 worktree + F184 立项（提前于 Roadmap 05-01） |
 | 2026-04-30 | **Phase B0 implementation merged**：PR #1496（commit `a6be5970e`）落地 `BubbleEvent` / `BubbleKind` shared contract、invariant gate、runtime diagnostics、replay harness；B1 follow-up：review `recoveryAction` default override in reducer |
+| 2026-05-01 | **Phase B1.1 reducer core merged**：PR #1500（commit `2fbde77ec`）落地 BubbleReducer core、placeholder 单调升级、ambiguous quarantine、deterministic local fallback id、callback_final backend id adoption；B1.2+ 继续收口热写入口 |
 
 ## Round 3 Review - 烁烁
 

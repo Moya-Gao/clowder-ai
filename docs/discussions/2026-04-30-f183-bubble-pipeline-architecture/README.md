@@ -722,3 +722,24 @@ Phase B 的 Single Writer 需要测试——如果没有统一的 fixture 格式
 - `recoveryAction` 默认值从 B0 带入 B1 review checklist：Single Writer / reducer 落地时检查 duplicate 是否都应默认 `quarantine`，尤其是 `callback_final` 后到达的 late stream chunk 是否应改走 catch-up。
 
 **下一步**：Phase B1（Single Writer / Reconcile Reducer）解锁；F184 按 KD-A5 仍与 F183 后续实施串行协调，禁止并发改同一假设面。
+
+---
+
+## Phase B1.1 done（2026-05-01）
+
+**Merge**：PR #1500 squash merged，commit `2fbde77ec`。
+
+**落地范围**：
+- BubbleReducer core：`applyBubbleEvent` / stable-key lookup / canonical-split validation
+- Local placeholder 单调升级：唯一 candidate 才升级；ambiguous candidates 直接 quarantine，禁止 timestamp 猜测 merge
+- B1 follow-up：`callback_final` 后 late `stream_chunk` 走 `catch-up`；其他 phase regression 走 `quarantine` + violation
+- ID determinism：invocationless fallback id 使用当前 store 中同 prefix 最大 suffix + 1，避免 module counter 与 gap collision
+- Hydration reconciliation：`callback_final` 命中 stream placeholder 时升级为 backend `messageId`
+
+**Review 证据**：
+- Focused reducer/invariant/replay diagnostics：36 tests passed
+- `pnpm gate` 全绿，SHA `9e080652`，已 rebase 到 `origin/main`
+- 云端 Codex latest review：`Didn't find any major issues`
+- 砚砚 review-continuity guard 放行到最终 HEAD 后执行 merge-gate
+
+**下一步**：Phase B1.2+ 继续渐进收口热写入口（active stream → background stream/callback → draft/queue/hydration/replace），每个子 PR 继续跑 B0 invariant gate + reducer fixture。

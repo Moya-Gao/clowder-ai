@@ -10,7 +10,7 @@ created: 2026-04-30
 
 > **Status**: in-progress | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1
 >
-> Phase A 已 done（2026-04-30，铲屎官自治放行 ADR-033 v2）。Phase B0 已 merged（PR #1496，commit `a6be5970e`）；Phase B1 worktree + F184 实施解锁（roadmap 串行）。
+> Phase A 已 done（2026-04-30，铲屎官自治放行 ADR-033 v2）。Phase B0 已 merged（PR #1496，commit `a6be5970e`）。Phase B1.1 reducer core 已 merged（PR #1500，commit `2fbde77ec`）；Phase B1.2+ 继续收口热写入口（roadmap 串行）。
 
 ## Why
 
@@ -104,10 +104,11 @@ created: 2026-04-30
 
 ### Phase B1（Single Writer）
 
-- [ ] AC-B1: `MessageWriter` / reconcile reducer 落地，所有写入口收敛
+- [~] AC-B1: `MessageWriter` / reconcile reducer 落地，所有写入口收敛（B1.1 已落 reducer core；B1.2+ 继续 active stream / background stream / callback / draft / hydration / replace 入口收口）
+- [x] AC-B1.1: BubbleReducer core 落地（PR #1500，merge commit `2fbde77ec`），覆盖 stable-key lookup、local placeholder 单调升级、ambiguous upgrade quarantine、deterministic local fallback id、callback_final backend id adoption
 - [ ] AC-B2: `mergeReplaceHydrationMessages()` 简化到 ≤ 2 种匹配策略
 - [ ] AC-B3: F123 TD111 + TD113 收编完成
-- [ ] AC-B4: Review `recoveryAction` 默认值是否需要 reducer 覆盖（B0 P2 follow-up：late stream chunk after `callback_final` 可能应走 catch-up 而非 quarantine）
+- [x] AC-B4: Review `recoveryAction` 默认值是否需要 reducer 覆盖（B0 P2 follow-up 已落地：late `stream_chunk` after `callback_final` 走 `catch-up`；其他 phase regression 走 `quarantine` + violation）
 
 ### Phase C（Sequence + Gap）
 
@@ -206,6 +207,7 @@ created: 2026-04-30
 | 2026-04-30 | ADR-033 v1 草稿 → Round 3 三猫同日全部到齐（烁烁 / 46 / 砚砚）→ v2 修订（11 改动，commit `9414d1288`）|
 | 2026-04-30 | **Phase A done**：铲屎官自治放行 ADR-033 v2（"技术细节自决"）。F183 status: idea → in-progress；F184 解锁立项（roadmap 串行）|
 | 2026-04-30 | **Phase B0 done**：PR #1496 squash merged（`a6be5970e`）—— shared contract / invariant gate / diagnostics / replay harness 框架落地；Phase B1 + F184 实施解锁 |
+| 2026-05-01 | **Phase B1.1 done**：PR #1500 squash merged（`2fbde77ec`）—— BubbleReducer core + B1 `recoveryAction` override 落地；focused 36/36、`pnpm gate`、云端 Codex review clean |
 
 ## Review Gate
 
