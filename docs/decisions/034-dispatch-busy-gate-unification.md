@@ -118,7 +118,7 @@ F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvoke
 
 | 改动 | 风险 | 缓解 |
 |------|------|------|
-| ConnectorInvokeTrigger 改 thread 级 | CI 通知延迟（当前 invocation 跑完才处理） | connector queue 不限容量 + priority ordering + 75min TTL 兜底 |
+| ConnectorInvokeTrigger 改 thread 级 | **A2A 链饿死 connector 条目**：猫猫互 @ 时 `tryAutoExecute` 在每次 `onInvocationComplete` 立刻拉起下一只猫，thread 永远不空闲，connector 条目永远出不了队。历史：`b55e75746`（2026-04-26）正是为解决此问题才从 thread 级改回 cat 级 | `onInvocationComplete` 中 connector/user 条目 dequeue 优先级**必须高于** `tryAutoExecute`——先放排队的 connector 消息，再启动下一个 A2A 猫。F175 priority dequeue 是前置依赖 |
 | 加 tryStartThread 原子门控 | 需要重构 trigger() 流程 | 与 messages.ts F122 A.1 模式一致，已有成熟参考 |
 | 投递可见性 system_info | 前端需要渲染新事件类型 | 可复用现有 system_info 通道 |
 
