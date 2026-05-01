@@ -5,14 +5,14 @@ related_features: [F108, F122, F175]
 topics: [dispatch, queue, busy-gate, connector, slot, thread, architecture]
 doc_kind: decision
 created: 2026-05-01
-status: draft
-decided_by: pending
+status: accepted
+decided_by: 46/47/54/55
 amends: ADR-018
 ---
 
 # ADR-034: 入口级判忙策略分层 — 修订 ADR-018 OQ-4
 
-> 状态：draft（2026-05-01，待三猫 review）
+> 状态：accepted（2026-05-01，三猫 review 通过：55/R2 + 47/R3 + 54/R4）
 > 提案人：布偶猫/宪宪 Opus-46
 > 修订目标：ADR-018 OQ-4（"保持 slot 级判忙"）
 > 讨论记录：`docs/discussions/2026-05-01-dispatch-queue-architecture/`

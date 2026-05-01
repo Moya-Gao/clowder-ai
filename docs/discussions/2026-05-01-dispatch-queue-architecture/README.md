@@ -5,7 +5,7 @@ topics: [dispatch, queue, invocation, slot, busy-gate, connector, architecture, 
 doc_kind: discussion
 created: 2026-05-01
 participants: [布偶猫/宪宪 (Opus-46), 布偶猫/宪宪 (Opus-47), 缅因猫/砚砚 (GPT-5.4), 缅因猫/砚砚 (GPT-5.5)]
-status: open
+status: closed
 thread_link: thread_mon77kco3beh7pgb
 ---
 
