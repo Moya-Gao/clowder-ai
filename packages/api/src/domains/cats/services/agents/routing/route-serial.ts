@@ -64,6 +64,7 @@ import {
   unregisterWorklist,
   updateStreakOnPush,
 } from '../routing/WorklistRegistry.js';
+import { accumulateTextAggregate } from '../text-aggregation.js';
 import { extractContextEvalSignals } from './context-eval.js';
 import { validateRoutingSyntax } from './final-routing-slot.js';
 import { buildBriefingMessage } from './format-briefing.js';
@@ -735,7 +736,11 @@ export async function* routeSerial(
           }
 
           if (effectiveMsg.type === 'text' && effectiveMsg.content) {
-            textContent += effectiveMsg.content;
+            textContent = accumulateTextAggregate(
+              textContent,
+              effectiveMsg.content,
+              (effectiveMsg as { textMode?: 'append' | 'replace' }).textMode,
+            );
             voiceChunker?.feed(effectiveMsg.content);
           }
           // F045: Accumulate thinking blocks for persistence (F5 recovery)
@@ -808,11 +813,15 @@ export async function* routeSerial(
           if (deps.draftStore && ownInvocationId) {
             const now = Date.now();
             const charDelta = textContent.length - lastFlushLen;
+            const isReplaceText = (effectiveMsg as { textMode?: 'append' | 'replace' }).textMode === 'replace';
             const neverFlushed = lastFlushLen === 0 && lastFlushToolLen === 0;
             if (
               effectiveMsg.type === 'text' &&
-              charDelta > 0 &&
-              (neverFlushed || now - lastFlushTime >= FLUSH_INTERVAL_MS || charDelta >= FLUSH_CHAR_DELTA)
+              charDelta !== 0 &&
+              (neverFlushed ||
+                isReplaceText ||
+                now - lastFlushTime >= FLUSH_INTERVAL_MS ||
+                charDelta >= FLUSH_CHAR_DELTA)
             ) {
               deps.draftStore
                 .upsert({
