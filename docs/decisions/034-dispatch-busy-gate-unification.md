@@ -45,29 +45,33 @@ ADR-018 OQ-4（2026-03-15）决定所有入口使用 slot 级判忙（`has(threa
 
 **与 ADR-018 OQ-4 的关系**：不废弃 OQ-4，而是增加一个维度。OQ-4 的 slot 级判忙在用户主动和猫间协作场景仍然正确。修订仅针对外部 connector 事件。
 
+**统一出口**（R3 47 review）：`TaskRunnerV2`、`CiCdCheckPoller`、`ReviewFeedbackTaskSpec`、`ConflictCheckTaskSpec`、scheduled task 等全部走同一个 `ConnectorInvokeTrigger.trigger()`。改此一处即覆盖所有外部触发路径，不需要逐个 sourceCategory 列举。
+
 ### KD-2: ConnectorInvokeTrigger 加原子门控 ✅
 
 当前 `trigger()` 的 `has()` 检查到 `executeInBackground()` 的 `tracker.start()` 之间有异步间隙（`invocationRecordStore.create()` 是 await），存在 TOCTOU race。
 
 修复方向：`trigger()` 中用 `tryStartThread(threadId, catId)` 替代 `has()` + fire-and-forget `start()`，与 `messages.ts` 的 TOCTOU 防护一致（F122 A.1 模式）。tryStartThread 返回 null → 走 `enqueueWhileActive()`。
 
+**单点改动**（R3 47 review）：`tryStartThread` 同时实现 KD-1（thread 级判忙）和 TOCTOU 防护——不是两个独立改动，而是一次替换解决两个问题。`has(threadId, catId)` → `tryStartThread(threadId, catId)` 天然从 slot 级升为 thread 级（`tryStartThread` 内部调 `has(threadId)` 不带 catId），同时消除 check-then-act 间隙。
+
 **实现约束**（R2 砚砚 P1 review）：`tryStartThread` 成功后返回的 controller 必须传入 `executeInBackground()` 并复用——不能在 executeInBackground 内部再调 `start()`，否则会 abort 自己刚占的 controller。`create()` duplicate/throw 路径必须 `complete()` 释放同一个 controller。
 
 ### KD-3: 外部消息投递可见性 ✅
 
-四猫审计发现外部消息有 5 个静默 skip 点（Task不存在/automation关闭/Pending状态/Fingerprint去重/Queue full），全部只 log 不向前端反馈。
+**原则**（R3 47 review 重构）：所有入站消息的 skip 路径必须产出带 reason 的 `system_info` 事件，除非该 skip 属于正常轮询噪声（无 thread 目的地或高频重复）。判断标准：用户能否根据该信息采取修复行动（actionable）。
 
-分层可见性策略（R2 砚砚 P1 review）：
+由于所有外部触发都经过 `ConnectorInvokeTrigger.trigger()`（KD-1 统一出口），在此处统一加 skip reason 即可覆盖下游各 router，无需逐个 sourceCategory 补。
 
-| skip 类型 | 是否 actionable | 可见性 |
-|-----------|----------------|--------|
-| Queue full | ✅ | thread `system_info` 事件（已有 `queue_full_warning`） |
+四猫审计发现的 5 个静默 skip 点及其分类（非穷举，新增 skip 路径按上述原则归类）：
+
+| skip 类型 | actionable | 可见性 |
+|-----------|------------|--------|
+| Queue full | ✅ | thread `system_info`（已有 `queue_full_warning`） |
 | automation 关闭 | ✅ | thread `system_info`（用户可修改设置） |
 | Task 不存在 | ⚠️ 无 thread 目的地 | admin/metrics log，不发 `system_info` |
 | Fingerprint 去重 | ❌ 正常轮询噪声 | rate-limited diagnostics log |
 | Pending 状态 | ❌ 正常轮询中间态 | rate-limited diagnostics log |
-
-原则：actionable drop（用户能做什么来修复）→ thread `system_info`；正常轮询噪声 → 仅 metrics/diagnostics。
 
 ## OQ（开放问题）
 
@@ -81,6 +85,8 @@ ADR-018 OQ-4（2026-03-15）决定所有入口使用 slot 级判忙（`has(threa
 倾向 A（保持现状），理由：铲屎官今天的吐槽主要是 connector 唤醒，不是 A2A 并发。A2A 并发是有意设计，改了会影响 ideate 模式。
 
 **R2 砚砚立场**：选 A。但补充：`tryAutoExecute()` 当前绕过 comparator 直接扫 autoExecute entries，agent entry 可能越过已排队的 user/urgent connector entry。需显式定义 autoExecute 与 priority 的交互规则。
+
+**R3 47 立场**：选 A + 观测期。先加并发猫遥测（同一 thread 同时活跃 slot 数、持续时间），运行一段时间后用数据决定是否需要收紧。避免在没有量化证据时过早加约束。
 
 ### OQ-2: messages.ts @/whisper 路径的语义矛盾
 
@@ -99,6 +105,8 @@ ADR-018 OQ-4（2026-03-15）决定所有入口使用 slot 级判忙（`has(threa
 
 **R2 砚砚立场**：选 C。F108 已接受 side-dispatch 能力，选 B 等于废掉 F108，需要 CVO 明确 overturn。补 `tryStartSlotAll`/`tryStartTargets` 原子 slot gate 是正道。
 
+**R3 47 立场**：倾向 C，但 side-dispatch 是否保留是产品决策，需要铲屎官拍板。技术上 C 的实现成本最低（补 `tryStartSlotAll` 即可），且与 KD-1 的分层语义一致。
+
 ### OQ-3: connector queue entry 的 priority 策略
 
 F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvokeTrigger 改 thread 级判忙后，connector 消息会更多进入队列。需要确认：
@@ -116,6 +124,8 @@ F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvoke
 实现时需同步写入 `sourceCategory` 到 QueueEntry，否则 QueuePanel 分组和 diagnostics 仍为空。
 
 这与 F175 KD-2 一致，当前 dequeue 部分已实现 priority 排序（`compareEntries`）。
+
+**前置依赖**（R3 47 review）：ADR-034 KD-1 改 thread 级后 connector 消息入队量会显著增加，F175 的 priority dequeue 实现是 ADR-034 落地的前置条件——没有 priority ordering，urgent CI failure 会被排在普通 comment 后面。实施顺序：F175 priority dequeue → ADR-034 KD-1/KD-2。
 
 ## 影响评估
 
@@ -138,4 +148,5 @@ F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvoke
 | R0 | 2026-05-01 | 46/47/54/55 四猫独立审计 | ✅ 诊断完成 |
 | R1 | 2026-05-01 | 46 起草 ADR-034 | ✅ draft |
 | R2 | 2026-05-01 | 55 review：修改后放行（5 findings，全部修复） | ✅ |
-| R3 | pending | 47/54 review | ⏳ |
+| R3 | 2026-05-01 | 47 review：修改后放行（6 findings，全部修复） | ✅ |
+| R4 | pending | 54 review | ⏳ |
