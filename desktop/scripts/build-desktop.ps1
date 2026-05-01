@@ -131,11 +131,13 @@ if (-not $SkipBundleDeps) {
         } else {
             $env:npm_config_bin_links = $prevBinLinks
         }
-        if ($npmrcHadOriginal) {
-            Set-Content -Path $npmrcPath -Value $npmrcOriginalContent -NoNewline -Encoding utf8
-        } else {
-            Remove-Item $npmrcPath -ErrorAction SilentlyContinue
-        }
+        try {
+            if ($npmrcHadOriginal) {
+                Set-Content -Path $npmrcPath -Value $npmrcOriginalContent -NoNewline -Encoding utf8
+            } else {
+                Remove-Item $npmrcPath -ErrorAction SilentlyContinue
+            }
+        } catch {}
         if ($defenderExclusionAdded) {
             try { Remove-MpPreference -ExclusionPath $deployRoot -ErrorAction SilentlyContinue } catch {}
         }
