@@ -61,8 +61,8 @@ thread_link: thread_mon77kco3beh7pgb
 |------|------|-------------|
 | 外部 connector event 改 thread 级判忙 | 4/4 一致 | ✅ KD-1 收敛 |
 | tryAutoExecute 是否加 thread-level 闸门 | 46 保留 slot 级 + fairness gate；47 保留 slot 级 + 加遥测观测期；55 保持 slot 级但补 priority 交互规则 | ❓ OQ-1 |
-| messages.ts @/whisper 路径的语义矛盾 | 54/55 指出 spec/test/code 不一致；55 选 C（保留 side-dispatch + tryStartSlotAll） | ❓ OQ-2 |
-| connector queue entry priority 策略 | 55 修正：CHANGES_REQUESTED = urgent | ❓ OQ-3 |
+| messages.ts @/whisper 路径的语义矛盾 | 54/55/47 一致选 C（保留 side-dispatch + tryStartSlotAll）；54 指出 F108 AC-B4 已拍板，不是开放问题 | ✅ 移入 F108 实现漂移（非 OQ） |
+| connector queue entry priority 策略 | 55 修正：CHANGES_REQUESTED = urgent | ❓ OQ-2 |
 
 ## 后续
 

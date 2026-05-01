@@ -39,7 +39,7 @@ ADR-018 OQ-4（2026-03-15）决定所有入口使用 slot 级判忙（`has(threa
 | 用户 broadcast（无 @mention） | **thread** 级 | 任一猫忙 → 排队 | `messages.ts` — 保持现状 |
 | 用户 whisper / 显式 @mention | **slot** 级 | 目标猫忙 → 排队，其他猫忙 → 直接执行 | `messages.ts` — 保持现状 |
 | 外部 connector（CI/PR/Review/IM/scheduler/web-digest/generic `/ask`·`/thread`） | **thread** 级 | 任一猫忙 → 排队，idle thread → fast path | `ConnectorInvokeTrigger.trigger()` — **改**（所有经此函数的入口统一适用） |
-| A2A agent callback | **slot** 级 | 目标猫忙 → 排队，autoExecute | `callback-a2a-trigger.ts` — 保持现状 |
+| A2A agent callback（含 standalone fallback） | **slot** 级 | 目标猫忙 → 排队，autoExecute；standalone fallback（无 parent worklist）跳过队列直接执行，但做 slot 级冲突过滤（`getActiveSlots` → 只跑空闲猫） | `callback-a2a-trigger.ts` — 保持现状 |
 | multi_mention | **slot** 级 | 同 A2A | `callback-multi-mention-routes.ts` — 保持现状 |
 | Steer / force | N/A | 强制抢占 | `messages.ts` — 保持现状 |
 
@@ -62,6 +62,8 @@ ADR-018 OQ-4（2026-03-15）决定所有入口使用 slot 级判忙（`has(threa
 **原则**（R3 47 review 重构）：所有入站消息的 skip 路径必须产出带 reason 的 `system_info` 事件，除非该 skip 属于正常轮询噪声（无 thread 目的地或高频重复）。判断标准：用户能否根据该信息采取修复行动（actionable）。
 
 由于所有外部触发都经过 `ConnectorInvokeTrigger.trigger()`（KD-1 统一出口），在此处统一加 skip reason 即可覆盖下游各 router，无需逐个 sourceCategory 补。
+
+**UI 落点**（R4 54 review）：`system_info` 是 thread 聊天流事件（与现有 `queue_full_warning` 同通道），渲染在对话流中，不是 QueuePanel entry。QueuePanel 仍由 `queue_updated` 事件驱动，两者互补：聊天流告知用户"消息被跳过及原因"，QueuePanel 展示"当前排队状态"。
 
 四猫审计发现的 5 个静默 skip 点及其分类（非穷举，新增 skip 路径按上述原则归类）：
 
@@ -88,26 +90,7 @@ ADR-018 OQ-4（2026-03-15）决定所有入口使用 slot 级判忙（`has(threa
 
 **R3 47 立场**：选 A + 观测期。先加并发猫遥测（同一 thread 同时活跃 slot 数、持续时间），运行一段时间后用数据决定是否需要收紧。避免在没有量化证据时过早加约束。
 
-### OQ-2: messages.ts @/whisper 路径的语义矛盾
-
-54/55 指出：`messages.ts` 的 `hasActive` 计算（L439-461）对 @mention 用 cat-level 检查，但后续 `tryStartThreadAll()`（L574）是 thread-level gate。两者可能不一致：
-
-- `hasActive = false`（cat A 忙但 @cat B 空闲） → 走 immediate path
-- `tryStartThreadAll` 返回 null（cat A 忙 = thread busy） → 降级 queue
-
-效果是：@空闲猫的消息先判断"可以直接执行"，然后又被 TOCTOU gate 退回队列。用户体验上表现为"发了但进了队列"——不一致但安全（宁可多排队不会多并发）。
-
-**选项 A**：保持现状。tryStartThreadAll 是安全兜底，即使 hasActive 判断偏乐观也不会出错。
-**选项 B**：对齐 hasActive 也用 thread 级，消除语义矛盾。但这会取消 side-dispatch 功能。
-**选项 C**：tryStartThreadAll 改为 tryStartSlotAll（只检查目标猫 slot），让 @mention 真正实现 side-dispatch。
-
-需要铲屎官定夺：side-dispatch（@空闲猫时绕过队列）到底要不要保留？
-
-**R2 砚砚立场**：选 C。F108 已接受 side-dispatch 能力，选 B 等于废掉 F108，需要 CVO 明确 overturn。补 `tryStartSlotAll`/`tryStartTargets` 原子 slot gate 是正道。
-
-**R3 47 立场**：倾向 C，但 side-dispatch 是否保留是产品决策，需要铲屎官拍板。技术上 C 的实现成本最低（补 `tryStartSlotAll` 即可），且与 KD-1 的分层语义一致。
-
-### OQ-3: connector queue entry 的 priority 策略
+### OQ-2: connector queue entry 的 priority 策略
 
 F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvokeTrigger 改 thread 级判忙后，connector 消息会更多进入队列。需要确认：
 
@@ -138,7 +121,7 @@ F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvoke
 ## 对现有 Feature 的影响
 
 - **F175**（消息队列统一设计）：KD-1/KD-2 是 F175 的前置条件修正。F175 的 priority ordering 能更好地服务改 thread 级后更多入队的 connector 消息。
-- **F108**（side-dispatch）：用户主动 side-dispatch 保留，不受影响。
+- **F108**（side-dispatch）：用户主动 side-dispatch 保留，不受影响。但存在**实现漂移**（R4 54 review 指出）：`messages.ts` 的 `hasActive` 计算（L439-461）对 @mention 用 cat-level 检查，而后续 `tryStartThreadAll()`（L574）用 thread-level gate，两者语义不一致。F108 AC-B4 已明确"广播消息中 @ 特定猫，该猫开始旁路执行"——side-dispatch 是已拍板的产品决策，不是开放问题。后续 Feature 需通过补 `tryStartSlotAll` 原子 slot gate 让实现回归 F108 语义（R2 砚砚 + R3 47 + R4 54 三猫一致选 C）。
 - **F122**（统一执行通道）：ConnectorInvokeTrigger 的原子门控补齐 F122 A.1 在 connector 入口的缺失。
 
 ## Review Trail
@@ -149,4 +132,4 @@ F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvoke
 | R1 | 2026-05-01 | 46 起草 ADR-034 | ✅ draft |
 | R2 | 2026-05-01 | 55 review：修改后放行（5 findings，全部修复） | ✅ |
 | R3 | 2026-05-01 | 47 review：修改后放行（6 findings，全部修复） | ✅ |
-| R4 | pending | 54 review | ⏳ |
+| R4 | 2026-05-01 | 54 review：退回修改 → 修复后放行（5 findings，3 P1 修复 + 2 P2 已在 R2/R3 解决） | ✅ |
