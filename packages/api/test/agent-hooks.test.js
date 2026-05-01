@@ -289,6 +289,79 @@ describe('agent hook routes', () => {
     }
   });
 
+  it('allows implicit status checks for local browser hosts', async () => {
+    const implicitApp = Fastify();
+    addSessionTestHook(implicitApp);
+    await implicitApp.register(agentHooksRoutes, { projectRoot });
+    await implicitApp.ready();
+
+    try {
+      const res = await implicitApp.inject({
+        method: 'GET',
+        url: '/api/agent-hooks/status',
+        headers: {
+          ...SESSION_HEADERS,
+          host: 'localhost:3002',
+          origin: 'http://localhost:3001',
+        },
+        remoteAddress: '127.0.0.1',
+      });
+      assert.equal(res.statusCode, 200);
+      const body = JSON.parse(res.payload);
+      assert.ok(Array.isArray(body.targets));
+    } finally {
+      await implicitApp.close();
+    }
+  });
+
+  it('does not trust loopback proxy sockets for public Host headers', async () => {
+    const implicitApp = Fastify();
+    addSessionTestHook(implicitApp);
+    await implicitApp.register(agentHooksRoutes, { projectRoot });
+    await implicitApp.ready();
+
+    try {
+      const res = await implicitApp.inject({
+        method: 'GET',
+        url: '/api/agent-hooks/status',
+        headers: {
+          ...SESSION_HEADERS,
+          host: 'cafe.example.com',
+          origin: 'https://cafe.example.com',
+        },
+        remoteAddress: '127.0.0.1',
+      });
+      assert.equal(res.statusCode, 403);
+      assert.match(res.payload, /local API host/);
+    } finally {
+      await implicitApp.close();
+    }
+  });
+
+  it('does not trust spoofed local Host headers with public browser origins', async () => {
+    const implicitApp = Fastify();
+    addSessionTestHook(implicitApp);
+    await implicitApp.register(agentHooksRoutes, { projectRoot });
+    await implicitApp.ready();
+
+    try {
+      const res = await implicitApp.inject({
+        method: 'GET',
+        url: '/api/agent-hooks/status',
+        headers: {
+          ...SESSION_HEADERS,
+          host: 'localhost:3002',
+          origin: 'https://cafe.example.com',
+        },
+        remoteAddress: '127.0.0.1',
+      });
+      assert.equal(res.statusCode, 403);
+      assert.match(res.payload, /local API host/);
+    } finally {
+      await implicitApp.close();
+    }
+  });
+
   it('does not trust a forged localhost Host header from a remote peer', async () => {
     const implicitApp = Fastify();
     addSessionTestHook(implicitApp);
