@@ -56,11 +56,10 @@ interface QueueEntry {
 peekOldestAcrossUsers(threadId):
   1. 显式 position（用户手动拖动）— 同 userId 内最高优先（跨用户不干扰）
   2. priority（urgent > normal）
-  3. sourceCategory 同优先级内 FIFO
-  4. createdAt 兜底
+  3. createdAt FIFO 兜底
 ```
 
-只有显式手动 position 的 entry 才覆盖 priority（仅同 userId 条目间比较；shared thread 中不同用户的拖动互不干扰）；未手动排序的 entry 仍按 `priority → createdAt` 默认出队。
+只有显式手动 position 的 entry 才覆盖 priority（仅同 userId 条目间比较；shared thread 中不同用户的拖动互不干扰）；未手动排序的 entry 仍按 `priority → createdAt` 默认出队。`sourceCategory` 是分组/diagnostics 字段，不参与排序。
 
 **4. 取消用户消息强制 merge + 出队时 user-message batching**
 
