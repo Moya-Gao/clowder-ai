@@ -57,6 +57,8 @@ source_material:
 
 *（视觉：MCP 架构图 — client/server + tools/resources/prompts 三类能力）*
 
+![MCP Client/Server 架构图](assets/ep01-mcp-architecture.png)
+
 > 故事到这里都很美好。但接下来问题来了。
 
 ---
@@ -365,7 +367,7 @@ source_material:
 ### 视觉素材清单
 1. [MCP 工具问题递进图](assets/ep01-tool-progression.svg) — 工具爆炸 → ToolSearch → Code Execution → Tool Use Examples → Skills（砚砚手绘）
 2. [CLI / MCP / Skills 三层混用图](assets/ep01-layered-mix.svg) — 运行时 / 工具接入 / 流程知识三层关系（砚砚手绘）
-3. MCP Client-Server 架构图
+3. [MCP Client-Server 架构图](assets/ep01-mcp-architecture.png) — client/server + tools/resources/prompts 三类能力（砚砚生成图）
 4. ToolSearch 前后 token 对比（77K → 8.7K）
 5. Code Execution 流程对比（逐个 tool call vs 写代码一次性调）
 6. Claude Code deferred tools 实际截图
