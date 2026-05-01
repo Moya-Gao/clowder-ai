@@ -264,8 +264,9 @@ describe('F108 P1: concurrent cancel isolation', () => {
 
     // F183 Phase B1.5: active error 通过 reducer 落到 storeState.messages（不再
     // 直接调 mockAddMessage）。end-state 等价：error system bubble 必须存在。
-    const errorBubble = storeState.messages.find(
-      (m) => m.type === 'system' && (m as { variant?: string }).variant === 'error',
+    const msgs = storeState.messages as Array<{ type: string; variant?: string; content: string }>;
+    const errorBubble = msgs.find(
+      (m) => m.type === 'system' && m.variant === 'error',
     );
     expect(errorBubble).toMatchObject({
       type: 'system',
