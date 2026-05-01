@@ -116,7 +116,9 @@ F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvoke
 
 ### OQ-3: A2A 链 connector 饿死 + 打断语义（铲屎官 2026-05-01 提出）
 
-**历史考古**：`b55e75746`（2026-04-26）正是因为 A2A 链中 connector 条目被饿死才从 thread 级改回 cat 级。机制：猫猫互 @ 时 `onInvocationComplete` → `tryAutoExecute` 立刻拉起下一只猫 → thread 永远不空闲 → connector 条目永远出不了队。
+**历史考古**（R5 47 叙事修正）：`b55e75746`（2026-04-26）将 ConnectorInvokeTrigger 从 thread 级（`isThreadBusy`）改回 cat 级（`isCatBusy`），commit message 理由是 codex review 的"语义对齐"（whisper/@mention 应 cat-specific），**不是因为 A2A 饿死**。真正命名"饿死"的是更早的 `c2bc6c5ab`（F051，2026-03-01），但那个解的是 A2A worklist 饿死 user 消息，不是 connector。
+
+**无论历史原因如何，回到 thread 级确实会重新引入 A2A 链饿死外部消息的真实风险**——这是机制层判断，不依赖历史叙事。机制：猫猫互 @ 时 `onInvocationComplete` → `tryAutoExecute` 立刻拉起下一只猫 → thread 永远不空闲 → connector 条目永远出不了队。
 
 **铲屎官指出的"打断"语义**：在更早的版本中，GitHub webhook（如 review comment）会直接打断正在 hold/轮询的猫——比如猫在 wait 轮询 PR 状态，review 来了直接告诉猫"结果出来了"，而不是排队等猫自己发现。改成 thread 级排队后，这种"打断即时响应"的语义会丢失。
 
@@ -132,7 +134,7 @@ F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvoke
 
 后两行是 thread 级改动的**核心风险**。
 
-**三猫收敛立场**（55/54 一致，47 pending）：
+**三猫收敛立场**（55/54/47 一致）：
 
 **Q1 — A2A 饿死防护**：升级为 **fairness invariant**（硬约束，非软顺序）：
 
@@ -144,20 +146,22 @@ F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvoke
 3. 保留 `onInvocationComplete` 现有顺序（先 `tryExecuteNextAcrossUsers` 再 `tryAutoExecute`）
 4. 补回归测试：A2A 链进行中插入 connector entry，验证 connector 不被后续 agent autoExecute 饿死
 
-注：`b55e75746` 是历史证据（旧调度语义下 starvation 真实发生过），但不构成"thread 级必然饿死"的充分证明——当前调度已有 `onInvocationComplete` 先 dequeue 的顺序。invariant 是防回归保险，不是修当前 bug。
+**47 补充双闸门**：fairness gate（上述）+ priority 体系约束：agent entry 默认 priority = normal，**禁止 agent entry 用 urgent priority**——urgent 是"阻塞 merge / 打断"语义，agent 间协作不该跳到这一档。否则 urgent agent 和 urgent connector 平级 FIFO 竞争，agent 链产生速度快会持续淹没 connector。
 
-**Q2 — "打断"语义**：**不引入通用预约打断机制**。
+注：饿死风险是机制层判断（A2A 链持续产新 agent entry → thread 不空闲），不依赖 `b55e75746` 的历史叙事。invariant 是防回归保险。
+
+**Q2 — "打断"语义**：**不引入通用预约打断机制**（三猫一致）。
 
 - `hold_ball` / CLI 已退出 = thread 空闲 → connector 直接执行（"即时响应"语义天然保留）
 - 活跃 invocation 中 → urgent connector 走 priority 排队，不 abort
-- 长轮询场景（猫挂着 CLI 等 PR 结果）→ 应改为 `hold_ball`，不该让猫用活跃 CLI 忙等
+- 长轮询场景（猫挂着 CLI 等 PR 结果）→ 应改为 `hold_ball`，不该让猫用活跃 CLI 忙等（47：这是 prompt/skill 层实现 bug，不是调度层要解决的）
 - 如未来出现合法的"活跃但可中断等待"场景 → 另立专门 Feature（`interruptible-wait`），不塞进 ADR-034
 
 ## 影响评估
 
 | 改动 | 风险 | 缓解 |
 |------|------|------|
-| ConnectorInvokeTrigger 改 thread 级 | **A2A 链饿死 connector 条目**（`b55e75746` 历史证据） | Fairness invariant：`tryAutoExecute` 加 `hasQueuedNonAgentForThread` 早退门 + 回归测试（OQ-3） |
+| ConnectorInvokeTrigger 改 thread 级 | **A2A 链饿死 connector 条目**（机制层风险） | Fairness invariant + agent priority 禁 urgent（OQ-3 三猫收敛） |
 | 加 tryStartThread 原子门控 | 需要重构 trigger() 流程 | 与 messages.ts F122 A.1 模式一致，已有成熟参考 |
 | 投递可见性 system_info | 前端需要渲染新事件类型 | 可复用现有 system_info 通道 |
 
