@@ -38,7 +38,7 @@ ADR-018 OQ-4（2026-03-15）决定所有入口使用 slot 级判忙（`has(threa
 |----------|---------|------|---------|
 | 用户 broadcast（无 @mention） | **thread** 级 | 任一猫忙 → 排队 | `messages.ts` — 保持现状 |
 | 用户 whisper / 显式 @mention | **slot** 级 | 目标猫忙 → 排队，其他猫忙 → 直接执行 | `messages.ts` — 保持现状 |
-| 外部 connector（CI/PR/Review/IM） | **thread** 级 | 任一猫忙 → 排队，idle thread → fast path | `ConnectorInvokeTrigger.trigger()` — **改** |
+| 外部 connector（CI/PR/Review/IM/scheduler/web-digest/generic `/ask`·`/thread`） | **thread** 级 | 任一猫忙 → 排队，idle thread → fast path | `ConnectorInvokeTrigger.trigger()` — **改**（所有经此函数的入口统一适用） |
 | A2A agent callback | **slot** 级 | 目标猫忙 → 排队，autoExecute | `callback-a2a-trigger.ts` — 保持现状 |
 | multi_mention | **slot** 级 | 同 A2A | `callback-multi-mention-routes.ts` — 保持现状 |
 | Steer / force | N/A | 强制抢占 | `messages.ts` — 保持现状 |
@@ -51,11 +51,23 @@ ADR-018 OQ-4（2026-03-15）决定所有入口使用 slot 级判忙（`has(threa
 
 修复方向：`trigger()` 中用 `tryStartThread(threadId, catId)` 替代 `has()` + fire-and-forget `start()`，与 `messages.ts` 的 TOCTOU 防护一致（F122 A.1 模式）。tryStartThread 返回 null → 走 `enqueueWhileActive()`。
 
+**实现约束**（R2 砚砚 P1 review）：`tryStartThread` 成功后返回的 controller 必须传入 `executeInBackground()` 并复用——不能在 executeInBackground 内部再调 `start()`，否则会 abort 自己刚占的 controller。`create()` duplicate/throw 路径必须 `complete()` 释放同一个 controller。
+
 ### KD-3: 外部消息投递可见性 ✅
 
 四猫审计发现外部消息有 5 个静默 skip 点（Task不存在/automation关闭/Pending状态/Fingerprint去重/Queue full），全部只 log 不向前端反馈。
 
-要求：所有 skip 路径产出 `system_info` 事件发送到前端（QueuePanel 可见），让铲屎官知道"消息来了但被跳过"。
+分层可见性策略（R2 砚砚 P1 review）：
+
+| skip 类型 | 是否 actionable | 可见性 |
+|-----------|----------------|--------|
+| Queue full | ✅ | thread `system_info` 事件（已有 `queue_full_warning`） |
+| automation 关闭 | ✅ | thread `system_info`（用户可修改设置） |
+| Task 不存在 | ⚠️ 无 thread 目的地 | admin/metrics log，不发 `system_info` |
+| Fingerprint 去重 | ❌ 正常轮询噪声 | rate-limited diagnostics log |
+| Pending 状态 | ❌ 正常轮询中间态 | rate-limited diagnostics log |
+
+原则：actionable drop（用户能做什么来修复）→ thread `system_info`；正常轮询噪声 → 仅 metrics/diagnostics。
 
 ## OQ（开放问题）
 
@@ -67,6 +79,8 @@ ADR-018 OQ-4（2026-03-15）决定所有入口使用 slot 级判忙（`has(threa
 **选项 B**：加 thread-level 上限（如最多同时 1-2 只猫在跑）。降低前端混乱感。
 
 倾向 A（保持现状），理由：铲屎官今天的吐槽主要是 connector 唤醒，不是 A2A 并发。A2A 并发是有意设计，改了会影响 ideate 模式。
+
+**R2 砚砚立场**：选 A。但补充：`tryAutoExecute()` 当前绕过 comparator 直接扫 autoExecute entries，agent entry 可能越过已排队的 user/urgent connector entry。需显式定义 autoExecute 与 priority 的交互规则。
 
 ### OQ-2: messages.ts @/whisper 路径的语义矛盾
 
@@ -83,15 +97,25 @@ ADR-018 OQ-4（2026-03-15）决定所有入口使用 slot 级判忙（`has(threa
 
 需要铲屎官定夺：side-dispatch（@空闲猫时绕过队列）到底要不要保留？
 
+**R2 砚砚立场**：选 C。F108 已接受 side-dispatch 能力，选 B 等于废掉 F108，需要 CVO 明确 overturn。补 `tryStartSlotAll`/`tryStartTargets` 原子 slot gate 是正道。
+
 ### OQ-3: connector queue entry 的 priority 策略
 
 F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvokeTrigger 改 thread 级判忙后，connector 消息会更多进入队列。需要确认：
 
-- CI failure / PR conflict → `priority: 'urgent'`（跳到队头）
-- Review feedback → `priority: 'normal'`（正常排队）
-- 外部 IM → `priority: 'normal'`
+状态化 priority 策略（R2 砚砚 P1 修正）：
 
-这与 F175 KD-2 一致，不需要新决策，但需要 F175 先实施 priority dequeue 才能发挥作用。过渡期 urgent connector 消息在队列里不会跳队（当前 dequeue 部分已实现 priority 排序）。
+| 事件类型 | priority | 理由 |
+|----------|----------|------|
+| CI failure | `urgent` | 阻塞 merge |
+| PR conflict | `urgent` | 阻塞 merge |
+| Review CHANGES_REQUESTED | `urgent` | 阻塞 merge（实际 `ReviewFeedbackTaskSpec` 已设 urgent） |
+| CI pass / Review approved / 普通 comment | `normal` | 信息性通知 |
+| 外部 IM | `normal` | 非阻塞 |
+
+实现时需同步写入 `sourceCategory` 到 QueueEntry，否则 QueuePanel 分组和 diagnostics 仍为空。
+
+这与 F175 KD-2 一致，当前 dequeue 部分已实现 priority 排序（`compareEntries`）。
 
 ## 影响评估
 
@@ -113,4 +137,5 @@ F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvoke
 |------|------|------|------|
 | R0 | 2026-05-01 | 46/47/54/55 四猫独立审计 | ✅ 诊断完成 |
 | R1 | 2026-05-01 | 46 起草 ADR-034 | ✅ draft |
-| R2 | pending | 47/54/55 review | ⏳ |
+| R2 | 2026-05-01 | 55 review：修改后放行（5 findings，全部修复） | ✅ |
+| R3 | pending | 47/54 review | ⏳ |
