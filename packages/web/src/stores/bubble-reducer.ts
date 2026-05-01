@@ -249,7 +249,14 @@ function reduceCallbackFinal(messages: ChatMessage[], event: BubbleEvent): ChatM
     };
     return next;
   }
-  const upgrade = findUpgradableLocalPlaceholder(messages, event);
+  // F183 Phase B1.2.4 (砚砚 verdict): callback-specific upgrade policy。
+  // 不复用通用 findUpgradableLocalPlaceholder（stream 语义太宽，会 hijack live
+  // invocationless stream）。callback 升级规则更窄：
+  //   - exact stable key match（findExistingByStableKey）— 已在上方处理
+  //   - rich/tool-only invocationless placeholder（empty content + has rich blocks/toolEvents）— 可以升级
+  //   - contentful invocationless live stream — 绝不能 hijack
+  //   - 无 safe target — makePlaceholder 创建 standalone callback bubble
+  const upgrade = findUpgradableCallbackPlaceholder(messages, event);
   if (upgrade) {
     const next = [...messages];
     next[upgrade.index] = withCanonicalUpgrade(
@@ -266,6 +273,45 @@ function reduceCallbackFinal(messages: ChatMessage[], event: BubbleEvent): ChatM
   }
   const ph = makePlaceholder(event, finalContent, messages);
   return [...messages, { ...ph, isStreaming: false, origin: 'callback' }];
+}
+
+// F183 Phase B1.2.4 — callback-specific placeholder upgrade policy（窄 guard）。
+// 与 stream 通用 upgrade 区别：
+//   - stream: 任何 unbound streaming bubble 都升级（active 路径主流程）
+//   - callback: 仅 rich/tool-only invocationless placeholder（empty content + has rich/tool markers）
+//     contentful invocationless live stream 不能被 hijack（stale callback 场景保护）
+function findUpgradableCallbackPlaceholder(
+  messages: ChatMessage[],
+  event: BubbleEvent,
+): { index: number; message: ChatMessage } | undefined {
+  if (!event.canonicalInvocationId) return undefined;
+  // callback 升级仅对 assistant_text incoming：rich/tool placeholder 容器升级到 text bubble
+  if (event.bubbleKind !== 'assistant_text') return undefined;
+  const candidates: Array<{ index: number; message: ChatMessage }> = [];
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    if (m.catId !== event.actorId) continue;
+    if (m.origin !== 'stream') continue;
+    // 关键 guard: rich/tool-only placeholder。需要满足：empty content（trim 后无字符）
+    // + 有 rich blocks 或 tool events。contentful invocationless live stream
+    // （plain assistant_text）绝不能 hijack。
+    // 砚砚/云端 round 3 P1: 不能要求 m.isStreaming === true。done/error 可能在 callback
+    // 到达前 finalize rich/tool placeholder（empty content + rich/tool markers），那种
+    // placeholder 仍是正确升级 target；强制 isStreaming=true 会让 callback 创建
+    // standalone bubble + placeholder 成 orphan（split-bubble 回归）。
+    const hasContentfulStream = (m.content ?? '').trim().length > 0;
+    if (hasContentfulStream) continue;
+    const hasRichBlocks = !!m.extra?.rich?.blocks?.length;
+    const hasToolEvents = !!m.toolEvents?.length;
+    if (!hasRichBlocks && !hasToolEvents) continue;
+    // bound placeholder：仅当 invocationId 严格匹配才是同一逻辑 bubble（kind 升级合法）
+    // unbound rich/tool placeholder：留 legacy guard（任意 invocation 的 callback 都可适配）
+    const boundInv = m.extra?.stream?.invocationId;
+    if (boundInv && boundInv !== event.canonicalInvocationId) continue;
+    candidates.push({ index: i, message: m });
+  }
+  // ADR-033 invariant #6 禁止 heuristic merge：≥2 候选 → ambiguous，不升级
+  return candidates.length === 1 ? candidates[0] : undefined;
 }
 
 /**
@@ -328,7 +374,16 @@ export function applyBubbleEvent(input: BubbleReducerInput): BubbleReducerOutput
   // Round 4 P1: ambiguous upgrade — multiple local placeholders match canonical event.
   // ADR-033 invariant #6 禁止 heuristic merge；不挑、不升级、不新建，event quarantine。
   // 只在 incoming 有 canonical id 且没有 strict-key match 时检测。
-  if (event.canonicalInvocationId && !findExistingByStableKey(currentMessages, event)) {
+  // F183 Phase B1.2.4 (砚砚 round 1 P1-1): callback_final 不能用 stream 通用 upgrade
+  // 候选做 ambiguous guard。两个 contentful invocationless live streams + explicit
+  // callback_final 应该保留 streams 并创建 standalone callback，而非 quarantine 丢失
+  // callback authoritative content。callback 的 ambiguous 由 reduceCallbackFinal
+  // 内部 findUpgradableCallbackPlaceholder（窄 policy）自己处理。
+  if (
+    event.type !== 'callback_final' &&
+    event.canonicalInvocationId &&
+    !findExistingByStableKey(currentMessages, event)
+  ) {
     const upgradeCandidates = findUpgradableLocalPlaceholders(currentMessages, event);
     if (upgradeCandidates.length >= 2) {
       return {

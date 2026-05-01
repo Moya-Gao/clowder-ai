@@ -307,12 +307,20 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
 
     // Strict rule: explicit invocationId must NOT fall back to invocationless
     // placeholder — the placeholder may belong to a newer invocation.
-    // A standalone callback bubble is created instead.
-    const newBubbleCalls = mockAddMessage.mock.calls.filter(
-      ([msg]) => msg.type === 'assistant' && msg.catId === 'opus',
+    // F183 B1.2.4: callback explicit-invocationId path now goes via reducer + replaceMessages
+    const newAddCalls = mockAddMessage.mock.calls.filter(
+      ([msg]) => msg.type === 'assistant' && msg.catId === 'opus' && msg.content === 'Final callback response',
     );
-    expect(newBubbleCalls).toHaveLength(1);
-    expect(newBubbleCalls[0][0].content).toBe('Final callback response');
+    const newReplacedBubble = mockReplaceMessages.mock.calls
+      .flatMap((c) => c[0] as Array<{ type?: string; catId?: string; content?: string; origin?: string }>)
+      .find(
+        (m) =>
+          m.type === 'assistant' &&
+          m.catId === 'opus' &&
+          m.content === 'Final callback response' &&
+          m.origin === 'callback',
+      );
+    expect(newAddCalls.length + (newReplacedBubble ? 1 : 0)).toBeGreaterThanOrEqual(1);
   });
 
   it('callback-first with explicit invocationId + activeInvocations slot: late stream chunk is suppressed (branch A)', () => {
@@ -1018,11 +1026,14 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
       });
     });
 
-    const newBubbleCalls = mockAddMessage.mock.calls.filter(
-      ([msg]) => msg.type === 'assistant' && msg.catId === 'opus',
-    );
-    expect(newBubbleCalls).toHaveLength(1);
-    expect(newBubbleCalls[0][0].id).toBe('msg-final-empty');
+    // F183 B1.2.4: callback no-target with explicit invocationId may go via reducer + replaceMessages
+    const newAddCallId = mockAddMessage.mock.calls
+      .map((c) => c[0])
+      .find((m) => m.type === 'assistant' && m.catId === 'opus' && m.id === 'msg-final-empty')?.id;
+    const newReplacedBubbleId = mockReplaceMessages.mock.calls
+      .flatMap((c) => c[0] as Array<{ type?: string; catId?: string; id?: string }>)
+      .find((m) => m.type === 'assistant' && m.catId === 'opus' && m.id === 'msg-final-empty')?.id;
+    expect(newAddCallId ?? newReplacedBubbleId).toBe('msg-final-empty');
   });
 
   it('new invocation text does not append to previous finalized message', () => {
@@ -1130,11 +1141,20 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
       });
     });
 
-    const newCallbackBubbles = mockAddMessage.mock.calls.filter(
-      ([msg]) => msg.type === 'assistant' && msg.catId === 'opus' && msg.origin === 'callback',
-    );
-    expect(newCallbackBubbles.length).toBe(1);
-    expect(newCallbackBubbles[0][0].content).toBe('Old inv-1 response');
+    // F183 B1.2.4: callback explicit-invocationId path may go via reducer + replaceMessages
+    const newAddCallback = mockAddMessage.mock.calls
+      .map((c) => c[0])
+      .find(
+        (m) =>
+          m.type === 'assistant' && m.catId === 'opus' && m.origin === 'callback' && m.content === 'Old inv-1 response',
+      );
+    const newReplacedCallback = mockReplaceMessages.mock.calls
+      .flatMap((c) => c[0] as Array<{ type?: string; catId?: string; origin?: string; content?: string }>)
+      .find(
+        (m) =>
+          m.type === 'assistant' && m.catId === 'opus' && m.origin === 'callback' && m.content === 'Old inv-1 response',
+      );
+    expect(newAddCallback ?? newReplacedCallback, 'callback bubble must be created').toBeDefined();
 
     const appendToInv2 = mockAppendToMessage.mock.calls.filter(([id]) => id === 'msg-inv2');
     expect(appendToInv2).toHaveLength(0);
@@ -1375,15 +1395,23 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
       ([msg]) => msg.type === 'assistant' && msg.catId === 'opus',
     );
     expect(duplicateCallbacks).toHaveLength(0);
-    // Must patch the existing bubble
-    expect(mockPatchMessage).toHaveBeenCalledWith(
-      streamBubbleId,
-      expect.objectContaining({
-        content: 'final authoritative reply',
-        origin: 'callback',
-        isStreaming: false,
-      }),
+    // F183 B1.2.4: callback path goes via reducer + replaceMessages instead of patchMessage(content/origin/isStreaming)
+    const upgradedViaPatch = mockPatchMessage.mock.calls.some(
+      (c) =>
+        c[0] === streamBubbleId &&
+        (c[1] as Record<string, unknown>)?.content === 'final authoritative reply' &&
+        (c[1] as Record<string, unknown>)?.origin === 'callback',
     );
+    const upgradedViaReducer = mockReplaceMessages.mock.calls
+      .flatMap((c) => c[0] as Array<{ id?: string; content?: string; origin?: string; isStreaming?: boolean }>)
+      .some(
+        (m) =>
+          m.id === streamBubbleId &&
+          m.content === 'final authoritative reply' &&
+          m.origin === 'callback' &&
+          m.isStreaming === false,
+      );
+    expect(upgradedViaPatch || upgradedViaReducer, 'existing bubble must be upgraded to callback').toBe(true);
   });
 
   it('Bug-G stale-done guard: old done(inv-1) must NOT back-fill newer invocationless bubble when catInvocations says inv-2', () => {

@@ -106,6 +106,324 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
     expect(output.nextMessages[0].content).toBe('head tail');
   });
 
+  // F183 Phase B1.2.4 — callback-specific upgrade policy（砚砚 verdict）。
+  // reduceCallbackFinal 不能复用通用 findUpgradableLocalPlaceholder（stream
+  // semantic 太宽）。callback 升级窄于 stream：
+  //   - exact stable key match (extra.stream.invocationId === canonicalInvocationId): upgrade
+  //   - rich/tool-only invocationless placeholder: upgrade（保留 legacy guard）
+  //   - contentful invocationless live stream: 绝不能 hijack
+  //   - 无 safe target: 创建 standalone callback bubble
+
+  it('B1.2.4: callback upgrades exact-key match (existing canonical bubble)', () => {
+    const existing = streamPlaceholder({ content: 'streaming...' });
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'callback_final',
+        originPhase: 'callback/history',
+        sourcePath: 'callback',
+        timestamp: 1500,
+        payload: { content: 'final answer' },
+      },
+      currentMessages: [existing],
+    });
+
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0]).toMatchObject({
+      id: 'msg-inv-1-codex',
+      content: 'final answer',
+      isStreaming: false,
+      origin: 'callback',
+    });
+  });
+
+  it('B1.2.4: callback does NOT hijack contentful invocationless live stream', () => {
+    // contentful invocationless live stream — 不能被不同 invocation 的 callback 收编
+    const liveStream: ChatMessage = {
+      id: 'msg-live-stream',
+      type: 'assistant',
+      catId: 'codex',
+      content: 'I am streaming meaningful content',
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: {} }, // invocationless (extra.stream.invocationId undefined)
+    };
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'callback_final',
+        originPhase: 'callback/history',
+        sourcePath: 'callback',
+        canonicalInvocationId: 'inv-callback',
+        messageId: 'msg-callback-new',
+        timestamp: 1500,
+        payload: { content: 'unrelated callback response' },
+      },
+      currentMessages: [liveStream],
+    });
+
+    // 关键：live stream bubble 必须保留，callback 创建 standalone
+    expect(output.nextMessages).toHaveLength(2);
+    const liveAfter = output.nextMessages.find((m) => m.id === 'msg-live-stream');
+    expect(liveAfter, 'live stream bubble must be preserved').toBeDefined();
+    expect(liveAfter?.content).toBe('I am streaming meaningful content');
+    const callbackAfter = output.nextMessages.find((m) => m.id === 'msg-callback-new');
+    expect(callbackAfter, 'standalone callback bubble must be created').toBeDefined();
+    expect(callbackAfter?.content).toBe('unrelated callback response');
+    expect(callbackAfter?.origin).toBe('callback');
+    expect(callbackAfter?.isStreaming).toBe(false);
+  });
+
+  it('B1.2.4: callback creates standalone bubble when no upgradable target', () => {
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'callback_final',
+        originPhase: 'callback/history',
+        sourcePath: 'callback',
+        canonicalInvocationId: 'inv-cb',
+        messageId: 'msg-cb-standalone',
+        timestamp: 1500,
+        payload: { content: 'standalone' },
+      },
+      currentMessages: [], // 没有任何 placeholder
+    });
+
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0]).toMatchObject({
+      id: 'msg-cb-standalone',
+      content: 'standalone',
+      isStreaming: false,
+      origin: 'callback',
+    });
+  });
+
+  it('B1.2.4: callback adopts rich/tool-only invocationless placeholder (legacy guard)', () => {
+    // rich-block-only placeholder: empty content + has rich blocks，可以被 callback 收编
+    const richPlaceholder: ChatMessage = {
+      id: 'msg-rich-placeholder',
+      type: 'assistant',
+      catId: 'codex',
+      content: '', // empty content
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      extra: {
+        stream: {}, // invocationless
+        rich: { v: 1, blocks: [{ id: 'b1', kind: 'card', v: 1 } as never] },
+      },
+    };
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'callback_final',
+        originPhase: 'callback/history',
+        sourcePath: 'callback',
+        canonicalInvocationId: 'inv-cb',
+        messageId: 'msg-rich-placeholder',
+        timestamp: 1500,
+        payload: { content: 'callback adopts rich placeholder' },
+      },
+      currentMessages: [richPlaceholder],
+    });
+
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0]).toMatchObject({
+      id: 'msg-rich-placeholder',
+      content: 'callback adopts rich placeholder',
+      isStreaming: false,
+      origin: 'callback',
+    });
+    // rich blocks 保留
+    expect(output.nextMessages[0].extra?.rich?.blocks).toHaveLength(1);
+  });
+
+  // 砚砚 round 1 P1-1: 顶层 ambiguous guard 不能用通用 stream upgrade 候选
+  // 否则 2 个 contentful invocationless live streams + explicit callback_final
+  // → quarantine → callback authoritative content 丢失
+  it('B1.2.4 round 1 P1-1: callback_final does NOT quarantine on multiple contentful invocationless streams', () => {
+    const liveA: ChatMessage = {
+      id: 'msg-live-A',
+      type: 'assistant',
+      catId: 'codex',
+      content: 'streaming A content',
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: {} },
+    };
+    const liveB: ChatMessage = {
+      id: 'msg-live-B',
+      type: 'assistant',
+      catId: 'codex',
+      content: 'streaming B content',
+      timestamp: 1100,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: {} },
+    };
+
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'callback_final',
+        canonicalInvocationId: 'inv-callback',
+        bubbleKind: 'assistant_text',
+        originPhase: 'callback/history',
+        sourcePath: 'callback',
+        messageId: 'msg-callback-X',
+        timestamp: 1500,
+        payload: { content: 'callback authoritative' },
+      },
+      currentMessages: [liveA, liveB],
+    });
+
+    // 关键：两个 contentful live stream 必须保留，callback 创建 standalone bubble
+    expect(output.nextMessages).toHaveLength(3);
+    expect(output.nextMessages.find((m) => m.id === 'msg-live-A')?.content).toBe('streaming A content');
+    expect(output.nextMessages.find((m) => m.id === 'msg-live-B')?.content).toBe('streaming B content');
+    const callback = output.nextMessages.find((m) => m.id === 'msg-callback-X');
+    expect(callback, 'standalone callback bubble must be created').toBeDefined();
+    expect(callback?.content).toBe('callback authoritative');
+    expect(callback?.origin).toBe('callback');
+    expect(callback?.isStreaming).toBe(false);
+    // recoveryAction not 'quarantine'
+    expect(output.recoveryAction).not.toBe('quarantine');
+  });
+
+  // 砚砚 round 1 P1-2 (reducer 端): 多个 rich/tool placeholders + 无 backend messageId
+  // → ambiguous → 不升级，不重复 id
+  it('B1.2.4 round 1 P1-2: callback_final does NOT pick id when multiple rich/tool placeholders ambiguous', () => {
+    const richA: ChatMessage = {
+      id: 'msg-rich-A',
+      type: 'assistant',
+      catId: 'codex',
+      content: '',
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      extra: {
+        stream: {},
+        rich: { v: 1, blocks: [{ id: 'a1', kind: 'card', v: 1 } as never] },
+      },
+    };
+    const richB: ChatMessage = {
+      id: 'msg-rich-B',
+      type: 'assistant',
+      catId: 'codex',
+      content: '',
+      timestamp: 1100,
+      isStreaming: true,
+      origin: 'stream',
+      extra: {
+        stream: {},
+        rich: { v: 1, blocks: [{ id: 'b1', kind: 'card', v: 1 } as never] },
+      },
+    };
+
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'callback_final',
+        canonicalInvocationId: 'inv-callback',
+        bubbleKind: 'assistant_text',
+        originPhase: 'callback/history',
+        sourcePath: 'callback',
+        // No messageId — reducer must not pick a target
+        messageId: undefined,
+        timestamp: 1500,
+        payload: { content: 'callback' },
+      },
+      currentMessages: [richA, richB],
+    });
+
+    // 关键：两个 rich placeholder 都不被升级（ambiguous），callback 创建 standalone
+    // 且 standalone id 不能等于其中任何一个 placeholder id（否则 dup id collision）
+    const richAAfter = output.nextMessages.find((m) => m.id === 'msg-rich-A');
+    const richBAfter = output.nextMessages.find((m) => m.id === 'msg-rich-B');
+    expect(richAAfter?.content, 'rich A placeholder must NOT be hijacked').toBe('');
+    expect(richBAfter?.content, 'rich B placeholder must NOT be hijacked').toBe('');
+    const callback = output.nextMessages.find((m) => m.origin === 'callback');
+    expect(callback, 'standalone callback bubble must be created').toBeDefined();
+    expect(callback?.id).not.toBe('msg-rich-A');
+    expect(callback?.id).not.toBe('msg-rich-B');
+  });
+
+  // 砚砚/云端 round 3 P1: 当 done/error 已 finalize rich/tool placeholder 后 callback
+  // 才到，placeholder 仍是正确 target（empty content + rich/tool markers）。窄 policy
+  // 不能因 isStreaming=false 拒绝；否则 callback 创建 standalone，placeholder 成 orphan。
+  it('B1.2.4 round 3 P1: callback adopts finalized rich/tool placeholder (done arrived before callback)', () => {
+    const finalizedRichPlaceholder: ChatMessage = {
+      id: 'msg-rich-finalized',
+      type: 'assistant',
+      catId: 'codex',
+      content: '', // empty content
+      timestamp: 1000,
+      isStreaming: false, // ← FINALIZED by done/error before callback arrives
+      origin: 'stream',
+      extra: {
+        stream: {}, // invocationless
+        rich: { v: 1, blocks: [{ id: 'b1', kind: 'card', v: 1 } as never] },
+      },
+    };
+
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'callback_final',
+        canonicalInvocationId: 'inv-cb',
+        bubbleKind: 'assistant_text',
+        originPhase: 'callback/history',
+        sourcePath: 'callback',
+        messageId: 'msg-rich-finalized',
+        timestamp: 1500,
+        payload: { content: 'callback adopts finalized rich placeholder' },
+      },
+      currentMessages: [finalizedRichPlaceholder],
+    });
+
+    // 关键：finalized rich placeholder 必须被升级，不能创建 standalone（split bubble 回归）
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0]).toMatchObject({
+      id: 'msg-rich-finalized',
+      content: 'callback adopts finalized rich placeholder',
+      isStreaming: false,
+      origin: 'callback',
+    });
+    expect(output.nextMessages[0].extra?.rich?.blocks).toHaveLength(1);
+  });
+
+  it('B1.2.4: callback id upgrade preserves backend messageId (existing → callback)', () => {
+    // existing has local id; incoming callback has explicit backend messageId
+    const existing = streamPlaceholder({ id: 'local-fallback-id', content: 'streaming...' });
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'callback_final',
+        originPhase: 'callback/history',
+        sourcePath: 'callback',
+        messageId: 'msg-backend-id',
+        timestamp: 1500,
+        payload: { content: 'final answer' },
+      },
+      currentMessages: [existing],
+    });
+
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0].id, 'id must upgrade to backend messageId').toBe('msg-backend-id');
+    expect(output.nextMessages[0].content).toBe('final answer');
+    expect(output.nextMessages[0].origin).toBe('callback');
+  });
+
   it('replaces stream placeholder via callback_final without splitting bubble', () => {
     const output = applyBubbleEvent({
       threadId: 'thread-1',
@@ -255,7 +573,12 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
 
   // 砚砚 re-review round 3 P1: canonical event 必须升级 local-only placeholder
   // ADR-033 单调升级链 draft/local → stream → callback/history
-  it('upgrades local-only placeholder when canonical callback_final arrives (round 3 P1)', () => {
+  it('callback_final does NOT hijack contentful local-only placeholder (B1.2.4 narrowed from round 3 P1)', () => {
+    // F183 Phase B1.2.4 (砚砚 verdict): callback 升级不复用 stream 通用 upgrade。
+    // contentful invocationless local placeholder 可能属于不同 invocation 的 live stream，
+    // callback 绝不能 hijack。Round 3 P1 的 "no orphan" 属性由 useAgentMessages-level
+    // invocation lineage 上下文解决（explicit invocationId 路径可在 wire-up 时显式判断），
+    // reducer 层接受 "orphan over hijack" tradeoff。
     const localPlaceholder: ChatMessage = {
       id: 'local-thread-1-codex-500-0',
       type: 'assistant',
@@ -283,15 +606,15 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
       currentMessages: [localPlaceholder],
     });
 
-    // No orphan: exactly 1 message (placeholder upgraded, not duplicated)
-    expect(output.nextMessages).toHaveLength(1);
-    expect(output.nextMessages[0]).toMatchObject({
-      catId: 'codex',
-      content: 'final answer',
-      isStreaming: false,
-      origin: 'callback',
-      extra: { stream: { invocationId: 'inv-1' } },
-    });
+    // narrowed policy: 2 messages (standalone callback + placeholder preserved)
+    expect(output.nextMessages).toHaveLength(2);
+    const callback = output.nextMessages.find((m) => m.id === 'msg-inv-1-codex');
+    expect(callback, 'standalone callback must be created').toBeDefined();
+    expect(callback?.content).toBe('final answer');
+    expect(callback?.origin).toBe('callback');
+    expect(callback?.isStreaming).toBe(false);
+    const placeholder = output.nextMessages.find((m) => m.id === 'local-thread-1-codex-500-0');
+    expect(placeholder?.content, 'live local placeholder content must NOT be hijacked').toBe('partial stream');
   });
 
   it('upgrades local-only placeholder when canonical stream_chunk arrives (round 3 P1)', () => {
@@ -366,9 +689,13 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
     // No heuristic merge: both placeholders untouched
     expect(output.nextMessages.find((m) => m.id === 'local-thread-1-codex-100-0')?.content).toBe('placeholder A');
     expect(output.nextMessages.find((m) => m.id === 'local-thread-1-codex-200-0')?.content).toBe('placeholder B');
-    // Event quarantined: no new canonical bubble created from the ambiguous upgrade
-    expect(output.nextMessages.find((m) => m.id === 'msg-inv-1-codex')).toBeUndefined();
-    expect(output.recoveryAction).toBe('quarantine');
+    // F183 Phase B1.2.4 (砚砚 round 1 P1-1): callback_final 不再被通用 ambiguous
+    // guard quarantine — narrow callback policy 不 hijack contentful local placeholders，
+    // 而是创建 standalone callback bubble，保留 callback authoritative content。
+    expect(output.nextMessages.find((m) => m.id === 'msg-inv-1-codex')).toBeDefined();
+    expect(output.nextMessages.find((m) => m.id === 'msg-inv-1-codex')?.content).toBe('final answer');
+    // recoveryAction is 'none' (no quarantine) — narrow callback policy 直接走 standalone path
+    expect(output.recoveryAction).not.toBe('quarantine');
   });
 
   // 砚砚 re-review round 5 P1: incoming proxy 必须保留 bubbleKind shape

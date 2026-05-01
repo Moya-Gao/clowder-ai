@@ -2030,12 +2030,102 @@ export function useAgentMessages() {
             ? (findCallbackReplacementTarget(msg.catId, invocationId) ?? findInvocationlessRichPlaceholder(msg.catId))
             : findInvocationlessStreamPlaceholder(msg.catId);
 
-          // B1.2.3 scope discipline: callback path 留在旧链路（patchMessage / addMessage /
-          // replaceMessageId）。callback 涉及 id swap + rich-block placeholder replacement 等
-          // 复杂语义，wire-up 进 reducer 会触发广泛 mock 测试更新（26 tests broke）。
-          // 单独 PR (B1.2.4) 处理 callback path 收口。
+          // F183 Phase B1.2.4 — callback path wire-up to reducer (single-writer)。
+          // 仅 explicit msg.invocationId 路径走 reducer；invocationless callback 留 legacy
+          // (reducer 没有 activeId / finalized ref / rich placeholder ref 等上下文，
+          // 砚砚 verdict)。reducer 的 callback-specific 升级 policy（findUpgradableCallbackPlaceholder）
+          // 严格于 stream 通用 upgrade：仅 rich/tool-only invocationless placeholder 可被
+          // 升级，contentful invocationless live stream 绝不能 hijack。
           const hasExplicitInvocationId = !!msg.invocationId;
-          if (replacementTarget) {
+          if (hasExplicitInvocationId && msg.invocationId) {
+            // F183 Phase B1.2.4 (砚砚 round 1 P1-2): 不能预 pick replacementTarget.id 给 finalId。
+            const finalId =
+              msg.messageId ??
+              deriveBubbleId(msg.invocationId, msg.catId, () => `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`);
+            const threadIdForCallback = msg.threadId ?? useChatStore.getState().currentThreadId;
+            const event = adaptIncomingToBubbleEvent(
+              { ...msg, threadId: threadIdForCallback } as BackgroundAgentMessage,
+              { sourcePath: 'callback' },
+            );
+            // F183 Phase B1.2.4 (砚砚 round 2 P1, 云端 codex): 必须 check
+            // result.recoveryAction !== 'none' — reducer quarantine / sot-override
+            // 时 nextMessages 不变，不能假装 success + markReplacedInvocation（会让后续
+            // stream chunk 被 suppress + callback content 永久丢失）。fallback legacy 保 content。
+            let reducerRejected = false;
+            if (event) {
+              const eventWithId = { ...event, messageId: finalId };
+              const storeSnapshot = useChatStore.getState();
+              const result = applyBubbleEvent({
+                threadId: threadIdForCallback,
+                event: eventWithId,
+                currentMessages: storeSnapshot.messages,
+              });
+              if (result.recoveryAction !== 'none') {
+                reducerRejected = true;
+                if (result.violations.length > 0) {
+                  for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+                }
+                // do NOT replaceMessages（reducer 没采纳 callback content）
+                // do NOT markReplacedInvocation（避免 suppress 后续 stream chunk）
+              } else {
+                storeSnapshot.replaceMessages(result.nextMessages, storeSnapshot.hasMore);
+                if (result.violations.length > 0) {
+                  for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+                }
+              }
+            }
+            if (reducerRejected) {
+              // Fallback to legacy: addMessage standalone callback bubble，保 content。
+              // 云端 round 4 P1: finalId 在 canonical-split 时与既有 bubble id 撞 →
+              // store dedup drops insert → content 丢失。fallback 必须用 non-conflicting
+              // id 保证 callback content 一定落到 store。生成 fresh id 跟 finalId 区分。
+              const fallbackId = `msg-cb-fallback-${Date.now()}-${msg.catId}-${++cbSeq}`;
+              const extraForAdd = {
+                ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+                ...(msg.invocationId ? { stream: { invocationId: msg.invocationId } } : {}),
+              };
+              addMessage({
+                id: fallbackId,
+                type: 'assistant',
+                catId: msg.catId,
+                content: msg.content,
+                origin: 'callback',
+                ...(msg.metadata ? { metadata: msg.metadata } : {}),
+                ...(Object.keys(extraForAdd).length > 0 ? { extra: extraForAdd } : {}),
+                ...(msg.mentionsUser ? { mentionsUser: true } : {}),
+                ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+                ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
+                timestamp: Date.now(),
+              });
+              // No markReplacedInvocation — reducer 拒绝事件意味着 callback 不是 authoritative
+              // for this invocation；保留 future stream chunks 的接收能力。
+            } else {
+              // reducer 接受了，跑 side-effect patches + suppression marker
+              const extraForPatch = {
+                ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+              };
+              if (
+                msg.metadata ||
+                Object.keys(extraForPatch).length > 0 ||
+                msg.mentionsUser ||
+                msg.replyTo ||
+                msg.replyPreview
+              ) {
+                patchMessage(finalId, {
+                  ...(msg.metadata ? { metadata: msg.metadata } : {}),
+                  ...(Object.keys(extraForPatch).length > 0 ? { extra: extraForPatch } : {}),
+                  ...(msg.mentionsUser ? { mentionsUser: true } : {}),
+                  ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+                  ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
+                });
+              }
+              if (replacementTarget) {
+                deleteActive(msg.catId);
+                clearFinalized(msg.catId);
+              }
+              markReplacedInvocation(useChatStore.getState().currentThreadId, msg.catId, msg.invocationId);
+            }
+          } else if (replacementTarget) {
             const finalId = msg.messageId ?? replacementTarget.id;
             if (finalId !== replacementTarget.id) {
               replaceMessageId(replacementTarget.id, finalId);
