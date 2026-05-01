@@ -179,6 +179,10 @@ export interface AgentRouterOptions {
   guideSessionStore?: import('../../../../guides/GuideSessionRepository.js').IGuideSessionStore;
   /** F155 B-6: Dismiss tracker for guide offer suppression */
   dismissTracker?: import('../../../../guides/GuideDismissTracker.js').IGuideDismissTracker;
+  /** F093: World context provider for world-building mode */
+  worldContextProvider?: import('../../../../world/WorldContextProvider.js').WorldContextProvider;
+  /** F093: World store for thread→world lookup */
+  worldStore?: import('../../../../world/interfaces.js').IWorldStore;
 }
 
 /**
@@ -225,6 +229,9 @@ export class AgentRouter {
   private guideSessionStore?: import('../../../../guides/GuideSessionRepository.js').IGuideSessionStore;
   /** F155 B-6 */
   private dismissTracker?: import('../../../../guides/GuideDismissTracker.js').IGuideDismissTracker;
+  /** F093 */
+  private worldContextProvider?: import('../../../../world/WorldContextProvider.js').WorldContextProvider;
+  private worldStore?: import('../../../../world/interfaces.js').IWorldStore;
   private speechMentionRe: RegExp;
 
   private rebuildRuntimeCaches(agentRegistry: AgentRegistry): void {
@@ -265,6 +272,8 @@ export class AgentRouter {
     this.toolUsageCounter = options.toolUsageCounter;
     this.guideSessionStore = options.guideSessionStore;
     this.dismissTracker = options.dismissTracker;
+    this.worldContextProvider = options.worldContextProvider;
+    this.worldStore = options.worldStore;
   }
 
   refreshFromRegistry(agentRegistry: AgentRegistry): void {
@@ -693,6 +702,8 @@ export class AgentRouter {
       ...(this.packStore ? { packStore: this.packStore } : {}),
       ...(this.evidenceStore ? { evidenceStore: this.evidenceStore } : {}),
       ...(this.toolUsageCounter ? { toolUsageCounter: this.toolUsageCounter } : {}),
+      ...(this.worldContextProvider ? { worldContextProvider: this.worldContextProvider } : {}),
+      ...(this.worldStore ? { worldStore: this.worldStore } : {}),
     };
   }
 

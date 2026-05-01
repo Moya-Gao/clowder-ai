@@ -72,3 +72,4 @@ export { workflowSopRoutes } from './workflow-sop.js';
 export { workspaceRoutes } from './workspace.js';
 export { workspaceEditRoutes } from './workspace-edit.js';
 export { workspaceGitRoutes } from './workspace-git.js';
+export { worldRoutes } from './world.js';

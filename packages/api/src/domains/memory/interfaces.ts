@@ -108,6 +108,10 @@ export interface EvidenceItem {
   invalidAt?: string;
   /** F163 Phase C: days between review cycles */
   reviewCycleDays?: number;
+  /** F093 Phase A (KD-16): world scope — derived canon evidence */
+  worldId?: string;
+  /** F093 Phase A (KD-16): scene scope — derived canon evidence */
+  sceneId?: string;
   /** AC-I9: passage-level detail when depth=raw */
   passages?: Array<{
     passageId: string;
@@ -164,6 +168,10 @@ export interface SearchOptions {
   provenanceTier?: ProvenanceTier;
   /** F163 Phase B (AC-B3): include backstop docs in results (for drill-down) */
   includeBackstop?: boolean;
+  /** F093 Phase A (KD-16): filter to a specific world's derived knowledge */
+  worldId?: string;
+  /** F093 Phase A (KD-16): filter to a specific scene within a world */
+  sceneId?: string;
 }
 
 export interface MarkerFilter {

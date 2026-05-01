@@ -141,6 +141,15 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     if (suppressBackstop) {
       anchorSql += " AND activation != 'backstop'";
     }
+    // F093 Phase A (KD-16): world scope filter
+    if (options?.worldId) {
+      anchorSql += ' AND world_id = ?';
+      anchorParams.push(options.worldId);
+    }
+    if (options?.sceneId) {
+      anchorSql += ' AND scene_id = ?';
+      anchorParams.push(options.sceneId);
+    }
     const exactRow = this.db?.prepare(anchorSql).get(...anchorParams) as RowShape | undefined;
     if (exactRow) {
       results.push(rowToItem(exactRow));
@@ -203,6 +212,15 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         if (suppressBackstop) {
           sql += " AND d.activation != 'backstop'";
         }
+        // F093 Phase A (KD-16): world scope filter
+        if (options?.worldId) {
+          sql += ' AND d.world_id = ?';
+          params.push(options.worldId);
+        }
+        if (options?.sceneId) {
+          sql += ' AND d.scene_id = ?';
+          params.push(options.sceneId);
+        }
 
         // Superseded items sort last (KD-16), archive results deprioritized (P2 fix), authoritative first (F152 AC-A6, P1-2 NULL-safe)
         sql +=
@@ -253,6 +271,14 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       if (threadAnchor) {
         containsSql += ' AND anchor = ?';
         containsParams.push(threadAnchor);
+      }
+      if (options?.worldId) {
+        containsSql += ' AND world_id = ?';
+        containsParams.push(options.worldId);
+      }
+      if (options?.sceneId) {
+        containsSql += ' AND scene_id = ?';
+        containsParams.push(options.sceneId);
       }
       if (options?.dateFrom) {
         containsSql += ' AND updated_at >= ?';
@@ -478,6 +504,14 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       sql += ' AND anchor = ?';
       params.push(semanticThreadAnchor);
     }
+    if (options?.worldId) {
+      sql += ' AND world_id = ?';
+      params.push(options.worldId);
+    }
+    if (options?.sceneId) {
+      sql += ' AND scene_id = ?';
+      params.push(options.sceneId);
+    }
     // P1-3 fix: provenanceTier filter for semantic search
     if (options?.provenanceTier) {
       sql += ' AND provenance_tier = ?';
@@ -569,6 +603,14 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         sql += ' AND anchor = ?';
         params.push(hybridThreadAnchor);
       }
+      if (options?.worldId) {
+        sql += ' AND world_id = ?';
+        params.push(options.worldId);
+      }
+      if (options?.sceneId) {
+        sql += ' AND scene_id = ?';
+        params.push(options.sceneId);
+      }
       // P1-3 fix: provenanceTier filter for hybrid NN hydrate
       if (options?.provenanceTier) {
         sql += ' AND provenance_tier = ?';
@@ -644,8 +686,9 @@ export class SqliteEvidenceStore implements IEvidenceStore {
 				 superseded_by, materialized_from, updated_at, pack_id, provenance_tier, provenance_source, generalizable,
 				 authority, activation, verified_at,
 				 source_ids, summary_of_anchor, compression_rationale,
-				 contradicts, invalid_at, review_cycle_days)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 contradicts, invalid_at, review_cycle_days,
+				 world_id, scene_id)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`);
 
       const tx = db.transaction((items: EvidenceItem[]) => {
@@ -675,6 +718,8 @@ export class SqliteEvidenceStore implements IEvidenceStore {
             item.contradicts ? JSON.stringify(item.contradicts) : null,
             item.invalidAt ?? null,
             item.reviewCycleDays ?? null,
+            item.worldId ?? null,
+            item.sceneId ?? null,
           );
         }
       });
@@ -1010,6 +1055,8 @@ interface RowShape {
   contradicts: string | null;
   invalid_at: string | null;
   review_cycle_days: number | null;
+  world_id: string | null;
+  scene_id: string | null;
 }
 
 function rowToItem(row: RowShape): EvidenceItem {
@@ -1043,6 +1090,8 @@ function rowToItem(row: RowShape): EvidenceItem {
   if (row.contradicts != null) item.contradicts = JSON.parse(row.contradicts);
   if (row.invalid_at != null) item.invalidAt = row.invalid_at;
   if (row.review_cycle_days != null) item.reviewCycleDays = row.review_cycle_days;
+  if (row.world_id != null) item.worldId = row.world_id;
+  if (row.scene_id != null) item.sceneId = row.scene_id;
   return item;
 }
 

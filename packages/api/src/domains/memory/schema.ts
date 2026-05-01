@@ -66,7 +66,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 15;
+export const CURRENT_SCHEMA_VERSION = 16;
 
 // F163 Phase A: experiment infrastructure tables (cohorts, suggestions, logs)
 export const SCHEMA_V13_TABLES = `
@@ -450,6 +450,27 @@ export function applyMigrations(db: Database.Database): void {
       // Column may already exist from a partial migration
     }
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(15, new Date().toISOString());
+  }
+
+  // V16: F093 world scope — world_id / scene_id on evidence_docs for world-scoped recall
+  if (currentVersion < 16) {
+    try {
+      db.exec('ALTER TABLE evidence_docs ADD COLUMN world_id TEXT');
+    } catch {
+      // Column may already exist from a partial migration
+    }
+    try {
+      db.exec('ALTER TABLE evidence_docs ADD COLUMN scene_id TEXT');
+    } catch {
+      // Column may already exist from a partial migration
+    }
+    try {
+      db.exec('CREATE INDEX IF NOT EXISTS idx_evidence_docs_world ON evidence_docs(world_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_evidence_docs_world_scene ON evidence_docs(world_id, scene_id)');
+    } catch {
+      // Indexes may already exist
+    }
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(16, new Date().toISOString());
   }
 }
 
