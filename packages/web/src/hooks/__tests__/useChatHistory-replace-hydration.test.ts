@@ -767,11 +767,7 @@ describe('useChatHistory replace hydration', () => {
     // placeholder must be reconciled away against the callback bubble
     // (phase priority drops local). First-wins regression would replace
     // server-stream-X with live-stream-X.
-    expect(useChatStore.getState().messages.map((m) => m.id)).toEqual([
-      'b1',
-      'server-stream-X',
-      'server-callback-X',
-    ]);
+    expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['b1', 'server-stream-X', 'server-callback-X']);
     expect(useChatStore.getState().messages.find((m) => m.id === 'live-stream-X')).toBeUndefined();
     expect(useChatStore.getState().messages.find((m) => m.id === 'server-stream-X')).toEqual(
       expect.objectContaining({ content: 'thin', origin: 'stream' }),

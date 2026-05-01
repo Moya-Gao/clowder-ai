@@ -1018,4 +1018,299 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
     expect(id).not.toContain('placeholder');
     expect(id).toMatch(/^local-thread-1-codex-1234-7$/);
   });
+
+  // F183 Phase B1.3 — reducer expansion: done / error / timeout terminal events.
+  // done: invocation lifecycle marker → finalize matching streaming bubbles
+  //       (no new bubble; mark isStreaming=false on stable-key match).
+  // error / timeout: visible system_status bubble carrying the error message.
+
+  it('B1.3: done event marks existing streaming bubble isStreaming=false (preserves content + id)', () => {
+    const streaming = streamPlaceholder({ content: 'partial answer' });
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'done',
+        bubbleKind: 'system_status',
+        messageId: undefined,
+        timestamp: 1500,
+      },
+      currentMessages: [streaming],
+    });
+
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0]).toMatchObject({
+      id: 'msg-inv-1-codex',
+      content: 'partial answer',
+      isStreaming: false,
+    });
+    expect(output.violations).toEqual([]);
+    expect(output.recoveryAction).toBe('none');
+  });
+
+  it('B1.3: done event finalizes ALL bubbles for the same invocation+cat (text + tool/rich co-existing)', () => {
+    const text = streamPlaceholder({ id: 'text-1', content: 'analysis', isStreaming: true });
+    const tool = streamPlaceholder({
+      id: 'tool-1',
+      content: '',
+      isStreaming: true,
+      toolEvents: [{ id: 'te-1', type: 'tool_use', label: 'Read', timestamp: 900 }],
+    });
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'done',
+        bubbleKind: 'system_status',
+        messageId: undefined,
+        timestamp: 1500,
+      },
+      currentMessages: [text, tool],
+    });
+
+    expect(output.nextMessages).toHaveLength(2);
+    expect(output.nextMessages[0]).toMatchObject({ id: 'text-1', isStreaming: false });
+    expect(output.nextMessages[1]).toMatchObject({ id: 'tool-1', isStreaming: false });
+    expect(output.violations).toEqual([]);
+    expect(output.recoveryAction).toBe('none');
+  });
+
+  it('B1.3: done event no-op when no matching bubble for invocation+cat (silent, no violation)', () => {
+    const otherInv = streamPlaceholder({
+      id: 'msg-inv-2-codex',
+      content: 'other invocation alive',
+      extra: { stream: { invocationId: 'inv-2' } },
+    });
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'done',
+        bubbleKind: 'system_status',
+        messageId: undefined,
+        timestamp: 1500,
+      },
+      currentMessages: [otherInv],
+    });
+
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0]).toMatchObject({ id: 'msg-inv-2-codex', isStreaming: true });
+    expect(output.violations).toEqual([]);
+    expect(output.recoveryAction).toBe('none');
+  });
+
+  it('B1.3: invocationless done is reducer no-op (lifecycle handled by side-effects in caller)', () => {
+    const streaming = streamPlaceholder({ content: 'streaming' });
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'done',
+        canonicalInvocationId: undefined,
+        bubbleKind: 'system_status',
+        timestamp: 1500,
+      },
+      currentMessages: [streaming],
+    });
+
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0]).toMatchObject({ isStreaming: true });
+    expect(output.recoveryAction).toBe('none');
+  });
+
+  it('B1.3: error event adds visible system error bubble with cat + content', () => {
+    const streaming = streamPlaceholder({ content: 'streaming when error fires' });
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'error',
+        bubbleKind: 'system_status',
+        messageId: undefined,
+        timestamp: 1500,
+        payload: { error: 'Provider returned 503' },
+      },
+      currentMessages: [streaming],
+    });
+
+    expect(output.nextMessages).toHaveLength(2);
+    // Existing assistant_text bubble preserved (error doesn't auto-finalize streaming;
+    // that's the caller's terminal-orchestration responsibility).
+    expect(output.nextMessages[0]).toMatchObject({
+      id: 'msg-inv-1-codex',
+      content: 'streaming when error fires',
+      isStreaming: true,
+    });
+    // New system_status bubble carries the error.
+    expect(output.nextMessages[1]).toMatchObject({
+      type: 'system',
+      variant: 'error',
+      catId: 'codex',
+      content: 'Error: Provider returned 503',
+    });
+    expect(output.violations).toEqual([]);
+    expect(output.recoveryAction).toBe('none');
+  });
+
+  it('B1.3: timeout event adds visible system error bubble (same shape as error)', () => {
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'timeout',
+        bubbleKind: 'system_status',
+        messageId: undefined,
+        timestamp: 1500,
+        payload: { error: 'Stream timed out' },
+      },
+      currentMessages: [],
+    });
+
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0]).toMatchObject({
+      type: 'system',
+      variant: 'error',
+      catId: 'codex',
+      content: 'Error: Stream timed out',
+    });
+    expect(output.recoveryAction).toBe('none');
+  });
+
+  // 砚砚 R1 P1 (B1.3 review): repeated error/timeout for same canonical invocation
+  // must NOT duplicate system_status bubble — ADR-033 不变量 #4 同
+  // (actor, invocationId, kind) 唯一性也覆盖 system_status。
+  // Fix: errorBubble 带 extra.stream.invocationId；findExistingByStableKey 命中时
+  // 替换同一 bubble 内容，不追加第二条。invocationless error 不参与 stable key（ADR
+  // #4 invocationless 是 local-only），允许追加 standalone bubble。
+  it('B1.3 砚砚 R1 P1: repeated error for same invocation updates same system_status bubble (no duplicate id)', () => {
+    const first = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'error',
+        bubbleKind: 'system_status',
+        messageId: undefined,
+        timestamp: 1500,
+        payload: { error: 'first error' },
+      },
+      currentMessages: [],
+    });
+    expect(first.nextMessages).toHaveLength(1);
+    expect(first.nextMessages[0]).toMatchObject({
+      id: 'msg-inv-1-codex-system_status',
+      type: 'system',
+      variant: 'error',
+      content: 'Error: first error',
+    });
+    expect(first.violations).toEqual([]);
+
+    const second = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'error',
+        bubbleKind: 'system_status',
+        messageId: undefined,
+        timestamp: 1600,
+        payload: { error: 'second error (more detail)' },
+      },
+      currentMessages: first.nextMessages,
+    });
+    // CRITICAL: second error replaces first bubble's content, no duplicate
+    expect(second.nextMessages).toHaveLength(1);
+    expect(second.nextMessages[0]).toMatchObject({
+      id: 'msg-inv-1-codex-system_status',
+      type: 'system',
+      variant: 'error',
+      content: 'Error: second error (more detail)',
+    });
+    expect(second.violations).toEqual([]);
+    expect(second.recoveryAction).toBe('none');
+  });
+
+  it('B1.3 砚砚 R1 P1: timeout after error for same invocation also dedups to same system_status bubble', () => {
+    const errorRes = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'error',
+        bubbleKind: 'system_status',
+        messageId: undefined,
+        timestamp: 1500,
+        payload: { error: 'transient error' },
+      },
+      currentMessages: [],
+    });
+    const timeoutRes = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'timeout',
+        bubbleKind: 'system_status',
+        messageId: undefined,
+        timestamp: 1700,
+        payload: { error: 'stream timeout' },
+      },
+      currentMessages: errorRes.nextMessages,
+    });
+    expect(timeoutRes.nextMessages).toHaveLength(1);
+    expect(timeoutRes.nextMessages[0]).toMatchObject({
+      id: 'msg-inv-1-codex-system_status',
+      content: 'Error: stream timeout',
+    });
+    expect(timeoutRes.violations).toEqual([]);
+  });
+
+  it('B1.3 砚砚 R1 P1: invocationless error appends standalone bubble with local-only id (no stable key)', () => {
+    const first = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'error',
+        bubbleKind: 'system_status',
+        canonicalInvocationId: undefined,
+        messageId: undefined,
+        timestamp: 1500,
+        seq: 0,
+        payload: { error: 'first invocationless' },
+      },
+      currentMessages: [],
+    });
+    const second = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'error',
+        bubbleKind: 'system_status',
+        canonicalInvocationId: undefined,
+        messageId: undefined,
+        timestamp: 1600,
+        seq: 1,
+        payload: { error: 'second invocationless' },
+      },
+      currentMessages: first.nextMessages,
+    });
+    // invocationless events are local-only — both errors stand alone with distinct ids
+    expect(second.nextMessages).toHaveLength(2);
+    expect(second.nextMessages[0].id).not.toBe(second.nextMessages[1].id);
+    expect(second.nextMessages[0].id.startsWith('local-')).toBe(true);
+    expect(second.nextMessages[1].id.startsWith('local-')).toBe(true);
+  });
+
+  it('B1.3: error event with no payload.error falls back to "Unknown error"', () => {
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'error',
+        bubbleKind: 'system_status',
+        messageId: undefined,
+        timestamp: 1500,
+      },
+      currentMessages: [],
+    });
+
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0].content).toBe('Error: Unknown error');
+  });
 });

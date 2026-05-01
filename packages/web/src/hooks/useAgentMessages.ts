@@ -2434,6 +2434,39 @@ export function useAgentMessages() {
               markReplacedInvocation(useChatStore.getState().currentThreadId, msg.catId, msg.invocationId);
             }
           }
+          // F183 Phase B1.3 — finalize cross-kind bubbles via reducer (single-writer).
+          // ORDER MATTERS (cloud P1, R3 review): reducer must run AFTER legacy
+          // recovery + setFinalized — reduceDoneEvent flips ALL {catId, invocationId,
+          // isStreaming} matches to isStreaming=false, which would make
+          // getOrRecoverActiveAssistantMessageId fall through to a non-streaming
+          // callback bubble, then setFinalized records that callback id (origin=
+          // 'callback'), then later invocationless callback's findInvocationless-
+          // StreamPlaceholder rejects it (requires origin='stream') → split bubble.
+          // Running reducer here means: legacy already finalized the recovered
+          // assistant_text bubble (no-op match for that one), reducer additionally
+          // finalizes any *other* same-invocation streaming bubbles (cross-kind
+          // co-existence: tool_or_cli / thinking) per ADR-033.
+          if (!isStaleDone && msg.invocationId) {
+            const threadId = msg.threadId ?? useChatStore.getState().currentThreadId;
+            const event = adaptIncomingToBubbleEvent({ ...msg, threadId } as BackgroundAgentMessage, {
+              sourcePath: 'active',
+            });
+            if (event) {
+              const storeSnapshot = useChatStore.getState();
+              const result = applyBubbleEvent({
+                threadId,
+                event,
+                currentMessages: storeSnapshot.messages,
+              });
+              if (result.recoveryAction === 'none') {
+                storeSnapshot.replaceMessages(result.nextMessages, storeSnapshot.hasMore);
+              }
+              if (result.violations.length > 0) {
+                for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+              }
+            }
+          }
+
           // Bugfix: clear stale invocationId so findRecoverableAssistantMessage
           // can't match this finalized message when the next invocation starts.
           // Without this, a race (new text before invocation_created) appends to

@@ -573,7 +573,7 @@
     {
       "id": "F093",
       "name": "Cats & U — 陪伴式共创世界引擎",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F093-cats-and-u-world-engine.md"
     },
     {
@@ -1113,7 +1113,7 @@
     {
       "id": "F179",
       "name": "Desktop Installer Release Pipeline — 自动化产出 Win/Mac 安装包并附 release",
-      "status": "in-progress | **Owner**: 布偶猫（Opus-47/宪宪） | **Reviewer**: 缅因猫（GPT-5.5/砚砚） | **Priority**: P1",
+      "status": "in-progress (Phase B: AC-B3 pending cross-cat verification) | **Owner**: 布偶猫（Opus-47/宪宪） | **Reviewer**: 缅因猫（GPT-5.5/砚砚） | **Priority**: P1",
       "file": "F179-desktop-installer-release-pipeline.md"
     },
     {

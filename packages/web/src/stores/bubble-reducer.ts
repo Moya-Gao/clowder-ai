@@ -233,6 +233,81 @@ function reduceStreamChunk(messages: ChatMessage[], event: BubbleEvent): ChatMes
   return [...messages, makePlaceholder(event, chunkContent, messages)];
 }
 
+// F183 Phase B1.3 — terminal lifecycle marker. `done` event 没有自己的 bubble，它
+// 标记 invocation 完成 → 把该 invocation 下所有 streaming bubbles（assistant_text、
+// tool_or_cli、thinking 等共存 kind 全部）isStreaming=false。invocationless `done`
+// 在 reducer 是 no-op（lifecycle 在 caller 用 cat status / slot cleanup 等 side-effect
+// 处理；ADR-033 不变量 #4 禁止 invocationless 参与 stable key 查重）。
+function reduceDoneEvent(messages: ChatMessage[], event: BubbleEvent): ChatMessage[] {
+  if (!event.canonicalInvocationId) return messages;
+  let changed = false;
+  const next: ChatMessage[] = [];
+  for (const m of messages) {
+    const matches =
+      m.catId === event.actorId &&
+      m.extra?.stream?.invocationId === event.canonicalInvocationId &&
+      m.isStreaming === true;
+    if (matches) {
+      next.push({ ...m, isStreaming: false });
+      changed = true;
+    } else {
+      next.push(m);
+    }
+  }
+  return changed ? next : messages;
+}
+
+// F183 Phase B1.3 — error/timeout 事件 = 可见 system_status bubble，承载 error
+// content。不自动 finalize streaming bubble（terminal orchestration 在 caller
+// 处理 cat status / slot cleanup / toast；reducer 只负责落 visible message）。
+//
+// 砚砚 R1 P1 (B1.3 review): system_status 也必须遵守 ADR-033 不变量 #4 同
+// (actor, invocationId, kind) 唯一性。canonical event 命中 stable key 时替换
+// 同一 bubble，不追加；invocationless event 是 local-only（ADR #4），允许
+// 多条 standalone bubble 各自带 deterministic local id。
+function reduceErrorEvent(messages: ChatMessage[], event: BubbleEvent): ChatMessage[] {
+  const errorText =
+    (event.payload?.error as string | undefined) ?? (event.payload?.content as string | undefined) ?? 'Unknown error';
+  const content = `Error: ${errorText}`;
+
+  // canonical (有 invocationId) 路径: 命中 stable key → 替换；不命中 → 追加新
+  // bubble，并带上 extra.stream.invocationId 让后续 same-key event 能 dedup。
+  if (event.canonicalInvocationId) {
+    const existing = findExistingByStableKey(messages, event);
+    if (existing) {
+      const next = [...messages];
+      next[existing.index] = {
+        ...existing.message,
+        content,
+        timestamp: event.timestamp ?? existing.message.timestamp,
+      };
+      return next;
+    }
+    const errorBubble: ChatMessage = {
+      id: ensureMessageId(event, messages),
+      type: 'system',
+      variant: 'error',
+      catId: event.actorId,
+      content,
+      timestamp: event.timestamp ?? 0,
+      extra: { stream: { invocationId: event.canonicalInvocationId } },
+    };
+    return [...messages, errorBubble];
+  }
+
+  // invocationless 路径: ADR #4 禁止参与 stable key；id 走 local fallback，
+  // 多条 invocationless error 允许各自落 standalone bubble。
+  const errorBubble: ChatMessage = {
+    id: ensureMessageId(event, messages),
+    type: 'system',
+    variant: 'error',
+    catId: event.actorId,
+    content,
+    timestamp: event.timestamp ?? 0,
+  };
+  return [...messages, errorBubble];
+}
+
 function reduceCallbackFinal(messages: ChatMessage[], event: BubbleEvent): ChatMessage[] {
   const finalContent = (event.payload?.content as string) ?? '';
   const existing = findExistingByStableKey(messages, event);
@@ -404,6 +479,13 @@ export function applyBubbleEvent(input: BubbleReducerInput): BubbleReducerOutput
       break;
     case 'callback_final':
       nextMessages = reduceCallbackFinal(currentMessages, event);
+      break;
+    case 'done':
+      nextMessages = reduceDoneEvent(currentMessages, event);
+      break;
+    case 'error':
+    case 'timeout':
+      nextMessages = reduceErrorEvent(currentMessages, event);
       break;
     default:
       break;
