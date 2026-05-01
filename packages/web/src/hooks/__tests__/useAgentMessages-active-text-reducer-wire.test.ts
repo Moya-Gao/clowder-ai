@@ -339,4 +339,48 @@ describe('F183 Phase B1.2.2 — active text stream wire-up to reducer', () => {
     // legacy patchMessage path for replace must NOT be called for this branch
     expect(mockPatchMessage).not.toHaveBeenCalled();
   });
+
+  // B1.2.3 — active text stream NEW-bubble creation wire-up
+  it('creates new stream bubble via reducer + replaceMessages (B1.2.3)', () => {
+    // No pre-existing bubble; activeInvocations carries the slot so wire-up
+    // can derive invocationId fallback even if msg.invocationId is missing.
+    storeState.messages = [];
+    storeState.activeInvocations = { 'inv-1': { catId: 'codex', mode: 'stream' } };
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'codex',
+        threadId: 'thread-1',
+        content: 'hello world',
+        origin: 'stream',
+        invocationId: 'inv-1',
+        timestamp: 1000,
+      });
+    });
+
+    // 关键：new stream bubble 必须通过 reducer + replaceMessages，不直接 addMessage
+    expect(mockReplaceMessages).toHaveBeenCalled();
+    expect(mockAddMessage).not.toHaveBeenCalled();
+    const lastCall = mockReplaceMessages.mock.calls[mockReplaceMessages.mock.calls.length - 1];
+    const nextMessages = lastCall[0] as ChatMessage[];
+    expect(nextMessages).toHaveLength(1);
+    expect(nextMessages[0]).toMatchObject({
+      type: 'assistant',
+      catId: 'codex',
+      content: 'hello world',
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-1' } },
+    });
+    // ID 与 deriveBubbleId('msg-${inv}-${cat}') 兼容（不带 bubbleKind 后缀）
+    expect(nextMessages[0].id).toBe('msg-inv-1-codex');
+  });
+
+  // B1.2.4 待 wire-up：callback path（replacement / no-target）。callback 涉及 id
+  // swap + rich-block placeholder replacement 等复杂语义，单独 PR 处理。
 });

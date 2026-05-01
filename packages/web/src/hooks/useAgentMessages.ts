@@ -2013,7 +2013,6 @@ export function useAgentMessages() {
 
         if (msg.origin === 'callback') {
           const invocationId = msg.invocationId ?? getCurrentInvocationIdForCat(msg.catId);
-          const hasExplicitInvocationId = !!msg.invocationId;
           // Callback broadcasts now reliably carry invocationId (callbacks.ts #454),
           // but rich-block-only runs can still start with an invocationless stream
           // placeholder before the stream identity is bound. Otherwise one logical
@@ -2031,6 +2030,11 @@ export function useAgentMessages() {
             ? (findCallbackReplacementTarget(msg.catId, invocationId) ?? findInvocationlessRichPlaceholder(msg.catId))
             : findInvocationlessStreamPlaceholder(msg.catId);
 
+          // B1.2.3 scope discipline: callback path 留在旧链路（patchMessage / addMessage /
+          // replaceMessageId）。callback 涉及 id swap + rich-block placeholder replacement 等
+          // 复杂语义，wire-up 进 reducer 会触发广泛 mock 测试更新（26 tests broke）。
+          // 单独 PR (B1.2.4) 处理 callback path 收口。
+          const hasExplicitInvocationId = !!msg.invocationId;
           if (replacementTarget) {
             const finalId = msg.messageId ?? replacementTarget.id;
             if (finalId !== replacementTarget.id) {
@@ -2051,17 +2055,11 @@ export function useAgentMessages() {
               ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
             });
             deleteActive(msg.catId);
-            // Consume the finalized ref — callback successfully replaced the bubble
             clearFinalized(msg.catId);
             if (invocationId) {
-              // F173 A.6 — write to shared module so background handler also sees the suppression
-              // when user switches away after callback replace.
               markReplacedInvocation(useChatStore.getState().currentThreadId, msg.catId, invocationId);
             }
           } else {
-            // Use backend messageId when available for rich_block correlation (#83 P2)
-            // F173 A.3 — fallback uses deterministic id from invocationId so a later stream
-            // recovery (after switching back) finds the same bubble instead of duplicating.
             const id =
               msg.messageId ??
               deriveBubbleId(invocationId, msg.catId, () => `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`);
@@ -2153,13 +2151,13 @@ export function useAgentMessages() {
               });
             }
           } else {
-            // New stream message for this cat.
+            // F183 Phase B1.2.3 — active stream NEW-bubble creation routes through
+            // reducer (single-writer). Reducer 的 reduceStreamChunk 在无现有 bubble +
+            // 无 upgradable placeholder 时调用 makePlaceholder 创建新 bubble。
+            //
             // F173 hotfix (砚砚 4 件套 #2) — prefer explicit msg.invocationId from event.
             // Cloud P1#8 (PR#1352): fall back to activeInvocations (the FRESH signal, set
             // by intent_mode UPSTREAM of invocation_created) when msg.invocationId is missing.
-            // Do NOT fall back to catInvocations (lags invocation_created — original ea0973e7
-            // trap). With activeInvocations binding, callback strict-match can correlate;
-            // without any binding, mixed-delivery races produce duplicate ghost pairs.
             let invocationId = msg.invocationId;
             if (!invocationId) {
               const fallback = findLatestActiveInvocationIdForCat(useChatStore.getState().activeInvocations, msg.catId);
@@ -2169,19 +2167,32 @@ export function useAgentMessages() {
               ? deriveBubbleId(invocationId, msg.catId, () => `msg-${Date.now()}-${msg.catId}`)
               : `msg-${Date.now()}-${msg.catId}`;
             setActive(msg.catId, id, invocationId);
-            addMessage({
-              id,
-              type: 'assistant',
-              catId: msg.catId,
-              content: msg.content,
-              origin: 'stream',
-              ...(msg.metadata ? { metadata: msg.metadata } : {}),
-              ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
-              ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
-              ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
-              timestamp: Date.now(),
-              isStreaming: true,
+            const threadId = msg.threadId ?? useChatStore.getState().currentThreadId;
+            const event = adaptIncomingToBubbleEvent({ ...msg, threadId, invocationId } as BackgroundAgentMessage, {
+              sourcePath: 'active',
             });
+            if (event) {
+              const eventWithId = { ...event, messageId: id };
+              const storeSnapshot = useChatStore.getState();
+              const result = applyBubbleEvent({
+                threadId,
+                event: eventWithId,
+                currentMessages: storeSnapshot.messages,
+              });
+              storeSnapshot.replaceMessages(result.nextMessages, storeSnapshot.hasMore);
+              if (result.violations.length > 0) {
+                for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+              }
+            }
+            // Side-effect patches that reducer doesn't model (metadata / replyTo / replyPreview).
+            // 这些 fields adapter 不透传 (msg.metadata 不在 adapter mapping 里)。
+            if (msg.metadata || msg.replyTo || msg.replyPreview) {
+              patchMessage(id, {
+                ...(msg.metadata ? { metadata: msg.metadata } : {}),
+                ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+                ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
+              });
+            }
           }
         }
       } else if (msg.type === 'tool_use') {

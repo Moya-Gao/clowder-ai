@@ -204,15 +204,16 @@ describe('useAgentMessages catch-up ref desync (#266 Round 2)', () => {
     const staleAppends = mockAppendToMessage.mock.calls.filter(([id]) => id === 'msg-1-opus');
     expect(staleAppends).toHaveLength(0);
 
-    // Should create a fresh bubble via addMessage
-    expect(mockAddMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'assistant',
-        catId: 'opus',
-        content: 'New response',
-        origin: 'stream',
-      }),
+    // Should create a fresh bubble via addMessage OR replaceMessages (F183 B1.2.3)
+    const addedFresh = mockAddMessage.mock.calls.some(
+      ([m]) => m.type === 'assistant' && m.catId === 'opus' && m.content === 'New response' && m.origin === 'stream',
     );
+    const replacedFresh = mockReplaceMessages.mock.calls.some((c) =>
+      (c[0] as Array<{ type?: string; catId?: string; content?: string; origin?: string }>).some(
+        (m) => m.type === 'assistant' && m.catId === 'opus' && m.content === 'New response' && m.origin === 'stream',
+      ),
+    );
+    expect(addedFresh || replacedFresh, 'fresh bubble must be created via addMessage or replaceMessages').toBe(true);
   });
 
   it('after resetRefs, callback does not merge into finalized stream from prior invocation', () => {

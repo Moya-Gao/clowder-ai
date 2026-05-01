@@ -808,8 +808,12 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
         invocationId: 'inv-done',
       });
     });
-    const finalizedBubbleId = mockAddMessage.mock.calls.find(([m]) => m.type === 'assistant' && m.catId === 'opus')?.[0]
-      ?.id as string;
+    // F183 B1.2.3: new stream bubble may go via reducer + replaceMessages instead of addMessage
+    const finalizedBubbleId =
+      (mockAddMessage.mock.calls.find(([m]) => m.type === 'assistant' && m.catId === 'opus')?.[0]?.id as string) ??
+      mockReplaceMessages.mock.calls
+        .flatMap((c) => c[0] as Array<{ type?: string; catId?: string; id?: string }>)
+        .find((m) => m.type === 'assistant' && m.catId === 'opus')?.id;
     expect(finalizedBubbleId).toBeTruthy();
 
     // Step 2: done event finalizes the bubble and populates finalizedStreamRef.
@@ -1075,10 +1079,16 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
     expect(appendToACalls).toHaveLength(0);
 
     // Should have created a new message for the new invocation
+    // F183 B1.2.3: new stream bubble may go via reducer + replaceMessages instead of addMessage
     const newAssistantCalls = mockAddMessage.mock.calls.filter(
       ([msg]) => msg.type === 'assistant' && msg.catId === 'opus',
     );
-    expect(newAssistantCalls.length).toBeGreaterThanOrEqual(1);
+    const replacedNewBubble = mockReplaceMessages.mock.calls.some((c) =>
+      (c[0] as Array<{ type?: string; catId?: string; id?: string }>).some(
+        (m) => m.type === 'assistant' && m.catId === 'opus' && m.id !== 'msg-A',
+      ),
+    );
+    expect(newAssistantCalls.length + (replacedNewBubble ? 1 : 0)).toBeGreaterThanOrEqual(1);
   });
 
   it('P1 regression: stale callback from inv-1 must NOT replace inv-2 active bubble (#266)', () => {

@@ -72,6 +72,12 @@ const storeState = {
   patchMessage: mockPatchMessage,
 
   addMessageToThread: mockAddMessageToThread,
+  // F183 B1.2.3: active stream new-bubble path → reducer → replaceMessages.
+  // Spy-only (no impl) to match legacy mockAddMessage behavior — applying state
+  // changes downstream recovery logic that some tests rely on for "ghost bubble"
+  // semantics (e.g. fails-open after invocation gone).
+  replaceMessages: vi.fn(),
+  hasMore: true,
   clearThreadActiveInvocation: mockClearThreadActiveInvocation,
   resetThreadInvocationState: mockResetThreadInvocationState,
   setThreadMessageStreaming: mockSetThreadMessageStreaming,
@@ -406,16 +412,30 @@ describe('useAgentMessages rich_block correlation (Bug A)', () => {
       });
     });
 
-    expect(mockAddMessage).toHaveBeenCalledTimes(1);
-    expect(mockAddMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'assistant',
-        catId: 'opus',
-        content: 'verified new invocation first chunk',
-        origin: 'stream',
-        isStreaming: true,
-      }),
+    // F183 B1.2.3: new stream bubble may go via reducer + replaceMessages instead of addMessage
+    const replaceMessagesMock = storeState.replaceMessages as ReturnType<typeof vi.fn>;
+    const addedNew = mockAddMessage.mock.calls.find(
+      ([m]) =>
+        m.type === 'assistant' &&
+        m.catId === 'opus' &&
+        m.content === 'verified new invocation first chunk' &&
+        m.origin === 'stream' &&
+        m.isStreaming === true,
     );
+    const replacedNew = replaceMessagesMock.mock.calls
+      .flatMap(
+        (c) =>
+          c[0] as Array<{ type?: string; catId?: string; content?: string; origin?: string; isStreaming?: boolean }>,
+      )
+      .find(
+        (m) =>
+          m.type === 'assistant' &&
+          m.catId === 'opus' &&
+          m.content === 'verified new invocation first chunk' &&
+          m.origin === 'stream' &&
+          m.isStreaming === true,
+      );
+    expect(addedNew || replacedNew, 'new stream bubble must be created via addMessage or replaceMessages').toBeTruthy();
   });
 
   it('falls back to ensureActiveAssistantMessage when no callback message exists', () => {
