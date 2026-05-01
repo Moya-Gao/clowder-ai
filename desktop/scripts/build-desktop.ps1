@@ -87,6 +87,7 @@ if (-not $SkipBundleDeps) {
     $npmrcOriginalContent = if ($npmrcHadOriginal) { Get-Content $npmrcPath -Raw } else { $null }
     $defenderExclusionAdded = $false
     $deployFailed = $false
+    $npmrcRestoreFailed = $false
 
     # Temporarily exclude the deploy target from Defender scanning. Defender can
     # lock freshly-written files in .bin/ during pnpm deploy; remove the
@@ -137,13 +138,16 @@ if (-not $SkipBundleDeps) {
             } else {
                 Remove-Item $npmrcPath -ErrorAction SilentlyContinue
             }
-        } catch {}
+        } catch {
+            Write-Err "Failed to restore temporary .npmrc: $($_.Exception.Message)"
+            $npmrcRestoreFailed = $true
+        }
         if ($defenderExclusionAdded) {
             try { Remove-MpPreference -ExclusionPath $deployRoot -ErrorAction SilentlyContinue } catch {}
         }
     }
 
-    if ($deployFailed) { exit 1 }
+    if ($deployFailed -or $npmrcRestoreFailed) { exit 1 }
 
     # Web's pre-built .next artifact is not copied by `pnpm deploy` (it's outside
     # the package `files` field), so inject it explicitly.
