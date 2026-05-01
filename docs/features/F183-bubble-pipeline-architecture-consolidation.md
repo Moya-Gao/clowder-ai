@@ -10,7 +10,7 @@ created: 2026-04-30
 
 > **Status**: in-progress | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1
 >
-> Phase A 已 done（2026-04-30，铲屎官自治放行 ADR-033 v2）。Phase B0 已 merged（PR #1496，commit `a6be5970e`）。Phase B1.1 reducer core 已 merged（PR #1500，commit `2fbde77ec`）。Phase B1.2.1 adapter + reducer textMode='replace' 已 merged（PR #1506，commit `1e9cb84bd`）。Phase B1.2.2 active text wire-up pilot 已 merged（PR #1507，commit `3817e0974`，2 轮 review 验证垂直切片节奏起效）。B1.2.3+ 继续 active stream 余下 callsite + new-bubble 创建路径。
+> Phase A 已 done（2026-04-30，铲屎官自治放行 ADR-033 v2）。Phase B0 已 merged（PR #1496，commit `a6be5970e`）。Phase B1.1 reducer core 已 merged（PR #1500，commit `2fbde77ec`）。Phase B1.2.1 adapter + reducer textMode='replace' 已 merged（PR #1506，commit `1e9cb84bd`）。Phase B1.2.2 active text wire-up pilot 已 merged（PR #1507，commit `3817e0974`，2 轮 review）。Phase B1.2.3 active stream new-bubble 已 merged（PR #1510，commit `058362c79`，1 轮 review）。**active text stream 分支整体 wire-up 完成**；B1.2.4+ 处理 callback 分支 + 余下入口。
 
 ## Why
 
@@ -104,10 +104,11 @@ created: 2026-04-30
 
 ### Phase B1（Single Writer）
 
-- [~] AC-B1: `MessageWriter` / reconcile reducer 落地，所有写入口收敛（B1.1 已落 reducer core；B1.2.1 已落 adapter + reducer textMode；B1.2.2 已 wire active text-into-existing-bubble path 进 reducer；B1.2.3+ 继续 active stream new-bubble / background stream / callback / draft / hydration / replace 入口收口）
+- [~] AC-B1: `MessageWriter` / reconcile reducer 落地，所有写入口收敛（B1.1 reducer core；B1.2.1 adapter + reducer textMode；B1.2.2 active text existing-bubble；B1.2.3 active text new-bubble — **active text stream branch 整体收口完毕**；B1.2.4+ 继续 callback path / background stream / draft / hydration / replace 入口收口）
 - [x] AC-B1.1: BubbleReducer core 落地（PR #1500，merge commit `2fbde77ec`），覆盖 stable-key lookup、local placeholder 单调升级、ambiguous upgrade quarantine、deterministic local fallback id、callback_final backend id adoption
 - [x] AC-B1.2.1: `BackgroundAgentMessage → BubbleEvent` 纯 adapter 落地（PR #1506，merge commit `1e9cb84bd`）。覆盖 text/thinking/tool_*/cli_output/rich_block/system_status/timeout/done/error/未知 type 的 mapping；assistant_text 改白名单（unknown/control msg → undefined，不绑 text bubble stable key）；reducer `reduceStreamChunk` 识别 `textMode='replace'` 重写 content（不退化为 append）。6 轮云端 codex review 收敛 5 P1（system_status non-terminal / direct done&error / unknown type fallback / text+isFinal+content drop / textMode replace）。focused 41/41，typecheck + biome clean
 - [x] AC-B1.2.2: active text stream pilot wire-up 落地（PR #1507，merge commit `3817e0974`）。`useAgentMessages.ts` text-into-existing-bubble path 当 `msg.invocationId` canonical → adapter + applyBubbleEvent + replaceMessages；otherwise legacy `appendToMessage` / `patchMessage`（保留 invocationless recovery）。Round 1 收敛 2 P1：(1) `replaceMessages(msgs, hasMore)` 不再强制 false 杀掉 pagination；(2) `result.violations.forEach(recordBubbleInvariantViolation)` 真正接 B1 invariant gate 进 active hot path。focused 4/4 + 2667/2667 full web suite，typecheck + biome clean。**节奏对照：B1.2.1 6 轮 review，B1.2.2 2 轮 review — 砚砚的垂直切片建议起效**
+- [x] AC-B1.2.3: active text stream new-bubble wire-up 落地（PR #1510，merge commit `058362c79`）。`useAgentMessages.ts` 无 recoverable bubble 时 → adapter + applyBubbleEvent + replaceMessages 创建新 bubble，setActive/markReplacedInvocation/metadata-replyTo-replyPreview patches 等副作用保留。Bundled with B1.2.2 后 **active text stream branch 整体收口完毕**。8 个既有 test files 加 `replaceMessages` mock + 5 处 assertion 放松接受 reducer 路径。focused 5/5 + 2668/2668 full web suite，typecheck + biome clean。**1 轮 review LGTM** — 节奏继续优化（6 → 2 → 1 轮）
 - [ ] AC-B2: `mergeReplaceHydrationMessages()` 简化到 ≤ 2 种匹配策略
 - [ ] AC-B3: F123 TD111 + TD113 收编完成
 - [x] AC-B4: Review `recoveryAction` 默认值是否需要 reducer 覆盖（B0 P2 follow-up 已落地：late `stream_chunk` after `callback_final` 走 `catch-up`；其他 phase regression 走 `quarantine` + violation）
@@ -212,6 +213,7 @@ created: 2026-04-30
 | 2026-05-01 | **Phase B1.1 done**：PR #1500 squash merged（`2fbde77ec`）—— BubbleReducer core + B1 `recoveryAction` override 落地；focused 36/36、`pnpm gate`、云端 Codex review clean |
 | 2026-05-01 | **Phase B1.2.1 done**：PR #1506 squash merged（`1e9cb84bd`）—— `bubble-event-adapter.ts` (108 行) + `reduceStreamChunk` 识别 `textMode='replace'`。6 轮云端 codex review 收敛 5 P1（assistant_text 白名单 / direct done&error 归 system_status / text+isFinal 不 drop content / textMode replace 不退化 append）；focused 41/41、typecheck + biome clean。教训：adapter-only PR 切片过细 → B1.2.2 起改"adapter + 1-2 callsite + replay test"垂直切片 |
 | 2026-05-01 | **Phase B1.2.2 done**：PR #1507 squash merged（`3817e0974`）—— active text-into-existing-bubble pilot wire-up（adapter+applyBubbleEvent+replaceMessages，canonical-invocation only）。2 轮云端 codex review 收敛 2 P1：(1) hasMore 保留（不强制 false 杀掉 pagination）；(2) `result.violations.forEach(recordBubbleInvariantViolation)` 接 B1 invariant gate 进 active hot path。focused 4/4 + 2667/2667 full web。**节奏验证：B1.2.1 6 轮 review → B1.2.2 2 轮 review，垂直切片节奏起效** |
+| 2026-05-01 | **Phase B1.2.3 done**：PR #1510 squash merged（`058362c79`）—— active text stream new-bubble wire-up，bundled with B1.2.2 完成 active text stream branch 整体收口。1 轮云端 codex LGTM，pure-rebase 后自决合入（review-continuity 教训）。8 个既有 test files 加 replaceMessages mock + 5 处 assertion 放松。focused 5/5 + 2668/2668 full web。**节奏继续优化：6 → 2 → 1 轮 review** |
 
 ## Review Gate
 
