@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="920" viewBox="0 0 1440 920" role="img" aria-labelledby="title desc">
+  <title id="title">ADR-034 dispatch busy gate architecture</title>
+  <desc id="desc">Hand drawn style architecture diagram for dispatch busy gate unification: user broadcast uses thread gate, user mention uses slot gate, external connector uses thread gate, and A2A uses queue auto execute with slot gate.</desc>
+  <defs>
+    <filter id="paper">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="4" seed="34" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 0.08"/>
+      </feComponentTransfer>
+      <feBlend in="SourceGraphic" mode="multiply"/>
+    </filter>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L12,7 L2,12 L5,7 Z" fill="#2c2c2c"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L12,7 L2,12 L5,7 Z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .paper { fill: #fbf7ed; }
+      .ink { stroke: #2c2c2c; stroke-width: 3.4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .thin { stroke-width: 2.2; }
+      .blue { stroke: #2563eb; }
+      .green { stroke: #1f8a5b; }
+      .red { stroke: #c23b22; }
+      .muted { stroke: #8b7b62; }
+      .box { fill: #fffdf7; stroke: #2c2c2c; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
+      .box-blue { fill: #eef5ff; stroke: #2563eb; }
+      .box-green { fill: #eefaf3; stroke: #1f8a5b; }
+      .box-red { fill: #fff1ed; stroke: #c23b22; }
+      .note { fill: #fff8c6; stroke: #8b7b62; }
+      text { font-family: "Comic Sans MS", "Bradley Hand", "Marker Felt", "Trebuchet MS", sans-serif; fill: #252525; letter-spacing: 0; }
+      .title { font-size: 38px; font-weight: 700; }
+      .subtitle { font-size: 20px; fill: #5b5142; }
+      .label { font-size: 22px; font-weight: 700; }
+      .small { font-size: 17px; }
+      .tiny { font-size: 14px; fill: #5b5142; }
+      .stamp { font-size: 19px; font-weight: 700; fill: #c23b22; }
+    </style>
+  </defs>
+
+  <rect class="paper" width="1440" height="920"/>
+  <g>
+    <path class="ink thin muted" d="M24 34 C210 26 395 38 585 31 C818 21 1005 40 1416 29"/>
+    <path class="ink thin muted" d="M23 887 C274 900 434 881 658 890 C941 900 1124 879 1419 891"/>
+
+    <text class="title" x="48" y="72">ADR-034 dispatch busy gate</text>
+    <text class="subtitle" x="50" y="105">Split by source: user intent keeps side-dispatch, external automation queues behind any active thread.</text>
+    <text class="stamp" x="1210" y="70">accepted</text>
+
+    <!-- Inputs -->
+    <path fill="#eefaf3" stroke="#1f8a5b" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" d="M54 160 C168 151 287 160 374 157 C385 181 381 245 375 276 C284 286 150 276 55 282 C44 245 48 187 54 160 Z"/>
+    <text class="label" x="82" y="194">User message</text>
+    <text class="small" x="83" y="224">broadcast / whisper / @cat</text>
+    <text class="tiny" x="84" y="252">human intent, visible side-dispatch</text>
+
+    <path fill="#fff1ed" stroke="#c23b22" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" d="M53 370 C169 360 283 371 378 365 C391 401 385 473 376 508 C263 516 151 504 56 511 C44 469 45 408 53 370 Z"/>
+    <text class="label" x="83" y="405">External connector</text>
+    <text class="small" x="84" y="435">PR / CI / review / IM</text>
+    <text class="small" x="84" y="462">scheduler / web-digest</text>
+    <text class="tiny" x="84" y="489">system automation, not by-the-way</text>
+
+    <path fill="#eef5ff" stroke="#2563eb" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" d="M55 620 C164 611 292 621 377 616 C386 647 384 724 376 763 C249 771 153 763 56 766 C47 727 48 654 55 620 Z"/>
+    <text class="label" x="84" y="656">A2A / multi_mention</text>
+    <text class="small" x="85" y="686">cat-to-cat handoff</text>
+    <text class="small" x="85" y="713">autoExecute entries</text>
+    <text class="tiny" x="85" y="742">parallel by design, slot guarded</text>
+
+    <!-- Gate layer -->
+    <path fill="#fffdf7" stroke="#2c2c2c" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" d="M496 132 C627 122 774 131 885 127 C897 165 895 252 884 289 C754 298 624 286 498 292 C488 246 489 174 496 132 Z"/>
+    <text class="label" x="528" y="166">messages.ts routing</text>
+    <text class="small" x="530" y="198">broadcast no @  -> thread gate</text>
+    <text class="small" x="530" y="229">whisper / @cat -> slot gate</text>
+    <text class="tiny" x="530" y="260">F108 side-dispatch stays alive</text>
+
+    <path fill="#fff1ed" stroke="#c23b22" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" d="M500 346 C626 337 770 347 889 342 C899 384 897 481 888 527 C754 536 630 525 501 530 C489 482 490 390 500 346 Z"/>
+    <text class="label" x="527" y="383">ConnectorInvokeTrigger</text>
+    <text class="small" x="529" y="415">tryStartThread(thread, cat)</text>
+    <text class="small" x="529" y="445">if busy -> enqueueWhileActive</text>
+    <text class="tiny" x="529" y="475">one reservation closes TOCTOU</text>
+    <text class="tiny" x="529" y="500">reuse controller; cleanup on duplicate/throw</text>
+
+    <path fill="#eef5ff" stroke="#2563eb" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" d="M501 622 C641 614 779 624 891 619 C902 656 897 741 889 776 C766 783 641 774 502 780 C492 739 492 661 501 622 Z"/>
+    <text class="label" x="529" y="658">Agent queue path</text>
+    <text class="small" x="530" y="690">queue source=agent</text>
+    <text class="small" x="530" y="718">autoExecute + slot gate</text>
+    <text class="tiny" x="530" y="748">standalone fallback skips queue but filters busy cats</text>
+
+    <!-- Core -->
+    <path fill="#fff8c6" stroke="#8b7b62" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" d="M1010 160 C1137 149 1276 158 1376 155 C1386 205 1381 331 1374 383 C1255 391 1136 382 1013 385 C1000 323 1002 217 1010 160 Z"/>
+    <text class="label" x="1040" y="197">InvocationQueue</text>
+    <text class="small" x="1041" y="230">queued / processing</text>
+    <text class="small" x="1041" y="260">priority: urgent > normal</text>
+    <text class="small" x="1041" y="290">source: user / connector / agent</text>
+    <text class="tiny" x="1041" y="325">queue_updated -> QueuePanel</text>
+    <text class="tiny" x="1041" y="352">system_info -> chat timeline</text>
+
+    <path fill="#fffdf7" stroke="#2c2c2c" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" d="M1010 500 C1123 491 1278 500 1378 496 C1386 542 1382 651 1374 694 C1262 703 1130 694 1011 697 C1001 648 1001 545 1010 500 Z"/>
+    <text class="label" x="1040" y="538">QueueProcessor</text>
+    <text class="small" x="1041" y="570">onInvocationComplete()</text>
+    <text class="small" x="1041" y="600">tryExecuteNextAcrossUsers()</text>
+    <text class="small" x="1041" y="630">tryAutoExecute()</text>
+    <text class="tiny" x="1041" y="660">dispatches only when target gate allows</text>
+
+    <path fill="#eefaf3" stroke="#1f8a5b" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" d="M552 826 C669 815 790 825 884 821 C894 845 891 879 884 899 C770 907 656 899 555 902 C547 879 548 849 552 826 Z"/>
+    <text class="label" x="579" y="861">InvocationTracker</text>
+    <text class="small" x="580" y="889">thread gate + per-cat slot gate</text>
+
+    <!-- Arrows -->
+    <path class="ink green" marker-end="url(#arrow)" d="M378 198 C427 187 452 178 495 177"/>
+    <path class="ink green" marker-end="url(#arrow)" d="M379 246 C443 268 455 281 498 288"/>
+
+    <path class="ink red" marker-end="url(#arrow)" d="M380 430 C422 421 456 412 499 410"/>
+    <path class="ink red" marker-end="url(#arrow)" d="M889 416 C935 374 970 316 1008 276"/>
+    <path class="ink red" marker-end="url(#arrow)" d="M888 470 C927 498 963 534 1008 572"/>
+
+    <path class="ink blue" marker-end="url(#arrow-blue)" d="M379 688 C421 681 458 674 501 673"/>
+    <path class="ink blue" marker-end="url(#arrow-blue)" d="M891 685 C932 652 968 620 1010 602"/>
+
+    <path class="ink" marker-end="url(#arrow)" d="M886 205 C932 217 970 231 1010 245"/>
+    <path class="ink" marker-end="url(#arrow)" d="M1184 385 C1185 426 1182 456 1182 499"/>
+    <path class="ink" marker-end="url(#arrow)" d="M1008 650 C884 731 766 788 707 826"/>
+    <path class="ink" marker-end="url(#arrow)" d="M708 826 C709 753 712 638 700 531"/>
+    <path class="ink" marker-end="url(#arrow)" d="M704 346 C700 318 696 298 692 291"/>
+    <path class="ink" marker-end="url(#arrow)" d="M702 781 C698 795 693 808 689 823"/>
+
+    <!-- Decisions notes -->
+    <path fill="#eefaf3" stroke="#1f8a5b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M919 106 C986 96 1066 105 1126 102 C1134 128 1132 143 1125 161 C1053 168 986 157 919 162 C910 141 912 123 919 106 Z"/>
+    <text class="tiny" x="941" y="130">human @ idle cat</text>
+    <text class="tiny" x="941" y="151">may side-dispatch</text>
+
+    <path fill="#fff1ed" stroke="#c23b22" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M916 407 C982 397 1067 405 1128 402 C1137 429 1132 448 1125 468 C1055 475 986 466 918 470 C909 449 911 425 916 407 Z"/>
+    <text class="tiny" x="939" y="432">automation busy?</text>
+    <text class="tiny" x="939" y="453">always queue</text>
+
+    <path fill="#eef5ff" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M922 738 C997 728 1090 738 1163 735 C1172 760 1167 784 1159 805 C1073 813 1000 804 923 807 C913 783 916 762 922 738 Z"/>
+    <text class="tiny" x="945" y="763">A2A keeps slot-level</text>
+    <text class="tiny" x="945" y="785">observe concurrency</text>
+  </g>
+</svg>

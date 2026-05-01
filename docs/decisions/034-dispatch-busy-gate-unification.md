@@ -30,6 +30,10 @@ ADR-018 OQ-4（2026-03-15）决定所有入口使用 slot 级判忙（`has(threa
 
 四猫独立审计（46/47/54/55）一致认为：ADR-018 OQ-4 把"用户主动协作"和"系统自动通知"混为一谈，需要分层。
 
+## 架构图
+
+![ADR-034 dispatch busy gate architecture](../../assets/docs/adr-034-dispatch-busy-gate-handdrawn.svg)
+
 ## 决策
 
 ### KD-1: 入口判忙策略按来源分层 ✅
