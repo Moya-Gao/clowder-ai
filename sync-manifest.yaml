@@ -59,6 +59,9 @@ managed_scripts:
   - scripts/check-dir-size.sh
   - scripts/download-source-overrides.sh
   - scripts/start-dev.sh
+  - scripts/derive-worktree-ports.mjs
+  - scripts/derive-worktree-ports.test.mjs
+  - scripts/check-worktree-port-offset.mjs
   - scripts/start-dev-profile-isolation.test.mjs
   - scripts/pre-merge-check.sh
   - scripts/pre-merge-check.test.mjs
