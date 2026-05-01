@@ -1,4 +1,3 @@
-
 const fs = require('fs');
 const path = require('path');
 
@@ -6,194 +5,333 @@ const diagram = {
   version: 2,
   nodes: [
     {
-      type: "frame",
-      id: "root",
-      x: 0, y: 0,
+      type: 'frame',
+      id: 'root',
+      x: 0,
+      y: 0,
       width: 1200,
-      height: "fit-content",
-      layout: "vertical",
+      height: 'fit-content',
+      layout: 'vertical',
       gap: 20,
       padding: 24,
-      fillColor: "#FDF6ED",
+      fillColor: '#FDF6ED',
       children: [
         {
-          type: "text",
-          id: "title",
-          width: "fill-container",
-          height: "fit-content",
+          type: 'text',
+          id: 'title',
+          width: 'fill-container',
+          height: 'fit-content',
           text: [
-            { content: "Cat Café 气泡流转与血泪史架构图\n", bold: true, fontSize: 28, color: "#815B5B" },
-            { content: "从 CLI 碎碎念到前端气泡的完整链路", fontSize: 16, color: "#A08686" }
+            { content: 'Cat Café 气泡流转与血泪史架构图\n', bold: true, fontSize: 28, color: '#815B5B' },
+            { content: '从 CLI 碎碎念到前端气泡的完整链路', fontSize: 16, color: '#A08686' },
           ],
-          textAlign: "center"
+          textAlign: 'center',
         },
         {
-          type: "frame",
-          id: "layers-container",
-          width: "fill-container",
-          height: "fit-content",
-          layout: "vertical",
+          type: 'frame',
+          id: 'layers-container',
+          width: 'fill-container',
+          height: 'fit-content',
+          layout: 'vertical',
           gap: 16,
           padding: 0,
           children: [
             // Layer 1: Agent Layer
             {
-              type: "frame",
-              id: "row-agent",
-              width: "fill-container",
-              height: "fit-content",
-              layout: "horizontal",
+              type: 'frame',
+              id: 'row-agent',
+              width: 'fill-container',
+              height: 'fit-content',
+              layout: 'horizontal',
               gap: 24,
               padding: 0,
-              alignItems: "center",
+              alignItems: 'center',
               children: [
-                { type: "text", text: "执行层", width: 80, textAlign: "right", fontSize: 18, bold: true },
+                { type: 'text', text: '执行层', width: 80, textAlign: 'right', fontSize: 18, bold: true },
                 {
-                  type: "frame",
-                  id: "layer-agent",
-                  width: "fill-container",
-                  height: "fit-content",
+                  type: 'frame',
+                  id: 'layer-agent',
+                  width: 'fill-container',
+                  height: 'fit-content',
                   borderWidth: 2,
-                  borderColor: "#D4A373",
+                  borderColor: '#D4A373',
                   borderRadius: 12,
-                  layout: "horizontal",
+                  layout: 'horizontal',
                   gap: 16,
                   padding: 24,
-                  fillColor: "#FFFFFF",
+                  fillColor: '#FFFFFF',
                   children: [
-                    { type: "rect", id: "cat-cli", width: "fill-container", height: 60, text: "猫猫 CLI / Agent\n(产生内容 Chunks)", borderRadius: 8, borderWidth: 2, borderColor: "#FAEDCD" }
-                  ]
-                }
-              ]
+                    {
+                      type: 'rect',
+                      id: 'cat-cli',
+                      width: 'fill-container',
+                      height: 60,
+                      text: '猫猫 CLI / Agent\n(产生内容 Chunks)',
+                      borderRadius: 8,
+                      borderWidth: 2,
+                      borderColor: '#FAEDCD',
+                    },
+                  ],
+                },
+              ],
             },
             // Layer 2: Service Layer
             {
-              type: "frame",
-              id: "row-server",
-              width: "fill-container",
-              height: "fit-content",
-              layout: "horizontal",
+              type: 'frame',
+              id: 'row-server',
+              width: 'fill-container',
+              height: 'fit-content',
+              layout: 'horizontal',
               gap: 24,
               padding: 0,
-              alignItems: "center",
+              alignItems: 'center',
               children: [
-                { type: "text", text: "中转层", width: 80, textAlign: "right", fontSize: 18, bold: true },
+                { type: 'text', text: '中转层', width: 80, textAlign: 'right', fontSize: 18, bold: true },
                 {
-                  type: "frame",
-                  id: "layer-server",
-                  width: "fill-container",
-                  height: "fit-content",
+                  type: 'frame',
+                  id: 'layer-server',
+                  width: 'fill-container',
+                  height: 'fit-content',
                   borderWidth: 2,
-                  borderColor: "#CCD5AE",
+                  borderColor: '#CCD5AE',
                   borderRadius: 12,
-                  layout: "horizontal",
+                  layout: 'horizontal',
                   gap: 16,
                   padding: 24,
-                  fillColor: "#FFFFFF",
+                  fillColor: '#FFFFFF',
                   children: [
-                    { type: "rect", id: "provider", width: "fill-container", height: 80, text: "Agent Provider\n(消息格式化)", borderRadius: 8, borderWidth: 2, borderColor: "#E9EDC9" },
-                    { type: "rect", id: "event-bus", width: "fill-container", height: 80, text: "Event Bus (Pipe)\n(事件广播)", borderRadius: 8, borderWidth: 2, borderColor: "#E9EDC9" }
-                  ]
-                }
-              ]
+                    {
+                      type: 'rect',
+                      id: 'provider',
+                      width: 'fill-container',
+                      height: 80,
+                      text: 'Agent Provider\n(消息格式化)',
+                      borderRadius: 8,
+                      borderWidth: 2,
+                      borderColor: '#E9EDC9',
+                    },
+                    {
+                      type: 'rect',
+                      id: 'event-bus',
+                      width: 'fill-container',
+                      height: 80,
+                      text: 'Event Bus (Pipe)\n(事件广播)',
+                      borderRadius: 8,
+                      borderWidth: 2,
+                      borderColor: '#E9EDC9',
+                    },
+                  ],
+                },
+              ],
             },
             // Layer 3: Transport Layer
             {
-              type: "frame",
-              id: "row-transport",
-              width: "fill-container",
-              height: "fit-content",
-              layout: "horizontal",
+              type: 'frame',
+              id: 'row-transport',
+              width: 'fill-container',
+              height: 'fit-content',
+              layout: 'horizontal',
               gap: 24,
               padding: 0,
-              alignItems: "center",
+              alignItems: 'center',
               children: [
-                { type: "text", text: "传输层", width: 80, textAlign: "right", fontSize: 18, bold: true },
+                { type: 'text', text: '传输层', width: 80, textAlign: 'right', fontSize: 18, bold: true },
                 {
-                  type: "frame",
-                  id: "layer-transport",
-                  width: "fill-container",
-                  height: "fit-content",
+                  type: 'frame',
+                  id: 'layer-transport',
+                  width: 'fill-container',
+                  height: 'fit-content',
                   borderWidth: 2,
-                  borderColor: "#A3B18A",
+                  borderColor: '#A3B18A',
                   borderRadius: 12,
-                  layout: "horizontal",
+                  layout: 'horizontal',
                   gap: 16,
                   padding: 24,
-                  fillColor: "#FFFFFF",
+                  fillColor: '#FFFFFF',
                   children: [
-                    { type: "cylinder", id: "redis-pub", width: 160, height: 80, text: "Redis Pub/Sub\n(状态分发)", borderWidth: 2, borderColor: "#DAD7CD" },
-                    { type: "rect", id: "socket-io", width: "fill-container", height: 80, text: "Socket.io\n(实时推送发射塔)", borderRadius: 8, borderWidth: 2, borderColor: "#DAD7CD" },
-                    { type: "cylinder", id: "db-store", width: 160, height: 80, text: "SQLite/Redis\n(正式账本/真相源)", borderWidth: 2, borderColor: "#DAD7CD" }
-                  ]
-                }
-              ]
+                    {
+                      type: 'cylinder',
+                      id: 'redis-pub',
+                      width: 160,
+                      height: 80,
+                      text: 'Redis Pub/Sub\n(状态分发)',
+                      borderWidth: 2,
+                      borderColor: '#DAD7CD',
+                    },
+                    {
+                      type: 'rect',
+                      id: 'socket-io',
+                      width: 'fill-container',
+                      height: 80,
+                      text: 'Socket.io\n(实时推送发射塔)',
+                      borderRadius: 8,
+                      borderWidth: 2,
+                      borderColor: '#DAD7CD',
+                    },
+                    {
+                      type: 'cylinder',
+                      id: 'db-store',
+                      width: 160,
+                      height: 80,
+                      text: 'SQLite/Redis\n(正式账本/真相源)',
+                      borderWidth: 2,
+                      borderColor: '#DAD7CD',
+                    },
+                  ],
+                },
+              ],
             },
             // Layer 4: Client Layer
             {
-              type: "frame",
-              id: "row-client",
-              width: "fill-container",
-              height: "fit-content",
-              layout: "horizontal",
+              type: 'frame',
+              id: 'row-client',
+              width: 'fill-container',
+              height: 'fit-content',
+              layout: 'horizontal',
               gap: 24,
               padding: 0,
-              alignItems: "center",
+              alignItems: 'center',
               children: [
-                { type: "text", text: "渲染层", width: 80, textAlign: "right", fontSize: 18, bold: true },
+                { type: 'text', text: '渲染层', width: 80, textAlign: 'right', fontSize: 18, bold: true },
                 {
-                  type: "frame",
-                  id: "layer-client",
-                  width: "fill-container",
-                  height: "fit-content",
+                  type: 'frame',
+                  id: 'layer-client',
+                  width: 'fill-container',
+                  height: 'fit-content',
                   borderWidth: 2,
-                  borderColor: "#B7B7A4",
+                  borderColor: '#B7B7A4',
                   borderRadius: 12,
-                  layout: "vertical",
+                  layout: 'vertical',
                   gap: 16,
                   padding: 24,
-                  fillColor: "#FFFFFF",
+                  fillColor: '#FFFFFF',
                   children: [
-                    { type: "rect", id: "hook-use-msg", width: "fill-container", height: 60, text: "useAgentMessages Hook (状态管家)", borderRadius: 8, borderWidth: 2, borderColor: "#F0EAD6" },
-                    { 
-                      type: "frame", 
-                      layout: "horizontal", 
-                      gap: 16, 
+                    {
+                      type: 'rect',
+                      id: 'hook-use-msg',
+                      width: 'fill-container',
+                      height: 60,
+                      text: 'useAgentMessages Hook (状态管家)',
+                      borderRadius: 8,
+                      borderWidth: 2,
+                      borderColor: '#F0EAD6',
+                    },
+                    {
+                      type: 'frame',
+                      layout: 'horizontal',
+                      gap: 16,
                       padding: 0,
                       children: [
-                        { type: "rect", id: "bubble-ui", width: "fill-container", height: 60, text: "ChatMessage (气泡 UI)", borderRadius: 8, borderWidth: 2, borderColor: "#F0EAD6" },
-                        { type: "rect", id: "idb-cache", width: 200, height: 60, text: "IndexedDB (前端缓存)", borderRadius: 8, borderWidth: 2, borderColor: "#F0EAD6" }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
+                        {
+                          type: 'rect',
+                          id: 'bubble-ui',
+                          width: 'fill-container',
+                          height: 60,
+                          text: 'ChatMessage (气泡 UI)',
+                          borderRadius: 8,
+                          borderWidth: 2,
+                          borderColor: '#F0EAD6',
+                        },
+                        {
+                          type: 'rect',
+                          id: 'idb-cache',
+                          width: 200,
+                          height: 60,
+                          text: 'IndexedDB (前端缓存)',
+                          borderRadius: 8,
+                          borderWidth: 2,
+                          borderColor: '#F0EAD6',
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
         },
         // Bug Markers
         {
-          type: "frame",
-          layout: "horizontal",
+          type: 'frame',
+          layout: 'horizontal',
           gap: 16,
           padding: 12,
           children: [
-            { type: "stickyNote", width: 240, height: 120, fillColor: "#F6C8C8", text: "💥 爆裂点 1: Event Bus 拥塞\n\n当消息太快，Pipe 丢包(Dropped 32 events)，Markdown 标签断裂，气泡就裂了。" },
-            { type: "stickyNote", width: 240, height: 120, fillColor: "#F5D1A7", text: "❓ 爆裂点 2: ID 身份冲突\n\n实时流用父 ID，存盘用子 ID。前端对不上账，渲染出双胞胎气泡。F5 强制刷新可对齐真相。" },
-            { type: "stickyNote", width: 240, height: 120, fillColor: "#D6DCF3", text: "⏳ 爆裂点 3: 5分钟超时\n\n由于丢包收不到 DONE，5 分钟一到(DONE_TIMEOUT_MS)气泡消失，变超时警告。" }
-          ]
-        }
-      ]
+            {
+              type: 'stickyNote',
+              width: 240,
+              height: 120,
+              fillColor: '#F6C8C8',
+              text: '💥 爆裂点 1: Event Bus 拥塞\n\n当消息太快，Pipe 丢包(Dropped 32 events)，Markdown 标签断裂，气泡就裂了。',
+            },
+            {
+              type: 'stickyNote',
+              width: 240,
+              height: 120,
+              fillColor: '#F5D1A7',
+              text: '❓ 爆裂点 2: ID 身份冲突\n\n实时流用父 ID，存盘用子 ID。前端对不上账，渲染出双胞胎气泡。F5 强制刷新可对齐真相。',
+            },
+            {
+              type: 'stickyNote',
+              width: 240,
+              height: 120,
+              fillColor: '#D6DCF3',
+              text: '⏳ 爆裂点 3: 5分钟超时\n\n由于丢包收不到 DONE，5 分钟一到(DONE_TIMEOUT_MS)气泡消失，变超时警告。',
+            },
+          ],
+        },
+      ],
     },
     // Connectors
-    { type: "connector", connector: { from: "cat-cli", to: "provider", lineShape: "polyline", endArrow: "arrow", lineColor: "#815B5B" } },
-    { type: "connector", connector: { from: "provider", to: "event-bus", lineShape: "straight", endArrow: "arrow", lineColor: "#815B5B" } },
-    { type: "connector", connector: { from: "event-bus", to: "redis-pub", lineShape: "polyline", endArrow: "arrow", lineColor: "#815B5B" } },
-    { type: "connector", connector: { from: "redis-pub", to: "socket-io", lineShape: "straight", endArrow: "arrow", lineColor: "#815B5B" } },
-    { type: "connector", connector: { from: "socket-io", to: "hook-use-msg", lineShape: "polyline", endArrow: "arrow", lineColor: "#815B5B" } },
-    { type: "connector", connector: { from: "hook-use-msg", to: "bubble-ui", lineShape: "straight", endArrow: "arrow", lineColor: "#815B5B" } },
-    { type: "connector", connector: { from: "db-store", to: "hook-use-msg", label: "F5/Catchup 真相路径", lineShape: "curve", lineStyle: "dashed", endArrow: "arrow", lineColor: "#3B82F6" } }
-  ]
+    {
+      type: 'connector',
+      connector: { from: 'cat-cli', to: 'provider', lineShape: 'polyline', endArrow: 'arrow', lineColor: '#815B5B' },
+    },
+    {
+      type: 'connector',
+      connector: { from: 'provider', to: 'event-bus', lineShape: 'straight', endArrow: 'arrow', lineColor: '#815B5B' },
+    },
+    {
+      type: 'connector',
+      connector: { from: 'event-bus', to: 'redis-pub', lineShape: 'polyline', endArrow: 'arrow', lineColor: '#815B5B' },
+    },
+    {
+      type: 'connector',
+      connector: { from: 'redis-pub', to: 'socket-io', lineShape: 'straight', endArrow: 'arrow', lineColor: '#815B5B' },
+    },
+    {
+      type: 'connector',
+      connector: {
+        from: 'socket-io',
+        to: 'hook-use-msg',
+        lineShape: 'polyline',
+        endArrow: 'arrow',
+        lineColor: '#815B5B',
+      },
+    },
+    {
+      type: 'connector',
+      connector: {
+        from: 'hook-use-msg',
+        to: 'bubble-ui',
+        lineShape: 'straight',
+        endArrow: 'arrow',
+        lineColor: '#815B5B',
+      },
+    },
+    {
+      type: 'connector',
+      connector: {
+        from: 'db-store',
+        to: 'hook-use-msg',
+        label: 'F5/Catchup 真相路径',
+        lineShape: 'curve',
+        lineStyle: 'dashed',
+        endArrow: 'arrow',
+        lineColor: '#3B82F6',
+      },
+    },
+  ],
 };
 
 fs.writeFileSync(path.join(__dirname, 'diagram.json'), JSON.stringify(diagram, null, 2));

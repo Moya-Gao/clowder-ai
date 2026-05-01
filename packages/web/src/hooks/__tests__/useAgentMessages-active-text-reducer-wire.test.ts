@@ -55,8 +55,8 @@ const mockReplaceMessageId = vi.fn();
 const mockPatchMessage = vi.fn();
 const mockSetMessageStreamInvocation = vi.fn();
 const mockRemoveActiveInvocation = vi.fn();
-const mockReplaceMessages = vi.fn((msgs: ChatMessage[], _hasMore: boolean) => {
-  storeState.messages = msgs;
+const mockReplaceMessages = vi.fn((...args: unknown[]) => {
+  storeState.messages = args[0] as ChatMessage[];
 });
 
 const mockAddMessageToThread = vi.fn();
