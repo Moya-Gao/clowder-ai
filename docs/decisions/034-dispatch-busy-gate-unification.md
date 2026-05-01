@@ -112,7 +112,7 @@ F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvoke
 
 这与 F175 KD-2 一致，当前 dequeue 部分已实现 priority 排序（`compareEntries`）。
 
-**前置依赖**（R3 47 review）：ADR-034 KD-1 改 thread 级后 connector 消息入队量会显著增加，F175 的 priority dequeue 实现是 ADR-034 落地的前置条件——没有 priority ordering，urgent CI failure 会被排在普通 comment 后面。实施顺序：F175 priority dequeue → ADR-034 KD-1/KD-2。
+**前置依赖**（R3 47 review）：ADR-034 KD-1 改 thread 级后 connector 消息入队量会显著增加，F175 的 priority dequeue 是 ADR-034 落地的前置条件。**F175 Phase A 已全部落地**（priority ordering、position override、user batching、reorder API 均已实现并有测试覆盖），前置条件已满足，ADR-034 可直接实施。
 
 ### OQ-3: A2A 链 connector 饿死 + 打断语义（铲屎官 2026-05-01 提出）
 
