@@ -130,15 +130,34 @@ F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvoke
 | 猫在轮询 PR，review 来了 | **打断轮询，立刻处理** | **排队等轮询跑完** ⚠️ | 延迟 |
 | A2A 链中，connector 来了 | 能被处理，不饿死 | **饿死** ❌ | 阻塞 |
 
-后两行是 thread 级改动的**核心风险**。实现时必须同时解决：
-1. `onInvocationComplete` 中 connector/user dequeue **优先于** `tryAutoExecute`
-2. 考虑 urgent connector 是否需要"预约打断"机制（不是 abort，而是在当前 invocation 的 yield 点插入通知）
+后两行是 thread 级改动的**核心风险**。
+
+**三猫收敛立场**（55/54 一致，47 pending）：
+
+**Q1 — A2A 饿死防护**：升级为 **fairness invariant**（硬约束，非软顺序）：
+
+> 只要 thread 上还有 dispatchable 的 non-agent 条目（connector / user），`tryAutoExecute` 就不得启动新的 agent 条目。
+
+实现：
+1. `InvocationQueue` 增加 `hasQueuedNonAgentForThread(threadId)` 查询
+2. `tryAutoExecute()` 开头加早退门：有 non-agent pending → 直接 return
+3. 保留 `onInvocationComplete` 现有顺序（先 `tryExecuteNextAcrossUsers` 再 `tryAutoExecute`）
+4. 补回归测试：A2A 链进行中插入 connector entry，验证 connector 不被后续 agent autoExecute 饿死
+
+注：`b55e75746` 是历史证据（旧调度语义下 starvation 真实发生过），但不构成"thread 级必然饿死"的充分证明——当前调度已有 `onInvocationComplete` 先 dequeue 的顺序。invariant 是防回归保险，不是修当前 bug。
+
+**Q2 — "打断"语义**：**不引入通用预约打断机制**。
+
+- `hold_ball` / CLI 已退出 = thread 空闲 → connector 直接执行（"即时响应"语义天然保留）
+- 活跃 invocation 中 → urgent connector 走 priority 排队，不 abort
+- 长轮询场景（猫挂着 CLI 等 PR 结果）→ 应改为 `hold_ball`，不该让猫用活跃 CLI 忙等
+- 如未来出现合法的"活跃但可中断等待"场景 → 另立专门 Feature（`interruptible-wait`），不塞进 ADR-034
 
 ## 影响评估
 
 | 改动 | 风险 | 缓解 |
 |------|------|------|
-| ConnectorInvokeTrigger 改 thread 级 | **A2A 链饿死 connector 条目**：猫猫互 @ 时 `tryAutoExecute` 在每次 `onInvocationComplete` 立刻拉起下一只猫，thread 永远不空闲，connector 条目永远出不了队。历史：`b55e75746`（2026-04-26）正是为解决此问题才从 thread 级改回 cat 级 | `onInvocationComplete` 中 connector/user 条目 dequeue 优先级**必须高于** `tryAutoExecute`——先放排队的 connector 消息，再启动下一个 A2A 猫。F175 priority dequeue 是前置依赖 |
+| ConnectorInvokeTrigger 改 thread 级 | **A2A 链饿死 connector 条目**（`b55e75746` 历史证据） | Fairness invariant：`tryAutoExecute` 加 `hasQueuedNonAgentForThread` 早退门 + 回归测试（OQ-3） |
 | 加 tryStartThread 原子门控 | 需要重构 trigger() 流程 | 与 messages.ts F122 A.1 模式一致，已有成熟参考 |
 | 投递可见性 system_info | 前端需要渲染新事件类型 | 可复用现有 system_info 通道 |
 
