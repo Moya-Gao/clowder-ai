@@ -114,6 +114,26 @@ F175 spec 已设计 priority ordering（urgent 优先出队）。ConnectorInvoke
 
 **前置依赖**（R3 47 review）：ADR-034 KD-1 改 thread 级后 connector 消息入队量会显著增加，F175 的 priority dequeue 实现是 ADR-034 落地的前置条件——没有 priority ordering，urgent CI failure 会被排在普通 comment 后面。实施顺序：F175 priority dequeue → ADR-034 KD-1/KD-2。
 
+### OQ-3: A2A 链 connector 饿死 + 打断语义（铲屎官 2026-05-01 提出）
+
+**历史考古**：`b55e75746`（2026-04-26）正是因为 A2A 链中 connector 条目被饿死才从 thread 级改回 cat 级。机制：猫猫互 @ 时 `onInvocationComplete` → `tryAutoExecute` 立刻拉起下一只猫 → thread 永远不空闲 → connector 条目永远出不了队。
+
+**铲屎官指出的"打断"语义**：在更早的版本中，GitHub webhook（如 review comment）会直接打断正在 hold/轮询的猫——比如猫在 wait 轮询 PR 状态，review 来了直接告诉猫"结果出来了"，而不是排队等猫自己发现。改成 thread 级排队后，这种"打断即时响应"的语义会丢失。
+
+**需要决定**：
+
+| 场景 | 铲屎官期望 | thread 级排队后的行为 | 差异 |
+|------|-----------|-------------------|------|
+| 猫在跑长任务，CI pass 来了 | 排队等（不紧急） | 排队 ✅ | 无 |
+| 猫在跑长任务，CI fail 来了 | 排队但优先（urgent） | 排队 + priority ✅ | 无 |
+| 猫在 hold_ball 等外部条件 | 立刻处理（猫不活跃） | 直接执行 ✅ | 无（hold_ball = CLI 退出 = thread 空闲） |
+| 猫在轮询 PR，review 来了 | **打断轮询，立刻处理** | **排队等轮询跑完** ⚠️ | 延迟 |
+| A2A 链中，connector 来了 | 能被处理，不饿死 | **饿死** ❌ | 阻塞 |
+
+后两行是 thread 级改动的**核心风险**。实现时必须同时解决：
+1. `onInvocationComplete` 中 connector/user dequeue **优先于** `tryAutoExecute`
+2. 考虑 urgent connector 是否需要"预约打断"机制（不是 abort，而是在当前 invocation 的 yield 点插入通知）
+
 ## 影响评估
 
 | 改动 | 风险 | 缓解 |
