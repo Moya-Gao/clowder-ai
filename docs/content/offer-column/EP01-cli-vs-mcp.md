@@ -135,7 +135,9 @@ source_material:
 
 > 好，MCP 这边的进化讲完了。那 CLI 是怎么登场的？
 >
-> 2025 年下半年开始，"CLI as the new IDE" 成了显性趋势。Claude Code、Codex CLI、Gemini CLI、OpenClaw 一个接一个冒出来。企业平台也跟进——飞书出了 `lark-cli`，企微出了 `wecom-cli`。
+> 这条线不是 OpenClaw 一个项目凭空带火的。更准确地说，2025 年先是 Claude Code、Codex CLI、Gemini CLI 这批官方 terminal-native agent 把"让 agent 直接活在终端里"变成主流开发范式；后面 OpenClaw 这类开源项目火起来，又把 **CLI Everything** 的叙事放大了——大家开始意识到：工具如果能被命令行稳定调用，就天然更容易被 agent 编排。
+>
+> 再往后，企业平台也开始跟进——飞书出了 `lark-cli`，企微出了 `wecom-cli`。这时候 CLI 不只是给人用的命令行，而是变成了给 agent 接入企业系统的一种低摩擦接口。
 >
 > CLI 火了有三个真实原因：
 >
