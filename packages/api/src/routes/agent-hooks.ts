@@ -16,9 +16,7 @@ function nonEmptyString(value: unknown): string | null {
 
 function resolveStrictAgentHookUserId(request: FastifyRequest): string | null {
   const fromSession = nonEmptyString((request as FastifyRequest & { sessionUserId?: string }).sessionUserId);
-  if (fromSession) return fromSession;
-  if (request.headers.origin) return null;
-  return nonEmptyString(request.headers['x-cat-cafe-user']);
+  return fromSession;
 }
 
 function isLoopbackRequest(request: FastifyRequest): boolean {
