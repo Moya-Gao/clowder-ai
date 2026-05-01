@@ -10,7 +10,7 @@ created: 2026-04-30
 
 > **Status**: in-progress | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1
 >
-> Phase A 已 done（2026-04-30，铲屎官自治放行 ADR-033 v2）。Phase B0 已 merged（PR #1496，commit `a6be5970e`）。Phase B1.1 reducer core 已 merged（PR #1500，commit `2fbde77ec`）；Phase B1.2+ 继续收口热写入口（roadmap 串行）。
+> Phase A 已 done（2026-04-30，铲屎官自治放行 ADR-033 v2）。Phase B0 已 merged（PR #1496，commit `a6be5970e`）。Phase B1.1 reducer core 已 merged（PR #1500，commit `2fbde77ec`）。Phase B1.2.1 adapter + reducer textMode='replace' 已 merged（PR #1506，commit `1e9cb84bd`）；B1.2.2+ 继续按"adapter + 1-2 callsite + replay test"垂直切片节奏（B1.2.1 6 轮 review 教训）。
 
 ## Why
 
@@ -104,8 +104,9 @@ created: 2026-04-30
 
 ### Phase B1（Single Writer）
 
-- [~] AC-B1: `MessageWriter` / reconcile reducer 落地，所有写入口收敛（B1.1 已落 reducer core；B1.2+ 继续 active stream / background stream / callback / draft / hydration / replace 入口收口）
+- [~] AC-B1: `MessageWriter` / reconcile reducer 落地，所有写入口收敛（B1.1 已落 reducer core；B1.2.1 已落 adapter + reducer textMode；B1.2.2+ 继续 active stream / background stream / callback / draft / hydration / replace 入口收口）
 - [x] AC-B1.1: BubbleReducer core 落地（PR #1500，merge commit `2fbde77ec`），覆盖 stable-key lookup、local placeholder 单调升级、ambiguous upgrade quarantine、deterministic local fallback id、callback_final backend id adoption
+- [x] AC-B1.2.1: `BackgroundAgentMessage → BubbleEvent` 纯 adapter 落地（PR #1506，merge commit `1e9cb84bd`）。覆盖 text/thinking/tool_*/cli_output/rich_block/system_status/timeout/done/error/未知 type 的 mapping；assistant_text 改白名单（unknown/control msg → undefined，不绑 text bubble stable key）；reducer `reduceStreamChunk` 识别 `textMode='replace'` 重写 content（不退化为 append）。6 轮云端 codex review 收敛 5 P1（system_status non-terminal / direct done&error / unknown type fallback / text+isFinal+content drop / textMode replace）。focused 41/41，typecheck + biome clean
 - [ ] AC-B2: `mergeReplaceHydrationMessages()` 简化到 ≤ 2 种匹配策略
 - [ ] AC-B3: F123 TD111 + TD113 收编完成
 - [x] AC-B4: Review `recoveryAction` 默认值是否需要 reducer 覆盖（B0 P2 follow-up 已落地：late `stream_chunk` after `callback_final` 走 `catch-up`；其他 phase regression 走 `quarantine` + violation）
@@ -208,6 +209,7 @@ created: 2026-04-30
 | 2026-04-30 | **Phase A done**：铲屎官自治放行 ADR-033 v2（"技术细节自决"）。F183 status: idea → in-progress；F184 解锁立项（roadmap 串行）|
 | 2026-04-30 | **Phase B0 done**：PR #1496 squash merged（`a6be5970e`）—— shared contract / invariant gate / diagnostics / replay harness 框架落地；Phase B1 + F184 实施解锁 |
 | 2026-05-01 | **Phase B1.1 done**：PR #1500 squash merged（`2fbde77ec`）—— BubbleReducer core + B1 `recoveryAction` override 落地；focused 36/36、`pnpm gate`、云端 Codex review clean |
+| 2026-05-01 | **Phase B1.2.1 done**：PR #1506 squash merged（`1e9cb84bd`）—— `bubble-event-adapter.ts` (108 行) + `reduceStreamChunk` 识别 `textMode='replace'`。6 轮云端 codex review 收敛 5 P1（assistant_text 白名单 / direct done&error 归 system_status / text+isFinal 不 drop content / textMode replace 不退化 append）；focused 41/41、typecheck + biome clean。教训：adapter-only PR 切片过细 → B1.2.2 起改"adapter + 1-2 callsite + replay test"垂直切片 |
 
 ## Review Gate
 
