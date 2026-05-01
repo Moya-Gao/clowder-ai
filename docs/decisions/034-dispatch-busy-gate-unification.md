@@ -6,7 +6,7 @@ topics: [dispatch, queue, busy-gate, connector, slot, thread, architecture]
 doc_kind: decision
 created: 2026-05-01
 status: accepted
-decided_by: 46/47/54/55
+decided_by: 铲屎官（三猫 review：55/47/54 全部放行）
 amends: ADR-018
 ---
 
