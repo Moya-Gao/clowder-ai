@@ -136,7 +136,9 @@ if (-not $SkipBundleDeps) {
             if ($npmrcHadOriginal) {
                 Set-Content -Path $npmrcPath -Value $npmrcOriginalContent -NoNewline -Encoding utf8
             } else {
-                Remove-Item $npmrcPath -ErrorAction SilentlyContinue
+                if (Test-Path $npmrcPath) {
+                    Remove-Item $npmrcPath -ErrorAction Stop
+                }
             }
         } catch {
             Write-Err "Failed to restore temporary .npmrc: $($_.Exception.Message)"

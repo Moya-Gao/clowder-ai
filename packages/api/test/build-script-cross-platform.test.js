@@ -47,7 +47,7 @@ test('windows desktop build script restores temporary pnpm deploy npmrc config',
     buildScript,
     /if \(\$npmrcHadOriginal\)\s*\{\s*Set-Content -Path \$npmrcPath -Value \$npmrcOriginalContent -NoNewline -Encoding utf8/s,
   );
-  assert.match(buildScript, /else\s*\{\s*Remove-Item \$npmrcPath -ErrorAction SilentlyContinue\s*\}/s);
+  assert.match(buildScript, /else\s*\{\s*if \(Test-Path \$npmrcPath\) \{\s*Remove-Item \$npmrcPath -ErrorAction Stop/s);
 });
 
 test('windows desktop build script cannot skip Defender cleanup when npmrc restore fails', async () => {
@@ -58,5 +58,6 @@ test('windows desktop build script cannot skip Defender cleanup when npmrc resto
     buildScript,
     /try\s*\{\s*if \(\$npmrcHadOriginal\)[\s\S]*\}\s*catch\s*\{[\s\S]*\$npmrcRestoreFailed = \$true[\s\S]*\}\s*if \(\$defenderExclusionAdded\)/,
   );
+  assert.doesNotMatch(buildScript, /Remove-Item \$npmrcPath -ErrorAction SilentlyContinue/);
   assert.match(buildScript, /if \(\$deployFailed -or \$npmrcRestoreFailed\) \{ exit 1 \}/);
 });
