@@ -231,6 +231,15 @@ function mergeSameIdHydrationMessage(history: ChatMessageData, current: ChatMess
   };
 }
 
+// F183 Phase B1 AC-B2: 简化到 ≤ 2 种匹配策略。
+// 旧版有 4 条逻辑分支（id 匹配 → mergeSameId / streamKey 匹配 → 偏好选择 / draft 孤儿
+// 守卫 / 默认保留），并各自重复 historyIds Set + historyIndexByStreamKey Map 两份索引。
+// 简化后：
+//   1. **stable-identity 匹配（统一）**：构建单一索引 `historyIndexByStableId`，
+//      同时收 (id) 和 (streamKey) 键 → 单次 lookup 拿到 history 目标 index
+//   2. **未匹配**：默认 keep，但走 draft-orphan 副过滤器（不算独立匹配策略）
+// 行为不变：matched-by-id 走 mergeSameIdHydrationMessage；matched-by-streamKey
+// 走 shouldPreferCurrentMessage。统计字段语义不变。
 function mergeReplaceHydrationMessages(
   historyMsgs: ChatMessageData[],
   currentMsgs: ChatMessageData[],
@@ -243,61 +252,58 @@ function mergeReplaceHydrationMessages(
     };
   }
 
-  const historyIds = new Set(historyMsgs.map((msg) => msg.id));
-  const mergedMsgs = [...historyMsgs];
-  const historyIndexByStreamKey = new Map<string, number>();
-
+  // 单一索引: id ∪ (catId:invocationId) streamKey 都进同一个 Map。
+  // matchKind 区分 lookup 命中是 id 还是 streamKey（决定 merge action）。
+  // 当一个 invocation 在 history 里有多条 bubble（如 stream + 后续 callback），
+  // streamKey 命名空间内取 **last wins**（与 refactor 前 historyIndexByStreamKey
+  // 直接 Map.set 覆盖语义一致）—— 否则 reconciliation 会瞄到 stale earlier
+  // 条目，让 local placeholder 替换掉早期 stream bubble，留下两条 invocation
+  // 重复气泡（cloud Codex P1）。id 命名空间不被 streamKey 覆盖。
+  const historyIndexByStableId = new Map<string, { index: number; matchKind: 'id' | 'stream-key' }>();
   for (let i = 0; i < historyMsgs.length; i++) {
     const msg = historyMsgs[i]!;
+    historyIndexByStableId.set(msg.id, { index: i, matchKind: 'id' });
     const invocationId = msg.catId ? getHistoryInvocationId(msg) : undefined;
-    if (!msg.catId || !invocationId) continue;
-    historyIndexByStreamKey.set(`${msg.catId}:${invocationId}`, i);
+    if (msg.catId && invocationId) {
+      const streamKey = `${msg.catId}:${invocationId}`;
+      const existing = historyIndexByStableId.get(streamKey);
+      if (!existing || existing.matchKind === 'stream-key') {
+        historyIndexByStableId.set(streamKey, { index: i, matchKind: 'stream-key' });
+      }
+    }
   }
 
+  const mergedMsgs = [...historyMsgs];
   let preservedLocalCount = 0;
   let reconciledToHistoryCount = 0;
   let replacedHistoryCount = 0;
 
   for (const msg of currentMsgs) {
-    if (historyIds.has(msg.id)) {
-      const historyIndex = mergedMsgs.findIndex((candidate) => candidate.id === msg.id);
-      if (historyIndex !== -1) {
-        mergedMsgs[historyIndex] = mergeSameIdHydrationMessage(mergedMsgs[historyIndex]!, msg);
+    // Strategy: stable-identity lookup. id 优先于 streamKey（id 命中走 same-id 合并）。
+    const idHit = historyIndexByStableId.get(msg.id);
+    const invocationId = msg.catId ? getLocalPlaceholderInvocationId(msg, currentCatInvocations) : undefined;
+    const streamKey = msg.catId && invocationId ? `${msg.catId}:${invocationId}` : undefined;
+    const streamHit = streamKey ? historyIndexByStableId.get(streamKey) : undefined;
+    const target = idHit?.matchKind === 'id' ? idHit : streamHit?.matchKind === 'stream-key' ? streamHit : undefined;
+
+    if (target) {
+      const historyMsg = mergedMsgs[target.index]!;
+      if (target.matchKind === 'id') {
+        mergedMsgs[target.index] = mergeSameIdHydrationMessage(historyMsg, msg);
+      } else if (shouldPreferCurrentMessage(msg, historyMsg)) {
+        mergedMsgs[target.index] = msg;
+        replacedHistoryCount++;
+      } else {
+        reconciledToHistoryCount++;
       }
       continue;
     }
 
-    const invocationId = msg.catId ? getLocalPlaceholderInvocationId(msg, currentCatInvocations) : undefined;
-    const streamKey = msg.catId && invocationId ? `${msg.catId}:${invocationId}` : undefined;
-
-    if (streamKey) {
-      const historyIndex = historyIndexByStreamKey.get(streamKey);
-      if (historyIndex !== undefined) {
-        const historyMsg = mergedMsgs[historyIndex]!;
-        if (shouldPreferCurrentMessage(msg, historyMsg)) {
-          mergedMsgs[historyIndex] = msg;
-          replacedHistoryCount++;
-        } else {
-          reconciledToHistoryCount++;
-        }
-        continue;
-      }
-    }
-
-    // F173 Phase C Task 9 — narrow ghost-tolerance guard (cloud Codex P1).
-    // Drop only the precise orphan-draft shape: id startsWith 'draft-' AND
-    // no live invocation in catInvocations claims its invocationId.
-    //
-    // Why narrow to draft-*:
-    //   - IDB-cached orphan drafts (hotfix3-filtered) always carry id
-    //     'draft-{invocationId}' (DraftStore write path).
-    //   - Just-completed live bubbles use 'msg-{inv}-{cat}' shape and may
-    //     have catInvocations cleared by the done handler before the server
-    //     persists them. An overly broad guard would drop those legitimate
-    //     bubbles on a fast thread switch — Codex P1 caught this.
-    //
-    // Result: orphan IDB drafts dropped; live just-completed bubbles preserved
-    // until server GET returns authoritative replacement.
+    // Side filter (not a matching strategy): F173 Phase C Task 9 narrow ghost-tolerance.
+    // Drop only the precise orphan-draft shape — IDB-cached orphans carrying id
+    // 'draft-{invocationId}' AND no live invocation claims that invocationId.
+    // Live just-completed bubbles use 'msg-{inv}-{cat}' shape and survive (cloud
+    // Codex P1 — overly broad guard would drop legitimate bubbles on fast thread switch).
     if (invocationId && msg.id.startsWith('draft-')) {
       const knownToLiveInvocation = Object.values(currentCatInvocations).some(
         (info) => info.invocationId === invocationId,
