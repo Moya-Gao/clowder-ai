@@ -78,13 +78,17 @@ if (-not $SkipBundleDeps) {
     New-Item -ItemType Directory -Path $deployRoot -Force | Out-Null
 
     Push-Location $ProjectRoot
+    $env:npm_config_bin_links = "false"
+    $env:NPM_CONFIG_BIN_LINKS = "false"
+    $env:npm_config_node_linker = "hoisted"
+    $env:NPM_CONFIG_NODE_LINKER = "hoisted"
     foreach ($pkg in @('api', 'web', 'mcp-server')) {
         Write-Host "  Deploying @cat-cafe/$pkg ..." -ForegroundColor Gray
         $out = Join-Path $deployRoot $pkg
         # Runtime services launch package entrypoints directly; they do not use
-        # node_modules/.bin shims. Disabling bin links avoids a pnpm 9 hoisted
-        # deploy failure on windows-2025 runners while keeping real-file deps.
-        pnpm --filter "@cat-cafe/$pkg" --prod --config.node-linker=hoisted --config.bin-links=false deploy $out
+        # node_modules/.bin shims. Keep bin-links disabled through npm_config
+        # env because pnpm deploy performs nested install work on Windows runners.
+        pnpm --config.bin-links=false --config.node-linker=hoisted --filter "@cat-cafe/$pkg" --prod deploy $out
         if ($LASTEXITCODE -ne 0) { Write-Err "pnpm deploy @cat-cafe/$pkg failed"; Pop-Location; exit 1 }
     }
     Pop-Location
