@@ -266,9 +266,25 @@ function reduceDoneEvent(messages: ChatMessage[], event: BubbleEvent): ChatMessa
 // 同一 bubble，不追加；invocationless event 是 local-only（ADR #4），允许
 // 多条 standalone bubble 各自带 deterministic local id。
 function reduceErrorEvent(messages: ChatMessage[], event: BubbleEvent): ChatMessage[] {
-  const errorText =
-    (event.payload?.error as string | undefined) ?? (event.payload?.content as string | undefined) ?? 'Unknown error';
-  const content = `Error: ${errorText}`;
+  // F183 Phase B1.5 — payload.content 是 caller 预拼好的完整 display 字符串
+  // （含 errorSubtype label 之类的 enrichment），优先用它。否则保留 B1.3 的
+  // 'Error: {error|payload.content}' 兜底，向后兼容现有测试 + invocationless
+  // direct error event 路径。
+  const explicitContent = event.payload?.content as string | undefined;
+  const errorText = (event.payload?.error as string | undefined) ?? explicitContent ?? 'Unknown error';
+  const defaultContent = `Error: ${errorText}`;
+  const content = explicitContent && explicitContent.startsWith('Error') ? explicitContent : defaultContent;
+
+  // F183 Phase B1.5 — caller 通过 payload.extra 透传 bubble.extra 的扩展字段
+  // （如 timeoutDiagnostics）。reducer 不解释字段含义，原样合并到 bubble.extra。
+  const extraOverride = event.payload?.extra as ChatMessage['extra'] | undefined;
+  const buildExtra = (existingExtra: ChatMessage['extra']): ChatMessage['extra'] | undefined => {
+    const merged: ChatMessage['extra'] = { ...(existingExtra ?? {}), ...(extraOverride ?? {}) };
+    if (event.canonicalInvocationId) {
+      merged.stream = { invocationId: event.canonicalInvocationId };
+    }
+    return Object.keys(merged).length > 0 ? merged : undefined;
+  };
 
   // canonical (有 invocationId) 路径: 命中 stable key → 替换；不命中 → 追加新
   // bubble，并带上 extra.stream.invocationId 让后续 same-key event 能 dedup。
@@ -280,6 +296,7 @@ function reduceErrorEvent(messages: ChatMessage[], event: BubbleEvent): ChatMess
         ...existing.message,
         content,
         timestamp: event.timestamp ?? existing.message.timestamp,
+        ...(buildExtra(existing.message.extra) ? { extra: buildExtra(existing.message.extra) } : {}),
       };
       return next;
     }
@@ -290,7 +307,7 @@ function reduceErrorEvent(messages: ChatMessage[], event: BubbleEvent): ChatMess
       catId: event.actorId,
       content,
       timestamp: event.timestamp ?? 0,
-      extra: { stream: { invocationId: event.canonicalInvocationId } },
+      ...(buildExtra(undefined) ? { extra: buildExtra(undefined) } : {}),
     };
     return [...messages, errorBubble];
   }
@@ -304,6 +321,7 @@ function reduceErrorEvent(messages: ChatMessage[], event: BubbleEvent): ChatMess
     catId: event.actorId,
     content,
     timestamp: event.timestamp ?? 0,
+    ...(buildExtra(undefined) ? { extra: buildExtra(undefined) } : {}),
   };
   return [...messages, errorBubble];
 }

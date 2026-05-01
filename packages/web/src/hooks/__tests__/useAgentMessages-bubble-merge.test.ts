@@ -1886,8 +1886,12 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
     expect(mockSetStreaming).toHaveBeenCalledWith(streamBubbleId, false);
     const bubble = storeState.messages.find((m) => m.id === streamBubbleId);
     expect(bubble?.isStreaming, 'bubble must finalize via bubble-identity fallback for error path').toBe(false);
-    const errorSystemMsgCalls = mockAddMessage.mock.calls.filter(([m]) => m.type === 'system' && m.variant === 'error');
-    expect(errorSystemMsgCalls, 'real error must inject system message after reconnect hydration').toHaveLength(1);
+    // F183 Phase B1.5: active error → reducer's replaceMessages, end-state assertion
+    // verifies system error bubble exists in storeState (not mockAddMessage).
+    const errorSystemBubbles = storeState.messages.filter(
+      (m) => m.type === 'system' && (m as { variant?: string }).variant === 'error',
+    );
+    expect(errorSystemBubbles, 'real error must inject system message after reconnect hydration').toHaveLength(1);
   });
 
   it('Bug-G stale-terminal guard (cloud R7): hydrated-${threadId}-${catId} synthetic slot must NOT shadow real direct binding', () => {
@@ -1977,9 +1981,11 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
     expect(mockSetStreaming).toHaveBeenCalledWith(streamBubbleId, false);
     const bubble = storeState.messages.find((m) => m.id === streamBubbleId);
     expect(bubble?.isStreaming, 'bubble must be finalized — hydrated slot should not block real error').toBe(false);
-    // Error system message must be injected (real error, not stale)
-    const errorSystemMsgCalls = mockAddMessage.mock.calls.filter(([m]) => m.type === 'system' && m.variant === 'error');
-    expect(errorSystemMsgCalls, 'real error must inject system message').toHaveLength(1);
+    // F183 Phase B1.5: error system bubble 现在通过 reducer 落到 storeState.messages
+    const errorSystemBubbles = storeState.messages.filter(
+      (m) => m.type === 'system' && (m as { variant?: string }).variant === 'error',
+    );
+    expect(errorSystemBubbles, 'real error must inject system message').toHaveLength(1);
   });
 
   it('Bug-G stale-error guard (砚砚 R6): late error(inv-1) must NOT terminate inv-2 bubble or clear activeRefs', () => {
@@ -2023,9 +2029,11 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
     const bubble = storeState.messages.find((m) => m.id === inv2BubbleId);
     expect(bubble?.isStreaming, 'inv-2 bubble must remain streaming').toBe(true);
 
-    // Stale error must NOT inject error system message into thread
-    const errorSystemMsgCalls = mockAddMessage.mock.calls.filter(([m]) => m.type === 'system' && m.variant === 'error');
-    expect(errorSystemMsgCalls, 'no error system message for stale inv-1').toHaveLength(0);
+    // Stale error must NOT inject error system message into thread (B1.5: via storeState)
+    const errorSystemBubbles = storeState.messages.filter(
+      (m) => m.type === 'system' && (m as { variant?: string }).variant === 'error',
+    );
+    expect(errorSystemBubbles, 'no error system message for stale inv-1').toHaveLength(0);
 
     // Subsequent inv-2 text must still recover original bubble (activeRefs not cleared)
     vi.clearAllMocks();

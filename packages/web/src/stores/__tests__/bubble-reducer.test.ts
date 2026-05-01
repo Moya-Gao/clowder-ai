@@ -1382,6 +1382,60 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
     });
   });
 
+  // F183 Phase B1.5 — error reducer enrichment for active path wire-up:
+  // caller pre-builds rich display content (errorSubtype labels) + extra.timeoutDiagnostics,
+  // passes via payload.content + payload.extra. reduceErrorEvent uses these as-is.
+  it('B1.5: error event with payload.content uses it as full display text (no Error: prefix added)', () => {
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'error',
+        bubbleKind: 'system_status',
+        messageId: undefined,
+        timestamp: 1500,
+        payload: { content: 'Error: Provider returned 503 (运行时错误)' },
+      },
+      currentMessages: [],
+    });
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0]).toMatchObject({
+      type: 'system',
+      variant: 'error',
+      content: 'Error: Provider returned 503 (运行时错误)',
+    });
+  });
+
+  it('B1.5: error event with payload.extra merges into bubble.extra (timeoutDiagnostics)', () => {
+    const diagnostics = {
+      silenceDurationMs: 30000,
+      processAlive: true,
+      lastEventType: 'text',
+    };
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        type: 'error',
+        bubbleKind: 'system_status',
+        messageId: undefined,
+        timestamp: 1500,
+        payload: {
+          content: 'Error: Stream timed out',
+          extra: { timeoutDiagnostics: diagnostics },
+        },
+      },
+      currentMessages: [],
+    });
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0]).toMatchObject({
+      content: 'Error: Stream timed out',
+      extra: expect.objectContaining({
+        timeoutDiagnostics: diagnostics,
+      }),
+    });
+  });
+
   it('B1.4: invocationless callback WITHOUT messageId hint creates standalone bubble (no hijack of unrelated existing bubble)', () => {
     // 没 messageId hint 时不能扫所有气泡找 invocationless target —— 那会 hijack
     // 别的 invocation 的 stream bubble。caller 没传 hint = caller 不知道 patch 哪条 = 创建新
@@ -1417,9 +1471,7 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
       isStreaming: true,
       origin: 'stream',
     });
-    expect(
-      output.nextMessages.find((m) => m.id !== 'msg-unrelated'),
-    ).toMatchObject({
+    expect(output.nextMessages.find((m) => m.id !== 'msg-unrelated')).toMatchObject({
       content: 'orphan callback',
       isStreaming: false,
       origin: 'callback',

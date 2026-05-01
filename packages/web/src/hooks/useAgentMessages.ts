@@ -3119,48 +3119,87 @@ export function useAgentMessages() {
             }
           }
 
-          addMessage({
-            id: `err-${Date.now()}-${msg.catId}`,
-            type: 'system',
-            variant: 'error',
-            catId: msg.catId,
-            content: (() => {
-              const base = `Error: ${msg.error ?? 'Unknown error'}`;
-              try {
-                const meta = JSON.parse(msg.content ?? '{}');
-                const subtype = meta?.errorSubtype;
-                if (subtype) {
-                  const labels: Record<string, string> = {
-                    error_max_turns: '超出 turn 限制',
-                    error_max_budget_usd: '预算用尽',
-                    error_during_execution: '运行时错误',
-                    error_max_structured_output_retries: '结构化输出重试超限',
-                  };
-                  return labels[subtype] ? `${base} (${labels[subtype]})` : base;
-                }
-              } catch {
-                /* no subtype */
+          // F183 Phase B1.5 — active error wire-up via reducer (single-writer).
+          // caller 拼好 display content（含 errorSubtype label）+ extra
+          // (timeoutDiagnostics) 后透传给 reducer 的 reduceErrorEvent。canonical
+          // event 走 stable-key dedup；invocationless event 落 standalone bubble。
+          // recoveryAction !== 'none' 或缺 invocationId 时回退 legacy addMessage。
+          const errorDisplayContent = (() => {
+            const base = `Error: ${msg.error ?? 'Unknown error'}`;
+            try {
+              const meta = JSON.parse(msg.content ?? '{}');
+              const subtype = meta?.errorSubtype;
+              if (subtype) {
+                const labels: Record<string, string> = {
+                  error_max_turns: '超出 turn 限制',
+                  error_max_budget_usd: '预算用尽',
+                  error_during_execution: '运行时错误',
+                  error_max_structured_output_retries: '结构化输出重试超限',
+                };
+                return labels[subtype] ? `${base} (${labels[subtype]})` : base;
               }
-              return base;
-            })(),
-            timestamp: Date.now(),
-            ...(timeoutDiag
-              ? {
-                  extra: {
-                    timeoutDiagnostics: {
-                      silenceDurationMs: timeoutDiag.silenceDurationMs as number,
-                      processAlive: timeoutDiag.processAlive as boolean,
-                      lastEventType: timeoutDiag.lastEventType as string | undefined,
-                      firstEventAt: timeoutDiag.firstEventAt as number | undefined,
-                      lastEventAt: timeoutDiag.lastEventAt as number | undefined,
-                      cliSessionId: timeoutDiag.cliSessionId as string | undefined,
-                      invocationId: timeoutDiag.invocationId as string | undefined,
-                      rawArchivePath: timeoutDiag.rawArchivePath as string | undefined,
-                    },
-                  },
-                }
-              : {}),
-          });
+            } catch {
+              /* no subtype */
+            }
+            return base;
+          })();
+          const errorExtra = timeoutDiag
+            ? {
+                timeoutDiagnostics: {
+                  silenceDurationMs: timeoutDiag.silenceDurationMs as number,
+                  processAlive: timeoutDiag.processAlive as boolean,
+                  lastEventType: timeoutDiag.lastEventType as string | undefined,
+                  firstEventAt: timeoutDiag.firstEventAt as number | undefined,
+                  lastEventAt: timeoutDiag.lastEventAt as number | undefined,
+                  cliSessionId: timeoutDiag.cliSessionId as string | undefined,
+                  invocationId: timeoutDiag.invocationId as string | undefined,
+                  rawArchivePath: timeoutDiag.rawArchivePath as string | undefined,
+                },
+              }
+            : undefined;
+
+          let errorReducerHandled = false;
+          if (msg.invocationId) {
+            const threadIdForError = msg.threadId ?? useChatStore.getState().currentThreadId;
+            const event = adaptIncomingToBubbleEvent({ ...msg, threadId: threadIdForError } as BackgroundAgentMessage, {
+              sourcePath: 'active',
+            });
+            if (event) {
+              const eventWithEnrichment = {
+                ...event,
+                payload: {
+                  ...(event.payload ?? {}),
+                  content: errorDisplayContent,
+                  ...(errorExtra ? { extra: errorExtra } : {}),
+                },
+              };
+              const storeSnapshot = useChatStore.getState();
+              const result = applyBubbleEvent({
+                threadId: threadIdForError,
+                event: eventWithEnrichment,
+                currentMessages: storeSnapshot.messages,
+              });
+              if (result.recoveryAction === 'none') {
+                storeSnapshot.replaceMessages(result.nextMessages, storeSnapshot.hasMore);
+                errorReducerHandled = true;
+              }
+              if (result.violations.length > 0) {
+                for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+              }
+            }
+          }
+
+          if (!errorReducerHandled) {
+            addMessage({
+              id: `err-${Date.now()}-${msg.catId}`,
+              type: 'system',
+              variant: 'error',
+              catId: msg.catId,
+              content: errorDisplayContent,
+              timestamp: Date.now(),
+              ...(errorExtra ? { extra: errorExtra as ChatMessage['extra'] } : {}),
+            });
+          }
         }
         // Only stop loading on isFinal; size===0 would false-positive in serial gaps.
         // Slot cleanup for `msg.invocationId` is always safe (self-guarded by
