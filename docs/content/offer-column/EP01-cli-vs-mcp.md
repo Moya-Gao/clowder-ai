@@ -210,7 +210,7 @@ source_material:
 > 2025-26  CLI Everything（Claude Code / Codex / Gemini CLI）
 > ```
 >
-> - **CLI** = agent 的运行时 + OS 级组合能力（pipe/redirect）+ 对标准工具零学习成本
+> - **CLI** = agent 的运行环境（Claude Code）+ 工具调用通道（gh / lark-cli）+ OS 级组合能力（pipe/redirect）
 > - **MCP** = 工具的标准化接入层（类型化 schema、发现、auth、审计、Transport 抽象）
 > - **Skills** = 流程的知识层（不是原子操作，是"怎么组合使用"）
 >
@@ -276,10 +276,10 @@ source_material:
 > 回到面试。面试官问你 CLI vs MCP，你就这么答：
 >
 > **第一句**定层次：
-> "这两个不在同一层。CLI 是 agent 的运行时，MCP 是工具的接入协议，Skills 是流程的知识层。"
+> "CLI 有两面——agent 自己跑在终端里，也通过终端调工具。MCP 是工具的标准化接入协议。Skills 是流程知识层。三者不在同一层。"
 >
 > **第二句**讲进化：
-> "MCP 解决了工具标准化，但带来了 context 爆炸。Anthropic 用 ToolSearch 减了 89%，用 Code Execution 又减了 98.7%，最后用 Skills 补上了流程知识。CLI 是 agent 的运行环境，不是 MCP 的替代品。"
+> "MCP 解决了工具标准化，但带来了 context 爆炸。Anthropic 用 ToolSearch 减了 89%，用 Code Execution 又减了 98.7%，最后用 Skills 补上了流程知识。CLI 不是 MCP 的替代品——agent 跑在 CLI 里，同时也通过 CLI 和 MCP 各自的方式调工具。"
 >
 > **第三句**亮实战：
 > "我在自己的系统里三层都用了。多 agent 共享工具走 MCP，已知工具走 CLI，流程编排走 Skills。"
@@ -368,7 +368,7 @@ source_material:
 
 ### 视觉素材清单
 1. [MCP 工具问题递进图](assets/ep01-tool-progression.svg) — 工具爆炸 → ToolSearch → Code Execution → Tool Use Examples → Skills（砚砚手绘）
-2. [CLI / MCP / Skills 三层混用图](assets/ep01-layered-mix.svg) — 运行时 / 工具接入 / 流程知识三层关系（砚砚手绘）
+2. [CLI / MCP / Skills 三层混用图](assets/ep01-layered-mix.svg) — CLI 双面角色 / MCP 工具接入 / Skills 流程知识（砚砚手绘）
 3. [MCP Client-Server 架构图](assets/ep01-mcp-architecture.png) — client/server + tools/resources/prompts 三类能力（砚砚生成图）
 4. ToolSearch 前后 token 对比（77K → 8.7K）
 5. Code Execution 流程对比（逐个 tool call vs 写代码一次性调）
