@@ -13,6 +13,7 @@ import type {
 } from '../../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { AgentMessage } from '../../domains/cats/services/types.js';
 import { createModuleLogger } from '../logger.js';
+import { BroadcastRateMonitor, type BroadcastRateMonitorOptions } from './BroadcastRateMonitor.js';
 import { ThreadSequencer } from './ThreadSequencer.js';
 
 const log = createModuleLogger('ws');
@@ -74,11 +75,45 @@ export class SocketManager {
    * Extracted to ThreadSequencer for unit testability without HttpServer.
    */
   private sequencer: ThreadSequencer = new ThreadSequencer();
+  /**
+   * F183 Phase C2/C3 — per-thread emit rate monitor (observability for
+   * backpressure root cause investigation). Logs structured warnings when
+   * a thread sustains > 200 events/sec for 1s. Replaces unfindable historical
+   * literal "in-process app-server event stream lagged; dropped N events"
+   * (字面源 grep 不到 — 见 BroadcastRateMonitor.ts 注释 + AC-C3 spec)。
+   * Public for test/admin introspection via getStats(threadId).
+   */
+  readonly rateMonitor: BroadcastRateMonitor;
 
-  constructor(httpServer: HttpServer, invocationTracker?: InvocationTracker) {
+  constructor(
+    httpServer: HttpServer,
+    invocationTracker?: InvocationTracker,
+    rateMonitorOptions?: BroadcastRateMonitorOptions,
+  ) {
     this.invocationTracker = invocationTracker ?? null;
     this.queueProcessor = null;
     this.multiMentionOrchestrator = null;
+    // F183 Phase C2/C3 — backpressure observability. onWarn forwards to module
+    // logger as structured `broadcast_rate_warn` event (replaces unfindable
+    // historical literal "in-process app-server event stream lagged ...").
+    this.rateMonitor = new BroadcastRateMonitor({
+      ...(rateMonitorOptions ?? {}),
+      onWarn:
+        rateMonitorOptions?.onWarn ??
+        ((event) => {
+          log.warn(
+            {
+              event: 'broadcast_rate_warn',
+              threadId: event.threadId,
+              windowCount: event.windowCount,
+              threshold: event.threshold,
+              windowMs: event.windowMs,
+              timestamp: event.timestamp,
+            },
+            'Broadcast rate exceeded threshold (per-thread sliding window)',
+          );
+        }),
+    });
     const corsOrigins = resolveFrontendCorsOrigins(process.env, console);
     this.io = new Server(httpServer, {
       cors: {
@@ -257,6 +292,9 @@ export class SocketManager {
       seq = this.sequencer.next(tid);
     }
     const seqEpoch = this.sequencer.epoch;
+    // F183 Phase C2/C3 — record per-thread emit rate; warn callback fires when
+    // sliding-window count exceeds threshold (debounced per thread).
+    this.rateMonitor.record(tid);
     this.io.to(room).emit('agent_message', { ...message, threadId: tid, seq, seqEpoch });
   }
 
