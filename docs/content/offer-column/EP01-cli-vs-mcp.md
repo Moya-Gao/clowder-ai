@@ -79,6 +79,8 @@ source_material:
 
 *（视觉：对比表格）*
 
+![ToolSearch token 对比图](assets/ep01-toolsearch-token-comparison.png)
+
 > | | 传统全量注入 | ToolSearch |
 > |------|-------------|------------|
 > | 初始 token 消耗 | **~77,000** | **~8,700** |
@@ -89,7 +91,9 @@ source_material:
 >
 > 而且 deferred tools 完全不碰初始 prompt，**不影响 prompt caching**。
 
-*（视觉：Claude Code 的 deferred tools 列表截图 — "这就是你现在用的 Claude Code 的真实界面"）*
+*（视觉：Claude Code deferred tools 列表示意图 — deferred tools 不进初始 context）*
+
+![Deferred tools 列表示意图](assets/ep01-deferred-tools-illustration.png)
 
 > 你现在用 Claude Code，挂几百个 MCP 工具，为什么没爆？就是因为 ToolSearch 在工作。所以拿不用 ToolSearch 的朴素 MCP 来说"MCP 不行了"，就像拿没开 gzip 的网站说"HTTP 太慢了"。
 
@@ -100,6 +104,8 @@ source_material:
 > 怎么办？Anthropic 在 engineering blog 里发了一篇 **"Code execution with MCP"**——让 agent 不要逐个调工具，而是**写一段代码**，在沙箱里一次性调完，只把最终结果返回 context。
 
 *（视觉：传统 tool call vs Code Execution 流程对比图）*
+
+![传统 tool call vs Code Execution 流程图](assets/ep01-code-execution-flow.png)
 
 ![MCP 工具问题递进图](assets/ep01-tool-progression.svg)
 
@@ -126,6 +132,8 @@ source_material:
 > Skills 不是 tools——tools 是原子操作（"发一条消息"），skills 是流程知识（"从需求到代码到 review 到 merge 的完整 SOP"）。
 
 *（视觉：Tools vs Skills 对比图）*
+
+![Tools vs Skills 对比图](assets/ep01-tools-vs-skills.png)
 
 > 我自己的系统里就有 30 多个 Skill，每个是一套完整的工作流程。这些不是我从 Anthropic 抄的——我们先做了自己的 skill 系统，后来发现 Anthropic 发布的 Agent Skills 跟我们的思路几乎一样。
 
@@ -166,6 +174,8 @@ source_material:
 > MCP 也一样。它有三种 Transport：
 
 *（视觉：MCP Transport 三种模式对比图）*
+
+![MCP Transport 三种模式图](assets/ep01-mcp-transports.png)
 
 > | Transport | 位置 | 通信方式 | 状态 |
 > |-----------|------|----------|------|
@@ -255,13 +265,15 @@ source_material:
 
 *（视觉：我们家的混用架构图）*
 
+![Cat Café 混用架构图](assets/ep01-mixed-architecture.png)
+
 > | 层次 | 我们怎么用 | 为什么 |
 > |------|-----------|--------|
 > | **agent 运行时** | CLI 子进程（Claude Code / Codex CLI） | 用订阅而非 API key，完整 agent 能力 |
 > | **agent 间协作** | MCP server（3 个：协作、记忆、信号） | 多只猫共享发现同一套工具，需要 auth + 审计 |
 > | **企业工具对接** | CLI spawn（wecom-cli / lark-cli） | 厂商有 CLI，用 CLI 比写 MCP server 快 |
 > | **流程编排** | Skills（30+ 个，按需加载） | SOP 级别的流程知识，不是原子操作 |
-> | **没有 CLI 的工具** | MCP 回调（Antigravity） | GUI 程序，MCP 是唯一通道 |
+> | **没有 CLI 的工具** | MCP 回调（Antigravity） | GUI 程序，MCP 是更合适的回调通道 |
 >
 > **CLI 和 MCP 不是竞争关系，是在不同层解决不同问题。** 真实系统的选型不是"选一个"，是"每个场景选最合适的"。
 
@@ -370,9 +382,12 @@ source_material:
 1. [MCP 工具问题递进图](assets/ep01-tool-progression.svg) — 工具爆炸 → ToolSearch → Code Execution → Tool Use Examples → Skills（砚砚手绘）
 2. [CLI / MCP / Skills 三层混用图](assets/ep01-layered-mix.svg) — CLI 双面角色 / MCP 工具接入 / Skills 流程知识（砚砚手绘）
 3. [MCP Client-Server 架构图](assets/ep01-mcp-architecture.png) — client/server + tools/resources/prompts 三类能力（砚砚生成图）
-4. ToolSearch 前后 token 对比（77K → 8.7K）
-5. Code Execution 流程对比（逐个 tool call vs 写代码一次性调）
-6. Claude Code deferred tools 实际截图
+4. [ToolSearch token 对比图](assets/ep01-toolsearch-token-comparison.png) — 全量注入 vs ToolSearch / deferred loading（砚砚生成图）
+5. [Deferred tools 列表示意图](assets/ep01-deferred-tools-illustration.png) — 按需加载，不冒充真实截图（砚砚生成图）
+6. [传统 tool call vs Code Execution 流程图](assets/ep01-code-execution-flow.png) — 逐个 tool call vs 写代码一次性调（砚砚生成图）
+7. [Tools vs Skills 对比图](assets/ep01-tools-vs-skills.png) — 原子能力 vs 流程知识（砚砚生成图）
+8. [MCP Transport 三种模式图](assets/ep01-mcp-transports.png) — stdio / SSE / Streamable HTTP（砚砚生成图）
+9. [Cat Café 混用架构图](assets/ep01-mixed-architecture.png) — CLI / MCP / Skills / GUI callback 混用（砚砚生成图）
 
 ### 猫猫语音 cue 点
 | 时间点 | 猫猫 | 内容摘要 | 时长 |
