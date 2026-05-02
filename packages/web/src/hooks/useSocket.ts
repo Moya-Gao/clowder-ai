@@ -41,6 +41,21 @@ interface AgentMessage {
   replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
   /** F108: Invocation ID — distinguishes messages from concurrent invocations */
   invocationId?: string;
+  /**
+   * F183 Phase C — thread-scoped monotonic sequence number (KD-9).
+   * Set by `SocketManager.broadcastAgentMessage` from `ThreadSequencer.next()`
+   * before WebSocket emit. Forwarded to `useAgentMessages.handleAgentMessage`
+   * → `processThreadSeq` for gap detection. Optional for bw-compat with legacy
+   * direct emit paths that bypass SocketManager.
+   */
+  seq?: number;
+  /**
+   * F183 Phase C (砚砚 R1 P1 fix) — server seq epoch (sequencer instance UUID).
+   * Generated at API boot, stable for sequencer lifetime. Client compares to
+   * `lastSeqEpochByThread[threadId]`; mismatch = server restart → reset lastSeq
+   * + trigger catch-up.
+   */
+  seqEpoch?: string;
   timestamp: number;
 }
 

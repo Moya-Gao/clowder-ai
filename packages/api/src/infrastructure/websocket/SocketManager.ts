@@ -13,6 +13,7 @@ import type {
 } from '../../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { AgentMessage } from '../../domains/cats/services/types.js';
 import { createModuleLogger } from '../logger.js';
+import { ThreadSequencer } from './ThreadSequencer.js';
 
 const log = createModuleLogger('ws');
 
@@ -61,6 +62,18 @@ export class SocketManager {
     abortByThread(threadId: string): number;
     abortBySlot?(threadId: string, catId: string): number;
   } | null;
+  /**
+   * F183 Phase C — thread-scoped monotonic sequence number (KD-9).
+   * Each broadcastAgentMessage increments per-thread counter and injects seq
+   * into the emitted payload. Client uses seq for gap detection + catchup.
+   *
+   * In-memory only — single-instance deploy assumption (KD-9 拒绝 multi-instance
+   * 分布式 sequencer over-engineering). API restart resets seq; client sees
+   * `seq=1` after restart, treats it as seed (no false gap).
+   *
+   * Extracted to ThreadSequencer for unit testability without HttpServer.
+   */
+  private sequencer: ThreadSequencer = new ThreadSequencer();
 
   constructor(httpServer: HttpServer, invocationTracker?: InvocationTracker) {
     this.invocationTracker = invocationTracker ?? null;
@@ -218,11 +231,33 @@ export class SocketManager {
    * Broadcast agent message to a thread room.
    * Always scoped to a room — defaults to 'thread:default' when threadId is omitted.
    * Never broadcasts globally to prevent cross-thread message leak.
+   *
+   * F183 Phase C — injects thread-scoped monotonic seq + sequencer epoch into the
+   * emitted payload for client gap detection (KD-9). Caller-supplied `seq>0` is
+   * preserved as a transport hint (e.g. test fixtures injecting deterministic
+   * seq); production callers should leave `seq` undefined and let sequencer
+   * assign. Epoch is always overwritten with current sequencer epoch (caller
+   * can't fake epoch — server-controlled identity).
+   *
+   * Cloud R3 P2 fix (2026-05-02): when override is used, bump sequencer to
+   * `max(current, override)` so subsequent auto-assigned seqs stay monotonic.
+   * Without this, `next()` would reuse lower numbers after override path,
+   * causing clients to treat fresh events as 'late'/'gap'.
    */
   broadcastAgentMessage(message: AgentMessage, threadId?: string): void {
     const tid = threadId ?? 'default';
     const room = `thread:${tid}`;
-    this.io.to(room).emit('agent_message', { ...message, threadId: tid });
+    const seqOverride = message.seq;
+    let seq: number;
+    if (typeof seqOverride === 'number' && seqOverride > 0) {
+      seq = seqOverride;
+      // Preserve monotonicity for subsequent auto-assigned seqs (cloud R3 P2)
+      this.sequencer.bumpTo(tid, seqOverride);
+    } else {
+      seq = this.sequencer.next(tid);
+    }
+    const seqEpoch = this.sequencer.epoch;
+    this.io.to(room).emit('agent_message', { ...message, threadId: tid, seq, seqEpoch });
   }
 
   broadcastToRoom(room: string, event: string, data: unknown): void {

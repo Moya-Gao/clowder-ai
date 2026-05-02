@@ -168,6 +168,21 @@ export interface BackgroundAgentMessage {
   replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
   /** F108: Invocation ID — distinguishes messages from concurrent invocations */
   invocationId?: string;
+  /**
+   * F183 Phase C — thread-scoped monotonic sequence number (KD-9).
+   * Client tracks `lastSeq` per thread; gap (incomingSeq > lastSeq + 1) triggers
+   * `requestStreamCatchUp(threadId)` to fetch missed events.
+   * Optional for backward compat — events without seq don't update lastSeq
+   * (graceful degradation; legacy producers continue working without gap detection).
+   */
+  seq?: number;
+  /**
+   * F183 Phase C (砚砚 R1 P1 fix) — server seq epoch (sequencer instance UUID).
+   * Set by `SocketManager.broadcastAgentMessage`. Client compares to
+   * `lastSeqEpochByThread[threadId]`; mismatch = server restart → reset lastSeq
+   * + trigger catch-up. Without epoch, restart silently breaks gap detection.
+   */
+  seqEpoch?: string;
   timestamp: number;
 }
 
@@ -606,6 +621,147 @@ const BACKGROUND_STATUS_MAP: Record<string, CatStatusType> = {
 
 function getStreamKey(msg: Pick<BackgroundAgentMessage, 'threadId' | 'catId'>): string {
   return `${msg.threadId}::${msg.catId}`;
+}
+
+/**
+ * F183 Phase C — thread-scoped sequence number tracking + gap detection (KD-9).
+ *
+ * Pure function over chatStore — extracted for unit testability without React harness.
+ * Caller passes the live store; we read `lastSeqByThread` + `lastSeqEpochByThread`,
+ * decide action, write back.
+ *
+ * Behavior:
+ * - msg.seq undefined / 0 → no-op (legacy producer, graceful degradation)
+ * - msg.seqEpoch differs from lastSeqEpoch (and lastSeq>0) → epoch-change (server
+ *   restart, sequencer instance changed) → reset lastSeq + trigger catchup +
+ *   seed with new (epoch, seq). 砚砚 R1 P1 fix: without this, server restart
+ *   silently breaks gap detection until server's new seq exceeds client's stale
+ *   high-water mark (potentially many "late" rejections during catch-up window).
+ * - msg.seq present, lastSeq=0 → first event for this thread, seed lastSeq + epoch
+ * - msg.seq <= lastSeq → late event (out-of-order or duplicate); record debug, don't update
+ * - msg.seq === lastSeq+1 → monotonic advance, update lastSeq
+ * - msg.seq > lastSeq+1 → GAP. record `pendingCatchUpTargetSeq=incomingSeq`,
+ *   fire `requestStreamCatchUp(threadId)`, do **NOT** advance lastSeq (cloud
+ *   P1 watermark preservation — failed/canceled fetch must keep retrying).
+ *   useChatHistory's fetchHistory.then() captures pending at fetch START and
+ *   calls `acknowledgeCatchUp(threadId, capturedTarget)` on success — that
+ *   advances lastSeq to capturedTarget and clears pending only if pending
+ *   still equals capturedTarget (砚砚 R6 P1 stale-fetch race fix).
+ *
+ * Returns the action taken for diagnostics / test assertion.
+ */
+export type ThreadSeqAction = 'no-op' | 'seed' | 'advance' | 'late' | 'gap' | 'epoch-change';
+
+interface ThreadSeqStore {
+  readonly lastSeqByThread: Record<string, number>;
+  readonly lastSeqEpochByThread: Record<string, string>;
+  /** Cloud R2 P1-B fix — pending lookup needed in seed branch to detect ongoing recovery. */
+  readonly pendingCatchUpTargetSeqByThread: Record<string, number>;
+  setLastSeq: (threadId: string, seq: number) => void;
+  setLastSeqEpoch: (threadId: string, epoch: string) => void;
+  /** 砚砚 R5 P1 fix — record pending target so acknowledgeCatchUp can advance lastSeq on success. */
+  setPendingCatchUpTargetSeq: (threadId: string, seq: number) => void;
+  requestStreamCatchUp: (threadId: string) => void;
+}
+
+export function processThreadSeq(
+  msg: { threadId?: string; seq?: number; seqEpoch?: string },
+  store: ThreadSeqStore,
+): ThreadSeqAction {
+  if (!msg.threadId) return 'no-op';
+  const incomingSeq = msg.seq;
+  if (typeof incomingSeq !== 'number' || incomingSeq <= 0) return 'no-op';
+
+  const lastSeq = store.lastSeqByThread[msg.threadId] ?? 0;
+  const lastEpoch = store.lastSeqEpochByThread[msg.threadId] ?? '';
+  const incomingEpoch = msg.seqEpoch ?? '';
+  const pendingTarget = store.pendingCatchUpTargetSeqByThread[msg.threadId] ?? 0;
+
+  // Epoch change detection (砚砚 R1 P1 fix). Only fires when:
+  //   - we have a tracked lastEpoch (i.e. we've seen at least one seq before)
+  //   - incoming msg carries a different epoch
+  // Skip when lastEpoch=='' (no prior tracking) — that's a fresh seed, handled
+  // below by the seq=0 branch. Skip when incomingEpoch=='' (legacy emitter that
+  // doesn't include epoch) — fall through to seq-only logic to preserve bw-compat.
+  if (lastSeq > 0 && lastEpoch && incomingEpoch && lastEpoch !== incomingEpoch) {
+    // Server restarted — sequencer instance changed.
+    //
+    // Cloud R2 P1-B fix (2026-05-02): DO NOT advance lastSeq to incomingSeq
+    // immediately before catch-up confirms. If first post-restart packet has
+    // seq>1 (server already missed seqs 1..incomingSeq-1 from client) and
+    // catch-up fails, subsequent live events at incomingSeq+1, +2 would route
+    // as 'advance' (normal monotonic) — never retriggering recovery. Missing
+    // early range stays missing forever.
+    //
+    // Fix: setEpoch (so next event doesn't re-trigger epoch-change) +
+    // reset lastSeq=0 (new epoch space, old watermark meaningless) +
+    // record pending=incomingSeq + fire catchup. Subsequent live events
+    // hit the lastSeq=0 + pending>0 path in seed branch below — re-route as
+    // 'gap' (refresh pending, refire catchup) until ack closes the loop.
+    store.setLastSeqEpoch(msg.threadId, incomingEpoch);
+    store.setLastSeq(msg.threadId, 0);
+    store.setPendingCatchUpTargetSeq(msg.threadId, incomingSeq);
+    store.requestStreamCatchUp(msg.threadId);
+    return 'epoch-change';
+  }
+
+  if (lastSeq === 0) {
+    // Cloud R2 P1-B fix: if pending recovery from prior gap/epoch-change
+    // is in flight (pendingTarget > 0), DON'T seed — that would advance
+    // lastSeq past the missing range and lose the retry trigger. Instead,
+    // treat as continuing 'gap' state: refresh pending if higher, refire
+    // catchup. Recovery only closes via acknowledgeCatchUp (HTTP success).
+    if (pendingTarget > 0) {
+      if (incomingSeq > pendingTarget) {
+        store.setPendingCatchUpTargetSeq(msg.threadId, incomingSeq);
+      }
+      store.requestStreamCatchUp(msg.threadId);
+      return 'gap';
+    }
+    // Seed: first seq-bearing event for this thread; no gap can be detected
+    // because we don't know prior history. Capture epoch alongside seed.
+    store.setLastSeq(msg.threadId, incomingSeq);
+    if (incomingEpoch) store.setLastSeqEpoch(msg.threadId, incomingEpoch);
+    return 'seed';
+  }
+
+  if (incomingSeq <= lastSeq) {
+    // Late event by seq (out-of-order or duplicate). Don't drop here — downstream
+    // stable-key dedup handles content; dropping by seq alone could mask real
+    // out-of-order delivery for diagnosis. Caller decides drop semantics.
+    return 'late';
+  }
+
+  if (incomingSeq > lastSeq + 1) {
+    // Gap detected. Fire full catchup (HTTP fetch + reducer dedup reconciles content).
+    //
+    // Cloud P1 fix (2026-05-02): DO NOT advance lastSeq on gap.
+    // Optimistically advancing puts the missing range "behind the watermark"
+    // — if the subsequent HTTP fetchHistory fails or is canceled, future
+    // in-order events become 'advance' and the gap silently never retriggers
+    // catch-up; dropped messages remain missing for the rest of the session.
+    //
+    // 砚砚 R5 P1 fix (2026-05-02): record pending catch-up target so
+    // acknowledgeCatchUp can advance lastSeq once fetchHistory succeeds.
+    // Without this ack mechanism, fetchHistory success would NOT clear the
+    // gap state — `lastSeq=5` stays stuck while server emits 9/10/11, all
+    // routed as 'gap', perpetual catchup storm. Phase C goal is "no F5
+    // needed"; relying on F5 to reset lastSeq violates that.
+    //
+    // Pending target = current incomingSeq (monotonic within epoch — each
+    // gap event has a higher seq than the prior, so simple assignment is
+    // safe; no need for max() over prior pending). On fetch failure:
+    // pending stays, lastSeq stays at watermark, subsequent events keep
+    // firing 'gap' with refreshed pending — eventual fetch success advances
+    // lastSeq to latest pending target.
+    store.setPendingCatchUpTargetSeq(msg.threadId, incomingSeq);
+    store.requestStreamCatchUp(msg.threadId);
+    return 'gap';
+  }
+
+  // incomingSeq === lastSeq + 1: monotonic advance
+  store.setLastSeq(msg.threadId, incomingSeq);
+  return 'advance';
 }
 
 function shouldClearBackgroundRefOnActiveEvent(msg: ActiveRoutedAgentMessage): boolean {
@@ -2231,6 +2387,13 @@ export function useAgentMessages() {
       const store = useChatStore.getState();
       const storeThread = store.currentThreadId;
       const isActiveThreadMessage = Boolean(msg.threadId && storeThread && msg.threadId === storeThread);
+
+      // F183 Phase C — thread-scoped sequence number gap detection (KD-9).
+      // 在所有 dispatch 之前跑：每条 event 带 seq>0 时检查 monotonic 顺序 + 比对
+      // sequencer epoch；发现 gap / epoch-change 立即 `requestStreamCatchUp(threadId)`
+      // (unconditional full HTTP fetch — 复用 useChatHistory 消费者) 拉缺，不等
+      // 5min DONE_TIMEOUT。legacy producers (无 seq) 不更新 lastSeq，graceful degradation。
+      processThreadSeq(msg, store);
 
       if (msg.threadId && !isActiveThreadMessage) {
         // Background thread → delegate to handleBackgroundAgentMessage with bg refs.

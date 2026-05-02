@@ -847,19 +847,90 @@ export function useChatHistory(threadId: string) {
   }, [threadId, cancelPendingRestore, clearMessages, fetchHistory, fetchQueue, fetchTaskProgress, fetchTasks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Bug C safety net: when useAgentMessages detects done(isFinal) with no
-  // streaming bubble, it bumps streamCatchUpVersion with a target threadId.
-  // Only fetch if this hook's threadId matches the request (P1: thread-scoped).
-  const catchUpVersion = useChatStore((s) => s.streamCatchUpVersion);
-  const catchUpThreadId = useChatStore((s) => s.streamCatchUpThreadId);
+  // streaming bubble, or processThreadSeq detects gap/epoch-change, it bumps
+  // `streamCatchUpVersionByThread[threadId]`.
+  //
+  // F183 Phase C cloud P2 fix (2026-05-02): subscribe to per-thread version
+  // slot (not the previous single-slot global `streamCatchUpVersion +
+  // streamCatchUpThreadId`). Per-thread counter ensures bg gap on thread B
+  // can't overwrite active thread A's pending signal — both threads
+  // independently trigger their own fetchHistory.
+  const catchUpVersion = useChatStore((s) => s.streamCatchUpVersionByThread[threadId] ?? 0);
+  const consumedCatchUpVersion = useChatStore((s) => s.lastConsumedCatchUpVersionByThread[threadId] ?? 0);
   useEffect(() => {
     if (catchUpVersion === 0) return; // Skip initial render
-    if (catchUpThreadId !== threadId) return; // P1: only act for matching thread
-    // Small delay: backend may still be persisting the final message
-    const timer = setTimeout(() => {
-      void fetchHistory(undefined, { replace: true });
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [catchUpVersion, catchUpThreadId, threadId, fetchHistory]);
+    // Cloud R3 P2 fix (2026-05-02): only fire if version has advanced beyond
+    // last consumed. Without this, thread-switch re-mounts re-fire fetchHistory
+    // on stale catchUpVersion (already-handled trigger) → unnecessary full-history
+    // reload + state churn on routine navigation.
+    if (catchUpVersion <= consumedCatchUpVersion) return;
+    // Cloud R3 P1 fix (2026-05-02): retry on skipped/failed fetch with exponential
+    // backoff. Without retry, fetchHistory's `loadingRef.current` early-out (when
+    // another fetch is in flight) returns undefined; my `result !== true` guard
+    // correctly skips ack, but no retry was scheduled — pending hangs forever
+    // if no future event triggers another version bump (e.g. dropped tail packet
+    // on quiet thread). 3 retries with 1s/2s/4s backoff cap.
+    //
+    // Cloud R4 P1 fix (2026-05-02): retry exhaustion does NOT mark consumed.
+    // Marking consumed on exhaustion permanently gates the effect on quiet
+    // threads (no future events to bump version), so pending gap never retries
+    // on remount/thread revisit — must manually F5. Instead: leave consumed
+    // unchanged on exhaustion. Next remount (thread switch back / page nav)
+    // re-runs effect → version > consumed (consumed didn't move) → fresh
+    // retry cycle. Consumed only advances on actual fetch success.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+    let retries = 0;
+    const MAX_RETRIES = 3;
+
+    const tryFetch = async () => {
+      if (cancelled) return;
+      // F183 Phase C 砚砚 R6 P1 race fix: capture pending target at fetch start,
+      // NOT at ack time. If a newer gap arrives during fetch flight, we only
+      // advance lastSeq to capturedTarget and keep newer pending for next ack.
+      const targetAtStart = useChatStore.getState().pendingCatchUpTargetSeqByThread[threadId];
+      try {
+        const result = await fetchHistory(undefined, { replace: true });
+        if (cancelled) return;
+        if (result === true) {
+          // Success: ack catchup target + mark consumed (gates remount re-fire)
+          useChatStore.getState().setLastConsumedCatchUpVersion(threadId, catchUpVersion);
+          if (typeof targetAtStart === 'number' && targetAtStart > 0) {
+            useChatStore.getState().acknowledgeCatchUp(threadId, targetAtStart);
+          }
+          return;
+        }
+        // Skipped (loadingRef early-out / !res.ok / stale thread / abort) — retry
+        if (retries < MAX_RETRIES) {
+          retries++;
+          const backoff = 1000 * 2 ** (retries - 1); // 1s, 2s, 4s
+          timer = setTimeout(tryFetch, backoff);
+        }
+        // Cloud R4 P1 fix (2026-05-02): exhausted retries — DO NOT mark consumed.
+        // Marking consumed here permanently gates the effect on quiet threads
+        // (no future events to bump version), so the pending gap never retries
+        // on remount/thread revisit. Leave consumed unchanged — next remount
+        // (e.g. thread switch back, page navigation) re-runs the effect with
+        // fresh retry cycle. New gap event bumps version → still triggers normally.
+      } catch {
+        if (cancelled) return;
+        if (retries < MAX_RETRIES) {
+          retries++;
+          const backoff = 1000 * 2 ** (retries - 1);
+          timer = setTimeout(tryFetch, backoff);
+        }
+        // Cloud R4 P1: same — no setLastConsumedCatchUpVersion on exhaustion.
+      }
+    };
+
+    // Initial 600ms debounce: collapses bursts of catch-up requests (e.g. multiple
+    // gap events during a stream) into one fetchHistory call via timer cancel-restart.
+    timer = setTimeout(tryFetch, 600);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [catchUpVersion, consumedCatchUpVersion, threadId, fetchHistory]);
 
   // Snapshot scroll height before history load
   useEffect(() => {
