@@ -55,8 +55,8 @@ CI/review/conflict/scheduled 等 connector trigger policy 必须写入 `sourceCa
 - [ ] AC-1: `ConnectorInvokeTrigger.trigger()` 先检查 thread-level queue/processingSlots gate（`isThreadBusy` 或等价），命中则 `enqueueWhileActive()`
 - [ ] AC-2: queue gate 未命中时用 `tryStartThread(threadId, catId)` 原子获取 slot，返回 null 则 `enqueueWhileActive()`
 - [ ] AC-3: `tryStartThread` 返回的 controller 在 `executeInBackground` 中复用，duplicate/throw 路径 `complete()` 释放
-- [ ] AC-4: ConnectorInvokeTrigger 层：queue full → thread `system_info`；enqueue duplicate → rate-limited diagnostics log
-- [ ] AC-5: Router/TaskSpec 层：automation off → thread `system_info`；task 不存在 → admin/metrics log；pending/fingerprint → rate-limited diagnostics log
+- [ ] AC-4: ConnectorInvokeTrigger 层：queue full → thread `system_info`（用户可清队列）；enqueue duplicate → info log（rate-limited by idempotency）
+- [ ] AC-5: Router/TaskSpec 层：automation off → thread `system_info`（用户可修改设置）；task 不存在 → gate 返回 `run: false`；pending/fingerprint → rate-limited diagnostics log
 - [ ] AC-6: `InvocationQueue.hasQueuedNonAgentForThread(threadId)` 存在且正确查询
 - [ ] AC-7: `tryAutoExecute()` 在有 non-agent pending 时早退，不启动新 agent
 - [ ] AC-8: agent entry（sourceCategory ≠ continuation）禁止 urgent priority（enqueue 时校验）；continuation 保留 urgent + system-pinned

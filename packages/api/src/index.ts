@@ -21,6 +21,7 @@ import {
   getAcpConfig,
   getAllCatIdsFromConfig,
   getConfigSessionStrategy,
+  getDefaultCatId,
   isCatAvailable,
   toAllCatConfigs,
 } from './config/cat-config-loader.js';
@@ -2163,6 +2164,17 @@ async function main(): Promise<void> {
       taskStore,
       deliveryDeps,
       log: app.log,
+      notifySkip: (threadId, reason) => {
+        socketManager?.broadcastAgentMessage(
+          {
+            type: 'system_info',
+            catId: getDefaultCatId(),
+            content: JSON.stringify({ type: 'connector_skip', reason, threadId }),
+            timestamp: Date.now(),
+          },
+          threadId,
+        );
+      },
     });
 
     // F140: ConflictRouter (state-transition dedup + KD-9 fingerprint reset)
