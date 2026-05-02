@@ -240,7 +240,8 @@ function mergeSameIdHydrationMessage(history: ChatMessageData, current: ChatMess
 //   2. **未匹配**：默认 keep，但走 draft-orphan 副过滤器（不算独立匹配策略）
 // 行为不变：matched-by-id 走 mergeSameIdHydrationMessage；matched-by-streamKey
 // 走 shouldPreferCurrentMessage。统计字段语义不变。
-function mergeReplaceHydrationMessages(
+/** Exported for unit testing — see __tests__/mergeReplaceHydrationMessages-idb.test.ts */
+export function mergeReplaceHydrationMessages(
   historyMsgs: ChatMessageData[],
   currentMsgs: ChatMessageData[],
   currentCatInvocations: Record<string, CatInvocationInfo>,
@@ -279,6 +280,19 @@ function mergeReplaceHydrationMessages(
   let replacedHistoryCount = 0;
 
   for (const msg of currentMsgs) {
+    // F183 Phase D AC-D2 (砚砚 R1 P1 fix): IDB-origin messages NEVER participate
+    // in the merge — server history is authoritative. Skip BEFORE id/streamKey
+    // matching so cached IDB never enters mergeSameIdHydrationMessage (which
+    // could spread cachedFrom into a "richer-current preferred" outcome) nor
+    // the streamKey replacement branch (which would write the cached msg
+    // verbatim into mergedMsgs). For matched cases history stays in mergedMsgs
+    // as-is; for unmatched, the cached copy is dropped. F164 AC-A3 instant
+    // render still works: IDB hydrates first paint, API hydration replaces
+    // cleanly without cache leakage.
+    if (msg.cachedFrom === 'idb') {
+      continue;
+    }
+
     // Strategy: stable-identity lookup. id 优先于 streamKey（id 命中走 same-id 合并）。
     const idHit = historyIndexByStableId.get(msg.id);
     const invocationId = msg.catId ? getLocalPlaceholderInvocationId(msg, currentCatInvocations) : undefined;
