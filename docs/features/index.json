@@ -1149,7 +1149,7 @@
     {
       "id": "F185",
       "name": "入口级判忙策略分层 — ADR-034 实施",
-      "status": "spec | **Owner**: 布偶猫/宪宪 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫/宪宪 | **Priority**: P1",
       "file": "F185-dispatch-busy-gate-unification.md"
     }
   ]

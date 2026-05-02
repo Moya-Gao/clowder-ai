@@ -64,4 +64,3 @@ created: 2026-02-26
 | F182 | Cat Roster Lifecycle Toggle — 成员启停的全链路降级反馈 | spec | 布偶猫（宪宪/Opus 4.7） | internal | [F182](features/F182-cat-roster-lifecycle-toggle.md) |
 | F183 | Bubble Pipeline Architecture Consolidation — 消息气泡管线架构收敛（统一身份契约 + Single Writer + IDB invalidation + 序列号补偿） | in-progress | 布偶猫（宪宪/Opus 4.7）牵头 | internal | [F183](features/F183-bubble-pipeline-architecture-consolidation.md) |
 | F184 | ChatMessage Rendering Mount Investigation — F176 撤销后真 bug（DOM 缺失）独立排查 | spec | 待定 | internal | [F184](features/F184-chatmessage-rendering-mount-investigation.md) |
-| F185 | 入口级判忙策略分层 — ADR-034 实施（connector thread 级门控 + fairness invariant） | spec | 布偶猫/宪宪 | internal | [F185](features/F185-dispatch-busy-gate-unification.md) |

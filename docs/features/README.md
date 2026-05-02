@@ -133,6 +133,7 @@
 | F061 | F061: Antigravity 接入 — 孟加拉猫（混血家族） | done | [F061-antigravity-bengal-cat.md](./F061-antigravity-bengal-cat.md) |
 | F174 | F174: Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级、telemetry + D2b 三层明厨亮灶（HubButton unread badge + 五件套信号设计教训）| done | [F174-callback-auth-lifecycle.md](./F174-callback-auth-lifecycle.md) |
 | F177 | F177: Harness Update — Close Gate 结构化判据 + 四心智专属护栏 | done | [F177-harness-update.md](./F177-harness-update.md) |
+| F185 | F185: 入口级判忙策略分层 — ADR-034 实施 | done | [F185-dispatch-busy-gate-unification.md](./F185-dispatch-busy-gate-unification.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |
