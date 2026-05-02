@@ -33,10 +33,10 @@ created: 2026-05-01
 
 **2. 投递可见性 system_info（KD-3）**
 
-分层产出 skip reason：
-- **ConnectorInvokeTrigger 层**（触达 `trigger()` 的路径）：queue full / enqueue duplicate → thread `system_info`
-- **Router/TaskSpec 层**（`trigger()` 上游的路径）：automation off / task 不存在 / pending → 各 router（CiCdRouter、ConflictRouter 等）在 skip 时产出 thread `system_info`（actionable）或 admin log（无 thread 目的地）
-- **轮询噪声**：fingerprint 去重 → rate-limited diagnostics log
+分层产出 skip reason（ADR-034 原则：actionable 才 system_info）：
+- **ConnectorInvokeTrigger 层**：queue full → thread `system_info`（用户可清队列）；enqueue duplicate → rate-limited diagnostics log（重试噪声）
+- **Router/TaskSpec 层**：automation off → thread `system_info`（用户可修改设置）；task 不存在（无 thread 目的地）→ admin/metrics log
+- **轮询噪声**：fingerprint 去重 / pending → rate-limited diagnostics log
 
 **3. Fairness invariant + agent priority 约束（OQ-3 收敛）**
 
@@ -55,8 +55,8 @@ CI/review/conflict/scheduled 等 connector trigger policy 必须写入 `sourceCa
 - [ ] AC-1: `ConnectorInvokeTrigger.trigger()` 先检查 thread-level queue/processingSlots gate（`isThreadBusy` 或等价），命中则 `enqueueWhileActive()`
 - [ ] AC-2: queue gate 未命中时用 `tryStartThread(threadId, catId)` 原子获取 slot，返回 null 则 `enqueueWhileActive()`
 - [ ] AC-3: `tryStartThread` 返回的 controller 在 `executeInBackground` 中复用，duplicate/throw 路径 `complete()` 释放
-- [ ] AC-4: ConnectorInvokeTrigger 层 skip（queue full / enqueue duplicate）产出 thread `system_info`
-- [ ] AC-5: Router/TaskSpec 层 skip（automation off / task 不存在）产出 thread `system_info`（actionable）或 admin log（无 thread 目的地）
+- [ ] AC-4: ConnectorInvokeTrigger 层：queue full → thread `system_info`；enqueue duplicate → rate-limited diagnostics log
+- [ ] AC-5: Router/TaskSpec 层：automation off → thread `system_info`；task 不存在 → admin/metrics log；pending/fingerprint → rate-limited diagnostics log
 - [ ] AC-6: `InvocationQueue.hasQueuedNonAgentForThread(threadId)` 存在且正确查询
 - [ ] AC-7: `tryAutoExecute()` 在有 non-agent pending 时早退，不启动新 agent
 - [ ] AC-8: agent entry（sourceCategory ≠ continuation）禁止 urgent priority（enqueue 时校验）；continuation 保留 urgent + system-pinned
