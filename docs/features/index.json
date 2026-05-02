@@ -1089,7 +1089,7 @@
     {
       "id": "F175",
       "name": "消息队列统一设计 — 优先级排序 + 用户可控编排",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "phase-a-done | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F175-unified-message-queue.md"
     },
     {

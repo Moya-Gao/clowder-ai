@@ -648,6 +648,16 @@ export interface ChatState {
    *  replaceMessages + saveMessagesSnapshot whenever a server GET response
    *  fully replaces the current thread timeline. AC-C10. */
   hydrateThread: (threadId: string, msgs: ChatMessage[], hasMore: boolean) => void;
+  /**
+   * F183 Phase B1.7 — thread-scoped reducer write entry point. Mirror of
+   * `replaceMessages` but for arbitrary thread (current OR background).
+   * Used by `handleBackgroundAgentMessage` to apply reducer's nextMessages
+   * to the target thread's state. Unlike `hydrateThread` (server-authoritative
+   * hydration with IDB persist), this is for per-event reducer mutations:
+   * no IDB write, no hasMore-required (defaults to existing thread.hasMore),
+   * mirrors flat when threadId === currentThreadId.
+   */
+  replaceThreadMessages: (threadId: string, msgs: ChatMessage[], hasMore?: boolean) => void;
   replaceMessageId: (fromId: string, toId: string) => void;
   patchMessage: (id: string, patch: ChatMessagePatch) => void;
   appendToLastMessage: (content: string) => void;
@@ -1261,6 +1271,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => {
       revokeRemovedBlobUrls(state.messages, msgs);
       return { messages: msgs, hasMore };
+    }),
+
+  // F183 Phase B1.7 — see interface comment.
+  replaceThreadMessages: (threadId, msgs, hasMore) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        revokeRemovedBlobUrls(state.messages, msgs);
+        const nextHasMore = hasMore ?? state.hasMore;
+        return {
+          messages: msgs,
+          hasMore: nextHasMore,
+          ...mirrorActiveFlat(state, { messages: msgs, hasMore: nextHasMore }),
+        };
+      }
+      const baseThreadState = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      revokeRemovedBlobUrls(baseThreadState.messages, msgs);
+      const nextHasMore = hasMore ?? baseThreadState.hasMore;
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: { ...baseThreadState, messages: msgs, hasMore: nextHasMore },
+        },
+      };
     }),
 
   hydrateThread: (threadId, msgs, hasMore) => {

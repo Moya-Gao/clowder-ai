@@ -168,6 +168,57 @@ describe('background thread socket handling', () => {
       // Should still be just 1 toast (the error), no success toast added
       expect(useToastStore.getState().toasts).toHaveLength(1);
     });
+
+    // F183 Phase B1.7 (砚砚 R1 P1) regression: bg canonical error wire-up via
+    // reducer + replaceThreadMessages 不像 addMessageToThread 自动 +1 unread。
+    // 必须在 reducer 创建新 system_status bubble 时手动 incrementUnread，
+    // 否则 sidebar unread badge 永远 0 = 用户可见回归。
+    it('B1.7 砚砚 R1 P1: bg canonical error increments unread for non-current thread (reducer path)', () => {
+      // bg thread = thread-bg；current thread = thread-active。
+      simulateBackgroundMessage({
+        type: 'error',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        invocationId: 'inv-1',
+        error: 'Provider 500',
+        timestamp: Date.now(),
+        isFinal: true,
+      });
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      // reducer 创建 system_status bubble
+      expect(ts.messages.some((m) => m.type === 'system' && (m as { variant?: string }).variant === 'error')).toBe(true);
+      // unread badge 必须 +1
+      expect(ts.unreadCount).toBe(1);
+    });
+
+    // F183 Phase B1.7 (砚砚 R1 P1) regression: 重复同 invocation error 走
+    // stable-key dedup（reducer 内部 update existing），messages.length 不变，
+    // 不应再 +1 unread。
+    it('B1.7 砚砚 R1 P1: bg duplicate error same invocation does NOT double-increment unread', () => {
+      simulateBackgroundMessage({
+        type: 'error',
+        catId: 'codex',
+        threadId: 'thread-bg-2',
+        invocationId: 'inv-dup',
+        error: 'first',
+        timestamp: Date.now(),
+        isFinal: false,
+      });
+      simulateBackgroundMessage({
+        type: 'error',
+        catId: 'codex',
+        threadId: 'thread-bg-2',
+        invocationId: 'inv-dup',
+        error: 'second update',
+        timestamp: Date.now() + 100,
+        isFinal: true,
+      });
+      const ts = useChatStore.getState().getThreadState('thread-bg-2');
+      // 仍只有 1 条 error bubble (stable-key dedup)
+      expect(ts.messages.filter((m) => m.type === 'system' && (m as { variant?: string }).variant === 'error')).toHaveLength(1);
+      // unread 仅 +1 (not 2)
+      expect(ts.unreadCount).toBe(1);
+    });
   });
 
   describe('R2-P2: text(isFinal) clears hasActiveInvocation', () => {

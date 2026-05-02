@@ -221,6 +221,12 @@ export interface BackgroundStoreLike {
   replaceThreadTargetCats: (threadId: string, cats: string[]) => void;
   replaceThreadMessageId: (threadId: string, fromId: string, toId: string) => void;
   patchThreadMessage: (threadId: string, messageId: string, patch: ChatMessagePatch) => void;
+  /** F183 Phase B1.7 — thread-scoped reducer write entry. See chatStore.ts. */
+  replaceThreadMessages: (threadId: string, msgs: ChatMessage[], hasMore?: boolean) => void;
+  /** F183 Phase B1.7 — explicit unread bump for reducer paths that bypass
+   *  addMessageToThread's auto-increment. Used by bg error reducer wire-up
+   *  when creating a new system_status bubble for non-current thread. */
+  incrementUnread: (threadId: string) => void;
 }
 
 export interface HandleBackgroundMessageOptions {
@@ -1081,14 +1087,52 @@ export function handleBackgroundAgentMessage(
     if (!recoverableInFlightError) {
       stopTrackedStream(streamKey, msg, options);
     }
-    options.store.addMessageToThread(msg.threadId, {
-      id: `bg-err-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`,
-      type: 'system',
-      variant: 'error',
-      catId: msg.catId,
-      content: `Error: ${msg.error ?? 'Unknown error'}`,
-      timestamp: msg.timestamp,
-    });
+
+    // F183 Phase B1.7 — bg error wire-up via reducer reduceErrorEvent.
+    // canonical event 走 stable-key dedup；invocationless 仍 legacy addMessageToThread
+    // 用 deterministic bg-err id 避免冲突。pattern 跟 B1.5 active error 同源。
+    const errorContent = `Error: ${msg.error ?? 'Unknown error'}`;
+    let bgErrorReducerHandled = false;
+    if (msg.invocationId) {
+      const event = adaptIncomingToBubbleEvent(msg, { sourcePath: 'background' });
+      if (event) {
+        const eventWithEnrichment = {
+          ...event,
+          payload: { ...(event.payload ?? {}), content: errorContent },
+        };
+        const threadState = options.store.getThreadState(msg.threadId);
+        const prevLen = threadState.messages.length;
+        const result = applyBubbleEvent({
+          threadId: msg.threadId,
+          event: eventWithEnrichment,
+          currentMessages: threadState.messages,
+        });
+        if (result.recoveryAction === 'none' && result.nextMessages !== threadState.messages) {
+          options.store.replaceThreadMessages(msg.threadId, result.nextMessages, threadState.hasMore);
+          bgErrorReducerHandled = true;
+          // F183 Phase B1.7 (砚砚 R1 P1): replaceThreadMessages 不像 addMessageToThread
+          // 那样自动 +1 unread。reducer 创建新 system_status bubble 时（length 增加）
+          // 必须手动补 unread badge，否则后台 thread 收到 canonical error 但 sidebar
+          // unread 还是 0 = 用户可见回归。stable-key dedup（length 不变）不重复 +1。
+          if (result.nextMessages.length > prevLen) {
+            options.store.incrementUnread(msg.threadId);
+          }
+        }
+        if (result.violations.length > 0) {
+          for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+        }
+      }
+    }
+    if (!bgErrorReducerHandled) {
+      options.store.addMessageToThread(msg.threadId, {
+        id: `bg-err-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`,
+        type: 'system',
+        variant: 'error',
+        catId: msg.catId,
+        content: errorContent,
+        timestamp: msg.timestamp,
+      });
+    }
     if (!recoverableInFlightError) {
       options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'error');
     }
@@ -1139,13 +1183,46 @@ export function handleBackgroundAgentMessage(
     const toolName = msg.toolName ?? 'unknown';
     const detail = msg.toolInput ? safeJsonPreview(msg.toolInput, 200) : undefined;
     const messageId = ensureBackgroundAssistantMessage(msg, streamKey, existing, options);
-    options.store.appendToolEventToThread(msg.threadId, messageId, {
+    const toolUseEventData: ToolEvent = {
       id: `bg-tool-use-${msg.timestamp}-${options.nextBgSeq()}`,
       type: 'tool_use',
       label: `${msg.catId} → ${toolName}`,
       ...(detail ? { detail } : {}),
       timestamp: msg.timestamp,
-    });
+    };
+
+    // F183 Phase B1.7 — bg tool_use wire-up via reducer (single-writer)。
+    // ensureBackgroundAssistantMessage 仍跑（管 bgStreamRefs ledger）。reducer
+    // 的 reduceToolEvent append toolEvent 到对应 invocation 的 assistant_text
+    // bubble.toolEvents（kind filter 同 active path B1.6 cloud P1）。
+    // recoveryAction !== 'none' 或 reducer no-op (no existing kind=assistant_text
+    // bubble) 时回退 legacy appendToolEventToThread。
+    let bgToolUseHandled = false;
+    if (msg.invocationId) {
+      const event = adaptIncomingToBubbleEvent(msg, { sourcePath: 'background' });
+      if (event) {
+        const eventWithToolEvent = {
+          ...event,
+          payload: { ...(event.payload ?? {}), toolEvent: toolUseEventData },
+        };
+        const threadState = options.store.getThreadState(msg.threadId);
+        const result = applyBubbleEvent({
+          threadId: msg.threadId,
+          event: eventWithToolEvent,
+          currentMessages: threadState.messages,
+        });
+        if (result.recoveryAction === 'none' && result.nextMessages !== threadState.messages) {
+          options.store.replaceThreadMessages(msg.threadId, result.nextMessages, threadState.hasMore);
+          bgToolUseHandled = true;
+        }
+        if (result.violations.length > 0) {
+          for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+        }
+      }
+    }
+    if (!bgToolUseHandled) {
+      options.store.appendToolEventToThread(msg.threadId, messageId, toolUseEventData);
+    }
     options.store.setThreadMessageStreaming(msg.threadId, messageId, true);
     options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'streaming');
     return;
@@ -1155,13 +1232,41 @@ export function handleBackgroundAgentMessage(
     markThreadInvocationActive(msg, options);
     const detail = compactToolResultDetail(msg.content ?? '');
     const messageId = ensureBackgroundAssistantMessage(msg, streamKey, existing, options);
-    options.store.appendToolEventToThread(msg.threadId, messageId, {
+    const toolResultEventData: ToolEvent = {
       id: `bg-tool-result-${msg.timestamp}-${options.nextBgSeq()}`,
       type: 'tool_result',
       label: `${msg.catId} ← result`,
       detail,
       timestamp: msg.timestamp,
-    });
+    };
+
+    // F183 Phase B1.7 — bg tool_result wire-up via reducer (same pattern as tool_use)。
+    let bgToolResultHandled = false;
+    if (msg.invocationId) {
+      const event = adaptIncomingToBubbleEvent(msg, { sourcePath: 'background' });
+      if (event) {
+        const eventWithToolEvent = {
+          ...event,
+          payload: { ...(event.payload ?? {}), toolEvent: toolResultEventData },
+        };
+        const threadState = options.store.getThreadState(msg.threadId);
+        const result = applyBubbleEvent({
+          threadId: msg.threadId,
+          event: eventWithToolEvent,
+          currentMessages: threadState.messages,
+        });
+        if (result.recoveryAction === 'none' && result.nextMessages !== threadState.messages) {
+          options.store.replaceThreadMessages(msg.threadId, result.nextMessages, threadState.hasMore);
+          bgToolResultHandled = true;
+        }
+        if (result.violations.length > 0) {
+          for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+        }
+      }
+    }
+    if (!bgToolResultHandled) {
+      options.store.appendToolEventToThread(msg.threadId, messageId, toolResultEventData);
+    }
     options.store.setThreadMessageStreaming(msg.threadId, messageId, true);
     options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'streaming');
     return;
