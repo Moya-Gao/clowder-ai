@@ -1,6 +1,6 @@
 ---
 decision_id: ADR-034
-feature_ids: []
+feature_ids: [F185]
 related_features: [F108, F122, F175]
 topics: [dispatch, queue, busy-gate, connector, slot, thread, architecture]
 doc_kind: decision
