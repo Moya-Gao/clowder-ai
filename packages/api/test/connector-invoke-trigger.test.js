@@ -1312,13 +1312,7 @@ describe('ConnectorInvokeTrigger', () => {
       });
       trackerMock.setActive('thread-1', 'user-1');
       const trigger = createTrigger({ invocationQueue: mockFullQueue });
-      const outcome = trigger.trigger(
-        'thread-1',
-        /** @type {any} */ ('opus'),
-        'user-1',
-        'overflow',
-        'mid-full',
-      );
+      const outcome = trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'overflow', 'mid-full');
       await waitForTrigger();
 
       assert.strictEqual(outcome, 'full');
