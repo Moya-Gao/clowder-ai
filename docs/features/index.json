@@ -1145,6 +1145,12 @@
       "name": "ChatMessage Rendering Mount Investigation — F176 撤销后未查的 DOM 缺失真 bug",
       "status": "spec | **Owner**: 待定（建议跨 family review；候选 47 牵头 + 砚砚 review） | **Priority**: P2",
       "file": "F184-chatmessage-rendering-mount-investigation.md"
+    },
+    {
+      "id": "F185",
+      "name": "入口级判忙策略分层 — ADR-034 实施",
+      "status": "spec | **Owner**: 布偶猫/宪宪 | **Priority**: P1",
+      "file": "F185-dispatch-busy-gate-unification.md"
     }
   ]
 }

@@ -6,6 +6,7 @@ import { deriveBubbleId } from '@/debug/bubbleIdentity';
 import { recordBubbleInvariantViolation } from '@/debug/bubbleInvariantDiagnostics';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { adaptIncomingToBubbleEvent } from '@/hooks/bubble-event-adapter';
+import { deriveBubbleKindFromMessage } from '@/stores/bubble-invariants';
 import { applyBubbleEvent } from '@/stores/bubble-reducer';
 import type {
   CatInvocationInfo,
@@ -936,16 +937,53 @@ export function handleBackgroundAgentMessage(
         if (cbId !== replacementTarget.id) {
           options.store.replaceThreadMessageId(msg.threadId, replacementTarget.id, cbId);
         }
-        options.store.patchThreadMessage(msg.threadId, cbId, {
-          content: msg.content,
-          origin: 'callback',
-          isStreaming: false,
+
+        // F183 Phase B1.8 — bg callback (with replacementTarget) wire-up via reducer.
+        // canonical invocationId 走 reducer 的 reduceCallbackFinal stable-key match
+        // 或 invocationless+messageId hint (caller 已经 replaceThreadMessageId 把
+        // existing bubble 改名成 cbId)。reducer 命中后就地 patch (content/origin/
+        // isStreaming)；reducer no-op (event undefined / recoveryAction !== none) 时
+        // fallback legacy patchThreadMessage 保 content。side-fields (metadata /
+        // extra.crossPost / mentionsUser / replyTo / replyPreview) reducer 不 model，
+        // 单独 patchThreadMessage 写。
+        let bgCallbackHandled = false;
+        if (msg.invocationId) {
+          const event = adaptIncomingToBubbleEvent(msg, { sourcePath: 'background' });
+          if (event) {
+            const eventWithMsgId = { ...event, messageId: cbId };
+            const threadState = options.store.getThreadState(msg.threadId);
+            const result = applyBubbleEvent({
+              threadId: msg.threadId,
+              event: eventWithMsgId,
+              currentMessages: threadState.messages,
+            });
+            if (result.recoveryAction === 'none' && result.nextMessages !== threadState.messages) {
+              options.store.replaceThreadMessages(msg.threadId, result.nextMessages, threadState.hasMore);
+              bgCallbackHandled = true;
+            }
+            if (result.violations.length > 0) {
+              for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+            }
+          }
+        }
+
+        const sidePatch: Partial<ChatMessage> = {
           ...(msg.metadata ? { metadata: msg.metadata } : {}),
           ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
           ...(msg.mentionsUser ? { mentionsUser: true } : {}),
           ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
           ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
-        });
+        };
+        if (!bgCallbackHandled) {
+          options.store.patchThreadMessage(msg.threadId, cbId, {
+            content: msg.content,
+            origin: 'callback',
+            isStreaming: false,
+            ...sidePatch,
+          });
+        } else if (Object.keys(sidePatch).length > 0) {
+          options.store.patchThreadMessage(msg.threadId, cbId, sidePatch);
+        }
         options.bgStreamRefs.delete(streamKey);
         // Consume finalized ref — callback successfully replaced
         options.finalizedBgRefs.delete(streamKey);
@@ -963,19 +1001,66 @@ export function handleBackgroundAgentMessage(
         const cbId =
           msg.messageId ??
           deriveBubbleId(cbInvocationId, msg.catId, () => `bg-cb-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`);
-        options.store.addMessageToThread(msg.threadId, {
-          id: cbId,
-          type: 'assistant',
-          catId: msg.catId,
-          content: msg.content,
-          ...(msg.metadata ? { metadata: msg.metadata } : {}),
-          ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
-          ...(msg.mentionsUser ? { mentionsUser: true } : {}),
-          ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
-          ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
-          timestamp: msg.timestamp,
-          origin: 'callback',
-        });
+
+        // F183 Phase B1.8 — bg callback (no replacementTarget) wire-up via reducer。
+        // canonical invocationId 走 reducer 的 reduceCallbackFinal — 没 existing 时
+        // makePlaceholder 创建新 bubble，origin=callback + isStreaming=false +
+        // extra.stream.invocationId（缺这条会让 hydration 丢 identity binding，F5
+        // 后 ghost bubble 复活，砚砚 R1 P1 见 F183 B1.7）。reducer no-op 时 fallback
+        // legacy addMessageToThread。bg thread 新 bubble 必须 +1 unread badge
+        // （replaceThreadMessages 不像 addMessageToThread 自动 +unread）。
+        let bgCallbackHandled = false;
+        if (msg.invocationId) {
+          const event = adaptIncomingToBubbleEvent(msg, { sourcePath: 'background' });
+          if (event) {
+            const eventWithMsgId = { ...event, messageId: cbId };
+            const threadState = options.store.getThreadState(msg.threadId);
+            const prevLen = threadState.messages.length;
+            const result = applyBubbleEvent({
+              threadId: msg.threadId,
+              event: eventWithMsgId,
+              currentMessages: threadState.messages,
+            });
+            if (result.recoveryAction === 'none' && result.nextMessages !== threadState.messages) {
+              options.store.replaceThreadMessages(msg.threadId, result.nextMessages, threadState.hasMore);
+              bgCallbackHandled = true;
+              if (result.nextMessages.length > prevLen) {
+                options.store.incrementUnread(msg.threadId);
+              }
+            }
+            if (result.violations.length > 0) {
+              for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+            }
+          }
+        }
+
+        if (!bgCallbackHandled) {
+          options.store.addMessageToThread(msg.threadId, {
+            id: cbId,
+            type: 'assistant',
+            catId: msg.catId,
+            content: msg.content,
+            ...(msg.metadata ? { metadata: msg.metadata } : {}),
+            ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
+            ...(msg.mentionsUser ? { mentionsUser: true } : {}),
+            ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+            ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
+            timestamp: msg.timestamp,
+            origin: 'callback',
+          });
+        } else {
+          // Side-fields after reducer success (reducer 不 model 这些)
+          const sidePatch: Partial<ChatMessage> = {
+            ...(msg.metadata ? { metadata: msg.metadata } : {}),
+            ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
+            ...(msg.mentionsUser ? { mentionsUser: true } : {}),
+            ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+            ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
+          };
+          if (Object.keys(sidePatch).length > 0) {
+            options.store.patchThreadMessage(msg.threadId, cbId, sidePatch);
+          }
+        }
         // #586 Bug 1 (TD112): Callback created new bubble without finding a stream
         // placeholder. Mark invocation as replaced so late background stream chunks
         // are suppressed instead of spawning a duplicate bubble.
@@ -990,68 +1075,158 @@ export function handleBackgroundAgentMessage(
       if (shouldSuppressLateBackgroundStreamChunk(msg, streamKey, options)) {
         return;
       }
-      // CLI stream text (thinking): merge into existing stream bubble
-      let messageId = existing?.id;
-      // Active→background transition recovery: find existing streaming bubble
-      if (!messageId) {
-        messageId = recoverStreamingMessage(msg, streamKey, options);
-      }
-      if (messageId) {
-        if (msg.textMode === 'replace') {
-          options.store.patchThreadMessage(msg.threadId, messageId, {
-            content: msg.content,
-            ...(msg.metadata ? { metadata: msg.metadata } : {}),
-            isStreaming: !msg.isFinal,
-          });
-          options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
-        } else {
-          // HOT PATH: batch content + metadata + streaming + catStatus into ONE set()
-          // to prevent React update-depth overflow during high-frequency streaming.
-          options.store.batchStreamChunkUpdate({
+      // F183 Phase B1.8 — bg stream chunk wire-up via reducer (single-writer)。
+      // canonical invocationId 走 reducer 的 reduceStreamChunk — existing bubble
+      // append/replace content；no existing 时 makePlaceholder 创建新 bubble (origin=
+      // stream + isStreaming=true + extra.stream.invocationId)。reducer 不 model
+      // isStreaming 翻转和 catStatus，必须 caller 显式调 setThreadMessageStreaming +
+      // updateThreadCatStatus（msg.isFinal 时 false/done，否则保持 streaming）。
+      // reducer no-op 时 fallback legacy hot path (batchStreamChunkUpdate 单 set
+      // 优化 + addMessageToThread 新 bubble 路径)。
+      let bgStreamHandled = false;
+      let reducerMessageId: string | undefined;
+      if (msg.invocationId) {
+        const event = adaptIncomingToBubbleEvent(msg, { sourcePath: 'background' });
+        if (event) {
+          // F183 B1.8 (cross-thread-handoff invariant): bg canonical bubble id
+          // 必须跟 legacy `deriveBubbleId(invocationId, catId, ...)` 同格式 — 不带
+          // bubbleKind 后缀 — 否则 active path / legacy bg path 创建的同 invocation
+          // bubble 跟 reducer 创建的会用不同 id，破坏 AC-E3 single-bubble 不变量。
+          // 把预 derive 的 id 通过 event.messageId 传给 reducer 的 ensureMessageId
+          // (优先返回 event.messageId)。stable-key match (existing) 时 event.messageId
+          // 不影响 lookup（lookup 走 invocationId+catId+kind），所以 append 路径不变。
+          const preDerivedId = deriveBubbleId(
+            msg.invocationId,
+            msg.catId,
+            () => `bg-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`,
+          );
+          const eventWithId = { ...event, messageId: msg.messageId ?? preDerivedId };
+          const threadState = options.store.getThreadState(msg.threadId);
+          const result = applyBubbleEvent({
             threadId: msg.threadId,
-            messageId,
-            catId: msg.catId,
-            content: msg.content,
-            metadata: msg.metadata,
-            streaming: !msg.isFinal,
-            catStatus: msg.isFinal ? 'done' : 'streaming',
+            event: eventWithId,
+            currentMessages: threadState.messages,
           });
+          if (result.recoveryAction === 'none' && result.nextMessages !== threadState.messages) {
+            options.store.replaceThreadMessages(msg.threadId, result.nextMessages, threadState.hasMore);
+            bgStreamHandled = true;
+            // 找出 reducer 写入/创建的 bubble id（last canonical bubble for this catId+invocation）。
+            // F183 B1.8 (砚砚 R1 P1): 必须 kind filter 'assistant_text'。ADR-033 允许同
+            // invocation 多 kind 共存 (thinking + assistant_text)；如果 thinking bubble 排
+            // 在 text 前面，find 不带 kind filter 会先命中 thinking → bgStreamRefs 指错 +
+            // setThreadMessageStreaming(false) finalize 错气泡 (thinking 被 finalize，text
+            // 仍 streaming)。同 B1.6 cloud P1 教训 (reduceToolEvent kind filter)。
+            const target = result.nextMessages.find(
+              (m) =>
+                m.type === 'assistant' &&
+                m.catId === msg.catId &&
+                m.extra?.stream?.invocationId === msg.invocationId &&
+                deriveBubbleKindFromMessage(m) === 'assistant_text',
+            );
+            reducerMessageId = target?.id;
+            // bgStreamRefs ledger: 维持跟 legacy 同步语义（非 final 写 ref，final
+            // 走下方统一 delete 逻辑）。recoverStreamingMessage 在 active→bg
+            // transition 时也用这个 ref 找 bubble。
+            if (reducerMessageId && !msg.isFinal) {
+              options.bgStreamRefs.set(streamKey, {
+                id: reducerMessageId,
+                threadId: msg.threadId,
+                catId: msg.catId,
+              });
+            }
+          }
+          if (result.violations.length > 0) {
+            for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+          }
         }
-        if (msg.replyTo || msg.replyPreview) {
-          options.store.patchThreadMessage(msg.threadId, messageId, {
-            ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
-            ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
-          });
+      }
+
+      let messageId: string | undefined;
+      if (bgStreamHandled && reducerMessageId) {
+        messageId = reducerMessageId;
+        // Side-effects: metadata / replyTo / replyPreview reducer 不 model；isStreaming
+        // 翻转 + catStatus 也是 caller 责任。msg.isFinal=true 时 streaming=false +
+        // catStatus=done；非 final 保持 streaming（reducer 在 makePlaceholder 已置
+        // isStreaming=true，append 不动 isStreaming）。
+        const sidePatch: Partial<ChatMessage> = {
+          ...(msg.metadata ? { metadata: msg.metadata } : {}),
+          ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+          ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
+        };
+        if (Object.keys(sidePatch).length > 0) {
+          options.store.patchThreadMessage(msg.threadId, messageId, sidePatch);
         }
+        if (msg.isFinal) {
+          options.store.setThreadMessageStreaming(msg.threadId, messageId, false);
+        }
+        options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
         if (msg.isFinal) {
           options.bgStreamRefs.delete(streamKey);
         }
       } else {
-        // F173 A.3 — invocationId from event payload first (eliminates stale-state ghost).
-        const invocationId = msg.invocationId ?? getThreadInvocationId(msg, options);
-        messageId = deriveBubbleId(
-          invocationId,
-          msg.catId,
-          () => `bg-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`,
-        );
-        options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
-        options.store.addMessageToThread(msg.threadId, {
-          id: messageId,
-          type: 'assistant',
-          catId: msg.catId,
-          content: msg.content,
-          ...(msg.metadata ? { metadata: msg.metadata } : {}),
-          ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
-          ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
-          ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
-          timestamp: msg.timestamp,
-          isStreaming: !msg.isFinal,
-          origin: 'stream',
-        });
-        // Cat status for new message (not batched — fires once per stream start)
-        options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
-        if (msg.isFinal) {
-          options.bgStreamRefs.delete(streamKey);
+        // Legacy hot path — invocationless 走这里，reducer no-op 也走这里
+        messageId = existing?.id;
+        // Active→background transition recovery: find existing streaming bubble
+        if (!messageId) {
+          messageId = recoverStreamingMessage(msg, streamKey, options);
+        }
+        if (messageId) {
+          if (msg.textMode === 'replace') {
+            options.store.patchThreadMessage(msg.threadId, messageId, {
+              content: msg.content,
+              ...(msg.metadata ? { metadata: msg.metadata } : {}),
+              isStreaming: !msg.isFinal,
+            });
+            options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
+          } else {
+            // HOT PATH: batch content + metadata + streaming + catStatus into ONE set()
+            // to prevent React update-depth overflow during high-frequency streaming.
+            options.store.batchStreamChunkUpdate({
+              threadId: msg.threadId,
+              messageId,
+              catId: msg.catId,
+              content: msg.content,
+              metadata: msg.metadata,
+              streaming: !msg.isFinal,
+              catStatus: msg.isFinal ? 'done' : 'streaming',
+            });
+          }
+          if (msg.replyTo || msg.replyPreview) {
+            options.store.patchThreadMessage(msg.threadId, messageId, {
+              ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+              ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
+            });
+          }
+          if (msg.isFinal) {
+            options.bgStreamRefs.delete(streamKey);
+          }
+        } else {
+          // F173 A.3 — invocationId from event payload first (eliminates stale-state ghost).
+          const invocationId = msg.invocationId ?? getThreadInvocationId(msg, options);
+          messageId = deriveBubbleId(
+            invocationId,
+            msg.catId,
+            () => `bg-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`,
+          );
+          options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
+          options.store.addMessageToThread(msg.threadId, {
+            id: messageId,
+            type: 'assistant',
+            catId: msg.catId,
+            content: msg.content,
+            ...(msg.metadata ? { metadata: msg.metadata } : {}),
+            ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
+            ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+            ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
+            timestamp: msg.timestamp,
+            isStreaming: !msg.isFinal,
+            origin: 'stream',
+          });
+          // Cat status for new message (not batched — fires once per stream start)
+          options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
+          if (msg.isFinal) {
+            options.bgStreamRefs.delete(streamKey);
+          }
         }
       }
 

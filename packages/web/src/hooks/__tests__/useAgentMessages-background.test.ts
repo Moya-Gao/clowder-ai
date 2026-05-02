@@ -186,7 +186,9 @@ describe('background thread socket handling', () => {
       });
       const ts = useChatStore.getState().getThreadState('thread-bg');
       // reducer 创建 system_status bubble
-      expect(ts.messages.some((m) => m.type === 'system' && (m as { variant?: string }).variant === 'error')).toBe(true);
+      expect(ts.messages.some((m) => m.type === 'system' && (m as { variant?: string }).variant === 'error')).toBe(
+        true,
+      );
       // unread badge 必须 +1
       expect(ts.unreadCount).toBe(1);
     });
@@ -215,7 +217,9 @@ describe('background thread socket handling', () => {
       });
       const ts = useChatStore.getState().getThreadState('thread-bg-2');
       // 仍只有 1 条 error bubble (stable-key dedup)
-      expect(ts.messages.filter((m) => m.type === 'system' && (m as { variant?: string }).variant === 'error')).toHaveLength(1);
+      expect(
+        ts.messages.filter((m) => m.type === 'system' && (m as { variant?: string }).variant === 'error'),
+      ).toHaveLength(1);
       // unread 仅 +1 (not 2)
       expect(ts.unreadCount).toBe(1);
     });
@@ -1903,6 +1907,283 @@ describe('background thread socket handling', () => {
       // catStatus should still be 'done' — not wiped
       const ts = useChatStore.getState().getThreadState('thread-bg');
       expect(ts.catStatuses.opus).toBe('done');
+    });
+  });
+
+  // F183 Phase B1.8 — bg text branch wire-up via reducer (single-writer)。
+  // 全局参考：B1.7 bg tool/error 已经走 reducer + replaceThreadMessages。本批
+  // 覆盖 bg text 三个分支 — callback (with replacementTarget) / callback
+  // (without replacementTarget) / stream chunk (new bubble + existing bubble)。
+  // 仅 msg.invocationId 存在时尝试 reducer；reducer no-op 或 invocationless
+  // 仍走 legacy（hot path 50 chunks 的 batchStreamChunkUpdate 不动）。
+  describe('B1.8: bg text wire-up via reducer (canonical invocationId path)', () => {
+    it('bg callback with canonical invocationId + replacementTarget routes through reducer', () => {
+      const now = Date.now();
+      // Existing streaming bubble bound to invocationId
+      useChatStore.getState().setThreadCatInvocation('thread-bg', 'opus', { invocationId: 'inv-canon-1' });
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'bg-stream-canon-1',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'streaming...',
+        origin: 'stream',
+        isStreaming: true,
+        extra: { stream: { invocationId: 'inv-canon-1' } },
+        timestamp: now,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'final canonical answer',
+        origin: 'callback',
+        invocationId: 'inv-canon-1',
+        messageId: 'bg-cb-canon-1',
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      // Single bubble, content/origin/isStreaming patched in place by reducer.
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]).toMatchObject({
+        id: 'bg-cb-canon-1',
+        catId: 'opus',
+        content: 'final canonical answer',
+        origin: 'callback',
+        isStreaming: false,
+        extra: { stream: { invocationId: 'inv-canon-1' } },
+      });
+    });
+
+    it('bg callback with canonical invocationId without replacementTarget creates new bubble via reducer', () => {
+      const now = Date.now();
+      // Empty thread — no existing bubble, no thread cat invocation
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg-no-target',
+        content: 'standalone callback',
+        origin: 'callback',
+        invocationId: 'inv-canon-2',
+        messageId: 'bg-cb-canon-2',
+        timestamp: now,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg-no-target');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]).toMatchObject({
+        id: 'bg-cb-canon-2',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'standalone callback',
+        origin: 'callback',
+        isStreaming: false,
+        extra: { stream: { invocationId: 'inv-canon-2' } },
+      });
+      // Non-current bg thread: unread badge incremented
+      expect(ts.unreadCount).toBe(1);
+    });
+
+    it('bg stream chunk with canonical invocationId creates new bubble via reducer', () => {
+      const now = Date.now();
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg-stream-new',
+        content: 'first chunk',
+        invocationId: 'inv-canon-3',
+        timestamp: now,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg-stream-new');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]).toMatchObject({
+        type: 'assistant',
+        catId: 'opus',
+        content: 'first chunk',
+        isStreaming: true,
+        origin: 'stream',
+        extra: { stream: { invocationId: 'inv-canon-3' } },
+      });
+    });
+
+    it('bg stream chunk with canonical invocationId appends to existing bubble via reducer', () => {
+      const now = Date.now();
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg-stream-append',
+        content: 'first',
+        invocationId: 'inv-canon-4',
+        timestamp: now,
+      });
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg-stream-append',
+        content: ' second',
+        invocationId: 'inv-canon-4',
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg-stream-append');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0].content).toBe('first second');
+      expect(ts.messages[0].isStreaming).toBe(true);
+    });
+
+    it('bg stream chunk with canonical invocationId + textMode replace overwrites content via reducer', () => {
+      const now = Date.now();
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg-stream-replace',
+        content: '第一段。第二段。',
+        invocationId: 'inv-canon-5',
+        timestamp: now,
+      });
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg-stream-replace',
+        content: '第一段。插入。第二段。',
+        invocationId: 'inv-canon-5',
+        textMode: 'replace',
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg-stream-replace');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0].content).toBe('第一段。插入。第二段。');
+    });
+
+    it('bg stream chunk final with canonical invocationId flips isStreaming=false on bubble', () => {
+      const now = Date.now();
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg-stream-final',
+        content: 'start',
+        invocationId: 'inv-canon-6',
+        timestamp: now,
+      });
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg-stream-final',
+        content: ' end',
+        invocationId: 'inv-canon-6',
+        isFinal: true,
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg-stream-final');
+      expect(ts.messages[0].content).toBe('start end');
+      expect(ts.messages[0].isStreaming).toBe(false);
+      // Note: catStatuses 在 markThreadInvocationComplete -> replaceThreadTargetCats([])
+      // 时被清空（slot 全部完成 → status panel 不再显示）。canonical invocationId 路径
+      // 走 slot 追踪 (addThreadActiveInvocation)，所以 catStatuses 在 isFinal 后被清。
+      // legacy invocationless 不进 slot tracking，catStatuses 保留 'done'。两路都正确，
+      // 不要在这里强 assert。
+    });
+
+    it('bg stream chunk without canonical invocationId still uses legacy hot path (regression guard)', () => {
+      const now = Date.now();
+      // Note: NO invocationId — should fall through to legacy batchStreamChunkUpdate
+      for (let i = 0; i < 5; i++) {
+        simulateBackgroundMessage({
+          type: 'text',
+          catId: 'opus',
+          threadId: 'thread-bg-legacy',
+          content: `c${i}`,
+          timestamp: now + i,
+        });
+      }
+
+      const ts = useChatStore.getState().getThreadState('thread-bg-legacy');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0].content).toBe('c0c1c2c3c4');
+      expect(ts.messages[0].isStreaming).toBe(true);
+      expect(ts.catStatuses.opus).toBe('streaming');
+    });
+
+    // F183 B1.8 (砚砚 R1 P1) regression: 同 invocation thinking + assistant_text
+    // 共存时，bg final stream chunk 不能 finalize 错气泡。
+    // ADR-033 允许同 invocation 多 kind 共存 (thinking + assistant_text)；reducer
+    // 写完 stream_chunk 后 caller 用 find 定位 reducerMessageId 必须按 kind 过滤
+    // 'assistant_text'，否则 thinking bubble (排在前面) 会被先匹配，导致
+    // setThreadMessageStreaming(false) 把 thinking finalize 而 assistant_text 仍
+    // streaming，bgStreamRefs 也指错。同 B1.6 cloud P1 教训 (reduceToolEvent kind filter)。
+    it('B1.8 砚砚 R1 P1: bg final stream chunk finalizes assistant_text NOT thinking when both coexist', () => {
+      const now = Date.now();
+      // 预置 thinking bubble (排在前) + assistant_text bubble (排在后)，同 invocation。
+      // 用 replaceThreadMessages 直接写状态绕过 addMessageToThread 的 TD112 dedup
+      // (`findAssistantDuplicate` 同 invocation+catId 会 merge 成单条气泡)。reducer
+      // 实际产出多 kind bubble 的路径走 `[...messages, makePlaceholder(event)]`，
+      // 不经 addMessageToThread dedup —— 这里直接用同等机制 setup。
+      useChatStore.getState().replaceThreadMessages('thread-bg-coexist', [
+        {
+          id: 'msg-inv-coexist-opus-thinking',
+          type: 'assistant',
+          catId: 'opus',
+          content: '',
+          thinking: '思考中...',
+          origin: 'stream',
+          isStreaming: true,
+          extra: { stream: { invocationId: 'inv-coexist' } },
+          timestamp: now,
+        },
+        {
+          id: 'msg-inv-coexist-opus',
+          type: 'assistant',
+          catId: 'opus',
+          content: 'streaming text',
+          origin: 'stream',
+          isStreaming: true,
+          extra: { stream: { invocationId: 'inv-coexist' } },
+          timestamp: now,
+        },
+      ]);
+
+      // 发 final text stream chunk — 应该 finalize assistant_text，不是 thinking
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg-coexist',
+        content: ' end',
+        invocationId: 'inv-coexist',
+        isFinal: true,
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg-coexist');
+      const thinkingBubble = ts.messages.find((m) => m.id === 'msg-inv-coexist-opus-thinking');
+      const textBubble = ts.messages.find((m) => m.id === 'msg-inv-coexist-opus');
+      // P1 不变量: thinking bubble 必须保持 streaming（reducer 没写它），text bubble 必须 finalized
+      expect(thinkingBubble?.isStreaming).toBe(true);
+      expect(textBubble?.isStreaming).toBe(false);
+      expect(textBubble?.content).toBe('streaming text end');
+    });
+
+    it('bgStreamRefs ledger captures reducer-created bubble id for canonical stream chunks', () => {
+      const now = Date.now();
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg-ledger',
+        content: 'chunk',
+        invocationId: 'inv-canon-7',
+        timestamp: now,
+      });
+
+      const ledger = testBgStreamRefs.get('thread-bg-ledger::opus');
+      expect(ledger).toBeDefined();
+      expect(ledger?.threadId).toBe('thread-bg-ledger');
+      expect(ledger?.catId).toBe('opus');
+      // ledger.id must match the actual bubble id in store
+      const ts = useChatStore.getState().getThreadState('thread-bg-ledger');
+      expect(ledger?.id).toBe(ts.messages[0].id);
     });
   });
 });
