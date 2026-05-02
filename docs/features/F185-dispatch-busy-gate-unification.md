@@ -8,7 +8,7 @@ created: 2026-05-01
 
 # F185: 入口级判忙策略分层 — ADR-034 实施
 
-> **Status**: spec | **Owner**: 布偶猫/宪宪 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫/宪宪 | **Priority**: P1
 >
 > **Decision**: [ADR-034](../../docs/decisions/034-dispatch-busy-gate-unification.md)
 > **Discussion**: `docs/discussions/2026-05-01-dispatch-queue-architecture/`
@@ -52,18 +52,18 @@ CI/review/conflict/scheduled 等 connector trigger policy 必须写入 `sourceCa
 
 ## Acceptance Criteria
 
-- [ ] AC-1: `ConnectorInvokeTrigger.trigger()` 先检查 thread-level queue/processingSlots gate（`isThreadBusy` 或等价），命中则 `enqueueWhileActive()`
-- [ ] AC-2: queue gate 未命中时用 `tryStartThread(threadId, catId)` 原子获取 slot，返回 null 则 `enqueueWhileActive()`
-- [ ] AC-3: `tryStartThread` 返回的 controller 在 `executeInBackground` 中复用，duplicate/throw 路径 `complete()` 释放
-- [ ] AC-4: ConnectorInvokeTrigger 层：queue full → thread `system_info`（用户可清队列）；enqueue duplicate → info log（rate-limited by idempotency）
-- [ ] AC-5: Router/TaskSpec 层：automation off → thread `system_info`（用户可修改设置）；task 不存在 → gate 返回 `run: false`；pending/fingerprint → rate-limited diagnostics log
-- [ ] AC-6: `InvocationQueue.hasQueuedNonAgentForThread(threadId)` 存在且正确查询
-- [ ] AC-7: `tryAutoExecute()` 在有 non-agent pending 时早退，不启动新 agent
-- [ ] AC-8: agent entry（sourceCategory ≠ continuation）禁止 urgent priority（enqueue 时校验）；continuation 保留 urgent + system-pinned
-- [ ] AC-9: CI/review/conflict/scheduled connector policy 写入 `sourceCategory`，QueueEntry 有分组信息
-- [ ] AC-10: 回归测试：connector 到达 + thread 有猫在忙 → 排队不并发
-- [ ] AC-11: 回归测试：A2A 链中插入 connector entry → connector 不被后续 agent autoExecute 饿死
-- [ ] AC-12: 回归测试：continuation entry 仍为 urgent + system-pinned，不被 AC-8 校验拦截
+- [x] AC-1: `ConnectorInvokeTrigger.trigger()` 先检查 thread-level queue/processingSlots gate（`isThreadBusy` 或等价），命中则 `enqueueWhileActive()`
+- [x] AC-2: queue gate 未命中时用 `tryStartThread(threadId, catId)` 原子获取 slot，返回 null 则 `enqueueWhileActive()`
+- [x] AC-3: `tryStartThread` 返回的 controller 在 `executeInBackground` 中复用，duplicate/throw 路径 `complete()` 释放
+- [x] AC-4: ConnectorInvokeTrigger 层：queue full → thread `system_info`（用户可清队列）；enqueue duplicate → info log（rate-limited by idempotency）
+- [x] AC-5: Router/TaskSpec 层：automation off → thread `system_info`（用户可修改设置）；task 不存在 → gate 返回 `run: false`；pending/fingerprint → rate-limited diagnostics log
+- [x] AC-6: `InvocationQueue.hasQueuedNonAgentForThread(threadId)` 存在且正确查询
+- [x] AC-7: `tryAutoExecute()` 在有 non-agent pending 时早退，不启动新 agent
+- [x] AC-8: agent entry（sourceCategory ≠ continuation）禁止 urgent priority（enqueue 时校验）；continuation 保留 urgent + system-pinned
+- [x] AC-9: CI/review/conflict/scheduled connector policy 写入 `sourceCategory`，QueueEntry 有分组信息
+- [x] AC-10: 回归测试：connector 到达 + thread 有猫在忙 → 排队不并发
+- [x] AC-11: 回归测试：A2A 链中插入 connector entry → connector 不被后续 agent autoExecute 饿死
+- [x] AC-12: 回归测试：continuation entry 仍为 urgent + system-pinned，不被 AC-8 校验拦截
 
 ## Dependencies
 
@@ -93,6 +93,7 @@ CI/review/conflict/scheduled 等 connector trigger policy 必须写入 `sourceCa
 | 日期 | 事件 |
 |------|------|
 | 2026-05-01 | 四猫审计 → ADR-034 → 三猫 review → 铲屎官 signoff → 立项 |
+| 2026-05-02 | 实现完成，砚砚 R3 放行 + 云端 R2 放行，merged (PR #1531) |
 
 ## Review Gate
 
