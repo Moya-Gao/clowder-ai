@@ -66,9 +66,28 @@ created: 2026-04-30
 
 ### Phase C: WebSocket Sequence Number + Ack/Gap Contract（消除 fire-and-forget）
 
-- 所有实时 message event 携带 monotonic seq（thread-scoped or global）
-- 客户端维护 `lastSeq`，发现 gap 立即 `requestStreamCatchUp`（不等 5min DONE_TIMEOUT）
+- 所有实时 message event 携带 monotonic seq（**thread-scoped — KD-9 拍板**）
+- 客户端维护 per-thread `lastSeq`，发现 gap 立即 `requestStreamCatchUp`（不等 5min DONE_TIMEOUT）
 - in-process event bus backpressure 根因定位（grep 不到 `dropped X events` 字面源 → 追到底）+ 加 buffer / 限速 / 丢弃策略
+
+#### Sequence Number Scope: thread-scoped vs global monotonic 对比（KD-9 决议依据）
+
+> **核心前提**：sequence number 是"丢没丢"的检测号牌，不是路由决定。消息归哪个 thread 由 `msg.threadId` 字段决定，跟 seq 无关。**铲屎官关心的"thread A 漂到 thread B"两种方案都不会发生** — 漂气泡的根因是 identity contract 出 bug（F183 Phase A ADR-033 已解决），跟 seq 设计无关。
+
+| 维度 | Thread-scoped（KD-9 选） | Global monotonic |
+|---|---|---|
+| 编号方式 | 每个 thread 独立编号（A: 1,2,3...; B: 1,2,3...） | 全局单调 seq（A: 1,4,7; B: 2,5,8; C: 3,6,9） |
+| 客户端状态 | 每个 thread 维护 `lastSeq` | 单一 high-water mark |
+| 同 thread 内丢/乱序检测 | ✅ | ✅ |
+| 跨 thread "哪个事件先发生" | ❌（用户场景无意义） | ✅（但日常用户不感知） |
+| Server 实施 | thread context 加 seq 字段 | 全局 sequencer（Redis 原子计数器或类似） |
+| 多 backend 实例 | 各 thread 各管各，无需协调 | 需要分布式共识 / 锁 |
+| 重启持久化 | thread state 持久化即可（已有 ledger） | 全局 seq 必须独立持久化（一旦丢失 = 全部 thread 序列错乱） |
+| 客户端 catchup 范围 | "thread A 给我 seq>42 的消息" | "全局给我 seq>9999 的所有消息"（流量大） |
+| 升级路径 | 升级到 global 可加一层全局 sequencer（不难） | 退回 thread-scoped 难（已依赖全局保证） |
+| **漂气泡风险** | 不会 — 路由由 threadId 决定 | 不会 — 同上 |
+
+**KD-9 决策**：选 thread-scoped。F183 立项 5 类症状均为 thread 内现象 + global 多实例分布式共识对家里规模过度设计 + global 全局重启序列号丢失是新脆弱点 + 先做轻的需要再升。
 
 ### Phase D: IDB Cache Invalidation Contract（消除 cache 放大器）
 
@@ -187,7 +206,7 @@ created: 2026-04-30
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | Phase A 产物是 ADR-033 + 内嵌 spec，还是只在 spec 内嵌 architecture map asset？ | ⬜ 等 Phase A discussion |
-| OQ-2 | Sequence Number 是 thread-scoped（够用、简单）还是 global monotonic（强保证、复杂）？ | ⬜ 等 Phase C 拆解 |
+| OQ-2 | Sequence Number 是 thread-scoped（够用、简单）还是 global monotonic（强保证、复杂）？ | ✅ KD-9 拍板 thread-scoped（2026-05-02） |
 | OQ-3 | IDB 是降级为纯离线 fallback，还是保持渲染路径但加 invalidation hook？性能 vs 一致性的 tradeoff | ⬜ 等 Phase D |
 | OQ-4 | Single Writer 是 vanilla reducer 还是引入更重的 state machine（XState 等）？ | ⬜ 等 Phase B |
 | OQ-5 | Store Invariant 是 dev-only 还是 prod 也开（带 sampling）？ | ⬜ 等 Phase E |
@@ -204,6 +223,7 @@ created: 2026-04-30
 | KD-6 | IDB 形态：provisional cache + 5 metadata 字段（identityContractVersion / cacheSchemaVersion / savedAt / containsLocalOnly / containsDuplicateStableIdentity） | 砚砚版本：在线不参与 merge 仲裁，保留冷启动画缓存（减少白屏）+ 离线 fallback 能力。比"完全降级"更稳健 | 2026-04-30 |
 | KD-7 | TD111-TD114 全部纳入 F183；`docs/TECH-DEBT.md` 已废弃不维护 | 铲屎官原话"docs/TECH-DEBT.md 这个很久没更新了 建议废弃不要考虑这个"。TD112 partial 实现的事实直接在 ADR-033 + spec 里说清楚 | 2026-04-30 |
 | KD-8 | F184（F176 撤销后真 bug）不并入 F183；roadmap 强制串行（F183 Phase A done → F184 启动，禁止并发） | 铲屎官原话"这个和你们这个会耦合吧... 别并发去修"。耦合点：F183 改 message 数据结构 / reducer / cache contract；F184 改 ChatMessage mount 逻辑——并发会引入新不一致 | 2026-04-30 |
+| KD-9 | Phase C sequence number 选 **thread-scoped**（不选 global monotonic） | (1) F183 立项的 5 类症状（裂/不见/F5 才正常/F5 才出来/发完才出来）都是同一个 thread 内现象，铲屎官原话没出现"跨 thread 顺序错"；(2) global 在多实例 backend 下需要分布式共识 / Redis 全局原子计数器 + 重启持久化全局 seq state，对家里规模过度设计；(3) global 的"全局重启序列号丢失"是新脆弱点 — thread-scoped 在 thread state 持久化（已有 ledger）里天然安全；(4) 从 thread-scoped 升级到 global 不难（加一层全局 sequencer），从 global 退回 thread-scoped 反而难（已经依赖了全局保证）。**先做轻的，需要再升**。**铲屎官关心的"thread A 漂到 thread B"两种方案都不会发生**：消息归属由 `msg.threadId` 字段决定，跟 seq 无关 — 漂气泡的根因是 identity contract 出 bug，已由 F183 Phase A ADR-033 解决 | 2026-05-02 |
 
 ## Timeline
 
