@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import { getBubbleInvocationId } from '@/debug/bubbleIdentity';
+import { isBubbleInvariantStrictModeOn, recordBubbleInvariantViolation } from '@/debug/bubbleInvariantDiagnostics';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { getCachedCats } from '@/hooks/useCatData';
 import { saveThreadMessages as saveMessagesSnapshot, saveThreads as saveThreadsSnapshot } from '../utils/offline-store';
+import { findBubbleStoreInvariantViolations } from './bubble-invariants';
 import type {
   CatInvocationInfo,
   CatStatusType,
@@ -341,6 +343,29 @@ function collectBlobUrls(messages: ChatMessage[]): Set<string> {
     }
   }
   return blobUrls;
+}
+
+/**
+ * F183 Phase E AC-E2 (砚砚 R2 P1 fix) — strict-only invariant forward for
+ * caller-driven writers (replaceMessages, replaceThreadMessages,
+ * hydrateThread). When `BUBBLE_INVARIANT_STRICT=1` /
+ * `NEXT_PUBLIC_BUBBLE_INVARIANT_STRICT=1` /
+ * `localStorage[catcafe.bubbleInvariantStrict]==='1'` is on, runs the
+ * post-mutation duplicate-identity scan and forwards each violation to
+ * `recordBubbleInvariantViolation` (which throws under strict). Off mode is
+ * a 1-instruction early-out — no O(n) cost in production hot paths.
+ */
+function forwardStoreInvariantViolationsStrict(messages: ChatMessage[], threadId: string | null): void {
+  if (!isBubbleInvariantStrictModeOn()) return;
+  if (!threadId) return;
+  const violations = findBubbleStoreInvariantViolations(messages, {
+    threadId,
+    eventType: 'history_hydrate',
+    sourcePath: 'hydration',
+  });
+  for (const v of violations) {
+    recordBubbleInvariantViolation(v, 'warn');
+  }
 }
 
 function revokeRemovedBlobUrls(previousMessages: ChatMessage[], nextMessages: ChatMessage[]) {
@@ -1373,15 +1398,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return { messages: [...newMsgs, ...state.messages], hasMore };
     }),
 
-  replaceMessages: (msgs, hasMore) =>
+  replaceMessages: (msgs, hasMore) => {
+    // F183 Phase E AC-E2 (砚砚 R2 P1 fix): caller-driven writer must forward
+    // post-mutation invariant violations to the diagnostic layer so strict
+    // mode (BUBBLE_INVARIANT_STRICT=1 / NEXT_PUBLIC_*=1 / localStorage) can
+    // throw on bypass-of-reducer mutations. No-op when strict is off — keeps
+    // production hot path free of the O(n) scan.
+    forwardStoreInvariantViolationsStrict(msgs, get().currentThreadId);
     set((state) => {
       revokeRemovedBlobUrls(state.messages, msgs);
       return { messages: msgs, hasMore };
-    }),
+    });
+  },
 
   // F183 Phase B1.7 — see interface comment.
-  replaceThreadMessages: (threadId, msgs, hasMore) =>
-    set((state) => {
+  replaceThreadMessages: (threadId, msgs, hasMore) => {
+    // F183 Phase E AC-E2 (砚砚 R2 P1 fix): same strict-gate as replaceMessages
+    forwardStoreInvariantViolationsStrict(msgs, threadId);
+    return set((state) => {
       if (threadId === state.currentThreadId) {
         revokeRemovedBlobUrls(state.messages, msgs);
         const nextHasMore = hasMore ?? state.hasMore;
@@ -1400,7 +1434,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           [threadId]: { ...baseThreadState, messages: msgs, hasMore: nextHasMore },
         },
       };
-    }),
+    });
+  },
 
   hydrateThread: (threadId, msgs, hasMore) => {
     // F173 Phase C Task 5+6+7 — atomic server-authoritative hydration that
@@ -1412,6 +1447,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // *the* thread-scoped writer for hydration:
     //   - current thread: write flat + mirror to threadStates (single set())
     //   - non-current thread: write only threadStates, never touch flat
+    //
+    // F183 Phase E AC-E2 (砚砚 R2 P1 fix): same strict-gate as the other
+    // caller-driven writers. Runs only when strict mode is on.
+    forwardStoreInvariantViolationsStrict(msgs, threadId);
     set((state) => {
       if (threadId === state.currentThreadId) {
         revokeRemovedBlobUrls(state.messages, msgs);
