@@ -141,6 +141,7 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 | 2026-04-29 | Phase C AC-C1~C3 merged (PR #1478) — source install/setup best-effort hook sync, Windows original-user offline hook helper, desktop package hook truth source, and first-run `.claude` mirror for Hub health/sync |
 | 2026-04-29 | Phase C AC-C4 + Phase D field repair station merged (PR #1479) — ProjectSetupCard / thread setup surface shows Agent Hook Health, session-cached status avoids N+1 checks, compact repair preview is Design Gate accepted, and one-click sync returns configured state |
 | 2026-04-30 | Outbound sync review fixes merged (PR #1487) — fixed home-side Agent Hook auth, unlabeled tool-result FIFO handling, and TTS partial-failure counters before regenerating the public sync; AC-D4 remains pending until `clowder-ai#614` is synced and closed |
+| 2026-05-03 | Windows cross-platform hook fix merged (PR #1540) — explicit `bash` prefix on all managed hook commands so Windows users with Git Bash can execute hooks instead of VS Code opening them; health check detects old-format commands as `stale` for one-click repair; AC-D4 still pending open-source sync |
 
 ## Review Gate
 
