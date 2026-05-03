@@ -628,8 +628,8 @@ excluded:
 
       const commands = readClaudeHookTemplateCommands(template);
       assert.deepEqual(commands, [
-        '"$HOME/.claude/hooks/session-start-recall.sh"',
-        '"$HOME/.claude/hooks/session-stop-check.sh"',
+        'bash "$HOME/.claude/hooks/session-start-recall.sh"',
+        'bash "$HOME/.claude/hooks/session-stop-check.sh"',
       ]);
     });
 
@@ -638,6 +638,7 @@ excluded:
         '{"hooks":{"SessionStart":[{"hooks":[{"command":"/home/alice/.claude/hooks/session-start-recall.sh"}]}]}}',
         '{"hooks":{"SessionStart":[{"hooks":[{"command":"C:/Users/Alice/.claude/hooks/session-start-recall.sh"}]}]}}',
         '{"hooks":{"SessionStart":[{"hooks":[{"command":"C:\\\\Users\\\\Alice\\\\.claude\\\\hooks\\\\session-start-recall.sh"}]}]}}',
+        '{"hooks":{"SessionStart":[{"hooks":[{"command":"bash \\"/home/alice/.claude/hooks/session-start-recall.sh\\""}]}]}}',
       ];
 
       for (const template of absolutePathTemplates) {
