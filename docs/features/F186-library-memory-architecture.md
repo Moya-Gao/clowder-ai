@@ -29,6 +29,16 @@ created: 2026-05-03
 
 ## What
 
+### Architecture Diagrams
+
+面向外部读者的三张架构图：
+
+![F186 library overview](./F186-assets/library-overview.png)
+
+![F186 search flow](./F186-assets/search-flow.png)
+
+![F186 security pipeline](./F186-assets/security-pipeline.png)
+
 ### Phase A: Collection Manifest + LibraryResolver 契约
 
 定义 Collection schema 和 manifest 格式。将现有 `IKnowledgeResolver` 泛化为支持 Collection 的联邦检索实现。至少注册 2 个 Collection：`project:cat-cafe`（现有 evidence.sqlite）+ `global:methods`（跨项目方法论）。
