@@ -31,13 +31,46 @@ created: 2026-05-03
 
 ### Architecture Diagrams
 
-面向外部读者的三张架构图：
+面向外部读者的三张架构图（猫咖手绘风格 + 文字图例）：
+
+#### 图 1：联邦全景图
 
 ![F186 library overview](./F186-assets/library-overview.png)
 
+| 图元 | 含义 |
+|------|------|
+| **LibraryCatalog**（顶部柜台） | Collection 注册表，只存元数据和路由策略，不存知识正文 |
+| **project:cat-cafe** / **global:methods**（蓝框书架） | `sensitivity: internal`，默认参与 `dimension=library` 搜索 |
+| **world:lexander** / **domain:finance**（橙框带锁书架） | `sensitivity: private`，默认不参与 `dimension=library`，需 caller 显式 include |
+| 书架下方小抽屉 | Compiled index（`evidence.sqlite` 等），可从 truth source 重建 |
+| **LibraryResolver**（底部跑腿猫） | 联邦检索：接收 `search_evidence(query)` → fan-out 到各 Collection → RRF 聚合 → 按 collection 分组返回 |
+| 书架间虚线 | 安全隔离边界：Collection 之间知识不自动互通 |
+
+#### 图 2：检索流程图
+
 ![F186 search flow](./F186-assets/search-flow.png)
 
+| 阶段 | 说明 |
+|------|------|
+| **入口** | `search_evidence("记忆架构", { dimension: "library", scope: "docs" })` |
+| **LibraryResolver** | 读 LibraryCatalog → 判断哪些 Collection 参与（按 dimension + sensitivity 过滤） |
+| **Parallel Fanout** | 并行向每个选中 Collection 的 `IEvidenceStore.search()` 发查询，每个有独立 timeout |
+| **RRF Fusion** | Reciprocal Rank Fusion 聚合多域结果 |
+| **Grouped Result** | 按 collection 分组返回：每组含 `status: ok/timeout/skipped` + items。private Collection 显示 `skipped` |
+| **底部四色分类** | SearchOptions 四类语义：**检索表面**（scope/depth/mode）· **路由维度**（dimension/collections）· **条目过滤**（kind/worldId/threadId）· **兼容别名**（dimension:all） |
+
+#### 图 3：绑定安全管线
+
 ![F186 security pipeline](./F186-assets/security-pipeline.png)
+
+| 站点 | 职责 | 关键约束 |
+|------|------|----------|
+| ① **bind dry-run** | 用户声明绑定意图，校验 root 路径（realpath 规范化） | 绑定 = 授权，不是自动扫描 |
+| ② **File Inventory** | 清点文件数，排除 `.git`/`.claude`/`.obsidian` 等 | exclude 列表在 manifest 声明 |
+| ③ **Secret Scanner** | regex + entropy 扫描明文密钥/token | **KD-5**：必须在 chunk/embed 之前，检测到即阻止入库 |
+| ④ **Sensitivity Gate** | 标记 public/internal/private/restricted | 外部 Collection 默认 `private` |
+| ⑤ **Prompt Boundary** | 外部 AGENTS.md/System Instructions 标记为 `evidence data only` | **KD-6**：记忆是数据不是指令，不拼进 system prompt |
+| ⑥ **Chunk + Embed** | 通过全部安全关卡后才切分 + 向量化 | compiled index 写入 `<dataDir>/library/<collectionId>/`（**KD-7**：不写回用户目录） |
 
 ### Phase A: Collection Manifest + LibraryResolver 契约
 
