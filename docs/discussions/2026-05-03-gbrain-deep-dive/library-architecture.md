@@ -85,7 +85,30 @@ Collection = truth_source + owner + scanner + authority_ceiling + review_policy 
 
 为什么：安全隔离（不同 sensitivity）、治理隔离（不同 review policy）、恢复隔离（某域 rebuild 不影响其他域）、向后兼容（F102 evidence.sqlite + F093 world.sqlite 都能保留）。
 
-## 3. 真相源分层
+## 3. Scanner 渐进增强（四级）
+
+铲屎官指出：大概率用户给你的就是一堆乱七八糟的文档，不一定有索引、WikiLink、frontmatter。GBrain 的做法是 `gbrain import <dir>` 递归走 `.md` → chunk → embed → 可搜，不做 NLP 实体抽取，链接只认显式 WikiLink/frontmatter。
+
+我们的 scanner 不假设用户输入是结构化的。**Level 0 必须能吃任何 markdown 目录**，更高级别是可选增强：
+
+| Level | 名称 | 做什么 | 不做什么 |
+|---|---|---|---|
+| **0 — Flat Index** | 递归 walk → chunk → embed | 任何 `.md` 目录即可搜索。无需 frontmatter、entry_point、link_format。GBrain import 就是这一级 | 不推断结构、不建 graph |
+| **1 — Use Existing Structure** | 识别已有结构（frontmatter / WikiLink / SUMMARY.md / AGENTS.md） | 如果用户已有组织，scanner 顺着用。lexander 就在这一级（有 WikiLink + Story_Memory.md 入口） | 不改文件、不建议重组 |
+| **2 — Suggest Structure** | 检测模式 → 向用户建议组织方式 | 发现高频链接目标、孤儿文件、重复主题后**建议**（不自动执行）：建索引页、加 frontmatter | 不写回 truth source |
+| **3 — Progressive Enhancement** | 用户批准后辅助重组 | 用户 accept 某条建议 → scanner 辅助生成 index page / tag / frontmatter，交用户 review | 不自动 materialize |
+
+**硬约束**：
+- Level 0 是最低保证：任何 Collection 绑定后**必须可搜**，哪怕 manifest 只填 `id` + `root`
+- Level 2-3 的建议/生成产物走 owner review，不自动写回 truth source（§5 硬规则 #5）
+- Scanner level 在 manifest 里声明，默认 `auto`（scanner 自行探测到什么结构就用什么）
+
+```yaml
+scanner: markdown-vault
+scanner_level: auto        # auto | 0 | 1 | 2 | 3
+```
+
+## 4. 真相源分层
 
 每个 Collection 自己管真相源。runtime state 和 evidence index 必须物理/语义隔离。
 
@@ -101,7 +124,7 @@ Collection = truth_source + owner + scanner + authority_ceiling + review_policy 
 - 外部项目拆解 → `docs/discussions/` 下的 markdown（当前 GBrain 拆解已是这个模式）
 - 铲屎官不想管 git 的场景 → 需要一个轻量入库路径（比如聊天中产出 → 审核 → materialize 到 vault）
 
-## 4. 跨域信任边界
+## 5. 跨域信任边界
 
 ### 硬规则（两猫收敛）
 
@@ -133,7 +156,7 @@ interface LibraryResult {
 
 避免 cat-cafe 高权威 ADR 在金融查询里乱杀，也避免金融笔记误污染项目决策。`confidence` 只表示检索匹配质量，不能替代 `authority` / `provenance` / `sensitivity` 的治理判断。
 
-## 5. API 契约
+## 6. API 契约
 
 ```ts
 search_evidence(query, {
@@ -151,7 +174,7 @@ search_evidence(query, {
 
 结果按 collection 分组标注，caller 知道"这条来自哪个域"。
 
-## 6. Phase 排序
+## 7. Phase 排序
 
 ```
 Phase 0: Collection Manifest + LibraryResolver 契约
@@ -185,7 +208,7 @@ Phase 5: Memory Health Dashboard
 
 铲屎官的纠偏：如果先按单 project 做 Query Replay，图书馆会推翻它。所以 Phase 0 先定义 Collection 契约和 LibraryResolver 接口，Phase 1 的 Query Replay 从第一天就 capture collection-aware 字段。这样 replay 管道不会被后续 Collection 扩展推翻。
 
-## 7. 两猫分歧与收敛
+## 8. 两猫分歧与收敛
 
 | 点 | 宪宪初始 | 砚砚 push back | 收敛 |
 |---|---|---|---|
@@ -194,13 +217,13 @@ Phase 5: Memory Health Dashboard
 | Query Replay 位置 | Tier 1 第一名 | Phase 1 但在 Collection Manifest 之后 | 收敛：Phase 0 先定契约，Phase 1 做 collection-aware replay |
 | 跨域排序 | 提到但未展开 | 返回字段需含 collection / provenance / sensitivity / router rationale，不能拉平成一个 score | 收敛：多字段返回 |
 
-## 8. 需要铲屎官拍板的问题
+## 9. 需要铲屎官拍板的问题
 
 1. **非代码域的第一个试点选哪个？** F093 world 有先例最近，finance-study 更贴你说的"各行各业"，GBrain 拆解最小最安全。建议先 GBrain 拆解（已有产物），再 F093 world。
 2. **非代码域的入库路径**：猫猫学完一个领域后，知识怎么进入 Collection？需要铲屎官手动放文件？还是聊天中产出 → 审核 → 自动 materialize？
 3. **这个方向要不要立正式 Feature？** 如果立项，建议编号独立于 GBrain 拆解，因为"图书馆"是我们自己的架构升级。
 
-## 9. 铲屎官后续选择：Lexander 试点
+## 10. 铲屎官后续选择：Lexander 试点
 
 铲屎官后续选了 `/Users/lysander/projects/Bound by Calestial Grow/lexander/` 作为第一个复杂外部 Collection 试点。只读验证结果：
 
@@ -213,9 +236,9 @@ Phase 5: Memory Health Dashboard
 
 这确认了铲屎官的"绑定"判断：Collection 不能靠开发者硬编码，必须是用户侧配置动作。
 
-## 10. Collection Binding 安全契约
+## 11. Collection Binding 安全契约
 
-### 10.1 绑定不是扫描，是授权
+### 11.1 绑定不是扫描，是授权
 
 Collection 绑定等价于给图书馆系统一项读取能力。Manifest 必须由用户确认，且只允许声明式配置：
 
@@ -225,13 +248,15 @@ collections:
     name: "逐峰宇宙 / Lexander"
     kind: world
     root: "/Users/lysander/projects/Bound by Calestial Grow/lexander"
-    entry_point: "Story_Memory.md"
     scanner: markdown-vault
-    link_format: wikilink
+    scanner_level: auto                          # auto | 0 | 1 | 2 | 3
     sensitivity: private
+    # --- 以下全部 OPTIONAL（Level 0 不需要任何结构声明）---
+    entry_point: "Story_Memory.md"               # optional: Level 1+ 才有意义
+    link_format: wikilink                        # optional: scanner 自动探测
     library_default: false
     secret_policy: fail-on-detected-secret
-    authority_hierarchy:
+    authority_hierarchy:                           # optional: Level 1+ 细粒度权威分层
       - path: "RAG/提示词/System Instructions.md"
         level: constitutional
         scope: collection-only
@@ -253,6 +278,17 @@ collections:
       - "**/*secret*"
 ```
 
+**最小绑定（场景 B：一堆乱文档，Level 0）**：
+
+```yaml
+collections:
+  - id: "domain:random-notes"
+    root: "/Users/lysander/Desktop/乱七八糟的笔记"
+    scanner: markdown-vault
+    # 完了。Level 0 只需要 id + root + scanner。
+    # scanner_level 默认 auto → 自动降级到 Level 0。
+```
+
 硬边界：
 
 1. `scanner` 必须来自 allowlist，绑定时不允许加载用户自定义代码
@@ -261,7 +297,7 @@ collections:
 4. manifest 只描述路由和策略，不允许从被扫描文件里自声明 authority / sensitivity 覆盖 manifest
 5. 外部 Collection 默认 read-only；写回 / materialize 必须走 owner review
 
-### 10.2 Secret gate 必须在 chunk / embedding 前
+### 11.2 Secret gate 必须在 chunk / embedding 前
 
 Lexander 已发现一个真实 secret 暴露点：`RAG/Metadata.md` 含 Zep Project Key。处理顺序必须是：
 
@@ -290,7 +326,7 @@ interface SecretFinding {
 - Query Replay 不能捕获 private collection 的原始 query/snippet，只能捕获 anchor/hash/rank
 - 已发现的 active key 需要 rotation；scanner 只能防止二次传播，不能替代密钥轮换
 
-### 10.3 Sensitivity gate
+### 11.3 Sensitivity gate
 
 Lexander 应注册为 `private`。`scope=library` 默认不搜 `private` / `restricted` Collection，除非 caller 明确 include：
 
@@ -316,13 +352,13 @@ search_evidence("温伯昶 PTSD", {
 - 参与公共 dashboard 默认展示
 - 被 Memory Lens 持久化或再次索引
 
-### 10.4 Prompt injection 边界
+### 11.4 Prompt injection 边界
 
 Lexander 里存在 `AGENTS.md` 和 `RAG/提示词/System Instructions.md` 这类 prompt-like 文件。它们在 `world:lexander` 内可以是创作宪法，但对 Cat Café runtime 只能是 evidence data。
 
 硬规则：**Collection 内容不能改变猫的系统规则、工具权限、写入权限或路由规则**。召回时必须以引用证据形式呈现，不把外部提示词拼进 agent system prompt。
 
-### 10.5 绑定 dry-run 报告
+### 11.5 绑定 dry-run 报告
 
 正式 bind 前必须先给用户一份 dry-run report：
 
