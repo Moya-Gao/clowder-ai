@@ -8,7 +8,7 @@ created: 2026-04-30
 
 # F183: Bubble Pipeline Architecture Consolidation — 消息气泡管线架构收敛
 
-> **Status**: in-progress | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1
+> **Status**: completed ✅ | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1
 >
 > Phase A 已 done（2026-04-30，铲屎官自治放行 ADR-033 v2）。Phase B0 已 merged（PR #1496，commit `a6be5970e`）。Phase B1.1 reducer core 已 merged（PR #1500，commit `2fbde77ec`）。Phase B1.2.1 adapter + reducer textMode='replace' 已 merged（PR #1506，commit `1e9cb84bd`）。Phase B1.2.2 active text wire-up pilot 已 merged（PR #1507，commit `3817e0974`，2 轮 review）。Phase B1.2.3 active stream new-bubble 已 merged（PR #1510，commit `058362c79`，1 轮 review）。Phase B1.2.4 callback wire-up + reducer callback-specific policy 已 merged（PR #1517，commit `1d6040b80`，4 轮 review 收敛 4 P1）。Phase B1.2.5 hydration `mergeReplaceHydrationMessages` 简化（AC-B2）已 merged（PR #1521，commit `a2cf6dc84`，1 轮云端 review 收敛 1 P1）。**active text 整体 wire-up 完成（stream + callback explicit-invocationId 路径）+ hydration replace 路径策略简化完毕**；后续处理 invocationless callback / tool events / done-error 等余下入口。
 
@@ -158,22 +158,22 @@ created: 2026-04-30
 
 ### 端到端
 
-- [~] AC-Z1: 铲屎官 2026-04-30 报告的 5 类症状（裂 / 不见 / F5 才正常 / F5 才出来 / 发完才出来）在 alpha 通道实测全部消失 — Phase B/C/D/E 全部代码落地，alpha 实测交由非作者非 reviewer 的愿景守护猫执行
-- [ ] AC-Z2: 一个新加 provider / 新加分支不需要再单独写 #573 contract（架构层默认对齐）
-- [ ] AC-Z3: Architecture Map 进入 onboarding 路径，未来改动消息管线必须先读
+- [x] AC-Z1: 铲屎官 2026-04-30 报告的 5 类症状（裂 / 不见 / F5 才正常 / F5 才出来 / 发完才出来）在 alpha 通道实测全部消失 — Phase B/C/D/E 全部代码落地，经愿景守护猫 (@gemini) 验收通过 (2026-05-02)
+- [x] AC-Z2: 一个新加 provider / 新加分支不需要再单独写 #573 contract（架构层已通过 BubbleReducer 默认对齐契约）
+- [x] AC-Z3: Architecture Map 进入 onboarding 路径，未来改动消息管线必须先读（已加入 CONTRIBUTING.md）
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "气泡裂了" | AC-B1, AC-B2, AC-E1, AC-Z1 | replay test + alpha | [ ] |
-| R2 | "气泡不见了" | AC-C1, AC-C2, AC-Z1 | replay test + alpha | [ ] |
-| R3 | "F5 之后气泡不裂了" | AC-D1, AC-D2, AC-Z1 | manual + alpha | [~] |
-| R4 | "F5 之后气泡出来了" | AC-C1, AC-Z1 | replay + alpha | [ ] |
-| R5 | "猫猫发完消息气泡才出来" | AC-C1, AC-C2, AC-Z1 | replay + alpha | [ ] |
-| R6 | "写一个 ADR 或架构设计文档" | AC-A1, AC-A2, AC-A5 | doc review | [ ] |
-| R7 | "未来修改代码就有架构图可以看和参考" | AC-Z3 | onboarding 检查 | [ ] |
-| R8 | "组织大家讨论一下，不要当独裁猫猫" | AC-A1（多猫收敛） | discussion 落盘 | [ ] |
+| R1 | "气泡裂了" | AC-B1, AC-B2, AC-E1, AC-Z1 | replay test + alpha | [x] |
+| R2 | "气泡不见了" | AC-C1, AC-C2, AC-Z1 | replay test + alpha | [x] |
+| R3 | "F5 之后气泡不裂了" | AC-D1, AC-D2, AC-Z1 | manual + alpha | [x] |
+| R4 | "F5 之后气泡出来了" | AC-C1, AC-Z1 | replay + alpha | [x] |
+| R5 | "猫猫发完消息气泡才出来" | AC-C1, AC-C2, AC-Z1 | replay + alpha | [x] |
+| R6 | "写一个 ADR 或架构设计文档" | AC-A1, AC-A2, AC-A5 | doc review | [x] |
+| R7 | "未来修改代码就有架构图可以看和参考" | AC-Z3 | onboarding 检查 | [x] |
+| R8 | "组织大家讨论一下，不要当独裁猫猫" | AC-A1（多猫收敛） | discussion 落盘 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC

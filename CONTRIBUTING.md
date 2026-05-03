@@ -48,6 +48,12 @@ pnpm check
 | `cat-cafe-skills/` | Modular skill definitions |
 | `scripts/` | Development and build utilities |
 
+### Message Pipeline Architecture
+
+If you are modifying bubble rendering, message streaming, or hydration logic, you **must** consult the [F183 Message Pipeline Architecture Map](docs/features/F183-bubble-pipeline-architecture-consolidation.md#phase-a-architecture-discovery--identity-contract-讨论收敛--架构图--真相源沉淀). 
+
+This map defines the stable identity contract (ADR-033) and the single-writer reducer pattern that prevents common bubble bugs (splitting, disappearing, or hydration flicker).
+
 ### After Modifying `packages/shared`
 
 Always rebuild shared types after changes:
