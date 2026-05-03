@@ -211,6 +211,7 @@ created: 2026-04-30
 |---|---|
 | **Spec** | [F182 v4](../../features/F182-cat-roster-lifecycle-toggle.md) |
 | **基建 plan** | [`docs/plans/2026-04-30-worktree-port-offset.md`](../../plans/2026-04-30-worktree-port-offset.md) |
+| **🏆 参赛邀请信**（铲屎官分发给每只猫） | [`WELCOME-LETTER.md`](WELCOME-LETTER.md) |
 | **第一轮 triage**（T0+96h 后） | `round1-triage.md` |
 | **第二轮 review**（T0+168h 后） | `round2-review.md` |
 | **终评打分**（T0+168h 后） | `scoreboard.md` |
