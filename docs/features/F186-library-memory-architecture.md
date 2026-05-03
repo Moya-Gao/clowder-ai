@@ -105,7 +105,19 @@ F186 有两类用户，UX 不能共用一个"搜索页面"糊过去。
 3. 猫猫显式指定 `collections: [...]`
 4. 当前 project recall 低置信度且猫决定扩搜
 
-**Non-goal**：F186 不是独立的 GBrain-like compiled wiki 产品。图书馆是 Hub 内嵌能力层，不是一个让铲屎官自己翻的独立工具。
+**Human-Browsable Layer（人类可浏览层）— GBrain 亮点学习**
+
+GBrain 拆解发现的核心 UX 差距：我们的 `evidence.sqlite` 对猫友好，但**对铲屎官是黑盒**（拆解原话："人类可浏览层偏弱"）。GBrain 的三个"给人看"亮点：
+
+| GBrain 亮点 | 我们怎么学 | 落在哪 |
+|-------------|-----------|--------|
+| **Compiled Truth Page** — 每个节点有"当前结论 + 证据时间线"，人类打开就能浏览 | **Collection 概览页**：每个 Collection 在 Hub 里有一个人类可读的概览（里面有什么主题、关键 anchor、最近变更），不是搜索结果而是浏览入口 | Phase A 骨架 / Phase D 充实 |
+| **Brain Health 健康感** — maintain/orphans/backlinks audit 形成产品化的"健康感觉" | **Collection 健康卡**：不是技术指标而是铲屎官能理解的状态（"上次更新 2 天前"、"3 条知识待审核"、"0 个 secret 发现"） | Phase A（扩展现有 Index Status tab） |
+| **Typed Graph 可视关联** — typed link 不只排序，还让人浏览知识关系 | **知识关系图**：anchor 之间的 typed edge（evolved_from / related / supersedes）可视化 | Phase F（Typed Graph） |
+
+边界：概览页是**实时计算/缓存**的投影，不是独立的 compiled wiki 真相源（F169 边界不倒退）。
+
+**Non-goal**：F186 不是独立的 GBrain-like compiled wiki 产品。图书馆是 Hub 内嵌能力层。但铲屎官不只是管理者——他也想**浏览**图书馆里有什么，不能只给搜索框和管理按钮。
 
 ### Phase A: Collection Manifest + LibraryResolver 契约
 
