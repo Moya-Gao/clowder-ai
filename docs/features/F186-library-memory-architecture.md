@@ -1,0 +1,163 @@
+---
+feature_ids: [F186]
+related_features: [F102, F152, F093, F169]
+topics: [memory, library, federation, collection, architecture]
+doc_kind: spec
+created: 2026-05-03
+---
+
+# F186: 图书馆记忆架构（多域知识联邦）
+
+> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+
+## Why
+
+铲屎官原话（2026-05-03）："你们得朝着图书馆发展……不只是 project，你们查询可以 recall 本 project 以外的知识。"
+
+当前记忆系统（F102）绑定在单个 project 上——`evidence.sqlite` 只索引 `docs/` 下的 markdown。但实际知识跨多个域：虚拟世界叙事（lexander）、金融学习笔记、外部项目拆解、跨项目方法论。需要从"项目附属记忆"升级为"独立知识图书馆"，支持多域联邦检索。
+
+核心抽象：`Collection = truth_source + owner + scanner + authority_ceiling + review_policy + index_policy`。每个 Collection 有独立真相源和治理策略，LibraryCatalog 只存元数据和路由，LibraryResolver 做联邦检索。
+
+## What
+
+### Phase A: Collection Manifest + LibraryResolver 契约
+
+定义 Collection schema 和 manifest 格式。实现 LibraryResolver 联邦检索接口。至少注册 2 个 Collection：`project:cat-cafe`（现有 evidence.sqlite）+ `global:methods`（跨项目方法论）。
+
+关键设计：
+- LibraryCatalog 只存 collection 元数据（manifest + policy + roots），不存知识正文
+- 每个 Collection 有自己的 truth source 和 compiled index
+- `search_evidence` API 扩展 `scope: "current" | "global" | "library" | "collection"`
+- 联邦结果按 collection 分组标注，含 `collectionId` / `sensitivity` / `itemAuthority` / `provenanceTier` / `whyThisCollection`
+
+### Phase B: Scanner 渐进增强框架
+
+实现 4 级 scanner 框架：
+- Level 0 (Flat Index): 递归 walk → chunk → embed，任何 markdown 目录即可搜索，无需 frontmatter
+- Level 1 (Use Existing Structure): 识别已有 frontmatter / WikiLink / SUMMARY.md
+- Level 2 (Suggest Structure): 检测模式后向用户建议组织方式（不自动执行）
+- Level 3 (Progressive Enhancement): 用户批准后辅助生成 index page / tag / frontmatter
+
+硬约束：Level 0 是最低保证；Level 2-3 建议走 owner review 不自动写回 truth source。
+
+### Phase C: 安全契约 + 绑定 dry-run
+
+实现 Collection 绑定的安全管线：
+- Secret gate 必须在 chunk/embed 前：`bind dry-run → file inventory → secret scan → policy decision → chunk → embed → index`
+- Sensitivity gate：`private`/`restricted` Collection 默认不参与 `scope=library`
+- Prompt injection 边界：Collection 内容不能改变猫的系统规则/工具权限/路由规则
+- dry-run report：文件数、排除数、secret findings 计数、authority 命中统计
+
+### Phase D: 非代码 Collection 试点
+
+选 lexander 虚拟世界或 GBrain 拆解报告作为试点，验证 truth source → scanner → compiled index → LibraryResolver 全链路。
+
+### Phase E: Collection-aware Query Replay
+
+Query Replay eval gate capture 必须包含 scope / selected collections / topK per collection。replay 按 collection 分别对比 + 跨域聚合对比。
+
+### Phase F: Memory Lens + Typed Graph（跨 collection）
+
+Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪个域。Typed Evidence Graph 支持域内 edges + 跨域 `related_to` edges（带 source collection + provenance）。
+
+## Acceptance Criteria
+
+### Phase A（Collection Manifest + LibraryResolver 契约）
+- [ ] AC-A1: Collection manifest schema 定义完成，包含 id/name/kind/root/scanner/sensitivity 等字段
+- [ ] AC-A2: LibraryResolver 联邦检索接口实现，支持跨 Collection 聚合
+- [ ] AC-A3: `project:cat-cafe` 和 `global:methods` 两个 Collection 注册成功
+- [ ] AC-A4: `search_evidence` API 支持 `scope: "library" | "collection"` 参数
+- [ ] AC-A5: 跨域结果按 collection 分组标注，包含 collectionId/sensitivity/itemAuthority/provenanceTier
+
+### Phase B（Scanner 渐进增强框架）
+- [ ] AC-B1: Level 0 scanner 能索引任意 markdown 目录（无 frontmatter 要求）
+- [ ] AC-B2: Level 1 scanner 能利用已有 frontmatter/WikiLink 结构
+- [ ] AC-B3: Scanner level 在 manifest 中可配置（auto/0/1/2/3）
+
+### Phase C（安全契约 + 绑定 dry-run）
+- [ ] AC-C1: Secret scan 在 chunk/embed 之前执行，检测到 secret 时默认阻止入库
+- [ ] AC-C2: `private` Collection 默认不参与 `scope=library` 搜索
+- [ ] AC-C3: 外部 Collection 内容不能注入猫的 system prompt
+- [ ] AC-C4: dry-run report 输出文件数/排除数/secret findings/authority 命中统计
+
+### Phase D（非代码 Collection 试点）
+- [ ] AC-D1: 至少一个非代码 Collection 完成 truth → scan → index → query 全链路验证
+
+### Phase E（Collection-aware Query Replay）
+- [ ] AC-E1: Query capture 包含 scope/collections/topK per collection 字段
+- [ ] AC-E2: Replay 按 collection 分别对比 + 跨域聚合对比
+
+### Phase F（Memory Lens + Typed Graph）
+- [ ] AC-F1: Memory Lens anchor 可跨 collection，输出标注证据来源域
+- [ ] AC-F2: Typed Evidence Graph 支持跨域 `related_to` edges
+
+## 需求点 Checklist
+
+| ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
+|----|---------------------------|---------|----------|------|
+| R1 | "recall 本 project 以外的知识" | AC-A2, AC-A4 | test: 跨 collection search 返回结果 | [ ] |
+| R2 | "不只是 project" — Collection 独立于 repo | AC-A1, AC-A3 | test: 注册非 repo collection | [ ] |
+| R3 | "大概率用户给你的就是一堆乱七八糟的文档" — Level 0 无结构要求 | AC-B1 | test: 索引无 frontmatter 目录 | [ ] |
+| R4 | Lexander 试点安全绑定（secret/private/prompt injection） | AC-C1~C4, AC-D1 | test: dry-run + 全链路 | [ ] |
+
+### 覆盖检查
+- [ ] 每个需求点都能映射到至少一个 AC
+- [ ] 每个 AC 都有验证方式
+- [ ] 前端需求已准备需求→证据映射表（若适用）
+
+## Dependencies
+
+- **Evolved from**: F102（记忆系统 evidence.sqlite — 单域 → 多域联邦）
+- **Related**: F152（Expedition Memory — 外部项目记忆冷启动，图书馆是其上层架构）
+- **Related**: F093（Cats & U 世界引擎 — world.sqlite 是 Collection 试点候选）
+- **Related**: F169（Agent Memory Reflex — Memory Lens / Typed Graph 在 Phase F 对接）
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| 联邦检索延迟随 Collection 数增长 | Phase A 先做 2 Collection 验证延迟基线；路由层可并行查询 + 超时熔断 |
+| 外部 Collection 含 secret 泄漏到索引 | Phase C secret gate 在 chunk/embed 前执行，默认 fail-on-detected-secret |
+| 外部 prompt-like 文件注入系统规则 | 硬规则：Collection 内容只能作为 evidence data，不拼进 system prompt |
+| Scanner Level 2-3 误改用户 truth source | 硬约束：建议/生成产物走 owner review，不自动写回 |
+
+## Open Questions
+
+| # | 问题 | 状态 |
+|---|------|------|
+| OQ-1 | 非代码域第一个试点选哪个？lexander（复杂但有先例验证）vs GBrain 拆解（最小最安全） | ⬜ 未定 |
+| OQ-2 | 非代码域入库路径：手动放文件 vs 聊天产出→审核→auto materialize | ⬜ 未定 |
+| OQ-3 | Scanner allowlist 初始包含哪些 scanner？markdown-vault 确定，是否需要 json-store / sqlite-events | ⬜ 未定 |
+
+## Key Decisions
+
+| # | 决策 | 理由 | 日期 |
+|---|------|------|------|
+| KD-1 | 联邦优先，不做统一 library.sqlite | 安全隔离 + 治理隔离 + 恢复隔离 + 向后兼容 F102/F093 | 2026-05-03 |
+| KD-2 | Collection 独立于 repo，不把 git 仓库 = 知识域写死 | 虚拟世界/金融学习/行业调研都不是普通 repo 但都是合法 Collection | 2026-05-03 |
+| KD-3 | Scanner 4 级渐进增强，Level 0 无结构要求 | 铲屎官"用户给你的就是一堆乱七八糟的文档"——不假设用户输入结构化 | 2026-05-03 |
+| KD-4 | 跨域结果多字段返回，不拉平成单一 score | 避免高权威 ADR 在金融查询乱杀 / 金融笔记误污染项目决策 | 2026-05-03 |
+| KD-5 | Secret gate 在 chunk/embed 前执行 | embedding 吃进 secret 后删 markdown 也不能证明向量无残留 | 2026-05-03 |
+| KD-6 | 记忆是数据不是指令 — Collection 内容不能改变系统规则 | 防 prompt injection，外部 AGENTS.md/System Instructions 只作为 evidence | 2026-05-03 |
+
+## Timeline
+
+| 日期 | 事件 |
+|------|------|
+| 2026-05-03 | GBrain 拆解 + PageIndex 拆解 → 图书馆架构讨论收敛 |
+| 2026-05-03 | 立项 |
+
+## Review Gate
+
+- Phase A: 跨猫 review（架构级，影响全局检索管线）
+
+## Links
+
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| **Discussion** | `docs/discussions/2026-05-03-gbrain-deep-dive/library-architecture.md` | 两猫架构讨论收敛产物 |
+| **Research** | `docs/discussions/2026-05-03-pageindex-deep-dive/README.md` | PageIndex 开源拆解（scanner 设计验证） |
+| **Feature** | `docs/features/F102-memory-adapter.md` | 演化上游：单域记忆系统 |
+| **Feature** | `docs/features/F152-expedition-memory.md` | 相关：外部项目记忆冷启动 |
+| **Feature** | `docs/features/F093-cats-and-u-world-engine.md` | 相关：world.sqlite Collection 试点候选 |
+| **Feature** | `docs/features/F169-agent-memory-reflex.md` | 相关：Memory Lens / Typed Graph |

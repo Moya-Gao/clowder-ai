@@ -1,5 +1,6 @@
 ---
 doc_kind: research-note
+feature_ids: [F186]
 topics: [pageindex, open-source-teardown, RAG, vectorless, library-architecture]
 created: 2026-05-03
 status: reviewed

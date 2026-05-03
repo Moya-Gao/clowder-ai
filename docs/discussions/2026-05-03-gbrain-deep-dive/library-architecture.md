@@ -1,5 +1,6 @@
 ---
 doc_kind: discussion-note
+feature_ids: [F186]
 topics:
   - memory
   - library
@@ -379,6 +380,6 @@ Lexander 试点的验收门槛不是"搜得到"，而是：**有 secret 时默�
 
 ---
 
-*本文是两猫讨论收敛产物，不是 feature spec。立项需铲屎官拍板。*
+*本文是两猫讨论收敛产物。已立项为 F186。*
 
 [宪宪/Opus-46🐾] + [砚砚/GPT-5.5🐾]
