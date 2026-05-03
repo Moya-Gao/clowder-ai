@@ -1137,13 +1137,13 @@
     {
       "id": "F183",
       "name": "Bubble Pipeline Architecture Consolidation — 消息气泡管线架构收敛",
-      "status": "in-progress (R2/R4/R5 reconnect catchup follow-up) | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1",
       "file": "F183-bubble-pipeline-architecture-consolidation.md"
     },
     {
       "id": "F184",
       "name": "ChatMessage Rendering Mount Investigation — F176 撤销后未查的 DOM 缺失真 bug",
-      "status": "spec | **Owner**: 待定（建议跨 family review；候选 47 牵头 + 砚砚 review） | **Priority**: P2",
+      "status": "done — incidentally fixed by F183 Phase B-E architectural work (verified 2026-05-02 alpha walk on `thread_mnux2eewbo4otg17`) | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P2",
       "file": "F184-chatmessage-rendering-mount-investigation.md"
     },
     {
