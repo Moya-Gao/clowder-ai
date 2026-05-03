@@ -72,6 +72,41 @@ created: 2026-05-03
 | ⑤ **Prompt Boundary** | 外部 AGENTS.md/System Instructions 标记为 `evidence data only` | **KD-6**：记忆是数据不是指令，不拼进 system prompt |
 | ⑥ **Chunk + Embed** | 通过全部安全关卡后才切分 + 向量化 | compiled index 写入 `<dataDir>/library/<collectionId>/`（**KD-7**：不写回用户目录） |
 
+### User Experience Model
+
+F186 有两类用户，UX 不能共用一个"搜索页面"糊过去。
+
+**Persona A: 铲屎官 / Library Owner（馆长）**
+
+铲屎官不直接搜索，通过猫猫对话获取知识。铲屎官的面是**治理驾驶舱**：
+
+| 面 | 说明 |
+|------|------|
+| **Collection Catalog** | Hub 面板：所有 Collection 卡片 + 健康状态灯 + index freshness + 知识条目数 |
+| **Binding Wizard** | 对话式发起（"帮我绑定 lexander"）→ dry-run report 确认卡 → 铲屎官一键确认 |
+| **Review Queue** | Knowledge Feed 跨域版：猫猫发现的知识候选 → 选目标 Collection → owner review → materialize |
+| **Recall Audit** | 可选：看猫猫搜了什么、命中了哪些 Collection、哪些 private 被 skipped |
+
+**Persona B: 猫猫 / Reader + Producer（馆员 + 读者）**
+
+猫猫通过 `search_evidence` CLI/API 透明使用图书馆，不逛 UI：
+
+| 面 | 说明 |
+|------|------|
+| **Grouped Result** | 搜索结果按 collection 分组，每条标注 `collectionId / sensitivity / authority / reviewStatus`。private 被跳过时显示 skipped reason |
+| **Candidate Production** | 猫猫产出知识默认是 candidate，标记 `generalizable: true` → Knowledge Feed → owner review → 不自动写 truth source |
+| **Drill-down** | 提供 "expand raw anchor / drill down" 快路径，跨域 anchor 可追溯到来源 Collection |
+
+**Default Recall Policy**
+
+默认 `dimension` 不是 `library`。保持 `project + global`（兼容现有 `dimension: "all"` 语义）。`dimension=library` 只在以下情况触发：
+1. 铲屎官明确要求跨域搜索
+2. 当前 thread/workspace 绑定了外部 Collection
+3. 猫猫显式指定 `collections: [...]`
+4. 当前 project recall 低置信度且猫决定扩搜
+
+**Non-goal**：F186 不是独立的 GBrain-like compiled wiki 产品。图书馆是 Hub 内嵌能力层，不是一个让铲屎官自己翻的独立工具。
+
 ### Phase A: Collection Manifest + LibraryResolver 契约
 
 定义 Collection schema 和 manifest 格式。将现有 `IKnowledgeResolver` 泛化为支持 Collection 的联邦检索实现。至少注册 2 个 Collection：`project:cat-cafe`（现有 evidence.sqlite）+ `global:methods`（跨项目方法论）。
