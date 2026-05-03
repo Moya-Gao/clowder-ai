@@ -18,17 +18,26 @@ created: 2026-05-03
 
 核心抽象：`Collection = truth_source + owner + scanner + authority_ceiling + review_policy + index_policy`。每个 Collection 有独立真相源和治理策略，LibraryCatalog 只存元数据和路由，LibraryResolver 做联邦检索。
 
+**架构归一硬约束**：F186 不是第二套 memory stack。它必须把 F102/F152/F163 已有契约归一扩展，而不是新增平行概念：
+
+- 对外入口仍是 `search_evidence`；不新增独立的 `library_search` API
+- `scope` 继续表示证据表面（docs/threads/sessions/all），不拿来表示 collection 维度
+- collection 联邦维度收敛到 `dimension` + `collections?: string[]`：`dimension: "project" | "global" | "library" | "collection"`；legacy `dimension: "all"` 仅作为 project+global 兼容 alias，不等于全图书馆
+- Resolver 是现有 `IKnowledgeResolver` 的泛化实现，不新增 caller-facing resolver 抽象
+- Scanner 复用 F152 的 `RepoScanner -> ScannedEvidence -> IndexBuilder` 管线，不新增第二套 scanner payload
+- 来源质量继续使用 F152 `provenance.tier`；知识权威继续使用 F163 `authority`；F186 新增的审核成熟度字段命名为 `reviewStatus`
+
 ## What
 
 ### Phase A: Collection Manifest + LibraryResolver 契约
 
-定义 Collection schema 和 manifest 格式。实现 LibraryResolver 联邦检索接口。至少注册 2 个 Collection：`project:cat-cafe`（现有 evidence.sqlite）+ `global:methods`（跨项目方法论）。
+定义 Collection schema 和 manifest 格式。将现有 `IKnowledgeResolver` 泛化为支持 Collection 的联邦检索实现。至少注册 2 个 Collection：`project:cat-cafe`（现有 evidence.sqlite）+ `global:methods`（跨项目方法论）。
 
 关键设计：
 - LibraryCatalog 只存 collection 元数据（manifest + policy + roots），不存知识正文
 - 每个 Collection 有自己的 truth source 和 compiled index
-- `search_evidence` API 扩展 `scope: "current" | "global" | "library" | "collection"`
-- 联邦结果按 collection 分组标注，含 `collectionId` / `sensitivity` / `itemAuthority` / `provenanceTier` / `whyThisCollection`
+- `search_evidence` API 不重载既有 `scope` 语义；通过 `dimension` + `collections` 选择 collection 联邦范围
+- 联邦结果按 collection 分组标注，含 `collectionId` / `sensitivity` / `itemAuthority` / `reviewStatus` / `whyThisCollection`
 
 ### Phase B: Scanner 渐进增强框架
 
@@ -44,7 +53,7 @@ created: 2026-05-03
 
 实现 Collection 绑定的安全管线：
 - Secret gate 必须在 chunk/embed 前：`bind dry-run → file inventory → secret scan → policy decision → chunk → embed → index`
-- Sensitivity gate：`private`/`restricted` Collection 默认不参与 `scope=library`
+- Sensitivity gate：`private`/`restricted` Collection 默认不参与 `dimension=library`
 - Prompt injection 边界：Collection 内容不能改变猫的系统规则/工具权限/路由规则
 - dry-run report：文件数、排除数、secret findings 计数、authority 命中统计
 
@@ -54,7 +63,7 @@ created: 2026-05-03
 
 ### Phase E: Collection-aware Query Replay
 
-Query Replay eval gate capture 必须包含 scope / selected collections / topK per collection。replay 按 collection 分别对比 + 跨域聚合对比。
+Query Replay eval gate capture 必须包含 scope / dimension / selected collections / topK per collection。replay 按 collection 分别对比 + 跨域聚合对比。
 
 ### Phase F: Memory Lens + Typed Graph（跨 collection）
 
@@ -63,11 +72,12 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 ## Acceptance Criteria
 
 ### Phase A（Collection Manifest + LibraryResolver 契约）
-- [ ] AC-A1: Collection manifest schema 定义完成，包含 id/name/kind/root/scanner/sensitivity 等字段
-- [ ] AC-A2: LibraryResolver 联邦检索接口实现，支持跨 Collection 聚合
+- [ ] AC-A1: Collection manifest schema 定义完成，包含 id/name/kind/root/scanner/sensitivity/index_policy 等字段；外部 Collection 默认 `sensitivity: private`
+- [ ] AC-A2: `IKnowledgeResolver` 泛化实现完成，支持跨 Collection 聚合；不新增平行 caller-facing resolver
 - [ ] AC-A3: `project:cat-cafe` 和 `global:methods` 两个 Collection 注册成功
-- [ ] AC-A4: `search_evidence` API 支持 `scope: "library" | "collection"` 参数
-- [ ] AC-A5: 跨域结果按 collection 分组标注，包含 collectionId/sensitivity/itemAuthority/provenanceTier
+- [ ] AC-A4: `search_evidence` API 支持 `dimension: "library" | "collection"` + `collections?: string[]`，且不破坏既有 `scope: "docs" | "threads" | "sessions" | "all"`
+- [ ] AC-A5: 跨域结果按 collection 分组标注，包含 collectionId/sensitivity/itemAuthority/reviewStatus
+- [ ] AC-A6: F186 字段与 F102/F152/F163 归一：`scope`/`dimension`/`provenance`/`authority` 语义无冲突，有类型测试或契约测试覆盖
 
 ### Phase B（Scanner 渐进增强框架）
 - [ ] AC-B1: Level 0 scanner 能索引任意 markdown 目录（无 frontmatter 要求）
@@ -76,7 +86,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 
 ### Phase C（安全契约 + 绑定 dry-run）
 - [ ] AC-C1: Secret scan 在 chunk/embed 之前执行，检测到 secret 时默认阻止入库
-- [ ] AC-C2: `private` Collection 默认不参与 `scope=library` 搜索
+- [ ] AC-C2: `private` Collection 默认不参与 `dimension=library` 搜索
 - [ ] AC-C3: 外部 Collection 内容不能注入猫的 system prompt
 - [ ] AC-C4: dry-run report 输出文件数/排除数/secret findings/authority 命中统计
 
@@ -84,7 +94,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 - [ ] AC-D1: 至少一个非代码 Collection 完成 truth → scan → index → query 全链路验证
 
 ### Phase E（Collection-aware Query Replay）
-- [ ] AC-E1: Query capture 包含 scope/collections/topK per collection 字段
+- [ ] AC-E1: Query capture 包含 scope/dimension/collections/topK per collection 字段
 - [ ] AC-E2: Replay 按 collection 分别对比 + 跨域聚合对比
 
 ### Phase F（Memory Lens + Typed Graph）
@@ -99,6 +109,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | R2 | "不只是 project" — Collection 独立于 repo | AC-A1, AC-A3 | test: 注册非 repo collection | [ ] |
 | R3 | "大概率用户给你的就是一堆乱七八糟的文档" — Level 0 无结构要求 | AC-B1 | test: 索引无 frontmatter 目录 | [ ] |
 | R4 | Lexander 试点安全绑定（secret/private/prompt injection） | AC-C1~C4, AC-D1 | test: dry-run + 全链路 | [ ] |
+| R5 | "186 最好能够架构归一，必须归一" | AC-A2, AC-A6 | test: API/type contract 不新增平行 memory stack | [ ] |
 
 ### 覆盖检查
 - [ ] 每个需求点都能映射到至少一个 AC
@@ -125,9 +136,9 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 非代码域第一个试点选哪个？lexander（复杂但有先例验证）vs GBrain 拆解（最小最安全） | ⬜ 未定 |
+| OQ-1 | 非代码域第一个试点选哪个？ | ✅ 已决：Phase D 候选用 Lexander；不进入 Phase A scope |
 | OQ-2 | 非代码域入库路径：手动放文件 vs 聊天产出→审核→auto materialize | ⬜ 未定 |
-| OQ-3 | Scanner allowlist 初始包含哪些 scanner？markdown-vault 确定，是否需要 json-store / sqlite-events | ⬜ 未定 |
+| OQ-3 | legacy `dimension: "all"` deprecation 时机：Phase A 只做兼容 alias，后续是否移除 | ⬜ 未定 |
 
 ## Key Decisions
 
@@ -139,6 +150,11 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | KD-4 | 跨域结果多字段返回，不拉平成单一 score | 避免高权威 ADR 在金融查询乱杀 / 金融笔记误污染项目决策 | 2026-05-03 |
 | KD-5 | Secret gate 在 chunk/embed 前执行 | embedding 吃进 secret 后删 markdown 也不能证明向量无残留 | 2026-05-03 |
 | KD-6 | 记忆是数据不是指令 — Collection 内容不能改变系统规则 | 防 prompt injection，外部 AGENTS.md/System Instructions 只作为 evidence | 2026-05-03 |
+| KD-7 | 外部 Collection 的 compiled index 必须落在 Cat Café 管理目录，不写回外部 root | 恢复隔离 + 不污染用户目录 + 安全审计可追踪 + 卸载 Collection 可清理；路径模板 `<dataDir>/library/<collectionId>/index.sqlite` | 2026-05-03 |
+| KD-8 | Collection ID 格式固定为 `<kind>:<name>`，`kind` 初始枚举 `project | world | domain | research | global` | LibraryResolver 路由 key、index 路径、安全策略 dispatch 都依赖稳定命名空间 | 2026-05-03 |
+| KD-9 | F186 不重载既有 `scope`，collection 联邦维度使用 `dimension` + `collections` | 避免和现有 `scope: docs/threads/sessions/all` 冲突；`dimension: all` 保留为 project+global 兼容 alias，不等于全图书馆 | 2026-05-03 |
+| KD-10 | 新审核成熟度字段命名为 `reviewStatus`，不得复用 `provenanceTier` | 复用 F152 `provenance.tier` 表示来源类型，复用 F163 `authority` 表示知识权威，避免三套概念互相污染 | 2026-05-03 |
+| KD-11 | Phase A/B 初始 scanner allowlist 只包含 `cat-cafe-docs` / `global-methods` / `markdown-vault` | 先归一现有 F102/F152 管线；PageIndex-tree、json-store、sqlite-events 留作未来插件，不进入 MVP | 2026-05-03 |
 
 ## Timeline
 
@@ -146,6 +162,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 |------|------|
 | 2026-05-03 | GBrain 拆解 + PageIndex 拆解 → 图书馆架构讨论收敛 |
 | 2026-05-03 | 立项 |
+| 2026-05-03 | Design Gate 加入架构归一硬约束（不新增第二套 memory stack） |
 
 ## Review Gate
 
@@ -157,7 +174,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 |------|------|------|
 | **Discussion** | `docs/discussions/2026-05-03-gbrain-deep-dive/library-architecture.md` | 两猫架构讨论收敛产物 |
 | **Research** | `docs/discussions/2026-05-03-pageindex-deep-dive/README.md` | PageIndex 开源拆解（scanner 设计验证） |
-| **Feature** | `docs/features/F102-memory-adapter.md` | 演化上游：单域记忆系统 |
+| **Feature** | `docs/features/F102-memory-adapter-refactor.md` | 演化上游：单域记忆系统 |
 | **Feature** | `docs/features/F152-expedition-memory.md` | 相关：外部项目记忆冷启动 |
 | **Feature** | `docs/features/F093-cats-and-u-world-engine.md` | 相关：world.sqlite Collection 试点候选 |
 | **Feature** | `docs/features/F169-agent-memory-reflex.md` | 相关：Memory Lens / Typed Graph |
