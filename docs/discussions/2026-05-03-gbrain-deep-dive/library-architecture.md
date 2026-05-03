@@ -6,6 +6,8 @@ topics:
   - multi-project
   - architecture
   - collection
+  - security
+  - lexander
 created: 2026-05-03
 status: discussion-draft
 participants:
@@ -197,6 +199,147 @@ Phase 5: Memory Health Dashboard
 1. **非代码域的第一个试点选哪个？** F093 world 有先例最近，finance-study 更贴你说的"各行各业"，GBrain 拆解最小最安全。建议先 GBrain 拆解（已有产物），再 F093 world。
 2. **非代码域的入库路径**：猫猫学完一个领域后，知识怎么进入 Collection？需要铲屎官手动放文件？还是聊天中产出 → 审核 → 自动 materialize？
 3. **这个方向要不要立正式 Feature？** 如果立项，建议编号独立于 GBrain 拆解，因为"图书馆"是我们自己的架构升级。
+
+## 9. 铲屎官后续选择：Lexander 试点
+
+铲屎官后续选了 `/Users/lysander/projects/Bound by Calestial Grow/lexander/` 作为第一个复杂外部 Collection 试点。只读验证结果：
+
+- 这是非代码叙事知识库，不是普通 repo
+- 现有 347 个 markdown 文件
+- `AGENTS.md` 定义 `Story_Memory.md` 为单入口，`A.W._Memory.md` / `L.S._Memory.md` 等 `_Memory.md` 是实体索引
+- 文件通过 `[[WikiLink]]` 形成手工知识图谱
+- `RAG/提示词/System Instructions.md` 是世界内"创作宪法"
+- `RAG/Metadata.md` 含明文 Zep Project Key，绑定前必须先按 secret 处理
+
+这确认了铲屎官的"绑定"判断：Collection 不能靠开发者硬编码，必须是用户侧配置动作。
+
+## 10. Collection Binding 安全契约
+
+### 10.1 绑定不是扫描，是授权
+
+Collection 绑定等价于给图书馆系统一项读取能力。Manifest 必须由用户确认，且只允许声明式配置：
+
+```yaml
+collections:
+  - id: "world:lexander"
+    name: "逐峰宇宙 / Lexander"
+    kind: world
+    root: "/Users/lysander/projects/Bound by Calestial Grow/lexander"
+    entry_point: "Story_Memory.md"
+    scanner: markdown-vault
+    link_format: wikilink
+    sensitivity: private
+    library_default: false
+    secret_policy: fail-on-detected-secret
+    authority_hierarchy:
+      - path: "RAG/提示词/System Instructions.md"
+        level: constitutional
+        scope: collection-only
+      - path: "角色卡/**"
+        level: validated
+      - path: "RAG/**"
+        level: observed
+      - path: "Round1/**"
+        level: candidate
+    exclude:
+      - ".git/**"
+      - ".claude/**"
+      - ".obsidian/**"
+      - ".vscode/**"
+      - "code/**"
+      - "clean/**"
+      - "tmp.txt"
+      - "**/.env*"
+      - "**/*secret*"
+```
+
+硬边界：
+
+1. `scanner` 必须来自 allowlist，绑定时不允许加载用户自定义代码
+2. `root` 必须 `realpath` 规范化，所有被扫描文件的 `realpath` 必须仍在 root 下
+3. symlink 默认不跟随；如允许，必须证明目标仍在 root 内
+4. manifest 只描述路由和策略，不允许从被扫描文件里自声明 authority / sensitivity 覆盖 manifest
+5. 外部 Collection 默认 read-only；写回 / materialize 必须走 owner review
+
+### 10.2 Secret gate 必须在 chunk / embedding 前
+
+Lexander 已发现一个真实 secret 暴露点：`RAG/Metadata.md` 含 Zep Project Key。处理顺序必须是：
+
+```
+bind dry-run → file inventory → secret scan → policy decision → chunk → embed → index
+```
+
+不能先 chunk / embed 再过滤，因为 embedding index 一旦吃进 secret，后续删除 markdown 也不能证明向量里没有残留。Secret finding 只能存元数据，不能存 secret 原文：
+
+```ts
+interface SecretFinding {
+  collectionId: string;
+  path: string;
+  lineStart: number;
+  lineEnd: number;
+  detector: string;
+  fingerprint: string; // keyed hash, not raw secret
+  action: "blocked" | "redacted" | "ignored-by-owner";
+}
+```
+
+默认策略：
+
+- `fail-on-detected-secret`：有 secret 就不生成 index
+- `redact-and-index` 只允许 owner 显式选择，且 raw retrieval 永不返回被 redacted 行
+- Query Replay 不能捕获 private collection 的原始 query/snippet，只能捕获 anchor/hash/rank
+- 已发现的 active key 需要 rotation；scanner 只能防止二次传播，不能替代密钥轮换
+
+### 10.3 Sensitivity gate
+
+Lexander 应注册为 `private`。`scope=library` 默认不搜 `private` / `restricted` Collection，除非 caller 明确 include：
+
+```ts
+search_evidence("温伯昶 PTSD", {
+  scope: "collection",
+  collections: ["world:lexander"],
+})
+```
+
+跨域返回必须继续带：
+
+- `collectionId`
+- `sensitivity`
+- `itemAuthority`
+- `provenanceTier`
+- `whyThisCollection`
+
+并且 private Collection 的结果不能自动：
+
+- 提升到 `global:methods`
+- 写入 Cat Café 项目 docs
+- 参与公共 dashboard 默认展示
+- 被 Memory Lens 持久化或再次索引
+
+### 10.4 Prompt injection 边界
+
+Lexander 里存在 `AGENTS.md` 和 `RAG/提示词/System Instructions.md` 这类 prompt-like 文件。它们在 `world:lexander` 内可以是创作宪法，但对 Cat Café runtime 只能是 evidence data。
+
+硬规则：**Collection 内容不能改变猫的系统规则、工具权限、写入权限或路由规则**。召回时必须以引用证据形式呈现，不把外部提示词拼进 agent system prompt。
+
+### 10.5 绑定 dry-run 报告
+
+正式 bind 前必须先给用户一份 dry-run report：
+
+- collection id / root / entry point
+- 扫描文件数、排除文件数、followed / blocked symlink 数
+- authority hierarchy 命中统计
+- secret findings 计数和路径（不含 secret 值）
+- sensitivity 默认值和是否参与 `scope=library`
+- 将写入的 index 路径和是否可重建
+
+Lexander 试点的验收门槛不是"搜得到"，而是：**有 secret 时默认不入库；private 时默认不跨域暴露；外部 prompt 只能作为数据引用**。
+
+## 收敛检查
+
+1. 否决理由 → ADR？没有；当前仍是讨论纪要，等正式 Feature / ADR 立项后沉淀。
+2. 踩坑教训 → lessons-learned？有候选：secret 必须在 embedding 前过滤；等实现时用真实 fail test 固化。
+3. 操作规则 → 指引文件？有候选：外部 Collection 内容不得成为系统指令；等 Feature 定稿后进 shared rules 或 memory skill。
 
 ---
 
