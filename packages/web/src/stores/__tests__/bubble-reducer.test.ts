@@ -1735,6 +1735,99 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
     expect(textAfter?.toolEvents?.[0]).toEqual(toolEvent);
   });
 
+  // F183 follow-up (R2/R4/R5 close blocker, 2026-05-02): 铲屎官 报告
+  // A→B→A 模式下第二个 A 的回复会"滑到第一个 A 的折叠里"。砚砚 R1 怀疑
+  // store 层 invocation binding 错（或 UI sort/collapse 错）。用 RED probe
+  // 先把 store 层钉死：reducer 应该按 (catId, invocationId, bubbleKind)
+  // 三件套创建 3 条独立稳定气泡。
+  describe('F183 follow-up: A→B→A invocation binding', () => {
+    function eventFor(
+      actor: string,
+      inv: string,
+      type: BubbleReducerInput['event']['type'],
+      content?: string,
+    ): BubbleReducerInput['event'] {
+      return {
+        type,
+        threadId: 'thread-1',
+        actorId: actor,
+        canonicalInvocationId: inv,
+        bubbleKind: 'assistant_text',
+        originPhase: type === 'callback_final' ? 'callback/history' : 'stream',
+        sourcePath: type === 'callback_final' ? 'callback' : 'active',
+        messageId: `msg-${inv}-${actor}`,
+        timestamp: Date.now(),
+        ...(content ? { payload: { content } } : {}),
+      };
+    }
+
+    it('A→B→A reducer keeps 3 stable bubbles, A2 content NOT in A1', () => {
+      // Step 1: A inv-A1 stream + content
+      let { nextMessages } = applyBubbleEvent({
+        threadId: 'thread-1',
+        event: eventFor('opus', 'inv-A1', 'stream_chunk', 'A1 first reply'),
+        currentMessages: [],
+      });
+      expect(nextMessages).toHaveLength(1);
+      expect(nextMessages[0]!.content).toBe('A1 first reply');
+
+      // Step 2: B inv-B1 stream + content
+      ({ nextMessages } = applyBubbleEvent({
+        threadId: 'thread-1',
+        event: eventFor('codex', 'inv-B1', 'stream_chunk', 'B1 reply'),
+        currentMessages: nextMessages,
+      }));
+      expect(nextMessages).toHaveLength(2);
+      expect(nextMessages.find((m) => m.catId === 'codex')?.content).toBe('B1 reply');
+
+      // Step 3: A inv-A2 (NEW invocation) stream + content
+      ({ nextMessages } = applyBubbleEvent({
+        threadId: 'thread-1',
+        event: eventFor('opus', 'inv-A2', 'stream_chunk', 'A2 second reply'),
+        currentMessages: nextMessages,
+      }));
+
+      // CRITICAL: 3 stable bubbles, A2 must be its own bubble (different id),
+      // A2 content must NOT appear in A1 bubble (no soft-merge / no collapse)
+      expect(nextMessages).toHaveLength(3);
+      const a1 = nextMessages.find((m) => m.id === 'msg-inv-A1-opus');
+      const b1 = nextMessages.find((m) => m.id === 'msg-inv-B1-codex');
+      const a2 = nextMessages.find((m) => m.id === 'msg-inv-A2-opus');
+      expect(a1?.content).toBe('A1 first reply');
+      expect(a1?.content).not.toContain('A2 second reply');
+      expect(b1?.content).toBe('B1 reply');
+      expect(a2).toBeDefined();
+      expect(a2?.content).toBe('A2 second reply');
+      // Order: A1 → B1 → A2 (insertion order)
+      expect(nextMessages.map((m) => m.id)).toEqual(['msg-inv-A1-opus', 'msg-inv-B1-codex', 'msg-inv-A2-opus']);
+    });
+
+    it('A→B→A with callback_final: each invocation finalized separately, no cross-contamination', () => {
+      // Mirror the production flow: stream → callback_final per invocation
+      let { nextMessages } = applyBubbleEvent({
+        threadId: 'thread-1',
+        event: eventFor('opus', 'inv-A1', 'callback_final', 'A1 final'),
+        currentMessages: [],
+      });
+      ({ nextMessages } = applyBubbleEvent({
+        threadId: 'thread-1',
+        event: eventFor('codex', 'inv-B1', 'callback_final', 'B1 final'),
+        currentMessages: nextMessages,
+      }));
+      ({ nextMessages } = applyBubbleEvent({
+        threadId: 'thread-1',
+        event: eventFor('opus', 'inv-A2', 'callback_final', 'A2 final'),
+        currentMessages: nextMessages,
+      }));
+
+      expect(nextMessages).toHaveLength(3);
+      expect(nextMessages.find((m) => m.id === 'msg-inv-A1-opus')?.content).toBe('A1 final');
+      expect(nextMessages.find((m) => m.id === 'msg-inv-A1-opus')?.content).not.toContain('A2 final');
+      expect(nextMessages.find((m) => m.id === 'msg-inv-B1-codex')?.content).toBe('B1 final');
+      expect(nextMessages.find((m) => m.id === 'msg-inv-A2-opus')?.content).toBe('A2 final');
+    });
+  });
+
   it('B1.6: invocationless tool_event is reducer no-op (caller still drives via legacy)', () => {
     const toolEvent = { id: 'te-3', type: 'tool_use' as const, label: 'codex → noop', timestamp: 1100 };
     const output = applyBubbleEvent({

@@ -1137,7 +1137,7 @@
     {
       "id": "F183",
       "name": "Bubble Pipeline Architecture Consolidation — 消息气泡管线架构收敛",
-      "status": "completed ✅ | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1",
+      "status": "in-progress (R2/R4/R5 reconnect catchup follow-up) | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1",
       "file": "F183-bubble-pipeline-architecture-consolidation.md"
     },
     {
