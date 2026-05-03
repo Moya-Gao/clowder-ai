@@ -111,11 +111,11 @@ GBrain 拆解发现的核心 UX 差距：我们的 `evidence.sqlite` 对猫友�
 
 | GBrain 亮点 | 我们怎么学 | 落在哪 |
 |-------------|-----------|--------|
-| **Compiled Truth Page** — 每个节点有"当前结论 + 证据时间线"，人类打开就能浏览 | **Collection 概览页**：每个 Collection 在 Hub 里有一个人类可读的概览（里面有什么主题、关键 anchor、最近变更），不是搜索结果而是浏览入口 | Phase A 骨架 / Phase D 充实 |
-| **Brain Health 健康感** — maintain/orphans/backlinks audit 形成产品化的"健康感觉" | **Collection 健康卡**：不是技术指标而是铲屎官能理解的状态（"上次更新 2 天前"、"3 条知识待审核"、"0 个 secret 发现"） | Phase A（扩展现有 Index Status tab） |
-| **Typed Graph 可视关联** — typed link 不只排序，还让人浏览知识关系 | **知识关系图**：anchor 之间的 typed edge（evolved_from / related / supersedes）可视化 | Phase F（Typed Graph） |
+| **Compiled Truth Page** — 每个节点有"当前结论 + 证据时间线"，人类打开就能浏览 | **Collection Overview Lens**：每个 Collection 在 Hub 里有一个人类可读的概览（里面有什么主题、关键 anchor、最近变更），不是搜索结果而是浏览入口。学 GBrain 的可读性，不学它的 Compiled Truth 写回模型 | Phase A 骨架 / Phase D 充实 |
+| **Brain Health 健康感** — maintain/orphans/backlinks audit 形成产品化的"健康感觉" | **Collection Health Card**：不是技术指标而是铲屎官能理解的状态（"上次更新 2 天前"、"3 条知识待审核"、"0 个 secret 发现"） | Phase A（扩展现有 Index Status tab） |
+| **Typed Graph 可视关联** — typed link 不只排序，还让人浏览知识关系 | **Knowledge Relationship Graph**：anchor 之间的 typed edge（evolved_from / related / supersedes）可视化 | Phase F（Typed Graph） |
 
-边界：概览页是**实时计算/缓存**的投影，不是独立的 compiled wiki 真相源（F169 边界不倒退）。
+边界：Overview Lens 和 Health Card 是**实时计算的 derived read-model**，标记 `indexable: false`、`sourceAnchors: [...]`。它们是投影而非真相源，不产生可被引用的 evidence anchor（F169 已明确关闭持久 compiled wiki，此处不倒退）。与 F169 Memory Lens 同属 Lens 家族，区别在粒度：Memory Lens 是 query-scoped，Overview Lens 是 collection-scoped。
 
 **Non-goal**：F186 不是独立的 GBrain-like compiled wiki 产品。图书馆是 Hub 内嵌能力层。但铲屎官不只是管理者——他也想**浏览**图书馆里有什么，不能只给搜索框和管理按钮。
 
@@ -168,6 +168,8 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 - [ ] AC-A4: `search_evidence` API 支持 `dimension: "library" | "collection"` + `collections?: string[]`，且不破坏既有 `scope: "docs" | "threads" | "sessions" | "all"`
 - [ ] AC-A5: 跨域结果按 collection 分组标注，包含 collectionId/sensitivity/itemAuthority/reviewStatus
 - [ ] AC-A6: F186 字段与 F102/F152/F163 归一：`scope`/`dimension`/`provenance`/`authority` 语义无冲突，有类型测试或契约测试覆盖
+- [ ] AC-A7: `CollectionOverview` / `CollectionHealth` read-model 契约定义完成；输出标记 `derived`、`indexable: false`、`sourceAnchors: [...]`，Phase A 只含确定性统计（manifest stats / index freshness / pending review count），不含 LLM 摘要
+- [ ] AC-A8: Memory Hub Catalog 骨架页上线，展示 `project:cat-cafe` 和 `global:methods` 的 Overview Lens + Health Card（数据来自 AC-A7 read-model）
 
 ### Phase B（Scanner 渐进增强框架）
 - [ ] AC-B1: Level 0 scanner 能索引任意 markdown 目录（无 frontmatter 要求）
@@ -182,6 +184,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 
 ### Phase D（非代码 Collection 试点）
 - [ ] AC-D1: 至少一个非代码 Collection 完成 truth → scan → index → query 全链路验证
+- [ ] AC-D2: 非代码 Collection 试点必须同时验证 Human-Browsable Layer（Overview Lens + Health Card 正常展示），不只是 scan/index/query
 
 ### Phase E（Collection-aware Query Replay）
 - [ ] AC-E1: Query capture 包含 scope/dimension/collections/topK per collection 字段
@@ -200,6 +203,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | R3 | "大概率用户给你的就是一堆乱七八糟的文档" — Level 0 无结构要求 | AC-B1 | test: 索引无 frontmatter 目录 | [ ] |
 | R4 | Lexander 试点安全绑定（secret/private/prompt injection） | AC-C1~C4, AC-D1 | test: dry-run + 全链路 | [ ] |
 | R5 | "186 最好能够架构归一，必须归一" | AC-A2, AC-A6 | test: API/type contract 不新增平行 memory stack | [ ] |
+| R6 | GBrain"给人看"的亮点 — 铲屎官也想浏览图书馆，不只是搜索框和管理按钮 | AC-A7, AC-A8, AC-D2 | test: Hub 展示 Overview Lens + Health Card | [ ] |
 
 ### 覆盖检查
 - [ ] 每个需求点都能映射到至少一个 AC
