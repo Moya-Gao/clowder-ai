@@ -259,7 +259,10 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
     expect(container.textContent).toContain(THINKING_TEXT);
   });
 
-  it('stream-origin messages render via CliOutputBlock (F097)', async () => {
+  it('stream-origin text content renders directly in the bubble (not buried inside CliOutputBlock)', async () => {
+    // After the cli-text-render fix: final assistant text is rendered in the bubble's main
+    // content section regardless of origin. Stream-origin messages without tools no longer
+    // render a CLI Output wrapper around the text — the bubble matches callback-origin shape.
     const { ChatMessage } = await import('@/components/ChatMessage');
 
     const streamMsg = {
@@ -282,19 +285,10 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
       );
     });
 
-    // F097: stream content now renders inside CliOutputBlock, not ThinkingContent
-    expect(container.textContent).toContain('CLI Output');
-
-    // Click to expand → content visible in terminal substrate
-    const cliButton = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('CLI Output'),
-    );
-    expect(cliButton).toBeTruthy();
-    act(() => {
-      cliButton?.click();
-    });
-
+    // Text is visible immediately, no expand-click needed
     expect(container.textContent).toContain('stream inner monologue content here');
+    // No CLI Output wrapper when there are no tool events
+    expect(container.textContent).not.toContain('CLI Output');
   });
 
   it('bubble toggle click immediately re-renders already-mounted thinking block', async () => {

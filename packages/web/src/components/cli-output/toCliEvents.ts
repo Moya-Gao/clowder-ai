@@ -38,9 +38,10 @@ function extractPrimaryArg(detail?: string): string | undefined {
   return undefined;
 }
 
-/** F097: Adapt existing ToolEvent[] + stream content → CliEvent[] unified timeline.
- *  Phase A: N tool events + 1 text block. Phase B: backend pushes CliEvent[] directly. */
-export function toCliEvents(toolEvents: ToolEvent[] | undefined, streamContent: string | undefined): CliEvent[] {
+/** Adapt ToolEvent[] → CliEvent[] for the CLI Output block (tools timeline only).
+ *  Final assistant text is rendered in the bubble's main content section, NOT
+ *  embedded here — see ChatMessage's content branch. */
+export function toCliEvents(toolEvents: ToolEvent[] | undefined): CliEvent[] {
   const events: CliEvent[] = [];
 
   if (toolEvents) {
@@ -79,15 +80,6 @@ export function toCliEvents(toolEvents: ToolEvent[] | undefined, streamContent: 
         });
       }
     }
-  }
-
-  if (streamContent?.trim()) {
-    events.push({
-      id: 'stdout-text',
-      kind: 'text',
-      timestamp: events.length > 0 ? events[events.length - 1].timestamp + 1 : Date.now(),
-      content: streamContent,
-    });
   }
 
   return events;

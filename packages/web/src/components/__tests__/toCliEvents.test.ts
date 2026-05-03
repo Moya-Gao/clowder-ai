@@ -11,7 +11,7 @@ describe('toCliEvents', () => {
       { id: 't1', type: 'tool_use', label: 'opus → Read', timestamp: 1000 },
       { id: 't2', type: 'tool_use', label: 'codex → Bash', timestamp: 2000 },
     ];
-    const events = toCliEvents(toolEvents, undefined);
+    const events = toCliEvents(toolEvents);
     expect(events[0].label).toBe('Read');
     expect(events[1].label).toBe('Bash');
   });
@@ -28,7 +28,7 @@ describe('toCliEvents', () => {
         timestamp: 3000,
       },
     ];
-    const events = toCliEvents(toolEvents, undefined);
+    const events = toCliEvents(toolEvents);
     expect(events[0].label).toBe('Read src/index.ts');
     expect(events[1].label).toBe('Bash pnpm test');
     expect(events[2].label).toBe('Grep CliOutput');
@@ -45,19 +45,19 @@ describe('toCliEvents', () => {
         timestamp: 1000,
       },
     ];
-    const events = toCliEvents(toolEvents, undefined);
+    const events = toCliEvents(toolEvents);
     expect(events[0].label).toBe(`Read ${'a'.repeat(57)}...`);
   });
 
   it('handles labels without arrow prefix (already clean)', () => {
     const toolEvents: ToolEvent[] = [{ id: 't1', type: 'tool_use', label: 'Read foo.ts', timestamp: 1000 }];
-    const events = toCliEvents(toolEvents, undefined);
+    const events = toCliEvents(toolEvents);
     expect(events[0].label).toBe('Read foo.ts');
   });
 
   it('handles tool_use without detail', () => {
     const toolEvents: ToolEvent[] = [{ id: 't1', type: 'tool_use', label: 'opus → Agent', timestamp: 1000 }];
-    const events = toCliEvents(toolEvents, undefined);
+    const events = toCliEvents(toolEvents);
     expect(events[0].label).toBe('Agent');
   });
 
@@ -65,7 +65,7 @@ describe('toCliEvents', () => {
     const toolEvents: ToolEvent[] = [
       { id: 't1', type: 'tool_use', label: 'opus → Bash', detail: 'not json', timestamp: 1000 },
     ];
-    const events = toCliEvents(toolEvents, undefined);
+    const events = toCliEvents(toolEvents);
     expect(events[0].label).toBe('Bash');
     expect(events[0].detail).toBe('not json');
   });
@@ -79,7 +79,7 @@ describe('toCliEvents', () => {
       { id: 'u3', type: 'tool_use', label: 'gemini → unknown', timestamp: 5000 },
       { id: 'r3', type: 'tool_result', label: 'gemini ← result', detail: 'UNKNOWN_RESULT_2', timestamp: 6000 },
     ];
-    const events = toCliEvents(toolEvents, undefined);
+    const events = toCliEvents(toolEvents);
     const uses = events.filter((e) => e.kind === 'tool_use');
     const results = events.filter((e) => e.kind === 'tool_result');
     // Only the Read tool_use + its result survive
@@ -95,22 +95,10 @@ describe('toCliEvents', () => {
       { id: 't1', type: 'tool_use', label: 'opus → Read', timestamp: 1000 },
       { id: 'r1', type: 'tool_result', label: 'opus ← result', detail: 'file contents...', timestamp: 2000 },
     ];
-    const events = toCliEvents(toolEvents, undefined);
+    const events = toCliEvents(toolEvents);
     expect(events).toHaveLength(2);
     expect(events[1].kind).toBe('tool_result');
     expect(events[1].detail).toBe('file contents...');
-  });
-
-  it('appends streamContent as text event', () => {
-    const events = toCliEvents([], 'All tests passing.\nRefactoring...');
-    expect(events).toHaveLength(1);
-    expect(events[0].kind).toBe('text');
-    expect(events[0].content).toBe('All tests passing.\nRefactoring...');
-  });
-
-  it('skips empty streamContent', () => {
-    const events = toCliEvents([], '   ');
-    expect(events).toHaveLength(0);
   });
 
   it('extracts file_path from truncated JSON via regex fallback', () => {
@@ -120,7 +108,7 @@ describe('toCliEvents', () => {
     const toolEvents: ToolEvent[] = [
       { id: 't1', type: 'tool_use', label: 'opus → Edit', detail: truncatedDetail, timestamp: 1000 },
     ];
-    const events = toCliEvents(toolEvents, undefined);
+    const events = toCliEvents(toolEvents);
     expect(events[0].label).toBe('Edit src/components/ChatMessage.tsx');
   });
 
@@ -130,7 +118,7 @@ describe('toCliEvents', () => {
     const toolEvents: ToolEvent[] = [
       { id: 't1', type: 'tool_use', label: 'opus → Bash', detail: truncatedDetail, timestamp: 1000 },
     ];
-    const events = toCliEvents(toolEvents, undefined);
+    const events = toCliEvents(toolEvents);
     expect(events[0].label).toBe('Bash pnpm --filter @cat-cafe/web test');
   });
 });

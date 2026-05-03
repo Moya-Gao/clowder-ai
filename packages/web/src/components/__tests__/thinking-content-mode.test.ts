@@ -66,6 +66,9 @@ const thinkingMessage = {
   content: 'CLI stream output text',
   thinking: 'Extended reasoning content here',
   origin: 'stream' as const,
+  // CLI block only renders when there are tool events (post cli-text-render fix).
+  // Need at least one tool event to keep the "default collapsed" assertion meaningful.
+  toolEvents: [{ id: 't1', type: 'tool_use' as const, label: 'Read foo.ts', timestamp: 1000 }],
   timestamp: Date.now(),
   isStreaming: false,
 };
