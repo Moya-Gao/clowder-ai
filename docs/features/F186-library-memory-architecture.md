@@ -170,6 +170,9 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 - [ ] AC-A6: F186 字段与 F102/F152/F163 归一：`scope`/`dimension`/`provenance`/`authority` 语义无冲突，有类型测试或契约测试覆盖
 - [ ] AC-A7: `CollectionOverview` / `CollectionHealth` read-model 契约定义完成；输出标记 `derived`、`indexable: false`、`sourceAnchors: [...]`，Phase A 只含确定性统计（manifest stats / index freshness / pending review count），不含 LLM 摘要
 - [ ] AC-A8: Memory Hub Catalog 骨架页上线，展示 `project:cat-cafe` 和 `global:methods` 的 Overview Lens + Health Card（数据来自 AC-A7 read-model）
+- [ ] AC-A9: RecallFeed privacy boundary — private Collection 命中时：snippet 仅 owner-visible（折叠 + 展开需确认）；RecallFeed log 不参与 `search_evidence(scope=threads)` 反向索引，防止 private 内容通过 recall log 后门泄漏
+- [ ] AC-A10: Knowledge Feed approve 支持显式选择 target Collection；candidate 默认 target = 产出源 Collection；跨 Collection promote（如 `world:lexander` → `global:methods`）需 sensitivity 跃迁二次确认 + re-scan secret
+- [ ] AC-A11: Collection lifecycle CRUD API 形态定义 — unbind（compiled index 默认归档到 `<dataDir>/library/.archive/`，不立即删除）/ rename（历史 recall log 中 `collectionId` 引用保留旧 ID 别名映射）/ sensitivity change（升级需 re-scan secret，降级需清理已缓存 snippet）
 
 ### Phase B（Scanner 渐进增强框架）
 - [ ] AC-B1: Level 0 scanner 能索引任意 markdown 目录（无 frontmatter 要求）
@@ -204,6 +207,8 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | R4 | Lexander 试点安全绑定（secret/private/prompt injection） | AC-C1~C4, AC-D1 | test: dry-run + 全链路 | [ ] |
 | R5 | "186 最好能够架构归一，必须归一" | AC-A2, AC-A6 | test: API/type contract 不新增平行 memory stack | [ ] |
 | R6 | GBrain"给人看"的亮点 — 铲屎官也想浏览图书馆，不只是搜索框和管理按钮 | AC-A7, AC-A8, AC-D2 | test: Hub 展示 Overview Lens + Health Card | [ ] |
+| R7 | private Collection 内容不能通过 RecallFeed / Knowledge Feed 后门泄漏 | AC-A9, AC-A10 | test: private snippet 不出现在 threads scope 索引 | [ ] |
+| R8 | Collection 可安全退场（unbind/rename/sensitivity change） | AC-A11 | test: unbind 归档 + rename 别名 + sensitivity re-scan | [ ] |
 
 ### 覆盖检查
 - [ ] 每个需求点都能映射到至少一个 AC
@@ -233,6 +238,9 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | OQ-1 | 非代码域第一个试点选哪个？ | ✅ 已决：Phase D 候选用 Lexander；不进入 Phase A scope |
 | OQ-2 | 非代码域入库路径：手动放文件 vs 聊天产出→审核→auto materialize | ⬜ 未定 |
 | OQ-3 | legacy `dimension: "all"` deprecation 时机：Phase A 只做兼容 alias，后续是否移除 | ⬜ 未定 |
+| OQ-4 | 跨域 lesson promote 路径（`world:lexander` lesson → `global:methods`）：默认 fail-closed 需 owner 双签 + re-scan，还是允许自动 promote？ | ⬜ 未定（47 建议 fail-closed） |
+| OQ-5 | 空状态扩搜引导：project recall 无结果时，是否做 cross-domain title-only probe 提示"其他 Collection 有 N 条相似主题"？ | ⬜ 未定（47 建议纳入，零架构成本） |
+| OQ-6 | RecallCard Pin：铲屎官在 RecallFeed 里标记"关键/不该命中"作为 Query Replay 种子语料？ | ⬜ 未定（47 建议 Phase E 前做） |
 
 ## Key Decisions
 
@@ -257,6 +265,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | 2026-05-03 | GBrain 拆解 + PageIndex 拆解 → 图书馆架构讨论收敛 |
 | 2026-05-03 | 立项 |
 | 2026-05-03 | Design Gate 加入架构归一硬约束（不新增第二套 memory stack） |
+| 2026-05-03 | 47 愿景守护视角扫描：补 AC-A9~A11（RecallFeed 私敏 / KF target / lifecycle CRUD）+ OQ-4~6 |
 
 ## Review Gate
 
