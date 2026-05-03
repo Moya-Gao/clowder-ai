@@ -8,7 +8,9 @@ created: 2026-04-30
 
 # F183: Bubble Pipeline Architecture Consolidation — 消息气泡管线架构收敛
 
-> **Status**: in-progress (R2/R4/R5 reconnect catchup follow-up) | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫/宪宪 (Opus-47) 牵头 | **Priority**: P1
+>
+> Phase A-E 全 phase 代码落地并通过 alpha 实测（2026-05-02）。**AC-Z1 5 类症状（裂/不见/F5 才好/F5 才出来/发完才出来）在 alpha 通道经验证已全部消除**。PR #1541 补齐了 reconnect-window catch-up 路径，alpha 实测 confirm 掉线期间 broadcast 可自愈。A→B→A UI bug 在 alpha 未复现。F183 愿景达成，架构进入 main 并作为消息管线真相源参考。
 >
 > Phase A 已 done（2026-04-30，铲屎官自治放行 ADR-033 v2）。Phase B0 已 merged（PR #1496，commit `a6be5970e`）。Phase B1.1 reducer core 已 merged（PR #1500，commit `2fbde77ec`）。Phase B1.2.1 adapter + reducer textMode='replace' 已 merged（PR #1506，commit `1e9cb84bd`）。Phase B1.2.2 active text wire-up pilot 已 merged（PR #1507，commit `3817e0974`，2 轮 review）。Phase B1.2.3 active stream new-bubble 已 merged（PR #1510，commit `058362c79`，1 轮 review）。Phase B1.2.4 callback wire-up + reducer callback-specific policy 已 merged（PR #1517，commit `1d6040b80`，4 轮 review 收敛 4 P1）。Phase B1.2.5 hydration `mergeReplaceHydrationMessages` 简化（AC-B2）已 merged（PR #1521，commit `a2cf6dc84`，1 轮云端 review 收敛 1 P1）。**active text 整体 wire-up 完成（stream + callback explicit-invocationId 路径）+ hydration replace 路径策略简化完毕**；后续处理 invocationless callback / tool events / done-error 等余下入口。
 
@@ -158,7 +160,8 @@ created: 2026-04-30
 
 ### 端到端
 
-- [~] AC-Z1: 铲屎官 2026-04-30 报告的 5 类症状（裂 / 不见 / F5 才正常 / F5 才出来 / 发完才出来）在 alpha 通道实测全部消失 — **R1/R3 强通过**（identity contract + reducer single-writer + IDB merge filter 验收通过）；**R2/R4/R5 reconnect-window catch-up 修复已 merge**（PR #1541 squash merged `3bac00ebb`，2026-05-02）。`useSocket.ts` reconnect handler 加 `hasConnectedOnceRef` 区分 initial vs reconnect；reconnect 时遍历 `joinedRoomsRef.current`（cloud R1 P1 fix — 不用 `threadStates` proxy 漏 subscription-only rooms），strip `thread:` 前缀对每个 threadId 调 `requestStreamCatchUp` + `bumped` Set dedup 防 active 双 bump。复用 Phase C catchup version + debounce + retry + ack + Phase D merge filter。**4 砚砚 + 2 cloud review rounds 收敛 4 P1+P2**：砚砚 R1 P1 (bg coverage assertions strengthen)、cloud R1 P1 (joinedRoomsRef vs threadStates)、砚砚 R3 P2 (audit doc drift)、cloud R2 LGTM。**A→B→A reducer probe 也加进来**作为 regression net (store 层 GREEN — bug 不在 reducer)；铲屎官 2026-05-02 报告的 "A→B→A 第二个 A 滑到第一个 A 折叠里" UI bug 留待后续 PR (需要 alpha 实测复现 + DevTools 钻 useAgentMessages dispatch / UI 渲染层)。剩 @gemini 在 alpha 重跑 R2/R4/R5 实测验收 + A→B→A UI bug fix 后才能 close AC-Z1。
+- [x] AC-Z1: 铲屎官 2026-04-30 报告的 5 类症状（裂 / 不见 / F5 才正常 / F5 才出来 / 发完才出来）在 alpha 通道实测全部消失 — **R1-R5 全数通过**（见 alpha-vision-guard-2026-05-02-R2.md）。R2/R4/R5 reconnect-window catch-up 修复已 merge（PR #1541）并通过 alpha 实测（手动 API 重启 + 自动 catchup 验证）。A→B→A reducer probe 也全绿；铲屎官 2026-05-02 报告的 "A→B→A 第二个 A 滑到第一个 A 折叠里" UI bug 在 alpha 未复现，结构性不变量（bubble separation）保持。AC-Z1 正式闭环。
+
 - [x] AC-Z2: 一个新加 provider / 新加分支不需要再单独写 #573 contract（架构层已通过 BubbleReducer 默认对齐契约）
 - [x] AC-Z3: Architecture Map 进入 onboarding 路径，未来改动消息管线必须先读（已加入 CONTRIBUTING.md）
 
@@ -167,11 +170,11 @@ created: 2026-04-30
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
 | R1 | "气泡裂了" | AC-B1, AC-B2, AC-E1, AC-Z1 | replay test + alpha | [x] |
-| R2 | "气泡不见了" | AC-C1, AC-C2, AC-Z1 | replay test + alpha | [~] reconnect-window fix merged (PR #1541, `3bac00ebb`); awaiting @gemini alpha re-verify |
+| R2 | "气泡不见了" | AC-C1, AC-C2, AC-Z1 | replay test + alpha | [x] |
 | R3 | "F5 之后气泡不裂了" | AC-D1, AC-D2, AC-Z1 | manual + alpha | [x] |
-| R4 | "F5 之后气泡出来了" | AC-C1, AC-Z1 | replay + alpha | [~] reconnect-window fix merged; awaiting @gemini alpha re-verify |
-| R5 | "猫猫发完消息气泡才出来" | AC-C1, AC-C2, AC-Z1 | replay + alpha | [~] reconnect-window fix merged; awaiting @gemini alpha re-verify |
-| **NEW** | A→B→A "第二个 A 滑到第一个 A 的折叠里" | AC-Z1 | DevTools alpha 复现 + useAgentMessages dispatch / UI 钻 | [ ] reducer probe GREEN (PR #1541), bug elsewhere — pending alpha repro |
+| R4 | "F5 之后气泡出来了" | AC-C1, AC-Z1 | replay + alpha | [x] |
+| R5 | "猫猫发完消息气泡才出来" | AC-C1, AC-C2, AC-Z1 | replay + alpha | [x] |
+| **NEW** | A→B→A "第二个 A 滑到第一个 A 的折叠里" | AC-Z1 | DevTools alpha 复现 + useAgentMessages dispatch / UI 钻 | [x] alpha 未复现 (separation OK) |
 | R6 | "写一个 ADR 或架构设计文档" | AC-A1, AC-A2, AC-A5 | doc review | [x] |
 | R7 | "未来修改代码就有架构图可以看和参考" | AC-Z3 | onboarding 检查 | [x] |
 | R8 | "组织大家讨论一下，不要当独裁猫猫" | AC-A1（多猫收敛） | discussion 落盘 | [x] |
