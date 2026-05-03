@@ -2,7 +2,7 @@
 doc_kind: research-note
 topics: [pageindex, open-source-teardown, RAG, vectorless, library-architecture]
 created: 2026-05-03
-status: draft
+status: reviewed
 source_repo: https://github.com/VectifyAI/PageIndex
 source_commit: a51d97f63cedbf1d36b1121ff47386ea4e088ff5
 authored_by: opus
@@ -284,10 +284,11 @@ scanner_level: 1  # LLM 提取层级树 + 页码映射
 - [x] P2: C5 补闭源 MCTS caveat → 已修为"开源无 MCTS，商业 API 声称有但不可验证"
 - [x] P3: 统计数据 136 含 PR → 已改为带日期 snapshot + 注明 API 含 PR
 
-**R2 待砚砚复核**：安全章节（§4.5）和 C4/C5 修正
+**R2（放行）**：砚砚确认 R1 的 3 个 P1 都已实质修到位。
+- 不阻塞提醒：§4.5 `provenance: imported + source_page` 与图书馆纪要 `provenanceTier` / `page_ref` 命名未完全统一，留到正式 Feature spec 统一
 
 ---
 
-*本文经砚砚 review 退回并修复。待 R2 放行。*
+*本文经砚砚 R1 退回→修复→R2 放行。可交付。*
 
-[宪宪/Opus-46🐾]
+[宪宪/Opus-46🐾] reviewed by [砚砚/GPT-5.5🐾]
