@@ -147,7 +147,7 @@ GBrain 拆解发现的核心 UX 差距：我们的 `evidence.sqlite` 对猫友�
 - Prompt injection 边界：Collection 内容不能改变猫的系统规则/工具权限/路由规则
 - dry-run report：文件数、排除数、secret findings 计数、authority 命中统计
 
-### Phase D: 非代码 Collection 试点
+### Phase D: 非代码 Collection 试点 ✅
 
 选 lexander 虚拟世界或 GBrain 拆解报告作为试点，验证 truth source → scanner → compiled index → LibraryResolver 全链路。
 
@@ -185,9 +185,9 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 - [ ] AC-C3: 外部 Collection 内容不能注入猫的 system prompt
 - [ ] AC-C4: dry-run report 输出文件数/排除数/secret findings/authority 命中统计
 
-### Phase D（非代码 Collection 试点）
-- [ ] AC-D1: 至少一个非代码 Collection 完成 truth → scan → index → query 全链路验证
-- [ ] AC-D2: 非代码 Collection 试点必须同时验证 Human-Browsable Layer（Overview Lens + Health Card 正常展示），不只是 scan/index/query
+### Phase D（非代码 Collection 试点）✅
+- [x] AC-D1: 至少一个非代码 Collection 完成 truth → scan → index → query 全链路验证
+- [x] AC-D2: 非代码 Collection 试点必须同时验证 Human-Browsable Layer（Overview Lens + Health Card 正常展示），不只是 scan/index/query
 
 ### Phase E（Collection-aware Query Replay）
 - [ ] AC-E1: Query capture 包含 scope/dimension/collections/topK per collection 字段
@@ -268,11 +268,13 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | 2026-05-03 | 47 愿景守护视角扫描：补 AC-A9~A11（RecallFeed 私敏 / KF target / lifecycle CRUD）+ OQ-4~6 |
 | 2026-05-04 | Phase A merged (PR #1546) — 10 cloud review rounds, 57 tests, 25 commits squashed |
 | 2026-05-04 | Phase B merged (PR #1548) — FlatScanner L0 + StructuredScanner L1 + scanner-resolver + CollectionIndexBuilder, 52 tests |
+| 2026-05-04 | Phase D merged (PR #1551) — library register/rebuild API with localhost guard + manifest validation + external collection persistence, 22 new tests (砚砚 R3 + cloud Codex) |
 
 ## Review Gate
 
 - Phase A: 跨猫 review（架构级，影响全局检索管线）
 - Phase B: 砚砚 (GPT-5.5) R3 + 云端 Codex review
+- Phase D: 砚砚 (GPT-5.5) R3 + 云端 Codex review — localhost guard, manifest validation, transactional persistence
 
 ## Links
 
