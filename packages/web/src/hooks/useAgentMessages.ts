@@ -7,7 +7,7 @@ import { recordBubbleInvariantViolation } from '@/debug/bubbleInvariantDiagnosti
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { adaptIncomingToBubbleEvent } from '@/hooks/bubble-event-adapter';
 import { deriveBubbleKindFromMessage } from '@/stores/bubble-invariants';
-import { applyBubbleEvent } from '@/stores/bubble-reducer';
+import { applyBubbleEvent, type BubbleReducerInput, type BubbleReducerOutput } from '@/stores/bubble-reducer';
 import type {
   CatInvocationInfo,
   CatStatusType,
@@ -74,6 +74,14 @@ function nextActiveA2AHandoffSeq(): number {
   return activeA2AHandoffSeq;
 }
 const DEBUG_SKIP_FILE_CHANGE_UI = process.env.NEXT_PUBLIC_DEBUG_SKIP_FILE_CHANGE_UI === '1';
+
+function applyBubbleEventWithRecovery(input: BubbleReducerInput): BubbleReducerOutput {
+  const result = applyBubbleEvent(input);
+  if (result.recoveryAction === 'catch-up') {
+    useChatStore.getState().requestStreamCatchUp(input.threadId);
+  }
+  return result;
+}
 
 interface AgentMsg {
   type: string;
@@ -1108,7 +1116,7 @@ export function handleBackgroundAgentMessage(
           if (event) {
             const eventWithMsgId = { ...event, messageId: cbId };
             const threadState = options.store.getThreadState(msg.threadId);
-            const result = applyBubbleEvent({
+            const result = applyBubbleEventWithRecovery({
               threadId: msg.threadId,
               event: eventWithMsgId,
               currentMessages: threadState.messages,
@@ -1172,7 +1180,7 @@ export function handleBackgroundAgentMessage(
             const eventWithMsgId = { ...event, messageId: cbId };
             const threadState = options.store.getThreadState(msg.threadId);
             const prevLen = threadState.messages.length;
-            const result = applyBubbleEvent({
+            const result = applyBubbleEventWithRecovery({
               threadId: msg.threadId,
               event: eventWithMsgId,
               currentMessages: threadState.messages,
@@ -1258,7 +1266,7 @@ export function handleBackgroundAgentMessage(
           );
           const eventWithId = { ...event, messageId: msg.messageId ?? preDerivedId };
           const threadState = options.store.getThreadState(msg.threadId);
-          const result = applyBubbleEvent({
+          const result = applyBubbleEventWithRecovery({
             threadId: msg.threadId,
             event: eventWithId,
             currentMessages: threadState.messages,
@@ -1433,7 +1441,7 @@ export function handleBackgroundAgentMessage(
         };
         const threadState = options.store.getThreadState(msg.threadId);
         const prevLen = threadState.messages.length;
-        const result = applyBubbleEvent({
+        const result = applyBubbleEventWithRecovery({
           threadId: msg.threadId,
           event: eventWithEnrichment,
           currentMessages: threadState.messages,
@@ -1537,7 +1545,7 @@ export function handleBackgroundAgentMessage(
           payload: { ...(event.payload ?? {}), toolEvent: toolUseEventData },
         };
         const threadState = options.store.getThreadState(msg.threadId);
-        const result = applyBubbleEvent({
+        const result = applyBubbleEventWithRecovery({
           threadId: msg.threadId,
           event: eventWithToolEvent,
           currentMessages: threadState.messages,
@@ -1581,7 +1589,7 @@ export function handleBackgroundAgentMessage(
           payload: { ...(event.payload ?? {}), toolEvent: toolResultEventData },
         };
         const threadState = options.store.getThreadState(msg.threadId);
-        const result = applyBubbleEvent({
+        const result = applyBubbleEventWithRecovery({
           threadId: msg.threadId,
           event: eventWithToolEvent,
           currentMessages: threadState.messages,
@@ -2498,7 +2506,7 @@ export function useAgentMessages() {
             if (event) {
               const eventWithId = { ...event, messageId: finalId };
               const storeSnapshot = useChatStore.getState();
-              const result = applyBubbleEvent({
+              const result = applyBubbleEventWithRecovery({
                 threadId: threadIdForCallback,
                 event: eventWithId,
                 currentMessages: storeSnapshot.messages,
@@ -2590,7 +2598,7 @@ export function useAgentMessages() {
             if (event) {
               const eventWithHint = { ...event, messageId: finalId };
               const storeSnapshot = useChatStore.getState();
-              const result = applyBubbleEvent({
+              const result = applyBubbleEventWithRecovery({
                 threadId: threadIdForCallback,
                 event: eventWithHint,
                 currentMessages: storeSnapshot.messages,
@@ -2713,7 +2721,7 @@ export function useAgentMessages() {
                 // 强制 false 会让 `useChatHistory` gate on hasMore 永远为 false，杀掉
                 // 老历史 pagination。复用当前 store hasMore，保持 live chunk 不动 pagination。
                 const storeSnapshot = useChatStore.getState();
-                const result = applyBubbleEvent({
+                const result = applyBubbleEventWithRecovery({
                   threadId,
                   event: eventWithId,
                   currentMessages: storeSnapshot.messages,
@@ -2761,7 +2769,7 @@ export function useAgentMessages() {
             if (event) {
               const eventWithId = { ...event, messageId: id };
               const storeSnapshot = useChatStore.getState();
-              const result = applyBubbleEvent({
+              const result = applyBubbleEventWithRecovery({
                 threadId,
                 event: eventWithId,
                 currentMessages: storeSnapshot.messages,
@@ -2837,7 +2845,7 @@ export function useAgentMessages() {
               payload: { ...(event.payload ?? {}), toolEvent: toolUseEventData },
             };
             const storeSnapshot = useChatStore.getState();
-            const result = applyBubbleEvent({
+            const result = applyBubbleEventWithRecovery({
               threadId: threadIdForTool,
               event: eventWithToolEvent,
               currentMessages: storeSnapshot.messages,
@@ -2895,7 +2903,7 @@ export function useAgentMessages() {
               payload: { ...(event.payload ?? {}), toolEvent: toolResultEventData },
             };
             const storeSnapshot = useChatStore.getState();
-            const result = applyBubbleEvent({
+            const result = applyBubbleEventWithRecovery({
               threadId: threadIdForTool,
               event: eventWithToolEvent,
               currentMessages: storeSnapshot.messages,
@@ -3021,7 +3029,7 @@ export function useAgentMessages() {
             });
             if (event) {
               const storeSnapshot = useChatStore.getState();
-              const result = applyBubbleEvent({
+              const result = applyBubbleEventWithRecovery({
                 threadId,
                 event,
                 currentMessages: storeSnapshot.messages,
@@ -3688,7 +3696,7 @@ export function useAgentMessages() {
                 },
               };
               const storeSnapshot = useChatStore.getState();
-              const result = applyBubbleEvent({
+              const result = applyBubbleEventWithRecovery({
                 threadId: threadIdForError,
                 event: eventWithEnrichment,
                 currentMessages: storeSnapshot.messages,

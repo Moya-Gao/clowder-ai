@@ -299,6 +299,46 @@ describe('F183 Phase B1.2.2 — active text stream wire-up to reducer', () => {
     forwardingTestReducerStub.mockReset();
   });
 
+  it('requests stream catch-up when reducer returns catch-up for an active late stream chunk', () => {
+    forwardingTestReducerStub.mockImplementation(() => ({
+      nextMessages: storeState.messages,
+      violations: [],
+      recoveryAction: 'catch-up',
+    }));
+
+    const existing: ChatMessage = {
+      id: 'msg-inv-catchup-codex',
+      type: 'assistant',
+      catId: 'codex',
+      content: '',
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-catchup' } },
+      timestamp: 1000,
+    };
+    storeState.messages = [existing];
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'codex',
+        threadId: 'thread-1',
+        content: 'late stdout tail',
+        origin: 'stream',
+        invocationId: 'inv-catchup',
+        timestamp: 1100,
+      });
+    });
+
+    expect(mockRequestStreamCatchUp).toHaveBeenCalledWith('thread-1');
+
+    forwardingTestReducerStub.mockReset();
+  });
+
   it('replaces text content via replaceMessages when textMode=replace (B1.2.2 + round 5 P1)', () => {
     // Pre-state: existing streaming bubble for inv-1
     const existing: ChatMessage = {

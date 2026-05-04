@@ -7,7 +7,7 @@
  *
  * We extract the expected behavior from useSocket and verify the store actions.
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { configureDebug, dumpBubbleTimeline, ensureWindowDebugApi } from '@/debug/invocationEventDebug';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
@@ -628,6 +628,41 @@ describe('background thread socket handling', () => {
   });
 
   describe('regression: background stream chunk merging', () => {
+    it('requests catch-up when reducer returns catch-up for a late background stream chunk', () => {
+      const now = Date.now();
+      const requestSpy = vi.spyOn(useChatStore.getState(), 'requestStreamCatchUp');
+      useChatStore.getState().replaceThreadMessages(
+        'thread-bg-catchup',
+        [
+          {
+            id: 'msg-inv-bg-catchup-opus',
+            type: 'assistant',
+            catId: 'opus',
+            content: 'authoritative callback text',
+            isStreaming: false,
+            origin: 'callback',
+            extra: { stream: { invocationId: 'inv-bg-catchup' } },
+            timestamp: now,
+          },
+        ],
+        true,
+      );
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg-catchup',
+        content: ' late stream tail',
+        origin: 'stream',
+        invocationId: 'inv-bg-catchup',
+        timestamp: now + 1,
+      });
+
+      expect(requestSpy).toHaveBeenCalledWith('thread-bg-catchup');
+
+      requestSpy.mockRestore();
+    });
+
     it('merges text chunks from same cat/thread into one assistant message', () => {
       const now = Date.now();
 
