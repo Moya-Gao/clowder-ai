@@ -113,6 +113,22 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
     return { manifest };
   });
 
+  app.get<{ Params: { collectionId: string } }>('/api/library/:collectionId/documents', async (request, reply) => {
+    const { collectionId } = request.params;
+    const manifest = opts.catalog.get(collectionId);
+    if (!manifest || manifest.sensitivity === 'private' || manifest.sensitivity === 'restricted') {
+      reply.status(404);
+      return { error: `Collection "${collectionId}" not found` };
+    }
+    const store = opts.stores.get(manifest.id) as StoreWithDb | undefined;
+    const db = store?.getDb?.();
+    if (!db) {
+      return { collectionId, groups: [] };
+    }
+    const groups = CollectionReadModel.computeDocumentGroups(collectionId, db);
+    return { collectionId, groups };
+  });
+
   app.post<{ Params: { collectionId: string } }>('/api/library/:collectionId/rebuild', async (request, reply) => {
     const ip = request.ip;
     if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {

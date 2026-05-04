@@ -285,4 +285,100 @@ describe('library register + rebuild endpoints', () => {
     assert.equal(saved.length, 1);
     assert.equal(saved[0].id, 'world:persist');
   });
+
+  it('GET /documents returns documents grouped by kind', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'docs-'));
+    writeFileSync(join(dir, 'alpha.md'), '# Alpha\n\nAlpha content.');
+    writeFileSync(join(dir, 'beta.md'), '---\ndoc_kind: decision\n---\n# Beta\n\nBeta decision.');
+    writeFileSync(join(dir, 'gamma.md'), '---\ndoc_kind: decision\n---\n# Gamma\n\nGamma decision.');
+    writeFileSync(join(dir, 'delta.md'), '# Delta\n\nDelta content.');
+    await app.inject({
+      method: 'POST',
+      url: '/api/library/register',
+      payload: {
+        id: 'domain:docs',
+        kind: 'domain',
+        name: 'docs',
+        displayName: 'Docs Test',
+        root: dir,
+        sensitivity: 'internal',
+        scannerLevel: 1,
+      },
+    });
+    await app.inject({ method: 'POST', url: '/api/library/domain:docs/rebuild' });
+
+    const res = await app.inject({ method: 'GET', url: '/api/library/domain:docs/documents' });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.collectionId, 'domain:docs');
+    assert.ok(Array.isArray(body.groups));
+    assert.ok(body.groups.length >= 2, 'should have at least 2 kind groups');
+
+    const decisionGroup = body.groups.find((g) => g.kind === 'decision');
+    assert.ok(decisionGroup, 'should have a decision group');
+    assert.equal(decisionGroup.count, 2);
+    assert.equal(decisionGroup.documents.length, 2);
+    assert.equal(decisionGroup.hasMore, false);
+    for (const doc of decisionGroup.documents) {
+      assert.ok(doc.anchor);
+      assert.ok(doc.title);
+    }
+
+    const totalDocs = body.groups.reduce((sum, g) => sum + g.count, 0);
+    assert.equal(totalDocs, 4);
+  });
+
+  it('GET /documents truncates groups to default limit', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'trunc-'));
+    for (let i = 0; i < 25; i++) {
+      writeFileSync(join(dir, `doc-${String(i).padStart(2, '0')}.md`), `# Doc ${i}\n\nContent ${i}.`);
+    }
+    await app.inject({
+      method: 'POST',
+      url: '/api/library/register',
+      payload: {
+        id: 'domain:trunc',
+        kind: 'domain',
+        name: 'trunc',
+        displayName: 'Truncation Test',
+        root: dir,
+        sensitivity: 'internal',
+        scannerLevel: 1,
+      },
+    });
+    await app.inject({ method: 'POST', url: '/api/library/domain:trunc/rebuild' });
+
+    const res = await app.inject({ method: 'GET', url: '/api/library/domain:trunc/documents' });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    const group = body.groups[0];
+    assert.equal(group.count, 25, 'total count should be 25');
+    assert.equal(group.documents.length, 20, 'documents should be truncated to 20');
+    assert.equal(group.hasMore, true);
+  });
+
+  it('GET /documents returns 404 for unknown collection', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/library/world:nope/documents' });
+    assert.equal(res.statusCode, 404);
+  });
+
+  it('GET /documents returns 404 for private collection', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'priv-'));
+    writeFileSync(join(dir, 'a.md'), '# A');
+    await app.inject({
+      method: 'POST',
+      url: '/api/library/register',
+      payload: {
+        id: 'domain:priv',
+        kind: 'domain',
+        name: 'priv',
+        displayName: 'Private',
+        root: dir,
+        sensitivity: 'private',
+        scannerLevel: 0,
+      },
+    });
+    const res = await app.inject({ method: 'GET', url: '/api/library/domain:priv/documents' });
+    assert.equal(res.statusCode, 404);
+  });
 });
