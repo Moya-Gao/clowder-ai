@@ -103,15 +103,12 @@ describe('ChatMessage CLI Output integration', () => {
     expect(cliIdx).toBeGreaterThan(answerIdx);
   });
 
-  it('stream origin with only content (no tools) renders text directly, no CLI block', () => {
-    // After the cli-text-render fix: content is owned by the main bubble. CLI Output block
-    // only exists when there are actual tool events. Plain stream text renders symmetrically
-    // with callback-origin text — no extraneous "CLI Output · 1 line" wrapper.
+  it('stream origin with only content (no tools) still renders CLI block', () => {
     const msg = {
       id: 'msg-4',
       type: 'assistant' as const,
       catId: 'opus',
-      content: 'some plain stream answer',
+      content: 'some CLI output',
       origin: 'stream' as const,
       timestamp: Date.now(),
       isStreaming: false,
@@ -119,7 +116,6 @@ describe('ChatMessage CLI Output integration', () => {
     act(() => {
       root.render(React.createElement(ChatMessage, { message: msg, getCatById }));
     });
-    expect(container.textContent).toContain('some plain stream answer');
-    expect(container.textContent).not.toContain('CLI Output');
+    expect(container.textContent).toContain('CLI Output');
   });
 });

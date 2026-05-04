@@ -119,7 +119,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const direction = catData ? parseDirection(message, () => ({ toCat: getMentionToCat(), re: getMentionRe() })) : null;
 
   const isStreamOrigin = message.origin === 'stream';
-  const cliEvents = toCliEvents(message.toolEvents);
+  const cliEvents = toCliEvents(message.toolEvents, isStreamOrigin ? message.content : undefined);
   const hasCliBlock = cliEvents.length > 0;
   const cliStatus = message.isStreaming
     ? ('streaming' as const)
@@ -379,9 +379,9 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               : undefined
           }
         >
-          {!isStreamOrigin && hasBlocks ? (
+          {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
             <ContentBlocks blocks={message.contentBlocks!} />
-          ) : hasTextContent ? (
+          ) : !isStreamOrigin && hasTextContent ? (
             <CollapsibleMarkdown content={message.content} className={catStyle?.font} />
           ) : message.isStreaming ? (
             <span className="text-xs text-cafe-secondary">Thinking...</span>
