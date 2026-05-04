@@ -129,7 +129,7 @@ GBrain 拆解发现的核心 UX 差距：我们的 `evidence.sqlite` 对猫友�
 - `search_evidence` API 不重载既有 `scope` 语义；通过 `dimension` + `collections` 选择 collection 联邦范围
 - 联邦结果按 collection 分组标注，含 `collectionId` / `sensitivity` / `itemAuthority` / `reviewStatus` / `whyThisCollection`
 
-### Phase B: Scanner 渐进增强框架
+### Phase B: Scanner 渐进增强框架 ✅
 
 实现 4 级 scanner 框架：
 - Level 0 (Flat Index): 递归 walk → chunk → embed，任何 markdown 目录即可搜索，无需 frontmatter
@@ -174,10 +174,10 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 - [x] AC-A10: Knowledge Feed approve 支持显式选择 target Collection；candidate 默认 target = 产出源 Collection；跨 Collection promote（如 `world:lexander` → `global:methods`）需 visibility-widening 二次确认 + re-scan secret。Marker schema 扩展：新增 `sourceCollectionId` / `sourceSensitivity` / `targetCollectionId` / `promoteReviewStatus` / `secretScanFingerprint` 字段，approve API 的 `targetPath` 按 `targetCollectionId` 路由（不再 hardcode 本项目 `docs/`）
 - [x] AC-A11: Collection lifecycle CRUD API 形态定义 — unbind（compiled index 默认归档到 `<dataDir>/library/.archive/`，不立即删除）/ rename（历史 recall log 中 `collectionId` 引用保留旧 ID 别名映射）/ visibility change：**widening**（private→internal/public：re-scan secret + owner confirm）/ **narrowing**（internal→private：purge cached snippets + replay captures + overview projections 中该 Collection 的正文残留）
 
-### Phase B（Scanner 渐进增强框架）
-- [ ] AC-B1: Level 0 scanner 能索引任意 markdown 目录（无 frontmatter 要求）
-- [ ] AC-B2: Level 1 scanner 能利用已有 frontmatter/WikiLink 结构
-- [ ] AC-B3: Scanner level 在 manifest 中可配置（auto/0/1/2/3）
+### Phase B（Scanner 渐进增强框架）✅
+- [x] AC-B1: Level 0 scanner 能索引任意 markdown 目录（无 frontmatter 要求）
+- [x] AC-B2: Level 1 scanner 能利用已有 frontmatter/WikiLink 结构
+- [x] AC-B3: Scanner level 在 manifest 中可配置（auto/0/1/2/3）
 
 ### Phase C（安全契约 + 绑定 dry-run）
 - [ ] AC-C1: Secret scan 在 chunk/embed 之前执行，检测到 secret 时默认阻止入库
@@ -267,10 +267,12 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | 2026-05-03 | Design Gate 加入架构归一硬约束（不新增第二套 memory stack） |
 | 2026-05-03 | 47 愿景守护视角扫描：补 AC-A9~A11（RecallFeed 私敏 / KF target / lifecycle CRUD）+ OQ-4~6 |
 | 2026-05-04 | Phase A merged (PR #1546) — 10 cloud review rounds, 57 tests, 25 commits squashed |
+| 2026-05-04 | Phase B merged (PR #1548) — FlatScanner L0 + StructuredScanner L1 + scanner-resolver + CollectionIndexBuilder, 52 tests |
 
 ## Review Gate
 
 - Phase A: 跨猫 review（架构级，影响全局检索管线）
+- Phase B: 砚砚 (GPT-5.5) R3 + 云端 Codex review
 
 ## Links
 
