@@ -269,6 +269,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | 2026-05-04 | Phase A merged (PR #1546) — 10 cloud review rounds, 57 tests, 25 commits squashed |
 | 2026-05-04 | Phase B merged (PR #1548) — FlatScanner L0 + StructuredScanner L1 + scanner-resolver + CollectionIndexBuilder, 52 tests |
 | 2026-05-04 | Phase D merged (PR #1551) — library register/rebuild API with localhost guard + manifest validation + external collection persistence, 22 new tests (砚砚 R3 + cloud Codex) |
+| 2026-05-04 | Phase D Lens enrichment merged (PR #1553) — GET /documents endpoint + expandable CollectionCatalog UI + component test (砚砚 R2 + cloud Codex) |
 
 ## Review Gate
 
