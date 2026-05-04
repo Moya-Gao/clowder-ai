@@ -4,8 +4,8 @@ import Database from 'better-sqlite3';
 import { applyMigrations, CURRENT_SCHEMA_VERSION } from '../../dist/domains/memory/schema.js';
 
 describe('Schema V16 (F093 world scope)', () => {
-  it('CURRENT_SCHEMA_VERSION is 16', () => {
-    assert.equal(CURRENT_SCHEMA_VERSION, 16);
+  it('CURRENT_SCHEMA_VERSION is 17', () => {
+    assert.equal(CURRENT_SCHEMA_VERSION, 17);
   });
 
   it('migration adds world_id and scene_id columns', () => {

@@ -18,6 +18,7 @@ import type {
 } from './interfaces.js';
 import { resolveEmbedConfig } from './interfaces.js';
 import { KnowledgeResolver } from './KnowledgeResolver.js';
+import { LibraryCatalog } from './LibraryCatalog.js';
 import { MarkerQueue } from './MarkerQueue.js';
 import { MaterializationService } from './MaterializationService.js';
 import { ReflectionService } from './ReflectionService.js';
@@ -40,6 +41,8 @@ export interface MemoryServices {
   globalIndexBuilder?: GlobalIndexBuilder;
   /** F152 Phase C: Global knowledge store for distillation */
   globalStore?: SqliteEvidenceStore;
+  /** F186 Phase A: Collection registry */
+  catalog?: LibraryCatalog;
 }
 
 export interface MemoryConfig {
@@ -129,11 +132,11 @@ export async function createMemoryServices(config: MemoryConfig): Promise<Memory
   // F-4: Global knowledge store (optional — fail-open if missing/broken)
   let globalStore: SqliteEvidenceStore | undefined;
   let globalIndexBuilder: GlobalIndexBuilder | undefined;
+  const globalPath =
+    config.globalDbPath ??
+    process.env['GLOBAL_KNOWLEDGE_DB'] ??
+    join(homedir(), '.cat-cafe', 'global_knowledge.sqlite');
   try {
-    const globalPath =
-      config.globalDbPath ??
-      process.env['GLOBAL_KNOWLEDGE_DB'] ??
-      join(homedir(), '.cat-cafe', 'global_knowledge.sqlite');
     mkdirSync(dirname(globalPath), { recursive: true });
     globalStore = new SqliteEvidenceStore(globalPath);
     await globalStore.initialize();
@@ -146,7 +149,43 @@ export async function createMemoryServices(config: MemoryConfig): Promise<Memory
     // fail-open: no global knowledge → project-only search
   }
 
-  const knowledgeResolver = new KnowledgeResolver({ projectStore: store, globalStore });
+  const catalog = new LibraryCatalog();
+  const stores = new Map<string, IEvidenceStore>();
+  const now = new Date().toISOString();
+
+  catalog.register({
+    id: 'project:cat-cafe',
+    kind: 'project',
+    name: 'cat-cafe',
+    displayName: 'Cat Café Project',
+    root: docsRoot,
+    sensitivity: 'internal',
+    scannerLevel: 0,
+    indexPolicy: { autoRebuild: true },
+    reviewPolicy: { authorityCeiling: 'validated', requireOwnerApproval: false },
+    createdAt: now,
+    updatedAt: now,
+  });
+  stores.set('project:cat-cafe', store);
+
+  if (globalStore) {
+    catalog.register({
+      id: 'global:methods',
+      kind: 'global',
+      name: 'methods',
+      displayName: 'Global Methods',
+      root: dirname(globalPath),
+      sensitivity: 'internal',
+      scannerLevel: 0,
+      indexPolicy: { autoRebuild: false },
+      reviewPolicy: { authorityCeiling: 'validated', requireOwnerApproval: false },
+      createdAt: now,
+      updatedAt: now,
+    });
+    stores.set('global:methods', globalStore);
+  }
+
+  const knowledgeResolver = new KnowledgeResolver({ projectStore: store, globalStore, catalog, stores });
 
   return {
     evidenceStore: store,
@@ -160,5 +199,6 @@ export async function createMemoryServices(config: MemoryConfig): Promise<Memory
     vectorStore,
     globalIndexBuilder,
     globalStore,
+    catalog,
   };
 }

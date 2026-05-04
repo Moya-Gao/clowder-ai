@@ -1,10 +1,3 @@
-/**
- * Evidence Search Route
- * GET /api/evidence/search — search project knowledge via SQLite evidence store.
- *
- * Phase 5.0: Evidence-first search.
- */
-
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { F163ExperimentLogger } from '../domains/memory/f163-experiment-logger.js';
@@ -30,27 +23,21 @@ const searchSchema = z.object({
   dateTo: z.string().optional(),
   contextWindow: z.coerce.number().int().min(1).max(5).optional(),
   threadId: z.string().optional(),
-  dimension: z.enum(['project', 'global', 'all']).optional(),
+  dimension: z.enum(['project', 'global', 'library', 'collection', 'all']).optional(),
+  collections: z.string().optional(),
   activeFeatureIds: z.string().optional(),
   truthSourceRef: z.string().optional(),
   recentArtifactRefs: z.string().optional(),
 });
 
-export type { EvidenceConfidence, EvidenceSourceType } from './evidence-helpers.js';
+export type {
+  EvidenceConfidence,
+  EvidenceFreshness,
+  EvidenceReimportTrigger,
+  EvidenceSourceType,
+} from './evidence-helpers.js';
 
-export interface EvidenceFreshness {
-  status: 'fresh' | 'stale' | 'unknown';
-  checkedAt: string;
-  headCommit?: string;
-  watermarkCommit?: string;
-  reason?: 'commit_match' | 'commit_mismatch' | 'watermark_missing' | 'head_unavailable';
-}
-
-export interface EvidenceReimportTrigger {
-  status: 'triggered' | 'cooldown' | 'skipped' | 'disabled' | 'failed';
-  reason?: string;
-  nextAllowedAt?: string;
-}
+import type { EvidenceFreshness, EvidenceReimportTrigger } from './evidence-helpers.js';
 
 export interface EvidenceSearchResponse {
   results: EvidenceResult[];
@@ -64,15 +51,19 @@ export interface EvidenceSearchResponse {
   variantId: string;
   /** F163: anchors of always_on docs injected into system prompt (not search results) */
   injectionSources?: string[];
+  collectionGroups?: Array<{
+    collectionId: string;
+    sensitivity: string;
+    status: string;
+    itemCount: number;
+    durationMs: number;
+  }>;
 }
 
 export interface EvidenceRoutesOptions {
   docsRoot?: string;
-  /** F102: SQLite evidence store — the only backend */
   evidenceStore: IEvidenceStore;
-  /** F102 D-11: IndexBuilder for incremental reindex */
   indexBuilder?: IIndexBuilder;
-  /** F-4: KnowledgeResolver for federated project + global search */
   knowledgeResolver?: IKnowledgeResolver;
 }
 
@@ -95,6 +86,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       contextWindow,
       threadId,
       dimension,
+      collections: rawCollections,
       activeFeatureIds: rawFeatureIds,
       truthSourceRef,
       recentArtifactRefs: rawArtifactRefs,
@@ -117,6 +109,10 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         : ['legacy']
       : ['legacy'];
     try {
+      const parsedCollections = rawCollections
+        ?.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       const searchOpts = {
         limit: effectiveLimit,
         scope,
@@ -127,6 +123,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         contextWindow,
         threadId,
         dimension,
+        collections: parsedCollections,
       };
       // F-4: Use KnowledgeResolver for federated project + global search
       const resolveResult = opts.knowledgeResolver ? await opts.knowledgeResolver.resolve(q, searchOpts) : null;
@@ -205,12 +202,21 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         }
       }
 
+      const responseGroups = resolveResult?.collectionGroups?.map((g) => ({
+        collectionId: g.collectionId,
+        sensitivity: g.sensitivity,
+        status: g.status,
+        itemCount: g.items.length,
+        durationMs: g.durationMs,
+      }));
+
       return {
         results,
         degraded: isRawDegraded,
         variantId,
         ...(isRawDegraded ? { degradeReason: 'raw_lexical_only', effectiveMode: 'lexical' as const } : {}),
         ...(injectionSources && injectionSources.length > 0 ? { injectionSources } : {}),
+        ...(responseGroups && responseGroups.length > 0 ? { collectionGroups: responseGroups } : {}),
       } satisfies Partial<EvidenceSearchResponse>;
     } catch {
       return {

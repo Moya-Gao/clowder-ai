@@ -1057,6 +1057,8 @@ interface RowShape {
   review_cycle_days: number | null;
   world_id: string | null;
   scene_id: string | null;
+  collection_id: string | null;
+  review_status: string | null;
 }
 
 function rowToItem(row: RowShape): EvidenceItem {
@@ -1092,6 +1094,7 @@ function rowToItem(row: RowShape): EvidenceItem {
   if (row.review_cycle_days != null) item.reviewCycleDays = row.review_cycle_days;
   if (row.world_id != null) item.worldId = row.world_id;
   if (row.scene_id != null) item.sceneId = row.scene_id;
+  if (row.review_status != null) item.reviewStatus = row.review_status as EvidenceItem['reviewStatus'];
   return item;
 }
 

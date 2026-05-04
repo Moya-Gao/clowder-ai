@@ -153,6 +153,7 @@ import {
   invocationsRoutes,
   leaderboardEventsRoutes,
   leaderboardRoutes,
+  libraryRoutes,
   memoryPublishRoutes,
   memoryRoutes,
   messageActionsRoutes,
@@ -1812,7 +1813,16 @@ async function main(): Promise<void> {
     markerQueue: memoryServices.markerQueue,
     db: memoryServices.store.getDb(),
     materializationService: memoryServices.materializationService,
+    catalog: memoryServices.catalog,
   });
+
+  // F186: Library catalog API
+  if (memoryServices.catalog) {
+    const libraryStores = new Map<string, import('./domains/memory/interfaces.js').IEvidenceStore>();
+    libraryStores.set('project:cat-cafe', memoryServices.store);
+    if (memoryServices.globalStore) libraryStores.set('global:methods', memoryServices.globalStore);
+    await app.register(libraryRoutes, { catalog: memoryServices.catalog, stores: libraryStores });
+  }
 
   // Memory governance (publish workflow)
   const governanceStore = new MemoryGovernanceStore();

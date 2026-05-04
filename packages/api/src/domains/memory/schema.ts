@@ -66,7 +66,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 16;
+export const CURRENT_SCHEMA_VERSION = 17;
 
 // F163 Phase A: experiment infrastructure tables (cohorts, suggestions, logs)
 export const SCHEMA_V13_TABLES = `
@@ -471,6 +471,35 @@ export function applyMigrations(db: Database.Database): void {
       // Indexes may already exist
     }
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(16, new Date().toISOString());
+  }
+
+  // V17: F186 Phase A — collection-aware columns + marker routing
+  if (currentVersion < 17) {
+    try {
+      db.exec('ALTER TABLE evidence_docs ADD COLUMN collection_id TEXT');
+    } catch {}
+    try {
+      db.exec('ALTER TABLE evidence_docs ADD COLUMN review_status TEXT');
+    } catch {}
+    try {
+      db.exec('CREATE INDEX IF NOT EXISTS idx_evidence_docs_collection ON evidence_docs(collection_id)');
+    } catch {}
+    try {
+      db.exec('ALTER TABLE markers ADD COLUMN source_collection_id TEXT');
+    } catch {}
+    try {
+      db.exec('ALTER TABLE markers ADD COLUMN source_sensitivity TEXT');
+    } catch {}
+    try {
+      db.exec('ALTER TABLE markers ADD COLUMN target_collection_id TEXT');
+    } catch {}
+    try {
+      db.exec('ALTER TABLE markers ADD COLUMN promote_review_status TEXT');
+    } catch {}
+    try {
+      db.exec('ALTER TABLE markers ADD COLUMN secret_scan_fingerprint TEXT');
+    } catch {}
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(17, new Date().toISOString());
   }
 }
 

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { KnowledgeFeed } from '../workspace/KnowledgeFeed';
+import { CollectionCatalog } from './CollectionCatalog';
 import { EvidenceSearch } from './EvidenceSearch';
 import { HealthReport } from './HealthReport';
 import { IndexStatus } from './IndexStatus';
@@ -39,6 +40,11 @@ export function MemoryHub({ activeTab = 'feed', initialQuery, initialReferrerThr
         {activeTab === 'health' && (
           <div data-testid="memory-tab-health">
             <HealthReport />
+          </div>
+        )}
+        {activeTab === 'catalog' && (
+          <div data-testid="memory-tab-catalog">
+            <CollectionCatalog />
           </div>
         )}
       </main>
