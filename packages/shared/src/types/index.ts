@@ -187,6 +187,8 @@ export type {
   Roster,
   RosterEntry,
 } from './cat-breed.js';
+// F182: Cat routing error types
+export type { CatAlternative, CatRoutingError } from './cat-routing.js';
 export type { BuiltinAccountClient } from './client-routing.js';
 export {
   builtinAccountFamilyForClient,

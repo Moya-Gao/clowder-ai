@@ -1333,6 +1333,12 @@ async function main(): Promise<void> {
   }
   await app.register(catsRoutes);
 
+  // F182 Phase D: disable-impact endpoint
+  {
+    const { registerDisableImpactRoute } = await import('./routes/disable-impact.js');
+    registerDisableImpactRoute(app, { taskStore, dynamicTaskStore });
+  }
+
   // F149 Phase C: ACP pool diagnostics endpoint (gated by env flag)
   app.get('/api/diagnostics/acp-pool', async (_req, reply) => {
     if (process.env.CAT_CAFE_DIAGNOSTICS !== '1') {

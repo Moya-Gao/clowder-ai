@@ -8,7 +8,7 @@ created: 2026-04-30
 
 # F182: Cat Roster Lifecycle Toggle — 成员启停的全链路降级反馈
 
-> **Status**: spec | **Owner**: 布偶猫（宪宪/Opus 4.7） | **Reviewer**: 布偶猫（@opus 4.6）+ 缅因猫（@codex/砚砚） | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫（宪宪/Sonnet 4.6）| **Reviewer**: 缅因猫（砚砚/GPT-5.5） | **Priority**: P1
 
 ## Why
 
@@ -161,25 +161,25 @@ Alternatives: @gemini, @opus-45.
 ## Acceptance Criteria
 
 ### Phase A（错误契约 + Resolver 闸）
-- [ ] AC-A1: `CatRoutingError` 类型 export 到 `@cat-cafe/shared`，**两种** kind（`cat_not_found` / `cat_disabled`）— `cat_no_quota` 不在范围（KD-5）
-- [ ] AC-A2: `resolveCatTarget()` 单点 resolver 实现 — **纯函数 ≤40 行**（KD-8）；单元测试覆盖两种错误路径 + alternatives 排序（同族 + lead 优先 + dedupe + 稳定排序避免竞态）；`cat_not_found` 路径必须先查 roster 区分"不在 roster"和"在 roster 但 disabled"两种情况，**不能直接复用 `isCatAvailable`**（KD-9）
-- [ ] AC-A3: Resolver 接入 **5 个入口**（KD-4）：文本 @ parser / `targetCats` / `multi_mention.targets+callbackTo` / `start_vote.voters` / `register_scheduled_task.params.targetCatId`。a2a-mentions.ts:92 改造（pattern building 阶段）和 AgentRouter.ts:415 改造（match-time skip）**分别处理**（KD-10）；保留向后兼容（mentions 列表不变，新增 errors 列表）
+- [x] AC-A1: `CatRoutingError` 类型 export 到 `@cat-cafe/shared`，**两种** kind（`cat_not_found` / `cat_disabled`）— `cat_no_quota` 不在范围（KD-5）
+- [x] AC-A2: `resolveCatTarget()` 单点 resolver 实现 — **纯函数 ≤40 行**（KD-8）；单元测试覆盖两种错误路径 + alternatives 排序（同族 + lead 优先 + dedupe + 稳定排序避免竞态）；`cat_not_found` 路径必须先查 roster 区分"不在 roster"和"在 roster 但 disabled"两种情况，**不能直接复用 `isCatAvailable`**（KD-9）
+- [x] AC-A3: Resolver 接入 **5 个入口**（KD-4）：文本 @ parser / `targetCats` / `multi_mention.targets+callbackTo` / `start_vote.voters` / `register_scheduled_task.params.targetCatId`。a2a-mentions.ts:92 改造（pattern building 阶段）和 AgentRouter.ts:415 改造（match-time skip）**分别处理**（KD-10）；保留向后兼容（mentions 列表不变，新增 errors 列表）
 
 ### Phase B（Prompt 降级提示）
-- [ ] AC-B1: 守护测试 — disabled 猫**不出现在** `buildTeammateRoster` 输出（基于 OQ-3 拍板，铲屎官选方案 C 完全不出现）
-- [ ] AC-B2: 守护测试 — disabled 猫的 catId / mention pattern **不出现在** `buildStaticIdentityPrompt` 任何区段（pattern grep 整个 prompt）
-- [ ] AC-B3: 不改 `buildTeammateRoster` 逻辑 — 当前 line 392 `isCatAvailable` 过滤已正确，仅补测试
+- [x] AC-B1: 守护测试 — disabled 猫**不出现在** `buildTeammateRoster` 输出（基于 OQ-3 拍板，铲屎官选方案 C 完全不出现）
+- [x] AC-B2: 守护测试 — disabled 猫的 catId / mention pattern **不出现在** `buildStaticIdentityPrompt` 任何区段（pattern grep 整个 prompt）
+- [x] AC-B3: 不改 `buildTeammateRoster` 逻辑 — 当前 line 392 `isCatAvailable` 过滤已正确，仅补测试
 
 ### Phase C（MCP 工具降级反馈）
-- [ ] AC-C1: 3 个 A 类工具（post / cross / rich）软降级 — 在线 @ 继续路由 + `routing_warnings`；**结构化目标全不可路由时 `isError: true` + `routed: []`**（防 final-routing guard 误判）；响应 **必须含 natural language `message` 字段**（KD-7），单元测试覆盖文案模板
-- [ ] AC-C2: 1 个 A' 类工具（`multi_mention`）+ 3 个 B 类工具（`create_task.ownerCatId` / `start_vote.voters` / `register_scheduled_task.params.targetCatId`）契约式 **400** `cat_disabled` + alternatives
-- [ ] AC-C3: MCP wrapper 对 `CatRoutingError` 生成固定人类可读前缀 + JSON 双轨（KD-6），单元测试覆盖文本格式
-- [ ] AC-C4: MCP 工具描述更新，让 caller LLM 知道 `routing_warnings` / 400 `cat_disabled` 含义和如何选 alternatives
+- [x] AC-C1: 3 个 A 类工具（post / cross / rich）软降级 — 在线 @ 继续路由 + `routing_warnings`；**结构化目标全不可路由时 `isError: true` + `routed: []`**（防 final-routing guard 误判）；响应 **必须含 natural language `message` 字段**（KD-7），单元测试覆盖文案模板
+- [x] AC-C2: 1 个 A' 类工具（`multi_mention`）+ 3 个 B 类工具（`create_task.ownerCatId` / `start_vote.voters` / `register_scheduled_task.params.targetCatId`）契约式 **400** `cat_disabled` + alternatives
+- [x] AC-C3: MCP wrapper 对 `CatRoutingError` 生成固定人类可读前缀 + JSON 双轨（KD-6），单元测试覆盖文本格式
+- [x] AC-C4: MCP 工具描述更新，让 caller LLM 知道 `routing_warnings` / 400 `cat_disabled` 含义和如何选 alternatives
 
 ### Phase D（Hub UX）
-- [ ] AC-D1: 新增 `GET /api/cats/:catId/disable-impact` 端点，server-side 聚合 task / scheduledTask 引用（PR tracking 不在范围）
-- [ ] AC-D2: Hub Toggle disable 前调用该端点，弹确认弹窗显示影响；确认通过后 disable 不强迁移，引用标"owner 已停用，等待重指派"
-- [ ] AC-D3: Hub 上单独一行显示 disabled 成员（"已停用"灰色 badge），可一键启用
+- [x] AC-D1: 新增 `GET /api/cats/:catId/disable-impact` 端点，server-side 聚合 task / scheduledTask 引用（PR tracking 不在范围）
+- [x] AC-D2: Hub Toggle disable 前调用该端点，弹确认弹窗显示影响；确认通过后 disable 不强迁移，引用标"owner 已停用，等待重指派"
+- [x] AC-D3: Hub 上单独一行显示 disabled 成员（"已停用"灰色 badge），可一键启用
 
 ## Dependencies
 
@@ -256,10 +256,11 @@ Alternatives: @gemini, @opus-45.
 | 2026-04-30 | 砚砚（缅因猫 GPT-5.5）spec review — 提两个 P1（结构化字段缺口 / B 类清单错误）+ 拍板 4 个 OQ；spec 修订到 v2 |
 | 2026-04-30 | 4.6（布偶猫 Opus）spec review — 3 处技术纠正（KD-9/10 + 命名）+ OQ-1 增强（KD-7 natural language message）+ KD-8（resolver ≤40 行）；OQ-3 与砚砚分歧（独立区段 vs 行内标注），转铲屎官拍板；spec 修订到 v3 |
 | 2026-04-30 | 铲屎官 OQ-3 拍板 — 方案 C "完全不出现"（驳回砚砚 A + 4.6 B），Phase B 降级为守护测试；KD-11 落定；spec 修订到 v4，**Design Gate 收尾，进 worktree** |
-| TBD | Phase A 实施 — 错误契约 + 5-入口 resolver（types + cat-target-resolver.ts ≤40 行） |
-| TBD | Phase B 实施 — 守护测试防回归（不改注入逻辑，KD-11） |
-| TBD | Phase C 实施 — 7 个 MCP 工具接入（A=3 软 + A'=1 硬 + B=3 硬）+ wrapper 前缀双轨 + KD-7 message 模板 |
-| TBD | Phase D 实施 — Hub UX（disabled 灰行 + 弹窗）+ disable-impact endpoint（服务端聚合，不在 useCatData 拼） |
+| 2026-05-04 | Phase A 实施 ✅ — 错误契约 + 5-入口 resolver（宪宪/Sonnet-4.6 大赛实现） |
+| 2026-05-04 | Phase B 实施 ✅ — 守护测试防回归（不改注入逻辑，KD-11） |
+| 2026-05-04 | Phase C 实施 ✅ — 7 个 MCP 工具接入（A=3 软 + A'=1 硬 + B=3 硬）+ wrapper 前缀双轨 + KD-7 message 模板 |
+| 2026-05-04 | Phase D 实施 ✅ — Hub UX（disabled 灰行 + 弹窗）+ disable-impact endpoint（服务端聚合，不在 useCatData 拼） |
+| 2026-05-04 | 砚砚（GPT-5.5）code review — 3 轮迭代，R1 P1/P2/P2-2 + R2 P1 + 签名修复，全部通过 |
 
 ## Review Gate
 
