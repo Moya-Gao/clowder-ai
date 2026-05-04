@@ -1155,7 +1155,7 @@
     {
       "id": "F186",
       "name": "图书馆记忆架构（多域知识联邦）",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F186-library-memory-architecture.md"
     }
   ]

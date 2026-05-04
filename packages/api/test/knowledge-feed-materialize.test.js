@@ -277,7 +277,10 @@ describe('Knowledge Feed → Materialize integration', () => {
 
     assert.equal(res.statusCode, 400, 'unknown sensitivity should fail closed');
     const body = JSON.parse(res.body);
-    assert.ok(body.error.includes('visibility-widening') || body.error.includes('sensitivity'), 'should block unknown sensitivity');
+    assert.ok(
+      body.error.includes('visibility-widening') || body.error.includes('sensitivity'),
+      'should block unknown sensitivity',
+    );
 
     await app6.close();
   });

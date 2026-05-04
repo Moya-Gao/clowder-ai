@@ -88,8 +88,7 @@ export async function knowledgeFeedRoutes(app: FastifyInstance, deps: KnowledgeF
         const markers = await markerQueue.list();
         const marker = markers.find((m) => m.id === markerId);
         const srcId = marker?.sourceCollectionId;
-        const srcSens =
-          marker?.sourceSensitivity ?? (srcId && catalog ? catalog.get(srcId)?.sensitivity : undefined);
+        const srcSens = marker?.sourceSensitivity ?? (srcId && catalog ? catalog.get(srcId)?.sensitivity : undefined);
         if (srcSens === 'private' || srcSens === 'restricted') {
           return reply.status(400).send({
             error: 'targetCollectionId required for private/restricted source markers',
