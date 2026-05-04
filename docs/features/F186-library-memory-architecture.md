@@ -8,7 +8,7 @@ created: 2026-05-03
 
 # F186: 图书馆记忆架构（多域知识联邦）
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -119,7 +119,7 @@ GBrain 拆解发现的核心 UX 差距：我们的 `evidence.sqlite` 对猫友�
 
 **Non-goal**：F186 不是独立的 GBrain-like compiled wiki 产品。图书馆是 Hub 内嵌能力层。但铲屎官不只是管理者——他也想**浏览**图书馆里有什么，不能只给搜索框和管理按钮。
 
-### Phase A: Collection Manifest + LibraryResolver 契约
+### Phase A: Collection Manifest + LibraryResolver 契约 ✅
 
 定义 Collection schema 和 manifest 格式。将现有 `IKnowledgeResolver` 泛化为支持 Collection 的联邦检索实现。至少注册 2 个 Collection：`project:cat-cafe`（现有 evidence.sqlite）+ `global:methods`（跨项目方法论）。
 
@@ -161,18 +161,18 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 
 ## Acceptance Criteria
 
-### Phase A（Collection Manifest + LibraryResolver 契约）
-- [ ] AC-A1: Collection manifest schema 定义完成，包含 id/name/kind/root/scanner/sensitivity/index_policy 等字段；外部 Collection 默认 `sensitivity: private`
-- [ ] AC-A2: `IKnowledgeResolver` 泛化实现完成，支持跨 Collection 聚合；不新增平行 caller-facing resolver
-- [ ] AC-A3: `project:cat-cafe` 和 `global:methods` 两个 Collection 注册成功
-- [ ] AC-A4: `search_evidence` API 支持 `dimension: "library" | "collection"` + `collections?: string[]`，且不破坏既有 `scope: "docs" | "threads" | "sessions" | "all"`
-- [ ] AC-A5: 跨域结果按 collection 分组标注，包含 collectionId/sensitivity/itemAuthority/reviewStatus
-- [ ] AC-A6: F186 字段与 F102/F152/F163 归一：`scope`/`dimension`/`provenance`/`authority` 语义无冲突，有类型测试或契约测试覆盖
-- [ ] AC-A7: `CollectionOverview` / `CollectionHealth` read-model 契约定义完成；输出标记 `derived`、`indexable: false`、`sourceAnchors: [...]`，Phase A 只含确定性统计（manifest stats / index freshness / pending review count），不含 LLM 摘要
-- [ ] AC-A8: Memory Hub Catalog 骨架页上线，展示 `project:cat-cafe` 和 `global:methods` 的 Overview Lens + Health Card（数据来自 AC-A7 read-model）
-- [ ] AC-A9: Private recall redaction boundary — private Collection 命中时，query + snippet + tool_result 在**所有持久化层**（thread/session transcript、IndexBuilder threads scope 索引、evidence passages、Overview Lens read-model）redacted 为 metadata-only（`collectionId + hit_count + sensitivity`，不含正文）；RecallFeed UI 仅 owner-visible（折叠 + 展开需确认）。覆盖路径：`useRecallEvents` → `RecallFeed` UI 展示层 + `IndexBuilder` transcript → FTS/vector 索引层 + `session digest` 摘要层。**Phase A scope: query-time redaction via `redactForTranscript()` in KnowledgeResolver; Phase C scope: persistence-layer redaction in IndexBuilder/session digest/RecallFeed**
-- [ ] AC-A10: Knowledge Feed approve 支持显式选择 target Collection；candidate 默认 target = 产出源 Collection；跨 Collection promote（如 `world:lexander` → `global:methods`）需 visibility-widening 二次确认 + re-scan secret。Marker schema 扩展：新增 `sourceCollectionId` / `sourceSensitivity` / `targetCollectionId` / `promoteReviewStatus` / `secretScanFingerprint` 字段，approve API 的 `targetPath` 按 `targetCollectionId` 路由（不再 hardcode 本项目 `docs/`）
-- [ ] AC-A11: Collection lifecycle CRUD API 形态定义 — unbind（compiled index 默认归档到 `<dataDir>/library/.archive/`，不立即删除）/ rename（历史 recall log 中 `collectionId` 引用保留旧 ID 别名映射）/ visibility change：**widening**（private→internal/public：re-scan secret + owner confirm）/ **narrowing**（internal→private：purge cached snippets + replay captures + overview projections 中该 Collection 的正文残留）
+### Phase A（Collection Manifest + LibraryResolver 契约） ✅
+- [x] AC-A1: Collection manifest schema 定义完成，包含 id/name/kind/root/scanner/sensitivity/index_policy 等字段；外部 Collection 默认 `sensitivity: private`
+- [x] AC-A2: `IKnowledgeResolver` 泛化实现完成，支持跨 Collection 聚合；不新增平行 caller-facing resolver
+- [x] AC-A3: `project:cat-cafe` 和 `global:methods` 两个 Collection 注册成功
+- [x] AC-A4: `search_evidence` API 支持 `dimension: "library" | "collection"` + `collections?: string[]`，且不破坏既有 `scope: "docs" | "threads" | "sessions" | "all"`
+- [x] AC-A5: 跨域结果按 collection 分组标注，包含 collectionId/sensitivity/itemAuthority/reviewStatus
+- [x] AC-A6: F186 字段与 F102/F152/F163 归一：`scope`/`dimension`/`provenance`/`authority` 语义无冲突，有类型测试或契约测试覆盖
+- [x] AC-A7: `CollectionOverview` / `CollectionHealth` read-model 契约定义完成；输出标记 `derived`、`indexable: false`、`sourceAnchors: [...]`，Phase A 只含确定性统计（manifest stats / index freshness / pending review count），不含 LLM 摘要
+- [x] AC-A8: Memory Hub Catalog 骨架页上线，展示 `project:cat-cafe` 和 `global:methods` 的 Overview Lens + Health Card（数据来自 AC-A7 read-model）
+- [x] AC-A9: Private recall redaction boundary — private Collection 命中时，query + snippet + tool_result 在**所有持久化层**（thread/session transcript、IndexBuilder threads scope 索引、evidence passages、Overview Lens read-model）redacted 为 metadata-only（`collectionId + hit_count + sensitivity`，不含正文）；RecallFeed UI 仅 owner-visible（折叠 + 展开需确认）。覆盖路径：`useRecallEvents` → `RecallFeed` UI 展示层 + `IndexBuilder` transcript → FTS/vector 索引层 + `session digest` 摘要层。**Phase A scope: query-time redaction via `redactForTranscript()` in KnowledgeResolver; Phase C scope: persistence-layer redaction in IndexBuilder/session digest/RecallFeed**
+- [x] AC-A10: Knowledge Feed approve 支持显式选择 target Collection；candidate 默认 target = 产出源 Collection；跨 Collection promote（如 `world:lexander` → `global:methods`）需 visibility-widening 二次确认 + re-scan secret。Marker schema 扩展：新增 `sourceCollectionId` / `sourceSensitivity` / `targetCollectionId` / `promoteReviewStatus` / `secretScanFingerprint` 字段，approve API 的 `targetPath` 按 `targetCollectionId` 路由（不再 hardcode 本项目 `docs/`）
+- [x] AC-A11: Collection lifecycle CRUD API 形态定义 — unbind（compiled index 默认归档到 `<dataDir>/library/.archive/`，不立即删除）/ rename（历史 recall log 中 `collectionId` 引用保留旧 ID 别名映射）/ visibility change：**widening**（private→internal/public：re-scan secret + owner confirm）/ **narrowing**（internal→private：purge cached snippets + replay captures + overview projections 中该 Collection 的正文残留）
 
 ### Phase B（Scanner 渐进增强框架）
 - [ ] AC-B1: Level 0 scanner 能索引任意 markdown 目录（无 frontmatter 要求）
@@ -266,6 +266,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | 2026-05-03 | 立项 |
 | 2026-05-03 | Design Gate 加入架构归一硬约束（不新增第二套 memory stack） |
 | 2026-05-03 | 47 愿景守护视角扫描：补 AC-A9~A11（RecallFeed 私敏 / KF target / lifecycle CRUD）+ OQ-4~6 |
+| 2026-05-04 | Phase A merged (PR #1546) — 10 cloud review rounds, 57 tests, 25 commits squashed |
 
 ## Review Gate
 
