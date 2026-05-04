@@ -121,6 +121,24 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const isStreamOrigin = message.origin === 'stream';
   const cliEvents = toCliEvents(message.toolEvents, isStreamOrigin ? message.content : undefined);
   const hasCliBlock = cliEvents.length > 0;
+  // Stream-final-speech default-expand heuristic — when a stream-origin message
+  // carries text content AND there's no callback companion in the same invocation,
+  // the stream content IS the final speech (4.6/sonnet native pipeline). Override
+  // the user's collapsed default so the speech is visible without manual expand.
+  // When a callback companion exists (47/codex post_message path), the stream is
+  // intermediate stdout and stays default-collapsed — callback bubble is the speech.
+  const streamInvocationId = message.extra?.stream?.invocationId;
+  const hasCallbackCompanion =
+    isStreamOrigin &&
+    !!streamInvocationId &&
+    threadMessages.some(
+      (sibling) =>
+        sibling.id !== message.id &&
+        sibling.catId === message.catId &&
+        sibling.origin === 'callback' &&
+        sibling.extra?.stream?.invocationId === streamInvocationId,
+    );
+  const isStreamFinalSpeech = isStreamOrigin && message.content.trim().length > 0 && !hasCallbackCompanion;
   const cliStatus = message.isStreaming
     ? ('streaming' as const)
     : message.variant === 'error'
@@ -408,7 +426,8 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               defaultExpanded={
                 bubbleRestorePending
                   ? false
-                  : resolveBubbleExpanded(currentThread?.bubbleCli, globalBubbleDefaults.cliOutput)
+                  : isStreamFinalSpeech ||
+                    resolveBubbleExpanded(currentThread?.bubbleCli, globalBubbleDefaults.cliOutput)
               }
               breedColor={catData?.color.primary}
             />
