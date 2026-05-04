@@ -1,11 +1,20 @@
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
+import { CollectionIndexBuilder } from '../domains/memory/CollectionIndexBuilder.js';
 import { CollectionReadModel } from '../domains/memory/CollectionReadModel.js';
+import type { CollectionKind, CollectionManifest, CollectionSensitivity } from '../domains/memory/collection-types.js';
+import { validateManifestInput } from '../domains/memory/collection-types.js';
+import { resolveCollectionStorePath, saveExternalCollection } from '../domains/memory/external-collections.js';
 import type { IEvidenceStore } from '../domains/memory/interfaces.js';
 import type { LibraryCatalog } from '../domains/memory/LibraryCatalog.js';
+import { SqliteEvidenceStore } from '../domains/memory/SqliteEvidenceStore.js';
+import { resolveCollectionScanner } from '../domains/memory/scanner-resolver.js';
 
 export interface LibraryRoutesOptions {
   catalog: LibraryCatalog;
   stores: Map<string, IEvidenceStore>;
+  dataDir?: string;
 }
 
 type StoreWithDb = IEvidenceStore & { getDb?: () => import('better-sqlite3').Database };
@@ -43,5 +52,86 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
         : null,
       health: db ? CollectionReadModel.computeHealth(manifest.id, db) : null,
     };
+  });
+
+  app.post('/api/library/register', async (request, reply) => {
+    const ip = request.ip;
+    if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {
+      reply.status(403);
+      return { error: 'Forbidden: localhost only' };
+    }
+    const body = request.body as {
+      id: string;
+      kind: string;
+      name: string;
+      displayName: string;
+      root: string;
+      sensitivity?: string;
+      scannerLevel?: number | 'auto';
+      exclude?: string[];
+    };
+
+    try {
+      validateManifestInput(body);
+    } catch (e: unknown) {
+      reply.status(400);
+      return { error: (e as Error).message };
+    }
+
+    if (opts.catalog.get(body.id)) {
+      reply.status(409);
+      return { error: `Collection "${body.id}" already exists` };
+    }
+
+    const now = new Date().toISOString();
+    const manifest: CollectionManifest = {
+      id: body.id,
+      kind: body.kind as CollectionKind,
+      name: body.name,
+      displayName: body.displayName,
+      root: body.root,
+      sensitivity: (body.sensitivity ?? 'private') as CollectionSensitivity,
+      scannerLevel: (body.scannerLevel ?? 'auto') as CollectionManifest['scannerLevel'],
+      indexPolicy: { autoRebuild: false },
+      reviewPolicy: { authorityCeiling: 'validated', requireOwnerApproval: true },
+      exclude: body.exclude,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const dataDir = opts.dataDir;
+    if (dataDir) saveExternalCollection(dataDir, manifest);
+
+    opts.catalog.register(manifest);
+    const storePath = dataDir
+      ? resolveCollectionStorePath(dataDir, manifest.id)
+      : resolveCollectionStorePath('/tmp/cat-cafe-dev', manifest.id);
+    mkdirSync(dirname(storePath), { recursive: true });
+    const store = new SqliteEvidenceStore(storePath);
+    await store.initialize();
+    opts.stores.set(manifest.id, store);
+    return { manifest };
+  });
+
+  app.post<{ Params: { collectionId: string } }>('/api/library/:collectionId/rebuild', async (request, reply) => {
+    const ip = request.ip;
+    if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {
+      reply.status(403);
+      return { error: 'Forbidden: localhost only' };
+    }
+    const manifest = opts.catalog.get(request.params.collectionId);
+    if (!manifest) {
+      reply.status(404);
+      return { error: 'Collection not found' };
+    }
+    const store = opts.stores.get(manifest.id);
+    if (!store) {
+      reply.status(404);
+      return { error: 'Store not found' };
+    }
+    const scanner = resolveCollectionScanner(manifest);
+    const builder = new CollectionIndexBuilder(store as SqliteEvidenceStore, manifest, scanner);
+    const result = await builder.rebuild();
+    return result;
   });
 };

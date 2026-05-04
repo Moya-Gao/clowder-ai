@@ -48,7 +48,11 @@ describe('F182 D1 - GET /api/cats/:catId/disable-impact', () => {
     const { app } = await createApp();
     currentApp = app;
 
-    const res = await app.inject({ method: 'GET', url: '/api/cats/codex/disable-impact', headers: { 'x-cat-cafe-user': 'u1' } });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/cats/codex/disable-impact',
+      headers: { 'x-cat-cafe-user': 'u1' },
+    });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
     assert.deepEqual(body.tasks, []);
@@ -70,7 +74,11 @@ describe('F182 D1 - GET /api/cats/:catId/disable-impact', () => {
       userId: 'u1',
     });
 
-    const res = await app.inject({ method: 'GET', url: '/api/cats/codex/disable-impact', headers: { 'x-cat-cafe-user': 'u1' } });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/cats/codex/disable-impact',
+      headers: { 'x-cat-cafe-user': 'u1' },
+    });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
     assert.equal(body.tasks.length, 1);
@@ -95,7 +103,11 @@ describe('F182 D1 - GET /api/cats/:catId/disable-impact', () => {
     });
     taskStore.update(task.id, { status: 'done' });
 
-    const res = await app.inject({ method: 'GET', url: '/api/cats/codex/disable-impact', headers: { 'x-cat-cafe-user': 'u1' } });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/cats/codex/disable-impact',
+      headers: { 'x-cat-cafe-user': 'u1' },
+    });
     assert.equal(res.statusCode, 200);
     assert.deepEqual(JSON.parse(res.body).tasks, []);
   });
@@ -128,7 +140,11 @@ describe('F182 D1 - GET /api/cats/:catId/disable-impact', () => {
     const { app } = await createApp({ dynamicTaskStore: dt });
     currentApp = app;
 
-    const res = await app.inject({ method: 'GET', url: '/api/cats/codex/disable-impact', headers: { 'x-cat-cafe-user': 'u1' } });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/cats/codex/disable-impact',
+      headers: { 'x-cat-cafe-user': 'u1' },
+    });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
     assert.equal(body.scheduledTasks.length, 1, 'only enabled scheduled tasks');
@@ -232,7 +248,11 @@ describe('F182 D1 - GET /api/cats/:catId/disable-impact', () => {
       userId: 'u1',
     });
 
-    const res = await app.inject({ method: 'GET', url: '/api/cats/codex/disable-impact', headers: { 'x-cat-cafe-user': 'u1' } });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/cats/codex/disable-impact',
+      headers: { 'x-cat-cafe-user': 'u1' },
+    });
     assert.equal(res.statusCode, 200);
     assert.deepEqual(JSON.parse(res.body).tasks, []);
   });

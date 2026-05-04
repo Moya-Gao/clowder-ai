@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { EmbeddingService } from './EmbeddingService.js';
+import { loadExternalCollections, resolveCollectionStorePath } from './external-collections.js';
 import { GlobalIndexBuilder } from './GlobalIndexBuilder.js';
 import { type ExcludeThreadIdsFn, IndexBuilder, type MessageListFn, type ThreadListFn } from './IndexBuilder.js';
 import type {
@@ -43,6 +44,10 @@ export interface MemoryServices {
   globalStore?: SqliteEvidenceStore;
   /** F186 Phase A: Collection registry */
   catalog?: LibraryCatalog;
+  /** F186 Phase D: All collection stores (built-in + external) */
+  collectionStores?: Map<string, IEvidenceStore>;
+  /** F186 Phase D: Data directory for external collection persistence */
+  dataDir?: string;
 }
 
 export interface MemoryConfig {
@@ -185,6 +190,21 @@ export async function createMemoryServices(config: MemoryConfig): Promise<Memory
     stores.set('global:methods', globalStore);
   }
 
+  const dataDir = join(homedir(), '.cat-cafe');
+  const externals = loadExternalCollections(dataDir);
+  for (const manifest of externals) {
+    try {
+      catalog.register(manifest);
+      const storePath = resolveCollectionStorePath(dataDir, manifest.id);
+      mkdirSync(dirname(storePath), { recursive: true });
+      const extStore = new SqliteEvidenceStore(storePath);
+      await extStore.initialize();
+      stores.set(manifest.id, extStore);
+    } catch {
+      // fail-open: skip broken external collections
+    }
+  }
+
   const knowledgeResolver = new KnowledgeResolver({ projectStore: store, globalStore, catalog, stores });
 
   return {
@@ -200,5 +220,7 @@ export async function createMemoryServices(config: MemoryConfig): Promise<Memory
     globalIndexBuilder,
     globalStore,
     catalog,
+    collectionStores: stores,
+    dataDir,
   };
 }

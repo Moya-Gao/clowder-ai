@@ -1822,12 +1822,18 @@ async function main(): Promise<void> {
     catalog: memoryServices.catalog,
   });
 
-  // F186: Library catalog API
+  // F186: Library catalog API (Phase D: includes external collections + dataDir for register endpoint)
   if (memoryServices.catalog) {
-    const libraryStores = new Map<string, import('./domains/memory/interfaces.js').IEvidenceStore>();
-    libraryStores.set('project:cat-cafe', memoryServices.store);
-    if (memoryServices.globalStore) libraryStores.set('global:methods', memoryServices.globalStore);
-    await app.register(libraryRoutes, { catalog: memoryServices.catalog, stores: libraryStores });
+    const libraryStores =
+      memoryServices.collectionStores ?? new Map<string, import('./domains/memory/interfaces.js').IEvidenceStore>();
+    if (!libraryStores.has('project:cat-cafe')) libraryStores.set('project:cat-cafe', memoryServices.store);
+    if (memoryServices.globalStore && !libraryStores.has('global:methods'))
+      libraryStores.set('global:methods', memoryServices.globalStore);
+    await app.register(libraryRoutes, {
+      catalog: memoryServices.catalog,
+      stores: libraryStores,
+      dataDir: memoryServices.dataDir,
+    });
   }
 
   // Memory governance (publish workflow)

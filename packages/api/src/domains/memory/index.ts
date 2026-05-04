@@ -7,6 +7,7 @@ export type { CollectionRebuildResult } from './CollectionIndexBuilder.js';
 export { CollectionIndexBuilder } from './CollectionIndexBuilder.js';
 // Phase C: embedding + vector
 export { EmbeddingService } from './EmbeddingService.js';
+export { loadExternalCollections, resolveCollectionStorePath, saveExternalCollection } from './external-collections.js';
 export { FlatScanner } from './FlatScanner.js';
 export type { MemoryConfig, MemoryServices } from './factory.js';
 // Factory
