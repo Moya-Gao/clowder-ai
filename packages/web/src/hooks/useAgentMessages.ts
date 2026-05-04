@@ -83,6 +83,12 @@ function applyBubbleEventWithRecovery(input: BubbleReducerInput): BubbleReducerO
   return result;
 }
 
+function shouldCatchUpEmptyFinalStreamBubble(message: ChatMessage | undefined): boolean {
+  if (!message || message.type !== 'assistant' || message.origin !== 'stream') return false;
+  if (message.content.trim().length > 0) return false;
+  return (message.toolEvents?.length ?? 0) > 0 || (message.thinking?.trim().length ?? 0) > 0;
+}
+
 interface AgentMsg {
   type: string;
   catId: string;
@@ -3039,6 +3045,23 @@ export function useAgentMessages() {
               }
               if (result.violations.length > 0) {
                 for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+              }
+            }
+          }
+
+          if (msg.isFinal && messageId && !isStaleDone) {
+            const stateAfterFinalize = useChatStore.getState();
+            const finalized = stateAfterFinalize.messages.find((m) => m.id === messageId);
+            if (shouldCatchUpEmptyFinalStreamBubble(finalized)) {
+              const tid = msg.threadId ?? stateAfterFinalize.currentThreadId;
+              console.warn('[stream-catchup] done(isFinal) with empty stream CLI bubble — requesting catch-up', {
+                catId: msg.catId,
+                threadId: tid,
+                messageId,
+                invocationId: msg.invocationId,
+              });
+              if (tid) {
+                requestStreamCatchUp(tid);
               }
             }
           }
