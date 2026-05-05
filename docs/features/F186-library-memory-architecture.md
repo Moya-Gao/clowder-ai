@@ -156,7 +156,7 @@ Kind/Tag 推断策略（KD-12）：
 
 选 lexander 虚拟世界或 GBrain 拆解报告作为试点，验证 truth source → scanner → compiled index → LibraryResolver 全链路。
 
-### Phase E: Collection-aware Query Replay
+### Phase E: Collection-aware Query Replay ✅
 
 Query Replay eval gate capture 必须包含 scope / dimension / selected collections / topK per collection。replay 按 collection 分别对比 + 跨域聚合对比。
 
@@ -194,9 +194,9 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 - [x] AC-D1: 至少一个非代码 Collection 完成 truth → scan → index → query 全链路验证
 - [x] AC-D2: 非代码 Collection 试点必须同时验证 Human-Browsable Layer（Overview Lens + Health Card 正常展示），不只是 scan/index/query
 
-### Phase E（Collection-aware Query Replay）
-- [ ] AC-E1: Query capture 包含 scope/dimension/collections/topK per collection 字段
-- [ ] AC-E2: Replay 按 collection 分别对比 + 跨域聚合对比
+### Phase E（Collection-aware Query Replay）✅
+- [x] AC-E1: Query capture 包含 scope/dimension/collections/topK per collection 字段
+- [x] AC-E2: Replay 按 collection 分别对比 + 跨域聚合对比
 
 ### Phase F（Memory Lens + Typed Graph）
 - [ ] AC-F1: Memory Lens anchor 可跨 collection，输出标注证据来源域
@@ -277,6 +277,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | 2026-05-04 | Phase D merged (PR #1551) — library register/rebuild API with localhost guard + manifest validation + external collection persistence, 22 new tests (砚砚 R3 + cloud Codex) |
 | 2026-05-04 | Phase D Lens enrichment merged (PR #1553) — GET /documents endpoint + expandable CollectionCatalog UI + component test (砚砚 R2 + cloud Codex) |
 | 2026-05-05 | Phase C merged (PR #1555) — SecretScanner + fail-closed gate + purge-on-block + BindingDryRun + prompt injection boundary + private sensitivity exclusion, 34 tests, 7 cloud review rounds (砚砚 R4 + cloud Codex R7) |
+| 2026-05-05 | Phase E merged (PR #1556) — QueryReplayCompare + collection-aware capture payload + per-collection diff + Jaccard similarity, 12 tests (砚砚 R3 + cloud Codex R2) |
 
 ## Review Gate
 
@@ -284,6 +285,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 - Phase B: 砚砚 (GPT-5.5) R3 + 云端 Codex review
 - Phase C: 砚砚 (GPT-5.5) R4 + 云端 Codex R7 — SecretScanner patterns, fail-closed purge, authorityCeiling propagation, statSync hardening
 - Phase D: 砚砚 (GPT-5.5) R3 + 云端 Codex review — localhost guard, manifest validation, transactional persistence
+- Phase E: 砚砚 (GPT-5.5) R3 + 云端 Codex R2 — replay limit forwarding (cloud P1), payload shape guards (R1+R2 legacy/empty captures)
 
 ## Links
 
