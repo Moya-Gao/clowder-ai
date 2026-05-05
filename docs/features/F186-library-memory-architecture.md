@@ -139,6 +139,11 @@ GBrain 拆解发现的核心 UX 差距：我们的 `evidence.sqlite` 对猫友�
 
 硬约束：Level 0 是最低保证；Level 2-3 建议走 owner review 不自动写回 truth source。
 
+Kind/Tag 推断策略（KD-12）：
+- **Kind**：默认用目录名推断（`kindStrategy: "directory"`）；有 frontmatter `doc_kind` 时优先读取；用户可在注册时提供 `kindMap`（如 `{"RAG": "lore", "角色卡": "character"}`）覆盖
+- **Tag**：从 WikiLinks `[[...]]` 提取实体标签；目录路径作为层级 tag 候选
+- **Fallback**：无目录层级（根目录散文件）时 kind=`uncategorized`
+
 ### Phase C: 安全契约 + 绑定 dry-run
 
 实现 Collection 绑定的安全管线：
@@ -257,6 +262,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | KD-9 | F186 不重载既有 `scope`，collection 联邦维度使用 `dimension` + `collections` | 避免和现有 `scope: docs/threads/sessions/all` 冲突；`dimension: all` 保留为 project+global 兼容 alias，不等于全图书馆 | 2026-05-03 |
 | KD-10 | 新审核成熟度字段命名为 `reviewStatus`，不得复用 `provenanceTier` | 复用 F152 `provenance.tier` 表示来源类型，复用 F163 `authority` 表示知识权威，避免三套概念互相污染 | 2026-05-03 |
 | KD-11 | Phase A/B 初始 scanner allowlist 只包含 `cat-cafe-docs` / `global-methods` / `markdown-vault` | 先归一现有 F102/F152 管线；PageIndex-tree、json-store、sqlite-events 留作未来插件，不进入 MVP | 2026-05-03 |
+| KD-12 | Kind/Tag 推断策略三级：①目录名→kind（默认，零配置）②frontmatter `doc_kind`→kind（StructuredScanner L1）③用户 kindMap 自定义映射。Tag 从 WikiLinks `[[...]]` 提取。无信号时 kind=`uncategorized` | lexander 试点验证：349 篇全标 `research` 不合理，实际按目录已自然分了 11 类（RAG/角色卡/code 等）。目录名是用户已有的最强分类信号，比猜内容靠谱 | 2026-05-04 |
 
 ## Timeline
 
