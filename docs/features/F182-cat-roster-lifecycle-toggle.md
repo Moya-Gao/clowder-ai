@@ -170,7 +170,7 @@ Alternatives: @gemini, @opus-45.
 - [x] AC-B3: 不改 `buildTeammateRoster` 逻辑 — 当前 line 392 `isCatAvailable` 过滤已正确，仅补测试
 
 ### Phase C（MCP 工具降级反馈）
-- [x] AC-C1: 3 个 A 类工具（post / cross / rich）软降级 — 在线 @ 继续路由 + `routing_warnings`；**结构化目标全不可路由时 `isError: true` + `routed: []`**（防 final-routing guard 误判）；响应 **必须含 natural language `message` 字段**（KD-7），单元测试覆盖文案模板
+- [x] AC-C1: 2 个 A 类工具（post / cross）软降级 — 在线 @ 继续路由 + `routing_warnings`；**结构化目标全不可路由时 `isError: true` + `routed: []`**（防 final-routing guard 误判）；响应 **必须含 natural language `message` 字段**（KD-7），单元测试覆盖文案模板（`create_rich_block` 无路由行为，不在 A 类范围——代码正确，AC 修正与表格对齐）
 - [x] AC-C2: 1 个 A' 类工具（`multi_mention`）+ 3 个 B 类工具（`create_task.ownerCatId` / `start_vote.voters` / `register_scheduled_task.params.targetCatId`）契约式 **400** `cat_disabled` + alternatives
 - [x] AC-C3: MCP wrapper 对 `CatRoutingError` 生成固定人类可读前缀 + JSON 双轨（KD-6），单元测试覆盖文本格式
 - [x] AC-C4: MCP 工具描述更新，让 caller LLM 知道 `routing_warnings` / 400 `cat_disabled` 含义和如何选 alternatives
