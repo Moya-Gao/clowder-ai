@@ -8,7 +8,7 @@ created: 2026-04-30
 
 # F182: Cat Roster Lifecycle Toggle — 成员启停的全链路降级反馈
 
-> **Status**: in-progress | **Owner**: 布偶猫（宪宪/Sonnet 4.6）| **Reviewer**: 缅因猫（砚砚/GPT-5.5） | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫（宪宪/Sonnet 4.6）| **Reviewer**: 缅因猫（砚砚/GPT-5.5） | **Priority**: P1 | **Completed**: 2026-05-04
 
 ## Why
 
@@ -260,6 +260,9 @@ Alternatives: @gemini, @opus-45.
 | 2026-05-04 | Phase C 实施 ✅ — 7 个 MCP 工具接入（A=3 软 + A'=1 硬 + B=3 硬）+ wrapper 前缀双轨 + KD-7 message 模板 |
 | 2026-05-04 | Phase D 实施 ✅ — Hub UX（disabled 灰行 + 弹窗）+ disable-impact endpoint（服务端聚合，不在 useCatData 拼） |
 | 2026-05-04 | 砚砚（GPT-5.5）code review — 3 轮迭代，R1 P1/P2/P2-2 + R2 P1 + 签名修复，全部通过 |
+| 2026-05-04 | 云端 review — 4 轮迭代（P1: triggerUserId 隔离 + resolveCatTarget canonicalize + conditional @ strip + test helper）全部修复，squash merge PR #1549 |
+| 2026-05-04 | gpt52 愿景守护 — P2 doc fix（create_rich_block 从 A 类路由表移除），commit b4a0d8747 |
+| 2026-05-04 | **Feature closed** ✅ — 反思胶囊：[2026-05-04-f182-capsule](../reflections/2026-05-04-f182-cat-roster-lifecycle-toggle-capsule.md) |
 
 ## Review Gate
 
