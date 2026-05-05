@@ -106,7 +106,6 @@ export interface CatAlternative {
 |---|---|---|
 | `cat_cafe_post_message` | 消息体 @ + `targetCats` | 在线目标继续发，disabled 目标返回 `routing_warnings`；**结构化 targetCats 全不可路由 → `isError: true` + `routed: []`**（KD-4，避免 final-routing guard 误判"已传球"） |
 | `cat_cafe_cross_post_message` | 同上 | 同上 |
-| `cat_cafe_create_rich_block` | mentions 字段 | 同上 |
 
 **4.6 强化（KD-7）**：A 类响应必须同时返回 **natural language `message` 字段**，让 LLM 不必依赖 metadata 解析。模板：
 
