@@ -31,12 +31,33 @@ function identityKey(identity: BubbleStableIdentity): string {
   return `${identity.threadId}:${identity.actorId}:${identity.canonicalInvocationId}:${identity.bubbleKind}`;
 }
 
+function isUiCompatStreamingAssistantContainer(msg: ChatMessage, invocationId: string | undefined): boolean {
+  if (msg.type !== 'assistant') return false;
+  if (!msg.catId) return false;
+  if (!invocationId) return false;
+  if (msg.origin !== 'stream') return false;
+  if (msg.isStreaming !== true) return false;
+
+  // Active path `ensureActiveAssistantMessage` creates the canonical
+  // `msg-{invocationId}-{catId}` assistant container before text/tools may
+  // arrive. Background thinking fallback uses `bg-think-*` for the same
+  // UI-compat role. These are assistant_text containers even while they only
+  // have thinking/tool sub-events; true ADR thinking bubbles use distinct ids
+  // such as `msg-{invocationId}-{catId}-thinking` and stay `thinking`.
+  if (msg.id === `msg-${invocationId}-${msg.catId}`) return true;
+  return msg.id.startsWith('bg-think-');
+}
+
 export function deriveBubbleKindFromMessage(msg: ChatMessage): BubbleKind {
   if (msg.type === 'system') return 'system_status';
+  const invocationId = getBubbleInvocationId(msg);
   const hasTextContent = msg.content.trim().length > 0;
   if (hasTextContent) return 'assistant_text';
   if (msg.extra?.rich?.blocks?.length) return 'rich_block';
-  if (msg.thinking) return 'thinking';
+  if (msg.thinking) {
+    if (isUiCompatStreamingAssistantContainer(msg, invocationId)) return 'assistant_text';
+    return 'thinking';
+  }
   if (msg.toolEvents && msg.toolEvents.length > 0) {
     // F183 Phase B1.6 (砚砚 R2 P1) — empty content + toolEvents 是歧义态：
     // (a) UI-compat 的 streaming assistant container（active path 的 ensure
@@ -47,10 +68,10 @@ export function deriveBubbleKindFromMessage(msg: ChatMessage): BubbleKind {
     //     能 stable-key 命中同一 bubble 不触发 canonical-split。
     // (b) Pure ADR-033 tool_or_cli bubble（finalize / callback / 没绑 stream
     //     的纯独立 tool 显示气泡）—— 仍归 tool_or_cli。
-    // disambiguation: 三件套全满足才视 assistant_text；这是窄 guard，避免
-    // 影响 invariants 既有 "keeps pure tool-only" / "canonical-split for
-    // tool_or_cli incoming" 等场景（它们 origin/isStreaming 不全）。
-    if (msg.extra?.stream?.invocationId && msg.isStreaming === true && msg.origin === 'stream') {
+    // disambiguation: 只有 UI-compat streaming assistant container 才视作
+    // assistant_text；这是窄 guard，避免影响 invariants 既有 "keeps pure
+    // tool-only" / "canonical-split for tool_or_cli incoming" 等场景。
+    if (isUiCompatStreamingAssistantContainer(msg, invocationId)) {
       return 'assistant_text';
     }
     return 'tool_or_cli';

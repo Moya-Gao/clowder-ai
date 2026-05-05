@@ -1682,6 +1682,75 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
     expect(r2.nextMessages[0].toolEvents).toHaveLength(1);
   });
 
+  // F183 follow-up (2026-05-04): live path can receive thinking before tools/text.
+  // ensureActiveAssistantMessage seeds the canonical stream container, then
+  // setMessageThinking fills `thinking`. That container is still the user-facing
+  // assistant_text bubble; later tool/text events must land on it instead of
+  // splitting into a second bubble that disappears only after F5/history hydrate.
+  it('F183-R: thinking-first canonical stream container accepts tool_event + stream_chunk without phantom split', () => {
+    const seedWithThinking: ChatMessage = {
+      id: 'msg-inv-thinking-first-opus',
+      type: 'assistant',
+      catId: 'opus',
+      content: '',
+      thinking: 'same thinking preview',
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-thinking-first' } },
+    };
+
+    const toolEvent = { id: 'te-thinking-first', type: 'tool_use' as const, label: 'opus → rg', timestamp: 1100 };
+    const afterTool = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        actorId: 'opus',
+        type: 'tool_event',
+        bubbleKind: 'tool_or_cli',
+        canonicalInvocationId: 'inv-thinking-first',
+        messageId: undefined,
+        timestamp: 1100,
+        payload: { toolEvent },
+      },
+      currentMessages: [seedWithThinking],
+    });
+
+    expect(afterTool.recoveryAction).toBe('none');
+    expect(afterTool.violations).toEqual([]);
+    expect(afterTool.nextMessages).toHaveLength(1);
+    expect(afterTool.nextMessages[0]).toMatchObject({
+      id: 'msg-inv-thinking-first-opus',
+      thinking: 'same thinking preview',
+    });
+    expect(afterTool.nextMessages[0].toolEvents).toEqual([toolEvent]);
+
+    const afterText = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        actorId: 'opus',
+        type: 'stream_chunk',
+        bubbleKind: 'assistant_text',
+        canonicalInvocationId: 'inv-thinking-first',
+        messageId: 'msg-inv-thinking-first-opus',
+        timestamp: 1200,
+        payload: { content: 'visible stdout' },
+      },
+      currentMessages: afterTool.nextMessages,
+    });
+
+    expect(afterText.recoveryAction).toBe('none');
+    expect(afterText.violations).toEqual([]);
+    expect(afterText.nextMessages).toHaveLength(1);
+    expect(afterText.nextMessages[0]).toMatchObject({
+      id: 'msg-inv-thinking-first-opus',
+      content: 'visible stdout',
+      thinking: 'same thinking preview',
+    });
+    expect(afterText.nextMessages[0].toolEvents).toEqual([toolEvent]);
+  });
+
   // F183 Phase B1.6 (cloud P1): reduceToolEvent must restrict target to
   // assistant_text bubbles. ADR-033 允许 thinking + assistant_text 在同
   // invocation 共存；如果 reducer 不区分 kind 直接拿第一个 streaming assistant
@@ -1769,7 +1838,7 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
         currentMessages: [],
       });
       expect(nextMessages).toHaveLength(1);
-      expect(nextMessages[0]!.content).toBe('A1 first reply');
+      expect(nextMessages[0]?.content).toBe('A1 first reply');
 
       // Step 2: B inv-B1 stream + content
       ({ nextMessages } = applyBubbleEvent({
