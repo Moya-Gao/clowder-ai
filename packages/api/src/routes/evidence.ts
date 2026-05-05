@@ -183,7 +183,20 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       if (anyF163Active && db) {
         try {
           const logger = new F163ExperimentLogger(db);
-          logger.logSearch(variantId, f163Flags, { query: q, resultCount: results.length });
+          logger.logSearch(variantId, f163Flags, {
+            query: q,
+            resultCount: results.length,
+            limit: effectiveLimit,
+            scope,
+            dimension,
+            collections: parsedCollections,
+            topKPerCollection: Object.fromEntries(
+              (resolveResult?.collectionGroups ?? []).map((g) => [
+                g.collectionId,
+                { count: g.items.length, anchors: g.items.map((i) => i.anchor) },
+              ]),
+            ),
+          });
           // Phase F: salience rerank shadow diff (AC-F6) — logs in both shadow and on
           if (salienceResult) {
             logger.logSalienceRerank(variantId, f163Flags, {

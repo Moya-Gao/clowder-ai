@@ -1781,6 +1781,7 @@ async function main(): Promise<void> {
   const { f163AuditRoutes } = await import('./routes/f163-audit-routes.js');
   await app.register(f163AuditRoutes, {
     evidenceStore: memoryServices.evidenceStore as unknown as Parameters<typeof f163AuditRoutes>[1]['evidenceStore'],
+    knowledgeResolver: memoryServices.knowledgeResolver,
   });
 
   // F152 Phase C: Distillation routes (global lesson reflow)
