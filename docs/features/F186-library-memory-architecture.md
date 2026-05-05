@@ -144,7 +144,7 @@ Kind/Tag 推断策略（KD-12）：
 - **Tag**：从 WikiLinks `[[...]]` 提取实体标签；目录路径作为层级 tag 候选
 - **Fallback**：无目录层级（根目录散文件）时 kind=`uncategorized`
 
-### Phase C: 安全契约 + 绑定 dry-run
+### Phase C: 安全契约 + 绑定 dry-run ✅
 
 实现 Collection 绑定的安全管线：
 - Secret gate 必须在 chunk/embed 前：`bind dry-run → file inventory → secret scan → policy decision → chunk → embed → index`
@@ -184,11 +184,11 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 - [x] AC-B2: Level 1 scanner 能利用已有 frontmatter/WikiLink 结构
 - [x] AC-B3: Scanner level 在 manifest 中可配置（auto/0/1/2/3）
 
-### Phase C（安全契约 + 绑定 dry-run）
-- [ ] AC-C1: Secret scan 在 chunk/embed 之前执行，检测到 secret 时默认阻止入库
-- [ ] AC-C2: `private` Collection 默认不参与 `dimension=library` 搜索
-- [ ] AC-C3: 外部 Collection 内容不能注入猫的 system prompt
-- [ ] AC-C4: dry-run report 输出文件数/排除数/secret findings/authority 命中统计
+### Phase C（安全契约 + 绑定 dry-run）✅
+- [x] AC-C1: Secret scan 在 chunk/embed 之前执行，检测到 secret 时默认阻止入库
+- [x] AC-C2: `private` Collection 默认不参与 `dimension=library` 搜索
+- [x] AC-C3: 外部 Collection 内容不能注入猫的 system prompt
+- [x] AC-C4: dry-run report 输出文件数/排除数/secret findings/authority 命中统计
 
 ### Phase D（非代码 Collection 试点）✅
 - [x] AC-D1: 至少一个非代码 Collection 完成 truth → scan → index → query 全链路验证
@@ -276,11 +276,13 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | 2026-05-04 | Phase B merged (PR #1548) — FlatScanner L0 + StructuredScanner L1 + scanner-resolver + CollectionIndexBuilder, 52 tests |
 | 2026-05-04 | Phase D merged (PR #1551) — library register/rebuild API with localhost guard + manifest validation + external collection persistence, 22 new tests (砚砚 R3 + cloud Codex) |
 | 2026-05-04 | Phase D Lens enrichment merged (PR #1553) — GET /documents endpoint + expandable CollectionCatalog UI + component test (砚砚 R2 + cloud Codex) |
+| 2026-05-05 | Phase C merged (PR #1555) — SecretScanner + fail-closed gate + purge-on-block + BindingDryRun + prompt injection boundary + private sensitivity exclusion, 34 tests, 7 cloud review rounds (砚砚 R4 + cloud Codex R7) |
 
 ## Review Gate
 
 - Phase A: 跨猫 review（架构级，影响全局检索管线）
 - Phase B: 砚砚 (GPT-5.5) R3 + 云端 Codex review
+- Phase C: 砚砚 (GPT-5.5) R4 + 云端 Codex R7 — SecretScanner patterns, fail-closed purge, authorityCeiling propagation, statSync hardening
 - Phase D: 砚砚 (GPT-5.5) R3 + 云端 Codex review — localhost guard, manifest validation, transactional persistence
 
 ## Links
