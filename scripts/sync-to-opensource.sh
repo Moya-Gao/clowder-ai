@@ -1553,9 +1553,9 @@ BLOCK_RESULTS=$(grep -rEn 'sk-ant-|sk-proj-|sk-live-|gsk_|AIzaSy|suces-MacBook|/
 while IFS= read -r line; do
   [[ -z "$line" ]] && continue
   file="${line%%:*}"
-  # Test files may use fake keys — skip for key patterns
+  # Test files and secret-detection modules may use fake keys / regex patterns — skip
   if echo "$line" | grep -qE 'sk-ant-|sk-proj-|sk-live-|gsk_|AIzaSy'; then
-    echo "$file" | grep -qE '/test/|/__tests__/|\.test\.' && continue
+    echo "$file" | grep -qE '/test/|/__tests__/|\.test\.|/SecretScanner\.ts$' && continue
   fi
   echo -e "  ${RED}✗ Blocked content: ${line:0:120}${NC}"
   SCAN_FAILED=true

@@ -1,6 +1,7 @@
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, statSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
+import { BindingDryRun } from '../domains/memory/BindingDryRun.js';
 import { CollectionIndexBuilder } from '../domains/memory/CollectionIndexBuilder.js';
 import { CollectionReadModel } from '../domains/memory/CollectionReadModel.js';
 import type { CollectionKind, CollectionManifest, CollectionSensitivity } from '../domains/memory/collection-types.js';
@@ -149,5 +150,37 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
     const builder = new CollectionIndexBuilder(store as SqliteEvidenceStore, manifest, scanner);
     const result = await builder.rebuild();
     return result;
+  });
+
+  app.post('/api/library/bind-dry-run', async (request, reply) => {
+    const ip = request.ip;
+    if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {
+      reply.status(403);
+      return { error: 'Forbidden: localhost only' };
+    }
+    const body = request.body as { root?: unknown; exclude?: unknown; authorityCeiling?: unknown } | undefined;
+    if (!body || typeof body !== 'object' || typeof body.root !== 'string' || !body.root) {
+      reply.status(400);
+      return { error: 'root is required and must be a non-empty string' };
+    }
+    if (body.exclude !== undefined) {
+      if (!Array.isArray(body.exclude) || !body.exclude.every((e: unknown) => typeof e === 'string')) {
+        reply.status(400);
+        return { error: 'exclude must be a string array' };
+      }
+    }
+    let stat;
+    try {
+      stat = statSync(body.root, { throwIfNoEntry: false });
+    } catch {
+      reply.status(400);
+      return { error: `Root path is not a valid directory: ${body.root}` };
+    }
+    if (!stat?.isDirectory()) {
+      reply.status(400);
+      return { error: `Root path is not a valid directory: ${body.root}` };
+    }
+    const ceiling = typeof body.authorityCeiling === 'string' ? body.authorityCeiling : undefined;
+    return BindingDryRun.run(body.root, { exclude: body.exclude as string[], authorityCeiling: ceiling });
   });
 };

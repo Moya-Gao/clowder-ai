@@ -1131,7 +1131,7 @@
     {
       "id": "F182",
       "name": "Cat Roster Lifecycle Toggle — 成员启停的全链路降级反馈",
-      "status": "in-progress | **Owner**: 布偶猫（宪宪/Sonnet 4.6）| **Reviewer**: 缅因猫（砚砚/GPT-5.5） | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫（宪宪/Sonnet 4.6）| **Reviewer**: 缅因猫（砚砚/GPT-5.5） | **Priority**: P1 | **Completed**: 2026-05-04",
       "file": "F182-cat-roster-lifecycle-toggle.md"
     },
     {
