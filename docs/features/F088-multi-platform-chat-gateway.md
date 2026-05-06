@@ -183,6 +183,24 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - [x] 回归测试覆盖 Telegram placeholder chatId 映射与 deletion
 - [x] 验证命令：`pnpm --dir packages/api run build` + Telegram/streaming/outbound 相关 node tests
 
+**K2 验收标准**：
+
+设计选型：`TelegramAdapter` 内部维护 `pendingInlineFinal: Map<chatId, platformMessageId>`。`StreamingOutboundHook.onStreamEnd()` 调 `adapter.registerInlinePlaceholder()`；`sendReply`/`sendRichMessage` 消费 Map → edit placeholder 而不发新消息。`OutboundDeliveryHook.deliver()` 签名不变，`QueueProcessor` 不变。
+
+- [ ] Telegram streaming 结束后，最终纯文本 inline edit 到 placeholder（不删 placeholder，不发新消息）
+- [ ] Telegram streaming 结束后，最终 rich message（HTML 格式）inline edit 到 placeholder
+- [ ] `OutboundDeliveryHook.deliver()` 签名 / `QueueProcessor` 调用顺序不变
+- [ ] 无 streaming session 时（mid-loop delivery、普通 sendReply）`sendReply`/`sendRichMessage` 行为不变
+- [ ] 不影响 Feishu / WeCom / 其他 adapter 的 delivery 路径
+- [ ] 回归测试覆盖 inline final（纯文本 + rich）、无 pending 时正常 sendReply、不影响其他 adapter
+
+**K3 验收标准**：
+
+- [ ] `sendRichMessage` HTML parse 失败（`BUTTON_DATA_INVALID` / parse_mode 400）时 fallback 到纯文本发送
+- [ ] `editMessage` 失败（消息被删除 / 权限问题）时 fallback 到 sendReply（不丢消息）
+- [ ] `sendReply` / `sendRichMessage` 超长内容（>4096 chars）自动分段发送（而不是静默截断）
+- [ ] 回归测试覆盖 HTML fallback、editMessage fallback、长文本分段
+
 **Review Focus（砚砚）**：
 
 - 防止把 K2/K3 scope 偷渡进 K1
