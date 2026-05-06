@@ -60,6 +60,9 @@ s#defaultValue: '3001'#defaultValue: '3003'#g;
 # JS nullish coalescing defaults (?? '3002' in template literals like SessionBootstrap)
 s#\?\? '3002'#?? '3004'#g;
 s#\?\? '3001'#?? '3003'#g;
+# JS const assignment defaults (platform-status.mjs: DEFAULT_API_PORT = '3002')
+s#DEFAULT_API_PORT = '3002'#DEFAULT_API_PORT = '3004'#g;
+s#DEFAULT_WEB_PORT = '3001'#DEFAULT_WEB_PORT = '3003'#g;
 s#localhost:18060#<local-integration-endpoint>#g;
 s#localhost:9000#<local-browser-automation-endpoint>#g;
 
