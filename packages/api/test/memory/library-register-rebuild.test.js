@@ -362,7 +362,7 @@ describe('library register + rebuild endpoints', () => {
     assert.equal(res.statusCode, 404);
   });
 
-  it('GET /documents returns 404 for private collection', async () => {
+  it('GET /documents returns 200 for private collection (owner view)', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'priv-'));
     writeFileSync(join(dir, 'a.md'), '# A');
     await app.inject({
@@ -379,6 +379,6 @@ describe('library register + rebuild endpoints', () => {
       },
     });
     const res = await app.inject({ method: 'GET', url: '/api/library/domain:priv/documents' });
-    assert.equal(res.statusCode, 404);
+    assert.equal(res.statusCode, 200);
   });
 });

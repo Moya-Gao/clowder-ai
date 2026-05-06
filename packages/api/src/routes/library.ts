@@ -23,8 +23,13 @@ type StoreWithDb = IEvidenceStore & { getDb?: () => import('better-sqlite3').Dat
 type StoreWithGetRelated = IEvidenceStore & import('../domains/memory/GraphResolver.js').GraphStore;
 
 export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (app, opts) => {
-  app.get('/api/library/catalog', async () => {
-    const collections = opts.catalog.getRoutable('library');
+  app.get('/api/library/catalog', async (request, reply) => {
+    const ip = request.ip;
+    if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {
+      reply.status(403);
+      return { error: 'Forbidden: localhost only' };
+    }
+    const collections = opts.catalog.list();
     const items = collections.map((manifest) => {
       const store = opts.stores.get(manifest.id) as StoreWithDb | undefined;
       const db = store?.getDb?.();
@@ -40,9 +45,14 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
   });
 
   app.get<{ Params: { collectionId: string } }>('/api/library/:collectionId', async (request, reply) => {
+    const ip = request.ip;
+    if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {
+      reply.status(403);
+      return { error: 'Forbidden: localhost only' };
+    }
     const { collectionId } = request.params;
     const manifest = opts.catalog.get(collectionId);
-    if (!manifest || manifest.sensitivity === 'private' || manifest.sensitivity === 'restricted') {
+    if (!manifest) {
       reply.status(404);
       return { error: `Collection "${collectionId}" not found` };
     }
@@ -117,9 +127,14 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
   });
 
   app.get<{ Params: { collectionId: string } }>('/api/library/:collectionId/documents', async (request, reply) => {
+    const ip = request.ip;
+    if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {
+      reply.status(403);
+      return { error: 'Forbidden: localhost only' };
+    }
     const { collectionId } = request.params;
     const manifest = opts.catalog.get(collectionId);
-    if (!manifest || manifest.sensitivity === 'private' || manifest.sensitivity === 'restricted') {
+    if (!manifest) {
       reply.status(404);
       return { error: `Collection "${collectionId}" not found` };
     }

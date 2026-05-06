@@ -222,7 +222,7 @@ describe('LibraryCatalog', () => {
     assert.equal(routable.length, 1, 'alias-resolved duplicates should be deduplicated');
   });
 
-  it('library catalog endpoint excludes private/restricted collections (cloud R6 P1)', async () => {
+  it('library catalog endpoint includes ALL collections for owner view (guardian P1)', async () => {
     const Fastify = (await import('fastify')).default;
     const { libraryRoutes } = await import('../../dist/routes/library.js');
 
@@ -261,12 +261,12 @@ describe('LibraryCatalog', () => {
     const body = JSON.parse(res.body);
     const ids = body.collections.map((c) => c.manifest.id);
     assert.ok(ids.includes('project:pub'), 'should include internal collection');
-    assert.ok(!ids.includes('world:secret'), 'should exclude private collection');
+    assert.ok(ids.includes('world:secret'), 'owner must see private collections in catalog');
 
     await app.close();
   });
 
-  it('library detail endpoint denies private collection by ID (cloud R7 P1)', async () => {
+  it('library detail endpoint allows owner access to private collection (guardian P1)', async () => {
     const Fastify = (await import('fastify')).default;
     const { libraryRoutes } = await import('../../dist/routes/library.js');
 
@@ -289,7 +289,119 @@ describe('LibraryCatalog', () => {
     await app.ready();
 
     const res = await app.inject({ method: 'GET', url: '/api/library/world:private-detail' });
-    assert.equal(res.statusCode, 404, 'private collection should not be accessible via detail endpoint');
+    assert.equal(res.statusCode, 200, 'owner must be able to view private collection details');
+    const body = JSON.parse(res.body);
+    assert.equal(body.manifest.id, 'world:private-detail');
+
+    await app.close();
+  });
+
+  it('library documents endpoint allows owner access to private collection documents (guardian P1)', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { libraryRoutes } = await import('../../dist/routes/library.js');
+
+    catalog.register({
+      id: 'world:private-docs',
+      kind: 'world',
+      name: 'private-docs',
+      displayName: 'Private Docs',
+      root: '/tmp',
+      sensitivity: 'private',
+      scannerLevel: 0,
+      indexPolicy: { autoRebuild: true },
+      reviewPolicy: { authorityCeiling: 'validated', requireOwnerApproval: false },
+      createdAt: '2026-05-03',
+      updatedAt: '2026-05-03',
+    });
+
+    const app = Fastify();
+    await app.register(libraryRoutes, { catalog, stores: new Map() });
+    await app.ready();
+
+    const res = await app.inject({ method: 'GET', url: '/api/library/world:private-docs/documents' });
+    assert.equal(res.statusCode, 200, 'owner must be able to view private collection documents');
+
+    await app.close();
+  });
+
+  it('catalog endpoint rejects non-localhost request (codex R1 P1)', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { libraryRoutes } = await import('../../dist/routes/library.js');
+
+    const app = Fastify();
+    await app.register(libraryRoutes, { catalog, stores: new Map() });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/library/catalog',
+      remoteAddress: '203.0.113.9',
+    });
+    assert.equal(res.statusCode, 403);
+
+    await app.close();
+  });
+
+  it('detail endpoint rejects non-localhost request (codex R1 P1)', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { libraryRoutes } = await import('../../dist/routes/library.js');
+
+    catalog.register({
+      id: 'world:remote-detail',
+      kind: 'world',
+      name: 'remote-detail',
+      displayName: 'Remote Detail',
+      root: '/tmp',
+      sensitivity: 'private',
+      scannerLevel: 0,
+      indexPolicy: { autoRebuild: true },
+      reviewPolicy: { authorityCeiling: 'validated', requireOwnerApproval: false },
+      createdAt: '2026-05-06',
+      updatedAt: '2026-05-06',
+    });
+
+    const app = Fastify();
+    await app.register(libraryRoutes, { catalog, stores: new Map() });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/library/world:remote-detail',
+      remoteAddress: '203.0.113.9',
+    });
+    assert.equal(res.statusCode, 403);
+
+    await app.close();
+  });
+
+  it('documents endpoint rejects non-localhost request (codex R1 P1)', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { libraryRoutes } = await import('../../dist/routes/library.js');
+
+    catalog.register({
+      id: 'world:remote-docs',
+      kind: 'world',
+      name: 'remote-docs',
+      displayName: 'Remote Docs',
+      root: '/tmp',
+      sensitivity: 'private',
+      scannerLevel: 0,
+      indexPolicy: { autoRebuild: true },
+      reviewPolicy: { authorityCeiling: 'validated', requireOwnerApproval: false },
+      createdAt: '2026-05-06',
+      updatedAt: '2026-05-06',
+    });
+
+    const app = Fastify();
+    await app.register(libraryRoutes, { catalog, stores: new Map() });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/library/world:remote-docs/documents',
+      remoteAddress: '203.0.113.9',
+    });
+    assert.equal(res.statusCode, 403);
 
     await app.close();
   });

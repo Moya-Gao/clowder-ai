@@ -125,6 +125,11 @@ export function CollectionCatalog() {
               onClick={() => toggleExpand(c.manifest.id)}
             >
               <span className="text-xs select-none">{isExpanded ? '▼' : '▶'}</span>
+              {(c.manifest.sensitivity === 'private' || c.manifest.sensitivity === 'restricted') && (
+                <span className="text-xs select-none" title={`${c.manifest.sensitivity} collection`}>
+                  🔒
+                </span>
+              )}
               <span className="font-semibold text-sm text-cafe-primary">{c.manifest.displayName}</span>
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${SENSITIVITY_BADGE[c.manifest.sensitivity] ?? ''}`}
