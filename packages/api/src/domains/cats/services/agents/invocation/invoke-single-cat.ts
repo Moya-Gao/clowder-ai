@@ -26,6 +26,7 @@ import { getContextWindowFallback } from '../../../../../config/context-window-s
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
 import { assertSafeTestConfigRoot } from '../../../../../config/test-config-write-guard.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import type { CallerTraceContext } from '../../../../../infrastructure/telemetry/genai-semconv.js';
 import {
   AGENT_ID,
   GENAI_MODEL,
@@ -278,6 +279,8 @@ export interface InvocationParams {
   readonly a2aTriggerMessageId?: string;
   /** F153 Phase E: Parent route span — invocation span becomes its child */
   readonly routeSpan?: import('@opentelemetry/api').Span;
+  /** F181: mutable ref so caller can capture the invocation span for trace propagation */
+  readonly invocationSpanRef?: { current?: import('@opentelemetry/api').Span };
   /** #502 PR2: structured route control state to persist on threshold seal. */
   readonly continuityCapsule?: RouteStateContinuityCapsule;
 }
@@ -484,6 +487,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     { attributes: { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke', invocationId } },
     parentCtx,
   );
+
+  // F181: Expose invocation span to caller + persist trace context for A2A propagation
+  if (params.invocationSpanRef) params.invocationSpanRef.current = invocationSpan;
+  const sc = invocationSpan.spanContext();
+  await deps.registry.setTraceContext(invocationId, { traceId: sc.traceId, spanId: sc.spanId, traceFlags: sc.traceFlags });
 
   try {
     // F152: Track active invocations — must be inside try so add/sub symmetry

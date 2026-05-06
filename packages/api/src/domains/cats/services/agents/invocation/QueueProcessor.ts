@@ -907,6 +907,7 @@ export class QueueProcessor {
           cursorBoundaries,
           persistenceContext,
           ...(invocationId ? { parentInvocationId: invocationId } : {}),
+          callerTraceContext: entry.callerTraceContext,
         },
       )) {
         if (controller.signal.aborted) {

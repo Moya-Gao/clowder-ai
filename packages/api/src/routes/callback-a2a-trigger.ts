@@ -14,6 +14,7 @@
 
 import type { CatId } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
+import type { CallerTraceContext } from '../infrastructure/telemetry/genai-semconv.js';
 import { getDefaultCatId } from '../config/cat-config-loader.js';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
@@ -68,6 +69,8 @@ export async function enqueueA2ATargets(
     callerCatId?: CatId;
     /** F108: parentInvocationId for concurrent worklist isolation. */
     parentInvocationId?: string;
+    /** F181: caller trace context for cross-route A2A propagation */
+    callerTraceContext?: CallerTraceContext;
   },
 ): Promise<{ enqueued: CatId[]; fallback: boolean }> {
   const { log } = deps;
@@ -158,6 +161,7 @@ export async function enqueueA2ATargets(
         intent: 'execute',
         autoExecute: true,
         callerCatId: callerCatId ?? undefined,
+        callerTraceContext: opts.callerTraceContext,
       });
       queueDiagnostics.push({
         catId,
@@ -351,6 +355,8 @@ export async function triggerA2AInvocation(
     userId: string;
     threadId: string;
     triggerMessage: StoredMessage;
+    /** F181: caller trace context for cross-route A2A propagation */
+    callerTraceContext?: CallerTraceContext;
   },
 ): Promise<void> {
   const { router, invocationRecordStore, socketManager, invocationTracker, log } = deps;
@@ -436,6 +442,7 @@ export async function triggerA2AInvocation(
       for await (const msg of router.routeExecution(userId, content, threadId, triggerMessage.id, targetCats, intent, {
         ...(controller?.signal ? { signal: controller.signal } : {}),
         parentInvocationId: createResult.invocationId,
+        callerTraceContext: opts.callerTraceContext,
       })) {
         // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
         if (!intentModeBroadcast) {
