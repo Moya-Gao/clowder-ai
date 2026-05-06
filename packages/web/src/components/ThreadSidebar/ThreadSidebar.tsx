@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Thread, useChatStore } from '@/stores/chatStore';
+import { useLabelStore } from '@/stores/label-store';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { loadThreads as loadCachedThreads } from '@/utils/offline-store';
@@ -138,8 +139,8 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
 
   useEffect(() => {
     void loadThreads();
-    // Fetch global bubble display defaults from Config Hub on mount
     void useChatStore.getState().fetchGlobalBubbleDefaults();
+    void useLabelStore.getState().fetchLabels();
   }, [loadThreads]);
 
   useEffect(() => {
@@ -374,6 +375,10 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
     });
     if (!res.ok) throw new Error('保存失败');
     useChatStore.getState().updateThreadPreferredCats(threadId, cats);
+  }, []);
+
+  const handleUpdateLabels = useCallback(async (threadId: string, labels: string[]) => {
+    await useChatStore.getState().updateThreadLabels(threadId, labels);
   }, []);
 
   const handleSelect = useCallback(
@@ -715,11 +720,13 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
                             onTogglePin={handleTogglePin}
                             onToggleFavorite={handleToggleFavorite}
                             onUpdatePreferredCats={handleUpdatePreferredCats}
+                            onUpdateLabels={handleUpdateLabels}
                             isPinned={t.pinned}
                             isFavorited={t.favorited}
                             threadState={getThreadState(t.id)}
                             indented
                             preferredCats={t.preferredCats}
+                            threadLabels={t.labels}
                             isHubThread={!!t.connectorHubState}
                           />
                         ))}
@@ -784,11 +791,13 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
                     onTogglePin={handleTogglePin}
                     onToggleFavorite={handleToggleFavorite}
                     onUpdatePreferredCats={handleUpdatePreferredCats}
+                    onUpdateLabels={handleUpdateLabels}
                     isPinned={t.pinned}
                     isFavorited={t.favorited}
                     threadState={getThreadState(t.id)}
                     indented={group.type === 'project'}
                     preferredCats={t.preferredCats}
+                    threadLabels={t.labels}
                     isHubThread={!!t.connectorHubState}
                   />
                 ))}

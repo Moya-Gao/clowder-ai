@@ -73,6 +73,7 @@ import { createAuthorizationAuditStore } from './domains/cats/services/stores/fa
 import { createAuthorizationRuleStore } from './domains/cats/services/stores/factories/AuthorizationRuleStoreFactory.js';
 import { createBacklogStore } from './domains/cats/services/stores/factories/BacklogStoreFactory.js';
 import { createCommunityIssueStore } from './domains/cats/services/stores/factories/CommunityIssueStoreFactory.js';
+import { createLabelStore } from './domains/cats/services/stores/factories/LabelStoreFactory.js';
 import { createMemoryStore } from './domains/cats/services/stores/factories/MemoryStoreFactory.js';
 import { createMessageStore } from './domains/cats/services/stores/factories/MessageStoreFactory.js';
 import { createPendingRequestStore } from './domains/cats/services/stores/factories/PendingRequestStoreFactory.js';
@@ -151,6 +152,7 @@ import {
   guideActionRoutes,
   intentCardRoutes,
   invocationsRoutes,
+  labelsRoutes,
   leaderboardEventsRoutes,
   leaderboardRoutes,
   libraryRoutes,
@@ -450,6 +452,7 @@ async function main(): Promise<void> {
   const { InMemoryGuideDismissTracker } = await import('./domains/guides/GuideDismissTracker.js');
   const dismissTracker = new InMemoryGuideDismissTracker();
   const taskStore = createTaskStore(redis);
+  const labelStore = createLabelStore(redis);
   const communityIssueStore = createCommunityIssueStore(redis);
   if (redis) {
     const { RedisPrTrackingStore } = await import('./infrastructure/email/RedisPrTrackingStore.js');
@@ -1524,7 +1527,9 @@ async function main(): Promise<void> {
     backlogStore,
     ...(readStateStore ? { readStateStore } : {}),
     guideSessionStore,
+    labelStore,
   });
+  await app.register(labelsRoutes, { labelStore });
   await app.register(threadBranchRoutes, {
     threadStore,
     messageStore,

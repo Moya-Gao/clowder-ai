@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { useIMEGuard } from '@/hooks/useIMEGuard';
 import type { ThreadState } from '@/stores/chat-types';
+import { useLabelStore } from '@/stores/label-store';
 import { API_URL } from '@/utils/api-client';
 // F174 D2b-2 (rev): per-cat callback-auth dot was rejected (铲屎官 alpha 反馈
 // "莫名其妙的颜色" — 16px participant avatars lacked any affordance). Status now
@@ -12,6 +13,7 @@ import { HubIcon } from '../icons/HubIcon';
 import { PawIcon } from '../icons/PawIcon';
 import { ThreadCatStatus } from '../ThreadCatStatus';
 import { ThreadCatSettings } from './ThreadCatSettings';
+import { ThreadLabelPicker } from './ThreadLabelPicker';
 import { formatRelativeTime } from './thread-utils';
 
 export interface ThreadItemProps {
@@ -26,11 +28,13 @@ export interface ThreadItemProps {
   onTogglePin?: (id: string, pinned: boolean) => void | Promise<void>;
   onToggleFavorite?: (id: string, favorited: boolean) => void | Promise<void>;
   onUpdatePreferredCats?: (id: string, cats: string[]) => void | Promise<void>;
+  onUpdateLabels?: (id: string, labels: string[]) => void | Promise<void>;
   isPinned?: boolean;
   isFavorited?: boolean;
   threadState?: ThreadState;
   indented?: boolean;
   preferredCats?: string[];
+  threadLabels?: string[];
   isHubThread?: boolean;
 }
 
@@ -46,11 +50,13 @@ export function ThreadItem({
   onTogglePin,
   onToggleFavorite,
   onUpdatePreferredCats,
+  onUpdateLabels,
   isPinned,
   isFavorited,
   threadState,
   indented,
   preferredCats,
+  threadLabels,
   isHubThread,
 }: ThreadItemProps) {
   const { getCatById } = useCatData();
@@ -191,6 +197,10 @@ export function ThreadItem({
           {id !== 'default' && onUpdatePreferredCats && !isEditing && (
             <ThreadCatSettings threadId={id} currentCats={preferredCats ?? []} onSave={onUpdatePreferredCats} />
           )}
+          {/* Label picker button */}
+          {id !== 'default' && onUpdateLabels && !isEditing && (
+            <ThreadLabelPicker threadId={id} currentLabels={threadLabels ?? []} onSave={onUpdateLabels} />
+          )}
           {/* Rename button */}
           {canRename && !isEditing && (
             <button
@@ -287,6 +297,7 @@ export function ThreadItem({
               ))}
             </div>
           )}
+          <LabelDots labels={threadLabels} />
           {threadState && (
             <ThreadCatStatus
               threadState={threadState}
@@ -325,5 +336,24 @@ function StarIcon({ filled }: { filled?: boolean }) {
     >
       <path d="M8 1.5l2.09 4.26 4.71.68-3.41 3.32.8 4.69L8 12.26l-4.19 2.19.8-4.69L1.2 6.44l4.71-.68L8 1.5z" />
     </svg>
+  );
+}
+
+function LabelDots({ labels }: { labels?: string[] }) {
+  const { labels: allLabels } = useLabelStore();
+  if (!labels || labels.length === 0) return null;
+  const resolved = labels
+    .map((id) => allLabels.find((l) => l.id === id))
+    .filter((l): l is NonNullable<typeof l> => l !== undefined);
+  if (resolved.length === 0) return null;
+  const shown = resolved.slice(0, 3);
+  const overflow = resolved.length - shown.length;
+  return (
+    <div className="flex items-center gap-0.5 ml-1" title={resolved.map((l) => l.name).join(', ')}>
+      {shown.map((l) => (
+        <span key={l.id} className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: l.color }} />
+      ))}
+      {overflow > 0 && <span className="text-[8px] text-cafe-muted">+{overflow}</span>}
+    </div>
   );
 }

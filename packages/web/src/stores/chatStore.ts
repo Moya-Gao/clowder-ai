@@ -843,6 +843,7 @@ export interface ChatState {
   updateThreadThinkingMode: (threadId: string, mode: 'debug' | 'play') => void;
 
   updateThreadPreferredCats: (threadId: string, preferredCats: string[]) => void;
+  updateThreadLabels: (threadId: string, labels: string[]) => Promise<void>;
   updateThreadBubbleDisplay: (threadId: string, field: 'bubbleThinking' | 'bubbleCli', value: BubbleOverride) => void;
   setGlobalBubbleDefaults: (defaults: GlobalBubbleDefaults) => void;
   fetchGlobalBubbleDefaults: () => Promise<void>;
@@ -2015,6 +2016,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
         t.id === threadId ? { ...t, preferredCats: preferredCats.length > 0 ? preferredCats : undefined } : t,
       ),
     })),
+
+  updateThreadLabels: async (threadId, labels) => {
+    const prev = get().threads.find((t) => t.id === threadId)?.labels;
+    set((state) => ({
+      threads: state.threads.map((t) =>
+        t.id === threadId ? { ...t, labels: labels.length > 0 ? labels : undefined } : t,
+      ),
+    }));
+    try {
+      const { apiFetch } = await import('@/utils/api-client');
+      const res = await apiFetch(`/api/threads/${threadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labels }),
+      });
+      if (!res.ok) throw new Error(`PATCH labels failed: ${res.status}`);
+    } catch {
+      set((state) => ({
+        threads: state.threads.map((t) => (t.id === threadId ? { ...t, labels: prev } : t)),
+      }));
+      throw new Error('Failed to save labels');
+    }
+  },
 
   /**
    * Switch active thread.
