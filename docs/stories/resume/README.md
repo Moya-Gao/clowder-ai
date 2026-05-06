@@ -3,12 +3,12 @@ feature_ids: []
 topics: [stories, career, resume]
 doc_kind: story
 created: 2026-04-07
-updated: 2026-04-14
-participants: [opus, gpt52, gemini]
+updated: 2026-05-06
+participants: [opus, gpt52, gemini, codex]
 thread_ids: []
 ---
 
-# Landy's Resume — Draft v2
+# Landy's Resume — Draft v2.5
 
 > 猫猫委员会联合起草，铲屎官审阅定稿。`[待填]` = 需要铲屎官补充的信息。
 
@@ -31,7 +31,7 @@ thread_ids: []
 ### 一句话定位
 
 **AI Agent 架构师 / 多智能体系统设计者**
-——7 年华为经验，横跨云基础设施与 AI Agent 两个技术周期。曾主导华为云服务开发框架（巫山）的中间件归一与分布式调度；后将同一套解耦哲学应用于 AI 领域，从零设计多智能体协作平台 Cat Cafe（4+ 模型家族、10+ Agent 个体实时协同），架构经高层现场验证后被内部产品化采纳，相关办公智能体方向已于 2026-04-14 以华为云 OfficeClaw 公开发布。
+——7 年华为经验，横跨云基础设施、AI 辅助研发与多智能体系统三个阶段。2019.11 起参与华为云服务开发框架（巫山），主导中间件归一、分布式调度和多环境适配；2025 年开始将框架经验迁移到 AI Agent 场景，从 oncall / 代码迁移 / 代码生成切入，逐步演进到 Relay Agent、盘古 Doer Router POC 与 Cat Cafe 多智能体协作平台。Cat Cafe 架构经高层现场验证后被内部产品化采纳，相关办公智能体方向已于 2026-04-14 以华为云 OfficeClaw 公开发布。
 
 ---
 
@@ -43,6 +43,7 @@ thread_ids: []
 | AI Agent 架构 | Multi-Agent Orchestration、愿景驱动治理、可携带治理与信任边界、联邦知识系统、Prompt Engineering、Agent 间通信协议设计 |
 | LLM 工程 | Claude / OpenAI / Gemini API 集成、多模型路由与 fallback、上下文窗口分层压缩、Token 预算优化、RAG（BM25 + 向量混合检索） |
 | 全栈工程 | TypeScript / Node.js / React / Next.js、Redis、SQLite、Monorepo (pnpm workspace)、MCP (Model Context Protocol) |
+| 国产化与多平台 AI 工程 | GLM / Qwen / DeepSeek 等模型生态接入、Claude Code / Codex / Gemini CLI 运行时适配、Mac / Windows / Linux / Ascend 跨环境编排 |
 | 开发流程 | TDD、Cross-Model Code Review、Feature 全生命周期治理、CI/CD 门禁、IM 网关（5 渠道） |
 | `[待填]` | `[铲屎官补充其他技能 — 如 K8s/容器编排/HarmonyOS 等，按目标岗位调整]` |
 
@@ -50,7 +51,7 @@ thread_ids: []
 
 ### 工作经历
 
-#### `[待填：职位名称]` — 华为技术有限公司（2019 至今）
+#### `[待填：职位名称]` — 华为技术有限公司（2019.11 至今）
 
 > 深圳 · 华为云 / ICT · 云软件开发部 · 架构与技术 · 在职约 7 年
 
@@ -73,7 +74,7 @@ thread_ids: []
 - 48 小时内高层拍板启动产品化，架构被 fork 用于企业内部 Agent 平台建设
 - 2026-04-14，相关办公智能体方向以华为云 OfficeClaw 公开发布，标志着架构产品化路线从内部验证走向商业化发布
 
-**项目一：巫山框架 — 华为云服务开发框架（2019–2025）**
+**项目一：巫山框架 — 华为云服务开发框架（2019.11–2024.12）**
 
 华为云内部统一的云服务开发框架，为各业务线提供标准化的服务开发、部署和运行基座。
 
@@ -84,13 +85,28 @@ thread_ids: []
 
 - **服务规模**：框架支撑华为云 500+ 云服务、6000+ 微服务的开发运行基座（2025 年数据）
 
-**项目二：AI Agent 技术探索与落地（2025.03–至今）**
+**项目二：AI Agent 技术探索与落地（2025.01–至今）**
 
-从零探索 AI Agent 方向，经历了从低代码编排到自主多智能体协作的完整技术演进：
+从华为云微服务框架的 oncall、代码迁移、代码生成等真实工程场景切入，经历了从低代码编排、单 Agent 工具调用，到多智能体协作平台的完整技术演进：
 
-- **阶段一（2025.03–2025 Q4）**：调研并实践 Dify、RAGFlow 等 Agent 编排平台，评估低代码 AI 方案的能力边界
-- **阶段二（2025 Q4–2026.01）**：跟进业界 Skill / Harness 范式演进，探索单 Agent 的工具编排与任务执行能力
-- **阶段三（2026.01–至今）**：设计并实现 Cat Cafe 多智能体协作平台（见上文"核心项目"），从单 Agent 工具调用演进到跨模型对等协作架构
+- **AI 辅助研发与 RAG 验证（2025.01–2025.09）**：围绕华为云微服务框架 oncall、代码迁移与代码生成场景，调研并实践 Dify、RAGFlow 等 Agent / RAG 平台，评估低代码 AI 编排在真实研发流程中的能力边界
+- **国产模型运行时与部署验证（2025.01–2025.09）**：使用两台 B4 服务器验证 Claude Code 驱动的模型服务部署与运维流程，围绕 GLM 4.6 等模型做本地/内网运行时适配，沉淀模型服务接入、环境适配和故障处理经验
+- **Relay Agent / Coding Agent（2025.10–至今）**：从一次性代码生成升级到面向研发任务的 Coding Agent，探索 CLI 运行时、MCP 工具接入、任务状态管理、代码审查与回归验证闭环
+- **盘古 Doer Router POC（2026.01）**：为盘古 Doer 30+ 下游 Agent 设计自学习意图分发层，从传统 workflow 演进为 `Agent + Skills + Hindsight` 的协作范式，验证意图路由、反思学习和记忆增强的企业级 Agent 路径
+- **Cat Cafe / OfficeClaw（2026 春节后–至今）**：设计并实现 Cat Cafe 多智能体协作平台（见上文"核心项目"），从单 Agent 工具调用演进到跨模型对等协作架构，并推动相关办公智能体方向进入内部产品化
+
+---
+
+### 可选项目池（按岗位裁剪）
+
+> 以下内容不建议全部塞进对外简历，可按目标岗位裁剪为 1-2 条面试弹药。
+
+| 项目 | 可讲价值 |
+|------|----------|
+| 盘古 Doer Router POC | 为 30+ 下游 Agent 设计自学习意图路由，验证 `workflow → agent + skills + memory` 的平台演进路径 |
+| Project Neural Link 跨隔离 AI 编排 | 设计 Mac–Windows–Ascend 910B 三段式架构，将 AI Agent 编排能力推向国产算力集群 |
+| DARE Framework 调研与集成 | 系统性源码调研企业级 Agent 框架，沉淀"默认有状态、可审计、可审批、可恢复、可回放"的设计标准 |
+| Relay Agent × CodeWiki 对接探索 | 探索企业知识库与 AI Agent 的接入路径，降低 Agent 工具过载和知识检索噪声 |
 
 ---
 
@@ -109,8 +125,8 @@ thread_ids: []
 
 | 项目 | 角色 | 描述 |
 |------|------|------|
-| **Cat Cafe** (clowder-ai) | Creator & Lead Architect | 多智能体协作平台，MIT 协议。150+ tracked work items，~30 Skills，5 渠道 IM 接入，跨 4 模型家族对等协作 |
-| **Cat Cafe Tutorials** (cat-cafe-tutorials) | Creator | 多智能体协作实践教程，配套 Cat Cafe 的入门与进阶指南，GitHub 270+ Stars |
+| **Cat Cafe** (clowder-ai) | Creator & Lead Architect | 多智能体协作平台，MIT 协议。150+ tracked work items，~30 Skills，5 渠道 IM 接入，跨 4 模型家族对等协作，GitHub 650+ Stars |
+| **Cat Cafe Tutorials** (cat-cafe-tutorials) | Creator | 多智能体协作实践教程，配套 Cat Cafe 的入门与进阶指南，GitHub 350+ Stars |
 
 ---
 
@@ -127,6 +143,8 @@ thread_ids: []
 | IM 渠道 | 5（飞书 / 微信 / Telegram / DingTalk / WeCom） |
 | 架构企业采纳 | 高层现场验证后被内部产品化团队采纳为 Agent 平台基础，并于 2026-04-14 出现华为云 OfficeClaw 公开发布信号 |
 | 项目周期 | 约 60 天从零到生产级（2026-02 至今持续迭代） |
+| AI 技术探索覆盖 | 7+ 模型厂牌（Claude / GPT / Gemini / Codex / GLM / Qwen / DeepSeek）+ 4 平台（Mac / Windows / Linux / Ascend） |
+| 并行探索战线 | 盘古 Doer Router / Neural Link / DARE Framework / CodeWiki Agent 接入 |
 
 ---
 
@@ -134,11 +152,11 @@ thread_ids: []
 
 ### Summary
 
-**AI Agent Architect** with 7+ years at Huawei, spanning cloud infrastructure and AI agent systems. Built Huawei Cloud's service development framework (middleware abstraction, distributed scheduling for 6000+ microservices), then applied the same decoupling philosophy to design Cat Cafe — a production-grade multi-agent collaboration platform with vision-driven governance, cross-project portable methodology, and federated knowledge systems across 4+ LLM families. The architecture was adopted into an internal productization initiative after passing an unplanned live executive demo, and the related office-agent direction was later surfaced publicly in Huawei Cloud's OfficeClaw announcement on April 14, 2026.
+**AI Agent Architect** with 7+ years at Huawei, spanning cloud infrastructure, AI-assisted software engineering, and multi-agent systems. Since joining Huawei Cloud in November 2019, built Huawei Cloud's service development framework (middleware abstraction, distributed scheduling, multi-environment adaptation for 6000+ microservices), then applied the same decoupling philosophy to AI engineering workflows: oncall assistance, code migration/generation, Relay Agent, Pangu Doer Router POC, and finally Cat Cafe — a production-grade multi-agent collaboration platform with vision-driven governance, cross-project portable methodology, and federated knowledge systems across 4+ LLM families. The architecture was adopted into an internal productization initiative after passing an unplanned live executive demo, and the related office-agent direction was later surfaced publicly in Huawei Cloud's OfficeClaw announcement on April 14, 2026.
 
 ### Experience
 
-#### `[Title]` — Huawei Technologies (2019 – Present)
+#### `[Title]` — Huawei Technologies (2019.11 – Present)
 
 > Huawei Cloud / ICT · Cloud Software Development · Architecture & Technology
 
@@ -159,18 +177,31 @@ thread_ids: []
 
 > "The competing internal solution crashed during the same executive demo. 48 hours later, the executive directed company-wide adoption based on my architecture."
 
-**Wushan Framework — Huawei Cloud Service Development Framework (2019–2025)**
+**Wushan Framework — Huawei Cloud Service Development Framework (2019.11–2024.12)**
 
 - Founding member of Huawei Cloud's internal unified service development framework; led the design and implementation of the WebFlux–Spring integration layer as the reactive foundation
 - Designed a middleware abstraction layer to shield environment differences across HCS / HCSO / online / offline deployments; published integration specifications adopted across business lines — enabling plug-and-play onboarding (same architectural philosophy later applied to Cat Cafe's IM gateway: channel decoupling + pluggable adapters)
 - Independently designed and built TaskFlow, a reactive task orchestration engine (Reactive + YAML workflow DSL), and deeply refactored ElasticJob into a distributed scheduler supporting scheduled tasks and complex orchestration
 - Tech stack: Java, Spring, WebFlux, ElasticJob, YAML DSL, distributed systems
 
-**AI Agent Technical Exploration & Productization (2025.03–Present)**
+**AI Agent Technical Exploration & Productization (2025.01–Present)**
 
-- Evaluated low-code AI orchestration platforms (Dify, RAGFlow) and their capability boundaries
-- Tracked industry evolution through Skill/Harness paradigms to multi-agent orchestration
-- Designed and shipped Cat Cafe (see above), evolving from single-agent tool calling to cross-model peer collaboration
+- Applied Dify / RAGFlow to real Huawei Cloud service-framework scenarios such as oncall assistance, code migration, and code generation; evaluated low-code AI orchestration boundaries in production-like engineering workflows
+- Validated model-service deployment and operations on two B4 servers, using Claude Code to drive deployment/ops flows around GLM 4.6 and internal/on-prem model runtime adaptation
+- Built Relay Agent / Coding Agent workflows from October 2025 onward, evolving from one-off code generation to task-oriented coding agents with CLI runtime, MCP tool integration, state management, code review, and regression checks
+- Designed Pangu Doer Router POC in January 2026 for 30+ downstream agents, evolving a workflow-based system into an `Agent + Skills + Hindsight` architecture with intent routing, reflective learning, and memory augmentation
+- Designed and shipped Cat Cafe (see above), evolving from single-agent tool calling to cross-model peer collaboration and internal productization through OfficeClaw
+
+---
+
+### Selected Parallel Explorations
+
+| Project | Value |
+|---------|-------|
+| Pangu Doer Router POC | Self-learning intent routing for 30+ downstream agents; validated `workflow → agent + skills + memory` platform evolution |
+| Project Neural Link | Mac–Windows–Ascend 910B orchestration design for pushing AI agent workflows into domestic compute clusters |
+| DARE Framework Research | Source-level review of an enterprise agent framework; distilled stateful, auditable, approvable, recoverable, replayable design standards |
+| Relay Agent × CodeWiki | Explored enterprise knowledge-base integration with AI agents while controlling tool overload and retrieval noise |
 
 ---
 
@@ -178,6 +209,7 @@ thread_ids: []
 
 - **Cloud Infrastructure**: Java, Spring, WebFlux, Middleware Abstraction, Distributed Scheduling (ElasticJob, YAML DSL), Multi-Environment Adaptation
 - **AI/Agent**: Multi-Agent Orchestration, Vision-Driven Governance, Portable Governance & Trust Boundaries, Federated Knowledge Systems, Prompt Engineering, LLM API Integration (Claude/GPT/Gemini), RAG (BM25 + Vector)
+- **Domestic / Multi-Platform AI Engineering**: GLM, Qwen, DeepSeek, Claude Code, Codex, Gemini CLI, MCP, Mac / Windows / Linux / Ascend runtime adaptation
 - **Full-Stack**: TypeScript, Node.js, React, Next.js, Redis, SQLite, MCP (Model Context Protocol), Monorepo (pnpm)
 - **Process**: TDD, Cross-Model Code Review, Feature Lifecycle Governance, CI/CD Gating, IM Gateway (5 channels)
 
@@ -197,6 +229,10 @@ thread_ids: []
 **30 秒标准版（简历/初筛用）：**
 
 > "我在华为做了 7 年。前 6 年做云基础设施——华为云的服务开发框架是我和同事们从零搭的，主要做中间件架构归一和分布式调度。去年开始转 AI Agent 方向，把做框架时积累的解耦思维用到了多智能体系统上，从零搭了 Cat Cafe——4 个模型家族、10 多个 AI 个体实时协作，带记忆系统、带 5 渠道 IM 集成。有一天被高层临时拉去现场演示，零准备通过，48 小时后公司拍板用我的架构做内部 Agent 平台。我想找一个能让我在 Agent 方向继续深耕的机会。"
+
+**45 秒时间线版（需要解释"怎么从云框架转 Agent"时用）：**
+
+> "我 2019 年 11 月入职华为，前几年主要做华为云微服务开发框架，负责中间件归一、分布式调度和多环境适配，底层服务规模是 500+ 云服务、6000+ 微服务。2025 年开始我把这套框架经验迁移到 AI 辅助研发：先用 Dify、RAGFlow 做 oncall、代码迁移和代码生成验证，再用两台 B4 服务器跑 GLM 4.6 这类模型服务，后来做 Relay Agent / Coding Agent。2026 年初做盘古 Doer Router POC，把 workflow 推到 agent + skills + memory。春节后我从零搭了 Cat Cafe，多模型多智能体协作，最后被公司内部产品化采纳。"
 
 **加料版（面试聊到深处、气氛合适时用）：**
 
@@ -223,4 +259,4 @@ thread_ids: []
 
 ---
 
-*[宪宪/Opus-46] drafted v1 · [砚砚/GPT-5.4] reviewed 5 findings (3×P1 + 2×P2) · [宪宪/Opus-46] applied all fixes → v2 → filled Huawei exp + education → v2.2*
+*[宪宪/Opus-46] drafted v1 · [砚砚/GPT-5.4] reviewed 5 findings (3×P1 + 2×P2) · [宪宪/Opus-46] applied all fixes → v2 → filled Huawei exp + education → v2.2 · [砚砚/GPT-5.5] updated AI timeline + side-project pool → v2.5*
