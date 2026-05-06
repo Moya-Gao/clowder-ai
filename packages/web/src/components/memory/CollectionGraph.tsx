@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 
 interface GraphNode {
   anchor: string;
@@ -44,45 +44,148 @@ const RELATION_STYLE: Record<string, string> = {
   promoted_from: '#10b981',
 };
 
-function layoutNodes(nodes: GraphNode[], center?: string): Map<string, { x: number; y: number }> {
-  const positions = new Map<string, { x: number; y: number }>();
-  const cx = 300;
-  const cy = 200;
-  const radius = 140;
+const W = 600;
+const H = 400;
 
-  const centerIdx = nodes.findIndex((n) => n.anchor === center);
-  if (centerIdx >= 0) {
-    positions.set(nodes[centerIdx].anchor, { x: cx, y: cy });
-    const others = nodes.filter((_, i) => i !== centerIdx);
-    others.forEach((node, i) => {
-      const angle = (2 * Math.PI * i) / Math.max(others.length, 1);
-      positions.set(node.anchor, {
-        x: cx + radius * Math.cos(angle),
-        y: cy + radius * Math.sin(angle),
-      });
-    });
-  } else {
-    nodes.forEach((node, i) => {
-      const angle = (2 * Math.PI * i) / Math.max(nodes.length, 1);
-      positions.set(node.anchor, {
-        x: cx + radius * Math.cos(angle),
-        y: cy + radius * Math.sin(angle),
-      });
-    });
+interface SimNode {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+}
+
+function applyRepulsion(sim: SimNode[]) {
+  for (let i = 0; i < sim.length; i++) {
+    for (let j = i + 1; j < sim.length; j++) {
+      const dx = sim[i].x - sim[j].x;
+      const dy = sim[i].y - sim[j].y;
+      const d = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+      const f = 3000 / (d * d);
+      sim[i].vx += (dx / d) * f;
+      sim[i].vy += (dy / d) * f;
+      sim[j].vx -= (dx / d) * f;
+      sim[j].vy -= (dy / d) * f;
+    }
   }
-  return positions;
+}
+
+function applySprings(sim: SimNode[], edges: GraphEdge[], idx: Map<string, number>) {
+  for (const e of edges) {
+    const ai = idx.get(e.from);
+    const bi = idx.get(e.to);
+    if (ai === undefined || bi === undefined) continue;
+    const dx = sim[bi].x - sim[ai].x;
+    const dy = sim[bi].y - sim[ai].y;
+    const d = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+    const disp = d - 120;
+    sim[ai].vx += 0.01 * disp * (dx / d);
+    sim[ai].vy += 0.01 * disp * (dy / d);
+    sim[bi].vx -= 0.01 * disp * (dx / d);
+    sim[bi].vy -= 0.01 * disp * (dy / d);
+  }
+}
+
+function forceLayout(nodes: GraphNode[], edges: GraphEdge[], center?: string): Map<string, { x: number; y: number }> {
+  if (nodes.length === 0) return new Map();
+  const cx = W / 2;
+  const cy = H / 2;
+  const sim: SimNode[] = nodes.map((n, i) => {
+    if (n.anchor === center) return { x: cx, y: cy, vx: 0, vy: 0 };
+    const a = (2 * Math.PI * i) / Math.max(nodes.length, 1);
+    return { x: cx + 100 * Math.cos(a), y: cy + 100 * Math.sin(a), vx: 0, vy: 0 };
+  });
+  const idx = new Map<string, number>();
+  for (let i = 0; i < nodes.length; i++) {
+    idx.set(nodes[i].anchor, i);
+  }
+
+  for (let t = 0; t < 80; t++) {
+    applyRepulsion(sim);
+    applySprings(sim, edges, idx);
+    for (const p of sim) {
+      p.vx = (p.vx + (cx - p.x) * 0.01) * 0.8;
+      p.vy = (p.vy + (cy - p.y) * 0.01) * 0.8;
+      p.x = Math.max(30, Math.min(W - 30, p.x + p.vx));
+      p.y = Math.max(30, Math.min(H - 30, p.y + p.vy));
+    }
+  }
+
+  const result = new Map<string, { x: number; y: number }>();
+  for (let i = 0; i < nodes.length; i++) {
+    result.set(nodes[i].anchor, { x: sim[i].x, y: sim[i].y });
+  }
+  return result;
+}
+
+function renderGraphNode(
+  node: GraphNode,
+  pos: { x: number; y: number },
+  centerAnchor: string | undefined,
+  onNodeClick: (anchor: string) => void,
+  onHover: (n: GraphNode | null) => void,
+) {
+  const color = SENSITIVITY_COLOR[node.sensitivity] ?? '#6b7280';
+  const isCenter = node.anchor === centerAnchor;
+  const dimmed = node.sensitivity === 'private' || node.sensitivity === 'restricted' || node.redacted;
+  const r = isCenter ? 22 : 18;
+  const label = node.title.length > 20 ? `${node.title.slice(0, 18)}…` : node.title;
+
+  return (
+    <g
+      key={node.anchor}
+      data-testid={`graph-node-${node.anchor}`}
+      opacity={dimmed ? 0.5 : 1}
+      className="cursor-pointer"
+      role="treeitem"
+      tabIndex={0}
+      onClick={() => onNodeClick(node.anchor)}
+      ref={(el) => {
+        if (!el) return;
+        el.onmouseenter = () => onHover(node);
+        el.onmouseleave = () => onHover(null);
+        el.onfocus = () => onHover(node);
+        el.onblur = () => onHover(null);
+        el.onkeydown = (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onNodeClick(node.anchor);
+          }
+        };
+      }}
+    >
+      <circle
+        cx={pos.x}
+        cy={pos.y}
+        r={r}
+        fill="white"
+        stroke={color}
+        strokeWidth={isCenter ? 3 : 2}
+        strokeDasharray={node.redacted ? '4 2' : undefined}
+      />
+      {node.redacted && (
+        <text x={pos.x} y={pos.y + 1} textAnchor="middle" fontSize={12}>
+          🔒
+        </text>
+      )}
+      <text x={pos.x} y={pos.y + (node.redacted ? 14 : 4)} textAnchor="middle" fontSize={9} fill="#374151">
+        {label}
+      </text>
+    </g>
+  );
 }
 
 export function CollectionGraph() {
   const [graph, setGraph] = useState<GraphResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [anchor, setAnchor] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [hovered, setHovered] = useState<GraphNode | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const fetchGraph = useCallback((a: string) => {
     if (!a.trim()) return;
     setLoading(true);
     setError(null);
+    setHovered(null);
     fetch(`/api/library/graph?anchor=${encodeURIComponent(a)}&depth=1`)
       .then((r) => {
         if (!r.ok) throw new Error(`${r.status}`);
@@ -96,29 +199,29 @@ export function CollectionGraph() {
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      fetchGraph(anchor);
+      fetchGraph(inputRef.current?.value ?? '');
     },
-    [anchor, fetchGraph],
+    [fetchGraph],
   );
 
   const handleNodeClick = useCallback(
     (nodeAnchor: string) => {
-      setAnchor(nodeAnchor);
+      if (inputRef.current) inputRef.current.value = nodeAnchor;
       fetchGraph(nodeAnchor);
     },
     [fetchGraph],
   );
 
-  const positions = graph ? layoutNodes(graph.nodes, graph.center) : new Map();
+  const positions = graph ? forceLayout(graph.nodes, graph.edges, graph.center) : new Map();
 
   return (
     <div data-testid="collection-graph">
       <form onSubmit={handleSubmit} className="flex gap-2 mb-4">
         <input
+          ref={inputRef}
           type="text"
-          value={anchor}
-          onChange={(e) => setAnchor(e.target.value)}
-          placeholder="Enter anchor (e.g. project:cat-cafe:doc/f186)"
+          defaultValue=""
+          placeholder="Enter anchor (e.g. project:cafe:doc/f186)"
           className="flex-1 rounded border border-cafe bg-white px-3 py-1.5 text-sm text-cafe-primary"
           data-testid="graph-anchor-input"
         />
@@ -133,14 +236,19 @@ export function CollectionGraph() {
 
       {loading && <div className="text-sm text-cafe-secondary">Loading graph...</div>}
       {error && <div className="text-sm text-red-500">Error: {error}</div>}
-
       {graph && graph.nodes.length === 0 && !loading && (
         <div className="text-sm text-cafe-secondary">No graph data for this anchor.</div>
       )}
 
       {graph && graph.nodes.length > 0 && (
-        <div className="rounded-lg border border-cafe bg-white p-2">
-          <svg viewBox="0 0 600 400" className="w-full" data-testid="graph-svg">
+        <div className="relative rounded-lg border border-cafe bg-white p-2">
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            className="w-full"
+            role="img"
+            aria-label="Knowledge graph"
+            data-testid="graph-svg"
+          >
             {graph.edges.map((edge) => {
               const fromPos = positions.get(edge.from);
               const toPos = positions.get(edge.to);
@@ -169,39 +277,19 @@ export function CollectionGraph() {
             {graph.nodes.map((node) => {
               const pos = positions.get(node.anchor);
               if (!pos) return null;
-              const color = SENSITIVITY_COLOR[node.sensitivity] ?? '#6b7280';
-              const isCenter = node.anchor === graph.center;
-              return (
-                <g
-                  key={node.anchor}
-                  data-testid={`graph-node-${node.anchor}`}
-                  className="cursor-pointer"
-                  onClick={() => handleNodeClick(node.anchor)}
-                >
-                  <circle
-                    cx={pos.x}
-                    cy={pos.y}
-                    r={isCenter ? 22 : 18}
-                    fill="white"
-                    stroke={color}
-                    strokeWidth={isCenter ? 3 : 2}
-                    strokeDasharray={node.redacted ? '4 2' : undefined}
-                  />
-                  {node.redacted && (
-                    <text x={pos.x} y={pos.y + 1} textAnchor="middle" fontSize={12}>
-                      🔒
-                    </text>
-                  )}
-                  <text x={pos.x} y={pos.y + (node.redacted ? 14 : 4)} textAnchor="middle" fontSize={9} fill="#374151">
-                    {node.title.length > 20 ? `${node.title.slice(0, 18)}…` : node.title}
-                  </text>
-                  <text x={pos.x} y={pos.y + 30} textAnchor="middle" fontSize={7} fill="#9ca3af">
-                    {node.collectionId}
-                  </text>
-                </g>
-              );
+              return renderGraphNode(node, pos, graph.center, handleNodeClick, setHovered);
             })}
           </svg>
+          {hovered && (
+            <div
+              data-testid="graph-tooltip"
+              className="absolute top-2 right-2 rounded bg-cafe-surface p-2 text-xs shadow-lg border border-cafe pointer-events-none"
+            >
+              <div className="font-medium text-cafe-primary">{hovered.title}</div>
+              <div className="text-cafe-secondary">{hovered.collectionId}</div>
+              <div className="text-cafe-secondary">{hovered.sensitivity}</div>
+            </div>
+          )}
           <div className="flex flex-wrap gap-3 mt-2 px-2 text-[10px] text-cafe-secondary">
             <span>Nodes: {graph.nodes.length}</span>
             <span>Edges: {graph.edges.length}</span>
