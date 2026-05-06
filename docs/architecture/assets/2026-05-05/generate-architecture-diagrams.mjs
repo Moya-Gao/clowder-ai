@@ -241,79 +241,120 @@ function heroDiagram() {
   return svgShell(w, h, body);
 }
 
-function componentBox(x, y, w, h, index, title, items, color, anchorText) {
+function sourceRows(rows, x, y) {
+  return rows.map((row, idx) => {
+    const cy = y + idx * 28;
+    return `
+      <rect x="${x}" y="${cy - 18}" width="52" height="24" rx="12" fill="${row.fill}" stroke="${row.stroke}" stroke-width="2"/>
+      <text x="${x + 26}" y="${cy}" text-anchor="middle" font-size="14" font-weight="900" fill="${row.stroke}">${esc(row.tag)}</text>
+      <text x="${x + 66}" y="${cy}" font-size="16" font-weight="650" fill="${C.ink}">${esc(row.text)}</text>
+    `;
+  }).join("");
+}
+
+function componentBox(x, y, w, h, index, title, items, color, anchorText, sources = []) {
   return `
   ${box(x, y, w, h, { fill: C.white, stroke: color, r: 24 })}
   ${pill(x + 22, y + 20, `${index}. ${title}`, `${color}22`, color, { size: 24, textFill: color, w: w - 44 })}
   ${lines(items, x + 34, y + 92, { size: 23, weight: 650, fill: C.ink, leading: 1.25 })}
-  ${anchorText ? lines([anchorText], x + w - 34, y + h - 24, { size: 18, weight: 700, fill: C.muted, anchor: "end" }) : ""}
+  ${sources.length ? `<line x1="${x + 30}" y1="${y + h - 126}" x2="${x + w - 30}" y2="${y + h - 126}" stroke="${color}" stroke-width="2" opacity="0.24"/>` : ""}
+  ${sources.length ? lines(["外部概念锚点"], x + 34, y + h - 96, { size: 17, weight: 850, fill: color }) : ""}
+  ${sources.length ? sourceRows(sources, x + 34, y + h - 64) : ""}
+  ${anchorText ? lines([anchorText], x + w - 34, y + h - 24, { size: 17, weight: 700, fill: C.muted, anchor: "end" }) : ""}
   `;
 }
 
 function harnessMapDiagram() {
-  const w = 2000;
-  const h = 1500;
+  const w = 2200;
+  const h = 1650;
+  const OAI = { tag: "OAI", fill: "#e0f2fe", stroke: C.blue };
+  const ANT = { tag: "ANT", fill: "#f5f3ff", stroke: C.purple };
+  const FOW = { tag: "FOW", fill: "#ffedd5", stroke: C.orange };
   const body = `
   ${sectionTitle("Cat Cafe Harness Engineering：六大件 + 第七类", "行业六大构件我们全有落地；多猫协作还需要协作语义与球权治理", w)}
-  ${pill(650, 132, "Agent Quality = Model Capability × Environment Fit", C.purpleSoft, C.purple, { w: 700, size: 26, textFill: C.purple })}
+  ${pill(720, 132, "Agent Quality = Model Capability × Environment Fit", C.purpleSoft, C.purple, { w: 760, size: 26, textFill: C.purple })}
 
-  ${componentBox(90, 210, 565, 265, 1, "Durable State", [
+  ${componentBox(80, 220, 630, 345, 1, "Durable State", [
     "docs/ 真相源",
     "evidence.sqlite 编译层",
     "Session Chain / Thread",
     "Task / Workflow / InvocationQueue",
-  ], C.green, "→ 图5 Shared State")}
-  ${componentBox(720, 210, 565, 265, 2, "Plans & Decomposition", [
+  ], C.green, "→ 图5 Shared State", [
+    { ...OAI, text: "docs / plans / worktree SOR" },
+    { ...ANT, text: "structured handoff / session log" },
+    { ...FOW, text: "context engineering / harnessability" },
+  ])}
+  ${componentBox(785, 220, 630, 345, 2, "Plans & Decomposition", [
     "feat-lifecycle → Design Gate",
     "writing-plans → Phase 拆分",
     "AC 对 evidence · Close Gate 三选一",
     "不许留 follow-up 尾巴",
-  ], C.orange, "→ SOP / Gates")}
-  ${componentBox(1350, 210, 565, 265, 3, "Feedback Loops", [
+  ], C.orange, "→ SOP / Gates", [
+    { ...OAI, text: "execution plans as artifacts" },
+    { ...ANT, text: "planner / feature decomposition" },
+    { ...FOW, text: "guides: specs / plans / rules" },
+  ])}
+  ${componentBox(1490, 220, 630, 345, 3, "Feedback Loops", [
     "Computational: lint / test / gate / CI",
     "Inferential: 跨族 review / 愿景守护",
     "Human Runtime: Magic Words 拉闸",
     "CVO 漏斗决策",
-  ], C.red, "→ 图3 verdict")}
+  ], C.red, "→ 图3 verdict", [
+    { ...OAI, text: "agent reviews / CI / traces" },
+    { ...ANT, text: "evaluator / QA loop / trace reading" },
+    { ...FOW, text: "sensors: computational + inferential" },
+  ])}
 
-  ${componentBox(90, 535, 565, 285, 4, "Legibility", [
+  ${componentBox(80, 630, 630, 365, 4, "Legibility", [
     "search_evidence（增强 grep）",
     "Hub 明厨亮灶",
     "InvocationTracker：谁在跑 / 谁在等",
     "confidence / authority / sourceType",
     "看不见等于不存在",
-  ], C.blue, "→ 图5 API / Hub")}
-  ${componentBox(720, 535, 565, 285, 5, "Tool Mediation", [
+  ], C.blue, "→ 图5 API / Hub", [
+    { ...OAI, text: "UI / logs / metrics / repo visible" },
+    { ...ANT, text: "structured artifacts for next agent" },
+    { ...FOW, text: "ambient affordances / harnessability" },
+  ])}
+  ${componentBox(785, 630, 630, 365, 5, "Tool Mediation", [
     "MCP + Skill 认知路标",
     "SystemPromptBuilder",
     "入口硬 gate (F086)",
     "Dynamic Injection",
     "猫砂盆放在猫已经去的地方",
-  ], C.purple, "→ L1/L3 Tooling")}
-  ${componentBox(1350, 535, 565, 285, 6, "Entropy Control", [
+  ], C.purple, "→ L1/L3 Tooling", [
+    { ...OAI, text: "dev tools / gh / scripts / skills" },
+    { ...ANT, text: "harness routes tools; sandbox hands" },
+    { ...FOW, text: "computational controls / codemods" },
+  ])}
+  ${componentBox(1490, 630, 630, 365, 6, "Entropy Control", [
     "F163 知识生命周期",
     "Build to Delete 判别式",
     "skeleton / explanation / probe",
     "ADR-031（Sunset 纪律）",
     "代码熵 + harness 自身熵",
-  ], C.teal, "→ 图4 双飞轮")}
+  ], C.teal, "→ 图4 双飞轮", [
+    { ...OAI, text: "doc gardening / cleanup tasks" },
+    { ...ANT, text: "re-review scaffold after upgrades" },
+    { ...FOW, text: "steering loop / keep quality left" },
+  ])}
 
-  ${box(150, 905, 1700, 365, { fill: "#fff7ed", stroke: C.orange, r: 30, label: "7. Collaboration Semantics", labelColor: C.orange })}
-  ${lines(["六大件之外，Cat Cafe 独有"], 1000, 965, { size: 35, weight: 900, fill: C.orange, anchor: "middle" })}
+  ${box(180, 1090, 1840, 370, { fill: "#fff7ed", stroke: C.orange, r: 30, label: "7. Collaboration Semantics", labelColor: C.orange })}
+  ${lines(["六大件之外，Cat Cafe 独有"], 1100, 1150, { size: 35, weight: 900, fill: C.orange, anchor: "middle" })}
   ${lines([
     "@ 路由 · targetCats · hold_ball · 接 / 退 / 升三选一",
     "统一执行平面：InvocationQueue 接住所有 handoff",
     "跨厂商多样性：Claude × GPT × Gemini = 结构性纠错",
     "CVO 终裁：愿景层拍板，执行层自治",
     "核心定律：状态迁移必须由现实动作产生",
-  ], 240, 1040, { size: 32, weight: 760, fill: C.ink, leading: 1.25 })}
-  ${cat(1540, 1060, 0.78, C.purple, "多猫", "协作协议", { face: "#fef3c7", mane: "#e7b76b" })}
-  ${yarn(1415, 1132, 42, C.orange)}
-  ${simpleArrow(1320, 1132, 1375, 1132, { color: C.orange })}
-  ${simpleArrow(1455, 1132, 1512, 1132, { color: C.orange })}
+  ], 280, 1225, { size: 32, weight: 760, fill: C.ink, leading: 1.25 })}
+  ${cat(1690, 1238, 0.78, C.purple, "多猫", "协作协议", { face: "#fef3c7", mane: "#e7b76b" })}
+  ${yarn(1565, 1310, 42, C.orange)}
+  ${simpleArrow(1470, 1310, 1525, 1310, { color: C.orange })}
+  ${simpleArrow(1605, 1310, 1662, 1310, { color: C.orange })}
 
-  ${box(320, 1320, 1360, 82, { fill: "#fffbeb", stroke: "#d97706", r: 24, shadow: false })}
-  ${lines(["分类来源：中文社区综合归纳；详细谱系见 concept-map-2026-05-05.md。不是 OpenAI / Anthropic / Fowler 的官方六分法。"], 1000, 1372, { size: 24, weight: 750, fill: "#92400e", anchor: "middle" })}
+  ${box(300, 1520, 1600, 82, { fill: "#fffbeb", stroke: "#d97706", r: 24, shadow: false })}
+  ${lines(["六大件 = 中文社区综合归纳；OAI / ANT / FOW 是外部概念锚点，不是官方一一对应分类。详见 concept-map-2026-05-05.md。"], 1100, 1572, { size: 24, weight: 750, fill: "#92400e", anchor: "middle" })}
   `;
   return svgShell(w, h, body);
 }
