@@ -490,6 +490,14 @@ describe(
       );
     });
 
+    it('sync-to-opensource.sh runs sanitizer over ES module utility files', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
+      assert.ok(
+        content.includes('-name "*.mjs"'),
+        'sync sanitizer should include .mjs files such as scripts/lib/platform-status.mjs',
+      );
+    });
+
     it('sync-to-opensource.sh transforms start-dev.sh API fallback to 3004', () => {
       const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
       const expected = "'s/API_PORT=$" + '{API_SERVER_PORT:-3002}/API_PORT=$' + "{API_SERVER_PORT:-3004}/g'";
