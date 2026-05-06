@@ -103,6 +103,8 @@ related:
 
 ### 图 1：猫咖全景 Hero 图
 
+![图 1：猫咖全景 Hero 图](assets/2026-05-05/01-hero-overview.png)
+
 **答**：Cat Cafe 是什么？
 
 **给谁看**：新人、外部观众、非技术读者
@@ -149,6 +151,8 @@ related:
 ---
 
 ### 图 2：Harness Engineering 六+一构件映射图
+
+![图 2：Harness Engineering 六+一构件映射图](assets/2026-05-05/02-harness-engineering-map.png)
 
 **答**：你们的 harness 长什么样？和行业框架什么关系？
 
@@ -205,6 +209,8 @@ related:
 
 ### 图 3：A2A 协作球权流转图
 
+![图 3：A2A 协作球权流转图](assets/2026-05-05/03-a2a-ball-ownership-flow.png)
+
 **答**：传球怎么发生？为什么乒乓球解决了？
 
 **给谁看**：技术同行、协作系统设计者
@@ -259,6 +265,8 @@ State    thread · task · docs · evidence · InvocationQueue
 ---
 
 ### 图 4：记忆 × 治理双飞轮图
+
+![图 4：记忆 × 治理双飞轮图](assets/2026-05-05/04-dual-flywheel.png)
 
 **答**：知识怎么积累不腐？Harness 怎么剥离自己？
 
@@ -317,6 +325,8 @@ State    thread · task · docs · evidence · InvocationQueue
 ---
 
 ### 图 5：运行时技术栈图
+
+![图 5：运行时技术栈图](assets/2026-05-05/05-runtime-stack.png)
 
 **答**：代码在哪？改什么影响什么？
 
@@ -458,6 +468,8 @@ docs/architecture/assets/2026-05-05/
 ├── 04-dual-flywheel.png
 └── 05-runtime-stack.png
 ```
+
+SVG 源文件与 `generate-architecture-diagrams.mjs` 同目录保留，后续需要改字、改布局时可重新导出 PNG。
 
 ---
 

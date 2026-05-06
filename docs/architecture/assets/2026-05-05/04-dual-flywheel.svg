@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="1300" viewBox="0 0 1900 1300">
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#8a6f45" flood-opacity="0.14"/>
+    </filter>
+    <filter id="soft">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="12" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0"/>
+      <feBlend in="SourceGraphic" mode="multiply"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse">
+      <path d="M 1 1 L 11 6 L 1 11 z" fill="#344054"/>
+    </marker>
+    <marker id="arrowRed" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse">
+      <path d="M 1 1 L 11 6 L 1 11 z" fill="#dc2626"/>
+    </marker>
+    <style><![CDATA[
+      text { font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Arial Unicode MS", sans-serif; letter-spacing: 0; }
+      .title { font-weight: 800; fill: #263238; }
+      .subtitle { fill: #667085; }
+      .label { font-weight: 700; fill: #263238; }
+      .small { fill: #667085; }
+      .mono { font-family: "SFMono-Regular", "Menlo", "Consolas", monospace; }
+    ]]></style>
+  </defs>
+  <rect width="100%" height="100%" fill="#fffaf0"/>
+  <path d="M0,70 C420,10 760,95 1120,42 C1440,-4 1660,42 2100,16 L2100,0 L0,0 Z" fill="#f8efe0" opacity="0.8"/>
+  
+  
+  <text x="950" y="70" text-anchor="middle" opacity="1" class="title"><tspan x="950" dy="0" fill="#263238" font-weight="850" font-size="48">记忆 × Harness 双飞轮：让知识不腐，让规则会删自己</tspan></text>
+  <text x="950" y="112" text-anchor="middle" opacity="1" class=""><tspan x="950" dy="0" fill="#667085" font-weight="600" font-size="24">左轮治理知识与产物熵；右轮治理 harness 自身熵；中间齿轮是现实闭环</tspan></text>
+
+  
+    <circle cx="525" cy="520" r="333" fill="#16a34a12" stroke="#16a34a" stroke-width="5" stroke-dasharray="14 10"/>
+    <line x1="595" y1="265" x2="654.3670280293476" y2="361.01010052602294" stroke="#16a34a" stroke-width="3"  stroke-linecap="round" marker-end="url(#arrow)"/><line x1="794.3670280293476" y1="361.01010052602294" x2="703.606617606365" y2="576.7428381588602" stroke="#16a34a" stroke-width="3"  stroke-linecap="round" marker-end="url(#arrow)"/><line x1="703.606617606365" y1="576.7428381588602" x2="705.6403534749774" y2="749.7470613151169" stroke="#16a34a" stroke-width="3"  stroke-linecap="round" marker-end="url(#arrow)"/><line x1="565.6403534749774" y1="749.7470613151169" x2="484.3596465250227" y2="749.7470613151169" stroke="#16a34a" stroke-width="3"  stroke-linecap="round" marker-end="url(#arrow)"/><line x1="344.3596465250227" y1="749.7470613151169" x2="346.39338239363497" y2="576.7428381588602" stroke="#16a34a" stroke-width="3"  stroke-linecap="round" marker-end="url(#arrow)"/><line x1="346.39338239363497" y1="576.7428381588602" x2="255.63297197065236" y2="361.010100526023" stroke="#16a34a" stroke-width="3"  stroke-linecap="round" marker-end="url(#arrow)"/><line x1="395.63297197065236" y1="361.010100526023" x2="455" y2="265" stroke="#16a34a" stroke-width="3"  stroke-linecap="round" marker-end="url(#arrow)"/>
+    
+    <rect x="430" y="231" width="190" height="68" rx="24" fill="white" stroke="#16a34a" stroke-width="3" filter="url(#shadow)"/>
+    <text x="525" y="259" text-anchor="middle" opacity="1" class=""><tspan x="525" dy="0" fill="#16a34a" font-weight="800" font-size="19">docs /</tspan><tspan x="525" dy="19.95" fill="#16a34a" font-weight="800" font-size="19">discussions</tspan></text>
+  
+    <rect x="629.3670280293476" y="327.01010052602294" width="190" height="68" rx="24" fill="white" stroke="#16a34a" stroke-width="3" filter="url(#shadow)"/>
+    <text x="724.3670280293476" y="355.01010052602294" text-anchor="middle" opacity="1" class=""><tspan x="724.3670280293476" dy="0" fill="#16a34a" font-weight="800" font-size="19">scan / hash</tspan><tspan x="724.3670280293476" dy="19.95" fill="#16a34a" font-weight="800" font-size="19">rebuild</tspan></text>
+  
+    <rect x="678.606617606365" y="542.7428381588602" width="190" height="68" rx="24" fill="white" stroke="#16a34a" stroke-width="3" filter="url(#shadow)"/>
+    <text x="773.606617606365" y="570.7428381588602" text-anchor="middle" opacity="1" class=""><tspan x="773.606617606365" dy="0" fill="#16a34a" font-weight="800" font-size="19">evidence</tspan><tspan x="773.606617606365" dy="19.95" fill="#16a34a" font-weight="800" font-size="19">.sqlite</tspan></text>
+  
+    <rect x="540.6403534749774" y="715.7470613151169" width="190" height="68" rx="24" fill="white" stroke="#16a34a" stroke-width="3" filter="url(#shadow)"/>
+    <text x="635.6403534749774" y="743.7470613151169" text-anchor="middle" opacity="1" class=""><tspan x="635.6403534749774" dy="0" fill="#16a34a" font-weight="800" font-size="19">search_</tspan><tspan x="635.6403534749774" dy="19.95" fill="#16a34a" font-weight="800" font-size="19">evidence</tspan></text>
+  
+    <rect x="319.3596465250227" y="715.7470613151169" width="190" height="68" rx="24" fill="white" stroke="#16a34a" stroke-width="3" filter="url(#shadow)"/>
+    <text x="414.3596465250227" y="743.7470613151169" text-anchor="middle" opacity="1" class=""><tspan x="414.3596465250227" dy="0" fill="#16a34a" font-weight="800" font-size="19">recall →</tspan><tspan x="414.3596465250227" dy="19.95" fill="#16a34a" font-weight="800" font-size="19">agent 使用</tspan></text>
+  
+    <rect x="181.39338239363497" y="542.7428381588602" width="190" height="68" rx="24" fill="white" stroke="#16a34a" stroke-width="3" filter="url(#shadow)"/>
+    <text x="276.39338239363497" y="570.7428381588602" text-anchor="middle" opacity="1" class=""><tspan x="276.39338239363497" dy="0" fill="#16a34a" font-weight="800" font-size="19">review →</tspan><tspan x="276.39338239363497" dy="19.95" fill="#16a34a" font-weight="800" font-size="19">materialize</tspan></text>
+  
+    <rect x="230.63297197065236" y="327.010100526023" width="190" height="68" rx="24" fill="white" stroke="#16a34a" stroke-width="3" filter="url(#shadow)"/>
+    <text x="325.63297197065236" y="355.010100526023" text-anchor="middle" opacity="1" class=""><tspan x="325.63297197065236" dy="0" fill="#16a34a" font-weight="800" font-size="19">reindex +</tspan><tspan x="325.63297197065236" dy="19.95" fill="#16a34a" font-weight="800" font-size="19">stale detect</tspan></text>
+  
+    <circle cx="525" cy="520" r="118" fill="white" stroke="#16a34a" stroke-width="5" filter="url(#shadow)"/>
+    <text x="525" y="508" text-anchor="middle" opacity="1" class=""><tspan x="525" dy="0" fill="#16a34a" font-weight="900" font-size="27">知识飞轮</tspan><tspan x="525" dy="30.240000000000002" fill="#16a34a" font-weight="900" font-size="27">Knowledge</tspan></text>
+  
+  
+    <circle cx="1375" cy="520" r="333" fill="#f9731612" stroke="#f97316" stroke-width="5" stroke-dasharray="14 10"/>
+    <line x1="1445" y1="265" x2="1504.3670280293477" y2="361.01010052602294" stroke="#f97316" stroke-width="3"  stroke-linecap="round" marker-end="url(#arrow)"/><line x1="1644.3670280293477" y1="361.01010052602294" x2="1553.606617606365" y2="576.7428381588602" stroke="#f97316" stroke-width="3"  stroke-linecap="round" marker-end="url(#arrow)"/><line x1="1553.606617606365" y1="576.7428381588602" x2="1555.6403534749772" y2="749.7470613151169" stroke="#f97316" stroke-width="3"  stroke-linecap="round" marker-end="url(#arrow)"/><line x1="1415.6403534749772" y1="749.7470613151169" x2="1334.3596465250228" y2="749.7470613151169" stroke="#f97316" stroke-width="3"  stroke-linecap="round" marker-end="url(#arrow)"/><line x1="1194.3596465250228" y1="749.7470613151169" x2="1196.393382393635" y2="576.7428381588602" stroke="#f97316" stroke-width="3"  stroke-linecap="round" marker-end="url(#arrow)"/><line x1="1196.393382393635" y1="576.7428381588602" x2="1105.6329719706523" y2="361.010100526023" stroke="#f97316" stroke-width="3"  stroke-linecap="round" marker-end="url(#arrow)"/><line x1="1245.6329719706523" y1="361.010100526023" x2="1305" y2="265" stroke="#f97316" stroke-width="3"  stroke-linecap="round" marker-end="url(#arrow)"/>
+    
+    <rect x="1280" y="231" width="190" height="68" rx="24" fill="white" stroke="#f97316" stroke-width="3" filter="url(#shadow)"/>
+    <text x="1375" y="273" text-anchor="middle" opacity="1" class=""><tspan x="1375" dy="0" fill="#f97316" font-weight="800" font-size="19">rule fire</tspan></text>
+  
+    <rect x="1479.3670280293477" y="327.01010052602294" width="190" height="68" rx="24" fill="white" stroke="#f97316" stroke-width="3" filter="url(#shadow)"/>
+    <text x="1574.3670280293477" y="355.01010052602294" text-anchor="middle" opacity="1" class=""><tspan x="1574.3670280293477" dy="0" fill="#f97316" font-weight="800" font-size="19">trace</tspan><tspan x="1574.3670280293477" dy="19.95" fill="#f97316" font-weight="800" font-size="19">signal</tspan></text>
+  
+    <rect x="1528.606617606365" y="542.7428381588602" width="190" height="68" rx="24" fill="white" stroke="#f97316" stroke-width="3" filter="url(#shadow)"/>
+    <text x="1623.606617606365" y="570.7428381588602" text-anchor="middle" opacity="1" class=""><tspan x="1623.606617606365" dy="0" fill="#f97316" font-weight="800" font-size="19">violation /</tspan><tspan x="1623.606617606365" dy="19.95" fill="#f97316" font-weight="800" font-size="19">bypass</tspan></text>
+  
+    <rect x="1390.6403534749772" y="715.7470613151169" width="190" height="68" rx="24" fill="white" stroke="#f97316" stroke-width="3" filter="url(#shadow)"/>
+    <text x="1485.6403534749772" y="743.7470613151169" text-anchor="middle" opacity="1" class=""><tspan x="1485.6403534749772" dy="0" fill="#f97316" font-weight="800" font-size="19">skeleton /</tspan><tspan x="1485.6403534749772" dy="19.95" fill="#f97316" font-weight="800" font-size="19">explanation</tspan></text>
+  
+    <rect x="1169.3596465250228" y="715.7470613151169" width="190" height="68" rx="24" fill="white" stroke="#f97316" stroke-width="3" filter="url(#shadow)"/>
+    <text x="1264.3596465250228" y="743.7470613151169" text-anchor="middle" opacity="1" class=""><tspan x="1264.3596465250228" dy="0" fill="#f97316" font-weight="800" font-size="19">dynamic</tspan><tspan x="1264.3596465250228" dy="19.95" fill="#f97316" font-weight="800" font-size="19">injection</tspan></text>
+  
+    <rect x="1031.393382393635" y="542.7428381588602" width="190" height="68" rx="24" fill="white" stroke="#f97316" stroke-width="3" filter="url(#shadow)"/>
+    <text x="1126.393382393635" y="570.7428381588602" text-anchor="middle" opacity="1" class=""><tspan x="1126.393382393635" dy="0" fill="#f97316" font-weight="800" font-size="19">sunset</tspan><tspan x="1126.393382393635" dy="19.95" fill="#f97316" font-weight="800" font-size="19">removal</tspan></text>
+  
+    <rect x="1080.6329719706523" y="327.010100526023" width="190" height="68" rx="24" fill="white" stroke="#f97316" stroke-width="3" filter="url(#shadow)"/>
+    <text x="1175.6329719706523" y="355.010100526023" text-anchor="middle" opacity="1" class=""><tspan x="1175.6329719706523" dy="0" fill="#f97316" font-weight="800" font-size="19">连续 N 次</tspan><tspan x="1175.6329719706523" dy="19.95" fill="#f97316" font-weight="800" font-size="19">无 violation</tspan></text>
+  
+    <circle cx="1375" cy="520" r="118" fill="white" stroke="#f97316" stroke-width="5" filter="url(#shadow)"/>
+    <text x="1375" y="508" text-anchor="middle" opacity="1" class=""><tspan x="1375" dy="0" fill="#f97316" font-weight="900" font-size="27">Harness 飞轮</tspan><tspan x="1375" dy="30.240000000000002" fill="#f97316" font-weight="900" font-size="27">Build to Delete</tspan></text>
+  
+
+  <path d="M 820 515 C 900 455, 1000 455, 1080 515" fill="none" stroke="#0f766e" stroke-width="6"  stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M 1080 565 C 1000 625, 900 625, 820 565" fill="none" stroke="#0f766e" stroke-width="6"  stroke-linecap="round" marker-end="url(#arrow)"/>
+  
+  <g>
+    <circle cx="950" cy="540" r="36" fill="#0f766e" opacity="0.88" stroke="#344054" stroke-width="3"/>
+    <path d="M 924.8 529.2 C 944.6 507.6, 966.2 514.8, 977.36 536.4" fill="none" stroke="white" stroke-width="4.32" opacity="0.86"/>
+    <path d="M 921.2 549 C 946.4 536.4, 960.8 554.4, 980.6 543.6" fill="none" stroke="white" stroke-width="3.96" opacity="0.86"/>
+    <path d="M 944.6 509.4 C 937.4 538.2, 955.4 552.6, 944.6 570.96" fill="none" stroke="white" stroke-width="3.6" opacity="0.86"/>
+  </g>
+  <text x="950" y="610" text-anchor="middle" opacity="1" class=""><tspan x="950" dy="0" fill="#0f766e" font-weight="850" font-size="24">齿轮咬合</tspan><tspan x="950" dy="32.160000000000004" fill="#0f766e" font-weight="850" font-size="24">现实证据回流</tspan></text>
+
+  
+    <rect x="575" y="910" width="750" height="275" rx="30" fill="#f8fafc" stroke="#2563eb" stroke-width="3" stroke-dasharray="" opacity="1" filter="url(#shadow)"/>
+    <rect x="599" y="888" width="252" height="44" rx="22" fill="#2563eb" opacity="0.96"/><text x="617" y="918" font-size="25" font-weight="800" fill="white">中间齿轮：现实闭环</text>
+  
+  <text x="950" y="1000" text-anchor="middle" opacity="1" class=""><tspan x="950" dy="0" fill="#263238" font-weight="820" font-size="30">Observe(现实状态) → Model(计算状态) → Action</tspan><tspan x="950" dy="38.4" fill="#263238" font-weight="820" font-size="30">→ Apply(现实状态') → Verify / Trace → Govern</tspan><tspan x="950" dy="38.4" fill="#263238" font-weight="820" font-size="30">Agent 的本体 = 闭环，不是某一层状态</tspan></text>
+  <text x="950" y="1125" text-anchor="middle" opacity="1" class=""><tspan x="950" dy="0" fill="#667085" font-weight="750" font-size="22">权重状态：模型厂商负责</tspan><tspan x="950" dy="27.5" fill="#667085" font-weight="750" font-size="22">计算状态：模型架构负责</tspan><tspan x="950" dy="27.5" fill="#667085" font-weight="750" font-size="22">现实状态：Harness 负责</tspan></text>
+
+  
+    <rect x="135" y="1198" width="1630" height="68" rx="22" fill="#fffbeb" stroke="#d97706" stroke-width="3" stroke-dasharray="" opacity="1" filter=""/>
+    
+  
+  <text x="950" y="1241" text-anchor="middle" opacity="1" class=""><tspan x="950" dy="0" fill="#92400e" font-weight="800" font-size="23">常见六大件主要讲知识/产物熵控（左轮）；我们额外把 skeleton / explanation / probe + sunset signal 画成右轮。</tspan></text>
+  
+</svg>
