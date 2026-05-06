@@ -279,6 +279,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | 2026-05-05 | Phase C merged (PR #1555) — SecretScanner + fail-closed gate + purge-on-block + BindingDryRun + prompt injection boundary + private sensitivity exclusion, 34 tests, 7 cloud review rounds (砚砚 R4 + cloud Codex R7) |
 | 2026-05-05 | Phase E merged (PR #1556) — QueryReplayCompare + collection-aware capture payload + per-collection diff + Jaccard similarity, 12 tests (砚砚 R3 + cloud Codex R2) |
 | 2026-05-06 | Phase F merged (PR #1561) — GraphResolver with inferCollectionId (sync+async), opaque anchor redaction, edge dedup, RecallPersistenceRedactor wiring, deprecation warnings routing, 16 tests (砚砚 R3 + cloud Codex) |
+| 2026-05-06 | Owner catalog fix merged (PR #1562) — Guardian P1: private collections visible in Hub Catalog + localhost-only guards on catalog/detail/documents endpoints, 6 new tests (砚砚 R2 + cloud Codex R2) |
 
 ## Review Gate
 
@@ -288,6 +289,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 - Phase D: 砚砚 (GPT-5.5) R3 + 云端 Codex review — localhost guard, manifest validation, transactional persistence
 - Phase E: 砚砚 (GPT-5.5) R3 + 云端 Codex R2 — replay limit forwarding (cloud P1), payload shape guards (R1+R2 legacy/empty captures)
 - Phase F: 砚砚 (GPT-5.5) R3 + 云端 Codex — inferCollectionId fallback (P1-1), RecallPersistenceRedactor wiring (P1-2), opaque anchor redaction (P1-3), deprecation warning routing (P2), center leak fix (R2-P1), edge dedup regression (R2-P2)
+- Owner catalog fix: 砚砚 (GPT-5.5) R2 + 云端 Codex R2 — guardian P1 (private catalog visibility), codex P1 (localhost guard on GET endpoints)
 
 ## Links
 
