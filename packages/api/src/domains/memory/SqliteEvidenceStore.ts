@@ -888,20 +888,61 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     return this.writeQueue.enqueue(() => {
       this.ensureOpen();
       this.db
-        ?.prepare('INSERT OR IGNORE INTO edges (from_anchor, to_anchor, relation) VALUES (?, ?, ?)')
-        .run(edge.fromAnchor, edge.toAnchor, edge.relation);
+        ?.prepare(
+          `INSERT OR IGNORE INTO edges
+           (from_anchor, to_anchor, relation, from_collection_id, to_collection_id, edge_sensitivity, provenance, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          edge.fromAnchor,
+          edge.toAnchor,
+          edge.relation,
+          edge.fromCollectionId ?? null,
+          edge.toCollectionId ?? null,
+          edge.edgeSensitivity ?? null,
+          edge.provenance ?? null,
+          edge.createdAt ?? new Date().toISOString(),
+        );
     });
   }
 
-  async getRelated(anchor: string): Promise<Array<{ anchor: string; relation: string }>> {
+  async getRelated(anchor: string): Promise<
+    Array<{
+      anchor: string;
+      relation: string;
+      fromCollectionId: string | null;
+      toCollectionId: string | null;
+      edgeSensitivity: string | null;
+      provenance: string | null;
+    }>
+  > {
     this.ensureOpen();
     const rows = this.db
       ?.prepare(
-        `SELECT to_anchor AS anchor, relation FROM edges WHERE from_anchor = ?
-			 UNION
-			 SELECT from_anchor AS anchor, relation FROM edges WHERE to_anchor = ?`,
+        `SELECT to_anchor AS anchor,
+                CASE WHEN relation = 'related' THEN 'related_to' ELSE relation END AS relation,
+                from_collection_id AS fromCollectionId,
+                to_collection_id AS toCollectionId,
+                edge_sensitivity AS edgeSensitivity,
+                provenance
+         FROM edges WHERE from_anchor = ?
+         UNION
+         SELECT from_anchor AS anchor,
+                CASE WHEN relation = 'related' THEN 'related_to' ELSE relation END AS relation,
+                from_collection_id AS fromCollectionId,
+                to_collection_id AS toCollectionId,
+                edge_sensitivity AS edgeSensitivity,
+                provenance
+         FROM edges WHERE to_anchor = ?`,
       )
-      .all(anchor, anchor) as Array<{ anchor: string; relation: string }>;
+      .all(anchor, anchor) as Array<{
+      anchor: string;
+      relation: string;
+      fromCollectionId: string | null;
+      toCollectionId: string | null;
+      edgeSensitivity: string | null;
+      provenance: string | null;
+    }>;
     return rows;
   }
 

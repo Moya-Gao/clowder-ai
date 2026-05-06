@@ -7,6 +7,7 @@ import { CollectionReadModel } from '../domains/memory/CollectionReadModel.js';
 import type { CollectionKind, CollectionManifest, CollectionSensitivity } from '../domains/memory/collection-types.js';
 import { validateManifestInput } from '../domains/memory/collection-types.js';
 import { resolveCollectionStorePath, saveExternalCollection } from '../domains/memory/external-collections.js';
+import { GraphResolver } from '../domains/memory/GraphResolver.js';
 import type { IEvidenceStore } from '../domains/memory/interfaces.js';
 import type { LibraryCatalog } from '../domains/memory/LibraryCatalog.js';
 import { SqliteEvidenceStore } from '../domains/memory/SqliteEvidenceStore.js';
@@ -19,6 +20,7 @@ export interface LibraryRoutesOptions {
 }
 
 type StoreWithDb = IEvidenceStore & { getDb?: () => import('better-sqlite3').Database };
+type StoreWithGetRelated = IEvidenceStore & import('../domains/memory/GraphResolver.js').GraphStore;
 
 export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (app, opts) => {
   app.get('/api/library/catalog', async () => {
@@ -182,5 +184,30 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
     }
     const ceiling = typeof body.authorityCeiling === 'string' ? body.authorityCeiling : undefined;
     return BindingDryRun.run(body.root, { exclude: body.exclude as string[], authorityCeiling: ceiling });
+  });
+
+  app.get('/api/library/graph', async (request, reply) => {
+    const ip = request.ip;
+    if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {
+      reply.status(403);
+      return { error: 'Forbidden: localhost only' };
+    }
+    const qs = request.query as { anchor?: string; depth?: string; collections?: string };
+    if (!qs.anchor) {
+      reply.status(400);
+      return { error: 'anchor query parameter is required' };
+    }
+    const depth = qs.depth ? Number.parseInt(qs.depth, 10) : 1;
+    if (Number.isNaN(depth) || depth < 0 || depth > 3) {
+      reply.status(400);
+      return { error: 'depth must be 0-3' };
+    }
+    const callerCollections = qs.collections?.split(',').filter(Boolean);
+    const graphStores = new Map<string, StoreWithGetRelated>();
+    for (const [id, s] of opts.stores) {
+      if ('getRelated' in s) graphStores.set(id, s as StoreWithGetRelated);
+    }
+    const resolver = new GraphResolver(opts.catalog, graphStores);
+    return resolver.buildSubgraph(qs.anchor, { depth, callerCollections });
   });
 };

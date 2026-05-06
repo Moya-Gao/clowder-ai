@@ -58,6 +58,7 @@ export interface EvidenceSearchResponse {
     itemCount: number;
     durationMs: number;
   }>;
+  deprecationWarnings?: string[];
 }
 
 export interface EvidenceRoutesOptions {
@@ -230,6 +231,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         ...(isRawDegraded ? { degradeReason: 'raw_lexical_only', effectiveMode: 'lexical' as const } : {}),
         ...(injectionSources && injectionSources.length > 0 ? { injectionSources } : {}),
         ...(responseGroups && responseGroups.length > 0 ? { collectionGroups: responseGroups } : {}),
+        ...(resolveResult?.deprecationWarnings ? { deprecationWarnings: resolveResult.deprecationWarnings } : {}),
       } satisfies Partial<EvidenceSearchResponse>;
     } catch {
       return {

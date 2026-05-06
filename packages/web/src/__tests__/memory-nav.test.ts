@@ -50,10 +50,10 @@ describe('buildBackHref', () => {
 });
 
 describe('buildMemoryTabItems', () => {
-  it('returns 5 tabs with correct ids', () => {
+  it('returns 6 tabs with correct ids', () => {
     const items = buildMemoryTabItems('');
-    expect(items).toHaveLength(5);
-    expect(items.map((i) => i.id)).toEqual(['feed', 'search', 'status', 'health', 'catalog']);
+    expect(items).toHaveLength(6);
+    expect(items.map((i) => i.id)).toEqual(['feed', 'search', 'status', 'health', 'catalog', 'graph']);
   });
 
   it('includes fromSuffix in hrefs', () => {
@@ -63,15 +63,23 @@ describe('buildMemoryTabItems', () => {
     expect(items[2].href).toBe('/memory/status?from=thread_abc');
     expect(items[3].href).toBe('/memory/health?from=thread_abc');
     expect(items[4].href).toBe('/memory/catalog?from=thread_abc');
+    expect(items[5].href).toBe('/memory/graph?from=thread_abc');
   });
 
   it('has correct labels', () => {
     const items = buildMemoryTabItems('');
-    expect(items.map((i) => i.label)).toEqual(['Knowledge Feed', 'Search', 'Index Status', 'Health', 'Library']);
+    expect(items.map((i) => i.label)).toEqual([
+      'Knowledge Feed',
+      'Search',
+      'Index Status',
+      'Health',
+      'Library',
+      'Graph',
+    ]);
   });
 
   it('MemoryTab type covers all tabs', () => {
-    const tabs: MemoryTab[] = ['feed', 'search', 'status', 'health', 'catalog'];
-    expect(tabs).toHaveLength(5);
+    const tabs: MemoryTab[] = ['feed', 'search', 'status', 'health', 'catalog', 'graph'];
+    expect(tabs).toHaveLength(6);
   });
 });

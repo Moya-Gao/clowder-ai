@@ -66,7 +66,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 17;
+export const CURRENT_SCHEMA_VERSION = 18;
 
 // F163 Phase A: experiment infrastructure tables (cohorts, suggestions, logs)
 export const SCHEMA_V13_TABLES = `
@@ -500,6 +500,26 @@ export function applyMigrations(db: Database.Database): void {
       db.exec('ALTER TABLE markers ADD COLUMN secret_scan_fingerprint TEXT');
     } catch {}
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(17, new Date().toISOString());
+  }
+
+  // V18: F186 Phase F — extended edges with collection/sensitivity/provenance
+  if (currentVersion < 18) {
+    try {
+      db.exec('ALTER TABLE edges ADD COLUMN from_collection_id TEXT');
+    } catch {}
+    try {
+      db.exec('ALTER TABLE edges ADD COLUMN to_collection_id TEXT');
+    } catch {}
+    try {
+      db.exec('ALTER TABLE edges ADD COLUMN edge_sensitivity TEXT');
+    } catch {}
+    try {
+      db.exec('ALTER TABLE edges ADD COLUMN provenance TEXT');
+    } catch {}
+    try {
+      db.exec('ALTER TABLE edges ADD COLUMN created_at TEXT');
+    } catch {}
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(18, new Date().toISOString());
   }
 }
 

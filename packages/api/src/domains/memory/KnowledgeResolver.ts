@@ -12,6 +12,7 @@ import type {
 } from './interfaces.js';
 import type { LibraryCatalog } from './LibraryCatalog.js';
 import { redactForTranscript } from './privacy-redactor.js';
+import { redactGroupsForPersistence } from './RecallPersistenceRedactor.js';
 
 interface KnowledgeResolverDeps {
   projectStore: IEvidenceStore;
@@ -42,7 +43,13 @@ export class KnowledgeResolver implements IKnowledgeResolver {
       return this.resolveNCollection(query, options, limit, dimension);
     }
 
-    return this.resolveLegacy(query, options, limit, dimension);
+    const result = await this.resolveLegacy(query, options, limit, dimension);
+    if (dimension === 'all') {
+      result.deprecationWarnings = [
+        'dimension: "all" is deprecated. Use dimension: "library" for multi-collection search.',
+      ];
+    }
+    return result;
   }
 
   private async resolveNCollection(
@@ -95,7 +102,7 @@ export class KnowledgeResolver implements IKnowledgeResolver {
         sources.push('global');
     }
 
-    return { results: fused, sources, query, collectionGroups: groups };
+    return { results: fused, sources, query, collectionGroups: redactGroupsForPersistence(groups) };
   }
 
   private async resolveLegacy(

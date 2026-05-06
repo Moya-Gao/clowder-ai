@@ -133,10 +133,24 @@ export interface EvidenceItem {
   }>;
 }
 
+export type EdgeRelation =
+  | 'evolved_from'
+  | 'blocked_by'
+  | 'related'
+  | 'related_to'
+  | 'supersedes'
+  | 'invalidates'
+  | 'promoted_from';
+
 export interface Edge {
   fromAnchor: string;
   toAnchor: string;
-  relation: 'evolved_from' | 'blocked_by' | 'related' | 'supersedes' | 'invalidates';
+  relation: EdgeRelation;
+  fromCollectionId?: string;
+  toCollectionId?: string;
+  edgeSensitivity?: CollectionSensitivity;
+  provenance?: 'frontmatter' | 'wikilink' | 'promote' | 'manual';
+  createdAt?: string;
 }
 
 export interface Marker {
@@ -229,6 +243,7 @@ export interface KnowledgeResult {
   sources: Array<'project' | 'global'>;
   query: string;
   collectionGroups?: CollectionGroup[];
+  deprecationWarnings?: string[];
 }
 
 export interface ReflectionContext {

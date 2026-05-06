@@ -3,6 +3,7 @@
 import React from 'react';
 import { KnowledgeFeed } from '../workspace/KnowledgeFeed';
 import { CollectionCatalog } from './CollectionCatalog';
+import { CollectionGraph } from './CollectionGraph';
 import { EvidenceSearch } from './EvidenceSearch';
 import { HealthReport } from './HealthReport';
 import { IndexStatus } from './IndexStatus';
@@ -45,6 +46,11 @@ export function MemoryHub({ activeTab = 'feed', initialQuery, initialReferrerThr
         {activeTab === 'catalog' && (
           <div data-testid="memory-tab-catalog">
             <CollectionCatalog />
+          </div>
+        )}
+        {activeTab === 'graph' && (
+          <div data-testid="memory-tab-graph">
+            <CollectionGraph />
           </div>
         )}
       </main>
