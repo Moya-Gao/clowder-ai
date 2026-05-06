@@ -103,13 +103,17 @@ related:
 
 ### 2026-05-06 手绘生图版
 
-2026-05-06 追加了一组 Codex built-in `image_gen` 生成的猫猫手绘版，保留原图不覆盖。原 SVG/PNG 仍是精确文字与布局真相源；手绘版用于文章、直播和对外讲解的视觉表达。
+2026-05-06 追加了一组猫猫手绘版，保留原图不覆盖。原 SVG/PNG 仍是精确文字与布局真相源；手绘版用于文章、直播和对外讲解的视觉表达。
+
+图 2 因为需要保留 OpenAI / Anthropic / Fowler / Thoughtworks 的具体概念锚点，主展示切换为锚点细化版；原手绘视觉版仍保留在资产目录中。
 
 **图 1 手绘：猫咖全景 Hero**
 ![图 1 手绘：猫咖全景 Hero](assets/2026-05-05/handdrawn-v2/01-hero-overview-handdrawn.png)
 
-**图 2 手绘：Harness 六+一构件映射**
-![图 2 手绘：Harness 六+一构件映射](assets/2026-05-05/handdrawn-v2/02-harness-engineering-map-handdrawn.png)
+**图 2 手绘锚点版：Harness 六+一构件映射**
+![图 2 手绘锚点版：Harness 六+一构件映射](assets/2026-05-05/handdrawn-v2/02-harness-engineering-map-anchored.png)
+
+原始手绘视觉版：[`02-harness-engineering-map-handdrawn.png`](assets/2026-05-05/handdrawn-v2/02-harness-engineering-map-handdrawn.png)
 
 **图 3 手绘：A2A 球权流转**
 ![图 3 手绘：A2A 球权流转](assets/2026-05-05/handdrawn-v2/03-a2a-ball-ownership-flow-handdrawn.png)
@@ -579,6 +583,7 @@ State    thread · task · docs · evidence · InvocationQueue
 docs/architecture/assets/2026-05-05/
 ├── 01-hero-overview.png
 ├── 02-harness-engineering-map.png
+├── handdrawn-v2/02-harness-engineering-map-anchored.png
 ├── 03-a2a-ball-ownership-flow.png
 ├── 04-dual-flywheel.png
 ├── 04.1-flywheel-expansion.png
