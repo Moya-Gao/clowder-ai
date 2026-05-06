@@ -61,3 +61,4 @@ created: 2026-02-26
 | F179 | Desktop Installer Release Pipeline — Win NSIS + Mac DMG 自动附 release | spec | 布偶猫 | community (v0.9.0 反馈) | [F179](features/F179-desktop-installer-release-pipeline.md) |
 | F180 | Agent CLI Hook Health and Sync — user-level hook 检测 + 一键同步 | in-progress | 缅因猫/砚砚 | community [#614](https://github.com/zts212653/clowder-ai/issues/614) | [F180](features/F180-agent-cli-hook-health.md) |
 | F181 | Reserved Feature Slot — 待补充需求锚点 | idea | 待定 | internal | [F181](features/F181-reserved-feature-slot.md) |
+| F186 | 图书馆记忆架构 — 多域知识联邦 | in-progress | 布偶猫 | internal | [F186](features/F186-library-memory-architecture.md) |

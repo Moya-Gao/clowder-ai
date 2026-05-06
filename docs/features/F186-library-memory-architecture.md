@@ -8,7 +8,7 @@ created: 2026-05-03
 
 # F186: 图书馆记忆架构（多域知识联邦）
 
-> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-05-06
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
