@@ -1,15 +1,15 @@
 ---
 name: image-generation
 description: >
-  通过 Chrome MCP 浏览器自动化在 Gemini / ChatGPT 上生成图片并下载。
+  AI 图片生成：原生 tool call（Codex/Antigravity）或浏览器自动化（Gemini/ChatGPT）。
   Use when: 需要 AI 生成概念图、UI 参考、像素画素材。
   Not for: 已有图片的展示（用 media_gallery rich block）、SVG 图标制作（手写或用设计工具）。
 ---
 
 # AI 图片生成 Skill
 
-> 用途：通过 Chrome MCP 浏览器自动化，在 Gemini / ChatGPT 上生成图片并下载
-> 适用猫猫：所有猫（需要 Chrome MCP 连接）
+> 用途：生成 AI 图片——优先原生 tool call，降级浏览器自动化
+> 适用猫猫：所有猫
 
 ## 何时使用
 
@@ -17,16 +17,86 @@ description: >
 - 铲屎官要求生成特定风格的图片
 - 需要批量生成多个变体
 
+## 路径选择（先问自己有没有原生能力）
+
+```
+你有内置图片生成 tool 吗？
+├─ 是（Codex / Antigravity）→ 用原生 tool call（§ 原生路径）
+│   优势：快、自动发布到气泡、无需浏览器
+│
+├─ 否（Claude / 其他）→ 能 shell out 到有能力的 CLI 吗？
+│   ├─ 是 → 借用（§ 跨引擎借用）
+│   └─ 否 → 浏览器自动化（§ 浏览器路径）
+│
+└─ 需要特定风格控制 / inpainting / 局部编辑？
+    └─ 是 → 即使有原生能力也走浏览器路径
+```
+
 ## 支持平台
 
-| 平台 | 模型 | 风格选择器 | 文本注入 | 下载 | Ref |
-|------|------|-----------|---------|------|-----|
-| **Gemini** | Gemini 3 Pro | ✅ 多种预设风格 | `execCommand` ✅ | 灯箱 → 下载完整尺寸 ✅ | `refs/gemini-browser-automation.md` |
-| **ChatGPT** | GPT-4o / DALL-E | ✅ 风格预设（漫画/鎏金/蜡笔等） | `execCommand` ✅ | 保存按钮 / 下载按钮 ✅ | `refs/chatgpt-browser-automation.md` |
+| 路径 | 平台 | 工具 | 产物位置 | F172 自动发布 |
+|------|------|------|---------|-------------|
+| **原生** | **Codex CLI** | 内置 `image_gen` tool call | `~/.codex/generated_images/<sessionId>/` | ✅ scanner 自动拾取 |
+| **原生** | **Antigravity** | 内置 `generate_image` tool call | `~/.gemini/antigravity/brain/<cascadeId>/` | ✅ GENERATE_IMAGE step 自动拾取 |
+| 浏览器 | Gemini Web | Chrome MCP 自动化 | 本地下载目录 | 需手动 `publishGeneratedImage()` |
+| 浏览器 | ChatGPT Web | Chrome MCP 自动化 | 本地下载目录 | 需手动 `publishGeneratedImage()` |
 
-## 快速流程
+## 原生路径（优先）
 
-### Gemini 画图
+### Codex CLI — `image_gen` tool call
+
+**谁能用**：砚砚（Codex CLI 内置）
+
+**用法**：直接在对话中调用内置 `image_gen` tool。这是一个 native tool call，不是 shell 命令。
+
+```
+❌ 错误：codex exec --image <参考图>     ← 这是 CLI 命令，图片不会进 F172 pipeline
+✅ 正确：使用内置 image_gen tool call    ← 图片自动落到 ~/.codex/generated_images/<sessionId>/
+```
+
+**产物流转**：
+```
+image_gen tool call
+  → 图片生成到 ~/.codex/generated_images/<sessionId>/<filename>.png
+  → invocation 结束后 F172 scanner 自动扫描
+  → publishGeneratedImage() 发布到 /uploads/
+  → 自动生成 media_gallery 富块 → 气泡内展示 ✓
+```
+
+**关键**：不需要手动下载、不需要手动 cp、不需要手动发富块。全自动。
+
+### Antigravity — `generate_image` tool call
+
+**谁能用**：对应猫（Antigravity 内置）
+
+**用法**：直接在对话中调用内置 `generate_image` tool。
+
+**产物流转**：
+```
+generate_image tool call
+  → CORTEX_STEP_TYPE_GENERATE_IMAGE step
+  → 图片生成到 ~/.gemini/antigravity/brain/<cascadeId>/<imageName>_<unixMs>.<ext>
+  → F172 brain scanner 自动拾取
+  → publishGeneratedImage() 发布到 /uploads/
+  → 自动生成 media_gallery 富块 → 气泡内展示 ✓
+```
+
+### 跨引擎借用（实验性）
+
+没有原生图片生成能力的猫（如 Claude）可以通过 shell out 借用其他引擎的 CLI：
+
+```bash
+# 前提：codex CLI 在 PATH 中且已配置
+codex exec "生成一张猫咖全景图，手绘水彩风格"
+```
+
+注意：跨引擎借用的产物是否能被 F172 scanner 正确拾取，取决于 sessionId 是否匹配当前 invocation。待验证。
+
+---
+
+## 浏览器路径（降级 / 需要风格控制时使用）
+
+### Gemini 画图（浏览器）
 
 ```
 1. 导航到 gemini.google.com/app
@@ -44,7 +114,7 @@ description: >
 - 可先选风格再输入 prompt
 - 图片右下角有 Gemini ✦ 水印
 
-### ChatGPT 画图
+### ChatGPT 画图（浏览器）
 
 ```
 1. 导航到 chatgpt.com/images（或左侧栏 → 图片）
@@ -99,8 +169,16 @@ description: >
 
 ## 注意事项
 
-1. **Gemini 制作图片模式会粘滞**：和 Deep Research 一样，选了制作图片后输入框保持该模式
-2. **ChatGPT 图片页面是独立入口**：`/images` 和普通对话 `/` 是分开的
-3. **两个平台都支持 execCommand 注入**
-4. **Gemini 图片更大**（~7MB PNG），ChatGPT 图片更小（~1MB PNG）
-5. **归档到项目**：下载后的图片通过 `publishGeneratedImage()` 发布到 `/uploads/`（F172 共享发布合约），不再需要手动 `cp` 到 assets 目录。发布后自动获得 `/uploads/...` 稳定 URL + `media_gallery` 富块
+### 通用
+
+1. **优先原生 tool call**：有内置 `image_gen` / `generate_image` 的猫，必须用原生路径。浏览器路径只在需要风格选择器、inpainting、局部编辑时使用
+2. **F172 自动发布**：原生路径产物由 scanner 自动拾取 → `publishGeneratedImage()` → `/uploads/` 稳定 URL + `media_gallery` 富块。零手动操作
+3. **禁止 CLI 命令替代 tool call**：`codex exec --image` 不等于内置 `image_gen` tool call——前者的产物不走 F172 pipeline，图片不会出现在气泡里
+
+### 浏览器路径专用
+
+4. **Gemini 制作图片模式会粘滞**：和 Deep Research 一样，选了制作图片后输入框保持该模式
+5. **ChatGPT 图片页面是独立入口**：`/images` 和普通对话 `/` 是分开的
+6. **两个平台都支持 execCommand 注入**
+7. **Gemini 图片更大**（~7MB PNG），ChatGPT 图片更小（~1MB PNG）
+8. **浏览器路径归档**：下载后的图片通过 `publishGeneratedImage()` 发布到 `/uploads/`（F172 共享发布合约）。发布后自动获得 `/uploads/...` 稳定 URL + `media_gallery` 富块
