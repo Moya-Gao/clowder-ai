@@ -610,6 +610,80 @@ function dualFlywheelDiagram() {
   return svgShell(w, h, body);
 }
 
+function metadataBox(x, y, w, title, note, color) {
+  return `
+    <rect x="${x}" y="${y}" width="${w}" height="112" rx="24" fill="white" stroke="${color}" stroke-width="3" filter="url(#shadow)"/>
+    ${lines([title], x + w / 2, y + 42, { size: 25, weight: 900, fill: color, anchor: "middle" })}
+    ${lines([note], x + w / 2, y + 78, { size: 19, weight: 760, fill: C.muted, anchor: "middle" })}
+  `;
+}
+
+function projectBox(x, y, title, note, color) {
+  return `
+    <rect x="${x}" y="${y}" width="220" height="118" rx="24" fill="white" stroke="${color}" stroke-width="3" filter="url(#shadow)"/>
+    ${lines([title], x + 110, y + 44, { size: 25, weight: 900, fill: color, anchor: "middle" })}
+    ${lines([note], x + 110, y + 80, { size: 18, weight: 760, fill: C.muted, anchor: "middle" })}
+  `;
+}
+
+function flywheelExpansionDiagram() {
+  const w = 2200;
+  const h = 1650;
+  const body = `
+  ${sectionTitle("图 4.1：飞轮扩展 — 减 × 出 × 联", "F163 让知识能减；F152 让方法论能出去；F186 让跨域知识能联起来", w)}
+
+  ${box(90, 165, 2020, 335, { fill: C.greenSoft, stroke: C.green, r: 34, label: "F163 减：让知识能证明自己", labelColor: C.green })}
+  ${lines(["问题：知识只有“增”没有“减”，越积越噪，过期决策还会继续误导 agent"], 1100, 232, { size: 27, weight: 850, fill: C.ink, anchor: "middle" })}
+  ${lines(["解法：每条知识自带证明链，多维判断，不是一刀切"], 1100, 277, { size: 25, weight: 850, fill: C.green, anchor: "middle" })}
+  ${metadataBox(170, 320, 430, "authority", "谁说的？来源多可靠", C.green)}
+  ${metadataBox(650, 320, 430, "activation", "最近还被引用吗", C.green)}
+  ${metadataBox(1130, 320, 430, "criticality", "多重要，错了多危险", C.green)}
+  ${metadataBox(1610, 320, 430, "verify_date", "多久没验证，过期了吗", C.green)}
+  ${lines(["效果：高权威但过期 ≠ 低权威但活跃；为图 4 左轮的 stale detect / contradiction flag 提供工程实现"], 1100, 472, { size: 24, weight: 850, fill: C.green, anchor: "middle" })}
+
+  ${simpleArrow(1100, 520, 1100, 585, { color: C.line, sw: 5 })}
+  ${pill(940, 540, "知识质量有保障", C.greenSoft, C.green, { w: 320, size: 24, textFill: C.green })}
+
+  ${box(90, 610, 2020, 385, { fill: "#f5f3ff", stroke: C.purple, r: 34, label: "F152 出：把飞轮带到新地方", labelColor: C.purple })}
+  ${lines(["问题：方法论锁在 Cat Cafe 自己家，外部项目还是从零摸索"], 1100, 677, { size: 27, weight: 850, fill: C.ink, anchor: "middle" })}
+  ${lines(["解法：猫猫驻场冷启动，和铲屎官一起做 AI native 改造，再把经验带回来"], 1100, 722, { size: 25, weight: 850, fill: C.purple, anchor: "middle" })}
+  ${projectBox(235, 798, "Cat Cafe", "双飞轮方法论", C.green)}
+  ${projectBox(745, 798, "F152 远征", "冷启动记忆 / 驻场", C.purple)}
+  ${projectBox(1255, 798, "外部项目", "AI native 改造", C.blue)}
+  ${projectBox(1705, 798, "经验回流", "决策 / 教训 / 模式", C.orange)}
+  ${simpleArrow(455, 857, 735, 857, { color: C.purple, sw: 5 })}
+  ${simpleArrow(965, 857, 1245, 857, { color: C.purple, sw: 5 })}
+  ${simpleArrow(1475, 857, 1695, 857, { color: C.orange, sw: 5 })}
+  ${arrow(1815, 930, 350, 930, { color: C.orange, sw: 5, cx1: 1500, cy1: 1002, cx2: 670, cy2: 1002 })}
+  ${lines(["类比 Palantir FDE：不是卖工具，而是把平台能力带到现场做改造"], 1100, 960, { size: 23, weight: 850, fill: C.purple, anchor: "middle" })}
+
+  ${simpleArrow(1100, 1018, 1100, 1084, { color: C.line, sw: 5 })}
+  ${pill(915, 1038, "经验从外部回来了", C.orangeSoft, C.orange, { w: 370, size: 24, textFill: C.orange })}
+
+  ${box(90, 1110, 2020, 390, { fill: C.blueSoft, stroke: C.blue, r: 34, label: "F186 联：让所有知识互通", labelColor: C.blue })}
+  ${lines(["问题：回流经验散落在不同项目 / 方法论库里，猫开工时搜不到"], 1100, 1177, { size: 27, weight: 850, fill: C.ink, anchor: "middle" })}
+  ${lines(["解法：多域联邦检索，不统一存储，但统一发现和路由"], 1100, 1222, { size: 25, weight: 850, fill: C.blue, anchor: "middle" })}
+  ${projectBox(210, 1280, "Cat Cafe", "本项目 docs", C.green)}
+  ${projectBox(510, 1280, "项目 A", "外部项目知识", C.purple)}
+  ${projectBox(810, 1280, "项目 B", "另一套真相源", C.orange)}
+  ${projectBox(1110, 1280, "方法论库", "跨项目经验", C.teal)}
+  ${box(1440, 1265, 290, 140, { fill: "white", stroke: C.blue, r: 24, shadow: false })}
+  ${lines(["LibraryCatalog", "元数据注册", "truth source / review 策略"], 1585, 1315, { size: 21, weight: 850, fill: C.blue, anchor: "middle", leading: 1.18 })}
+  ${box(1800, 1265, 250, 140, { fill: "white", stroke: C.blue, r: 24, shadow: false })}
+  ${lines(["LibraryResolver", "联邦搜索", "跨域返回结果"], 1925, 1315, { size: 21, weight: 850, fill: C.blue, anchor: "middle", leading: 1.18 })}
+  ${simpleArrow(430, 1338, 500, 1338, { color: C.blue, sw: 4 })}
+  ${simpleArrow(730, 1338, 800, 1338, { color: C.blue, sw: 4 })}
+  ${simpleArrow(1030, 1338, 1100, 1338, { color: C.blue, sw: 4 })}
+  ${simpleArrow(1330, 1338, 1432, 1338, { color: C.blue, sw: 4 })}
+  ${simpleArrow(1730, 1338, 1792, 1338, { color: C.blue, sw: 4 })}
+  ${lines(["例：搜“Redis 踩坑”→ 命中本项目 + 外部项目 + 方法论库的相关教训"], 1100, 1462, { size: 24, weight: 850, fill: C.blue, anchor: "middle" })}
+
+  ${box(220, 1530, 1760, 74, { fill: "#fffbeb", stroke: "#d97706", r: 24, shadow: false })}
+  ${lines(["闭环：减 → 出 → 联 → 联邦知识回到图 4 左飞轮 → 再由 F163 熵减清理；飞轮不只在自己家转。"], 1100, 1578, { size: 25, weight: 850, fill: "#92400e", anchor: "middle" })}
+  `;
+  return svgShell(w, h, body);
+}
+
 function runtimeStackDiagram() {
   const w = 1800;
   const h = 1200;
@@ -648,6 +722,7 @@ const diagrams = [
   ['02-harness-engineering-map', harnessMapDiagram()],
   ['03-a2a-ball-ownership-flow', a2aDiagram()],
   ['04-dual-flywheel', dualFlywheelDiagram()],
+  ['04.1-flywheel-expansion', flywheelExpansionDiagram()],
   ['05-runtime-stack', runtimeStackDiagram()],
 ];
 

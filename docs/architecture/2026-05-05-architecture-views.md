@@ -345,6 +345,8 @@ State    thread · task · docs · evidence · InvocationQueue
 
 ### 图 4.1：飞轮扩展——减 × 出 × 联
 
+![图 4.1：飞轮扩展——减 × 出 × 联](assets/2026-05-05/04.1-flywheel-expansion.png)
+
 **答**：飞轮只在自己家转吗？怎么去到新项目？怎么跨项目共享？
 
 **给谁看**：行业研究者、想复制这套方法的团队
@@ -538,7 +540,7 @@ State    thread · task · docs · evidence · InvocationQueue
 | 元素清单 | 猫、物件、标注、色调 | 生图 prompt |
 | 风格 reference | 参考哪张存量图的哪些细节 | 一致性 |
 
-**本文档已包含 5 张图的 ASCII brief + 元素清单。图意书和风格 reference 在各图 section 内。**
+**本文档已包含 5 张主图 + 图 4.1 扩展图的 ASCII brief + 元素清单。图意书和风格 reference 在各图 section 内。**
 
 ### 生图顺序
 
@@ -546,7 +548,8 @@ State    thread · task · docs · evidence · InvocationQueue
 2. **图 3（球权）第二**：最独特，直播用得上
 3. **图 2（Harness 映射）第三**：行业对标
 4. **图 4（双飞轮）第四**：方法论增量
-5. **图 5（技术栈）最后**：给开发者，不急
+5. **图 4.1（飞轮扩展）**：解释 F163/F152/F186 如何补全图 4 的实现闭环
+6. **图 5（技术栈）最后**：给开发者，不急
 
 ### 图片存放
 
@@ -556,6 +559,7 @@ docs/architecture/assets/2026-05-05/
 ├── 02-harness-engineering-map.png
 ├── 03-a2a-ball-ownership-flow.png
 ├── 04-dual-flywheel.png
+├── 04.1-flywheel-expansion.png
 └── 05-runtime-stack.png
 ```
 
