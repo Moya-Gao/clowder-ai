@@ -22,6 +22,7 @@ import {
 let testBgSeq = 0;
 const testBgStreamRefs = new Map<string, { id: string; threadId: string; catId: string }>();
 const testBgFinalizedRefs = new Map<string, string>();
+const testPendingCallbacks = new Map<string, BackgroundAgentMessage>();
 
 /** #80 fix-C: Track clearDoneTimeout calls */
 let clearDoneTimeoutCalls: Array<string | undefined> = [];
@@ -34,6 +35,7 @@ function simulateBackgroundMessage(msg: BackgroundAgentMessage) {
     store: useChatStore.getState(),
     bgStreamRefs: testBgStreamRefs,
     finalizedBgRefs: testBgFinalizedRefs,
+    pendingCallbacks: testPendingCallbacks,
     nextBgSeq: () => testBgSeq++,
     addToast: (toast) => useToastStore.getState().addToast(toast),
     clearDoneTimeout: (threadId) => {
@@ -71,6 +73,7 @@ describe('background thread socket handling', () => {
     testBgSeq = 0;
     testBgStreamRefs.clear();
     testBgFinalizedRefs.clear();
+    testPendingCallbacks.clear();
     resetSharedReplacedInvocations();
     clearDoneTimeoutCalls = [];
   });
@@ -431,6 +434,120 @@ describe('background thread socket handling', () => {
           }),
         ]),
       );
+    });
+
+    it('defers explicit background callback until done so later stream chunks are not suppressed', () => {
+      const now = Date.now();
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        invocationId: 'inv-bg-defer',
+        content: 'stream head',
+        origin: 'stream',
+        timestamp: now,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        invocationId: 'inv-bg-defer',
+        content: 'authoritative callback',
+        origin: 'callback',
+        messageId: 'bg-callback-deferred',
+        timestamp: now + 1,
+      });
+
+      expect(useChatStore.getState().getThreadState('thread-bg').messages).toEqual([
+        expect.objectContaining({
+          id: 'msg-inv-bg-defer-opus',
+          origin: 'stream',
+          content: 'stream head',
+          isStreaming: true,
+        }),
+      ]);
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        invocationId: 'inv-bg-defer',
+        content: ' + late tail',
+        origin: 'stream',
+        timestamp: now + 2,
+      });
+
+      expect(useChatStore.getState().getThreadState('thread-bg').messages).toEqual([
+        expect.objectContaining({
+          id: 'msg-inv-bg-defer-opus',
+          origin: 'stream',
+          content: 'stream head + late tail',
+          isStreaming: true,
+        }),
+      ]);
+
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        invocationId: 'inv-bg-defer',
+        isFinal: true,
+        timestamp: now + 3,
+      });
+
+      expect(useChatStore.getState().getThreadState('thread-bg').messages).toEqual([
+        expect.objectContaining({
+          id: 'bg-callback-deferred',
+          origin: 'callback',
+          content: 'authoritative callback',
+          isStreaming: false,
+        }),
+      ]);
+    });
+
+    it('drains deferred background callback when that cat emits non-final done', () => {
+      const now = Date.now();
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        invocationId: 'inv-bg-nonfinal-done',
+        content: 'stream head',
+        origin: 'stream',
+        timestamp: now,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        invocationId: 'inv-bg-nonfinal-done',
+        content: 'authoritative callback from opus',
+        origin: 'callback',
+        messageId: 'bg-callback-nonfinal-done',
+        timestamp: now + 1,
+      });
+
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        invocationId: 'inv-bg-nonfinal-done',
+        isFinal: false,
+        timestamp: now + 2,
+      });
+
+      expect(useChatStore.getState().getThreadState('thread-bg').messages).toEqual([
+        expect.objectContaining({
+          id: 'bg-callback-nonfinal-done',
+          origin: 'callback',
+          content: 'authoritative callback from opus',
+          isStreaming: false,
+        }),
+      ]);
     });
 
     it('unlabeled background late chunk fails open after invocation gone — callback bubble preserved (砚砚 A.12)', () => {
@@ -1978,8 +2095,24 @@ describe('background thread socket handling', () => {
         timestamp: now + 1,
       });
 
+      expect(useChatStore.getState().getThreadState('thread-bg').messages[0]).toMatchObject({
+        id: 'bg-stream-canon-1',
+        content: 'streaming...',
+        origin: 'stream',
+        isStreaming: true,
+      });
+
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        invocationId: 'inv-canon-1',
+        isFinal: true,
+        timestamp: now + 2,
+      });
+
       const ts = useChatStore.getState().getThreadState('thread-bg');
-      // Single bubble, content/origin/isStreaming patched in place by reducer.
+      // Single bubble, content/origin/isStreaming patched by reducer after done.
       expect(ts.messages).toHaveLength(1);
       expect(ts.messages[0]).toMatchObject({
         id: 'bg-cb-canon-1',

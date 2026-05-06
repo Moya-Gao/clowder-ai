@@ -425,7 +425,7 @@ describe('F183 Phase B1.2.2 — active text stream wire-up to reducer', () => {
   // invocationless callback 留 legacy（reducer 没有 activeId / finalized ref / rich
   // placeholder ref 等上下文，硬塞会引入 heuristic merge）
 
-  it('callback with explicit invocationId + matching stream bubble: upgrades via reducer (B1.2.4)', () => {
+  it('callback with explicit invocationId + matching stream bubble: defers until done, then upgrades via reducer', () => {
     const streaming: ChatMessage = {
       id: 'msg-inv-cb-1-codex',
       type: 'assistant',
@@ -452,6 +452,19 @@ describe('F183 Phase B1.2.2 — active text stream wire-up to reducer', () => {
         invocationId: 'inv-cb-1',
         messageId: 'msg-inv-cb-1-codex',
         timestamp: 1600,
+      });
+    });
+
+    expect(mockReplaceMessages).not.toHaveBeenCalled();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'codex',
+        threadId: 'thread-1',
+        invocationId: 'inv-cb-1',
+        isFinal: true,
+        timestamp: 1700,
       });
     });
 

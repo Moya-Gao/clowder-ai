@@ -125,6 +125,21 @@ interface AgentMsg {
   threadId?: string;
 }
 
+function normalizeInvocationForCat(invocationId: string | undefined, catId: string): string | undefined {
+  const suffix = `-${catId}`;
+  return invocationId?.endsWith(suffix) ? invocationId.slice(0, -suffix.length) : invocationId;
+}
+
+function sameInvocationForCat(candidate: string | undefined, expected: string, catId: string): boolean {
+  return normalizeInvocationForCat(candidate, catId) === expected;
+}
+
+function pendingCallbackKey(threadId: string | undefined, catId: string, invocationId: string): string {
+  return `${threadId ?? 'active'}::${catId}::${invocationId}`;
+}
+
+type PendingCallbackMessage = AgentMsg | BackgroundAgentMessage;
+
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return `${text.slice(0, maxLength)}…`;
@@ -271,6 +286,12 @@ export interface HandleBackgroundMessageOptions {
   clearDoneTimeout?: (threadId?: string) => void;
   /** #586 follow-up: Just-finalized stream bubble IDs keyed by streamKey */
   finalizedBgRefs: Map<string, string>;
+  /** Callback text that arrived before the matching background stream finalized. */
+  pendingCallbacks?: Map<string, PendingCallbackMessage>;
+  /** Central pending-callback deferral hook; schedules the fallback drain. */
+  deferPendingCallback?: (pending: PendingCallbackMessage, threadId: string | undefined) => void;
+  /** Central pending-callback deletion hook; clears paired fallback timers. */
+  deletePendingCallback?: (threadId: string | undefined, catId: string, invocationId: string) => void;
 }
 
 export type ActiveRoutedAgentMessage = {
@@ -983,6 +1004,61 @@ function shouldSuppressLateBackgroundStreamChunk(
   return true;
 }
 
+function isBackgroundCallbackStillStreaming(
+  msg: BackgroundAgentMessage,
+  options: HandleBackgroundMessageOptions,
+): boolean {
+  if (!msg.invocationId) return false;
+  return options.store
+    .getThreadState(msg.threadId)
+    .messages.some(
+      (m) =>
+        m.type === 'assistant' &&
+        m.catId === msg.catId &&
+        m.origin === 'stream' &&
+        m.isStreaming === true &&
+        sameInvocationForCat(m.extra?.stream?.invocationId, msg.invocationId!, msg.catId),
+    );
+}
+
+function deferBackgroundCallbackIfStreamOpen(
+  msg: BackgroundAgentMessage,
+  options: HandleBackgroundMessageOptions,
+): boolean {
+  if (!msg.invocationId || !options.pendingCallbacks) return false;
+  if (!isBackgroundCallbackStillStreaming(msg, options)) return false;
+  if (options.deferPendingCallback) {
+    options.deferPendingCallback(msg, msg.threadId);
+  } else {
+    options.pendingCallbacks.set(pendingCallbackKey(msg.threadId, msg.catId, msg.invocationId), msg);
+  }
+  return true;
+}
+
+function drainPendingBackgroundCallback(msg: BackgroundAgentMessage, options: HandleBackgroundMessageOptions): void {
+  if (!msg.invocationId || !options.pendingCallbacks) return;
+  const key = pendingCallbackKey(msg.threadId, msg.catId, msg.invocationId);
+  const pending = options.pendingCallbacks.get(key) as BackgroundAgentMessage | undefined;
+  if (!pending) return;
+  if (options.deletePendingCallback) {
+    options.deletePendingCallback(msg.threadId, msg.catId, msg.invocationId);
+  } else {
+    options.pendingCallbacks.delete(key);
+  }
+  for (const message of options.store.getThreadState(msg.threadId).messages) {
+    if (
+      message.type === 'assistant' &&
+      message.catId === msg.catId &&
+      message.origin === 'stream' &&
+      message.isStreaming === true &&
+      sameInvocationForCat(message.extra?.stream?.invocationId, msg.invocationId, msg.catId)
+    ) {
+      options.store.setThreadMessageStreaming(msg.threadId, message.id, false);
+    }
+  }
+  handleBackgroundAgentMessage(pending, options);
+}
+
 function ensureBackgroundAssistantMessage(
   msg: BackgroundAgentMessage,
   streamKey: string,
@@ -1105,6 +1181,9 @@ export function handleBackgroundAgentMessage(
     let finalMsgId: string | undefined;
 
     if (msg.origin === 'callback') {
+      if (deferBackgroundCallbackIfStreamOpen(msg, options)) {
+        return;
+      }
       const replacementTarget = findBackgroundCallbackReplacementTarget(msg, options);
       if (replacementTarget) {
         const cbId = msg.messageId ?? replacementTarget.id;
@@ -1419,6 +1498,7 @@ export function handleBackgroundAgentMessage(
         : undefined;
       const preview = finalMessage?.content ?? msg.content;
       markThreadInvocationComplete(msg, options);
+      drainPendingBackgroundCallback(msg, options);
       options.addToast({
         type: 'success',
         title: `${msg.catId} 完成`,
@@ -1435,6 +1515,13 @@ export function handleBackgroundAgentMessage(
     markThreadInvocationActive(msg, options);
     if (!recoverableInFlightError) {
       stopTrackedStream(streamKey, msg, options);
+      if (msg.invocationId) {
+        if (options.deletePendingCallback) {
+          options.deletePendingCallback(msg.threadId, msg.catId, msg.invocationId);
+        } else {
+          options.pendingCallbacks?.delete(pendingCallbackKey(msg.threadId, msg.catId, msg.invocationId));
+        }
+      }
     }
 
     // F183 Phase B1.7 — bg error wire-up via reducer reduceErrorEvent.
@@ -1513,6 +1600,7 @@ export function handleBackgroundAgentMessage(
         duration: 5000,
       });
     }
+    drainPendingBackgroundCallback(msg, options);
     if (msg.isFinal) {
       // #80 fix-C: Clear timeout guard so it doesn't fire a false "timed out" message
       options.clearDoneTimeout?.(msg.threadId);
@@ -1816,6 +1904,11 @@ export function useAgentMessages() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Which thread the current timeout guard belongs to */
   const timeoutThreadRef = useRef<string | null>(null);
+  /** Callback text that arrived before stream done; applied once the invocation finalizes. */
+  const pendingCallbacksRef = useRef<Map<string, PendingCallbackMessage>>(new Map());
+  /** Fallback drains for pending callbacks whose terminal event is lost. */
+  const pendingCallbackFallbackTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const drainPendingCallbacksForThreadRef = useRef<(threadId: string | undefined) => void>(() => {});
 
   /** Start or reset the done timeout */
   const resetTimeout = useCallback(() => {
@@ -1837,6 +1930,7 @@ export function useAgentMessages() {
             store.setThreadMessageStreaming(timeoutThreadId, message.id, false);
           }
         }
+        drainPendingCallbacksForThreadRef.current(timeoutThreadId);
         store.resetThreadInvocationState(timeoutThreadId);
         store.addMessageToThread(timeoutThreadId, {
           id: `sysinfo-timeout-${Date.now()}`,
@@ -1859,6 +1953,7 @@ export function useAgentMessages() {
       for (const ref of getAllActiveValues()) {
         setStreaming(ref.id, false);
       }
+      drainPendingCallbacksForThreadRef.current(timeoutThreadId);
       clearAllActive();
       addMessage({
         id: `sysinfo-timeout-${Date.now()}`,
@@ -1901,6 +1996,10 @@ export function useAgentMessages() {
         timeoutRef.current = null;
       }
       timeoutThreadRef.current = null;
+      for (const timeout of pendingCallbackFallbackTimeoutsRef.current.values()) {
+        clearTimeout(timeout);
+      }
+      pendingCallbackFallbackTimeoutsRef.current.clear();
     },
     [],
   );
@@ -2262,6 +2361,285 @@ export function useAgentMessages() {
     return null;
   }, []);
 
+  const isActiveCallbackStillStreaming = useCallback((catId: string, invocationId: string): boolean => {
+    return useChatStore
+      .getState()
+      .messages.some(
+        (m) =>
+          m.type === 'assistant' &&
+          m.catId === catId &&
+          m.origin === 'stream' &&
+          m.isStreaming === true &&
+          sameInvocationForCat(m.extra?.stream?.invocationId, invocationId, catId),
+      );
+  }, []);
+
+  const applyActiveExplicitCallbackNow = useCallback(
+    (msg: AgentMsg): void => {
+      if (!msg.invocationId) return;
+      const invocationId = msg.invocationId;
+      const replacementTarget =
+        findCallbackReplacementTarget(msg.catId, invocationId) ?? findInvocationlessRichPlaceholder(msg.catId);
+      const finalId =
+        msg.messageId ?? deriveBubbleId(invocationId, msg.catId, () => `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`);
+      const threadIdForCallback = msg.threadId ?? useChatStore.getState().currentThreadId;
+      const event = adaptIncomingToBubbleEvent({ ...msg, threadId: threadIdForCallback } as BackgroundAgentMessage, {
+        sourcePath: 'callback',
+      });
+
+      let reducerRejected = false;
+      if (event) {
+        const eventWithId = { ...event, messageId: finalId };
+        const storeSnapshot = useChatStore.getState();
+        const result = applyBubbleEventWithRecovery({
+          threadId: threadIdForCallback,
+          event: eventWithId,
+          currentMessages: storeSnapshot.messages,
+        });
+        if (result.recoveryAction !== 'none') {
+          reducerRejected = true;
+          if (result.violations.length > 0) {
+            for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+          }
+        } else {
+          storeSnapshot.replaceMessages(result.nextMessages, storeSnapshot.hasMore);
+          if (result.violations.length > 0) {
+            for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
+          }
+        }
+      }
+
+      if (reducerRejected) {
+        const fallbackId = `msg-cb-fallback-${Date.now()}-${msg.catId}-${++cbSeq}`;
+        const extraForAdd = {
+          ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+          stream: { invocationId },
+        };
+        addMessage({
+          id: fallbackId,
+          type: 'assistant',
+          catId: msg.catId,
+          content: msg.content ?? '',
+          origin: 'callback',
+          ...(msg.metadata ? { metadata: msg.metadata } : {}),
+          extra: extraForAdd,
+          ...(msg.mentionsUser ? { mentionsUser: true } : {}),
+          ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+          ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
+          timestamp: Date.now(),
+        });
+        return;
+      }
+
+      const extraForPatch = {
+        ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+      };
+      if (
+        msg.metadata ||
+        Object.keys(extraForPatch).length > 0 ||
+        msg.mentionsUser ||
+        msg.replyTo ||
+        msg.replyPreview
+      ) {
+        patchMessage(finalId, {
+          ...(msg.metadata ? { metadata: msg.metadata } : {}),
+          ...(Object.keys(extraForPatch).length > 0 ? { extra: extraForPatch } : {}),
+          ...(msg.mentionsUser ? { mentionsUser: true } : {}),
+          ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+          ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
+        });
+      }
+      if (replacementTarget) {
+        deleteActive(msg.catId);
+        clearFinalized(msg.catId);
+      }
+      markReplacedInvocation(threadIdForCallback, msg.catId, invocationId);
+    },
+    [
+      addMessage,
+      clearFinalized,
+      deleteActive,
+      findCallbackReplacementTarget,
+      findInvocationlessRichPlaceholder,
+      patchMessage,
+    ],
+  );
+
+  const clearPendingCallbackFallback = useCallback((key: string): void => {
+    const timeout = pendingCallbackFallbackTimeoutsRef.current.get(key);
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    pendingCallbackFallbackTimeoutsRef.current.delete(key);
+  }, []);
+
+  const deletePendingCallback = useCallback(
+    (threadId: string | undefined, catId: string, invocationId: string): void => {
+      const key = pendingCallbackKey(threadId, catId, invocationId);
+      clearPendingCallbackFallback(key);
+      pendingCallbacksRef.current.delete(key);
+    },
+    [clearPendingCallbackFallback],
+  );
+
+  const drainPendingActiveCallback = useCallback(
+    (threadId: string | undefined, catId: string, invocationId: string | undefined): void => {
+      if (!invocationId) return;
+      const key = pendingCallbackKey(threadId, catId, invocationId);
+      const pending = pendingCallbacksRef.current.get(key);
+      if (!pending) return;
+      clearPendingCallbackFallback(key);
+      pendingCallbacksRef.current.delete(key);
+      applyActiveExplicitCallbackNow({ ...(pending as AgentMsg), threadId });
+    },
+    [applyActiveExplicitCallbackNow, clearPendingCallbackFallback],
+  );
+
+  const settlePendingActiveCallbackOnTerminal = useCallback(
+    (
+      threadId: string | undefined,
+      catId: string,
+      invocationId: string | undefined,
+      action: 'drain' | 'clear',
+    ): void => {
+      if (!invocationId) return;
+      const resolvedThreadId = threadId ?? useChatStore.getState().currentThreadId;
+      if (action === 'drain') {
+        drainPendingActiveCallback(resolvedThreadId, catId, invocationId);
+        return;
+      }
+      deletePendingCallback(resolvedThreadId, catId, invocationId);
+    },
+    [deletePendingCallback, drainPendingActiveCallback],
+  );
+
+  const settlePendingActiveTextFinalCallback = useCallback(
+    (msg: AgentMsg, options?: { stale?: boolean }): void => {
+      if (msg.type !== 'text' || msg.origin === 'callback' || !msg.isFinal || !msg.invocationId) return;
+      const stale = options?.stale ?? decideTerminalEvent(msg.catId, msg.invocationId).stale;
+      settlePendingActiveCallbackOnTerminal(
+        msg.threadId ?? useChatStore.getState().currentThreadId,
+        msg.catId,
+        msg.invocationId,
+        stale ? 'clear' : 'drain',
+      );
+    },
+    [decideTerminalEvent, settlePendingActiveCallbackOnTerminal],
+  );
+
+  const markPendingBackgroundStreamFinished = useCallback(
+    (store: ReturnType<typeof useChatStore.getState>, threadId: string, pending: PendingCallbackMessage): void => {
+      const invocationId = pending.invocationId;
+      if (!invocationId) return;
+
+      for (const message of store.getThreadState(threadId).messages) {
+        if (
+          message.type === 'assistant' &&
+          message.catId === pending.catId &&
+          message.origin === 'stream' &&
+          message.isStreaming === true &&
+          sameInvocationForCat(message.extra?.stream?.invocationId, invocationId, pending.catId)
+        ) {
+          store.setThreadMessageStreaming(threadId, message.id, false);
+        }
+      }
+    },
+    [],
+  );
+
+  const applyPendingCallbackForThread = useCallback(
+    (
+      store: ReturnType<typeof useChatStore.getState>,
+      fallbackThreadId: string | undefined,
+      pending: PendingCallbackMessage,
+    ): void => {
+      const pendingThreadId = pending.threadId ?? fallbackThreadId;
+      if (!pendingThreadId || pendingThreadId === store.currentThreadId) {
+        applyActiveExplicitCallbackNow({ ...(pending as AgentMsg), threadId: pendingThreadId });
+        return;
+      }
+
+      markPendingBackgroundStreamFinished(store, pendingThreadId, pending);
+      handleBackgroundAgentMessage(
+        { ...(pending as BackgroundAgentMessage), threadId: pendingThreadId },
+        {
+          store,
+          bgStreamRefs: bgStreamRefsRef.current,
+          finalizedBgRefs: bgFinalizedRefsRef.current,
+          nextBgSeq: () => bgSeqRef.current++,
+          addToast: (toast) => useToastStore.getState().addToast(toast),
+          clearDoneTimeout,
+          pendingCallbacks: pendingCallbacksRef.current,
+          deletePendingCallback,
+        },
+      );
+    },
+    [applyActiveExplicitCallbackNow, clearDoneTimeout, deletePendingCallback, markPendingBackgroundStreamFinished],
+  );
+
+  const deferPendingCallback = useCallback(
+    (pending: PendingCallbackMessage, threadId: string | undefined): void => {
+      if (!pending.invocationId) return;
+      const pendingThreadId = pending.threadId ?? threadId;
+      const key = pendingCallbackKey(pendingThreadId, pending.catId, pending.invocationId);
+      clearPendingCallbackFallback(key);
+      pendingCallbacksRef.current.set(key, {
+        ...pending,
+        threadId: pendingThreadId,
+      });
+      pendingCallbackFallbackTimeoutsRef.current.set(
+        key,
+        setTimeout(() => {
+          pendingCallbackFallbackTimeoutsRef.current.delete(key);
+          const latest = pendingCallbacksRef.current.get(key);
+          if (!latest) return;
+          pendingCallbacksRef.current.delete(key);
+
+          const store = useChatStore.getState();
+          applyPendingCallbackForThread(store, pendingThreadId, latest);
+
+          const catchUpThreadId = latest.threadId ?? pendingThreadId ?? store.currentThreadId;
+          if (catchUpThreadId) {
+            store.requestStreamCatchUp(catchUpThreadId);
+          }
+        }, DONE_TIMEOUT_MS),
+      );
+    },
+    [applyPendingCallbackForThread, clearPendingCallbackFallback],
+  );
+
+  const drainPendingCallbacksForThread = useCallback(
+    (threadId: string | undefined): void => {
+      const keyPrefix = `${threadId ?? 'active'}::`;
+      const pendingEntries = Array.from(pendingCallbacksRef.current.entries()).filter(([key]) =>
+        key.startsWith(keyPrefix),
+      );
+      if (pendingEntries.length === 0) return;
+
+      const store = useChatStore.getState();
+      for (const [key, pending] of pendingEntries) {
+        clearPendingCallbackFallback(key);
+        pendingCallbacksRef.current.delete(key);
+        applyPendingCallbackForThread(store, threadId, pending);
+      }
+    },
+    [applyPendingCallbackForThread, clearPendingCallbackFallback],
+  );
+  drainPendingCallbacksForThreadRef.current = drainPendingCallbacksForThread;
+
+  const clearPendingCallbacksForThread = useCallback(
+    (threadId: string | undefined): void => {
+      const keyPrefix = `${threadId ?? 'active'}::`;
+      for (const key of Array.from(pendingCallbacksRef.current.keys())) {
+        if (key.startsWith(keyPrefix)) {
+          clearPendingCallbackFallback(key);
+          pendingCallbacksRef.current.delete(key);
+        }
+      }
+    },
+    [clearPendingCallbackFallback],
+  );
+
   const getOrRecoverActiveAssistantMessageId = useCallback(
     (
       catId: string,
@@ -2423,6 +2801,9 @@ export function useAgentMessages() {
           nextBgSeq: () => bgSeqRef.current++,
           addToast: (toast) => useToastStore.getState().addToast(toast),
           clearDoneTimeout,
+          pendingCallbacks: pendingCallbacksRef.current,
+          deferPendingCallback,
+          deletePendingCallback,
         });
         return;
       }
@@ -2445,6 +2826,7 @@ export function useAgentMessages() {
           action: 'drop_active_promotion_late_chunk',
           timestamp: Date.now(),
         });
+        settlePendingActiveTextFinalCallback(msg, { stale: true });
         // Codex review P1 — clear bgStreamRefs even on dropped chunk so a later
         // background-handler reactivation (after thread switch away) doesn't reuse
         // a stale ref to append into an old bubble.
@@ -2463,6 +2845,7 @@ export function useAgentMessages() {
 
       if (msg.type === 'text' && msg.content) {
         if (msg.origin !== 'callback' && shouldSuppressLateStreamChunk(msg.catId, msg.invocationId)) {
+          settlePendingActiveTextFinalCallback(msg, { stale: true });
           return;
         }
         setCatStatus(msg.catId, 'streaming');
@@ -2499,93 +2882,19 @@ export function useAgentMessages() {
           // 升级，contentful invocationless live stream 绝不能 hijack。
           const hasExplicitInvocationId = !!msg.invocationId;
           if (hasExplicitInvocationId && msg.invocationId) {
-            // F183 Phase B1.2.4 (砚砚 round 1 P1-2): 不能预 pick replacementTarget.id 给 finalId。
-            const finalId =
-              msg.messageId ??
-              deriveBubbleId(msg.invocationId, msg.catId, () => `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`);
-            const threadIdForCallback = msg.threadId ?? useChatStore.getState().currentThreadId;
-            const event = adaptIncomingToBubbleEvent(
-              { ...msg, threadId: threadIdForCallback } as BackgroundAgentMessage,
-              { sourcePath: 'callback' },
-            );
-            // F183 Phase B1.2.4 (砚砚 round 2 P1, 云端 codex): 必须 check
-            // result.recoveryAction !== 'none' — reducer quarantine / sot-override
-            // 时 nextMessages 不变，不能假装 success + markReplacedInvocation（会让后续
-            // stream chunk 被 suppress + callback content 永久丢失）。fallback legacy 保 content。
-            let reducerRejected = false;
-            if (event) {
-              const eventWithId = { ...event, messageId: finalId };
-              const storeSnapshot = useChatStore.getState();
-              const result = applyBubbleEventWithRecovery({
-                threadId: threadIdForCallback,
-                event: eventWithId,
-                currentMessages: storeSnapshot.messages,
-              });
-              if (result.recoveryAction !== 'none') {
-                reducerRejected = true;
-                if (result.violations.length > 0) {
-                  for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
-                }
-                // do NOT replaceMessages（reducer 没采纳 callback content）
-                // do NOT markReplacedInvocation（避免 suppress 后续 stream chunk）
-              } else {
-                storeSnapshot.replaceMessages(result.nextMessages, storeSnapshot.hasMore);
-                if (result.violations.length > 0) {
-                  for (const v of result.violations) recordBubbleInvariantViolation(v, 'warn');
-                }
-              }
+            const callbackThreadId = msg.threadId ?? useChatStore.getState().currentThreadId;
+            if (isActiveCallbackStillStreaming(msg.catId, msg.invocationId)) {
+              deferPendingCallback(
+                {
+                  ...msg,
+                  threadId: callbackThreadId,
+                },
+                callbackThreadId,
+              );
+              return;
             }
-            if (reducerRejected) {
-              // Fallback to legacy: addMessage standalone callback bubble，保 content。
-              // 云端 round 4 P1: finalId 在 canonical-split 时与既有 bubble id 撞 →
-              // store dedup drops insert → content 丢失。fallback 必须用 non-conflicting
-              // id 保证 callback content 一定落到 store。生成 fresh id 跟 finalId 区分。
-              const fallbackId = `msg-cb-fallback-${Date.now()}-${msg.catId}-${++cbSeq}`;
-              const extraForAdd = {
-                ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
-                ...(msg.invocationId ? { stream: { invocationId: msg.invocationId } } : {}),
-              };
-              addMessage({
-                id: fallbackId,
-                type: 'assistant',
-                catId: msg.catId,
-                content: msg.content,
-                origin: 'callback',
-                ...(msg.metadata ? { metadata: msg.metadata } : {}),
-                ...(Object.keys(extraForAdd).length > 0 ? { extra: extraForAdd } : {}),
-                ...(msg.mentionsUser ? { mentionsUser: true } : {}),
-                ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
-                ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
-                timestamp: Date.now(),
-              });
-              // No markReplacedInvocation — reducer 拒绝事件意味着 callback 不是 authoritative
-              // for this invocation；保留 future stream chunks 的接收能力。
-            } else {
-              // reducer 接受了，跑 side-effect patches + suppression marker
-              const extraForPatch = {
-                ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
-              };
-              if (
-                msg.metadata ||
-                Object.keys(extraForPatch).length > 0 ||
-                msg.mentionsUser ||
-                msg.replyTo ||
-                msg.replyPreview
-              ) {
-                patchMessage(finalId, {
-                  ...(msg.metadata ? { metadata: msg.metadata } : {}),
-                  ...(Object.keys(extraForPatch).length > 0 ? { extra: extraForPatch } : {}),
-                  ...(msg.mentionsUser ? { mentionsUser: true } : {}),
-                  ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
-                  ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
-                });
-              }
-              if (replacementTarget) {
-                deleteActive(msg.catId);
-                clearFinalized(msg.catId);
-              }
-              markReplacedInvocation(useChatStore.getState().currentThreadId, msg.catId, msg.invocationId);
-            }
+            applyActiveExplicitCallbackNow({ ...msg, threadId: callbackThreadId });
+            return;
           } else if (replacementTarget) {
             const finalId = msg.messageId ?? replacementTarget.id;
             if (finalId !== replacementTarget.id) {
@@ -2799,7 +3108,10 @@ export function useAgentMessages() {
               });
             }
           }
+          settlePendingActiveTextFinalCallback(msg);
         }
+      } else if (msg.type === 'text') {
+        settlePendingActiveTextFinalCallback(msg);
       } else if (msg.type === 'tool_use') {
         // Cloud P1#3 (PR#1352): suppress stale tool_use for completed invocation.
         // Done handler markReplacedInvocation for msg.invocationId; this check drops
@@ -2940,6 +3252,12 @@ export function useAgentMessages() {
         // `primarySlot?.catId === msg.catId`).
         const doneDecision = decideTerminalEvent(msg.catId, msg.invocationId);
         const isStaleDone = doneDecision.stale;
+        // Cloud R5 P1: stale terminal done is still terminal for its own
+        // invocation. It must not mutate the current UI, but it must invalidate
+        // any deferred callback so a later timeout/thread drain cannot replay it.
+        if (isStaleDone && msg.invocationId) {
+          settlePendingActiveCallbackOnTerminal(msg.threadId, msg.catId, msg.invocationId, 'clear');
+        }
 
         let messageId: string | null = null;
         if (!isStaleDone) {
@@ -3068,6 +3386,10 @@ export function useAgentMessages() {
                 requestStreamCatchUp(tid);
               }
             }
+          }
+
+          if (!isStaleDone && msg.invocationId) {
+            settlePendingActiveCallbackOnTerminal(msg.threadId, msg.catId, msg.invocationId, 'drain');
           }
 
           // Bugfix: clear stale invocationId so findRecoverableAssistantMessage
@@ -3608,6 +3930,7 @@ export function useAgentMessages() {
         // for the full resolver + normalization rationale.
         const errorDecision = decideTerminalEvent(msg.catId, msg.invocationId);
         const isStaleError = errorDecision.stale;
+        const recoverableInFlightError = isRecoverableInFlightError(msg);
 
         // Cloud R9 P2: `pendingTimeoutDiagRef` is keyed by `catId` alone — if we
         // skip cleanup under the stale guard, the entry leaks and would wrongly
@@ -3619,8 +3942,15 @@ export function useAgentMessages() {
         const timeoutDiag = msg.catId ? getPendingTimeoutDiag(msg.catId) : null;
         if (msg.catId) clearPendingTimeoutDiag(msg.catId);
 
+        // Cloud R4 P1: pending callback ownership is invocation-terminal.
+        // A stale nonrecoverable error must not mutate the current UI, but it is
+        // still the terminal event for its own invocation and must invalidate the
+        // deferred callback so a later timeout/thread drain cannot replay it.
+        if (!recoverableInFlightError && msg.invocationId) {
+          settlePendingActiveCallbackOnTerminal(msg.threadId, msg.catId, msg.invocationId, 'clear');
+        }
+
         if (!isStaleError) {
-          const recoverableInFlightError = isRecoverableInFlightError(msg);
           if (!recoverableInFlightError) {
             setCatStatus(msg.catId, 'error');
             const currentProgress = useChatStore.getState().catInvocations?.[msg.catId]?.taskProgress;
@@ -3826,14 +4156,21 @@ export function useAgentMessages() {
       setMessageStreamInvocation,
       replaceMessageId,
       patchMessage,
+      applyActiveExplicitCallbackNow,
+      deferPendingCallback,
+      deletePendingCallback,
       resetTimeout,
       clearDoneTimeout,
+      drainPendingActiveCallback,
+      settlePendingActiveCallbackOnTerminal,
+      settlePendingActiveTextFinalCallback,
       findCallbackReplacementTarget,
       findInvocationlessRichPlaceholder,
       findInvocationlessStreamPlaceholder,
       getCurrentInvocationIdForCat,
       getCurrentInvocationStateForCat,
       getOrRecoverActiveAssistantMessageId,
+      isActiveCallbackStillStreaming,
       isStaleTerminalEvent,
       ensureActiveAssistantMessage,
       maybeMigrateSequentialInvocationOwnership,
@@ -3854,6 +4191,7 @@ export function useAgentMessages() {
       const activeSlots = Object.values(store.getThreadState(threadId).activeInvocations ?? {});
       const singleCatId = activeSlots.length === 1 ? activeSlots[0]?.catId : undefined;
       cancelFn(threadId, singleCatId);
+      clearPendingCallbacksForThread(threadId);
       const isActiveThreadStop = threadId === store.currentThreadId;
 
       if (!isActiveThreadStop) {
@@ -3889,7 +4227,15 @@ export function useAgentMessages() {
       // user's stop = invocation explicitly ended = suppression no longer relevant.
       clearReplacedInvocationsForThread(threadId);
     },
-    [setLoading, clearAllActiveInvocations, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout],
+    [
+      setLoading,
+      clearAllActiveInvocations,
+      setStreaming,
+      setIntentMode,
+      clearCatStatuses,
+      clearDoneTimeout,
+      clearPendingCallbacksForThread,
+    ],
   );
 
   const resetRefs = useCallback(() => {
@@ -3910,6 +4256,10 @@ export function useAgentMessages() {
     // current thread, finalized bubbles must still be cleared on resetRefs to
     // preserve the "stale finalized must not patch new callback" semantic
     // (#266 Round 2 regression test).
+    // Cloud R3 P1: pending callback lifetime is invocation-terminal, not
+    // navigation/reset-terminal. ChatContainer switches currentThreadId before
+    // resetRefs(), so any reset-time pending cleanup can drop callbacks for the
+    // newly-current thread before its done/timeout drain.
     const tid = useChatStore.getState().currentThreadId;
     if (tid) clearAllFinalizedForThreadLedger(getThreadRuntimeLedger(), tid);
   }, []);

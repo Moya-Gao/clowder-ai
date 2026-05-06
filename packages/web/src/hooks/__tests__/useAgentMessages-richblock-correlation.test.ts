@@ -19,6 +19,9 @@ const mockSetMessageUsage = vi.fn();
 const mockRequestStreamCatchUp = vi.fn();
 const mockSetMessageMetadata = vi.fn();
 const mockSetMessageThinking = vi.fn();
+const mockRemoveActiveInvocation = vi.fn((invocationId: string) => {
+  delete storeState.activeInvocations[invocationId];
+});
 const mockReplaceMessageId = vi.fn((fromId: string, toId: string) => {
   storeState.messages = storeState.messages.map((m) => (m.id === fromId ? { ...m, id: toId } : m));
 });
@@ -68,6 +71,7 @@ const storeState = {
   requestStreamCatchUp: mockRequestStreamCatchUp,
   setMessageMetadata: mockSetMessageMetadata,
   setMessageThinking: mockSetMessageThinking,
+  removeActiveInvocation: mockRemoveActiveInvocation,
   replaceMessageId: mockReplaceMessageId,
   patchMessage: mockPatchMessage,
 
@@ -86,6 +90,7 @@ const storeState = {
   getThreadState: mockGetThreadState,
   currentThreadId: 'thread-1',
   catInvocations: {} as Record<string, { invocationId?: string }>,
+  activeInvocations: {} as Record<string, { catId?: string }>,
 };
 
 let captured: ReturnType<typeof useAgentMessages> | undefined;
@@ -123,6 +128,7 @@ describe('useAgentMessages rich_block correlation (Bug A)', () => {
     captured = undefined;
     storeState.messages = [];
     storeState.catInvocations = {};
+    storeState.activeInvocations = {};
     resetSharedReplacedInvocations();
     vi.clearAllMocks();
   });
@@ -570,6 +576,24 @@ describe('useAgentMessages rich_block correlation (Bug A)', () => {
         origin: 'callback',
         messageId: 'msg-callback-explicit',
         invocationId: 'inv-explicit',
+      });
+    });
+
+    expect(storeState.messages).toEqual([
+      expect.objectContaining({
+        id: 'msg-inv-explicit-codex',
+        content: '',
+        origin: 'stream',
+        isStreaming: true,
+      }),
+    ]);
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'codex',
+        invocationId: 'inv-explicit',
+        isFinal: true,
       });
     });
 
