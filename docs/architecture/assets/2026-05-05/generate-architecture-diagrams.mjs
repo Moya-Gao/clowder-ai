@@ -518,65 +518,94 @@ function flywheel(cx, cy, r, color, title, steps) {
   `;
 }
 
+function numberedStep(x, y, w, n, title, impl, color) {
+  return `
+    <rect x="${x}" y="${y}" width="${w}" height="88" rx="22" fill="white" stroke="${color}" stroke-width="3" filter="url(#shadow)"/>
+    <circle cx="${x + 44}" cy="${y + 44}" r="25" fill="${color}" opacity="0.95"/>
+    <text x="${x + 44}" y="${y + 53}" text-anchor="middle" font-size="24" font-weight="900" fill="white">${n}</text>
+    ${lines([title], x + 86, y + 36, { size: 24, weight: 880, fill: C.ink })}
+    ${lines([impl], x + 86, y + 66, { size: 18, weight: 700, fill: C.muted })}
+  `;
+}
+
+function downArrow(x, y, color) {
+  return simpleArrow(x, y, x, y + 28, { color, sw: 4 });
+}
+
+function stepPanel(x, y, w, color, title, subtitle, problem, steps, effect) {
+  const stepY = y + 190;
+  const gap = 104;
+  return `
+    ${box(x, y, w, 1080, { fill: `${color}12`, stroke: color, r: 34, label: title, labelColor: color })}
+    ${lines([subtitle], x + w / 2, y + 72, { size: 31, weight: 900, fill: color, anchor: "middle" })}
+    ${box(x + 34, y + 104, w - 68, 62, { fill: "white", stroke: color, r: 20, shadow: false })}
+    ${lines([problem], x + w / 2, y + 145, { size: 21, weight: 780, fill: C.ink, anchor: "middle" })}
+    ${steps.map((step, idx) => numberedStep(x + 44, stepY + idx * gap, w - 88, idx + 1, step.title, step.impl, color)).join("")}
+    ${steps.slice(0, -1).map((_, idx) => downArrow(x + w / 2, stepY + 88 + idx * gap + 7, color)).join("")}
+    ${box(x + 34, y + 870, w - 68, 160, { fill: "white", stroke: color, r: 24, shadow: false })}
+    ${pill(x + 58, y + 852, "飞轮效应", `${color}22`, color, { w: 150, size: 22, textFill: color })}
+    ${lines(effect, x + 64, y + 925, { size: 23, weight: 820, fill: color, leading: 1.25 })}
+  `;
+}
+
 function dualFlywheelDiagram() {
-  const w = 1900;
-  const h = 1300;
+  const w = 2200;
+  const h = 1500;
   const body = `
-  ${sectionTitle('记忆 × Harness 双飞轮：让知识不腐，让规则会删自己', '左轮治理知识与产物熵；右轮治理 harness 自身熵；中间齿轮是现实闭环', w)}
+  ${sectionTitle('记忆 × Harness 双飞轮：知识活过上下文，规则会删除自己', '给外部读者的人话版：左轮管理知识，右轮管理规则，中间闭环让两轮互相供数', w)}
 
-  ${flywheel(
-    525,
-    520,
-    255,
+  ${stepPanel(
+    70,
+    170,
+    760,
     C.green,
-    ['知识飞轮', 'Knowledge'],
+    '左轮：知识飞轮',
+    '让知识活过上下文重置',
+    '问题：agent 每次开新上下文，过去决策和教训会丢',
     [
-      ['docs /', 'discussions'],
-      ['scan / hash', 'rebuild'],
-      ['evidence', '.sqlite'],
-      ['search_', 'evidence'],
-      ['recall →', 'agent 使用'],
-      ['review →', 'materialize'],
-      ['reindex +', 'stale detect'],
+      { title: '工作产出文档和讨论', impl: '(docs / discussions)' },
+      { title: '系统自动扫描建索引', impl: '(scan → evidence.sqlite)' },
+      { title: 'Agent 开工前先搜', impl: '(search_evidence)' },
+      { title: '搜到就用，用完反馈', impl: '(recall → feedback)' },
+      { title: '人工审核，沉淀正式知识', impl: '(review → materialize)' },
+      { title: '重新索引，检测过时/矛盾', impl: '(reindex + stale / contradiction)' },
     ],
+    ['知识越多 → 搜索越准', '搜索越准 → 决策越好', '决策越好 → 产出更好的知识'],
   )}
-  ${flywheel(
-    1375,
-    520,
-    255,
+
+  ${stepPanel(
+    1370,
+    170,
+    760,
     C.orange,
-    ['Harness 飞轮', 'Build to Delete'],
+    '右轮：Harness 飞轮',
+    '让规则会删除自己',
+    '问题：事故后只加规则不删规则，harness 会越来越重',
     [
-      ['rule fire'],
-      ['trace', 'signal'],
-      ['violation /', 'bypass'],
-      ['skeleton /', 'explanation'],
-      ['dynamic', 'injection'],
-      ['sunset', 'removal'],
-      ['连续 N 次', '无 violation'],
+      { title: '规则被触发', impl: '(rule fire)' },
+      { title: '记录触发信号', impl: '(trace: 违规 / 绕行 / 拉闸)' },
+      { title: '区分永久协议和临时脚手架', impl: '(skeleton / explanation)' },
+      { title: '临时规则写入删除条件', impl: '(sunset condition)' },
+      { title: '连续 N 次不触发，降级', impl: '(default → dynamic)' },
+      { title: '确认无用后删除并归档', impl: '(sunset removal + lesson)' },
     ],
+    ['删掉不需要的规则 → 系统更轻', '系统更轻 → agent 更快更准', '触发数据更干净 → 删除判断更准'],
   )}
 
-  ${arrow(820, 515, 1080, 515, { color: C.teal, sw: 6, cx1: 900, cy1: 455, cx2: 1000, cy2: 455 })}
-  ${arrow(1080, 565, 820, 565, { color: C.teal, sw: 6, cx1: 1000, cy1: 625, cx2: 900, cy2: 625 })}
-  ${yarn(950, 540, 36, C.teal)}
-  ${lines(['齿轮咬合', '现实证据回流'], 950, 610, { size: 24, weight: 850, fill: C.teal, anchor: 'middle' })}
+  ${box(880, 430, 440, 560, { fill: '#f8fafc', stroke: C.blue, r: 34, label: '中间齿轮', labelColor: C.blue })}
+  ${lines(['现实闭环', '连接两个飞轮的桥'], 1100, 505, { size: 32, weight: 900, fill: C.blue, anchor: 'middle', leading: 1.15 })}
+  ${lines(['1. 看现实状态', '2. 建计算模型', '3. 执行动作', '4. 改变现实', '5. 验证结果', '6. 做治理决策'], 965, 585, { size: 25, weight: 800, fill: C.ink, leading: 1.25 })}
+  ${box(915, 805, 370, 132, { fill: 'white', stroke: C.blue, r: 22, shadow: false })}
+  ${lines(['左轮提供：知识是否还被引用', '右轮提供：规则是否还在触发', '闭环让两轮同步转'], 1100, 850, { size: 21, weight: 800, fill: C.blue, anchor: 'middle', leading: 1.25 })}
+  ${arrow(830, 445, 900, 505, { color: C.green, sw: 5, cx1: 855, cy1: 440, cx2: 875, cy2: 480 })}
+  ${arrow(1320, 505, 1370, 445, { color: C.orange, sw: 5, cx1: 1345, cy1: 480, cx2: 1350, cy2: 440 })}
+  ${arrow(900, 950, 830, 1040, { color: C.green, sw: 5, cx1: 860, cy1: 985, cx2: 850, cy2: 1025 })}
+  ${arrow(1370, 1040, 1320, 950, { color: C.orange, sw: 5, cx1: 1350, cy1: 1025, cx2: 1345, cy2: 985 })}
+  ${yarn(1100, 1018, 40, C.teal)}
+  ${lines(['现实证据在中间回流'], 1100, 1086, { size: 24, weight: 900, fill: C.teal, anchor: 'middle' })}
 
-  ${box(575, 910, 750, 275, { fill: '#f8fafc', stroke: C.blue, r: 30, label: '中间齿轮：现实闭环', labelColor: C.blue })}
-  ${lines(
-    [
-      'Observe(现实状态) → Model(计算状态) → Action',
-      "→ Apply(现实状态') → Verify / Trace → Govern",
-      'Agent 的本体 = 闭环，不是某一层状态',
-    ],
-    950,
-    1000,
-    { size: 30, weight: 820, fill: C.ink, anchor: 'middle', leading: 1.28 },
-  )}
-  ${lines(['权重状态：模型厂商负责', '计算状态：模型架构负责', '现实状态：Harness 负责'], 950, 1125, { size: 22, weight: 750, fill: C.muted, anchor: 'middle', leading: 1.25 })}
-
-  ${box(135, 1198, 1630, 68, { fill: '#fffbeb', stroke: '#d97706', r: 22, shadow: false })}
-  ${lines(['常见六大件主要讲知识/产物熵控（左轮）；我们额外把 skeleton / explanation / probe + sunset signal 画成右轮。'], 950, 1241, { size: 23, weight: 800, fill: '#92400e', anchor: 'middle' })}
+  ${box(180, 1310, 1840, 92, { fill: '#fffbeb', stroke: '#d97706', r: 26, shadow: false })}
+  ${lines(['常见六大件主要覆盖左轮的知识/产物熵控；Cat Cafe 额外把 harness 自身熵控画成右轮：规则要能产出删除自己的证据。'], 1100, 1366, { size: 25, weight: 820, fill: '#92400e', anchor: 'middle' })}
   `;
   return svgShell(w, h, body);
 }
