@@ -1344,6 +1344,10 @@ async function main(): Promise<void> {
     checkReadiness,
   });
 
+  // F181: Prompt X-Ray debug routes
+  const { promptCaptureRoutes } = await import('./routes/prompt-captures.js');
+  await app.register(promptCaptureRoutes);
+
   // F075 Phase B+C: Game + Achievement stores
   const { GameStore } = await import('./domains/leaderboard/game-store.js');
   const { AchievementStore } = await import('./domains/leaderboard/achievement-store.js');
