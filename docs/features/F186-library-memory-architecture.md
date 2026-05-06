@@ -258,8 +258,8 @@ GBrain 亮点第三条的前端可视化层。Phase F 做了后端数据层（ed
 |---|------|------|
 | OQ-1 | 非代码域第一个试点选哪个？ | ✅ 已决：Phase D 候选用 Lexander；不进入 Phase A scope |
 | OQ-2 | 非代码域入库路径：手动放文件 vs 聊天产出→审核→auto materialize | ⬜ 未定 |
-| OQ-3 | legacy `dimension: "all"` deprecation 时机：Phase A 只做兼容 alias，后续是否移除 | ⬜ 未定 |
-| OQ-4 | 跨域 lesson promote 路径（`world:lexander` lesson → `global:methods`）：默认 fail-closed 需 owner 双签 + re-scan，还是允许自动 promote？ | ⬜ 未定（47 建议 fail-closed） |
+| OQ-3 | legacy `dimension: "all"` deprecation 时机：Phase A 只做兼容 alias，后续是否移除 | ✅ 已决：Phase E 路由 deprecation warning + MCP schema 标注 DEPRECATED，保留兼容但引导用 library/collection |
+| OQ-4 | 跨域 lesson promote 路径（`world:lexander` lesson → `global:methods`）：默认 fail-closed 需 owner 双签 + re-scan，还是允许自动 promote？ | ✅ 已决：fail-closed（AC-A10 visibility-widening 二次确认 + re-scan secret） |
 | OQ-5 | 空状态扩搜引导：project recall 无结果时，是否做 cross-domain title-only probe 提示"其他 Collection 有 N 条相似主题"？ | ⬜ 未定（47 建议纳入，零架构成本） |
 | OQ-6 | RecallCard Pin：铲屎官在 RecallFeed 里标记"关键/不该命中"作为 Query Replay 种子语料？ | ⬜ 未定（47 建议 Phase E 前做） |
 
@@ -297,7 +297,8 @@ GBrain 亮点第三条的前端可视化层。Phase F 做了后端数据层（ed
 | 2026-05-06 | Phase F merged (PR #1561) — GraphResolver with inferCollectionId (sync+async), opaque anchor redaction, edge dedup, RecallPersistenceRedactor wiring, deprecation warnings routing, 16 tests (砚砚 R3 + cloud Codex) |
 | 2026-05-06 | Owner catalog fix merged (PR #1562) — Guardian P1: private collections visible in Hub Catalog + localhost-only guards on catalog/detail/documents endpoints, 6 new tests (砚砚 R2 + cloud Codex R2) |
 | 2026-05-06 | Phase G merged (PR #1565) — force-directed graph visualization with tooltip + opacity + keyboard a11y + stale tooltip fix, 6 tests (砚砚 R2 + cloud Codex R2) |
-| 2026-05-06 | F186 marked done — 愿景守护: 砚砚(gpt52) R1 踢回 P1 → R2 放行; 6 Phase + 1 fix PR, ~180 tests |
+| 2026-05-06 | MCP dimension parity fix merged (PR #1567) — search_evidence 暴露 dimension/collections 参数，猫 CLI recall 可查外部 Collection (砚砚 R2 + cloud Codex) |
+| 2026-05-06 | F186 marked done — 愿景守护: 砚砚(gpt52) R1 踢回 P1 → R2 放行; 7 Phase/fix PRs, ~180 tests |
 
 ## Review Gate
 
