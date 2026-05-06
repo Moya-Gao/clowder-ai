@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "4ce430aca32c1cb82ac595d0604b84e6a74cd629",
+  "last_reviewed_target_head": "ebd0736ad1faa0034b49c539a0397ca655b9e3b2",
   "entries": [
     {
       "pr_number": 90,
@@ -1115,6 +1115,13 @@
       "note": "absorbed record created with --skip-absorbed-guard (outbound-filed hotfix or historical backfill)",
       "intake_intent_issue": 1559,
       "absorb_pr": 1560
+    },
+    {
+      "pr_number": 649,
+      "target_merge_commit": "ebd0736ad1faa0034b49c539a0397ca655b9e3b2",
+      "decision": "absorbed",
+      "timestamp": "2026-05-06T17:02:51.847Z",
+      "note": "historical backfill: source behavior already covered in cat-cafe main by 59eed529934b8c51b74068b1b751e19c11824970 (intake clowder-ai#621 with maintainer-side hardening). Current home keeps RESP formatting and raw UTF-8 writes centralized in Write-RedisRespCommand; validation: pnpm --dir packages/api exec node --test test/windows-portable-redis-url.test.js passed 21/21 on 2026-05-06."
     }
   ]
 }
