@@ -101,6 +101,21 @@ related:
 
 ## 三、最终图谱：5 张
 
+### 2026-05-06 手绘生图版
+
+2026-05-06 追加了一组 Codex built-in `image_gen` 生成的猫猫手绘版，保留原图不覆盖：
+
+| 图 | 手绘版 |
+|---|---|
+| 图 1：猫咖全景 Hero | [`assets/2026-05-05/handdrawn-v2/01-hero-overview-handdrawn.png`](assets/2026-05-05/handdrawn-v2/01-hero-overview-handdrawn.png) |
+| 图 2：Harness 六+一构件映射 | [`assets/2026-05-05/handdrawn-v2/02-harness-engineering-map-handdrawn.png`](assets/2026-05-05/handdrawn-v2/02-harness-engineering-map-handdrawn.png) |
+| 图 3：A2A 球权流转 | [`assets/2026-05-05/handdrawn-v2/03-a2a-ball-ownership-flow-handdrawn.png`](assets/2026-05-05/handdrawn-v2/03-a2a-ball-ownership-flow-handdrawn.png) |
+| 图 4：记忆 × 治理双飞轮 | [`assets/2026-05-05/handdrawn-v2/04-dual-flywheel-handdrawn.png`](assets/2026-05-05/handdrawn-v2/04-dual-flywheel-handdrawn.png) |
+| 图 4.1：飞轮扩展 | [`assets/2026-05-05/handdrawn-v2/04.1-flywheel-expansion-handdrawn.png`](assets/2026-05-05/handdrawn-v2/04.1-flywheel-expansion-handdrawn.png) |
+| 图 5：运行时技术栈 | [`assets/2026-05-05/handdrawn-v2/05-runtime-stack-handdrawn.png`](assets/2026-05-05/handdrawn-v2/05-runtime-stack-handdrawn.png) |
+
+原 SVG/PNG 仍是精确文字与布局真相源；手绘版用于文章、直播和对外讲解的视觉表达。
+
 ### 图 1：猫咖全景 Hero 图
 
 ![图 1：猫咖全景 Hero 图](assets/2026-05-05/01-hero-overview.png)
