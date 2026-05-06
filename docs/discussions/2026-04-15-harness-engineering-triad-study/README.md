@@ -273,6 +273,7 @@ ADR-026 已经开始补 Event API、typed body、causal parents、authority/effe
 - `round3-research-prompt-and-guided-overfitting.md`：Research Prompt 设计 + 引导式过拟合（Round 3）
 - `round4-mathematical-elegance-and-cat-first-architecture.md`：数学美学 + 小模型路由 + 猫猫-First 架构圆桌收敛（Round 4）
 - `round5-anthropic-product-velocity.md`：Anthropic 产品速度访谈 × Harness built to delete（Round 5）
+- `concept-map-2026-05-05.md`：中文社区六大件 × OpenAI × Anthropic × Fowler/Thoughtworks 概念谱系对照
 - `sources/openai-harness-engineering.md`：OpenAI 文章 source note
 - `sources/anthropic-harness-design-long-running-apps.md`：Anthropic 文章 source note
 - `sources/anthropic-scaling-managed-agents.md`：Managed Agents 套读入口 note
