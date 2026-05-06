@@ -8,7 +8,7 @@ created: 2026-05-03
 
 # F186: 图书馆记忆架构（多域知识联邦）
 
-> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-05-06
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -164,6 +164,17 @@ Query Replay eval gate capture 必须包含 scope / dimension / selected collect
 
 Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪个域。Typed Evidence Graph 支持域内 edges + 跨域 `related_to` edges（带 source collection + provenance）。
 
+### Phase G: Knowledge Graph Visualization 📋
+
+GBrain 亮点第三条的前端可视化层。Phase F 做了后端数据层（edges table + GraphResolver + `/api/library/graph` API），Phase G 把它渲染成铲屎官可浏览的图形化节点-边关系图。
+
+关键设计：
+- 力导向图（force-directed graph）渲染 anchors 为节点、typed edges 为连线
+- 节点颜色按 Collection 区分，边标签显示关系类型（related_to/evolved_from/supersedes）
+- 点击节点展开子图（drill-down），hover 显示 anchor 详情（title/collection/sensitivity）
+- sensitivity 可视化：private 节点半透明 + 锁图标，restricted 节点灰色
+- 入口：Hub Memory 面板 Collection Catalog 旁加 "Graph" tab
+
 ## Acceptance Criteria
 
 ### Phase A（Collection Manifest + LibraryResolver 契约） ✅
@@ -201,6 +212,11 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 ### Phase F（Memory Lens + Typed Graph）✅
 - [x] AC-F1: Memory Lens anchor 可跨 collection，输出标注证据来源域
 - [x] AC-F2: Typed Evidence Graph 支持跨域 `related_to` edges
+
+### Phase G（Knowledge Graph Visualization）📋
+- [ ] AC-G1: Hub Memory 面板新增 Graph tab，渲染力导向图（节点=anchor, 边=typed edge）
+- [ ] AC-G2: 点击节点展开子图（drill-down depth+1），hover 显示 anchor 详情（title/collection/sensitivity）
+- [ ] AC-G3: 节点颜色按 Collection 区分；private 节点半透明+锁图标；边标签显示关系类型
 
 ## 需求点 Checklist
 
