@@ -319,6 +319,10 @@ async function main(): Promise<void> {
   // IMPORTANT: Socket.io must attach to the SAME server Fastify listens on.
   socketManager = new SocketManager(app.server, invocationTracker);
 
+  // F063: Workspace file change watcher — pushes file-changed events to clients
+  const { setupWorkspaceFileWatcher } = await import('./domains/workspace/workspace-file-watcher.js');
+  setupWorkspaceFileWatcher(socketManager.getIO());
+
   // F153 Phase E L3: Burn-rate alerting — push system_notice via WebSocket
   if (telemetryHandle.getMetricsText) {
     const { BurnRateMonitor } = await import('./infrastructure/telemetry/burn-rate-monitor.js');
