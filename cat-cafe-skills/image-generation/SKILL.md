@@ -44,7 +44,7 @@ description: >
 
 ### Codex CLI — `image_gen` tool call
 
-**谁能用**：砚砚（Codex CLI 内置）
+**谁能用**：Codex CLI 主执行猫（内置）
 
 **用法**：直接在当前 invocation 里调用内置 `image_gen` tool。这是一个 native tool call，不是 shell 命令，也不是再开一个 `codex exec` 子进程。
 

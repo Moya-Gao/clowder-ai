@@ -1751,6 +1751,67 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
     expect(afterText.nextMessages[0].toolEvents).toEqual([toolEvent]);
   });
 
+  it('F183-R: finalized thinking-first canonical stream container accepts late stream_chunk without phantom split', () => {
+    const seedWithThinking: ChatMessage = {
+      id: 'msg-inv-late-thinking-opus',
+      type: 'assistant',
+      catId: 'opus',
+      content: '',
+      thinking: 'same thinking preview',
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-late-thinking' } },
+    };
+
+    const afterDone = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        actorId: 'opus',
+        type: 'done',
+        bubbleKind: 'assistant_text',
+        canonicalInvocationId: 'inv-late-thinking',
+        messageId: 'msg-inv-late-thinking-opus',
+        timestamp: 1100,
+      },
+      currentMessages: [seedWithThinking],
+    });
+
+    expect(afterDone.recoveryAction).toBe('none');
+    expect(afterDone.nextMessages).toHaveLength(1);
+    expect(afterDone.nextMessages[0]).toMatchObject({
+      id: 'msg-inv-late-thinking-opus',
+      isStreaming: false,
+      thinking: 'same thinking preview',
+    });
+
+    const afterLateText = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        actorId: 'opus',
+        type: 'stream_chunk',
+        bubbleKind: 'assistant_text',
+        canonicalInvocationId: 'inv-late-thinking',
+        messageId: 'msg-inv-late-thinking-opus',
+        timestamp: 1200,
+        payload: { content: 'late stdout' },
+      },
+      currentMessages: afterDone.nextMessages,
+    });
+
+    expect(afterLateText.recoveryAction).toBe('none');
+    expect(afterLateText.violations).toEqual([]);
+    expect(afterLateText.nextMessages).toHaveLength(1);
+    expect(afterLateText.nextMessages[0]).toMatchObject({
+      id: 'msg-inv-late-thinking-opus',
+      content: 'late stdout',
+      thinking: 'same thinking preview',
+      isStreaming: false,
+    });
+  });
+
   // F183 Phase B1.6 (cloud P1): reduceToolEvent must restrict target to
   // assistant_text bubbles. ADR-033 允许 thinking + assistant_text 在同
   // invocation 共存；如果 reducer 不区分 kind 直接拿第一个 streaming assistant

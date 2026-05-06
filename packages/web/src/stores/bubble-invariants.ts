@@ -36,14 +36,15 @@ function isUiCompatStreamingAssistantContainer(msg: ChatMessage, invocationId: s
   if (!msg.catId) return false;
   if (!invocationId) return false;
   if (msg.origin !== 'stream') return false;
-  if (msg.isStreaming !== true) return false;
 
   // Active path `ensureActiveAssistantMessage` creates the canonical
   // `msg-{invocationId}-{catId}` assistant container before text/tools may
   // arrive. Background thinking fallback uses `bg-think-*` for the same
-  // UI-compat role. These are assistant_text containers even while they only
-  // have thinking/tool sub-events; true ADR thinking bubbles use distinct ids
-  // such as `msg-{invocationId}-{catId}-thinking` and stay `thinking`.
+  // UI-compat role. These remain assistant_text containers even while they only
+  // have thinking/tool sub-events, including the finalized-but-not-yet-hydrated
+  // live window where late stdout chunks can still arrive. True ADR thinking
+  // bubbles use distinct ids such as `msg-{invocationId}-{catId}-thinking` and
+  // stay `thinking`.
   if (msg.id === `msg-${invocationId}-${msg.catId}`) return true;
   return msg.id.startsWith('bg-think-');
 }
