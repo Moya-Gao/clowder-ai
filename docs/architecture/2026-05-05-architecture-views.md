@@ -114,7 +114,7 @@ related:
 ```
 ┌─ 猫咖剖面图 ──────────────────────────────────────────────┐
 │                                                            │
-│  ☕ 吧台区（铲屎官/CVO）                                    │
+│  ☕ 会客区（铲屎官/CVO）                                    │
 │  ┌──────────────────────────────────────────────┐          │
 │  │ 沙发 · 愿景白板 · Magic Words 紧急拉闸按钮   │ ← 方向层  │
 │  └──────────────────────────────────────────────┘          │
@@ -122,7 +122,7 @@ related:
 │  🐱 工位区（三猫）                                          │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐                 │
 │  │ 宪宪      │  │ 砚砚      │  │ 烁烁      │                │
-│  │ 布偶·架构  │  │ 缅因·审计  │  │ 暹罗·设计  │                │
+│  │ 布偶·架构  │  │ 缅因·审查  │  │ 暹罗·设计  │                │
 │  │ IDE+蓝图  │  │ 放大镜+✓  │  │ 画板+调色  │                │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘                 │
 │       └──── 🧶 毛线球（球权）────┘                          │
@@ -184,7 +184,7 @@ related:
 │  │ MCP + Skill 认知路标     │  │ F163 知识生命周期                   │   │
 │  │ SystemPromptBuilder     │  │ Build to Delete 判别式              │   │
 │  │ 入口硬 gate (F086)      │  │ skeleton / explanation / probe      │   │
-│  │ Dynamic Injection       │  │ ADR-031 Sunset Discipline           │   │
+│  │ Dynamic Injection       │  │ ADR-031（Sunset 纪律）               │   │
 │  │                          │  │ 代码熵 + harness 自身熵             │   │
 │  │ "猫砂盆放在猫已经        │  │ "看到一次事故就加全局 prompt        │   │
 │  │  去的地方"               │  │  = 糊锅匠"                          │   │
@@ -199,7 +199,7 @@ related:
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**风格**：6 个工具盒用行业标准色调（中性），第 7 个用 Cat Cafe 品牌色高亮。每个盒子右上角贴行业来源标签（OpenAI / Anthropic / Fowler）对应色块。
+**风格**：6 个工具盒用行业标准色调（中性），第 7 个用 Cat Cafe 品牌色高亮。右下角小字注明"分类来源：中文社区综合归纳，参见 concept-map-2026-05-05.md"。盒内标注我们家的具体落地实现，不贴 vendor 色块——六大件不是某一家的官方分类。
 
 ---
 
@@ -219,9 +219,13 @@ related:
           │ "做 F183"
           ↓
 宪宪    ──●━━━━━━━━━━●─────────────────●───────────────── 写代码 → @砚砚
-          │ 接球       │ 写完            │ 行首 @gpt52
-          │ hold_ball  │ git commit      │ targetCats
-          │ (MCP call) │ (现实动作 ✓)    │ (现实动作 ✓)
+          │ 接球       │ 写完            │ targetCats
+          │ (开始执行) │ git commit      │ (现实动作 ✓)
+          │            │ (现实动作 ✓)    │
+          │            │                 │   ┌ 旁路：hold_ball ┐
+          │            │                 │   │ CLI 退出/等外部  │
+          │            │                 │   │ 条件 → wake 续接 │
+          │            │                 │   └─────────────────┘
           │            │                 ↓
 砚砚    ──────────────────────────────────●━━━━━━●──────── review
                                           │ 接球  │ verdict
@@ -308,7 +312,7 @@ State    thread · task · docs · evidence · InvocationQueue
 
 **风格**：两个大齿轮 + 中间小齿轮。猫猫手绘元素：飞轮 = 猫追尾巴；齿轮齿 = 爪垫；sunset = 落日图标。
 
-**关键差异化**：行业只讲知识飞轮（左轮）。我们多了 harness 自演化飞轮（右轮）——每条规则有 sunset condition，探针产出删除证据。这是三个月实战的方法论独家增量。
+**关键差异化**：常见六大件主要讲知识/产物熵控（左轮）。我们额外把 harness 自身熵控画成右轮——skeleton/explanation/probe 分层 + sunset signal，让 harness 产出删除自己的证据。这是三个月实战的方法论增量。
 
 ---
 
@@ -331,7 +335,7 @@ State    thread · task · docs · evidence · InvocationQueue
 └──────────────────────────┬───────────────────────────────┘
                            │ HTTP / WS
 ┌──────────────────────────▼───────────────────────────────┐
-│  API (Express)                                           │
+│  API (Fastify)                                           │
 │  ├── InvocationQueue → QueueProcessor                    │
 │  ├── AgentRouter → Provider Adapters (Claude/GPT/Gemini) │
 │  ├── SessionBootstrap (窄口注入)                          │
@@ -341,8 +345,8 @@ State    thread · task · docs · evidence · InvocationQueue
                │                        │
 ┌──────────────▼─────────┐  ┌──────────▼──────────────────┐
 │  MCP Servers            │  │  Storage                     │
-│  ├── cat-cafe (core)    │  │  ├── Redis 6399 (生产/圣域) │
-│  ├── cat-cafe-collab    │  │  ├── Redis 6398 (测试)      │
+│  ├── cat-cafe (core)    │  │  ├── Redis 6399 (runtime/用户数据 圣域) │
+│  ├── cat-cafe-collab    │  │  ├── Redis 6398 (worktree/alpha/test)  │
 │  ├── cat-cafe-memory    │  │  ├── SQLite (evidence.sqlite)│
 │  ├── cat-cafe-signals   │  │  ├── docs/ (真相源)          │
 │  └── external MCPs      │  │  └── git (版本控制/审计)     │
