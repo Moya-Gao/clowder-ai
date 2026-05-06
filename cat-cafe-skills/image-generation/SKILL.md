@@ -33,7 +33,6 @@ description: >
 ```
 
 ## 支持平台
-
 | 路径 | 平台 | 工具 | 产物位置 | F172 自动发布 |
 |------|------|------|---------|-------------|
 | **原生** | **Codex CLI** | 内置 `image_gen` tool call | `~/.codex/generated_images/<sessionId>/` | ✅ scanner 自动拾取 |
@@ -47,17 +46,19 @@ description: >
 
 **谁能用**：砚砚（Codex CLI 内置）
 
-**用法**：直接在对话中调用内置 `image_gen` tool。这是一个 native tool call，不是 shell 命令。
+**用法**：直接在当前 invocation 里调用内置 `image_gen` tool。这是一个 native tool call，不是 shell 命令，也不是再开一个 `codex exec` 子进程。
 
 ```
-❌ 错误：codex exec --image <参考图>     ← 这是 CLI 命令，图片不会进 F172 pipeline
-✅ 正确：使用内置 image_gen tool call    ← 图片自动落到 ~/.codex/generated_images/<sessionId>/
+❌ 错误：codex exec --image <参考图>     ← 这是 nested CLI session，当前气泡不会展示
+✅ 正确：使用内置 image_gen tool call    ← 图片自动落到当前 session 的 generated_images/
 ```
+
+**有参考图时**：参考图必须在当前对话上下文里（用户上传、上一步生成、或已被 `view_image` 打开）再调用 `image_gen`，并在 prompt 里说明它是 `reference image / edit target / style reference`。如果当前 tool surface 无法把本地参考图接进 native `image_gen`，停下来报告能力缺口；不要退回到 `codex exec --image` 冒充原生路径。
 
 **产物流转**：
 ```
 image_gen tool call
-  → 图片生成到 ~/.codex/generated_images/<sessionId>/<filename>.png
+  → 图片生成到 ~/.codex/generated_images/<当前 sessionId>/<filename>.png
   → invocation 结束后 F172 scanner 自动扫描
   → publishGeneratedImage() 发布到 /uploads/
   → 自动生成 media_gallery 富块 → 气泡内展示 ✓
@@ -90,7 +91,7 @@ generate_image tool call
 codex exec "生成一张猫咖全景图，手绘水彩风格"
 ```
 
-注意：跨引擎借用的产物是否能被 F172 scanner 正确拾取，取决于 sessionId 是否匹配当前 invocation。待验证。
+注意：跨引擎借用目前只适合**离线资产生成**。它会创建另一个 Codex session，产物通常不会被当前猫的 F172 scanner 自动拾取，也不会自动出现在当前气泡里。需要气泡内展示时，优先把球权交给有原生能力的猫，或显式走 artifact promotion / rich block 路径。
 
 ---
 
@@ -173,7 +174,7 @@ codex exec "生成一张猫咖全景图，手绘水彩风格"
 
 1. **优先原生 tool call**：有内置 `image_gen` / `generate_image` 的猫，必须用原生路径。浏览器路径只在需要风格选择器、inpainting、局部编辑时使用
 2. **F172 自动发布**：原生路径产物由 scanner 自动拾取 → `publishGeneratedImage()` → `/uploads/` 稳定 URL + `media_gallery` 富块。零手动操作
-3. **禁止 CLI 命令替代 tool call**：`codex exec --image` 不等于内置 `image_gen` tool call——前者的产物不走 F172 pipeline，图片不会出现在气泡里
+3. **禁止 CLI 命令替代 tool call**：`codex exec --image` 不等于内置 `image_gen` tool call。`--image` 是 nested CLI 的输入附件，不是当前 invocation 的 native reference-image 通道；前者的产物不会被当前气泡的 F172 scanner 自动发布
 
 ### 浏览器路径专用
 
