@@ -119,12 +119,12 @@ function Resolve-PortableRedisBinaries {
     if (-not (Test-Path $layout.Current)) { return $null }
     $redisServer = Get-ChildItem $layout.Current -Recurse -Filter "redis-server.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
     $redisCli = Get-ChildItem $layout.Current -Recurse -Filter "redis-cli.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $redisServer -or -not $redisCli) { return $null }
+    if (-not $redisServer) { return $null }
     Add-ProcessPathPrefix -Directory $redisServer.Directory.FullName
     [pscustomobject]@{
         Source = "project-local"
         ServerPath = $redisServer.FullName
-        CliPath = $redisCli.FullName
+        CliPath = if ($redisCli) { $redisCli.FullName } else { $null }
         BinDir = $redisServer.Directory.FullName
     }
 }
@@ -132,11 +132,11 @@ function Resolve-PortableRedisBinaries {
 function Resolve-GlobalRedisBinaries {
     $redisServer = Get-Command redis-server -ErrorAction SilentlyContinue
     $redisCli = Get-Command redis-cli -ErrorAction SilentlyContinue
-    if (-not $redisServer -or -not $redisCli) { return $null }
+    if (-not $redisServer) { return $null }
     [pscustomobject]@{
         Source = "global"
         ServerPath = $redisServer.Source
-        CliPath = $redisCli.Source
+        CliPath = if ($redisCli) { $redisCli.Source } else { $null }
         BinDir = Split-Path -Parent $redisServer.Source
     }
 }
@@ -270,6 +270,36 @@ function Format-RedisRespCommand {
     return $parts
 }
 
+function Write-RedisRespCommand {
+    param(
+        [System.IO.Stream]$Stream,
+        [string]$Command
+    )
+
+    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+    $commandBytes = $utf8NoBom.GetBytes($Command)
+    $Stream.Write($commandBytes, 0, $commandBytes.Length)
+}
+
+function Get-RedisAuthRespCommand {
+    param([System.Uri]$Uri)
+
+    if (-not $Uri.UserInfo) {
+        return ""
+    }
+
+    $parts = $Uri.UserInfo -split ":", 2
+    $username = [System.Uri]::UnescapeDataString($parts[0])
+    $password = if ($parts.Count -ge 2) { [System.Uri]::UnescapeDataString($parts[1]) } else { "" }
+
+    if ($parts.Count -ge 2 -and $username) {
+        return Format-RedisRespCommand -Args @("AUTH", $username, $password)
+    } elseif ($username) {
+        return Format-RedisRespCommand -Args @("AUTH", $username)
+    }
+    return Format-RedisRespCommand -Args @("AUTH", $password)
+}
+
 # Pure-PowerShell Redis connectivity check via TCP + RESP PING/PONG.
 # Replaces redis-cli dependency for local and WSL-based Redis instances.
 function Test-RedisReachable {
@@ -301,24 +331,12 @@ function Test-RedisReachable {
         $stream = $client.GetStream()
         $stream.ReadTimeout = $TimeoutMs
         $stream.WriteTimeout = $TimeoutMs
-        $writer = [System.IO.StreamWriter]::new($stream, [System.Text.Encoding]::UTF8)
-        $writer.AutoFlush = $true
-        $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8)
+        $reader = [System.IO.StreamReader]::new($stream, [System.Text.UTF8Encoding]::new($false))
 
         # AUTH if credentials embedded in URL
-        if ($uri.UserInfo) {
-            $parts = $uri.UserInfo -split ":", 2
-            $username = [System.Uri]::UnescapeDataString($parts[0])
-            $password = if ($parts.Count -ge 2) { [System.Uri]::UnescapeDataString($parts[1]) } else { "" }
-
-            if ($parts.Count -ge 2 -and $username) {
-                $authCmd = Format-RedisRespCommand -Args @("AUTH", $username, $password)
-            } elseif ($username) {
-                $authCmd = Format-RedisRespCommand -Args @("AUTH", $username)
-            } else {
-                $authCmd = Format-RedisRespCommand -Args @("AUTH", $password)
-            }
-            $writer.Write($authCmd)
+        $authCmd = Get-RedisAuthRespCommand -Uri $uri
+        if ($authCmd) {
+            Write-RedisRespCommand -Stream $stream -Command $authCmd
             $authLine = $reader.ReadLine()
             if ($authLine -notmatch '^\+OK') {
                 return $false
@@ -326,7 +344,7 @@ function Test-RedisReachable {
         }
 
         # PING
-        $writer.Write((Format-RedisRespCommand -Args @("PING")))
+        Write-RedisRespCommand -Stream $stream -Command (Format-RedisRespCommand -Args @("PING"))
         $pingLine = $reader.ReadLine()
         return $pingLine -eq '+PONG'
     } catch {
@@ -366,24 +384,12 @@ function Send-RedisShutdown {
         $stream = $client.GetStream()
         $stream.ReadTimeout = $TimeoutMs
         $stream.WriteTimeout = $TimeoutMs
-        $writer = [System.IO.StreamWriter]::new($stream, [System.Text.Encoding]::UTF8)
-        $writer.AutoFlush = $true
-        $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8)
+        $reader = [System.IO.StreamReader]::new($stream, [System.Text.UTF8Encoding]::new($false))
 
         # AUTH if needed
-        if ($uri.UserInfo) {
-            $parts = $uri.UserInfo -split ":", 2
-            $username = [System.Uri]::UnescapeDataString($parts[0])
-            $password = if ($parts.Count -ge 2) { [System.Uri]::UnescapeDataString($parts[1]) } else { "" }
-
-            if ($parts.Count -ge 2 -and $username) {
-                $authCmd = Format-RedisRespCommand -Args @("AUTH", $username, $password)
-            } elseif ($username) {
-                $authCmd = Format-RedisRespCommand -Args @("AUTH", $username)
-            } else {
-                $authCmd = Format-RedisRespCommand -Args @("AUTH", $password)
-            }
-            $writer.Write($authCmd)
+        $authCmd = Get-RedisAuthRespCommand -Uri $uri
+        if ($authCmd) {
+            Write-RedisRespCommand -Stream $stream -Command $authCmd
             $authLine = $reader.ReadLine()
             if ($authLine -notmatch '^\+OK') {
                 return $false
@@ -391,7 +397,7 @@ function Send-RedisShutdown {
         }
 
         # SHUTDOWN SAVE
-        $writer.Write((Format-RedisRespCommand -Args @("SHUTDOWN", "SAVE")))
+        Write-RedisRespCommand -Stream $stream -Command (Format-RedisRespCommand -Args @("SHUTDOWN", "SAVE"))
         $reader.ReadLine() | Out-Null
         return $true
     } catch {
