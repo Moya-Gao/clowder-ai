@@ -8,7 +8,8 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> **Status**: done | **Completed**: 2026-04-10 | **Owner**: 布偶猫
+> **Status**: follow-up-planned | **Core Completed**: 2026-04-10 | **Owner**: 布偶猫
+> Follow-up: Telegram reliability hardening (community clowder-ai#524/#641/#642)
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw) | 用户文档: [IM 接入指南](../guides/im-platform-setup.md) · [IM 使用指南](../guides/im-usage-guide.md)
 > Reflection: [2026-03-09-f088-chat-gateway-capsule.md](../reflections/2026-03-09-f088-chat-gateway-capsule.md) · [2026-04-10-f088-issue3-completion-capsule.md](../reflections/2026-04-10-f088-issue3-completion-capsule.md)
 
@@ -67,6 +68,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | **8** | IM Hub 配置向导 — 平台接入引导 UI（飞书/Telegram/钉钉） | ✅ | [#680](https://github.com/zts212653/cat-cafe/pull/680) |
 | **J1** | file block 全链路 + outbound 投递 + 安全防护（URL 白名单 + path traversal guard + fileName 透传） | ✅ | [#689](https://github.com/zts212653/cat-cafe/pull/689) |
 | **J2** | Pandoc 文档生成服务 + MCP tool + 自动安装（init-cafe.sh / install.sh） | ✅ | [#693](https://github.com/zts212653/cat-cafe/pull/693) |
+| **K** | Telegram reliability follow-up：重复发送止血 → inline streaming final → 富文本/媒体/长文本健壮性 | 📋 planned | — |
 | **9** | 产品化（多账号/多workspace/运维） | 📋 planned | — |
 
 完整 AC 列表见 [各 Phase 详细 AC](assets/F088/acceptance-criteria.md)
@@ -158,6 +160,36 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - [ ] 大小限制策略（飞书 30MB 上限）— 当前无硬性需求
 - [ ] LaTeX 自动安装（PDF 原生输出，当前降级为 DOCX）
 
+### Phase K: Telegram Reliability Follow-up（📋 planned）
+
+**Source**: community issue [clowder-ai#524](https://github.com/zts212653/clowder-ai/issues/524), draft PRs [clowder-ai#641](https://github.com/zts212653/clowder-ai/pull/641) / [clowder-ai#642](https://github.com/zts212653/clowder-ai/pull/642)
+
+**背景**：Telegram 用户在 streaming 回复结束后看到两条相同最终消息：placeholder 被 edit 成最终内容，同时 `OutboundDeliveryHook.deliver()` 又发送一条最终回复。社区 PR #641 抓到了 duplicate 的主因，但分支混入无关 Windows start/status 与跨 adapter signature churn；PR #642 试图一次解决 inline final + rich/media delivery，scope 跨到 Phase 2/3，并引入 mid-loop skip 数据丢失风险。
+
+**三阶段边界**：
+
+| 阶段 | 问题 | 当前处理 |
+|------|------|----------|
+| K1 | Telegram streaming final duplicate：同一回复最终出现两条文本 | **本轮只修这个**。优先只改 Telegram adapter：`sendPlaceholder()` 记录 placeholder messageId → chatId，`deleteMessage(platformMessageId)` 用映射删除 placeholder。保持最终答案仍走现有 outbound delivery，不改 QueueProcessor/messages/其他 adapter |
+| K2 | Telegram inline streaming final：最终态也原地编辑，避免 placeholder 删除再发新消息 | 后续单独做。需要先设计 delivery ownership，不允许用 connectorId 粗粒度 skip 影响多 binding / mid-loop delivery |
+| K3 | Telegram 富文本、媒体文件、长文本、edit 失败 fallback、重试等健壮性 | 后续单独做。必须覆盖 `richBlocks`、`media_gallery/file/audio`、4096 字符限制、HTML parse fallback、retry/backoff，不压进 K1 |
+
+**K1 验收标准**：
+
+- [ ] Telegram streaming plain-text 回复最终只保留一条最终答案
+- [ ] placeholder 只在 outbound delivery 成功后清理；delivery 失败时 placeholder 保留作 fallback
+- [ ] 不修改 `QueueProcessor` / `ConnectorInvokeTrigger` / `messages.ts` 的 delivery 状态机
+- [ ] 不修改非 Telegram adapter 的 `deleteMessage` 签名或行为
+- [ ] 回归测试覆盖 Telegram placeholder chatId 映射与 deletion
+- [ ] 验证命令：`pnpm --dir packages/api run build` + Telegram/streaming/outbound 相关 node tests
+
+**Review Focus（砚砚）**：
+
+- 防止把 K2/K3 scope 偷渡进 K1
+- 防止 connector-level skip 导致多 binding 或 mid-loop delivery 丢消息
+- 防止为了消除 duplicate 而丢失 rich/media/file outbound
+- 社区 PR 处理口径：#641/#642 不按现状 merge；家里完成 source-owned fix 后 outbound sync，并在社区侧 acknowledge contributor 的根因定位
+
 ## MVP Scope 硬边界
 
 **包含**：飞书+Telegram DM-only、单 Owner、静态 token、Markdown、入站幂等去重、thread mapping、outbound final-only
@@ -202,6 +234,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - **ISSUE-13**: 飞书图片+文字消息静默丢弃 — 飞书发送 text+image 混合消息时 `msg_type` 为 `post`（富文本），`FeishuAdapter.parseEvent()` 无 `case 'post':` handler → `default: return null` → 整条消息静默丢弃（HTTP 200，无日志）。**✅ PR #637 修复**：新增 `case 'post':` handler 遍历 `content[paragraph][node]` 结构，提取 `tag:'text'`/`tag:'a'` 文本和 `tag:'img'` 图片附件，支持 zh_cn/en_us/ja_jp locale fallback。同步增加 webhook diagnostic logging 和 callback vs agent 卡片视觉区分（紫色 `📨 传话` 标识）。
 - **ISSUE-14**: 飞书 post 内嵌图片下载 400 — PR #637 的 `case 'post':` handler 正确解析了 `image_key`，但 `feishuDownloadFn` 统一用 `/im/v1/messages/{msgId}/resources/{key}` 端点下载，该端点对 post 内嵌图片返回 400。post 内嵌图片需用 `/im/v1/images/{key}` 端点。**✅ PR #640 修复**：新增 `source: 'post-embedded'` 标记全链路穿透（FeishuAdapter → ConnectorRouter → ConnectorMediaService → feishuDownloadFn），按 source 分流 API 端点。
 - **ISSUE-16**: 外部 IM 创建线程后 spawn 的猫 cwd 错误 — **✅ PR #849 修复**：ConnectorRouter 创建 thread 时传 `findMonorepoRoot()` 作为 `projectPath`（会话 thread + Hub thread），并增加 lazy heal 回填存量 thread。新增 `updateProjectPath()` 到 ThreadStore 接口。3 个回归测试。
+- **ISSUE-17**: Telegram streaming final duplicate + reliability split — **📋 Phase K planned**。社区 issue [clowder-ai#524](https://github.com/zts212653/clowder-ai/issues/524) 与 draft PR [#641](https://github.com/zts212653/clowder-ai/pull/641) / [#642](https://github.com/zts212653/clowder-ai/pull/642) 暴露 Telegram streaming final delivery ownership 不清。K1 只修 duplicate；K2/K3 分别处理 inline final 与 rich/media/long/retry 健壮性，避免一次改动污染公共 delivery 状态机。
 - **ISSUE-15**: Cat Café web 发消息 → 猫回复不推送到飞书 — `messages.ts` 的 immediate 路径（`router.routeExecution()`）消费完 agent 事件流后，只做 WebSocket 广播，**没有调用 `OutboundDeliveryHook.deliver()`**。**✅ PR #671 修复**：在 `messages.ts` 注入 `outboundHook` + `streamingHook`，routeExecution 消费循环中收集 turn text + richBlocks，成功时 fire-and-forget 调用 `deliverOutboundFromWeb()`；失败/取消时 `cleanupStreamingOnFailure()` 清理占位卡片。统一 `STREAM_START_TIMEOUT_MS`（5s）常量。18 个回归测试覆盖投递、流式、清理、超时对齐。
 
 ## Phase G+ Follow-up（8A 增量改进）
@@ -258,6 +291,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-24 | Phase J2 merged: Pandoc document generation service + MCP tool + auto-install (PR #693) |
 | 2026-03-24 | Bugfix: CLI file delivery — post_message consumes RichBlockBuffer for outbound + voice synthesis merge fix (PR #695) |
 | 2026-03-28 | ISSUE-16 fix: IM-spawned cat cwd — pass monorepo root as projectPath + lazy heal for existing threads (PR #849) |
+| 2026-05-06 | Phase K planned: Telegram reliability follow-up linked to clowder-ai#524/#641/#642; K1 duplicate fix split from K2/K3 robustness |
 
 ## 参考文件
 

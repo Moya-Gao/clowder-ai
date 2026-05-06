@@ -26,6 +26,7 @@ created: 2026-02-26
 | F067 | Cold-start Verifier — 无历史污染的交付物验证 | spec | 布偶猫 | internal | [F067](features/F067-cold-start-verifier.md) |
 | F069 | Thread Read State — 未读 Badge 后端真相源 | spec | 布偶猫 | internal | [F069](features/F069-thread-read-state.md) |
 | F077 | Multi-User Secure Collaboration — GitHub OAuth + Thread ACL + Session | spec | 布偶猫 | internal | [F077](features/F077-multi-user-secure-collab.md) |
+| F088 | Multi-Platform Chat Gateway — Telegram reliability follow-up | follow-up-planned | 布偶猫 | community [#524](https://github.com/zts212653/clowder-ai/issues/524) [#641](https://github.com/zts212653/clowder-ai/pull/641) [#642](https://github.com/zts212653/clowder-ai/pull/642) | [F088](features/F088-multi-platform-chat-gateway.md) |
 | F089 | Hub Terminal & tmux Integration — 浏览器终端 + 猫猫可观测性 | in-progress | 布偶猫 | internal | [F089](features/F089-hub-terminal-tmux.md) |
 | F090 | Pixel Cat Brawl — 像素猫猫大作战：即时格斗 demo game | phase-1-done | 布偶猫 | internal | [F090](features/F090-pixel-cat-brawl.md) |
 | F093 | Cats & U 陪伴式共创世界引擎 — 万物有灵 | spec | 布偶猫 | internal | [F093](features/F093-cats-and-u-world-engine.md) |
