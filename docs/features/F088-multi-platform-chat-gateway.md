@@ -160,7 +160,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - [ ] 大小限制策略（飞书 30MB 上限）— 当前无硬性需求
 - [ ] LaTeX 自动安装（PDF 原生输出，当前降级为 DOCX）
 
-### Phase K: Telegram Reliability Follow-up（📋 planned）
+### Phase K: Telegram Reliability Follow-up（K1 ✅ | K2/K3 📋 planned）
 
 **Source**: community issue [clowder-ai#524](https://github.com/zts212653/clowder-ai/issues/524), draft PRs [clowder-ai#641](https://github.com/zts212653/clowder-ai/pull/641) / [clowder-ai#642](https://github.com/zts212653/clowder-ai/pull/642)
 
@@ -176,12 +176,12 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 
 **K1 验收标准**：
 
-- [ ] Telegram streaming plain-text 回复最终只保留一条最终答案
-- [ ] placeholder 只在 outbound delivery 成功后清理；delivery 失败时 placeholder 保留作 fallback
-- [ ] 不修改 `QueueProcessor` / `ConnectorInvokeTrigger` / `messages.ts` 的 delivery 状态机
-- [ ] 不修改非 Telegram adapter 的 `deleteMessage` 签名或行为
-- [ ] 回归测试覆盖 Telegram placeholder chatId 映射与 deletion
-- [ ] 验证命令：`pnpm --dir packages/api run build` + Telegram/streaming/outbound 相关 node tests
+- [x] Telegram streaming plain-text 回复最终只保留一条最终答案
+- [x] placeholder 只在 outbound delivery 成功后清理；delivery 失败时 placeholder 保留作 fallback
+- [x] 不修改 `QueueProcessor` / `ConnectorInvokeTrigger` / `messages.ts` 的 delivery 状态机
+- [x] 不修改非 Telegram adapter 的 `deleteMessage` 签名或行为
+- [x] 回归测试覆盖 Telegram placeholder chatId 映射与 deletion
+- [x] 验证命令：`pnpm --dir packages/api run build` + Telegram/streaming/outbound 相关 node tests
 
 **Review Focus（砚砚）**：
 
@@ -292,6 +292,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-24 | Bugfix: CLI file delivery — post_message consumes RichBlockBuffer for outbound + voice synthesis merge fix (PR #695) |
 | 2026-03-28 | ISSUE-16 fix: IM-spawned cat cwd — pass monorepo root as projectPath + lazy heal for existing threads (PR #849) |
 | 2026-05-06 | Phase K planned: Telegram reliability follow-up linked to clowder-ai#524/#641/#642; K1 duplicate fix split from K2/K3 robustness |
+| 2026-05-06 | Phase K1 merged: Telegram streaming dedup — placeholder chatId mapping + deleteMessage + multi-chat safety (PR #1572) |
 
 ## 参考文件
 
