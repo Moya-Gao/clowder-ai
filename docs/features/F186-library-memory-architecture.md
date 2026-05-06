@@ -8,7 +8,7 @@ created: 2026-05-03
 
 # F186: 图书馆记忆架构（多域知识联邦）
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-05-06
 
 ## Why
 
@@ -280,6 +280,7 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 | 2026-05-05 | Phase E merged (PR #1556) — QueryReplayCompare + collection-aware capture payload + per-collection diff + Jaccard similarity, 12 tests (砚砚 R3 + cloud Codex R2) |
 | 2026-05-06 | Phase F merged (PR #1561) — GraphResolver with inferCollectionId (sync+async), opaque anchor redaction, edge dedup, RecallPersistenceRedactor wiring, deprecation warnings routing, 16 tests (砚砚 R3 + cloud Codex) |
 | 2026-05-06 | Owner catalog fix merged (PR #1562) — Guardian P1: private collections visible in Hub Catalog + localhost-only guards on catalog/detail/documents endpoints, 6 new tests (砚砚 R2 + cloud Codex R2) |
+| 2026-05-06 | F186 marked done — 愿景守护: 砚砚(gpt52) R1 踢回 P1 → R2 放行; 6 Phase + 1 fix PR, ~180 tests |
 
 ## Review Gate
 
