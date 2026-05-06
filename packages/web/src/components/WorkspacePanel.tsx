@@ -174,6 +174,9 @@ export function WorkspacePanel() {
   const consumePreviewAutoOpen = useChatStore((s) => s.consumePreviewAutoOpen);
   const storeRevealPath = useChatStore((s) => s.workspaceRevealPath);
   const setStoreRevealPath = useChatStore((s) => s.setWorkspaceRevealPath);
+  const presentationLock = useChatStore((s) => s.presentationLock);
+  const enablePresentationLock = useChatStore((s) => s.enablePresentationLock);
+  const disablePresentationLock = useChatStore((s) => s.disablePresentationLock);
   const { createFile, createDir, deleteItem, renameItem, uploadFile } = useFileManagement();
 
   const [viewMode, setViewMode] = useState<'files' | 'changes' | 'git' | 'terminal' | 'browser'>('files');
@@ -249,8 +252,10 @@ export function WorkspacePanel() {
   // F168: Auto-switch workspace mode based on thread's preferredWorkspaceMode.
   // Also resets from 'community' when switching to a thread without a preference,
   // preventing mode leakage across threads.
+  // F063 AC-PL6: skip auto-switch when presentation lock is active to preserve focus mode.
   useEffect(() => {
     if (!currentThreadId) return;
+    if (presentationLock) return;
     let cancelled = false;
     apiFetch(`/api/threads/${currentThreadId}`)
       ?.then((res) => res.json())
@@ -267,7 +272,7 @@ export function WorkspacePanel() {
     return () => {
       cancelled = true;
     };
-  }, [currentThreadId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentThreadId, presentationLock]); // eslint-disable-line react-hooks/exhaustive-deps
   // F120: Listen for port discovery via Socket.IO
   useEffect(() => {
     let cancelled = false;
@@ -436,7 +441,7 @@ export function WorkspacePanel() {
         if (result) {
           fetchTree();
           setOpenFile(path);
-          setEditMode(true); // Auto-enter edit mode for new files
+          setEditMode(true);
         }
         return !!result;
       },
@@ -642,15 +647,40 @@ export function WorkspacePanel() {
             <div className="flex items-center gap-2 min-w-0">
               <MenuIcon />
               <span className="text-sm font-semibold text-cafe-black">Workspace</span>
+              {presentationLock && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-cocreator-primary/15 text-cocreator-primary">
+                  Locked
+                </span>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={() => setRightPanelMode('status')}
-              className="w-6 h-6 flex items-center justify-center rounded-md text-cocreator-dark/40 hover:text-cocreator-dark hover:bg-cocreator-light/60 transition-colors"
-              title="切换到状态面板"
-            >
-              <CloseIcon />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={presentationLock ? disablePresentationLock : enablePresentationLock}
+                className={`w-6 h-6 flex items-center justify-center rounded-md transition-colors ${
+                  presentationLock
+                    ? 'text-cocreator-primary bg-cocreator-primary/10 hover:bg-cocreator-primary/20'
+                    : 'text-cocreator-dark/40 hover:text-cocreator-dark hover:bg-cocreator-light/60'
+                }`}
+                title={presentationLock ? '退出演示锁定' : '演示锁定（切换 thread 不影响右侧）'}
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                  {presentationLock ? (
+                    <path d="M8 1a3.5 3.5 0 0 0-3.5 3.5V6H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1.5V4.5A3.5 3.5 0 0 0 8 1Zm2 5H6V4.5a2 2 0 1 1 4 0V6Z" />
+                  ) : (
+                    <path d="M8 1a3.5 3.5 0 0 0-3.5 3.5V6H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H6V4.5a2 2 0 1 1 4 0 .75.75 0 0 0 1.5 0A3.5 3.5 0 0 0 8 1Z" />
+                  )}
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRightPanelMode('status')}
+                className="w-6 h-6 flex items-center justify-center rounded-md text-cocreator-dark/40 hover:text-cocreator-dark hover:bg-cocreator-light/60 transition-colors"
+                title="切换到状态面板"
+              >
+                <CloseIcon />
+              </button>
+            </div>
           </div>
 
           {/* Worktree indicator */}

@@ -12,6 +12,7 @@ import type {
   ChatMessageMetadata,
   ChatMessagePatch,
   GameState,
+  PresentationLockSnapshot,
   QueueEntry,
   RichBlock,
   Thread,
@@ -964,6 +965,12 @@ export interface ChatState {
   workspaceRevealPath: string | null;
   setWorkspaceRevealPath: (path: string | null, originThreadId?: string | null) => void;
 
+  // F063: Presentation Lock — freeze workspace during demos
+  presentationLock: PresentationLockSnapshot | null;
+  enablePresentationLock: () => void;
+  disablePresentationLock: () => void;
+  replacePresentationLockTarget: (snapshot: PresentationLockSnapshot) => void;
+
   // Phase H + F139 + F160 + F168: Workspace mode
   workspaceMode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community';
   setWorkspaceMode: (mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community') => void;
@@ -1244,6 +1251,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       workspaceEditToken: null,
       workspaceEditTokenExpiry: null,
     });
+    const lock = get().presentationLock;
+    if (lock) {
+      set({
+        presentationLock: { ...lock, worktreeId: id, tabs: [], filePath: null, line: null },
+      });
+    }
   },
   setWorkspaceOpenFile: (path, line, targetWorktreeId, originThreadId) => {
     if (path) {
@@ -1271,6 +1284,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
           _workspaceFileSetAt: stamp,
         });
       }
+      const lock = get().presentationLock;
+      if (lock) {
+        const newWorktreeId = get().workspaceWorktreeId ?? lock.worktreeId;
+        const worktreeChanged = newWorktreeId !== lock.worktreeId;
+        const lockTabs = worktreeChanged ? [path] : lock.tabs.includes(path) ? lock.tabs : [...lock.tabs, path];
+        set({
+          presentationLock: {
+            ...lock,
+            filePath: path,
+            line: line ?? null,
+            tabs: lockTabs,
+            worktreeId: newWorktreeId,
+          },
+        });
+      }
     } else {
       set({
         workspaceOpenFilePath: null,
@@ -1287,6 +1315,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ workspaceOpenTabs: newTabs, workspaceOpenFilePath: next, workspaceOpenFileLine: null });
     } else {
       set({ workspaceOpenTabs: newTabs });
+    }
+    const lock = get().presentationLock;
+    if (lock) {
+      const lockOldTabs = lock.tabs;
+      const lockNewTabs = lockOldTabs.filter((t) => t !== path);
+      let filePath = lock.filePath;
+      let { line: lockLine } = lock;
+      if (filePath === path) {
+        const idx = lockOldTabs.indexOf(path);
+        filePath = lockNewTabs[Math.min(idx, lockNewTabs.length - 1)] ?? null;
+        lockLine = null;
+      }
+      set({ presentationLock: { ...lock, tabs: lockNewTabs, filePath, line: lockLine } });
     }
   },
   restoreWorkspaceTabs: (tabs, openFile) => {
@@ -1311,6 +1352,52 @@ export const useChatStore = create<ChatState>((set, get) => ({
       rightPanelMode: 'workspace' as const,
       _workspaceFileSetAt: { ts: Date.now(), threadId: originThreadId ?? state.currentThreadId },
     })),
+
+  // F063: Presentation Lock
+  presentationLock: null,
+  enablePresentationLock: () =>
+    set((state) => ({
+      presentationLock: {
+        ownerThreadId: state.currentThreadId,
+        ownerWorkspace: {
+          worktreeId: state.workspaceWorktreeId,
+          filePath: state.workspaceOpenFilePath,
+          line: state.workspaceOpenFileLine,
+          tabs: state.workspaceOpenTabs,
+        },
+        worktreeId: state.workspaceWorktreeId,
+        filePath: state.workspaceOpenFilePath,
+        line: state.workspaceOpenFileLine,
+        tabs: state.workspaceOpenTabs,
+      },
+    })),
+  disablePresentationLock: () =>
+    set((state) => {
+      if (!state.presentationLock) return {};
+      if (state.presentationLock.ownerThreadId === state.currentThreadId) {
+        const ow = state.presentationLock.ownerWorkspace;
+        return {
+          presentationLock: null,
+          workspaceWorktreeId: ow.worktreeId,
+          workspaceOpenTabs: ow.tabs,
+          workspaceOpenFilePath: ow.filePath,
+          workspaceOpenFileLine: ow.line,
+        };
+      }
+      const threadState = state.threadStates[state.currentThreadId];
+      const restored = flattenThread(threadState ?? { ...DEFAULT_THREAD_STATE });
+      return {
+        presentationLock: null,
+        ...(restored.workspaceWorktreeId !== undefined && {
+          workspaceWorktreeId: restored.workspaceWorktreeId,
+        }),
+        workspaceOpenTabs: restored.workspaceOpenTabs ?? [],
+        workspaceOpenFilePath: restored.workspaceOpenFilePath ?? null,
+        workspaceOpenFileLine: restored.workspaceOpenFileLine ?? null,
+      };
+    }),
+  replacePresentationLockTarget: (snapshot) =>
+    set((state) => (state.presentationLock ? { presentationLock: snapshot } : {})),
 
   // Phase H: Workspace mode
   workspaceMode: 'dev' as const,
@@ -1939,12 +2026,51 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (threadId === state.currentThreadId) return state;
 
       // Save current flat state to map
-      const saved = snapshotActive(state);
+      let saved = snapshotActive(state);
+
+      // F063 Presentation Lock: flat workspace fields reflect the lock overlay,
+      // not the outgoing thread's real state. We must restore the correct workspace:
+      // - Lock owner: use the lock snapshot (that IS the owner's pre-lock workspace)
+      // - Non-owner: use its previous threadStates entry (or defaults)
+      if (state.presentationLock) {
+        const lock = state.presentationLock;
+        const isOwner = state.currentThreadId === lock.ownerThreadId;
+        if (isOwner) {
+          saved = {
+            ...saved,
+            workspaceWorktreeId: lock.ownerWorkspace.worktreeId,
+            workspaceOpenTabs: lock.ownerWorkspace.tabs,
+            workspaceOpenFilePath: lock.ownerWorkspace.filePath,
+            workspaceOpenFileLine: lock.ownerWorkspace.line,
+          };
+        } else {
+          const prevThreadState = state.threadStates[state.currentThreadId];
+          saved = {
+            ...saved,
+            workspaceWorktreeId: prevThreadState?.workspaceWorktreeId ?? null,
+            workspaceOpenTabs: prevThreadState?.workspaceOpenTabs ?? [],
+            workspaceOpenFilePath: prevThreadState?.workspaceOpenFilePath ?? null,
+            workspaceOpenFileLine: prevThreadState?.workspaceOpenFileLine ?? null,
+          };
+        }
+      }
+
       // F164: Write-through outgoing thread's messages to IndexedDB (fire-and-forget)
       // Always write — even empty arrays — so server-cleared threads don't leave stale snapshots
       void saveMessagesSnapshot(state.currentThreadId, saved.messages, saved.hasMore).catch(() => {});
       // Load target thread state (or defaults for first visit)
       const loaded = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      const flattened = flattenThread(loaded);
+
+      // F063 Presentation Lock: overlay locked workspace fields so the visible
+      // workspace doesn't change on thread switch (AC-PL1).
+      if (state.presentationLock) {
+        const lock = state.presentationLock;
+        flattened.workspaceWorktreeId = lock.worktreeId;
+        flattened.workspaceOpenTabs = lock.tabs;
+        flattened.workspaceOpenFilePath = lock.filePath;
+        flattened.workspaceOpenFileLine = lock.line;
+      }
 
       return {
         currentThreadId: threadId,
@@ -1952,7 +2078,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ...state.threadStates,
           [state.currentThreadId]: saved,
         },
-        ...flattenThread(loaded),
+        ...flattened,
       };
     }),
 

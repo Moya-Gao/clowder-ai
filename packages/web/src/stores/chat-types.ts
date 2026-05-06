@@ -555,6 +555,21 @@ export interface ThreadState {
   workspaceOpenFileLine: number | null;
 }
 
+/** F063: Presentation Lock — frozen workspace snapshot for demo mode */
+export interface PresentationLockSnapshot {
+  ownerThreadId: string;
+  ownerWorkspace: {
+    worktreeId: string | null;
+    filePath: string | null;
+    line: number | null;
+    tabs: string[];
+  };
+  worktreeId: string | null;
+  filePath: string | null;
+  line: number | null;
+  tabs: string[];
+}
+
 /** F097: CLI Output unified event stream */
 export type CliEventKind = 'tool_use' | 'tool_result' | 'text' | 'error';
 export type CliStatus = 'streaming' | 'done' | 'failed' | 'interrupted';
