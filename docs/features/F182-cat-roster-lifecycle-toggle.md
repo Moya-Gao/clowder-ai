@@ -22,7 +22,7 @@ F127（done 2026-04-29）覆盖了**猫猫实例 CRUD + 别名路由**。下面�
 
 | 层 | 现状 | 文件证据 |
 |---|---|---|
-| ① UI toggle 开关 | ✅ 已有 — Hub `HubMemberOverviewCard` 的"已启用 / 未启用" badge 是个真按钮，点一下走 `onToggleAvailability` → 写入 `cat.roster.available` | `packages/web/src/components/HubMemberOverviewCard.tsx:60-73, 254-266` |
+| ① UI toggle 开关 | ✅ 已有 — Hub `HubMemberOverviewCard` 将"已启用 / 已停用"状态 badge 与"停用成员 / 启用成员"动作按钮分离，按钮走 `onToggleAvailability` → 写入 `cat.roster.available` | `packages/web/src/components/HubMemberOverviewCard.tsx` |
 | ② 队友名册注入抑制 | ✅ 已有 — `buildTeammateRoster` 用 `isCatAvailable(id)` 过滤 disabled 猫，注入到 system prompt 的 roster 里看不到这只猫 | `packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts:392` |
 | ③ A2A 路由层过滤 | ✅ 已有 — `analyzeA2AMentions` / `AgentRouter.isRoutableCat` 都在路由前 `isCatAvailable` 跳过 | `packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts:92`, `AgentRouter.ts:275, 415` |
 | ④ 调用 disabled 猫的反馈 | ❌ **当前是静默 skip** — 调用方完全不知道为什么对方没接，分不清"对方在思考"还是"对方根本没收到" | — |
@@ -238,7 +238,7 @@ Alternatives: @gemini, @opus-45.
 - `packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts:92` — pattern building 阶段改造（KD-10）：先让全部 pattern 参与匹配，再 resolver 检查 → 生成 warning
 - `packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts:275, 415` — match-time skip 改造（KD-10），改造路径与 a2a-mentions 不同
 - `packages/api/src/routes/callbacks.ts` — 7 个 MCP 写工具 handler 接 resolver（A=3 软降级 + A'=1 硬 + B=3 硬，见 Phase C 表）
-- `packages/web/src/components/HubMemberOverviewCard.tsx` — disabled 灰行 + side-effect 弹窗（调用 disable-impact endpoint）
+- `packages/web/src/components/HubMemberOverviewCard.tsx` — disabled 灰行 + side-effect 弹窗（调用 disable-impact endpoint）+ 显式 availability 动作按钮（PR #1557）
 - `packages/web/src/hooks/useCatData.ts` — 调用 `/api/cats/:catId/disable-impact`，**不在前端拼三套查询**（OQ-2 拍板）
 - `packages/mcp-server/src/tools/callback-tools.ts` — wrapper 错误前缀双轨（KD-6）
 
@@ -263,6 +263,7 @@ Alternatives: @gemini, @opus-45.
 | 2026-05-04 | 云端 review — 4 轮迭代（P1: triggerUserId 隔离 + resolveCatTarget canonicalize + conditional @ strip + test helper）全部修复，squash merge PR #1549 |
 | 2026-05-04 | gpt52 愿景守护 — P2 doc fix（create_rich_block 从 A 类路由表移除），commit b4a0d8747 |
 | 2026-05-04 | **Feature closed** ✅ — 反思胶囊：[2026-05-04-f182-capsule](../reflections/2026-05-04-f182-cat-roster-lifecycle-toggle-capsule.md) |
+| 2026-05-06 | Post-close UX fix merged (PR #1557) — 状态 badge 从动作入口中拆出，显式展示"停用成员 / 启用成员"按钮；`available=false` 文案从"未启用"对齐为"已停用"，修复临时禁用 Dare 时入口不可发现的问题 |
 
 ## Review Gate
 
