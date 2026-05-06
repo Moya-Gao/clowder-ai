@@ -1,5 +1,5 @@
 /**
- * F172 Prompt X-Ray: API routes for reading prompt captures.
+ * F181 Prompt X-Ray: API routes for reading prompt captures.
  * All endpoints require session auth (localhost-only by default).
  */
 
@@ -50,7 +50,11 @@ export const promptCaptureRoutes: FastifyPluginAsync = async (app) => {
 
   app.get<{ Params: { captureId: string } }>('/api/debug/prompt-captures/:captureId', async (request, reply) => {
     if (!requireSession(request, reply)) return;
-    const capture = getPromptCaptureStore().read(request.params.captureId);
+    const { captureId } = request.params;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(captureId)) {
+      return reply.status(400).send({ error: 'Invalid captureId format' });
+    }
+    const capture = getPromptCaptureStore().read(captureId);
     if (!capture) {
       return reply.status(404).send({ error: 'Capture not found or expired' });
     }

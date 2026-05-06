@@ -1,71 +1,65 @@
 ---
 feature_ids: [F181]
-related_features: []
-topics: [planning, reserved]
+related_features: [F153]
+topics: [telemetry, observability, debug]
 doc_kind: spec
 created: 2026-04-30
 ---
 
-# F181: Reserved Feature Slot — 待补充需求锚点
+# F181: Prompt X-Ray + Cross-Route A2A Trace Propagation
 
-> **Status**: idea | **Owner**: 待定 | **Priority**: TBD
+> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P2
 >
-> 这是一个占号锚点，不是完整 spec。范围未补齐前不得开实现 worktree 或 PR。
+> Canonical prompt capture for debugging + trace continuity across A2A cat invocations.
 
 ## Why
 
-team experience（2026-04-30）：
-
-> "我们家里记得f181立项一下？为他保留一下？"
-
-先保留 F181，给后续需求一个稳定 feature ID 和可追踪入口。当前信息不足以判断"他"具体指谁或哪项能力，因此本文档只记录占号事实、待补问题和正式展开前的门槛，不臆造需求范围。
+When a cat behaves unexpectedly, maintainers need to inspect the actual prompt that was sent. Additionally, A2A cross-route invocations (callback post_message, text-scan @mention, InvocationQueue) break trace causality — the child route has no span parent linking it back to the mentioner.
 
 ## What
 
-### Phase A: Scope Capture
+### Trace Propagation
 
-- 确认"他"的具体指代：人、社区反馈、PR/issue、内部能力，或其它上下文。
-- 补齐 feature 名称、owner、priority、Why/What、Acceptance Criteria、Dependencies。
-- 正式进入 `spec` 前重新做关联检测，确认 F181 不是已有 feature 的子任务或重复入口。
+- `CallerTraceContext` shared type (W3C TraceContext aligned: traceId/spanId/traceFlags)
+- `setTraceContext` as proper `IAuthInvocationBackend` method (Memory + Redis)
+- Propagate through all 3 A2A paths: text-scan @mention, post_message callback, InvocationQueue callback
+- Remote parent context reconstruction in `AgentRouter.routeExecution()`
+- `mention_dispatch` spans for A2A handoff causality tracking
+- Route aggregate attributes: `total_cats_invoked`, `total_tokens`, `has_a2a_handoff`
 
-## 需求点 Checklist
+### Prompt X-Ray
 
-| ID | 需求点（team experience/转述） | AC 编号 | 验证方式 | 状态 |
-|----|---------------------------|---------|----------|------|
-| R1 | "f181立项一下？为他保留一下？" | AC-A1 | feature doc + BACKLOG row | [x] |
-| R2 | 正式开发前补齐"他"的指代和完整需求范围 | AC-A2 | spec review | [ ] |
-| R3 | 展开前确认不是重复 feature 或现有 feature 子任务 | AC-A3 | BACKLOG/features/search_evidence 关联检测 | [ ] |
-
-### 覆盖检查
-
-- [x] 每个已知需求点都能映射到至少一个 AC
-- [x] 每个已知 AC 都有验证方式
-- [x] 前端需求已准备需求→证据映射表（若适用：当前不适用）
+- File-based canonical prompt snapshot store with gzip compression
+- Async capture bridge in `invokeSingleCat` (zero latency impact on invocation hot path)
+- GET list/detail API endpoints with session auth + captureId validation
+- Hub trace detail X-Ray button + PromptInspector component (system/user/effective/meta tabs)
+- TTL enforcement on read and list (not just on write overflow)
+- Local trace store TTL extended from 2h to 24h
 
 ## Acceptance Criteria
 
-### Phase A（Scope Capture）
-
-- [x] AC-A1: F181 有稳定 `docs/features/` 聚合文件和 `docs/ROADMAP.md` 活跃入口。
-- [ ] AC-A2: 正式实现前，spec 记录清楚具体对象、owner、priority、Why、What 和可验证 AC。
-- [ ] AC-A3: F181 从 `idea` 推进到 `spec` 前，完成 BACKLOG、feature docs、记忆索引的重复/关联检测，并记录结论。
+- [x] AC-1: CallerTraceContext type extracted to genai-semconv.ts and used across all propagation sites
+- [x] AC-2: setTraceContext is a proper IAuthInvocationBackend method with Memory and Redis implementations
+- [x] AC-3: Cross-route spans share traceId when invoked via A2A callback
+- [x] AC-4: mention_dispatch spans link mentioner to dispatched targets
+- [x] AC-5: Route aggregates (cats invoked, tokens, A2A handoff) set on route span
+- [x] AC-6: Prompt capture gated by PROMPT_CAPTURE=on env var
+- [x] AC-7: captureId validated as UUID before filesystem access
+- [x] AC-8: TTL enforced on read and list, not just overflow prune
+- [x] AC-9: Behavioral tests for backend contract (setTraceContext round-trip, TTL slide, peekRecord)
+- [x] AC-10: Behavioral tests for queue callerTraceContext flow-through
 
 ## Dependencies
 
-- **Evolved from**: none（待确认）
-- **Blocked by**: CVO scope confirmation（确认"他"指代与需求范围）
-- **Related**: none（待关联检测后补齐）
-
-## Risk
-
-| 风险 | 缓解 |
-|------|------|
-| 占号文档被误认为完整 spec，导致猫猫直接开工 | Status 保持 `idea`，并在文档头部写明未补齐前不得实现 |
-| 后续发现其实是已有 feature 子任务 | AC-A3 要求推进前做重复/关联检测，必要时把 F181 改为 related/parking anchor |
-| 未知上下文长期悬空 | BACKLOG 保留 `idea` 状态，后续由 CVO 或接球猫补 scope 后推进 |
+- **Evolved from**: F153 (Observability Infrastructure)
+- **Blocked by**: none
+- **Related**: F174 (Backend Facade), F175 (Unified Queue)
 
 ## Key Decisions
 
-| # | 决策 | 理由 | 日期 |
-|---|------|------|------|
-| KD-1 | 先占号，不推断需求范围 | team lead只要求"为他保留"，当前证据不足，编造 scope 会污染真相源 | 2026-04-30 |
+| # | Decision | Rationale | Date |
+|---|----------|-----------|------|
+| KD-1 | Reserved slot filled with Prompt X-Ray + Trace Propagation | team lead confirmed scope | 2026-05-06 |
+| KD-2 | CallerTraceContext as shared type, not inline | Reviewer finding: reduce repetition across 7+ files | 2026-05-06 |
+| KD-3 | setTraceContext as backend interface method | Reviewer finding: peekRecord mutation fragile for Redis | 2026-05-06 |
+| KD-4 | Combined PR (not split) | User decision: both concerns are part of F181 | 2026-05-06 |

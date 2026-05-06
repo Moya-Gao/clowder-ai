@@ -1,5 +1,5 @@
 /**
- * F172 Prompt X-Ray: File-based ring buffer for canonical prompt captures.
+ * F181 Prompt X-Ray: File-based ring buffer for canonical prompt captures.
  *
  * Stores gzip-compressed prompt snapshots with NDJSON index.
  * Default off — controlled by PROMPT_CAPTURE env var.
@@ -133,11 +133,14 @@ export class PromptCaptureStore {
   }
 
   read(captureId: string): PromptCapture | null {
+    if (!isValidCaptureId(captureId)) return null;
     try {
       const filePath = join(this.payloadDir, `${captureId}.json.gz`);
       if (!existsSync(filePath)) return null;
       const compressed = readFileSync(filePath);
-      return JSON.parse(gunzipSync(compressed).toString('utf8')) as PromptCapture;
+      const capture = JSON.parse(gunzipSync(compressed).toString('utf8')) as PromptCapture;
+      if (capture.capturedAt < Date.now() - this.ttlMs) return null;
+      return capture;
     } catch (err) {
       log.warn({ err, captureId }, 'Failed to read prompt capture');
       return null;
@@ -145,19 +148,24 @@ export class PromptCaptureStore {
   }
 
   listByInvocation(invocationId: string): CaptureIndexEntry[] {
+    const cutoff = Date.now() - this.ttlMs;
     return this.readIndex().filter(
-      (e) => e.invocationId === invocationId || e.hmacInvocationId === invocationId,
+      (e) => (e.invocationId === invocationId || e.hmacInvocationId === invocationId) && e.capturedAt >= cutoff,
     );
   }
 
   listByThread(threadId: string, limit = 20): CaptureIndexEntry[] {
+    const cutoff = Date.now() - this.ttlMs;
     return this.readIndex()
-      .filter((e) => e.threadId === threadId)
+      .filter((e) => e.threadId === threadId && e.capturedAt >= cutoff)
       .slice(-limit);
   }
 
   listRecent(limit = 20): CaptureIndexEntry[] {
-    return this.readIndex().slice(-limit);
+    const cutoff = Date.now() - this.ttlMs;
+    return this.readIndex()
+      .filter((e) => e.capturedAt >= cutoff)
+      .slice(-limit);
   }
 
   stats(): { entries: number; totalBytes: number } {
@@ -234,6 +242,11 @@ export class PromptCaptureStore {
       // File may already be gone
     }
   }
+}
+
+const CAPTURE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+function isValidCaptureId(id: string): boolean {
+  return CAPTURE_ID_RE.test(id);
 }
 
 // ── Gate ──────────────────────────────────────────────────────────

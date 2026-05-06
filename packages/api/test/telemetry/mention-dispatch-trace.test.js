@@ -1,5 +1,5 @@
 /**
- * F172: Cross-cat trace propagation via mention_dispatch spans.
+ * F181: Cross-cat trace propagation via mention_dispatch spans.
  *
  * Covers:
  * - Text-scan A2A path: mention_dispatch span created as child of mentioner's invocation
@@ -19,7 +19,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ── invocationSpanRef param exists on InvocationParams ─────────────
 
-test('F172: InvocationParams declares invocationSpanRef field', () => {
+test('F181: InvocationParams declares invocationSpanRef field', () => {
   const src = readFileSync(
     resolve(__dirname, '../../src/domains/cats/services/agents/invocation/invoke-single-cat.ts'),
     'utf8',
@@ -30,7 +30,7 @@ test('F172: InvocationParams declares invocationSpanRef field', () => {
   );
 });
 
-test('F172: invokeSingleCat writes span to invocationSpanRef', () => {
+test('F181: invokeSingleCat writes span to invocationSpanRef', () => {
   const src = readFileSync(
     resolve(__dirname, '../../src/domains/cats/services/agents/invocation/invoke-single-cat.ts'),
     'utf8',
@@ -91,7 +91,7 @@ test('F181: dispatch span end is deferred until last child completes', () => {
 
 // ── Dispatch span lifecycle ────────────────────────────────────────
 
-test('F172: dispatch spans ended after last child completes', () => {
+test('F181: dispatch spans ended after last child completes', () => {
   const src = readFileSync(
     resolve(__dirname, '../../src/domains/cats/services/agents/routing/route-serial.ts'),
     'utf8',
@@ -126,7 +126,7 @@ const otelProvider = new NodeTracerProvider({
 });
 const otelTracer = otelProvider.getTracer('test-mention-dispatch');
 
-test('F172 behavioral: mention_dispatch span is child of mentioner invocation', async () => {
+test('F181 behavioral: mention_dispatch span is child of mentioner invocation', async () => {
   otelExporter.reset();
 
   // Simulate: route → invocation(A) → mention_dispatch → invocation(B)
@@ -173,7 +173,7 @@ test('F172 behavioral: mention_dispatch span is child of mentioner invocation', 
   assert.equal(invB.parentSpanContext.spanId, dispatch.spanContext().spanId, 'invocation B is child of mention_dispatch');
 });
 
-test('F172 behavioral: multiple mentioned cats share same dispatch parent', async () => {
+test('F181 behavioral: multiple mentioned cats share same dispatch parent', async () => {
   otelExporter.reset();
 
   const routeSpan = otelTracer.startSpan('cat_cafe.route');
@@ -205,7 +205,7 @@ test('F172 behavioral: multiple mentioned cats share same dispatch parent', asyn
   assert.equal(codex.parentSpanContext.spanId, dispatchSpan.spanContext().spanId, 'codex under dispatch');
 });
 
-test('F172 behavioral: child spans survive after parent span ends (OTel contract)', async () => {
+test('F181 behavioral: child spans survive after parent span ends (OTel contract)', async () => {
   otelExporter.reset();
 
   const parent = otelTracer.startSpan('parent');
@@ -226,7 +226,7 @@ test('F172 behavioral: child spans survive after parent span ends (OTel contract
 
 // ── P1: Route span aggregate attributes ──────────────────────────
 
-test('F172 P1: genai-semconv exports route aggregate constants', () => {
+test('F181 P1: genai-semconv exports route aggregate constants', () => {
   const src = readFileSync(
     resolve(__dirname, '../../src/infrastructure/telemetry/genai-semconv.ts'),
     'utf8',
@@ -236,7 +236,7 @@ test('F172 P1: genai-semconv exports route aggregate constants', () => {
   assert.ok(src.includes("ROUTE_HAS_A2A_HANDOFF = 'route.has_a2a_handoff'"), 'Should export ROUTE_HAS_A2A_HANDOFF');
 });
 
-test('F172 P1: route-serial sets aggregate attributes on routeSpan in finally', () => {
+test('F181 P1: route-serial sets aggregate attributes on routeSpan in finally', () => {
   const src = readFileSync(
     resolve(__dirname, '../../src/domains/cats/services/agents/routing/route-serial.ts'),
     'utf8',
@@ -252,7 +252,7 @@ test('F172 P1: route-serial sets aggregate attributes on routeSpan in finally', 
   );
 });
 
-test('F172 P1: route-serial accumulates routeTotalTokens from invocation_usage', () => {
+test('F181 P1: route-serial accumulates routeTotalTokens from invocation_usage', () => {
   const src = readFileSync(
     resolve(__dirname, '../../src/domains/cats/services/agents/routing/route-serial.ts'),
     'utf8',
@@ -279,7 +279,7 @@ test('F181 P1: route-parallel sets aggregate attributes on routeSpan', () => {
 
 // ── P1: Token metrics threadId dimension ─────────────────────────
 
-test('F172 P1: metric-allowlist does NOT include THREAD_ID (high-cardinality guard)', () => {
+test('F181 P1: metric-allowlist does NOT include THREAD_ID (high-cardinality guard)', () => {
   const src = readFileSync(
     resolve(__dirname, '../../src/infrastructure/telemetry/metric-allowlist.ts'),
     'utf8',
@@ -287,7 +287,7 @@ test('F172 P1: metric-allowlist does NOT include THREAD_ID (high-cardinality gua
   assert.ok(!src.includes('THREAD_ID'), 'ALLOWED_METRIC_ATTRIBUTES must NOT include THREAD_ID — use route span aggregates for per-thread token queries');
 });
 
-test('F172 P1: tokenAttrs does NOT include THREAD_ID (cardinality + redactor bypass)', () => {
+test('F181 P1: tokenAttrs does NOT include THREAD_ID (cardinality + redactor bypass)', () => {
   const src = readFileSync(
     resolve(__dirname, '../../src/domains/cats/services/agents/invocation/invoke-single-cat.ts'),
     'utf8',
@@ -299,7 +299,7 @@ test('F172 P1: tokenAttrs does NOT include THREAD_ID (cardinality + redactor byp
 
 // ── P1: HubTraceTree parallel rendering ──────────────────────────
 
-test('F172 P1: HubTraceTree buildForest supports multiple children per parent (fan-out)', () => {
+test('F181 P1: HubTraceTree buildForest supports multiple children per parent (fan-out)', () => {
   const src = readFileSync(
     resolve(__dirname, '../../../web/src/components/HubTraceTree.tsx'),
     'utf8',
@@ -324,7 +324,7 @@ test('F181: InvocationRecord declares traceContext field with CallerTraceContext
   assert.ok(src.includes('setTraceContext'), 'Registry should have setTraceContext method');
 });
 
-test('F172: invoke-single-cat stores traceContext in InvocationRecord after span creation', () => {
+test('F181: invoke-single-cat stores traceContext in InvocationRecord after span creation', () => {
   const src = readFileSync(
     resolve(__dirname, '../../src/domains/cats/services/agents/invocation/invoke-single-cat.ts'),
     'utf8',
@@ -335,7 +335,7 @@ test('F172: invoke-single-cat stores traceContext in InvocationRecord after span
   );
 });
 
-test('F172: AgentRouter.routeExecution accepts callerTraceContext and creates child span', () => {
+test('F181: AgentRouter.routeExecution accepts callerTraceContext and creates child span', () => {
   const src = readFileSync(
     resolve(__dirname, '../../src/domains/cats/services/agents/routing/AgentRouter.ts'),
     'utf8',
@@ -355,7 +355,7 @@ test('F172: AgentRouter.routeExecution accepts callerTraceContext and creates ch
   );
 });
 
-test('F172: callbacks.ts passes traceContext from InvocationRecord to enqueueA2ATargets', () => {
+test('F181: callbacks.ts passes traceContext from InvocationRecord to enqueueA2ATargets', () => {
   const src = readFileSync(resolve(__dirname, '../../src/routes/callbacks.ts'), 'utf8');
   assert.ok(
     src.includes('callerTraceContext: record.traceContext'),
@@ -363,7 +363,7 @@ test('F172: callbacks.ts passes traceContext from InvocationRecord to enqueueA2A
   );
 });
 
-test('F172: callback-a2a-trigger propagates callerTraceContext to both queue and legacy paths', () => {
+test('F181: callback-a2a-trigger propagates callerTraceContext to both queue and legacy paths', () => {
   const src = readFileSync(resolve(__dirname, '../../src/routes/callback-a2a-trigger.ts'), 'utf8');
   assert.ok(
     src.includes('callerTraceContext: opts.callerTraceContext'),
@@ -388,7 +388,7 @@ test('F181: InvocationQueue entry includes callerTraceContext field', () => {
   );
 });
 
-test('F172: InvocationQueue entry construction includes callerTraceContext from input', () => {
+test('F181: InvocationQueue entry construction includes callerTraceContext from input', () => {
   const src = readFileSync(
     resolve(__dirname, '../../src/domains/cats/services/agents/invocation/InvocationQueue.ts'),
     'utf8',
@@ -399,7 +399,7 @@ test('F172: InvocationQueue entry construction includes callerTraceContext from 
   );
 });
 
-test('F172: start_vote callback passes callerTraceContext to enqueueA2ATargets', () => {
+test('F181: start_vote callback passes callerTraceContext to enqueueA2ATargets', () => {
   const src = readFileSync(resolve(__dirname, '../../src/routes/callbacks.ts'), 'utf8');
   const voteIdx = src.indexOf('start-vote');
   const a2aOptsIdx = src.indexOf('callerTraceContext: record.traceContext', voteIdx);
@@ -409,7 +409,7 @@ test('F172: start_vote callback passes callerTraceContext to enqueueA2ATargets',
   );
 });
 
-test('F172: invoke-single-cat stores traceFlags in traceContext', () => {
+test('F181: invoke-single-cat stores traceFlags in traceContext', () => {
   const src = readFileSync(
     resolve(__dirname, '../../src/domains/cats/services/agents/invocation/invoke-single-cat.ts'),
     'utf8',
@@ -420,7 +420,7 @@ test('F172: invoke-single-cat stores traceFlags in traceContext', () => {
   );
 });
 
-test('F172: QueueProcessor passes callerTraceContext from entry to routeExecution', () => {
+test('F181: QueueProcessor passes callerTraceContext from entry to routeExecution', () => {
   const src = readFileSync(
     resolve(__dirname, '../../src/domains/cats/services/agents/invocation/QueueProcessor.ts'),
     'utf8',
@@ -433,7 +433,7 @@ test('F172: QueueProcessor passes callerTraceContext from entry to routeExecutio
 
 // ── Behavioral: cross-route span parenting via remote context ────
 
-test('F172 behavioral: remote parent context links child route span to caller trace', async () => {
+test('F181 behavioral: remote parent context links child route span to caller trace', async () => {
   otelExporter.reset();
 
   // Simulate: route1 → invocation(A) → [callback post_message] → route2(child of A)
