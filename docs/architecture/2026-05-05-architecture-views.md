@@ -485,6 +485,180 @@ State    thread · task · docs · evidence · InvocationQueue
 
 ---
 
+## 三点五、Article v2 专用补图（2026-05-06）
+
+`docs/discussions/2026-04-20-claude-multi-agent-coordination-patterns/article-complete-technical-edition-v2.md` 里原有两张图：
+
+- Part IV 的旧“记忆系统架构图”
+- 附录的旧“Cat Cafe 架构总图”
+
+这两张图的职责和上面的 5 张主图不同。它们不是产品叙事图，也不是单个 harness 切片，而是 article 正文的“管线说明 / 全局索引”。因此不直接复用现有图 4、4.1 或图 5，新增两张 article 专用补图。
+
+### 图 6：记忆系统管线架构图（2026-05 最新版）
+
+**计划文件名**：`docs/architecture/assets/2026-05-05/06-memory-pipeline-architecture.png`
+
+**替换位置**：`article-complete-technical-edition-v2.md` Part IV “架构总览”处的 `memory-architecture-illustrated-by-codex.png`
+
+**答**：Cat Cafe 的记忆系统现在到底怎么从文档/外部项目变成 agent 可用的 recall？
+
+**给谁看**：读 article 的技术读者、想复刻记忆系统的团队
+
+**立意**：记忆不是 RAG API，而是 `truth source → scanner/gate → compiled index → federated resolver → recall surface → lifecycle governance` 的完整管线。旧图只到 F102 的 project/global 索引；新版必须纳入 F163/F152/F186。
+
+**画法**：纵向管线 + 右侧治理旁路。
+
+```
+┌─ 1. Truth Sources 真相源 ─────────────────────────────────────┐
+│  project docs / ADR / lessons / discussions / markers          │
+│  global methods / shared rules / skills                        │
+│  external collections（F152 外部项目、lexander、domain notes） │
+└──────────────────────────┬────────────────────────────────────┘
+                           │ scan / bind dry-run / source hash
+                           ▼
+┌─ 2. Scanner + Safety Gates ───────────────────────────────────┐
+│  CatCafeScanner / GenericRepoScanner / StructuredScanner       │
+│  SecretScanner before chunk/embed（F186 KD-5）                 │
+│  Prompt boundary：外部 AGENTS.md 只是 evidence data            │
+│  provenance.tier：authoritative / derived / soft_clue          │
+└──────────────────────────┬────────────────────────────────────┘
+                           │ chunk / embed / rebuild
+                           ▼
+┌─ 3. Compiled Indexes 编译层 ──────────────────────────────────┐
+│  evidence.sqlite（project:cat-cafe）                           │
+│  global_knowledge.sqlite（global:methods）                     │
+│  library/<collectionId>/index.sqlite（F186 多域 Collection）   │
+│  LibraryCatalog：只存 metadata / policy / route，不存正文       │
+└──────────────────────────┬────────────────────────────────────┘
+                           │ fan-out / timeout / RRF fusion
+                           ▼
+┌─ 4. LibraryResolver / KnowledgeResolver 查询层 ───────────────┐
+│  lexical：BM25 / Feature ID / 精确术语                         │
+│  semantic：vector nearest-neighbor / 跨语言                    │
+│  hybrid：BM25 + vector + RRF（日常默认）                       │
+│  route：scope(docs/threads/sessions) + dimension + collections │
+│  result：grouped by collection + confidence + authority        │
+└──────────────────────────┬────────────────────────────────────┘
+                           │ recall / drill-down / bootstrap
+                           ▼
+┌─ 5. Recall Surfaces 给猫用的面 ───────────────────────────────┐
+│  session bootstrap：窄口上下文 + recall instructions           │
+│  search_evidence：主动检索                                    │
+│  raw drill-down：thread/session/event 原文追溯                 │
+│  Memory Lens / Graph：跨 collection anchor 关系可视            │
+└──────────────────────────┬────────────────────────────────────┘
+                           │ feedback / marker / usage signal
+                           ▼
+┌─ 6. Lifecycle Governance 生命周期治理 ────────────────────────┐
+│  Knowledge Feed：自动提取候选 → owner review → materialize     │
+│  F163 四维证明链：authority / activation / criticality / verify_date │
+│  stale detection / contradiction flagging / entropy reduction  │
+│  approved → docs/collection truth source → reindex             │
+└───────────────────────────────────────────────────────────────┘
+```
+
+**必须表达的最新变化**：
+
+| Feature | 图中落点 | 要画出来的变化 |
+|---------|----------|----------------|
+| F102 | Compiled Indexes / Query Layer | 记忆基础设施从 Hindsight 改成本地 SQLite + `IEvidenceStore` / `IKnowledgeResolver` |
+| F152 | Truth Sources / Scanner | 外部项目不是只能读当前 repo；GenericRepoScanner + Expedition Bootstrap 能冷启动新项目 |
+| F163 | Lifecycle Governance | 知识不再只增不减；每条知识带 authority / activation / criticality / verify_date |
+| F186 | Compiled Indexes / Query Layer | 图书馆联邦：LibraryCatalog + LibraryResolver + collection grouped results |
+| F169/F186 Graph | Recall Surfaces | Memory Lens / Typed Graph 让人和猫都能看关系，不只是搜列表 |
+
+**风格**：沿用旧记忆图的纵向手绘管线，但每层左侧加小图标（文件夹、扫描器、数据库、放大镜、工具箱、循环箭头）。右侧用一条橙色“治理旁路”贯穿 F163/F186，强调安全门和生命周期不是事后补丁。
+
+**不要画成**：两个飞轮。图 4 已经负责解释“为什么知识不腐”；图 6 负责解释“系统实际怎么跑”。
+
+---
+
+### 图 7：Cat Cafe 全局架构总图（2026-05 最新版）
+
+**计划文件名**：`docs/architecture/assets/2026-05-05/07-cat-cafe-global-architecture.png`
+
+**替换位置**：`article-complete-technical-edition-v2.md` 附录处的 `architecture-overview-illustrated-by-codex.png`
+
+**答**：从铲屎官到猫、从 UI 到队列、从记忆到治理，Cat Cafe 这套系统全貌是什么？
+
+**给谁看**：读完 article 后想“一眼复盘全系统”的技术读者
+
+**立意**：全局图不是产品 Hero，也不是 runtime stack。它是一张“唯一看全貌”的技术索引图：CVO、产品面、协作协议、统一执行平面、共享状态、工具运行时、治理闭环如何咬合。
+
+**画法**：刷新旧 7 层图，保持纵向结构，但把 2026-05 的新组件补进去。
+
+```
+┌─ 1. CVO / Human Direction Layer ─────────────────────────────┐
+│  愿景 · 拍板 · 纠偏 · Magic Words · 验收 · eval 信号          │
+│  人不是逐步审批器，而是方向与判断力的来源                    │
+└──────────────────────────┬──────────────────────────────────┘
+                           ▼
+┌─ 2. Product Surfaces Layer ──────────────────────────────────┐
+│  Hub / Workspace：对话 · 监控 · 知识 · 导航                   │
+│  Rich Block / Preview / Audio / image gallery                 │
+│  External IM：飞书 · 企微 · Telegram · Email                  │
+└──────────────────────────┬──────────────────────────────────┘
+                           ▼
+┌─ 3. Collaboration Semantics Layer ───────────────────────────┐
+│  猫猫身份：布偶/Claude · 缅因/GPT · 暹罗/Gemini               │
+│  A2A：@ 行首路由 · targetCats · multi_mention · hold_ball     │
+│  球权状态机：接 / 退 / 升 · 状态迁移必须有现实动作            │
+│  质量多样性：跨族 review · 愿景守护 · CVO 终裁                │
+└──────────────────────────┬──────────────────────────────────┘
+                           ▼
+┌─ 4. Unified Execution Plane ─────────────────────────────────┐
+│  InvocationQueue：user / agent / multi_mention 统一入队       │
+│  QueueProcessor：自动执行、暂停、恢复、取消                   │
+│  InvocationTracker：谁在跑 / 谁在等 / 谁完成                  │
+│  SessionBootstrap：窄口上下文 + task snapshot + recall 指令   │
+└──────────────────────────┬──────────────────────────────────┘
+                           ▼
+┌─ 5. Shared State / Memory Layer ─────────────────────────────┐
+│  Thread / Task / Workflow / Session Chain                    │
+│  docs 真相源 · evidence.sqlite · LibraryCatalog              │
+│  Knowledge Feed · F163 熵减 · F186 图书馆联邦                 │
+│  F152 外部项目冷启动与经验回流                               │
+└──────────────────────────┬──────────────────────────────────┘
+                           ▼
+┌─ 6. Runtime / Tools / Storage Layer ─────────────────────────┐
+│  Hub React + Zustand → API Fastify                           │
+│  Provider Adapters：Claude / GPT / Gemini / OpenCode         │
+│  MCP Servers：core / collab / memory / signals / external    │
+│  Tools：exec · browser · GitHub · image_gen · Pencil          │
+│  Storage：Redis 6399 圣域 · Redis 6398 隔离 · SQLite · git    │
+└──────────────────────────┬──────────────────────────────────┘
+                           ▼
+┌─ 7. Governance / Evolution Layer ────────────────────────────┐
+│  SOP Gates：feat → design → plan → tdd → quality → review → merge │
+│  shared-rules / ADR / lessons / Knowledge Feed               │
+│  F177：hotfix 治理 · fallback 层数检测 · 创意实现解耦          │
+│  Build to Delete：skeleton / explanation / probe / sunset     │
+│  现实闭环：Observe → Model → Action → Apply → Verify → Govern │
+└──────────────────────────────────────────────────────────────┘
+
+三条主链：
+1. 任务链：CVO 目标 → 球权 → 执行平面 → 工具 → 可见产出
+2. 记忆链：docs/events → 编译索引 → recall → 反馈 → 沉淀
+3. 治理链：运行信号 → 规则判断 → 删除/升级规则 → 回到运行
+```
+
+**必须表达的最新变化**：
+
+| 变化 | 旧图问题 | 新图画法 |
+|------|----------|----------|
+| Fastify | 旧图没有明确 API 技术栈，容易被误写成 Express | Runtime 层明确 `API Fastify` |
+| 统一执行平面 | 旧图把 A2A 和 runtime 混在一起 | 单独一层画 InvocationQueue / QueueProcessor / Tracker / Bootstrap |
+| 身份不是岗位 | 旧图容易让猫变成职能分工 | Collaboration 层只写品种/引擎，不写“架构/审查/设计”岗位 |
+| F163/F152/F186 | 旧图只有 `knowledge lifecycle` 泛称 | Shared State 层明确写图书馆联邦、远征冷启动、熵减治理 |
+| 工具能力 | 旧图没有 image_gen / Pencil / 外部 MCP | Runtime 层列入工具面，但不抢主线 |
+| 治理演化 | 旧图只有 shared rules / lessons / eval | Governance 层补 F177、Build to Delete、现实闭环 |
+
+**风格**：继承旧总图的纵向“楼层”手绘风格，颜色沿用统一色系：紫色猫猫、蓝色 runtime、绿色 memory、橙色 governance、红色 safety。底部三条主链保留，因为这是 article 结尾的压缩总结。
+
+**不要画成**：图 1 Hero。Hero 是产品叙事；图 7 是技术索引。
+
+---
+
 ## 四、为什么是 5 不是 4 或 6
 
 | 考量 | 判断 |
@@ -568,6 +742,8 @@ State    thread · task · docs · evidence · InvocationQueue
 
 **本文档已包含 5 张主图 + 图 4.1 扩展图的 ASCII brief + 元素清单。图意书和风格 reference 在各图 section 内。**
 
+Article v2 专用补图另有图 6（记忆系统管线）和图 7（全局架构总图），用于替换 `article-complete-technical-edition-v2.md` 里的两张旧图。它们不是 5 张主图的一部分。
+
 ### 生图顺序
 
 1. **图 1（Hero）先出**：对外宣传最急需，也是风格定调
@@ -576,6 +752,8 @@ State    thread · task · docs · evidence · InvocationQueue
 4. **图 4（双飞轮）第四**：方法论增量
 5. **图 4.1（飞轮扩展）**：解释 F163/F152/F186 如何补全图 4 的实现闭环
 6. **图 5（技术栈）最后**：给开发者，不急
+7. **图 6（记忆管线）**：article v2 补图，替换旧 Part IV 记忆图
+8. **图 7（全局总图）**：article v2 补图，替换旧附录总图
 
 ### 图片存放
 
@@ -587,7 +765,9 @@ docs/architecture/assets/2026-05-05/
 ├── 03-a2a-ball-ownership-flow.png
 ├── 04-dual-flywheel.png
 ├── 04.1-flywheel-expansion.png
-└── 05-runtime-stack.png
+├── 05-runtime-stack.png
+├── 06-memory-pipeline-architecture.png        # planned
+└── 07-cat-cafe-global-architecture.png        # planned
 ```
 
 SVG 源文件与 `generate-architecture-diagrams.mjs` 同目录保留，后续需要改字、改布局时可重新导出 PNG。
