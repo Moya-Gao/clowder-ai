@@ -160,7 +160,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - [ ] 大小限制策略（飞书 30MB 上限）— 当前无硬性需求
 - [ ] LaTeX 自动安装（PDF 原生输出，当前降级为 DOCX）
 
-### Phase K: Telegram Reliability Follow-up（K1 ✅ | K2/K3 📋 planned）
+### Phase K: Telegram Reliability Follow-up（K1 ✅ | K2 🚧 in review | K3 🚧 in review）
 
 **Source**: community issue [clowder-ai#524](https://github.com/zts212653/clowder-ai/issues/524), draft PRs [clowder-ai#641](https://github.com/zts212653/clowder-ai/pull/641) / [clowder-ai#642](https://github.com/zts212653/clowder-ai/pull/642)
 
@@ -187,19 +187,19 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 
 设计选型：`TelegramAdapter` 内部维护 `pendingInlineFinal: Map<chatId, platformMessageId>`。`StreamingOutboundHook.onStreamEnd()` 调 `adapter.registerInlinePlaceholder()`；`sendReply`/`sendRichMessage` 消费 Map → edit placeholder 而不发新消息。`OutboundDeliveryHook.deliver()` 签名不变，`QueueProcessor` 不变。
 
-- [ ] Telegram streaming 结束后，最终纯文本 inline edit 到 placeholder（不删 placeholder，不发新消息）
-- [ ] Telegram streaming 结束后，最终 rich message（HTML 格式）inline edit 到 placeholder
-- [ ] `OutboundDeliveryHook.deliver()` 签名 / `QueueProcessor` 调用顺序不变
-- [ ] 无 streaming session 时（mid-loop delivery、普通 sendReply）`sendReply`/`sendRichMessage` 行为不变
-- [ ] 不影响 Feishu / WeCom / 其他 adapter 的 delivery 路径
-- [ ] 回归测试覆盖 inline final（纯文本 + rich）、无 pending 时正常 sendReply、不影响其他 adapter
+- [x] Telegram streaming 结束后，最终纯文本 inline edit 到 placeholder（不删 placeholder，不发新消息）
+- [x] Telegram streaming 结束后，最终 rich message（HTML 格式）inline edit 到 placeholder
+- [x] `OutboundDeliveryHook.deliver()` 签名 / `QueueProcessor` 调用顺序不变
+- [x] 无 streaming session 时（mid-loop delivery、普通 sendReply）`sendReply`/`sendRichMessage` 行为不变
+- [x] 不影响 Feishu / WeCom / 其他 adapter 的 delivery 路径
+- [x] 回归测试覆盖 inline final（纯文本 + rich）、无 pending 时正常 sendReply、不影响其他 adapter
 
 **K3 验收标准**：
 
-- [ ] `sendRichMessage` HTML parse 失败（`BUTTON_DATA_INVALID` / parse_mode 400）时 fallback 到纯文本发送
-- [ ] `editMessage` 失败（消息被删除 / 权限问题）时 fallback 到 sendReply（不丢消息）
-- [ ] `sendReply` / `sendRichMessage` 超长内容（>4096 chars）自动分段发送（而不是静默截断）
-- [ ] 回归测试覆盖 HTML fallback、editMessage fallback、长文本分段
+- [x] `sendRichMessage` HTML parse 失败（`BUTTON_DATA_INVALID` / parse_mode 400）时 fallback 到纯文本发送
+- [x] `editMessage` 失败（消息被删除 / 权限问题）时 fallback 到 sendReply（不丢消息）
+- [x] `sendReply` / `sendRichMessage` 超长内容（>4096 chars）自动分段发送（而不是静默截断）
+- [x] 回归测试覆盖 HTML fallback、editMessage fallback、长文本分段
 
 **Review Focus（砚砚）**：
 
@@ -311,6 +311,8 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-28 | ISSUE-16 fix: IM-spawned cat cwd — pass monorepo root as projectPath + lazy heal for existing threads (PR #849) |
 | 2026-05-06 | Phase K planned: Telegram reliability follow-up linked to clowder-ai#524/#641/#642; K1 duplicate fix split from K2/K3 robustness |
 | 2026-05-06 | Phase K1 merged: Telegram streaming dedup — placeholder chatId mapping + deleteMessage + multi-chat safety (PR #1572) |
+| 2026-05-06 | Phase K2 in review: Telegram inline final streaming via registerInlinePlaceholder — adapter-internal state machine, no deliver() signature change (PR #1574) |
+| 2026-05-06 | Phase K3 in review: Telegram robustness — HTML parse fallback, editMessage failure fallback, long text segmentation (PR #1575) |
 
 ## 参考文件
 
