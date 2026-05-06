@@ -1194,4 +1194,19 @@ describe('InvocationQueue', () => {
     const contents = batch.map((e) => e.content);
     assert.deepStrictEqual(contents, ['E', 'B'], 'batch should follow comparator order: E(pos=1) then B(no pos)');
   });
+
+  // ── F181: callerTraceContext propagation ──
+
+  it('F181: callerTraceContext flows through enqueue + dequeue', () => {
+    const ctx = { traceId: 'aabb', spanId: 'ccdd', traceFlags: 1 };
+    queue.enqueue(entry({ callerTraceContext: ctx }));
+    const d = queue.dequeue('t1', 'u1');
+    assert.deepEqual(d.callerTraceContext, ctx);
+  });
+
+  it('F181: entries without callerTraceContext have undefined', () => {
+    queue.enqueue(entry());
+    const d = queue.dequeue('t1', 'u1');
+    assert.equal(d.callerTraceContext, undefined);
+  });
 });
