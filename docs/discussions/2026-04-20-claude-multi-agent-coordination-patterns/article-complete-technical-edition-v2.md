@@ -530,43 +530,58 @@ Karpathy 在 *LLM Wiki* 中提出一个方向：不要让 LLM 每次都从原始
 
 ## 架构总览
 
-![Cat Cafe 记忆系统架构图（砚砚/GPT-5.4 绘制）](memory-architecture-illustrated-by-codex.png)
+![Cat Cafe 记忆系统管线架构图（砚砚/GPT-5.5 2026-05 刷新版）](../../architecture/assets/2026-05-05/06-memory-pipeline-architecture.png)
 
 <details>
 <summary>文字版（无障碍 / 纯文本环境）</summary>
 
 ```
-┌─ Truth Sources ──────────────────────────────────────┐
-│  docs · decisions · discussions · lessons · markers  │
-└───────────────────────────────────────────────────────┘
-                           │ scan / hash / rebuild
+┌─ Truth Sources ─────────────────────────────────────────────┐
+│  project docs / ADR / lessons / discussions / markers       │
+│  global methods / shared rules / skills                     │
+│  external collections（F152 外部项目、lexander、domain notes）│
+└──────────────────────────┬─────────────────────────────────┘
+                           │ scan / bind dry-run / source hash
                            ▼
-┌─ Compiled Layer ─────────────────────────────────────┐
-│  project index (SQLite) · global knowledge (SQLite)  │
-└──────────────────────────┬────────────────────────────┘
-                           │
+┌─ Scanner + Safety Gates ────────────────────────────────────┐
+│  CatCafeScanner / GenericRepoScanner / StructuredScanner    │
+│  SecretScanner before chunk/embed                           │
+│  Prompt boundary：外部 AGENTS.md 只是 evidence data          │
+│  provenance.tier：authoritative / derived / soft_clue        │
+└──────────────────────────┬─────────────────────────────────┘
+                           │ chunk / embed / rebuild
                            ▼
-── Query Layer ────────────────────────────────────────┐
-│  KnowledgeResolver                                   │
-│  ├── lexical path (BM25 keyword match)               │
-│  ├── semantic path (vector nearest-neighbor)         │
-│  └── hybrid path (BM25 + vector + RRF fusion)        │
-│                                                      │
-│  dimension: project / global / all (federated)       │
-└───────────────────────────┬─────────────────────────────┘
-                           │
+┌─ Compiled Indexes ──────────────────────────────────────────┐
+│  evidence.sqlite（project:cat-cafe）                        │
+│  global_knowledge.sqlite（global:methods）                  │
+│  library/{collectionId}/index.sqlite（F186 多域 Collection）│
+│  LibraryCatalog：只存 metadata / policy / route，不存正文    │
+└──────────────────────────┬─────────────────────────────────┘
+                           │ fan-out / timeout / RRF fusion
                            ▼
-┌─ Recall Layer ───────────────────────────────────────┐
-│  Session Bootstrap (自动注入窄口上下文)                │
-│  search_evidence (agent 主动检索)                     │
-│  session chain drill-down (按需追溯运行历史)          │
-└────────────────────────────┬────────────────────────────┘
-                           │ feedback / marker
+┌─ LibraryResolver / KnowledgeResolver ───────────────────────┐
+│  lexical：BM25 / Feature ID / 精确术语                       │
+│  semantic：vector nearest-neighbor / 跨语言                  │
+│  hybrid：BM25 + vector + RRF（日常默认）                     │
+│  route：scope(docs/threads/sessions) + dimension + collections│
+│  result：grouped by collection + confidence + authority      │
+└──────────────────────────┬─────────────────────────────────┘
+                           │ recall / drill-down / bootstrap
                            ▼
-┌─ Knowledge Lifecycle ─────────────────────────────────┐
-│  marker capture → review → materialize → reindex     │
-│  stale detection · contradiction flagging · entropy ↓ │
-└─────────────────────────────────────────────────────────┘
+┌─ Recall Surfaces ───────────────────────────────────────────┐
+│  SessionBootstrap：窄口上下文 + recall instructions          │
+│  search_evidence：主动检索                                  │
+│  raw drill-down：thread/session/event 原文追溯               │
+│  Memory Lens / Typed Graph：跨 collection anchor 关系可视    │
+└──────────────────────────┬─────────────────────────────────┘
+                           │ feedback / marker / usage signal
+                           ▼
+┌─ Lifecycle Governance ──────────────────────────────────────┐
+│  Knowledge Feed：自动提取候选 → owner review → materialize  │
+│  F163 四维证明链：authority / activation / criticality / verify_date │
+│  stale detection / contradiction flagging / entropy reduction│
+│  approved → docs/collection truth source → reindex          │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 </details>
@@ -583,13 +598,15 @@ Karpathy 在 *LLM Wiki* 中提出一个方向：不要让 LLM 每次都从原始
 | 模糊语义、跨语言 | semantic | 向量最近邻 |
 | 日常查询（推荐默认） | hybrid | BM25 + 向量 + RRF 融合 |
 
-检索范围也分层：
+检索表面和路由维度分开：
 
-| 范围 | 含义 |
+| 维度 | 含义 |
 |------|------|
-| project | 当前项目的知识 |
-| global | 跨项目的方法论和通用经验 |
-| all | 联邦检索，两者 RRF 融合 |
+| scope | 检索表面：`docs` / `threads` / `sessions` / `all` |
+| dimension=project | 当前项目知识（默认） |
+| dimension=global | 跨项目方法论和通用经验 |
+| dimension=library | 图书馆联邦检索，按 Collection 分组返回 |
+| collections | 显式指定参与检索的 Collection |
 
 检索结果带治理语义——每条结果不只有内容，还有：
 
@@ -779,67 +796,58 @@ P(4 个全对) = 0.97⁴ = 0.885 ≈ 88.5%
 
 # 附录 — 架构总图
 
-![Cat Cafe 架构总图（砚砚/GPT-5.4 绘制）](architecture-overview-illustrated-by-codex.png)
+![Cat Cafe 全局架构总图（砚砚/GPT-5.5 2026-05 刷新版）](../../architecture/assets/2026-05-05/07-cat-cafe-global-architecture.png)
 
 <details>
 <summary>文字版（无障碍 / 纯文本环境）</summary>
 
 ```
-┌───────────────────────────────────────────────────────────────┐
-│                      Human Layer                            │
-│            CVO / 铲屎官                                      │
-│            目标 · 拍板 · 纠偏 · 验收 · eval 信号            │
+┌─ 1. CVO / Human Direction Layer ─────────────────────────────┐
+│  愿景 · 拍板 · 纠偏 · Magic Words · 验收 · eval 信号          │
+│  人不是逐步审批器，而是方向与判断力的来源                    │
 └──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────▼───────────────────────────────────┐
-│                  Interaction Surfaces                        │
-│   Hub / Workspace        Rich Block / Preview    Transport  │
-│   (工作过程可见)          (结构化信息)            (跨平台触达)│
-└──────────────────────────┬─────────────────────────────────────┘
-                           │
-┌───────────────────────────▼─────────────────────────────────────┐
-│              Multi-Agent Collaboration Layer                 │
-│                                                             │
-│  ┌───────────────┐ ┌──────────────┐ ┌────────────────────┐ │
-│  │ A2A Protocol  │ │  Cat Team    │ │  Execution Rails   │ │
-│  │ @mention      │ │  布偶·缅因·暹罗│ │  skill SOP         │ │
-│  │ targetCats    │ │  persistent  │ │  review gate       │ │
-│  │ ball ownership│ │  identity    │ │  quality gate      │ │
-│  │ hold_ball     │ │  diverse     │ │  merge gate        │ │
-│  └───────────────┘ └───────────────┘ └─────────────────────┘ │
-└───────────────────────────┬──────────────────────────────────┘
-                           │
-┌───────────────────────────▼─────────────────────────────────────┐
-│                    Shared State Layer                        │
-│                                                             │
-│  ┌─────────────────┐ ┌───────────────┐ ┌────────────────────┐ │
-│  │ Evidence &      │ │ Workflow &   │ │ Session &        │ │
-│  │ Knowledge       │ │ Tasks        │ │ Trace            │ │
-│  │ docs · index    │ │ task board   │ │ session chain    │ │
-│  │ knowledge feed  │ │ workflow     │ │ invocation events│ │
-│  │ search_evidence │ │ backlog      │ │ callback trace   │ │
-│  └─────────────────┘ └───────────────┘ └────────────────────┘ │
-└────────────────────────────┬───────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│                  Runtime / Platform Layer                    │
-│                                                             │
-│  Agent Runtime          Tools & Sandboxes    Control Plane  │
-│  provider adapters      exec · MCP · browser routing        │
-│  session binding        design · github      trigger        │
-│  wake/resume            code sandbox         transport      │
-│  InvocationQueue                             observability  │
-│  QueueProcessor                                             │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-┌───────────────────────────▼───────────────────────────────────┐
-│                    Governance Layer                          │
-│                                                             │
-│  Shared Rules           Lessons / ADR         Online Eval   │
-│  identity · guardrails  canon · feedback      召唤分布       │
-│  role contracts         knowledge lifecycle   协作质量       │
-│  capability boundary    marker → reindex      治理闭环       │
-└───────────────────────────────────────────────────────────────┘
+                           ▼
+┌─ 2. Product Surfaces Layer ──────────────────────────────────┐
+│  Hub / Workspace：对话 · 监控 · 知识 · 导航                   │
+│  Rich Block / Preview / Audio / image gallery                │
+│  External IM：飞书 · 企微 · Telegram · Email                 │
+└──────────────────────────┬──────────────────────────────────┘
+                           ▼
+┌─ 3. Collaboration Semantics Layer ───────────────────────────┐
+│  猫猫身份：布偶/Claude · 缅因/GPT · 暹罗/Gemini               │
+│  A2A：@ 行首路由 · targetCats · multi_mention · hold_ball    │
+│  球权状态机：接 / 退 / 升 · 跨族 review · CVO 终裁            │
+└──────────────────────────┬──────────────────────────────────┘
+                           ▼
+┌─ 4. Unified Execution Plane ─────────────────────────────────┐
+│  InvocationQueue：user / agent / multi_mention 统一入队       │
+│  QueueProcessor：自动执行、暂停、恢复、取消                   │
+│  InvocationTracker：谁在跑 / 谁在等 / 谁完成                  │
+│  SessionBootstrap：窄口上下文 + recall 指令                   │
+└──────────────────────────┬──────────────────────────────────┘
+                           ▼
+┌─ 5. Shared State / Memory Layer ─────────────────────────────┐
+│  Thread / Task / Workflow / Session Chain                    │
+│  docs 真相源 · evidence.sqlite · LibraryCatalog              │
+│  Knowledge Feed · F163 熵减 · F186 图书馆联邦                 │
+│  F152 外部项目冷启动与经验回流                               │
+└──────────────────────────┬──────────────────────────────────┘
+                           ▼
+┌─ 6. Runtime / Tools / Storage Layer ─────────────────────────┐
+│  Hub React + Zustand → API Fastify                           │
+│  Provider Adapters：Claude / GPT / Gemini / OpenCode         │
+│  MCP：core / collab / memory / signals / external            │
+│  Tools：exec · browser · GitHub · image_gen · Pencil          │
+│  Storage：Redis 6399 圣域 · 6398 隔离 · SQLite · git          │
+└──────────────────────────┬──────────────────────────────────┘
+                           ▼
+┌─ 7. Governance / Evolution Layer ────────────────────────────┐
+│  SOP Gates：feat → design → plan → tdd → quality → review → merge │
+│  shared-rules / ADR / lessons / Knowledge Feed               │
+│  F177：hotfix 治理 · fallback 层数检测 · 创意实现解耦          │
+│  Build to Delete：skeleton / explanation / probe / sunset     │
+│  现实闭环：Observe → Model → Action → Apply → Verify → Govern │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 </details>

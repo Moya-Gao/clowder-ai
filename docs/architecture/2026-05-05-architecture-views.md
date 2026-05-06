@@ -496,7 +496,9 @@ State    thread · task · docs · evidence · InvocationQueue
 
 ### 图 6：记忆系统管线架构图（2026-05 最新版）
 
-**计划文件名**：`docs/architecture/assets/2026-05-05/06-memory-pipeline-architecture.png`
+**文件名**：`docs/architecture/assets/2026-05-05/06-memory-pipeline-architecture.png`
+
+![图 6：记忆系统管线架构图（2026-05 最新版）](assets/2026-05-05/06-memory-pipeline-architecture.png)
 
 **替换位置**：`article-complete-technical-edition-v2.md` Part IV “架构总览”处的 `memory-architecture-illustrated-by-codex.png`
 
@@ -575,7 +577,9 @@ State    thread · task · docs · evidence · InvocationQueue
 
 ### 图 7：Cat Cafe 全局架构总图（2026-05 最新版）
 
-**计划文件名**：`docs/architecture/assets/2026-05-05/07-cat-cafe-global-architecture.png`
+**文件名**：`docs/architecture/assets/2026-05-05/07-cat-cafe-global-architecture.png`
+
+![图 7：Cat Cafe 全局架构总图（2026-05 最新版）](assets/2026-05-05/07-cat-cafe-global-architecture.png)
 
 **替换位置**：`article-complete-technical-edition-v2.md` 附录处的 `architecture-overview-illustrated-by-codex.png`
 
@@ -766,8 +770,8 @@ docs/architecture/assets/2026-05-05/
 ├── 04-dual-flywheel.png
 ├── 04.1-flywheel-expansion.png
 ├── 05-runtime-stack.png
-├── 06-memory-pipeline-architecture.png        # planned
-└── 07-cat-cafe-global-architecture.png        # planned
+├── 06-memory-pipeline-architecture.png
+└── 07-cat-cafe-global-architecture.png
 ```
 
 SVG 源文件与 `generate-architecture-diagrams.mjs` 同目录保留，后续需要改字、改布局时可重新导出 PNG。

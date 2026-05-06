@@ -720,6 +720,209 @@ function runtimeStackDiagram() {
   return svgShell(w, h, body);
 }
 
+function pipelineLayer(x, y, w, h, n, title, subtitle, bullets, color, icon) {
+  return `
+    ${box(x, y, w, h, { fill: `${color}12`, stroke: color, r: 30, shadow: true })}
+    <circle cx="${x + 70}" cy="${y + h / 2}" r="42" fill="white" stroke="${color}" stroke-width="4"/>
+    <text x="${x + 70}" y="${y + h / 2 + 10}" text-anchor="middle" font-size="24" font-weight="900" fill="${color}">${esc(icon)}</text>
+    ${pill(x + 138, y + 22, `${n}. ${title}`, `${color}22`, color, { w: 520, size: 25, textFill: color })}
+    ${lines([subtitle], x + 148, y + 94, { size: 25, weight: 850, fill: C.ink })}
+    ${lines(bullets, x + 148, y + 136, { size: 22, weight: 700, fill: C.ink, leading: 1.22 })}
+  `;
+}
+
+function memoryPipelineDiagram() {
+  const w = 2400;
+  const h = 1860;
+  const leftX = 95;
+  const layerW = 1560;
+  const layerH = 212;
+  const ys = [170, 410, 650, 890, 1130, 1370];
+  const body = `
+  ${sectionTitle('记忆系统管线架构 2026-05：从项目索引到图书馆联邦', '记忆不是 RAG API，而是 truth source → scanner/gate → compiled index → resolver → recall → lifecycle governance', w)}
+
+  ${pipelineLayer(
+    leftX,
+    ys[0],
+    layerW,
+    layerH,
+    1,
+    'Truth Sources 真相源',
+    '所有知识先有可追溯来源，索引只是编译产物',
+    [
+      'project docs / ADR / lessons / discussions / markers',
+      'global methods / shared rules / skills',
+      'external collections：F152 外部项目、lexander、domain notes',
+    ],
+    C.green,
+    'TS',
+  )}
+  ${pipelineLayer(
+    leftX,
+    ys[1],
+    layerW,
+    layerH,
+    2,
+    'Scanner + Safety Gates',
+    '先判断能不能入库，再 chunk / embed',
+    [
+      'CatCafeScanner / GenericRepoScanner / StructuredScanner',
+      'SecretScanner before chunk/embed；prompt boundary：外部 AGENTS.md 只是 evidence data',
+      'provenance.tier：authoritative / derived / soft_clue',
+    ],
+    C.orange,
+    'SCAN',
+  )}
+  ${pipelineLayer(
+    leftX,
+    ys[2],
+    layerW,
+    layerH,
+    3,
+    'Compiled Indexes 编译层',
+    '每个域有自己的索引，坏了可从 truth source 重建',
+    [
+      'evidence.sqlite（project:cat-cafe） · global_knowledge.sqlite（global:methods）',
+      'library/{collectionId}/index.sqlite（F186 多域 Collection）',
+      'LibraryCatalog：只存 metadata / policy / route，不存正文',
+    ],
+    C.blue,
+    'IDX',
+  )}
+  ${pipelineLayer(
+    leftX,
+    ys[3],
+    layerW,
+    layerH,
+    4,
+    'LibraryResolver / KnowledgeResolver 查询层',
+    '联邦 fan-out + RRF，把多域结果分组返回',
+    [
+      'lexical：BM25 / Feature ID / 精确术语；semantic：vector / 跨语言',
+      'hybrid：BM25 + vector + RRF（日常默认）',
+      'route：scope(docs/threads/sessions) + dimension + collections',
+    ],
+    C.purple,
+    'Q',
+  )}
+  ${pipelineLayer(
+    leftX,
+    ys[4],
+    layerW,
+    layerH,
+    5,
+    'Recall Surfaces 给猫用的面',
+    '猫开工前不是猜，而是从共享记忆接住上下文',
+    [
+      'SessionBootstrap：窄口上下文 + task snapshot + recall instructions',
+      'search_evidence：主动检索；raw drill-down：thread/session/event 原文追溯',
+      'Memory Lens / Typed Graph：跨 collection anchor 关系可视',
+    ],
+    C.teal,
+    'RC',
+  )}
+  ${pipelineLayer(
+    leftX,
+    ys[5],
+    layerW,
+    layerH,
+    6,
+    'Lifecycle Governance 生命周期治理',
+    '知识会被审核、证明、过期检测和重新索引',
+    [
+      'Knowledge Feed：自动提取候选 → owner review → materialize',
+      'F163 四维证明链：authority / activation / criticality / verify_date',
+      'stale detection / contradiction flagging / entropy reduction → reindex',
+    ],
+    C.red,
+    'LC',
+  )}
+
+  ${ys.slice(0, -1).map((y) => simpleArrow(leftX + layerW / 2, y + layerH + 16, leftX + layerW / 2, y + 228, { color: C.line, sw: 5 })).join('')}
+  ${['scan / bind dry-run / hash', 'chunk / embed / rebuild', 'fan-out / timeout / RRF', 'recall / drill-down / bootstrap', 'feedback / marker / usage signal']
+    .map((label, idx) => lines([label], leftX + layerW / 2 + 32, ys[idx] + layerH + 58, { size: 18, weight: 800, fill: C.muted }))
+    .join('')}
+
+  ${box(1715, 210, 600, 1330, { fill: '#fff7ed', stroke: C.orange, r: 34, label: '右侧治理旁路', labelColor: C.orange })}
+  ${lines(['为什么它不只是 RAG？'], 2015, 290, { size: 32, weight: 900, fill: C.orange, anchor: 'middle' })}
+  ${lines(
+    [
+      '1. 安全先于索引',
+      '   Secret gate 在 chunk/embed 前执行',
+      '',
+      '2. 记忆是数据，不是指令',
+      '   外部 prompt-like 文件不进 system prompt',
+      '',
+      '3. 联邦优先，不统一存储',
+      '   Collection 独立治理、独立 review 策略',
+      '',
+      '4. 搜索结果带权威语义',
+      '   confidence / authority / reviewStatus',
+      '',
+      '5. 知识能证明自己仍成立',
+      '   authority × activation × criticality × verify_date',
+      '',
+      '6. 人和猫都能浏览关系',
+      '   Memory Lens / Typed Graph / Graph tab',
+    ],
+    1788,
+    370,
+    { size: 24, weight: 760, fill: C.ink, leading: 1.24 },
+  )}
+  ${box(1765, 1318, 500, 150, { fill: 'white', stroke: C.orange, r: 24, shadow: false })}
+  ${lines(['F102：本地 SQLite 记忆基座', 'F152：外部项目冷启动', 'F163：知识熵减证明链', 'F186：图书馆联邦'], 2015, 1362, { size: 24, weight: 850, fill: C.orange, anchor: 'middle', leading: 1.2 })}
+
+  ${box(210, 1640, 1980, 92, { fill: '#fffbeb', stroke: '#d97706', r: 26, shadow: false })}
+  ${lines(['关键原则：索引是加速器，不是真相。真相源始终是 docs / collections 中人能读、能改、能 git 追溯的文件。'], 1200, 1698, { size: 27, weight: 850, fill: '#92400e', anchor: 'middle' })}
+  ${lines(['valid_as_of: 2026-05-06 · article v2 replacement for memory-architecture-illustrated-by-codex.png'], 2280, 1810, { size: 20, weight: 700, fill: C.muted, anchor: 'end' })}
+  `;
+  return svgShell(w, h, body);
+}
+
+function globalLayer(x, y, w, h, n, title, bullets, color, icon) {
+  return `
+    ${box(x, y, w, h, { fill: `${color}12`, stroke: color, r: 28, shadow: true })}
+    <circle cx="${x + 62}" cy="${y + h / 2}" r="38" fill="white" stroke="${color}" stroke-width="4"/>
+    <text x="${x + 62}" y="${y + h / 2 + 13}" text-anchor="middle" font-size="36" font-weight="900" fill="${color}">${n}</text>
+    <text x="${x + 118}" y="${y + 48}" font-size="30" font-weight="900" fill="${color}">${esc(title)}</text>
+    ${lines(bullets, x + 130, y + 92, { size: 23, weight: 760, fill: C.ink, leading: 1.18 })}
+  `;
+}
+
+function globalArchitectureDiagram() {
+  const w = 2400;
+  const h = 1920;
+  const x = 90;
+  const layerW = 2220;
+  const layerH = 170;
+  const ys = [150, 345, 540, 735, 930, 1125, 1320];
+  const body = `
+  ${sectionTitle('Cat Cafe 全局架构总图 2026-05', '从 CVO 到猫、从产品面到队列、从记忆到治理：一张看全貌', w)}
+
+  ${globalLayer(x, ys[0], layerW, layerH, 1, 'CVO / Human Direction Layer', ['愿景 · 拍板 · 纠偏 · Magic Words · 验收 · eval 信号', '人不是逐步审批器，而是方向与判断力的来源'], C.orange, '☕')}
+  ${globalLayer(x, ys[1], layerW, layerH, 2, 'Product Surfaces Layer', ['Hub / Workspace：对话 · 监控 · 知识 · 导航', 'Rich Block / Preview / Audio / image gallery · 外部 IM：飞书 · 企微 · Telegram · Email'], C.purple, '🖥')}
+  ${globalLayer(x, ys[2], layerW, layerH, 3, 'Collaboration Semantics Layer', ['猫猫身份：布偶/Claude · 缅因/GPT · 暹罗/Gemini（身份/引擎，不是岗位）', 'A2A：@ 行首路由 · targetCats · multi_mention · hold_ball · 接/退/升 · 跨族 review · CVO 终裁'], C.teal, '🧶')}
+  ${globalLayer(x, ys[3], layerW, layerH, 4, 'Unified Execution Plane', ['InvocationQueue：user / agent / multi_mention 统一入队', 'QueueProcessor：自动执行、暂停、恢复、取消 · InvocationTracker：谁在跑/等/完成 · SessionBootstrap：窄口上下文'], C.blue, '⚙')}
+  ${globalLayer(x, ys[4], layerW, layerH, 5, 'Shared State / Memory Layer', ['Thread / Task / Workflow / Session Chain · docs 真相源 · evidence.sqlite · LibraryCatalog', 'Knowledge Feed · F163 熵减 · F186 图书馆联邦 · F152 外部项目冷启动与经验回流'], C.green, '📚')}
+  ${globalLayer(x, ys[5], layerW, layerH, 6, 'Runtime / Tools / Storage Layer', ['Hub React + Zustand → API Fastify · Provider Adapters：Claude / GPT / Gemini / OpenCode', 'MCP Servers：core / collab / memory / signals / external · Tools：exec / browser / GitHub / image_gen / Pencil · Redis 6399 圣域 / 6398 隔离 / SQLite / git'], C.blue, '🔌')}
+  ${globalLayer(x, ys[6], layerW, layerH, 7, 'Governance / Evolution Layer', ['SOP Gates：feat → design → plan → tdd → quality → review → merge · shared-rules / ADR / lessons / Knowledge Feed', 'F177：hotfix 治理 · fallback 层数检测 · 创意实现解耦 · Build to Delete：skeleton / explanation / probe / sunset'], C.red, '🛡')}
+
+  ${ys.slice(0, -1).map((y) => simpleArrow(w / 2, y + layerH + 8, w / 2, y + 188, { color: C.line, sw: 5 })).join('')}
+
+  ${box(110, 1548, 680, 235, { fill: '#fff7ed', stroke: C.orange, r: 28, label: '任务链', labelColor: C.orange })}
+  ${lines(['CVO 目标', '→ 球权', '→ 执行平面', '→ 工具运行', '→ 可见产出'], 185, 1622, { size: 28, weight: 840, fill: C.ink, leading: 1.2 })}
+  ${box(860, 1548, 680, 235, { fill: C.greenSoft, stroke: C.green, r: 28, label: '记忆链', labelColor: C.green })}
+  ${lines(['docs / events', '→ 编译索引', '→ recall / drill-down', '→ 反馈 / 教训', '→ 回流到知识层'], 935, 1622, { size: 28, weight: 840, fill: C.ink, leading: 1.2 })}
+  ${box(1610, 1548, 680, 235, { fill: C.redSoft, stroke: C.red, r: 28, label: '治理链', labelColor: C.red })}
+  ${lines(['真实运行信号', '→ 规则判断', '→ 删除 / 升级规则', '→ ADR / lessons', '→ 回到运行'], 1685, 1622, { size: 28, weight: 840, fill: C.ink, leading: 1.2 })}
+
+  ${box(430, 1810, 1540, 70, { fill: '#fffbeb', stroke: '#d97706', r: 24, shadow: false })}
+  ${lines(['这不是图 1 Hero，也不是图 5 Runtime Stack；它是 article v2 附录的一张全局技术索引图。'], 1200, 1855, { size: 25, weight: 850, fill: '#92400e', anchor: 'middle' })}
+  ${lines(['valid_as_of: 2026-05-06 · replacement for architecture-overview-illustrated-by-codex.png'], 2290, 1900, { size: 20, weight: 700, fill: C.muted, anchor: 'end' })}
+  `;
+  return svgShell(w, h, body);
+}
+
 const diagrams = [
   ['01-hero-overview', heroDiagram()],
   ['02-harness-engineering-map', harnessMapDiagram()],
@@ -727,6 +930,8 @@ const diagrams = [
   ['04-dual-flywheel', dualFlywheelDiagram()],
   ['04.1-flywheel-expansion', flywheelExpansionDiagram()],
   ['05-runtime-stack', runtimeStackDiagram()],
+  ['06-memory-pipeline-architecture', memoryPipelineDiagram()],
+  ['07-cat-cafe-global-architecture', globalArchitectureDiagram()],
 ];
 
 await fs.mkdir(OUT_DIR, { recursive: true });
@@ -734,8 +939,9 @@ await fs.mkdir(OUT_DIR, { recursive: true });
 for (const [name, svg] of diagrams) {
   const svgPath = path.join(OUT_DIR, `${name}.svg`);
   const pngPath = path.join(OUT_DIR, `${name}.png`);
-  await fs.writeFile(svgPath, svg, 'utf8');
-  await sharp(Buffer.from(svg)).png({ compressionLevel: 9, quality: 94 }).toFile(pngPath);
+  const cleanSvg = svg.replace(/[ \t]+$/gm, '');
+  await fs.writeFile(svgPath, cleanSvg, 'utf8');
+  await sharp(Buffer.from(cleanSvg)).png({ compressionLevel: 9, quality: 94 }).toFile(pngPath);
   const meta = await sharp(pngPath).metadata();
   console.log(`${name}.png ${meta.width}x${meta.height}`);
 }
