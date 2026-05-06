@@ -9,12 +9,13 @@ import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { randomUUID } from 'node:crypto';
 
 const testDir = join(tmpdir(), `prompt-capture-test-${Date.now()}`);
 
 function makeCapture(overrides = {}) {
   return {
-    captureId: `cap-${Math.random().toString(36).slice(2, 10)}`,
+    captureId: randomUUID(),
     invocationId: 'inv-001',
     catId: 'opus',
     threadId: 'thread-abc',
@@ -113,10 +114,10 @@ test('F181: gzip compression actually compresses', async () => {
   const store = new PromptCaptureStore({ baseDir: dir });
 
   const bigPrompt = 'x'.repeat(10000);
-  const capture = makeCapture({ effectivePrompt: bigPrompt, captureId: 'gzip-test' });
+  const capture = makeCapture({ effectivePrompt: bigPrompt });
   store.captureSync(capture);
 
-  const filePath = join(dir, 'payloads', 'gzip-test.json.gz');
+  const filePath = join(dir, 'payloads', `${capture.captureId}.json.gz`);
   assert.ok(existsSync(filePath));
   const fileSize = readFileSync(filePath).length;
   assert.ok(fileSize < 5000, `Compressed size ${fileSize} should be much smaller than raw`);

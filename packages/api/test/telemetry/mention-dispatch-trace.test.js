@@ -91,14 +91,14 @@ test('F181: dispatch span end is deferred until last child completes', () => {
 
 // ── Dispatch span lifecycle ────────────────────────────────────────
 
-test('F181: dispatch spans ended after last child completes', () => {
+test('F181: dispatch spans ended unconditionally in finally block', () => {
   const src = readFileSync(
     resolve(__dirname, '../../src/domains/cats/services/agents/routing/route-serial.ts'),
     'utf8',
   );
   assert.ok(
-    src.includes('pendingDispatchSpans') && src.includes('entry.lastChildIndex') && src.includes('entry.span.end()'),
-    'Should end dispatch span when index reaches lastChildIndex',
+    src.includes('pendingDispatchSpans') && src.includes('entry.span.end()'),
+    'Should end all dispatch spans unconditionally in finally block',
   );
 });
 
@@ -108,10 +108,10 @@ test('F181: finally block ends orphaned dispatch spans on early abort', () => {
     'utf8',
   );
   const finallyIdx = src.indexOf('} finally {');
-  const cleanupIdx = src.indexOf('index >= entry.lastChildIndex');
+  const cleanupIdx = src.indexOf('entry.span.end()');
   assert.ok(
     finallyIdx > 0 && cleanupIdx > finallyIdx,
-    'Finally block should end dispatch spans not yet completed (abort safety)',
+    'Finally block should unconditionally end all pending dispatch spans (abort safety)',
   );
 });
 

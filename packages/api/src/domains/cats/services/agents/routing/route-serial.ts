@@ -1879,9 +1879,9 @@ export async function* routeSerial(
       options.routeSpan.setAttribute(ROUTE_TOTAL_TOKENS, routeTotalTokens);
       options.routeSpan.setAttribute(ROUTE_HAS_A2A_HANDOFF, worklist.length > targetCats.length);
     }
-    // F181: End any pending dispatch spans whose children have all completed
+    // F181: End all pending dispatch spans (unconditional — covers abort/throw)
     for (const entry of pendingDispatchSpans) {
-      if (index >= entry.lastChildIndex) entry.span.end();
+      entry.span.end();
     }
 
     if (options.invocationController && options.completeA2ASlots && activeTrackedA2ASlots.size > 0) {

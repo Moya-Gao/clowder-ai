@@ -3,7 +3,7 @@
  * Fire-and-forget — never blocks invocation.
  */
 
-import { randomBytes } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { createModuleLogger } from '../logger.js';
 import { pseudonymizeId } from '../telemetry/hmac.js';
 import {
@@ -43,7 +43,7 @@ export function capturePromptIfEnabled(input: CaptureInput): void {
   if (!isPromptCaptureEnabled(input.catId)) return;
 
   try {
-    const captureId = randomBytes(8).toString('hex');
+    const captureId = randomUUID();
     const data: PromptCapture = {
       captureId,
       invocationId: input.invocationId,
