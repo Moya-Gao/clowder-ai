@@ -7,6 +7,7 @@ import type { ChatMessage as ChatMessageType } from '@/stores/chatStore';
 
 // Dynamic backing for the chatStore.messages mock so tests can populate companion messages.
 let storeMessages: ChatMessageType[] = [];
+let globalCliOutputDefault: 'expanded' | 'collapsed' = 'collapsed';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
@@ -20,10 +21,15 @@ vi.mock('@/stores/chatStore', () => ({
       get messages() {
         return storeMessages;
       },
-      // Globally collapsed — the heuristic should override this for stream-final-speech case.
-      globalBubbleDefaults: { thinking: 'collapsed', cliOutput: 'collapsed' },
+      globalBubbleDefaults: { thinking: 'collapsed', cliOutput: globalCliOutputDefault },
     }),
-  resolveBubbleExpanded: () => false,
+  resolveBubbleExpanded: (
+    override: 'global' | 'expanded' | 'collapsed' | undefined,
+    globalDefault: 'expanded' | 'collapsed',
+  ) => {
+    if (override && override !== 'global') return override === 'expanded';
+    return globalDefault === 'expanded';
+  },
 }));
 
 vi.mock('@/hooks/useTts', () => ({
@@ -85,7 +91,7 @@ function makeCallbackCompanion(): ChatMessageType {
   } as ChatMessageType;
 }
 
-describe('ChatMessage CliOutputBlock default-expand heuristic for stream-final-speech', () => {
+describe('ChatMessage CliOutputBlock config-respecting stream stdout visibility', () => {
   let container: HTMLDivElement;
   let root: Root;
   let ChatMessage: React.FC<{ message: ChatMessageType; getCatById: (id: string) => CatData | undefined }>;
@@ -104,6 +110,7 @@ describe('ChatMessage CliOutputBlock default-expand heuristic for stream-final-s
 
   beforeEach(() => {
     storeMessages = [];
+    globalCliOutputDefault = 'collapsed';
     resetCoCreatorConfigCacheForTest();
     primeCoCreatorConfigCache({
       name: '铲屎官',
@@ -135,8 +142,32 @@ describe('ChatMessage CliOutputBlock default-expand heuristic for stream-final-s
     });
   }
 
-  it('A. stream-origin + text content + NO callback companion → CLI Output is default-expanded (4.6 final speech visible without manual expand)', () => {
+  it('A. stream-origin + text content + NO callback companion + collapsed config → CLI Output stays collapsed but advertises stdout', () => {
+    const MARKER = 'STDOUT_HINT';
+    storeMessages = [];
+
+    renderMessage(
+      makeStreamMessage({
+        content: `${MARKER} 这是 4.6 native final speech via stream.`,
+      }),
+    );
+
+    // CLI Output exists
+    expect(container.textContent).toContain('CLI Output');
+    // Config remains authoritative: body should be collapsed by default.
+    const cliBody = container.querySelector('[data-testid="cli-output-body"]');
+    expect(cliBody).toBeNull();
+    // Collapsed summary still tells the user stdout exists, so it does not look empty/missing.
+    const cliHeader = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('CLI Output'),
+    );
+    expect(cliHeader?.textContent).toContain('stdout');
+    expect(cliHeader?.textContent).toContain(MARKER);
+  });
+
+  it('A2. stream-origin + text content + NO callback companion + expanded config → CLI Output is expanded', () => {
     const MARKER = 'STREAM_FINAL_SPEECH_MARKER_42';
+    globalCliOutputDefault = 'expanded';
     storeMessages = [];
 
     renderMessage(
@@ -145,12 +176,8 @@ describe('ChatMessage CliOutputBlock default-expand heuristic for stream-final-s
       }),
     );
 
-    // CLI Output exists
-    expect(container.textContent).toContain('CLI Output');
-    // Body should be in DOM (default-expanded since no callback companion)
     const cliBody = container.querySelector('[data-testid="cli-output-body"]');
     expect(cliBody).toBeTruthy();
-    // The marker text must be visible (rendered inside CLI Output via streamContent embedding)
     expect(cliBody?.textContent).toContain(MARKER);
   });
 
