@@ -158,7 +158,13 @@ describe('QueryReplayCompare (AC-E2)', () => {
               status: 'ok',
               durationMs: 1,
               items: [
-                { anchor: 'project:cat-cafe:doc/a', kind: 'feature', status: 'active', title: 'A', updatedAt: '2026-01-01' },
+                {
+                  anchor: 'project:cat-cafe:doc/a',
+                  kind: 'feature',
+                  status: 'active',
+                  title: 'A',
+                  updatedAt: '2026-01-01',
+                },
               ],
             },
           ],
