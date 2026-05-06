@@ -8,7 +8,7 @@ created: 2026-05-06
 
 # F187: Thread Labels — 用户自定义标签 + Sidebar 筛选 + 猫猫辅助分类
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -21,7 +21,7 @@ F057/F095 解决了"找得到 thread"（搜索、排序、置顶、活跃度）�
 
 ## What
 
-### Phase A: Label 系统基座
+### Phase A: Label 系统基座 ✅
 
 数据模型：
 - `ThreadLabel` 表：`id`, `name`, `color`, `sortOrder`, `createdBy`, `createdAt`
@@ -56,10 +56,10 @@ UI：
 ## Acceptance Criteria
 
 ### Phase A（Label 系统基座）
-- [ ] AC-A1: 用户可创建自定义标签（名称 + 颜色）
-- [ ] AC-A2: 用户可在 thread 右键菜单/详情里给 thread 打多个标签
-- [ ] AC-A3: 标签数据持久化（Redis），重启不丢失
-- [ ] AC-A4: Label CRUD API 完整且有类型定义
+- [x] AC-A1: 用户可创建自定义标签（名称 + 颜色）
+- [x] AC-A2: 用户可在 thread 右键菜单/详情里给 thread 打多个标签
+- [x] AC-A3: 标签数据持久化（Redis），重启不丢失
+- [x] AC-A4: Label CRUD API 完整且有类型定义
 
 ### Phase B（Sidebar 筛选 + 智能视图）
 - [ ] AC-B1: Sidebar 有标签筛选器，点击标签后只显示该标签的 thread
@@ -106,6 +106,7 @@ UI：
 | 日期 | 事件 |
 |------|------|
 | 2026-05-06 | 立项（铲屎官 + 布偶猫 + 缅因猫三方收敛） |
+| 2026-05-06 | Phase A merged (PR #1576) |
 
 ## Review Gate
 
