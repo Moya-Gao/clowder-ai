@@ -1,26 +1,54 @@
 import { createHash } from 'node:crypto';
-import { type FSWatcher, watch } from 'node:fs';
+import { watch } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
-import { basename, dirname } from 'node:path';
+import { dirname } from 'node:path';
 import type { Server, Socket } from 'socket.io';
 import { createModuleLogger } from '../../infrastructure/logger.js';
 import { getWorktreeRoot, resolveWorkspacePath } from './workspace-security.js';
 
 const log = createModuleLogger('file-watcher');
 const DEBOUNCE_MS = 300;
+const POLL_FALLBACK_MS = 150;
 
 interface WatchEntry {
-  watcher: FSWatcher;
+  stop: () => void;
   worktreeId: string;
   path: string;
   absolutePath: string;
-  targetBasename: string;
   lastSha256: string;
   debounceTimer: ReturnType<typeof setTimeout> | null;
 }
 
 function sha256(content: string): string {
   return createHash('sha256').update(content, 'utf8').digest('hex');
+}
+
+function startFileMonitor(parentDir: string, onFsEvent: () => void, onPoll: () => void): () => void {
+  let poller: ReturnType<typeof setInterval> | null = null;
+  const startPolling = () => {
+    if (poller) return;
+    poller = setInterval(onPoll, POLL_FALLBACK_MS);
+    poller.unref?.();
+  };
+
+  try {
+    const watcher = watch(parentDir, { persistent: false }, onFsEvent);
+    watcher.on('error', (err) => {
+      log.warn({ parentDir, err }, 'fs.watch failed, falling back to polling');
+      watcher.close();
+      startPolling();
+    });
+    return () => {
+      watcher.close();
+      if (poller) clearInterval(poller);
+    };
+  } catch (err) {
+    log.warn({ parentDir, err }, 'fs.watch unavailable, falling back to polling');
+    startPolling();
+    return () => {
+      if (poller) clearInterval(poller);
+    };
+  }
 }
 
 async function computeFileSha256(absolutePath: string): Promise<string | null> {
@@ -47,28 +75,31 @@ export function setupWorkspaceFileWatcher(io: Server): void {
         await stat(absolutePath);
 
         const currentSha = (await computeFileSha256(absolutePath)) || '';
-        const targetBasename = basename(absolutePath);
         const parentDir = dirname(absolutePath);
 
-        const watcher = watch(parentDir, { persistent: false }, (_eventType, filename) => {
-          if (filename && filename !== targetBasename) return;
-          const entry = socketWatchers.get(socket.id);
-          if (!entry) return;
-          if (entry.debounceTimer) clearTimeout(entry.debounceTimer);
-          entry.debounceTimer = setTimeout(() => handleChange(socket, entry), DEBOUNCE_MS);
-        });
-
-        watcher.on('error', () => cleanupSocket(socket.id));
-
-        socketWatchers.set(socket.id, {
-          watcher,
+        const entry: WatchEntry = {
+          stop: () => {},
           worktreeId: data.worktreeId,
           path: data.path,
           absolutePath,
-          targetBasename,
           lastSha256: currentSha,
           debounceTimer: null,
+        };
+
+        const scheduleChange = () => {
+          // Atomic-save flows can report only the temporary filename; the sha check below suppresses unrelated events.
+          if (socketWatchers.get(socket.id) !== entry) return;
+          if (entry.debounceTimer) clearTimeout(entry.debounceTimer);
+          entry.debounceTimer = setTimeout(() => handleChange(socket, entry), DEBOUNCE_MS);
+        };
+
+        const stop = startFileMonitor(parentDir, scheduleChange, () => {
+          if (socketWatchers.get(socket.id) !== entry) return;
+          void handleChange(socket, entry);
         });
+
+        entry.stop = stop;
+        socketWatchers.set(socket.id, entry);
 
         log.debug({ socketId: socket.id, path: data.path }, 'Watching file');
 
@@ -112,7 +143,7 @@ export function setupWorkspaceFileWatcher(io: Server): void {
     const entry = socketWatchers.get(socketId);
     if (!entry) return;
     if (entry.debounceTimer) clearTimeout(entry.debounceTimer);
-    entry.watcher.close();
+    entry.stop();
     socketWatchers.delete(socketId);
   }
 }

@@ -838,9 +838,20 @@ function memoryPipelineDiagram() {
     'LC',
   )}
 
-  ${ys.slice(0, -1).map((y) => simpleArrow(leftX + layerW / 2, y + layerH + 16, leftX + layerW / 2, y + 228, { color: C.line, sw: 5 })).join('')}
-  ${['scan / bind dry-run / hash', 'chunk / embed / rebuild', 'fan-out / timeout / RRF', 'recall / drill-down / bootstrap', 'feedback / marker / usage signal']
-    .map((label, idx) => lines([label], leftX + layerW / 2 + 32, ys[idx] + layerH + 58, { size: 18, weight: 800, fill: C.muted }))
+  ${ys
+    .slice(0, -1)
+    .map((y) => simpleArrow(leftX + layerW / 2, y + layerH + 16, leftX + layerW / 2, y + 228, { color: C.line, sw: 5 }))
+    .join('')}
+  ${[
+    'scan / bind dry-run / hash',
+    'chunk / embed / rebuild',
+    'fan-out / timeout / RRF',
+    'recall / drill-down / bootstrap',
+    'feedback / marker / usage signal',
+  ]
+    .map((label, idx) =>
+      lines([label], leftX + layerW / 2 + 32, ys[idx] + layerH + 58, { size: 18, weight: 800, fill: C.muted }),
+    )
     .join('')}
 
   ${box(1715, 210, 600, 1330, { fill: '#fff7ed', stroke: C.orange, r: 34, label: '右侧治理旁路', labelColor: C.orange })}
@@ -907,7 +918,10 @@ function globalArchitectureDiagram() {
   ${globalLayer(x, ys[5], layerW, layerH, 6, 'Runtime / Tools / Storage Layer', ['Hub React + Zustand → API Fastify · Provider Adapters：Claude / GPT / Gemini / OpenCode', 'MCP Servers：core / collab / memory / signals / external · Tools：exec / browser / GitHub / image_gen / Pencil · Redis 6399 圣域 / 6398 隔离 / SQLite / git'], C.blue, '🔌')}
   ${globalLayer(x, ys[6], layerW, layerH, 7, 'Governance / Evolution Layer', ['SOP Gates：feat → design → plan → tdd → quality → review → merge · shared-rules / ADR / lessons / Knowledge Feed', 'F177：hotfix 治理 · fallback 层数检测 · 创意实现解耦 · Build to Delete：skeleton / explanation / probe / sunset'], C.red, '🛡')}
 
-  ${ys.slice(0, -1).map((y) => simpleArrow(w / 2, y + layerH + 8, w / 2, y + 188, { color: C.line, sw: 5 })).join('')}
+  ${ys
+    .slice(0, -1)
+    .map((y) => simpleArrow(w / 2, y + layerH + 8, w / 2, y + 188, { color: C.line, sw: 5 }))
+    .join('')}
 
   ${box(110, 1548, 680, 235, { fill: '#fff7ed', stroke: C.orange, r: 28, label: '任务链', labelColor: C.orange })}
   ${lines(['CVO 目标', '→ 球权', '→ 执行平面', '→ 工具运行', '→ 可见产出'], 185, 1622, { size: 28, weight: 840, fill: C.ink, leading: 1.2 })}

@@ -543,7 +543,7 @@
     {
       "id": "F088",
       "name": "Multi-Platform Chat Gateway — 聊天平台接入网关",
-      "status": "done | **Completed**: 2026-04-10 | **Owner**: 布偶猫",
+      "status": "follow-up-planned | **Core Completed**: 2026-04-10 | **Owner**: 布偶猫",
       "file": "F088-multi-platform-chat-gateway.md"
     },
     {
@@ -1155,8 +1155,14 @@
     {
       "id": "F186",
       "name": "图书馆记忆架构（多域知识联邦）",
-      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Completed**: 2026-05-06 | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F186-library-memory-architecture.md"
+    },
+    {
+      "id": "F187",
+      "name": "Thread Labels — 用户自定义标签 + Sidebar 筛选 + 猫猫辅助分类",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F187-thread-labels.md"
     }
   ]
 }
