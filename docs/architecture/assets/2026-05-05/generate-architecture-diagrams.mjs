@@ -197,7 +197,7 @@ function heroDiagram() {
   const w = 1800;
   const h = 1200;
   const body = `
-  ${sectionTitle("Cat Cafe 产品全景：人和猫一起工作的咖啡馆", "AI 团队不是工具集合，是有名字、有性格、长期协作的队友", w)}
+  ${sectionTitle("Cat Cafe 产品全景：不同引擎看同一件事", "AI 团队不是岗位分工表；跨厂商多样性是结构性质量来源", w)}
 
   ${box(78, 145, 1644, 285, { fill: "#fff7ed", stroke: C.orange, label: "方向层 / CVO 共创", labelColor: C.orange })}
   <rect x="155" y="260" width="420" height="90" rx="42" fill="#fed7aa" stroke="${C.line}" stroke-width="4"/>
@@ -211,13 +211,13 @@ function heroDiagram() {
   ${lines(["Magic Words", "紧急拉闸"], 1538, 365, { size: 24, weight: 800, fill: C.red, anchor: "middle" })}
   ${lines(["↕ 深度贴贴：共创，不是逐步审批"], 900, 465, { size: 30, weight: 800, fill: C.purple, anchor: "middle" })}
 
-  ${box(78, 505, 1644, 335, { fill: "#f5f3ff", stroke: C.purple, label: "执行层 / 三猫工位", labelColor: C.purple })}
+  ${box(78, 505, 1644, 335, { fill: "#f5f3ff", stroke: C.purple, label: "执行层 / 三个引擎", labelColor: C.purple })}
   ${box(155, 575, 395, 200, { fill: C.white, stroke: C.purple, r: 24 })}
   ${box(702, 575, 395, 200, { fill: C.white, stroke: C.purple, r: 24 })}
   ${box(1249, 575, 395, 200, { fill: C.white, stroke: C.purple, r: 24 })}
-  ${cat(355, 615, 0.9, C.purple, "宪宪", "布偶·架构", { face: "#f8fafc", eye: "#334155" })}
-  ${cat(900, 615, 0.9, C.blue, "砚砚", "缅因·审查", { face: "#fef3c7", mane: "#d6a45f" })}
-  ${cat(1445, 615, 0.9, C.teal, "烁烁", "暹罗·设计", { face: "#e0f2fe", eye: "#0f172a" })}
+  ${cat(355, 615, 0.9, C.purple, "宪宪", "布偶/Claude", { face: "#f8fafc", eye: "#334155" })}
+  ${cat(900, 615, 0.9, C.blue, "砚砚", "缅因/GPT", { face: "#fef3c7", mane: "#d6a45f" })}
+  ${cat(1445, 615, 0.9, C.teal, "烁烁", "暹罗/Gemini", { face: "#e0f2fe", eye: "#0f172a" })}
   ${lines(["IDE + 蓝图"], 355, 808, { size: 25, weight: 800, anchor: "middle", fill: C.muted })}
   ${lines(["放大镜 + checklist"], 900, 808, { size: 25, weight: 800, anchor: "middle", fill: C.muted })}
   ${lines(["画板 + 调色盘"], 1445, 808, { size: 25, weight: 800, anchor: "middle", fill: C.muted })}
@@ -225,7 +225,8 @@ function heroDiagram() {
   ${simpleArrow(1095, 695, 1250, 695, { color: C.purple, sw: 6 })}
   ${yarn(626, 695, 34)}
   ${yarn(1175, 695, 34)}
-  ${lines(["毛线球 = 球权"], 900, 560, { size: 24, weight: 800, anchor: "middle", fill: C.purple })}
+  ${lines(["毛线球 = 球权，任何猫都能接"], 900, 560, { size: 24, weight: 800, anchor: "middle", fill: C.purple })}
+  ${lines(["工位物品只暗示观察习惯，不是岗位边界"], 900, 834, { size: 24, weight: 850, anchor: "middle", fill: C.purple })}
 
   ${box(78, 895, 1644, 235, { fill: "#ecfdf5", stroke: C.green, label: "共享基础设施", labelColor: C.green })}
   ${bookStack(205, 1020, 1.15)}

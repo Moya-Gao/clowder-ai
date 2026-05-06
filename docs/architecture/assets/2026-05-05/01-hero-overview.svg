@@ -28,8 +28,8 @@
   <path d="M0,70 C420,10 760,95 1120,42 C1440,-4 1660,42 2100,16 L2100,0 L0,0 Z" fill="#f8efe0" opacity="0.8"/>
   
   
-  <text x="900" y="70" text-anchor="middle" opacity="1" class="title"><tspan x="900" dy="0" fill="#263238" font-weight="850" font-size="48">Cat Cafe 产品全景：人和猫一起工作的咖啡馆</tspan></text>
-  <text x="900" y="112" text-anchor="middle" opacity="1" class=""><tspan x="900" dy="0" fill="#667085" font-weight="600" font-size="24">AI 团队不是工具集合，是有名字、有性格、长期协作的队友</tspan></text>
+  <text x="900" y="70" text-anchor="middle" opacity="1" class="title"><tspan x="900" dy="0" fill="#263238" font-weight="850" font-size="48">Cat Cafe 产品全景：不同引擎看同一件事</tspan></text>
+  <text x="900" y="112" text-anchor="middle" opacity="1" class=""><tspan x="900" dy="0" fill="#667085" font-weight="600" font-size="24">AI 团队不是岗位分工表；跨厂商多样性是结构性质量来源</tspan></text>
 
   
     <rect x="78" y="145" width="1644" height="285" rx="26" fill="#fff7ed" stroke="#f97316" stroke-width="3" stroke-dasharray="" opacity="1" filter="url(#shadow)"/>
@@ -58,7 +58,7 @@
 
   
     <rect x="78" y="505" width="1644" height="335" rx="26" fill="#f5f3ff" stroke="#7c3aed" stroke-width="3" stroke-dasharray="" opacity="1" filter="url(#shadow)"/>
-    <rect x="102" y="483" width="280" height="44" rx="22" fill="#7c3aed" opacity="0.96"/><text x="120" y="513" font-size="25" font-weight="800" fill="white">执行层 / 三猫工位</text>
+    <rect x="102" y="483" width="280" height="44" rx="22" fill="#7c3aed" opacity="0.96"/><text x="120" y="513" font-size="25" font-weight="800" fill="white">执行层 / 三个引擎</text>
   
   
     <rect x="155" y="575" width="395" height="200" rx="24" fill="#ffffff" stroke="#7c3aed" stroke-width="3" stroke-dasharray="" opacity="1" filter="url(#shadow)"/>
@@ -88,7 +88,7 @@
     <path d="M 398.2 631.2 L 430.6 636.6" stroke="#344054" stroke-width="1.8" stroke-linecap="round"/>
     <rect x="284.8" y="678" width="140.4" height="52.2" rx="19.8" fill="#7c3aed" opacity="0.96"/>
     <text x="355" y="703.2" text-anchor="middle" font-size="21.6" font-weight="800" fill="white">宪宪</text>
-    <text x="355" y="726.6" text-anchor="middle" font-size="16.2" font-weight="600" fill="white" opacity="0.92">布偶·架构</text>
+    <text x="355" y="726.6" text-anchor="middle" font-size="16.2" font-weight="600" fill="white" opacity="0.92">布偶/Claude</text>
   </g>
   
   <g>
@@ -106,7 +106,7 @@
     <path d="M 943.2 631.2 L 975.6 636.6" stroke="#344054" stroke-width="1.8" stroke-linecap="round"/>
     <rect x="829.8" y="678" width="140.4" height="52.2" rx="19.8" fill="#2563eb" opacity="0.96"/>
     <text x="900" y="703.2" text-anchor="middle" font-size="21.6" font-weight="800" fill="white">砚砚</text>
-    <text x="900" y="726.6" text-anchor="middle" font-size="16.2" font-weight="600" fill="white" opacity="0.92">缅因·审查</text>
+    <text x="900" y="726.6" text-anchor="middle" font-size="16.2" font-weight="600" fill="white" opacity="0.92">缅因/GPT</text>
   </g>
   
   <g>
@@ -124,7 +124,7 @@
     <path d="M 1488.2 631.2 L 1520.6 636.6" stroke="#344054" stroke-width="1.8" stroke-linecap="round"/>
     <rect x="1374.8" y="678" width="140.4" height="52.2" rx="19.8" fill="#0f766e" opacity="0.96"/>
     <text x="1445" y="703.2" text-anchor="middle" font-size="21.6" font-weight="800" fill="white">烁烁</text>
-    <text x="1445" y="726.6" text-anchor="middle" font-size="16.2" font-weight="600" fill="white" opacity="0.92">暹罗·设计</text>
+    <text x="1445" y="726.6" text-anchor="middle" font-size="16.2" font-weight="600" fill="white" opacity="0.92">暹罗/Gemini</text>
   </g>
   <text x="355" y="808" text-anchor="middle" opacity="1" class=""><tspan x="355" dy="0" fill="#667085" font-weight="800" font-size="25">IDE + 蓝图</tspan></text>
   <text x="900" y="808" text-anchor="middle" opacity="1" class=""><tspan x="900" dy="0" fill="#667085" font-weight="800" font-size="25">放大镜 + checklist</tspan></text>
@@ -145,7 +145,8 @@
     <path d="M 1147.8 703.5 C 1171.6 691.6, 1185.2 708.6, 1203.9 698.4" fill="none" stroke="white" stroke-width="3.74" opacity="0.86"/>
     <path d="M 1169.9 666.1 C 1163.1 693.3, 1180.1 706.9, 1169.9 724.24" fill="none" stroke="white" stroke-width="3.4000000000000004" opacity="0.86"/>
   </g>
-  <text x="900" y="560" text-anchor="middle" opacity="1" class=""><tspan x="900" dy="0" fill="#7c3aed" font-weight="800" font-size="24">毛线球 = 球权</tspan></text>
+  <text x="900" y="560" text-anchor="middle" opacity="1" class=""><tspan x="900" dy="0" fill="#7c3aed" font-weight="800" font-size="24">毛线球 = 球权，任何猫都能接</tspan></text>
+  <text x="900" y="834" text-anchor="middle" opacity="1" class=""><tspan x="900" dy="0" fill="#7c3aed" font-weight="850" font-size="24">工位物品只暗示观察习惯，不是岗位边界</tspan></text>
 
   
     <rect x="78" y="895" width="1644" height="235" rx="26" fill="#ecfdf5" stroke="#16a34a" stroke-width="3" stroke-dasharray="" opacity="1" filter="url(#shadow)"/>
