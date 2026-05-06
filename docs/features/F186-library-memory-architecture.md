@@ -8,7 +8,7 @@ created: 2026-05-03
 
 # F186: 图书馆记忆架构（多域知识联邦）
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-05-06
 
 ## Why
 
@@ -206,19 +206,19 @@ Memory Lens 输入 anchor 可跨 collection，输出标注每条证据来自哪�
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "recall 本 project 以外的知识" | AC-A2, AC-A4 | test: 跨 collection search 返回结果 | [ ] |
-| R2 | "不只是 project" — Collection 独立于 repo | AC-A1, AC-A3 | test: 注册非 repo collection | [ ] |
-| R3 | "大概率用户给你的就是一堆乱七八糟的文档" — Level 0 无结构要求 | AC-B1 | test: 索引无 frontmatter 目录 | [ ] |
-| R4 | Lexander 试点安全绑定（secret/private/prompt injection） | AC-C1~C4, AC-D1 | test: dry-run + 全链路 | [ ] |
-| R5 | "186 最好能够架构归一，必须归一" | AC-A2, AC-A6 | test: API/type contract 不新增平行 memory stack | [ ] |
-| R6 | GBrain"给人看"的亮点 — 铲屎官也想浏览图书馆，不只是搜索框和管理按钮 | AC-A7, AC-A8, AC-D2 | test: Hub 展示 Overview Lens + Health Card | [ ] |
-| R7 | private Collection 内容不能通过 RecallFeed / Knowledge Feed 后门泄漏 | AC-A9, AC-A10 | test: private snippet 不出现在 threads scope 索引 | [ ] |
-| R8 | Collection 可安全退场（unbind/rename/sensitivity change） | AC-A11 | test: unbind 归档 + rename 别名 + sensitivity re-scan | [ ] |
+| R1 | "recall 本 project 以外的知识" | AC-A2, AC-A4 | test: 跨 collection search 返回结果 | [x] |
+| R2 | "不只是 project" — Collection 独立于 repo | AC-A1, AC-A3 | test: 注册非 repo collection | [x] |
+| R3 | "大概率用户给你的就是一堆乱七八糟的文档" — Level 0 无结构要求 | AC-B1 | test: 索引无 frontmatter 目录 | [x] |
+| R4 | Lexander 试点安全绑定（secret/private/prompt injection） | AC-C1~C4, AC-D1 | test: dry-run + 全链路 | [x] |
+| R5 | "186 最好能够架构归一，必须归一" | AC-A2, AC-A6 | test: API/type contract 不新增平行 memory stack | [x] |
+| R6 | GBrain"给人看"的亮点 — 铲屎官也想浏览图书馆，不只是搜索框和管理按钮 | AC-A7, AC-A8, AC-D2 | test: Hub 展示 Overview Lens + Health Card | [x] |
+| R7 | private Collection 内容不能通过 RecallFeed / Knowledge Feed 后门泄漏 | AC-A9, AC-A10 | test: private snippet 不出现在 threads scope 索引 | [x] |
+| R8 | Collection 可安全退场（unbind/rename/sensitivity change） | AC-A11 | test: unbind 归档 + rename 别名 + sensitivity re-scan | [x] |
 
 ### 覆盖检查
-- [ ] 每个需求点都能映射到至少一个 AC
-- [ ] 每个 AC 都有验证方式
-- [ ] 前端需求已准备需求→证据映射表（若适用）
+- [x] 每个需求点都能映射到至少一个 AC
+- [x] 每个 AC 都有验证方式
+- [x] 前端需求已准备需求→证据映射表（若适用）
 
 ## Dependencies
 
