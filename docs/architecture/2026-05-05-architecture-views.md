@@ -665,7 +665,9 @@ State    thread · task · docs · evidence · InvocationQueue
 
 ### 图 8：Harness 加载时序图（一次 Invocation 的生命周期）
 
-**计划文件名**：`docs/architecture/assets/2026-05-05/08-harness-loading-sequence.png`
+**文件名**：`docs/architecture/assets/2026-05-05/08-harness-loading-sequence.png`
+
+![图 8：Harness 加载时序图](assets/2026-05-05/08-harness-loading-sequence.png)
 
 **答**：harness 的"乘法"（Agent Quality = Capability × Environment Fit）具体怎么发生？一次 invocation 从用户消息到执行完毕，harness 的每个部件在什么时刻介入、往上下文窗口里注入了什么？
 
@@ -1020,7 +1022,7 @@ docs/architecture/assets/2026-05-05/
 ├── 05-runtime-stack.png
 ├── 06-memory-pipeline-architecture.png
 ├── 07-cat-cafe-global-architecture.png
-└── 08-harness-loading-sequence.png        # planned
+└── 08-harness-loading-sequence.png
 ```
 
 SVG 源文件与 `generate-architecture-diagrams.mjs` 同目录保留，后续需要改字、改布局时可重新导出 PNG。
