@@ -64,9 +64,11 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 
 ### Phase A（基础骨架）
 - [ ] AC-A1: `docs/harness-feedback/` 目录存在，README 含 doc_kind 规范
-- [ ] AC-A2: CatCafeScanner 能索引 `docs/harness-feedback/**/*.md`（search_evidence 搜得到）
-- [ ] AC-A3: feat-lifecycle skill 含 Step 0.6 Harness Eval Checkpoint
+- [ ] AC-A2: CatCafeScanner 能索引 `docs/harness-feedback/**/*.md`，并保留/暴露 `doc_kind: harness-feedback`（search result 能区分它不是普通 discussion）。若当前不支持按 doc_kind filter，在 README 记录此限制
+- [ ] AC-A3: feat-lifecycle Completion 含 Step 0.6 Harness Eval Checkpoint，且明确：checkpoint 必做；默认允许写 `harness_feedback: none` + reason；触发条件（harness/skill/MCP feature、CVO 不满意、trace anomaly、抽样）；interview 必须独立 session/turn；触发后必须链接 harness-feedback 文档到 feature spec / CloseGateReport
 - [ ] AC-A4: 至少一份样例 harness-feedback 文档通过 search_evidence 可召回
+- [ ] AC-A5: harness-feedback README/schema 明确只存 annotations + evidence_refs，不存 raw trace 副本；Feature Trace Bundle 是 derived view，schema defer to F153/ADR-032
+- [ ] AC-A6: 样例 harness-feedback 文档使用 trace_refs/evidence_refs 指向 canonical trace/thread/session，不复制 raw tool-call payload
 
 ### Phase B（F167 Pilot）
 - [ ] AC-B1: F167 spec 含 Eval / Tracking Contract 节
@@ -136,4 +138,4 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 | Decision | `docs/decisions/031-harness-engineering-methodology.md` | 方法论基础 |
 | Decision | `docs/decisions/032-cat-cafe-as-local-first-trace-enabler.md` | 数据归属边界 |
 | Feature | `docs/features/F167-a2a-chain-quality.md` | Pilot 目标 |
-| Feature | `docs/features/F153-observability-infrastructure.md` | Canonical trace 来源 |
+| Feature | `docs/features/F153-observability-infra.md` | Canonical trace 来源 |
