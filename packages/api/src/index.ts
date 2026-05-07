@@ -1482,6 +1482,7 @@ async function main(): Promise<void> {
     limbRegistry,
     limbPairingStore,
     guideSessionStore,
+    labelStore,
     holdBallDeps: {
       registry,
       taskRunner: taskRunnerV2,

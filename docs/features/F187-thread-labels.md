@@ -47,11 +47,14 @@ UI：
 
 ### Phase C: 猫猫辅助分类
 
-- **触发**：sidebar "未分类" pill 旁 ✨ 按钮，用户主动点击触发（不是静默自动分类）
-- **展示**：浮层面板（overlay/modal），不写入任何 thread 消息流，不污染聊天记录
-- **路由**：按钮点击走现有消息路由（上一只活跃猫 > thread 首选猫 > 全局首选猫），当前 session 猫直接做
-- **流程**：按钮点击 → 猫猫调 `list_threads` MCP 获取未分类 thread 标题+元数据 → 分析标题/关联 feature ID → 在面板中展示批量建议卡片 → 用户逐条确认/修改 → 批量调 label API 应用
-- **不做**：不引入 FunctionRun 数据模型（Phase C scope 内不需要）；审计需求后续按需加 audit log
+- **双入口**：
+  1. sidebar "未分类" pill 旁 ✨ 按钮 → 创建/打开专属功能 thread（"Thread 整理助手"） → 猫猫在该 thread 中分析未分类 thread 并建议标签
+  2. 用户在任意 thread 中说"帮我整理" → 猫猫加载 organize-threads skill → 当场整理
+- **路由**：走现有消息路由（上一只活跃猫 > thread 首选猫 > 全局首选猫），不引入独立 API 端点
+- **功能 thread**：专属 thread 承载分类交互，消息只在该 thread 内，不污染其他 thread 的聊天记录
+- **展示**：猫猫分析后在 thread 消息中输出建议 + 浮层面板(ThreadOrganizerModal)供用户批量确认/修改
+- **流程**：触发 → 猫猫调 MCP 工具获取未分类 thread 标题+标签列表 → 分析标题/元数据 → 输出建议 → 用户确认/修改 → 批量应用标签
+- **不做**：不引入 FunctionRun 数据模型；不引入独立 API 端点直接调用 LLM（架构决策：我们家没有 api 只有 cli）
 
 ## Architecture Ownership
 
@@ -73,9 +76,10 @@ Why: F187 改的是用户面向的 thread 组织/分类/Sidebar 筛选语义，�
 - [x] AC-B3: Thread 条目上有标签色点指示
 
 ### Phase C（猫猫辅助分类）
-- [ ] AC-C1: sidebar "未分类" pill 旁有 ✨ 按钮，点击触发分类流程
-- [ ] AC-C2: 猫猫基于 thread 元数据建议标签，用浮层面板展示建议卡片（不写入 thread 消息流）
-- [ ] AC-C3: 用户可在面板中逐条确认/修改建议后批量应用标签
+- [ ] AC-C1: sidebar "未分类" pill 旁有 ✨ 按钮，点击创建/打开专属功能 thread 触发分类流程
+- [ ] AC-C2: 猫猫通过现有消息路由分析未分类 thread 并建议标签（不引入独立 API 端点）
+- [ ] AC-C3: 用户可在 ThreadOrganizerModal 面板中逐条确认/修改建议后批量应用标签
+- [ ] AC-C4: 用户可在任意 thread 说"帮我整理"触发猫猫加载 skill 整理
 
 ## Dependencies
 
@@ -105,9 +109,10 @@ Why: F187 改的是用户面向的 thread 组织/分类/Sidebar 筛选语义，�
 | KD-2 | 不做自动分类，做用户触发的猫猫建议 | 自动分类会变成新噪音；用户触发+确认保证可控 | 2026-05-06 |
 | KD-3 | 图标用 SVG，禁止 emoji | 铲屎官 Design Gate 反馈；与现有 sidebar 图标系统一致 | 2026-05-06 |
 | KD-4 | 筛选条溢出策略：inline 5-6 个 + "..." 下拉 | 标签数可能 10+，全部内联会挤爆筛选条 | 2026-05-06 |
-| KD-5 | 猫猫分类不起无头 CLI，当前 session 猫直接做 | list_threads MCP + 标题分析，成本 = 一次普通对话 | 2026-05-06 |
-| KD-6 | Phase C 用浮层面板，不用固定 thread 也不用 function run | 面板零占地不污染聊天（铲屎官确认）；function run 模型太重留独立立项；固定 thread 也是噪音 | 2026-05-07 |
-| KD-7 | 按钮触发走现有消息路由（上一只猫 > 首选猫 > 全局首选猫） | 复用已有机制，不需要新调度逻辑（铲屎官确认路由规则） | 2026-05-07 |
+| KD-5 | 猫猫分类走现有消息路由，禁止独立 API 端点调 LLM | "我们家没有 api 只有 cli"——架构一致性，复用 cat routing（铲屎官否决独立端点方案） | 2026-05-07 |
+| KD-6 | Phase C 用功能 thread 承载分类工作 | 专属 thread 隔离分类交互，不污染用户正在开发的 thread（铲屎官拍板） | 2026-05-07 |
+| KD-7 | 走现有消息路由（上一只猫 > 首选猫 > 全局首选猫） | 复用已有机制，不需要新调度逻辑（铲屎官确认路由规则） | 2026-05-07 |
+| KD-8 | 双入口：✨按钮→功能 thread、对话说"帮我整理"→skill | 铲屎官拍板两条路并行，灵活触发 | 2026-05-07 |
 
 ## Timeline
 
@@ -139,5 +144,5 @@ Why: F187 改的是用户面向的 thread 组织/分类/Sidebar 筛选语义，�
 |----|------|------|---------|-------|
 | R1 | 铲屎官 | thread 可按用途分类 | AC-A1, AC-A2 | A |
 | R2 | 铲屎官 | sidebar 可按分类筛选 | AC-B1, AC-B2, AC-B3 | B |
-| R3 | 铲屎官 | 猫猫帮忙一键分类 | AC-C1, AC-C2, AC-C3 | C |
+| R3 | 铲屎官 | 猫猫帮忙一键分类 | AC-C1, AC-C2, AC-C3, AC-C4 | C |
 | R4 | 布偶猫+缅因猫 | 用 Label 不用 Folder | KD-1 | — |

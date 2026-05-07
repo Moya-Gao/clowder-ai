@@ -15,6 +15,7 @@ import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerMo
 import { LabelFilterBar } from './LabelFilterBar';
 import { SectionGroup } from './SectionGroup';
 import { ThreadItem } from './ThreadItem';
+import { ThreadOrganizerModal } from './ThreadOrganizerModal';
 import { pushThreadRouteWithHistory } from './thread-navigation';
 import {
   getProjectPaths,
@@ -477,6 +478,137 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
     [liveThreads],
   );
 
+  const [showOrganizer, setShowOrganizer] = useState(false);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<Map<string, string[]> | undefined>();
+
+  const uncategorizedThreads = useMemo(
+    () => liveThreads.filter((t) => !t.labels || t.labels.length === 0),
+    [liveThreads],
+  );
+
+  const ORGANIZER_TITLE = 'Thread 整理助手';
+
+  const buildTriggerContent = useCallback(() => {
+    const labelInfo = labels.map((l) => `${l.name} (${l.id})`).join(', ');
+    const uncatList = uncategorizedThreads
+      .slice(0, 50)
+      .map((t) => `- id: "${t.id}" title: "${t.title || t.id}"`)
+      .join('\n');
+    return [
+      '帮我整理未分类的 thread。',
+      '',
+      `当前有 ${uncategorizedThreads.length} 个未分类 thread，可用标签：${labelInfo}`,
+      '',
+      '## 未分类 Thread',
+      uncatList,
+    ].join('\n');
+  }, [labels, uncategorizedThreads]);
+
+  const findOrCreateOrganizerThread = useCallback(async () => {
+    const store = useChatStore.getState();
+    const existing = store.threads.find((t) => t.title === ORGANIZER_TITLE);
+    if (existing) return existing;
+
+    const res = await apiFetch('/api/threads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: ORGANIZER_TITLE }),
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    const created = await res.json();
+    await loadThreads();
+    return created as Thread;
+  }, [loadThreads]);
+
+  const handleOrganizeWithCat = useCallback(async () => {
+    let target: Thread;
+    try {
+      target = await findOrCreateOrganizerThread();
+    } catch {
+      notifyThreadCreateFailure('整理助手 thread 创建失败，请重试');
+      return;
+    }
+
+    const threadId = target.id;
+    useChatStore.getState().setCurrentThread(threadId);
+    pushThreadRouteWithHistory(threadId, typeof window !== 'undefined' ? window : undefined);
+
+    try {
+      const res = await apiFetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: buildTriggerContent(), threadId }),
+      });
+      if (!res.ok) {
+        useToastStore
+          .getState()
+          .addToast({ type: 'error', title: '发送失败', message: '触发消息发送失败，请重试', duration: 5000 });
+      }
+    } catch {
+      useToastStore
+        .getState()
+        .addToast({ type: 'error', title: '发送失败', message: '网络错误，请检查连接', duration: 5000 });
+    }
+  }, [findOrCreateOrganizerThread, buildTriggerContent]);
+
+  const handleSuggestAll = useCallback(async () => {
+    setSuggestLoading(true);
+    setSuggestions(undefined);
+    try {
+      const target = await findOrCreateOrganizerThread();
+      const threadId = target.id;
+      const sentAt = Date.now();
+
+      const triggerRes = await apiFetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: buildTriggerContent(), threadId }),
+      });
+      if (!triggerRes.ok) return;
+
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const msgRes = await apiFetch(`/api/messages?threadId=${encodeURIComponent(threadId)}&limit=5`);
+        if (!msgRes.ok) continue;
+        const data = await msgRes.json();
+        const catMsg = (data.messages ?? []).find(
+          (m: { catId?: string; timestamp: number; isDraft?: boolean }) =>
+            m.catId && m.timestamp > sentAt && !m.isDraft,
+        );
+        if (!catMsg) continue;
+        const match = (catMsg.content as string).match(/<!-- SUGGESTIONS_JSON:([\s\S]*?) -->/);
+        if (match?.[1]) {
+          try {
+            const parsed = JSON.parse(match[1]) as Record<string, unknown>;
+            const { filterSuggestions } = await import('@/utils/batch-apply-labels');
+            const validThreadIds = new Set(uncategorizedThreads.map((t) => t.id));
+            const validLabelIds = new Set(labels.map((l) => l.id));
+            setSuggestions(filterSuggestions(parsed, validThreadIds, validLabelIds));
+          } catch {
+            /* JSON malformed — modal stays usable without pre-fill */
+          }
+        }
+        break;
+      }
+    } catch {
+      /* network error — loading will stop, modal stays usable */
+    } finally {
+      setSuggestLoading(false);
+    }
+  }, [findOrCreateOrganizerThread, buildTriggerContent]);
+
+  const handleBatchApplyLabels = useCallback(async (assignments: Map<string, string[]>) => {
+    const { batchApplyLabels } = await import('@/utils/batch-apply-labels');
+    const updateLabels = useChatStore.getState().updateThreadLabels;
+    const { failedThreadIds } = await batchApplyLabels(assignments, updateLabels);
+    if (failedThreadIds.length === 0) {
+      setSuggestions(undefined);
+      setShowOrganizer(false);
+    }
+    return { failedThreadIds };
+  }, []);
+
   const unreadIds = useMemo(() => {
     const ids = new Set<string>();
     for (const thread of threads) {
@@ -641,6 +773,8 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
           selectedFilter={labelFilter}
           onSelect={setLabelFilter}
           uncategorizedCount={uncategorizedCount}
+          onOrganize={handleOrganizeWithCat}
+          onManualOrganize={() => setShowOrganizer(true)}
         />
 
         <div ref={scrollContainerRef} onScroll={handleScrollAnchor} className="flex-1 overflow-y-auto">
@@ -897,6 +1031,22 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
           thread={deleteTarget}
           onCancel={() => setDeleteTarget(null)}
           onConfirm={handleDeleteConfirm}
+        />
+      )}
+
+      {showOrganizer && (
+        <ThreadOrganizerModal
+          open={showOrganizer}
+          onClose={() => {
+            setShowOrganizer(false);
+            setSuggestions(undefined);
+          }}
+          threads={uncategorizedThreads}
+          labels={labels}
+          onApply={handleBatchApplyLabels}
+          onSuggestAll={handleSuggestAll}
+          initialSuggestions={suggestions}
+          loading={suggestLoading}
         />
       )}
     </>

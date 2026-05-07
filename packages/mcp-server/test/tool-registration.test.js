@@ -88,6 +88,7 @@ const EXPECTED_TOOLS = [
   'cat_cafe_register_scheduled_task',
   'cat_cafe_remove_scheduled_task',
   'cat_cafe_hold_ball',
+  'cat_cafe_list_labels',
   // F061 Bug-F workaround: MCP shell exec for read-only commands
   'cat_cafe_shell_exec',
 ];
@@ -127,6 +128,7 @@ const EXPECTED_COLLAB_TOOLS = [
   'cat_cafe_register_scheduled_task',
   'cat_cafe_remove_scheduled_task',
   'cat_cafe_hold_ball',
+  'cat_cafe_list_labels',
   // F061 Bug-F workaround: MCP shell exec for read-only commands
   'cat_cafe_shell_exec',
 ];

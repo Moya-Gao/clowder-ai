@@ -316,6 +316,11 @@ export const listThreadsInputSchema = {
   agentKeyCatId: agentKeyCatIdSchema,
 };
 
+export const listLabelsInputSchema = {
+  limit: z.number().int().min(1).max(50).optional().default(50).describe('Max labels to return (default: 50).'),
+  agentKeyCatId: agentKeyCatIdSchema,
+};
+
 export const featIndexInputSchema = {
   limit: z
     .number()
@@ -495,6 +500,19 @@ export async function handleListThreads(input: {
       ...(input.limit ? { limit: String(input.limit) } : {}),
       ...(input.activeSince !== undefined ? { activeSince: String(input.activeSince) } : {}),
       ...(input.keyword ? { keyword: input.keyword } : {}),
+    },
+    { agentKeyCatId: input.agentKeyCatId },
+  );
+}
+
+export async function handleListLabels(input: {
+  limit?: number | undefined;
+  agentKeyCatId?: string | undefined;
+}): Promise<ToolResult> {
+  return callbackGet(
+    '/api/callbacks/list-labels',
+    {
+      ...(input.limit ? { limit: String(input.limit) } : {}),
     },
     { agentKeyCatId: input.agentKeyCatId },
   );
@@ -1106,6 +1124,14 @@ export const callbackTools = [
       'Use activeSince (Unix ms) to filter to recently active threads. Use keyword to search by title.',
     inputSchema: listThreadsInputSchema,
     handler: handleListThreads,
+  },
+  {
+    name: 'cat_cafe_list_labels',
+    description:
+      'List user-defined thread labels (id, name, color). Use when you need to know which labels exist ' +
+      'before suggesting label assignments for threads. Returns all labels sorted by sortOrder.',
+    inputSchema: listLabelsInputSchema,
+    handler: handleListLabels,
   },
   {
     name: 'cat_cafe_feat_index',

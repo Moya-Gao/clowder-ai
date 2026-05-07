@@ -145,6 +145,8 @@ export interface CallbackRoutesOptions {
   limbRegistry?: import('../domains/limb/LimbRegistry.js').LimbRegistry;
   /** F126 Phase C: Limb pairing store for remote device approval */
   limbPairingStore?: import('../domains/limb/LimbPairingStore.js').LimbPairingStore;
+  /** F187 Phase C: Label store for list-labels callback. */
+  labelStore?: import('../domains/cats/services/stores/ports/ThreadStore.js').ILabelStore;
   /** F088: Outbound delivery hook for connector-bound threads (late-bound after gateway bootstrap). */
   outboundHook?: {
     deliver(
@@ -178,6 +180,10 @@ const listThreadsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),
   activeSince: z.coerce.number().int().min(0).optional(),
   keyword: z.string().trim().min(1).max(200).optional(),
+});
+
+const listLabelsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).optional(),
 });
 
 const featIndexQuerySchema = z.object({
@@ -1277,9 +1283,38 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       pinned: thread.pinned ?? false,
       messageCount: null,
       participants: thread.participants,
+      labels: thread.labels ?? [],
     }));
 
     return { threads: summaries };
+  });
+
+  app.get('/api/callbacks/list-labels', async (request, reply) => {
+    const principal = requireCallbackPrincipal(request, reply);
+    if (!principal) return;
+
+    const parsed = listLabelsQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid request query', details: parsed.error.issues };
+    }
+
+    const { labelStore } = opts;
+    if (!labelStore) {
+      reply.status(503);
+      return { error: 'Label store not configured' };
+    }
+
+    const requestedLimit = parsed.data.limit ?? 50;
+    const labels = await labelStore.list(principal.userId);
+    const result = labels.slice(0, requestedLimit).map((l) => ({
+      id: l.id,
+      name: l.name,
+      color: l.color,
+      sortOrder: l.sortOrder,
+    }));
+
+    return { labels: result };
   });
 
   app.get('/api/callbacks/feat-index', async (request, reply) => {
