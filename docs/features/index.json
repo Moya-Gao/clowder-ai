@@ -1161,7 +1161,7 @@
     {
       "id": "F187",
       "name": "Thread Labels — 用户自定义标签 + Sidebar 筛选 + 猫猫辅助分类",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F187-thread-labels.md"
     }
   ]

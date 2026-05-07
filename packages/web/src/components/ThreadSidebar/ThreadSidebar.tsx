@@ -12,6 +12,7 @@ import { MemoryIcon } from '../icons/MemoryIcon';
 
 import { readProjectNames, writeProjectNames } from './active-workspace';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
+import { LabelFilterBar } from './LabelFilterBar';
 import { SectionGroup } from './SectionGroup';
 import { ThreadItem } from './ThreadItem';
 import { pushThreadRouteWithHistory } from './thread-navigation';
@@ -57,6 +58,7 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
   const [isCreating, setIsCreating] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [labelFilter, setLabelFilter] = useState<string | null>(null);
   const [bindWarning, setBindWarning] = useState<string | null>(null);
   // I-1: Thread to confirm deletion (null = no dialog)
   const [deleteTarget, setDeleteTarget] = useState<Thread | null>(null);
@@ -460,6 +462,21 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
     });
   }, [liveThreads, normalizedQuery]);
 
+  const { labels } = useLabelStore();
+
+  const labelFilteredThreads = useMemo(() => {
+    if (!labelFilter) return filteredThreads;
+    if (labelFilter === '__uncategorized__') {
+      return filteredThreads.filter((t) => !t.labels || t.labels.length === 0);
+    }
+    return filteredThreads.filter((t) => t.labels?.includes(labelFilter));
+  }, [filteredThreads, labelFilter]);
+
+  const uncategorizedCount = useMemo(
+    () => liveThreads.filter((t) => !t.labels || t.labels.length === 0).length,
+    [liveThreads],
+  );
+
   const unreadIds = useMemo(() => {
     const ids = new Set<string>();
     for (const thread of threads) {
@@ -490,11 +507,11 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
   // F095 Phase B: Active workspace grouping
   const { pinnedProjects, toggleProjectPin } = useProjectPins();
   const threadGroups = useMemo(
-    () => sortAndGroupThreadsWithWorkspace(filteredThreads, unreadIds, pinnedProjects),
-    [filteredThreads, unreadIds, pinnedProjects],
+    () => sortAndGroupThreadsWithWorkspace(labelFilteredThreads, unreadIds, pinnedProjects),
+    [labelFilteredThreads, unreadIds, pinnedProjects],
   );
   const existingProjects = useMemo(() => getProjectPaths(liveThreads), [liveThreads]);
-  const showDefaultThread = normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery);
+  const showDefaultThread = (normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery)) && !labelFilter;
 
   // F095 Phase E: Scroll anchor — keeps visible content in place when threads reorder
   const { onScroll: handleScrollAnchor } = useScrollAnchor(scrollContainerRef, threadGroups);
@@ -618,6 +635,13 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
             </button>
           )}
         </div>
+
+        <LabelFilterBar
+          labels={labels}
+          selectedFilter={labelFilter}
+          onSelect={setLabelFilter}
+          uncategorizedCount={uncategorizedCount}
+        />
 
         <div ref={scrollContainerRef} onScroll={handleScrollAnchor} className="flex-1 overflow-y-auto">
           {isLoadingThreads && threads.length === 0 && (
