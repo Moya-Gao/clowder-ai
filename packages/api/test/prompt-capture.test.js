@@ -19,6 +19,7 @@ function makeCapture(overrides = {}) {
     invocationId: 'inv-001',
     catId: 'opus',
     threadId: 'thread-abc',
+    userId: 'user-001',
     model: 'claude-opus-4-6',
     capturedAt: Date.now(),
     systemPrompt: 'You are a helpful cat.',
@@ -153,6 +154,39 @@ test('F181: estimateTokens gives reasonable estimate', async () => {
   const { estimateTokens } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
   const estimate = estimateTokens('Hello world, this is a test prompt');
   assert.ok(estimate > 5 && estimate < 20);
+});
+
+// ── Resource-level authorization ──────────────────────────────────
+
+test('F181: read returns null for cross-user access', async () => {
+  const { PromptCaptureStore } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
+  const dir = join(testDir, 'authz');
+  const store = new PromptCaptureStore({ baseDir: dir });
+
+  const capture = makeCapture({ userId: 'owner-123' });
+  store.captureSync(capture);
+
+  const resultOwner = store.read(capture.captureId, 'owner-123');
+  assert.ok(resultOwner, 'Owner should be able to read their own capture');
+
+  const resultOther = store.read(capture.captureId, 'other-456');
+  assert.equal(resultOther, null, 'Other user should not be able to read capture');
+});
+
+test('F181: listByThread filters by userId', async () => {
+  const { PromptCaptureStore } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
+  const dir = join(testDir, 'authz-list');
+  const store = new PromptCaptureStore({ baseDir: dir });
+
+  store.captureSync(makeCapture({ threadId: 'shared-thread', userId: 'alice' }));
+  store.captureSync(makeCapture({ threadId: 'shared-thread', userId: 'bob' }));
+  store.captureSync(makeCapture({ threadId: 'shared-thread', userId: 'alice' }));
+
+  const aliceResults = store.listByThread('shared-thread', 20, 'alice');
+  assert.equal(aliceResults.length, 2, 'Alice should only see her captures');
+
+  const bobResults = store.listByThread('shared-thread', 20, 'bob');
+  assert.equal(bobResults.length, 1, 'Bob should only see his captures');
 });
 
 // ── Source-level tests ──────────────────────────────────────────

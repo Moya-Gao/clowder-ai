@@ -28,6 +28,7 @@ export interface PromptCapture {
   hmacInvocationId?: string;
   catId: string;
   threadId: string;
+  userId: string;
   model: string;
   capturedAt: number;
 
@@ -53,6 +54,7 @@ export interface CaptureIndexEntry {
   hmacInvocationId?: string;
   catId: string;
   threadId: string;
+  userId: string;
   capturedAt: number;
   promptBytes: number;
   file: string;
@@ -105,6 +107,7 @@ export class PromptCaptureStore {
           hmacInvocationId: data.hmacInvocationId,
           catId: data.catId,
           threadId: data.threadId,
+          userId: data.userId,
           capturedAt: data.capturedAt,
           promptBytes: data.promptBytes,
           file: fileName,
@@ -128,6 +131,7 @@ export class PromptCaptureStore {
         hmacInvocationId: data.hmacInvocationId,
         catId: data.catId,
         threadId: data.threadId,
+        userId: data.userId,
         capturedAt: data.capturedAt,
         promptBytes: data.promptBytes,
         file: fileName,
@@ -141,7 +145,7 @@ export class PromptCaptureStore {
     }
   }
 
-  read(captureId: string): PromptCapture | null {
+  read(captureId: string, userId?: string): PromptCapture | null {
     if (!isValidCaptureId(captureId)) return null;
     try {
       const filePath = join(this.payloadDir, `${captureId}.json.gz`);
@@ -149,6 +153,7 @@ export class PromptCaptureStore {
       const compressed = readFileSync(filePath);
       const capture = JSON.parse(gunzipSync(compressed).toString('utf8')) as PromptCapture;
       if (capture.capturedAt < Date.now() - this.ttlMs) return null;
+      if (userId && capture.userId && capture.userId !== userId) return null;
       return capture;
     } catch (err) {
       log.warn({ err, captureId }, 'Failed to read prompt capture');
@@ -156,17 +161,20 @@ export class PromptCaptureStore {
     }
   }
 
-  listByInvocation(invocationId: string): CaptureIndexEntry[] {
+  listByInvocation(invocationId: string, userId?: string): CaptureIndexEntry[] {
     const cutoff = Date.now() - this.ttlMs;
     return this.readIndex().filter(
-      (e) => (e.invocationId === invocationId || e.hmacInvocationId === invocationId) && e.capturedAt >= cutoff,
+      (e) =>
+        (e.invocationId === invocationId || e.hmacInvocationId === invocationId) &&
+        e.capturedAt >= cutoff &&
+        (!userId || !e.userId || e.userId === userId),
     );
   }
 
-  listByThread(threadId: string, limit = 20): CaptureIndexEntry[] {
+  listByThread(threadId: string, limit = 20, userId?: string): CaptureIndexEntry[] {
     const cutoff = Date.now() - this.ttlMs;
     return this.readIndex()
-      .filter((e) => e.threadId === threadId && e.capturedAt >= cutoff)
+      .filter((e) => e.threadId === threadId && e.capturedAt >= cutoff && (!userId || !e.userId || e.userId === userId))
       .slice(-limit);
   }
 

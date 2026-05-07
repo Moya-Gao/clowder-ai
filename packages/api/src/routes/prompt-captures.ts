@@ -34,27 +34,29 @@ export const promptCaptureRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Querystring: { threadId?: string; invocationId?: string; limit?: string } }>(
     '/api/debug/prompt-captures',
     async (request, reply) => {
-      if (!requireSession(request, reply)) return;
+      const userId = requireSession(request, reply);
+      if (!userId) return;
       const store = getPromptCaptureStore();
       const limit = Math.min(parseInt(request.query.limit ?? '20', 10) || 20, 100);
 
       if (request.query.invocationId) {
-        return store.listByInvocation(request.query.invocationId);
+        return store.listByInvocation(request.query.invocationId, userId);
       }
       if (request.query.threadId) {
-        return store.listByThread(request.query.threadId, limit);
+        return store.listByThread(request.query.threadId, limit, userId);
       }
       return reply.status(400).send({ error: 'Provide invocationId or threadId filter' });
     },
   );
 
   app.get<{ Params: { captureId: string } }>('/api/debug/prompt-captures/:captureId', async (request, reply) => {
-    if (!requireSession(request, reply)) return;
+    const userId = requireSession(request, reply);
+    if (!userId) return;
     const { captureId } = request.params;
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(captureId)) {
       return reply.status(400).send({ error: 'Invalid captureId format' });
     }
-    const capture = getPromptCaptureStore().read(captureId);
+    const capture = getPromptCaptureStore().read(captureId, userId);
     if (!capture) {
       return reply.status(404).send({ error: 'Capture not found or expired' });
     }

@@ -26,6 +26,7 @@ export interface CaptureInput {
   catId: string;
   invocationId: string;
   threadId: string;
+  userId: string;
   model: string;
   systemPrompt: string;
   missionPrefix?: string;
@@ -50,6 +51,7 @@ export function capturePromptIfEnabled(input: CaptureInput): void {
       hmacInvocationId: pseudonymizeId(input.invocationId),
       catId: input.catId,
       threadId: input.threadId,
+      userId: input.userId,
       model: input.model,
       capturedAt: Date.now(),
       systemPrompt: input.systemPrompt,

@@ -1111,6 +1111,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       catId: catId as string,
       invocationId,
       threadId,
+      userId,
       model: resolvedAccount?.models?.[0] ?? 'unknown',
       systemPrompt: params.systemPrompt ?? '',
       missionPrefix: missionPrefix ?? undefined,

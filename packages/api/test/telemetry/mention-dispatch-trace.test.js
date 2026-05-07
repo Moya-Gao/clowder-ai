@@ -76,6 +76,17 @@ test('F181: route-serial tracks catInvocationSpans per worklist index', () => {
   );
 });
 
+test('F181: dispatched cat uses mentionParentSpan as effective routeSpan', () => {
+  const src = readFileSync(
+    resolve(__dirname, '../../src/domains/cats/services/agents/routing/route-serial.ts'),
+    'utf8',
+  );
+  assert.ok(
+    src.includes('mentionParentSpan.get(index)') && src.includes('routeSpan: mentionParentSpan.get(index)'),
+    'Should use mention dispatch span as parent for A2A-dispatched cat invocations',
+  );
+});
+
 // ── Dispatch span deferred end ────────────────────────────────────
 
 test('F181: dispatch span end is deferred until last child completes', () => {
