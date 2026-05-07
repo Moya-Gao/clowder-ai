@@ -47,11 +47,11 @@ UI：
 
 ### Phase C: 猫猫辅助分类
 
-- 用户触发的一键操作（按钮 / 命令），不是静默自动分类
-- 流程：用户点击 → 猫猫扫描未分类 thread 的标题/内容摘要 → 批量建议标签 → 用户逐条确认/修改 → 批量应用
-- 当前 session 猫直接做（不起无头 CLI），调 `list_threads` MCP 获取未分类 thread 标题+元数据
-- 猫在自身上下文分析标题/关联 feature ID，生成标签建议
-- 建议结果用 interactive rich block 展示（card-grid，每个 thread 一张卡，可修改建议标签）
+- **触发**：sidebar "未分类" pill 旁 ✨ 按钮，用户主动点击触发（不是静默自动分类）
+- **展示**：浮层面板（overlay/modal），不写入任何 thread 消息流，不污染聊天记录
+- **路由**：按钮点击走现有消息路由（上一只活跃猫 > thread 首选猫 > 全局首选猫），当前 session 猫直接做
+- **流程**：按钮点击 → 猫猫调 `list_threads` MCP 获取未分类 thread 标题+元数据 → 分析标题/关联 feature ID → 在面板中展示批量建议卡片 → 用户逐条确认/修改 → 批量调 label API 应用
+- **不做**：不引入 FunctionRun 数据模型（Phase C scope 内不需要）；审计需求后续按需加 audit log
 
 ## Acceptance Criteria
 
@@ -67,9 +67,9 @@ UI：
 - [x] AC-B3: Thread 条目上有标签色点指示
 
 ### Phase C（猫猫辅助分类）
-- [ ] AC-C1: 用户可触发"猫猫帮我分类"操作
-- [ ] AC-C2: 猫猫基于 thread 元数据建议标签，用 interactive rich block 展示
-- [ ] AC-C3: 用户可逐条确认/修改建议后批量应用
+- [ ] AC-C1: sidebar "未分类" pill 旁有 ✨ 按钮，点击触发分类流程
+- [ ] AC-C2: 猫猫基于 thread 元数据建议标签，用浮层面板展示建议卡片（不写入 thread 消息流）
+- [ ] AC-C3: 用户可在面板中逐条确认/修改建议后批量应用标签
 
 ## Dependencies
 
@@ -100,6 +100,8 @@ UI：
 | KD-3 | 图标用 SVG，禁止 emoji | 铲屎官 Design Gate 反馈；与现有 sidebar 图标系统一致 | 2026-05-06 |
 | KD-4 | 筛选条溢出策略：inline 5-6 个 + "..." 下拉 | 标签数可能 10+，全部内联会挤爆筛选条 | 2026-05-06 |
 | KD-5 | 猫猫分类不起无头 CLI，当前 session 猫直接做 | list_threads MCP + 标题分析，成本 = 一次普通对话 | 2026-05-06 |
+| KD-6 | Phase C 用浮层面板，不用固定 thread 也不用 function run | 面板零占地不污染聊天（铲屎官确认）；function run 模型太重留独立立项；固定 thread 也是噪音 | 2026-05-07 |
+| KD-7 | 按钮触发走现有消息路由（上一只猫 > 首选猫 > 全局首选猫） | 复用已有机制，不需要新调度逻辑（铲屎官确认路由规则） | 2026-05-07 |
 
 ## Timeline
 
