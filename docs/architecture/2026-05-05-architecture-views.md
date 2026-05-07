@@ -663,6 +663,174 @@ State    thread · task · docs · evidence · InvocationQueue
 
 ---
 
+### 图 8：Harness 加载时序图（一次 Invocation 的生命周期）
+
+**计划文件名**：`docs/architecture/assets/2026-05-05/08-harness-loading-sequence.png`
+
+**答**：harness 的"乘法"（Agent Quality = Capability × Environment Fit）具体怎么发生？一次 invocation 从用户消息到执行完毕，harness 的每个部件在什么时刻介入、往上下文窗口里注入了什么？
+
+**给谁看**：想复刻这套系统的团队、想理解"Environment Fit 到底是什么工程"的行业研究者
+
+**立意**：行业讲 harness 都是分类图（"应该有哪些构件"）或层级图（"系统有几层"）。没有人画过 **harness 的加载时序**——因为要画这张图，你得真的建过这套系统。图 3 画的是多次 invocation 之间的球权协议；图 8 画的是单次 invocation 内部的 harness 加载链路。
+
+**关键区分**：harness 注入不是"一次性塞完系统提示词"。它是**多阶段、多时机、多层级**的：
+
+| 注入层级 | 生命周期 | 举例 |
+|---------|---------|------|
+| Session-level（静态身份） | 整个 session 存活，扛过上下文压缩 | CLAUDE.md 身份、shared-rules 家规、队友名册 |
+| Per-invocation（动态上下文） | 每次 invocation 重新组装 | A2A 球权状态、voice mode、SOP 阶段、活跃信号 |
+| Session #2+（冷启动） | 仅在有前序 session 时注入 | 上一轮摘要、任务快照、recall 指令 |
+| Runtime hooks（执行中） | tool call 前后触发 | sanctuary guard、evidence guard、hyperfocus brake |
+| Post-execution（回收） | agent 执行完毕后 | mention 检测、rich block 提取、continuation capsule |
+
+**画法**：纵向时间轴，左侧是时间流（从上到下），右侧分栏标注每个阶段往上下文里注入了什么。
+
+```
+时间 ↓
+
+┌─ A. 路由 & 入队 ──────────────────────────────────────────────┐
+│  用户消息到达                                                   │
+│  ├─ @ 句柄解析 → 确定目标猫                                    │
+│  ├─ InvocationQueue 入队                                       │
+│  ├─ F175 相邻消息合批                                           │
+│  └─ QueueProcessor 取出 → 开始 invocation                      │
+└────────────────────────────────────────────────────────────────┘
+                         │
+┌─ B. Session 解析 ──────▼──────────────────────────────────────┐
+│  sessionManager.get(userId, catId, threadId)                   │
+│  ├─ 有活跃 session → --resume 续接                              │
+│  └─ 无 → 新建 session                                          │
+│  sessionChainStore.getChain() → 有前序 sealed session?          │
+│  sessionSealer.reconcileStuck() → 清理卡住的 sealing           │
+└────────────────────────────────────────────────────────────────┘
+                         │
+┌─ C. 静态身份（Session-level，扛压缩）─▼───────────────────────┐
+│  buildStaticIdentity() → --append-system-prompt                │
+│                                                                │
+│  ① 猫的身份 ────── displayName / nickname / role / personality │
+│  ② 限制声明 ────── catConfig.restrictions（如暹罗猫禁写代码）  │
+│  ③ Pack Masks ──── F129 角色叠加                               │
+│  ④ A2A 格式 ────── @ 路由规则 + 可调用句柄列表                 │
+│  ⑤ 队友名册 ────── 每只猫的 @mention / 模型 / 擅长 / 注意     │
+│  ⑥ 工作流触发 ──── 布偶/缅因/暹罗各自的 workflow hints        │
+│  ⑦ 铲屎官信息 ──── CVO 名字 + @ 方式                          │
+│  ⑧ L0 治理摘要 ── shared-rules.md（Rule 0 / 世界观 / 纪律 /  │
+│                    Magic Words / 质量覆盖 / 46 hotfix 治理）   │
+│  ⑨ Pack 护栏 ──── F129 硬约束 + 默认值                        │
+│  ⑩ MCP 工具说明 ── 仅 Claude（Codex/Gemini 用 callback 注入） │
+└────────────────────────────────────────────────────────────────┘
+                         │
+┌─ D. 动态上下文（Per-invocation，每次重新组装）─▼──────────────┐
+│  buildInvocationContext()                                      │
+│                                                                │
+│  ① 身份常量 ────── @catId, model=xxx（钉死，抗压缩）          │
+│  ② A2A 直传 ────── directMessageFrom + 同族防伪提醒            │
+│  ③ 乒乓预警 ────── streak ≥ 2 时注入（F167 L1）               │
+│  ④ 本轮队友 ────── 仅本次 invocation 参与的猫                  │
+│  ⑤ 模式上下文 ──── serial(链位)/parallel(反模仿)/independent   │
+│  ⑥ 球权退出检查 ── A2A 传球决策树                              │
+│  ⑦ 路由反馈 ────── F064 上次 @ 没在行首的一次性提醒            │
+│  ⑧ Prompt 标签 ── critique 等标签触发模式                      │
+│  ⑨ Skill 提示 ──── F140 Phase C 信号触发的 skill 建议         │
+│  ⑩ 活跃参与者 ──── F042 Wave 3 最近活跃猫提示                 │
+│  ⑪ 路由策略 ────── F042 thread 级 prefer/avoid 规则            │
+│  ⑫ SOP 阶段 ────── F073 P4 当前 SOP 步骤（公告板不是控制器）  │
+│  ⑬ Voice Mode ──── ON=优先语音 / OFF=默认文字                  │
+│  ⑭ 训练营状态 ──── F087 phase + leadCat + memberCount          │
+│  ⑮ 引导候选 ────── F155 内联引导协议                           │
+│  ⑯ 世界上下文 ──── F093 世界观状态（角色/场景/canon）          │
+│  ⑰ 宪法知识 ────── F163 always_on 文档物理注入                 │
+│  ⑱ 信号文章 ────── F091 thread 关联的研究文章                  │
+│  ⑲ 审阅者列表 ──── F032 Phase D2 roster 匹配的 reviewer       │
+│  ⑳ 尾锚决策树 ──── F167 Phase D 传球三选一（最大近因偏差位）  │
+└────────────────────────────────────────────────────────────────┘
+                         │
+┌─ E. 冷启动（Session #2+ 专用）─▼──────────────────────────────┐
+│  buildSessionBootstrap()                                       │
+│  ├─ 上一轮摘要 ──── generative digest → extractive fallback    │
+│  ├─ 任务快照 ────── taskStore.listByThread → formatSnapshot    │
+│  ├─ 记忆工具指令 ── search_evidence / list_session_chain 等    │
+│  └─ Token 预算 ──── 硬上限 2000 token，按优先级逐项丢弃       │
+│     丢弃顺序：recall → task snapshot → digest → thread memory  │
+└────────────────────────────────────────────────────────────────┘
+                         │
+┌─ F. 上下文窗口组装 ─▼─────────────────────────────────────────┐
+│  assembleIncrementalContext() / assembleContext()               │
+│  ├─ Smart Window ── F148 上下文压力 > 80% → 注入 briefing     │
+│  ├─ 历史消息 ────── 按 token 预算裁剪                          │
+│  └─ 当前用户消息 ── 如果不在历史里则追加                       │
+│                                                                │
+│  最终拼接：invocationContext + modePrompt + bootstrap          │
+│            + mcpInstructions + contextText + userMessage        │
+└────────────────────────────────────────────────────────────────┘
+                         │
+┌─ G. 执行（CLI Invocation）─▼──────────────────────────────────┐
+│  invokeSingleCat()                                             │
+│  ├─ 创建 invocation 记录                                       │
+│  ├─ 获取 sessionMutex（F118 per-session 串行化）               │
+│  ├─ 启动 CLI（claude / opencode / acp / gemini）              │
+│  │                                                             │
+│  │  ┌─ SessionStart Hooks 触发 ─────────────────────────┐     │
+│  │  │  f24-post-compact-bootstrap.sh（压缩恢复）         │     │
+│  │  │  preflight-shared-state.sh（共享状态校验）         │     │
+│  │  └───────────────────────────────────────────────────┘     │
+│  │                                                             │
+│  │  ┌─ 模型思考 + Tool Call 循环 ──────────────────────┐     │
+│  │  │                                                   │     │
+│  │  │  PreToolUse Hooks:                                │     │
+│  │  │   runtime-sanctuary-guard.sh（圣域防护）          │     │
+│  │  │   pretool-brake-check.sh（hyperfocus 刹车）       │     │
+│  │  │   pretool-evidence-guard.sh（evidence 防覆写）    │     │
+│  │  │         ↓                                         │     │
+│  │  │  Tool 执行（MCP / Bash / Edit / Read / ...）     │     │
+│  │  │         ↓                                         │     │
+│  │  │  PostToolUse Hooks:                               │     │
+│  │  │   posttool-evidence-marker.sh（标记已读）         │     │
+│  │  │   post-edit-check.sh（编辑校验）                  │     │
+│  │  │   shared-doc-push-guard.sh（共享文档提醒）        │     │
+│  │  │   sop-stage-bookmark.sh（SOP 阶段记录）           │     │
+│  │  │   hyperfocus-brake-timer.sh（刹车计时器）         │     │
+│  │  │                                                   │     │
+│  │  │  → 继续思考或输出最终文本                         │     │
+│  │  └───────────────────────────────────────────────────┘     │
+│  │                                                             │
+│  ├─ 流式输出：text / tool_use / done                          │
+│  └─ mid-loop 外部投递（F151 飞书/企微/TG 实时推送）           │
+└────────────────────────────────────────────────────────────────┘
+                         │
+┌─ H. 回收 & 下一棒 ──▼─────────────────────────────────────────┐
+│  ├─ A2A mention 检测 → targetCats 解析                        │
+│  ├─ Rich Block 提取 → Hub 渲染                                │
+│  ├─ 生成图片扫描 → F172 publishGeneratedImage                 │
+│  ├─ Audit 日志 + Telemetry                                    │
+│  ├─ Continuation Capsule 封存（下次冷启动用）                  │
+│  ├─ Ack Cursors（单调 CAS）                                   │
+│  ├─ 外部平台投递（F088 剩余内容）                              │
+│  │                                                             │
+│  └─ 下一棒判定：                                               │
+│     ├─ 有 targetCats → 回到 A（新 invocation 入队）           │
+│     ├─ 有 continuation capsule → 限流后入队（5次/60分钟）     │
+│     └─ 无 → 球落地，等用户或外部事件                          │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**必须表达的独家增量**：
+
+| 维度 | 行业常见画法 | 我们的独家 |
+|------|-----------|----------|
+| 注入时机 | "system prompt 注入一次" | 5 个不同时机：session-level / per-invocation / bootstrap / hooks / post-exec |
+| 注入内容 | "instructions + tools" | 20+ 个具体注入项，每个有明确 Feature ID 来源 |
+| 抗压缩 | 不讲 | 静态身份扛压缩（--append-system-prompt），动态上下文每次重组 |
+| 冷启动 | 不讲 | Session #2+ 的 digest + task snapshot + 2000 token 预算 + 丢弃优先级 |
+| Hooks | "有 hooks" | 具体到每个 hook 的触发时机和脚本名 |
+| 球权闭环 | 不讲 | 尾锚决策树在上下文最末位（最大近因偏差），执行后 mention 检测自动入队 |
+
+**风格**：纵向时间轴，左侧时间流，右侧分栏。8 个阶段用不同底色（A路由蓝、B解析灰、C身份紫、D动态橙、E冷启动绿、F组装蓝、G执行紫+红、H回收绿）。Hooks 用红色闪电标记。
+
+**不要画成**：图 7 全局总图（那是静态层级）。图 8 是动态时序——同一个系统在时间轴上展开。
+
+---
+
 ## 四、为什么是 5 不是 4 或 6
 
 | 考量 | 判断 |
@@ -758,6 +926,7 @@ Article v2 专用补图另有图 6（记忆系统管线）和图 7（全局架�
 6. **图 5（技术栈）最后**：给开发者，不急
 7. **图 6（记忆管线）**：article v2 补图，替换旧 Part IV 记忆图
 8. **图 7（全局总图）**：article v2 补图，替换旧附录总图
+9. **图 8（Harness 加载时序）**：E2E invocation lifecycle，行业独家
 
 ### 图片存放
 
@@ -771,7 +940,8 @@ docs/architecture/assets/2026-05-05/
 ├── 04.1-flywheel-expansion.png
 ├── 05-runtime-stack.png
 ├── 06-memory-pipeline-architecture.png
-└── 07-cat-cafe-global-architecture.png
+├── 07-cat-cafe-global-architecture.png
+└── 08-harness-loading-sequence.png        # planned
 ```
 
 SVG 源文件与 `generate-architecture-diagrams.mjs` 同目录保留，后续需要改字、改布局时可重新导出 PNG。
