@@ -8,7 +8,7 @@ created: 2026-05-06
 
 # F188: Library Stewardship — 图书馆管护与成长
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -22,7 +22,7 @@ F186 建成了图书馆的骨架（Collection 联邦 + Scanner + Security + Grap
 
 一条完整的价值链：**知识怎么进来 → 索引怎么建 → 质量怎么看 → 坏了怎么修 → 修完怎么验证**。
 
-### Phase A: 运行期维护入口
+### Phase A: 运行期维护入口 ✅
 
 运行期全量 rebuild API + Hub 按钮 + 最小状态可见面。不做完整 Durable Job Ledger，只做 memory jobs 的最小状态表（task id / status / progress / error / result）。
 
@@ -59,11 +59,11 @@ orphan edge audit 接入 Phase B Health Dashboard。
 
 ## Acceptance Criteria
 
-### Phase A（运行期维护入口）
-- [ ] AC-A1: `POST /api/evidence/rebuild` 触发全量 rebuild，返回 task id
-- [ ] AC-A2: `GET /api/evidence/rebuild/:taskId` 返回 status / progress / error / result
-- [ ] AC-A3: Hub Memory 面板有 "重建索引" 按钮，点击后显示进度
-- [ ] AC-A4: rebuild 运行期间，search 仍可用（不阻塞读）
+### Phase A（运行期维护入口）✅
+- [x] AC-A1: `POST /api/evidence/rebuild` 触发全量 rebuild，返回 task id
+- [x] AC-A2: `GET /api/evidence/rebuild/:taskId` 返回 status / progress / error / result
+- [x] AC-A3: Hub Memory 面板有 "重建索引" 按钮，点击后显示进度
+- [x] AC-A4: rebuild 运行期间，search 仍可用（不阻塞读）
 
 ### Phase B（Library Health Dashboard）
 - [ ] AC-B1: Health Dashboard 展示 stale anchors 数量 + 列表
@@ -117,7 +117,7 @@ orphan edge audit 接入 Phase B Health Dashboard。
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Phase A rebuild 进度：按文件数百分比 vs 按 Phase（scan / chunk / embed）？ | ⬜ 未定 |
+| OQ-1 | Phase A rebuild 进度：按文件数百分比 vs 按 Phase（scan / chunk / embed）？ | ✅ 按 Phase 阶段边界（scanning→indexing→cleanup→embedding→done） |
 | OQ-2 | Phase B stale anchor 检测频率：rebuild 时顺带 vs 独立定时扫描？ | ⬜ 未定 |
 | OQ-3 | Phase E Pin 的 UI 入口：RecallFeed 内嵌 vs 独立 Pin 管理页？ | ⬜ 未定 |
 
@@ -134,6 +134,7 @@ orphan edge audit 接入 Phase B Health Dashboard。
 | 日期 | 事件 |
 |------|------|
 | 2026-05-06 | GBrain teardown 复盘 → 缺口收敛 → 立项 |
+| 2026-05-07 | Phase A merged (PR #1581) |
 
 ## Review Gate
 
