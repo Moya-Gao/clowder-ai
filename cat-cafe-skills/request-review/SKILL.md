@@ -27,6 +27,7 @@ triggers:
 | `quality-gate` 通过 | 有本轮 gate report | BLOCKED — 先跑 quality-gate |
 | 测试全绿 | 附测试命令输出 | BLOCKED — 修到绿灯再发 |
 | 原始需求可引用 | Discussion/Interview 文档路径 + ≤5 行摘录 | BLOCKED — reviewer 有权拒绝审查 |
+| Architecture ownership 已声明 | 附 `Architecture cell` / `Map delta` / `Why` | BLOCKED — 回 Design Gate / plan 补齐 |
 | 前端改动已浏览器实测 | Playwright/Chrome 截图证据 | BLOCKED — 涉及前端必须真实打开浏览器验证 |
 | 根目录工件闸门通过 | 无根目录媒体/设计工件（工作树 + 已提交差异） | BLOCKED — 先归档/清理再发 |
 
@@ -59,13 +60,17 @@ BEFORE 发 review 请求:
 1. 确认 quality-gate 已通过（拿到本轮 gate report）
 2. 确认测试全绿（附这次真实运行的输出）
 3. 找到原始 Discussion 文档路径 + 摘录 ≤5 行铲屎官原话
-4. 检查 worktree 工具落点（git status 干净）
-4.5 检查根目录工件闸门（两条都要为空）：
+4. 抄入 Architecture ownership 三字段（F191）：
+   - `Architecture cell: ...`
+   - `Map delta: none | update required | new cell required`
+   - `Why: ...`
+5. 检查 worktree 工具落点（git status 干净）
+5.5 检查根目录工件闸门（两条都要为空）：
    - `git status --short | rg '^.. [^/]+\.(png|jpe?g|webp|gif|webm|mp4|mov|wav|pdf|pen)$'`
    - `git diff --name-only origin/main...HEAD | rg '^[^/]+\.(png|jpe?g|webp|gif|webm|mp4|mov|wav|pdf|pen)$'`
-5. 匹配 reviewer（跨 family 优先）
-6. 用模板写 review 请求 → 存档 mailbox
-7. 发给 reviewer
+6. 匹配 reviewer（跨 family 优先）
+7. 用模板写 review 请求 → 存档 mailbox
+8. 发给 reviewer
 ```
 
 ## Review 请求
@@ -74,8 +79,14 @@ BEFORE 发 review 请求:
 
 关键字段提醒：
 - **Original Requirements**: 必填，≤5 行铲屎官原话 + 来源文档路径，并明确请 reviewer 对照判断
+- **Architecture Ownership**: 必填，列 `Architecture cell` / `Map delta` / `Why`，并请 reviewer 检查 diff 是否与 `Map delta` 一致
 - **Open Questions**: 标注 review 重点，帮 reviewer 快速定位
 - **自检证据**: 附 quality-gate report 摘要 + 测试命令输出 + 根目录工件闸门输出
+
+**F191 reviewer 视角**：
+- PR 是否新建了并行 `Store` / `Queue` / `Router` / `Adapter` / `Dispatcher` / `Binding`？
+- `Map delta: none` 是否与 diff 一致？
+- 若修改了 `docs/architecture/ownership/cells/*.md`，是否真是 owner/boundary/extension point/canonical anchor 变化？
 
 存档：`docs/mailbox/YYYY-MM-DD-{topic}-review-request.md`
 

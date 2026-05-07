@@ -58,12 +58,17 @@ triggers:
 **Feature:** F0xx — `docs/features/F0xx-xxx.md`
 **Goal:** [One sentence — must match feat doc 的 goal]
 **Acceptance Criteria:** [从 feat doc 逐条抄过来，plan 必须覆盖全部 AC]
+**Architecture cell:** [ownership cell id from docs/architecture/ownership/README.md]
+**Map delta:** none | update required | new cell required
+**Map delta why:** [一句话说明为什么不改 map / 改哪个 cell / 为什么需要新 cell]
 **Architecture:** [2-3 sentences about approach]
 **Tech Stack:** [Key technologies/libraries]
 **前端验证:** [涉及前端？标注 Yes — reviewer 必须用 Playwright/Chrome 实测]
 
 ---
 ```
+
+**F191 约束**：普通增量写 `Map delta: none`，不得重新画架构图。`update required` 或 `new cell required` 代表 Phase 0 还包含 ownership map 更新，必须在 implementation steps 里列出来。
 
 ## Task Structure
 

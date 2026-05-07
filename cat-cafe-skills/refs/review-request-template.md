@@ -24,6 +24,16 @@ Branch: {branch-name}
 ## Tradeoff
 {放弃了什么方案，为什么}
 
+## Architecture Ownership（必填）
+Architecture cell: {cell_id}
+Map delta: none | update required | new cell required
+Why: {一句话}
+
+请 reviewer 检查：
+- diff 是否与 `Map delta` 一致
+- 是否新建了并行 `Store` / `Queue` / `Router` / `Adapter` / `Dispatcher` / `Binding`
+- 若修改 `docs/architecture/ownership/cells/*.md`，是否确实改变了 owner / boundary / extension point / canonical anchor
+
 ## Open Questions
 {需要 reviewer 特别关注的点}
 
@@ -58,6 +68,7 @@ pnpm -r --if-present run build         # 成功
 ## 注意事项
 
 - **附原始需求摘录（≤5 行）**，否则 reviewer 不审
+- **附 Architecture Ownership 三字段**，否则 reviewer 不审
 - 自检报告必须附上（从 quality-gate skill 输出）
 - 前端功能附截图证据
 - 前端 review 需要起 dev 时，**必须附 review 沙盒 Path + Start Command + 实际端口**

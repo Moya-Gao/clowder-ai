@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F191: Architecture Ownership Governance — 架构归属地图与 Map Delta 门禁
 
-> **Status**: in-progress — Phase A review ready | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress — Phase B review ready | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -128,11 +128,11 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 - [x] AC-A7: README 总索引由 cells frontmatter 生成，不手写维护 ownership 真相源
 
 ### Phase B（Skills 激活入口）
-- [ ] AC-B1: `feat-lifecycle` Design Gate 增加 `Architecture cell` / `Map delta` / `Why` 三字段
-- [ ] AC-B2: `writing-plans` plan header 增加同一组三字段
-- [ ] AC-B3: `request-review` 增加 architecture ownership review checklist
-- [ ] AC-B4: `quality-gate` 增加 map delta 报告项，但不做 hard block
-- [ ] AC-B5: `pnpm sync:skills` 已运行，HOME-level skill symlink 同步完成
+- [x] AC-B1: `feat-lifecycle` Design Gate 增加 `Architecture cell` / `Map delta` / `Why` 三字段
+- [x] AC-B2: `writing-plans` plan header 增加同一组三字段
+- [x] AC-B3: `request-review` 增加 architecture ownership review checklist
+- [x] AC-B4: `quality-gate` 增加 map delta 报告项，但不做 hard block
+- [x] AC-B5: `pnpm sync:skills` 已运行，HOME-level skill symlink 同步完成
 
 ### Phase C（Mechanical Checks）
 - [ ] AC-C1: warning-only 脚本能检测 stale `code_anchors`
@@ -212,6 +212,7 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 | 2026-05-07 | 铲屎官拷问“第一性原理 / 禁止补锅 / 数学之美”，三猫讨论收敛到 ownership map + map delta |
 | 2026-05-07 | F191 立项 |
 | 2026-05-07 | Phase A 首版 ownership cells + README 生成器实现，进入 46 review |
+| 2026-05-07 | Phase B skill 小切实现并同步，进入 46 review |
 
 ## Review Gate
 

@@ -130,6 +130,23 @@ search_evidence("{topic}", scope="all")  # 找历史讨论 + thread
 
 详见 `shared-rules.md` §13 元思考触发器。先搜现状，再开讨论。
 
+**架构归属一问（F191）🔴**：
+
+每个非 trivial Feature 在 Design Gate 必须能用一句话回答：
+
+```markdown
+Architecture cell: {ownership cell id}
+Map delta: none | update required | new cell required
+Why: 一句话
+```
+
+- `Architecture cell` 来自 `docs/architecture/ownership/README.md`；普通增量默认引用已有 cell。
+- `Map delta: none` = 本次只扩展现有边界，不改 ownership map，也不重新画架构图。
+- `Map delta: update required` = 本次改变 owner / boundary / extension point / canonical anchor，先改对应 cell。
+- `Map delta: new cell required` = 找不到归属；这不是回去填表，而是 Phase 0 架构发现未完成。
+
+答不出来 → Design Gate 不放行。禁止用新 Feature 私造 `Store` / `Queue` / `Router` / `Adapter` 来绕开已有 cell。
+
 **在地设计检查 (Design in Context) 🔴**：
 凡是改动或往已有页面/组件添加新 UI 元素，必须逐项过 `cat-cafe-skills/refs/design-in-context-checklist.md`。禁止在真空中凭想象画已有页面的布局。
 
