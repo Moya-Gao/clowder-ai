@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F191: Architecture Ownership Governance — 架构归属地图与 Map Delta 门禁
 
-> **Status**: spec | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress — Phase A review ready | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -114,13 +114,13 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 ## Acceptance Criteria
 
 ### Phase A（Ownership Map PoC）
-- [ ] AC-A1: `docs/architecture/ownership/` 存在，包含 per-cell 文件和 README，不使用单个巨大共享表作为唯一真相源
-- [ ] AC-A2: 首版 7 个 cell 覆盖 `transport` / `memory` / `dispatch` / `bubble-pipeline` / `action-plane` / `identity-session` / `callback-auth`
-- [ ] AC-A3: 每个 cell 包含 `Canonical Owner` / `Use This When` / `Extend By` / `Do NOT Unify With` / `Static Scan Hints`
-- [ ] AC-A4: 每个 cell frontmatter 包含 `cell_id` / `canonical_features` / `code_anchors` / `cited_by`
-- [ ] AC-A5: F124 x F088 的反归一边界进入 `transport` cell，明确“归一消息内核和设备语义，不归一 connector transport”
-- [ ] AC-A6: `identity-session` 明确拆出 `identity-agent` / `identity-connector` / `identity-bubble` subcells，并在 `Do NOT Unify With` 写死三者边界
-- [ ] AC-A7: README 总索引由 cells frontmatter 生成，不手写维护 ownership 真相源
+- [x] AC-A1: `docs/architecture/ownership/` 存在，包含 per-cell 文件和 README，不使用单个巨大共享表作为唯一真相源
+- [x] AC-A2: 首版 7 个 cell 覆盖 `transport` / `memory` / `dispatch` / `bubble-pipeline` / `action-plane` / `identity-session` / `callback-auth`
+- [x] AC-A3: 每个 cell 包含 `Canonical Owner` / `Use This When` / `Extend By` / `Do NOT Unify With` / `Static Scan Hints`
+- [x] AC-A4: 每个 cell frontmatter 包含 `cell_id` / `canonical_features` / `code_anchors` / `cited_by`
+- [x] AC-A5: F124 x F088 的反归一边界进入 `transport` cell，明确“归一消息内核和设备语义，不归一 connector transport”
+- [x] AC-A6: `identity-session` 明确拆出 `identity-agent` / `identity-connector` / `identity-bubble` subcells，并在 `Do NOT Unify With` 写死三者边界
+- [x] AC-A7: README 总索引由 cells frontmatter 生成，不手写维护 ownership 真相源
 
 ### Phase B（Skills 激活入口）
 - [ ] AC-B1: `feat-lifecycle` Design Gate 增加 `Architecture cell` / `Map delta` / `Why` 三字段
@@ -206,6 +206,7 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 |------|------|
 | 2026-05-07 | 铲屎官拷问“第一性原理 / 禁止补锅 / 数学之美”，三猫讨论收敛到 ownership map + map delta |
 | 2026-05-07 | F191 立项 |
+| 2026-05-07 | Phase A 首版 ownership cells + README 生成器实现，进入 46 review |
 
 ## Review Gate
 
