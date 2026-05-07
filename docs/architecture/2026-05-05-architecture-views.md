@@ -681,7 +681,7 @@ State    thread · task · docs · evidence · InvocationQueue
 
 | 注入层级 | 生命周期 | 举例 |
 |---------|---------|------|
-| Session-level（静态身份） | 整个 session 存活，扛过上下文压缩 | CLAUDE.md 身份、shared-rules 家规、队友名册 |
+| Session-level（静态身份） | 按条件重注入（new / compressed / changed） | CLAUDE.md 身份、shared-rules 家规、队友名册 |
 | Per-invocation（动态上下文） | 每次 invocation 重新组装 | A2A 球权状态、voice mode、SOP 阶段、活跃信号 |
 | Session #2+（冷启动） | 仅在有前序 session 时注入 | 上一轮摘要、任务快照、recall 指令 |
 | Runtime hooks（执行中） | tool call 前后触发 | sanctuary guard、evidence guard、hyperfocus brake |
@@ -697,19 +697,20 @@ State    thread · task · docs · evidence · InvocationQueue
 │  ├─ @ 句柄解析 → 确定目标猫                                    │
 │  ├─ InvocationQueue 入队                                       │
 │  ├─ F175 相邻消息合批                                           │
-│  └─ QueueProcessor 取出 → 开始 invocation                      │
+│  ├─ QueueProcessor 取出                                        │
+│  └─ 创建 InvocationRecord                                      │
+│     （queued: QueueProcessor.executeEntry;                     │
+│      immediate: messages.ts route handler）                    │
 └────────────────────────────────────────────────────────────────┘
                          │
-┌─ B. 解析会话 ──────▼──────────────────────────────────────┐
-│  sessionManager.get(userId, catId, threadId)                   │
-│  ├─ 有活跃 session → --resume 续接                              │
-│  └─ 无 → 新建 session                                          │
-│  sessionChainStore.getChain() → 有前序 sealed session?          │
-│  sessionSealer.reconcileStuck() → 清理卡住的 sealing           │
-└────────────────────────────────────────────────────────────────┘
+           ┌─────────────┴─────────────┐
+           │  Cat Cafe Orchestrator     │
+           │  （route-serial.ts）       │
+           └─────────────┬─────────────┘
                          │
-┌─ C. 注入静态身份（Session-level，扛压缩）─▼───────────────────────┐
-│  buildStaticIdentity() → --append-system-prompt                │
+┌─ B. 构建静态身份（Session-level candidate）─▼─────────────────┐
+│  buildStaticIdentity()                                         │
+│  ⚠ 此阶段只构建 candidate，实际注入在 Phase F 按条件决策       │
 │                                                                │
 │  ① 猫的身份 ────── displayName / nickname / role / personality │
 │  ② 限制声明 ────── catConfig.restrictions（如暹罗猫禁写代码）  │
@@ -725,15 +726,14 @@ State    thread · task · docs · evidence · InvocationQueue
 └────────────────────────────────────────────────────────────────┘
                          │
 ══════════ Anti-compaction Boundary ═══════════════════════════════
-  ↑ --append-system-prompt（Session 级，扛压缩）
-  ↓ user message turn（Per-invocation，每轮重组）
+  ↑ 静态身份 candidate（Session 级，按条件重注入）
+  ↓ 动态上下文（Per-invocation，每轮重组）
 ══════════════════════════════════════════════════════════════════
                          │
-┌─ D. 注入动态上下文（Per-invocation，每次重新组装）─▼──────────┐
+┌─ C. 构建动态上下文（Per-invocation，每次重新组装）─▼──────────┐
 │  buildInvocationContext()                                      │
 │                                                                │
-│                                                                │
-│  ── D.1 路由 / 球权（6 项）──                                 │
+│  ── C.1 路由 / 球权（6 项）──                                 │
 │  ① 身份常量 ────── @catId, model=xxx（钉死，抗压缩）          │
 │  ② A2A 直传 ────── directMessageFrom + 同族防伪提醒            │
 │  ③ 乒乓预警 ────── streak ≥ 2 时注入（F167 L1）               │
@@ -741,41 +741,51 @@ State    thread · task · docs · evidence · InvocationQueue
 │  ⑥ 球权退出检查 ── A2A 传球决策树                              │
 │  ⑦ 路由反馈 ────── F064 上次 @ 没在行首的一次性提醒            │
 │                                                                │
-│  ── D.2 模式 / 阶段（4 项）──                                 │
+│  ── C.2 模式 / 阶段（4 项）──                                 │
 │  ⑤ 模式上下文 ──── serial(链位)/parallel(反模仿)/independent   │
 │  ⑧ Prompt 标签 ── critique 等标签触发模式                      │
 │  ⑫ SOP 阶段 ────── F073 P4 当前 SOP 步骤（公告板不是控制器）  │
 │  ⑭ 训练营状态 ──── F087 phase + leadCat + memberCount          │
 │                                                                │
-│  ── D.3 提示 / 引导（5 项）──                                 │
+│  ── C.3 提示 / 引导（4 项）──                                 │
 │  ⑨ Skill 提示 ──── F140 Phase C 信号触发的 skill 建议         │
 │  ⑩ 活跃参与者 ──── F042 Wave 3 最近活跃猫提示                 │
 │  ⑪ 路由策略 ────── F042 thread 级 prefer/avoid 规则            │
 │  ⑮ 引导候选 ────── F155 内联引导协议                           │
-│  ⑲ 审阅者列表 ──── F032 Phase D2 roster 匹配的 reviewer       │
+│  [删] ⑲ 审阅者列表 ── buildReviewerSection() 仅在              │
+│       buildSystemPrompt() 中，生产路径不调用（55 review 修正） │
 │                                                                │
-│  ── D.4 知识 / 内容（4 项）──                                 │
+│  ── C.4 知识 / 内容（4 项）──                                 │
 │  ⑬ Voice Mode ──── ON=优先语音 / OFF=默认文字                  │
 │  ⑯ 世界上下文 ──── F093 世界观状态（角色/场景/canon）          │
 │  ⑰ 宪法知识 ────── F163 always_on 文档物理注入                 │
 │  ⑱ 信号文章 ────── F091 thread 关联的研究文章                  │
 │                                                                │
-│  ── D.5 决策树（1 项 · ↑ 位置不是巧合）──                     │
-│  ⑳ 尾锚决策树 ──── F167 Phase D 传球三选一（最大近因偏差位）  │
+│  ── C.5 决策树（1 项 · ↑ 位置不是巧合）──                     │
+│  ⑲ 尾锚决策树 ──── F167 Phase D 传球三选一（最大近因偏差位）  │
 │  ★ 利用近因偏差：球权决策树固定 prompt 最末，确保 agent 最后   │
 │    一念是"下一步谁能做"而非"我刚才做了什么"                     │
+│                                                                │
+│  合计：19 项（原 20 项，⑲ 审阅者移除后 ⑳→⑲ 重编号）          │
 └────────────────────────────────────────────────────────────────┘
                          │
-┌─ E. 注入冷启动包（Session #2+ 专用）─▼──────────────────────────────┐
+┌─ D. 构建冷启动包（Session #2+ 专用）─▼────────────────────────┐
 │  buildSessionBootstrap()                                       │
-│  ├─ 上一轮摘要 ──── generative digest → extractive fallback    │
-│  ├─ 任务快照 ────── taskStore.listByThread → formatSnapshot    │
-│  ├─ 记忆工具指令 ── search_evidence / list_session_chain 等    │
-│  └─ Token 预算 ──── 硬上限 2000 token，按优先级逐项丢弃       │
-│     丢弃顺序：recall → task snapshot → digest → thread memory  │
+│                                                                │
+│  ① Session 身份 ── session 序号 / 总数 / sealed 数（always）  │
+│  ② Thread 记忆 ─── 跨 sealed sessions 的滚动摘要              │
+│  ③ 项目知识召回 ── 基于 thread 标题自动搜索 evidence           │
+│     （/api/evidence/search，5 条上限，500ms 超时）             │
+│  ④ 上一轮摘要 ──── generative digest → extractive fallback    │
+│  ⑤ 任务快照 ────── taskStore.listByThread → formatSnapshot    │
+│  ⑥ 记忆工具指令 ── search_evidence / list_session_chain 等    │
+│                                                                │
+│  Token 预算：硬上限 ~2000 token                                │
+│  ①⑥ 始终保留（base tokens）                                   │
+│  丢弃顺序：③recall → ⑤task → ④digest → ②threadMemory         │
 └────────────────────────────────────────────────────────────────┘
                          │
-┌─ F. 组装上下文窗口 ─▼─────────────────────────────────────────┐
+┌─ E. 组装上下文窗口 ─▼─────────────────────────────────────────┐
 │  assembleIncrementalContext() / assembleContext()               │
 │  ├─ Smart Window ── F148 上下文压力 > 80% → 注入 briefing     │
 │  ├─ 历史消息 ────── 按 token 预算裁剪                          │
@@ -785,32 +795,61 @@ State    thread · task · docs · evidence · InvocationQueue
 │            + mcpInstructions + contextText + userMessage        │
 └────────────────────────────────────────────────────────────────┘
                          │
-┌─ G. 执行调用（CLI Invocation）─▼──────────────────────────────────┐
+           ┌─────────────┴─────────────┐
+           │  Provider CLI Layer        │
+           │  （invoke-single-cat.ts）  │
+           └─────────────┬─────────────┘
+                         │
+┌─ F. 解析会话 & 条件注入 ─▼────────────────────────────────────┐
 │  invokeSingleCat()                                             │
-│  ├─ 创建 invocation 记录                                       │
+│                                                                │
+│  ├─ sessionManager.get(userId, catId, threadId)                │
+│  │   ├─ 有活跃 session → --resume 续接                        │
+│  │   └─ 无 → 新建 session                                     │
+│  ├─ sessionChainStore.getChain() → sealed 前序 session?        │
+│  ├─ sessionSealer.reconcileStuck() → 清理卡住的 sealing       │
 │  ├─ 获取 sessionMutex（F118 per-session 串行化）               │
-│  ├─ 启动 CLI（claude / opencode / acp / gemini）              │
 │  │                                                             │
-│  │  ┌─ SessionStart Hooks 触发 ─────────────────────────┐     │
+│  └─ 静态身份注入决策（Phase B candidate → 是否 prepend?）：    │
+│     ├─ 新 session ────────────→ prepend 到 prompt 前           │
+│     ├─ 压缩检测（token 跌幅 > 60%）→ 强制 prepend             │
+│     ├─ Registry revision 变化 → 强制 prepend                   │
+│     └─ Resume + 无变化 ──────→ 跳过（已在 session 上下文中）   │
+│     ⚠ 非 --append-system-prompt（proved unreliable）           │
+│       实际机制：conditional string prepend to prompt            │
+└────────────────────────────────────────────────────────────────┘
+                         │
+┌─ G. 执行调用（CLI spawn + hooks）─▼───────────────────────────┐
+│  启动 CLI（claude / opencode / acp / gemini）                  │
+│  │                                                             │
+│  │  ┌─ SessionStart Hooks ──────────────────────────────┐     │
 │  │  │  f24-post-compact-bootstrap.sh（压缩恢复）         │     │
 │  │  │  preflight-shared-state.sh（共享状态校验）         │     │
 │  │  └───────────────────────────────────────────────────┘     │
 │  │                                                             │
 │  │  ┌─ 模型思考 + Tool Call 循环 ──────────────────────┐     │
 │  │  │                                                   │     │
-│  │  │  PreToolUse Hooks:                                │     │
+│  │  │  PreToolUse Hooks（Claude project hooks）:        │     │
 │  │  │   runtime-sanctuary-guard.sh（圣域防护）          │     │
 │  │  │   pretool-brake-check.sh（hyperfocus 刹车）       │     │
 │  │  │   pretool-evidence-guard.sh（evidence 防覆写）    │     │
 │  │  │         ↓                                         │     │
 │  │  │  Tool 执行（MCP / Bash / Edit / Read / ...）     │     │
 │  │  │         ↓                                         │     │
-│  │  │  PostToolUse Hooks:                               │     │
+│  │  │  PostToolUse Hooks（Claude project hooks）:       │     │
 │  │  │   posttool-evidence-marker.sh（标记已读）         │     │
 │  │  │   post-edit-check.sh（编辑校验）                  │     │
 │  │  │   shared-doc-push-guard.sh（共享文档提醒）        │     │
 │  │  │   sop-stage-bookmark.sh（SOP 阶段记录）           │     │
 │  │  │   hyperfocus-brake-timer.sh（刹车计时器）         │     │
+│  │  │                                                   │     │
+│  │  │  其他 Claude hooks:                               │     │
+│  │  │   PreCompact / UserPromptSubmit /                  │     │
+│  │  │   Stop(f177-routing-guard)                         │     │
+│  │  │                                                   │     │
+│  │  │  ⚠ PreToolUse/PostToolUse 仅 Claude project hooks │     │
+│  │  │    Codex F180: 仅 SessionStart/Stop user hooks    │     │
+│  │  │    Gemini/OpenCode: provider-native audit only     │     │
 │  │  │                                                   │     │
 │  │  │  → 继续思考或输出最终文本                         │     │
 │  │  └───────────────────────────────────────────────────┘     │
@@ -840,8 +879,8 @@ State    thread · task · docs · evidence · InvocationQueue
 | 维度 | 行业常见画法 | 我们的独家 |
 |------|-----------|----------|
 | 注入时机 | "system prompt 注入一次" | 5 个不同时机：session-level / per-invocation / bootstrap / hooks / post-exec |
-| 注入内容 | "instructions + tools" | 20+ 个具体注入项，每个有明确 Feature ID 来源 |
-| 抗压缩 | 不讲 | 静态身份扛压缩（--append-system-prompt），动态上下文每次重组 |
+| 注入内容 | "instructions + tools" | 35+ 个具体注入项（10 静态 + 19 动态 + 6 冷启动），每个有明确来源 |
+| 抗压缩 | 不讲 | 静态身份按条件重注入（new/compressed/registry-changed → prepend），动态上下文每次重组 |
 | 冷启动 | 不讲 | Session #2+ 的 digest + task snapshot + 2000 token 预算 + 丢弃优先级 |
 | Hooks | "有 hooks" | 具体到每个 hook 的触发时机和脚本名 |
 | 球权闭环 | 不讲 | 尾锚决策树在上下文最末位（最大近因偏差），执行后 mention 检测自动入队 |
@@ -859,7 +898,7 @@ State    thread · task · docs · evidence · InvocationQueue
 ┌─ 行业 vs 我们 ─┐
 │ 注入时机：1     │ ← 行业
 │ 注入时机：5     │ ← 我们
-│ 注入项：44+     │
+│ 注入项：35+     │
 └─────────────────┘
 ```
 
