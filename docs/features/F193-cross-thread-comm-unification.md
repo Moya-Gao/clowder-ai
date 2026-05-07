@@ -54,10 +54,10 @@ created: 2026-05-07
 
 按 F043 立项原意改 split-only，但**先解决 limb 迁移**——`registerFullToolset` 注册 limb 工具，split 三 server 不注册（[server-toolsets.ts:127](../../packages/mcp-server/src/server-toolsets.ts)），直接砍 all-in-one 会让 `limb_*` 全员静默掉线。
 
-- 按 KD-2 决议处置 limb 工具集（默认选 A：新增 `cat-cafe-limb` server entry point）
+- 新增 `cat-cafe-limb` server entry point（KD-2 选 A）：导出 `registerLimbToolset` 单 server，配 `dist/limb.js`
 - 改两个 harness 配置（不能漏一个）：
-  - `.mcp.json` 删 `cat-cafe` (all-in-one) entry，加 `cat-cafe-limb`（按 KD-2）
-  - `.codex/config.toml` 删 `[mcp_servers.cat-cafe]` block，加 `[mcp_servers.cat-cafe-limb]`（按 KD-2）
+  - `.mcp.json` 删 `cat-cafe` (all-in-one) entry，加 `cat-cafe-limb`
+  - `.codex/config.toml` 删 `[mcp_servers.cat-cafe]` block，加 `[mcp_servers.cat-cafe-limb]`
 - `tool-registration.test.js` 加守护：split-only 模式下 `cat-cafe`(all-in-one) 不存在 + limb 工具集状态符合 KD-2 决议
 
 ### Phase D: 废弃工具清理
@@ -89,10 +89,10 @@ created: 2026-05-07
 - [ ] AC-B4: 测试 — 构造 cross-post 触发的 invocation（worklist + queue 两条路径都覆盖），断言 typed `crossThreadReplyHint` 注入到 invocation context；agent-key target-thread write 触发时**不**注入 reply hint（边界行为，见 KD-1）
 
 ### Phase C（split-only 配置 + limb 迁移）
-- [ ] AC-C1: KD-2 决议落地（默认选 A：新增 `cat-cafe-limb` server + `dist/limb.js` entry point）
-- [ ] AC-C2: `.mcp.json` 删 `cat-cafe` entry，按 KD-2 增 `cat-cafe-limb`
-- [ ] AC-C3: `.codex/config.toml` 删 `[mcp_servers.cat-cafe]`，按 KD-2 增对应配置
-- [ ] AC-C4: `tool-registration.test.js` 守护 split-only 模式 + KD-2 limb 状态
+- [ ] AC-C1: 新增 `cat-cafe-limb` server entry point（`packages/mcp-server/src/limb.ts` + `dist/limb.js` build artifact）
+- [ ] AC-C2: `.mcp.json` 删 `cat-cafe` entry，加 `cat-cafe-limb`
+- [ ] AC-C3: `.codex/config.toml` 删 `[mcp_servers.cat-cafe]`，加 `[mcp_servers.cat-cafe-limb]`
+- [ ] AC-C4: `tool-registration.test.js` 守护 split-only 模式 + limb 工具仅在 `cat-cafe-limb` server 可见
 
 ### Phase D（废弃工具清理）
 - [ ] AC-D1: 移除 `reflect` 工具注册（含 server-toolsets / tools/index）+ **同步清理 `SystemPromptBuilder.MCP_TOOLS_SECTION` 中 `cat_cafe_reflect: 反思性合成` 这行**（[SystemPromptBuilder.ts:266](../../packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts)）+ `tool-registration.test.js` 守护 + 搜 `cat-cafe-skills/**/*.md` 删除引用
