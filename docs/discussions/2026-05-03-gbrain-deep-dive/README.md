@@ -1,5 +1,6 @@
 ---
 doc_kind: research-note
+feature_ids: [F186, F188, F189]
 topics:
   - gbrain
   - open-source-teardown
