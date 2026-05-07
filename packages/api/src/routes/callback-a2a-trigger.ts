@@ -28,6 +28,7 @@ import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { StoredMessage } from '../domains/cats/services/stores/ports/MessageStore.js';
+import { wrapWithDispatchSpan } from '../infrastructure/telemetry/dispatch-span.js';
 import type { CallerTraceContext } from '../infrastructure/telemetry/genai-semconv.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 
@@ -83,6 +84,11 @@ export async function enqueueA2ATargets(
   // prompts (buildTeammateRoster / buildStaticIdentity); cats self-regulate.
   const fromCatId = callerCatId ?? opts.triggerMessage.catId ?? getDefaultCatId();
   const targetCats = opts.targetCats;
+
+  // F181: wrap caller trace context with mention_dispatch span for callback A2A causality
+  const dispatchTraceContext = opts.callerTraceContext
+    ? wrapWithDispatchSpan(opts.callerTraceContext, targetCats.length)
+    : undefined;
 
   // F122B: If InvocationQueue is available, enqueue as agent entry (unified dispatch).
   // This replaces both the worklist path and the fallback standalone invocation.
@@ -161,7 +167,7 @@ export async function enqueueA2ATargets(
         intent: 'execute',
         autoExecute: true,
         callerCatId: callerCatId ?? undefined,
-        callerTraceContext: opts.callerTraceContext,
+        callerTraceContext: dispatchTraceContext,
       });
       queueDiagnostics.push({
         catId,
@@ -323,7 +329,7 @@ export async function enqueueA2ATargets(
       );
     }
     // Proceed with non-conflicting targets only
-    await triggerA2AInvocation(deps, { ...opts, targetCats: nonConflicting });
+    await triggerA2AInvocation(deps, { ...opts, targetCats: nonConflicting, callerTraceContext: dispatchTraceContext });
     return { enqueued: nonConflicting, fallback: true };
   }
 
@@ -339,7 +345,7 @@ export async function enqueueA2ATargets(
   // F167 PR1 history note: originally this path filtered role-gated targets before
   // fallback; Phase E retires L3, so targetCats == opts.targetCats now. Kept the
   // explicit spread for intent clarity and future filter hooks.
-  await triggerA2AInvocation(deps, { ...opts, targetCats });
+  await triggerA2AInvocation(deps, { ...opts, targetCats, callerTraceContext: dispatchTraceContext });
   return { enqueued: targetCats, fallback: true };
 }
 

@@ -173,6 +173,22 @@ test('F181: read returns null for cross-user access', async () => {
   assert.equal(resultOther, null, 'Other user should not be able to read capture');
 });
 
+test('F181: pre-fix captures without userId are denied (fail-closed)', async () => {
+  const { PromptCaptureStore } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
+  const dir = join(testDir, 'authz-legacy');
+  const store = new PromptCaptureStore({ baseDir: dir });
+
+  const capture = makeCapture();
+  delete capture.userId;
+  store.captureSync(capture);
+
+  const resultNoFilter = store.read(capture.captureId);
+  assert.ok(resultNoFilter, 'Read without userId filter should succeed');
+
+  const resultWithUser = store.read(capture.captureId, 'any-user');
+  assert.equal(resultWithUser, null, 'Pre-fix capture without userId must be denied when userId filter is set');
+});
+
 test('F181: listByThread filters by userId', async () => {
   const { PromptCaptureStore } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
   const dir = join(testDir, 'authz-list');

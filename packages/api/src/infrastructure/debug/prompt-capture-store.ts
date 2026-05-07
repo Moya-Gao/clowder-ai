@@ -153,7 +153,7 @@ export class PromptCaptureStore {
       const compressed = readFileSync(filePath);
       const capture = JSON.parse(gunzipSync(compressed).toString('utf8')) as PromptCapture;
       if (capture.capturedAt < Date.now() - this.ttlMs) return null;
-      if (userId && capture.userId && capture.userId !== userId) return null;
+      if (userId && capture.userId !== userId) return null;
       return capture;
     } catch (err) {
       log.warn({ err, captureId }, 'Failed to read prompt capture');
@@ -167,14 +167,14 @@ export class PromptCaptureStore {
       (e) =>
         (e.invocationId === invocationId || e.hmacInvocationId === invocationId) &&
         e.capturedAt >= cutoff &&
-        (!userId || !e.userId || e.userId === userId),
+        (!userId || e.userId === userId),
     );
   }
 
   listByThread(threadId: string, limit = 20, userId?: string): CaptureIndexEntry[] {
     const cutoff = Date.now() - this.ttlMs;
     return this.readIndex()
-      .filter((e) => e.threadId === threadId && e.capturedAt >= cutoff && (!userId || !e.userId || e.userId === userId))
+      .filter((e) => e.threadId === threadId && e.capturedAt >= cutoff && (!userId || e.userId === userId))
       .slice(-limit);
   }
 

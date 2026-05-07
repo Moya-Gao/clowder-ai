@@ -3,8 +3,8 @@
  *
  * Covers:
  * - Text-scan A2A path: mention_dispatch span created as child of mentioner's invocation
+ * - Callback A2A path: wrapWithDispatchSpan inserts mention_dispatch between caller and dispatched route
  * - invocationSpanRef: caller can capture invocation span reference
- * - Callback A2A path: NOT covered (InvocationQueue creates separate routeExecution — tracked as follow-up)
  */
 
 if (!process.env.NODE_ENV) process.env.NODE_ENV = 'test';
@@ -135,6 +135,7 @@ const otelExporter = new InMemorySpanExporter();
 const otelProvider = new NodeTracerProvider({
   spanProcessors: [new SimpleSpanProcessor(otelExporter)],
 });
+otelProvider.register();
 const otelTracer = otelProvider.getTracer('test-mention-dispatch');
 
 test('F181 behavioral: mention_dispatch span is child of mentioner invocation', async () => {
@@ -500,4 +501,36 @@ test('F181 behavioral: remote parent context links child route span to caller tr
   );
   // invocation B is child of route2
   assert.equal(invBSpan.parentSpanContext.spanId, route2.spanContext().spanId, 'invocation B is child of route2');
+});
+
+// ── Callback A2A: mention_dispatch span via wrapWithDispatchSpan ──
+
+test('F181: callback-a2a-trigger imports and uses wrapWithDispatchSpan', () => {
+  const src = readFileSync(resolve(__dirname, '../../src/routes/callback-a2a-trigger.ts'), 'utf8');
+  assert.ok(src.includes('wrapWithDispatchSpan'), 'Should import wrapWithDispatchSpan');
+  assert.ok(src.includes('dispatchTraceContext'), 'Should compute dispatchTraceContext from caller context');
+});
+
+test('F181 behavioral: wrapWithDispatchSpan creates mention_dispatch as child of caller', async () => {
+  otelExporter.reset();
+
+  const callerSpan = otelTracer.startSpan('cat_cafe.invocation', { attributes: { 'agent.id': 'opus' } });
+  const callerSc = callerSpan.spanContext();
+  callerSpan.end();
+
+  const { wrapWithDispatchSpan } = await import('../../dist/infrastructure/telemetry/dispatch-span.js');
+  const dispatchCtx = wrapWithDispatchSpan(
+    { traceId: callerSc.traceId, spanId: callerSc.spanId, traceFlags: callerSc.traceFlags },
+    2,
+  );
+
+  assert.equal(dispatchCtx.traceId, callerSc.traceId, 'dispatch span shares caller traceId');
+  assert.notEqual(dispatchCtx.spanId, callerSc.spanId, 'dispatch span has its own spanId');
+
+  const spans = otelExporter.getFinishedSpans();
+  const dispatch = spans.find((s) => s.name === 'cat_cafe.mention_dispatch');
+  assert.ok(dispatch, 'mention_dispatch span should be created');
+  assert.equal(dispatch.attributes['dispatch.target_count'], 2, 'Should record target count');
+  assert.equal(dispatch.attributes['dispatch.source'], 'callback', 'Should mark source as callback');
+  assert.equal(dispatch.parentSpanContext.spanId, callerSc.spanId, 'dispatch is child of caller');
 });
