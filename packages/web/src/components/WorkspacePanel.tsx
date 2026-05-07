@@ -660,30 +660,26 @@ export function WorkspacePanel() {
             <div className="flex items-center gap-2 min-w-0">
               <MenuIcon />
               <span className="text-sm font-semibold text-cafe-black">Workspace</span>
-              {presentationLock && (
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-cocreator-primary/15 text-cocreator-primary">
-                  Locked
-                </span>
-              )}
             </div>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={presentationLock ? disablePresentationLock : enablePresentationLock}
-                className={`w-6 h-6 flex items-center justify-center rounded-md transition-colors ${
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium transition-colors ${
                   presentationLock
-                    ? 'text-cocreator-primary bg-cocreator-primary/10 hover:bg-cocreator-primary/20'
-                    : 'text-cocreator-dark/40 hover:text-cocreator-dark hover:bg-cocreator-light/60'
+                    ? 'text-cocreator-primary bg-cocreator-primary/15 hover:bg-cocreator-primary/25'
+                    : 'text-cocreator-dark/50 hover:text-cocreator-dark hover:bg-cocreator-light/60'
                 }`}
-                title={presentationLock ? '退出演示锁定' : '演示锁定（切换 thread 不影响右侧）'}
+                title={presentationLock ? '退出演示锁定' : '锁定当前文件视图，切换 thread 不影响右侧'}
               >
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                   {presentationLock ? (
                     <path d="M8 1a3.5 3.5 0 0 0-3.5 3.5V6H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1.5V4.5A3.5 3.5 0 0 0 8 1Zm2 5H6V4.5a2 2 0 1 1 4 0V6Z" />
                   ) : (
                     <path d="M8 1a3.5 3.5 0 0 0-3.5 3.5V6H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H6V4.5a2 2 0 1 1 4 0 .75.75 0 0 0 1.5 0A3.5 3.5 0 0 0 8 1Z" />
                   )}
                 </svg>
+                {presentationLock ? '已锁定' : '锁定'}
               </button>
               <button
                 type="button"
