@@ -44,6 +44,17 @@ GBrain teardown 教训：同一个操作走 HTTP / MCP / CLI / A2A 时，权限�
 - [ ] AC-B2: MCP tool handler 使用 `OperationContext` 而非直接拼 URL params
 - [ ] AC-B3: 新增 API 参数时只需改 `OperationContext` schema，各 carrier builder 自动传播
 
+## Deferred / Non-goals
+
+以下明确暂不做，附触发条件：
+
+| 项 | 理由 | 触发条件（何时重新考虑） |
+|----|------|------------------------|
+| Phase A 迁移所有消费方 | Phase A 只建 schema/builder/trust guard，不改调用方 | Phase B 专门做消费迁移 |
+| 与 F161 ACP Carrier Generalization 合并实施 | 两者互补但独立可推进（OQ-2 未定） | Design Gate 重新评估决定合并时 |
+| 破坏性 route rewrite（一次性全量替换旧写法） | 渐进迁移更安全，lint rule 逐步禁旧写法 | 旧写法 route 降到 ≤5 个时考虑一刀切 |
+| CLI carrier 纳入 OperationContext builder | 本地 invoke-single-cat 场景（OQ-1 未定） | 本地调用出现 trust boundary 不一致 bug 时 |
+
 ## Dependencies
 
 - **Related**: F161（ACP Carrier Generalization — 载体抽象层，互补）
