@@ -520,6 +520,7 @@ cat_cafe_hold_ball({
 | KD-24 | `@` 路由语法校验在 harness 层做 **final routing slot** 机械校验 + one-shot repair 兜底。禁止语义 intent 分类器（KD-8 反模式）；validator 只看"出口槽位语法"，不推断"猫想不想传球"；命中只产出 `invalid_route_syntax`，不自动路由 / 不推断目标 / 不替猫决定意图；豁免只走结构边界，禁止动作词表 / 语义豁免表 | Phase F 依赖的 prompt 层教学已到天花板（4.7 三 thread 复现）；结构化工具路线被铲屎官驳回（弱模型失败率更高）；终态 = 外部协议最简（行首 @）+ 内部机械语法校验；KD-22 prompt 层 + KD-24 harness 层双重守护 | 2026-04-24 |
 | KD-25 | 虚空持球检测 = 声明-动作一致性检查。文本含"持球"但无 `hold_ball` tool call → harness 警告。不是语义分类器（检查的是"你声称做了 X，tool call 是否存在"），KD-8 安全 | 47 反复声明"我持球"但未调工具，铲屎官多次手动干预；feedback 已记 3 次仍复发 = prompt 层天花板，需 harness 兜底 | 2026-04-25 |
 | KD-26 | `@` 路由不做"意图提取"——保持行首=路由/其他=叙述的绝对规则。弱模型无法理解"句中 @ 有时路由有时不路由"的语义边界 | 砚砚 review 修正：K-1 不做 Slack 式宽容路由（违反 KD-24）；只做机械 repair（AC-H4 Step B）| 2026-04-25 |
+| KD-27 | hold_ball 轮询和结构化回调（PR tracking / scheduled task）覆盖同一等待对象时，轮询必须终止。传球决策树选项 2 拆分：2a 无回调覆盖→轮询，2b 有回调覆盖→纯事件驱动 | 铲屎官发现 PR tracking + hold_ball 轮询双通道重复唤醒——codex 接单后两条路同时触发，猫醒来发现前一次已经通过 PR tracking 消息处理过了。两个等待的对象不同（"有没有人接" vs "接了之后的结果"），不该重叠运行 | 2026-05-07 |
 
 ## Timeline
 
@@ -567,6 +568,7 @@ cat_cafe_hold_ball({
 | 2026-04-25 | Phase I/J/K 写入 spec，从 Phase I 开工 |
 | 2026-04-25 | Phase I done（AC-I1~I7 ✅）— void-hold-detect.ts + 减法措辞 + warning 统一 pattern。砚砚首轮 P1 reject（缺合法出口豁免），fix commit `4a4f0d30a` 加 VoidHoldInput 接口（lineStartMentions / structuredTargetCats / coCreatorMention），砚砚二轮 approve。17/17 test green |
 | 2026-04-26 | Phase J merged (PR #1415, `e67ab5487`) — AC-J1~J6 全绿。hold-ball-cancel.ts 纯函数抽取（triple-predicate defense-in-depth）+ DELETE endpoint（resolveUserId auth + thread ownership guard + system thread 豁免）+ 三路径 auto-cancel（queue/TOCTOU/immediate）+ ConnectorBubble cancel 按钮（apiFetch + 404 terminal state）。砚砚本地 review 三轮（R1: 2P1+2P2 / R2: 1P1+2P2 / R3: 1P1+1P2 → approve `88ce58aec`）；云端 Codex 两轮（round-1 P2 404-terminal → fix / round-2 P3×2 降级：/game 跨线程 + getAll perf）。18 unit tests (11 pure + 7 route) |
+| 2026-05-07 | Phase L reopened from monitoring：铲屎官发现 hold_ball 轮询 × PR tracking 事件驱动双通道重复唤醒——codex 接单后 PR tracking 回调 + hold_ball 轮询同时触发，猫被唤醒两次第二次无事可做。根因：传球决策树选项 2 未区分轮询型 vs 事件驱动型等待，无模式切换点。KD-27 落定，AC-L1~L4 定稿待实现 |
 | 2026-04-23 | Phase E reopened from monitoring：F172 愿景守护 @gemini 被 L3 误拦（action="合入"因 storedContent 上文含 merge 历程）；铲屎官定性"硬编码 + 过度设计"——要求退役 L3 + cat-config restrictions 数据驱动双端注入（发送方队友名册 + 目标猫 self-awareness）；KD-20 落定，AC-E1~E8 定稿待实现 |
 | 2026-04-24 | Phase E merged (PR #1360, `f8efcf46d`) — AC-E1~E8 全绿。8 commit（4 feat + 1 test + 3 chore）-735 净行数（删 role-gate.ts + 3 测试文件 + 2 调用点）+ cat-config schema 扩展 + 双端 prompt 注入；gpt52 review 首轮放行 `c967b59d0`（两个非阻塞：scrub 死注释 + 删 unused import 已顺手修），云端 Codex 零 P1/P2 "Hooray"；rebase 遇 F061 pre-existing 修复冲突 → skip 冗余 commit 后 clean merge；204/204 ping-pong + system-prompt-builder + cat-config-loader 绿。Status: monitoring |
 
@@ -637,7 +639,27 @@ cat_cafe_hold_ball({
 - [ ] AC-K5: harness 提取 audit section 到 raw log / metadata，surface 版本不含审计信息
 - [ ] AC-K6: 前端：audit section 默认折叠，reviewer 可展开
 
-**关闭门禁**：Phase I + J 全部合入后观察 1 周无新 case → Phase K Design Gate → K 合入 → 2 周观察 → F167 正式 close。
+### Phase L（hold_ball 轮询 × PR tracking 事件驱动 重复唤醒 — 2026-05-07 reopened from monitoring）
+
+**触发**（铲屎官审视）：猫挂了 PR tracking 后仍 hold_ball 轮询，导致双通道重复唤醒。典型场景：开 PR → 注册 PR tracking → hold_ball + 5min 轮询等 codex 接单 → codex 接单后 PR tracking 回调会 mention 猫 → 但 hold_ball 轮询也到了又唤醒一次 → 猫醒来发现没事干（上一次 PR tracking 已经通知过了）。
+
+**根因**：传球决策树选项 2 把"外部条件"当一个大类，没区分两种等待模式：
+- **轮询型**（无结构化回调）：等 codex 接单 → hold_ball + 定时自唤醒检查 ✅
+- **事件驱动型**（有结构化回调）：等 review 完成 → PR tracking 回调 mention ✅
+- **混合叠加**（同一等待对象两条通道同时跑）→ 重复唤醒 ❌
+
+模式切换点缺失：codex 接单那一刻，应从轮询型切到纯事件驱动型，但无规则告知"该停轮询了"。
+
+**KD-27**：hold_ball 轮询和结构化回调（PR tracking / scheduled task）覆盖同一等待对象时，轮询必须终止。判断点：轮询唤醒时发现目标事件已有事件驱动渠道覆盖 → 释放 hold_ball，不再续约唤醒。
+
+**修复方案**（规则 + skill 双层）：
+
+- [ ] AC-L1: A2A 规则（传球决策树）选项 2 拆分：2a = 等外部接单（无回调覆盖）→ hold_ball + 轮询；2b = 已有结构化回调覆盖 → 仅依赖回调，禁止叠加轮询
+- [ ] AC-L2: merge-gate skill 在注册 PR tracking 后输出明确 checkpoint："PR tracking 已接管等待，如有 hold_ball 轮询在跑 → 停止续约"
+- [ ] AC-L3: hold_ball 轮询唤醒时，检查是否已有 PR tracking 覆盖同一 PR → 若有，释放 hold 而非续约
+- [ ] AC-L4: shared-rules 传球决策树补充"结构化回调 supersedes 轮询"原则
+
+**关闭门禁**：Phase I + J 全部合入后观察 1 周无新 case → Phase K Design Gate → K 合入 → Phase L 合入 → 2 周观察 → F167 正式 close。
 
 ## Behavioral Evidence（Phase B 观察记录）
 
@@ -727,3 +749,4 @@ cat_cafe_hold_ball({
 | 47 采访 2026-04-25 | 加法纠错让 47 越改越 verbose，需减法措辞 | AC-I4~I5 | ✅ Phase I |
 | 铲屎官 2026-04-25 | 持球没 cancel 按钮 / 用户消息不取消 hold wake | AC-J1~J6 | ✅ Phase J |
 | 铲屎官 + 砚砚 2026-04-25 | 47 风格适配需 Design Gate（audit/surface 分层 + repair 落地） | AC-K1~K6 | ⬜ Phase K |
+| 铲屎官 2026-05-07 | hold_ball 轮询 × PR tracking 事件驱动重复唤醒（双通道叠加） | AC-L1~L4 | ⬜ Phase L |
