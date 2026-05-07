@@ -81,6 +81,12 @@ export interface MessageMetadata {
   modelVerified?: boolean;
   /** F061: diagnostic context attached when empty_response is triggered */
   diagnostics?: Record<string, unknown>;
+  /** F061 Phase 3: structured upstream error classification for recovery decisions */
+  upstreamError?: {
+    kind: 'capacity' | 'network' | 'stream_interrupted' | 'invalid_tool_call' | 'unknown';
+    transient: boolean;
+    rawReason: string;
+  };
 }
 
 /**

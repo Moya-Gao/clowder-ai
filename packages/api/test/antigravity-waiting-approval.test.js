@@ -407,7 +407,7 @@ describe('Antigravity waiting approval', () => {
     // Must keep the more specific upstream_error, not swallow it behind stream_error
     const hasUpstream = errors.some((e) => e.errorCode === 'upstream_error');
     assert.ok(hasUpstream, 'upstream_error must NOT be suppressed when stream_error also present');
-    assert.match(errors.find((e) => e.errorCode === 'upstream_error').error, /invalid tool call/i);
+    assert.equal(errors.find((e) => e.errorCode === 'upstream_error').error, '工具调用失败');
     // stream_error should be suppressed in favor of upstream_error
     const hasStream = errors.some((e) => e.errorCode === 'stream_error');
     assert.equal(hasStream, false, 'stream_error should be suppressed when upstream_error provides more detail');
@@ -451,7 +451,7 @@ describe('Antigravity waiting approval', () => {
     const errors = messages.filter((m) => m.type === 'error');
     assert.equal(errors.length, 1, 'should emit exactly one error');
     assert.equal(errors[0].errorCode, 'model_capacity', 'high traffic must be classified as model_capacity');
-    assert.match(errors[0].error, /high traffic/i);
+    assert.equal(errors[0].error, '上游模型服务繁忙');
   });
 
   test('G10: model_capacity with tool activity still classifies correctly', async () => {
@@ -533,6 +533,6 @@ describe('Antigravity waiting approval', () => {
     const errors = messages.filter((msg) => msg.type === 'error');
     // Must yield only ONE error to the user, not two identical red bars
     assert.equal(errors.length, 1, 'duplicate upstream_error must be deduplicated to single error');
-    assert.match(errors[0].error, /invalid tool call/i);
+    assert.equal(errors[0].error, '工具调用失败');
   });
 });

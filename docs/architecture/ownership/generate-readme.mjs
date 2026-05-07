@@ -16,7 +16,10 @@ function parseInlineArray(value) {
   if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) return stripQuotes(trimmed);
   const inner = trimmed.slice(1, -1).trim();
   if (!inner) return [];
-  return inner.split(',').map((part) => stripQuotes(part.trim())).filter(Boolean);
+  return inner
+    .split(',')
+    .map((part) => stripQuotes(part.trim()))
+    .filter(Boolean);
 }
 
 function parseFrontmatter(markdown, fileName) {

@@ -23,7 +23,8 @@ import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata }
 import { appendLocalImagePathHints } from '../image-cli-bridge.js';
 import { extractImagePaths } from '../image-paths.js';
 import { AntigravityBridge, type BridgeConnection, type TrajectoryStep } from './AntigravityBridge.js';
-import { classifyStep, transformTrajectorySteps } from './antigravity-event-transformer.js';
+import type { UpstreamErrorKind } from './antigravity-event-transformer.js';
+import { classifyStep, humanErrorMessage, transformTrajectorySteps } from './antigravity-event-transformer.js';
 import {
   collectImagePathsFromSteps,
   publishAntigravityImages,
@@ -44,20 +45,22 @@ function sanitizeRetryDelays(delays?: readonly number[]): number[] {
   );
 }
 
-function buildCapacityRetrySignal(
+function buildRetrySignal(
   catId: CatId,
   metadata: MessageMetadata,
   attempt: number,
   totalAttempts: number,
   delayMs: number,
+  errorKind?: UpstreamErrorKind,
 ): AgentMessage {
   const seconds = delayMs >= 1000 ? `${Math.round(delayMs / 1000)}s` : `${delayMs}ms`;
+  const reason = humanErrorMessage(errorKind ?? 'unknown');
   return {
     type: 'provider_signal',
     catId,
     content: JSON.stringify({
       type: 'warning',
-      message: `上游模型服务端容量不足，系统将在 ${seconds} 后自动重试（${attempt}/${totalAttempts}）`,
+      message: `${reason}，正在自动重试（${attempt}/${totalAttempts}），${seconds} 后继续`,
     }),
     metadata,
     timestamp: Date.now(),
@@ -180,6 +183,7 @@ export class AntigravityAgentService implements AgentService {
       const threadId = options?.auditContext?.threadId ?? `ephemeral-${Date.now()}`;
       let cascadeId = await this.bridge.getOrCreateSession(threadId, this.catId as string);
       let capacityRetryCount = 0;
+      let pendingTextReplace = false;
 
       const makeSessionInit = (sessionId: string): AgentMessage => ({
         type: 'session_init',
@@ -212,8 +216,10 @@ export class AntigravityAgentService implements AgentService {
         let attemptHasToolActivity = false;
         let attemptHasDispatchedToolResult = false;
         let attemptHasNativeDispatch = false;
+        let attemptHasToolishStep = false;
         let attemptHasResolvedToolishStep = false;
         let modelCapacityRetryDelayMs: number | null = null;
+        let retryErrorKind: UpstreamErrorKind | undefined;
         const handledToolCallIds = new Set<string>();
         let pendingStreamError: AgentMessage | null = null;
         let streamErrorGraceDeadline = 0;
@@ -223,7 +229,7 @@ export class AntigravityAgentService implements AgentService {
           [STREAM_ERROR_PATH]: 'partial_text',
         };
 
-        const clearPendingStreamError = (reason: 'recovered' | 'superseded' | 'expired') => {
+        const clearPendingStreamError = (reason: 'recovered' | 'superseded' | 'expired' | 'retried') => {
           if (!pendingStreamError) return;
           if (reason === 'recovered') {
             antigravityStreamErrorRecovered.add(1, pendingStreamErrorMetricAttrs);
@@ -257,10 +263,23 @@ export class AntigravityAgentService implements AgentService {
             if (pendingStreamError) {
               const remainingMs = streamErrorGraceDeadline - Date.now();
               if (remainingMs <= 0) {
-                log.warn({ cascadeId }, 'stream_error grace expired without recovery');
-                yield pendingStreamError;
-                clearPendingStreamError('expired');
-                terminalAbort = true;
+                const canRetry =
+                  !attemptHasResolvedToolishStep &&
+                  !attemptHasNativeDispatch &&
+                  !attemptHasToolActivity &&
+                  !attemptHasToolishStep &&
+                  capacityRetryCount < self.modelCapacityRetryDelaysMs.length;
+                if (canRetry) {
+                  log.info({ cascadeId }, 'stream_error grace expired — entering retry path');
+                  modelCapacityRetryDelayMs = self.modelCapacityRetryDelaysMs[capacityRetryCount] ?? null;
+                  retryErrorKind = 'stream_interrupted';
+                  clearPendingStreamError('retried');
+                } else {
+                  log.warn({ cascadeId }, 'stream_error grace expired without recovery');
+                  yield pendingStreamError;
+                  clearPendingStreamError('expired');
+                  terminalAbort = true;
+                }
                 try {
                   await iterator.return?.(undefined);
                 } catch {
@@ -278,10 +297,23 @@ export class AntigravityAgentService implements AgentService {
               ]);
               clearTimeout(timeoutHandle);
               if (raced === '__grace_timeout__') {
-                log.warn({ cascadeId }, 'stream_error grace expired without recovery');
-                yield pendingStreamError;
-                clearPendingStreamError('expired');
-                terminalAbort = true;
+                const canRetry =
+                  !attemptHasResolvedToolishStep &&
+                  !attemptHasNativeDispatch &&
+                  !attemptHasToolActivity &&
+                  !attemptHasToolishStep &&
+                  capacityRetryCount < self.modelCapacityRetryDelaysMs.length;
+                if (canRetry) {
+                  log.info({ cascadeId }, 'stream_error grace expired — entering retry path');
+                  modelCapacityRetryDelayMs = self.modelCapacityRetryDelaysMs[capacityRetryCount] ?? null;
+                  retryErrorKind = 'stream_interrupted';
+                  clearPendingStreamError('retried');
+                } else {
+                  log.warn({ cascadeId }, 'stream_error grace expired without recovery');
+                  yield pendingStreamError;
+                  clearPendingStreamError('expired');
+                  terminalAbort = true;
+                }
                 try {
                   await iterator.return?.(undefined);
                 } catch {
@@ -346,7 +378,6 @@ export class AntigravityAgentService implements AgentService {
                   collectedGenerateImageSteps.push(step);
                 }
               }
-              const batchHasText = messages.some((msg) => msg.type === 'text' && Boolean(msg.content));
               const batchHasToolActivity = messages.some(
                 (msg) => msg.type === 'tool_use' || msg.type === 'tool_result',
               );
@@ -364,6 +395,10 @@ export class AntigravityAgentService implements AgentService {
               const batchHasModelCapacity = messages.some(
                 (msg) => msg.type === 'error' && msg.errorCode === 'model_capacity',
               );
+              const batchHasNetworkError = messages.some(
+                (msg) => msg.type === 'error' && msg.errorCode === 'network_error',
+              );
+              const batchHasTransientError = batchHasModelCapacity || batchHasNetworkError;
               const getToolishToolName = (step: (typeof batch.steps)[number] | undefined) =>
                 step?.metadata?.toolCall?.name ?? step?.toolCall?.toolName ?? step?.toolResult?.toolName;
               const firstToolishStep = batch.steps.find(
@@ -475,11 +510,9 @@ export class AntigravityAgentService implements AgentService {
                 toolishRetryEligible,
                 ...extra,
               });
-              const shouldRetryModelCapacity =
-                batchHasModelCapacity &&
+              const shouldRetryTransient =
+                batchHasTransientError &&
                 !batchHasUpstreamError &&
-                !hasText &&
-                !batchHasText &&
                 !attemptHasResolvedToolishStep &&
                 !attemptHasNativeDispatch &&
                 !attemptHasToolActivity &&
@@ -500,7 +533,7 @@ export class AntigravityAgentService implements AgentService {
                   rawStepTypes: lastBatchStepTypes,
                   msgTypeCounts: batchMsgTypeCounts,
                   totalStepsSeen,
-                  shouldRetryModelCapacity,
+                  shouldRetryTransient,
                   capacityRetryCount,
                 },
                 'batch processed',
@@ -515,12 +548,15 @@ export class AntigravityAgentService implements AgentService {
               const seenFatalKeys = new Set<string>();
               const batchHasSpecificError = messages.some(
                 (msg) =>
-                  msg.type === 'error' && (msg.errorCode === 'upstream_error' || msg.errorCode === 'model_capacity'),
+                  msg.type === 'error' &&
+                  (msg.errorCode === 'upstream_error' ||
+                    msg.errorCode === 'model_capacity' ||
+                    msg.errorCode === 'network_error'),
               );
               for (const msg of messages) {
                 const isFatal = msg.type === 'error' && msg.errorCode && msg.errorCode !== 'tool_error';
                 if (!isFatal) {
-                  if (shouldRetryModelCapacity && msg.type === 'provider_signal') {
+                  if (shouldRetryTransient && msg.type === 'provider_signal') {
                     continue;
                   }
                   if (msg.type === 'text') {
@@ -529,6 +565,12 @@ export class AntigravityAgentService implements AgentService {
                       clearPendingStreamError('recovered');
                     }
                     hasText = true;
+                    if (pendingTextReplace && msg.content) {
+                      log.info({ cascadeId }, 'injecting textMode=replace for fresh cascade after retry');
+                      pendingTextReplace = false;
+                      yield { ...msg, textMode: 'replace' as const };
+                      continue;
+                    }
                   }
                   if (msg.type === 'tool_use') attemptHasToolActivity = true;
                   if (msg.type === 'tool_result') {
@@ -551,13 +593,14 @@ export class AntigravityAgentService implements AgentService {
                   continue;
                 }
 
-                if (msg.errorCode === 'model_capacity') {
+                if (msg.errorCode === 'model_capacity' || msg.errorCode === 'network_error') {
                   if (pendingStreamError) {
-                    log.info({ cascadeId }, 'stream_error superseded by model_capacity');
+                    log.info({ cascadeId }, 'stream_error superseded by %s', msg.errorCode);
                     clearPendingStreamError('superseded');
                   }
-                  if (shouldRetryModelCapacity) {
+                  if (shouldRetryTransient) {
                     modelCapacityRetryDelayMs = self.modelCapacityRetryDelaysMs[capacityRetryCount] ?? null;
+                    retryErrorKind = msg.metadata?.upstreamError?.kind as UpstreamErrorKind | undefined;
                     continue;
                   }
                   fatalSeen = true;
@@ -584,13 +627,11 @@ export class AntigravityAgentService implements AgentService {
                                   ? 'tool_activity_seen'
                                   : batchHasToolishStep && !toolishRetryEligible
                                     ? 'toolish_step_present'
-                                    : hasText || batchHasText
-                                      ? 'text_seen'
-                                      : batchHasUpstreamError
-                                        ? 'cooccurring_upstream_error'
-                                        : capacityRetryCount >= self.modelCapacityRetryDelaysMs.length
-                                          ? 'retry_budget_exhausted'
-                                          : 'terminal_policy',
+                                    : batchHasUpstreamError
+                                      ? 'cooccurring_upstream_error'
+                                      : capacityRetryCount >= self.modelCapacityRetryDelaysMs.length
+                                        ? 'retry_budget_exhausted'
+                                        : 'terminal_policy',
                         }),
                         retryEligible: false,
                       },
@@ -606,7 +647,7 @@ export class AntigravityAgentService implements AgentService {
                     clearPendingStreamError('superseded');
                   }
                   const errorMetadata = msg.metadata ?? metadata;
-                  const rawError = msg.error ?? '';
+                  const rawError = msg.metadata?.upstreamError?.rawReason ?? msg.error ?? '';
                   const looksLikeApprovalDenied = /user denied permission/i.test(rawError);
                   const looksLikeApprovalTimeout = /context canceled/i.test(rawError);
                   if (
@@ -720,6 +761,9 @@ export class AntigravityAgentService implements AgentService {
                   log.warn(`nativeExecuteAndPush failed for step: ${err}`);
                 }
               }
+              if (batchHasToolishStep) {
+                attemptHasToolishStep = true;
+              }
               if (batchHasResolvedToolishStep) {
                 attemptHasResolvedToolishStep = true;
               }
@@ -739,18 +783,44 @@ export class AntigravityAgentService implements AgentService {
               yield msg;
             }
             if (pendingStreamError) {
-              log.warn({ cascadeId }, 'stream_error grace expired after poll completion without recovery');
-              yield pendingStreamError;
-              clearPendingStreamError('expired');
-              terminalAbort = true;
+              const canRetry =
+                !attemptHasResolvedToolishStep &&
+                !attemptHasNativeDispatch &&
+                !attemptHasToolActivity &&
+                !attemptHasToolishStep &&
+                capacityRetryCount < this.modelCapacityRetryDelaysMs.length;
+              if (canRetry) {
+                log.info({ cascadeId }, 'stream_error grace expired after poll — entering retry path');
+                modelCapacityRetryDelayMs = this.modelCapacityRetryDelaysMs[capacityRetryCount] ?? null;
+                retryErrorKind = 'stream_interrupted';
+                clearPendingStreamError('retried');
+              } else {
+                log.warn({ cascadeId }, 'stream_error grace expired after poll completion without recovery');
+                yield pendingStreamError;
+                clearPendingStreamError('expired');
+                terminalAbort = true;
+              }
             }
           } catch (err) {
             const isStall = err instanceof Error && err.message.includes('stall');
             if (pendingStreamError && isStall) {
-              log.warn({ cascadeId }, 'stream_error grace expired on stall without recovery');
-              yield pendingStreamError;
-              clearPendingStreamError('expired');
-              terminalAbort = true;
+              const canRetry =
+                !attemptHasResolvedToolishStep &&
+                !attemptHasNativeDispatch &&
+                !attemptHasToolActivity &&
+                !attemptHasToolishStep &&
+                capacityRetryCount < this.modelCapacityRetryDelaysMs.length;
+              if (canRetry) {
+                log.info({ cascadeId }, 'stream_error grace expired on stall — entering retry path');
+                modelCapacityRetryDelayMs = this.modelCapacityRetryDelaysMs[capacityRetryCount] ?? null;
+                retryErrorKind = 'stream_interrupted';
+                clearPendingStreamError('retried');
+              } else {
+                log.warn({ cascadeId }, 'stream_error grace expired on stall without recovery');
+                yield pendingStreamError;
+                clearPendingStreamError('expired');
+                terminalAbort = true;
+              }
               break;
             }
             if (isStall && this.autoApprove && !stallProbed) {
@@ -770,17 +840,22 @@ export class AntigravityAgentService implements AgentService {
         }
 
         if (modelCapacityRetryDelayMs != null) {
+          if (hasText) {
+            pendingTextReplace = true;
+            log.info({ cascadeId }, 'hasText before retry — will inject textMode=replace on fresh cascade');
+          }
           capacityRetryCount += 1;
-          yield buildCapacityRetrySignal(
+          yield buildRetrySignal(
             this.catId,
             metadata,
             capacityRetryCount,
             this.modelCapacityRetryDelaysMs.length,
             modelCapacityRetryDelayMs,
+            retryErrorKind,
           );
           log.info(
             { cascadeId, threadId, retryCount: capacityRetryCount, delayMs: modelCapacityRetryDelayMs },
-            'retrying Antigravity invoke after model_capacity',
+            'retrying Antigravity invoke after transient error',
           );
           await sleepWithAbort(modelCapacityRetryDelayMs, options?.signal);
           this.bridge.resetSession(threadId, this.catId as string);

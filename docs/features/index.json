@@ -1187,6 +1187,12 @@
       "name": "Architecture Ownership Governance — 架构归属地图与 Map Delta 门禁",
       "status": "done | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
       "file": "F191-architecture-ownership-governance.md"
+    },
+    {
+      "id": "F192",
+      "name": "Socio-Technical Harness Eval — harness 共创评估体系",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F192-socio-technical-harness-eval.md"
     }
   ]
 }

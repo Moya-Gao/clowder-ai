@@ -938,7 +938,9 @@ function globalArchitectureDiagram() {
 }
 
 function sequencePhase(x, y, w, h, phase, title, subtitle, bullets, color, opts = {}) {
-  const count = opts.count ? pill(x + w - 255, y + 24, opts.count, `${color}22`, color, { w: 220, size: 21, textFill: color }) : '';
+  const count = opts.count
+    ? pill(x + w - 255, y + 24, opts.count, `${color}22`, color, { w: 220, size: 21, textFill: color })
+    : '';
   const note = opts.note
     ? `
       <rect x="${x + 34}" y="${y + h - 70}" width="${w - 68}" height="46" rx="18" fill="white" stroke="${color}" stroke-width="2" opacity="0.86"/>

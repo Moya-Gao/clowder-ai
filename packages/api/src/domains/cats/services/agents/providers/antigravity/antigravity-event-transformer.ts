@@ -5,22 +5,72 @@ import type { TrajectoryStep } from './AntigravityBridge.js';
 
 const log = createModuleLogger('antigravity-event-transformer');
 
+// --- Error Taxonomy (F061 Phase 3) ---
+
+export type UpstreamErrorKind = 'capacity' | 'network' | 'stream_interrupted' | 'invalid_tool_call' | 'unknown';
+
+export interface UpstreamErrorInfo {
+  kind: UpstreamErrorKind;
+  transient: boolean;
+  rawReason: string;
+}
+
 const CAPACITY_PATTERNS = [
   /high traffic/i,
   /rate limit/i,
   /too many requests/i,
-  /try again/i,
   /overloaded/i,
   /exhausted your capacity/i,
   /quota will reset/i,
+];
+
+const NETWORK_PATTERNS = [
+  /network.*issue/i,
+  /connection.*(?:error|refused|reset|closed)/i,
+  /ECONNREFUSED/,
+  /ECONNRESET/,
+  /ETIMEDOUT/,
+  /(?:network|connect|server).*\btry again\b/i,
 ];
 
 export function isCapacityError(message: string): boolean {
   return CAPACITY_PATTERNS.some((p) => p.test(message));
 }
 
+export function isNetworkError(message: string): boolean {
+  return NETWORK_PATTERNS.some((p) => p.test(message)) && !isCapacityError(message);
+}
+
 function isInvalidToolCallError(message: string): boolean {
   return /invalid tool call|produced an invalid tool/i.test(message);
+}
+
+export function classifyUpstreamError(rawReason: string, stopReason?: string): UpstreamErrorInfo {
+  if (stopReason === 'STOP_REASON_CLIENT_STREAM_ERROR') {
+    return { kind: 'stream_interrupted', transient: true, rawReason };
+  }
+  if (isInvalidToolCallError(rawReason)) {
+    return { kind: 'invalid_tool_call', transient: false, rawReason };
+  }
+  if (isCapacityError(rawReason)) {
+    return { kind: 'capacity', transient: true, rawReason };
+  }
+  if (isNetworkError(rawReason)) {
+    return { kind: 'network', transient: true, rawReason };
+  }
+  return { kind: 'unknown', transient: false, rawReason };
+}
+
+const HUMAN_ERROR_MESSAGES: Record<UpstreamErrorKind, string> = {
+  capacity: '上游模型服务繁忙',
+  network: '网络连接异常',
+  stream_interrupted: '连接中断',
+  invalid_tool_call: '工具调用失败',
+  unknown: '上游服务异常',
+};
+
+export function humanErrorMessage(kind: UpstreamErrorKind): string {
+  return HUMAN_ERROR_MESSAGES[kind];
 }
 
 function formatAntigravityUpstreamError(message: string): string {
@@ -175,48 +225,59 @@ export function transformTrajectorySteps(
 
       case 'tool_error': {
         if (step.type === 'CORTEX_STEP_TYPE_PLANNER_RESPONSE') {
-          log.warn('stream_error: stopReason=%s', step.plannerResponse?.stopReason);
+          const upstreamError = classifyUpstreamError(
+            step.plannerResponse?.stopReason ?? '',
+            step.plannerResponse?.stopReason,
+          );
+          log.warn('stream_error: stopReason=%s kind=%s', step.plannerResponse?.stopReason, upstreamError.kind);
           messages.push({
             type: 'error',
             catId,
-            error: 'Antigravity model stream error (STOP_REASON_CLIENT_STREAM_ERROR)',
+            error: humanErrorMessage(upstreamError.kind),
             errorCode: 'stream_error',
-            metadata,
+            metadata: { ...metadata, upstreamError },
             timestamp: Date.now(),
           });
         } else if (step.type === 'CORTEX_STEP_TYPE_ERROR_MESSAGE' && step.errorMessage?.error) {
           const err = step.errorMessage.error;
           const rawText = err.userErrorMessage || err.modelErrorMessage || 'Unknown Antigravity error';
-          const errorCode = isCapacityError(rawText) ? 'model_capacity' : 'upstream_error';
+          const upstreamError = classifyUpstreamError(rawText);
+          const errorCode =
+            upstreamError.kind === 'capacity'
+              ? 'model_capacity'
+              : upstreamError.kind === 'network'
+                ? 'network_error'
+                : 'upstream_error';
           log.warn(
-            '%s: user=%s model=%s stepType=%s',
+            '%s: user=%s model=%s stepType=%s kind=%s',
             errorCode,
             err.userErrorMessage,
             err.modelErrorMessage,
             step.type,
+            upstreamError.kind,
           );
-          if (errorCode === 'model_capacity') {
+          if (upstreamError.transient) {
             messages.push({
               type: 'provider_signal',
               catId,
               content: JSON.stringify({
                 type: 'warning',
-                message: `上游模型服务端繁忙（容量不足），非 Cat Café 系统故障。(${rawText.slice(0, 100)})`,
+                message: humanErrorMessage(upstreamError.kind),
               }),
-              metadata,
+              metadata: { ...metadata, upstreamError },
               timestamp: Date.now(),
             });
           }
-          const errorText =
-            errorCode === 'model_capacity'
-              ? `⚠️ 上游模型服务端容量不足（服务器繁忙），非 Cat Café 系统故障。原始信息：${rawText}`
-              : formatAntigravityUpstreamError(rawText);
+          if (upstreamError.kind === 'invalid_tool_call') {
+            log.warn(formatAntigravityUpstreamError(rawText));
+          }
+          const errorText = humanErrorMessage(upstreamError.kind);
           messages.push({
             type: 'error',
             catId,
             error: errorText,
             errorCode,
-            metadata,
+            metadata: { ...metadata, upstreamError },
             timestamp: Date.now(),
           });
         } else if (step.toolResult) {

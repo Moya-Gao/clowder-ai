@@ -1501,13 +1501,18 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
       model: 'gemini-3.1-pro',
       bridge,
       streamErrorGraceWindowMs: 10,
+      modelCapacityRetryDelaysMs: [],
     });
     const messages = await collect(service.invoke('hello'));
 
     const texts = messages.filter((m) => m.type === 'text').map((m) => m.content);
     assert.deepEqual(texts, []);
     const streamErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'stream_error');
-    assert.equal(streamErrors.length, 1, 'stream_error should surface after no-text grace expires');
+    assert.equal(
+      streamErrors.length,
+      1,
+      'stream_error should surface after no-text grace expires when retry budget exhausted',
+    );
   });
 
   test('stream_error after partial text is buffered and later recovery text still arrives', async () => {
@@ -1642,7 +1647,12 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
         cursor: { baselineStepCount: 2, lastDeliveredStepCount: 3, terminalSeen: true, lastActivityAt: Date.now() },
       };
     };
-    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [],
+    });
     const messages = await collect(service.invoke('hello'));
 
     const streamErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'stream_error');
@@ -1683,13 +1693,14 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
       model: 'gemini-3.1-pro',
       bridge,
       streamErrorGraceWindowMs: 10,
+      modelCapacityRetryDelaysMs: [],
     });
     const messages = await collect(service.invoke('hello'));
 
     const texts = messages.filter((m) => m.type === 'text').map((m) => m.content);
     assert.deepEqual(texts, ['好的，我来换个方式——']);
     const streamErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'stream_error');
-    assert.equal(streamErrors.length, 1, 'stream_error should surface after grace expires');
+    assert.equal(streamErrors.length, 1, 'stream_error should surface after grace expires when retry budget exhausted');
   });
 
   test('does NOT emit empty_response when fatalSeen', async () => {
@@ -2029,5 +2040,344 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
         `not the literal word "threadId" — Bengal needs the actual id to call list_session_chain`,
     );
     void fakeEnv;
+  });
+
+  // --- AC-10 regression paths (F061 Phase 3) ---
+
+  test('AC-10/3: partial text + capacity + no tool → retry with textMode=replace, no double text', async () => {
+    const bridge = createMockBridge();
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () => ['cascade-partial-1', 'cascade-partial-2'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-partial-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'CORTEX_STEP_STATUS_GENERATING',
+              plannerResponse: { modifiedResponse: '我来帮你看看——' },
+            },
+          ],
+          cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+        };
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'FINISHED',
+              errorMessage: {
+                error: {
+                  userErrorMessage:
+                    'Our servers are experiencing high traffic right now, please try again in a minute.',
+                },
+              },
+            },
+          ],
+          cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+        };
+        return;
+      }
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: '让我重新检查一下，结果如下。' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 2, 'should yield partial text + replacement text');
+    assert.equal(texts[0].content, '我来帮你看看——');
+    assert.equal(texts[0].textMode, undefined, 'first text has no textMode');
+    assert.equal(texts[1].content, '让我重新检查一下，结果如下。');
+    assert.equal(texts[1].textMode, 'replace', 'recovery text must carry textMode=replace');
+    const capacityErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.equal(capacityErrors.length, 0, 'retry succeeded — no capacity error surfaced');
+  });
+
+  test('AC-10/4: partial text + resolved tool → no retry, surface error with diagnostics', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_GENERATING',
+            plannerResponse: { modifiedResponse: '让我查一下' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            metadata: {
+              toolCall: { id: 'toolu_dispatch1', name: 'run_command', argumentsJson: '{"CommandLine":"ls"}' },
+            },
+            toolResult: { toolName: 'run_command', output: 'file.txt', isError: false },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 1, lastDeliveredStepCount: 3, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0, 0],
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    const capacityErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.equal(capacityErrors.length, 1, 'must surface capacity error when tool dispatch happened');
+    const diag = capacityErrors[0].metadata?.diagnostics;
+    assert.ok(diag, 'must carry diagnostics');
+    assert.equal(diag.retryEligible, false);
+  });
+
+  test('AC-10/6: partial @mention text + retry replace → stale mention not in final output', async () => {
+    const bridge = createMockBridge();
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () => ['cascade-mention-1', 'cascade-mention-2'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-mention-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'CORTEX_STEP_STATUS_GENERATING',
+              plannerResponse: { modifiedResponse: '@opus 帮我看看这段代码' },
+            },
+          ],
+          cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+        };
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'FINISHED',
+              errorMessage: {
+                error: {
+                  userErrorMessage:
+                    'Our servers are experiencing high traffic right now, please try again in a minute.',
+                },
+              },
+            },
+          ],
+          cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+        };
+        return;
+      }
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: '让我重新检查一下代码' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 2);
+    assert.match(texts[0].content, /@opus/, 'first text contains @mention');
+    assert.equal(texts[1].textMode, 'replace', 'recovery must use replace mode');
+    assert.ok(!texts[1].content.includes('@opus'), 'replacement text must NOT carry stale @mention');
+  });
+
+  test('P1: stream_error grace expired retries on fresh cascade when retry budget available', async () => {
+    const bridge = createMockBridge();
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () => ['cascade-stream-1', 'cascade-stream-2'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-stream-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'CORTEX_STEP_STATUS_GENERATING',
+              plannerResponse: { modifiedResponse: '让我看看——' },
+            },
+          ],
+          cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+        };
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'CORTEX_STEP_STATUS_DONE',
+              plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+            },
+          ],
+          cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: false, lastActivityAt: Date.now() },
+        };
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return;
+      }
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: '重新分析完成。' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      streamErrorGraceWindowMs: 10,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    const streamErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'stream_error');
+    assert.equal(streamErrors.length, 0, 'stream_error should NOT surface when retry succeeds');
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 2);
+    assert.equal(texts[0].content, '让我看看——');
+    assert.equal(texts[1].content, '重新分析完成。');
+    assert.equal(texts[1].textMode, 'replace', 'recovery text must use replace mode');
+    const warnings = messages.filter((m) => m.type === 'provider_signal');
+    assert.ok(warnings.length >= 1, 'should yield retry warning');
+    assert.match(warnings.at(-1).content, /连接中断/, 'retry signal should say 连接中断 for stream_interrupted');
+  });
+
+  test('P2b: retry signal shows capacity-specific Chinese text', async () => {
+    const bridge = createMockBridge();
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () => ['cascade-p2b-1', 'cascade-p2b-2'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-p2b-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'FINISHED',
+              errorMessage: {
+                error: {
+                  userErrorMessage:
+                    'Our servers are experiencing high traffic right now, please try again in a minute.',
+                },
+              },
+            },
+          ],
+          cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+        };
+        return;
+      }
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'OK' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    const warnings = messages.filter((m) => m.type === 'provider_signal');
+    assert.ok(warnings.length >= 1);
+    assert.match(warnings[0].content, /上游模型服务繁忙/, 'capacity retry signal should say 上游模型服务繁忙');
+    assert.match(warnings[0].content, /自动重试/);
+  });
+
+  test('P1: WAITING run_command + stream_error grace expired must NOT retry — toolish step blocks', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_GENERATING',
+            plannerResponse: { modifiedResponse: '让我执行一下' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_approval_pending',
+                name: 'run_command',
+                argumentsJson: '{"CommandLine":"curl -fsS https://example.com","Cwd":"/tmp","SafeToAutoRun":true}',
+              },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+          },
+        ],
+        cursor: { baselineStepCount: 1, lastDeliveredStepCount: 3, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      streamErrorGraceWindowMs: 10,
+      modelCapacityRetryDelaysMs: [0, 0],
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    const streamErrors = messages.filter((m) => m.type === 'error' && m.errorCode === 'stream_error');
+    assert.equal(streamErrors.length, 1, 'stream_error must surface when toolish step blocks retry');
+    assert.equal(bridge.resetSession.mock.callCount(), 0, 'must NOT reset session — toolish step was in-flight');
+    assert.equal(bridge.sendMessage.mock.callCount(), 1, 'must NOT resend — single attempt only');
   });
 });
