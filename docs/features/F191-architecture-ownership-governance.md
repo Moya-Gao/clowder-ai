@@ -26,6 +26,8 @@ F183 / F185 的成功路径不是继续修症状，而是先梳理现有模块�
 
 新建 `docs/architecture/ownership/`，采用 per-cell 文件而非单个巨大表，避免所有 Feature 同时修改同一文件。
 
+与现有 `docs/architecture/2026-05-05-architecture-views.md` 的关系：`architecture-views` 是叙事性架构图谱快照，用来讲清系统全貌；`ownership/` 是路由性归属索引，用来判断新 Feature 应扩展哪条架构线。两者互补，不互相替代；cell 可以引用架构图谱作为背景，但不得重复维护图谱内容。
+
 首版 cells：
 
 | Cell | Canonical anchors | 说明 |
@@ -35,7 +37,7 @@ F183 / F185 的成功路径不是继续修症状，而是先梳理现有模块�
 | `dispatch` | F175 / F185 / ADR-034 | invocation queue / busy gate / fairness invariant |
 | `bubble-pipeline` | F183 | message bubble identity / single writer / reducer |
 | `action-plane` | ADR-029 / F162 | 企业动作、CLI executor、ActionService |
-| `identity-session` | F032 / F088 / F183 | agent identity、connector binding、bubble identity 的分层边界 |
+| `identity-session` | F032 / F088 / F183 | 顶层身份/会话归属格；Phase A 必须拆出 `identity-agent` / `identity-connector` / `identity-bubble` subcells，并写清三者不能互相吞并 |
 | `callback-auth` | F174 | callback auth lifecycle / scope / resilience |
 
 每个 cell 固定包含：
@@ -63,6 +65,8 @@ cited_by: []
 ```
 
 `cited_by` 先作为显式字段进入 PoC，用来记录哪些 Feature / PR 引用或更新过该 cell。首轮不自动追加，避免在地图尚未校准前引入 merge hook 复杂度。
+
+README 总索引不作为手写真相源。Phase A 直接定为由 cells frontmatter 生成，避免总索引变成新的热点冲突和腐烂源。
 
 ### Phase B: Skills 激活入口（最小小切）
 
@@ -103,6 +107,8 @@ cited_by: []
 - 找不到归属时是否自然进入 Phase 0
 - reviewer 是否能用 map 快速发现“另起炉灶”或“过度归一”
 
+如果试跑证明 map 是错误抽象（分类过度、作者普遍答不出 cell、或 reviewer 认为 map 没减少认知负担），则不升级 ADR / CI hard gate；把结果收敛为 lessons-learned，并重新选择坐标系。
+
 试跑后再决定是否升 ADR、是否把 warning 脚本接入 CI、是否自动维护 `cited_by`。
 
 ## Acceptance Criteria
@@ -113,6 +119,8 @@ cited_by: []
 - [ ] AC-A3: 每个 cell 包含 `Canonical Owner` / `Use This When` / `Extend By` / `Do NOT Unify With` / `Static Scan Hints`
 - [ ] AC-A4: 每个 cell frontmatter 包含 `cell_id` / `canonical_features` / `code_anchors` / `cited_by`
 - [ ] AC-A5: F124 x F088 的反归一边界进入 `transport` cell，明确“归一消息内核和设备语义，不归一 connector transport”
+- [ ] AC-A6: `identity-session` 明确拆出 `identity-agent` / `identity-connector` / `identity-bubble` subcells，并在 `Do NOT Unify With` 写死三者边界
+- [ ] AC-A7: README 总索引由 cells frontmatter 生成，不手写维护 ownership 真相源
 
 ### Phase B（Skills 激活入口）
 - [ ] AC-B1: `feat-lifecycle` Design Gate 增加 `Architecture cell` / `Map delta` / `Why` 三字段
@@ -131,15 +139,16 @@ cited_by: []
 - [ ] AC-D1: 至少 1 个真实 Feature 使用 `Architecture cell` + `Map delta` 试跑
 - [ ] AC-D2: 试跑后记录是否有漏 cell / 错 cell / 过度归一 / 另起炉灶未被发现
 - [ ] AC-D3: 基于试跑结果决定是否接入 hard CI、自动 `cited_by`、或升 ADR
+- [ ] AC-D4: 若试跑证明 map 是错误抽象，记录 lessons-learned，不升级 ADR / CI hard gate
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | “老项目 + 新需求”不能继续瞎累积架构 | AC-A1~A5, AC-B1~B4 | spec + skill review | [ ] |
-| R2 | 不是每个 Feature 重新填表 / 重新画图 | AC-A1, AC-B1, AC-B2 | 普通增量写 `Map delta: none` | [ ] |
-| R3 | 只在真正需要时触发重审 | AC-B1, AC-D1~D3 | 真实 Feature 试跑 | [ ] |
-| R4 | 防止 map 腐烂 | AC-A4, AC-C1 | stale anchor check | [ ] |
+| R1 | “老项目 + 新需求”不能继续瞎累积架构 | AC-A1~A7, AC-B1~B4 | spec + skill review | [ ] |
+| R2 | 不是每个 Feature 重新填表 / 重新画图 | AC-A1, AC-A7, AC-B1, AC-B2 | 普通增量写 `Map delta: none` | [ ] |
+| R3 | 只在真正需要时触发重审 | AC-B1, AC-D1~D4 | 真实 Feature 试跑 | [ ] |
+| R4 | 防止 map 腐烂 | AC-A4, AC-A7, AC-C1 | stale anchor check + generated README | [ ] |
 | R5 | 防止大家抢同一个大文件冲突 | AC-A1 | per-cell 文件结构 | [ ] |
 | R6 | 涉及 harness：skills / quality gate / CI / prompts | AC-B1~B5, AC-C1~C4 | diff + review | [ ] |
 | R7 | 47 的 `cited_by` 想法可以试，但不能首轮过度自动化 | AC-A4, AC-D3 | PoC 字段 + 后续决策 | [ ] |
@@ -163,11 +172,13 @@ cited_by: []
 | 风险 | 缓解 |
 |------|------|
 | 退化成每个 Feature 填表 | 只要求三字段；普通增量写 `Map delta: none`，不改 map |
-| 单文件热点冲突 | per-cell 文件结构；README 可生成或少手改 |
+| 单文件热点冲突 | per-cell 文件结构；README 由 frontmatter 生成 |
 | CI 误报淹没开发 | Phase C warning-only，先收集误报再决定 hard fail |
 | map 变成死文档 | code anchors + Feature 引用 + review checklist 三层激活 |
 | 过度归一 | 每个 cell 必须写 `Do NOT Unify With` |
+| `identity-session` 变成万能筐 | 拆出 `identity-agent` / `identity-connector` / `identity-bubble` subcells，并写死不可互相吞并 |
 | `cited_by` 维护变成人工负担 | 首轮仅字段化；自动追加等试跑后再决定 |
+| map 本身是错误抽象 | PoC 允许失败；失败时沉淀 lessons-learned，不升级 ADR / CI hard gate |
 
 ## Open Questions
 
@@ -176,7 +187,6 @@ cited_by: []
 | OQ-1 | Phase D 选择哪个真实 Feature 试跑？ | ⬜ 待定 |
 | OQ-2 | `cited_by` 自动追加放在 merge-gate 还是独立脚本？ | ⬜ Phase D 后决定 |
 | OQ-3 | warning-only 何时升级为 hard CI？ | ⬜ 误报样本稳定后决定 |
-| OQ-4 | README 总索引手写还是由 cells frontmatter 生成？ | ⬜ Phase A 决定 |
 
 ## Key Decisions
 
@@ -187,6 +197,8 @@ cited_by: []
 | KD-3 | CI 首轮只做机械 warning，不做语义判断 | 架构正确性需要 Design Gate / review，CI 只查 stale anchor / missing cell 等机械不变量 | 2026-05-07 |
 | KD-4 | `Do NOT Unify With` 与 `Canonical Owner` 同级 | 同时防“瞎累积”和“瞎抽象” | 2026-05-07 |
 | KD-5 | 47 的 `cited_by` 收进 PoC，但自动维护不进首轮 | 反向引用有价值，但自动 merge hook 在地图未稳定前过重 | 2026-05-07 |
+| KD-6 | README 总索引由 cells frontmatter 生成 | 避免 README 成为新的热点冲突和腐烂源 | 2026-05-07 |
+| KD-7 | PoC 失败也是有效结果 | 如果 map 导致过度分类或没有降低 review 成本，应沉淀教训而不是升级治理负担 | 2026-05-07 |
 
 ## Timeline
 
