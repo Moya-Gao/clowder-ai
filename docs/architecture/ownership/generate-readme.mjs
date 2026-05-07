@@ -68,7 +68,16 @@ const cells = readdirSync(CELLS_DIR)
   });
 
 for (const { file, meta } of cells) {
-  for (const key of ['cell_id', 'title', 'summary', 'canonical_features', 'code_anchors', 'cited_by']) {
+  for (const key of [
+    'cell_id',
+    'title',
+    'summary',
+    'canonical_features',
+    'code_anchors',
+    'doc_anchors',
+    'static_scan_hints',
+    'cited_by',
+  ]) {
     if (!(key in meta)) throw new Error(`${file} is missing frontmatter field: ${key}`);
   }
 }

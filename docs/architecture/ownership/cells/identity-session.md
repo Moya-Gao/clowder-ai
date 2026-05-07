@@ -48,6 +48,7 @@ This is a top-level routing cell with three subcells. It exists to prevent ident
 - `identity-agent` is not `identity-connector`. A roster cat ID does not prove an external user owns a connector binding.
 - `identity-connector` is not `identity-bubble`. External chat/thread binding does not decide frontend bubble grouping.
 - `identity-bubble` is not `identity-agent`. Bubble identity uses `(catId, canonicalInvocationId, bubbleKind)` inside a thread; it is not the source of roster truth.
+- `ConnectorThreadBindingStore` is an intentional shared touchpoint with `transport`: transport uses it for routing, while `identity-connector` uses it as the binding contract. Shared file ownership does not merge the cells.
 - Do not add a generic `IdentityStore` to cover all three. Shared vocabulary is not shared ownership.
 
 ## Static Scan Hints

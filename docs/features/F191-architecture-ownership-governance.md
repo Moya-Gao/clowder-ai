@@ -45,9 +45,14 @@ F183 / F185 的成功路径不是继续修症状，而是先梳理现有模块�
 ```markdown
 ---
 cell_id: dispatch
+title: Dispatch / Queue
+summary: Invocation queue、busy gate、fairness、priority 与外部 wake 执行。
 canonical_features: [F175, F185]
 code_anchors:
   - packages/api/src/...
+doc_anchors:
+  - docs/features/F185-dispatch-busy-gate-unification.md
+static_scan_hints: [InvocationQueue, QueueProcessor, busy, priority]
 cited_by: []
 ---
 
@@ -117,7 +122,7 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 - [x] AC-A1: `docs/architecture/ownership/` 存在，包含 per-cell 文件和 README，不使用单个巨大共享表作为唯一真相源
 - [x] AC-A2: 首版 7 个 cell 覆盖 `transport` / `memory` / `dispatch` / `bubble-pipeline` / `action-plane` / `identity-session` / `callback-auth`
 - [x] AC-A3: 每个 cell 包含 `Canonical Owner` / `Use This When` / `Extend By` / `Do NOT Unify With` / `Static Scan Hints`
-- [x] AC-A4: 每个 cell frontmatter 包含 `cell_id` / `canonical_features` / `code_anchors` / `cited_by`
+- [x] AC-A4: 每个 cell frontmatter 包含 `cell_id` / `title` / `summary` / `canonical_features` / `code_anchors` / `doc_anchors` / `static_scan_hints` / `cited_by`
 - [x] AC-A5: F124 x F088 的反归一边界进入 `transport` cell，明确“归一消息内核和设备语义，不归一 connector transport”
 - [x] AC-A6: `identity-session` 明确拆出 `identity-agent` / `identity-connector` / `identity-bubble` subcells，并在 `Do NOT Unify With` 写死三者边界
 - [x] AC-A7: README 总索引由 cells frontmatter 生成，不手写维护 ownership 真相源
