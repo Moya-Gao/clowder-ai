@@ -8,11 +8,13 @@ created: 2026-04-30
 
 # F184: ChatMessage Rendering Mount Investigation — F176 撤销后未查的 DOM 缺失真 bug
 
-> **Status**: done — original DOM mount issue incidentally fixed by F183 Phase B-E architectural work (verified 2026-05-02 alpha walk on `thread_mnux2eewbo4otg17`); stale live streaming bubble follow-up fixed by PR #1582 (2026-05-07) | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P2
+> **Status**: done — original DOM mount issue incidentally fixed by F183 Phase B-E architectural work (verified 2026-05-02 alpha walk on `thread_mnux2eewbo4otg17`); stale live streaming bubble follow-up fixed by PR #1582 (2026-05-07); draft/live bubble split follow-up fixed by PR #1586 (2026-05-07) | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P2
 >
 > **F184 close evidence**: 2026-05-02 runtime alpha walk on the original repro thread (`thread_mnux2eewbo4otg17`, 1788 messages in Redis): DOM rendered 49 messages in the most-recent 50-msg window, API returned 50 in the same range, the 1 "missing" message is `extra.scheduler.hiddenTrigger=true` (intentional UI filter at `ConnectorBubble.tsx:140`, NOT the F184 bug). All cross-cat 互@ messages render correctly: opus-47 (17), codex (8), antig-opus (2) = 27/27 cat bubbles visible. F183 Phase B (single-writer reducer) + Phase D (IDB merge filter) + Phase E (strict invariant gate) collectively closed the rendering mount path that F176 误诊 had targeted.
 >
 > **2026-05-07 live follow-up**: 铲屎官 reported an old Opus bubble still showing `CLI Output · streaming` after Opus had finished and Codex was active; F5 / thread switch recovered because history hydration loaded the finalized server state. Root cause was the live `/queue` reconcile path: it rebuilt active server slots but did not finalize local streaming assistant bubbles whose `catId` was absent from server active slots. PR #1582 added a frontend reconcile helper in `useSocket.ts` plus regression coverage that finalizes stale absent-cat bubbles while preserving the active cat bubble.
+>
+> **2026-05-07 draft/live split follow-up**: 铲屎官 then reported the same thread (`thread_movcg5v7226tmg0q`) still showing a single running reply as two bubbles before F5: one local invocationless live bubble plus one server `draft-{invocationId}` bubble. Root cause was a second identity gap: late stream events did not backfill `invocationId` onto the existing local bubble, and hydration could not merge an unambiguous server draft back into that local bubble. PR #1586 added late invocation binding plus a narrow draft/live hydration merge guard, including a stronger text-proximity requirement so tool-only stale bubbles cannot capture textless new drafts.
 
 ## Why
 
@@ -57,6 +59,10 @@ F176 (Native CLI Assistant-Speech vs CLI-Stdout) 在 2026-04-26 被铲屎官 rev
 
 2026-05-07 follow-up fix: original mount-layer Phase B remained unnecessary, but F184 got a live-state reconcile patch for stale streaming bubbles after F183/F184 close. This is a separate live `/queue` hydration gap, not a backend persistence or ChatMessage mount bug.
 
+### Phase D: Draft/live split follow-up
+
+2026-05-07 second follow-up fix: after PR #1582, the stale absent-cat case was closed but a draft/live split remained. The local live bubble could be created before it had `invocationId`; later stream events carried the invocation binding, but the client did not backfill it. On hydration, the server draft had `draft-{invocationId}` while the local live bubble remained invocationless, so both survived as separate bubbles until F5 rebuilt from server history.
+
 ## Acceptance Criteria
 
 ### Phase A（Diagnosis）
@@ -74,6 +80,12 @@ F176 (Native CLI Assistant-Speech vs CLI-Stdout) 在 2026-04-26 被铲屎官 rev
 - [x] AC-C2: stale absent-cat bubble 被 finalize，active cat bubble 不被误杀 — `packages/web/src/hooks/__tests__/useSocket-stale-watchdog.test.ts` 覆盖 stale Opus (`catId='opus'`) finalize + active Codex (`catId='codex'`) preservation。
 - [x] AC-C3: 合入证据 — PR #1582 merged 2026-05-07 (squash `7a579cc2`); `pnpm gate` passed on `589a92ca`; cloud Codex review reported no major issues; inline P0/P1/P2 scan empty。
 
+### Phase D（Draft/live bubble split follow-up）
+- [x] AC-D1: active path late-bind identity gap closed — `useAgentMessages.ts` backfills `invocationId` onto an existing invocationless assistant bubble when later stream events arrive with a binding, instead of creating a second bubble。
+- [x] AC-D2: hydration path draft/live merge is narrow and non-destructive — `mergeReplaceHydrationMessages` merges exactly one matching server draft into the local invocationless live bubble, preserves the local id, and refuses ambiguous multi-draft cases。
+- [x] AC-D3: stale/tool-only false binding is blocked — draft fallback requires matching cat, recent stream activity, and comparable text on both sides; regression coverage proves a tool-only invocationless stream bubble does not capture a textless server draft。
+- [x] AC-D4: 合入证据 — PR #1586 merged 2026-05-07 (squash `41dd88615`); `pnpm gate` passed on `d04fd574`; local Opus review approved; cloud Codex review reported no major issues after the P1 fixes。
+
 ### 端到端
 - [x] AC-E1: 与 F183 实施 Phase 不重叠 — F184 close 在 F183 全 done 后做，零并发（KD-2 honored）
 - [x] AC-E2: F176 误诊教训沉淀 — 已记入 F183 spec § Why "F176 误诊后真 bug 没人查" 历史段落 + F184 spec 整体作为"先排查 DOM 实证再下结论"的方法论范例
@@ -87,6 +99,7 @@ F176 (Native CLI Assistant-Speech vs CLI-Stdout) 在 2026-04-26 被铲屎官 rev
 | R3 | 不能与 F183 并发去修（避免引入新不一致） | AC-E1 | roadmap 检查 | [x] (F184 在 F183 全 done 后做，零并发) |
 | R4 | F176 误诊教训沉淀 | AC-E2 | lessons-learned 链接 | [x] (F184 整体闭环 — diagnosis 方法论本身就是教训范例) |
 | R5 | "布偶猫其实都回答完了，现在是缅因猫但是他气泡还是这样；F5 / 切换 thread 又正常" (2026-05-07) | AC-C1, AC-C2, AC-C3 | live reconcile test + merge gate | [x] (PR #1582 fixed stale absent-cat streaming bubble finalize) |
+| R6 | "图1和图2是同一个thread f5前后的样子... 以及还是 气泡是分裂的！ 直接两个气泡" (2026-05-07, `thread_movcg5v7226tmg0q`) | AC-D1, AC-D2, AC-D3, AC-D4 | active late-bind test + hydration merge regression + merge gate | [x] (PR #1586 fixed draft/live bubble split and stale tool-only false binding) |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -114,8 +127,8 @@ F176 (Native CLI Assistant-Speech vs CLI-Stdout) 在 2026-04-26 被铲屎官 rev
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | thread_mnux2eewbo4otg17 是否还能复现？还是历史 thread state 被 ledger 改写过？ | ✅ 2026-05-02 alpha walk 不复现；1 条差异为 intentional hiddenTrigger filter |
-| OQ-2 | 是否需要构造一个稳定 fixture（多猫互 @ 长 invocation）作为 regression suite？ | ✅ original mount bug 不需要；live stale bubble 另由 `useSocket-stale-watchdog.test.ts` 回归锁定 |
-| OQ-3 | F184 owner 最终是 47 还是砚砚？跨 family review 路径如何安排？ | ✅ original diagnosis owner Opus-47；2026-05-07 follow-up 由砚砚修复、Opus 4.6 review |
+| OQ-2 | 是否需要构造一个稳定 fixture（多猫互 @ 长 invocation）作为 regression suite？ | ✅ original mount bug 不需要；live stale bubble 由 `useSocket-stale-watchdog.test.ts` 回归锁定；draft/live split 由 `useAgentMessages-bubble-merge.test.ts` + `useChatHistory-replace-hydration.test.ts` 回归锁定 |
+| OQ-3 | F184 owner 最终是 47 还是砚砚？跨 family review 路径如何安排？ | ✅ original diagnosis owner Opus-47；2026-05-07 follow-ups 由砚砚修复、Opus 4.6 review |
 
 ## Key Decisions
 
@@ -133,6 +146,7 @@ F176 (Native CLI Assistant-Speech vs CLI-Stdout) 在 2026-04-26 被铲屎官 rev
 | 2026-04-30 | F183 Phase A done（铲屎官自治放行 ADR-033 v2）→ F184 解锁立项（提前于 Roadmap 05-04）|
 | 2026-05-02 | Phase A diagnosis 完成：原始 DOM mount 缺失现场不复现，F183 Phase B-E collective fix 覆盖 |
 | 2026-05-07 | Live stale streaming bubble follow-up fixed and merged (PR #1582, squash `7a579cc2`) |
+| 2026-05-07 | Draft/live bubble split follow-up fixed and merged (PR #1586, squash `41dd88615`) |
 
 ## Links
 
@@ -142,3 +156,4 @@ F176 (Native CLI Assistant-Speech vs CLI-Stdout) 在 2026-04-26 被铲屎官 rev
 | **Feature** | `docs/features/F176-native-cli-assistant-speech-rendering.md` | reverted；本 feature 是其真 bug 的 successor |
 | **Discussion** | `docs/discussions/2026-04-30-f183-bubble-pipeline-architecture/README.md` | KD-A5 v2 roadmap 串行约束来源 |
 | **PR** | `https://github.com/zts212653/cat-cafe/pull/1582` | 2026-05-07 live stale streaming bubble reconcile fix |
+| **PR** | `https://github.com/zts212653/cat-cafe/pull/1586` | 2026-05-07 draft/live bubble identity reconcile fix |
