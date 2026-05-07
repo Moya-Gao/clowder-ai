@@ -154,9 +154,12 @@ export class QueueProcessor {
   private static readonly CONTINUATION_WINDOW_MS = 60 * 60 * 1000;
   private static readonly MAX_CONTINUATIONS_PER_WINDOW = 5;
 
-  constructor(deps: QueueProcessorDeps, opts?: { processingSlotTtlMs?: number }) {
+  private readonly deliverTimeoutMs: number;
+
+  constructor(deps: QueueProcessorDeps, opts?: { processingSlotTtlMs?: number; deliverTimeoutMs?: number }) {
     this.deps = deps;
     this.processingSlotTtlMs = opts?.processingSlotTtlMs ?? 2.5 * resolveCliTimeoutMs(undefined);
+    this.deliverTimeoutMs = opts?.deliverTimeoutMs ?? 10_000;
   }
 
   /** F088 fix: Late-bind outbound hook (set after gateway bootstrap). */
@@ -881,7 +884,7 @@ export class QueueProcessor {
 
       // F151: Mid-loop delivery to preserve ordering (same fix as ConnectorInvokeTrigger)
       const deliveredTurnIndices = new Set<number>();
-      const DELIVER_TIMEOUT_MS = 10_000;
+      const DELIVER_TIMEOUT_MS = this.deliverTimeoutMs;
       let threadMeta: ThreadMetaLike | undefined;
       let threadMetaPromise: Promise<ThreadMetaLike | undefined> | undefined;
       if (this.deps.outboundHook && this.deps.threadMetaLookup) {
@@ -1200,7 +1203,7 @@ export class QueueProcessor {
         }
       }
 
-      const DELIVER_TIMEOUT_MS = 10_000;
+      const DELIVER_TIMEOUT_MS = this.deliverTimeoutMs;
       // F151: skip turns already delivered mid-loop
       const nonEmptyTurns = outboundTurns.filter(
         (t, i) =>
@@ -1294,15 +1297,20 @@ export class QueueProcessor {
         await this.deps.streamingHook.cleanupPlaceholders(threadId, invocationId).catch((err) => {
           log.warn({ err, threadId }, '[QueueProcessor] StreamingHook.cleanupPlaceholders failed');
         });
-      } else if (deliveryFailed && this.deps.streamingHook?.cleanupPlaceholders) {
-        const cleanupFn = this.deps.streamingHook.cleanupPlaceholders.bind(this.deps.streamingHook);
-        Promise.allSettled(inflightDeliverPromises).then((results) => {
-          if (results.every((r) => r.status === 'fulfilled')) {
-            cleanupFn(threadId, invocationId).catch((err) => {
-              log.warn({ err, threadId }, '[QueueProcessor] Late-success placeholder cleanup failed');
-            });
-          }
-        });
+      } else if (deliveryFailed && inflightDeliverPromises.length > 0) {
+        // R10 P2: late-success cleanup — if timed-out deliveries eventually all succeed,
+        // trigger cleanupPlaceholders so Telegram inline placeholders are properly cleaned up.
+        const hook = this.deps.streamingHook;
+        if (hook?.cleanupPlaceholders) {
+          const invId = invocationId;
+          Promise.allSettled(inflightDeliverPromises).then((results) => {
+            if (results.every((r) => r.status === 'fulfilled')) {
+              hook.cleanupPlaceholders!(threadId, invId).catch((err) => {
+                log.warn({ err, threadId }, '[QueueProcessor] Late-success cleanupPlaceholders failed');
+              });
+            }
+          });
+        }
       }
     } else if (this.deps.streamingHook?.cleanupPlaceholders) {
       await this.deps.streamingHook.cleanupPlaceholders(threadId, invocationId).catch((err) => {

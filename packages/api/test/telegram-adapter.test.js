@@ -444,4 +444,427 @@ describe('TelegramAdapter', () => {
       assert.ok(sendCalls[0].text.includes('Review'), 'block content must also appear');
     });
   });
+
+  // K2: inline final streaming — edit placeholder instead of sending new message
+  describe('registerInlinePlaceholder() + inline final (K2)', () => {
+    it('sendReply edits placeholder instead of sending new message when inline pending', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const sendCalls = [];
+      const editCalls = [];
+      adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
+      adapter.editMessage = async (chatId, msgId, text) => editCalls.push({ chatId, msgId, text });
+
+      adapter.registerInlinePlaceholder('1001', '42');
+      await adapter.sendReply('1001', 'Final answer');
+
+      assert.equal(sendCalls.length, 0, 'must NOT send a new message when inline pending');
+      assert.equal(editCalls.length, 1, 'must edit the placeholder');
+      assert.equal(editCalls[0].chatId, '1001');
+      assert.equal(editCalls[0].msgId, '42');
+      assert.equal(editCalls[0].text, 'Final answer');
+    });
+
+    it('sendReply sends new message normally when no inline pending', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const sendCalls = [];
+      adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+
+      await adapter.sendReply('1001', 'Normal reply');
+
+      assert.equal(sendCalls.length, 1, 'must send normally when no inline pending');
+      assert.equal(sendCalls[0].chatId, '1001');
+    });
+
+    it('inline placeholder is consumed after sendReply (second call sends new message)', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const sendCalls = [];
+      const editCalls = [];
+      adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+      adapter.editMessage = async (chatId, msgId, text) => editCalls.push({ chatId, msgId, text });
+
+      adapter.registerInlinePlaceholder('1001', '42');
+      await adapter.sendReply('1001', 'Final answer'); // consumes inline
+      await adapter.sendReply('1001', 'Another reply'); // should send normally
+
+      assert.equal(editCalls.length, 1, 'only first sendReply should edit');
+      assert.equal(sendCalls.length, 1, 'second sendReply should send a new message');
+      assert.equal(sendCalls[0].text, 'Another reply');
+    });
+
+    it('sendRichMessage edits placeholder with HTML when inline pending', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const sendCalls = [];
+      const editCalls = [];
+      adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
+      adapter.editMessage = async (chatId, msgId, text, opts) => editCalls.push({ chatId, msgId, text, opts });
+
+      const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Done', bodyMarkdown: 'All good' }];
+      adapter.registerInlinePlaceholder('1001', '55');
+      await adapter.sendRichMessage('1001', 'Cat reply', blocks, '布偶猫');
+
+      assert.equal(sendCalls.length, 0, 'must NOT send new message when inline pending');
+      assert.equal(editCalls.length, 1, 'must edit the placeholder');
+      assert.equal(editCalls[0].chatId, '1001');
+      assert.equal(editCalls[0].msgId, '55');
+      assert.ok(
+        editCalls[0].text.includes('Done') || editCalls[0].text.includes('All good'),
+        'HTML must contain block content',
+      );
+    });
+
+    it('sendRichMessage sends normally when no inline pending', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const sendCalls = [];
+      adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
+
+      const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Done', bodyMarkdown: 'OK' }];
+      await adapter.sendRichMessage('1001', 'Reply', blocks, '布偶猫');
+
+      assert.equal(sendCalls.length, 1, 'must send normally when no inline pending');
+    });
+
+    it('inline from one chatId does not affect another chatId', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const sendCalls = [];
+      const editCalls = [];
+      adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+      adapter.editMessage = async (chatId, msgId, text) => editCalls.push({ chatId, msgId, text });
+
+      adapter.registerInlinePlaceholder('1001', '42');
+      await adapter.sendReply('2002', 'Message to different chat');
+
+      assert.equal(editCalls.length, 0, 'chatId 2002 has no inline pending — must not edit');
+      assert.equal(sendCalls.length, 1, 'chatId 2002 must send normally');
+      assert.equal(sendCalls[0].chatId, '2002');
+    });
+
+    // K2 P1 #2: preserve delivery when editMessage throws
+    it('sendReply falls back to send when editMessage throws', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const sendCalls = [];
+      adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+      adapter.editMessage = async () => {
+        throw new Error('Telegram edit failed');
+      };
+
+      adapter.registerInlinePlaceholder('1001', '42');
+      await adapter.sendReply('1001', 'Fallback content');
+
+      assert.equal(sendCalls.length, 1, 'must fall back to send when edit throws');
+      assert.equal(sendCalls[0].chatId, '1001');
+      assert.equal(sendCalls[0].text, 'Fallback content');
+    });
+
+    // K2 P1 #1: clearInlinePlaceholder cleans up stale entry
+    it('clearInlinePlaceholder removes pending entry (delivery skipped)', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const deleteCalls = [];
+      adapter._injectBotApiDeleteMessage(async (chatId, msgId) => deleteCalls.push({ chatId, msgId }));
+
+      adapter.registerInlinePlaceholder('1001', '42');
+      await adapter.clearInlinePlaceholder('1001', '42');
+
+      // After clear, sendReply should send normally (not edit a stale entry)
+      const sendCalls = [];
+      adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+      await adapter.sendReply('1001', 'New reply');
+
+      assert.equal(deleteCalls.length, 1, 'must delete stale streaming card');
+      assert.equal(sendCalls.length, 1, 'must send new reply normally (no stale inline)');
+    });
+
+    it('clearInlinePlaceholder is no-op when entry was already consumed', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const deleteCalls = [];
+      adapter._injectBotApiDeleteMessage(async (chatId, msgId) => deleteCalls.push({ chatId, msgId }));
+      adapter.editMessage = async () => {};
+
+      adapter.registerInlinePlaceholder('1001', '42');
+      await adapter.sendReply('1001', 'Content delivered'); // consumes entry
+      await adapter.clearInlinePlaceholder('1001', '42'); // should be no-op
+
+      assert.equal(deleteCalls.length, 0, 'no delete when entry already consumed by delivery');
+    });
+
+    // K2 P1 (3rd review): clearInlinePlaceholder must guard by platformMessageId to avoid erasing newer registrations
+    it('clearInlinePlaceholder: late cleanup for invocation A does not erase invocation B registration', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const editCalls = [];
+      adapter.editMessage = async (chatId, msgId, text) => editCalls.push({ chatId, msgId, text });
+      adapter._injectBotApiDeleteMessage(async () => {});
+
+      // Invocation A registers ph-A but delivery is skipped (timeout)
+      adapter.registerInlinePlaceholder('1001', 'ph-A');
+      // Invocation B registers ph-B before A's cleanup runs (B overwrites A in the map)
+      adapter.registerInlinePlaceholder('1001', 'ph-B');
+
+      // Late cleanup for A: must not erase B's registration
+      await adapter.clearInlinePlaceholder('1001', 'ph-A');
+
+      // B's delivery must still be able to use ph-B
+      await adapter.sendReply('1001', 'Inv B reply');
+      assert.equal(editCalls.length, 1, 'invocation B must still find and use its placeholder');
+      assert.equal(editCalls[0].msgId, 'ph-B', 'must edit ph-B, not miss it because A cleanup erased it');
+    });
+
+    // cloud-R10 P1: clearInlinePlaceholder must NOT delete ph-A when a newer placeholder is stored
+    // AND ph-A is not tracked as a raw placeholder (it may already be the finalized reply)
+    it('clearInlinePlaceholder: late cleanup for A must NOT delete ph-A when B is stored and ph-A not in placeholderChats', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      let deleteCallCount = 0;
+      adapter._injectBotApiDeleteMessage(async () => {
+        deleteCallCount++;
+      });
+
+      // A registers via registerInlinePlaceholder only (no sendPlaceholder → placeholderChats has no entry for ph-A)
+      adapter.registerInlinePlaceholder('1001', '42');
+      adapter.registerInlinePlaceholder('1001', '99');
+
+      // Late cleanup for A (ph=42): ph=99 is now stored.
+      // ph-42 is NOT in placeholderChats (not tracked as a raw card) → may be finalized reply → must NOT delete.
+      await adapter.clearInlinePlaceholder('1001', '42');
+
+      assert.equal(
+        deleteCallCount,
+        0,
+        'must NOT delete ph-42 when ph-99 is stored and ph-42 is not tracked in placeholderChats (may be finalized reply)',
+      );
+    });
+
+    // cloud-R11 P2: clearInlinePlaceholder MUST delete orphaned ph-A when ph-B is stored
+    // AND ph-A is still tracked in placeholderChats (it is a raw placeholder, not a finalized reply)
+    it('clearInlinePlaceholder: deletes orphaned ph-A when ph-B is stored and ph-A is still in placeholderChats', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      let deleteCallCount = 0;
+      adapter._injectBotApiDeleteMessage(async () => {
+        deleteCallCount++;
+      });
+      adapter._injectBotApiSendMessage(async () => ({ message_id: 42 }));
+
+      // ph-A was sent as a placeholder (tracked in placeholderChats via sendPlaceholder)
+      await adapter.sendPlaceholder('1001', 'Thinking...');
+
+      // Invocation B registers ph-B (overwrites ph-A in pendingInlineFinal)
+      adapter.registerInlinePlaceholder('1001', '99');
+
+      // Cleanup for A (ph=42): stored=99, but ph-42 is still in placeholderChats → it is an orphaned card → delete
+      await adapter.clearInlinePlaceholder('1001', '42');
+
+      assert.equal(
+        deleteCallCount,
+        1,
+        'must delete orphaned ph-42 when ph-99 is stored and ph-42 is still tracked in placeholderChats',
+      );
+    });
+
+    // K2 P1 (3rd review): compare-and-delete after editMessage to protect concurrent registration
+    it('sendReply: compare-and-delete after edit protects newer registration registered during await', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const editCalls = [];
+      const sendCalls = [];
+      // During editMessage for ph-A, simulate ph-B being registered
+      adapter.editMessage = async (chatId, msgId, text) => {
+        editCalls.push({ chatId, msgId, text });
+        adapter.registerInlinePlaceholder('1001', 'ph-B'); // concurrent registration
+      };
+      adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+
+      adapter.registerInlinePlaceholder('1001', 'ph-A');
+      await adapter.sendReply('1001', 'Inv A reply'); // edits ph-A, then ph-B registered concurrently
+
+      // After A's edit: ph-B must still be in map (compare-and-delete: current value ≠ ph-A, so skip delete)
+      const editCalls2 = [];
+      adapter.editMessage = async (chatId, msgId, text) => editCalls2.push({ chatId, msgId, text });
+      await adapter.sendReply('1001', 'Inv B reply');
+      assert.equal(editCalls2.length, 1, 'ph-B must still be reachable after A delivered via compare-and-delete');
+      assert.equal(editCalls2[0].msgId, 'ph-B', 'must edit ph-B not send normally');
+      assert.equal(sendCalls.length, 0, 'A reply was inline edit, no fallback send');
+    });
+
+    // K2 P1 same: compare-and-delete in sendRichMessage
+    it('sendRichMessage: compare-and-delete after edit protects newer registration', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const editCalls = [];
+      adapter.editMessage = async (chatId, msgId, text, opts) => {
+        editCalls.push({ chatId, msgId, text, opts });
+        adapter.registerInlinePlaceholder('1001', 'ph-B'); // concurrent registration during await
+      };
+      adapter._injectSendMessage(async () => {});
+
+      const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'T', bodyMarkdown: 'B' }];
+      adapter.registerInlinePlaceholder('1001', 'ph-A');
+      await adapter.sendRichMessage('1001', 'text', blocks, '猫猫'); // edits ph-A, then ph-B registered
+
+      // ph-B must still be in map
+      const editCalls2 = [];
+      adapter.editMessage = async (chatId, msgId, text, opts) => editCalls2.push({ chatId, msgId, text, opts });
+      await adapter.sendReply('1001', 'Inv B reply');
+      assert.equal(editCalls2.length, 1, 'ph-B must survive A rich message delivery');
+      assert.equal(editCalls2[0].msgId, 'ph-B');
+    });
+
+    // cloud-R12 P1: placeholderChats must be cleaned even when concurrent B registration skips compare-and-delete
+    it('sendReply: placeholderChats cleared after edit even when concurrent B registration prevents pendingInlineFinal delete', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      let deleteCalls = 0;
+      // During editMessage for ph-A, register ph-B (overwriting ph-A in pendingInlineFinal)
+      adapter.editMessage = async () => {
+        adapter.registerInlinePlaceholder('1001', 'ph-B');
+      };
+      adapter._injectBotApiDeleteMessage(async () => {
+        deleteCalls++;
+      });
+      adapter._injectBotApiSendMessage(async () => ({ message_id: 42 }));
+
+      // ph-A tracked in placeholderChats via sendPlaceholder
+      await adapter.sendPlaceholder('1001', 'Thinking...');
+      adapter.registerInlinePlaceholder('1001', '42'); // ph-42 is ph-A
+      await adapter.sendReply('1001', 'A reply'); // edits ph-42, concurrent ph-B registered
+
+      // Cleanup for A: ph-42 must NOT be deleted (it is the finalized reply, not a raw card)
+      await adapter.clearInlinePlaceholder('1001', '42');
+      assert.equal(deleteCalls, 0, 'finalized reply (ph-42) must not be deleted when B is registered concurrently');
+    });
+
+    // cloud-R12 P1: same for sendRichMessage
+    it('sendRichMessage: placeholderChats cleared after edit even when concurrent B registration occurs', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      let deleteCalls = 0;
+      adapter.editMessage = async () => {
+        adapter.registerInlinePlaceholder('1001', 'ph-B');
+      };
+      adapter._injectBotApiDeleteMessage(async () => {
+        deleteCalls++;
+      });
+      adapter._injectBotApiSendMessage(async () => ({ message_id: 42 }));
+
+      await adapter.sendPlaceholder('1001', 'Thinking...');
+      adapter.registerInlinePlaceholder('1001', '42');
+      const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'T', bodyMarkdown: 'B' }];
+      await adapter.sendRichMessage('1001', 'text', blocks, '猫猫');
+
+      await adapter.clearInlinePlaceholder('1001', '42');
+      assert.equal(
+        deleteCalls,
+        0,
+        'finalized rich reply (ph-42) must not be deleted when B is registered concurrently',
+      );
+    });
+
+    // K2 P2: placeholder key must survive edit failure so clearInlinePlaceholder can clean up
+    it('sendReply: stale placeholder deleted by clearInlinePlaceholder after editMessage fails', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const sendCalls = [];
+      const deleteCalls = [];
+      adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+      adapter._injectBotApiDeleteMessage(async (chatId, msgId) => deleteCalls.push({ chatId, msgId }));
+      adapter.editMessage = async () => {
+        throw new Error('Telegram edit failed');
+      };
+
+      adapter.registerInlinePlaceholder('1001', '42');
+      await adapter.sendReply('1001', 'Fallback content'); // edit fails, fallback sends
+      await adapter.clearInlinePlaceholder('1001', '42'); // must still find key and delete stale card
+
+      assert.equal(sendCalls.length, 1, 'fallback send happened');
+      assert.equal(deleteCalls.length, 1, 'stale streaming placeholder deleted by clearInlinePlaceholder');
+    });
+
+    // K2 P1 (new): sendRichMessage must fall back to send when inline edit fails
+    it('sendRichMessage falls back to send when editMessage throws', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const sendCalls = [];
+      adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
+      adapter.editMessage = async () => {
+        throw new Error('Telegram edit failed');
+      };
+
+      const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Done', bodyMarkdown: 'All good' }];
+      adapter.registerInlinePlaceholder('1001', '55');
+      await adapter.sendRichMessage('1001', 'text', blocks, '布偶猫');
+
+      assert.equal(sendCalls.length, 1, 'must fall back to send when rich edit throws');
+      assert.equal(sendCalls[0].chatId, '1001');
+    });
+
+    // K2 P1 (new) + P2: sendRichMessage key must survive failure for clearInlinePlaceholder
+    it('sendRichMessage: stale placeholder deleted by clearInlinePlaceholder after editMessage fails', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const sendCalls = [];
+      const deleteCalls = [];
+      adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
+      adapter._injectBotApiDeleteMessage(async (chatId, msgId) => deleteCalls.push({ chatId, msgId }));
+      adapter.editMessage = async () => {
+        throw new Error('edit failed');
+      };
+
+      const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Done', bodyMarkdown: 'OK' }];
+      adapter.registerInlinePlaceholder('1001', '55');
+      await adapter.sendRichMessage('1001', 'text', blocks, '布偶猫');
+      await adapter.clearInlinePlaceholder('1001', '55');
+
+      assert.equal(sendCalls.length, 1, 'fallback send happened');
+      assert.equal(deleteCalls.length, 1, 'stale streaming placeholder deleted');
+    });
+
+    // K2 round-4 P2: placeholderChats must be cleaned up after successful inline edit
+    it('sendReply: placeholderChats entry removed after successful inline edit', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      let msgId;
+      adapter._injectBotApiSendMessage(async (_chatId, _text) => ({ message_id: 77 }));
+      adapter._injectBotApiDeleteMessage(async () => {});
+      const deleteCalls = [];
+      adapter._injectBotApiDeleteMessage(async (chatId, id) => deleteCalls.push({ chatId, id }));
+      msgId = await adapter.sendPlaceholder('1001', 'typing...');
+      assert.equal(msgId, '77', 'sendPlaceholder returns string message_id');
+      const editCalls = [];
+      adapter.editMessage = async (chatId, id, text) => editCalls.push({ chatId, id, text });
+      adapter.registerInlinePlaceholder('1001', msgId);
+      await adapter.sendReply('1001', 'Final reply');
+      assert.equal(editCalls.length, 1, 'inline edit was used');
+      // After successful inline edit, deleteMessage(msgId) without chatId must be a no-op
+      // because placeholderChats should have been cleaned up.
+      await adapter.deleteMessage(msgId /* no chatId */);
+      assert.equal(deleteCalls.length, 0, 'no Telegram delete called: placeholderChats already cleaned on success');
+    });
+
+    // K2 round-4 P2: same for sendRichMessage
+    it('sendRichMessage: placeholderChats entry removed after successful inline edit', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      adapter._injectBotApiSendMessage(async () => ({ message_id: 88 }));
+      const msgId = await adapter.sendPlaceholder('1001', 'typing...');
+      const editCalls = [];
+      adapter.editMessage = async (chatId, id, _text, opts) => editCalls.push({ chatId, id, opts });
+      const deleteCalls = [];
+      adapter._injectBotApiDeleteMessage(async (chatId, id) => deleteCalls.push({ chatId, id }));
+      const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'T', bodyMarkdown: 'B' }];
+      adapter.registerInlinePlaceholder('1001', msgId);
+      await adapter.sendRichMessage('1001', 'text', blocks, '布偶猫');
+      assert.equal(editCalls.length, 1, 'inline rich edit was used');
+      await adapter.deleteMessage(msgId /* no chatId */);
+      assert.equal(deleteCalls.length, 0, 'no Telegram delete: placeholderChats cleaned on rich edit success');
+    });
+
+    // K2 round-4 P1: stale inline placeholder (beyond TTL) must be skipped and cleaned up
+    it('sendReply: skips stale inline placeholder (beyond TTL) and sends normally', async () => {
+      const adapter = new TelegramAdapter('test-token', noopLog());
+      const TTL = 5 * 60 * 1000; // 5 minutes — must match INLINE_PLACEHOLDER_MAX_AGE_MS
+      let now = 0;
+      adapter._injectNowFn(() => now);
+      const editCalls = [];
+      adapter.editMessage = async (chatId, id, text) => editCalls.push({ chatId, id, text });
+      const sendCalls = [];
+      adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+      const deleteCalls = [];
+      adapter._injectBotApiDeleteMessage(async (chatId, id) => deleteCalls.push({ chatId, id }));
+      adapter._injectBotApiSendMessage(async () => ({ message_id: 99 }));
+      const msgId = await adapter.sendPlaceholder('1001', 'typing...');
+      adapter.registerInlinePlaceholder('1001', msgId); // registered at t=0
+      now = TTL + 1; // advance past TTL
+      await adapter.sendReply('1001', 'Late reply');
+      assert.equal(editCalls.length, 0, 'stale placeholder must not be edited');
+      assert.equal(sendCalls.length, 1, 'late reply sent as new message');
+      assert.equal(deleteCalls.length, 1, 'stale streaming card deleted during TTL cleanup');
+    });
+  });
 });

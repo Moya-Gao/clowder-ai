@@ -18,6 +18,7 @@ import { formatTelegramHtml } from './telegram-html-formatter.js';
 const TELEGRAM_MAX_MESSAGE_LENGTH = 4096;
 const TELEGRAM_POLLING_BACKOFF_MS = [5_000, 15_000, 30_000, 60_000] as const;
 const TELEGRAM_MAX_CONFLICT_RETRIES = 10;
+const INLINE_PLACEHOLDER_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
 
 type TelegramStartOptions = Parameters<Bot['start']>[0];
 
@@ -59,6 +60,9 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
   private sendMessageFn: ((chatId: string, text: string, opts?: Record<string, unknown>) => Promise<unknown>) | null =
     null;
   private readonly placeholderChats = new Map<string, string>();
+  private readonly pendingInlineFinal = new Map<string, string>();
+  private readonly inlinePlaceholderTs = new Map<string, number>();
+  private nowFn: () => number = () => Date.now();
   private botApiSendMessageFn: ((chatId: number, text: string) => Promise<{ message_id: number }>) | null = null;
   private botApiDeleteMessageFn: ((chatId: number, messageId: number) => Promise<void>) | null = null;
   private sendMediaFns: {
@@ -162,9 +166,38 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
 
   /**
    * Send a reply to a Telegram chat.
+   * K2: If a pending inline placeholder exists for this chatId, edits it in-place
+   * instead of sending a new message (consumed on first use).
    * Truncates messages exceeding Telegram's 4096 char limit.
    */
   async sendReply(externalChatId: string, content: string): Promise<void> {
+    const inlineMsgId = this.pendingInlineFinal.get(externalChatId);
+    if (inlineMsgId) {
+      const age = this.nowFn() - (this.inlinePlaceholderTs.get(externalChatId) ?? 0);
+      if (age > INLINE_PLACEHOLDER_MAX_AGE_MS) {
+        // Stale placeholder from a previously-failed delivery: skip edit, clean up, fall through.
+        this.pendingInlineFinal.delete(externalChatId);
+        this.inlinePlaceholderTs.delete(externalChatId);
+        await this.deleteMessage(inlineMsgId, externalChatId).catch(() => {});
+      } else {
+        try {
+          await this.editMessage(externalChatId, inlineMsgId, content);
+          // Unconditionally clean placeholderChats: this ID is now a finalized reply.
+          // cloud-R12 P1: must not be conditional — concurrent registration can replace pendingInlineFinal
+          // before we get here, making the old entry uncleanable via clearInlinePlaceholder.
+          this.placeholderChats.delete(inlineMsgId);
+          if (this.pendingInlineFinal.get(externalChatId) === inlineMsgId) {
+            this.pendingInlineFinal.delete(externalChatId);
+            this.inlinePlaceholderTs.delete(externalChatId);
+          }
+          return;
+        } catch (err) {
+          this.log.warn({ err }, '[TelegramAdapter] sendReply: editMessage failed, falling back to send');
+          // Key intentionally preserved so cleanupPlaceholders can delete the stale card.
+        }
+      }
+    }
+
     const text =
       content.length > TELEGRAM_MAX_MESSAGE_LENGTH ? `${content.slice(0, TELEGRAM_MAX_MESSAGE_LENGTH - 1)}…` : content;
 
@@ -276,6 +309,8 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
 
   /**
    * Send a rich message as Telegram HTML-formatted text.
+   * K2: If a pending inline placeholder exists for this chatId, edits it in-place
+   * with HTML content instead of sending a new message.
    */
   async sendRichMessage(
     externalChatId: string,
@@ -284,6 +319,31 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
     catDisplayName: string,
   ): Promise<void> {
     const html = formatTelegramHtml(blocks, catDisplayName, textContent);
+
+    const inlineMsgId = this.pendingInlineFinal.get(externalChatId);
+    if (inlineMsgId) {
+      const age = this.nowFn() - (this.inlinePlaceholderTs.get(externalChatId) ?? 0);
+      if (age > INLINE_PLACEHOLDER_MAX_AGE_MS) {
+        // Stale placeholder: skip edit, clean up, fall through to send.
+        this.pendingInlineFinal.delete(externalChatId);
+        this.inlinePlaceholderTs.delete(externalChatId);
+        await this.deleteMessage(inlineMsgId, externalChatId).catch(() => {});
+      } else {
+        try {
+          await this.editMessage(externalChatId, inlineMsgId, html, { parse_mode: 'HTML' });
+          // cloud-R12 P1: unconditionally clean placeholderChats (same fix as sendReply).
+          this.placeholderChats.delete(inlineMsgId);
+          if (this.pendingInlineFinal.get(externalChatId) === inlineMsgId) {
+            this.pendingInlineFinal.delete(externalChatId);
+            this.inlinePlaceholderTs.delete(externalChatId);
+          }
+          return;
+        } catch (err) {
+          this.log.warn({ err }, '[TelegramAdapter] sendRichMessage: editMessage failed, falling back to send');
+          // Key intentionally preserved so cleanupPlaceholders can delete the stale card.
+        }
+      }
+    }
 
     if (this.sendMessageFn) {
       await this.sendMessageFn(externalChatId, html, { parse_mode: 'HTML' });
@@ -328,13 +388,67 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
   }
 
   /**
-   * Edit an already-sent message in place (for streaming progressive updates).
+   * Edit an already-sent message in place (for streaming progressive updates and K2 inline final).
    * Truncates to Telegram's 4096-char limit.
+   * opts.parse_mode: pass 'HTML' when editing with rich HTML content (K2 sendRichMessage inline).
    */
-  async editMessage(externalChatId: string, platformMessageId: string, text: string): Promise<void> {
+  async editMessage(
+    externalChatId: string,
+    platformMessageId: string,
+    text: string,
+    opts?: { parse_mode?: string },
+  ): Promise<void> {
     const truncated =
       text.length > TELEGRAM_MAX_MESSAGE_LENGTH ? `${text.slice(0, TELEGRAM_MAX_MESSAGE_LENGTH - 1)}…` : text;
-    await this.bot.api.editMessageText(Number(externalChatId), Number(platformMessageId), truncated);
+    if (opts?.parse_mode) {
+      await this.bot.api.editMessageText(
+        Number(externalChatId),
+        Number(platformMessageId),
+        truncated,
+        opts as Record<string, unknown>,
+      );
+    } else {
+      await this.bot.api.editMessageText(Number(externalChatId), Number(platformMessageId), truncated);
+    }
+  }
+
+  /**
+   * K2: Register a pending inline-final placeholder.
+   * The next sendReply or sendRichMessage to this chatId will edit this placeholder
+   * instead of sending a new message. Consumed on first use.
+   */
+  registerInlinePlaceholder(externalChatId: string, platformMessageId: string): void {
+    this.pendingInlineFinal.set(externalChatId, platformMessageId);
+    this.inlinePlaceholderTs.set(externalChatId, this.nowFn());
+  }
+
+  /**
+   * K2: Clear a registered inline-final placeholder without delivering content.
+   * Called when delivery is skipped so stale state doesn't corrupt the next delivery.
+   * If the placeholder was already consumed by sendReply/sendRichMessage, this is a no-op.
+   * Deletes the streaming card from Telegram when entry was still pending (delivery skipped).
+   */
+  async clearInlinePlaceholder(chatId: string, platformMessageId?: string): Promise<void> {
+    if (platformMessageId) {
+      const stored = this.pendingInlineFinal.get(chatId);
+      if (stored === platformMessageId) {
+        // Only clear when the stored ID matches: protects a newer invocation's registration
+        // that may have overwritten this one while cleanup was deferred.
+        this.pendingInlineFinal.delete(chatId);
+        this.inlinePlaceholderTs.delete(chatId);
+        await this.deleteMessage(platformMessageId, chatId).catch(() => {});
+      } else if (stored !== undefined) {
+        // A newer placeholder (stored) has overwritten this one (platformMessageId).
+        // Only delete platformMessageId if it's still a raw, unconsumed placeholder —
+        // i.e. it was never edited by sendReply/sendRichMessage (which deletes from placeholderChats).
+        if (this.placeholderChats.has(platformMessageId)) {
+          await this.deleteMessage(platformMessageId, chatId).catch(() => {});
+        }
+      }
+    } else {
+      this.pendingInlineFinal.delete(chatId);
+      this.inlinePlaceholderTs.delete(chatId);
+    }
   }
 
   /**
@@ -403,6 +517,11 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
   /** @internal */
   _injectBotApiDeleteMessage(fn: (chatId: number, messageId: number) => Promise<void>): void {
     this.botApiDeleteMessageFn = fn;
+  }
+
+  /** @internal — override Date.now() for TTL-sensitive tests. */
+  _injectNowFn(fn: () => number): void {
+    this.nowFn = fn;
   }
 
   /**

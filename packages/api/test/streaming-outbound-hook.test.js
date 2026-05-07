@@ -314,4 +314,97 @@ describe('StreamingOutboundHook', () => {
     await hook.cleanupPlaceholders('thread-1', 'inv-A');
     assert.equal(adapter._calls.deleteMessage.length, 1, 'second A cleanup must be no-op');
   });
+
+  // K2: inline final — registerInlinePlaceholder path
+  describe('K2 inline final (registerInlinePlaceholder)', () => {
+    function makeLog() {
+      const log = {
+        warn: () => {},
+        info: () => {},
+        error: () => {},
+        debug: () => {},
+        fatal: () => {},
+        trace: () => {},
+      };
+      log.child = () => log;
+      return log;
+    }
+
+    it('onStreamEnd calls registerInlinePlaceholder when adapter supports it', async () => {
+      const registerCalls = [];
+      const adapter = {
+        connectorId: 'telegram',
+        sendReply: async () => {},
+        sendPlaceholder: async (_chatId, _text) => 'placeholder-msg-id',
+        editMessage: async () => {},
+        registerInlinePlaceholder: (chatId, msgId) => registerCalls.push({ chatId, msgId }),
+      };
+      const adapters = new Map([['telegram', adapter]]);
+      const bindingStore = createBindingStore([
+        { connectorId: 'telegram', externalChatId: 'chat1', threadId: 'thread-1', userId: 'u1', createdAt: Date.now() },
+      ]);
+      const hook = new StreamingOutboundHook({ bindingStore, adapters, log: makeLog() });
+
+      await hook.onStreamStart('thread-1', undefined, 'inv-1');
+      await hook.onStreamEnd('thread-1', 'Final text', 'inv-1');
+
+      assert.equal(registerCalls.length, 1);
+      assert.equal(registerCalls[0].chatId, 'chat1');
+      assert.equal(registerCalls[0].msgId, 'placeholder-msg-id');
+    });
+
+    it('onStreamEnd skips pendingCleanup when registerInlinePlaceholder is used', async () => {
+      const deleteCalls = [];
+      const adapter = {
+        connectorId: 'telegram',
+        sendReply: async () => {},
+        sendPlaceholder: async () => 'placeholder-msg-id',
+        editMessage: async () => {},
+        registerInlinePlaceholder: () => {},
+        deleteMessage: async (msgId, chatId) => deleteCalls.push({ msgId, chatId }),
+      };
+      const adapters = new Map([['telegram', adapter]]);
+      const bindingStore = createBindingStore([
+        { connectorId: 'telegram', externalChatId: 'chat1', threadId: 'thread-1', userId: 'u1', createdAt: Date.now() },
+      ]);
+      const hook = new StreamingOutboundHook({ bindingStore, adapters, log: makeLog() });
+
+      await hook.onStreamStart('thread-1', undefined, 'inv-1');
+      await hook.onStreamEnd('thread-1', 'Final text', 'inv-1');
+      await hook.cleanupPlaceholders('thread-1', 'inv-1');
+
+      assert.equal(
+        deleteCalls.length,
+        0,
+        'no deleteMessage when inline path was used (no clearInlinePlaceholder on this adapter)',
+      );
+    });
+
+    // K2 P1 #1: cleanupPlaceholders calls clearInlinePlaceholder when delivery is skipped
+    it('cleanupPlaceholders calls clearInlinePlaceholder when adapter supports it', async () => {
+      const clearCalls = [];
+      const adapter = {
+        connectorId: 'telegram',
+        sendReply: async () => {},
+        sendPlaceholder: async () => 'ph-msg-99',
+        editMessage: async () => {},
+        registerInlinePlaceholder: () => {},
+        clearInlinePlaceholder: async (chatId, msgId) => clearCalls.push({ chatId, msgId }),
+      };
+      const adapters = new Map([['telegram', adapter]]);
+      const bindingStore = createBindingStore([
+        { connectorId: 'telegram', externalChatId: 'chat1', threadId: 'thread-1', userId: 'u1', createdAt: Date.now() },
+      ]);
+      const hook = new StreamingOutboundHook({ bindingStore, adapters, log: makeLog() });
+
+      await hook.onStreamStart('thread-1', undefined, 'inv-1');
+      await hook.onStreamEnd('thread-1', 'Final text', 'inv-1');
+      // simulate delivery skipped — cleanupPlaceholders called without prior sendReply
+      await hook.cleanupPlaceholders('thread-1', 'inv-1');
+
+      assert.equal(clearCalls.length, 1, 'clearInlinePlaceholder must be called once');
+      assert.equal(clearCalls[0].chatId, 'chat1');
+      assert.equal(clearCalls[0].msgId, 'ph-msg-99');
+    });
+  });
 });

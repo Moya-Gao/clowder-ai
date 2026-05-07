@@ -28,6 +28,8 @@ export interface StreamingOutboundHookOptions {
 export class StreamingOutboundHook {
   private readonly sessions = new Map<string, StreamingSession[]>();
   private readonly pendingCleanup = new Map<string, StreamingSession[]>();
+  /** K2: Tracks inline-final sessions separately so cleanupPlaceholders can clear stale entries. */
+  private readonly pendingInlineCleanup = new Map<string, StreamingSession[]>();
   private readonly updateIntervalMs: number;
   private readonly minDeltaChars: number;
 
@@ -114,10 +116,16 @@ export class StreamingOutboundHook {
     this.sessions.delete(key);
 
     const deferred: StreamingSession[] = [];
+    const inlineDeferred: StreamingSession[] = [];
     for (const session of sessions) {
       const adapter = this.opts.adapters.get(session.connectorId);
       if (!session.platformMessageId) continue;
-      if (adapter?.deleteMessage || adapter?.finalizeStreamCard) {
+      if (adapter?.registerInlinePlaceholder) {
+        // K2: adapter handles inline final — deliver() will edit placeholder instead of sending new message.
+        // Also track in pendingInlineCleanup so stale entries are cleared if delivery is skipped.
+        adapter.registerInlinePlaceholder(session.externalChatId, session.platformMessageId);
+        inlineDeferred.push(session);
+      } else if (adapter?.deleteMessage || adapter?.finalizeStreamCard) {
         // Defer cleanup — keep placeholder as fallback until outbound delivery succeeds
         deferred.push(session);
       } else if (adapter?.editMessage) {
@@ -131,31 +139,50 @@ export class StreamingOutboundHook {
     if (deferred.length > 0) {
       this.pendingCleanup.set(key, deferred);
     }
+    if (inlineDeferred.length > 0) {
+      this.pendingInlineCleanup.set(key, inlineDeferred);
+    }
   }
 
   /**
-   * Clean up streaming placeholders after outbound delivery succeeds.
+   * Clean up streaming placeholders after outbound delivery succeeds (or is skipped).
    * F157: Prefer finalizeStreamCard (edit to "✅ 已回复") over deleteMessage
    * to avoid Feishu's "recalled a message" notification.
+   * K2: Also clears stale inline-final registrations via clearInlinePlaceholder.
    */
   async cleanupPlaceholders(threadId: string, invocationId?: string): Promise<void> {
     const key = this.scopeKey(threadId, invocationId);
     const sessions = this.pendingCleanup.get(key);
-    if (!sessions) return;
-    this.pendingCleanup.delete(key);
-
-    for (const session of sessions) {
-      const adapter = this.opts.adapters.get(session.connectorId);
-      if (!session.platformMessageId) continue;
-      try {
-        if (adapter?.finalizeStreamCard) {
-          // F157: Edit to completion state instead of deleting (no recall notification)
-          await adapter.finalizeStreamCard(session.externalChatId, session.platformMessageId, session.catDisplayName);
-        } else if (adapter?.deleteMessage) {
-          await adapter.deleteMessage(session.platformMessageId, session.externalChatId);
+    if (sessions) {
+      this.pendingCleanup.delete(key);
+      for (const session of sessions) {
+        const adapter = this.opts.adapters.get(session.connectorId);
+        if (!session.platformMessageId) continue;
+        try {
+          if (adapter?.finalizeStreamCard) {
+            // F157: Edit to completion state instead of deleting (no recall notification)
+            await adapter.finalizeStreamCard(session.externalChatId, session.platformMessageId, session.catDisplayName);
+          } else if (adapter?.deleteMessage) {
+            await adapter.deleteMessage(session.platformMessageId, session.externalChatId);
+          }
+        } catch (err) {
+          this.opts.log.warn({ err }, '[StreamingOutbound] cleanupPlaceholders failed');
         }
-      } catch (err) {
-        this.opts.log.warn({ err }, '[StreamingOutbound] cleanupPlaceholders failed');
+      }
+    }
+
+    // K2: Clear stale inline-final registrations (no-op on success; cleans up on delivery skip).
+    const inlineSessions = this.pendingInlineCleanup.get(key);
+    if (inlineSessions) {
+      this.pendingInlineCleanup.delete(key);
+      for (const session of inlineSessions) {
+        const adapter = this.opts.adapters.get(session.connectorId);
+        if (!session.platformMessageId || !adapter?.clearInlinePlaceholder) continue;
+        try {
+          await adapter.clearInlinePlaceholder(session.externalChatId, session.platformMessageId);
+        } catch (err) {
+          this.opts.log.warn({ err }, '[StreamingOutbound] clearInlinePlaceholder failed');
+        }
       }
     }
   }
