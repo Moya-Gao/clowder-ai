@@ -45,7 +45,7 @@ UI：
 - Thread 条目上显示标签色点（不占太多空间，hover 显示标签名）
 - 所有图标使用 SVG（禁止 emoji），与现有 sidebar 图标系统一致
 
-### Phase C: 猫猫辅助分类
+### Phase C: 猫猫辅助分类 ✅
 
 - **双入口**：
   1. sidebar "未分类" pill 旁 ✨ 按钮 → 创建/打开专属功能 thread（"Thread 整理助手"） → 猫猫在该 thread 中分析未分类 thread 并建议标签
@@ -76,10 +76,10 @@ Why: F187 改的是用户面向的 thread 组织/分类/Sidebar 筛选语义，�
 - [x] AC-B3: Thread 条目上有标签色点指示
 
 ### Phase C（猫猫辅助分类）
-- [ ] AC-C1: sidebar "未分类" pill 旁有 ✨ 按钮，点击创建/打开专属功能 thread 触发分类流程
-- [ ] AC-C2: 猫猫通过现有消息路由分析未分类 thread 并建议标签（不引入独立 API 端点）
-- [ ] AC-C3: 用户可在 ThreadOrganizerModal 面板中逐条确认/修改建议后批量应用标签
-- [ ] AC-C4: 用户可在任意 thread 说"帮我整理"触发猫猫加载 skill 整理
+- [x] AC-C1: sidebar "未分类" pill 旁有 ✨ 按钮，点击创建/打开专属功能 thread 触发分类流程
+- [x] AC-C2: 猫猫通过现有消息路由分析未分类 thread 并建议标签（不引入独立 API 端点）
+- [x] AC-C3: 用户可在 ThreadOrganizerModal 面板中逐条确认/修改建议后批量应用标签
+- [x] AC-C4: 用户可在任意 thread 说"帮我整理"触发猫猫加载 skill 整理
 
 ## Dependencies
 
@@ -121,6 +121,7 @@ Why: F187 改的是用户面向的 thread 组织/分类/Sidebar 筛选语义，�
 | 2026-05-06 | 立项（铲屎官 + 布偶猫 + 缅因猫三方收敛） |
 | 2026-05-06 | Phase A merged (PR #1576) |
 | 2026-05-07 | Phase B merged (PR #1577) |
+| 2026-05-07 | Phase C merged (PR #1589) |
 
 ## Review Gate
 
