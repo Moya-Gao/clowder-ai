@@ -777,6 +777,12 @@ export class IndexBuilder implements IIndexBuilder {
       flushed++;
     }
 
+    // #652: Also index passages for dirty threads so new messages are immediately searchable
+    const dirtySnapshots = dirtyIds.map((id) => threadMap.get(id)).filter(Boolean) as ThreadSnapshot[];
+    if (dirtySnapshots.length > 0) {
+      await this.indexPassages(dirtySnapshots);
+    }
+
     return flushed;
   }
 

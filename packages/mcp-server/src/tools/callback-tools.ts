@@ -280,8 +280,8 @@ export const getThreadContextInputSchema = {
     .min(1)
     .max(200)
     .optional()
-    .default(20)
-    .describe('Number of recent messages to retrieve (default: 20)'),
+    .default(100)
+    .describe('Number of recent messages to retrieve (default: 100, max: 200)'),
   threadId: z
     .string()
     .min(1)
