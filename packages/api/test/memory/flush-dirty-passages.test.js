@@ -68,10 +68,7 @@ describe('flushDirtyThreads passage indexing (clowder-ai#652)', () => {
       return [];
     };
 
-    const builder = new IndexBuilder(
-      store, docsDir, undefined, undefined,
-      () => mockThreads, messageListFn,
-    );
+    const builder = new IndexBuilder(store, docsDir, undefined, undefined, () => mockThreads, messageListFn);
 
     // Initial rebuild — should index passages
     await builder.rebuild();
@@ -100,9 +97,7 @@ describe('flushDirtyThreads passage indexing (clowder-ai#652)', () => {
     assert.equal(passagesAfter.length, 4, 'flushDirtyThreads should index new message as passage');
 
     // Verify the new message is actually in passages
-    const newPassage = db
-      .prepare('SELECT * FROM evidence_passages WHERE passage_id = ?')
-      .get('msg-msg_flush_004');
+    const newPassage = db.prepare('SELECT * FROM evidence_passages WHERE passage_id = ?').get('msg-msg_flush_004');
     assert.ok(newPassage, 'new message should exist in evidence_passages after flush');
     assert.equal(newPassage.speaker, 'user');
     assert.ok(newPassage.content.includes(uniqueKeyword));
@@ -132,8 +127,12 @@ describe('flushDirtyThreads passage indexing (clowder-ai#652)', () => {
     ];
 
     const builder = new IndexBuilder(
-      store, docsDir, undefined, undefined,
-      () => mockThreads, () => messages,
+      store,
+      docsDir,
+      undefined,
+      undefined,
+      () => mockThreads,
+      () => messages,
     );
 
     await builder.rebuild();
