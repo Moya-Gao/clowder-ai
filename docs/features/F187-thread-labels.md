@@ -53,6 +53,12 @@ UI：
 - **流程**：按钮点击 → 猫猫调 `list_threads` MCP 获取未分类 thread 标题+元数据 → 分析标题/关联 feature ID → 在面板中展示批量建议卡片 → 用户逐条确认/修改 → 批量调 label API 应用
 - **不做**：不引入 FunctionRun 数据模型（Phase C scope 内不需要）；审计需求后续按需加 audit log
 
+## Architecture Ownership
+
+Architecture cell: thread-navigation
+Map delta: new cell required（F191 Phase D 已补 `docs/architecture/ownership/cells/thread-navigation.md`）
+Why: F187 改的是用户面向的 thread 组织/分类/Sidebar 筛选语义，不属于 identity、bubble、transport、memory 或 dispatch。
+
 ## Acceptance Criteria
 
 ### Phase A（Label 系统基座）

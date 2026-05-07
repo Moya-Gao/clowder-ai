@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F191: Architecture Ownership Governance — 架构归属地图与 Map Delta 门禁
 
-> **Status**: in-progress — Phase C review ready | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress — Phase D review ready | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -141,23 +141,23 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 - [x] AC-C4: Phase C 不做 semantic architecture judgment，只检查机械不变量
 
 ### Phase D（Trial & Close）
-- [ ] AC-D1: 至少 1 个真实 Feature 使用 `Architecture cell` + `Map delta` 试跑
-- [ ] AC-D2: 试跑后记录是否有漏 cell / 错 cell / 过度归一 / 另起炉灶未被发现
-- [ ] AC-D3: 基于试跑结果决定是否接入 hard CI、自动 `cited_by`、或升 ADR
-- [ ] AC-D4: 若试跑证明 map 是错误抽象，记录 lessons-learned，不升级 ADR / CI hard gate
+- [x] AC-D1: 至少 1 个真实 Feature 使用 `Architecture cell` + `Map delta` 试跑
+- [x] AC-D2: 试跑后记录是否有漏 cell / 错 cell / 过度归一 / 另起炉灶未被发现
+- [x] AC-D3: 基于试跑结果决定是否接入 hard CI、自动 `cited_by`、或升 ADR
+- [x] AC-D4: 若试跑证明 map 是错误抽象，记录 lessons-learned，不升级 ADR / CI hard gate
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | “老项目 + 新需求”不能继续瞎累积架构 | AC-A1~A7, AC-B1~B4 | spec + skill review | [ ] |
-| R2 | 不是每个 Feature 重新填表 / 重新画图 | AC-A1, AC-A7, AC-B1, AC-B2 | 普通增量写 `Map delta: none` | [ ] |
-| R3 | 只在真正需要时触发重审 | AC-B1, AC-D1~D4 | 真实 Feature 试跑 | [ ] |
+| R1 | “老项目 + 新需求”不能继续瞎累积架构 | AC-A1~A7, AC-B1~B4 | spec + skill review | [x] |
+| R2 | 不是每个 Feature 重新填表 / 重新画图 | AC-A1, AC-A7, AC-B1, AC-B2 | 普通增量写 `Map delta: none` | [x] |
+| R3 | 只在真正需要时触发重审 | AC-B1, AC-D1~D4 | 真实 Feature 试跑 | [x] |
 | R4 | 防止 map 腐烂 | AC-A4, AC-A7, AC-C1 | stale anchor check + generated README | [x] |
 | R5 | 防止大家抢同一个大文件冲突 | AC-A1 | per-cell 文件结构 | [x] |
 | R6 | 涉及 harness：skills / quality gate / CI / prompts | AC-B1~B5, AC-C1~C4 | diff + review | [x] |
-| R7 | 47 的 `cited_by` 想法可以试，但不能首轮过度自动化 | AC-A4, AC-D3 | PoC 字段 + 后续决策 | [ ] |
-| R8 | 让 46 帮忙 review 方向 | Review Gate | 46 review 记录 | [ ] |
+| R7 | 47 的 `cited_by` 想法可以试，但不能首轮过度自动化 | AC-A4, AC-D3 | PoC 字段 + 后续决策 | [x] |
+| R8 | 让 46 帮忙 review 方向 | Review Gate | 46 review 记录 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -189,9 +189,9 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Phase D 选择哪个真实 Feature 试跑？ | ⬜ 待定 |
-| OQ-2 | `cited_by` 自动追加放在 merge-gate 还是独立脚本？ | ⬜ Phase D 后决定 |
-| OQ-3 | warning-only 何时升级为 hard CI？ | ⬜ 误报样本稳定后决定 |
+| OQ-1 | Phase D 选择哪个真实 Feature 试跑？ | ✅ F187 Thread Labels |
+| OQ-2 | `cited_by` 自动追加放在 merge-gate 还是独立脚本？ | ✅ 暂不自动化；继续字段化，至少再观察 1-2 个真实 feature 后再定 |
+| OQ-3 | warning-only 何时升级为 hard CI？ | ✅ 暂不升级；Phase D 暴露了漏 cell，说明当前仍应 warning-only |
 
 ## Key Decisions
 
@@ -204,6 +204,8 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 | KD-5 | 47 的 `cited_by` 收进 PoC，但自动维护不进首轮 | 反向引用有价值，但自动 merge hook 在地图未稳定前过重 | 2026-05-07 |
 | KD-6 | README 总索引由 cells frontmatter 生成 | 避免 README 成为新的热点冲突和腐烂源 | 2026-05-07 |
 | KD-7 | PoC 失败也是有效结果 | 如果 map 导致过度分类或没有降低 review 成本，应沉淀教训而不是升级治理负担 | 2026-05-07 |
+| KD-8 | Phase D 试跑选择 F187，并新增 `thread-navigation` cell | F187 是真实 in-progress feature；它不应被强塞进 identity/bubble/transport，试跑证明首版 7 格漏了 thread 组织语义，不是 map 抽象失败 | 2026-05-07 |
+| KD-9 | Phase D 后不升级 hard CI / 不自动追加 `cited_by` / 不升 ADR | 仅 1 个 trial 且暴露漏 cell；先保持 warning-only 与字段化，等更多真实 feature 校准边界 | 2026-05-07 |
 
 ## Timeline
 
@@ -214,6 +216,7 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 | 2026-05-07 | Phase A 首版 ownership cells + README 生成器实现，进入 46 review |
 | 2026-05-07 | Phase B skill 小切实现并同步，进入 46 review |
 | 2026-05-07 | Phase C warning-only mechanical check 脚本实现，进入 46 review |
+| 2026-05-07 | Phase D 用 F187 真实试跑，新增 `thread-navigation` ownership cell，进入 46 review |
 
 ## Review Gate
 
@@ -221,6 +224,7 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 - Phase A: 砚砚 author，46 review；如 47 参与实现，砚砚负责 code-quality review
 - Phase B: 砚砚 author，46 review
 - Phase C: 砚砚 author，46 review
+- Phase D: 砚砚 author，46 review
 - Phase B/C: 涉及 skill / CI / hook 改动，必须跨猫 review
 
 ## Links
