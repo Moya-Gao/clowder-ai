@@ -1143,7 +1143,7 @@
     {
       "id": "F184",
       "name": "ChatMessage Rendering Mount Investigation — F176 撤销后未查的 DOM 缺失真 bug",
-      "status": "done — incidentally fixed by F183 Phase B-E architectural work (verified 2026-05-02 alpha walk on `thread_mnux2eewbo4otg17`) | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P2",
+      "status": "done — original DOM mount issue incidentally fixed by F183 Phase B-E architectural work (verified 2026-05-02 alpha walk on `thread_mnux2eewbo4otg17`); stale live streaming bubble follow-up fixed by PR #1582 (2026-05-07) | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P2",
       "file": "F184-chatmessage-rendering-mount-investigation.md"
     },
     {
@@ -1167,7 +1167,7 @@
     {
       "id": "F188",
       "name": "Library Stewardship — 图书馆管护与成长",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F188-library-stewardship.md"
     },
     {
