@@ -263,6 +263,28 @@ AC 全打勾 ≠ 完成（F041 教训：12 项 AC ✅ 但 UI 不可用）。先�
 
 **不能跳过**：每个 milestone/feature 完成都要写。没有就写"无"，不允许省略章节。
 
+**Step 0.6: Harness Eval Checkpoint（F192 Phase A）🔴**
+
+反思胶囊之后、Close Gate Report 之前，判断是否需要 harness-level 评估。**Checkpoint 必做**，但不一定每次都展开——大多数 feature 写 `harness_feedback: none` 即可。
+
+**触发条件**（任一满足 → 必须展开写 harness-feedback 文档）：
+
+| 触发 | 说明 |
+|------|------|
+| Harness / skill / MCP feature close | harness 自身变化必须评估 fit |
+| CVO 不满意 / "不是我要的" | 需要分清 vision gap / translation gap / harness misfit |
+| Trace anomaly（重复 tool call、handoff 断链、长时间无 tool call） | trace 只能给 what，猫解释 why |
+| 抽样（normal feature close） | 防止只看失败样本 |
+
+**未触发时**：在 CloseGateReport 中写 `harness_feedback: none | reason: {简短理由}`。
+
+**触发时**：
+
+1. 在 `docs/harness-feedback/YYYY-MM-DD-Fxxx-{topic}.md` 创建 harness-feedback 文档（schema 见 `docs/harness-feedback/README.md`）
+2. 使用 `evidence_refs` 指向 canonical trace/thread/session，**不复制 raw tool-call payload**
+3. 如需 evidence-directed cat interview，**必须在独立 session 或独立 turn 进行**，不接在工作上下文尾巴上
+4. 在 feature spec 和 CloseGateReport 中链接 harness-feedback 文档
+
 **Step 1: Close Gate Report（F177 Phase A）🔴**
 
 输出 **CloseGateReport**（schema 见 `cat-cafe-skills/refs/close-gate.md`）——逐条列明每个 AC 的证据和处置：
