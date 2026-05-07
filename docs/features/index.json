@@ -1193,6 +1193,12 @@
       "name": "Socio-Technical Harness Eval — harness 共创评估体系",
       "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F192-socio-technical-harness-eval.md"
+    },
+    {
+      "id": "F193",
+      "name": "Cross-Thread Communication Unification",
+      "status": "spec | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1",
+      "file": "F193-cross-thread-comm-unification.md"
     }
   ]
 }

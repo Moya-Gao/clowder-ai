@@ -129,6 +129,9 @@ Why: F187 改的是用户面向的 thread 组织/分类/Sidebar 筛选语义，�
 |------|------|------|
 | **Feature** | `docs/features/F057-thread-discoverability.md` | 搜索+排序基座 |
 | **Feature** | `docs/features/F095-sidebar-collapse-memory.md` | Sidebar 导航基座 |
+| **Asset** | `docs/features/assets/F187/thread-labels-wireframe.html` | Thread Labels UX wireframe：筛选条、右键打标签、标签管理、猫猫辅助分类 |
+| **Asset** | `docs/features/assets/F187/phase-c-sidebar-initial.png` | Phase C sidebar 初始截图 |
+| **Asset** | `docs/features/assets/F187/sidebar-snapshot.md` | Sidebar 可访问性树 snapshot |
 
 ## 需求点 Checklist
 

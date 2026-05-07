@@ -1,0 +1,71 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: 对话
+        - generic [ref=e7]
+      - button "Mission Hub" [ref=e30] [cursor=pointer]:
+        - img [ref=e31]
+        - text: Mission Hub
+      - textbox "搜索对话、项目或 ID..." [ref=e37]
+      - generic [ref=e38]:
+        - button "未分类 (2)" [ref=e39] [cursor=pointer]
+        - button "测试" [ref=e213] [cursor=pointer]
+        - button "闲聊" [ref=e216] [cursor=pointer]
+        - button "拆解" [ref=e219] [cursor=pointer]
+        - button "文档" [ref=e222] [cursor=pointer]
+        - button "开发" [ref=e225] [cursor=pointer]
+        - button "..." [ref=e229] [cursor=pointer]
+      - generic [ref=e40]:
+        - generic "大厅 刚刚" [ref=e41] [cursor=pointer]
+        - generic [ref=e47]
+        - button "最近对话 1" [ref=e52] [cursor=pointer]
+        - button "cat-cafe-f187-thread-labels 1" [ref=e60] [cursor=pointer]
+      - button "回收站" [ref=e75] [cursor=pointer]:
+        - img [ref=e76]
+        - text: 回收站
+        - img [ref=e78]
+    - generic [ref=e80]:
+      - separator
+    - generic [ref=e82]:
+      - banner [ref=e83]:
+        - generic [ref=e84]
+      - main [ref=e130]:
+        - generic [ref=e230]
+        - generic [ref=e250]
+      - generic [ref=e135]:
+        - button "Attach images" [ref=e136] [cursor=pointer]
+        - button "Whisper mode" [ref=e139] [cursor=pointer]
+        - button "Game mode" [ref=e142] [cursor=pointer]
+        - textbox "输入消息... (@ 召唤猫猫)" [ref=e146]
+        - button "Start voice input (⌥V)" [ref=e147] [cursor=pointer]
+    - separator [ref=e152]
+    - complementary [ref=e154]:
+      - generic [ref=e155]:
+        - heading "状态栏" [level=2] [ref=e156]
+        - paragraph [ref=e157]: "当前模式: 空闲"
+      - generic [ref=e158]:
+        - generic [ref=e159]
+        - generic [ref=e162]: 空闲
+      - generic [ref=e163]:
+        - heading "消息统计" [level=3] [ref=e164]
+        - generic [ref=e165]
+      - generic [ref=e177]:
+        - heading "Session Chain" [level=3] [ref=e178]
+        - generic [ref=e179]: 0 sessions
+      - generic [ref=e181]:
+        - heading "对话信息" [level=3] [ref=e182]
+        - generic [ref=e183]
+      - generic [ref=e198]:
+        - button "审计 & Session ▲" [ref=e199] [cursor=pointer]
+        - generic [ref=e202]
+      - generic [ref=e209]:
+        - heading "运行日志" [level=3] [ref=e210]
+        - button "查看日志" [ref=e211] [cursor=pointer]
+    - generic [ref=e261]:
+      - heading "开始猫猫新手教程？" [level=3] [ref=e262]
+      - paragraph [ref=e263]: 当前还没有可用成员。我们可以先带你创建第一只猫猫，再开始首个协作任务。
+      - generic [ref=e264]:
+        - button "跳过" [ref=e265] [cursor=pointer]
+        - button "开始教程" [ref=e266] [cursor=pointer]
+  - alert [ref=e212]

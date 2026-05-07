@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F187 Thread Labels — UX Wireframe</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f0ebe4; display: flex; gap: 40px; padding: 32px; flex-wrap: wrap; }
+
+  /* Design tokens matching Cat Cafe */
+  :root {
+    --cafe-surface: #fdf8f3;
+    --cafe-elevated: #f5ede3;
+    --cafe-text: #1e1e24;
+    --cafe-secondary: #666666;
+    --cafe-muted: #888888;
+    --cafe-border: #e0d5c7;
+    --cocreator-primary: #e29578;
+    --cocreator-light: #ffddd2;
+    --cocreator-dark: #815b5b;
+  }
+
+  .wireframe-panel {
+    background: var(--cafe-surface);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .panel-title {
+    background: var(--cafe-elevated);
+    padding: 12px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--cafe-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--cafe-border);
+  }
+
+  /* ===== Sidebar Wireframe ===== */
+  .sidebar {
+    width: 280px;
+    min-height: 680px;
+    border-right: 2px solid var(--cocreator-light);
+  }
+
+  .sidebar-header {
+    padding: 12px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--cafe-border);
+  }
+  .sidebar-header h2 { font-size: 15px; font-weight: 600; color: var(--cafe-text); }
+  .header-actions { display: flex; gap: 6px; }
+  .icon-btn {
+    width: 28px; height: 28px; border-radius: 6px; border: none;
+    background: transparent; color: var(--cafe-secondary); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+  .icon-btn:hover { background: var(--cafe-elevated); }
+
+  .search-bar {
+    margin: 8px 12px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: var(--cafe-elevated);
+    border: 1px solid var(--cafe-border);
+    font-size: 12px; color: var(--cafe-muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  /* ===== NEW: Label Filter Bar ===== */
+  .label-filter-bar {
+    padding: 6px 12px 8px;
+    display: flex; gap: 6px; align-items: center;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--cafe-border);
+  }
+  .label-filter-bar::-webkit-scrollbar { display: none; }
+
+  .label-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    cursor: pointer;
+    border: 1px solid var(--cafe-border);
+    background: var(--cafe-surface);
+    color: var(--cafe-secondary);
+    transition: all 0.15s;
+  }
+  .label-chip:hover { background: var(--cafe-elevated); }
+  .label-chip.active {
+    border-color: transparent;
+    color: white;
+    font-weight: 500;
+  }
+  .label-chip .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    display: inline-block; flex-shrink: 0;
+  }
+  .label-chip.uncat {
+    border-style: dashed;
+    color: var(--cafe-muted);
+  }
+  .label-chip.uncat.active {
+    background: var(--cafe-muted);
+    color: white;
+    border-style: solid;
+    border-color: transparent;
+  }
+  .label-manage-btn {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1px dashed var(--cafe-border);
+    background: transparent; color: var(--cafe-muted);
+    font-size: 13px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .label-manage-btn:hover { background: var(--cafe-elevated); }
+
+  /* Section groups */
+  .section { border-bottom: 1px solid var(--cafe-border); }
+  .section-header {
+    padding: 8px 12px;
+    font-size: 11px; font-weight: 500;
+    color: var(--cafe-secondary);
+    display: flex; align-items: center; gap: 6px;
+    cursor: pointer;
+  }
+  .section-header .count {
+    background: var(--cafe-elevated);
+    padding: 1px 6px; border-radius: 8px;
+    font-size: 10px; color: var(--cafe-muted);
+  }
+
+  /* Thread items */
+  .thread-item {
+    padding: 8px 12px 8px 16px;
+    display: flex; align-items: center; gap: 8px;
+    cursor: pointer;
+    transition: background 0.1s;
+    position: relative;
+  }
+  .thread-item:hover { background: var(--cafe-elevated); }
+  .thread-item.active { background: var(--cocreator-light); }
+
+  .thread-info { flex: 1; min-width: 0; }
+  .thread-title {
+    font-size: 13px; color: var(--cafe-text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .thread-meta {
+    font-size: 11px; color: var(--cafe-muted);
+    margin-top: 2px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .thread-time { font-size: 11px; color: var(--cafe-muted); white-space: nowrap; }
+
+  /* NEW: Label dots on thread items */
+  .thread-labels {
+    display: flex; gap: 3px; align-items: center; flex-shrink: 0;
+  }
+  .thread-label-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+
+  .unread-badge {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--cocreator-primary); flex-shrink: 0;
+  }
+
+  /* ===== Context Menu ===== */
+  .context-menu-panel { width: 260px; }
+  .context-menu {
+    margin: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--cafe-border);
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  }
+  .ctx-item {
+    padding: 8px 12px;
+    font-size: 12px; color: var(--cafe-text);
+    display: flex; align-items: center; gap: 8px;
+    cursor: pointer;
+  }
+  .ctx-item:hover { background: var(--cafe-elevated); }
+  .ctx-item .ctx-icon { width: 16px; text-align: center; color: var(--cafe-secondary); }
+  .ctx-divider { height: 1px; background: var(--cafe-border); }
+  .ctx-submenu {
+    margin: 0 16px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--cafe-border);
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  }
+  .ctx-label-item {
+    padding: 6px 12px;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--cafe-text);
+    cursor: pointer;
+  }
+  .ctx-label-item:hover { background: var(--cafe-elevated); }
+  .ctx-label-check {
+    width: 14px; height: 14px; border-radius: 3px;
+    border: 1.5px solid var(--cafe-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+  }
+  .ctx-label-check.checked {
+    background: var(--cocreator-primary);
+    border-color: var(--cocreator-primary);
+    color: white;
+  }
+
+  /* ===== Label Manager Modal ===== */
+  .modal-panel { width: 340px; }
+  .modal {
+    margin: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--cafe-border);
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+  }
+  .modal-header {
+    padding: 14px 16px;
+    font-size: 14px; font-weight: 600; color: var(--cafe-text);
+    border-bottom: 1px solid var(--cafe-border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-body { padding: 12px; }
+  .label-row {
+    padding: 8px 10px;
+    display: flex; align-items: center; gap: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .label-row:hover { background: var(--cafe-elevated); }
+  .label-color-swatch {
+    width: 16px; height: 16px; border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .label-name { font-size: 13px; color: var(--cafe-text); flex: 1; }
+  .label-count { font-size: 11px; color: var(--cafe-muted); }
+  .label-actions { display: flex; gap: 4px; }
+  .label-action-btn {
+    font-size: 11px; color: var(--cafe-muted);
+    background: none; border: none; cursor: pointer;
+    padding: 2px 4px; border-radius: 4px;
+  }
+  .label-action-btn:hover { background: var(--cafe-elevated); color: var(--cafe-text); }
+
+  .new-label-row {
+    margin-top: 8px;
+    padding: 8px 10px;
+    display: flex; align-items: center; gap: 8px;
+    border: 1px dashed var(--cafe-border);
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--cafe-muted);
+    font-size: 12px;
+  }
+  .new-label-row:hover { background: var(--cafe-elevated); }
+
+  /* ===== Cat Classify Panel ===== */
+  .classify-panel { width: 400px; }
+  .classify-card {
+    margin: 8px 16px;
+    border: 1px solid var(--cafe-border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .classify-card-header {
+    padding: 10px 12px;
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--cafe-border);
+  }
+  .classify-thread-name {
+    font-size: 13px; color: var(--cafe-text); flex: 1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .classify-card-body {
+    padding: 10px 12px;
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .suggest-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 12px;
+    font-size: 11px; cursor: pointer;
+    border: 1px solid;
+    transition: all 0.15s;
+  }
+  .suggest-chip.accepted {
+    color: white;
+  }
+  .suggest-chip.pending {
+    opacity: 0.6;
+  }
+  .suggest-chip .remove { font-size: 10px; margin-left: 2px; opacity: 0.7; }
+
+  .classify-actions {
+    margin: 12px 16px 16px;
+    display: flex; gap: 8px;
+  }
+  .btn {
+    padding: 8px 16px; border-radius: 8px;
+    font-size: 12px; font-weight: 500;
+    border: none; cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--cocreator-primary); color: white;
+  }
+  .btn-primary:hover { background: var(--cocreator-dark); }
+  .btn-secondary {
+    background: var(--cafe-elevated); color: var(--cafe-text);
+    border: 1px solid var(--cafe-border);
+  }
+
+  .annotation {
+    margin-top: 6px;
+    padding: 8px 12px;
+    background: #fffde7;
+    border-left: 3px solid #ffd54f;
+    font-size: 11px;
+    color: #5d4037;
+    border-radius: 0 6px 6px 0;
+  }
+  .annotation strong { color: #e65100; }
+
+  .wireframe-label {
+    font-size: 18px; font-weight: 700; color: var(--cafe-text);
+    margin-bottom: 8px;
+    padding: 0 4px;
+  }
+  .wireframe-desc {
+    font-size: 12px; color: var(--cafe-secondary);
+    margin-bottom: 16px;
+    padding: 0 4px;
+  }
+
+  .column { display: flex; flex-direction: column; gap: 20px; }
+</style>
+</head>
+<body>
+
+<!-- ========== Column 1: Sidebar with Label Filter ========== -->
+<div class="column">
+  <div>
+    <div class="wireframe-label">1. Sidebar 标签筛选</div>
+    <div class="wireframe-desc">搜索栏下方新增标签筛选条，thread 条目显示标签色点</div>
+  </div>
+
+  <div class="wireframe-panel sidebar">
+    <div class="sidebar-header">
+      <h2>对话</h2>
+      <div class="header-actions">
+        <button class="icon-btn">🧠</button>
+        <button class="icon-btn">💬</button>
+        <button class="icon-btn">＋</button>
+      </div>
+    </div>
+
+    <div class="search-bar">
+      🔍 <span>搜索对话...</span>
+    </div>
+
+    <!-- NEW: Label Filter Bar -->
+    <div class="label-filter-bar">
+      <div class="label-chip active" style="background: #e29578;">
+        <span class="dot" style="background: white;"></span> 全部
+      </div>
+      <div class="label-chip">
+        <span class="dot" style="background: #5B8C5A;"></span> 开源拆解
+      </div>
+      <div class="label-chip">
+        <span class="dot" style="background: #5B9BD5;"></span> feat 开发
+      </div>
+      <div class="label-chip">
+        <span class="dot" style="background: #E8A838;"></span> 闲聊共创
+      </div>
+      <div class="label-chip">
+        <span class="dot" style="background: #9B7EBD;"></span> 技术分享
+      </div>
+      <div class="label-chip uncat">
+        ○ 未分类
+      </div>
+      <button class="label-manage-btn" title="管理标签">⚙</button>
+    </div>
+
+    <!-- Pinned Section -->
+    <div class="section">
+      <div class="section-header">
+        📌 置顶 <span class="count">4</span>
+      </div>
+
+      <div class="thread-item active">
+        <div class="thread-info">
+          <div class="thread-title">
+            F187 Thread Labels 设计
+          </div>
+          <div class="thread-meta">cat-cafe · 刚刚</div>
+        </div>
+        <div class="thread-labels">
+          <div class="thread-label-dot" style="background: #5B9BD5;"></div>
+        </div>
+      </div>
+
+      <div class="thread-item">
+        <div class="thread-info">
+          <div class="thread-title">
+            Cursor 源码拆解
+          </div>
+          <div class="thread-meta">clowder-ai · 2小时前</div>
+        </div>
+        <div class="thread-labels">
+          <div class="thread-label-dot" style="background: #5B8C5A;"></div>
+          <div class="thread-label-dot" style="background: #9B7EBD;"></div>
+        </div>
+        <div class="unread-badge"></div>
+      </div>
+
+      <div class="thread-item">
+        <div class="thread-info">
+          <div class="thread-title">
+            猫猫世界观 Round 5
+          </div>
+          <div class="thread-meta">cat-cafe · 昨天</div>
+        </div>
+        <div class="thread-labels">
+          <div class="thread-label-dot" style="background: #E8A838;"></div>
+        </div>
+      </div>
+
+      <div class="thread-item">
+        <div class="thread-info">
+          <div class="thread-title">
+            v0.9.1 Release Planning
+          </div>
+          <div class="thread-meta">cat-cafe · 昨天</div>
+        </div>
+        <div class="thread-labels">
+          <div class="thread-label-dot" style="background: #5B9BD5;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Section -->
+    <div class="section">
+      <div class="section-header">
+        🕐 最近对话 <span class="count">3</span>
+      </div>
+
+      <div class="thread-item">
+        <div class="thread-info">
+          <div class="thread-title">Memory Hub 调试</div>
+          <div class="thread-meta">cat-cafe · 3小时前</div>
+        </div>
+        <div class="thread-labels">
+          <div class="thread-label-dot" style="background: #5B9BD5;"></div>
+        </div>
+      </div>
+
+      <div class="thread-item">
+        <div class="thread-info">
+          <div class="thread-title">Windsurf 竞品分析</div>
+          <div class="thread-meta">clowder-ai · 5小时前</div>
+        </div>
+        <div class="thread-labels">
+          <div class="thread-label-dot" style="background: #5B8C5A;"></div>
+        </div>
+      </div>
+
+      <div class="thread-item">
+        <div class="thread-info">
+          <div class="thread-title">
+            周末随便聊聊
+          </div>
+          <div class="thread-meta">cat-cafe · 昨天</div>
+        </div>
+        <div class="thread-labels">
+          <div class="thread-label-dot" style="background: #E8A838;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Annotation -->
+    <div style="padding: 8px 12px;">
+      <div class="annotation">
+        <strong>NEW</strong> 标签筛选条：水平滚动，点击筛选。<br>
+        <strong>NEW</strong> 标签色点：thread 右侧，hover 显示标签名。<br>
+        位置：搜索栏 ↔ thread 列表之间。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Column 2: Context Menu + Label Manager ========== -->
+<div class="column">
+  <!-- Context Menu -->
+  <div>
+    <div class="wireframe-label">2. 右键菜单打标签</div>
+    <div class="wireframe-desc">Thread 右键菜单新增 "标签" 子菜单</div>
+  </div>
+
+  <div class="wireframe-panel context-menu-panel">
+    <div class="panel-title">Thread 右键菜单</div>
+    <div class="context-menu">
+      <div class="ctx-item"><span class="ctx-icon">📌</span> 取消置顶</div>
+      <div class="ctx-item"><span class="ctx-icon">⭐</span> 收藏</div>
+      <div class="ctx-divider"></div>
+      <div class="ctx-item" style="background: var(--cocreator-light);">
+        <span class="ctx-icon">🏷️</span> 标签 <span style="margin-left:auto; color:var(--cafe-muted); font-size:11px;">▶</span>
+      </div>
+      <div class="ctx-divider"></div>
+      <div class="ctx-item"><span class="ctx-icon">✏️</span> 重命名</div>
+      <div class="ctx-item"><span class="ctx-icon">📋</span> 复制 Thread ID</div>
+      <div class="ctx-divider"></div>
+      <div class="ctx-item" style="color:#d32f2f;"><span class="ctx-icon">🗑️</span> 删除</div>
+    </div>
+    <div class="ctx-submenu">
+      <div style="padding: 6px 12px; font-size: 11px; color: var(--cafe-muted); border-bottom: 1px solid var(--cafe-border);">选择标签</div>
+      <div class="ctx-label-item">
+        <div class="ctx-label-check checked">✓</div>
+        <span class="dot" style="background: #5B9BD5; width:8px; height:8px; border-radius:50%; display:inline-block;"></span>
+        feat 开发
+      </div>
+      <div class="ctx-label-item">
+        <div class="ctx-label-check"></div>
+        <span class="dot" style="background: #5B8C5A; width:8px; height:8px; border-radius:50%; display:inline-block;"></span>
+        开源拆解
+      </div>
+      <div class="ctx-label-item">
+        <div class="ctx-label-check"></div>
+        <span class="dot" style="background: #E8A838; width:8px; height:8px; border-radius:50%; display:inline-block;"></span>
+        闲聊共创
+      </div>
+      <div class="ctx-label-item">
+        <div class="ctx-label-check"></div>
+        <span class="dot" style="background: #9B7EBD; width:8px; height:8px; border-radius:50%; display:inline-block;"></span>
+        技术分享
+      </div>
+      <div class="ctx-divider"></div>
+      <div class="ctx-label-item" style="color: var(--cafe-muted);">
+        <span style="font-size:14px;">＋</span> 新建标签...
+      </div>
+    </div>
+  </div>
+
+  <!-- Label Manager Modal -->
+  <div>
+    <div class="wireframe-label">3. 标签管理</div>
+    <div class="wireframe-desc">筛选条齿轮按钮 → 打开管理面板</div>
+  </div>
+
+  <div class="wireframe-panel modal-panel">
+    <div class="panel-title">标签管理面板</div>
+    <div class="modal">
+      <div class="modal-header">
+        管理标签
+        <button class="icon-btn" style="font-size:16px;">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="label-row">
+          <div class="label-color-swatch" style="background: #5B8C5A;"></div>
+          <div class="label-name">开源拆解</div>
+          <div class="label-count">12 threads</div>
+          <div class="label-actions">
+            <button class="label-action-btn">✏️</button>
+            <button class="label-action-btn">🗑</button>
+          </div>
+        </div>
+        <div class="label-row">
+          <div class="label-color-swatch" style="background: #5B9BD5;"></div>
+          <div class="label-name">feat 开发</div>
+          <div class="label-count">28 threads</div>
+          <div class="label-actions">
+            <button class="label-action-btn">✏️</button>
+            <button class="label-action-btn">🗑</button>
+          </div>
+        </div>
+        <div class="label-row">
+          <div class="label-color-swatch" style="background: #E8A838;"></div>
+          <div class="label-name">闲聊共创</div>
+          <div class="label-count">15 threads</div>
+          <div class="label-actions">
+            <button class="label-action-btn">✏️</button>
+            <button class="label-action-btn">🗑</button>
+          </div>
+        </div>
+        <div class="label-row">
+          <div class="label-color-swatch" style="background: #9B7EBD;"></div>
+          <div class="label-name">技术分享</div>
+          <div class="label-count">8 threads</div>
+          <div class="label-actions">
+            <button class="label-action-btn">✏️</button>
+            <button class="label-action-btn">🗑</button>
+          </div>
+        </div>
+        <div class="new-label-row">
+          <span style="font-size:16px;">＋</span> 新建标签
+        </div>
+      </div>
+    </div>
+    <div style="padding: 0 16px 16px;">
+      <div class="annotation">
+        <strong>入口</strong>：筛选条最右侧齿轮按钮。<br>
+        <strong>操作</strong>：编辑名称/颜色、删除、排序（拖拽）。<br>
+        <strong>颜色</strong>：预设 8 色 + 自定义。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Column 3: Cat Classify ========== -->
+<div class="column">
+  <div>
+    <div class="wireframe-label">4. 猫猫一键分类</div>
+    <div class="wireframe-desc">用户触发 → 猫猫扫描未分类 thread → 建议标签 → 用户确认</div>
+  </div>
+
+  <div class="wireframe-panel classify-panel">
+    <div class="panel-title">猫猫辅助分类（Interactive Rich Block）</div>
+    <div style="padding: 12px 16px;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+        <span style="font-size: 20px;">🐱</span>
+        <div>
+          <div style="font-size: 13px; color: var(--cafe-text); font-weight: 500;">扫描了 23 个未分类 thread，建议如下：</div>
+          <div style="font-size: 11px; color: var(--cafe-muted);">点击标签可修改，确认后批量应用</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="classify-card">
+      <div class="classify-card-header">
+        <span style="font-size: 12px; color: var(--cafe-muted);">1/23</span>
+        <div class="classify-thread-name">Cursor 源码分析 — Agent Loop</div>
+      </div>
+      <div class="classify-card-body">
+        <div class="suggest-chip accepted" style="background: #5B8C5A; border-color: #5B8C5A; color: white;">
+          <span class="dot" style="background: white; width:6px; height:6px; border-radius:50; display:inline-block;"></span>
+          开源拆解 <span class="remove">✕</span>
+        </div>
+        <div class="suggest-chip accepted" style="background: #9B7EBD; border-color: #9B7EBD; color: white;">
+          <span class="dot" style="background: white; width:6px; height:6px; border-radius:50; display:inline-block;"></span>
+          技术分享 <span class="remove">✕</span>
+        </div>
+        <div class="suggest-chip" style="border-color: var(--cafe-border); color: var(--cafe-muted);">
+          ＋ 添加
+        </div>
+      </div>
+    </div>
+
+    <div class="classify-card">
+      <div class="classify-card-header">
+        <span style="font-size: 12px; color: var(--cafe-muted);">2/23</span>
+        <div class="classify-thread-name">F186 Library Memory 实现</div>
+      </div>
+      <div class="classify-card-body">
+        <div class="suggest-chip accepted" style="background: #5B9BD5; border-color: #5B9BD5; color: white;">
+          feat 开发 <span class="remove">✕</span>
+        </div>
+        <div class="suggest-chip" style="border-color: var(--cafe-border); color: var(--cafe-muted);">
+          ＋ 添加
+        </div>
+      </div>
+    </div>
+
+    <div class="classify-card">
+      <div class="classify-card-header">
+        <span style="font-size: 12px; color: var(--cafe-muted);">3/23</span>
+        <div class="classify-thread-name">周五晚茶话会 — AI 伦理</div>
+      </div>
+      <div class="classify-card-body">
+        <div class="suggest-chip accepted" style="background: #E8A838; border-color: #E8A838; color: white;">
+          闲聊共创 <span class="remove">✕</span>
+        </div>
+        <div class="suggest-chip pending" style="border-color: #9B7EBD; color: #9B7EBD;">
+          技术分享？
+        </div>
+        <div class="suggest-chip" style="border-color: var(--cafe-border); color: var(--cafe-muted);">
+          ＋ 添加
+        </div>
+      </div>
+    </div>
+
+    <div style="padding: 4px 16px; font-size: 11px; color: var(--cafe-muted); text-align: center;">
+      ... 还有 20 个 thread
+    </div>
+
+    <div class="classify-actions">
+      <button class="btn btn-primary">✓ 全部应用</button>
+      <button class="btn btn-secondary">逐条确认</button>
+      <button class="btn btn-secondary">取消</button>
+    </div>
+
+    <div style="padding: 0 16px 16px;">
+      <div class="annotation">
+        <strong>触发方式</strong>：sidebar "未分类" 视图里的按钮 / 铲屎官在聊天里说"帮我分类"。<br>
+        <strong>建议来源</strong>：thread 标题 + 元数据 + 关联 feature ID。<br>
+        <strong>确信度</strong>：实色 = 高确信（自动选中），虚线 = 低确信（"技术分享？"待确认）。<br>
+        <strong>交互</strong>：点击标签切换选中/取消；点 ✕ 移除；点 ＋ 添加其他标签。
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
