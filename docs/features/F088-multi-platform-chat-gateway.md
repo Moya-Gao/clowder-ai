@@ -8,8 +8,8 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> **Status**: follow-up-planned | **Core Completed**: 2026-04-10 | **Owner**: 布偶猫
-> Follow-up: Telegram reliability hardening (community clowder-ai#524/#641/#642)
+> **Status**: in-progress | **Core Completed**: 2026-04-10 | **Owner**: 布偶猫
+> Phase K (Telegram reliability hardening) fully merged 2026-05-07 (community clowder-ai#524/#641/#642)
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw) | 用户文档: [IM 接入指南](../guides/im-platform-setup.md) · [IM 使用指南](../guides/im-usage-guide.md)
 > Reflection: [2026-03-09-f088-chat-gateway-capsule.md](../reflections/2026-03-09-f088-chat-gateway-capsule.md) · [2026-04-10-f088-issue3-completion-capsule.md](../reflections/2026-04-10-f088-issue3-completion-capsule.md)
 
@@ -68,7 +68,9 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | **8** | IM Hub 配置向导 — 平台接入引导 UI（飞书/Telegram/钉钉） | ✅ | [#680](https://github.com/zts212653/cat-cafe/pull/680) |
 | **J1** | file block 全链路 + outbound 投递 + 安全防护（URL 白名单 + path traversal guard + fileName 透传） | ✅ | [#689](https://github.com/zts212653/cat-cafe/pull/689) |
 | **J2** | Pandoc 文档生成服务 + MCP tool + 自动安装（init-cafe.sh / install.sh） | ✅ | [#693](https://github.com/zts212653/cat-cafe/pull/693) |
-| **K** | Telegram reliability follow-up：重复发送止血 → inline streaming final → 富文本/媒体/长文本健壮性 | 📋 planned | — |
+| **K1** | Telegram streaming dedup：placeholder chatId mapping + deleteMessage | ✅ | [#1572](https://github.com/zts212653/cat-cafe/pull/1572) |
+| **K2** | Telegram inline final streaming：registerInlinePlaceholder + sendReply/sendRichMessage edit in-place | ✅ | [#1574](https://github.com/zts212653/cat-cafe/pull/1574) |
+| **K3** | Telegram 健壮性：HTML parse fallback、editMessage failure fallback、长文本分段 | ✅ | [#1575](https://github.com/zts212653/cat-cafe/pull/1575) |
 | **9** | 产品化（多账号/多workspace/运维） | 📋 planned | — |
 
 完整 AC 列表见 [各 Phase 详细 AC](assets/F088/acceptance-criteria.md)
@@ -160,7 +162,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 - [ ] 大小限制策略（飞书 30MB 上限）— 当前无硬性需求
 - [ ] LaTeX 自动安装（PDF 原生输出，当前降级为 DOCX）
 
-### Phase K: Telegram Reliability Follow-up（K1 ✅ | K2 🚧 in review | K3 🚧 in review）
+### Phase K: Telegram Reliability Follow-up（K1 ✅ | K2 ✅ | K3 ✅）
 
 **Source**: community issue [clowder-ai#524](https://github.com/zts212653/clowder-ai/issues/524), draft PRs [clowder-ai#641](https://github.com/zts212653/clowder-ai/pull/641) / [clowder-ai#642](https://github.com/zts212653/clowder-ai/pull/642)
 
@@ -311,8 +313,8 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-28 | ISSUE-16 fix: IM-spawned cat cwd — pass monorepo root as projectPath + lazy heal for existing threads (PR #849) |
 | 2026-05-06 | Phase K planned: Telegram reliability follow-up linked to clowder-ai#524/#641/#642; K1 duplicate fix split from K2/K3 robustness |
 | 2026-05-06 | Phase K1 merged: Telegram streaming dedup — placeholder chatId mapping + deleteMessage + multi-chat safety (PR #1572) |
-| 2026-05-06 | Phase K2 in review: Telegram inline final streaming via registerInlinePlaceholder — adapter-internal state machine, no deliver() signature change (PR #1574) |
-| 2026-05-06 | Phase K3 in review: Telegram robustness — HTML parse fallback, editMessage failure fallback, long text segmentation (PR #1575) |
+| 2026-05-07 | Phase K2 merged: Telegram inline final streaming via registerInlinePlaceholder — adapter-internal state machine, no deliver() signature change (PR #1574) |
+| 2026-05-07 | Phase K3 merged: Telegram robustness — HTML parse fallback, editMessage failure fallback, long text segmentation (PR #1575) |
 
 ## 参考文件
 
