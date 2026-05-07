@@ -34,16 +34,21 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 
 指标：stale anchors（引用已删文件的锚点）、search miss / low-hit query（搜索质量缺口）、orphan edges（悬空图边）、replay drift（Query Replay 质量漂移趋势）、Knowledge Feed pending（等确认的知识候选积压量）、needs_review 积压。
 
-### Phase C: Graph Fidelity
+### Phase C: Graph Fidelity 🚧
 
-提升 Typed Evidence Graph 的连接密度。当前 graph 只从 frontmatter `related_features` 建 edge，文档体里大量的引用关系没有被提取。
+提升 Typed Evidence Graph 的连接密度 + 修复 graph 运行期 bug + 美化可视化。
 
-三种新 edge 来源：
+**Bug fixes（铲屎官实测 + 砚砚代码分析）**：
+1. edges 表 schema 不一致：root evidence.sqlite 只有 3 列（from_anchor/to_anchor/relation），代码 getRelated() 查 6 列 → 查询报错导致 graph 无边
+2. `inferCollectionId` silent skip：anchor 无法推断 collection 时整个节点 + 边被静默丢弃，无日志
+3. `inferCollectionIdSync` 设计缺陷：collection ID 是 `project:cat-cafe` 但 anchor 是裸 `"F188"`，sync 路径永远匹配不上
+
+**三种新 edge 来源**：
 1. WikiLink `[[...]]` → edge（Scanner 已提取 WikiLink 到 FTS 关键词，差最后一步写 `addEdge()`）
 2. Markdown 链接 `[text](path)` → edge
 3. F 编号引用（文档体里的 `F186` 等）→ edge
 
-orphan edge audit 接入 Phase B Health Dashboard。
+**UI 美化**：铲屎官原话"太丑了"+"美观也很重要"。Graph 展示不是能跑就行，要好看才算交付。
 
 ### Phase D: Chat-to-Collection Materialization
 
@@ -73,10 +78,14 @@ orphan edge audit 接入 Phase B Health Dashboard。
 - [ ] AC-B5: 展示 Knowledge Feed pending + needs_review 积压
 
 ### Phase C（Graph Fidelity）
+- [ ] AC-C0a: edges 表 schema 迁移（补 from_collection_id / to_collection_id / edge_sensitivity / provenance / created_at 列）
+- [ ] AC-C0b: `inferCollectionId` 对裸 anchor（无 collection 前缀）不再 silent skip，降级为 fallback collection 或 warning
+- [ ] AC-C0c: `buildSubgraph` 返回的 graph 中，frontmatter `related_features` 边正常显示（bug 修复验证）
 - [ ] AC-C1: WikiLink `[[Target]]` 在 rebuild 时生成 edge（type: `wikilink`）
 - [ ] AC-C2: Markdown 链接 `[text](path)` 在 rebuild 时生成 edge（type: `doc_link`）
 - [ ] AC-C3: F 编号引用 `F186` 在 rebuild 时生成 edge（type: `feature_ref`）
 - [ ] AC-C4: orphan edges 统计接入 Health Dashboard
+- [ ] AC-C5: Graph 可视化美化（节点样式 + 布局 + 交互体验达到"铲屎官不说丑"标准）
 
 ### Phase D（Chat-to-Collection Materialization）
 - [ ] AC-D1: 猫猫在 Knowledge Feed approve 时可以选择目标 Collection
