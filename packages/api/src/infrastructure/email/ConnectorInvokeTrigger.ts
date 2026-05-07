@@ -50,6 +50,13 @@ export interface ConnectorTriggerPolicy {
   readonly sourceCategory?: 'ci' | 'review' | 'conflict' | 'scheduled' | 'a2a';
   /** F140 Phase C: hint which Skill to auto-load (not a hard constraint — cat can override) */
   readonly suggestedSkill?: string;
+  /**
+   * Optional queue coalescing key for connector bursts that supersede earlier queued work.
+   * Later hits reuse the first queued entry: messageIds are merged, but the original content/body stays in place.
+   * Once that entry is already processing, follow-up feedback gets a fresh queued wake-up.
+   * Queue metadata may still upgrade, e.g. normal COMMENTED feedback becoming urgent CHANGES_REQUESTED.
+   */
+  readonly coalesceKey?: string;
 }
 
 /**
@@ -114,6 +121,7 @@ export class ConnectorInvokeTrigger {
         priority,
         policy?.sourceCategory,
         policy?.suggestedSkill,
+        policy?.coalesceKey,
       );
     }
 
@@ -130,6 +138,7 @@ export class ConnectorInvokeTrigger {
         priority,
         policy?.sourceCategory,
         policy?.suggestedSkill,
+        policy?.coalesceKey,
       );
     }
 
@@ -161,6 +170,7 @@ export class ConnectorInvokeTrigger {
     priority: 'urgent' | 'normal' = 'normal',
     sourceCategory?: string,
     suggestedSkill?: string,
+    coalesceKey?: string,
   ): 'full' | 'enqueued' {
     const { invocationQueue, socketManager, log } = this.opts;
 
@@ -176,6 +186,12 @@ export class ConnectorInvokeTrigger {
       threadId,
       userId,
       content: message,
+      ...(coalesceKey
+        ? {
+            idempotencyKey: `connector:${sourceCategory ?? 'generic'}:${coalesceKey}`,
+            dedupeProcessing: false,
+          }
+        : {}),
       source: 'connector',
       targetCats: [catId],
       intent: 'execute',

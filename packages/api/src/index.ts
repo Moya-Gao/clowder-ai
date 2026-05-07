@@ -2279,6 +2279,28 @@ async function main(): Promise<void> {
     taskRunnerV2.register(
       createReviewFeedbackTaskSpec({
         taskStore,
+        fetchPrMetadata: async (repo, pr) => {
+          const { execFile } = await import('node:child_process');
+          const { promisify } = await import('node:util');
+          const execFileAsync = promisify(execFile);
+          try {
+            const { stdout } = await execFileAsync(
+              'gh',
+              ['pr', 'view', String(pr), '-R', repo, '--json', 'headRefOid,state,mergedAt'],
+              { timeout: 15_000 },
+            );
+            const data = JSON.parse(stdout) as { headRefOid?: string; state?: string; mergedAt?: string | null };
+            const prState =
+              data.mergedAt || data.state === 'MERGED' ? 'merged' : data.state === 'CLOSED' ? 'closed' : 'open';
+            return { headSha: data.headRefOid ?? '', prState };
+          } catch (error) {
+            app.log.warn(
+              { repo, pr, err: error },
+              '[api] review-feedback metadata lookup failed; continuing without PR metadata',
+            );
+            return null;
+          }
+        },
         fetchComments: async (repo, pr) => {
           const [reviewComments, issueComments] = await Promise.all([
             fetchPaginated(`/repos/${repo}/pulls/${pr}/comments`),
@@ -2290,6 +2312,7 @@ async function main(): Promise<void> {
               body: string;
               created_at: string;
               user?: { login: string };
+              commit_id?: string;
               path?: string;
               line?: number;
               pull_request_review_id?: number;
@@ -2298,6 +2321,7 @@ async function main(): Promise<void> {
               author: c.user?.login ?? 'unknown',
               body: c.body,
               createdAt: c.created_at,
+              ...(c.commit_id ? { commitId: c.commit_id } : {}),
               commentType: c.pull_request_review_id ? ('inline' as const) : ('conversation' as const),
               ...(c.path ? { filePath: c.path } : {}),
               ...(c.line ? { line: c.line } : {}),
@@ -2307,12 +2331,20 @@ async function main(): Promise<void> {
         fetchReviews: async (repo, pr) => {
           const reviews = await fetchPaginated(`/repos/${repo}/pulls/${pr}/reviews`);
           return reviews.map(
-            (r: { id: number; user?: { login: string }; state: string; body: string; submitted_at: string }) => ({
+            (r: {
+              id: number;
+              user?: { login: string };
+              state: string;
+              body: string;
+              submitted_at: string;
+              commit_id?: string;
+            }) => ({
               id: r.id,
               author: r.user?.login ?? 'unknown',
               state: r.state as 'APPROVED' | 'CHANGES_REQUESTED' | 'DISMISSED' | 'COMMENTED',
               body: r.body,
               submittedAt: r.submitted_at,
+              ...(r.commit_id ? { commitId: r.commit_id } : {}),
             }),
           );
         },

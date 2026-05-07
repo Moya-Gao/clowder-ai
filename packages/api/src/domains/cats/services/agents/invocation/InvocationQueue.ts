@@ -87,6 +87,16 @@ export class InvocationQueue {
 
   private static readonly PRIORITY_RANK: Record<string, number> = { urgent: 0, normal: 1 };
 
+  private static normalizedPriority(input: {
+    source: QueueEntry['source'];
+    sourceCategory?: QueueEntry['sourceCategory'];
+    priority?: QueueEntry['priority'];
+  }): QueueEntry['priority'] {
+    return input.source === 'agent' && input.sourceCategory !== 'continuation'
+      ? 'normal'
+      : (input.priority ?? 'normal');
+  }
+
   /** F175: multi-dimensional entry comparator for dequeue ordering.
    *  Position is scoped to same-user entries to prevent cross-user queue-jumping in shared threads. */
   private static compareEntries(a: QueueEntry, b: QueueEntry): number {
@@ -138,19 +148,37 @@ export class InvocationQueue {
       callerCatId?: string;
       priority?: 'urgent' | 'normal';
       suggestedSkill?: string;
+      /** Defaults true for request replay dedupe; connector coalescing can opt out for in-flight entries. */
+      dedupeProcessing?: boolean;
     },
   ): EnqueueResult {
     const key = this.scopeKey(input.threadId, input.userId);
     const q = this.getOrCreate(key);
+    const priority = InvocationQueue.normalizedPriority(input);
+    const dedupeProcessing = input.dedupeProcessing ?? true;
 
     // Request replay dedupe: if an active entry already exists for this key in this scope,
     // return it instead of creating a second queue row.
     if (input.idempotencyKey) {
       const existing = q.find(
         (entry) =>
-          entry.idempotencyKey === input.idempotencyKey && (entry.status === 'queued' || entry.status === 'processing'),
+          entry.idempotencyKey === input.idempotencyKey &&
+          (entry.status === 'queued' || (dedupeProcessing && entry.status === 'processing')),
       );
       if (existing) {
+        if (existing.status === 'queued') {
+          const upgradedPriority =
+            (InvocationQueue.PRIORITY_RANK[priority] ?? 1) < (InvocationQueue.PRIORITY_RANK[existing.priority] ?? 1);
+          if (upgradedPriority) {
+            existing.priority = priority;
+          }
+          if (input.suggestedSkill && (upgradedPriority || !existing.suggestedSkill)) {
+            existing.suggestedSkill = input.suggestedSkill;
+          }
+          if (input.sourceCategory && !existing.sourceCategory) {
+            existing.sourceCategory = input.sourceCategory;
+          }
+        }
         const position = q.findIndex((entry) => entry.id === existing.id);
         return {
           outcome: 'enqueued',
@@ -185,8 +213,7 @@ export class InvocationQueue {
       autoExecute: input.autoExecute ?? false,
       callerCatId: input.callerCatId,
       senderMeta: input.senderMeta,
-      priority:
-        input.source === 'agent' && input.sourceCategory !== 'continuation' ? 'normal' : (input.priority ?? 'normal'),
+      priority,
       sourceCategory: input.sourceCategory,
       continuationKey: input.continuationKey,
       suggestedSkill: input.suggestedSkill,
@@ -209,7 +236,14 @@ export class InvocationQueue {
   /** Backfill messageId on a new entry (null → value). */
   backfillMessageId(threadId: string, userId: string, entryId: string, messageId: string): void {
     const e = this.findEntry(threadId, userId, entryId);
-    if (e) e.messageId = messageId;
+    if (!e) return;
+    if (!e.messageId) {
+      e.messageId = messageId;
+      return;
+    }
+    if (e.messageId !== messageId && !e.mergedMessageIds.includes(messageId)) {
+      e.mergedMessageIds.push(messageId);
+    }
   }
 
   /** Rollback an enqueued entry — remove entirely. */
