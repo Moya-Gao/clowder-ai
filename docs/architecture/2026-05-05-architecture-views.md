@@ -671,6 +671,10 @@ State    thread · task · docs · evidence · InvocationQueue
 
 **给谁看**：想复刻这套系统的团队、想理解"Environment Fit 到底是什么工程"的行业研究者
 
+**呈现策略**（47 review）：两层呈现——
+- **主图（图 8）**：8 阶段 + 5 注入时机 + 每阶段标注注入数量，**不展开 Feature ID**。给行业研究者读"harness 长这样"
+- **详细附录（图 8.1）**：Phase C 10 项 / Phase D 20 项 / Phase G hooks 完整清单。给复刻团队抄作业
+
 **立意**：行业讲 harness 都是分类图（"应该有哪些构件"）或层级图（"系统有几层"）。没有人画过 **harness 的加载时序**——因为要画这张图，你得真的建过这套系统。图 3 画的是多次 invocation 之间的球权协议；图 8 画的是单次 invocation 内部的 harness 加载链路。
 
 **关键区分**：harness 注入不是"一次性塞完系统提示词"。它是**多阶段、多时机、多层级**的：
@@ -688,7 +692,7 @@ State    thread · task · docs · evidence · InvocationQueue
 ```
 时间 ↓
 
-┌─ A. 路由 & 入队 ──────────────────────────────────────────────┐
+┌─ A. 路由入队 ──────────────────────────────────────────────┐
 │  用户消息到达                                                   │
 │  ├─ @ 句柄解析 → 确定目标猫                                    │
 │  ├─ InvocationQueue 入队                                       │
@@ -696,7 +700,7 @@ State    thread · task · docs · evidence · InvocationQueue
 │  └─ QueueProcessor 取出 → 开始 invocation                      │
 └────────────────────────────────────────────────────────────────┘
                          │
-┌─ B. Session 解析 ──────▼──────────────────────────────────────┐
+┌─ B. 解析会话 ──────▼──────────────────────────────────────┐
 │  sessionManager.get(userId, catId, threadId)                   │
 │  ├─ 有活跃 session → --resume 续接                              │
 │  └─ 无 → 新建 session                                          │
@@ -704,7 +708,7 @@ State    thread · task · docs · evidence · InvocationQueue
 │  sessionSealer.reconcileStuck() → 清理卡住的 sealing           │
 └────────────────────────────────────────────────────────────────┘
                          │
-┌─ C. 静态身份（Session-level，扛压缩）─▼───────────────────────┐
+┌─ C. 注入静态身份（Session-level，扛压缩）─▼───────────────────────┐
 │  buildStaticIdentity() → --append-system-prompt                │
 │                                                                │
 │  ① 猫的身份 ────── displayName / nickname / role / personality │
@@ -720,32 +724,49 @@ State    thread · task · docs · evidence · InvocationQueue
 │  ⑩ MCP 工具说明 ── 仅 Claude（Codex/Gemini 用 callback 注入） │
 └────────────────────────────────────────────────────────────────┘
                          │
-┌─ D. 动态上下文（Per-invocation，每次重新组装）─▼──────────────┐
+══════════ Anti-compaction Boundary ═══════════════════════════════
+  ↑ --append-system-prompt（Session 级，扛压缩）
+  ↓ user message turn（Per-invocation，每轮重组）
+══════════════════════════════════════════════════════════════════
+                         │
+┌─ D. 注入动态上下文（Per-invocation，每次重新组装）─▼──────────┐
 │  buildInvocationContext()                                      │
 │                                                                │
+│                                                                │
+│  ── D.1 路由 / 球权（6 项）──                                 │
 │  ① 身份常量 ────── @catId, model=xxx（钉死，抗压缩）          │
 │  ② A2A 直传 ────── directMessageFrom + 同族防伪提醒            │
 │  ③ 乒乓预警 ────── streak ≥ 2 时注入（F167 L1）               │
 │  ④ 本轮队友 ────── 仅本次 invocation 参与的猫                  │
-│  ⑤ 模式上下文 ──── serial(链位)/parallel(反模仿)/independent   │
 │  ⑥ 球权退出检查 ── A2A 传球决策树                              │
 │  ⑦ 路由反馈 ────── F064 上次 @ 没在行首的一次性提醒            │
+│                                                                │
+│  ── D.2 模式 / 阶段（4 项）──                                 │
+│  ⑤ 模式上下文 ──── serial(链位)/parallel(反模仿)/independent   │
 │  ⑧ Prompt 标签 ── critique 等标签触发模式                      │
+│  ⑫ SOP 阶段 ────── F073 P4 当前 SOP 步骤（公告板不是控制器）  │
+│  ⑭ 训练营状态 ──── F087 phase + leadCat + memberCount          │
+│                                                                │
+│  ── D.3 提示 / 引导（5 项）──                                 │
 │  ⑨ Skill 提示 ──── F140 Phase C 信号触发的 skill 建议         │
 │  ⑩ 活跃参与者 ──── F042 Wave 3 最近活跃猫提示                 │
 │  ⑪ 路由策略 ────── F042 thread 级 prefer/avoid 规则            │
-│  ⑫ SOP 阶段 ────── F073 P4 当前 SOP 步骤（公告板不是控制器）  │
-│  ⑬ Voice Mode ──── ON=优先语音 / OFF=默认文字                  │
-│  ⑭ 训练营状态 ──── F087 phase + leadCat + memberCount          │
 │  ⑮ 引导候选 ────── F155 内联引导协议                           │
+│  ⑲ 审阅者列表 ──── F032 Phase D2 roster 匹配的 reviewer       │
+│                                                                │
+│  ── D.4 知识 / 内容（4 项）──                                 │
+│  ⑬ Voice Mode ──── ON=优先语音 / OFF=默认文字                  │
 │  ⑯ 世界上下文 ──── F093 世界观状态（角色/场景/canon）          │
 │  ⑰ 宪法知识 ────── F163 always_on 文档物理注入                 │
 │  ⑱ 信号文章 ────── F091 thread 关联的研究文章                  │
-│  ⑲ 审阅者列表 ──── F032 Phase D2 roster 匹配的 reviewer       │
+│                                                                │
+│  ── D.5 决策树（1 项 · ↑ 位置不是巧合）──                     │
 │  ⑳ 尾锚决策树 ──── F167 Phase D 传球三选一（最大近因偏差位）  │
+│  ★ 利用近因偏差：球权决策树固定 prompt 最末，确保 agent 最后   │
+│    一念是"下一步谁能做"而非"我刚才做了什么"                     │
 └────────────────────────────────────────────────────────────────┘
                          │
-┌─ E. 冷启动（Session #2+ 专用）─▼──────────────────────────────┐
+┌─ E. 注入冷启动包（Session #2+ 专用）─▼──────────────────────────────┐
 │  buildSessionBootstrap()                                       │
 │  ├─ 上一轮摘要 ──── generative digest → extractive fallback    │
 │  ├─ 任务快照 ────── taskStore.listByThread → formatSnapshot    │
@@ -754,7 +775,7 @@ State    thread · task · docs · evidence · InvocationQueue
 │     丢弃顺序：recall → task snapshot → digest → thread memory  │
 └────────────────────────────────────────────────────────────────┘
                          │
-┌─ F. 上下文窗口组装 ─▼─────────────────────────────────────────┐
+┌─ F. 组装上下文窗口 ─▼─────────────────────────────────────────┐
 │  assembleIncrementalContext() / assembleContext()               │
 │  ├─ Smart Window ── F148 上下文压力 > 80% → 注入 briefing     │
 │  ├─ 历史消息 ────── 按 token 预算裁剪                          │
@@ -764,7 +785,7 @@ State    thread · task · docs · evidence · InvocationQueue
 │            + mcpInstructions + contextText + userMessage        │
 └────────────────────────────────────────────────────────────────┘
                          │
-┌─ G. 执行（CLI Invocation）─▼──────────────────────────────────┐
+┌─ G. 执行调用（CLI Invocation）─▼──────────────────────────────────┐
 │  invokeSingleCat()                                             │
 │  ├─ 创建 invocation 记录                                       │
 │  ├─ 获取 sessionMutex（F118 per-session 串行化）               │
@@ -798,7 +819,7 @@ State    thread · task · docs · evidence · InvocationQueue
 │  └─ mid-loop 外部投递（F151 飞书/企微/TG 实时推送）           │
 └────────────────────────────────────────────────────────────────┘
                          │
-┌─ H. 回收 & 下一棒 ──▼─────────────────────────────────────────┐
+┌─ H. 回收下一棒 ──▼─────────────────────────────────────────┐
 │  ├─ A2A mention 检测 → targetCats 解析                        │
 │  ├─ Rich Block 提取 → Hub 渲染                                │
 │  ├─ 生成图片扫描 → F172 publishGeneratedImage                 │
@@ -808,7 +829,7 @@ State    thread · task · docs · evidence · InvocationQueue
 │  ├─ 外部平台投递（F088 剩余内容）                              │
 │  │                                                             │
 │  └─ 下一棒判定：                                               │
-│     ├─ 有 targetCats → 回到 A（新 invocation 入队）           │
+│     ├─ 有 targetCats → 回到 A（新 invocation 入队）── 见图 3  │
 │     ├─ 有 continuation capsule → 限流后入队（5次/60分钟）     │
 │     └─ 无 → 球落地，等用户或外部事件                          │
 └────────────────────────────────────────────────────────────────┘
@@ -824,8 +845,27 @@ State    thread · task · docs · evidence · InvocationQueue
 | 冷启动 | 不讲 | Session #2+ 的 digest + task snapshot + 2000 token 预算 + 丢弃优先级 |
 | Hooks | "有 hooks" | 具体到每个 hook 的触发时机和脚本名 |
 | 球权闭环 | 不讲 | 尾锚决策树在上下文最末位（最大近因偏差），执行后 mention 检测自动入队 |
+| 近因偏差利用 | 不讲 | 决策树固定 prompt 末位，工程化利用 LLM 注意力衰减——行业只讲"position matters"，我们写了具体哪项放哪里 |
 
-**风格**：纵向时间轴，左侧时间流，右侧分栏。8 个阶段用不同底色（A路由蓝、B解析灰、C身份紫、D动态橙、E冷启动绿、F组装蓝、G执行紫+红、H回收绿）。Hooks 用红色闪电标记。
+**风格**：纵向时间轴，左侧时间流，右侧分栏。底色按逻辑大块分 4 色调（不是 8 阶段 8 色）：
+- **蓝色**（A/B 入口准备）
+- **紫色**（C/D/E 注入三件套——核心独家区域，让读者一眼识别 harness 注入主战场）
+- **橙色**（F 组装）
+- **绿色 + 红色闪电**（G 执行 / H 回收，Hooks 用红色闪电标记）
+
+**右上角行业对比角标**（一眼 land 立意）：
+
+```
+┌─ 行业 vs 我们 ─┐
+│ 注入时机：1     │ ← 行业
+│ 注入时机：5     │ ← 我们
+│ 注入项：44+     │
+└─────────────────┘
+```
+
+**渲染建议**：
+- Phase G 拆为主时序 + 右侧 Hook 触发条（避免 4 层嵌套转 PNG 拥挤）
+- Phase H "回到 A" 标注"见图 3"，连接**图 8（单 invocation 内部）↔ 图 3（多 invocation 之间）**接缝
 
 **不要画成**：图 7 全局总图（那是静态层级）。图 8 是动态时序——同一个系统在时间轴上展开。
 
