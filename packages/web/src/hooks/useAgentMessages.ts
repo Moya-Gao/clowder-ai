@@ -2659,6 +2659,10 @@ export function useAgentMessages() {
           if (options?.invocationId && boundInv && boundInv !== options.invocationId) {
             deleteActive(catId);
           } else {
+            if (options?.invocationId && !boundInv) {
+              setMessageStreamInvocation(found.id, options.invocationId);
+              setActive(catId, found.id, options.invocationId);
+            }
             if (options?.ensureStreaming && !found.isStreaming) {
               setStreaming(found.id, true);
             }
@@ -2675,7 +2679,15 @@ export function useAgentMessages() {
       const recovered = findRecoverableAssistantMessage(catId, options?.invocationId);
       if (!recovered) return null;
 
-      setActive(catId, recovered.id);
+      setActive(catId, recovered.id, options?.invocationId);
+      if (options?.invocationId) {
+        const recoveredMessage = useChatStore
+          .getState()
+          .messages.find((msg) => msg.id === recovered.id && msg.type === 'assistant');
+        if (recoveredMessage && !recoveredMessage.extra?.stream?.invocationId) {
+          setMessageStreamInvocation(recovered.id, options.invocationId);
+        }
+      }
       if (options?.ensureStreaming && recovered.needsStreamingRestore) {
         setStreaming(recovered.id, true);
       }
@@ -2684,7 +2696,7 @@ export function useAgentMessages() {
       }
       return recovered.id;
     },
-    [findRecoverableAssistantMessage, setMessageMetadata, setStreaming],
+    [findRecoverableAssistantMessage, setMessageMetadata, setMessageStreamInvocation, setStreaming],
   );
 
   const ensureActiveAssistantMessage = useCallback(

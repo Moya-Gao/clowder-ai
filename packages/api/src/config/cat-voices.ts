@@ -30,10 +30,11 @@ const VOICE_ENV_KEYS = {
 
 /**
  * Base directory for Genshin reference audio files.
- * Override with GENSHIN_VOICE_DIR env var.
+ * Priority: GENSHIN_VOICE_DIR > CHARACTER_VOICE_DIR/genshin > hardcoded default.
  */
 function genshinVoiceDir(): string {
-  return process.env.GENSHIN_VOICE_DIR ?? join(homedir(), 'projects/relay-station/GPT-SoVITS/character-models/genshin');
+  if (process.env.GENSHIN_VOICE_DIR) return process.env.GENSHIN_VOICE_DIR;
+  return join(characterVoiceBaseDir(), 'genshin');
 }
 
 /**

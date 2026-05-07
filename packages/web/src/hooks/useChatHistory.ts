@@ -46,6 +46,7 @@ const HISTORY_PAGE_SIZE = 50;
 // In export mode (?export=true), load all messages in one request for screenshot capture.
 // Normal browsing still uses 50-per-page pagination.
 const EXPORT_LIMIT = 10000;
+const DRAFT_LIVE_MERGE_ACTIVITY_WINDOW_MS = 5 * 60 * 1000;
 function isAbortError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && 'name' in err && (err as { name?: string }).name === 'AbortError';
 }
@@ -165,6 +166,46 @@ function getMessageOrderTimestamp(msg: ChatMessageData): number {
   return msg.deliveredAt ?? msg.timestamp;
 }
 
+function getMessageActivityTimestamp(msg: ChatMessageData): number {
+  const toolTimestamps =
+    msg.toolEvents
+      ?.map((event) => event.timestamp)
+      .filter((timestamp): timestamp is number => typeof timestamp === 'number' && Number.isFinite(timestamp)) ?? [];
+  return Math.max(getMessageOrderTimestamp(msg), ...toolTimestamps);
+}
+
+function getComparableMessageText(msg: ChatMessageData): string {
+  return [msg.content, msg.thinking]
+    .filter((text): text is string => Boolean(text?.trim()))
+    .join('\n')
+    .trim();
+}
+
+function hasStreamActivity(msg: ChatMessageData): boolean {
+  if (getComparableMessageText(msg)) return true;
+  if (msg.toolEvents?.length) return true;
+  return Boolean(msg.extra?.rich?.blocks.length);
+}
+
+function hasContentProximity(current: ChatMessageData, draft: ChatMessageData): boolean {
+  const currentText = getComparableMessageText(current);
+  const draftText = getComparableMessageText(draft);
+  // Without text on both sides, same-cat + recency is not enough identity
+  // evidence: a stale tool-only bubble can otherwise capture a new draft.
+  if (!currentText) return false;
+  if (!draftText) return false;
+  if (currentText.includes(draftText)) return true;
+  return draftText.includes(currentText);
+}
+
+function canBindInvocationlessLiveToDraft(current: ChatMessageData, draft: ChatMessageData): boolean {
+  if (!hasStreamActivity(current)) return false;
+  const currentActivityAt = getMessageActivityTimestamp(current);
+  const draftActivityAt = getMessageActivityTimestamp(draft);
+  if (Math.abs(currentActivityAt - draftActivityAt) > DRAFT_LIVE_MERGE_ACTIVITY_WINDOW_MS) return false;
+  return hasContentProximity(current, draft);
+}
+
 function shouldPreferCurrentMessage(current: ChatMessageData, history: ChatMessageData): boolean {
   const currentPhasePriority = getMessagePhasePriority(current);
   const historyPhasePriority = getMessagePhasePriority(history);
@@ -272,6 +313,8 @@ export function mergeReplaceHydrationMessages(
   // 条目，让 local placeholder 替换掉早期 stream bubble，留下两条 invocation
   // 重复气泡（cloud Codex P1）。id 命名空间不被 streamKey 覆盖。
   const historyIndexByStableId = new Map<string, { index: number; matchKind: 'id' | 'stream-key' }>();
+  const uniqueDraftByCat = new Map<string, { index: number; invocationId: string; message: ChatMessageData }>();
+  const ambiguousDraftCats = new Set<string>();
   for (let i = 0; i < historyMsgs.length; i++) {
     const msg = historyMsgs[i]!;
     historyIndexByStableId.set(msg.id, { index: i, matchKind: 'id' });
@@ -281,6 +324,16 @@ export function mergeReplaceHydrationMessages(
       const existing = historyIndexByStableId.get(streamKey);
       if (!existing || existing.matchKind === 'stream-key') {
         historyIndexByStableId.set(streamKey, { index: i, matchKind: 'stream-key' });
+      }
+      if (msg.id.startsWith('draft-') && msg.origin === 'stream') {
+        if (uniqueDraftByCat.has(msg.catId)) {
+          uniqueDraftByCat.delete(msg.catId);
+          ambiguousDraftCats.add(msg.catId);
+          continue;
+        }
+        if (!ambiguousDraftCats.has(msg.catId)) {
+          uniqueDraftByCat.set(msg.catId, { index: i, invocationId, message: msg });
+        }
       }
     }
   }
@@ -309,14 +362,38 @@ export function mergeReplaceHydrationMessages(
     const invocationId = msg.catId ? getLocalPlaceholderInvocationId(msg, currentCatInvocations) : undefined;
     const streamKey = msg.catId && invocationId ? `${msg.catId}:${invocationId}` : undefined;
     const streamHit = streamKey ? historyIndexByStableId.get(streamKey) : undefined;
-    const target = idHit?.matchKind === 'id' ? idHit : streamHit?.matchKind === 'stream-key' ? streamHit : undefined;
+    let target = idHit?.matchKind === 'id' ? idHit : streamHit?.matchKind === 'stream-key' ? streamHit : undefined;
+    let msgForMerge = msg;
+
+    // Live race: active stream may start as invocationless, while `/api/messages`
+    // already returns the running server draft `draft-{invocationId}` for the same
+    // cat. If catInvocations missed the binding, streamKey matching cannot fire and
+    // the UI keeps two bubbles. When there is exactly one server draft for that cat,
+    // backfill the draft invocationId into the local live bubble and merge them.
+    if (
+      !target &&
+      msg.type === 'assistant' &&
+      msg.catId &&
+      msg.origin === 'stream' &&
+      msg.isStreaming &&
+      !msg.extra?.stream?.invocationId
+    ) {
+      const draftCandidate = uniqueDraftByCat.get(msg.catId);
+      if (draftCandidate && canBindInvocationlessLiveToDraft(msg, draftCandidate.message)) {
+        target = { index: draftCandidate.index, matchKind: 'stream-key' };
+        msgForMerge = {
+          ...msg,
+          extra: mergeMessageExtra({ stream: { invocationId: draftCandidate.invocationId } }, msg.extra),
+        };
+      }
+    }
 
     if (target) {
       const historyMsg = mergedMsgs[target.index]!;
       if (target.matchKind === 'id') {
-        mergedMsgs[target.index] = mergeSameIdHydrationMessage(historyMsg, msg);
+        mergedMsgs[target.index] = mergeSameIdHydrationMessage(historyMsg, msgForMerge);
       } else if (shouldPreferCurrentMessage(msg, historyMsg)) {
-        mergedMsgs[target.index] = msg;
+        mergedMsgs[target.index] = mergeSameIdHydrationMessage(historyMsg, msgForMerge);
         replacedHistoryCount++;
       } else {
         reconciledToHistoryCount++;

@@ -323,6 +323,52 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
     expect(newAddCalls.length + (newReplacedBubble ? 1 : 0)).toBeGreaterThanOrEqual(1);
   });
 
+  it('stream event with explicit invocationId back-fills the active invocationless bubble', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    storeState.messages.push({
+      id: 'msg-active-invocationless',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'already streaming',
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: {} },
+      timestamp: Date.now() - 1000,
+    });
+
+    // First invocationless chunk recovers the existing bubble and seeds activeRefs.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: ' already streaming',
+      });
+    });
+
+    vi.clearAllMocks();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: ' bound continuation',
+        invocationId: 'inv-late-bind',
+      });
+    });
+
+    expect(mockSetMessageStreamInvocation).toHaveBeenCalledWith('msg-active-invocationless', 'inv-late-bind');
+    expect(storeState.messages.find((m) => m.id === 'msg-active-invocationless')?.extra?.stream?.invocationId).toBe(
+      'inv-late-bind',
+    );
+    const newStreamBubbles = mockAddMessage.mock.calls.filter(
+      ([m]) => m.type === 'assistant' && m.catId === 'opus' && m.origin === 'stream',
+    );
+    expect(newStreamBubbles).toHaveLength(0);
+  });
+
   it('callback-first with explicit invocationId + activeInvocations slot: late stream chunk is suppressed (branch A)', () => {
     // 砚砚 round 5 follow-up regression: "callback(invocationId) 先到、invocation_created
     // 丢失" when activeInvocations still carries the slot (intent_mode registered but
