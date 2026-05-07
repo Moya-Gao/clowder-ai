@@ -59,6 +59,8 @@
     "check:worktree-port-offset": "node --test scripts/derive-worktree-ports.test.mjs && node scripts/check-worktree-port-offset.mjs",
     "gen:env-reference": "node scripts/gen-env-reference.mjs",
     "check:features": "node scripts/check-feature-truth.mjs",
+    "check:architecture-ownership": "node scripts/check-architecture-ownership.mjs",
+    "test:architecture-ownership": "node --test scripts/check-architecture-ownership.test.mjs",
     "check:followup-tails": "node scripts/check-followup-tails.mjs",
     "audit:feature-docs": "node scripts/audit-feature-doc-template.mjs",
     "check:skills": "bash scripts/check-skills-mount.sh",

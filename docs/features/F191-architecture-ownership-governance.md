@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F191: Architecture Ownership Governance — 架构归属地图与 Map Delta 门禁
 
-> **Status**: in-progress — Phase B review ready | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress — Phase C review ready | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -135,10 +135,10 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 - [x] AC-B5: `pnpm sync:skills` 已运行，HOME-level skill symlink 同步完成
 
 ### Phase C（Mechanical Checks）
-- [ ] AC-C1: warning-only 脚本能检测 stale `code_anchors`
-- [ ] AC-C2: warning-only 脚本能检测不存在的 `Architecture cell`
-- [ ] AC-C3: warning-only 脚本能提示新增架构名词但缺少 cell 声明的 diff
-- [ ] AC-C4: Phase C 不做 semantic architecture judgment，只检查机械不变量
+- [x] AC-C1: warning-only 脚本能检测 stale `code_anchors`
+- [x] AC-C2: warning-only 脚本能检测不存在的 `Architecture cell`
+- [x] AC-C3: warning-only 脚本能提示新增架构名词但缺少 cell 声明的 diff
+- [x] AC-C4: Phase C 不做 semantic architecture judgment，只检查机械不变量
 
 ### Phase D（Trial & Close）
 - [ ] AC-D1: 至少 1 个真实 Feature 使用 `Architecture cell` + `Map delta` 试跑
@@ -153,9 +153,9 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 | R1 | “老项目 + 新需求”不能继续瞎累积架构 | AC-A1~A7, AC-B1~B4 | spec + skill review | [ ] |
 | R2 | 不是每个 Feature 重新填表 / 重新画图 | AC-A1, AC-A7, AC-B1, AC-B2 | 普通增量写 `Map delta: none` | [ ] |
 | R3 | 只在真正需要时触发重审 | AC-B1, AC-D1~D4 | 真实 Feature 试跑 | [ ] |
-| R4 | 防止 map 腐烂 | AC-A4, AC-A7, AC-C1 | stale anchor check + generated README | [ ] |
-| R5 | 防止大家抢同一个大文件冲突 | AC-A1 | per-cell 文件结构 | [ ] |
-| R6 | 涉及 harness：skills / quality gate / CI / prompts | AC-B1~B5, AC-C1~C4 | diff + review | [ ] |
+| R4 | 防止 map 腐烂 | AC-A4, AC-A7, AC-C1 | stale anchor check + generated README | [x] |
+| R5 | 防止大家抢同一个大文件冲突 | AC-A1 | per-cell 文件结构 | [x] |
+| R6 | 涉及 harness：skills / quality gate / CI / prompts | AC-B1~B5, AC-C1~C4 | diff + review | [x] |
 | R7 | 47 的 `cited_by` 想法可以试，但不能首轮过度自动化 | AC-A4, AC-D3 | PoC 字段 + 后续决策 | [ ] |
 | R8 | 让 46 帮忙 review 方向 | Review Gate | 46 review 记录 | [ ] |
 
@@ -213,11 +213,14 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 | 2026-05-07 | F191 立项 |
 | 2026-05-07 | Phase A 首版 ownership cells + README 生成器实现，进入 46 review |
 | 2026-05-07 | Phase B skill 小切实现并同步，进入 46 review |
+| 2026-05-07 | Phase C warning-only mechanical check 脚本实现，进入 46 review |
 
 ## Review Gate
 
 - Kickoff spec: 布偶猫 Opus 4.6 review（按铲屎官要求“让 46 帮你看看”）
 - Phase A: 砚砚 author，46 review；如 47 参与实现，砚砚负责 code-quality review
+- Phase B: 砚砚 author，46 review
+- Phase C: 砚砚 author，46 review
 - Phase B/C: 涉及 skill / CI / hook 改动，必须跨猫 review
 
 ## Links

@@ -25,6 +25,7 @@ Branch: {branch-name}
 {放弃了什么方案，为什么}
 
 ## Architecture Ownership（必填）
+<!-- F191 reviewer 视角来自 cat-cafe-skills/request-review/SKILL.md；改 checklist 时两边保持同步。 -->
 Architecture cell: {cell_id}
 Map delta: none | update required | new cell required
 Why: {一句话}
