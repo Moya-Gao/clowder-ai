@@ -570,6 +570,7 @@ export interface PresentationLockSnapshot {
   filePath: string | null;
   line: number | null;
   tabs: string[];
+  scrollTop: number | null;
 }
 
 /** F097: CLI Output unified event stream */

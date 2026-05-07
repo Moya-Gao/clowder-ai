@@ -971,6 +971,8 @@ export interface ChatState {
   enablePresentationLock: () => void;
   disablePresentationLock: () => void;
   replacePresentationLockTarget: (snapshot: PresentationLockSnapshot) => void;
+  setPresentationLockViewport: (scrollTop: number) => void;
+  workspaceScrollTop: number | null;
 
   // Phase H + F139 + F160 + F168: Workspace mode
   workspaceMode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community';
@@ -1255,7 +1257,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const lock = get().presentationLock;
     if (lock) {
       set({
-        presentationLock: { ...lock, worktreeId: id, tabs: [], filePath: null, line: null },
+        presentationLock: { ...lock, worktreeId: id, tabs: [], filePath: null, line: null, scrollTop: null },
+        workspaceScrollTop: null,
       });
     }
   },
@@ -1290,6 +1293,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const newWorktreeId = get().workspaceWorktreeId ?? lock.worktreeId;
         const worktreeChanged = newWorktreeId !== lock.worktreeId;
         const lockTabs = worktreeChanged ? [path] : lock.tabs.includes(path) ? lock.tabs : [...lock.tabs, path];
+        const fileChanged = path !== lock.filePath;
         set({
           presentationLock: {
             ...lock,
@@ -1297,7 +1301,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             line: line ?? null,
             tabs: lockTabs,
             worktreeId: newWorktreeId,
+            scrollTop: fileChanged || worktreeChanged ? null : lock.scrollTop,
           },
+          ...((fileChanged || worktreeChanged) && { workspaceScrollTop: null }),
         });
       }
     } else {
@@ -1370,6 +1376,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         filePath: state.workspaceOpenFilePath,
         line: state.workspaceOpenFileLine,
         tabs: state.workspaceOpenTabs,
+        scrollTop: null,
       },
     })),
   disablePresentationLock: () =>
@@ -1379,6 +1386,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const ow = state.presentationLock.ownerWorkspace;
         return {
           presentationLock: null,
+          workspaceScrollTop: null,
           workspaceWorktreeId: ow.worktreeId,
           workspaceOpenTabs: ow.tabs,
           workspaceOpenFilePath: ow.filePath,
@@ -1389,6 +1397,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const restored = flattenThread(threadState ?? { ...DEFAULT_THREAD_STATE });
       return {
         presentationLock: null,
+        workspaceScrollTop: null,
         ...(restored.workspaceWorktreeId !== undefined && {
           workspaceWorktreeId: restored.workspaceWorktreeId,
         }),
@@ -1399,6 +1408,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }),
   replacePresentationLockTarget: (snapshot) =>
     set((state) => (state.presentationLock ? { presentationLock: snapshot } : {})),
+  setPresentationLockViewport: (scrollTop) =>
+    set((state) => {
+      if (!state.presentationLock) return {};
+      return {
+        presentationLock: { ...state.presentationLock, scrollTop },
+        workspaceScrollTop: scrollTop,
+      };
+    }),
+  workspaceScrollTop: null,
 
   // Phase H: Workspace mode
   workspaceMode: 'dev' as const,
@@ -2094,6 +2112,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         flattened.workspaceOpenTabs = lock.tabs;
         flattened.workspaceOpenFilePath = lock.filePath;
         flattened.workspaceOpenFileLine = lock.line;
+        flattened.workspaceScrollTop = lock.scrollTop;
       }
 
       return {

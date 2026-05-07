@@ -38,6 +38,9 @@ interface WorkspaceFileViewerProps {
   revealInFinder: (path: string) => void;
   onFocusMode?: () => void;
   focusDisabled?: boolean;
+  restoreScrollTop?: number | null;
+  restoreKey?: string;
+  onScrollTopChange?: (scrollTop: number) => void;
 }
 
 const CloseIcon = () => (
@@ -85,6 +88,9 @@ export function WorkspaceFileViewer({
   revealInFinder,
   onFocusMode,
   focusDisabled,
+  restoreScrollTop,
+  restoreKey,
+  onScrollTopChange,
 }: WorkspaceFileViewerProps) {
   const setPendingChatInsert = useChatStore((s) => s.setPendingChatInsert);
   const currentThreadId = useChatStore((s) => s.currentThreadId);
@@ -301,6 +307,9 @@ export function WorkspaceFileViewer({
         onDirtyChange={onDirtyChange}
         rawUrl={rawUrl}
         revealInFinder={revealInFinder}
+        restoreScrollTop={restoreScrollTop}
+        restoreKey={restoreKey}
+        onScrollTopChange={onScrollTopChange}
       />
 
       {file.truncated && (

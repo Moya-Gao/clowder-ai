@@ -508,4 +508,79 @@ describe('presentation lock (AC-PL1~PL5)', () => {
     useChatStore.getState().setCurrentThread('thread-b');
     expect(useChatStore.getState().workspaceMode).toBe('recall');
   });
+
+  // ── F063 Scroll Viewport Persist ──
+
+  it('setPresentationLockViewport updates lock scrollTop', () => {
+    useChatStore.getState().setWorkspaceOpenFile('main.ts', 1);
+    useChatStore.getState().enablePresentationLock();
+
+    useChatStore.getState().setPresentationLockViewport(420);
+
+    const lock = useChatStore.getState().presentationLock!;
+    expect(lock.scrollTop).toBe(420);
+  });
+
+  it('setPresentationLockViewport is no-op when lock is null', () => {
+    expect(useChatStore.getState().presentationLock).toBeNull();
+    // Should not throw
+    useChatStore.getState().setPresentationLockViewport(100);
+    expect(useChatStore.getState().presentationLock).toBeNull();
+  });
+
+  it('thread switch with lock restores scrollTop from lock snapshot', () => {
+    useChatStore.getState().setWorkspaceOpenFile('app.ts', 5);
+    useChatStore.getState().enablePresentationLock();
+    useChatStore.getState().setPresentationLockViewport(300);
+
+    // Switch to another thread — workspace overlay should include scrollTop
+    useChatStore.getState().setCurrentThread('thread-b');
+    expect(useChatStore.getState().workspaceScrollTop).toBe(300);
+
+    // Switch back to owner — scrollTop still from lock
+    useChatStore.getState().setCurrentThread('thread-a');
+    expect(useChatStore.getState().workspaceScrollTop).toBe(300);
+  });
+
+  it('enablePresentationLock initializes scrollTop to null', () => {
+    useChatStore.getState().setWorkspaceOpenFile('index.ts', 1);
+    useChatStore.getState().enablePresentationLock();
+
+    const lock = useChatStore.getState().presentationLock!;
+    expect(lock.scrollTop).toBeNull();
+  });
+
+  it('disablePresentationLock clears workspaceScrollTop', () => {
+    useChatStore.getState().setWorkspaceOpenFile('main.ts', 1);
+    useChatStore.getState().enablePresentationLock();
+    useChatStore.getState().setPresentationLockViewport(150);
+    expect(useChatStore.getState().workspaceScrollTop).toBe(150);
+
+    useChatStore.getState().disablePresentationLock();
+    expect(useChatStore.getState().workspaceScrollTop).toBeNull();
+    expect(useChatStore.getState().presentationLock).toBeNull();
+  });
+
+  it('P1-3: setWorkspaceOpenFile resets lock scrollTop when file changes', () => {
+    useChatStore.getState().setWorkspaceOpenFile('main.ts', 1);
+    useChatStore.getState().enablePresentationLock();
+    useChatStore.getState().setPresentationLockViewport(500);
+    expect(useChatStore.getState().presentationLock!.scrollTop).toBe(500);
+
+    // Open a different file while locked — scrollTop must reset
+    useChatStore.getState().setWorkspaceOpenFile('other.ts', 1);
+    expect(useChatStore.getState().presentationLock!.filePath).toBe('other.ts');
+    expect(useChatStore.getState().presentationLock!.scrollTop).toBeNull();
+    expect(useChatStore.getState().workspaceScrollTop).toBeNull();
+  });
+
+  it('P1-3: setWorkspaceOpenFile preserves scrollTop when same file re-navigates', () => {
+    useChatStore.getState().setWorkspaceOpenFile('main.ts', 1);
+    useChatStore.getState().enablePresentationLock();
+    useChatStore.getState().setPresentationLockViewport(200);
+
+    // Same file, different line — scrollTop preserved
+    useChatStore.getState().setWorkspaceOpenFile('main.ts', 50);
+    expect(useChatStore.getState().presentationLock!.scrollTop).toBe(200);
+  });
 });

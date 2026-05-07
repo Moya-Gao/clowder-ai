@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import type { FileData, WorktreeEntry } from '@/hooks/useWorkspace';
 import { HubIcon } from '../hub-icons';
 import { MarkdownContent } from '../MarkdownContent';
@@ -26,6 +27,9 @@ export interface FileContentRendererProps {
   onDirtyChange?: (dirty: boolean) => void;
   rawUrl: (p: string) => string;
   revealInFinder: (path: string) => void;
+  restoreScrollTop?: number | null;
+  restoreKey?: string;
+  onScrollTopChange?: (scrollTop: number) => void;
 }
 
 /** Renders file content: binary (image/audio/video), markdown, HTML, JSX, or code. */
@@ -49,7 +53,48 @@ export function FileContentRenderer({
   onDirtyChange,
   rawUrl,
   revealInFinder,
+  restoreScrollTop,
+  restoreKey,
+  onScrollTopChange,
 }: FileContentRendererProps) {
+  const onScrollTopChangeRef = useRef(onScrollTopChange);
+  onScrollTopChangeRef.current = onScrollTopChange;
+  const restoreScrollTopRef = useRef(restoreScrollTop);
+  restoreScrollTopRef.current = restoreScrollTop;
+
+  const mdActive = isMarkdown && markdownRendered && !editMode;
+
+  useEffect(() => {
+    const el = mdContainerRef.current;
+    if (!el || !mdActive || !onScrollTopChangeRef.current) return;
+    let rafId = 0;
+    const handleScroll = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        onScrollTopChangeRef.current?.(el.scrollTop);
+      });
+    };
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        onScrollTopChangeRef.current?.(el.scrollTop);
+      }
+    };
+  }, [mdContainerRef, onScrollTopChange, mdActive]);
+
+  useEffect(() => {
+    const el = mdContainerRef.current;
+    if (!el || !mdActive || !onScrollTopChangeRef.current) return;
+    const saved = restoreScrollTopRef.current;
+    if (saved != null) {
+      el.scrollTop = saved;
+    } else {
+      onScrollTopChangeRef.current(el.scrollTop);
+    }
+  }, [restoreKey, onScrollTopChange, mdActive, mdContainerRef]);
   if (file.binary) {
     if (file.mime.startsWith('image/'))
       return (
@@ -164,6 +209,9 @@ export function FileContentRenderer({
       onSave={onSave}
       onDirtyChange={onDirtyChange}
       branch={currentWorktree?.branch}
+      restoreScrollTop={restoreScrollTop}
+      restoreKey={restoreKey}
+      onScrollTopChange={onScrollTopChange}
     />
   );
 }

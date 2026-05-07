@@ -177,7 +177,17 @@ export function WorkspacePanel() {
   const presentationLock = useChatStore((s) => s.presentationLock);
   const enablePresentationLock = useChatStore((s) => s.enablePresentationLock);
   const disablePresentationLock = useChatStore((s) => s.disablePresentationLock);
+  const setPresentationLockViewport = useChatStore((s) => s.setPresentationLockViewport);
+  const workspaceScrollTop = useChatStore((s) => s.workspaceScrollTop);
   const { createFile, createDir, deleteItem, renameItem, uploadFile } = useFileManagement();
+
+  const viewportRestoreKey = `${currentThreadId}:${openFilePath}`;
+  const handleScrollTopChange = useCallback(
+    (scrollTop: number) => {
+      setPresentationLockViewport(scrollTop);
+    },
+    [setPresentationLockViewport],
+  );
 
   const [viewMode, setViewMode] = useState<'files' | 'changes' | 'git' | 'terminal' | 'browser'>('files');
   // Phase H: Workspace mode switcher (dev tools vs knowledge feed)
@@ -620,6 +630,9 @@ export function WorkspacePanel() {
             onApplyExternalChange={applyExternalChange}
             onDismissExternalChange={dismissExternalChange}
             revealInFinder={revealInFinder}
+            restoreScrollTop={presentationLock ? workspaceScrollTop : undefined}
+            restoreKey={presentationLock ? viewportRestoreKey : undefined}
+            onScrollTopChange={presentationLock ? handleScrollTopChange : undefined}
           />
         </WorkspaceFocusShell>
       ) : focusedPane === 'changes' && workspaceMode === 'dev' && viewMode === 'changes' ? (
@@ -1137,6 +1150,9 @@ export function WorkspacePanel() {
                           onDismissExternalChange={dismissExternalChange}
                           revealInFinder={revealInFinder}
                           onFocusMode={() => setFocusedPane('file')}
+                          restoreScrollTop={presentationLock ? workspaceScrollTop : undefined}
+                          restoreKey={presentationLock ? viewportRestoreKey : undefined}
+                          onScrollTopChange={presentationLock ? handleScrollTopChange : undefined}
                         />
                       )}
                     </>

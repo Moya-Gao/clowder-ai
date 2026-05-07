@@ -61,6 +61,9 @@ export function CodeViewer({
   onSave,
   onDirtyChange,
   branch,
+  restoreScrollTop,
+  restoreKey,
+  onScrollTopChange,
 }: {
   content: string;
   mime: string;
@@ -70,6 +73,9 @@ export function CodeViewer({
   onSave?: (newContent: string) => Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
   branch?: string;
+  restoreScrollTop?: number | null;
+  restoreKey?: string;
+  onScrollTopChange?: (scrollTop: number) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -81,6 +87,8 @@ export function CodeViewer({
   const baseContentRef = useRef(content);
   const onDirtyChangeRef = useRef(onDirtyChange);
   onDirtyChangeRef.current = onDirtyChange;
+  const onScrollTopChangeRef = useRef(onScrollTopChange);
+  onScrollTopChangeRef.current = onScrollTopChange;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -123,10 +131,40 @@ export function CodeViewer({
       view.dispatch({ effects: EditorView.scrollIntoView(lineInfo.from, { y: 'center' }) });
     }
 
+    const scroller = view.scrollDOM;
+    let rafId = 0;
+    const handleScroll = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        onScrollTopChangeRef.current?.(scroller.scrollTop);
+      });
+    };
+    scroller.addEventListener('scroll', handleScroll, { passive: true });
+
     return () => {
+      scroller.removeEventListener('scroll', handleScroll);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        onScrollTopChangeRef.current?.(scroller.scrollTop);
+      }
       view.destroy();
     };
   }, [content, mime, path, scrollToLine, editable]);
+
+  const restoreScrollTopRef = useRef(restoreScrollTop);
+  restoreScrollTopRef.current = restoreScrollTop;
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !onScrollTopChangeRef.current) return;
+    const saved = restoreScrollTopRef.current;
+    if (saved != null) {
+      view.scrollDOM.scrollTop = saved;
+    } else {
+      onScrollTopChangeRef.current(view.scrollDOM.scrollTop);
+    }
+  }, [restoreKey, onScrollTopChange]);
 
   const handleSave = useCallback(async () => {
     const view = viewRef.current;
