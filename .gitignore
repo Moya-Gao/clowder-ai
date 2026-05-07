@@ -95,6 +95,10 @@ temp/
 assets/demo-videos/
 assets/screenshots/
 
+# Video project render outputs (keep scripts/specs tracked; force-add curated assets when needed)
+docs/videos/**/assets/*
+!docs/videos/**/assets/.gitkeep
+
 # Local external repo scratch space
 gitnexus/
 
