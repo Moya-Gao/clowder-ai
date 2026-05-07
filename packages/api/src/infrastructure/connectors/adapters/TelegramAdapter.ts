@@ -18,7 +18,62 @@ import { formatTelegramHtml } from './telegram-html-formatter.js';
 const TELEGRAM_MAX_MESSAGE_LENGTH = 4096;
 const TELEGRAM_POLLING_BACKOFF_MS = [5_000, 15_000, 30_000, 60_000] as const;
 const TELEGRAM_MAX_CONFLICT_RETRIES = 10;
-const INLINE_PLACEHOLDER_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
+
+function splitText(text: string): string[] {
+  if (text.length <= TELEGRAM_MAX_MESSAGE_LENGTH) return [text];
+  const parts: string[] = [];
+  let start = 0;
+  while (start < text.length) {
+    let end = Math.min(start + TELEGRAM_MAX_MESSAGE_LENGTH, text.length);
+    // Back up one code unit if we'd split a surrogate pair (high surrogate at boundary).
+    if (end < text.length) {
+      const charCode = text.charCodeAt(end - 1);
+      if (charCode >= 0xd800 && charCode <= 0xdbff) end--;
+    }
+    parts.push(text.slice(start, end));
+    start = end;
+  }
+  return parts;
+}
+
+function splitHtml(html: string): string[] {
+  if (html.length <= TELEGRAM_MAX_MESSAGE_LENGTH) return [html];
+  const parts: string[] = [];
+  let start = 0;
+  while (start < html.length) {
+    let end = Math.min(start + TELEGRAM_MAX_MESSAGE_LENGTH, html.length);
+    if (end < html.length) {
+      // Don't split a surrogate pair
+      if ((html.charCodeAt(end - 1) & 0xfc00) === 0xd800) end--;
+      // Don't split inside an HTML entity (&amp; &lt; &gt;)
+      const entityStart = html.lastIndexOf('&', end - 1);
+      if (entityStart >= start) {
+        const entityEnd = html.indexOf(';', entityStart);
+        if (entityEnd === -1 || entityEnd >= end) end = entityStart;
+      }
+      // Don't split inside a tag
+      if (end > start) {
+        const tagStart = html.lastIndexOf('<', end - 1);
+        if (tagStart >= start) {
+          const tagEnd = html.indexOf('>', tagStart);
+          if (tagEnd === -1 || tagEnd >= end) end = tagStart;
+        }
+      }
+      if (end <= start) end = start + 1;
+    }
+    parts.push(html.slice(start, end));
+    start = end;
+  }
+  return parts;
+}
+
+function isTelegramHtmlParseError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { error_code?: unknown; description?: string; message?: string };
+  if (e.error_code !== 400) return false;
+  const desc = (e.description ?? e.message ?? '').toLowerCase();
+  return desc.includes('parse entities') || desc.includes('button_data_invalid');
+}
 
 type TelegramStartOptions = Parameters<Bot['start']>[0];
 
@@ -60,9 +115,7 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
   private sendMessageFn: ((chatId: string, text: string, opts?: Record<string, unknown>) => Promise<unknown>) | null =
     null;
   private readonly placeholderChats = new Map<string, string>();
-  private readonly pendingInlineFinal = new Map<string, string>();
-  private readonly inlinePlaceholderTs = new Map<string, number>();
-  private nowFn: () => number = () => Date.now();
+  private readonly pendingInlineFinal = new Map<string, string[]>();
   private botApiSendMessageFn: ((chatId: number, text: string) => Promise<{ message_id: number }>) | null = null;
   private botApiDeleteMessageFn: ((chatId: number, messageId: number) => Promise<void>) | null = null;
   private sendMediaFns: {
@@ -166,47 +219,56 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
 
   /**
    * Send a reply to a Telegram chat.
-   * K2: If a pending inline placeholder exists for this chatId, edits it in-place
-   * instead of sending a new message (consumed on first use).
-   * Truncates messages exceeding Telegram's 4096 char limit.
+   * K2: If a pending inline placeholder exists, edits it in-place (consumed on first use).
+   *     If editMessage fails (message deleted etc.), falls back to sending a new message.
+   * K3: Splits content exceeding 4096 chars into multiple messages.
    */
   async sendReply(externalChatId: string, content: string): Promise<void> {
-    const inlineMsgId = this.pendingInlineFinal.get(externalChatId);
-    if (inlineMsgId) {
-      const age = this.nowFn() - (this.inlinePlaceholderTs.get(externalChatId) ?? 0);
-      if (age > INLINE_PLACEHOLDER_MAX_AGE_MS) {
-        // Stale placeholder from a previously-failed delivery: skip edit, clean up, fall through.
-        this.pendingInlineFinal.delete(externalChatId);
-        this.inlinePlaceholderTs.delete(externalChatId);
+    const queue = this.pendingInlineFinal.get(externalChatId);
+    // Consume (shift) before the async editMessage call so two concurrent deliveries
+    // for the same chatId cannot both select the same placeholder ID.
+    const inlineMsgId = queue?.shift();
+    if (queue !== undefined && queue.length === 0) this.pendingInlineFinal.delete(externalChatId);
+    if (inlineMsgId !== undefined) {
+      const [firstPart, ...restParts] = splitText(content);
+      let editSucceeded = false;
+      try {
+        await this.editMessage(externalChatId, inlineMsgId, firstPart);
+        editSucceeded = true;
+        this.placeholderChats.delete(inlineMsgId);
+      } catch (err) {
+        this.log.warn({ err }, '[TelegramAdapter] sendReply: editMessage failed, falling back to send');
+        // ID already consumed from queue; delete the stale streaming card before sending.
         await this.deleteMessage(inlineMsgId, externalChatId).catch(() => {});
-      } else {
-        try {
-          await this.editMessage(externalChatId, inlineMsgId, content);
-          // Unconditionally clean placeholderChats: this ID is now a finalized reply.
-          // cloud-R12 P1: must not be conditional — concurrent registration can replace pendingInlineFinal
-          // before we get here, making the old entry uncleanable via clearInlinePlaceholder.
-          this.placeholderChats.delete(inlineMsgId);
-          if (this.pendingInlineFinal.get(externalChatId) === inlineMsgId) {
-            this.pendingInlineFinal.delete(externalChatId);
-            this.inlinePlaceholderTs.delete(externalChatId);
+      }
+      if (editSucceeded) {
+        // ID already consumed above — send any remaining split parts.
+        for (const part of restParts) {
+          if (this.sendMessageFn) {
+            await this.sendMessageFn(externalChatId, part);
+          } else {
+            await this.bot.api.sendMessage(externalChatId, part);
           }
-          return;
-        } catch (err) {
-          this.log.warn({ err }, '[TelegramAdapter] sendReply: editMessage failed, falling back to send');
-          // Key intentionally preserved so cleanupPlaceholders can delete the stale card.
+        }
+        return;
+      }
+      for (const segment of splitText(content)) {
+        if (this.sendMessageFn) {
+          await this.sendMessageFn(externalChatId, segment);
+        } else {
+          await this.bot.api.sendMessage(externalChatId, segment);
         }
       }
-    }
-
-    const text =
-      content.length > TELEGRAM_MAX_MESSAGE_LENGTH ? `${content.slice(0, TELEGRAM_MAX_MESSAGE_LENGTH - 1)}…` : content;
-
-    if (this.sendMessageFn) {
-      await this.sendMessageFn(externalChatId, text);
       return;
     }
 
-    await this.bot.api.sendMessage(externalChatId, text);
+    for (const segment of splitText(content)) {
+      if (this.sendMessageFn) {
+        await this.sendMessageFn(externalChatId, segment);
+      } else {
+        await this.bot.api.sendMessage(externalChatId, segment);
+      }
+    }
   }
 
   /**
@@ -309,8 +371,10 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
 
   /**
    * Send a rich message as Telegram HTML-formatted text.
-   * K2: If a pending inline placeholder exists for this chatId, edits it in-place
-   * with HTML content instead of sending a new message.
+   * K2: If a pending inline placeholder exists, edits it in-place.
+   *     Falls back to plain text edit if HTML parse fails.
+   *     Falls back to sending a new message if editMessage fails entirely.
+   * K3: HTML parse error falls back to plain text; long plain text is split.
    */
   async sendRichMessage(
     externalChatId: string,
@@ -320,37 +384,195 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
   ): Promise<void> {
     const html = formatTelegramHtml(blocks, catDisplayName, textContent);
 
-    const inlineMsgId = this.pendingInlineFinal.get(externalChatId);
-    if (inlineMsgId) {
-      const age = this.nowFn() - (this.inlinePlaceholderTs.get(externalChatId) ?? 0);
-      if (age > INLINE_PLACEHOLDER_MAX_AGE_MS) {
-        // Stale placeholder: skip edit, clean up, fall through to send.
-        this.pendingInlineFinal.delete(externalChatId);
-        this.inlinePlaceholderTs.delete(externalChatId);
+    const richQueue = this.pendingInlineFinal.get(externalChatId);
+    // Consume (shift) before the async editMessage call to prevent concurrent deliveries
+    // from selecting the same placeholder ID.
+    const inlineMsgId = richQueue?.shift();
+    if (richQueue !== undefined && richQueue.length === 0) this.pendingInlineFinal.delete(externalChatId);
+    if (inlineMsgId !== undefined) {
+      const [firstHtmlPart, ...restHtmlParts] = splitHtml(html);
+      let richEditSucceeded = false;
+      try {
+        await this.editMessage(externalChatId, inlineMsgId, firstHtmlPart!, { parse_mode: 'HTML' });
+        richEditSucceeded = true;
+        this.placeholderChats.delete(inlineMsgId);
+      } catch (err) {
+        this.log.warn({ err }, '[TelegramAdapter] sendRichMessage: editMessage failed, falling back to send');
+        // ID already consumed; delete the stale streaming card before sending.
         await this.deleteMessage(inlineMsgId, externalChatId).catch(() => {});
-      } else {
-        try {
-          await this.editMessage(externalChatId, inlineMsgId, html, { parse_mode: 'HTML' });
-          // cloud-R12 P1: unconditionally clean placeholderChats (same fix as sendReply).
-          this.placeholderChats.delete(inlineMsgId);
-          if (this.pendingInlineFinal.get(externalChatId) === inlineMsgId) {
-            this.pendingInlineFinal.delete(externalChatId);
-            this.inlinePlaceholderTs.delete(externalChatId);
+      }
+      if (richEditSucceeded) {
+        // ID already consumed above — send any overflow segments as new messages.
+        // K3 cloud-R11 P1: apply the same HTML-parse-error fallback as the non-inline path.
+        let overflowUseHtml = true;
+        for (const part of restHtmlParts) {
+          if (!overflowUseHtml) {
+            const stripped = part
+              .replace(/<[^>]+>/g, '')
+              .replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .trim();
+            if (this.sendMessageFn) {
+              await this.sendMessageFn(externalChatId, stripped || part);
+            } else {
+              await this.bot.api.sendMessage(externalChatId, stripped || part);
+            }
+            continue;
           }
-          return;
-        } catch (err) {
-          this.log.warn({ err }, '[TelegramAdapter] sendRichMessage: editMessage failed, falling back to send');
-          // Key intentionally preserved so cleanupPlaceholders can delete the stale card.
+          try {
+            if (this.sendMessageFn) {
+              await this.sendMessageFn(externalChatId, part, { parse_mode: 'HTML' });
+            } else {
+              await this.bot.api.sendMessage(externalChatId, part, { parse_mode: 'HTML' } as Record<string, unknown>);
+            }
+          } catch (htmlErr) {
+            if (!isTelegramHtmlParseError(htmlErr)) throw htmlErr;
+            overflowUseHtml = false;
+            const stripped = part
+              .replace(/<[^>]+>/g, '')
+              .replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .trim();
+            if (this.sendMessageFn) {
+              await this.sendMessageFn(externalChatId, stripped || part);
+            } else {
+              await this.bot.api.sendMessage(externalChatId, stripped || part);
+            }
+          }
+        }
+        return;
+      }
+      // Fallback: split long HTML across multiple messages.
+      // Mid-stream HTML parse error: switch to plain-text for the failing chunk and all remaining.
+      let inlineSentCount = 0;
+      let inlineUseHtml = true;
+      for (const part of splitHtml(html)) {
+        if (!inlineUseHtml) {
+          const stripped = part
+            .replace(/<[^>]+>/g, '')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .trim();
+          if (this.sendMessageFn) {
+            await this.sendMessageFn(externalChatId, stripped || part);
+          } else {
+            await this.bot.api.sendMessage(externalChatId, stripped || part);
+          }
+          continue;
+        }
+        try {
+          if (this.sendMessageFn) {
+            await this.sendMessageFn(externalChatId, part, { parse_mode: 'HTML' });
+          } else {
+            await this.bot.api.sendMessage(externalChatId, part, { parse_mode: 'HTML' } as Record<string, unknown>);
+          }
+          inlineSentCount++;
+        } catch (htmlErr) {
+          if (!isTelegramHtmlParseError(htmlErr)) throw htmlErr;
+          if (inlineSentCount === 0) {
+            this.log.warn(
+              { err: htmlErr },
+              '[TelegramAdapter] sendRichMessage: HTML parse error, falling back to plain text',
+            );
+            const strippedHtml = html
+              .replace(/<[^>]+>/g, '')
+              .replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .trim();
+            const plainFallback = strippedHtml || textContent;
+            for (const segment of splitText(plainFallback)) {
+              if (this.sendMessageFn) {
+                await this.sendMessageFn(externalChatId, segment);
+              } else {
+                await this.bot.api.sendMessage(externalChatId, segment);
+              }
+            }
+            return;
+          }
+          inlineUseHtml = false;
+          const stripped = part
+            .replace(/<[^>]+>/g, '')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .trim();
+          if (this.sendMessageFn) {
+            await this.sendMessageFn(externalChatId, stripped || part);
+          } else {
+            await this.bot.api.sendMessage(externalChatId, stripped || part);
+          }
         }
       }
-    }
-
-    if (this.sendMessageFn) {
-      await this.sendMessageFn(externalChatId, html, { parse_mode: 'HTML' });
       return;
     }
 
-    await this.bot.api.sendMessage(externalChatId, html, { parse_mode: 'HTML' });
+    // Non-inline send path: split long HTML across multiple messages.
+    // Mid-stream HTML parse error: switch to plain-text for the failing chunk and all remaining.
+    let sentCount = 0;
+    let useHtml = true;
+    for (const part of splitHtml(html)) {
+      if (!useHtml) {
+        const stripped = part
+          .replace(/<[^>]+>/g, '')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .trim();
+        if (this.sendMessageFn) {
+          await this.sendMessageFn(externalChatId, stripped || part);
+        } else {
+          await this.bot.api.sendMessage(externalChatId, stripped || part);
+        }
+        continue;
+      }
+      try {
+        if (this.sendMessageFn) {
+          await this.sendMessageFn(externalChatId, part, { parse_mode: 'HTML' });
+        } else {
+          await this.bot.api.sendMessage(externalChatId, part, { parse_mode: 'HTML' } as Record<string, unknown>);
+        }
+        sentCount++;
+      } catch (htmlErr) {
+        if (!isTelegramHtmlParseError(htmlErr)) throw htmlErr;
+        if (sentCount === 0) {
+          this.log.warn(
+            { err: htmlErr },
+            '[TelegramAdapter] sendRichMessage: HTML parse error, falling back to plain text',
+          );
+          const strippedHtml = html
+            .replace(/<[^>]+>/g, '')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .trim();
+          const plainFallback = strippedHtml || textContent;
+          for (const segment of splitText(plainFallback)) {
+            if (this.sendMessageFn) {
+              await this.sendMessageFn(externalChatId, segment);
+            } else {
+              await this.bot.api.sendMessage(externalChatId, segment);
+            }
+          }
+          return;
+        }
+        useHtml = false;
+        const stripped = part
+          .replace(/<[^>]+>/g, '')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .trim();
+        if (this.sendMessageFn) {
+          await this.sendMessageFn(externalChatId, stripped || part);
+        } else {
+          await this.bot.api.sendMessage(externalChatId, stripped || part);
+        }
+      }
+    }
   }
 
   /**
@@ -418,36 +640,38 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
    * instead of sending a new message. Consumed on first use.
    */
   registerInlinePlaceholder(externalChatId: string, platformMessageId: string): void {
-    this.pendingInlineFinal.set(externalChatId, platformMessageId);
-    this.inlinePlaceholderTs.set(externalChatId, this.nowFn());
+    const queue = this.pendingInlineFinal.get(externalChatId) ?? [];
+    queue.push(platformMessageId);
+    this.pendingInlineFinal.set(externalChatId, queue);
   }
 
   /**
    * K2: Clear a registered inline-final placeholder without delivering content.
    * Called when delivery is skipped so stale state doesn't corrupt the next delivery.
+   * Removes the specific platformMessageId from the FIFO queue (K3: queue per chatId).
    * If the placeholder was already consumed by sendReply/sendRichMessage, this is a no-op.
    * Deletes the streaming card from Telegram when entry was still pending (delivery skipped).
    */
   async clearInlinePlaceholder(chatId: string, platformMessageId?: string): Promise<void> {
     if (platformMessageId) {
-      const stored = this.pendingInlineFinal.get(chatId);
-      if (stored === platformMessageId) {
-        // Only clear when the stored ID matches: protects a newer invocation's registration
-        // that may have overwritten this one while cleanup was deferred.
-        this.pendingInlineFinal.delete(chatId);
-        this.inlinePlaceholderTs.delete(chatId);
-        await this.deleteMessage(platformMessageId, chatId).catch(() => {});
-      } else if (stored !== undefined) {
-        // A newer placeholder (stored) has overwritten this one (platformMessageId).
-        // Only delete platformMessageId if it's still a raw, unconsumed placeholder —
-        // i.e. it was never edited by sendReply/sendRichMessage (which deletes from placeholderChats).
-        if (this.placeholderChats.has(platformMessageId)) {
+      const queue = this.pendingInlineFinal.get(chatId);
+      if (queue) {
+        const idx = queue.indexOf(platformMessageId);
+        if (idx !== -1) {
+          // ID still pending: delivery was skipped — remove from queue and delete the streaming card.
+          queue.splice(idx, 1);
+          if (queue.length === 0) this.pendingInlineFinal.delete(chatId);
           await this.deleteMessage(platformMessageId, chatId).catch(() => {});
+        } else {
+          // ID already consumed by delivery — just clean the tracking map to prevent unbounded growth.
+          this.placeholderChats.delete(platformMessageId);
         }
+      } else {
+        // No queue at all — ID was consumed and queue was deleted — still clean tracking map.
+        this.placeholderChats.delete(platformMessageId);
       }
     } else {
       this.pendingInlineFinal.delete(chatId);
-      this.inlinePlaceholderTs.delete(chatId);
     }
   }
 
@@ -517,11 +741,6 @@ export class TelegramAdapter implements IStreamableOutboundAdapter {
   /** @internal */
   _injectBotApiDeleteMessage(fn: (chatId: number, messageId: number) => Promise<void>): void {
     this.botApiDeleteMessageFn = fn;
-  }
-
-  /** @internal — override Date.now() for TTL-sensitive tests. */
-  _injectNowFn(fn: () => number): void {
-    this.nowFn = fn;
   }
 
   /**

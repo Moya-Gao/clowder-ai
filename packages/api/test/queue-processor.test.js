@@ -1688,7 +1688,9 @@ describe('QueueProcessor', () => {
       assert.ok(succeededUpdate, 'should succeed even without outboundHook');
     });
 
-    it('delivery failure: cleanupPlaceholders must NOT be called (placeholder preserved as fallback)', async () => {
+    it('delivery failure: cleanupPlaceholders is NOT called after hard delivery failure (R5-P1)', async () => {
+      // R5-P1 design: when delivery fails, placeholder is preserved as fallback indicator
+      // for the next retry/invocation. Cleanup must NOT run on failure.
       // F151: mid-loop delivery retries failed turns in the final phase,
       // so use catId-based failure to ensure opus consistently fails.
       const outboundHook = {
@@ -1728,66 +1730,12 @@ describe('QueueProcessor', () => {
 
       assert.equal(outboundHook.deliver.mock.calls.length, 3, 'mid-loop (2) + final-phase retry (1)');
 
-      // Small settle window to confirm cleanup is NOT called
-      await new Promise((r) => setTimeout(r, 100));
-      assert.equal(
-        streamingHook.cleanupPlaceholders.mock.calls.length,
-        0,
-        'cleanupPlaceholders must NOT be called when delivery fails — placeholder is the fallback indicator',
-      );
-    });
-
-    it('cloud-R10-P2: late-success delivery triggers cleanup after timeout window resolves', async () => {
-      let resolveDeliver = () => {};
-      const deliverPromise = new Promise((r) => {
-        resolveDeliver = r;
-      });
-      const outboundHook = {
-        deliver: mock.fn(async () => {
-          await deliverPromise;
-        }),
-      };
-      const streamingHook = {
-        onStreamStart: mock.fn(async () => {}),
-        onStreamChunk: mock.fn(async () => {}),
-        onStreamEnd: mock.fn(async () => {}),
-        cleanupPlaceholders: mock.fn(async () => {}),
-      };
-
-      const hookDeps = stubDeps({
-        router: {
-          routeExecution: mock.fn(async function* () {
-            yield { type: 'text', catId: 'opus', content: 'Late reply', timestamp: Date.now() };
-            yield { type: 'done', catId: 'opus', timestamp: Date.now() };
-          }),
-          ackCollectedCursors: mock.fn(async () => {}),
-        },
-        outboundHook,
-        streamingHook,
-        threadMetaLookup: mock.fn(async () => undefined),
-      });
-      // Short deliverTimeoutMs so the timeout fires before delivery resolves
-      const hookProcessor = new QueueProcessor(hookDeps, { deliverTimeoutMs: 50 });
-
-      const entry = enqueueEntry(hookDeps.queue);
-      hookDeps.queue.backfillMessageId('t1', 'u1', entry.id, 'msg-1');
-
-      // processNext: deliver times out after 50ms (delivery still in-flight)
-      await hookProcessor.processNext('t1', 'u1');
-      // Confirm cleanup was NOT triggered immediately after timeout
-      assert.equal(
-        streamingHook.cleanupPlaceholders.mock.calls.length,
-        0,
-        'cleanupPlaceholders must not run at timeout — placeholder preserved as fallback',
-      );
-
-      // Delivery finally resolves — late-success path should trigger cleanup
-      resolveDeliver();
+      // Settle any pending allSettled callbacks
       await new Promise((r) => setTimeout(r, 200));
       assert.equal(
         streamingHook.cleanupPlaceholders.mock.calls.length,
-        1,
-        'cleanupPlaceholders must run after timed-out delivery eventually succeeds (late-success path)',
+        0,
+        'cleanupPlaceholders must NOT be called when delivery fails (R5-P1: preserve placeholder as fallback)',
       );
     });
 

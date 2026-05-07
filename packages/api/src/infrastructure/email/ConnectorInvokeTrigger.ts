@@ -596,24 +596,24 @@ export class ConnectorInvokeTrigger {
             }
           }
 
+          // Cloud-P1-R2: only cleanup placeholders if ALL deliveries succeeded
           if (!deliveryFailed && this.opts.streamingHook?.cleanupPlaceholders) {
             await this.opts.streamingHook.cleanupPlaceholders(threadId, createResult.invocationId).catch((err) => {
               log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.cleanupPlaceholders failed');
             });
-          } else if (deliveryFailed && inflightDeliverPromises.length > 0) {
-            // R10 P2: late-success cleanup — if timed-out deliveries eventually all succeed,
-            // trigger cleanupPlaceholders so Telegram inline placeholders are properly cleaned up.
-            const hook = this.opts.streamingHook;
-            if (hook?.cleanupPlaceholders) {
-              const invId = createResult.invocationId;
-              Promise.allSettled(inflightDeliverPromises).then((results) => {
-                if (results.every((r) => r.status === 'fulfilled')) {
-                  hook.cleanupPlaceholders!(threadId, invId).catch((err) => {
-                    log.warn({ err, threadId }, '[ConnectorInvokeTrigger] Late-success cleanupPlaceholders failed');
-                  });
-                }
-              });
-            }
+          } else if (deliveryFailed && this.opts.streamingHook?.cleanupPlaceholders) {
+            const cleanupHook = this.opts.streamingHook;
+            const scopedInvocationId = createResult.invocationId;
+            Promise.allSettled(inflightDeliverPromises).then((results) => {
+              if (results.every((r) => r.status === 'fulfilled')) {
+                cleanupHook.cleanupPlaceholders(threadId, scopedInvocationId).catch((err) => {
+                  log.warn(
+                    { err, threadId },
+                    '[ConnectorInvokeTrigger] Placeholder cleanup failed after late-success delivery',
+                  );
+                });
+              }
+            });
           }
         } else if (this.opts.streamingHook?.cleanupPlaceholders) {
           // Cloud-P1-R3: silent invocation (no content) — still clean up placeholder

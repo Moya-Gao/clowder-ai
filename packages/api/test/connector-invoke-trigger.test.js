@@ -669,7 +669,7 @@ describe('ConnectorInvokeTrigger', () => {
     assert.strictEqual(trackerMock.completes.length, 1, 'Tracker must complete even if deliver hangs');
   });
 
-  it('cloud-R4-P2: delivery timeout must NOT trigger placeholder cleanup (placeholder preserved as fallback)', async () => {
+  it('cloud-R4-P2: late-success delivery triggers deferred placeholder cleanup', async () => {
     /** @type {() => void} */
     let resolveDeliver = () => {};
     const deliverPromise = new Promise((r) => {
@@ -697,17 +697,17 @@ describe('ConnectorInvokeTrigger', () => {
     });
     trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'msg', 'msg-1');
 
-    // Delivery times out after 50ms; cleanup must NOT run — placeholder preserved as fallback indicator
     await new Promise((r) => setTimeout(r, 200));
-    assert.strictEqual(
-      cleanupCalled,
-      false,
-      'cleanup must NOT run after delivery timeout — placeholder is the fallback',
-    );
+    assert.strictEqual(cleanupCalled, false, 'cleanup must NOT run immediately after timeout');
+
     resolveDeliver();
+    await new Promise((r) => setTimeout(r, 100));
+    assert.strictEqual(cleanupCalled, true, 'cleanup must run after late-success delivery');
   });
 
-  it('cloud-R5-P1: late-failure delivery must NOT trigger cleanup (placeholder preserved as fallback)', async () => {
+  it('cloud-R5-P1: late-failure delivery must NOT trigger cleanup (preserve placeholder as fallback)', async () => {
+    // R5-P1 design: on delivery failure, placeholder is preserved so next retry/invocation can
+    // consume it. Calling cleanupPlaceholders on failure would incorrectly finalize the card.
     /** @type {(err: Error) => void} */
     let rejectDeliver = () => {};
     const deliverPromise = new Promise((_, rej) => {
@@ -735,55 +735,15 @@ describe('ConnectorInvokeTrigger', () => {
     });
     trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'msg', 'msg-1');
 
-    // Delivery times out after 50ms; cleanup must NOT run — placeholder preserved on failure
     await new Promise((r) => setTimeout(r, 200));
+    assert.strictEqual(cleanupCalled, false, 'cleanup must NOT run before inflight promises settle');
+
+    rejectDeliver(new Error('connector down'));
+    await new Promise((r) => setTimeout(r, 100));
     assert.strictEqual(
       cleanupCalled,
       false,
-      'cleanup must NOT run after delivery failure — placeholder is the fallback indicator',
-    );
-    rejectDeliver(new Error('connector down'));
-  });
-
-  it('cloud-R10-P2: late-success delivery triggers cleanup after timeout window resolves', async () => {
-    /** @type {() => void} */
-    let resolveDeliver = () => {};
-    const deliverPromise = new Promise((r) => {
-      resolveDeliver = r;
-    });
-    const outboundHook = {
-      deliver: async () => {
-        await deliverPromise;
-      },
-    };
-    let cleanupCalled = false;
-    const streamingHook = {
-      async onStreamStart() {},
-      async onStreamChunk() {},
-      async onStreamEnd() {},
-      cleanupPlaceholders: async () => {
-        cleanupCalled = true;
-      },
-    };
-
-    const trigger = createTrigger({
-      outboundHook,
-      streamingHook,
-      deliverTimeoutMs: 50,
-    });
-    trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'msg', 'msg-1');
-
-    // Let timeout fire — cleanup must NOT run at timeout
-    await new Promise((r) => setTimeout(r, 200));
-    assert.strictEqual(cleanupCalled, false, 'cleanup must not run at timeout');
-
-    // Delivery finally resolves after timeout — cleanup must run (late-success path)
-    resolveDeliver();
-    await new Promise((r) => setTimeout(r, 200));
-    assert.strictEqual(
-      cleanupCalled,
-      true,
-      'cleanup must run after timed-out delivery eventually succeeds (late-success path)',
+      'cleanup must NOT run after hard delivery failure (R5-P1: preserve placeholder)',
     );
   });
 

@@ -127,18 +127,20 @@ describe('TelegramAdapter', () => {
       assert.equal(sendCalls[0].text, 'Hello from cat!');
     });
 
-    it('truncates messages over 4096 chars', async () => {
+    it('splits messages over 4096 chars (K3: no silent truncation)', async () => {
       const adapter = new TelegramAdapter('test-token', noopLog());
       const sendCalls = [];
-      adapter._injectSendMessage(async (chatId, text, _opts) => {
+      adapter._injectSendMessage(async (chatId, text) => {
         sendCalls.push({ chatId, text });
       });
 
       const longMsg = 'a'.repeat(5000);
       await adapter.sendReply('1001', longMsg);
-      assert.equal(sendCalls.length, 1);
-      assert.ok(sendCalls[0].text.length <= 4096);
-      assert.ok(sendCalls[0].text.endsWith('…'));
+      assert.ok(sendCalls.length >= 2, 'must split rather than truncate');
+      for (const call of sendCalls) {
+        assert.ok(call.text.length <= 4096, 'each segment must be ≤4096 chars');
+      }
+      assert.equal(sendCalls.map((c) => c.text).join(''), longMsg, 'combined must equal original');
     });
   });
 
@@ -585,286 +587,748 @@ describe('TelegramAdapter', () => {
 
       assert.equal(deleteCalls.length, 0, 'no delete when entry already consumed by delivery');
     });
+  });
 
-    // K2 P1 (3rd review): clearInlinePlaceholder must guard by platformMessageId to avoid erasing newer registrations
-    it('clearInlinePlaceholder: late cleanup for invocation A does not erase invocation B registration', async () => {
-      const adapter = new TelegramAdapter('test-token', noopLog());
-      const editCalls = [];
-      adapter.editMessage = async (chatId, msgId, text) => editCalls.push({ chatId, msgId, text });
-      adapter._injectBotApiDeleteMessage(async () => {});
+  // K3: HTML parse fallback, editMessage failure fallback, long text segmentation
+  describe('K3 robustness', () => {
+    describe('sendRichMessage() HTML parse fallback', () => {
+      it('falls back to plain text sendMessage when HTML parse fails', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        adapter._injectSendMessage(async (chatId, text, opts) => {
+          if (opts?.parse_mode === 'HTML') {
+            const err = new Error("Bad Request: can't parse entities");
+            err.error_code = 400;
+            err.description = "Bad Request: can't parse entities: Unsupported start tag";
+            throw err;
+          }
+          sendCalls.push({ chatId, text, opts });
+        });
 
-      // Invocation A registers ph-A but delivery is skipped (timeout)
-      adapter.registerInlinePlaceholder('1001', 'ph-A');
-      // Invocation B registers ph-B before A's cleanup runs (B overwrites A in the map)
-      adapter.registerInlinePlaceholder('1001', 'ph-B');
+        const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Test', bodyMarkdown: 'Body' }];
+        await adapter.sendRichMessage('1001', 'reply text', blocks, '猫猫');
 
-      // Late cleanup for A: must not erase B's registration
-      await adapter.clearInlinePlaceholder('1001', 'ph-A');
-
-      // B's delivery must still be able to use ph-B
-      await adapter.sendReply('1001', 'Inv B reply');
-      assert.equal(editCalls.length, 1, 'invocation B must still find and use its placeholder');
-      assert.equal(editCalls[0].msgId, 'ph-B', 'must edit ph-B, not miss it because A cleanup erased it');
-    });
-
-    // cloud-R10 P1: clearInlinePlaceholder must NOT delete ph-A when a newer placeholder is stored
-    // AND ph-A is not tracked as a raw placeholder (it may already be the finalized reply)
-    it('clearInlinePlaceholder: late cleanup for A must NOT delete ph-A when B is stored and ph-A not in placeholderChats', async () => {
-      const adapter = new TelegramAdapter('test-token', noopLog());
-      let deleteCallCount = 0;
-      adapter._injectBotApiDeleteMessage(async () => {
-        deleteCallCount++;
+        assert.equal(sendCalls.length, 1, 'must retry with plain text after HTML parse error');
+        assert.ok(!sendCalls[0].opts?.parse_mode, 'retry must not use HTML parse_mode');
       });
 
-      // A registers via registerInlinePlaceholder only (no sendPlaceholder → placeholderChats has no entry for ph-A)
-      adapter.registerInlinePlaceholder('1001', '42');
-      adapter.registerInlinePlaceholder('1001', '99');
+      it('falls back to send (not truncated edit) when inline HTML edit fails with parse error', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const editCalls = [];
+        const sendCalls = [];
+        adapter.editMessage = async (chatId, msgId, text, opts) => {
+          if (opts?.parse_mode === 'HTML') {
+            const err = new Error("Bad Request: can't parse entities");
+            err.error_code = 400;
+            err.description = "Bad Request: can't parse entities";
+            throw err;
+          }
+          editCalls.push({ chatId, msgId, text, opts });
+        };
+        adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
 
-      // Late cleanup for A (ph=42): ph=99 is now stored.
-      // ph-42 is NOT in placeholderChats (not tracked as a raw card) → may be finalized reply → must NOT delete.
-      await adapter.clearInlinePlaceholder('1001', '42');
+        adapter.registerInlinePlaceholder('1001', '42');
+        const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Test', bodyMarkdown: 'Body' }];
+        await adapter.sendRichMessage('1001', 'reply text', blocks, '猫猫');
 
-      assert.equal(
-        deleteCallCount,
-        0,
-        'must NOT delete ph-42 when ph-99 is stored and ph-42 is not tracked in placeholderChats (may be finalized reply)',
-      );
-    });
-
-    // cloud-R11 P2: clearInlinePlaceholder MUST delete orphaned ph-A when ph-B is stored
-    // AND ph-A is still tracked in placeholderChats (it is a raw placeholder, not a finalized reply)
-    it('clearInlinePlaceholder: deletes orphaned ph-A when ph-B is stored and ph-A is still in placeholderChats', async () => {
-      const adapter = new TelegramAdapter('test-token', noopLog());
-      let deleteCallCount = 0;
-      adapter._injectBotApiDeleteMessage(async () => {
-        deleteCallCount++;
+        assert.equal(editCalls.length, 0, 'must not retry edit as plain text — HTML errors fall through to send');
+        assert.ok(sendCalls.length > 0, 'must use send path instead of truncated plain text edit');
       });
-      adapter._injectBotApiSendMessage(async () => ({ message_id: 42 }));
-
-      // ph-A was sent as a placeholder (tracked in placeholderChats via sendPlaceholder)
-      await adapter.sendPlaceholder('1001', 'Thinking...');
-
-      // Invocation B registers ph-B (overwrites ph-A in pendingInlineFinal)
-      adapter.registerInlinePlaceholder('1001', '99');
-
-      // Cleanup for A (ph=42): stored=99, but ph-42 is still in placeholderChats → it is an orphaned card → delete
-      await adapter.clearInlinePlaceholder('1001', '42');
-
-      assert.equal(
-        deleteCallCount,
-        1,
-        'must delete orphaned ph-42 when ph-99 is stored and ph-42 is still tracked in placeholderChats',
-      );
     });
 
-    // K2 P1 (3rd review): compare-and-delete after editMessage to protect concurrent registration
-    it('sendReply: compare-and-delete after edit protects newer registration registered during await', async () => {
-      const adapter = new TelegramAdapter('test-token', noopLog());
-      const editCalls = [];
-      const sendCalls = [];
-      // During editMessage for ph-A, simulate ph-B being registered
-      adapter.editMessage = async (chatId, msgId, text) => {
-        editCalls.push({ chatId, msgId, text });
-        adapter.registerInlinePlaceholder('1001', 'ph-B'); // concurrent registration
-      };
-      adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+    describe('editMessage() failure fallback to sendReply', () => {
+      it('falls back to sendReply when editMessage fails (message deleted)', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
 
-      adapter.registerInlinePlaceholder('1001', 'ph-A');
-      await adapter.sendReply('1001', 'Inv A reply'); // edits ph-A, then ph-B registered concurrently
+        adapter.registerInlinePlaceholder('1001', '42');
+        // Simulate edit failing (message was deleted by user)
+        adapter.editMessage = async () => {
+          const err = new Error('Bad Request: message to edit not found');
+          err.error_code = 400;
+          throw err;
+        };
 
-      // After A's edit: ph-B must still be in map (compare-and-delete: current value ≠ ph-A, so skip delete)
-      const editCalls2 = [];
-      adapter.editMessage = async (chatId, msgId, text) => editCalls2.push({ chatId, msgId, text });
-      await adapter.sendReply('1001', 'Inv B reply');
-      assert.equal(editCalls2.length, 1, 'ph-B must still be reachable after A delivered via compare-and-delete');
-      assert.equal(editCalls2[0].msgId, 'ph-B', 'must edit ph-B not send normally');
-      assert.equal(sendCalls.length, 0, 'A reply was inline edit, no fallback send');
-    });
+        await adapter.sendReply('1001', 'Final answer');
 
-    // K2 P1 same: compare-and-delete in sendRichMessage
-    it('sendRichMessage: compare-and-delete after edit protects newer registration', async () => {
-      const adapter = new TelegramAdapter('test-token', noopLog());
-      const editCalls = [];
-      adapter.editMessage = async (chatId, msgId, text, opts) => {
-        editCalls.push({ chatId, msgId, text, opts });
-        adapter.registerInlinePlaceholder('1001', 'ph-B'); // concurrent registration during await
-      };
-      adapter._injectSendMessage(async () => {});
-
-      const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'T', bodyMarkdown: 'B' }];
-      adapter.registerInlinePlaceholder('1001', 'ph-A');
-      await adapter.sendRichMessage('1001', 'text', blocks, '猫猫'); // edits ph-A, then ph-B registered
-
-      // ph-B must still be in map
-      const editCalls2 = [];
-      adapter.editMessage = async (chatId, msgId, text, opts) => editCalls2.push({ chatId, msgId, text, opts });
-      await adapter.sendReply('1001', 'Inv B reply');
-      assert.equal(editCalls2.length, 1, 'ph-B must survive A rich message delivery');
-      assert.equal(editCalls2[0].msgId, 'ph-B');
-    });
-
-    // cloud-R12 P1: placeholderChats must be cleaned even when concurrent B registration skips compare-and-delete
-    it('sendReply: placeholderChats cleared after edit even when concurrent B registration prevents pendingInlineFinal delete', async () => {
-      const adapter = new TelegramAdapter('test-token', noopLog());
-      let deleteCalls = 0;
-      // During editMessage for ph-A, register ph-B (overwriting ph-A in pendingInlineFinal)
-      adapter.editMessage = async () => {
-        adapter.registerInlinePlaceholder('1001', 'ph-B');
-      };
-      adapter._injectBotApiDeleteMessage(async () => {
-        deleteCalls++;
+        assert.equal(sendCalls.length, 1, 'must fall back to sendReply after editMessage failure');
+        assert.equal(sendCalls[0].text, 'Final answer');
+        assert.equal(sendCalls[0].chatId, '1001');
       });
-      adapter._injectBotApiSendMessage(async () => ({ message_id: 42 }));
 
-      // ph-A tracked in placeholderChats via sendPlaceholder
-      await adapter.sendPlaceholder('1001', 'Thinking...');
-      adapter.registerInlinePlaceholder('1001', '42'); // ph-42 is ph-A
-      await adapter.sendReply('1001', 'A reply'); // edits ph-42, concurrent ph-B registered
+      it('falls back to sendReply when editMessage fails for sendRichMessage', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
 
-      // Cleanup for A: ph-42 must NOT be deleted (it is the finalized reply, not a raw card)
-      await adapter.clearInlinePlaceholder('1001', '42');
-      assert.equal(deleteCalls, 0, 'finalized reply (ph-42) must not be deleted when B is registered concurrently');
-    });
+        adapter.registerInlinePlaceholder('1001', '42');
+        adapter.editMessage = async () => {
+          throw new Error('Bad Request: message to edit not found');
+        };
 
-    // cloud-R12 P1: same for sendRichMessage
-    it('sendRichMessage: placeholderChats cleared after edit even when concurrent B registration occurs', async () => {
-      const adapter = new TelegramAdapter('test-token', noopLog());
-      let deleteCalls = 0;
-      adapter.editMessage = async () => {
-        adapter.registerInlinePlaceholder('1001', 'ph-B');
-      };
-      adapter._injectBotApiDeleteMessage(async () => {
-        deleteCalls++;
+        const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Test', bodyMarkdown: 'Body' }];
+        await adapter.sendRichMessage('1001', 'reply text', blocks, '猫猫');
+
+        assert.equal(sendCalls.length, 1, 'must fall back to sendMessage after editMessage failure');
       });
-      adapter._injectBotApiSendMessage(async () => ({ message_id: 42 }));
-
-      await adapter.sendPlaceholder('1001', 'Thinking...');
-      adapter.registerInlinePlaceholder('1001', '42');
-      const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'T', bodyMarkdown: 'B' }];
-      await adapter.sendRichMessage('1001', 'text', blocks, '猫猫');
-
-      await adapter.clearInlinePlaceholder('1001', '42');
-      assert.equal(
-        deleteCalls,
-        0,
-        'finalized rich reply (ph-42) must not be deleted when B is registered concurrently',
-      );
     });
 
-    // K2 P2: placeholder key must survive edit failure so clearInlinePlaceholder can clean up
-    it('sendReply: stale placeholder deleted by clearInlinePlaceholder after editMessage fails', async () => {
-      const adapter = new TelegramAdapter('test-token', noopLog());
-      const sendCalls = [];
-      const deleteCalls = [];
-      adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
-      adapter._injectBotApiDeleteMessage(async (chatId, msgId) => deleteCalls.push({ chatId, msgId }));
-      adapter.editMessage = async () => {
-        throw new Error('Telegram edit failed');
-      };
+    // K3 P1 #1: inline final path respects 4096 char limit via splitText
+    describe('inline final with long content (K3 P1 #1)', () => {
+      it('sendReply edits placeholder with first 4096-char segment, sends rest as new messages', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        const editCalls = [];
+        adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+        adapter.editMessage = async (chatId, msgId, text) => editCalls.push({ chatId, msgId, text });
 
-      adapter.registerInlinePlaceholder('1001', '42');
-      await adapter.sendReply('1001', 'Fallback content'); // edit fails, fallback sends
-      await adapter.clearInlinePlaceholder('1001', '42'); // must still find key and delete stale card
+        const longContent = 'X'.repeat(5000);
+        adapter.registerInlinePlaceholder('1001', '77');
+        await adapter.sendReply('1001', longContent);
 
-      assert.equal(sendCalls.length, 1, 'fallback send happened');
-      assert.equal(deleteCalls.length, 1, 'stale streaming placeholder deleted by clearInlinePlaceholder');
+        assert.equal(editCalls.length, 1, 'must edit placeholder with first segment');
+        assert.equal(editCalls[0].text.length, 4096, 'first segment must be exactly 4096 chars');
+        assert.equal(sendCalls.length, 1, 'remaining 904 chars must be sent as a new message');
+        assert.equal(sendCalls[0].text.length, 5000 - 4096, 'second segment has the remaining chars');
+        // Combined output must equal original content
+        const combined = editCalls[0].text + sendCalls.map((c) => c.text).join('');
+        assert.equal(combined, longContent, 'combined segments must equal original content');
+      });
+
+      it('sendReply falls back to send-all when inline edit fails for long content', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+        adapter.editMessage = async () => {
+          throw new Error('Telegram edit failed');
+        };
+
+        const longContent = 'Y'.repeat(5000);
+        adapter.registerInlinePlaceholder('1001', '77');
+        await adapter.sendReply('1001', longContent);
+
+        assert.ok(sendCalls.length >= 2, 'must send all segments when edit fails');
+        for (const call of sendCalls) {
+          assert.ok(call.text.length <= 4096, `segment must be ≤4096 chars, got ${call.text.length}`);
+        }
+        const combined = sendCalls.map((c) => c.text).join('');
+        assert.equal(combined, longContent, 'combined fallback segments must equal original content');
+      });
     });
 
-    // K2 P1 (new): sendRichMessage must fall back to send when inline edit fails
-    it('sendRichMessage falls back to send when editMessage throws', async () => {
-      const adapter = new TelegramAdapter('test-token', noopLog());
-      const sendCalls = [];
-      adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
-      adapter.editMessage = async () => {
-        throw new Error('Telegram edit failed');
-      };
+    // K3 P1 #2: FIFO queue — two invocations in same chat use their own placeholders
+    describe('FIFO queue for concurrent invocations (K3 P1 #2)', () => {
+      it('two invocations registered FIFO — first delivery edits oldest placeholder', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const editCalls = [];
+        adapter.editMessage = async (chatId, msgId, text) => editCalls.push({ chatId, msgId, text });
 
-      const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Done', bodyMarkdown: 'All good' }];
-      adapter.registerInlinePlaceholder('1001', '55');
-      await adapter.sendRichMessage('1001', 'text', blocks, '布偶猫');
+        adapter.registerInlinePlaceholder('1001', 'ph-inv1');
+        adapter.registerInlinePlaceholder('1001', 'ph-inv2');
 
-      assert.equal(sendCalls.length, 1, 'must fall back to send when rich edit throws');
-      assert.equal(sendCalls[0].chatId, '1001');
+        await adapter.sendReply('1001', 'Reply from inv1');
+
+        assert.equal(editCalls.length, 1, 'only first delivery edits a placeholder');
+        assert.equal(editCalls[0].msgId, 'ph-inv1', 'must edit the OLDEST (first) placeholder');
+      });
+
+      it('second delivery uses second placeholder (FIFO)', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const editCalls = [];
+        adapter.editMessage = async (chatId, msgId, text) => editCalls.push({ chatId, msgId, text });
+
+        adapter.registerInlinePlaceholder('1001', 'ph-inv1');
+        adapter.registerInlinePlaceholder('1001', 'ph-inv2');
+
+        await adapter.sendReply('1001', 'Reply from inv1'); // consumes ph-inv1
+        await adapter.sendReply('1001', 'Reply from inv2'); // consumes ph-inv2
+
+        assert.equal(editCalls.length, 2);
+        assert.equal(editCalls[0].msgId, 'ph-inv1', 'first delivery edits first placeholder');
+        assert.equal(editCalls[1].msgId, 'ph-inv2', 'second delivery edits second placeholder');
+      });
+
+      it('clearInlinePlaceholder removes specific placeholder from FIFO queue', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const editCalls = [];
+        const deleteCalls = [];
+        adapter.editMessage = async (chatId, msgId, text) => editCalls.push({ chatId, msgId, text });
+        adapter._injectBotApiDeleteMessage(async (chatId, msgId) => deleteCalls.push({ chatId, msgId }));
+
+        adapter.registerInlinePlaceholder('1001', 'ph-inv1');
+        adapter.registerInlinePlaceholder('1001', 'ph-inv2');
+
+        // Skip delivery for inv1 — simulate cleanup
+        await adapter.clearInlinePlaceholder('1001', 'ph-inv1');
+
+        // inv2 delivery should use ph-inv2 (not ph-inv1)
+        await adapter.sendReply('1001', 'Reply from inv2');
+
+        assert.equal(deleteCalls.length, 1, 'clearInlinePlaceholder must delete the stale streaming card');
+        assert.equal(editCalls.length, 1, 'inv2 delivery must still edit its own placeholder');
+        assert.equal(editCalls[0].msgId, 'ph-inv2', 'must edit ph-inv2 after ph-inv1 was cleared');
+      });
+
+      // K3 P1 (2nd review): shift() must not happen before editMessage succeeds
+      it('sendReply: ID remains in FIFO queue when editMessage fails so clearInlinePlaceholder can clean up', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        const deleteCalls = [];
+        adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+        adapter._injectBotApiDeleteMessage(async (chatId, msgId) => deleteCalls.push({ chatId, msgId }));
+        adapter.editMessage = async () => {
+          throw new Error('Telegram edit failed');
+        };
+
+        adapter.registerInlinePlaceholder('1001', 'ph-42');
+        await adapter.sendReply('1001', 'Fallback content'); // edit fails, fallback sends
+        await adapter.clearInlinePlaceholder('1001', 'ph-42'); // must still find ID and delete stale card
+
+        assert.equal(sendCalls.length, 1, 'fallback send happened');
+        assert.equal(deleteCalls.length, 1, 'stale streaming placeholder deleted via clearInlinePlaceholder');
+      });
+
+      // K3 P1 same issue in sendRichMessage
+      it('sendRichMessage: ID remains in FIFO queue when editMessage fails so clearInlinePlaceholder can clean up', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        const deleteCalls = [];
+        adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
+        adapter._injectBotApiDeleteMessage(async (chatId, msgId) => deleteCalls.push({ chatId, msgId }));
+        adapter.editMessage = async () => {
+          throw new Error('edit failed');
+        };
+
+        const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Done', bodyMarkdown: 'OK' }];
+        adapter.registerInlinePlaceholder('1001', 'ph-42');
+        await adapter.sendRichMessage('1001', 'text', blocks, '布偶猫'); // edit fails, fallback sends
+        await adapter.clearInlinePlaceholder('1001', 'ph-42'); // must still find ID and delete
+
+        assert.equal(sendCalls.length, 1, 'fallback send happened');
+        assert.equal(deleteCalls.length, 1, 'stale streaming placeholder deleted');
+      });
+
+      // K3 P1 (3rd review): stale card must be deleted inline after fallback, not relying on cleanupPlaceholders
+      it('sendReply: stale card deleted immediately after fallback without relying on cleanupPlaceholders', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        const deleteCalls = [];
+        adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+        adapter._injectBotApiDeleteMessage(async (chatId, msgId) => deleteCalls.push({ chatId, msgId }));
+        adapter.editMessage = async () => {
+          throw new Error('edit failed');
+        };
+
+        adapter.registerInlinePlaceholder('1001', 'ph-42');
+        await adapter.sendReply('1001', 'Fallback content'); // edit fails, fallback sends
+
+        // Without calling clearInlinePlaceholder: stale card must already be gone
+        assert.equal(sendCalls.length, 1, 'fallback send happened');
+        assert.equal(deleteCalls.length, 1, 'stale card deleted by sendReply, no cleanupPlaceholders call needed');
+
+        // Queue must be clean — next sendReply must not attempt inline edit
+        const editCalls2 = [];
+        const sendCalls2 = [];
+        adapter.editMessage = async (...args) => editCalls2.push(args);
+        adapter._injectSendMessage(async (chatId, text) => sendCalls2.push({ chatId, text }));
+        await adapter.sendReply('1001', 'Next reply');
+        assert.equal(editCalls2.length, 0, 'queue cleaned: next reply must not try inline edit');
+        assert.equal(sendCalls2.length, 1, 'next reply sent normally');
+      });
+
+      // K3 P1 same: sendRichMessage stale card deleted inline after fallback
+      it('sendRichMessage: stale card deleted immediately after fallback without relying on cleanupPlaceholders', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        const deleteCalls = [];
+        adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
+        adapter._injectBotApiDeleteMessage(async (chatId, msgId) => deleteCalls.push({ chatId, msgId }));
+        adapter.editMessage = async () => {
+          throw new Error('edit failed');
+        };
+
+        const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Done', bodyMarkdown: 'OK' }];
+        adapter.registerInlinePlaceholder('1001', 'ph-42');
+        await adapter.sendRichMessage('1001', 'text', blocks, '布偶猫');
+
+        assert.equal(sendCalls.length, 1, 'fallback send happened');
+        assert.equal(deleteCalls.length, 1, 'stale card deleted inline without cleanupPlaceholders');
+      });
+
+      // K3 P2 (3rd review): HTML parse error in inline path must fall through to send (not truncated edit)
+      it('sendRichMessage: HTML parse error in inline path falls through to send path (not truncated edit)', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        const editCalls = [];
+        adapter.editMessage = async (chatId, msgId, text, opts) => {
+          if (opts?.parse_mode === 'HTML') {
+            const err = new Error("can't parse entities");
+            err.error_code = 400;
+            throw err;
+          }
+          editCalls.push({ chatId, msgId, text, opts });
+        };
+        adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
+
+        const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'T', bodyMarkdown: 'B' }];
+        adapter.registerInlinePlaceholder('1001', 'ph-42');
+        await adapter.sendRichMessage('1001', 'text', blocks, '猫猫');
+
+        assert.equal(editCalls.length, 0, 'must not retry edit as plain text when HTML parse fails');
+        assert.ok(sendCalls.length > 0, 'must fall through to send path when HTML edit fails');
+      });
+
+      // K3 P2 (2nd review): clearInlinePlaceholder must clean placeholderChats on success path
+      it('clearInlinePlaceholder cleans placeholderChats after ID already consumed so stale entry cannot be misused', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const editCalls = [];
+        const deleteCalls = [];
+        adapter.editMessage = async (chatId, msgId, text) => editCalls.push({ chatId, msgId, text });
+        adapter._injectBotApiDeleteMessage(async (chatId, msgId) => deleteCalls.push({ chatId, msgId }));
+        adapter._injectBotApiSendMessage(async (_chatId, _text) => ({ message_id: 42 }));
+
+        await adapter.sendPlaceholder('1001', 'Thinking...'); // placeholderChats: {'42': '1001'}
+        adapter.registerInlinePlaceholder('1001', '42');
+        await adapter.sendReply('1001', 'Final content'); // edits '42' in place, ID consumed from queue
+
+        // clearInlinePlaceholder must clean placeholderChats['42']
+        await adapter.clearInlinePlaceholder('1001', '42');
+
+        // If placeholderChats was cleaned, deleteMessage('42') without chatId finds nothing and is a no-op
+        await adapter.deleteMessage('42');
+        assert.equal(deleteCalls.length, 0, 'placeholderChats cleaned: no stale entry for deleteMessage to exploit');
+      });
     });
 
-    // K2 P1 (new) + P2: sendRichMessage key must survive failure for clearInlinePlaceholder
-    it('sendRichMessage: stale placeholder deleted by clearInlinePlaceholder after editMessage fails', async () => {
-      const adapter = new TelegramAdapter('test-token', noopLog());
-      const sendCalls = [];
-      const deleteCalls = [];
-      adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
-      adapter._injectBotApiDeleteMessage(async (chatId, msgId) => deleteCalls.push({ chatId, msgId }));
-      adapter.editMessage = async () => {
-        throw new Error('edit failed');
-      };
+    describe('long text segmentation (>4096 chars)', () => {
+      it('sendReply splits content exceeding 4096 chars into multiple messages', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
 
-      const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Done', bodyMarkdown: 'OK' }];
-      adapter.registerInlinePlaceholder('1001', '55');
-      await adapter.sendRichMessage('1001', 'text', blocks, '布偶猫');
-      await adapter.clearInlinePlaceholder('1001', '55');
+        const longText = 'A'.repeat(5000);
+        await adapter.sendReply('1001', longText);
 
-      assert.equal(sendCalls.length, 1, 'fallback send happened');
-      assert.equal(deleteCalls.length, 1, 'stale streaming placeholder deleted');
+        assert.ok(sendCalls.length >= 2, 'must split into multiple messages');
+        for (const call of sendCalls) {
+          assert.ok(call.text.length <= 4096, `each segment must be ≤4096 chars, got ${call.text.length}`);
+        }
+        const combined = sendCalls.map((c) => c.text).join('');
+        assert.equal(combined, longText, 'combined segments must equal original content');
+      });
+
+      it('sendRichMessage splits plain-text fallback exceeding 4096 chars', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        // Always reject HTML to force plain text path
+        adapter._injectSendMessage(async (chatId, text, opts) => {
+          if (opts?.parse_mode === 'HTML') {
+            const err = new Error("can't parse entities");
+            err.error_code = 400;
+            throw err;
+          }
+          sendCalls.push({ chatId, text });
+        });
+
+        const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Test', bodyMarkdown: 'B'.repeat(5000) }];
+        await adapter.sendRichMessage('1001', 'prefix', blocks, '猫猫');
+
+        for (const call of sendCalls) {
+          assert.ok(call.text.length <= 4096, `each segment must be ≤4096 chars, got ${call.text.length}`);
+        }
+      });
+
+      // K3 P2 (3rd review): splitText must not split surrogate pairs (emoji/non-BMP chars)
+      it('splitText does not split surrogate pairs at segment boundaries', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+
+        // Build a string where an emoji lands exactly at position 4095 (high surrogate at 4095, low at 4096)
+        // Emoji '😀' = 😀 (2 code units). Place it straddling the 4096 boundary.
+        const prefix = 'A'.repeat(4095); // 4095 chars
+        const emoji = '😀'; // 2 code units — position 4095-4096
+        const suffix = 'B'.repeat(100);
+        const text = prefix + emoji + suffix; // total > 4096
+
+        await adapter.sendReply('1001', text);
+
+        // Every segment must be valid (no unpaired surrogates)
+        for (const call of sendCalls) {
+          assert.doesNotThrow(
+            () => encodeURIComponent(call.text),
+            `segment must not contain unpaired surrogates: ${call.text.slice(-20)}`,
+          );
+        }
+        // Combined content must equal original
+        const combined = sendCalls.map((c) => c.text).join('');
+        assert.equal(combined, text, 'split segments must reconstruct original content');
+      });
     });
 
-    // K2 round-4 P2: placeholderChats must be cleaned up after successful inline edit
-    it('sendReply: placeholderChats entry removed after successful inline edit', async () => {
-      const adapter = new TelegramAdapter('test-token', noopLog());
-      let msgId;
-      adapter._injectBotApiSendMessage(async (_chatId, _text) => ({ message_id: 77 }));
-      adapter._injectBotApiDeleteMessage(async () => {});
-      const deleteCalls = [];
-      adapter._injectBotApiDeleteMessage(async (chatId, id) => deleteCalls.push({ chatId, id }));
-      msgId = await adapter.sendPlaceholder('1001', 'typing...');
-      assert.equal(msgId, '77', 'sendPlaceholder returns string message_id');
-      const editCalls = [];
-      adapter.editMessage = async (chatId, id, text) => editCalls.push({ chatId, id, text });
-      adapter.registerInlinePlaceholder('1001', msgId);
-      await adapter.sendReply('1001', 'Final reply');
-      assert.equal(editCalls.length, 1, 'inline edit was used');
-      // After successful inline edit, deleteMessage(msgId) without chatId must be a no-op
-      // because placeholderChats should have been cleaned up.
-      await adapter.deleteMessage(msgId /* no chatId */);
-      assert.equal(deleteCalls.length, 0, 'no Telegram delete called: placeholderChats already cleaned on success');
+    // K3 R9/cloud-P1: mid-stream HTML parse error must fall back to plain text for remaining chunks
+    describe('HTML partial delivery — graceful plain-text fallback on mid-loop parse error', () => {
+      it('sendRichMessage non-inline: mid-stream HTML parse error sends remaining chunks as plain text (no throw)', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sentCalls = [];
+        let callCount = 0;
+        adapter._injectSendMessage(async (_chatId, text, opts) => {
+          callCount++;
+          if (opts?.parse_mode === 'HTML' && callCount > 1) {
+            const err = Object.assign(new Error("can't parse entities: unfinished element"), { error_code: 400 });
+            throw err;
+          }
+          sentCalls.push({ text, mode: opts?.parse_mode });
+        });
+        // Long content forces 2+ HTML chunks; no inline placeholder = non-inline path
+        const longText = 'A'.repeat(4097);
+        await adapter.sendRichMessage('1001', longText, [], '布偶猫');
+        const htmlCalls = sentCalls.filter((c) => c.mode === 'HTML');
+        const plainCalls = sentCalls.filter((c) => c.mode !== 'HTML');
+        assert.ok(htmlCalls.length >= 1, 'first chunk(s) sent as HTML before parse error');
+        assert.ok(
+          plainCalls.length >= 1,
+          'remaining chunk(s) sent as plain text after mid-stream parse error (no duplication of earlier chunks)',
+        );
+      });
+
+      it('sendRichMessage inline-fallback: mid-stream HTML parse error sends remaining chunks as plain text (no throw)', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        // editMessage always fails → enters inline fallback send path
+        adapter.editMessage = async () => {
+          throw new Error('edit failed');
+        };
+        adapter._injectBotApiDeleteMessage(async () => {});
+        const sentCalls = [];
+        let callCount = 0;
+        adapter._injectSendMessage(async (_chatId, text, opts) => {
+          callCount++;
+          if (opts?.parse_mode === 'HTML' && callCount > 1) {
+            const err = Object.assign(new Error("can't parse entities: unfinished element"), { error_code: 400 });
+            throw err;
+          }
+          sentCalls.push({ text, mode: opts?.parse_mode });
+        });
+        adapter.registerInlinePlaceholder('1001', 'ph-1');
+        const longText = 'A'.repeat(4097);
+        await adapter.sendRichMessage('1001', longText, [], '布偶猫');
+        const htmlCalls = sentCalls.filter((c) => c.mode === 'HTML');
+        const plainCalls = sentCalls.filter((c) => c.mode !== 'HTML');
+        assert.ok(htmlCalls.length >= 1, 'inline-fallback: first chunk(s) sent as HTML before parse error');
+        assert.ok(
+          plainCalls.length >= 1,
+          'inline-fallback: remaining chunk(s) sent as plain text after mid-stream parse error',
+        );
+      });
     });
 
-    // K2 round-4 P2: same for sendRichMessage
-    it('sendRichMessage: placeholderChats entry removed after successful inline edit', async () => {
-      const adapter = new TelegramAdapter('test-token', noopLog());
-      adapter._injectBotApiSendMessage(async () => ({ message_id: 88 }));
-      const msgId = await adapter.sendPlaceholder('1001', 'typing...');
-      const editCalls = [];
-      adapter.editMessage = async (chatId, id, _text, opts) => editCalls.push({ chatId, id, opts });
-      const deleteCalls = [];
-      adapter._injectBotApiDeleteMessage(async (chatId, id) => deleteCalls.push({ chatId, id }));
-      const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'T', bodyMarkdown: 'B' }];
-      adapter.registerInlinePlaceholder('1001', msgId);
-      await adapter.sendRichMessage('1001', 'text', blocks, '布偶猫');
-      assert.equal(editCalls.length, 1, 'inline rich edit was used');
-      await adapter.deleteMessage(msgId /* no chatId */);
-      assert.equal(deleteCalls.length, 0, 'no Telegram delete: placeholderChats cleaned on rich edit success');
+    // K3 P1 (3rd review): queue cleanup must happen before fallback sends to survive send failures
+    describe('inline fallback robustness when send also fails', () => {
+      it('sendReply: queue cleaned before fallback sends so state is safe even if send throws', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const deleteCalls = [];
+        adapter._injectBotApiDeleteMessage(async (chatId, msgId) => deleteCalls.push({ chatId, msgId }));
+        // editMessage fails
+        adapter.editMessage = async () => {
+          throw new Error('edit failed');
+        };
+        // sendMessageFn also fails (double failure)
+        adapter._injectSendMessage(async () => {
+          throw new Error('send also failed');
+        });
+
+        adapter.registerInlinePlaceholder('1001', 'ph-42');
+        try {
+          await adapter.sendReply('1001', 'content');
+        } catch {
+          // send failure expected to propagate
+        }
+
+        // Queue must be clean even though send failed — stale card must also be deleted
+        // Verify: a subsequent call (with normal send) must NOT attempt inline edit on stale ID
+        const editCalls2 = [];
+        const sendCalls2 = [];
+        adapter.editMessage = async (chatId, msgId, text) => editCalls2.push({ chatId, msgId, text });
+        adapter._injectSendMessage(async (chatId, text) => sendCalls2.push({ chatId, text }));
+        await adapter.sendReply('1001', 'Next reply');
+        assert.equal(editCalls2.length, 0, 'queue cleaned before send: next reply must not attempt stale inline edit');
+        assert.equal(sendCalls2.length, 1, 'next reply sent normally');
+        assert.equal(deleteCalls.length, 1, 'stale streaming card deleted even though send failed');
+      });
     });
 
-    // K2 round-4 P1: stale inline placeholder (beyond TTL) must be skipped and cleaned up
-    it('sendReply: skips stale inline placeholder (beyond TTL) and sends normally', async () => {
-      const adapter = new TelegramAdapter('test-token', noopLog());
-      const TTL = 5 * 60 * 1000; // 5 minutes — must match INLINE_PLACEHOLDER_MAX_AGE_MS
-      let now = 0;
-      adapter._injectNowFn(() => now);
-      const editCalls = [];
-      adapter.editMessage = async (chatId, id, text) => editCalls.push({ chatId, id, text });
-      const sendCalls = [];
-      adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
-      const deleteCalls = [];
-      adapter._injectBotApiDeleteMessage(async (chatId, id) => deleteCalls.push({ chatId, id }));
-      adapter._injectBotApiSendMessage(async () => ({ message_id: 99 }));
-      const msgId = await adapter.sendPlaceholder('1001', 'typing...');
-      adapter.registerInlinePlaceholder('1001', msgId); // registered at t=0
-      now = TTL + 1; // advance past TTL
-      await adapter.sendReply('1001', 'Late reply');
-      assert.equal(editCalls.length, 0, 'stale placeholder must not be edited');
-      assert.equal(sendCalls.length, 1, 'late reply sent as new message');
-      assert.equal(deleteCalls.length, 1, 'stale streaming card deleted during TTL cleanup');
+    // K3 round-4 P1: concurrent sendReply calls must consume distinct queue entries
+    describe('concurrent delivery — no placeholder ID collision', () => {
+      it('sendReply: two concurrent calls use distinct queue placeholders', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const editCalls = [];
+        const resolvers = [];
+        adapter.editMessage = async (_chatId, msgId, text) => {
+          editCalls.push({ msgId, text });
+          return new Promise((resolve) => resolvers.push(resolve));
+        };
+        adapter.registerInlinePlaceholder('1001', 'ph-1');
+        adapter.registerInlinePlaceholder('1001', 'ph-2');
+        // Start both concurrently — neither awaits until we flush microtasks
+        const p1 = adapter.sendReply('1001', 'Content A');
+        const p2 = adapter.sendReply('1001', 'Content B');
+        // Resolve all pending edit promises
+        resolvers.forEach((r) => r());
+        await Promise.all([p1, p2]);
+        assert.deepStrictEqual(
+          editCalls.map((c) => c.msgId).sort(),
+          ['ph-1', 'ph-2'],
+          'each concurrent call must use a distinct placeholder, not both ph-1',
+        );
+      });
+    });
+
+    // K3 round-5 P1: inline path must send remaining segments when HTML exceeds 4096 chars
+    describe('inline overflow segments', () => {
+      it('sendRichMessage: inline edit sends first segment and remaining segments as new messages', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const editCalls = [];
+        const sendCalls = [];
+        adapter.editMessage = async (_chatId, msgId, text, opts) => editCalls.push({ msgId, text, opts });
+        adapter._injectSendMessage(async (_chatId, text, opts) => sendCalls.push({ text, opts }));
+        adapter.registerInlinePlaceholder('1001', 'ph-1');
+
+        // Use empty blocks so HTML = header(~14) + '\n\n' + textContent + '\n\n'
+        // With textContent = 4097 'A' chars, total HTML ≈ 4115 chars → 2 parts from splitText
+        const longText = 'A'.repeat(4097);
+        await adapter.sendRichMessage('1001', longText, [], '布偶猫');
+
+        assert.equal(editCalls.length, 1, 'editMessage called once for first segment');
+        assert.ok(editCalls[0].text.length <= 4096, 'first segment fits within 4096 chars');
+        assert.ok(sendCalls.length >= 1, 'remaining segment(s) sent as new message(s)');
+        assert.ok(sendCalls[0].text.length > 0, 'remaining segment is non-empty');
+        assert.deepEqual(sendCalls[0].opts, { parse_mode: 'HTML' }, 'remaining segment sent with HTML parse_mode');
+      });
+
+      // cloud-R11 P1: inline overflow chunks must fall back to plain text on HTML parse error
+      it('sendRichMessage inline: overflow chunk HTML parse error falls back to plain text (no throw)', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const editCalls = [];
+        const sendCalls = [];
+        let overflowCallCount = 0;
+        adapter.editMessage = async (_chatId, msgId, text, opts) => editCalls.push({ msgId, text, opts });
+        adapter._injectSendMessage(async (_chatId, text, opts) => {
+          overflowCallCount++;
+          // First overflow send with HTML → trigger HTML parse error
+          if (overflowCallCount === 1 && opts?.parse_mode === 'HTML') {
+            throw Object.assign(new Error("Bad Request: can't parse entities"), {
+              error_code: 400,
+              description: "Bad Request: can't parse entities in message text",
+            });
+          }
+          sendCalls.push({ text, mode: opts?.parse_mode ?? 'plain' });
+        });
+        adapter.registerInlinePlaceholder('1001', 'ph-1');
+        // Long enough to produce overflow: editMessage gets firstHtmlPart, restHtmlParts overflow
+        const longText = 'A'.repeat(5000);
+        await adapter.sendRichMessage('1001', longText, [], '布偶猫'); // must NOT throw
+        assert.equal(editCalls.length, 1, 'editMessage called once for inline first chunk');
+        const plainOverflow = sendCalls.filter((c) => c.mode === 'plain');
+        assert.ok(plainOverflow.length >= 1, 'overflow chunk(s) sent as plain text after HTML parse error');
+      });
+
+      // cloud-R7 P2: overflow chunk failure must not re-send the already-edited first part
+      it('sendReply: overflow chunk failure after editMessage success does not resend first part', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const editCalls = [];
+        const sendCalls = [];
+        const deleteCalls = [];
+        adapter.editMessage = async (_chatId, msgId, text) => {
+          editCalls.push({ msgId, text });
+        };
+        // Fail only for the single-char overflow ('Z'); succeed otherwise to detect duplication
+        adapter._injectSendMessage(async (_chatId, text) => {
+          if (text === 'Z') throw new Error('sendMessage failed for overflow');
+          sendCalls.push(text);
+        });
+        adapter._injectBotApiDeleteMessage(async (chatId, msgId) => {
+          deleteCalls.push({ chatId, msgId });
+        });
+
+        adapter.registerInlinePlaceholder('1001', 'ph-1');
+        // 4096 'A' chars + 'Z' → firstPart = 'A'.repeat(4096), overflow = 'Z'
+        const longContent = 'A'.repeat(4096) + 'Z';
+        try {
+          await adapter.sendReply('1001', longContent);
+        } catch (_) {
+          // overflow failure may propagate; we care about side-effects, not throw/no-throw
+        }
+
+        assert.equal(editCalls.length, 1, 'editMessage called once for first part');
+        assert.equal(sendCalls.length, 0, 'first part must NOT be re-sent after overflow failure — no duplication');
+        assert.equal(
+          deleteCalls.length,
+          0,
+          'successfully edited message must NOT be deleted after overflow chunk failure',
+        );
+      });
+    });
+
+    // K3 round-4 P2: HTML fallback must use plain text, not raw HTML markup
+    describe('plain-text fallback content', () => {
+      it('sendRichMessage: plain-text fallback sends textContent not raw HTML tags', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        let callCount = 0;
+        adapter._injectSendMessage(async (_chatId, text) => {
+          callCount++;
+          if (callCount === 1) {
+            // Simulate Telegram HTML parse error on first (HTML) send
+            throw { error_code: 400, description: "can't parse entities: unfinished element" };
+          }
+          sendCalls.push(text);
+        });
+        const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'T', bodyMarkdown: '**bold**' }];
+        await adapter.sendRichMessage('1001', 'Plain fallback text', blocks, '布偶猫');
+        assert.ok(sendCalls.length > 0, 'plain fallback send must have been called');
+        for (const text of sendCalls) {
+          assert.ok(!text.includes('<b>'), `fallback must not contain HTML tags, got: ${text.slice(0, 80)}`);
+          assert.ok(!text.includes('&lt;'), `fallback must not contain HTML entities, got: ${text.slice(0, 80)}`);
+          assert.ok(text.includes('Plain fallback text'), 'fallback must contain the plain textContent');
+        }
+      });
+
+      // cloud-R7 P1: empty textContent must not produce empty message in HTML-parse fallback
+      it('sendRichMessage: HTML-parse fallback with empty textContent delivers non-empty content', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        adapter._injectSendMessage(async (_chatId, text, opts) => {
+          if (opts?.parse_mode === 'HTML') {
+            throw { error_code: 400, description: "can't parse entities: unfinished element" };
+          }
+          sendCalls.push(text);
+        });
+        const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Important Title', bodyMarkdown: '**bold**' }];
+        // textContent is empty — richBlocks-only turn
+        await adapter.sendRichMessage('1001', '', blocks, '布偶猫');
+        assert.ok(sendCalls.length > 0, 'must send something even when textContent is empty');
+        for (const text of sendCalls) {
+          assert.ok(text.trim().length > 0, `sent text must be non-empty, got: "${text}"`);
+        }
+      });
+    });
+
+    // K3 cloud-R6 P1 (line 404): non-inline sendRichMessage must split HTML over 4096 chars
+    describe('non-inline long HTML splitting', () => {
+      it('sendRichMessage: non-inline path splits HTML over 4096 chars into multiple messages', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        adapter._injectSendMessage(async (_chatId, text, opts) => sendCalls.push({ text, opts }));
+        // Empty blocks + 5000-char textContent → HTML > 4096 (header + \n\n + textContent + \n\n)
+        const longText = 'X'.repeat(5000);
+        await adapter.sendRichMessage('1001', longText, [], '布偶猫');
+        assert.ok(sendCalls.length >= 2, `must split long HTML, got ${sendCalls.length} call(s)`);
+        for (const call of sendCalls) {
+          assert.ok(call.text.length <= 4096, `each segment must be <= 4096 chars, got ${call.text.length}`);
+          assert.deepEqual(call.opts, { parse_mode: 'HTML' }, 'each segment must be sent with HTML parse_mode');
+        }
+      });
+
+      it('sendRichMessage: inline edit-fail fallback splits long HTML into multiple messages', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        const deleteCalls = [];
+        adapter.editMessage = async () => {
+          throw new Error('edit failed');
+        };
+        adapter._injectSendMessage(async (_chatId, text, opts) => sendCalls.push({ text, opts }));
+        adapter.deleteMessage = async (msgId) => deleteCalls.push(msgId);
+        adapter.registerInlinePlaceholder('1001', 'ph-1');
+        const longText = 'X'.repeat(5000);
+        await adapter.sendRichMessage('1001', longText, [], '布偶猫');
+        assert.equal(deleteCalls.length, 1, 'stale streaming card must be deleted after edit failure');
+        assert.ok(sendCalls.length >= 2, `fallback must split long HTML, got ${sendCalls.length} call(s)`);
+        for (const call of sendCalls) {
+          assert.ok(call.text.length <= 4096, `each fallback segment must be <= 4096 chars, got ${call.text.length}`);
+        }
+      });
+    });
+
+    // K3 cloud-R7 P1: plain-text fallback must prefer stripped HTML content over bare textContent
+    describe('plain-text fallback content priority (K3 cloud-R7 P1)', () => {
+      it('sendRichMessage: HTML parse error fallback sends stripped HTML, not just textContent', async () => {
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sentTexts = [];
+        adapter._injectSendMessage(async (_chatId, text, opts) => {
+          if (opts?.parse_mode === 'HTML') {
+            // Simulate Telegram HTML parse error on first HTML attempt
+            throw Object.assign(new Error("Bad Request: can't parse entities"), {
+              error_code: 400,
+              description: "Bad Request: can't parse entities in message text",
+            });
+          }
+          sentTexts.push(text);
+        });
+        const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Rich Block Title', bodyMarkdown: 'detailed content' }];
+        await adapter.sendRichMessage('1001', 'Short summary', blocks, '布偶猫');
+        assert.ok(sentTexts.length > 0, 'must send fallback text');
+        const sent = sentTexts.join(' ');
+        // stripped HTML contains the rich block title; textContent alone does not
+        assert.ok(
+          sent.includes('Rich Block Title'),
+          `plain fallback must include rich block content from HTML, got: "${sent.slice(0, 200)}"`,
+        );
+      });
+    });
+
+    // K3 cloud-R7 P1: HTML splitting must not cut inside an HTML entity (&amp; &lt; &gt;)
+    describe('inline-path entity-safe HTML splitting (K3 cloud-R10 P1)', () => {
+      it('sendRichMessage inline: overflow chunks from inline edit path use entity-safe splitting', async () => {
+        // Inline path: editMessage gets firstHtmlPart, restHtmlParts sent as new messages.
+        // If splitText is used (not splitHtml), a chunk may end with incomplete &amp; entity.
+        const spacer = 'B'.repeat(4076);
+        const textContent = spacer + '&extra content';
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const editCalls = [];
+        const sendCalls = [];
+        adapter.editMessage = async (_chatId, _msgId, text, _opts) => {
+          editCalls.push(text);
+        };
+        adapter._injectSendMessage(async (_chatId, text, opts) => {
+          if (opts?.parse_mode === 'HTML') sendCalls.push(text);
+        });
+        adapter.registerInlinePlaceholder('1001', '42');
+        await adapter.sendRichMessage('1001', textContent, [], '布偶猫');
+        // editMessage received the first chunk; sendMessage received overflow chunks
+        assert.ok(editCalls.length >= 1, 'must call editMessage for inline first chunk');
+        for (const chunk of [...editCalls, ...sendCalls]) {
+          assert.ok(
+            !/&amp$/.test(chunk) && !/&am$/.test(chunk) && !/&a$/.test(chunk) && !/&$/.test(chunk),
+            `inline chunk must not end with incomplete entity, got tail: "${chunk.slice(-10)}"`,
+          );
+        }
+      });
+    });
+
+    describe('entity-safe HTML splitting (K3 cloud-R7 P1)', () => {
+      it('sendRichMessage: splitting HTML does not produce chunks ending with incomplete entities', async () => {
+        // header = "<b>【布偶猫🐱】</b>" (14 JS chars) + "\n\n" (2) = 16 before esc(textContent)
+        // Place an '&' at exactly the 4096-char boundary so splitText cuts inside &amp;
+        // spacer: 4096 - 16 = 4080... actually 4092 to hit the entity body
+        // esc(textContent) starts at position 16; we want '&' at position 4092 → spacer = 4076 B's
+        const spacer = 'B'.repeat(4076);
+        const textContent = spacer + '&extra content';
+        // esc() turns the '&' into '&amp;' — positions 4092-4096 (straddles 4096 boundary)
+        const adapter = new TelegramAdapter('test-token', noopLog());
+        const sendCalls = [];
+        adapter._injectSendMessage(async (_chatId, text, opts) => {
+          if (opts?.parse_mode === 'HTML') sendCalls.push(text);
+        });
+        await adapter.sendRichMessage('1001', textContent, [], '布偶猫');
+        assert.ok(sendCalls.length >= 2, `HTML must be split (${sendCalls.length} chunk(s))`);
+        for (const chunk of sendCalls) {
+          assert.ok(
+            !/&amp$/.test(chunk) && !/&am$/.test(chunk) && !/&a$/.test(chunk) && !/&$/.test(chunk),
+            `chunk must not end with incomplete entity, got tail: "${chunk.slice(-10)}"`,
+          );
+        }
+      });
     });
   });
 });
