@@ -492,11 +492,17 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   // F181: Expose invocation span to caller + persist trace context for A2A propagation
   if (params.invocationSpanRef) params.invocationSpanRef.current = invocationSpan;
   const sc = invocationSpan.spanContext();
-  await deps.registry.setTraceContext(invocationId, {
-    traceId: sc.traceId,
-    spanId: sc.spanId,
-    traceFlags: sc.traceFlags,
-  });
+  try {
+    if (typeof deps.registry.setTraceContext === 'function') {
+      await deps.registry.setTraceContext(invocationId, {
+        traceId: sc.traceId,
+        spanId: sc.spanId,
+        traceFlags: sc.traceFlags,
+      });
+    }
+  } catch (err) {
+    log.warn({ catId, threadId, invocationId, err }, 'Trace context persistence failed, continuing invocation');
+  }
 
   try {
     // F152: Track active invocations — must be inside try so add/sub symmetry
