@@ -364,6 +364,10 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-04-05 | **Focus Mode intake** (PR #966): manual-port from clowder-ai#362. 6 新组件 + WorkspacePanel 瘦身 (1195→1015). 砚砚(codex) R1→R2 (2P1→0) + 云端通过, 10 新测试. Closes #964 |
 | 2026-04-05 | **Focus Mode UX R2** (PR #975): 铲屎官视觉审查后修复 2P1 — button tab bar→per-pane toolbar + dark header→warm pill. 砚砚(codex) R1 (1P1 3-pane回归)→R2 放行 + 云端通过, +5 regression tests |
 | 2026-05-06 | 铲屎官提出演示锁定需求：切换 thread 时右侧 Workspace 固定在原文档/行号；决定作为 F063 post-completion enhancement 追踪，不单开新 feature |
+| 2026-05-06 | **Presentation Lock 合入** (PR #1570): store-level lock snapshot + per-thread overlay + 锁定期间 navigate/worktree-switch 同步. 砚砚(codex) R5 放行 + 云端 R1→R9 放行, 22 新测试 |
+| 2026-05-06 | 愿景守护：砚砚(GPT-5.4) 放行，0 P1/P2. 发现 2 residual risks (AC-PL6 测试层次 + AC-PL2 scroll) |
+| 2026-05-07 | 铲屎官判定 AC-PL2 residual risk 为"未来反复修 bug 的地方"，要求修复 |
+| 2026-05-07 | **AC-PL2 scroll viewport persist 合入** (PR #1578): scrollTop 加入 PresentationLockSnapshot + CodeViewer/Markdown viewport bridge (restoreScrollTop/restoreKey/onScrollTopChange). 砚砚(codex) R1→R4 (3P1+3P2→0) + 云端 0P1 2P2 (1 fixed, 1 downgraded P3), 9 新测试 |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -672,7 +676,7 @@ RightStatusPanel 内嵌 AuditExplorerPanel（审计事件 + Session 事件 + 搜
 | Risk | 描述 | 当前保障 | 回归触发条件 |
 |------|------|----------|-------------|
 | AC-PL6 测试层次 | Focus Mode 兼容只有 store-level 测试（mode 不随 thread 切换变化），组件级 auto-mode-switch 抑制靠 `WorkspacePanel.tsx:258` 的 `if (presentationLock) return` | store test + code guard | 若重构 mode-sync effect 移除 lock 检查 |
-| AC-PL2 scroll | 滚动位置靠 viewer 不 remount 自然保持，无显式 state 建模 | DOM 自然行为 | 若改动 `useWorkspace.ts` / `FileContentRenderer.tsx` / `CodeViewer.tsx` 的挂载边界导致 remount |
+| ~~AC-PL2 scroll~~ | ~~滚动位置靠 viewer 不 remount 自然保持，无显式 state 建模~~ | **已修复 PR #1578**: scrollTop 显式存入 PresentationLockSnapshot + CodeViewer/Markdown viewport bridge | — |
 
 ## Known Bugs (Follow-up)
 
