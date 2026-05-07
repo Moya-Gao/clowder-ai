@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F192: Socio-Technical Harness Eval — harness 共创评估体系
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -30,7 +30,7 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 
 ## What
 
-### Phase A: 基础骨架——doc type + feat-lifecycle 接入 + scanner
+### Phase A: 基础骨架——doc type + feat-lifecycle 接入 + scanner ✅
 
 最轻量的一刀：让 harness-feedback 作为 doc type 存在、被索引、能在 feat close 时被触发。
 
@@ -63,12 +63,12 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 ## Acceptance Criteria
 
 ### Phase A（基础骨架）
-- [ ] AC-A1: `docs/harness-feedback/` 目录存在，README 含 doc_kind 规范
-- [ ] AC-A2: CatCafeScanner 能索引 `docs/harness-feedback/**/*.md`，并保留/暴露 `doc_kind: harness-feedback`（search result 能区分它不是普通 discussion）。若当前不支持按 doc_kind filter，在 README 记录此限制
-- [ ] AC-A3: feat-lifecycle Completion 含 Step 0.6 Harness Eval Checkpoint，且明确：checkpoint 必做；默认允许写 `harness_feedback: none` + reason；触发条件（harness/skill/MCP feature、CVO 不满意、trace anomaly、抽样）；interview 必须独立 session/turn；触发后必须链接 harness-feedback 文档到 feature spec / CloseGateReport
-- [ ] AC-A4: 至少一份样例 harness-feedback 文档通过 search_evidence 可召回
-- [ ] AC-A5: harness-feedback README/schema 明确只存 annotations + evidence_refs，不存 raw trace 副本；Feature Trace Bundle 是 derived view，schema defer to F153/ADR-032
-- [ ] AC-A6: 样例 harness-feedback 文档使用 trace_refs/evidence_refs 指向 canonical trace/thread/session，不复制 raw tool-call payload
+- [x] AC-A1: `docs/harness-feedback/` 目录存在，README 含 doc_kind 规范
+- [x] AC-A2: CatCafeScanner 能索引 `docs/harness-feedback/**/*.md`，并保留/暴露 `doc_kind: harness-feedback`（search result 能区分它不是普通 discussion）。若当前不支持按 doc_kind filter，在 README 记录此限制
+- [x] AC-A3: feat-lifecycle Completion 含 Step 0.6 Harness Eval Checkpoint，且明确：checkpoint 必做；默认允许写 `harness_feedback: none` + reason；触发条件（harness/skill/MCP feature、CVO 不满意、trace anomaly、抽样）；interview 必须独立 session/turn；触发后必须链接 harness-feedback 文档到 feature spec / CloseGateReport
+- [x] AC-A4: 至少一份样例 harness-feedback 文档通过 search_evidence 可召回
+- [x] AC-A5: harness-feedback README/schema 明确只存 annotations + evidence_refs，不存 raw trace 副本；Feature Trace Bundle 是 derived view，schema defer to F153/ADR-032
+- [x] AC-A6: 样例 harness-feedback 文档使用 trace_refs/evidence_refs 指向 canonical trace/thread/session，不复制 raw tool-call payload
 
 ### Phase B（F167 Pilot）
 - [ ] AC-B1: F167 spec 含 Eval / Tracking Contract 节
@@ -123,6 +123,7 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 | 2026-05-05 | 砚砚起草 socio-technical eval draft |
 | 2026-05-07 | 宪宪加 authority boundary + landing plan |
 | 2026-05-07 | 铲屎官确认立项，F192 kickoff |
+| 2026-05-07 | Phase A merged (PR #1584) |
 
 ## Review Gate
 
