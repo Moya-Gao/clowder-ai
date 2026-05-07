@@ -66,4 +66,3 @@ created: 2026-02-26
 | F188 | Library Stewardship — 图书馆管护与成长（rebuild + health + graph fidelity + materialize + pin） | spec | 布偶猫 | internal | [F188](features/F188-library-stewardship.md) |
 | F189 | Operation Context Unification — 操作上下文单点化（HTTP/MCP/CLI/A2A 统一 builder） | spec | 布偶猫 | internal | [F189](features/F189-operation-context-unification.md) |
 | F190 | Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片 | spec | Community + Maintainers | community [clowder-ai#645](https://github.com/zts212653/clowder-ai/pull/645) | [F190](features/F190-console-settings-appshell-skeleton.md) |
-| F191 | Architecture Ownership Governance — 架构归属地图与 Map Delta 门禁 | in-progress — Phase D review ready | 缅因猫/砚砚 | internal | [F191](features/F191-architecture-ownership-governance.md) |

@@ -6,6 +6,7 @@ authors: ["砚砚/GPT-5.5"]
 topics: [harness-engineering, eval, socio-technical, cvo, cat-user-feedback, observability]
 related:
   - docs/decisions/031-harness-engineering-methodology.md
+  - docs/decisions/032-cat-cafe-as-local-first-trace-enabler.md
   - docs/decisions/012-first-principles-map.md
   - docs/features/F086-cat-orchestration-multi-mention.md
   - cat-cafe-skills/refs/shared-rules.md
@@ -41,6 +42,30 @@ Harness evolution =
 2. 这个 harness 是否让猫更容易做对事，而不是更会背规则？
 3. 这个 harness 是否留下足够证据，让未来可以改、删、坍缩？
 4. feat close 时，参与猫是否能基于 trace 解释“为什么这样干”，而不是凭记忆写反思散文？
+
+## Authority Boundary
+
+本草案是 trace 数据的**解释层和标注层**，不是 trace 的定义层。
+
+```text
+F153 OTel trace  →  canonical trace store (Ring buffer / LocalTraceStore)
+                        ↓                          ↓
+              本草案: enrichment layer      ADR-032: export layer
+              (标注、归因、采访、digest)    (脱敏、格式转换、用户导出)
+```
+
+| 文档 | Owns | Does NOT own |
+|------|------|-------------|
+| **ADR-031** | harness engineering 方法论、signal loop、sunset discipline | 具体 trace schema、export 格式 |
+| **ADR-032** | trace 数据归属、脱敏、导出格式、RL/SFT/Eval export 边界 | 内部 harness 改进流程 |
+| **本草案** | close-time harness eval workflow、cat interview、harness-feedback doc type、feature fit review、digest protocol | canonical trace schema、export 格式、data ownership/consent |
+
+关键约束：
+
+1. **Feature Trace Bundle 是 derived view，不是新数据源。** 它从 F153 canonical trace 派生，所有 trace identifiers 和 redaction rules defer to F153 / ADR-032。
+2. **harness-feedback docs 存 annotations 和 evidence refs，不存 raw trace 副本。**
+3. **enrichment 产出可被 ADR-032 ExportTransformer 消费。** ADR-032 可选择导出 raw trace（不含 enrichment）或 enriched trace（含本草案的标注）。
+4. **如果本草案被 sunset，不影响 ADR-032。** 废弃的只是一个标注/workflow layer，canonical trace 和 export pipeline 不受影响。
 
 ## What Changes
 
@@ -495,3 +520,51 @@ Technical caveat: F153 Phase E ring buffer is descriptive and time-bounded. Reli
 5. 写一次 Feature Fit Review 模板样例
 6. 定义 A2A 工具/协议的 adoption、friction、false-positive 指标
 7. 一个月后做一次 micro fit digest，判断这套机制是否太重
+
+## Landing Plan: 如何不被遗忘
+
+草案最大的死法不是"被否决"，而是"没人反对但也没人碰"。防遗忘靠三个锚点：
+
+### 锚点 1: 接入已有 SOP（低成本，高触发频率）
+
+`feat-lifecycle` Completion 加 Step 0.6 是草案里最容易先落的一刀。只改 skill 定义，不改代码。每次 feat close 都会触发——草案的核心 workflow 就被嵌入日常了。
+
+**最小动作**：在 feat-lifecycle skill 的 Completion 阶段加一个 checkpoint prompt（判断是否触发 interview，默认写 `harness_feedback: none`）。不需要 Feature Trace Bundle 自动生成就能开始。
+
+### 锚点 2: Pilot 立项（中成本，有 deadline）
+
+F167 A2A 球权作为首个试点。立项意味着有 feature id、有 spec、有 close gate——草案的各个产物（trace bundle、interview、fit review）都在 pilot 里跑一遍。
+
+**最小动作**：在 BACKLOG.md 加一条 pilot task（不需要新 Fxxx，挂在 F167 下）。pilot 完成标准 = 7 项试点目标全做完 + micro fit digest。
+
+### 锚点 3: search_evidence 可召回（零成本，防压缩遗忘）
+
+`doc_kind: harness-feedback` 被 CatCafeScanner 索引后，未来任何猫开工搜 "harness friction" / "tool eval" / "feature fit" 都能找到这些文档。草案的产出进入了记忆系统，不再只存在于某次对话里。
+
+**最小动作**：确认 `docs/harness-feedback/` glob 已被 scanner 覆盖（或加一条）。写第一份 harness-feedback 样例文档让索引有东西可搜。
+
+### 落地顺序
+
+```text
+Phase 0 (本周):
+  ✅ 草案加 Authority Boundary（本次更新）
+  □ 确认 docs/harness-feedback/ 被 scanner glob 覆盖
+  □ BACKLOG.md 加 F167 pilot task
+
+Phase 1 (下次 feat close 时):
+  □ feat-lifecycle skill 加 Step 0.6 checkpoint
+  □ 第一次实际跑 checkpoint（哪怕写 "harness_feedback: none"）
+
+Phase 2 (F167 pilot):
+  □ 跑完 7 项试点目标
+  □ 写第一份 Feature Trace Bundle + cat interview 样例
+  □ micro fit digest
+
+Phase 3 (pilot 后):
+  □ 判断草案是否值得升级成 ADR / implementation plan
+  □ 如果不值得 → sunset 草案，保留 harness-feedback doc type 作为轻量产出
+```
+
+### 定时兜底
+
+注册一个 monthly scheduled task：`harness-fit-digest`。即使 pilot 拖延，月度 digest 也会强制回顾这份草案的存在和进展。第一次 digest 可以很短——"pilot 进展如何，有没有产出，是否要调整或 sunset"。

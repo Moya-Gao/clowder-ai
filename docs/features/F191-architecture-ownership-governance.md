@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F191: Architecture Ownership Governance — 架构归属地图与 Map Delta 门禁
 
-> **Status**: in-progress — Phase D review ready | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: done | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -217,6 +217,7 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 | 2026-05-07 | Phase B skill 小切实现并同步，进入 46 review |
 | 2026-05-07 | Phase C warning-only mechanical check 脚本实现，进入 46 review |
 | 2026-05-07 | Phase D 用 F187 真实试跑，新增 `thread-navigation` ownership cell，进入 46 review |
+| 2026-05-07 | Sonnet 愿景守护通过，F191 close |
 
 ## Review Gate
 
@@ -226,6 +227,7 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 - Phase C: 砚砚 author，46 review
 - Phase D: 砚砚 author，46 review
 - Phase B/C: 涉及 skill / CI / hook 改动，必须跨猫 review
+- Close: Sonnet 愿景守护通过（非 author、非 Phase A-D reviewer）
 
 ## Links
 
@@ -235,3 +237,4 @@ README 总索引不作为手写真相源。Phase A 直接定为由 cells frontma
 | **Feature** | `docs/features/F183-bubble-pipeline-architecture-consolidation.md` | Architecture Map + single writer 成功范例 |
 | **Feature** | `docs/features/F185-dispatch-busy-gate-unification.md` | Dispatch busy gate 归一范例 |
 | **Reference** | `docs/features/assets/F124/f124-f088-architecture-unification-draft.md` | 反归一边界：“归一消息内核，不归一 connector transport” |
+| **Reflection** | `docs/reflections/2026-05-07-f191-architecture-ownership-capsule.md` | Completion 反思胶囊 |
