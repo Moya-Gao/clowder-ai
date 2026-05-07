@@ -1,0 +1,211 @@
+---
+feature_ids: [F191]
+related_features: [F042, F088, F102, F124, F152, F167, F175, F183, F185]
+topics: [architecture, governance, ownership-map, skills, ci, quality-gate]
+doc_kind: spec
+created: 2026-05-07
+---
+
+# F191: Architecture Ownership Governance — 架构归属地图与 Map Delta 门禁
+
+> **Status**: spec | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+
+## Why
+
+铲屎官在 2026-05-07 追问：老项目不断加新需求时，我们到底是在补锅，还是在按第一性原理找正确坐标系？
+
+F183 / F185 的成功路径不是继续修症状，而是先梳理现有模块架构，暴露多 truth source、多写入口、多语义混用等技术债，再设计新的归一坐标。反过来，F124 x F088 也提醒我们：架构归一不是把所有东西强行抽象到一层，归一的是对话内核和设备语义，不是 connector transport。
+
+当前 SOP 缺一层轻量但稳定的架构归属机制：新增 Feature 开工前需要知道“我属于哪条现有架构线；本次有没有改变这条线”。如果每个 Feature 都重新画架构图，会变成补锅式重复劳动；如果完全不声明归属，又会继续长出并行 store / queue / router / adapter。
+
+本 Feature 建立 `Architecture Ownership Map`：它不是每个 Feature 填一张表，而是全家共享的架构归属索引。普通 Feature 只引用已有 cell；只有改边界、找不到归属、或代码锚点 stale 时才触发重审。
+
+## What
+
+### Phase A: Ownership Map PoC（per-cell 真相源）
+
+新建 `docs/architecture/ownership/`，采用 per-cell 文件而非单个巨大表，避免所有 Feature 同时修改同一文件。
+
+首版 cells：
+
+| Cell | Canonical anchors | 说明 |
+|------|-------------------|------|
+| `transport` | F088 / F124 | IM / connector / first-party client 的消息语义边界 |
+| `memory` | F102 / F152 | evidence store / scanner / bootstrap / library memory |
+| `dispatch` | F175 / F185 / ADR-034 | invocation queue / busy gate / fairness invariant |
+| `bubble-pipeline` | F183 | message bubble identity / single writer / reducer |
+| `action-plane` | ADR-029 / F162 | 企业动作、CLI executor、ActionService |
+| `identity-session` | F032 / F088 / F183 | agent identity、connector binding、bubble identity 的分层边界 |
+| `callback-auth` | F174 | callback auth lifecycle / scope / resilience |
+
+每个 cell 固定包含：
+
+```markdown
+---
+cell_id: dispatch
+canonical_features: [F175, F185]
+code_anchors:
+  - packages/api/src/...
+cited_by: []
+---
+
+# Dispatch
+
+## Canonical Owner
+
+## Use This When
+
+## Extend By
+
+## Do NOT Unify With
+
+## Static Scan Hints
+```
+
+`cited_by` 先作为显式字段进入 PoC，用来记录哪些 Feature / PR 引用或更新过该 cell。首轮不自动追加，避免在地图尚未校准前引入 merge hook 复杂度。
+
+### Phase B: Skills 激活入口（最小小切）
+
+把 map 接入日常 SOP，但不制造大表格劳动。
+
+1. `feat-lifecycle` Design Gate 增加硬问：
+
+   ```markdown
+   Architecture cell: {ownership cell id}
+   Map delta: none | update required | new cell required
+   Why: 一句话
+   ```
+
+   答不出来不是“回去填表”，而是 Phase 0 架构发现未完成。
+
+2. `writing-plans` header 增加同一组三字段。普通增量应写 `Map delta: none`，不得重复画架构图。
+
+3. `request-review` 增加 reviewer 视角：PR 是否新建了并行 store / queue / router / adapter；`Map delta: none` 是否与 diff 一致。
+
+4. `quality-gate` 先只要求报告 map delta，不做静态 hard block。
+
+### Phase C: Mechanical Checks（warning-only）
+
+增加 warning-only 脚本，先暴露盲点，不阻塞开发：
+
+- ownership cell 引用的 `code_anchors` 是否存在
+- Feature spec / plan 中声明的 `Architecture cell` 是否存在
+- PR diff 新增 `Store|Queue|Router|Adapter|Dispatcher|Binding` 等架构名词但没有声明 `Architecture cell` 时给 warning
+
+该阶段不让 CI 判断架构是否正确，只检查机械不变量。误报样本稳定后，才能讨论是否接入 `pnpm check` / `pnpm gate` 的 hard fail。
+
+### Phase D: Trial & Close
+
+选择 1-2 个真实后续 Feature 试跑，不做假 PoC：
+
+- 普通增量能否只引用 cell、不改 map
+- 新边界是否能触发 `Map delta: update required`
+- 找不到归属时是否自然进入 Phase 0
+- reviewer 是否能用 map 快速发现“另起炉灶”或“过度归一”
+
+试跑后再决定是否升 ADR、是否把 warning 脚本接入 CI、是否自动维护 `cited_by`。
+
+## Acceptance Criteria
+
+### Phase A（Ownership Map PoC）
+- [ ] AC-A1: `docs/architecture/ownership/` 存在，包含 per-cell 文件和 README，不使用单个巨大共享表作为唯一真相源
+- [ ] AC-A2: 首版 7 个 cell 覆盖 `transport` / `memory` / `dispatch` / `bubble-pipeline` / `action-plane` / `identity-session` / `callback-auth`
+- [ ] AC-A3: 每个 cell 包含 `Canonical Owner` / `Use This When` / `Extend By` / `Do NOT Unify With` / `Static Scan Hints`
+- [ ] AC-A4: 每个 cell frontmatter 包含 `cell_id` / `canonical_features` / `code_anchors` / `cited_by`
+- [ ] AC-A5: F124 x F088 的反归一边界进入 `transport` cell，明确“归一消息内核和设备语义，不归一 connector transport”
+
+### Phase B（Skills 激活入口）
+- [ ] AC-B1: `feat-lifecycle` Design Gate 增加 `Architecture cell` / `Map delta` / `Why` 三字段
+- [ ] AC-B2: `writing-plans` plan header 增加同一组三字段
+- [ ] AC-B3: `request-review` 增加 architecture ownership review checklist
+- [ ] AC-B4: `quality-gate` 增加 map delta 报告项，但不做 hard block
+- [ ] AC-B5: `pnpm sync:skills` 已运行，HOME-level skill symlink 同步完成
+
+### Phase C（Mechanical Checks）
+- [ ] AC-C1: warning-only 脚本能检测 stale `code_anchors`
+- [ ] AC-C2: warning-only 脚本能检测不存在的 `Architecture cell`
+- [ ] AC-C3: warning-only 脚本能提示新增架构名词但缺少 cell 声明的 diff
+- [ ] AC-C4: Phase C 不做 semantic architecture judgment，只检查机械不变量
+
+### Phase D（Trial & Close）
+- [ ] AC-D1: 至少 1 个真实 Feature 使用 `Architecture cell` + `Map delta` 试跑
+- [ ] AC-D2: 试跑后记录是否有漏 cell / 错 cell / 过度归一 / 另起炉灶未被发现
+- [ ] AC-D3: 基于试跑结果决定是否接入 hard CI、自动 `cited_by`、或升 ADR
+
+## 需求点 Checklist
+
+| ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
+|----|---------------------------|---------|----------|------|
+| R1 | “老项目 + 新需求”不能继续瞎累积架构 | AC-A1~A5, AC-B1~B4 | spec + skill review | [ ] |
+| R2 | 不是每个 Feature 重新填表 / 重新画图 | AC-A1, AC-B1, AC-B2 | 普通增量写 `Map delta: none` | [ ] |
+| R3 | 只在真正需要时触发重审 | AC-B1, AC-D1~D3 | 真实 Feature 试跑 | [ ] |
+| R4 | 防止 map 腐烂 | AC-A4, AC-C1 | stale anchor check | [ ] |
+| R5 | 防止大家抢同一个大文件冲突 | AC-A1 | per-cell 文件结构 | [ ] |
+| R6 | 涉及 harness：skills / quality gate / CI / prompts | AC-B1~B5, AC-C1~C4 | diff + review | [ ] |
+| R7 | 47 的 `cited_by` 想法可以试，但不能首轮过度自动化 | AC-A4, AC-D3 | PoC 字段 + 后续决策 | [ ] |
+| R8 | 让 46 帮忙 review 方向 | Review Gate | 46 review 记录 | [ ] |
+
+### 覆盖检查
+- [x] 每个需求点都能映射到至少一个 AC
+- [x] 每个 AC 都有验证方式
+
+## Dependencies
+
+- **Evolved from**: F042（提示词与 Skills 三层信息架构，SOP / skill 注入路径）
+- **Evolved from**: F183（Architecture Map + single writer 的成功范例）
+- **Evolved from**: F185（Dispatch/busy gate 分层归一的成功范例）
+- **Related**: F088 / F124（Transport 与反归一边界）
+- **Related**: F102 / F152（Memory / scanner 扩展范例）
+- **Related**: F177（fallback layer warning-only 检查可作为脚本模式参考）
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| 退化成每个 Feature 填表 | 只要求三字段；普通增量写 `Map delta: none`，不改 map |
+| 单文件热点冲突 | per-cell 文件结构；README 可生成或少手改 |
+| CI 误报淹没开发 | Phase C warning-only，先收集误报再决定 hard fail |
+| map 变成死文档 | code anchors + Feature 引用 + review checklist 三层激活 |
+| 过度归一 | 每个 cell 必须写 `Do NOT Unify With` |
+| `cited_by` 维护变成人工负担 | 首轮仅字段化；自动追加等试跑后再决定 |
+
+## Open Questions
+
+| # | 问题 | 状态 |
+|---|------|------|
+| OQ-1 | Phase D 选择哪个真实 Feature 试跑？ | ⬜ 待定 |
+| OQ-2 | `cited_by` 自动追加放在 merge-gate 还是独立脚本？ | ⬜ Phase D 后决定 |
+| OQ-3 | warning-only 何时升级为 hard CI？ | ⬜ 误报样本稳定后决定 |
+| OQ-4 | README 总索引手写还是由 cells frontmatter 生成？ | ⬜ Phase A 决定 |
+
+## Key Decisions
+
+| # | 决策 | 理由 | 日期 |
+|---|------|------|------|
+| KD-1 | Ownership map 使用 per-cell 文件，不使用单个巨型表 | 避免所有 Feature 抢同一个共享文件；只有同一架构边界变更才产生真实冲突 | 2026-05-07 |
+| KD-2 | Feature 只声明 `Architecture cell` + `Map delta`，普通增量不重画架构 | 防止“架构治理”变成新表格劳动 | 2026-05-07 |
+| KD-3 | CI 首轮只做机械 warning，不做语义判断 | 架构正确性需要 Design Gate / review，CI 只查 stale anchor / missing cell 等机械不变量 | 2026-05-07 |
+| KD-4 | `Do NOT Unify With` 与 `Canonical Owner` 同级 | 同时防“瞎累积”和“瞎抽象” | 2026-05-07 |
+| KD-5 | 47 的 `cited_by` 收进 PoC，但自动维护不进首轮 | 反向引用有价值，但自动 merge hook 在地图未稳定前过重 | 2026-05-07 |
+
+## Timeline
+
+| 日期 | 事件 |
+|------|------|
+| 2026-05-07 | 铲屎官拷问“第一性原理 / 禁止补锅 / 数学之美”，三猫讨论收敛到 ownership map + map delta |
+| 2026-05-07 | F191 立项 |
+
+## Review Gate
+
+- Kickoff spec: 布偶猫 Opus 4.6 review（按铲屎官要求“让 46 帮你看看”）
+- Phase A: 砚砚 author，46 review；如 47 参与实现，砚砚负责 code-quality review
+- Phase B/C: 涉及 skill / CI / hook 改动，必须跨猫 review
+
+## Links
+
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| **Feature** | `docs/features/F042-prompt-engineering-audit.md` | Skills / prompt 三层信息架构 |
+| **Feature** | `docs/features/F183-bubble-pipeline-architecture-consolidation.md` | Architecture Map + single writer 成功范例 |
+| **Feature** | `docs/features/F185-dispatch-busy-gate-unification.md` | Dispatch busy gate 归一范例 |
+| **Reference** | `docs/features/assets/F124/f124-f088-architecture-unification-draft.md` | 反归一边界：“归一消息内核，不归一 connector transport” |
