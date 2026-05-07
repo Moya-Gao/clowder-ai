@@ -1163,6 +1163,24 @@
       "name": "Thread Labels — 用户自定义标签 + Sidebar 筛选 + 猫猫辅助分类",
       "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F187-thread-labels.md"
+    },
+    {
+      "id": "F188",
+      "name": "Library Stewardship — 图书馆管护与成长",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F188-library-stewardship.md"
+    },
+    {
+      "id": "F189",
+      "name": "Operation Context Unification — 操作上下文单点化",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P2",
+      "file": "F189-operation-context-unification.md"
+    },
+    {
+      "id": "F190",
+      "name": "Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片",
+      "status": "spec | **Owner**: Community + Maintainers | **Priority**: P1",
+      "file": "F190-console-settings-appshell-skeleton.md"
     }
   ]
 }
