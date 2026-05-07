@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-05-07（F191 架构归属治理立项）
+> 维护者：三猫 | 最后更新：2026-05-07（F192 社会技术 Harness Eval 立项）
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -66,3 +66,4 @@ created: 2026-02-26
 | F188 | Library Stewardship — 图书馆管护与成长（rebuild + health + graph fidelity + materialize + pin） | spec | 布偶猫 | internal | [F188](features/F188-library-stewardship.md) |
 | F189 | Operation Context Unification — 操作上下文单点化（HTTP/MCP/CLI/A2A 统一 builder） | spec | 布偶猫 | internal | [F189](features/F189-operation-context-unification.md) |
 | F190 | Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片 | spec | Community + Maintainers | community [clowder-ai#645](https://github.com/zts212653/clowder-ai/pull/645) | [F190](features/F190-console-settings-appshell-skeleton.md) |
+| F192 | Socio-Technical Harness Eval — harness 共创评估体系 | spec | 布偶猫 | internal | [F192](features/F192-socio-technical-harness-eval.md) |

@@ -2,6 +2,7 @@
 title: "Cat Cafe Socio-Technical Harness Eval Draft"
 date: 2026-05-05
 status: draft
+feature_ids: [F192]
 authors: ["砚砚/GPT-5.5"]
 topics: [harness-engineering, eval, socio-technical, cvo, cat-user-feedback, observability]
 related:
