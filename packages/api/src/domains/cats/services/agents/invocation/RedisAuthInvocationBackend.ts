@@ -164,7 +164,11 @@ function recordFromHash(fields: Record<string, string>, msgs: Set<string>): Invo
   if (fields.parentInvocationId) record.parentInvocationId = fields.parentInvocationId;
   if (fields.a2aTriggerMessageId) record.a2aTriggerMessageId = fields.a2aTriggerMessageId;
   if (fields.traceId && fields.spanId) {
-    record.traceContext = { traceId: fields.traceId, spanId: fields.spanId, traceFlags: Number(fields.traceFlags ?? 0) };
+    record.traceContext = {
+      traceId: fields.traceId,
+      spanId: fields.spanId,
+      traceFlags: Number(fields.traceFlags ?? 0),
+    };
   }
   return record;
 }

@@ -842,14 +842,18 @@ export class AgentRouter {
         })
       : undefined;
 
-    const routeSpan = routeTracer.startSpan('cat_cafe.route', {
-      attributes: {
-        [ROUTING_TARGET_CATS]: (targetCats as string[]).join(','),
-        [ROUTING_INTENT]: intent.intent,
-        [ROUTING_STRATEGY]: strategy,
-        ...(options?.parentInvocationId ? { invocationId: options.parentInvocationId } : {}),
+    const routeSpan = routeTracer.startSpan(
+      'cat_cafe.route',
+      {
+        attributes: {
+          [ROUTING_TARGET_CATS]: (targetCats as string[]).join(','),
+          [ROUTING_INTENT]: intent.intent,
+          [ROUTING_STRATEGY]: strategy,
+          ...(options?.parentInvocationId ? { invocationId: options.parentInvocationId } : {}),
+        },
       },
-    }, parentCtx);
+      parentCtx,
+    );
 
     // Fetch thread for thinkingMode + update lastActive
     // Default to play mode when no threadStore is available: stream thinking stays isolated.

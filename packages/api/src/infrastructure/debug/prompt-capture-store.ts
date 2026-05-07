@@ -5,10 +5,19 @@
  * Default off — controlled by PROMPT_CAPTURE env var.
  */
 
-import { appendFile, appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFile, writeFileSync } from 'node:fs';
+import {
+  appendFile,
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFile,
+  writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { gzip, gunzipSync, gzipSync } from 'node:zlib';
+import { gunzipSync, gzip, gzipSync } from 'node:zlib';
 import { createModuleLogger } from '../logger.js';
 
 const log = createModuleLogger('debug:prompt-capture');

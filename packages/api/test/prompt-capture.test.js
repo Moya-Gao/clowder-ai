@@ -5,11 +5,11 @@
 if (!process.env.NODE_ENV) process.env.NODE_ENV = 'test';
 
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { randomUUID } from 'node:crypto';
 
 const testDir = join(tmpdir(), `prompt-capture-test-${Date.now()}`);
 

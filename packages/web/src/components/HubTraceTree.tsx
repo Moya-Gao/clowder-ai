@@ -432,7 +432,10 @@ function PromptInspector({ invocationId, catId }: { invocationId?: string; catId
                 Resume — system prompt was not injected this turn
               </div>
             )}
-            <PromptSection content={selected.systemPrompt} label={selected.injectionDecision.injected ? 'System Prompt' : 'System Prompt (not sent)'} />
+            <PromptSection
+              content={selected.systemPrompt}
+              label={selected.injectionDecision.injected ? 'System Prompt' : 'System Prompt (not sent)'}
+            />
           </>
         )}
         {tab === 'user' && (

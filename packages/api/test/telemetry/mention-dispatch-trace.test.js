@@ -138,13 +138,21 @@ test('F181 behavioral: mention_dispatch span is child of mentioner invocation', 
 
   // mention_dispatch as child of invocation A (even though A already ended)
   const invACtx = traceApi.setSpan(ctxApi.active(), invocationA);
-  const dispatchSpan = otelTracer.startSpan('cat_cafe.mention_dispatch', {
-    attributes: { 'mention.targets': 'sonnet,codex' },
-  }, invACtx);
+  const dispatchSpan = otelTracer.startSpan(
+    'cat_cafe.mention_dispatch',
+    {
+      attributes: { 'mention.targets': 'sonnet,codex' },
+    },
+    invACtx,
+  );
 
   // invocation B as child of mention_dispatch
   const dispatchCtx = traceApi.setSpan(ctxApi.active(), dispatchSpan);
-  const invocationB = otelTracer.startSpan('cat_cafe.invocation', { attributes: { 'agent.id': 'sonnet' } }, dispatchCtx);
+  const invocationB = otelTracer.startSpan(
+    'cat_cafe.invocation',
+    { attributes: { 'agent.id': 'sonnet' } },
+    dispatchCtx,
+  );
   invocationB.end();
 
   dispatchSpan.end();
@@ -154,10 +162,10 @@ test('F181 behavioral: mention_dispatch span is child of mentioner invocation', 
   const spans = otelExporter.getFinishedSpans();
   assert.equal(spans.length, 4);
 
-  const route = spans.find(s => s.name === 'cat_cafe.route');
-  const invA = spans.find(s => s.name === 'cat_cafe.invocation' && s.attributes['agent.id'] === 'opus');
-  const dispatch = spans.find(s => s.name === 'cat_cafe.mention_dispatch');
-  const invB = spans.find(s => s.name === 'cat_cafe.invocation' && s.attributes['agent.id'] === 'sonnet');
+  const route = spans.find((s) => s.name === 'cat_cafe.route');
+  const invA = spans.find((s) => s.name === 'cat_cafe.invocation' && s.attributes['agent.id'] === 'opus');
+  const dispatch = spans.find((s) => s.name === 'cat_cafe.mention_dispatch');
+  const invB = spans.find((s) => s.name === 'cat_cafe.invocation' && s.attributes['agent.id'] === 'sonnet');
 
   assert.ok(route && invA && dispatch && invB, 'All 4 spans should be present');
 
@@ -169,8 +177,16 @@ test('F181 behavioral: mention_dispatch span is child of mentioner invocation', 
 
   // Parent-child: route → invA → dispatch → invB
   assert.equal(invA.parentSpanContext.spanId, route.spanContext().spanId, 'invocation A is child of route');
-  assert.equal(dispatch.parentSpanContext.spanId, invA.spanContext().spanId, 'mention_dispatch is child of invocation A');
-  assert.equal(invB.parentSpanContext.spanId, dispatch.spanContext().spanId, 'invocation B is child of mention_dispatch');
+  assert.equal(
+    dispatch.parentSpanContext.spanId,
+    invA.spanContext().spanId,
+    'mention_dispatch is child of invocation A',
+  );
+  assert.equal(
+    invB.parentSpanContext.spanId,
+    dispatch.spanContext().spanId,
+    'invocation B is child of mention_dispatch',
+  );
 });
 
 test('F181 behavioral: multiple mentioned cats share same dispatch parent', async () => {
@@ -183,9 +199,13 @@ test('F181 behavioral: multiple mentioned cats share same dispatch parent', asyn
   invA.end();
 
   const invACtx = traceApi.setSpan(ctxApi.active(), invA);
-  const dispatch = otelTracer.startSpan('cat_cafe.mention_dispatch', {
-    attributes: { 'mention.targets': 'sonnet,codex' },
-  }, invACtx);
+  const dispatch = otelTracer.startSpan(
+    'cat_cafe.mention_dispatch',
+    {
+      attributes: { 'mention.targets': 'sonnet,codex' },
+    },
+    invACtx,
+  );
   const dispatchCtx = traceApi.setSpan(ctxApi.active(), dispatch);
 
   const invB = otelTracer.startSpan('cat_cafe.invocation', { attributes: { 'agent.id': 'sonnet' } }, dispatchCtx);
@@ -197,9 +217,9 @@ test('F181 behavioral: multiple mentioned cats share same dispatch parent', asyn
   routeSpan.end();
 
   const spans = otelExporter.getFinishedSpans();
-  const dispatchSpan = spans.find(s => s.name === 'cat_cafe.mention_dispatch');
-  const sonnet = spans.find(s => s.attributes['agent.id'] === 'sonnet');
-  const codex = spans.find(s => s.attributes['agent.id'] === 'codex');
+  const dispatchSpan = spans.find((s) => s.name === 'cat_cafe.mention_dispatch');
+  const sonnet = spans.find((s) => s.attributes['agent.id'] === 'sonnet');
+  const codex = spans.find((s) => s.attributes['agent.id'] === 'codex');
 
   assert.equal(sonnet.parentSpanContext.spanId, dispatchSpan.spanContext().spanId, 'sonnet under dispatch');
   assert.equal(codex.parentSpanContext.spanId, dispatchSpan.spanContext().spanId, 'codex under dispatch');
@@ -218,8 +238,8 @@ test('F181 behavioral: child spans survive after parent span ends (OTel contract
   const spans = otelExporter.getFinishedSpans();
   assert.equal(spans.length, 2);
   assert.equal(
-    spans.find(s => s.name === 'child').parentSpanContext.spanId,
-    spans.find(s => s.name === 'parent').spanContext().spanId,
+    spans.find((s) => s.name === 'child').parentSpanContext.spanId,
+    spans.find((s) => s.name === 'parent').spanContext().spanId,
     'Child created after parent.end() still has correct parentSpanId',
   );
 });
@@ -227,11 +247,11 @@ test('F181 behavioral: child spans survive after parent span ends (OTel contract
 // ── P1: Route span aggregate attributes ──────────────────────────
 
 test('F181 P1: genai-semconv exports route aggregate constants', () => {
-  const src = readFileSync(
-    resolve(__dirname, '../../src/infrastructure/telemetry/genai-semconv.ts'),
-    'utf8',
+  const src = readFileSync(resolve(__dirname, '../../src/infrastructure/telemetry/genai-semconv.ts'), 'utf8');
+  assert.ok(
+    src.includes("ROUTE_TOTAL_CATS_INVOKED = 'route.total_cats_invoked'"),
+    'Should export ROUTE_TOTAL_CATS_INVOKED',
   );
-  assert.ok(src.includes("ROUTE_TOTAL_CATS_INVOKED = 'route.total_cats_invoked'"), 'Should export ROUTE_TOTAL_CATS_INVOKED');
   assert.ok(src.includes("ROUTE_TOTAL_TOKENS = 'route.total_tokens'"), 'Should export ROUTE_TOTAL_TOKENS');
   assert.ok(src.includes("ROUTE_HAS_A2A_HANDOFF = 'route.has_a2a_handoff'"), 'Should export ROUTE_HAS_A2A_HANDOFF');
 });
@@ -246,10 +266,7 @@ test('F181 P1: route-serial sets aggregate attributes on routeSpan in finally', 
   assert.ok(src.includes('ROUTE_HAS_A2A_HANDOFF'), 'Should import ROUTE_HAS_A2A_HANDOFF');
   const finallyIdx = src.indexOf('} finally {');
   const setAttrIdx = src.indexOf('routeSpan.setAttribute(ROUTE_TOTAL_CATS_INVOKED');
-  assert.ok(
-    finallyIdx > 0 && setAttrIdx > finallyIdx,
-    'Aggregate attributes must be set inside finally block',
-  );
+  assert.ok(finallyIdx > 0 && setAttrIdx > finallyIdx, 'Aggregate attributes must be set inside finally block');
 });
 
 test('F181 P1: route-serial accumulates routeTotalTokens from invocation_usage', () => {
@@ -280,11 +297,11 @@ test('F181 P1: route-parallel sets aggregate attributes on routeSpan', () => {
 // ── P1: Token metrics threadId dimension ─────────────────────────
 
 test('F181 P1: metric-allowlist does NOT include THREAD_ID (high-cardinality guard)', () => {
-  const src = readFileSync(
-    resolve(__dirname, '../../src/infrastructure/telemetry/metric-allowlist.ts'),
-    'utf8',
+  const src = readFileSync(resolve(__dirname, '../../src/infrastructure/telemetry/metric-allowlist.ts'), 'utf8');
+  assert.ok(
+    !src.includes('THREAD_ID'),
+    'ALLOWED_METRIC_ATTRIBUTES must NOT include THREAD_ID — use route span aggregates for per-thread token queries',
   );
-  assert.ok(!src.includes('THREAD_ID'), 'ALLOWED_METRIC_ATTRIBUTES must NOT include THREAD_ID — use route span aggregates for per-thread token queries');
 });
 
 test('F181 P1: tokenAttrs does NOT include THREAD_ID (cardinality + redactor bypass)', () => {
@@ -300,10 +317,7 @@ test('F181 P1: tokenAttrs does NOT include THREAD_ID (cardinality + redactor byp
 // ── P1: HubTraceTree parallel rendering ──────────────────────────
 
 test('F181 P1: HubTraceTree buildForest supports multiple children per parent (fan-out)', () => {
-  const src = readFileSync(
-    resolve(__dirname, '../../../web/src/components/HubTraceTree.tsx'),
-    'utf8',
-  );
+  const src = readFileSync(resolve(__dirname, '../../../web/src/components/HubTraceTree.tsx'), 'utf8');
   assert.ok(
     src.includes('childMap') && src.includes('children'),
     'buildForest should accumulate children per parent via childMap',
@@ -336,10 +350,7 @@ test('F181: invoke-single-cat stores traceContext in InvocationRecord after span
 });
 
 test('F181: AgentRouter.routeExecution accepts callerTraceContext and creates child span', () => {
-  const src = readFileSync(
-    resolve(__dirname, '../../src/domains/cats/services/agents/routing/AgentRouter.ts'),
-    'utf8',
-  );
+  const src = readFileSync(resolve(__dirname, '../../src/domains/cats/services/agents/routing/AgentRouter.ts'), 'utf8');
   assert.ok(src.includes('callerTraceContext'), 'routeExecution options should accept callerTraceContext');
   assert.ok(
     src.includes('trace.setSpanContext') && src.includes('isRemote: true'),
@@ -349,10 +360,7 @@ test('F181: AgentRouter.routeExecution accepts callerTraceContext and creates ch
     src.includes('callerTraceContext.traceFlags'),
     'Should use stored traceFlags, not hardcoded TraceFlags.SAMPLED',
   );
-  assert.ok(
-    !src.includes('TraceFlags.SAMPLED'),
-    'Must not hardcode TraceFlags.SAMPLED — use stored value',
-  );
+  assert.ok(!src.includes('TraceFlags.SAMPLED'), 'Must not hardcode TraceFlags.SAMPLED — use stored value');
 });
 
 test('F181: callbacks.ts passes traceContext from InvocationRecord to enqueueA2ATargets', () => {
@@ -414,10 +422,7 @@ test('F181: invoke-single-cat stores traceFlags in traceContext', () => {
     resolve(__dirname, '../../src/domains/cats/services/agents/invocation/invoke-single-cat.ts'),
     'utf8',
   );
-  assert.ok(
-    src.includes('traceFlags: sc.traceFlags'),
-    'Should persist traceFlags from spanContext',
-  );
+  assert.ok(src.includes('traceFlags: sc.traceFlags'), 'Should persist traceFlags from spanContext');
 });
 
 test('F181: QueueProcessor passes callerTraceContext from entry to routeExecution', () => {
@@ -464,10 +469,10 @@ test('F181 behavioral: remote parent context links child route span to caller tr
   const spans = otelExporter.getFinishedSpans();
   assert.equal(spans.length, 4);
 
-  const route1 = spans.find(s => s.name === 'cat_cafe.route' && !s.parentSpanContext);
-  const invASpan = spans.find(s => s.attributes['agent.id'] === 'opus');
-  const route2 = spans.find(s => s.name === 'cat_cafe.route' && s.parentSpanContext);
-  const invBSpan = spans.find(s => s.attributes['agent.id'] === 'sonnet');
+  const route1 = spans.find((s) => s.name === 'cat_cafe.route' && !s.parentSpanContext);
+  const invASpan = spans.find((s) => s.attributes['agent.id'] === 'opus');
+  const route2 = spans.find((s) => s.name === 'cat_cafe.route' && s.parentSpanContext);
+  const invBSpan = spans.find((s) => s.attributes['agent.id'] === 'sonnet');
 
   assert.ok(route1 && invASpan && route2 && invBSpan, 'All 4 spans should be present');
 
@@ -478,12 +483,10 @@ test('F181 behavioral: remote parent context links child route span to caller tr
 
   // route2 is child of invocation A (cross-route link)
   assert.equal(
-    route2.parentSpanContext.spanId, invASpan.spanContext().spanId,
+    route2.parentSpanContext.spanId,
+    invASpan.spanContext().spanId,
     'route2 is child of invocation A (cross-route A2A trace link)',
   );
   // invocation B is child of route2
-  assert.equal(
-    invBSpan.parentSpanContext.spanId, route2.spanContext().spanId,
-    'invocation B is child of route2',
-  );
+  assert.equal(invBSpan.parentSpanContext.spanId, route2.spanContext().spanId, 'invocation B is child of route2');
 });

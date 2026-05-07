@@ -1112,8 +1112,8 @@
     },
     {
       "id": "F181",
-      "name": "Reserved Feature Slot — 待补充需求锚点",
-      "status": "idea | **Owner**: 待定 | **Priority**: TBD",
+      "name": "Prompt X-Ray + Cross-Route A2A Trace Propagation",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P2",
       "file": "F181-reserved-feature-slot.md"
     },
     {
