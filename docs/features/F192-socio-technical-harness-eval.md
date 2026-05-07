@@ -70,13 +70,14 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 - [x] AC-A5: harness-feedback README/schema 明确只存 annotations + evidence_refs，不存 raw trace 副本；Feature Trace Bundle 是 derived view，schema defer to F153/ADR-032
 - [x] AC-A6: 样例 harness-feedback 文档使用 trace_refs/evidence_refs 指向 canonical trace/thread/session，不复制 raw tool-call payload
 
-### Phase B（F167 Pilot）
-- [ ] AC-B1: F167 spec 含 Eval / Tracking Contract 节
+### Phase B（F167 Pilot + Inception Gate 验证）
+- [ ] AC-B1: F167 spec 含 `## Eval / Tracking Contract` 节，使用 v1 模板（4 项：Primary Users + Activation Signal / Friction Metric / Regression Fixture / Sunset Signal），验证模板在真实 feature 上的可用性
 - [ ] AC-B2: 至少 3 个 trace fixture 文档（ball drop / zombie hold / ack loop）
 - [ ] AC-B3: 一份完整 Feature Trace Bundle 样例
 - [ ] AC-B4: 一份完整 evidence-directed cat interview 样例
 - [ ] AC-B5: 一份 Feature Fit Review 模板样例
 - [ ] AC-B6: A2A 工具 eval contract 含 adoption / friction / false-positive 指标
+- [ ] AC-B7: `feat-lifecycle` Inception / Design Gate 加 Eval Contract 硬门禁——harness/skill/MCP/shared-rules 类 spec 立项时必须含 Eval Contract 节，否则 Design Gate 不通过。触发条件：新增规则/接口/行为变化（小修小补不触发）。Sunset Signal 空填 = 不通过，不设 reviewer 签字降级
 
 ### Phase C（扩展 + Digest）
 - [ ] AC-C1: top-5 MCP 工具各有 tool eval contract
@@ -115,6 +116,8 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 |---|------|------|------|
 | KD-1 | 本 feature 是 enrichment layer，不拥有 canonical trace schema | 防止和 ADR-032 变成两套源（铲屎官 + 三猫共识 2026-05-07） | 2026-05-07 |
 | KD-2 | F167 作为首个 pilot | 天然具备 failure pattern / trace signal / CVO pain / cat friction / sunset 问题 | 2026-05-07 |
+| KD-3 | 立项前置 Eval Contract 塞进 Phase B 验证（方案 C），不 reopen Phase A | 模板需 pilot 验证后才有资格成为硬门禁；AC 驱动验证不是验证驱动 AC（47 提议 + 46 确认） | 2026-05-07 |
+| KD-4 | Sunset Signal 空填 = Design Gate 不通过，不设 reviewer 签字降级 | 治"只加不删"的核心机制；说不清何时删 = 没想清楚要解决什么（46 决策） | 2026-05-07 |
 
 ## Timeline
 
