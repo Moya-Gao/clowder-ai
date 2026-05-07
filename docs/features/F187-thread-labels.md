@@ -36,7 +36,7 @@ UI：
 - Thread 右键菜单 / 详情面板：打标签（多选 checkbox + 颜色圆点）
 - Label 管理入口：创建/编辑/删除/排序标签
 
-### Phase B: Sidebar 筛选 + 智能视图
+### Phase B: Sidebar 筛选 + 智能视图 ✅
 
 - Sidebar 顶部加标签筛选器（点击标签 → 只显示该标签 thread，再点取消）
 - V1 单选筛选；组合筛选（AND）留后续
@@ -62,9 +62,9 @@ UI：
 - [x] AC-A4: Label CRUD API 完整且有类型定义
 
 ### Phase B（Sidebar 筛选 + 智能视图）
-- [ ] AC-B1: Sidebar 有标签筛选器，点击标签后只显示该标签的 thread
-- [ ] AC-B2: "未分类"视图显示所有无标签 thread
-- [ ] AC-B3: Thread 条目上有标签色点指示
+- [x] AC-B1: Sidebar 有标签筛选器，点击标签后只显示该标签的 thread
+- [x] AC-B2: "未分类"视图显示所有无标签 thread
+- [x] AC-B3: Thread 条目上有标签色点指示
 
 ### Phase C（猫猫辅助分类）
 - [ ] AC-C1: 用户可触发"猫猫帮我分类"操作
@@ -107,6 +107,7 @@ UI：
 |------|------|
 | 2026-05-06 | 立项（铲屎官 + 布偶猫 + 缅因猫三方收敛） |
 | 2026-05-06 | Phase A merged (PR #1576) |
+| 2026-05-07 | Phase B merged (PR #1577) |
 
 ## Review Gate
 
