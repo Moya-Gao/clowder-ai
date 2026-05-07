@@ -490,4 +490,22 @@ describe('presentation lock (AC-PL1~PL5)', () => {
     expect(useChatStore.getState().workspaceWorktreeId).toBe('wt-feature');
     expect(useChatStore.getState().workspaceOpenTabs).toEqual([]);
   });
+
+  it('AC-PL6: workspace mode unchanged by thread switch while lock active', () => {
+    useChatStore.setState({ workspaceMode: 'dev' as const });
+    useChatStore.getState().enablePresentationLock();
+
+    // Switch to thread-b — mode must NOT change at store level
+    useChatStore.getState().setCurrentThread('thread-b');
+    expect(useChatStore.getState().workspaceMode).toBe('dev');
+
+    // Switch back to owner — mode still untouched
+    useChatStore.getState().setCurrentThread('thread-a');
+    expect(useChatStore.getState().workspaceMode).toBe('dev');
+
+    // Set mode to recall, then switch — mode persists through lock
+    useChatStore.getState().setWorkspaceMode('recall' as const);
+    useChatStore.getState().setCurrentThread('thread-b');
+    expect(useChatStore.getState().workspaceMode).toBe('recall');
+  });
 });

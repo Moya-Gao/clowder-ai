@@ -665,6 +665,14 @@ RightStatusPanel 内嵌 AuditExplorerPanel（审计事件 + Session 事件 + 搜
 - 砚砚(codex) R5: 本地 review 放行（0 P1/P2）
 - 云端 Codex R1–R8: 迭代 8 轮（R6 P1 推动 store-level lock sync 架构改进）→ R9 放行 "Didn't find any major issues"
 - `pnpm gate` 通过，PR #1570 squash merged 2026-05-06
+- 愿景守护：砚砚(GPT-5.4) 放行，0 P1/P2
+
+### Residual Risk（愿景守护发现）
+
+| Risk | 描述 | 当前保障 | 回归触发条件 |
+|------|------|----------|-------------|
+| AC-PL6 测试层次 | Focus Mode 兼容只有 store-level 测试（mode 不随 thread 切换变化），组件级 auto-mode-switch 抑制靠 `WorkspacePanel.tsx:258` 的 `if (presentationLock) return` | store test + code guard | 若重构 mode-sync effect 移除 lock 检查 |
+| AC-PL2 scroll | 滚动位置靠 viewer 不 remount 自然保持，无显式 state 建模 | DOM 自然行为 | 若改动 `useWorkspace.ts` / `FileContentRenderer.tsx` / `CodeViewer.tsx` 的挂载边界导致 remount |
 
 ## Known Bugs (Follow-up)
 
