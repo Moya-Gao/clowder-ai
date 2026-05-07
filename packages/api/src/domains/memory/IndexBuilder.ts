@@ -191,7 +191,11 @@ export class IndexBuilder implements IIndexBuilder {
     }
   }
 
-  async rebuild(options?: { force?: boolean }): Promise<RebuildResult> {
+  async rebuild(options?: {
+    force?: boolean;
+    onProgress?: (phase: string, percent: number) => void;
+  }): Promise<RebuildResult> {
+    const report = options?.onProgress ?? (() => {});
     const start = Date.now();
     let indexed = 0;
     let skipped = 0;
@@ -200,8 +204,10 @@ export class IndexBuilder implements IIndexBuilder {
     const versionChanged = this.hasIndexingVersionChanged();
     const effectiveForce = options?.force || versionChanged;
 
+    report('scanning', 0);
     // F152 Phase A: delegate to pluggable scanner (KD-5)
     const scannedItems = this.scanner.discover(this.scanRoot, this.buildScanOptions());
+    report('scanning', 15);
     const currentAnchors = new Set<string>();
     const indexedItems: EvidenceItem[] = [];
 
@@ -249,6 +255,8 @@ export class IndexBuilder implements IIndexBuilder {
       indexed++;
     }
 
+    report('indexing', 30);
+
     // Phase D: auto-extract edges from frontmatter cross-references (AC-D18, KD-29)
     // Phase F: clear both legacy 'related' and normalized 'related_to'; write 'related_to' with provenance
     await this.store.runExclusive(() => {
@@ -280,6 +288,7 @@ export class IndexBuilder implements IIndexBuilder {
       }
     }
 
+    report('indexing', 40);
     // Phase D-6: Index session digests (kind=session)
     if (this.transcriptDataDir) {
       const excludedThreadIds = this.excludeThreadIdsFn ? await this.excludeThreadIdsFn() : undefined;
@@ -367,6 +376,7 @@ export class IndexBuilder implements IIndexBuilder {
       }
     }
 
+    report('indexing', 55);
     // Phase E-3: Index thread message passages
     let threads: ThreadSnapshot[] = [];
     if (this.messageListFn && this.threadListFn && !threadListFailed) {
@@ -385,6 +395,7 @@ export class IndexBuilder implements IIndexBuilder {
       }
     }
 
+    report('cleanup', 70);
     // Remove stale anchors that no longer exist on disk
     // P1 fix: if threadListFn failed, preserve existing thread-* anchors (don't delete on transient error)
     const db = this.store.getDb();
@@ -399,11 +410,13 @@ export class IndexBuilder implements IIndexBuilder {
       }
     }
 
+    report('embedding', 80);
     // Phase C: generate embeddings for indexed items
     await this.embedIndexedItems(indexedItems);
 
     // Persist current indexing version so next startup can detect changes
     await this.storeIndexingVersion();
+    report('done', 100);
 
     return { docsIndexed: indexed, docsSkipped: skipped, durationMs: Date.now() - start };
   }

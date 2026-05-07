@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { RebuildButton } from './RebuildButton';
 
 interface RawStatusResponse {
   backend: string;
@@ -41,6 +42,43 @@ export function parseIndexStatus(raw: RawStatusResponse): IndexStatusData {
     lastRebuildAt: raw.last_rebuild_at ?? null,
     embeddingModel: raw.embedding_model ?? null,
     reason: raw.reason,
+  };
+}
+
+// ── F188 Phase A: Rebuild job types + parser ──
+
+interface RawRebuildJob {
+  id: string;
+  status: string;
+  phase: string;
+  percent: number;
+  error?: string;
+  result?: { docsIndexed: number; docsSkipped: number; durationMs: number };
+  startedAt: number;
+  completedAt?: number;
+}
+
+export interface RebuildJobData {
+  id: string;
+  status: 'pending' | 'running' | 'done' | 'error';
+  phase: string;
+  percent: number;
+  error?: string;
+  result?: { docsIndexed: number; docsSkipped: number; durationMs: number };
+  startedAt: number;
+  completedAt?: number;
+}
+
+export function parseRebuildJob(raw: RawRebuildJob): RebuildJobData {
+  return {
+    id: raw.id,
+    status: raw.status as RebuildJobData['status'],
+    phase: raw.phase,
+    percent: raw.percent,
+    error: raw.error,
+    result: raw.result,
+    startedAt: raw.startedAt,
+    completedAt: raw.completedAt,
   };
 }
 
@@ -231,14 +269,17 @@ export function IndexStatus() {
         </div>
       )}
 
-      {/* Refresh button */}
-      <button
-        type="button"
-        onClick={fetchAll}
-        className="rounded-lg border border-cafe bg-white px-3 py-1.5 text-xs text-cafe-secondary transition-colors hover:bg-cafe-surface"
-      >
-        刷新状态
-      </button>
+      {/* F188: Rebuild + Refresh buttons */}
+      <div className="flex gap-2">
+        <RebuildButton onComplete={fetchAll} />
+        <button
+          type="button"
+          onClick={fetchAll}
+          className="rounded-lg border border-cafe bg-white px-3 py-1.5 text-xs text-cafe-secondary transition-colors hover:bg-cafe-surface"
+        >
+          刷新状态
+        </button>
+      </div>
     </div>
   );
 }

@@ -263,8 +263,10 @@ export interface IEvidenceStore {
   initialize(): Promise<void>;
 }
 
+export type RebuildProgressCallback = (phase: string, percent: number) => void;
+
 export interface IIndexBuilder {
-  rebuild(options?: { force?: boolean }): Promise<RebuildResult>;
+  rebuild(options?: { force?: boolean; onProgress?: RebuildProgressCallback }): Promise<RebuildResult>;
   incrementalUpdate(changedPaths: string[]): Promise<void>;
   checkConsistency(): Promise<ConsistencyReport>;
 }

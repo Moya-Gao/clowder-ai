@@ -1773,11 +1773,16 @@ async function main(): Promise<void> {
   const { voteRoutes } = await import('./routes/votes.js');
   await app.register(voteRoutes, { threadStore, socketManager, messageStore });
 
-  // Evidence search (SQLite) + reindex endpoint (D-11) + F-4 federated search
+  // F188 Phase A: rebuild job tracker
+  const { RebuildJobTracker } = await import('./domains/memory/RebuildJobTracker.js');
+  const rebuildJobTracker = new RebuildJobTracker();
+
+  // Evidence search (SQLite) + reindex endpoint (D-11) + F-4 federated search + F188 rebuild
   await app.register(evidenceRoutes, {
     evidenceStore: memoryServices.evidenceStore,
     indexBuilder: memoryServices.indexBuilder,
     knowledgeResolver: memoryServices.knowledgeResolver,
+    rebuildJobTracker,
   });
 
   // F163: Knowledge promotion admin API (localhost-only)
