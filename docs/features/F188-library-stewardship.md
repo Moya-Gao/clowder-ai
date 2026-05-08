@@ -42,6 +42,7 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 1. edges 表 schema 不一致：root evidence.sqlite 只有 3 列（from_anchor/to_anchor/relation），代码 getRelated() 查 6 列 → 查询报错导致 graph 无边
 2. `inferCollectionId` silent skip：anchor 无法推断 collection 时整个节点 + 边被静默丢弃，无日志
 3. `inferCollectionIdSync` 设计缺陷：collection ID 是 `project:cat-cafe` 但 anchor 是裸 `"F188"`，sync 路径永远匹配不上
+4. unresolved placeholder 在 mixed sensitivity graph 中泄露/不一致：private edge 发现的 unresolved anchor 需要统一 opaque 化，且 node/edge endpoint 必须一致
 
 **三种新 edge 来源**：
 1. WikiLink `[[...]]` → edge（Scanner 已提取 WikiLink 到 FTS 关键词，差最后一步写 `addEdge()`）
@@ -145,6 +146,7 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 | 2026-05-06 | GBrain teardown 复盘 → 缺口收敛 → 立项 |
 | 2026-05-07 | Phase A merged (PR #1581) |
 | 2026-05-08 | Phase C merged (PR #1585) — edge extraction pipeline + graph bug fixes + UI美化 |
+| 2026-05-08 | Phase C review follow-up merged (PR #1596) — unresolved anchor redaction + doc_link path key stability |
 
 ## Review Gate
 
