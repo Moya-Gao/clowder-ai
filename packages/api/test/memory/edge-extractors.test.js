@@ -188,7 +188,11 @@ describe('edge-extractors', () => {
       const pathToAnchor = new Map([['features/F186-library.md', 'F186']]);
       const content = 'See [Library](F186-library.md) for details.';
       const edges = extractDocLinkEdges(content, 'F188', pathToAnchor, 'features/F188-test.md');
-      assert.equal(edges.length, 1, 'POSIX dirname must produce "features" on Windows too (was using node:path default which uses backslash on Windows)');
+      assert.equal(
+        edges.length,
+        1,
+        'POSIX dirname must produce "features" on Windows too (was using node:path default which uses backslash on Windows)',
+      );
       assert.equal(edges[0].toAnchor, 'F186');
     });
   });

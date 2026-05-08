@@ -522,35 +522,58 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
   }, [loadThreads]);
 
   const handleOrganizeWithCat = useCallback(async () => {
-    let target: Thread;
+    setShowOrganizer(true);
+    setSuggestLoading(true);
+    setSuggestions(undefined);
     try {
-      target = await findOrCreateOrganizerThread();
-    } catch {
-      notifyThreadCreateFailure('整理助手 thread 创建失败，请重试');
-      return;
-    }
+      const target = await findOrCreateOrganizerThread();
+      const threadId = target.id;
+      const sentAt = Date.now();
 
-    const threadId = target.id;
-    useChatStore.getState().setCurrentThread(threadId);
-    pushThreadRouteWithHistory(threadId, typeof window !== 'undefined' ? window : undefined);
-
-    try {
-      const res = await apiFetch('/api/messages', {
+      const triggerRes = await apiFetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: buildTriggerContent(), threadId }),
       });
-      if (!res.ok) {
+      if (!triggerRes.ok) {
         useToastStore
           .getState()
           .addToast({ type: 'error', title: '发送失败', message: '触发消息发送失败，请重试', duration: 5000 });
+        return;
+      }
+
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const msgRes = await apiFetch(`/api/messages?threadId=${encodeURIComponent(threadId)}&limit=5`);
+        if (!msgRes.ok) continue;
+        const data = await msgRes.json();
+        const catMsg = (data.messages ?? []).find(
+          (m: { catId?: string; timestamp: number; isDraft?: boolean }) =>
+            m.catId && m.timestamp > sentAt && !m.isDraft,
+        );
+        if (!catMsg) continue;
+        const match = (catMsg.content as string).match(/<!-- SUGGESTIONS_JSON:([\s\S]*?) -->/);
+        if (match?.[1]) {
+          try {
+            const parsed = JSON.parse(match[1]) as Record<string, unknown>;
+            const { filterSuggestions } = await import('@/utils/batch-apply-labels');
+            const validThreadIds = new Set(uncategorizedThreads.map((t) => t.id));
+            const validLabelIds = new Set(labels.map((l) => l.id));
+            setSuggestions(filterSuggestions(parsed, validThreadIds, validLabelIds));
+          } catch {
+            /* JSON malformed — modal stays usable without pre-fill */
+          }
+        }
+        break;
       }
     } catch {
       useToastStore
         .getState()
-        .addToast({ type: 'error', title: '发送失败', message: '网络错误，请检查连接', duration: 5000 });
+        .addToast({ type: 'error', title: '分析失败', message: '猫猫无法分析，请重试', duration: 5000 });
+    } finally {
+      setSuggestLoading(false);
     }
-  }, [findOrCreateOrganizerThread, buildTriggerContent]);
+  }, [findOrCreateOrganizerThread, buildTriggerContent, uncategorizedThreads, labels]);
 
   const handleSuggestAll = useCallback(async () => {
     setSuggestLoading(true);

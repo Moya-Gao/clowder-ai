@@ -199,6 +199,73 @@ describe('Label API routes (Fastify inject)', { skip: redisIsolationSkipReason(R
     assert.equal(res.statusCode, 404);
   });
 
+  it('DELETE /api/labels/:id strips labelId from threads', async () => {
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
+    const threadStore = new ThreadStore();
+    const t1 = threadStore.create('default-user', 'tagged thread');
+    const t2 = threadStore.create('default-user', 'multi-tagged');
+    const t3 = threadStore.create('default-user', 'unrelated');
+    threadStore.updateLabels(t1.id, ['del_strip_1']);
+    threadStore.updateLabels(t2.id, ['del_strip_1', 'keep_lbl']);
+    threadStore.updateLabels(t3.id, ['keep_lbl']);
+
+    await store.create({
+      id: 'del_strip_1',
+      name: 'Strip me',
+      color: '#FF0000',
+      sortOrder: 0,
+      createdBy: 'default-user',
+      createdAt: Date.now(),
+    });
+
+    const { labelsRoutes } = await import('../dist/routes/labels.js');
+    const app = Fastify();
+    await app.register(labelsRoutes, { labelStore: store, threadStore });
+    await app.ready();
+
+    const res = await app.inject({ method: 'DELETE', url: '/api/labels/del_strip_1' });
+    assert.equal(res.statusCode, 200);
+
+    const after1 = threadStore.get(t1.id);
+    assert.deepEqual(after1.labels, []);
+    const after2 = threadStore.get(t2.id);
+    assert.deepEqual(after2.labels, ['keep_lbl']);
+    const after3 = threadStore.get(t3.id);
+    assert.deepEqual(after3.labels, ['keep_lbl']);
+  });
+
+  it('DELETE /api/labels/:id strips labelId from trashed threads too', async () => {
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
+    const threadStore = new ThreadStore();
+    const active = threadStore.create('default-user', 'active tagged');
+    const trashed = threadStore.create('default-user', 'trashed tagged');
+    threadStore.updateLabels(active.id, ['ghost_lbl']);
+    threadStore.updateLabels(trashed.id, ['ghost_lbl', 'keep_lbl']);
+    threadStore.softDelete(trashed.id);
+
+    await store.create({
+      id: 'ghost_lbl',
+      name: 'Ghost',
+      color: '#FF0000',
+      sortOrder: 0,
+      createdBy: 'default-user',
+      createdAt: Date.now(),
+    });
+
+    const { labelsRoutes } = await import('../dist/routes/labels.js');
+    const app = Fastify();
+    await app.register(labelsRoutes, { labelStore: store, threadStore });
+    await app.ready();
+
+    const res = await app.inject({ method: 'DELETE', url: '/api/labels/ghost_lbl' });
+    assert.equal(res.statusCode, 200);
+
+    const afterActive = threadStore.get(active.id);
+    assert.deepEqual(afterActive.labels, [], 'active thread should have ghost label stripped');
+    const afterTrashed = threadStore.get(trashed.id);
+    assert.deepEqual(afterTrashed.labels, ['keep_lbl'], 'trashed thread should also have ghost label stripped');
+  });
+
   it('CRUD lifecycle via inject', async () => {
     const app = await createApp();
 

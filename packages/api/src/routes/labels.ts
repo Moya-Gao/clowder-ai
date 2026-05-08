@@ -1,11 +1,12 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
-import type { ILabelStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { ILabelStore, IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
 export interface LabelsRoutesOptions {
   labelStore: ILabelStore;
+  threadStore?: IThreadStore;
 }
 
 const createLabelSchema = z.object({
@@ -84,6 +85,17 @@ export const labelsRoutes: FastifyPluginAsync<LabelsRoutesOptions> = async (app,
     if (!ok) {
       reply.status(404);
       return { error: 'Label not found' };
+    }
+
+    if (opts.threadStore) {
+      const active = await opts.threadStore.list(userId);
+      const trashed = await opts.threadStore.listDeleted(userId);
+      for (const thread of [...active, ...trashed]) {
+        if (thread.labels?.includes(id)) {
+          const updated = thread.labels.filter((lid) => lid !== id);
+          await opts.threadStore.updateLabels(thread.id, updated);
+        }
+      }
     }
 
     return { ok: true };

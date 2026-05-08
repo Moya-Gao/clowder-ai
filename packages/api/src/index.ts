@@ -1530,7 +1530,7 @@ async function main(): Promise<void> {
     guideSessionStore,
     labelStore,
   });
-  await app.register(labelsRoutes, { labelStore });
+  await app.register(labelsRoutes, { labelStore, threadStore });
   await app.register(threadBranchRoutes, {
     threadStore,
     messageStore,
