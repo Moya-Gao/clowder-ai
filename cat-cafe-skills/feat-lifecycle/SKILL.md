@@ -147,6 +147,22 @@ Why: 一句话
 
 答不出来 → Design Gate 不放行。禁止用新 Feature 私造 `Store` / `Queue` / `Router` / `Adapter` 来绕开已有 cell。
 
+**Eval Contract 门禁（F192）🔴**：
+
+harness / skill / MCP / shared-rules 类 feature 的 spec **必须含 `## Eval / Tracking Contract` 节**，否则 Design Gate 不通过。
+
+**触发条件**（判断标准：改动会改变猫猫行为模式 → 填）：
+- 新增 skill / 新增 MCP tool / 新增 shared-rules section / 新增 SOP step
+- 现有规则/工具的显著行为变更
+
+**不触发**：typo / wording 微调 / 纯重构（行为不变）/ 文档补充
+
+**4 项必填**（模板见 `docs/discussions/2026-05-07-eval-contract-template-v1-draft.md`）：
+1. Primary Users + Activation Signal
+2. Friction Metric
+3. Regression Fixture（最少 1 条，建议 2-5）
+4. Sunset Signal（**空填 = 不通过，不设 reviewer 签字降级**——KD-4）
+
 **在地设计检查 (Design in Context) 🔴**：
 凡是改动或往已有页面/组件添加新 UI 元素，必须逐项过 `cat-cafe-skills/refs/design-in-context-checklist.md`。禁止在真空中凭想象画已有页面的布局。
 

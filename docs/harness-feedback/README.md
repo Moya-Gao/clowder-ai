@@ -25,7 +25,7 @@ created: 2026-05-07
 ```yaml
 ---
 doc_kind: harness-feedback
-feedback_type: cat-user | feature-fit-review | tool-eval | sunset-signal | cvo-correction
+feedback_type: cat-user | feature-fit-review | tool-eval | sunset-signal | cvo-correction | trace-fixture | trace-bundle | cat-interview
 feature_id: F167
 thread_ids: []
 session_ids: []
@@ -57,8 +57,12 @@ CatCafeScanner 将 `docs/harness-feedback/` 映射为 `lesson` EvidenceKind。
 ```
 docs/harness-feedback/
 ├── README.md                    # 本文件
-├── tool-evals/                  # MCP 工具 eval contract（Phase C）
-└── YYYY-MM-DD-Fxxx-*.md         # 按 feature + 日期命名的反馈文档
+├── bundles/                     # Feature Trace Bundle（trace-bundle）
+├── fixtures/                    # Trace fixtures（trace-fixture）
+├── interviews/                  # Cat interview samples（cat-interview）
+├── reviews/                     # Feature Fit Review（feature-fit-review）
+├── tool-evals/                  # MCP 工具 eval contract（tool-eval）
+└── YYYY-MM-DD-Fxxx-*.md         # 按 feature + 日期命名的反馈文档（cat-user）
 ```
 
 ### 相关文档

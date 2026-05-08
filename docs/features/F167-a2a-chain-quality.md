@@ -40,6 +40,47 @@ F064 解了"漏传球"（该 @ 没 @），但三个月后暴露了反向问题�
 3. **Backward compatible**：不退化 4.6 等已正常工作模型的体验。
 4. **极简**：只加运行时刹车（压制坏直觉）和认知路径工程（对齐好直觉），不加认知脚手架（替模型思考）。
 
+## Eval / Tracking Contract
+
+> **何时填**：harness / skill / MCP / shared-rules 类 spec 立项时填本节。判断标准：改动会改变猫猫行为模式 → 填。否则跳过。
+> **Design Gate**：本节是硬门禁。空填 / 缺关键字段 → Design Gate 不通过。
+
+### 1. Primary Users + Activation Signal
+
+- **Users**：
+  - CVO：不再充当人肉路由（受益方，不直接操作）
+  - Cats：author（写 @）/ reviewer（给 verdict）/ designer（被 restrictions 保护免做 coding）
+  - Runtime：WorklistRegistry（streak 追踪）/ exit check（注入路由提示）/ `cat_cafe_hold_ball` MCP / cat-config.restrictions（数据驱动能力限制，Phase E KD-20）
+- **Activation signal**：
+  - **L1 ping-pong 熔断**：WorklistRegistry 里 `(catA, catB)` 连续 same-pair streak ≥ 2 (warn) / ≥ 4 (break)
+  - **C2 forced-pass guard**：invocation 输出含 review verdict 关键词（approve / reject / P1 / P2 / LGTM / 修改建议）但末尾无行首 @
+  - **L3 → 数据驱动限制**：cat-config.restrictions 双端 prompt 注入（发送方队友名册 + 目标猫 self-awareness）；原 L3 硬编码 regex 已退役（KD-20）
+  - **C1 hold_ball**：cat 显式调用 `cat_cafe_hold_ball` MCP（区别于"我先 hold 一下"的纯文本状态描述）
+
+### 2. Friction Metric
+
+- **L1 false-positive 误杀**：正常 review 循环 A→B→A→B (streak=3) 被误杀 → reset 条件（第三只猫 / user 消息）必须正确触发；覆盖见 `pingpong-reset.test.js`
+- **C2 over-fire**：纯信息查询无后续动作的输出被强制要求 @（边界场景：信息回答 vs 协作传球的判定漂移）
+- **C1 hold_ball 滥用**：`maxHoldsPerWindow` 超限（默认 3 / ~1h rolling）→ cat 在用 hold 替代正常传球
+- **Routing 旁路**：invocation 文本响应有 @ 但 MCP `targetCats` 为空（或反之）→ `routing-syntax-hint`（route-serial 行首 @ 语法检测）或 `verdict-no-pass-hint`（verdict 无 @ 出口检测）触发
+
+### 3. Regression Fixture
+
+- `ping-pong/streak-4-break` → `worklist-registry-streak.test.js`（AC-A1）
+- `ping-pong/false-positive-review-loop` → `pingpong-reset.test.js`（AC-A3）
+- `callback-a2a-pingpong` → `callback-a2a-pingpong.test.js`（AC-A4）
+- `void-pass/say-but-not-do` → 砚砚 5 线程截图（PR #1289 P1 evidence）
+- `role-gate/l3-retired` → `route-serial-pingpong.test.js`（AC-E — asserts `a2a_role_rejected` must NOT fire after KD-20 retirement）
+- `forced-pass/review-verdict-no-mention` → `route-serial-verdict-hint.test.js`（C2 verdict detection）
+- `hold-ball/zombie-hold` → 砚砚原话 "Hold 不是对外协议状态"（C1 设计动机）
+
+### 4. Sunset Signal
+
+- **Environment drift**：模型升级后 prompt 层球权规则被自然吸收（exit check / forced-pass 提示）→ C2 prompt 段可降级为只 hint 不强制；但 **L1 streak breaker 是基础设施保留**（与模型无关）
+- **Subsumption (in-feature)**：路由协议从两条（行首 @ + MCP `targetCats`）收敛到一条 → 路由旁路检测简化为单一路径
+- **Subsumption (cross-feature)**：F181 (Prompt X-Ray) + 跨路由 trace propagation 上线后，A2A friction 改用 trace-based detection 替代 prompt-based 提示 → C2 forced-pass prompt 段可废弃
+- **Adoption decay**：近 6 个月 ping-pong streak ≥ 4 触发 0 次 + 实战观察未出现该失败模式 → L1 熔断从 `break` 降级为只 `warn`
+
 ## What
 
 ### Phase 0: 系统提示词正面化审视（P0，多猫协作）
