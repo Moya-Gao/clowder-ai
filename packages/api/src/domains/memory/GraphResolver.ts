@@ -95,6 +95,7 @@ export class GraphResolver {
     const edgeKeySet = new Set<string>();
     const visited = new Set<string>();
     const redactedAnchorMap = new Map<string, string>();
+    const unresolvedRedactionMap = new Map<string, { sensitivity: CollectionSensitivity; redacted: boolean }>();
     let redactedCounter = 0;
     let frontier = [anchor];
 
@@ -115,13 +116,16 @@ export class GraphResolver {
         const collectionId = await inferCollectionId(currentAnchor, this.catalog, this.stores);
         if (!collectionId) {
           if (d > 0 && !nodesMap.has(currentAnchor)) {
+            const unresolvedRedaction = unresolvedRedactionMap.get(currentAnchor);
+            const shouldRedact = unresolvedRedaction?.redacted ?? false;
+            const sensitivity = unresolvedRedaction?.sensitivity ?? 'internal';
             nodesMap.set(currentAnchor, {
-              anchor: currentAnchor,
+              anchor: shouldRedact ? opaqueAnchor(currentAnchor) : currentAnchor,
               collectionId: '',
-              sensitivity: 'internal',
+              sensitivity,
               kind: 'unresolved',
-              title: currentAnchor,
-              redacted: false,
+              title: shouldRedact ? `[redacted — ${sensitivity} unresolved]` : currentAnchor,
+              redacted: shouldRedact,
             });
           }
           continue;
@@ -174,6 +178,13 @@ export class GraphResolver {
             const edgeRedacted =
               (edgeSensitivity === 'private' || edgeSensitivity === 'restricted') &&
               (!callerCollections.has(collectionId ?? '') || !callerCollections.has(relCollectionId ?? ''));
+            const unresolvedRelRedacted = !relCollectionId && edgeRedacted;
+            if (unresolvedRelRedacted) {
+              unresolvedRedactionMap.set(rel.anchor, { sensitivity: edgeSensitivity, redacted: true });
+            }
+            const unresolvedRelRedaction = unresolvedRedactionMap.get(rel.anchor);
+            const relOutputRedacted =
+              relIsRedacted || unresolvedRelRedacted || (unresolvedRelRedaction?.redacted ?? false);
 
             const edgeKey = `${currentAnchor}→${rel.anchor}:${rel.relation}`;
             const reverseKey = `${rel.anchor}→${currentAnchor}:${rel.relation}`;
@@ -181,12 +192,12 @@ export class GraphResolver {
               edgeKeySet.add(edgeKey);
               edgesArr.push({
                 from: isRedacted ? opaqueAnchor(currentAnchor) : currentAnchor,
-                to: relIsRedacted ? opaqueAnchor(rel.anchor) : rel.anchor,
+                to: relOutputRedacted ? opaqueAnchor(rel.anchor) : rel.anchor,
                 relation: rel.relation,
                 crossCollection: isCross,
                 edgeSensitivity,
                 provenance: rel.provenance ?? 'manual',
-                redacted: edgeRedacted,
+                redacted: edgeRedacted || (unresolvedRelRedaction?.redacted ?? false),
               });
             }
 
@@ -200,10 +211,40 @@ export class GraphResolver {
       frontier = nextFrontier;
     }
 
+    const finalNodes = Array.from(nodesMap.entries()).map(([realAnchor, node]) => {
+      const unresolvedRedaction = unresolvedRedactionMap.get(realAnchor);
+      if (!unresolvedRedaction?.redacted) return node;
+      return {
+        ...node,
+        anchor: opaqueAnchor(realAnchor),
+        sensitivity: unresolvedRedaction.sensitivity,
+        title: `[redacted — ${unresolvedRedaction.sensitivity} unresolved]`,
+        redacted: true,
+      };
+    });
+    const centerRedaction = unresolvedRedactionMap.get(anchor);
+    const center = nodesMap.has(anchor)
+      ? centerRedaction?.redacted
+        ? opaqueAnchor(anchor)
+        : nodesMap.get(anchor)?.anchor
+      : undefined;
+
+    const finalEdges = edgesArr.map((edge) => {
+      const fromUnresolvedRedacted = unresolvedRedactionMap.get(edge.from)?.redacted ?? false;
+      const toUnresolvedRedacted = unresolvedRedactionMap.get(edge.to)?.redacted ?? false;
+      if (!fromUnresolvedRedacted && !toUnresolvedRedacted) return edge;
+      return {
+        ...edge,
+        from: fromUnresolvedRedacted ? opaqueAnchor(edge.from) : edge.from,
+        to: toUnresolvedRedacted ? opaqueAnchor(edge.to) : edge.to,
+        redacted: true,
+      };
+    });
+
     return {
-      nodes: Array.from(nodesMap.values()),
-      edges: edgesArr,
-      center: nodesMap.has(anchor) ? nodesMap.get(anchor)!.anchor : undefined,
+      nodes: finalNodes,
+      edges: finalEdges,
+      center,
       depth,
     };
   }

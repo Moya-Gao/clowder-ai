@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -93,6 +95,85 @@ describe('IndexBuilder edge extraction integration', () => {
       wikilinks.find((e) => e.anchor === 'F188' || e.anchor === 'F102'),
       'should have wikilink to F188 or F102',
     );
+
+    store.close();
+  });
+
+  it('resolves /docs links in GenericRepoScanner flows (cloud-P1)', async () => {
+    const { SqliteEvidenceStore } = await import('../../dist/domains/memory/SqliteEvidenceStore.js');
+    const store = new SqliteEvidenceStore(':memory:');
+    await store.initialize();
+
+    const projectRoot = mkdtempSync(join(tmpdir(), 'f188-generic-links-'));
+    mkdirSync(join(projectRoot, 'docs', 'features'), { recursive: true });
+    writeFileSync(join(projectRoot, 'package.json'), '{"name":"generic-test"}');
+    writeFileSync(
+      join(projectRoot, 'docs', 'features', 'F188-a.md'),
+      [
+        '---',
+        'feature_ids: [F188]',
+        'doc_kind: spec',
+        '---',
+        '',
+        '# F188',
+        '',
+        'See [F186](/docs/features/F186-b.md).',
+      ].join('\n'),
+    );
+    writeFileSync(
+      join(projectRoot, 'docs', 'features', 'F186-b.md'),
+      ['---', 'feature_ids: [F186]', 'doc_kind: spec', '---', '', '# F186'].join('\n'),
+    );
+
+    const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
+    const builder = new IndexBuilder(store, projectRoot);
+
+    await builder.rebuild();
+
+    const f188Edges = await store.getRelated('F188');
+    const docLinks = f188Edges.filter((e) => e.relation === 'doc_link');
+    assert.ok(
+      docLinks.find((e) => e.anchor === 'F186'),
+      'Generic repo /docs link should resolve to F186',
+    );
+
+    store.close();
+  });
+
+  it('does not overwrite root and docs path keys when aliasing doc links (cloud-R2-P2)', async () => {
+    const { SqliteEvidenceStore } = await import('../../dist/domains/memory/SqliteEvidenceStore.js');
+    const store = new SqliteEvidenceStore(':memory:');
+    await store.initialize();
+
+    const projectRoot = mkdtempSync(join(tmpdir(), 'f188-doc-aliases-'));
+    mkdirSync(join(projectRoot, 'docs', 'features'), { recursive: true });
+    writeFileSync(join(projectRoot, 'package.json'), '{"name":"alias-test"}');
+    writeFileSync(join(projectRoot, 'README.md'), '# Root README');
+    writeFileSync(join(projectRoot, 'docs', 'README.md'), '# Docs README');
+    writeFileSync(
+      join(projectRoot, 'docs', 'features', 'F188-a.md'),
+      [
+        '---',
+        'feature_ids: [F188]',
+        'doc_kind: spec',
+        '---',
+        '',
+        '# F188',
+        '',
+        'See [root](../../README.md) and [docs](/docs/README.md).',
+      ].join('\n'),
+    );
+
+    const { IndexBuilder } = await import('../../dist/domains/memory/IndexBuilder.js');
+    const builder = new IndexBuilder(store, projectRoot);
+
+    await builder.rebuild();
+
+    const f188Edges = await store.getRelated('F188');
+    const docLinks = f188Edges.filter((e) => e.relation === 'doc_link');
+    const targets = new Set(docLinks.map((e) => e.anchor));
+    assert.ok(targets.has('doc:README'), 'relative root README link should resolve to root README');
+    assert.ok(targets.has('doc:docs/README'), '/docs/README.md link should resolve to docs README');
 
     store.close();
   });

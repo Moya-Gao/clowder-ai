@@ -51,7 +51,8 @@ export function extractDocLinkEdges(
     const linkPath = rawLink.replace(/[#?].*$/, '');
     let targetAnchor: string | undefined;
     if (linkPath.startsWith('/docs/')) {
-      targetAnchor = pathToAnchor.get(linkPath.slice(6));
+      const docsPath = linkPath.slice(1);
+      targetAnchor = pathToAnchor.get(docsPath) ?? pathToAnchor.get(linkPath.slice(6));
     } else {
       const normalized = linkPath.replace(/^(?:\.\.\/)+/, '').replace(/^\.\//, '');
       const resolved = sourceDir ? normalize(join(sourceDir, linkPath)) : undefined;

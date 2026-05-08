@@ -329,4 +329,275 @@ describe('GraphResolver', () => {
     assert.equal(unresolved.collectionId, '');
     assert.equal(result.edges.length, 1);
   });
+
+  it('redacts unresolved anchors reached through private edges (cloud-P1)', async () => {
+    await store.upsert([
+      {
+        anchor: 'world:lexander:doc/secret',
+        kind: 'lore',
+        status: 'active',
+        title: 'Secret Doc',
+        updatedAt: '2026-05-08',
+      },
+    ]);
+    await store.addEdge({
+      fromAnchor: 'world:lexander:doc/secret',
+      toAnchor: 'SecretCodename',
+      relation: 'wikilink',
+      fromCollectionId: 'world:lexander',
+      edgeSensitivity: 'private',
+      provenance: 'content',
+    });
+
+    const catalog = {
+      list: () => [{ id: 'world:lexander', sensitivity: 'private', kind: 'world' }],
+      get: (id) => catalog.list().find((m) => m.id === id),
+    };
+    const stores = new Map([['world:lexander', store]]);
+    const resolver = new GraphResolver(catalog, stores);
+
+    const result = await resolver.buildSubgraph('world:lexander:doc/secret', {
+      depth: 1,
+      callerCollections: [],
+    });
+
+    const serialized = JSON.stringify(result);
+    assert.ok(!serialized.includes('SecretCodename'), 'private unresolved anchor must not leak');
+    const unresolved = result.nodes.find((n) => n.kind === 'unresolved');
+    assert.ok(unresolved, 'redacted unresolved placeholder should still be present');
+    assert.equal(unresolved.redacted, true);
+    assert.ok(unresolved.anchor.startsWith('[redacted:'), 'unresolved anchor should use opaque anchor');
+    assert.ok(result.edges[0].to.startsWith('[redacted:'), 'edge endpoint should use same opaque anchor');
+  });
+
+  it('keeps unresolved edge endpoints opaque across mixed sensitivities (cloud-R2-P1)', async () => {
+    await store.upsert([
+      {
+        anchor: 'project:cat-cafe:doc/root',
+        kind: 'feature',
+        status: 'active',
+        title: 'Root',
+        updatedAt: '2026-05-08',
+      },
+      {
+        anchor: 'alpha:secret:doc/private',
+        kind: 'lore',
+        status: 'active',
+        title: 'Private',
+        updatedAt: '2026-05-08',
+      },
+      {
+        anchor: 'project:cat-cafe:doc/public',
+        kind: 'feature',
+        status: 'active',
+        title: 'Public',
+        updatedAt: '2026-05-08',
+      },
+    ]);
+    await store.addEdge({
+      fromAnchor: 'project:cat-cafe:doc/root',
+      toAnchor: 'project:cat-cafe:doc/public',
+      relation: 'related_to',
+      fromCollectionId: 'project:cat-cafe',
+      toCollectionId: 'project:cat-cafe',
+      edgeSensitivity: 'internal',
+      provenance: 'frontmatter',
+    });
+    await store.addEdge({
+      fromAnchor: 'project:cat-cafe:doc/root',
+      toAnchor: 'alpha:secret:doc/private',
+      relation: 'related_to',
+      fromCollectionId: 'project:cat-cafe',
+      toCollectionId: 'alpha:secret',
+      edgeSensitivity: 'internal',
+      provenance: 'frontmatter',
+    });
+    await store.addEdge({
+      fromAnchor: 'alpha:secret:doc/private',
+      toAnchor: 'SecretCodename',
+      relation: 'wikilink',
+      fromCollectionId: 'alpha:secret',
+      edgeSensitivity: 'private',
+      provenance: 'content',
+    });
+    await store.addEdge({
+      fromAnchor: 'project:cat-cafe:doc/public',
+      toAnchor: 'SecretCodename',
+      relation: 'wikilink',
+      fromCollectionId: 'project:cat-cafe',
+      edgeSensitivity: 'internal',
+      provenance: 'content',
+    });
+
+    const catalog = {
+      list: () => [
+        { id: 'project:cat-cafe', sensitivity: 'internal', kind: 'project' },
+        { id: 'alpha:secret', sensitivity: 'private', kind: 'world' },
+      ],
+      get: (id) => catalog.list().find((m) => m.id === id),
+    };
+    const stores = new Map([
+      ['project:cat-cafe', store],
+      ['alpha:secret', store],
+    ]);
+    const resolver = new GraphResolver(catalog, stores);
+
+    const result = await resolver.buildSubgraph('project:cat-cafe:doc/root', {
+      depth: 2,
+      callerCollections: ['project:cat-cafe'],
+    });
+
+    const unresolved = result.nodes.find((n) => n.kind === 'unresolved');
+    assert.ok(unresolved, 'redacted unresolved placeholder should be present');
+    assert.equal(unresolved.redacted, true);
+    assert.ok(unresolved.anchor.startsWith('[redacted:'), 'unresolved node should use opaque anchor');
+    assert.ok(
+      !JSON.stringify(result).includes('SecretCodename'),
+      'mixed sensitivity traversal must not leak raw anchor',
+    );
+
+    const unresolvedEdges = result.edges.filter((e) => e.relation === 'wikilink');
+    assert.ok(unresolvedEdges.length >= 2, 'both private and public wikilinks should be present');
+    assert.ok(
+      unresolvedEdges.every((e) => e.to === unresolved.anchor),
+      'all edges to the redacted unresolved node must use the same opaque endpoint',
+    );
+  });
+
+  it('redacts unresolved endpoints even when public edge is visited before private edge (cloud-R3-P1)', async () => {
+    const docs = new Map([
+      [
+        'project:cat-cafe:doc/root',
+        {
+          anchor: 'project:cat-cafe:doc/root',
+          kind: 'feature',
+          status: 'active',
+          title: 'Root',
+          updatedAt: '2026-05-08',
+        },
+      ],
+      [
+        'project:cat-cafe:doc/public',
+        {
+          anchor: 'project:cat-cafe:doc/public',
+          kind: 'feature',
+          status: 'active',
+          title: 'Public',
+          updatedAt: '2026-05-08',
+        },
+      ],
+      [
+        'project:cat-cafe:doc/bridge',
+        {
+          anchor: 'project:cat-cafe:doc/bridge',
+          kind: 'feature',
+          status: 'active',
+          title: 'Bridge',
+          updatedAt: '2026-05-08',
+        },
+      ],
+      [
+        'alpha:secret:doc/private',
+        {
+          anchor: 'alpha:secret:doc/private',
+          kind: 'lore',
+          status: 'active',
+          title: 'Private',
+          updatedAt: '2026-05-08',
+        },
+      ],
+    ]);
+    const related = new Map([
+      [
+        'project:cat-cafe:doc/root',
+        [
+          {
+            anchor: 'project:cat-cafe:doc/public',
+            relation: 'related_to',
+            fromCollectionId: 'project:cat-cafe',
+            toCollectionId: 'project:cat-cafe',
+            edgeSensitivity: 'internal',
+            provenance: 'frontmatter',
+          },
+          {
+            anchor: 'project:cat-cafe:doc/bridge',
+            relation: 'related_to',
+            fromCollectionId: 'project:cat-cafe',
+            toCollectionId: 'project:cat-cafe',
+            edgeSensitivity: 'internal',
+            provenance: 'frontmatter',
+          },
+        ],
+      ],
+      [
+        'project:cat-cafe:doc/public',
+        [
+          {
+            anchor: 'SecretCodename',
+            relation: 'wikilink',
+            fromCollectionId: 'project:cat-cafe',
+            toCollectionId: null,
+            edgeSensitivity: 'internal',
+            provenance: 'content',
+          },
+        ],
+      ],
+      [
+        'project:cat-cafe:doc/bridge',
+        [
+          {
+            anchor: 'alpha:secret:doc/private',
+            relation: 'related_to',
+            fromCollectionId: 'project:cat-cafe',
+            toCollectionId: 'alpha:secret',
+            edgeSensitivity: 'internal',
+            provenance: 'frontmatter',
+          },
+        ],
+      ],
+      [
+        'alpha:secret:doc/private',
+        [
+          {
+            anchor: 'SecretCodename',
+            relation: 'wikilink',
+            fromCollectionId: 'alpha:secret',
+            toCollectionId: null,
+            edgeSensitivity: 'private',
+            provenance: 'content',
+          },
+        ],
+      ],
+    ]);
+    const graphStore = {
+      getByAnchor: async (anchor) => docs.get(anchor) ?? null,
+      getRelated: async (anchor) => related.get(anchor) ?? [],
+    };
+    const catalog = {
+      list: () => [
+        { id: 'project:cat-cafe', sensitivity: 'internal', kind: 'project' },
+        { id: 'alpha:secret', sensitivity: 'private', kind: 'world' },
+      ],
+      get: (id) => catalog.list().find((m) => m.id === id),
+    };
+    const stores = new Map([
+      ['project:cat-cafe', graphStore],
+      ['alpha:secret', graphStore],
+    ]);
+    const resolver = new GraphResolver(catalog, stores);
+
+    const result = await resolver.buildSubgraph('project:cat-cafe:doc/root', {
+      depth: 3,
+      callerCollections: ['project:cat-cafe'],
+    });
+
+    const unresolved = result.nodes.find((n) => n.kind === 'unresolved');
+    assert.ok(unresolved, 'redacted unresolved placeholder should be present');
+    assert.ok(unresolved.anchor.startsWith('[redacted:'), 'unresolved node should use opaque anchor');
+    assert.ok(!JSON.stringify(result).includes('SecretCodename'), 'public-first traversal must not leak raw anchor');
+    assert.ok(
+      result.edges.filter((e) => e.relation === 'wikilink').every((e) => e.to === unresolved.anchor),
+      'all unresolved edge endpoints should be rewritten after traversal redaction is known',
+    );
+  });
 });

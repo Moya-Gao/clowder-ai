@@ -3,7 +3,7 @@
 
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { CatCafeScanner, extractAnchor, extractFrontmatter } from './CatCafeScanner.js';
 import { GenericRepoScanner } from './GenericRepoScanner.js';
 import type {
@@ -295,14 +295,22 @@ export class IndexBuilder implements IIndexBuilder {
     });
 
     const toPosix = (p: string): string => p.replace(/\\/g, '/');
+    const sourcePathKey = (sourcePath: string): string =>
+      toPosix(isAbsolute(sourcePath) ? relative(this.scanRoot, sourcePath) : sourcePath);
     const pathToAnchor = new Map<string, string>();
+    const setAlias = (key: string, anchor: string): void => {
+      if (!pathToAnchor.has(key)) pathToAnchor.set(key, anchor);
+    };
     for (const scanned of scannedItems) {
       const sp = scanned.item.sourcePath;
       if (sp) {
-        const spPosix = toPosix(sp);
-        pathToAnchor.set(spPosix, scanned.item.anchor);
-        const rel = toPosix(relative(this.scanRoot, sp));
-        if (rel !== spPosix) pathToAnchor.set(rel, scanned.item.anchor);
+        const key = sourcePathKey(sp);
+        pathToAnchor.set(key, scanned.item.anchor);
+        if (key.startsWith('docs/')) {
+          setAlias(key.slice('docs/'.length), scanned.item.anchor);
+        } else {
+          setAlias(`docs/${key}`, scanned.item.anchor);
+        }
       }
     }
 
@@ -312,9 +320,7 @@ export class IndexBuilder implements IIndexBuilder {
       if (!anchor) continue;
 
       const body = scanned.rawContent.replace(/^---\n[\s\S]*?\n---\n?/, '');
-      const relSourcePath = scanned.item.sourcePath
-        ? toPosix(relative(this.scanRoot, scanned.item.sourcePath))
-        : undefined;
+      const relSourcePath = scanned.item.sourcePath ? sourcePathKey(scanned.item.sourcePath) : undefined;
       const allEdges = [
         ...extractWikiLinkEdges(body, anchor),
         ...extractFeatureRefEdges(body, anchor),
