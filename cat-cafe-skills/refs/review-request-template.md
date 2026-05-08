@@ -36,7 +36,13 @@ Why: {一句话}
 - 若修改 `docs/architecture/ownership/cells/*.md`，是否确实改变了 owner / boundary / extension point / canonical anchor
 
 ## Open Questions
-{需要 reviewer 特别关注的点}
+
+### 技术 OQ（给 reviewer）
+{需要 reviewer 特别关注的实现正确性/安全性/性能问题}
+
+### 价值 OQ（给 CVO，如有）
+{需要 CVO 判断的价值取舍——必须附 Decision Packet（格式见 `refs/decision-matrix.md`）}
+{如果没有价值 OQ，写"无"——回滚成本低的技术选择猫猫自决，不升级}
 
 ## Next Action
 {希望 reviewer 做什么}
