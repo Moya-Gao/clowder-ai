@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F194: Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口
 
-> **Status**: spec | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
+> **Status**: in-progress (Phase A done) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
 >
 > Reviewer: 缅因猫/砚砚 (GPT-5.5)。立项基于 2026-05-07 thread `thread_mov3a7qva8mtsbs1` post-close diagnosis（F183 close 之后铲屎官报告"现在活跃的线程气泡都是裂的"，砚砚只读诊断捕到 `/api/messages` 与 `/api/threads/:threadId/queue` 对同一 thread 的 liveness 判定矛盾）。Architecture cell：`docs/architecture/ownership/cells/runtime-invocation-state` (待建/复用)。Map delta：none — 复用既有 `domains/cats/services/agents/invocation/` 边界，本 feat 在该 cell 内新增 read-model helper，不改 ownership map。
 
@@ -174,12 +174,12 @@ async function getThreadLiveInvocations(
 
 ### Phase A（Helper API + 单测）
 
-- [ ] AC-A1: `getThreadLiveInvocations.ts` 落地，签名含 `(threadId, userId, deps, opts?)` → `LivenessReadResult`
-- [ ] AC-A2: 返回结构含 `active[]`（`source`/`degraded`/`reason`）+ `zombies[]`，类型导出供消费方 import
-- [ ] AC-A3: 单测覆盖判定表 5 类组合（normal live / degraded with fresh draft / zombie / pending grace / not running）
-- [ ] AC-A4: 单测断言 `zombies[]` 与 `active[]` 互斥（同一 invocationId 不能同时在两个数组）
-- [ ] AC-A5: helper 不写 store（read-only），cleanup 由 Phase C 独立 pathway 消费 `zombies[]`
-- [ ] AC-A6: threshold 走 opts 注入（默认 `2 × DraftStore TTL = 600s`）便于测试 / alpha 调参
+- [x] AC-A1: `getThreadLiveInvocations.ts` 落地，签名含 `(threadId, userId, deps, opts?)` → `LivenessReadResult`
+- [x] AC-A2: 返回结构含 `active[]`（`source`/`degraded`/`reason`）+ `zombies[]`，类型导出供消费方 import
+- [x] AC-A3: 单测覆盖判定表 5 类组合（normal live / degraded with fresh draft / zombie / pending grace / not running）
+- [x] AC-A4: 单测断言 `zombies[]` 与 `active[]` 互斥（同一 invocationId 不能同时在两个数组）
+- [x] AC-A5: helper 不写 store（read-only），cleanup 由 Phase C 独立 pathway 消费 `zombies[]`
+- [x] AC-A6: threshold 走 opts 注入（默认 `2 × DraftStore TTL = 600s`）便于测试 / alpha 调参
 
 ### Phase B（消费方迁移）
 
@@ -281,6 +281,7 @@ async function getThreadLiveInvocations(
 | 2026-05-07 | 砚砚 → opus-47 架构判断 handoff |
 | 2026-05-07 | opus-47 给方向（helper-based unified read model + zombie detection），砚砚 push back（draft freshness 主信号 + degraded vs zombie 二分 + helper 返回带 source/reason/degraded） |
 | 2026-05-07 | 立项 F194，opus-47 author / 砚砚 reviewer |
+| 2026-05-08 | **Phase A merged (PR #1592, squash `4b5edfdd2`)** — 5 轮本地 review (R1→R5 APPROVE) + 2 轮云端 review (R1 P1 → R5 LGTM) 收敛 6 P1 + 1 P2：dual-source enumeration / cat-slot-reuse weak guard / slot-ownership single-injectivity / spec contract sync / stale-draft freshness guard。helper + 26/26 单测落地，contract 通过，准备进 Phase B 双消费方迁移 |
 
 ## Review Gate
 
