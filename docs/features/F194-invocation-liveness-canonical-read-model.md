@@ -151,25 +151,28 @@ async function getThreadLiveInvocations(
 - 不接任何消费方
 - contract 通过 review 后才进 Phase B
 
-> **Phase scope 重新规划（CVO ack 2026-05-08）**：原 4-PR 拆分（A/B/C/D 各一个）改为 **2-PR 拆分** —— Phase A 已独立 merged（PR #1592, squash `4b5edfdd2`）；**Phase B/C/D 合并为单一 bundle PR** 一锅端，因为消费方迁移 + zombie cleanup + diagnostic 紧密耦合（cleanup 消费 helper.zombies[]、diagnostic 记 helper.source/reason），合 1 PR 让 reviewer 一次看清整条链路 + 端到端 AC-Z1（裂气泡消失）在同一 PR 闭环。AC-B/C/D 仍按段保留作 review checklist；alpha 实测仍是合入后的愿景守护步骤。详见 KD-12。
+### Phase B (Bundle): 消费方迁移 + zombie cleanup + 运行时 diagnostic + alpha 验收
 
-### Phase B: 双消费方迁移（messages + queue 同 PR 收口）
+> **Single bundled phase（CVO ack 2026-05-08）**：原 4-phase 拆分（A/B/C/D 各一）调整为 **2-phase 拆分**——Phase A 已独立 merged（PR #1592, squash `4b5edfdd2`）；**消费方迁移 + zombie cleanup + diagnostic + alpha 全部合并为单一 Phase B (Bundle)** 一锅端做完一锅端 review。spec 真相源直接反映"single bundle"，避免子 step 之间的 review iteration 碎片化（详见 KD-12）。
 
+**B1 — 双消费方迁移（messages + queue）**：
 - `messages.ts:1407-1465` 现有 inline `recordActive || trackerActive` gate 迁移到 helper（保留现有过滤行为：active drafts 只保留 helper 认为 live 的，但接受 `degraded` flag）
 - `queue.ts:108` 的 `activeInvocations` 替换为 `helper(threadId, userId).active`，语义升级为 "服务端 canonical live view"
-- API regression：构造三类 split-brain 场景，断言两个 endpoint 返回一致
+- 双源 enumeration 由 `IInvocationRecordStore.listRunningByThread(threadId, userId)` 支持（in-memory filter / Redis index Set）
 
-### Phase C: Zombie cleanup contract + StartupReconciler 运行时 sweep
-
+**B2 — Zombie cleanup pathway**：
 - helper 输出的 `zombies[]` 由独立 cleanup pathway 异步消费（不阻塞 read 路径）
 - 复用 F048 Phase A 的 `StartupReconciler` 加入运行时 sweep 接口（cron 或 demand-triggered）
 - zombie 收尸语义沿用 F048：标 `failed(error='zombie_record_detected')` + 清 TaskProgress
 
-### Phase D: Runtime diagnostic + alpha 验证
-
-- 结构化事件 schema：`liveness_degraded` / `liveness_pending` / `record_zombie_detected`，字段含 `threadId`/`catId`/`invocationId`/`recordStatus`/`recordUpdatedAt`/`trackerSlotPresent`/`draftFresh`/`draftAge`/`reason`
+**B3 — Runtime diagnostic + fallback metric**：
+- 结构化事件 schema：`liveness_degraded` / `liveness_pending` / `record_zombie_detected` / `liveness_fallback`（fail-open 频率），字段含 `threadId`/`catId`/`invocationId`/`recordStatus`/`recordUpdatedAt`/`trackerSlotPresent`/`draftFresh`/`draftAge`/`reason`
 - 接 logger（参照 F183 Phase C `broadcast_rate_warn` 的范式）
-- alpha 通道实测：构造 record+tracker missing+fresh draft 场景验证 degraded 暴露；构造 record+tracker missing+no fresh draft+age 超 阈值场景验证 zombie cleanup
+- helper 暴露 optional `onLog?` callback，callsite 注入 logger 写结构化事件
+
+**B4 — API regression + alpha 验收**：
+- API regression（route-level paired tests）：构造三类 split-brain 场景，断言 `/api/messages` 与 `/api/threads/:threadId/queue` 返回一致
+- alpha 通道实测：record+tracker missing+fresh draft 场景验证 degraded 暴露；record+tracker missing+no fresh draft+age 超阈值场景验证 zombie cleanup
 - 愿景守护：非作者非 reviewer 的猫确认"裂气泡"症状在 active thread 不再复现
 
 ## Acceptance Criteria
@@ -180,31 +183,29 @@ async function getThreadLiveInvocations(
 - [x] AC-A2: 返回结构含 `active[]`（`source`/`degraded`/`reason`）+ `zombies[]`，类型导出供消费方 import
 - [x] AC-A3: 单测覆盖判定表 5 类组合（normal live / degraded with fresh draft / zombie / pending grace / not running）
 - [x] AC-A4: 单测断言 `zombies[]` 与 `active[]` 互斥（同一 invocationId 不能同时在两个数组）
-- [x] AC-A5: helper 不写 store（read-only），cleanup 由 Phase C 独立 pathway 消费 `zombies[]`
+- [x] AC-A5: helper 不写 store（read-only），cleanup 由 Phase B (Bundle) 独立 pathway 消费 `zombies[]`
 - [x] AC-A6: threshold 走 opts 注入（默认 `2 × DraftStore TTL = 600s`）便于测试 / alpha 调参
 
-### Phase B（消费方迁移）
+### Phase B (Bundle)（消费方迁移 + cleanup + diagnostic + alpha 一锅端）
 
-- [ ] AC-B1: `messages.ts` 现有 `recordActive || trackerActive` inline gate 迁移到 helper；保留 P1-2 dedup（formal invocationId set）和 wider window 行为
-- [ ] AC-B2: `queue.ts` 的 `activeInvocations` 改为 helper 输出（`active.map(s => ({ catId, startedAt }))`，保持现有 schema 不破前端契约）
-- [ ] AC-B3: API regression：构造 record running + tracker missing + fresh draft 场景，`/api/messages` 与 `/api/threads/:threadId/queue` 必须返回一致 liveness（同一 invocationId 要么两边都 live 要么两边都不 live）
-- [ ] AC-B4: API regression：构造 record running + tracker missing + no fresh draft + age 超阈值，两个 endpoint 都不暴露该 invocation 为 active
-- [ ] AC-B5: 既有 `messages.ts` orphan-draft filter 行为不退化（F173 hotfix3 行为兼容）
+> 单一 bundled phase 内的所有 AC 共同决定 PR 是否可 close（编号连续，不分 sub-phase）。
 
-### Phase C（Zombie cleanup pathway）
-
-- [ ] AC-C1: cleanup pathway（`reconcileZombies(threadId | global)`）落地，复用 F048 sweep 语义：标 `failed(error='zombie_record_detected')` + 清 TaskProgress
-- [ ] AC-C2: cleanup 不阻塞 read 路径——helper 永远 read-only，cleanup 走独立 invocation（cron / demand-trigger / startup sweep 三个入口）
-- [ ] AC-C3: cleanup 单测：构造 zombie record → 调 reconcileZombies → 断言 record 转 failed + TaskProgress 清空 + audit log
-- [ ] AC-C4: cleanup 必须幂等：同一 zombie 重复 reconcile 不应产生 duplicate audit / 错误 status
-
-### Phase D（Diagnostic + alpha 验证）
-
-- [ ] AC-D1: 结构化事件 `liveness_degraded`/`liveness_pending`/`record_zombie_detected` schema 落地，含 `threadId`/`catId`/`invocationId`/`recordStatus`/`recordUpdatedAt`/`trackerSlotPresent`/`draftFresh`/`draftAge`/`reason`
-- [ ] AC-D2: helper emit hook 注入到 logger（参照 F183 `broadcast_rate_warn` 范式），不通过 throw 中断 read
-- [ ] AC-D3: alpha 实测：active thread 在正常 stream 期间无 `liveness_degraded` 噪音（false positive 检查）
-- [ ] AC-D4: alpha 实测：构造 record+tracker missing 场景，`/api/messages` 与 `/queue` 不再矛盾，前端不再裂气泡
-- [ ] AC-D5: 愿景守护：非作者非 reviewer 猫输出对照表（铲屎官原话 vs 实际状态），确认 active thread 裂气泡不复现
+- [x] AC-B1: `IInvocationRecordStore.listRunningByThread(threadId, userId)` 接口 + in-memory + Redis index-backed Set 实现 + 单测覆盖（B1 prerequisite for double-source enumeration）
+- [x] AC-B2: `messages.ts` 现有 `recordActive || trackerActive` inline gate 迁移到 helper；保留 P1-2 dedup（formal invocationId set）+ wider window + fail-open + AC-B5 hotfix3 兼容
+- [x] AC-B3: `queue.ts` 的 `activeInvocations` 改为 helper 输出（`active.filter(catId != null).map(s => ({ catId, startedAt }))`，保持现有 schema 不破前端契约；null catId 过滤防 phantom UI cat slot）
+- [x] AC-B4: queue-side route regression（canonical path / record-missing recovery / helper fail-open / legacy fallback / null catId filter）
+- [x] AC-B5: paired-route consistency regression：构造 record running + tracker missing + fresh draft → `/api/messages` 与 `/queue` set-equality 一致；构造 zombie 场景 → 两端都 filter
+- [ ] AC-B6: 既有 `messages.ts` F173 hotfix3 orphan-draft filter 行为不退化（`draft-messages-merge.test.js` 20/20 pass，含 4 个 hotfix3 测试）— 已通过 R6 P1 修复（gate 只 require recordStore）
+- [ ] AC-B7: cleanup pathway（`reconcileZombies(threadId | global)`）落地，复用 F048 sweep 语义：标 `failed(error='zombie_record_detected')` + 清 TaskProgress
+- [ ] AC-B8: cleanup 不阻塞 read 路径——helper 永远 read-only，cleanup 走独立 invocation（cron / demand-trigger / startup sweep 三个入口）
+- [ ] AC-B9: cleanup 单测：构造 zombie record → 调 reconcileZombies → 断言 record 转 failed + TaskProgress 清空 + audit log
+- [ ] AC-B10: cleanup 必须幂等：同一 zombie 重复 reconcile 不应产生 duplicate audit / 错误 status
+- [ ] AC-B11: 结构化事件 `liveness_degraded`/`liveness_pending`/`record_zombie_detected`/`liveness_fallback` schema 落地，含 `threadId`/`catId`/`invocationId`/`recordStatus`/`recordUpdatedAt`/`trackerSlotPresent`/`draftFresh`/`draftAge`/`reason`
+- [ ] AC-B12: helper emit hook（optional `onLog?` callback dep）注入到 logger（参照 F183 `broadcast_rate_warn` 范式），不通过 throw 中断 read
+- [ ] AC-B13: fallback frequency metric — helper throw fall-back tracker-only 时记 `liveness_fallback`（split-brain 防护失效时可观测）
+- [ ] AC-B14: alpha 实测：active thread 在正常 stream 期间无 `liveness_degraded` 噪音（false positive 检查）
+- [ ] AC-B15: alpha 实测：构造 record+tracker missing 场景，`/api/messages` 与 `/queue` 不再矛盾，前端不再裂气泡
+- [ ] AC-B16: 愿景守护：非作者非 reviewer 猫输出对照表（铲屎官原话 vs 实际状态），确认 active thread 裂气泡不复现
 
 ### 端到端
 
@@ -216,8 +217,8 @@ async function getThreadLiveInvocations(
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "现在活跃的线程他们气泡都是裂的" | AC-B3, AC-B4, AC-D4, AC-Z1 | API regression + alpha 实测 | [ ] |
-| R2 | 让我"讲讲为什么"——根因可解释、可观测 | AC-D1, AC-D2 | structured event schema + log review | [ ] |
+| R1 | "现在活跃的线程他们气泡都是裂的" | AC-B5, AC-B15, AC-Z1 | paired-route regression + alpha 实测 | [ ] |
+| R2 | 让我"讲讲为什么"——根因可解释、可观测 | AC-B11, AC-B12, AC-B13 | structured event schema + log review | [ ] |
 | R3 | "找宪宪 46 或者 47…大概看了一下你的方向我觉得 ok" | AC-A1, AC-A2 | helper contract review | [ ] |
 | R4 | 不能只在前端打补丁，从根因层（liveness contract）解决 | AC-A1, AC-Z2 | helper 单 contract + 双消费方迁移 | [ ] |
 
@@ -242,19 +243,19 @@ async function getThreadLiveInvocations(
 | 风险 | 缓解 |
 |------|------|
 | zombie 阈值过严，误杀刚断链的长任务（codex 长 invocation 几分钟没 stream chunk） | 默认阈值用 `2 × DraftStore TTL = 600s` 偏长一点；只在 no fresh draft 场景才 zombie；threshold 走 opts 注入，alpha 实测 calibrate |
-| zombie 阈值过松，治不了 zombie | Phase D 加 `liveness_degraded`/`liveness_pending` 事件计数，alpha 实测看真实 zombie 比例 |
+| zombie 阈值过松，治不了 zombie | Phase B (Bundle) 内 AC-B11 加 `liveness_degraded`/`liveness_pending` 事件计数，alpha 实测看真实 zombie 比例 |
 | messages.ts 现有 inline gate 迁移引入 regression（既有 hotfix3 行为兼容） | Phase B 强制保留 P1-2 dedup + wider window 行为，AC-B5 显式守护 |
 | helper 引入跨 store 调用 latency 增加 read endpoint 响应时间 | helper 内部并行 fetch（tracker O(1) + record by id + draft by thread）；cache 不在本 feat scope |
 | 多实例部署后跨进程 tracker 不可见会被误判 zombie | 阈值 + draft freshness 兜底，进程重启后 startup sweep 兜底；多实例正式支持留 F048 Phase B 解决 |
-| Phase C cleanup 路径与 F048 startup sweep 行为漂移 | Phase C 直接复用 F048 现有 sweep helper，不另写一套；cleanup audit log 用同一 schema |
+| cleanup 路径与 F048 startup sweep 行为漂移 | AC-B7 直接复用 F048 现有 sweep helper，不另写一套；cleanup audit log 用同一 schema |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | helper 是否需要 cache 层？高频 endpoint 每次 read 都跨 3 store 拉数据 | ⬜ Phase B 跑出 baseline latency 后定 |
-| OQ-2 | cleanup pathway 入口选 cron / demand-trigger / startup sweep 三种哪种作主？ | ⬜ Phase C 设计阶段拍板，建议 demand-trigger（read endpoint 检测到 zombie 时异步发起）+ startup sweep 双保险 |
-| OQ-3 | `liveness_degraded` 事件是否要做 dedup（同 invocation 短时间多次触发） | ⬜ Phase D 定，参考 F183 `broadcast_rate_warn` 5s warn dedup 范式 |
+| OQ-2 | cleanup pathway 入口选 cron / demand-trigger / startup sweep 三种哪种作主？ | ⬜ AC-B7 设计阶段拍板，建议 demand-trigger（read endpoint 检测到 zombie 时异步发起）+ startup sweep 双保险 |
+| OQ-3 | `liveness_degraded` 事件是否要做 dedup（同 invocation 短时间多次触发） | ⬜ AC-B11 定，参考 F183 `broadcast_rate_warn` 5s warn dedup 范式 |
 | OQ-4 | helper 返回结构是否要扩 `pending` 类型（degraded 但 age 在 grace 期）作显式状态 | ✅ 决定加 `liveness_pending` 事件，但 helper 返回值仍归并到 degraded（避免消费方 schema 三分叉），Phase A 落地时确认 |
 
 ## Key Decisions
@@ -272,7 +273,7 @@ async function getThreadLiveInvocations(
 | KD-9 | candidate 双源 enumeration（records ∪ drafts）+ tracker association guard 含 cross-check `slotClaimedByOtherDraft` | 砚砚 R1 P1-1：record 缺失但 tracker+draft 仍能证明 live 的合法路径必须保留（messages.ts hotfix3 + AC-B5）。砚砚 R1 P1-2：tracker slot key 是 (threadId, catId) 没 invocationId，cat slot 重用时新 slot 不能反向证明旧 record。砚砚 R2 P1：weak association 还得排除 slot 已被其他 draft 强关联的歧义场景，否则 zombie record + 新 record-missing draft 共存会让一个 slot "证明"两个 invocation。修复：buildSlotClaimedByDraft 预计算 earliest-anchored 那个 draft 的 slot ownership；weak record-tracker 和 tracker+draft 都加 `!slotClaimedByOtherDraft` 守护 | 2026-05-07 |
 | KD-10 | strong tracker-backed path（record+tracker / tracker+draft）由 ownership 而非 timing 决定——只有 slot owner（earliest-anchored draft 的主人）能用 | 砚砚 R3 P1：单 slot 同时 timing-anchor 两个 candidate 的 draft（A.createdAt = -90_000 earliest-owner, B.record+B.draft.createdAt = -85_000 也 timing-anchor），原 `slotAssocWithDraft` 只看时间是否能 anchor，B 仍走 strong path 拿 record+tracker。修复：ctx 加 `slotClaimedByThisDraft = slotClaimingDraft?.invocationId === candidate.invocationId`；`tryRecordTracker` 用 `slotClaimedByThisDraft || slotAssocWithRecordSingle`，`tryTrackerDraft` 改用 `slotClaimedByThisDraft`。非 owner 的 record+draft 仍可走 fresh-draft fallback (record+draft) 保持 active，只是不获得 tracker-backed 强证据。Hard 不变量：每个 cat slot 至多 back 一个 tracker-backed source | 2026-05-07 |
 | KD-11 | slot ownership map 必须排除 stale drafts（freshness guard） | 云端 codex review P1（PR #1592 commit 135f00635）：`buildSlotClaimedByDraft` 没检查 freshness，stale draft（`updatedAt > freshDraftWindowMs` 但 DraftStore TTL 还没 reap，例如 caller 注入更短 freshDraftWindow）能 claim cat slot 当 owner，导致 `slotClaimedByOtherDraft=true` 错误 disable 真正 running invocation 的 weak `record+tracker` path——live record 被错降为 `record-only` pending。修复：`buildSlotClaimedByDraft` 预先 filter `drafts` 只保留 fresh 的（`now - updatedAt ≤ freshDraftWindowMs`）；helper 主入口把 `now` / `freshDraftWindowMs` 透传给 buildIndexes/buildSlotClaimedByDraft | 2026-05-08 |
-| KD-12 | F194 phase scope 重新规划：原 4-PR 拆分（A/B/C/D 各一）调整为 2-PR 拆分（A 独立 + B/C/D 合 bundle PR） | 铲屎官 2026-05-08 push back："你这只猫又把每个 phase 拆得很碎吗？我们打算几个 PR 搞定 F194？"。承认 phase A 是 reviewer-burden-driven 拆分（5 轮本地 + 2 轮云端 review 集中在 helper contract），但 Phase B/C/D 紧密耦合（cleanup 消费 helper.zombies[]、diagnostic 记 helper.source/reason），各自独立成 PR 反而让 reviewer 重复 context-switch + 出现"helper 落地但消费方还用旧 inline gate"中间态。重新规划合 1 PR 让端到端 AC-Z1 在同一 review cycle 闭环 | 2026-05-08 |
+| KD-12 | F194 phase scope 重新规划：原 4-phase 拆分（A/B/C/D 各一）合并为 **2-phase**——Phase A 独立 + **Phase B (Bundle)** 单一 phase（消费方迁移 + cleanup + diagnostic + alpha 全在一起）。spec 真相源直接反映"single bundle"，AC 改为连续编号 AC-B1~B16 不再分 sub-phase | 铲屎官 2026-05-08 第二次 push back："我当时喊你把 phase bcd 都合成一个，然后先改 feat md，这样你才不会飘"——我第一次只在 KD-12 写"3 phase 合 1 PR"但 spec phase 章节保留 3 段，导致做实现时仍按 step 1/2a/2b 拆碎，commits 出现 9 个（4 feat + 5 fix review iteration）。第二次纠正：spec phase **章节本身**合并成单一 Phase B (Bundle)，AC 也合并连续编号，让做实现时不再有"按 phase 分步思考"的飘动空间。Phase A 仍独立保留作 contract foundation；Phase B (Bundle) 内部按 B1~B16 子 AC 连续验收，但作为同一 phase 同一 PR 一锅端 close | 2026-05-08 |
 
 ## Timeline
 
@@ -284,14 +285,14 @@ async function getThreadLiveInvocations(
 | 2026-05-07 | 砚砚 → opus-47 架构判断 handoff |
 | 2026-05-07 | opus-47 给方向（helper-based unified read model + zombie detection），砚砚 push back（draft freshness 主信号 + degraded vs zombie 二分 + helper 返回带 source/reason/degraded） |
 | 2026-05-07 | 立项 F194，opus-47 author / 砚砚 reviewer |
-| 2026-05-08 | **Phase A merged (PR #1592, squash `4b5edfdd2`)** — 5 轮本地 review (R1→R5 APPROVE) + 2 轮云端 review (R1 P1 → R5 LGTM) 收敛 6 P1 + 1 P2：dual-source enumeration / cat-slot-reuse weak guard / slot-ownership single-injectivity / spec contract sync / stale-draft freshness guard。helper + 26/26 单测落地，contract 通过，准备进 Phase B 双消费方迁移 |
+| 2026-05-08 | **Phase A merged (PR #1592, squash `4b5edfdd2`)** — 5 轮本地 review (R1→R5 APPROVE) + 2 轮云端 review (R1 P1 → R5 LGTM) 收敛 6 P1 + 1 P2：dual-source enumeration / cat-slot-reuse weak guard / slot-ownership single-injectivity / spec contract sync / stale-draft freshness guard。helper + 26/26 单测落地，contract 通过，准备进 Phase B (Bundle) |
+| 2026-05-08 | **Spec phase scope 第二次纠正（KD-12 强化）**：第一次只在 KD-12 写"3 phase 合 1 PR"但 spec phase 章节保留 3 段，导致做实现时仍按 step 1/2a/2b 拆碎，commits 出现 9 个（4 feat + 5 fix review iteration）。铲屎官 push back：spec phase **章节本身**合并成单一 Phase B (Bundle)，AC 改为连续 AC-B1~B16，让 spec 真相源直接反映"single bundle"。spec 修正版于 main commit push 后，回到 worktree 继续 cleanup + diagnostic + alpha 实施 |
 
 ## Review Gate
 
 - Phase A: helper contract + 单测 review（砚砚跨 family 必过）
 - Phase B: messages + queue 双迁移 review（强守护 F173 hotfix3 行为兼容）
-- Phase C: cleanup pathway review（强守护幂等性 + 与 F048 sweep 语义对齐）
-- Phase D: alpha 愿景守护（非作者非 reviewer 猫，对照铲屎官原话出对照表）
+- Phase B (Bundle): 单一 PR review covering AC-B1~B16 一次性闭环；alpha 愿景守护（非作者非 reviewer 猫，对照铲屎官原话出对照表）放在 PR merge 后
 
 ## Links
 
