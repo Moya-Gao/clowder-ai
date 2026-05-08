@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F193: Cross-Thread Communication Unification
 
-> **Status**: spec | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
 
 ## Why
 
@@ -151,6 +151,7 @@ created: 2026-05-07
 | 日期 | 事件 |
 |------|------|
 | 2026-05-07 | 三猫审计（46 + 47 + 砚砚）+ 立项 |
+| 2026-05-08 | Phase A merged (PR #1599) — KD-1 enforcement + AC-A4 cross-post fail-closed + F052 boundary |
 
 ## Review Gate
 
