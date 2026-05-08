@@ -153,6 +153,7 @@ created: 2026-05-07
 | 2026-05-07 | 三猫审计（46 + 47 + 砚砚）+ 立项 |
 | 2026-05-08 | Phase A merged (PR #1599) — KD-1 enforcement + AC-A4 cross-post fail-closed + F052 boundary |
 | 2026-05-08 | Phase B implementation start — system prompt cross_post_message + receiver-side reply hint + KD-1 post_message hint (PR pending) |
+| 2026-05-08 | Phase B merged (PR #1601) — typed crossThreadReplyHint field + worklist+queue hydrate + 砚砚 3 rounds review + cloud first-pass |
 
 ## Review Gate
 
