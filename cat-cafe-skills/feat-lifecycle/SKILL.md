@@ -180,8 +180,10 @@ harness / skill / MCP / shared-rules 类 feature 的 spec **必须含 `## Eval /
 1. 判断功能类型 → 选择确认路径
 2. 前端：画 wireframe（Pencil / 文字版 ASCII）→ 发铲屎官 → 等 OK
 3. 后端：`collaborative-thinking` → 拉相关猫讨论 API 契约/数据模型
-4. 架构：猫猫讨论 → 结论给铲屎官 → 铲屎官拍板
+4. 架构：猫猫讨论 → 结论给铲屎官 → **必须附 Decision Packet**（格式见 `refs/decision-matrix.md`）→ 铲屎官拍板
 5. 确认产出归档 `docs/discussions/{date}-{fid}-design/`
+
+**Design Gate OQ 升级规则**：先判断可逆性维度（见 `refs/decision-matrix.md`）——回滚成本低+不碰愿景/安全/外部契约/显著成本 → 猫猫自决，不升级 CVO。需要升级时，OQ 必须用 Decision Packet 格式，不能只列"模糊问题清单"。
 
 **元审美自检**（Design Gate 必问，F163 教训 + F167 Round 4 canon 化）🔴
 

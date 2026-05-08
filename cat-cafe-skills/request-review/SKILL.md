@@ -80,7 +80,7 @@ BEFORE 发 review 请求:
 关键字段提醒：
 - **Original Requirements**: 必填，≤5 行铲屎官原话 + 来源文档路径，并明确请 reviewer 对照判断
 - **Architecture Ownership**: 必填，列 `Architecture cell` / `Map delta` / `Why`，并请 reviewer 检查 diff 是否与 `Map delta` 一致
-- **Open Questions**: 标注 review 重点，帮 reviewer 快速定位
+- **Open Questions**: 分为两类——**技术 OQ**（给 reviewer 的，如实现正确性）和 **价值 OQ**（需要 CVO 判断的，附 Decision Packet——格式见 `refs/decision-matrix.md`）。不混在一起
 - **自检证据**: 附 quality-gate report 摘要 + 测试命令输出 + 根目录工件闸门输出
 
 **F191 reviewer 视角**：

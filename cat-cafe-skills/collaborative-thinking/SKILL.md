@@ -64,9 +64,17 @@ Phase 6: 铲屎官反馈 + 最终确认 → 进入 Mode C
 
 **Phase 4 综合必须包含**：各方观点摘要 / 共识区 / **分歧区**（不要抹平！）/ 待决事项 / 行动项。
 
+**Open Questions 分类（必须拆开）**：
+- **技术 OQ**：给猫猫解决的（实现细节、方案选型中可回滚的部分）
+- **价值 OQ**：需要 CVO 判断的 → **必须附 Decision Packet**（格式见 `refs/decision-matrix.md`）
+
+如果所有 OQ 都是技术型且回滚成本低，不升级 CVO——猫猫自决 + 事后通报。
+
 **扇入者默认**：Brainstorm 类 → 铲屎官；技术讨论 → 指定综合者 + 指定把关者。铲屎官可随时覆盖。
 
 ## Mode C: 收敛沉淀 (Convergence)
+
+**收敛时 CVO 升级检查**：如果收敛结论中有需要 CVO 拍板的 Open Question，必须附 Decision Packet（格式见 `refs/decision-matrix.md`）。先判断可逆性：回滚成本低的猫猫自决，不升级。
 
 **收敛三件套——每项必须显式回答"有/没有"，不允许跳过**：
 
