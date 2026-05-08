@@ -156,6 +156,7 @@ created: 2026-05-07
 | 2026-05-08 | Phase B implementation start — system prompt cross_post_message + receiver-side reply hint + KD-1 post_message hint (PR pending) |
 | 2026-05-08 | Phase B merged (PR #1601) — typed crossThreadReplyHint field + worklist+queue hydrate + 砚砚 3 rounds review + cloud first-pass |
 | 2026-05-08 | Phase C implementation — limb.ts entry point + tool-registration createLimbServer 守护 + capability-orchestrator Phase C 语义翻转 (auto-migrate stale 3-split / legacy all-in-one configs) + user-local migration doc (PR pending) |
+| 2026-05-08 | Phase C merged (PR #1605, squash `bd852029a`) — `healCatCafeMcpTopology` shared chain across 5 call sites (GET/PATCH/install/delete/orchestrate) + 9 rounds cloud + 4 rounds local 砚砚 review (R7 透明窗口 P1: write-path heal seam) |
 
 ## Review Gate
 
