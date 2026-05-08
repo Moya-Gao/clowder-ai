@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { batchApplyLabels, filterSuggestions } from '../batch-apply-labels';
+import {
+  batchApplyLabels,
+  createAndResolveLabels,
+  extractPendingLabelSuggestions,
+  filterSuggestions,
+} from '../batch-apply-labels';
 
 describe('batchApplyLabels', () => {
   it('applies all assignments and returns no failures on success', async () => {
@@ -102,5 +107,74 @@ describe('filterSuggestions', () => {
 
     expect(result.size).toBe(1);
     expect(result.has('t-visible-1')).toBe(false);
+  });
+});
+
+describe('extractPendingLabelSuggestions', () => {
+  const validThreads = new Set(['t1', 't2']);
+
+  it('extracts pending labels and name-based assignments', () => {
+    const raw = {
+      newLabels: [
+        { name: '开发', color: '#5B8C5A' },
+        { name: '闲聊', color: '#C47F52' },
+      ],
+      assignments: { t1: ['开发'], t2: ['闲聊'] },
+    };
+    const result = extractPendingLabelSuggestions(raw, validThreads);
+
+    expect(result).not.toBeNull();
+    expect(result!.pendingLabels).toEqual([
+      { name: '开发', color: '#5B8C5A' },
+      { name: '闲聊', color: '#C47F52' },
+    ]);
+    expect(result!.nameAssignments.get('t1')).toEqual(['开发']);
+    expect(result!.nameAssignments.get('t2')).toEqual(['闲聊']);
+  });
+
+  it('filters out invalid thread IDs and label names', () => {
+    const raw = {
+      newLabels: [{ name: '开发', color: '#5B8C5A' }],
+      assignments: { t1: ['开发'], 'bad-thread': ['开发'], t2: ['不存在'] },
+    };
+    const result = extractPendingLabelSuggestions(raw, validThreads);
+
+    expect(result!.nameAssignments.size).toBe(1);
+    expect(result!.nameAssignments.get('t1')).toEqual(['开发']);
+  });
+
+  it('returns null when newLabels is missing', () => {
+    expect(extractPendingLabelSuggestions({ assignments: {} }, validThreads)).toBeNull();
+  });
+});
+
+describe('createAndResolveLabels', () => {
+  it('creates labels and maps names to IDs in assignments', async () => {
+    let counter = 0;
+    const createLabel = vi.fn().mockImplementation(async () => ({ id: `lbl-${++counter}` }));
+    const pending = [
+      { name: '开发', color: '#5B8C5A' },
+      { name: '闲聊', color: '#C47F52' },
+    ];
+    const nameAssignments = new Map([
+      ['t1', ['开发']],
+      ['t2', ['闲聊']],
+    ]);
+
+    const result = await createAndResolveLabels(pending, nameAssignments, createLabel);
+
+    expect(createLabel).toHaveBeenCalledTimes(2);
+    expect(result.get('t1')).toEqual(['lbl-1']);
+    expect(result.get('t2')).toEqual(['lbl-2']);
+  });
+
+  it('skips assignments when createLabel returns null', async () => {
+    const createLabel = vi.fn().mockResolvedValue(null);
+    const pending = [{ name: '开发', color: '#5B8C5A' }];
+    const nameAssignments = new Map([['t1', ['开发']]]);
+
+    const result = await createAndResolveLabels(pending, nameAssignments, createLabel);
+
+    expect(result.size).toBe(0);
   });
 });

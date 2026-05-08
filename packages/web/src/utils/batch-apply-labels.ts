@@ -12,6 +12,51 @@ export function filterSuggestions(
   return map;
 }
 
+export interface PendingLabelSpec {
+  name: string;
+  color: string;
+}
+
+export function extractPendingLabelSuggestions(
+  raw: Record<string, unknown>,
+  validThreadIds: Set<string>,
+): { pendingLabels: PendingLabelSpec[]; nameAssignments: Map<string, string[]> } | null {
+  const newLabels = raw.newLabels as { name: string; color: string }[] | undefined;
+  const assignments = raw.assignments as Record<string, string[]> | undefined;
+  if (!Array.isArray(newLabels) || !assignments) return null;
+
+  const pendingLabels = newLabels.filter((s) => s.name && s.color);
+  const validNames = new Set(pendingLabels.map((l) => l.name));
+  const nameAssignments = new Map<string, string[]>();
+  for (const [tid, names] of Object.entries(assignments)) {
+    if (!validThreadIds.has(tid) || !Array.isArray(names)) continue;
+    const filtered = (names as string[]).filter((n) => validNames.has(n));
+    if (filtered.length > 0) nameAssignments.set(tid, filtered);
+  }
+  return { pendingLabels, nameAssignments };
+}
+
+type CreateLabelFn = (name: string, color: string) => Promise<{ id: string } | null>;
+
+export async function createAndResolveLabels(
+  pendingLabels: PendingLabelSpec[],
+  nameAssignments: Map<string, string[]>,
+  createLabel: CreateLabelFn,
+): Promise<Map<string, string[]>> {
+  const nameToId = new Map<string, string>();
+  for (const spec of pendingLabels) {
+    const label = await createLabel(spec.name, spec.color);
+    if (label) nameToId.set(spec.name, label.id);
+  }
+
+  const map = new Map<string, string[]>();
+  for (const [tid, names] of nameAssignments) {
+    const ids = names.map((n) => nameToId.get(n)).filter((id): id is string => !!id);
+    if (ids.length > 0) map.set(tid, ids);
+  }
+  return map;
+}
+
 export interface BatchApplyResult {
   failedThreadIds: string[];
 }

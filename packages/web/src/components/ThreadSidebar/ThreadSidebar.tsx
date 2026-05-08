@@ -481,6 +481,8 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
   const [showOrganizer, setShowOrganizer] = useState(false);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<Map<string, string[]> | undefined>();
+  const pendingNewLabelsRef = useRef<{ name: string; color: string }[]>([]);
+  const pendingNameAssignmentsRef = useRef<Map<string, string[]>>(new Map());
 
   const uncategorizedThreads = useMemo(
     () => liveThreads.filter((t) => !t.labels || t.labels.length === 0),
@@ -490,18 +492,38 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
   const ORGANIZER_TITLE = 'Thread 整理助手';
 
   const buildTriggerContent = useCallback(() => {
-    const labelInfo = labels.map((l) => `${l.name} (${l.id})`).join(', ');
     const uncatList = uncategorizedThreads
       .slice(0, 50)
       .map((t) => `- id: "${t.id}" title: "${t.title || t.id}"`)
       .join('\n');
+
+    if (labels.length > 0) {
+      const labelInfo = labels.map((l) => `${l.name} (${l.id})`).join(', ');
+      return [
+        '帮我整理未分类的 thread。',
+        '',
+        `当前有 ${uncategorizedThreads.length} 个未分类 thread，可用标签：${labelInfo}`,
+        '',
+        '## 未分类 Thread',
+        uncatList,
+        '',
+        '请在回复末尾附上机器可读建议（用 HTML 注释包裹，modal 会自动解析）：',
+        '<!-- SUGGESTIONS_JSON:{"threadId1":["labelId1"],"threadId2":["labelId2","labelId3"]} -->',
+        'key = thread id，value = 建议的 label id 数组。只用上面列出的 id。',
+      ].join('\n');
+    }
+
     return [
-      '帮我整理未分类的 thread。',
+      '帮我整理未分类的 thread。当前没有任何标签，请先建议一套标签体系再分类。',
       '',
-      `当前有 ${uncategorizedThreads.length} 个未分类 thread，可用标签：${labelInfo}`,
+      `当前有 ${uncategorizedThreads.length} 个未分类 thread（无标签）`,
       '',
       '## 未分类 Thread',
       uncatList,
+      '',
+      '请在回复末尾附上机器可读建议（用 HTML 注释包裹，modal 会自动解析）：',
+      '<!-- SUGGESTIONS_JSON:{"newLabels":[{"name":"标签名","color":"#hex"}],"assignments":{"threadId1":["标签名"]}} -->',
+      'newLabels = 建议创建的标签（名称+十六进制颜色），assignments = 每个 thread 建议的标签名数组。',
     ].join('\n');
   }, [labels, uncategorizedThreads]);
 
@@ -520,6 +542,34 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
     await loadThreads();
     return created as Thread;
   }, [loadThreads]);
+
+  const parseSuggestionsJson = useCallback(
+    async (jsonStr: string) => {
+      const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
+      const validThreadIds = new Set(uncategorizedThreads.map((t) => t.id));
+      if ('newLabels' in parsed) {
+        const { extractPendingLabelSuggestions } = await import('@/utils/batch-apply-labels');
+        const result = extractPendingLabelSuggestions(parsed, validThreadIds);
+        if (!result) return new Map<string, string[]>();
+        pendingNewLabelsRef.current = result.pendingLabels;
+        pendingNameAssignmentsRef.current = result.nameAssignments;
+        const map = new Map<string, string[]>();
+        for (const [tid, names] of result.nameAssignments) {
+          map.set(
+            tid,
+            names.map((n) => `pending:${n}`),
+          );
+        }
+        return map;
+      }
+      pendingNewLabelsRef.current = [];
+      pendingNameAssignmentsRef.current = new Map();
+      const { filterSuggestions } = await import('@/utils/batch-apply-labels');
+      const validLabelIds = new Set(labels.map((l) => l.id));
+      return filterSuggestions(parsed, validThreadIds, validLabelIds);
+    },
+    [uncategorizedThreads, labels],
+  );
 
   const handleOrganizeWithCat = useCallback(async () => {
     setShowOrganizer(true);
@@ -547,24 +597,22 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
         const msgRes = await apiFetch(`/api/messages?threadId=${encodeURIComponent(threadId)}&limit=5`);
         if (!msgRes.ok) continue;
         const data = await msgRes.json();
-        const catMsg = (data.messages ?? []).find(
+        const catMsgs = (data.messages ?? []).filter(
           (m: { catId?: string; timestamp: number; isDraft?: boolean }) =>
             m.catId && m.timestamp > sentAt && !m.isDraft,
         );
-        if (!catMsg) continue;
-        const match = (catMsg.content as string).match(/<!-- SUGGESTIONS_JSON:([\s\S]*?) -->/);
+        if (catMsgs.length === 0) continue;
+        const withJson = catMsgs.find((m: { content: string }) => /<!-- SUGGESTIONS_JSON:/.test(m.content as string));
+        if (!withJson) continue;
+        const match = (withJson.content as string).match(/<!-- SUGGESTIONS_JSON:([\s\S]*?) -->/);
         if (match?.[1]) {
           try {
-            const parsed = JSON.parse(match[1]) as Record<string, unknown>;
-            const { filterSuggestions } = await import('@/utils/batch-apply-labels');
-            const validThreadIds = new Set(uncategorizedThreads.map((t) => t.id));
-            const validLabelIds = new Set(labels.map((l) => l.id));
-            setSuggestions(filterSuggestions(parsed, validThreadIds, validLabelIds));
+            setSuggestions(await parseSuggestionsJson(match[1]));
           } catch {
             /* JSON malformed — modal stays usable without pre-fill */
           }
+          break;
         }
-        break;
       }
     } catch {
       useToastStore
@@ -573,7 +621,7 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
     } finally {
       setSuggestLoading(false);
     }
-  }, [findOrCreateOrganizerThread, buildTriggerContent, uncategorizedThreads, labels]);
+  }, [findOrCreateOrganizerThread, buildTriggerContent, parseSuggestionsJson]);
 
   const handleSuggestAll = useCallback(async () => {
     setSuggestLoading(true);
@@ -595,36 +643,63 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
         const msgRes = await apiFetch(`/api/messages?threadId=${encodeURIComponent(threadId)}&limit=5`);
         if (!msgRes.ok) continue;
         const data = await msgRes.json();
-        const catMsg = (data.messages ?? []).find(
+        const catMsgs = (data.messages ?? []).filter(
           (m: { catId?: string; timestamp: number; isDraft?: boolean }) =>
             m.catId && m.timestamp > sentAt && !m.isDraft,
         );
-        if (!catMsg) continue;
-        const match = (catMsg.content as string).match(/<!-- SUGGESTIONS_JSON:([\s\S]*?) -->/);
+        if (catMsgs.length === 0) continue;
+        const withJson = catMsgs.find((m: { content: string }) => /<!-- SUGGESTIONS_JSON:/.test(m.content as string));
+        if (!withJson) continue;
+        const match = (withJson.content as string).match(/<!-- SUGGESTIONS_JSON:([\s\S]*?) -->/);
         if (match?.[1]) {
           try {
-            const parsed = JSON.parse(match[1]) as Record<string, unknown>;
-            const { filterSuggestions } = await import('@/utils/batch-apply-labels');
-            const validThreadIds = new Set(uncategorizedThreads.map((t) => t.id));
-            const validLabelIds = new Set(labels.map((l) => l.id));
-            setSuggestions(filterSuggestions(parsed, validThreadIds, validLabelIds));
+            setSuggestions(await parseSuggestionsJson(match[1]));
           } catch {
             /* JSON malformed — modal stays usable without pre-fill */
           }
+          break;
         }
-        break;
       }
     } catch {
       /* network error — loading will stop, modal stays usable */
     } finally {
       setSuggestLoading(false);
     }
-  }, [findOrCreateOrganizerThread, buildTriggerContent]);
+  }, [findOrCreateOrganizerThread, buildTriggerContent, parseSuggestionsJson]);
 
   const handleBatchApplyLabels = useCallback(async (assignments: Map<string, string[]>) => {
-    const { batchApplyLabels } = await import('@/utils/batch-apply-labels');
+    const { batchApplyLabels, createAndResolveLabels } = await import('@/utils/batch-apply-labels');
     const updateLabels = useChatStore.getState().updateThreadLabels;
-    const { failedThreadIds } = await batchApplyLabels(assignments, updateLabels);
+
+    let resolvedAssignments = assignments;
+    if (pendingNewLabelsRef.current.length > 0) {
+      const { useLabelStore } = await import('@/stores/label-store');
+      const usedNames = new Set<string>();
+      const nameAssignments = new Map<string, string[]>();
+      for (const [tid, labelIds] of assignments) {
+        const names = labelIds.filter((id) => id.startsWith('pending:')).map((id) => id.slice(8));
+        if (names.length > 0) {
+          nameAssignments.set(tid, names);
+          for (const n of names) usedNames.add(n);
+        }
+      }
+      const usedPending = pendingNewLabelsRef.current.filter((spec) => usedNames.has(spec.name));
+      const resolved = await createAndResolveLabels(usedPending, nameAssignments, (name, color) =>
+        useLabelStore.getState().createLabel(name, color),
+      );
+      resolvedAssignments = new Map<string, string[]>();
+      for (const [tid, labelIds] of assignments) {
+        const realIds = labelIds.filter((id) => !id.startsWith('pending:'));
+        const newIds = resolved.get(tid) ?? [];
+        const merged = [...realIds, ...newIds];
+        if (merged.length > 0) resolvedAssignments.set(tid, merged);
+      }
+      setSuggestions(resolvedAssignments);
+      pendingNewLabelsRef.current = [];
+      pendingNameAssignmentsRef.current = new Map();
+    }
+
+    const { failedThreadIds } = await batchApplyLabels(resolvedAssignments, updateLabels);
     if (failedThreadIds.length === 0) {
       setSuggestions(undefined);
       setShowOrganizer(false);
@@ -1063,9 +1138,21 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
           onClose={() => {
             setShowOrganizer(false);
             setSuggestions(undefined);
+            pendingNewLabelsRef.current = [];
+            pendingNameAssignmentsRef.current = new Map();
           }}
           threads={uncategorizedThreads}
-          labels={labels}
+          labels={[
+            ...labels,
+            ...pendingNewLabelsRef.current.map((spec) => ({
+              id: `pending:${spec.name}`,
+              name: spec.name,
+              color: spec.color,
+              sortOrder: 0,
+              createdBy: 'auto',
+              createdAt: Date.now(),
+            })),
+          ]}
           onApply={handleBatchApplyLabels}
           onSuggestAll={handleSuggestAll}
           initialSuggestions={suggestions}
