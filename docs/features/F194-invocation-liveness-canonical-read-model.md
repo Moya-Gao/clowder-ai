@@ -151,6 +151,8 @@ async function getThreadLiveInvocations(
 - 不接任何消费方
 - contract 通过 review 后才进 Phase B
 
+> **Phase scope 重新规划（CVO ack 2026-05-08）**：原 4-PR 拆分（A/B/C/D 各一个）改为 **2-PR 拆分** —— Phase A 已独立 merged（PR #1592, squash `4b5edfdd2`）；**Phase B/C/D 合并为单一 bundle PR** 一锅端，因为消费方迁移 + zombie cleanup + diagnostic 紧密耦合（cleanup 消费 helper.zombies[]、diagnostic 记 helper.source/reason），合 1 PR 让 reviewer 一次看清整条链路 + 端到端 AC-Z1（裂气泡消失）在同一 PR 闭环。AC-B/C/D 仍按段保留作 review checklist；alpha 实测仍是合入后的愿景守护步骤。详见 KD-12。
+
 ### Phase B: 双消费方迁移（messages + queue 同 PR 收口）
 
 - `messages.ts:1407-1465` 现有 inline `recordActive || trackerActive` gate 迁移到 helper（保留现有过滤行为：active drafts 只保留 helper 认为 live 的，但接受 `degraded` flag）
@@ -270,6 +272,7 @@ async function getThreadLiveInvocations(
 | KD-9 | candidate 双源 enumeration（records ∪ drafts）+ tracker association guard 含 cross-check `slotClaimedByOtherDraft` | 砚砚 R1 P1-1：record 缺失但 tracker+draft 仍能证明 live 的合法路径必须保留（messages.ts hotfix3 + AC-B5）。砚砚 R1 P1-2：tracker slot key 是 (threadId, catId) 没 invocationId，cat slot 重用时新 slot 不能反向证明旧 record。砚砚 R2 P1：weak association 还得排除 slot 已被其他 draft 强关联的歧义场景，否则 zombie record + 新 record-missing draft 共存会让一个 slot "证明"两个 invocation。修复：buildSlotClaimedByDraft 预计算 earliest-anchored 那个 draft 的 slot ownership；weak record-tracker 和 tracker+draft 都加 `!slotClaimedByOtherDraft` 守护 | 2026-05-07 |
 | KD-10 | strong tracker-backed path（record+tracker / tracker+draft）由 ownership 而非 timing 决定——只有 slot owner（earliest-anchored draft 的主人）能用 | 砚砚 R3 P1：单 slot 同时 timing-anchor 两个 candidate 的 draft（A.createdAt = -90_000 earliest-owner, B.record+B.draft.createdAt = -85_000 也 timing-anchor），原 `slotAssocWithDraft` 只看时间是否能 anchor，B 仍走 strong path 拿 record+tracker。修复：ctx 加 `slotClaimedByThisDraft = slotClaimingDraft?.invocationId === candidate.invocationId`；`tryRecordTracker` 用 `slotClaimedByThisDraft || slotAssocWithRecordSingle`，`tryTrackerDraft` 改用 `slotClaimedByThisDraft`。非 owner 的 record+draft 仍可走 fresh-draft fallback (record+draft) 保持 active，只是不获得 tracker-backed 强证据。Hard 不变量：每个 cat slot 至多 back 一个 tracker-backed source | 2026-05-07 |
 | KD-11 | slot ownership map 必须排除 stale drafts（freshness guard） | 云端 codex review P1（PR #1592 commit 135f00635）：`buildSlotClaimedByDraft` 没检查 freshness，stale draft（`updatedAt > freshDraftWindowMs` 但 DraftStore TTL 还没 reap，例如 caller 注入更短 freshDraftWindow）能 claim cat slot 当 owner，导致 `slotClaimedByOtherDraft=true` 错误 disable 真正 running invocation 的 weak `record+tracker` path——live record 被错降为 `record-only` pending。修复：`buildSlotClaimedByDraft` 预先 filter `drafts` 只保留 fresh 的（`now - updatedAt ≤ freshDraftWindowMs`）；helper 主入口把 `now` / `freshDraftWindowMs` 透传给 buildIndexes/buildSlotClaimedByDraft | 2026-05-08 |
+| KD-12 | F194 phase scope 重新规划：原 4-PR 拆分（A/B/C/D 各一）调整为 2-PR 拆分（A 独立 + B/C/D 合 bundle PR） | 铲屎官 2026-05-08 push back："你这只猫又把每个 phase 拆得很碎吗？我们打算几个 PR 搞定 F194？"。承认 phase A 是 reviewer-burden-driven 拆分（5 轮本地 + 2 轮云端 review 集中在 helper contract），但 Phase B/C/D 紧密耦合（cleanup 消费 helper.zombies[]、diagnostic 记 helper.source/reason），各自独立成 PR 反而让 reviewer 重复 context-switch + 出现"helper 落地但消费方还用旧 inline gate"中间态。重新规划合 1 PR 让端到端 AC-Z1 在同一 review cycle 闭环 | 2026-05-08 |
 
 ## Timeline
 
