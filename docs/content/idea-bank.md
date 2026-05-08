@@ -28,23 +28,25 @@ created: 2026-05-06
 
 ### 4. 🔥 我一个程序员，帮清华博士做了一份导师级实验计划
 - **角度**：不是"AI 多强"，是**外行如何引导 AI 系统做出内行震撼的成果**。铲屎官完全不懂生物信息，但通过 6 步引导四只猫协作，产出了让清华本硕博说"导师级别"的实验计划
-- **素材来源**：📦 "接入论文库 生物信息" thread（thread_mol4rsfae9ubjfyf）+ 朋友聊天截图（需授权）+ 7 份产出文件（`docs/research/2026-04-30-klra5-cd8-treg/`）
-- **铲屎官的 6 步引导链路**（这才是核心素材）：
-  1. **先摸工具边界**：问猫"你们怎么获取论文？有什么 MCP？"——不急着干活，先知道能力上限
-  2. **组织独立思考竞赛**：让四只猫各自写一份 deep-research 提示词——制造视角多样性
-  3. **指定收敛者**：让砚砚整合四猫方案的优点，再让大家 review
-  4. **送云端执行**：把收敛后的提示词发给云端 Claude + Gemini Deep Research
-  5. **交叉讨论**：让本地猫读云端报告做交叉验证和综合
-  6. **质量把控**：朋友说"太晦涩"，立刻让另一只猫出"纯人话版本"
+- **素材来源**：📦 "接入论文库 生物信息" thread（thread_mol4rsfae9ubjfyf）+ 朋友聊天截图（需授权）+ 7 份产出文件（`docs/research/2026-04-30-klra5-cd8-treg/`）+ 📦 长文草稿 `docs/content/drafts/longform-001-agent-team-leadership.md`（47 起草，完整脱敏）
+- **铲屎官的 7 步引导链路**（这才是核心素材，47 补了 Step 4）：
+  1. **能力边界探测**：问猫"你们怎么获取论文？有什么 MCP？"——先校准，不假设
+  2. **独立思考竞赛**：让四只猫各自写一份提示词——制造视角冲突
+  3. **角色解耦**：让没写方案的砚砚做综合——生产者≠综合者
+  4. **前置同行评审**：收敛版送云端之前，让另一只猫挑刺——peer review 前置到贵执行之前
+  5. **工具分级**：收敛版发给云端 Claude + Gemini Deep Research——不同工具适合不同阶段
+  6. **多源验证**：让本地猫读云端报告做交叉验证——拿到报告先怀疑
+  7. **反馈驱动迭代**：朋友说"太晦涩"，立刻出"纯人话版本"——外行的清醒 > 内行的惯性
 - **朋友原话金句**："一年半载比不上他半天"、"至少一半实验是导师级别的"、"比导师好用多了，而且 never emotional"、"好几个文献我们人工找半年的他也有了"、"有几个实验我真得补了"
 - **核心框架**：**Agent Team Leadership**（47 命名）——6 步不是"用 AI 的技能"，是"领导团队的技能"，只是团队成员是 AI。把人换成实习生，链路完全一样：先确认能力→多人独立给方案→另一人综合→升级给资深顾问→交叉 review→基于客户反馈迭代
-- **6 个 meta-skill 的显性命名**（47 提炼）：
-  1. 能力边界探测（capability discovery）— 不假设工具有能力，先校准
-  2. 反共谋多视角设计（red-team diversity）— 故意制造视角冲突
-  3. 角色解耦（separation of producer & integrator）— 综合者≠生产者
-  4. 工具分级感知（tool tiering）— 知道哪个工具适合哪个阶段
-  5. 多源验证（independent verification）— 拿到报告先怀疑
-  6. 反馈驱动迭代（user empathy + tight loop）— 基于反馈调整
+- **7 个 meta-skill 的显性命名**（47 提炼，详见长文草稿）：
+  1. Capability Discovery — 先校准工具能力边界
+  2. Red-Team Diversity — 制造视角冲突
+  3. Producer-Integrator Separation — 综合者≠生产者
+  4. Pre-execution Peer Review — peer review 前置到贵执行之前（47 补充）
+  5. Tool Tiering — 不同工具适合不同阶段
+  6. Independent Verification — 多源交叉验证
+  7. User Empathy + Tight Loop — 基于真实用户反馈迭代
 - **为什么不是 prompt engineering**：博导领域满分但裸 prompt 用 Gemini，结果远低于铲屎官这套 6 步链路。差距不在 prompt 写法，在"组织力"。这就是 Agent Leadership Literacy 的 founding case
 - **三层受众**：泛用户看"博士都慌了？外行半天干了一年半的活？"（震撼）、次核心看"这 6 步我也能学，不需要懂领域知识"（方法论）、核心看"Agent Team Leadership 的系统设计"（架构）
 - **注意**：需要朋友授权使用聊天截图，研究细节必须脱敏
@@ -86,6 +88,7 @@ created: 2026-05-06
 | 猫猫杀名场面 | `docs/stories/mafia-game-highlights/` | 完整 | 娱乐 |
 | 深夜撸铁陪伴 | `docs/stories/late-night-gym-companionship/` | 完整 | 情感 |
 | AUDHD 自观察 | `docs/stories/audhd-self-observation/README.md` | 650 行 | 深度/共鸣 |
+| Agent Team Leadership 长文 | `docs/content/drafts/longform-001-agent-team-leadership.md` | 完整草稿 | idea #4 核心素材 |
 
 ---
 
