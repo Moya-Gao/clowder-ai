@@ -43,6 +43,7 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 2. `inferCollectionId` silent skip：anchor 无法推断 collection 时整个节点 + 边被静默丢弃，无日志
 3. `inferCollectionIdSync` 设计缺陷：collection ID 是 `project:cat-cafe` 但 anchor 是裸 `"F188"`，sync 路径永远匹配不上
 4. unresolved placeholder 在 mixed sensitivity graph 中泄露/不一致：private edge 发现的 unresolved anchor 需要统一 opaque 化，且 node/edge endpoint 必须一致
+5. case-insensitive 查询 anchor（如 `f186`）只显示中心节点：GraphResolver 需用 canonical anchor 贯穿 edge lookup / emitted endpoints，同时保留受 store 约束的 raw alias 做多跳展开
 
 **三种新 edge 来源**：
 1. WikiLink `[[...]]` → edge（Scanner 已提取 WikiLink 到 FTS 关键词，差最后一步写 `addEdge()`）
@@ -148,6 +149,7 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 | 2026-05-08 | Phase C merged (PR #1585) — edge extraction pipeline + graph bug fixes + UI美化 |
 | 2026-05-08 | Phase C review follow-up merged (PR #1596) — unresolved anchor redaction + doc_link path key stability |
 | 2026-05-08 | Phase B merged (PR #1604) — 5 health metrics (stale anchors, search quality, orphan edges, replay drift, KF pending) + AC-C4 |
+| 2026-05-08 | Phase C graph anchor/UI follow-up merged (PR #1606) — lowercase anchor canonicalization + compact graph labels |
 
 ## Review Gate
 
