@@ -8,6 +8,7 @@ import {
   checkArchitectureCellDeclarations,
   checkCodeAnchors,
   checkDiffArchitectureNouns,
+  checkInProgressFeaturesMissingCell,
   loadOwnershipCells,
 } from './check-architecture-ownership.mjs';
 
@@ -104,4 +105,89 @@ test('does not warn for architecture nouns when diff declares Architecture cell'
 `;
 
   assert.deepEqual(checkDiffArchitectureNouns(diff), []);
+});
+
+test('warns when in-progress feature spec is missing Architecture cell declaration', () => {
+  const root = tempRepo();
+  const featuresDir = join(root, 'features');
+  mkdirSync(featuresDir);
+
+  writeFileSync(
+    join(featuresDir, 'F200-missing-cell.md'),
+    `---
+feature_ids: [F200]
+doc_kind: spec
+---
+
+# F200: Missing Cell
+
+> **Status**: in-progress | **Owner**: 布偶猫
+
+## Why
+
+Some reason.
+`,
+  );
+
+  writeFileSync(
+    join(featuresDir, 'F201-has-cell.md'),
+    `---
+feature_ids: [F201]
+doc_kind: spec
+---
+
+# F201: Has Cell
+
+> **Status**: in-progress | **Owner**: 布偶猫
+
+Architecture cell: dispatch
+Map delta: none
+Why: Extends dispatch.
+`,
+  );
+
+  writeFileSync(
+    join(featuresDir, 'F202-done.md'),
+    `---
+feature_ids: [F202]
+doc_kind: spec
+---
+
+# F202: Already Done
+
+> **Status**: done | **Owner**: 布偶猫
+`,
+  );
+
+  const warnings = checkInProgressFeaturesMissingCell(featuresDir, root);
+
+  assert.deepEqual(
+    warnings.map((warning) => warning.message),
+    ['features/F200-missing-cell.md is in-progress but missing Architecture cell declaration'],
+  );
+});
+
+test('does not warn for in-progress feature with Architecture cell: none', () => {
+  const root = tempRepo();
+  const featuresDir = join(root, 'features');
+  mkdirSync(featuresDir);
+
+  writeFileSync(
+    join(featuresDir, 'F203-none-cell.md'),
+    `---
+feature_ids: [F203]
+doc_kind: spec
+---
+
+# F203: Process Feature
+
+> **Status**: in-progress | **Owner**: 布偶猫
+
+Architecture cell: none
+Map delta: none
+Why: Process feature, no code architecture.
+`,
+  );
+
+  assert.deepEqual(checkInProgressFeaturesMissingCell(featuresDir, root), []);
 });

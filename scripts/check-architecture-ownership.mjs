@@ -7,6 +7,7 @@
  * - ownership cell code_anchors still exist
  * - Architecture cell declarations point at known cells
  * - git diff adds architecture nouns without an Architecture cell declaration
+ * - in-progress feature specs missing Architecture cell declaration
  *
  * It does not decide whether an architecture choice is correct.
  */
@@ -201,6 +202,38 @@ function addedDiffLines(diffText) {
   return added;
 }
 
+const FEATURE_STATUS_PATTERN = /\*\*Status\*\*:\s*([\w-]+)/i;
+const HAS_CELL_DECLARATION = /^\s*Architecture cell:\s*\S+/im;
+
+export function checkInProgressFeaturesMissingCell(featuresDir, baseDir = REPO_ROOT) {
+  if (!existsSync(featuresDir)) return [];
+  const warnings = [];
+
+  const files = readdirSync(featuresDir)
+    .filter((f) => /^F\d+.*\.md$/.test(f))
+    .sort();
+
+  for (const file of files) {
+    const filePath = join(featuresDir, file);
+    const markdown = readFileSync(filePath, 'utf8');
+    const stripped = stripFencedCode(markdown);
+
+    const statusMatch = stripped.match(FEATURE_STATUS_PATTERN);
+    if (!statusMatch || statusMatch[1].toLowerCase() !== 'in-progress') continue;
+
+    if (!HAS_CELL_DECLARATION.test(stripped)) {
+      warnings.push(
+        warning(
+          'in-progress-missing-architecture-cell',
+          `${displayPath(filePath, baseDir)} is in-progress but missing Architecture cell declaration`,
+        ),
+      );
+    }
+  }
+
+  return warnings;
+}
+
 export function checkDiffArchitectureNouns(diffText) {
   const addedLines = addedDiffLines(diffText);
   if (addedLines.length === 0) return [];
@@ -261,12 +294,14 @@ export function runChecks({
   const knownCellIds = new Set(cells.map((cell) => String(cell.meta.cell_id)));
   const docs = scanDirs.flatMap((dir) => collectMarkdownFiles(dir));
   const diffText = getDiffText({ base, rootDir });
+  const featuresDir = join(rootDir, 'docs', 'features');
 
   return {
     knownCellIds,
     codeAnchorWarnings: checkCodeAnchors(cells, rootDir),
     declarationWarnings: checkArchitectureCellDeclarations(docs, knownCellIds, rootDir),
     diffWarnings: checkDiffArchitectureNouns(diffText),
+    missingCellWarnings: checkInProgressFeaturesMissingCell(featuresDir, rootDir),
   };
 }
 
@@ -282,9 +317,13 @@ function main() {
   printWarnings('code anchors', result.codeAnchorWarnings);
   printWarnings('Architecture cell declarations', result.declarationWarnings);
   printWarnings('diff architecture nouns', result.diffWarnings);
+  printWarnings('in-progress features missing Architecture cell', result.missingCellWarnings);
 
   const warningCount =
-    result.codeAnchorWarnings.length + result.declarationWarnings.length + result.diffWarnings.length;
+    result.codeAnchorWarnings.length +
+    result.declarationWarnings.length +
+    result.diffWarnings.length +
+    result.missingCellWarnings.length;
 
   console.log('');
   console.log(`Done: ${warningCount} warning(s). This script exits 0 by design.`);
