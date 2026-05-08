@@ -154,6 +154,179 @@ describe('GraphResolver', () => {
     assert.equal(result.edges.length, 1);
   });
 
+  it('canonicalizes case-insensitive anchor matches before fetching edges', async () => {
+    await store.upsert([
+      { anchor: 'F186', kind: 'feature', status: 'active', title: 'F186 Library Memory', updatedAt: '2026-05-05' },
+      { anchor: 'F102', kind: 'feature', status: 'active', title: 'F102 Memory Adapter', updatedAt: '2026-05-05' },
+    ]);
+    await store.addEdge({
+      fromAnchor: 'F186',
+      toAnchor: 'F102',
+      relation: 'related_to',
+      provenance: 'frontmatter',
+    });
+
+    const catalog = {
+      list: () => [{ id: 'project:cat-cafe', sensitivity: 'internal', kind: 'project' }],
+      get: (id) => catalog.list().find((m) => m.id === id),
+    };
+    const stores = new Map([['project:cat-cafe', store]]);
+    const resolver = new GraphResolver(catalog, stores);
+
+    const result = await resolver.buildSubgraph('f186', {
+      depth: 1,
+      callerCollections: ['project:cat-cafe'],
+    });
+
+    assert.equal(result.center, 'F186');
+    assert.ok(result.nodes.some((n) => n.anchor === 'F186'));
+    assert.ok(!result.nodes.some((n) => n.anchor === 'f186'));
+    assert.equal(result.edges.length, 1);
+    assert.equal(result.edges[0].from, 'F186');
+    assert.equal(result.edges[0].to, 'F102');
+  });
+
+  it('canonicalizes related edge endpoints before emitting graph edges', async () => {
+    await store.upsert([
+      { anchor: 'F102', kind: 'feature', status: 'active', title: 'F102 Memory Adapter', updatedAt: '2026-05-05' },
+      { anchor: 'F186', kind: 'feature', status: 'active', title: 'F186 Library Memory', updatedAt: '2026-05-05' },
+    ]);
+    await store.addEdge({
+      fromAnchor: 'F102',
+      toAnchor: 'f186',
+      relation: 'related_to',
+      provenance: 'frontmatter',
+    });
+
+    const catalog = {
+      list: () => [{ id: 'project:cat-cafe', sensitivity: 'internal', kind: 'project' }],
+      get: (id) => catalog.list().find((m) => m.id === id),
+    };
+    const stores = new Map([['project:cat-cafe', store]]);
+    const resolver = new GraphResolver(catalog, stores);
+
+    const result = await resolver.buildSubgraph('F102', {
+      depth: 1,
+      callerCollections: ['project:cat-cafe'],
+    });
+
+    const nodeAnchors = new Set(result.nodes.map((n) => n.anchor));
+    assert.ok(nodeAnchors.has('F186'));
+    assert.ok(!nodeAnchors.has('f186'));
+    assert.equal(result.edges.length, 1);
+    assert.equal(result.edges[0].from, 'F102');
+    assert.equal(result.edges[0].to, 'F186');
+    assert.ok(nodeAnchors.has(result.edges[0].to), 'edge target must match an emitted node anchor');
+  });
+
+  it('uses raw related-anchor aliases for multi-hop expansion after canonicalizing output', async () => {
+    await store.upsert([
+      { anchor: 'F102', kind: 'feature', status: 'active', title: 'F102 Memory Adapter', updatedAt: '2026-05-05' },
+      { anchor: 'F186', kind: 'feature', status: 'active', title: 'F186 Library Memory', updatedAt: '2026-05-05' },
+      { anchor: 'F300', kind: 'feature', status: 'active', title: 'F300 Follow-up', updatedAt: '2026-05-05' },
+    ]);
+    await store.addEdge({
+      fromAnchor: 'F102',
+      toAnchor: 'f186',
+      relation: 'related_to',
+      provenance: 'frontmatter',
+    });
+    await store.addEdge({
+      fromAnchor: 'f186',
+      toAnchor: 'F300',
+      relation: 'feature_ref',
+      provenance: 'content',
+    });
+
+    const catalog = {
+      list: () => [{ id: 'project:cat-cafe', sensitivity: 'internal', kind: 'project' }],
+      get: (id) => catalog.list().find((m) => m.id === id),
+    };
+    const stores = new Map([['project:cat-cafe', store]]);
+    const resolver = new GraphResolver(catalog, stores);
+
+    const result = await resolver.buildSubgraph('F102', {
+      depth: 2,
+      callerCollections: ['project:cat-cafe'],
+    });
+
+    const nodeAnchors = new Set(result.nodes.map((n) => n.anchor));
+    assert.ok(nodeAnchors.has('F186'));
+    assert.ok(nodeAnchors.has('F300'), 'second-hop node stored under raw alias must be discovered');
+    assert.ok(!nodeAnchors.has('f186'));
+    assert.ok(
+      result.edges.some((edge) => edge.from === 'F186' && edge.to === 'F300' && edge.relation === 'feature_ref'),
+      'second-hop edge must be emitted with canonical endpoints',
+    );
+  });
+
+  it('does not use raw aliases to pull unrelated edges from another store', async () => {
+    const { SqliteEvidenceStore } = await import('../../dist/domains/memory/SqliteEvidenceStore.js');
+    const otherStore = new SqliteEvidenceStore(':memory:');
+    await otherStore.initialize();
+
+    await store.upsert([
+      { anchor: 'F102', kind: 'feature', status: 'active', title: 'F102 Memory Adapter', updatedAt: '2026-05-05' },
+      { anchor: 'F186', kind: 'feature', status: 'active', title: 'F186 Library Memory', updatedAt: '2026-05-05' },
+      { anchor: 'F300', kind: 'feature', status: 'active', title: 'F300 Follow-up', updatedAt: '2026-05-05' },
+    ]);
+    await store.addEdge({
+      fromAnchor: 'F102',
+      toAnchor: 'f186',
+      relation: 'related_to',
+      provenance: 'frontmatter',
+    });
+    await store.addEdge({
+      fromAnchor: 'f186',
+      toAnchor: 'F300',
+      relation: 'feature_ref',
+      provenance: 'content',
+    });
+
+    await otherStore.upsert([
+      {
+        anchor: 'f186',
+        kind: 'lore',
+        status: 'active',
+        title: 'Unrelated lowercase lore anchor',
+        updatedAt: '2026-05-05',
+      },
+      { anchor: 'WORLD-SECRET', kind: 'lore', status: 'active', title: 'World secret', updatedAt: '2026-05-05' },
+    ]);
+    await otherStore.addEdge({
+      fromAnchor: 'f186',
+      toAnchor: 'WORLD-SECRET',
+      relation: 'related_to',
+      provenance: 'manual',
+    });
+
+    const catalog = {
+      list: () => [
+        { id: 'project:cat-cafe', sensitivity: 'internal', kind: 'project' },
+        { id: 'world:lexander', sensitivity: 'internal', kind: 'world' },
+      ],
+      get: (id) => catalog.list().find((m) => m.id === id),
+    };
+    const stores = new Map([
+      ['project:cat-cafe', store],
+      ['world:lexander', otherStore],
+    ]);
+    const resolver = new GraphResolver(catalog, stores);
+
+    const result = await resolver.buildSubgraph('F102', {
+      depth: 2,
+      callerCollections: ['project:cat-cafe', 'world:lexander'],
+    });
+
+    const nodeAnchors = new Set(result.nodes.map((n) => n.anchor));
+    assert.ok(nodeAnchors.has('F300'));
+    assert.ok(!nodeAnchors.has('WORLD-SECRET'), 'alias from project graph must not pull unrelated world edge');
+    assert.ok(
+      !result.edges.some((edge) => edge.to === 'WORLD-SECRET' || edge.from === 'WORLD-SECRET'),
+      'unrelated world edge must not be emitted through project alias lookup',
+    );
+  });
+
   it('redacts private anchor to opaque ID (P1-3)', async () => {
     await store.upsert([
       {

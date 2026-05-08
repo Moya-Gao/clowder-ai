@@ -56,6 +56,12 @@ const RELATION_COLOR: Record<string, string> = {
   feature_ref: '#d97706',
 };
 
+function compactAnchorLabel(anchor: string): string {
+  const lastSegment = anchor.split(':').at(-1) ?? anchor;
+  const withoutDocPrefix = lastSegment.replace(/^doc\//, '');
+  return withoutDocPrefix.length > 12 ? `${withoutDocPrefix.slice(0, 10)}...` : withoutDocPrefix;
+}
+
 function renderNode(
   node: GraphNode,
   pos: { x: number; y: number },
@@ -67,8 +73,9 @@ function renderNode(
   const isCenter = node.anchor === centerAnchor;
   const dimmed = node.sensitivity === 'private' || node.sensitivity === 'restricted' || node.redacted;
   const r = isCenter ? 24 : 18;
-  const label = node.title.length > 24 ? `${node.title.slice(0, 22)}...` : node.title;
+  const label = compactAnchorLabel(node.anchor);
   const textFill = node.kind === 'unresolved' ? '#374151' : 'white';
+  const fontSize = label.length > 8 ? 9 : 11;
   return (
     <g
       key={node.anchor}
@@ -107,7 +114,7 @@ function renderNode(
           🔒
         </text>
       ) : (
-        <text x={pos.x} y={pos.y + 3} textAnchor="middle" fontSize={10} fill={textFill} fontWeight="500">
+        <text x={pos.x} y={pos.y + 3} textAnchor="middle" fontSize={fontSize} fill={textFill} fontWeight="600">
           {label}
         </text>
       )}
@@ -215,7 +222,8 @@ export function CollectionGraph() {
         <div className="relative rounded-lg border border-cafe bg-white p-2">
           <svg
             viewBox={`0 0 ${W} ${H}`}
-            className="w-full"
+            className="h-[520px] w-full"
+            preserveAspectRatio="xMidYMid meet"
             role="img"
             aria-label="Knowledge graph"
             data-testid="graph-svg"

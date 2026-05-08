@@ -96,14 +96,41 @@ export class GraphResolver {
     const visited = new Set<string>();
     const redactedAnchorMap = new Map<string, string>();
     const unresolvedRedactionMap = new Map<string, { sensitivity: CollectionSensitivity; redacted: boolean }>();
+    const lookupAliasesByCanonicalAnchor = new Map<string, Set<string>>();
     let redactedCounter = 0;
     let frontier = [anchor];
+    let resolvedCenterAnchor = anchor;
 
     const opaqueAnchor = (realAnchor: string): string => {
       if (redactedAnchorMap.has(realAnchor)) return redactedAnchorMap.get(realAnchor)!;
       const opaque = `[redacted:${++redactedCounter}]`;
       redactedAnchorMap.set(realAnchor, opaque);
       return opaque;
+    };
+
+    const rememberLookupAlias = (canonicalAnchor: string, lookupAnchor: string): void => {
+      if (canonicalAnchor === lookupAnchor) return;
+      const aliases = lookupAliasesByCanonicalAnchor.get(canonicalAnchor) ?? new Set<string>();
+      aliases.add(lookupAnchor);
+      lookupAliasesByCanonicalAnchor.set(canonicalAnchor, aliases);
+    };
+
+    const lookupAnchorsFor = (canonicalAnchor: string): string[] => {
+      const anchors = new Set([canonicalAnchor]);
+      for (const alias of lookupAliasesByCanonicalAnchor.get(canonicalAnchor) ?? []) {
+        anchors.add(alias);
+      }
+      return [...anchors];
+    };
+
+    const canUseLookupAnchorInStore = async (
+      store: GraphStore,
+      lookupAnchor: string,
+      canonicalAnchor: string,
+    ): Promise<boolean> => {
+      if (lookupAnchor === canonicalAnchor) return true;
+      const lookupDoc = await store.getByAnchor(lookupAnchor);
+      return lookupDoc?.anchor === canonicalAnchor;
     };
 
     for (let d = 0; d <= depth && frontier.length > 0; d++) {
@@ -134,23 +161,31 @@ export class GraphResolver {
         const sensitivity: CollectionSensitivity = manifest?.sensitivity ?? 'internal';
         const isRedacted =
           (sensitivity === 'private' || sensitivity === 'restricted') && !callerCollections.has(collectionId);
+        const store = collectionId ? this.stores.get(collectionId) : undefined;
+        const doc = store ? await store.getByAnchor(currentAnchor) : null;
+        const canonicalAnchor = doc?.anchor ?? currentAnchor;
+        rememberLookupAlias(canonicalAnchor, currentAnchor);
 
-        const nodeAnchor = isRedacted ? opaqueAnchor(currentAnchor) : currentAnchor;
+        if (d === 0 && currentAnchor === anchor) {
+          resolvedCenterAnchor = canonicalAnchor;
+        }
+        if (canonicalAnchor !== currentAnchor) {
+          if (visited.has(canonicalAnchor)) continue;
+          visited.add(canonicalAnchor);
+        }
 
-        if (!nodesMap.has(currentAnchor)) {
+        const nodeAnchor = isRedacted ? opaqueAnchor(canonicalAnchor) : canonicalAnchor;
+
+        if (!nodesMap.has(canonicalAnchor)) {
           let kind = manifest?.kind ?? 'unknown';
-          let title = currentAnchor;
+          let title = canonicalAnchor;
 
-          const store = collectionId ? this.stores.get(collectionId) : undefined;
-          if (store) {
-            const doc = await store.getByAnchor(currentAnchor);
-            if (doc) {
-              kind = doc.kind;
-              title = doc.title;
-            }
+          if (doc) {
+            kind = doc.kind;
+            title = doc.title;
           }
 
-          nodesMap.set(currentAnchor, {
+          nodesMap.set(canonicalAnchor, {
             anchor: nodeAnchor,
             collectionId: isRedacted ? '' : collectionId,
             sensitivity,
@@ -163,46 +198,53 @@ export class GraphResolver {
         if (d >= depth) continue;
 
         for (const [, s] of this.stores) {
-          const related = await s.getRelated(currentAnchor);
-          for (const rel of related) {
-            const relCollectionId = await inferCollectionId(rel.anchor, this.catalog, this.stores);
-            const isCross = collectionId !== relCollectionId;
-            const relManifest = relCollectionId ? this.catalog.get(relCollectionId) : undefined;
-            const relSensitivity: CollectionSensitivity = relManifest?.sensitivity ?? 'internal';
+          for (const lookupAnchor of lookupAnchorsFor(canonicalAnchor)) {
+            if (!(await canUseLookupAnchorInStore(s, lookupAnchor, canonicalAnchor))) continue;
+            const related = await s.getRelated(lookupAnchor);
+            for (const rel of related) {
+              const relCollectionId = await inferCollectionId(rel.anchor, this.catalog, this.stores);
+              const relStore = relCollectionId ? this.stores.get(relCollectionId) : undefined;
+              const relDoc = relStore ? await relStore.getByAnchor(rel.anchor) : null;
+              const relCanonicalAnchor = relDoc?.anchor ?? rel.anchor;
+              rememberLookupAlias(relCanonicalAnchor, rel.anchor);
+              const isCross = collectionId !== relCollectionId;
+              const relManifest = relCollectionId ? this.catalog.get(relCollectionId) : undefined;
+              const relSensitivity: CollectionSensitivity = relManifest?.sensitivity ?? 'internal';
 
-            const edgeSensitivity =
-              (rel.edgeSensitivity as CollectionSensitivity) ?? stricterSensitivity(sensitivity, relSensitivity);
-            const relIsRedacted =
-              (relSensitivity === 'private' || relSensitivity === 'restricted') &&
-              !callerCollections.has(relCollectionId ?? '');
-            const edgeRedacted =
-              (edgeSensitivity === 'private' || edgeSensitivity === 'restricted') &&
-              (!callerCollections.has(collectionId ?? '') || !callerCollections.has(relCollectionId ?? ''));
-            const unresolvedRelRedacted = !relCollectionId && edgeRedacted;
-            if (unresolvedRelRedacted) {
-              unresolvedRedactionMap.set(rel.anchor, { sensitivity: edgeSensitivity, redacted: true });
-            }
-            const unresolvedRelRedaction = unresolvedRedactionMap.get(rel.anchor);
-            const relOutputRedacted =
-              relIsRedacted || unresolvedRelRedacted || (unresolvedRelRedaction?.redacted ?? false);
+              const edgeSensitivity =
+                (rel.edgeSensitivity as CollectionSensitivity) ?? stricterSensitivity(sensitivity, relSensitivity);
+              const relIsRedacted =
+                (relSensitivity === 'private' || relSensitivity === 'restricted') &&
+                !callerCollections.has(relCollectionId ?? '');
+              const edgeRedacted =
+                (edgeSensitivity === 'private' || edgeSensitivity === 'restricted') &&
+                (!callerCollections.has(collectionId ?? '') || !callerCollections.has(relCollectionId ?? ''));
+              const unresolvedRelRedacted = !relCollectionId && edgeRedacted;
+              if (unresolvedRelRedacted) {
+                unresolvedRedactionMap.set(relCanonicalAnchor, { sensitivity: edgeSensitivity, redacted: true });
+              }
+              const unresolvedRelRedaction = unresolvedRedactionMap.get(relCanonicalAnchor);
+              const relOutputRedacted =
+                relIsRedacted || unresolvedRelRedacted || (unresolvedRelRedaction?.redacted ?? false);
 
-            const edgeKey = `${currentAnchor}→${rel.anchor}:${rel.relation}`;
-            const reverseKey = `${rel.anchor}→${currentAnchor}:${rel.relation}`;
-            if (!edgeKeySet.has(edgeKey) && !edgeKeySet.has(reverseKey)) {
-              edgeKeySet.add(edgeKey);
-              edgesArr.push({
-                from: isRedacted ? opaqueAnchor(currentAnchor) : currentAnchor,
-                to: relOutputRedacted ? opaqueAnchor(rel.anchor) : rel.anchor,
-                relation: rel.relation,
-                crossCollection: isCross,
-                edgeSensitivity,
-                provenance: rel.provenance ?? 'manual',
-                redacted: edgeRedacted || (unresolvedRelRedaction?.redacted ?? false),
-              });
-            }
+              const edgeKey = `${canonicalAnchor}→${relCanonicalAnchor}:${rel.relation}`;
+              const reverseKey = `${relCanonicalAnchor}→${canonicalAnchor}:${rel.relation}`;
+              if (!edgeKeySet.has(edgeKey) && !edgeKeySet.has(reverseKey)) {
+                edgeKeySet.add(edgeKey);
+                edgesArr.push({
+                  from: isRedacted ? opaqueAnchor(canonicalAnchor) : canonicalAnchor,
+                  to: relOutputRedacted ? opaqueAnchor(relCanonicalAnchor) : relCanonicalAnchor,
+                  relation: rel.relation,
+                  crossCollection: isCross,
+                  edgeSensitivity,
+                  provenance: rel.provenance ?? 'manual',
+                  redacted: edgeRedacted || (unresolvedRelRedaction?.redacted ?? false),
+                });
+              }
 
-            if (!visited.has(rel.anchor)) {
-              nextFrontier.push(rel.anchor);
+              if (!visited.has(relCanonicalAnchor)) {
+                nextFrontier.push(relCanonicalAnchor);
+              }
             }
           }
         }
@@ -222,11 +264,11 @@ export class GraphResolver {
         redacted: true,
       };
     });
-    const centerRedaction = unresolvedRedactionMap.get(anchor);
-    const center = nodesMap.has(anchor)
+    const centerRedaction = unresolvedRedactionMap.get(resolvedCenterAnchor);
+    const center = nodesMap.has(resolvedCenterAnchor)
       ? centerRedaction?.redacted
-        ? opaqueAnchor(anchor)
-        : nodesMap.get(anchor)?.anchor
+        ? opaqueAnchor(resolvedCenterAnchor)
+        : nodesMap.get(resolvedCenterAnchor)?.anchor
       : undefined;
 
     const finalEdges = edgesArr.map((edge) => {

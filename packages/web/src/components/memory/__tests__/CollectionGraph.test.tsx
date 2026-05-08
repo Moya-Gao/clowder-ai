@@ -94,6 +94,52 @@ describe('CollectionGraph force-directed', () => {
     expect(container.querySelector('[data-testid="graph-node-a3"]')).toBeTruthy();
   });
 
+  it('uses compact anchor labels and constrains the graph canvas height', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              nodes: [
+                {
+                  anchor: 'F186',
+                  collectionId: 'project:cafe',
+                  sensitivity: 'internal',
+                  kind: 'feature',
+                  title: 'F186: 图书馆记忆架构（多域知识联邦）',
+                  redacted: false,
+                },
+              ],
+              edges: [],
+              center: 'F186',
+              depth: 1,
+            }),
+        }),
+      ),
+    );
+    await act(async () => {
+      root.render(<CollectionGraph />);
+    });
+    const input = container.querySelector('[data-testid="graph-anchor-input"]') as HTMLInputElement;
+    const btn = container.querySelector('[data-testid="graph-fetch-btn"]') as HTMLButtonElement;
+    await act(async () => {
+      input.value = 'F186';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      btn.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const svg = container.querySelector('[data-testid="graph-svg"]') as SVGElement;
+    const node = container.querySelector('[data-testid="graph-node-F186"]') as SVGGElement;
+    expect(svg.getAttribute('class')).toContain('h-[520px]');
+    expect(node.textContent).toContain('F186');
+    expect(node.textContent).not.toContain('图书馆记忆架构');
+  });
+
   it('shows tooltip on hover with node details', async () => {
     await act(async () => {
       root.render(<CollectionGraph />);
