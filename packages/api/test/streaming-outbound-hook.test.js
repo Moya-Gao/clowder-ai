@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { before, describe, it } from 'node:test';
+import { before, describe, it, mock } from 'node:test';
 
 describe('StreamingOutboundHook', () => {
   let StreamingOutboundHook;
@@ -405,6 +405,144 @@ describe('StreamingOutboundHook', () => {
       assert.equal(clearCalls.length, 1, 'clearInlinePlaceholder must be called once');
       assert.equal(clearCalls[0].chatId, 'chat1');
       assert.equal(clearCalls[0].msgId, 'ph-msg-99');
+    });
+
+    it('replays the latest chunk when chunks arrive before sendPlaceholder resolves', async () => {
+      let resolvePlaceholder;
+      const editCalls = [];
+      const adapter = {
+        connectorId: 'telegram',
+        sendReply: async () => {},
+        sendPlaceholder: async () =>
+          new Promise((resolve) => {
+            resolvePlaceholder = resolve;
+          }),
+        editMessage: async (chatId, msgId, text) => editCalls.push({ chatId, msgId, text }),
+        registerInlinePlaceholder: () => {},
+      };
+      const adapters = new Map([['telegram', adapter]]);
+      const bindingStore = createBindingStore([
+        { connectorId: 'telegram', externalChatId: 'chat1', threadId: 'thread-1', userId: 'u1', createdAt: Date.now() },
+      ]);
+      const hook = new StreamingOutboundHook({
+        bindingStore,
+        adapters,
+        log: makeLog(),
+        updateIntervalMs: 999_999,
+        minDeltaChars: 999_999,
+      });
+
+      const startPromise = hook.onStreamStart('thread-1', undefined, 'inv-1');
+      await hook.onStreamChunk('thread-1', 'streamed before placeholder exists', 'inv-1');
+      resolvePlaceholder('ph-late');
+      await startPromise;
+
+      assert.equal(editCalls.length, 1);
+      assert.equal(editCalls[0].chatId, 'chat1');
+      assert.equal(editCalls[0].msgId, 'ph-late');
+      assert.equal(editCalls[0].text, 'streamed before placeholder exists ▌');
+    });
+
+    it('cleans up a late placeholder when stream end already timed out before sendPlaceholder resolves', async () => {
+      let resolvePlaceholder;
+      const deleteCalls = [];
+      const registerCalls = [];
+      const adapter = {
+        connectorId: 'telegram',
+        sendReply: async () => {},
+        sendPlaceholder: async () =>
+          new Promise((resolve) => {
+            resolvePlaceholder = resolve;
+          }),
+        editMessage: async () => {},
+        deleteMessage: async (msgId, chatId) => deleteCalls.push({ msgId, chatId }),
+        registerInlinePlaceholder: (chatId, msgId) => registerCalls.push({ chatId, msgId }),
+      };
+      const adapters = new Map([['telegram', adapter]]);
+      const bindingStore = createBindingStore([
+        { connectorId: 'telegram', externalChatId: 'chat1', threadId: 'thread-1', userId: 'u1', createdAt: Date.now() },
+      ]);
+      const hook = new StreamingOutboundHook({ bindingStore, adapters, log: makeLog() });
+
+      const startPromise = hook.onStreamStart('thread-1', undefined, 'inv-1');
+      await hook.onStreamEnd('thread-1', 'Final text already delivered by fallback', 'inv-1');
+      await hook.cleanupPlaceholders('thread-1', 'inv-1');
+      resolvePlaceholder('ph-too-late');
+      await startPromise;
+
+      assert.equal(registerCalls.length, 0, 'late placeholder must not be registered for the next delivery');
+      assert.equal(deleteCalls.length, 1, 'late placeholder must be removed after fallback delivery already won');
+      assert.deepEqual(deleteCalls[0], { msgId: 'ph-too-late', chatId: 'chat1' });
+    });
+
+    it('preserves a late placeholder until cleanup confirms fallback delivery success', async () => {
+      let resolvePlaceholder;
+      const deleteCalls = [];
+      const registerCalls = [];
+      const adapter = {
+        connectorId: 'telegram',
+        sendReply: async () => {},
+        sendPlaceholder: async () =>
+          new Promise((resolve) => {
+            resolvePlaceholder = resolve;
+          }),
+        editMessage: async () => {},
+        deleteMessage: async (msgId, chatId) => deleteCalls.push({ msgId, chatId }),
+        registerInlinePlaceholder: (chatId, msgId) => registerCalls.push({ chatId, msgId }),
+      };
+      const adapters = new Map([['telegram', adapter]]);
+      const bindingStore = createBindingStore([
+        { connectorId: 'telegram', externalChatId: 'chat1', threadId: 'thread-1', userId: 'u1', createdAt: Date.now() },
+      ]);
+      const hook = new StreamingOutboundHook({ bindingStore, adapters, log: makeLog() });
+
+      const startPromise = hook.onStreamStart('thread-1', undefined, 'inv-1');
+      await hook.onStreamEnd('thread-1', 'Final text will be delivered by fallback', 'inv-1');
+      resolvePlaceholder('ph-late-fallback');
+      await startPromise;
+
+      assert.equal(registerCalls.length, 0, 'late placeholder must not be registered for the next delivery');
+      assert.equal(deleteCalls.length, 0, 'late placeholder must remain visible before delivery success cleanup');
+
+      await hook.cleanupPlaceholders('thread-1', 'inv-1');
+
+      assert.equal(deleteCalls.length, 1, 'late placeholder is removed only after delivery success cleanup');
+      assert.deepEqual(deleteCalls[0], { msgId: 'ph-late-fallback', chatId: 'chat1' });
+    });
+
+    it('keeps late-placeholder cleanup state until cleanup even after tombstone ttl elapses', async (t) => {
+      mock.timers.enable({ apis: ['setTimeout'], now: 0 });
+      t.after(() => mock.timers.reset());
+
+      let resolvePlaceholder;
+      const deleteCalls = [];
+      const adapter = {
+        connectorId: 'telegram',
+        sendReply: async () => {},
+        sendPlaceholder: async () =>
+          new Promise((resolve) => {
+            resolvePlaceholder = resolve;
+          }),
+        editMessage: async () => {},
+        deleteMessage: async (msgId, chatId) => deleteCalls.push({ msgId, chatId }),
+        registerInlinePlaceholder: () => {},
+      };
+      const adapters = new Map([['telegram', adapter]]);
+      const bindingStore = createBindingStore([
+        { connectorId: 'telegram', externalChatId: 'chat1', threadId: 'thread-1', userId: 'u1', createdAt: Date.now() },
+      ]);
+      const hook = new StreamingOutboundHook({ bindingStore, adapters, log: makeLog() });
+
+      const startPromise = hook.onStreamStart('thread-1', undefined, 'inv-1');
+      await hook.onStreamEnd('thread-1', 'Final text will be delivered by a slow fallback', 'inv-1');
+      resolvePlaceholder('ph-slow-success');
+      await startPromise;
+
+      mock.timers.tick(60_001);
+      await hook.cleanupPlaceholders('thread-1', 'inv-1');
+
+      assert.equal(deleteCalls.length, 1, 'slow fallback success must still clean late placeholder');
+      assert.deepEqual(deleteCalls[0], { msgId: 'ph-slow-success', chatId: 'chat1' });
     });
   });
 });

@@ -148,7 +148,10 @@ describe('ThreadSidebar ✨ organize flow', () => {
     }
 
     expect(pollCount).toBeGreaterThanOrEqual(2);
-    await harness.flush();
+    for (let flushAttempt = 0; flushAttempt < 5; flushAttempt++) {
+      await harness.flush();
+      if (harness.container.textContent?.includes('已选 2 个 thread')) break;
+    }
 
     expect(harness.container.textContent).toContain('已选 2 个 thread');
     expect(harness.container.textContent).toContain('批量应用 (2)');

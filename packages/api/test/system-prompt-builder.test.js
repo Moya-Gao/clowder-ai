@@ -762,11 +762,19 @@ describe('SystemPromptBuilder', () => {
     assert.match(ctx, /2b.*事件驱动|2b.*event/i, 'option 2b = event-driven mode when callback covers');
     assert.match(ctx, /KD-27/, 'must reference KD-27 decision');
     // P1 regression guard: option 2 top-level must say "等外部条件" not "调用 hold_ball"
-    assert.match(ctx, /2\.\s*等外部条件/m, 'option 2 top-level starts with "等外部条件" (regression: old format had "调用 hold_ball")');
+    assert.match(
+      ctx,
+      /2\.\s*等外部条件/m,
+      'option 2 top-level starts with "等外部条件" (regression: old format had "调用 hold_ball")',
+    );
     assert.match(ctx, /2a.*hold_ball|2a.*cat_cafe_hold_ball/i, 'only 2a mentions calling hold_ball');
     assert.match(ctx, /2b.*不调用|2b.*不续约|2b.*禁止.*hold_ball/i, '2b explicitly forbids hold_ball');
     // R3 regression: closing line must not equate "选项 2" with "(hold_ball)"
-    assert.doesNotMatch(ctx, /选项\s*2\s*（hold_ball）|选项\s*2\s*\(hold_ball\)/i, 'closing line must not equate option 2 with hold_ball');
+    assert.doesNotMatch(
+      ctx,
+      /选项\s*2\s*（hold_ball）|选项\s*2\s*\(hold_ball\)/i,
+      'closing line must not equate option 2 with hold_ball',
+    );
   });
 
   test('F167-D2: trailing anchor names the three hard conditions for @landy', async () => {
