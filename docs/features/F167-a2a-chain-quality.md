@@ -697,8 +697,8 @@ cat_cafe_hold_ball({
 
 - [ ] AC-L1: `shared-rules` 传球决策树选项 2 拆分 + 补充"结构化回调 supersedes 轮询"原则：2a = 等外部接单且无回调覆盖（如等 codex EYES）→ hold_ball + 轮询；2b = 已有结构化回调覆盖（如 PR tracking 已注册且 EYES > 0）→ 仅依赖回调，禁止叠加轮询
 - [ ] AC-L2: `SystemPromptBuilder.ts` trailing anchor（当前 line 849）同步更新传球决策树 2a/2b 拆分，与 shared-rules 一致。补 system-prompt-builder 测试验证注入内容包含 2a/2b 区分
-- [ ] AC-L3: merge-gate skill 的 hold_ball 轮询唤醒步骤：检查 PR reviewer 状态（`gh pr view` → EYES > 0）→ 停止续约，释放 hold；EYES == 0 → 允许一次 re-trigger。不做 harness 层 hold_ball metadata 与 PR tracking subjectKey 的机械绑定
-- [ ] AC-L4: 所有静态 prompt 文件的传球决策树同步更新 2a/2b 拆分：`CLAUDE.md`（布偶猫）、`AGENTS.md`（缅因猫）、`assets/system-prompts/cats/gemini.md`（暹罗猫）
+- [ ] AC-L3: merge-gate skill Step 6.1 EYES 检测后追加 KD-27 checkpoint：复用现有 Step 6.1 reaction API 路径检查 EYES > 0 → 释放 hold_ball 禁止续约轮询；EYES == 0 → 允许 hold 等接单。不做 harness 层 hold_ball metadata 与 PR tracking subjectKey 的机械绑定
+- [x] AC-L4: ~~所有静态 prompt 文件的传球决策树同步更新~~ → 验证结果：`CLAUDE.md`、`AGENTS.md`、`gemini.md` 均不含传球决策树（仅存在于 `shared-rules.md` canonical + `SystemPromptBuilder.ts` runtime 注入，AC-L1+L2 已覆盖）。N/A
 
 **关闭门禁**：Phase I + J 全部合入后观察 1 周无新 case → Phase K Design Gate → K 合入 → Phase L 合入 → 2 周观察 → F167 正式 close。
 

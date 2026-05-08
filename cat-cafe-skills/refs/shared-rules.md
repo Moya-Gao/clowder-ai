@@ -368,7 +368,10 @@ commit body 补一行 `Why:` 说明决策理由。
 **在 A2A 串行任务回合里，本轮必选其一（缺 = 消息不完整）。按"谁能做下一步"的优先级选：**
 
 1. **@句柄**（首选）— 另一只猫能做下一步
-2. **调用 `cat_cafe_hold_ball(...)`** — 等外部条件。**外部条件 = 不在 cat-cafe roster 的实体**：云端 codex (`chatgpt-codex-connector[bot]`) / GitHub bot / PR check / CI / 长 build / 外部 webhook / API 响应。CLI 要退出但还需继续也走这条。必须调 MCP，口头说"我继续"不算。**严禁**把外部 identity 投射成本地近似 proxy（例："球权在云端 codex"→ 不可 @ 本地同族猫的任何 variant）
+2. **等外部条件**（按 2a/2b 判断行动）。**外部条件 = 不在 cat-cafe roster 的实体**：云端 codex (`chatgpt-codex-connector[bot]`) / GitHub bot / PR check / CI / 长 build / 外部 webhook / API 响应。CLI 要退出但还需继续也走这条。**严禁**把外部 identity 投射成本地近似 proxy（例："球权在云端 codex"→ 不可 @ 本地同族猫的任何 variant）
+   - **2a 轮询模式**：无结构化回调覆盖（如等 codex 接单 / EYES 出现）→ **调用 `cat_cafe_hold_ball(...)`** + 定时唤醒检查。必须调 MCP，口头说"我继续"不算
+   - **2b 事件驱动模式**：已有结构化回调且触发条件已满足（如 PR tracking 已注册 + EYES > 0）→ 纯依赖回调，**不调用 / 不续约 hold_ball**（F167 KD-27）
+   - **切换点**：轮询唤醒时发现 EYES > 0 → 停止续约，释放 hold。结构化回调 supersedes 轮询
 3. **@铲屎官** — **只在硬条件下**（详见 §10.4）：不可逆操作 / 愿景级决策 / 跨猫僵局。不是默认收尾出口
 
 **没有第四种。** "到我这里结束了" ≠ "链条结束了" —— 先问"哪只猫能接"，再决定用哪种出口。`@铲屎官` 是硬条件出口，不是安全港。

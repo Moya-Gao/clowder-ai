@@ -143,8 +143,10 @@ TRIGGER_COMMENT_ID=”$(gh api repos/{OWNER}/{REPO}/issues/{PR_NUMBER}/comments 
   --jq '[.[] | select(.body | test(“^@codex\\s+review”; “m”))] | last | .id')”
 EYES=”$(gh api repos/{OWNER}/{REPO}/issues/comments/${TRIGGER_COMMENT_ID}/reactions \
   --jq '[.[] | select(.content == “eyes”)] | length')”
-#   - EYES > 0 → 云端已接单 → 停止监控，PR tracking 会自动通知结果
-#   - EYES == 0 → 云端没接到 → 允许 re-trigger（进 6.2）
+#   - EYES > 0 → 云端已接单 → 停止监控，PR tracking 会自动通知结果。
+#     ⚠️ KD-27：此时必须释放 hold_ball，禁止续约轮询。PR tracking 回调是唯一通知渠道。
+#     如果你之前 hold_ball 轮询等接单，现在 EYES > 0 = 切换到事件驱动模式，不再 hold。
+#   - EYES == 0 → 云端没接到 → 允许 re-trigger（进 6.2），可以 hold_ball 轮询等 EYES
 #
 # 6.2 允许再次触发的条件（满足任一即可）：
 #     a. HEAD SHA 变化（有新 commit）
@@ -365,7 +367,7 @@ gh api --paginate repos/{OWNER}/{REPO}/pulls/{PR_NUMBER}/comments \
 | PR body 或 HTML 注释里写了 `@句柄`（例如签名） | **PR body 禁止任何 @句柄**，签名改为纯文本（如 `codex` / `gpt52`） |
 | 触发 comment 带了多行描述（SHA/规则/审查标准） | **只发 `@codex review` 一行**，详细内容让 Codex 误解为代码修改请求 |
 | 同一个 commit 连续发多条触发 comment | 先做 Step 5.1 去重检查；只有新 commit 才 re-trigger |
-| 触发后立刻轮询或手动重触发 | 5 分钟后查 👀（Step 6.1）；有 👀 = PR tracking 自动通知，不用管；无 👀 = 允许 re-trigger |
+| 触发后立刻轮询或手动重触发 | 5 分钟后查 👀（Step 6.1）；有 👀 = PR tracking 自动通知，**释放 hold_ball 不再轮询**（KD-27）；无 👀 = 允许 re-trigger |
 | 修了 P1 不 re-trigger review | 修完 push 后**必须重新触发**云端 review |
 | `pnpm gate` rebase / fixup 后沿用旧 review 直接 merge | 先对齐 `headRefOid`；**只要 HEAD 变了，就拿 reviewer 对新 SHA 的显式延续或重审** |
 | 本地 `git rebase -i` 手动 squash | 用 `gh pr merge --squash`（GitHub 处理） |
