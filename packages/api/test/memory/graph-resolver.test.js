@@ -298,4 +298,35 @@ describe('GraphResolver', () => {
     assert.equal(result.edges.length, 1);
     assert.equal(result.edges[0].relation, 'related_to');
   });
+
+  it('shows unresolved node instead of silently skipping (AC-C0b)', async () => {
+    await store.upsert([
+      { anchor: 'F186', kind: 'feature', status: 'active', title: 'F186 Library', updatedAt: '2026-05-07' },
+    ]);
+    await store.addEdge({
+      fromAnchor: 'F186',
+      toAnchor: 'F999',
+      relation: 'feature_ref',
+      provenance: 'content',
+    });
+
+    const catalog = {
+      list: () => [{ id: 'project:cat-cafe', sensitivity: 'internal', kind: 'project' }],
+      get: (id) => catalog.list().find((m) => m.id === id),
+    };
+    const stores = new Map([['project:cat-cafe', store]]);
+    const resolver = new GraphResolver(catalog, stores);
+
+    const result = await resolver.buildSubgraph('F186', {
+      depth: 1,
+      callerCollections: ['project:cat-cafe'],
+    });
+
+    assert.equal(result.nodes.length, 2, 'unresolved anchor must appear as node');
+    const unresolved = result.nodes.find((n) => n.anchor === 'F999');
+    assert.ok(unresolved, 'F999 must not be silently dropped');
+    assert.equal(unresolved.kind, 'unresolved');
+    assert.equal(unresolved.collectionId, '');
+    assert.equal(result.edges.length, 1);
+  });
 });

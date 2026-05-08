@@ -19,6 +19,7 @@ import type {
 // Re-export for backward compatibility — external code imports KIND_DIRS from IndexBuilder
 export { KIND_DIRS } from './CatCafeScanner.js';
 
+import { extractDocLinkEdges, extractFeatureRefEdges, extractWikiLinkEdges } from './edge-extractors.js';
 import type { SqliteEvidenceStore } from './SqliteEvidenceStore.js';
 import { SIGNAL_FLAGS } from './summary-config.js';
 import type { VectorStore } from './VectorStore.js';
@@ -285,6 +286,42 @@ export class IndexBuilder implements IIndexBuilder {
             });
           }
         }
+      }
+    }
+
+    // Phase C (F188): extract wikilink / doc_link / feature_ref edges from content
+    await this.store.runExclusive(() => {
+      this.store.getDb().prepare("DELETE FROM edges WHERE provenance = 'content'").run();
+    });
+
+    const toPosix = (p: string): string => p.replace(/\\/g, '/');
+    const pathToAnchor = new Map<string, string>();
+    for (const scanned of scannedItems) {
+      const sp = scanned.item.sourcePath;
+      if (sp) {
+        const spPosix = toPosix(sp);
+        pathToAnchor.set(spPosix, scanned.item.anchor);
+        const rel = toPosix(relative(this.scanRoot, sp));
+        if (rel !== spPosix) pathToAnchor.set(rel, scanned.item.anchor);
+      }
+    }
+
+    for (const scanned of scannedItems) {
+      if (!scanned.rawContent) continue;
+      const anchor = scanned.item.anchor;
+      if (!anchor) continue;
+
+      const body = scanned.rawContent.replace(/^---\n[\s\S]*?\n---\n?/, '');
+      const relSourcePath = scanned.item.sourcePath
+        ? toPosix(relative(this.scanRoot, scanned.item.sourcePath))
+        : undefined;
+      const allEdges = [
+        ...extractWikiLinkEdges(body, anchor),
+        ...extractFeatureRefEdges(body, anchor),
+        ...extractDocLinkEdges(body, anchor, pathToAnchor, relSourcePath),
+      ];
+      for (const edge of allEdges) {
+        await this.store.addEdge(edge);
       }
     }
 

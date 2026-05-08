@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { forceLayout } from './graph-layout';
 
 interface GraphNode {
   anchor: string;
@@ -28,108 +29,46 @@ interface GraphResult {
   depth: number;
 }
 
-const SENSITIVITY_COLOR: Record<string, string> = {
-  public: '#22c55e',
-  internal: '#3b82f6',
-  private: '#f59e0b',
-  restricted: '#ef4444',
+const KIND_FILL: Record<string, string> = {
+  feature: '#2563eb',
+  spec: '#0891b2',
+  decision: '#7c3aed',
+  plan: '#4f46e5',
+  session: '#d97706',
+  lesson: '#059669',
+  thread: '#db2777',
+  discussion: '#ea580c',
+  research: '#0d9488',
+  lore: '#9333ea',
+  unresolved: '#d1d5db',
 };
 
-const RELATION_STYLE: Record<string, string> = {
+const RELATION_COLOR: Record<string, string> = {
   related_to: '#6b7280',
+  related: '#6b7280',
   evolved_from: '#8b5cf6',
   blocked_by: '#ef4444',
   supersedes: '#f97316',
   invalidates: '#dc2626',
   promoted_from: '#10b981',
+  wikilink: '#3b82f6',
+  doc_link: '#0891b2',
+  feature_ref: '#d97706',
 };
 
-const W = 600;
-const H = 400;
-
-interface SimNode {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-}
-
-function applyRepulsion(sim: SimNode[]) {
-  for (let i = 0; i < sim.length; i++) {
-    for (let j = i + 1; j < sim.length; j++) {
-      const dx = sim[i].x - sim[j].x;
-      const dy = sim[i].y - sim[j].y;
-      const d = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-      const f = 3000 / (d * d);
-      sim[i].vx += (dx / d) * f;
-      sim[i].vy += (dy / d) * f;
-      sim[j].vx -= (dx / d) * f;
-      sim[j].vy -= (dy / d) * f;
-    }
-  }
-}
-
-function applySprings(sim: SimNode[], edges: GraphEdge[], idx: Map<string, number>) {
-  for (const e of edges) {
-    const ai = idx.get(e.from);
-    const bi = idx.get(e.to);
-    if (ai === undefined || bi === undefined) continue;
-    const dx = sim[bi].x - sim[ai].x;
-    const dy = sim[bi].y - sim[ai].y;
-    const d = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-    const disp = d - 120;
-    sim[ai].vx += 0.01 * disp * (dx / d);
-    sim[ai].vy += 0.01 * disp * (dy / d);
-    sim[bi].vx -= 0.01 * disp * (dx / d);
-    sim[bi].vy -= 0.01 * disp * (dy / d);
-  }
-}
-
-function forceLayout(nodes: GraphNode[], edges: GraphEdge[], center?: string): Map<string, { x: number; y: number }> {
-  if (nodes.length === 0) return new Map();
-  const cx = W / 2;
-  const cy = H / 2;
-  const sim: SimNode[] = nodes.map((n, i) => {
-    if (n.anchor === center) return { x: cx, y: cy, vx: 0, vy: 0 };
-    const a = (2 * Math.PI * i) / Math.max(nodes.length, 1);
-    return { x: cx + 100 * Math.cos(a), y: cy + 100 * Math.sin(a), vx: 0, vy: 0 };
-  });
-  const idx = new Map<string, number>();
-  for (let i = 0; i < nodes.length; i++) {
-    idx.set(nodes[i].anchor, i);
-  }
-
-  for (let t = 0; t < 80; t++) {
-    applyRepulsion(sim);
-    applySprings(sim, edges, idx);
-    for (const p of sim) {
-      p.vx = (p.vx + (cx - p.x) * 0.01) * 0.8;
-      p.vy = (p.vy + (cy - p.y) * 0.01) * 0.8;
-      p.x = Math.max(30, Math.min(W - 30, p.x + p.vx));
-      p.y = Math.max(30, Math.min(H - 30, p.y + p.vy));
-    }
-  }
-
-  const result = new Map<string, { x: number; y: number }>();
-  for (let i = 0; i < nodes.length; i++) {
-    result.set(nodes[i].anchor, { x: sim[i].x, y: sim[i].y });
-  }
-  return result;
-}
-
-function renderGraphNode(
+function renderNode(
   node: GraphNode,
   pos: { x: number; y: number },
   centerAnchor: string | undefined,
   onNodeClick: (anchor: string) => void,
   onHover: (n: GraphNode | null) => void,
 ) {
-  const color = SENSITIVITY_COLOR[node.sensitivity] ?? '#6b7280';
+  const fill = KIND_FILL[node.kind] ?? '#6b7280';
   const isCenter = node.anchor === centerAnchor;
   const dimmed = node.sensitivity === 'private' || node.sensitivity === 'restricted' || node.redacted;
-  const r = isCenter ? 22 : 18;
-  const label = node.title.length > 20 ? `${node.title.slice(0, 18)}…` : node.title;
-
+  const r = isCenter ? 24 : 18;
+  const label = node.title.length > 24 ? `${node.title.slice(0, 22)}...` : node.title;
+  const textFill = node.kind === 'unresolved' ? '#374151' : 'white';
   return (
     <g
       key={node.anchor}
@@ -157,28 +96,44 @@ function renderGraphNode(
         cx={pos.x}
         cy={pos.y}
         r={r}
-        fill="white"
-        stroke={color}
+        fill={fill}
+        stroke="white"
         strokeWidth={isCenter ? 3 : 2}
-        strokeDasharray={node.redacted ? '4 2' : undefined}
+        strokeDasharray={node.kind === 'unresolved' ? '4 2' : undefined}
+        filter="url(#node-shadow)"
       />
-      {node.redacted && (
-        <text x={pos.x} y={pos.y + 1} textAnchor="middle" fontSize={12}>
+      {node.redacted ? (
+        <text x={pos.x} y={pos.y + 4} textAnchor="middle" fontSize={12} fill="white">
           🔒
         </text>
+      ) : (
+        <text x={pos.x} y={pos.y + 3} textAnchor="middle" fontSize={10} fill={textFill} fontWeight="500">
+          {label}
+        </text>
       )}
-      <text x={pos.x} y={pos.y + (node.redacted ? 14 : 4)} textAnchor="middle" fontSize={9} fill="#374151">
-        {label}
-      </text>
     </g>
   );
 }
+
+function edgePath(x1: number, y1: number, x2: number, y2: number): string {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+  const off = Math.min(20, len * 0.12);
+  const cx = (x1 + x2) / 2 + (-dy / len) * off;
+  const cy = (y1 + y2) / 2 + (dx / len) * off;
+  return `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
+}
+
+const W = 700;
+const H = 500;
 
 export function CollectionGraph() {
   const [graph, setGraph] = useState<GraphResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hovered, setHovered] = useState<GraphNode | null>(null);
+  const [hiddenRelations, setHiddenRelations] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
 
   const fetchGraph = useCallback((a: string) => {
@@ -205,14 +160,30 @@ export function CollectionGraph() {
   );
 
   const handleNodeClick = useCallback(
-    (nodeAnchor: string) => {
-      if (inputRef.current) inputRef.current.value = nodeAnchor;
-      fetchGraph(nodeAnchor);
+    (anchor: string) => {
+      if (inputRef.current) inputRef.current.value = anchor;
+      fetchGraph(anchor);
     },
     [fetchGraph],
   );
 
-  const positions = graph ? forceLayout(graph.nodes, graph.edges, graph.center) : new Map();
+  const toggleRelation = useCallback((rel: string) => {
+    setHiddenRelations((prev) => {
+      const next = new Set(prev);
+      if (next.has(rel)) next.delete(rel);
+      else next.add(rel);
+      return next;
+    });
+  }, []);
+
+  const visibleEdges = useMemo(
+    () => (graph?.edges ?? []).filter((e) => !hiddenRelations.has(e.relation)),
+    [graph?.edges, hiddenRelations],
+  );
+  const uniqueRelations = useMemo(() => [...new Set((graph?.edges ?? []).map((e) => e.relation))], [graph?.edges]);
+  const uniqueKinds = useMemo(() => [...new Set((graph?.nodes ?? []).map((n) => n.kind))], [graph?.nodes]);
+
+  const positions = graph ? forceLayout(graph.nodes, visibleEdges, graph.center, W, H) : new Map();
 
   return (
     <div data-testid="collection-graph">
@@ -221,7 +192,7 @@ export function CollectionGraph() {
           ref={inputRef}
           type="text"
           defaultValue=""
-          placeholder="Enter anchor (e.g. project:cafe:doc/f186)"
+          placeholder="Enter anchor (e.g. F186)"
           className="flex-1 rounded border border-cafe bg-white px-3 py-1.5 text-sm text-cafe-primary"
           data-testid="graph-anchor-input"
         />
@@ -249,48 +220,82 @@ export function CollectionGraph() {
             aria-label="Knowledge graph"
             data-testid="graph-svg"
           >
-            {graph.edges.map((edge) => {
-              const fromPos = positions.get(edge.from);
-              const toPos = positions.get(edge.to);
-              if (!fromPos || !toPos) return null;
-              const color = RELATION_STYLE[edge.relation] ?? '#9ca3af';
-              const mx = (fromPos.x + toPos.x) / 2;
-              const my = (fromPos.y + toPos.y) / 2;
+            <defs>
+              <filter id="node-shadow">
+                <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.15" />
+              </filter>
+            </defs>
+
+            {visibleEdges.map((edge) => {
+              const fp = positions.get(edge.from);
+              const tp = positions.get(edge.to);
+              if (!fp || !tp) return null;
+              const color = RELATION_COLOR[edge.relation] ?? '#9ca3af';
               return (
-                <g key={`${edge.from}-${edge.to}-${edge.relation}`}>
-                  <line
-                    x1={fromPos.x}
-                    y1={fromPos.y}
-                    x2={toPos.x}
-                    y2={toPos.y}
-                    stroke={color}
-                    strokeWidth={edge.crossCollection ? 2 : 1}
-                    strokeDasharray={edge.redacted ? '4 2' : undefined}
-                    opacity={0.6}
-                  />
-                  <text x={mx} y={my - 4} textAnchor="middle" fontSize={8} fill={color}>
-                    {edge.relation}
-                  </text>
-                </g>
+                <path
+                  key={`${edge.from}-${edge.to}-${edge.relation}`}
+                  d={edgePath(fp.x, fp.y, tp.x, tp.y)}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={edge.crossCollection ? 2.5 : 1.5}
+                  strokeDasharray={edge.redacted ? '6 3' : undefined}
+                  opacity={0.5}
+                />
               );
             })}
+
             {graph.nodes.map((node) => {
               const pos = positions.get(node.anchor);
               if (!pos) return null;
-              return renderGraphNode(node, pos, graph.center, handleNodeClick, setHovered);
+              return renderNode(node, pos, graph.center, handleNodeClick, setHovered);
             })}
           </svg>
+
           {hovered && (
             <div
               data-testid="graph-tooltip"
-              className="absolute top-2 right-2 rounded bg-cafe-surface p-2 text-xs shadow-lg border border-cafe pointer-events-none"
+              className="absolute top-2 right-2 rounded-lg bg-cafe-surface p-3 text-xs shadow-lg border border-cafe pointer-events-none"
             >
-              <div className="font-medium text-cafe-primary">{hovered.title}</div>
+              <div className="font-semibold text-cafe-primary">{hovered.title}</div>
+              <div className="text-cafe-secondary">{hovered.kind}</div>
               <div className="text-cafe-secondary">{hovered.collectionId}</div>
               <div className="text-cafe-secondary">{hovered.sensitivity}</div>
             </div>
           )}
-          <div className="flex flex-wrap gap-3 mt-2 px-2 text-[10px] text-cafe-secondary">
+
+          <div className="flex flex-wrap items-center gap-3 mt-2 px-2" data-testid="graph-legend">
+            {uniqueKinds.map((k) => (
+              <span key={k} className="flex items-center gap-1 text-[10px] text-cafe-secondary">
+                <span
+                  className="inline-block w-2.5 h-2.5 rounded-full"
+                  style={{ background: KIND_FILL[k] ?? '#6b7280' }}
+                />
+                {k}
+              </span>
+            ))}
+          </div>
+
+          {uniqueRelations.length > 1 && (
+            <div
+              className="flex flex-wrap items-center gap-2 mt-1 px-2 text-[10px] text-cafe-secondary"
+              data-testid="graph-edge-filter"
+            >
+              <span>Edges:</span>
+              {uniqueRelations.map((rel) => (
+                <label key={rel} className="flex items-center gap-0.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={!hiddenRelations.has(rel)}
+                    onChange={() => toggleRelation(rel)}
+                    className="w-3 h-3 accent-cafe-primary"
+                  />
+                  <span style={{ color: RELATION_COLOR[rel] ?? '#9ca3af' }}>{rel.replace(/_/g, ' ')}</span>
+                </label>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-3 mt-1 px-2 text-[10px] text-cafe-secondary">
             <span>Nodes: {graph.nodes.length}</span>
             <span>Edges: {graph.edges.length}</span>
             <span>Depth: {graph.depth}</span>

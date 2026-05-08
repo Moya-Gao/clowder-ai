@@ -140,7 +140,10 @@ export type EdgeRelation =
   | 'related_to'
   | 'supersedes'
   | 'invalidates'
-  | 'promoted_from';
+  | 'promoted_from'
+  | 'wikilink'
+  | 'doc_link'
+  | 'feature_ref';
 
 export interface Edge {
   fromAnchor: string;
@@ -149,7 +152,7 @@ export interface Edge {
   fromCollectionId?: string;
   toCollectionId?: string;
   edgeSensitivity?: CollectionSensitivity;
-  provenance?: 'frontmatter' | 'wikilink' | 'promote' | 'manual';
+  provenance?: 'frontmatter' | 'wikilink' | 'promote' | 'manual' | 'content';
   createdAt?: string;
 }
 

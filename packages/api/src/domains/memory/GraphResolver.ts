@@ -113,7 +113,19 @@ export class GraphResolver {
         visited.add(currentAnchor);
 
         const collectionId = await inferCollectionId(currentAnchor, this.catalog, this.stores);
-        if (!collectionId) continue;
+        if (!collectionId) {
+          if (d > 0 && !nodesMap.has(currentAnchor)) {
+            nodesMap.set(currentAnchor, {
+              anchor: currentAnchor,
+              collectionId: '',
+              sensitivity: 'internal',
+              kind: 'unresolved',
+              title: currentAnchor,
+              redacted: false,
+            });
+          }
+          continue;
+        }
         const manifest = this.catalog.get(collectionId);
         const sensitivity: CollectionSensitivity = manifest?.sensitivity ?? 'internal';
         const isRedacted =
