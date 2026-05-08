@@ -28,7 +28,7 @@ F186 建成了图书馆的骨架（Collection 联邦 + Scanner + Security + Grap
 
 铲屎官/猫猫能在不重启服务的情况下触发全量重建索引，并看到进度。
 
-### Phase B: Library Health Dashboard
+### Phase B: Library Health Dashboard ✅
 
 Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、漏了、坏了"。
 
@@ -71,12 +71,12 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 - [x] AC-A3: Hub Memory 面板有 "重建索引" 按钮，点击后显示进度
 - [x] AC-A4: rebuild 运行期间，search 仍可用（不阻塞读）
 
-### Phase B（Library Health Dashboard）
-- [ ] AC-B1: Health Dashboard 展示 stale anchors 数量 + 列表
-- [ ] AC-B2: 展示 search miss / low-hit query 统计
-- [ ] AC-B3: 展示 orphan edges 数量
-- [ ] AC-B4: 展示 replay drift 趋势（如 Query Replay 已有数据）
-- [ ] AC-B5: 展示 Knowledge Feed pending + needs_review 积压
+### Phase B（Library Health Dashboard）✅
+- [x] AC-B1: Health Dashboard 展示 stale anchors 数量 + 列表
+- [x] AC-B2: 展示 search miss / low-hit query 统计
+- [x] AC-B3: 展示 orphan edges 数量
+- [x] AC-B4: 展示 replay drift 趋势（如 Query Replay 已有数据）
+- [x] AC-B5: 展示 Knowledge Feed pending + needs_review 积压
 
 ### Phase C（Graph Fidelity）✅
 - [x] AC-C0a: edges 表 schema 迁移（补 from_collection_id / to_collection_id / edge_sensitivity / provenance / created_at 列）
@@ -85,7 +85,7 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 - [x] AC-C1: WikiLink `[[Target]]` 在 rebuild 时生成 edge（type: `wikilink`）
 - [x] AC-C2: Markdown 链接 `[text](path)` 在 rebuild 时生成 edge（type: `doc_link`）
 - [x] AC-C3: F 编号引用 `F186` 在 rebuild 时生成 edge（type: `feature_ref`）
-- [ ] AC-C4: orphan edges 统计接入 Health Dashboard
+- [x] AC-C4: orphan edges 统计接入 Health Dashboard
 - [x] AC-C5: Graph 可视化美化（节点样式 + 布局 + 交互体验达到"铲屎官不说丑"标准）
 
 ### Phase D（Chat-to-Collection Materialization）
@@ -147,6 +147,7 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 | 2026-05-07 | Phase A merged (PR #1581) |
 | 2026-05-08 | Phase C merged (PR #1585) — edge extraction pipeline + graph bug fixes + UI美化 |
 | 2026-05-08 | Phase C review follow-up merged (PR #1596) — unresolved anchor redaction + doc_link path key stability |
+| 2026-05-08 | Phase B merged (PR #1604) — 5 health metrics (stale anchors, search quality, orphan edges, replay drift, KF pending) + AC-C4 |
 
 ## Review Gate
 
