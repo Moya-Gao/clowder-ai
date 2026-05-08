@@ -105,6 +105,12 @@ export interface BridgeOptions {
 
 const DEFAULT_SESSION_STORE = join(process.cwd(), 'data', 'antigravity-sessions.json');
 
+function hasGeneratingPlannerResponse(steps: TrajectoryStep[]): boolean {
+  return steps.some(
+    (step) => step.type === 'CORTEX_STEP_TYPE_PLANNER_RESPONSE' && step.status === 'CORTEX_STEP_STATUS_GENERATING',
+  );
+}
+
 export class AntigravityBridge {
   private conn: BridgeConnection | null = null;
   private sessionMap = new Map<string, string>();
@@ -340,6 +346,7 @@ export class AntigravityBridge {
         nextPlannerTexts = diff.nextPlannerTexts;
         hadMutation = diff.hadMutation;
       }
+      const terminalReady = isTerminal && !hasGeneratingPlannerResponse(allSteps);
 
       if (currentSteps > delivered || hadMutation) {
         waitingApprovalSignaled = false;
@@ -350,19 +357,19 @@ export class AntigravityBridge {
         deliveredFingerprints = nextFingerprints;
         deliveredPlannerTexts = nextPlannerTexts;
         log.debug(
-          `cascade delivery: ${emittedSteps.length} emitted steps (new=${newSteps.length}, mutated=${replaySteps.length}, total=${currentSteps}, terminal=${isTerminal})`,
+          `cascade delivery: ${emittedSteps.length} emitted steps (new=${newSteps.length}, mutated=${replaySteps.length}, total=${currentSteps}, terminal=${terminalReady})`,
         );
         yield {
           steps: emittedSteps,
           cursor: {
             baselineStepCount: stepsBefore,
             lastDeliveredStepCount: delivered,
-            terminalSeen: isTerminal,
+            terminalSeen: terminalReady,
             lastActivityAt,
             awaitingUserInput,
           },
         };
-        if (isTerminal) return;
+        if (terminalReady) return;
       } else {
         const idleMs = Date.now() - lastActivityAt;
         if (awaitingUserInput) {
@@ -384,7 +391,7 @@ export class AntigravityBridge {
           continue;
         }
         waitingApprovalSignaled = false;
-        if (isTerminal && (delivered > stepsBefore || idleMs > idleTimeoutMs)) {
+        if (terminalReady && (delivered > stepsBefore || idleMs > idleTimeoutMs)) {
           yield {
             steps: [],
             cursor: {
