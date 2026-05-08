@@ -12,6 +12,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import type { CallerTraceContext } from '../../../../../infrastructure/telemetry/genai-semconv.js';
 
 export interface QueueEntry {
   id: string;
@@ -45,6 +46,7 @@ export interface QueueEntry {
   position?: number;
   /** F175: skill hint for connector triggers — flows through as promptTags on execution */
   suggestedSkill?: string;
+  callerTraceContext?: CallerTraceContext;
 }
 
 export interface EnqueueResult {
@@ -217,6 +219,7 @@ export class InvocationQueue {
       sourceCategory: input.sourceCategory,
       continuationKey: input.continuationKey,
       suggestedSkill: input.suggestedSkill,
+      callerTraceContext: input.callerTraceContext,
       position: undefined,
     };
     q.push(entry);
