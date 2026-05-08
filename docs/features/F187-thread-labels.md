@@ -8,7 +8,7 @@ created: 2026-05-06
 
 # F187: Thread Labels — 用户自定义标签 + Sidebar 筛选 + 猫猫辅助分类
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-05-08
 
 ## Why
 
@@ -123,6 +123,7 @@ Why: F187 改的是用户面向的 thread 组织/分类/Sidebar 筛选语义，�
 | 2026-05-07 | Phase B merged (PR #1577) |
 | 2026-05-07 | Phase C merged (PR #1589) |
 | 2026-05-08 | Phase C vision guard fix merged (PR #1593) — ✨→modal flow + trashed thread label cleanup |
+| 2026-05-08 | Feature closed — 愿景守护通过（gpt52 放行） |
 
 ## Review Gate
 
