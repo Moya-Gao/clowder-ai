@@ -41,7 +41,7 @@ export const ROUTE_TOTAL_TOKENS = 'route.total_tokens';
 export const ROUTE_HAS_A2A_HANDOFF = 'route.has_a2a_handoff';
 
 /**
- * F181: Caller trace context for cross-route A2A propagation.
+ * F153: Caller trace context for cross-route A2A propagation.
  * Aligns with W3C TraceContext fields (traceId, spanId, traceFlags).
  */
 export interface CallerTraceContext {

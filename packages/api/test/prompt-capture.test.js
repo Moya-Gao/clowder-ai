@@ -1,5 +1,5 @@
 /**
- * F181 Prompt X-Ray: PromptCaptureStore + bridge tests.
+ * F153 Prompt X-Ray: PromptCaptureStore + bridge tests.
  */
 
 if (!process.env.NODE_ENV) process.env.NODE_ENV = 'test';
@@ -33,7 +33,7 @@ function makeCapture(overrides = {}) {
   };
 }
 
-test('F181: PromptCaptureStore captures and reads back', async () => {
+test('F153: PromptCaptureStore captures and reads back', async () => {
   const { PromptCaptureStore } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
   const dir = join(testDir, 'basic');
   const store = new PromptCaptureStore({ baseDir: dir });
@@ -48,7 +48,7 @@ test('F181: PromptCaptureStore captures and reads back', async () => {
   assert.equal(result.injectionDecision.injected, true);
 });
 
-test('F181: read returns null for missing capture', async () => {
+test('F153: read returns null for missing capture', async () => {
   const { PromptCaptureStore } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
   const dir = join(testDir, 'missing');
   const store = new PromptCaptureStore({ baseDir: dir });
@@ -57,7 +57,7 @@ test('F181: read returns null for missing capture', async () => {
   assert.equal(result, null);
 });
 
-test('F181: listByInvocation filters correctly', async () => {
+test('F153: listByInvocation filters correctly', async () => {
   const { PromptCaptureStore } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
   const dir = join(testDir, 'by-inv');
   const store = new PromptCaptureStore({ baseDir: dir });
@@ -70,7 +70,7 @@ test('F181: listByInvocation filters correctly', async () => {
   assert.equal(results.length, 2);
 });
 
-test('F181: listByThread filters correctly', async () => {
+test('F153: listByThread filters correctly', async () => {
   const { PromptCaptureStore } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
   const dir = join(testDir, 'by-thread');
   const store = new PromptCaptureStore({ baseDir: dir });
@@ -83,7 +83,7 @@ test('F181: listByThread filters correctly', async () => {
   assert.equal(results.length, 2);
 });
 
-test('F181: prune removes expired entries', async () => {
+test('F153: prune removes expired entries', async () => {
   const { PromptCaptureStore } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
   const dir = join(testDir, 'prune');
   const store = new PromptCaptureStore({ baseDir: dir, ttlMs: 100 });
@@ -96,7 +96,7 @@ test('F181: prune removes expired entries', async () => {
   assert.equal(store.stats().entries, 1);
 });
 
-test('F181: prune enforces maxEntries', async () => {
+test('F153: prune enforces maxEntries', async () => {
   const { PromptCaptureStore } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
   const dir = join(testDir, 'max');
   const store = new PromptCaptureStore({ baseDir: dir, maxEntries: 3 });
@@ -109,7 +109,7 @@ test('F181: prune enforces maxEntries', async () => {
   assert.ok(store.stats().entries <= 3);
 });
 
-test('F181: gzip compression actually compresses', async () => {
+test('F153: gzip compression actually compresses', async () => {
   const { PromptCaptureStore } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
   const dir = join(testDir, 'gzip');
   const store = new PromptCaptureStore({ baseDir: dir });
@@ -126,7 +126,7 @@ test('F181: gzip compression actually compresses', async () => {
 
 // ── Gate tests ──────────────────────────────────────────────────
 
-test('F181: isPromptCaptureEnabled respects env', async () => {
+test('F153: isPromptCaptureEnabled respects env', async () => {
   const { isPromptCaptureEnabled } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
 
   const origCapture = process.env.PROMPT_CAPTURE;
@@ -150,7 +150,7 @@ test('F181: isPromptCaptureEnabled respects env', async () => {
   else delete process.env.PROMPT_CAPTURE_CATS;
 });
 
-test('F181: estimateTokens gives reasonable estimate', async () => {
+test('F153: estimateTokens gives reasonable estimate', async () => {
   const { estimateTokens } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
   const estimate = estimateTokens('Hello world, this is a test prompt');
   assert.ok(estimate > 5 && estimate < 20);
@@ -158,7 +158,7 @@ test('F181: estimateTokens gives reasonable estimate', async () => {
 
 // ── Resource-level authorization ──────────────────────────────────
 
-test('F181: read returns null for cross-user access', async () => {
+test('F153: read returns null for cross-user access', async () => {
   const { PromptCaptureStore } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
   const dir = join(testDir, 'authz');
   const store = new PromptCaptureStore({ baseDir: dir });
@@ -173,7 +173,7 @@ test('F181: read returns null for cross-user access', async () => {
   assert.equal(resultOther, null, 'Other user should not be able to read capture');
 });
 
-test('F181: pre-fix captures without userId are denied (fail-closed)', async () => {
+test('F153: pre-fix captures without userId are denied (fail-closed)', async () => {
   const { PromptCaptureStore } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
   const dir = join(testDir, 'authz-legacy');
   const store = new PromptCaptureStore({ baseDir: dir });
@@ -189,7 +189,7 @@ test('F181: pre-fix captures without userId are denied (fail-closed)', async () 
   assert.equal(resultWithUser, null, 'Pre-fix capture without userId must be denied when userId filter is set');
 });
 
-test('F181: listByThread filters by userId', async () => {
+test('F153: listByThread filters by userId', async () => {
   const { PromptCaptureStore } = await import('../dist/infrastructure/debug/prompt-capture-store.js');
   const dir = join(testDir, 'authz-list');
   const store = new PromptCaptureStore({ baseDir: dir });
@@ -207,7 +207,7 @@ test('F181: listByThread filters by userId', async () => {
 
 // ── Source-level tests ──────────────────────────────────────────
 
-test('F181: invoke-single-cat calls capturePromptIfEnabled', () => {
+test('F153: invoke-single-cat calls capturePromptIfEnabled', () => {
   const src = readFileSync(
     join(import.meta.dirname, '../src/domains/cats/services/agents/invocation/invoke-single-cat.ts'),
     'utf8',
@@ -216,12 +216,12 @@ test('F181: invoke-single-cat calls capturePromptIfEnabled', () => {
   assert.ok(src.includes('prompt-capture-bridge'), 'Should import from prompt-capture-bridge');
 });
 
-test('F181: API routes registered in index.ts', () => {
+test('F153: API routes registered in index.ts', () => {
   const src = readFileSync(join(import.meta.dirname, '../src/index.ts'), 'utf8');
   assert.ok(src.includes('promptCaptureRoutes'), 'Should register prompt capture routes');
 });
 
 // Cleanup
-test('F181: cleanup test dir', () => {
+test('F153: cleanup test dir', () => {
   rmSync(testDir, { recursive: true, force: true });
 });

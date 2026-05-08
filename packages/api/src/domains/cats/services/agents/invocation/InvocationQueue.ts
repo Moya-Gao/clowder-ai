@@ -46,7 +46,7 @@ export interface QueueEntry {
   position?: number;
   /** F175: skill hint for connector triggers — flows through as promptTags on execution */
   suggestedSkill?: string;
-  /** F181: caller trace context for cross-route A2A propagation */
+  /** F153: caller trace context for cross-route A2A propagation */
   callerTraceContext?: CallerTraceContext;
 }
 

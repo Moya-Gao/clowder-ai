@@ -1,5 +1,5 @@
 /**
- * F181 Prompt X-Ray: File-based ring buffer for canonical prompt captures.
+ * F153 Prompt X-Ray: File-based ring buffer for canonical prompt captures.
  *
  * Stores gzip-compressed prompt snapshots with NDJSON index.
  * Default off — controlled by PROMPT_CAPTURE env var.

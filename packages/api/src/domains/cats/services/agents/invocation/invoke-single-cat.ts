@@ -280,7 +280,7 @@ export interface InvocationParams {
   readonly a2aTriggerMessageId?: string;
   /** F153 Phase E: Parent route span — invocation span becomes its child */
   readonly routeSpan?: import('@opentelemetry/api').Span;
-  /** F181: mutable ref so caller can capture the invocation span for trace propagation */
+  /** F153: mutable ref so caller can capture the invocation span for trace propagation */
   readonly invocationSpanRef?: { current?: import('@opentelemetry/api').Span };
   /** #502 PR2: structured route control state to persist on threshold seal. */
   readonly continuityCapsule?: RouteStateContinuityCapsule;
@@ -489,7 +489,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     parentCtx,
   );
 
-  // F181: Expose invocation span to caller + persist trace context for A2A propagation
+  // F153: Expose invocation span to caller + persist trace context for A2A propagation
   if (params.invocationSpanRef) params.invocationSpanRef.current = invocationSpan;
   const sc = invocationSpan.spanContext();
   try {

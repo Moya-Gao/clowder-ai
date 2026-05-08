@@ -434,7 +434,7 @@ export async function* routeParallel(
   const catPayloadStrippers = new Map<string, ReturnType<typeof createLeakedToolCallStreamStripper>>();
   let completedCount = 0;
   let yieldedFinalDone = false;
-  // F181: Accumulate total tokens across all parallel streams for route aggregate
+  // F153: Accumulate total tokens across all parallel streams for route aggregate
   let routeTotalTokens = 0;
 
   // #80: Per-cat draft flush state
@@ -540,7 +540,7 @@ export async function* routeParallel(
             arr.push(parsed.block);
             catStreamRichBlocks.set(effectiveMsg.catId, arr);
           }
-          // F181: Accumulate invocation tokens for route aggregate
+          // F153: Accumulate invocation tokens for route aggregate
           if (parsed.type === 'invocation_usage' && parsed.usage) {
             routeTotalTokens += (parsed.usage.inputTokens ?? 0) + (parsed.usage.outputTokens ?? 0);
           }
@@ -1099,7 +1099,7 @@ export async function* routeParallel(
     }
   }
 
-  // F181: Set route aggregate attributes on the parent route span
+  // F153: Set route aggregate attributes on the parent route span
   if (options.routeSpan) {
     options.routeSpan.setAttribute(ROUTE_TOTAL_CATS_INVOKED, completedCount);
     options.routeSpan.setAttribute(ROUTE_TOTAL_TOKENS, routeTotalTokens);

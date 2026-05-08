@@ -321,7 +321,7 @@ function SpanDetail({ span }: { span: TraceSpan | undefined }) {
   );
 }
 
-// ── F181: Prompt X-Ray Inspector ──────────────────────────────────
+// ── F153: Prompt X-Ray Inspector ──────────────────────────────────
 
 interface PromptCaptureData {
   captureId: string;

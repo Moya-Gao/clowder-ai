@@ -76,6 +76,6 @@ export interface IAuthInvocationBackend {
    */
   tryClaimRefreshCooldown(invocationId: string, cooldownMs: number): Promise<boolean>;
 
-  /** F181: Persist caller trace context on an invocation for cross-route A2A propagation. */
+  /** F153: Persist caller trace context on an invocation for cross-route A2A propagation. */
   setTraceContext(invocationId: string, ctx: CallerTraceContext): Promise<void>;
 }

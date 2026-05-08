@@ -1371,7 +1371,7 @@ async function main(): Promise<void> {
     checkReadiness,
   });
 
-  // F181: Prompt X-Ray debug routes
+  // F153: Prompt X-Ray debug routes
   const { promptCaptureRoutes } = await import('./routes/prompt-captures.js');
   await app.register(promptCaptureRoutes);
 

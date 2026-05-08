@@ -825,14 +825,14 @@ export class AgentRouter {
       persistenceContext?: PersistenceContext;
       /** F108: parentInvocationId for WorklistRegistry concurrent isolation */
       parentInvocationId?: string;
-      /** F181: caller trace context for cross-route A2A propagation */
+      /** F153: caller trace context for cross-route A2A propagation */
       callerTraceContext?: CallerTraceContext;
     },
   ): AsyncIterable<AgentMessage> {
     const cleanMessage = stripIntentTags(message);
     const strategy = intent.intent === 'ideate' && targetCats.length > 1 ? 'parallel' : 'serial';
 
-    // F181: Reconstruct remote parent context for cross-route A2A trace propagation
+    // F153: Reconstruct remote parent context for cross-route A2A trace propagation
     const parentCtx = options?.callerTraceContext
       ? trace.setSpanContext(ctxApi.active(), {
           traceId: options.callerTraceContext.traceId,

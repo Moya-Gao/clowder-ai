@@ -1,5 +1,5 @@
 /**
- * F181 Prompt X-Ray: API routes for reading prompt captures.
+ * F153 Prompt X-Ray: API routes for reading prompt captures.
  * All endpoints require session auth (localhost-only by default).
  */
 

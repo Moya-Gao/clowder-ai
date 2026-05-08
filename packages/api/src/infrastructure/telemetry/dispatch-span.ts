@@ -1,5 +1,5 @@
 /**
- * F181: mention_dispatch span for callback A2A paths.
+ * F153: mention_dispatch span for callback A2A paths.
  *
  * Creates a dispatch span as child of the caller's trace context,
  * returning a new CallerTraceContext for the dispatched route.

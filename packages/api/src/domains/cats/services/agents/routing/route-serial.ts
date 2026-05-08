@@ -311,7 +311,7 @@ export async function* routeSerial(
   }
   const bootcampMemberCount = getThreadBootcampMemberCount(routeThread);
 
-  // F181: Trace propagation — track per-invocation spans and route-level token totals
+  // F153: Trace propagation — track per-invocation spans and route-level token totals
   const catInvocationSpans = new Map<number, Span>();
   const mentionParentSpan = new Map<number, Span>();
   const pendingDispatchSpans: { span: Span; lastChildIndex: number }[] = [];
@@ -795,7 +795,7 @@ export async function* routeSerial(
               if (parsed.type === 'rich_block' && parsed.block && isValidRichBlock(parsed.block)) {
                 streamRichBlocks.push(parsed.block);
               }
-              // F181: Accumulate invocation tokens for route aggregate
+              // F153: Accumulate invocation tokens for route aggregate
               if (parsed.type === 'invocation_usage' && parsed.usage) {
                 routeTotalTokens += (parsed.usage.inputTokens ?? 0) + (parsed.usage.outputTokens ?? 0);
               }
@@ -1455,7 +1455,7 @@ export async function* routeSerial(
         }
 
         if (a2aMentions.length > 0 && worklistEntry.a2aCount < maxDepth && !signal?.aborted && !queuedMessagesPending) {
-          // F181: mention_dispatch span — tracks the causal link between mentioner and dispatched targets
+          // F153: mention_dispatch span — tracks the causal link between mentioner and dispatched targets
           let dispatchSpan: Span | undefined;
           const pendingTail = worklist.slice(index + 1);
           const pendingOriginalTargets = targetCats.slice(index + 1);
@@ -1506,7 +1506,7 @@ export async function* routeSerial(
               continue;
             }
 
-            // F181: lazily create mention_dispatch span on first actual push
+            // F153: lazily create mention_dispatch span on first actual push
             if (!dispatchSpan) {
               const mentionerSpan = catInvocationSpans.get(index);
               if (mentionerSpan) {
@@ -1527,10 +1527,10 @@ export async function* routeSerial(
             worklistEntry.a2aFrom.set(nextCat, catId);
             // F121: response-text path — set trigger message for auto-replyTo
             if (storedMsgId) worklistEntry.a2aTriggerMessageId.set(nextCat, storedMsgId);
-            // F181: record mention parent span for dispatched target
+            // F153: record mention parent span for dispatched target
             if (dispatchSpan) mentionParentSpan.set(worklist.length - 1, dispatchSpan);
           }
-          // F181: end or defer dispatch span based on child execution
+          // F153: end or defer dispatch span based on child execution
           if (dispatchSpan) {
             let maxChildIdx = -1;
             for (const [idx, s] of mentionParentSpan) {
@@ -1894,13 +1894,13 @@ export async function* routeSerial(
       index++;
     }
   } finally {
-    // F181: Set route aggregate attributes on the parent route span
+    // F153: Set route aggregate attributes on the parent route span
     if (options.routeSpan) {
       options.routeSpan.setAttribute(ROUTE_TOTAL_CATS_INVOKED, index);
       options.routeSpan.setAttribute(ROUTE_TOTAL_TOKENS, routeTotalTokens);
       options.routeSpan.setAttribute(ROUTE_HAS_A2A_HANDOFF, worklist.length > targetCats.length);
     }
-    // F181: End all pending dispatch spans (unconditional — covers abort/throw)
+    // F153: End all pending dispatch spans (unconditional — covers abort/throw)
     for (const entry of pendingDispatchSpans) {
       entry.span.end();
     }

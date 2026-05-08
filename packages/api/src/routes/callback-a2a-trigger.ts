@@ -70,7 +70,7 @@ export async function enqueueA2ATargets(
     callerCatId?: CatId;
     /** F108: parentInvocationId for concurrent worklist isolation. */
     parentInvocationId?: string;
-    /** F181: caller trace context for cross-route A2A propagation */
+    /** F153: caller trace context for cross-route A2A propagation */
     callerTraceContext?: CallerTraceContext;
   },
 ): Promise<{ enqueued: CatId[]; fallback: boolean }> {
@@ -85,7 +85,7 @@ export async function enqueueA2ATargets(
   const fromCatId = callerCatId ?? opts.triggerMessage.catId ?? getDefaultCatId();
   const targetCats = opts.targetCats;
 
-  // F181: wrap caller trace context with mention_dispatch span for callback A2A causality
+  // F153: wrap caller trace context with mention_dispatch span for callback A2A causality
   const dispatchTraceContext = opts.callerTraceContext
     ? wrapWithDispatchSpan(opts.callerTraceContext, targetCats.length)
     : undefined;
@@ -361,7 +361,7 @@ export async function triggerA2AInvocation(
     userId: string;
     threadId: string;
     triggerMessage: StoredMessage;
-    /** F181: caller trace context for cross-route A2A propagation */
+    /** F153: caller trace context for cross-route A2A propagation */
     callerTraceContext?: CallerTraceContext;
   },
 ): Promise<void> {

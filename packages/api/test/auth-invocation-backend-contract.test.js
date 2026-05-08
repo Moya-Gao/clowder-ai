@@ -260,7 +260,7 @@ for (const [name, factory] of backends) {
       });
     }
 
-    test('F181: setTraceContext persists and is readable via getRecord', async () => {
+    test('F153: setTraceContext persists and is readable via getRecord', async () => {
       const { backend, cleanup } = await factory();
       try {
         await backend.create(fixture('inv-tc', 'tok-tc'), 60_000);
@@ -281,7 +281,7 @@ for (const [name, factory] of backends) {
       }
     });
 
-    test('F181: setTraceContext on unknown invocation is a no-op', async () => {
+    test('F153: setTraceContext on unknown invocation is a no-op', async () => {
       const { backend, cleanup } = await factory();
       try {
         await backend.setTraceContext('nonexistent', {
@@ -296,7 +296,7 @@ for (const [name, factory] of backends) {
       }
     });
 
-    test('F181: traceContext survives verify TTL slide', async () => {
+    test('F153: traceContext survives verify TTL slide', async () => {
       const { backend, cleanup } = await factory();
       try {
         await backend.create(fixture('inv-slide', 'tok-slide'), 60_000);
@@ -317,7 +317,7 @@ for (const [name, factory] of backends) {
       }
     });
 
-    test('F181: peekRecord returns traceContext even after expiry', async () => {
+    test('F153: peekRecord returns traceContext even after expiry', async () => {
       const { backend, cleanup } = await factory();
       try {
         await backend.create(fixture('inv-peek', 'tok-peek'), 10);
