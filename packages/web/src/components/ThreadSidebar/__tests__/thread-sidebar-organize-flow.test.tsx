@@ -153,6 +153,12 @@ describe('ThreadSidebar ✨ organize flow', () => {
       if (harness.container.textContent?.includes('已选 2 个 thread')) break;
     }
 
+    for (let settle = 0; settle < 10 && !harness.container.textContent?.includes('已选 2 个 thread'); settle++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await harness.flush();
+    }
     expect(harness.container.textContent).toContain('已选 2 个 thread');
     expect(harness.container.textContent).toContain('批量应用 (2)');
 

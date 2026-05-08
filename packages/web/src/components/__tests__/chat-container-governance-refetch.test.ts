@@ -169,6 +169,7 @@ vi.mock('@/stores/gameStore', () => {
 });
 
 vi.mock('@/utils/api-client', () => ({
+  API_URL: 'http://localhost:3002',
   apiFetch: vi.fn(async () => ({ ok: true, json: async () => ({ threads: [] }) })),
 }));
 
