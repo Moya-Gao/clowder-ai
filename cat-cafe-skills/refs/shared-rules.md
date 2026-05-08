@@ -635,3 +635,33 @@ git show :3:<path>   # THEIRS（main 上的版本）
 **恢复**：
 1. 本降级仅对当前任务生效；
 2. 当前任务结束后，author 身份自动恢复（非永久开除）。
+
+## 19. Unit test 必须 fail-closed mock callback env（防 cat agent env 泄漏）
+
+> 来源：LL-054（2026-05-07，47 在 F193 Phase A 期间用真身份发 6 条 'hi' 到铲屎官 thread）
+
+**铁律**：cat agent process 跑 unit test 时，子进程**默认继承** `CAT_CAFE_API_URL` / `CAT_CAFE_INVOCATION_ID` / `CAT_CAFE_CALLBACK_TOKEN`——这套 env 是猫调 MCP `post_message` 等工具的通行证。Unit test 漏 mock fetch = 用猫**真身份**发 HTTP 到当前对话 thread。
+
+**适用范围**：所有 import `handlePostMessage` / `handleCrossPostMessage` / 任何 read `CAT_CAFE_API_URL` 的 helper 的 `*.test.js`。
+
+**强制要求**（每个文件 `beforeEach` 必做两件事）：
+
+```javascript
+beforeEach(() => {
+  // (1) Override callback URL to closed loopback port — defense-in-depth.
+  // Even if fetch mock leaks, requests get ECONNREFUSED instead of hitting
+  // the cat agent's real callback endpoint.
+  process.env.CAT_CAFE_API_URL = 'http://127.0.0.1:1';
+  process.env.CAT_CAFE_INVOCATION_ID = 'test-invocation';
+  process.env.CAT_CAFE_CALLBACK_TOKEN = 'test-token';
+
+  // (2) Default fetch stub — every test that doesn't override gets a no-op.
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ status: 'ok' }) });
+});
+```
+
+**不要依赖**："测试通常不会真发 HTTP"——子进程继承父 env 是 OS 级行为，不是 shell quirk。fail-closed (closed port) > fail-fast (mock only)。
+
+**为什么不放 worktree skill 的 `.env.local`**：`.env.local` 只影响 dev server 启动；node:test 子进程不读 `.env.local`，它继承的是父 shell 的真 env。所以护栏必须在 test setup 里。
+
+**违反代价**：用真身份发测试 payload 到铲屎官 thread / 其他猫 thread，看起来像 spam / cron job / 幻觉。已发出去的消息**不可撤回**。

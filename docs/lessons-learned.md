@@ -1106,6 +1106,35 @@ created: 2026-02-26
 
 ---
 
+### LL-054: 猫的 callback env 泄漏到 unit test 子进程——用真身份发出 6 条 'hi'
+- 状态：validated
+- 更新时间：2026-05-07
+
+- 坑：F193 Phase A Task 3 写 `post-message-kd1-mcp-handler.test.js` 时漏 `beforeEach` mock fetch；跑 `pnpm --filter @cat-cafe/mcp-server test` 时，`node:test` 子进程继承了 Claude Code agent process 自带的 callback env (`CAT_CAFE_API_URL=http://127.0.0.1:3002` + `CAT_CAFE_INVOCATION_ID` + `CAT_CAFE_CALLBACK_TOKEN`)。测试里那行 `handlePostMessage({ content: 'hi' })` **用了猫自己当前 invocation 的真身份**，把 'hi' 发到当前对话 thread。跑 6 次 = 6 条假 hi 出现在铲屎官 thread 里，签名"布偶猫 (Opus 4.7)"，看起来像 cron job。
+- 根因：
+  1. **根因 A（猫疏忽）**：unit test 文件没写 `beforeEach` mock + env override；只 mock 在用到的 test case 里 → 漏 mock 的 case fall-through 到真 fetch
+  2. **根因 B（结构性）**：cat agent process 自身 env 就有 callback config（这是 MCP `post_message` 工具能跑的前提），跑 child process 时**默认全继承**——和 worktree 隔离无关，main / worktree / 任何 cwd 都一样会泄漏。原先以为问题是"worktree env 泄漏"是误诊
+  3. **根因 C（错认场景）**：mcp-server unit test 不该有任何"hit 真 callback URL"的可能——目前 `callback-tools.test.js` 已经在 `beforeEach` 设了 `CAT_CAFE_API_URL=http://127.0.0.1:3002` + 加 fetch mock，但只有那一个 file 这么做，没有共享 helper 强制其他测试 file 也走同样模式
+- 触发条件：在 cat agent invocation 进程里跑 `pnpm test` / `node --test`，且测试代码会调到 `handlePostMessage` / `handleCrossPostMessage` / 任何会 read `CAT_CAFE_API_URL` env 的 callback helper，且没在 `beforeEach` mock fetch + override env。**注意**：和 cwd（main / worktree）无关，纯继承父 process env。
+- 修复（已落地）：
+  1. `packages/mcp-server/test/post-message-kd1-mcp-handler.test.js` 加 `beforeEach`：`CAT_CAFE_API_URL=http://127.0.0.1:1`（关闭端口，ECONNREFUSED 即使 mock 漏）+ stub `globalThis.fetch`，`afterEach` 还原
+  2. 加 `assert.equal(fetchCalled, false)` 断言：把"KD-1 guard 必须 reject 在 fetch 之前"变成回归保护
+  3. Commit `8fea021f1`，已 push `feat/F193-cross-thread-comm`
+- 防护（待落地）：
+  1. **shared-rules §19**（本 LL 同时落）：cat agent 进程跑 unit test 前必须在 `beforeEach` override `CAT_CAFE_API_URL` 到 closed 端口 + mock `globalThis.fetch`
+  2. **测试 helper（建议 follow-up）**：`packages/mcp-server/test/helpers/callback-test-env.js` 导出 `setupClosedCallbackEnv()` / `restoreCallbackEnv()`，新写测试 import 一行就拿到 fail-closed 默认值。F193 Phase A 完成后开 follow-up TD
+  3. **CI lint（建议 follow-up）**：扫所有 `*.test.js`，凡 import 了 `handlePostMessage` / `handleCrossPostMessage` 但没 `beforeEach` 设 closed `CAT_CAFE_API_URL` → CI fail
+- 来源锚点：
+  - `docs/features/F193-cross-thread-comm-unification.md`（事故发生在该 feature Phase A 实施期间）
+  - `packages/mcp-server/test/post-message-kd1-mcp-handler.test.js`（修复点）
+  - commit `8fea021f1` (fix(F193): mock fetch + override env in AC-A2 test)
+  - 截图证据：`/Users/lysander/projects/relay-station/cat-cafe-runtime/packages/api/uploads/1778205224706-386492e0.png`
+- 原理：**子进程默认继承父 process env，是 OS 级行为不是 shell quirk**。任何用真 callback config 跑的进程（猫的 invocation 进程）下面派生的子进程（pnpm/node test runner）天然带这套 env。Unit test 必须**显式擦除**这些可能触发 side-effect 的 env，不能依赖"测试通常不发 HTTP"的乐观假设。fail-closed 优于 fail-fast——把 URL 指向 closed 端口，比单靠 fetch mock 多一层防御。
+
+- 关联：`cat-cafe-skills/refs/shared-rules.md §19` | F193
+
+---
+
 ## 8) 维护约定
 
 - 本文件是入口，不替代 ADR/bug-report 原文。
