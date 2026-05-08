@@ -268,65 +268,80 @@ test('.env.local can activate respect-dotenv-ports mode (#603)', () => {
 });
 
 test('explicit port env vars override .env values for direct startup', () => {
-  const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
-  const result = spawnSync(
-    'bash',
-    [
-      '-lc',
-      `set -e\nsource "${scriptPath}" --source-only >/dev/null 2>&1\ntrap - EXIT INT TERM\nprintf '%s|%s|%s' "$FRONTEND_PORT" "$API_SERVER_PORT" "$REDIS_PORT"`,
-    ],
-    {
-      encoding: 'utf8',
-      env: baseShellEnv({
-        FRONTEND_PORT: '3023',
-        API_SERVER_PORT: '3024',
-        REDIS_PORT: '6409',
-      }),
-    },
-  );
+  const tmp = createTempProject();
+  try {
+    const scriptPath = join(tmp, 'scripts', 'start-dev.sh');
+    const result = spawnSync(
+      'bash',
+      [
+        '-lc',
+        `set -e\nsource "${scriptPath}" --source-only >/dev/null 2>&1\ntrap - EXIT INT TERM\nprintf '%s|%s|%s' "$FRONTEND_PORT" "$API_SERVER_PORT" "$REDIS_PORT"`,
+      ],
+      {
+        encoding: 'utf8',
+        env: baseShellEnv({
+          FRONTEND_PORT: '3023',
+          API_SERVER_PORT: '3024',
+          REDIS_PORT: '6409',
+        }),
+      },
+    );
 
-  assert.equal(result.status, 0, `snippet failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
-  assert.equal(result.stdout.trim(), '3023|3024|6409');
+    assert.equal(result.status, 0, `snippet failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
+    assert.equal(result.stdout.trim(), '3023|3024|6409');
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test('explicit NEXT_PUBLIC_API_URL override survives project .env during direct startup', () => {
-  const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
-  const result = spawnSync(
-    'bash',
-    [
-      '-lc',
-      `set -e\nsource "${scriptPath}" --source-only >/dev/null 2>&1\ntrap - EXIT INT TERM\nprintf '%s' "$NEXT_PUBLIC_API_URL"`,
-    ],
-    {
-      encoding: 'utf8',
-      env: baseShellEnv({
-        NEXT_PUBLIC_API_URL: 'http://localhost:3035',
-      }),
-    },
-  );
+  const tmp = createTempProject();
+  try {
+    const scriptPath = join(tmp, 'scripts', 'start-dev.sh');
+    const result = spawnSync(
+      'bash',
+      [
+        '-lc',
+        `set -e\nsource "${scriptPath}" --source-only >/dev/null 2>&1\ntrap - EXIT INT TERM\nprintf '%s' "$NEXT_PUBLIC_API_URL"`,
+      ],
+      {
+        encoding: 'utf8',
+        env: baseShellEnv({
+          NEXT_PUBLIC_API_URL: 'http://localhost:3035',
+        }),
+      },
+    );
 
-  assert.equal(result.status, 0, `snippet failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
-  assert.equal(result.stdout.trim(), 'http://localhost:3035');
+    assert.equal(result.status, 0, `snippet failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
+    assert.equal(result.stdout.trim(), 'http://localhost:3035');
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test('explicit PREVIEW_GATEWAY_PORT override survives project .env during direct startup', () => {
-  const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
-  const result = spawnSync(
-    'bash',
-    [
-      '-lc',
-      `set -e\nsource "${scriptPath}" --source-only >/dev/null 2>&1\ntrap - EXIT INT TERM\nprintf '%s' "$PREVIEW_GATEWAY_PORT"`,
-    ],
-    {
-      encoding: 'utf8',
-      env: baseShellEnv({
-        PREVIEW_GATEWAY_PORT: '5120',
-      }),
-    },
-  );
+  const tmp = createTempProject();
+  try {
+    const scriptPath = join(tmp, 'scripts', 'start-dev.sh');
+    const result = spawnSync(
+      'bash',
+      [
+        '-lc',
+        `set -e\nsource "${scriptPath}" --source-only >/dev/null 2>&1\ntrap - EXIT INT TERM\nprintf '%s' "$PREVIEW_GATEWAY_PORT"`,
+      ],
+      {
+        encoding: 'utf8',
+        env: baseShellEnv({
+          PREVIEW_GATEWAY_PORT: '5120',
+        }),
+      },
+    );
 
-  assert.equal(result.status, 0, `snippet failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
-  assert.equal(result.stdout.trim(), '5120');
+    assert.equal(result.status, 0, `snippet failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
+    assert.equal(result.stdout.trim(), '5120');
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test('direct command mode can prefer current .env ports over ambient shell ports', () => {
@@ -440,10 +455,11 @@ test('respect-dotenv mode keeps explicit Redis 6399 defaults intact for wrappers
 });
 
 test('redis port override also recomputes isolated redis dirs', () => {
-  const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
+  const tmp = createTempProject();
   const tempHome = mkdtempSync(join(tmpdir(), 'cat-cafe-start-dev-redis-override-'));
 
   try {
+    const scriptPath = join(tmp, 'scripts', 'start-dev.sh');
     const result = spawnSync(
       'bash',
       [
@@ -465,6 +481,7 @@ test('redis port override also recomputes isolated redis dirs', () => {
       ['dev-6409', `${tempHome}/.cat-cafe/redis-dev-6409`, `${tempHome}/.cat-cafe/redis-backups/dev-6409`].join('|'),
     );
   } finally {
+    rmSync(tmp, { recursive: true, force: true });
     rmSync(tempHome, { recursive: true, force: true });
   }
 });
