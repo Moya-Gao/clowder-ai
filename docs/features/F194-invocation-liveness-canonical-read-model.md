@@ -58,16 +58,20 @@ PR #1586 修的是前端 reconcile 层，从根因上属于止血。后端 read 
 // packages/api/src/domains/cats/services/agents/invocation/getThreadLiveInvocations.ts
 // （位置和 InvocationTracker / InvocationRecordStore / DraftStore 同 cell）
 
+type LivenessSource = 'record+tracker' | 'record+draft' | 'record-only' | 'tracker+draft';
+type LivenessReason =
+  | 'tracker_present'
+  | 'record_running_with_fresh_draft'
+  | 'liveness_pending'
+  | 'tracker_active_missing_record';
+
 interface LiveInvocation {
-  catId: CatId;
+  catId: CatId | null;
   invocationId: string;
   startedAt: number;
-  /** 这条 live 由哪些 source 共同支撑 */
-  source: 'tracker' | 'record+tracker' | 'record+draft';
-  /** true = record running + tracker missing + fresh draft（恢复优先暴露 active），前端 reconcile 兜底 */
+  source: LivenessSource;
   degraded: boolean;
-  /** 诊断字段：'tracker_present' | 'record_running_with_fresh_draft' | … */
-  reason: string;
+  reason: LivenessReason;
 }
 
 interface ZombieRecord {
@@ -75,8 +79,7 @@ interface ZombieRecord {
   catId: CatId | null;
   recordStatus: 'running';
   recordUpdatedAt: number;
-  /** 检测到的原因：'no_tracker_no_fresh_draft_age_exceeded' | … */
-  reason: string;
+  reason: 'no_tracker_no_fresh_draft_age_exceeded';
 }
 
 interface LivenessReadResult {
@@ -85,25 +88,60 @@ interface LivenessReadResult {
   zombies: ZombieRecord[];
 }
 
+interface LivenessReadDeps {
+  /** Enumerate running records for (threadId, userId) — required so zombies are visible
+   *  even when their drafts have already been TTL-reaped. */
+  listRunningRecords: (threadId: string, userId: string) => Promise<InvocationRecord[]> | InvocationRecord[];
+  /** InvocationTracker.getActiveSlots(threadId) */
+  getActiveSlots: (threadId: string) => ActiveSlotInfo[];
+  /** InvocationTracker.getUserId(threadId, catId) — guards cross-user collisions */
+  getTrackerUserId: (threadId: string, catId: string) => string | null;
+  /** DraftStore.getByThread(userId, threadId) */
+  getDrafts: (userId: string, threadId: string) => Promise<DraftRecord[]> | DraftRecord[];
+}
+
+interface LivenessReadOptions {
+  /** Override Date.now() (tests / deterministic replay) */
+  now?: number;
+  /** Window where draft.updatedAt counts as fresh (default 300_000ms = DraftStore TTL) */
+  freshDraftWindowMs?: number;
+  /** Grace past which a record-only running record (no tracker, no fresh draft) is judged
+   *  zombie (default 600_000ms = 2× DraftStore TTL). Applies ONLY to no-fresh-draft case. */
+  zombieGraceMs?: number;
+}
+
 async function getThreadLiveInvocations(
   threadId: string,
   userId: string,
-  deps: { invocationTracker; invocationRecordStore; draftStore },
-  opts?: { now?: number; zombieThresholdMs?: number },
+  deps: LivenessReadDeps,
+  opts?: LivenessReadOptions,
 ): Promise<LivenessReadResult>;
 ```
 
-### Canonical 判定规则（砚砚 push back 后版本）
+### Canonical 判定规则（砚砚 push back + R1 P1-1/P1-2 + R2 P1 后版本）
 
-按 `(record, tracker, draft.fresh)` 三元组分类：
+#### 决策表（按 candidate=(record?, draft?) 分类）
+
+候选集 = `running records ∪ drafts`（双源 enumeration，R1 P1-1 fix）。对每个 candidate invocationId：
 
 | record | tracker | draft fresh? | 判定 | source / degraded / 诊断 |
 |--------|---------|-------------|------|-----------------------|
-| running | active | — | **live** | `source='record+tracker'`, `degraded=false`, `reason='tracker_present'` |
-| running | missing | yes | **live (degraded)** | `source='record+draft'`, `degraded=true`, `reason='record_running_with_fresh_draft'`，emit `liveness_degraded` |
-| running | missing | no, age > 2×DraftStore TTL | **zombie** | 不暴露 active；emit `record_zombie_detected`；进 `zombies[]` 供 cleanup |
-| running | missing | no, age ≤ threshold | **live (degraded)** | grace 期间继续暴露，避免误杀刚断链的合法 invocation；emit `liveness_pending` |
-| not running | — | — | **not live** | helper 不输出 |
+| running | active 且关联 | — | **live** | `source='record+tracker'`, `degraded=false`, `reason='tracker_present'` |
+| running | missing 或无关联 | yes | **live (degraded)** | `source='record+draft'`, `degraded=true`, `reason='record_running_with_fresh_draft'`，emit `liveness_degraded` |
+| running | — | no, age ≤ grace | **live (degraded)** | `source='record-only'`, `reason='liveness_pending'`（grace 期间继续暴露，避免误杀刚断链的合法 invocation） |
+| running | — | no, age > grace | **zombie** | 不暴露 active；emit `record_zombie_detected`；进 `zombies[]` 供 cleanup |
+| absent | active 且单射关联到此 draft | yes | **live (degraded)** | `source='tracker+draft'`, `reason='tracker_active_missing_record'`（messages.ts hotfix3 行为兼容，AC-B5） |
+| absent | 其他 | — | **drop** | orphan filter |
+| not running / wrong scope | — | — | **drop** | helper 不输出 |
+
+#### Tracker association rules（R1 P1-2 + R2 P1 fix）
+
+一个 tracker slot 只能"证明"一个 record/draft，依据：
+
+- **STRONG**: `slot.startedAt ≤ draft.createdAt`（slot 在 draft 第一次创建时已经在跑——是它产出了这个 draft）
+- **WEAK**: `sameCatRecords.length === 1 AND record.createdAt ≤ slot.startedAt AND !slotClaimedByOtherDraft`（同 cat 仅一条 running record，无歧义，且 slot 未被另一个 draft 强关联）
+
+**R2 P1 cross-check**: 预计算 `slotClaimedByDraft: Map<catId, draft>`（earliest-anchored 那个赢）；当 candidate 的 catId 上 slot 已被另一个 draft 强关联，weak record-tracker 和 tracker+draft fall-back **都**会 fail。这避免了 cat slot 被回收时（旧 zombie record + 新 record-missing draft 共存）一个 slot 同时"证明"两个不相关 invocation 的 false positive。
 
 > **关键点**：`record.updatedAt` **不是** heartbeat（record 写完后只在 markDone/markError/状态变化时再更新）；用 `draft.updatedAt`（stream chunk + touch 触发刷新）作 freshness 主信号。threshold 默认 `2 × DraftStore TTL ≈ 600s`，**仅适用于 no fresh draft 场景**，永远不杀 fresh draft。
 
@@ -229,6 +267,9 @@ async function getThreadLiveInvocations(
 | KD-6 | record running 是 lifecycle SoT，tracker 是控制面，draft 是 freshness 信号——三家不平权 | 代码核对结论：tracker 是进程内 Map（`InvocationTracker.ts:45`），record 是 Redis 持久化（`RedisInvocationRecordStore`），draft 是 300s TTL 内容缓存（`DraftStore.ts:46`）；语义本质不同，不能 union | 2026-05-07 |
 | KD-7 | cleanup pathway 复用 F048 sweep 语义，不另写一套 | F048 Phase A 已经定义 `failed(error=process_restart)` + 清 TaskProgress 的语义；F194 zombie 走同一管道避免分裂 | 2026-05-07 |
 | KD-8 | scope 显式排除 InvocationQueue 持久化、跨实例分布式协调 | 前者归 F048 Phase B，后者属于多实例部署演进；本 feat 只做 read 一致性 + 运行时 zombie | 2026-05-07 |
+| KD-9 | candidate 双源 enumeration（records ∪ drafts）+ tracker association guard 含 cross-check `slotClaimedByOtherDraft` | 砚砚 R1 P1-1：record 缺失但 tracker+draft 仍能证明 live 的合法路径必须保留（messages.ts hotfix3 + AC-B5）。砚砚 R1 P1-2：tracker slot key 是 (threadId, catId) 没 invocationId，cat slot 重用时新 slot 不能反向证明旧 record。砚砚 R2 P1：weak association 还得排除 slot 已被其他 draft 强关联的歧义场景，否则 zombie record + 新 record-missing draft 共存会让一个 slot "证明"两个 invocation。修复：buildSlotClaimedByDraft 预计算 earliest-anchored 那个 draft 的 slot ownership；weak record-tracker 和 tracker+draft 都加 `!slotClaimedByOtherDraft` 守护 | 2026-05-07 |
+| KD-10 | strong tracker-backed path（record+tracker / tracker+draft）由 ownership 而非 timing 决定——只有 slot owner（earliest-anchored draft 的主人）能用 | 砚砚 R3 P1：单 slot 同时 timing-anchor 两个 candidate 的 draft（A.createdAt = -90_000 earliest-owner, B.record+B.draft.createdAt = -85_000 也 timing-anchor），原 `slotAssocWithDraft` 只看时间是否能 anchor，B 仍走 strong path 拿 record+tracker。修复：ctx 加 `slotClaimedByThisDraft = slotClaimingDraft?.invocationId === candidate.invocationId`；`tryRecordTracker` 用 `slotClaimedByThisDraft || slotAssocWithRecordSingle`，`tryTrackerDraft` 改用 `slotClaimedByThisDraft`。非 owner 的 record+draft 仍可走 fresh-draft fallback (record+draft) 保持 active，只是不获得 tracker-backed 强证据。Hard 不变量：每个 cat slot 至多 back 一个 tracker-backed source | 2026-05-07 |
+| KD-11 | slot ownership map 必须排除 stale drafts（freshness guard） | 云端 codex review P1（PR #1592 commit 135f00635）：`buildSlotClaimedByDraft` 没检查 freshness，stale draft（`updatedAt > freshDraftWindowMs` 但 DraftStore TTL 还没 reap，例如 caller 注入更短 freshDraftWindow）能 claim cat slot 当 owner，导致 `slotClaimedByOtherDraft=true` 错误 disable 真正 running invocation 的 weak `record+tracker` path——live record 被错降为 `record-only` pending。修复：`buildSlotClaimedByDraft` 预先 filter `drafts` 只保留 fresh 的（`now - updatedAt ≤ freshDraftWindowMs`）；helper 主入口把 `now` / `freshDraftWindowMs` 透传给 buildIndexes/buildSlotClaimedByDraft | 2026-05-08 |
 
 ## Timeline
 
