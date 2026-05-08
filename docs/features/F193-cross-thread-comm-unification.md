@@ -69,9 +69,9 @@ created: 2026-05-07
 ## Acceptance Criteria
 
 ### Phase A（KD-1 enforcement）
-- [ ] AC-A1: `crossPostMessageInputSchema` 补 `targetCats` 字段并在 handler 透传
-- [ ] AC-A2: MCP handler 层 — invocation-token caller 调 `post_message` 传 `threadId` 时 reject，错误消息提示用 `cat_cafe_cross_post_message`
-- [ ] AC-A3: API route 层 — `CallbackPrincipal × threadId × targetCats` 组合校验，按下表 4 格允许/拒绝矩阵；违反 KD-1 时 400 + alternatives：
+- [x] AC-A1: `crossPostMessageInputSchema` 补 `targetCats` 字段并在 handler 透传 — commit `7b7ca1b64`
+- [x] AC-A2: MCP handler 层 — invocation-token caller 调 `post_message` 传 `threadId` 时 reject，错误消息提示用 `cat_cafe_cross_post_message` — commit `85b94cf00` (impl) + `8fea021f1` (test hotfix LL-054)
+- [x] AC-A3: API route 层 — `CallbackPrincipal × threadId × targetCats` 组合校验，按下表 4 格允许/拒绝矩阵；违反 KD-1 时 400 + alternatives — 由 Tasks 2+3 在两层 union 覆盖（API 端点不区分 post vs cross_post tool 来源，所以矩阵的 invocation-token+threadId 拒绝在 MCP handler 层 enforce；API route 层 enforce cross-post 缺 routing 凭证）。
 
   | Tool × Principal | `threadId` | `targetCats` / 行首 @ | 写入类型 |
   |---|---|---|---|
@@ -79,8 +79,8 @@ created: 2026-05-07
   | `post_message` × agent-key (F178) | **必填**（无默认 thread） | 任一可选 | target-thread write，**不是 F052 relay** |
   | `cross_post_message` × invocation-token | **必填** | **二选一必填**（缺 → reject） | F052 cross-thread relay（注入 `extra.crossPost.sourceThreadId`） |
   | `cross_post_message` × agent-key | **必填** | **二选一必填**（缺 → reject） | target-thread notification requiring routing（**不注入** sourceThreadId — 见 KD-1 边界） |
-- [ ] AC-A4: `cross_post_message` 缺 `targetCats` AND 无行首 @ → reject (400) + alternatives
-- [ ] AC-A5: 测试覆盖 principal × threadId × targetCats 全组合矩阵；F052 sourceThreadId 注入仍正确；同名猫跨线程豁免不退化
+- [x] AC-A4: `cross_post_message` 缺 `targetCats` AND 无行首 @ → reject (400) + alternatives — commit `a5a04e8fe`
+- [x] AC-A5: 测试覆盖 principal × threadId × targetCats 全组合矩阵；F052 sourceThreadId 注入仍正确；同名猫跨线程豁免不退化 — commit `55edbe9b4`
 
 ### Phase B（认知路径修复）
 - [ ] AC-B1: `SystemPromptBuilder.MCP_TOOLS_SECTION` 协作工具列表新增 `cat_cafe_cross_post_message` 并附最小认知路径示例

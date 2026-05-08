@@ -66,6 +66,34 @@ import { clearVoteTimer, closeVoteInternal, voteTimers } from './votes.js';
 
 const log = createModuleLogger('routes/callbacks');
 
+/**
+ * F193 AC-A4 raw line-start @ detector.
+ * Mirrors authoritative server parser at a2a-mentions.ts:86-114
+ * (strip code fences, trimStart, strip markdown prefix, startsWith('@')).
+ *
+ * Used by AC-A4 fail-closed gate which MUST run BEFORE
+ * registry.claimClientMessageId (Codex review P1 round 2 close — otherwise
+ * malformed retries permanently consume idempotency keys).
+ *
+ * Local mirror (no cross-package dep) — server parser remains authoritative;
+ * this is just a raw caller-input signal: did the caller TRY to provide
+ * line-start @ routing? Disabled/unknown handles still fall through to the
+ * existing routing_warnings/allExplicitFailed path (Codex review P2 close).
+ */
+const LEADING_MARKDOWN_MENTION_PREFIX_RE_F193 = /^(?:(?:>\s*)|(?:[-*+]\s+)|(?:\d+[.)]\s+))+/;
+
+function hasPlausibleLineStartMention(content: string): boolean {
+  const stripped = content.replace(/```[\s\S]*?```/g, '');
+  for (const rawLine of stripped.split(/\r?\n/)) {
+    const leadingWs = rawLine.match(/^\s*/)?.[0].length ?? 0;
+    const normalized = rawLine.slice(leadingWs).replace(LEADING_MARKDOWN_MENTION_PREFIX_RE_F193, '');
+    if (normalized.startsWith('@') && normalized.length > 1) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function buildPostMessageRoutingMessage(routedIds: string[], warnings: CatRoutingError[]): string {
   const parts: string[] = [];
   if (routedIds.length > 0) parts.push(`消息已路由给 ${routedIds.map((id) => `@${id}`).join('、')}。`);
@@ -621,6 +649,35 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       effectiveThreadId = scoped.threadId;
     }
 
+    // F193 AC-A4: cross-post fail-closed BEFORE idempotency claim.
+    // Closes Codex review P1 round 2 (2026-05-08): if AC-A4 reject runs AFTER
+    // claimClientMessageId, a malformed first attempt permanently consumes
+    // the idempotency key — corrected retry with the same key is then
+    // treated as `duplicate` and silently dropped. Validation errors must
+    // not be terminal for clients that correctly reuse the same key.
+    //
+    // Raw caller-input check (does NOT depend on contentAnalysis which runs
+    // later) — see hasPlausibleLineStartMention() docstring. Server-side
+    // analyzeA2AMentions remains the authoritative parser; disabled/unknown
+    // handles still fall through to the existing routing_warnings /
+    // allExplicitFailed path (Codex P2 round 1 close).
+    const isCrossThread = effectiveThreadId !== actor.threadId;
+    if (isCrossThread) {
+      const hasRawLineStartMention = hasPlausibleLineStartMention(content);
+      const hasRawTargetCats = (explicitTargetCats?.length ?? 0) > 0;
+      if (!hasRawLineStartMention && !hasRawTargetCats) {
+        reply.status(400);
+        return {
+          kind: 'cross_post_no_routing',
+          message: 'Cross-thread post requires routing credentials (F193 KD-1 / AC-A4).',
+          alternatives: [
+            'Pass targetCats: ["catHandle"] to route to specific cat(s) in the target thread',
+            'Add a line-start @catHandle in content (must be at start of line, not mid-sentence)',
+          ],
+        };
+      }
+    }
+
     // At-least-once de-duplication: retries with same clientMessageId are treated as duplicate.
     if (clientMessageId) {
       const isFirstSeen = await registry.claimClientMessageId(invocationId, clientMessageId);
@@ -648,8 +705,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       }
     }
 
-    // F52: Detect cross-thread post (used for both A2A exemption and crossPost metadata)
-    const isCrossThread = effectiveThreadId !== actor.threadId;
+    // F52: isCrossThread already computed above (before idempotency claim, F193 AC-A4 gate).
 
     // Parse line-start @mentions (A2A rule: only line-start, strip code blocks, single target)
     // Uses analyzeA2AMentions to capture routing_warnings for disabled cats (F182 KD-10).
@@ -674,6 +730,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       }
     }
     const mergedTargets = new Set<CatId>([...contentTargets, ...validExplicitTargets]);
+
     if (contentTargets.length === 1 && mergedTargets.size > 1) {
       const [primaryTarget] = contentTargets;
       if (!primaryTarget) {

@@ -17,6 +17,7 @@ doc_anchors:
 static_scan_hints: [InvocationRegistry, callbackToken, callback-auth, AuthFailureReason, refresh-token, callback auth]
 cited_by:
   - {feature: F191, date: 2026-05-07, delta: new cell}
+  - {feature: F193, date: 2026-05-07, delta: KD-1 principal-conditioned threadId enforcement (post_message vs cross_post_message contract reconcile)}
 ---
 
 # Callback Auth

@@ -17,6 +17,7 @@ doc_anchors:
 static_scan_hints: [ConnectorRouter, MessageEnvelope, Adapter, BindingStore, OutboundDeliveryHook]
 cited_by:
   - {feature: F191, date: 2026-05-07, delta: new cell}
+  - {feature: F193, date: 2026-05-07, delta: cross_post_message becomes first-class with targetCats routing + AC-A4 cross-post fail-closed when no routing creds}
 ---
 
 # Transport Plane

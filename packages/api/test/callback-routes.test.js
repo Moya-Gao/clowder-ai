@@ -281,6 +281,8 @@ describe('Callback Routes', () => {
       payload: {
         threadId: threadB.id,
         content: 'cross-thread hello',
+        // F193 AC-A4: cross-post requires routing credentials (targetCats or line-start @)
+        targetCats: ['codex'],
       },
     });
 
@@ -2547,6 +2549,8 @@ describe('Callback Routes', () => {
       payload: {
         content: 'Hello from source thread',
         threadId: targetThread.id,
+        // F193 AC-A4: cross-post requires routing credentials (targetCats or line-start @)
+        targetCats: ['opus'],
       },
     });
 
