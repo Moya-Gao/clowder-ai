@@ -3,7 +3,7 @@ feature_ids: []
 topics: [career, interview, job-search, strategy]
 doc_kind: discussion
 created: 2026-04-09
-updated: 2026-05-07
+updated: 2026-05-08
 participants: [opus, gpt52, gemini, codex, landy]
 thread_ids: [thread_mnpgz36wuta8m679]
 ---
@@ -40,7 +40,7 @@ thread_ids: [thread_mnpgz36wuta8m679]
 | 2026-04-29（周三）19:30 | 阿里淘天集团-业务技术 — AI Agent 开发专家（急招） | 二面 | 已完成，体验不佳 | 对方深挖 Cat Cafe 架构细节，但对团队方向/具体工作披露敷衍；记录见 `2026-04-29-taotian-second-interview-notes.md` |
 | 2026-05-06（周三）19:30 | 字节跳动 — 正式一面（具体团队待确认） | 二面 | 已完成并通过 | HR 反馈：技术/创新/前沿探索评价高；担心完整落地经验和表达包装；已约 2026-05-11 19:00 三面（抖音 AI 方向老板面） |
 | 2026-05-07（周四）19:00-20:00 | 腾讯企微 — AI Agent 开发工程师 | 面委会一面 | 已完成 | 题目集中在系统分层、记忆设计、需求变更、测试与 vibe coding；见 `2026-05-07-wecom-panel-interview-notes.md` |
-| 2026-05-08（周五）20:00 | 灵动时刻 Interaive — AI Native 全栈工程师 | HR 面 | 已确认 | 铲屎官口述：已约 2026-05-08 20:00 |
+| 2026-05-08（周五）20:00 | 灵动时刻 Interaive — AI Native 全栈工程师 | HR 面 | 已完成 | 深圳主体；薪酬结构类似字节 `12+3`；有期权但无回购政策；下一轮还有 agent 同事面，详见 `2026-05-08-interaive-hr-notes.md` |
 | 2026-05-11（周一）19:00 | 字节跳动 — 正式一面（具体团队待确认） | 三面 | 已确认 | 抖音 AI 方向老板面；HR 口述一二面评价整体积极，详见 `2026-05-11-bytedance-third-interview-prep-status.md` |
 
 ---
