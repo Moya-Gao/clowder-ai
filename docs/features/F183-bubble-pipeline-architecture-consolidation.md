@@ -1,6 +1,6 @@
 ---
 feature_ids: [F183]
-related_features: [F081, F117, F123, F164, F173, F176, F184]
+related_features: [F081, F117, F123, F164, F173, F176, F184, F194]
 topics: [bubble, message-pipeline, identity-contract, websocket, idb-cache, reconcile, refactor, architecture, observability]
 doc_kind: spec
 created: 2026-04-30
@@ -12,7 +12,7 @@ created: 2026-04-30
 >
 > Phase A-E 全 phase 代码落地并通过 alpha 实测（2026-05-02）。**AC-Z1 5 类症状（裂/不见/F5 才好/F5 才出来/发完才出来）在 alpha 通道经验证已全部消除**。PR #1541 补齐了 reconnect-window catch-up 路径，alpha 实测 confirm 掉线期间 broadcast 可自愈。A→B→A UI bug 在 alpha 未复现。F183 愿景达成，架构进入 main 并作为消息管线真相源参考。
 >
-> **2026-05-07 Post-close follow-up**: 铲屎官在 runtime 报告"活跃线程气泡仍会裂，但没那么严重"。砚砚现场只读诊断显示：`/api/messages` 仍返回 live `draft-{invocationId}`，但 `/api/threads/:threadId/queue` 对同一 thread 返回 `activeInvocations: []`。这是 DraftStore / InvocationRecordStore 与 InvocationTracker 的 liveness truth split，不是单纯渲染 CSS 问题。记录见下方 "Post-close Issue: Active Draft / Queue Liveness Split"；需架构讨论后决定是否作为 F183-R2 follow-up 或挂到 F173 runtime-state unification。
+> **2026-05-07 Post-close follow-up**: 铲屎官在 runtime 报告"活跃线程气泡仍会裂，但没那么严重"。砚砚现场只读诊断显示：`/api/messages` 仍返回 live `draft-{invocationId}`，但 `/api/threads/:threadId/queue` 对同一 thread 返回 `activeInvocations: []`。这是 DraftStore / InvocationRecordStore 与 InvocationTracker 的 liveness truth split，不是单纯渲染 CSS 问题。记录见下方 "Post-close Issue: Active Draft / Queue Liveness Split"。**已独立立项 [F194](F194-invocation-liveness-canonical-read-model.md)**（不 reopen F183，不挂 F173），由 opus-47 author / 砚砚 reviewer 收口后端 invocation 活性 canonical read model + zombie detection。
 >
 > Phase A 已 done（2026-04-30，铲屎官自治放行 ADR-033 v2）。Phase B0 已 merged（PR #1496，commit `a6be5970e`）。Phase B1.1 reducer core 已 merged（PR #1500，commit `2fbde77ec`）。Phase B1.2.1 adapter + reducer textMode='replace' 已 merged（PR #1506，commit `1e9cb84bd`）。Phase B1.2.2 active text wire-up pilot 已 merged（PR #1507，commit `3817e0974`，2 轮 review）。Phase B1.2.3 active stream new-bubble 已 merged（PR #1510，commit `058362c79`，1 轮 review）。Phase B1.2.4 callback wire-up + reducer callback-specific policy 已 merged（PR #1517，commit `1d6040b80`，4 轮 review 收敛 4 P1）。Phase B1.2.5 hydration `mergeReplaceHydrationMessages` 简化（AC-B2）已 merged（PR #1521，commit `a2cf6dc84`，1 轮云端 review 收敛 1 P1）。**active text 整体 wire-up 完成（stream + callback explicit-invocationId 路径）+ hydration replace 路径策略简化完毕**；后续处理 invocationless callback / tool events / done-error 等余下入口。
 
@@ -218,7 +218,7 @@ PR #1586 已修复一个局部 identity gap：local invocationless live bubble �
 | R6 | "写一个 ADR 或架构设计文档" | AC-A1, AC-A2, AC-A5 | doc review | [x] |
 | R7 | "未来修改代码就有架构图可以看和参考" | AC-Z3 | onboarding 检查 | [x] |
 | R8 | "组织大家讨论一下，不要当独裁猫猫" | AC-A1（多猫收敛） | discussion 落盘 | [x] |
-| **NEW-2026-05-07** | "现在活跃线程气泡还是裂的" | Post-close Issue | runtime API diagnostics + follow-up regression | [ ] 待架构讨论 |
+| **NEW-2026-05-07** | "现在活跃线程气泡还是裂的" | [F194](F194-invocation-liveness-canonical-read-model.md) AC-Z1 | F194 alpha 实测 | [→] 已转 F194 |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -255,7 +255,7 @@ PR #1586 已修复一个局部 identity gap：local invocationless live bubble �
 | OQ-3 | IDB 是降级为纯离线 fallback，还是保持渲染路径但加 invalidation hook？性能 vs 一致性的 tradeoff | ⬜ 等 Phase D |
 | OQ-4 | Single Writer 是 vanilla reducer 还是引入更重的 state machine（XState 等）？ | ⬜ 等 Phase B |
 | OQ-5 | Store Invariant 是 dev-only 还是 prod 也开（带 sampling）？ | ⬜ 等 Phase E |
-| OQ-6 | Post-close active-thread split 应收束为 F183-R2 follow-up，还是挂到 F173 runtime-state unification？ | ⬜ 等 Opus-47 架构讨论 |
+| OQ-6 | Post-close active-thread split 应收束为 F183-R2 follow-up，还是挂到 F173 runtime-state unification？ | ✅ 拍板：独立立项 [F194](F194-invocation-liveness-canonical-read-model.md)（2026-05-07，opus-47 + 砚砚 collaborative-thinking 收敛） |
 
 ## Key Decisions
 
