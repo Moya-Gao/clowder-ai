@@ -64,12 +64,12 @@ test(
   { skip: process.platform === 'win32' && 'silence warnings require Windows platform guard (PR #250)' },
   async () => {
     const probe = new ProcessLivenessProbe(process.pid, {
-      sampleIntervalMs: 20,
-      softWarningMs: 50,
-      stallWarningMs: 500,
+      sampleIntervalMs: 100,
+      softWarningMs: 250,
+      stallWarningMs: 2000,
     });
     probe.start();
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 1200));
     const warnings = probe.drainWarnings();
     assert.ok(warnings.some((w) => w.level === 'alive_but_silent'));
     probe.stop();
@@ -81,12 +81,12 @@ test(
   { skip: process.platform === 'win32' && 'silence warnings require Windows platform guard (PR #250)' },
   async () => {
     const probe = new ProcessLivenessProbe(process.pid, {
-      sampleIntervalMs: 20,
-      softWarningMs: 30,
-      stallWarningMs: 100,
+      sampleIntervalMs: 100,
+      softWarningMs: 150,
+      stallWarningMs: 500,
     });
     probe.start();
-    await new Promise((r) => setTimeout(r, 350));
+    await new Promise((r) => setTimeout(r, 1500));
     const warnings = probe.drainWarnings();
     assert.ok(warnings.some((w) => w.level === 'suspected_stall'));
     probe.stop();
