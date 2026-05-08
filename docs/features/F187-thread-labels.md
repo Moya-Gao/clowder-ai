@@ -122,6 +122,7 @@ Why: F187 改的是用户面向的 thread 组织/分类/Sidebar 筛选语义，�
 | 2026-05-06 | Phase A merged (PR #1576) |
 | 2026-05-07 | Phase B merged (PR #1577) |
 | 2026-05-07 | Phase C merged (PR #1589) |
+| 2026-05-08 | Phase C vision guard fix merged (PR #1593) — ✨→modal flow + trashed thread label cleanup |
 
 ## Review Gate
 
