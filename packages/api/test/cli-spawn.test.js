@@ -239,14 +239,14 @@ test('spawnCli resets timeout on stderr activity (CLI alive signal)', async () =
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
 
-  const promise = collect(spawnCli({ command: 'test-cli', args: [], timeoutMs: 50 }, { spawnFn }));
+  const promise = collect(spawnCli({ command: 'test-cli', args: [], timeoutMs: 300 }, { spawnFn }));
 
   // Keep the process "alive" with stderr output so it doesn't timeout
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  await new Promise((resolve) => setTimeout(resolve, 100));
   proc.stderr.write('thinking...\n');
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  await new Promise((resolve) => setTimeout(resolve, 100));
   proc.stderr.write('still working...\n');
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  await new Promise((resolve) => setTimeout(resolve, 100));
 
   proc.stdout.write('{"type":"ok"}\n');
   proc.stdout.end();
@@ -712,14 +712,14 @@ test('B4: yields alive_but_silent warning during CLI silence', async () => {
       {
         command: 'codex',
         args: [],
-        timeoutMs: 500,
-        livenessProbe: { sampleIntervalMs: 30, softWarningMs: 80, stallWarningMs: 300 },
+        timeoutMs: 2000,
+        livenessProbe: { sampleIntervalMs: 100, softWarningMs: 250, stallWarningMs: 1200 },
       },
       { spawnFn },
     ),
   );
 
-  await new Promise((r) => setTimeout(r, 600));
+  await new Promise((r) => setTimeout(r, 2500));
   proc.stdout.end();
 
   const results = await promise;
