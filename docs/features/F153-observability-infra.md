@@ -81,7 +81,7 @@ team experience（2026-04-09）："这是可观测性基础设施 PR，核心是
 Phase E 只回答"发生了什么"（traces、metrics、健康状态），不做质量判断或打分。
 
 **实现总结**（L1+L2+L3）：
-1. **LocalTraceStore** — 内存 ring buffer（10K span，2h TTL）存储脱敏后的 TraceSpanDTO
+1. **LocalTraceStore** — 内存 ring buffer（10K span，24h TTL）存储脱敏后的 TraceSpanDTO
 2. **LocalTraceExporter** — OTel SpanExporter，将 ReadableSpan 投影为 DTO 写入 ring buffer
 3. **MetricsSnapshotStore** — 30s 采样 Prometheus 指标，保留时序趋势（720 snapshot cap，6h TTL）
 4. **Telemetry API 路由** — `/api/telemetry/traces`、`/traces/stats`、`/metrics`、`/metrics/history`、`/health`
@@ -175,7 +175,7 @@ Phase E 实现引入了 `cat_cafe.route` 根 span（`AgentRouter` 创建），`c
 | `cat_cafe.cli_session` | 同上（共用 assistant message） | `timestamp - durationMs` |
 | `cat_cafe.llm_call` | 同上 | `timestamp - durationApiMs` |
 
-> **tool_use spans 暂不持久化**：当前 MCP 工具 span 是零时长点标记，等 Phase G 获得真实执行边界后再升级持久化策略。
+> **tool_use spans 暂不持久化**：当前 MCP 工具 span 是零时长点标记，等 Phase H 获得真实执行边界后再升级持久化策略。
 
 #### extra.tracing 前置改造
 
@@ -190,7 +190,7 @@ Phase E 实现引入了 `cat_cafe.route` 根 span（`AgentRouter` 创建），`c
 1. **P1 修复**：统一 `invocationId`（root/cli/llm/route 四类 span 都带，值 = outer InvocationRecord.id）
 2. **写入指针**：invocation 创建 span 时，将 `{ traceId, spanId, parentSpanId }` 写入对应 Message 的 `extra.tracing`
 3. **hydrate 逻辑**：`LocalTraceStore.hydrate(dtos)` 方法，启动时从最近消息合成 span 回填 buffer
-4. **启动流程**：`initTelemetry` 后扫描最近 2h 消息（按 `msg:timeline` sorted set 范围查询），提取有 `extra.tracing` 的消息，合成 DTO 调用 `hydrate()`
+4. **启动流程**：`initTelemetry` 后扫描最近 24h 消息（按 `msg:timeline` sorted set 范围查询），提取有 `extra.tracing` 的消息，合成 DTO 调用 `hydrate()`
 
 #### 写入时机
 
@@ -201,6 +201,8 @@ Phase E 实现引入了 `cat_cafe.route` 根 span（`AgentRouter` 创建），`c
 - outer terminal transition 是唯一确定"该 invocation 所有工作都完成"的时刻
 
 ### Phase G: Prompt X-Ray + Cross-route A2A Trace Propagation
+
+> **Provenance**: 社区 PR clowder-ai#619（Closes clowder-ai#583），原提案为独立 F181，经维护者判定归入 F153 Phase G（2026-05-08）。
 
 两个核心能力：Prompt X-Ray 调试捕获 + 跨猫 A2A 调用链因果追踪。
 
@@ -264,7 +266,7 @@ W3C TraceContext 对齐的跨猫调用因果链：
 - [x] AC-C6: regressions 覆盖 strict/shadow 同猫跨行、same-line dual mention、code block / blockquote 排除
 
 ### Phase E（Hub 嵌入式可观测 + Snapshot Store）✅
-- [x] AC-E1: `LocalTraceStore` ring buffer 存储脱敏 TraceSpanDTO（10K cap，2h TTL）
+- [x] AC-E1: `LocalTraceStore` ring buffer 存储脱敏 TraceSpanDTO（10K cap，24h TTL — Phase G 统一）
 - [x] AC-E2: `LocalTraceExporter` 在 RedactingSpanProcessor 之后运行，只看脱敏属性
 - [x] AC-E3: `GET /api/telemetry/traces` 支持 traceId/invocationId(HMAC)/catId 过滤
 - [x] AC-E4: trace 查询端 HMAC 原始 ID 后匹配（pseudonymized store）
@@ -276,7 +278,7 @@ W3C TraceContext 对齐的跨猫调用因果链：
 - [x] AC-F1: 四类 span（route/invocation/cli_session/llm_call）统一携带 `invocationId` attribute（值 = outer InvocationRecord.id，键名不变）
 - [x] AC-F2: Message `extra.tracing` 写入 `{ traceId, spanId, parentSpanId }` 指针（route → user message，invocation/cli/llm → assistant message）
 - [x] AC-F3: `LocalTraceStore.hydrate()` 从消息数据合成 TraceSpanDTO 并回填 buffer，startTime 使用 `timestamp - duration` 反推（非直接用 message.timestamp）
-- [x] AC-F4: 冷启动时从最近 2h 消息自动 hydrate，Hub Traces tab 可见历史 span
+- [x] AC-F4: 冷启动时从最近 24h 消息自动 hydrate，Hub Traces tab 可见历史 span（Phase G 统一 TTL）
 - [x] AC-F5: hydrate 使用 `msg:timeline` sorted set 范围查询，不做全表扫描
 - [x] AC-F6: 每条消息 tracing 指针增量 ≤ 100 bytes，不存完整 span 快照
 - [x] AC-F7: `StoredMessage.extra` 类型扩展含 `tracing`，parser round-trip 保留，`updateExtra()` 使用 merge 语义
