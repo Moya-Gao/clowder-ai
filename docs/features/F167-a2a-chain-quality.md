@@ -650,14 +650,14 @@ cat_cafe_hold_ball({
 
 模式切换点缺失：codex 接单那一刻，应从轮询型切到纯事件驱动型，但无规则告知"该停轮询了"。
 
-**KD-27**：hold_ball 轮询和结构化回调（PR tracking / scheduled task）覆盖同一等待对象时，轮询必须终止。判断点：轮询唤醒时发现目标事件已有事件驱动渠道覆盖 → 释放 hold_ball，不再续约唤醒。
+**KD-27**：hold_ball 轮询和结构化回调（PR tracking / scheduled task）覆盖同一等待对象时，轮询必须终止。切换点 = EYES > 0（codex 接单），不是"注册 PR tracking 后"。注册 PR tracking 覆盖的是后续 review feedback / CI / conflict，不覆盖"有没有人接单"。纯 prompt 层规则 + skill checkpoint，不做 harness 层 hold_ball × PR tracking 交叉绑定（hold_ball 存自由文本 reason/nextStep，PR tracking 用结构化 `subjectKey = pr:{repo}#{prNumber}`，两者无机械锚点，强行绑定 = KD-8 分类器反模式）。
 
-**修复方案**（规则 + skill 双层）：
+**修复方案**（prompt 规则 + skill + runtime 注入三层同步）：
 
-- [ ] AC-L1: A2A 规则（传球决策树）选项 2 拆分：2a = 等外部接单（无回调覆盖）→ hold_ball + 轮询；2b = 已有结构化回调覆盖 → 仅依赖回调，禁止叠加轮询
-- [ ] AC-L2: merge-gate skill 在注册 PR tracking 后输出明确 checkpoint："PR tracking 已接管等待，如有 hold_ball 轮询在跑 → 停止续约"
-- [ ] AC-L3: hold_ball 轮询唤醒时，检查是否已有 PR tracking 覆盖同一 PR → 若有，释放 hold 而非续约
-- [ ] AC-L4: shared-rules 传球决策树补充"结构化回调 supersedes 轮询"原则
+- [ ] AC-L1: `shared-rules` 传球决策树选项 2 拆分 + 补充"结构化回调 supersedes 轮询"原则：2a = 等外部接单且无回调覆盖（如等 codex EYES）→ hold_ball + 轮询；2b = 已有结构化回调覆盖（如 PR tracking 已注册且 EYES > 0）→ 仅依赖回调，禁止叠加轮询
+- [ ] AC-L2: `SystemPromptBuilder.ts` trailing anchor（当前 line 849）同步更新传球决策树 2a/2b 拆分，与 shared-rules 一致。补 system-prompt-builder 测试验证注入内容包含 2a/2b 区分
+- [ ] AC-L3: merge-gate skill 的 hold_ball 轮询唤醒步骤：检查 PR reviewer 状态（`gh pr view` → EYES > 0）→ 停止续约，释放 hold；EYES == 0 → 允许一次 re-trigger。不做 harness 层 hold_ball metadata 与 PR tracking subjectKey 的机械绑定
+- [ ] AC-L4: CLAUDE.md 传球决策树引用同步更新（如有）
 
 **关闭门禁**：Phase I + J 全部合入后观察 1 周无新 case → Phase K Design Gate → K 合入 → Phase L 合入 → 2 周观察 → F167 正式 close。
 
