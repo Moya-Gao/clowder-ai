@@ -89,10 +89,11 @@ created: 2026-05-07
 - [x] AC-B4: 测试覆盖 worklist + queue 两条路径 + agent-key boundary — commit `f45bc264e` (4 boundary tests via hydrateCrossThreadReplyHint helper). Queue path covered by Task 3 wiring (callback-a2a-trigger backfills triggerMessageId into worklist; route-serial reads downstream).
 
 ### Phase C（split-only 配置 + limb 迁移）
-- [ ] AC-C1: 新增 `cat-cafe-limb` server entry point（`packages/mcp-server/src/limb.ts` + `dist/limb.js` build artifact）
-- [ ] AC-C2: `.mcp.json` 删 `cat-cafe` entry，加 `cat-cafe-limb`
-- [ ] AC-C3: `.codex/config.toml` 删 `[mcp_servers.cat-cafe]`，加 `[mcp_servers.cat-cafe-limb]`
-- [ ] AC-C4: `tool-registration.test.js` 守护 split-only 模式 + limb 工具仅在 `cat-cafe-limb` server 可见
+- [x] AC-C1: 新增 `cat-cafe-limb` server entry point（`packages/mcp-server/src/limb.ts` + `dist/limb.js` build artifact）— commit pending PR
+- [x] AC-C2 / AC-C3: `.mcp.json` + `.codex/config.toml` migration — **two-track**：
+  - **Hub 自动流程（primary）**：`capability-orchestrator.ts` 是 source of truth；`CAT_CAFE_SPLIT_SERVER_IDS` 加入 `cat-cafe-limb`；`buildCatCafeSplitMcpDescriptors` 生成 `dist/limb.js`；`bootstrapCapabilities` 不再添加 all-in-one；`ensureCatCafeMainServer` 语义翻转——splits 存在时 **移除** legacy `cat-cafe` + **补齐** `cat-cafe-limb`（覆盖 3-split→4-split 自动迁移）。每次 `GET /api/capabilities` 由 [`generateCliConfigs`](../../packages/api/src/routes/capabilities.ts) idempotent merge-write 把项目根 `.mcp.json` / `.codex/config.toml` 重写到 4-split + limb 拓扑——Hub 一开 user-local CLI configs 自动迁移 — commit pending PR
+  - **手工 diff（fallback）**：`.mcp.json` + `.codex/config.toml` 在 `.gitignore`（user-local，PR 不能 commit user-local diff），但 [Phase C migration guide](../F193-phase-C-migration.md) 提供手工 diff 给"不走 Hub flow / 立即修本地 harness"的兜底路径
+- [x] AC-C4: `tool-registration.test.js` 守护 `createLimbServer` 只注册 limb tool surface（4 项：`limb_list_available` / `limb_invoke` / `limb_pair_list` / `limb_pair_approve`）— commit pending PR
 
 ### Phase D（废弃工具清理）
 - [ ] AC-D1: 移除 `reflect` 工具注册（含 server-toolsets / tools/index）+ **同步清理 `SystemPromptBuilder.MCP_TOOLS_SECTION` 中 `cat_cafe_reflect: 反思性合成` 这行**（[SystemPromptBuilder.ts:266](../../packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts)）+ `tool-registration.test.js` 守护 + 搜 `cat-cafe-skills/**/*.md` 删除引用
@@ -154,6 +155,7 @@ created: 2026-05-07
 | 2026-05-08 | Phase A merged (PR #1599) — KD-1 enforcement + AC-A4 cross-post fail-closed + F052 boundary |
 | 2026-05-08 | Phase B implementation start — system prompt cross_post_message + receiver-side reply hint + KD-1 post_message hint (PR pending) |
 | 2026-05-08 | Phase B merged (PR #1601) — typed crossThreadReplyHint field + worklist+queue hydrate + 砚砚 3 rounds review + cloud first-pass |
+| 2026-05-08 | Phase C implementation — limb.ts entry point + tool-registration createLimbServer 守护 + capability-orchestrator Phase C 语义翻转 (auto-migrate stale 3-split / legacy all-in-one configs) + user-local migration doc (PR pending) |
 
 ## Review Gate
 

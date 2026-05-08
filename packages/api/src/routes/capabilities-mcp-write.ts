@@ -12,10 +12,9 @@ import type { FastifyPluginAsync } from 'fastify';
 import { appendAuditEntry, readAuditLog } from '../config/capabilities/capability-audit.js';
 import { buildInstallPreview } from '../config/capabilities/capability-install.js';
 import {
-  ensureCatCafeMainServer,
   generateCliConfigs,
+  healCatCafeMcpTopology,
   readCapabilitiesConfig,
-  realignManagedCatCafeServerPaths,
   withCapabilityLock,
   writeCapabilitiesConfig,
 } from '../config/capabilities/capability-orchestrator.js';
@@ -93,8 +92,11 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
         config = { version: 1, capabilities: [] };
       }
       const catCafeRepoRoot = await resolveMainRepoPath();
-      config = ensureCatCafeMainServer(config, { catCafeRepoRoot }).config;
-      config = realignManagedCatCafeServerPaths(config, { catCafeRepoRoot }).config;
+      // F193 Phase C: full migration chain (codex round 7 P1) — install
+      // path must run the same heal as GET so legacy-only configs auto-
+      // migrate to split-only canonical state before the MCP install
+      // mutation lands.
+      config = healCatCafeMcpTopology(config, { catCafeRepoRoot }).config;
 
       const existingIdx = config.capabilities.findIndex((c) => c.id === body.id && c.type === 'mcp');
       const before = existingIdx >= 0 ? structuredClone(config.capabilities[existingIdx]) : null;
@@ -183,8 +185,11 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
         return { error: 'capabilities.json not found' };
       }
       const catCafeRepoRoot = await resolveMainRepoPath();
-      let nextConfig = ensureCatCafeMainServer(config, { catCafeRepoRoot }).config;
-      nextConfig = realignManagedCatCafeServerPaths(nextConfig, { catCafeRepoRoot }).config;
+      // F193 Phase C: full migration chain (codex round 7 P1) — delete
+      // path must run the same heal as GET so legacy-only configs auto-
+      // migrate to split-only canonical state before the MCP delete
+      // mutation lands.
+      const nextConfig = healCatCafeMcpTopology(config, { catCafeRepoRoot }).config;
 
       const idx = nextConfig.capabilities.findIndex((c) => c.id === id && c.type === 'mcp');
       if (idx === -1) {

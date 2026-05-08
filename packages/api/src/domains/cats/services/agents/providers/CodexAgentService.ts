@@ -143,11 +143,15 @@ function toTomlString(value: string): string {
  * Ensure Codex subprocess always receives cat-cafe MCP server config
  * based on the current thread working directory.
  */
+// F193 Phase C: split-only. Legacy `cat-cafe` (all-in-one via
+// registerFullToolset) is no longer auto-provisioned because it exposes
+// limb tools that `cat-cafe-limb` now hosts directly — keeping both would
+// duplicate the limb tool surface in Codex sessions (cloud round 6 P1).
 const CAT_CAFE_MCP_SERVER_ENTRIES = [
-  ['cat-cafe', 'index.js'],
   ['cat-cafe-collab', 'collab.js'],
   ['cat-cafe-memory', 'memory.js'],
   ['cat-cafe-signals', 'signals.js'],
+  ['cat-cafe-limb', 'limb.js'],
 ] as const;
 
 function buildCatCafeMcpConfigArgs(workingDirectory?: string, callbackEnv?: Record<string, string>): string[] {

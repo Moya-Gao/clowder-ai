@@ -37,12 +37,9 @@ import {
   type DiscoveryPaths,
   deduplicateDiscoveredMcpServers,
   discoverExternalMcpServers,
-  ensureCatCafeMainServer,
   generateCliConfigs,
-  migrateLegacyCatCafeCapability,
-  migrateResolverBackedCapabilities,
+  healCatCafeMcpTopology,
   readCapabilitiesConfig,
-  realignManagedCatCafeServerPaths,
   resolveServersForCat,
   toCapabilityEntry,
   withCapabilityLock,
@@ -434,15 +431,10 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         catCafeRepoRoot,
       });
     } else {
-      const migrated = migrateLegacyCatCafeCapability(config, { catCafeRepoRoot });
-      const resolverMigrated = migrateResolverBackedCapabilities(migrated.config);
-      const mainServerMigrated = ensureCatCafeMainServer(resolverMigrated.config, { catCafeRepoRoot });
-      const pathRealigned = realignManagedCatCafeServerPaths(mainServerMigrated.config, { catCafeRepoRoot });
-      if (migrated.migrated || resolverMigrated.migrated || mainServerMigrated.migrated || pathRealigned.migrated) {
-        config = pathRealigned.config;
+      const healed = healCatCafeMcpTopology(config, { catCafeRepoRoot });
+      config = healed.config;
+      if (healed.migrated) {
         await writeCapabilitiesConfig(projectRoot, config);
-      } else {
-        config = pathRealigned.config;
       }
     }
 
@@ -578,7 +570,15 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const discoveredServers = deduplicateDiscoveredMcpServers([...projectLevelServers, ...userLevelServers]);
     // Skip legacy Cat Cafe names — a stale 'cat-cafe' entry in user config should
     // not be re-added alongside the split 'cat-cafe-*' built-in entries.
-    const CAT_CAFE_BUILTIN_NAMES = new Set(['cat-cafe', 'cat-cafe-collab', 'cat-cafe-memory', 'cat-cafe-signals']);
+    // F193 Phase C: include 'cat-cafe-limb' so discovery doesn't re-add it
+    // either (cloud round 5 P1).
+    const CAT_CAFE_BUILTIN_NAMES = new Set([
+      'cat-cafe',
+      'cat-cafe-collab',
+      'cat-cafe-memory',
+      'cat-cafe-signals',
+      'cat-cafe-limb',
+    ]);
     for (const server of discoveredServers) {
       if (CAT_CAFE_BUILTIN_NAMES.has(server.name)) continue;
       const exists = config.capabilities.some((c) => c.type === 'mcp' && c.id === server.name);
@@ -819,18 +819,29 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     }
 
     return withCapabilityLock(projectRoot, async () => {
-      const config = await readCapabilitiesConfig(projectRoot);
-      if (!config) {
+      const rawConfig = await readCapabilitiesConfig(projectRoot);
+      if (!rawConfig) {
         reply.status(404);
         return { error: 'capabilities.json not found. Run GET first to bootstrap.' };
       }
+
+      // F193 Phase C (cloud round 8 P2 #4): heal BEFORE locating + mutating
+      // the toggle target. Otherwise toggling legacy `cat-cafe` in a pre-
+      // Phase-C config would mutate an entry that the subsequent heal removes,
+      // and the audit/response would report a capability not present in the
+      // written finalConfig. Healing first ensures the toggle operates on
+      // the canonical post-Phase-C state.
+      const catCafeRepoRoot = await resolveMainRepoPath();
+      const config = healCatCafeMcpTopology(rawConfig, { catCafeRepoRoot }).config;
 
       const capIndex = config.capabilities.findIndex(
         (c) => c.id === body.capabilityId && c.type === body.capabilityType,
       );
       if (capIndex === -1) {
         reply.status(404);
-        return { error: `Capability "${body.capabilityId}" (type=${body.capabilityType}) not found` };
+        return {
+          error: `Capability "${body.capabilityId}" (type=${body.capabilityType}) not found in canonical config (may have been migrated by F193 Phase C — try the corresponding split server id)`,
+        };
       }
 
       const cap = config.capabilities[capIndex]!;

@@ -161,6 +161,14 @@ const EXPECTED_SIGNAL_TOOLS = [
   'signal_link_thread',
 ];
 
+// F193 Phase C: limb tools (布偶猫专属能力 namespace) get their own server.
+const EXPECTED_LIMB_TOOLS = [
+  'limb_list_available',
+  'limb_invoke',
+  'limb_pair_list',
+  'limb_pair_approve',
+];
+
 function assertUnique(values, label) {
   assert.equal(new Set(values).size, values.length, `${label} must not contain duplicate tool names`);
 }
@@ -171,6 +179,7 @@ describe('MCP Server Tool Registration', () => {
     assertUnique(EXPECTED_COLLAB_TOOLS, 'EXPECTED_COLLAB_TOOLS');
     assertUnique(EXPECTED_MEMORY_TOOLS, 'EXPECTED_MEMORY_TOOLS');
     assertUnique(EXPECTED_SIGNAL_TOOLS, 'EXPECTED_SIGNAL_TOOLS');
+    assertUnique(EXPECTED_LIMB_TOOLS, 'EXPECTED_LIMB_TOOLS');
   });
 
   test('all expected tools are registered via createServer()', async () => {
@@ -306,6 +315,14 @@ describe('MCP Server Tool Registration', () => {
     const registered = Object.keys(server._registeredTools);
 
     assert.deepEqual([...registered].sort(), [...EXPECTED_SIGNAL_TOOLS].sort());
+  });
+
+  test('F193 AC-C1: createLimbServer registers only limb tool surface', async () => {
+    const { createLimbServer } = await import('../dist/limb.js');
+    const server = createLimbServer();
+    const registered = Object.keys(server._registeredTools);
+
+    assert.deepEqual([...registered].sort(), [...EXPECTED_LIMB_TOOLS].sort());
   });
 });
 
