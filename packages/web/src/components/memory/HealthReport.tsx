@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { LibraryHealthSection } from './LibraryHealthSection';
 
 export interface HealthReportData {
   totalDocs: number;
@@ -13,6 +14,16 @@ export interface HealthReportData {
   backstopRatio: number;
   compressionRatio: number;
   generatedAt: string;
+  staleAnchors?: { count: number; items: Array<{ anchor: string; sourcePath: string }> };
+  orphanEdges?: { count: number };
+  searchQuality?: {
+    totalSearches: number;
+    zeroHitCount: number;
+    lowHitCount: number;
+    recentMisses: Array<{ query: string; resultCount: number; searchedAt: string }>;
+  };
+  replayDrift?: { available: boolean; sampleCount: number; avgSimilarity: number | null };
+  knowledgeFeed?: { pendingCount: number; needsReviewCount: number };
 }
 
 export function sortedEntries(data: Record<string, number>): Array<[string, number]> {
@@ -65,6 +76,15 @@ export function getActionItems(report: HealthReportData): string[] {
   }
   if (report.unverified > 0) {
     items.push(`${report.unverified} document(s) lack verification`);
+  }
+  if (report.staleAnchors && report.staleAnchors.count > 0) {
+    items.push(`${report.staleAnchors.count} stale anchor(s) — source files deleted`);
+  }
+  if (report.orphanEdges && report.orphanEdges.count > 0) {
+    items.push(`${report.orphanEdges.count} orphan edge(s) reference missing documents`);
+  }
+  if (report.knowledgeFeed && report.knowledgeFeed.pendingCount > 0) {
+    items.push(`${report.knowledgeFeed.pendingCount} pending knowledge feed item(s)`);
   }
   return items;
 }
@@ -245,6 +265,8 @@ export function HealthReport() {
       <KindBarChart byKind={report.byKind} />
 
       <ActionItems items={actions} />
+
+      <LibraryHealthSection report={report} />
 
       <div className="flex items-center justify-between">
         <span className="text-[10px] text-cafe-muted">Generated {new Date(report.generatedAt).toLocaleString()}</span>

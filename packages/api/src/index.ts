@@ -1801,6 +1801,9 @@ async function main(): Promise<void> {
   await app.register(f163AuditRoutes, {
     evidenceStore: memoryServices.evidenceStore as unknown as Parameters<typeof f163AuditRoutes>[1]['evidenceStore'],
     knowledgeResolver: memoryServices.knowledgeResolver,
+    markerQueue: memoryServices.markerQueue,
+    repoRoot,
+    docsRoot: process.env.DOCS_ROOT ?? resolve(repoRoot, 'docs'),
   });
 
   // F152 Phase C: Distillation routes (global lesson reflow)
