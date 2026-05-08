@@ -610,6 +610,7 @@ cat_cafe_hold_ball({
 | 2026-04-25 | Phase I done（AC-I1~I7 ✅）— void-hold-detect.ts + 减法措辞 + warning 统一 pattern。砚砚首轮 P1 reject（缺合法出口豁免），fix commit `4a4f0d30a` 加 VoidHoldInput 接口（lineStartMentions / structuredTargetCats / coCreatorMention），砚砚二轮 approve。17/17 test green |
 | 2026-04-26 | Phase J merged (PR #1415, `e67ab5487`) — AC-J1~J6 全绿。hold-ball-cancel.ts 纯函数抽取（triple-predicate defense-in-depth）+ DELETE endpoint（resolveUserId auth + thread ownership guard + system thread 豁免）+ 三路径 auto-cancel（queue/TOCTOU/immediate）+ ConnectorBubble cancel 按钮（apiFetch + 404 terminal state）。砚砚本地 review 三轮（R1: 2P1+2P2 / R2: 1P1+2P2 / R3: 1P1+1P2 → approve `88ce58aec`）；云端 Codex 两轮（round-1 P2 404-terminal → fix / round-2 P3×2 降级：/game 跨线程 + getAll perf）。18 unit tests (11 pure + 7 route) |
 | 2026-05-07 | Phase L reopened from monitoring：铲屎官发现 hold_ball 轮询 × PR tracking 事件驱动双通道重复唤醒——codex 接单后 PR tracking 回调 + hold_ball 轮询同时触发，猫被唤醒两次第二次无事可做。根因：传球决策树选项 2 未区分轮询型 vs 事件驱动型等待，无模式切换点。KD-27 落定，AC-L1~L4 定稿待实现 |
+| 2026-05-08 | Phase L merged (PR #1591) — AC-L1~L3 ✅ + AC-L4 N/A。shared-rules 选项 2→2a/2b 拆分 + SystemPromptBuilder trailing anchor 同步 + merge-gate EYES > 0 KD-27 checkpoint。砚砚本地 review 三轮（R1: 1P1+1P2 选项2顶层仍写 hold_ball / R2: 1P1 closing line 仍等号 / R3: 放行）；云端 Codex 一轮 clean。1028/1028 API tests green（含 104 system-prompt-builder + 1 新 F167-L 回归测试） |
 | 2026-04-23 | Phase E reopened from monitoring：F172 愿景守护 @gemini 被 L3 误拦（action="合入"因 storedContent 上文含 merge 历程）；铲屎官定性"硬编码 + 过度设计"——要求退役 L3 + cat-config restrictions 数据驱动双端注入（发送方队友名册 + 目标猫 self-awareness）；KD-20 落定，AC-E1~E8 定稿待实现 |
 | 2026-04-24 | Phase E merged (PR #1360, `f8efcf46d`) — AC-E1~E8 全绿。8 commit（4 feat + 1 test + 3 chore）-735 净行数（删 role-gate.ts + 3 测试文件 + 2 调用点）+ cat-config schema 扩展 + 双端 prompt 注入；gpt52 review 首轮放行 `c967b59d0`（两个非阻塞：scrub 死注释 + 删 unused import 已顺手修），云端 Codex 零 P1/P2 "Hooray"；rebase 遇 F061 pre-existing 修复冲突 → skip 冗余 commit 后 clean merge；204/204 ping-pong + system-prompt-builder + cat-config-loader 绿。Status: monitoring |
 
@@ -695,9 +696,9 @@ cat_cafe_hold_ball({
 
 **修复方案**（prompt 规则 + skill + runtime 注入三层同步）：
 
-- [ ] AC-L1: `shared-rules` 传球决策树选项 2 拆分 + 补充"结构化回调 supersedes 轮询"原则：2a = 等外部接单且无回调覆盖（如等 codex EYES）→ hold_ball + 轮询；2b = 已有结构化回调覆盖（如 PR tracking 已注册且 EYES > 0）→ 仅依赖回调，禁止叠加轮询
-- [ ] AC-L2: `SystemPromptBuilder.ts` trailing anchor（当前 line 849）同步更新传球决策树 2a/2b 拆分，与 shared-rules 一致。补 system-prompt-builder 测试验证注入内容包含 2a/2b 区分
-- [ ] AC-L3: merge-gate skill Step 6.1 EYES 检测后追加 KD-27 checkpoint：复用现有 Step 6.1 reaction API 路径检查 EYES > 0 → 释放 hold_ball 禁止续约轮询；EYES == 0 → 允许 hold 等接单。不做 harness 层 hold_ball metadata 与 PR tracking subjectKey 的机械绑定
+- [x] AC-L1: `shared-rules` 传球决策树选项 2 拆分 + 补充"结构化回调 supersedes 轮询"原则：2a = 等外部接单且无回调覆盖（如等 codex EYES）→ hold_ball + 轮询；2b = 已有结构化回调覆盖（如 PR tracking 已注册且 EYES > 0）→ 仅依赖回调，禁止叠加轮询
+- [x] AC-L2: `SystemPromptBuilder.ts` trailing anchor（当前 line 849）同步更新传球决策树 2a/2b 拆分，与 shared-rules 一致。补 system-prompt-builder 测试验证注入内容包含 2a/2b 区分
+- [x] AC-L3: merge-gate skill Step 6.1 EYES 检测后追加 KD-27 checkpoint：复用现有 Step 6.1 reaction API 路径检查 EYES > 0 → 释放 hold_ball 禁止续约轮询；EYES == 0 → 允许 hold 等接单。不做 harness 层 hold_ball metadata 与 PR tracking subjectKey 的机械绑定
 - [x] AC-L4: ~~所有静态 prompt 文件的传球决策树同步更新~~ → 验证结果：`CLAUDE.md`、`AGENTS.md`、`gemini.md` 均不含传球决策树（仅存在于 `shared-rules.md` canonical + `SystemPromptBuilder.ts` runtime 注入，AC-L1+L2 已覆盖）。N/A
 
 **关闭门禁**：Phase I + J 全部合入后观察 1 周无新 case → Phase K Design Gate → K 合入 → Phase L 合入 → 2 周观察 → F167 正式 close。
@@ -790,4 +791,4 @@ cat_cafe_hold_ball({
 | 47 采访 2026-04-25 | 加法纠错让 47 越改越 verbose，需减法措辞 | AC-I4~I5 | ✅ Phase I |
 | 铲屎官 2026-04-25 | 持球没 cancel 按钮 / 用户消息不取消 hold wake | AC-J1~J6 | ✅ Phase J |
 | 铲屎官 + 砚砚 2026-04-25 | 47 风格适配需 Design Gate（audit/surface 分层 + repair 落地） | AC-K1~K6 | ⬜ Phase K |
-| 铲屎官 2026-05-07 | hold_ball 轮询 × PR tracking 事件驱动重复唤醒（双通道叠加） | AC-L1~L4 | ⬜ Phase L |
+| 铲屎官 2026-05-07 | hold_ball 轮询 × PR tracking 事件驱动重复唤醒（双通道叠加） | AC-L1~L4 | ✅ Phase L |
