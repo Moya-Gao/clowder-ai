@@ -134,6 +134,41 @@ describe('SystemPromptBuilder', () => {
     assert.ok(prompt.includes('cat_cafe_get_thread_context'));
   });
 
+  test('F193 AC-B1: MCP_TOOLS_SECTION lists cat_cafe_cross_post_message with routing hint', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: true,
+    });
+    assert.ok(
+      prompt.includes('cat_cafe_cross_post_message'),
+      'cross_post_message must appear in MCP_TOOLS_SECTION (F193 AC-B1)',
+    );
+    // Hint must mention targetCats OR line-start @ as routing creds (F193 AC-A4)
+    assert.ok(
+      prompt.match(/cross_post_message[^\n]*(?:targetCats|行首\s*@)/),
+      'cross_post_message description must mention routing creds (targetCats or line-start @)',
+    );
+  });
+
+  test('F193 AC-B1: post_message description signals KD-1 principal-conditioned threadId', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: true,
+    });
+    // post_message description must hint that threadId is agent-key-only
+    // (KD-1 边界 — invocation-token caller MUST omit threadId per F193)
+    assert.ok(
+      prompt.match(/post_message[^\n]*(?:agent-key|KD-1|本\s*thread)/),
+      'post_message description must hint at KD-1 boundary (agent-key threadId / 本 thread context)',
+    );
+  });
+
   test('omits MCP tools when mcpAvailable is false', async () => {
     const build = await getBuilder();
     const prompt = build({
@@ -183,7 +218,7 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: true,
       promptTags: ['critique'],
     });
-    assert.ok(prompt.length < 5700, `Full runtime prompt is ${prompt.length} chars, expected < 5700`);
+    assert.ok(prompt.length < 5800, `Full runtime prompt is ${prompt.length} chars, expected < 5800`);
   });
 
   test('returns empty string for unknown catId', async () => {
@@ -482,7 +517,7 @@ describe('SystemPromptBuilder', () => {
         mcpAvailable: true,
         promptTags: ['critique'],
       });
-      assert.ok(prompt.length < 5700, `Full runtime prompt is ${prompt.length} chars, expected < 5700`);
+      assert.ok(prompt.length < 5800, `Full runtime prompt is ${prompt.length} chars, expected < 5800`);
     } finally {
       catRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
@@ -504,6 +539,48 @@ describe('SystemPromptBuilder', () => {
     assert.ok(ctx.includes('你的队友'), 'Should list teammates');
     assert.ok(ctx.includes('缅因猫'), 'Should mention codex by display name');
     assert.ok(ctx.includes('1/2'), 'Should show chain position');
+  });
+
+  test('F193 AC-B2: buildInvocationContext renders crossThreadReplyHint when present', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: true,
+      crossThreadReplyHint: {
+        sourceThreadId: 'thread_source_full_id_12345',
+        senderCatId: 'codex',
+      },
+    });
+    // Full sourceThreadId (NOT truncated to 8 chars)
+    assert.ok(
+      ctx.includes('thread_source_full_id_12345'),
+      'reply hint must include FULL source thread id (not truncated)',
+    );
+    // Sender cat handle
+    assert.ok(ctx.includes('codex'), 'reply hint must include sender catId');
+    // Tool name guidance
+    assert.ok(
+      ctx.includes('cross_post_message'),
+      'reply hint must direct user to cross_post_message tool',
+    );
+  });
+
+  test('F193 AC-B2 boundary: buildInvocationContext omits reply hint when not provided', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: true,
+    });
+    // No reply hint section when crossThreadReplyHint absent (e.g. agent-key path,
+    // same-thread post, no trigger message — see KD-1 boundary).
+    assert.ok(
+      !ctx.match(/cross_post_message\([^)]*threadId/),
+      'no reply hint section when crossThreadReplyHint absent',
+    );
   });
 
   test('buildInvocationContext omits teammate listing when empty', async () => {
@@ -1041,7 +1118,7 @@ describe('SystemPromptBuilder', () => {
         { catId: 'opus', lastMessageAt: Date.now() - 1000, messageCount: 3 },
       ],
     });
-    assert.ok(prompt.length < 5700, `Full runtime prompt is ${prompt.length} chars, expected < 5700`);
+    assert.ok(prompt.length < 5800, `Full runtime prompt is ${prompt.length} chars, expected < 5800`);
   });
 
   // --- F042: pinned identity constant + direct-message reply target ---
@@ -1453,7 +1530,7 @@ describe('SystemPromptBuilder', () => {
         featureId: 'F073',
       },
     });
-    assert.ok(prompt.length < 5700, `Prompt with SOP hint is ${prompt.length} chars, expected < 5700`);
+    assert.ok(prompt.length < 5800, `Prompt with SOP hint is ${prompt.length} chars, expected < 5800`);
   });
 
   // --- F092: Voice Mode prompt injection ---
@@ -1500,7 +1577,7 @@ describe('SystemPromptBuilder', () => {
       },
       voiceMode: true,
     });
-    assert.ok(prompt.length < 5700, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 5700`);
+    assert.ok(prompt.length < 5800, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 5800`);
   });
 
   test('buildInvocationContext injects bootcamp mode when bootcampState provided', async () => {

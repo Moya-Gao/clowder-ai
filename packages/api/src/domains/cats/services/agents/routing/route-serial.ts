@@ -10,7 +10,7 @@
  * A2A only triggers here in routeSerial; routeParallel never chains (MVP safety boundary).
  */
 
-import type { CatConfig, CatId } from '@cat-cafe/shared';
+import { type CatConfig, type CatId, createCatId } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
 import type { Span } from '@opentelemetry/api';
 import { context, trace } from '@opentelemetry/api';
@@ -52,6 +52,7 @@ import { formatDegradationMessage } from '../../orchestration/DegradationPolicy.
 import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
 import { buildSessionBootstrap } from '../../session/SessionBootstrap.js';
 import {
+  hydrateCrossThreadReplyHint,
   hydrateReplyPreview,
   type StoredToolEvent,
   type StreamMetadataAugmentInput,
@@ -365,6 +366,25 @@ export async function* routeSerial(
       const streamReplyPreview = streamReplyTo
         ? await hydrateReplyPreview(deps.messageStore, streamReplyTo)
         : undefined;
+      // F193 AC-B2: structured cross-thread reply hint hydrated from trigger message.
+      // Closes Codex review P1 (砚砚 2026-05-08): worklist `a2aTriggerMessageId` map
+      // only has entries for downstream A2A targets — initial target via the modern
+      // InvocationQueue path doesn't register in the map. Queue path's trigger id
+      // arrives via `routeOptions.currentUserMessageId` (QueueProcessor → routeExecution).
+      // Fallback chain ensures queue path also gets the hint without changing
+      // streamReplyTo/auto-replyTo behavior (those have different semantics).
+      // Same-thread triggers / agent-key path naturally return null inside the helper.
+      const crossThreadReplyHintTriggerId =
+        worklistEntry.a2aTriggerMessageId.get(catId) ?? currentUserMessageId;
+      const crossThreadReplyHintRaw = crossThreadReplyHintTriggerId
+        ? await hydrateCrossThreadReplyHint(deps.messageStore, crossThreadReplyHintTriggerId)
+        : null;
+      const crossThreadReplyHint = crossThreadReplyHintRaw
+        ? {
+            sourceThreadId: crossThreadReplyHintRaw.sourceThreadId,
+            senderCatId: createCatId(crossThreadReplyHintRaw.senderCatId),
+          }
+        : undefined;
       let mentionRoutingFeedback = null;
       if (deps.invocationDeps.threadStore) {
         try {
@@ -467,6 +487,7 @@ export async function* routeSerial(
         a2aEnabled,
         ...(directMessageFrom ? { directMessageFrom } : {}),
         ...(pingPongWarning ? { pingPongWarning } : {}),
+        ...(crossThreadReplyHint ? { crossThreadReplyHint } : {}),
         ...(mentionRoutingFeedback ? { mentionRoutingFeedback } : {}),
         ...(activeParticipants.length > 0 ? { activeParticipants } : {}),
         ...(routingPolicy ? { routingPolicy } : {}),

@@ -681,3 +681,39 @@ export async function hydrateReplyPreview(store: IMessageStore, replyToId: strin
     ...(parent.extra?.scheduler?.hiddenTrigger ? { kind: 'scheduler_trigger' as const } : {}),
   };
 }
+
+/**
+ * F193 AC-B2: Hydrate cross-thread reply hint from a trigger message.
+ *
+ * When a cat is invoked because someone cross-posted into their thread
+ * (F052: source thread injected `extra.crossPost.sourceThreadId`),
+ * the receiving cat needs structured guidance on how to reply:
+ *   - sourceThreadId: where the message came from (full id, not slice(0,8))
+ *   - senderCatId: who to @ on the reply (their handle)
+ *
+ * Caller provides triggerMessageId from worklist `a2aTriggerMessageId` Map
+ * (route-serial) or callback-a2a-trigger queue backfill. We fetch the stored
+ * message and return structured fields ONLY if it has cross-post metadata.
+ *
+ * Returns null when:
+ *   - triggerMessageId not found (e.g. message expired / deleted)
+ *   - parent has no extra.crossPost (same-thread post — not cross-thread relay)
+ *
+ * KD-1 boundary: agent-key target-thread writes don't inject crossPost
+ * metadata at all (callbacks.ts:430 path), so this naturally returns null
+ * for agent-key triggers — receiver gets no reply hint, which is correct.
+ */
+export async function hydrateCrossThreadReplyHint(
+  store: IMessageStore,
+  triggerMessageId: string,
+): Promise<{ sourceThreadId: string; senderCatId: CatId } | null> {
+  const trigger = await store.getById(triggerMessageId);
+  if (!trigger) return null;
+  const sourceThreadId = trigger.extra?.crossPost?.sourceThreadId;
+  if (!sourceThreadId) return null;
+  if (!trigger.catId) return null; // user-authored messages have no catId — not a cross-thread relay
+  return {
+    sourceThreadId,
+    senderCatId: trigger.catId,
+  };
+}

@@ -3085,3 +3085,88 @@ describe('routeSerial thinking persistence (F045)', () => {
     assert.equal(appendCalls[0].content, 'final corrected answer');
   });
 });
+
+// F193 Phase B AC-B2: cross-thread reply hint integration via queue path.
+// Closes Codex review round 2 P1 (砚砚 2026-05-08): regression test must lock
+// the actual seam (QueueProcessor messageId → routeSerial currentUserMessageId
+// → buildInvocationContext prompt), not re-implement the fallback in test code.
+describe('routeSerial cross-thread reply hint (F193 AC-B2 queue-path integration)', () => {
+  it('queue-path cross-post: prompt contains FULL sourceThreadId + targetCats=["sender"]', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const captureService = createCapturingService('codex', 'ack');
+    const deps = createMockDeps({ codex: captureService });
+
+    // Simulate queue path: trigger message id arrives via routeOptions.currentUserMessageId
+    // (QueueProcessor backfills it from callback-a2a-trigger). Stored message has
+    // F052 crossPost metadata + sender catId. worklistEntry.a2aTriggerMessageId
+    // map is empty for the initial target via this path — fallback chain MUST kick in.
+    const triggerMessageId = '0000000000000001-000001-aaaaaaaa';
+    const fullSourceThreadId = 'thread_source_full_id_round2_p1_lock';
+    deps.messageStore.getById = (id) =>
+      id === triggerMessageId
+        ? {
+            id: triggerMessageId,
+            threadId: 'target-thread',
+            userId: 'user1',
+            catId: 'opus',
+            content: '@codex please help on cross thread relay',
+            mentions: ['codex'],
+            timestamp: Date.now(),
+            extra: {
+              crossPost: { sourceThreadId: fullSourceThreadId, sourceInvocationId: 'inv-source-1' },
+            },
+          }
+        : null;
+
+    for await (const _ of routeSerial(deps, ['codex'], 'message body', 'user1', 'target-thread', {
+      currentUserMessageId: triggerMessageId,
+    })) {
+      /* drain */
+    }
+
+    const prompt = captureService.calls[0];
+    assert.ok(
+      prompt.includes(fullSourceThreadId),
+      `prompt must contain FULL sourceThreadId (not truncated): expected "${fullSourceThreadId}" in prompt`,
+    );
+    // Tool-call hint must use raw catId (no bilingual label leakage)
+    assert.ok(
+      prompt.match(/cross_post_message\([^)]*targetCats=\["opus"\]/),
+      `prompt must contain cross_post_message(threadId=..., targetCats=["opus"]) tool-call hint`,
+    );
+  });
+
+  it('queue-path same-thread post (no extra.crossPost): no reply hint injected', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const captureService = createCapturingService('codex', 'ack');
+    const deps = createMockDeps({ codex: captureService });
+
+    const triggerMessageId = '0000000000000002-000002-bbbbbbbb';
+    deps.messageStore.getById = (id) =>
+      id === triggerMessageId
+        ? {
+            id: triggerMessageId,
+            threadId: 'thread-same',
+            userId: 'user1',
+            catId: 'opus',
+            content: 'just a same-thread @ mention',
+            mentions: ['codex'],
+            timestamp: Date.now(),
+            // NO extra.crossPost — same-thread post (or agent-key target-thread write per KD-1 boundary)
+          }
+        : null;
+
+    for await (const _ of routeSerial(deps, ['codex'], 'message body', 'user1', 'thread-same', {
+      currentUserMessageId: triggerMessageId,
+    })) {
+      /* drain */
+    }
+
+    const prompt = captureService.calls[0];
+    // No reply hint section when trigger message lacks crossPost metadata
+    assert.ok(
+      !prompt.match(/cross_post_message\([^)]*targetCats/),
+      'no reply hint should be injected when trigger message has no extra.crossPost',
+    );
+  });
+});

@@ -68,6 +68,26 @@ export interface InvocationContext {
     count: number;
   };
   /**
+   * F193 AC-B2: Cross-thread reply hint.
+   * When present (cross-post triggered invocation per F052), inject reply
+   * guidance so the receiving cat knows: (1) source thread id, (2) sender cat
+   * handle, (3) reply path (cross_post_message — local @ won't route back).
+   *
+   * Hydrated from trigger message id (worklist a2aTriggerMessageId / queue
+   * path backfill) → StoredMessage.extra.crossPost + StoredMessage.catId.
+   * MUST be structured (not parsed from prompt text) — ContextAssembler
+   * only renders slice(0,8) truncated thread + lacks senderCatId.
+   *
+   * KD-1 boundary: only set for invocation-token cross-thread RELAY path.
+   * Agent-key target-thread write does NOT inject this (no source thread).
+   */
+  crossThreadReplyHint?: {
+    /** Full source thread id (not truncated). */
+    sourceThreadId: string;
+    /** Sender cat handle (catId). */
+    senderCatId: CatId;
+  };
+  /**
    * F046 D3: One-shot feedback injected when previous @mention was not routed.
    * Consumed from threadStore before invocation and cleared after injection.
    */
@@ -272,7 +292,8 @@ MCP 工具（异步汇报；token 有效期有限）：
 - cat_cafe_read_invocation_detail: 读单次 invocation 全事件
 
 **协作工具：**
-- cat_cafe_post_message: 异步消息
+- cat_cafe_post_message: 本 thread 异步（agent-key 才传 threadId）
+- cat_cafe_cross_post_message: 跨 thread（targetCats/行首@二选一）
 - cat_cafe_register_pr_tracking: PR tracking
 - cat_cafe_get_pending_mentions: @提及
 - cat_cafe_get_thread_context: thread 上下文
@@ -625,6 +646,20 @@ export function buildInvocationContext(context: InvocationContext): string {
         `⚠️ 同族分身提醒：对方是 ${fromVariant}（model=${fromModel}），你是 ${selfVariant}（model=${runtimeModel}）——两个独立分身，不是你的旧版或新版。`,
       );
     }
+  }
+
+  // F193 AC-B2: Cross-thread reply hint.
+  // Cross-post triggered invocation (F052 sourceThreadId injected by API).
+  // Without this hint, the receiving cat sees a truncated 8-char thread
+  // string (ContextAssembler) and has no sender catId — guesses wrong how
+  // to reply. Local @ won't route back across threads.
+  if (context.crossThreadReplyHint) {
+    const { sourceThreadId, senderCatId } = context.crossThreadReplyHint;
+    lines.push(
+      `📨 来自跨线程消息（source thread: ${sourceThreadId}，发件猫: @${senderCatId}）`,
+      `回复请用 cross_post_message(threadId="${sourceThreadId}", targetCats=["${senderCatId}"])`,
+      `本 thread 的 @${senderCatId} 不会路由回对方（对方 session 在另一个 thread）`,
+    );
   }
 
   // F167 L1: ping-pong streak warning — inject when this cat just received the ball

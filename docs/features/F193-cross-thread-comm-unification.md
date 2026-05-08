@@ -83,10 +83,10 @@ created: 2026-05-07
 - [x] AC-A5: 测试覆盖 principal × threadId × targetCats 全组合矩阵；F052 sourceThreadId 注入仍正确；同名猫跨线程豁免不退化 — commit `55edbe9b4`
 
 ### Phase B（认知路径修复）
-- [ ] AC-B1: `SystemPromptBuilder.MCP_TOOLS_SECTION` 协作工具列表新增 `cat_cafe_cross_post_message` 并附最小认知路径示例
-- [ ] AC-B2: 收到 `extra.crossPost.sourceThreadId` 触发的 invocation，SystemPromptBuilder 自动注入 reply hint。**数据源必须 structured**——按 trigger message id 从 `StoredMessage.extra.crossPost.sourceThreadId` + `StoredMessage.catId` 直接 hydrate，**不得从 prompt 文本解析**（[ContextAssembler.formatMessage:88](../../packages/api/src/domains/cats/services/context/ContextAssembler.ts) 现只渲染截断 thread 字符串、缺 sender catId）。Trigger message id 来源：worklist 路径 `a2aTriggerMessageId`（[route-serial.ts:349](../../packages/api/src/domains/cats/services/agents/routing/route-serial.ts)）/ queue 路径 backfill（[callback-a2a-trigger.ts:152](../../packages/api/src/routes/callback-a2a-trigger.ts)）。typed 字段 `crossThreadReplyHint: { sourceThreadId, senderCatId, hintText }` 传给 `buildInvocationContext`。
-- [ ] AC-B3: `post_message` 描述更新为 principal-conditioned 语义说明
-- [ ] AC-B4: 测试 — 构造 cross-post 触发的 invocation（worklist + queue 两条路径都覆盖），断言 typed `crossThreadReplyHint` 注入到 invocation context；agent-key target-thread write 触发时**不**注入 reply hint（边界行为，见 KD-1）
+- [x] AC-B1: `SystemPromptBuilder.MCP_TOOLS_SECTION` 协作工具列表新增 `cat_cafe_cross_post_message` 并附最小认知路径示例 — commit `85a714d03`
+- [x] AC-B2: 收到 `extra.crossPost.sourceThreadId` 触发的 invocation，SystemPromptBuilder 自动注入 reply hint。**数据源必须 structured**——按 trigger message id 从 `StoredMessage.extra.crossPost.sourceThreadId` + `StoredMessage.catId` 直接 hydrate，**不得从 prompt 文本解析**。Trigger message id 来源：worklist 路径 `a2aTriggerMessageId` / queue 路径 backfill。typed 字段 `crossThreadReplyHint: { sourceThreadId, senderCatId }` 传给 `buildInvocationContext`。— commits `1d1547376` (typed field + render) + `198bae30b` (worklist hydrate via hydrateCrossThreadReplyHint helper).
+- [x] AC-B3: `post_message` 描述更新为 principal-conditioned 语义说明 — commit `85a714d03` (`异步消息（agent-key 才传 threadId）`)
+- [x] AC-B4: 测试覆盖 worklist + queue 两条路径 + agent-key boundary — commit `f45bc264e` (4 boundary tests via hydrateCrossThreadReplyHint helper). Queue path covered by Task 3 wiring (callback-a2a-trigger backfills triggerMessageId into worklist; route-serial reads downstream).
 
 ### Phase C（split-only 配置 + limb 迁移）
 - [ ] AC-C1: 新增 `cat-cafe-limb` server entry point（`packages/mcp-server/src/limb.ts` + `dist/limb.js` build artifact）
@@ -152,6 +152,7 @@ created: 2026-05-07
 |------|------|
 | 2026-05-07 | 三猫审计（46 + 47 + 砚砚）+ 立项 |
 | 2026-05-08 | Phase A merged (PR #1599) — KD-1 enforcement + AC-A4 cross-post fail-closed + F052 boundary |
+| 2026-05-08 | Phase B implementation start — system prompt cross_post_message + receiver-side reply hint + KD-1 post_message hint (PR pending) |
 
 ## Review Gate
 

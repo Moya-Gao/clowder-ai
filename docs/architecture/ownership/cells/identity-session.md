@@ -18,6 +18,7 @@ doc_anchors:
 static_scan_hints: [catId, AgentRegistry, cat-config, roster, ConnectorThreadBindingStore, bubbleIdentity, session]
 cited_by:
   - {feature: F191, date: 2026-05-07, delta: new cell}
+  - {feature: F193, date: 2026-05-08, delta: Phase B — typed crossThreadReplyHint field on InvocationContext + render block in buildInvocationContext (receiver-side reply hint hydrated from trigger message id)}
 ---
 
 # Identity / Session
