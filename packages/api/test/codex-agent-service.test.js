@@ -174,7 +174,10 @@ test('injects cat-cafe MCP config when workingDirectory contains mcp-server', as
       assert.ok(args.includes(`mcp_servers.${serverId}.command="node"`), `must inject ${serverId} command`);
       const argsConfig = args.find((arg) => arg.startsWith(`mcp_servers.${serverId}.args=[`));
       assert.ok(argsConfig, `must inject ${serverId} mcp args config`);
-      assert.ok(argsConfig.includes(`packages/mcp-server/dist/${entrypoint}`), `${serverId} args must point at ${entrypoint}`);
+      assert.ok(
+        argsConfig.includes(`packages/mcp-server/dist/${entrypoint}`),
+        `${serverId} args must point at ${entrypoint}`,
+      );
       assert.ok(args.includes(`mcp_servers.${serverId}.enabled=true`), `must inject ${serverId} enabled=true`);
       // full callback env coverage on every split server (regression guard for F168/F140 cross-thread auth)
       assert.ok(

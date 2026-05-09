@@ -185,6 +185,79 @@ target_git_repo_exists() {
   git -C "$repo_dir" rev-parse --git-dir >/dev/null 2>&1
 }
 
+validate_incomplete_absorbed_overlaps() {
+  local ledger_path="$1"
+  local source_dir="$2"
+  local target_dir="$3"
+
+  local incomplete_entries
+  incomplete_entries=$(node - "$ledger_path" <<'NODE'
+const fs = require('fs');
+const ledgerPath = process.argv[2];
+const ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf-8'));
+for (const entry of ledger.entries || []) {
+  if (entry.decision === 'absorbed' && !entry.intake_intent_issue && !entry.review_proof && entry.target_merge_commit) {
+    console.log(`${entry.pr_number || '?'}|${entry.target_merge_commit}`);
+  }
+}
+NODE
+  )
+
+  if [ -z "$incomplete_entries" ]; then
+    echo "  ✓ No incomplete absorbed records in intake ledger"
+    return 0
+  fi
+
+  local blocked=false
+  local overlap_count=0
+  local overlap_list=""
+  while IFS='|' read -r pr_number commit; do
+    if [ -z "$commit" ]; then
+      continue
+    fi
+    if ! git -C "$target_dir" cat-file -e "$commit^{commit}" 2>/dev/null; then
+      continue
+    fi
+
+    while IFS= read -r touched_file; do
+      if [ -z "$touched_file" ]; then
+        continue
+      fi
+      case "$touched_file" in
+        docs/ops/opensource-intake-ledger.json|.sync-provenance.json) continue ;;
+      esac
+
+      local source_file="$source_dir/$touched_file"
+      local target_file="$target_dir/$touched_file"
+      if [ -f "$source_file" ] && [ -f "$target_file" ] && ! cmp -s "$source_file" "$target_file"; then
+        blocked=true
+        overlap_count=$((overlap_count + 1))
+        overlap_list="${overlap_list}    → clowder-ai#${pr_number} ${commit:0:12} ${touched_file}\n"
+      elif { [ -e "$source_file" ] || [ -e "$target_file" ]; } && { [ ! -e "$source_file" ] || [ ! -e "$target_file" ]; }; then
+        blocked=true
+        overlap_count=$((overlap_count + 1))
+        overlap_list="${overlap_list}    → clowder-ai#${pr_number} ${commit:0:12} ${touched_file}\n"
+      fi
+    done < <(git -C "$target_dir" show --name-only --format= "$commit" 2>/dev/null | sed '/^$/d')
+  done <<< "$incomplete_entries"
+
+  if [ "$blocked" = true ]; then
+    echo -e "  ${RED}✗ BLOCKED: $overlap_count incomplete absorbed community file(s) still differ from source${NC}"
+    echo -e "  ${YELLOW}  recorded != absorbed-complete: ledger entries without intake issue + review proof cannot prove source equivalence.${NC}"
+    echo -e "  ${YELLOW}  These target-side community changes would be overwritten by sync:${NC}"
+    echo -e "$overlap_list"
+    echo -e "  ${YELLOW}  Complete intake or add review-backed proof before syncing.${NC}"
+    if [ "$FORCE_OVERWRITE" = true ]; then
+      echo -e "  ${RED}⚠ --force-overwrite: proceeding despite incomplete absorbed overlap${NC}"
+      return 0
+    fi
+    return 1
+  fi
+
+  echo "  ✓ Incomplete absorbed overlap guard passed"
+  return 0
+}
+
 find_available_port() {
   local preferred_port="$1"
   local avoid_port="${2:-}"
@@ -754,6 +827,11 @@ fi
 INTAKE_LEDGER="$SOURCE_DIR/docs/ops/opensource-intake-ledger.json"
 if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ] && target_git_repo_exists "$TARGET_DIR"; then
   if [ -f "$INTAKE_LEDGER" ]; then
+    if ! validate_incomplete_absorbed_overlaps "$INTAKE_LEDGER" "$SOURCE_SYNC_DIR" "$TARGET_DIR"; then
+      cd "$SOURCE_DIR"
+      exit 1
+    fi
+
     LEDGER_HEAD=$(node -e "const l=JSON.parse(require('fs').readFileSync('$INTAKE_LEDGER','utf-8')); console.log(l.last_reviewed_target_head || '')" 2>/dev/null || true)
     cd "$TARGET_DIR"
     CURRENT_TARGET_HEAD=$(git rev-parse HEAD 2>/dev/null || true)

@@ -108,10 +108,13 @@ test('Windows Redis auth helpers decode percent-escaped ACL credentials before i
 
 test('Windows RESP helpers use UTF-8 byte counts for bulk string lengths', () => {
   assert.match(helpersScript, /function Format-RedisRespCommand/);
+  assert.match(helpersScript, /param\(\[string\[\]\]\$CommandArgs\)/);
+  assert.doesNotMatch(helpersScript, /param\(\[string\[\]\]\$Args\)/);
   assert.match(helpersScript, /\[System\.Text\.Encoding\]::UTF8\.GetByteCount\(\$arg\)/);
   assert.match(helpersScript, /\$utf8NoBom = \[System\.Text\.UTF8Encoding\]::new\(\$false\)/);
   assert.match(helpersScript, /\$commandBytes = \$utf8NoBom\.GetBytes\(\$Command\)/);
   assert.match(helpersScript, /\$Stream\.Write\(\$commandBytes, 0, \$commandBytes\.Length\)/);
+  assert.doesNotMatch(helpersScript, /Format-RedisRespCommand -Args/);
   assert.doesNotMatch(helpersScript, /\$\(\$arg\.Length\)/);
   assert.doesNotMatch(helpersScript, /\[System\.IO\.StreamWriter\]::new\(\$stream, \[System\.Text\.Encoding\]::UTF8\)/);
 });
@@ -165,7 +168,7 @@ test('Windows installer prefers plain portable Redis zips before service bundles
 
 test('Windows Redis URL handling validates connectivity with RESP and detects external backends for shutdown skip', () => {
   assert.match(startWindowsScript, /Test-RedisReachable -RedisUrl \$configuredRedisUrl/);
-  assert.match(helpersScript, /Format-RedisRespCommand -Args @\("PING"\)/);
+  assert.match(helpersScript, /Format-RedisRespCommand -CommandArgs @\("PING"\)/);
   assert.match(startWindowsScript, /Test-LocalRedisUrl -RedisUrl \$configuredRedisUrl -RedisPort \$RedisPort/);
   assert.match(stopWindowsScript, /Test-LocalRedisUrl -RedisUrl \$configuredRedisUrl -RedisPort \$RedisPort/);
   assert.match(
