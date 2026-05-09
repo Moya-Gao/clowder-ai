@@ -34,10 +34,14 @@ s#http://localhost:3002#http://localhost:3004#g;
 s#http://localhost:3001#http://localhost:3003#g;
 s#http://127\.0\.0\.1:3002#http://127.0.0.1:3004#g;
 s#http://127\.0\.0\.1:3001#http://127.0.0.1:3003#g;
+s#http://\[::1\]:3002#http://[::1]:3004#g;
+s#http://\[::1\]:3001#http://[::1]:3003#g;
 s#localhost:3002#localhost:3004#g;
 s#localhost:3001#localhost:3003#g;
 s#127\.0\.0\.1:3002#127.0.0.1:3004#g;
 s#127\.0\.0\.1:3001#127.0.0.1:3003#g;
+s#\[::1\]:3002#[::1]:3004#g;
+s#\[::1\]:3001#[::1]:3003#g;
 s#3002/3001#3004/3003#g;
 s#3001/3002#3003/3004#g;
 # Bare port defaults in shell scripts and config (context-aware: bash ${:-N}, env defaults, port assignments)

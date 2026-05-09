@@ -464,6 +464,10 @@ describe(
         content.includes('s#localhost:3002#localhost:3004#g'),
         'sanitize rules should transform localhost:3002 → localhost:3004',
       );
+      assert.ok(
+        content.includes('s#\\[::1\\]:3002#[::1]:3004#g'),
+        'sanitize rules should transform IPv6 loopback [::1]:3002 → [::1]:3004',
+      );
     });
 
     it('_sanitize-rules.pl transforms 3001→3003 (Frontend)', () => {
@@ -622,6 +626,19 @@ excluded:
           `sync-manifest should export ${scriptPath} because root package.json references it`,
         );
       }
+    });
+
+    it('sync-to-opensource.sh drops home-only root package scripts whose targets are not exported', () => {
+      const content = readFileSync(resolve(ROOT, 'scripts/sync-to-opensource.sh'), 'utf-8');
+
+      assert.ok(
+        content.includes('delete pkg.scripts["check:architecture-ownership"]'),
+        'public package.json should not expose check:architecture-ownership without exporting its script target',
+      );
+      assert.ok(
+        content.includes('delete pkg.scripts["test:architecture-ownership"]'),
+        'public package.json should not expose test:architecture-ownership without exporting its script target',
+      );
     });
 
     it('sync-manifest exports F180 user-level hook truth source', () => {
@@ -961,6 +978,21 @@ excluded:
         guard,
         /decision === 'absorbed'[\s\S]*!entry\.intake_intent_issue[\s\S]*!entry\.review_proof/,
         'guard should only scrutinize absorbed entries missing complete intake proof',
+      );
+      assert.match(
+        guard,
+        /lastOutboundSyncIndex/,
+        'guard should scope incomplete absorbed checks to commits after the latest outbound sync',
+      );
+      assert.match(
+        guard,
+        /index <= lastOutboundSyncIndex/,
+        'guard should not rescan pre-sync historical ledger entries on every full sync',
+      );
+      assert.match(
+        guard,
+        /historical backfill|outbound-filed hotfix|skip-absorbed-guard/,
+        'guard should skip controlled ledger exceptions that intentionally omit absorb PR proof',
       );
       assert.match(
         guard,

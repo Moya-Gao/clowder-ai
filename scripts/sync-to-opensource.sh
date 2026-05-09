@@ -195,7 +195,21 @@ validate_incomplete_absorbed_overlaps() {
 const fs = require('fs');
 const ledgerPath = process.argv[2];
 const ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf-8'));
-for (const entry of ledger.entries || []) {
+const entries = ledger.entries || [];
+let lastOutboundSyncIndex = -1;
+entries.forEach((entry, index) => {
+  if (entry.decision === 'outbound-sync') {
+    lastOutboundSyncIndex = index;
+  }
+});
+for (const [index, entry] of entries.entries()) {
+  if (index <= lastOutboundSyncIndex) {
+    continue;
+  }
+  const note = String(entry.note || '').toLowerCase();
+  if (note.includes('historical backfill') || note.includes('outbound-filed hotfix') || note.includes('skip-absorbed-guard')) {
+    continue;
+  }
   if (entry.decision === 'absorbed' && !entry.intake_intent_issue && !entry.review_proof && entry.target_merge_commit) {
     console.log(`${entry.pr_number || '?'}|${entry.target_merge_commit}`);
   }
@@ -1373,9 +1387,11 @@ pkg.scripts["check:start-profile-isolation"] = "node --test scripts/start-dev-pr
 if (!pkg.scripts.check.includes("pnpm check:start-profile-isolation")) {
   pkg.scripts.check += " && pnpm check:start-profile-isolation";
 }
+delete pkg.scripts["check:architecture-ownership"];
+delete pkg.scripts["test:architecture-ownership"];
 fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n");
 PACKAGE_JSON_TRANSFORM_EOF
-  echo "  ✓ package.json (public direct-launch wrappers + profile isolation check)"
+  echo "  ✓ package.json (public direct-launch wrappers + profile isolation check + home-only scripts removed)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 

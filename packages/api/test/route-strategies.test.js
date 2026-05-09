@@ -606,10 +606,12 @@ describe('agent message timestamp uses invocation start time (#557)', () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
 
     const STREAM_DELAY_MS = 50;
+    let firstTextTimestamp = 0;
     // Service that delays before yielding done — simulates non-trivial stream time
     const delayedService = {
       async *invoke() {
-        yield { type: 'text', catId: 'opus', content: 'thinking...', timestamp: Date.now() };
+        firstTextTimestamp = Date.now();
+        yield { type: 'text', catId: 'opus', content: 'thinking...', timestamp: firstTextTimestamp };
         await new Promise((r) => setTimeout(r, STREAM_DELAY_MS));
         yield { type: 'done', catId: 'opus', timestamp: Date.now() };
       },
@@ -626,11 +628,9 @@ describe('agent message timestamp uses invocation start time (#557)', () => {
 
     assert.equal(appendCalls.length, 1, 'should persist one message');
     const storedTs = appendCalls[0].timestamp;
-    // Stored timestamp should be close to invocation start (within 20ms tolerance),
-    // NOT close to stream completion (which is ~50ms+ later)
     assert.ok(
-      storedTs - beforeInvocation < 30,
-      `stored timestamp (${storedTs}) should be within 30ms of invocation start (${beforeInvocation}), got delta=${storedTs - beforeInvocation}ms`,
+      storedTs >= beforeInvocation && storedTs <= firstTextTimestamp,
+      `stored timestamp (${storedTs}) should be between invocation start (${beforeInvocation}) and first text event (${firstTextTimestamp})`,
     );
     assert.ok(
       afterCompletion - storedTs >= STREAM_DELAY_MS - 10,
@@ -642,9 +642,11 @@ describe('agent message timestamp uses invocation start time (#557)', () => {
     const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
 
     const STREAM_DELAY_MS = 50;
+    let firstTextTimestamp = 0;
     const delayedService = {
       async *invoke() {
-        yield { type: 'text', catId: 'opus', content: 'thinking...', timestamp: Date.now() };
+        firstTextTimestamp = Date.now();
+        yield { type: 'text', catId: 'opus', content: 'thinking...', timestamp: firstTextTimestamp };
         await new Promise((r) => setTimeout(r, STREAM_DELAY_MS));
         yield { type: 'done', catId: 'opus', timestamp: Date.now() };
       },
@@ -662,8 +664,8 @@ describe('agent message timestamp uses invocation start time (#557)', () => {
     assert.equal(appendCalls.length, 1, 'should persist one message');
     const storedTs = appendCalls[0].timestamp;
     assert.ok(
-      storedTs - beforeInvocation < 30,
-      `stored timestamp (${storedTs}) should be within 30ms of invocation start (${beforeInvocation}), got delta=${storedTs - beforeInvocation}ms`,
+      storedTs >= beforeInvocation && storedTs <= firstTextTimestamp,
+      `stored timestamp (${storedTs}) should be between invocation start (${beforeInvocation}) and first text event (${firstTextTimestamp})`,
     );
     assert.ok(
       afterCompletion - storedTs >= STREAM_DELAY_MS - 10,
@@ -3163,10 +3165,10 @@ describe('routeSerial cross-thread reply hint (F193 AC-B2 queue-path integration
     }
 
     const prompt = captureService.calls[0];
-    // No reply hint section when trigger message lacks crossPost metadata
-    assert.ok(
-      !prompt.match(/cross_post_message\([^)]*targetCats/),
-      'no reply hint should be injected when trigger message has no extra.crossPost',
-    );
+    // No reply hint section when trigger message lacks crossPost metadata.
+    // The base MCP tools section may still document cross_post_message generically,
+    // so this must assert the F193 reply-hint wording, not the tool name itself.
+    assert.ok(!prompt.includes('来自跨线程消息'), 'no cross-thread reply hint header should be injected');
+    assert.ok(!prompt.includes('回复请用 cross_post_message('), 'no cross-thread reply tool hint should be injected');
   });
 });

@@ -545,6 +545,7 @@ describe('TelegramAdapter', () => {
       const adapter = new TelegramAdapter('test-token', noopLog());
       const sendCalls = [];
       adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+      adapter._injectBotApiDeleteMessage(async () => {});
       adapter.editMessage = async () => {
         throw new Error('Telegram edit failed');
       };
@@ -626,6 +627,7 @@ describe('TelegramAdapter', () => {
           editCalls.push({ chatId, msgId, text, opts });
         };
         adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
+        adapter._injectBotApiDeleteMessage(async () => {});
 
         adapter.registerInlinePlaceholder('1001', '42');
         const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Test', bodyMarkdown: 'Body' }];
@@ -641,6 +643,7 @@ describe('TelegramAdapter', () => {
         const adapter = new TelegramAdapter('test-token', noopLog());
         const sendCalls = [];
         adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
+        adapter._injectBotApiDeleteMessage(async () => {});
 
         adapter.registerInlinePlaceholder('1001', '42');
         // Simulate edit failing (message was deleted by user)
@@ -661,6 +664,7 @@ describe('TelegramAdapter', () => {
         const adapter = new TelegramAdapter('test-token', noopLog());
         const sendCalls = [];
         adapter._injectSendMessage(async (chatId, text, opts) => sendCalls.push({ chatId, text, opts }));
+        adapter._injectBotApiDeleteMessage(async () => {});
 
         adapter.registerInlinePlaceholder('1001', '42');
         adapter.editMessage = async () => {
@@ -700,6 +704,7 @@ describe('TelegramAdapter', () => {
         const adapter = new TelegramAdapter('test-token', noopLog());
         const sendCalls = [];
         adapter._injectSendMessage(async (chatId, text) => sendCalls.push({ chatId, text }));
+        adapter._injectBotApiDeleteMessage(async () => {});
         adapter.editMessage = async () => {
           throw new Error('Telegram edit failed');
         };
@@ -861,6 +866,7 @@ describe('TelegramAdapter', () => {
         const adapter = new TelegramAdapter('test-token', noopLog());
         const sendCalls = [];
         const editCalls = [];
+        adapter._injectBotApiDeleteMessage(async () => {});
         adapter.editMessage = async (chatId, msgId, text, opts) => {
           if (opts?.parse_mode === 'HTML') {
             const err = new Error("can't parse entities");

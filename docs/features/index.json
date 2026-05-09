@@ -1197,7 +1197,7 @@
     {
       "id": "F193",
       "name": "Cross-Thread Communication Unification",
-      "status": "in-progress | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1 | **Completed**: 2026-05-09",
       "file": "F193-cross-thread-comm-unification.md"
     },
     {
