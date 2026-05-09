@@ -1133,29 +1133,38 @@ created: 2026-02-26
 
 - 关联：`cat-cafe-skills/refs/shared-rules.md §19` | F193
 
-### LL-055: 测试 spawn 出的"无限 busy 子进程"必须有自杀 deadline
+### LL-055: spawn 出的"长尾 child runtime"必须能脱离 parent 自动死亡
 - 状态：draft
-- 更新时间：2026-05-08
+- 更新时间：2026-05-09（src extension）
 
-- 坑：`process-liveness-probe.test.js` spawn `node -e while(true){}` 作为 busy CPU child；测试异常退出（runner timeout / 用户 Ctrl+C / `pnpm gate` 中断）时漏掉 child cleanup，每次泄漏一只 PPID=1 孤儿进程。累积 4 只时占满 ~270% CPU，导致 runtime `pnpm dev:direct` 在 20s 超时窗口内起不来 3002，看起来像"启动超时 + tsx Force killing"诡异连锁，根因实际在测试设计。
+- 坑：两次同模式踩坑，1 天内连续暴露——
+  1. **Test infra（首次）**：`process-liveness-probe.test.js` spawn `node -e while(true){}` 作为 busy CPU child；测试异常退出（runner timeout / 用户 Ctrl+C / `pnpm gate` 中断）时漏掉 child cleanup，每次泄漏一只 PPID=1 孤儿进程。累积 4 只时占满 ~270% CPU，导致 runtime `pnpm dev:direct` 在 20s 超时窗口内起不来 3002，看起来像"启动超时 + tsx Force killing"诡异连锁，根因实际在测试设计。
+  2. **Src（次日 2026-05-09 发现）**：`packages/api/src/.../first-run-quest/client-detection.ts` 用 `execAsync('opencode version', { timeout: 5000 })` 探测 OpenCode CLI 是否安装。`opencode version` 不是简单 CLI 查询——`opencode` 是 agent runtime，`version` 子命令会拉起完整 agent process。`exec` 的 `timeout` 默认发 SIGTERM；agent process 不响应就僵住，parent promise reject 后 child 成 PPID=1 + 67% CPU 烧 50 分钟孤儿。**这是 LL 的范围扩展——同模式不限于 test，src 里"靠 SIGTERM 链 kill 复杂 child runtime"是同样系统性漏洞。**
 - 根因：
   1. **结构性**：测试设计依赖 parent SIGTERM handler 链式 kill child；macOS 没有 Linux `PR_SET_PDEATHSIG`，parent 异常死亡（SIGKILL / runner timeout / Ctrl+C）后 child 不会自动陪葬，被 launchd 收编成 PPID=1，继续 `while(true)` 烧 CPU 直到外部干预。
   2. **可观测性**：孤儿没有指向源头的进程链（PPID=1），仅靠 `ps` 看不出"是谁 spawn 的"，只能 grep 字面量 `while(true){}` 反查代码。
 - 触发条件：test runner 强杀整个 worker（test timeout / OOM）、用户 Ctrl+C 中断 `pnpm test` / `pnpm gate`、multi-worktree fanout 并发跑同一测试（任一进程异常退出即泄漏）、CI 任务被 cancel——四种之一即可累积。
-- 修复（已落地）：busy child 自带 5–10s 自杀 deadline——`while(Date.now() < end)` 替代 `while(true)`，最坏情况下泄漏一只也只活一个测试时长，不会跨 session 累积。`packages/api/test/process-liveness-probe.test.js` 第 145 行已改。
+- 修复（已落地）：
+  - **Test 修复（PR #1607, 2026-05-08）**：busy child 自带 5–10s 自杀 deadline——`while(Date.now() < end)` 替代 `while(true)`，最坏情况下泄漏一只也只活一个测试时长，不会跨 session 累积。`packages/api/test/process-liveness-probe.test.js` 第 145 行已改。
+  - **Src 修复（2026-05-09）**：`client-detection.ts` 把"靠 `<cli> version`/`<cli> --version` 探测"换成"`command -v <cli>` 存在性探测"——`execFile` 走 `/bin/sh -c 'command -v "$1"'` 路径（POSIX 内置，不 spawn agent runtime），timeout 1s。`versionCmd` 字段从 `CliSpec` 删除，`DetectedClient.version` 字段保留为可选但永不填值（前端 `ClientStep` 已 conditional render，自然降级到只显示"已安装"）。同时把 `existsOnPath` 抽成可注入接口便于测试。
 - 防护：
-  1. 任何 `*.test.js` 里 spawn 的 busy / long-lived 子进程必须满足两条之一：(a) 自带时间 deadline，(b) 暴露 child PID 让外部测试 finally 块独立 SIGKILL，**不依赖 parent SIGTERM handler 链式 kill**。
-  2. 卡启动 / CPU 异常排查 SOP（顺序按出现频率）：
-     - 先 `ps -eo pid,etime,pcpu,command | sort -k3 -nr | head` 看孤儿 busy-loop（频率最高）
-     - 再 grep 字面量 `while(true)` 反查测试代码 spawn 源
+  1. **Test**：任何 `*.test.{js,ts}` 里 spawn 的 busy / long-lived 子进程必须满足两条之一：(a) 自带时间 deadline，(b) 暴露 child PID 让外部测试 finally 块独立 SIGKILL，**不依赖 parent SIGTERM handler 链式 kill**。
+  2. **Src**（新增）：低成本 detection / health probe 路径**禁止 spawn 复杂 runtime**——能用 `command -v` / `which` / `where` 就不用 `<cli> --version`。即使是看起来"应该是简单 CLI"的目标（`opencode version`），也不能假设其 child 会响应 SIGTERM；agent runtime / headless browser 这类复杂 child 的生命周期不能让 parent 信号链承担。
+  3. **回归守护**：注入式 `existsOnPath` + unit test 断言所有 spec 没有 `versionCmd` / `versionArgs` 字段，CI 直接拦截重新引入。见 `packages/api/test/client-detection.test.js`（5 个 case，含 LL-055 src-extension regression guard）。
+  4. 卡启动 / CPU 异常排查 SOP（顺序按出现频率）：
+     - 先 `ps -eo pid,etime,pcpu,command | sort -k3 -nr | head` 看孤儿（频率最高）
+     - 再按命令字面量 grep 反查 spawn 源（`while(true)` 找 test，`<cli> version`/`<cli> --version` 找 src probe）
      - 最后才查 agent-browser headless Chrome 僵尸（`feedback_agent_browser_zombie.md`）
-  3. CI lint（建议 follow-up）：扫 `**/*.test.{js,ts}` 中 `spawn(... while(true)` 模式，缺 deadline 直接 fail。
+  5. CI lint（建议 follow-up）：扫 `**/*.{js,ts}` 中 `exec\\(.*<cli>\\s+(version|--version)` 模式（src + test 一起），匹配上直接 fail。
 - 来源锚点：
-  - `packages/api/test/process-liveness-probe.test.js#L140-L155`
-  - 2026-05-08 runtime 启动超时事件（4 只孤儿 6h–19h，270% CPU，3002 无法在 20s 内监听，触发 `tsx watch: Previous process hasn't exited yet. Force killing...` 串扰）
-- 原理：**macOS 进程孤立化默认 detach 不死链**。Linux 可通过 `PR_SET_PDEATHSIG` 让 child 在 parent 死时收到信号自杀；macOS 无此机制，child 与 parent 的生命周期完全解耦。任何"靠 parent 信号链 kill child"的设计在 macOS 上都有泄漏窗口——必须让 child 自带退出条件，把退出的所有权从 parent 转回 child。
+  - `packages/api/test/process-liveness-probe.test.js#L140-L155`（test 修复 PR #1607）
+  - `packages/api/src/domains/cats/services/first-run-quest/client-detection.ts`（src 修复 2026-05-09）
+  - `packages/api/test/client-detection.test.js`（regression guards）
+  - 2026-05-08 runtime 启动超时事件（4 只 test 孤儿 6h–19h，270% CPU，3002 无法在 20s 内监听）
+  - 2026-05-09 hub UI / first-run-quest 触发的 opencode version 孤儿（PPID=1 + 67% CPU + 50 分钟）
+- 原理：**macOS 进程孤立化默认 detach 不死链**。Linux 可通过 `PR_SET_PDEATHSIG` 让 child 在 parent 死时收到信号自杀；macOS 无此机制，child 与 parent 的生命周期完全解耦。任何"靠 parent 信号链 kill child"的设计在 macOS 上都有泄漏窗口——必须让 child 自带退出条件（test 端：deadline；src 端：根本不 spawn 复杂 child，改用存在性探测），把退出的所有权从 parent 转回 child 或干脆不创造 child。
 
-- 关联：`feedback_agent_browser_zombie.md`（前置怀疑路径，本次坐实另有元凶——busy-loop 比 Chrome 僵尸更高频）
+- 关联：`feedback_agent_browser_zombie.md`（同族——agent-browser headless Chrome 子进程不清理，已三次导致铲屎官电脑卡顿，是同模式 src 案例）| F171（first-run-quest 是 src 漏洞首次暴露的 feature）
 
 ---
 
