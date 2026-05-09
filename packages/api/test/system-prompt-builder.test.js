@@ -561,10 +561,7 @@ describe('SystemPromptBuilder', () => {
     // Sender cat handle
     assert.ok(ctx.includes('codex'), 'reply hint must include sender catId');
     // Tool name guidance
-    assert.ok(
-      ctx.includes('cross_post_message'),
-      'reply hint must direct user to cross_post_message tool',
-    );
+    assert.ok(ctx.includes('cross_post_message'), 'reply hint must direct user to cross_post_message tool');
   });
 
   test('F193 AC-B2 boundary: buildInvocationContext omits reply hint when not provided', async () => {

@@ -1303,6 +1303,7 @@ async function main(): Promise<void> {
     draftStore,
     invocationQueue,
     queueProcessor,
+    taskProgressStore, // F194 AC-B7: cleared on zombie reconcile
     ...(f101GameStore ? { gameStore: f101GameStore } : {}),
     ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
     holdBallCancelDeps: { dynamicTaskStore, taskRunner: taskRunnerV2 },
@@ -1315,6 +1316,9 @@ async function main(): Promise<void> {
     invocationTracker,
     socketManager,
     messageStore, // F117: for marking queued messages as canceled on withdraw/clear
+    invocationRecordStore, // F194 Phase B: canonical liveness read source
+    draftStore, // F194 Phase B: canonical liveness read source
+    taskProgressStore, // F194 AC-B7: cleared on zombie reconcile
   });
   await app.register(invocationsRoutes, {
     invocationRecordStore,

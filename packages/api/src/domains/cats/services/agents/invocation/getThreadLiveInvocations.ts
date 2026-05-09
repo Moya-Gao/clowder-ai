@@ -93,6 +93,26 @@ export interface LivenessReadResult {
   zombies: ZombieRecord[];
 }
 
+/** F194 Phase B (Bundle) AC-B11: structured diagnostic events emitted by the helper. */
+export type LivenessEventKind = 'liveness_degraded' | 'liveness_pending' | 'record_zombie_detected';
+
+export interface LivenessEvent {
+  kind: LivenessEventKind;
+  threadId: string;
+  userId: string;
+  invocationId: string;
+  catId: string | null;
+  /** Source classification (live entries) or null for zombies. */
+  source: LivenessSource | null;
+  reason: LivenessReason | ZombieReason;
+  /** Diagnostic context (record/draft/tracker state at decision time). */
+  recordStatus: 'running' | 'absent';
+  recordUpdatedAt: number | null;
+  trackerSlotPresent: boolean;
+  draftFresh: boolean | null;
+  draftAge: number | null;
+}
+
 export interface LivenessReadDeps {
   /** Enumerate running InvocationRecords for (threadId, userId). Required so zombies are visible
    *  even when their drafts have already been TTL-reaped (DraftStore TTL < zombie threshold). */
@@ -103,6 +123,11 @@ export interface LivenessReadDeps {
   getTrackerUserId: (threadId: string, catId: string) => string | null;
   /** DraftStore.getByThread(userId, threadId) */
   getDrafts: (userId: string, threadId: string) => Promise<DraftRecord[]> | DraftRecord[];
+  /** F194 AC-B12: optional structured event sink. Helper emits liveness_degraded /
+   *  liveness_pending / record_zombie_detected at the matching decision points so the
+   *  callsite (messages.ts/queue.ts) can route them into a logger. Sink failure must NOT
+   *  interrupt the read — exceptions are swallowed. */
+  onLog?: (event: LivenessEvent) => void;
 }
 
 export interface LivenessReadOptions {
@@ -225,6 +250,70 @@ function classifyCandidate(ctx: ClassifyContext): Classification {
   if (recordGrace) return recordGrace;
 
   return { kind: 'drop' };
+}
+
+function buildDegradedEvent(
+  threadId: string,
+  userId: string,
+  ctx: ClassifyContext,
+  live: LiveInvocation,
+): LivenessEvent {
+  const isPending = live.reason === 'liveness_pending';
+  return {
+    kind: isPending ? 'liveness_pending' : 'liveness_degraded',
+    threadId,
+    userId,
+    invocationId: ctx.invocationId,
+    catId: live.catId,
+    source: live.source,
+    reason: live.reason,
+    recordStatus: ctx.record ? 'running' : 'absent',
+    recordUpdatedAt: ctx.record?.updatedAt ?? null,
+    trackerSlotPresent: !!ctx.slot,
+    draftFresh: ctx.draft ? ctx.now - ctx.draft.updatedAt <= ctx.freshDraftWindowMs : null,
+    draftAge: ctx.draft ? ctx.now - ctx.draft.updatedAt : null,
+  };
+}
+
+function buildZombieEvent(threadId: string, userId: string, ctx: ClassifyContext, zombie: ZombieRecord): LivenessEvent {
+  return {
+    kind: 'record_zombie_detected',
+    threadId,
+    userId,
+    invocationId: ctx.invocationId,
+    catId: zombie.catId,
+    source: null,
+    reason: zombie.reason,
+    recordStatus: 'running',
+    recordUpdatedAt: zombie.recordUpdatedAt,
+    trackerSlotPresent: !!ctx.slot,
+    draftFresh: false,
+    draftAge: ctx.draft ? ctx.now - ctx.draft.updatedAt : null,
+  };
+}
+
+/** AC-B11/B12: emit a structured event for `degraded` live + zombie outcomes.
+ *  Sink failure is swallowed — diagnostic should never break the read path. */
+function emitLivenessEvent(
+  onLog: ((event: LivenessEvent) => void) | undefined,
+  threadId: string,
+  userId: string,
+  ctx: ClassifyContext,
+  result: Classification,
+): void {
+  if (!onLog) return;
+  let event: LivenessEvent | null = null;
+  if (result.kind === 'live' && result.live.degraded) {
+    event = buildDegradedEvent(threadId, userId, ctx, result.live);
+  } else if (result.kind === 'zombie') {
+    event = buildZombieEvent(threadId, userId, ctx, result.zombie);
+  }
+  if (!event) return;
+  try {
+    onLog(event);
+  } catch {
+    // swallow — sink errors must not interrupt read path
+  }
 }
 
 interface IndexBundle {
@@ -428,6 +517,7 @@ export async function getThreadLiveInvocations(
     });
     if (!ctx) continue;
     const result = classifyCandidate(ctx);
+    emitLivenessEvent(deps.onLog, threadId, userId, ctx, result);
     if (result.kind === 'live') active.push(result.live);
     else if (result.kind === 'zombie') zombies.push(result.zombie);
   }

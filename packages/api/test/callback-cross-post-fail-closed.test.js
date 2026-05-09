@@ -250,11 +250,7 @@ describe('F193 AC-A4: cross-post fail-closed when no routing credentials', () =>
       'corrected retry with same clientMessageId must succeed (AC-A4 must not consume the key)',
     );
     const body = res2.json();
-    assert.notEqual(
-      body.status,
-      'duplicate',
-      'retry must not be treated as duplicate after AC-A4 reject',
-    );
+    assert.notEqual(body.status, 'duplicate', 'retry must not be treated as duplicate after AC-A4 reject');
   });
 
   test('codex P2 (2026-05-08): targetCats=[disabled_cat] does NOT trigger cross_post_no_routing', async () => {
@@ -315,10 +311,6 @@ describe('F193 AC-A4: cross-post fail-closed when no routing credentials', () =>
       },
     });
 
-    assert.equal(
-      response.statusCode,
-      200,
-      'same-thread progress update without routing creds must remain valid',
-    );
+    assert.equal(response.statusCode, 200, 'same-thread progress update without routing creds must remain valid');
   });
 });

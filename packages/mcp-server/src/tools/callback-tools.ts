@@ -520,8 +520,7 @@ export async function handlePostMessage(input: {
   targetCats?: string[] | undefined;
   agentKeyCatId?: string | undefined;
 }): Promise<ToolResult> {
-  const hasInvocationCreds =
-    !!process.env['CAT_CAFE_INVOCATION_ID'] && !!process.env['CAT_CAFE_CALLBACK_TOKEN'];
+  const hasInvocationCreds = !!process.env['CAT_CAFE_INVOCATION_ID'] && !!process.env['CAT_CAFE_CALLBACK_TOKEN'];
   if (input.threadId && hasInvocationCreds) {
     return errorResult(
       'post_message rejects threadId from invocation-token callers (F193 KD-1). ' +

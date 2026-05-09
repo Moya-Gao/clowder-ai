@@ -17,18 +17,14 @@ import { describe, test } from 'node:test';
 
 describe('F193 AC-B4: hydrateCrossThreadReplyHint boundary', () => {
   test('trigger message not found → null', async () => {
-    const { hydrateCrossThreadReplyHint } = await import(
-      '../dist/domains/cats/services/stores/ports/MessageStore.js'
-    );
+    const { hydrateCrossThreadReplyHint } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
     const store = { getById: async () => null };
     const result = await hydrateCrossThreadReplyHint(store, 'nonexistent-id');
     assert.equal(result, null);
   });
 
   test('same-thread post (no extra.crossPost) → null', async () => {
-    const { hydrateCrossThreadReplyHint } = await import(
-      '../dist/domains/cats/services/stores/ports/MessageStore.js'
-    );
+    const { hydrateCrossThreadReplyHint } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
     const store = {
       getById: async () => ({
         id: 'msg-1',
@@ -46,9 +42,7 @@ describe('F193 AC-B4: hydrateCrossThreadReplyHint boundary', () => {
   });
 
   test('user-authored message (catId null) → null', async () => {
-    const { hydrateCrossThreadReplyHint } = await import(
-      '../dist/domains/cats/services/stores/ports/MessageStore.js'
-    );
+    const { hydrateCrossThreadReplyHint } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
     const store = {
       getById: async () => ({
         id: 'user-msg',
@@ -78,9 +72,7 @@ describe('F193 AC-B4: hydrateCrossThreadReplyHint boundary', () => {
     //
     // This test locks that fallback contract — without it, queue-path
     // cross-post triggers wouldn't inject the reply hint.
-    const { hydrateCrossThreadReplyHint } = await import(
-      '../dist/domains/cats/services/stores/ports/MessageStore.js'
-    );
+    const { hydrateCrossThreadReplyHint } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
     const store = {
       getById: async (id) => {
         if (id !== 'queue-trigger-msg') return null;
@@ -119,9 +111,7 @@ describe('F193 AC-B4: hydrateCrossThreadReplyHint boundary', () => {
   });
 
   test('valid cross-thread relay → structured { sourceThreadId, senderCatId }', async () => {
-    const { hydrateCrossThreadReplyHint } = await import(
-      '../dist/domains/cats/services/stores/ports/MessageStore.js'
-    );
+    const { hydrateCrossThreadReplyHint } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
     const store = {
       getById: async () => ({
         id: 'relay-msg',

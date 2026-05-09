@@ -33,7 +33,9 @@ export function computeLibraryHealth(
 
 function computeStaleAnchors(db: Database.Database, repoRoot?: string, docsRoot?: string) {
   const rows = db
-    .prepare("SELECT anchor, source_path FROM evidence_docs WHERE source_path IS NOT NULL AND kind NOT IN ('thread', 'session')")
+    .prepare(
+      "SELECT anchor, source_path FROM evidence_docs WHERE source_path IS NOT NULL AND kind NOT IN ('thread', 'session')",
+    )
     .all() as Array<{ anchor: string; source_path: string }>;
   const items: Array<{ anchor: string; sourcePath: string }> = [];
   for (const row of rows) {

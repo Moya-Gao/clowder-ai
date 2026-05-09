@@ -10,8 +10,7 @@
  * A2A only triggers here in routeSerial; routeParallel never chains (MVP safety boundary).
  */
 
-import { type CatConfig, type CatId, createCatId } from '@cat-cafe/shared';
-import { catRegistry } from '@cat-cafe/shared';
+import { type CatConfig, type CatId, catRegistry, createCatId } from '@cat-cafe/shared';
 import type { Span } from '@opentelemetry/api';
 import { context, trace } from '@opentelemetry/api';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
@@ -374,8 +373,7 @@ export async function* routeSerial(
       // Fallback chain ensures queue path also gets the hint without changing
       // streamReplyTo/auto-replyTo behavior (those have different semantics).
       // Same-thread triggers / agent-key path naturally return null inside the helper.
-      const crossThreadReplyHintTriggerId =
-        worklistEntry.a2aTriggerMessageId.get(catId) ?? currentUserMessageId;
+      const crossThreadReplyHintTriggerId = worklistEntry.a2aTriggerMessageId.get(catId) ?? currentUserMessageId;
       const crossThreadReplyHintRaw = crossThreadReplyHintTriggerId
         ? await hydrateCrossThreadReplyHint(deps.messageStore, crossThreadReplyHintTriggerId)
         : null;

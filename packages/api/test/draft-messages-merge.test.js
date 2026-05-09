@@ -54,6 +54,15 @@ function makeInvocationRecordStore(records = {}) {
       throw new Error('not implemented');
     },
     getByIdempotencyKey: () => null,
+    // F194 Phase B contract: enumerate running records scoped to (threadId, userId).
+    // Required by getThreadLiveInvocations canonical liveness helper.
+    listRunningByThread: (threadId, userId) => {
+      const out = [];
+      for (const r of byId.values()) {
+        if (r?.status === 'running' && r.threadId === threadId && r.userId === userId) out.push(r);
+      }
+      return out;
+    },
   };
 }
 

@@ -66,10 +66,7 @@ describe('F193 AC-A2: post_message MCP handler rejects invocation-token + thread
     });
     assert.equal(result.isError, true, 'must reject with isError=true');
     const text = result.content[0].text;
-    assert.ok(
-      text.includes('cat_cafe_cross_post_message'),
-      `error must hint at cross_post_message, got: ${text}`,
-    );
+    assert.ok(text.includes('cat_cafe_cross_post_message'), `error must hint at cross_post_message, got: ${text}`);
     assert.equal(
       fetchCalled,
       false,
@@ -135,14 +132,7 @@ describe('F193 AC-A2: post_message MCP handler rejects invocation-token + thread
     });
     assert.equal(result.isError, true, 'invocation-token caller forging agentKeyCatId must still be rejected');
     const text = result.content[0].text;
-    assert.ok(
-      text.includes('cat_cafe_cross_post_message'),
-      `must hint cross_post_message, got: ${text}`,
-    );
-    assert.equal(
-      fetchCalled,
-      false,
-      'guard must reject EARLY — no HTTP dispatch when invocation creds in env',
-    );
+    assert.ok(text.includes('cat_cafe_cross_post_message'), `must hint cross_post_message, got: ${text}`);
+    assert.equal(fetchCalled, false, 'guard must reject EARLY — no HTTP dispatch when invocation creds in env');
   });
 });

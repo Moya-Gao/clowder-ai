@@ -26,10 +26,7 @@ describe('F193 AC-A1: cross_post_message schema exposes targetCats', () => {
     assert.ok(crossTool, 'cross_post_message tool must exist');
 
     const shapeKeys = Object.keys(crossTool.inputSchema.shape);
-    assert.ok(
-      shapeKeys.includes('targetCats'),
-      'cross_post_message must expose targetCats field (F193 AC-A1)',
-    );
+    assert.ok(shapeKeys.includes('targetCats'), 'cross_post_message must expose targetCats field (F193 AC-A1)');
 
     const targetCatsField = crossTool.inputSchema._def.shape().targetCats;
     assert.ok(
@@ -192,10 +189,7 @@ describe('F193 AC-A4 P1 (codex review): cross_post_message fails closed at MCP l
     });
     if (result.isError) {
       const text = result.content[0].text;
-      assert.ok(
-        !text.includes('requires routing credentials'),
-        `markdown blockquote @ should pass, got: ${text}`,
-      );
+      assert.ok(!text.includes('requires routing credentials'), `markdown blockquote @ should pass, got: ${text}`);
     }
   });
 
