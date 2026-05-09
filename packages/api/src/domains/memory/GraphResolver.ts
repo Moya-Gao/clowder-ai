@@ -51,6 +51,7 @@ interface CatalogLike {
 interface BuildSubgraphOptions {
   depth?: number;
   callerCollections?: string[];
+  centerCollectionId?: string;
 }
 
 function inferCollectionIdSync(anchor: string, catalog: CatalogLike): string | undefined {
@@ -79,6 +80,15 @@ function stricterSensitivity(a: CollectionSensitivity, b: CollectionSensitivity)
   const orderA = COLLECTION_SENSITIVITY_ORDER[a] ?? 3;
   const orderB = COLLECTION_SENSITIVITY_ORDER[b] ?? 3;
   return orderA <= orderB ? a : b;
+}
+
+function relationTouchesCollection(
+  collectionId: string | undefined,
+  rel: { fromCollectionId: string | null; toCollectionId: string | null },
+): boolean {
+  if (!collectionId) return true;
+  if (!rel.fromCollectionId || !rel.toCollectionId) return true;
+  return rel.fromCollectionId === collectionId || rel.toCollectionId === collectionId;
 }
 
 export class GraphResolver {
@@ -140,7 +150,13 @@ export class GraphResolver {
         if (visited.has(currentAnchor)) continue;
         visited.add(currentAnchor);
 
-        const collectionId = await inferCollectionId(currentAnchor, this.catalog, this.stores);
+        const preferredCollectionId = d === 0 && currentAnchor === anchor ? opts?.centerCollectionId : undefined;
+        const preferredStore = preferredCollectionId ? this.stores.get(preferredCollectionId) : undefined;
+        const preferredDoc = preferredStore ? await preferredStore.getByAnchor(currentAnchor) : null;
+        const collectionId =
+          preferredCollectionId && preferredDoc
+            ? preferredCollectionId
+            : await inferCollectionId(currentAnchor, this.catalog, this.stores);
         if (!collectionId) {
           if (d > 0 && !nodesMap.has(currentAnchor)) {
             const unresolvedRedaction = unresolvedRedactionMap.get(currentAnchor);
@@ -162,7 +178,7 @@ export class GraphResolver {
         const isRedacted =
           (sensitivity === 'private' || sensitivity === 'restricted') && !callerCollections.has(collectionId);
         const store = collectionId ? this.stores.get(collectionId) : undefined;
-        const doc = store ? await store.getByAnchor(currentAnchor) : null;
+        const doc = preferredDoc ?? (store ? await store.getByAnchor(currentAnchor) : null);
         const canonicalAnchor = doc?.anchor ?? currentAnchor;
         rememberLookupAlias(canonicalAnchor, currentAnchor);
 
@@ -202,6 +218,7 @@ export class GraphResolver {
             if (!(await canUseLookupAnchorInStore(s, lookupAnchor, canonicalAnchor))) continue;
             const related = await s.getRelated(lookupAnchor);
             for (const rel of related) {
+              if (!relationTouchesCollection(collectionId, rel)) continue;
               const relCollectionId = await inferCollectionId(rel.anchor, this.catalog, this.stores);
               const relStore = relCollectionId ? this.stores.get(relCollectionId) : undefined;
               const relDoc = relStore ? await relStore.getByAnchor(rel.anchor) : null;

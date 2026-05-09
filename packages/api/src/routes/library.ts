@@ -7,6 +7,7 @@ import { CollectionReadModel } from '../domains/memory/CollectionReadModel.js';
 import type { CollectionKind, CollectionManifest, CollectionSensitivity } from '../domains/memory/collection-types.js';
 import { validateManifestInput } from '../domains/memory/collection-types.js';
 import { resolveCollectionStorePath, saveExternalCollection } from '../domains/memory/external-collections.js';
+import { GraphQueryResolver } from '../domains/memory/GraphQueryResolver.js';
 import { GraphResolver } from '../domains/memory/GraphResolver.js';
 import type { IEvidenceStore } from '../domains/memory/interfaces.js';
 import type { LibraryCatalog } from '../domains/memory/LibraryCatalog.js';
@@ -21,6 +22,38 @@ export interface LibraryRoutesOptions {
 
 type StoreWithDb = IEvidenceStore & { getDb?: () => import('better-sqlite3').Database };
 type StoreWithGetRelated = IEvidenceStore & import('../domains/memory/GraphResolver.js').GraphStore;
+
+interface BindDryRunRequestBody {
+  root?: unknown;
+  exclude?: unknown;
+  authorityCeiling?: unknown;
+}
+
+type ValidBindDryRunBody =
+  | {
+      ok: true;
+      root: string;
+      exclude?: string[];
+      authorityCeiling?: string;
+    }
+  | { ok: false; error: string };
+
+function validateBindDryRunBody(body: BindDryRunRequestBody | undefined): ValidBindDryRunBody {
+  if (!body || typeof body !== 'object' || typeof body.root !== 'string' || !body.root) {
+    return { ok: false, error: 'root is required and must be a non-empty string' };
+  }
+  if (body.exclude !== undefined) {
+    if (!Array.isArray(body.exclude) || !body.exclude.every((e: unknown) => typeof e === 'string')) {
+      return { ok: false, error: 'exclude must be a string array' };
+    }
+  }
+  return {
+    ok: true,
+    root: body.root,
+    exclude: body.exclude as string[] | undefined,
+    authorityCeiling: typeof body.authorityCeiling === 'string' ? body.authorityCeiling : undefined,
+  };
+}
 
 export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (app, opts) => {
   app.get('/api/library/catalog', async (request, reply) => {
@@ -175,18 +208,12 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
       reply.status(403);
       return { error: 'Forbidden: localhost only' };
     }
-    const body = request.body as { root?: unknown; exclude?: unknown; authorityCeiling?: unknown } | undefined;
-    if (!body || typeof body !== 'object' || typeof body.root !== 'string' || !body.root) {
+    const body = validateBindDryRunBody(request.body as BindDryRunRequestBody | undefined);
+    if (!body.ok) {
       reply.status(400);
-      return { error: 'root is required and must be a non-empty string' };
+      return { error: body.error };
     }
-    if (body.exclude !== undefined) {
-      if (!Array.isArray(body.exclude) || !body.exclude.every((e: unknown) => typeof e === 'string')) {
-        reply.status(400);
-        return { error: 'exclude must be a string array' };
-      }
-    }
-    let stat;
+    let stat: ReturnType<typeof statSync>;
     try {
       stat = statSync(body.root, { throwIfNoEntry: false });
     } catch {
@@ -197,8 +224,7 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
       reply.status(400);
       return { error: `Root path is not a valid directory: ${body.root}` };
     }
-    const ceiling = typeof body.authorityCeiling === 'string' ? body.authorityCeiling : undefined;
-    return BindingDryRun.run(body.root, { exclude: body.exclude as string[], authorityCeiling: ceiling });
+    return BindingDryRun.run(body.root, { exclude: body.exclude, authorityCeiling: body.authorityCeiling });
   });
 
   app.get('/api/library/graph', async (request, reply) => {
@@ -207,7 +233,7 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
       reply.status(403);
       return { error: 'Forbidden: localhost only' };
     }
-    const qs = request.query as { anchor?: string; depth?: string; collections?: string };
+    const qs = request.query as { anchor?: string; depth?: string; collections?: string; collection?: string };
     if (!qs.anchor) {
       reply.status(400);
       return { error: 'anchor query parameter is required' };
@@ -223,6 +249,27 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
       if ('getRelated' in s) graphStores.set(id, s as StoreWithGetRelated);
     }
     const resolver = new GraphResolver(opts.catalog, graphStores);
-    return resolver.buildSubgraph(qs.anchor, { depth, callerCollections });
+    return resolver.buildSubgraph(qs.anchor, { depth, callerCollections, centerCollectionId: qs.collection });
+  });
+
+  app.get('/api/library/graph/resolve', async (request, reply) => {
+    const ip = request.ip;
+    if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {
+      reply.status(403);
+      return { error: 'Forbidden: localhost only' };
+    }
+    const qs = request.query as { query?: string; depth?: string; collections?: string };
+    if (!qs.query?.trim()) {
+      reply.status(400);
+      return { error: 'query parameter is required' };
+    }
+    const depth = qs.depth ? Number.parseInt(qs.depth, 10) : 1;
+    if (Number.isNaN(depth) || depth < 0 || depth > 3) {
+      reply.status(400);
+      return { error: 'depth must be 0-3' };
+    }
+    const callerCollections = qs.collections?.split(',').filter(Boolean);
+    const resolver = new GraphQueryResolver(opts.catalog, opts.stores);
+    return resolver.resolve(qs.query, { depth, callerCollections });
   });
 };

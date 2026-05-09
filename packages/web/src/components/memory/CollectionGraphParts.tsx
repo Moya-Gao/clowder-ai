@@ -24,7 +24,7 @@ interface GraphNodeGlyphProps {
   centerAnchor: string | undefined;
   node: GraphNode;
   onHover: (n: GraphNode | null) => void;
-  onNodeClick: (anchor: string) => void;
+  onNodeClick: (anchor: string, collectionId?: string) => void;
   pos: { x: number; y: number };
 }
 
@@ -39,7 +39,7 @@ export function GraphNodeGlyph({ centerAnchor, node, onHover, onNodeClick, pos }
       className="cursor-pointer"
       role="treeitem"
       tabIndex={0}
-      onClick={() => onNodeClick(node.anchor)}
+      onClick={() => onNodeClick(node.anchor, node.collectionId)}
       ref={(el) => bindSvgNodeEvents(el, node, onHover, onNodeClick)}
     >
       <rect
@@ -84,7 +84,7 @@ function bindSvgNodeEvents(
   el: SVGGElement | null,
   node: GraphNode,
   onHover: (n: GraphNode | null) => void,
-  onNodeClick: (anchor: string) => void,
+  onNodeClick: (anchor: string, collectionId?: string) => void,
 ) {
   if (!el) return;
   el.onblur = () => onHover(null);
@@ -94,7 +94,7 @@ function bindSvgNodeEvents(
   el.onkeydown = (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
-    onNodeClick(node.anchor);
+    onNodeClick(node.anchor, node.collectionId);
   };
 }
 

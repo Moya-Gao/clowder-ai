@@ -54,15 +54,34 @@ const GRAPH_RESPONSE = {
   depth: 1,
 };
 
+const GRAPH_RESOLUTION_RESPONSE = {
+  status: 'graph',
+  queryKind: 'exact',
+  query: 'a1',
+  resolvedAnchor: 'a1',
+  graph: GRAPH_RESPONSE,
+};
+
+function jsonResponse(data: unknown) {
+  return Promise.resolve({ ok: true, json: () => Promise.resolve(data) });
+}
+
+function mockGraphFetch(
+  resolveResponse: unknown = GRAPH_RESOLUTION_RESPONSE,
+  directResponse: unknown = GRAPH_RESPONSE,
+) {
+  return vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    return jsonResponse(url.includes('/api/library/graph/resolve') ? resolveResponse : directResponse);
+  });
+}
+
 describe('CollectionGraph force-directed', () => {
   let container: HTMLDivElement;
   let root: ReturnType<typeof createRoot>;
 
   beforeEach(() => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(GRAPH_RESPONSE) })),
-    );
+    vi.stubGlobal('fetch', mockGraphFetch());
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -95,28 +114,33 @@ describe('CollectionGraph force-directed', () => {
   });
 
   it('shows readable title context for the center anchor', async () => {
+    const graph = {
+      nodes: [
+        {
+          anchor: 'F186',
+          collectionId: 'project:cafe',
+          sensitivity: 'internal',
+          kind: 'feature',
+          title: 'F186: 图书馆记忆架构（多域知识联邦）',
+          redacted: false,
+        },
+      ],
+      edges: [],
+      center: 'F186',
+      depth: 1,
+    };
     vi.stubGlobal(
       'fetch',
-      vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              nodes: [
-                {
-                  anchor: 'F186',
-                  collectionId: 'project:cafe',
-                  sensitivity: 'internal',
-                  kind: 'feature',
-                  title: 'F186: 图书馆记忆架构（多域知识联邦）',
-                  redacted: false,
-                },
-              ],
-              edges: [],
-              center: 'F186',
-              depth: 1,
-            }),
-        }),
+      mockGraphFetch(
+        {
+          status: 'graph',
+          queryKind: 'exact',
+          query: 'F186',
+          resolvedAnchor: 'F186',
+          graph,
+          note: 'no_edges',
+        },
+        graph,
       ),
     );
     await act(async () => {
@@ -173,26 +197,21 @@ describe('CollectionGraph force-directed', () => {
   });
 
   it('does not expand canvas height for non-centered large graphs', async () => {
+    const graph = {
+      nodes: Array.from({ length: 74 }, (_, i) => ({
+        anchor: `node-${i}`,
+        collectionId: 'project:cafe',
+        sensitivity: 'internal',
+        kind: 'spec',
+        title: `Node ${i}`,
+        redacted: false,
+      })),
+      edges: [],
+      depth: 1,
+    };
     vi.stubGlobal(
       'fetch',
-      vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              nodes: Array.from({ length: 74 }, (_, i) => ({
-                anchor: `node-${i}`,
-                collectionId: 'project:cafe',
-                sensitivity: 'internal',
-                kind: 'spec',
-                title: `Node ${i}`,
-                redacted: false,
-              })),
-              edges: [],
-              depth: 1,
-            }),
-        }),
-      ),
+      mockGraphFetch({ status: 'graph', queryKind: 'exact', query: 'node-0', resolvedAnchor: 'node-0', graph }, graph),
     );
     await act(async () => {
       root.render(<CollectionGraph />);
@@ -212,35 +231,30 @@ describe('CollectionGraph force-directed', () => {
   });
 
   it('does not expand canvas height for centered sparse graphs', async () => {
+    const graph = {
+      nodes: Array.from({ length: 74 }, (_, i) => ({
+        anchor: `node-${i}`,
+        collectionId: 'project:cafe',
+        sensitivity: 'internal',
+        kind: 'spec',
+        title: `Node ${i}`,
+        redacted: false,
+      })),
+      edges: Array.from({ length: 73 }, (_, i) => ({
+        from: `node-${i}`,
+        to: `node-${i + 1}`,
+        relation: 'related_to',
+        crossCollection: false,
+        edgeSensitivity: 'internal',
+        provenance: 'frontmatter',
+        redacted: false,
+      })),
+      center: 'node-0',
+      depth: 1,
+    };
     vi.stubGlobal(
       'fetch',
-      vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              nodes: Array.from({ length: 74 }, (_, i) => ({
-                anchor: `node-${i}`,
-                collectionId: 'project:cafe',
-                sensitivity: 'internal',
-                kind: 'spec',
-                title: `Node ${i}`,
-                redacted: false,
-              })),
-              edges: Array.from({ length: 73 }, (_, i) => ({
-                from: `node-${i}`,
-                to: `node-${i + 1}`,
-                relation: 'related_to',
-                crossCollection: false,
-                edgeSensitivity: 'internal',
-                provenance: 'frontmatter',
-                redacted: false,
-              })),
-              center: 'node-0',
-              depth: 1,
-            }),
-        }),
-      ),
+      mockGraphFetch({ status: 'graph', queryKind: 'exact', query: 'node-0', resolvedAnchor: 'node-0', graph }, graph),
     );
     await act(async () => {
       root.render(<CollectionGraph />);

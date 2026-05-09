@@ -327,6 +327,83 @@ describe('GraphResolver', () => {
     );
   });
 
+  it('keeps cross-store related edges when center collection is selected', async () => {
+    const { SqliteEvidenceStore } = await import('../../dist/domains/memory/SqliteEvidenceStore.js');
+    const worldStore = new SqliteEvidenceStore(':memory:');
+    await worldStore.initialize();
+
+    await store.upsert([
+      { anchor: 'F301', kind: 'discussion', status: 'active', title: 'Project Harness', updatedAt: '2026-05-09' },
+    ]);
+    await worldStore.upsert([
+      { anchor: 'W001', kind: 'lore', status: 'active', title: 'World Harness Note', updatedAt: '2026-05-09' },
+      { anchor: 'W002', kind: 'lore', status: 'active', title: 'Incoming World Note', updatedAt: '2026-05-09' },
+      { anchor: 'W003', kind: 'lore', status: 'active', title: 'Partial Metadata Note', updatedAt: '2026-05-09' },
+    ]);
+    await worldStore.addEdge({
+      fromAnchor: 'F301',
+      toAnchor: 'W001',
+      relation: 'related_to',
+      fromCollectionId: 'project:cat-cafe',
+      toCollectionId: 'world:lexander',
+      edgeSensitivity: 'internal',
+      provenance: 'content',
+    });
+    await worldStore.addEdge({
+      fromAnchor: 'W002',
+      toAnchor: 'F301',
+      relation: 'related_to',
+      fromCollectionId: 'world:lexander',
+      toCollectionId: 'project:cat-cafe',
+      edgeSensitivity: 'internal',
+      provenance: 'content',
+    });
+    await worldStore.addEdge({
+      fromAnchor: 'W003',
+      toAnchor: 'F301',
+      relation: 'related_to',
+      fromCollectionId: 'world:lexander',
+      edgeSensitivity: 'internal',
+      provenance: 'content',
+    });
+
+    const catalog = {
+      list: () => [
+        { id: 'project:cat-cafe', sensitivity: 'internal', kind: 'project' },
+        { id: 'world:lexander', sensitivity: 'internal', kind: 'world' },
+      ],
+      get: (id) => catalog.list().find((m) => m.id === id),
+    };
+    const stores = new Map([
+      ['project:cat-cafe', store],
+      ['world:lexander', worldStore],
+    ]);
+    const resolver = new GraphResolver(catalog, stores);
+
+    const result = await resolver.buildSubgraph('F301', {
+      depth: 1,
+      centerCollectionId: 'project:cat-cafe',
+      callerCollections: ['project:cat-cafe', 'world:lexander'],
+    });
+
+    assert.equal(result.center, 'F301');
+    assert.ok(result.nodes.some((node) => node.anchor === 'W001'));
+    assert.ok(result.nodes.some((node) => node.anchor === 'W002'));
+    assert.ok(result.nodes.some((node) => node.anchor === 'W003'));
+    assert.ok(
+      result.edges.some((edge) => edge.from === 'F301' && edge.to === 'W001' && edge.relation === 'related_to'),
+      'edge stored outside the center collection must still be emitted',
+    );
+    assert.ok(
+      result.edges.some((edge) => edge.from === 'F301' && edge.to === 'W002' && edge.relation === 'related_to'),
+      'incoming edge stored outside the center collection must still be emitted',
+    );
+    assert.ok(
+      result.edges.some((edge) => edge.from === 'F301' && edge.to === 'W003' && edge.relation === 'related_to'),
+      'partially tagged incoming edge must still be emitted',
+    );
+  });
+
   it('redacts private anchor to opaque ID (P1-3)', async () => {
     await store.upsert([
       {

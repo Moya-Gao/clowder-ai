@@ -3,38 +3,40 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { edgePath, type GraphNode, type GraphResult, relationColor } from './CollectionGraphModel';
 import { GraphInspector, GraphNodeGlyph, GraphTooltip } from './CollectionGraphParts';
+import {
+  GraphCandidates,
+  GraphNoEdgesNote,
+  GraphNoMatch,
+  type GraphQueryCandidate,
+  GraphSearchForm,
+} from './CollectionGraphQueryStates';
 import { forceLayout, readableHubLayoutHeight, usesReadableHubLayout } from './graph-layout';
 
 const W = 940;
 const H = 620;
 
-function GraphSearchForm({
-  inputRef,
-  onSubmit,
-}: {
-  inputRef: React.RefObject<HTMLInputElement>;
-  onSubmit: (e: React.FormEvent) => void;
-}) {
-  return (
-    <form onSubmit={onSubmit} className="mb-4 flex flex-col gap-2 sm:flex-row">
-      <input
-        ref={inputRef}
-        type="text"
-        defaultValue=""
-        placeholder="Enter anchor (e.g. F186)"
-        className="min-w-0 flex-1 rounded border border-cafe bg-white px-3 py-1.5 text-sm text-cafe-primary"
-        data-testid="graph-anchor-input"
-      />
-      <button
-        type="submit"
-        className="rounded bg-cocreator-primary px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-cocreator-dark sm:w-auto"
-        data-testid="graph-fetch-btn"
-      >
-        View Graph
-      </button>
-    </form>
-  );
-}
+type GraphQueryResolution =
+  | {
+      status: 'graph';
+      queryKind: 'exact';
+      query: string;
+      resolvedAnchor: string;
+      graph: GraphResult;
+      note?: 'no_edges';
+    }
+  | {
+      status: 'candidates';
+      queryKind: 'search';
+      query: string;
+      candidates: GraphQueryCandidate[];
+    }
+  | {
+      status: 'no_match';
+      queryKind: 'search';
+      query: string;
+      message: string;
+      examples: string[];
+    };
 
 function GraphCanvas({
   center,
@@ -51,7 +53,7 @@ function GraphCanvas({
   graph: GraphResult;
   hovered: GraphNode | null;
   onHover: (node: GraphNode | null) => void;
-  onNodeClick: (anchor: string) => void;
+  onNodeClick: (anchor: string, collectionId?: string) => void;
   positions: Map<string, { x: number; y: number }>;
   showEdgeLabels: boolean;
   visibleEdges: GraphResult['edges'];
@@ -144,6 +146,9 @@ function SparseEdgeLabel({
 
 export function CollectionGraph() {
   const [graph, setGraph] = useState<GraphResult | null>(null);
+  const [graphNote, setGraphNote] = useState<'no_edges' | null>(null);
+  const [candidates, setCandidates] = useState<GraphQueryCandidate[]>([]);
+  const [noMatch, setNoMatch] = useState<{ message: string; examples: string[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hovered, setHovered] = useState<GraphNode | null>(null);
@@ -151,12 +156,25 @@ export function CollectionGraph() {
   const [hiddenRelations, setHiddenRelations] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const fetchGraph = useCallback((a: string) => {
+  const clearResolutionStates = useCallback(() => {
+    setCandidates([]);
+    setNoMatch(null);
+    setGraphNote(null);
+  }, []);
+
+  const fetchGraph = useCallback((a: string, collectionId?: string) => {
     if (!a.trim()) return;
     setLoading(true);
     setError(null);
     setHovered(null);
-    fetch(`/api/library/graph?anchor=${encodeURIComponent(a)}&depth=1`)
+    setCandidates([]);
+    setNoMatch(null);
+    setGraphNote(null);
+    fetch(
+      `/api/library/graph?anchor=${encodeURIComponent(a)}&depth=1${
+        collectionId ? `&collection=${encodeURIComponent(collectionId)}` : ''
+      }`,
+    )
       .then((r) => {
         if (!r.ok) throw new Error(`${r.status}`);
         return r.json();
@@ -169,19 +187,53 @@ export function CollectionGraph() {
       .finally(() => setLoading(false));
   }, []);
 
+  const resolveQuery = useCallback(
+    (query: string) => {
+      const trimmed = query.trim();
+      if (!trimmed) return;
+      setLoading(true);
+      setError(null);
+      setHovered(null);
+      clearResolutionStates();
+      fetch(`/api/library/graph/resolve?query=${encodeURIComponent(trimmed)}&depth=1`)
+        .then((r) => {
+          if (!r.ok) throw new Error(`${r.status}`);
+          return r.json();
+        })
+        .then((data: GraphQueryResolution) => {
+          if (data.status === 'graph') {
+            setGraph(data.graph);
+            setGraphNote(data.note ?? null);
+            setSelectedAnchor(data.graph.center ?? data.resolvedAnchor ?? data.graph.nodes[0]?.anchor ?? null);
+            return;
+          }
+          setGraph(null);
+          setSelectedAnchor(null);
+          if (data.status === 'candidates') {
+            setCandidates(data.candidates);
+            return;
+          }
+          setNoMatch({ message: data.message, examples: data.examples });
+        })
+        .catch((e) => setError(e.message))
+        .finally(() => setLoading(false));
+    },
+    [clearResolutionStates],
+  );
+
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      fetchGraph(inputRef.current?.value ?? '');
+      resolveQuery(inputRef.current?.value ?? '');
     },
-    [fetchGraph],
+    [resolveQuery],
   );
 
   const handleNodeClick = useCallback(
-    (anchor: string) => {
+    (anchor: string, collectionId?: string) => {
       setSelectedAnchor(anchor);
       if (inputRef.current) inputRef.current.value = anchor;
-      fetchGraph(anchor);
+      fetchGraph(anchor, collectionId);
     },
     [fetchGraph],
   );
@@ -223,12 +275,15 @@ export function CollectionGraph() {
 
       {loading && <div className="text-sm text-cafe-secondary">Loading graph...</div>}
       {error && <div className="text-sm text-red-500">Error: {error}</div>}
+      {candidates.length > 0 && !loading && <GraphCandidates candidates={candidates} onSelect={handleNodeClick} />}
+      {noMatch && !loading && <GraphNoMatch examples={noMatch.examples} message={noMatch.message} />}
       {graph && graph.nodes.length === 0 && !loading && (
         <div className="text-sm text-cafe-secondary">No graph data for this anchor.</div>
       )}
 
       {graph && graph.nodes.length > 0 && (
         <div className="relative rounded-lg border border-cafe bg-[#fbfaf7] p-3">
+          {graphNote === 'no_edges' && <GraphNoEdgesNote />}
           <div data-testid="graph-stage" className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
             <GraphCanvas
               center={graph.center}
