@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F194: Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口
 
-> **Status**: in-progress (Phase A + B done; **Phase Z code merged PR #1614 squash `7443d049e` 2026-05-09 — pending alpha runtime acceptance + 愿景守护四件套 per KD-23**) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
+> **Status**: completed (Phase A + B + Z merged; KD-23 hard gate satisfied 2026-05-09 — runtime acceptance ✅ + 愿景守护对照表 by 宪宪/Opus-46 ✅) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
 >
 > **AC-Z1 (alpha runtime acceptance) FAILED 2026-05-09 03:35** — 铲屎官实测 runtime 仍裂，根因比 Phase B 修的更深：F194 read-side helper 把 **parent recordStore invocation** 与 **per-cat-turn registry invocation** 当成同一 namespace 处理。bug-report `docs/bug-report/2026-05-09-f194-runtime-bubble-still-split-completion-leak/`，砚砚 2026-05-09 04:51 拍板走 Phase Z（namespace-aware canonical read model），见 KD-21~KD-23 + AC-Z1~Z5。
 >
@@ -400,6 +400,35 @@ tracker (cat-level only)
 - Phase A: helper contract + 单测 review（砚砚跨 family 必过）
 - Phase B: messages + queue 双迁移 review（强守护 F173 hotfix3 行为兼容）
 - Phase B (Bundle): 单一 PR review covering AC-B1~B16 一次性闭环；alpha 愿景守护（非作者非 reviewer 猫，对照铲屎官原话出对照表）放在 PR merge 后
+
+## Close Gate Report
+
+**Closed**: 2026-05-09 by 布偶猫/Opus-47 (author)
+**Hard gate**: KD-23 satisfied — unit + integration tests + alpha runtime + 愿景守护对照表 全过。
+
+### 愿景守护对照表
+
+**守护猫**: 宪宪/Opus-46（非 author、非 reviewer，跨 4.6 视角）
+**Runtime HEAD**: `0807f4165`（含 Phase Z merge `7443d049e`）
+
+| 铲屎官原话 | AC | 验证方式 | 状态 | Evidence |
+|---|---|---|---|---|
+| R1 "现在活跃的线程他们气泡都是裂的" | AC-Z1+B5+B15 | runtime API + visual | ✅ | `/queue` = 1 active no ghost；铲屎官 05:11 重启后 visual confirm |
+| R2 "讲讲为什么"（根因可解释、可观测） | AC-B11~B13 | structured events audit | ✅ | 3 event kinds, 10-field schema, `trackerSlotPresent` = actual presence |
+| R3 "宪宪 47 方向 ok"（helper-based unified read model） | AC-A1+A2 | single helper audit | ✅ | `getThreadLiveInvocations` in both `messages.ts:1466` + `queue.ts:143` |
+| R4 "不能只在前端打补丁，根因层解决" | AC-A1+Z2 | dual migration + producer | ✅ | 双消费方迁移完成 + `RouteChainCompletionTracker` + `ensureTerminalStatus` |
+
+### 验收 evidence 三件套
+
+1. **Spec/Unit/Integration tests** — F194/Z focused 95/95 + biome clean + wider regression（messages/draft-merge/record-store/reconcileZombies）一并过
+2. **Alpha runtime acceptance** — 铲屎官 2026-05-09 05:11 重启 runtime（HEAD `0807f4165` PID `43143`）+ 多轮 active multi-cat thread visual confirm 不裂；opus-47 只读诊断 `/queue.activeInvocations[0].startedAt` 反映 child 真实启动时间（不再是 parent.updatedAt 旧时间）
+3. **愿景守护对照表** — 见上表（4 行全 ✅）
+
+### Review chain
+
+- 本地 review: 砚砚/codex GPT-5.5 — R1→R6 APPROVE
+- 云端 review: chatgpt-codex-connector — 6 轮（R1 P1 → R2 P1 → R3 LGTM → R4 P2 → R5 P2 → R6 LGTM "Swish!"）
+- 愿景守护: 宪宪/Opus-46（孟加拉猫家族）— 跨族 + 4.6 视角
 
 ## Links
 
