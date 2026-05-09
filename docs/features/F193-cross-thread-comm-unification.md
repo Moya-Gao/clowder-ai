@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F193: Cross-Thread Communication Unification
 
-> **Status**: in-progress (Phase D pending PR) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
+> **Status**: completed | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
 
 ## Why
 
@@ -158,6 +158,7 @@ created: 2026-05-07
 | 2026-05-08 | Phase C implementation — limb.ts entry point + tool-registration createLimbServer 守护 + capability-orchestrator Phase C 语义翻转 (auto-migrate stale 3-split / legacy all-in-one configs) + user-local migration doc (PR pending) |
 | 2026-05-08 | Phase C merged (PR #1605, squash `bd852029a`) — `healCatCafeMcpTopology` shared chain across 5 call sites (GET/PATCH/install/delete/orchestrate) + 9 rounds cloud + 4 rounds local 砚砚 review (R7 透明窗口 P1: write-path heal seam) |
 | 2026-05-08 | Phase D implementation — `cat_cafe_reflect` + `cat_cafe_guide_resolve` MCP 工具下线 + SystemPromptBuilder/test guard sync + probe-* user-local migration doc note (PR pending) |
+| 2026-05-09 | Phase D merged (PR #1613, squash `0697335fe`) — 砚砚 round 1 PASS + cloud R1 PASS first-try; gate web prerender flake bug-reported (origin/main 也复现，CVO 不阻塞先例) |
 
 ## Review Gate
 
