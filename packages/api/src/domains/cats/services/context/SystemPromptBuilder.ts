@@ -292,7 +292,7 @@ MCP 工具（异步汇报；token 有效期有限）：
 
 **协作工具：**
 - cat_cafe_post_message: 本 thread 异步（agent-key 才传 threadId）
-- cat_cafe_cross_post_message: 跨 thread（targetCats/行首@二选一）
+- cat_cafe_cross_post_message: 跨 thread（targetCats/行首@二选一）。最小路径：list_threads → cross_post_message(threadId, targetCats, content) → get_thread_context 验证
 - cat_cafe_register_pr_tracking: PR tracking
 - cat_cafe_get_pending_mentions: @提及
 - cat_cafe_get_thread_context: thread 上下文

@@ -210,6 +210,6 @@ close_gate_report:
 | **Feature** | `docs/features/F043-mcp-unification.md` | Evolved from — `post_message`/`cross_post_message` 原始契约 |
 | **Feature** | `docs/features/F052-cross-thread-identity-isolation.md` | Related — sourceThreadId 溯源 + 同名猫豁免，接收侧 hint 消费此数据 |
 | **Feature** | `docs/features/F178-persistent-mcp-agent-key-auth.md` | Related — agent-key principal threadId 必填依据 |
-| **Skill** | `cat-cafe-skills/cross-thread-sync/SKILL.md` | Phase D 后续 P2 改写目标（删 Announce + 补 situational triggers） |
+| **Skill** | `cat-cafe-skills/cross-thread-sync/SKILL.md` | Phase D close gate 同步清理（删 Announce + 替换已删除的 `cat_cafe_search_messages` 引用为 `search_evidence` / `get_thread_context`） |
 | **Evidence** | `/uploads/1778169018738-4cf75cfd.png` | 接收侧 reply hint 缺失的 motivation evidence（46 收到 47 跨线程传话后回复停在本 thread） |
 | **Discussion** | thread `0001778150215161` (audit thread) | 三猫审计原始讨论（46 + 47 + 砚砚 push back/收口全过程） |

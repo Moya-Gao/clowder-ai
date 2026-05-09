@@ -151,6 +151,11 @@ describe('SystemPromptBuilder', () => {
       prompt.match(/cross_post_message[^\n]*(?:targetCats|行首\s*@)/),
       'cross_post_message description must mention routing creds (targetCats or line-start @)',
     );
+    // F193 AC-B1: minimal cognitive path (gpt52 close gate P2 fix)
+    assert.ok(
+      prompt.match(/list_threads.*cross_post_message.*get_thread_context/),
+      'cross_post_message description must include minimal cognitive path: list_threads → cross_post_message → get_thread_context',
+    );
   });
 
   test('F193 AC-B1: post_message description signals KD-1 principal-conditioned threadId', async () => {
@@ -1527,7 +1532,7 @@ describe('SystemPromptBuilder', () => {
         featureId: 'F073',
       },
     });
-    assert.ok(prompt.length < 5800, `Prompt with SOP hint is ${prompt.length} chars, expected < 5800`);
+    assert.ok(prompt.length < 5900, `Prompt with SOP hint is ${prompt.length} chars, expected < 5900`);
   });
 
   // --- F092: Voice Mode prompt injection ---
@@ -1574,7 +1579,7 @@ describe('SystemPromptBuilder', () => {
       },
       voiceMode: true,
     });
-    assert.ok(prompt.length < 5800, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 5800`);
+    assert.ok(prompt.length < 5900, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 5900`);
   });
 
   test('buildInvocationContext injects bootcamp mode when bootcampState provided', async () => {
