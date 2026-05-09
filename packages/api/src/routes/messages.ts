@@ -25,6 +25,10 @@ import {
   type CollaborationContinuityCapsuleV1,
   extractContinuityCapsuleFromAgentMessage,
 } from '../domains/cats/services/agents/invocation/CollaborationContinuityCapsule.js';
+import {
+  ensureTerminalStatus,
+  RouteChainCompletionTracker,
+} from '../domains/cats/services/agents/invocation/ensureTerminalStatus.js';
 import { getThreadLiveInvocations } from '../domains/cats/services/agents/invocation/getThreadLiveInvocations.js';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
@@ -101,6 +105,11 @@ const STREAM_START_TIMEOUT_MS = 5_000;
  * Dependencies injected via Fastify plugin options.
  * socketManager is injected to avoid circular import from index.ts.
  */
+/** F194 Phase Z3 (KD-23): process-singleton in-memory map tracking routeExecution chain
+ *  completion signals for parent recordStore invocations. Producer sets pending/succeeded/failed;
+ *  background async finally reads this to terminalize records that escaped explicit terminal write. */
+const routeChainTracker = new RouteChainCompletionTracker();
+
 export interface MessagesRoutesOptions {
   registry: InvocationRegistry;
   messageStore: IMessageStore;
@@ -793,6 +802,12 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         // F148 fix: Hoisted so abort/catch branches can ack completed cats' cursors
         const cursorBoundaries = new Map<string, string>();
 
+        // F194 Phase Z3 (AC-Z3): mark chain start for finally fallback. routeExecution may
+        // hang / silently exit / swallow exceptions and never reach explicit terminal write
+        // (root cause of bubble-still-split symptom). Without this signal, finally would
+        // fallback failed even on success. start→succeeded/failed → finally CAS terminal.
+        routeChainTracker.start(createResult.invocationId);
+
         try {
           await opts.invocationRecordStore?.update(createResult.invocationId, {
             status: 'running',
@@ -1056,6 +1071,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
                 : {}),
             });
             finalStatus = 'succeeded';
+            // F194 Phase Z3: chain succeeded — signal for finally fallback
+            routeChainTracker.succeed(createResult.invocationId);
 
             for (const continuationCapsule of continuationCapsules.values()) {
               opts.queueProcessor?.enqueueContinuation({
@@ -1141,6 +1158,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               status: 'failed',
               error: errorMsg,
             });
+            // F194 Phase Z3: chain failed — diagnostic signal for finally fallback
+            routeChainTracker.fail(createResult.invocationId);
             opts.socketManager.broadcastAgentMessage(
               {
                 type: 'error',
@@ -1168,6 +1187,29 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         } finally {
           clearInterval(heartbeatInterval);
           opts.invocationTracker?.completeAll(resolvedThreadId, targetCats, controller);
+          // F194 Phase Z3 (AC-Z3): defensive terminal write. If routeExecution silently exited
+          // without writing terminal (the runtime split symptom root cause), CAS expectedStatus=
+          // running guarded write based on chainCompletion signal. Skips if status already terminal.
+          // Reads chainTracker → succeeded/failed/missing → CAS update or fallback. (砚砚 R1 P1-3)
+          if (opts.invocationRecordStore) {
+            try {
+              await ensureTerminalStatus(
+                createResult.invocationId,
+                {
+                  invocationRecordStore: opts.invocationRecordStore,
+                  chainCompletion: routeChainTracker,
+                  log,
+                },
+                { reqId: request.id },
+              );
+            } catch (err) {
+              log.warn(
+                { err, invocationId: createResult.invocationId, feature: 'F194' },
+                'F194 Z3 ensureTerminalStatus failed (background)',
+              );
+            }
+          }
+          routeChainTracker.release(createResult.invocationId);
           // F39: Notify queue processor for auto-dequeue chain
           opts.queueProcessor?.onInvocationComplete(resolvedThreadId, primaryCat, finalStatus).catch((err) => {
             log.error(
@@ -1426,6 +1468,22 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             getActiveSlots: (tid) => tracker?.getActiveSlots(tid) ?? [],
             getTrackerUserId: (tid, cid) => tracker?.getUserId(tid, cid) ?? null,
             getDrafts: () => draftsForHelper,
+            // F194 Phase Z (KD-22): namespace bridge — child registry id → parent recordStore id.
+            // Wraps existing InvocationRegistry.getRecord (parentInvocationId field) + getLatestId.
+            // Helper uses these to detect parent+child execution chain liveness and cat-slot reuse
+            // zombies (砚砚 R1 P1-1: 结构化 dep, not boolean black-box).
+            getTurnInvocation: async (id) => {
+              const rec = await opts.registry.getRecord(id);
+              if (!rec) return null;
+              return {
+                parentInvocationId: rec.parentInvocationId,
+                threadId: rec.threadId,
+                userId: rec.userId,
+                catId: rec.catId,
+                createdAt: rec.createdAt,
+              };
+            },
+            getLatestTurnInvocationId: (tid, cat) => opts.registry.getLatestId(tid, cat),
             // F194 AC-B12: route diagnostic events into request log. NB: do NOT spread
             // `source: 'F194'` — that would clobber LivenessEvent.source (record+draft /
             // record-only / tracker+draft / null), losing the diagnostic. Use `feature`.

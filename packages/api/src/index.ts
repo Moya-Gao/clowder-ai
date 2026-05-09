@@ -1319,6 +1319,7 @@ async function main(): Promise<void> {
     invocationRecordStore, // F194 Phase B: canonical liveness read source
     draftStore, // F194 Phase B: canonical liveness read source
     taskProgressStore, // F194 AC-B7: cleared on zombie reconcile
+    invocationRegistry: registry, // F194 Phase Z (KD-22): namespace bridge for parent↔child invocation
   });
   await app.register(invocationsRoutes, {
     invocationRecordStore,

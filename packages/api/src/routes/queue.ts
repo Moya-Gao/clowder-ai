@@ -60,6 +60,21 @@ export interface QueueRoutesOptions {
    *  TaskProgress snapshot so the frontend doesn't show phantom progress. Optional —
    *  cleanup still marks records `failed` even without this. */
   taskProgressStore?: TaskProgressStore;
+  /** F194 Phase Z (KD-22): InvocationRegistry — provides namespace bridge between
+   *  parent recordStore invocation and per-cat-turn child registry invocation.
+   *  When wired, helper uses parentInvocationId / latestId to detect parent+child
+   *  chain liveness and cat-slot reuse zombies. Optional for backward compat;
+   *  fall-back to single-namespace classification when absent. */
+  invocationRegistry?: {
+    getRecord(invocationId: string): Promise<{
+      parentInvocationId?: string | undefined;
+      threadId: string;
+      userId: string;
+      catId: string;
+      createdAt: number;
+    } | null>;
+    getLatestId(threadId: string, catId: string): Promise<string | undefined>;
+  };
 }
 
 const moveBodySchema = z.object({
@@ -119,6 +134,7 @@ async function resolveActiveInvocations(
   draftStore: IDraftStore | undefined,
   log: { info: (obj: unknown, msg?: string) => void; warn: (obj: unknown, msg?: string) => void },
   taskProgressStore?: TaskProgressStore,
+  invocationRegistry?: QueueRoutesOptions['invocationRegistry'],
 ): Promise<Array<{ catId: string; startedAt: number }>> {
   if (!recordStore || !draftStore) {
     return invocationTracker.getActiveSlots(threadId);
@@ -129,6 +145,25 @@ async function resolveActiveInvocations(
       getActiveSlots: (tid) => invocationTracker.getActiveSlots(tid),
       getTrackerUserId: (tid, cid) => invocationTracker.getUserId(tid, cid),
       getDrafts: (uid, tid) => draftStore.getByThread(uid, tid),
+      // F194 Phase Z (KD-22): namespace bridge — parent recordStore invocation ↔ per-cat-turn
+      // child registry invocation. Wraps InvocationRegistry.getRecord (parentInvocationId field)
+      // + getLatestId. Optional — when absent, helper falls back to legacy single-namespace path.
+      ...(invocationRegistry
+        ? {
+            getTurnInvocation: async (id: string) => {
+              const rec = await invocationRegistry.getRecord(id);
+              if (!rec) return null;
+              return {
+                parentInvocationId: rec.parentInvocationId,
+                threadId: rec.threadId,
+                userId: rec.userId,
+                catId: rec.catId,
+                createdAt: rec.createdAt,
+              };
+            },
+            getLatestTurnInvocationId: (tid: string, cat: string) => invocationRegistry.getLatestId(tid, cat),
+          }
+        : {}),
       // F194 AC-B12: route diagnostic events into request log. NB: do NOT spread `source: 'F194'`
       // — that would clobber LivenessEvent.source (record+draft / record-only / tracker+draft / null),
       // losing the most diagnostic field. Use `feature` for the F194 marker instead.
@@ -189,6 +224,7 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
       opts.draftStore,
       request.log,
       opts.taskProgressStore,
+      opts.invocationRegistry,
     );
     return {
       queue: invocationQueue.list(threadId, guard.userId),

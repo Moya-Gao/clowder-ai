@@ -8,7 +8,9 @@ created: 2026-05-07
 
 # F194: Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口
 
-> **Status**: in-progress (Phase A + Phase B Bundle done; alpha/愿景守护 pending) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
+> **Status**: in-progress (Phase A + B done; **Phase Z (alpha runtime acceptance failure recovery) in progress**) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
+>
+> **AC-Z1 (alpha runtime acceptance) FAILED 2026-05-09 03:35** — 铲屎官实测 runtime 仍裂，根因比 Phase B 修的更深：F194 read-side helper 把 **parent recordStore invocation** 与 **per-cat-turn registry invocation** 当成同一 namespace 处理。bug-report `docs/bug-report/2026-05-09-f194-runtime-bubble-still-split-completion-leak/`，砚砚 2026-05-09 04:51 拍板走 Phase Z（namespace-aware canonical read model），见 KD-21~KD-23 + AC-Z1~Z5。
 >
 > Reviewer: 缅因猫/砚砚 (GPT-5.5)。立项基于 2026-05-07 thread `thread_mov3a7qva8mtsbs1` post-close diagnosis（F183 close 之后铲屎官报告"现在活跃的线程气泡都是裂的"，砚砚只读诊断捕到 `/api/messages` 与 `/api/threads/:threadId/queue` 对同一 thread 的 liveness 判定矛盾）。Architecture cell：`docs/architecture/ownership/cells/runtime-invocation-state` (待建/复用)。Map delta：none — 复用既有 `domains/cats/services/agents/invocation/` 边界，本 feat 在该 cell 内新增 read-model helper，不改 ownership map。
 
@@ -151,9 +153,85 @@ async function getThreadLiveInvocations(
 - 不接任何消费方
 - contract 通过 review 后才进 Phase B
 
-### Phase B (Bundle): 消费方迁移 + zombie cleanup + 运行时 diagnostic + alpha 验收
+### Phase B (Bundle): 消费方迁移 + zombie cleanup + 运行时 diagnostic + alpha 验收 ⚠️ ALPHA FAILED → Phase Z
 
 > **Single bundled phase（CVO ack 2026-05-08）**：原 4-phase 拆分（A/B/C/D 各一）调整为 **2-phase 拆分**——Phase A 已独立 merged（PR #1592, squash `4b5edfdd2`）；**消费方迁移 + zombie cleanup + diagnostic + alpha 全部合并为单一 Phase B (Bundle)** 一锅端做完一锅端 review。spec 真相源直接反映"single bundle"，避免子 step 之间的 review iteration 碎片化（详见 KD-12）。
+>
+> ⚠️ Phase B merged (PR #1603, squash `5c1ab366`) 但 **alpha runtime acceptance 失败**：铲屎官 2026-05-09 03:35 实测气泡仍裂。砚砚 04:51 拍板：F194 没 close，进 Phase Z 修 namespace 模型缺口（read-side helper 把 parent recordStore invocation 与 per-cat-turn registry invocation 当成同 namespace），Z 阶段不 close 不准 alpha 通过。
+
+### Phase Z: Namespace-aware canonical read model（alpha runtime acceptance failure recovery）
+
+> **Why this phase exists**：Phase B alpha 验收失败暴露 F194 一开始就坐在错坐标系上做的判断——`recordStore.invocationId`（parent，整条 multi-cat 链共享）与 `draftStore/tracker.invocationId`（child，per-cat-turn）不在同一 namespace，但 helper 把它们当一个空间处理。导致：parent record 还在跑（chain 未结束）+ 当前 cat turn 有 fresh draft + 它们 invocationId 不同 → helper 把它们当作两个 ghost identity → /queue dedup 取最早 startedAt（parent）→ slot 计时陈旧但内容是新的 → "气泡裂"。
+>
+> 砚砚 2026-05-09 04:51 直接拍板（rejecting both A=全量统一 namespace 和 C=helper 加 hotfix rule）：**走 B = canonical read model 加 namespace awareness，draft/tracker/formal-message 的现有 stamping 不动，helper 学会 parent↔child 映射**。
+
+**namespace model（KD-21 spec'd）**：
+
+```
+parent invocation (recordStore namespace)
+  ├─ id 来源: routes/messages.ts → invocationRecordStore.create()
+  ├─ 生命周期: 整条 multi-cat 链（用户消息→所有 cat 串联→链结束 status=succeeded）
+  ├─ 持久层: invoc:{id} hash + invoc:running:{tid}:{uid} set
+  └─ 终态: 由 routes/messages.ts background async 在链 done 时写入
+
+child turn invocation (registry namespace)
+  ├─ id 来源: invoke-single-cat.ts → registry.create() (callback auth)
+  ├─ 生命周期: 单 cat 单轮回复（一个 streaming 周期）
+  ├─ 持久层: 无 — 只在 InvocationRegistry 短期保存（callback auth 用）
+  ├─ 关联: route-serial 把 ownInvocationId 写进 draftStore + 作为某些 formal message 的 stream invocationId
+  └─ 与 parent 的关系: 通过 routes/messages.ts:878 `parentInvocationId` 传入；child 不显式记录 parent 反向指针
+
+draft (registry namespace)
+  ├─ key: (userId, threadId, ownInvocationId)  ← child id
+  └─ 同 parent invocation 不同轮 → 不同 child id → 不同 draft
+
+formal message (parent namespace)
+  ├─ extra.stream.invocationId = options.parentInvocationId ?? ownInvocationId（**parent 优先**）
+  └─ 同 parent 多个 cat turns 的 formal message 共享 parent id
+
+tracker (cat-level only)
+  └─ 不记 invocationId，只记 catId+startedAt+controller
+```
+
+**Z 子任务**：
+
+**Z1 — Spec namespace model + AC-Z 编号化（先于代码）**：
+- 加 KD-21（parent/turn invocation namespace）+ KD-22（namespace-aware helper 设计）+ KD-23（runtime acceptance hard gate）
+- AC-Z1~Z5 入 spec
+- bug-report 链入 Links
+
+**Z2 — RED tests 四类（先红，砚砚 R1 P2 加 parallel）**：
+- Z2-α: parent recordStore invocation P1 status=running + 同 thread 同 cat 有 child fresh draft（child registry id ≠ parent record id，但 `child.parentInvocationId == parent.id`）+ tracker slot present → helper 输出 1 个 active source=`parent+child+tracker`，startedAt 优先取 child draft/turn 时间不取 parent.updatedAt
+- Z2-β: 同 α 但 tracker missing → helper 输出 1 个 degraded active source=`parent+child-draft`，依然算 live（**不能因为 tracker 丢就漏掉合法恢复，砚砚 R1 P1-2**）
+- Z2-γ: parent record 已经 emit 过 formal message（即使 multi-cat chain 中途）+ 该 parent 没活 child draft + 同 cat tracker slot 已被新 parent record 占用（通过 `getLatestTurnInvocationId` 反向定位） + **没有** `hasParentRouteCompleted(parent.id)` 信号 → helper **不**做 instant succeeded（砚砚 R1 P1-3：formal message 不能当 chainDone 证据），只 suppress ghost slot + 输出 namespace diagnostic event；这条 record 留给 producer Z4 finally 处理或后续 zombie sweep
+- Z2-δ: route-parallel 场景（砚砚 R1 P2）— 同 parent 串多 cat（opus + codex）各自有活 child draft，每个 cat 独立映射；helper 输出 2 个 active（catId opus + codex），不互相挤掉；不同 parent 但同 catId 时取 latest turn 的 parent
+
+**Z3 — Helper namespace-aware 实现（砚砚 R1 P1-1 修正：dep 不能黑盒 boolean）**：
+- 新增 dep（read-only，复用 InvocationRegistry 既有能力，验证 `parentInvocationId` 字段已存在 + `getLatestId(threadId, catId)` 已存在）：
+  - `getTurnInvocation(invocationId): Promise<{ parentInvocationId, threadId, catId, createdAt } | null>` — 包装 `registry.getRecord(invocationId)`
+  - `getLatestTurnInvocationId(threadId, catId): Promise<string | null>` — 包装 `registry.getLatestId`
+- helper 入口先 build namespace index：遍历 `getDrafts()` 返回的 drafts，对每个 draft 通过 `getTurnInvocation(draft.invocationId)` 拿 parentInvocationId，构 `parentToChildren: Map<parentRecordId, Array<{childTurnId, draft, turnCreatedAt}>>`
+- helper `tryRecordGraceOrZombie` 加前置（按砚砚 R1 P1-2 修正）：
+  - parent record running + parent 有 mapped child fresh draft + tracker slot present → active source=`parent+child+tracker` startedAt=earliest child turn createdAt（**P1-2: tracker present 也保留 parent classification，不退到 child-only**）
+  - parent record running + parent 有 mapped child fresh draft + tracker slot missing → degraded active source=`parent+child-draft` startedAt=earliest child turn createdAt（**P1-2: tracker 丢不漏 live**）
+  - parent record running + 无 mapped child draft + 同 catId tracker slot 已被其他 parent 占用（`getLatestTurnInvocationId(thread, cat)` 反查 parentInvocationId ≠ self）+ **本 parent 自己**没 emit formal message → instant zombie failed（cat slot reused + 没产出 = dead）
+  - parent record running + 无 mapped child draft + 同 catId tracker slot 已让位 + 本 parent **emit 过** formal message → 不 instant succeeded（**砚砚 R1 P1-3 否决**），只 suppress ghost slot + 输出 namespace diagnostic event；succeeded 终态由 Z4 producer finally 决定，read-side 不背锅
+- 同 thread+cat 输出最多 1 个 UI slot（dedup by catId 现有规则继续生效，但 startedAt 来源换成 child turn createdAt 优先）
+
+**Z4 — Producer defensive try/finally（CAS-aware，砚砚 R1 P1-3 修正：read-side 不擅自终态化）**：
+- `routes/messages.ts` background async 的最外层 finally：
+  - 用本 reqId scope 的 `invocationRecordStore.get(parentId)` 拿当前 status；若已经 terminal（CAS 守护），跳过
+  - 若仍 running：**新增 dep `hasParentRouteCompleted(parentId)`**（routeExecution 自己设置一个 in-memory map：start 时 set('pending')，正常 done 时 set('succeeded')，error 时 set('failed')；finally 里读这个 map 决定 succeeded 还是 failed），CAS expectedStatus=running 写终态
+  - 没 chainDone 证据时（map 缺失/超时） → 兜底 failed(error='producer_left_running_no_terminal') + 加 warn log（防止状态机卡死，但用 expectedStatus 守护避免覆盖任何已 terminal）
+- 加 trace log 每个 status update：`reqId/invocationId/from→to/source(success|abort|fail|fallback)`
+- routeParallel 同样改
+
+**Z5 — Runtime regression + alpha + 愿景守护**：
+- 整合测试用 fastify 真启动 + 真 Redis（test:redis isolation）+ 真 streaming mock，复现 Z2-α/β/γ
+- alpha 通道（`pnpm alpha:start` 6398 隔离）实测：复现 thread + 多轮 multi-cat 串联，气泡不再裂
+- 愿景守护：非作者非 reviewer 猫（暹罗猫 / 孟加拉猫）拉一遍 alpha，对照铲屎官原话出对照表
+
+**Z 阶段必须三层都过 + alpha 证据齐备 才能 close F194**——砚砚 hard gate（spec 之外不接受 partial close）。
 
 **B1 — 双消费方迁移（messages + queue）**：
 - `messages.ts:1407-1465` 现有 inline `recordActive || trackerActive` gate 迁移到 helper（保留现有过滤行为：active drafts 只保留 helper 认为 live 的，但接受 `degraded` flag）
@@ -203,15 +281,23 @@ async function getThreadLiveInvocations(
 - [x] AC-B11: `LivenessEvent` schema 落地（`liveness_degraded` / `liveness_pending` / `record_zombie_detected`），fallback 用 `liveness_fallback` log kind 标记；字段含 threadId/userId/invocationId/catId/source/reason/recordStatus/recordUpdatedAt/trackerSlotPresent/draftFresh/draftAge
 - [x] AC-B12: helper `onLog?` callback dep 落地，emitLivenessEvent 在 degraded live + zombie 决策点 emit；sink throw swallowed 不中断 read；7 个 onLog 单测（degraded/pending/zombie 各 1 + healthy 不 emit + 多事件 + sink throw + 无 onLog backward compat）
 - [x] AC-B13: fallback frequency metric — messages/queue callsite catch 路径写 `kind: 'liveness_fallback'` + endpoint 字段；onLog event 也用 `feature: 'F194'` 标记（不覆盖 helper.source）便于查询
-- [ ] AC-B14: alpha 实测：active thread 在正常 stream 期间无 `liveness_degraded` 噪音（false positive 检查）
-- [ ] AC-B15: alpha 实测：构造 record+tracker missing 场景，`/api/messages` 与 `/queue` 不再矛盾，前端不再裂气泡
-- [ ] AC-B16: 愿景守护：非作者非 reviewer 猫输出对照表（铲屎官原话 vs 实际状态），确认 active thread 裂气泡不复现
+- [ ] AC-B14: alpha 实测：active thread 在正常 stream 期间无 `liveness_degraded` 噪音（false positive 检查） ⚠️ FAILED 2026-05-09 — 见 Phase Z
+- [ ] AC-B15: alpha 实测：构造 record+tracker missing 场景，`/api/messages` 与 `/queue` 不再矛盾，前端不再裂气泡 ⚠️ FAILED 2026-05-09 — 见 Phase Z
+- [ ] AC-B16: 愿景守护：非作者非 reviewer 猫输出对照表（铲屎官原话 vs 实际状态），确认 active thread 裂气泡不复现 ⚠️ 因 B14/B15 fail 推迟到 Phase Z 完成后
 
-### 端到端
+### Phase Z（namespace-aware canonical read model + alpha 复测）
 
-- [ ] AC-Z1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失
-- [ ] AC-Z2: 后端 `/api/messages` 与 `/api/threads/:threadId/queue` 共用同一 canonical helper，单一规则源
-- [ ] AC-Z3: 后续新增 read endpoint（admin observability / debug API）可直接复用 helper，不需要自拼三家 store
+- [ ] AC-Z1: spec 落地 namespace model（KD-21）：parent recordStore invocation vs per-cat-turn registry invocation 在 helper / store / draft / tracker / formal message 各层的语义边界写清楚
+- [ ] AC-Z2: helper 加 namespace-aware dep（**砚砚 R1 P1-1 修正：结构化数据不黑盒 boolean**）：`getTurnInvocation(invocationId): {parentInvocationId, threadId, catId, createdAt} | null` + `getLatestTurnInvocationId(threadId, catId): string | null`（复用 registry 既有 parentInvocationId 字段 + getLatestId）。Helper 四类前置规则（**砚砚 R1 P1-2/P1-3 修正**）：(α) parent running + mapped child fresh draft + tracker present → 1 active source=`parent+child+tracker` startedAt=earliest child turn createdAt；(β) 同 α 但 tracker missing → 1 degraded active source=`parent+child-draft`；(γ) parent running + 无 child draft + 同 cat slot 已被新 parent 占用 + 本 parent **没** emit formal message → instant zombie failed；(γ') 同 γ 但本 parent emit 过 formal message → **不**做 instant succeeded（formal message 不能当 chainDone 证据），仅 suppress ghost slot + 输出 namespace diagnostic event
+- [ ] AC-Z3: producer defensive try/finally（routes/messages.ts background async 最外层）：新增 `hasParentRouteCompleted(parentId)` 信号（routeExecution 内部 in-memory map：start→pending, done→succeeded, error→failed），finally 读这个 map 决定终态；CAS expectedStatus=running 守护避免覆盖；map 缺/超时 → 兜底 failed(error='producer_left_running_no_terminal')。trace log 记录 reqId/from→to/source。routeParallel 同样改
+- [ ] AC-Z4: RED tests 四类（**砚砚 R1 P2 加 parallel**）：Z2-α/β/γ + Z2-δ（parallel 同 parent 多 child drafts / 多 cat active 不互挤）各 1 个 unit + 1 个 routes integration test 覆盖 namespace race；producer try/finally 覆盖正常 / 异常 / abort + chainDone signal 缺失三路径
+- [ ] AC-Z5: alpha 通道实测复现 thread + 多轮 multi-cat 串联气泡不再裂；F194 close 前必须有 alpha runtime 截图/日志 evidence + 愿景守护猫对照表（hard gate by 砚砚 2026-05-09）
+
+### 端到端 / Vision
+
+- [ ] AC-E1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失（并发 multi-cat handoff 也不裂）
+- [ ] AC-E2: 后端 `/api/messages` 与 `/api/threads/:threadId/queue` 共用同一 canonical helper，单一规则源
+- [ ] AC-E3: 后续新增 read endpoint（admin observability / debug API）可直接复用 helper，不需要自拼三家 store
 
 ## 需求点 Checklist
 
@@ -282,6 +368,9 @@ async function getThreadLiveInvocations(
 | KD-18 | backfill SCAN 必须过滤掉 running-set keys——`invoc:*` prefix 同时覆盖 record hashes (`invoc:{uuid}`) 和 running 索引 sets (`invoc:running:{tid}:{uid}`)，HGETALL on set keys 浪费 round trips | 云端 codex review R16 P2（PR #1603 inline comment 3211824356，HEAD 331b18aa8）：scanAndPopulateRunningIndex 用 MATCH=invoc:* 找 record hashes，但 R3 P1 fix 引入的 running 索引 sets 也住 `invoc:*` 下面，SCAN 返回 both。defensive filter 在 result loop 里捞 WRONGTYPE error 兜底但 round trips 还是付出去了。修复：post-scan 过滤 `invoc:running:` 前缀（不需 Redis TYPE filter 版本依赖），保留现有 SCAN MATCH pattern。Test 通过 wrap pipeline().hgetall 捕获 key 集合，断言 NO `invoc:running:*` 出现在 HGETALL targets | 2026-05-08 |
 | KD-19 | /messages 必须无条件 invoke helper（zombie 检测不依赖 draft 列表非空）——zombie 的本质就是"record running + no fresh draft"，drafts.length>0 gate 直接漏掉这一类 | 云端 codex review R17 P1（PR #1603 inline comment 3211853817，HEAD 46a735250）：messages.ts 旧逻辑把 helper invocation 嵌套在 `if (drafts.length > 0)` 里，empty draft thread 永远不触发 reconcile。修复 KD-19：重构 messages.ts 的 draft-merge 块，helper invocation 只 gate `opts.invocationRecordStore`，drafts 数组（可空）作为 helper 输入；activeDrafts 初始化前移；sort+push 出 `drafts.length>0` 内层条件。/messages 与 /queue 双路径都能触发 reconcileZombies，no-draft thread 的 phantom progress 不再永驻 | 2026-05-08 |
 | KD-20 | reconcileZombies 必须区分 missing / terminal / 仍 alive 三种 CAS-null 子情况——把"still running"误归 alreadyTerminal 等于丢失真 zombie | 云端 codex review R17 P2（PR #1603 inline comment 3211853819，HEAD 46a735250）：R15 P1 fix 把 `!updated` 分支拆成 terminal-cleanup vs missing 但还是把 still-running 也归 alreadyTerminal，Redis store CAS-drift retry exhaustion 时会丢 zombie。修复 KD-20：fresh get() 后三分支：(1) current=null missing → alreadyTerminal+no cleanup；(2) terminal → alreadyTerminal+retry cleanup（R15 P1 行为）；(3) 仍 alive (queued/running) → errors=1 + alreadyTerminal=false + warn log "transient failure"。下个 sweep 会 re-try。监控可基于 errors 指标 flag 真问题 | 2026-05-08 |
+| KD-21 | F194 helper 必须把 invocation 视为**双 namespace**：`recordStore.invocationId`（parent，整条 multi-cat 链共享）vs `draftStore/registry.invocationId`（child，per-cat-turn）。drafts/tracker stamping 不变，helper 学会 parent↔child 映射 | Phase B alpha 验收失败根因（铲屎官 2026-05-09 03:35 + 砚砚 04:51 拍板）：runtime thread `thread_moxnb78ckc36xhga` 仍裂——98d2949c 是 parent（用户消息"你说说我们的现状"，opus→codex→opus 链 4 分钟没结束），a58a8757 是 child（当前 opus 第三轮 streaming）。helper 把它们当同 namespace → record-only/pending + tracker+draft no-record 两个 ghost identity → /queue dedup 取最早 startedAt → slot 计时陈旧但内容是新的。架构上：drafts 必须 per-turn 唯一（DraftStore key 含 invocationId 不能复用 parent），formal message 用 parentInvocationId stamp（已正确），tracker 干脆不存 invocationId（ambiguous）。helper 不能假设 namespace 相等。砚砚 reject 方案 A（全量统一 schema 迁移风险大）+ reject 方案 C（"同 cat 有 draft 就特殊处理" 是孤立 patch）→ 走方案 B（namespace-aware helper） | 2026-05-09 |
+| KD-22 | helper namespace-aware 实现走"加 dep 不改 stamping"路线，**dep 必须返回结构化数据不能黑盒 boolean**（砚砚 R1 P1-1）：复用 InvocationRegistry 已有 `parentInvocationId` 字段 + `getLatestId(threadId, catId)` 接口；helper 入口 build namespace index `parentToChildren: Map<parentRecordId, Array<{childTurnId, draft, turnCreatedAt}>>` 后再做分类 | KD-21 决策后的实现路线选择：A 全量 namespace 统一会触动 callback auth + DraftStore key + 历史兼容三处 schema migration（高风险大半天起）；C "同 cat 有 draft" hotfix rule 短期变好但下次会在别的 parent/child 边界继续裂。B = canonical helper 加 namespace awareness。砚砚 R1 P1-1 reject 黑盒 boolean dep（`hasFreshChildDraft(parentId)` 只返 true/false，helper 拿不到 child id/catId/createdAt 做 startedAt 与 diagnostic）→ 改用结构化 dep：`getTurnInvocation(invocationId)` 返 `{ parentInvocationId, threadId, catId, createdAt }`（包装 `registry.getRecord`） + `getLatestTurnInvocationId(threadId, catId)`（包装 `registry.getLatestId`）。砚砚 R1 P1-2 reject "parent 有 child draft → parent 不进 active 让 child 走 tracker+draft"（tracker 丢就漏 live）→ 改成"parent + child draft 是同一 execution chain"分类，tracker present → `parent+child+tracker`，tracker missing → degraded `parent+child-draft`。startedAt 优先取 child turn createdAt 不取 parent.updatedAt。砚砚 R1 P1-3 reject "formal message exists → instant succeeded"（multi-cat chain 中途就有 formal message）→ read-side 只 suppress ghost slot + 输出 namespace diagnostic，**succeeded 终态由 producer Z4 finally 决定**，read-side 不擅自终态化（缺 chainDone 证据） | 2026-05-09 |
+| KD-23 | F194 close hard gate：alpha runtime acceptance（AC-Z5）必须有 **截图/日志 evidence** + **愿景守护猫对照表**——spec / unit test / integration test 全过 ≠ close 资格，必须 runtime 真实场景验证不裂 | 砚砚 2026-05-09 04:51 拍板原话："不是'代码 merge 了就算完'，而是 active runtime thread 不裂才算 F194 过关"+ "Z 阶段验收必须包含 runtime 复现用例和 alpha 截图/日志证据"。Phase B 失败根因就是单测全过、API regression 全过、cloud LGTM "Bravo"，但没在 alpha 真实 multi-cat 串联场景压一遍。Phase Z 不重蹈：unit test + integration test + alpha runtime + 守护猫四个证据齐才允许 status: done | 2026-05-09 |
 
 ## Timeline
 
@@ -303,6 +392,7 @@ async function getThreadLiveInvocations(
 | 2026-05-08 | **Phase B (Bundle) cloud R16 P2 backfill SCAN filter fix**（commit `073b7a518`）— cloud R16 在 HEAD `331b18aa8` 上发现新 P2：scanAndPopulateRunningIndex 的 MATCH=invoc:* 同时匹配 record hashes 和 running 索引 sets。HGETALL on set keys 走 WRONGTYPE 路径但仍付出 round trips。修复 KD-18：post-scan 过滤 `invoc:running:` 前缀，保留 SCAN MATCH pattern 不依赖 Redis TYPE filter 版本。1 新单测 wrap pipeline.hgetall 捕获 key 集合验证。F194 focused 79/79 ✅ |
 | 2026-05-08 | **Phase B (Bundle) cloud R17 P1+P2 dual fix**（commit `815039ff0`）— cloud R17 在 HEAD `46a735250` 上发现 P1+P2：(P1 messages.ts) drafts.length>0 gate 让 empty-draft thread 永不触发 reconcile；(P2 reconcileZombies.ts) `!updated` 把 still-running 误归 alreadyTerminal 丢 zombie。修复 KD-19+KD-20：messages.ts 重构 helper invocation 只 gate recordStore；reconcileZombies fresh get() 后三分支区分 missing/terminal/still-alive。2 新单测：empty-draft thread reconcile + CAS-null still-running 计 errors。F194 focused 81/81 ✅ |
 | 2026-05-09 | **Phase B (Bundle) merged (PR #1603, squash `5c1ab366`)** — 18 个 commits 收敛 8 轮 cloud review (R13 P1×2 + R14 P1 + R15 P2/P1 + R16 P2 + R17 P1+P2)：backfill running index + reassignUserId 漂移 CAS retry + atomic Set migration Lua + queue catId dedup + zombie 终态 cleanup retry + SCAN filter exclude set keys + helper-always-invoke + 三分支 transient classification。最终 cloud LGTM "Bravo" on `d24f407f5`。merge gate test 步骤遭遇 parallel test pollution flake（与 F194 无关，每次跑 fail 不同 unrelated test，isolation 全 pass），写 bug-report `2026-05-08-pnpm-gate-parallel-test-pollution-flake/` 后铲屎官拍板走 option B：信任 F194 focused 81/81 + cloud LGTM + 非测试 gate 全绿，squash merge。alpha 实测 + 愿景守护 入待办 |
+| 2026-05-09 | **Phase B alpha 验收失败 + 进 Phase Z** — 铲屎官 03:35 实测 runtime 仍裂（thread `thread_moxnb78ckc36xhga`），写 bug-report `2026-05-09-f194-runtime-bubble-still-split-completion-leak/`。挖出根因：F194 helper 把 parent recordStore invocation 与 per-cat-turn registry invocation 当成同 namespace。砚砚 04:51 拍板：reject A（全量统一 schema）+ reject C（hotfix rule），走 B（namespace-aware helper）。spec 加 KD-21~KD-23 + AC-Z1~Z5；Z 阶段不 close 不准 alpha 通过；F194 close hard gate = unit + integration + alpha runtime + 守护猫 四件齐 |
 
 ## Review Gate
 
@@ -322,3 +412,8 @@ async function getThreadLiveInvocations(
 | **Code** | `packages/api/src/domains/cats/services/agents/invocation/InvocationTracker.ts` | 进程控制面 |
 | **Code** | `packages/api/src/domains/cats/services/stores/redis/RedisInvocationRecordStore.ts` | lifecycle 真相源 |
 | **Code** | `packages/api/src/domains/cats/services/stores/ports/DraftStore.ts` | 内容 freshness 信号 |
+| **Bug Report** | `docs/bug-report/2026-05-09-f194-runtime-bubble-still-split-completion-leak/` | Phase Z 立项 root cause |
+| **Code** | `packages/api/src/routes/messages.ts:695,878,1050` | parent invocation create + parentInvocationId 传入 + 终态写入 |
+| **Code** | `packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts:300,336` | per-turn registry invocation create |
+| **Code** | `packages/api/src/domains/cats/services/agents/routing/route-serial.ts:765,891,1662` | ownInvocationId 捕获 + draft stamp + formal message stamp（用 parent 优先）|
+| **Code** | `packages/api/src/domains/cats/services/agents/invocation/InvocationTracker.ts:224` | tracker startAll 不存 invocationId |
