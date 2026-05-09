@@ -115,6 +115,45 @@ After updating + restarting your CLI / Claude Code session:
 
 If a tool appears twice with different namespaces (e.g. `mcp__cat-cafe__cat_cafe_post_message` AND `mcp__cat-cafe-collab__cat_cafe_post_message`), the `cat-cafe` (all-in-one) entry is still loaded — remove it.
 
+## Phase D follow-up: Remove deprecated probe entries (user action)
+
+F193 Phase D 的 audit 阶段还识别出几个 user-local `.mcp.json` /
+`.codex/config.toml` 里残留的 debugging probe 条目（`probe-connected`
+/ `probe-env` / `probe-off`）。如果你的本地 config 还有这些条目，
+直接删除即可——它们对应的 MCP server 已不再 maintain，留着只会让
+猫看到无效工具调用失败。
+
+Phase D 同时清理了两个 deprecated MCP 工具：
+- `cat_cafe_reflect`：用 `cat_cafe_search_evidence` 替代
+- `cat_cafe_guide_resolve`：用 `cat_cafe_get_available_guides` 替代
+
+如果你的 prompt / skill / 内部工具调用还引用这两个名字，请按上面的替代关系更新。
+
+### `.mcp.json` (Claude Code MCP harness)
+
+```diff
+ {
+   "mcpServers": {
+-    "probe-connected": { ... },
+-    "probe-env": { ... },
+-    "probe-off": { ... }
+   }
+ }
+```
+
+### `.codex/config.toml` (Codex CLI MCP harness)
+
+```diff
+-[mcp_servers.probe-connected]
+-...
+-
+-[mcp_servers.probe-env]
+-...
+-
+-[mcp_servers.probe-off]
+-...
+```
+
 ## Why `.mcp.json` and `.codex/config.toml` Are Gitignored
 
 These configs include user-specific paths (absolute paths in `.codex/config.toml`) and may include user-specific tool sets (e.g. local-only debugging probes). Tracking them would force every cat-cafe checkout to share the same harness config — incompatible with multi-machine / multi-user development.

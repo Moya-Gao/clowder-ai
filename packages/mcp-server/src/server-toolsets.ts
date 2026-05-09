@@ -6,7 +6,6 @@ import {
   evidenceTools,
   gameActionTools,
   limbTools,
-  reflectTools,
   richBlockRulesTools,
   scheduleTools,
   sessionChainTools,
@@ -32,8 +31,8 @@ type ToolDef = {
  */
 export const READONLY_ALLOWED_TOOLS = new Set([
   // Evidence & knowledge (local SQLite, no credentials needed)
+  // F193 Phase D AC-D1: cat_cafe_reflect tool removed (deprecated in F152 era)
   'cat_cafe_search_evidence',
-  'cat_cafe_reflect',
   'cat_cafe_get_rich_block_rules',
   // Session chain (read-only API calls, no callback creds needed)
   'cat_cafe_list_session_chain',
@@ -85,7 +84,7 @@ const memoryTools: readonly ToolDef[] = applyReadonlyFilter([
   ...callbackMemoryTools,
   ...distillationTools,
   ...evidenceTools,
-  ...reflectTools,
+  // F193 Phase D AC-D1: reflectTools removed
   ...sessionChainTools,
 ]);
 

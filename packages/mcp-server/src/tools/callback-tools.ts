@@ -1152,9 +1152,9 @@ export async function handleGetAvailableGuides(): Promise<ToolResult> {
   return callbackPost('/api/callbacks/get-available-guides', {});
 }
 
-export async function handleGuideResolve(input: { intent: string }): Promise<ToolResult> {
-  return callbackPost('/api/callbacks/guide-resolve', { intent: input.intent });
-}
+// F193 Phase D AC-D2: handleGuideResolve removed — legacy alias replaced
+// by cat_cafe_get_available_guides, which lets the cat inspect catalog
+// metadata directly instead of guessing from a single intent string.
 
 export async function handleGuideControl(input: { action: string }): Promise<ToolResult> {
   return callbackPost('/api/callbacks/guide-control', { action: input.action });
@@ -1420,17 +1420,9 @@ export const callbackTools = [
     inputSchema: getAvailableGuidesInputSchema,
     handler: handleGetAvailableGuides,
   },
-  {
-    name: 'cat_cafe_guide_resolve',
-    description:
-      'Legacy alias for guide discovery by explicit intent. ' +
-      'Use only when an older prompt or caller still sends a concrete intent string and expects ranked guide matches. ' +
-      'For new code and new prompts, prefer cat_cafe_get_available_guides and let the cat choose based on catalog metadata.',
-    inputSchema: {
-      intent: z.string().min(1).describe('User intent text (e.g. "添加成员", "配置飞书")'),
-    },
-    handler: handleGuideResolve,
-  },
+  // F193 Phase D AC-D2: cat_cafe_guide_resolve legacy alias removed.
+  // Replaced by cat_cafe_get_available_guides — let the cat inspect catalog
+  // metadata directly rather than guess from a single intent string.
   {
     name: 'cat_cafe_start_guide',
     description:

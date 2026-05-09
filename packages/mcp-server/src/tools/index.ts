@@ -68,11 +68,7 @@ export {
   limbListAvailableInputSchema,
   limbTools,
 } from './limb-tools.js';
-export {
-  handleReflect,
-  reflectInputSchema,
-  reflectTools,
-} from './reflect-tools.js';
+// F193 Phase D AC-D1: reflect-tools removed (deprecated)
 export {
   handleGetRichBlockRules,
   richBlockRulesInputSchema,

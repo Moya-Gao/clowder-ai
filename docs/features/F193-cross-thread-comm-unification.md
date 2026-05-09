@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F193: Cross-Thread Communication Unification
 
-> **Status**: in-progress | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
+> **Status**: in-progress (Phase D pending PR) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
 
 ## Why
 
@@ -96,9 +96,9 @@ created: 2026-05-07
 - [x] AC-C4: `tool-registration.test.js` 守护 `createLimbServer` 只注册 limb tool surface（4 项：`limb_list_available` / `limb_invoke` / `limb_pair_list` / `limb_pair_approve`）— commit pending PR
 
 ### Phase D（废弃工具清理）
-- [ ] AC-D1: 移除 `reflect` 工具注册（含 server-toolsets / tools/index）+ **同步清理 `SystemPromptBuilder.MCP_TOOLS_SECTION` 中 `cat_cafe_reflect: 反思性合成` 这行**（[SystemPromptBuilder.ts:266](../../packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts)）+ `tool-registration.test.js` 守护 + 搜 `cat-cafe-skills/**/*.md` 删除引用
-- [ ] AC-D2: 移除 `guide_resolve` legacy alias + 同步清理 SystemPromptBuilder 引用 + tool-registration test + skill 文档引用
-- [ ] AC-D3: 删 `.mcp.json` / `.codex/config.toml` 中 `probe-connected` / `probe-env` / `probe-off`
+- [x] AC-D1: 移除 `reflect` 工具注册（含 server-toolsets / tools/index）+ 同步清理 `SystemPromptBuilder.MCP_TOOLS_SECTION` 中 `cat_cafe_reflect: 反思性合成` 这行 + `tool-registration.test.js` 守护 + 删除 `reflect-tools.ts` + `reflect-tools.test.js` + skill 文档无残留 — commit pending PR
+- [x] AC-D2: 移除 `guide_resolve` legacy alias + 同步清理 SystemPromptBuilder（确认无引用）+ tool-registration test 守护 + 删除 `handleGuideResolve` handler — commit pending PR
+- [x] AC-D3: `.mcp.json` / `.codex/config.toml` 中 `probe-connected` / `probe-env` / `probe-off` — gitignored user-local config，走 [Phase C migration guide](../F193-phase-C-migration.md) Phase D follow-up section（同 Phase C two-track 模式）— commit pending PR
 
 ## 需求点 Checklist
 
@@ -157,6 +157,7 @@ created: 2026-05-07
 | 2026-05-08 | Phase B merged (PR #1601) — typed crossThreadReplyHint field + worklist+queue hydrate + 砚砚 3 rounds review + cloud first-pass |
 | 2026-05-08 | Phase C implementation — limb.ts entry point + tool-registration createLimbServer 守护 + capability-orchestrator Phase C 语义翻转 (auto-migrate stale 3-split / legacy all-in-one configs) + user-local migration doc (PR pending) |
 | 2026-05-08 | Phase C merged (PR #1605, squash `bd852029a`) — `healCatCafeMcpTopology` shared chain across 5 call sites (GET/PATCH/install/delete/orchestrate) + 9 rounds cloud + 4 rounds local 砚砚 review (R7 透明窗口 P1: write-path heal seam) |
+| 2026-05-08 | Phase D implementation — `cat_cafe_reflect` + `cat_cafe_guide_resolve` MCP 工具下线 + SystemPromptBuilder/test guard sync + probe-* user-local migration doc note (PR pending) |
 
 ## Review Gate
 
