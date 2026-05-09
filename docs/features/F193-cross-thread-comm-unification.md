@@ -98,7 +98,7 @@ created: 2026-05-07
 ### Phase D（废弃工具清理）
 - [x] AC-D1: 移除 `reflect` 工具注册（含 server-toolsets / tools/index）+ 同步清理 `SystemPromptBuilder.MCP_TOOLS_SECTION` 中 `cat_cafe_reflect: 反思性合成` 这行 + `tool-registration.test.js` 守护 + 删除 `reflect-tools.ts` + `reflect-tools.test.js` + skill 文档无残留 — commit pending PR
 - [x] AC-D2: 移除 `guide_resolve` legacy alias + 同步清理 SystemPromptBuilder（确认无引用）+ tool-registration test 守护 + 删除 `handleGuideResolve` handler — commit pending PR
-- [x] AC-D3: `.mcp.json` / `.codex/config.toml` 中 `probe-connected` / `probe-env` / `probe-off` — gitignored user-local config，走 [Phase C migration guide](../F193-phase-C-migration.md) Phase D follow-up section（同 Phase C two-track 模式）— commit pending PR
+- [x] AC-D3: `.mcp.json` / `.codex/config.toml` 中 `probe-connected` / `probe-env` / `probe-off` — gitignored user-local config，走 [Phase C migration guide](../F193-phase-C-migration.md) probe-* 清理段（同 Phase C two-track 模式）— commit pending PR
 
 ## 需求点 Checklist
 
@@ -191,7 +191,7 @@ close_gate_report:
     - { ac_id: AC-C4, status: met, evidence: [{ kind: pr, ref: "#1605", description: "tool-registration.test.js createLimbServer 4 limb tools 守护" }] }
     - { ac_id: AC-D1, status: met, evidence: [{ kind: pr, ref: "#1613", description: "cat_cafe_reflect 完整下线: server-toolsets + tools/index + SystemPromptBuilder + 文件删除" }] }
     - { ac_id: AC-D2, status: met, evidence: [{ kind: pr, ref: "#1613", description: "cat_cafe_guide_resolve schema + handler 删除" }] }
-    - { ac_id: AC-D3, status: met, evidence: [{ kind: pr, ref: "#1613", description: "F193-phase-C-migration.md Phase D follow-up 段 + .diff snippets" }] }
+    - { ac_id: AC-D3, status: met, evidence: [{ kind: pr, ref: "#1613", description: "F193-phase-C-migration.md probe-* 清理段（含 .mcp.json + .codex/config.toml .diff snippets）" }] }
 
   unmet: []
   follow_ups: []

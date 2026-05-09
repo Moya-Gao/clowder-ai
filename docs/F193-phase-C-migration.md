@@ -115,7 +115,7 @@ After updating + restarting your CLI / Claude Code session:
 
 If a tool appears twice with different namespaces (e.g. `mcp__cat-cafe__cat_cafe_post_message` AND `mcp__cat-cafe-collab__cat_cafe_post_message`), the `cat-cafe` (all-in-one) entry is still loaded — remove it.
 
-## Phase D follow-up: Remove deprecated probe entries (user action)
+## Phase D probe-* cleanup: Remove deprecated probe entries (user action)
 
 F193 Phase D 的 audit 阶段还识别出几个 user-local `.mcp.json` /
 `.codex/config.toml` 里残留的 debugging probe 条目（`probe-connected`
