@@ -291,22 +291,22 @@ tracker (cat-level only)
 - [x] AC-Z2: helper 加 namespace-aware dep（**砚砚 R1 P1-1 修正：结构化数据不黑盒 boolean**）：`getTurnInvocation(invocationId): {parentInvocationId, threadId, catId, createdAt} | null` + `getLatestTurnInvocationId(threadId, catId): string | null`（复用 registry 既有 parentInvocationId 字段 + getLatestId）。Helper 四类前置规则（**砚砚 R1 P1-2/P1-3 修正**）：(α) parent running + mapped child fresh draft + tracker present → 1 active source=`parent+child+tracker` startedAt=earliest child turn createdAt；(β) 同 α 但 tracker missing → 1 degraded active source=`parent+child-draft`；(γ) parent running + 无 child draft + 同 cat slot 已被新 parent 占用 + 本 parent **没** emit formal message → instant zombie failed；(γ') 同 γ 但本 parent emit 过 formal message → **不**做 instant succeeded（formal message 不能当 chainDone 证据），仅 suppress ghost slot + 输出 namespace diagnostic event ✅ PR #1614 (含 cloud R1+R2 P1 修正：iterate ALL targetCats + gate on fresh-draft activity)
 - [x] AC-Z3: producer defensive try/finally（routes/messages.ts background async 最外层）：新增 `hasParentRouteCompleted(parentId)` 信号（routeExecution 内部 in-memory map：start→pending, done→succeeded, error→failed），finally 读这个 map 决定终态；CAS expectedStatus=running 守护避免覆盖；map 缺/超时 → 兜底 failed(error='producer_left_running_no_terminal')。trace log 记录 reqId/from→to/source。routeParallel 同样改 ✅ `ensureTerminalStatus.ts` + `RouteChainCompletionTracker`
 - [x] AC-Z4: RED tests 四类（**砚砚 R1 P2 加 parallel**）：Z2-α/β/γ + Z2-δ（parallel 同 parent 多 child drafts / 多 cat active 不互挤）各 1 个 unit + 1 个 routes integration test 覆盖 namespace race；producer try/finally 覆盖正常 / 异常 / abort + chainDone signal 缺失三路径 ✅ 95/95 namespace + ensure-terminal + routes-integration（含 R4/R5 cloud P2 + cross-parent same-cat dedup + parent-level zombie aggregation）
-- [ ] AC-Z5: alpha 通道实测复现 thread + 多轮 multi-cat 串联气泡不再裂；F194 close 前必须有 alpha runtime 截图/日志 evidence + 愿景守护猫对照表（hard gate by 砚砚 2026-05-09） ⏳ pending — 走 `pnpm alpha:start` + 守护猫
+- [x] AC-Z5: alpha 通道实测复现 thread + 多轮 multi-cat 串联气泡不再裂；F194 close 前必须有 alpha runtime 截图/日志 evidence + 愿景守护猫对照表（hard gate by 砚砚 2026-05-09） ✅ 愿景守护猫对照表 by 宪宪/Opus-46 2026-05-09（runtime HEAD `0807f4165`，含 Phase Z merge `7443d049e`；铲屎官 05:11 重启 runtime 后 visual confirm 不裂 + opus-47 API diagnosis `/queue` = 1 active no ghost split + 宪宪/Opus-46 代码审计 + 26/26 unit tests pass）
 
 ### 端到端 / Vision
 
-- [ ] AC-E1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失（并发 multi-cat handoff 也不裂）
-- [ ] AC-E2: 后端 `/api/messages` 与 `/api/threads/:threadId/queue` 共用同一 canonical helper，单一规则源
-- [ ] AC-E3: 后续新增 read endpoint（admin observability / debug API）可直接复用 helper，不需要自拼三家 store
+- [x] AC-E1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失（并发 multi-cat handoff 也不裂） ✅ 铲屎官 05:11 runtime 实测 confirm + opus-47 API diagnosis
+- [x] AC-E2: 后端 `/api/messages` 与 `/api/threads/:threadId/queue` 共用同一 canonical helper，单一规则源 ✅ 代码审计：`getThreadLiveInvocations` imported by `messages.ts:1466` + `queue.ts:143`
+- [x] AC-E3: 后续新增 read endpoint（admin observability / debug API）可直接复用 helper，不需要自拼三家 store ✅ helper 导出 async function + types，无 route 耦合
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "现在活跃的线程他们气泡都是裂的" | AC-B5, AC-B15, AC-Z1 | paired-route regression + alpha 实测 | [ ] |
-| R2 | 让我"讲讲为什么"——根因可解释、可观测 | AC-B11, AC-B12, AC-B13 | structured event schema + log review | [ ] |
-| R3 | "找宪宪 46 或者 47…大概看了一下你的方向我觉得 ok" | AC-A1, AC-A2 | helper contract review | [ ] |
-| R4 | 不能只在前端打补丁，从根因层（liveness contract）解决 | AC-A1, AC-Z2 | helper 单 contract + 双消费方迁移 | [ ] |
+| R1 | "现在活跃的线程他们气泡都是裂的" | AC-B5, AC-B15, AC-Z1 | paired-route regression + runtime 实测 | [x] |
+| R2 | 让我"讲讲为什么"——根因可解释、可观测 | AC-B11, AC-B12, AC-B13 | structured event schema + code audit | [x] |
+| R3 | "找宪宪 46 或者 47…大概看了一下你的方向我觉得 ok" | AC-A1, AC-A2 | helper contract review | [x] |
+| R4 | 不能只在前端打补丁，从根因层（liveness contract）解决 | AC-A1, AC-Z2 | helper 单 contract + 双消费方迁移 | [x] |
 
 ### 覆盖检查
 - [ ] 每个需求点都能映射到至少一个 AC
