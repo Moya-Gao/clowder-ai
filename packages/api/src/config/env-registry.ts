@@ -984,6 +984,15 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'GITHUB_SELF_LOGIN',
+    defaultValue: '(未设置 → gh api /user 自动解析)',
+    description:
+      'F140 echo filter: GitHub 登录名，用于过滤自己发的 PR comment 避免回流消息总线。设置后跳过 gh api /user 解析，适用于 gh CLI 不可用的环境',
+    category: 'connector',
+    sensitive: false,
+    runtimeEditable: false,
+  },
+  {
     name: 'GITHUB_TOKEN',
     defaultValue: '(未设置)',
     description: 'GitHub Personal Access Token（Scheduler 仓库活跃度模板 HTTP 请求鉴权）',

@@ -2167,15 +2167,25 @@ async function main(): Promise<void> {
   // F140: Feedback filter (Rule A self-authored only post-E.2 cutover)
   const { createGitHubFeedbackFilter } = await import('./infrastructure/email/github-feedback-filter.js');
   const { createSetupNoiseFilter } = await import('./infrastructure/email/setup-noise-filter.js');
-  let selfGitHubLogin: string | undefined;
-  try {
+  let selfGitHubLogin: string | undefined = process.env.GITHUB_SELF_LOGIN?.trim() || undefined;
+  if (!selfGitHubLogin) {
     const { execFile } = await import('node:child_process');
     const { promisify } = await import('node:util');
-    const { stdout } = await promisify(execFile)('gh', ['api', '/user', '--jq', '.login'], { timeout: 10_000 });
-    selfGitHubLogin = stdout.trim() || undefined;
+    const execFileAsync = promisify(execFile);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const { stdout } = await execFileAsync('gh', ['api', '/user', '--jq', '.login'], { timeout: 10_000 });
+        selfGitHubLogin = stdout.trim() || undefined;
+        if (selfGitHubLogin) break;
+      } catch {
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 3_000));
+      }
+    }
+  }
+  if (selfGitHubLogin) {
     app.log.info(`[api] F140: feedback filter self=${selfGitHubLogin}`);
-  } catch {
-    app.log.warn('[api] F140: could not resolve GitHub login — self-filter disabled');
+  } else {
+    app.log.error('[api] F140: self-filter DISABLED — set GITHUB_SELF_LOGIN env as fallback');
   }
   const feedbackFilter = createGitHubFeedbackFilter({ selfGitHubLogin });
 
