@@ -1133,6 +1133,30 @@ created: 2026-02-26
 
 - 关联：`cat-cafe-skills/refs/shared-rules.md §19` | F193
 
+### LL-055: 测试 spawn 出的"无限 busy 子进程"必须有自杀 deadline
+- 状态：draft
+- 更新时间：2026-05-08
+
+- 坑：`process-liveness-probe.test.js` spawn `node -e while(true){}` 作为 busy CPU child；测试异常退出（runner timeout / 用户 Ctrl+C / `pnpm gate` 中断）时漏掉 child cleanup，每次泄漏一只 PPID=1 孤儿进程。累积 4 只时占满 ~270% CPU，导致 runtime `pnpm dev:direct` 在 20s 超时窗口内起不来 3002，看起来像"启动超时 + tsx Force killing"诡异连锁，根因实际在测试设计。
+- 根因：
+  1. **结构性**：测试设计依赖 parent SIGTERM handler 链式 kill child；macOS 没有 Linux `PR_SET_PDEATHSIG`，parent 异常死亡（SIGKILL / runner timeout / Ctrl+C）后 child 不会自动陪葬，被 launchd 收编成 PPID=1，继续 `while(true)` 烧 CPU 直到外部干预。
+  2. **可观测性**：孤儿没有指向源头的进程链（PPID=1），仅靠 `ps` 看不出"是谁 spawn 的"，只能 grep 字面量 `while(true){}` 反查代码。
+- 触发条件：test runner 强杀整个 worker（test timeout / OOM）、用户 Ctrl+C 中断 `pnpm test` / `pnpm gate`、multi-worktree fanout 并发跑同一测试（任一进程异常退出即泄漏）、CI 任务被 cancel——四种之一即可累积。
+- 修复（已落地）：busy child 自带 5–10s 自杀 deadline——`while(Date.now() < end)` 替代 `while(true)`，最坏情况下泄漏一只也只活一个测试时长，不会跨 session 累积。`packages/api/test/process-liveness-probe.test.js` 第 145 行已改。
+- 防护：
+  1. 任何 `*.test.js` 里 spawn 的 busy / long-lived 子进程必须满足两条之一：(a) 自带时间 deadline，(b) 暴露 child PID 让外部测试 finally 块独立 SIGKILL，**不依赖 parent SIGTERM handler 链式 kill**。
+  2. 卡启动 / CPU 异常排查 SOP（顺序按出现频率）：
+     - 先 `ps -eo pid,etime,pcpu,command | sort -k3 -nr | head` 看孤儿 busy-loop（频率最高）
+     - 再 grep 字面量 `while(true)` 反查测试代码 spawn 源
+     - 最后才查 agent-browser headless Chrome 僵尸（`feedback_agent_browser_zombie.md`）
+  3. CI lint（建议 follow-up）：扫 `**/*.test.{js,ts}` 中 `spawn(... while(true)` 模式，缺 deadline 直接 fail。
+- 来源锚点：
+  - `packages/api/test/process-liveness-probe.test.js#L140-L155`
+  - 2026-05-08 runtime 启动超时事件（4 只孤儿 6h–19h，270% CPU，3002 无法在 20s 内监听，触发 `tsx watch: Previous process hasn't exited yet. Force killing...` 串扰）
+- 原理：**macOS 进程孤立化默认 detach 不死链**。Linux 可通过 `PR_SET_PDEATHSIG` 让 child 在 parent 死时收到信号自杀；macOS 无此机制，child 与 parent 的生命周期完全解耦。任何"靠 parent 信号链 kill child"的设计在 macOS 上都有泄漏窗口——必须让 child 自带退出条件，把退出的所有权从 parent 转回 child。
+
+- 关联：`feedback_agent_browser_zombie.md`（前置怀疑路径，本次坐实另有元凶——busy-loop 比 Chrome 僵尸更高频）
+
 ---
 
 ## 8) 维护约定

@@ -162,12 +162,7 @@ const EXPECTED_SIGNAL_TOOLS = [
 ];
 
 // F193 Phase C: limb tools (布偶猫专属能力 namespace) get their own server.
-const EXPECTED_LIMB_TOOLS = [
-  'limb_list_available',
-  'limb_invoke',
-  'limb_pair_list',
-  'limb_pair_approve',
-];
+const EXPECTED_LIMB_TOOLS = ['limb_list_available', 'limb_invoke', 'limb_pair_list', 'limb_pair_approve'];
 
 function assertUnique(values, label) {
   assert.equal(new Set(values).size, values.length, `${label} must not contain duplicate tool names`);

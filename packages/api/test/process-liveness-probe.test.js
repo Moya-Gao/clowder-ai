@@ -137,12 +137,16 @@ test(
     const { spawn } = await import('node:child_process');
     // Spawn a parent that is idle but has a CPU-busy child.
     // Parent: just waits (idle CPU). Child: infinite loop (busy CPU).
+    // LL-055: child carries its own deadline so it can't outlive the test
+    // even if parent is SIGKILL'd before its SIGTERM handler fires.
+    // macOS lacks PR_SET_PDEATHSIG, so a parent's death does not auto-kill the child;
+    // without this self-suicide, every aborted test run leaks a CPU-burning orphan.
     const parent = spawn(
       'node',
       [
         '-e',
         `const { spawn } = require('child_process');
-       const c = spawn('node', ['-e', 'while(true){}'], { stdio: 'ignore' });
+       const c = spawn('node', ['-e', 'const end=Date.now()+10000;while(Date.now()<end){}'], { stdio: 'ignore' });
        process.on('SIGTERM', () => { c.kill(); process.exit(0); });
        setInterval(() => {}, 60000);`,
       ],

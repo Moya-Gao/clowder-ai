@@ -568,12 +568,7 @@ export function buildCatCafeMcpDescriptor(projectRoot: string): McpServerDescrip
 // F193 Phase C: split-only — add cat-cafe-limb (was previously hosted by all-in-one
 // `cat-cafe` server only via registerFullToolset). 4 split servers replace the legacy
 // 3-split + 1 all-in-one topology.
-const CAT_CAFE_SPLIT_SERVER_IDS = [
-  'cat-cafe-collab',
-  'cat-cafe-memory',
-  'cat-cafe-signals',
-  'cat-cafe-limb',
-] as const;
+const CAT_CAFE_SPLIT_SERVER_IDS = ['cat-cafe-collab', 'cat-cafe-memory', 'cat-cafe-signals', 'cat-cafe-limb'] as const;
 
 /**
  * Resolve the runtime binary root (where Cat Café MCP server code lives).
@@ -812,9 +807,7 @@ export function ensureCatCafeMainServer(
   //   - canAddManagedLimb: we can safely add managed limb iff no ID collision
   //   - willHaveManagedLimb: end-state will have managed limb iff already
   //     present OR we'll add one
-  const hasManagedLimb = config.capabilities.some(
-    (cap) => isManagedSplit(cap) && cap.id === 'cat-cafe-limb',
-  );
+  const hasManagedLimb = config.capabilities.some((cap) => isManagedSplit(cap) && cap.id === 'cat-cafe-limb');
   const hasAnyLimbId = config.capabilities.some((cap) => cap.type === 'mcp' && cap.id === 'cat-cafe-limb');
   const canAddManagedLimb = !hasAnyLimbId;
   const willHaveManagedLimb = hasManagedLimb || canAddManagedLimb;

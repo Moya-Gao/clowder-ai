@@ -134,7 +134,7 @@ test('injects cat-cafe MCP config when workingDirectory contains mcp-server', as
   const tmpRoot = mkdtempSync(join(import.meta.dirname ?? '.', '.tmp-mcp-test-'));
   const mcpDistDir = join(tmpRoot, 'packages', 'mcp-server', 'dist');
   mkdirSync(mcpDistDir, { recursive: true });
-  for (const entrypoint of ['index.js', 'collab.js', 'memory.js', 'signals.js']) {
+  for (const entrypoint of ['index.js', 'collab.js', 'memory.js', 'signals.js', 'limb.js']) {
     writeFileSync(join(mcpDistDir, entrypoint), '// stub');
   }
 
@@ -160,29 +160,54 @@ test('injects cat-cafe MCP config when workingDirectory contains mcp-server', as
     await promise;
 
     const args = spawnFn.mock.calls[0].arguments[1];
-    assert.ok(args.includes('mcp_servers.cat-cafe.command="node"'));
-    const mcpArgsConfig = args.find((arg) => arg.startsWith('mcp_servers.cat-cafe.args=['));
-    assert.ok(mcpArgsConfig, 'must inject cat-cafe mcp args config');
-    assert.match(mcpArgsConfig, /packages\/mcp-server\/dist\/index\.js/);
-    assert.ok(args.includes('mcp_servers.cat-cafe.enabled=true'));
-    assert.ok(args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_API_URL="http://127.0.0.1:3004"'));
-    assert.ok(args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_INVOCATION_ID="inv-test-1"'));
-    assert.ok(args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_CALLBACK_TOKEN="tok-test-1"'));
-    assert.ok(args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_USER_ID="user-test-1\\nline2"'));
-    assert.ok(
-      args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_CAT_ID="codex"'),
-      'must inject CAT_CAFE_CAT_ID for game action auth',
-    );
-    assert.ok(args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_SIGNAL_USER="codex"'));
 
-    assert.ok(args.includes('mcp_servers.cat-cafe-collab.command="node"'));
-    const collabArgsConfig = args.find((arg) => arg.startsWith('mcp_servers.cat-cafe-collab.args=['));
-    assert.ok(collabArgsConfig, 'must inject cat-cafe-collab mcp args config');
-    assert.match(collabArgsConfig, /packages\/mcp-server\/dist\/collab\.js/);
-    assert.ok(args.includes('mcp_servers.cat-cafe-collab.enabled=true'));
-    assert.ok(args.includes('mcp_servers.cat-cafe-collab.env.CAT_CAFE_API_URL="http://127.0.0.1:3004"'));
-    assert.ok(args.includes('mcp_servers.cat-cafe-collab.env.CAT_CAFE_INVOCATION_ID="inv-test-1"'));
-    assert.ok(args.includes('mcp_servers.cat-cafe-collab.env.CAT_CAFE_CALLBACK_TOKEN="tok-test-1"'));
+    // F193 Phase C (#1605): legacy `cat-cafe` MCP server is gone, replaced by
+    // split servers (cat-cafe-collab / -memory / -signals / -limb).
+    // Each split server must be injected with command + args path + enabled + full callback env.
+    const splitServers = [
+      ['cat-cafe-collab', 'collab.js'],
+      ['cat-cafe-memory', 'memory.js'],
+      ['cat-cafe-signals', 'signals.js'],
+      ['cat-cafe-limb', 'limb.js'],
+    ];
+    for (const [serverId, entrypoint] of splitServers) {
+      assert.ok(args.includes(`mcp_servers.${serverId}.command="node"`), `must inject ${serverId} command`);
+      const argsConfig = args.find((arg) => arg.startsWith(`mcp_servers.${serverId}.args=[`));
+      assert.ok(argsConfig, `must inject ${serverId} mcp args config`);
+      assert.ok(argsConfig.includes(`packages/mcp-server/dist/${entrypoint}`), `${serverId} args must point at ${entrypoint}`);
+      assert.ok(args.includes(`mcp_servers.${serverId}.enabled=true`), `must inject ${serverId} enabled=true`);
+      // full callback env coverage on every split server (regression guard for F168/F140 cross-thread auth)
+      assert.ok(
+        args.includes(`mcp_servers.${serverId}.env.CAT_CAFE_API_URL="http://127.0.0.1:3004"`),
+        `must inject CAT_CAFE_API_URL on ${serverId}`,
+      );
+      assert.ok(
+        args.includes(`mcp_servers.${serverId}.env.CAT_CAFE_INVOCATION_ID="inv-test-1"`),
+        `must inject CAT_CAFE_INVOCATION_ID on ${serverId}`,
+      );
+      assert.ok(
+        args.includes(`mcp_servers.${serverId}.env.CAT_CAFE_CALLBACK_TOKEN="tok-test-1"`),
+        `must inject CAT_CAFE_CALLBACK_TOKEN on ${serverId}`,
+      );
+      assert.ok(
+        args.includes(`mcp_servers.${serverId}.env.CAT_CAFE_USER_ID="user-test-1\\nline2"`),
+        `must inject CAT_CAFE_USER_ID on ${serverId}`,
+      );
+      assert.ok(
+        args.includes(`mcp_servers.${serverId}.env.CAT_CAFE_CAT_ID="codex"`),
+        `must inject CAT_CAFE_CAT_ID on ${serverId} for game action auth`,
+      );
+      assert.ok(
+        args.includes(`mcp_servers.${serverId}.env.CAT_CAFE_SIGNAL_USER="codex"`),
+        `must inject CAT_CAFE_SIGNAL_USER on ${serverId}`,
+      );
+    }
+
+    // legacy `cat-cafe` server must NOT be injected after the split
+    assert.ok(
+      !args.includes('mcp_servers.cat-cafe.command="node"'),
+      'legacy cat-cafe MCP server entry should not be injected after F193 Phase C split',
+    );
   } finally {
     rmSync(tmpRoot, { recursive: true, force: true });
   }

@@ -1156,7 +1156,10 @@ describe('ensureCatCafeMainServer (F193 Phase C semantics)', () => {
 
     const result = ensureCatCafeMainServer(config, { projectRoot: '/repo' });
     assert.equal(result.migrated, true);
-    assert.equal(result.config.capabilities.find((c) => c.id === 'cat-cafe'), undefined);
+    assert.equal(
+      result.config.capabilities.find((c) => c.id === 'cat-cafe'),
+      undefined,
+    );
     assert.ok(result.config.capabilities.find((c) => c.id === 'cat-cafe-limb'));
   });
 
@@ -1183,8 +1186,15 @@ describe('ensureCatCafeMainServer (F193 Phase C semantics)', () => {
     // Partial split state is non-canonical drift; do not silently strip
     // cat-cafe (which is the only source of memory/signal tools here).
     assert.equal(result.migrated, false, 'partial split must NOT trigger removal');
-    assert.ok(result.config.capabilities.find((c) => c.id === 'cat-cafe'), 'cat-cafe must still be present');
-    assert.equal(result.config.capabilities.find((c) => c.id === 'cat-cafe-limb'), undefined, 'limb must NOT be added when split set incomplete');
+    assert.ok(
+      result.config.capabilities.find((c) => c.id === 'cat-cafe'),
+      'cat-cafe must still be present',
+    );
+    assert.equal(
+      result.config.capabilities.find((c) => c.id === 'cat-cafe-limb'),
+      undefined,
+      'limb must NOT be added when split set incomplete',
+    );
   });
 
   // Cloud review P1 (PR #1605): limb must inherit settings from legacy cat-cafe
@@ -1234,8 +1244,16 @@ describe('ensureCatCafeMainServer (F193 Phase C semantics)', () => {
     const limb = result.config.capabilities.find((c) => c.id === 'cat-cafe-limb');
     assert.ok(limb, 'limb must be added');
     assert.equal(limb.enabled, false, 'limb must inherit DISABLED from legacy cat-cafe (P1: no silent re-enable)');
-    assert.deepEqual(limb.overrides, [{ catId: 'opus-47', enabled: true }], 'limb must inherit per-cat overrides from legacy cat-cafe');
-    assert.deepEqual(limb.mcpServer?.env, { CAT_CAFE_LIMB_TOKEN: 'legacy-token' }, 'limb must inherit env from legacy cat-cafe');
+    assert.deepEqual(
+      limb.overrides,
+      [{ catId: 'opus-47', enabled: true }],
+      'limb must inherit per-cat overrides from legacy cat-cafe',
+    );
+    assert.deepEqual(
+      limb.mcpServer?.env,
+      { CAT_CAFE_LIMB_TOKEN: 'legacy-token' },
+      'limb must inherit env from legacy cat-cafe',
+    );
     assert.equal(limb.mcpServer?.workingDir, '/legacy-dir', 'limb must inherit workingDir from legacy cat-cafe');
   });
 
@@ -1459,7 +1477,10 @@ describe('ensureCatCafeMainServer (F193 Phase C semantics)', () => {
     // External splits don't count — managed cat-cafe must NOT be removed
     assert.equal(result.migrated, false, 'external split-named entries must not trigger migration');
     assert.ok(result.config.capabilities.find((c) => c.id === 'cat-cafe' && c.source === 'cat-cafe'));
-    assert.equal(result.config.capabilities.find((c) => c.id === 'cat-cafe-limb'), undefined);
+    assert.equal(
+      result.config.capabilities.find((c) => c.id === 'cat-cafe-limb'),
+      undefined,
+    );
   });
 
   it('no-op when no split servers exist (legacy migration handles this)', () => {
@@ -1513,7 +1534,11 @@ describe('ensureCatCafeMainServer (F193 Phase C semantics)', () => {
     assert.equal(result.migrated, true);
     const limb = result.config.capabilities.find((c) => c.id === 'cat-cafe-limb');
     assert.ok(limb);
-    assert.equal(limb.enabled, false, 'must inherit disabled state from first split (no legacy cat-cafe to inherit from)');
+    assert.equal(
+      limb.enabled,
+      false,
+      'must inherit disabled state from first split (no legacy cat-cafe to inherit from)',
+    );
     assert.deepEqual(limb.overrides, [{ catId: 'codex', enabled: true }]);
     assert.deepEqual(limb.mcpServer?.env, { CAT_CAFE_FOO: 'bar' });
     assert.equal(limb.mcpServer?.workingDir, '/tmp/cat-cafe');
