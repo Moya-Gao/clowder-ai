@@ -5,10 +5,13 @@
  * Same pattern as SignalNav but for /memory route.
  */
 
+import { act, createElement } from 'react';
+import { createRoot } from 'react-dom/client';
 import { describe, expect, it } from 'vitest';
 import {
   buildBackHref,
   buildMemoryTabItems,
+  MemoryNav,
   type MemoryTab,
   resolveReferrerThread,
 } from '@/components/memory/MemoryNav';
@@ -81,5 +84,32 @@ describe('buildMemoryTabItems', () => {
   it('MemoryTab type covers all tabs', () => {
     const tabs: MemoryTab[] = ['feed', 'search', 'status', 'health', 'catalog', 'graph'];
     expect(tabs).toHaveLength(6);
+  });
+});
+
+describe('MemoryNav component', () => {
+  it('updates referrer links when the initial referrer changes', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(createElement(MemoryNav, { active: 'graph', initialReferrerThread: 'thread_a' }));
+    });
+    expect(container.querySelector('[data-testid="memory-back-to-chat"]')?.getAttribute('href')).toBe(
+      '/thread/thread_a',
+    );
+
+    await act(async () => {
+      root.render(createElement(MemoryNav, { active: 'graph', initialReferrerThread: 'thread_b' }));
+    });
+
+    expect(container.querySelector('[data-testid="memory-back-to-chat"]')?.getAttribute('href')).toBe(
+      '/thread/thread_b',
+    );
+    expect(container.textContent).toContain('Graph');
+
+    root.unmount();
+    container.remove();
   });
 });

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 
 export type MemoryTab = 'feed' | 'search' | 'status' | 'health' | 'catalog' | 'graph';
@@ -51,7 +51,7 @@ function useReferrerThread(initialReferrerThread: string | null): string | null 
   const [fromParam, setFromParam] = useState<string | null>(initialReferrerThread);
   useEffect(() => {
     const nextFromParam = new URLSearchParams(window.location.search).get('from');
-    if (nextFromParam) setFromParam(nextFromParam);
+    setFromParam(nextFromParam ?? initialReferrerThread);
   }, [initialReferrerThread]);
   return useMemo(() => {
     if (fromParam) return fromParam;
@@ -67,13 +67,14 @@ export function MemoryNav({ active, initialReferrerThread = null }: MemoryNavPro
   const backHref = buildBackHref(referrerThread);
 
   return (
-    <nav aria-label="Memory navigation" className="flex items-center gap-2">
+    <nav aria-label="Memory navigation" className="flex flex-wrap items-center gap-2">
       <a
         href={backHref}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-3 py-1.5 text-xs font-medium text-[#8B6F47] transition-colors hover:bg-[#F7EEDB]"
+        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-3 py-1.5 text-xs font-medium text-[#8B6F47] transition-colors hover:bg-[#F7EEDB]"
         data-testid="memory-back-to-chat"
       >
         <svg
+          aria-hidden="true"
           className="h-4 w-4"
           viewBox="0 0 24 24"
           fill="none"
@@ -94,7 +95,7 @@ export function MemoryNav({ active, initialReferrerThread = null }: MemoryNavPro
             href={item.href}
             aria-current={isActive ? 'page' : undefined}
             className={[
-              'inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
+              'inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
               isActive
                 ? 'border-cocreator-primary bg-cocreator-light text-cocreator-dark'
                 : 'border-cafe bg-cafe-surface text-cafe-secondary hover:border-cocreator-light hover:text-cocreator-dark',

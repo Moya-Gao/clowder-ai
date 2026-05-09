@@ -94,7 +94,7 @@ describe('CollectionGraph force-directed', () => {
     expect(container.querySelector('[data-testid="graph-node-a3"]')).toBeTruthy();
   });
 
-  it('uses compact anchor labels and constrains the graph canvas height', async () => {
+  it('shows readable title context for the center anchor', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(() =>
@@ -133,11 +133,183 @@ describe('CollectionGraph force-directed', () => {
       await new Promise((r) => setTimeout(r, 50));
     });
 
-    const svg = container.querySelector('[data-testid="graph-svg"]') as SVGElement;
+    const stage = container.querySelector('[data-testid="graph-stage"]');
     const node = container.querySelector('[data-testid="graph-node-F186"]') as SVGGElement;
-    expect(svg.getAttribute('class')).toContain('h-[520px]');
+    const nodeTitle = container.querySelector('[data-testid="graph-node-title-F186"]');
+    const detail = container.querySelector('[data-testid="graph-node-detail"]');
+
+    expect(stage?.getAttribute('class')).toContain('grid');
     expect(node.textContent).toContain('F186');
-    expect(node.textContent).not.toContain('图书馆记忆架构');
+    expect(nodeTitle?.textContent).toContain('图书馆记忆架构');
+    expect(detail?.textContent).toContain('F186');
+    expect(detail?.textContent).toContain('图书馆记忆架构');
+    expect(detail?.textContent).toContain('feature');
+  });
+
+  it('keeps graph controls in a readable side panel instead of the canvas floor', async () => {
+    await act(async () => {
+      root.render(<CollectionGraph />);
+    });
+    const input = container.querySelector('[data-testid="graph-anchor-input"]') as HTMLInputElement;
+    const btn = container.querySelector('[data-testid="graph-fetch-btn"]') as HTMLButtonElement;
+    await act(async () => {
+      input.value = 'a1';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      btn.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const sidePanel = container.querySelector('[data-testid="graph-side-panel"]');
+    const summary = container.querySelector('[data-testid="graph-summary"]');
+    const legend = container.querySelector('[data-testid="graph-legend"]');
+    const filters = container.querySelector('[data-testid="graph-edge-filter"]');
+
+    expect(summary?.textContent).toContain('Nodes');
+    expect(summary?.textContent).toContain('Edges');
+    expect(legend?.closest('[data-testid="graph-side-panel"]')).toBe(sidePanel);
+    expect(filters?.closest('[data-testid="graph-side-panel"]')).toBe(sidePanel);
+  });
+
+  it('does not expand canvas height for non-centered large graphs', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              nodes: Array.from({ length: 74 }, (_, i) => ({
+                anchor: `node-${i}`,
+                collectionId: 'project:cafe',
+                sensitivity: 'internal',
+                kind: 'spec',
+                title: `Node ${i}`,
+                redacted: false,
+              })),
+              edges: [],
+              depth: 1,
+            }),
+        }),
+      ),
+    );
+    await act(async () => {
+      root.render(<CollectionGraph />);
+    });
+    const input = container.querySelector('[data-testid="graph-anchor-input"]') as HTMLInputElement;
+    const btn = container.querySelector('[data-testid="graph-fetch-btn"]') as HTMLButtonElement;
+    await act(async () => {
+      input.value = 'node-0';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      btn.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(container.querySelector('[data-testid="graph-svg"]')?.getAttribute('viewBox')).toBe('0 0 940 620');
+  });
+
+  it('does not expand canvas height for centered sparse graphs', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              nodes: Array.from({ length: 74 }, (_, i) => ({
+                anchor: `node-${i}`,
+                collectionId: 'project:cafe',
+                sensitivity: 'internal',
+                kind: 'spec',
+                title: `Node ${i}`,
+                redacted: false,
+              })),
+              edges: Array.from({ length: 73 }, (_, i) => ({
+                from: `node-${i}`,
+                to: `node-${i + 1}`,
+                relation: 'related_to',
+                crossCollection: false,
+                edgeSensitivity: 'internal',
+                provenance: 'frontmatter',
+                redacted: false,
+              })),
+              center: 'node-0',
+              depth: 1,
+            }),
+        }),
+      ),
+    );
+    await act(async () => {
+      root.render(<CollectionGraph />);
+    });
+    const input = container.querySelector('[data-testid="graph-anchor-input"]') as HTMLInputElement;
+    const btn = container.querySelector('[data-testid="graph-fetch-btn"]') as HTMLButtonElement;
+    await act(async () => {
+      input.value = 'node-0';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      btn.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(container.querySelector('[data-testid="graph-svg"]')?.getAttribute('viewBox')).toBe('0 0 940 620');
+  });
+
+  it('keeps the selected-node relation list in sync with edge filters', async () => {
+    await act(async () => {
+      root.render(<CollectionGraph />);
+    });
+    const input = container.querySelector('[data-testid="graph-anchor-input"]') as HTMLInputElement;
+    const btn = container.querySelector('[data-testid="graph-fetch-btn"]') as HTMLButtonElement;
+    await act(async () => {
+      input.value = 'a1';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      btn.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const detail = container.querySelector('[data-testid="graph-node-detail"]');
+    expect(detail?.textContent).toContain('related to');
+    expect(detail?.textContent).toContain('evolved from');
+
+    const firstRelationToggle = container.querySelector(
+      '[data-testid="graph-edge-filter"] input[type="checkbox"]',
+    ) as HTMLInputElement;
+    await act(async () => {
+      firstRelationToggle.click();
+    });
+
+    expect(detail?.textContent).not.toContain('related to');
+    expect(detail?.textContent).toContain('evolved from');
+  });
+
+  it('labels sparse graph edges with readable relation names', async () => {
+    await act(async () => {
+      root.render(<CollectionGraph />);
+    });
+    const input = container.querySelector('[data-testid="graph-anchor-input"]') as HTMLInputElement;
+    const btn = container.querySelector('[data-testid="graph-fetch-btn"]') as HTMLButtonElement;
+    await act(async () => {
+      input.value = 'a1';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      btn.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(container.querySelector('[data-testid="graph-edge-label-a1-a2-related_to"]')?.textContent).toContain(
+      'related to',
+    );
+    expect(container.querySelector('[data-testid="graph-edge-label-a1-a3-evolved_from"]')?.textContent).toContain(
+      'evolved from',
+    );
   });
 
   it('shows tooltip on hover with node details', async () => {
@@ -163,6 +335,8 @@ describe('CollectionGraph force-directed', () => {
     expect(tooltip?.textContent).toContain('Memory Arch');
     expect(tooltip?.textContent).toContain('project:cafe');
     expect(tooltip?.textContent).toContain('internal');
+    expect(tooltip?.className).not.toContain('right-[340px]');
+    expect(tooltip?.className).toContain('inset-x-4');
   });
 
   it('renders private/redacted nodes with reduced opacity', async () => {
