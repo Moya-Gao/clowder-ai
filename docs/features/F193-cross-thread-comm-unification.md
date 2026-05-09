@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F193: Cross-Thread Communication Unification
 
-> **Status**: completed | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1 | **Completed**: 2026-05-09
 
 ## Why
 
@@ -166,6 +166,42 @@ created: 2026-05-07
 - Phase B: 跨家族 review（砚砚）+ 接收侧 reply hint 由暹罗猫做 UX 文案审视（猫看到 reply hint 会不会困惑？）
 - Phase C: 跨家族 review（砚砚）+ tool-registration 测试守护必须通过
 - Phase D: 跨家族 review（砚砚）
+
+## Close Gate Report
+
+```yaml
+close_gate_report:
+  feature_id: F193
+  spec_path: docs/features/F193-cross-thread-comm-unification.md
+  head_sha: 0697335fe
+  report_date: 2026-05-09
+
+  ac_matrix:
+    - { ac_id: AC-A1, status: met, evidence: [{ kind: commit, ref: "7b7ca1b64", description: "crossPostMessageInputSchema 补 targetCats" }] }
+    - { ac_id: AC-A2, status: met, evidence: [{ kind: commit, ref: "85b94cf00" }, { kind: commit, ref: "8fea021f1", description: "LL-054 hotfix" }] }
+    - { ac_id: AC-A3, status: met, evidence: [{ kind: doc, ref: "F193 spec Tasks 2+3 union 覆盖", description: "API route cross-post 缺凭证 + MCP handler invocation+threadId reject 两层 enforce" }] }
+    - { ac_id: AC-A4, status: met, evidence: [{ kind: commit, ref: "a5a04e8fe", description: "cross_post_message 缺 targetCats+无行首@ → 400+alternatives" }] }
+    - { ac_id: AC-A5, status: met, evidence: [{ kind: commit, ref: "55edbe9b4", description: "principal × threadId × targetCats 矩阵 + sourceThreadId + 同名猫豁免测试" }] }
+    - { ac_id: AC-B1, status: met, evidence: [{ kind: commit, ref: "85a714d03", description: "SystemPromptBuilder MCP 工具列表加 cross_post_message" }] }
+    - { ac_id: AC-B2, status: met, evidence: [{ kind: commit, ref: "1d1547376" }, { kind: commit, ref: "198bae30b", description: "typed crossThreadReplyHint + worklist hydrate" }] }
+    - { ac_id: AC-B3, status: met, evidence: [{ kind: commit, ref: "85a714d03", description: "post_message 描述 principal-conditioned 语义" }] }
+    - { ac_id: AC-B4, status: met, evidence: [{ kind: commit, ref: "f45bc264e", description: "worklist+queue+agent-key boundary 4 boundary tests" }] }
+    - { ac_id: AC-C1, status: met, evidence: [{ kind: pr, ref: "#1605", description: "limb.ts entry point + dist/limb.js" }] }
+    - { ac_id: AC-C2-C3, status: met, evidence: [{ kind: pr, ref: "#1605", description: "two-track migration: capability-orchestrator auto + manual diff fallback" }] }
+    - { ac_id: AC-C4, status: met, evidence: [{ kind: pr, ref: "#1605", description: "tool-registration.test.js createLimbServer 4 limb tools 守护" }] }
+    - { ac_id: AC-D1, status: met, evidence: [{ kind: pr, ref: "#1613", description: "cat_cafe_reflect 完整下线: server-toolsets + tools/index + SystemPromptBuilder + 文件删除" }] }
+    - { ac_id: AC-D2, status: met, evidence: [{ kind: pr, ref: "#1613", description: "cat_cafe_guide_resolve schema + handler 删除" }] }
+    - { ac_id: AC-D3, status: met, evidence: [{ kind: pr, ref: "#1613", description: "F193-phase-C-migration.md Phase D follow-up 段 + .diff snippets" }] }
+
+  unmet: []
+  follow_ups: []
+  notes: |
+    Narrower fix scope decisions（不在 AC 内 unmet，是显式 design choice）:
+    - API 路由 /api/reflect, /api/callbacks/reflect, /api/callbacks/guide-resolve
+      保留: MCP 工具下线后无调用方，但 endpoint 自身保留以避免连带破坏。
+    - callback-memory-tools.ts handleCallbackReflect helper 保留:
+      callback-tools.test.js 有覆盖，砚砚 review 同意。
+```
 
 ## Links
 
