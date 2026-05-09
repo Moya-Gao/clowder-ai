@@ -96,13 +96,13 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 - [x] AC-C4: orphan edges 统计接入 Health Dashboard
 - [x] AC-C5: Graph 可视化美化（节点样式 + 布局 + 交互体验达到"铲屎官不说丑"标准）
 
-### Phase C Follow-up（Graph 信息可读性 + 感官验收）
-- [ ] AC-C6a: 节点在图上显示 `anchor + 短标题`；中心/选中节点显示完整 title，用户能看懂 `F186` 是什么
-- [ ] AC-C6b: 节点形态不再使用固定圆/椭圆承载长文本；文字不得突破节点边界，长标题有稳定截断策略
-- [ ] AC-C6c: 点击节点后固定 Inspector 显示 anchor / title / kind / collection / sensitivity / 关系列表；hover tooltip 只能作为辅助，不是唯一信息入口
-- [ ] AC-C6d: Legend、edge filter、Nodes/Edges/Depth 等说明信息在侧栏或清晰工具带中展示，不被画布挤出 viewport
-- [ ] AC-C6e: 稀疏图（≤10 条 visible edges）显示 relation 名称；密集图至少在 Inspector/hover 中解释 relation + provenance
-- [ ] AC-C6f: `f186`/`F186` 浏览器验收截图必须证明：图居中、信息可读、控件完整可见、无文字溢出
+### Phase C Follow-up（Graph 信息可读性 + 感官验收）✅
+- [x] AC-C6a: 节点在图上显示 `anchor + 短标题`；中心/选中节点显示完整 title，用户能看懂 `F186` 是什么
+- [x] AC-C6b: 节点形态不再使用固定圆/椭圆承载长文本；文字不得突破节点边界，长标题有稳定截断策略
+- [x] AC-C6c: 点击节点后固定 Inspector 显示 anchor / title / kind / collection / sensitivity / 关系列表；hover tooltip 只能作为辅助，不是唯一信息入口
+- [x] AC-C6d: Legend、edge filter、Nodes/Edges/Depth 等说明信息在侧栏或清晰工具带中展示，不被画布挤出 viewport
+- [x] AC-C6e: 稀疏图（≤10 条 visible edges）显示 relation 名称；密集图至少在 Inspector/hover 中解释 relation + provenance
+- [x] AC-C6f: `f186`/`F186` 浏览器验收截图必须证明：图居中、信息可读、控件完整可见、无文字溢出
 
 ### Phase D（Chat-to-Collection Materialization）
 - [ ] AC-D1: 猫猫在 Knowledge Feed approve 时可以选择目标 Collection
@@ -167,6 +167,7 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 | 2026-05-08 | Phase B merged (PR #1604) — 5 health metrics (stale anchors, search quality, orphan edges, replay drift, KF pending) + AC-C4 |
 | 2026-05-08 | Phase C graph anchor/UI follow-up merged (PR #1606) — lowercase anchor canonicalization + compact graph labels |
 | 2026-05-08 | Graph readability follow-up scoped — AC-C6a~C6f added after CVO feedback |
+| 2026-05-08 | Graph readability follow-up merged (PR #1611) — readable node titles, persistent Inspector, side-panel controls, dense hub layout fixes |
 
 ## Review Gate
 
