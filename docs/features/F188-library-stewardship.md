@@ -127,14 +127,14 @@ Privacy Contract：
 - [x] AC-C6e: 稀疏图（≤10 条 visible edges）显示 relation 名称；密集图至少在 Inspector/hover 中解释 relation + provenance
 - [x] AC-C6f: `f186`/`F186` 浏览器验收截图必须证明：图居中、信息可读、控件完整可见、无文字溢出
 
-### Phase C Follow-up（Graph Query Resolution）
-- [ ] AC-C7a: Graph 输入框支持精确 anchor 和自然 query 两种输入；exact anchor 唯一命中时直接画图，大小写不敏感（如 `f186` → `F186`）
-- [ ] AC-C7b: 非 anchor query（如 `harness`）走 evidence search fallback，展示 top candidates，而不是直接显示 "No graph data for this anchor"
-- [ ] AC-C7c: Candidate 列表必须展示 `anchor + title + kind + collection/source + match reason/snippet`，用户选择候选后才以该 anchor 为中心画 graph
-- [ ] AC-C7d: 多候选不得静默自动选第一个；只有 exact anchor 唯一命中可自动进入 graph
-- [ ] AC-C7e: no-match 状态必须区分"没有找到候选节点"和"节点存在但暂无关联边"，并给出 anchor 示例/搜索建议
-- [ ] AC-C7f: Query resolution 必须遵守 collection visibility / sensitivity；private/restricted 候选不得泄露真实 anchor/title/path，redaction 规则与 GraphResolver 一致
-- [ ] AC-C7g: 浏览器验收覆盖 `F186`、`f186`、`harness`、无证据自然语言 query 四类输入；截图证明候选列表、空状态、graph 展示和隐私文案可读
+### Phase C Follow-up（Graph Query Resolution）✅
+- [x] AC-C7a: Graph 输入框支持精确 anchor 和自然 query 两种输入；exact anchor 唯一命中时直接画图，大小写不敏感（如 `f186` → `F186`）
+- [x] AC-C7b: 非 anchor query（如 `harness`）走 evidence search fallback，展示 top candidates，而不是直接显示 "No graph data for this anchor"
+- [x] AC-C7c: Candidate 列表必须展示 `anchor + title + kind + collection/source + match reason/snippet`，用户选择候选后才以该 anchor 为中心画 graph
+- [x] AC-C7d: 多候选不得静默自动选第一个；只有 exact anchor 唯一命中可自动进入 graph
+- [x] AC-C7e: no-match 状态必须区分"没有找到候选节点"和"节点存在但暂无关联边"，并给出 anchor 示例/搜索建议
+- [x] AC-C7f: Query resolution 必须遵守 collection visibility / sensitivity；private/restricted 候选不得泄露真实 anchor/title/path，redaction 规则与 GraphResolver 一致
+- [x] AC-C7g: 浏览器验收覆盖 `F186`、`f186`、`harness`、无证据自然语言 query 四类输入；截图证明候选列表、空状态、graph 展示和隐私文案可读
 
 ### Phase D（Chat-to-Collection Materialization）
 - [ ] AC-D1: 猫猫在 Knowledge Feed approve 时可以选择目标 Collection
@@ -202,6 +202,7 @@ Privacy Contract：
 | 2026-05-08 | Graph readability follow-up scoped — AC-C6a~C6f added after CVO feedback |
 | 2026-05-08 | Graph readability follow-up merged (PR #1611) — readable node titles, persistent Inspector, side-panel controls, dense hub layout fixes |
 | 2026-05-09 | Graph Query Resolution scoped — AC-C7a~C7g added after CVO feedback on `harness` / natural query input |
+| 2026-05-09 | Graph Query Resolution merged (PR #1616) — exact anchor + natural query resolution, candidate selection, no-match UX, privacy-preserving candidates |
 
 ## Review Gate
 
