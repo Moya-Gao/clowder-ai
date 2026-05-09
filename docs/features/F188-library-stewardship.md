@@ -59,6 +59,29 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 - Legend / edge filter / stats 属于控制/说明区，不应被画布挤到底部或裁出 viewport；密集信息放侧栏或清晰的底部工具带。
 - 稀疏图应能直接解释关系（边标签或 Inspector 关系列表）；密集图可以隐藏边标签，但必须能通过 hover/click 获得 relation/provenance。
 
+**Graph Query Resolution（Phase C query follow-up）**：
+当前 Graph 输入框实际是精确 anchor lookup，但用户会自然把它当成搜索框使用。`harness`、`铲屎官的工资`、`landy 最喜欢什么猫` 这类输入不是 anchor，却代表用户想从记忆库里找到一个可画图的知识节点。Graph 入口必须先定义从自然查询到 graph anchor 的解析契约，不能再用 "No graph data for this anchor" 把搜索失败伪装成 graph 为空。
+
+输入语义：
+- 精确 anchor：`F186` / `f186` / `doc:...` / `thread-...` / `global:...` 等已存在 anchor，直接解析为 graph center。
+- 主题关键词：`harness`、`Redis persistence` 等普通搜索词，先执行 evidence search，返回候选 anchor 列表，由用户选择后再画 graph。
+- 自然语言问题：`landy 最喜欢什么猫` 这类 query 只能基于已索引 evidence 生成候选；没有证据时明确 no-match，不允许编造节点或答案。
+
+候选选择：
+- 候选项至少展示 `anchor`、title、kind、collection/source、命中理由（如 title/path/content snippet）。
+- 候选项必须可解释为什么可画图：有 exact match / title match / content match / edge-related match。
+- 多候选时不自动选第一个；除非 exact anchor 唯一命中。
+
+No-match UX：
+- 空结果应说"没有找到可画图的知识节点"，并给 anchor 示例和搜索建议。
+- 不再把自然 query 失败显示成 "No graph data for this anchor"。
+- 如果 exact anchor 存在但没有边，显示单节点 graph + 说明"这个节点暂无关联边"，而不是空图。
+
+Privacy Contract：
+- Query resolution 与 graph rendering 必须共用 collection visibility / sensitivity 规则。
+- private/restricted 候选不得因搜索 fallback 泄露真实 anchor/title/path；只可显示 opaque/redacted 占位或不返回。
+- unresolved private edge 的 opaque anchor 一致性要求仍适用：候选列表、node endpoint、edge endpoint 不得互相泄露。
+
 ### Phase D: Chat-to-Collection Materialization
 
 聊天中产出的知识由猫猫审核后 auto-materialize 到目标 Collection。
@@ -103,6 +126,15 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 - [x] AC-C6d: Legend、edge filter、Nodes/Edges/Depth 等说明信息在侧栏或清晰工具带中展示，不被画布挤出 viewport
 - [x] AC-C6e: 稀疏图（≤10 条 visible edges）显示 relation 名称；密集图至少在 Inspector/hover 中解释 relation + provenance
 - [x] AC-C6f: `f186`/`F186` 浏览器验收截图必须证明：图居中、信息可读、控件完整可见、无文字溢出
+
+### Phase C Follow-up（Graph Query Resolution）
+- [ ] AC-C7a: Graph 输入框支持精确 anchor 和自然 query 两种输入；exact anchor 唯一命中时直接画图，大小写不敏感（如 `f186` → `F186`）
+- [ ] AC-C7b: 非 anchor query（如 `harness`）走 evidence search fallback，展示 top candidates，而不是直接显示 "No graph data for this anchor"
+- [ ] AC-C7c: Candidate 列表必须展示 `anchor + title + kind + collection/source + match reason/snippet`，用户选择候选后才以该 anchor 为中心画 graph
+- [ ] AC-C7d: 多候选不得静默自动选第一个；只有 exact anchor 唯一命中可自动进入 graph
+- [ ] AC-C7e: no-match 状态必须区分"没有找到候选节点"和"节点存在但暂无关联边"，并给出 anchor 示例/搜索建议
+- [ ] AC-C7f: Query resolution 必须遵守 collection visibility / sensitivity；private/restricted 候选不得泄露真实 anchor/title/path，redaction 规则与 GraphResolver 一致
+- [ ] AC-C7g: 浏览器验收覆盖 `F186`、`f186`、`harness`、无证据自然语言 query 四类输入；截图证明候选列表、空状态、graph 展示和隐私文案可读
 
 ### Phase D（Chat-to-Collection Materialization）
 - [ ] AC-D1: 猫猫在 Knowledge Feed approve 时可以选择目标 Collection
@@ -155,6 +187,7 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 | KD-2 | 不拆成多个小 feature，合成一个 Stewardship | 铲屎官 + GPT-5.5 收敛：价值链是一条线，拆碎了每个都是半截能力 | 2026-05-06 |
 | KD-3 | Phase A 做最小状态表，不做完整 Job Ledger | GPT-5.5 建议中间态：够看够用，等 job 类型多了再抽象 | 2026-05-06 |
 | KD-4 | Graph UI 质量以信息可读性和感官验收为准，不以"画出了节点和边"为准 | 铲屎官反馈：裸 anchor、文字溢出、控件被裁会让 graph 虽然功能正常但不可用 | 2026-05-08 |
+| KD-5 | Graph 入口是 query resolution，不是裸 anchor lookup | 用户会输入 `harness`/自然语言问题；必须先解析候选 anchor，再画图，不能用 search fallback 当 hotfix 糊过去 | 2026-05-09 |
 
 ## Timeline
 
@@ -168,11 +201,13 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 | 2026-05-08 | Phase C graph anchor/UI follow-up merged (PR #1606) — lowercase anchor canonicalization + compact graph labels |
 | 2026-05-08 | Graph readability follow-up scoped — AC-C6a~C6f added after CVO feedback |
 | 2026-05-08 | Graph readability follow-up merged (PR #1611) — readable node titles, persistent Inspector, side-panel controls, dense hub layout fixes |
+| 2026-05-09 | Graph Query Resolution scoped — AC-C7a~C7g added after CVO feedback on `harness` / natural query input |
 
 ## Review Gate
 
 - Phase A-E: 跨猫 review（砚砚优先），涉及 UX 的 Phase（A3/B/E）需浏览器验证
 - Graph readability follow-up: 必须用浏览器截图验证 `f186`/`F186` 两种输入，确认节点标题、Inspector、legend/filter/stats 全部可读且无裁切
+- Graph Query Resolution follow-up: spec 先经 46 review；实现前必须确认 query → candidate → graph 的 UX，不准只做 silent search fallback
 
 ## Links
 
