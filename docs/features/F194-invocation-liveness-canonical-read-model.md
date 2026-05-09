@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F194: Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口
 
-> **Status**: in-progress (Phase A done) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
+> **Status**: in-progress (Phase A + Phase B Bundle done; alpha/愿景守护 pending) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
 >
 > Reviewer: 缅因猫/砚砚 (GPT-5.5)。立项基于 2026-05-07 thread `thread_mov3a7qva8mtsbs1` post-close diagnosis（F183 close 之后铲屎官报告"现在活跃的线程气泡都是裂的"，砚砚只读诊断捕到 `/api/messages` 与 `/api/threads/:threadId/queue` 对同一 thread 的 liveness 判定矛盾）。Architecture cell：`docs/architecture/ownership/cells/runtime-invocation-state` (待建/复用)。Map delta：none — 复用既有 `domains/cats/services/agents/invocation/` 边界，本 feat 在该 cell 内新增 read-model helper，不改 ownership map。
 
@@ -302,6 +302,7 @@ async function getThreadLiveInvocations(
 | 2026-05-08 | **Phase B (Bundle) cloud R15 P1 terminal-cleanup retry fix**（commit `1938b25d3`）— cloud R15 在 HEAD `a4c303661` 上发现新 P1：reconcileZombies 的 CAS update 失败时直接 return，不 attempt deleteSnapshot；并发 reconcile race + winner 的 deleteSnapshot 暂时失败 = phantom progress 永驻。修复 KD-17：`!updated` 分支 get() current status，terminal record 仍 clearTaskProgress（idempotent 冗余）；missing record skip。2 新单测 + 1 既有 batch 测试 assertion update（terminal records 现在也触发 cleanup）。F194 focused 79/79 ✅ |
 | 2026-05-08 | **Phase B (Bundle) cloud R16 P2 backfill SCAN filter fix**（commit `073b7a518`）— cloud R16 在 HEAD `331b18aa8` 上发现新 P2：scanAndPopulateRunningIndex 的 MATCH=invoc:* 同时匹配 record hashes 和 running 索引 sets。HGETALL on set keys 走 WRONGTYPE 路径但仍付出 round trips。修复 KD-18：post-scan 过滤 `invoc:running:` 前缀，保留 SCAN MATCH pattern 不依赖 Redis TYPE filter 版本。1 新单测 wrap pipeline.hgetall 捕获 key 集合验证。F194 focused 79/79 ✅ |
 | 2026-05-08 | **Phase B (Bundle) cloud R17 P1+P2 dual fix**（commit `815039ff0`）— cloud R17 在 HEAD `46a735250` 上发现 P1+P2：(P1 messages.ts) drafts.length>0 gate 让 empty-draft thread 永不触发 reconcile；(P2 reconcileZombies.ts) `!updated` 把 still-running 误归 alreadyTerminal 丢 zombie。修复 KD-19+KD-20：messages.ts 重构 helper invocation 只 gate recordStore；reconcileZombies fresh get() 后三分支区分 missing/terminal/still-alive。2 新单测：empty-draft thread reconcile + CAS-null still-running 计 errors。F194 focused 81/81 ✅ |
+| 2026-05-09 | **Phase B (Bundle) merged (PR #1603, squash `5c1ab366`)** — 18 个 commits 收敛 8 轮 cloud review (R13 P1×2 + R14 P1 + R15 P2/P1 + R16 P2 + R17 P1+P2)：backfill running index + reassignUserId 漂移 CAS retry + atomic Set migration Lua + queue catId dedup + zombie 终态 cleanup retry + SCAN filter exclude set keys + helper-always-invoke + 三分支 transient classification。最终 cloud LGTM "Bravo" on `d24f407f5`。merge gate test 步骤遭遇 parallel test pollution flake（与 F194 无关，每次跑 fail 不同 unrelated test，isolation 全 pass），写 bug-report `2026-05-08-pnpm-gate-parallel-test-pollution-flake/` 后铲屎官拍板走 option B：信任 F194 focused 81/81 + cloud LGTM + 非测试 gate 全绿，squash merge。alpha 实测 + 愿景守护 入待办 |
 
 ## Review Gate
 
