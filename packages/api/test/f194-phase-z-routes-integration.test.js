@@ -301,11 +301,7 @@ describe('F194 Phase Z4 — runtime split symptom reproduction (paired /messages
       const queue = await injectQueue(app);
       assert.equal(queue.statusCode, 200);
       // new-parent's chain is live (not 0); old-parent suppressed from active and zombied.
-      assert.equal(
-        queue.body.activeInvocations.length,
-        1,
-        'new-parent live chain surfaces (old-parent suppressed)',
-      );
+      assert.equal(queue.body.activeInvocations.length, 1, 'new-parent live chain surfaces (old-parent suppressed)');
       assert.equal(queue.body.activeInvocations[0].catId, 'opus');
       assert.equal(queue.body.activeInvocations[0].startedAt, newChildCreatedAt);
     } finally {
