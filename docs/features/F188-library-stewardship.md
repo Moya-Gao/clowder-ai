@@ -36,7 +36,7 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 
 ### Phase C: Graph Fidelity ✅
 
-提升 Typed Evidence Graph 的连接密度 + 修复 graph 运行期 bug + 美化可视化。
+提升 Typed Evidence Graph 的连接密度 + 修复 graph 运行期 bug + 让 graph 变成人能读懂、愿意看的知识工作台。
 
 **Bug fixes（铲屎官实测 + 砚砚代码分析）**：
 1. edges 表 schema 不一致：root evidence.sqlite 只有 3 列（from_anchor/to_anchor/relation），代码 getRelated() 查 6 列 → 查询报错导致 graph 无边
@@ -50,7 +50,14 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 2. Markdown 链接 `[text](path)` → edge
 3. F 编号引用（文档体里的 `F186` 等）→ edge
 
-**UI 美化**：铲屎官原话"太丑了"+"美观也很重要"。Graph 展示不是能跑就行，要好看才算交付。
+**Graph 信息可读性 + 感官质量**：铲屎官原话"F186 天知道是什么东西"、"显示的信息很让人费解"、"太丑了"、"字突破了那个椭圆"。Graph 展示不是把 anchor 和边画出来就算完成；用户必须一眼看出节点是什么、为什么相连、当前选中了什么。
+
+**补充设计约束（Phase C readability follow-up）**：
+- 节点主显示信息必须是 `anchor + 人可读短标题`，不能只显示裸 anchor；中心节点/选中节点必须显示完整 title。
+- 节点形态必须优先服务文字可读性：禁止把长文字塞进固定圆/椭圆导致溢出；推荐圆角矩形 / pill / label card，宽度随内容或截断策略稳定。
+- Graph 需要固定 Inspector（非一闪即逝 tooltip）：展示 anchor、title、kind、collection、sensitivity，以及与当前节点相连的关系列表。
+- Legend / edge filter / stats 属于控制/说明区，不应被画布挤到底部或裁出 viewport；密集信息放侧栏或清晰的底部工具带。
+- 稀疏图应能直接解释关系（边标签或 Inspector 关系列表）；密集图可以隐藏边标签，但必须能通过 hover/click 获得 relation/provenance。
 
 ### Phase D: Chat-to-Collection Materialization
 
@@ -88,6 +95,14 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 - [x] AC-C3: F 编号引用 `F186` 在 rebuild 时生成 edge（type: `feature_ref`）
 - [x] AC-C4: orphan edges 统计接入 Health Dashboard
 - [x] AC-C5: Graph 可视化美化（节点样式 + 布局 + 交互体验达到"铲屎官不说丑"标准）
+
+### Phase C Follow-up（Graph 信息可读性 + 感官验收）
+- [ ] AC-C6a: 节点在图上显示 `anchor + 短标题`；中心/选中节点显示完整 title，用户能看懂 `F186` 是什么
+- [ ] AC-C6b: 节点形态不再使用固定圆/椭圆承载长文本；文字不得突破节点边界，长标题有稳定截断策略
+- [ ] AC-C6c: 点击节点后固定 Inspector 显示 anchor / title / kind / collection / sensitivity / 关系列表；hover tooltip 只能作为辅助，不是唯一信息入口
+- [ ] AC-C6d: Legend、edge filter、Nodes/Edges/Depth 等说明信息在侧栏或清晰工具带中展示，不被画布挤出 viewport
+- [ ] AC-C6e: 稀疏图（≤10 条 visible edges）显示 relation 名称；密集图至少在 Inspector/hover 中解释 relation + provenance
+- [ ] AC-C6f: `f186`/`F186` 浏览器验收截图必须证明：图居中、信息可读、控件完整可见、无文字溢出
 
 ### Phase D（Chat-to-Collection Materialization）
 - [ ] AC-D1: 猫猫在 Knowledge Feed approve 时可以选择目标 Collection
@@ -139,6 +154,7 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 | KD-1 | 不做自动置信度标记，只做手动 Pin | 铲屎官否决：猫猫判断 recall 好坏不靠谱 | 2026-05-06 |
 | KD-2 | 不拆成多个小 feature，合成一个 Stewardship | 铲屎官 + GPT-5.5 收敛：价值链是一条线，拆碎了每个都是半截能力 | 2026-05-06 |
 | KD-3 | Phase A 做最小状态表，不做完整 Job Ledger | GPT-5.5 建议中间态：够看够用，等 job 类型多了再抽象 | 2026-05-06 |
+| KD-4 | Graph UI 质量以信息可读性和感官验收为准，不以"画出了节点和边"为准 | 铲屎官反馈：裸 anchor、文字溢出、控件被裁会让 graph 虽然功能正常但不可用 | 2026-05-08 |
 
 ## Timeline
 
@@ -150,10 +166,12 @@ Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、�
 | 2026-05-08 | Phase C review follow-up merged (PR #1596) — unresolved anchor redaction + doc_link path key stability |
 | 2026-05-08 | Phase B merged (PR #1604) — 5 health metrics (stale anchors, search quality, orphan edges, replay drift, KF pending) + AC-C4 |
 | 2026-05-08 | Phase C graph anchor/UI follow-up merged (PR #1606) — lowercase anchor canonicalization + compact graph labels |
+| 2026-05-08 | Graph readability follow-up scoped — AC-C6a~C6f added after CVO feedback |
 
 ## Review Gate
 
 - Phase A-E: 跨猫 review（砚砚优先），涉及 UX 的 Phase（A3/B/E）需浏览器验证
+- Graph readability follow-up: 必须用浏览器截图验证 `f186`/`F186` 两种输入，确认节点标题、Inspector、legend/filter/stats 全部可读且无裁切
 
 ## Links
 
