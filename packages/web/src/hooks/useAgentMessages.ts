@@ -570,12 +570,34 @@ export function consumeBackgroundSystemInfo(
       if (!targetId) {
         targetId = existingRef?.id ?? recoverBackgroundStreamingMessage(msg, options);
       }
+      const richBlockHasExplicitInvocation = Boolean(
+        msg.invocationId ?? msg.turnInvocationId ?? parsed.invocationId ?? parsed.turnInvocationId,
+      );
+      if (!targetId && !richBlockHasExplicitInvocation) {
+        // F194 Phase Z6: rich/audio blocks can arrive just after `done` finalized the stream
+        // bubble and cleared bgStreamRefs. Reuse the exact finalized stream bubble so live
+        // state self-heals before F5 instead of creating a transient bg-rich small bubble.
+        // Cloud P1 (PR #1623): this fallback is only safe for invocationless late events.
+        // If the rich block already carries a new invocation/turn id, using the previous
+        // finalized ref would splice the next turn's media into the old bubble.
+        const streamKey = `${msg.threadId}::${msg.catId}`;
+        const finalizedId = options.finalizedBgRefs.get(streamKey);
+        const finalized = finalizedId
+          ? options.store
+              .getThreadState(msg.threadId)
+              .messages.find(
+                (m) => m.id === finalizedId && m.type === 'assistant' && m.catId === msg.catId && m.origin === 'stream',
+              )
+          : undefined;
+        if (finalized) targetId = finalized.id;
+      }
       if (!targetId) {
         // No existing bubble — create placeholder (mirrors foreground ensureActiveAssistantMessage)
         const streamKey = `${msg.threadId}::${msg.catId}`;
         targetId = `bg-rich-${Date.now()}-${msg.catId}-${options.nextBgSeq()}`;
-        const invocationId = options.store.getThreadState(msg.threadId).catInvocations[msg.catId]?.invocationId;
-        const turnInvocationId = options.store.getThreadState(msg.threadId).catInvocations[msg.catId]?.turnInvocationId;
+        const threadState = options.store.getThreadState(msg.threadId);
+        const invocationId = msg.invocationId ?? threadState.catInvocations[msg.catId]?.invocationId;
+        const turnInvocationId = msg.turnInvocationId ?? threadState.catInvocations[msg.catId]?.turnInvocationId;
         options.bgStreamRefs.set(streamKey, { id: targetId, threadId: msg.threadId, catId: msg.catId });
         options.store.addMessageToThread(msg.threadId, {
           id: targetId,
@@ -4172,7 +4194,22 @@ export function useAgentMessages() {
             }
 
             // F194 Phase Z3 R16 (cloud Codex P1): suppression key uses turn id when present.
-            if (!targetId && !shouldSuppressLateStreamChunk(msg.catId, msg.turnInvocationId ?? effectiveInv)) {
+            const suppressedLateRichBlock = shouldSuppressLateStreamChunk(
+              msg.catId,
+              msg.turnInvocationId ?? effectiveInv,
+            );
+            const richBlockHasExplicitInvocation = Boolean(msg.turnInvocationId ?? effectiveInv);
+            if (!targetId && !suppressedLateRichBlock && !richBlockHasExplicitInvocation) {
+              // F194 Phase Z6: invocationless rich/audio events may arrive after done.
+              // `findInvocationlessStreamPlaceholder` includes the just-finalized stream
+              // bubble recorded by done, so late rich blocks attach to the existing
+              // assistant container instead of spawning a second small bubble until F5.
+              // Cloud P1 (PR #1623): keep this fallback invocationless-only. Rich blocks
+              // with a fresh invocation/turn id must not patch the previous finalized turn.
+              targetId = findInvocationlessStreamPlaceholder(msg.catId)?.id;
+            }
+
+            if (!targetId && !suppressedLateRichBlock) {
               // Final fallback: recover the active stream bubble before creating a placeholder.
               targetId = ensureActiveAssistantMessage(msg.catId, msg.metadata, {
                 ...(effectiveInv ? { invocationId: effectiveInv as string } : {}),

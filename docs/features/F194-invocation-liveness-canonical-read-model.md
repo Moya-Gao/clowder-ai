@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F194: Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口
 
-> **Status**: in-progress (Phase A + B + Z + Z2 + Z3 + Z4 + Z5 merged; **awaiting alpha re-test by 铲屎官** for Phase Z5 acceptance closure 2026-05-10 16:40 — Phase Z5 squash `3b3c6b33` 修了 Bug A/B/C/D，砚砚 R11 APPROVE + cloud Codex 8 轮 review 收敛 (7 P1/P2 + 最后 2 轮 LGTM)。原始 alpha 失败上下文如下：**acceptance still failing 2026-05-10 04:42** — 铲屎官 alpha 实测发现 Z3/Z4 合入后 4 个新/加剧问题：(A) 气泡仍裂——`deriveBubbleId` 公式 `msg-{turn}-{cat}` 与 reducer 公式 `msg-{turn}-{cat}-{kind}` 不对齐 + kind 漂移后 findExistingByStableKey 匹配失败; (B) 裂了不再自愈——Z3/Z4 收紧 identity 匹配但没补 live reconcile pass; (C) 并发 @ 两猫采样面板只显示一只——`deriveActiveCats` 只看 active slots，完成的猫被清; (D) 无 @ 留言 fallback 到错误的猫——`participantsWithActivity` 按 `lastMessageAt desc` 让 vision guard 猫抢上游。**Phase Z5 收口** — opus-47 + GPT-5.5 + opus-46 三猫独立诊断收敛) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
+> **Status**: in-progress (Phase A + B + Z + Z2 + Z3 + Z4 + Z5 merged; **Phase Z6 in review** after alpha re-test 2026-05-10 10:10~10:35 found two remaining gaps: (A2) rich/audio block after done still creates a transient small live bubble until F5; (D2) no-@ fallback overcorrected from wrong-cat to multi-cat, but intended fallback is a single cat from previous user mentions. Phase Z5 squash `3b3c6b33` fixed the first four Z5 bugs but did not close acceptance.) | **Owner**: 缅因猫/Codex for Z6, reviewer 布偶猫/Opus-47 | **Priority**: P1
 >
 > **AC-Z1 (alpha runtime acceptance) FAILED 2026-05-09 03:35** — 铲屎官实测 runtime 仍裂，根因比 Phase B 修的更深：F194 read-side helper 把 **parent recordStore invocation** 与 **per-cat-turn registry invocation** 当成同一 namespace 处理。bug-report `docs/bug-report/2026-05-09-f194-runtime-bubble-still-split-completion-leak/`，砚砚 2026-05-09 04:51 拍板走 Phase Z（namespace-aware canonical read model），见 KD-21~KD-23 + AC-Z1~Z5。
 >
@@ -362,6 +362,16 @@ tracker (cat-level only)
 
 > **scope 边界说明**：Bug D 严格来说是 `AgentRouter` 路由语义问题，不是 invocation liveness read model。但铲屎官明确说"这就是 f194 的遗留而不是新增一个 feat"，且 D 是在 F194 acceptance 场景中暴露的，归入 F194 scope 避免碎片化。
 
+### Phase Z6（acceptance residue — live rich self-heal + single-cat fallback）
+
+Phase Z5 合入后的 alpha re-test 又抓到两个剩余边界：
+
+1. **Bug A2 / R9**：rich/audio `system_info` 可能在 `done` 已 finalize 主 stream bubble、active refs 被清掉之后到达。active rich-block fallback 没查 just-finalized stream ref，导致 live 侧新建一个临时小气泡；F5 后 hydrate 只返回 canonical 单消息，所以小气泡消失。
+2. **Bug D2 / R10**：Phase Z5 把 no-@ fallback 改成上一条 user mentions 的完整集合。铲屎官澄清实际语义：上一条 @ 了 47 + 55 时，下一条无 @ 应该从这两只里确定性选 **一只**，不是重新并发两只。
+
+- [x] AC-Z17: invocationless rich/audio block after `done` attaches to the just-finalized stream bubble, not a new placeholder. ✅ Branch `feat/f194-phase-z6` — active path uses `findInvocationlessStreamPlaceholder` before creating a new assistant bubble; background path reuses `finalizedBgRefs` before `bg-rich-*` creation. RED test: `useAgentMessages-richblock-correlation` AC-Z17 (`done` → late rich_block) stays one bubble.
+- [x] AC-Z18: no-@ fallback returns a deterministic **single** cat from the previous user message mentions. ✅ Branch `feat/f194-phase-z6` — `findRecentUserMentionFallback` keeps Z5 paging / system filtering / effective-score semantics but returns `[routable[0]]` instead of the whole set. RED tests update F078 superseded case + AC-Z16 no-mention case.
+
 ### 端到端 / Vision
 
 - [ ] AC-E1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失（并发 multi-cat handoff 也不裂） ⚠️ 2026-05-10 04:42 回归——Z3/Z4 合入后 live 仍裂（Bug A + Bug B），F5 后正常但 live 不收敛
@@ -381,6 +391,8 @@ tracker (cat-level only)
 | R6 | "明明at的最后一只猫是47 or 55但是召唤出来的却是46" (2026-05-10 04:51) | AC-Z16 | fallback 使用上一条 user message mentions | [x] (PR #1622 squash `3b3c6b33`) |
 | R7 | "以前就算有裂开的两个气泡不需要f5就能合并 现在不能了！" (2026-05-10 04:57) | AC-Z14 | live reconcile pass 不 F5 自动收敛 | [x] (PR #1622 squash `3b3c6b33`) |
 | R8 | "你们的上一个pr一定有问题！" — Z4 引入 deriveBubbleId 公式冲突 (2026-05-10 04:51) | AC-Z12, AC-Z13 | 统一 id 公式 + hydrate match 机制文档化 | [x] (PR #1622 squash `3b3c6b33`) |
+| R9 | "f5之前 我们47多了个小气泡！f5之后就没了" (2026-05-10 10:13) | AC-Z17 | late rich/audio after done 复用 finalized stream bubble | [x] (branch `feat/f194-phase-z6`) |
+| R10 | "上一次at了两只猫 这次没有任何at fallback应该是一只猫" (2026-05-10 10:17) | AC-Z18 | no-@ fallback 从上一条 user mentions 里确定性选一只 | [x] (branch `feat/f194-phase-z6`) |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC

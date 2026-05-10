@@ -1203,7 +1203,7 @@
     {
       "id": "F194",
       "name": "Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口",
-      "status": "in-progress (Phase A + B + Z + Z2 + Z3 + Z4 merged; **acceptance still failing 2026-05-10 04:42** — 铲屎官 alpha 实测发现 Z3/Z4 合入后 4 个新/加剧问题：(A) 气泡仍裂——`deriveBubbleId` 公式 `msg-{turn}-{cat}` 与 reducer 公式 `msg-{turn}-{cat}-{kind}` 不对齐 + kind 漂移后 findExistingByStableKey 匹配失败; (B) 裂了不再自愈——Z3/Z4 收紧 identity 匹配但没补 live reconcile pass; (C) 并发 @ 两猫采样面板只显示一只——`deriveActiveCats` 只看 active slots，完成的猫被清; (D) 无 @ 留言 fallback 到错误的猫——`participantsWithActivity` 按 `lastMessageAt desc` 让 vision guard 猫抢上游。**Phase Z5 收口** — opus-47 + GPT-5.5 + opus-46 三猫独立诊断收敛) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1",
+      "status": "in-progress (Phase A + B + Z + Z2 + Z3 + Z4 + Z5 merged; **Phase Z6 in review** after alpha re-test 2026-05-10 10:10~10:35 found two remaining gaps: (A2) rich/audio block after done still creates a transient small live bubble until F5; (D2) no-@ fallback overcorrected from wrong-cat to multi-cat, but intended fallback is a single cat from previous user mentions. Phase Z5 squash `3b3c6b33` fixed the first four Z5 bugs but did not close acceptance.) | **Owner**: 缅因猫/Codex for Z6, reviewer 布偶猫/Opus-47 | **Priority**: P1",
       "file": "F194-invocation-liveness-canonical-read-model.md"
     },
     {

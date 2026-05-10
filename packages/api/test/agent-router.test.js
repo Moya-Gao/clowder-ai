@@ -1299,7 +1299,7 @@ describe('AgentRouter', () => {
     assert.equal(mockGeminiService.invoke.mock.callCount(), 0);
   });
 
-  test('@three cats then no-@ routes to last user-message mentions SET (F078 superseded by F194 Z5 AC-Z16)', async () => {
+  test('@three cats then no-@ routes to one cat from last user-message mentions (F078 superseded by F194 Z6 AC-Z16)', async () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     const mockClaudeService = createMockAgentService('opus');
@@ -1329,18 +1329,16 @@ describe('AgentRouter', () => {
 
     // Second: no @
     // F078 (旧语义): 路由到 last replier 的单只猫
-    // F194 Phase Z5 AC-Z16 (新语义): 路由到上一条 user message 的 mentions SET (3 只全部)
-    // 用户心智模型: "继续我刚才 @ 过的那群猫"——如果 prev 是 parallel ideate，
-    // 后续 no-@ 应延续 parallel；不会因为某只猫 last-replied 就降级成单只
+    // F194 Phase Z6 AC-Z16 (修正语义): 候选集来自上一条 user message 的 mentions，
+    // 但 no-@ fallback 只召唤一只确定的猫（first routable mention），不会把上一轮
+    // parallel ideate 的全量 targetCats 自动延续成新一轮并发。
     for await (const _ of router.route('user-1', 'what about this?', 'thread_x')) {
     }
 
-    // After Z5: all three cats called again (last mentions set [opus, codex, gemini])
-    const totalSecondRound =
-      mockClaudeService.invoke.mock.callCount() +
-      mockCodexService.invoke.mock.callCount() +
-      mockGeminiService.invoke.mock.callCount();
-    assert.equal(totalSecondRound, 6, 'F194 Z5 AC-Z16: 3 from first round + 3 from second (last user mentions set)');
+    // After Z6: only the first routable previous mention is called again.
+    assert.equal(mockClaudeService.invoke.mock.callCount(), 2);
+    assert.equal(mockCodexService.invoke.mock.callCount(), 1);
+    assert.equal(mockGeminiService.invoke.mock.callCount(), 1);
   });
 
   test('route with explicit threadId passes it to messageStore.append', async () => {
@@ -2824,12 +2822,10 @@ describe('#58: preferredCats candidate scope (not dispatch list)', () => {
 
     // user msg2 (current message under resolution) has no @
     const result = await router.resolveTargetsAndIntent('继续刚才的讨论', 't_z16');
-    // GREEN after Z5: fallback uses prev user msg mentions [codex, opus] — gemini excluded
-    // RED before Z5: gemini wins via lastMessageAt → wrong cat
-    assert.ok(
-      result.targetCats.includes('codex') || result.targetCats.includes('opus'),
-      `fallback should pick from prev user mentions [codex, opus], got ${JSON.stringify(result.targetCats)}`,
-    );
+    // GREEN after Z6: fallback picks one deterministic cat from prev user mentions [codex, opus].
+    // RED before Z5: gemini wins via lastMessageAt → wrong cat.
+    // RED in Z5: both codex+opus are invoked → over-broad parallel fallback.
+    assert.deepEqual(result.targetCats, ['codex']);
     assert.ok(
       !result.targetCats.includes('gemini'),
       `gemini was vision guard cat, NOT user-mentioned — must not win fallback. got ${JSON.stringify(result.targetCats)}`,

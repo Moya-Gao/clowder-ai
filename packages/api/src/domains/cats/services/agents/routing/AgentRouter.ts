@@ -326,15 +326,17 @@ export class AgentRouter {
    * F194 Phase Z5 AC-Z16: 无 @ fallback 优先用上一条 user message 的 mentions，
    * 不让 thread 里其他猫的发言（如 vision guard cross-post）抢路由 fallback。
    *
-   * 用户心智模型："no @ = 继续刚才 @ 的那只猫"，不是"thread 里最近发言的猫"。
+   * 用户心智模型："no @ = 继续刚才 @ 的猫里的一只"，不是"thread 里最近发言的猫"，
+   * 也不是把上一轮 parallel mentions 全量延续成新一轮并发。
    *
    * user message 严格定义：`userId !== null && catId === null`。
    *   - cat-to-cat handoff (A2A) 有 catId → NOT a user message
    *   - vision guard cross-post 有 catId → NOT a user message
    *   - 系统消息 (userId === null && catId === null) → NOT a user message
    *
-   * 时间窗口：回看最近 N=5 条 messages，防止远古 mentions 主导 fallback。
-   * 在 N 条窗口内找到的最近一条 user message 的 mentions 作候选集。
+   * 时间窗口：回看最近 N=5 条 user messages，防止远古 mentions 主导 fallback。
+   * 在 N 条窗口内找到的最近一条 user message 后，取第一个 routable mention
+   * 作为 deterministic single-cat fallback。
    */
   private async findRecentUserMentionFallback(threadId: string): Promise<CatId[] | null> {
     if (!this.messageStore) return null;
@@ -398,7 +400,7 @@ export class AgentRouter {
         const mentions = Array.isArray(m.mentions) ? (m.mentions as string[]) : [];
         if (mentions.length === 0) continue; // user msg without @ → skip, keep looking earlier
         const routable = this.filterRoutableCats(mentions as CatId[]);
-        return routable.length > 0 ? routable : null;
+        return routable.length > 0 ? [routable[0]] : null;
       }
 
       // 页内没找到，准备下一页 cursor = 当前页最旧消息（ascending → page[0]）。

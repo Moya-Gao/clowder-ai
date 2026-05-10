@@ -293,6 +293,95 @@ describe('consumeBackgroundSystemInfo rich_block placeholder', () => {
     expect(result.consumed).toBe(true);
     expect(options.store.appendRichBlockToThread).toHaveBeenCalledWith('thread-1', 'target-msg', block);
   });
+
+  it('AC-Z17: reuses finalized background stream bubble for late rich_block instead of creating bg-rich placeholder', () => {
+    const options = createMockOptions({
+      getThreadState: vi.fn(() => ({
+        messages: [
+          {
+            id: 'bg-finalized-msg',
+            type: 'assistant',
+            catId: 'opus',
+            origin: 'stream',
+            isStreaming: false,
+            content: '🎵 已发！',
+            timestamp: Date.now() - 1000,
+          },
+        ],
+        catStatuses: {},
+        catInvocations: {},
+      })),
+    });
+    options.finalizedBgRefs.set('thread-1::opus', 'bg-finalized-msg');
+    const block = { id: 'rb-z17-bg', kind: 'audio', v: 1, url: '/api/tts/audio/late.wav', mimeType: 'audio/wav' };
+    const msg = {
+      type: 'system_info',
+      catId: 'opus',
+      threadId: 'thread-1',
+      content: JSON.stringify({ type: 'rich_block', block }),
+      timestamp: Date.now(),
+    };
+
+    const result = consumeBackgroundSystemInfo(msg, undefined, options);
+
+    expect(result.consumed).toBe(true);
+    expect(options.store.addMessageToThread).not.toHaveBeenCalled();
+    expect(options.store.appendRichBlockToThread).toHaveBeenCalledWith('thread-1', 'bg-finalized-msg', block);
+  });
+
+  it('does not reuse a finalized background bubble for a rich_block with a new invocation id', () => {
+    const options = createMockOptions({
+      getThreadState: vi.fn(() => ({
+        messages: [
+          {
+            id: 'bg-finalized-old-msg',
+            type: 'assistant',
+            catId: 'opus',
+            origin: 'stream',
+            isStreaming: false,
+            content: 'old voice done',
+            timestamp: Date.now() - 1000,
+          },
+        ],
+        catStatuses: {},
+        catInvocations: {},
+      })),
+    });
+    options.finalizedBgRefs.set('thread-1::opus', 'bg-finalized-old-msg');
+    const block = {
+      id: 'rb-new-invocation',
+      kind: 'audio',
+      v: 1,
+      url: '/api/tts/audio/new.wav',
+      mimeType: 'audio/wav',
+    };
+    const msg = {
+      type: 'system_info',
+      catId: 'opus',
+      threadId: 'thread-1',
+      invocationId: 'inv-new-bg',
+      content: JSON.stringify({ type: 'rich_block', block }),
+      timestamp: Date.now(),
+    };
+
+    const result = consumeBackgroundSystemInfo(msg, undefined, options);
+
+    expect(result.consumed).toBe(true);
+    expect(options.store.appendRichBlockToThread).not.toHaveBeenCalledWith('thread-1', 'bg-finalized-old-msg', block);
+    expect(options.store.addMessageToThread).toHaveBeenCalledWith(
+      'thread-1',
+      expect.objectContaining({
+        catId: 'opus',
+        origin: 'stream',
+        extra: {
+          stream: { invocationId: 'inv-new-bg' },
+        },
+      }),
+    );
+    const targetId = vi.mocked(options.store.addMessageToThread).mock.calls[0]?.[1]?.id;
+    expect(targetId).toEqual(expect.stringMatching(/^bg-rich-/));
+    expect(options.store.appendRichBlockToThread).toHaveBeenCalledWith('thread-1', targetId, block);
+  });
 });
 
 describe('consumeBackgroundSystemInfo liveness_warning', () => {
