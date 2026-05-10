@@ -14,23 +14,51 @@ created: 2026-05-10
 
 ## 调研提示词
 
-你是 Cat Café 项目的技术调研员。我们正在设计一个 **Meeting Copilot** 功能（F195），让 AI 猫猫在用户参加圆桌会议时充当**私人智囊团**——不是替用户说话，而是帮用户更好地理解讨论、整理思路、措辞发言。
+你是一名技术调研员。我们正在设计一个 **Meeting Copilot** 功能，让多个 AI assistant agents 在用户参加圆桌会议时充当**私人智囊团**——不是替用户说话，而是帮用户更好地理解讨论、整理思路、措辞发言。
 
 ### 背景
 
-**用户画像**：AUDHD 用户，在多人会议中有三个具体痛点：
-1. 不知道什么时候可以打断别人（timing）
-2. 不知道如何措辞让对方舒服但又表达自己的观点（phrasing）
-3. 想法碎片化，难以即时组织成连贯发言（structuring）
+**用户画像**：AUDHD（Autism + ADHD 共病）用户，在多人会议中有四个具体痛点：
+1. **Timing**：对会话 floor 切换信号不敏感——不知道何时打断 vs 别人还在铺垫
+2. **Phrasing**：社交脚本生成困难——想法清晰但措辞容易过于直接/冒犯，或过度礼貌到含糊
+3. **Structuring**：想法跳跃式生成，难以即时组织成线性发言
+4. **Cognitive load**：高 context-switching 成本——盯转写 + 听人说 + 组织发言三件事并行会过载
 
-**核心定位**：猫是用户的私人智囊（augmentation），不是会议参与者。猫不直接开麦，用户通过 IM 界面和猫沟通，必要时由用户代为发言。
+**核心定位**：AI agents 是用户的私人智囊（augmentation），不是会议参与者。AI 不直接开麦，用户通过桌面 IM 应用和 AI 沟通，必要时由用户代为发言。
+
+**Reference Use Case（典型场景锚点）**：
+- 4-6 人技术分享圆桌
+- 60-120 分钟
+- 中文为主，夹杂英文技术术语
+- 每周 1-2 次
+- 环境：办公室或咖啡馆（中等背景噪音）
+- 设备：Apple Silicon M4 Max 128GB 笔记本 + 可选 DJI Mic 或 AirPods
 
 **分阶段策略**：
-- **Phase A（会前+会后）**：已验证有价值，零新基础设施。会前喂议程+参会人→猫出应对牌；会后上传录音→批处理转写+复盘。
-- **Phase B（会中 pull-based）**：实时音频采集→流式转写→浮动转写窗。猫在 IM 里响应用户的 pull 请求（"他们在聊什么""帮我整理一下"）。
-- **Phase C（会中 push-based）**：猫主动推 timing 信号、论点提醒。需要 turn-taking 检测。
+- **Phase A（会前+会后）**：已验证有价值，零新基础设施。会前喂议程+参会人→AI 出 pre-meeting talking points / counter-points cards；会后上传录音→批处理转写+复盘分析。
+- **Phase B（会中 pull-based）**：实时音频采集→流式转写→浮动转写窗。AI 在 IM 里响应用户的 pull 请求（"他们在聊什么""帮我整理一下"）。
+- **Phase C（会中 push-based）**：AI 主动推 timing 信号、论点提醒。需要 turn-taking 检测。
 
 **本次调研重点是 Phase B/C 的技术方案**，Phase A 用现有能力已经能做。
+
+### Latency Budget（锚定表）
+
+| 用例 | 目标延迟 | 硬上限 |
+|------|---------|--------|
+| Phase B pull（用户问→AI 答） | ≤15s | 30s |
+| Phase B 浮动转写显示 | ≤5s | 10s |
+| Phase C push（timing 信号） | ≤2s | 5s |
+| Phase A 会后批处理 | 不限 | — |
+
+### 我们接受什么损失（Tradeoff Guidance）
+
+请用这些约束过滤方案，不要追求完美：
+- 接受 85% ASR 准确率换 50% 延迟降低（不追求 95%+）
+- 接受云端 API 做 MVP baseline，后续迁移本地（虽然偏好本地，但不阻塞起步）
+- 接受人工标注 speaker（开场让用户标一下，不打断会议）
+- 接受商业 API 做 MVP，6 个月后迁移开源/本地
+- 接受会议中部分功能"静默失败"（如 diarization 挂了→降级到 Speaker A/B，不打断用户主任务）
+- 不接受的：数据出本机到不可控第三方（隐私红线）、延迟 >30s（失去实时性意义）
 
 ### 我们现有的技术栈
 
@@ -47,7 +75,7 @@ created: 2026-05-10
 
 请逐项调研，每项给出：当前技术现状、推荐方案、备选方案、关键风险、和我们现有栈的对接难度。
 
-#### 1. 音频采集架构（Capture Matrix）
+#### 1. 音频采集架构（Capture Matrix） `[Deep dive]`
 
 这是第一优先级。不同会议场景的音频采集方式完全不同：
 
@@ -82,7 +110,7 @@ created: 2026-05-10
 - 降级策略：当某个采集源不可用时如何 fallback？
 - 有没有开源项目已经做了类似的 meeting audio capture pipeline？
 
-#### 2. 低延迟 Streaming ASR
+#### 2. 低延迟 Streaming ASR `[Deep dive]`
 
 我们现有 ASR 是文件上传制，需要升级到流式。请对比：
 
@@ -103,7 +131,7 @@ created: 2026-05-10
 - 多人说话 + 背景噪音下的鲁棒性
 - Apple Silicon GPU 占用率（我们还要同时跑 LLM 和 TTS）
 
-#### 3. Speaker Diarization / Identification
+#### 3. Speaker Diarization / Identification `[Survey level]`
 
 请分两层调研：
 
@@ -118,7 +146,9 @@ created: 2026-05-10
 - 在线 speaker clustering vs 预注册声纹（enrollment）的 tradeoff？
 - "双路音频"方案（用户麦克风 + 系统音频分开采集）是否能绕过 diarization？
 
-#### 4. Turn-Taking / Interruption Timing
+**许可证兼容性**：pyannote.audio、NeMo 等的 license 是什么？是否允许闭源商业产品集成？
+
+#### 4. Turn-Taking / Interruption Timing `[Mid level]`
 
 这是 AUDHD 用户的核心需求，但不是 ASR 的副产品。请专项调研：
 
@@ -129,19 +159,22 @@ created: 2026-05-10
 - 在多人交叉发言的圆桌场景下，turn-taking 检测的难度和可靠性？
 - 如果没有可靠的自动检测，什么样的 UX 设计可以替代？（比如基于 silence threshold 的保守策略）
 
-#### 5. Meeting Context Compression
+#### 5. Meeting Context Compression `[Mid level]`
 
 实时转写会持续产生文本，但不能全量塞给 LLM（上下文爆炸 + prompt injection 风险）。
 
-- **安全边界**：转写内容来自会议参与者，必须当作不可信输入。如何在提供给 LLM 时隔离 transcript，防止 prompt injection？
+- **安全边界**：转写内容来自会议参与者，必须当作不可信输入。具体问题：
+  - 推荐的隔离方式？（如：将 transcript 放在专用 data block / tool result 中，而非拼入 system prompt）
+  - 是否有成熟的 sandboxing 方法？（如：标记 `<untrusted>` 区域、限制 tool-use scope）
+  - 请给出 3-5 个典型的 injection 测试用例，用于验证隔离效果
 - **压缩策略**：rolling window + event summary + 显式拉取 vs 其他方案？
 - 有没有开源的 meeting summarization / topic tracking 模型可以做实时压缩？
 - 延迟预算：从 "用户问猫" 到 "猫回答"，端到端 ≤15-20s 是否可行？瓶颈在哪？
 - **隐私/consent**：音频和转写文本是否出本机？如果走云端 API fallback，各服务的数据保留政策是什么？会议录音的 TTL/存储策略建议？是否需要向其他参会者告知录音（法律/社交成本）？
 
-#### 6. 类似开源项目和商业产品
+#### 6. 类似开源项目和商业产品 `[Survey level]`
 
-请调研 2025-2026 年的最新方案：
+请调研 2025-2026 年的最新方案（2024 年的仅作为 baseline 参考）：
 
 **开源项目**：
 - 有没有开源的 meeting copilot / AI meeting assistant？架构怎么做的？
@@ -152,10 +185,11 @@ created: 2026-05-10
 - Otter.ai、Fireflies.ai、Granola、Fathom、tl;dv 等的架构分析
 - 它们的 input → transcription → context → suggestion → UI 管线是怎么做的？
 - 有没有产品做了 "real-time advisory"（不只是转写，而是实时给建议）？
+- **调研渠道建议**（不要只看官网营销稿）：创始人/工程师的技术博客、公开 API 文档（推断内部架构）、浏览器 DevTools 抓网络请求、开源组件依赖分析、创始人播客/访谈中的技术细节
 
 **我们的差异化**：我们不是做通用会议记录，而是做 **AUDHD 用户的私人智囊**——重点是 timing/phrasing/structuring，不是会议纪要。
 
-#### 7. MVP / Phase 2 / Future 三档方案
+#### 7. MVP / Phase 2 / Future 三档方案 `[Mid level]`
 
 基于以上调研，请给出三档方案建议：
 
@@ -172,7 +206,7 @@ created: 2026-05-10
 - Turn-taking 主动推送、多模态（视觉信号）、移动端支持
 - 哪些是技术上 2026 年可行的，哪些还需要等？
 
-#### 8. 可验证 Benchmark 计划
+#### 8. 可验证 Benchmark 计划 `[Deep dive]`
 
 不要只列模型名。请给出：
 
@@ -181,6 +215,7 @@ created: 2026-05-10
 - 每个 spike 的验证标准（pass/fail criteria）
 - 在 M4 Max 128GB 上的预期资源占用（GPU 显存、CPU、功耗）
 - 需要准备什么测试数据？（比如录一段 4 人圆桌模拟对话）
+- **失败模式**：每个 spike 最可能的失败原因是什么？失败后的 fallback 路径是什么？（比如：streaming ASR 延迟超标 → fallback 到更大 chunk size + 降低实时性预期）
 
 ### 输出格式
 
@@ -198,8 +233,9 @@ created: 2026-05-10
 - 无法验证的信息必须标注 `[未证实]`
 - 不要列已停更 >12 个月的项目，除非明确标注 `[已停更]` 并说明为什么仍值得参考
 - 不要引用营销稿，只用技术文档、论文、社区 benchmark
+- **时效性要求**：优先引用 2025-2026 年的方案和数据，2024 年的仅作为 baseline 参考
 
-最后给一个 **Executive Summary**：如果你只能给我们一个建议，最值得先做的一件事是什么？
+最后给一个 **Executive Summary**：如果你只能给我们一个建议，最值得先做的一件事是什么？并附上：**做这件事时最常见的一个坑是什么？**
 
 ---
 
