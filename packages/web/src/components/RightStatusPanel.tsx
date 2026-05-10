@@ -360,11 +360,14 @@ export function RightStatusPanel({
   // F26: Split into active (working now) vs history (appeared before)
   const { activeCats, historyCats } = useMemo(() => {
     const snapshotCats = collectSnapshotActiveCats(catInvocations);
-    const active = deriveActiveCats({ targetCats, snapshotCats, activeInvocations, hasActiveInvocation });
+    // F194 Phase Z5 AC-Z15 R7 (cloud Codex P2): 跨 panel coherence — ideate mode 下
+    // 也要走 UNION，否则 ParallelStatusBar 显示 union、Right/Mobile panel slot-first
+    // → cat 完成清 slot 后 Right/Mobile 卡片消失，跨面板 active-cat 集合不一致。
+    const active = deriveActiveCats({ targetCats, snapshotCats, activeInvocations, hasActiveInvocation, intentMode });
     const allParticipants = new Set([...active, ...Object.keys(catInvocations)]);
     const history = [...allParticipants].filter((c) => !active.includes(c));
     return { activeCats: active, historyCats: history };
-  }, [targetCats, catInvocations, activeInvocations, hasActiveInvocation]);
+  }, [targetCats, catInvocations, activeInvocations, hasActiveInvocation, intentMode]);
 
   const { getCatById } = useCatData();
   const [historyOpen, setHistoryOpen] = useState(false);

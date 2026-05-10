@@ -1209,8 +1209,14 @@
     {
       "id": "F195",
       "name": "Meeting Copilot — 实时会议私人智囊团",
-      "status": "idea | **Owner**: 布偶猫 | **Priority**: TBD",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F195-meeting-copilot-live-advisory.md"
+    },
+    {
+      "id": "F196",
+      "name": "Safety Guardian — 猫猫守护者（紧急安全链路）",
+      "status": "idea | **Owner**: 布偶猫 | **Priority**: P0-safety",
+      "file": "F196-safety-guardian.md"
     }
   ]
 }

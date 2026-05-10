@@ -104,12 +104,16 @@ export function ParallelStatusBar({ onStop, threadId }: { onStop?: () => void; t
     catStatuses,
     catInvocations,
     activeInvocations,
+    intentMode,
     hasActive: hasActiveInvocation,
   } = useThreadLiveness(threadId);
   const activeCats = deriveActiveCats({
     targetCats,
     activeInvocations,
     hasActiveInvocation,
+    // F194 Phase Z5 AC-Z15: ideate mode 下保留 targetCats UNION，让本轮所有猫的卡片
+    // 全程显示，slot 移除（猫完成清 slot）不应让卡片消失
+    intentMode,
   });
 
   if (activeCats.length === 0) return null;

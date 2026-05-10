@@ -38,8 +38,9 @@ export function MobileStatusSheet({
 
   const activeCats = useMemo(() => {
     const snapshotCats = collectSnapshotActiveCats(catInvocations);
-    return deriveActiveCats({ targetCats, snapshotCats, activeInvocations, hasActiveInvocation });
-  }, [targetCats, catInvocations, activeInvocations, hasActiveInvocation]);
+    // F194 Phase Z5 AC-Z15 R7 (cloud Codex P2): 跨 panel coherence — see RightStatusPanel comment.
+    return deriveActiveCats({ targetCats, snapshotCats, activeInvocations, hasActiveInvocation, intentMode });
+  }, [targetCats, catInvocations, activeInvocations, hasActiveInvocation, intentMode]);
 
   const allParticipants = useMemo(() => {
     return [...new Set([...activeCats, ...Object.keys(catInvocations)])];

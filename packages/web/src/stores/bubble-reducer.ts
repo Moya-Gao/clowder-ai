@@ -180,6 +180,21 @@ function findExistingByStableKey(
   // provisional bubble，不能参与 stable key 查重；否则两个 invocationless event
   // 会被 `undefined !== undefined === false` 误判为同一气泡（砚砚 re-review P1）。
   if (!event.canonicalInvocationId) return undefined;
+
+  // F194 Phase Z5 AC-Z14 (live reconcile): 优先级
+  // (1) 同 (actor, turn, kind) 严格匹配 — ADR-033 kind 共存场景
+  // (2) Empty-placeholder 吸收 — 同 (actor, turn) 下若存在 freshly-created assistant_text
+  //     placeholder（content="" && 无 toolEvents && 无 thinking），且当前 event 是其他
+  //     kind（tool_or_cli/thinking/rich_block），就把 placeholder 当 same-turn container
+  //     吸收掉（AC-Z14 reconcile，避免 helper 提前创建 assistant_text placeholder 后
+  //     被 reducer 别的 kind 事件分裂成两个 bubble = 铲屎官 alpha catch 的 Bug A 形态）
+  //
+  // F194 Phase Z5 R5 (cloud Codex P1): 吸收必须 gate 在 incoming kind 上 — 只允许
+  // assistant 容器内的子事件（assistant_text / thinking / tool_or_cli / rich_block）。
+  // system_status (e.g. reduceErrorEvent error/timeout) 不允许吸收 placeholder，
+  // 否则 error 会覆盖 assistant 容器把它变成 system error，丢 ADR-033 kind 分离语义。
+  let placeholderCandidate: { index: number; message: ChatMessage } | undefined;
+  const incomingKindIsPlaceholderAbsorbable = event.bubbleKind !== 'system_status';
   for (let i = 0; i < messages.length; i++) {
     const m = messages[i];
     if (m.catId !== event.actorId) continue;
@@ -188,10 +203,23 @@ function findExistingByStableKey(
     const existingInvocationId = getStableInvocationKey(m);
     if (!existingInvocationId) continue; // existing local-only 不参与 stable key 查重
     if (existingInvocationId !== event.canonicalInvocationId) continue;
-    if (deriveBubbleKindFromMessage(m) !== event.bubbleKind) continue;
-    return { index: i, message: m };
+    const existingKind = deriveBubbleKindFromMessage(m);
+    if (existingKind === event.bubbleKind) {
+      return { index: i, message: m }; // (1) 严格匹配
+    }
+    // (2) Empty-placeholder 吸收 candidate：assistant_text 默认 kind + 内容/toolEvents/thinking 全空
+    if (
+      !placeholderCandidate &&
+      incomingKindIsPlaceholderAbsorbable &&
+      existingKind === 'assistant_text' &&
+      !m.content &&
+      (m.toolEvents?.length ?? 0) === 0 &&
+      !m.thinking
+    ) {
+      placeholderCandidate = { index: i, message: m };
+    }
   }
-  return undefined;
+  return placeholderCandidate;
 }
 
 // ADR-033 placeholder 单调升级链 draft/local → stream → callback/history。
