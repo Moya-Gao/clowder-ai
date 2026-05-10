@@ -49,13 +49,16 @@ function targetsFor(health: AgentHookStatusResponse | null): AgentHookTargetHeal
   return Array.isArray(health?.targets) ? health.targets : [];
 }
 
-function groupStatus(health: AgentHookStatusResponse | null, group: 'claude' | 'codex'): AgentHookHealthDisplayStatus {
+function groupStatus(health: AgentHookStatusResponse | null, group: 'claude' | 'codex' | 'gemini'): AgentHookHealthDisplayStatus {
   const allTargets = targetsFor(health);
   if (allTargets.length === 0) return 'unknown';
+  const peerNames = new Set(['codex-hooks', 'gemini-hooks']);
   const targets =
     group === 'codex'
       ? allTargets.filter((target) => target.name === 'codex-hooks')
-      : allTargets.filter((target) => target.name !== 'codex-hooks');
+      : group === 'gemini'
+        ? allTargets.filter((target) => target.name === 'gemini-hooks')
+        : allTargets.filter((target) => !peerNames.has(target.name));
   if (targets.length === 0) return 'unsupported';
   return aggregateStatus(targets);
 }
@@ -74,7 +77,7 @@ function toneFor(status: AgentHookHealthStatus | 'syncing' | 'synced' | 'error')
     return {
       icon: 'check',
       title: 'Agent 运行 Hook 已同步',
-      body: 'Claude/Codex 的开工与收尾 Hook 已就绪，猫猫可以按纪律开工。',
+      body: 'Claude/Codex/Gemini 的开工与收尾 Hook 已就绪，猫猫可以按纪律开工。',
       classes: 'border-conn-green-ring bg-conn-green-bg text-conn-green-text',
     };
   }
@@ -159,6 +162,9 @@ export function AgentHookHealthNotice({
             </span>
             <span className="rounded-full border border-cafe-subtle bg-cafe-surface-elevated px-2 py-0.5 text-cafe-secondary">
               Codex：{statusText(groupStatus(health, 'codex'))}
+            </span>
+            <span className="rounded-full border border-cafe-subtle bg-cafe-surface-elevated px-2 py-0.5 text-cafe-secondary">
+              Gemini：{statusText(groupStatus(health, 'gemini'))}
             </span>
           </div>
 

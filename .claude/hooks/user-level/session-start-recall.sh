@@ -34,6 +34,15 @@ ${UNPUSHED}
 "
 fi
 
+# 2b. 检查是否 behind origin（其他猫 push 了但本地没 pull）
+BEHIND=$(git rev-list --count HEAD..@{u} 2>/dev/null)
+if [ -n "$BEHIND" ] && [ "$BEHIND" -gt 0 ]; then
+  WARNINGS="${WARNINGS}
+⚠️ 本地落后 origin ${BEHIND} 个 commit
+→ 建议先 git pull 再开工
+"
+fi
+
 # 3. 检查是否在非 main 分支（主仓库不应该 checkout 到其他分支）
 BRANCH=$(git branch --show-current 2>/dev/null)
 TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null)
@@ -58,13 +67,23 @@ ${UNTRACKED_DOCS}
 "
 fi
 
-# 5. 检查根目录杂物（不该出现在根目录的文件）
+# 5. 检查根目录图片文件（用文件系统检查，不受 .gitignore 影响）
+ROOT_IMAGES=$(find . -maxdepth 1 -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.gif' -o -name '*.webp' \) 2>/dev/null | sed 's|^\./||' | head -10)
+if [ -n "$ROOT_IMAGES" ]; then
+  WARNINGS="${WARNINGS}
+⚠️ 根目录有图片文件（截图应放 assets/screenshots/，设计稿放 designs/）：
+${ROOT_IMAGES}
+→ 向铲屎官汇报，商量移走还是删除
+"
+fi
+
+# 6. 检查根目录其他杂物（未跟踪且未 ignore 的文件）
 ROOT_CLUTTER=$(git ls-files --others --exclude-standard -- ':!.*' ':!packages/' ':!docs/' ':!assets/' ':!scripts/' ':!cat-cafe-skills/' ':!designs/' ':!desktop/' 2>/dev/null \
   | grep -vE '^(package\.json|pnpm-workspace\.yaml|pnpm-lock\.yaml|tsconfig|biome|README|LICENSE|CLAUDE|AGENTS|\.npmrc|\.nvmrc|\.node-version|\.editorconfig|\.prettierrc|Makefile|Dockerfile|Procfile|turbo\.json|\.tool-versions)' \
   | head -10)
 if [ -n "$ROOT_CLUTTER" ]; then
   WARNINGS="${WARNINGS}
-⚠️ 根目录有不该在这里的文件（可能是猫猫产物忘记移走/ignore）：
+⚠️ 根目录有不该在这里的文件：
 ${ROOT_CLUTTER}
 → 向铲屎官汇报，商量处理方式
 "
