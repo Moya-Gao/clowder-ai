@@ -406,6 +406,10 @@ export async function* routeParallel(
         ...(targetUploadDir ? { uploadDir: targetUploadDir } : {}),
         ...(signal ? { signal } : {}),
         ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
+        // F194 Phase Z2 (砚砚 catch 2026-05-09)：parallel route 必须传 parentInvocationId，
+        // 与 route-serial.ts:725 对齐。否则 child registry record 缺 parentInvocationId →
+        // helper namespace bridge 失效 → ideate/parallel 场景气泡又裂。
+        ...(options.parentInvocationId ? { parentInvocationId: options.parentInvocationId } : {}),
         ...(options.routeSpan ? { routeSpan: options.routeSpan } : {}),
         continuityCapsule,
         isLastCat: false,
