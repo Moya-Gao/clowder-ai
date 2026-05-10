@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-05-09（F195 Meeting Copilot 立项）
+> 维护者：三猫 | 最后更新：2026-05-10（F196 Safety Guardian 立项）
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -68,3 +68,4 @@ created: 2026-02-26
 | F192 | Socio-Technical Harness Eval — harness 共创评估体系 | spec | 布偶猫 | internal | [F192](features/F192-socio-technical-harness-eval.md) |
 | F194 | Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口（F183 post-close follow-up） | in-progress | 布偶猫(Opus 4.7) | internal | [F194](features/F194-invocation-liveness-canonical-read-model.md) |
 | F195 | Meeting Copilot — 实时会议私人智囊团（AUDHD augmentation） | spec | 布偶猫 | internal | [F195](features/F195-meeting-copilot-live-advisory.md) |
+| F196 | Safety Guardian — 猫猫守护者（紧急安全链路） | idea | 布偶猫 | internal | [F196](features/F196-safety-guardian.md) |
