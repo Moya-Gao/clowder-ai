@@ -862,7 +862,12 @@ export interface ChatState {
   setThreadMessageMetadata: (threadId: string, messageId: string, metadata: ChatMessageMetadata) => void;
   setThreadMessageUsage: (threadId: string, messageId: string, usage: TokenUsage) => void;
   setThreadMessageThinking: (threadId: string, messageId: string, thinking: string) => void;
-  setThreadMessageStreamInvocation: (threadId: string, messageId: string, invocationId: string, turnInvocationId?: string) => void;
+  setThreadMessageStreamInvocation: (
+    threadId: string,
+    messageId: string,
+    invocationId: string,
+    turnInvocationId?: string,
+  ) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   setThreadLoading: (threadId: string, loading: boolean) => void;
   setThreadHasActiveInvocation: (threadId: string, active: boolean) => void;

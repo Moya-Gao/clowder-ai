@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 await import('tsx/esm');
-const { cleanOrphanAgentBrowserChrome, parseOrphanPids } = await import('../src/utils/orphan-chrome-cleaner.ts');
+const { cleanOrphanAgentBrowserChrome, parseAgentBrowserChromeCleanupPids, parseOrphanPids } = await import(
+  '../src/utils/orphan-chrome-cleaner.ts'
+);
 
 const fakeLog = {
   info() {},
@@ -18,6 +20,16 @@ const CHROME_ORPHAN =
 // Active Chrome: ppid!=1 (parent still alive), same Chrome + marker — NOT an orphan
 const ACTIVE_CHROME =
   '78800 78911 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/147.0.7727.102/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer) --type=renderer --user-data-dir=/var/folders/41/tmp/agent-browser-chrome-586c6846';
+
+// ps -eo ppid=,pid=,etime=,args= format, used by the startup cleaner to catch stale non-orphans.
+const STALE_CHROME_MAIN =
+  '21400 21424 04:00:00 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --type=browser --user-data-dir=/var/folders/41/tmp/agent-browser-chrome-stale --remote-debugging-port=0';
+const STALE_CHROME_HELPER =
+  '21424 21425 04:00:00 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/147.0.7727.102/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer) --type=renderer --user-data-dir=/var/folders/41/tmp/agent-browser-chrome-stale';
+const RECENT_CHROME_MAIN =
+  '21400 21426 05:00 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --type=browser --user-data-dir=/var/folders/41/tmp/agent-browser-chrome-active --remote-debugging-port=0';
+const RECENT_CHROME_HELPER =
+  '21426 21427 05:00 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/147.0.7727.102/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer) --type=renderer --user-data-dir=/var/folders/41/tmp/agent-browser-chrome-active';
 
 // Node/Claude process: ppid=1, prompt text contains BOTH "Chrome" AND "--user-data-dir=...agent-browser-chrome"
 // This is the exact false positive scenario from review R2
@@ -94,6 +106,27 @@ describe('parseOrphanPids', () => {
   });
 });
 
+describe('parseAgentBrowserChromeCleanupPids', () => {
+  test('matches stale non-orphan Chrome profile after threshold', () => {
+    const pids = parseAgentBrowserChromeCleanupPids(
+      [STALE_CHROME_MAIN, STALE_CHROME_HELPER, RECENT_CHROME_MAIN, RECENT_CHROME_HELPER].join('\n'),
+      1,
+      3600,
+    );
+    assert.deepEqual(pids, [21424, 21425]);
+  });
+
+  test('does not match recent active non-orphan Chrome profile', () => {
+    const pids = parseAgentBrowserChromeCleanupPids([RECENT_CHROME_MAIN, RECENT_CHROME_HELPER].join('\n'), 1, 3600);
+    assert.deepEqual(pids, []);
+  });
+
+  test('keeps legacy orphan behavior without etimes column', () => {
+    const pids = parseAgentBrowserChromeCleanupPids(FIXTURE, 1, 3600);
+    assert.deepEqual(pids, [78911]);
+  });
+});
+
 describe('cleanOrphanAgentBrowserChrome', () => {
   test('kills only matched orphans via injected deps', async () => {
     const killed = [];
@@ -109,6 +142,23 @@ describe('cleanOrphanAgentBrowserChrome', () => {
     assert.equal(result.found, 1);
     assert.equal(result.killed, 1);
     assert.deepEqual(killed, [78911]);
+    assert.deepEqual(result.failedPids, []);
+  });
+
+  test('kills stale non-orphan agent-browser Chrome profile via injected deps', async () => {
+    const killed = [];
+    const deps = {
+      async listProcesses() {
+        return [STALE_CHROME_MAIN, STALE_CHROME_HELPER, RECENT_CHROME_MAIN, RECENT_CHROME_HELPER].join('\n');
+      },
+      killProcess(pid) {
+        killed.push(pid);
+      },
+    };
+    const result = await cleanOrphanAgentBrowserChrome(fakeLog, deps);
+    assert.equal(result.found, 2);
+    assert.equal(result.killed, 2);
+    assert.deepEqual(killed, [21424, 21425]);
     assert.deepEqual(result.failedPids, []);
   });
 

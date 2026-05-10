@@ -361,7 +361,11 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
 
     // F194 Phase Z3 R10: setMessageStreamInvocation accepts a 3rd turnInvocationId arg
     // (undefined when no per-cat-turn id known — this scenario emits a single-id chunk).
-    expect(mockSetMessageStreamInvocation).toHaveBeenCalledWith('msg-active-invocationless', 'inv-late-bind', undefined);
+    expect(mockSetMessageStreamInvocation).toHaveBeenCalledWith(
+      'msg-active-invocationless',
+      'inv-late-bind',
+      undefined,
+    );
     expect(storeState.messages.find((m) => m.id === 'msg-active-invocationless')?.extra?.stream?.invocationId).toBe(
       'inv-late-bind',
     );

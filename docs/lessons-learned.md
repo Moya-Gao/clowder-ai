@@ -1168,6 +1168,34 @@ created: 2026-02-26
 
 ---
 
+### LL-056: stale browser profile 不是 orphan——cleanup 要按资源所有权分组
+- 状态：draft
+- 更新时间：2026-05-10
+
+- 坑：F145 的 agent-browser Chrome startup cleanup 只扫描 `ppid=1` 的 orphan Chrome 进程。第 5 次复发时，现场是 61 个 `agent-browser-chrome-*` headless Chrome 进程抢 CPU，Chrome main process 自己还活着，helper 的 `ppid` 指向 Chrome main 而不是 launchd，所以原逻辑直接漏掉。结果 `pnpm start` 的 API server 在 20s 内监听不上 3002，看起来像 runtime 启动超时，根因实际是 stale browser profile 长时间占 CPU。
+- 根因：
+  1. **对象建模错了**：F145 把问题建模成“单个进程是否 orphan”，但真实资源所有权是“同一个 `--user-data-dir=...agent-browser-chrome-*` profile 下的一组 Chrome main/helper 是否还属于活跃任务”。当 parent 关系还存在时，`ppid=1` 不是充分条件。
+  2. **上游边界混淆**：我们本地 MCP 配置跑的是 `npx agent-browser-mcp`。npm 上 `agent-browser-mcp` 最新仍是 0.1.3，wrapper 只是按工具调用 spawn `agent-browser` CLI，没有 MCP server 退出时关闭浏览器 profile 的生命周期管理。底层 `agent-browser` CLI 有更新版本，但升级 CLI 不能补齐 wrapper crash / MCP parent 死亡后的资源回收。
+- 触发条件：agent-browser MCP server / IDE / 调用进程异常退出，Chrome main 没收到完整关闭信号；或者 MCP wrapper 没显式关闭 session，`agent-browser-chrome-*` temp profile 跨天保留并持续占 CPU。
+- 修复（已落地）：
+  1. `packages/api/src/utils/orphan-chrome-cleaner.ts` 的 parser 从 `ps -eo ppid=,pid=,args=` 升级为 `ps -eo ppid=,pid=,etime=,args=`，保留旧 `ppid=1` orphan 分支。
+  2. 新增按 `user-data-dir` 分组的 stale profile 判断：同组内只要存在 `ppid != 1 && etime >= 1h` 的 agent-browser Chrome 进程，就清理该 profile 下所有 Chrome main/helper PID。
+  3. 回归测试覆盖三类边界：stale non-orphan profile 会被清；5 分钟 active non-orphan profile 不被清；normal Chrome / prompt 里含关键词的 Node/Claude 进程不被误杀。
+- 防护：
+  1. 进程 cleanup 不要只看 parent 链；先问“资源所有权边界是什么”。对浏览器这类多进程 runtime，通常是 profile/socket/session dir，而不是单个 PID。
+  2. 外部 CLI upgrade 是必要排查项，但不能代替本地 guard。wrapper 没有生命周期管理时，A 类 startup guard 和 C 类上游修复必须并存。
+  3. 启发式阈值要有测试表达 tradeoff：本次 1h 阈值只在 cat-cafe startup 时运行，不是周期清理；误杀代价是重开 agent-browser session，低于 runtime 起不来的代价。
+- 来源锚点：
+  - `docs/features/F145-mcp-portable-provisioning.md` Known Issues（PR #1407 只修了 orphan cleanup）
+  - `packages/api/src/utils/orphan-chrome-cleaner.ts`
+  - `packages/api/test/orphan-chrome-cleaner.test.js`
+  - 2026-05-10 agent-browser stale Chrome 第 5 次复发交接（61 个 headless Chrome，7 个 user-data-dir，最老 4 天）
+- 原理：**cleanup 的坐标系必须贴着资源所有权，而不是贴着症状最显眼的字段。** `ppid=1` 能识别 orphan，但不能识别 stale；`user-data-dir` 才是 agent-browser Chrome profile 的真实生命周期边界。对外部工具，不能把“上游版本更新”当作本地运行时的唯一防线，因为 wrapper 与 CLI 之间可能正好是泄漏发生的所有权断点。
+
+- 关联：F145 | LL-055 | `feedback_agent_browser_zombie.md`
+
+---
+
 ## 8) 维护约定
 
 - 本文件是入口，不替代 ADR/bug-report 原文。

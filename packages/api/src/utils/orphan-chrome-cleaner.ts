@@ -3,7 +3,8 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
-const USER_DATA_DIR_RE = /--user-data-dir=\S*agent-browser-chrome/;
+const STALE_AGENT_BROWSER_CHROME_SECONDS = 60 * 60;
+const USER_DATA_DIR_RE = /--user-data-dir=(?:"([^"]+)"|'([^']+)'|(\S+))/;
 
 export interface OrphanCleanResult {
   found: number;
@@ -22,6 +23,13 @@ export interface OrphanChromeDeps {
   killProcess: (pid: number) => void;
 }
 
+interface ProcessEntry {
+  ppid: number;
+  pid: number;
+  elapsedSeconds?: number;
+  userDataDir: string;
+}
+
 function isChromeBinary(args: string): boolean {
   return (
     args.startsWith('/Applications/Google Chrome.app/') ||
@@ -30,27 +38,110 @@ function isChromeBinary(args: string): boolean {
   );
 }
 
-export function parseOrphanPids(psOutput: string, ownPid: number): number[] {
-  return psOutput
+function parseElapsedSeconds(etime: string | undefined): number | undefined {
+  if (!etime) return undefined;
+  const [dayPart, timePart] = etime.includes('-') ? etime.split('-', 2) : ['0', etime];
+  const days = Number.parseInt(dayPart, 10);
+  const parts = timePart.split(':').map((part) => Number.parseInt(part, 10));
+  if (!Number.isFinite(days)) return undefined;
+  if (parts.some((part) => !Number.isFinite(part))) return undefined;
+  if (parts.length === 2) {
+    const [minutes, seconds] = parts;
+    return days * 24 * 60 * 60 + minutes * 60 + seconds;
+  }
+  if (parts.length === 3) {
+    const [hours, minutes, seconds] = parts;
+    return days * 24 * 60 * 60 + hours * 60 * 60 + minutes * 60 + seconds;
+  }
+  return undefined;
+}
+
+function parseProcessLine(line: string): ProcessEntry | null {
+  const m = line.trim().match(/^(\d+)\s+(\d+)(?:\s+([0-9:-]+))?\s+(.+)$/);
+  if (!m) return null;
+  const ppid = Number.parseInt(m[1], 10);
+  const pid = Number.parseInt(m[2], 10);
+  const args = m[4];
+  if (!Number.isFinite(ppid)) return null;
+  if (!Number.isFinite(pid)) return null;
+  if (!isChromeBinary(args)) return null;
+  const userDataDir = parseAgentBrowserUserDataDir(args);
+  if (!userDataDir) return null;
+  return {
+    ppid,
+    pid,
+    elapsedSeconds: parseElapsedSeconds(m[3]),
+    userDataDir,
+  };
+}
+
+function parseAgentBrowserUserDataDir(args: string): string | null {
+  const m = args.match(USER_DATA_DIR_RE);
+  let userDataDir: string | undefined;
+  if (m?.[1] !== undefined) {
+    userDataDir = m[1];
+  } else if (m?.[2] !== undefined) {
+    userDataDir = m[2];
+  } else if (m?.[3] !== undefined) {
+    userDataDir = m[3];
+  }
+  if (userDataDir === undefined) return null;
+  if (!userDataDir.includes('agent-browser-chrome')) return null;
+  return userDataDir;
+}
+
+export function parseAgentBrowserChromeCleanupPids(
+  psOutput: string,
+  ownPid: number,
+  staleAfterSeconds = STALE_AGENT_BROWSER_CHROME_SECONDS,
+): number[] {
+  const entries = psOutput
     .split('\n')
-    .map((line) => {
-      const m = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
-      if (!m) return null;
-      const ppid = Number.parseInt(m[1], 10);
-      const pid = Number.parseInt(m[2], 10);
-      const args = m[3];
-      if (pid === ownPid) return null;
-      if (ppid !== 1) return null;
-      if (!isChromeBinary(args)) return null;
-      if (!USER_DATA_DIR_RE.test(args)) return null;
-      return pid;
-    })
-    .filter((pid): pid is number => pid !== null);
+    .map(parseProcessLine)
+    .filter((entry): entry is ProcessEntry => entry !== null && entry.pid !== ownPid);
+  const cleanupPids = new Set<number>();
+  const entriesByUserDataDir = new Map<string, ProcessEntry[]>();
+
+  for (const entry of entries) {
+    if (entry.ppid === 1) {
+      cleanupPids.add(entry.pid);
+    }
+    let profileEntries = entriesByUserDataDir.get(entry.userDataDir);
+    if (profileEntries === undefined) {
+      profileEntries = [];
+      entriesByUserDataDir.set(entry.userDataDir, profileEntries);
+    }
+    profileEntries.push(entry);
+  }
+
+  for (const profileEntries of entriesByUserDataDir.values()) {
+    const hasStaleNonOrphan = profileEntries.some(
+      (entry) => entry.ppid !== 1 && entry.elapsedSeconds !== undefined && entry.elapsedSeconds >= staleAfterSeconds,
+    );
+    if (!hasStaleNonOrphan) continue;
+    for (const entry of profileEntries) {
+      cleanupPids.add(entry.pid);
+    }
+  }
+
+  const result: number[] = [];
+  const seen = new Set<number>();
+  for (const entry of entries) {
+    if (!cleanupPids.has(entry.pid)) continue;
+    if (seen.has(entry.pid)) continue;
+    seen.add(entry.pid);
+    result.push(entry.pid);
+  }
+  return result;
+}
+
+export function parseOrphanPids(psOutput: string, ownPid: number): number[] {
+  return parseAgentBrowserChromeCleanupPids(psOutput, ownPid, Number.POSITIVE_INFINITY);
 }
 
 const defaultDeps: OrphanChromeDeps = {
   async listProcesses() {
-    const { stdout } = await execFileAsync('ps', ['-eo', 'ppid=,pid=,args='], {
+    const { stdout } = await execFileAsync('ps', ['-eo', 'ppid=,pid=,etime=,args='], {
       maxBuffer: 4 * 1024 * 1024,
     });
     return stdout;
@@ -72,7 +163,7 @@ export async function cleanOrphanAgentBrowserChrome(
   let pids: number[];
   try {
     const psOutput = await deps.listProcesses();
-    pids = parseOrphanPids(psOutput, process.pid);
+    pids = parseAgentBrowserChromeCleanupPids(psOutput, process.pid);
   } catch (err) {
     log.warn(`[orphan-chrome] Failed to list processes: ${String(err)}`);
     return { found: 0, killed: 0, failedPids: [], durationMs: Date.now() - start };
@@ -82,7 +173,7 @@ export async function cleanOrphanAgentBrowserChrome(
     return { found: 0, killed: 0, failedPids: [], durationMs: Date.now() - start };
   }
 
-  log.info(`[orphan-chrome] Found ${pids.length} orphan agent-browser Chrome process(es): ${pids.join(', ')}`);
+  log.info(`[orphan-chrome] Found ${pids.length} orphan/stale agent-browser Chrome process(es): ${pids.join(', ')}`);
 
   let killed = 0;
   const failedPids: number[] = [];
@@ -97,7 +188,7 @@ export async function cleanOrphanAgentBrowserChrome(
 
   const durationMs = Date.now() - start;
   if (killed > 0) {
-    log.info(`[orphan-chrome] Killed ${killed}/${pids.length} orphan(s) in ${durationMs}ms`);
+    log.info(`[orphan-chrome] Killed ${killed}/${pids.length} orphan/stale process(es) in ${durationMs}ms`);
   }
   if (failedPids.length > 0) {
     log.warn(`[orphan-chrome] Failed to kill PIDs: ${failedPids.join(', ')}`);

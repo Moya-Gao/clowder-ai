@@ -23,7 +23,12 @@ export interface BuildAgentHookTargetsOptions {
   targetRoot: string;
 }
 
-export const AGENT_HOOK_TARGET_NAMES = ['hooks/session-start', 'hooks/session-stop', 'codex-hooks', 'gemini-hooks'] as const;
+export const AGENT_HOOK_TARGET_NAMES = [
+  'hooks/session-start',
+  'hooks/session-stop',
+  'codex-hooks',
+  'gemini-hooks',
+] as const;
 
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map((item) => canonicalize(item));

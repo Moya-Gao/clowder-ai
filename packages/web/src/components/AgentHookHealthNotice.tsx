@@ -49,7 +49,10 @@ function targetsFor(health: AgentHookStatusResponse | null): AgentHookTargetHeal
   return Array.isArray(health?.targets) ? health.targets : [];
 }
 
-function groupStatus(health: AgentHookStatusResponse | null, group: 'claude' | 'codex' | 'gemini'): AgentHookHealthDisplayStatus {
+function groupStatus(
+  health: AgentHookStatusResponse | null,
+  group: 'claude' | 'codex' | 'gemini',
+): AgentHookHealthDisplayStatus {
   const allTargets = targetsFor(health);
   if (allTargets.length === 0) return 'unknown';
   const peerNames = new Set(['codex-hooks', 'gemini-hooks']);

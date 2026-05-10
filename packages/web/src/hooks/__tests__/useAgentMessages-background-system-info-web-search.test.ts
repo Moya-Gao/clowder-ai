@@ -131,7 +131,12 @@ describe('consumeBackgroundSystemInfo web_search', () => {
     const result = consumeBackgroundSystemInfo(msg, undefined, options);
 
     expect(result.consumed).toBe(true);
-    expect(options.store.setThreadMessageStreamInvocation).toHaveBeenCalledWith('thread-1', 'bg-msg-1', 'inv-new-3', undefined);
+    expect(options.store.setThreadMessageStreamInvocation).toHaveBeenCalledWith(
+      'thread-1',
+      'bg-msg-1',
+      'inv-new-3',
+      undefined,
+    );
   });
 
   // F194 Phase Z3 R12 (砚砚 R13 RED requirement): background invocation_created with dual id

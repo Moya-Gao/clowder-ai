@@ -268,7 +268,12 @@ export interface BackgroundStoreLike {
   /** F045: Set or append extended thinking on an assistant message in a background thread */
   setThreadMessageThinking: (threadId: string, messageId: string, thinking: string) => void;
   /** F081: Persist stream invocation identity on background assistant bubbles */
-  setThreadMessageStreamInvocation: (threadId: string, messageId: string, invocationId: string, turnInvocationId?: string) => void;
+  setThreadMessageStreamInvocation: (
+    threadId: string,
+    messageId: string,
+    invocationId: string,
+    turnInvocationId?: string,
+  ) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   setThreadLoading: (threadId: string, loading: boolean) => void;
   setThreadHasActiveInvocation: (threadId: string, active: boolean) => void;
@@ -3030,7 +3035,10 @@ export function useAgentMessages() {
 
       if (msg.type === 'text' && msg.content) {
         // F194 Phase Z3 R16 (cloud Codex P1): suppression key uses turn id when present.
-        if (msg.origin !== 'callback' && shouldSuppressLateStreamChunk(msg.catId, msg.turnInvocationId ?? msg.invocationId)) {
+        if (
+          msg.origin !== 'callback' &&
+          shouldSuppressLateStreamChunk(msg.catId, msg.turnInvocationId ?? msg.invocationId)
+        ) {
           settlePendingActiveTextFinalCallback(msg, { stale: true });
           return;
         }
@@ -3169,14 +3177,22 @@ export function useAgentMessages() {
             clearFinalized(msg.catId);
             if (invocationId) {
               // F194 Phase Z3 R16 (cloud Codex P1): suppression key uses turn id when present.
-              markReplacedInvocation(useChatStore.getState().currentThreadId, msg.catId, msg.turnInvocationId ?? invocationId);
+              markReplacedInvocation(
+                useChatStore.getState().currentThreadId,
+                msg.catId,
+                msg.turnInvocationId ?? invocationId,
+              );
             }
           } else {
             // F194 Phase Z3 R17 (cloud Codex P1#2): bubble id seeded with turn-priority key
             // so same-parent multi-turn callback creates distinct bubbles instead of dedup-collapsing.
             const id =
               msg.messageId ??
-              deriveBubbleId(msg.turnInvocationId ?? invocationId, msg.catId, () => `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`);
+              deriveBubbleId(
+                msg.turnInvocationId ?? invocationId,
+                msg.catId,
+                () => `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`,
+              );
             // F194 Phase Z3 R3 P1-3: invocationless callback add 也写完整 dual id
             const extraForAdd = {
               ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
@@ -3222,7 +3238,11 @@ export function useAgentMessages() {
             if (invocationId) {
               // F173 A.6 — shared module Map; both handlers see this suppression.
               // F194 Phase Z3 R16 (cloud Codex P1): suppression key uses turn id when present.
-              markReplacedInvocation(useChatStore.getState().currentThreadId, msg.catId, msg.turnInvocationId ?? invocationId);
+              markReplacedInvocation(
+                useChatStore.getState().currentThreadId,
+                msg.catId,
+                msg.turnInvocationId ?? invocationId,
+              );
             }
           }
         } else {
@@ -3560,7 +3580,11 @@ export function useAgentMessages() {
             // the deterministic bubble id and re-opening the finalized bubble.
             if (msg.invocationId) {
               // F194 Phase Z3 R16 (cloud Codex P1): suppression key uses turn id when present.
-              markReplacedInvocation(useChatStore.getState().currentThreadId, msg.catId, msg.turnInvocationId ?? msg.invocationId);
+              markReplacedInvocation(
+                useChatStore.getState().currentThreadId,
+                msg.catId,
+                msg.turnInvocationId ?? msg.invocationId,
+              );
             }
           }
           // F183 Phase B1.3 — finalize cross-kind bubbles via reducer (single-writer).

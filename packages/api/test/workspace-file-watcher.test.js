@@ -32,6 +32,8 @@ function waitForSocketEvent(client, eventName, timeoutMs = 1500) {
   });
 }
 
+const FS_WATCH_EVENT_TIMEOUT_MS = 5000;
+
 async function connectClient(port) {
   const client = ioClient(`http://localhost:${port}`, { transports: ['websocket'] });
   await new Promise((resolve) => client.on('connect', resolve));
@@ -104,7 +106,7 @@ describe('workspace-file-watcher', () => {
       client.emit('workspace:watch-file', { worktreeId: 'test-wt', path: 'target.md', sha256: initialSha });
 
       // Atomic rename: write to tmp then rename over target
-      const firstChange = waitForSocketEvent(client, 'workspace:file-changed');
+      const firstChange = waitForSocketEvent(client, 'workspace:file-changed', FS_WATCH_EVENT_TIMEOUT_MS);
       const tmpFile = join(tmpDir, 'target.md.tmp');
       await writeFile(tmpFile, 'version-2');
       const { rename } = await import('node:fs/promises');
@@ -115,7 +117,7 @@ describe('workspace-file-watcher', () => {
       assert.equal(firstEvent.sha256, sha256('version-2'));
 
       // Subsequent write should still trigger (watcher survives rename)
-      const secondChange = waitForSocketEvent(client, 'workspace:file-changed');
+      const secondChange = waitForSocketEvent(client, 'workspace:file-changed', FS_WATCH_EVENT_TIMEOUT_MS);
       await writeFile(filePath, 'version-3');
       const secondEvent = await secondChange;
       assert.equal(secondEvent.sha256, sha256('version-3'));

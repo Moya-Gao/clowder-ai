@@ -25,10 +25,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { configureDebug } from '@/debug/invocationEventDebug';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
-import {
-  markReplacedInvocation,
-  resetSharedReplacedInvocations,
-} from '../shared-replaced-invocations';
+import { markReplacedInvocation, resetSharedReplacedInvocations } from '../shared-replaced-invocations';
 import { type BackgroundAgentMessage, handleBackgroundAgentMessage } from '../useAgentMessages';
 
 let testBgSeq = 0;
