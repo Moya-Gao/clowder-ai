@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F194: Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口
 
-> **Status**: in-progress (Phase A + B + Z + Z2 + **Z3** merged 2026-05-10; **acceptance still failing 2026-05-10 02:30** — 铲屎官报告**第三个问题**：F5 后正常，但刷新前 live 气泡多余 + at 顺序错。砚砚 (GPT-5.5) 诊断：server snapshot canonical 是对的，但 live event replay 不收敛——某条 live 事件没带对 turnInvocationId 或 active ref 还绑在旧 bubble 上 → 同段 thinking 进大泡泡又新建小泡泡。代码定位：`useAgentMessages.ts` bg path 3 处 placeholder（web_search:505 / rich_block:571 / thinking:681）用非 deterministic id `bg-X-${Date.now()}-...`，bypass `deriveBubbleId`，hydrate 后 canonical id 是 `msg-{turn}-{cat}` → live 与 hydrate 不一致，F5 才能消除分裂。**Phase Z4 收口**：3 处 placeholder 都用 `deriveBubbleId(turnInvocationId ?? invocationId, catId, fallback)` + AC-Z10 live≡hydrate 不变量 RED test) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
+> **Status**: in-progress (Phase A + B + Z + Z2 + Z3 + Z4 merged; **acceptance still failing 2026-05-10 04:42** — 铲屎官 alpha 实测发现 Z3/Z4 合入后 4 个新/加剧问题：(A) 气泡仍裂——`deriveBubbleId` 公式 `msg-{turn}-{cat}` 与 reducer 公式 `msg-{turn}-{cat}-{kind}` 不对齐 + kind 漂移后 findExistingByStableKey 匹配失败; (B) 裂了不再自愈——Z3/Z4 收紧 identity 匹配但没补 live reconcile pass; (C) 并发 @ 两猫采样面板只显示一只——`deriveActiveCats` 只看 active slots，完成的猫被清; (D) 无 @ 留言 fallback 到错误的猫——`participantsWithActivity` 按 `lastMessageAt desc` 让 vision guard 猫抢上游。**Phase Z5 收口** — opus-47 + GPT-5.5 + opus-46 三猫独立诊断收敛) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
 >
 > **AC-Z1 (alpha runtime acceptance) FAILED 2026-05-09 03:35** — 铲屎官实测 runtime 仍裂，根因比 Phase B 修的更深：F194 read-side helper 把 **parent recordStore invocation** 与 **per-cat-turn registry invocation** 当成同一 namespace 处理。bug-report `docs/bug-report/2026-05-09-f194-runtime-bubble-still-split-completion-leak/`，砚砚 2026-05-09 04:51 拍板走 Phase Z（namespace-aware canonical read model），见 KD-21~KD-23 + AC-Z1~Z5。
 >
@@ -302,23 +302,83 @@ tracker (cat-level only)
 - [ ] AC-Z10 (Z4 spec): live event replay 出来的 bubble 列表必须收敛到 `/messages` hydrate canonical 状态。具体：bg path 的 web_search/rich_block/thinking 三处 placeholder 创建路径必须用 `deriveBubbleId(turnInvocationId ?? invocationId, catId, fallback)`，跟 Z3 后端 persist 用同一 deterministic id 公式，hydrate 后 server canonical id (`msg-{turn}-{cat}`) 直接命中现有 placeholder → 单一 bubble 不分裂。背景：铲屎官 2026-05-10 02:30 alpha 实测 F5 后正常但 F5 前多余气泡 + at 顺序错；砚砚 02:30 root cause analysis：live event 没带对 turnInvocationId，placeholder id 是 live-only `bg-X-${Date.now()}-...`，hydrate 时 server canonical id 是 `msg-{turn}-{cat}` → 两个 bubble 共存于 live。
 - [ ] AC-Z11 (Z4 implementation): `useAgentMessages.ts:505` (web_search) + `:571` (rich_block) + `:681` (thinking) 三处 placeholder 创建改用 `deriveBubbleId(turnInvocationId ?? invocationId, catId, () => fallback-bg-X)`。当 invocationId 已知（catInvocations 里有），返回 `msg-{turn}-{cat}` deterministic id；只有 invocationId 完全未知时（罕见 race，在 invocation_created 之前）才用 fallback non-deterministic id。RED test 覆盖：thinking event 在 first text 之前到达，placeholder 用 deterministic id，subsequent text chunk 命中同一 bubble，hydrate 后无分裂。
 
+### Phase Z5（state coherence reconciliation — 4 bug 一锅端）
+
+> **背景**：2026-05-10 04:42~05:01 铲屎官 alpha 实测 + opus-47 / GPT-5.5 / opus-46 三猫独立诊断，发现 Z3/Z4 合入后 4 个新/加剧问题。铲屎官原话："前后端根本不一致了！" "你们这两个z3 z4之前以前就算有裂开的两个气泡不需要f5就能合并 现在不能了！" "我并发at 47和55但是观点采样竟然是独立观点 只有47？" "结果竟然是46 你们的上个pr 和上上个pr可能都有问题"
+>
+> **共同根因模式**（砚砚归纳）：系统某一层（reducer / activeInvocations / participantsActivity）的"事实"语义，跟用户在 UI 上看到的/操作时心智模型，**没对齐**。不是 4 个独立 bug，是同一 canonical contract 缺失的 4 种表现。
+>
+> **KD-24（revert decision）**：opus-47 strong 建议 revert Z4 squash `0648b597`（保留 Z3）—— Z4 的 `deriveBubbleId` id 公式方向错误（`msg-{turn}-{cat}` 不带 kind suffix，与 reducer `msg-{turn}-{cat}-{kind}` 不对齐），留在 main 会持续制造 Bug A + Bug B。铲屎官拍板后执行。⏳ pending
+
+#### Bug A — bubble id 方言冲突
+
+**症状**：同一 turn 里 Thinking + CLI Output 分裂成两个 bubble。F5 后正常（hydrate 用 server canonical id 重建）。
+**根因**（opus-47 诊断）：
+1. Z4 `deriveBubbleId()` 创建 placeholder at `msg-{turn}-{cat}`（**无 kind suffix**）
+2. thinking event 进 → bubble 初始为 `assistant_text`
+3. tool_use event 进 → `appendToolEvent` 把 toolEvent 加到 bubble → `deriveBubbleKindFromMessage` 漂移成 `tool_or_cli`
+4. text event 进 → reducer `findExistingByStableKey` (bubble-reducer.ts:191) 比 kind：`tool_or_cli ≠ assistant_text` → 不 match → 创建新 bubble at `msg-{turn}-{cat}-assistant_text`
+5. 两个 bubble 共存 = 截图完全匹配
+
+**同时**：后端 hydrate id 是 nanoid（`generateId()`），不是 `msg-{turn}-{cat}` → Z4 假设的"live id == hydrate id 字面相等"**根本不成立**。
+
+- [ ] AC-Z12: 统一 bubble id 公式。两个 option（需收敛）：
+  - (A) Roll back Z4 helper `deriveBubbleId` 改动，让 reducer 完全负责 bubble 创建+id（helper 只 lookup existing）—— opus-47 倾向
+  - (B) Helper 也带 kind suffix `msg-{turn}-{cat}-{eventKind}` —— 但 helper 不一定知 eventKind
+  - 无论哪个 option，RED test 必须覆盖：thinking → tool_use → text 事件链下，始终只有 1 个 bubble
+- [ ] AC-Z13: hydrate canonical id（server nanoid）与 live placeholder id 的对齐机制文档化。Z4 假设两者字面相等是错的；正确机制是 `mergeReplaceHydrationMessages` 用 `(catId, getBubbleInvocationId)` stable key 做 **语义 match**，不是 id 字面比较
+
+#### Bug B — live reconcile 缺失
+
+**症状**：Z3/Z4 之前裂了的两个气泡能自动合并回来（不需要 F5）；Z3/Z4 之后只能靠 F5。
+**根因**（砚砚诊断）：Z3/Z4 收紧了 `findExistingByStableKey`（要求 turn id 一致 + bubbleKind 一致）和 `findUpgradableLocalPlaceholders`（只升级无 stream invocationId 的 local placeholder）。一旦两个裂开的 bubble 都带了 `extra.stream`、或 kind 不同，就不再是"可升级/可合并"的候选。
+
+- [ ] AC-Z14: 加 live reconcile pass。同 `threadId + catId + turnInvocationId` 下的分裂候选可安全合并回单一 assistant container。规则必须比旧 heuristic 严格：
+  - 不能跨 turn
+  - 不能跨 cat
+  - 不能跨 parent chain
+  - 不能吞掉 callback final
+  - RED test：先制造两个 live bubble（thinking + text 各一个），不 F5，后续 callback/done 到达后必须自动收敛成一个
+
+#### Bug C — 采样面板缺猫
+
+**症状**：并发 @ opus-47 和 GPT-5.5，"独立观点采样"面板只显示 opus-47。
+**根因**（opus-46 诊断 + 砚砚补充）：`deriveActiveCats()` (`status-helpers.ts:48-71`) 只看 `activeInvocations` slots。猫完成后 `markThreadInvocationComplete` → `removeActiveInvocation` 清 slot → 面板从"两只猫采样"塌成"一只还在跑的猫"。
+
+- [ ] AC-Z15: ideate mode 下 `ParallelStatusBar` 保留本轮 `targetCats` 全集 + 每猫最终状态（done ✓ / streaming / error ✗），不因 slot 移除而丢失卡片。实现：`deriveActiveCats` 在 ideate mode 下 fallback 到 `targetCats` union（不只看 active slots）。RED test 覆盖：猫 A 完成后猫 B 仍在 streaming → 面板仍显示两张卡片
+
+#### Bug D — 无 @ 留言 fallback 错猫
+
+**症状**：铲屎官最后 @ 的是 opus-47 和 GPT-5.5，但下一条无 @ 留言 fallback 召唤了 opus-46。
+**根因**（opus-47 诊断 + 代码定位）：`AgentRouter.resolveTargets` 无 @ fallback 走 `participantsWithActivity` 按 `lastMessageAt desc` 排序，`find` 拿最近发言的健康猫。opus-46 刚发了 vision guard 对照表 → `lastMessageAt` 最大 → 被 fallback 选中。
+**用户心智模型**：fallback = "我上一条消息 @ 的最后那只猫"，不是"thread 里最近发言的猫"。
+
+- [ ] AC-Z16: 无 @ fallback 优先使用"上一条 user message 的 `mentions` 列表"作为候选集。只有 mentions 为空（从未 @ 过）时才 fallback 到 `participantsWithActivity`。RED test 覆盖：user msg1 @ A+B → cat C 发言 → user msg2 无 @ → fallback 应选 A 或 B，不选 C
+
+> **scope 边界说明**：Bug D 严格来说是 `AgentRouter` 路由语义问题，不是 invocation liveness read model。但铲屎官明确说"这就是 f194 的遗留而不是新增一个 feat"，且 D 是在 F194 acceptance 场景中暴露的，归入 F194 scope 避免碎片化。
+
 ### 端到端 / Vision
 
-- [x] AC-E1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失（并发 multi-cat handoff 也不裂） ✅ 铲屎官 05:11 runtime 实测 confirm + opus-47 API diagnosis
+- [ ] AC-E1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失（并发 multi-cat handoff 也不裂） ⚠️ 2026-05-10 04:42 回归——Z3/Z4 合入后 live 仍裂（Bug A + Bug B），F5 后正常但 live 不收敛
 - [x] AC-E2: 后端 `/api/messages` 与 `/api/threads/:threadId/queue` 共用同一 canonical helper，单一规则源 ✅ 代码审计：`getThreadLiveInvocations` imported by `messages.ts:1466` + `queue.ts:143`
 - [x] AC-E3: 后续新增 read endpoint（admin observability / debug API）可直接复用 helper，不需要自拼三家 store ✅ helper 导出 async function + types，无 route 耦合
+- [ ] AC-E4: 并发 ideate 场景 UI 一致性——采样面板全程显示本轮所有 targetCats（Bug C）+ 无 @ fallback 回到上轮 @ 的猫（Bug D）
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "现在活跃的线程他们气泡都是裂的" | AC-B5, AC-B15, AC-Z1 | paired-route regression + runtime 实测 | [x] |
+| R1 | "现在活跃的线程他们气泡都是裂的" | AC-B5, AC-B15, AC-Z1 | paired-route regression + runtime 实测 | [ ] |
 | R2 | 让我"讲讲为什么"——根因可解释、可观测 | AC-B11, AC-B12, AC-B13 | structured event schema + code audit | [x] |
 | R3 | "找宪宪 46 或者 47…大概看了一下你的方向我觉得 ok" | AC-A1, AC-A2 | helper contract review | [x] |
 | R4 | 不能只在前端打补丁，从根因层（liveness contract）解决 | AC-A1, AC-Z2 | helper 单 contract + 双消费方迁移 | [x] |
+| R5 | "前后端根本不一致了！明明 at两只猫只显示一只" (2026-05-10 04:51) | AC-Z15, AC-E4 | sampling panel ideate mode 保留全部 targetCats | [ ] |
+| R6 | "明明at的最后一只猫是47 or 55但是召唤出来的却是46" (2026-05-10 04:51) | AC-Z16 | fallback 使用上一条 user message mentions | [ ] |
+| R7 | "以前就算有裂开的两个气泡不需要f5就能合并 现在不能了！" (2026-05-10 04:57) | AC-Z14 | live reconcile pass 不 F5 自动收敛 | [ ] |
+| R8 | "你们的上一个pr一定有问题！" — Z4 引入 deriveBubbleId 公式冲突 (2026-05-10 04:51) | AC-Z12, AC-Z13 | 统一 id 公式 + hydrate match 机制文档化 | [ ] |
 
 ### 覆盖检查
-- [ ] 每个需求点都能映射到至少一个 AC
+- [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
 - [ ] 前端需求映射表 N/A（本 feat 无前端 UI 改动；前端只通过 API 行为变化间接受益）
 
