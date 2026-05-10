@@ -1203,7 +1203,7 @@
     {
       "id": "F194",
       "name": "Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口",
-      "status": "in-progress (Phase A + B + Z + Z2 + **Z3** merged 2026-05-10; **acceptance still failing 2026-05-10 02:30** — 铲屎官报告**第三个问题**：F5 后正常，但刷新前 live 气泡多余 + at 顺序错。砚砚 (GPT-5.5) 诊断：server snapshot canonical 是对的，但 live event replay 不收敛——某条 live 事件没带对 turnInvocationId 或 active ref 还绑在旧 bubble 上 → 同段 thinking 进大泡泡又新建小泡泡。代码定位：`useAgentMessages.ts` bg path 3 处 placeholder（web_search:505 / rich_block:571 / thinking:681）用非 deterministic id `bg-X-${Date.now()}-...`，bypass `deriveBubbleId`，hydrate 后 canonical id 是 `msg-{turn}-{cat}` → live 与 hydrate 不一致，F5 才能消除分裂。**Phase Z4 收口**：3 处 placeholder 都用 `deriveBubbleId(turnInvocationId ?? invocationId, catId, fallback)` + AC-Z10 live≡hydrate 不变量 RED test) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1",
+      "status": "in-progress (Phase A + B + Z + Z2 + Z3 + Z4 merged; **acceptance still failing 2026-05-10 04:42** — 铲屎官 alpha 实测发现 Z3/Z4 合入后 4 个新/加剧问题：(A) 气泡仍裂——`deriveBubbleId` 公式 `msg-{turn}-{cat}` 与 reducer 公式 `msg-{turn}-{cat}-{kind}` 不对齐 + kind 漂移后 findExistingByStableKey 匹配失败; (B) 裂了不再自愈——Z3/Z4 收紧 identity 匹配但没补 live reconcile pass; (C) 并发 @ 两猫采样面板只显示一只——`deriveActiveCats` 只看 active slots，完成的猫被清; (D) 无 @ 留言 fallback 到错误的猫——`participantsWithActivity` 按 `lastMessageAt desc` 让 vision guard 猫抢上游。**Phase Z5 收口** — opus-47 + GPT-5.5 + opus-46 三猫独立诊断收敛) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1",
       "file": "F194-invocation-liveness-canonical-read-model.md"
     },
     {
