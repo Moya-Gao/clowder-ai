@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F194: Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口
 
-> **Status**: in-progress (Phase A + B + Z + Z2 + Z3 + Z4 merged; **acceptance still failing 2026-05-10 04:42** — 铲屎官 alpha 实测发现 Z3/Z4 合入后 4 个新/加剧问题：(A) 气泡仍裂——`deriveBubbleId` 公式 `msg-{turn}-{cat}` 与 reducer 公式 `msg-{turn}-{cat}-{kind}` 不对齐 + kind 漂移后 findExistingByStableKey 匹配失败; (B) 裂了不再自愈——Z3/Z4 收紧 identity 匹配但没补 live reconcile pass; (C) 并发 @ 两猫采样面板只显示一只——`deriveActiveCats` 只看 active slots，完成的猫被清; (D) 无 @ 留言 fallback 到错误的猫——`participantsWithActivity` 按 `lastMessageAt desc` 让 vision guard 猫抢上游。**Phase Z5 收口** — opus-47 + GPT-5.5 + opus-46 三猫独立诊断收敛) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
+> **Status**: in-progress (Phase A + B + Z + Z2 + Z3 + Z4 + Z5 merged; **awaiting alpha re-test by 铲屎官** for Phase Z5 acceptance closure 2026-05-10 16:40 — Phase Z5 squash `3b3c6b33` 修了 Bug A/B/C/D，砚砚 R11 APPROVE + cloud Codex 8 轮 review 收敛 (7 P1/P2 + 最后 2 轮 LGTM)。原始 alpha 失败上下文如下：**acceptance still failing 2026-05-10 04:42** — 铲屎官 alpha 实测发现 Z3/Z4 合入后 4 个新/加剧问题：(A) 气泡仍裂——`deriveBubbleId` 公式 `msg-{turn}-{cat}` 与 reducer 公式 `msg-{turn}-{cat}-{kind}` 不对齐 + kind 漂移后 findExistingByStableKey 匹配失败; (B) 裂了不再自愈——Z3/Z4 收紧 identity 匹配但没补 live reconcile pass; (C) 并发 @ 两猫采样面板只显示一只——`deriveActiveCats` 只看 active slots，完成的猫被清; (D) 无 @ 留言 fallback 到错误的猫——`participantsWithActivity` 按 `lastMessageAt desc` 让 vision guard 猫抢上游。**Phase Z5 收口** — opus-47 + GPT-5.5 + opus-46 三猫独立诊断收敛) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1
 >
 > **AC-Z1 (alpha runtime acceptance) FAILED 2026-05-09 03:35** — 铲屎官实测 runtime 仍裂，根因比 Phase B 修的更深：F194 read-side helper 把 **parent recordStore invocation** 与 **per-cat-turn registry invocation** 当成同一 namespace 处理。bug-report `docs/bug-report/2026-05-09-f194-runtime-bubble-still-split-completion-leak/`，砚砚 2026-05-09 04:51 拍板走 Phase Z（namespace-aware canonical read model），见 KD-21~KD-23 + AC-Z1~Z5。
 >
@@ -322,19 +322,19 @@ tracker (cat-level only)
 
 **同时**：后端 hydrate id 是 nanoid（`generateId()`），不是 `msg-{turn}-{cat}` → Z4 假设的"live id == hydrate id 字面相等"**根本不成立**。
 
-- [ ] AC-Z12: 统一 bubble id 公式。**Decision: Option A — Roll back Z4 helper `deriveBubbleId` 改动**（opus-47 R1 review on Z5 spec 2026-05-10 12:07 commit）：
+- [x] AC-Z12: 统一 bubble id 公式。**Decision: Option A — Roll back Z4 helper `deriveBubbleId` 改动**（opus-47 R1 review on Z5 spec 2026-05-10 12:07 commit）：✅ PR #1622 squash `3b3c6b33` (Z4 已 revert in `e2eacd0e9`，helper 不再创建 placeholder id；reducer 单写者)
   - **Option A 选定** — helper 只 lookup existing bubble（用 stable key match `getBubbleInvocationId`），bubble 创建+id 让位给 reducer 单写者
   - **为什么 reject Option B** — helper 创建 placeholder 时不一定知 eventKind（empty placeholder 可能在第一个 event 之前就建好），即使 helper 带 kind suffix，也会出现"placeholder kind = assistant_text 但后续 tool_use event 的 reducer fallback id 是 tool_or_cli"的同一类不对齐
   - **为什么 reject "不动 helper"** — Z4 helper 改动留在 main 会持续制造 Bug A + Bug B，必须撤回（KD-24 revert decision pending @landy）
   - RED test 必须覆盖：thinking → tool_use → text 事件链下，始终只有 1 个 bubble；id 来源是 reducer 而非 helper
-- [ ] AC-Z13: hydrate canonical id（server nanoid）与 live placeholder id 的对齐机制文档化。Z4 假设两者字面相等是错的；正确机制是 `mergeReplaceHydrationMessages` 用 `(catId, getBubbleInvocationId)` stable key 做 **语义 match**，不是 id 字面比较
+- [x] AC-Z13: hydrate canonical id（server nanoid）与 live placeholder id 的对齐机制文档化。Z4 假设两者字面相等是错的；正确机制是 `mergeReplaceHydrationMessages` 用 `(catId, getBubbleInvocationId)` stable key 做 **语义 match**，不是 id 字面比较 ✅ Phase Z5 spec section 已记录
 
 #### Bug B — live reconcile 缺失
 
 **症状**：Z3/Z4 之前裂了的两个气泡能自动合并回来（不需要 F5）；Z3/Z4 之后只能靠 F5。
 **根因**（砚砚诊断）：Z3/Z4 收紧了 `findExistingByStableKey`（要求 turn id 一致 + bubbleKind 一致）和 `findUpgradableLocalPlaceholders`（只升级无 stream invocationId 的 local placeholder）。一旦两个裂开的 bubble 都带了 `extra.stream`、或 kind 不同，就不再是"可升级/可合并"的候选。
 
-- [ ] AC-Z14: 加 live reconcile pass。同 `threadId + catId + turnInvocationId` 下的分裂候选可安全合并回单一 assistant container。规则必须比旧 heuristic 严格：
+- [x] AC-Z14: 加 live reconcile pass。同 `threadId + catId + turnInvocationId` 下的分裂候选可安全合并回单一 assistant container。✅ PR #1622 squash `3b3c6b33` — bubble-reducer findExistingByStableKey 优先级：(1) 严格 (actor, turn, kind) 匹配 (2) empty assistant_text placeholder 吸收 (gate `event.bubbleKind !== 'system_status'`，R5 cloud Codex P1 修)。规则必须比旧 heuristic 严格：
   - 不能跨 turn
   - 不能跨 cat
   - 不能跨 parent chain
@@ -347,7 +347,7 @@ tracker (cat-level only)
 **症状**：并发 @ opus-47 和 GPT-5.5，"独立观点采样"面板只显示 opus-47。
 **根因**（opus-46 诊断 + 砚砚补充）：`deriveActiveCats()` (`status-helpers.ts:48-71`) 只看 `activeInvocations` slots。猫完成后 `markThreadInvocationComplete` → `removeActiveInvocation` 清 slot → 面板从"两只猫采样"塌成"一只还在跑的猫"。
 
-- [ ] AC-Z15: ideate mode 下 `ParallelStatusBar` 保留本轮 `targetCats` 全集 + 每猫最终状态（done ✓ / streaming / error ✗），不因 slot 移除而丢失卡片。实现：`deriveActiveCats` 在 ideate mode 下 fallback 到 `targetCats` union（不只看 active slots）。RED test 覆盖：猫 A 完成后猫 B 仍在 streaming → 面板仍显示两张卡片
+- [x] AC-Z15: ideate mode 下 `ParallelStatusBar` 保留本轮 `targetCats` 全集 + 每猫最终状态（done ✓ / streaming / error ✗），不因 slot 移除而丢失卡片。✅ PR #1622 squash `3b3c6b33` — `deriveActiveCats` 在 `intentMode === 'ideate'` 且 `hasActiveInvocation` 时 fallback 到 `targetCats ∪ snapshotCats` UNION。R7 还覆盖了 RightStatusPanel + MobileStatusSheet (cloud Codex P2: 跨 panel coherence)。实现：`deriveActiveCats` 在 ideate mode 下 fallback 到 `targetCats` union（不只看 active slots）。RED test 覆盖：猫 A 完成后猫 B 仍在 streaming → 面板仍显示两张卡片
 
 #### Bug D — 无 @ 留言 fallback 错猫
 
@@ -355,7 +355,7 @@ tracker (cat-level only)
 **根因**（opus-47 诊断 + 代码定位）：`AgentRouter.resolveTargets` 无 @ fallback 走 `participantsWithActivity` 按 `lastMessageAt desc` 排序，`find` 拿最近发言的健康猫。opus-46 刚发了 vision guard 对照表 → `lastMessageAt` 最大 → 被 fallback 选中。
 **用户心智模型**：fallback = "我上一条消息 @ 的最后那只猫"，不是"thread 里最近发言的猫"。
 
-- [ ] AC-Z16: 无 @ fallback 优先使用"上一条 user message 的 `mentions` 列表"作为候选集。只有 mentions 为空（从未 @ 过）时才 fallback 到 `participantsWithActivity`。
+- [x] AC-Z16: 无 @ fallback 优先使用"上一条 user message 的 `mentions` 列表"作为候选集。只有 mentions 为空（从未 @ 过）时才 fallback 到 `participantsWithActivity`。✅ PR #1622 squash `3b3c6b33` — `findRecentUserMentionFallback` 分页 loop (R4) + SYSTEM_USER_IDS 排除 (R5+R6, scheduler+system) + 1h cutoff 仅对 user msg (R8) + effective score (deliveredAt ?? timestamp) cursor (R9, 砚砚 R8 P1) + page-level cutoff early-stop (R11, 砚砚 R10 P2) + 去掉 Z5_MAX_PAGES (R10, cloud Codex P2)。8 轮 cloud + 4 轮砚砚 review 共 14 个 P1/P2/nit 收敛。
   - **user message 严格定义**（opus-47 R1 add）：`message.userId !== null && message.catId === null`。Cat-to-cat handoff（A2A 转场 chip）+ vision guard 等 cat 自发消息**不计**，否则同样会被"最近发言猫"语义污染
   - **时间窗口**（opus-47 R1 add）：只回看最近 N 条 user messages（建议 N=5 或时间窗口 1h），防止远古 mentions 主导 fallback；可走 `messageStore.getRecent(threadId, { limit: N })` 反序列扫
   - RED test 覆盖：(1) user msg1 @ A+B → cat C 发言 → user msg2 无 @ → fallback 应选 A 或 B，不选 C；(2) user msg1 @ A → 远古 user msg N 个迭代后无 @ → fallback 不能拿 N 步前的 A（除非时间窗口允许）
@@ -377,10 +377,10 @@ tracker (cat-level only)
 | R2 | 让我"讲讲为什么"——根因可解释、可观测 | AC-B11, AC-B12, AC-B13 | structured event schema + code audit | [x] |
 | R3 | "找宪宪 46 或者 47…大概看了一下你的方向我觉得 ok" | AC-A1, AC-A2 | helper contract review | [x] |
 | R4 | 不能只在前端打补丁，从根因层（liveness contract）解决 | AC-A1, AC-Z2 | helper 单 contract + 双消费方迁移 | [x] |
-| R5 | "前后端根本不一致了！明明 at两只猫只显示一只" (2026-05-10 04:51) | AC-Z15, AC-E4 | sampling panel ideate mode 保留全部 targetCats | [ ] |
-| R6 | "明明at的最后一只猫是47 or 55但是召唤出来的却是46" (2026-05-10 04:51) | AC-Z16 | fallback 使用上一条 user message mentions | [ ] |
-| R7 | "以前就算有裂开的两个气泡不需要f5就能合并 现在不能了！" (2026-05-10 04:57) | AC-Z14 | live reconcile pass 不 F5 自动收敛 | [ ] |
-| R8 | "你们的上一个pr一定有问题！" — Z4 引入 deriveBubbleId 公式冲突 (2026-05-10 04:51) | AC-Z12, AC-Z13 | 统一 id 公式 + hydrate match 机制文档化 | [ ] |
+| R5 | "前后端根本不一致了！明明 at两只猫只显示一只" (2026-05-10 04:51) | AC-Z15, AC-E4 | sampling panel ideate mode 保留全部 targetCats | [x] (PR #1622 squash `3b3c6b33`) |
+| R6 | "明明at的最后一只猫是47 or 55但是召唤出来的却是46" (2026-05-10 04:51) | AC-Z16 | fallback 使用上一条 user message mentions | [x] (PR #1622 squash `3b3c6b33`) |
+| R7 | "以前就算有裂开的两个气泡不需要f5就能合并 现在不能了！" (2026-05-10 04:57) | AC-Z14 | live reconcile pass 不 F5 自动收敛 | [x] (PR #1622 squash `3b3c6b33`) |
+| R8 | "你们的上一个pr一定有问题！" — Z4 引入 deriveBubbleId 公式冲突 (2026-05-10 04:51) | AC-Z12, AC-Z13 | 统一 id 公式 + hydrate match 机制文档化 | [x] (PR #1622 squash `3b3c6b33`) |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -473,6 +473,7 @@ tracker (cat-level only)
 | 2026-05-09 | **F194 close (commit `d433b8dc3`)** — KD-23 hard gate 4 件套全过：95/95 unit + integration + runtime acceptance（铲屎官 05:11 重启 runtime + visual confirm 不裂 + opus-47 API 诊断 `/queue` 单 active no ghost）+ 愿景守护对照表 by 宪宪/Opus-46（跨 4.6 视角）4 行 R1-R4 全 ✅。Status: completed |
 | 2026-05-09 17:09 | **F194 close 退回（砚砚 catch acceptance gap）** — 砚砚在新 thread `thread_moz0i3l9mya45fnx` 发现 ideate 双猫并行场景仍裂：runtime 日志 codex child 被判 `tracker+draft / tracker_active_missing_record`。代码核对：`route-parallel.ts:399` 调 `invokeSingleCat` 漏传 `options.parentInvocationId`（`route-serial.ts:725` 已传）→ parallel 场景 child registry record 缺 parentInvocationId → helper namespace bridge 失效。砚砚原话："F194 close gate 要退回，不该包装成新 hotfix"。Status 改回 in-progress + 加 AC-Z6 (parallel route 修补) + AC-Z7 (KD-23 重做含 ideate 场景)。开 Phase Z2 worktree |
 | 2026-05-09 17:32 | **Phase Z2 merged (PR #1617, squash `1fa6ed229`)** — 4 行实现 + 84 行 RED test：spy `registry.create` 第 4 参数（parentInvocationId），before fix `actual=undefined, expected='cat-cafe-outer-z2-parent'`。砚砚 R APPROVE "Findings: none" + 云端 LGTM "Can't wait for the next one!"。同时铲屎官报告**第二个问题**（不同根因）：刷新后同 parent chain 里同 cat 多 turn 气泡被合并（`opus → codex → opus` 两个 opus bubble 强行合并 → cancel 按钮消失 + 第三个 opus 失踪）。砚砚根因：formal message `extra.stream.invocationId` 当前盖 parent id，前端 `mergeReplaceHydrationMessages` 用 `(catId, invocationId)` 当 stable key → 同 cat 多 turn 同一 key 被合并。砚砚口径："PR #1617 可以单独合，但绝不能拿它做 F194 close"。F194 acceptance failure 继续 → Phase Z3 收口（双 id 拆分） |
+| 2026-05-10 16:40 | **Phase Z5 merged (PR #1622, squash `3b3c6b33`)** — 单 PR 收口铲屎官 alpha 实测 4 bug (A 气泡裂 / B 不自愈 / C 采样缺猫 / D fallback 错猫)。砚砚 R1→R11 跨 11 轮 review 收敛 5 P1 + 2 nit (await + UI-compat 白名单 + 50 thread-msg cap → pagination → effective score cursor → page-level cutoff)；云端 codex R1→R8 跨 8 轮 review 收敛 4 P1 + 2 P2 (system msg user count + placeholder 吸收 kind gate + scheduler 排除 + 1h cutoff 顺序 + 跨 panel coherence + 去掉 page cap)；最后 2 轮 cloud LGTM "Didn't find any major issues 🎉"。Bug A+B 修法：bubble-reducer findExistingByStableKey empty placeholder 吸收 (gate 非 system_status incoming kind)。Bug C 修法：deriveActiveCats ideate mode UNION + 三 panel 都传 intentMode。Bug D 修法：findRecentUserMentionFallback 分页扫 effective score (deliveredAt ?? timestamp) + SYSTEM_USER_IDS 排除 + 1h cutoff 仅对 user msg + page-level cutoff early-stop。15 commits squash 1。AC-Z12/Z13/Z14/Z15/Z16 全 ✅。**Status: alpha re-test by 铲屎官 待执行** → 守护猫 sign-off → close F194。 |
 
 ## Review Gate
 
