@@ -249,32 +249,70 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 
 > **铲屎官原话（2026-05-10 16:14）**：
 > "我觉得我们这个功能 大概率要给你们做mcp + skills（教你们怎么用） + 前端？ 比如你提到的显示正在监听什么？ 以及我们最开始说的漂浮窗口？ 以及 感觉比如我和你说开始监听 腾讯会议 / 手机 / chrome的b站之类的哈哈哈"
+>
+> **铲屎官组织建议（2026-05-10 16:24）**：
+> "需要有一个 使用转写这套设备的skills？ 然后里面有个场景是meeting？ 不然我下次喊你们 陪我看视频？ 就是 一个统一的skills ref 一个md 这个md是 meeting-copilot？"
 
-### 1. MCP 工具层
+### 分层架构：底层能力 + 场景 skill
 
-猫猫通过 MCP 工具控制音频采集和读取转写。
+```
+┌─────────────────────────────────────────────┐
+│  场景 skill refs（各一个 .md）               │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────┐ │
+│  │meeting-copilot│ │ watch-video  │ │ ...  │ │
+│  │会前+会中+会后  │ │陪看视频/播客  │ │      │ │
+│  └──────┬───────┘ └──────┬───────┘ └──┬───┘ │
+│         │                │            │      │
+│  ───────┴────────────────┴────────────┴───── │
+│  底层 skill: live-audio                      │
+│  （音频采集 + ASR 转写 + 文件管理）            │
+│  MCP 工具全挂这层                             │
+└─────────────────────────────────────────────┘
+```
+
+### 1. 底层 skill：`live-audio`
+
+通用音频采集+转写能力，不绑定场景。
+
+**MCP 工具**：
 
 | 工具 | 用途 | 示例 |
 |------|------|------|
-| `meeting_list_sources` | 列出可监听的音频源（App 列表） | → "腾讯会议、Chrome、iPhone镜像..." |
-| `meeting_start` | 开始监听指定 App | `meeting_start("腾讯会议")` |
-| `meeting_stop` | 停止监听 | |
-| `meeting_status` | 当前会话状态（正在听什么、已运行多久、chunk 数） | |
-| `meeting_read_transcript` | 读取指定时间区间的转写 | `meeting_read_transcript(from="5:00", to="8:00")` |
-| `meeting_summary` | 获取最近 N 秒的自动摘要 | |
+| `audio_list_sources` | 列出可监听的音频源（App 列表） | → "腾讯会议、Chrome、iPhone镜像..." |
+| `audio_capture_start` | 开始监听指定 App | `audio_capture_start("腾讯会议")` |
+| `audio_capture_stop` | 停止监听 | |
+| `audio_capture_status` | 当前状态（正在听什么、已运行多久、chunk 数） | |
+| `audio_read_transcript` | 读取指定时间区间的转写 | `audio_read_transcript(from="5:00", to="8:00")` |
+| `audio_get_summary` | 获取最近 N 秒的自动摘要 | |
 
 底层：封装 CaptureAppAudio（ScreenCaptureKit）+ Qwen3-ASR 管线。
 
-### 2. Skill（教猫怎么用）
+支持的监听目标（基于 ScreenCaptureKit，按 App 名匹配）：
+- 腾讯会议 / Zoom / 飞书会议 / Google Meet（线上会议）
+- Chrome / Safari / Edge（网页视频/音频）
+- iPhone镜像（手机通话/手机端会议，通过 ScreenContinuity）
 
-新建 `meeting-copilot` skill，覆盖：
-- 铲屎官说"开始监听 XX"→ 猫调用 `meeting_start`
-- 铲屎官问"他们在聊什么"→ 猫调用 `meeting_read_transcript` 读最新区间 → 整理摘要
-- 铲屎官打碎片想法 → 猫整理成外交版发言稿
-- 铲屎官说"停"→ 猫调用 `meeting_stop`
-- 会后：猫读完整转写做复盘分析
+### 2. 场景 skill ref：`meeting-copilot.md`
 
-### 3. 前端组件
+引用 `live-audio` 能力，加会议场景特有逻辑：
+
+- **会前**：铲屎官喂议程+参会人 → 猫调研+输出应对牌
+- **会中**：
+  - 铲屎官说"开始监听 XX"→ 猫调用 `audio_capture_start`
+  - 铲屎官问"他们在聊什么"→ 猫调用 `audio_read_transcript` 读最新区间 → 整理摘要
+  - 铲屎官打碎片想法 → 猫整理成外交版发言稿（直接版 + 委婉版）
+  - 铲屎官说"停"→ 猫调用 `audio_capture_stop`
+- **会后**：猫读完整转写做复盘分析，对比应对牌 vs 实际
+
+### 3. 其他场景（同样引用 `live-audio`）
+
+| 场景 | skill ref | 用法 |
+|------|-----------|------|
+| 陪看视频 | `watch-video.md`（待建） | "陪我看这个视频" → 猫监听 Chrome → 实时讨论内容 |
+| 陪听播客 | 同上或独立 | "一起听这期播客" → 猫监听音频 → 随时回答问题 |
+| 学习辅助 | 待定 | 网课/讲座 → 猫记笔记+答疑 |
+
+### 4. 前端组件
 
 | 组件 | 功能 | 位置 |
 |------|------|------|
@@ -282,17 +320,17 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | **监听状态指示** | 显示"正在监听：腾讯会议"+ 录音时长 + 运行状态 | Hub 顶栏或状态栏 |
 | **采集控制** | 暂停/恢复/停止按钮 | 浮动转写窗内 |
 
-### 4. 用户交互流程
+### 5. 用户交互流程（会议场景）
 
 ```
 铲屎官：开始监听腾讯会议
-  猫猫：→ meeting_list_sources 找到"腾讯会议"
-       → meeting_start("腾讯会议")
+  猫猫：→ audio_list_sources 找到"腾讯会议"
+       → audio_capture_start("腾讯会议")
        → 浮动转写窗自动弹出
-       → 状态栏显示"🎙 正在监听：腾讯会议"
+       → 状态栏显示"正在监听：腾讯会议"
 
 铲屎官：他们在聊什么？
-  猫猫：→ meeting_read_transcript(latest 60s)
+  猫猫：→ audio_read_transcript(latest 60s)
        → 整理摘要回复
 
 铲屎官：我觉得他说的不对，应该用 xxx 方案
@@ -300,14 +338,9 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
        → 整理成外交版发言稿（直接版 + 委婉版）
 
 铲屎官：停
-  猫猫：→ meeting_stop
+  猫猫：→ audio_capture_stop
        → 浮动窗关闭，转写文件保存
 ```
-
-支持的监听目标（基于 ScreenCaptureKit，按 App 名匹配）：
-- 腾讯会议 / Zoom / 飞书会议 / Google Meet（线上会议）
-- Chrome / Safari / Edge（网页视频/音频）
-- iPhone镜像（手机通话/手机端会议，通过 ScreenContinuity）
 
 ## Open Questions
 
