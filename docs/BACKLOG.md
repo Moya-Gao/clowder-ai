@@ -67,4 +67,4 @@ created: 2026-02-26
 | F190 | Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片 | spec | Community + Maintainers | community [clowder-ai#645](https://github.com/zts212653/clowder-ai/pull/645) | [F190](features/F190-console-settings-appshell-skeleton.md) |
 | F192 | Socio-Technical Harness Eval — harness 共创评估体系 | spec | 布偶猫 | internal | [F192](features/F192-socio-technical-harness-eval.md) |
 | F194 | Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口（F183 post-close follow-up） | in-progress | 布偶猫(Opus 4.7) | internal | [F194](features/F194-invocation-liveness-canonical-read-model.md) |
-| F195 | Meeting Copilot — 实时会议私人智囊团（AUDHD augmentation） | idea | 布偶猫 | internal | [F195](features/F195-meeting-copilot-live-advisory.md) |
+| F195 | Meeting Copilot — 实时会议私人智囊团（AUDHD augmentation） | spec | 布偶猫 | internal | [F195](features/F195-meeting-copilot-live-advisory.md) |

@@ -8,7 +8,7 @@ created: 2026-05-09
 
 # F195: Meeting Copilot — 实时会议私人智囊团
 
-> **Status**: idea | **Owner**: 布偶猫 | **Priority**: TBD
+> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -171,18 +171,71 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 
 产品上至少需要"正在录音/转写"的显式状态和本地保存策略。
 
-## 调研任务（Research Brief）
+## 已收敛决策（三猫调研合成 2026-05-10）
 
-在方案定型前，需要一轮技术调研（砚砚建议的提示词骨架）：
+> 来源：GPT Pro + Gemini 两份外部调研 → 三猫交叉比对（砚砚/GPT-5.4 + 宪宪/Opus-47 + 宪宪/Opus-46）
+> 详见 [合成报告](../research/2026-05-10-f195-meeting-copilot-research-synthesis.md)
 
-1. **音频采集架构（Capture Matrix）**：Zoom/Meet/线下麦克风/系统音频（BlackHole/Soundflower）各怎么采、怎么切片、怎么 VAD、怎么降级
-2. **低延迟 streaming ASR**：本地 Apple Silicon、小模型、云端 API、hybrid 架构对比
-3. **Speaker diarization / identification**：实时性、准确率、多人圆桌、重叠发言、会前 enrollment、手动校正 UX
-4. **Turn-taking / interruption timing**：如何判断"现在可以插话"——开源模型、VAD/prosody 方法、产品实践
-5. **Meeting context compression**：如何把实时 transcript 安全地提供给 LLM，不被 transcript prompt injection 污染
-6. **类似开源项目和商业产品架构**：输入、转写、上下文、建议生成、UI 形态
-7. **MVP / Phase 2 / Future 三档方案**：每档列 latency budget、准确率风险、实现复杂度、依赖、失败降级
-8. **可验证 benchmark 计划和推荐 spike 顺序**（第一根 spike 应是 audio capture + latency budget，不是 diarization）
+### 高置信共识（8 条，可直接进实施）
+
+| # | 决策 |
+|---|------|
+| 1 | **第一根 spike = audio capture + latency budget**，不是 diarization |
+| 2 | **双路音频物理隔离**（自己 AirPods/DJI Mic + 系统音频 ScreenCaptureKit）绕过 diarization，是关键工程取巧 |
+| 3 | **时钟漂移**是 60-120 分钟会议的最致命隐藏风险，spike 必须覆盖 |
+| 4 | **Diarization 不阻塞 MVP**，pyannote 留给会后批处理 |
+| 5 | **Turn-taking 用 Pipecat Smart Turn** 做候选信号 |
+| 6 | **Granola 是最相关产品对标**（bot-free + sidecar 模式） |
+| 7 | **Transcript 必须当不可信输入** + MeetingContextBlock 隔离 |
+| 8 | **Phase B pull-based 先于 Phase C push-based** |
+
+### 关键分歧（已收敛，全部 → GPT Pro 方案）
+
+| 分歧 | 收敛结果 | 理由 |
+|------|---------|------|
+| MVP 双路 vs 单路 | **双路隔离** | Gemini 自相矛盾：说双路好又 MVP 放弃双路 |
+| MVP ASR 引擎 | **包现有 Qwen3-ASR 做伪流式**（3s chunk + overlap） | 先验证链路，再换引擎 |
+| 安全/压缩架构 | **渐进式**（quarantined summarizer → structured state） | MVP 不上重型架构 |
+| 云端 fallback | **允许**（brief 约束"接受商业 API 做 MVP baseline"） | 遵守 brief |
+
+### 铲屎官拍板修正（2026-05-10）
+
+| 修正 | 铲屎官原话/判断 |
+|------|---------------|
+| **ASR 单引擎** | Qwen3-ASR 1.7B only，不跑 Whisper 并行（延迟差不多，两个抢 GPU） |
+| **跳过 BlackHole** | 铲屎官亲测多次不好用，ScreenCaptureKit 做第一方案 |
+| **AUDHD 验证不用脚本** | "做好了自然就知道有没有用"，不用提前设计评测量表 |
+| **Consent 从简** | 不允许录音的场景就不用这套系统，不需要复杂矩阵 |
+
+### Spike 技术栈
+
+| 组件 | 选型 | 备注 |
+|------|------|------|
+| 系统音频采集 | **ScreenCaptureKit** | Apple 原生 API，按应用抓音频流 |
+| 自声采集 | AirPods 麦 / DJI Mic | 物理隔离，天然 speaker separation |
+| ASR | **Qwen3-ASR 1.7B** 伪流式（3s chunk + 0.8s overlap） | 中文为主夹英文技术词 |
+| LLM | 现有猫脑 | 不加新模型 |
+| TTS | 现有 Qwen3-TTS | 不加新模型 |
+
+## 调研任务（✅ 已完成 2026-05-10）
+
+8 项调研已由 GPT Pro + Gemini 完成，三猫交叉比对收敛。详见：
+
+- [调研提示词](../research/2026-05-10-f195-meeting-copilot-research-brief.md)（经 Opus-47 review 后重写）
+- [GPT Pro 调研结果](../research/2026-05-10-f195-meeting-copilot-gptpro-response.md)（实施主线）
+- [Gemini 调研结果](../research/2026-05-10-f195-meeting-copilot-gemini-response.md)（架构雷达）
+- [三猫合成报告](../research/2026-05-10-f195-meeting-copilot-research-synthesis.md)（交叉比对结论）
+
+调研覆盖的 8 项：
+
+1. ~~音频采集架构（Capture Matrix）~~ ✅
+2. ~~低延迟 streaming ASR~~ ✅
+3. ~~Speaker diarization / identification~~ ✅
+4. ~~Turn-taking / interruption timing~~ ✅
+5. ~~Meeting context compression~~ ✅
+6. ~~类似开源项目和商业产品架构~~ ✅
+7. ~~MVP / Phase 2 / Future 三档方案~~ ✅
+8. ~~可验证 benchmark 计划和推荐 spike 顺序~~ ✅
 
 ## MVP Acceptance Criteria（草案，待铲屎官确认）
 
