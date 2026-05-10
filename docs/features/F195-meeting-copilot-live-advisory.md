@@ -79,7 +79,8 @@ created: 2026-05-09
 
 | 缺口 | 初步判断 | 待调研 |
 |------|---------|--------|
-| 连续流式 ASR | 当前是文件上传制，需要 chunk-stream | 最新开源模型？Whisper streaming？ |
+| 音频入口适配层 | Zoom/Meet/线下麦克风/系统音频各有不同采集方式，当前无统一适配 | 各平台 capture 方案、VAD 切片、降级策略？ |
+| 连续流式 ASR | 当前是文件上传制 + 单请求串行锁 GPU，需要 chunk-stream | 最新开源模型？Whisper streaming？ |
 | 说话人分离（diarization） | pyannote.audio 可做，M4 Max 可跑 | 有更好的方案吗？实时性如何？ |
 | 说话人身份映射 | diarization 只给 SPEAKER_00，需映射到人名 | 声纹注册 vs 手动标注 vs 其他？ |
 | Hub 浮动转写窗 | 前端新组件 | 有现成方案可参考吗？ |
@@ -112,6 +113,14 @@ MVP 做拉取模式：铲屎官打草稿或问"现在怎么说"，猫再整理�
 
 需要一个 `MeetingSession` 绑定当前 thread，浮动窗跨 workspace 存在。明确"会议上下文跟哪个 thread 走"。
 
+### F104 (Omni) 不是 MVP 前提（P2）
+
+F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP 只需文本理解 + 现有 thread + 浮动转写窗。Omni 能增强但不阻塞。
+
+### Transcript 上下文压缩策略（P2）
+
+实时转写不直接灌满 thread、不做原文永久堆积。采用 `rolling window + event summary + 显式拉取`，避免同时挤占聊天上下文、文件侧栏注意力和猫的推理预算。
+
 ### Consent / Privacy Gate
 
 产品上至少需要"正在录音/转写"的显式状态和本地保存策略。
@@ -120,13 +129,22 @@ MVP 做拉取模式：铲屎官打草稿或问"现在怎么说"，猫再整理�
 
 在方案定型前，需要一轮技术调研（砚砚建议的提示词骨架）：
 
-1. **低延迟 streaming ASR**：本地 Apple Silicon、小模型、云端 API、hybrid 架构对比
+1. **音频采集架构（Capture Matrix）**：Zoom/Meet/线下麦克风/系统音频（BlackHole/Soundflower）各怎么采、怎么切片、怎么 VAD、怎么降级
+2. **低延迟 streaming ASR**：本地 Apple Silicon、小模型、云端 API、hybrid 架构对比
 2. **Speaker diarization / identification**：实时性、准确率、多人圆桌、重叠发言、会前 enrollment、手动校正 UX
 3. **Turn-taking / interruption timing**：如何判断"现在可以插话"——开源模型、VAD/prosody 方法、产品实践
 4. **Meeting context compression**：如何把实时 transcript 安全地提供给 LLM，不被 transcript prompt injection 污染
 5. **类似开源项目和商业产品架构**：输入、转写、上下文、建议生成、UI 形态
 6. **MVP / Phase 2 / Future 三档方案**：每档列 latency budget、准确率风险、实现复杂度、依赖、失败降级
-7. **可验证 benchmark 计划和推荐 spike 顺序**
+8. **可验证 benchmark 计划和推荐 spike 顺序**（第一根 spike 应是 audio capture + latency budget，不是 diarization）
+
+## MVP Acceptance Criteria（草案，待铲屎官确认）
+
+进入设计前至少需要定义"什么叫真的帮到了"，以下 3 条是最小集：
+
+1. **On-demand 讨论摘要**：铲屎官问"他们在聊什么"，猫在 ≤15s 内给出当前议题 + 各方立场摘要
+2. **草稿→外交版发言**：铲屎官打碎片想法，猫在 ≤20s 内整理成可直接说出口的发言稿（含直接版 + 委婉版）
+3. **低置信度 speaker 优雅降级**：speaker label 置信度 <0.6 时显示"有人说"而非猜名字，不误导猫的推理
 
 ## Open Questions
 
@@ -150,8 +168,16 @@ MVP 做拉取模式：铲屎官打草稿或问"现在怎么说"，猫再整理�
 > - Diarization 不阻塞 MVP，Speaker A/B/Unknown 即可起步（P1）
 > - 智囊输出先 pull-based（铲屎官问了猫再答），push-based 放 Phase 2 加频率限制（P1）
 > - 补充了浮动窗最小 AC、MeetingSession 概念、consent/privacy gate（P2）
+>
+> **砚砚(GPT-5.4) review 补充（2026-05-09）**：
+> - 音频入口适配层是真正的第一块缺口——Capture Matrix（各平台采集/切片/VAD/降级）比模型选型更先决（P1）
+> - 需要产品级 AC，否则工程会优化 WER/speaker 准确率但不解决 AUDHD 痛点（P1）
+> - F104 (Omni) 不是 MVP 前提，是 research branch（P2）
+> - Transcript 上下文用 rolling window + event summary + 显式拉取，不做原文堆积（P2）
+> - Spike 优先级：audio capture matrix + latency budget → ASR → diarization
 
 ---
 
 *[宪宪/Opus-46🐾] 立项于 2026-05-09 头脑风暴 session*
 *[砚砚/GPT-5.5🐾] review 补充于 2026-05-09*
+*[砚砚/GPT-5.4🐾] review 补充于 2026-05-09*
