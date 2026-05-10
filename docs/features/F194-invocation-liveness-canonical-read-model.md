@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F194: Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口
 
-> **Status**: in-progress (Phase A + B + Z + Z2 + Z3 + Z4 + Z5 merged; **Phase Z6 in review** after alpha re-test 2026-05-10 10:10~10:35 found two remaining gaps: (A2) rich/audio block after done still creates a transient small live bubble until F5; (D2) no-@ fallback overcorrected from wrong-cat to multi-cat, but intended fallback is a single cat from previous user mentions. Phase Z5 squash `3b3c6b33` fixed the first four Z5 bugs but did not close acceptance.) | **Owner**: 缅因猫/Codex for Z6, reviewer 布偶猫/Opus-47 | **Priority**: P1
+> **Status**: in-progress (Phase A + B + Z + Z2 + Z3 + Z5 + Z6 merged; Z4 was reverted before Z5. **Alpha re-test pending** after Phase Z6 squash `24eb56e3` fixed the two remaining acceptance gaps found on 2026-05-10 10:10~10:35: (A2) rich/audio block after done still created a transient small live bubble until F5; (D2) no-@ fallback overcorrected from wrong-cat to multi-cat, but intended fallback is a single cat from previous user mentions.) | **Owner**: 缅因猫/Codex for Z6, reviewer 布偶猫/Opus-47 | **Priority**: P1
 >
 > **AC-Z1 (alpha runtime acceptance) FAILED 2026-05-09 03:35** — 铲屎官实测 runtime 仍裂，根因比 Phase B 修的更深：F194 read-side helper 把 **parent recordStore invocation** 与 **per-cat-turn registry invocation** 当成同一 namespace 处理。bug-report `docs/bug-report/2026-05-09-f194-runtime-bubble-still-split-completion-leak/`，砚砚 2026-05-09 04:51 拍板走 Phase Z（namespace-aware canonical read model），见 KD-21~KD-23 + AC-Z1~Z5。
 >
@@ -369,8 +369,8 @@ Phase Z5 合入后的 alpha re-test 又抓到两个剩余边界：
 1. **Bug A2 / R9**：rich/audio `system_info` 可能在 `done` 已 finalize 主 stream bubble、active refs 被清掉之后到达。active rich-block fallback 没查 just-finalized stream ref，导致 live 侧新建一个临时小气泡；F5 后 hydrate 只返回 canonical 单消息，所以小气泡消失。
 2. **Bug D2 / R10**：Phase Z5 把 no-@ fallback 改成上一条 user mentions 的完整集合。铲屎官澄清实际语义：上一条 @ 了 47 + 55 时，下一条无 @ 应该从这两只里确定性选 **一只**，不是重新并发两只。
 
-- [x] AC-Z17: invocationless rich/audio block after `done` attaches to the just-finalized stream bubble, not a new placeholder. ✅ Branch `feat/f194-phase-z6` — active path uses `findInvocationlessStreamPlaceholder` before creating a new assistant bubble; background path reuses `finalizedBgRefs` before `bg-rich-*` creation. RED test: `useAgentMessages-richblock-correlation` AC-Z17 (`done` → late rich_block) stays one bubble.
-- [x] AC-Z18: no-@ fallback returns a deterministic **single** cat from the previous user message mentions. ✅ Branch `feat/f194-phase-z6` — `findRecentUserMentionFallback` keeps Z5 paging / system filtering / effective-score semantics but returns `[routable[0]]` instead of the whole set. RED tests update F078 superseded case + AC-Z16 no-mention case.
+- [x] AC-Z17: invocationless rich/audio block after `done` attaches to the just-finalized stream bubble, not a new placeholder. ✅ PR #1623 squash `24eb56e3` — active path uses `findInvocationlessStreamPlaceholder` before creating a new assistant bubble; background path reuses `finalizedBgRefs` before `bg-rich-*` creation. Cloud review P1s narrowed both fallbacks to invocationless late events only so explicit new-turn rich/audio cannot splice into the prior bubble. RED tests: `useAgentMessages-richblock-correlation` AC-Z17 (`done` → late rich_block) stays one bubble + explicit rich_block does not attach to previous finalized bubble; background system-info test covers the same guard.
+- [x] AC-Z18: no-@ fallback returns a deterministic **single** cat from the previous user message mentions. ✅ PR #1623 squash `24eb56e3` — `findRecentUserMentionFallback` keeps Z5 paging / system filtering / effective-score semantics but returns `[routable[0]]` instead of the whole set. RED tests update F078 superseded case + AC-Z16 no-mention case.
 
 ### 端到端 / Vision
 
@@ -391,8 +391,8 @@ Phase Z5 合入后的 alpha re-test 又抓到两个剩余边界：
 | R6 | "明明at的最后一只猫是47 or 55但是召唤出来的却是46" (2026-05-10 04:51) | AC-Z16 | fallback 使用上一条 user message mentions | [x] (PR #1622 squash `3b3c6b33`) |
 | R7 | "以前就算有裂开的两个气泡不需要f5就能合并 现在不能了！" (2026-05-10 04:57) | AC-Z14 | live reconcile pass 不 F5 自动收敛 | [x] (PR #1622 squash `3b3c6b33`) |
 | R8 | "你们的上一个pr一定有问题！" — Z4 引入 deriveBubbleId 公式冲突 (2026-05-10 04:51) | AC-Z12, AC-Z13 | 统一 id 公式 + hydrate match 机制文档化 | [x] (PR #1622 squash `3b3c6b33`) |
-| R9 | "f5之前 我们47多了个小气泡！f5之后就没了" (2026-05-10 10:13) | AC-Z17 | late rich/audio after done 复用 finalized stream bubble | [x] (branch `feat/f194-phase-z6`) |
-| R10 | "上一次at了两只猫 这次没有任何at fallback应该是一只猫" (2026-05-10 10:17) | AC-Z18 | no-@ fallback 从上一条 user mentions 里确定性选一只 | [x] (branch `feat/f194-phase-z6`) |
+| R9 | "f5之前 我们47多了个小气泡！f5之后就没了" (2026-05-10 10:13) | AC-Z17 | late rich/audio after done 复用 finalized stream bubble | [x] (PR #1623 squash `24eb56e3`) |
+| R10 | "上一次at了两只猫 这次没有任何at fallback应该是一只猫" (2026-05-10 10:17) | AC-Z18 | no-@ fallback 从上一条 user mentions 里确定性选一只 | [x] (PR #1623 squash `24eb56e3`) |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -486,6 +486,7 @@ Phase Z5 合入后的 alpha re-test 又抓到两个剩余边界：
 | 2026-05-09 17:09 | **F194 close 退回（砚砚 catch acceptance gap）** — 砚砚在新 thread `thread_moz0i3l9mya45fnx` 发现 ideate 双猫并行场景仍裂：runtime 日志 codex child 被判 `tracker+draft / tracker_active_missing_record`。代码核对：`route-parallel.ts:399` 调 `invokeSingleCat` 漏传 `options.parentInvocationId`（`route-serial.ts:725` 已传）→ parallel 场景 child registry record 缺 parentInvocationId → helper namespace bridge 失效。砚砚原话："F194 close gate 要退回，不该包装成新 hotfix"。Status 改回 in-progress + 加 AC-Z6 (parallel route 修补) + AC-Z7 (KD-23 重做含 ideate 场景)。开 Phase Z2 worktree |
 | 2026-05-09 17:32 | **Phase Z2 merged (PR #1617, squash `1fa6ed229`)** — 4 行实现 + 84 行 RED test：spy `registry.create` 第 4 参数（parentInvocationId），before fix `actual=undefined, expected='cat-cafe-outer-z2-parent'`。砚砚 R APPROVE "Findings: none" + 云端 LGTM "Can't wait for the next one!"。同时铲屎官报告**第二个问题**（不同根因）：刷新后同 parent chain 里同 cat 多 turn 气泡被合并（`opus → codex → opus` 两个 opus bubble 强行合并 → cancel 按钮消失 + 第三个 opus 失踪）。砚砚根因：formal message `extra.stream.invocationId` 当前盖 parent id，前端 `mergeReplaceHydrationMessages` 用 `(catId, invocationId)` 当 stable key → 同 cat 多 turn 同一 key 被合并。砚砚口径："PR #1617 可以单独合，但绝不能拿它做 F194 close"。F194 acceptance failure 继续 → Phase Z3 收口（双 id 拆分） |
 | 2026-05-10 16:40 | **Phase Z5 merged (PR #1622, squash `3b3c6b33`)** — 单 PR 收口铲屎官 alpha 实测 4 bug (A 气泡裂 / B 不自愈 / C 采样缺猫 / D fallback 错猫)。砚砚 R1→R11 跨 11 轮 review 收敛 5 P1 + 2 nit (await + UI-compat 白名单 + 50 thread-msg cap → pagination → effective score cursor → page-level cutoff)；云端 codex R1→R8 跨 8 轮 review 收敛 4 P1 + 2 P2 (system msg user count + placeholder 吸收 kind gate + scheduler 排除 + 1h cutoff 顺序 + 跨 panel coherence + 去掉 page cap)；最后 2 轮 cloud LGTM "Didn't find any major issues 🎉"。Bug A+B 修法：bubble-reducer findExistingByStableKey empty placeholder 吸收 (gate 非 system_status incoming kind)。Bug C 修法：deriveActiveCats ideate mode UNION + 三 panel 都传 intentMode。Bug D 修法：findRecentUserMentionFallback 分页扫 effective score (deliveredAt ?? timestamp) + SYSTEM_USER_IDS 排除 + 1h cutoff 仅对 user msg + page-level cutoff early-stop。15 commits squash 1。AC-Z12/Z13/Z14/Z15/Z16 全 ✅。**Status: alpha re-test by 铲屎官 待执行** → 守护猫 sign-off → close F194。 |
+| 2026-05-10 18:36 | **Phase Z6 merged (PR #1623, squash `24eb56e3`)** — 砚砚接手修 alpha re-test 剩余 2 个问题：R9 late rich/audio after done 造成临时小气泡（F5 后消失）和 R10 no-@ fallback 误扩成上一轮 mentions 全集。Opus-47 review APPROVE，云端 Codex R1 退回 2 P1（active/background finalized fallback 必须只限 invocationless rich/audio，不能把新 invocation rich_block 拼进旧 bubble），砚砚补 RED→GREEN 后重新触发，云端 LGTM "Breezy!"。AC-Z17/AC-Z18 全 ✅。**Status: alpha re-test by 铲屎官待执行** → 守护猫 sign-off → close F194。 |
 
 ## Review Gate
 
