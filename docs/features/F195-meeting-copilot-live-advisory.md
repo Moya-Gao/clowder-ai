@@ -68,7 +68,7 @@ created: 2026-05-09
 
 | 能力 | 状态 | 来源 |
 |------|------|------|
-| 本地 STT（Whisper + Qwen3-ASR） | ✅ 生产可用 | scripts/whisper-api.py, scripts/qwen3-asr-api.py |
+| 本地 STT（Whisper + Qwen3-ASR） | ✅ 语音消息级可用（非会议级流式） | scripts/whisper-api.py, scripts/qwen3-asr-api.py |
 | 本地 TTS + 猫猫独立声线 | ✅ 11 猫各有声线 | F066 + F103 |
 | 流式 TTS（首句 ~2-3s） | ✅ | F111 WebSocket voice_chunk |
 | 播放队列 | ✅ | F112 PlaybackManager |
@@ -84,15 +84,49 @@ created: 2026-05-09
 | 说话人身份映射 | diarization 只给 SPEAKER_00，需映射到人名 | 声纹注册 vs 手动标注 vs 其他？ |
 | Hub 浮动转写窗 | 前端新组件 | 有现成方案可参考吗？ |
 | Meeting context 注入 | 把转写内容注入猫的 invocation 上下文 | 上下文管理策略？ |
+| Turn-taking 检测 | 判断"现在可以插话"需要 VAD/prosody/floor detection，不是 ASR 副产品 | 有哪些开源模型或方法？ |
+
+## 安全边界（砚砚 review 补充）
+
+### Meeting Context 必须当不可信输入（P1）
+
+转写内容来自会议参与者，不可注入 system prompt。必须使用 `MeetingContextBlock` 放在 data 区，带 provenance、speaker confidence、timestamp，防止 transcript prompt injection。
+
+### Diarization 不阻塞 MVP（P1）
+
+MVP 允许 `Speaker A/B/Unknown`，甚至"有人说"。铲屎官主要需要猫知道"正在讨论什么"，不是一开始就 95% 准确知道"谁说的"。身份映射（会前 enrollment、手动改名、置信度低不归因）是 Phase 2 增强。
+
+### 智囊输出先 pull-based（P1）
+
+MVP 做拉取模式：铲屎官打草稿或问"现在怎么说"，猫再整理。主动推"现在可以插话"放 Phase 2 并加频率限制，避免反过来增加 AUDHD 注意力负担。
+
+### 浮动转写窗最小 AC
+
+- 不抢聊天输入焦点
+- 可拖拽/缩放/最小化
+- 可暂停采集
+- 显示录音状态
+- 可手动修正 speaker label
+
+### MeetingSession 概念
+
+需要一个 `MeetingSession` 绑定当前 thread，浮动窗跨 workspace 存在。明确"会议上下文跟哪个 thread 走"。
+
+### Consent / Privacy Gate
+
+产品上至少需要"正在录音/转写"的显式状态和本地保存策略。
 
 ## 调研任务（Research Brief）
 
-在方案定型前，需要一轮技术调研：
+在方案定型前，需要一轮技术调研（砚砚建议的提示词骨架）：
 
-1. **开源实时 ASR 模型**：Whisper streaming variants、Qwen Omni ASR 能力、其他轻量模型
-2. **说话人分离**：pyannote.audio vs 其他方案、实时性 benchmark、Apple Silicon 性能
-3. **类似产品/项目**：有没有开源的 meeting copilot / AI meeting assistant？架构怎么做的？
-4. **更酷的做法**：有没有我们没想到的方式？端到端模型？多模态？
+1. **低延迟 streaming ASR**：本地 Apple Silicon、小模型、云端 API、hybrid 架构对比
+2. **Speaker diarization / identification**：实时性、准确率、多人圆桌、重叠发言、会前 enrollment、手动校正 UX
+3. **Turn-taking / interruption timing**：如何判断"现在可以插话"——开源模型、VAD/prosody 方法、产品实践
+4. **Meeting context compression**：如何把实时 transcript 安全地提供给 LLM，不被 transcript prompt injection 污染
+5. **类似开源项目和商业产品架构**：输入、转写、上下文、建议生成、UI 形态
+6. **MVP / Phase 2 / Future 三档方案**：每档列 latency budget、准确率风险、实现复杂度、依赖、失败降级
+7. **可验证 benchmark 计划和推荐 spike 顺序**
 
 ## Open Questions
 
@@ -109,7 +143,15 @@ created: 2026-05-09
 > - "智囊"定位优于"参与者"定位（铲屎官拍板）
 > - 不需要独立的智囊面板，用现有 thread 聊天 + 浮动转写窗即可（铲屎官拍板）
 > - 说话人分离技术上可行（pyannote.audio），但方案待调研
+>
+> **砚砚(GPT-5.5) review 补充（2026-05-09）**：
+> - Meeting context 必须当不可信输入，用 MeetingContextBlock 隔离，防 prompt injection（P1）
+> - Turn-taking 检测是独立技术问题，不是 ASR 副产品——铲屎官核心痛点在 timing/phrasing，调研必须单列（P1）
+> - Diarization 不阻塞 MVP，Speaker A/B/Unknown 即可起步（P1）
+> - 智囊输出先 pull-based（铲屎官问了猫再答），push-based 放 Phase 2 加频率限制（P1）
+> - 补充了浮动窗最小 AC、MeetingSession 概念、consent/privacy gate（P2）
 
 ---
 
 *[宪宪/Opus-46🐾] 立项于 2026-05-09 头脑风暴 session*
+*[砚砚/GPT-5.5🐾] review 补充于 2026-05-09*
