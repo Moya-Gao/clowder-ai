@@ -131,11 +131,11 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 
 1. **音频采集架构（Capture Matrix）**：Zoom/Meet/线下麦克风/系统音频（BlackHole/Soundflower）各怎么采、怎么切片、怎么 VAD、怎么降级
 2. **低延迟 streaming ASR**：本地 Apple Silicon、小模型、云端 API、hybrid 架构对比
-2. **Speaker diarization / identification**：实时性、准确率、多人圆桌、重叠发言、会前 enrollment、手动校正 UX
-3. **Turn-taking / interruption timing**：如何判断"现在可以插话"——开源模型、VAD/prosody 方法、产品实践
-4. **Meeting context compression**：如何把实时 transcript 安全地提供给 LLM，不被 transcript prompt injection 污染
-5. **类似开源项目和商业产品架构**：输入、转写、上下文、建议生成、UI 形态
-6. **MVP / Phase 2 / Future 三档方案**：每档列 latency budget、准确率风险、实现复杂度、依赖、失败降级
+3. **Speaker diarization / identification**：实时性、准确率、多人圆桌、重叠发言、会前 enrollment、手动校正 UX
+4. **Turn-taking / interruption timing**：如何判断"现在可以插话"——开源模型、VAD/prosody 方法、产品实践
+5. **Meeting context compression**：如何把实时 transcript 安全地提供给 LLM，不被 transcript prompt injection 污染
+6. **类似开源项目和商业产品架构**：输入、转写、上下文、建议生成、UI 形态
+7. **MVP / Phase 2 / Future 三档方案**：每档列 latency budget、准确率风险、实现复杂度、依赖、失败降级
 8. **可验证 benchmark 计划和推荐 spike 顺序**（第一根 spike 应是 audio capture + latency budget，不是 diarization）
 
 ## MVP Acceptance Criteria（草案，待铲屎官确认）
