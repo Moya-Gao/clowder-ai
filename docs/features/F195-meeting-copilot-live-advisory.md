@@ -245,6 +245,70 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 2. **草稿→外交版发言**：铲屎官打碎片想法，猫在 ≤20s 内整理成可直接说出口的发言稿（含直接版 + 委婉版）
 3. **低置信度 speaker 优雅降级**：speaker label 置信度 <0.6 时显示"有人说"而非猜名字，不误导猫的推理
 
+## 实施范围（铲屎官拍板 2026-05-10）
+
+> **铲屎官原话（2026-05-10 16:14）**：
+> "我觉得我们这个功能 大概率要给你们做mcp + skills（教你们怎么用） + 前端？ 比如你提到的显示正在监听什么？ 以及我们最开始说的漂浮窗口？ 以及 感觉比如我和你说开始监听 腾讯会议 / 手机 / chrome的b站之类的哈哈哈"
+
+### 1. MCP 工具层
+
+猫猫通过 MCP 工具控制音频采集和读取转写。
+
+| 工具 | 用途 | 示例 |
+|------|------|------|
+| `meeting_list_sources` | 列出可监听的音频源（App 列表） | → "腾讯会议、Chrome、iPhone镜像..." |
+| `meeting_start` | 开始监听指定 App | `meeting_start("腾讯会议")` |
+| `meeting_stop` | 停止监听 | |
+| `meeting_status` | 当前会话状态（正在听什么、已运行多久、chunk 数） | |
+| `meeting_read_transcript` | 读取指定时间区间的转写 | `meeting_read_transcript(from="5:00", to="8:00")` |
+| `meeting_summary` | 获取最近 N 秒的自动摘要 | |
+
+底层：封装 CaptureAppAudio（ScreenCaptureKit）+ Qwen3-ASR 管线。
+
+### 2. Skill（教猫怎么用）
+
+新建 `meeting-copilot` skill，覆盖：
+- 铲屎官说"开始监听 XX"→ 猫调用 `meeting_start`
+- 铲屎官问"他们在聊什么"→ 猫调用 `meeting_read_transcript` 读最新区间 → 整理摘要
+- 铲屎官打碎片想法 → 猫整理成外交版发言稿
+- 铲屎官说"停"→ 猫调用 `meeting_stop`
+- 会后：猫读完整转写做复盘分析
+
+### 3. 前端组件
+
+| 组件 | 功能 | 位置 |
+|------|------|------|
+| **浮动转写窗** | 实时滚动显示转写文本，可拖拽/缩放/最小化 | Hub workspace 浮动层 |
+| **监听状态指示** | 显示"正在监听：腾讯会议"+ 录音时长 + 运行状态 | Hub 顶栏或状态栏 |
+| **采集控制** | 暂停/恢复/停止按钮 | 浮动转写窗内 |
+
+### 4. 用户交互流程
+
+```
+铲屎官：开始监听腾讯会议
+  猫猫：→ meeting_list_sources 找到"腾讯会议"
+       → meeting_start("腾讯会议")
+       → 浮动转写窗自动弹出
+       → 状态栏显示"🎙 正在监听：腾讯会议"
+
+铲屎官：他们在聊什么？
+  猫猫：→ meeting_read_transcript(latest 60s)
+       → 整理摘要回复
+
+铲屎官：我觉得他说的不对，应该用 xxx 方案
+  猫猫：→ 读最新转写上下文
+       → 整理成外交版发言稿（直接版 + 委婉版）
+
+铲屎官：停
+  猫猫：→ meeting_stop
+       → 浮动窗关闭，转写文件保存
+```
+
+支持的监听目标（基于 ScreenCaptureKit，按 App 名匹配）：
+- 腾讯会议 / Zoom / 飞书会议 / Google Meet（线上会议）
+- Chrome / Safari / Edge（网页视频/音频）
+- iPhone镜像（手机通话/手机端会议，通过 ScreenContinuity）
+
 ## Open Questions
 
 - 线上会议（Zoom/Tencent Meeting）vs 线下圆桌，音频采集方式不同，优先支持哪种？
