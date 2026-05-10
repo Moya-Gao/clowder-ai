@@ -322,10 +322,11 @@ tracker (cat-level only)
 
 **同时**：后端 hydrate id 是 nanoid（`generateId()`），不是 `msg-{turn}-{cat}` → Z4 假设的"live id == hydrate id 字面相等"**根本不成立**。
 
-- [ ] AC-Z12: 统一 bubble id 公式。两个 option（需收敛）：
-  - (A) Roll back Z4 helper `deriveBubbleId` 改动，让 reducer 完全负责 bubble 创建+id（helper 只 lookup existing）—— opus-47 倾向
-  - (B) Helper 也带 kind suffix `msg-{turn}-{cat}-{eventKind}` —— 但 helper 不一定知 eventKind
-  - 无论哪个 option，RED test 必须覆盖：thinking → tool_use → text 事件链下，始终只有 1 个 bubble
+- [ ] AC-Z12: 统一 bubble id 公式。**Decision: Option A — Roll back Z4 helper `deriveBubbleId` 改动**（opus-47 R1 review on Z5 spec 2026-05-10 12:07 commit）：
+  - **Option A 选定** — helper 只 lookup existing bubble（用 stable key match `getBubbleInvocationId`），bubble 创建+id 让位给 reducer 单写者
+  - **为什么 reject Option B** — helper 创建 placeholder 时不一定知 eventKind（empty placeholder 可能在第一个 event 之前就建好），即使 helper 带 kind suffix，也会出现"placeholder kind = assistant_text 但后续 tool_use event 的 reducer fallback id 是 tool_or_cli"的同一类不对齐
+  - **为什么 reject "不动 helper"** — Z4 helper 改动留在 main 会持续制造 Bug A + Bug B，必须撤回（KD-24 revert decision pending @landy）
+  - RED test 必须覆盖：thinking → tool_use → text 事件链下，始终只有 1 个 bubble；id 来源是 reducer 而非 helper
 - [ ] AC-Z13: hydrate canonical id（server nanoid）与 live placeholder id 的对齐机制文档化。Z4 假设两者字面相等是错的；正确机制是 `mergeReplaceHydrationMessages` 用 `(catId, getBubbleInvocationId)` stable key 做 **语义 match**，不是 id 字面比较
 
 #### Bug B — live reconcile 缺失
@@ -338,7 +339,8 @@ tracker (cat-level only)
   - 不能跨 cat
   - 不能跨 parent chain
   - 不能吞掉 callback final
-  - RED test：先制造两个 live bubble（thinking + text 各一个），不 F5，后续 callback/done 到达后必须自动收敛成一个
+  - **kind 漂移处理**（opus-47 R1 add）：bubble 一旦绑定 stable invocationId，`deriveBubbleKindFromMessage` 漂移**不应**触发新 bubble 创建；reconcile pass 必须能把 kind-misclassified 的 split 合回主容器（除非 ADR-033 明确要求独立 bubble，例如 callback final 的独立 origin）
+  - RED test：(1) 先制造两个 live bubble（thinking + text 各一个），不 F5，后续 callback/done 到达后必须自动收敛成一个；(2) thinking → tool_use → text 串起来后，bubble kind 漂移期间不能产生新 bubble id
 
 #### Bug C — 采样面板缺猫
 
@@ -353,7 +355,10 @@ tracker (cat-level only)
 **根因**（opus-47 诊断 + 代码定位）：`AgentRouter.resolveTargets` 无 @ fallback 走 `participantsWithActivity` 按 `lastMessageAt desc` 排序，`find` 拿最近发言的健康猫。opus-46 刚发了 vision guard 对照表 → `lastMessageAt` 最大 → 被 fallback 选中。
 **用户心智模型**：fallback = "我上一条消息 @ 的最后那只猫"，不是"thread 里最近发言的猫"。
 
-- [ ] AC-Z16: 无 @ fallback 优先使用"上一条 user message 的 `mentions` 列表"作为候选集。只有 mentions 为空（从未 @ 过）时才 fallback 到 `participantsWithActivity`。RED test 覆盖：user msg1 @ A+B → cat C 发言 → user msg2 无 @ → fallback 应选 A 或 B，不选 C
+- [ ] AC-Z16: 无 @ fallback 优先使用"上一条 user message 的 `mentions` 列表"作为候选集。只有 mentions 为空（从未 @ 过）时才 fallback 到 `participantsWithActivity`。
+  - **user message 严格定义**（opus-47 R1 add）：`message.userId !== null && message.catId === null`。Cat-to-cat handoff（A2A 转场 chip）+ vision guard 等 cat 自发消息**不计**，否则同样会被"最近发言猫"语义污染
+  - **时间窗口**（opus-47 R1 add）：只回看最近 N 条 user messages（建议 N=5 或时间窗口 1h），防止远古 mentions 主导 fallback；可走 `messageStore.getRecent(threadId, { limit: N })` 反序列扫
+  - RED test 覆盖：(1) user msg1 @ A+B → cat C 发言 → user msg2 无 @ → fallback 应选 A 或 B，不选 C；(2) user msg1 @ A → 远古 user msg N 个迭代后无 @ → fallback 不能拿 N 步前的 A（除非时间窗口允许）
 
 > **scope 边界说明**：Bug D 严格来说是 `AgentRouter` 路由语义问题，不是 invocation liveness read model。但铲屎官明确说"这就是 f194 的遗留而不是新增一个 feat"，且 D 是在 F194 acceptance 场景中暴露的，归入 F194 scope 避免碎片化。
 
@@ -440,6 +445,8 @@ tracker (cat-level only)
 | KD-21 | F194 helper 必须把 invocation 视为**双 namespace**：`recordStore.invocationId`（parent，整条 multi-cat 链共享）vs `draftStore/registry.invocationId`（child，per-cat-turn）。drafts/tracker stamping 不变，helper 学会 parent↔child 映射 | Phase B alpha 验收失败根因（铲屎官 2026-05-09 03:35 + 砚砚 04:51 拍板）：runtime thread `thread_moxnb78ckc36xhga` 仍裂——98d2949c 是 parent（用户消息"你说说我们的现状"，opus→codex→opus 链 4 分钟没结束），a58a8757 是 child（当前 opus 第三轮 streaming）。helper 把它们当同 namespace → record-only/pending + tracker+draft no-record 两个 ghost identity → /queue dedup 取最早 startedAt → slot 计时陈旧但内容是新的。架构上：drafts 必须 per-turn 唯一（DraftStore key 含 invocationId 不能复用 parent），formal message 用 parentInvocationId stamp（已正确），tracker 干脆不存 invocationId（ambiguous）。helper 不能假设 namespace 相等。砚砚 reject 方案 A（全量统一 schema 迁移风险大）+ reject 方案 C（"同 cat 有 draft 就特殊处理" 是孤立 patch）→ 走方案 B（namespace-aware helper） | 2026-05-09 |
 | KD-22 | helper namespace-aware 实现走"加 dep 不改 stamping"路线，**dep 必须返回结构化数据不能黑盒 boolean**（砚砚 R1 P1-1）：复用 InvocationRegistry 已有 `parentInvocationId` 字段 + `getLatestId(threadId, catId)` 接口；helper 入口 build namespace index `parentToChildren: Map<parentRecordId, Array<{childTurnId, draft, turnCreatedAt}>>` 后再做分类 | KD-21 决策后的实现路线选择：A 全量 namespace 统一会触动 callback auth + DraftStore key + 历史兼容三处 schema migration（高风险大半天起）；C "同 cat 有 draft" hotfix rule 短期变好但下次会在别的 parent/child 边界继续裂。B = canonical helper 加 namespace awareness。砚砚 R1 P1-1 reject 黑盒 boolean dep（`hasFreshChildDraft(parentId)` 只返 true/false，helper 拿不到 child id/catId/createdAt 做 startedAt 与 diagnostic）→ 改用结构化 dep：`getTurnInvocation(invocationId)` 返 `{ parentInvocationId, threadId, catId, createdAt }`（包装 `registry.getRecord`） + `getLatestTurnInvocationId(threadId, catId)`（包装 `registry.getLatestId`）。砚砚 R1 P1-2 reject "parent 有 child draft → parent 不进 active 让 child 走 tracker+draft"（tracker 丢就漏 live）→ 改成"parent + child draft 是同一 execution chain"分类，tracker present → `parent+child+tracker`，tracker missing → degraded `parent+child-draft`。startedAt 优先取 child turn createdAt 不取 parent.updatedAt。砚砚 R1 P1-3 reject "formal message exists → instant succeeded"（multi-cat chain 中途就有 formal message）→ read-side 只 suppress ghost slot + 输出 namespace diagnostic，**succeeded 终态由 producer Z4 finally 决定**，read-side 不擅自终态化（缺 chainDone 证据） | 2026-05-09 |
 | KD-23 | F194 close hard gate：alpha runtime acceptance（AC-Z5）必须有 **截图/日志 evidence** + **愿景守护猫对照表**——spec / unit test / integration test 全过 ≠ close 资格，必须 runtime 真实场景验证不裂 | 砚砚 2026-05-09 04:51 拍板原话："不是'代码 merge 了就算完'，而是 active runtime thread 不裂才算 F194 过关"+ "Z 阶段验收必须包含 runtime 复现用例和 alpha 截图/日志证据"。Phase B 失败根因就是单测全过、API regression 全过、cloud LGTM "Bravo"，但没在 alpha 真实 multi-cat 串联场景压一遍。Phase Z 不重蹈：unit test + integration test + alpha runtime + 守护猫四个证据齐才允许 status: done | 2026-05-09 |
+| KD-25 | Phase Z5 走"一锅端 single-PR"，不再拆 sub-phase | 4 个 bug 根因都是同一 canonical contract 缺失（id 公式 / live reconcile / sampling 投影 / fallback 语义），分 4 个 PR 修会让 reducer / status-helpers / AgentRouter 跨 PR 跨 review 拆碎，重蹈 Phase A→B 拆分时"按 phase 分步思考飘动"的覆辙。一个 PR 同时验证 4 个 bug 互不冲突 + 跨 helper 边界一致性。代价：PR 大，review iteration 可能多，但 alpha 验收一次到位 | 2026-05-10 (opus-47 R1) |
+| KD-26 | 愿景守护 SOP 漏检 "live state ≡ reducer canonical state" 不变量——Phase Z3/Z4 守护对照表（宪宪/Opus-46 跨 family）2 次都全绿但 Bug A+B 没 catch。守护 checklist 必须加："同 turn 多 event kind 链下 live UI bubble 数 ≡ hydrate canonical bubble 数" 的 alpha 实测脚本 | Z3 守护对照表只对照"刷新前后气泡数一致"（铲屎官最初 catch 的 Z3 失败场景），没考虑 Z3/Z4 自己引入的"helper id vs reducer id 公式不一致"。Z4 守护对照表也只看"placeholder id == hydrate id"假设的字面相等，没考虑 reducer kind suffix 路径。这是元-级 lesson：守护 SOP 不能只对照"上一次 catch 的症状"，要主动审 "你这次改的 contract 有没有跟周边 contract 漂"。Self-evolution 候选 → 待 close 后蒸馏到 vision guard skill | 2026-05-10 (opus-47 + 砚砚 共识) |
 
 ## Timeline
 
