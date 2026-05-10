@@ -48,6 +48,28 @@ if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ]; then
   fi
 fi
 
+# 4. 检查 docs/ 下未跟踪的 .md 文件（猫猫生成了文档但忘记 commit）
+UNTRACKED_DOCS=$(git ls-files --others --exclude-standard -- 'docs/*.md' 'docs/**/*.md' 2>/dev/null | head -10)
+if [ -n "$UNTRACKED_DOCS" ]; then
+  WARNINGS="${WARNINGS}
+⚠️ docs/ 下有未跟踪的 .md 文件（某只猫生成了但忘记 commit push）：
+${UNTRACKED_DOCS}
+→ 向铲屎官汇报，商量处理方式（commit/移走/删除）
+"
+fi
+
+# 5. 检查根目录杂物（不该出现在根目录的文件）
+ROOT_CLUTTER=$(git ls-files --others --exclude-standard -- ':!.*' ':!packages/' ':!docs/' ':!assets/' ':!scripts/' ':!cat-cafe-skills/' ':!designs/' ':!desktop/' 2>/dev/null \
+  | grep -vE '^(package\.json|pnpm-workspace\.yaml|pnpm-lock\.yaml|tsconfig|biome|README|LICENSE|CLAUDE|AGENTS|\.npmrc|\.nvmrc|\.node-version|\.editorconfig|\.prettierrc|Makefile|Dockerfile|Procfile|turbo\.json|\.tool-versions)' \
+  | head -10)
+if [ -n "$ROOT_CLUTTER" ]; then
+  WARNINGS="${WARNINGS}
+⚠️ 根目录有不该在这里的文件（可能是猫猫产物忘记移走/ignore）：
+${ROOT_CLUTTER}
+→ 向铲屎官汇报，商量处理方式
+"
+fi
+
 # 输出提醒（只在有警告时才输出）
 if [ -n "$WARNINGS" ]; then
   echo "🐾 开工自检：${WARNINGS}"

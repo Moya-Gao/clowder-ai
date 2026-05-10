@@ -112,6 +112,17 @@ dump.rdb.backup*
 # TypeScript build info
 *.tsbuildinfo
 
+# Root-level screenshots/images (should go to assets/screenshots/ if needed)
+/*.png
+/*.jpg
+/*.jpeg
+
+# Claude Code worktree metadata
+.claude/worktrees/
+
+# Local design prototypes
+assets/prototypes/
+
 # Root-level skills/ (Pencil plugin generated)
 /skills/
 
