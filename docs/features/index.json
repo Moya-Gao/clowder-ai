@@ -1203,7 +1203,7 @@
     {
       "id": "F194",
       "name": "Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口",
-      "status": "in-progress (Phase A + B + Z + **Z2** merged; **acceptance still failing 2026-05-09 17:32** — 铲屎官报告**第二个问题**：刷新后同一 parent chain 里同 cat 多 turn 气泡被合并（`opus → codex → opus` 两个 opus bubble 强行合并 → cancel 按钮消失 + 第三个 opus 失踪）。砚砚根因：formal message `extra.stream.invocationId` 当前盖 parent id，前端 `mergeReplaceHydrationMessages` 用 `(catId, invocationId)` 当 stable key → 同 cat 多 turn 同一 key 被合并。**Phase Z3 收口**：双 id 拆分（chainInvocationId/parent + turnInvocationId/child） + bubble identity 用 turn 维度 + 双 id schema + RED test 覆盖刷新前后) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1",
+      "status": "in-progress (Phase A + B + Z + Z2 + **Z3** merged 2026-05-10; **acceptance still failing 2026-05-10 02:30** — 铲屎官报告**第三个问题**：F5 后正常，但刷新前 live 气泡多余 + at 顺序错。砚砚 (GPT-5.5) 诊断：server snapshot canonical 是对的，但 live event replay 不收敛——某条 live 事件没带对 turnInvocationId 或 active ref 还绑在旧 bubble 上 → 同段 thinking 进大泡泡又新建小泡泡。代码定位：`useAgentMessages.ts` bg path 3 处 placeholder（web_search:505 / rich_block:571 / thinking:681）用非 deterministic id `bg-X-${Date.now()}-...`，bypass `deriveBubbleId`，hydrate 后 canonical id 是 `msg-{turn}-{cat}` → live 与 hydrate 不一致，F5 才能消除分裂。**Phase Z4 收口**：3 处 placeholder 都用 `deriveBubbleId(turnInvocationId ?? invocationId, catId, fallback)` + AC-Z10 live≡hydrate 不变量 RED test) | **Owner**: 布偶猫(Opus 4.7) | **Priority**: P1",
       "file": "F194-invocation-liveness-canonical-read-model.md"
     },
     {

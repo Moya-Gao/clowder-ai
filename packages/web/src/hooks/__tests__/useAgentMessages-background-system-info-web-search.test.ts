@@ -131,9 +131,13 @@ describe('consumeBackgroundSystemInfo web_search', () => {
     const result = consumeBackgroundSystemInfo(msg, undefined, options);
 
     expect(result.consumed).toBe(true);
+    // F194 Phase Z4 (砚砚 R review P1#3): rename non-deterministic placeholder to deterministic
+    // `msg-{turn ?? parent}-{cat}` id BEFORE writing extra.stream — so live id ≡ hydrate canonical.
+    // No turnInvocationId here → seed = invocationId; deterministic id = `msg-inv-new-3-codex`.
+    expect(options.store.replaceThreadMessageId).toHaveBeenCalledWith('thread-1', 'bg-msg-1', 'msg-inv-new-3-codex');
     expect(options.store.setThreadMessageStreamInvocation).toHaveBeenCalledWith(
       'thread-1',
-      'bg-msg-1',
+      'msg-inv-new-3-codex',
       'inv-new-3',
       undefined,
     );
@@ -173,12 +177,18 @@ describe('consumeBackgroundSystemInfo web_search', () => {
     const result = consumeBackgroundSystemInfo(msg, undefined, options);
 
     expect(result.consumed).toBe(true);
-    // Critical: setThreadMessageStreamInvocation must be called with FOUR args (parent + turnInvocationId)
-    // so dual id contract (AC-Z8/Z9) survives background bind. Without this, bubble stays parent-only
-    // → same parent multi-turn merges in background path.
-    expect(options.store.setThreadMessageStreamInvocation).toHaveBeenCalledWith(
+    // F194 Phase Z4 (砚砚 R review P1#3): non-deterministic `bg-msg-z3` placeholder gets
+    // renamed to deterministic `msg-{turn}-{cat}` so live ≡ hydrate canonical.
+    // Z3 R12 still verified: setThreadMessageStreamInvocation called with FOUR args
+    // (parent + turn) but on the renamed deterministic id.
+    expect(options.store.replaceThreadMessageId).toHaveBeenCalledWith(
       'thread-1',
       'bg-msg-z3',
+      'msg-turn-codex-z3-codex',
+    );
+    expect(options.store.setThreadMessageStreamInvocation).toHaveBeenCalledWith(
+      'thread-1',
+      'msg-turn-codex-z3-codex',
       'parent-chain-z3',
       'turn-codex-z3',
     );

@@ -338,6 +338,37 @@ interface SystemInfoConsumeResult {
   variant: 'info' | 'a2a_followup';
 }
 
+/**
+ * F194 Phase Z4 R3 (砚砚 R2 P1): resolve dual id for bg placeholder creation with safe fallback.
+ *
+ * Rules:
+ *   - Prefer msg.invocationId / msg.turnInvocationId (freshest signal from current event).
+ *   - Store catInvocations[catId] is fallback ONLY — and only the parent (invocationId) field is
+ *     unconditionally trusted. The store turnInvocationId is trusted ONLY when store.invocationId
+ *     matches the resolved parent (i.e., store reflects the SAME chain as current msg).
+ *   - This prevents the stale-store fallback bug (砚砚 R2): markInvocationComplete used to leave
+ *     store as { invocationId: undefined, turnInvocationId: T1 }; next-turn msg with parent only
+ *     would derive msg-T1-cat → merge same-cat multi-turn.
+ *
+ * markInvocationComplete now also clears turnInvocationId (Z4 R3), so this helper is defense in
+ * depth — if any other code path leaves a stale turnInvocationId, this gate prevents misuse.
+ */
+function resolveBgPlaceholderInvocationIds(
+  msg: BackgroundAgentMessage,
+  options: HandleBackgroundMessageOptions,
+): { invocationId: string | undefined; turnInvocationId: string | undefined } {
+  const storeCat = options.store.getThreadState(msg.threadId).catInvocations[msg.catId];
+  const invocationId = msg.invocationId ?? storeCat?.invocationId;
+  let turnInvocationId = msg.turnInvocationId;
+  if (turnInvocationId === undefined && storeCat?.turnInvocationId) {
+    // Only trust store turn if store parent matches resolved parent (same chain).
+    if (storeCat.invocationId && storeCat.invocationId === invocationId) {
+      turnInvocationId = storeCat.turnInvocationId;
+    }
+  }
+  return { invocationId, turnInvocationId };
+}
+
 function recoverBackgroundStreamingMessage(
   msg: BackgroundAgentMessage,
   options: HandleBackgroundMessageOptions,
@@ -407,8 +438,24 @@ export function consumeBackgroundSystemInfo(
         });
         const targetId = existingRef?.id ?? recoverBackgroundStreamingMessage(msg, options);
         if (targetId) {
+          // F194 Phase Z4 (砚砚 R review P1#3): if existing placeholder has non-deterministic id
+          // (`bg-think-*`/`bg-web-*`/`bg-rich-*` from race window where invocation_created arrives
+          // AFTER the system_info), rename to deterministic id `msg-{turn}-{cat}` so live state
+          // converges to hydrate canonical (otherwise live keeps the bg-X id, hydrate creates a
+          // separate msg-{turn}-{cat} bubble → split → only fixed by F5).
+          const deterministicId = deriveBubbleId(turnInvocationId ?? invocationId, targetCatId, () => targetId);
+          let finalTargetId = targetId;
+          if (deterministicId !== targetId) {
+            options.store.replaceThreadMessageId(msg.threadId, targetId, deterministicId);
+            options.bgStreamRefs.set(bgStreamKey, {
+              id: deterministicId,
+              threadId: msg.threadId,
+              catId: targetCatId,
+            });
+            finalTargetId = deterministicId;
+          }
           // F194 Phase Z3 R12 P1: forward turnInvocationId so background bind preserves dual id
-          options.store.setThreadMessageStreamInvocation(msg.threadId, targetId, invocationId, turnInvocationId);
+          options.store.setThreadMessageStreamInvocation(msg.threadId, finalTargetId, invocationId, turnInvocationId);
         }
         consumed = true;
       }
@@ -507,9 +554,16 @@ export function consumeBackgroundSystemInfo(
       if (!targetId) {
         // Create placeholder assistant bubble if needed (mirrors thinking path)
         const streamKey = `${msg.threadId}::${msg.catId}`;
-        targetId = `bg-web-${Date.now()}-${msg.catId}-${options.nextBgSeq()}`;
-        const invocationId = options.store.getThreadState(msg.threadId).catInvocations[msg.catId]?.invocationId;
-        const turnInvocationId = options.store.getThreadState(msg.threadId).catInvocations[msg.catId]?.turnInvocationId;
+        // F194 Phase Z4 R3 (砚砚 R2 P1): use safe-fallback helper — msg.* preferred, store turn
+        // gated by parent-match to prevent stale turn fallback after invocation completion.
+        const { invocationId, turnInvocationId } = resolveBgPlaceholderInvocationIds(msg, options);
+        // bubble id seeded with turn-priority key matching backend persist (`msg-{turn}-{cat}`)
+        // so hydrate canonical id directly hits this placeholder — no live/hydrate divergence.
+        targetId = deriveBubbleId(
+          turnInvocationId ?? invocationId,
+          msg.catId,
+          () => `bg-web-${Date.now()}-${msg.catId}-${options.nextBgSeq()}`,
+        );
         options.bgStreamRefs.set(streamKey, { id: targetId, threadId: msg.threadId, catId: msg.catId });
         options.store.addMessageToThread(msg.threadId, {
           id: targetId,
@@ -573,9 +627,14 @@ export function consumeBackgroundSystemInfo(
       if (!targetId) {
         // No existing bubble — create placeholder (mirrors foreground ensureActiveAssistantMessage)
         const streamKey = `${msg.threadId}::${msg.catId}`;
-        targetId = `bg-rich-${Date.now()}-${msg.catId}-${options.nextBgSeq()}`;
-        const invocationId = options.store.getThreadState(msg.threadId).catInvocations[msg.catId]?.invocationId;
-        const turnInvocationId = options.store.getThreadState(msg.threadId).catInvocations[msg.catId]?.turnInvocationId;
+        // F194 Phase Z4 R3 (砚砚 R2 P1): use safe-fallback helper.
+        const { invocationId, turnInvocationId } = resolveBgPlaceholderInvocationIds(msg, options);
+        // bubble id seeded with turn-priority key matching backend persist (`msg-{turn}-{cat}`).
+        targetId = deriveBubbleId(
+          turnInvocationId ?? invocationId,
+          msg.catId,
+          () => `bg-rich-${Date.now()}-${msg.catId}-${options.nextBgSeq()}`,
+        );
         options.bgStreamRefs.set(streamKey, { id: targetId, threadId: msg.threadId, catId: msg.catId });
         options.store.addMessageToThread(msg.threadId, {
           id: targetId,
@@ -683,10 +742,15 @@ export function consumeBackgroundSystemInfo(
         if (!targetId) {
           // Thinking arrived before any text/tool chunk — create placeholder assistant bubble
           const streamKey = `${msg.threadId}::${msg.catId}`;
-          targetId = `bg-think-${Date.now()}-${msg.catId}-${options.nextBgSeq()}`;
-          const invocationId = options.store.getThreadState(msg.threadId).catInvocations[msg.catId]?.invocationId;
-          const turnInvocationId = options.store.getThreadState(msg.threadId).catInvocations[msg.catId]
-            ?.turnInvocationId;
+          // F194 Phase Z4 R3 (砚砚 R2 P1): use safe-fallback helper.
+          const { invocationId, turnInvocationId } = resolveBgPlaceholderInvocationIds(msg, options);
+          // bubble id seeded with turn-priority key matching backend persist (`msg-{turn}-{cat}`)
+          // — the "thinking 既进大泡泡又新建小泡泡, F5 后正常" symptom from 2026-05-10 alpha.
+          targetId = deriveBubbleId(
+            turnInvocationId ?? invocationId,
+            msg.catId,
+            () => `bg-think-${Date.now()}-${msg.catId}-${options.nextBgSeq()}`,
+          );
           options.bgStreamRefs.set(streamKey, { id: targetId, threadId: msg.threadId, catId: msg.catId });
           options.store.addMessageToThread(msg.threadId, {
             id: targetId,
@@ -1222,7 +1286,14 @@ function markThreadInvocationActive(msg: BackgroundAgentMessage, options: Handle
 
 function markThreadInvocationComplete(msg: BackgroundAgentMessage, options: HandleBackgroundMessageOptions): void {
   options.store.setThreadLoading(msg.threadId, false);
-  options.store.setThreadCatInvocation(msg.threadId, msg.catId, { invocationId: undefined });
+  // F194 Phase Z4 R3 (砚砚 R2 P1): also clear turnInvocationId on completion. Otherwise store
+  // holds {invocationId: undefined, turnInvocationId: T1} → next-turn fallback (when msg lacks
+  // turn) misuses T1 → derives msg-T1-cat → merges turn3 onto turn1 (the same-cat-multi-turn
+  // bug砚砚 root-caused 2026-05-10).
+  options.store.setThreadCatInvocation(msg.threadId, msg.catId, {
+    invocationId: undefined,
+    turnInvocationId: undefined,
+  });
 
   // Snapshot slot count before removal to detect actual transition to zero.
   const stateBefore = options.store.getThreadState(msg.threadId);
@@ -3648,7 +3719,9 @@ export function useAgentMessages() {
           // Cloud review P2: Do NOT clear taskProgress here — lines 552-559 already
           // transition it to 'completed'/'interrupted'. Wiping it would remove the
           // cat from PlanBoardPanel and defeat clearCatStatuses' snapshot preservation.
-          setCatInvocation(msg.catId, { invocationId: undefined });
+          // F194 Phase Z4 R3 (砚砚 R2 P1): also clear turnInvocationId so next-turn
+          // placeholder fallback won't pick up stale turn id (same-cat multi-turn merge bug).
+          setCatInvocation(msg.catId, { invocationId: undefined, turnInvocationId: undefined });
         }
         // Stale-done direct cleanup (cloud R12 P1): even when the bubble-side
         // processing was skipped as stale, we MUST still clear `catInvocations
@@ -3664,7 +3737,8 @@ export function useAgentMessages() {
           msg.invocationId &&
           useChatStore.getState().catInvocations?.[msg.catId]?.invocationId === msg.invocationId
         ) {
-          setCatInvocation(msg.catId, { invocationId: undefined });
+          // F194 Phase Z4 R3 (砚砚 R2 P1): also clear turnInvocationId — same rationale.
+          setCatInvocation(msg.catId, { invocationId: undefined, turnInvocationId: undefined });
         }
         // Always remove the finishing cat's invocation slot, regardless of isFinal.
         // isFinal=false means "more cats coming" but THIS cat is done — its slot must go.
