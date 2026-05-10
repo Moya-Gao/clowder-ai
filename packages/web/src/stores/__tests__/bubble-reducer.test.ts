@@ -1958,6 +1958,68 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
     });
   });
 
+  // F194 Phase Z3 R2 (砚砚 catch 2026-05-09 18:22): live reducer must keep dual id contract.
+  describe('F194 Phase Z3 R2: live reducer dual id (canonical=turn, chain=parent)', () => {
+    it('same parent + same cat 2 turns produce 2 bubbles + extra preserves parent+turn', () => {
+      const parentId = 'parent-chain-z3';
+      const out1 = applyBubbleEvent({
+        threadId: 'thread-1',
+        event: {
+          ...baseEvent(),
+          type: 'stream_chunk',
+          actorId: 'opus-47',
+          canonicalInvocationId: 'turn-opus-1',
+          chainInvocationId: parentId,
+          messageId: undefined, // let reducer derive `msg-{turn}-{actor}-{kind}`
+          payload: { content: 'opus turn 1' },
+          timestamp: 1000,
+        },
+        currentMessages: [],
+      });
+      const out3 = applyBubbleEvent({
+        threadId: 'thread-1',
+        event: {
+          ...baseEvent(),
+          type: 'stream_chunk',
+          actorId: 'opus-47',
+          canonicalInvocationId: 'turn-opus-3',
+          chainInvocationId: parentId,
+          messageId: undefined,
+          payload: { content: 'opus turn 3' },
+          timestamp: 1100,
+        },
+        currentMessages: out1.nextMessages,
+      });
+
+      expect(out3.nextMessages).toHaveLength(2);
+      const turn1 = out3.nextMessages.find((m) => m.extra?.stream?.turnInvocationId === 'turn-opus-1');
+      const turn3 = out3.nextMessages.find((m) => m.extra?.stream?.turnInvocationId === 'turn-opus-3');
+      expect(turn1).toBeDefined();
+      expect(turn3).toBeDefined();
+      expect(turn1?.extra?.stream?.invocationId).toBe(parentId);
+      expect(turn3?.extra?.stream?.invocationId).toBe(parentId);
+      expect(turn1?.id).not.toBe(turn3?.id);
+    });
+
+    it('legacy event without chainInvocationId stamps invocationId only (no turn key) — backward compat', () => {
+      const out = applyBubbleEvent({
+        threadId: 'thread-1',
+        event: {
+          ...baseEvent(),
+          type: 'stream_chunk',
+          actorId: 'opus-47',
+          canonicalInvocationId: 'legacy-only-id',
+          payload: { content: 'legacy hello' },
+          timestamp: 1000,
+        },
+        currentMessages: [],
+      });
+      const bubble = out.nextMessages[0];
+      expect(bubble.extra?.stream?.invocationId).toBe('legacy-only-id');
+      expect(bubble.extra?.stream?.turnInvocationId).toBeUndefined();
+    });
+  });
+
   it('B1.6: invocationless tool_event is reducer no-op (caller still drives via legacy)', () => {
     const toolEvent = { id: 'te-3', type: 'tool_use' as const, label: 'codex → noop', timestamp: 1100 };
     const output = applyBubbleEvent({

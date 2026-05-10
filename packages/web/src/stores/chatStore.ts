@@ -715,7 +715,7 @@ export interface ChatState {
   /** F045: Set or append extended thinking content on an assistant message */
   setMessageThinking: (messageId: string, thinking: string) => void;
   /** F081: Persist stream invocation identity onto a message for replace/hydration reconcile */
-  setMessageStreamInvocation: (messageId: string, invocationId: string) => void;
+  setMessageStreamInvocation: (messageId: string, invocationId: string, turnInvocationId?: string) => void;
   clearMessages: () => void;
   /** Bug C: Monotonic counter + target threadId — increment to request a history catch-up fetch */
   /**
@@ -862,7 +862,7 @@ export interface ChatState {
   setThreadMessageMetadata: (threadId: string, messageId: string, metadata: ChatMessageMetadata) => void;
   setThreadMessageUsage: (threadId: string, messageId: string, usage: TokenUsage) => void;
   setThreadMessageThinking: (threadId: string, messageId: string, thinking: string) => void;
-  setThreadMessageStreamInvocation: (threadId: string, messageId: string, invocationId: string) => void;
+  setThreadMessageStreamInvocation: (threadId: string, messageId: string, invocationId: string, turnInvocationId?: string) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   setThreadLoading: (threadId: string, loading: boolean) => void;
   setThreadHasActiveInvocation: (threadId: string, active: boolean) => void;
@@ -1878,7 +1878,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: state.messages.map((m) => (m.id === messageId ? { ...m, ...appendThinkingChunk(m, thinking) } : m)),
     })),
 
-  setMessageStreamInvocation: (messageId, invocationId) =>
+  setMessageStreamInvocation: (messageId, invocationId, turnInvocationId) =>
     set((state) => ({
       messages: state.messages.map((m) =>
         m.id === messageId
@@ -1886,7 +1886,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
               ...m,
               extra: {
                 ...m.extra,
-                stream: { ...m.extra?.stream, invocationId },
+                stream: {
+                  ...m.extra?.stream,
+                  invocationId,
+                  // F194 Phase Z3 R10 P1-1 (砚砚): preserve dual id contract — bubble identity SoT = turn,
+                  // chain SoT = parent. Caller passes both; without turn, leave key untouched (legacy bubble).
+                  ...(turnInvocationId ? { turnInvocationId } : {}),
+                },
               },
             }
           : m,
@@ -2370,13 +2376,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       })),
     ),
 
-  setThreadMessageStreamInvocation: (threadId, messageId, invocationId) =>
+  setThreadMessageStreamInvocation: (threadId, messageId, invocationId, turnInvocationId) =>
     set((state) =>
       updateThreadMessage(state, threadId, messageId, (m) => ({
         ...m,
         extra: {
           ...m.extra,
-          stream: { ...m.extra?.stream, invocationId },
+          // F194 Phase Z3 R12 P1 (砚砚): preserve dual id — invocationId=parent (chain SoT),
+          // turnInvocationId=child (bubble SoT). Background bind same contract as active.
+          stream: { ...m.extra?.stream, invocationId, ...(turnInvocationId ? { turnInvocationId } : {}) },
         },
       })),
     ),

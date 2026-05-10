@@ -157,8 +157,14 @@ export interface AgentMessage {
   replyPreview?: ReplyPreview;
   /** F061: Whether this message mentions the co-creator (@user/@铲屎官/configured patterns) */
   mentionsUser?: boolean;
-  /** F108: Invocation ID — allows frontend to distinguish messages from concurrent invocations */
+  /** F108: Invocation ID — allows frontend to distinguish messages from concurrent invocations.
+   *  F194 Phase Z3 dual id: this is the chain/parent invocation id (legacy SoT for liveness/queue/cancel).
+   *  Per-cat-turn id is `turnInvocationId` below — frontend uses turn for bubble identity stable key. */
   invocationId?: string;
+  /** F194 Phase Z3 (砚砚 R P1-1): per-cat-turn invocation id, frontend uses for bubble identity
+   *  stable key (prevents same-parent multi-turn-same-cat bubble merge). Stamped into
+   *  `extra.stream.turnInvocationId` by useAgentMessages. */
+  turnInvocationId?: string;
   /** F153-F: OTel span context for trace persistence (written to message extra.tracing) */
   tracing?: { traceId: string; spanId: string; parentSpanId?: string };
   /** F070: Structured error code for recoverable failures (e.g. GOVERNANCE_BOOTSTRAP_REQUIRED) */

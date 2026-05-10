@@ -131,7 +131,52 @@ describe('consumeBackgroundSystemInfo web_search', () => {
     const result = consumeBackgroundSystemInfo(msg, undefined, options);
 
     expect(result.consumed).toBe(true);
-    expect(options.store.setThreadMessageStreamInvocation).toHaveBeenCalledWith('thread-1', 'bg-msg-1', 'inv-new-3');
+    expect(options.store.setThreadMessageStreamInvocation).toHaveBeenCalledWith('thread-1', 'bg-msg-1', 'inv-new-3', undefined);
+  });
+
+  // F194 Phase Z3 R12 (砚砚 R13 RED requirement): background invocation_created with dual id
+  // (msg.invocationId=parent + msg.turnInvocationId=child) must call setThreadMessageStreamInvocation
+  // with parent + turnInvocationId, so existing stream bubble preserves dual id contract.
+  it('Z3 R12: background invocation_created with dual id rebinds existing stream bubble with turnInvocationId', () => {
+    const options = createMockOptions({
+      getThreadState: vi.fn(() => ({
+        messages: [
+          {
+            id: 'bg-msg-z3',
+            type: 'assistant',
+            catId: 'codex',
+            content: 'partial chunk',
+            isStreaming: true,
+            timestamp: Date.now(),
+          },
+        ],
+        catStatuses: {},
+        catInvocations: {},
+      })),
+    });
+
+    const msg = {
+      type: 'system_info',
+      catId: 'codex',
+      threadId: 'thread-1',
+      invocationId: 'parent-chain-z3',
+      turnInvocationId: 'turn-codex-z3',
+      content: JSON.stringify({ type: 'invocation_created', invocationId: 'turn-codex-z3' }),
+      timestamp: Date.now(),
+    };
+
+    const result = consumeBackgroundSystemInfo(msg, undefined, options);
+
+    expect(result.consumed).toBe(true);
+    // Critical: setThreadMessageStreamInvocation must be called with FOUR args (parent + turnInvocationId)
+    // so dual id contract (AC-Z8/Z9) survives background bind. Without this, bubble stays parent-only
+    // → same parent multi-turn merges in background path.
+    expect(options.store.setThreadMessageStreamInvocation).toHaveBeenCalledWith(
+      'thread-1',
+      'bg-msg-z3',
+      'parent-chain-z3',
+      'turn-codex-z3',
+    );
   });
 
   it('formats a2a_pingpong_terminated as readable system notice text', () => {

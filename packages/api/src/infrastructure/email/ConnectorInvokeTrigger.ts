@@ -455,7 +455,17 @@ export class ConnectorInvokeTrigger {
             });
           }
         }
-        socketManager.broadcastAgentMessage({ ...msg, invocationId: createResult.invocationId }, threadId);
+        // F194 Phase Z3 R3 P1-4 (砚砚): preserve original msg.invocationId (turn) as turnInvocationId
+        socketManager.broadcastAgentMessage(
+          {
+            ...msg,
+            invocationId: createResult.invocationId,
+            ...(msg.invocationId && msg.invocationId !== createResult.invocationId
+              ? { turnInvocationId: msg.invocationId }
+              : {}),
+          },
+          threadId,
+        );
       }
 
       // ⑤ Finalize: abort guard → persistence check → ack + succeeded

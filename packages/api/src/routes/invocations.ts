@@ -211,7 +211,15 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = a
           if ((msg.type === 'done' || msg.type === 'error') && msg.catId) {
             opts.invocationTracker.completeSlot(record.threadId, msg.catId, controller);
           }
-          opts.socketManager.broadcastAgentMessage({ ...msg, invocationId: id }, record.threadId);
+          // F194 Phase Z3 R3 P1-4 (砚砚): preserve original msg.invocationId (turn) as turnInvocationId
+          opts.socketManager.broadcastAgentMessage(
+            {
+              ...msg,
+              invocationId: id,
+              ...(msg.invocationId && msg.invocationId !== id ? { turnInvocationId: msg.invocationId } : {}),
+            },
+            record.threadId,
+          );
         }
 
         // P1-2: mark failed if any message persistence failed

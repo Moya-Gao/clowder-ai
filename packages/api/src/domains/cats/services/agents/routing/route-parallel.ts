@@ -821,7 +821,15 @@ export async function* routeParallel(
             ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
             extra: {
               ...(allRichBlocks.length > 0 ? { rich: { v: 1 as const, blocks: allRichBlocks } } : {}),
-              ...(persistedInvocationId ? { stream: { invocationId: persistedInvocationId } } : {}),
+              // F194 Phase Z3 dual id (see route-serial.ts:1370 for contract)
+              ...(persistedInvocationId
+                ? {
+                    stream: {
+                      invocationId: persistedInvocationId,
+                      ...(ownInvId && persistedInvocationId !== ownInvId ? { turnInvocationId: ownInvId } : {}),
+                    },
+                  }
+                : {}),
               ...(msg.tracing ? { tracing: msg.tracing } : {}),
             },
           });
@@ -909,7 +917,15 @@ export async function* routeParallel(
               ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
               extra: {
                 ...(noTextBlocks.length > 0 ? { rich: { v: 1 as const, blocks: noTextBlocks } } : {}),
-                ...(persistedInvocationId ? { stream: { invocationId: persistedInvocationId } } : {}),
+                // F194 Phase Z3 dual id (see route-serial.ts:1370 for contract)
+                ...(persistedInvocationId
+                  ? {
+                      stream: {
+                        invocationId: persistedInvocationId,
+                        ...(ownInvId && persistedInvocationId !== ownInvId ? { turnInvocationId: ownInvId } : {}),
+                      },
+                    }
+                  : {}),
                 ...(msg.tracing ? { tracing: msg.tracing } : {}),
               },
             });
@@ -989,7 +1005,15 @@ export async function* routeParallel(
               ...(persistedInvocationId || msg.tracing
                 ? {
                     extra: {
-                      ...(persistedInvocationId ? { stream: { invocationId: persistedInvocationId } } : {}),
+                      // F194 Phase Z3 dual id (see route-serial.ts:1370 for contract)
+                      ...(persistedInvocationId
+                        ? {
+                            stream: {
+                              invocationId: persistedInvocationId,
+                              ...(ownInvId && persistedInvocationId !== ownInvId ? { turnInvocationId: ownInvId } : {}),
+                            },
+                          }
+                        : {}),
                       ...(msg.tracing ? { tracing: msg.tracing } : {}),
                     },
                   }

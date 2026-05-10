@@ -17,7 +17,21 @@ export interface BubbleEvent {
   type: BubbleEventType;
   threadId: string;
   actorId: string;
+  /**
+   * F194 Phase Z3 (砚砚 R2 P1-1): bubble identity stable key SoT — preferred = per-cat-turn id
+   * (turnInvocationId from backend dual id). Reducer uses this for `msg-{id}-{actor}-{kind}`
+   * fallback id and dedup key. Falls back to chain/parent id when turn id absent (legacy / single
+   * cat per chain). Same parent + same cat 多 turn 不同 canonicalInvocationId → bubble 不合并。
+   */
   canonicalInvocationId?: string;
+  /**
+   * F194 Phase Z3 (砚砚 R2 P1-2): chain/parent invocation id — kept ALONGSIDE canonicalInvocationId
+   * so reducer can write `extra.stream = { invocationId: parent, turnInvocationId: turn }` matching
+   * the backend dual id schema. Used for liveness/queue/cancel reads (parent SoT). Optional —
+   * legacy/single-cat callers that don't separate parent/turn leave this undefined and reducer
+   * stamps `extra.stream.invocationId = canonical` (no turn key).
+   */
+  chainInvocationId?: string;
   bubbleKind: BubbleKind;
   originPhase: BubbleOriginPhase;
   sourcePath: BubbleSourcePath;
@@ -25,6 +39,37 @@ export interface BubbleEvent {
   seq?: number;
   timestamp?: number;
   payload?: Record<string, unknown>;
+}
+
+/**
+ * F194 Phase Z3 R3 (砚砚 R3 P1-1): bubble stable key SoT = turn id when present, else parent id.
+ * Used by all reducer stable-key comparisons (find-by-key, append-to-existing, done/error matching)
+ * so dual-id messages stamped by Z3 backend (`{ invocationId: parent, turnInvocationId: turn }`)
+ * match incoming events with `canonicalInvocationId = turn`. Without this helper, refresh hydrates
+ * dual-id message but reducer compares `extra.stream.invocationId` (parent) ≠ event.canonical (turn).
+ */
+export function getStableInvocationKey(msg: ChatMessage): string | undefined {
+  return msg.extra?.stream?.turnInvocationId ?? msg.extra?.stream?.invocationId;
+}
+
+/**
+ * F194 Phase Z3 (砚砚 R2 P1-2/P1-3): build `extra.stream` object honoring dual id contract.
+ * - When both parent and turn present and different: { invocationId: parent, turnInvocationId: turn }
+ * - When only one is set OR they're equal: { invocationId: <whichever set> }
+ * - When neither: undefined (caller skips writing extra.stream)
+ * Used by all reducer outlets (placeholder, merge, callback fallback) for consistent dual id.
+ */
+export function buildStreamExtraFromEvent(
+  event: BubbleEvent,
+): { stream: { invocationId: string; turnInvocationId?: string } } | undefined {
+  const turn = event.canonicalInvocationId;
+  const parent = event.chainInvocationId;
+  if (parent && turn && parent !== turn) {
+    return { stream: { invocationId: parent, turnInvocationId: turn } };
+  }
+  const id = parent ?? turn;
+  if (!id) return undefined;
+  return { stream: { invocationId: id } };
 }
 
 export interface BubbleReducerInput {
@@ -88,7 +133,7 @@ function makePlaceholder(event: BubbleEvent, content = '', currentMessages: Chat
     timestamp: event.timestamp ?? 0,
     isStreaming: event.originPhase === 'stream',
     origin: originFromPhase(event.originPhase),
-    extra: event.canonicalInvocationId ? { stream: { invocationId: event.canonicalInvocationId } } : undefined,
+    extra: buildStreamExtraFromEvent(event),
   };
 }
 
@@ -138,7 +183,9 @@ function findExistingByStableKey(
   for (let i = 0; i < messages.length; i++) {
     const m = messages[i];
     if (m.catId !== event.actorId) continue;
-    const existingInvocationId = m.extra?.stream?.invocationId;
+    // F194 Phase Z3 R3 P1-1 (砚砚): use dual-id stable key (turn > parent) so refresh-hydrated
+    // dual-id messages match incoming events with canonicalInvocationId=turn.
+    const existingInvocationId = getStableInvocationKey(m);
     if (!existingInvocationId) continue; // existing local-only 不参与 stable key 查重
     if (existingInvocationId !== event.canonicalInvocationId) continue;
     if (deriveBubbleKindFromMessage(m) !== event.bubbleKind) continue;
@@ -196,7 +243,7 @@ function withCanonicalUpgrade(
     id: ensureMessageId(event, currentMessages),
     extra: {
       ...message.extra,
-      stream: { invocationId: event.canonicalInvocationId },
+      ...(buildStreamExtraFromEvent(event) ?? {}),
     },
   };
 }
@@ -270,7 +317,8 @@ function reduceToolEvent(messages: ChatMessage[], event: BubbleEvent): ChatMessa
   const isAssistantTextTarget = (m: ChatMessage): boolean =>
     m.type === 'assistant' &&
     m.catId === event.actorId &&
-    m.extra?.stream?.invocationId === event.canonicalInvocationId &&
+    // F194 Phase Z3 R3 P1-1: dual-id stable key (turn > parent)
+    getStableInvocationKey(m) === event.canonicalInvocationId &&
     deriveBubbleKindFromMessage(m) === 'assistant_text';
   let targetIdx = messages.findIndex((m) => isAssistantTextTarget(m) && m.isStreaming === true);
   if (targetIdx === -1) {
@@ -304,7 +352,8 @@ function reduceDoneEvent(messages: ChatMessage[], event: BubbleEvent): ChatMessa
   for (const m of messages) {
     const matches =
       m.catId === event.actorId &&
-      m.extra?.stream?.invocationId === event.canonicalInvocationId &&
+      // F194 Phase Z3 R3 P1-1: dual-id stable key (turn > parent)
+      getStableInvocationKey(m) === event.canonicalInvocationId &&
       m.isStreaming === true;
     if (matches) {
       next.push({ ...m, isStreaming: false });
@@ -339,9 +388,10 @@ function reduceErrorEvent(messages: ChatMessage[], event: BubbleEvent): ChatMess
   const extraOverride = event.payload?.extra as ChatMessage['extra'] | undefined;
   const buildExtra = (existingExtra: ChatMessage['extra']): ChatMessage['extra'] | undefined => {
     const merged: ChatMessage['extra'] = { ...(existingExtra ?? {}), ...(extraOverride ?? {}) };
-    if (event.canonicalInvocationId) {
-      merged.stream = { invocationId: event.canonicalInvocationId };
-    }
+    // F194 Phase Z3 R3 P1-1 (砚砚): use buildStreamExtraFromEvent so dual id (parent + turn)
+    // is preserved consistent with placeholder/withCanonicalUpgrade outlets.
+    const streamExtra = buildStreamExtraFromEvent(event);
+    if (streamExtra) Object.assign(merged, streamExtra);
     return Object.keys(merged).length > 0 ? merged : undefined;
   };
 
@@ -479,7 +529,9 @@ function findUpgradableCallbackPlaceholder(
     if (!hasRichBlocks && !hasToolEvents) continue;
     // bound placeholder：仅当 invocationId 严格匹配才是同一逻辑 bubble（kind 升级合法）
     // unbound rich/tool placeholder：留 legacy guard（任意 invocation 的 callback 都可适配）
-    const boundInv = m.extra?.stream?.invocationId;
+    // F194 Phase Z3 R4 P1-1 (砚砚): use dual-id stable key (turn > parent) so dual-id placeholders
+    // can upgrade when callback canonical = turn but bound stream.invocationId = parent.
+    const boundInv = getStableInvocationKey(m);
     if (boundInv && boundInv !== event.canonicalInvocationId) continue;
     candidates.push({ index: i, message: m });
   }

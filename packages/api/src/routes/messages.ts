@@ -976,9 +976,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               }
             }
 
+            // F194 Phase Z3 P1-1 dual id (砚砚 R): live broadcast 必须同时带 parent + turn id。
+            // - invocationId = createResult.invocationId (parent chain, liveness/queue/cancel SoT)
+            // - turnInvocationId = msg.invocationId (per-cat-turn from invokeSingleCat invocation_created
+            //   event); 仅当不同于 parent 时设置（单 cat 场景两者相同，避免冗余）
             const broadcastPayload = {
               ...msg,
               invocationId: createResult.invocationId,
+              ...(msg.invocationId && msg.invocationId !== createResult.invocationId
+                ? { turnInvocationId: msg.invocationId }
+                : {}),
             };
 
             if (msg.type === 'a2a_handoff') {
@@ -1430,10 +1437,17 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           '#80 draft merge: found active drafts',
         );
         // P1-2 dedup: filter out drafts whose invocationId matches a formal message.
-        // Build invocationId set from current page first (fast path).
-        const formalInvocationIds = new Set(
-          page.map((m) => m.extra?.stream?.invocationId).filter((id): id is string => !!id),
-        );
+        // F194 Phase Z3 P1-3 (砚砚 R): formal set MUST collect both `invocationId` (parent SoT) and
+        // `turnInvocationId` (Z3 dual id, where draft.invocationId === turnInvocationId for new
+        // formal messages). Without this, append-success-but-draft-not-yet-deleted window double-shows
+        // formal + draft for the same turn.
+        const formalInvocationIds = new Set<string>();
+        for (const m of page) {
+          const parentInv = m.extra?.stream?.invocationId;
+          const turnInv = m.extra?.stream?.turnInvocationId;
+          if (parentInv) formalInvocationIds.add(parentInv);
+          if (turnInv) formalInvocationIds.add(turnInv);
+        }
         activeDrafts = drafts.filter((d) => !formalInvocationIds.has(d.invocationId));
         // Cloud R4 P2: if drafts survive page-level dedup, widen the check to cover
         // formal messages pushed off the first page (race window: TTL > page depth).
@@ -1442,8 +1456,10 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           const widerLimit = Math.max(200, limit * 4);
           const wider = await opts.messageStore.getByThread(resolvedThreadId, widerLimit, userId);
           for (const m of wider) {
-            const invId = m.extra?.stream?.invocationId;
-            if (invId) formalInvocationIds.add(invId);
+            const parentInv = m.extra?.stream?.invocationId;
+            const turnInv = m.extra?.stream?.turnInvocationId;
+            if (parentInv) formalInvocationIds.add(parentInv);
+            if (turnInv) formalInvocationIds.add(turnInv);
           }
           activeDrafts = activeDrafts.filter((d) => !formalInvocationIds.has(d.invocationId));
         }

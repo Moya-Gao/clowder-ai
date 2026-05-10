@@ -464,7 +464,18 @@ export async function triggerA2AInvocation(
         if (msg.type === 'done' && msg.errorCode) {
           governanceErrorCode = msg.errorCode;
         }
-        socketManager.broadcastAgentMessage({ ...msg, invocationId: createResult.invocationId }, threadId);
+        // F194 Phase Z3 R3 P1-4 (砚砚): preserve original msg.invocationId (turn) as turnInvocationId
+        // when overriding invocationId to parent. Otherwise frontend bubble identity loses turn dimension.
+        socketManager.broadcastAgentMessage(
+          {
+            ...msg,
+            invocationId: createResult.invocationId,
+            ...(msg.invocationId && msg.invocationId !== createResult.invocationId
+              ? { turnInvocationId: msg.invocationId }
+              : {}),
+          },
+          threadId,
+        );
       }
 
       if (controller?.signal.aborted) {

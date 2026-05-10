@@ -1024,7 +1024,17 @@ export class QueueProcessor {
           break;
         }
 
-        socketManager.broadcastAgentMessage({ ...msg, ...(invocationId ? { invocationId } : {}) }, threadId);
+        // F194 Phase Z3 R3 P1-4 (砚砚): preserve original msg.invocationId (turn) as turnInvocationId
+        socketManager.broadcastAgentMessage(
+          {
+            ...msg,
+            ...(invocationId ? { invocationId } : {}),
+            ...(msg.invocationId && invocationId && msg.invocationId !== invocationId
+              ? { turnInvocationId: msg.invocationId }
+              : {}),
+          },
+          threadId,
+        );
       }
 
       // 8. Check abort before marking succeeded (F122B B6 P1: abort→succeeded bug fix)

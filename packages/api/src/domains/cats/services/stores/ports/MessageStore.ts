@@ -60,7 +60,12 @@ export interface StoredMessage {
   /** F022+F052+F098-C1+F153-F: Extensible extra data (rich blocks, stream metadata, cross-post origin, explicit targets, tracing pointers) */
   extra?: {
     rich?: RichMessageExtra;
-    stream?: { invocationId: string };
+    /** F081 + F194 Phase Z3 dual id:
+     *    - `invocationId` = parent/chain invocation (legacy field, liveness/queue/cancel SoT)
+     *    - `turnInvocationId` = per-cat-turn invocation (Z3 new — bubble identity SoT for frontend
+     *      hydrate/merge stable key; required so same-parent multi-turn-same-cat bubbles do NOT merge)
+     *  Frontend prefers `turnInvocationId` (fallback `invocationId` for legacy messages). */
+    stream?: { invocationId: string; turnInvocationId?: string };
     crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
     targetCats?: string[];
     scheduler?: SchedulerMessageExtra['scheduler'];

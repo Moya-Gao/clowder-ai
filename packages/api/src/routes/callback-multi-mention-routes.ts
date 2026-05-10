@@ -266,7 +266,15 @@ async function dispatchToTarget(
           governanceErrorCode = msg.errorCode;
         }
 
-        socketManager.broadcastAgentMessage({ ...msg, invocationId }, threadId);
+        // F194 Phase Z3 R3 P1-4 (砚砚): preserve original msg.invocationId (turn) as turnInvocationId
+        socketManager.broadcastAgentMessage(
+          {
+            ...msg,
+            invocationId,
+            ...(msg.invocationId && msg.invocationId !== invocationId ? { turnInvocationId: msg.invocationId } : {}),
+          },
+          threadId,
+        );
       }
 
       const finalInvocationStatus = controller.signal.aborted

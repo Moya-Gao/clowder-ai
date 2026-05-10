@@ -1367,7 +1367,19 @@ export async function* routeSerial(
               ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
               extra: {
                 ...(allRichBlocks.length > 0 ? { rich: { v: 1 as const, blocks: allRichBlocks } } : {}),
-                ...(persistedInvocationId ? { stream: { invocationId: persistedInvocationId } } : {}),
+                // F194 Phase Z3: dual id — invocationId=parent (legacy SoT for liveness/queue/cancel),
+                // turnInvocationId=own (Z3 new SoT for frontend bubble identity stable key, prevents
+                // same-parent multi-turn-same-cat bubble merge).
+                ...(persistedInvocationId
+                  ? {
+                      stream: {
+                        invocationId: persistedInvocationId,
+                        ...(ownInvocationId && ownInvocationId !== persistedInvocationId
+                          ? { turnInvocationId: ownInvocationId }
+                          : {}),
+                      },
+                    }
+                  : {}),
                 ...(doneMsg?.tracing ? { tracing: doneMsg.tracing } : {}),
               },
             });
@@ -1391,7 +1403,19 @@ export async function* routeSerial(
               };
               const extraParts = {
                 ...(allRichBlocks.length > 0 ? { rich: { v: 1 as const, blocks: allRichBlocks } } : {}),
-                ...(persistedInvocationId ? { stream: { invocationId: persistedInvocationId } } : {}),
+                // F194 Phase Z3: dual id — invocationId=parent (legacy SoT for liveness/queue/cancel),
+                // turnInvocationId=own (Z3 new SoT for frontend bubble identity stable key, prevents
+                // same-parent multi-turn-same-cat bubble merge).
+                ...(persistedInvocationId
+                  ? {
+                      stream: {
+                        invocationId: persistedInvocationId,
+                        ...(ownInvocationId && ownInvocationId !== persistedInvocationId
+                          ? { turnInvocationId: ownInvocationId }
+                          : {}),
+                      },
+                    }
+                  : {}),
                 ...(doneMsg?.tracing ? { tracing: doneMsg.tracing } : {}),
               };
               if (Object.keys(extraParts).length > 0) metadataPatch.extra = extraParts;
@@ -1658,8 +1682,18 @@ export async function* routeSerial(
               ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
               extra: {
                 ...(noTextBlocks.length > 0 ? { rich: { v: 1 as const, blocks: noTextBlocks } } : {}),
+                // F194 Phase Z3 dual id (see same-file:1370 comment)
                 ...((options.parentInvocationId ?? ownInvocationId)
-                  ? { stream: { invocationId: (options.parentInvocationId ?? ownInvocationId) as string } }
+                  ? {
+                      stream: {
+                        invocationId: (options.parentInvocationId ?? ownInvocationId) as string,
+                        ...(ownInvocationId &&
+                        options.parentInvocationId &&
+                        ownInvocationId !== options.parentInvocationId
+                          ? { turnInvocationId: ownInvocationId }
+                          : {}),
+                      },
+                    }
                   : {}),
                 ...(doneMsg?.tracing ? { tracing: doneMsg.tracing } : {}),
               },
@@ -1737,8 +1771,19 @@ export async function* routeSerial(
             ...((options.parentInvocationId ?? ownInvocationId) || doneMsg?.tracing
               ? {
                   extra: {
+                    // F194 Phase Z3 P1-4 dual id (砚砚 R): error+toolEvents persisted message
+                    // 也必须带 turn id，否则 same parent multi-turn 同 cat error 气泡仍合并。
                     ...((options.parentInvocationId ?? ownInvocationId)
-                      ? { stream: { invocationId: (options.parentInvocationId ?? ownInvocationId) as string } }
+                      ? {
+                          stream: {
+                            invocationId: (options.parentInvocationId ?? ownInvocationId) as string,
+                            ...(ownInvocationId &&
+                            options.parentInvocationId &&
+                            ownInvocationId !== options.parentInvocationId
+                              ? { turnInvocationId: ownInvocationId }
+                              : {}),
+                          },
+                        }
                       : {}),
                     ...(doneMsg?.tracing ? { tracing: doneMsg.tracing } : {}),
                   },

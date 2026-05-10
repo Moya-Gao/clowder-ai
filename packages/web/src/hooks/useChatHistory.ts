@@ -69,16 +69,22 @@ function getHistoryInvocationId(msg: ChatMessageData): string | undefined {
   return getBubbleInvocationId(msg);
 }
 
-function getLocalPlaceholderInvocationId(
+// Exported for unit testing (R20 cloud Codex P1: catInvocations fallback turn-priority).
+export function getLocalPlaceholderInvocationId(
   msg: ChatMessageData,
   currentCatInvocations: Record<string, CatInvocationInfo>,
 ): string | undefined {
-  if (msg.extra?.stream?.invocationId) return msg.extra.stream.invocationId;
-  // Fallback: draft messages have id = 'draft-{invocationId}' — extract even after
-  // isStreaming is cleared by the done handler (prevents duplicate bubbles).
-  if (msg.id.startsWith('draft-')) return msg.id.slice('draft-'.length);
+  // F194 Phase Z3 P1-2 (砚砚 R): MUST share `getBubbleInvocationId` priority order
+  // (turnInvocationId > invocationId > draft id slice). Otherwise current/local placeholder uses
+  // parent key while history bubble uses turn key → 刷新前后 merge 路径不一致。
+  const bubbleInvId = getBubbleInvocationId(msg);
+  if (bubbleInvId) return bubbleInvId;
   if (msg.type !== 'assistant' || msg.origin !== 'stream' || !msg.isStreaming || !msg.catId) return undefined;
-  return currentCatInvocations[msg.catId]?.invocationId;
+  // F194 Phase Z3 R20 (cloud Codex P1): catInvocations fallback also prefers turn id when present.
+  // Otherwise placeholder (no extra.stream yet) resolves to parent while history bubble resolves
+  // to turn → same-parent multi-turn loses stable-key merge → both bubbles persist post-hydrate.
+  const catInv = currentCatInvocations[msg.catId];
+  return catInv?.turnInvocationId ?? catInv?.invocationId;
 }
 
 function getMessageRichness(msg: ChatMessageData): [number, number, number, number] {

@@ -252,8 +252,13 @@ export interface ChatMessage {
   extra?: {
     rich?: { v: 1; blocks: RichBlock[] };
     crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
-    /** F081: Stream identity for continuity / hydration reconcile */
-    stream?: { invocationId?: string };
+    /** F081: Stream identity for continuity / hydration reconcile.
+     *  F194 Phase Z3: dual id —
+     *    - `invocationId` is the parent/chain invocation id (liveness/queue/cancel/A2A scope, legacy)
+     *    - `turnInvocationId` is the per-cat-turn invocation id (bubble identity stable key — required
+     *      for same-parent multi-turn-same-cat bubbles to NOT merge; see砚砚 catch 2026-05-09 17:32)
+     *  Frontend `getBubbleInvocationId` prefers `turnInvocationId` (fallback `invocationId` for legacy). */
+    stream?: { invocationId?: string; turnInvocationId?: string };
     /** F098-C1: Explicit target cats from post_message API */
     targetCats?: string[];
     /** Scheduler presentation metadata (hidden trigger / ephemeral lifecycle toast) */
@@ -426,7 +431,13 @@ export interface CompactBoundaryTelemetry {
 
 export interface CatInvocationInfo {
   sessionId?: string;
+  /** Chain/parent invocation id (legacy SoT, liveness/queue/cancel scope). F194 Phase Z3 keeps
+   *  this for backward compat with hydration code that reads `catInvocations[catId].invocationId`. */
   invocationId?: string;
+  /** F194 Phase Z3 (砚砚 R P1-1): per-cat-turn invocation id, used for bubble identity stable key.
+   *  Stamped into formal/live message `extra.stream.turnInvocationId` so frontend bubble dedup
+   *  uses the turn dimension (prevents same-parent multi-turn-same-cat bubble merge). */
+  turnInvocationId?: string;
   durationMs?: number;
   startedAt?: number;
   usage?: TokenUsage;

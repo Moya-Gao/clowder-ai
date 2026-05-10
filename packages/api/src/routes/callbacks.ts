@@ -824,9 +824,14 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // #573: persisted record's extra.stream.invocationId aligned to effectiveInvId
     // (parent/outer) so F5/hydration broadcasts match what live broadcasts use.
     // Merge with any existing extra (cross-post / explicit targets) without losing it.
+    // F194 Phase Z3 P1-1 (砚砚 R): also stamp turnInvocationId = actor.invocationId (cat-level/own)
+    // so frontend bubble identity uses turn dimension (parent only for liveness/queue/cancel).
     const persistedExtra = {
       ...(extra ?? {}),
-      stream: { invocationId: effectiveInvId },
+      stream: {
+        invocationId: effectiveInvId,
+        ...(invocationId && invocationId !== effectiveInvId ? { turnInvocationId: invocationId } : {}),
+      },
     };
     const storedMsg = await messageStore.append({
       userId: actor.userId,
@@ -893,6 +898,9 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           // #573: broadcast with effectiveInvId (parent/outer) so frontend's
           // (catId, invocationId) dedup matches stream broadcasts.
           invocationId: effectiveInvId,
+          // F194 Phase Z3 P1-1 (砚砚 R): live broadcast 也带 turnInvocationId (cat-level own)
+          // 让前端 useAgentMessages 写到 extra.stream.turnInvocationId，bubble identity 用 turn 维度
+          ...(invocationId && invocationId !== effectiveInvId ? { turnInvocationId: invocationId } : {}),
           // F52+F098-C1: Include crossPost + targetCats in real-time broadcast
           ...(isCrossThread || validExplicitTargets.length
             ? {
@@ -916,6 +924,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       // P2 cloud-review: include messageId for frontend correlation
       // #454/573: include effectiveInvId (parent/outer) so frontend can exact-match
       // callback to stream bubble.
+      // F194 Phase Z3 (砚砚 R2 P1-4): rich_block broadcast 也带 turnInvocationId so live
+      // rich/tool bubble identity uses turn dimension (parent only for liveness).
       for (const block of richBlocks) {
         socketManager.broadcastAgentMessage(
           {
@@ -923,6 +933,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
             catId: actor.catId,
             content: JSON.stringify({ type: 'rich_block', block, messageId: storedMsg.id }),
             invocationId: effectiveInvId,
+            ...(invocationId && invocationId !== effectiveInvId ? { turnInvocationId: invocationId } : {}),
             timestamp: Date.now(),
           },
           effectiveThreadId,
@@ -1643,6 +1654,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // Only broadcast new blocks (dedup retries at server to prevent frontend duplicates)
     // #454/573: include effectiveInvId (parent/outer) so frontend can exact-match
     // callback to stream bubble.
+    // F194 Phase Z3 (砚砚 R2 P1-4): rich_block broadcast 带 turnInvocationId
     if (isNew) {
       socketManager.broadcastAgentMessage(
         {
@@ -1650,6 +1662,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           catId: record.catId,
           content: JSON.stringify({ type: 'rich_block', block: resolvedBlock }),
           invocationId: effectiveInvId,
+          ...(invocationId && invocationId !== effectiveInvId ? { turnInvocationId: invocationId } : {}),
           timestamp: Date.now(),
         },
         record.threadId,
