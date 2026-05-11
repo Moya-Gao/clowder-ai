@@ -61,21 +61,19 @@ created: 2026-05-09
 >
 > 三段式 MVP 思路来自 47 在头脑风暴阶段的提议。
 
-### Phase A: 会前预热 + 会后复盘（现有能力直接做）
+### Phase A: 会前预热 + 会后复盘（现有能力直接做） 📋
 
 **目的**：零新基础设施，验证"猫的内容能力是否真的对铲屎官有用"。
 
-**会前**（0 延迟、0 ASR、0 diarization）：
-1. 铲屎官喂入议程 + 参会人名单/背景
-2. 猫调研参会人过往观点、立场、最近动态
-3. 输出"应对牌"：预判议题走向、准备好的论点、可能被问到的问题、铲屎官的立场建议
-4. 富块卡片推到手机，会议中可以随时翻看
+**AC（会前）**：
+- [ ] AC-A1: 铲屎官喂议程+参会人 → 猫调研过往观点/立场/动态 → 输出"应对牌"
+- [ ] AC-A2: 应对牌含：预判议题走向 + 准备论点 + 可能被问的问题 + 立场建议
+- [ ] AC-A3: 应对牌推送到手机（富块卡片），会议中随时翻看
 
-**会后**（批处理转写，质量优先于实时性）：
-1. 会议录音上传 → 批处理 Whisper 转写（现有能力可做）
-2. 批处理 diarization（不需要实时，质量更高）
-3. 猫给复盘分析：铲屎官表现如何、哪句没说好、漏了哪个反驳点、下次怎么改进
-4. 对比会前"应对牌"vs 实际发生，总结哪些准备有用
+**AC（会后）**：
+- [ ] AC-A4: 会议录音上传 → 批处理 Qwen3-ASR 转写
+- [ ] AC-A5: 猫给复盘分析：表现评估 + 遗漏反驳点 + 改进建议
+- [ ] AC-A6: 对比会前应对牌 vs 实际发生，总结哪些准备有用
 
 **录音方案**（会后复盘用）：
 - 线上会议：平台自带录制（零成本）
@@ -84,22 +82,35 @@ created: 2026-05-09
 
 **验证状态**：铲屎官已确认"做好准备很容易表现得好"（2026-05-10），会前能力已有正向验证信号。Phase A 是在固化已验证的能力，不是从零验证假设。
 
-### Phase B: 会中实时智囊（调研后定方案） ✅
+### Phase B: 会中实时智囊 ✅
 
-**目的**：Phase A 验证通过后，投入会中实时能力。
+**目的**：投入会中实时能力——音频采集 + ASR + MCP 工具 + 前端转写面板。
 
-1. **铲屎官进入圆桌会议**（线上或线下）
-2. **开启 Meeting Copilot 模式** → 音频采集开始
-3. **实时转写浮动窗**出现在 Hub 上，带说话人标签，可拖拽/缩放
-4. **猫猫在 thread 聊天里**响应铲屎官的 pull 请求（"他们在聊什么""帮我整理一下"）
-5. **铲屎官在聊天框打碎片想法** → 猫猫帮整理成可说的发言稿
-6. **铲屎官代为发言**，猫猫不直接参与会议
+**AC**：
+- [x] AC-B1: MCP 工具启动/停止音频采集（App 模式 ScreenCaptureKit + 麦克风模式）
+- [x] AC-B2: 转写文本在 TranscriptPanel 内 SSE 实时显示
+- [x] AC-B3: 猫能读取指定时间区间/最新 N 条转写文本
+- [x] AC-B4: TranscriptPanel 可调整大小、显示监听状态+时长、可停止采集
+- [x] AC-B5: Skill refs 教猫完整流程（live-audio.md 底层 + meeting-copilot.md 场景）
+- [x] AC-B6: API proxy 层 auth 身份校验 + 127.0.0.1 绑定
+- [x] AC-B7: 输入校验（chunk_sec ≥ 0.5s、binary 存在性、启动确认）
 
-### Phase C: 会中主动增强（Phase B 稳定后）
+**交付物**（PR #1624，2026-05-11 merged）：
+- `scripts/meeting-copilot/` — CaptureAppAudio (Swift) + audio-service.py (Python aiohttp)
+- `packages/mcp-server/src/tools/audio-tools.ts` — 5 个 MCP 工具
+- `packages/api/src/routes/audio-proxy.ts` — API proxy（auth + SSE 透传）
+- `packages/web/src/components/workspace/TranscriptPanel.tsx` — 前端面板
+- `cat-cafe-skills/refs/live-audio.md` + `meeting-copilot.md` — Skill refs
 
-- Turn-taking 检测 → 主动推"现在可以插话"信号（加频率限制）
-- 高置信度 speaker identity 映射（会前 enrollment → 实时归因）
-- 会议中主动推论点提醒（检测到高价值插话点）
+### Phase C: 会中主动增强（Phase B 稳定后） 📋
+
+**目的**：从 pull-based → push-based，猫主动提供实时辅助。
+
+**AC**：
+- [ ] AC-C1: Turn-taking 检测 → 主动推"现在可以插话"信号（频率限制，防 AUDHD 注意力过载）
+- [ ] AC-C2: Speaker identity 映射（会前 enrollment → 实时归因，置信度 <0.6 降级为"有人说"）
+- [ ] AC-C3: 会议中主动推论点提醒（检测到高价值插话点时）
+- [ ] AC-C4: Meeting context 注入猫的 invocation 上下文（MeetingContextBlock 隔离，不可信输入）
 
 ### 已有基础设施
 
@@ -237,9 +248,9 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 7. ~~MVP / Phase 2 / Future 三档方案~~ ✅
 8. ~~可验证 benchmark 计划和推荐 spike 顺序~~ ✅
 
-## MVP Acceptance Criteria（草案，待铲屎官确认）
+## MVP Acceptance Criteria（铲屎官确认 2026-05-11）
 
-进入设计前至少需要定义"什么叫真的帮到了"，以下 3 条是最小集：
+"什么叫真的帮到了"的最小验收集：
 
 1. **On-demand 讨论摘要**：铲屎官问"他们在聊什么"，猫在 ≤15s 内给出当前议题 + 各方立场摘要
 2. **草稿→外交版发言**：铲屎官打碎片想法，猫在 ≤20s 内整理成可直接说出口的发言稿（含直接版 + 委婉版）
@@ -344,10 +355,10 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 
 ## Open Questions
 
-- 线上会议（Zoom/Tencent Meeting）vs 线下圆桌，音频采集方式不同，优先支持哪种？
-- 实时转写的延迟 budget 是多少？30s 可接受吗？
-- 说话人识别的准确率底线是多少？标错了比不标更糟吗？
-- ~~是否需要会前准备和会后总结能力？~~ → 已决：Phase A 先做会前+会后（铲屎官 push back 2026-05-10）
+- ~~线上 vs 线下优先？~~ → 已决：线上优先，ScreenCaptureKit 按 App 抓音频（铲屎官跳过 BlackHole）
+- ~~延迟 budget？~~ → 已决：3s chunk + ASR ≈ 5s 端到端（Phase B 实测）
+- ~~说话人识别准确率底线？~~ → 已决：MVP 不做 diarization，双路物理隔离（Phase C 增强）
+- ~~会前+会后？~~ → 已决：Phase A 先做（铲屎官 push back 2026-05-10）
 - 这个功能是 Hub-only 还是需要移动端（手机/AirPods）支持？
 
 ## 三猫讨论记录
