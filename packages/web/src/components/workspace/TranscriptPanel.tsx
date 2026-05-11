@@ -1,0 +1,207 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useChatStore } from '@/stores/chatStore';
+import { API_URL, apiFetch } from '@/utils/api-client';
+
+interface TranscriptLine {
+  ts: number;
+  elapsed_s: number;
+  chunk_num: number;
+  asr_latency: number;
+  text: string;
+}
+
+interface AudioStatus {
+  running: boolean;
+  source?: string;
+  app_name?: string;
+  duration_s?: number;
+  chunk_count?: number;
+  avg_asr_latency?: number;
+}
+
+interface SseEvent {
+  type: string;
+  status?: string;
+  source?: string;
+  app_name?: string;
+  ts?: number;
+  elapsed_s?: number;
+  chunk_num?: number;
+  asr_latency?: number;
+  text?: string;
+}
+
+function formatTime(ts: number): string {
+  return new Date(ts * 1000).toLocaleTimeString('zh-CN', { hour12: false });
+}
+
+function formatDuration(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+export function TranscriptPanel() {
+  const [lines, setLines] = useState<TranscriptLine[]>([]);
+  const [status, setStatus] = useState<AudioStatus>({ running: false });
+  const [connected, setConnected] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const autoScroll = useRef(true);
+  const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const resp = await apiFetch('/api/audio/status');
+      if (resp.ok) {
+        const data = (await resp.json()) as AudioStatus;
+        setStatus(data);
+        if (data.running && data.duration_s) setElapsed(data.duration_s);
+      }
+    } catch {
+      /* offline */
+    }
+  }, []);
+
+  const fetchTranscript = useCallback(async () => {
+    try {
+      const resp = await apiFetch('/api/audio/transcript');
+      if (resp.ok) {
+        const data = (await resp.json()) as { lines: TranscriptLine[] };
+        if (data.lines?.length) setLines(data.lines);
+      }
+    } catch {
+      /* offline */
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+    fetchTranscript();
+  }, [fetchStatus, fetchTranscript]);
+
+  useEffect(() => {
+    const es = new EventSource(`${API_URL}/api/audio/events`, { withCredentials: true });
+    es.onopen = () => setConnected(true);
+    es.onerror = () => setConnected(false);
+    es.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data) as SseEvent;
+        if (data.type === 'transcript' && data.ts && data.text != null) {
+          setLines((prev) => [
+            ...prev,
+            {
+              ts: data.ts!,
+              elapsed_s: data.elapsed_s ?? 0,
+              chunk_num: data.chunk_num ?? 0,
+              asr_latency: data.asr_latency ?? 0,
+              text: data.text!,
+            },
+          ]);
+        } else if (data.type === 'status') {
+          if (data.status === 'started') {
+            setStatus({ running: true, source: data.source, app_name: data.app_name });
+            setLines([]);
+            setElapsed(0);
+          } else if (data.status === 'stopped') {
+            setStatus((prev) => ({ ...prev, running: false }));
+          }
+        }
+      } catch {
+        /* parse error */
+      }
+    };
+    return () => es.close();
+  }, []);
+
+  useEffect(() => {
+    if (!status.running) return;
+    const iv = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(iv);
+  }, [status.running]);
+
+  useEffect(() => {
+    if (autoScroll.current && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [lines]);
+
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    autoScroll.current = scrollHeight - scrollTop - clientHeight < 40;
+  }, []);
+
+  const handleStop = useCallback(async () => {
+    try {
+      const resp = await apiFetch('/api/audio/stop', { method: 'POST' });
+      if (resp.ok) setStatus((prev) => ({ ...prev, running: false }));
+    } catch {
+      /* offline */
+    }
+  }, []);
+
+  const avgLatency = lines.length ? (lines.reduce((s, l) => s + l.asr_latency, 0) / lines.length).toFixed(2) : '—';
+  const sourceLabel = status.app_name ? `${status.app_name}` : status.source === 'mic' ? 'Microphone' : '—';
+
+  return (
+    <div className="flex h-full flex-col border-l border-cafe-border bg-cafe-surface-primary">
+      {/* Header */}
+      <div className="flex items-center gap-2 border-b border-cafe-border px-3 py-2">
+        <span
+          className={`inline-block h-2 w-2 rounded-full ${status.running ? 'bg-green-500 animate-pulse' : 'bg-cafe-text-muted'}`}
+        />
+        <span className="flex-1 truncate text-sm font-medium text-cafe-text-primary">
+          {status.running ? sourceLabel : 'Not monitoring'}
+        </span>
+        {status.running && (
+          <>
+            <span className="font-mono text-xs text-cafe-text-secondary">{formatDuration(elapsed)}</span>
+            <button
+              type="button"
+              onClick={handleStop}
+              className="rounded px-1.5 py-0.5 text-xs text-red-400 hover:bg-red-500/10"
+            >
+              Stop
+            </button>
+          </>
+        )}
+        <button
+          type="button"
+          onClick={() => setRightPanelMode('status')}
+          className="rounded px-1 py-0.5 text-xs text-cafe-text-muted hover:text-cafe-text-primary"
+          title="Close transcript panel"
+        >
+          &times;
+        </button>
+      </div>
+
+      {/* Transcript body */}
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-3 py-2 font-mono text-xs">
+        {lines.length === 0 && (
+          <p className="mt-8 text-center text-cafe-text-muted">
+            {status.running
+              ? 'Waiting for first transcript chunk...'
+              : 'No transcript data. Start audio capture to begin.'}
+          </p>
+        )}
+        {lines.map((l, i) => (
+          <div key={l.chunk_num ?? i} className="mb-1 flex gap-2">
+            <span className="shrink-0 text-cafe-text-muted">[{formatTime(l.ts)}]</span>
+            <span className="text-cafe-text-primary">{l.text}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer stats */}
+      <div className="flex items-center gap-3 border-t border-cafe-border px-3 py-1.5 text-[10px] text-cafe-text-muted">
+        <span>{lines.length} chunks</span>
+        <span>avg {avgLatency}s</span>
+        <span>16kHz mono</span>
+        <span className={connected ? 'text-green-500' : 'text-red-400'}>{connected ? 'SSE' : 'disconnected'}</span>
+      </div>
+    </div>
+  );
+}

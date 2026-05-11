@@ -4,6 +4,19 @@
  */
 
 export {
+  audioCaptureStartInputSchema,
+  audioCaptureStatusInputSchema,
+  audioCaptureStopInputSchema,
+  audioListSourcesInputSchema,
+  audioReadTranscriptInputSchema,
+  audioTools,
+  handleAudioCaptureStart,
+  handleAudioCaptureStatus,
+  handleAudioCaptureStop,
+  handleAudioListSources,
+  handleAudioReadTranscript,
+} from './audio-tools.js';
+export {
   callbackEvidenceSearchInputSchema,
   callbackMemoryTools,
   callbackReflectInputSchema,

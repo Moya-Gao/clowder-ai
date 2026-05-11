@@ -34,7 +34,8 @@ export type EnvCategory =
   | 'evidence'
   | 'quota'
   | 'telemetry'
-  | 'antigravity';
+  | 'antigravity'
+  | 'audio';
 
 export interface EnvDefinition {
   /** The env var name, e.g. 'REDIS_URL' */
@@ -78,6 +79,7 @@ export const ENV_CATEGORIES: Record<EnvCategory, string> = {
   quota: '额度监控',
   telemetry: '可观测性 (OTel)',
   antigravity: '孟加拉猫 (Antigravity)',
+  audio: '会中实时智囊 (F195)',
 };
 
 export const ENV_VARS: EnvDefinition[] = [
@@ -1576,6 +1578,14 @@ export const ENV_VARS: EnvDefinition[] = [
     defaultValue: '(未设置 → 全量注册)',
     description: 'MCP Server 只读模式：跳过 post_message 等写操作工具注册（Antigravity 持久 MCP 用）',
     category: 'antigravity',
+    sensitive: false,
+  },
+  // --- audio (F195 会中实时智囊) ---
+  {
+    name: 'AUDIO_SERVICE_URL',
+    defaultValue: 'http://127.0.0.1:9877',
+    description: 'F195 Audio Capture Service 地址（Python aiohttp，管理音频采集 + ASR 转录）',
+    category: 'audio',
     sensitive: false,
   },
 ];

@@ -67,6 +67,7 @@ export function ChatContainerHeader({
         </div>
         <ExportButton threadId={threadId} />
         <VoiceCompanionButton threadId={threadId} defaultCatId={defaultCatId} />
+        <LiveAudioToggle />
         <button
           type="button"
           onClick={() => {
@@ -155,16 +156,16 @@ function ThreadIndicator({ threadId }: { threadId: string }) {
  */
 export function rightPanelToggleTransition(
   statusPanelOpen: boolean,
-  rightPanelMode: 'status' | 'workspace',
+  rightPanelMode: 'status' | 'workspace' | 'transcript',
   callbacks: {
     onToggleStatusPanel: () => void;
-    setRightPanelMode: (mode: 'status' | 'workspace') => void;
+    setRightPanelMode: (mode: 'status' | 'workspace' | 'transcript') => void;
   },
 ) {
   if (!statusPanelOpen) {
     callbacks.onToggleStatusPanel();
     callbacks.setRightPanelMode('status');
-  } else if (rightPanelMode !== 'workspace') {
+  } else if (rightPanelMode === 'status') {
     callbacks.setRightPanelMode('workspace');
   } else {
     callbacks.onToggleStatusPanel();
@@ -173,6 +174,32 @@ export function rightPanelToggleTransition(
 }
 
 /** F099: Unified right panel toggle — cycles closed → status → workspace → closed */
+function LiveAudioToggle() {
+  const rightPanelMode = useChatStore((s) => s.rightPanelMode);
+  const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
+  const isActive = rightPanelMode === 'transcript';
+
+  return (
+    <button
+      type="button"
+      onClick={() => setRightPanelMode(isActive ? 'status' : 'transcript')}
+      className={`p-1 rounded-lg hover:bg-cocreator-light transition-colors hidden lg:block ${
+        isActive ? 'bg-green-50 text-green-600' : ''
+      }`}
+      title={isActive ? 'Close transcript' : 'Live audio transcript'}
+      aria-label={isActive ? 'Close transcript' : 'Live audio transcript'}
+    >
+      <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+        <path
+          fillRule="evenodd"
+          d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z"
+          clipRule="evenodd"
+        />
+      </svg>
+    </button>
+  );
+}
+
 function RightPanelToggle({
   onToggleStatusPanel,
   statusPanelOpen,

@@ -126,6 +126,7 @@ import { gameRoutes } from './routes/games.js';
 import {
   accountsRoutes,
   agentHooksRoutes,
+  audioProxyRoutes,
   auditRoutes,
   authorizationRoutes,
   backlogRoutes,
@@ -1710,6 +1711,7 @@ async function main(): Promise<void> {
   await app.register(claudeRescueRoutes);
   await app.register(auditRoutes, { threadStore });
   await app.register(capabilitiesRoutes);
+  await app.register(audioProxyRoutes);
 
   {
     const { createAdapterRegistry } = await import('./marketplace/index.js');

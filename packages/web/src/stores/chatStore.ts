@@ -946,7 +946,7 @@ export interface ChatState {
   ) => void;
 
   // ── F63: Workspace Explorer ──
-  rightPanelMode: 'status' | 'workspace';
+  rightPanelMode: 'status' | 'workspace' | 'transcript';
   workspaceWorktreeId: string | null;
   workspaceOpenTabs: string[];
   workspaceOpenFilePath: string | null;
@@ -956,7 +956,7 @@ export interface ChatState {
   /** @internal Last workspace-file-set event context (timestamp + threadId).
    * Used by WorkspacePanel to distinguish fresh navigate from stale leftovers on mount. */
   _workspaceFileSetAt: { ts: number; threadId: string | null };
-  setRightPanelMode: (mode: 'status' | 'workspace') => void;
+  setRightPanelMode: (mode: 'status' | 'workspace' | 'transcript') => void;
   setWorkspaceWorktreeId: (id: string | null) => void;
   setWorkspaceOpenFile: (
     path: string | null,

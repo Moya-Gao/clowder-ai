@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
+  audioTools,
   callbackMemoryTools,
   callbackTools,
   distillationTools,
@@ -119,9 +120,16 @@ export function registerLimbToolset(server: McpServer): void {
   registerTools(server, limbNodeTools);
 }
 
+const audioNodeTools: readonly ToolDef[] = applyReadonlyFilter([...audioTools]);
+
+export function registerAudioToolset(server: McpServer): void {
+  registerTools(server, audioNodeTools);
+}
+
 export function registerFullToolset(server: McpServer): void {
   registerCollabToolset(server);
   registerMemoryToolset(server);
   registerSignalToolset(server);
   registerLimbToolset(server);
+  registerAudioToolset(server);
 }

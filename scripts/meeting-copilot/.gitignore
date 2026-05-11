@@ -1,0 +1,4 @@
+CaptureAppAudio.app/
+*.build/
+.swiftpm/
+output/

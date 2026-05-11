@@ -65,6 +65,7 @@ import { VoteActiveBar } from './VoteActiveBar';
 import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
 import { WorkspacePanel } from './WorkspacePanel';
 import { ResizeHandle } from './workspace/ResizeHandle';
+import { TranscriptPanel } from './workspace/TranscriptPanel';
 
 interface ChatContainerProps {
   threadId: string;
@@ -203,9 +204,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     [setStatusPanelWidth],
   );
 
-  // F063: auto-open panel when message file path click triggers workspace mode
+  // F063/F195: auto-open panel when workspace or transcript mode is set
   useEffect(() => {
-    if (rightPanelMode === 'workspace' && !statusPanelOpen) {
+    if ((rightPanelMode === 'workspace' || rightPanelMode === 'transcript') && !statusPanelOpen) {
       setStatusPanelOpen(true);
     }
   }, [rightPanelMode, statusPanelOpen]);
@@ -797,7 +798,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       <div
         className="flex flex-col min-w-0"
         style={
-          statusPanelOpen && rightPanelMode === 'workspace'
+          statusPanelOpen && (rightPanelMode === 'workspace' || rightPanelMode === 'transcript')
             ? { flexBasis: `${chatBasis}%`, flexGrow: 0, flexShrink: 0 }
             : { flex: '1 1 0%' }
         }
@@ -1106,6 +1107,12 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         <>
           <ResizeHandle direction="horizontal" onResize={handleHorizontalResize} onDoubleClick={resetChatBasis} />
           <WorkspacePanel />
+        </>
+      )}
+      {statusPanelOpen && rightPanelMode === 'transcript' && (
+        <>
+          <ResizeHandle direction="horizontal" onResize={handleHorizontalResize} onDoubleClick={resetChatBasis} />
+          <TranscriptPanel />
         </>
       )}
       <MobileStatusSheet

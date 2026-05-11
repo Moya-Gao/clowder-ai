@@ -89,6 +89,12 @@ const EXPECTED_TOOLS = [
   'cat_cafe_list_labels',
   // F061 Bug-F workaround: MCP shell exec for read-only commands
   'cat_cafe_shell_exec',
+  // F195 Phase B: Audio capture + transcription tools
+  'cat_cafe_audio_list_sources',
+  'cat_cafe_audio_capture_start',
+  'cat_cafe_audio_capture_stop',
+  'cat_cafe_audio_capture_status',
+  'cat_cafe_audio_read_transcript',
 ];
 
 const EXPECTED_COLLAB_TOOLS = [
