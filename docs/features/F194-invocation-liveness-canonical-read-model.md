@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F194: Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口
 
-> **Status**: in-progress (Phase A + B + Z + Z2 + Z3 + Z5 + Z6 + Z7 merged; Z4 was reverted before Z5. **Alpha re-test pending** after Phase Z7 fixes the remaining live-only provisional duplicate residue found on 2026-05-10 18:12: F5/hydrate is canonical, but live completion did not delete older local-only stream siblings once a canonical bubble existed.) | **Owner**: 缅因猫/Codex for Z7, reviewer 布偶猫/Opus-47 | **Priority**: P1
+> **Status**: in-progress (Phase A + B + Z + Z2 + Z3 + Z5 + Z6 + Z7 merged; Z4 was reverted before Z5. **Phase Z8 spec opened** 2026-05-10 20:41 — Z7 alpha re-test catch "随便打开 thread 大概率都裂"。runtime preflight 实测 thread `thread_moyfjyjc0662weit` opus invocation `2fe279aa` 在 backend 存了 3 条 raw records (2 stream + 1 callback) 共享 invocationId、turnInv 全空，hydrate 用 streamKey last-wins 收敛成 1 个 bubble，live reducer 用 ADR-033 kind 隔离创建多 bubble — 投影规则不一致。三猫共识 (47 + 砚砚 + 46) 不再 patch reducer，改为统一 canonical bubble projection contract (KD-27)。Z1-Z7 7 轮 patch 终止符。pre-existing context: F5/hydrate is canonical, but live completion did not delete older local-only stream siblings once a canonical bubble existed.) | **Owner**: 缅因猫/Codex for Z7, reviewer 布偶猫/Opus-47 | **Priority**: P1
 >
 > **AC-Z1 (alpha runtime acceptance) FAILED 2026-05-09 03:35** — 铲屎官实测 runtime 仍裂，根因比 Phase B 修的更深：F194 read-side helper 把 **parent recordStore invocation** 与 **per-cat-turn registry invocation** 当成同一 namespace 处理。bug-report `docs/bug-report/2026-05-09-f194-runtime-bubble-still-split-completion-leak/`，砚砚 2026-05-09 04:51 拍板走 Phase Z（namespace-aware canonical read model），见 KD-21~KD-23 + AC-Z1~Z5。
 >
@@ -378,7 +378,49 @@ Phase Z6 后 alpha re-test 继续抓到 live-only residue：同一 assistant res
 
 - [x] AC-Z19: terminal completion reconciles local-only stream siblings. 当 `done` / exact-key `callback_final` 已命中 canonical bubble 时，删除同 cat、同 terminal 时间之前的 local-only `origin='stream'` provisional siblings；没有 canonical sibling 时不删；timestamp 晚于 terminal event 的 local-only bubble 视为下一轮，不删；terminal event 缺 timestamp 时不执行 sibling cleanup（云端 Codex R1 P1，避免误删下一轮 placeholder）。✅ PR #1625 squash `96c76bad` — RED→GREEN: `bubble-reducer.test.ts` F194 Z7 三个 case（drop older duplicate / preserve newer next-turn local placeholder / missing timestamp guard）。
 
-### 端到端 / Vision
+### Phase Z8（unified canonical bubble projection — Z1-Z7 终止符）
+
+Z7 alpha re-test 后 (2026-05-10 19:55~20:30) 铲屎官 catch："F5 后变 1 个 这是同一次回复 thread id 好像你就得随便打开浏览器去找一个thread 看看 大概率都是裂开的？" — 普遍现象，不是边缘 race。
+
+**根因（opus-47 + 砚砚 + opus-46 三猫独立诊断收敛）**：
+1. Backend `/messages` 真的存了多条 raw assistant records 共享同一 `extra.stream.invocationId`、`turnInvocationId` 全部为空。例如 thread `thread_moyfjyjc0662weit` opus 同 invocation `2fe279aa` 有 3 条 records (2 stream + 1 callback)，对应 3 段独立内容。
+2. Hydrate (`mergeReplaceHydrationMessages`) 用 `(catId, invocationId)` streamKey + last-wins 收敛 → F5 后只显示 1 个 bubble。
+3. Live reducer 用 ADR-033 kind 隔离 + stable key match 创建独立 bubble，多个 raw records → 多个 live bubble，跟 hydrate 投影规则不一致。
+
+**KD-27（Phase Z8 方向选择，三猫共识）**：
+- ❌ **bottom-up**：给 backend 每条 raw record stamp 新 turnInvocationId — 会让 hydrate 也按 turn id 拆 → 失去 F5 后收敛行为，副作用更糟（opus-47 R0 提案，砚砚 + 46 push back）
+- ✅ **top-down**：定义统一 canonical bubble projection contract，**raw records 不动**，让 live reducer 跟 hydrate **共享同一 projection 规则**。一处改、两处效果一致
+
+**Z8 不是"再补一个 reducer 小洞"——是给 Z1-Z7 7 轮 patch 画上句号的 contract 层修法。**
+
+- [ ] AC-Z20: 定义 canonical bubble projection function（pure，无副作用）：
+  - 输入：raw `ChatMessageData[]` (assistant only)
+  - 输出：canonical `ChatMessage[]`（每个 (catId, invocationId) 一个 bubble）
+  - 合并规则：
+    - **Group**: by `(catId, getBubbleInvocationId(msg))`（与 hydrate streamKey 同口径）
+    - **Order**: group 内按 `timestamp asc`
+    - **Content**: 按时间顺序拼接非空 content 段；origin priority `callback > stream`（callback 是 cat 自己 finalize 的最终态）
+    - **toolEvents**: 合并去重 by `event.id`，按时间排序
+    - **Rich blocks** (`extra.rich.blocks`): 合并去重 by `block.id`
+    - **Thinking**: 合并 reduce
+    - **isStreaming**: 任一 raw record `isStreaming === true` → bubble streaming
+    - **canonical id**: 选 group 内最早 callback record id 优先；没 callback 则取最早 stream record id
+  - RED test: alpha 真实 thread `thread_moyfjyjc0662weit` opus invocation `2fe279aa` 的 3 条 records → projection 后必须 1 个 bubble，content/toolEvents/rich blocks 完整合并
+
+- [ ] AC-Z21: live reducer 改用 projection。每次 incoming event 进来后：
+  - Step 1: 把 event 转成 raw record (或更新已存在的 raw record)，加到 `rawRecords` buffer
+  - Step 2: 调用 `projectCanonicalBubbles(rawRecords)` 重新生成 canonical messages
+  - Step 3: store.setMessages(canonical)
+  - 不再做 incremental merge / placeholder absorption / stable key match — 投影是 source of truth
+  - RED test: stream + callback 同 invocationId → live state 始终 1 个 bubble，与 hydrate 一致
+
+- [ ] AC-Z22: hydrate path 改用同一 projection function（替换 `mergeReplaceHydrationMessages` 的 streamKey last-wins 逻辑）。
+  - RED test: 同 invocation 的 3 条 raw records 经 hydrate → 1 个 bubble，content/toolEvents 全部合并；与 live state 经 projection 后 byte-identical
+
+- [ ] AC-Z23: replay fixture 回归 — 用 alpha 真实 thread (含 stream + callback + rich/audio + thinking 多种 raw record) 做 fixture。Replay live events 流 OR 直接 hydrate /messages → 都得到同一个 canonical bubble list。
+  - RED test 必须包括：用户截图复现的 thread（thread_moyfjyjc0662weit + opus 2fe279aa 3-records 场景）
+
+
 
 - [ ] AC-E1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失（并发 multi-cat handoff 也不裂） ⚠️ 2026-05-10 04:42 回归——Z3/Z4 合入后 live 仍裂（Bug A + Bug B），F5 后正常但 live 不收敛
 - [x] AC-E2: 后端 `/api/messages` 与 `/api/threads/:threadId/queue` 共用同一 canonical helper，单一规则源 ✅ 代码审计：`getThreadLiveInvocations` imported by `messages.ts:1466` + `queue.ts:143`
@@ -400,6 +442,7 @@ Phase Z6 后 alpha re-test 继续抓到 live-only residue：同一 assistant res
 | R9 | "f5之前 我们47多了个小气泡！f5之后就没了" (2026-05-10 10:13) | AC-Z17 | late rich/audio after done 复用 finalized stream bubble | [x] (PR #1623 squash `24eb56e3`) |
 | R10 | "上一次at了两只猫 这次没有任何at fallback应该是一只猫" (2026-05-10 10:17) | AC-Z18 | no-@ fallback 从上一条 user mentions 里确定性选一只 | [x] (PR #1623 squash `24eb56e3`) |
 | R11 | "live state 残留 f5之后就正常了…opus46 变成两个了，而且你自己现在也是裂开的" (2026-05-10 18:12) | AC-Z19 | done/callback terminal path 清理 local-only provisional duplicate | [x] |
+| R12 | "F5 后变 1 个 这是同一次回复 thread id 好像你就得随便打开浏览器去找一个thread 看看 大概率都是裂开的？" (2026-05-10 19:55) | AC-Z20/Z21/Z22/Z23 | 统一 canonical projection contract — live 与 hydrate byte-identical | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -496,6 +539,7 @@ Phase Z6 后 alpha re-test 继续抓到 live-only residue：同一 assistant res
 | 2026-05-10 18:36 | **Phase Z6 merged (PR #1623, squash `24eb56e3`)** — 砚砚接手修 alpha re-test 剩余 2 个问题：R9 late rich/audio after done 造成临时小气泡（F5 后消失）和 R10 no-@ fallback 误扩成上一轮 mentions 全集。Opus-47 review APPROVE，云端 Codex R1 退回 2 P1（active/background finalized fallback 必须只限 invocationless rich/audio，不能把新 invocation rich_block 拼进旧 bubble），砚砚补 RED→GREEN 后重新触发，云端 LGTM "Breezy!"。AC-Z17/AC-Z18 全 ✅。**Status: alpha re-test by 铲屎官待执行** → 守护猫 sign-off → close F194。 |
 | 2026-05-10 18:12~18:36 | **Phase Z7 opened** — 铲屎官确认 F5 后正常、live state 残留：Opus-46 与 Codex 在 live 期间出现 duplicate bubble，hydrate 后消失。砚砚 runtime preflight：runtime 含 Z6 (`ab77f6880`)，`/messages` hydrate 对 `thread_mp0i4nfau5hz0mr6` 只返回 canonical stream bubbles，证明不是后端持久化双写。根因：terminal reducer path 没有在 canonical bubble 已存在时清理 older local-only stream sibling。新增 AC-Z19。 |
 | 2026-05-10 19:08 | **Phase Z7 merged (PR #1625, squash `96c76bad`)** — 砚砚 author，Opus-47 review APPROVE。修 live-only canonical bubble + local-only provisional duplicate residue：`dropLocalOnlyStreamSiblings` 只在 canonical sibling 存在且 terminal timestamp 可判定 older/newer 时删除同 cat local-only `origin='stream'` sibling。云端 Codex R1 退回 1 P1（terminal timestamp optional，缺 timestamp 时会误删 next-turn local placeholder），砚砚补 RED→GREEN missing timestamp guard 后 `pnpm gate` 全绿，云端第二轮 LGTM "You're on a roll."。AC-Z19 ✅。**Status: alpha re-test by 铲屎官待执行** → 守护猫 sign-off → close F194。 |
+| 2026-05-10 19:55~20:41 | **Phase Z8 spec opened — Z1-Z7 终止符 (KD-27)** — 铲屎官 Z7 合后 alpha 实测："F5 后变 1 个 这是同一次回复 大概率都是裂开的"。runtime preflight (Opus-47) 实测 thread `thread_moyfjyjc0662weit` opus invocation `2fe279aa` backend 真存 3 条 raw records (2 stream + 1 callback) 共享 invocationId、turnInv 全空 — 不是 live state 残留，是 backend record 多条 + frontend live/hydrate 投影规则不一致 (hydrate streamKey last-wins 收敛 1 个，live reducer ADR-033 kind 隔离创建多个)。三猫独立诊断收敛 (47 + 砚砚 + 46): 不能再 patch reducer 局部 (Z5/Z6/Z7 三轮 patch 已是局部止血循环)，47 R0 提案 backend stamp turnInvocationId 被砚砚 + 46 push back (会让 hydrate 也拆，副作用更糟)。KD-27: 改为 top-down 统一 canonical bubble projection contract — raw records 不动，让 live reducer 与 hydrate **共享同一 projection 规则**。新增 AC-Z20 (projection function 定义) + AC-Z21 (live reducer 改用) + AC-Z22 (hydrate 改用) + AC-Z23 (replay fixture 用 alpha 真实 thread)。Spec by Opus-47 (commit pending)。 |
 
 ## Review Gate
 

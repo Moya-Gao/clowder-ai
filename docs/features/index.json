@@ -1203,13 +1203,13 @@
     {
       "id": "F194",
       "name": "Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口",
-      "status": "in-progress (Phase A + B + Z + Z2 + Z3 + Z5 + Z6 + Z7 merged; Z4 was reverted before Z5. **Alpha re-test pending** after Phase Z7 fixes the remaining live-only provisional duplicate residue found on 2026-05-10 18:12: F5/hydrate is canonical, but live completion did not delete older local-only stream siblings once a canonical bubble existed.) | **Owner**: 缅因猫/Codex for Z7, reviewer 布偶猫/Opus-47 | **Priority**: P1",
+      "status": "in-progress (Phase A + B + Z + Z2 + Z3 + Z5 + Z6 + Z7 merged; Z4 was reverted before Z5. **Phase Z8 spec opened** 2026-05-10 20:41 — Z7 alpha re-test catch \"随便打开 thread 大概率都裂\"。runtime preflight 实测 thread `thread_moyfjyjc0662weit` opus invocation `2fe279aa` 在 backend 存了 3 条 raw records (2 stream + 1 callback) 共享 invocationId、turnInv 全空，hydrate 用 streamKey last-wins 收敛成 1 个 bubble，live reducer 用 ADR-033 kind 隔离创建多 bubble — 投影规则不一致。三猫共识 (47 + 砚砚 + 46) 不再 patch reducer，改为统一 canonical bubble projection contract (KD-27)。Z1-Z7 7 轮 patch 终止符。pre-existing context: F5/hydrate is canonical, but live completion did not delete older local-only stream siblings once a canonical bubble existed.) | **Owner**: 缅因猫/Codex for Z7, reviewer 布偶猫/Opus-47 | **Priority**: P1",
       "file": "F194-invocation-liveness-canonical-read-model.md"
     },
     {
       "id": "F195",
       "name": "Meeting Copilot — 实时会议私人智囊团",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F195-meeting-copilot-live-advisory.md"
     },
     {
