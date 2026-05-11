@@ -110,7 +110,11 @@ created: 2026-05-09
 - [ ] AC-C1: Turn-taking 检测 → 主动推"现在可以插话"信号（频率限制，防 AUDHD 注意力过载）
 - [ ] AC-C2: Speaker identity 映射（会前 enrollment → 实时归因，置信度 <0.6 降级为"有人说"）
 - [ ] AC-C3: 会议中主动推论点提醒（检测到高价值插话点时）
-- [ ] AC-C4: Meeting context 注入猫的 invocation 上下文（MeetingContextBlock 隔离，不可信输入）
+- [ ] AC-C4a: MeetingSession 绑定当前 thread，明确"会议上下文跟哪个 thread 走"
+- [ ] AC-C4b: 转写上下文 rolling window + event summary + 显式拉取（不做原文堆积）
+- [ ] AC-C4c: MeetingContextBlock 隔离不可信输入（带 provenance/speaker confidence/timestamp）
+- [ ] AC-C5: 浮动转写窗（可拖拽/缩放/最小化，不抢聊天输入焦点）
+- [ ] AC-C6: Speaker label 手动修正
 
 ### 已有基础设施
 
@@ -128,9 +132,9 @@ created: 2026-05-09
 | Phase | 新增技术需求 | 难度 |
 |-------|-------------|------|
 | **A 会前** | 无——现有 thread + 猫的推理能力 | ⭐ 零 |
-| **A 会后** | 批处理 ASR + 批处理 diarization（质量优先，非实时） | ⭐⭐ 低（现有 Whisper/Qwen3-ASR + pyannote 可做） |
-| **B 会中** | 音频采集适配层 + 流式 ASR + 浮动转写窗 + meeting context 注入 | ⭐⭐⭐⭐ 高 |
-| **C 主动增强** | Turn-taking 检测 + 实时 diarization + 主动推送 | ⭐⭐⭐⭐⭐ 很高 |
+| **A 会后** | 批处理 ASR（质量优先，非实时） | ⭐⭐ 低（现有 Qwen3-ASR 可做） |
+| **B 会中** | 音频采集适配层 + 流式 ASR + 右侧 TranscriptPanel | ⭐⭐⭐⭐ 高 |
+| **C 主动增强** | Turn-taking 检测 + 实时 diarization + 主动推送 + meeting context 注入 + 浮动转写窗 | ⭐⭐⭐⭐⭐ 很高 |
 
 ### 已知缺口（Phase B/C 需调研验证）
 
@@ -138,10 +142,10 @@ created: 2026-05-09
 |------|---------|-----------|--------|
 | 音频入口适配层 | Zoom/Meet/线下麦克风/系统音频各有不同采集方式 | B | 各平台 capture 方案、VAD 切片、降级策略？ |
 | 连续流式 ASR | 当前是文件上传制 + 单请求串行锁 GPU | B | 最新开源模型？Whisper streaming？ |
-| 说话人分离（diarization） | pyannote.audio 可做，M4 Max 可跑 | A(会后)/B/C | 批处理 vs 实时，有更好的方案吗？ |
+| 说话人分离（diarization） | pyannote.audio 可做，M4 Max 可跑 | C | 批处理 vs 实时，有更好的方案吗？ |
 | 说话人身份映射 | diarization 只给 SPEAKER_00，需映射到人名 | C | 声纹注册 vs 手动标注 vs 其他？ |
-| Hub 浮动转写窗 | 前端新组件 | B | 有现成方案可参考吗？ |
-| Meeting context 注入 | 把转写内容注入猫的 invocation 上下文 | B | 上下文管理策略？ |
+| TranscriptPanel（右侧面板） | 前端新组件 | B ✅ | Phase B 已交付，浮动窗延至 Phase C |
+| Meeting context 注入 | 把转写内容注入猫的 invocation 上下文 | C | 上下文管理策略？ |
 | Turn-taking 检测 | VAD/prosody/floor detection，不是 ASR 副产品 | C | 有哪些开源模型或方法？ |
 
 ## 安全边界（砚砚 review 补充）
@@ -158,12 +162,13 @@ MVP 允许 `Speaker A/B/Unknown`，甚至"有人说"。铲屎官主要需要猫�
 
 MVP 做拉取模式：铲屎官打草稿或问"现在怎么说"，猫再整理。主动推"现在可以插话"放 Phase 2 并加频率限制，避免反过来增加 AUDHD 注意力负担。
 
-### 浮动转写窗最小 AC
+### 转写窗交付说明
 
-- 不抢聊天输入焦点
+**Phase B 已交付**：右侧 TranscriptPanel（workspace 面板），含暂停采集、显示录音状态。
+
+**Phase C 延续**（AC-C5/C6）：
+- 独立浮动窗，不抢聊天输入焦点
 - 可拖拽/缩放/最小化
-- 可暂停采集
-- 显示录音状态
 - 可手动修正 speaker label
 
 ### MeetingSession 概念
@@ -327,7 +332,8 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 
 | 组件 | 功能 | 位置 |
 |------|------|------|
-| **浮动转写窗** | 实时滚动显示转写文本，可拖拽/缩放/最小化 | Hub workspace 浮动层 |
+| **TranscriptPanel** | 实时滚动显示转写文本（Phase B 已交付，右侧 workspace 面板） | Hub workspace 右侧 |
+| **浮动转写窗**（Phase C） | 独立浮动窗，可拖拽/缩放/最小化 | Hub workspace 浮动层 |
 | **监听状态指示** | 显示"正在监听：腾讯会议"+ 录音时长 + 运行状态 | Hub 顶栏或状态栏 |
 | **采集控制** | 暂停/恢复/停止按钮 | 浮动转写窗内 |
 
