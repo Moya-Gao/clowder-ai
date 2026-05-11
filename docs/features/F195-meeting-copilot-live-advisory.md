@@ -335,7 +335,7 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | **TranscriptPanel** | 实时滚动显示转写文本（Phase B 已交付，右侧 workspace 面板） | Hub workspace 右侧 |
 | **浮动转写窗**（Phase C） | 独立浮动窗，可拖拽/缩放/最小化 | Hub workspace 浮动层 |
 | **监听状态指示** | 显示"正在监听：腾讯会议"+ 录音时长 + 运行状态 | Hub 顶栏或状态栏 |
-| **采集控制** | 暂停/恢复/停止按钮 | 浮动转写窗内 |
+| **采集控制** | 暂停/恢复/停止按钮 | TranscriptPanel 内（Phase B）/ 浮动窗内（Phase C） |
 
 ### 5. 用户交互流程（会议场景）
 
@@ -343,7 +343,7 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 铲屎官：开始监听腾讯会议
   猫猫：→ audio_list_sources 找到"腾讯会议"
        → audio_capture_start("腾讯会议")
-       → 浮动转写窗自动弹出
+       → TranscriptPanel 自动打开（Phase B）/ 浮动窗弹出（Phase C）
        → 状态栏显示"正在监听：腾讯会议"
 
 铲屎官：他们在聊什么？
@@ -356,7 +356,7 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 
 铲屎官：停
   猫猫：→ audio_capture_stop
-       → 浮动窗关闭，转写文件保存
+       → TranscriptPanel 关闭（Phase B）/ 浮动窗关闭（Phase C），转写文件保存
 ```
 
 ## Open Questions
