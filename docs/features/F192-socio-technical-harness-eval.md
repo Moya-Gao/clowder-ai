@@ -125,6 +125,15 @@ Phase C 骨架跑通后，完善基础设施 + 扩展到更多工具。含原 Ph
 - [ ] AC-D8: digest 结论写入 feature spec（升级 / 精简 / sunset）
 - [ ] AC-D9: Attribution Action-Rate——tracking Phase C/D findings 的 acted-on 比例。pipeline 自身 eval contract 含 action-rate metric；连续 3 月 < 50% 则候选 sunset
 
+### Phase D Digest Conclusions (AC-D8)
+
+Based on the first micro fit digest (2026-05-11):
+
+- **Upgrade**: route-serial instrumentation is production-ready (high confidence with full counter coverage). Consider per-agent breakdown in future eval cycles.
+- **Streamline**: L1/C1/C2 now have dedicated counters (D0 closed all 6 gaps). The mixed `hint_emitted` counter is retained for routing hints (backwards compat) — evaluate removing it once C2 split counters accumulate enough data.
+- **No sunset candidates**: All 4 components actively serve A2A chain quality. Action-rate tracking (D9) will surface sunset candidates if findings go unacted for 3+ months.
+- **Next cycle focus**: Verify D0 counters are incrementing in production after merge. If any counter shows zero after 1 week of deployment, investigate code path reachability.
+
 ## Dependencies
 
 - **Related**: F167（A2A Chain Quality——pilot 目标）

@@ -113,6 +113,48 @@ export const lineStartDetected = lazy(() =>
   }),
 );
 
+export const l1StreakWarnCount = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.l1.streak_warn_count', {
+    description: 'L1 ping-pong streak warning threshold reached',
+  }),
+);
+
+export const l1StreakBreakCount = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.l1.streak_break_count', {
+    description: 'L1 ping-pong circuit-break triggered',
+  }),
+);
+
+export const c1ZombieHoldCount = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.c1.zombie_hold_count', {
+    description: 'Hold registered but previous hold for same (thread, cat) was unreleased',
+  }),
+);
+
+export const c1HoldCancelCount = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.c1.hold_cancel_count', {
+    description: 'Pending hold cancelled by user message',
+  }),
+);
+
+export const c2VerdictHintEmitted = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.c2.verdict_hint_emitted', {
+    description: 'C2 exit-check verdict-no-pass hint emitted (split from mixed hint_emitted)',
+  }),
+);
+
+export const c2VoidHoldHintEmitted = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.c2.void_hold_hint_emitted', {
+    description: 'C2 exit-check void-hold hint emitted (split from mixed hint_emitted)',
+  }),
+);
+
+export const c2VerdictWithoutPassCount = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.c2.verdict_without_pass_count', {
+    description: 'C2 forced-pass trigger count (verdict issued without explicit pass)',
+  }),
+);
+
 export const antigravityStreamErrorBuffered = lazy(() =>
   meter().createCounter('cat_cafe.antigravity.stream_error.buffered_total', {
     description: 'Buffered Antigravity stream_error after partial text while waiting for a recovery tail',

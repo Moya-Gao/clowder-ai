@@ -31,6 +31,13 @@ export interface AttributionRecord {
   status: 'open';
 }
 
+export interface ActionRate {
+  total: number;
+  actedOn: number;
+  rate: number;
+  sunsetCandidate: boolean;
+}
+
 export interface AttributionReport {
   featureId: string;
   evalSnapshotId: string;
@@ -40,6 +47,7 @@ export interface AttributionReport {
     reason: string;
     evidence: string;
   };
+  actionRate?: ActionRate;
 }
 
 interface AttributionInput {
@@ -153,6 +161,34 @@ function detectObservabilityGaps(component: AttributionInput['snapshot']['compon
     ],
     status: 'open' as const,
   }));
+}
+
+export function computeActionRate(
+  currentFindings: Array<{ fingerprint: string }>,
+  priorFindings: Array<{ status: string; fingerprint: string }>,
+): ActionRate {
+  const total = priorFindings.length;
+  if (total === 0) return { total: 0, actedOn: 0, rate: 0, sunsetCandidate: false };
+
+  const currentKeys = new Set(currentFindings.map((f) => f.fingerprint));
+
+  let actedOn = 0;
+  for (const prior of priorFindings) {
+    const resolved = prior.status === 'resolved';
+    const gone = !currentKeys.has(prior.fingerprint);
+    if (resolved || gone) actedOn++;
+  }
+
+  const rate = actedOn / total;
+  return { total, actedOn, rate, sunsetCandidate: rate < 0.5 };
+}
+
+export function findingFingerprint(f: {
+  frictionSignal: { type: string };
+  attribution?: { evidence?: Array<{ anchor: string }> };
+}): string {
+  const anchor = f.attribution?.evidence?.[0]?.anchor;
+  return anchor ? `${f.frictionSignal.type}::${anchor}` : f.frictionSignal.type;
 }
 
 export function generateAttributionReport(input: AttributionInput): AttributionReport {

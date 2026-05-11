@@ -24,6 +24,9 @@ import {
   ROUTE_TOTAL_TOKENS,
 } from '../../../../../infrastructure/telemetry/genai-semconv.js';
 import {
+  c2VerdictHintEmitted,
+  c2VerdictWithoutPassCount,
+  c2VoidHoldHintEmitted,
   inlineActionChecked,
   inlineActionDetected,
   inlineActionFeedbackWriteFailed,
@@ -1194,6 +1197,8 @@ export async function* routeSerial(
               timestamp: Date.now(),
               source: hintSource,
             });
+            c2VerdictHintEmitted.add(1, { 'agent.id': catId as string });
+            c2VerdictWithoutPassCount.add(1, { 'agent.id': catId as string });
             if (deps.socketManager) {
               deps.socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
                 threadId,
@@ -1229,7 +1234,7 @@ export async function* routeSerial(
               icon: '🏓',
               meta: { presentation: 'system_notice', noticeTone: 'warning' },
             };
-            const stored = await deps.messageStore.append({
+            const voidStored = await deps.messageStore.append({
               userId: 'system',
               catId: null,
               threadId,
@@ -1240,15 +1245,16 @@ export async function* routeSerial(
               timestamp: Date.now(),
               source: hintSource,
             });
+            c2VoidHoldHintEmitted.add(1, { 'agent.id': catId as string });
             if (deps.socketManager) {
               deps.socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
                 threadId,
                 message: {
-                  id: stored.id,
+                  id: voidStored.id,
                   type: 'connector',
-                  content: stored.content,
+                  content: voidStored.content,
                   source: hintSource,
-                  timestamp: stored.timestamp,
+                  timestamp: voidStored.timestamp,
                 },
               });
             }

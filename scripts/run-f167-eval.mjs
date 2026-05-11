@@ -12,7 +12,7 @@
  *   docs/harness-feedback/attributions/YYYY-MM-DD-F167-attribution.yaml
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -33,19 +33,17 @@ const { values } = parseArgs({
     'base-url': { type: 'string' },
     cookie: { type: 'string' },
     'dry-run': { type: 'boolean', default: false },
+    store: { type: 'boolean', default: false },
+    digest: { type: 'boolean', default: false },
   },
 });
 
 const baseUrl = values['base-url'] || process.env.EVAL_BASE_URL || 'http://localhost:3102';
 const cookie = values.cookie || process.env.EVAL_SESSION_COOKIE || '';
 const dryRun = values['dry-run'] ?? false;
+const storeMode = values.store ?? false;
+const digestMode = values.digest ?? false;
 
-if (!cookie) {
-  console.error('Error: session cookie required.\n' + '  --cookie "session=..." or EVAL_SESSION_COOKIE env var');
-  process.exit(1);
-}
-
-const config = { baseUrl, cookie };
 const dateStr = new Date().toISOString().slice(0, 10);
 
 async function parseMetricsText(text) {
@@ -61,7 +59,7 @@ async function parseMetricsText(text) {
   return metrics;
 }
 
-async function main() {
+async function main(config) {
   console.log(`F192 Eval Runner — ${dateStr}`);
   console.log(`  baseUrl: ${baseUrl}`);
   console.log(`  dryRun: ${dryRun}`);
@@ -111,6 +109,12 @@ async function main() {
 
   const snapshotPath = join(snapshotDir, `${dateStr}-F167-eval.yaml`);
   const attrPath = join(attrDir, `${dateStr}-F167-attribution.yaml`);
+
+  if (storeMode && existsSync(snapshotPath) && existsSync(attrPath)) {
+    console.log(`     DEDUP: ${snapshotPath} + attribution already exist, skipping write.`);
+    console.log('\nDone (idempotent store — no overwrite).');
+    return;
+  }
 
   const snapshotYaml = formatSnapshotYaml(snapshot);
   const attrYaml = formatAttributionYaml(report);
@@ -246,7 +250,70 @@ function formatAttributionYaml(report) {
   return lines.join('\n');
 }
 
-main().catch((err) => {
-  console.error('Eval failed:', err.message);
-  process.exit(1);
-});
+function generateMonthlyDigest() {
+  const snapshotDir = join(ROOT, 'docs/harness-feedback/snapshots');
+  const digestDir = join(ROOT, 'docs/harness-feedback/digests');
+  mkdirSync(snapshotDir, { recursive: true });
+  mkdirSync(digestDir, { recursive: true });
+
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const files = readdirSync(snapshotDir)
+    .filter((f) => f.startsWith(month) && f.endsWith('-F167-eval.yaml'))
+    .sort();
+
+  if (files.length === 0) {
+    console.log(`No snapshots found for ${month}.`);
+    return;
+  }
+
+  const summaries = files.map((f) => {
+    const content = readFileSync(join(snapshotDir, f), 'utf-8');
+    const confMatch = content.match(/overall_confidence:\s*(\S+)/);
+    const gapMatch = content.match(/telemetry_gaps:/g);
+    return {
+      date: f.slice(0, 10),
+      confidence: confMatch?.[1] ?? 'unknown',
+      gapSections: gapMatch?.length ?? 0,
+    };
+  });
+
+  const digestPath = join(digestDir, `${month}-F167-digest.yaml`);
+  const lines = [
+    '---',
+    'doc_kind: harness-feedback',
+    'feedback_type: monthly-digest',
+    'feature_id: F167',
+    `month: "${month}"`,
+    `generated_at: "${now.toISOString()}"`,
+    `snapshot_count: ${files.length}`,
+    '---',
+    '',
+    `# F167 Monthly Digest — ${month}`,
+    '',
+    'snapshots:',
+  ];
+  for (const s of summaries) {
+    lines.push(`  - date: "${s.date}"`);
+    lines.push(`    confidence: ${s.confidence}`);
+    lines.push(`    gap_sections: ${s.gapSections}`);
+  }
+  lines.push('');
+
+  writeFileSync(digestPath, lines.join('\n'), 'utf-8');
+  console.log(`Monthly digest written: ${digestPath}`);
+}
+
+if (digestMode) {
+  generateMonthlyDigest();
+} else {
+  if (!cookie) {
+    console.error('Error: session cookie required.\n' + '  --cookie "session=..." or EVAL_SESSION_COOKIE env var');
+    process.exit(1);
+  }
+  const config = { baseUrl, cookie };
+  main(config).catch((err) => {
+    console.error('Eval failed:', err.message);
+    process.exit(1);
+  });
+}

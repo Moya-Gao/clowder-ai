@@ -176,4 +176,72 @@ describe('F167 Runtime Eval Snapshot', () => {
     assert.equal(typeof snapshot.summary, 'string');
     assert.ok(snapshot.summary.length > 0);
   });
+
+  it('extracts L1 streak counters and upgrades confidence (AC-D0)', () => {
+    const snapshot = generateF167Snapshot({
+      ...emptyInput,
+      metrics: {
+        cat_cafe_a2a_l1_streak_warn_count: 5,
+        cat_cafe_a2a_l1_streak_break_count: 1,
+      },
+      traceStats: {
+        spanCount: 10,
+        maxSpans: 10000,
+        maxAgeMs: 86400000,
+        oldestStoredAt: Date.now() - 3600000,
+        newestStoredAt: Date.now(),
+      },
+    });
+    const l1 = snapshot.components.find((c) => c.componentId === 'L1');
+    assert.equal(l1.activationCounts['l1.streak_warn_count'], 5);
+    assert.equal(l1.activationCounts['l1.streak_break_count'], 1);
+    assert.notEqual(l1.confidence, 'no-data');
+    assert.equal(l1.telemetryGaps.length, 0);
+  });
+
+  it('extracts C1 zombie/cancel counters and upgrades confidence (AC-D0)', () => {
+    const snapshot = generateF167Snapshot({
+      ...emptyInput,
+      metrics: {
+        cat_cafe_a2a_c1_zombie_hold_count: 2,
+        cat_cafe_a2a_c1_hold_cancel_count: 3,
+      },
+      traceStats: {
+        spanCount: 10,
+        maxSpans: 10000,
+        maxAgeMs: 86400000,
+        oldestStoredAt: Date.now() - 3600000,
+        newestStoredAt: Date.now(),
+      },
+    });
+    const c1 = snapshot.components.find((c) => c.componentId === 'C1');
+    assert.equal(c1.frictionCounts['c1.zombie_hold_count'], 2);
+    assert.equal(c1.frictionCounts['c1.hold_cancel_count'], 3);
+    assert.notEqual(c1.confidence, 'no-data');
+    assert.equal(c1.telemetryGaps.length, 0);
+  });
+
+  it('extracts C2 split hint counters and upgrades confidence (AC-D0)', () => {
+    const snapshot = generateF167Snapshot({
+      ...emptyInput,
+      metrics: {
+        cat_cafe_a2a_c2_verdict_hint_emitted: 4,
+        cat_cafe_a2a_c2_void_hold_hint_emitted: 1,
+        cat_cafe_a2a_c2_verdict_without_pass_count: 3,
+      },
+      traceStats: {
+        spanCount: 10,
+        maxSpans: 10000,
+        maxAgeMs: 86400000,
+        oldestStoredAt: Date.now() - 3600000,
+        newestStoredAt: Date.now(),
+      },
+    });
+    const c2 = snapshot.components.find((c) => c.componentId === 'C2');
+    assert.equal(c2.activationCounts['c2.verdict_hint_emitted'], 4);
+    assert.equal(c2.activationCounts['c2.void_hold_hint_emitted'], 1);
+    assert.equal(c2.activationCounts['c2.verdict_without_pass_count'], 3);
+    assert.notEqual(c2.confidence, 'no-data');
+    assert.ok(c2.telemetryGaps.length === 0 || !c2.telemetryGaps.some((g) => g.reason === 'no_counter'));
+  });
 });

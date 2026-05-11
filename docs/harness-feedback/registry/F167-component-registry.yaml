@@ -1,0 +1,68 @@
+featureId: F167
+generatedBy: "F192 Phase D AC-D1"
+generatedAt: "2026-05-11"
+
+components:
+  - id: L1
+    name: WorklistRegistry Ping-Pong Breaker
+    hard:
+      file: packages/api/src/domains/cats/services/agents/routing/WorklistRegistry.ts
+      mechanism: streak counter + warn (≥2) / block (≥4) thresholds per (from, to) pair
+    soft:
+      skills: [shared-rules §ball-passing]
+      prompts: [WorklistRegistry ping-pong warning message]
+    eval:
+      counters:
+        activation: [l1.streak_warn_count, l1.streak_break_count]
+        friction: []
+      confidence: medium
+      gaps: []
+      notes: "D0 closed both L1 gaps (streak_warn_count + streak_break_count)"
+
+  - id: C1
+    name: hold_ball (MCP tool)
+    hard:
+      file: packages/api/src/routes/callback-hold-ball-routes.ts
+      mechanism: rolling window hold counter (MAX_HOLDS_PER_WINDOW=3 per ~1h) + single-slot replace
+    soft:
+      skills: [shared-rules §hold-ball-protocol]
+      prompts: [hold_ball tool description, 持球唤醒 reminder message]
+    eval:
+      counters:
+        activation: [hold_ball_calls (from traces)]
+        friction: [c1.zombie_hold_count, c1.hold_cancel_count]
+      confidence: medium
+      gaps: []
+      notes: "D0 closed both C1 gaps. hold_ball_calls comes from trace tool_use events; zombie/cancel from OTel counters"
+
+  - id: C2
+    name: exit-check (forced-pass guard)
+    hard:
+      file: packages/api/src/domains/cats/services/agents/routing/route-serial.ts
+      mechanism: shouldWarnVerdictWithoutPass() + shouldWarnVoidHold() detectors
+    soft:
+      skills: [shared-rules §ball-passing]
+      prompts: [球权提醒 verdict-no-pass hint, 持球提醒 void-hold hint]
+    eval:
+      counters:
+        activation: [c2.verdict_hint_emitted, c2.void_hold_hint_emitted, c2.verdict_without_pass_count]
+        friction: []
+      confidence: medium
+      gaps: []
+      notes: "D0 split mixed hint_emitted into verdict/void-hold + added verdict_without_pass_count. Old mixed counter retained for routing hints (backwards compat)"
+
+  - id: route-serial
+    name: route-serial (A2A handoff routing)
+    hard:
+      file: packages/api/src/domains/cats/services/agents/routing/route-serial.ts
+      mechanism: parseA2AMentions line-start detection + inline action shadow detection
+    soft:
+      skills: [shared-rules §ball-passing, shared-rules §@-mention-format]
+      prompts: [routing-syntax-hint system message]
+    eval:
+      counters:
+        activation: [inline_action.checked, inline_action.detected, line_start.detected]
+        friction: [inline_action.shadow_miss, inline_action.feedback_written, inline_action.feedback_write_failed, inline_action.hint_emitted, inline_action.hint_emit_failed, inline_action.routed_set_skip]
+      confidence: high
+      gaps: []
+      notes: "Phase C already had full coverage. Confidence high when both counters and trace data present"

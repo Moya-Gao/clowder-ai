@@ -108,53 +108,77 @@ function countHoldBallFromTraces(spans: EvalTraceSpan[]): number {
   return count;
 }
 
-function buildL1(): ComponentHealth {
+function buildL1(metrics: Record<string, number>): ComponentHealth {
+  const streakWarn = sumMetricByPrefix(metrics, 'cat_cafe_a2a_l1_streak_warn_count');
+  const streakBreak = sumMetricByPrefix(metrics, 'cat_cafe_a2a_l1_streak_break_count');
+  const hasCounters = streakWarn != null || streakBreak != null;
+
+  const activationCounts: Record<string, number | null> = {};
+  if (hasCounters) {
+    activationCounts['l1.streak_warn_count'] = streakWarn ?? 0;
+    activationCounts['l1.streak_break_count'] = streakBreak ?? 0;
+  }
+
   return {
     componentId: 'L1',
     componentName: 'WorklistRegistry (ping-pong breaker)',
-    activationCounts: {},
+    activationCounts,
     frictionCounts: {},
     falsePositiveCandidates: [],
     bypassCandidates: [],
-    confidence: 'no-data',
-    telemetryGaps: [
-      {
-        metric: 'streak_warn_count',
-        reason: 'no_counter',
-        impact: 'Cannot measure L1 activation frequency',
-      },
-      {
-        metric: 'streak_break_count',
-        reason: 'no_counter',
-        impact: 'Cannot measure L1 circuit-break events',
-      },
-    ],
+    confidence: hasCounters ? 'medium' : 'no-data',
+    telemetryGaps: hasCounters
+      ? []
+      : [
+          {
+            metric: 'streak_warn_count',
+            reason: 'no_counter',
+            impact: 'Cannot measure L1 activation frequency',
+          },
+          {
+            metric: 'streak_break_count',
+            reason: 'no_counter',
+            impact: 'Cannot measure L1 circuit-break events',
+          },
+        ],
   };
 }
 
-function buildC1(spans: EvalTraceSpan[]): ComponentHealth {
+function buildC1(spans: EvalTraceSpan[], metrics: Record<string, number>): ComponentHealth {
   const holdBallCalls = countHoldBallFromTraces(spans);
-  const hasData = holdBallCalls > 0;
+  const zombieHold = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_zombie_hold_count');
+  const holdCancel = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_hold_cancel_count');
+  const hasCounters = zombieHold != null || holdCancel != null;
+  const hasData = holdBallCalls > 0 || hasCounters;
+
+  const frictionCounts: Record<string, number | null> = {};
+  if (hasCounters) {
+    frictionCounts['c1.zombie_hold_count'] = zombieHold ?? 0;
+    frictionCounts['c1.hold_cancel_count'] = holdCancel ?? 0;
+  }
+
   return {
     componentId: 'C1',
     componentName: 'hold_ball (MCP tool)',
     activationCounts: { hold_ball_calls: holdBallCalls },
-    frictionCounts: {},
+    frictionCounts,
     falsePositiveCandidates: [],
     bypassCandidates: [],
-    confidence: hasData ? 'low' : 'no-data',
-    telemetryGaps: [
-      {
-        metric: 'zombie_hold_count',
-        reason: 'no_counter',
-        impact: 'Cannot detect zombie holds (hold without follow-up action)',
-      },
-      {
-        metric: 'hold_cancel_count',
-        reason: 'no_counter',
-        impact: 'Cannot measure hold cancellation frequency',
-      },
-    ],
+    confidence: hasData ? (hasCounters ? 'medium' : 'low') : 'no-data',
+    telemetryGaps: hasCounters
+      ? []
+      : [
+          {
+            metric: 'zombie_hold_count',
+            reason: 'no_counter',
+            impact: 'Cannot detect zombie holds (hold without follow-up action)',
+          },
+          {
+            metric: 'hold_cancel_count',
+            reason: 'no_counter',
+            impact: 'Cannot measure hold cancellation frequency',
+          },
+        ],
   };
 }
 
@@ -172,29 +196,44 @@ function sumMetricByPrefix(metrics: Record<string, number>, prefix: string): num
 
 function buildC2(metrics: Record<string, number>): ComponentHealth {
   const hintCount = sumMetricByPrefix(metrics, 'cat_cafe_a2a_inline_action_hint_emitted');
-  const hasData = hintCount != null && hintCount > 0;
+  const verdictHint = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c2_verdict_hint_emitted');
+  const voidHoldHint = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c2_void_hold_hint_emitted');
+  const verdictWithoutPass = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c2_verdict_without_pass_count');
+  const hasSplitCounters = verdictHint != null || voidHoldHint != null || verdictWithoutPass != null;
+  const hasData = hasSplitCounters || (hintCount != null && hintCount > 0);
+
+  const activationCounts: Record<string, number | null> = {
+    'hint_emitted (mixed routing+verdict)': hintCount,
+  };
+  if (hasSplitCounters) {
+    activationCounts['c2.verdict_hint_emitted'] = verdictHint ?? 0;
+    activationCounts['c2.void_hold_hint_emitted'] = voidHoldHint ?? 0;
+    activationCounts['c2.verdict_without_pass_count'] = verdictWithoutPass ?? 0;
+  }
+
+  const gaps: TelemetryGap[] = [];
+  if (!hasSplitCounters) {
+    gaps.push({
+      metric: 'hint_emitted',
+      reason: 'trace_context_incomplete',
+      impact: 'Counter mixes routing hints and verdict hints — cannot isolate C2 exit-check activations',
+    });
+    gaps.push({
+      metric: 'verdict_without_pass_count',
+      reason: 'no_counter',
+      impact: 'Cannot directly count forced-pass triggers',
+    });
+  }
+
   return {
     componentId: 'C2',
     componentName: 'exit-check (forced-pass guard)',
-    activationCounts: {
-      'hint_emitted (mixed routing+verdict)': hintCount,
-    },
+    activationCounts,
     frictionCounts: {},
     falsePositiveCandidates: [],
     bypassCandidates: [],
-    confidence: hasData ? 'low' : 'no-data',
-    telemetryGaps: [
-      {
-        metric: 'hint_emitted',
-        reason: 'trace_context_incomplete',
-        impact: 'Counter mixes routing hints and verdict hints — cannot isolate C2 exit-check activations',
-      },
-      {
-        metric: 'verdict_without_pass_count',
-        reason: 'no_counter',
-        impact: 'Cannot directly count forced-pass triggers',
-      },
-    ],
+    confidence: hasData ? (hasSplitCounters ? 'medium' : 'low') : 'no-data',
+    telemetryGaps: gaps,
   };
 }
 
@@ -235,8 +274,8 @@ export function generateF167Snapshot(input: F167EvalInput): RuntimeEvalSnapshot 
   const durationMs = windowEnd - windowStart;
 
   const components = [
-    buildL1(),
-    buildC1(input.traces.spans),
+    buildL1(input.metrics),
+    buildC1(input.traces.spans, input.metrics),
     buildC2(input.metrics),
     buildRouteSerial(input.metrics, hasTraceData),
   ];

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { generateAttributionReport } from '../../dist/infrastructure/harness-eval/attribution.js';
+import {
+  computeActionRate,
+  findingFingerprint,
+  generateAttributionReport,
+} from '../../dist/infrastructure/harness-eval/attribution.js';
 
 const VALID_CLASSES = [
   'vision_gap',
@@ -211,5 +215,94 @@ describe('F192 Attribution', () => {
     if (gapFinding) {
       assert.ok(['pipeline', 'human-required'].includes(gapFinding.attribution.pipelineOrHuman));
     }
+  });
+});
+
+describe('AC-D9 Action Rate', () => {
+  it('returns zero rate for empty prior findings', () => {
+    const rate = computeActionRate([], []);
+    assert.equal(rate.total, 0);
+    assert.equal(rate.actedOn, 0);
+    assert.equal(rate.rate, 0);
+    assert.equal(rate.sunsetCandidate, false);
+  });
+
+  it('counts resolved findings as acted-on', () => {
+    const current = [{ fingerprint: 'feedback_failed::C1/feedback' }];
+    const prior = [
+      { status: 'resolved', fingerprint: 'shadow_miss::route-serial/shadow_miss' },
+      { status: 'open', fingerprint: 'feedback_failed::C1/feedback' },
+    ];
+    const rate = computeActionRate(current, prior);
+    assert.equal(rate.total, 2);
+    assert.equal(rate.actedOn, 1);
+    assert.equal(rate.rate, 0.5);
+    assert.equal(rate.sunsetCandidate, false);
+  });
+
+  it('counts disappeared findings as acted-on', () => {
+    const current = [{ fingerprint: 'shadow_miss::route-serial/shadow_miss' }];
+    const prior = [
+      { status: 'open', fingerprint: 'shadow_miss::route-serial/shadow_miss' },
+      { status: 'open', fingerprint: 'observability-gap::L1/old_metric' },
+    ];
+    const rate = computeActionRate(current, prior);
+    assert.equal(rate.actedOn, 1);
+  });
+
+  it('marks sunsetCandidate when rate below 50%', () => {
+    const prior = [
+      { status: 'open', fingerprint: 'a::X/a' },
+      { status: 'open', fingerprint: 'b::X/b' },
+      { status: 'open', fingerprint: 'c::X/c' },
+    ];
+    const rate = computeActionRate([], prior);
+    assert.ok(rate.rate > 0);
+    assert.equal(rate.sunsetCandidate, rate.rate < 0.5);
+  });
+
+  it('does NOT count still-present finding as acted-on (P1-1 fix)', () => {
+    const current = [{ fingerprint: 'observability-gap::L1/streak_warn_count' }];
+    const prior = [{ status: 'open', fingerprint: 'observability-gap::L1/streak_warn_count' }];
+    const rate = computeActionRate(current, prior);
+    assert.equal(rate.actedOn, 0, 'same fingerprint still present → not acted-on');
+    assert.equal(rate.rate, 0);
+  });
+
+  it('distinguishes same-type findings from different components (cloud P1 fix)', () => {
+    const current = [{ fingerprint: 'observability-gap::C2/verdict_hint' }];
+    const prior = [
+      { status: 'open', fingerprint: 'observability-gap::L1/streak_warn_count' },
+      { status: 'open', fingerprint: 'observability-gap::C2/verdict_hint' },
+    ];
+    const rate = computeActionRate(current, prior);
+    assert.equal(rate.actedOn, 1, 'L1 gap gone = acted-on, C2 gap still present = not');
+  });
+
+  it('counts finding with real AR-id as acted-on only when resolved or gone', () => {
+    const current = [{ fingerprint: 'observability-gap::C2/verdict_hint' }];
+    const prior = [
+      { status: 'resolved', fingerprint: 'shadow_miss::route-serial/shadow_miss' },
+      { status: 'open', fingerprint: 'observability-gap::C2/verdict_hint' },
+      { status: 'open', fingerprint: 'feedback_failed::C1/feedback_write_failed' },
+    ];
+    const rate = computeActionRate(current, prior);
+    assert.equal(rate.total, 3);
+    assert.equal(rate.actedOn, 2, 'resolved + disappeared = acted-on, still-present = not');
+  });
+});
+
+describe('findingFingerprint', () => {
+  it('uses evidence anchor when available', () => {
+    const fp = findingFingerprint({
+      frictionSignal: { type: 'observability-gap' },
+      attribution: { evidence: [{ anchor: 'L1/streak_warn_count' }] },
+    });
+    assert.equal(fp, 'observability-gap::L1/streak_warn_count');
+  });
+
+  it('falls back to type only when no evidence', () => {
+    const fp = findingFingerprint({ frictionSignal: { type: 'shadow_miss' } });
+    assert.equal(fp, 'shadow_miss');
   });
 });
