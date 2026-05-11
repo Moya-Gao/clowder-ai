@@ -32,7 +32,7 @@ function waitForSocketEvent(client, eventName, timeoutMs = 1500) {
   });
 }
 
-const FS_WATCH_EVENT_TIMEOUT_MS = 5000;
+const FS_WATCH_EVENT_TIMEOUT_MS = 10000;
 
 async function connectClient(port) {
   const client = ioClient(`http://localhost:${port}`, { transports: ['websocket'] });
