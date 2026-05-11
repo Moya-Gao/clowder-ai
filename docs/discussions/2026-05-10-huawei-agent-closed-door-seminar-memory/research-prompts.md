@@ -21,7 +21,9 @@ topics: [agent-memory, research-prompts, cloud-research]
 ```
 你是一位 Agent Memory 领域的研究顾问。我们团队正在准备一场闭门研讨会（5/13），需要你帮我们扫描 2026 年（尤其是 2026 Q1-Q2）的学术前沿。
 
-### 我们已经知道的（不需要重复介绍）
+### 我们已有的候选锚点（请验证 / 反驳，不要默认接受）
+
+以下是我们目前的参考素材。如果任何锚点来源不可靠、数据过时、或是 vendor marketing，请明确指出。
 
 - MemRL (arxiv 2601.03192)：RL 优化 episodic memory 检索策略
 - AgeMem：记忆操作作为 tool，RL 优化管线
@@ -68,6 +70,7 @@ topics: [agent-memory, research-prompts, cloud-research]
 - 每个工作给：标题、一句话核心贡献、跟我们场景的关联、arxiv/链接
 - 如果某个方向确实没有新进展，直接说"这是空白"——空白本身就是我们研讨会可以强调的点
 - 不要给 2024 年及更早的工作（除非是 2025-2026 的重要 follow-up）
+- **反证要求**：请优先找能反驳我们 thesis 的证据——memory 不是治理问题、salience gating 已被成熟解决、参数化记忆已可审计落地、或企业案例显示检索仍是主要瓶颈
 ```
 
 ---
@@ -101,6 +104,7 @@ topics: [agent-memory, research-prompts, cloud-research]
 - 直接挑战我们的判断，不需要客气
 - 指出我们可能遗漏的关键工作
 - 如果我们的判断基本正确，说清楚为什么
+- **反证要求**：请优先找能反驳我们 thesis 的证据——memory 不是治理问题、salience gating 已被成熟解决、参数化记忆已可审计落地、或企业案例显示检索仍是主要瓶颈
 ```
 
 ---
@@ -110,7 +114,7 @@ topics: [agent-memory, research-prompts, cloud-research]
 ```
 你是一位 Agent Memory 领域的工程研究员。我们需要你深入扫描 2026 年开源生态中实际在 shipping 的 agent memory 项目，准备 5/13 闭门研讨会。
 
-### 我们已经调研过的项目（不需要重复）
+### 我们已有的候选锚点（请验证 / 反驳，不要默认接受）
 
 - mem0 (github 48K+ stars)
 - Letta / MemGPT
@@ -146,9 +150,10 @@ topics: [agent-memory, research-prompts, cloud-research]
 - MCP 的 resource/tool 抽象对 memory 设计有什么影响？
 
 ### 输出要求
-- 每个方向给出具体项目名 + GitHub 链接 + star 数 + 最近活跃度
+- 每个方向给出具体项目名 + GitHub 链接 + star 数 + 最近活跃度。**star 数、last commit、release 时间必须带 repo 链接和查询日期；无法实时确认就写 unknown，不要估算。**
 - 区分"demo 级项目"和"生产可用项目"
 - 如果某个方向没有实质进展，明确说出来
+- **反证要求**：请优先找能反驳我们 thesis 的证据——memory 不是治理问题、salience gating 已被成熟解决、参数化记忆已可审计落地、或企业案例显示检索仍是主要瓶颈
 ```
 
 ---
@@ -190,6 +195,7 @@ topics: [agent-memory, research-prompts, cloud-research]
 - 每个 insight 给：来源领域的原理 + 迁移到 agent memory 的具体应用建议
 - 我们不需要泛泛的类比——要能在研讨会上具体讲出"XX领域的YY原理告诉我们ZZ"
 - 标注哪些是已有 AI 研究在做的，哪些是真正的空白
+- **反证要求**：请优先找能反驳我们 thesis 的证据——memory 不是治理问题、salience gating 已被成熟解决、参数化记忆已可审计落地、或企业案例显示检索仍是主要瓶颈
 ```
 
 ---

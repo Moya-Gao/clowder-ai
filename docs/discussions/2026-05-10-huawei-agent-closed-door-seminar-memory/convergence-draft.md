@@ -53,7 +53,7 @@ topics: [agent-memory, perception-grounding, knowledge-governance, adhd-prosthet
 
 从认知科学出发：人类有工作记忆、短期/长期记忆、情景/语义/程序记忆——让 AI 也这么分。
 
-- **mem0**（48K+ stars，$24M 融资）：对话中自动提取 facts → vector/graph → 检索注入
+- **mem0**（48K+ stars [source needed]，$24M 融资 [source needed]）：对话中自动提取 facts → vector/graph → 检索注入
 - **Letta / MemGPT**：上下文 = RAM，对话历史 = disk cache，归档 = cold storage
 - **Hindsight 0.6.0**：四层认知网络 observations → mental models → opinions → reflections
 - **Zep / Graphiti**：temporal knowledge graph，每个事实有 valid_from / valid_to 时间窗
@@ -65,7 +65,7 @@ topics: [agent-memory, perception-grounding, knowledge-governance, adhd-prosthet
 
 - **Karpathy LLM Wiki**（2026-04-04）：原始资料 → LLM 编译成持久 wiki → 查编译产物
 - **Cat Cafe evidence.sqlite**：docs/ 真相源 → FTS5 + vector + RRF 编译索引 → grep 超级加强版
-- **Letta 的一个意外发现**：LoCoMo benchmark 上纯文件系统打到 74%，赢过多数专门 memory 工具
+- **Letta 的一个意外发现**：LoCoMo benchmark 上纯文件系统打到 74%，赢过多数专门 memory 工具 [source needed: Letta blog/paper 原文链接]
 
 ### 47 加入的第三维度："仓库 vs 义肢"
 
@@ -121,7 +121,7 @@ ADHD 主体应对 working memory deficit 不是靠"更大的笔记本"——是�
 
 ### 最大痛点
 
-**不是检索质量**（Letta 证明纯文件系统打 74%）。**是"记忆越多，系统越脏，但你不知道该扔什么"。** mem0 自己承认："agents accumulate so much 'important' information that searching memory becomes slower than just processing the full context."
+**不是检索质量**（Letta 证明纯文件系统打 74% [source needed]）。**是"记忆越多，系统越脏，但你不知道该扔什么"。** mem0 自己承认 [source needed: State of AI Agent Memory 2026 报告原文]："agents accumulate so much 'important' information that searching memory becomes slower than just processing the full context."
 
 铲屎官的 framing 更准确：**痛点不是"记不住"——是"抓到幻觉当真实"。** 错的记忆比没有记忆更危险。
 
@@ -138,13 +138,13 @@ ADHD 主体应对 working memory deficit 不是靠"更大的笔记本"——是�
 Agent A 更新事实，Agent B 怎么知道？共享数据库只解决存储一致性，不解决语义一致性。需要知识层面的因果一致性协议。
 
 **断裂点 3：记忆安全 / 助记权主权**（46 提出）
-2026 年 survey（arxiv 2604.16548）：94% 系统可被 poison。9 项治理原语无任何架构全部覆盖。
+2026 年 survey（arxiv 2604.16548 [source needed: 验证此 arxiv ID 及 94% 数字]）：94% 系统可被 poison。9 项治理原语无任何架构全部覆盖。
 
 **断裂点 4：从"仓库"到"义肢" — Reflex Injection**（47 独家）
 记忆应该**主动 inject** 到 agent 思考中，而不是等 agent 主动 query。Agent 不知道自己什么时候该想起什么——这是 working memory 短板。业界全部押注"agent 主动查询"，这条路走不通。
 
 **断裂点 5：Task-scoped Salience Gating**（47 独家）
-不是"找出最相关的"——是"**暂时隐藏最容易误导的**"。ADHD focus mode 的 agent 等价物。高权威但当前任务无关的旧决策会带偏 agent。需要可逆的临时降权，不是删除。**行业没人画过这个。**
+不是"找出最相关的"——是"**暂时隐藏最容易误导的**"。ADHD focus mode 的 agent 等价物。高权威但当前任务无关的旧决策会带偏 agent。需要可逆的临时降权，不是删除。主流框架已开始做 freshness/decay（mem0 Memory Decay, 2026-05-08；Atlan freshness scoring），但还没有把 **task-scoped、可逆、用于防误导的 salience gating** 做成一等设计目标。
 
 **断裂点 6：Schema 自治**（47 独家）
 Karpathy LLM Wiki 最美的一层：让 LLM 按 Schema **自治执行** ingest/query/lint。业界的 Schema 是"配置驱动"——等人填 frontmatter。Cat Cafe 自己也踩过这个坑：1501 篇文档 100% 是默认 observed authority，因为没人填。Schema 自治 = LLM 知道**自己该做什么**，不只是遵守该怎么做。
