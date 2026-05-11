@@ -72,7 +72,7 @@ cat_cafe_audio_capture_stop()
 
 ## 注意事项
 
-- 采集需要 audio-service 进程运行（Python，端口 9877）
+- 采集需要 audio-service 进程运行（Python，端口 9881）
 - App 音频采集需要 macOS 屏幕录制权限（首次使用会弹窗授权）
 - ASR 服务需要运行（端口 9876，Qwen3-ASR）
 - 转写有 ~3 秒延迟（每 3 秒一个 chunk）

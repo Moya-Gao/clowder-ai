@@ -142,7 +142,7 @@ export function FloatingTranscriptWindow({
       >
         <div
           tabIndex={-1}
-          className="flex h-9 items-center gap-2 rounded-lg border border-cafe-border bg-cafe-surface-primary px-3 shadow-lg"
+          className="flex h-9 items-center gap-2 rounded-lg border-2 border-cafe-accent-primary/30 bg-cafe-surface-primary px-3 shadow-lg ring-1 ring-black/10"
         >
           <span
             className={`inline-block h-2 w-2 rounded-full ${recording ? 'bg-green-500 animate-pulse' : 'bg-cafe-text-muted'}`}
@@ -195,7 +195,7 @@ export function FloatingTranscriptWindow({
     >
       <div
         tabIndex={-1}
-        className="flex h-full flex-col rounded-lg border border-cafe-border bg-cafe-surface-primary shadow-xl"
+        className="flex h-full flex-col rounded-lg border-2 border-cafe-accent-primary/30 bg-cafe-surface-primary shadow-2xl ring-1 ring-black/10 backdrop-blur-sm"
       >
         {/* Header — drag handle */}
         <div className="flex items-center gap-2 border-b border-cafe-border px-3 py-2 cursor-move select-none">

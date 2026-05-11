@@ -32,7 +32,7 @@ from intervention import AdvisoryRateLimiter, SilenceMonitor, InterventionDetect
 from transcript_window import TranscriptWindow
 
 ASR_URL = os.getenv("ASR_URL", "http://localhost:9876")
-PORT = int(os.getenv("AUDIO_SERVICE_PORT", "9877"))
+PORT = int(os.getenv("AUDIO_SERVICE_PORT", "9881"))
 SAMPLE_RATE = 16000
 DEFAULT_CHUNK_SEC = 3.0
 CAPTURE_BIN = os.getenv("CAPTURE_APP_AUDIO_BIN") or str(

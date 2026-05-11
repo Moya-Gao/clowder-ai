@@ -1,14 +1,14 @@
 /**
  * F195 Phase B — Audio proxy routes.
  *
- * Proxies frontend requests to the standalone Python audio-service (:9877).
- * The frontend cannot hit localhost:9877 directly (CORS / deployment boundary).
+ * Proxies frontend requests to the standalone Python audio-service (:9881).
+ * The frontend cannot hit localhost:9881 directly (CORS / deployment boundary).
  */
 
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { resolveUserId } from '../utils/request-identity.js';
 
-const AUDIO_URL = process.env['AUDIO_SERVICE_URL'] ?? 'http://127.0.0.1:9877';
+const AUDIO_URL = process.env['AUDIO_SERVICE_URL'] ?? 'http://127.0.0.1:9881';
 
 function requireIdentity(request: FastifyRequest, reply: FastifyReply): boolean {
   const userId = resolveUserId(request, {});

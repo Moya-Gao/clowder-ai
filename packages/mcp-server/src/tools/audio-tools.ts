@@ -1,7 +1,7 @@
 /**
  * F195 Phase B — Audio capture & transcription MCP tools.
  *
- * All tools proxy to the standalone audio-service (Python, default :9877).
+ * All tools proxy to the standalone audio-service (Python, default :9881).
  */
 
 import { createMeetingContextBlock } from '@cat-cafe/shared';
@@ -9,7 +9,7 @@ import { z } from 'zod';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
-const AUDIO_URL = process.env['AUDIO_SERVICE_URL'] ?? 'http://127.0.0.1:9877';
+const AUDIO_URL = process.env['AUDIO_SERVICE_URL'] ?? 'http://127.0.0.1:9881';
 
 async function audioFetch(path: string, init?: RequestInit): Promise<Response> {
   return fetch(`${AUDIO_URL}${path}`, {

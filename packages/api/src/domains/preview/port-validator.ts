@@ -13,6 +13,7 @@ export const DEFAULT_EXCLUDED_PORTS = [
   9877, // Anthropic proxy (default ANTHROPIC_PROXY_PORT)
   9879, // Whisper, LLM postprocess, TTS
   9880, // Embedding server (embed-api.py)
+  9881, // Audio capture service (F195 audio-service.py)
 ];
 
 /**

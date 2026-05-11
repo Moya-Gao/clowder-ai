@@ -1583,7 +1583,7 @@ export const ENV_VARS: EnvDefinition[] = [
   // --- audio (F195 会中实时智囊) ---
   {
     name: 'AUDIO_SERVICE_URL',
-    defaultValue: 'http://127.0.0.1:9877',
+    defaultValue: 'http://127.0.0.1:9881',
     description: 'F195 Audio Capture Service 地址（Python aiohttp，管理音频采集 + ASR 转录）',
     category: 'audio',
     sensitive: false,
