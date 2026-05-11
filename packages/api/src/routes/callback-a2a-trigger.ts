@@ -17,6 +17,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { getDefaultCatId } from '../config/cat-config-loader.js';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
+import { stampVisibleTurn } from '../domains/cats/services/agents/invocation/visible-turn.js';
 import {
   getWorklist,
   hasWorklist,
@@ -464,16 +465,9 @@ export async function triggerA2AInvocation(
         if (msg.type === 'done' && msg.errorCode) {
           governanceErrorCode = msg.errorCode;
         }
-        // F194 Phase Z3 R3 P1-4 (砚砚): preserve original msg.invocationId (turn) as turnInvocationId
-        // when overriding invocationId to parent. Otherwise frontend bubble identity loses turn dimension.
+        // F194 Phase Z9 (砚砚 R1 P1-2): unified visible turn stamp via helper.
         socketManager.broadcastAgentMessage(
-          {
-            ...msg,
-            invocationId: createResult.invocationId,
-            ...(msg.invocationId && msg.invocationId !== createResult.invocationId
-              ? { turnInvocationId: msg.invocationId }
-              : {}),
-          },
+          { ...msg, ...stampVisibleTurn(createResult.invocationId, msg.invocationId) },
           threadId,
         );
       }

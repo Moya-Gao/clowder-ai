@@ -766,7 +766,15 @@ export async function* routeParallel(
       }
 
       if (effectiveMsg.type === 'text' && !effectiveMsg.content) continue;
-      yield effectiveMsg;
+      // F194 Phase Z9 砚砚 R1 P1-1: stamp ownInvocationId on yielded events
+      // (same as route-serial.ts). CLI text/done/tool events don't carry
+      // invocationId; only system_info=invocation_created does. Without explicit
+      // stamping, downstream broadcaster falls back to parent → multi-turn
+      // same-cat under shared parent collapses to one bubble (R13 + R14).
+      const ownInvForYield = effectiveMsg.catId ? catInvocationId.get(effectiveMsg.catId) : undefined;
+      const stampedEffectiveMsg =
+        ownInvForYield && !effectiveMsg.invocationId ? { ...effectiveMsg, invocationId: ownInvForYield } : effectiveMsg;
+      yield stampedEffectiveMsg;
     }
 
     if (msg.type === 'done' && msg.catId) {
@@ -929,12 +937,13 @@ export async function* routeParallel(
             ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
             extra: {
               ...(allRichBlocks.length > 0 ? { rich: { v: 1 as const, blocks: allRichBlocks } } : {}),
-              // F194 Phase Z3 dual id (see route-serial.ts:1370 for contract)
+              // F194 Phase Z9 AC-Z25 (KD-28): always stamp turnInvocationId
+              // (= ownInvId else parent fallback).
               ...(persistedInvocationId
                 ? {
                     stream: {
                       invocationId: persistedInvocationId,
-                      ...(ownInvId && persistedInvocationId !== ownInvId ? { turnInvocationId: ownInvId } : {}),
+                      turnInvocationId: ownInvId ?? persistedInvocationId,
                     },
                   }
                 : {}),
@@ -1026,11 +1035,14 @@ export async function* routeParallel(
               extra: {
                 ...(noTextBlocks.length > 0 ? { rich: { v: 1 as const, blocks: noTextBlocks } } : {}),
                 // F194 Phase Z3 dual id (see route-serial.ts:1370 for contract)
+                // F194 Phase Z9 AC-Z25 (KD-28): always stamp turnInvocationId
+                // (= ownInvId else parent fallback) — prevents multi-turn same-cat
+                // bubble collapse under shared parent invocation.
                 ...(persistedInvocationId
                   ? {
                       stream: {
                         invocationId: persistedInvocationId,
-                        ...(ownInvId && persistedInvocationId !== ownInvId ? { turnInvocationId: ownInvId } : {}),
+                        turnInvocationId: ownInvId ?? persistedInvocationId,
                       },
                     }
                   : {}),
@@ -1113,12 +1125,12 @@ export async function* routeParallel(
               ...(persistedInvocationId || msg.tracing
                 ? {
                     extra: {
-                      // F194 Phase Z3 dual id (see route-serial.ts:1370 for contract)
+                      // F194 Phase Z9 AC-Z25 (KD-28): always stamp turnInvocationId.
                       ...(persistedInvocationId
                         ? {
                             stream: {
                               invocationId: persistedInvocationId,
-                              ...(ownInvId && persistedInvocationId !== ownInvId ? { turnInvocationId: ownInvId } : {}),
+                              turnInvocationId: ownInvId ?? persistedInvocationId,
                             },
                           }
                         : {}),
@@ -1230,7 +1242,13 @@ export async function* routeParallel(
         }
       }
 
-      yield { ...msg, isFinal };
+      // F194 Phase Z9 砚砚 R2 P1: parallel done yield must use the `ownInvId`
+      // captured at L808 BEFORE `catInvocationId.delete(msg.catId)` at L812.
+      // Re-querying the map here returns undefined → done event yielded without
+      // invocationId → downstream broadcaster falls back to parent → bubble
+      // identity / liveness wrongly attached to parent (instead of own turn).
+      const stampedDone = ownInvId && !msg.invocationId ? { ...msg, invocationId: ownInvId } : msg;
+      yield { ...stampedDone, isFinal };
       if (isFinal) yieldedFinalDone = true;
     }
   }

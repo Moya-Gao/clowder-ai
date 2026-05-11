@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F194: Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口
 
-> **Status**: in-progress (Phase A + B + Z + Z2 + Z3 + Z5 + Z6 + Z7 + Z8 merged; Z4 was reverted before Z5. **Phase Z8 merged 2026-05-11 03:13 (PR #1632 squash `49814778`)** — Z1-Z7 7 轮 patch 终止符，统一 canonical bubble projection contract (KD-27)。`projectCanonicalBubbles` pure function + writer boundary integration (live `applyBubbleEventWithRecovery` + hydrate `hydrateThread/prependHistory`)。Alpha 真实 thread `thread_moyfjyjc0662weit` opus invocation `2fe279aa` 3-record fixture replay test 证明 hydrate ≡ live byte-identical。Cloud Codex R4 LGTM。**待执行**：alpha re-test by 铲屎官 → 愿景守护猫 sign-off → close F194。) | **Owner**: 布偶猫/Opus-47 for Z8, reviewer 缅因猫/Codex (cloud) | **Priority**: P1
+> **Status**: in-progress (Phase A + B + Z + Z2 + Z3 + Z5 + Z6 + Z7 + Z8 merged; Z4 was reverted before Z5. **Phase Z9 spec opened 2026-05-11 07:00** — Z8 合入后 (PR #1632 squash `49814778`) 铲屎官 alpha re-test 仍裂 (R13)。47 + 砚砚收敛 KD-28：Z8 投影 contract 缺失输入前提——`extra.stream.turnInvocationId` backend 大多没 stamp，frontend 投影退化到 parent，多 turn 同 cat 错并。Z9 = canonical bubble identity contract + projection observability：诊断 probe (AC-Z24) + backend stamp (AC-Z25) + frontend group key 强化 (AC-Z26) + replay fixture 全覆盖 (AC-Z27)。砚砚 push back：每条 raw record mint 新 turnInvocationId 错（会让 hydrate 拆），正确语义 = per visible assistant turn 一个 canonical bubble key，同 turn 内 stream/tool/rich/callback raw records 全部共享。) | **Owner**: 布偶猫/Opus-47 for Z9, reviewer 缅因猫/砚砚 | **Priority**: P1
 >
 > **AC-Z1 (alpha runtime acceptance) FAILED 2026-05-09 03:35** — 铲屎官实测 runtime 仍裂，根因比 Phase B 修的更深：F194 read-side helper 把 **parent recordStore invocation** 与 **per-cat-turn registry invocation** 当成同一 namespace 处理。bug-report `docs/bug-report/2026-05-09-f194-runtime-bubble-still-split-completion-leak/`，砚砚 2026-05-09 04:51 拍板走 Phase Z（namespace-aware canonical read model），见 KD-21~KD-23 + AC-Z1~Z5。
 >
@@ -413,9 +413,59 @@ Z7 alpha re-test 后 (2026-05-10 19:55~20:30) 铲屎官 catch："F5 后变 1 个
 
 - [x] AC-Z23: replay fixture 回归 — alpha 真实 thread `thread_moyfjyjc0662weit` opus invocation `2fe279aa` 3-records (2 stream + 1 callback) fixture。✅ PR #1632 squash `49814778` — `bubble-projection-alpha-replay.test.ts` 证明 hydrate full-batch projection ≡ live incremental projection (byte-identical) + R2 P1 destructive callback test。`useAgentMessages-z8-dual-id-callback.test.ts` 覆盖 Z3 dual-id + legacy single-id 回归。
 
+### Phase Z9（canonical bubble identity contract + projection observability — backend stamp 补漏）
 
+Z8 合入后 (2026-05-11 06:51) 铲屎官 alpha re-test 仍裂："我发现还是裂开的，🤔 好像修这个你们总修不全怎么办呢？ 有没有好办法？" — Z1-Z8 八轮 frontend patch 仍未收敛，铲屎官 push back 方法论。
 
-- [ ] AC-E1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失（并发 multi-cat handoff 也不裂） ⚠️ 2026-05-10 04:42 回归——Z3/Z4 合入后 live 仍裂（Bug A + Bug B），F5 后正常但 live 不收敛
+**只读诊断证据**（thread `thread_mp0o2lf7d2gu5j3y`，runtime preflight Z8 squash `49814778` 之后启动）：
+- parent invocation `7e1c4435-1d3e-4b97-b79c-bdd5bb0108fc` 跨 3 个 visible turn 共享：codex turn1 (05/10 20:54) → sonnet turn2 (05/10 21:01) → codex turn3 (05/10 21:02)
+- 三条 raw record 的 `extra.stream.invocationId` 全部等于 parent；`extra.stream.turnInvocationId` **全部为 null**
+- top-level `invocationId / turnInvocationId` 也都是 null（参考用，不参与 frontend bubble identity）
+- 现有 `getBubbleInvocationId` 优先级：`turnInvocationId ?? invocationId` → 退化到 parent → Z8 group key `(catId, parent)` 把 codex turn1 + codex turn3 误并
+
+**KD-28（Phase Z9 方向收敛，47 + 砚砚共识，2026-05-11）**：
+- Z8 KD-27 选了 top-down projection contract，方向正确但**接口前提错了**：projection 假定 raw records 已经带稳定的 per-bubble identity，但 backend 大多数路径并没有 stamp `extra.stream.turnInvocationId` → frontend 投影规则被迫退化到 parent → 错并多 turn
+- 砚砚原话："我同意 Z9 不能再只补 frontend reducer/projection / 但仍然反对每条 raw record mint 新 turnInvocationId / 这会把同一次可见回复里的 stream / callback / rich 分成多个 key, hydrate 也会跟着拆"
+- 47 推进的"backend stamp" 表述要修正为：**per visible assistant turn 生成一个 canonical bubble key，同 turn 内 stream / tool / rich / callback raw records 全部共享它**。不是 per raw record；不是 per callback event
+- Z9 实施分两段：先加诊断观测（AC-Z24）确认问题分类，再做 backend stamp + frontend group key 收口（AC-Z25/Z26）+ replay fixture 回归（AC-Z27）
+
+**Z9 不是 Z8 的修补，是把 Z8 投影规则缺失的输入前提补齐——backend identity contract 是 projection 的输入合同，Z8 没明确写、Z9 写清楚并强制落地。**
+
+- [ ] AC-Z24: **诊断观测** — 添加一段只读 probe（可以是 dev mode log 或 admin-only endpoint），把指定 thread 的每条 assistant raw record 打出 `recordId / catId / origin / extra.stream.invocationId (parent) / extra.stream.turnInvocationId (turn) / projection key (turn ?? parent) / rendered bubble id / content hash`。
+  - 目的：alpha 失败时一眼分类——是 **(a) 同 key 仍裂**（projection 漏接入路径，如 cached threadStates / IDB first paint / live writer direct store write）还是 **(b) 同 turn 不同 key**（backend stamp 缺失）
+  - RED test: probe 输出格式稳定（snapshot test），同 fixture 输入 → 同 hash 输出
+
+- [ ] AC-Z25: **backend canonical bubble identity stamp** — 所有 assistant raw record 落地时（recordStore.append / message store / callback-final 路径），必须在 `extra.stream.turnInvocationId` 写入 **per visible cat turn** 的稳定标识：
+  - 同 parent + 同 cat + 同一 visible response（含 stream / tool / rich / callback / done 所有 raw record）→ 共享一个 turnInvocationId
+  - 同 parent + 同 cat + 多个 visible response（连续两次或 a2a handoff 回到同 cat）→ 每个 visible response 一个独立 turnInvocationId
+  - 同 parent + 不同 cat → 各自一个 turnInvocationId（已有 Z3 行为）
+  - 实施位点：先 audit 所有写 raw record 的入口（routes: chat, callback, mcp post_message, a2a handoff, A2A chain）；任何漏掉的入口都要补 stamp
+  - **不影响 hydrate 收敛**：group key 改为 `(catId, turnInvocationId ?? invocationId)`，turn 优先 fallback parent；同 turn 多 record 仍是同一 group → hydrate 仍 1 bubble；多 turn 同 parent → 不同 group → hydrate 多 bubble（这是对的）
+  - RED test: 三个写 raw record 入口的 unit test — 给定 visible turn 输入 → stamp 出稳定 turn id
+
+- [x] AC-Z26: **frontend group key 已正确** — `getBubbleInvocationId` 已经实现 `turnInvocationId ?? invocationId` 优先级（packages/web/src/debug/bubbleIdentity.ts:28）。AC-Z25 backend stamp 落地后所有新 record 都带 turn → 投影使用 turn key 不再 fallback。✅ AC-Z27 fixture F1 (multi-turn same parent) 实证：3 cat-turn 每个有自己 turn id → 投影出 3 distinct bubbles（codex t1+t3 不合并）。
+  - **Telemetry warn 非本 phase 范围**（observability-only, behavior 不变）。Z9 backend stamp 现在 unconditional，新 record 都带 turn；legacy record 仍走 parent fallback，与 Z8 行为一致。Telemetry 作为防回归探测，由其他 phase 处理（不影响 Z9 close gate）。
+
+- [ ] AC-Z27: **replay fixture 全覆盖** — 至少三个 fixture：
+  - F1（multi-turn same parent）: `codex turn1 → sonnet turn2 → codex turn3` 共享 parent + 各自 turn id → 投影应产出 3 bubbles（不是 Z8 当前的 2 bubbles 合并 codex 两次）
+  - F2（single turn multi-record）: stream + tool + rich + callback 全部共享同一 turn id → 投影应产出 1 bubble（Z8 alpha fixture 升级版）
+  - F3（legacy no turn）: 旧 raw record 无 turnInvocationId 只有 parent → 投影 fallback 到 parent group，行为与 Z8 一致（向后兼容）
+  - RED→GREEN: 三个 fixture 都跑 hydrate + live 两条路径，结果 byte-identical
+
+### Phase Z10（liveness identity invariant — F5 hydrate active/cancel 一致性）
+
+Phase Z9 进 review 期间铲屎官 catch 一个相邻但独立子系统的问题（R14, 2026-05-11 07:15）："f5字后一切消失了 猫猫状态什么都是空闲... 没cancel按钮 然后我刚打完这些字 你冒出来了"。砚砚识别为 bubble identity 的姐妹问题：**bubble identity (Z9) 和 liveness identity (Z10) 本质都是前后端没有共享同一份 invocation/turn 真相源**。
+
+**Phase Z10 scope（与 Z9 解耦的独立 PR）**：
+- 现状审计（已做）：`useChatHistory.ts:813` `fetchQueue` 已经有完整的 `/queue` 消费逻辑（读 activeInvocations + setThreadHasActiveInvocation + addActiveInvocation + replaceThreadTargetCats）— 代码路径已存在
+- 现象根因（待诊断）：**timing/race**，不是缺路径。可能是 (a) render 早于 fetchQueue 返回（initial paint 时 activeInvocations 还没拉到），(b) 后端 `/queue` 在 invocation 启动的某个 window 内不报（生产者侧 race），(c) abortRef 在 thread switch 时取消了正在进行中的 fetchQueue
+
+- [ ] AC-Z28: F5 hydrate 后 active state + cancel button 与后端 `/queue` 一致。
+  - 第一刀 runtime preflight：实际在 alpha 上 F5 + 启动一个 invocation，记录每一步 (initial paint state / fetchQueue 触发时机 / fetchQueue 返回时机 / `/queue` payload / store state 变化 / 最终 UI render) 的时间线
+  - 第二刀根据 race 类别选 fix：(a) 用 suspense 或 loading skeleton 等 fetchQueue 返回；(b) 后端在 invocation_created 同步 SADD running set；(c) fetchQueue abortController 不在 thread reload 时 cancel
+  - RED: alpha runtime 实测复现 → minimal fix → GREEN
+
+- [ ] AC-E1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失（并发 multi-cat handoff 也不裂） ⚠️ 2026-05-10 04:42 回归——Z3/Z4 合入后 live 仍裂（Bug A + Bug B），F5 后正常但 live 不收敛 ⚠️ 2026-05-11 06:51 再次回归——Z8 合入后铲屎官 alpha 仍裂，进 Phase Z9 (canonical bubble identity contract)
 - [x] AC-E2: 后端 `/api/messages` 与 `/api/threads/:threadId/queue` 共用同一 canonical helper，单一规则源 ✅ 代码审计：`getThreadLiveInvocations` imported by `messages.ts:1466` + `queue.ts:143`
 - [x] AC-E3: 后续新增 read endpoint（admin observability / debug API）可直接复用 helper，不需要自拼三家 store ✅ helper 导出 async function + types，无 route 耦合
 - [ ] AC-E4: 并发 ideate 场景 UI 一致性——采样面板全程显示本轮所有 targetCats（Bug C）+ 无 @ fallback 回到上轮 @ 的猫（Bug D）
@@ -436,6 +486,8 @@ Z7 alpha re-test 后 (2026-05-10 19:55~20:30) 铲屎官 catch："F5 后变 1 个
 | R10 | "上一次at了两只猫 这次没有任何at fallback应该是一只猫" (2026-05-10 10:17) | AC-Z18 | no-@ fallback 从上一条 user mentions 里确定性选一只 | [x] (PR #1623 squash `24eb56e3`) |
 | R11 | "live state 残留 f5之后就正常了…opus46 变成两个了，而且你自己现在也是裂开的" (2026-05-10 18:12) | AC-Z19 | done/callback terminal path 清理 local-only provisional duplicate | [x] |
 | R12 | "F5 后变 1 个 这是同一次回复 thread id 好像你就得随便打开浏览器去找一个thread 看看 大概率都是裂开的？" (2026-05-10 19:55) | AC-Z20/Z21/Z22/Z23 | 统一 canonical projection contract — live 与 hydrate byte-identical | [x] (PR #1632 squash `49814778`) |
+| R13 | "我发现还是裂开的，🤔 好像修这个你们总修不全怎么办呢？ 有没有好办法？" (2026-05-11 06:51) + "布偶猫1+布偶猫3 合并 / 缅因猫2+缅因猫4 合并" (07:12) | AC-Z24/Z25/Z26/Z27 | backend canonical bubble identity stamp + diagnostic probe + multi-turn replay regression | [ ] |
+| R14 | "f5字后一切消失了 猫猫状态什么都是空闲... 没cancel按钮" (2026-05-11 07:15) | AC-Z28 | F5 hydrate 后 active state / cancel button 与后端 `/queue` 真相源一致 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -534,6 +586,8 @@ Z7 alpha re-test 后 (2026-05-10 19:55~20:30) 铲屎官 catch："F5 后变 1 个
 | 2026-05-10 19:08 | **Phase Z7 merged (PR #1625, squash `96c76bad`)** — 砚砚 author，Opus-47 review APPROVE。修 live-only canonical bubble + local-only provisional duplicate residue：`dropLocalOnlyStreamSiblings` 只在 canonical sibling 存在且 terminal timestamp 可判定 older/newer 时删除同 cat local-only `origin='stream'` sibling。云端 Codex R1 退回 1 P1（terminal timestamp optional，缺 timestamp 时会误删 next-turn local placeholder），砚砚补 RED→GREEN missing timestamp guard 后 `pnpm gate` 全绿，云端第二轮 LGTM "You're on a roll."。AC-Z19 ✅。**Status: alpha re-test by 铲屎官待执行** → 守护猫 sign-off → close F194。 |
 | 2026-05-10 19:55~20:41 | **Phase Z8 spec opened — Z1-Z7 终止符 (KD-27)** — 铲屎官 Z7 合后 alpha 实测："F5 后变 1 个 这是同一次回复 大概率都是裂开的"。runtime preflight (Opus-47) 实测 thread `thread_moyfjyjc0662weit` opus invocation `2fe279aa` backend 真存 3 条 raw records (2 stream + 1 callback) 共享 invocationId、turnInv 全空 — 不是 live state 残留，是 backend record 多条 + frontend live/hydrate 投影规则不一致 (hydrate streamKey last-wins 收敛 1 个，live reducer ADR-033 kind 隔离创建多个)。三猫独立诊断收敛 (47 + 砚砚 + 46): 不能再 patch reducer 局部 (Z5/Z6/Z7 三轮 patch 已是局部止血循环)，47 R0 提案 backend stamp turnInvocationId 被砚砚 + 46 push back (会让 hydrate 也拆，副作用更糟)。KD-27: 改为 top-down 统一 canonical bubble projection contract — raw records 不动，让 live reducer 与 hydrate **共享同一 projection 规则**。新增 AC-Z20 (projection function 定义) + AC-Z21 (live reducer 改用) + AC-Z22 (hydrate 改用) + AC-Z23 (replay fixture 用 alpha 真实 thread)。Spec by Opus-47 (commit pending)。 |
 | 2026-05-11 03:13 | **Phase Z8 merged (PR #1632, squash `49814778`)** — 11 个 commits 收敛砚砚本地 R1→R3 review (B1.8 reducer assertion + R2 P1 destructive callback raw-stream synthesis + R3 6-test concat-contract rewrite) + cloud Codex R1→R4 review (R1 P1 metadata/replyTo/replyPreview/visibility preserve via base spread + R2 P1 Z7 cleanup baseline preservation + R2 P2 contentBlocks merge across records + R3 P1 stable invocation key lookup for Z3 dual-id → R4 LGTM "Didn't find any major issues. More of your lovely PRs please")。`projectCanonicalBubbles({ records })` pure function：group by `(catId, getBubbleInvocationId)`，callback wins canonical id+origin，content concat ts asc，toolEvents/rich blocks dedupe，contentBlocks merge，callback-aware isStreaming。Wrapper integration at writer boundary: `applyBubbleEventWithRecovery` (live) + `hydrateThread/prependHistory` (hydrate)。Destructive callback path uses synthetic `id::z8-raw-pre-callback` to inject pre-reducer stream content while preserving Z7 `dropLocalOnlyStreamSiblings` cleanup. Alpha 3-record fixture (`z8-alpha-3-records.json`) replay test 证明 hydrate ≡ live byte-identical. AC-Z20/Z21/Z22/Z23 全 ✅。**Status: alpha re-test by 铲屎官待执行** → 守护猫 sign-off → close F194。 |
+| 2026-05-11 06:51~07:00 | **Phase Z9 spec opened — canonical bubble identity contract + projection observability** — 铲屎官 Z8 合后 alpha 实测："我发现还是裂开的，🤔 好像修这个你们总修不全怎么办呢？" 方法论 push back (R13)。47 「数学之美」自审：Z1-Z8 八轮 frontend 投影 patch，每轮只解决"那一种"裂法，坐标系本身错——frontend 一直在猜 backend records 该怎么 group。Runtime preflight (47, thread `thread_mp0o2lf7d2gu5j3y`) 实证：parent invocation `7e1c4435` 跨 3 个 visible turn (codex t1 → sonnet t2 → codex t3) 共享，全部 `extra.stream.turnInvocationId=null`，Z8 group key `(catId, parent)` 把 codex 两个 turn 误并。砚砚 R0 push back 表述："不是每条 raw record mint 新 turnInvocationId，是 per visible assistant turn 一个 canonical bubble key，同 turn 内 stream/tool/rich/callback raw records 共享"。47 接受表述修正。Z9 spec by 47：AC-Z24 诊断 probe + AC-Z25 backend stamp + AC-Z26 frontend group key 强化（缺 turn telemetry 告警） + AC-Z27 replay fixture 全覆盖（multi-turn same parent / single turn multi-record / legacy no turn 三场景）。KD-28 落地。|
+| 2026-05-11 07:23~07:30 | **Phase Z9 实施完毕 (待 review)** — AC-Z24 诊断 probe (`buildProjectionDiagnostic`, 5/5 GREEN) + AC-Z25 backend always-stamp turnInvocationId 9 sites (route-serial 4 + route-parallel 3 + callbacks.ts 1 + messages.ts broadcast 1 + draft 1 + BoundSessionHistoryImporter 1) RED→GREEN 2/2 + 14/14 regression GREEN + AC-Z27 replay fixtures 4/4 GREEN (F1 multi-turn / F2 single-turn-multi-record / F3 legacy / F1+F3 mixed) + AC-Z26 deferred (frontend `getBubbleInvocationId` 已正确，telemetry follow-up) + AC-Z28 推迟 Phase Z10 (审计发现 `useChatHistory.ts:813` `fetchQueue` 已消费 `/queue`，铲屎官 R14 报告是 timing/race，需独立 runtime 诊断)。Branch `feat/f194-phase-z9` HEAD `9cb567468`。pending: 砚砚 local review + cloud Codex review。|
 
 ## Review Gate
 

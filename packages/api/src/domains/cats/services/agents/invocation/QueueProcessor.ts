@@ -22,6 +22,7 @@ import {
   isCollaborationContinuityCapsuleV1,
 } from './CollaborationContinuityCapsule.js';
 import type { InvocationQueue, QueueEntry } from './InvocationQueue.js';
+import { stampVisibleTurn } from './visible-turn.js';
 
 /** Minimal interfaces for deps — avoid importing full types for testability */
 
@@ -1024,14 +1025,12 @@ export class QueueProcessor {
           break;
         }
 
-        // F194 Phase Z3 R3 P1-4 (砚砚): preserve original msg.invocationId (turn) as turnInvocationId
+        // F194 Phase Z9 (砚砚 R1 P1-2): unified visible turn stamp via helper.
+        const msgInvocationId = (msg as { invocationId?: string }).invocationId;
         socketManager.broadcastAgentMessage(
           {
             ...msg,
-            ...(invocationId ? { invocationId } : {}),
-            ...(msg.invocationId && invocationId && msg.invocationId !== invocationId
-              ? { turnInvocationId: msg.invocationId }
-              : {}),
+            ...(invocationId ? stampVisibleTurn(invocationId, msgInvocationId) : {}),
           },
           threadId,
         );

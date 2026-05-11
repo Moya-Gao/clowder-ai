@@ -36,6 +36,7 @@ import type { InvocationTracker } from '../domains/cats/services/agents/invocati
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
 import { reconcileZombies } from '../domains/cats/services/agents/invocation/reconcileZombies.js';
 import type { TaskProgressStore } from '../domains/cats/services/agents/invocation/TaskProgressStore.js';
+import { stampVisibleTurn } from '../domains/cats/services/agents/invocation/visible-turn.js';
 import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-helpers.js';
 import { resetStreak } from '../domains/cats/services/agents/routing/WorklistRegistry.js';
 import {
@@ -976,16 +977,13 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               }
             }
 
-            // F194 Phase Z3 P1-1 dual id (砚砚 R): live broadcast 必须同时带 parent + turn id。
-            // - invocationId = createResult.invocationId (parent chain, liveness/queue/cancel SoT)
-            // - turnInvocationId = msg.invocationId (per-cat-turn from invokeSingleCat invocation_created
-            //   event); 仅当不同于 parent 时设置（单 cat 场景两者相同，避免冗余）
+            // F194 Phase Z9 (砚砚 R1 P1-2): unified visible turn stamp via helper.
+            // Route layer (R1 P1-1 fix) now stamps msg.invocationId = ownInvocationId
+            // for assistant yielded events, so helper receives a defined turn id
+            // (no parent fallback firing in practice).
             const broadcastPayload = {
               ...msg,
-              invocationId: createResult.invocationId,
-              ...(msg.invocationId && msg.invocationId !== createResult.invocationId
-                ? { turnInvocationId: msg.invocationId }
-                : {}),
+              ...stampVisibleTurn(createResult.invocationId, msg.invocationId),
             };
 
             if (msg.type === 'a2a_handoff') {
@@ -1564,7 +1562,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           timestamp: d.updatedAt,
           isDraft: true,
           origin: 'stream',
-          extra: { stream: { invocationId: d.invocationId } },
+          // F194 Phase Z9 AC-Z25 (KD-28): always stamp turnInvocationId; draft has only
+          // one identity so both fields point to draft invocationId.
+          extra: { stream: { invocationId: d.invocationId, turnInvocationId: d.invocationId } },
           ...(d.toolEvents ? { toolEvents: d.toolEvents } : {}),
           ...(d.thinking ? { thinking: d.thinking } : {}),
         });

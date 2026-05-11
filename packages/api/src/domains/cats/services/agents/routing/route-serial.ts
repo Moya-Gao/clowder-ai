@@ -1022,15 +1022,24 @@ export async function* routeSerial(
             if (effectiveMsg.type === 'text' && !effectiveMsg.content) {
               continue;
             }
+            // F194 Phase Z9 砚砚 R1 P1-1: stamp ownInvocationId on yielded stream events
+            // so downstream broadcaster (messages.ts) doesn't fall back to parent when
+            // assigning turnInvocationId. CLI text/done/tool events don't carry
+            // invocationId; only system_info=invocation_created does. Without explicit
+            // stamping, multi-turn same-cat under shared parent collapses to one bubble.
+            const ownStampedMsg =
+              ownInvocationId && !effectiveMsg.invocationId
+                ? { ...effectiveMsg, invocationId: ownInvocationId }
+                : effectiveMsg;
             // Tag CLI stdout text with origin: 'stream' (thinking/internal)
-            yield effectiveMsg.type === 'text'
+            yield ownStampedMsg.type === 'text'
               ? {
-                  ...effectiveMsg,
+                  ...ownStampedMsg,
                   origin: 'stream' as const,
                   ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
                   ...(streamReplyPreview ? { replyPreview: streamReplyPreview } : {}),
                 }
-              : effectiveMsg;
+              : ownStampedMsg;
           }
         }
       }
@@ -1448,13 +1457,15 @@ export async function* routeSerial(
                 // F194 Phase Z3: dual id — invocationId=parent (legacy SoT for liveness/queue/cancel),
                 // turnInvocationId=own (Z3 new SoT for frontend bubble identity stable key, prevents
                 // same-parent multi-turn-same-cat bubble merge).
+                // F194 Phase Z9 AC-Z25 (KD-28): always stamp turnInvocationId.
+                // First-in-chain (ownInvocationId === parent) still gets explicit
+                // turn stamp so frontend bubble identity never falls back to parent
+                // (which would let multi-turn same-cat under same parent collapse).
                 ...(persistedInvocationId
                   ? {
                       stream: {
                         invocationId: persistedInvocationId,
-                        ...(ownInvocationId && ownInvocationId !== persistedInvocationId
-                          ? { turnInvocationId: ownInvocationId }
-                          : {}),
+                        turnInvocationId: ownInvocationId ?? persistedInvocationId,
                       },
                     }
                   : {}),
@@ -1484,13 +1495,15 @@ export async function* routeSerial(
                 // F194 Phase Z3: dual id — invocationId=parent (legacy SoT for liveness/queue/cancel),
                 // turnInvocationId=own (Z3 new SoT for frontend bubble identity stable key, prevents
                 // same-parent multi-turn-same-cat bubble merge).
+                // F194 Phase Z9 AC-Z25 (KD-28): always stamp turnInvocationId.
+                // First-in-chain (ownInvocationId === parent) still gets explicit
+                // turn stamp so frontend bubble identity never falls back to parent
+                // (which would let multi-turn same-cat under same parent collapse).
                 ...(persistedInvocationId
                   ? {
                       stream: {
                         invocationId: persistedInvocationId,
-                        ...(ownInvocationId && ownInvocationId !== persistedInvocationId
-                          ? { turnInvocationId: ownInvocationId }
-                          : {}),
+                        turnInvocationId: ownInvocationId ?? persistedInvocationId,
                       },
                     }
                   : {}),
@@ -1760,16 +1773,13 @@ export async function* routeSerial(
               ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
               extra: {
                 ...(noTextBlocks.length > 0 ? { rich: { v: 1 as const, blocks: noTextBlocks } } : {}),
-                // F194 Phase Z3 dual id (see same-file:1370 comment)
+                // F194 Phase Z9 AC-Z25 (KD-28): always stamp turnInvocationId
+                // (= ownInvocationId, else parent fallback).
                 ...((options.parentInvocationId ?? ownInvocationId)
                   ? {
                       stream: {
                         invocationId: (options.parentInvocationId ?? ownInvocationId) as string,
-                        ...(ownInvocationId &&
-                        options.parentInvocationId &&
-                        ownInvocationId !== options.parentInvocationId
-                          ? { turnInvocationId: ownInvocationId }
-                          : {}),
+                        turnInvocationId: (ownInvocationId ?? options.parentInvocationId) as string,
                       },
                     }
                   : {}),
@@ -1849,17 +1859,13 @@ export async function* routeSerial(
             ...((options.parentInvocationId ?? ownInvocationId) || doneMsg?.tracing
               ? {
                   extra: {
-                    // F194 Phase Z3 P1-4 dual id (砚砚 R): error+toolEvents persisted message
-                    // 也必须带 turn id，否则 same parent multi-turn 同 cat error 气泡仍合并。
+                    // F194 Phase Z9 AC-Z25 (KD-28): always stamp turnInvocationId
+                    // for error+toolEvents records too.
                     ...((options.parentInvocationId ?? ownInvocationId)
                       ? {
                           stream: {
                             invocationId: (options.parentInvocationId ?? ownInvocationId) as string,
-                            ...(ownInvocationId &&
-                            options.parentInvocationId &&
-                            ownInvocationId !== options.parentInvocationId
-                              ? { turnInvocationId: ownInvocationId }
-                              : {}),
+                            turnInvocationId: (ownInvocationId ?? options.parentInvocationId) as string,
                           },
                         }
                       : {}),
@@ -2024,9 +2030,12 @@ export async function* routeSerial(
 
       // Yield buffered done with correct isFinal (evaluated AFTER worklist may have grown)
       // MUST always reach here regardless of append success (缅因猫 review P1-2)
+      // F194 Phase Z9 砚砚 R1 P1-1: stamp ownInvocationId on done if not already set.
       if (doneMsg) {
         const isFinal = index === worklist.length - 1;
-        yield { ...doneMsg, ...(mentionsUser ? { mentionsUser } : {}), isFinal };
+        const ownStampedDone =
+          ownInvocationId && !doneMsg.invocationId ? { ...doneMsg, invocationId: ownInvocationId } : doneMsg;
+        yield { ...ownStampedDone, ...(mentionsUser ? { mentionsUser } : {}), isFinal };
         activeTrackedA2ASlots.delete(catId);
         if (isFinal) yieldedFinalDone = true;
       }

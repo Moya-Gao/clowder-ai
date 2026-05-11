@@ -12,6 +12,7 @@ import type { InvocationRegistry } from '../domains/cats/services/agents/invocat
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import { MessageDeliveryService } from '../domains/cats/services/agents/invocation/MessageDeliveryService.js';
 import { getRichBlockBuffer } from '../domains/cats/services/agents/invocation/RichBlockBuffer.js';
+import { stampVisibleTurn } from '../domains/cats/services/agents/invocation/visible-turn.js';
 import { analyzeA2AMentions } from '../domains/cats/services/agents/routing/a2a-mentions.js';
 import { resolveCatTarget } from '../domains/cats/services/agents/routing/cat-target-resolver.js';
 import { extractRichFromText } from '../domains/cats/services/agents/routing/rich-block-extract.js';
@@ -824,13 +825,14 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // #573: persisted record's extra.stream.invocationId aligned to effectiveInvId
     // (parent/outer) so F5/hydration broadcasts match what live broadcasts use.
     // Merge with any existing extra (cross-post / explicit targets) without losing it.
-    // F194 Phase Z3 P1-1 (砚砚 R): also stamp turnInvocationId = actor.invocationId (cat-level/own)
-    // so frontend bubble identity uses turn dimension (parent only for liveness/queue/cancel).
+    // F194 Phase Z9 AC-Z25 (KD-28): always stamp turnInvocationId. When first-in-chain
+    // (invocationId === effectiveInvId), still stamp explicitly so frontend bubble
+    // identity never falls back to parent (which would collapse multi-turn same-cat).
     const persistedExtra = {
       ...(extra ?? {}),
       stream: {
         invocationId: effectiveInvId,
-        ...(invocationId && invocationId !== effectiveInvId ? { turnInvocationId: invocationId } : {}),
+        turnInvocationId: invocationId ?? effectiveInvId,
       },
     };
     const storedMsg = await messageStore.append({
@@ -895,12 +897,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           content: storedContent,
           origin: 'callback',
           messageId: storedMsg.id,
-          // #573: broadcast with effectiveInvId (parent/outer) so frontend's
-          // (catId, invocationId) dedup matches stream broadcasts.
-          invocationId: effectiveInvId,
-          // F194 Phase Z3 P1-1 (砚砚 R): live broadcast 也带 turnInvocationId (cat-level own)
-          // 让前端 useAgentMessages 写到 extra.stream.turnInvocationId，bubble identity 用 turn 维度
-          ...(invocationId && invocationId !== effectiveInvId ? { turnInvocationId: invocationId } : {}),
+          // F194 Phase Z9 (砚砚 R1 P1-2): unified visible turn stamp via helper.
+          ...stampVisibleTurn(effectiveInvId, invocationId),
           // F52+F098-C1: Include crossPost + targetCats in real-time broadcast
           ...(isCrossThread || validExplicitTargets.length
             ? {
@@ -924,16 +922,14 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       // P2 cloud-review: include messageId for frontend correlation
       // #454/573: include effectiveInvId (parent/outer) so frontend can exact-match
       // callback to stream bubble.
-      // F194 Phase Z3 (砚砚 R2 P1-4): rich_block broadcast 也带 turnInvocationId so live
-      // rich/tool bubble identity uses turn dimension (parent only for liveness).
+      // F194 Phase Z9 (砚砚 R1 P1-2): rich_block broadcast — unified stamp via helper.
       for (const block of richBlocks) {
         socketManager.broadcastAgentMessage(
           {
             type: 'system_info' as const,
             catId: actor.catId,
             content: JSON.stringify({ type: 'rich_block', block, messageId: storedMsg.id }),
-            invocationId: effectiveInvId,
-            ...(invocationId && invocationId !== effectiveInvId ? { turnInvocationId: invocationId } : {}),
+            ...stampVisibleTurn(effectiveInvId, invocationId),
             timestamp: Date.now(),
           },
           effectiveThreadId,
@@ -1661,8 +1657,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           type: 'system_info' as const,
           catId: record.catId,
           content: JSON.stringify({ type: 'rich_block', block: resolvedBlock }),
-          invocationId: effectiveInvId,
-          ...(invocationId && invocationId !== effectiveInvId ? { turnInvocationId: invocationId } : {}),
+          ...stampVisibleTurn(effectiveInvId, invocationId),
           timestamp: Date.now(),
         },
         record.threadId,

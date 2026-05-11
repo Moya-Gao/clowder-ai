@@ -15,6 +15,7 @@ const log = createModuleLogger('routes/invocations');
 
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
+import { stampVisibleTurn } from '../domains/cats/services/agents/invocation/visible-turn.js';
 import type { AgentRouter } from '../domains/cats/services/agents/routing/AgentRouter.js';
 import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-helpers.js';
 import { parseIntent } from '../domains/cats/services/context/IntentParser.js';
@@ -211,13 +212,12 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = a
           if ((msg.type === 'done' || msg.type === 'error') && msg.catId) {
             opts.invocationTracker.completeSlot(record.threadId, msg.catId, controller);
           }
-          // F194 Phase Z3 R3 P1-4 (砚砚): preserve original msg.invocationId (turn) as turnInvocationId
+          // F194 Phase Z9 (砚砚 R1 P1-2): use stampVisibleTurn helper. After route-serial /
+          // route-parallel stamp ownInvocationId on yielded events (R1 P1-1), msg.invocationId
+          // is always defined for assistant turns; helper falls back to parent only as defense
+          // in depth for non-assistant or pre-system_info events.
           opts.socketManager.broadcastAgentMessage(
-            {
-              ...msg,
-              invocationId: id,
-              ...(msg.invocationId && msg.invocationId !== id ? { turnInvocationId: msg.invocationId } : {}),
-            },
+            { ...msg, ...stampVisibleTurn(id, msg.invocationId) },
             record.threadId,
           );
         }
