@@ -2,7 +2,7 @@
 doc_kind: harness-feedback
 feedback_type: tool-eval
 feature_id: F192
-tools: [search-evidence, post-message, browser-tools, rich-block, shell-exec]
+tools: [search-evidence, post-message, browser-tools, rich-block, hold-ball]
 created: 2026-05-11
 ---
 
@@ -111,25 +111,26 @@ Non-A2A tools with highest daily usage. Each follows the v1 4-item template.
 
 ---
 
-## shell_exec (F061)
+## hold_ball (F140)
 
 ### 1. Primary Users + Activation Signal
 
-- **Users**: All cats (git, build, test commands)
-- **Activation signal**: `cat_cafe_shell_exec` MCP call
+- **Users**: All cats (bounded async waiting during A2A collaboration)
+- **Activation signal**: `cat_cafe_hold_ball` MCP call
 
 ### 2. Friction Metric
 
-- **Timeout rate**: Commands exceeding the configured timeout
-- **Error rate**: Non-zero exit codes (expected for test runners, unexpected for git)
-- **Zombie process rate**: Commands that don't terminate cleanly
+- **429 rate**: Cats hitting the 3-hold/hour rolling window limit
+- **Stale hold rate**: Holds that fire but the condition was already resolved
+- **Infinite hold chains**: Same cat calling hold > 3 times for the same condition
 
 ### 3. Regression Fixture
 
-- Simple echo command round-trip test
-- Timeout enforcement test
+- Hold → wake-up fires at expected time
+- 4th hold in rolling window returns 429
+- Single-slot replacement: new hold cancels prior pending hold
 
 ### 4. Sunset Signal
 
-- Replaced by direct Claude Code Bash tool integration
-- Zero MCP-routed shell_exec for 30+ days
+- Replaced by structured event-driven callbacks (KD-27)
+- Zero hold_ball calls for 30+ days across all cats

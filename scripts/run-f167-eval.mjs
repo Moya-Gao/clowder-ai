@@ -16,7 +16,11 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { generateAttributionReport } from '../packages/api/dist/infrastructure/harness-eval/attribution.js';
+import {
+  computeActionRate,
+  findingFingerprint,
+  generateAttributionReport,
+} from '../packages/api/dist/infrastructure/harness-eval/attribution.js';
 import { generateF167Snapshot } from '../packages/api/dist/infrastructure/harness-eval/f167-eval.js';
 import {
   fetchMetrics,
@@ -24,6 +28,7 @@ import {
   fetchTraces,
   fetchTracesStats,
 } from '../packages/api/dist/infrastructure/harness-eval/telemetry-adapter.js';
+import { formatAttributionYaml, formatSnapshotYaml } from './lib/format-eval-yaml.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -101,7 +106,19 @@ async function main(config) {
   });
   console.log(`     findings: ${report.findings.length} | ` + `no-finding: ${report.noFindingRecord ? 'yes' : 'no'}`);
 
-  console.log('4/4 Writing output...');
+  console.log('4/5 Computing action-rate against prior findings...');
+  const actionRate = computeActionRateFromPrior(report, join(ROOT, 'docs/harness-feedback/attributions'));
+  if (actionRate) {
+    report.actionRate = actionRate;
+    console.log(
+      `     action-rate: ${actionRate.actedOn}/${actionRate.total} = ${(actionRate.rate * 100).toFixed(0)}% | ` +
+        `sunset: ${actionRate.sunsetCandidate}`,
+    );
+  } else {
+    console.log('     action-rate: no prior attribution found (first run)');
+  }
+
+  console.log('5/5 Writing output...');
   const snapshotDir = join(ROOT, 'docs/harness-feedback/snapshots');
   const attrDir = join(ROOT, 'docs/harness-feedback/attributions');
   mkdirSync(snapshotDir, { recursive: true });
@@ -116,8 +133,8 @@ async function main(config) {
     return;
   }
 
-  const snapshotYaml = formatSnapshotYaml(snapshot);
-  const attrYaml = formatAttributionYaml(report);
+  const snapshotYaml = formatSnapshotYaml(snapshot, dateStr);
+  const attrYaml = formatAttributionYaml(report, dateStr, findingFingerprint);
 
   if (dryRun) {
     console.log('\n--- SNAPSHOT (dry-run) ---');
@@ -134,120 +151,39 @@ async function main(config) {
   console.log('\nDone.');
 }
 
-function formatSnapshotYaml(snapshot) {
-  const lines = [
-    '---',
-    'doc_kind: harness-feedback',
-    'feedback_type: eval-snapshot',
-    `feature_id: ${snapshot.featureId}`,
-    `generated_at: "${snapshot.generatedAt}"`,
-    `generated_by: "${snapshot.generatedBy}"`,
-    '---',
-    '',
-    `# F167 Runtime Eval Snapshot — ${dateStr}`,
-    '',
-    `data_source: "${snapshot.dataSource}"`,
-    `overall_confidence: ${snapshot.overallConfidence}`,
-    '',
-    'window:',
-    `  start_ms: ${snapshot.window.startMs}`,
-    `  end_ms: ${snapshot.window.endMs}`,
-    `  duration_hours: ${snapshot.window.durationHours.toFixed(2)}`,
-    '',
-    'trace_store_stats:',
-    `  span_count: ${snapshot.traceStoreStats.spanCount}`,
-    `  max_spans: ${snapshot.traceStoreStats.maxSpans}`,
-    `  max_age_ms: ${snapshot.traceStoreStats.maxAgeMs}`,
-    '',
-    `summary: "${snapshot.summary}"`,
-    '',
-    'components:',
-  ];
+function computeActionRateFromPrior(report, attrDir) {
+  if (!existsSync(attrDir)) return null;
+  const files = readdirSync(attrDir)
+    .filter((f) => f.endsWith('-F167-attribution.yaml') && f < `${dateStr}-`)
+    .sort();
+  if (files.length === 0) return null;
 
-  for (const c of snapshot.components) {
-    lines.push(`  - id: ${c.componentId}`);
-    lines.push(`    name: "${c.componentName}"`);
-    lines.push(`    confidence: ${c.confidence}`);
-    lines.push('    activation_counts:');
-    for (const [k, v] of Object.entries(c.activationCounts)) {
-      lines.push(`      ${k}: ${v ?? 'null'}`);
-    }
-    if (Object.keys(c.activationCounts).length === 0) {
-      lines.push('      {}');
-    }
-    lines.push('    friction_counts:');
-    for (const [k, v] of Object.entries(c.frictionCounts)) {
-      lines.push(`      ${k}: ${v ?? 'null'}`);
-    }
-    if (Object.keys(c.frictionCounts).length === 0) {
-      lines.push('      {}');
-    }
-    if (c.telemetryGaps.length > 0) {
-      lines.push('    telemetry_gaps:');
-      for (const gap of c.telemetryGaps) {
-        lines.push(`      - metric: ${gap.metric}`);
-        lines.push(`        reason: ${gap.reason}`);
-        lines.push(`        impact: "${gap.impact}"`);
-      }
-    }
-    lines.push('');
-  }
+  const priorPath = join(attrDir, files[files.length - 1]);
+  const priorContent = readFileSync(priorPath, 'utf-8');
+  const priorFindings = parsePriorFindings(priorContent);
+  if (priorFindings.length === 0) return null;
 
-  return lines.join('\n');
+  const currentFindings = report.findings.map((f) => ({
+    fingerprint: findingFingerprint(f),
+  }));
+  console.log(`     prior: ${priorPath} (${priorFindings.length} findings)`);
+  return computeActionRate(currentFindings, priorFindings);
 }
 
-function formatAttributionYaml(report) {
-  const lines = [
-    '---',
-    'doc_kind: harness-feedback',
-    'feedback_type: attribution',
-    `feature_id: ${report.featureId}`,
-    `eval_snapshot_id: "${report.evalSnapshotId}"`,
-    `generated_at: "${report.generatedAt}"`,
-    '---',
-    '',
-    `# F167 Attribution Report — ${dateStr}`,
-    '',
-  ];
-
-  if (report.findings.length === 0 && report.noFindingRecord) {
-    lines.push('no_finding_record:');
-    lines.push(`  reason: "${report.noFindingRecord.reason}"`);
-    lines.push(`  evidence: "${report.noFindingRecord.evidence}"`);
-    lines.push('');
-    lines.push('findings: []');
-  } else {
-    lines.push(`finding_count: ${report.findings.length}`);
-    lines.push('');
-    lines.push('findings:');
-    for (const f of report.findings) {
-      lines.push(`  - id: ${f.id}`);
-      lines.push(`    related_feature: ${f.relatedFeature}`);
-      lines.push('    friction_signal:');
-      lines.push(`      type: ${f.frictionSignal.type}`);
-      lines.push(`      severity: ${f.frictionSignal.severity}`);
-      lines.push(`      confidence: ${f.frictionSignal.confidence}`);
-      lines.push('    attribution:');
-      lines.push(`      primary_layer: ${f.attribution.primaryLayer}`);
-      lines.push(`      pipeline_or_human: ${f.attribution.pipelineOrHuman}`);
-      lines.push('      evidence:');
-      for (const e of f.attribution.evidence) {
-        lines.push(`        - type: ${e.type}`);
-        lines.push(`          anchor: "${e.anchor}"`);
-        lines.push(`          excerpt: "${e.excerpt}"`);
-      }
-      lines.push('    proposed_action:');
-      for (const a of f.proposedAction) {
-        lines.push(`      - action: ${a.action}`);
-        lines.push(`        target: "${a.target}"`);
-        lines.push(`        rationale: "${a.rationale}"`);
-      }
-      lines.push(`    status: ${f.status}`);
-      lines.push('');
+function parsePriorFindings(yamlContent) {
+  const findings = [];
+  const findingBlocks = yamlContent.split(/^  - id:/m).slice(1);
+  for (const block of findingBlocks) {
+    const statusMatch = block.match(/^\s+status:\s*(\S+)/m);
+    const fpMatch = block.match(/^\s+fingerprint:\s*"?([^"\n]+)"?/m);
+    if (fpMatch) {
+      findings.push({
+        status: statusMatch?.[1] ?? 'open',
+        fingerprint: fpMatch[1],
+      });
     }
   }
-
-  return lines.join('\n');
+  return findings;
 }
 
 function generateMonthlyDigest() {
