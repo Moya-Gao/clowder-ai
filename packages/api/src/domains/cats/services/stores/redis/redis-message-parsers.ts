@@ -42,7 +42,10 @@ export function safeParseContentBlocks(raw: string | undefined): readonly Messag
 export function safeParseExtra(raw: string | undefined):
   | {
       rich?: RichMessageExtra;
-      stream?: { invocationId: string };
+      // F194 Phase Z9 hotfix: stream now carries dual id (parent + per-cat-turn).
+      // Frontend `getBubbleInvocationId` uses turnInvocationId for bubble identity
+      // (falls back to invocationId / parent only for legacy records).
+      stream?: { invocationId: string; turnInvocationId?: string };
       crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
       scheduler?: {
         hiddenTrigger?: boolean;
@@ -66,7 +69,7 @@ export function safeParseExtra(raw: string | undefined):
 
     const result: {
       rich?: RichMessageExtra;
-      stream?: { invocationId: string };
+      stream?: { invocationId: string; turnInvocationId?: string };
       crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
       scheduler?: {
         hiddenTrigger?: boolean;
@@ -91,8 +94,17 @@ export function safeParseExtra(raw: string | undefined):
     }
 
     // Validate stream sub-field shape (#80: draft dedup key)
+    // F194 Phase Z9 hotfix: preserve turnInvocationId (per-cat-turn id, written
+    // by Z9 backend stamping). Pre-hotfix parser rebuilt only { invocationId },
+    // silently stripping turnInvocationId → frontend bubble identity fell back
+    // to parent → multi-turn same-cat under shared parent collapsed (R13/R14).
     if (parsed.stream && typeof parsed.stream === 'object' && typeof parsed.stream.invocationId === 'string') {
-      result.stream = { invocationId: parsed.stream.invocationId };
+      result.stream = {
+        invocationId: parsed.stream.invocationId,
+        ...(typeof parsed.stream.turnInvocationId === 'string'
+          ? { turnInvocationId: parsed.stream.turnInvocationId }
+          : {}),
+      };
       hasField = true;
     }
 
