@@ -1812,6 +1812,135 @@ describe('F183 Phase B1 — BubbleReducer core', () => {
     });
   });
 
+  it('F194 Z7: done removes older local-only stream duplicate once canonical bubble exists', () => {
+    const canonical: ChatMessage = {
+      id: 'msg-inv-z7-opus',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'visible stdout',
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-z7' } },
+      toolEvents: [{ id: 'te-z7', type: 'tool_use', label: 'opus -> rg', timestamp: 1001 }],
+    };
+    const localDuplicate: ChatMessage = {
+      id: 'local-thread-1-opus-1002-0',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'visible stdout',
+      timestamp: 1002,
+      isStreaming: true,
+      origin: 'stream',
+      toolEvents: [{ id: 'te-z7-local', type: 'tool_use', label: 'opus -> rg', timestamp: 1002 }],
+    };
+
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        actorId: 'opus',
+        type: 'done',
+        bubbleKind: 'assistant_text',
+        canonicalInvocationId: 'inv-z7',
+        messageId: 'msg-inv-z7-opus',
+        timestamp: 1100,
+      },
+      currentMessages: [canonical, localDuplicate],
+    });
+
+    expect(output.recoveryAction).toBe('none');
+    expect(output.violations).toEqual([]);
+    expect(output.nextMessages).toHaveLength(1);
+    expect(output.nextMessages[0]).toMatchObject({
+      id: 'msg-inv-z7-opus',
+      content: 'visible stdout',
+      isStreaming: false,
+    });
+  });
+
+  it('F194 Z7: done does not remove a newer local-only stream placeholder for the next turn', () => {
+    const canonical: ChatMessage = {
+      id: 'msg-inv-z7-old-opus',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'old stdout',
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-z7-old' } },
+    };
+    const nextTurnLocal: ChatMessage = {
+      id: 'local-thread-1-opus-1300-0',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'new turn has started',
+      timestamp: 1300,
+      isStreaming: true,
+      origin: 'stream',
+    };
+
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        actorId: 'opus',
+        type: 'done',
+        bubbleKind: 'assistant_text',
+        canonicalInvocationId: 'inv-z7-old',
+        messageId: 'msg-inv-z7-old-opus',
+        timestamp: 1100,
+      },
+      currentMessages: [canonical, nextTurnLocal],
+    });
+
+    expect(output.recoveryAction).toBe('none');
+    expect(output.violations).toEqual([]);
+    expect(output.nextMessages).toHaveLength(2);
+    expect(output.nextMessages.find((m) => m.id === 'local-thread-1-opus-1300-0')).toBeDefined();
+  });
+
+  it('F194 Z7: done without timestamp does not remove local-only stream siblings', () => {
+    const canonical: ChatMessage = {
+      id: 'msg-inv-z7-no-ts-opus',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'old stdout',
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-z7-no-ts' } },
+    };
+    const possibleNextTurnLocal: ChatMessage = {
+      id: 'local-thread-1-opus-1300-0',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'new turn has started',
+      timestamp: 1300,
+      isStreaming: true,
+      origin: 'stream',
+    };
+
+    const output = applyBubbleEvent({
+      threadId: 'thread-1',
+      event: {
+        ...baseEvent(),
+        actorId: 'opus',
+        type: 'done',
+        bubbleKind: 'assistant_text',
+        canonicalInvocationId: 'inv-z7-no-ts',
+        messageId: 'msg-inv-z7-no-ts-opus',
+        timestamp: undefined,
+      },
+      currentMessages: [canonical, possibleNextTurnLocal],
+    });
+
+    expect(output.recoveryAction).toBe('none');
+    expect(output.violations).toEqual([]);
+    expect(output.nextMessages).toHaveLength(2);
+    expect(output.nextMessages.find((m) => m.id === 'local-thread-1-opus-1300-0')).toBeDefined();
+  });
+
   // F183 Phase B1.6 (cloud P1): reduceToolEvent must restrict target to
   // assistant_text bubbles. ADR-033 允许 thinking + assistant_text 在同
   // invocation 共存；如果 reducer 不区分 kind 直接拿第一个 streaming assistant

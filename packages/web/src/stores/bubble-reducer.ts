@@ -373,6 +373,33 @@ function reduceToolEvent(messages: ChatMessage[], event: BubbleEvent): ChatMessa
   return messages;
 }
 
+function isLocalOnlyStreamSibling(message: ChatMessage, event: BubbleEvent): boolean {
+  if (message.type !== 'assistant') return false;
+  if (message.catId !== event.actorId) return false;
+  if (message.origin !== 'stream') return false;
+  if (getStableInvocationKey(message)) return false;
+  if (event.timestamp !== undefined && message.timestamp > event.timestamp) return false;
+  return true;
+}
+
+// F194 Phase Z7: live can briefly contain a canonical stream bubble plus an
+// older local-only provisional duplicate. Hydration only returns the canonical
+// message; terminal events must make live state converge the same way.
+function hasCanonicalSibling(messages: ChatMessage[], event: BubbleEvent): boolean {
+  if (!event.canonicalInvocationId) return false;
+  return messages.some(
+    (m) =>
+      m.type === 'assistant' && m.catId === event.actorId && getStableInvocationKey(m) === event.canonicalInvocationId,
+  );
+}
+
+function dropLocalOnlyStreamSiblings(messages: ChatMessage[], event: BubbleEvent): ChatMessage[] {
+  if (event.timestamp === undefined) return messages;
+  if (!hasCanonicalSibling(messages, event)) return messages;
+  const next = messages.filter((m) => !isLocalOnlyStreamSibling(m, event));
+  return next.length === messages.length ? messages : next;
+}
+
 function reduceDoneEvent(messages: ChatMessage[], event: BubbleEvent): ChatMessage[] {
   if (!event.canonicalInvocationId) return messages;
   let changed = false;
@@ -390,7 +417,8 @@ function reduceDoneEvent(messages: ChatMessage[], event: BubbleEvent): ChatMessa
       next.push(m);
     }
   }
-  return changed ? next : messages;
+  const reconciled = dropLocalOnlyStreamSiblings(next, event);
+  return changed || reconciled !== next ? reconciled : messages;
 }
 
 // F183 Phase B1.3 — error/timeout 事件 = 可见 system_status bubble，承载 error
@@ -498,7 +526,7 @@ function reduceCallbackFinal(messages: ChatMessage[], event: BubbleEvent): ChatM
       isStreaming: false,
       origin: 'callback',
     };
-    return next;
+    return dropLocalOnlyStreamSiblings(next, event);
   }
   // F183 Phase B1.2.4 (砚砚 verdict): callback-specific upgrade policy。
   // 不复用通用 findUpgradableLocalPlaceholder（stream 语义太宽，会 hijack live
