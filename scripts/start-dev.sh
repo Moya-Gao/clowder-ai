@@ -108,7 +108,7 @@ clear_inherited_profile_env() {
 
     # Public direct-launch wrappers should honor the requested profile rather
     # than ambient Cat Cafe shell exports leaked from another checkout.
-    unset ANTHROPIC_PROXY_ENABLED ASR_ENABLED TTS_ENABLED LLM_POSTPROCESS_ENABLED EMBED_ENABLED
+    unset ANTHROPIC_PROXY_ENABLED ASR_ENABLED TTS_ENABLED LLM_POSTPROCESS_ENABLED EMBED_ENABLED AUDIO_SERVICE_ENABLED
     unset MESSAGE_TTL_SECONDS THREAD_TTL_SECONDS TASK_TTL_SECONDS SUMMARY_TTL_SECONDS
     unset REDIS_PROFILE
 }
@@ -204,6 +204,7 @@ apply_worktree_port_offset() {
     export LLM_POSTPROCESS_ENABLED=0
     export EMBED_ENABLED=0
     export EMBED_MODE=off
+    export AUDIO_SERVICE_ENABLED=0
     # PREVIEW_GATEWAY_PORT=0 让 kill_managed_ports (line 619) 不去碰 4100 端口
     export PREVIEW_GATEWAY_PORT=0
 
@@ -249,7 +250,7 @@ apply_profile_defaults() {
     local profile="$1"
     # Clear previous profile state
     unset _PROF_ANTHROPIC_PROXY_ENABLED _PROF_ASR_ENABLED _PROF_TTS_ENABLED
-    unset _PROF_LLM_POSTPROCESS_ENABLED _PROF_REDIS_PROFILE
+    unset _PROF_LLM_POSTPROCESS_ENABLED _PROF_AUDIO_SERVICE_ENABLED _PROF_REDIS_PROFILE
     unset _PROF_MESSAGE_TTL_SECONDS _PROF_THREAD_TTL_SECONDS
     unset _PROF_TASK_TTL_SECONDS _PROF_SUMMARY_TTL_SECONDS
     case "$profile" in
@@ -258,6 +259,7 @@ apply_profile_defaults() {
             _PROF_ASR_ENABLED=1
             _PROF_TTS_ENABLED=1
             _PROF_LLM_POSTPROCESS_ENABLED=1
+            _PROF_AUDIO_SERVICE_ENABLED=0
             _PROF_MESSAGE_TTL_SECONDS=0
             _PROF_THREAD_TTL_SECONDS=0
             _PROF_TASK_TTL_SECONDS=0
@@ -269,6 +271,7 @@ apply_profile_defaults() {
             _PROF_ASR_ENABLED=0
             _PROF_TTS_ENABLED=0
             _PROF_LLM_POSTPROCESS_ENABLED=0
+            _PROF_AUDIO_SERVICE_ENABLED=0
             _PROF_MESSAGE_TTL_SECONDS=0
             _PROF_THREAD_TTL_SECONDS=0
             _PROF_TASK_TTL_SECONDS=0
@@ -280,6 +283,7 @@ apply_profile_defaults() {
             _PROF_ASR_ENABLED=0
             _PROF_TTS_ENABLED=0
             _PROF_LLM_POSTPROCESS_ENABLED=0
+            _PROF_AUDIO_SERVICE_ENABLED=0
             _PROF_MESSAGE_TTL_SECONDS=0
             _PROF_THREAD_TTL_SECONDS=0
             _PROF_TASK_TTL_SECONDS=0
@@ -320,7 +324,7 @@ print_config_summary() {
     echo "  配置来源："
     local key src_var val source
     for key in ANTHROPIC_PROXY_ENABLED ASR_ENABLED TTS_ENABLED LLM_POSTPROCESS_ENABLED \
-               EMBED_ENABLED \
+               EMBED_ENABLED AUDIO_SERVICE_ENABLED \
                MESSAGE_TTL_SECONDS THREAD_TTL_SECONDS TASK_TTL_SECONDS SUMMARY_TTL_SECONDS \
                REDIS_PROFILE; do
         val="${!key}"
@@ -341,6 +345,7 @@ resolve_config "ANTHROPIC_PROXY_ENABLED"
 resolve_config "ASR_ENABLED"
 resolve_config "TTS_ENABLED"
 resolve_config "LLM_POSTPROCESS_ENABLED"
+resolve_config "AUDIO_SERVICE_ENABLED"
 resolve_config "MESSAGE_TTL_SECONDS"
 resolve_config "THREAD_TTL_SECONDS"
 resolve_config "TASK_TTL_SECONDS"
@@ -352,6 +357,7 @@ resolve_config "REDIS_PROFILE"
 : "${ASR_ENABLED:=0}"
 : "${TTS_ENABLED:=0}"
 : "${LLM_POSTPROCESS_ENABLED:=0}"
+: "${AUDIO_SERVICE_ENABLED:=0}"
 : "${MESSAGE_TTL_SECONDS:=0}"
 : "${THREAD_TTL_SECONDS:=0}"
 : "${TASK_TTL_SECONDS:=0}"
@@ -672,6 +678,9 @@ kill_managed_ports() {
     if [ "${LLM_POSTPROCESS_ENABLED:-0}" = "1" ]; then
         kill_port ${LLM_POSTPROCESS_PORT:-9878} "LLM后修"
     fi
+    if [ "${AUDIO_SERVICE_ENABLED:-0}" = "1" ]; then
+        kill_port ${AUDIO_SERVICE_PORT:-9881} "Audio采集"
+    fi
 }
 
 # 轮询等待端口监听（ML 模型加载需要时间）
@@ -786,7 +795,7 @@ web_production_build_ready() {
 # Sidecar summary: ready → 地址, failed → 报告, disabled → 静默
 print_sidecar_summary_all() {
     local name state_var port state
-    for entry in "ASR:_STATE_ASR:${ASR_PORT:-9876}" "TTS:_STATE_TTS:${TTS_PORT_VAL:-9879}" "LLM后修:_STATE_LLM_PP:${LLM_PP_PORT:-9878}" "Embedding:_STATE_EMBED:${EMBED_PORT:-9880}"; do
+    for entry in "ASR:_STATE_ASR:${ASR_PORT:-9876}" "TTS:_STATE_TTS:${TTS_PORT_VAL:-9879}" "LLM后修:_STATE_LLM_PP:${LLM_PP_PORT:-9878}" "Embedding:_STATE_EMBED:${EMBED_PORT:-9880}" "Audio采集:_STATE_AUDIO:${AUDIO_SERVICE_PORT:-9881}"; do
         name="${entry%%:*}"
         local rest="${entry#*:}"
         state_var="${rest%%:*}"
@@ -1315,6 +1324,7 @@ main() {
     _STATE_TTS=disabled
     _STATE_LLM_PP=disabled
     _STATE_EMBED=disabled
+    _STATE_AUDIO=disabled
 
     # Qwen3-ASR Server (语音输入 — 替代 Whisper，同端口 drop-in)
     if [ "${ASR_ENABLED:-0}" = "1" ]; then
@@ -1372,6 +1382,20 @@ main() {
             echo -e "${RED}  ✗ Embedding 已启用，但脚本未找到${NC}"
             echo "    请运行: ./scripts/setup.sh"
             _STATE_EMBED=failed
+        fi
+    fi
+
+    # Audio Capture Service (F195 会议音频采集 — ScreenCaptureKit + ASR)
+    if [ "${AUDIO_SERVICE_ENABLED:-0}" = "1" ]; then
+        if ! check_sidecar_dep "Audio采集" "python3"; then
+            _STATE_AUDIO=failed
+        elif [ -f "scripts/meeting-copilot/audio-service.py" ]; then
+            local audio_port="${AUDIO_SERVICE_PORT:-9881}"
+            start_sidecar "Audio采集" "_STATE_AUDIO" "$audio_port" "${AUDIO_TIMEOUT:-10}" \
+                "AUDIO_SERVICE_PORT=$audio_port python3 scripts/meeting-copilot/audio-service.py"
+        else
+            echo -e "${RED}  ✗ Audio采集已启用，但脚本未找到${NC}"
+            _STATE_AUDIO=failed
         fi
     fi
 
