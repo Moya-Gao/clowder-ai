@@ -114,16 +114,16 @@ Phase C 骨架跑通后，完善基础设施 + 扩展到更多工具。含原 Ph
 - [x] AC-C4: Phase B Reclassification——F192 spec 明确写入：Phase B = 预期声明层（should be），Phase C = 实际观测层（actually is），diff = eval 信号。Phase B 产物保留但定位为 L0/L1/L4 支撑层，不是 runtime eval 完成证明
 
 ### Phase D（Eval Infrastructure Completion + Tool Eval Expansion）
-- [ ] AC-D0: Instrumentation Gap Closure（前置）——实施 Phase C 暴露的 add-counter actions：`streak_warn_count` / `streak_break_count`（L1）、`zombie_hold_count` / `hold_cancel_count`（C1）、拆分 `hint_emitted` 为 routing/verdict 两个独立 counter（C2）、`verdict_without_pass_count`（C2）。完成后 L1/C1/C2 confidence ≥ medium
-- [ ] AC-D1: Harness Component Registry——F167 每个 harness 组件拆出 hard / soft / eval 三栏，形成可扩展的 registry 格式
-- [ ] AC-D2: Snapshot Store——daily scheduled task 从 F153 拉聚合摘要到 `docs/harness-feedback/snapshots/`，解决 F153 24h TTL 限制。monthly digest 从 daily snapshot 二次聚合
-- [ ] AC-D3: End-to-End Verification——pipeline 必须复现 Phase B fixtures 的已知 friction signal（recall gate），且对正常 trace 不误判（precision gate）
-- [ ] AC-D4: Self-Eval Contract——Phase C pipeline 自己填 Eval Contract（meta-eval），定义 sunset signal
-- [ ] AC-D5: top-5 MCP 工具各有 tool eval contract
-- [ ] AC-D6: monthly scheduled task `harness-fit-digest` 已注册
-- [ ] AC-D7: 第一次 micro fit digest 已完成
-- [ ] AC-D8: digest 结论写入 feature spec（升级 / 精简 / sunset）
-- [ ] AC-D9: Attribution Action-Rate——tracking Phase C/D findings 的 acted-on 比例。pipeline 自身 eval contract 含 action-rate metric；连续 3 月 < 50% 则候选 sunset
+- [x] AC-D0: Instrumentation Gap Closure（前置）——实施 Phase C 暴露的 add-counter actions：`streak_warn_count` / `streak_break_count`（L1）、`zombie_hold_count` / `hold_cancel_count`（C1）、拆分 `hint_emitted` 为 routing/verdict 两个独立 counter（C2）、`verdict_without_pass_count`（C2）。完成后 L1/C1/C2 confidence ≥ medium
+- [x] AC-D1: Harness Component Registry——F167 每个 harness 组件拆出 hard / soft / eval 三栏，形成可扩展的 registry 格式
+- [x] AC-D2: Snapshot Store——daily scheduled task 从 F153 拉聚合摘要到 `docs/harness-feedback/snapshots/`，解决 F153 24h TTL 限制。monthly digest 从 daily snapshot 二次聚合
+- [x] AC-D3: End-to-End Verification——pipeline 必须复现 Phase B fixtures 的已知 friction signal（recall gate），且对正常 trace 不误判（precision gate）
+- [x] AC-D4: Self-Eval Contract——Phase C pipeline 自己填 Eval Contract（meta-eval），定义 sunset signal
+- [x] AC-D5: top-5 MCP 工具各有 tool eval contract
+- [x] AC-D6: monthly scheduled task `harness-fit-digest` 已注册
+- [x] AC-D7: 第一次 micro fit digest 已完成
+- [x] AC-D8: digest 结论写入 feature spec（升级 / 精简 / sunset）
+- [x] AC-D9: Attribution Action-Rate——tracking Phase C/D findings 的 acted-on 比例。pipeline 自身 eval contract 含 action-rate metric；连续 3 月 < 50% 则候选 sunset
 
 ### Phase D Digest Conclusions (AC-D8)
 
@@ -189,6 +189,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-08 | 三猫讨论（砚砚55 / 47 / 46）收敛 Phase C AC 方案（7 条终态蓝图） |
 | 2026-05-10 | 铲屎官确认 Phase C = 4 核心 AC，剩余推 Phase D（KD-6） |
 | 2026-05-11 | Phase C merged (PR #1626) |
+| 2026-05-11 | Phase D merged (PR #1627) — 10/10 AC, 砚砚 review + cloud review clean |
 
 ## Review Gate
 
