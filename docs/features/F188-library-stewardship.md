@@ -186,7 +186,7 @@ Privacy Contract：
 - [ ] AC-F9: Memory Health Dashboard 加入新指标 panel：MCP tool call distribution（graph_resolve / list_recent / search_evidence 调用比例）+ cold-start usage rate + `grep_after_search_rate`（search 后 5 turn 内 Bash grep 比例；分母 N ≥ 20 thread）+ `candidate_selection_distribution`（graph_resolve 候选非首位选择率；分母 N ≥ 20 candidate selections）+ `list_recent_adoption_rate`（**只在 cold-start 分母里算**，不按全量 tool call）+ `edge_fanout_p95` + `inspector_hover_tail_rate` + `manual_browse_count`，为 P1/P2 候选项 trigger 阈值提供持续观测；**所有 metric 必须标注 N 下限**（默认 N ≥ 20），样本不足时显示 "insufficient data" 不触发阈值
 - [ ] AC-F10: tool usage **事件序列存储**（per-thread tool call sequence persistence）作为 Phase F 内 prerequisite——当前 `ToolUsageCounter` 仅按 `(date, catId, category, toolName)` 聚合 count，**`TranscriptWriter.ts:188` 还会把 toolNames 去重成 `Set`**（砚砚 二次 review finding），**无法**算"search 后 5 turn 内 grep" 类序列指标，也算不出 candidate ranking 失准 / nudge 失效率。本 phase 引入 append-only event log，schema：`invocationId / sessionId / threadId / catId / toolName / timestamp / turnIndex / toolInputSummary / resultSummary / status`，并按工具类型定义 summary 字段：
   - `search_evidence`：`resultCount` / `topScore` / `nudgeEmitted`（low-hit 时是否发 deterministic nudge）/ `nudgeFollowed`（下一轮是否试 graph_resolve/list_recent）
-  - `graph_resolve`：`candidateCount` / `selectedCandidateIndex` / `selectedAnchor`
+  - `graph_resolve`：`candidateCount` / `rankedCandidateAnchors`（按 rank 顺序列出的 anchor 数组，让 `selectedCandidateIndex` 可由 `selectedAnchor` 在数组中的位置重建——砚砚 三审 P3：只记 `candidateCount` 算不出"猫选了第几个"，必须有 candidate set 关联字段）/ `selectedCandidateIndex` / `selectedAnchor`
   - `list_recent`：`resultCount` / `scope` / `since`
   - 通用 `status` ∈ `success` / `low_hit` / `no_match` / `error`
   
@@ -294,6 +294,7 @@ Privacy Contract：
 | 2026-05-09 | Graph Query Resolution scoped — AC-C7a~C7g added after CVO feedback on `harness` / natural query input |
 | 2026-05-09 | Graph Query Resolution merged (PR #1616) — exact anchor + natural query resolution, candidate selection, no-match UX, privacy-preserving candidates |
 | 2026-05-10 | Phase F scoped — Agent-facing MCP tools (`graph_resolve` / `list_recent`) + F102 hook + CLAUDE.md SOP + memory-navigation skill；铲屎官拍板「能力 + harness 配套必须同 PR」+ P1/P2 eval 触发阈值固化（KD-6） |
+| 2026-05-10 | Phase F Design Gate 三审通过（砚砚 GPT-5.5）：一审 4 P1 + 1 P2 + 二审 2 P1 + 1 P2 全部修完；三审无新 blocker，P3 注意点（`rankedCandidateAnchors` schema 字段，防 candidate_selection_distribution 算不出来）已纳入 AC-F10 |
 
 ## Review Gate
 
