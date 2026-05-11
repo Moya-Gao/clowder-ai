@@ -73,16 +73,39 @@ class AdvisoryRateLimiter:
     def status(self) -> dict: ...
 
 
-class InterventionDetector:
-    """Rule-based intervention window detection."""
+class SilenceMonitor:
+    """Tracks continuous silence from audio chunks — emits when silence >= threshold.
+    
+    Unlike transcript-line gap detection (which fires AFTER someone speaks again),
+    this monitors each audio chunk in real time and fires DURING the silence.
+    """
 
-    def check(self, line: dict, window: TranscriptWindow,
-              talking_points: list[str]) -> dict | None:
-        """Returns intervention_advisory event dict or None."""
+    def __init__(self, threshold_s: float = 5.0):
+        self.threshold_s = threshold_s
+        self._last_speech_ts: float = 0
+        self._last_speech_chunk_num: int = 0
+        self._last_speech_text: str = ""
+        self._silence_emitted: bool = False  # prevent re-emit for same silence
+
+    def on_speech(self, ts: float, chunk_num: int, text: str) -> None:
+        """Call when a chunk contains speech (non-empty ASR result)."""
+        ...
+
+    def on_chunk(self, ts: float, has_speech: bool) -> dict | None:
+        """Call on every audio chunk. Returns advisory event if silence threshold reached."""
+        ...
+
+
+class InterventionDetector:
+    """Rule-based intervention window detection (transcript-triggered checks)."""
+
+    def check(self, line: dict, talking_points: list[str]) -> dict | None:
+        """Returns intervention_advisory event dict or None.
+        Only checks transcript-line triggers: question_detected, keyword_match.
+        Silence detection is handled by SilenceMonitor separately."""
         ...
 
     def _check_question(self, text: str) -> tuple[bool, float]: ...
-    def _check_silence(self, line: dict, window: TranscriptWindow) -> tuple[bool, float]: ...
     def _check_keyword(self, text: str, talking_points: list[str]) -> tuple[bool, float, str | None]: ...
 ```
 
@@ -157,7 +180,7 @@ class TestAdvisoryRateLimiter(unittest.TestCase):
 ### Step 2: Run tests, verify RED
 
 ```bash
-cd scripts/meeting-copilot && python -m pytest test_intervention.py::TestAdvisoryRateLimiter -v
+python3 -m unittest scripts/meeting-copilot/test_intervention.py -v
 ```
 
 ### Step 3: Implement AdvisoryRateLimiter
@@ -166,7 +189,53 @@ Minimal implementation in `intervention.py`. Pure logic — no I/O, no imports b
 
 ### Step 4: Run tests, verify GREEN
 
-### Step 5: Write failing tests for InterventionDetector
+### Step 5: Write failing tests for SilenceMonitor
+
+```python
+class TestSilenceMonitor(unittest.TestCase):
+    def test_no_event_during_speech(self):
+        mon = SilenceMonitor(threshold_s=5.0)
+        mon.on_speech(ts=100, chunk_num=1, text="hello")
+        result = mon.on_chunk(ts=103, has_speech=True)
+        assert result is None
+
+    def test_emits_after_silence_threshold(self):
+        mon = SilenceMonitor(threshold_s=5.0)
+        mon.on_speech(ts=100, chunk_num=1, text="last words")
+        # Simulate 6s of silence chunks
+        for t in range(101, 106):
+            mon.on_chunk(ts=t, has_speech=False)
+        result = mon.on_chunk(ts=106, has_speech=False)
+        assert result is not None
+        assert result["reason"] == "extended_silence"
+        assert result["source_text"] == "last words"
+        assert result["source_chunk_num"] == 1
+
+    def test_no_re_emit_for_same_silence(self):
+        mon = SilenceMonitor(threshold_s=5.0)
+        mon.on_speech(ts=100, chunk_num=1, text="hello")
+        for t in range(101, 107):
+            mon.on_chunk(ts=t, has_speech=False)
+        result1 = mon.on_chunk(ts=107, has_speech=False)
+        # Already emitted — should not fire again
+        assert result1 is None
+
+    def test_resets_on_new_speech(self):
+        mon = SilenceMonitor(threshold_s=5.0)
+        mon.on_speech(ts=100, chunk_num=1, text="first")
+        for t in range(101, 107):
+            mon.on_chunk(ts=t, has_speech=False)
+        # New speech resets
+        mon.on_speech(ts=110, chunk_num=2, text="second")
+        mon.on_chunk(ts=110, has_speech=True)
+        # New silence cycle
+        for t in range(111, 117):
+            result = mon.on_chunk(ts=t, has_speech=False)
+        assert result is not None
+        assert result["source_text"] == "second"
+```
+
+### Step 6: Write failing tests for InterventionDetector
 
 ```python
 class TestInterventionDetector(unittest.TestCase):
@@ -175,7 +244,7 @@ class TestInterventionDetector(unittest.TestCase):
         result = det.check(
             line={"text": "What do you think about this?", "chunk_num": 5,
                   "ts": 100, "elapsed_s": 60},
-            window=mock_window, talking_points=[])
+            talking_points=[])
         assert result is not None
         assert result["reason"] == "question_detected"
         assert result["source_chunk_num"] == 5
@@ -185,25 +254,15 @@ class TestInterventionDetector(unittest.TestCase):
         result = det.check(
             line={"text": "你觉得呢？", "chunk_num": 6,
                   "ts": 101, "elapsed_s": 61},
-            window=mock_window, talking_points=[])
+            talking_points=[])
         assert result is not None
         assert result["reason"] == "question_detected"
-
-    def test_silence_gap_triggers(self):
-        det = InterventionDetector()
-        # Window has last line at elapsed_s=50, current line at elapsed_s=58 (8s gap)
-        result = det.check(
-            line={"text": "...", "chunk_num": 10, "ts": 108, "elapsed_s": 58},
-            window=mock_window_with_gap, talking_points=[])
-        assert result is not None
-        assert result["reason"] == "extended_silence"
 
     def test_keyword_match_with_talking_point(self):
         det = InterventionDetector()
         result = det.check(
             line={"text": "We should discuss the budget allocation",
                   "chunk_num": 15, "ts": 200, "elapsed_s": 100},
-            window=mock_window,
             talking_points=["budget should stay under 50k"])
         assert result is not None
         assert result["reason"] == "keyword_match"
@@ -214,47 +273,46 @@ class TestInterventionDetector(unittest.TestCase):
         result = det.check(
             line={"text": "The weather is nice today", "chunk_num": 1,
                   "ts": 100, "elapsed_s": 1},
-            window=mock_window, talking_points=[])
+            talking_points=[])
         assert result is None
 
-    def test_keyword_match_without_talking_points_no_argument(self):
+    def test_keyword_match_without_talking_points_no_trigger(self):
         det = InterventionDetector()
         result = det.check(
             line={"text": "We should discuss the budget",
                   "chunk_num": 15, "ts": 200, "elapsed_s": 100},
-            window=mock_window, talking_points=[])
-        # No talking points registered → no keyword_match trigger
-        assert result is None or result["talking_point"] is None
+            talking_points=[])
+        assert result is None
 
     def test_every_event_has_evidence_fields(self):
         det = InterventionDetector()
         result = det.check(
             line={"text": "你怎么看？", "chunk_num": 3,
                   "ts": 100, "elapsed_s": 30},
-            window=mock_window, talking_points=[])
+            talking_points=[])
         assert result is not None
         for field in ["reason", "confidence", "source_chunk_num",
                       "source_text", "talking_point"]:
             assert field in result
 ```
 
-### Step 6: Run tests, verify RED
+### Step 7: Run tests, verify RED
 
-### Step 7: Implement InterventionDetector
+### Step 8: Implement InterventionDetector + SilenceMonitor
 
 Detection rules (conservative MVP):
-- **question_detected**: Regex for `?`, `？`, question words (`what/how/why/who`, `什么/怎么/为什么/你觉得/你怎么看`)
-- **extended_silence**: Gap > 5s between current line and previous line in window
-- **keyword_match**: Word overlap between transcript line and registered talking points (simple token intersection, threshold ≥ 2 matching tokens). Only triggers if talking_points is non-empty.
+- **question_detected** (InterventionDetector): Regex for `?`, `？`, question words (`what/how/why/who`, `什么/怎么/为什么/你觉得/你怎么看`)
+- **keyword_match** (InterventionDetector): Word overlap between transcript line and registered talking points (simple token intersection, threshold ≥ 2 matching tokens). Only triggers if talking_points is non-empty.
+- **extended_silence** (SilenceMonitor): Tracks `last_speech_ts` per audio chunk. Fires DURING silence (not after next speech) when continuous silence >= 5s. Does not re-emit for the same silence period. Resets on new speech.
 - **speaker_handoff**: NOT in MVP (needs dual-source + turn detection beyond simple rules)
 
-### Step 8: Run tests, verify GREEN
+### Step 9: Run tests, verify GREEN
 
-### Step 9: Commit
+### Step 10: Commit
 
 ```bash
 git add scripts/meeting-copilot/intervention.py scripts/meeting-copilot/test_intervention.py
-git commit -m "feat(F195): C3 intervention detector + rate limiter [宪宪/Opus-46🐾]"
+git commit -m "feat(F195): C3 intervention detector + silence monitor + rate limiter [宪宪/Opus-46🐾]"
 ```
 
 ---
@@ -319,13 +377,18 @@ self.advisory_mode = "passive"
 self.talking_points: list[str] = []
 self._rate_limiter = AdvisoryRateLimiter()
 self._detector = InterventionDetector()
+self._silence_monitor = SilenceMonitor()
 ```
 
 Add methods: `set_advisory_mode()`, `set_talking_points()`, `advisory_dnd()`.
 
-Wire into `_process_chunk()`: after transcript broadcast, if `advisory_mode == "active"`, run `_detector.check()` → if result and `_rate_limiter.can_emit()` → broadcast `intervention_advisory` event.
+Wire into `_process_chunk()`:
+1. On every chunk: call `_silence_monitor.on_chunk(ts, has_speech=bool(text))`.
+   If text is non-empty, also call `_silence_monitor.on_speech(ts, chunk_num, text)`.
+2. If `advisory_mode == "active"` and silence monitor returns an event → check `_rate_limiter.can_emit()` → broadcast `intervention_advisory`.
+3. After transcript broadcast (non-empty text): run `_detector.check(line, talking_points)` → if result and `_rate_limiter.can_emit()` → broadcast `intervention_advisory`.
 
-Ensure `_reset()` preserves `advisory_mode`, `talking_points`, `_rate_limiter`, `_detector` (same pattern as participants).
+Ensure `_reset()` preserves `advisory_mode`, `talking_points`, `_rate_limiter`, `_detector`, `_silence_monitor` (same pattern as participants).
 
 ### Step 4: Run tests, verify GREEN
 
@@ -358,7 +421,7 @@ Add `'cat_cafe_audio_set_advisory_mode'` and `'cat_cafe_audio_set_talking_points
 ### Step 7: Run full test suite
 
 ```bash
-cd scripts/meeting-copilot && python -m pytest test_audio_service.py -v
+python3 -m unittest scripts/meeting-copilot/test_audio_service.py scripts/meeting-copilot/test_intervention.py -v
 pnpm --filter @cat-cafe/mcp-server test
 ```
 
