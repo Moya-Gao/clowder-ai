@@ -54,6 +54,8 @@ topics: [agent-harness, agentic-work-os, shared-state, enterprise-ai, investment
 
 ### 图 2：三轴图
 
+![图 2：三轴图（手绘版）](assets/fig-2-three-axis-handdrawn.png)
+
 ```text
                          ↑ Z 轴：跨项目 / 跨部门迁移
                          │ 经验 / 规则 / 方法论 / 知识联邦
