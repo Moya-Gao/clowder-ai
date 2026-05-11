@@ -29,7 +29,7 @@ topics: [agent-memory, perception-grounding, knowledge-governance, salience-ledg
 
 > 我先讲一个数字。
 
-业界花了两年把 Agent Memory 的检索质量从 50% 做到 80%。更好的 embedding、更复杂的 graph、更精确的 reranker——一路卷上来。
+业界花了两年卷 Agent Memory 的检索质量。更好的 embedding、更复杂的 graph、更精确的 reranker——主流方案在标准 benchmark 上做到了 80%+ 的水平。
 
 但 2025 年底 Letta 团队做了一个实验：用纯文件系统——就是 grep、search_files、open、close 这些最基础的 Unix 工具——在 LoCoMo benchmark 上打到了 74%。赢了多数专门的 memory 工具库。
 
@@ -63,7 +63,7 @@ topics: [agent-memory, perception-grounding, knowledge-governance, salience-ledg
 
 **第一个阵营是"模仿人脑"**。从认知科学出发：人有工作记忆、长期记忆、情景记忆、语义记忆——让 AI 也这么分。mem0、Letta、Hindsight、Zep 都沿这条路。共同假设是：记忆的核心挑战是存储结构和检索能力。
 
-**第二个阵营是"看 LLM 天性"**。不模仿人脑。LLM 擅长读文本、做模式匹配、做交叉引用——那就把这些能力用到极致。Karpathy 的 LLM Wiki、Graphify、我们自己的方案都沿这条路。核心逻辑是：LLM 不需要"记住"——它需要"高效地重新找到"。
+**第二个阵营是"看 LLM 天性"**。不模仿人脑。LLM 擅长读文本、做模式匹配、做交叉引用——那就把这些能力用到极致。Karpathy 倡导的 LLM Wiki 方向、Graphify、我们自己的方案都沿这条路。核心逻辑是：LLM 不需要"记住"——它需要"高效地重新找到"。
 
 但两个阵营有一个共同盲点：**都把 LLM 当成被工程师配置的对象**。
 
@@ -111,7 +111,7 @@ mem0 的用户在 GitHub issue 里报告：使用 32 天后，97.8% 的 memory �
 
 高权威但当前任务无关的旧决策，会带偏 agent 的判断。需要的是可逆的临时降权——不是删除，是 task-scoped 的静默。
 
-主流框架已经开始做 freshness/decay，但还没有把这个做成一等审计对象。我们称之为 **Salience Ledger**：每条 memory 为什么被写入、为什么被取出、为什么被压制、对哪个 task 生效、何时过期。"Ledger" 直接对应 audit trail——企业合规场景需要这个。
+主流框架已经开始做 freshness/decay，但还没有把这个做成一等审计对象。我们称之为 **Salience Ledger**：每条 memory 为什么被写入、为什么被取出、为什么被压制、对哪个 task 生效、何时过期。"Ledger" 直接对应 audit trail——企业合规场景需要这个。Salience Ledger 也是下一个断裂点（佩戴协议）的落地基础——有了 Ledger，agent 才有数据学习"什么时候该用、什么时候该压"。
 
 ### 断裂点 5：佩戴协议
 
@@ -127,7 +127,9 @@ Layer 1: Memory Substrate — 可审计的共享真相存储
 Governance Plane: provenance / freshness / permission / delete / conflict / audit
 ```
 
-前两层行业在卷。第三层——佩戴协议——**完全空白**。什么时候注入、什么时候降权、什么时候验证反馈、什么时候摘掉、错了怎么回滚。没有人在做这个。
+前两层行业在卷。第三层——佩戴协议——**还没有形成成熟方法论**。什么时候注入、什么时候降权、什么时候验证反馈、什么时候摘掉、错了怎么回滚。没有人在系统地做这个。
+
+注意：义肢类比在单 agent 场景下成立——一个主体配一套义肢。多 agent 场景打破这个前提：多个主体需要共享同一个 Layer 1 的真相源，义肢变成了共享基础设施。这也是为什么断裂点 2（多 agent 一致性）和断裂点 5 本质上互锁。
 
 ---
 
@@ -191,7 +193,7 @@ Memory 不是孤立的技术模块——它是 Agentic Work OS 的感知层。Re
 | 引用 | 来源 | 用在哪 |
 |---|---|---|
 | Letta Filesystem 74% | [Letta blog](https://www.letta.com/blog/benchmarking-ai-agent-memory) | 开场基线 |
-| Diagnosing Retrieval vs Utilization | [OpenReview](https://openreview.net/forum?id=pLi3A8bscP) | Contrarian 护甲 |
+| Diagnosing Retrieval vs Utilization | [OpenReview](https://openreview.net/forum?id=cxYbqAtBIz) | Contrarian 护甲 |
 | AGENTS.md eval study | [OpenReview](https://openreview.net/forum?id=pLi3A8bscP) | 佩戴协议论据 |
 | Mnemonic Sovereignty | [arXiv 2604.16548](https://arxiv.org/html/2604.16548v1) | 记忆安全 |
 | MINJA memory injection | [OpenReview](https://openreview.net/forum?id=i7J62t2wtV) | 记忆安全 |
@@ -239,11 +241,14 @@ A: 我们不是声称已经解决全部问题。我们在 docs truth source + ev
 **Q: "中国学术界在这个方向有什么不同？"**
 A: 浙大 GAM 做 hierarchical graph-based memory，ZJU-UIUC 和 Ant 合作的 HyMem 做 dynamic retrieval scheduling，China Mobile 的 FSFM 做 selective forgetting。国内路线更偏检索/遗忘，治理方向目前不像欧美那么显眼。但这也意味着治理是一个差异化机会。
 
+**Q: "100M context window 来了，Agent Memory 还有必要吗？"**
+A: 上下文窗口变大解决的是读入量，不是治理。100M token 塞进去，你仍然需要回答：哪些该进、哪些该出、过时了怎么办、多 agent 之间怎么同步、合规删除怎么做。窗口是管道，Memory 是库——管道再粗，库不治理还是乱。而且窗口越大，lost in the middle 问题越严重——Salience Ledger 的价值反而增大。
+
 ---
 
 ## 附录 C：3 分钟精简版（如果时间被压缩）
 
-> 业界花了两年把 Agent Memory 的检索做到 80%。但 Letta 发现纯文件系统就能打 74%。我们不是说检索不重要——是说检索决定短期分数，治理决定长期可靠性。
+> 业界花了两年卷 Agent Memory 的检索，主流方案做到了 80%+ 的 benchmark 成绩。但 Letta 发现纯文件系统就能打 74%。我们不是说检索不重要——是说检索决定短期分数，治理决定长期可靠性。
 >
 > 什么是治理？五件事：什么值得记、什么该忘、谁来验证、错了怎么回滚、多个 agent 之间怎么不互相污染。2026 年 8 个主流框架，没有一个同时解决这五件事。
 >
