@@ -4,6 +4,7 @@ import type { ReplyPreview, SchedulerMessageExtra } from '@cat-cafe/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { getBubbleInvocationId, shouldForceReplaceHydrationForCachedMessages } from '@/debug/bubbleIdentity';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
+import { projectCanonicalBubbles } from '@/stores/bubble-projection';
 import type { QueueEntry, TaskProgressItem } from '@/stores/chat-types';
 import { type CatInvocationInfo, type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
 import type { TaskItem } from '@/stores/taskStore';
@@ -681,10 +682,25 @@ export function useChatHistory(threadId: string) {
           // (instead of bare replaceMessages + saveMessagesSnapshot pair).
           // AC-C10: server GET 是 authoritative，IDB snapshot 必须被 GET
           // 响应覆盖而不是合并。
-          hydrateThread(fetchForThread, mergedMsgs, data.hasMore ?? false);
+          // F194 Phase Z8 AC-Z22 (KD-27 + 砚砚 R1 OQ-3): writer boundary projection
+          // — same canonical bubble rule as live reducer wrapper
+          // (applyBubbleEventWithRecovery)。raw records 进 store 前 collapse
+          // 到 1 bubble per (catId, invocationId)，确保 hydrate ≡ live。
+          const projectedMerged = projectCanonicalBubbles({ records: mergedMsgs }).messages;
+          hydrateThread(fetchForThread, projectedMerged, data.hasMore ?? false);
           return true;
         }
-        prependHistory(historyMsgs, data.hasMore ?? false);
+        // F194 Phase Z8 AC-Z22 + R2 P2 (砚砚): page-boundary projection — project
+        // (new historyMsgs ∪ existing store messages) so cross-page same-(catId, invocationId)
+        // raw records collapse into one canonical bubble. Plain prependHistory only dedupes
+        // by id, leaving canonical siblings split across page boundary.
+        const beforePrepend = useChatStore.getState().messages;
+        const unionProjected = projectCanonicalBubbles({
+          records: [...historyMsgs, ...beforePrepend],
+        }).messages;
+        // Replace store with projected union (cleaner than prepend + post-merge).
+        // hasMore propagates older-history pagination state.
+        replaceMessages(unionProjected, data.hasMore ?? false);
         // F164: Snapshot fetched messages to IndexedDB (fire-and-forget)
         const snapshotState = useChatStore.getState();
         if (snapshotState.currentThreadId === fetchForThread) {

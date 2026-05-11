@@ -468,16 +468,17 @@ describe('F183 Phase B1.2.2 — active text stream wire-up to reducer', () => {
       });
     });
 
+    // Z8 R3 (砚砚): callback collapse + concat. content includes pre-existing stream raw + callback raw.
     expect(mockReplaceMessages).toHaveBeenCalled();
     const lastCall = mockReplaceMessages.mock.calls[mockReplaceMessages.mock.calls.length - 1];
     const nextMessages = lastCall[0] as ChatMessage[];
     expect(nextMessages).toHaveLength(1);
-    expect(nextMessages[0]).toMatchObject({
-      id: 'msg-inv-cb-1-codex',
-      content: 'final answer',
-      isStreaming: false,
-      origin: 'callback',
-    });
+    const merged = nextMessages[0]!;
+    expect(merged.id).toBe('msg-inv-cb-1-codex');
+    expect(merged.origin).toBe('callback');
+    expect(merged.isStreaming).toBe(false);
+    expect(merged.content).toContain('streaming...'); // stream raw preserved
+    expect(merged.content).toContain('final answer'); // callback content
     // legacy patchMessage(content/origin/isStreaming) MUST NOT be invoked
     const contentPatchCalls = mockPatchMessage.mock.calls.filter(
       (c) => c[1]?.content !== undefined || c[1]?.origin !== undefined || c[1]?.isStreaming !== undefined,

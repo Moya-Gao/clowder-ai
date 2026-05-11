@@ -1447,11 +1447,13 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
       ([msg]) => msg.type === 'assistant' && msg.catId === 'opus',
     );
     expect(duplicateCallbacks).toHaveLength(0);
-    // F183 B1.2.4: callback path goes via reducer + replaceMessages instead of patchMessage(content/origin/isStreaming)
+    // Z8 R3 (砚砚): callback path goes via wrapper projection (collapse + concat). Bubble merged
+    // contains stream raw "streaming reply" + callback "final authoritative reply", origin=callback.
     const upgradedViaPatch = mockPatchMessage.mock.calls.some(
       (c) =>
         c[0] === streamBubbleId &&
-        (c[1] as Record<string, unknown>)?.content === 'final authoritative reply' &&
+        typeof (c[1] as Record<string, unknown>)?.content === 'string' &&
+        ((c[1] as Record<string, unknown>).content as string).includes('final authoritative reply') &&
         (c[1] as Record<string, unknown>)?.origin === 'callback',
     );
     const upgradedViaReducer = mockReplaceMessages.mock.calls
@@ -1459,7 +1461,8 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
       .some(
         (m) =>
           m.id === streamBubbleId &&
-          m.content === 'final authoritative reply' &&
+          typeof m.content === 'string' &&
+          m.content.includes('final authoritative reply') &&
           m.origin === 'callback' &&
           m.isStreaming === false,
       );
