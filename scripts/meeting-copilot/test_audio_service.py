@@ -213,5 +213,73 @@ class TestInputValidation(unittest.TestCase):
             self.session.correct_line("abc", "Alice", "p2")
 
 
+class TestAdvisoryMode(unittest.TestCase):
+    def setUp(self):
+        self.session = AudioSession()
+
+    def test_default_mode_is_passive(self):
+        assert self.session.advisory_mode == "passive"
+
+    def test_set_advisory_mode_active(self):
+        self.session.set_advisory_mode("active")
+        assert self.session.advisory_mode == "active"
+
+    def test_set_advisory_mode_validates(self):
+        with self.assertRaises(ValueError):
+            self.session.set_advisory_mode("invalid")
+
+    def test_set_talking_points(self):
+        self.session.set_talking_points(["budget under 50k", "timeline Q3"])
+        assert len(self.session.talking_points) == 2
+
+    def test_talking_points_default_empty(self):
+        assert self.session.talking_points == []
+
+    def test_talking_points_survive_reset(self):
+        self.session.set_talking_points(["keep this"])
+        self.session._reset()
+        assert len(self.session.talking_points) == 1
+        assert self.session.talking_points[0] == "keep this"
+
+    def test_advisory_mode_survives_reset(self):
+        self.session.set_advisory_mode("active")
+        self.session._reset()
+        assert self.session.advisory_mode == "active"
+
+    def test_status_includes_advisory_fields(self):
+        self.session.set_advisory_mode("active")
+        self.session.set_talking_points(["point one"])
+        s = self.session.status()
+        assert s["advisory_mode"] == "active"
+        assert len(s["talking_points"]) == 1
+        assert "advisory_rate_limiter" in s
+
+    def test_advisory_dnd(self):
+        self.session.advisory_dnd()
+        s = self.session.status()
+        assert s["advisory_rate_limiter"]["can_emit"] is False
+
+    def test_rate_limiter_survives_reset(self):
+        self.session.advisory_dnd()
+        self.session._reset()
+        s = self.session.status()
+        assert s["advisory_rate_limiter"]["can_emit"] is False
+
+    def test_silence_monitor_resets_across_sessions(self):
+        self.session._silence_monitor.on_speech(ts=100, chunk_num=1, text="old session")
+        self.session._reset()
+        assert self.session._silence_monitor._last_speech_ts == 0
+        assert self.session._silence_monitor._last_speech_text == ""
+        assert self.session._silence_monitor._silence_emitted is False
+
+    def test_set_talking_points_rejects_non_strings(self):
+        with self.assertRaises(TypeError):
+            self.session.set_talking_points(["valid", 42, None])
+
+    def test_set_talking_points_rejects_non_list(self):
+        with self.assertRaises(TypeError):
+            self.session.set_talking_points("not a list")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -71,4 +71,87 @@ describe('FloatingTranscriptWindow', () => {
     );
     expect(html).toContain('tabindex="-1"');
   });
+
+  it('shows Passive button when advisory mode is passive', () => {
+    const html = renderToStaticMarkup(
+      <FloatingTranscriptWindow
+        lines={[]}
+        connected={true}
+        recording={true}
+        onClose={() => {}}
+        advisoryMode="passive"
+        onToggleAdvisory={() => {}}
+      />,
+    );
+    expect(html).toContain('Passive');
+    expect(html).not.toContain('>Advisory<');
+  });
+
+  it('shows Advisory button when advisory mode is active', () => {
+    const html = renderToStaticMarkup(
+      <FloatingTranscriptWindow
+        lines={[]}
+        connected={true}
+        recording={true}
+        onClose={() => {}}
+        advisoryMode="active"
+        onToggleAdvisory={() => {}}
+      />,
+    );
+    expect(html).toContain('>Advisory<');
+  });
+
+  it('renders advisory banner with talking point', () => {
+    const advisory = {
+      type: 'intervention_advisory' as const,
+      ts: 1715400010,
+      reason: 'keyword_match',
+      confidence: 0.8,
+      source_chunk_num: 5,
+      source_text: 'budget discussion',
+      talking_point: 'budget under 50k',
+    };
+    const html = renderToStaticMarkup(
+      <FloatingTranscriptWindow
+        lines={sampleLines}
+        connected={true}
+        recording={true}
+        onClose={() => {}}
+        advisory={advisory}
+        advisoryMode="active"
+        onToggleAdvisory={() => {}}
+        onAdvisoryDismiss={() => {}}
+        onAdvisoryDnd={() => {}}
+      />,
+    );
+    expect(html).toContain('Topic match');
+    expect(html).toContain('budget under 50k');
+    expect(html).toContain('DND');
+  });
+
+  it('renders advisory banner even in passive mode (backend is authority)', () => {
+    const advisory = {
+      type: 'intervention_advisory' as const,
+      ts: 1715400010,
+      reason: 'question_detected',
+      confidence: 0.8,
+      source_chunk_num: 5,
+      source_text: 'What do you think?',
+      talking_point: null,
+    };
+    const html = renderToStaticMarkup(
+      <FloatingTranscriptWindow
+        lines={sampleLines}
+        connected={true}
+        recording={true}
+        onClose={() => {}}
+        advisory={advisory}
+        advisoryMode="passive"
+        onToggleAdvisory={() => {}}
+        onAdvisoryDismiss={() => {}}
+        onAdvisoryDnd={() => {}}
+      />,
+    );
+    expect(html).toContain('Question detected');
+  });
 });

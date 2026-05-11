@@ -20,6 +20,16 @@ interface Participant {
   role?: string;
 }
 
+interface InterventionAdvisory {
+  type: 'intervention_advisory';
+  ts: number;
+  reason: string;
+  confidence: number;
+  source_chunk_num: number;
+  source_text: string;
+  talking_point: string | null;
+}
+
 interface FloatingTranscriptWindowProps {
   lines: TranscriptLine[];
   connected: boolean;
@@ -31,6 +41,11 @@ interface FloatingTranscriptWindowProps {
   onStop?: () => void;
   onMinimize?: () => void;
   onCorrect?: (chunkNum: number, speakerId: string, speakerLabel: string) => void;
+  advisory?: InterventionAdvisory | null;
+  advisoryMode?: 'active' | 'passive';
+  onToggleAdvisory?: () => void;
+  onAdvisoryDismiss?: () => void;
+  onAdvisoryDnd?: () => void;
 }
 
 const STORAGE_KEY = 'cat-cafe-floating-transcript';
@@ -77,6 +92,11 @@ export function FloatingTranscriptWindow({
   onStop,
   onMinimize,
   onCorrect,
+  advisory,
+  advisoryMode = 'passive',
+  onToggleAdvisory,
+  onAdvisoryDismiss,
+  onAdvisoryDnd,
 }: FloatingTranscriptWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScroll = useRef(true);
@@ -199,6 +219,16 @@ export function FloatingTranscriptWindow({
               )}
             </>
           )}
+          {onToggleAdvisory && (
+            <button
+              type="button"
+              onClick={onToggleAdvisory}
+              className={`rounded px-1.5 py-0.5 text-xs ${advisoryMode === 'active' ? 'bg-amber-500/20 text-amber-400' : 'text-cafe-text-muted hover:text-cafe-text-primary'}`}
+              title={advisoryMode === 'active' ? 'Advisory: ON (click to disable)' : 'Advisory: OFF (click to enable)'}
+            >
+              {advisoryMode === 'active' ? 'Advisory' : 'Passive'}
+            </button>
+          )}
           <button
             type="button"
             onClick={handleMinimize}
@@ -216,6 +246,43 @@ export function FloatingTranscriptWindow({
             &times;
           </button>
         </div>
+
+        {/* Advisory hint */}
+        {advisory && (
+          <div
+            className="flex items-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5"
+            style={{ opacity: Math.max(0.5, Math.min(1, advisory.confidence)) }}
+          >
+            <span className="text-xs">
+              {advisory.reason === 'question_detected' && '\u{1F3AF}'}
+              {advisory.reason === 'extended_silence' && '\u{23F8}'}
+              {advisory.reason === 'keyword_match' && '\u{1F511}'}
+            </span>
+            <span className="flex-1 truncate text-xs text-amber-300">
+              {advisory.reason === 'question_detected' && 'Question detected'}
+              {advisory.reason === 'extended_silence' && 'Pause in conversation'}
+              {advisory.reason === 'keyword_match' && 'Topic match'}
+              {advisory.talking_point && (
+                <span className="ml-1 text-amber-200/80">&mdash; {advisory.talking_point}</span>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={onAdvisoryDnd}
+              className="shrink-0 text-[10px] text-amber-400/60 hover:text-amber-300"
+              title="Don't disturb for 15 min"
+            >
+              DND
+            </button>
+            <button
+              type="button"
+              onClick={onAdvisoryDismiss}
+              className="shrink-0 text-xs text-amber-400/60 hover:text-amber-300"
+            >
+              &times;
+            </button>
+          </div>
+        )}
 
         {/* Transcript body */}
         <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-3 py-2 font-mono text-xs">

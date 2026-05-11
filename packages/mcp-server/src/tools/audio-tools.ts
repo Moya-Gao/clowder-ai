@@ -287,6 +287,38 @@ export async function handleAudioEnrollSpeakers(input: EnrollInput): Promise<Too
   }
 }
 
+export const audioSetAdvisoryModeInputSchema = {
+  mode: z
+    .enum(['active', 'passive'])
+    .describe('Advisory mode: "active" enables intervention hints, "passive" (default) disables them'),
+};
+
+export const audioSetTalkingPointsInputSchema = {
+  points: z.array(z.string()).describe('List of talking points to match against transcript during active advisory'),
+};
+
+export async function handleAudioSetAdvisoryMode(input: { mode: 'active' | 'passive' }): Promise<ToolResult> {
+  try {
+    const resp = await audioFetch('/advisory-mode', { method: 'POST', body: JSON.stringify(input) });
+    const data = (await resp.json()) as { ok?: boolean; error?: string; advisory_mode?: string };
+    if (!resp.ok) return errorResult(data.error ?? `Set advisory mode failed: ${resp.status}`);
+    return successResult(`Advisory mode set to "${data.advisory_mode}".`);
+  } catch (err) {
+    return errorResult(audioError(err));
+  }
+}
+
+export async function handleAudioSetTalkingPoints(input: { points: string[] }): Promise<ToolResult> {
+  try {
+    const resp = await audioFetch('/talking-points', { method: 'POST', body: JSON.stringify(input) });
+    const data = (await resp.json()) as { ok?: boolean; error?: string; talking_points?: string[] };
+    if (!resp.ok) return errorResult(data.error ?? `Set talking points failed: ${resp.status}`);
+    return successResult(`Registered ${data.talking_points?.length ?? 0} talking points for advisory matching.`);
+  } catch (err) {
+    return errorResult(audioError(err));
+  }
+}
+
 // ── Tool Definitions ─────────────────────────────────────────
 
 export const audioTools = [
@@ -330,5 +362,19 @@ export const audioTools = [
       'Enroll meeting participants for speaker attribution. Call before starting capture. The host (role="host") maps to mic source; other participants map to app/system audio. With 2 total participants, the non-host gets attributed by name. With 3+, non-host lines show "有人说" (confidence below threshold).',
     inputSchema: audioEnrollSpeakersInputSchema,
     handler: handleAudioEnrollSpeakers,
+  },
+  {
+    name: 'cat_cafe_audio_set_advisory_mode',
+    description:
+      'Set the advisory mode for the meeting copilot. "active" enables intervention hints (questions, silence, keyword matches) in the floating transcript window. "passive" (default) disables them. Advisory mode is opt-in to prevent attention overload.',
+    inputSchema: audioSetAdvisoryModeInputSchema,
+    handler: handleAudioSetAdvisoryMode,
+  },
+  {
+    name: 'cat_cafe_audio_set_talking_points',
+    description:
+      'Register talking points for advisory keyword matching. When advisory mode is active and transcript mentions keywords from these points, a hint appears in the floating transcript window. Points must be user-provided — never generated from transcript.',
+    inputSchema: audioSetTalkingPointsInputSchema,
+    handler: handleAudioSetTalkingPoints,
   },
 ] as const;

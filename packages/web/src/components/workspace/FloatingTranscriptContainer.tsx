@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useChatStore } from '@/stores/chatStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
@@ -31,6 +31,16 @@ interface AudioStatus {
   participants?: Participant[];
 }
 
+interface InterventionAdvisory {
+  type: 'intervention_advisory';
+  ts: number;
+  reason: string;
+  confidence: number;
+  source_chunk_num: number;
+  source_text: string;
+  talking_point: string | null;
+}
+
 interface SseEvent {
   type: string;
   status?: string;
@@ -44,6 +54,11 @@ interface SseEvent {
   speaker_label?: string;
   speaker_confidence?: number;
   speaker_id?: string | null;
+  reason?: string;
+  confidence?: number;
+  source_chunk_num?: number;
+  source_text?: string;
+  talking_point?: string | null;
 }
 
 export function FloatingTranscriptContainer() {
@@ -54,6 +69,9 @@ export function FloatingTranscriptContainer() {
   const [status, setStatus] = useState<AudioStatus>({ running: false });
   const [connected, setConnected] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [advisory, setAdvisory] = useState<InterventionAdvisory | null>(null);
+  const [advisoryMode, setAdvisoryMode] = useState<'active' | 'passive'>('passive');
+  const advisoryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!visible) return;
@@ -64,9 +82,12 @@ export function FloatingTranscriptContainer() {
           apiFetch('/api/audio/transcript'),
         ]);
         if (statusResp.ok) {
-          const data = (await statusResp.json()) as AudioStatus;
+          const data = (await statusResp.json()) as AudioStatus & { advisory_mode?: string };
           setStatus(data);
           if (data.running && data.duration_s) setElapsed(data.duration_s);
+          if (data.advisory_mode === 'active' || data.advisory_mode === 'passive') {
+            setAdvisoryMode(data.advisory_mode);
+          }
         }
         if (transcriptResp.ok) {
           const data = (await transcriptResp.json()) as { lines: TranscriptLine[] };
@@ -99,6 +120,18 @@ export function FloatingTranscriptContainer() {
               speaker_id: data.speaker_id,
             },
           ]);
+        } else if (data.type === 'intervention_advisory') {
+          setAdvisory({
+            type: 'intervention_advisory',
+            ts: data.ts!,
+            reason: data.reason!,
+            confidence: data.confidence!,
+            source_chunk_num: data.source_chunk_num!,
+            source_text: data.source_text!,
+            talking_point: data.talking_point ?? null,
+          });
+          if (advisoryTimer.current) clearTimeout(advisoryTimer.current);
+          advisoryTimer.current = setTimeout(() => setAdvisory(null), 10_000);
         } else if (data.type === 'status') {
           if (data.status === 'started') {
             setStatus({ running: true, source: data.source, app_name: data.app_name });
@@ -144,6 +177,32 @@ export function FloatingTranscriptContainer() {
     } catch {}
   }, []);
 
+  const handleToggleAdvisory = useCallback(async () => {
+    const next = advisoryMode === 'active' ? 'passive' : 'active';
+    try {
+      const resp = await apiFetch('/api/audio/advisory-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: next }),
+      });
+      if (resp.ok) {
+        setAdvisoryMode(next);
+        if (next === 'passive') setAdvisory(null);
+      }
+    } catch {}
+  }, [advisoryMode]);
+
+  const handleAdvisoryDismiss = useCallback(() => {
+    setAdvisory(null);
+  }, []);
+
+  const handleAdvisoryDnd = useCallback(async () => {
+    try {
+      const resp = await apiFetch('/api/audio/advisory-dnd', { method: 'POST' });
+      if (resp.ok) setAdvisory(null);
+    } catch {}
+  }, []);
+
   const handleClose = useCallback(() => setVisible(false), [setVisible]);
 
   if (!visible) return null;
@@ -161,6 +220,11 @@ export function FloatingTranscriptContainer() {
       onClose={handleClose}
       onStop={handleStop}
       onCorrect={handleCorrect}
+      advisory={advisory}
+      advisoryMode={advisoryMode}
+      onToggleAdvisory={handleToggleAdvisory}
+      onAdvisoryDismiss={handleAdvisoryDismiss}
+      onAdvisoryDnd={handleAdvisoryDnd}
     />,
     document.body,
   );

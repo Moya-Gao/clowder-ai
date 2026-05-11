@@ -96,6 +96,9 @@ const EXPECTED_TOOLS = [
   'cat_cafe_audio_capture_status',
   'cat_cafe_audio_read_transcript',
   'cat_cafe_audio_enroll_speakers',
+  // F195 Phase C3: Advisory mode tools
+  'cat_cafe_audio_set_advisory_mode',
+  'cat_cafe_audio_set_talking_points',
 ];
 
 const EXPECTED_COLLAB_TOOLS = [

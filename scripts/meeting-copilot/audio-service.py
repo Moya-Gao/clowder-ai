@@ -28,6 +28,7 @@ import time
 from pathlib import Path
 
 from aiohttp import web, ClientSession, ClientTimeout, FormData
+from intervention import AdvisoryRateLimiter, SilenceMonitor, InterventionDetector
 from transcript_window import TranscriptWindow
 
 ASR_URL = os.getenv("ASR_URL", "http://localhost:9876")
@@ -74,6 +75,11 @@ class AudioSession:
         self.thread_id = None
         self.participants: list[dict] = []
         self._window = TranscriptWindow(window_sec=300, summary_interval_sec=300)
+        self.advisory_mode: str = "passive"
+        self.talking_points: list[str] = []
+        self._rate_limiter = AdvisoryRateLimiter()
+        self._detector = InterventionDetector()
+        self._silence_monitor = SilenceMonitor()
 
     def _reset(self):
         self.running = False
@@ -86,8 +92,25 @@ class AudioSession:
         self.meeting_id = None
         self.thread_id = None
         self._window = TranscriptWindow(window_sec=300, summary_interval_sec=300)
+        self._silence_monitor = SilenceMonitor()
         self._process = None
         self._task = None
+
+    def set_advisory_mode(self, mode: str) -> None:
+        if mode not in ("active", "passive"):
+            raise ValueError(f"advisory_mode must be 'active' or 'passive', got '{mode}'")
+        self.advisory_mode = mode
+
+    def set_talking_points(self, points: list[str]) -> None:
+        if not isinstance(points, list):
+            raise TypeError("talking_points must be a list")
+        for p in points:
+            if not isinstance(p, str):
+                raise TypeError(f"Each talking point must be a string, got {type(p).__name__}")
+        self.talking_points = list(points)
+
+    def advisory_dnd(self) -> None:
+        self._rate_limiter.set_dnd()
 
     def enroll(self, participants: list[dict]) -> None:
         if not isinstance(participants, list):
@@ -218,6 +241,9 @@ class AudioSession:
             "meeting_id": self.meeting_id,
             "thread_id": self.thread_id,
             "participants": self.participants,
+            "advisory_mode": self.advisory_mode,
+            "talking_points": self.talking_points,
+            "advisory_rate_limiter": self._rate_limiter.status(),
         }
 
     def get_transcript(self, from_ts=None, to_ts=None, latest=None,
@@ -353,6 +379,21 @@ class AudioSession:
         preview = text[:55] + "…" if len(text) > 55 else text
         print(f"  [{elapsed:6.1f}s] #{self.chunk_count:3d} {asr_latency:.3f}s  {preview}")
         await self._broadcast({"type": "transcript", **line})
+
+        if self.advisory_mode == "active":
+            has_speech = bool(text and not text.startswith("[ASR error"))
+            if has_speech:
+                self._silence_monitor.on_speech(ts, self.chunk_count, text)
+            silence_event = self._silence_monitor.on_chunk(ts, has_speech)
+            if silence_event and self._rate_limiter.can_emit():
+                self._rate_limiter.record_emission()
+                await self._broadcast(silence_event)
+
+            if has_speech:
+                det_event = self._detector.check(line, self.talking_points)
+                if det_event and self._rate_limiter.can_emit():
+                    self._rate_limiter.record_emission()
+                    await self._broadcast(det_event)
 
     async def _broadcast(self, event: dict):
         data = json.dumps(event, ensure_ascii=False)
@@ -514,6 +555,43 @@ async def h_enroll(request):
     return web.json_response({"ok": True, "participants": session.participants})
 
 
+async def h_set_advisory_mode(request):
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+    if not isinstance(data, dict):
+        return web.json_response({"error": "Expected JSON object"}, status=400)
+    mode = data.get("mode")
+    try:
+        session.set_advisory_mode(mode)
+    except (ValueError, TypeError) as e:
+        return web.json_response({"error": str(e)}, status=400)
+    return web.json_response({"ok": True, "advisory_mode": session.advisory_mode})
+
+
+async def h_set_talking_points(request):
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+    if not isinstance(data, dict):
+        return web.json_response({"error": "Expected JSON object"}, status=400)
+    points = data.get("points")
+    if not isinstance(points, list):
+        return web.json_response({"error": "points must be a list"}, status=400)
+    try:
+        session.set_talking_points(points)
+    except (ValueError, TypeError) as e:
+        return web.json_response({"error": str(e)}, status=400)
+    return web.json_response({"ok": True, "talking_points": session.talking_points})
+
+
+async def h_advisory_dnd(request):
+    session.advisory_dnd()
+    return web.json_response({"ok": True, "status": session._rate_limiter.status()})
+
+
 async def h_correct(request):
     try:
         data = await request.json()
@@ -543,6 +621,9 @@ def main():
     app.router.add_post("/stop", h_stop)
     app.router.add_post("/enroll", h_enroll)
     app.router.add_post("/transcript/correct", h_correct)
+    app.router.add_post("/advisory-mode", h_set_advisory_mode)
+    app.router.add_post("/talking-points", h_set_talking_points)
+    app.router.add_post("/advisory-dnd", h_advisory_dnd)
     app.router.add_get("/status", h_status)
     app.router.add_get("/transcript", h_transcript)
     app.router.add_get("/events", h_events)

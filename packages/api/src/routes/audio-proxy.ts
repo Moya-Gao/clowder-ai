@@ -94,6 +94,33 @@ export const audioProxyRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
+  app.post('/api/audio/advisory-mode', async (req, reply) => {
+    if (!requireIdentity(req, reply)) return;
+    try {
+      return await proxyJson(reply, 'POST', '/advisory-mode', req.body);
+    } catch {
+      return reply.status(502).send({ error: 'Audio service unavailable' });
+    }
+  });
+
+  app.post('/api/audio/talking-points', async (req, reply) => {
+    if (!requireIdentity(req, reply)) return;
+    try {
+      return await proxyJson(reply, 'POST', '/talking-points', req.body);
+    } catch {
+      return reply.status(502).send({ error: 'Audio service unavailable' });
+    }
+  });
+
+  app.post('/api/audio/advisory-dnd', async (req, reply) => {
+    if (!requireIdentity(req, reply)) return;
+    try {
+      return await proxyJson(reply, 'POST', '/advisory-dnd');
+    } catch {
+      return reply.status(502).send({ error: 'Audio service unavailable' });
+    }
+  });
+
   app.get('/api/audio/sources', async (req, reply) => {
     if (!requireIdentity(req, reply)) return;
     try {
