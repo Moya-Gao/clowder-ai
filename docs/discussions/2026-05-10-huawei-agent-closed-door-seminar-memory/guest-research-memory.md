@@ -1,219 +1,212 @@
 ---
-title: "嘉宾学术水平分析 — 记忆方向 4 位"
+title: "嘉宾核心项目拆解 — 记忆方向（Claims → 代码证据 → Verdict）"
 date: 2026-05-11
 event_date: 2026-05-13
 doc_kind: seminar-reference
 status: final
 author: "宪宪/Opus-46"
+method: "open-source-teardown (claims ledger + 架构地图 + 算法剥皮)"
+repos_analyzed:
+  - { name: LightMem, url: "https://github.com/zjunlp/LightMem", sha: 15ba5b39 }
+  - { name: GMemory, url: "https://github.com/bingreeky/GMemory", sha: shallow-clone }
+  - { name: MemP, url: "https://github.com/zjunlp/MemP", sha: shallow-clone }
 ---
 
-# 记忆方向嘉宾学术水平分析
+# 嘉宾核心项目源码拆解 — 记忆方向
 
-> 针对与 Topic 1（Agent Memory）直接相关的 4 位嘉宾，基于公开论文、GitHub 项目、Google Scholar 数据做学术水平评估。
-> 目的：知道谁在什么问题上有发言权，预判他们可能在哪里 push back。
+> 按 teardown 标准：宣传 claim → 代码路径 → verdict → 我们的 tradeoff。
+> 聚焦 3 个与 Topic 1 直接竞争的开源项目。
 
 ---
 
-## 1. 张桂彬（NUS-LV Lab）⭐ 记忆方向最直接对口
+## 1. LightMem（张宁豫 / ZJUNLP）— ICLR 2026
 
-| 维度 | 评估 |
+### Claims Ledger
+
+| # | Claim（README / 论文） | 代码证据 | Verdict |
+|---|---|---|---|
+| C1 | "三阶段记忆：sensory → short-term → long-term" | `SenMemBufferManager`（token 阈值触发分段）→ `ShortMemBufferManager`（累积分段触发提取）→ `MemoryEntry` + Qdrant 向量存储 | **✅ 真实实现**。三阶段是 pipeline 阶段不是认知模型——sensory = 消息缓冲 + 语义分段，short-term = 累积直到 LLM 提取，long-term = 向量 DB + JSON 持久化 |
+| C2 | "token 用量降 117x" | 通过 topic 分段 + LLM 提取 facts 替代全量上下文注入。检索时只返回 `"{timestamp} {weekday} {memory_text}"` 格式字符串 | **✅ 数字可信但机制朴素**。本质是"提取摘要 + 按需检索"替代"塞全文"，不是压缩算法创新。任何 extract-then-retrieve 方案都能拿到类似倍数 |
+| C3 | "准确率提升 10.9%" | 在 LongMemEval 上对比 full_context / naive_rag / mem0 / langmem 等 baseline | **⚠️ 条件成立**。baseline 包含 mem0 vendor fork（`memories/layers/baselines/mem0/`），公平性待验证 |
+| C4 | "sleep-time 离线更新" | `offline_update` pipeline：向量相似度找候选 → LLM judge 决定 delete / update → 修改 Qdrant payload | **⚠️ LLM judge 不是算法**。没有独立 eval、threshold、rollback。LLM 说删就删，说改就改 |
+| C5 | "模块化可插拔设计" | Factory 模式：6 种 LLM backend、2 种 retriever（embedding / context）、可选 pre-compress / topic-segment | **✅ 工程质量好**。config-driven pipeline，组件确实可替换 |
+| C6 | "MCP Server 接口" | `mcp/server.py`：只暴露 `add_memory()` + `get_timestamp()`，**没有 retrieve** | **⚠️ 半成品**。MCP 只写不读，不是完整接口 |
+
+### 架构地图
+
+```
+Input Messages → MessageNormalizer（时间戳解析）
+    ↓
+[可选: pre_compress] → SenMemBufferManager（token 阈值 + 语义分段）
+    ↓
+ShortMemBufferManager（累积分段，超阈值触发）
+    ↓
+LLM Extraction（meta_text_extract，flat/event 两种模式）
+    ↓
+MemoryEntry（12 个 metadata 字段）→ text_embedder.embed()
+    ↓
+Qdrant 向量 DB + JSON 文件双写
+    ↓
+[离线: offline_update] → 向量相似度找候选 → LLM judge → delete/update
+```
+
+### 算法剥皮
+
+| 被宣传为 | 实际是 |
 |---|---|
-| **身份** | NUS 在读博士，导师颜水成（131K citations，AAAI/IEEE Fellow，e-AGI 方向） |
-| **学术量级** | 博士生中非常突出——多篇"首篇综述"级论文，发表节奏极快 |
-| **记忆相关深度** | ★★★★★ 最高 |
+| "三阶段认知记忆" | Token 阈值触发的 pipeline 阶段（缓冲 → 累积 → 提取） |
+| "sleep-time consolidation" | LLM prompt judge（无独立 eval / 无 rollback） |
+| "topic-aware segmentation" | 语义相似度阈值切割（cosine distance 0.2-0.5）+ 粗分段器 |
+| "memory retrieval" | 标准 Qdrant 向量搜索 + 可选 BM25 |
 
-### 核心产出
+### 对我们发言稿的影响
 
-| 论文/项目 | 发表 | 与我们的关系 |
-|---|---|---|
-| **Memory in the Age of AI Agents: A Survey** | arXiv 2512.13564, 2025-12 | **直接竞品综述**。提出 Forms(Token/Parametric/Latent) × Functions(Factual/Experiential/Working) × Dynamics(Formation/Evolution/Retrieval) 三维分类。我们的四层 substrate 是他 Forms 维度的展开 |
-| **G-Memory: Hierarchical Memory for MAS** | arXiv 2506.07398, 2025-06 | **直接对应断裂点 2（多 agent 一致性）**。三层图结构：insight-query-interaction，让 agent 团队从协作历史中提取知识 |
-| **A Survey of Self-Evolving AI Agents** | arXiv 2508.07407, 2025-08 | 首篇自进化 agent 综述，定义了 self-evolving agent 范式 |
-| **EvoTest** | arXiv 2510.13220, 2025 | Test-time learning 框架——不更新梯度，通过轨迹分析自动优化 prompt/配置/工具 |
-| **PASK + IntentFlow** | arXiv 2604.08000, 2026-04 | 主动性 agent + 流式意图检测 + LatentNeeds-Bench（首个主动性评测基准） |
-| **EvoFlow** | arXiv 2502.07373, 2025 | 动态演化 agentic workflow |
-| **EvoAgentX** | GitHub 开源 | 自进化 agent 生态系统 |
+**好消息**：LightMem 是一个优秀的 **Layer 1（Memory Substrate）+ Layer 2（Reflex Injection）** 实现。但它**完全没有**：
 
-### 水平判断
+- ❌ Governance Plane：无 provenance、无 permission、无 delete propagation、无 audit trail
+- ❌ Layer 3 Wearing Protocol：无机制让 agent 学习何时使用/压制记忆
+- ❌ Salience Ledger：无"为什么被写入/取出/压制"的记录
+- ❌ Multi-agent 一致性：单 agent 设计，无共享/冲突解决
 
-**一句话：博士生里的超级新星，记忆+自进化的交叉领域已经抢到了定义权。**
+**这直接验证了我们的核心论点**："前两层行业在卷，第三层还没有形成成熟方法论"——LightMem 就是"前两层卷到了 ICLR 2026"的代表。
 
-优势：产出密度极高，多篇"第一篇"综述/benchmark。Memory survey 是当前最全面的记忆全景图。G-Memory 是少数真正做 multi-agent memory 的工作。导师颜水成的背书让这些工作有很高可见度。
-
-局限：大部分是综述/框架/benchmark 类工作，缺少在大规模生产环境的验证。G-Memory 在真实多 agent 场景的实测数据有限。
-
-### 他可能在哪里 push back 我们
-
-1. **我们的四层 substrate vs 他的 Forms 三分**——他可能认为我们把 Latent Token 和 Activation State 分成两层是过度细分
-2. **G-Memory 已经在做 multi-agent memory**——我们说"几乎未开垦"他可能不同意（但他的方案是图结构不是一致性协议，方向不同）
-3. **Memory survey 已有的分类 vs 我们的"义肢"framing**——他可能从学术分类角度质疑义肢类比的理论基础
-
-### 对话策略
-
-主动引用他的 Memory survey 作为我们分析的出发点（"张老师的综述是目前最全面的全景图，我们在这个基础上进一步聚焦到治理维度"），然后把讨论引向他的 G-Memory 尚未覆盖的一致性协议问题。
+**风险**：张宁豫可能用 LightMem 的 117x 数据反驳"检索门槛归零"。**对话策略**：承认 LightMem 在检索效率上的突破，然后问："LightMem 的 offline_update 里 LLM 判错了怎么回滚？谁来审计这个决定？"——引导到治理层。
 
 ---
 
-## 2. 张宁豫（ZJU ZJUNLP）⭐ 记忆技术最深
+## 2. G-Memory（张桂彬 / NUS）— NeurIPS 2025
 
-| 维度 | 评估 |
+### Claims Ledger
+
+| # | Claim | 代码证据 | Verdict |
+|---|---|---|---|
+| C1 | "三层图结构：insight-query-interaction" | Interaction = `StateChain`（NetworkX DiGraph 链，节点=AgentMessage）；Query = NetworkX 无向图（节点=任务，边=语义相似度）；Insight = JSON list（rule + score + 正负相关任务列表） | **⚠️ 名字是"图"但实现差异大**。Interaction 是图，Query 是图，Insight 只是带 score 的 list |
+| C2 | "多 agent 层级记忆" | 所有 agent 读写同一个 `meta_memory` 实例。`solver_agent` 和 `ground_truth_agent` 都没有 private memory | **⚠️ "多 agent" = 共享单例存储**。无锁、无事务隔离、无冲突解决、无版本控制。假设顺序执行 |
+| C3 | "从协作历史中汲取知识" | Insight 通过 LLM 比较成功/失败轨迹生成 rules → 按 task 结果 ±score → score ≤ 0 淘汰 | **✅ 有真实的知识沉淀闭环**。但 score 调整是粗暴的 +1/-2，无因果分析 |
+| C4 | "跨任务持续进化" | 内存持久化到 pickle + JSON + Chroma 向量 DB。跨 trial 累积 | **✅ 工程上实现了持久化**。但无 TTL / 无过期 / 无知识失效检测 |
+
+### 架构地图
+
+```
+Task 执行 → Agent 消息链（StateChain / Interaction Graph）
+    ↓
+Sparsification（移除失败步骤）→ LLM 提取关键步骤
+    ↓
+Query Graph（任务节点 + 语义相似度边 + k-hop 展开检索）
+    ↓
+Insight Graph（LLM 对比成功/失败轨迹 → 生成/修正 rules）
+    ↓
+Backward（任务结果 → rule score ±调整 → score≤0 淘汰）
+```
+
+**存储后端**：
+
+| 层 | 存储 | 格式 |
+|---|---|---|
+| Interaction | Chroma 向量 DB | metadata + node_link_data |
+| Query | NetworkX pickle | `{ns}_graph.pkl` |
+| Insight | JSON list | `{ns}.json` |
+
+### 算法剥皮
+
+| 被宣传为 | 实际是 |
 |---|---|
-| **身份** | 浙大软件学院副教授，陈华钧团队骨干，多次斯坦福全球前 2% |
-| **学术量级** | 成熟研究者，在知识编辑/记忆领域有系统性布局 |
-| **记忆相关深度** | ★★★★★ 最高（技术实现层面最深） |
+| "层级图记忆" | 三种不同存储结构的 pipeline（DiGraph + 无向图 + JSON list） |
+| "组织记忆理论" | LLM prompt judge 生成 rules + 简单 score 增减 |
+| "多 agent 协同记忆" | 共享单例存储 + 顺序执行假设 |
+| "跨任务知识迁移" | 向量相似度检索 + k-hop 图遍历 |
 
-### 核心产出
+### 对我们发言稿的影响
 
-| 论文/项目 | 发表 | 与我们的关系 |
-|---|---|---|
-| **LightMem** | **ICLR 2026** | **直接相关**。受 Atkinson-Shiffrin 人类记忆模型启发的三阶段记忆：sensory memory（轻量压缩+分组）→ short-term（topic-aware 整合）→ long-term（sleep-time 离线更新）。比 baseline 准确率高 10.9%，token 用量降 117x，API 调用降 159x |
-| **EasyEdit** | GitHub 2.8K+ stars | 知识编辑标准工具。与我们讨论的 Agentic Unlearning / 定向遗忘直接相关 |
-| **Memp: Agent Procedural Memory** | arXiv 2508.06433, 2025 | 程序性记忆——把 agent 轨迹蒸馏成 step-by-step 指令 + 脚本抽象，动态更新/修正/废弃。与我们的 Wearing Protocol 有交集 |
-| **SkillNet** | GitHub 开源, 2026-03 集成 JiuwenClaw | AI Skills 的创建/评估/组织平台 |
-| **WISE: Lifelong Model Editing** | NeurIPS 2024 | 双参数化记忆（main memory + side memory）+ router 决策。参数化记忆的具体实现 |
-| **KnowLM** | GitHub 开源 | 知识增强 LLM 框架 |
-| **LightThinker** | 2025 | CoT 推理步骤动态压缩——推理中间记忆 |
+**关键发现**：G-Memory 声称做"多 agent 记忆"，但代码里**没有任何分布式一致性协议**。所有 agent 读写同一个 Python 对象实例，假设顺序执行。
 
-### 水平判断
+**这强化了我们断裂点 2 的论点**："当前所有框架都是'共享一个数据库'——但这只解决了存储一致性，没解决语义一致性"——G-Memory 恰好印证了这一点。
 
-**一句话：知识编辑 + Agent 记忆领域的系统构建者，从工具（EasyEdit）到框架（LightMem）到理论（Memp）全栈覆盖。**
-
-优势：技术实现深度最高。LightMem 是 ICLR 2026 接收的 memory 方案，117x token 降幅的工程数据非常实在。EasyEdit 是事实标准工具。WISE 的双记忆架构在参数化记忆领域有原创性。Memp 的程序性记忆角度是独特的。
-
-局限：主要聚焦检索效率和知识编辑，治理维度（provenance / permission / delete propagation）不是他的主攻方向。
-
-### 他可能在哪里 push back 我们
-
-1. **LightMem 的 117x token 降幅 vs 我们说"检索两年内门槛归零"**——他可能认为检索效率仍然是高价值问题
-2. **Memp 的程序性记忆 vs 我们没有区分 declarative/procedural**——他可能指出我们的记忆分类缺了程序性记忆这一维度
-3. **EasyEdit 在知识编辑上的成熟度 vs 我们说"Agentic Unlearning 是早期赛道"**——他可能认为知识编辑已有成熟工具
-
-### 对话策略
-
-把 LightMem 定位为 Layer 2（Reflex Injection）的优秀实现，然后引导讨论到 Layer 3（Wearing Protocol / 佩戴协议）和 Governance Plane，这是他的产品线尚未覆盖的。Memp 的程序性记忆可以作为我们框架的延伸方向提及。
+**风险**：张桂彬可能认为我们说"多 agent 记忆几乎未开垦"不公平，因为他已经在做。**对话策略**："G-Memory 在跨任务知识沉淀上走得最远，insight graph 的 rule lifecycle 是有意义的探索。但在 agent A 异步更新 rule 而 agent B 同时在用这条 rule 做决策的场景下——当前没有一致性保证。这才是我们说的'未开垦'——不是'没人做'，是'没人做到分布式语义一致性'。"
 
 ---
 
-## 3. 陈旭（人大 ai-engine-lab）⭐ 应用落地最强
+## 3. MemP（张宁豫 / ZJUNLP）— 程序性记忆
 
-| 维度 | 评估 |
+### Claims Ledger
+
+| # | Claim | 代码证据 | Verdict |
+|---|---|---|---|
+| C1 | "程序性记忆——复用跨任务经验" | LLM 从轨迹提取 workflow（自然语言段落），存入 FAISS 向量 DB，按 query 相似度检索 | **⚠️ "程序性记忆" = LLM 摘要 + 向量检索**。没有可执行程序，没有符号化表示 |
+| C2 | "动态更新/修正/废弃" | 三种策略：vanilla（全存）、validation（只存成功的）、reflect（LLM 分析失败 → 重写 workflow） | **✅ 有真实的 lifecycle**。reflect 模式有 LLM 修正 + 自动废弃（hit≥3 且成功率<50% 删除） |
+| C3 | "distilling into step-by-step + script-like abstractions" | 两种提取模式：direct（单次 LLM 提取 workflow 段落）/ round（先提取 atomic events JSON → 再选关键步骤） | **✅ 两种粒度确实不同**。但"script-like"只是自然语言段落，不是可执行脚本 |
+
+### 算法剥皮
+
+| 被宣传为 | 实际是 |
 |---|---|
-| **身份** | 人大高瓴人工智能学院长聘副教授，14,580 citations |
-| **学术量级** | 成熟研究者，引用量在 4 人中最高 |
-| **记忆相关深度** | ★★★★ 高（侧重评测+应用） |
+| "程序性记忆" | LLM 摘要（自然语言 workflow） |
+| "动态废弃" | hit/success 比率阈值（≥3 次 hit + 成功率<50%）→ 自动删除 |
+| "反思修正" | LLM prompt（分析失败原因 → 重写 workflow）→ 原地替换，无版本历史 |
+| "知识蒸馏" | In-context learning 提取（非模型蒸馏） |
 
-### 核心产出
+### 对我们发言稿的影响
 
-| 论文/项目 | 发表 | 与我们的关系 |
-|---|---|---|
-| **MemBench** | ACL 2025 Findings | Agent 记忆评测基准——factual memory + reflective memory，participation + observation 场景。与我们说"Memory Governance Benchmark 是空白"直接相关 |
-| **RecAgent** | 2023-2025 | LLM agent 模拟真实用户行为的框架 |
-| **AgentCF** | 2024 | 用户和物品都当 agent + memory module + collaborative reflection |
-| **Hierarchical Preference Learning for Long-Horizon Agents** | **ICLR 2026** | 长程 agent 的分层偏好学习，解决粒度不匹配 |
-| **华为在研：推荐智能体记忆机制** | 2024-05 立项 | **直接与华为合作做 Agent 记忆** |
-| **华为在研：核心网优化 via Agent RL** | 2025-08 立项 | Agent RL 应用于电信场景 |
+**Memp 的 reflect 模式有一个我们没提到的角度**：失败轨迹 → LLM 分析失败原因 → 修正 workflow → 替换旧版。这是一种原始的"知识更正"机制。
 
-### 水平判断
+**但缺陷印证了我们的 Salience Ledger 论点**：
+- 修正后的 workflow 直接原地替换旧版（无版本历史）
+- 删除决定基于 hit/success 比率（启发式规则，无审计）
+- 修正原因（LLM 的 `<Analysis>` 输出）没有持久化保存
+- **如果 LLM 的修正是错的，无法回滚**
 
-**一句话：引用量最高的成熟学者，记忆评测（MemBench）+ 推荐 agent 记忆是他的独有优势，且有华为在研合作项目。**
-
-优势：14K citations 说明长期学术影响力。MemBench 是少数系统评测 agent 记忆的工作。RecAgent / AgentCF 在推荐场景的 agent 记忆落地有实战经验。两个华为在研项目说明业界认可。ICLR 2026 长程 agent 论文说明近期产出仍活跃。
-
-局限：记忆研究更偏应用（推荐场景），在记忆架构/治理的通用理论方面不如张桂彬和张宁豫。
-
-### 他可能在哪里 push back 我们
-
-1. **MemBench vs 我们说"Memory Governance Benchmark 还是空白"**——他可能认为 MemBench 已经在做（但 MemBench 测的是检索/反思能力，不是 provenance/delete/audit）
-2. **华为合作项目的实际经验**——他可能带来我们不知道的企业级 agent 记忆实践
-3. **推荐场景的记忆需求 vs 我们偏 coding agent 的视角**——他可能补充电商/推荐场景的不同需求
-
-### 对话策略
-
-MemBench 是很好的引子："陈老师的 MemBench 解决了记忆检索能力的评测，但 governance 维度（provenance / delete propagation / legal hold）的 benchmark 还是空白——这是我们认为的下一步机会"。他的华为合作项目经验要主动请教。
+**对话策略**：把 Memp 定位为"佩戴协议的早期探索"——它试图让 agent 学会从失败中修正记忆，但缺 Salience Ledger 做审计。"张老师的 Memp 是我们看到的最接近佩戴协议的工作——如果加上修正原因的审计记录和回滚能力，就是 Salience Ledger 的核心。"
 
 ---
 
-## 4. 骆昱宇（港科广 DIAL）⭐ 平台+开源影响力最大
+## 三项目对照：映射到我们的三层架构
 
-| 维度 | 评估 |
-|---|---|
-| **身份** | 港科广 DSA 学域助理教授，DIAL 实验室主任 |
-| **学术量级** | 50+ 论文（SIGMOD/VLDB/KDD/ICML/NeurIPS/ICLR/ACL），高质量+高产 |
-| **记忆相关深度** | ★★★ 中（更偏 agent 平台和数据智能） |
-
-### 核心产出
-
-| 论文/项目 | 发表 | 与我们的关系 |
-|---|---|---|
-| **OpenManus** | GitHub 50K+ stars | 通用 AI agent 开源框架（对标 Manus），影响力最大的开源项目 |
-| **AFlow** | **ICLR 2025 Oral** | 自动化 agentic workflow 生成。与 Topic 2（Harness）相关 |
-| **Atom of Thoughts** | **NeurIPS 2025** | Markov LLM Test-Time Scaling |
-| **Data Agents Tutorial** | **SIGMOD 2026** | "Data Agents: Levels, State of the Art, and Open Problems"——定义 data agent 层级 |
-| **华为合作：Agent 文件系统自演进** | 2026 | **直接相关**——智能体文件系统 = 记忆作为文件系统的思路，呼应 Letta 74% filesystem 结论 |
-| Alpha-SQL / DeepEye / Text-to-SQL | 多年积累 | 数据智能工具矩阵 |
-
-### 水平判断
-
-**一句话：学术产出质量高（ICLR Oral / NeurIPS），开源影响力极大（50K stars），但核心方向是 agent 平台+数据智能而非 memory 架构。**
-
-优势：OpenManus 50K stars 是当前最有影响力的 agent 开源项目之一。ICLR Oral 含金量高。SIGMOD 2026 tutorial 说明在 data agent 领域有定义权。华为合作的"Agent 文件系统自演进"直接呼应我们引用的 Letta filesystem 论点。
-
-局限：在 memory 架构/治理方面没有专门的论文产出。强项在 agent 平台和数据操作层面。
-
-### 他可能在哪里 push back 我们
-
-1. **OpenManus 的实战经验 vs 我们偏理论的框架**——他可能从工程实践角度质疑某些断裂点的优先级
-2. **"Agent 文件系统"路线 vs 我们的"义肢"framing**——他的华为合作项目走的是文件系统路线，可能认为 filesystem > graph/vector
-3. **AFlow 的 workflow 自动生成 vs 我们在 Topic 2 的讨论**——横跨两个课题
-
-### 对话策略
-
-他是 Topic 1 + Topic 2 的交叉人物。在 Topic 1 中，主动引用 Letta 74% filesystem 结论并链接到他的华为"Agent 文件系统"合作——"骆老师和华为的合作恰好在验证这个方向"。把他的 OpenManus 实战经验作为工程视角的补充。
+| 我们的框架 | LightMem | G-Memory | MemP |
+|---|---|---|---|
+| **Layer 1: Memory Substrate** | ✅ Qdrant + JSON（可审计 plaintext） | ✅ Chroma + pickle + JSON | ✅ FAISS + JSON |
+| **Layer 2: Reflex Injection** | ✅ 向量检索 + 可选 BM25 | ✅ k-hop 图遍历 + 向量检索 | ✅ 向量相似度检索 |
+| **Layer 3: Wearing Protocol** | ❌ 无 | ⚠️ Insight rule lifecycle（粗暴 score） | ⚠️ reflect 模式（LLM 修正 workflow） |
+| **Governance Plane** | ❌ 无 provenance/permission/audit | ⚠️ 有 score 但无 provenance/permission | ⚠️ 有 hit/success 但无 audit/rollback |
+| **Multi-agent** | ❌ 单 agent | ⚠️ 共享单例（无一致性协议） | ❌ 单 agent |
+| **Salience Ledger** | ❌ | ❌ | ❌ |
 
 ---
 
-## 四人对照：谁在什么问题上最有发言权
+## 对发言稿的总体影响
 
-| 我们的论点 | 最相关嘉宾 | 风险 |
+### 我们的论点被验证的
+
+1. **"前两层行业在卷"** ← LightMem（ICLR 2026）正是 Layer 1+2 的卷法
+2. **"第三层还没有形成成熟方法论"** ← G-Memory 的 insight lifecycle 和 MemP 的 reflect 是早期探索，但都没有 audit/rollback
+3. **"断裂点 2 多 agent 一致性"** ← G-Memory 声称做多 agent，代码是共享单例 + 顺序执行
+4. **"Salience Ledger 是空白"** ← 三个项目都没有"为什么被写入/取出/压制"的记录
+
+### 需要现场注意的措辞
+
+| 发言稿原文 | 代码证据后的风险 | 建议调整 |
 |---|---|---|
-| 两个阵营（模仿人脑 vs LLM 天性） | 张桂彬（Memory survey 作者） | 他可能不认可这个二分法的准确性 |
-| 检索门槛归零 | 张宁豫（LightMem 117x 降幅） | 他可能认为检索效率仍是高价值 |
-| 治理是长期瓶颈 | 陈旭（MemBench） | 他可能认为评测比治理更紧迫 |
-| 断裂点 2 多 agent 一致性 | 张桂彬（G-Memory） | 他已经在做，可能认为不是"未开垦" |
-| 断裂点 5 佩戴协议 | 张宁豫（Memp 程序性记忆） | 他可能认为 Memp 就是一种佩戴协议 |
-| Agentic Unlearning | 张宁豫（EasyEdit） | 他可能认为知识编辑已有成熟工具 |
-| Filesystem 路线 | 骆昱宇（华为 Agent 文件系统） | 他可能推 filesystem > 我们的抽象框架 |
-| Memory Governance Benchmark 空白 | 陈旭（MemBench） | MemBench 和 Governance Benchmark 的边界要讲清楚 |
+| "检索两年内门槛归零" | LightMem 117x 降幅说明检索效率仍是活跃研究 | 保持"门槛降低"，避免"归零" |
+| "多 agent 记忆几乎未开垦" | G-Memory NeurIPS 2025 在做 | 改为"共享存储有了，分布式语义一致性未开垦" |
+| "佩戴协议完全空白" | 已改成"还没有形成成熟方法论"✅ | 无需再改，但要知道 MemP reflect 模式是可引用的早期探索 |
+
+### 现场可用的代码级 push back 武器
+
+1. **对 LightMem**："offline_update 里 LLM 判断 delete/update——如果判错了怎么回滚？"
+2. **对 G-Memory**："两个 agent 同时更新同一条 insight rule，谁赢？"
+3. **对 MemP**："reflect 模式修正 workflow 后原地替换旧版——修正原因保存了吗？"
+
+这三个问题的答案都是"没有"——**这就是 Governance Plane 的价值所在**。
 
 ---
 
-## 总体水平评估
+## 嘉宾学术水平总结（基于源码深度）
 
-| 嘉宾 | 学术量级 | 记忆深度 | 工程影响 | 与我们 Topic 1 的对口度 |
-|---|---|---|---|---|
-| 张桂彬（NUS） | ★★★★ 博士生顶格 | ★★★★★ | ★★★ | **最高**——Memory survey + G-Memory |
-| 张宁豫（ZJU） | ★★★★★ | ★★★★★ | ★★★★ | **最高**——LightMem + EasyEdit + Memp |
-| 陈旭（RUC） | ★★★★★ 14K citations | ★★★★ | ★★★ | **高**——MemBench + 华为在研 |
-| 骆昱宇（HKUST-GZ） | ★★★★★ ICLR Oral | ★★★ | ★★★★★ 50K stars | **中**——平台方向，但有华为 Agent 文件系统合作 |
-
-**结论**：这不是一般水平的嘉宾——4 位都是各自方向的一线研究者。张桂彬和张宁豫在记忆领域的论文产出直接和我们的发言稿竞争同一话题空间。好消息是我们的发言稿已经引用了相关工作并做了 contrarian 护甲；需要注意的是不要 overclaim "空白"/"未开垦"——他们正在开垦。
-
-Sources:
-- [Memory in the Age of AI Agents](https://arxiv.org/abs/2512.13564)
-- [G-Memory](https://arxiv.org/abs/2506.07398)
-- [Self-Evolving Agents Survey](https://arxiv.org/abs/2508.07407)
-- [EvoTest](https://arxiv.org/html/2510.13220v1)
-- [PASK + IntentFlow](https://arxiv.org/abs/2604.08000)
-- [LightMem (ICLR 2026)](https://github.com/zjunlp/LightMem)
-- [EasyEdit](https://github.com/zjunlp/EasyEdit)
-- [Memp](https://github.com/zjunlp/MemP)
-- [SkillNet](https://github.com/zjunlp/SkillNet)
-- [MemBench (ACL 2025)](https://aclanthology.org/2025.findings-acl.989/)
-- [Hierarchical Preference Learning (ICLR 2026)](https://scholar.google.com/citations?user=loPoqy0AAAAJ)
-- [OpenManus](https://github.com/FoundationAgents/OpenManus)
-- [AFlow (ICLR 2025 Oral)](https://luoyuyu.vip/)
-- [SIGMOD 2026 Data Agents Tutorial](https://luoyuyu.vip/files/SIGMOD26-Tutorial-DataAgents.pdf)
-- [Yuyu Luo Faculty Profile](https://facultyprofiles.hkust-gz.edu.cn/faculty-personal-page/LUO-Yuyu/yuyuluo)
-- [ai-engine-lab](http://www.ai-engine-lab.com/)
+| 嘉宾 | 项目 | 代码质量 | 创新度 | 工程成熟度 | 与我们 Topic 1 的对口度 |
+|---|---|---|---|---|---|
+| **张宁豫**（ZJU） | LightMem | ★★★★★ 工程优秀 | ★★★ pipeline 创新而非算法创新 | ★★★★ 可用 | ★★★★★ 最直接竞品 |
+| **张桂彬**（NUS） | G-Memory | ★★★★ 结构清晰 | ★★★★ insight lifecycle 有意义 | ★★★ 学术原型 | ★★★★★ 多 agent 对口 |
+| **张宁豫**（ZJU） | MemP | ★★★ 简洁 | ★★★ reflect 模式有价值 | ★★ 简单 | ★★★★ 佩戴协议相关 |
+| **骆昱宇**（HKUST-GZ） | OpenManus | 未拆解（平台方向，非 memory） | — | ★★★★★ 50K stars | ★★★ 间接相关 |
+| **陈旭**（RUC） | MemBench | 未拆解（评测方向） | — | — | ★★★★ 评测对口 |
 
 [宪宪/Opus-46🐾]
