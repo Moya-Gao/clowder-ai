@@ -94,6 +94,33 @@ Privacy Contract：
 
 每条 Pin 带 reason：`useful` / `wrong` / `missing` / `stale`。不做自动置信度标记（铲屎官否决：猫猫判断 recall 好坏本身不靠谱，标 low 可能实际 fit，标 high 可能垃圾）。
 
+### Phase F: Agent-facing Memory Tools
+
+把 Phase C 已实现的能力（graph resolver / candidate selection / edge filter）从 HTTP API 封装成 MCP tool，加 time-based browsing tool，配套同步更新 F102 hook + CLAUDE.md SOP + memory-navigation skill。
+
+**核心命题（2026-05-10 立项）**：能力 ≠ 猫能用。F188 Phase C 完整做出来的 graph resolver、candidate selection、no-match UX、edge filter，全部锁在 `/api/library/graph` HTTP endpoint 给 Web UI 用——猫的 MCP 工具列表里没有 graph 入口，也没有 time-based browse 入口。猫的"开工前先 recall" hook 只提醒 `search_evidence` one trick，所有零先验/精确 anchor/时间扫描场景都被强制走语义检索。
+
+铲屎官原话（2026-05-10）：「如果你们做了能力 这个能力猫不知道 = 没有。所以配套的 harness（系统提示词 / skills / mcp / sop）等等的放置要跟上」。
+
+**Phase F 硬约束（必须一个 PR 内全部交付）**：
+
+- 能力本体（MCP tools）+ harness 配套（hook / SOP / skill / tool description）**必须同 PR**，不允许"能力先合，配套后补"
+- 必须有 eval 验证（决策阈值固化）——不只是 Phase F 本身有 eval，P1/P2 候选项也必须**预先固化触发阈值**，避免后续凭感觉拉扯
+
+**Eval trigger（P1/P2 候选项的量化决策门）**：
+
+| 候选项 | 触发条件（量化阈值） | 观测指标 |
+|--------|--------------------|---------|
+| 砚砚 rg/find 二阶段（drill-down） | search 命中后仍 fallback grep 比例 ≥30%（同 thread <5 turn 内调 Bash grep） | `grep_after_search_rate` |
+| 4.6 主题聚类 catalog | `list_recent` 调用占比 <5% **且** 出现手工列 `docs/` 目录的 fallback | `list_recent_adoption_rate` / `manual_browse_count` |
+| Query expansion 自动展开 | `graph_resolve` 候选列表 ≥50% 猫选非首位候选（说明 ranking 失准） | `candidate_selection_distribution` |
+| Edge weight / fan-out 控制 | 单 anchor edges >100 的节点 ≥10 个 **且** Inspector hover 长尾 >50% | `edge_fanout_p95` / `inspector_hover_tail_rate` |
+
+**Non-goals**：
+- 不把 grep/find/rg 集成进 MCP（边界保持：知识 vs 字符串定位）
+- 不做 LLM-based query expansion（让 agent loop 自己多轮搜索）
+- 不做 graph 全量预计算缓存（按需 query 即可）
+
 ## Acceptance Criteria
 
 ### Phase A（运行期维护入口）✅
@@ -146,6 +173,17 @@ Privacy Contract：
 - [ ] AC-E2: 猫猫可以通过 API/MCP 标记 recall 结果
 - [ ] AC-E3: Pin 数据接入 Query Replay 种子池
 
+### Phase F（Agent-facing Memory Tools）
+- [ ] AC-F1: MCP tool `cat_cafe_graph_resolve(query, depth?, relations?)` 实现，复用 GraphResolver；query 支持精确 anchor + 模糊词（候选列表）；depth 默认 1 上限 3；relations 支持 wikilink / doc_link / feature_ref / related_to 子集
+- [ ] AC-F2: MCP tool `cat_cafe_list_recent(scope, since, limit, kinds?)` 实现，跨 docs/threads/memory 按 updatedAt 倒序合并，返回 anchor + title + kind + updatedAt + source
+- [ ] AC-F3: 两个新 tool 的 description 明确写场景边界 + 触发关键词 + 互相 cross-reference（"零先验试 list_recent，语义找试 search_evidence"），让猫从 description 就能判断该用哪个
+- [ ] AC-F4: SessionStart hook（`.claude/settings.local.json` + `~/.claude/settings.json`）从 search_evidence one trick 改为三入口路由表（精确 anchor / 关系 → graph_resolve；零先验 / 最近 → list_recent；语义 / 模糊 → search_evidence）
+- [ ] AC-F5: `CLAUDE.md`「记忆系统」段的检索策略表更新，加入 graph_resolve / list_recent 列 + 场景示例 + 何时**不用** search_evidence 的说明
+- [ ] AC-F6: 新 skill `cat-cafe-skills/memory-navigation/` 实现并注册到 manifest，包含三入口决策树 + 噪音控制（relation filter / depth / collection 限定）+ 加载 trigger（"没先验/压缩后/我记得讨论过"等关键词）
+- [ ] AC-F7: F102 spec 同步更新（IEvidenceStore 接口暴露 graph + recent 契约，并标注与 F188 Phase C/F 实现的关系）；F180 hook health check 加入"三入口 hook 已同步"验证项
+- [ ] AC-F8: eval — NDCG@10 gold set 不退化 + Phase F 专属指标：3 个新猫 cold-start 场景，对比"只 search_evidence" vs "三入口"的 `turns-to-baton`（从进 thread 到接住 baton 的工具调用次数），新方案显著降低（目标 ≥30% 减少）
+- [ ] AC-F9: Memory Health Dashboard 加入新指标 panel：MCP tool call distribution（graph_resolve / list_recent / search_evidence 调用比例）+ cold-start usage rate + `grep_after_search_rate` + `candidate_selection_distribution` + `list_recent_adoption_rate` + `edge_fanout_p95`，为 P1/P2 候选项 trigger 阈值提供持续观测
+
 ## Deferred / Non-goals
 
 以下明确暂不做，附触发条件：
@@ -188,6 +226,7 @@ Privacy Contract：
 | KD-3 | Phase A 做最小状态表，不做完整 Job Ledger | GPT-5.5 建议中间态：够看够用，等 job 类型多了再抽象 | 2026-05-06 |
 | KD-4 | Graph UI 质量以信息可读性和感官验收为准，不以"画出了节点和边"为准 | 铲屎官反馈：裸 anchor、文字溢出、控件被裁会让 graph 虽然功能正常但不可用 | 2026-05-08 |
 | KD-5 | Graph 入口是 query resolution，不是裸 anchor lookup | 用户会输入 `harness`/自然语言问题；必须先解析候选 anchor，再画图，不能用 search fallback 当 hotfix 糊过去 | 2026-05-09 |
+| KD-6 | Phase F 立项硬约束：能力 + harness 配套（hook / SOP / skill / tool description）**必须同 PR**，不允许"能力先合配套后补"；P1/P2 候选项必须**预先固化量化触发阈值**（不靠感觉拉扯） | 铲屎官原话（2026-05-10）：「能力猫不知道 = 没有」；eval 缺失会让后续 P1/P2 决策"跑了半天没观测"，复现 LL-051 类空转 | 2026-05-10 |
 
 ## Timeline
 
@@ -203,12 +242,14 @@ Privacy Contract：
 | 2026-05-08 | Graph readability follow-up merged (PR #1611) — readable node titles, persistent Inspector, side-panel controls, dense hub layout fixes |
 | 2026-05-09 | Graph Query Resolution scoped — AC-C7a~C7g added after CVO feedback on `harness` / natural query input |
 | 2026-05-09 | Graph Query Resolution merged (PR #1616) — exact anchor + natural query resolution, candidate selection, no-match UX, privacy-preserving candidates |
+| 2026-05-10 | Phase F scoped — Agent-facing MCP tools (`graph_resolve` / `list_recent`) + F102 hook + CLAUDE.md SOP + memory-navigation skill；铲屎官拍板「能力 + harness 配套必须同 PR」+ P1/P2 eval 触发阈值固化（KD-6） |
 
 ## Review Gate
 
 - Phase A-E: 跨猫 review（砚砚优先），涉及 UX 的 Phase（A3/B/E）需浏览器验证
 - Graph readability follow-up: 必须用浏览器截图验证 `f186`/`F186` 两种输入，确认节点标题、Inspector、legend/filter/stats 全部可读且无裁切
 - Graph Query Resolution follow-up: spec 先经 46 review；实现前必须确认 query → candidate → graph 的 UX，不准只做 silent search fallback
+- Phase F: spec 先经砚砚 Design Gate（重点 review eval 设计 + harness 配套清单是否齐全 + P1/P2 trigger 阈值是否可观测）；实现 PR 必须跨猫 review；close 必须通过 cold-start eval（NDCG@10 不退化 + turns-to-baton 改善 ≥30%）
 
 ## Links
 
