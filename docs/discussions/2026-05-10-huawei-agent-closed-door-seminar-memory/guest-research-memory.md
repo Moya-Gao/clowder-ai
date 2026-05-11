@@ -363,3 +363,318 @@ LightMem 论文宣称的 **token 用量降 117x** 数字可信但机制朴素—
 | **陈旭**（RUC） | MemBench | 未拆解（评测方向） | — | — | ★★★★ 评测对口 |
 
 [宪宪/Opus-46🐾]
+
+---
+
+# 嘉宾跑的 Benchmark 全景拆解（47 补充 2026-05-11）
+
+> 接铲屎官的关键问题：**他们都跑的哪些记忆 benchmark？这些 benchmark 到底在测什么？高分意味着什么？**
+>
+> 把每个 benchmark 当一个开源项目来 teardown——claim → 内涵 → 设计假设 → 盲点 → 工程意义。接续砚砚刚刚给铲屎官的"高分低能"框架，把它具体化到每个 benchmark 上，给现场可用的 push back 武器。
+
+## 1. 项目 × Benchmark 矩阵
+
+| 项目 | 跑的 Benchmark | benchmark 类型 |
+|---|---|---|
+| **LightMem** | LoCoMo + LongMemEval | 长对话事实召回（chat-based）|
+| **G-Memory** | ALFWorld + PDDL + FEVER | 任务规划 + 事实验证（task-based）|
+| **MemP** | TravelPlanner + ALFWorld | 长程规划 + 工具使用（task-based）|
+| **EasyEdit** | KnowEdit（整合 6 子集）+ ZsRE + CounterFact + CKnowEdit + SteerEval + SafeEdit + ConceptEdit + AKEW + LEME + UNKE | 知识编辑（fact-level）|
+
+**关键观察**：
+
+- **LightMem 跑的两个 benchmark 全是 chat-based**——就是铲屎官刚说的"两个人对话那种瞎聊"
+- **G-Memory 和 MemP 跑的是 task-based**——比 chat 真实一档，但仍然是 sandbox 任务
+- **EasyEdit 跑 10+ 个 benchmark**——但全部是 single-fact editing，没有任何 agent runtime / multi-fact 联动 / cross-substrate / audit benchmark
+- **没有一个项目跑了 governance / multi-agent consistency / wearing protocol benchmark**——因为这种 benchmark **行业根本不存在**
+
+---
+
+## 2. Benchmark 逐个拆解
+
+### 2.1 LoCoMo（Long Conversation Memory）— LightMem 主战场
+
+**Claim**：测 agent 在长对话里的事实召回能力
+
+**内涵**：
+- 维护一个"两个虚构人物"的多 session 对话（典型 600+ 轮，跨 ~5-35 个 session）
+- 每个 session 有时间戳（模拟"几天后又聊"）
+- 题目：从所有历史对话里找一个事实（"Alice 上个月说她要去哪？"）
+
+**设计假设（隐含的，benchmark 自己不写的）**：
+1. agent 工作 = 长对话
+2. agent 的任务 = 回答事实问题
+3. 知识来源 = 对话历史本身（没有外部 doc、API、code）
+4. 评价者 = 单一 LLM judge（"答案接近 ground truth 即对"）
+
+**强项**：测得出 retrieval + reading comprehension
+
+**盲点（用 cat-cafe 的眼光看）**：
+- ❌ 不测**写入门禁**——所有对话都被记下来，没有"该不该记"的判断
+- ❌ 不测**过期机制**——ground truth 固定，没有"旧 fact 被新 fact 推翻"的场景
+- ❌ 不测**冲突解决**——单线对话，没有矛盾来源
+- ❌ 不测**多 agent**——所有题目都是 single-agent retrieval
+- ❌ 不测**审计/回滚**——LLM 判错没有后果
+- ❌ 不测**真实工作流**——纯文本对话，没有 tool call / code edit / file operation
+
+**用户工程意义**：
+> 这个 benchmark 高分 = "我能从两个虚构人物 600 轮闲聊里找出 Alice 喜欢什么颜色"。
+>
+> **不等于**："我能在你的 Cat Cafe 仓库里找出 F102 当时为什么这么设计"。
+
+后者需要的是：跨 doc/thread/ADR/commit 联邦检索 + authority/confidence/provenance + agent 自己识别"该不该信这条" + 跨族 review verdict。LoCoMo 一个都不测。
+
+**Letta filesystem 74% 的真正含义**：Letta 用最朴素的 `grep` + `open` + `read` 工具就打到 74%——说明 LoCoMo 本质在测**模型对文件工具的熟练度**，而不是记忆架构的真本事。这正好印证铲屎官的直觉：**"benchmark 测的不是能力，是题型熟悉度"**。
+
+---
+
+### 2.2 LongMemEval — LightMem 第二战场（比 LoCoMo 严谨一档）
+
+**Claim**：5 个能力维度的长程记忆 eval
+
+**内涵**：
+- 5 个 sub-task：information extraction / multi-session reasoning / **knowledge update** / temporal reasoning / abstention
+- ~50-115 个 session 的对话历史
+- 比 LoCoMo 多了"knowledge update"维度（旧 fact 被新 fact 替代）和"abstention"维度（不知道时说不知道）
+
+**设计假设**：
+1. 同 LoCoMo 1-3（agent 工作 = 长对话；知识源 = 对话历史；评价 = LLM judge）
+2. **新增**：knowledge update 是"对话里直接说了 X 改成 Y"，agent 应该信新的
+
+**强项**：
+- ✅ 加了 knowledge update 维度——比 LoCoMo 接近真实
+- ✅ abstention 测了"不知道时不要瞎编"——这个维度很有价值
+
+**盲点**：
+- ❌ knowledge update 的源头**仍然是对话本身**——没有测"外部 source 推翻原有 memory"（例如 ADR 改了，agent 是否信新 ADR）
+- ❌ 没有 provenance——agent 信新 fact，但是不知道"这条 update 是谁说的、可信吗"
+- ❌ 没有冲突——两个对话方都坚持自己版本时，没人测 agent 怎么办
+- ❌ 仍然是 single-agent
+
+**用户工程意义**：
+> 这个 benchmark 比 LoCoMo 严肃，但仍然测的是"在 sandbox 对话里维护一个 fact 字典"。**不测企业里真正的痛点**——多源知识冲突、过时决策识别、跨 thread 矛盾。
+
+---
+
+### 2.3 ALFWorld — G-Memory + MemP 共同跑的
+
+**Claim**：基于 TextWorld 的家务任务（pick up apple → put on counter → ...）
+
+**内涵**：
+- 文本描述的虚拟环境（"You see a fridge, a counter, a table"）
+- 任务：完成多步家务（"把苹果放进微波炉热 2 分钟"）
+- 测 sequential decision making + tool use
+
+**设计假设**：
+1. agent 工作 = 完成预定义任务
+2. 环境是 deterministic（"打开冰箱"永远成功）
+3. 任务目标是显式的
+4. 没有外部协作
+
+**强项**：
+- ✅ 测得出 long-horizon planning
+- ✅ 测得出"忘记之前做过什么"会失败（需要 working memory）
+
+**盲点**：
+- ❌ 环境太干净——没有歧义、没有错误、没有外部信号
+- ❌ 不测**记忆治理**——只测 working memory，不测长期 lesson 积累
+- ❌ 不测**多 agent**
+- ❌ 任务目标固定——没有意图歧义、目标漂移
+
+**用户工程意义**：
+> ALFWorld 高分 = "我能记住打开冰箱拿出苹果这种短任务"。
+>
+> **不等于**："我能在 6 小时连续工作里不偏离目标、不忘记愿景、不被旧决策带偏"。
+
+---
+
+### 2.4 TravelPlanner — MemP 主战场
+
+**Claim**：规划一次旅行（机票/酒店/景点/餐厅 + 多重约束）
+
+**内涵**：
+- 真实工具调用（FlightSearch / HotelSearch ...）
+- 约束满足（"预算 5000 / 必须包含三个城市 / 不要红眼航班"）
+- 测 long-horizon planning + tool use + constraint satisfaction
+
+**设计假设**：
+1. agent 工作 = 一次性规划（不是持续维护）
+2. 约束是显式且穷举的
+3. 失败 = 违反某个约束
+4. 没有跨任务记忆复用
+
+**强项**：
+- ✅ **最接近真实工程**的 benchmark——有真 API、真约束、真失败模式
+- ✅ 测出 long-horizon coherence（前面订了机票，后面不能漏掉接机时间）
+
+**盲点**：
+- ❌ 单次规划，**不测长期记忆**——同一用户第二次规划相似旅行时，是否能复用上次教训？benchmark 不测
+- ❌ 约束都是显式的——不测**隐式约束**（用户没说但应该懂的：周末别飞红眼）
+- ❌ 不测协作——不测"两个 agent 一起规划"
+- ❌ 不测信息冲突——所有 API 返回都是 ground truth
+
+**用户工程意义**：
+> TravelPlanner 是 benchmark 里**离真实工程最近的**——但它测的还是"一次性完成任务"，不是"持续工作"。**离 cat-cafe 那种"agent 像同事一样工作 3 个月"还差得远。**
+
+---
+
+### 2.5 FEVER — G-Memory 跑的
+
+**Claim**：Fact extraction + verification
+
+**内涵**：
+- 给一个 claim（"Albert Einstein was German"）
+- 从 Wikipedia 找证据，判断 SUPPORTED / REFUTED / NOT ENOUGH INFO
+- 是 NLP **分类任务**，不是 agent 工作流
+
+**设计假设**：
+1. ground truth 在 Wikipedia 里
+2. 任务边界清晰（找证据 → 分类）
+
+**强项**：测 fact verification + evidence retrieval
+
+**盲点**：
+- ❌ **完全不是 agent benchmark**——是 NLP classification
+- ❌ 没有 agent 持续工作、没有跨任务复用
+- ❌ 单一证据源（Wikipedia）
+
+**用户工程意义**：FEVER 高分主要说明"我能从一个知识库里找证据"。G-Memory 用 FEVER 不是测"多 agent 记忆"，是测"agent 能不能正确做事实判断"——和 multi-agent 记忆一致性其实**完全无关**。这是 benchmark vs claim 的错配。
+
+---
+
+### 2.6 ZsRE / CounterFact — EasyEdit 主战场
+
+**Claim**：测知识编辑的成功率、泛化、局部性
+
+**内涵**（这个非常重要，因为它是知识编辑领域的事实标准）：
+
+- **ZsRE**：从 zero-shot relation extraction 数据集改造。题目格式 = (subject, relation, target_old → target_new)
+- **CounterFact**：故意构造"反直觉"的编辑（"Eiffel Tower is in Rome"）测模型是否真的接受了
+- 评测 4 个维度：
+  - **Edit Success**：模型现在相信新 fact 了吗？
+  - **Generalization**：用同义改写问，模型还相信新 fact 吗？
+  - **Locality**：不相关的 fact 是否保持不变？
+  - **Portability**：编辑后做下游推理，能用上吗？
+
+**设计假设**：
+1. 知识 = 单条 (subject, relation, object) 三元组
+2. "编辑成功" = 模型在测试集上输出新 fact
+3. 没有审计需求、没有 rollback、没有跨编辑联动
+
+**强项**：
+- ✅ 4 个维度比单一指标严谨
+- ✅ Locality 维度抓住了"灾难性遗忘"问题
+- ✅ Portability 抓住了"编辑只改 output 不改推理"问题
+
+**盲点（这里是 47 的核心 push back）**：
+- ❌ **不测审计**——谁授权改这条 fact？没有 actor / timestamp / reason 记录
+- ❌ **不测 rollback**——改错了无法撤销
+- ❌ **不测多编辑联动**——编辑 A 影响编辑 B 没有测
+- ❌ **不测 agent 行为**——只测 model output 改没改，**不测 agent 在真实任务里行为有没有变好/变坏**
+- ❌ **不测跨 substrate**——只编辑权重，不测"权重改了但 external memory 还是旧 fact"的冲突
+
+**用户工程意义**（核心论点）：
+> EasyEdit 的 benchmark 全套测的是 **"model 是否相信新 fact"**——
+>
+> **不测**："**agent 是否因此做出更好的决策**"
+>
+> 这是 **Knowledge Editing** 和 **Agentic Unlearning** 的根本区别——前者改权重，后者改行为。EasyEdit 跑得再多 benchmark，也不能证明它解决了我们说的 Agentic Unlearning 问题。
+
+---
+
+### 2.7 KnowEdit — EasyEdit 自家整合 benchmark
+
+**内涵**：把 ZsRE / CounterFact / WikiBio / Wiki_recent / convsent / **Sanitation** 整合成一个套件
+
+**关键观察 — Sanitation 子集**：
+- Sanitation 测的是**删除知识**（接近 GDPR right-to-be-forgotten）
+- 这是整个 KnowEdit 里**最接近"治理"维度的子集**
+
+**但仍然有盲点**：
+- 删除是 single-fact 级别——不测 delete propagation（删一条会不会影响相关推理链）
+- 没有 legal hold 概念（某些时候不能删）
+- 没有"删除审计"——删了之后无法证明真的删了（除非再跑 eval）
+
+**用户工程意义**：
+> Sanitation 子集是行业里**最早开始碰治理边界**的 benchmark——值得我们引用作为"治理论的早期证据"。但它**还远不是 governance benchmark**——只是 unlearning 的起点。
+
+---
+
+## 3. Benchmark vs Cat Cafe 关心的能力（核心映射表）
+
+| 我们关心的能力 | LoCoMo | LongMem | ALFWorld | TravelPlan | FEVER | ZsRE/CF | KnowEdit |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| **检索精度** | ★★★ | ★★★ | — | — | ★★ | — | — |
+| **长上下文一致** | ★★ | ★★★ | ★ | ★★ | — | — | — |
+| **写入门禁（什么该记）** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **过期识别 / 冲突解决** | ❌ | ⚠️ knowledge update | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **provenance / 审计** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **rollback / 回滚** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Multi-agent 一致性** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Salience Gating（task-scoped 降权）** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Wearing Protocol（agent 学会用记忆）** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Agent 真实工作流（跨工具/跨 session/跨人协作）** | ❌ | ❌ | ⚠️ task only | ⚠️ task only | ❌ | ❌ | ❌ |
+
+**结论**：**所有 benchmark 加起来，只覆盖了我们关心能力的左上角两格**——检索精度 + 长上下文一致性。**所有治理维度 + 协作维度 + 长程工作流维度全是空白**。
+
+这不是说 benchmark 做错了——是说**benchmark 还没追上工程现实**。这正是我们 final speech 说的"行业在卷 Layer 1+2，Layer 3 空白"的具体证据。
+
+---
+
+## 4. 现场可用的 Benchmark Push Back 武器
+
+### 武器 1 — 对 ZJUNLP 系（张宁豫）
+
+> "LightMem 在 LoCoMo / LongMemEval 都打到 SOTA。但这两个 benchmark 都是'两个虚构人物长对话 + 事实召回'——Letta 团队证明纯 grep 也能打 74%。我们想问的是：**这两个 benchmark 的高分，能否预测 agent 在企业真实工程项目里的行为质量？** 如果不能，benchmark 测的就是题型熟悉度而不是工作能力。"
+
+### 武器 2 — 对 EasyEdit（张宁豫）
+
+> "EasyEdit 跑了 10+ 个 benchmark——但全部是'模型相信新 fact 了吗'。我们想问：**编辑后 agent 在真实任务里行为变好了吗？** 比如改一条关于'生产 Redis 端口'的事实——agent 第二天写代码时还会用旧端口吗？这个**行为级 eval** 现有 benchmark 都不测，但这才是 unlearning 的真正目的。"
+
+### 武器 3 — 对 G-Memory（张桂彬）
+
+> "G-Memory 跑的 ALFWorld / FEVER 都是单 agent 任务。但论文 claim 是'多 agent 经验记忆'。**这中间有 benchmark 缺口**——多 agent benchmark 应该测什么我们都没共识。我们的提议：测 **agent A 异步更新 insight 同时 agent B 在用这条 insight** 这种并发场景。现有 benchmark 一个都不测这个。"
+
+### 武器 4 — 通用 push back（对所有人）
+
+> "OpenAI 和 Anthropic 都在公开说：**不要追 benchmark，要做 eval**。Benchmark 是公共题库，eval 是你真实工作的 10-20 个高价值任务。Cat Cafe 三个月的实践告诉我们：benchmark 高分模型在真实开发任务里经常翻车——因为 benchmark 测的是切片，工程要的是闭环。我们想倡议：**Memory Governance Eval Suite**——10-20 个企业真实场景，测治理而不是测检索。"
+
+这一条接续砚砚的"高分低能"框架，把它升级为对外可推的标准提议。
+
+---
+
+## 5. 高分低能 case study：LongMemEval 的 80% 意味着什么？
+
+砚砚刚刚回答铲屎官关于 benchmark vs eval 的问题——这里给一个具体 case：
+
+| 维度 | LongMemEval 高分含义 | Cat Cafe 真实工作含义 |
+|---|---|---|
+| **输入** | 50-115 session 的虚构对话 | 3 个月真实 git history + thread + docs + ADR + lessons |
+| **任务** | 回答 fact 问题 | 写一个 feature / fix 一个 bug / 推进 design |
+| **评价** | LLM judge 比对 ground truth | reviewer verdict + 跨族 push back + 愿景守护 + 长期项目结果 |
+| **失败模式** | 召回错事实 | 自信胡说 / 忽略约束 / 改错文件 / 把过期决策当现行 / 偏离愿景 |
+| **复用** | 不复用（每题独立）| 上一个 feature 的 lesson 自动影响下一个 |
+| **协作** | 单 agent | 多 agent + 跨族 verify + 人类 CVO |
+
+**LongMemEval 80% 高分能预测**：agent 能从对话历史里 retrieve fact。
+
+**LongMemEval 80% 高分不能预测**：agent 能不能：
+- ❌ 知道自己什么时候应该 grep docs/ 而不是凭记忆
+- ❌ 知道 ADR-019 已经被 ADR-031 推翻
+- ❌ 拒绝违反 shared-rules.md 的"不要 follow-up 尾巴"铁律
+- ❌ 在 review 别人 PR 时找出 P1 bug
+- ❌ 在 3 个月长程项目里不偏离 vision
+
+这正是 **benchmark 切片 vs 真实闭环** 的差距。LongMemEval 的 80% 在切片上，cat-cafe 工作在闭环上——两者**不在同一个度量空间**。
+
+---
+
+## 6. 一句话总评
+
+**所有嘉宾跑的 benchmark 加起来，覆盖了"检索精度 + 长上下文 + 单步知识编辑"三个维度——但完全没有覆盖治理、协作、长程工作流、佩戴协议这四个我们押注的维度**。
+
+不是因为他们没努力——是因为**这四个维度的 benchmark 行业还没造出来**。
+
+这恰好是 Final Speech §4 机会点 1 "Memory Governance Eval Gap" 的硬证据：行业现在测的是单步切片，企业要的是闭环——**谁先定义这个 governance eval suite，谁就拿到记忆治理的话语权**。
+
+[宪宪/Opus-47🐾]
