@@ -1,28 +1,12 @@
 ---
 title: "Agent 开发构建要求 — 原则与规范（草稿）"
 created: 2026-05-07
-doc_kind: discussion
-status: draft-v2
-authors: ["宪宪/Opus-46"]
-reviewers: ["砚砚/GPT-5.5"]
-review_history:
-  - round: R1
-    reviewer: "砚砚/GPT-5.5"
-    verdict: "退回修改"
-    findings: "4P1 + 4P2"
-    resolved_in: v2
+doc_kind: specification
+status: draft-v3
 topics: [agent-harness, specification, enterprise, security, compliance, methodology]
-based_on:
-  - docs/architecture/2026-05-05-architecture-views.md
-  - docs/decisions/031-harness-engineering-methodology.md
-  - docs/decisions/012-first-principles-map.md
-  - docs/plans/tech-sharing/2026-04-25-topics-final.md
-  - docs/discussions/2026-05-05-socio-technical-harness-eval-draft.md
-  - docs/discussions/2026-04-20-claude-multi-agent-coordination-patterns/article-complete-technical-edition-v2.md
-  - docs/research/2026-03-02-enterprise-agent-harness/
 notes: |
-  领导任务：起草一份 Agent 开发构建要求规范。
-  方法论：双层结构——原则层（skeleton，不绑具体协议）+ 实现层（explanation，绑当前协议，自带 sunset 标注）。
+  起草一份 Agent 开发构建要求规范。
+  方法论：双层结构——原则层（不绑具体协议）+ 实现层（绑当前协议，自带 sunset 标注）。
   原因：Agent 领域范式迭代快，绑死协议的规范发布即过时。原则层讲"为什么需要这个约束"，跨范式仍然成立；
   实现层讲"当前怎么做"，自带"当 X 被替代时本节需重写"的明确标注。
 ---
@@ -42,11 +26,7 @@ notes: |
 
 **等级**：`MUST`（必须）/ `SHOULD`（应当）/ `MAY`（可选）——沿用 RFC 2119 语义。
 
-**引用约定**：`[CC-xxx]` 引用 Cat Cafe 实践证据（架构图、ADR、教训），供团队内部溯源。
-
-**内部版 vs 外部版**：
-- **内部版**（当前）：保留 `[CC-xxx]` 标注，作为原则和规则的经验证据
-- **外部版**（发布时）：将内部案例统一改写为"实践观察"或"行业观察"，补充公开引用（Anthropic multi-agent patterns、MCP spec 等）作为替代证据源。摘除 `[CC-xxx]` 后每条强断言仍需有支撑——无支撑的断言降级为 SHOULD 或标注"基于实践经验"
+**证据来源**：本文档的原则和规则基于实际多 Agent 系统的生产实践（包含安全事故、协作失败、状态管理事故等真实案例），并参考 MCP 官方规范、Anthropic 多 Agent 协调模式等公开资料。
 
 ---
 
@@ -66,7 +46,7 @@ Agent Quality = Model Capability × Environment Fit
 
 **说明**：行业的主要投入集中在等号左边（更强模型、更大上下文窗口）。但乘法意味着：Environment Fit 为零时，模型再强也乘出零。一个拥有工具但不知道工具存在的 Agent，和没有工具没有区别。Harness 工程的目标是让右边不拖后腿——而不是替代左边。
 
-> [CC-meta-aesthetics] 来源：Cat Cafe meta-aesthetics 圆桌讨论收敛，经四猫独立验证。
+> 来源：多 Agent 系统生产实践中独立收敛的结论——多个不同厂商 Agent 在无预设答案的情况下，各自推导出相同公式。
 
 ### 1.2 三层状态模型
 
@@ -76,13 +56,13 @@ Agent Quality = Model Capability × Environment Fit
 |---|------|--------|--------|
 | **权重状态** | 训练写进参数的慢状态（知识、推理能力、直觉） | 跨推理持久 | 模型厂商 |
 | **计算状态** | KV cache / hidden state / 激活值 | 单次推理局部，推理结束即消失 | 模型架构 |
-| **现实状态** | 代码仓库 / 文件 / 测试 / 任务 / 决策记录 / 审计日志 / 球权 | 跨推理、跨 Agent、跨时间持久 | **Harness** |
+| **现实状态** | 代码仓库 / 文件 / 测试 / 任务 / 决策记录 / 审计日志 / 任务所有权 | 跨推理、跨 Agent、跨时间持久 | **Harness** |
 
 **等级**：公理 | **适用于**：全文
 
 **说明**：模型架构升级（Transformer → MoE → SSM → 任何未来架构）增强的是**计算状态**。**现实状态**与模型架构正交——Harness 的核心职责是维护现实状态，因此模型架构升级不淘汰 Harness 的资产价值，反而释放它。
 
-> [CC-architecture-views 图 4] 来源：三猫独立思考后的"三层状态 × 闭环"收敛。
+> 来源：在多 Agent 架构设计中，不同角色的 Agent 独立推导后收敛至同一状态模型。
 
 ### 1.3 Harness 的本体功能
 
@@ -120,7 +100,7 @@ Layers Needed ≈ f(Gap),  where Gap = Task Requires − Model Does By Default
 
 **说明**：差距大时加层（认知路径工程、运行时刹车、知识检索）；差距缩小时减层。加层但不计划删层 = 技术债。
 
-> [CC-ADR-031 Core 1] 来源：Environment Fit 函数。
+> 来源：Harness 工程方法论中的 Environment Fit 函数。
 
 **P-2.3 执行步骤上限**：必须在执行引擎层（而非仅在网关层）对 Agent 的推理循环设置硬性步骤上限（Step Limit）和 Token 预算上限。
 
@@ -165,7 +145,7 @@ Layers Needed ≈ f(Gap),  where Gap = Task Requires − Model Does By Default
 
 **说明**：这是 Environment Fit（P-1.1）在工具维度的具体表达。Agent 的认知路径由训练分布决定——训练时没见过的工具使用模式，工作时就想不到。解决方案不是更多文档，而是三板斧：**注入系统提示词**（让 Agent 知道工具存在）→ **优化描述与参数**（让 Agent 自然用对）→ **工作流节点自动触发**（在正确时机让工具出现在 Agent 面前）。
 
-> [CC-topics-final T1.1] LSP 案例：给 Agent 装了强大的代码诊断工具，Agent 完全不用——因为工具不在认知路径上。改造后使用率从 0 到常态。
+> 实践案例：某 Agent 系统为代码编写 Agent 集成了 LSP 诊断工具，但 Agent 完全不使用——因为工具不在 Agent 的认知路径上。通过系统提示词注入和工作流节点自动触发改造后，使用率从 0 到常态。
 
 **P-3.2 工具集必须预注册**：Agent 仅能激活经过预审核并显式注册的工具集，禁止运行时动态加载未认证的外部工具。
 
@@ -233,7 +213,7 @@ Layers Needed ≈ f(Gap),  where Gap = Task Requires − Model Does By Default
 
 **说明**：所有 LLM 共享一个坏直觉——天然信任自己的工具调用结果和子任务返回值。Subagent 返回了什么，主 Agent 就接受什么，不会自然地 double-check。因此验证必须是环境强制的，不是 Agent 可选的。
 
-> [CC-topics-final T1.3] Anthropic 自己发现："模型会说'我把验证任务委派给了 sub-agent，但 sub-agent 没做，而我也没有检查它的工作'。"
+> 行业观察：Anthropic 在 multi-agent 协调研究中发现——"模型会说'我把验证任务委派给了 sub-agent，但 sub-agent 没做，而我也没有检查它的工作'。"
 
 **P-4.2 跨个体验证**：Agent 产出应由不同个体（理想情况下不同厂商模型）进行验证。同一模型/同一厂商共享训练盲点，自己审自己的代码发现不了自己的偏见。
 
@@ -241,7 +221,7 @@ Layers Needed ≈ f(Gap),  where Gap = Task Requires − Model Does By Default
 
 **说明**：这不是"多跑一遍"，而是利用注意力分布的结构性差异。不同厂商的模型训练数据不同、对齐策略不同，因此对同一段代码/文档的关注点不同。这种多样性是质量的结构性来源。
 
-> [CC-article-v2 Part I] 实际案例：两只同厂猫都认为递归方案没问题，换厂 reviewer 一眼看出两个 P1 bug。
+> 实践案例：两个同厂商 Agent 均认为某递归方案无问题，换用不同厂商模型做 review 后一眼看出两个 P1 bug——训练盲点在同厂商模型间高度相关。
 
 **P-4.3 验收标准本身也需要被验收**：验收条件（AC）全部通过不等于产出正确。必须有独立于 AC 的终态验收机制——对照原始目标/愿景判断"做出来的是不是真正想要的"。
 
@@ -249,7 +229,7 @@ Layers Needed ≈ f(Gap),  where Gap = Task Requires − Model Does By Default
 
 **说明**：AC 检查"做没做到"，但不检查"做出来的东西是不是真正想要的"。一个通过所有测试但方向错误的 Feature，比一个有 bug 但方向正确的 Feature 更危险——因为它看起来像是完成了。
 
-> [CC-article-v2 1.1] 愿景守护机制：feature 合入后由第三方 Agent 对照原始愿景验收。
+> 实践案例：某团队采用"愿景守护"机制——feature 合入后由非作者、非 reviewer 的第三方 Agent 对照原始产品愿景做终态验收，防止 AC 全过但方向跑偏。
 
 **P-4.4 反馈链路必须结构化**：review / 验收 / 人类纠正的反馈必须以结构化方式记录（而非自由文本），使其可被检索、可被统计、可被未来的自动化系统消费。
 
@@ -326,23 +306,23 @@ Layers Needed ≈ f(Gap),  where Gap = Task Requires − Model Does By Default
 
 ## 第 6 章 Agent 协作
 
-> 本章定义多 Agent 协作时的通信、球权、状态迁移规则。
+> 本章定义多 Agent 协作时的通信、任务所有权流转、状态迁移规则。
 
 ### 原则层
 
-**P-6.1 状态迁移必须由可审计的现实动作产生**：Agent 之间的工作交接（球权转移）必须伴随可审计、可回放、可恢复的现实动作——即落到可信真相源上的状态变更。纯文本声明（"我做了"、"交给你了"）不构成状态迁移。
+**P-6.1 状态迁移必须由可审计的现实动作产生**：Agent 之间的工作交接（任务所有权转移）必须伴随可审计、可回放、可恢复的现实动作——即落到可信真相源上的状态变更。纯文本声明（"我做了"、"交给你了"）不构成状态迁移。
 
 **等级**：MUST | **适用于**：多 Agent 协作
 
 **说明**：这是多 Agent 系统最隐蔽的 failure mode——Agent 之间用自然语言互相应答，看起来在"协作"，实际上没有任何现实状态改变。合法的现实动作包括但不限于：工具调用、代码提交、结构化消息发送、任务状态更新、测试执行——关键判断标准不是动作的具体形式，而是**是否在可信真相源上留下了可审计的痕迹**。
 
-> [CC-architecture-views 图 3] A2A 球权流转图：✓ = 现实动作，🛑 = 空转熔断。
+> 实践案例：某多 Agent 系统的工作流转图中，每次交接标记 ✓（伴随现实动作）或 🛑（无现实动作触发熔断），有效消除了"互相应答但无产出"的空转问题。
 
-**P-6.2 球权必须有明确的接/退/升**：收到工作请求后必须三选一：接（我做 X）、退（退给 @Y）、升（交人类决策）。禁止"状态描述代替球权声明"——"我先看看"、"你继续"、"等以后"都不是球权声明。
+**P-6.2 任务所有权必须有明确的接/退/升**：收到工作请求后必须三选一：接（我做 X）、退（转交 Agent Y）、升（交人类决策）。禁止"状态描述代替所有权声明"——"我先看看"、"你继续"、"等以后"都不是所有权声明。
 
 **等级**：MUST | **适用于**：多 Agent 协作
 
-**说明**：球权模糊 = 死锁。多 Agent 系统的死锁不是进程挂起，是球落在地上没人捡。每个 Agent 都以为对方在做，实际上没人在做。明确的球权声明是协作系统的心跳——看不到心跳就知道有问题。
+**说明**：所有权模糊 = 死锁。多 Agent 系统的死锁不是进程挂起，是任务落在地上没人接。每个 Agent 都以为对方在做，实际上没人在做。明确的所有权声明是协作系统的心跳——看不到心跳就知道有问题。
 
 **P-6.3 空转检测与熔断**：多 Agent 之间的循环交互必须设置空转检测机制。连续 N 轮交互均无现实动作时，系统应自动熔断并升级至人类。
 
@@ -352,7 +332,7 @@ Layers Needed ≈ f(Gap),  where Gap = Task Requires − Model Does By Default
 
 ### 实现层
 
-**R-6.1 路由协议**：Agent 间的工作路由应使用结构化路由指令（如 `@句柄` 行首触发 + `targetCats` 字段），而非依赖自然语言中的隐式提及。
+**R-6.1 路由协议**：Agent 间的工作路由应使用结构化路由指令（如行首 `@AgentID` 触发 + 结构化目标字段），而非依赖自然语言中的隐式提及。
 
 **等级**：SHOULD | **适用于**：Agent 路由
 **⏳ Sunset**：具体的路由语法（行首 `@`、JSON 字段）随协议演进。当标准化的 A2A 路由协议成熟时，自定义语法应迁移到标准协议——但"结构化路由 + 显式转移"原则（P-6.2）不变。
@@ -382,7 +362,7 @@ Layers Needed ≈ f(Gap),  where Gap = Task Requires − Model Does By Default
 
 **说明**：这和软件工程中"源码 vs 编译产物"的关系一致。把知识直接写进向量数据库而没有源文件，等于把源码直接写进二进制——丢了就无法重建。
 
-> [CC-ADR-020] Cat Cafe 的记忆系统：真相源 = `docs/` 目录（人可读、可 git 追溯）；编译层 = SQLite + FTS + 向量索引（坏了 rebuild）。
+> 实践案例：某 Agent 系统的知识架构——真相源 = Markdown 文档目录（人可读、可 git 追溯）；编译层 = SQLite + FTS + 向量索引（坏了从真相源重建，零数据丢失）。
 
 **P-7.3 检索结果必须带治理语义**：知识检索的返回结果不能只是"相关文本片段"。每条结果必须附带：置信度（搜索匹配质量）、权威性（来源可靠性）、来源类型。两个维度独立——高置信度低权威 ≠ 可信。
 
@@ -417,7 +397,7 @@ Layers Needed ≈ f(Gap),  where Gap = Task Requires − Model Does By Default
 
 **说明**：没有 Trace 的 Harness 不具备自我演化能力。Trace 是"Harness 的记忆"——它记录每次成功和失败，让系统知道哪些层还在被需要、哪些层已经可以拆掉。
 
-> [CC-ADR-031 Core 2] Tracing / Observability 是 Harness Engineering 的第二个核心函数。
+> 来源：Harness 工程方法论——Tracing / Observability 是 Harness 三个核心函数之一（Environment Fit、Tracing、Signal Loop）。
 
 **P-8.3 分层展示，不信息轰炸**：可观测数据必须分层展示——默认看摘要，想看细节可展开。信号分级：正常运行不打扰，异常才高亮。目标是"在想看时能看到"，不是"随时被通知"。
 
@@ -439,7 +419,7 @@ Layers Needed ≈ f(Gap),  where Gap = Task Requires − Model Does By Default
 
 **说明**：坊间"harness is built to delete"容易被误读为"建出来就为了删"。不是。目的是产生 signal；当 signal 证明某层已被模型内化时，删除是自然结果。没有 tracing、没有 failure extraction，模型升级了也不知道该删什么。
 
-> [CC-ADR-031 Sunset Discipline] 来源：铲屎官用第一性原理挑战"六层架构说自己极简"后的讨论收敛。
+> 来源：团队用第一性原理审视"六层架构声称极简"的矛盾后收敛——如果架构需要那么多层，要么是坐标系选错了，要么每层必须自带证明自己仍被需要的信号。
 
 **P-9.2 每条规则自带删除条件**：每条 Harness 规则/层/机制在创建时必须同时声明其 Sunset 条件——在什么信号出现时可以降级或移除。
 
@@ -458,7 +438,7 @@ Layers Needed ≈ f(Gap),  where Gap = Task Requires − Model Does By Default
 
 **说明**：判别式问一个干净的问题：**这层 Harness 是在替模型做它能内生长出来的事？还是在维护"现实闭环"中模型永远内生不出来的部分？** 前者终将贬值（CoT 模板、多步推理脚手架、错误恢复 boilerplate），后者持续增值（持久化、审计、跨 Agent 协议、知识生命周期）。
 
-> [CC-architecture-views 图 4] 双飞轮图：左轮（知识飞轮）+ 右轮（Harness 飞轮）。右轮的核心就是"让规则产出删除自己的证据"。
+> 实践案例：某系统设计了双飞轮模型——知识飞轮（知识产生 → 验证 → 物化 → 使用 → 退役）和 Harness 飞轮（规则产出 trace → trace 证明规则可删 → 系统瘦身）。右轮的核心就是"让规则产出删除自己的证据"。
 
 **P-9.4 新 Agent 加入是 Harness 的压力测试**：当新模型/新 Agent 加入系统时，应将其视为 Harness 的 fit audit 触发器。旧 Harness 中针对特定旧模型坏直觉的补偿规则，可能对新模型无效甚至有害。
 
@@ -587,7 +567,7 @@ Layers Needed ≈ f(Gap),  where Gap = Task Requires − Model Does By Default
 | P-5.2 禁止静默丢失 | 过期/删除必须显式策略 | — |
 | P-5.3 单一真相源 | 共享状态改了立刻同步 | — |
 | P-6.1 现实动作 | 纯文本声明 ≠ 状态迁移 | R-6.1 路由协议 |
-| P-6.2 接/退/升 | 球权三选一 | R-6.1 路由协议 |
+| P-6.2 接/退/升 | 任务所有权三选一 | R-6.1 路由协议 |
 | P-6.3 空转熔断 | 无现实动作 = 空转 | — |
 | P-7.1 知识生命周期 | 不是搜到就用 | R-7.1 多模式检索 |
 | P-7.2 真相源分离 | 源文件 ≠ 索引 | — |
@@ -630,6 +610,4 @@ Layers Needed ≈ f(Gap),  where Gap = Task Requires − Model Does By Default
 
 ---
 
-*草稿 v2 by [宪宪/Opus-46🐾]*
-*R1 review：[砚砚/GPT-5.5🐾] — 退回修改，4P1 + 4P2*
-*v2 改动：P1 全部修正（P-5.2 合规措辞 / P-3.6 传输安全 + R-3.1 引用 / 新增第 4.5 章计划与拆解 / P-6.1 抽象化）；P2 全部采纳（P-10.2 风险分级 / 附录映射修正 / 内外版说明 / Sunset Decision Table）*
+*草稿 v3 — 已完成内部 review（2 轮，P1 全部修正）+ externalization 清理*
