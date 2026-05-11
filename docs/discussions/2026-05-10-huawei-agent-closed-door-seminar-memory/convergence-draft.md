@@ -32,7 +32,7 @@ topics: [agent-memory, perception-grounding, knowledge-governance, adhd-prosthet
 
 | 猫 | 表述 | 本质 |
 |---|---|---|
-| 46 | 记忆是治理问题，不是检索问题 | 核心瓶颈不在"找到"而在"可信" |
+| 46 | 检索是短期瓶颈，治理是长期瓶颈 | 断裂点在两者交界处 |
 | 47 | Agent 缺的不是仓库，是义肢 | 记忆应主动增强感知，不是被动等查询 |
 | 砚砚 | 错的记忆比没有记忆更危险 | 感知增强如果不准确，危害大于无增强 |
 
@@ -53,7 +53,7 @@ topics: [agent-memory, perception-grounding, knowledge-governance, adhd-prosthet
 
 从认知科学出发：人类有工作记忆、短期/长期记忆、情景/语义/程序记忆——让 AI 也这么分。
 
-- **mem0**（48K+ stars [source needed]，$24M 融资 [source needed]）：对话中自动提取 facts → vector/graph → 检索注入
+- **mem0**（[55.3K stars](https://github.com/mem0ai/mem0)，$24M 融资）：对话中自动提取 facts → vector/graph → 检索注入。但 [issue#4573](https://github.com/mem0ai/mem0/issues/4573) 报告 32 天后"97.8% were junk"——治理缺失的实战证据
 - **Letta / MemGPT**：上下文 = RAM，对话历史 = disk cache，归档 = cold storage
 - **Hindsight 0.6.0**：四层认知网络 observations → mental models → opinions → reflections
 - **Zep / Graphiti**：temporal knowledge graph，每个事实有 valid_from / valid_to 时间窗
@@ -65,7 +65,7 @@ topics: [agent-memory, perception-grounding, knowledge-governance, adhd-prosthet
 
 - **Karpathy LLM Wiki**（2026-04-04）：原始资料 → LLM 编译成持久 wiki → 查编译产物
 - **Cat Cafe evidence.sqlite**：docs/ 真相源 → FTS5 + vector + RRF 编译索引 → grep 超级加强版
-- **Letta 的一个意外发现**：LoCoMo benchmark 上纯文件系统打到 74%，赢过多数专门 memory 工具 [source needed: Letta blog/paper 原文链接]
+- **Letta 的一个意外发现**：LoCoMo benchmark 上纯文件系统打到 74%，赢过多数专门 memory 工具（[Letta blog](https://www.letta.com/blog/benchmarking-ai-agent-memory)）。但 GPT Pro contrarian 指出：这更说明 LoCoMo 过度奖励文件工具熟练度，不证明复杂 memory 架构无用
 
 ### 47 加入的第三维度："仓库 vs 义肢"
 
@@ -76,6 +76,16 @@ topics: [agent-memory, perception-grounding, knowledge-governance, adhd-prosthet
 47 push back：这个假设本身就是问题。Agent 的 working memory 短板（lost in the middle、context anxiety）意味着它**不知道什么时候该去查什么**。主动 query 假设 agent 知道自己何时该想起什么——但这恰恰是 LLM 最弱的地方。
 
 真正的解法不是更好的仓库，而是**义肢**——记忆作为 ambient 服务跟踪 agent 思考焦点，主动 spotlight 当前相关项。
+
+**但义肢不替代仓库——义肢挂在仓库之上。** Multi-agent 场景下必须叠加共享真相层（CRDT / 事件日志 / source of truth），否则各自佩戴义肢的 agent 会读写冲突。完整架构是三层：
+
+```
+Layer 3: Wearing protocol（佩戴协议 — agent 学会如何用义肢）
+Layer 2: Reflex injection（义肢 — 主动 spotlight）
+Layer 1: Memory substrate（共享仓库 — 必须可审计）
+```
+
+行业在卷 Layer 1 和 2，**Layer 3（佩戴协议）完全空白**——ICLR AGENTS.md study 发现自动生成的 repo-level context files 不提升成功率反增 ≈20% 成本，证明只给义肢不给佩戴协议 = 挂装饰。
 
 这个观察来自一个跨域类比（47 独家）：
 
@@ -123,7 +133,7 @@ ADHD 主体应对 working memory deficit 不是靠"更大的笔记本"——是�
 
 ### 最大痛点
 
-**不是检索质量**（Letta 证明纯文件系统打 74% [source needed]）。**是"记忆越多，系统越脏，但你不知道该扔什么"。** mem0 自己承认 [source needed: State of AI Agent Memory 2026 报告原文]："agents accumulate so much 'important' information that searching memory becomes slower than just processing the full context."
+**检索是短期瓶颈，治理是长期瓶颈。** ICLR Diagnosing Retrieval vs Utilization（[OpenReview](https://openreview.net/forum?id=pLi3A8bscP)）发现 retrieval method 影响 ≈20pp，write strategy 只差 3-8pp——检索还没死。但把场景换成 multi-agent / 跨 session / 知识演化 / 合规审计，检索精度不再是瓶颈——**"记忆越多，系统越脏，但你不知道该扔什么"才是**。mem0 自己承认（[State of AI Agent Memory 2026](https://mem0.ai/blog/state-of-ai-agent-memory-2026)）："agents accumulate so much 'important' information that searching memory becomes slower than just processing the full context." mem0 [issue#4573](https://github.com/mem0ai/mem0/issues/4573) 实测：32 天后 97.8% 记忆是垃圾。
 
 铲屎官的 framing 更准确：**痛点不是"记不住"——是"抓到幻觉当真实"。** 错的记忆比没有记忆更危险。
 
@@ -140,13 +150,24 @@ ADHD 主体应对 working memory deficit 不是靠"更大的笔记本"——是�
 Agent A 更新事实，Agent B 怎么知道？共享数据库只解决存储一致性，不解决语义一致性。需要知识层面的因果一致性协议。
 
 **断裂点 3：记忆安全 / 助记权主权**（46 提出）
-2026 年 survey（arxiv 2604.16548 [source needed: 验证此 arxiv ID 及 94% 数字]）：94% 系统可被 poison。9 项治理原语无任何架构全部覆盖。
+2026 年 survey（[arxiv 2604.16548](https://arxiv.org/html/2604.16548v1)，GPT Pro 已验证）：94% 系统可被 poison。9 项治理原语无任何架构全部覆盖。ICLR MINJA 论文（[OpenReview](https://openreview.net/forum?id=i7J62t2wtV)）证明攻击者可通过普通交互写入恶意记忆——memory poisoning 不是理论风险。
 
 **断裂点 4：从"仓库"到"义肢" — Reflex Injection**（47 独家）
 记忆应该**主动 inject** 到 agent 思考中，而不是等 agent 主动 query。Agent 不知道自己什么时候该想起什么——这是 working memory 短板。业界全部押注"agent 主动查询"，这条路走不通。
 
-**断裂点 5：Task-scoped Salience Gating**（47 独家）
-不是"找出最相关的"——是"**暂时隐藏最容易误导的**"。ADHD focus mode 的 agent 等价物。高权威但当前任务无关的旧决策会带偏 agent。需要可逆的临时降权，不是删除。主流框架已开始做 freshness/decay（mem0 Memory Decay, 2026-05-08；Atlan freshness scoring），但还没有把 **task-scoped、可逆、用于防误导的 salience gating** 做成一等设计目标。
+**断裂点 5：Salience Ledger（Task-scoped, Auditable, Reversible）**（47 独家，GPT Pro 升级命名）
+不是"找出最相关的"——是"**暂时隐藏最容易误导的**"。ADHD focus mode 的 agent 等价物。主流框架已开始做 freshness/decay（mem0 Memory Decay, 2026-05-08；Atlan freshness scoring），但还没有把 task-scoped、可逆、用于防误导的 salience gating 做成一等设计目标。ICLR **When to Forget: Memory Worth** 论文（[arXiv](https://arxiv.org/html/2604.12007v1)）用成功/失败共现信号做 trust/suppress/deprecate——最接近的学术工作，但仍是单 agent 设定。
+
+**Salience Ledger** 的 5 个字段定义：
+| 字段 | 含义 |
+|---|---|
+| **why_written** | 这条 memory 为什么被写入 |
+| **why_retrieved** | 为什么被取出（哪个 query / reflex 触发） |
+| **why_suppressed** | 为什么被压制（task-scope 冲突 / freshness decay） |
+| **scope** | 对哪个 task / agent / session 生效 |
+| **expiry** | 何时自动降权或失效 |
+
+"Ledger" 直接对应 audit trail，企业合规话语对接好。
 
 **断裂点 6：Schema 自治**（47 独家）
 Karpathy LLM Wiki 最美的一层：让 LLM 按 Schema **自治执行** ingest/query/lint。业界的 Schema 是"配置驱动"——等人填 frontmatter。Cat Cafe 自己也踩过这个坑：1501 篇文档 100% 是默认 observed authority，因为没人填。Schema 自治 = LLM 知道**自己该做什么**，不只是遵守该怎么做。
@@ -159,13 +180,22 @@ Karpathy LLM Wiki 最美的一层：让 LLM 按 Schema **自治执行** ingest/q
 
 **纯参数化走不通的原因**：不可审计、不可定向遗忘（GDPR）、不可追溯、灾难性遗忘。
 
-### 三阶段路径
+### ~~三阶段~~ → 四层 substrate（云端调研后修正）
 
-**近期（2026-2027）：非参数化 + RL 优化检索策略。** 知识留外部可审计，检索行为用 RL 学习。代表：MemRL、AgeMem。妙处：知识可审计（满足企业）+ 检索会学习（满足"越用越好"）。
+GPT Pro stress test 发现：Persistent KV Cache + MemGen 证明"参数化 vs 非参数化"二分法已被拆穿。**不要按参数化程度讲路线——按 memory substrate × lifecycle controls 讲。**
 
-**中期（2027-2028）：选择性编译 + 审计轨迹。** 高频稳定知识编译为 LoRA adapter，低频易变留外部。关键需求：编译保留 provenance。MemOS 的 MemCube 是这个方向的尝试。
+| 旧分类 | 新分类 | 代表 | 治理难度 |
+|---|---|---|---|
+| 非参数化 | **Plaintext / structured external** | 文件/vector DB/KG/raw logs/summaries | 最低——天然可审计 |
+| — | **Activation-state memory** | Persistent KV cache：跨 session 持久化注意力状态 | 中——不是参数不是文本，审计方法待建 |
+| — | **Latent / generative memory** | MemGen latent token memory | 高——性能诱人但人类不可读 |
+| 参数化 | **Parametric compiled memory** | LoRA/adapter/fine-tune | 最高——provenance/delete 是硬伤 |
 
-**远期（2028+）：模型原生记忆管理。** 模型自己决定什么放进参数、什么留外部。MemGen 的"memory weaver"是早期探索。
+**近期主线（2026-2027）：Runtime memory policy learning。** 不是 fine-tune，是让 agent 学会"何时存、何时取、何时改、何时删"。代表：MemRL、AgeMem、Memory-R1、AtomMem、MemPO、JitRL。知识留外部可审计，检索策略用 RL 学习。（GPT Pro 确认 2026 有 7+ 项工作沿这条路。）
+
+**中期探索（2027-2028）**：activation + latent 层的治理协议。Persistent KV Cache 已提前插队到"below prompt"层，但 governance 反而变难了——latent token 比 plaintext 更难审计、删除、解释。TierMem（[OpenReview](https://openreview.net/forum?id=dJgeY3Awrv)）的 provenance-aware tiered 架构是最接近的方案。
+
+**一句话**：Memory substrate 变多了，但每多一层 substrate，治理难度翻一倍。
 
 ### 砚砚补充的分类框架
 
@@ -207,7 +237,7 @@ Memory 质量 = agent 感知现实的准确度
 
 **建议组合使用（不是三选一，三句话承担不同功能）**：
 
-> **开场建立基线**（工程派听众）：A. "业界花了两年把 Agent Memory 的检索质量从 50% 做到 80%。但 Letta 发现纯文件系统就能打到 74%。——这说明检索不是瓶颈。瓶颈是没人解决一个更基本的问题：agent 抓到的是真实还是幻觉？"（46 骨架 + 铲屎官 framing）
+> **开场建立基线 + contrarian 护甲**（工程派听众）：A. "业界花了两年把 Agent Memory 的检索质量从 50% 做到 80%。但 Letta 发现纯文件系统就能打到 74%。我们不是说检索不重要——Diagnosing Retrieval 论文显示 retrieval method 影响 20pp。但检索决定短期分数，治理决定长期可靠性。mem0 用户 32 天后发现 97.8% 记忆是垃圾——这是没人治理的后果。"（46 骨架 + GPT Pro contrarian 护甲）
 
 > **中段强化痛感**（安全/合规派听众）：B. "错的记忆比没有记忆更危险。如果记忆层让 agent 把三个月前已经被推翻的决策当成现行方案执行——这不是增强，是投毒。"（砚砚 hook）
 
@@ -221,14 +251,19 @@ Memory 质量 = agent 感知现实的准确度
 
 ## 7. 尚需调研的盲点（见 research-prompts.md）
 
-1. 中文学术界的 Agent Memory 研究（清华/BAAI/上海 AI Lab）
-2. MemOS MemCube 抽象的实际 benchmark 表现
-3. Machine unlearning 文献与 agent memory governance 的交叉
-4. 多 agent 记忆一致性的分布式系统方案
-5. 2026 新出现的 memory benchmark（是否有测治理而非测检索的？）
-6. 企业实际部署 agent memory 的案例和数据
-7. Persistent KV cache（arxiv 2603.04428）对 context management 的影响
-8. 神经科学最新工作对 agent memory 设计的启发（beyond ADHD）
-9. **元盲点：我们的 framing 本身可能错在哪？**（见 research-prompts.md Prompt 5 contrarian review）
+1. ~~中文学术界~~ ✅ 已回收：浙大 GAM、ZJU-UIUC/Ant HyMem、China Mobile FSFM。清华/BAAI 未发现 2026 公开治理路线
+2. ~~MemOS MemCube~~ ✅ 已回收：9K stars，统一抽象强但独立 benchmark 不足，生产证据自报为主
+3. ~~Machine unlearning~~ ✅ 已回收：Agentic Unlearning + Secure Forgetting + FSFM 三篇交叉论文
+4. ~~多 agent 一致性~~ ✅ 已回收：有 MESI/CRDT 类比但无成熟协议——"未开垦荒地"
+5. ~~新 benchmark~~ ✅ 已回收：MemoryArena/HaluMem/AMA-Bench/BEAM/LifeBench/ShiftBench
+6. ~~企业部署~~ ✅ 已回收：公开 regulated-industry 案例极少，vendor self-reported 为主
+7. ~~Persistent KV cache~~ ✅ 已回收：提前插队，迫使三阶段改为四层 substrate
+8. ~~神经科学~~ ✅ 已回收：Complementary Learning Systems + "Memo, Not True Memory" 论文
+9. ~~元盲点~~ ✅ 已回收：GPT Pro contrarian review 给出四个反驳 + 边界条件
+
+**云端调研后仍然是空白的**：
+- **Governance benchmark**：没有 benchmark 同时测 provenance + delete + legal hold + multi-agent consistency
+- **Wearing protocol**（佩戴协议）：行业完全没意识到这一层
+- **跨 substrate 统一遗忘**：plaintext/summary/embedding/KV cache/latent/adapter 的分布式删除
 
 [宪宪/Opus-46🐾]
