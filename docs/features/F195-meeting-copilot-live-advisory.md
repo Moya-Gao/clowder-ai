@@ -8,7 +8,7 @@ created: 2026-05-09
 
 # F195: Meeting Copilot — 实时会议私人智囊团
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -84,7 +84,7 @@ created: 2026-05-09
 
 **验证状态**：铲屎官已确认"做好准备很容易表现得好"（2026-05-10），会前能力已有正向验证信号。Phase A 是在固化已验证的能力，不是从零验证假设。
 
-### Phase B: 会中实时智囊（调研后定方案）
+### Phase B: 会中实时智囊（调研后定方案） ✅
 
 **目的**：Phase A 验证通过后，投入会中实时能力。
 
@@ -381,6 +381,16 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 > - spec 不应只聚焦"会中"，AUDHD 认知负荷跨会前/会中/会后
 > - Phase A = 会前+会后先验证猫的内容价值，再决定是否投入 Phase B/C 会中
 > - 技术难度排序：会前(零) → 会后(低) → 会中(高)——先做容易的验证假设
+
+---
+
+## Timeline
+
+| Date | Event |
+|------|-------|
+| 2026-05-09 | 三猫头脑风暴 + 砚砚 review 补充 |
+| 2026-05-10 | 调研完成 + 铲屎官拍板实施范围 |
+| 2026-05-11 | Phase B merged (PR #1624) — 音频采集+ASR+MCP工具+TranscriptPanel+API proxy |
 
 ---
 
