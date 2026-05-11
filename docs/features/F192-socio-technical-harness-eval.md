@@ -75,16 +75,18 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 
 ### Phase D: Eval Infrastructure Completion + Tool Eval Expansion
 
-Phase C 骨架跑通后，完善基础设施 + 扩展到更多工具。含原 Phase C scope + 三猫讨论的剩余 AC。
+Phase C 骨架跑通后，完善基础设施 + 扩展到更多工具。含原 Phase C scope + 三猫讨论的剩余 AC + 愿景守护新增 AC。
 
+- **Instrumentation Gap Closure（前置）**：实施 Phase C 暴露的 6 个 add-counter findings，让 L1/C1/C2 进入 confidence ≥ medium。这是其他 D-AC 的前置——没有 instrument 就没有 data，D2 snapshot store 存的是空气
 - Harness Component Registry：F167 每个 harness 组件拆出 hard/soft/eval 三栏
 - Snapshot Store：daily scheduled task 从 F153 拉聚合摘要，解决 24h TTL 限制
 - End-to-End Verification：pipeline 复现 Phase B fixtures 的已知 friction（recall gate）
-- Self-Eval Contract：Phase C pipeline 自己填 Eval Contract（meta-eval），含 sunset signal
+- Self-Eval Contract：Phase C pipeline 自己填 Eval Contract（meta-eval），含 sunset signal + attribution action-rate metric
 - Top-5 MCP 工具写 tool eval contract（search_evidence、post_message、hold_ball、browser tools、rich block）
 - 注册 monthly scheduled task `harness-fit-digest`
 - 跑第一次 micro fit digest，评估 Phase A/B/C 的机制是否太重
 - 根据 digest 结论决定：升级为 ADR / 精简 / sunset
+- **Attribution Action-Rate（meta-loop）**：tracking findings → acted-on 比例，连续 3 月 < 50% 则 pipeline 自候选 sunset
 
 ## Acceptance Criteria
 
@@ -112,6 +114,7 @@ Phase C 骨架跑通后，完善基础设施 + 扩展到更多工具。含原 Ph
 - [x] AC-C4: Phase B Reclassification——F192 spec 明确写入：Phase B = 预期声明层（should be），Phase C = 实际观测层（actually is），diff = eval 信号。Phase B 产物保留但定位为 L0/L1/L4 支撑层，不是 runtime eval 完成证明
 
 ### Phase D（Eval Infrastructure Completion + Tool Eval Expansion）
+- [ ] AC-D0: Instrumentation Gap Closure（前置）——实施 Phase C 暴露的 add-counter actions：`streak_warn_count` / `streak_break_count`（L1）、`zombie_hold_count` / `hold_cancel_count`（C1）、拆分 `hint_emitted` 为 routing/verdict 两个独立 counter（C2）、`verdict_without_pass_count`（C2）。完成后 L1/C1/C2 confidence ≥ medium
 - [ ] AC-D1: Harness Component Registry——F167 每个 harness 组件拆出 hard / soft / eval 三栏，形成可扩展的 registry 格式
 - [ ] AC-D2: Snapshot Store——daily scheduled task 从 F153 拉聚合摘要到 `docs/harness-feedback/snapshots/`，解决 F153 24h TTL 限制。monthly digest 从 daily snapshot 二次聚合
 - [ ] AC-D3: End-to-End Verification——pipeline 必须复现 Phase B fixtures 的已知 friction signal（recall gate），且对正常 trace 不误判（precision gate）
@@ -120,6 +123,7 @@ Phase C 骨架跑通后，完善基础设施 + 扩展到更多工具。含原 Ph
 - [ ] AC-D6: monthly scheduled task `harness-fit-digest` 已注册
 - [ ] AC-D7: 第一次 micro fit digest 已完成
 - [ ] AC-D8: digest 结论写入 feature spec（升级 / 精简 / sunset）
+- [ ] AC-D9: Attribution Action-Rate——tracking Phase C/D findings 的 acted-on 比例。pipeline 自身 eval contract 含 action-rate metric；连续 3 月 < 50% 则候选 sunset
 
 ## Dependencies
 
