@@ -238,8 +238,24 @@ if ($ARGV =~ m{/(docs|cat-cafe-skills)/}) {
   $_ = "" if /^- \[.*?\]\((?:\.\.\/?|docs\/|\.\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons)\//;
   # Convert inline links to private dirs into plain text
   s/\[([^\]]*?)\]\((?:\.\.\/?|docs\/|\.\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks|episodes|guides|phases|methods|evolution-proposals|stories|prompts|lessons)\/[^)]*\)/$1 (internal)/g;
-  # Strip backtick-quoted paths referencing private dirs
-  s/`(?:docs\/)?(?:archive|plans|mailbox|discussions|research|reflections|evidence|runbooks)\/[^`]*`/*(internal reference removed)*/g;
+  # Backtick-quoted internal paths (#682): remap structural dirs, then mask specific dated files
+  # Step 1: Remap directory prefix in backticks (structural → public equivalent)
+  s/`(?:docs\/)?discussions\//`feature-discussions\//g;
+  s/`(?:docs\/)?plans\//`feature-specs\//g;
+  s/`(?:docs\/)?mailbox\//`review-notes\//g;
+  s/`(?:docs\/)?archive\//`internal-archive\//g;
+  s/`(?:docs\/)?research\//`project-research\//g;
+  s/`(?:docs\/)?reflections\//`project-reflections\//g;
+  s/`(?:docs\/)?evidence\//`project-evidence\//g;
+  s/`(?:docs\/)?runbooks\//`project-runbooks\//g;
+  # Step 2: Fail-closed masking of remapped backtick paths
+  # 2a: Mask paths containing real dates (YYYY-MM-DD with or without trailing segment)
+  s/`[^`]*(?:feature-discussions|feature-specs|review-notes|internal-archive|project-research|project-reflections|project-evidence|project-runbooks)\/[^`]*\d{4}-\d{2}-\d{2}[^`]*`/*(internal reference removed)*/g;
+  # 2b: Mask paths with non-template subdirectories followed by / (e.g. knowledge-enginnering/file.md)
+  # Template subdirs contain { < * so [^`{<*\/]+ only matches specific named subdirs
+  s/`[^`]*(?:feature-discussions|feature-specs|review-notes|internal-archive|project-research|project-reflections|project-evidence|project-runbooks)\/[^`{<*\/]+\/[^`]*`/*(internal reference removed)*/g;
+  # 2c: Mask bare subdir refs without trailing / (no file extension = directory name, not a file)
+  s/`[^`]*(?:feature-discussions|feature-specs|review-notes|internal-archive|project-research|project-reflections|project-evidence|project-runbooks)\/[^`{<*\/\.]+`/*(internal reference removed)*/g;
   # Specific path templates
   s#docs/mailbox/YYYY-MM-DD-\{topic\}-review-request\.md#review request note#g;
   s#docs/plans/YYYY-MM-DD-<feature-name>\.md#feature spec or implementation note#g;
@@ -252,14 +268,21 @@ if ($ARGV =~ m{/(docs|cat-cafe-skills)/}) {
   s#docs/plans/#feature-specs/#g;
   s#docs/discussions/#feature-discussions/#g;
   s#docs/archive/#internal-archive/#g;
+  s#docs/research/#project-research/#g;
+  s#docs/reflections/#project-reflections/#g;
+  s#docs/evidence/#project-evidence/#g;
+  s#docs/runbooks/#project-runbooks/#g;
   s#(^|[^A-Za-z])mailbox/#${1}review-notes/#g;
   s#(^|[^A-Za-z])plans/#${1}feature-specs/#g;
   s#(^|[^A-Za-z])discussions/#${1}feature-discussions/#g;
   s#(^|[^A-Za-z])archive/#${1}internal-archive/#g;
+  # Note: no bare-dir remap for research/reflections/evidence/runbooks —
+  # these words appear in compound names (deep-research/, cat-cafe-evidence/) (#682 P1)
   # Double-prefix fix
   s#feature-feature-discussions/#feature-discussions/#g;
   s#feature-feature-specs/#feature-specs/#g;
   s#internal-internal-archive/#internal-archive/#g;
+  # No project-project-* fix needed: bare-dir remaps removed for these 4 (#682 P1)
   # Port pair normalization (ensure Frontend/API order is 3003/3004)
   s#localhost:3003/3002#localhost:3003/3004#g;
   s#localhost:3004/3003#localhost:3003/3004#g;

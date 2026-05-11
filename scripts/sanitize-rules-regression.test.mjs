@@ -241,6 +241,164 @@ describe('sanitize-rules regression (home repo only)', { skip: !isHomeRepo }, ()
     });
   });
 
+  describe('backtick internal path handling (#682)', () => {
+    // Structural paths → REMAP (not mask)
+    it('remaps bare `docs/discussions/` in skill files', () => {
+      const input = '搜 `docs/discussions/` 看有没有前人讨论\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/feat-lifecycle/SKILL.md');
+      assert.ok(result.includes('`feature-discussions/`'), `expected remap, got: ${result}`);
+      assert.ok(!result.includes('internal reference removed'));
+    });
+
+    it('remaps template `docs/discussions/YYYY-MM-DD-{topic}/README.md`', () => {
+      const input = '落盘到 `docs/discussions/YYYY-MM-DD-{topic}/README.md`\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/feat-lifecycle/SKILL.md');
+      assert.ok(result.includes('feature-discussions/YYYY-MM-DD-{topic}/README.md'), `expected remap, got: ${result}`);
+      assert.ok(!result.includes('internal reference removed'));
+    });
+
+    it('remaps template `docs/plans/YYYY-MM-DD-<feature-name>.md`', () => {
+      const input = '**Save plans to:** `docs/plans/YYYY-MM-DD-<feature-name>.md`\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/writing-plans/SKILL.md');
+      assert.ok(result.includes('feature-specs/YYYY-MM-DD-<feature-name>.md'), `expected remap, got: ${result}`);
+      assert.ok(!result.includes('internal reference removed'));
+    });
+
+    it('remaps bare `docs/mailbox/` directory ref', () => {
+      const input = 'Review 信存放：`docs/mailbox/`\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/cross-cat-handoff/SKILL.md');
+      assert.ok(result.includes('`review-notes/`'), `expected remap, got: ${result}`);
+      assert.ok(!result.includes('internal reference removed'));
+    });
+
+    it('remaps `docs/research/domain-glossary.md` (convention deliverable)', () => {
+      const input = '**交付物**：`docs/research/domain-glossary.md`（使用骨架模板 1）\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/knowledge-engineering/SKILL.md');
+      assert.ok(result.includes('project-research/domain-glossary.md'), `expected remap, got: ${result}`);
+      assert.ok(!result.includes('internal reference removed'));
+    });
+
+    it('remaps `docs/reflections/README.md` template source', () => {
+      const input = '从 `docs/reflections/README.md` 复制模板\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/feat-lifecycle/SKILL.md');
+      assert.ok(result.includes('project-reflections/README.md'), `expected remap, got: ${result}`);
+      assert.ok(!result.includes('internal reference removed'));
+    });
+
+    it('remaps `docs/evidence/` bare directory convention', () => {
+      const input = '显式归档到 `docs/evidence/`\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/refs/evidence-output-contract.md');
+      assert.ok(result.includes('`project-evidence/`'), `expected remap, got: ${result}`);
+      assert.ok(!result.includes('internal reference removed'));
+    });
+
+    it('remaps `docs/research/YYYY-MM-DD-{topic}/` template dir', () => {
+      const input = '结果存：`docs/research/YYYY-MM-DD-{topic}/`（chatgpt / claude-ai / gemini）\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/deep-research/SKILL.md');
+      assert.ok(result.includes('project-research/YYYY-MM-DD-{topic}/'), `expected remap, got: ${result}`);
+      assert.ok(!result.includes('internal reference removed'));
+    });
+
+    it('masks `docs/archive/2026-02/` specific dated subdir in SOP', () => {
+      const input = '- 归档查找：`docs/archive/2026-02/`\n';
+      const result = applySanitizer(input, 'docs/SOP.md');
+      assert.ok(
+        result.includes('*(internal reference removed)*'),
+        `expected mask for specific dated subdir, got: ${result}`,
+      );
+    });
+
+    // Private paths → still MASK
+    it('masks specific dated `docs/discussions/2026-...` file', () => {
+      const input = '模板见 `docs/discussions/2026-05-07-eval-contract-template-v1-draft.md`\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/feat-lifecycle/SKILL.md');
+      assert.ok(result.includes('*(internal reference removed)*'), `expected mask, got: ${result}`);
+    });
+
+    it('masks specific dated `docs/research/2026-...` file', () => {
+      const input = '实战范例：`docs/research/2026-04-16-f163-knowledge-lifecycle/research-brief.md`\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/deep-research/SKILL.md');
+      assert.ok(result.includes('*(internal reference removed)*'), `expected mask, got: ${result}`);
+    });
+
+    it('masks specific dated `docs/plans/2026-...` file', () => {
+      const input = '详细设计见 `docs/plans/2026-04-30-worktree-port-offset.md`\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/worktree/SKILL.md');
+      assert.ok(result.includes('*(internal reference removed)*'), `expected mask, got: ${result}`);
+    });
+
+    it('masks specific dated `docs/archive/2026-.../...` deep path in decisions', () => {
+      const input = '- `docs/archive/2026-02/discussions/2026-02-06-first-demo-findings.md`\n';
+      const result = applySanitizer(input, 'docs/decisions/003-test.md');
+      assert.ok(result.includes('*(internal reference removed)*'), `expected mask, got: ${result}`);
+    });
+
+    // P1 fix: non-date deep paths with specific subdirs → MASK
+    it('masks `docs/research/knowledge-enginnering/知识工程实践指南.md` (deep private path)', () => {
+      const input =
+        '砚砚《知识工程实践指南》：`docs/research/knowledge-enginnering/知识工程实践指南：如何写好 Skills & MCP.md`\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/refs/mcp-tool-description-standard.md');
+      assert.ok(
+        result.includes('*(internal reference removed)*'),
+        `expected mask for deep private path, got: ${result}`,
+      );
+    });
+
+    it('masks `docs/research/knowledge-enginnering/knowledge-engineering-skills-mcp.md`', () => {
+      const input = '详见 `docs/research/knowledge-enginnering/knowledge-engineering-skills-mcp.md` §1.4\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/writing-skills/SKILL.md');
+      assert.ok(
+        result.includes('*(internal reference removed)*'),
+        `expected mask for specific private file, got: ${result}`,
+      );
+    });
+
+    it('masks `docs/research/knowledge-enginnering/` bare subdir (P1 Round 2)', () => {
+      const input = '参考 `docs/research/knowledge-enginnering/` 目录\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/refs/mcp-tool-description-standard.md');
+      assert.ok(result.includes('*(internal reference removed)*'), `expected mask for bare subdir, got: ${result}`);
+    });
+
+    it('keeps template subdir `docs/discussions/YYYY-MM-DD-{topic}/README.md` (not masked by 2b)', () => {
+      const input = '归档 `docs/discussions/YYYY-MM-DD-{topic}/README.md`\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/feat-lifecycle/SKILL.md');
+      assert.ok(
+        result.includes('feature-discussions/YYYY-MM-DD-{topic}/README.md'),
+        `template subdir must survive, got: ${result}`,
+      );
+      assert.ok(!result.includes('internal reference removed'));
+    });
+
+    // Non-backtick paths should still work via existing remapping
+    it('still remaps non-backtick docs/research/ references', () => {
+      const input = 'Store in docs/research/ for archival.\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/deep-research/SKILL.md');
+      assert.ok(result.includes('project-research/'), `expected remap, got: ${result}`);
+    });
+
+    // Cloud review P1: bare-dir remap must NOT match compound names
+    it('does NOT rewrite deep-research/ to deep-project-research/ (cloud P1)', () => {
+      const input = 'cat-cafe-skills/deep-research/SKILL.md\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/deep-research/SKILL.md');
+      assert.ok(result.includes('deep-research/'), `compound name must survive, got: ${result}`);
+      assert.ok(!result.includes('deep-project-research'));
+    });
+
+    // Cloud review P1 #2: bare subdir without trailing / must be masked
+    it('masks `docs/research/knowledge-engineering` without trailing / (cloud P1 #2)', () => {
+      const input = '详见 `docs/research/knowledge-engineering`\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/refs/mcp-tool-description-standard.md');
+      assert.ok(result.includes('*(internal reference removed)*'), `expected mask, got: ${result}`);
+    });
+
+    // Cloud review P2: date-only filenames must be masked
+    it('masks `docs/discussions/2026-05-07.md` date-only filename (cloud P2)', () => {
+      const input = '模板见 `docs/discussions/2026-05-07.md`\n';
+      const result = applySanitizer(input, 'cat-cafe-skills/feat-lifecycle/SKILL.md');
+      assert.ok(result.includes('*(internal reference removed)*'), `expected mask, got: ${result}`);
+    });
+  });
+
   describe('personal info sanitization', () => {
     it('transforms "Landy" → "You"', () => {
       const input = `name: "Landy"\n`;
