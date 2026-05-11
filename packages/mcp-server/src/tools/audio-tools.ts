@@ -44,6 +44,19 @@ export const audioCaptureStopInputSchema = {};
 
 export const audioCaptureStatusInputSchema = {};
 
+export const audioEnrollSpeakersInputSchema = {
+  participants: z
+    .array(
+      z.object({
+        id: z.string().describe('Unique participant ID'),
+        name: z.string().describe('Display name'),
+        role: z.enum(['host', 'participant']).optional().describe('Role — "host" is the local user (mic source)'),
+      }),
+    )
+    .min(1)
+    .describe('List of meeting participants to enroll for speaker attribution'),
+};
+
 export const audioReadTranscriptInputSchema = {
   from: z.number().optional().describe('Start timestamp (unix epoch seconds)'),
   to: z.number().optional().describe('End timestamp (unix epoch seconds)'),
@@ -154,7 +167,16 @@ export async function handleAudioCaptureStatus(): Promise<ToolResult> {
   }
 }
 
-type TranscriptLine = { ts: number; elapsed_s: number; chunk_num: number; asr_latency: number; text: string };
+type TranscriptLine = {
+  ts: number;
+  elapsed_s: number;
+  chunk_num: number;
+  asr_latency: number;
+  text: string;
+  speaker_label?: string;
+  speaker_confidence?: number;
+  speaker_id?: string | null;
+};
 type TranscriptSummary = { time_range: [number, number]; line_count: number; duration_s: number; key_lines: string[] };
 
 function formatLines(lines: TranscriptLine[]): string {
@@ -162,7 +184,8 @@ function formatLines(lines: TranscriptLine[]): string {
   const text = lines
     .map((l) => {
       const t = new Date(l.ts * 1000).toLocaleTimeString('zh-CN', { hour12: false });
-      return `[${t}] ${l.text}`;
+      const speaker = l.speaker_label ? `${l.speaker_label}: ` : '';
+      return `[${t}] ${speaker}${l.text}`;
     })
     .join('\n');
   return `${lines.length} transcript lines:\n\n${text}`;
@@ -220,8 +243,9 @@ export async function handleAudioReadTranscript(input: {
             return [
               createMeetingContextBlock({
                 meetingId,
-                speakerLabel: '参会者',
-                speakerConfidence: 0.5,
+                speakerId: l.speaker_id ?? undefined,
+                speakerLabel: l.speaker_label ?? '参会者',
+                speakerConfidence: l.speaker_confidence ?? 0.5,
                 timestamp: l.ts,
                 content: l.text,
               }),
@@ -245,6 +269,19 @@ export async function handleAudioReadTranscript(input: {
     }
     const data = (await transcriptResp.json()) as { lines: TranscriptLine[] };
     return successResult(formatLines(data.lines ?? []));
+  } catch (err) {
+    return errorResult(audioError(err));
+  }
+}
+
+type EnrollInput = { participants: Array<{ id: string; name: string; role?: 'host' | 'participant' }> };
+
+export async function handleAudioEnrollSpeakers(input: EnrollInput): Promise<ToolResult> {
+  try {
+    const resp = await audioFetch('/enroll', { method: 'POST', body: JSON.stringify(input) });
+    const data = (await resp.json()) as { ok?: boolean; error?: string; participants?: unknown[] };
+    if (!resp.ok) return errorResult(data.error ?? `Enrollment failed: ${resp.status}`);
+    return successResult(`Enrolled ${data.participants?.length ?? 0} participants for speaker attribution.`);
   } catch (err) {
     return errorResult(audioError(err));
   }
@@ -286,5 +323,12 @@ export const audioTools = [
       'Read transcript from the current or most recent audio capture session. mode="raw" (default): use "latest" for N most recent lines, or "from"/"to" timestamps. mode="summary": compressed event summaries of older transcript (beyond 5-min rolling window). mode="full": summaries + recent raw lines together.',
     inputSchema: audioReadTranscriptInputSchema,
     handler: handleAudioReadTranscript,
+  },
+  {
+    name: 'cat_cafe_audio_enroll_speakers',
+    description:
+      'Enroll meeting participants for speaker attribution. Call before starting capture. The host (role="host") maps to mic source; other participants map to app/system audio. With 2 total participants, the non-host gets attributed by name. With 3+, non-host lines show "有人说" (confidence below threshold).',
+    inputSchema: audioEnrollSpeakersInputSchema,
+    handler: handleAudioEnrollSpeakers,
   },
 ] as const;

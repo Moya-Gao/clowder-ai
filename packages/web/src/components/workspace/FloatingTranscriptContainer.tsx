@@ -12,6 +12,15 @@ interface TranscriptLine {
   chunk_num: number;
   asr_latency: number;
   text: string;
+  speaker_label?: string;
+  speaker_confidence?: number;
+  speaker_id?: string | null;
+}
+
+interface Participant {
+  id: string;
+  name: string;
+  role?: string;
 }
 
 interface AudioStatus {
@@ -19,6 +28,7 @@ interface AudioStatus {
   source?: string;
   app_name?: string;
   duration_s?: number;
+  participants?: Participant[];
 }
 
 interface SseEvent {
@@ -31,6 +41,9 @@ interface SseEvent {
   chunk_num?: number;
   asr_latency?: number;
   text?: string;
+  speaker_label?: string;
+  speaker_confidence?: number;
+  speaker_id?: string | null;
 }
 
 export function FloatingTranscriptContainer() {
@@ -81,6 +94,9 @@ export function FloatingTranscriptContainer() {
               chunk_num: data.chunk_num ?? 0,
               asr_latency: data.asr_latency ?? 0,
               text: data.text!,
+              speaker_label: data.speaker_label,
+              speaker_confidence: data.speaker_confidence,
+              speaker_id: data.speaker_id,
             },
           ]);
         } else if (data.type === 'status') {
@@ -110,6 +126,24 @@ export function FloatingTranscriptContainer() {
     } catch {}
   }, []);
 
+  const handleCorrect = useCallback(async (chunkNum: number, speakerId: string, speakerLabel: string) => {
+    try {
+      const resp = await apiFetch('/api/audio/transcript/correct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chunk_num: chunkNum, speaker_id: speakerId, speaker_label: speakerLabel }),
+      });
+      if (!resp.ok) return;
+      setLines((prev) =>
+        prev.map((l) =>
+          l.chunk_num === chunkNum
+            ? { ...l, speaker_label: speakerLabel, speaker_confidence: 1.0, speaker_id: speakerId }
+            : l,
+        ),
+      );
+    } catch {}
+  }, []);
+
   const handleClose = useCallback(() => setVisible(false), [setVisible]);
 
   if (!visible) return null;
@@ -123,8 +157,10 @@ export function FloatingTranscriptContainer() {
       recording={status.running}
       sourceLabel={sourceLabel}
       elapsed={elapsed}
+      participants={status.participants}
       onClose={handleClose}
       onStop={handleStop}
+      onCorrect={handleCorrect}
     />,
     document.body,
   );

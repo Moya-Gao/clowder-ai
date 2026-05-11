@@ -72,6 +72,7 @@ class AudioSession:
         self.total_asr_time = 0.0
         self.meeting_id = None
         self.thread_id = None
+        self.participants: list[dict] = []
         self._window = TranscriptWindow(window_sec=300, summary_interval_sec=300)
 
     def _reset(self):
@@ -87,6 +88,46 @@ class AudioSession:
         self._window = TranscriptWindow(window_sec=300, summary_interval_sec=300)
         self._process = None
         self._task = None
+
+    def enroll(self, participants: list[dict]) -> None:
+        if not isinstance(participants, list):
+            raise TypeError("participants must be a list")
+        if not participants:
+            raise ValueError("participants list must not be empty")
+        for p in participants:
+            if not isinstance(p, dict):
+                raise TypeError("Each participant must be a dict")
+            if not p.get("id"):
+                raise ValueError("Each participant must have an 'id'")
+            if not p.get("name"):
+                raise ValueError("Each participant must have a 'name'")
+        self.participants = [
+            {"id": p["id"], "name": p["name"], "role": p.get("role", "participant")}
+            for p in participants
+        ]
+
+    def _attribute_speaker(self) -> dict:
+        host = next((p for p in self.participants if p.get("role") == "host"), None)
+        non_hosts = [p for p in self.participants if p.get("role") != "host"]
+        if self.source == "mic":
+            if host:
+                return {"speaker_label": host["name"], "speaker_confidence": 0.9, "speaker_id": host["id"]}
+            return {"speaker_label": "发言者", "speaker_confidence": 0.5, "speaker_id": None}
+        if len(self.participants) == 2 and len(non_hosts) == 1:
+            other = non_hosts[0]
+            return {"speaker_label": other["name"], "speaker_confidence": 0.7, "speaker_id": other["id"]}
+        return {"speaker_label": "有人说", "speaker_confidence": 0.4, "speaker_id": None}
+
+    def correct_line(self, chunk_num: int, speaker_label: str, speaker_id: str | None = None) -> bool:
+        if not isinstance(chunk_num, int):
+            raise TypeError(f"chunk_num must be int, got {type(chunk_num).__name__}")
+        for line in self._window.get_all_lines():
+            if line.get("chunk_num") == chunk_num:
+                line["speaker_label"] = speaker_label
+                line["speaker_confidence"] = 1.0
+                line["speaker_id"] = speaker_id
+                return True
+        return False
 
     async def start(self, source: str, app_name=None, device=None,
                     chunk_sec: float = DEFAULT_CHUNK_SEC,
@@ -176,6 +217,7 @@ class AudioSession:
             ) if self.chunk_count else None,
             "meeting_id": self.meeting_id,
             "thread_id": self.thread_id,
+            "participants": self.participants,
         }
 
     def get_transcript(self, from_ts=None, to_ts=None, latest=None,
@@ -295,12 +337,16 @@ class AudioSession:
         except Exception as e:
             text = f"[ASR error: {e}]"
         self.total_asr_time += asr_latency
+        speaker = self._attribute_speaker()
         line = {
             "ts": ts,
             "elapsed_s": round(elapsed, 1),
             "chunk_num": self.chunk_count,
             "asr_latency": round(asr_latency, 3),
             "text": text,
+            "speaker_label": speaker["speaker_label"],
+            "speaker_confidence": speaker["speaker_confidence"],
+            "speaker_id": speaker["speaker_id"],
         }
         self._window.add_line(line)
         self._window.maybe_summarize()
@@ -453,6 +499,40 @@ async def h_sources(request):
     return web.json_response(sources)
 
 
+async def h_enroll(request):
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+    participants = data.get("participants")
+    if participants is None:
+        return web.json_response({"error": "participants required"}, status=400)
+    try:
+        session.enroll(participants)
+    except (ValueError, TypeError) as e:
+        return web.json_response({"error": str(e)}, status=400)
+    return web.json_response({"ok": True, "participants": session.participants})
+
+
+async def h_correct(request):
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+    chunk_num = data.get("chunk_num")
+    speaker_label = data.get("speaker_label")
+    if chunk_num is None or not speaker_label:
+        return web.json_response({"error": "chunk_num and speaker_label required"}, status=400)
+    try:
+        chunk_num = int(chunk_num)
+    except (ValueError, TypeError):
+        return web.json_response({"error": "chunk_num must be an integer"}, status=400)
+    ok = session.correct_line(chunk_num, speaker_label, data.get("speaker_id"))
+    if not ok:
+        return web.json_response({"error": f"chunk_num {chunk_num} not found"}, status=404)
+    return web.json_response({"ok": True})
+
+
 async def on_cleanup(app_):
     await session.cleanup()
 
@@ -461,6 +541,8 @@ def main():
     app = web.Application(middlewares=[cors_mw])
     app.router.add_post("/start", h_start)
     app.router.add_post("/stop", h_stop)
+    app.router.add_post("/enroll", h_enroll)
+    app.router.add_post("/transcript/correct", h_correct)
     app.router.add_get("/status", h_status)
     app.router.add_get("/transcript", h_transcript)
     app.router.add_get("/events", h_events)

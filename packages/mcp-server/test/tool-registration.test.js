@@ -95,6 +95,7 @@ const EXPECTED_TOOLS = [
   'cat_cafe_audio_capture_stop',
   'cat_cafe_audio_capture_status',
   'cat_cafe_audio_read_transcript',
+  'cat_cafe_audio_enroll_speakers',
 ];
 
 const EXPECTED_COLLAB_TOOLS = [

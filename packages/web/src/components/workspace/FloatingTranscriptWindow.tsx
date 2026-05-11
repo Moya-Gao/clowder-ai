@@ -9,6 +9,15 @@ interface TranscriptLine {
   chunk_num: number;
   asr_latency: number;
   text: string;
+  speaker_label?: string;
+  speaker_confidence?: number;
+  speaker_id?: string | null;
+}
+
+interface Participant {
+  id: string;
+  name: string;
+  role?: string;
 }
 
 interface FloatingTranscriptWindowProps {
@@ -17,9 +26,11 @@ interface FloatingTranscriptWindowProps {
   recording: boolean;
   sourceLabel?: string;
   elapsed?: number;
+  participants?: Participant[];
   onClose: () => void;
   onStop?: () => void;
   onMinimize?: () => void;
+  onCorrect?: (chunkNum: number, speakerId: string, speakerLabel: string) => void;
 }
 
 const STORAGE_KEY = 'cat-cafe-floating-transcript';
@@ -61,14 +72,17 @@ export function FloatingTranscriptWindow({
   recording,
   sourceLabel,
   elapsed = 0,
+  participants,
   onClose,
   onStop,
   onMinimize,
+  onCorrect,
 }: FloatingTranscriptWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScroll = useRef(true);
   const [minimized, setMinimized] = useState(false);
   const [layout, setLayout] = useState<PersistedLayout>(loadLayout);
+  const [correctingChunk, setCorrectingChunk] = useState<number | null>(null);
 
   useEffect(() => {
     if (autoScroll.current && scrollRef.current) {
@@ -213,6 +227,39 @@ export function FloatingTranscriptWindow({
           {lines.map((l, i) => (
             <div key={l.chunk_num ?? i} className="mb-1 flex gap-2">
               <span className="shrink-0 text-cafe-text-muted">[{formatTime(l.ts)}]</span>
+              {l.speaker_label && (
+                <span className="relative shrink-0">
+                  <button
+                    type="button"
+                    className="font-medium text-cafe-accent-primary hover:underline"
+                    onClick={() =>
+                      participants?.length && onCorrect
+                        ? setCorrectingChunk(correctingChunk === l.chunk_num ? null : l.chunk_num)
+                        : undefined
+                    }
+                    title={participants?.length ? 'Click to correct speaker' : undefined}
+                  >
+                    {l.speaker_label}:
+                  </button>
+                  {correctingChunk === l.chunk_num && participants && onCorrect && (
+                    <div className="absolute left-0 top-full z-10 mt-1 rounded border border-cafe-border bg-cafe-surface-primary py-1 shadow-lg">
+                      {participants.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="block w-full whitespace-nowrap px-3 py-1 text-left text-xs text-cafe-text-primary hover:bg-cafe-surface-secondary"
+                          onClick={() => {
+                            onCorrect(l.chunk_num, p.id, p.name);
+                            setCorrectingChunk(null);
+                          }}
+                        >
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </span>
+              )}
               <span className="text-cafe-text-primary">{l.text}</span>
             </div>
           ))}
