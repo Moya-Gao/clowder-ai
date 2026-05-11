@@ -60,6 +60,9 @@ import {
   type StreamMetadataAugmentInput,
 } from '../../stores/ports/MessageStore.js';
 import type { Thread, ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
+import { classifyTool } from '../../tool-usage/classify.js';
+import { deriveResultSummary } from '../../tool-usage/derive-result-summary.js';
+import { normalizeMcpToolName } from '../../tool-usage/normalize-mcp-tool-name.js';
 import { getStreamingTtsRegistry, StreamingTtsChunker } from '../../tts/StreamingTtsChunker.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { AgentMessage, AgentMessageType, MessageMetadata } from '../../types.js';
@@ -862,6 +865,22 @@ export async function* routeSerial(
               awaitingCallbackResult = false;
               if (callbackResult.messageId) callbackPostMessageId = callbackResult.messageId;
             }
+            // F188 Phase F AC-F10 (砚砚 六审 P1-B: also scope by catId for serial route consistency).
+            // 砚砚 cloud-3 P1: also pass toolUseId for exact match when available;
+            // otherwise FIFO toolName+catId match handles same-name parallel calls.
+            if (deps.toolEventLog && completedToolName) {
+              const normalizedName = normalizeMcpToolName(completedToolName);
+              const resultSummary = deriveResultSummary(normalizedName, effectiveMsg.content);
+              if (Object.keys(resultSummary).length > 0) {
+                const resultMsg = effectiveMsg as { catId?: string; toolUseId?: string };
+                const matcher: { toolUseId?: string; toolName?: string; catId?: string } = resultMsg.toolUseId
+                  ? { toolUseId: resultMsg.toolUseId }
+                  : resultMsg.catId
+                    ? { toolName: normalizedName, catId: resultMsg.catId }
+                    : { toolName: normalizedName };
+                deps.toolEventLog.updateSummary(threadId, matcher, resultSummary).catch(() => {});
+              }
+            }
           }
 
           // F150: Fire-and-forget tool usage counter
@@ -871,6 +890,59 @@ export async function* routeSerial(
               effectiveMsg.toolName ?? 'unknown',
               effectiveMsg.toolInput as Record<string, unknown> | undefined,
             );
+          }
+          // F188 Phase F AC-F10: append-only tool event log (砚砚 三审 P1 wiring)
+          if (effectiveMsg.type === 'tool_use' && deps.toolEventLog && effectiveMsg.catId) {
+            const msg = effectiveMsg as {
+              catId?: string;
+              toolName?: string;
+              toolInput?: Record<string, unknown>;
+              toolUseId?: string;
+              invocationId?: string;
+              sessionId?: string;
+              threadId?: string;
+              turnIndex?: number;
+            };
+            // 砚砚 四审 P1-1: normalizeMcpToolName handles mcp__/mcp:/cat_cafe_ child extraction
+            const rawToolName = msg.toolName ?? 'unknown';
+            const classification = classifyTool(rawToolName, msg.toolInput);
+            const normalizedToolName =
+              classification.category === 'skill' ? classification.toolName : normalizeMcpToolName(rawToolName);
+            // 砚砚 cloud-3 P1: propagate toolUseId into summary (as _toolUseId) so
+            // updateSummary can do exact match when provider emits it on tool_result.
+            const baseSummary = (msg.toolInput ?? {}) as Record<string, unknown>;
+            const summary: Record<string, unknown> = msg.toolUseId
+              ? { ...baseSummary, _toolUseId: msg.toolUseId }
+              : baseSummary;
+            deps.toolEventLog
+              .append({
+                invocationId: msg.invocationId ?? ownInvocationId ?? 'unknown',
+                sessionId: msg.sessionId ?? ownInvocationId ?? 'unknown',
+                threadId: msg.threadId ?? threadId ?? 'unknown',
+                catId: msg.catId ?? 'unknown',
+                toolName: normalizedToolName,
+                timestamp: Date.now(),
+                turnIndex: msg.turnIndex ?? 0,
+                status: 'success',
+                summary,
+              })
+              .catch(() => {});
+            // 砚砚 二审 P1-4: detect Skill tool_use → SkillLoadEventLog (AS-4 producer path)
+            if (rawToolName === 'Skill' && deps.skillLoadEventLog) {
+              const skillName =
+                msg.toolInput && typeof msg.toolInput['skill'] === 'string'
+                  ? (msg.toolInput['skill'] as string)
+                  : 'unknown';
+              deps.skillLoadEventLog
+                .append({
+                  invocationId: msg.invocationId ?? ownInvocationId ?? 'unknown',
+                  sessionId: msg.sessionId ?? ownInvocationId ?? 'unknown',
+                  skillId: skillName,
+                  loadTrigger: 'explicit_call',
+                  timestamp: Date.now(),
+                })
+                .catch(() => {});
+            }
           }
 
           // #80: Draft flush — fire-and-forget periodic persistence for F5 recovery

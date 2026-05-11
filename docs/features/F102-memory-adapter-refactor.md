@@ -1,6 +1,6 @@
 ---
 feature_ids: [F102]
-related_features: [F024, F100, F042]
+related_features: [F024, F100, F042, F186, F188]
 topics: [memory, adapter, evidence-store, architecture]
 doc_kind: spec
 created: 2026-03-11
@@ -10,6 +10,12 @@ created: 2026-03-11
 
 > **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-04-04 (Phase A~J) | **Reopened**: 2026-04-13 (Phase K) | **Re-closed**: 2026-04-14 (Phase K done, AC-K3/K4 deferred)
 > **Reflection**: [`docs/reflections/2026-04-04-f102-memory-adapter-capsule.md`](../reflections/2026-04-04-f102-memory-adapter-capsule.md)
+>
+> ### F188 Phase F 关联（2026-05-10）
+>
+> F102 owns `search_evidence` (semantic retrieval entry, `IEvidenceStore.search()`). 而 F188 Phase F 新增的 `cat_cafe_graph_resolve` 和 `cat_cafe_list_recent` 是 **F188 agent-facing navigation tools** — graph_resolve 复用 F188 Phase C `GraphResolver`；list_recent 是新增 `RecentBrowseResolver` (metadata browse read-model)。**不属于 F102 索引层，不扩 `IEvidenceStore`**（砚砚 二审 P2 architecture boundary）。
+>
+> 三入口路由（精确 anchor / 零先验 / 语义模糊）在 `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `OPENCODE.md` 同步，single source of truth 在 `cat-cafe-skills/refs/memory-routing-partial.md`。
 >
 > ### 给其他猫的快速现状（2026-04-16 更新）
 >

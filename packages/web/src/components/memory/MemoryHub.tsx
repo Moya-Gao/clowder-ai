@@ -6,6 +6,7 @@ import { EvidenceSearch } from './EvidenceSearch';
 import { HealthReport } from './HealthReport';
 import { IndexStatus } from './IndexStatus';
 import { MemoryNav, type MemoryTab } from './MemoryNav';
+import { ToolUsageMetricsPanel } from './ToolUsageMetricsPanel';
 
 interface MemoryHubProps {
   readonly activeTab?: MemoryTab;
@@ -37,8 +38,9 @@ export function MemoryHub({ activeTab = 'feed', initialQuery, initialReferrerThr
           </div>
         )}
         {activeTab === 'health' && (
-          <div data-testid="memory-tab-health">
+          <div className="space-y-4" data-testid="memory-tab-health">
             <HealthReport />
+            <ToolUsageMetricsPanel />
           </div>
         )}
         {activeTab === 'catalog' && (

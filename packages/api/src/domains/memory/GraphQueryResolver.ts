@@ -68,6 +68,8 @@ interface CatalogLike {
 interface ResolveOptions {
   depth?: number;
   callerCollections?: string[];
+  /** 砚砚 cloud-9 P1: relation-type filter applied AT TRAVERSAL TIME. */
+  relations?: readonly string[];
 }
 
 type QueryStore = IEvidenceStore & Partial<GraphStore>;
@@ -193,6 +195,7 @@ export class GraphQueryResolver {
     const normalizedQuery = query.trim();
     const depth = opts?.depth ?? 1;
     const callerCollections = new Set(opts?.callerCollections ?? []);
+    const relations = opts?.relations;
 
     const exactMatches = await this.findExactMatches(normalizedQuery);
     const visibleExactMatches = exactMatches.filter((match) =>
@@ -205,6 +208,7 @@ export class GraphQueryResolver {
         depth,
         callerCollections,
         visibleExactMatches[0].collectionId,
+        relations,
       );
     }
     if (visibleExactMatches.length > 1) {
@@ -240,12 +244,14 @@ export class GraphQueryResolver {
     depth: number,
     callerCollections: Set<string>,
     centerCollectionId?: string,
+    relations?: readonly string[],
   ): Promise<GraphQueryResolution> {
     const graphResolver = new GraphResolver(this.catalog, this.graphStores());
     const graph = await graphResolver.buildSubgraph(resolvedAnchor, {
       depth,
       callerCollections: [...callerCollections],
-      centerCollectionId,
+      ...(centerCollectionId ? { centerCollectionId } : {}),
+      ...(relations && relations.length > 0 ? { relations } : {}),
     });
     return {
       status: 'graph',

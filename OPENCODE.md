@@ -67,4 +67,4 @@ interactiveType 可选值：`select`（单选）| `multi-select`（多选）| `c
 
 - 你的系统提示词由三层叠加：oh-my-opencode 插件注入 → AGENTS.md（OpenCode 自动加载）→ 本文件（通过 instructions 加载）
 - 家规（shared-rules.md）由 oh-my-opencode 插件或 AGENTS.md 加载，不需要在这里重复
-- 记忆系统同其他猫一致：开工前先用 `search_evidence` 搜
+- 记忆系统同其他猫一致：开工前按场景选三入口（F188 KD-9）——精确 anchor → `graph_resolve`；零先验扫一眼 → `list_recent`；语义/模糊找 → `search_evidence`。详见 AGENTS.md 「记忆系统」段或 `cat-cafe-skills/refs/memory-routing-partial.md`

@@ -201,6 +201,10 @@ export interface AgentRouterOptions {
   evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
   /** F150: Tool usage counter */
   toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
+  /** F188 Phase F AC-F10: Tool event log (append-only sequence) */
+  toolEventLog?: import('../../tool-usage/ToolEventLog.js').ToolEventLog;
+  /** F188 Phase F AC-F10 (AS-4): Skill load event log */
+  skillLoadEventLog?: import('../../tool-usage/SkillLoadEventLog.js').SkillLoadEventLog;
   /** F155 B-4: Independent guide session store */
   guideSessionStore?: import('../../../../guides/GuideSessionRepository.js').IGuideSessionStore;
   /** F155 B-6: Dismiss tracker for guide offer suppression */
@@ -251,6 +255,10 @@ export class AgentRouter {
   private evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
   /** F150 */
   private toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
+  /** F188 Phase F AC-F10 */
+  private toolEventLog?: import('../../tool-usage/ToolEventLog.js').ToolEventLog;
+  /** F188 Phase F AC-F10 AS-4 */
+  private skillLoadEventLog?: import('../../tool-usage/SkillLoadEventLog.js').SkillLoadEventLog;
   /** F155 B-4 */
   private guideSessionStore?: import('../../../../guides/GuideSessionRepository.js').IGuideSessionStore;
   /** F155 B-6 */
@@ -296,6 +304,8 @@ export class AgentRouter {
     this.packStore = options.packStore;
     this.evidenceStore = options.evidenceStore;
     this.toolUsageCounter = options.toolUsageCounter;
+    this.toolEventLog = options.toolEventLog;
+    this.skillLoadEventLog = options.skillLoadEventLog;
     this.guideSessionStore = options.guideSessionStore;
     this.dismissTracker = options.dismissTracker;
     this.worldContextProvider = options.worldContextProvider;
@@ -834,6 +844,8 @@ export class AgentRouter {
       ...(this.packStore ? { packStore: this.packStore } : {}),
       ...(this.evidenceStore ? { evidenceStore: this.evidenceStore } : {}),
       ...(this.toolUsageCounter ? { toolUsageCounter: this.toolUsageCounter } : {}),
+      ...(this.toolEventLog ? { toolEventLog: this.toolEventLog } : {}),
+      ...(this.skillLoadEventLog ? { skillLoadEventLog: this.skillLoadEventLog } : {}),
       ...(this.worldContextProvider ? { worldContextProvider: this.worldContextProvider } : {}),
       ...(this.worldStore ? { worldStore: this.worldStore } : {}),
     };

@@ -56,6 +56,10 @@ export interface RouteStrategyDeps {
   evidenceStore?: import('../../../../memory/interfaces.js').IEvidenceStore;
   /** F150: Tool usage counter (fire-and-forget INCR on tool_use events) */
   toolUsageCounter?: import('../../tool-usage/ToolUsageCounter.js').ToolUsageCounter;
+  /** F188 Phase F AC-F10: Tool event log (append-only sequence, fire-and-forget) */
+  toolEventLog?: import('../../tool-usage/ToolEventLog.js').ToolEventLog;
+  /** F188 Phase F AC-F10 (AS-4): Skill load event log (fire-and-forget on Skill tool_use) */
+  skillLoadEventLog?: import('../../tool-usage/SkillLoadEventLog.js').SkillLoadEventLog;
   /** F148 Phase F: Task store for navigation context (optional, fail-open) */
   taskStore?: import('../../stores/ports/TaskStore.js').ITaskStore;
   /** F093: World context provider for world-building mode (optional, fail-open) */

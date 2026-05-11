@@ -1146,6 +1146,14 @@ async function main(): Promise<void> {
         toolUsageArchiver,
       )
     : undefined;
+  // F188 Phase F AC-F10: append-only tool event log (sequence preserving)
+  const toolEventLog = redis
+    ? new (await import('./domains/cats/services/tool-usage/ToolEventLog.js')).ToolEventLog(redis)
+    : undefined;
+  // F188 Phase F AC-F10 (AS-4): skill load event log
+  const skillLoadEventLog = redis
+    ? new (await import('./domains/cats/services/tool-usage/SkillLoadEventLog.js')).SkillLoadEventLog(redis)
+    : undefined;
 
   // F150: Daily archive sweep — persist expiring Redis counters to JSONL
   if (toolUsageCounter && toolUsageArchiver) {
@@ -1226,6 +1234,8 @@ async function main(): Promise<void> {
     packStore,
     evidenceStore: memoryServices.evidenceStore,
     ...(toolUsageCounter ? { toolUsageCounter } : {}),
+    ...(toolEventLog ? { toolEventLog } : {}),
+    ...(skillLoadEventLog ? { skillLoadEventLog } : {}),
     guideSessionStore,
     dismissTracker,
     worldContextProvider,
@@ -1863,6 +1873,8 @@ async function main(): Promise<void> {
       catalog: memoryServices.catalog,
       stores: libraryStores,
       dataDir: memoryServices.dataDir,
+      // F188 Phase F AC-F9: pass redis for tool-usage-metrics endpoint (砚砚 review P1-2)
+      ...(redisClient ? { redis: redisClient } : {}),
     });
   }
 

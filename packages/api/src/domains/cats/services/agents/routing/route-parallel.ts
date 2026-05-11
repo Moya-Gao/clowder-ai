@@ -29,6 +29,9 @@ import { formatDegradationMessage } from '../../orchestration/DegradationPolicy.
 import { buildSessionBootstrap } from '../../session/SessionBootstrap.js';
 import type { StoredToolEvent } from '../../stores/ports/MessageStore.js';
 import type { Thread, ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
+import { classifyTool } from '../../tool-usage/classify.js';
+import { deriveResultSummary } from '../../tool-usage/derive-result-summary.js';
+import { normalizeMcpToolName } from '../../tool-usage/normalize-mcp-tool-name.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { AgentMessage, AgentMessageType, MessageMetadata } from '../../types.js';
 import { buildCapsuleFromRouteState } from '../invocation/CollaborationContinuityCapsule.js';
@@ -584,8 +587,113 @@ export async function* routeParallel(
           effectiveMsg.toolInput as Record<string, unknown> | undefined,
         );
       }
+      // F188 Phase F AC-F10: append-only tool event log (砚砚 三审 P1 wiring)
+      if (effectiveMsg.type === 'tool_use' && deps.toolEventLog && effectiveMsg.catId) {
+        const msg = effectiveMsg as {
+          catId?: string;
+          toolName?: string;
+          toolInput?: Record<string, unknown>;
+          toolUseId?: string;
+          invocationId?: string;
+          sessionId?: string;
+          threadId?: string;
+          turnIndex?: number;
+        };
+        // 砚砚 四审 P1-1: normalizeMcpToolName handles mcp__/mcp:/cat_cafe_ child extraction
+        const rawToolName = msg.toolName ?? 'unknown';
+        const classification = classifyTool(rawToolName, msg.toolInput);
+        const normalizedToolName =
+          classification.category === 'skill' ? classification.toolName : normalizeMcpToolName(rawToolName);
+        // 砚砚 cloud P2: prefer per-cat invocation captured from system_info over literal 'unknown'.
+        // Mirrors serial route's `ownInvocationId` fallback chain (route-serial.ts:912).
+        // sessionId likewise falls back to per-cat invocation so parallel-cat skill-load
+        // counts don't collapse onto sessionId='unknown' across unrelated invocations.
+        const ownInv = msg.catId ? catInvocationId.get(msg.catId) : undefined;
+        // 砚砚 cloud-3 P1: propagate toolUseId into summary (as _toolUseId) so
+        // updateSummary can do exact match when provider emits it on tool_result.
+        // Falls back to FIFO toolName+catId match when toolUseId absent.
+        const baseSummary = (msg.toolInput ?? {}) as Record<string, unknown>;
+        const summary: Record<string, unknown> = msg.toolUseId
+          ? { ...baseSummary, _toolUseId: msg.toolUseId }
+          : baseSummary;
+        deps.toolEventLog
+          .append({
+            invocationId: msg.invocationId ?? ownInv ?? 'unknown',
+            sessionId: msg.sessionId ?? ownInv ?? 'unknown',
+            threadId: msg.threadId ?? threadId ?? 'unknown',
+            catId: msg.catId ?? 'unknown',
+            toolName: normalizedToolName,
+            timestamp: Date.now(),
+            turnIndex: msg.turnIndex ?? 0,
+            status: 'success',
+            summary,
+          })
+          .catch(() => {});
+        // 砚砚 二审 P1-4: Skill tool_use → SkillLoadEventLog (AS-4)
+        if (rawToolName === 'Skill' && deps.skillLoadEventLog) {
+          const skillName =
+            msg.toolInput && typeof msg.toolInput['skill'] === 'string'
+              ? (msg.toolInput['skill'] as string)
+              : 'unknown';
+          deps.skillLoadEventLog
+            .append({
+              invocationId: msg.invocationId ?? ownInv ?? 'unknown',
+              sessionId: msg.sessionId ?? ownInv ?? 'unknown',
+              skillId: skillName,
+              loadTrigger: 'explicit_call',
+              timestamp: Date.now(),
+            })
+            .catch(() => {});
+        }
+      }
       if (effectiveMsg.metadata && effectiveMsg.catId && !catMeta.has(effectiveMsg.catId)) {
         catMeta.set(effectiveMsg.catId, effectiveMsg.metadata);
+      }
+
+      // F188 Phase F AC-F10 (砚砚 七审 P1): merge result-side summary; parses real Codex
+      // tool_result format "mcp:server/tool (completed)" — mirrors serial route's
+      // inferToolResultName logic (route-serial.ts:177).
+      if (effectiveMsg.type === 'tool_result' && deps.toolEventLog) {
+        const msg = effectiveMsg as { toolName?: string; content?: unknown };
+        let toolNameCandidate = msg.toolName;
+        if (!toolNameCandidate) {
+          const text =
+            typeof msg.content === 'string'
+              ? msg.content
+              : Array.isArray(msg.content)
+                ? (msg.content as Array<{ text?: unknown }>)
+                    .map((c) => (typeof c?.text === 'string' ? c.text : ''))
+                    .join('\n')
+                : '';
+          const firstLine = text.trimStart().split('\n', 1)[0]?.trim();
+          if (firstLine) {
+            // Codex mcp_tool_call result: "mcp:server/tool (completed)" / "(failed)"
+            const mcpMatch = firstLine.match(/^(mcp:[^\s]+)\s+\(/);
+            if (mcpMatch?.[1]) toolNameCandidate = mcpMatch[1];
+            else if (firstLine.startsWith('command: ')) toolNameCandidate = 'command_execution';
+            else {
+              const labelMatch = /\[tool:([\w\-:/_.]+)\]/.exec(firstLine);
+              if (labelMatch?.[1]) toolNameCandidate = labelMatch[1];
+            }
+          }
+        }
+        if (toolNameCandidate) {
+          const normalizedName = normalizeMcpToolName(toolNameCandidate);
+          const resultSummary = deriveResultSummary(normalizedName, msg.content);
+          if (Object.keys(resultSummary).length > 0) {
+            // 砚砚 六审 P1-B: scope updateSummary match to specific cat (parallel
+            // route runs multiple cats concurrently; same tool name can collide).
+            // 砚砚 cloud-3 P1: also pass toolUseId for exact match when available;
+            // otherwise FIFO toolName+catId match handles same-name parallel calls.
+            const resultMsg = effectiveMsg as { catId?: string; toolUseId?: string };
+            const matcher: { toolUseId?: string; toolName?: string; catId?: string } = resultMsg.toolUseId
+              ? { toolUseId: resultMsg.toolUseId }
+              : resultMsg.catId
+                ? { toolName: normalizedName, catId: resultMsg.catId }
+                : { toolName: normalizedName };
+            deps.toolEventLog.updateSummary(threadId, matcher, resultSummary).catch(() => {});
+          }
+        }
       }
 
       // #80: Draft flush — fire-and-forget periodic persistence per cat

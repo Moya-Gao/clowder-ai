@@ -189,6 +189,51 @@ describe('GET /api/library/graph/resolve', () => {
     assert.equal(res.statusCode, 403);
   });
 
+  it('applies relations filter AT TRAVERSAL TIME (砚砚 cloud-9 P1)', async () => {
+    await setup();
+
+    // Default: edge with relation='related_to' is included → 1 edge.
+    const allRes = await app.inject({ method: 'GET', url: '/api/library/graph/resolve?query=f186&depth=1' });
+    assert.equal(allRes.statusCode, 200);
+    assert.equal(allRes.json().graph.edges.length, 1, 'no filter → all edges included');
+
+    // Filter to disallowed relation type → 0 edges; the related_to edge must be
+    // skipped at resolve time, not just at render time.
+    const filteredRes = await app.inject({
+      method: 'GET',
+      url: '/api/library/graph/resolve?query=f186&depth=1&relations=wikilink',
+    });
+    assert.equal(filteredRes.statusCode, 200);
+    const filteredBody = filteredRes.json();
+    assert.equal(filteredBody.status, 'graph');
+    assert.equal(
+      filteredBody.graph.edges.length,
+      0,
+      'relations=wikilink filter must skip related_to edge at resolve time',
+    );
+    // F102 should NOT appear in graph nodes since the only edge to it is filtered out.
+    const hasF102 = filteredBody.graph.nodes.some((n) => n.anchor === 'F102');
+    assert.equal(hasF102, false, 'F102 reached only via filtered-out edge — must not appear in nodes');
+
+    // Allowed relation type matches → 1 edge.
+    const allowRes = await app.inject({
+      method: 'GET',
+      url: '/api/library/graph/resolve?query=f186&depth=1&relations=related_to',
+    });
+    assert.equal(allowRes.statusCode, 200);
+    assert.equal(allowRes.json().graph.edges.length, 1);
+  });
+
+  it('rejects invalid relation type with 400', async () => {
+    await setup();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/library/graph/resolve?query=f186&relations=bogus',
+    });
+    assert.equal(res.statusCode, 400);
+    assert.match(res.json().error, /relations must be subset of/);
+  });
+
   it('validates depth consistently with direct graph endpoint', async () => {
     await setup();
 

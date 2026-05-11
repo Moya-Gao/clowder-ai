@@ -52,6 +52,13 @@ interface BuildSubgraphOptions {
   depth?: number;
   callerCollections?: string[];
   centerCollectionId?: string;
+  /**
+   * 砚砚 cloud-9 P1: filter edges by relation type AT TRAVERSAL TIME, not just at
+   * render time. Without this, disallowed-relation edges still expanded the
+   * frontier — caller-visible nodes could be reached via filtered-out edges and
+   * the backend traversal cost was unaffected by the filter.
+   */
+  relations?: readonly string[];
 }
 
 function inferCollectionIdSync(anchor: string, catalog: CatalogLike): string | undefined {
@@ -100,6 +107,7 @@ export class GraphResolver {
   async buildSubgraph(anchor: string, opts?: BuildSubgraphOptions): Promise<GraphResult> {
     const depth = opts?.depth ?? 1;
     const callerCollections = new Set(opts?.callerCollections ?? []);
+    const relationFilter = opts?.relations && opts.relations.length > 0 ? new Set<string>(opts.relations) : null;
     const nodesMap = new Map<string, GraphNode>();
     const edgesArr: GraphEdge[] = [];
     const edgeKeySet = new Set<string>();
@@ -219,6 +227,10 @@ export class GraphResolver {
             const related = await s.getRelated(lookupAnchor);
             for (const rel of related) {
               if (!relationTouchesCollection(collectionId, rel)) continue;
+              // 砚砚 cloud-9 P1: skip disallowed-relation edges so they don't
+              // expand the frontier nor add edges; render-time filtering alone
+              // would still reach nodes via filtered edges and inflate cost.
+              if (relationFilter && !relationFilter.has(rel.relation)) continue;
               const relCollectionId = await inferCollectionId(rel.anchor, this.catalog, this.stores);
               const relStore = relCollectionId ? this.stores.get(relCollectionId) : undefined;
               const relDoc = relStore ? await relStore.getByAnchor(rel.anchor) : null;

@@ -144,7 +144,8 @@ export async function handleSearchEvidence(input: {
 
     if (data.results.length === 0) {
       const noResultMsg = `${EVIDENCE_RESULT_MARKER} No results found for: ${input.query}`;
-      const parts = [degradedBanner, noResultMsg, depthLine].filter(Boolean);
+      const nudge = composeMemoryNavigationNudge(data); // F188 AC-F3 + KD-7
+      const parts = [degradedBanner, noResultMsg, nudge, depthLine].filter(Boolean);
       return successResult(parts.join('\n\n'));
     }
 
@@ -207,6 +208,13 @@ export async function handleSearchEvidence(input: {
       lines.push('');
     }
 
+    // F188 Phase F AC-F3 + KD-7: deterministic nudge on low-hit (no high/mid doc anchors)
+    const nudgeText = composeMemoryNavigationNudge(data);
+    if (nudgeText) {
+      lines.push(nudgeText);
+      lines.push('');
+    }
+
     lines.push(depthLine);
 
     return successResult(lines.join('\n'));
@@ -214,6 +222,38 @@ export async function handleSearchEvidence(input: {
     const message = err instanceof Error ? err.message : String(err);
     return errorResult(`Evidence search request failed for ${queryLabel}: ${message}`);
   }
+}
+
+/**
+ * F188 Phase F AC-F3 (KD-7): deterministic nudge to alternate memory entries.
+ * Triggered on:
+ *   - no_match (results length 0)
+ *   - low_hit (no high/mid confidence doc anchors among results)
+ *
+ * Replaces PostToolUse hook (KD-7 v1 strategy). FM-5 measures effectiveness:
+ * if猫 ignores nudge AND falls back to Bash grep, nudge has failed.
+ */
+function composeMemoryNavigationNudge(data: {
+  results: Array<{ confidence: string; sourceType: string }>;
+}): string | null {
+  if (data.results.length === 0) {
+    return [
+      '🧭 Memory navigation — no match, try a different entry:',
+      '  • 精确 anchor (F186 / ADR-019 等) → cat_cafe_graph_resolve',
+      '  • 零先验 / 扫一眼最近活动 → cat_cafe_list_recent(scope="all", since="7d")',
+    ].join('\n');
+  }
+  const hasHighOrMidDocHit = data.results.some(
+    (r) => (r.confidence === 'high' || r.confidence === 'mid') && DOC_SOURCE_TYPES.has(r.sourceType),
+  );
+  if (!hasHighOrMidDocHit) {
+    return [
+      '🧭 Memory navigation — low confidence hits, consider an alternate entry:',
+      '  • 看 anchor 周边关系 → cat_cafe_graph_resolve',
+      '  • 时间窗口扫描 → cat_cafe_list_recent',
+    ].join('\n');
+  }
+  return null;
 }
 
 function formatDegradedBanner(
@@ -251,7 +291,13 @@ export const evidenceTools = [
       'Watch for antonym gaps: searching 记忆 misses 失忆/压缩/丢失 — search the opposite angle separately if needed. ' +
       'READING RESULTS: confidence = search match quality (rank-based), authority = document reliability (path-based) — two independent dimensions. ' +
       'DEPTH: Start with summary (default). Use depth=raw only after narrowing scope to drill into specific passages. ' +
-      'BOUNDARY: Use this tool to FIND information across the project. For READING raw messages in a specific thread, use get_thread_context instead.',
+      'BOUNDARY: Use this tool to FIND information across the project. For READING raw messages in a specific thread, use get_thread_context instead. ' +
+      'F188 PHASE F 7-TOOL FAMILY (cross-reference, choose by scenario): ' +
+      'precise anchor + relations → cat_cafe_graph_resolve; ' +
+      'zero-prior / scan recent → cat_cafe_list_recent; ' +
+      'this tool (search_evidence) = semantic/fuzzy find; ' +
+      'session drill-down → list_session_chain / read_session_digest / read_session_events / read_invocation_detail. ' +
+      'When this tool returns low_hit or no_match, payload appends a deterministic nudge pointing to graph_resolve/list_recent (KD-7).',
     inputSchema: searchEvidenceInputSchema,
     handler: handleSearchEvidence,
   },

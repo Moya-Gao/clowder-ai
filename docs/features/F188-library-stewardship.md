@@ -122,6 +122,12 @@ Privacy Contract：
 - 不做 graph 全量预计算缓存（按需 query 即可）
 - 不上 PostToolUse hook 作为 v1 必交付（用 `search_evidence` return payload 内 deterministic nudge 替代；详见 AC-F3 + KD-7。v2 如 FM-5 显示 nudge 失效再上 hook）
 
+## Architecture Ownership
+
+Architecture cell: memory
+Map delta: none — extends existing memory cell（复用 GraphResolver + 新增 RecentBrowseResolver / ToolEventLog / SkillLoadEventLog 等独立 read-models / append-only logs）。Skill 和 canonical .md 配套 (CLAUDE/AGENTS/GEMINI/OPENCODE.md + cat-cafe-skills/memory-navigation/) 同步更新 — 这是 cross-cutting documentation sync，不引入新架构 cell。
+Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复用 F188 Phase C 的 GraphResolver；list_recent 是 metadata browse read-model（不扩 F102 IEvidenceStore，砚砚 二审 P2 boundary）；ToolEventLog / SkillLoadEventLog 是 ToolUsageCounter 旁支的 append-only sequence 日志（cross-cutting telemetry，4.6 review #1）。
+
 ## Acceptance Criteria
 
 ### Phase A（运行期维护入口）✅
@@ -207,7 +213,7 @@ Privacy Contract：
   - **AS-1 三入口分布**：在任意 thread 前 5 次 memory-class MCP 调用中，至少 1 次是 `graph_resolve` 或 `list_recent`（即不再 100% 走 search_evidence）
   - **AS-2 cold-start 缩短**：`turns-to-baton`（从进 thread 到首次接球 / 交付动作的 tool call 数）对比 baseline（only-search）≥30% 减少。**Baton 事件定义**（防止 baseline 不可复现）：以 F167 worklist registry 的 mention 入站事件作为"进 thread"锚点；以首次出现以下任一作为"接球 / 交付"：(a) 行首 @ 路由出站；(b) `cat_cafe_hold_ball` 调用；(c) 文件 edit / git commit / PR action；分母 N ≥ 10 cold-start session
   - **AS-3 三入口路由表注入**：SessionStart hook 输出在 trace 里 query 到三入口路由提示文本（非 search_evidence one-trick）
-  - **AS-4 memory-navigation skill 触发**：`skill_loaded` 事件（**Phase F 新增**，schema 见 AC-F10）query 到 `memory-navigation` skill 加载（在压缩后/零先验/"我记得讨论过"等关键词命中场景）；不依赖现有 Skill `tool_use` 计数（去重 + 没有 trigger 上下文，砚砚 二次 review P2 修正）
+  - **AS-4 memory-navigation skill 触发**：`skill_loaded` 事件（**Phase F 新增**，schema 见 AC-F10）query 到 `memory-navigation` skill 加载（在压缩后/零先验/"我记得讨论过"等关键词命中场景）；不依赖现有 Skill `tool_use` 计数（去重 + 没有 trigger 上下文，砚砚 二次 review P2 修正）。**v1 scope (砚砚 四审 acknowledged)**：producer 监听 Claude Code `/Skill` tool_use。Codex/Antigravity 等通过 prompt-injection 方式加载 skill 的 runtime 不发 tool_use，v1 该路径 silent；首次 eval 后 N<20 时显示 insufficient data，不误判。完整跨 runtime instrumentation（SystemPromptBuilder skill-inject 切面）列入 v2 follow-up（追踪 issue 见 PR 描述）。
 
 ### 2. Friction Metric
 

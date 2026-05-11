@@ -67,19 +67,25 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 
 你有一个**本地记忆组件**：`evidence.sqlite`，启动时自动从 `docs/` 重建索引，包含所有 feature specs、ADRs、plans、lessons 的全文检索 + 向量语义 rerank。
 
-### 开工前先搜（必做！）
+### 开工前先 recall — 三入口路由（按场景选）🔴
 
-**接到任务后、回答项目相关问题前、写代码前**，先用 `search_evidence` 搜一下相关上下文：
+**接到任务后、回答项目相关问题前、写代码前**，按场景选记忆入口（F188 Phase F 三入口路由 + KD-9）。猫家共享 partial：`cat-cafe-skills/refs/memory-routing-partial.md`
 
-```
-search_evidence("F102 memory adapter")     # 找 feature / ADR / 明确术语
-search_evidence("redis pitfall")           # 找教训 / 踩坑经验
-search_evidence("session chain design")    # 找历史讨论 / 决策
-```
+| 场景 | 入口 | 何时用 |
+|------|------|--------|
+| **精确 anchor / 看关系** | `cat_cafe_graph_resolve(query, depth?, relations?)` | 已知 `F186` / `ADR-019` 等 anchor 看周边引用；或模糊词→候选列表 |
+| **零先验 / 扫一眼最近** | `cat_cafe_list_recent(scope, since, limit?)` | 不知道找什么、"我记得最近讨论过 X" / 压缩后回顾 |
+| **语义 / 模糊找** | `cat_cafe_search_evidence(query, mode?, scope?)` | 有概念/关键词需要语义召回；跨语言搜索 |
+
+⚠️ 历史 hook 只提 `search_evidence`，那是 one-trick 默认。**新场景按上面三入口选**——精确 anchor 走 graph 比 search 命中率高得多；零先验扫一眼用 recent 比反复盲搜 query 高效。
+
+⚠️ `search_evidence` low-hit / no-match 时会在 payload 末尾打 deterministic nudge 提示你换入口（F188 KD-7）。
 
 **为什么**：你的上下文窗口每次都是新的，但项目的知识在索引里。不搜就开工 = 从零开始，可能重蹈覆辙。
 
 ### 检索策略
+
+`search_evidence` 内部细节：
 
 | 找什么 | 怎么搜 | mode |
 |--------|--------|------|
@@ -92,11 +98,22 @@ search_evidence("session chain design")    # 找历史讨论 / 决策
 | 具体消息定位 | `search_evidence("redis config", depth="raw", scope="threads")` — 返回 passageId + speaker + timestamp | `depth=raw` |
 | 源码 / API 实现 | **继续用 Grep/LSP**，不走记忆组件 | — |
 
+`graph_resolve` 噪音控制：
+
+| 控制 | 用法 |
+|------|------|
+| `depth` | 默认 1，上限 3（避免边爆炸） |
+| `relations` | filter `wikilink` / `doc_link` / `feature_ref` / `related_to` 子集 |
+
+`list_recent` 时间窗口：`"7d"` / `"24h"` / ISO 日期。`scope` 跨 `docs` / `threads` / `memory` / `all`。
+
 > **mode 速查**：不确定用哪个 → 用 `hybrid`。精确 ID 用 `lexical`。英搜中/中搜英用 `semantic`。
 >
 > **scope 速查**：要结论 → `docs`。要过程 → `threads`。要全貌 → **两者分别搜**（`all` 里文档会压过 thread）。
 >
 > **query 技巧**：Feature ID 是强锚点（`F102`）；中英混搜更稳（`记忆 + memory`）；泛话题拆 2-3 刀从不同角度搜。
+>
+> **何时不用 search_evidence**：你已经知道精确 anchor 想看 graph → `graph_resolve`；你不知道找什么想扫一眼 → `list_recent`。
 
 ### 什么时候不用搜
 
