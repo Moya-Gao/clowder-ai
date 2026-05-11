@@ -108,13 +108,13 @@ created: 2026-05-09
 
 **AC**：
 - [ ] AC-C1: Turn-taking 检测 → 主动推"现在可以插话"信号（频率限制，防 AUDHD 注意力过载）
-- [ ] AC-C2: Speaker identity 映射（会前 enrollment → 实时归因，置信度 <0.6 降级为"有人说"）
+- [x] AC-C2: Speaker identity 映射（会前 enrollment → 实时归因，置信度 <0.6 降级为"有人说"）
 - [ ] AC-C3: 会议中主动推论点提醒（检测到高价值插话点时）
 - [x] AC-C4a: MeetingSession 绑定当前 thread，明确"会议上下文跟哪个 thread 走"
 - [x] AC-C4b: 转写上下文 rolling window + event summary + 显式拉取（不做原文堆积）
 - [x] AC-C4c: MeetingContextBlock 隔离不可信输入（带 provenance/speaker confidence/timestamp）
 - [x] AC-C5: 浮动转写窗（可拖拽/缩放/最小化，不抢聊天输入焦点）
-- [ ] AC-C6: Speaker label 手动修正
+- [x] AC-C6: Speaker label 手动修正
 
 ### 已有基础设施
 
@@ -409,6 +409,7 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | 2026-05-10 | 调研完成 + 铲屎官拍板实施范围 |
 | 2026-05-11 | Phase B merged (PR #1624) — 音频采集+ASR+MCP工具+TranscriptPanel+API proxy |
 | 2026-05-11 | Phase C1 merged (PR #1628) — MeetingSession types + rolling transcript window + MeetingContextBlock + floating transcript window |
+| 2026-05-11 | Phase C2 merged (PR #1630) — speaker identity mapping (enrollment + source-based attribution) + manual correction UI |
 
 ---
 
