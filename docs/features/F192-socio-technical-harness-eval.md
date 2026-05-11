@@ -26,7 +26,7 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 |------|------|-------------|
 | ADR-031 | harness engineering 方法论 | trace schema、export 格式 |
 | ADR-032 | trace 数据归属、脱敏、导出 | 内部 harness 改进流程 |
-| **F192（本 feature）** | close-time eval workflow、cat interview、harness-feedback doc type、feature fit review、digest | canonical trace schema、export 格式、data ownership |
+| **F192（本 feature）** | close-time eval workflow、cat interview、harness-feedback doc type、feature fit review、digest、**runtime eval pipeline（消费 F153 telemetry → 聚合 → 归因 → 行动）** | canonical trace schema、export 格式、data ownership、F153 ring buffer 容量/TTL |
 
 ## What
 
@@ -40,9 +40,9 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 - feat-lifecycle Completion 加 Step 0.6 Harness Eval Checkpoint（判断是否触发 interview，默认写 `harness_feedback: none`）
 - 写一份样例 harness-feedback 文档验证全链路（建议用 F167 A2A 的某个已知摩擦点）
 
-### Phase B: F167 Pilot——跑完整评估流程 ✅
+### Phase B: F167 Pilot——Eval Contract & Evidence Artifact Pilot ✅
 
-用 F167 A2A 球权作为试点，完整跑一遍草案里的所有产物。
+用 F167 A2A 球权作为试点，跑完预期声明层的全部产物。
 
 - 给 F167 补 Eval / Tracking Contract
 - 从历史 trace 抽 3-5 个 fixture（ball drop、zombie hold、ack loop）
@@ -51,13 +51,39 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 - 写一次 Feature Fit Review 模板样例
 - 定义 A2A 工具的 adoption / friction / false-positive 指标
 
-### Phase C: Tool Eval Contracts + Monthly Digest
+**Phase B 定位（KD-5 重新定性）**：Phase B = 预期声明层（should be）。产物是 eval pipeline 的 schema / 触发点 / 输入锚点，不是 runtime eval 完成证明。具体定位：
 
-扩展到更多工具，建立定期回顾机制。
+| Phase B 产物 | 新定位 | 自动化程度 |
+|---|---|---|
+| Eval Contract | 预期声明（spec-time）——pipeline 用它对比 actual | 手填 |
+| Trace fixtures | regression ground truth——pipeline 必须正确判断 | 手填 anchor，pipeline 消费 |
+| Feature Trace Bundle | derived view——pipeline 自动从 F153 生成 | 自动化（Phase C） |
+| Cat interview | 触发型产物——pipeline 检测 anomaly 时触发 | 触发自动化，回答手填 |
+| Feature Fit Review | 人工 sense-check——归因后 CVO/愿景守护猫裁定 | 半自动 |
+| Tool Eval Contracts | 预期声明——同 Eval Contract | 手填 |
 
-- 为 top-5 MCP 工具写 tool eval contract（search_evidence、post_message、hold_ball、browser tools、rich block）
+### Phase C: Runtime Harness Eval — F167 端到端验证
+
+从 F153 消费运行时 telemetry，对 F167 A2A harness 跑一次真实的端到端 eval。Phase B 定义了"应该怎样"（eval contract），Phase C 观测"实际怎样"（telemetry），**diff = eval 信号**。
+
+核心 scope：搭骨架（3-4 条 AC），不做自动化 pipeline / 定时任务 / 通用化。用 F167 作为唯一接入对象。
+
+- 实现 F153 Telemetry Adapter，消费 `/api/telemetry/traces`、`/traces/stats`、`/metrics`、`/metrics/history` 四个公开 API
+- 对 F167 的 4 个 harness 组件（L1 ping-pong breaker / C1 hold_ball / C2 forced-pass guard / route-serial）产出真实数据驱动的 runtime eval snapshot
+- 对 telemetry 中的 friction signal 跑至少一次归因 → 抽象 → 解决循环
+- 明确标注 telemetry gap（不可观测本身就是 eval 结果）
+
+### Phase D: Eval Infrastructure Completion + Tool Eval Expansion
+
+Phase C 骨架跑通后，完善基础设施 + 扩展到更多工具。含原 Phase C scope + 三猫讨论的剩余 AC。
+
+- Harness Component Registry：F167 每个 harness 组件拆出 hard/soft/eval 三栏
+- Snapshot Store：daily scheduled task 从 F153 拉聚合摘要，解决 24h TTL 限制
+- End-to-End Verification：pipeline 复现 Phase B fixtures 的已知 friction（recall gate）
+- Self-Eval Contract：Phase C pipeline 自己填 Eval Contract（meta-eval），含 sunset signal
+- Top-5 MCP 工具写 tool eval contract（search_evidence、post_message、hold_ball、browser tools、rich block）
 - 注册 monthly scheduled task `harness-fit-digest`
-- 跑第一次 micro fit digest，评估 Phase A/B 的机制是否太重
+- 跑第一次 micro fit digest，评估 Phase A/B/C 的机制是否太重
 - 根据 digest 结论决定：升级为 ADR / 精简 / sunset
 
 ## Acceptance Criteria
@@ -79,11 +105,21 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 - [x] AC-B6: A2A 工具 eval contract 含 adoption / friction / false-positive 指标
 - [x] AC-B7: `feat-lifecycle` Inception / Design Gate 加 Eval Contract 硬门禁——harness/skill/MCP/shared-rules 类 spec 立项时必须含 Eval Contract 节，否则 Design Gate 不通过。触发条件：新增规则/接口/行为变化（小修小补不触发）。Sunset Signal 空填 = 不通过，不设 reviewer 签字降级
 
-### Phase C（扩展 + Digest）
-- [ ] AC-C1: top-5 MCP 工具各有 tool eval contract
-- [ ] AC-C2: monthly scheduled task `harness-fit-digest` 已注册
-- [ ] AC-C3: 第一次 micro fit digest 已完成
-- [ ] AC-C4: digest 结论写入 feature spec（升级 / 精简 / sunset）
+### Phase C（Runtime Harness Eval — F167 端到端验证）
+- [ ] AC-C1: F153 Telemetry Adapter 实现——消费 F153 四个公开 API（`/api/telemetry/traces`、`/traces/stats`、`/metrics`、`/metrics/history`），不 import F153 内部类型。写 adapter contract test：F153 response 格式变化时 F192 失败在 adapter 层
+- [ ] AC-C2: F167 Runtime Eval Snapshot——对 F167 四个 harness 组件（L1 ping-pong breaker / C1 hold_ball / C2 forced-pass guard / route-serial）产出真实数据驱动的 health snapshot。字段含 window / data_source / activation_counts / friction_counts / false_positive_candidates / bypass_candidates / confidence。Telemetry gap 必须明确标注（缺 counter / span 未持久化 / tool_use 不可查 / cross-cat 403 / TraceContext Phase G 未完成）——不可观测本身就是 eval 结果
+- [ ] AC-C3: Attribution Finding——至少跑一个基于 telemetry 的「归因 → 抽象 → 解决」循环。输出结构化 YAML attribution_record（含 trace_anchor / friction_signal / attribution / proposed_action / status）。归因使用 7-class 矩阵（vision_gap / translation_gap / harness_misfit / tool_gap / execution_gap / environment_drift / taste_gap）。"no finding" 也是合法结论，但必须基于 telemetry 证据
+- [ ] AC-C4: Phase B Reclassification——F192 spec 明确写入：Phase B = 预期声明层（should be），Phase C = 实际观测层（actually is），diff = eval 信号。Phase B 产物保留但定位为 L0/L1/L4 支撑层，不是 runtime eval 完成证明
+
+### Phase D（Eval Infrastructure Completion + Tool Eval Expansion）
+- [ ] AC-D1: Harness Component Registry——F167 每个 harness 组件拆出 hard / soft / eval 三栏，形成可扩展的 registry 格式
+- [ ] AC-D2: Snapshot Store——daily scheduled task 从 F153 拉聚合摘要到 `docs/harness-feedback/snapshots/`，解决 F153 24h TTL 限制。monthly digest 从 daily snapshot 二次聚合
+- [ ] AC-D3: End-to-End Verification——pipeline 必须复现 Phase B fixtures 的已知 friction signal（recall gate），且对正常 trace 不误判（precision gate）
+- [ ] AC-D4: Self-Eval Contract——Phase C pipeline 自己填 Eval Contract（meta-eval），定义 sunset signal
+- [ ] AC-D5: top-5 MCP 工具各有 tool eval contract
+- [ ] AC-D6: monthly scheduled task `harness-fit-digest` 已注册
+- [ ] AC-D7: 第一次 micro fit digest 已完成
+- [ ] AC-D8: digest 结论写入 feature spec（升级 / 精简 / sunset）
 
 ## Dependencies
 
@@ -97,18 +133,24 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 
 | 风险 | 缓解 |
 |------|------|
-| 流程膨胀——eval checkpoint 变成每次 feat close 的 token 黑洞 | Phase A 默认写 `none`，只在触发条件下展开；Phase C digest 显式审计是否太重 |
+| 流程膨胀——eval checkpoint 变成每次 feat close 的 token 黑洞 | Phase A 默认写 `none`，只在触发条件下展开；Phase D digest 显式审计是否太重 |
 | Feature Trace Bundle schema 和 F153 trace 脱节 | Authority Boundary 约束：bundle 是 derived view，schema defer to F153 |
 | cat interview 变成走形式 | interview 基于 trace 的固定问题，不是自由散文；Phase B pilot 验证有效性 |
-| 草案最终没用 | Build to Delete：Phase C digest 是显式 sunset 判断点，废弃只删标注层，不影响 ADR-032 |
+| 草案最终没用 | Build to Delete：Phase D digest 是显式 sunset 判断点，废弃只删标注层，不影响 ADR-032 |
+| F153 24h TTL 不够 monthly digest | Phase C 不阻塞；Phase D 建 Snapshot Store 每日快照聚合 |
+| 又把 eval 做成文档 | Phase C AC-C2 要求 telemetry 数据驱动的 snapshot，手填 = 不通过；AC-C4 明确写入 Phase B 重新定性 |
+| 跨猫 403 阻塞 aggregate eval | Phase C 先走单猫可拉的 aggregate 数据；403 不阻塞骨架，Phase D 解决 |
+| F153 API 格式变化导致 F192 破碎 | AC-C1 adapter contract test 兜底——变化失败在 adapter 层，不散落一地 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Feature Trace Bundle 应该 close 时生成静态 snapshot 还是 query view？ | ⬜ Phase B pilot 时定 |
-| OQ-2 | Cat interview 用 MCP tool 驱动还是先 markdown 模板？ | ⬜ Phase A 先用 markdown |
-| OQ-3 | skill/SOP step telemetry 怎么捕获？ | ⬜ Phase B 探索 |
+| OQ-1 | Feature Trace Bundle 应该 close 时生成静态 snapshot 还是 query view？ | ✅ Phase C 产出 snapshot |
+| OQ-2 | Cat interview 用 MCP tool 驱动还是先 markdown 模板？ | ✅ Phase A 先用 markdown |
+| OQ-3 | skill/SOP step telemetry 怎么捕获？ | ⬜ Phase D 探索 |
+| OQ-4 | 跨猫 session 403 如何处理？三个方案：(A) Service token (B) ADR-032 export 层 (C) Push-based | ⬜ Phase C 先走 aggregate 脱敏不阻塞；Phase D 解决 |
+| OQ-5 | Daily snapshot 存储格式：markdown（可被 search_evidence 索引）vs SQLite（查询效率） | ⬜ Phase D 定 |
 
 ## Key Decisions
 
@@ -118,6 +160,8 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 | KD-2 | F167 作为首个 pilot | 天然具备 failure pattern / trace signal / CVO pain / cat friction / sunset 问题 | 2026-05-07 |
 | KD-3 | 立项前置 Eval Contract 塞进 Phase B 验证（方案 C），不 reopen Phase A | 模板需 pilot 验证后才有资格成为硬门禁；AC 驱动验证不是验证驱动 AC（47 提议 + 46 确认） | 2026-05-07 |
 | KD-4 | Sunset Signal 空填 = Design Gate 不通过，不设 reviewer 签字降级 | 治"只加不删"的核心机制；说不清何时删 = 没想清楚要解决什么（46 决策） | 2026-05-07 |
+| KD-5 | Phase C scope pivot：从"文档模板 + monthly digest"改为"runtime eval 基础设施"。Phase B 重新定性为"Eval Contract & Evidence Artifact Pilot"（预期声明层），不是 runtime eval 完成证明 | Phase B AC 设计把"pilot"翻译成了"写文档模板验证 schema"，没有从 F153 拉运行时数据跑真正的 eval。CVO 原话："f192的基础设施根本没做呀！""一个 harness 需要有硬/软/eval，eval 去观测 harness 跑的如何→归因→抽象→解决"。三猫讨论收敛后铲屎官确认（2026-05-08） | 2026-05-08 |
+| KD-6 | Phase C = 4 条核心 AC（骨架），剩余推 Phase D。原 Phase C (Tool Eval Contracts + Monthly Digest) 推为 Phase D 后半 | 7 条 AC 是终态蓝图，一口气做完有过度设计风险。3-4 条先搭骨架跑通端到端，再扩展（铲屎官 2026-05-10 确认） | 2026-05-10 |
 
 ## Timeline
 
@@ -128,12 +172,16 @@ Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲�
 | 2026-05-07 | 铲屎官确认立项，F192 kickoff |
 | 2026-05-07 | Phase A merged (PR #1584) |
 | 2026-05-08 | Phase B merged (PR #1590) |
+| 2026-05-08 | CVO pivot：Phase C scope 从文档模板改为 runtime eval 基础设施（KD-5） |
+| 2026-05-08 | 三猫讨论（砚砚55 / 47 / 46）收敛 Phase C AC 方案（7 条终态蓝图） |
+| 2026-05-10 | 铲屎官确认 Phase C = 4 核心 AC，剩余推 Phase D（KD-6） |
 
 ## Review Gate
 
 - Phase A: 砚砚 review（草案原作者验证骨架实现与设计一致）
 - Phase B: 跨家族 review
-- Phase C: digest 结论需铲屎官确认
+- Phase C: spec 更新需跨家族 review；实现需跨家族 review
+- Phase D: digest 结论需铲屎官确认
 
 ## Links
 
