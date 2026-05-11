@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F194: Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口
 
-> **Status**: in-progress (Phase A + B + Z + Z2 + Z3 + Z5 + Z6 merged; Z4 was reverted before Z5. **Alpha re-test pending** after Phase Z7 fixes the remaining live-only provisional duplicate residue found on 2026-05-10 18:12: F5/hydrate is canonical, but live completion did not delete older local-only stream siblings once a canonical bubble existed.) | **Owner**: 缅因猫/Codex for Z7, reviewer 布偶猫/Opus-47 | **Priority**: P1
+> **Status**: in-progress (Phase A + B + Z + Z2 + Z3 + Z5 + Z6 + Z7 merged; Z4 was reverted before Z5. **Alpha re-test pending** after Phase Z7 fixes the remaining live-only provisional duplicate residue found on 2026-05-10 18:12: F5/hydrate is canonical, but live completion did not delete older local-only stream siblings once a canonical bubble existed.) | **Owner**: 缅因猫/Codex for Z7, reviewer 布偶猫/Opus-47 | **Priority**: P1
 >
 > **AC-Z1 (alpha runtime acceptance) FAILED 2026-05-09 03:35** — 铲屎官实测 runtime 仍裂，根因比 Phase B 修的更深：F194 read-side helper 把 **parent recordStore invocation** 与 **per-cat-turn registry invocation** 当成同一 namespace 处理。bug-report `docs/bug-report/2026-05-09-f194-runtime-bubble-still-split-completion-leak/`，砚砚 2026-05-09 04:51 拍板走 Phase Z（namespace-aware canonical read model），见 KD-21~KD-23 + AC-Z1~Z5。
 >
@@ -376,7 +376,7 @@ Phase Z5 合入后的 alpha re-test 又抓到两个剩余边界：
 
 Phase Z6 后 alpha re-test 继续抓到 live-only residue：同一 assistant response 在 live state 中可见为 canonical stream bubble + local-only provisional duplicate；F5 后 `/messages` hydrate 只保留 canonical bubble。根因是 reducer 的 terminal path 只 finalize canonical bubble，没有在 canonical sibling 已存在时清理同猫、更早的 local-only stream sibling。
 
-- [x] AC-Z19: terminal completion reconciles local-only stream siblings. 当 `done` / exact-key `callback_final` 已命中 canonical bubble 时，删除同 cat、同 terminal 时间之前的 local-only `origin='stream'` provisional siblings；没有 canonical sibling 时不删；timestamp 晚于 terminal event 的 local-only bubble 视为下一轮，不删。✅ RED→GREEN: `bubble-reducer.test.ts` F194 Z7 two cases（drop older duplicate / preserve newer next-turn local placeholder）。
+- [x] AC-Z19: terminal completion reconciles local-only stream siblings. 当 `done` / exact-key `callback_final` 已命中 canonical bubble 时，删除同 cat、同 terminal 时间之前的 local-only `origin='stream'` provisional siblings；没有 canonical sibling 时不删；timestamp 晚于 terminal event 的 local-only bubble 视为下一轮，不删；terminal event 缺 timestamp 时不执行 sibling cleanup（云端 Codex R1 P1，避免误删下一轮 placeholder）。✅ PR #1625 squash `96c76bad` — RED→GREEN: `bubble-reducer.test.ts` F194 Z7 三个 case（drop older duplicate / preserve newer next-turn local placeholder / missing timestamp guard）。
 
 ### 端到端 / Vision
 
@@ -495,6 +495,7 @@ Phase Z6 后 alpha re-test 继续抓到 live-only residue：同一 assistant res
 | 2026-05-10 16:40 | **Phase Z5 merged (PR #1622, squash `3b3c6b33`)** — 单 PR 收口铲屎官 alpha 实测 4 bug (A 气泡裂 / B 不自愈 / C 采样缺猫 / D fallback 错猫)。砚砚 R1→R11 跨 11 轮 review 收敛 5 P1 + 2 nit (await + UI-compat 白名单 + 50 thread-msg cap → pagination → effective score cursor → page-level cutoff)；云端 codex R1→R8 跨 8 轮 review 收敛 4 P1 + 2 P2 (system msg user count + placeholder 吸收 kind gate + scheduler 排除 + 1h cutoff 顺序 + 跨 panel coherence + 去掉 page cap)；最后 2 轮 cloud LGTM "Didn't find any major issues 🎉"。Bug A+B 修法：bubble-reducer findExistingByStableKey empty placeholder 吸收 (gate 非 system_status incoming kind)。Bug C 修法：deriveActiveCats ideate mode UNION + 三 panel 都传 intentMode。Bug D 修法：findRecentUserMentionFallback 分页扫 effective score (deliveredAt ?? timestamp) + SYSTEM_USER_IDS 排除 + 1h cutoff 仅对 user msg + page-level cutoff early-stop。15 commits squash 1。AC-Z12/Z13/Z14/Z15/Z16 全 ✅。**Status: alpha re-test by 铲屎官 待执行** → 守护猫 sign-off → close F194。 |
 | 2026-05-10 18:36 | **Phase Z6 merged (PR #1623, squash `24eb56e3`)** — 砚砚接手修 alpha re-test 剩余 2 个问题：R9 late rich/audio after done 造成临时小气泡（F5 后消失）和 R10 no-@ fallback 误扩成上一轮 mentions 全集。Opus-47 review APPROVE，云端 Codex R1 退回 2 P1（active/background finalized fallback 必须只限 invocationless rich/audio，不能把新 invocation rich_block 拼进旧 bubble），砚砚补 RED→GREEN 后重新触发，云端 LGTM "Breezy!"。AC-Z17/AC-Z18 全 ✅。**Status: alpha re-test by 铲屎官待执行** → 守护猫 sign-off → close F194。 |
 | 2026-05-10 18:12~18:36 | **Phase Z7 opened** — 铲屎官确认 F5 后正常、live state 残留：Opus-46 与 Codex 在 live 期间出现 duplicate bubble，hydrate 后消失。砚砚 runtime preflight：runtime 含 Z6 (`ab77f6880`)，`/messages` hydrate 对 `thread_mp0i4nfau5hz0mr6` 只返回 canonical stream bubbles，证明不是后端持久化双写。根因：terminal reducer path 没有在 canonical bubble 已存在时清理 older local-only stream sibling。新增 AC-Z19。 |
+| 2026-05-10 19:08 | **Phase Z7 merged (PR #1625, squash `96c76bad`)** — 砚砚 author，Opus-47 review APPROVE。修 live-only canonical bubble + local-only provisional duplicate residue：`dropLocalOnlyStreamSiblings` 只在 canonical sibling 存在且 terminal timestamp 可判定 older/newer 时删除同 cat local-only `origin='stream'` sibling。云端 Codex R1 退回 1 P1（terminal timestamp optional，缺 timestamp 时会误删 next-turn local placeholder），砚砚补 RED→GREEN missing timestamp guard 后 `pnpm gate` 全绿，云端第二轮 LGTM "You're on a roll."。AC-Z19 ✅。**Status: alpha re-test by 铲屎官待执行** → 守护猫 sign-off → close F194。 |
 
 ## Review Gate
 

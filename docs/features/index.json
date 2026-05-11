@@ -1203,7 +1203,7 @@
     {
       "id": "F194",
       "name": "Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口",
-      "status": "in-progress (Phase A + B + Z + Z2 + Z3 + Z5 + Z6 merged; Z4 was reverted before Z5. **Alpha re-test pending** after Phase Z7 fixes the remaining live-only provisional duplicate residue found on 2026-05-10 18:12: F5/hydrate is canonical, but live completion did not delete older local-only stream siblings once a canonical bubble existed.) | **Owner**: 缅因猫/Codex for Z7, reviewer 布偶猫/Opus-47 | **Priority**: P1",
+      "status": "in-progress (Phase A + B + Z + Z2 + Z3 + Z5 + Z6 + Z7 merged; Z4 was reverted before Z5. **Alpha re-test pending** after Phase Z7 fixes the remaining live-only provisional duplicate residue found on 2026-05-10 18:12: F5/hydrate is canonical, but live completion did not delete older local-only stream siblings once a canonical bubble existed.) | **Owner**: 缅因猫/Codex for Z7, reviewer 布偶猫/Opus-47 | **Priority**: P1",
       "file": "F194-invocation-liveness-canonical-read-model.md"
     },
     {
