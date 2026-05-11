@@ -57,7 +57,7 @@ export const audioProxyRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
-  app.get<{ Querystring: { from?: string; to?: string; latest?: string } }>(
+  app.get<{ Querystring: { from?: string; to?: string; latest?: string; mode?: string; format?: string } }>(
     '/api/audio/transcript',
     async (req, reply) => {
       if (!requireIdentity(req, reply)) return;
@@ -66,6 +66,8 @@ export const audioProxyRoutes: FastifyPluginAsync = async (app) => {
         if (req.query.from) params.set('from', req.query.from);
         if (req.query.to) params.set('to', req.query.to);
         if (req.query.latest) params.set('latest', req.query.latest);
+        if (req.query.mode) params.set('mode', req.query.mode);
+        if (req.query.format) params.set('format', req.query.format);
         const qs = params.toString();
         return await proxyJson(reply, 'GET', `/transcript${qs ? `?${qs}` : ''}`);
       } catch {

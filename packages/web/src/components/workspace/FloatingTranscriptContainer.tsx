@@ -1,0 +1,131 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useChatStore } from '@/stores/chatStore';
+import { API_URL, apiFetch } from '@/utils/api-client';
+import { FloatingTranscriptWindow } from './FloatingTranscriptWindow';
+
+interface TranscriptLine {
+  ts: number;
+  elapsed_s: number;
+  chunk_num: number;
+  asr_latency: number;
+  text: string;
+}
+
+interface AudioStatus {
+  running: boolean;
+  source?: string;
+  app_name?: string;
+  duration_s?: number;
+}
+
+interface SseEvent {
+  type: string;
+  status?: string;
+  source?: string;
+  app_name?: string;
+  ts?: number;
+  elapsed_s?: number;
+  chunk_num?: number;
+  asr_latency?: number;
+  text?: string;
+}
+
+export function FloatingTranscriptContainer() {
+  const visible = useChatStore((s) => s.floatingTranscriptVisible);
+  const setVisible = useChatStore((s) => s.setFloatingTranscriptVisible);
+
+  const [lines, setLines] = useState<TranscriptLine[]>([]);
+  const [status, setStatus] = useState<AudioStatus>({ running: false });
+  const [connected, setConnected] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!visible) return;
+    const fetchInitial = async () => {
+      try {
+        const [statusResp, transcriptResp] = await Promise.all([
+          apiFetch('/api/audio/status'),
+          apiFetch('/api/audio/transcript'),
+        ]);
+        if (statusResp.ok) {
+          const data = (await statusResp.json()) as AudioStatus;
+          setStatus(data);
+          if (data.running && data.duration_s) setElapsed(data.duration_s);
+        }
+        if (transcriptResp.ok) {
+          const data = (await transcriptResp.json()) as { lines: TranscriptLine[] };
+          setLines(data.lines ?? []);
+        }
+      } catch {}
+    };
+    fetchInitial();
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const es = new EventSource(`${API_URL}/api/audio/events`, { withCredentials: true });
+    es.onopen = () => setConnected(true);
+    es.onerror = () => setConnected(false);
+    es.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data) as SseEvent;
+        if (data.type === 'transcript' && data.ts && data.text != null) {
+          setLines((prev) => [
+            ...prev,
+            {
+              ts: data.ts!,
+              elapsed_s: data.elapsed_s ?? 0,
+              chunk_num: data.chunk_num ?? 0,
+              asr_latency: data.asr_latency ?? 0,
+              text: data.text!,
+            },
+          ]);
+        } else if (data.type === 'status') {
+          if (data.status === 'started') {
+            setStatus({ running: true, source: data.source, app_name: data.app_name });
+            setLines([]);
+            setElapsed(0);
+          } else if (data.status === 'stopped') {
+            setStatus((prev) => ({ ...prev, running: false }));
+          }
+        }
+      } catch {}
+    };
+    return () => es.close();
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible || !status.running) return;
+    const iv = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(iv);
+  }, [visible, status.running]);
+
+  const handleStop = useCallback(async () => {
+    try {
+      const resp = await apiFetch('/api/audio/stop', { method: 'POST' });
+      if (resp.ok) setStatus((prev) => ({ ...prev, running: false }));
+    } catch {}
+  }, []);
+
+  const handleClose = useCallback(() => setVisible(false), [setVisible]);
+
+  if (!visible) return null;
+
+  const sourceLabel = status.app_name ? status.app_name : status.source === 'mic' ? 'Microphone' : undefined;
+
+  return createPortal(
+    <FloatingTranscriptWindow
+      lines={lines}
+      connected={connected}
+      recording={status.running}
+      sourceLabel={sourceLabel}
+      elapsed={elapsed}
+      onClose={handleClose}
+      onStop={handleStop}
+    />,
+    document.body,
+  );
+}

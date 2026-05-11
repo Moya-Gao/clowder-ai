@@ -51,6 +51,7 @@ export function TranscriptPanel() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScroll = useRef(true);
   const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
+  const setFloatingTranscriptVisible = useChatStore((s) => s.setFloatingTranscriptVisible);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -168,6 +169,16 @@ export function TranscriptPanel() {
             </button>
           </>
         )}
+        <button
+          type="button"
+          onClick={() => {
+            setFloatingTranscriptVisible(true);
+          }}
+          className="rounded px-1 py-0.5 text-xs text-cafe-text-muted hover:text-cafe-text-primary"
+          title="Pop out to floating window"
+        >
+          &#8599;
+        </button>
         <button
           type="button"
           onClick={() => setRightPanelMode('status')}

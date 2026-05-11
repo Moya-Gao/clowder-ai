@@ -64,6 +64,7 @@ import { assignDocumentRoute, pushThreadRouteWithHistory } from './ThreadSidebar
 import { VoteActiveBar } from './VoteActiveBar';
 import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
 import { WorkspacePanel } from './WorkspacePanel';
+import { FloatingTranscriptContainer } from './workspace/FloatingTranscriptContainer';
 import { ResizeHandle } from './workspace/ResizeHandle';
 import { TranscriptPanel } from './workspace/TranscriptPanel';
 
@@ -1115,6 +1116,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           <TranscriptPanel />
         </>
       )}
+      <FloatingTranscriptContainer />
       <MobileStatusSheet
         open={mobileStatusOpen}
         onClose={() => setMobileStatusOpen(false)}

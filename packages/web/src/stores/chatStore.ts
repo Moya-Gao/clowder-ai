@@ -983,6 +983,10 @@ export interface ChatState {
   workspaceMode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community';
   setWorkspaceMode: (mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community') => void;
 
+  // ── F195 Phase C: Floating transcript window ──
+  floatingTranscriptVisible: boolean;
+  setFloatingTranscriptVisible: (visible: boolean) => void;
+
   // ── F120: Preview auto-open (always-mounted listener) ──
   pendingPreviewAutoOpen: { port: number; path: string } | null;
   setPendingPreviewAutoOpen: (data: { port: number; path: string }) => void;
@@ -1426,6 +1430,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // Phase H: Workspace mode
   workspaceMode: 'dev' as const,
   setWorkspaceMode: (mode) => set({ workspaceMode: mode, rightPanelMode: 'workspace' }),
+
+  // F195 Phase C: Floating transcript window
+  floatingTranscriptVisible: false,
+  setFloatingTranscriptVisible: (visible) => {
+    set({ floatingTranscriptVisible: visible });
+    if (visible) set({ rightPanelMode: 'status' });
+  },
 
   // ── F120: Preview auto-open ──
   pendingPreviewAutoOpen: null,

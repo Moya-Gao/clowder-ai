@@ -28,6 +28,7 @@ import time
 from pathlib import Path
 
 from aiohttp import web, ClientSession, ClientTimeout, FormData
+from transcript_window import TranscriptWindow
 
 ASR_URL = os.getenv("ASR_URL", "http://localhost:9876")
 PORT = int(os.getenv("AUDIO_SERVICE_PORT", "9877"))
@@ -69,7 +70,9 @@ class AudioSession:
         self.started_at = None
         self.chunk_count = 0
         self.total_asr_time = 0.0
-        self.transcript: list[dict] = []
+        self.meeting_id = None
+        self.thread_id = None
+        self._window = TranscriptWindow(window_sec=300, summary_interval_sec=300)
 
     def _reset(self):
         self.running = False
@@ -79,12 +82,15 @@ class AudioSession:
         self.started_at = None
         self.chunk_count = 0
         self.total_asr_time = 0.0
-        self.transcript.clear()
+        self.meeting_id = None
+        self.thread_id = None
+        self._window = TranscriptWindow(window_sec=300, summary_interval_sec=300)
         self._process = None
         self._task = None
 
     async def start(self, source: str, app_name=None, device=None,
-                    chunk_sec: float = DEFAULT_CHUNK_SEC):
+                    chunk_sec: float = DEFAULT_CHUNK_SEC,
+                    meeting_id=None, thread_id=None):
         if self.running:
             raise RuntimeError("Already running — stop first")
         if source == "app" and not app_name:
@@ -102,6 +108,8 @@ class AudioSession:
         self.source = source
         self.app_name = app_name
         self.device = device
+        self.meeting_id = meeting_id
+        self.thread_id = thread_id
         self.started_at = time.time()
         if not self._http:
             self._http = ClientSession()
@@ -117,9 +125,11 @@ class AudioSession:
                 raise RuntimeError(f"Capture failed to start: {exc}") from exc
             raise RuntimeError("Capture task exited immediately")
         await self._broadcast({"type": "status", "status": "started",
-                               "source": source, "app_name": app_name})
+                               "source": source, "app_name": app_name,
+                               "meeting_id": meeting_id, "thread_id": thread_id})
         label = f"{source}" + (f" ({app_name})" if app_name else "")
-        print(f"  ▶ Started: {label}")
+        meeting = f" [meeting={meeting_id}]" if meeting_id else ""
+        print(f"  ▶ Started: {label}{meeting}")
 
     async def stop(self) -> dict:
         if not self.running:
@@ -164,10 +174,19 @@ class AudioSession:
             "avg_asr_latency": round(
                 self.total_asr_time / max(self.chunk_count, 1), 3
             ) if self.chunk_count else None,
+            "meeting_id": self.meeting_id,
+            "thread_id": self.thread_id,
         }
 
-    def get_transcript(self, from_ts=None, to_ts=None, latest=None) -> list[dict]:
-        lines = self.transcript
+    def get_transcript(self, from_ts=None, to_ts=None, latest=None,
+                       mode="raw") -> dict | list[dict]:
+        if mode in ("summary", "full"):
+            self._window.maybe_summarize(force=True)
+        if mode == "summary":
+            return {"summaries": self._window.get_summaries()}
+        if mode == "full":
+            return self._window.get_full()
+        lines = self._window.get_all_lines()
         if from_ts is not None:
             lines = [l for l in lines if l["ts"] >= from_ts]
         if to_ts is not None:
@@ -283,7 +302,8 @@ class AudioSession:
             "asr_latency": round(asr_latency, 3),
             "text": text,
         }
-        self.transcript.append(line)
+        self._window.add_line(line)
+        self._window.maybe_summarize()
         preview = text[:55] + "…" if len(text) > 55 else text
         print(f"  [{elapsed:6.1f}s] #{self.chunk_count:3d} {asr_latency:.3f}s  {preview}")
         await self._broadcast({"type": "transcript", **line})
@@ -344,6 +364,8 @@ async def h_start(request):
             app_name=data.get("app_name"),
             device=data.get("device"),
             chunk_sec=data.get("chunk_sec", DEFAULT_CHUNK_SEC),
+            meeting_id=data.get("meeting_id"),
+            thread_id=data.get("thread_id"),
         )
         return web.json_response({"ok": True, "status": session.status()})
     except Exception as e:
@@ -364,11 +386,19 @@ async def h_transcript(request):
         from_ts = float(request.query["from"]) if "from" in request.query else None
         to_ts = float(request.query["to"]) if "to" in request.query else None
         latest = int(request.query["latest"]) if "latest" in request.query else None
+        mode = request.query.get("mode", "raw")
     except (ValueError, TypeError) as e:
         return web.json_response({"error": f"Invalid query param: {e}"}, status=400)
-    lines = session.get_transcript(from_ts=from_ts, to_ts=to_ts, latest=latest)
+    if mode not in ("raw", "summary", "full"):
+        return web.json_response({"error": f"Invalid mode: {mode}"}, status=400)
+    result = session.get_transcript(from_ts=from_ts, to_ts=to_ts, latest=latest, mode=mode)
+    if mode in ("summary", "full"):
+        return web.json_response(
+            result,
+            dumps=lambda x: json.dumps(x, ensure_ascii=False),
+        )
     return web.json_response(
-        {"lines": lines},
+        {"lines": result},
         dumps=lambda x: json.dumps(x, ensure_ascii=False),
     )
 
