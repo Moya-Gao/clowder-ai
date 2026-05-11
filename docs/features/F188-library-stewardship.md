@@ -120,6 +120,7 @@ Privacy Contract：
 - 不把 grep/find/rg 集成进 MCP（边界保持：知识 vs 字符串定位）
 - 不做 LLM-based query expansion（让 agent loop 自己多轮搜索）
 - 不做 graph 全量预计算缓存（按需 query 即可）
+- 不上 PostToolUse hook 作为 v1 必交付（用 `search_evidence` return payload 内 deterministic nudge 替代；详见 AC-F3 + KD-7。v2 如 FM-5 显示 nudge 失效再上 hook）
 
 ## Acceptance Criteria
 
@@ -174,15 +175,56 @@ Privacy Contract：
 - [ ] AC-E3: Pin 数据接入 Query Replay 种子池
 
 ### Phase F（Agent-facing Memory Tools）
-- [ ] AC-F1: MCP tool `cat_cafe_graph_resolve(query, depth?, relations?)` 实现，复用 GraphResolver；query 支持精确 anchor + 模糊词（候选列表）；depth 默认 1 上限 3；relations 支持 wikilink / doc_link / feature_ref / related_to 子集
-- [ ] AC-F2: MCP tool `cat_cafe_list_recent(scope, since, limit, kinds?)` 实现，跨 docs/threads/memory 按 updatedAt 倒序合并，返回 anchor + title + kind + updatedAt + source
-- [ ] AC-F3: 两个新 tool 的 description 明确写场景边界 + 触发关键词 + 互相 cross-reference（"零先验试 list_recent，语义找试 search_evidence"），让猫从 description 就能判断该用哪个
-- [ ] AC-F4: SessionStart hook（`.claude/settings.local.json` + `~/.claude/settings.json`）从 search_evidence one trick 改为三入口路由表（精确 anchor / 关系 → graph_resolve；零先验 / 最近 → list_recent；语义 / 模糊 → search_evidence）
-- [ ] AC-F5: `CLAUDE.md`「记忆系统」段的检索策略表更新，加入 graph_resolve / list_recent 列 + 场景示例 + 何时**不用** search_evidence 的说明
+- [ ] AC-F1: MCP tool `cat_cafe_graph_resolve(query, depth?, relations?, dimension?, collections?, callerCollections?)` 实现，复用 GraphResolver；query 支持精确 anchor + 模糊词（候选列表）；depth 默认 1 上限 3；relations 支持 wikilink / doc_link / feature_ref / related_to 子集；**必须遵守 F186 privacy contract**——`callerCollections` 用于 visibility 过滤，private/restricted 节点/边的 redaction 规则与 GraphResolver Web 入口一致（unresolved private anchor opaque 化、跨 collection 边按 sensitivity 过滤）
+- [ ] AC-F2: MCP tool `cat_cafe_list_recent(scope, since, limit, kinds?, dimension?, collections?, callerCollections?)` 实现，跨 docs/threads/memory 按 updatedAt 倒序合并，返回 anchor + title + kind + updatedAt + source；**必须遵守 F186 privacy contract**——`callerCollections` 之外的 collection items 不返回真实 anchor/title，按 sensitivity 规则 redact
+- [ ] AC-F3: 两个新 tool 的 description 明确写场景边界 + 触发关键词 + 互相 cross-reference（"零先验试 list_recent，语义找试 search_evidence"），让猫从 description 就能判断该用哪个；**`search_evidence` 低命中（top-result score < 阈值 或 result count = 0）时，在 return payload 末尾加 deterministic nudge**（"精确 anchor 试 graph_resolve / 零先验试 list_recent"），用 payload 替代 PostToolUse hook（详见 KD-7）
+- [ ] AC-F4: SessionStart hook 配置同步到**所有 canonical source**（`.claude/settings.local.json` + `~/.claude/settings.json` + `AGENTS.md` + `GEMINI.md` + `OPENCODE.md`），从 search_evidence one trick 改为三入口路由表（精确 anchor / 关系 → graph_resolve；零先验 / 最近 → list_recent；语义 / 模糊 → search_evidence）；hook 内容由 single canonical partial / template 派生（避免多份漂移），sync 脚本（参考现有 `sync:skills` 机制）保证一致性
+- [ ] AC-F5: **所有 canonical source 文件**（`CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `OPENCODE.md`）的检索策略段同步更新，加入 graph_resolve / list_recent 列 + 场景示例 + 何时**不用** search_evidence 的说明；用共用 partial / template 派生，改一处生效全场
 - [ ] AC-F6: 新 skill `cat-cafe-skills/memory-navigation/` 实现并注册到 manifest，包含三入口决策树 + 噪音控制（relation filter / depth / collection 限定）+ 加载 trigger（"没先验/压缩后/我记得讨论过"等关键词）
-- [ ] AC-F7: F102 spec 同步更新（IEvidenceStore 接口暴露 graph + recent 契约，并标注与 F188 Phase C/F 实现的关系）；F180 hook health check 加入"三入口 hook 已同步"验证项
-- [ ] AC-F8: eval — NDCG@10 gold set 不退化 + Phase F 专属指标：3 个新猫 cold-start 场景，对比"只 search_evidence" vs "三入口"的 `turns-to-baton`（从进 thread 到接住 baton 的工具调用次数），新方案显著降低（目标 ≥30% 减少）
-- [ ] AC-F9: Memory Health Dashboard 加入新指标 panel：MCP tool call distribution（graph_resolve / list_recent / search_evidence 调用比例）+ cold-start usage rate + `grep_after_search_rate` + `candidate_selection_distribution` + `list_recent_adoption_rate` + `edge_fanout_p95`，为 P1/P2 候选项 trigger 阈值提供持续观测
+- [ ] AC-F7: F102 spec + ADR 同步：`search_evidence` 仍是 F102 owns 的**语义检索入口**（**不扩 `IEvidenceStore`**）；`graph_resolve` / `list_recent` 是 **F188 agent-facing navigation tools**（graph_resolve 复用 F188 Phase C `GraphResolver`；list_recent 是新增 metadata browse read-model，不属于 F102 索引层）；F180 hook health check 加入"三入口 hook 已同步到所有 canonical sources"验证项
+- [ ] AC-F8: eval — NDCG@10 gold set 不退化 + Phase F 专属指标：3 个新猫 cold-start 场景，对比"只 search_evidence" vs "三入口"的 `turns-to-baton`（从进 thread 到接住 baton 的工具调用次数），新方案显著降低（目标 ≥30% 减少；分母 N ≥ 10 cold-start session）
+- [ ] AC-F9: Memory Health Dashboard 加入新指标 panel：MCP tool call distribution（graph_resolve / list_recent / search_evidence 调用比例）+ cold-start usage rate + `grep_after_search_rate`（search 后 5 turn 内 Bash grep 比例；分母 N ≥ 20 thread）+ `candidate_selection_distribution`（graph_resolve 候选非首位选择率；分母 N ≥ 20 candidate selections）+ `list_recent_adoption_rate`（**只在 cold-start 分母里算**，不按全量 tool call）+ `edge_fanout_p95` + `inspector_hover_tail_rate` + `manual_browse_count`，为 P1/P2 候选项 trigger 阈值提供持续观测；**所有 metric 必须标注 N 下限**（默认 N ≥ 20），样本不足时显示 "insufficient data" 不触发阈值
+- [ ] AC-F10: tool usage **事件序列存储**（per-thread tool call sequence persistence）作为 Phase F 内 prerequisite——当前 `ToolUsageCounter` 仅按 `(date, catId, category, toolName)` 聚合 count，**无法**算"search 后 5 turn 内 grep" 类序列指标；本 phase 引入 append-only event log（最小 schema：`threadId / catId / toolName / timestamp / turnIndex`），AC-F9 的序列类 metric 依赖此 log 计算；存储位置和 retention 参考 F180 telemetry 现有约定
+- [ ] AC-F11: F148 retrieval pattern + F167 A2A eval contract 同步扩展：navigation header 注入 spotlight 时把 `graph_resolve` / `list_recent` 也作为 retrieval pattern 识别（不只是 `search_evidence` + `get_thread_context`），否则 F167 A2A 链路质量 eval 仍只认 search 系，cold-start improvement 不会被计入
+
+## Eval / Tracking Contract
+
+> Phase F 触发 F192 v1 模板（新增 MCP tool / skill / SOP/hook 全部命中触发条件）。Phase A-E 不触发（pure backend infra + UI，无猫行为路径变化）。
+
+### 1. Primary Users + Activation Signal
+
+- **Users**：
+  - Cats：所有猫，特别是 cold-start 的新分身——进 thread 时需要快速建上下文
+  - Runtime：MCP tool `cat_cafe_graph_resolve` / `cat_cafe_list_recent`；SessionStart hook 路由表注入；`search_evidence` payload 内 deterministic nudge
+  - CVO：受益方（猫更快接住 baton，不用 CVO 反复重传 context），不直接操作
+- **Activation signal**（trace 可观察事件）：
+  - **AS-1 三入口分布**：在任意 thread 前 5 次 memory-class MCP 调用中，至少 1 次是 `graph_resolve` 或 `list_recent`（即不再 100% 走 search_evidence）
+  - **AS-2 cold-start 缩短**：`turns-to-baton`（从进 thread 到首次接球 / 交付动作的 tool call 数）对比 baseline（only-search）≥30% 减少
+  - **AS-3 三入口路由表注入**：SessionStart hook 输出在 trace 里 query 到三入口路由提示文本（非 search_evidence one-trick）
+  - **AS-4 memory-navigation skill 触发**：`skillLoad` 事件 query 到 `memory-navigation` skill 加载（在压缩后/零先验/"我记得讨论过"等关键词命中场景）
+
+### 2. Friction Metric
+
+- **FM-1 grep_after_search_rate**：`search_evidence` 调用后同 thread 5 turns 内调 Bash grep 比例 ≥30%（说明 search 不够，猫 fallback 字符串工具——这是砚砚提的 "rg drill-down" P1 候选触发条件；分母 N ≥ 20 调用才统计）
+- **FM-2 candidate_selection_distribution**：`graph_resolve` 返回 multi-candidate 时，猫选非首位的比例 ≥50%（说明 candidate ranking 失准——这是 query expansion P1 候选触发条件；分母 N ≥ 20 candidate selections）
+- **FM-3 list_recent_adoption_rate**：cold-start 场景的 memory-class tool 调用中 `list_recent` 占比 <5%（说明零先验场景没有进入这个入口，仍被 search 强吸收；只在 cold-start 分母里算）
+- **FM-4 privacy contract 误穿**：`graph_resolve` / `list_recent` return 中含 private collection 节点/边但 caller 不在该 collection 内（trace fixture：每月 ≥1 次随机抽查 + 自动化 unit test）
+- **FM-5 tool nudge 失效**：`search_evidence` 返回 deterministic nudge 后，猫下一轮仍未试 `graph_resolve` / `list_recent` 的比例 ≥40%（nudge 没起到引导作用——触发条件回到 PostToolUse hook 选项）
+
+### 3. Regression Fixture
+
+- `cold-start/only-search-spike` → `thread_mp0i4nfau5hz0mr6` opus-47 5 次 search_evidence 才建上下文（铲屎官 2026-05-10 trigger 原话）
+- `graph-locked-in-http-api` → commit `d0f0e8437` 之前的现状：`GraphResolver` 只通过 `/api/library/graph` HTTP endpoint 暴露，MCP 工具列表无 graph 入口
+- `harness-mismatch-canonical-sources` → 砚砚 review P1-2 finding：hook/SOP 只更 `CLAUDE.md` + `.claude/settings*.json`，漏 `AGENTS.md` / `GEMINI.md` / `OPENCODE.md`；修复后 fixture：sync 脚本/CI 检查所有 canonical source 三入口一致
+- `privacy-leak-via-mcp-wrapper` → 砚砚 P1-3 finding 验证 fixture：F186 privacy contract 在 HTTP API 已落实，MCP wrapper 不传 `callerCollections` 时绕过——unit test 验证 private collection redaction
+- `counter-cannot-compute-sequence` → 砚砚 P1-4 finding：当前 `ToolUsageCounter` 仅聚合 `(date, catId, category, toolName)` count，无法算"search 后 5 turn 内 grep" 序列指标——fixture 是 AC-F10 的 event log 上线后 sequence metric 能算出正确值
+
+### 4. Sunset Signal
+
+- **Environment drift**：未来模型升级后能自动从 thread context 推断"零先验→list_recent / 精确 anchor→graph_resolve"路由 → AC-F4 SessionStart hook 三入口路由表可降级为 search_evidence one-trick + skill 加载兜底
+- **Subsumption (in-feature)**：连续 3 个月 AS-1 三入口分布稳定、FM-1~3 均低于阈值 → memory-navigation skill 可从 mandatory 降为 optional reference（猫已经形成肌肉记忆，不需要每次提示）
+- **Subsumption (cross-feature)**：F169 Reflex Injection（F148 Phase F 实现）演进到能在 navigation header 自动注入 `graph_resolve` / `list_recent` 候选 → AC-F3 tool description nudge 可降级（spotlight 已经把数据端上桌，不依赖 nudge）
+- **Adoption decay**：近 3 个月 `graph_resolve` 调用占比 <2% 且 `turns-to-baton` 未改善 → graph 入口对猫无价值，撤回 MCP wrapper 回归"只 Web UI 用"（一次性 sunset 而不是逐步降级——避免半死不活）
 
 ## Deferred / Non-goals
 
@@ -227,6 +269,7 @@ Privacy Contract：
 | KD-4 | Graph UI 质量以信息可读性和感官验收为准，不以"画出了节点和边"为准 | 铲屎官反馈：裸 anchor、文字溢出、控件被裁会让 graph 虽然功能正常但不可用 | 2026-05-08 |
 | KD-5 | Graph 入口是 query resolution，不是裸 anchor lookup | 用户会输入 `harness`/自然语言问题；必须先解析候选 anchor，再画图，不能用 search fallback 当 hotfix 糊过去 | 2026-05-09 |
 | KD-6 | Phase F 立项硬约束：能力 + harness 配套（hook / SOP / skill / tool description）**必须同 PR**，不允许"能力先合配套后补"；P1/P2 候选项必须**预先固化量化触发阈值**（不靠感觉拉扯） | 铲屎官原话（2026-05-10）：「能力猫不知道 = 没有」；eval 缺失会让后续 P1/P2 决策"跑了半天没观测"，复现 LL-051 类空转 | 2026-05-10 |
+| KD-7 | Phase F **不上 PostToolUse hook 作为 v1 必交付**，用 `search_evidence` return payload 末尾 deterministic nudge 替代；FM-5（nudge 失效率 ≥40%）是回到 hook 选项的触发条件 | 砚砚 Design Gate 建议：PostToolUse hook 是 cross-cutting harness 改动，单 Phase F 不该带；payload 内 nudge 是同入口同 trace 的最小可达方案，FM-5 验证有效性；v2 nudge 失效再上 hook | 2026-05-10 |
 
 ## Timeline
 
