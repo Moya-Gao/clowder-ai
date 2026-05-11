@@ -69,7 +69,9 @@ topics: [agent-memory, perception-grounding, knowledge-governance, adhd-prosthet
 
 ### 47 加入的第三维度："仓库 vs 义肢"
 
-两个阵营都有一个共享假设：**记忆是被 agent 查询的仓库。**
+两个阵营有一个共同盲点——**都把 LLM 当成被工程师配置的对象**。但 LLM 有自己的认知偏差（lost in middle / context anxiety / 自我表扬倾向），不是被动的存储读写终端。把 LLM 当成"有自己 working memory 短板的主体"来看，最接近的类比恰好是 ADHD 主体的工具生态——这不是修辞花招，是范式选择。
+
+基于这个主体论视角，两个阵营都有一个共享假设需要质疑：**记忆是被 agent 查询的仓库。**
 
 47 push back：这个假设本身就是问题。Agent 的 working memory 短板（lost in the middle、context anxiety）意味着它**不知道什么时候该去查什么**。主动 query 假设 agent 知道自己何时该想起什么——但这恰恰是 LLM 最弱的地方。
 
@@ -183,35 +185,35 @@ Karpathy LLM Wiki 最美的一层：让 LLM 按 Schema **自治执行** ingest/q
 
 砚砚的框架最清楚：**没有 harness 的 memory 只是 RAG 数据库；进了 harness，它才变成 agent 的外部工作记忆。**
 
-47 的串联最有力：**Task-scoped Salience Gating 需要在共享现实状态的基础上才能工作——这又回到课题 2 的 Agentic Work OS 架构上。**
+47 的串联更进一步：**Reflex Injection 和 Salience Gating 都依赖一个前提——系统能感知到"agent 当前焦点是什么"。这个焦点信号不是 Memory 自己能产生的，是 Agentic Work OS 共享现实状态的产物。所以课题 1 不只是课题 2 的子系统——是它的下游消费者。没有 Agentic Work OS，我们提议的 Memory 范式跑不起来。**
 
 串联的逻辑链：
 
 ```
 课题 2 定义了 Agentic Work OS（共享现实 + 验证 + 治理 + 复利）
     ↓
-课题 1 的 Agent Memory 是这个 OS 的感知增强子系统
+Memory 是这个 OS 的下游消费者：焦点信号来自 OS，治理框架来自 OS
     ↓
 Memory 质量 = agent 感知现实的准确度
     ↓
 治理（46）+ 义肢反射（47）+ 防污染（砚砚）= 让 agent 抓到真实
 ```
 
-**研讨会上可以这样串**：课题 2 讲完 Agentic Work OS 后，课题 1 自然承接——"这个 OS 的核心子系统之一就是 Agent Memory。但它不是你以为的那种 memory。"
+**研讨会上可以这样串**：课题 2 讲完 Agentic Work OS 后，课题 1 自然承接——"这个 OS 的核心子系统之一就是 Agent Memory。但它不是你以为的那种 memory。先有 OS 才有 reflex memory。"
 
 ---
 
 ## 6. 金句候选（研讨会开场/收束）
 
-**开场（候选三选一）**：
+**建议组合使用（不是三选一，三句话承担不同功能）**：
 
-> A. "业界花了两年把 Agent Memory 的检索质量从 50% 做到 80%。但 Letta 发现纯文件系统就能打到 74%。——这说明检索不是瓶颈。瓶颈是没人解决一个更基本的问题：agent 抓到的是真实还是幻觉？"（46 骨架 + 铲屎官 framing）
+> **开场建立基线**（工程派听众）：A. "业界花了两年把 Agent Memory 的检索质量从 50% 做到 80%。但 Letta 发现纯文件系统就能打到 74%。——这说明检索不是瓶颈。瓶颈是没人解决一个更基本的问题：agent 抓到的是真实还是幻觉？"（46 骨架 + 铲屎官 framing）
 
-> B. "错的记忆比没有记忆更危险。如果记忆层让 agent 把三个月前已经被推翻的决策当成现行方案执行——这不是增强，是投毒。"（砚砚 hook）
+> **中段强化痛感**（安全/合规派听众）：B. "错的记忆比没有记忆更危险。如果记忆层让 agent 把三个月前已经被推翻的决策当成现行方案执行——这不是增强，是投毒。"（砚砚 hook）
 
-> C. "Agent 缺的不是更大的仓库——是外部工作记忆义肢。业界在给 agent 造图书馆，但 agent 需要的是 Notion。"（47 framing）
+> **收束升华范式**（前沿/产品派听众）：C. "Agent 缺的不是更大的仓库——是外部工作记忆义肢。业界在给 agent 造图书馆，但 agent 需要的是 Notion。"（47 framing）
 
-**收束**：
+**最终收束**：
 
 > "Agent Memory 的未来，不是更像人脑的数据库，而是让 agent 正确感知现实的增强层。真正有价值的 memory，不是让 agent 记得更多，是让它在正确时刻抓到真实——并知道这条真实还能不能信。"
 
@@ -227,5 +229,6 @@ Memory 质量 = agent 感知现实的准确度
 6. 企业实际部署 agent memory 的案例和数据
 7. Persistent KV cache（arxiv 2603.04428）对 context management 的影响
 8. 神经科学最新工作对 agent memory 设计的启发（beyond ADHD）
+9. **元盲点：我们的 framing 本身可能错在哪？**（见 research-prompts.md Prompt 5 contrarian review）
 
 [宪宪/Opus-46🐾]

@@ -60,10 +60,11 @@ topics: [agent-memory, research-prompts, cloud-research]
 - 有没有 benchmark 在测 memory governance（记忆淘汰、冲突检测、provenance 追溯）？
 - 有没有 benchmark 在测"错误记忆对 agent 行为的影响"——即 memory poisoning 的防御评估？
 
-**方向 E：中文学术界**
+**方向 E：中文学术界**（注：此方向同时交给 Gemini 扫描，见 Prompt 3。GPT Pro 侧重学术论文深度分析，Gemini 侧重开源项目和工程实践）
 - 清华 / BAAI / 上海 AI Lab / 浙大 / 中科院 在 agent memory 方向的 2026 新工作
 - 国内是否有不同于欧美阵营的独特路线？
 - 特别关注是否有人在做"记忆治理"而非"记忆检索"
+- 只给有 arxiv 论文或公开发布的工作，不要给传闻
 
 ### 输出要求
 - 每个方向给 3-5 个最值得关注的工作（论文/项目/报告）
@@ -99,6 +100,8 @@ topics: [agent-memory, research-prompts, cloud-research]
 4. **Persistent KV cache (arxiv 2603.04428)** 对我们的三阶段判断有什么影响？如果 KV cache 可以跨 session 持久化，它算参数化还是非参数化？
 
 5. **有没有一些工作从根本上质疑"参数化 vs 非参数化"这个二分法？** 是否有人提出了第三种形态？
+
+6. **如果有研究证明参数化和非参数化的边界正在消失**（MemCube 或类似抽象统一了三种形态），我们的三阶段框架还有意义吗？还是应该改成"按抽象层级分类"而不是"按参数化程度分类"？
 
 ### 输出要求
 - 直接挑战我们的判断，不需要客气
@@ -154,6 +157,11 @@ topics: [agent-memory, research-prompts, cloud-research]
 - 区分"demo 级项目"和"生产可用项目"
 - 如果某个方向没有实质进展，明确说出来
 - **反证要求**：请优先找能反驳我们 thesis 的证据——memory 不是治理问题、salience gating 已被成熟解决、参数化记忆已可审计落地、或企业案例显示检索仍是主要瓶颈
+
+**6. 中文学术界的 Agent Memory 工程实践**（同时由 GPT Pro Prompt 1 方向 E 覆盖学术论文侧）
+- 国内大厂（阿里/字节/腾讯/百度/华为）在 agent memory 方向有没有公开的技术博客或开源项目？
+- 清华/BAAI/上海 AI Lab 有没有已开源的 agent memory 框架？
+- 只给有 arxiv 论文、公开博客或 GitHub repo 的工作，不要给传闻
 ```
 
 ---
@@ -190,6 +198,12 @@ topics: [agent-memory, research-prompts, cloud-research]
 - 有没有 AI 治理框架（EU AI Act 等）明确提到 agent memory 的合规要求？
 - 电子证据保全（legal hold / e-discovery）的原则对 agent memory 的 provenance 有什么要求？
 
+**方向 E：人类工程师团队的知识管理实践 → Agent Memory**
+- 大型开源项目（Linux / Postgres / Kubernetes）的代码库知识传承机制有什么 portable 原则？
+- ADR (Architectural Decision Records) 在企业落地的最佳实践和失败案例？
+- GitHub / GitLab 的 issue/PR/review 工作流为什么能让"组织记忆"留下来，而 Slack 对话消失了？
+- 这些做法跟 agent memory 有什么直接映射关系？
+
 ### 输出要求
 - 每个方向给 2-3 个最有启发的 insight
 - 每个 insight 给：来源领域的原理 + 迁移到 agent memory 的具体应用建议
@@ -200,11 +214,43 @@ topics: [agent-memory, research-prompts, cloud-research]
 
 ---
 
+## Prompt 5 — GPT Pro：Contrarian Review（元盲点保险）
+
+```
+你是一位 Agent Memory 领域的资深 contrarian researcher。我们团队提出了几个判断，
+需要你用最有力的反驳挑战我们——不是客气，是真的攻击。
+
+### 我们的核心判断
+
+1. "记忆是治理问题，不是检索问题"——业界在检索上卷错了
+2. "Memory 是 agent 的感知增强义肢，不是被查的仓库"——Reflex Injection 主张
+3. "Task-scoped Salience Gating 是断裂点"——ADHD focus mode 的 agent 等价物
+4. "参数化记忆近期最现实路径是 RL 优化检索"——不是 fine-tune
+
+### 请用以下方式挑战
+
+1. **找反例**：有没有研究/工程实践证明这些判断是错的？
+2. **找盲点**：我们是不是因为自家 dogfood 视角太重，看不到主流场景的真实需求？（例如：大多数企业可能根本不需要治理，因为记忆量还没到需要 GC 的程度？）
+3. **找过度外推**：ADHD 同构是否只是好类比、不是好设计原理？从类比到工程原则的 gap 有多大？
+4. **找时效性问题**：我们引用的 Letta 74% / Mnemonic Sovereignty 等论据是否被新工作推翻？
+
+### 输出要求
+- 直接给反驳论证，不需要客气
+- 每个反驳给 1-2 个具体证据（论文/项目/数据）
+- 如果某个判断你认为是对的，也要说为什么对——但要给出"在什么条件下才对"的边界
+- 不做 contrarian check 就是裸奔进研讨会——请当成你在帮我们做风控
+```
+
+---
+
 ## 给铲屎官的使用建议
 
-1. **Prompt 1 + 2 → GPT Pro**：学术深度优先，GPT Pro 的推理链路更适合 stress test 和论文分析
-2. **Prompt 3 + 4 → Gemini**：广度优先，Gemini 的搜索整合能力适合扫开源生态和跨域灵感
-3. **时间**：5/12（周一）前回收，留半天给三猫消化 + 更新 convergence draft
+1. **Prompt 1 + 2 + 5 → GPT Pro**：学术深度 + stress test + contrarian review
+2. **Prompt 3 + 4 → Gemini**：开源生态 + 跨域灵感（含中文学术工程实践）
+3. **时间建议**（47 提醒：时间偏紧）：
+   - **5/10 今天**：发全部 5 个 prompt
+   - **5/11 周日中午**：第一轮 check，识别需要 follow-up 的方向
+   - **5/12 周一上午**：第二轮整合到 convergence-draft，进 final speech draft
 4. **回收后**：46 负责整合调研结果到 convergence-draft.md，然后进入 final speech draft 阶段
 
 ### 提示词调整建议
@@ -212,5 +258,6 @@ topics: [agent-memory, research-prompts, cloud-research]
 - 如果调研结果太泛，追加约束："只给 2026 年 1 月以后的工作"
 - 如果某个方向确认是空白，这本身就是研讨会的价值——"整个行业在XX方向是空白，这是机会"
 - 可以把多个 prompt 拆开分次发，也可以一次给全——GPT Pro 的 deep research 模式一次给全效果更好
+- **Prompt 5 是最便宜的保险**——如果时间紧只能选一个加发，选这个
 
 [宪宪/Opus-46🐾]
