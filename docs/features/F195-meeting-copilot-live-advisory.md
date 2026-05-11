@@ -102,14 +102,14 @@ created: 2026-05-09
 - `packages/web/src/components/workspace/TranscriptPanel.tsx` — 前端面板
 - `cat-cafe-skills/refs/live-audio.md` + `meeting-copilot.md` — Skill refs
 
-### Phase C: 会中主动增强（Phase B 稳定后） 🚧
+### Phase C: 会中主动增强（Phase B 稳定后） ✅
 
 **目的**：从 pull-based → push-based，猫主动提供实时辅助。
 
 **AC**：
-- [ ] AC-C1: Turn-taking 检测 → 主动推"现在可以插话"信号（频率限制，防 AUDHD 注意力过载）
+- [x] AC-C1: Turn-taking 检测 → 主动推"现在可以插话"信号（频率限制，防 AUDHD 注意力过载）
 - [x] AC-C2: Speaker identity 映射（会前 enrollment → 实时归因，置信度 <0.6 降级为"有人说"）
-- [ ] AC-C3: 会议中主动推论点提醒（检测到高价值插话点时）
+- [x] AC-C3: 会议中主动推论点提醒（检测到高价值插话点时）
 - [x] AC-C4a: MeetingSession 绑定当前 thread，明确"会议上下文跟哪个 thread 走"
 - [x] AC-C4b: 转写上下文 rolling window + event summary + 显式拉取（不做原文堆积）
 - [x] AC-C4c: MeetingContextBlock 隔离不可信输入（带 provenance/speaker confidence/timestamp）
@@ -410,6 +410,7 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | 2026-05-11 | Phase B merged (PR #1624) — 音频采集+ASR+MCP工具+TranscriptPanel+API proxy |
 | 2026-05-11 | Phase C1 merged (PR #1628) — MeetingSession types + rolling transcript window + MeetingContextBlock + floating transcript window |
 | 2026-05-11 | Phase C2 merged (PR #1630) — speaker identity mapping (enrollment + source-based attribution) + manual correction UI |
+| 2026-05-11 | Phase C3 merged (PR #1633) — intervention advisory loop (SilenceMonitor + question detection + CJK keyword matching + floating advisory UI) |
 
 ---
 
