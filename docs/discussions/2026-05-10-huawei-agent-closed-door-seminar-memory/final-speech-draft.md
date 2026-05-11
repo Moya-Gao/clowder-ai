@@ -101,7 +101,7 @@ mem0 的用户在 GitHub issue 里报告：使用 32 天后，97.8% 的 memory �
 
 ### 断裂点 3：记忆安全
 
-2026 年 4 月的 Mnemonic Sovereignty survey 揭示：94% 的系统可被 memory poisoning。ICLR 的 MINJA 论文更进一步证明：攻击者可以通过普通交互写入恶意记忆，之后诱导受害 agent 查询触发。
+2026 年 4 月的 Mnemonic Sovereignty survey 指出：没有已发布的 memory 架构覆盖完整九项治理原语——write gate 和 post-deletion verification 是共享盲点。ICLR 的 MINJA 论文更进一步证明：攻击者可以通过普通 query-only 交互写入恶意记忆，之后诱导受害 agent 查询触发。
 
 谁有权写入记忆？谁有权读取？谁有权遗忘？谁有权回滚？——这些治理原语，没有任何已发布的架构全部覆盖。
 
@@ -192,7 +192,6 @@ Memory 不是孤立的技术模块——它是 Agentic Work OS 的感知层。Re
 
 | 引用 | 来源 | 用在哪 |
 |---|---|---|
-| Letta Filesystem 74% | [Letta blog](https://www.letta.com/blog/benchmarking-ai-agent-memory) | 开场基线 |
 | Diagnosing Retrieval vs Utilization | [OpenReview](https://openreview.net/forum?id=cxYbqAtBIz) | Contrarian 护甲 |
 | AGENTS.md eval study | [OpenReview](https://openreview.net/forum?id=pLi3A8bscP) | 佩戴协议论据 |
 | Mnemonic Sovereignty | [arXiv 2604.16548](https://arxiv.org/html/2604.16548v1) | 记忆安全 |
@@ -209,6 +208,7 @@ Memory 不是孤立的技术模块——它是 Agentic Work OS 的感知层。Re
 
 | 引用 | 来源 | 注意 |
 |---|---|---|
+| Letta Filesystem 74% | [Letta blog](https://www.letta.com/blog/benchmarking-ai-agent-memory) | 开场基线（官方团队实验） |
 | mem0 97.8% junk | [GitHub issue#4573](https://github.com/mem0ai/mem0/issues/4573) | 用户报告，单一案例 |
 | mem0 State of AI Agent Memory | [mem0 blog](https://mem0.ai/blog/state-of-ai-agent-memory-2026) | Vendor 报告 |
 | Atlan 8 框架缺企业治理 | Atlan blog | Vendor 立场 |
