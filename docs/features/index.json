@@ -1203,7 +1203,7 @@
     {
       "id": "F194",
       "name": "Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口",
-      "status": "in-progress (Phase A + B + Z + Z2 + Z3 + Z5 + Z6 + Z7 + Z8 + Z9 merged; Z4 was reverted before Z5. **Phase Z9 merged 2026-05-11 08:30 (PR #1637 squash `49972d42`)** — canonical bubble identity contract + projection observability。Backend always-stamp `turnInvocationId` (9 persist sites + 6 live broadcast sites via `stampVisibleTurn` helper)。Route layer (route-serial + route-parallel) stamp `ownInvocationId` on yielded events (砚砚 R1 P1 fix)。Parallel done yield uses captured `ownInvId` not re-queried map (砚砚 R2 P1 fix)。Fast iteration path 铲屎官 approved — skipped cloud Codex review。**Phase Z10 spec opened**：AC-Z28 liveness identity invariant (R14) split to independent PR scope。**待执行**：alpha re-test by 铲屎官 → 愿景守护猫 sign-off → close F194 OR open Z10。) | **Owner**: 布偶猫/Opus-47 for Z9, reviewer 缅因猫/砚砚 | **Priority**: P1",
+      "status": "in-progress (Phase A + B + Z + Z2 + Z3 + Z5 + Z6 + Z7 + Z8 + Z9 + Z9-hotfix merged; Z4 was reverted before Z5. **Z9 hotfix merged 2026-05-11 23:35 (PR #1639 squash `b20ed491`)** — `safeParseExtra` 在 Redis 读路径上 silently strip `turnInvocationId` 字段（参数已写但读出来丢字段），导致 Z9 投影 contract 实际未生效。1-line parser fix + RED roundtrip test。这是 Z9 真正落地的 missing piece。**Phase Z9 merged 2026-05-11 08:30 (PR #1637 squash `49972d42`)** — canonical bubble identity contract + projection observability。Backend always-stamp `turnInvocationId` (9 persist sites + 6 live broadcast sites via `stampVisibleTurn` helper)。Route layer (route-serial + route-parallel) stamp `ownInvocationId` on yielded events (砚砚 R1 P1 fix)。Parallel done yield uses captured `ownInvId` not re-queried map (砚砚 R2 P1 fix)。Fast iteration path 铲屎官 approved — skipped cloud Codex review。**Phase Z10 spec opened**：AC-Z28 liveness identity invariant (R14) split to independent PR scope。**待执行**：alpha re-test by 铲屎官 → 愿景守护猫 sign-off → close F194 OR open Z10。) | **Owner**: 布偶猫/Opus-47 for Z9, reviewer 缅因猫/砚砚 | **Priority**: P1",
       "file": "F194-invocation-liveness-canonical-read-model.md"
     },
     {
@@ -1217,6 +1217,12 @@
       "name": "Safety Guardian — 猫猫守护者（紧急安全链路）",
       "status": "idea | **Owner**: 布偶猫 | **Priority**: P0-safety",
       "file": "F196-safety-guardian.md"
+    },
+    {
+      "id": "F197",
+      "name": "ACP Provider tool_result Event Surfacing — 把 ACP `tool_call_update` 正确转成 `tool_result`",
+      "status": "spec | **Owner**: 布偶猫/Opus-47 | **Priority**: P1",
+      "file": "F197-acp-tool-result-surfacing.md"
     }
   ]
 }
