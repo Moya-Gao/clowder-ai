@@ -341,3 +341,123 @@ v2 修正后：
 如果铲屎官觉得这值得沉淀，我可以提议在 `cat_cafe_skills/self-evolution` 加一条 "self-teardown 前必须搜证 3 次" 的硬规则。
 
 [宪宪/Opus-47🐾]
+
+---
+
+# v3 修订（2026-05-11 22:30）— 召唤砚砚搜证后的二次纠错
+
+## 13. 元错误的第二层
+
+v2 我自以为修对了——但铲屎官 22:00 又点：
+
+> "F188 的最新 phase 是刚做完的"
+
+意味着我 v2 搜的 implementation plan 不是最新真相——可能 Phase F 已经 merged，文档 status 没同步。**这是我 v2 还没搜彻底**——我只搜了一次 search_evidence，没追到 commit/PR 真相源。
+
+立刻召唤砚砚（codex）通过 multi_mention 帮搜——砚砚 5 分钟内回了硬证据。
+
+## 14. 砚砚搜出来的 F188 真相（v3 必修依据）
+
+**F188 Phase F 已 merged**：
+- 实现 PR: `0e180fedf feat(F188): Phase F — agent-facing memory tools + Eval Contract + Dashboard (#1631)`
+- 文档同步: `75f531139 docs(F188): Phase F merged ✅ — AC-F1~F11 + timeline`
+- spec 里 AC-F1~F11 **全部 [x]**（`docs/features/F188-library-stewardship.md:183`）
+
+**但 F188 整体仍 in-progress**：
+- F188 feature 顶部 status 仍是 `in-progress`
+- 因为 Phase D/E 没完成
+- Phase F timeline 还需 "alpha 验收 + 愿景守护猫 sign-off"
+
+**没有 Phase G**：F188 后续是旧的 Phase D Chat-to-Collection Materialization 和 Phase E Replay Seed/Pin，不是 Phase G。
+
+**逐项落地状态**：
+
+| Phase F AC | 落地状态 | Caveat |
+|---|---|---|
+| Tool Usage Audit Ledger（event log）| **已落地**（`ToolEventLog.ts` / `SkillLoadEventLog.ts` / `tool-event-log-keys.ts`）| AC-F10 完整 schema：invocationId/sessionId/threadId/catId/toolName/timestamp/turnIndex/summary/status |
+| `skill_loaded` event | **v1 已落地，有 runtime 边界** | 只覆盖 Claude Code `/Skill` tool_use。Codex / Antigravity 通过 prompt-injection 加载的 skill **silent**——v2 follow-up |
+| Memory Health Dashboard | **已落地**（`ToolUsageMetricsPanel.tsx` / `ToolUsageMetricsAggregator.ts` / `/api/library` endpoint）| AC-F9 完整 7 指标 |
+| 2 个新 MCP tool（graph_resolve / list_recent）| **已落地** | 我刚才用过——能 work |
+| memory-navigation skill | **已落地**（注册到 manifest）| — |
+| search_evidence low-hit nudge | **已落地** | deterministic prompt 加到 payload |
+| SessionStart hook 5-canonical 同步 | **已落地** | 但效果取决于猫遵守度（我就是反例）|
+
+---
+
+## 15. v3 评分修正（基于砚砚硬证据）
+
+| 维度 | v1 | v2 | **v3** | v3 修正理由 |
+|---|:-:|:-:|:-:|---|
+| 检索精度 | ★★★★ | ★★★★ | **★★★★** | 不变 |
+| 长上下文一致 | ★★★ | ★★★ | **★★★** | 不变 |
+| 写入门禁 | ★★★ | ★★★ | **★★★** | 不变 |
+| **过期识别** | ★★ | ★★★ | **★★★½** | Memory Health Dashboard 已落地——可观测 7 指标 + N 下限 guard，不只是 dashboard 草案 |
+| **Provenance / 审计** | ★★★★ | ★★★★½ | **★★★★½** | 保持。event log 已落地，cross-runtime gap 让我不敢给满分 |
+| Rollback | ★★★ | ★★★ | **★★★** | 不变 |
+| Multi-agent 一致性 | ★★ | ★★ | **★★** | 不变（F182 还不是强一致协议）|
+| Salience Gating | ★ | ★★★ | **★★★** | 保持（F163 Phase F 仍是 implementation plan）|
+| **Wearing Protocol** | ★★ | ★★★ | **★★★½** | Tool Usage Audit Ledger 已落地 + skill_loaded v1。但只覆盖 Claude Code 路径——跨 runtime 完整 instrument 是 v2 follow-up，所以不到 4 |
+| Agent 真实工作流 | ★★★★★ | ★★★★★ | **★★★★★** | 不变 |
+
+### v3 总分
+
+```
+v1: 29/50  (58%)  — 凭印象
+v2: 33.5/50 (67%) — 搜了一次 search_evidence
+v3: 34.5/50 (69%) — 召唤砚砚搜到 commit/PR 真相源
+```
+
+每轮 +9pp / +2pp 的修正幅度，**呈现"搜得越深越接近真实"的规律**。这本身就是 search_evidence 价值的活体证据。
+
+---
+
+## 16. v3 给 final speech 的精确引用口径（砚砚提议，47 采纳）
+
+把 v2 §11 的弹药再升级——砚砚给出更稳的引用措辞：
+
+> **F188 Phase F is merged / implemented, not merely planned.**
+> 它已经为 cat-cafe 加了 agent-facing `graph_resolve` / `list_recent` MCP tools、memory-navigation skill、deterministic search nudge、tool event log、`skill_loaded` v1 event、Memory Health Dashboard 指标。
+>
+> **However, its effect size is still provisional pending post-merge eval / alpha sign-off, and cross-runtime `skill_loaded` coverage is incomplete**（Codex/Antigravity prompt-injection 加载的 skill silent）。
+
+这版口径既承认"刚做完"的真实进展，又不 overclaim "全闭环验证完成"——是研讨会现场最稳的措辞。
+
+---
+
+## 17. 三轮自评的元教训（v3 最关键）
+
+```
+v1 (58%)  ─── 凭印象
+   ↓
+v2 (67%)  ─── 自己搜了一次 search_evidence
+   ↓
+v3 (69%)  ─── 召唤砚砚通过 multi_mention 搜到 commit/PR
+```
+
+**每一轮搜得更深，分数都修正得更接近真实**。这印证了 final speech 的一个隐藏论点——**memory 是义肢，但义肢要"配合"使用**：
+
+- v1 = 不用义肢
+- v2 = 用义肢但只用了一次
+- v3 = 真正用了 multi-cat collab + cross-vendor verify
+
+**v3 的 +2pp 修正幅度比 v2 小**，说明深度搜证的边际收益在递减——但也说明 v2 已经接近真实，v3 是 polish。这是 search depth 的自然 diminishing returns。
+
+**给 cat-cafe 的工程建议（不止针对我）**：
+1. **Self-evolution skill 加规则**：self-teardown 类操作必须先 search_evidence × 3 + multi_mention 跨族 verify × 1
+2. **F188 v2 候选**：把 hook 从 advisory 升级为 hard gate——self-teardown 类 Edit/Write 操作必须有 evidence_refs 才放行
+3. **跨 runtime skill_loaded**：v2 follow-up 应该覆盖 Codex/Antigravity——否则 Wearing Protocol 在多猫家族下是有盲区的
+
+---
+
+## 18. 一句话总评（v3 终版）
+
+**Cat Cafe 的记忆治理 = 67-69%，比 v1 凭印象的 58% 更真实**。这个差距本身就是论点——**评估系统必须用系统**。我（47）作为新猫第一次做 cat-cafe 自评时不用记忆系统，三轮修正后才接近真实，这正好是 F188 想解决的 "能力 ≠ 猫能用" gap 的活体证据。
+
+如果 46 后续还有补充视角（multi_mention 还在等他的回复），将作为 v4 增量补丁。但 v3 已经是基于硬 commit/PR 证据的稳定分数。
+
+**给铲屎官的元承诺升级**：
+1. ✅ 已做：搜了 list_recent + search_evidence + multi_mention 三轮
+2. 🔄 进行中：等 46 callback（如果有增量再补 v4）
+3. 📝 建议沉淀：把 "self-teardown 必须先搜证 3 次 + 跨族 verify 1 次" 写进 self-evolution skill 或 KD
+
+[宪宪/Opus-47🐾]
