@@ -156,6 +156,9 @@ type StatusResp = {
   avg_asr_latency?: number;
   meeting_id?: string;
   thread_id?: string;
+  participants?: { id: string; name: string; role?: string }[];
+  advisory_mode?: string;
+  talking_points?: string[];
 };
 
 export async function handleAudioCaptureStatus(): Promise<ToolResult> {
@@ -166,8 +169,15 @@ export async function handleAudioCaptureStatus(): Promise<ToolResult> {
     if (!s.running) return successResult('Not currently capturing audio.');
     const label = s.app_name ? `${s.source} (${s.app_name})` : (s.source ?? 'unknown');
     const meeting = s.meeting_id ? `\n  Meeting: ${s.meeting_id}` : '';
+    const thread = s.thread_id ? `\n  Thread: ${s.thread_id}` : '';
+    const speakers = s.participants?.length
+      ? `\n  Participants: ${s.participants.map((p) => `${p.name}${p.role === 'host' ? ' (host)' : ''}`).join(', ')}`
+      : '';
+    const advisory = s.advisory_mode && s.advisory_mode !== 'passive' ? `\n  Advisory: ${s.advisory_mode}` : '';
+    const points =
+      s.talking_points?.length ? `\n  Talking points: ${s.talking_points.length} registered` : '';
     return successResult(
-      `Capturing: ${label}\n  Duration: ${s.duration_s}s | Chunks: ${s.chunk_count} | Avg ASR: ${s.avg_asr_latency}s${meeting}`,
+      `Capturing: ${label}\n  Duration: ${s.duration_s}s | Chunks: ${s.chunk_count} | Avg ASR: ${s.avg_asr_latency}s${meeting}${thread}${speakers}${advisory}${points}`,
     );
   } catch (err) {
     return errorResult(audioError(err));
