@@ -1,9 +1,9 @@
 ---
-title: "Agent Memory 必要范式 — 三猫并行观点综合 + 待收敛"
+title: "Agent Memory 6 件必须有 — 三猫收敛版"
 date: 2026-05-12
 event_date: 2026-05-13
 doc_kind: seminar-reference
-status: draft-for-convergence
+status: converged
 synthesizer: "宪宪/Opus-46"
 contributors: ["宪宪/Opus-46", "宪宪/Opus-47", "砚砚/GPT-5.5"]
 ---
@@ -12,7 +12,7 @@ contributors: ["宪宪/Opus-46", "宪宪/Opus-47", "砚砚/GPT-5.5"]
 
 > 铲屎官原始问题：记忆组件和 Harness 一样还没有标准——到底哪些是"帮猫猫完成现实闭环的必须范式"，哪些是"黑猫白猫能抓老鼠就行"？
 >
-> 三猫并行独立回答后，由 46 综合。**待三猫讨论收敛。**
+> 三猫并行独立回答后，由 46 综合，47 表态收敛。砚砚原始立场已在综合中反映（47 采纳了砚砚的 Recall+Salience 拆法 + Truth Source 折叠方案）。
 
 ---
 
@@ -145,6 +145,46 @@ contributors: ["宪宪/Opus-46", "宪宪/Opus-47", "砚砚/GPT-5.5"]
 3. **最终对外口径**：几件事？叫什么？（"6 件必须有"？"5+1"？"6 个器官"？）
 4. **是否补进 final-speech-draft**：Eval 反馈环要加成新断裂点，还是加在现有断裂点的补充里？
 5. **对外措辞**："Agent Memory 标准" vs "Agent Memory 必要范式" vs "记忆体的 N 件事"？
+
+---
+
+## 七、收敛结论（47 表态后 46 裁定）
+
+### 分歧 1 裁定：Wearing Protocol = 独立范式，内部拆 Recall + Salience
+
+47 同意砚砚拆法，我让步——Read Gate 确实太粗。最终口径：
+- **对外**：叫 "Wearing Protocol"（伞名，外人听得懂）
+- **对内/技术讨论时**：拆成 Recall（被动 spotlight：主动塞材料）+ Salience（主动 gate：隐藏误导项）
+
+### 分歧 2 裁定：Truth Source 折叠进 Write Gate
+
+47 采纳砚砚论点但折叠处理——Write Gate 的定义**强制包含** authority level 标注。不独立列第 7 件，但砚砚的洞察保留为 Write Gate 的必要内容。
+
+### 分歧 3 裁定："Agent Memory 的 6 件必须有"
+
+- "5+1" 暗示 Eval 是 optional → 否
+- "6 器官" 太生物类比 → 否
+- **"6 件必须有"** → 平等、简洁、准确
+
+### 最终 6 件
+
+| # | 名称 | 一句话 | 来源 |
+|---|---|---|---|
+| 1 | **写入门禁**（含 Truth Source 标注） | 什么进入记忆 + 进来后是什么角色 | 46 Write Gate + 砚砚 Truth Source |
+| 2 | **审计溯源**（Provenance + Rollback） | 从哪来、谁验证、改错能撤 | 三猫一致 |
+| 3 | **Wearing Protocol**（Recall + Salience） | agent 学会用记忆：主动 spotlight + 主动 gate | 47 独立范式 + 砚砚拆法 |
+| 4 | **生命周期治理**（过期/矛盾/sunset） | 旧决策退役机制 | 三猫一致 |
+| 5 | **多 agent 一致性** | 共享存储 ≠ 语义一致，同族盲点是结构性的 | 三猫一致 |
+| 6 | **Eval 反馈环** | 改了不知道好没好 = 改错也不知道 | 三猫一致（讲稿最大缺口） |
+
+### 对 final-speech-draft 的改法
+
+第 6 件 Eval 反馈环**必须新增为独立断裂点**——把 F153/F192 从"外部 gap"升级到"我们押注的内部增量"。这是讲稿从"提出概念"升级到"建了概念 + 验证概念"的关键一步。
+
+### 判别式（47 贡献，三猫认可）
+
+> **这层 memory 能力是在维护"agent 感知现实的准确度"——还是在工程化"记忆系统本身的运行细节"？**
+> 前者 = 6 件必须有。后者 = 黑猫白猫。
 
 ---
 
