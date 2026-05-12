@@ -338,6 +338,9 @@ export class GeminiAgentService implements AgentService {
                 (typeof stats.context_window === 'number' ? stats.context_window : undefined) ??
                 (typeof stats.contextWindow === 'number' ? stats.contextWindow : undefined);
               if (contextWindow != null) usage.contextWindowSize = contextWindow;
+              // #679: Gemini CLI stats are cumulative across all turns in a session,
+              // not per-turn context fill. Flag so auto-seal doesn't misuse them.
+              usage.isCumulativeUsage = true;
               metadata.usage = usage;
             }
           }

@@ -26,6 +26,9 @@ export interface TokenUsage {
    *  Unlike inputTokens which is aggregated across all turns, this value
    *  represents the single most recent API call's input size. */
   lastTurnInputTokens?: number;
+  /** #679: true when inputTokens/totalTokens are cumulative across all turns
+   *  (e.g. Gemini CLI stats) — not usable for single-turn context fill ratio. */
+  isCumulativeUsage?: boolean;
   /** Codex session token_count: exact current context usage shown by CLI status. */
   contextUsedTokens?: number;
   /** Codex session token_count: reset timestamp (epoch ms) for display-only hint. */
@@ -36,7 +39,7 @@ export interface TokenUsage {
 export function mergeTokenUsage(existing: TokenUsage | undefined, incoming: TokenUsage): TokenUsage {
   if (!existing) return { ...incoming };
   const result = { ...existing };
-  const numericKeys: (keyof TokenUsage)[] = [
+  const numericKeys = [
     'inputTokens',
     'outputTokens',
     'totalTokens',
@@ -46,25 +49,23 @@ export function mergeTokenUsage(existing: TokenUsage | undefined, incoming: Toke
     'durationMs',
     'durationApiMs',
     'numTurns',
-  ];
+  ] as const;
   for (const key of numericKeys) {
     const val = incoming[key];
     if (val != null) {
-      result[key] = ((result[key] as number) ?? 0) + (val as number);
+      result[key] = ((result[key] ?? 0) as number) + val;
     }
   }
   // Non-aggregating contextual fields should keep the most recent snapshot.
-  const latestKeys: (keyof TokenUsage)[] = [
-    'contextWindowSize',
-    'lastTurnInputTokens',
-    'contextUsedTokens',
-    'contextResetsAtMs',
-  ];
+  const latestKeys = ['contextWindowSize', 'lastTurnInputTokens', 'contextUsedTokens', 'contextResetsAtMs'] as const;
   for (const key of latestKeys) {
     const val = incoming[key];
     if (val != null) {
       result[key] = val;
     }
+  }
+  if (incoming.isCumulativeUsage != null) {
+    result.isCumulativeUsage = incoming.isCumulativeUsage;
   }
   return result;
 }

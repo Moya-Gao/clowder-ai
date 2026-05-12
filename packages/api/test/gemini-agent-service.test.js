@@ -728,6 +728,8 @@ test('F24: captures richer Gemini stats fields when provided', async () => {
   assert.equal(done.metadata.usage.outputTokens, 700);
   assert.equal(done.metadata.usage.cacheReadTokens, 1200);
   assert.equal(done.metadata.usage.contextWindowSize, 1000000);
+  // #679: Gemini stats are cumulative — flag must be set
+  assert.equal(done.metadata.usage.isCumulativeUsage, true, 'Gemini stats must be flagged as cumulative');
 });
 
 test('F24: prefers stats.context_window over stats.contextWindow when both exist', async () => {

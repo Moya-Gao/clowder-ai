@@ -1440,6 +1440,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
           // F24: Compute and emit context health (only when session chain is enabled)
           if (sessionChainActive) {
+            // #679: Gemini CLI token stats are cumulative across all turns — not usable
+            // for context fill. Skip entire context_health block (raw usage still in
+            // invocation_usage above). Guard auto-disables when lastTurnInputTokens exists.
+            const isCumulativeOnly =
+              msg.metadata.usage.isCumulativeUsage === true && msg.metadata.usage.lastTurnInputTokens == null;
             // Use lastTurnInputTokens (per-API-call) for accurate context fill,
             // then fallback to aggregated inputTokens, and finally totalTokens
             // for providers (Gemini CLI) that only expose a total count.
@@ -1461,7 +1466,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                   : usedFrom === 'total'
                     ? msg.metadata.usage.totalTokens!
                     : 0;
-            if (windowSize && usedTokens > 0) {
+            if (windowSize && usedTokens > 0 && !isCumulativeOnly) {
               const source: ContextHealth['source'] =
                 msg.metadata.usage.contextWindowSize != null && usedFrom !== 'total' ? 'exact' : 'approx';
               const health: ContextHealth = {

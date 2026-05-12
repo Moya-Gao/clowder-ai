@@ -5178,6 +5178,113 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       await rmWithRetry(devRoot);
     }
   });
+
+  it('#679: skips auto-seal when usage is cumulative (Gemini CLI token stats)', async () => {
+    const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
+    const sessionChainStore = new SessionChainStore();
+
+    const activeRecord = {
+      id: 'sess-gemini-cumul',
+      catId: 'gemini',
+      threadId: 'thread-gemini-cumul',
+      userId: 'user-gemini-cumul',
+      seq: 0,
+      status: 'active',
+      compressionCount: 0,
+      cliSessionId: 'cli-gemini-cumul',
+    };
+    // Override getActive to return our active record
+    sessionChainStore.getActive = async () => activeRecord;
+    sessionChainStore.update = async () => activeRecord;
+
+    const sealRequests = [];
+    const sessionSealer = {
+      requestSeal: async (input) => {
+        sealRequests.push(input);
+        return { accepted: true, status: 'sealing' };
+      },
+      finalize: async () => {},
+      reconcileStuck: async () => 0,
+      reconcileAllStuck: async () => 0,
+    };
+
+    const service = {
+      async *invoke() {
+        yield { type: 'session_init', catId: 'gemini', sessionId: 'cli-gemini-cumul', timestamp: Date.now() };
+        yield {
+          type: 'done',
+          catId: 'gemini',
+          timestamp: Date.now(),
+          metadata: {
+            provider: 'google',
+            model: 'gemini-2.5-pro',
+            usage: {
+              // Gemini CLI stats are CUMULATIVE across all turns.
+              // After 10 turns, inputTokens = 800k (cumulative), but actual
+              // context fill is only ~80k. Without the guard, this 800k / 1M
+              // triggers auto-seal at 80% threshold.
+              inputTokens: 800000,
+              totalTokens: 850000,
+              outputTokens: 50000,
+              contextWindowSize: 1000000,
+              isCumulativeUsage: true,
+            },
+          },
+        };
+      },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      sessionChainStore,
+      sessionSealer,
+    };
+
+    const msgs = await collect(
+      invokeSingleCat(deps, {
+        catId: 'gemini',
+        service,
+        prompt: 'test',
+        userId: 'user-gemini-cumul',
+        threadId: 'thread-gemini-cumul',
+        isLastCat: true,
+      }),
+    );
+
+    // Must NOT emit context_health at all — cumulative tokens produce fake fillRatio
+    const healthInfos = msgs.filter((m) => {
+      if (m.type !== 'system_info') return false;
+      try {
+        return JSON.parse(m.content).type === 'context_health';
+      } catch {
+        return false;
+      }
+    });
+    assert.equal(healthInfos.length, 0, 'must not emit context_health for cumulative Gemini token stats');
+
+    // Must NOT trigger auto-seal either
+    const hasSealRequested = msgs.some((m) => {
+      if (m.type !== 'system_info') return false;
+      try {
+        return JSON.parse(m.content).type === 'session_seal_requested';
+      } catch {
+        return false;
+      }
+    });
+    assert.equal(hasSealRequested, false, 'must not trigger auto-seal on cumulative Gemini token stats');
+    assert.equal(sealRequests.length, 0, 'must not request seal on cumulative Gemini token stats');
+
+    // Raw invocation_usage should still be emitted (telemetry preserved)
+    const usageInfo = msgs.find((m) => {
+      if (m.type !== 'system_info') return false;
+      try {
+        return JSON.parse(m.content).type === 'invocation_usage';
+      } catch {
+        return false;
+      }
+    });
+    assert.ok(usageInfo, 'should still emit invocation_usage for telemetry');
+  });
 });
 
 // F155: Old pre-invocation guide routing hook tests removed.
