@@ -118,7 +118,7 @@ created: 2026-05-09
 
 **Phase C 边界说明**：Phase C 做了 live 层的内存窗口、MeetingContextBlock primitives、浮动转写窗 UI。但**转写文件持久化和 path-based context injection**（铲屎官原始设计意图）未在 Phase C 实现——这些是 Phase D 的范围。
 
-### Phase D: 转写持久化 + Path Injection 📋
+### Phase D: 转写持久化 + Path Injection ✅
 
 **目的**：将会议转写从纯内存提升为持久化 MD 文件，猫通过 path pointer 按需读取（而非全文灌入 context）。
 
@@ -130,12 +130,12 @@ created: 2026-05-09
 > **关键坐标系修正**：不是 "transcript context injection"（全文注入），而是 **"transcript artifact pointer injection"**（path pointer 注入）。铲屎官认为放 system prompt 不合适，应该走 user turn context（同图片附件管道）。
 
 **AC**：
-- [ ] AC-D1: TranscriptArtifactStore — 每次会议创建独立 MD 文件（按 speaking turn 分段），append-only 持久化到 `.cat-cafe/transcripts/`
-- [ ] AC-D2: Rolling summary — 每 30 秒在 MD 中 interleave 一个摘要段落（猫 skim 读 summary，深入读 raw）
-- [ ] AC-D3: Path injection via user turn context — active meeting 时自动在 invocation prompt 中追加 transcript path + latest time range + participants（同 image path hint 管道，`invoke-single-cat.ts` 注入点）
-- [ ] AC-D4: Stop/finalize — `/stop` 返回 `transcript_path`，UI 显示保存位置，SIGTERM graceful flush
-- [ ] AC-D5: Privacy — 默认 local + `.gitignore`，导出到 `docs/` 需铲屎官显式选择
-- [ ] AC-D6: Skills 更新 — meeting-copilot.md 明确"读 path 指向的 MD，不要要求全文注入"
+- [x] AC-D1: TranscriptArtifactStore — 每次会议创建独立 MD 文件（按 speaking turn 分段），append-only 持久化到 `.cat-cafe/transcripts/`
+- [x] AC-D2: Rolling summary — 每 30 秒在 MD 中 interleave 一个摘要段落（猫 skim 读 summary，深入读 raw）
+- [x] AC-D3: Path injection via user turn context — active meeting 时自动在 invocation prompt 中追加 transcript path + latest time range + participants（同 image path hint 管道，`invoke-single-cat.ts` 注入点）
+- [x] AC-D4: Stop/finalize — `/stop` 返回 `transcript_path`，UI 显示保存位置，SIGTERM graceful flush
+- [x] AC-D5: Privacy — 默认 local + `.gitignore`，导出到 `docs/` 需铲屎官显式选择
+- [x] AC-D6: Skills 更新 — meeting-copilot.md 明确"读 path 指向的 MD，不要要求全文注入"
 
 **MD 文件格式设计**：
 
@@ -464,6 +464,7 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | 2026-05-11 | Phase C2 merged (PR #1630) — speaker identity mapping (enrollment + source-based attribution) + manual correction UI |
 | 2026-05-11 | Phase C3 merged (PR #1633) — intervention advisory loop (SilenceMonitor + question detection + CJK keyword matching + floating advisory UI) |
 | 2026-05-11 | Phase D spec added — 转写持久化 + path injection（铲屎官实测后发现 Phase C 愿景遗漏，两猫收敛设计） |
+| 2026-05-12 | Phase D merged (PR #1642) — TranscriptArtifactStore + rolling summary + path injection + finalize + privacy |
 
 ---
 
