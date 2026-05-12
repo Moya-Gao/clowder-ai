@@ -180,7 +180,7 @@ Why: 这是 cell 内部行为修复（ACP sessionUpdate kind → AgentMessage ty
 |------|------|------|
 | **Feature** | `docs/features/F188-library-stewardship.md` | 暴露问题的 feature |
 | **Feature** | `docs/features/F102-memory-system.md` | Recall sidecar (Phase J) 的归属 feature |
-| **Feature** | `docs/features/F149-runtime-routing-extensibility.md` | Gemini ACP adapter（潜在同病） |
+| **Feature** | `docs/features/F149-runtime-routing-extensibility.md` | Gemini ACP adapter — 当前同一份 transformer，本 fix 直接覆盖该 path |
 | **Code** | `packages/api/src/domains/cats/services/agents/providers/acp/acp-event-transformer.ts` | 待修文件 |
 | **Code** | `packages/web/src/hooks/useRecallEvents.ts` | 消费 tool_result 事件的 UI hook |
 | **Test** | `packages/web/src/__tests__/recall-feed.test.ts` | Recall pairing 测试 |
