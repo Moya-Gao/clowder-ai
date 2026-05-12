@@ -260,7 +260,7 @@ F169 不替代任何一层，是**把它们连起来运行**的 reflex runtime �
 close_gate_report:
   feature_id: F169
   spec_path: docs/features/F169-agent-memory-reflex.md
-  head_sha: "34c09f6a8"
+  head_sha: "280b6ecea (substantive close sync commit; this report reference is filled by the next metadata commit)"
   report_date: 2026-05-11
   harness_feedback:
     status: none
