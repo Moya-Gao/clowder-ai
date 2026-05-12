@@ -26,8 +26,8 @@ related_features: [F102, F148, F152, F163, F167, F169]
 
 ## 由此 spin-off 的愿景文档
 
-- [F169: Agent Memory Reflex](../../features/F169-agent-memory-reflex.md)（**vision substantially realized, 2026-04-25**）
-  把记忆从"猫需要搜的书架"升级为"猫的外部工作记忆反射"。三层愿景实现度：Compiled Wiki Self-Authoring（剥离 F169，待铲屎官在 2026-05-19 前决策 F102 产物增强）/ Reflex Injection（**✅ F148 Phase F-H done**，2026-04-25）/ Task-scoped Salience Gating（**✅ F163 Phase F merged** PR #1412 `b843744f`，2026-04-25）。review 3 条 P1/P2 finding 全部接受，B+C 已闭环。
+- [F169: Agent Memory Reflex](../../features/F169-agent-memory-reflex.md)（**done / vision realized, close sync 2026-05-11**）
+  把记忆从"猫需要搜的书架"升级为"猫的外部工作记忆反射"。三层愿景实现度：Compiled Wiki Self-Authoring（**✅ closed** — 不做持久 compiled wiki；若痛点复现，走 query-time Feature Lens）/ Reflex Injection（**✅ F148 Phase F-H done**，2026-04-25）/ Task-scoped Salience Gating（**✅ F163 Phase F merged** PR #1412 `b843744f`，2026-04-25）。review 3 条 P1/P2 finding 全部接受，B+C 已闭环；2026-05-11 已从 BACKLOG 活跃列表移入 completed feature index。
 
 ## 为什么单独建目录
 

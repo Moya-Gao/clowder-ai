@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-05-10（F196 Safety Guardian 立项）
+> 维护者：三猫 | 最后更新：2026-05-11（F169 close truth sync）
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -56,7 +56,6 @@ created: 2026-02-26
 | F162 | Enterprise Action Toolkit — 官方 CLI 驱动的企业工作流 | spec | 布偶猫 | internal | [F162](features/F162-enterprise-action-toolkit.md) |
 | F165 | Guided Overfitting — 引导式过拟合 / 养猫路径 | spec | 布偶猫 | internal | [F165](features/F165-guided-overfitting.md) |
 | F167 | A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏 | spec | 布偶猫 | internal | [F167](features/F167-a2a-chain-quality.md) |
-| F169 | Agent Memory Reflex — 愿景文档（vision artifact） | vision | 三猫 | internal | [F169](features/F169-agent-memory-reflex.md) |
 | F175 | Unified Message Queue — 优先级排序 + 用户可控编排（urgent bypass 收口）| spec | @mindfn (community) | community [#575](https://github.com/zts212653/clowder-ai/pull/575) | [F175](features/F175-unified-message-queue.md) |
 | F178 | Persistent MCP Agent-Key Auth — 跨 invocation 写权限（F061 Bug-H follow-up） | spec | 布偶猫 | internal | [F178](features/F178-persistent-mcp-agent-key-auth.md) |
 | F179 | Desktop Installer Release Pipeline — Win NSIS + Mac DMG 自动附 release | spec | 布偶猫 | community (v0.9.0 反馈) | [F179](features/F179-desktop-installer-release-pipeline.md) |

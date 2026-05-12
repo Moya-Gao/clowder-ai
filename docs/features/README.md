@@ -130,6 +130,7 @@
 | F171 | F171: First Partner Onboarding — 领养第一只猫 / 配置第一位伙伴 | done | [F171-first-partner-onboarding.md](./F171-first-partner-onboarding.md) |
 | F173 | F173: 前端 Thread-Runtime State 统一 — 消除 dual write-path & liveness fragmentation | done (realized 2026-04-26) | [F173-frontend-message-pipeline-unification.md](./F173-frontend-message-pipeline-unification.md) |
 | F163 | F163: Memory Entropy Reduction — 记忆熵减与知识生命周期治理 | done | [F163-memory-entropy-reduction.md](./F163-memory-entropy-reduction.md) |
+| F169 | F169: Agent Memory Reflex — 愿景文档（vision artifact） | done (vision realized 2026-05-11) | [F169-agent-memory-reflex.md](./F169-agent-memory-reflex.md) |
 | F061 | F061: Antigravity 接入 — 孟加拉猫（混血家族） | done | [F061-antigravity-bengal-cat.md](./F061-antigravity-bengal-cat.md) |
 | F174 | F174: Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级、telemetry + D2b 三层明厨亮灶（HubButton unread badge + 五件套信号设计教训）| done | [F174-callback-auth-lifecycle.md](./F174-callback-auth-lifecycle.md) |
 | F177 | F177: Harness Update — Close Gate 结构化判据 + 四心智专属护栏 | done | [F177-harness-update.md](./F177-harness-update.md) |
