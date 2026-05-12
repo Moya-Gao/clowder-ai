@@ -172,7 +172,7 @@ function computeActionRateFromPrior(report, attrDir) {
 
 function parsePriorFindings(yamlContent) {
   const findings = [];
-  const findingBlocks = yamlContent.split(/^  - id:/m).slice(1);
+  const findingBlocks = yamlContent.split(/^ {2}- id:/m).slice(1);
   for (const block of findingBlocks) {
     const statusMatch = block.match(/^\s+status:\s*(\S+)/m);
     const fpMatch = block.match(/^\s+fingerprint:\s*"?([^"\n]+)"?/m);
@@ -259,7 +259,10 @@ if (digestMode) {
         console.log('No cookie provided — bootstrapping session from /api/session...');
         sessionCookie = await bootstrapSession(baseUrl);
       } else {
-        console.error('Error: session cookie required for non-localhost targets.\n' + '  --cookie "cat_cafe_session=..." or EVAL_SESSION_COOKIE env var');
+        console.error(
+          'Error: session cookie required for non-localhost targets.\n' +
+            '  --cookie "cat_cafe_session=..." or EVAL_SESSION_COOKIE env var',
+        );
         process.exit(1);
       }
     }

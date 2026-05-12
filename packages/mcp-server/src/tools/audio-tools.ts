@@ -174,8 +174,7 @@ export async function handleAudioCaptureStatus(): Promise<ToolResult> {
       ? `\n  Participants: ${s.participants.map((p) => `${p.name}${p.role === 'host' ? ' (host)' : ''}`).join(', ')}`
       : '';
     const advisory = s.advisory_mode && s.advisory_mode !== 'passive' ? `\n  Advisory: ${s.advisory_mode}` : '';
-    const points =
-      s.talking_points?.length ? `\n  Talking points: ${s.talking_points.length} registered` : '';
+    const points = s.talking_points?.length ? `\n  Talking points: ${s.talking_points.length} registered` : '';
     return successResult(
       `Capturing: ${label}\n  Duration: ${s.duration_s}s | Chunks: ${s.chunk_count} | Avg ASR: ${s.avg_asr_latency}s${meeting}${thread}${speakers}${advisory}${points}`,
     );

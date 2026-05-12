@@ -103,7 +103,11 @@ describe('workspace-file-watcher', () => {
     const client = await connectClient(port);
 
     try {
-      client.emit('workspace:watch-file', { worktreeId: 'test-wt', path: 'target.md', sha256: initialSha });
+      const ready = waitForSocketEvent(client, 'workspace:file-changed', FS_WATCH_EVENT_TIMEOUT_MS);
+      client.emit('workspace:watch-file', { worktreeId: 'test-wt', path: 'target.md', sha256: null });
+      const readyEvent = await ready;
+      assert.equal(readyEvent.path, 'target.md');
+      assert.equal(readyEvent.sha256, initialSha);
 
       // Atomic rename: write to tmp then rename over target
       const firstChange = waitForSocketEvent(client, 'workspace:file-changed', FS_WATCH_EVENT_TIMEOUT_MS);
