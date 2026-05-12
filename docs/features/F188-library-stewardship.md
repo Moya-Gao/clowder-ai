@@ -271,6 +271,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | OQ-1 | Phase A rebuild 进度：按文件数百分比 vs 按 Phase（scan / chunk / embed）？ | ✅ 按 Phase 阶段边界（scanning→indexing→cleanup→embedding→done） |
 | OQ-2 | Phase B stale anchor 检测频率：rebuild 时顺带 vs 独立定时扫描？ | ⬜ 未定 |
 | OQ-3 | Phase E Pin 的 UI 入口：RecallFeed 内嵌 vs 独立 Pin 管理页？ | ⬜ 未定 |
+| OQ-4 | **上线后暴露 (Phase F follow-up, 2026-05-12 砚砚 dogfood 发现)**：`graph_resolve` MCP wrapper API↔response shape mismatch — `GraphQueryResolver.ts:257` 返回 `{ status:'graph', graph: {nodes,edges,...} }`（nested），但 `graph-tools.ts:60 GraphSubgraph` interface 期望 flat `{ status:'graph', nodes, edges, ... }`，导致 `g.edges.filter`/`for of visibleEdges` 抛 "Cannot read of undefined" / "is not iterable"。**修法**：MCP wrapper 解 `data.graph.{nodes,edges,center,depth}` 后再传给 formatGraph。**何时修**：F197 alpha 验收闭环后，连同 R1 占位 doc / list_recent collection-aware 需求一起做 F188 Phase F hotfix PR（铲屎官 2026-05-12 拍板「scope 聚拢成一个 PR」） | ⬜ 待 F197 close 后开 F188 Phase F hotfix PR |
 
 ## Key Decisions
 
