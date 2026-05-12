@@ -240,15 +240,32 @@ function generateMonthlyDigest() {
   console.log(`Monthly digest written: ${digestPath}`);
 }
 
+async function bootstrapSession(url) {
+  const res = await fetch(`${url}/api/session`);
+  const setCookie = res.headers.get('set-cookie') ?? '';
+  const match = setCookie.match(/cat_cafe_session=([^;]+)/);
+  if (!match) throw new Error('Failed to bootstrap session from /api/session');
+  return `cat_cafe_session=${match[1]}`;
+}
+
 if (digestMode) {
   generateMonthlyDigest();
 } else {
-  if (!cookie) {
-    console.error('Error: session cookie required.\n' + '  --cookie "session=..." or EVAL_SESSION_COOKIE env var');
-    process.exit(1);
-  }
-  const config = { baseUrl, cookie };
-  main(config).catch((err) => {
+  (async () => {
+    let sessionCookie = cookie;
+    if (!sessionCookie) {
+      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(baseUrl);
+      if (isLocalhost) {
+        console.log('No cookie provided — bootstrapping session from /api/session...');
+        sessionCookie = await bootstrapSession(baseUrl);
+      } else {
+        console.error('Error: session cookie required for non-localhost targets.\n' + '  --cookie "cat_cafe_session=..." or EVAL_SESSION_COOKIE env var');
+        process.exit(1);
+      }
+    }
+    const config = { baseUrl, cookie: sessionCookie };
+    await main(config);
+  })().catch((err) => {
     console.error('Eval failed:', err.message);
     process.exit(1);
   });
