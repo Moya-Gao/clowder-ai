@@ -12,7 +12,7 @@ created: 2026-05-11
 
 ## Why
 
-F188 Phase F 上线 LIVE Recall sidebar 后铲屎官发现：ACP 路径下（Claude Code CLI via ACP）的 search_evidence 调用，UI 卡片只显示 query/mode/scope/time，**永远不显示 `[N hits]` 也永远展开不出 results**。其它 provider（catagent 直连 Anthropic / Codex）显示正常。
+F188 Phase F 上线 LIVE Recall sidebar 后铲屎官发现：ACP 路径下的 search_evidence 调用，UI 卡片只显示 query/mode/scope/time，**永远不显示 `[N hits]` 也永远展开不出 results**。其它 provider（catagent 直连 Anthropic / Codex）显示正常。（**初诊误称 "Claude Code CLI via ACP"，砚砚 一审 P1-1 校正：repo 里 ACP 当前仅服务 Gemini。详见后文 ACP scope 节。**）
 
 铲屎官原话（2026-05-11 跟 47 dogfooding F188 Phase F 时）：
 > "为啥我这里看到的是你啥也没生效？是没搜到吗？"
@@ -47,32 +47,38 @@ case 'tool_call_update': {       // 现状：部分场景的 progress/final upda
 
 **判定矩阵**（基于 ACP sessionUpdate kind + `status` 字段；status 字段名以 ACP protocol 实际为准，已知 `completed`/`failed`/`in_progress`）：
 
+**关键状态机不变量**（砚砚 二审 P1-1 + P1-2 校正）：
+1. **同 toolCallId `tool_use` 只 emit 一次**——后续 progress 不能再 emit tool_use（否则 `toStoredToolEvent` 会落两个 UI 事件、Recall pending 队列重复入栈）
+2. **final 判定仅认 `status ∈ {completed, failed}`**——no-status content fallback 删掉（hotfix 不引入歧义；progress content 不会被提前 pair 成 result）
+
 | ACP 事件形状 | transformer 行为 |
 |---|---|
-| `tool_call`（无 status，或 status=`in_progress`/`pending`） | emit `tool_use`（保持现状）|
+| `tool_call`（无 status，或 status=`in_progress`/`pending`） | emit `tool_use`（首次出现，建 pending）|
 | `tool_call` + status=`completed`/`failed` + content（**Gemini v0.36 实际格式**） | emit **两条** AgentMessage：先 `tool_use`（toolName + toolInput），再 `tool_result`（content）|
-| `tool_call_update` + status=`in_progress`/未完成 + 中间 content | emit `tool_use`（progress streaming，保留现状）|
-| `tool_call_update` + status=`completed`/`failed` + 最终 content | emit `tool_result`（前面已有 pending `tool_use` from 初始 `tool_call`，这里只发 result 即可）|
-| 兜底：同 toolCallId 已 emit 过 `tool_use`，又收到 content 非空但无 status 的 update | 视为 final → emit `tool_result` |
-| 兜底：同 toolCallId 从未 emit `tool_use`，直接来 content 完整的 update | 拆成两条：先补 `tool_use`，再 `tool_result`（避免 orphan tool_result）|
+| `tool_call_update` + status=`in_progress` / 中间 content | **不** emit `tool_use`（同 toolCallId 已建过 pending）；emit `system_info` (progress) 或直接 ignore——见 KD-5 |
+| `tool_call_update` + status=`completed`/`failed` + 最终 content | emit `tool_result`（前面已由 `tool_call` 建过 pending，此处补 result 完成 pair）|
+| `tool_call_update` + 无 status + content | **不** 视为 final（progress 还在路上）；同 in_progress 处理 |
+| 边界：同 toolCallId 第一次出现就是 `tool_call_update[completed]`（没有前置 `tool_call`） | 拆双消息：补一个 `tool_use`（toolName 从 update 字段提取） + `tool_result`（避免 orphan result）|
 
 **实现要点**：
-- Transformer 内部维护 `toolCallId → { emittedToolUse: boolean, lastStatus: string }` Map（per-session 即可，session 结束清理）
-- "拆双消息"通过 generator 或 `Array<AgentMessage>` 返回支持——当前 `transformAcpEvent()` 返回单个 AgentMessage，需要扩展为可返回 `AgentMessage | AgentMessage[]` 或改为 generator
-- 测试 fixture `tool_call with "title" field (Gemini CLI v0.36 actual format)` 必须更新：当前断言只期望 `result.type === 'tool_use'`，修复后该 fixture 应 emit 两条 message
+- Transformer 维护 per-session `toolCallId → { emittedToolUse: boolean, finalEmitted: boolean }` Map（session 结束清理）
+- "拆双消息"通过 generator 或 `Array<AgentMessage>` 返回——当前 `transformAcpEvent()` 返回单个 AgentMessage / null，需要扩展为可返回 `AgentMessage | AgentMessage[] | null` 或改为 generator
+- progress update 的处理方式（system_info vs ignore vs custom progress kind）留到 wktree 实测 UI 现状决定（KD-5）
+- 测试 fixture `tool_call with "title" field (Gemini CLI v0.36 actual format)` 当前断言只期望 `result.type === 'tool_use'`，修复后该 fixture 应 emit `[tool_use, tool_result]` 两条
 
 ## Acceptance Criteria
 
 ### Phase A（ACP transformer 修复 + 测试）
-- [ ] AC-A1: `acp-event-transformer.ts` 的 `tool_call` case 按 status 分流：无 status / `in_progress` / `pending` → 仅 emit `tool_use`；`completed` / `failed` + content → emit **两条 AgentMessage**（先 `tool_use`，再 `tool_result`）
-- [ ] AC-A2: `acp-event-transformer.ts` 的 `tool_call_update` case 按 status 分流：`in_progress` 或中间 content → emit `tool_use`（progress streaming）；`completed`/`failed` + 最终 content → emit `tool_result`（前面已由初始 `tool_call` 建过 pending tool_use，此处仅补 result）
-- [ ] AC-A3: 兜底逻辑——同 toolCallId 已 emit 过 `tool_use` 又收到 content 非空但无 status 的 update → 视为 final → emit `tool_result`；从未 emit 过 `tool_use` 直接来完整 content → 拆双消息（先补 `tool_use` 再 `tool_result`，避免 orphan result）
-- [ ] AC-A4: Transformer 签名扩展：`transformAcpEvent` 返回从 `AgentMessage | null` 改为 `AgentMessage | AgentMessage[] | null`（或改为 generator）；所有 caller 更新处理多 message
-- [ ] AC-A5: 单元测试覆盖 6 场景：(a) tool_call(no status) → 1×tool_use (b) **tool_call(completed+content) → 2×message** (Gemini v0.36 实际格式) (c) tool_call_update(in_progress) → tool_use (d) tool_call_update(completed) → tool_result (e) toolCallId 第一次出现就是 update(completed) 没前置 tool_call → 拆双消息 (f) failed status 同 completed 路径走 tool_result
-- [ ] AC-A6: 更新现有 `acp-event-transformer.test.js:93-110` Gemini v0.36 fixture 断言：从期望单 `tool_use` 改为期望 `[tool_use, tool_result]` 两条
-- [ ] AC-A7: 现有 `recall-feed.test.ts` 加 1 个 ACP-shape fixture：通过 transformer 输入 → useRecallEvents 输出 → 验证 RecallEvent.resultCount 被正确 pair
-- [ ] AC-A8: F188 Phase F FM-5 indirect 验证——构造 ACP-only thread fixture 跑 ToolUsageMetricsAggregator，**memory-class tool 的 FM-5 denominator > 0** 且能算出 non-NaN 值（denominator 限定到有 final content 的 memory tools，不把 ACP hang/timeout 兜进去——砚砚 一审 OQ-3 修正）
-- [ ] AC-A9: 修完后实际验证：本地 alpha 起来，烁烁/Gemini 在 ACP 路径下跑 search_evidence / list_recent，Recall sidebar 卡片显示 `[N hits]` + 可展开看 results
+- [ ] AC-A1: `acp-event-transformer.ts` 的 `tool_call` case 按 status 分流：无 status / `in_progress` / `pending` → 仅 emit `tool_use`（建 pending）；`completed` / `failed` + content → emit **两条 AgentMessage**（先 `tool_use`，再 `tool_result`）
+- [ ] AC-A2: `acp-event-transformer.ts` 的 `tool_call_update` case 按 status 分流：`completed`/`failed` + content → emit **仅 `tool_result`**（同 toolCallId 已建 pending tool_use，不重复）；其它（`in_progress` / 无 status / 中间 content） → **不 emit `tool_use`**（同 toolCallId 已建过 pending，重复 emit 会双重入栈 Recall pending 队列）；progress 表达方式见 KD-5
+- [ ] AC-A3: 边界——同 toolCallId 第一次出现就是 `tool_call_update[completed]` 无前置 `tool_call` → 拆双消息（先补 `tool_use` 再 `tool_result`，避免 orphan result）
+- [ ] AC-A4: **final 判定仅认 `status ∈ {completed, failed}`**；no-status 含 content 视为 progress，不提前 pair（**no-status fallback 删掉**——砚砚 二审 P1-2）
+- [ ] AC-A5: Transformer 签名扩展：`transformAcpEvent` 返回从 `AgentMessage | null` 改为 `AgentMessage | AgentMessage[] | null`（或改为 generator）；所有 caller 更新处理多 message
+- [ ] AC-A6: 单元测试覆盖 6 场景：(a) `tool_call`(no status) → 1×tool_use (b) **`tool_call`(completed+content) → 2×message** (Gemini v0.36 实际格式) (c) `tool_call_update`(in_progress) → **0 个 tool_use / 0 个 tool_result**（progress 不重复入栈） (d) `tool_call_update`(completed) → 1×tool_result（前置 pending 已存在） (e) toolCallId 第一次出现就是 `update(completed)` 没前置 `tool_call` → 拆双消息 (f) `failed` status 同 completed 路径走 tool_result
+- [ ] AC-A7: 更新现有 `acp-event-transformer.test.js:93-110` Gemini v0.36 fixture 断言：从期望单 `tool_use` 改为期望 `[tool_use, tool_result]` 两条
+- [ ] AC-A8: 现有 `recall-feed.test.ts` 加 1 个 ACP-shape fixture：通过 transformer 输入 → useRecallEvents 输出 → 验证 RecallEvent.resultCount 被正确 pair
+- [ ] AC-A9: F188 Phase F FM-5 indirect 验证——构造 ACP-only thread fixture 跑 ToolUsageMetricsAggregator，**memory-class tool 的 FM-5 denominator > 0** 且能算出 non-NaN 值（denominator 限定到有 final content 的 memory tools，不把 ACP hang/timeout 兜进去——砚砚 一审 OQ-3 修正）
+- [ ] AC-A10: 修完后实际验证：本地 alpha 起来，烁烁/Gemini 在 ACP 路径下跑 search_evidence / list_recent，Recall sidebar 卡片显示 `[N hits]` + 可展开看 results
 
 ## Architecture Ownership
 
@@ -130,10 +136,10 @@ Why: 这是 cell 内部行为修复（ACP sessionUpdate kind → AgentMessage ty
 | 风险 | 缓解 |
 |------|------|
 | Gemini CLI v0.36 `tool_call(completed+content)` 单事件拆双消息，下游 caller 处理多 message 的 backpressure / 顺序 | `transformAcpEvent` 改为返回数组或 generator；caller 按顺序 yield；测试覆盖"先 tool_use 后 tool_result"消费者 invariant |
-| `status` 字段命名 ACP 多版本差异（已知 Gemini v0.36 用 `status`） | 测试覆盖 v0.36 真实 fixture + 留兜底 "无 status 但有 content 视为 final" |
-| 同 toolCallId 多个 update 引起 pairing 错乱 / 重复 emit | transformer 维护 per-session `toolCallId → emittedToolUse` Map；同 toolCallId 不重复 emit tool_use |
-| 改动破坏现有 progress streaming UI（in_progress update 当前转 tool_use 含 content） | AC-A2 显式保留 in_progress → tool_use；测试 fixture 锁住 |
-| ACP 服务端漏发 final update / tool 永久 in_progress（hang） | FM denominator 限定 "含 final content" 调用，hang 不影响指标；监控 hang ratio 作为单独 quality signal（非本 fix scope）|
+| **progress UI 表达**——in_progress 不再 emit `tool_use` 后，现有 streaming progress UI 是否依赖原行为？ | KD-5 定方案：探查现有 UI 用 progress content 哪里 → 选 system_info/进度自定义 type/纯 ignore，wktree 实测决定 |
+| `status` 字段命名 ACP 多版本差异（已知 Gemini v0.36 用 `status`） | 测试覆盖 v0.36 真实 fixture；**不留 no-status content fallback**（砚砚 二审 P1-2）；其它 ACP 版本若改字段名走 follow-up |
+| 同 toolCallId 重复 emit 引起 Recall pending 双入栈 | transformer 维护 per-session `toolCallId → { emittedToolUse, finalEmitted }` Map；同 toolCallId 仅一次 `tool_use` + 仅一次 final `tool_result` |
+| ACP 服务端漏发 final / tool 永久 in_progress（hang） | FM denominator 限定 "含 final content (status=completed/failed)" 调用，hang 不影响指标；监控 hang ratio 作为单独 quality signal（非本 fix scope）|
 
 ## Open Questions
 
@@ -141,8 +147,9 @@ Why: 这是 cell 内部行为修复（ACP sessionUpdate kind → AgentMessage ty
 |---|------|------|
 | OQ-1 | ACP sessionUpdate 的 `inner.status` 字段名 | ✅ 已知 — Gemini CLI v0.36 用 `status`，值 `completed` / `failed` / `in_progress` / `pending`（acp-event-transformer.test.js:93-110 fixture）|
 | OQ-2 | F149 Gemini ACP 与本 fix 关系 | ✅ 已确认 — **同一份 transformer**，本 fix 直接覆盖 F149 path（不分 Phase B）|
-| OQ-3 | progress vs final 判定，仅靠 status 还是要 timeout fallback？ | ✅ 已收敛 — 仅靠 status；hang 不影响 FM（denominator 限定到含 final content）；hang ratio 作为单独 quality signal 监控（非本 fix scope）|
+| OQ-3 | progress vs final 判定，仅靠 status 还是要 timeout fallback？ | ✅ 已收敛 — **仅靠 status ∈ {completed, failed}**；no-status content **不视为 final**；hang 不影响 FM；hang ratio 作为单独 quality signal 监控（非本 fix scope）|
 | OQ-4 | `transformAcpEvent` 返回值改 array / generator 哪种 caller 改动更小？ | ⬜ 待 wktree 时读 caller (`AcpClient.ts` / `AcpProcessPool.ts`) 实测决定 |
+| OQ-5 | `tool_call_update[in_progress]` 不再 emit `tool_use` 后，progress content 走哪个 AgentMessage type？（`system_info` / 新增 `tool_progress` / 直接 ignore） | ⬜ 待 wktree 探现有 UI 是否依赖 progress content；若 UI 无消费 → ignore；若有 → 走 `system_info` 不污染 Recall pending 队列（KD-5）|
 
 ## Key Decisions
 
@@ -152,6 +159,8 @@ Why: 这是 cell 内部行为修复（ACP sessionUpdate kind → AgentMessage ty
 | KD-2 | scope = Gemini-on-ACP path（当前 ACP 唯一使用者） | 砚砚 一审 P1-1 校正：repo 里 ACP 只在 `clientId: google` 分支 instantiate `GeminiAcpAdapter`；不是 Claude Code ACP（不存在）。本 fix 直接覆盖 F149 path，不拆 Phase B | 2026-05-11 |
 | KD-3 | 单事件拆双消息（先 `tool_use` 后 `tool_result`） | 砚砚 一审 P1-3：UI / ToolEventLog 都基于 pending+pair 模型；Gemini v0.36 实际 format 把 completed+content 打包到 `tool_call`，transformer 必须在内部拆成两条 stream message 保证 pair 模型成立 | 2026-05-11 |
 | KD-4 | `transformAcpEvent` 返回值从 `AgentMessage \| null` 扩展为 `AgentMessage \| AgentMessage[] \| null` | 拆双消息的实现必需；array vs generator 的 caller 改动量评估留到 wktree 时实测（OQ-4） | 2026-05-11 |
+| KD-5 | 同 toolCallId `tool_use` 只 emit 一次；progress update（in_progress / 中间 content）**不再** emit `tool_use`；progress 表达方式（system_info / 自定义 / ignore）wktree 时定 | 砚砚 二审 P1-1：AC-A2 旧版要求 in_progress emit tool_use 跟 Risk 要求"不重复 emit tool_use"冲突；二选一选去重，否则 Recall pending 双入栈 + UI/telemetry 重复事件 | 2026-05-11 |
+| KD-6 | final 判定**仅认 `status ∈ {completed, failed}`**；no-status content 不视为 final | 砚砚 二审 P1-2：OQ-3 已收敛"仅靠 status"，但旧 Risk/Matrix 还留 "no-status content 非空视为 final" 兜底，会把 progress content 提前 pair 成 result。本 hotfix 不引入歧义；其它 ACP 版本若变字段名走 follow-up | 2026-05-11 |
 
 ## Timeline
 
@@ -159,6 +168,7 @@ Why: 这是 cell 内部行为修复（ACP sessionUpdate kind → AgentMessage ty
 |------|------|
 | 2026-05-11 | F188 Phase F 上线后铲屎官 dogfooding 发现 Recall sidecar 不显示 hits；47 诊断到根因 = ACP transformer 漏 emit tool_result；铲屎官 push back 走 spec 流程，本 spec 立项 |
 | 2026-05-11 | 砚砚 一审 Design Gate review 退回 P1×3：(P1-1) ACP scope 写错（实际只服务 Gemini，不是 Claude Code）(P1-2) 漏覆盖 Gemini v0.36 单事件实际格式 (P1-3) 单事件必须拆双消息以满足 pending+pair 模型。47 全部 ack，AC 重写 9 条，新增 KD-2/3/4，待砚砚 二审 |
+| 2026-05-11 | 砚砚 二审 P1×2 + P2×1 退回：(P1-1) AC-A2 旧版 "in_progress → tool_use" 跟"同 toolCallId 不重复 emit"冲突，砚砚 push 选去重 → progress 不再 emit tool_use (P1-2) Matrix/AC/Risk 旧版还留 "no-status content 非空视为 final" 兜底，跟 OQ-3 "仅靠 status" 冲突 → fallback 删 (P2) Why 残留"Claude Code CLI via ACP"误导。47 ack：KD-5/6 显式锁状态机不变量，AC-A2/A4/A6 重写，Why 首段标注初诊误称 → 待砚砚 三审 |
 
 ## Review Gate
 
