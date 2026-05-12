@@ -461,3 +461,155 @@ v3 (69%)  ─── 召唤砚砚通过 multi_mention 搜到 commit/PR
 3. 📝 建议沉淀：把 "self-teardown 必须先搜证 3 次 + 跨族 verify 1 次" 写进 self-evolution skill 或 KD
 
 [宪宪/Opus-47🐾]
+
+---
+
+# 附录：架构图（v3.5 补丁 — 铲屎官指出无图，2026-05-11 22:35）
+
+铲屎官 22:07 点："你有画一些架构图方便不了解我们项目的人理解吗？" — **没有**。补 3 张 ASCII 图，给外部研讨会观众 5 秒看懂。
+
+---
+
+## 图 1：10 维度自评对照（5 秒看懂"我们 vs 嘉宾"）
+
+```
+                  嘉宾平均（Top 4 开源项目）        Cat Cafe 自评 (v3, 2026-05-11)
+                  ────────────────────────         ──────────────────────────────
+检索精度          ███░░  3.0                       ████░  4.0
+长上下文一致      ██░░░  2.0                       ███░░  3.0
+写入门禁          ░░░░░  0.0  ← 嘉宾全 ❌          ███░░  3.0  ⭐ 领先
+过期识别          ░░░░░  0.0  ← 嘉宾全 ❌          ███▌░  3.5  ⭐ 领先
+Provenance/审计   ░░░░░  0.0  ← 嘉宾全 ❌          ████▌  4.5  ⭐⭐ 领先
+Rollback          ░░░░░  0.0  ← 嘉宾全 ❌          ███░░  3.0  ⭐ 领先
+Multi-agent 一致  ░░░░░  0.0  ← 嘉宾全 ❌          ██░░░  2.0  ⭐ 领先
+Salience Gating   ░░░░░  0.0  ← 嘉宾全 ❌          ███░░  3.0  ⭐ 领先
+Wearing Protocol  ░░░░░  0.0  ← 嘉宾全 ❌          ███▌░  3.5  ⭐⭐ 领先
+Agent 真实工作流  ░░░░░  0.0  ← 嘉宾不测          █████  5.0  ⭐⭐⭐ 压倒性领先
+                  ───────                          ─────────
+                  Total: ~5/50  (~10%)              Total: 34.5/50  (69%)
+
+[ ⭐ 标记 = cat-cafe 在该维度领先（嘉宾 benchmark 根本不测）]
+```
+
+**5 秒结论**：嘉宾 benchmark 只覆盖左上角 2 格（检索 + 长上下文）；治理 + 协作 + 工作流 7 格全是空白——cat-cafe 全部走到了，虽然分数中等。
+
+---
+
+## 图 2：三轮自评的修正轨迹（搜得越深越接近真实）
+
+```
+                  v1 (凭印象)       v2 (search ×1)       v3 (multi-cat verify)
+                                                                              
+检索精度          ████░  4.0       ████░  4.0           ████░  4.0
+长上下文一致      ███░░  3.0       ███░░  3.0           ███░░  3.0
+写入门禁          ███░░  3.0       ███░░  3.0           ███░░  3.0
+过期识别          ██░░░  2.0  ──→  ███░░  3.0   +1.0    ███▌░  3.5   +0.5
+Provenance        ████░  4.0  ──→  ████▌  4.5   +0.5    ████▌  4.5
+Rollback          ███░░  3.0       ███░░  3.0           ███░░  3.0
+Multi-agent       ██░░░  2.0       ██░░░  2.0           ██░░░  2.0
+Salience Gating   █░░░░  1.0  ──→  ███░░  3.0   +2.0    ███░░  3.0   ← 关键修正
+Wearing Protocol  ██░░░  2.0  ──→  ███░░  3.0   +1.0    ███▌░  3.5   +0.5
+Agent 工作流      █████  5.0       █████  5.0           █████  5.0
+                  ─────            ─────                ─────
+Total             29/50 (58%)  ──→  33.5/50 (67%) +9pp  34.5/50 (69%) +2pp
+
+方法              凭印象           search_evidence×1    multi_mention + 跨族 verify
+                                   (4.29 brainstorm)    (砚砚 codex 搜 commit/PR)
+
+边际收益          ─                +9pp                 +2pp（递减）
+教训              没用记忆系统     用了一次             用了 multi-cat
+```
+
+**核心元论点**：每多用一次记忆工具，分数就更接近真实——但收益递减。**v3 已经接近 plateau**——继续往 v4 边际收益小，时间该花在 final speech。
+
+---
+
+## 图 3：Cat Cafe 记忆系统真实形态（给技术派看实现）
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Agent-Facing MCP Tools (F188 Phase F ✅ merged 2026-05-11)          │
+│   search_evidence   graph_resolve   list_recent   memory-navigation │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────────────┐
+│ Recall Layer                                                        │
+│   Session Bootstrap (F102 ✅)        — 新猫冷启动注入窄口            │
+│   search_evidence routing (F102 ✅)  — 3 modes: lexical/sem/hybrid  │
+│   Salience Rerank (F163 Phase F 🟡)  — task-scoped 软降权 in-progress│
+│   Reflex Injection (F169 ⭕)         — vision, 未落地                │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────────────┐
+│ Compile / Query Layer (F102 ✅)                                     │
+│   evidence.sqlite — FTS5 + vector embeddings + RRF fusion           │
+│   confidence (match quality) + authority (doc reliability)          │
+│   sourceType (feature / ADR / lesson / discussion / plan)           │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │ scan/hash/rebuild
+┌──────────────────────────▼──────────────────────────────────────────┐
+│ Truth Source (docs/ + threads + sessions + git)                     │
+│   ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │
+│   │features/ │ │decisions/│ │ lessons- │ │ plans/   │ │threads/  │ │
+│   │ F0xx-Fxxx│ │ ADR-xxx  │ │ learned  │ │ phases   │ │sessions  │ │
+│   └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ │
+│   ↑ 所有真相在 git 里，索引可重建（不是 vector DB 是仓库）            │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─ Governance Plane (横切，治理飞轮)─────────────────────────────────┐
+│   F163 stale detection 🟢      ADR Sunset Protocol 🟢              │
+│   F163 contradiction flagging 🟢                                    │
+│   F188 Tool Usage Audit Ledger ✅   F188 Memory Health Dashboard ✅ │
+│   Cross-vendor Review 🟢       Magic Words runtime brake 🟢         │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─ Multi-Agent Federation ──────────────────────────────────────────┐
+│   F186 project / global / domain 三层联邦 🟡                       │
+│   F167 Ball Ownership Protocol (hold_ball / targetCats / 接退升) 🟢 │
+│   F167 ping-pong breaker 🟢   F148 thread navigation 🟢            │
+└─────────────────────────────────────────────────────────────────────┘
+
+图例:
+  ✅ = Merged 到 main（Phase F 全部 AC 完成）
+  🟢 = 生产中
+  🟡 = In-progress（implementation plan 已写，代码在写）
+  ⭕ = Vision artifact（设计已写，代码未开始）
+```
+
+**5 秒结论**：Cat Cafe 记忆 = **4 层栈**（MCP tools / Recall / Compile / Truth Source）+ **2 个横切平面**（Governance / Multi-Agent Federation）。和嘉宾的差别 = **嘉宾只有前 3 层；治理平面 + 多 agent 联邦是 cat-cafe 独家维度**。
+
+---
+
+## 图 4（精简版给现场用）：cat-cafe vs 嘉宾的视觉一句话
+
+```
+                    嘉宾 4 项目（开源 SOTA）
+                    ┌────────────────┐
+                    │ Memory Substrate│      ← Layer 1
+                    │ Reflex Injection│      ← Layer 2
+                    └────────────────┘
+                          ↑ 停在这里
+                          
+                                                  Cat Cafe (cat-cafe)
+                                                  ┌─────────────────────────┐
+                                                  │ Memory Substrate         │ ← Layer 1
+                                                  │ Reflex Injection         │ ← Layer 2
+                                                  │ Wearing Protocol (Ledger)│ ← Layer 3 ★ 独家
+                                                  └─────────────────────────┘
+                                                  ┌─────────────────────────┐
+                                                  │ Governance Plane         │ ← 横切 ★ 独家
+                                                  │ Multi-Agent Federation   │ ← 横切 ★ 独家
+                                                  └─────────────────────────┘
+```
+
+**研讨会现场用这一张就够了**——5 秒讲完"我们的差异化在哪儿"，剩下 14 分 55 秒展开具体证据。
+
+---
+
+## 给铲屎官的提议
+
+如果 5/13 现场需要更精致的视觉版本，砚砚之前用 SVG→PNG 生成的方法很好（图 6/7 / 三轴图 fig-2-three-axis-handdrawn.png 都是确定性渲染）。我们可以同样手法把图 1（10 维度对照）+ 图 4（4 层 stack 对比）做成手绘风 PNG，作为研讨会主图。
+
+但这一步**不在 self-teardown 范围内**——self-teardown 文档本身用 ASCII 图够了。需要的话铲屎官拍板让砚砚做 PNG 版本。
+
+[宪宪/Opus-47🐾]
