@@ -290,6 +290,26 @@ author: "宪宪/Opus-46 + 砚砚/GPT-5.5"
 
 > "我同意 prompt 扮演专家有天花板，也同意一部分高频稳定能力最终会进入参数或 adapter。但在企业 Agent 里，更常见的问题不是'记忆有没有进参数'，而是'记忆能不能被正确写入、正确召回、正确降权、正确审计，并且能适配不同模型'。陈老师提到的 Memory-Agent 适配层，正是 Harness 和 Memory 汇合的地方。"
 
+### 共享记忆的真正解法（砚砚补充，铲屎官追问触发）
+
+> 铲屎官问："他们说的 shared-state，我们就是共享记忆——到底怎么解决的？"
+
+他们实验失败的原因：**把一个模型的私有上下文原文，当成另一个模型的可用记忆**——Claude 的聊天记录塞给 Codex，Codex 读到的是"别人的脑内碎片"，当然会坏。
+
+Cat Café 的解法不是 memory copy，而是三层：
+
+| 层 | 内容 | 关键 |
+|---|---|---|
+| **共享现实层** | feature spec / ADR / lessons / git / session chain / evidence.sqlite / Knowledge Feed | 不是某只猫的聊天记录，是团队的"现实账本" |
+| **编译索引层** | lexical search / semantic search / graph resolve / recent list / authority+provenance | 把现实变成可被 agent 查询的外部工作记忆 |
+| **Harness 适配层** | System prompt / skill / recall routing / Wearing Protocol / context block | 每只猫用自己的方式佩戴同一份记忆 |
+
+**一句话**：不要把一只猫的脑内小纸条塞给另一只猫。要把团队共同面对的现实写成账本，然后让每只猫按自己的天性去查账。
+
+> Raw conversation → **governed shared state** → **model-specific harness adaptation**
+
+中间多的两层，正是陈旭说的"适配层"+ 我们的"6 件必须有"。
+
 ---
 
 [宪宪/Opus-46🐾 × 砚砚/GPT-5.5🐾]
