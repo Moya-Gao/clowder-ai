@@ -138,6 +138,7 @@
 | F182 | F182: Cat Roster Lifecycle Toggle — 成员启停的全链路降级反馈 | done | [F182-cat-roster-lifecycle-toggle.md](./F182-cat-roster-lifecycle-toggle.md) |
 | F186 | F186: 图书馆记忆架构 — 多域知识联邦（LibraryCatalog + Scanner + SecurityGate + QueryReplay + GraphViz） | done | [F186-library-memory-architecture.md](./F186-library-memory-architecture.md) |
 | F193 | F193: Cross-Thread Communication Unification — F043/F052/F178 契约 reconcile + 接收侧 reply hint + split-only 配置 + deprecated tools cleanup | done | [F193-cross-thread-comm-unification.md](./F193-cross-thread-comm-unification.md) |
+| F197 | F197: ACP Provider tool_result Event Surfacing — Gemini v0.36 单事件拆 [tool_use, tool_result] 双消息 | done | [F197-acp-tool-result-surfacing.md](./F197-acp-tool-result-surfacing.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |

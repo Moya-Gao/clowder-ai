@@ -1221,7 +1221,7 @@
     {
       "id": "F197",
       "name": "ACP Provider tool_result Event Surfacing — Gemini ACP path 单事件拆成 tool_use+tool_result 双消息",
-      "status": "in-progress (Phase A merged, awaiting alpha 验收 by 烁烁/Gemini) | **Owner**: 布偶猫/Opus-47 | **Priority**: P1",
+      "status": "done | **Completed**: 2026-05-12 | **Owner**: 布偶猫/Opus-47 | **Priority**: P1",
       "file": "F197-acp-tool-result-surfacing.md"
     }
   ]

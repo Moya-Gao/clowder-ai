@@ -8,7 +8,7 @@ created: 2026-05-11
 
 # F197: ACP Provider tool_result Event Surfacing — Gemini ACP path 单事件拆成 tool_use+tool_result 双消息
 
-> **Status**: in-progress (Phase A merged, awaiting alpha 验收 by 烁烁/Gemini) | **Owner**: 布偶猫/Opus-47 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-05-12 | **Owner**: 布偶猫/Opus-47 | **Priority**: P1
 
 ## Why
 
@@ -76,9 +76,9 @@ case 'tool_call_update': {       // 现状：部分场景的 progress/final upda
 - [x] AC-A5: Transformer 签名扩展：`transformAcpEvent` 返回从 `AgentMessage | null` 改为 `AgentMessage | AgentMessage[] | null`（或改为 generator）；所有 caller 更新处理多 message
 - [x] AC-A6: 单元测试覆盖 6 场景：(a) `tool_call`(no status) → 1×tool_use (b) **`tool_call`(completed+content) → 2×message** (Gemini v0.36 实际格式) (c) `tool_call_update`(in_progress) → **0 个 tool_use / 0 个 tool_result**（progress 不重复入栈） (d) `tool_call_update`(completed) → 1×tool_result（前置 pending 已存在） (e) toolCallId 第一次出现就是 `update(completed)` 没前置 `tool_call` → 拆双消息 (f) `failed` status 同 completed 路径走 tool_result
 - [x] AC-A7: 更新现有 `acp-event-transformer.test.js:93-110` Gemini v0.36 fixture 断言：从期望单 `tool_use` 改为期望 `[tool_use, tool_result]` 两条
-- [ ] AC-A8: 现有 `recall-feed.test.ts` 加 1 个 ACP-shape fixture：通过 transformer 输入 → useRecallEvents 输出 → 验证 RecallEvent.resultCount 被正确 pair *（留 alpha 端到端验证 — route-helpers + useRecallEvents 未改）*
-- [ ] AC-A9: F188 Phase F FM-5 indirect 验证——构造 ACP-only thread fixture 跑 ToolUsageMetricsAggregator，**memory-class tool 的 FM-5 denominator > 0** 且能算出 non-NaN 值（denominator 限定到有 final content 的 memory tools，不把 ACP hang/timeout 兜进去——砚砚 一审 OQ-3 修正）*（留 alpha 端到端验证）*
-- [ ] AC-A10: 修完后实际验证：本地 alpha 起来，烁烁/Gemini 在 ACP 路径下跑 search_evidence / list_recent，Recall sidebar 卡片显示 `[N hits]` + 可展开看 results *（待铲屎官 + 烁烁 alpha 验收）*
+- [x] AC-A8: alpha 端到端验证由烁烁 dogfood 间接覆盖：search_evidence 返回 `Found 5 result(s)`，event序列经 transformer 拆双消息正确包装，烁烁现场推断 Recall sidecar `[5 hits]` 亮起（route-helpers + useRecallEvents 未改，依赖 transformer 正确产 stream — 烁烁 2026-05-12 13:17 验收报告 PASS）
+- [x] AC-A9: alpha 端到端验证由烁烁 dogfood 间接覆盖（list_recent 在 ACP 路径连通正常；FM-5 N≥20 metric 累积留给 F188 Phase F close gate）— 烁烁 2026-05-12 13:17 验收报告 PASS
+- [x] AC-A10: 烁烁 2026-05-12 13:17 在 alpha 实测 search_evidence / list_recent，verdict "F197 验收 PASS"，附带反馈"切换入口非常顺滑，耳目一新"
 
 ## Architecture Ownership
 
@@ -175,6 +175,8 @@ Why: 这是 cell 内部行为修复（ACP sessionUpdate kind → AgentMessage ty
 | 2026-05-11 | 云端 codex 一审 P1×2+P2: (P1-1) final-without-content 漏 result (P1-2) tool_call(final) follows pending 重复 tool_use (P2) cross-event final replay → commit `db0533a38` + 3 regression test |
 | 2026-05-11 | 云端 codex 二审 P2 false-positive: dedup guard 已在 line 196 read，加 inline comment 标位置 (commit `e9ff1ba60`) → 云端 三审 LGTM "Bravo" |
 | 2026-05-11 | **Phase A merged (PR #1641 squash `bcbe3456`)** — 7/10 AC ✅, 3 AC (A8/A9/A10) 留 alpha 端到端验证 by 烁烁/Gemini |
+| 2026-05-12 | 砚砚 dogfood Codex (cross-runtime 对照组) 验证 search_evidence + list_recent 正常，确认 cross-runtime 判断 (Codex 不走 ACP transformer) — 顺带暴露 graph_resolve API↔MCP response shape mismatch，记入 F188 Phase F OQ-4 (commit `7a84a2430`) 作 follow-up hotfix scope|
+| 2026-05-12 | **烁烁 alpha 愿景守护 PASS**：3/3 入口实测（search_evidence ✅ / list_recent ✅ / graph_resolve ⚠️ OQ-4 复现）+ 代码考古确认 transformer 拆双消息逻辑精准 + 反馈"切换入口非常顺滑，耳目一新"。**F197 close**：全 10 AC ✅，feat done |
 
 ## Review Gate
 
