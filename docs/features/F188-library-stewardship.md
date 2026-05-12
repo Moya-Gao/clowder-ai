@@ -94,30 +94,35 @@ Privacy Contract：
 
 每条 Pin 带 reason：`useful` / `wrong` / `missing` / `stale`。不做自动置信度标记（铲屎官否决：猫猫判断 recall 好坏本身不靠谱，标 low 可能实际 fit，标 high 可能垃圾）。
 
-### Phase G: Phase F Post-launch Hotfix Bundle (2026-05-12 立项)
+### Phase G: Phase F Post-launch Quick Hotfix (2026-05-12 立项 / 砚砚 一审收窄)
 
-Phase F 上线后 dogfood 暴露 3 处需要修复 + 改进（铲屎官 2026-05-12 拍板 scope 聚拢成单 PR）：
+砚砚 Design Gate 一审 P1×3 退回原 G.1/G.2/G.3 三件套：G.3 schema 改造与 G.1/G.2 hotfix 风险等级 + 验证半径完全不同，**强行同 PR 把 P0 runtime fix 拖进大改**。收窄方案：
 
-**G.1 — `graph_resolve` API↔MCP wrapper response shape mismatch (OQ-4)**
-- 现象：runtime 跑 `graph_resolve("F186")` 抛 "Cannot read of undefined" / "is not iterable"
-- 根因：`GraphQueryResolver.ts:257` 返回 `{ status:'graph', graph: {nodes,edges,...} }`（**nested**），但 `graph-tools.ts:60 GraphSubgraph` 期望 flat
-- 修法：MCP wrapper unwrap `data.graph.{nodes,edges,center,depth}` 后再传 `formatGraph`
+**G.1 — `graph_resolve` API↔MCP wrapper response shape mismatch (OQ-4)** — **P0 runtime error**
+- 现象：runtime 跑 `graph_resolve("F186")` 抛 "Cannot read of undefined" / "is not iterable"，每次调用都炸
+- 根因：`GraphQueryResolver.ts:257` 返回 nested `{ status:'graph', graph: {nodes,edges,...} }`，但 `graph-tools.ts:60 GraphSubgraph` 期望 flat
+- 修法：MCP wrapper unwrap `data.graph.{nodes,edges,center,depth}` 后再传 `formatGraph`；`GraphSubgraph` interface 同步对齐 API contract
 
-**G.2 — `list_recent` tool description undersold**
-- 现象：description 写 "threads/memory/all resolve to docs-only in v1"，但实测 `SCOPE_KIND_MAP` 已完整映射 threads (discussion docs) / memory (memory/reflection)
-- 烁烁 alpha 验收反馈："工具能力超出了文档描述，建议 hotfix PR 顺便更新 description"
-- 修法：rewrite `recent-tools.ts` 的 scope description 反映实际行为
+**G.2 — `list_recent` tool description precise rewrite** — P2 doc
+- 砚砚 P2: 不 oversell——`SCOPE_KIND_MAP` 是 `evidence_docs.kind` 过滤，不是真的跨 surface raw thread/message/memory 全量扫描
+- 修法：description 改为「threads/memory scope maps to indexed discussion/session/memory/reflection **docs** (not raw thread messages or memory store)」，准确反映边界
 
-**G.3 — `list_recent` collection-aware presentation**
-- 铲屎官原话（2026-05-11）："R1 占位 doc 这个也需要修...我在想 list_recent 至少得区分到底是哪个图书馆的吧？是不是本 project 然后到底是什么类型等等？"
-- 现象：90d docs scope 返回大量 `world:lexander:doc/R1-TMP/*`（lexander 虚拟世界 5/4 集中更新的剧本草稿），挤掉本 project 的 discussion-类 teardown 报告
-- 修法：list_recent 返回按 collection 分组 + kind 子分类显示，UI 端展示分组
+**Phase G 硬约束（砚砚一审约束）**：
+- **Scope = G.1 + G.2，禁止塞 G.3**（schema/UX 改造）。G.1 是 P0 runtime，应该 5-行 wrapper fix 直接 ship，不被大改拖延
+- G.3 移到 Phase H（独立 Design Gate） — 需要重新定义 selection algorithm + schema + MCP text + `deriveResultSummary` 同步
 
-**Phase G 硬约束**：
-- 单 PR scope 聚拢（不再"小东西拆碎 PR" — 复刻 F197 教训）
-- G.1 是 P0（runtime error，影响所有 `graph_resolve` 调用），必须先做并跑通 regression
-- G.2 是 P2（doc text），G.1 修完顺手做
-- G.3 是 P1（UX 影响 cold-start 体验，但 scope 大），需要 Design Gate 单独走
+### Phase H: list_recent Collection-Aware Selection (待 Design Gate)
+
+砚砚 一审 P1-3: 仅按 collection group 显示不解决 selection 问题——`RecentBrowseResolver.ts:119` 当前是每个 store 取 limit 后全局按 `updatedAt` 排序再 `.slice(limit)`。如果只返回后分组，R1 占位 doc 仍占满 top 20。
+
+**待 Design Gate 决策点**：
+- API contract 保留 `{items}` vs 改 `{items, groups}` vs 完全替换 `{groups}`？（砚砚一审 P1-2: 至少保留 `{items}` backward compat 给 telemetry parser + 现有 caller）
+- Selection 算法：per-collection cap / project-first bucket / 每组 top K / total limit 怎么算？
+- MCP text 渲染 + `deriveResultSummary` 同步更新策略
+- UI consumer (`RecentBrowsePanel`) 怎么消费 `{items, groups}` 双源
+- Regression fixture 必备：「`world:lexander` 20 条新 R1-TMP + `project:cat-cafe` 较旧 teardown」输入下，输出仍包含 project group（R1 不再挤掉）
+
+不能跟 G.1/G.2 hotfix 混 — 单独走完整 Design Gate → wktree → tdd 流程。
 
 ### Phase F: Agent-facing Memory Tools
 
@@ -224,13 +229,17 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
   AC-F9 的序列 / candidate / nudge 类 metric 全依赖此 log 计算；存储位置和 retention 参考 F180 telemetry 现有约定。同时本 phase 新增 **`skill_loaded` 事件**（schema：`invocationId / sessionId / skillId / loadTrigger / timestamp`）以支持 AS-4（不依赖现有 Skill `tool_use` 计数，因其去重且无 trigger 上下文）
 - [x] AC-F11: F148 retrieval pattern + F167 A2A eval contract 同步扩展：navigation header 注入 spotlight 时把 `graph_resolve` / `list_recent` 也作为 retrieval pattern 识别（不只是 `search_evidence` + `get_thread_context`），否则 F167 A2A 链路质量 eval 仍只认 search 系，cold-start improvement 不会被计入；**范围锁定（砚砚 二次 review 约束）**：只改 retrieval pattern 识别 + eval contract，**不改 A2A routing 语义 / 球权规则 / mention 解析**——任何 routing 语义改动单独立项
 
-### Phase G（Phase F Post-launch Hotfix Bundle）
+### Phase G（Phase F Post-launch Quick Hotfix — G.1 + G.2 only，砚砚一审收窄）
 - [ ] AC-G1: 修 `graph_resolve` MCP wrapper API↔response shape mismatch (OQ-4)：`graph-tools.ts` 的 `data.status === 'graph'` 分支需 unwrap `data.graph.{nodes, edges, center, depth}`（而不是 `data.{nodes, edges, ...}`）传给 `formatGraph`。Type interface `GraphSubgraph` 同步对齐 API contract
 - [ ] AC-G2: 加 regression test：`graph_resolve("F186", depth=1)` 返回 graph status 时 MCP wrapper 正确 unwrap，不抛 error
-- [ ] AC-G3: rewrite `list_recent` tool description（`recent-tools.ts:23` 的 scope 字段）反映实际行为：`SCOPE_KIND_MAP` 已映射 threads (discussion docs) / memory (memory/reflection)，不再写"v1 resolve to docs-only"。烁烁 alpha 反馈实测发现 description undersold
-- [ ] AC-G4: `list_recent` 返回结构 collection-aware：results 按 collection 分组（如 `project:cat-cafe` vs `world:lexander` vs 其他 internal collections）+ 每 group 内按 kind 子分类显示。UI 端按分组渲染（`RecentBrowsePanel` / Memory Hub list_recent surface 需同步改）。**Scope**：返回 schema 改成 `{ groups: [{ collectionId, kinds: { feature: [...], discussion: [...] } }] }` 或类似结构；铲屎官原话「至少得区分到底是哪个图书馆 + 类型」
-- [ ] AC-G5: G.3 守护回路——G.3 改了 UI 渲染，本次 Phase G PR 必须含截图证据 + 烁烁 alpha visual review（"R1 占位 doc 是否还挤掉 project teardown"反例验证）
-- [ ] AC-G6: F188 spec OQ-4 状态从"⬜ 待 F197 close 后开 F188 Phase F hotfix PR" → "✅ Phase G AC-G1/G2 实做完成"
+- [ ] AC-G3: rewrite `list_recent` tool description（`recent-tools.ts:23` 的 scope 字段）reflect 实际边界：「threads/memory scope maps to indexed discussion/session/memory/reflection **docs** (not raw thread messages or memory store)」。砚砚一审 P2: 不 oversell `SCOPE_KIND_MAP` 边界（只是 evidence_docs.kind filter，非跨 surface 全量索引）
+- [ ] AC-G4: F188 spec OQ-4 状态从"⬜ 待 F197 close 后开 F188 Phase F hotfix PR" → "✅ Phase G AC-G1/G2 实做完成"
+
+### Phase H（list_recent Collection-Aware Selection — 单独 Design Gate）
+- [ ] AC-H1: Design Gate 收敛决策：API contract 形状 (保留 `{items}` / 改 `{items, groups}` / 替换 `{groups}`)，selection algorithm (per-collection cap / project-first bucket / 每组 top K)，MCP text / `deriveResultSummary` 同步策略，UI consumer (`RecentBrowsePanel`) 改动
+- [ ] AC-H2: backward compatibility — telemetry parser + 现有 caller 不破
+- [ ] AC-H3: Regression fixture: `world:lexander` 20 条新 R1-TMP + `project:cat-cafe` 较旧 teardown，输入下输出仍包含 project group（R1 不再挤掉）
+- [ ] AC-H4: UI 守护 — 烁烁 alpha visual review "R1 占位 doc 是否还挤掉 project teardown" 反例验证
 
 ## Eval / Tracking Contract
 
