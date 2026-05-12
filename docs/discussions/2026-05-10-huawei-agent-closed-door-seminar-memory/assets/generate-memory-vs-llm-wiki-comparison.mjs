@@ -9,12 +9,7 @@ const out = path.resolve(
 const W = 1800;
 const H = 1160;
 
-const esc = (s) =>
-  String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 function text(lines, x, y, size = 28, color = '#172033', weight = 500, gap = 1.3, anchor = 'start') {
   return lines
@@ -87,7 +82,11 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
     fill: '#dbeafe',
     stroke: '#2563eb',
     title: '2. LLM-generated Wiki',
-    lines: ['summary / entity page / concept page', 'cross-reference / contradiction notes / synthesis', 'LLM 写，人类读和引导'],
+    lines: [
+      'summary / entity page / concept page',
+      'cross-reference / contradiction notes / synthesis',
+      'LLM 写，人类读和引导',
+    ],
   })}
   ${box({
     x: 110,
@@ -147,7 +146,12 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
     fill: '#f0fdf4',
     stroke: '#059669',
     title: '4. Governance + Eval Flywheel',
-    lines: ['authority / stale / contradiction', 'audit ledger / dashboard', 'F153 tracking → F192 eval → upgrade', '维护“记忆系统怎么长”'],
+    lines: [
+      'authority / stale / contradiction',
+      'audit ledger / dashboard',
+      'F153 tracking → F192 eval → upgrade',
+      '维护“记忆系统怎么长”',
+    ],
   })}
 
   ${arrow({ x1: 1335, y1: 442, x2: 1335, y2: 478, color: '#059669' })}

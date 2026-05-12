@@ -10,11 +10,7 @@ const W = 1800;
 const H = 1120;
 
 const escapeXml = (text) =>
-  String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 function textLines(lines, x, y, size = 30, color = '#172033', weight = 500, gap = 1.25) {
   return lines
@@ -156,7 +152,13 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
     stroke: '#334155',
     title: '触发器从哪里来？',
     accent: '#0f172a',
-    lines: ['猫猫真实工作摩擦', 'CVO 反馈和愿景纠偏', '外部理念 / 论文 / teardown', 'review 发现与事故教训', 'dashboard 指标触发阈值'],
+    lines: [
+      '猫猫真实工作摩擦',
+      'CVO 反馈和愿景纠偏',
+      '外部理念 / 论文 / teardown',
+      'review 发现与事故教训',
+      'dashboard 指标触发阈值',
+    ],
   })}
 
   ${box({
@@ -168,7 +170,13 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
     stroke: '#15803d',
     title: '不是 sunset',
     accent: '#166534',
-    lines: ['sunset：删掉或退役旧规则', '适配飞轮：决定系统', '该怎么长', '新增工具 / 改入口 / 调权重', '也可精简或撤回能力'],
+    lines: [
+      'sunset：删掉或退役旧规则',
+      '适配飞轮：决定系统',
+      '该怎么长',
+      '新增工具 / 改入口 / 调权重',
+      '也可精简或撤回能力',
+    ],
   })}
 
   ${box({
@@ -180,7 +188,13 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
     stroke: '#c2410c',
     title: '外部 memory 做不到',
     accent: '#9a3412',
-    lines: ['不知道本项目真相源层级', '不知道旧决策是否已失效', '不知道猫为什么又去 grep', '不知道新猫接球慢在哪里', '不知道哪条 lesson 该进 skill'],
+    lines: [
+      '不知道本项目真相源层级',
+      '不知道旧决策是否已失效',
+      '不知道猫为什么又去 grep',
+      '不知道新猫接球慢在哪里',
+      '不知道哪条 lesson 该进 skill',
+    ],
   })}
 
   ${box({
