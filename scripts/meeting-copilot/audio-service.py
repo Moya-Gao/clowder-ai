@@ -29,10 +29,14 @@ from pathlib import Path
 
 from aiohttp import web, ClientSession, ClientTimeout, FormData
 from intervention import AdvisoryRateLimiter, SilenceMonitor, InterventionDetector
+from transcript_store import TranscriptArtifactStore
 from transcript_window import TranscriptWindow
 
 ASR_URL = os.getenv("ASR_URL", "http://localhost:9876")
 PORT = int(os.getenv("AUDIO_SERVICE_PORT", "9881"))
+TRANSCRIPT_DIR = os.getenv("TRANSCRIPT_DIR") or str(
+    Path(__file__).resolve().parent / "transcripts"
+)
 SAMPLE_RATE = 16000
 DEFAULT_CHUNK_SEC = 3.0
 CAPTURE_BIN = os.getenv("CAPTURE_APP_AUDIO_BIN") or str(
@@ -80,6 +84,7 @@ class AudioSession:
         self._rate_limiter = AdvisoryRateLimiter()
         self._detector = InterventionDetector()
         self._silence_monitor = SilenceMonitor()
+        self._artifact_store: TranscriptArtifactStore | None = None
 
     def _reset(self):
         self.running = False
@@ -93,6 +98,7 @@ class AudioSession:
         self.thread_id = None
         self._window = TranscriptWindow(window_sec=300, summary_interval_sec=300)
         self._silence_monitor = SilenceMonitor()
+        self._artifact_store = None
         self._process = None
         self._task = None
 
@@ -168,15 +174,23 @@ class AudioSession:
                 f"CaptureAppAudio not found: {CAPTURE_BIN} — run build-capture.sh first"
             )
         self._reset()
-        self.running = True
         self.source = source
         self.app_name = app_name
         self.device = device
         self.meeting_id = meeting_id
         self.thread_id = thread_id
         self.started_at = time.time()
+        if thread_id:
+            self._artifact_store = TranscriptArtifactStore(
+                transcript_dir=TRANSCRIPT_DIR,
+                thread_id=thread_id,
+                meeting_id=meeting_id or "unknown",
+                app_name=app_name,
+                participants=self.participants,
+            )
         if not self._http:
             self._http = ClientSession()
+        self.running = True
         if source == "app":
             self._task = asyncio.create_task(self._run_app(app_name, chunk_sec))
         else:
@@ -184,6 +198,9 @@ class AudioSession:
         await asyncio.sleep(0.15)
         if self._task.done():
             self.running = False
+            if self._artifact_store:
+                self._artifact_store.finalize()
+                self._artifact_store = None
             exc = self._task.exception()
             if exc:
                 raise RuntimeError(f"Capture failed to start: {exc}") from exc
@@ -214,9 +231,13 @@ class AudioSession:
                 pass
             self._task = None
         dur = time.time() - self.started_at if self.started_at else 0
+        transcript_path = None
+        if self._artifact_store:
+            transcript_path = self._artifact_store.finalize()
         summary = {
             "chunks": self.chunk_count,
             "duration_s": round(dur, 1),
+            "transcript_path": transcript_path,
             "avg_asr_latency": round(
                 self.total_asr_time / max(self.chunk_count, 1), 3
             ),
@@ -286,8 +307,12 @@ class AudioSession:
         finally:
             if self.running:
                 self.running = False
+                transcript_path = None
+                if self._artifact_store:
+                    transcript_path = self._artifact_store.finalize()
                 await self._broadcast({"type": "status", "status": "stopped",
-                                       "reason": "capture process ended"})
+                                       "reason": "capture process ended",
+                                       "transcript_path": transcript_path})
 
     async def _run_mic(self, device_idx, chunk_sec: float):
         import numpy as np
@@ -338,8 +363,12 @@ class AudioSession:
             stream.close()
             if self.running:
                 self.running = False
+                transcript_path = None
+                if self._artifact_store:
+                    transcript_path = self._artifact_store.finalize()
                 await self._broadcast({"type": "status", "status": "stopped",
-                                       "reason": "mic stream ended"})
+                                       "reason": "mic stream ended",
+                                       "transcript_path": transcript_path})
 
     async def _process_chunk(self, pcm: bytes):
         wav = pcm_to_wav(pcm)
@@ -376,6 +405,9 @@ class AudioSession:
         }
         self._window.add_line(line)
         self._window.maybe_summarize()
+        if self._artifact_store:
+            self._artifact_store.append_line(line)
+            self._artifact_store.maybe_flush_summary()
         preview = text[:55] + "…" if len(text) > 55 else text
         print(f"  [{elapsed:6.1f}s] #{self.chunk_count:3d} {asr_latency:.3f}s  {preview}")
         await self._broadcast({"type": "transcript", **line})

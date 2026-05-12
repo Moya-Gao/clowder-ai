@@ -1,6 +1,6 @@
 # Meeting Copilot — 会议实时智囊
 
-> 来源：F195 Phase B
+> 来源：F195 Phase B + Phase D
 > 前置：refs/live-audio.md（底层音频采集能力）
 > 用途：会议场景专用 skill ref，教猫在会议中充当铲屎官的实时智囊
 
@@ -27,7 +27,14 @@
 ### 启动
 
 1. 铲屎官说"开始监听 XX"
-2. 用 `cat_cafe_audio_capture_start` 开始采集
+2. 用 `cat_cafe_audio_capture_start` 开始采集，**必须传 `thread_id`**（当前对话的 thread ID）：
+   ```
+   cat_cafe_audio_capture_start({
+     source: "app",
+     app_name: "腾讯会议",
+     thread_id: "<当前 thread ID>"
+   })
+   ```
 3. 告诉铲屎官已开始，转写窗会自动打开
 
 ### 会议进行中
@@ -81,6 +88,25 @@
 - 不允许从转写文本生成立场性建议
 - 不允许主动发 chat 消息（Phase C3b 再开）
 - 不允许猫代替用户注册 talking points（必须来自用户输入）
+
+## 转写持久化（Phase D）
+
+会议转写自动持久化到 MD 文件（`scripts/meeting-copilot/transcripts/{thread_id}/transcript.md`）。
+
+**你不需要做任何事情——持久化全自动**：
+- 启动会议时自动创建 MD 文件（按 speaking turn 分段，不是每个 chunk 一行）
+- 每 30 秒自动插入 Rolling Summary 段落
+- 停止会议时自动 finalize + 标记 meta.json 为 inactive
+
+**你的上下文中会自动注入文件路径**（不是文件内容）：
+- `[Meeting transcript: /path/to/transcript.md]` — 会议转写 MD 文件路径
+- `[Latest range: 00:05:30–00:06:00]` — 最新的时间段
+- `[Participants: Host, Alice]` — 参会人列表
+
+**读转写的方式**：
+- 快速问答仍用 `cat_cafe_audio_read_transcript`（实时 API，延迟低）
+- 需要全文/深度分析时直接 `Read` 注入的 MD 文件路径（文件包含完整转写 + 摘要）
+- 会议结束后只能用 MD 文件（内存转写已清空）
 
 ## 不要做的事
 

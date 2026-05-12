@@ -127,13 +127,20 @@ export async function handleAudioCaptureStop(): Promise<ToolResult> {
   try {
     const resp = await audioFetch('/stop', { method: 'POST' });
     const data = (await resp.json()) as {
-      summary?: { chunks?: number; duration_s?: number; avg_asr_latency?: number; error?: string };
+      summary?: {
+        chunks?: number;
+        duration_s?: number;
+        avg_asr_latency?: number;
+        transcript_path?: string;
+        error?: string;
+      };
     };
     if (!resp.ok) return errorResult(`Stop failed: ${resp.status}`);
     const s = data.summary;
     if (!s || s.error) return successResult(s?.error ?? 'No active session.');
+    const txLine = s.transcript_path ? `\n  Transcript: ${s.transcript_path}` : '';
     return successResult(
-      `Capture stopped.\n  Chunks: ${s.chunks}\n  Duration: ${s.duration_s}s\n  Avg ASR latency: ${s.avg_asr_latency}s`,
+      `Capture stopped.\n  Chunks: ${s.chunks}\n  Duration: ${s.duration_s}s\n  Avg ASR latency: ${s.avg_asr_latency}s${txLine}`,
     );
   } catch (err) {
     return errorResult(audioError(err));

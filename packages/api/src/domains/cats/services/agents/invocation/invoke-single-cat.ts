@@ -69,9 +69,12 @@ import {
   summarizeOpenCodeRuntimeConfigForDebug,
   writeOpenCodeRuntimeConfig,
 } from '../providers/opencode-config-template.js';
+import { appendTranscriptPathHints } from '../providers/transcript-path-hints.js';
 
 const log = createModuleLogger('invoke');
 const tracer = trace.getTracer('cat-cafe-api', '0.1.0');
+const TRANSCRIPT_DIR =
+  process.env['TRANSCRIPT_DIR'] ?? resolve(findMonorepoRoot(), 'scripts', 'meeting-copilot', 'transcripts');
 let _openCodeKnownModels: Set<string> | null = null;
 
 export function getOpenCodeKnownModels(): Set<string> {
@@ -1107,10 +1110,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // F070-P2: missionPrefix (dispatch context) is prepended for external projects
     const promptWithMission = missionPrefix ? `${missionPrefix}\n\n${prompt}` : prompt;
 
-    const effectivePrompt =
+    let effectivePrompt =
       injectSystemPrompt && params.systemPrompt
         ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
         : `${promptWithMission}`;
+
+    effectivePrompt = appendTranscriptPathHints(effectivePrompt, TRANSCRIPT_DIR, threadId);
 
     capturePromptIfEnabled({
       catId: catId as string,

@@ -129,6 +129,33 @@ describe('FloatingTranscriptWindow', () => {
     expect(html).toContain('DND');
   });
 
+  it('shows saved path when not recording', () => {
+    const html = renderToStaticMarkup(
+      <FloatingTranscriptWindow
+        lines={sampleLines}
+        connected={false}
+        recording={false}
+        savedPath="/tmp/meeting-2026-05-12.md"
+        onClose={() => {}}
+      />,
+    );
+    expect(html).toContain('Saved:');
+    expect(html).toContain('/tmp/meeting-2026-05-12.md');
+  });
+
+  it('hides saved path while recording', () => {
+    const html = renderToStaticMarkup(
+      <FloatingTranscriptWindow
+        lines={sampleLines}
+        connected={true}
+        recording={true}
+        savedPath="/tmp/meeting-2026-05-12.md"
+        onClose={() => {}}
+      />,
+    );
+    expect(html).not.toContain('Saved:');
+  });
+
   it('renders advisory banner even in passive mode (backend is authority)', () => {
     const advisory = {
       type: 'intervention_advisory' as const,

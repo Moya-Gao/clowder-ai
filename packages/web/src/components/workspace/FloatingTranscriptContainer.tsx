@@ -59,6 +59,7 @@ interface SseEvent {
   source_chunk_num?: number;
   source_text?: string;
   talking_point?: string | null;
+  transcript_path?: string;
 }
 
 export function FloatingTranscriptContainer() {
@@ -71,6 +72,7 @@ export function FloatingTranscriptContainer() {
   const [elapsed, setElapsed] = useState(0);
   const [advisory, setAdvisory] = useState<InterventionAdvisory | null>(null);
   const [advisoryMode, setAdvisoryMode] = useState<'active' | 'passive'>('passive');
+  const [savedPath, setSavedPath] = useState<string | null>(null);
   const advisoryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -137,8 +139,10 @@ export function FloatingTranscriptContainer() {
             setStatus({ running: true, source: data.source, app_name: data.app_name });
             setLines([]);
             setElapsed(0);
+            setSavedPath(null);
           } else if (data.status === 'stopped') {
             setStatus((prev) => ({ ...prev, running: false }));
+            if (data.transcript_path) setSavedPath(data.transcript_path);
           }
         }
       } catch {}
@@ -155,7 +159,11 @@ export function FloatingTranscriptContainer() {
   const handleStop = useCallback(async () => {
     try {
       const resp = await apiFetch('/api/audio/stop', { method: 'POST' });
-      if (resp.ok) setStatus((prev) => ({ ...prev, running: false }));
+      if (resp.ok) {
+        const data = (await resp.json()) as { summary?: { transcript_path?: string } };
+        setStatus((prev) => ({ ...prev, running: false }));
+        if (data.summary?.transcript_path) setSavedPath(data.summary.transcript_path);
+      }
     } catch {}
   }, []);
 
@@ -217,6 +225,7 @@ export function FloatingTranscriptContainer() {
       sourceLabel={sourceLabel}
       elapsed={elapsed}
       participants={status.participants}
+      savedPath={savedPath ?? undefined}
       onClose={handleClose}
       onStop={handleStop}
       onCorrect={handleCorrect}

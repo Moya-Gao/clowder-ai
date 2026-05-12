@@ -37,6 +37,7 @@ interface FloatingTranscriptWindowProps {
   sourceLabel?: string;
   elapsed?: number;
   participants?: Participant[];
+  savedPath?: string;
   onClose: () => void;
   onStop?: () => void;
   onMinimize?: () => void;
@@ -88,6 +89,7 @@ export function FloatingTranscriptWindow({
   sourceLabel,
   elapsed = 0,
   participants,
+  savedPath,
   onClose,
   onStop,
   onMinimize,
@@ -281,6 +283,13 @@ export function FloatingTranscriptWindow({
             >
               &times;
             </button>
+          </div>
+        )}
+
+        {/* Saved path */}
+        {!recording && savedPath && (
+          <div className="border-b border-cafe-border bg-cafe-surface-secondary px-3 py-1.5 text-xs text-cafe-text-secondary">
+            Saved: {savedPath}
           </div>
         )}
 

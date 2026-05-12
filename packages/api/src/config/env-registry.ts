@@ -1588,6 +1588,13 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'audio',
     sensitive: false,
   },
+  {
+    name: 'TRANSCRIPT_DIR',
+    defaultValue: 'scripts/meeting-copilot/transcripts',
+    description: 'F195 Phase D 转写持久化目录（Python 写 MD + meta.json，Node 读 meta 做路径注入）',
+    category: 'audio',
+    sensitive: false,
+  },
 ];
 
 /** Mask credentials in a URL while preserving host/port/db for debugging. */

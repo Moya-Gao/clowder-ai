@@ -35,17 +35,21 @@
 
 ### 2. 开始采集
 
+**必须传 `thread_id`**——不传则转写不会持久化到 MD 文件，猫也收不到 transcript path hint。
+
 ```
 cat_cafe_audio_capture_start({
   source: "app",
-  app_name: "腾讯会议"   // 或 "Google Chrome" 等
+  app_name: "腾讯会议",
+  thread_id: "<当前 thread ID>"
 })
 ```
 
 或麦克风模式：
 ```
 cat_cafe_audio_capture_start({
-  source: "mic"
+  source: "mic",
+  thread_id: "<当前 thread ID>"
 })
 ```
 

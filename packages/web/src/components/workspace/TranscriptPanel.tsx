@@ -31,6 +31,7 @@ interface SseEvent {
   chunk_num?: number;
   asr_latency?: number;
   text?: string;
+  transcript_path?: string;
 }
 
 function formatTime(ts: number): string {
@@ -48,6 +49,7 @@ export function TranscriptPanel() {
   const [status, setStatus] = useState<AudioStatus>({ running: false });
   const [connected, setConnected] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [savedPath, setSavedPath] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScroll = useRef(true);
   const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
@@ -106,8 +108,10 @@ export function TranscriptPanel() {
             setStatus({ running: true, source: data.source, app_name: data.app_name });
             setLines([]);
             setElapsed(0);
+            setSavedPath(null);
           } else if (data.status === 'stopped') {
             setStatus((prev) => ({ ...prev, running: false }));
+            if (data.transcript_path) setSavedPath(data.transcript_path);
           }
         }
       } catch {
@@ -138,7 +142,11 @@ export function TranscriptPanel() {
   const handleStop = useCallback(async () => {
     try {
       const resp = await apiFetch('/api/audio/stop', { method: 'POST' });
-      if (resp.ok) setStatus((prev) => ({ ...prev, running: false }));
+      if (resp.ok) {
+        const data = (await resp.json()) as { summary?: { transcript_path?: string } };
+        setStatus((prev) => ({ ...prev, running: false }));
+        if (data.summary?.transcript_path) setSavedPath(data.summary.transcript_path);
+      }
     } catch {
       /* offline */
     }
@@ -205,6 +213,13 @@ export function TranscriptPanel() {
           </div>
         ))}
       </div>
+
+      {/* Saved path */}
+      {!status.running && savedPath && (
+        <div className="border-t border-cafe-border px-3 py-1.5 text-xs text-cafe-text-secondary">
+          Saved: {savedPath}
+        </div>
+      )}
 
       {/* Footer stats */}
       <div className="flex items-center gap-3 border-t border-cafe-border px-3 py-1.5 text-[10px] text-cafe-text-muted">

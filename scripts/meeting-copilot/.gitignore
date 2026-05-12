@@ -2,3 +2,4 @@ CaptureAppAudio.app/
 *.build/
 .swiftpm/
 output/
+transcripts/
