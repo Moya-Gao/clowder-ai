@@ -1053,7 +1053,7 @@
     {
       "id": "F169",
       "name": "Agent Memory Reflex — 愿景文档（vision artifact）",
-      "status": "**realized → closed**（B+C 已通过 F148/F163 实现；A 铲屎官拍板关闭，不做持久 Compiled Wiki）",
+      "status": "**done**（vision realized；B+C 已通过 F148/F163 实现；A 铲屎官拍板关闭，不做持久 Compiled Wiki）",
       "file": "F169-agent-memory-reflex.md"
     },
     {
@@ -1221,7 +1221,7 @@
     {
       "id": "F197",
       "name": "ACP Provider tool_result Event Surfacing — Gemini ACP path 单事件拆成 tool_use+tool_result 双消息",
-      "status": "spec | **Owner**: 布偶猫/Opus-47 | **Priority**: P1",
+      "status": "in-progress (Phase A merged, awaiting alpha 验收 by 烁烁/Gemini) | **Owner**: 布偶猫/Opus-47 | **Priority**: P1",
       "file": "F197-acp-tool-result-surfacing.md"
     }
   ]

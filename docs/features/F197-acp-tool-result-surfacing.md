@@ -8,7 +8,7 @@ created: 2026-05-11
 
 # F197: ACP Provider tool_result Event Surfacing — Gemini ACP path 单事件拆成 tool_use+tool_result 双消息
 
-> **Status**: spec | **Owner**: 布偶猫/Opus-47 | **Priority**: P1
+> **Status**: in-progress (Phase A merged, awaiting alpha 验收 by 烁烁/Gemini) | **Owner**: 布偶猫/Opus-47 | **Priority**: P1
 
 ## Why
 
@@ -69,16 +69,16 @@ case 'tool_call_update': {       // 现状：部分场景的 progress/final upda
 ## Acceptance Criteria
 
 ### Phase A（ACP transformer 修复 + 测试）
-- [ ] AC-A1: `acp-event-transformer.ts` 的 `tool_call` case 按 status 分流：无 status / `in_progress` / `pending` → 仅 emit `tool_use`（建 pending）；`completed` / `failed` + content → emit **两条 AgentMessage**（先 `tool_use`，再 `tool_result`）
-- [ ] AC-A2: `acp-event-transformer.ts` 的 `tool_call_update` case 按 status 分流：`completed`/`failed` + content → emit **仅 `tool_result`**（同 toolCallId 已建 pending tool_use，不重复）；其它（`in_progress` / 无 status / 中间 content） → **不 emit `tool_use`**（同 toolCallId 已建过 pending，重复 emit 会双重入栈 Recall pending 队列）；progress 表达方式见 KD-5
-- [ ] AC-A3: 边界——同 toolCallId 第一次出现就是 `tool_call_update[completed]` 无前置 `tool_call` → 拆双消息（先补 `tool_use` 再 `tool_result`，避免 orphan result）
-- [ ] AC-A4: **final 判定仅认 `status ∈ {completed, failed}`**；no-status 含 content 视为 progress，不提前 pair（**no-status fallback 删掉**——砚砚 二审 P1-2）
-- [ ] AC-A5: Transformer 签名扩展：`transformAcpEvent` 返回从 `AgentMessage | null` 改为 `AgentMessage | AgentMessage[] | null`（或改为 generator）；所有 caller 更新处理多 message
-- [ ] AC-A6: 单元测试覆盖 6 场景：(a) `tool_call`(no status) → 1×tool_use (b) **`tool_call`(completed+content) → 2×message** (Gemini v0.36 实际格式) (c) `tool_call_update`(in_progress) → **0 个 tool_use / 0 个 tool_result**（progress 不重复入栈） (d) `tool_call_update`(completed) → 1×tool_result（前置 pending 已存在） (e) toolCallId 第一次出现就是 `update(completed)` 没前置 `tool_call` → 拆双消息 (f) `failed` status 同 completed 路径走 tool_result
-- [ ] AC-A7: 更新现有 `acp-event-transformer.test.js:93-110` Gemini v0.36 fixture 断言：从期望单 `tool_use` 改为期望 `[tool_use, tool_result]` 两条
-- [ ] AC-A8: 现有 `recall-feed.test.ts` 加 1 个 ACP-shape fixture：通过 transformer 输入 → useRecallEvents 输出 → 验证 RecallEvent.resultCount 被正确 pair
-- [ ] AC-A9: F188 Phase F FM-5 indirect 验证——构造 ACP-only thread fixture 跑 ToolUsageMetricsAggregator，**memory-class tool 的 FM-5 denominator > 0** 且能算出 non-NaN 值（denominator 限定到有 final content 的 memory tools，不把 ACP hang/timeout 兜进去——砚砚 一审 OQ-3 修正）
-- [ ] AC-A10: 修完后实际验证：本地 alpha 起来，烁烁/Gemini 在 ACP 路径下跑 search_evidence / list_recent，Recall sidebar 卡片显示 `[N hits]` + 可展开看 results
+- [x] AC-A1: `acp-event-transformer.ts` 的 `tool_call` case 按 status 分流：无 status / `in_progress` / `pending` → 仅 emit `tool_use`（建 pending）；`completed` / `failed` + content → emit **两条 AgentMessage**（先 `tool_use`，再 `tool_result`）
+- [x] AC-A2: `acp-event-transformer.ts` 的 `tool_call_update` case 按 status 分流：`completed`/`failed` + content → emit **仅 `tool_result`**（同 toolCallId 已建 pending tool_use，不重复）；其它（`in_progress` / 无 status / 中间 content） → **不 emit `tool_use`**（同 toolCallId 已建过 pending，重复 emit 会双重入栈 Recall pending 队列）；progress 表达方式见 KD-5
+- [x] AC-A3: 边界——同 toolCallId 第一次出现就是 `tool_call_update[completed]` 无前置 `tool_call` → 拆双消息（先补 `tool_use` 再 `tool_result`，避免 orphan result）
+- [x] AC-A4: **final 判定仅认 `status ∈ {completed, failed}`**；no-status 含 content 视为 progress，不提前 pair（**no-status fallback 删掉**——砚砚 二审 P1-2）
+- [x] AC-A5: Transformer 签名扩展：`transformAcpEvent` 返回从 `AgentMessage | null` 改为 `AgentMessage | AgentMessage[] | null`（或改为 generator）；所有 caller 更新处理多 message
+- [x] AC-A6: 单元测试覆盖 6 场景：(a) `tool_call`(no status) → 1×tool_use (b) **`tool_call`(completed+content) → 2×message** (Gemini v0.36 实际格式) (c) `tool_call_update`(in_progress) → **0 个 tool_use / 0 个 tool_result**（progress 不重复入栈） (d) `tool_call_update`(completed) → 1×tool_result（前置 pending 已存在） (e) toolCallId 第一次出现就是 `update(completed)` 没前置 `tool_call` → 拆双消息 (f) `failed` status 同 completed 路径走 tool_result
+- [x] AC-A7: 更新现有 `acp-event-transformer.test.js:93-110` Gemini v0.36 fixture 断言：从期望单 `tool_use` 改为期望 `[tool_use, tool_result]` 两条
+- [ ] AC-A8: 现有 `recall-feed.test.ts` 加 1 个 ACP-shape fixture：通过 transformer 输入 → useRecallEvents 输出 → 验证 RecallEvent.resultCount 被正确 pair *（留 alpha 端到端验证 — route-helpers + useRecallEvents 未改）*
+- [ ] AC-A9: F188 Phase F FM-5 indirect 验证——构造 ACP-only thread fixture 跑 ToolUsageMetricsAggregator，**memory-class tool 的 FM-5 denominator > 0** 且能算出 non-NaN 值（denominator 限定到有 final content 的 memory tools，不把 ACP hang/timeout 兜进去——砚砚 一审 OQ-3 修正）*（留 alpha 端到端验证）*
+- [ ] AC-A10: 修完后实际验证：本地 alpha 起来，烁烁/Gemini 在 ACP 路径下跑 search_evidence / list_recent，Recall sidebar 卡片显示 `[N hits]` + 可展开看 results *（待铲屎官 + 烁烁 alpha 验收）*
 
 ## Architecture Ownership
 
@@ -169,6 +169,12 @@ Why: 这是 cell 内部行为修复（ACP sessionUpdate kind → AgentMessage ty
 | 2026-05-11 | F188 Phase F 上线后铲屎官 dogfooding 发现 Recall sidecar 不显示 hits；47 诊断到根因 = ACP transformer 漏 emit tool_result；铲屎官 push back 走 spec 流程，本 spec 立项 |
 | 2026-05-11 | 砚砚 一审 Design Gate review 退回 P1×3：(P1-1) ACP scope 写错（实际只服务 Gemini，不是 Claude Code）(P1-2) 漏覆盖 Gemini v0.36 单事件实际格式 (P1-3) 单事件必须拆双消息以满足 pending+pair 模型。47 全部 ack，AC 重写 9 条，新增 KD-2/3/4，待砚砚 二审 |
 | 2026-05-11 | 砚砚 二审 P1×2 + P2×1 退回：(P1-1) AC-A2 旧版 "in_progress → tool_use" 跟"同 toolCallId 不重复 emit"冲突，砚砚 push 选去重 → progress 不再 emit tool_use (P1-2) Matrix/AC/Risk 旧版还留 "no-status content 非空视为 final" 兜底，跟 OQ-3 "仅靠 status" 冲突 → fallback 删 (P2) Why 残留"Claude Code CLI via ACP"误导。47 ack：KD-5/6 显式锁状态机不变量，AC-A2/A4/A6 重写，Why 首段标注初诊误称 → 待砚砚 三审 |
+| 2026-05-11 | 砚砚 三审 Design Gate PASS (commit `dd8c4613d`)。worktree `cat-cafe-f197-acp` 开工 |
+| 2026-05-11 | TDD red→green：transformer + GeminiAcpAdapter caller + 18 unit test，commit `685fe83a1` |
+| 2026-05-11 | 砚砚 PR review 一审 P1：finalEmittedByCallId 只写不读 → commit `263e2e06e` 加 dedup guard + 2 regression test (砚砚 二审 PASS) |
+| 2026-05-11 | 云端 codex 一审 P1×2+P2: (P1-1) final-without-content 漏 result (P1-2) tool_call(final) follows pending 重复 tool_use (P2) cross-event final replay → commit `db0533a38` + 3 regression test |
+| 2026-05-11 | 云端 codex 二审 P2 false-positive: dedup guard 已在 line 196 read，加 inline comment 标位置 (commit `e9ff1ba60`) → 云端 三审 LGTM "Bravo" |
+| 2026-05-11 | **Phase A merged (PR #1641 squash `bcbe3456`)** — 7/10 AC ✅, 3 AC (A8/A9/A10) 留 alpha 端到端验证 by 烁烁/Gemini |
 
 ## Review Gate
 
