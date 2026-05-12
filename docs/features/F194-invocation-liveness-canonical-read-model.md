@@ -460,10 +460,11 @@ Phase Z9 进 review 期间铲屎官 catch 一个相邻但独立子系统的问�
 - 现状审计（已做）：`useChatHistory.ts:813` `fetchQueue` 已经有完整的 `/queue` 消费逻辑（读 activeInvocations + setThreadHasActiveInvocation + addActiveInvocation + replaceThreadTargetCats）— 代码路径已存在
 - 现象根因（待诊断）：**timing/race**，不是缺路径。可能是 (a) render 早于 fetchQueue 返回（initial paint 时 activeInvocations 还没拉到），(b) 后端 `/queue` 在 invocation 启动的某个 window 内不报（生产者侧 race），(c) abortRef 在 thread switch 时取消了正在进行中的 fetchQueue
 
-- [ ] AC-Z28: F5 hydrate 后 active state + cancel button 与后端 `/queue` 一致。
-  - 第一刀 runtime preflight：实际在 alpha 上 F5 + 启动一个 invocation，记录每一步 (initial paint state / fetchQueue 触发时机 / fetchQueue 返回时机 / `/queue` payload / store state 变化 / 最终 UI render) 的时间线
-  - 第二刀根据 race 类别选 fix：(a) 用 suspense 或 loading skeleton 等 fetchQueue 返回；(b) 后端在 invocation_created 同步 SADD running set；(c) fetchQueue abortController 不在 thread reload 时 cancel
-  - RED: alpha runtime 实测复现 → minimal fix → GREEN
+- [x] AC-Z28: F5 hydrate 后 active state + cancel button 与后端 `/queue` 一致。
+  - 诊断（2026-05-12 00:20 47）：runtime preflight HEAD `45204abdc`，API PID 73892。`useChatHistory.ts:813` `fetchQueue` 已存在，runtime log 显示 `/queue` 请求正常触发。**真根因**：`offline-store.ts` IDB snapshot 只保存 messages，**不保存 activeInvocations / hasActiveInvocation**。F5 后 store 从 default `false` 开始 → first paint 显示"空闲" → fetchQueue 异步返回（10-100ms+）→ 重新 render 显示 active → 用户看到"假空闲"窗口
+  - Fix：扩展 IDB schema 加 `thread-active-state` object store (DB_VERSION 2→3，自动 invalidate 旧 snapshot)；`saveThreadActiveState` write-through 在 fetchQueue 成功后写入；`loadThreadActiveState` 在 useChatHistory mount 时 restore（race-safe: skip if store 已被 fetchQueue/socket 更新过）
+  - RED tests (4/4)：`offline-store-active-state.test.ts` — save/load roundtrip / unknown thread null / overwrite latest / idle snapshot
+  - 范围：race window 缩短从"直到 /queue 返回"到"直到 IDB load"（典型 10-50ms vs 100ms+）。Server 仍是 authoritative source，IDB 仅作 first-paint 优化
 
 - [ ] AC-E1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失（并发 multi-cat handoff 也不裂） ⚠️ 2026-05-10 04:42 回归——Z3/Z4 合入后 live 仍裂（Bug A + Bug B），F5 后正常但 live 不收敛 ⚠️ 2026-05-11 06:51 再次回归——Z8 合入后铲屎官 alpha 仍裂，进 Phase Z9 (canonical bubble identity contract)
 - [x] AC-E2: 后端 `/api/messages` 与 `/api/threads/:threadId/queue` 共用同一 canonical helper，单一规则源 ✅ 代码审计：`getThreadLiveInvocations` imported by `messages.ts:1466` + `queue.ts:143`
@@ -487,7 +488,7 @@ Phase Z9 进 review 期间铲屎官 catch 一个相邻但独立子系统的问�
 | R11 | "live state 残留 f5之后就正常了…opus46 变成两个了，而且你自己现在也是裂开的" (2026-05-10 18:12) | AC-Z19 | done/callback terminal path 清理 local-only provisional duplicate | [x] |
 | R12 | "F5 后变 1 个 这是同一次回复 thread id 好像你就得随便打开浏览器去找一个thread 看看 大概率都是裂开的？" (2026-05-10 19:55) | AC-Z20/Z21/Z22/Z23 | 统一 canonical projection contract — live 与 hydrate byte-identical | [x] (PR #1632 squash `49814778`) |
 | R13 | "我发现还是裂开的，🤔 好像修这个你们总修不全怎么办呢？ 有没有好办法？" (2026-05-11 06:51) + "布偶猫1+布偶猫3 合并 / 缅因猫2+缅因猫4 合并" (07:12) | AC-Z24/Z25/Z26/Z27 | backend canonical bubble identity stamp + diagnostic probe + multi-turn replay regression | [x] (PR #1637 squash `49972d42`) |
-| R14 | "f5字后一切消失了 猫猫状态什么都是空闲... 没cancel按钮" (2026-05-11 07:15) | AC-Z28 | F5 hydrate 后 active state / cancel button 与后端 `/queue` 真相源一致 | [ ] |
+| R14 | "f5字后一切消失了 猫猫状态什么都是空闲... 没cancel按钮" (2026-05-11 07:15) | AC-Z28 | F5 hydrate 后 active state / cancel button 与后端 `/queue` 真相源一致 | [x] (Phase Z10 待 merge) |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC

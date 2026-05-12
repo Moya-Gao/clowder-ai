@@ -12,7 +12,9 @@ import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 import {
   loadThreadMessages as loadCachedMessages,
+  loadThreadActiveState,
   saveThreadMessages as saveMessagesSnapshot,
+  saveThreadActiveState,
 } from '@/utils/offline-store';
 
 type SavedScrollState = {
@@ -809,6 +811,14 @@ export function useChatHistory(threadId: string) {
     }
   }, [threadId, setCatInvocation, replaceThreadTargetCats]);
 
+  // F194 Phase Z10 (砚砚 R1 P1): track which AbortController has had a successful
+  // fetchQueue completion (active OR idle). IDB restore checks this set — if
+  // fetchQueue already wrote server truth, IDB restore must NOT overwrite
+  // (otherwise stale IDB "active" resurrects after server confirmed idle).
+  // WeakSet keys on controller so cleanup happens when controller is GC'd.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const queueFetchedControllers = useRef(new WeakSet<AbortController>()).current;
+
   // F39 Bug 1: Fetch queue state on mount/thread-switch to survive F5 refresh
   const fetchQueue = useCallback(async () => {
     const fetchForThread = threadId;
@@ -835,6 +845,9 @@ export function useChatHistory(threadId: string) {
       // Uses thread-scoped APIs so it works correctly for both active and background threads,
       // and always overwrites stale snapshots restored by setCurrentThread().
       const store = useChatStore.getState();
+      // F194 Phase Z10 AC-Z28: write-through to IDB so F5 first paint
+      // restores last-known active state (avoids R14 fake-idle gap).
+      const activeStateSnapshot: Record<string, { catId: string; mode: string; startedAt?: number }> = {};
       if (data.activeInvocations && data.activeInvocations.length > 0) {
         const activeCatIds = data.activeInvocations.map((s) => s.catId);
         replaceThreadTargetCats(fetchForThread, activeCatIds);
@@ -855,7 +868,13 @@ export function useChatHistory(threadId: string) {
           } else {
             store.addThreadActiveInvocation(fetchForThread, syntheticId, slot.catId, 'execute', slot.startedAt);
           }
+          activeStateSnapshot[syntheticId] = { catId: slot.catId, mode: 'execute', startedAt: slot.startedAt };
         }
+        // F194 Phase Z10 AC-Z28: persist for next F5.
+        void saveThreadActiveState(fetchForThread, {
+          hasActiveInvocation: true,
+          activeInvocations: activeStateSnapshot,
+        }).catch(() => {});
       } else {
         // Server says no active invocations — clear any stale processing state
         // that may have been restored from a threadStates snapshot.
@@ -863,7 +882,17 @@ export function useChatHistory(threadId: string) {
         // AND the activeInvocations slot map, preventing re-derivation bugs.
         store.clearThreadActiveInvocation(fetchForThread);
         replaceThreadTargetCats(fetchForThread, []);
+        // F194 Phase Z10 AC-Z28: persist idle snapshot so F5 doesn't show
+        // stale "active" — server truth wins.
+        void saveThreadActiveState(fetchForThread, {
+          hasActiveInvocation: false,
+          activeInvocations: {},
+        }).catch(() => {});
       }
+      // F194 Phase Z10 (砚砚 R1 P1): mark controller as fetched after server
+      // truth (active OR idle) has been applied. IDB restore skips overwriting
+      // if this controller is marked — prevents stale-active resurrection.
+      queueFetchedControllers.add(controller);
     } catch (err) {
       if (isAbortError(err)) return;
     }
@@ -921,6 +950,35 @@ export function useChatHistory(threadId: string) {
     // F164: Reset offline badge on every thread switch so stale state from
     // a previous thread's aborted fetch never leaks to the new thread.
     useChatStore.getState().setOfflineSnapshot(false);
+
+    // F194 Phase Z10 AC-Z28 (R14): restore IDB active state snapshot for F5
+    // first paint so UI doesn't show fake "idle" gap while fetchQueue is
+    // pending. fetchQueue (running in parallel via hydrateSecondaryPanels)
+    // overwrites with server truth ~100ms later. If fetchQueue completes
+    // before IDB load (unlikely — IDB faster than network), the IDB restore
+    // skips so it doesn't regress fresh server truth.
+    void (async () => {
+      try {
+        const snapshot = await loadThreadActiveState(threadId);
+        if (abortRef.current !== controller || threadIdRef.current !== threadId) return;
+        if (!snapshot) return;
+        // F194 Phase Z10 (砚砚 R1 P1): if fetchQueue already wrote server truth
+        // (active OR idle), IDB restore must NOT overwrite. The previous
+        // `currentState.hasActiveInvocation === true` check only handled the
+        // server-active case; server-idle case let stale IDB active resurrect.
+        if (queueFetchedControllers.has(controller)) return;
+        if (snapshot.hasActiveInvocation) {
+          const store = useChatStore.getState();
+          store.clearThreadActiveInvocation(threadId);
+          store.setThreadHasActiveInvocation(threadId, true);
+          for (const [invId, slot] of Object.entries(snapshot.activeInvocations)) {
+            store.addThreadActiveInvocation(threadId, invId, slot.catId, slot.mode, slot.startedAt);
+          }
+        }
+      } catch {
+        // best-effort restore; fetchQueue is the authoritative source.
+      }
+    })();
 
     const bootstrap = async () => {
       if (!hasCachedMessages) {
