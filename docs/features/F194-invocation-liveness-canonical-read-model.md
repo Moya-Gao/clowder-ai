@@ -8,7 +8,9 @@ created: 2026-05-07
 
 # F194: Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口
 
-> **Status**: in-progress (Phase A + B + Z + Z2 + Z3 + Z5 + Z6 + Z7 + Z8 + Z9 + Z9-hotfix + Z10 merged; Z4 was reverted before Z5. **Phase Z10 merged 2026-05-12 01:25 (PR #1640 squash `3e221535`)** — IDB-persist active state for F5 first-paint (R14 fix)。Bug：`offline-store.ts` snapshot 只保存 messages，不保存 activeInvocations → F5 后 store default `false` → first paint 显示"空闲" → fetchQueue async 返回后 re-render。Fix：DB_VERSION 2→3 + `thread-active-state` object store + `saveThreadActiveState`/`loadThreadActiveState` + write-through 在 fetchQueue success + race-safe restore in useChatHistory mount (WeakSet-tracked AbortController prevents reverse race per 砚砚 R1 P1)。Race window 从"直到 /queue 返回 (100ms+)"缩短到"直到 IDB load (10-50ms)"。 **待执行**: alpha re-test by 铲屎官 → 愿景守护 → close F194。 **Z9 hotfix merged 2026-05-11 23:35 (PR #1639 squash `b20ed491`)** — `safeParseExtra` 在 Redis 读路径上 silently strip `turnInvocationId` 字段（参数已写但读出来丢字段），导致 Z9 投影 contract 实际未生效。1-line parser fix + RED roundtrip test。这是 Z9 真正落地的 missing piece。**Phase Z9 merged 2026-05-11 08:30 (PR #1637 squash `49972d42`)** — canonical bubble identity contract + projection observability。Backend always-stamp `turnInvocationId` (9 persist sites + 6 live broadcast sites via `stampVisibleTurn` helper)。Route layer (route-serial + route-parallel) stamp `ownInvocationId` on yielded events (砚砚 R1 P1 fix)。Parallel done yield uses captured `ownInvId` not re-queried map (砚砚 R2 P1 fix)。Fast iteration path 铲屎官 approved — skipped cloud Codex review。**Phase Z10 spec opened**：AC-Z28 liveness identity invariant (R14) split to independent PR scope。**待执行**：alpha re-test by 铲屎官 → 愿景守护猫 sign-off → close F194 OR open Z10。) | **Owner**: 布偶猫/Opus-47 for Z9, reviewer 缅因猫/砚砚 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-05-12 | **Owner**: 布偶猫/Opus-47 (Z8/Z9/Z10 author) + 缅因猫/砚砚 (Z5/Z6/Z7 author + Z8/Z9/Z10 reviewer) | **Priority**: P1
+>
+> **Close gate 4/4**: (1) 单测+集成测试+replay fixture 全过 (2) 愿景守护对照表 by 宪宪/Opus-46（14/14 铲屎官需求 → 代码验证 ✅）(3) alpha runtime 铲屎官 2026-05-12 确认"用了一下午没发现啥问题" (4) 代码 review 砚砚 APPROVE 全部 PR。反思胶囊: `docs/reflections/2026-05-12-f194-invocation-liveness-capsule.md`
 >
 > **AC-Z1 (alpha runtime acceptance) FAILED 2026-05-09 03:35** — 铲屎官实测 runtime 仍裂，根因比 Phase B 修的更深：F194 read-side helper 把 **parent recordStore invocation** 与 **per-cat-turn registry invocation** 当成同一 namespace 处理。bug-report `docs/bug-report/2026-05-09-f194-runtime-bubble-still-split-completion-leak/`，砚砚 2026-05-09 04:51 拍板走 Phase Z（namespace-aware canonical read model），见 KD-21~KD-23 + AC-Z1~Z5。
 >
@@ -281,9 +283,9 @@ tracker (cat-level only)
 - [x] AC-B11: `LivenessEvent` schema 落地（`liveness_degraded` / `liveness_pending` / `record_zombie_detected`），fallback 用 `liveness_fallback` log kind 标记；字段含 threadId/userId/invocationId/catId/source/reason/recordStatus/recordUpdatedAt/trackerSlotPresent/draftFresh/draftAge
 - [x] AC-B12: helper `onLog?` callback dep 落地，emitLivenessEvent 在 degraded live + zombie 决策点 emit；sink throw swallowed 不中断 read；7 个 onLog 单测（degraded/pending/zombie 各 1 + healthy 不 emit + 多事件 + sink throw + 无 onLog backward compat）
 - [x] AC-B13: fallback frequency metric — messages/queue callsite catch 路径写 `kind: 'liveness_fallback'` + endpoint 字段；onLog event 也用 `feature: 'F194'` 标记（不覆盖 helper.source）便于查询
-- [ ] AC-B14: alpha 实测：active thread 在正常 stream 期间无 `liveness_degraded` 噪音（false positive 检查） ⚠️ FAILED 2026-05-09 — 见 Phase Z
-- [ ] AC-B15: alpha 实测：构造 record+tracker missing 场景，`/api/messages` 与 `/queue` 不再矛盾，前端不再裂气泡 ⚠️ FAILED 2026-05-09 — 见 Phase Z
-- [ ] AC-B16: 愿景守护：非作者非 reviewer 猫输出对照表（铲屎官原话 vs 实际状态），确认 active thread 裂气泡不复现 ⚠️ 因 B14/B15 fail 推迟到 Phase Z 完成后
+- [x] AC-B14: ~~alpha 实测：active thread 在正常 stream 期间无 `liveness_degraded` 噪音~~ **superseded by Phase Z series** — Phase B alpha 失败后进 Phase Z，原 B14 测试场景被 Z9/Z10 alpha 完全覆盖。铲屎官 2026-05-12 "用了一下午没发现啥问题"
+- [x] AC-B15: ~~alpha 实测：构造 record+tracker missing 场景~~ **superseded by Phase Z series** — 同 B14，Z9 backend stamp + Z8 统一投影从根因解决
+- [x] AC-B16: 愿景守护：非作者非 reviewer 猫输出对照表 ✅ 宪宪/Opus-46 2026-05-12 独立审计 14/14 铲屎官需求全部代码验证通过（thread message `0001778558166649-000147-9d1b9a59`）
 
 ### Phase Z（namespace-aware canonical read model + alpha 复测）
 
@@ -293,14 +295,14 @@ tracker (cat-level only)
 - [x] AC-Z4: RED tests 四类（**砚砚 R1 P2 加 parallel**）：Z2-α/β/γ + Z2-δ（parallel 同 parent 多 child drafts / 多 cat active 不互挤）各 1 个 unit + 1 个 routes integration test 覆盖 namespace race；producer try/finally 覆盖正常 / 异常 / abort + chainDone signal 缺失三路径 ✅ 95/95 namespace + ensure-terminal + routes-integration（含 R4/R5 cloud P2 + cross-parent same-cat dedup + parent-level zombie aggregation）
 - [x] AC-Z5: alpha 通道实测复现 thread + 多轮 multi-cat 串联气泡不再裂；F194 close 前必须有 alpha runtime 截图/日志 evidence + 愿景守护猫对照表（hard gate by 砚砚 2026-05-09） ✅ 愿景守护猫对照表 by 宪宪/Opus-46 2026-05-09（runtime HEAD `0807f4165`，含 Phase Z merge `7443d049e`；铲屎官 05:11 重启 runtime 后 visual confirm 不裂 + opus-47 API diagnosis `/queue` = 1 active no ghost split + 宪宪/Opus-46 代码审计 + 26/26 unit tests pass）⚠️ 17:09 砚砚发现 acceptance 漏 ideate/parallel 场景 → Z2 重做
 - [x] AC-Z6 (Z2 extension): `route-parallel.ts` 调 `invokeSingleCat` 必须传 `options.parentInvocationId`，与 `route-serial.ts:725` 对齐。RED test 覆盖 ideate 多猫场景：parallel chain 的 child registry record 必须有 `parentInvocationId === 当前 parent record.id`；helper 不能再把 parallel parent + child 误判为 `tracker+draft_missing_record` ✅ PR #1617 squash `1fa6ed229` (砚砚 R APPROVE + 云端 LGTM "Can't wait for the next one!")
-- [ ] AC-Z7 (Z2 extension): KD-23 四件套重做（含 ideate 场景）— 单测 + 集成测 + alpha runtime + 守护猫对照表新增"ideate 双猫并行 parent/child namespace bridge"行 ⏳ pending Z3 完结后一起做
-- [ ] AC-Z8 (Z3 spec): 双 id 边界文档化 — `chainInvocationId(parent)` 负责 liveness/queue/cancel，`turnInvocationId(child/bubble)` 负责前端 hydrate/merge/cache stable key。formal/live/draft message schema 同时带 parent + turn id；legacy 消息 fallback parent，但新路径不得继续污染
+- [x] AC-Z7 (Z2 extension): KD-23 四件套重做（含 ideate 场景）✅ ideate 代码修复 AC-Z15 verified + Z9 replay fixture F1 (multi-turn same parent codex→sonnet→codex 3 distinct bubbles) + 铲屎官 2026-05-12 afternoon alpha + 守护猫对照表 R5 行 verified
+- [x] AC-Z8 (Z3 spec): 双 id 边界文档化 ✅ KD-21 (namespace model) + KD-28 (Z9 direction) + visible-turn.ts:1-22 header (contract docstring) + spec Z3/Z9 sections 充分文档化 chainInvocationId vs turnInvocationId 职责边界
 - [x] AC-Z9 (Z3 implementation): 后端 `messages.ts` / `route-serial.ts` / `route-parallel.ts` formal message 持久化加 `extra.stream.turnInvocationId`；前端 `mergeReplaceHydrationMessages` / `getBubbleInvocationId` / reducer stable key 至少各一层锁，优先用 turn id；RED test 覆盖：(a) 同 parent 下 `opus → codex → opus` 两个 opus bubble 不合并；(b) refresh 后仍三条 bubble；(c) 第三个 opus 的 active/cancel 状态不挂到第一个 opus 上 ✅ PR #1619 squash `79d53ada7` (含 R15-R21 cloud Codex 7 轮 P1：13 suppression callsites + 4 deriveBubbleId callsites + active invocation_created turn-extract + boundary cleanup turn-aware + local placeholder fallback turn-priority + invocationless callback fallback turn id)
 
 ### Phase Z4（live ≡ hydrate canonical state — alpha runtime acceptance failure recovery）
 
-- [ ] AC-Z10 (Z4 spec): live event replay 出来的 bubble 列表必须收敛到 `/messages` hydrate canonical 状态。具体：bg path 的 web_search/rich_block/thinking 三处 placeholder 创建路径必须用 `deriveBubbleId(turnInvocationId ?? invocationId, catId, fallback)`，跟 Z3 后端 persist 用同一 deterministic id 公式，hydrate 后 server canonical id (`msg-{turn}-{cat}`) 直接命中现有 placeholder → 单一 bubble 不分裂。背景：铲屎官 2026-05-10 02:30 alpha 实测 F5 后正常但 F5 前多余气泡 + at 顺序错；砚砚 02:30 root cause analysis：live event 没带对 turnInvocationId，placeholder id 是 live-only `bg-X-${Date.now()}-...`，hydrate 时 server canonical id 是 `msg-{turn}-{cat}` → 两个 bubble 共存于 live。
-- [ ] AC-Z11 (Z4 implementation): `useAgentMessages.ts:505` (web_search) + `:571` (rich_block) + `:681` (thinking) 三处 placeholder 创建改用 `deriveBubbleId(turnInvocationId ?? invocationId, catId, () => fallback-bg-X)`。当 invocationId 已知（catInvocations 里有），返回 `msg-{turn}-{cat}` deterministic id；只有 invocationId 完全未知时（罕见 race，在 invocation_created 之前）才用 fallback non-deterministic id。RED test 覆盖：thinking event 在 first text 之前到达，placeholder 用 deterministic id，subsequent text chunk 命中同一 bubble，hydrate 后无分裂。
+- [x] AC-Z10 (Z4 spec): ~~live ≡ hydrate via deriveBubbleId~~ **superseded** — Z4 reverted per KD-24 (deriveBubbleId formula conflict proved wrong direction). Replaced by Z8 unified projection contract (AC-Z20/Z21/Z22) + Z9 backend stamp (AC-Z25), which solve the same goal from a higher abstraction level
+- [x] AC-Z11 (Z4 implementation): ~~placeholder deterministic id~~ **superseded** — same as Z10. Z8 `projectCanonicalBubbles` + Z5 `findExistingByStableKey` placeholder absorption provide correct live≡hydrate convergence without helper-created placeholder ids
 
 ### Phase Z5（state coherence reconciliation — 4 bug 一锅端）
 
@@ -466,16 +468,16 @@ Phase Z9 进 review 期间铲屎官 catch 一个相邻但独立子系统的问�
   - RED tests (4/4)：`offline-store-active-state.test.ts` — save/load roundtrip / unknown thread null / overwrite latest / idle snapshot
   - 范围：race window 缩短从"直到 /queue 返回"到"直到 IDB load"（典型 10-50ms vs 100ms+）。Server 仍是 authoritative source，IDB 仅作 first-paint 优化
 
-- [ ] AC-E1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失（并发 multi-cat handoff 也不裂） ⚠️ 2026-05-10 04:42 回归——Z3/Z4 合入后 live 仍裂（Bug A + Bug B），F5 后正常但 live 不收敛 ⚠️ 2026-05-11 06:51 再次回归——Z8 合入后铲屎官 alpha 仍裂，进 Phase Z9 (canonical bubble identity contract)
+- [x] AC-E1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失（并发 multi-cat handoff 也不裂） ✅ 铲屎官 2026-05-12 确认"用了一下午没发现啥问题"
 - [x] AC-E2: 后端 `/api/messages` 与 `/api/threads/:threadId/queue` 共用同一 canonical helper，单一规则源 ✅ 代码审计：`getThreadLiveInvocations` imported by `messages.ts:1466` + `queue.ts:143`
 - [x] AC-E3: 后续新增 read endpoint（admin observability / debug API）可直接复用 helper，不需要自拼三家 store ✅ helper 导出 async function + types，无 route 耦合
-- [ ] AC-E4: 并发 ideate 场景 UI 一致性——采样面板全程显示本轮所有 targetCats（Bug C）+ 无 @ fallback 回到上轮 @ 的猫（Bug D）
+- [x] AC-E4: 并发 ideate 场景 UI 一致性——采样面板全程显示本轮所有 targetCats（Bug C）+ 无 @ fallback 回到上轮 @ 的猫（Bug D） ✅ Phase Z5 修复 (PR #1622) + 铲屎官 alpha 2026-05-12 确认无问题
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "现在活跃的线程他们气泡都是裂的" | AC-B5, AC-B15, AC-Z1 | paired-route regression + runtime 实测 | [ ] |
+| R1 | "现在活跃的线程他们气泡都是裂的" | AC-B5, AC-B15, AC-Z1 | paired-route regression + runtime 实测 | [x] (铲屎官 2026-05-12 alpha 确认) |
 | R2 | 让我"讲讲为什么"——根因可解释、可观测 | AC-B11, AC-B12, AC-B13 | structured event schema + code audit | [x] |
 | R3 | "找宪宪 46 或者 47…大概看了一下你的方向我觉得 ok" | AC-A1, AC-A2 | helper contract review | [x] |
 | R4 | 不能只在前端打补丁，从根因层（liveness contract）解决 | AC-A1, AC-Z2 | helper 单 contract + 双消费方迁移 | [x] |
@@ -591,6 +593,7 @@ Phase Z9 进 review 期间铲屎官 catch 一个相邻但独立子系统的问�
 | 2026-05-11 23:35 | **Z9 hotfix merged (PR #1639, squash `b20ed491`)** — Z9 alpha re-test (16:08 PST 4-turn chengyu game by 47 + codex) failed: 4 records 全部 share parent invocation 无 turn stamp。诊断（47）发现根因：`safeParseExtra` (packages/api/src/domains/cats/services/stores/redis/redis-message-parsers.ts:94) 在 Redis 读路径 rebuild `result.stream = { invocationId }` only — **silently strips turnInvocationId**。Z9 backend stamp 100% 正确写入，但每次 Redis 读时丢字段 → 前端 `getBubbleInvocationId` fallback parent → 多 turn 同 cat 合并（R13/R14 真根因）。1-line parser fix + RED test 3/3 (parent≠turn / legacy only invocationId / first-in-chain own=parent)。砚砚 R1 LGTM after rebase。**Status: alpha re-test by 铲屎官**。|
 | 2026-05-11 08:30 | **Phase Z9 merged (PR #1637, squash `49972d42`)** — Fast iteration path (铲屎官 07:18 approved) — 跳过 cloud Codex review，本地砚砚 R1→R3 review converged 2 P1 fixed：R1 P1 (broadcast turn fallback to parent + 5+ live broadcast sites old conditional)；R2 P1 (parallel done yield re-queries deleted catInvocationId map → undefined → fallback to parent)。最终交付：AC-Z24 诊断 probe + AC-Z25 backend always-stamp turnInvocationId (9 persist + 6 live broadcast via stampVisibleTurn helper) + AC-Z26 frontend group key 已正确 (existing helper turn-priority) + AC-Z27 replay fixtures 4/4。Phase Z10 spec opened (AC-Z28 liveness identity invariant for R14)。 **Status: alpha re-test by 铲屎官待执行** → 守护猫 sign-off → close F194 or continue Z10。|
 | 2026-05-11 07:23~07:30 | **Phase Z9 实施完毕 (待 review)** — AC-Z24 诊断 probe (`buildProjectionDiagnostic`, 5/5 GREEN) + AC-Z25 backend always-stamp turnInvocationId 9 sites (route-serial 4 + route-parallel 3 + callbacks.ts 1 + messages.ts broadcast 1 + draft 1 + BoundSessionHistoryImporter 1) RED→GREEN 2/2 + 14/14 regression GREEN + AC-Z27 replay fixtures 4/4 GREEN (F1 multi-turn / F2 single-turn-multi-record / F3 legacy / F1+F3 mixed) + AC-Z26 deferred (frontend `getBubbleInvocationId` 已正确，telemetry follow-up) + AC-Z28 推迟 Phase Z10 (审计发现 `useChatHistory.ts:813` `fetchQueue` 已消费 `/queue`，铲屎官 R14 报告是 timing/race，需独立 runtime 诊断)。Branch `feat/f194-phase-z9` HEAD `9cb567468`。pending: 砚砚 local review + cloud Codex review。|
+| 2026-05-12 | **F194 正式 close** — 铲屎官 alpha 验收"用了一下午没发现啥问题"（2026-05-12 13:29 PST）。愿景守护对照表 by 宪宪/Opus-46（14/14 全 ✅）。反思胶囊 `docs/reflections/2026-05-12-f194-invocation-liveness-capsule.md`。Close gate 4/4 satisfied：单测+集成 / 愿景守护 / alpha 铲屎官确认 / 代码 review 砚砚全 PR APPROVE。Status: done。 |
 
 ## Review Gate
 
@@ -600,8 +603,10 @@ Phase Z9 进 review 期间铲屎官 catch 一个相邻但独立子系统的问�
 
 ## Close Gate Report
 
-**Closed**: 2026-05-09 by 布偶猫/Opus-47 (author)
-**Hard gate**: KD-23 satisfied — unit + integration tests + alpha runtime + 愿景守护对照表 全过。
+**Closed**: 2026-05-12 by 布偶猫/Opus-46 (愿景守护 + close)
+**Hard gate**: KD-23 satisfied — (1) 单测+集成测试+replay fixture 全过 (2) 愿景守护对照表 by 宪宪/Opus-46（14/14 ✅）(3) alpha 铲屎官 2026-05-12 确认"用了一下午没发现啥问题" (4) 代码 review 砚砚 APPROVE 全部 PR。
+**Harness feedback**: none — F194 非 harness/skill/MCP feature，无 eval contract 触发条件。
+**Reflection capsule**: `docs/reflections/2026-05-12-f194-invocation-liveness-capsule.md`
 
 ### 愿景守护对照表
 
