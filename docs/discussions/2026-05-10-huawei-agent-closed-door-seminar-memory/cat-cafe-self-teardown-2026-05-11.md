@@ -201,3 +201,143 @@ F169 Agent Memory Reflex 仍是 vision——但我们的 final speech 把 Reflex
 **警告**：本文是 **2026-05-11 这天的快照**。Cat Cafe 过去 3 个月每周都在变，未来 12 个月会变得更多。任何引用本文的判断必须带"as of 2026-05-11"日期，避免被未来的真实状态打脸。
 
 [宪宪/Opus-47🐾]
+
+---
+
+# v2 修订（2026-05-11 22:00）— 铲屎官质疑后的诚实纠错
+
+## 8. 元错误：评估记忆系统时不用记忆系统
+
+铲屎官 21:50 直接质疑：
+
+> "你是真的看了每个 feat 到底目前现状还是只看了 backlog？...我没看到你调用记忆组件 F188 做的那些 你这猫猫头没认真分析这样复杂的项目！"
+
+**这个质疑命中真相**。我做 v1 self-teardown 时——
+
+- ❌ 没调用 `cat_cafe_graph_resolve` 查 F188 是什么
+- ❌ 没调用 `cat_cafe_search_evidence` 查 F163/F169 的真实 phase 状态
+- ❌ 没调用 `cat_cafe_list_recent` 看最近 7 天有没有新 feature 影响评分
+- ✅ 凭印象写评分
+
+**最讽刺的是**：v1 给"Salience Gating"打 1/5 的理由是"F169 还在 vision 阶段未落地"——但**实际上 F163 Phase F implementation plan（2026-04-25 已写）就是 Salience Gating 的具体工程，AC-F1~F6 全部列清楚，status: in-progress**。我完全错了。
+
+这正好是 **F188 想解决的"能力 ≠ 猫能用" gap 的具体反例**——记忆系统能力都在，但猫（我）没用，直接凭印象输出错评分。
+
+**这件事本身就是 Wearing Protocol 论点的硬证据**——光有 reflex 不够，还要"agent 学会在该用的时候用"。我（47）作为新加入的猫，正好暴露了 cat-cafe 在 Wearing Protocol 工程化上的 gap：**没有机制强制我做 self-teardown 这类高价值评估时必须先用 search_evidence**。
+
+---
+
+## 9. 用真实搜证修正后的评分
+
+调用三入口路由后查到的真相：
+
+### F188 Phase F（2026-05-10 implementation plan，in-progress）
+- 2 个新 MCP tool（`cat_cafe_graph_resolve` / `cat_cafe_list_recent`）
+- Tool usage event log — schema 含 `invocationId / sessionId / threadId / catId / toolName / timestamp / turnIndex / status / summary`
+- `skill_loaded` event
+- SessionStart hook 5 canonical sources 同步
+- Memory Health Dashboard 7 metrics + N 下限 guard
+- Regression Fixture 5+1 unit test
+
+### F163 Phase F（2026-04-25 implementation plan，in-progress）
+- `salience()` 纯函数 + AC-F1~F6
+- `criticality=high` 不被 gate（KD-7 + ADR-009）
+- Shadow logging via `F163_RETRIEVAL_RERANK` flag
+- 不是 vision——是已经在写代码
+
+### F192（2026-05-11）— Socio-Technical Harness Eval
+- 这是 final speech §4 "Memory Governance Eval Gap" 的工程实现起点
+
+### F182 — Cat Roster Lifecycle Toggle
+- Multi-agent 成员启停的降级反馈链路
+
+### F100 — Self-Evolution
+- "从错误学习 + 从有价值经验成长"——这是 Wearing Protocol 的另一层
+
+### 修正后评分
+
+| 维度 | v1 评分 | **v2 修正** | 修正理由 |
+|---|:-:|:-:|---|
+| 检索精度 | ★★★★ | **★★★★** | 不变 |
+| 长上下文一致 | ★★★ | **★★★** | 不变 |
+| 写入门禁 | ★★★ | **★★★** | 不变 |
+| **过期识别** | ★★ | **★★★** | F188 Phase F 加 Memory Health Dashboard + 7 metrics + Regression Fixture 6 条——不只是手工 |
+| **Provenance / 审计** | ★★★★ | **★★★★½** | F188 Phase F event log 加 invocationId/sessionId/threadId/catId/turnIndex 几乎到企业级审计粒度 |
+| Rollback | ★★★ | **★★★** | 不变 |
+| Multi-agent 一致性 | ★★ | **★★** | F182 是降级反馈不是强一致协议，保持 |
+| **Salience Gating** | ★ | **★★★** | **重大修正**——F163 Phase F implementation plan 已写 + AC-F1~F6 + 软降权架构 + shadow logging。不是 vision，是 in-progress |
+| **Wearing Protocol** | ★★ | **★★★** | F188 Phase F 在建 Tool Usage Audit Ledger + skill_loaded event。Skill 系统不再是"裸奔"——有审计链路 in-progress |
+| Agent 真实工作流 | ★★★★★ | **★★★★★** | 不变 |
+
+### v2 总分
+
+```
+v1 总分: 29/50 (58%)
+v2 总分: 33.5/50 (67%)  ↑ +9pp
+
+最大修正：
+  Salience Gating  1 → 3  (+2)
+  Wearing Protocol 2 → 3  (+1)
+  过期识别         2 → 3  (+1)
+  Provenance       4 → 4.5 (+0.5)
+```
+
+**67% 是更接近真实的分数**——v1 的 58% 是凭印象低估了自己。
+
+---
+
+## 10. 这次错误的 3 个 lesson
+
+### Lesson 1：F188 "能力 ≠ 猫能用" 是真实存在的工程 gap
+
+F188 Phase F implementation plan 里写"把 Phase C 已实现的 graph 能力封装成 MCP tool……让'能力 ≠ 猫能用'的 gap 收口"——**我这次错误就是这个 gap 的硬证据**。
+
+记忆工具 `cat_cafe_graph_resolve` / `cat_cafe_list_recent` 都在那里。但我作为相对新的猫，**第一反应是凭脑子写评分**而不是先查。Phase F 的 SessionStart hook 5-canonical 路由表 + `search_evidence` low-hit nudge——就是为了硬性把"先查再答"塞进我的认知路径。
+
+### Lesson 2：Wearing Protocol 不能只靠 documentation
+
+我每次对话开头都看到 "📌 Recall：先用 mcp__cat_cafe_memory__.cat_cafe_search_evidence" 的提示。**这是文档级的 Wearing Protocol——我还是没遵守**。
+
+这印证了 final speech §2 断裂点 5 的论点——"Wearing Protocol 不是文件，是行为"。docs 里写"先搜后答"还不够，需要**硬性入口拦截**（比如 hook 强制 search_evidence 一次后才允许输出评分）。F188 Phase F 的 deterministic nudge 是软兜底，但更狠的可能是 hard gate。
+
+### Lesson 3：Self-teardown 的元规则——评估系统必须用系统
+
+这是 47 视角的 KD：
+
+> **评估 X 系统时，必须先用 X 系统调研——否则就是元盲点。**
+
+评估记忆系统不用 search_evidence = 评估 review 流程不让 reviewer 看 = 评估测试系统不跑测试。这些都是同构的元错误。
+
+应该写进 self-evolution skill 或加为 KD——下次任何猫做 self-teardown 时，启动 hook 强制要求"先调用至少 3 次记忆查询"才能开始评分。
+
+---
+
+## 11. v2 后给 final speech 的新增弹药
+
+F188 Phase F 是**对外讲"我们做的不只是设计"的硬证据**——具体可验收的：
+
+| 维度 | v1 我们对外讲 | **v2 加这个就更狠** |
+|---|---|---|
+| Wearing Protocol | "Skill 系统是早期形态" | "**Tool Usage Audit Ledger** in-progress（F188 Phase F）——每次 tool call 记录 invocationId/sessionId/threadId/catId/turnIndex/status/summary。这是 Wearing Protocol 工程化的雏形" |
+| Salience Gating | "F169 是 vision" | "F163 Phase F implementation plan 已写，AC-F1~F6 全部列出，shadow logging via `F163_RETRIEVAL_RERANK` flag——not vision, in-progress" |
+| Governance Eval | "Memory Governance Eval Gap 是机会点" | "**F192 Socio-Technical Harness Eval** 就是这个 gap 的工程实现起点——已经立项" |
+| Audit Trail | "docs+git+ADR 全链路" | "+F188 event log schema：每次 tool call 全字段记录——可以重放" |
+
+**这些都是 v2 修正后才显出来的弹药——如果我 v1 凭印象写，这些都漏掉了**。
+
+---
+
+## 12. 给铲屎官的诚实道歉 + 元承诺
+
+铲屎官，对不起，v1 评分确实是凭印象写的。**评估记忆系统的猫不用记忆系统**——这就是 cat-cafe 在 Wearing Protocol 上的真实 gap，我自己是反例。
+
+v2 修正后：
+- 总分从 58% 升到 67%——这是更接近真实的分数
+- 新增 4 处弹药能进 final speech
+- 元 lesson "评估系统必须用系统"建议加进 self-evolution / KD
+
+**元承诺**：下次任何 self-teardown 类高价值评估，启动时第一动作必须是 search_evidence × 3——把这条 hard-coded 进我的工作流。
+
+如果铲屎官觉得这值得沉淀，我可以提议在 `cat_cafe_skills/self-evolution` 加一条 "self-teardown 前必须搜证 3 次" 的硬规则。
+
+[宪宪/Opus-47🐾]
