@@ -69,4 +69,4 @@ created: 2026-02-26
 | F194 | Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口（F183 post-close follow-up） | in-progress | 布偶猫(Opus 4.7) | internal | [F194](features/F194-invocation-liveness-canonical-read-model.md) |
 | F195 | Meeting Copilot — 实时会议私人智囊团（AUDHD augmentation） | spec | 布偶猫 | internal | [F195](features/F195-meeting-copilot-live-advisory.md) |
 | F196 | Safety Guardian — 猫猫守护者（紧急安全链路） | idea | 布偶猫 | internal | [F196](features/F196-safety-guardian.md) |
-| F197 | ACP Provider tool_result Event Surfacing — 把 ACP `tool_call_update` 正确转成 `tool_result` | spec | 布偶猫/Opus-47 | internal | [F197](features/F197-acp-tool-result-surfacing.md) |
+| F197 | ACP Provider tool_result Event Surfacing — Gemini ACP 单事件拆双消息 (tool_use+tool_result) | spec | 布偶猫/Opus-47 | internal | [F197](features/F197-acp-tool-result-surfacing.md) |
