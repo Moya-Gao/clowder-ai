@@ -79,6 +79,15 @@ function emitGeminiEvents(proc, events) {
   proc.stdout.end();
 }
 
+function writeGeminiJsonlSession(home, projectDir, sessionId, messages) {
+  const sessionDir = join(home, '.gemini', 'tmp', projectDir, 'chats');
+  mkdirSync(sessionDir, { recursive: true });
+  const path = join(sessionDir, `session-${sessionId.slice(0, 8)}.jsonl`);
+  const lines = [{ sessionId }, ...messages].map((entry) => JSON.stringify(entry));
+  writeFileSync(path, `${lines.join('\n')}\n`);
+  return path;
+}
+
 // ===== gemini-cli adapter tests =====
 
 describe('GeminiAgentService (gemini-cli adapter)', () => {
@@ -730,6 +739,115 @@ test('F24: captures richer Gemini stats fields when provided', async () => {
   assert.equal(done.metadata.usage.contextWindowSize, 1000000);
   // #679: Gemini stats are cumulative — flag must be set
   assert.equal(done.metadata.usage.isCumulativeUsage, true, 'Gemini stats must be flagged as cumulative');
+});
+
+test('F690 intake: injects per-turn input tokens from local Gemini jsonl', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli', model: 'gemini-2.5-pro' });
+  const fakeHome = mkdtempSync(join(tmpdir(), 'gemini-home-'));
+  const previousHome = process.env.HOME;
+  process.env.HOME = fakeHome;
+
+  try {
+    writeGeminiJsonlSession(fakeHome, 'cat-cafe', 'gem-turn-1', [
+      { type: 'user', content: 'prompt' },
+      { type: 'gemini', content: 'Final answer', tokens: { input: 12345, total: 15000, output: 1000 } },
+    ]);
+
+    const promise = collect(service.invoke('stats test', { workingDirectory: '/tmp/cat-cafe' }));
+    emitGeminiEvents(proc, [
+      { type: 'init', session_id: 'gem-turn-1', model: 'gemini-2.5-pro' },
+      { type: 'message', role: 'assistant', content: 'Final answer', delta: true },
+      {
+        type: 'result',
+        status: 'success',
+        stats: {
+          total_tokens: 450000,
+          input_tokens: 400000,
+          output_tokens: 50000,
+          context_window: 1000000,
+        },
+      },
+    ]);
+
+    const msgs = await promise;
+    const done = msgs.find((m) => m.type === 'done');
+    assert.equal(done?.metadata?.usage?.isCumulativeUsage, true);
+    assert.equal(done?.metadata?.usage?.inputTokens, 400000);
+    assert.equal(done?.metadata?.usage?.lastTurnInputTokens, 12345);
+  } finally {
+    if (previousHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = previousHome;
+    }
+  }
+});
+
+test('F690 intake: strips whitespace added between split assistant events for jsonl token match', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli', model: 'gemini-2.5-pro' });
+  const fakeHome = mkdtempSync(join(tmpdir(), 'gemini-home-'));
+  const previousHome = process.env.HOME;
+  process.env.HOME = fakeHome;
+
+  try {
+    writeGeminiJsonlSession(fakeHome, 'cat-cafe', 'gem-turn-2', [
+      { type: 'gemini', content: '调用完成', tokens: { input: 33333, total: 35000 } },
+    ]);
+
+    const promise = collect(service.invoke('chunk test', { workingDirectory: '/tmp/cat-cafe' }));
+    emitGeminiEvents(proc, [
+      { type: 'init', session_id: 'gem-turn-2', model: 'gemini-2.5-pro' },
+      { type: 'message', role: 'assistant', content: '调', delta: true },
+      { type: 'message', role: 'assistant', content: '用完成', delta: true },
+      { type: 'result', status: 'success', stats: { input_tokens: 100000, context_window: 1000000 } },
+    ]);
+
+    const msgs = await promise;
+    const done = msgs.find((m) => m.type === 'done');
+    assert.equal(done?.metadata?.usage?.lastTurnInputTokens, 33333);
+  } finally {
+    if (previousHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = previousHome;
+    }
+  }
+});
+
+test('F690 intake: injects per-turn input tokens for tool-only Gemini turns', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli', model: 'gemini-2.5-pro' });
+  const fakeHome = mkdtempSync(join(tmpdir(), 'gemini-home-'));
+  const previousHome = process.env.HOME;
+  process.env.HOME = fakeHome;
+
+  try {
+    writeGeminiJsonlSession(fakeHome, 'cat-cafe', 'gem-tool-1', [
+      { type: 'gemini', content: '', tokens: { input: 22222, total: 24000 } },
+    ]);
+
+    const promise = collect(service.invoke('tool only', { workingDirectory: '/tmp/cat-cafe' }));
+    emitGeminiEvents(proc, [
+      { type: 'init', session_id: 'gem-tool-1', model: 'gemini-2.5-pro' },
+      { type: 'tool_use', tool_name: 'read_file', tool_id: 'tool-1', parameters: { path: '/tmp/a' } },
+      { type: 'result', status: 'success', stats: { input_tokens: 900000, context_window: 1000000 } },
+    ]);
+
+    const msgs = await promise;
+    const done = msgs.find((m) => m.type === 'done');
+    assert.equal(done?.metadata?.usage?.lastTurnInputTokens, 22222);
+  } finally {
+    if (previousHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = previousHome;
+    }
+  }
 });
 
 test('F24: prefers stats.context_window over stats.contextWindow when both exist', async () => {

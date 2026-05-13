@@ -18,7 +18,7 @@
 
 import { spawn as nodeSpawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
@@ -34,6 +34,7 @@ import {
   spawnCli,
 } from '../../../../../utils/cli-spawn.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
+import { readJsonlTail } from '../../../../../utils/jsonl-tail-reader.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
 import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
 import { extractImagePaths } from '../providers/image-paths.js';
@@ -48,10 +49,20 @@ interface GeminiStoredThought {
   readonly description?: string;
 }
 
+interface GeminiStoredTokenStats {
+  readonly total?: number;
+  readonly input?: number;
+  readonly output?: number;
+  readonly cached?: number;
+  readonly thoughts?: number;
+  readonly tool?: number;
+}
+
 interface GeminiStoredMessage {
   readonly type?: string;
   readonly content?: string;
   readonly thoughts?: readonly GeminiStoredThought[];
+  readonly tokens?: GeminiStoredTokenStats;
 }
 
 interface GeminiStoredSession {
@@ -60,7 +71,16 @@ interface GeminiStoredSession {
 }
 
 function normalizeGeminiContent(value: string | undefined): string {
-  return (value ?? '').replace(/\s+/g, ' ').trim();
+  return (value ?? '').replace(/\s+/g, '');
+}
+
+function matchesCurrentAssistantText(messageContent: string | undefined, normalizedAssistantText: string): boolean {
+  if (typeof messageContent !== 'string') return false;
+  const normalizedMessageContent = normalizeGeminiContent(messageContent);
+  if (normalizedMessageContent.length === 0) return false;
+  return (
+    normalizedMessageContent === normalizedAssistantText || normalizedAssistantText.endsWith(normalizedMessageContent)
+  );
 }
 
 function formatGeminiThoughts(thoughts: readonly GeminiStoredThought[]): string {
@@ -82,10 +102,124 @@ function readGeminiThinkingFromLocalSession(
   assistantText: string,
   workingDirectory?: string,
 ): string | null {
-  if (!sessionId) return null;
+  const location = findGeminiSessionFile(sessionId, workingDirectory);
+  if (!location) return null;
+
+  const normalizedAssistantText = normalizeGeminiContent(assistantText);
+  const matchesThoughts = (parsed: unknown): boolean => {
+    if (parsed == null || typeof parsed !== 'object') return false;
+    const message = parsed as GeminiStoredMessage;
+    if (message.type !== 'gemini') return false;
+    if (!Array.isArray(message.thoughts) || message.thoughts.length === 0) return false;
+    if (typeof message.content !== 'string') return false;
+    if (normalizedAssistantText.length === 0) return true;
+    return matchesCurrentAssistantText(message.content, normalizedAssistantText);
+  };
+
+  if (location.ext === '.jsonl') {
+    const match = readJsonlTail<GeminiStoredMessage>(location.path, { predicate: matchesThoughts });
+    return match ? formatGeminiThoughts(match.thoughts ?? []) || null : null;
+  }
+
+  const parsed = parseGeminiSessionFile(location.path, '.json');
+  const messages = Array.isArray(parsed.messages) ? parsed.messages : [];
+  const candidates = messages.filter(
+    (message): message is GeminiStoredMessage =>
+      message?.type === 'gemini' &&
+      Array.isArray(message.thoughts) &&
+      message.thoughts.length > 0 &&
+      typeof message.content === 'string',
+  );
+  if (candidates.length === 0) return null;
+
+  const exact =
+    normalizedAssistantText.length > 0
+      ? [...candidates]
+          .reverse()
+          .find((message) => matchesCurrentAssistantText(message.content, normalizedAssistantText))
+      : candidates[candidates.length - 1];
+  return exact ? formatGeminiThoughts(exact.thoughts ?? []) || null : null;
+}
+
+function parseGeminiSessionFile(filePath: string, ext: '.json' | '.jsonl'): GeminiStoredSession {
+  try {
+    const raw = readFileSync(filePath, 'utf8');
+    if (ext === '.json') {
+      return JSON.parse(raw) as GeminiStoredSession;
+    }
+
+    let sessionId: string | undefined;
+    const messages: GeminiStoredMessage[] = [];
+    for (const line of raw.split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      try {
+        const obj = JSON.parse(line) as Record<string, unknown>;
+        if (typeof obj.sessionId === 'string' && typeof obj.type === 'undefined') {
+          sessionId = sessionId ?? obj.sessionId;
+          continue;
+        }
+        if (Object.hasOwn(obj, '$set')) continue;
+        if (typeof obj.type === 'string') {
+          messages.push(obj as unknown as GeminiStoredMessage);
+        }
+      } catch {
+        // Best effort: skip malformed/partial lines while Gemini is still writing.
+      }
+    }
+    return { sessionId, messages };
+  } catch {
+    return { messages: [] };
+  }
+}
+
+interface GeminiSessionFileLocation {
+  readonly path: string;
+  readonly ext: '.json' | '.jsonl';
+}
+
+const JSONL_HEADER_MAX_BYTES = 1024;
+
+function readJsonlHeaderSessionId(filePath: string): string | undefined {
+  let fd: number;
+  try {
+    fd = openSync(filePath, 'r');
+  } catch {
+    return undefined;
+  }
+
+  try {
+    const buffer = Buffer.alloc(JSONL_HEADER_MAX_BYTES);
+    const n = readSync(fd, buffer, 0, JSONL_HEADER_MAX_BYTES, 0);
+    if (n === 0) return undefined;
+    const text = buffer.toString('utf8', 0, n);
+    const newlineIdx = text.indexOf('\n');
+    if (newlineIdx === -1) return undefined;
+    try {
+      const parsed = JSON.parse(text.substring(0, newlineIdx)) as { sessionId?: unknown; type?: unknown };
+      if (typeof parsed.sessionId === 'string' && typeof parsed.type === 'undefined') {
+        return parsed.sessionId;
+      }
+    } catch {
+      return undefined;
+    }
+    return undefined;
+  } finally {
+    try {
+      closeSync(fd);
+    } catch {
+      /* best-effort */
+    }
+  }
+}
+
+function findGeminiSessionFile(
+  sessionId: string | undefined,
+  workingDirectory?: string,
+): GeminiSessionFileLocation | undefined {
+  if (!sessionId) return undefined;
 
   const geminiTmpRoot = join(homedir(), '.gemini', 'tmp');
-  if (!existsSync(geminiTmpRoot)) return null;
+  if (!existsSync(geminiTmpRoot)) return undefined;
 
   const preferredProjectDir = workingDirectory ? basename(workingDirectory) : null;
   const projectDirs = readdirSync(geminiTmpRoot, { withFileTypes: true })
@@ -97,49 +231,70 @@ function readGeminiThinkingFromLocalSession(
       return 0;
     });
 
-  const normalizedAssistantText = normalizeGeminiContent(assistantText);
-
   for (const projectDir of projectDirs) {
     const chatsDir = join(geminiTmpRoot, projectDir, 'chats');
     if (!existsSync(chatsDir)) continue;
 
     const sessionFiles = readdirSync(chatsDir)
-      .filter((name) => name.startsWith('session-') && name.endsWith('.json'))
+      .filter((name) => name.startsWith('session-') && (name.endsWith('.json') || name.endsWith('.jsonl')))
       .map((name) => ({
         path: join(chatsDir, name),
+        ext: (name.endsWith('.jsonl') ? '.jsonl' : '.json') as '.json' | '.jsonl',
+        name,
         mtimeMs: statSync(join(chatsDir, name)).mtimeMs,
       }))
       .sort((a, b) => b.mtimeMs - a.mtimeMs);
 
     for (const file of sessionFiles) {
-      try {
-        const parsed = JSON.parse(readFileSync(file.path, 'utf8')) as GeminiStoredSession;
-        if (parsed.sessionId !== sessionId || !Array.isArray(parsed.messages)) continue;
-
-        const candidates = parsed.messages.filter(
-          (message): message is GeminiStoredMessage =>
-            message?.type === 'gemini' &&
-            Array.isArray(message.thoughts) &&
-            message.thoughts.length > 0 &&
-            typeof message.content === 'string',
-        );
-        if (candidates.length === 0) return null;
-
-        const exact =
-          normalizedAssistantText.length > 0
-            ? [...candidates]
-                .reverse()
-                .find((message) => normalizeGeminiContent(message.content) === normalizedAssistantText)
-            : candidates[candidates.length - 1];
-        const selected = exact ?? null;
-        return selected ? formatGeminiThoughts(selected.thoughts ?? []) || null : null;
-      } catch {
-        // Best effort: skip malformed/partial session files while Gemini is still writing them.
+      if (file.ext === '.jsonl') {
+        const headerSessionId = readJsonlHeaderSessionId(file.path);
+        const headerMatch = headerSessionId === sessionId;
+        const filenameMatch = headerSessionId == null && file.name.includes(sessionId.slice(0, 8));
+        if (headerMatch || filenameMatch) return { path: file.path, ext: '.jsonl' };
+        continue;
       }
+
+      const parsed = parseGeminiSessionFile(file.path, '.json');
+      if (parsed.sessionId === sessionId) return { path: file.path, ext: '.json' };
     }
   }
 
-  return null;
+  return undefined;
+}
+
+function readLatestGeminiContextTokens(
+  sessionId: string | undefined,
+  assistantText: string,
+  workingDirectory?: string,
+): number | undefined {
+  const location = findGeminiSessionFile(sessionId, workingDirectory);
+  if (!location) return undefined;
+
+  const normalizedAssistantText = normalizeGeminiContent(assistantText);
+  const hasInputTokens = (parsed: unknown): parsed is GeminiStoredMessage => {
+    if (parsed == null || typeof parsed !== 'object') return false;
+    const message = parsed as GeminiStoredMessage;
+    return message.type === 'gemini' && typeof message.tokens?.input === 'number';
+  };
+  const matchesAssistantText = (parsed: unknown): boolean => {
+    if (!hasInputTokens(parsed)) return false;
+    return matchesCurrentAssistantText(parsed.content, normalizedAssistantText);
+  };
+
+  if (location.ext === '.jsonl') {
+    const predicate = normalizedAssistantText.length === 0 ? hasInputTokens : matchesAssistantText;
+    return readJsonlTail<GeminiStoredMessage>(location.path, { predicate })?.tokens?.input;
+  }
+
+  const parsed = parseGeminiSessionFile(location.path, '.json');
+  const messages = Array.isArray(parsed.messages) ? parsed.messages : [];
+  const candidates = messages.filter(hasInputTokens);
+  if (candidates.length === 0) return undefined;
+  if (normalizedAssistantText.length === 0) return candidates[candidates.length - 1]?.tokens?.input;
+
+  return [...candidates]
+    .reverse()
+    .find((message) => matchesCurrentAssistantText(message.content, normalizedAssistantText))?.tokens?.input;
 }
 /**
  * Options for constructing GeminiAgentService (dependency injection)
@@ -391,6 +546,15 @@ export class GeminiAgentService implements AgentService {
           metadata,
           timestamp: Date.now(),
         };
+      }
+
+      const lastTurnTokens = readLatestGeminiContextTokens(
+        metadata.sessionId,
+        fullAssistantText,
+        options?.workingDirectory,
+      );
+      if (lastTurnTokens != null) {
+        metadata.usage = { ...(metadata.usage ?? {}), lastTurnInputTokens: lastTurnTokens };
       }
 
       yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };

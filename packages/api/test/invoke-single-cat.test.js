@@ -1131,6 +1131,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       44000,
       'context health should use lastTurnInputTokens, not aggregated inputTokens',
     );
+    assert.equal(payload.health.usedFrom, 'last_turn');
     assert.equal(payload.health.windowTokens, 200000);
     // fillRatio should be 44000/200000 = 0.22, not 192000/200000 = 0.96
     const expectedRatio = 44000 / 200000;
@@ -1189,6 +1190,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       50000,
       'should fall back to inputTokens when lastTurnInputTokens is absent',
     );
+    assert.equal(payload.health.usedFrom, 'input');
   });
 
   it('F24: falls back to totalTokens when inputTokens are unavailable (totalTokens-only provider)', async () => {

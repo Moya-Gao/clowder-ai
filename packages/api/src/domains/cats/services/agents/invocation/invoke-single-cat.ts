@@ -39,6 +39,7 @@ import {
   activeInvocations,
   catInvocationCount,
   catResponseDuration,
+  geminiContextFallback,
   invocationCompleted,
   invocationDuration,
   llmCallDuration,
@@ -1457,7 +1458,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                   ? 'input'
                   : msg.metadata.usage.totalTokens != null
                     ? 'total'
-                    : null;
+                    : undefined;
             const usedTokens =
               usedFrom === 'last_turn'
                 ? msg.metadata.usage.lastTurnInputTokens!
@@ -1466,6 +1467,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                   : usedFrom === 'total'
                     ? msg.metadata.usage.totalTokens!
                     : 0;
+            if (windowSize && usedTokens > 0 && isCumulativeOnly) {
+              log.warn(
+                {
+                  catId,
+                  threadId,
+                  invocationId,
+                  cumulativeUsedTokens: usedTokens,
+                  windowSize,
+                  usedFrom,
+                },
+                'Gemini cumulative-only usage observed; skipping context_health and auto-seal',
+              );
+              geminiContextFallback.add(1, { [AGENT_ID]: catId, [TRIGGER]: 'no_per_turn_signal' });
+            }
             if (windowSize && usedTokens > 0 && !isCumulativeOnly) {
               const source: ContextHealth['source'] =
                 msg.metadata.usage.contextWindowSize != null && usedFrom !== 'total' ? 'exact' : 'approx';
@@ -1474,6 +1489,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                 windowTokens: windowSize,
                 fillRatio: Math.min(usedTokens / windowSize, 1.0),
                 source,
+                usedFrom,
                 measuredAt: Date.now(),
               };
               // Update SessionRecord (best-effort): persist health + usage snapshot

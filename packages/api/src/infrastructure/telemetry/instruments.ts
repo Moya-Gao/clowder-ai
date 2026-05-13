@@ -113,6 +113,12 @@ export const lineStartDetected = lazy(() =>
   }),
 );
 
+export const geminiContextFallback = lazy(() =>
+  meter().createCounter('cat_cafe.gemini.context_fill_fallback', {
+    description: 'Gemini cumulative-only context signal observed without per-turn token data',
+  }),
+);
+
 export const l1StreakWarnCount = lazy(() =>
   meter().createCounter('cat_cafe.a2a.l1.streak_warn_count', {
     description: 'L1 ping-pong streak warning threshold reached',
