@@ -397,7 +397,138 @@ MemOS 讲到了前两层的融合，但治理层仍然需要追问。
 
 ---
 
-## 11. 和 Cat Café 的对照
+## 11. 产品化出口：MindDock 与 MemPrivacy
+
+最后他们给了两个产品化方向，一个面向跨平台个人记忆迁移，一个面向隐私保护。
+
+### 11.1 MindDock：统一个人记忆中枢
+
+截图里的定位：
+
+> MindDock：记忆搬家助手，收集 AI 记忆的碎片，构建"完整的你"。
+
+它想解决的是：
+
+- 用户在 ChatGPT / Gemini / DeepSeek 等不同 AI Chat 里散落的记忆；
+- 不同平台之间的记忆不能共享；
+- 用户换模型 / 换平台时，过去积累的偏好和上下文丢失；
+- AI 平台各自记得一个"局部的你"，但没有一个统一的个人记忆服务中枢。
+
+他们的实现思路是浏览器插件：
+
+- 支持 Chrome、夸克、Edge、360 等主流浏览器；
+- 支持 ChatGPT、Gemini、DeepSeek 等 AI Chat 记忆共享；
+- 做 Memory Capture：自动捕获跨平台对话与记忆数据；
+- 做 Memory Recall：当用户在任意 AI 页面提问时，自动调取相关记忆；
+- 最终把碎片汇入统一的 MemOS 记忆存储。
+
+这和我们家有一个共同判断：
+
+> 记忆不应该锁死在某一个模型厂商的聊天框里。
+
+但场景不同：
+
+| 维度 | MindDock | Cat Café |
+|---|---|---|
+| 用户对象 | 个人用户跨 AI 平台迁移记忆 | 多猫团队跨 session / thread / feature 协作 |
+| 核心价值 | 让所有 AI 记得同一个用户 | 让多只 agent 共享同一个现实 |
+| 入口 | 浏览器插件 | workspace / docs / MCP / skills / session chain |
+| 主要风险 | 隐私、授权、跨平台兼容、错误召回 | 治理、冲突、过期、跨猫一致性、review 闭环 |
+
+所以 MindDock 是 "personal memory portability" 路线；Cat Café 是 "team memory governance" 路线。
+
+### 11.2 MemPrivacy：端云协同的隐私个性化记忆
+
+MemPrivacy 是他们对"统一记忆中枢会不会泄露隐私"的回答。
+
+截图里的基本架构是三段：
+
+1. **Stage 1：Uplink Desensitization（本地上行脱敏）**
+   - 原始输入只在本地可信侧处理；
+   - 本地轻量 MemPrivacy Model 做隐私信息检测；
+   - 按四级隐私分类：
+     - PL1：偏好 / 公开 / 低敏信息；
+     - PL2：可识别 PII；
+     - PL3：高度敏感 PII；
+     - PL4：凭证 / 关键秘密；
+   - 将敏感内容替换成 typed placeholders；
+   - 本地 Secure Mapping DB 保存 placeholder 与原文的映射。
+
+2. **Stage 2：Cloud Processing（云端处理）**
+   - 云端只看到 placeholder 化后的内容；
+   - 云侧负责 LLM reasoning / workflow / user memory；
+   - 设计目标是保留非敏感信号、保留用户授权数据、保留个性化能力；
+   - 攻击者即使拿到云侧内容，也只能看到 placeholder。
+
+3. **Stage 3：Downlink Restoration（本地下行还原）**
+   - 云端生成带 placeholder 的回复；
+   - 本地查 Local Secure Mapping DB；
+   - 做 placeholder replacement；
+   - 输出恢复后的个性化结果。
+
+他们的端云分工很清楚：
+
+- **本地端**：存储重要分层隐私信息，负责脱敏、映射、还原、本地推理。
+- **云端**：负责大规模信息存储、检索、工作流和记忆推理。
+
+截图里还给了一个 benchmark 表。按他们 PPT 的说法：
+
+- 通用模型在 MemPrivacy-Bench 上最高大约是 Gemini-3.1-Pro 的 78.41 F1；
+- 他们的 MemPrivacy 小模型可以到 83-86 F1；
+- 在 PersonaMem-v2 上，MemPrivacy 系列约 92-94 F1；
+- OpenAI-Privacy-Filter 延迟很低，但 MemPrivacy-Bench F1 明显低。
+
+这些数字目前只是 PPT 截图记录，后续若要对外引用，需要核验论文和 benchmark 设置。截图给的 paper link 是：
+
+> https://arxiv.org/pdf/2605.09530
+
+### 11.3 对我们家的意义
+
+MemPrivacy 补上了 Memos 体系里一个关键缺口：隐私边界。
+
+它不是完整治理，但它回答了一个企业和个人都会问的问题：
+
+> 如果 memory 要跨平台、跨模型、跨云端长期存在，敏感数据到底能不能离开本地？
+
+这和我们家 governance-first 方向是同一类问题，只是切口不同：
+
+| 问题 | MemPrivacy 的回答 | Cat Café 还要追问 |
+|---|---|---|
+| 敏感信息能否出本地 | PL3/PL4 placeholder 化，本地映射表保存原文 | placeholder 映射表怎么备份、迁移、删除 |
+| 云端还能不能个性化 | typed placeholder 保留语义角色 | placeholder 是否足够支持复杂推理 |
+| 用户能否控制隐私等级 | 用户配置 masking level | 谁定义默认策略，企业策略如何覆盖个人策略 |
+| 记忆能否跨平台共享 | MindDock + MemOS 统一存储 | 平台间 authority / provenance / consent 怎么携带 |
+| 错误脱敏怎么办 | PPT 暂未展开 | false negative 是 P0；需要 audit + eval + red-team |
+
+所以我会把 MemPrivacy 归到我们"6 件必须有"里的两个位置：
+
+- **写入门禁**：哪些信息允许进入云端记忆，哪些只能留本地；
+- **审计溯源 / 生命周期治理**：敏感记忆的脱敏、恢复、删除、授权、过期都必须可追踪。
+
+它对我们最大的启发不是"用本地模型做 PII 检测"本身，而是：
+
+> 长期记忆系统的隐私不是一个 filter，而是一条端云协同的数据生命周期。
+
+### 11.4 Memos 这场的最终收束
+
+这场 Memos 分享从底层到产品基本讲完整了：
+
+1. **MemOS 1.0**：记忆分层、调度管理、类脑图组织。
+2. **MemOS 2.0**：运行态记忆管理、版本化进化、记忆原生模型。
+3. **MindDock**：跨 AI 平台的个人记忆搬家和统一中枢。
+4. **MemPrivacy**：端云协同的隐私个性化记忆。
+
+我的最终判断：
+
+> Memos / MemOS 是目前听到的最接近 "memory OS" 的体系。他们强在纵向：明文记忆、激活记忆、参数记忆、运行态调度、端云隐私都试图打通。我们家强在横向：真相源、治理、冲突、过期、审计、多猫协作、eval 反馈环。两边不是替代关系，而是两条正交轴。
+
+如果未来要对外讲 Cat Café 和 Memos 的差异，可以这样说：
+
+> Memos 解决"记忆如何跨模型跨平台流动并逐步内化"；Cat Café 解决"这些记忆进入真实工作流后如何被验证、佩戴、冲突治理和跨 agent 协作"。
+
+---
+
+## 12. 和 Cat Café 的对照
 
 如果用这三类来放我们家：
 
@@ -424,7 +555,7 @@ MemOS 讲到了前两层的融合，但治理层仍然需要追问。
 
 ---
 
-## 12. 截图索引（本轮聊天上传，待落盘）
+## 13. 截图索引（本轮聊天上传，待落盘）
 
 本轮铲屎官上传的截图内容已转写到上面几节：
 
@@ -439,14 +570,17 @@ MemOS 讲到了前两层的融合，但治理层仍然需要追问。
 9. **MemOS 2.0 版本化记忆进化：分支 / 验证 / 治理 / 回滚** → 见 §10.3。
 10. **MemOS 2.0 记忆原生模型：参数化 + 激活 + 明文联合学习** → 见 §10.4。
 11. **Local Memory + Hyper Memory Block 的轨迹内 commit/update 设想** → 见 §10.4。
+12. **MindDock：记忆搬家助手，跨 AI 平台统一个人记忆中枢** → 见 §11.1。
+13. **MemPrivacy：端云协同隐私个性化记忆管理方案** → 见 §11.2。
+14. **MemPrivacy benchmark 表：MemPrivacy-Bench / PersonaMem-v2** → 见 §11.2。
 
 当前限制：截图是聊天内上传的图片，我没有本地文件路径可直接嵌入 markdown。若后续把截图导出到本目录的 `assets/` 下，再把本节改成真实 `![...](assets/...)` 链接。
 
 ---
 
-## 13. 后续要继续记录的点
+## 14. 后续要继续记录的点
 
-- 他们是否讲 memory governance / privacy / deletion；
+- privacy 已通过 MemPrivacy 覆盖；后续若深挖，需要看 deletion / consent / audit 是否有完整设计；
 - 是否有 conflict / stale / rollback 设计；
 - 是否有 multi-agent memory consistency；
 - 是否有真实 eval，而不是只看检索命中率；
