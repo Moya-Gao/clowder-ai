@@ -1,0 +1,99 @@
+---
+doc_kind: harness-feedback
+feedback_type: attribution
+feature_id: F167
+eval_snapshot_id: "eval-F167-2026-05-13"
+generated_at: "2026-05-13T11:00:34.902Z"
+---
+
+# F167 Attribution Report — 2026-05-13
+
+finding_count: 4
+
+findings:
+  - id: AR-2026-05-13-001
+    related_feature: F167
+    friction_signal:
+      type: observability-gap
+      severity: medium
+      confidence: 0.9
+    attribution:
+      primary_layer: tool_gap
+      pipeline_or_human: pipeline
+      evidence:
+        - type: telemetry-gap
+          anchor: "L1/streak_warn_count"
+          excerpt: "streak_warn_count: no_counter — Cannot measure L1 activation frequency"
+    proposed_action:
+      - action: add-counter
+        target: "L1/streak_warn_count"
+        rationale: "Cannot measure L1 activation frequency"
+    fingerprint: "observability-gap::L1/streak_warn_count"
+    status: open
+
+  - id: AR-2026-05-13-002
+    related_feature: F167
+    friction_signal:
+      type: observability-gap
+      severity: medium
+      confidence: 0.9
+    attribution:
+      primary_layer: tool_gap
+      pipeline_or_human: pipeline
+      evidence:
+        - type: telemetry-gap
+          anchor: "L1/streak_break_count"
+          excerpt: "streak_break_count: no_counter — Cannot measure L1 circuit-break events"
+    proposed_action:
+      - action: add-counter
+        target: "L1/streak_break_count"
+        rationale: "Cannot measure L1 circuit-break events"
+    fingerprint: "observability-gap::L1/streak_break_count"
+    status: open
+
+  - id: AR-2026-05-13-003
+    related_feature: F167
+    friction_signal:
+      type: observability-gap
+      severity: medium
+      confidence: 0.9
+    attribution:
+      primary_layer: tool_gap
+      pipeline_or_human: pipeline
+      evidence:
+        - type: telemetry-gap
+          anchor: "C1/zombie_hold_count"
+          excerpt: "zombie_hold_count: no_counter — Cannot detect zombie holds (hold without follow-up action)"
+    proposed_action:
+      - action: add-counter
+        target: "C1/zombie_hold_count"
+        rationale: "Cannot detect zombie holds (hold without follow-up action)"
+    fingerprint: "observability-gap::C1/zombie_hold_count"
+    status: open
+
+  - id: AR-2026-05-13-004
+    related_feature: F167
+    friction_signal:
+      type: observability-gap
+      severity: medium
+      confidence: 0.9
+    attribution:
+      primary_layer: tool_gap
+      pipeline_or_human: pipeline
+      evidence:
+        - type: telemetry-gap
+          anchor: "C1/hold_cancel_count"
+          excerpt: "hold_cancel_count: no_counter — Cannot measure hold cancellation frequency"
+    proposed_action:
+      - action: add-counter
+        target: "C1/hold_cancel_count"
+        rationale: "Cannot measure hold cancellation frequency"
+    fingerprint: "observability-gap::C1/hold_cancel_count"
+    status: open
+
+
+action_rate:
+  total: 4
+  acted_on: 0
+  rate: 0
+  sunset_candidate: true
