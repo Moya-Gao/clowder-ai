@@ -14,6 +14,8 @@ sources:
   - "现场截图：Data Agent 与通用 LLM Agent 的差异"
   - "铲屎官现场观察与 Cat Café 内部讨论"
   - "Anthropic Engineering: Building effective agents, 2024-12-19, https://www.anthropic.com/engineering/building-effective-agents"
+  - "周煊赫上海交通大学教师主页：https://www.cs.sjtu.edu.cn/jiaoshiml/zhouxuanhe.html"
+  - "周煊赫个人主页：https://db.zhouxh.store/"
 related:
   - "deepeye-luo-yuyu-research-2026-05-12.md"
 ---
@@ -38,22 +40,22 @@ related:
 
 F195 app 音频抓到了几段和 PPT 对得上的内容：
 
-1. **显式 workflow**  
+1. **显式 workflow**
    DeepEye 会把数据分析编排成显式 workflow。好处是：一类场景跑通后，可以把生成好的 workflow 沉淀成 SOP，以后复用。
 
-2. **节点化建模**  
+2. **节点化建模**
    workflow 的核心元素是节点。每个节点有类似 agent instruction 的描述，用来定义任务边界、预期输出、I/O、配置、可调用工具和资源预算。
 
-3. **ToolNode / AgentNode 分离**  
+3. **ToolNode / AgentNode 分离**
    节点分两类：一类是确定性的工具节点，本质上调用已有代码或工具；另一类是基于大模型推理的智能体节点。
 
-4. **上下文隔离**  
+4. **上下文隔离**
    把复杂任务拆成节点后，每个节点有独立上下文，可以避免长程业务中的上下文爆炸和上下文互相干扰。
 
-5. **资源与延迟约束**  
+5. **资源与延迟约束**
    复杂数据分析里延迟是重要问题，所以节点配置里会包含资源分配、超时和截断策略。
 
-6. **人类 review / steering**  
+6. **人类 review / steering**
    现场提到 workflow 编排出来后，用户可以 review 一遍，发现错误后做交互式更新。这个点很关键：DeepEye 不是完全黑盒，而是把 agent 的不确定性暴露到可检查的 workflow 边界上。
 
 ## 3. 一句话判断
@@ -201,19 +203,19 @@ DeepEye-like Data Adapter: 数据源连接、workflow 编排、查询与可视�
 
 ## 9. 后续要追问骆老师的问题
 
-1. **workflow validator 验证到哪一层？**  
+1. **workflow validator 验证到哪一层？**
    是验证 DAG 结构正确，还是能验证业务语义正确？
 
-2. **用户 review 后的修改会不会沉淀？**  
+2. **用户 review 后的修改会不会沉淀？**
    一次交互式修正会变成 SOP / eval case / memory，还是只影响当前 workflow？
 
-3. **RBAC 和 audit 是执行层能力，还是 Agent 规划时可见的约束？**  
+3. **RBAC 和 audit 是执行层能力，还是 Agent 规划时可见的约束？**
    如果 Agent 不知道权限边界，只在执行时被拦，规划质量可能仍然不稳。
 
-4. **复杂数据分析的 eval 怎么做？**  
+4. **复杂数据分析的 eval 怎么做？**
    是用固定 benchmark，还是用真实企业 workflow trace？
 
-5. **领域特种工小猫如何和通用猫协作？**  
+5. **领域特种工小猫如何和通用猫协作？**
    数据 Agent 输出的 workflow / report，如何被上层通用 Agent review、引用和追责？
 
 ## 10. 当前结论
@@ -340,7 +342,7 @@ Skill
 
 这里我们和铲屎官讨论出的判断是：
 
-> **Skills 是 workflow 的严格超集。**  
+> **Skills 是 workflow 的严格超集。**
 > Workflow 能做的，Skill 可以通过调用 workflow + audit 做到；但 workflow 很难反过来拥有 Skill 的 runtime adaptation。
 
 所以更完整的企业级结构不是：
@@ -408,13 +410,13 @@ DeepEye / AOrchestra 的方向有两个强点：
 
 但我们要保留三个 push back：
 
-1. **Multi-agent 不等于 sub-agent。**  
+1. **Multi-agent 不等于 sub-agent。**
    AOrchestra 主要覆盖 orchestrator-workers，不覆盖 routing、parallelization、evaluator-optimizer、autonomous loop、cross-thread contract 等完整协作范式。
 
-2. **Skills 是 workflow 的上层包络。**  
+2. **Skills 是 workflow 的上层包络。**
    Workflow 适合作为确定性骨架，但更强的结构是 Skill 调用 workflow，再由 audit ledger 保证可重放。
 
-3. **Coding 也是开放环境。**  
+3. **Coding 也是开放环境。**
    把 coding 简化成输入输出明确的 closed task，会低估真实软件工程里的需求漂移、过程发现、架构纠错和依赖涌现。
 
 一句话：
@@ -539,18 +541,124 @@ Data Agent
 
 结合这页图，我们对 Data Agent 的定位需要再收窄：
 
-1. **Data Agent 不是独立物种。**  
+1. **Data Agent 不是独立物种。**
    它是 Agentic Work OS 在数据世界的领域配置。
 
-2. **DeepEye 的问题不是只属于数据。**  
+2. **DeepEye 的问题不是只属于数据。**
    多源、多模态、长程、工具链、silent failure、人类修改、SOP 沉淀，都是通用 Agent 工作系统的问题。
 
-3. **Cat Café 的机会不是复制 DeepEye。**  
+3. **Cat Café 的机会不是复制 DeepEye。**
    我们更应该抽象出一层通用现实证据基础设施，再让数据、代码、研究、个人记忆都共享这层能力。
 
-4. **我们必须补多模态。**  
+4. **我们必须补多模态。**
    没有多模态证据层，"气泡为什么裂"、"图表里的数字是否可信"、"上次看病是什么时候"这类真实问题都会断。
 
 一句话：
 
 > Data Agent 看起来是一个领域 Agent，但它暴露的其实是 Agentic Work OS 的底层能力缺口：多源现实证据、工具链溯源、可复盘执行、多模态记忆和经验沉淀。做强这层之后，数据智能体只是其中一个 profile。
+
+## 20. 周煊赫：云数据基座与桌面 AI 代理
+
+网络中断后，现场进入第三位发言人。铲屎官现场识别为：
+
+> 周煊赫，上海交通大学助理教授，主题大意是"云数据基座与桌面 AI 代理"。
+
+公开资料校准：周煊赫是上海交通大学计算机学院长聘轨助理教授，研究方向包括智融数据分析、ML/LLM 数据底座、自治数据库系统（AI4DB）。他的工作谱系明显偏 **数据库系统 + LLM/Data interface**，不是纯应用层 Agent。
+
+### 20.1 现场转写抓到的技术线
+
+本段 ASR 噪声较大，但能抓到几个强信号：
+
+1. **把向量索引从局部 segment 解耦出来**
+   现场提到原始模式会生成临时 index 表，但大 key 或跨 segment 检索会带来问题，所以把索引表和相关数据单独抽出来，形成 segment-decoupled 的 global index 层。
+
+2. **把 ANN / 向量检索算子放进关系数据库思路里管理**
+   现场多次提到 PQ、LUT、iList、cluster、join、filter、cost model。这不是"把向量库接到 Agent"这么简单，而是把向量检索拆成数据库可理解、可改写、可调度、可优化的算子。
+
+3. **用数据库优化器处理 AI 检索链路**
+   现场说到利用 table 设计、算子改写、分布式调度和计划层优化。这里的核心不是 Agent 自己会不会搜索，而是底层数据系统能不能把向量检索、过滤、聚合、排序和 join 统一进查询优化框架。
+
+4. **这更像 Data Foundation，不像前台 Agent**
+   如果骆老师那条线是在讲"数据智能体如何编排 workflow"，周煊赫这条线更底层：AI 代理要能进入桌面和云数据世界，前提是底层数据基座能把结构化、半结构化、向量化、多模态数据统一调度。
+
+### 20.2 和 DeepEye / Cat Café 的层级关系
+
+我建议把三条线分层看：
+
+```text
+Cat Café / Agentic Work OS
+  负责：任务、协作、审计、记忆、eval、跨 agent 闭环
+
+DeepEye / Data Agent Workflow
+  负责：把复杂数据分析显式化成 workflow / DAG / sub-agent 执行链
+
+周煊赫 / Data Foundation
+  负责：让数据库、向量索引、文件、多模态数据成为可优化的数据基座
+```
+
+这三层不是互斥关系：
+
+- Cat Café 问："谁来做、怎么协作、错了怎么撤、经验怎么沉淀？"
+- DeepEye 问："一个复杂数据分析任务如何被拆成可执行 workflow？"
+- 周煊赫这条线问："底层数据算子和索引能不能被统一管理和优化？"
+
+### 20.3 对"桌面 AI 代理"的含义
+
+"桌面 AI 代理"如果只理解成一个 UI 小助手，会太浅。它真正困难的点是：
+
+- 桌面上有文件、浏览器、表格、PDF、图片、聊天记录、数据库连接；
+- 这些材料的格式不同、权限不同、可信度不同；
+- Agent 需要跨它们做推理、检索、join、验证和复盘；
+- 这些操作必须可追溯，否则企业不敢让它进入真实桌面。
+
+所以周煊赫这条线对我们最大的提醒是：
+
+> 桌面 Agent 的底座不是聊天窗口，而是本地/云端数据系统的统一编排能力。
+
+这和前面 Data Agent 讨论是一致的：真正难的不是"有一个更会说话的 Agent"，而是 Agent 能不能进入真实数据世界。
+
+### 20.4 对 Cat Café 的启发
+
+Cat Café 现在最强的数据世界是：
+
+- git / markdown / feature docs / ADR / lessons；
+- thread messages / evidence.sqlite；
+- audio transcript / live notes；
+- codebase / tests / commits。
+
+这些已经足够支撑 coding / research / meeting copilot，但还没有到完整"桌面数据基座"：
+
+- 图片、PDF、表格、网页 DOM、浏览器状态、系统文件、个人事件数据还没有统一索引；
+- 多模态证据的 provenance 还不够细；
+- 向量检索、结构化查询、全文检索、图关系还没有统一 optimizer；
+- 权限和敏感数据策略还没有进入每个检索/召回决策。
+
+所以这位发言人的价值不是告诉我们"要做一个新的桌面 AI 代理"，而是提醒我们：
+
+> 如果 Cat Café 要从 coding/research 工作系统走向更通用的个人/企业桌面工作系统，下一层必须补"数据基座"。否则 Agent 再聪明，也只能在已经被我们整理成 markdown/git/thread 的世界里工作。
+
+### 20.5 现场可以问的问题
+
+1. **global index 层如何保留 provenance？**
+   向量/PQ/LUT/index 被关系化后，能不能追溯回原始文件、原始段落、原始权限边界？
+
+2. **桌面 AI 代理的权限模型在哪里生效？**
+   是查询计划阶段可见权限，还是执行时被动拦截？
+
+3. **多模态对象进入数据基座后，如何做可验证的查询结果？**
+   图片/PDF/表格被解析后，如何证明某个结论来自哪一块 evidence？
+
+4. **Data Foundation 和 Agent Workflow 的边界如何划？**
+   什么应该交给数据库 optimizer，什么应该交给上层 Agent/Harness 决策？
+
+5. **用户修正后的查询计划能否沉淀成下一次的 optimizer / skill / workflow 经验？**
+
+### 20.6 当前判断
+
+周煊赫这条线是今天几条分享里最接近"基础设施"的一条。
+
+DeepEye 把数据任务变成 workflow；Edit-Banana 把图片/图表变成可编辑结构；周煊赫这条线把向量索引和数据算子拉回数据库系统。三者合起来说明：
+
+> 下一代 Agent 真正要进入现实世界，不是只靠前台 Agent 编排，而是要把现实材料变成可索引、可验证、可优化、可审计的数据基座。
+
+Cat Café 的位置应该是把这些底层能力吸进 Agentic Work OS，而不是把每个领域都做成一只孤立的新 Agent。
