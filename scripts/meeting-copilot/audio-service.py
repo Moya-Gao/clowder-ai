@@ -200,7 +200,6 @@ class AudioSession:
             self.running = False
             if self._artifact_store:
                 self._artifact_store.finalize()
-                self._artifact_store = None
             exc = self._task.exception()
             if exc:
                 raise RuntimeError(f"Capture failed to start: {exc}") from exc
@@ -232,12 +231,16 @@ class AudioSession:
             self._task = None
         dur = time.time() - self.started_at if self.started_at else 0
         transcript_path = None
+        recording_path = None
         if self._artifact_store:
-            transcript_path = self._artifact_store.finalize()
+            result = self._artifact_store.finalize()
+            transcript_path = result.get("transcript_path")
+            recording_path = result.get("recording_path")
         summary = {
             "chunks": self.chunk_count,
             "duration_s": round(dur, 1),
             "transcript_path": transcript_path,
+            "recording_path": recording_path,
             "avg_asr_latency": round(
                 self.total_asr_time / max(self.chunk_count, 1), 3
             ),
@@ -302,17 +305,22 @@ class AudioSession:
                 await self._process_chunk(pcm)
         except asyncio.CancelledError:
             pass
-        except asyncio.IncompleteReadError:
-            pass
+        except asyncio.IncompleteReadError as e:
+            if e.partial and self._artifact_store:
+                self._artifact_store.append_pcm(e.partial)
         finally:
             if self.running:
                 self.running = False
                 transcript_path = None
+                recording_path = None
                 if self._artifact_store:
-                    transcript_path = self._artifact_store.finalize()
+                    result = self._artifact_store.finalize()
+                    transcript_path = result.get("transcript_path")
+                    recording_path = result.get("recording_path")
                 await self._broadcast({"type": "status", "status": "stopped",
                                        "reason": "capture process ended",
-                                       "transcript_path": transcript_path})
+                                       "transcript_path": transcript_path,
+                                       "recording_path": recording_path})
 
     async def _run_mic(self, device_idx, chunk_sec: float):
         import numpy as np
@@ -361,16 +369,34 @@ class AudioSession:
         finally:
             stream.stop()
             stream.close()
+            await asyncio.sleep(0)
+            while not q.empty():
+                try:
+                    queued_pcm = q.get_nowait()
+                    if self._artifact_store:
+                        self._artifact_store.append_pcm(queued_pcm)
+                except asyncio.QueueEmpty:
+                    break
+            with lock:
+                if buf_pos[0] > 0 and self._artifact_store:
+                    residual = (buf_data[:buf_pos[0]] * 32767).astype(np.int16).tobytes()
+                    self._artifact_store.append_pcm(residual)
             if self.running:
                 self.running = False
                 transcript_path = None
+                recording_path = None
                 if self._artifact_store:
-                    transcript_path = self._artifact_store.finalize()
+                    result = self._artifact_store.finalize()
+                    transcript_path = result.get("transcript_path")
+                    recording_path = result.get("recording_path")
                 await self._broadcast({"type": "status", "status": "stopped",
                                        "reason": "mic stream ended",
-                                       "transcript_path": transcript_path})
+                                       "transcript_path": transcript_path,
+                                       "recording_path": recording_path})
 
     async def _process_chunk(self, pcm: bytes):
+        if self._artifact_store:
+            self._artifact_store.append_pcm(pcm)
         wav = pcm_to_wav(pcm)
         self.chunk_count += 1
         ts = time.time()

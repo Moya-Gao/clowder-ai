@@ -7,6 +7,7 @@ Node-side path injection detection.
 
 import json
 import os
+import subprocess
 import tempfile
 import time
 from pathlib import Path
@@ -38,6 +39,8 @@ class TranscriptArtifactStore:
         self._last_speaker: str | None = None
         self._last_summary_ts: float = self._started_at
         self._summary_buf: list[dict] = []
+        self._pcm_path: Path | None = None
+        self._has_pcm = False
 
         label = app_name or "Meeting"
         ts_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self._started_at))
@@ -47,7 +50,8 @@ class TranscriptArtifactStore:
 
         self._write_meta(active=True, latest_range=None)
 
-    def _write_meta(self, active: bool, latest_range: str | None) -> None:
+    def _write_meta(self, active: bool, latest_range: str | None,
+                    recording_path: str | None = None) -> None:
         meta = {
             "active": active,
             "meeting_id": self._meeting_id,
@@ -57,6 +61,8 @@ class TranscriptArtifactStore:
             "latest_range": latest_range,
             "participants": self._participants,
         }
+        if recording_path:
+            meta["recording_path"] = recording_path
         fd, tmp = tempfile.mkstemp(dir=self._dir, suffix=".tmp")
         try:
             with os.fdopen(fd, "w") as f:
@@ -65,6 +71,30 @@ class TranscriptArtifactStore:
         except BaseException:
             os.unlink(tmp)
             raise
+
+    def append_pcm(self, data: bytes) -> None:
+        if self._pcm_path is None:
+            safe_mid = self._md_path.stem.replace("transcript-", "recording-")
+            self._pcm_path = self._dir / f"{safe_mid}.pcm"
+        with open(self._pcm_path, "ab") as f:
+            f.write(data)
+        self._has_pcm = True
+
+    def _convert_recording(self) -> str | None:
+        if not self._has_pcm or self._pcm_path is None or not self._pcm_path.exists():
+            return None
+        mp3_path = self._pcm_path.with_suffix(".mp3")
+        try:
+            subprocess.run(
+                ["ffmpeg", "-y", "-f", "s16le", "-ar", "16000", "-ac", "1",
+                 "-i", str(self._pcm_path), str(mp3_path)],
+                capture_output=True, timeout=60, check=True,
+            )
+            self._pcm_path.unlink(missing_ok=True)
+            return str(mp3_path)
+        except (subprocess.SubprocessError, OSError):
+            mp3_path.unlink(missing_ok=True)
+            return str(self._pcm_path)
 
     def append_line(self, line: dict) -> None:
         speaker = line.get("speaker_label", "Unknown")
@@ -87,14 +117,15 @@ class TranscriptArtifactStore:
             latest_range=f"{self._format_elapsed(range_start)}–{self._format_elapsed(elapsed)}",
         )
 
-    def finalize(self, now: float | None = None) -> str:
+    def finalize(self, now: float | None = None) -> dict:
         t = now or time.time()
         self.maybe_flush_summary(now=t)
         elapsed = t - self._started_at
         with open(self._md_path, "a") as f:
             f.write(f"\n\n---\n*Session ended at {self._format_elapsed(elapsed)}*\n")
-        self._write_meta(active=False, latest_range=None)
-        return str(self._md_path)
+        recording_path = self._convert_recording()
+        self._write_meta(active=False, latest_range=None, recording_path=recording_path)
+        return {"transcript_path": str(self._md_path), "recording_path": recording_path}
 
     def maybe_flush_summary(self, now: float | None = None) -> None:
         t = now or time.time()

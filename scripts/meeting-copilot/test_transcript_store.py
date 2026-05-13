@@ -3,9 +3,12 @@
 
 import json
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -95,7 +98,7 @@ class TestTranscriptArtifactStore(unittest.TestCase):
             store.append_line({"ts": base + 5, "elapsed_s": 5, "text": "Hello",
                 "speaker_label": "Alice", "speaker_confidence": 0.7, "speaker_id": "a", "chunk_num": 1})
             result = store.finalize()
-            self.assertEqual(result, str(store._md_path))
+            self.assertEqual(result["transcript_path"], str(store._md_path))
             with open(os.path.join(d, "t1", "meta.json")) as f:
                 meta = json.load(f)
             self.assertFalse(meta["active"], "meta should be inactive after finalize")
@@ -135,7 +138,7 @@ class TestTranscriptArtifactStore(unittest.TestCase):
             base = store1._started_at
             store1.append_line({"ts": base + 5, "elapsed_s": 5, "text": "First meeting content",
                 "speaker_label": "Alice", "speaker_confidence": 0.7, "speaker_id": "a", "chunk_num": 1})
-            path1 = store1.finalize()
+            path1 = store1.finalize()["transcript_path"]
 
             store2 = TranscriptArtifactStore(d, "t1", "m2", "Chrome", [])
             base2 = store2._started_at
@@ -151,9 +154,9 @@ class TestTranscriptArtifactStore(unittest.TestCase):
     def test_different_meetings_produce_different_files(self):
         with tempfile.TemporaryDirectory() as d:
             store1 = TranscriptArtifactStore(d, "t1", "meeting-a", "Chrome", [])
-            path1 = store1.finalize()
+            path1 = store1.finalize()["transcript_path"]
             store2 = TranscriptArtifactStore(d, "t1", "meeting-b", "Chrome", [])
-            path2 = store2.finalize()
+            path2 = store2.finalize()["transcript_path"]
             self.assertNotEqual(path1, path2,
                 "Different meeting_ids must produce different transcript files")
 
@@ -166,7 +169,7 @@ class TestTranscriptArtifactStore(unittest.TestCase):
                 base = store._started_at
                 store.append_line({"ts": base + 5, "elapsed_s": 5, "text": f"Meeting {i} content",
                     "speaker_label": "Alice", "speaker_confidence": 0.7, "speaker_id": "a", "chunk_num": 1})
-                paths.append(store.finalize())
+                paths.append(store.finalize()["transcript_path"])
 
             self.assertEqual(len(set(paths)), 3,
                 f"All 3 paths must be unique, got: {paths}")
@@ -176,6 +179,62 @@ class TestTranscriptArtifactStore(unittest.TestCase):
                 self.assertIn(f"Meeting {i} content", content,
                     f"File {i} must contain its own content, not be overwritten")
 
+
+    @unittest.skipUnless(shutil.which("ffmpeg"), "ffmpeg not installed")
+    def test_append_pcm_creates_recording_file(self):
+        """append_pcm accumulates raw audio; finalize converts to MP3."""
+        with tempfile.TemporaryDirectory() as d:
+            store = TranscriptArtifactStore(d, "t1", "m1", "Chrome", [])
+            pcm = b"\x00\x01" * 16000  # 1 second of 16kHz mono int16
+            store.append_pcm(pcm)
+            store.append_pcm(pcm)
+            result = store.finalize()
+            self.assertIsInstance(result, dict)
+            self.assertIn("transcript_path", result)
+            self.assertIn("recording_path", result)
+            rec_path = result["recording_path"]
+            self.assertTrue(os.path.exists(rec_path), f"Recording not found: {rec_path}")
+            self.assertTrue(rec_path.endswith(".mp3"), "Recording should be MP3")
+            self.assertGreater(os.path.getsize(rec_path), 0, "Recording file should not be empty")
+            pcm_files = list(store._dir.glob("*.pcm"))
+            self.assertEqual(len(pcm_files), 0, "Raw PCM should be cleaned up after conversion")
+
+    def test_finalize_without_pcm_returns_no_recording(self):
+        """If no PCM was appended, finalize should not create a recording."""
+        with tempfile.TemporaryDirectory() as d:
+            store = TranscriptArtifactStore(d, "t1", "m1", "Chrome", [])
+            base = store._started_at
+            store.append_line({"ts": base + 5, "elapsed_s": 5, "text": "Hello",
+                "speaker_label": "Alice", "speaker_confidence": 0.7, "speaker_id": "a", "chunk_num": 1})
+            result = store.finalize()
+            self.assertIsInstance(result, dict)
+            self.assertIsNone(result.get("recording_path"))
+
+    def test_recording_path_in_meta_json(self):
+        """meta.json should include recording_path after finalize with audio."""
+        with tempfile.TemporaryDirectory() as d:
+            store = TranscriptArtifactStore(d, "t1", "m1", "Chrome", [])
+            store.append_pcm(b"\x00\x01" * 16000)
+            store.finalize()
+            with open(os.path.join(d, "t1", "meta.json")) as f:
+                meta = json.load(f)
+            self.assertIn("recording_path", meta)
+            self.assertFalse(meta["active"])
+
+    def test_ffmpeg_failure_removes_corrupt_mp3(self):
+        """ffmpeg failure should clean up corrupt mp3 and return pcm fallback."""
+        with tempfile.TemporaryDirectory() as d:
+            store = TranscriptArtifactStore(d, "t1", "m1", "Chrome", [])
+            store.append_pcm(b"\x00\x01" * 16000)
+            mp3_path = store._pcm_path.with_suffix(".mp3")
+            mp3_path.write_bytes(b"corrupt")
+            with patch("subprocess.run", side_effect=subprocess.SubprocessError("mock")):
+                result = store.finalize()
+            rec_path = result["recording_path"]
+            self.assertTrue(rec_path.endswith(".pcm"), "Should fall back to PCM")
+            self.assertTrue(os.path.exists(rec_path), "PCM file must be preserved")
+            self.assertFalse(mp3_path.exists(),
+                "Corrupt mp3 must be removed on ffmpeg failure")
 
     def test_meta_json_atomic_write_no_temp_residue(self):
         """After write, no .tmp file should linger and meta.json must be valid."""

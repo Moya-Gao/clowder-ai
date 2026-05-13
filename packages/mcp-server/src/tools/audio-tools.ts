@@ -132,6 +132,7 @@ export async function handleAudioCaptureStop(): Promise<ToolResult> {
         duration_s?: number;
         avg_asr_latency?: number;
         transcript_path?: string;
+        recording_path?: string;
         error?: string;
       };
     };
@@ -139,8 +140,9 @@ export async function handleAudioCaptureStop(): Promise<ToolResult> {
     const s = data.summary;
     if (!s || s.error) return successResult(s?.error ?? 'No active session.');
     const txLine = s.transcript_path ? `\n  Transcript: ${s.transcript_path}` : '';
+    const recLine = s.recording_path ? `\n  Recording: ${s.recording_path}` : '';
     return successResult(
-      `Capture stopped.\n  Chunks: ${s.chunks}\n  Duration: ${s.duration_s}s\n  Avg ASR latency: ${s.avg_asr_latency}s${txLine}`,
+      `Capture stopped.\n  Chunks: ${s.chunks}\n  Duration: ${s.duration_s}s\n  Avg ASR latency: ${s.avg_asr_latency}s${txLine}${recLine}`,
     );
   } catch (err) {
     return errorResult(audioError(err));
