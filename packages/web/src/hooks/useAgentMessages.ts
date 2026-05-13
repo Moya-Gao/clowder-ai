@@ -157,6 +157,8 @@ interface AgentMsg {
   /** F173 a2a-handoff bug fix: server-side timestamp (epoch ms). Required for
    *  timestamp-ordered insert of a2a_handoff system messages. */
   timestamp?: number;
+  /** Machine-readable A2A target cat for handoff events. */
+  targetCatId?: string;
   /** F67: Whether this message @mentions the co-creator */
   mentionsUser?: boolean;
   /** F52: Cross-thread origin metadata */
@@ -265,6 +267,8 @@ export interface BackgroundAgentMessage {
    *  F194 Phase Z3 dual id: this is the chain/parent invocation id (legacy SoT for liveness/queue/cancel).
    *  Per-cat-turn id is `turnInvocationId` below — frontend uses turn for bubble identity. */
   invocationId?: string;
+  /** Machine-readable A2A target cat for handoff events. */
+  targetCatId?: string;
   /** F194 Phase Z3 (砚砚 R P1-1): per-cat-turn invocation id for bubble identity stable key
    *  (prevents same-parent multi-turn-same-cat bubble merge). Backend `messages.ts` broadcastPayload
    *  sets this from inner invokeSingleCat invocation_created event. Frontend writes to
@@ -2373,7 +2377,7 @@ export function useAgentMessages() {
 
       const activeInvocations = store.activeInvocations ?? {};
       const primarySlot = activeInvocations[invocationId];
-      if (!primarySlot || primarySlot.catId === nextCatId) return;
+      if (primarySlot?.catId === nextCatId) return;
 
       const hasExplicitNextCatSlot =
         Boolean(activeInvocations[`${invocationId}-${nextCatId}`]) ||
@@ -2382,14 +2386,18 @@ export function useAgentMessages() {
 
       // Serial handoff reuses the parent invocationId for follow-up cats. If the
       // previous cat's done(isFinal=false) is lost, the old primary slot would
-      // stay pinned to the first cat forever. Rebind the slot at the moment the
-      // next cat announces its invocation boundary so the eventual final done can
-      // still clear the UI state.
-      removeActiveInvocation(invocationId);
-      addActiveInvocation(invocationId, nextCatId, primarySlot.mode, primarySlot.startedAt);
+      // stay pinned to the first cat forever. Conversely, if that done event has
+      // already cleared the slot, the handoff gap would briefly hide cancel state.
+      // Rebind or recreate the parent slot as soon as the next cat is announced.
+      if (primarySlot) {
+        removeActiveInvocation(invocationId);
+        addActiveInvocation(invocationId, nextCatId, primarySlot.mode, primarySlot.startedAt);
+      } else {
+        addActiveInvocation(invocationId, nextCatId, store.intentMode ?? 'execute');
+      }
 
       const currentTargets = Array.isArray(store.targetCats) ? store.targetCats : [];
-      if (store.currentThreadId && currentTargets.length === 1 && currentTargets[0] === primarySlot.catId) {
+      if (store.currentThreadId && currentTargets.length === 1 && currentTargets[0] !== nextCatId) {
         replaceThreadTargetCats(store.currentThreadId, [nextCatId]);
       }
     },
@@ -3836,6 +3844,9 @@ export function useAgentMessages() {
           }
         }
       } else if (msg.type === 'a2a_handoff') {
+        if (msg.targetCatId && msg.invocationId) {
+          maybeMigrateSequentialInvocationOwnership(msg.targetCatId, msg.invocationId);
+        }
         // F173 bug fix: use server timestamp + marker so chatStore inserts
         // this routing pill at the right position relative to the next cat's
         // stream bubble (WebSocket race could otherwise put it after).

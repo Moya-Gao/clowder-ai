@@ -377,6 +377,67 @@ describe('useAgentMessages system_info invocation_created', () => {
     expect(storeState.targetCats).toEqual(['opus']);
   });
 
+  it('migrates the active slot as soon as a2a_handoff announces the next cat', () => {
+    storeState.activeInvocations = {
+      'inv-root': { catId: 'codex', mode: 'execute', startedAt: 123456 },
+    };
+    storeState.targetCats = ['codex'];
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'a2a_handoff',
+        catId: 'codex',
+        content: '缅因猫 → 布偶猫',
+        invocationId: 'inv-root',
+        targetCatId: 'opus',
+        timestamp: 123999,
+      } as never);
+    });
+
+    expect(mockRemoveActiveInvocation).toHaveBeenCalledWith('inv-root');
+    expect(mockAddActiveInvocation).toHaveBeenCalledWith('inv-root', 'opus', 'execute', 123456);
+    expect(mockReplaceThreadTargetCats).toHaveBeenCalledWith('thread-1', ['opus']);
+    expect(storeState.activeInvocations['inv-root']).toEqual({
+      catId: 'opus',
+      mode: 'execute',
+      startedAt: 123456,
+    });
+    expect(storeState.targetCats).toEqual(['opus']);
+  });
+
+  it('keeps the cancel affordance during the handoff gap after the previous cat slot is cleared', () => {
+    storeState.activeInvocations = {};
+    storeState.targetCats = ['codex'];
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'a2a_handoff',
+        catId: 'codex',
+        content: '缅因猫 → 布偶猫',
+        invocationId: 'inv-root',
+        targetCatId: 'opus',
+        timestamp: 123999,
+      } as never);
+    });
+
+    expect(mockRemoveActiveInvocation).not.toHaveBeenCalled();
+    expect(mockAddActiveInvocation).toHaveBeenCalledWith('inv-root', 'opus', 'execute');
+    expect(mockReplaceThreadTargetCats).toHaveBeenCalledWith('thread-1', ['opus']);
+    expect(storeState.activeInvocations['inv-root']).toEqual({
+      catId: 'opus',
+      mode: 'execute',
+    });
+    expect(storeState.targetCats).toEqual(['opus']);
+  });
+
   it('does not rewrite slots for cats that already have an explicit parallel slot', () => {
     storeState.activeInvocations = {
       'inv-root': { catId: 'opus', mode: 'execute', startedAt: 123456 },

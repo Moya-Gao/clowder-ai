@@ -125,6 +125,8 @@ export interface AgentMessage {
   catId: CatId;
   /** Text content (for 'text' and 'tool_result' types) */
   content?: string;
+  /** Machine-readable A2A target cat for 'a2a_handoff' events. */
+  targetCatId?: CatId;
   /**
    * How the frontend should apply text content.
    * Default append preserves streaming semantics; replace is used when the

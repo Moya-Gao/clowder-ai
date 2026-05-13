@@ -710,6 +710,7 @@ describe('routeSerial A2A worklist', () => {
     const handoffs = messages.filter((m) => m.type === 'a2a_handoff');
     assert.equal(handoffs.length, 1, 'should yield exactly one a2a_handoff');
     assert.equal(handoffs[0].catId, 'opus', 'handoff should be from opus');
+    assert.equal(handoffs[0].targetCatId, 'codex', 'handoff must carry machine-readable target cat');
     assert.ok(handoffs[0].content.includes('→'), 'handoff content should show arrow');
   });
 
