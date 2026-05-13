@@ -64,7 +64,6 @@ created: 2026-02-26
 | F181 | Reserved Feature Slot — 待补充需求锚点 | idea | 待定 | internal | [F181](features/F181-reserved-feature-slot.md) |
 | F188 | Library Stewardship — 图书馆管护与成长（rebuild + health + graph fidelity + materialize + pin） | spec | 布偶猫 | internal | [F188](features/F188-library-stewardship.md) |
 | F189 | Operation Context Unification — 操作上下文单点化（HTTP/MCP/CLI/A2A 统一 builder） | spec | 布偶猫 | internal | [F189](features/F189-operation-context-unification.md) |
-| F190 | Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片 | in-progress | Community + Maintainers | community [clowder-ai#645](https://github.com/zts212653/clowder-ai/pull/645) [#662](https://github.com/zts212653/clowder-ai/pull/662) [#669](https://github.com/zts212653/clowder-ai/pull/669) | [F190](features/F190-console-settings-appshell-skeleton.md) |
 | F192 | Socio-Technical Harness Eval — harness 共创评估体系 | spec | 布偶猫 | internal | [F192](features/F192-socio-technical-harness-eval.md) |
 | F195 | Meeting Copilot — 实时会议私人智囊团（AUDHD augmentation） | spec | 布偶猫 | internal | [F195](features/F195-meeting-copilot-live-advisory.md) |
 | F196 | Safety Guardian — 猫猫守护者（紧急安全链路） | idea | 布偶猫 | internal | [F196](features/F196-safety-guardian.md) |

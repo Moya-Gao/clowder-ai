@@ -140,6 +140,7 @@
 | F193 | F193: Cross-Thread Communication Unification — F043/F052/F178 契约 reconcile + 接收侧 reply hint + split-only 配置 + deprecated tools cleanup | done | [F193-cross-thread-comm-unification.md](./F193-cross-thread-comm-unification.md) |
 | F197 | F197: ACP Provider tool_result Event Surfacing — Gemini v0.36 单事件拆 [tool_use, tool_result] 双消息 | done | [F197-acp-tool-result-surfacing.md](./F197-acp-tool-result-surfacing.md) |
 | F194 | F194: Invocation Liveness Canonical Read Model — 后端 invocation 活性真相源收口 + bubble identity contract（10 phase 修 14 条铲屎官报告） | done | [F194-invocation-liveness-canonical-read-model.md](./F194-invocation-liveness-canonical-read-model.md) |
+| F190 | F190: Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片 | done | [F190-console-settings-appshell-skeleton.md](./F190-console-settings-appshell-skeleton.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |

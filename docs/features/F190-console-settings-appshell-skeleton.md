@@ -9,7 +9,7 @@ community_pr: clowder-ai#645, clowder-ai#662, clowder-ai#669
 
 # F190: Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片
 
-> **Status**: completed | **Owner**: Community + Maintainers | **Priority**: P1
+> **Status**: done | **Completed**: 2026-05-13 | **Owner**: Community + Maintainers | **Priority**: P1
 
 ## Why
 
@@ -79,9 +79,9 @@ Phase C complete: all four high-risk slices (MCP write / Service Manifest read-o
 - [x] AC-A7: alpha 走查 `/settings`、`/settings?s=members`、`/settings?s=mcp`、`/settings?s=ops`，无 blocking console error，且旧 chat 首页可继续进入。Proof: PR #1658 `pnpm gate` + alpha smoke `/`, `/settings?s=members`, `/settings?s=mcp`, `/settings?s=ops`, `/settings?s=plugins`, `/settings?s=im`, `/settings?s=rules`, `/settings?s=voice` all returned 200 after `c1cfa294e`.
 
 ### Phase B（Settings Section Migrations）
-- [ ] AC-B1: 每个 settings section 独立 PR，单 PR 不超过一个业务域。
-- [ ] AC-B2: 每个 section PR 写清 `Source Behavior`、`Must Preserve Home Behavior`、`Proof`。
-- [ ] AC-B3: 涉及 high-risk 文件（route 注册、auth/callback、env registry、allowlist、service lifecycle）时必须走 manual-port review。
+- [x] AC-B1: 每个 settings section 独立 review slice，单 slice 不超过一个业务域。Proof: PR #1650 按 read-only settings wrapper / rules / ops / marketplace / MCP / skill preview 等 slice 分段 review；Phase C high-risk writes 独立 PR #1651/#1652/#1654/#1655。
+- [x] AC-B2: 每个 section PR 写清 `Source Behavior`、`Must Preserve Home Behavior`、`Proof`。Proof: #1650 与 Phase C 四刀 review request 均带 manual-port 决策表与 focused proof。
+- [x] AC-B3: 涉及 high-risk 文件（route 注册、auth/callback、env registry、allowlist、service lifecycle）时必须走 manual-port review。Proof: MCP write / Service Manifest / refAudio / IM connector write 分别经 #1651/#1652/#1654/#1655 独立 review + 云端 review。
 
 ### Phase C（High-risk Follow-up Systems）
 - [x] AC-C1: MCP write path hardening 第一刀只扩展既有 `capabilitiesMcpWriteRoutes`，不新增并行写路径。
@@ -146,6 +146,67 @@ Phase C complete: all four high-risk slices (MCP write / Service Manifest read-o
 | KL-2 | install/delete 是 owner-configured enforcement；未配置 `DEFAULT_OWNER_USER_ID` 的多用户/LAN 部署仍沿用既有身份 gate | 保持 localhost/dev 兼容，secret env patch 已 fail-closed | UI/ops docs 明确多用户部署必须配置 `DEFAULT_OWNER_USER_ID`；可加 telemetry warning |
 | KL-3 | Connector secret writes 在 audit append 失败时仍返回成功 | 凭据已经落盘并触发热生效，audit 是 side channel；失败会写 warn 日志但不回滚主写入 | 若引入 audit retry / queue / outbox 机制，可补偿丢失的 audit append |
 
+## Vision Guard Evidence
+
+| 铲屎官原话 / 关切 | 当前实际状态（证据） | 匹配？ |
+|-------------------|----------------------|--------|
+| "我们不就是 intake 一个前端回家" | F190 只 intake Console/Settings rail 方向：Phase A skeleton + #1650 read-only section wrappers；没有接收 #645/#669 whole diff | ✅ |
+| "搞完别出太多 bug，我们家后续的那些功能别改坏了，包括气泡的那些" | Opus-46 愿景守护验证 Phase C 4/4 已合入 main、F183/F184/F194 红区 12 文件零触碰；PR #1658 alpha smoke 旧 chat 首页 + settings 7 路由全 200 | ✅ |
+| "pnpm alpha:start 这个你能跑吧？alpha 测试！" | Codex 启动 alpha 隔离环境并定位 dev CSP + ThreadCatPill alpha blocker；Sonnet 复跑 alpha smoke PASS；hotfix PR #1658 merged `c1cfa294e` | ✅ |
+
+## Close Gate Report
+
+```yaml
+close_gate_report:
+  feature_id: F190
+  spec_path: docs/features/F190-console-settings-appshell-skeleton.md
+  head_sha: "01f468758 + close sync commit"
+  report_date: 2026-05-13
+  harness_feedback:
+    status: none
+    reason: "F190 是 Console/Settings intake 与配置面 hardening；未新增 harness/skill/MCP 行为模式，相关 trace anomalies 已在 Phase C review lessons 中沉淀"
+  ac_matrix:
+    - ac_id: AC-A1..AC-A7
+      status: met
+      evidence:
+        - kind: pr
+          ref: "PR #1645 / #1650 / #1658"
+          description: "Phase A skeleton + read-only intake + AC-A7 alpha unblock and smoke"
+        - kind: test
+          ref: "pnpm gate at PR #1658"
+          description: "Full merge gate passed after alpha hotfix"
+        - kind: doc
+          ref: "Opus-46 vision guardian PASS"
+          description: "Source intent preserved and red-zone zero-touch verified"
+      resolution: null
+    - ac_id: AC-B1..AC-B3
+      status: met
+      evidence:
+        - kind: pr
+          ref: "PR #1650"
+          description: "Read-only settings migrations reviewed as manual-port slices with Source/Preserve/Proof"
+        - kind: pr
+          ref: "PR #1651 / #1652 / #1654 / #1655"
+          description: "High-risk route/auth/env/service surfaces split into independent Phase C PRs"
+      resolution: null
+    - ac_id: AC-C1..AC-C4
+      status: met
+      evidence:
+        - kind: pr
+          ref: "PR #1651"
+          description: "MCP write path hardening"
+        - kind: pr
+          ref: "PR #1652"
+          description: "Service Manifest read-only status"
+        - kind: pr
+          ref: "PR #1654"
+          description: "refAudio upload + voiceConfig persistence/hydration/drain fixes"
+        - kind: pr
+          ref: "PR #1655"
+          description: "IM connector credential write hardening"
+      resolution: null
+```
+
 ## Timeline
 
 | 日期 | 事件 |
@@ -157,6 +218,7 @@ Phase C complete: all four high-risk slices (MCP write / Service Manifest read-o
 | 2026-05-13 | Phase C IM connector write hardening merged (PR #1655) — Phase C 4/4 complete |
 | 2026-05-13 | F190 愿景守护 PASS (Opus-46，同族非作者非 reviewer)：红区零触碰 verified、source intent 保留 |
 | 2026-05-13 | AC-A7 alpha walkthrough completed after alpha hotfix (PR #1658, `c1cfa294e`): Codex + Sonnet smoke passed home/settings routes |
+| 2026-05-13 | F190 close gate truth sync: AC-A/B/C all met, reflection capsule linked, BACKLOG active row removed |
 
 ## Review Gate
 
@@ -171,6 +233,7 @@ Phase C complete: all four high-risk slices (MCP write / Service Manifest read-o
 | **Community PR** | `clowder-ai#662` | AppShell / Settings skeleton |
 | **Community PR** | `clowder-ai#669` | F190 follow-up source intent |
 | **Architecture** | `docs/architecture/feature-placement.md` | Console 入口层级决策树 |
+| **Reflection** | `docs/reflections/2026-05-13-f190-console-settings-intake-capsule.md` | F190 completion reflection |
 | **Skill ref** | `cat-cafe-skills/refs/f190-frontend-lessons.md` | F190 前端 intake 教训 |
 | **Feature** | `docs/features/F056-cat-cafe-design-language.md` | 设计语言约束 |
 | **Feature** | `docs/features/F183-bubble-pipeline-architecture-consolidation.md` | 聊天渲染链路保护 |
