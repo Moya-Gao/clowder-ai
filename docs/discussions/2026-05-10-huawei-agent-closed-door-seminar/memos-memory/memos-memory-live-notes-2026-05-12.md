@@ -292,7 +292,112 @@ MemOS 讲到了前两层的融合，但治理层仍然需要追问。
 
 ---
 
-## 10. 和 Cat Café 的对照
+## 10. MemOS 1.0 到 2.0：从分层存储到运行态调度
+
+铲屎官现场判断："图 1 是以前的关键技术，图 2 开始是他们第二代的关键。好像我们想的也是实时调度的运行态资源。"
+
+我同意这个切分。
+
+### 10.1 MemOS 1.0：先把记忆底座分清楚
+
+图 1 的 MemOS 1.0 关键技术仍然是"记忆系统怎么建"：
+
+1. **记忆分层架构**：参数记忆 / 激活记忆 / 明文记忆。
+2. **记忆调度管理**：围绕 Human / Agent 的调度触发、管理和执行。
+3. **类脑图记忆组织**：把明文记忆组织成 Topic / Fact / Version / Event 这类图结构。
+
+这一代解决的是 memory substrate 问题：
+
+- 记忆放在哪一层；
+- 每层读写效率和可解释性的 tradeoff；
+- 明文知识如何组织成可检索、可关联的结构；
+- 调度策略如何围绕用户 / Agent / 任务触发。
+
+这已经比普通 RAG 更系统，但核心仍偏"存储架构 + 操作链路"。
+
+### 10.2 MemOS 2.0：把 memory 当运行态资源
+
+图 2 开始是关键跳变：
+
+> Memory is no longer static at query time, but a runtime resource to be scheduled in real time.
+
+他们把记忆从"查询时拿出来的静态对象"，升级成"任务运行中持续被调度的状态流"。输入也不只是文本对话，而是三类状态：
+
+- 主体对话记忆；
+- 主体行为记忆；
+- 主体环境反馈。
+
+中间的 Runtime State Manager 做四件事：
+
+1. **状态感知**：识别用户 / Agent 当前行为、阶段和环境状态。
+2. **状态判定**：评估重要性、时效性、未来发展状态。
+3. **状态调度**：决定生命周期，并执行调度和状态变更。
+4. **状态进化**：持续学习、经验增强、提高未来执行性能。
+
+这个方向和我们家很像：记忆不是"搜一下上下文"，而是运行时根据任务状态被主动调度的资源。
+
+但落点不同：
+
+| 维度 | MemOS 2.0 | Cat Café |
+|---|---|---|
+| 运行主体 | Human / Agent | 猫 / thread / feature / review / task / evidence |
+| 状态输入 | 对话、行为、环境反馈 | session、docs、commit、tool call、review、用户指令、搜索证据 |
+| 调度中枢 | Runtime State Manager | SessionStart hook + skills + F188 tools + feature lifecycle + A2A 球权 |
+| 调度对象 | 参数 / 激活 / 明文记忆 | 证据、文档、skill、review 状态、任务依赖、真相源 |
+| 目标 | 提升连续性、个性化和执行性能 | 闭环现实：记对、用对、错了能撤、跨猫一致 |
+
+一句话：**MemOS 2.0 在做 memory runtime；Cat Café 在做 Agentic Work OS runtime。**
+
+### 10.3 版本化记忆进化：和我们家的治理层高度同构
+
+图 3 讲 "Memory V1 → V2 → V3 → V4"，中间有任务分支、会话分支、增强分支，最后经过合并、淘汰和稳定经验沉淀。
+
+这和我们家很多机制是同构的：
+
+| MemOS 说法 | Cat Café 对应 |
+|---|---|
+| 任务分支 | feature lifecycle / feature spec / task-scoped thread |
+| 会话分支 | session digest / session chain |
+| 增强分支 | lessons-learned / skill evolution / Knowledge Feed |
+| 合并 | review 后 materialize / docs 真相源更新 |
+| 淘汰 | stale detection / ADR sunset / supersede |
+| 回溯恢复 | git revert / rollback protocol |
+| 分支治理 | A2A 球权 + cross-thread dependency contract |
+
+这张图很接近我们之前说的："记忆不是简单追加，而是经过分支、验证、合并、回滚和治理后的稳定沉淀。"
+
+区别是他们在 memory 系统内部讲这个，我们是在真实工作流里跑这个。
+
+### 10.4 记忆原生模型：他们往模型本体走，我们先守外部真相源
+
+图 4 / 图 5 讲的是更激进的路线：memory 不再是外挂，而是模型能力本体的一部分。模型在生成轨迹里维护 Local Memory，并通过 Hyper Memory Block 在每一步后 commit / update。
+
+这是纵向上限路线，价值很明确：
+
+- 读取更快；
+- 内化更深；
+- 长期可能减少外部 RAG / 外部摘要依赖；
+- 对个性化和持续学习有潜力。
+
+但它也会放大企业最难的问题：
+
+- 写进去的东西怎么删；
+- 参数 / 激活 / 明文三层冲突时谁赢；
+- 幻觉记忆进入模型内部后怎么审计；
+- 用户授权和数据隔离怎么做；
+- 模型内生记忆和外部真相源冲突时怎么降权。
+
+所以我们的判断不是反对记忆原生模型，而是：
+
+> 记忆原生模型决定长期上限；外部真相源和治理协议决定企业可用下限。没有后者，前者越强，风险越大。
+
+### 10.5 现场可用一句话
+
+> 图 1 是记忆系统的存储架构，图 2 开始是记忆系统的运行时。这个判断和我们家很一致：记忆不是 query-time RAG，而是 task-time / workspace-time 被调度的状态资源。区别是 MemOS 想把这个调度往模型和 memory OS 里做，我们先把它落在 Agentic Work OS：工具调用、搜索证据、review、commit、冲突和 eval 都是运行态信号。
+
+---
+
+## 11. 和 Cat Café 的对照
 
 如果用这三类来放我们家：
 
@@ -319,7 +424,7 @@ MemOS 讲到了前两层的融合，但治理层仍然需要追问。
 
 ---
 
-## 11. 截图索引（本轮聊天上传，待落盘）
+## 12. 截图索引（本轮聊天上传，待落盘）
 
 本轮铲屎官上传的截图内容已转写到上面几节：
 
@@ -329,12 +434,17 @@ MemOS 讲到了前两层的融合，但治理层仍然需要追问。
 4. **模型内生驱动的记忆增强代表工作** → 见 §8.1。
 5. **应用外向驱动的记忆增强代表框架** → 见 §8.2。
 6. **模型驱动 vs 应用驱动 vs MemOS 融合范式对比** → 见 §9。
+7. **MemOS 1.0 架构关键技术：分层架构 / 调度管理 / 类脑图组织** → 见 §10.1。
+8. **MemOS 2.0 Runtime State Manager：状态感知 / 判定 / 调度 / 进化** → 见 §10.2。
+9. **MemOS 2.0 版本化记忆进化：分支 / 验证 / 治理 / 回滚** → 见 §10.3。
+10. **MemOS 2.0 记忆原生模型：参数化 + 激活 + 明文联合学习** → 见 §10.4。
+11. **Local Memory + Hyper Memory Block 的轨迹内 commit/update 设想** → 见 §10.4。
 
 当前限制：截图是聊天内上传的图片，我没有本地文件路径可直接嵌入 markdown。若后续把截图导出到本目录的 `assets/` 下，再把本节改成真实 `![...](assets/...)` 链接。
 
 ---
 
-## 12. 后续要继续记录的点
+## 13. 后续要继续记录的点
 
 - 他们是否讲 memory governance / privacy / deletion；
 - 是否有 conflict / stale / rollback 设计；
