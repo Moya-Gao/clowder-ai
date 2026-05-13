@@ -201,9 +201,16 @@ class AudioSession:
             if self._artifact_store:
                 self._artifact_store.finalize()
             exc = self._task.exception()
+            stderr_hint = getattr(self, "_last_capture_stderr", "")
             if exc:
-                raise RuntimeError(f"Capture failed to start: {exc}") from exc
-            raise RuntimeError("Capture task exited immediately")
+                detail = f"Capture failed to start: {exc}"
+                if stderr_hint:
+                    detail += f"\nCaptureAppAudio: {stderr_hint}"
+                raise RuntimeError(detail) from exc
+            detail = "Capture task exited immediately"
+            if stderr_hint:
+                detail += f"\nCaptureAppAudio: {stderr_hint}"
+            raise RuntimeError(detail)
         await self._broadcast({"type": "status", "status": "started",
                                "source": source, "app_name": app_name,
                                "meeting_id": meeting_id, "thread_id": thread_id})
@@ -287,6 +294,15 @@ class AudioSession:
             lines = lines[-latest:]
         return lines
 
+    async def _drain_capture_stderr(self) -> str:
+        if not self._process or not self._process.stderr:
+            return ""
+        try:
+            raw = await asyncio.wait_for(self._process.stderr.read(), timeout=2.0)
+            return raw.decode(errors="replace").strip()
+        except Exception:
+            return ""
+
     async def _run_app(self, app_name: str, chunk_sec: float):
         chunk_bytes = int(chunk_sec * SAMPLE_RATE * 2)
         if not Path(CAPTURE_BIN).exists():
@@ -297,7 +313,7 @@ class AudioSession:
             return
         self._process = await asyncio.create_subprocess_exec(
             CAPTURE_BIN, "stream", app_name, "86400", str(chunk_sec),
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         )
         try:
             while self.running:
@@ -309,6 +325,10 @@ class AudioSession:
             if e.partial and self._artifact_store:
                 self._artifact_store.append_pcm(e.partial)
         finally:
+            stderr_text = await self._drain_capture_stderr()
+            if stderr_text:
+                print(f"  CaptureAppAudio: {stderr_text}", file=sys.stderr)
+                self._last_capture_stderr = stderr_text
             if self.running:
                 self.running = False
                 transcript_path = None
@@ -318,7 +338,7 @@ class AudioSession:
                     transcript_path = result.get("transcript_path")
                     recording_path = result.get("recording_path")
                 await self._broadcast({"type": "status", "status": "stopped",
-                                       "reason": "capture process ended",
+                                       "reason": stderr_text or "capture process ended",
                                        "transcript_path": transcript_path,
                                        "recording_path": recording_path})
 

@@ -82,8 +82,13 @@ struct CaptureAppAudio {
             $0.applicationName.localizedCaseInsensitiveContains(name) ||
             $0.bundleIdentifier.localizedCaseInsensitiveContains(name)
         }) else {
+            let available = content.applications
+                .filter { $0.applicationName.count > 0 }
+                .map { "\($0.applicationName) (\($0.bundleIdentifier))" }
+                .sorted()
+            log("App '\(name)' not found. Available (\(available.count)): \(available.joined(separator: ", "))")
             throw NSError(domain: "CaptureAppAudio", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "App '\(name)' not found"])
+                          userInfo: [NSLocalizedDescriptionKey: "App '\(name)' not found — use 'list' to see available apps"])
         }
         let filter = SCContentFilter(display: content.displays[0], including: [app], exceptingWindows: [])
         return (app, filter)
