@@ -230,10 +230,10 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 - [x] AC-F11: F148 retrieval pattern + F167 A2A eval contract 同步扩展：navigation header 注入 spotlight 时把 `graph_resolve` / `list_recent` 也作为 retrieval pattern 识别（不只是 `search_evidence` + `get_thread_context`），否则 F167 A2A 链路质量 eval 仍只认 search 系，cold-start improvement 不会被计入；**范围锁定（砚砚 二次 review 约束）**：只改 retrieval pattern 识别 + eval contract，**不改 A2A routing 语义 / 球权规则 / mention 解析**——任何 routing 语义改动单独立项
 
 ### Phase G（Phase F Post-launch Quick Hotfix — G.1 + G.2 only，砚砚一审收窄）
-- [ ] AC-G1: 修 `graph_resolve` MCP wrapper API↔response shape mismatch (OQ-4)：`graph-tools.ts` 的 `data.status === 'graph'` 分支需 unwrap `data.graph.{nodes, edges, center, depth}`（而不是 `data.{nodes, edges, ...}`）传给 `formatGraph`。Type interface `GraphSubgraph` 同步对齐 API contract
-- [ ] AC-G2: 加 regression test：`graph_resolve("F186", depth=1)` 返回 graph status 时 MCP wrapper 正确 unwrap，不抛 error
-- [ ] AC-G3: rewrite `list_recent` tool description（`recent-tools.ts:23` 的 scope 字段）reflect 实际边界：「threads/memory scope maps to indexed discussion/session/memory/reflection **docs** (not raw thread messages or memory store)」。砚砚一审 P2: 不 oversell `SCOPE_KIND_MAP` 边界（只是 evidence_docs.kind filter，非跨 surface 全量索引）
-- [ ] AC-G4: F188 spec OQ-4 状态从"⬜ 待 F197 close 后开 F188 Phase F hotfix PR" → "✅ Phase G AC-G1/G2 实做完成"
+- [x] AC-G1: 修 `graph_resolve` MCP wrapper API↔response shape mismatch (OQ-4)：`graph-tools.ts` 的 `data.status === 'graph'` 分支需 unwrap `data.graph.{nodes, edges, center, depth}`（而不是 `data.{nodes, edges, ...}`）传给 `formatGraph`。Type interface `GraphSubgraph` 同步对齐 API contract
+- [x] AC-G2: 加 regression test：`graph_resolve("F186", depth=1)` 返回 graph status 时 MCP wrapper 正确 unwrap，不抛 error
+- [x] AC-G3: rewrite `list_recent` tool description（`recent-tools.ts:23` 的 scope 字段）reflect 实际边界：「threads/memory scope maps to indexed discussion/session/memory/reflection **docs** (not raw thread messages or memory store)」。砚砚一审 P2: 不 oversell `SCOPE_KIND_MAP` 边界（只是 evidence_docs.kind filter，非跨 surface 全量索引）
+- [x] AC-G4: F188 spec OQ-4 状态从"⬜ 待 F197 close 后开 F188 Phase F hotfix PR" → "✅ Phase G AC-G1/G2 实做完成"
 
 ### Phase H（list_recent Collection-Aware Selection — 单独 Design Gate）
 - [ ] AC-H1: Design Gate 收敛决策：API contract 形状 (保留 `{items}` / 改 `{items, groups}` / 替换 `{groups}`)，selection algorithm (per-collection cap / project-first bucket / 每组 top K)，MCP text / `deriveResultSummary` 同步策略，UI consumer (`RecentBrowsePanel`) 改动
@@ -313,7 +313,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | OQ-1 | Phase A rebuild 进度：按文件数百分比 vs 按 Phase（scan / chunk / embed）？ | ✅ 按 Phase 阶段边界（scanning→indexing→cleanup→embedding→done） |
 | OQ-2 | Phase B stale anchor 检测频率：rebuild 时顺带 vs 独立定时扫描？ | ⬜ 未定 |
 | OQ-3 | Phase E Pin 的 UI 入口：RecallFeed 内嵌 vs 独立 Pin 管理页？ | ⬜ 未定 |
-| OQ-4 | **上线后暴露 (Phase F follow-up, 2026-05-12 砚砚 dogfood 发现)**：`graph_resolve` MCP wrapper API↔response shape mismatch — `GraphQueryResolver.ts:257` 返回 `{ status:'graph', graph: {nodes,edges,...} }`（nested），但 `graph-tools.ts:60 GraphSubgraph` interface 期望 flat `{ status:'graph', nodes, edges, ... }`，导致 `g.edges.filter`/`for of visibleEdges` 抛 "Cannot read of undefined" / "is not iterable"。**修法**：MCP wrapper 解 `data.graph.{nodes,edges,center,depth}` 后再传给 formatGraph。**何时修**：F197 alpha 验收闭环后，连同 R1 占位 doc / list_recent collection-aware 需求一起做 F188 Phase F hotfix PR（铲屎官 2026-05-12 拍板「scope 聚拢成一个 PR」） | ⬜ 待 F197 close 后开 F188 Phase F hotfix PR |
+| OQ-4 | **上线后暴露 (Phase F follow-up, 2026-05-12 砚砚 dogfood 发现)**：`graph_resolve` MCP wrapper API↔response shape mismatch — `GraphQueryResolver.ts:257` 返回 `{ status:'graph', graph: {nodes,edges,...} }`（nested），但 `graph-tools.ts:60 GraphSubgraph` interface 期望 flat `{ status:'graph', nodes, edges, ... }`，导致 `g.edges.filter`/`for of visibleEdges` 抛 "Cannot read of undefined" / "is not iterable"。**修法**：MCP wrapper 解 `data.graph.{nodes,edges,center,depth}` 后再传给 formatGraph。 | ✅ Phase G AC-G1/G2 实做完成 (2026-05-12)：unwrap `data.graph` + GraphSubgraphResponse type 对齐 API contract + 测试 fixture 改 nested shape (RED→GREEN)。R1 占位 doc / list_recent collection-aware 拆到 Phase H 独立 Design Gate (砚砚一审 P1 收窄) |
 
 ## Key Decisions
 

@@ -57,12 +57,26 @@ interface GraphEdge {
   provenance?: string;
 }
 
-interface GraphSubgraph {
-  status: 'graph';
+/**
+ * F188 Phase G AC-G1: API returns nested `{ status, graph: { nodes, edges, ... } }`
+ * (GraphQueryResolver.ts:257), not flat. MCP wrapper must unwrap `data.graph`
+ * before passing to formatGraph — otherwise `data.edges` is undefined and the
+ * filter / for-of loop throws. Pre-Phase-G tests used flat mock — false green.
+ */
+interface GraphSubgraphInner {
   nodes: GraphNode[];
   edges: GraphEdge[];
   center?: string;
   depth: number;
+}
+
+interface GraphSubgraphResponse {
+  status: 'graph';
+  queryKind?: 'exact' | 'search';
+  query?: string;
+  resolvedAnchor?: string;
+  graph: GraphSubgraphInner;
+  note?: 'no_edges';
 }
 
 interface GraphCandidates {
@@ -87,7 +101,7 @@ interface GraphNoMatch {
   examples: string[];
 }
 
-type GraphResolveResponse = GraphSubgraph | GraphCandidates | GraphNoMatch;
+type GraphResolveResponse = GraphSubgraphResponse | GraphCandidates | GraphNoMatch;
 
 export async function handleGraphResolve(input: {
   query: string;
@@ -114,7 +128,10 @@ export async function handleGraphResolve(input: {
     const data = (await response.json()) as GraphResolveResponse;
 
     if (data.status === 'graph') {
-      return successResult(formatGraph(data, input.relations));
+      // F188 Phase G AC-G1: unwrap nested `data.graph` before formatGraph.
+      // GraphQueryResolver.ts:257 returns `{ status, graph: { nodes, edges, center, depth } }`,
+      // not flat. Pre-fix `formatGraph(data)` read `data.edges` → undefined → throw.
+      return successResult(formatGraph(data.graph, input.relations));
     }
     if (data.status === 'candidates') {
       return successResult(formatCandidates(data));
@@ -125,7 +142,7 @@ export async function handleGraphResolve(input: {
   }
 }
 
-function formatGraph(g: GraphSubgraph, relationsFilter?: readonly string[]): string {
+function formatGraph(g: GraphSubgraphInner, relationsFilter?: readonly string[]): string {
   const lines: string[] = [];
   const filterSet = relationsFilter && relationsFilter.length > 0 ? new Set(relationsFilter) : null;
   const visibleEdges = filterSet ? g.edges.filter((e) => filterSet.has(e.relation)) : g.edges;

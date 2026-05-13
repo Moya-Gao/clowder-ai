@@ -45,33 +45,40 @@ describe('MCP Graph Resolve Tool (AC-F1)', () => {
     assert.equal(parsed.searchParams.get('depth'), '2');
   });
 
-  test('renders graph subgraph response with cross-reference footer', async () => {
+  test('renders graph subgraph response with cross-reference footer (F188 Phase G AC-G2: real nested API shape)', async () => {
     const { handleGraphResolve } = await import('../dist/tools/graph-tools.js');
+    // F188 Phase G AC-G2: API returns nested { status, graph: { nodes, edges, ... } }
+    // (per GraphQueryResolver.ts:257). Pre-fix tests used flat shape — false green.
     globalThis.fetch = async () => ({
       ok: true,
       json: async () => ({
         status: 'graph',
-        nodes: [
-          {
-            anchor: 'F186',
-            collectionId: 'project:cafe',
-            sensitivity: 'internal',
-            kind: 'feature',
-            title: 'Library',
-            redacted: false,
-          },
-          {
-            anchor: 'F102',
-            collectionId: 'project:cafe',
-            sensitivity: 'internal',
-            kind: 'feature',
-            title: 'Memory',
-            redacted: false,
-          },
-        ],
-        edges: [{ from: 'F186', to: 'F102', relation: 'feature_ref' }],
-        center: 'F186',
-        depth: 1,
+        queryKind: 'exact',
+        query: 'F186',
+        resolvedAnchor: 'F186',
+        graph: {
+          nodes: [
+            {
+              anchor: 'F186',
+              collectionId: 'project:cafe',
+              sensitivity: 'internal',
+              kind: 'feature',
+              title: 'Library',
+              redacted: false,
+            },
+            {
+              anchor: 'F102',
+              collectionId: 'project:cafe',
+              sensitivity: 'internal',
+              kind: 'feature',
+              title: 'Memory',
+              redacted: false,
+            },
+          ],
+          edges: [{ from: 'F186', to: 'F102', relation: 'feature_ref' }],
+          center: 'F186',
+          depth: 1,
+        },
       }),
     });
 
@@ -83,44 +90,49 @@ describe('MCP Graph Resolve Tool (AC-F1)', () => {
     assert.ok(text.includes('7-tool memory family'), 'cross-reference footer present');
   });
 
-  test('filters edges by relations param (client-side)', async () => {
+  test('filters edges by relations param (client-side, nested API shape)', async () => {
     const { handleGraphResolve } = await import('../dist/tools/graph-tools.js');
     globalThis.fetch = async () => ({
       ok: true,
       json: async () => ({
         status: 'graph',
-        nodes: [
-          {
-            anchor: 'F186',
-            collectionId: 'project:cafe',
-            sensitivity: 'internal',
-            kind: 'feature',
-            title: 'Library',
-            redacted: false,
-          },
-          {
-            anchor: 'F102',
-            collectionId: 'project:cafe',
-            sensitivity: 'internal',
-            kind: 'feature',
-            title: 'Memory',
-            redacted: false,
-          },
-          {
-            anchor: 'F195',
-            collectionId: 'project:cafe',
-            sensitivity: 'internal',
-            kind: 'feature',
-            title: 'Other',
-            redacted: false,
-          },
-        ],
-        edges: [
-          { from: 'F186', to: 'F102', relation: 'feature_ref' },
-          { from: 'F186', to: 'F195', relation: 'wikilink' },
-        ],
-        center: 'F186',
-        depth: 1,
+        queryKind: 'exact',
+        query: 'F186',
+        resolvedAnchor: 'F186',
+        graph: {
+          nodes: [
+            {
+              anchor: 'F186',
+              collectionId: 'project:cafe',
+              sensitivity: 'internal',
+              kind: 'feature',
+              title: 'Library',
+              redacted: false,
+            },
+            {
+              anchor: 'F102',
+              collectionId: 'project:cafe',
+              sensitivity: 'internal',
+              kind: 'feature',
+              title: 'Memory',
+              redacted: false,
+            },
+            {
+              anchor: 'F195',
+              collectionId: 'project:cafe',
+              sensitivity: 'internal',
+              kind: 'feature',
+              title: 'Other',
+              redacted: false,
+            },
+          ],
+          edges: [
+            { from: 'F186', to: 'F102', relation: 'feature_ref' },
+            { from: 'F186', to: 'F195', relation: 'wikilink' },
+          ],
+          center: 'F186',
+          depth: 1,
+        },
       }),
     });
 
