@@ -468,6 +468,12 @@ Phase Z9 进 review 期间铲屎官 catch 一个相邻但独立子系统的问�
   - RED tests (4/4)：`offline-store-active-state.test.ts` — save/load roundtrip / unknown thread null / overwrite latest / idle snapshot
   - 范围：race window 缩短从"直到 /queue 返回"到"直到 IDB load"（典型 10-50ms vs 100ms+）。Server 仍是 authoritative source，IDB 仅作 first-paint 优化
 
+- [x] AC-Z29: A2A handoff live slot ownership 在 handoff 事件到达时立即迁移到下一只猫，且上一只猫已清 slot、下一只猫尚未 `invocation_created` 的窗口仍保留 cancel affordance。
+  - 诊断（2026-05-12 17:08 铲屎官）：`缅因猫 -> 布偶猫` handoff 后 UI 仍显示缅因猫 active；F5 hydrate 后变成布偶猫，说明后端最终真相正确，live slot migration 缺失
+  - R1 Fix：`a2a_handoff` live event 增加 `targetCatId`（route-serial 两个 handoff yield site），active thread 收到 handoff 时复用 `maybeMigrateSequentialInvocationOwnership` 立即迁移 active slot
+  - R2 Fix：guard 从 "slot 不存在就退出" 改成 "slot 已经是 nextCat 才退出"；当 previous-cat `done(isFinal=false)` 已清掉 slot 时，handoff 事件重建 nextCat placeholder slot，保证 cancel button 不消失
+  - RED tests：slot 存在迁移路径 + slot-cleared gap 重建路径；`pnpm gate` pass at `ac5ba1ce`
+
 - [x] AC-E1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失（并发 multi-cat handoff 也不裂） ✅ 铲屎官 2026-05-12 确认"用了一下午没发现啥问题"
 - [x] AC-E2: 后端 `/api/messages` 与 `/api/threads/:threadId/queue` 共用同一 canonical helper，单一规则源 ✅ 代码审计：`getThreadLiveInvocations` imported by `messages.ts:1466` + `queue.ts:143`
 - [x] AC-E3: 后续新增 read endpoint（admin observability / debug API）可直接复用 helper，不需要自拼三家 store ✅ helper 导出 async function + types，无 route 耦合
@@ -490,7 +496,8 @@ Phase Z9 进 review 期间铲屎官 catch 一个相邻但独立子系统的问�
 | R11 | "live state 残留 f5之后就正常了…opus46 变成两个了，而且你自己现在也是裂开的" (2026-05-10 18:12) | AC-Z19 | done/callback terminal path 清理 local-only provisional duplicate | [x] |
 | R12 | "F5 后变 1 个 这是同一次回复 thread id 好像你就得随便打开浏览器去找一个thread 看看 大概率都是裂开的？" (2026-05-10 19:55) | AC-Z20/Z21/Z22/Z23 | 统一 canonical projection contract — live 与 hydrate byte-identical | [x] (PR #1632 squash `49814778`) |
 | R13 | "我发现还是裂开的，🤔 好像修这个你们总修不全怎么办呢？ 有没有好办法？" (2026-05-11 06:51) + "布偶猫1+布偶猫3 合并 / 缅因猫2+缅因猫4 合并" (07:12) | AC-Z24/Z25/Z26/Z27 | backend canonical bubble identity stamp + diagnostic probe + multi-turn replay regression | [x] (PR #1637 squash `49972d42`) |
-| R14 | "f5字后一切消失了 猫猫状态什么都是空闲... 没cancel按钮" (2026-05-11 07:15) | AC-Z28 | F5 hydrate 后 active state / cancel button 与后端 `/queue` 真相源一致 | [x] (Phase Z10 待 merge) |
+| R14 | "f5字后一切消失了 猫猫状态什么都是空闲... 没cancel按钮" (2026-05-11 07:15) | AC-Z28 | F5 hydrate 后 active state / cancel button 与后端 `/queue` 真相源一致 | [x] (PR #1640 squash `3e221535`) |
+| R15 | "缅因猫 -> 布偶猫 但是这里还显示缅因猫正在跑... f5之后正常变成布偶猫" (2026-05-12 17:08) | AC-Z29 | A2A handoff live slot ownership 在 handoff 事件到达时迁移，slot-cleared gap 仍保留 cancel affordance | [x] (PR #1647 squash `72d460638`) |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -594,6 +601,7 @@ Phase Z9 进 review 期间铲屎官 catch 一个相邻但独立子系统的问�
 | 2026-05-11 08:30 | **Phase Z9 merged (PR #1637, squash `49972d42`)** — Fast iteration path (铲屎官 07:18 approved) — 跳过 cloud Codex review，本地砚砚 R1→R3 review converged 2 P1 fixed：R1 P1 (broadcast turn fallback to parent + 5+ live broadcast sites old conditional)；R2 P1 (parallel done yield re-queries deleted catInvocationId map → undefined → fallback to parent)。最终交付：AC-Z24 诊断 probe + AC-Z25 backend always-stamp turnInvocationId (9 persist + 6 live broadcast via stampVisibleTurn helper) + AC-Z26 frontend group key 已正确 (existing helper turn-priority) + AC-Z27 replay fixtures 4/4。Phase Z10 spec opened (AC-Z28 liveness identity invariant for R14)。 **Status: alpha re-test by 铲屎官待执行** → 守护猫 sign-off → close F194 or continue Z10。|
 | 2026-05-11 07:23~07:30 | **Phase Z9 实施完毕 (待 review)** — AC-Z24 诊断 probe (`buildProjectionDiagnostic`, 5/5 GREEN) + AC-Z25 backend always-stamp turnInvocationId 9 sites (route-serial 4 + route-parallel 3 + callbacks.ts 1 + messages.ts broadcast 1 + draft 1 + BoundSessionHistoryImporter 1) RED→GREEN 2/2 + 14/14 regression GREEN + AC-Z27 replay fixtures 4/4 GREEN (F1 multi-turn / F2 single-turn-multi-record / F3 legacy / F1+F3 mixed) + AC-Z26 deferred (frontend `getBubbleInvocationId` 已正确，telemetry follow-up) + AC-Z28 推迟 Phase Z10 (审计发现 `useChatHistory.ts:813` `fetchQueue` 已消费 `/queue`，铲屎官 R14 报告是 timing/race，需独立 runtime 诊断)。Branch `feat/f194-phase-z9` HEAD `9cb567468`。pending: 砚砚 local review + cloud Codex review。|
 | 2026-05-12 | **F194 正式 close** — 铲屎官 alpha 验收"用了一下午没发现啥问题"（2026-05-12 13:29 PST）。愿景守护对照表 by 宪宪/Opus-46（14/14 全 ✅）。反思胶囊 `docs/reflections/2026-05-12-f194-invocation-liveness-capsule.md`。Close gate 4/4 satisfied：单测+集成 / 愿景守护 / alpha 铲屎官确认 / 代码 review 砚砚全 PR APPROVE。Status: done。 |
+| 2026-05-12 18:05 | **Post-close handoff liveness hotfix merged (PR #1647, squash `72d460638`)** — 铲屎官 alpha catch R15：`缅因猫 -> 布偶猫` handoff 后 live active bar 仍显示缅因猫，F5 后 hydrate 变成布偶猫。根因：live `a2a_handoff` event 没有目标猫字段，且上一猫 `done(isFinal=false)` 已清 slot 时 handoff migration 早退，造成 handoff → `invocation_created` 间 cancel affordance 空窗。修复：backend `a2a_handoff` payload 增 `targetCatId`；frontend active handler 在 handoff pill 前迁移 active slot；slot-cleared gap 重建 nextCat placeholder slot。Opus-46 R1/R2 review APPROVE，`pnpm gate` pass at `ac5ba1ce`，fast path squash。 |
 
 ## Review Gate
 
