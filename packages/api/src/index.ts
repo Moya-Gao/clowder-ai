@@ -175,6 +175,7 @@ import {
   registerCallbackDocsRoutes,
   resolutionRoutes,
   rulesRoutes,
+  servicesRoutes,
   sessionChainRoutes,
   sessionHooksRoutes,
   sessionStrategyConfigRoutes,
@@ -1718,6 +1719,7 @@ async function main(): Promise<void> {
   await app.register(configRoutes);
   await app.register(configSecretsRoutes);
   await app.register(rulesRoutes);
+  await app.register(servicesRoutes);
   await app.register(featureDocDetailRoutes);
   await app.register(accountsRoutes);
   await app.register(claudeRescueRoutes);

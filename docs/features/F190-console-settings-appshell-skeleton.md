@@ -1,7 +1,7 @@
 ---
 feature_ids: [F190]
-related_features: [F056, F063, F116, F183, F184]
-topics: [console, settings, app-shell, community, inbound-pr, frontend]
+related_features: [F056, F063, F116, F183, F184, F195]
+topics: [console, settings, app-shell, community, inbound-pr, frontend, service-manifest]
 doc_kind: spec
 created: 2026-05-07
 community_pr: clowder-ai#645, clowder-ai#662, clowder-ai#669
@@ -18,6 +18,10 @@ community_pr: clowder-ai#645, clowder-ai#662, clowder-ai#669
 但 #645 当前把 Settings shell、Service Manifest、voice refAudio、MCP 管理、IM 配置、Mission Hub 改造、F183/F184 敏感聊天渲染链路、以及 feature 编号迁移混在一个大 PR 中。即使 CI 变绿，仍然不可作为 merge candidate。F190 的目标是把其中**用户可感知且方向正确的 Console/Settings skeleton**提炼成可 review、可回滚、不会覆盖家里 invariants 的第一片。
 
 ## What
+
+Architecture cell: action-plane
+Map delta: none — F190 只把现有 settings/action surfaces 收口到 Console；Service Manifest 第一刀是 read-only visibility surface，不建立新的 lifecycle owner。
+Why: service lifecycle 的 start/stop/install/uninstall 仍 deferred；本 slice 不新增外部动作执行器、资源句柄或并行 registry truth source。
 
 ### Phase A: Settings/AppShell Skeleton
 
@@ -43,17 +47,19 @@ Service Manifest、MCP install/manage 写接口、voice refAudio upload、IM con
 
 | Slice | Source | 家里状态 | 口径 |
 |-------|--------|----------|------|
-| AppShell / ActivityBar / Settings skeleton | clowder-ai#662 | 已合入 main；当前 staging 基于该 commit 继续 | Phase A |
-| Rules/SOP settings | clowder-ai#669 | staging manual-port | read-only |
-| Ops subtabs | clowder-ai#669 | staging manual-port | wrapper + existing panels |
-| Marketplace settings | clowder-ai#669 | staging manual-port | existing marketplace panel |
-| MCP settings entry | clowder-ai#669 | staging manual-port | read-only capability board filter；不接写接口 |
-| Skill preview modal | clowder-ai#669 | staging manual-port | read-only `SKILL.md` preview |
-| MCP install/manage write path hardening | clowder-ai#669 + home F146/F193 route | Phase C review branch `feat/f190-mcp-write-hardening` | owner-gated secret write hardening；不接 Plugins UI 写回 |
-| Plugins / Service Manifest / refAudio / secret write-back | clowder-ai#669 | deferred | F190 Phase C high-risk slices，需单独 security review + proof |
+| AppShell / ActivityBar / Settings skeleton | clowder-ai#662 | 已合入 main | Phase A |
+| Rules/SOP settings | clowder-ai#669 | 已合入 main via cat-cafe#1650 | read-only |
+| Ops subtabs | clowder-ai#669 | 已合入 main via cat-cafe#1650 | wrapper + existing panels |
+| Marketplace settings | clowder-ai#669 | 已合入 main via cat-cafe#1650 | existing marketplace panel |
+| MCP settings entry | clowder-ai#669 | 已合入 main via cat-cafe#1650 | read-only capability board filter；不接写接口 |
+| Skill preview modal | clowder-ai#669 | 已合入 main via cat-cafe#1650 | read-only `SKILL.md` preview |
+| MCP install/manage write path hardening | clowder-ai#669 + home F146/F193 route | 已合入 main via cat-cafe#1651 | owner-gated secret write hardening；不接 Plugins UI 写回 |
+| Service Manifest read-only status | clowder-ai#669 | Phase C branch `feat/f190-service-manifest` | auth-gated manifest/status/endpoints；不接 lifecycle writes |
+| Service lifecycle writes | clowder-ai#669 | deferred | start/stop/install/uninstall 需要独立 runtime source + security review |
+| refAudio / secret write-back / IM connector write | clowder-ai#669 | deferred | F190 Phase C high-risk slices，需单独 security review + proof |
 | Chat rendering / bubble behavior | clowder-ai#669 | not in F190 | F183/F184/F194 ownership；F190 不触碰 |
 
-Current staging branch: `intake/f190-followup-stage`.
+Current Phase C branch: `feat/f190-service-manifest`.
 
 ## Acceptance Criteria
 
@@ -75,6 +81,12 @@ Current staging branch: `intake/f190-followup-stage`.
 - [ ] AC-B1: 每个 settings section 独立 PR，单 PR 不超过一个业务域。
 - [ ] AC-B2: 每个 section PR 写清 `Source Behavior`、`Must Preserve Home Behavior`、`Proof`。
 - [ ] AC-B3: 涉及 high-risk 文件（route 注册、auth/callback、env registry、allowlist、service lifecycle）时必须走 manual-port review。
+
+### Phase C（High-risk Follow-up Systems）
+- [x] AC-C1: MCP write path hardening 第一刀只扩展既有 `capabilitiesMcpWriteRoutes`，不新增并行写路径。
+- [ ] AC-C2: Service Manifest 第一刀只提供 auth-gated read-only manifest/status/endpoints；不得暴露 start/stop/install/uninstall 写路由或脚本句柄。
+- [ ] AC-C3: refAudio upload 独立 slice，必须覆盖 path traversal、文件类型/大小限制与清理证明。
+- [ ] AC-C4: IM connector write 独立 slice，必须覆盖 connector auth/callback proof、secret redaction 与 public sync 泄漏防护。
 
 ## Dependencies
 
@@ -103,6 +115,8 @@ Current staging branch: `intake/f190-followup-stage`.
 | OQ-3 | Service Manifest 是否单独分配 feature 编号，还是作为 F190 Phase C follow-up？ | ✅ 折入 F190 Phase C，但必须独立 slice + review |
 | OQ-4 | MCP write hardening 是否要 fail-closed install/delete？ | ✅ 否。install/delete 保持开发环境兼容：配置 `DEFAULT_OWNER_USER_ID` 时强制 owner；secret env patch fail-closed |
 | OQ-5 | MCP env secret 如何删除？ | ⚠️ 当前 Phase C 第一刀只支持新增/覆盖，不支持单 key 删除；后续如需要另起安全 slice |
+| OQ-6 | Service Manifest 是否可以直接 port #669 的 lifecycle controls？ | ✅ 否。先接 read-only manifest/status；start/stop/install/uninstall 需要独立 runtime truth source 与 security review |
+| OQ-7 | Service Manifest read-only endpoint 是否可沿用 trusted Origin `default-user` fallback？ | ✅ 否。服务 inventory / endpoint 属内部状态面，必须要求真实 session identity |
 
 ## Key Decisions
 
@@ -114,6 +128,9 @@ Current staging branch: `intake/f190-followup-stage`.
 | KD-4 | #662 + #669 是当前社区路径；家里 intake 采用 staging branch manual-port，不直接 overlay #669 | #669 是大 follow-up，source 已验证但与家里 F183/F184/F194/F195 分叉，需要逐 slice replay source intent | 2026-05-12 |
 | KD-5 | Service Manifest / refAudio / secret write-back 是 F190 Phase C high-risk deferred surface；chat rendering 归 F183/F184/F194 ownership | 服务生命周期、音频文件、secret 写回必须独立 slice + security review + focused proof；气泡/read model 不是 F190 责任面，F190 不触碰。如未来正式立项独立 feature，可迁出到新 F 号，由 maintainer 评估 | 2026-05-12 |
 | KD-6 | MCP write path 第一刀只硬化现有 `capabilitiesMcpWriteRoutes`，不新增并行写路径 | 复用 F146/F193 既有 lock/read/write/audit/topology heal；先锁住 secret 丢失、placeholder 写入、owner gate，再单独做 UI 写回 | 2026-05-12 |
+| KD-7 | Service Manifest 第一刀只暴露服务清单、endpoint 与 health status，不 port #669 的 lifecycle scripts / process killing / install flows | 家里还没有单一 service lifecycle truth source；直接搬 spawn/SIGTERM/install script 会把运行态控制伪装成已验证平台能力 | 2026-05-13 |
+| KD-8 | Service Manifest 可显示 `audio-capture` health probe，但不接管 F195 meeting audio ownership | F190 只 own service status visibility surface；F195 仍 own meeting audio recording/transcript runtime 与 refAudio/upload 边界，F190 不顺手扩到 audio service 控制面 | 2026-05-13 |
+| KD-9 | Service Manifest routes 必须使用 `request.sessionUserId` 严格 session identity，不调用 `resolveUserId`/trusted Origin fallback | 可信 Origin header 可被非浏览器客户端伪造；read-only 服务清单仍暴露内部服务拓扑与 endpoint，不能以 `default-user` 兼容回退放行 | 2026-05-13 |
 
 ## Known Limitations
 

@@ -15,6 +15,7 @@ import { VoiceSettingsPanel } from '../VoiceSettingsPanel';
 import { MarketplaceContent } from './MarketplaceContent';
 import { McpManageContent } from './McpManageContent';
 import { OpsContent } from './OpsContent';
+import { PluginsContent } from './PluginsContent';
 import { RulesPromptsContent } from './RulesPromptsContent';
 import { SettingsPageHeader } from './SettingsPageHeader';
 import { SettingsPlaceholder } from './SettingsPlaceholder';
@@ -87,7 +88,7 @@ export function SettingsContent({ section }: SettingsContentProps) {
       case 'mcp':
         return <McpManageContent />;
       case 'plugins':
-        return <SettingsPlaceholder section={meta.label} description="此分区需要后续 manual-port 接入服务接口" />;
+        return <PluginsContent />;
       default:
         return <SettingsPlaceholder section={meta.label} description="此分区即将上线" />;
     }
