@@ -57,10 +57,10 @@ Service Manifest、MCP install/manage 写接口、voice refAudio upload、IM con
 | Service Manifest read-only status | clowder-ai#669 | 已合入 main via cat-cafe#1652 | auth-gated manifest/status/endpoints；不接 lifecycle writes |
 | Service lifecycle writes | clowder-ai#669 | deferred | start/stop/install/uninstall 需要独立 runtime source + security review |
 | refAudio upload | clowder-ai#669 + home F103/F195 boundary | 已合入 main via cat-cafe#1654 | auth-gated multipart upload + `/uploads` path resolver；不接 F195 meeting audio runtime |
-| IM connector write | clowder-ai#669 + home F132/F134/F136/F137 routes | Phase C branch `feat/f190-im-connector-write` | harden existing credential writes；不新增 callback URL / provider endpoint 写面 |
+| IM connector write | clowder-ai#669 + home F132/F134/F136/F137 routes | 已合入 main via cat-cafe#1655 | harden existing credential writes；不新增 callback URL / provider endpoint 写面 |
 | Chat rendering / bubble behavior | clowder-ai#669 | not in F190 | F183/F184/F194 ownership；F190 不触碰 |
 
-Current Phase C active slice: IM connector write. Remaining after this slice: none.
+Phase C complete: all four high-risk slices (MCP write / Service Manifest read-only / refAudio upload / IM connector write) merged to main. Remaining: AC-A7 alpha walkthrough.
 
 ## Acceptance Criteria
 
@@ -87,7 +87,7 @@ Current Phase C active slice: IM connector write. Remaining after this slice: no
 - [x] AC-C1: MCP write path hardening 第一刀只扩展既有 `capabilitiesMcpWriteRoutes`，不新增并行写路径。
 - [x] AC-C2: Service Manifest 第一刀只提供 auth-gated read-only manifest/status/endpoints；不得暴露 start/stop/install/uninstall 写路由或脚本句柄。
 - [x] AC-C3: refAudio upload 独立 slice，必须覆盖 path traversal、文件类型/大小限制与清理证明。
-- [ ] AC-C4: IM connector write 独立 slice，必须覆盖 connector auth/callback proof、secret redaction 与 public sync 泄漏防护。
+- [x] AC-C4: IM connector write 独立 slice，必须覆盖 connector auth/callback proof、secret redaction 与 public sync 泄漏防护。
 
 ## Dependencies
 
@@ -154,7 +154,8 @@ Current Phase C active slice: IM connector write. Remaining after this slice: no
 | 2026-05-12 | #662 已回流；#669 开始在 `intake/f190-followup-stage` 按 manual-port 逐 slice 吸收 |
 | 2026-05-13 | Phase C Service Manifest read-only merged (PR #1652) |
 | 2026-05-13 | Phase C refAudio upload merged (PR #1654) |
-| 2026-05-13 | Phase C IM connector write hardening implemented on `feat/f190-im-connector-write` |
+| 2026-05-13 | Phase C IM connector write hardening merged (PR #1655) — Phase C 4/4 complete |
+| 2026-05-13 | F190 愿景守护 PASS (Opus-46，同族非作者非 reviewer)：红区零触碰 verified、source intent 保留 |
 
 ## Review Gate
 
