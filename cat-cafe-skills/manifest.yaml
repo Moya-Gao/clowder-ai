@@ -755,6 +755,31 @@ skills:
     merged_from: null
     feature: "F120"
 
+  # ── Console 前端交付范式 ──
+  console-dev:
+    description: >
+      Console 前端交付范式：4 道门禁驱动的前端开发流程。
+      Use when: 新增前端能力、settings section 迁移、新增页面、重构布局、或 F190/Console 级前端流程需要 Product/Design/Implementation/Verification gate。
+      Not for: 小样式点改、纯后端 API、纯计算逻辑、独立 Design System token 定义。
+      Output: 通过 Product / Design-System / Implementation / Verification gate 的前端代码与证据。
+    triggers:
+      - "新增前端能力"
+      - "settings section 迁移"
+      - "console-dev"
+      - "前端范式"
+      - "重构布局"
+      - "新增页面"
+    not_for:
+      - "小样式点改"
+      - "纯后端 API"
+      - "纯计算逻辑"
+      - "独立 Design System token 定义"
+    output: "Frontend code + product/design/implementation/verification proof"
+    next: ["browser-preview", "quality-gate"]
+    sop_step: null
+    merged_from: null
+    feature: "F190"
+
   browser-automation:
     description: >
       浏览器工作流总路由：为外部网站浏览、登录态流程、浏览器自动化、证据采集选择合适后端。

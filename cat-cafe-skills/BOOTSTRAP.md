@@ -3,7 +3,7 @@
 <EXTREMELY_IMPORTANT>
 你已加载 Cat Café Skills。路由规则定义在 `cat-cafe-skills/manifest.yaml`。
 
-## Skills 列表（34 个）
+## Skills 列表（37 个）
 
 ### 开发流程链
 ```
@@ -32,6 +32,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `cross-cat-handoff` | 跨猫交接/传话（五件套） | — |
 | `deep-research` | 多源深度调研 | — |
 | `knowledge-engineering` | 外部项目文档重构/冷启动知识注入 | — |
+| `memory-navigation` | 项目记忆三入口路由（graph / recent / search） | — |
 | `writing-skills` | 写新 skill | — |
 | `pencil-design` | 设计 UI / .pen 文件 | — |
 | `rich-messaging` | 发语音/发图/发卡片/富媒体 | — |
@@ -44,7 +45,9 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `bootcamp-guide` | CVO 新手训练营引导 | — |
 | `cross-thread-sync` | 跨 thread 协同/通知/争用协调 | — |
 | `browser-preview` | 写前端/跑 dev server/看页面效果 | — |
+| `console-dev` | Console 前端开发的入口、设计体系、实现和验证门禁 | — |
 | `browser-automation` | 外部网站浏览/登录态流程/浏览器工具路由 | — |
+| `organize-threads` | 整理未分类 thread，建议合适标签 | — |
 | `workspace-navigator` | 铲屎官说"打开日志/看代码/打开设计图"等模糊指令 → 猫猫自己找路径 → API 导航 | — |
 | `ppt-forge` | 做 PPT/演示文稿/视觉审查（三猫流水线） | — |
 | `video-forge` | 做视频/showcase/教程视频/视频审查 | — |
@@ -60,6 +63,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `refs/review-request-template.md` | Review 请求信模板 |
 | `refs/vision-evidence-workflow.md` | 前端截图/录屏证据流程（B1） |
 | `refs/requirements-checklist-template.md` | 需求点 checklist 模板（B3） |
+| `refs/f190-frontend-lessons.md` | F190 Console intake 的前端案例与红区教训 |
 | `refs/mcp-callbacks.md` | HTTP callback API 参考 |
 | `refs/rich-blocks.md` | Rich block 创建指南 |
 | `refs/ppt-density-playbook.md` | PPT 密度填充手法（9 种手段 + 量化门禁） |

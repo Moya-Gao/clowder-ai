@@ -33,7 +33,11 @@ import { getProjectPaths, projectDisplayName } from './ThreadSidebar/thread-util
 type FilterSource = 'all' | 'cat-cafe' | 'external';
 type FilterLayer = 'all' | 'L1' | 'L2' | 'L3';
 
-export function HubCapabilityTab() {
+interface HubCapabilityTabProps {
+  onlyType?: 'mcp' | 'skill';
+}
+
+export function HubCapabilityTab({ onlyType }: HubCapabilityTabProps = {}) {
   const [items, setItems] = useState<CapabilityBoardItem[]>([]);
   const [catFamilies, setCatFamilies] = useState<CatFamily[]>([]);
   const [skillHealth, setSkillHealth] = useState<SkillHealthSummary | null>(null);
@@ -150,11 +154,11 @@ export function HubCapabilityTab() {
 
   // Filter + group
   const filtered = useMemo(() => {
-    let result = items;
+    let result = onlyType ? items.filter((i) => i.type === onlyType) : items;
     if (filterSource !== 'all') result = result.filter((i) => i.source === filterSource);
     if (filterLayer !== 'all') result = result.filter((i) => i.layer === filterLayer);
     return result;
-  }, [items, filterSource, filterLayer]);
+  }, [items, filterSource, filterLayer, onlyType]);
 
   const mcpItems = useMemo(() => filtered.filter((i) => i.type === 'mcp'), [filtered]);
   const externalSkills = useMemo(
@@ -222,7 +226,7 @@ export function HubCapabilityTab() {
       </div>
 
       {/* Skill health banner */}
-      {skillHealth && <SkillHealthBanner health={skillHealth} items={items} />}
+      {onlyType !== 'mcp' && skillHealth && <SkillHealthBanner health={skillHealth} items={items} />}
 
       {/* MCP Section */}
       <div className="space-y-2">
@@ -263,30 +267,34 @@ export function HubCapabilityTab() {
         />
       </div>
 
-      {/* Cat Cafe Skills by Category */}
-      {catCafeSkillGroups.map((group) => (
-        <CapabilitySection
-          key={group.category}
-          icon={<SectionIconSkill />}
-          title={group.category}
-          subtitle="Cat Café Skills"
-          items={group.items}
-          catFamilies={catFamilies}
-          toggling={toggling}
-          onToggle={handleToggle}
-        />
-      ))}
+      {onlyType !== 'mcp' && (
+        <>
+          {/* Cat Cafe Skills by Category */}
+          {catCafeSkillGroups.map((group) => (
+            <CapabilitySection
+              key={group.category}
+              icon={<SectionIconSkill />}
+              title={group.category}
+              subtitle="Cat Café Skills"
+              items={group.items}
+              catFamilies={catFamilies}
+              toggling={toggling}
+              onToggle={handleToggle}
+            />
+          ))}
 
-      {/* External Skills Section */}
-      <CapabilitySection
-        icon={<SectionIconExtension />}
-        title="Extensions"
-        subtitle="外部扩展 Skills"
-        items={externalSkills}
-        catFamilies={catFamilies}
-        toggling={toggling}
-        onToggle={handleToggle}
-      />
+          {/* External Skills Section */}
+          <CapabilitySection
+            icon={<SectionIconExtension />}
+            title="Extensions"
+            subtitle="外部扩展 Skills"
+            items={externalSkills}
+            catFamilies={catFamilies}
+            toggling={toggling}
+            onToggle={handleToggle}
+          />
+        </>
+      )}
 
       {filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -314,18 +322,20 @@ export function HubCapabilityTab() {
       {/* Summary */}
       <div className="pt-4 border-t border-slate-100/60 mt-4">
         <div className="flex items-center justify-between text-xs text-slate-400">
-          <span>共 {items.length} 项</span>
+          <span>共 {filtered.length} 项</span>
           <span className="flex gap-3">
             <span className="flex items-center gap-1.5">
-              <StatusDot status="connected" /> {items.filter((i) => i.connectionStatus === 'connected').length} 活跃
+              <StatusDot status="connected" /> {filtered.filter((i) => i.connectionStatus === 'connected').length} 活跃
             </span>
             <span>
               MCP:{' '}
-              <strong className="text-slate-500 font-medium">{items.filter((i) => i.type === 'mcp').length}</strong>
+              <strong className="text-slate-500 font-medium">{filtered.filter((i) => i.type === 'mcp').length}</strong>
             </span>
             <span>
               Skill:{' '}
-              <strong className="text-slate-500 font-medium">{items.filter((i) => i.type === 'skill').length}</strong>
+              <strong className="text-slate-500 font-medium">
+                {filtered.filter((i) => i.type === 'skill').length}
+              </strong>
             </span>
           </span>
         </div>

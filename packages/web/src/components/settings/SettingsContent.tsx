@@ -6,58 +6,22 @@ import { apiFetch } from '@/utils/api-client';
 import { BrakeSettingsPanel } from '../BrakeSettingsPanel';
 import { CatOverviewTab, type ConfigData } from '../config-viewer-tabs';
 import { HubAccountsTab } from '../HubAccountsTab';
-import { HubClaudeRescueSection } from '../HubClaudeRescueSection';
-import { HubCommandsTab } from '../HubCommandsTab';
 import { HubConnectorConfigTab } from '../HubConnectorConfigTab';
 import { HubEnvFilesTab } from '../HubEnvFilesTab';
 import { HubGovernanceTab } from '../HubGovernanceTab';
-import { HubLeaderboardTab } from '../HubLeaderboardTab';
-import { HubObservabilityTab } from '../HubObservabilityTab';
-import { HubRoutingPolicyTab } from '../HubRoutingPolicyTab';
 import { HubSkillsTab } from '../HubSkillsTab';
-import { HubToolUsageTab } from '../HubToolUsageTab';
 import { PushSettingsPanel } from '../PushSettingsPanel';
 import { VoiceSettingsPanel } from '../VoiceSettingsPanel';
+import { MarketplaceContent } from './MarketplaceContent';
+import { McpManageContent } from './McpManageContent';
+import { OpsContent } from './OpsContent';
+import { RulesPromptsContent } from './RulesPromptsContent';
 import { SettingsPageHeader } from './SettingsPageHeader';
 import { SettingsPlaceholder } from './SettingsPlaceholder';
 import { SETTINGS_SECTIONS } from './settings-nav-config';
 
 interface SettingsContentProps {
   section: string;
-}
-
-const OPS_TABS = [
-  { id: 'observability', label: '观测', render: () => <HubObservabilityTab /> },
-  { id: 'tool-usage', label: '工具', render: () => <HubToolUsageTab /> },
-  { id: 'commands', label: '命令', render: () => <HubCommandsTab /> },
-  { id: 'governance', label: '治理', render: () => <HubGovernanceTab /> },
-  { id: 'routing', label: '路由', render: () => <HubRoutingPolicyTab /> },
-  { id: 'leaderboard', label: '排行', render: () => <HubLeaderboardTab /> },
-  { id: 'rescue', label: '救援', render: () => <HubClaudeRescueSection /> },
-] as const;
-
-function OpsPanel() {
-  const [active, setActive] = useState<(typeof OPS_TABS)[number]['id']>('observability');
-  const tab = OPS_TABS.find((item) => item.id === active) ?? OPS_TABS[0];
-
-  return (
-    <div className="space-y-4">
-      <div className="console-segmented flex-wrap" role="tablist" aria-label="运维监控分区">
-        {OPS_TABS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className="console-segmented-button"
-            data-active={item.id === active ? 'true' : 'false'}
-            onClick={() => setActive(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-      {tab.render()}
-    </div>
-  );
 }
 
 function MembersPanel() {
@@ -90,6 +54,8 @@ function MembersPanel() {
 }
 
 export function SettingsContent({ section }: SettingsContentProps) {
+  if (section === 'marketplace') return <MarketplaceContent />;
+
   const meta = SETTINGS_SECTIONS.find((item) => item.id === section) ?? SETTINGS_SECTIONS[0];
 
   const content = (() => {
@@ -109,17 +75,18 @@ export function SettingsContent({ section }: SettingsContentProps) {
       case 'notify':
         return <PushSettingsPanel />;
       case 'ops':
-        return <OpsPanel />;
+        return <OpsContent />;
       case 'rules':
         return (
           <div className="space-y-5">
+            <RulesPromptsContent />
             <HubGovernanceTab />
             <BrakeSettingsPanel />
           </div>
         );
       case 'mcp':
+        return <McpManageContent />;
       case 'plugins':
-      case 'marketplace':
         return <SettingsPlaceholder section={meta.label} description="此分区需要后续 manual-port 接入服务接口" />;
       default:
         return <SettingsPlaceholder section={meta.label} description="此分区即将上线" />;

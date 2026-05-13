@@ -5,6 +5,7 @@ import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { HubIcon } from './hub-icons';
 import { McpInstallForm } from './McpInstallForm';
+import { SkillPreviewModal } from './settings/SkillPreviewModal';
 
 interface SkillMount {
   claude: boolean;
@@ -67,12 +68,14 @@ function CategoryGroup({
   installMcpId,
   onInstallMcp,
   onInstallDone,
+  onPreviewSkill,
 }: {
   category: string;
   skills: SkillEntry[];
   installMcpId: string | null;
   onInstallMcp: (mcpId: string) => void;
   onInstallDone: () => void;
+  onPreviewSkill: (skill: SkillEntry) => void;
 }) {
   return (
     <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
@@ -94,9 +97,16 @@ function CategoryGroup({
             {skills.map((skill) => (
               <tr key={skill.name} className="border-t border-cafe-subtle">
                 <td className="py-1.5 pr-3">
-                  <code className="font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded text-[11px]">
-                    {skill.name}
-                  </code>
+                  <button
+                    type="button"
+                    onClick={() => onPreviewSkill(skill)}
+                    className="rounded text-left transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                    title="预览 SKILL.md"
+                  >
+                    <code className="font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded text-[11px]">
+                      {skill.name}
+                    </code>
+                  </button>
                 </td>
                 <td className="py-1.5 pr-3 text-cafe-secondary max-w-[260px] truncate">{skill.trigger}</td>
                 <td className="py-1.5 pr-3">
@@ -250,6 +260,7 @@ export function HubSkillsTab() {
   const [syncing, setSyncing] = useState(false);
   const [resolving, setResolving] = useState<string | null>(null);
   const [installTarget, setInstallTarget] = useState<{ mcpId: string; category: string } | null>(null);
+  const [previewSkill, setPreviewSkill] = useState<SkillEntry | null>(null);
   const addToast = useToastStore((s) => s.addToast);
 
   const fetchSkills = useCallback(async () => {
@@ -356,8 +367,20 @@ export function HubSkillsTab() {
             setInstallTarget(null);
             fetchSkills();
           }}
+          onPreviewSkill={setPreviewSkill}
         />
       ))}
+
+      {previewSkill && (
+        <SkillPreviewModal
+          skillId={previewSkill.name}
+          skillName={previewSkill.name}
+          description={previewSkill.trigger}
+          triggers={previewSkill.trigger ? [previewSkill.trigger] : []}
+          category={previewSkill.category}
+          onClose={() => setPreviewSkill(null)}
+        />
+      )}
 
       <div className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
         <div className="flex items-center gap-4 text-xs">
