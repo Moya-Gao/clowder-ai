@@ -11,6 +11,7 @@ sources:
   - "F195 live app transcript: huawei-seminar-2026-05-12-deepeye"
   - "现场截图：现有挑战 -> 核心思路"
   - "现场截图：AOrchestra / on-demand sub-agent 4-tuple"
+  - "现场截图：Data Agent 与通用 LLM Agent 的差异"
   - "铲屎官现场观察与 Cat Café 内部讨论"
   - "Anthropic Engineering: Building effective agents, 2024-12-19, https://www.anthropic.com/engineering/building-effective-agents"
 related:
@@ -419,3 +420,137 @@ DeepEye / AOrchestra 的方向有两个强点：
 一句话：
 
 > DeepEye 把数据智能体往 workflow engine 推；AOrchestra 把 workflow 里的 worker 往动态 sub-agent 推。Cat Café 的判断是：下一层还要继续往上走，把 workflow、dynamic executor、skill、audit、cross-agent protocol 叠成一个能处理开放现实的 Agentic Work OS。
+
+## 16. Data Agent 这页图真正说明了什么
+
+后续截图把 Data Agent 和通用 LLM Agent 的差异讲得更具体：
+
+> Data Agent 不是一次 SQL 查询，也不是一次 RAG 检索，而是一个长程、多步、数据密集型、多工具、多模态、会犯错、需要复盘的执行过程。
+
+示例问题：
+
+> 帮我分析上季度各区域业务表现，并找出利润率下降的原因。
+
+它需要同时处理：
+
+- `database.sqlite`：结构化销售数据；
+- `regional_report.pdf`：区域经营报告；
+- `product_catalog.json`：产品元数据；
+- `quarterly_targets.png`：图片形式的目标图表；
+- `business_handbook.docx`：业务规则和指标定义。
+
+同时它还不知道：
+
+- PDF 哪些页被解析成了哪些表；
+- 图表里的数值是否可信；
+- `net_profit` 的业务定义来自哪里；
+- 上一次是否把 `region_id` 和 `sales_region` 错误 join 过；
+- 哪条 SQL 生成了最终结论；
+- 哪个中间步骤导致了 silent failure；
+- 人类修改过哪一步；
+- 成功经验能否沉淀成下一次可复用的 SOP。
+
+这页图的重点不是"要有一个数据智能体"，而是：
+
+> 真实任务里的 Agent 必须能跨多源证据、工具执行、错误复盘、业务定义和经验沉淀工作。
+
+这些能力不只出现在数据场景里。
+
+## 17. 铲屎官的新判断：数据智能体可能只是基础设施问题的领域包装
+
+铲屎官现场提出了一个更狠的判断：
+
+> 按这页图列出的困难，好像未必需要一个独立的"数据智能体"物种。更可能是家里的基础设施要做好；一个处理得很好的 Agentic Work OS，本来就应该能处理好数据。
+
+这个判断我认为成立，但要加边界。
+
+### 17.1 为什么成立
+
+因为 DeepEye 这页图列出的很多困难，本质上是 **通用现实闭环问题**：
+
+| DeepEye 里的问题 | 通用化后的问题 |
+|---|---|
+| 多源数据 | 多源证据 |
+| PDF / 图片 / DB / docx | 多模态输入 |
+| SQL 生成最终结论 | 工具调用链溯源 |
+| join 错误 | 中间状态可验证 |
+| silent failure | 失败探测与复盘 |
+| 人类修改哪一步 | human-in-the-loop 审计 |
+| 成功经验变 SOP | Eval / Skill / Workflow 进化 |
+
+如果一个 Agentic Work OS 已经把这些基础设施做好，那么"数据智能体"并不是一个完全独立的物种，而是这个基础设施进入数据世界的一组 adapter 和 domain skills。
+
+这和我们家的真实问题很像：
+
+- 问"气泡为什么老裂"，不是单纯前端问题，也不是单纯后端问题，而是要串起 UI 状态、后端事件、Redis、日志、代码 diff、用户操作路径；
+- 问"铲屎官是不是说过沉迷过什么兴趣"，不是普通聊天记忆，而是个人偏好、时间线、对话证据、隐私边界和召回协议；
+- 问"上次一起去看病是什么时候"，就涉及个人事件记忆、日程/聊天/可能的图片或文件、权限和敏感数据治理。
+
+这些都不是"数据智能体"独有的。它们都是 **多源现实证据如何被 Agent 正确使用** 的问题。
+
+### 17.2 边界在哪里
+
+但这不等于领域 Agent 没价值。
+
+更准确的说法是：
+
+```text
+不需要一个完全独立的 Data Agent 物种；
+需要一套通用 Agentic Work OS
+  + 数据世界 adapter
+  + 数据领域 skills
+  + 数据权限 / eval / provenance 约束。
+```
+
+也就是说，"数据智能体"更像一种 deployment profile：
+
+```text
+Data Agent
+  = Agentic Work OS
+  + data connectors
+  + schema / metric semantic layer
+  + SQL / BI / visualization tools
+  + data-specific eval
+  + data governance policy
+```
+
+它不应该和通用 Agent 分家，而应该是通用工作系统在数据世界里的 specialization。
+
+## 18. 我们当前没做好的地方：多模态
+
+这页图也暴露了 Cat Café 当前的一个真实缺口：**多模态基础设施还不够好**。
+
+我们现在对代码、markdown、git、thread、feature doc、ADR、lesson 的处理很强；但对下面这些还不够系统：
+
+- 图片里的图表值；
+- PDF 表格抽取后的 provenance；
+- 截图和 UI 状态的语义索引；
+- 音频会议的可靠转写和说话人归属；
+- 医疗/票据/表格这类敏感文件的权限和审计；
+- 多模态证据如何进入 memory / eval / replay。
+
+所以如果把 DeepEye 的价值翻译成 Cat Café roadmap，不是"我们也要做一个 Data Agent"，而是：
+
+> 我们要补齐多模态证据层，让 Agentic Work OS 能可靠处理图片、PDF、表格、音频、数据库这些现实材料。
+
+这比"做一个数据智能体"更底层，也更符合我们的位置。
+
+## 19. 更新后的定位
+
+结合这页图，我们对 Data Agent 的定位需要再收窄：
+
+1. **Data Agent 不是独立物种。**  
+   它是 Agentic Work OS 在数据世界的领域配置。
+
+2. **DeepEye 的问题不是只属于数据。**  
+   多源、多模态、长程、工具链、silent failure、人类修改、SOP 沉淀，都是通用 Agent 工作系统的问题。
+
+3. **Cat Café 的机会不是复制 DeepEye。**  
+   我们更应该抽象出一层通用现实证据基础设施，再让数据、代码、研究、个人记忆都共享这层能力。
+
+4. **我们必须补多模态。**  
+   没有多模态证据层，"气泡为什么裂"、"图表里的数字是否可信"、"上次看病是什么时候"这类真实问题都会断。
+
+一句话：
+
+> Data Agent 看起来是一个领域 Agent，但它暴露的其实是 Agentic Work OS 的底层能力缺口：多源现实证据、工具链溯源、可复盘执行、多模态记忆和经验沉淀。做强这层之后，数据智能体只是其中一个 profile。
