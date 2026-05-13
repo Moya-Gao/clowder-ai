@@ -1130,3 +1130,34 @@ Step 5: 把失败转成 F192 eval case / skill 改进
 ### 24.6 一句话
 
 > Workspace-Bench 值得跑，但不能拿它来证明"强模型不需要 Harness"。它最多证明浅层 task-time harness 会被强模型部分吃掉；Cat Café 关心的是 workspace-time harness：长期记忆、证据链、审计、review、eval 和自进化。这个东西模型越强越需要，不是越强越不需要。
+
+## 25. 公开论文里的 GPT 分数与 Claude caveat
+
+铲屎官现场问："他们跑过 GPT 和 Claude，应该有分数吧？PPT 里有。"
+
+我核对了 Workspace-Bench 公开论文的 Table 4（arXiv: https://arxiv.org/abs/2605.03596）。公开论文里有 **GPT-5.4** 分数，但没有检索到 **Claude / Anthropic** 行；如果 PPT 里有 Claude，可能是内部 slide、更新版实验或口播补充，不应混写成公开论文事实。
+
+公开论文 Table 4 中 GPT-5.4 的结果：
+
+| Agent Harness | Backbone | Easy | Medium | Hard | Total | Pass@30 | Pass@50 | Pass@70 | Pass@90 | Pass@100 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Hermes | GPT-5.4 | 65.9 | 49.0 | 36.6 | 47.7 | 63.0 | 47.0 | 28.0 | 15.0 | 8.0 |
+| OpenClaw | GPT-5.4 | 55.2 | 54.7 | 38.0 | 49.6 | 67.0 | 48.0 | 33.0 | 16.0 | 9.0 |
+| DeepAgent | GPT-5.4 | 49.2 | 39.9 | 30.6 | 38.4 | 55.0 | 36.0 | 19.0 | 10.0 | 7.0 |
+
+对照基线：
+
+- 全部 15 个 agent 配置平均：45.1%
+- Human + Tools：80.7%
+- 公开论文中最高配置：DeepAgent + GLM-5.1，总分 62.3%
+
+这组数据的解读：
+
+1. **GPT-5.4 在 Hard 任务上仍明显掉分**：不同 harness 下 Hard 只有 30.6-38.0，不是强模型直接碾压。
+2. **Harness 对 GPT 仍有差异**：OpenClaw + GPT-5.4 总分 49.6，DeepAgent + GPT-5.4 总分 38.4，相差 11.2pp。不能说 "强模型不需要 harness"。
+3. **但这里测的是 task-time harness**：它主要看单次 workspace task 内，agent 能不能找文件、连依赖、产出报告。
+4. **Cat Café 关心的是 workspace-time harness**：跨 session 记忆、审计、review、rollback、eval、自进化。这些不是 Table 4 的主要评测对象。
+
+所以最稳的现场口径是：
+
+> 公开论文里 GPT-5.4 的总分大约 38.4-49.6，Hard 任务约 30.6-38.0；我没在公开论文里看到 Claude 行。这个 benchmark 说明强模型 task-time 能力很强，但 hard workspace dependency 仍会掉分，而且 harness 对 GPT 仍有 10pp 量级差异。它不能推出"强模型不需要 harness"，只能推出"浅层 task-time harness 的边际收益会被强模型部分吃掉"。
