@@ -7,7 +7,7 @@
  * GET /api/capabilities/audit — audit log reader
  */
 
-import type { McpInstallRequest } from '@cat-cafe/shared';
+import type { CapabilityEntry, McpInstallRequest } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { appendAuditEntry, readAuditLog } from '../config/capabilities/capability-audit.js';
 import { buildInstallPreview } from '../config/capabilities/capability-install.js';
@@ -22,6 +22,115 @@ import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { resolveMainRepoPath } from '../utils/skill-mount.js';
 import { type McpProbeResult, probeMcpCapability } from './mcp-probe.js';
+
+const REDACTED_PLACEHOLDER = '••••••';
+const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+interface RouteError {
+  status: number;
+  error: string;
+}
+
+interface McpEnvPatchRequest {
+  env?: Record<string, string>;
+  projectPath?: string;
+}
+
+function getConfiguredOwnerId(): string | null {
+  const ownerId = process.env.DEFAULT_OWNER_USER_ID?.trim();
+  return ownerId ? ownerId : null;
+}
+
+function requireOwnerIfConfigured(userId: string): RouteError | null {
+  const ownerId = getConfiguredOwnerId();
+  if (!ownerId) return null;
+  if (userId === ownerId) return null;
+  return { status: 403, error: 'MCP write operations can only be modified by the configured owner' };
+}
+
+function requireExplicitOwner(userId: string): RouteError | null {
+  const ownerId = getConfiguredOwnerId();
+  if (!ownerId) {
+    return { status: 403, error: 'MCP secret writes require DEFAULT_OWNER_USER_ID to be configured' };
+  }
+  if (userId !== ownerId) {
+    return { status: 403, error: 'MCP secret writes can only be modified by the configured owner' };
+  }
+  return null;
+}
+
+function containsRedactedPlaceholder(value: unknown): boolean {
+  if (typeof value === 'string') return value.includes(REDACTED_PLACEHOLDER);
+  if (Array.isArray(value)) return value.some((item) => containsRedactedPlaceholder(item));
+  if (value && typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).some((item) => containsRedactedPlaceholder(item));
+  }
+  return false;
+}
+
+function rejectRedactedInstallPayload(body: McpInstallRequest): RouteError | null {
+  const sensitiveFields = [body.command, body.args, body.url, body.env, body.headers];
+  if (sensitiveFields.some((field) => containsRedactedPlaceholder(field))) {
+    return { status: 400, error: 'Refusing to write redacted MCP placeholder values' };
+  }
+  return null;
+}
+
+function validateEnvPatchBody(body: McpEnvPatchRequest | undefined): RouteError | null {
+  const env = body ? body.env : undefined;
+  if (!env) {
+    return { status: 400, error: 'Required: env (Record<string, string>)' };
+  }
+  if (typeof env !== 'object') {
+    return { status: 400, error: 'Required: env (Record<string, string>)' };
+  }
+  if (Array.isArray(env)) {
+    return { status: 400, error: 'Required: env (Record<string, string>)' };
+  }
+  for (const [key, value] of Object.entries(env)) {
+    if (!ENV_KEY_RE.test(key)) {
+      return { status: 400, error: `Invalid env key "${key}"` };
+    }
+    if (typeof value !== 'string') {
+      return { status: 400, error: `Invalid env value for "${key}"` };
+    }
+    if (containsRedactedPlaceholder(value)) {
+      return { status: 400, error: 'Refusing to write redacted MCP placeholder values' };
+    }
+  }
+  return null;
+}
+
+function mergeSecretRecord(
+  existing: Record<string, string> | undefined,
+  incoming: Record<string, string> | undefined,
+): Record<string, string> | undefined {
+  if (!existing && !incoming) return undefined;
+  const merged = existing ? { ...existing } : {};
+  if (incoming) Object.assign(merged, incoming);
+  return merged;
+}
+
+function mergeExternalMcpEntry(existing: CapabilityEntry, entry: CapabilityEntry): CapabilityEntry {
+  const entryServer = entry.mcpServer;
+  if (!entryServer) return { ...existing, ...entry, overrides: existing.overrides };
+
+  const baseServer = existing.mcpServer ? { ...existing.mcpServer } : {};
+  const mergedServer: NonNullable<CapabilityEntry['mcpServer']> = { ...baseServer, ...entryServer };
+  const env = mergeSecretRecord(existing.mcpServer?.env, entryServer.env);
+  const headers = mergeSecretRecord(existing.mcpServer?.headers, entryServer.headers);
+  if (env) mergedServer.env = env;
+  else delete mergedServer.env;
+  if (headers) mergedServer.headers = headers;
+  else delete mergedServer.headers;
+
+  return {
+    ...existing,
+    ...entry,
+    mcpServer: mergedServer,
+    overrides: existing.overrides,
+  };
+}
 
 export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
   getProjectRoot: () => string;
@@ -69,11 +178,21 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
       reply.status(401);
       return { error: 'Identity required (session cookie or X-Cat-Cafe-User header)' };
     }
+    const ownerError = requireOwnerIfConfigured(userId);
+    if (ownerError) {
+      reply.status(ownerError.status);
+      return { error: ownerError.error };
+    }
 
     const body = request.body as McpInstallRequest | undefined;
     if (!body?.id || typeof body.id !== 'string') {
       reply.status(400);
       return { error: 'Required: id (string)' };
+    }
+    const redactedError = rejectRedactedInstallPayload(body);
+    if (redactedError) {
+      reply.status(redactedError.status);
+      return { error: redactedError.error };
     }
 
     let projectRoot = getProjectRoot();
@@ -109,6 +228,7 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
         return { error: err instanceof Error ? err.message : 'Invalid install request' };
       }
       const entry = preview.entry;
+      let afterEntry = entry;
 
       if (existingIdx >= 0) {
         const existing = config.capabilities[existingIdx];
@@ -118,11 +238,8 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
             error: `Cannot overwrite managed MCP "${body.id}" (source=${existing.source}). Only external MCPs can be installed over.`,
           };
         }
-        config.capabilities[existingIdx] = {
-          ...existing,
-          ...entry,
-          overrides: existing.overrides,
-        };
+        afterEntry = mergeExternalMcpEntry(existing, entry);
+        config.capabilities[existingIdx] = afterEntry;
       } else {
         config.capabilities.push(entry);
       }
@@ -136,13 +253,13 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
         action: before ? 'update' : 'install',
         capabilityId: body.id,
         before,
-        after: entry,
+        after: afterEntry,
       });
 
       let probeResult: McpProbeResult | null = null;
       if (preview.willProbe) {
         try {
-          probeResult = await probeMcpCapability(entry, { projectRoot });
+          probeResult = await probeMcpCapability(afterEntry, { projectRoot });
         } catch {
           // probe failure is non-fatal
         }
@@ -150,7 +267,7 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
 
       return {
         ok: true,
-        capability: entry,
+        capability: afterEntry,
         probe: probeResult ? { connectionStatus: probeResult.connectionStatus, tools: probeResult.tools } : null,
       };
     });
@@ -162,6 +279,11 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
     if (!userId) {
       reply.status(401);
       return { error: 'Identity required (session cookie or X-Cat-Cafe-User header)' };
+    }
+    const ownerError = requireOwnerIfConfigured(userId);
+    if (ownerError) {
+      reply.status(ownerError.status);
+      return { error: ownerError.error };
     }
 
     const { id } = request.params as { id: string };
@@ -229,6 +351,97 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
       });
 
       return { ok: true, mode };
+    });
+  });
+
+  // ── PATCH /api/capabilities/mcp/:id/env — owner-only secret env update ──
+  app.patch('/api/capabilities/mcp/:id/env', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (session cookie or X-Cat-Cafe-User header)' };
+    }
+    const ownerError = requireExplicitOwner(userId);
+    if (ownerError) {
+      reply.status(ownerError.status);
+      return { error: ownerError.error };
+    }
+
+    const { id } = request.params as { id: string };
+    const body = request.body as McpEnvPatchRequest | undefined;
+    const bodyError = validateEnvPatchBody(body);
+    if (bodyError) {
+      reply.status(bodyError.status);
+      return { error: bodyError.error };
+    }
+    const envPatch = body?.env;
+    if (!envPatch) {
+      reply.status(400);
+      return { error: 'Required: env (Record<string, string>)' };
+    }
+
+    let projectRoot = getProjectRoot();
+    if (body?.projectPath) {
+      const validated = await validateProjectPath(body.projectPath);
+      if (!validated) {
+        reply.status(400);
+        return { error: 'Invalid project path' };
+      }
+      projectRoot = validated;
+    }
+
+    return withCapabilityLock(projectRoot, async () => {
+      const config = await readCapabilitiesConfig(projectRoot);
+      if (!config) {
+        reply.status(404);
+        return { error: 'capabilities.json not found' };
+      }
+
+      const catCafeRepoRoot = await resolveMainRepoPath();
+      const nextConfig = healCatCafeMcpTopology(config, { catCafeRepoRoot }).config;
+      const idx = nextConfig.capabilities.findIndex((c) => c.id === id && c.type === 'mcp');
+      if (idx === -1) {
+        reply.status(404);
+        return { error: `MCP "${id}" not found` };
+      }
+
+      const cap = nextConfig.capabilities[idx];
+      if (cap.source !== 'external') {
+        reply.status(403);
+        return {
+          error: `Cannot patch managed MCP "${id}" (source=${cap.source}). Only external MCPs can be updated.`,
+        };
+      }
+      if (!cap.mcpServer) {
+        reply.status(400);
+        return { error: `MCP "${id}" has no server configuration` };
+      }
+
+      const before = structuredClone(cap);
+      const mergedEnv = cap.mcpServer.env ? { ...cap.mcpServer.env } : {};
+      Object.assign(mergedEnv, envPatch);
+      const after: CapabilityEntry = {
+        ...cap,
+        mcpServer: {
+          ...cap.mcpServer,
+          env: mergedEnv,
+        },
+      };
+      nextConfig.capabilities[idx] = after;
+
+      await writeCapabilitiesConfig(projectRoot, nextConfig);
+      await generateCliConfigs(nextConfig, getCliConfigPaths(projectRoot));
+
+      await appendAuditEntry(projectRoot, {
+        timestamp: new Date().toISOString(),
+        userId,
+        action: 'update',
+        capabilityId: id,
+        before,
+        after,
+      });
+
+      return { ok: true, capability: after };
     });
   });
 

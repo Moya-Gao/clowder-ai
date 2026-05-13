@@ -49,6 +49,7 @@ Service Manifest、MCP install/manage 写接口、voice refAudio upload、IM con
 | Marketplace settings | clowder-ai#669 | staging manual-port | existing marketplace panel |
 | MCP settings entry | clowder-ai#669 | staging manual-port | read-only capability board filter；不接写接口 |
 | Skill preview modal | clowder-ai#669 | staging manual-port | read-only `SKILL.md` preview |
+| MCP install/manage write path hardening | clowder-ai#669 + home F146/F193 route | Phase C review branch `feat/f190-mcp-write-hardening` | owner-gated secret write hardening；不接 Plugins UI 写回 |
 | Plugins / Service Manifest / refAudio / secret write-back | clowder-ai#669 | deferred | F190 Phase C high-risk slices，需单独 security review + proof |
 | Chat rendering / bubble behavior | clowder-ai#669 | not in F190 | F183/F184/F194 ownership；F190 不触碰 |
 
@@ -100,6 +101,8 @@ Current staging branch: `intake/f190-followup-stage`.
 | OQ-1 | Phase A skeleton 是否由社区贡献者重提，还是 maintainer 手工 port？ | ✅ 社区重提 #662，家里已 intake |
 | OQ-2 | Settings section 迁移顺序如何排？ | ✅ 先 read-only/包装型 section，再高风险写接口 |
 | OQ-3 | Service Manifest 是否单独分配 feature 编号，还是作为 F190 Phase C follow-up？ | ✅ 折入 F190 Phase C，但必须独立 slice + review |
+| OQ-4 | MCP write hardening 是否要 fail-closed install/delete？ | ✅ 否。install/delete 保持开发环境兼容：配置 `DEFAULT_OWNER_USER_ID` 时强制 owner；secret env patch fail-closed |
+| OQ-5 | MCP env secret 如何删除？ | ⚠️ 当前 Phase C 第一刀只支持新增/覆盖，不支持单 key 删除；后续如需要另起安全 slice |
 
 ## Key Decisions
 
@@ -110,6 +113,14 @@ Current staging branch: `intake/f190-followup-stage`.
 | KD-3 | Phase A denylist 硬卡 ChatMessage / ChatContainer / chatStore / thread route | 这些路径受 F183/F184 保护，Console shell 不应触碰聊天渲染/mount invariants | 2026-05-07 |
 | KD-4 | #662 + #669 是当前社区路径；家里 intake 采用 staging branch manual-port，不直接 overlay #669 | #669 是大 follow-up，source 已验证但与家里 F183/F184/F194/F195 分叉，需要逐 slice replay source intent | 2026-05-12 |
 | KD-5 | Service Manifest / refAudio / secret write-back 是 F190 Phase C high-risk deferred surface；chat rendering 归 F183/F184/F194 ownership | 服务生命周期、音频文件、secret 写回必须独立 slice + security review + focused proof；气泡/read model 不是 F190 责任面，F190 不触碰。如未来正式立项独立 feature，可迁出到新 F 号，由 maintainer 评估 | 2026-05-12 |
+| KD-6 | MCP write path 第一刀只硬化现有 `capabilitiesMcpWriteRoutes`，不新增并行写路径 | 复用 F146/F193 既有 lock/read/write/audit/topology heal；先锁住 secret 丢失、placeholder 写入、owner gate，再单独做 UI 写回 | 2026-05-12 |
+
+## Known Limitations
+
+| # | 限制 | 当前处置 | 后续候选 |
+|---|------|----------|----------|
+| KL-1 | MCP env patch / install update 只新增或覆盖 env/header secret，不删除单个 env key | 保护现有 secret 不被 UI omit 清空；删除需求暂不混入本安全 slice | 独立设计 `DELETE /api/capabilities/mcp/:id/env/:key` 或 PATCH `null` 删除语义 |
+| KL-2 | install/delete 是 owner-configured enforcement；未配置 `DEFAULT_OWNER_USER_ID` 的多用户/LAN 部署仍沿用既有身份 gate | 保持 localhost/dev 兼容，secret env patch 已 fail-closed | UI/ops docs 明确多用户部署必须配置 `DEFAULT_OWNER_USER_ID`；可加 telemetry warning |
 
 ## Timeline
 
