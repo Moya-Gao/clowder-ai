@@ -17,6 +17,8 @@ sources:
 - "周煊赫上海交通大学教师主页：https://www.cs.sjtu.edu.cn/jiaoshiml/zhouxuanhe.html"
 - "周煊赫个人主页：https://db.zhouxh.store/"
 - "现场截图：索引表化与列式布局 / CrossCache 与 NexusFS / Aura + Lance"
+- "Workspace-Bench 项目页：https://workspace-bench.github.io"
+- "Workspace-Bench arXiv：https://arxiv.org/abs/2605.03596"
 related:
 - "deepeye-luo-yuyu-research-2026-05-12.md"
 ---
@@ -826,3 +828,176 @@ Cat Café Reality Evidence Layer
 ### 22.2 一句话
 
 > 他们在做"让数据能被高效捞回来"的基座；我们真正需要的是"捞回来以后，猫猫能顺藤摸瓜追到原始现实"的证据层。前者解决规模，后者解决信任。企业 Agent 需要两者叠加。
+
+## 23. Workspace-Bench：把 Agent 丢进新公司能不能立刻上手
+
+后续现场讲到了 **Workspace-Bench**。截图里的 URL 是：
+
+```text
+https://workspace-bench.github.io
+```
+
+公开论文是 **Workspace-Bench 1.0: Benchmarking AI Agents on Workspace Tasks with Large-Scale File Dependencies**，arXiv `2605.03596`。arXiv v3 摘要里写到：它构造了 5 类 worker profiles、74 种文件类型、20,476 个文件（最大 20GB）、388 个任务，每个任务有自己的 file dependency graph，并用 7,399 个 rubrics 评估跨文件检索、上下文推理和自适应决策。论文报告当前 agent 仍明显落后于人类，best agent 约 60%，human 80.7%，平均约 45.1%。
+
+### 23.1 现场图的核心：Workspace Learning
+
+第一张图的标题是：
+
+> Workspace Learning: The ability to connect tasks with relevant data and understand lineage and logical relationships across numerous files.
+
+它把 agent 在真实 workspace 里的能力分成 5 级：
+
+| Level | 名称 | 含义 |
+|---|---|---|
+| 0 | Data Insensitive Execution | 不理解数据，只执行表层任务 |
+| 1 | User-Specified File Execution | 用户指定文件后，agent 能处理 |
+| 2 | File-to-File Dependency Reasoning | agent 能理解文件之间的依赖 |
+| 3 | Task-to-File Dependency Discovery | agent 能从任务自己发现相关文件 |
+| 4 | Workspace-Native Self-Evolution | agent 能基于 workspace 事件和反馈更新自己的工作方式 |
+
+底下的阶段也很清楚：
+
+```text
+From storage to readable artifacts
+-> From files to controlled access
+-> From access to association
+-> From association to discovery
+-> From discovery to evolution
+```
+
+这其实非常接近我们前面说的"顺藤摸瓜"：
+
+- 先能看到文件；
+- 再能受控访问；
+- 再能理解文件和文件之间的关系；
+- 再能从任务反推该找哪些文件；
+- 最后把成功/失败经验沉淀成 workspace-native self-evolution。
+
+### 23.2 为什么这个 benchmark 比普通 productivity benchmark 更有意思
+
+它不是问：
+
+```text
+Agent 会不会写一个总结？
+Agent 会不会查一个表？
+Agent 会不会调用一个工具？
+```
+
+而是问：
+
+```text
+把 Agent 丢进一个新公司的文件堆里，
+它能不能像新人一样：
+  - 看懂目录结构；
+  - 找到和任务相关的文件；
+  - 理解文件之间的 lineage；
+  - 追踪历史版本；
+  - 判断哪些文件提供约束，哪些文件提供输出；
+  - 用这些关系完成真实工作任务。
+```
+
+这比"一次 SQL / 一次 RAG / 一次网页任务"更接近真实生产力。
+
+### 23.3 第二张图：Workspace-Bench 的任务结构
+
+第二张图把 Workspace-Bench 设计成三部分：
+
+1. **真实工作区**
+   有复杂目录、多模态文件、历史版本和噪声。角色包括 backend manager、product manager、logistics manager、operations manager、researcher 等。
+
+2. **依赖推理**
+   不只是读文件，而是要处理：
+   - task-to-file；
+   - file-to-file；
+   - semantic / contextual / derived / lineage / embed 等关系；
+   - 版本谱系追踪。
+
+3. **生产力评测**
+   能力项包括：
+   - workspace comprehension；
+   - heterogeneous file understanding；
+   - task-supporting file search；
+   - result-providing file aggregation；
+   - inter-file content relation capturing；
+   - inter-file lineage relation tracing。
+
+这比很多旧 benchmark 更好的一点是：它把 **文件依赖图** 和 **任务完成轨迹** 作为评测对象，而不是只看最终答案像不像。
+
+### 23.4 和 Cat Café 的直接关系
+
+这个 benchmark 的方向和 Cat Café 的真实工作高度重叠。
+
+Cat Café 现在做的事情，本质上就是：
+
+```text
+workspace-native agent work
+```
+
+我们的 workspace 不是一个静态文件夹，而是：
+
+- `docs/` 里的 feature spec / ADR / discussion；
+- `packages/` 里的代码；
+- git commit / PR / review；
+- thread message；
+- evidence.sqlite；
+- audio transcript；
+- skills / workflows / eval；
+- 铲屎官的现场观察和即时改方向。
+
+所以如果用 Workspace-Bench 的语言翻译 Cat Café：
+
+| Workspace-Bench 能力 | Cat Café 里的对应物 |
+|---|---|
+| task-to-file discovery | 猫猫接任务后搜 evidence / grep / git log 找真相源 |
+| file-to-file reasoning | feature doc -> ADR -> code -> test -> review 的依赖推理 |
+| lineage tracing | commit / PR / ADR sunset / feature lifecycle |
+| heterogeneous file understanding | markdown / code / screenshot / audio transcript / PDF / web |
+| result-providing aggregation | 会议纪要、teardown、final speech、review report |
+| workspace-native self-evolution | F153 tracking / F192 eval / skills 更新 / lessons learned |
+
+也就是说，这个 benchmark 名义上是评估外部 agent，但它也给了我们一个外部词汇来描述 Cat Café：
+
+> Cat Café 是一个真实运行中的 workspace learning system，不只是 chatroom。
+
+### 23.5 我们对它的 push back
+
+这个方向有价值，但仍然有几个问题要看论文细节：
+
+1. **真实 workspace 是否真真实？**
+   如果 20,476 个文件里很多是合成文件，它测的是 workspace-like synthetic world，不是长期运行 workspace。
+
+2. **依赖图是谁标的？**
+   如果 file dependency graph 是离线标注，benchmark 可以评测，但现实系统还要解决"依赖图如何持续更新"。
+
+3. **是否测 human-in-the-loop？**
+   真实工作里，任务边界会变、人会修正、agent 会发现新问题。benchmark 如果是单次任务，仍然会低估 open environment。
+
+4. **是否测治理？**
+   文件找对了，不等于能安全使用。还需要权限、provenance、freshness、conflict、rollback。
+
+5. **是否测长期自进化？**
+   Level 4 写的是 self-evolution，但如果评测只是一次性任务，很难真正证明 agent 会在 workspace 里持续变好。
+
+### 23.6 当前判断
+
+Workspace-Bench 是今天听到的 benchmark 里最接近我们关心方向的一个。
+
+它比普通 benchmark 更好，因为它终于不只看 final answer，而是看 agent 是否能理解：
+
+- workspace；
+- files；
+- dependency；
+- lineage；
+- task-to-file relation；
+- file-to-file relation。
+
+但它仍然只是 benchmark。Cat Café 更进一步的地方在于：
+
+```text
+benchmark 测一次能不能做；
+Cat Café 每天跑真实工作，并把失败变成下一轮系统进化。
+```
+
+一句话：
+
+> Workspace-Bench 问的是"把 Agent 丢进新公司文件堆里，它能不能上手干活"；Cat Café 真正在做的是"Agent 在一个长期演化的公司里，能不能越干越会干"。
