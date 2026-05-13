@@ -16,9 +16,10 @@
  */
 
 import { homedir } from 'node:os';
-import { dirname, isAbsolute, join } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { VoiceConfig } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
+import { getDefaultUploadDir } from '../utils/upload-paths.js';
 import { resolveBreedId } from './breed-resolver.js';
 import { getAllCatIdsFromConfig, loadCatConfig } from './cat-config-loader.js';
 
@@ -46,6 +47,35 @@ function characterVoiceBaseDir(): string {
   if (process.env.CHARACTER_VOICE_DIR) return process.env.CHARACTER_VOICE_DIR;
   if (process.env.GENSHIN_VOICE_DIR) return dirname(process.env.GENSHIN_VOICE_DIR);
   return join(homedir(), 'projects/relay-station/GPT-SoVITS/character-models');
+}
+
+export function isWithinBase(base: string, target: string): boolean {
+  const rel = relative(base, target);
+  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+}
+
+function hasParentTraversalSegment(value: string): boolean {
+  return value.split(/[\\/]+/).some((segment) => segment === '..');
+}
+
+export function resolveRefAudioPath(refAudio: string, characterBaseDir: string): string {
+  if (refAudio.startsWith('/uploads/')) {
+    const uploadDir = resolve(getDefaultUploadDir(process.env.UPLOAD_DIR));
+    const uploadKey = refAudio.slice('/uploads/'.length);
+    if (hasParentTraversalSegment(uploadKey)) return join(uploadDir, 'invalid-ref');
+    const resolved = resolve(uploadDir, uploadKey);
+    return isWithinBase(uploadDir, resolved) ? resolved : join(uploadDir, 'invalid-ref');
+  }
+
+  if (isAbsolute(refAudio)) {
+    const baseDir = resolve(characterBaseDir);
+    const resolved = resolve(refAudio);
+    return isWithinBase(baseDir, resolved) ? resolved : join(baseDir, 'invalid-ref');
+  }
+
+  const baseDir = resolve(characterBaseDir);
+  const resolved = resolve(baseDir, refAudio);
+  return isWithinBase(baseDir, resolved) ? resolved : join(baseDir, 'invalid-ref');
 }
 
 /**
@@ -127,8 +157,7 @@ function loadVoicesFromJson(): Record<string, VoiceConfig> {
         if (variant.voiceConfig) {
           const catId = variant.catId ?? breed.catId;
           const vc = variant.voiceConfig;
-          cachedJsonVoices[catId] =
-            vc.refAudio && !isAbsolute(vc.refAudio) ? { ...vc, refAudio: join(baseDir, vc.refAudio) } : vc;
+          cachedJsonVoices[catId] = vc.refAudio ? { ...vc, refAudio: resolveRefAudioPath(vc.refAudio, baseDir) } : vc;
         }
       }
     }

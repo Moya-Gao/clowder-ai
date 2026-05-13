@@ -6,7 +6,7 @@ import { apiFetch } from '@/utils/api-client';
 import type { ConfigData } from './config-viewer-types';
 import type { TemplateCard } from './first-run-quest/TemplateStep';
 import type { AccountsResponse, ProfileItem } from './hub-accounts.types';
-import { buildEditorLoadingNote, uploadAvatarAsset } from './hub-cat-editor.client';
+import { buildEditorLoadingNote, uploadAvatarAsset, uploadRefAudioAsset } from './hub-cat-editor.client';
 import {
   autoSlug,
   buildCatPayload,
@@ -353,6 +353,14 @@ export function HubCatEditor({ cat, draft, existingCats, open, onClose, onSaved 
     }
   };
 
+  const handleRefAudioUpload = async (file: File) => {
+    setError(null);
+    await uploadRefAudioAsset(file).then(
+      (result) => patchForm({ voiceRefAudio: result.url }),
+      (err) => setError(err instanceof Error ? err.message : '参考音频上传失败'),
+    );
+  };
+
   const handleSave = async () => {
     const errors: Record<string, boolean> = {};
     const errorMessages: string[] = [];
@@ -626,6 +634,7 @@ export function HubCatEditor({ cat, draft, existingCats, open, onClose, onSaved 
             avatarUploading={uploadingAvatar}
             onChange={patchForm}
             onAvatarUpload={handleAvatarUpload}
+            onRefAudioUpload={handleRefAudioUpload}
           />
           <AccountSection
             form={form}

@@ -169,6 +169,7 @@ import {
   pushRoutes,
   queueRoutes,
   quotaRoutes,
+  refAudioUploadRoutes,
   reflectRoutes,
   refluxRoutes,
   registerCallbackAuthDebugRoute,
@@ -1946,6 +1947,7 @@ async function main(): Promise<void> {
   // Serve uploaded files (images)
   const uploadDir = getDefaultUploadDir(process.env.UPLOAD_DIR);
   await app.register(uploadsRoutes, { uploadDir });
+  await app.register(refAudioUploadRoutes);
 
   // F088: Serve downloaded connector media files
   const connectorMediaDir = process.env.CONNECTOR_MEDIA_DIR ?? './data/connector-media';

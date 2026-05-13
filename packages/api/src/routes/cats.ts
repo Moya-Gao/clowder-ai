@@ -64,6 +64,16 @@ const catIdSchema = z
   .max(64)
   .regex(/^[a-z][a-z0-9_-]*$/, 'catId must use lowercase letters, numbers, "_" or "-" and start with a letter');
 
+const voiceConfigSchema = z.object({
+  voice: z.string().min(1),
+  langCode: z.string().min(1),
+  speed: z.number().positive().optional(),
+  refAudio: z.string().min(1).optional(),
+  refText: z.string().min(1).optional(),
+  instruct: z.string().min(1).optional(),
+  temperature: z.number().min(0).max(2).optional(),
+});
+
 const baseCatSchema = z.object({
   catId: catIdSchema,
   name: z.string().min(1),
@@ -84,6 +94,7 @@ const baseCatSchema = z.object({
   caution: z.string().nullable().optional(),
   strengths: z.array(z.string().min(1)).optional(),
   sessionChain: z.boolean().optional(),
+  voiceConfig: voiceConfigSchema.optional(),
 });
 
 /** Strip trailing slashes from model names — prevents "MiniMax-M2.7/" artifacts.
@@ -134,6 +145,7 @@ const updateCatSchema = z.object({
   commandArgs: z.array(z.string().min(1)).optional(),
   cliConfigArgs: z.array(z.string().min(1)).optional(),
   provider: z.string().min(1).nullable().optional(),
+  voiceConfig: voiceConfigSchema.nullable().optional(),
 });
 
 type UpdateCatRequestBody = z.infer<typeof updateCatSchema>;
@@ -342,6 +354,7 @@ async function toCatResponse(
     caution: cat.caution,
     strengths: cat.strengths,
     sessionChain: cat.sessionChain,
+    voiceConfig: cat.voiceConfig,
     commandArgs: cat.commandArgs,
     cliConfigArgs: cat.cliConfigArgs,
     provider: cat.provider,
@@ -514,6 +527,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
             ...(body.commandArgs ? { defaultArgs: body.commandArgs } : {}),
           },
           commandArgs: body.commandArgs,
+          ...(body.voiceConfig ? { voiceConfig: body.voiceConfig } : {}),
         });
       } else {
         const resolvedCli = buildResolvedCliConfig(body.clientId, defaultCliForClient(body.clientId), body.cli);
@@ -545,6 +559,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
           cli: resolvedCli,
           ...(body.cliConfigArgs ? { cliConfigArgs: body.cliConfigArgs } : {}),
           ...(body.provider ? { provider: body.provider } : {}),
+          ...(body.voiceConfig ? { voiceConfig: body.voiceConfig } : {}),
         });
       }
     } catch (err) {
@@ -707,6 +722,11 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
           ? body.provider === null
             ? { provider: null }
             : { provider: body.provider }
+          : {}),
+        ...(body.voiceConfig !== undefined
+          ? body.voiceConfig === null
+            ? { voiceConfig: null }
+            : { voiceConfig: body.voiceConfig }
           : {}),
       });
       const resolved = await reconcileCatRegistry(projectRoot, managedIdsBefore);

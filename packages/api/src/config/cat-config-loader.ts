@@ -441,6 +441,7 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
         ...(variant.cli != null ? { cli: variant.cli } : {}),
         ...(variant.provider != null ? { provider: variant.provider } : {}),
         ...(variant.contextBudget != null ? { contextBudget: variant.contextBudget } : {}),
+        ...(variant.voiceConfig != null ? { voiceConfig: variant.voiceConfig } : {}),
         roleDescription: variant.roleDescription ?? breed.roleDescription,
         personality: variant.personality ?? defaultVariant?.personality ?? '',
         breedId: breed.id,

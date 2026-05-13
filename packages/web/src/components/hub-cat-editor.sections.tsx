@@ -14,6 +14,7 @@ import {
   splitStrengthTags,
 } from './hub-cat-editor.model';
 import { SectionCard, SelectField, TextField } from './hub-cat-editor-fields';
+import { VoiceConfigSection } from './hub-cat-editor-voice';
 import { TagEditor } from './hub-tag-editor';
 
 type FormPatch = Partial<HubCatEditorFormState>;
@@ -36,6 +37,7 @@ export function IdentitySection({
   avatarUploading,
   onChange,
   onAvatarUpload,
+  onRefAudioUpload,
 }: {
   cat?: CatData | null;
   form: HubCatEditorFormState;
@@ -43,6 +45,7 @@ export function IdentitySection({
   avatarUploading: boolean;
   onChange: (patch: FormPatch) => void;
   onAvatarUpload: (file: File) => Promise<void>;
+  onRefAudioUpload: (file: File) => Promise<void>;
 }) {
   const strengthTags = splitStrengthTags(form.strengths);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -200,10 +203,7 @@ export function IdentitySection({
         />
       </div>
 
-      <div className="rounded-[10px] border border-dashed border-[#DCC9B8] bg-[#F7F3F0] px-3 py-2">
-        <p className="text-[13px] font-semibold text-[#8A776B]">▸ Voice Config (点击展开)</p>
-        <p className="mt-0.5 text-[11px] leading-4 text-[#B59A88]">需对接和启用语音功能后才支持配置</p>
-      </div>
+      <VoiceConfigSection form={form} onChange={onChange} onRefAudioUpload={onRefAudioUpload} />
     </SectionCard>
   );
 }

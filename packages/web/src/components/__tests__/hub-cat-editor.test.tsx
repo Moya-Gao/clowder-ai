@@ -28,6 +28,16 @@ import {
 
 const mockApiFetch = vi.mocked(apiFetch);
 
+const emptyVoiceFields = {
+  voiceVoice: '',
+  voiceLangCode: '',
+  voiceSpeed: '',
+  voiceRefAudio: '',
+  voiceRefText: '',
+  voiceInstruct: '',
+  voiceTemperature: '',
+};
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -124,6 +134,7 @@ describe('HubCatEditor', () => {
       maxContextTokens: '',
       maxMessages: '',
       maxContentLengthPerMsg: '',
+      ...emptyVoiceFields,
     };
     const existingCat = {
       id: 'runtime-codex',
@@ -170,6 +181,7 @@ describe('HubCatEditor', () => {
       maxContextTokens: '',
       maxMessages: '',
       maxContentLengthPerMsg: '',
+      ...emptyVoiceFields,
     };
     const existingCat = {
       id: 'runtime-codex',
@@ -215,6 +227,7 @@ describe('HubCatEditor', () => {
       maxContextTokens: '',
       maxMessages: '',
       maxContentLengthPerMsg: '',
+      ...emptyVoiceFields,
     };
 
     const payload = buildCatPayload(form, null) as Record<string, unknown>;
@@ -254,6 +267,7 @@ describe('HubCatEditor', () => {
       maxContextTokens: '',
       maxMessages: '',
       maxContentLengthPerMsg: '',
+      ...emptyVoiceFields,
     } as HubCatEditorFormState & { cliEffort: string };
 
     const payload = buildCatPayload(form, null) as Record<string, unknown>;
@@ -421,6 +435,99 @@ describe('HubCatEditor', () => {
     expect(payload.accountRef).toBe('codex-sponsor');
     expect(payload.defaultModel).toBe('gpt-5.4-mini');
     expect(payload.mentionPatterns).toContain('@gpt-5.4-mini');
+    expect(onSaved).toHaveBeenCalledTimes(1);
+  });
+
+  it('uploads ref audio and saves the returned /uploads path in voiceConfig', async () => {
+    const onSaved = vi.fn(() => Promise.resolve());
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/accounts') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: '/tmp/project',
+            activeProfileId: 'codex-sponsor',
+            providers: [
+              {
+                id: 'codex-sponsor',
+                provider: 'codex-sponsor',
+                displayName: 'Codex Sponsor',
+                name: 'Codex Sponsor',
+                authType: 'api_key',
+                protocol: 'openai',
+                mode: 'api_key',
+                models: ['gpt-5.4-mini'],
+                hasApiKey: true,
+                createdAt: '2026-03-18T00:00:00.000Z',
+                updatedAt: '2026-03-18T00:00:00.000Z',
+              },
+            ],
+          }),
+        );
+      }
+      if (path === '/api/uploads/ref-audio') {
+        expect(init?.method).toBe('POST');
+        expect(init?.body).toBeInstanceOf(FormData);
+        return Promise.resolve(jsonResponse({ url: '/uploads/ref-audio-test.wav' }));
+      }
+      if (path === '/api/cats') {
+        return Promise.resolve(jsonResponse({ cat: { id: 'runtime-spark' } }, 201));
+      }
+      if (path === '/api/cat-templates') {
+        return Promise.resolve(jsonResponse({ templates: [] }));
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(HubCatEditor, {
+          open: true,
+          draft: { clientId: 'openai', accountRef: 'codex-sponsor', defaultModel: 'gpt-5.4-mini' },
+          onClose: vi.fn(),
+          onSaved,
+        }),
+      );
+    });
+    await flushEffects();
+
+    await changeField(queryField(container, 'input[aria-label="Name"]'), '火花猫');
+    await changeField(queryField(container, 'input[aria-label="Description"]'), '快速执行');
+    await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@runtime-spark');
+
+    const voiceToggle = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Voice Config'),
+    );
+    await act(async () => {
+      voiceToggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    await changeField(queryField(container, 'select[aria-label="Voice Lang Code"]'), 'zh', 'change');
+    const audioInput = queryField<HTMLInputElement>(container, 'input[type="file"][accept*="audio"]');
+    const file = new File([new Uint8Array([0x52, 0x49, 0x46, 0x46])], 'voice.wav', { type: 'audio/wav' });
+    Object.defineProperty(audioInput, 'files', {
+      configurable: true,
+      value: [file],
+    });
+    await act(async () => {
+      audioInput.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const postCall = mockApiFetch.mock.calls.find(([path]) => path === '/api/cats');
+    expect(postCall).toBeTruthy();
+    const payload = JSON.parse(String(postCall?.[1]?.body));
+    expect(payload.voiceConfig).toMatchObject({
+      voice: 'zm_yunjian',
+      langCode: 'zh',
+      refAudio: '/uploads/ref-audio-test.wav',
+    });
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
 
@@ -2029,7 +2136,8 @@ describe('HubCatEditor', () => {
     expect(container.textContent).toContain('擅长领域');
     expect(container.textContent).toContain('注意事项');
     expect(container.textContent).toContain('Strengths');
-    expect(container.textContent).toContain('▸ Voice Config (点击展开)');
+    expect(container.textContent).toContain('▸ Voice Config');
+    expect(container.textContent).toContain('展开后可配置 TTS clone 参考音频和文本。');
     expect(container.textContent).toContain('别名与 @ 路由');
     expect(container.textContent).toContain('认证与模型');
     expect(container.textContent).toContain('Session Chain');

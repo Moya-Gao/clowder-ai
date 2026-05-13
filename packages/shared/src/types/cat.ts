@@ -6,6 +6,7 @@
 import type { CliConfig, ContextBudget } from './cat-breed.js';
 import type { CatId, SessionId } from './ids.js';
 import { createCatId } from './ids.js';
+import type { VoiceConfig } from './tts.js';
 
 /**
  * CLI client identity used to invoke a cat (e.g. 'anthropic' → claude CLI, 'openai' → codex CLI).
@@ -81,6 +82,8 @@ export interface CatConfig {
   readonly strengths?: readonly string[];
   /** F127 Screen 3: whether session chain is enabled for this member */
   readonly sessionChain?: boolean;
+  /** F103/F190: Per-cat TTS voice configuration, including optional refAudio. */
+  readonly voiceConfig?: VoiceConfig;
   /** F127: Extra CLI --config key=value pairs passed to the client at invocation time. */
   readonly cliConfigArgs?: readonly string[];
   /** clowder-ai#340 P5: Model provider name for api_key routing (renamed from `ocProviderName`).

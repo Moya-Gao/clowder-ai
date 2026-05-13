@@ -56,10 +56,11 @@ Service Manifest、MCP install/manage 写接口、voice refAudio upload、IM con
 | MCP install/manage write path hardening | clowder-ai#669 + home F146/F193 route | 已合入 main via cat-cafe#1651 | owner-gated secret write hardening；不接 Plugins UI 写回 |
 | Service Manifest read-only status | clowder-ai#669 | 已合入 main via cat-cafe#1652 | auth-gated manifest/status/endpoints；不接 lifecycle writes |
 | Service lifecycle writes | clowder-ai#669 | deferred | start/stop/install/uninstall 需要独立 runtime source + security review |
-| refAudio / secret write-back / IM connector write | clowder-ai#669 | deferred | F190 Phase C high-risk slices，需单独 security review + proof |
+| refAudio upload | clowder-ai#669 + home F103/F195 boundary | Phase C branch `feat/f190-ref-audio-upload` | auth-gated multipart upload + `/uploads` path resolver；不接 F195 meeting audio runtime |
+| IM connector write | clowder-ai#669 | deferred | connector auth/callback proof、secret redaction 与 public sync 泄漏防护 |
 | Chat rendering / bubble behavior | clowder-ai#669 | not in F190 | F183/F184/F194 ownership；F190 不触碰 |
 
-Current Phase C remaining slices: refAudio upload / IM connector write.
+Current Phase C active slice: refAudio upload. Remaining after this slice: IM connector write.
 
 ## Acceptance Criteria
 
@@ -131,6 +132,8 @@ Current Phase C remaining slices: refAudio upload / IM connector write.
 | KD-7 | Service Manifest 第一刀只暴露服务清单、endpoint 与 health status，不 port #669 的 lifecycle scripts / process killing / install flows | 家里还没有单一 service lifecycle truth source；直接搬 spawn/SIGTERM/install script 会把运行态控制伪装成已验证平台能力 | 2026-05-13 |
 | KD-8 | Service Manifest 可显示 `audio-capture` health probe，但不接管 F195 meeting audio ownership | F190 只 own service status visibility surface；F195 仍 own meeting audio recording/transcript runtime 与 refAudio/upload 边界，F190 不顺手扩到 audio service 控制面 | 2026-05-13 |
 | KD-9 | Service Manifest routes 必须使用 `request.sessionUserId` 严格 session identity，不调用 `resolveUserId`/trusted Origin fallback | 可信 Origin header 可被非浏览器客户端伪造；read-only 服务清单仍暴露内部服务拓扑与 endpoint，不能以 `default-user` 兼容回退放行 | 2026-05-13 |
+| KD-10 | refAudio upload 第一刀只接 TTS reference-audio 上传与 cat voiceConfig 写回，不接管 F195 meeting audio runtime | 上传 route 必须使用真实 session identity，生成文件名并写入 `UPLOAD_DIR`，`cat-voices` 只允许 `/uploads/...` 解析回 upload dir；录音、转写、会议音频存储仍属 F195 | 2026-05-13 |
+| KD-11 | `voiceConfig.refAudio` 的期望格式是上传 route 返回的 `/uploads/<server-generated>`，或 legacy character voice dir 内的相对/绝对路径 | cats 写路径保留字符串兼容性；读端 resolver 对空值、traversal、越界路径 fail-safe 到 `invalid-ref`，所以手写异常路径可以持久化但不会被 TTS 使用 | 2026-05-13 |
 
 ## Known Limitations
 
