@@ -1001,3 +1001,132 @@ Cat Café 每天跑真实工作，并把失败变成下一轮系统进化。
 一句话：
 
 > Workspace-Bench 问的是"把 Agent 丢进新公司文件堆里，它能不能上手干活"；Cat Café 真正在做的是"Agent 在一个长期演化的公司里，能不能越干越会干"。
+
+## 24. 现场新结论：我们应该跑，但要测 Cat Café 式 Harness
+
+铲屎官现场判断：
+
+> 我感觉你们可以去跑一下这个。
+> 他们发现模型足够强，不需要多少 harness，比如 GPT 和 Claude；但是我们观察到的不对。
+
+我认为这个判断要拆成两层。
+
+### 24.1 Workspace-Bench 值得跑
+
+它确实比很多 benchmark 更值得我们跑，因为它测试的是：
+
+- 任务到文件发现；
+- 跨文件依赖推理；
+- 文件血缘追踪；
+- 版本和噪声处理；
+- workspace 里的真实交付物生成。
+
+这和 Cat Café 的日常工作高度重叠。尤其是截图里的例子：
+
+> 制定全球市场产品策略。
+
+Agent 要从散落的区域订单、物流文件、产品信息、客户分群、rankings 等文件中找到证据，连接市场、产品、物流和客户依赖，最后生成 `Global_Product_Strategy.md`，还要被 25 条 rubrics 检查。
+
+这很像我们做会议纪要 / teardown / final speech / feature review 时的真实路径：不是回答一个问题，而是重建一个工作区。
+
+### 24.2 但"强模型不需要多少 harness"这个结论不能直接外推
+
+如果论文或现场结论是：
+
+```text
+GPT / Claude 足够强时，harness 差异不大
+```
+
+那它大概率只说明：
+
+> 在一次性 benchmark 任务里，浅层 harness wrapper 的边际收益会被强模型能力吃掉。
+
+这不是在证明：
+
+> 长期真实工作里不需要 Harness。
+
+两者不是同一个命题。
+
+| 他们可能测到的 Harness | Cat Café 说的 Harness |
+|---|---|
+| Agent 框架 wrapper / 文件搜索 / 工具调用循环 | 长期工作区治理系统 |
+| 单次任务内帮助模型找文件 | 跨 session 记忆、审计、review、回滚、eval、传球 |
+| 评估 final answer / rubrics | 评估过程、错误、修正、经验沉淀 |
+| 模型越强，wrapper 越不显眼 | 模型越强，越需要治理它的长期行动 |
+
+所以这里不能说他们错，而是要说：
+
+> 他们测的是 task-time harness；我们观察的是 workspace-time harness。
+
+强模型可以减少 task-time scaffolding，但不会消除 workspace-time governance。
+
+### 24.3 这和我们观察到的差异
+
+我们观察到的是：模型强不代表它自动会做长期工作。
+
+Claude / GPT 很强，但如果没有家里的 Harness，仍然会出现：
+
+- 忘记先搜真相源；
+- 找到碎片就开始推理；
+- 不知道哪个文档是 authoritative；
+- 把旧结论当新结论；
+- 跨 thread 依赖只停留在聊天里，不落到 feature doc；
+- review 后的教训没有进 skill / eval；
+- 做完一件事但无法证明为什么做对。
+
+这些不是"模型不会答题"，而是"模型没有稳定接入工作区现实"。
+
+所以 Cat Café 的经验更像：
+
+```text
+Capability 解决能不能做；
+Harness 解决能不能持续、可追责、可复用地做。
+```
+
+### 24.4 如果我们跑，应该怎么跑
+
+我建议不要只跑一个裸分，而是跑三组：
+
+| 组别 | 目的 |
+|---|---|
+| 裸 GPT / 裸 Claude | 看强模型 task-time 能力上限 |
+| 单猫 + 最小工具 | 看简单 harness 的边际收益 |
+| Cat Café 模式 | 看 search / evidence / skill / review / audit / handoff 这些长期工作机制能否改善 hard task |
+
+尤其要选 **Hard** 任务，因为截图里显示难度上来以后性能从 57.6 掉到 40.5，Hard 任务约四成通过率。Easy 任务可能测不出我们的优势。
+
+我们不应该只看 final score，还要额外记录：
+
+- 是否找到了正确文件；
+- 是否解释了文件依赖；
+- 是否追到版本和 lineage；
+- 是否发现噪声文件；
+- 是否产生可 replay 的 trace；
+- 是否能把失败沉淀成下一轮策略。
+
+这才是 Cat Café 式跑法。
+
+### 24.5 当前跑法建议
+
+先不盲跑全量。全量 388 tasks / 20GB workspace 成本和时间都不低。论文提到有 **Workspace-Bench-Lite**，100 tasks，约降低 70% evaluation cost。更合理的路径是：
+
+```text
+Step 1: 找到官方数据 / runner / license
+Step 2: 先跑 1-3 个 smoke task
+Step 3: 选 Hard 子集做 Cat Café 手工/半自动跑法
+Step 4: 记录 trace，不只记录分数
+Step 5: 把失败转成 F192 eval case / skill 改进
+```
+
+如果官方 runner 暂时没完全开放，我们也可以先用截图里的任务形态做一个 **Cat Café workspace-learning mini eval**：
+
+- 构造一个小型公司 workspace；
+- 放入订单、产品、物流、客户、历史版本、噪声文件；
+- 要求猫猫生成策略文档；
+- rubrics 不只检查答案，还检查依赖图和证据链。
+
+这比等官方 benchmark 更能贴近我们家的真实问题。
+
+### 24.6 一句话
+
+> Workspace-Bench 值得跑，但不能拿它来证明"强模型不需要 Harness"。它最多证明浅层 task-time harness 会被强模型部分吃掉；Cat Café 关心的是 workspace-time harness：长期记忆、证据链、审计、review、eval 和自进化。这个东西模型越强越需要，不是越强越不需要。
