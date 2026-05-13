@@ -54,12 +54,12 @@ Service Manifest、MCP install/manage 写接口、voice refAudio upload、IM con
 | MCP settings entry | clowder-ai#669 | 已合入 main via cat-cafe#1650 | read-only capability board filter；不接写接口 |
 | Skill preview modal | clowder-ai#669 | 已合入 main via cat-cafe#1650 | read-only `SKILL.md` preview |
 | MCP install/manage write path hardening | clowder-ai#669 + home F146/F193 route | 已合入 main via cat-cafe#1651 | owner-gated secret write hardening；不接 Plugins UI 写回 |
-| Service Manifest read-only status | clowder-ai#669 | Phase C branch `feat/f190-service-manifest` | auth-gated manifest/status/endpoints；不接 lifecycle writes |
+| Service Manifest read-only status | clowder-ai#669 | 已合入 main via cat-cafe#1652 | auth-gated manifest/status/endpoints；不接 lifecycle writes |
 | Service lifecycle writes | clowder-ai#669 | deferred | start/stop/install/uninstall 需要独立 runtime source + security review |
 | refAudio / secret write-back / IM connector write | clowder-ai#669 | deferred | F190 Phase C high-risk slices，需单独 security review + proof |
 | Chat rendering / bubble behavior | clowder-ai#669 | not in F190 | F183/F184/F194 ownership；F190 不触碰 |
 
-Current Phase C branch: `feat/f190-service-manifest`.
+Current Phase C remaining slices: refAudio upload / IM connector write.
 
 ## Acceptance Criteria
 
@@ -84,7 +84,7 @@ Current Phase C branch: `feat/f190-service-manifest`.
 
 ### Phase C（High-risk Follow-up Systems）
 - [x] AC-C1: MCP write path hardening 第一刀只扩展既有 `capabilitiesMcpWriteRoutes`，不新增并行写路径。
-- [ ] AC-C2: Service Manifest 第一刀只提供 auth-gated read-only manifest/status/endpoints；不得暴露 start/stop/install/uninstall 写路由或脚本句柄。
+- [x] AC-C2: Service Manifest 第一刀只提供 auth-gated read-only manifest/status/endpoints；不得暴露 start/stop/install/uninstall 写路由或脚本句柄。
 - [ ] AC-C3: refAudio upload 独立 slice，必须覆盖 path traversal、文件类型/大小限制与清理证明。
 - [ ] AC-C4: IM connector write 独立 slice，必须覆盖 connector auth/callback proof、secret redaction 与 public sync 泄漏防护。
 
@@ -145,6 +145,7 @@ Current Phase C branch: `feat/f190-service-manifest`.
 |------|------|
 | 2026-05-07 | F190 立项，占位社区 Console/Settings skeleton intake 方向 |
 | 2026-05-12 | #662 已回流；#669 开始在 `intake/f190-followup-stage` 按 manual-port 逐 slice 吸收 |
+| 2026-05-13 | Phase C Service Manifest read-only merged (PR #1652) |
 
 ## Review Gate
 
