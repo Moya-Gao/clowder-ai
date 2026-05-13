@@ -35,6 +35,8 @@ interface ThreadCatPillProps {
   threadId: string;
 }
 
+const NO_PREFERRED_CATS: string[] = [];
+
 /** F154 Phase B — Shows preferred cat in thread header, click to open CatSelector popover. */
 export function ThreadCatPill({ threadId }: ThreadCatPillProps) {
   const threads = useChatStore((s) => s.threads);
@@ -49,7 +51,7 @@ export function ThreadCatPill({ threadId }: ThreadCatPillProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
 
   const thread = threads.find((t) => t.id === threadId);
-  const preferredCats: string[] = thread?.preferredCats ?? [];
+  const preferredCats: string[] = thread?.preferredCats ?? NO_PREFERRED_CATS;
 
   // Sync local selection when prop changes or popover closes; clear stale error on reopen
   useEffect(() => {
