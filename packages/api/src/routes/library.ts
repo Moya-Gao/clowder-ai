@@ -205,7 +205,8 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
     }
     const scanner = resolveCollectionScanner(manifest);
     const builder = new CollectionIndexBuilder(store as SqliteEvidenceStore, manifest, scanner);
-    const result = await builder.rebuild();
+    const body = request.body as { force?: boolean } | undefined;
+    const result = await builder.rebuild({ force: body?.force ?? false });
     return result;
   });
 

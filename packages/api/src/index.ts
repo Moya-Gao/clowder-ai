@@ -641,10 +641,19 @@ async function main(): Promise<void> {
   };
   const expeditionBootstrapService = new ExpeditionBootstrapService(indexStateManager, {
     rebuildIndex: async (projectPath: string) => {
-      const startMs = Date.now();
-      const { buildStructuralSummary } = await import('./domains/memory/ExpeditionBootstrapService.js');
-      const summary = buildStructuralSummary(projectPath);
-      return { docsIndexed: summary.docsList.length, durationMs: Date.now() - startMs };
+      if (isSameRepo(projectPath, repoRoot)) {
+        const startMs = Date.now();
+        const { buildStructuralSummary } = await import('./domains/memory/ExpeditionBootstrapService.js');
+        const summary = buildStructuralSummary(projectPath);
+        return { docsIndexed: summary.docsList.length, durationMs: Date.now() - startMs };
+      }
+      const { ensureProjectCollection } = await import('./domains/memory/bootstrap-collection-bridge.js');
+      return ensureProjectCollection(
+        projectPath,
+        memoryServices.catalog!,
+        memoryServices.collectionStores ?? new Map(),
+        memoryServices.dataDir!,
+      );
     },
     getFingerprint,
     getTierCoverage: async (projectPath: string) => {
