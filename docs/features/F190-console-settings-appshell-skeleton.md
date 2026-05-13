@@ -9,7 +9,7 @@ community_pr: clowder-ai#645, clowder-ai#662, clowder-ai#669
 
 # F190: Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片
 
-> **Status**: in-progress | **Owner**: Community + Maintainers | **Priority**: P1
+> **Status**: completed | **Owner**: Community + Maintainers | **Priority**: P1
 
 ## Why
 
@@ -60,7 +60,7 @@ Service Manifest、MCP install/manage 写接口、voice refAudio upload、IM con
 | IM connector write | clowder-ai#669 + home F132/F134/F136/F137 routes | 已合入 main via cat-cafe#1655 | harden existing credential writes；不新增 callback URL / provider endpoint 写面 |
 | Chat rendering / bubble behavior | clowder-ai#669 | not in F190 | F183/F184/F194 ownership；F190 不触碰 |
 
-Phase C complete: all four high-risk slices (MCP write / Service Manifest read-only / refAudio upload / IM connector write) merged to main. Remaining: AC-A7 alpha walkthrough.
+Phase C complete: all four high-risk slices (MCP write / Service Manifest read-only / refAudio upload / IM connector write) merged to main. AC-A7 alpha walkthrough completed via Codex + Sonnet smoke on PR #1658.
 
 ## Acceptance Criteria
 
@@ -76,7 +76,7 @@ Phase C complete: all four high-risk slices (MCP write / Service Manifest read-o
 - [x] AC-A4: 新 PR 不 rename / overwrite 既有 feature docs，不新增重复 `feature_ids`；尤其不得改动 F179/F185/F186 既有真相源。
 - [x] AC-A5: 新 PR 必须通过 `pnpm check:features`，并针对 Settings/AppShell 导航补充 focused web tests。
 - [x] AC-A6: F183/F184 路由与 mount 保护测试保持通过；thread route marker 必须继续使用真实 `threadId`。
-- [ ] AC-A7: alpha 走查 `/settings`、`/settings?s=members`、`/settings?s=mcp`、`/settings?s=ops`，无 blocking console error，且旧 chat 首页可继续进入。
+- [x] AC-A7: alpha 走查 `/settings`、`/settings?s=members`、`/settings?s=mcp`、`/settings?s=ops`，无 blocking console error，且旧 chat 首页可继续进入。Proof: PR #1658 `pnpm gate` + alpha smoke `/`, `/settings?s=members`, `/settings?s=mcp`, `/settings?s=ops`, `/settings?s=plugins`, `/settings?s=im`, `/settings?s=rules`, `/settings?s=voice` all returned 200 after `c1cfa294e`.
 
 ### Phase B（Settings Section Migrations）
 - [ ] AC-B1: 每个 settings section 独立 PR，单 PR 不超过一个业务域。
@@ -156,6 +156,7 @@ Phase C complete: all four high-risk slices (MCP write / Service Manifest read-o
 | 2026-05-13 | Phase C refAudio upload merged (PR #1654) |
 | 2026-05-13 | Phase C IM connector write hardening merged (PR #1655) — Phase C 4/4 complete |
 | 2026-05-13 | F190 愿景守护 PASS (Opus-46，同族非作者非 reviewer)：红区零触碰 verified、source intent 保留 |
+| 2026-05-13 | AC-A7 alpha walkthrough completed after alpha hotfix (PR #1658, `c1cfa294e`): Codex + Sonnet smoke passed home/settings routes |
 
 ## Review Gate
 

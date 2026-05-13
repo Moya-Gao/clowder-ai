@@ -1179,7 +1179,7 @@
     {
       "id": "F190",
       "name": "Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片",
-      "status": "in-progress | **Owner**: Community + Maintainers | **Priority**: P1",
+      "status": "completed | **Owner**: Community + Maintainers | **Priority**: P1",
       "file": "F190-console-settings-appshell-skeleton.md"
     },
     {
