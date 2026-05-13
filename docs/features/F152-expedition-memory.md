@@ -295,6 +295,7 @@ interface ScannedEvidence {
 | 2026-04-13 | Hotfix merged (PR #1131)：coverage guard 改为 worktree-aware，避免主仓 / worktree 路径比较错误导致同仓判断漂移 |
 | 2026-04-14 | Hotfix merged (PR #1146)：GET 读路径改为服务端计算 fingerprint，旧 summary 可被正确标记为 `stale` 并触发重建 |
 | 2026-04-14 | Hotfix merged (PR #1152)：恢复被 intake PR #1147 再次误删的 `getKindCoverage` + `isSameRepo`，并补 regression guard test 防止第四次复发 |
+| 2026-05-13 | Fix merged (PR #1653)：bootstrap→collection pipeline bridge — 外部项目文档实际进入 evidence_docs（clowder-ai#693） |
 
 ## Review Gate
 
