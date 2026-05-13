@@ -348,6 +348,8 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | 2026-05-10 | 4.6 (Opus 4.6) 跨族 review 4 concerns：#1 AC-F10 是 cross-cutting telemetry / #2 baseline 循环依赖 / #3 list_recent 独立 vs search mode / #4 FM-5 歧义。47 接受 #1/#2/#4 入 spec（FM-5 加 grep fallback confound 排除）；#3 部分 push back——保留独立工具但 AC-F3 改为 cross-reference 全部 7 个记忆工具家族缓解膨胀。4.6 ack 47 的 push back 论据成立，spec final |
 | 2026-05-10 | 铲屎官 push back PR 切分策略（"拆碎 PR 是 47 小毛病"）→ KD-9 修订：从 4 个 PR 改为 **1 个 PR 一次合入**；baseline 用 4.6 review #2 (b) 单方案（provisional 阈值首次 eval 校准，不要 pre-launch 窗口）；AC-F8/F10 措辞同步修正 |
 | 2026-05-11 | Phase F merged (PR #1631 squash `0e180fed`) — 11 AC + Eval Contract + Regression Fixtures 落地。本地砚砚 八审 PASS + 云端 codex 11 轮 review-iterate 通过（cloud-1 ~ cloud-11，FIFO 匹配/SCAN cursor/同 cat scope/canonical UTC 等）。**待执行**：alpha 验收 + 愿景守护猫 sign-off → close F188 Phase F |
+| 2026-05-12 | Phase F dogfood: F197 (ACP transformer 单事件拆双消息) merged & closed by 烁烁 alpha 愿景守护 PASS; OQ-4 graph_resolve shape bug 由砚砚 dogfood 暴露 → 立 Phase G hotfix |
+| 2026-05-13 | **Phase G merged (PR #1643 squash `2202a40b`)** — G.1 graph_resolve nested response unwrap + G.2 list_recent description precise rewrite。砚砚 Design Gate 二审放行 (P1×3+P2 一审退回收窄)、PR review P1 (index.json 同步) ack。G.3 (list_recent collection-aware) 拆到 Phase H 待 Design Gate |
 
 ## Review Gate
 
