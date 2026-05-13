@@ -91,6 +91,13 @@ export interface ConnectorGatewayDeps {
       timestamp: number;
     }): Promise<{ id: string }>;
     getById?(id: string): Promise<{ source?: ConnectorSource } | null>;
+    getByThreadBefore?(
+      threadId: string,
+      timestamp: number,
+      limit?: number,
+    ):
+      | Array<{ catId: string | null; userId?: string; content: string; timestamp: number }>
+      | Promise<Array<{ catId: string | null; userId?: string; content: string; timestamp: number }>>;
   };
   readonly threadStore: {
     create(userId: string, title?: string): { id: string } | Promise<{ id: string }>;
@@ -313,6 +320,14 @@ export async function startConnectorGateway(
     agentRegistry: deps.agentRegistry,
     catRoster,
     commandRegistry: deps.commandRegistry,
+    ...(deps.messageStore.getByThreadBefore
+      ? {
+          messageStore: {
+            getByThreadBefore: (threadId: string, timestamp: number, limit?: number) =>
+              deps.messageStore.getByThreadBefore!(threadId, timestamp, limit),
+          },
+        }
+      : {}),
   });
 
   // Phase 5+6: Media service + STT provider (optional)

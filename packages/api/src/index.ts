@@ -2525,6 +2525,9 @@ async function main(): Promise<void> {
         const resolved = msg instanceof Promise ? await msg : msg;
         return resolved ? { source: resolved.source } : null;
       },
+      async getByThreadBefore(threadId: string, timestamp: number, limit?: number) {
+        return messageStore.getByThreadBefore(threadId, timestamp, limit);
+      },
     },
     threadStore,
     invokeTrigger,
