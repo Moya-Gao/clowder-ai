@@ -13,11 +13,12 @@ sources:
   - "现场截图：AOrchestra / on-demand sub-agent 4-tuple"
   - "现场截图：Data Agent 与通用 LLM Agent 的差异"
   - "铲屎官现场观察与 Cat Café 内部讨论"
-  - "Anthropic Engineering: Building effective agents, 2024-12-19, https://www.anthropic.com/engineering/building-effective-agents"
-  - "周煊赫上海交通大学教师主页：https://www.cs.sjtu.edu.cn/jiaoshiml/zhouxuanhe.html"
-  - "周煊赫个人主页：https://db.zhouxh.store/"
+- "Anthropic Engineering: Building effective agents, 2024-12-19, https://www.anthropic.com/engineering/building-effective-agents"
+- "周煊赫上海交通大学教师主页：https://www.cs.sjtu.edu.cn/jiaoshiml/zhouxuanhe.html"
+- "周煊赫个人主页：https://db.zhouxh.store/"
+- "现场截图：索引表化与列式布局 / CrossCache 与 NexusFS / Aura + Lance"
 related:
-  - "deepeye-luo-yuyu-research-2026-05-12.md"
+- "deepeye-luo-yuyu-research-2026-05-12.md"
 ---
 
 # DeepEye 现场记录：数据智能体与领域特种工小猫
@@ -662,3 +663,166 @@ DeepEye 把数据任务变成 workflow；Edit-Banana 把图片/图表变成可�
 > 下一代 Agent 真正要进入现实世界，不是只靠前台 Agent 编排，而是要把现实材料变成可索引、可验证、可优化、可审计的数据基座。
 
 Cat Café 的位置应该是把这些底层能力吸进 Agentic Work OS，而不是把每个领域都做成一只孤立的新 Agent。
+
+## 21. 周煊赫后半段：索引表化、CrossCache / NexusFS、Aura + Lance
+
+后续几页截图把周煊赫这条线讲得更清楚：他不是在讲一个"数据智能体产品"，而是在讲 **AI-native data foundation** 怎么重写底层检索执行能力。
+
+### 21.1 技术二：索引表化与列式布局
+
+截图核心句：
+
+> 把 ANN 索引内部状态变成关系表：centroid、codebook、quantized vector 都可被列式执行器扫描、缓存与优化。
+
+具体来说，是把 IVFPQ 这类向量索引拆成可查询、可优化的表结构：
+
+| 表 | 内容 | 数据库视角 |
+|---|---|---|
+| Centroid Table | cluster id、centroid vector、list size、offset | IVF prune / 选择 nprobe lists |
+| Codebook / LUT | subspace id、codeword、query LUT value、index version | 查询距离表 / LUT compute |
+| Quantized Vector Table | vector id、assigned list、PQ codes、payload pointer | column scan / 批量累加 PQ distance |
+
+它的动机是：全局索引能解决"查哪些 lists"，但 large-K 真正耗时的是大量 PQ codes 的扫描、距离累加和候选物化。如果索引仍是外部库私有格式，OLAP 执行器就没法做：
+
+- 列裁剪；
+- 缓存复用；
+- 谓词下推；
+- 并行调度；
+- 代价估计；
+- 向量化扫描。
+
+所以他的解法是：把 centroid、codebook、quantized vectors 表化并采用列式布局，使 IVFPQ 的每一步都能映射成 Scan / Project / Join / Top-K 等算子。
+
+这点对 Cat Café 的启发是：**检索不应该是黑盒 UDF**。如果检索是黑盒，Agent 只能拿到"返回了哪些结果"，不能知道为什么慢、为什么漏、为什么错、哪一步可以优化。
+
+### 21.2 CrossCache 与 NexusFS
+
+第二页讲的是云原生多模态查询的 I/O 路径。
+
+核心思想：
+
+> 先用 alignment-aware 访问减少随机小读，再用 SSD-backed 分布式缓存把热点对象留在计算侧。
+
+图里的链路是：
+
+```text
+Object Store
+  -> NexusFS
+  -> CrossCache
+  -> Query Workers
+```
+
+它解决的是多模态查询里很现实的物理问题：
+
+- 一次查询会同时访问 chunk、embedding、全文倒排、metadata 和对象文件；
+- 云对象存储适合顺序吞吐，但对随机小块、跨模态、重复热点访问不友好；
+- 远端 I/O 会把 P95/P99 latency 打爆。
+
+所以：
+
+- **NexusFS** 解决"读得碎"：把稀疏访问映射成对齐块读取，减少请求数和重复读；
+- **CrossCache** 解决"读得远"：用 SSD-backed 分布式缓存承接热点，缓存 chunk / embedding / 索引页 / 中间块，稳定 tail latency。
+
+这说明他讲的"桌面/云数据基座"不是抽象概念，而是从物理 I/O 层一路打到查询执行层。
+
+### 21.3 Takeaway：从索引能力变成数据系统原生执行能力
+
+最后一页的 takeaway 是：
+
+> 向量检索正在从"索引能力"演进为"数据系统原生执行能力"。
+
+它列了三条主线：
+
+1. **TEngineDB-V**
+   large-K ANN 的关键在于进入 OLAP pipeline：全局索引、关系化执行、过滤、物化和 CBO 必须协同。
+
+2. **ByteHouse**
+   多模态检索的关键不只在向量索引，而在对象存储、chunk 模型、缓存、融合排序和 AI 优化器。
+
+3. **Aura + Lance**
+   下一步应把多模态对象组织、multi-vector retrieval 和 late interaction 纳入统一湖仓执行。
+
+未来路线是：
+
+```text
+Aura 文档理解
+  -> Lance 湖仓格式
+  -> Multi-vector Retrieval
+  -> Quality-Cost Optimizer
+```
+
+底部的指标也很有意思：
+
+- 质量：Recall / nDCG / MRR；
+- 效率：P50 / P95 / P99；
+- 成本：对象读放大与缓存命中率；
+- 系统：更新一致性与多租户隔离。
+
+这已经不是传统 RAG 工程，而是 **检索系统工程化**。
+
+## 22. Cat Café 的边界判断：基座有用，但必须能顺藤摸瓜
+
+铲屎官现场的判断很准：
+
+> 这个确实是基座，而且做这个不容易；在特别多的数据下确实有用。但它必须结合成能让猫猫触达原始文本、顺藤摸瓜的结构。
+
+我同意。这里要分清两件事：
+
+| 层 | 解决什么 | 不解决什么 |
+|---|---|---|
+| 数据基座 | 在海量数据里低延迟、高吞吐、可优化地捞回候选 | 候选是否可信、怎么解释、怎么追责 |
+| Agentic Work OS | 让 Agent 能顺藤摸瓜，追到原文、权限、处理链和业务语义 | 底层大规模索引和 I/O 优化 |
+
+也就是说，周煊赫这条线解决的是：
+
+```text
+如何把大量数据高效检索回来
+```
+
+但我们之前担心的问题仍然存在：
+
+```text
+检索回来的东西，Agent 怎么知道：
+  - 原始文本在哪里？
+  - 原始对象是什么？
+  - 哪个 chunk / page / cell / figure 支撑了结论？
+  - 这个证据经过了哪些 OCR / table extraction / embedding / join / rerank？
+  - 当前用户有没有权限看？
+  - 这条证据是不是过期、冲突、被人修正过？
+```
+
+所以对 Cat Café 来说，不能只接一个"高性能 retrieval layer"。必须要求 retrieval result 带上可追溯的 evidence handle：
+
+```text
+retrieval result
+  = payload
+  + source object id
+  + page / row / cell / bbox / timestamp
+  + transform chain
+  + permission scope
+  + confidence / freshness / version
+  + replay pointer
+```
+
+这才是铲屎官说的"顺藤摸瓜"。
+
+如果没有这层，数据基座会变成更快的黑盒：返回得更快、规模更大，但猫猫仍然不知道该不该信。
+
+### 22.1 我们应该怎么吸收这条线
+
+不建议把它吸收成"我们要做一个向量数据库"。这不是 Cat Café 的主战场。
+
+更合理的吸收方式是：
+
+```text
+Cat Café Reality Evidence Layer
+  上接：猫猫 / Skills / Workflow / Eval
+  下接：向量数据库 / 湖仓 / 文件系统 / OCR / browser / audio / Git
+  约束：每个结果必须可 provenance、可 replay、可 permission-check
+```
+
+这样周煊赫这类基座能力可以作为底层引擎被接入，而 Cat Café 保留上层优势：治理、记忆、协作、review、eval 和经验沉淀。
+
+### 22.2 一句话
+
+> 他们在做"让数据能被高效捞回来"的基座；我们真正需要的是"捞回来以后，猫猫能顺藤摸瓜追到原始现实"的证据层。前者解决规模，后者解决信任。企业 Agent 需要两者叠加。
