@@ -9,11 +9,13 @@ import { resolve } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { applyConnectorSecretUpdates } from '../config/connector-secret-updater.js';
-import { isConnectorSecret } from '../config/connector-secrets-allowlist.js';
+import {
+  requireConnectorWriteOwner,
+  resolveConnectorSessionUserId,
+  validateConnectorSecretUpdate,
+} from '../config/connector-secret-write-guards.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
-import { normalizeTelegramBotToken } from '../infrastructure/connectors/telegram-token.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
-import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 const LOOPBACK_ADDRS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 
@@ -37,16 +39,7 @@ interface ConfigSecretsRoutesOptions {
 }
 
 function validateSecretUpdate(update: { name: string; value: string | null }): string | null {
-  if (!isConnectorSecret(update.name)) return `'${update.name}' is not in connector secrets allowlist`;
-  if (
-    update.name === 'TELEGRAM_BOT_TOKEN' &&
-    update.value != null &&
-    update.value !== '' &&
-    normalizeTelegramBotToken(update.value) == null
-  ) {
-    return 'TELEGRAM_BOT_TOKEN must look like a Telegram BotFather token (<digits>:<token>)';
-  }
-  return null;
+  return validateConnectorSecretUpdate(update);
 }
 
 export async function configSecretsRoutes(app: FastifyInstance, opts: ConfigSecretsRoutesOptions = {}): Promise<void> {
@@ -67,10 +60,16 @@ export async function configSecretsRoutes(app: FastifyInstance, opts: ConfigSecr
       return { error: 'Invalid request', details: parsed.error.issues };
     }
 
-    const operator = resolveHeaderUserId(request);
+    const operator = resolveConnectorSessionUserId(request);
     if (!operator) {
-      reply.status(400);
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      reply.status(401);
+      return { error: 'Identity required (session cookie)' };
+    }
+
+    const ownerError = requireConnectorWriteOwner(operator);
+    if (ownerError) {
+      reply.status(ownerError.status);
+      return { error: ownerError.error };
     }
 
     // Allowlist validation

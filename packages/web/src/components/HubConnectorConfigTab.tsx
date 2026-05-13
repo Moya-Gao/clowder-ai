@@ -19,6 +19,8 @@ import {
 import { WeComBotSetupPanel } from './WeComBotSetupPanel';
 import { WeixinQrPanel } from './WeixinQrPanel';
 
+const REDACTED_PLACEHOLDER = '••••••';
+
 interface PlatformFieldStatus {
   envName: string;
   label: string;
@@ -96,6 +98,11 @@ export function HubConnectorConfigTab() {
 
     if (updates.length === 0) {
       setSaveResult({ type: 'error', message: '请填写至少一个配置项' });
+      return;
+    }
+
+    if (updates.some((update) => update.value?.includes(REDACTED_PLACEHOLDER))) {
+      setSaveResult({ type: 'error', message: '不能保存脱敏占位符，请输入新的完整凭据' });
       return;
     }
 

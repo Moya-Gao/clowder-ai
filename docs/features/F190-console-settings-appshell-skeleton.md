@@ -56,11 +56,11 @@ Service Manifest、MCP install/manage 写接口、voice refAudio upload、IM con
 | MCP install/manage write path hardening | clowder-ai#669 + home F146/F193 route | 已合入 main via cat-cafe#1651 | owner-gated secret write hardening；不接 Plugins UI 写回 |
 | Service Manifest read-only status | clowder-ai#669 | 已合入 main via cat-cafe#1652 | auth-gated manifest/status/endpoints；不接 lifecycle writes |
 | Service lifecycle writes | clowder-ai#669 | deferred | start/stop/install/uninstall 需要独立 runtime source + security review |
-| refAudio upload | clowder-ai#669 + home F103/F195 boundary | Phase C branch `feat/f190-ref-audio-upload` | auth-gated multipart upload + `/uploads` path resolver；不接 F195 meeting audio runtime |
-| IM connector write | clowder-ai#669 | deferred | connector auth/callback proof、secret redaction 与 public sync 泄漏防护 |
+| refAudio upload | clowder-ai#669 + home F103/F195 boundary | 已合入 main via cat-cafe#1654 | auth-gated multipart upload + `/uploads` path resolver；不接 F195 meeting audio runtime |
+| IM connector write | clowder-ai#669 + home F132/F134/F136/F137 routes | Phase C branch `feat/f190-im-connector-write` | harden existing credential writes；不新增 callback URL / provider endpoint 写面 |
 | Chat rendering / bubble behavior | clowder-ai#669 | not in F190 | F183/F184/F194 ownership；F190 不触碰 |
 
-Current Phase C active slice: refAudio upload. Remaining after this slice: IM connector write.
+Current Phase C active slice: IM connector write. Remaining after this slice: none.
 
 ## Acceptance Criteria
 
@@ -86,7 +86,7 @@ Current Phase C active slice: refAudio upload. Remaining after this slice: IM co
 ### Phase C（High-risk Follow-up Systems）
 - [x] AC-C1: MCP write path hardening 第一刀只扩展既有 `capabilitiesMcpWriteRoutes`，不新增并行写路径。
 - [x] AC-C2: Service Manifest 第一刀只提供 auth-gated read-only manifest/status/endpoints；不得暴露 start/stop/install/uninstall 写路由或脚本句柄。
-- [ ] AC-C3: refAudio upload 独立 slice，必须覆盖 path traversal、文件类型/大小限制与清理证明。
+- [x] AC-C3: refAudio upload 独立 slice，必须覆盖 path traversal、文件类型/大小限制与清理证明。
 - [ ] AC-C4: IM connector write 独立 slice，必须覆盖 connector auth/callback proof、secret redaction 与 public sync 泄漏防护。
 
 ## Dependencies
@@ -118,6 +118,8 @@ Current Phase C active slice: refAudio upload. Remaining after this slice: IM co
 | OQ-5 | MCP env secret 如何删除？ | ⚠️ 当前 Phase C 第一刀只支持新增/覆盖，不支持单 key 删除；后续如需要另起安全 slice |
 | OQ-6 | Service Manifest 是否可以直接 port #669 的 lifecycle controls？ | ✅ 否。先接 read-only manifest/status；start/stop/install/uninstall 需要独立 runtime truth source 与 security review |
 | OQ-7 | Service Manifest read-only endpoint 是否可沿用 trusted Origin `default-user` fallback？ | ✅ 否。服务 inventory / endpoint 属内部状态面，必须要求真实 session identity |
+| OQ-8 | IM connector write 是否接 user-editable callback URL / provider endpoint 字段？ | ✅ 否。这刀只 harden 现有 connector credential writes；URL 写面需单独 SSRF review |
+| OQ-9 | IM connector credential writes 在 `DEFAULT_OWNER_USER_ID` 未配置时是否 fail-closed？ | ✅ 是。connector 凭据与 MCP env patch 同级敏感，不能走 ownerless dev fallback |
 
 ## Key Decisions
 
@@ -134,6 +136,7 @@ Current Phase C active slice: refAudio upload. Remaining after this slice: IM co
 | KD-9 | Service Manifest routes 必须使用 `request.sessionUserId` 严格 session identity，不调用 `resolveUserId`/trusted Origin fallback | 可信 Origin header 可被非浏览器客户端伪造；read-only 服务清单仍暴露内部服务拓扑与 endpoint，不能以 `default-user` 兼容回退放行 | 2026-05-13 |
 | KD-10 | refAudio upload 第一刀只接 TTS reference-audio 上传与 cat voiceConfig 写回，不接管 F195 meeting audio runtime | 上传 route 必须使用真实 session identity，生成文件名并写入 `UPLOAD_DIR`，`cat-voices` 只允许 `/uploads/...` 解析回 upload dir；录音、转写、会议音频存储仍属 F195 | 2026-05-13 |
 | KD-11 | `voiceConfig.refAudio` 的期望格式是上传 route 返回的 `/uploads/<server-generated>`，或 legacy character voice dir 内的相对/绝对路径 | cats 写路径保留字符串兼容性；读端 resolver 对空值、traversal、越界路径 fail-safe 到 `invalid-ref`，所以手写异常路径可以持久化但不会被 TTS 使用 | 2026-05-13 |
+| KD-12 | IM connector write 第一刀只 harden 现有 `/api/config/secrets` 与 guided connector credential routes，不新增 callback URL / provider endpoint 写面 | 写路径必须使用真实 session identity + explicit owner fail-closed，拒写 redacted placeholder，保留 omitted secret / `null` 删除 / F136 hot reload；F190 不接管 F088/F124 connector runtime、transport、message routing | 2026-05-13 |
 
 ## Known Limitations
 
@@ -141,6 +144,7 @@ Current Phase C active slice: refAudio upload. Remaining after this slice: IM co
 |---|------|----------|----------|
 | KL-1 | MCP env patch / install update 只新增或覆盖 env/header secret，不删除单个 env key | 保护现有 secret 不被 UI omit 清空；删除需求暂不混入本安全 slice | 独立设计 `DELETE /api/capabilities/mcp/:id/env/:key` 或 PATCH `null` 删除语义 |
 | KL-2 | install/delete 是 owner-configured enforcement；未配置 `DEFAULT_OWNER_USER_ID` 的多用户/LAN 部署仍沿用既有身份 gate | 保持 localhost/dev 兼容，secret env patch 已 fail-closed | UI/ops docs 明确多用户部署必须配置 `DEFAULT_OWNER_USER_ID`；可加 telemetry warning |
+| KL-3 | Connector secret writes 在 audit append 失败时仍返回成功 | 凭据已经落盘并触发热生效，audit 是 side channel；失败会写 warn 日志但不回滚主写入 | 若引入 audit retry / queue / outbox 机制，可补偿丢失的 audit append |
 
 ## Timeline
 
@@ -149,6 +153,8 @@ Current Phase C active slice: refAudio upload. Remaining after this slice: IM co
 | 2026-05-07 | F190 立项，占位社区 Console/Settings skeleton intake 方向 |
 | 2026-05-12 | #662 已回流；#669 开始在 `intake/f190-followup-stage` 按 manual-port 逐 slice 吸收 |
 | 2026-05-13 | Phase C Service Manifest read-only merged (PR #1652) |
+| 2026-05-13 | Phase C refAudio upload merged (PR #1654) |
+| 2026-05-13 | Phase C IM connector write hardening implemented on `feat/f190-im-connector-write` |
 
 ## Review Gate
 

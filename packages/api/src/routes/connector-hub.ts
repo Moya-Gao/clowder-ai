@@ -1,5 +1,11 @@
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { applyConnectorSecretUpdates } from '../config/connector-secret-updater.js';
+import {
+  requireConnectorWriteOwner,
+  resolveConnectorSessionUserId,
+  validateConnectorSecretUpdates,
+} from '../config/connector-secret-write-guards.js';
+import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import { DEFAULT_THREAD_ID, type IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { WeComBotAdapter } from '../infrastructure/connectors/adapters/WeComBotAdapter.js';
 import type { WeixinAdapter } from '../infrastructure/connectors/adapters/WeixinAdapter.js';
@@ -37,6 +43,62 @@ function requireTrustedHubIdentity(request: FastifyRequest, reply: FastifyReply)
     return null;
   }
   return userId;
+}
+
+function requireSessionHubIdentity(request: FastifyRequest, reply: FastifyReply): string | null {
+  const userId = resolveConnectorSessionUserId(request);
+  if (!userId) {
+    reply.status(401);
+    return null;
+  }
+  return userId;
+}
+
+type ConnectorWriteIdentityResult = { userId: string; error?: never } | { userId?: never; error: { error: string } };
+
+function requireConnectorWriteIdentity(request: FastifyRequest, reply: FastifyReply): ConnectorWriteIdentityResult {
+  const userId = requireSessionHubIdentity(request, reply);
+  if (!userId) return { error: { error: 'Identity required' } };
+  const ownerError = requireConnectorWriteOwner(userId);
+  if (ownerError) {
+    reply.status(ownerError.status);
+    return { error: { error: ownerError.error } };
+  }
+  return { userId };
+}
+
+interface ConnectorSecretRouteUpdate {
+  name: string;
+  value: string | null;
+}
+
+async function applyAuditedConnectorSecretUpdates(
+  app: FastifyInstance,
+  updates: ConnectorSecretRouteUpdate[],
+  opts: Pick<ConnectorHubRoutesOptions, 'envFilePath'>,
+  operator: string,
+  action: string,
+): Promise<{ status: number; error: string } | null> {
+  const validationError = validateConnectorSecretUpdates(updates);
+  if (validationError) return { status: 400, error: validationError };
+
+  await applyConnectorSecretUpdates(updates, { envFilePath: opts.envFilePath });
+
+  try {
+    await getEventAuditLog().append({
+      type: AuditEventTypes.CONFIG_UPDATED,
+      data: {
+        target: 'connector-secrets',
+        action,
+        keys: updates.map((update) => update.name),
+        operator,
+      },
+    });
+  } catch (err) {
+    app.log.warn({ err, action, keys: updates.map((update) => update.name) }, 'connector secret audit append failed');
+  }
+
+  return null;
 }
 
 // ── Connector platform config definitions ──
@@ -274,9 +336,9 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   const feishuQrBindClient = opts.feishuQrBindClient ?? new DefaultFeishuQrBindClient();
 
   app.get('/api/connector/hub-threads', async (request, reply) => {
-    const userId = requireTrustedHubIdentity(request, reply);
+    const userId = requireSessionHubIdentity(request, reply);
     if (!userId) {
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (session cookie)' };
     }
     const allThreads = await threadStore.list(userId);
     const hubThreads = allThreads
@@ -295,9 +357,9 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   });
 
   app.get('/api/connector/status', async (request, reply) => {
-    const userId = requireTrustedHubIdentity(request, reply);
+    const userId = requireSessionHubIdentity(request, reply);
     if (!userId) {
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (session cookie)' };
     }
     const status = buildConnectorStatus();
     // F137: WeChat "configured" is based on adapter having a live bot_token, not env vars
@@ -318,8 +380,8 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   });
 
   app.post('/api/connector/feishu/qrcode', async (request, reply) => {
-    const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    const auth = requireConnectorWriteIdentity(request, reply);
+    if (auth.error) return auth.error;
 
     try {
       const result = await feishuQrBindClient.create();
@@ -332,8 +394,9 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   });
 
   app.get('/api/connector/feishu/qrcode-status', async (request, reply) => {
-    const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    const auth = requireConnectorWriteIdentity(request, reply);
+    if (auth.error) return auth.error;
+    const { userId } = auth;
 
     const { qrPayload } = request.query as { qrPayload?: string };
     if (!qrPayload) {
@@ -356,7 +419,11 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       if (currentMode === 'webhook' && (!verificationToken || verificationToken.trim() === '')) {
         updates.push({ name: 'FEISHU_CONNECTION_MODE', value: 'websocket' });
       }
-      await applyConnectorSecretUpdates(updates, { envFilePath: opts.envFilePath });
+      const writeError = await applyAuditedConnectorSecretUpdates(app, updates, opts, userId, 'feishu-qrcode-confirm');
+      if (writeError) {
+        reply.status(writeError.status);
+        return { error: writeError.error };
+      }
       return { status: 'confirmed' };
     } catch (err) {
       app.log.error({ err }, '[Feishu QR] Failed to poll QR status');
@@ -366,16 +433,24 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   });
 
   app.post('/api/connector/feishu/disconnect', async (request, reply) => {
-    const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    const auth = requireConnectorWriteIdentity(request, reply);
+    if (auth.error) return auth.error;
+    const { userId } = auth;
 
-    await applyConnectorSecretUpdates(
+    const writeError = await applyAuditedConnectorSecretUpdates(
+      app,
       [
         { name: 'FEISHU_APP_ID', value: null },
         { name: 'FEISHU_APP_SECRET', value: null },
       ],
-      { envFilePath: opts.envFilePath },
+      opts,
+      userId,
+      'feishu-disconnect',
     );
+    if (writeError) {
+      reply.status(writeError.status);
+      return { error: writeError.error };
+    }
     app.log.info({ userId }, '[Feishu] Disconnected by user');
     return { ok: true };
   });
@@ -383,8 +458,8 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   // ── F137: WeChat QR code login routes ──
 
   app.post('/api/connector/weixin/qrcode', async (request, reply) => {
-    const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    const auth = requireConnectorWriteIdentity(request, reply);
+    if (auth.error) return auth.error;
 
     try {
       const { WeixinAdapter: WA } = await import('../infrastructure/connectors/adapters/WeixinAdapter.js');
@@ -402,8 +477,9 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   });
 
   app.get('/api/connector/weixin/qrcode-status', async (request, reply) => {
-    const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    const auth = requireConnectorWriteIdentity(request, reply);
+    if (auth.error) return auth.error;
+    const { userId } = auth;
 
     const { qrPayload } = request.query as { qrPayload?: string };
     if (!qrPayload) {
@@ -422,10 +498,18 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
           reply.status(503);
           return { error: 'WeChat adapter not ready — please retry shortly' };
         }
+        const writeError = await applyAuditedConnectorSecretUpdates(
+          app,
+          [{ name: 'WEIXIN_BOT_TOKEN', value: status.botToken }],
+          opts,
+          userId,
+          'weixin-qrcode-confirm',
+        );
+        if (writeError) {
+          reply.status(writeError.status);
+          return { error: writeError.error };
+        }
         adapter.setBotToken(status.botToken);
-        await applyConnectorSecretUpdates([{ name: 'WEIXIN_BOT_TOKEN', value: status.botToken }], {
-          envFilePath: opts.envFilePath,
-        });
         opts.startWeixinPolling?.();
         app.log.info('[WeChat QR] Auto-activated — bot_token persisted to .env, polling started');
         return { status: 'confirmed' };
@@ -440,8 +524,8 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   });
 
   app.post('/api/connector/weixin/activate', async (request, reply) => {
-    const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    const auth = requireConnectorWriteIdentity(request, reply);
+    if (auth.error) return auth.error;
 
     const adapter = opts.weixinAdapter;
     if (!adapter) {
@@ -462,8 +546,9 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
 
   // F137 Phase D: Disconnect WeChat — stop polling + clear token + clear state
   app.post('/api/connector/weixin/disconnect', async (request, reply) => {
-    const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    const auth = requireConnectorWriteIdentity(request, reply);
+    if (auth.error) return auth.error;
+    const { userId } = auth;
 
     const adapter = opts.weixinAdapter;
     if (!adapter) {
@@ -472,9 +557,17 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     }
 
     await adapter.disconnect();
-    await applyConnectorSecretUpdates([{ name: 'WEIXIN_BOT_TOKEN', value: null }], {
-      envFilePath: opts.envFilePath,
-    });
+    const writeError = await applyAuditedConnectorSecretUpdates(
+      app,
+      [{ name: 'WEIXIN_BOT_TOKEN', value: null }],
+      opts,
+      userId,
+      'weixin-disconnect',
+    );
+    if (writeError) {
+      reply.status(writeError.status);
+      return { error: writeError.error };
+    }
     app.log.info({ userId }, '[WeChat] Disconnected by user — token cleared from .env');
 
     return { ok: true };
@@ -483,13 +576,22 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   // ── F132 Phase E: WeCom Bot guided setup — validate + connect + disconnect ──
 
   app.post('/api/connector/wecom-bot/validate', async (request, reply) => {
-    const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    const auth = requireConnectorWriteIdentity(request, reply);
+    if (auth.error) return auth.error;
+    const { userId } = auth;
 
     const { botId, secret } = (request.body ?? {}) as { botId?: string; secret?: string };
     if (!botId || !secret) {
       reply.status(400);
       return { error: 'botId and secret are required' };
+    }
+    const validationError = validateConnectorSecretUpdates([
+      { name: 'WECOM_BOT_ID', value: botId },
+      { name: 'WECOM_BOT_SECRET', value: secret },
+    ]);
+    if (validationError) {
+      reply.status(400);
+      return { error: validationError };
     }
 
     try {
@@ -508,25 +610,35 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
 
       // AC-E3: Save credentials and activate adapter without restart
       // P1 fix: save → start → if start fails, rollback credentials
-      await applyConnectorSecretUpdates(
+      const writeError = await applyAuditedConnectorSecretUpdates(
+        app,
         [
           { name: 'WECOM_BOT_ID', value: botId },
           { name: 'WECOM_BOT_SECRET', value: secret },
         ],
-        { envFilePath: opts.envFilePath },
+        opts,
+        userId,
+        'wecom-bot-validate',
       );
+      if (writeError) {
+        reply.status(writeError.status);
+        return { valid: false, error: writeError.error };
+      }
 
       if (opts.startWeComBotStream) {
         try {
           await opts.startWeComBotStream(botId, secret);
         } catch (startErr) {
           // Rollback: credentials saved but adapter failed to start
-          await applyConnectorSecretUpdates(
+          await applyAuditedConnectorSecretUpdates(
+            app,
             [
               { name: 'WECOM_BOT_ID', value: null },
               { name: 'WECOM_BOT_SECRET', value: null },
             ],
-            { envFilePath: opts.envFilePath },
+            opts,
+            userId,
+            'wecom-bot-rollback',
           );
           app.log.error({ err: startErr }, '[WeCom Bot] Adapter start failed — credentials rolled back');
           reply.status(502);
@@ -544,20 +656,28 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   });
 
   app.post('/api/connector/wecom-bot/disconnect', async (request, reply) => {
-    const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    const auth = requireConnectorWriteIdentity(request, reply);
+    if (auth.error) return auth.error;
+    const { userId } = auth;
 
     if (opts.stopWeComBot) {
       await opts.stopWeComBot();
     }
 
-    await applyConnectorSecretUpdates(
+    const writeError = await applyAuditedConnectorSecretUpdates(
+      app,
       [
         { name: 'WECOM_BOT_ID', value: null },
         { name: 'WECOM_BOT_SECRET', value: null },
       ],
-      { envFilePath: opts.envFilePath },
+      opts,
+      userId,
+      'wecom-bot-disconnect',
     );
+    if (writeError) {
+      reply.status(writeError.status);
+      return { error: writeError.error };
+    }
     app.log.info({ userId }, '[WeCom Bot] Disconnected by user — credentials cleared');
 
     return { ok: true };
@@ -577,8 +697,9 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   });
 
   app.put('/api/connector/permissions/:connectorId', async (request, reply) => {
-    const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    const auth = requireConnectorWriteIdentity(request, reply);
+    if (auth.error) return auth.error;
+    const { userId } = auth;
     const { connectorId } = request.params as { connectorId: string };
     const store = opts.permissionStore;
     if (!store) {
