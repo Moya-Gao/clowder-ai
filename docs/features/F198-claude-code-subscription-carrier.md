@@ -70,25 +70,67 @@ Cat Café 当前 [`ClaudeAgentService.ts:188-194`](../../packages/api/src/domain
 
 **输出 Decision Packet**（格式见 `cat-cafe-skills/refs/decision-matrix.md`）：主路径 + 兜底路径 + 弃用项 + 每个判断的证据 + 砚砚 review 通过 + 铲屎官签字。
 
-### Phase B: 主 Carrier 集成（10 天，5/18-5/27）
+### Phase B: 主 Carrier 集成（**重写：从 -p print mode 整体迁到 --bg daemon carrier**）
 
-把 Phase A 选定的 carrier 接入 Cat Café：
+> **Second revision 主路径（KD-10）**：不是 env fix 不是 profile 重命名，是 **整体 invocation 改造**——`claude -p ... --output-format stream-json` → `claude --bg ...` + Anthropic 官方 Agent View 协议（daemon supervisor + per-job 隔离 + jsonl 事件流）。
 
-1. **新增 `ClaudeInteractiveCarrierService`**（或扩 ClaudeAgentService）—— **不删除现有 `-p` 路径**（保留为 sdk_credit fallback）
-2. **Profile mode 重命名 + 新增一档**（砚砚 P1 — 当前 `subscription` 命名误导）：
-   - `subscription_interactive`（新主路径，走真订阅 usage limits）
-   - `claude_print_oauth`（**当前 `subscription` mode 重命名** — 实质 = `-p` 走 OAuth 鉴权，6/15 后进 SDK $200 桶；旧名让人误以为 6/15 后还安全）
-   - `api_key`（按量付费）
-   - Phase B 实施 codebase migration：`ClaudeAgentService.ts` 里 `mode === 'subscription'` rename 为 `mode === 'claude_print_oauth'`，加旧名 alias 兼容 1 个月过渡
-3. **进程隔离优先；池化需协议证据**（砚砚 P1 — 防上下文污染）：
-   - **默认 per-thread process 隔离**：interactive Claude session 有上下文状态，跨 thread 共享 = 上下文污染 + 状态泄漏风险
-   - **池化 opt-in**：仅当 Phase A 证明 `--remote-control` 协议支持多 session 隔离原语（类似 ACP 的 `newSession`/`loadSession`）时启用
-   - 真启用池化后借鉴 [F149](F149-acp-runtime-operations.md) 模式：idle TTL + max live process count + LRU 回收
-   - interactive Claude session 启动成本高（spike 后实测，估计 ~5-15s）— 即使无池化，warm pool（预启动空 session）可缓解冷启
-4. **事件流桥接**：interactive session → Cat Café `AgentMessage` 流
-   - 保留 Hub 可见性（这是 Phase C 的 prereq）
-   - 维持现有 [ClaudeEventTransformer](../../packages/api/src/domains/cats/services/agents/providers/ClaudeAgentService.ts) 兼容
-5. **MCP config 注入**：Cat Café MCP server 仍然挂载，宪宪能继续用 `cat_cafe_*` 工具（OQ-4 待解决具体注入路径）
+#### B1. 新增 `ClaudeBgCarrierService`
+
+新增 carrier service 走 `claude --bg`，保留 `ClaudeAgentService(-p)` 作为 SDK credit fallback：
+
+```typescript
+// 新主路径（伪代码）:
+const args = ['--bg', effectivePrompt];  // 移除 -p 和 --output-format stream-json
+const child = spawn('claude', args, { env: buildChildEnv(...) });
+// child 立刻退出 + 返回 short id (如 c555a987)
+const jobShort = parseJobShortFromStdout(child.stdout);
+
+// 然后 consumer 层 tail jsonl + read state.json
+yield* tailJobEvents(jobShort);  // AgentMessage stream
+```
+
+#### B2. Invocation Migration
+
+- **移除** `-p / --print` flag → 这是 KD-9 决定性触发"sdk-cli"标签的根本原因
+- **移除** `--output-format stream-json` → daemon mode 不通过 stdout 发事件，通过 jsonl 文件
+- **移除** `--include-partial-messages` → 同上
+- **保留** `--mcp-config` → daemon mode 仍支持 MCP（Cat Café `cat_cafe_*` tools 仍可用）
+- **保留** `--model / --effort / --permission-mode` → 这些不影响 entrypoint 分类
+
+#### B3. 输出消费层（替代 stdout NDJSON 解析）
+
+新 `JobEventConsumer` 替代 `ClaudeEventTransformer`：
+
+| 文件 | 作用 | 消费方式 |
+|------|------|---------|
+| `~/.claude/jobs/<short>/state.json` | 整体 state machine（state/detail/output/tempo/inFlight） | poll on change（fs.watch） |
+| `~/.claude/jobs/<short>/timeline.jsonl` | 简洁事件流（at/state/detail/text） | tail -f |
+| `~/.claude/projects/<>/<sid>.jsonl` | 完整 conversation transcript（user/assistant/tool_use/tool_result）| tail -f |
+
+桥接到现有 `AgentMessage` 流——保留 Hub UI 不需要改（Phase C oversight prereq）。
+
+#### B4. ~~进程隔离~~ → 直接用 Agent View daemon supervisor
+
+撤回旧 Phase B Step 3（自己设计进程池）。Agent View 内置：
+- supervisor + per-job worker 隔离
+- `--bg-spare` warm pool（暖池预启动）
+- git worktrees 内置隔离（避免跨 thread 文件冲突）
+
+我们直接消费 daemon 提供的能力，不重新发明。
+
+#### B5. Cat Café worktree × Agent View worktree 冲突分析
+
+Anthropic Agent View 在 `~/.claude/worktrees/<short>/` 自动开 git worktree 做写入隔离——这跟 cat-cafe 自己的 worktree 流程（feat branch + relay-station 同级目录）**机制不同但目录不冲突**。设计点：
+- cat-cafe spawn `claude --bg --cwd <cat-cafe-worktree-path>` 时，Agent View 会在该 worktree 内再开 sub-worktree
+- 决策：是 opt-in `--no-worktree` 让 daemon 不开 sub-worktree（直接在我们 worktree 写）？还是接受双层 worktree（merge 时合并）？
+- 待 Phase B 实施时设计（OQ-10 新增）
+
+#### B6. Profile mode 简化（撤回旧方案）
+
+撤回旧 Phase B Step 2 的"`subscription_interactive` + `claude_print_oauth` + `api_key`"三档命名战术：
+- 真正分界不是 OAuth 鉴权方式，是 invocation flag (`-p` vs `--bg`)
+- 新的 profile：`bg_daemon`（主） / `print_sdk`（旧 `-p`，fallback 进 SDK 桶）/ `api_key`（按量）
+- migration：`mode === 'subscription'` 在 `--bg` 下走 daemon，在 `-p` 下走 SDK 桶
 
 ### Phase C: Hub Oversight 守护（7 天，5/25-6/05）—— 铲屎官硬约束
 
@@ -156,6 +198,26 @@ in_context_observability:
 
 **剩余不可证伪点**（必须 6/15 后 dashboard 或 Anthropic dev support 邮件 conclusive）：服务端实际计费桶按什么字段分类，客户端不可知。spec working hypothesis 走 **unset entrypoint + 避开 -p** 路径，但仍保留三档 fallback。
 
+### Second Revision（21:00+，控制实验后再次反转）
+
+继续 spike 跑了**两组对照实验**（worktree `cat-cafe-f198-env-unset-fix`）：
+
+| 实验 | host env | buildChildEnv | flag | transcript entrypoint |
+|------|---------|--------------|------|---------------------|
+| 1 (`1343014a`) | `CLAUDE_CODE_ENTRYPOINT=sdk-cli` | null → delete | `-p` | **sdk-cli** ❌ |
+| 2 (`649b89ba`) | 完全不设 | (无需 delete) | `-p` | **sdk-cli** ❌ |
+| 之前 (`112e9a4e`) | 不设 | delete | `--bg` | **cli** ✅ |
+
+**结论**：`-p` flag 本身让 claude binary 内部 set entrypoint=sdk-cli，**跟我们 cat-cafe 怎么处理 env 完全无关**。`buildChildEnv` 里的 `null → delete` 逻辑早就正确，cat-cafe 一直在正确 unset——但 claude binary 在 `-p` mode 自己设回 sdk-cli。
+
+**之前 "delete env.X → cli +7" spike 的方法论错误**：那次同时切换了 env (delete) 和 flag (`-p` → `--bg`)，没控制变量。cli +7 是 `--bg` 给的，不是 delete 给的。
+
+**真正分界**：
+- `-p` flag → claude binary 自我 set sdk-cli → 6/15 后进 SDK 桶
+- `--bg` flag → 不自我 set → entrypoint=cli → 6/15 后走订阅
+
+**`ClaudeAgentService.ts:71` 的 `env.X = null` 不是 bug**——buildChildEnv 已经正确处理。这一行可以保留也可以删，**fix 不在这里**。
+
 ## Explicit Non-Carriers / Discarded Options
 
 这些方案已评估，记录在此避免后续团队反复误判（砚砚 P2 review 加入）：
@@ -175,12 +237,14 @@ in_context_observability:
 - [ ] AC-A3: `claude agents` / `--brief` / tmux 兜底各做 1 次 spike，记录可行性 + 弃用理由
 - [ ] AC-A4: Decision Packet 产出（主路径 + 兜底 + 弃用项 + 证据），砚砚 review 通过 + 铲屎官签字
 
-### Phase B（Carrier 集成）
-- [ ] AC-B1: 新 `ClaudeInteractiveCarrierService` 实现，单 thread invoke 端到端跑通
-- [ ] AC-B2: Profile mode 加 `subscription_interactive`，可在 Hub UI 切换 + per-thread 覆盖
-- [ ] AC-B3: 进程隔离 baseline 落地（默认 per-thread process，防上下文污染）；**池化 opt-in**：仅当 Phase A 证明 RC 协议支持多 session 隔离原语时才启用 lease + 池化
-- [ ] AC-B4: 事件流桥接，AgentMessage 流和 `-p` 模式行为等价（同样 message / tool_use / tool_result 在 thread UI 可见）
-- [ ] AC-B5: Cat Café MCP server 在 interactive carrier 下正常工作（`cat_cafe_*` 工具可调用）
+### Phase B（Carrier 集成 — Second revision 重写）
+- [ ] AC-B1: 新 `ClaudeBgCarrierService` 实现，单 thread invoke 端到端跑通（`claude --bg` 启动 + jsonl consumer + AgentMessage 流回 Cat Café）
+- [ ] AC-B2: invocation 移除 `-p` + `--output-format stream-json`，使用 `--bg` flag
+- [ ] AC-B3: `JobEventConsumer` 替代 `ClaudeEventTransformer`：tail timeline.jsonl + transcript.jsonl + read state.json，桥接到现有 `AgentMessage` shape
+- [ ] AC-B4: Cat Café MCP server 在 `--bg` 模式下正常工作（`cat_cafe_*` 工具可调用，通过 `--mcp-config` 注入）
+- [ ] AC-B5: Cat Café worktree × Agent View worktree 冲突方案落定（`--no-worktree` 还是 双层 worktree 流程）
+- [ ] AC-B6: 实测新 carrier 产生的 transcript `entrypoint=cli`（非 sdk-cli），作为客户端层证据；服务端 billing 仍 pending dashboard / Anthropic dev support
+- [ ] AC-B7: `ClaudeAgentService(-p)` 保留为 fallback path（SDK credit 桶 + API key 降级）
 
 ### Phase C（Hub Oversight — 铲屎官硬约束）
 - [ ] AC-C1: F089 tmux agent pane 在 Hub 内可观看（read-only）
@@ -211,8 +275,8 @@ in_context_observability:
 ## Architecture Cell
 
 - **Architecture cell**: F143 Hostable Agent Runtime（agent invocation 域）
-- **Map delta**: **update required** — F143 ProcessModel 增加 `interactive_subscription` 分类；Provider 适配层新增 `ClaudeInteractiveCarrierService`，与现有 `ClaudeAgentService(-p)` 平级
-- **Why**: 这不是 net new 架构，是现有 carrier 域里增加新载体类型；F143 ownership map 需要更新认知"interactive subscription 是和 -p / api_key 平级的第三种 carrier 模式"
+- **Map delta**: **update required** — F143 ProcessModel 增加 `bg_daemon` 分类；Provider 适配层新增 `ClaudeBgCarrierService`，与现有 `ClaudeAgentService(-p)` 平级
+- **Why**: 这不是 net new 架构，是现有 carrier 域里增加新载体类型；F143 ownership map 需要更新认知"`--bg` daemon carrier 是和 `-p print mode / api_key` 平级的第三种 carrier 模式"。Anthropic 官方 Agent View（v2.1.139+）暴露 daemon supervisor + jsonl 事件流接口，我们消费这套契约，不重新发明。
 
 ## Eval / Tracking Contract
 
@@ -267,7 +331,10 @@ in_context_observability:
 | OQ-6 | Phase D 灰度切流量按 thread 还是按 cat 还是按 user？ | ⬜ Phase D 设计 |
 | OQ-7 | Interactive session resume 语义？跨 invocation 复用 session 是否会污染 context？ | ⬜ Phase B spike |
 | OQ-8 | Hub 接管按钮的 UX：read-write 切回 read-only 后宪宪能否无缝继续？ | ⬜ Phase C 设计 + 与 F089 团队协调 |
-| OQ-9 | `--remote-control` 协议是否支持多 session 隔离原语？单进程多 thread 共享一个 session 还是有 `newSession`/`loadSession` 类语义？ | ⬜ Phase A spike — **决定 AC-B3 是 baseline 隔离还是池化可启用** |
+| OQ-9 | ~~`--remote-control` 协议是否支持多 session 隔离原语~~ → **obsoleted by KD-10**：主路径不走 RC 走 `--bg`，Agent View daemon 内置 per-job 隔离 | ✅ obsolete |
+| OQ-10 | Cat Café worktree × Agent View 内置 worktree 冲突方案：`--no-worktree`（避免双层）还是接受双层（daemon 在我们 worktree 内再开 sub-worktree）？| ⬜ Phase B 设计 — 影响 AC-B5 |
+| OQ-11 | `--bg` 模式下 prompt 是 argv 还是 stdin？长 prompt（含 system prompt + thread context + RAG）会不会触发 ARG_MAX？ | ⬜ Phase B prototype 阶段实测 |
+| OQ-12 | `--bg` 模式 cancel / interrupt 语义：thread 切换 / 用户取消时怎么发 stop？`claude stop <short>` 是否同步？需不需要 SIGTERM 兜底？ | ⬜ Phase B 设计 |
 
 ## Key Decisions
 
@@ -280,7 +347,9 @@ in_context_observability:
 | KD-5 | Oversight 不弱于 -p 模式 = AC-C6 硬门禁 | 铲屎官硬约束；MCP 反转桥被否决的同一逻辑 | 2026-05-13 |
 | KD-6 | **撤回 KD-2**：`--remote-control` 不优先于 tmux interactive | Phase A spike 证伪：RC 跟 -p 同样 entrypoint=sdk-cli；46 strings binary 找到真实判定逻辑（entrypoint 由 env var 决定，与 flag 无关）| 2026-05-13 |
 | KD-7 | **真正金钥匙**：在 spawn claude 时**真正 unset `CLAUDE_CODE_ENTRYPOINT`**（让 entrypoint=cli）+ **避开 `-p` flag**（让 isInteractive=true）| 46 strings binary 找到判定代码：`if (env.CLAUDE_CODE_ENTRYPOINT === "sdk-cli") return "sdk-cli"; ... return "cli"`。47 spike 实测：`env -u CLAUDE_CODE_ENTRYPOINT claude --bg "..."` → cli +7（整晚第一次非零增量） | 2026-05-13 |
-| KD-8 | `ClaudeAgentService.ts:71` 的 `env.CLAUDE_CODE_ENTRYPOINT = null` **有 bug**：NodeJS spawn 把 null 处理为"不传给子进程"但父进程 env 仍被 inherit | 我自己 (-p 调用) env 里 `CLAUDE_CODE_ENTRYPOINT=sdk-cli` 仍然 set 着，说明 null 没真正 unset。Phase B 必须修：用 `delete env.X` 或 spawn options `env: {全显式列表}` | 2026-05-13 |
+| KD-8 | ~~`ClaudeAgentService.ts:71` 的 `env.X = null` 有 bug~~ **撤回** | Second revision 控制实验证伪：`buildChildEnv` 内部 `if (null) delete merged[key]` 已经正确处理；transcript 仍是 sdk-cli 不是因为 env，是因为 `-p` flag 本身让 binary 自我 set | 2026-05-13（撤回 2026-05-13 21:00+）|
+| KD-9 | **真正决定性信号是 `-p` flag，不是 env var** | 两组控制实验（host env 设/不设 + buildChildEnv delete）+ `-p` 全部产出 entrypoint=sdk-cli；之前 cli +7 是 `--bg` 给的不是 delete 给的（spike 方法论错：没控制变量）| 2026-05-13 21:00+ |
+| KD-10 | **真正 fix 是 invocation 从 `-p` 迁到 `--bg`**（整体 carrier 改造，不是 2 行 env fix） | 配合官方 Agent View daemon（state.json + timeline.jsonl + transcript.jsonl 消费）+ 移除 stream-json stdout 解析 | 2026-05-13 21:00+ |
 
 ## Timeline
 
@@ -288,7 +357,8 @@ in_context_observability:
 |------|------|
 | 2026-05-13 | 立项 |
 | 2026-05-13 | Phase A spike 完成（5+ 轮摆动后 46 strings binary 切真相）；vision-rescue skill 沉淀；spec patch（KD-6/7/8 + Spike Reflection）|
-| 2026-05-17 (target) | ~~Phase A 完成~~ → Phase B 起手：修 ClaudeAgentService.ts env unset bug + 跑改造 spike |
+| 2026-05-13 21:00+ | Phase A **再次反转**：worktree 控制实验证伪 KD-8（env null bug 不存在）；新 KD-9 (`-p` flag 是决定性信号) + KD-10（真 fix 是 invocation 改造）；Phase B scope 从"2-line env fix"扩到"`-p` → `--bg` 整体 carrier 改造"|
+| 2026-05-18 (target) | Phase B 起手：prototype `ClaudeBgCarrierService` + JobEventConsumer |
 | 2026-05-27 (target) | Phase B 完成 |
 | 2026-06-05 (target) | Phase C 完成 + 跨猫愿景守护通过 |
 | 2026-06-08 (target) | Phase D 灰度 100% |
