@@ -409,6 +409,37 @@ describe('useAgentMessages system_info invocation_created', () => {
     expect(storeState.targetCats).toEqual(['opus']);
   });
 
+  it('migrates legacy a2a_handoff without invocationId by resolving the current cat active slot', () => {
+    storeState.activeInvocations = {
+      'inv-root': { catId: 'codex', mode: 'execute', startedAt: 123456 },
+    };
+    storeState.targetCats = ['codex'];
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'a2a_handoff',
+        catId: 'codex',
+        content: '缅因猫 → 布偶猫',
+        targetCatId: 'opus',
+        timestamp: 123999,
+      } as never);
+    });
+
+    expect(mockRemoveActiveInvocation).toHaveBeenCalledWith('inv-root');
+    expect(mockAddActiveInvocation).toHaveBeenCalledWith('inv-root', 'opus', 'execute', 123456);
+    expect(mockReplaceThreadTargetCats).toHaveBeenCalledWith('thread-1', ['opus']);
+    expect(storeState.activeInvocations['inv-root']).toEqual({
+      catId: 'opus',
+      mode: 'execute',
+      startedAt: 123456,
+    });
+    expect(storeState.targetCats).toEqual(['opus']);
+  });
+
   it('keeps the cancel affordance during the handoff gap after the previous cat slot is cleared', () => {
     storeState.activeInvocations = {};
     storeState.targetCats = ['codex'];

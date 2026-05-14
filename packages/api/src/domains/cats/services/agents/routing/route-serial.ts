@@ -1711,6 +1711,7 @@ export async function* routeSerial(
             type: 'a2a_handoff' as AgentMessageType,
             catId,
             content: `${catConfig?.displayName ?? catId} → ${nextConfig?.displayName ?? pendingCat}`,
+            invocationId: ownInvocationId,
             targetCatId: pendingCat,
             timestamp: Date.now(),
           } as AgentMessage;
@@ -1952,6 +1953,7 @@ export async function* routeSerial(
           type: 'a2a_handoff' as AgentMessageType,
           catId,
           content: `${catConfig?.displayName ?? catId} → ${nextConfig?.displayName ?? pendingCat}`,
+          invocationId: ownInvocationId,
           targetCatId: pendingCat,
           timestamp: Date.now(),
         } as AgentMessage;

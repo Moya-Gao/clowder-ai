@@ -2404,6 +2404,22 @@ export function useAgentMessages() {
     [addActiveInvocation, removeActiveInvocation, replaceThreadTargetCats],
   );
 
+  const resolveSequentialHandoffInvocationId = useCallback((fromCatId?: string, explicitInvocationId?: string) => {
+    if (explicitInvocationId) return explicitInvocationId;
+
+    const store = useChatStore.getState();
+    const activeEntries = Object.entries(store.activeInvocations);
+    if (fromCatId) {
+      const fromCatSlot = activeEntries.find(([, slot]) => slot.catId === fromCatId);
+      if (fromCatSlot) return fromCatSlot[0];
+
+      const fromCatInvocationId = store.catInvocations?.[fromCatId]?.invocationId;
+      if (fromCatInvocationId) return fromCatInvocationId;
+    }
+
+    return activeEntries.length === 1 ? activeEntries[0]?.[0] : undefined;
+  }, []);
+
   const findRecoverableAssistantMessage = useCallback(
     (catId: string, explicitInvocationId?: string) => {
       // F173 hotfix (砚砚 4 件套 #1) — recovery MUST be identity-aware.
@@ -3844,8 +3860,11 @@ export function useAgentMessages() {
           }
         }
       } else if (msg.type === 'a2a_handoff') {
-        if (msg.targetCatId && msg.invocationId) {
-          maybeMigrateSequentialInvocationOwnership(msg.targetCatId, msg.invocationId);
+        const handoffInvocationId = msg.targetCatId
+          ? resolveSequentialHandoffInvocationId(msg.catId, msg.invocationId)
+          : undefined;
+        if (msg.targetCatId && handoffInvocationId) {
+          maybeMigrateSequentialInvocationOwnership(msg.targetCatId, handoffInvocationId);
         }
         // F173 bug fix: use server timestamp + marker so chatStore inserts
         // this routing pill at the right position relative to the next cat's
@@ -4570,6 +4589,7 @@ export function useAgentMessages() {
       isActiveCallbackStillStreaming,
       ensureActiveAssistantMessage,
       maybeMigrateSequentialInvocationOwnership,
+      resolveSequentialHandoffInvocationId,
       shouldSuppressLateStreamChunk,
       setHasActiveInvocation,
       setMessageUsage,
