@@ -97,6 +97,44 @@ inputs:
 
 ---
 
+## 0.5 图解版：先用三张图看懂
+
+### 图 1：一条需求从"一句话"变成"可靠结果"
+
+![Mission Loom 对象模型流水线](./assets/mission-loom-object-pipeline.png)
+
+这张图讲的是：**Mission Loom 管的不是一张任务卡，而是一条需求的完整旅程。**
+
+最左边的 **Signal** 是原始输入，比如 GitHub issue、聊天里冒出来的想法、系统异常；它还很混乱，不一定值得做。接下来 **Intent** 是把这句话翻译成"用户到底想要什么"。**Decision** 是人来拍板：现在做、先问清楚、先验证、给人做、适合猫做、拒绝、以后再说。
+
+拍板之后才进入传统看板熟悉的部分：**WorkItem** 是真正派出去的任务；**WorkRun** 是一次具体执行尝试，一张任务可能跑多次，比如第一次被 block、第二次换猫接手、第三次过 review；**Outcome** 是最终结果和复盘。
+
+为什么存储上前三个合进 `demand` 表？因为它们都属于"需求侧判断"。后面的 `work_item`、`work_run`、`outcome` 分开，是为了把"任务本身"、"每次执行"、"最终结果"分清楚，避免一次失败执行把整张任务卡说死。底下的 **Knowledge Feed** 负责从结果里抽经验，未来反过来帮助我们判断什么需求该做、该给谁做。
+
+### 图 2：系统怎么跑起来
+
+![Mission Loom 系统架构](./assets/mission-loom-system-architecture.png)
+
+这张图讲的是：**左边进需求，中间留真相，右边派人和猫去做。**
+
+左边的来源可以是 GitHub issue/PR、Cat Café 对话、trace 异常。它们进入中间的 **Mission Loom Kernel**。Kernel 里 SQLite 负责记长期真相：需求是什么、任务状态是什么、执行结果是什么；Redis 只负责活跃状态：谁现在领了、心跳还在不在、队列里等谁来拿。
+
+中间的 **Dispatcher** 是调度员，也是唯一的状态协调者。它会周期性做几件事：把 ready 的任务派出去、把卡住或过期的执行回收、把满足条件的任务推进到下一步。右边的 **Actor Lanes** 是执行通道：人类 PM/CVO、Cat Café 里的猫、未来外部 agent（Claude Code / Codex / Hermes / Cursor 等）都通过同一套 lane contract 接任务、心跳、阻塞、交接、完成或失败。
+
+底部的 **Evidence Index** 只收已经结束的 WorkRun 和 Outcome，不把运行中的临时状态塞进去。这样记忆库沉淀的是可靠结果，不是过程噪音。
+
+### 图 3：同一份数据，给不同角色看不同切面
+
+![Mission Loom 三视角](./assets/mission-loom-three-lenses.png)
+
+这张图讲的是：**我们不是做三套系统，而是一份 kernel 数据长出三个视角。**
+
+PM/CVO 看的是 **Inbox**：哪些原始需求进来了、意图是否清楚、优先级和证据够不够、哪些需要人拍板。执行者看的是 **Flow Board**：哪些任务 ready、谁在 running、哪里 blocked、哪些等 review、哪些 done。决策者看的是 **Intelligence**：哪类任务适合人做、哪类任务适合猫做、哪些猫在什么任务上稳定、哪些决策经常被反悔。
+
+这个设计的核心卖点是 **natively dual-consumer**：人和猫用的是同一份真相源，只是看的窗口不同。这样 PM 不需要另做项目周报，猫也不需要去翻人类看板猜自己能领什么，执行结果还能自动反哺后续 routing。
+
+---
+
 ## 1. 核心命题
 
 > **不是管理任务，而是管理"意图变成可靠结果"的全过程。**（砚砚原话，我同意）
