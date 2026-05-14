@@ -27,12 +27,19 @@ F190 close (`1039d68a4`) 后 CVO 重启 runtime 用 `/settings` 实测，对比 
 > "图1是开源的 图2是我们的 这里能证明 你们只是调整了样式 其实很多东西都丢了？"
 > "走 Phase D 用 -> 完整 backfill 7 个组件"
 
-7 个缺失分类（详见 [design memo](../discussions/2026-05-13-f190-phase-d-parity-audit/README.md)）：
-- 4 个是 F190 **KD-5 deliberate defer** (secret write-back) — 但 CVO close-gate 不知道"通知页变成纯诊断面板"，技术语言"deferred"没映射到用户可见性
-- 2 个 SVG 图标 (`box`/`puzzle`) — 真 review miss，已 hotfix via PR #1659 (`d928fb696`)
-- 1 个 read-mostly 漏 port — 不该 defer
+**事故事实模型 — 两个独立维度，不同分母**（详见 [design memo](../discussions/2026-05-13-f190-phase-d-parity-audit/README.md)）：
 
-F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsRedactedPlaceholder` + `mergeSecretRecord` + audit) 摸清，复用成本低。Permanent defer = 永远比开源功能差一截，每次 outbound sync 还要反向 manual-port，长期心累。Phase D 把剩余 5 个组件 backfill 回家（2 个 SVG 已通过 hotfix close）。
+**维度 A: 组件级 surface gap（`ls settings/` diff）**
+- 开源 20 vs 本地 13 = **7 个组件级 gap**
+- 内部分类：
+  - 4 个是 F190 **KD-5 deliberate defer** (secret write-back / capability write) — 但 CVO close-gate 不知道"通知页变成纯诊断面板"，技术语言"deferred"没映射到用户可见性
+  - 3 个是 read-mostly/配套项，本该 port 没 port (ServiceStatusPanel / SkillsContent read 部分 / useCapabilityState)
+
+**维度 B: 路径级 path 漏挂（`hub-icons.tsx` 内）**
+- **2 个 SVG icon path 缺失**（`box` / `puzzle`） — 真 review miss，已 hotfix via PR #1659 (`d928fb696`)
+- **这跟维度 A 不在同一组成**：SVG paths 是 `hub-icons.tsx` 内部常量，不是独立组件文件
+
+F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsRedactedPlaceholder` + `mergeSecretRecord` + audit) 摸清，复用成本低。Permanent defer = 永远比开源功能差一截，每次 outbound sync 还要反向 manual-port，长期心累。Phase D 把维度 A 的 **7 个组件级 surface 全部 backfill 回家**（维度 B 的 2 SVG 不在本 feat 范围，已独立 hotfix close）。
 
 ## What
 
@@ -115,7 +122,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
 | KD-1 | F190 Phase D 开新 F 号 F199，不 reopen F190 | F190 已正式 close，reopen 让真相源不稳；Phase D 是 follow-up 性质 | 2026-05-13 |
-| KD-2 | 完整 backfill 5 个剩余组件（2 SVG 已 hotfix） | 永久 defer 长期心累，hardening pattern 已摸清，复用成本低 | 2026-05-13 |
+| KD-2 | 完整 backfill 7 个组件级 surface gap (维度 A) | 永久 defer 长期心累，hardening pattern 已摸清，复用成本低。维度 B (2 SVG path) 已独立 hotfix close，不属本 feat | 2026-05-13 |
 | KD-3 | D-1 ServiceStatusPanel 先开（猫自决，CVO 不管） | 最低风险，验证新 SOP（parity gate + User Visibility Disclosure）在小 slice 上跑通后再做高风险 secret write | 2026-05-13 |
 | KD-4 | D-4/D-5 secret write 复用 IM connector hardening pattern | Pattern 已审过，新增刀降低 review 成本 | 2026-05-13 |
 | KD-5 | 不接 callback URL / provider endpoint 写面（OQ-D 同 F190 IM connector） | 避免扩面 SSRF 边界，本 feat 只补现有 secret credential 写 UI | 2026-05-13 |
