@@ -36,7 +36,7 @@ Screenshot method:
 | MCP dependency state | Source can drive install/repair flows through capability writes | Dependency chips show `ready` / `missing`; no repair button | Deliberately not ported; write flows stay deferred |
 | Skills staleness / conflicts | Source can expose sync or conflict-resolution actions | Passive notifications show update/conflict counts only | Read-only notification; sync/resolve actions stay deferred to a higher-risk write slice |
 | Sync/conflict actions | Source and old home surfaces can expose sync/resolve actions | Staleness/conflict banners are passive only | Deliberately not ported; D-2 is read-mostly |
-| External skill uninstall | Source can render external uninstall action | No uninstall action | Deliberately not ported; DELETE/auth hardening remains a later F199 slice |
+| External skill uninstall | Source can render external uninstall action | No uninstall action | Deliberately not ported; DELETE/auth hardening remains outside F199 |
 
 ## Verification
 
@@ -51,7 +51,7 @@ Screenshot method:
 
 ## Close-Out Notes
 
-D-2 intentionally keeps write controls out of scope. This follows F199 KD-3: D-1/D-2 validate the upgraded parity SOP with read-mostly surfaces before the later high-risk secret/write slices. CVO accepted the complete five-slice backfill plan on 2026-05-13.
+D-2 intentionally keeps Skills write controls out of scope. This follows F199 KD-3: D-1/D-2 validate the upgraded parity SOP with read-mostly surfaces before the later high-risk secret/write slices. CVO accepted the complete five-slice backfill plan on 2026-05-13; external skill uninstall remains outside F199.
 
 ## Boundaries
 
