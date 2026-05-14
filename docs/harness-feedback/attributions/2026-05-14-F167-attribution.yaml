@@ -1,0 +1,59 @@
+---
+doc_kind: harness-feedback
+feedback_type: attribution
+feature_id: F167
+eval_snapshot_id: "eval-F167-2026-05-14"
+generated_at: "2026-05-14T11:00:25.949Z"
+---
+
+# F167 Attribution Report — 2026-05-14
+
+finding_count: 2
+
+findings:
+  - id: AR-2026-05-14-001
+    related_feature: F167
+    friction_signal:
+      type: observability-gap
+      severity: medium
+      confidence: 0.9
+    attribution:
+      primary_layer: tool_gap
+      pipeline_or_human: pipeline
+      evidence:
+        - type: telemetry-gap
+          anchor: "L1/streak_warn_count"
+          excerpt: "streak_warn_count: no_counter — Cannot measure L1 activation frequency"
+    proposed_action:
+      - action: add-counter
+        target: "L1/streak_warn_count"
+        rationale: "Cannot measure L1 activation frequency"
+    fingerprint: "observability-gap::L1/streak_warn_count"
+    status: open
+
+  - id: AR-2026-05-14-002
+    related_feature: F167
+    friction_signal:
+      type: observability-gap
+      severity: medium
+      confidence: 0.9
+    attribution:
+      primary_layer: tool_gap
+      pipeline_or_human: pipeline
+      evidence:
+        - type: telemetry-gap
+          anchor: "L1/streak_break_count"
+          excerpt: "streak_break_count: no_counter — Cannot measure L1 circuit-break events"
+    proposed_action:
+      - action: add-counter
+        target: "L1/streak_break_count"
+        rationale: "Cannot measure L1 circuit-break events"
+    fingerprint: "observability-gap::L1/streak_break_count"
+    status: open
+
+
+action_rate:
+  total: 4
+  acted_on: 2
+  rate: 0.5
+  sunset_candidate: false
