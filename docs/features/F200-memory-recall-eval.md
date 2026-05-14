@@ -294,6 +294,7 @@ outputVerified = signal_or(
 - [ ] AC-C5: consumption_prior 不影响 authority（constitutional/ADR 免疫降权）
 - [ ] AC-C6: `consumed_anchor_not_in_pool_rate` 指标上线，数据驱动 pool 扩展决策
 - [ ] AC-C7: graph edge_weight（type_base + traversal_count_30d × edge_recency_decay）用于候选排序
+- [ ] AC-C8: shadow 确认排序改进后，同步更新以下软约束文件的记忆系统段：`CLAUDE.md`、`AGENTS.md`、`cat-cafe-skills/refs/memory-routing-partial.md`（愿景守护检查项）
 
 ### Phase D（Full Trajectory Records）
 - [ ] AC-D1: TaskTrajectory 按 invocation/thread 粒度聚合
