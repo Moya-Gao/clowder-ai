@@ -364,6 +364,15 @@ outputVerified = signal_or(
 | 2026-05-14 | 三猫技术讨论：OQ-1/2/3/5 resolved，spec v2 更新 |
 | 2026-05-14 | R2 review（47+砚砚）：consumption_prior centered lift + graph edge weights + targetRef union + ReformulateAfterExposure 精确化 → spec v3 |
 
+## Plan Gate Checklist（writing-plans 前必须解决）
+
+> 来源：47 R3 六细节 + 砚砚 R3 三小修。spec 不阻塞，但 Plan 必须敲定。
+
+- [ ] **PG-1**: ToolEventLog schema 扩展方案 — `tool_events` 加列 vs 新建 `recall_events` 表？砚砚 R1 提过 ToolEventLog 有 windowing 机制 reusable
+- [ ] **PG-2**: target_match 接口规约 — 每种 consumed.method 对应哪种 targetRef kind 的匹配函数表
+- [ ] **PG-3**: edge_traversal 持久化 schema — 当前 `schema.ts:33` edges 表只有 relation/provenance，需加 traversal stats。**Phase A 就开始记**（否则 Phase C 上线时没历史数据）
+- [ ] **PG-4**: shadow mode env flag — 建议 `F200_CONSUMPTION_RERANK=off|shadow|on`，对齐 F163 freezeFlags
+
 ## Review Gate
 
 - Phase A-B: 跨族 review（砚砚 preferred）
