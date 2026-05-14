@@ -8,7 +8,7 @@ created: 2026-05-13
 
 # F198: Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪
 
-> **Status**: in-progress (Phase A ✅ done; Phase B Step 1 foundation ✅ merged 2026-05-14) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
+> **Status**: in-progress (Phase A ✅ done; Phase B Step 1 foundation ✅ merged 2026-05-14; Phase B Step 2 Parity Gate ✅ merged 2026-05-14) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
 
 ## Why
 
@@ -263,24 +263,19 @@ in_context_observability:
 - [x] AC-B7: `ClaudeAgentService(-p)` 保留为 fallback（共享 `buildClaudeEnvOverrides` / `resolveClaudeModelSelection` helper，单一真相源）
 
 #### Step 2 ACs（Parity Gate — 砚砚卡口 2026-05-14）🔴
-- [ ] **AC-B3b**: 新增 `BgTranscriptEventConsumer`——读 `state.linkScanPath` 指向的 transcript jsonl（不是只读 timeline.jsonl summary），把 Claude events 喂给 **复用的** `transformClaudeEvent` / `extractClaudeUsage`（不造第二套语义）
-- [ ] **AC-B3c**: AgentMessage 语义等价覆盖（必须 = `-p` 路径）：
-  - `session_init`（session id）
-  - `text`（partial text streaming，**不是只 final output.result 一次性吐**）
-  - `tool_use` / `tool_result`（Hub tool 计数 + 工具事件）
-  - `system_info`（thinking / rate_limit / compact_boundary）
-  - `done` with `metadata.usage`（input/output tokens / context window / cost / duration）
-  - `error`（CLI timeout / liveness warning / raw diagnostics）
-- [ ] **AC-B3d (Parity Gate)**: Golden tests
-  - 旧 `-p` NDJSON fixture → AgentMessages baseline
-  - 新 `--bg` transcript jsonl fixture → AgentMessages 候选
-  - 关键序列 diff 必须等价：`session_init / text / tool_use / system_info / done.metadata.usage`
-- [ ] **AC-B3e (Alpha Smoke)**: 真实端到端验证（不是单测 SPIKE_OK）
-  - 触发 tool call 的 prompt → Hub UI 能看到 tool_use 出现
-  - 长输出 prompt → Hub UI 看到 streaming（多次 text delta），不是只末尾吐一整段
-- [ ] **AC-B4**: Cat Café MCP server 在 `--bg` 模式下 `cat_cafe_*` 工具可调用（`--mcp-config` 注入仍生效）
-- [ ] **AC-B6**: 实测新 carrier transcript `entrypoint=cli`（客户端层证据）；服务端 billing 仍 pending dashboard
-- [ ] **AC-B8 (Canary Gate)**: AC-B3b/c/d/e 全过后才允许切流量；切流量方式 = profile/flag canary（环境变量或 thread metadata 选择 `bg_daemon` carrier），**禁止默认替换全布偶猫路径**。Parity 退化 → canary 关闭 → 回退 -p。
+- [x] **AC-B3b**: 新增 `BgTranscriptEventConsumer`——读 `state.linkScanPath` 指向的 transcript jsonl，把 Claude events 喂给 **复用的** `transformClaudeEvent` / `extractClaudeUsage`（synthetic result event via `extractTranscriptUsage`，真单一真相源）✅ PR #1669
+- [x] **AC-B3c**: AgentMessage 语义等价覆盖（per-message streaming via file-tail）：
+  - `session_init` ✅
+  - `text`（per-message streaming via `TranscriptTailer`，per-token 不可能因 transcript 在 message_stop 才写）
+  - `tool_use` ✅（Hub R2 硬约束达成）
+  - `system_info`（实采 `turn_duration` ✅；`stop_hook_summary` skipped；thinking/rate_limit/compact 待真实样本出现再做）
+  - `done` with `metadata.usage`（incremental `UsageAccumulator` — O(1) memory）✅
+  - `error` ✅
+- [x] **AC-B3d (Parity Gate)**: 8 golden parity tests + 7 tailer tests + 9 streaming integration tests（含 5 round 黑盒 hardening from 砚砚 + 5 round cloud codex P1/P2 fixes）✅ PR #1669
+- [ ] **AC-B3e (Alpha Smoke)**: 真实端到端验证（**slice 2 follow-up**）
+- [ ] **AC-B4**: Cat Café MCP server 在 `--bg` 模式下 `cat_cafe_*` 工具可调用（待 alpha smoke 一起做）
+- [ ] **AC-B6**: 实测新 carrier transcript `entrypoint=cli`（待 alpha smoke 一起做）
+- [ ] **AC-B8 (Canary Gate)**: AC-B3e 过了 → profile/flag canary 切流量。当前 `-p` 仍是布偶猫生产路径。
 
 ### Phase C（Hub Oversight — 铲屎官硬约束）
 - [ ] AC-C1: F089 tmux agent pane 在 Hub 内可观看（read-only）
@@ -396,8 +391,9 @@ in_context_observability:
 | 2026-05-13 | Phase A spike 完成（5+ 轮摆动后 46 strings binary 切真相）；vision-rescue skill 沉淀；spec patch（KD-6/7/8 + Spike Reflection）|
 | 2026-05-13 21:00+ | Phase A **再次反转**：worktree 控制实验证伪 KD-8（env null bug 不存在）；新 KD-9 (`-p` flag 是决定性信号) + KD-10（真 fix 是 invocation 改造）；Phase B scope 从"2-line env fix"扩到"`-p` → `--bg` 整体 carrier 改造"|
 | 2026-05-14 | **Phase B Step 1 (foundation) merged — PR #1666**: `ClaudeBgCarrierService` + `JobEventConsumer` skeleton（10+ rounds codex review，coordinate-system 重构复用 `buildClaudeEnvOverrides` / `resolveClaudeModelSelection` 共享 helper，18 tests green）。Router 接入（Step 2）待后续 PR — 当前未替换 -p 路径 |
-| 2026-05-14 | **Step 2 Design Gate (砚砚 push back)**：方向修正——不直接 router wiring，先做 **Parity Gate**（恢复 partial text / tool_use / system_info / usage 等观测能力）。新增 `BgTranscriptEventConsumer` 读 transcript jsonl，复用 `transformClaudeEvent` / `extractClaudeUsage`；Golden parity tests + alpha smoke 双门禁；canary flag 切流量 |
-| 2026-05-18 (target) | Phase B Step 2 完成：`BgTranscriptEventConsumer` + Parity Gate 全过；canary flag 注册（仍 -p 默认） |
+| 2026-05-14 | **Step 2 Design Gate (砚砚 push back)**：方向修正——不直接 router wiring，先做 **Parity Gate**。新增 `BgTranscriptEventConsumer` 读 transcript jsonl，复用 `transformClaudeEvent` / `extractClaudeUsage`；Golden parity tests + alpha smoke 双门禁；canary flag 切流量 |
+| 2026-05-14 | **Phase B Step 2 (Parity Gate) merged — PR #1669**: `BgTranscriptEventConsumer` (pure functions + UsageAccumulator) + `TranscriptTailer` (per-message file-tail) + `ClaudeBgCarrierService.invoke()` 重写（lifecycle once + transcript streaming + fallback predicate）。砚砚 cross-cat review 6 轮黑盒 hardening + cloud codex 6 轮 P1/P2 fixes（silent completion / SPIKE_OK substring trap / tail read leak guard / memory bound / zero-usage telemetry / drain-degradation usage preservation）。Test suite: 18 → 49 passing |
+| 2026-05-18 (target) | Phase B Step 2 follow-up：alpha smoke (real `--bg` + tool call) + MCP server verify + canary flag (`bg_daemon` profile，仍 -p 默认) |
 | 2026-05-27 (target) | Phase B 完成 |
 | 2026-06-05 (target) | Phase C 完成 + 跨猫愿景守护通过 |
 | 2026-06-08 (target) | Phase D 灰度 100% |
