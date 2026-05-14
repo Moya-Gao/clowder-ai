@@ -1,0 +1,66 @@
+[
+  {
+    "step": "card-list",
+    "ok": true,
+    "mode": "production",
+    "at": "2026-05-14T06:47:09.256Z"
+  },
+  {
+    "step": "managed-readonly-modal",
+    "ok": true,
+    "at": "2026-05-14T06:47:09.323Z"
+  },
+  {
+    "step": "external-edit-modal",
+    "ok": true,
+    "at": "2026-05-14T06:47:09.389Z"
+  },
+  {
+    "step": "add-preview-flow",
+    "ok": true,
+    "owner": "default-user",
+    "at": "2026-05-14T06:47:09.637Z"
+  },
+  {
+    "step": "owner-fail-closed",
+    "ok": true,
+    "source": "intercepted 403 preview response with CORS headers",
+    "at": "2026-05-14T06:47:59.514Z"
+  },
+  {
+    "step": "mobile-card-list",
+    "url": "http://localhost:5132/settings?s=mcp",
+    "screenshot": "assets/mobile-mcp-card-list.png",
+    "viewport": "390x844@2x",
+    "capturedAt": "2026-05-14T06:54:26.108Z",
+    "responsiveShell": true,
+    "evidence": {
+      "hasMcpTitle": true,
+      "hasAddButton": true,
+      "metrics": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "bodyWidth": 390,
+        "sidebar": {
+          "x": 52,
+          "y": 0,
+          "width": 338,
+          "height": 354.46875
+        }
+      }
+    }
+  },
+  {
+    "step": "flow-recording",
+    "url": "http://localhost:5132/settings?s=mcp",
+    "video": "assets/mcp-settings-flow.webm",
+    "viewport": "1280x800",
+    "capturedAt": "2026-05-14T06:56:00.000Z",
+    "evidence": {
+      "flow": "card list -> add MCP modal -> preview",
+      "persistentInstall": false
+    }
+  }
+]

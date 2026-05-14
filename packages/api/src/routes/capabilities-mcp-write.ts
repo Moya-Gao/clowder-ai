@@ -87,12 +87,23 @@ function mergeSecretRecord(
   return merged;
 }
 
-function mergeExternalMcpEntry(existing: CapabilityEntry, entry: CapabilityEntry): CapabilityEntry {
+function mergeExternalMcpEntry(
+  existing: CapabilityEntry,
+  entry: CapabilityEntry,
+  request: McpInstallRequest,
+): CapabilityEntry {
   const entryServer = entry.mcpServer;
   if (!entryServer) return { ...existing, ...entry, overrides: existing.overrides };
 
-  const baseServer = existing.mcpServer ? { ...existing.mcpServer } : {};
+  const baseServer: Partial<NonNullable<CapabilityEntry['mcpServer']>> = existing.mcpServer
+    ? { ...existing.mcpServer }
+    : {};
   const mergedServer: NonNullable<CapabilityEntry['mcpServer']> = { ...baseServer, ...entryServer };
+  if (request.transport === undefined && baseServer.transport !== undefined)
+    mergedServer.transport = baseServer.transport;
+  if (request.command === undefined && baseServer.command !== undefined) mergedServer.command = baseServer.command;
+  if (request.args === undefined && baseServer.args !== undefined) mergedServer.args = baseServer.args;
+  if (request.url === undefined && baseServer.url !== undefined) mergedServer.url = baseServer.url;
   const env = mergeSecretRecord(existing.mcpServer?.env, entryServer.env);
   const headers = mergeSecretRecord(existing.mcpServer?.headers, entryServer.headers);
   if (env) mergedServer.env = env;
@@ -233,7 +244,7 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
             error: `Cannot overwrite managed MCP "${body.id}" (source=${existing.source}). Only external MCPs can be installed over.`,
           };
         }
-        afterEntry = mergeExternalMcpEntry(existing, entry);
+        afterEntry = mergeExternalMcpEntry(existing, entry, body);
         config.capabilities[existingIdx] = afterEntry;
       } else {
         config.capabilities.push(entry);

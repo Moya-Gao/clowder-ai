@@ -29,7 +29,7 @@ import type {
   SkillHealthSummary,
 } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { parse as parseYaml } from 'yaml';
 import { appendAuditEntry } from '../config/capabilities/capability-audit.js';
 import {
@@ -115,6 +115,36 @@ const PROJECT_ROOT = findMonorepoRoot();
 
 function getProjectRoot(): string {
   return PROJECT_ROOT;
+}
+
+function canReadSensitiveMcpConfig(request: FastifyRequest): boolean {
+  const sessionUserId = resolveCapabilityWriteSessionUserId(request);
+  return !!sessionUserId && !requireCapabilityWriteOwner(sessionUserId);
+}
+
+function buildBoardMcpServer(
+  cap: CapabilityEntry,
+  options?: { includeLaunchFields?: boolean },
+): CapabilityBoardItem['mcpServer'] | undefined {
+  const sanitized = sanitizeCapabilityForResponse(cap);
+  const server = sanitized?.mcpServer;
+  if (!server) return undefined;
+
+  const boardServer: CapabilityBoardItem['mcpServer'] = {
+    ...(server.transport && { transport: server.transport }),
+    ...(server.resolver && { resolver: server.resolver }),
+  };
+  if (options?.includeLaunchFields) {
+    if (server.command) boardServer.command = server.command;
+    if (Array.isArray(server.args)) boardServer.args = [...server.args];
+    if (server.url) boardServer.url = server.url;
+  }
+  if (server.env) boardServer.env = { ...server.env };
+  if (server.headers) boardServer.headers = { ...server.headers };
+
+  const envKeys = Object.keys(cap.mcpServer?.env ?? {});
+  if (envKeys.length > 0) boardServer.envKeys = envKeys;
+  return boardServer;
 }
 
 /**
@@ -414,6 +444,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     // Multi-project: accept ?projectPath=... to manage capabilities for any project
     const query = request.query as { projectPath?: string; probe?: string | boolean };
     const probeEnabled = query.probe === true || query.probe === 'true' || query.probe === '1';
+    const includeMcpLaunchFields = canReadSensitiveMcpConfig(request);
     let projectRoot = getProjectRoot();
     if (query.projectPath) {
       const validated = await validateProjectPath(query.projectPath);
@@ -653,6 +684,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         source: cap.source,
         enabled: cap.enabled,
         cats,
+        mcpServer: buildBoardMcpServer(cap, { includeLaunchFields: includeMcpLaunchFields }),
         layer: 'L1',
         ...(cap.ecosystem && { ecosystem: cap.ecosystem }),
         ...(cap.lockVersion && { lockVersion: cap.lockVersion }),

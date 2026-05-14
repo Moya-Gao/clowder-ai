@@ -317,6 +317,45 @@ describe('capabilities MCP write routes', () => {
     assert.doesNotMatch(rawAudit, /real-secret|Bearer real-secret/);
   });
 
+  it('preserves existing stdio launch fields when updating an external MCP with omitted command and args', async () => {
+    setEnv('DEFAULT_OWNER_USER_ID', 'lysander');
+    await writeCapabilitiesConfig(projectRoot, {
+      version: 1,
+      capabilities: [
+        {
+          id: 'stdio-mcp',
+          type: 'mcp',
+          enabled: true,
+          source: 'external',
+          mcpServer: {
+            transport: 'stdio',
+            command: 'npx',
+            args: ['stdio-server', '--flag'],
+            env: { API_KEY: 'real-secret' },
+          },
+        },
+      ],
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/capabilities/mcp/install',
+      headers: OWNER_HEADERS,
+      payload: {
+        id: 'stdio-mcp',
+      },
+    });
+
+    assert.equal(res.statusCode, 200, res.payload);
+    const config = await readCapabilitiesConfig(projectRoot);
+    const cap = config?.capabilities.find((entry) => entry.id === 'stdio-mcp');
+    assert.equal(cap?.mcpServer?.command, 'npx');
+    assert.deepEqual(cap?.mcpServer?.args, ['stdio-server', '--flag']);
+    assert.deepEqual(cap?.mcpServer?.env, { API_KEY: 'real-secret' });
+    assert.equal(res.json().capability.mcpServer.command, 'npx');
+    assert.deepEqual(res.json().capability.mcpServer.args, ['stdio-server', '--flag']);
+  });
+
   it('redacts MCP preview and install response secrets without changing persisted config', async () => {
     setEnv('DEFAULT_OWNER_USER_ID', 'lysander');
     const payload = {

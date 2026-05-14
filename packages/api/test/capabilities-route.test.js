@@ -571,6 +571,117 @@ describe('GET /api/capabilities (Fastify)', () => {
     await app.close();
   });
 
+  it('includes sanitized MCP server details in the board payload', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
+
+    const projectDir = await makeTmpDir('board-mcp-redact');
+    await writeCapabilitiesConfig(projectDir, {
+      version: 1,
+      capabilities: [
+        {
+          id: 'secret-mcp',
+          type: 'mcp',
+          enabled: true,
+          source: 'external',
+          mcpServer: {
+            command: 'node',
+            args: ['server.js', '--api-key=inline-secret'],
+            url: 'https://user:inline-secret@example.test/mcp?token=inline-secret',
+            env: { API_KEY: 'raw-secret' },
+            headers: { Authorization: 'Bearer raw-secret' },
+          },
+        },
+      ],
+    });
+
+    const app = Fastify();
+    await app.register(capabilitiesRoutes);
+    await app.ready();
+
+    try {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/capabilities?projectPath=${encodeURIComponent(projectDir)}`,
+        headers: AUTH_HEADERS,
+      });
+
+      assert.equal(res.statusCode, 200, res.payload);
+      assert.doesNotMatch(res.payload, /raw-secret|Bearer raw-secret|inline-secret/);
+      const item = res.json().items.find((entry) => entry.id === 'secret-mcp');
+      assert.ok(item, 'expected secret-mcp board item');
+      assert.equal(item.mcpServer.command, undefined);
+      assert.equal(item.mcpServer.args, undefined);
+      assert.equal(item.mcpServer.url, undefined);
+      assert.equal(item.mcpServer.env.API_KEY, REDACTED_SECRET);
+      assert.equal(item.mcpServer.headers.Authorization, REDACTED_SECRET);
+      assert.deepEqual(item.mcpServer.envKeys, ['API_KEY']);
+    } finally {
+      await app.close();
+      await rm(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it('includes MCP launch fields only for the configured owner session', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
+
+    const projectDir = await makeTmpDir('board-mcp-owner');
+    const prevOwner = process.env.DEFAULT_OWNER_USER_ID;
+    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    await writeCapabilitiesConfig(projectDir, {
+      version: 1,
+      capabilities: [
+        {
+          id: 'owner-mcp',
+          type: 'mcp',
+          enabled: true,
+          source: 'external',
+          mcpServer: {
+            transport: 'streamableHttp',
+            command: 'node',
+            args: ['server.js', '--api-key=inline-secret'],
+            url: 'https://user:inline-secret@example.test/mcp?token=inline-secret',
+            env: { API_KEY: 'raw-secret' },
+            headers: { Authorization: 'Bearer raw-secret' },
+          },
+        },
+      ],
+    });
+
+    const app = Fastify();
+    app.addHook('preHandler', async (request) => {
+      const raw = request.headers['x-test-session-user'];
+      if (typeof raw === 'string' && raw.trim()) {
+        request.sessionUserId = raw.trim();
+      }
+    });
+    await app.register(capabilitiesRoutes);
+    await app.ready();
+
+    try {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/capabilities?projectPath=${encodeURIComponent(projectDir)}`,
+        headers: OWNER_SESSION_HEADERS,
+      });
+
+      assert.equal(res.statusCode, 200, res.payload);
+      const item = res.json().items.find((entry) => entry.id === 'owner-mcp');
+      assert.ok(item, 'expected owner-mcp board item');
+      assert.equal(item.mcpServer.command, 'node');
+      assert.deepEqual(item.mcpServer.args, ['server.js', '--api-key=inline-secret']);
+      assert.equal(item.mcpServer.url, 'https://user:inline-secret@example.test/mcp?token=inline-secret');
+      assert.equal(item.mcpServer.env.API_KEY, REDACTED_SECRET);
+      assert.equal(item.mcpServer.headers.Authorization, REDACTED_SECRET);
+    } finally {
+      if (prevOwner === undefined) delete process.env.DEFAULT_OWNER_USER_ID;
+      else process.env.DEFAULT_OWNER_USER_ID = prevOwner;
+      await app.close();
+      await rm(projectDir, { recursive: true, force: true });
+    }
+  });
+
   it('includes Kimi mount state for cat-cafe skills in the board payload', async () => {
     const Fastify = (await import('fastify')).default;
     const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');

@@ -10,7 +10,7 @@ trigger: cvo-pushback-post-close
 
 # F199: Console Parity Backfill — F190 Phase D
 
-> **Status**: in-progress (D-1/D-2/D-3a merged; D-3b MCP settings UI parity next) | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1
+> **Status**: in-progress (D-1/D-2/D-3a merged; D-3b MCP settings UI parity review-ready) | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1
 > **Parent**: [F190 Console Settings/AppShell Skeleton](F190-console-settings-appshell-skeleton.md) (closed 2026-05-13)
 > **Trigger**: CVO push-back 2026-05-13 — F190 close 后发现 settings parity gap
 
@@ -175,6 +175,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | 2026-05-13 | D-3 design memo pushed (`04fdc3e00`); found `InstallPreviewModal` misclassification + capability audit raw secret P0 |
 | 2026-05-13 | F199 spec synced to D-3a/D-3b split + `InstallPreviewModal` reclassification |
 | 2026-05-13 | D-3a capability write hardening merged via PR #1664 (`be2c406cc`); audit secret leak + owner-gate P0 fixed; local reviewer + cloud review passed |
+| 2026-05-14 | D-3b MCP settings UI parity review-ready; source-style MCP settings UI + visual proof attached |
 
 ## Review Gate
 
@@ -199,4 +200,5 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | **D-3 Design** | `docs/discussions/2026-05-13-f199-d3-capability-settings-design/README.md` | D-3a/D-3b split + boundary corrections |
 | **D-3a PR** | `cat-cafe#1664` (`be2c406cc`) | capability write hardening |
 | **D-3a Proof** | `docs/discussions/2026-05-13-f199-d3a-capability-write-hardening-proof/README.md` | backend hardening + User Visibility Disclosure |
+| **D-3b Proof** | `docs/discussions/2026-05-13-f199-d3b-mcp-settings-ui-proof/README.md` | MCP settings UI parity + User Visibility Disclosure |
 | **Source PR** | `clowder-ai#669` | 缺失 5 组件的开源来源 |

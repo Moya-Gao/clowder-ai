@@ -26,6 +26,16 @@ export interface CapabilityBoardItem {
   mounts?: Record<string, boolean>;
   tools?: { name: string; description?: string }[];
   connectionStatus?: 'connected' | 'disconnected' | 'unknown';
+  mcpServer?: {
+    transport?: 'stdio' | 'streamableHttp';
+    resolver?: string;
+    command?: string;
+    args?: string[];
+    url?: string;
+    headers?: Record<string, string>;
+    env?: Record<string, string>;
+    envKeys?: string[];
+  };
   layer?: 'L1' | 'L2' | 'L3';
   ecosystem?: 'claude' | 'codex' | 'openclaw' | 'antigravity';
   lockVersion?: { source: string; version: string; installedAt: string; installedBy: string };
