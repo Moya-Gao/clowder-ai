@@ -1223,6 +1223,12 @@
       "name": "ACP Provider tool_result Event Surfacing — Gemini ACP path 单事件拆成 tool_use+tool_result 双消息",
       "status": "done | **Completed**: 2026-05-12 | **Owner**: 布偶猫/Opus-47 | **Priority**: P1",
       "file": "F197-acp-tool-result-surfacing.md"
+    },
+    {
+      "id": "F198",
+      "name": "Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪",
+      "status": "spec | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0",
+      "file": "F198-claude-code-subscription-carrier.md"
     }
   ]
 }
