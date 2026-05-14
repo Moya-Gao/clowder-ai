@@ -10,7 +10,7 @@ trigger: cvo-pushback-post-close
 
 # F199: Console Parity Backfill — F190 Phase D
 
-> **Status**: in-progress (D-1/D-2 merged; D-3 capability trio next) | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1
+> **Status**: in-progress (D-1/D-2 merged; D-3a capability write hardening next) | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1
 > **Parent**: [F190 Console Settings/AppShell Skeleton](F190-console-settings-appshell-skeleton.md) (closed 2026-05-13)
 > **Trigger**: CVO push-back 2026-05-13 — F190 close 后发现 settings parity gap
 
@@ -33,20 +33,23 @@ F190 close (`1039d68a4`) 后 CVO 重启 runtime 用 `/settings` 实测，对比 
 **事故事实模型 — 两个独立维度，不同分母**（详见 [design memo](../discussions/2026-05-13-f190-phase-d-parity-audit/README.md)）：
 
 **维度 A: 组件级 surface gap（`ls settings/` diff）**
-- 开源 20 vs 本地 13 = **7 个组件级 gap**
+- 初始开源 20 vs 本地 13 = **7 个组件级 gap**
+- D-3 design 复核后重算为 **6 个 F199 backfill gap + 1 个 service lifecycle write reclassified-out**：
+  - F199 内继续处理：ServiceStatusPanel / SkillsContent read 部分 / `capability-settings-ui` / restricted `useCapabilityState` / PushServiceConfig / GithubConfigPanel
+  - F199 外移除：`InstallPreviewModal`（service lifecycle install/start/stop 写面，不属于 capability settings）
 - 内部分类：
   - 4 个是 F190 **KD-5 deliberate defer** (secret write-back / capability write) — 但 CVO close-gate 不知道"通知页变成纯诊断面板"，技术语言"deferred"没映射到用户可见性
-  - 3 个是 read-mostly/配套项，本该 port 没 port (ServiceStatusPanel / SkillsContent read 部分 / useCapabilityState)
+  - 3 个是 read-mostly/配套项，本该 port 没 port (ServiceStatusPanel / SkillsContent read 部分 / useCapabilityState)，其中 useCapabilityState 只允许 restricted MCP settings 形态进入 F199
 
 **维度 B: 路径级 path 漏挂（`hub-icons.tsx` 内）**
 - **2 个 SVG icon path 缺失**（`box` / `puzzle`） — 真 review miss，已 hotfix via PR #1659 (`d928fb696`)
 - **这跟维度 A 不在同一组成**：SVG paths 是 `hub-icons.tsx` 内部常量，不是独立组件文件
 
-F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsRedactedPlaceholder` + `mergeSecretRecord` + audit) 摸清，复用成本低。Permanent defer = 永远比开源功能差一截，每次 outbound sync 还要反向 manual-port，长期心累。Phase D 把维度 A 的 **7 个组件级 surface 全部 backfill 回家**（维度 B 的 2 SVG 不在本 feat 范围，已独立 hotfix close）。
+F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsRedactedPlaceholder` + `mergeSecretRecord` + audit) 摸清，复用成本低。Permanent defer = 永远比开源功能差一截，每次 outbound sync 还要反向 manual-port，长期心累。Phase D 把维度 A 中仍属于 settings parity 的 **6 个组件级 surface backfill 回家**，并把不属于本 feat 的 `InstallPreviewModal` 显式披露为 service lifecycle write reclassification（维度 B 的 2 SVG 不在本 feat 范围，已独立 hotfix close）。
 
 ## What
 
-5 个 Phase D slice，按风险从低到高排序（自决 OQ-D3）：
+5 个 Phase D product slice，按风险从低到高排序（自决 OQ-D3）；其中 D-3 拆成 D-3a/D-3b 两个独立 review slice：
 
 ### D-1: ServiceStatusPanel port (read-only)
 - Port 开源 `ServiceStatusPanel.tsx`（独立的服务状态面板，比 PluginsContent 更详细）
@@ -58,10 +61,31 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 - **不接 external skill uninstall**（这个仍 defer——需要 DELETE skill route auth 独立 review）
 - 与 F190 Phase C #3 (refAudio upload) Hub 编辑器集成
 
-### D-3: capability-settings-ui + useCapabilityState + InstallPreviewModal port
-- 三个文件配套，调研后决定是否拆刀
-- 复用 F190 Phase C #1 (MCP write hardening) 的 owner gate + redacted reject pattern
-- 涉及 capability 写路径，必须按 hardening pattern 走
+### D-3a: Capability write hardening (backend-first)
+- 不做 visual parity claim；先收紧现有 capability 写 API，避免 UI 接到不安全 backend
+- 复用 F190 Phase C #1/#4 hardening pattern：
+  - session-only identity（不接受 trusted header / fallback 作为写身份）
+  - `requireExplicitOwner` fail-closed (`DEFAULT_OWNER_USER_ID` 未配置 → 403)
+  - `containsRedactedPlaceholder` 拒写
+  - `mergeSecretRecord` 保留 omitted env/header secret
+  - audit 写入前统一 sanitize，保留 env/header key name，value 替换为 stable redacted marker
+- 覆盖现有写路由：
+  - `PATCH /api/capabilities`
+  - `POST /api/capabilities/mcp/preview`
+  - `POST /api/capabilities/mcp/install`
+  - `DELETE /api/capabilities/mcp/:id`
+  - `PATCH /api/capabilities/mcp/:id/env`
+- 保留 `GET /api/capabilities` / `GET /api/capabilities/audit` 为 read route
+- 保留 F193 heal-before-write behavior
+
+### D-3b: MCP settings UI parity
+- 在 D-3a secure backend 上 port MCP settings UI parity
+- Port `capability-settings-ui.tsx` UI primitives
+- Port restricted `useCapabilityState`：只覆盖 MCP settings，不接 Skills 写面
+- 视 parity 需要 port `McpConfigModal.tsx` / `mcp-form-helpers.tsx`
+- 替换或收敛 `McpManageContent` 当前 wrapper
+- 不 port `InstallPreviewModal`
+- 不 wire Skills toggle/uninstall，D-2 `SkillsContent` 保持 read-mostly
 
 ### D-4: PushServiceConfig hardening port
 - VAPID 公私钥写入面板 + 一键生成 + contact email
@@ -83,7 +107,8 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 ### Phase D (All five slices)
 - [x] AC-D1: D-1 ServiceStatusPanel merged，对照开源 visual side-by-side 通过 parity gate (per opensource-ops 原则 22)
 - [x] AC-D2: D-2 SkillsContent (read-mostly) merged，external uninstall 仍 deferred 但有 CVO signoff
-- [ ] AC-D3: D-3 capability 三件套 merged，capability 写路径走 hardening pattern
+- [ ] AC-D3a: D-3a capability write hardening merged；所有 capability write routes owner-gated fail-closed，audit JSONL / `/api/capabilities/audit` 不含 raw env/header secret
+- [ ] AC-D3b: D-3b MCP settings UI parity merged；restricted MCP-only `useCapabilityState` + capability settings controls 对齐开源，`InstallPreviewModal` / Skills write actions 不进入 F199
 - [ ] AC-D4: D-4 PushServiceConfig merged，用户能在 UI 配置 VAPID + 一键生成 + 联系信箱
 - [ ] AC-D5: D-5 GithubConfigPanel merged，用户能在 UI 配置 GitHub token
 - [ ] AC-D6: 每刀 close 时产出 User Visibility Disclosure table (per feat-lifecycle Step 0.3.5)
@@ -98,8 +123,8 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 - **Parent**: F190 (closed) — 本 feat 是 Phase D backfill
 - **Pattern reuse**: F190 Phase C #1 (MCP write) / Phase C #4 (IM connector hardening) — 复用 `requireExplicitOwner` + `containsRedactedPlaceholder` + `mergeSecretRecord` + audit helpers
 - **Service Manifest API**: F190 Phase C #2 `GET /api/services` — D-1 直接复用
-- **F146** (capability orchestration): D-3 涉及
-- **F193** (MCP topology heal): D-3 涉及
+- **F146** (capability orchestration): D-3a/D-3b 涉及
+- **F193** (MCP topology heal): D-3a 必须保留 heal-before-write
 - **F136** (config hot reload): D-4/D-5 必须保留
 
 ## Risk & Guard
@@ -119,16 +144,22 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | OQ-D2 | 完整 backfill vs 选择性？ | ✅ 完整 backfill | CVO 2026-05-13 |
 | OQ-D3 | 先开哪刀？ | ✅ D-1 ServiceStatusPanel（猫自决 — 最低风险作为 process 验证刀） | 猫自决 per CVO 2026-05-13 |
 | OQ-D4 | SOP 改进先做？ | ✅ Yes — 已 PR #1661 走 review | CVO 2026-05-13 |
+| OQ-D5 | D-3 一刀做完还是拆？ | ✅ 拆成 D-3a backend hardening + D-3b UI parity | D-3 design review 2026-05-13 |
+| OQ-D6 | MCP preview 是否 owner-gated？ | ✅ Yes，preview 接收 secret-like payload，按 write surface fail-closed | D-3 design review 2026-05-13 |
+| OQ-D7 | capability audit 用 metadata-only 还是 before/after？ | ✅ 保留 sanitized before/after；env/header key name 保留，value redacted | D-3 design review 2026-05-13 |
 
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
 | KD-1 | F190 Phase D 开新 F 号 F199，不 reopen F190 | F190 已正式 close，reopen 让真相源不稳；Phase D 是 follow-up 性质 | 2026-05-13 |
-| KD-2 | 完整 backfill 7 个组件级 surface gap (维度 A) | 永久 defer 长期心累，hardening pattern 已摸清，复用成本低。维度 B (2 SVG path) 已独立 hotfix close，不属本 feat | 2026-05-13 |
+| KD-2 | 完整处理维度 A gap：6 个 settings parity backfill + 1 个 service lifecycle reclassified-out disclosure | 永久 defer 长期心累，hardening pattern 已摸清，复用成本低；但 `InstallPreviewModal` 不属于 capability settings，不能为凑数打穿 D-1 read-only 边界。维度 B (2 SVG path) 已独立 hotfix close，不属本 feat | 2026-05-13 |
 | KD-3 | D-1 ServiceStatusPanel 先开（猫自决，CVO 不管） | 最低风险，验证新 SOP（parity gate + User Visibility Disclosure）在小 slice 上跑通后再做高风险 secret write | 2026-05-13 |
 | KD-4 | D-4/D-5 secret write 复用 IM connector hardening pattern | Pattern 已审过，新增刀降低 review 成本 | 2026-05-13 |
 | KD-5 | 不接 callback URL / provider endpoint 写面（OQ-D 同 F190 IM connector） | 避免扩面 SSRF 边界，本 feat 只补现有 secret credential 写 UI | 2026-05-13 |
+| KD-6 | D-3 拆成 D-3a backend hardening + D-3b UI parity | capability 写路径首次进入 F199 高风险区，先堵 P0 secret/audit/auth，再扩 UI | 2026-05-13 |
+| KD-7 | `InstallPreviewModal` reclassify out of F199 | 它属于 ServiceStatusPanel lifecycle install/start/stop 写面；D-1 已锁 read-only，不能用 D-3 打穿边界 | 2026-05-13 |
+| KD-8 | `useCapabilityState` 只允许 restricted MCP settings 形态进入 D-3b | 源 hook 混 MCP/Skills read/write；Skills toggle/uninstall 会打穿 D-2 read-mostly promise | 2026-05-13 |
 
 ## Timeline
 
@@ -141,12 +172,15 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | 2026-05-13 | F199 spec 立项 |
 | 2026-05-13 | D-1 ServiceStatusPanel merged via PR #1662 (`0df783473`); visual parity proof + User Visibility Disclosure attached; local reviewer + cloud review passed |
 | 2026-05-13 | D-2 SkillsContent read-mostly merged via PR #1663 (`1e4a96951`); visual parity proof + User Visibility Disclosure attached; local reviewer + cloud review passed |
+| 2026-05-13 | D-3 design memo pushed (`04fdc3e00`); found `InstallPreviewModal` misclassification + capability audit raw secret P0 |
+| 2026-05-13 | F199 spec synced to D-3a/D-3b split + `InstallPreviewModal` reclassification |
 
 ## Review Gate
 
 - **每个 D-N slice** 走完整 SOP：worktree → tdd → quality-gate → request-review → receive-review → merge-gate
+- **D-3a/D-3b 分别独立 review/merge**：D-3b 不得在 D-3a 合入前扩大 UI 写入口
 - **每刀 close** 必须产出 User Visibility Disclosure table（per 升级后 feat-lifecycle Step 0.3.5）
-- **F199 整体 close** 必须 side-by-side 开源 vs 本地 settings 全对齐（per 升级后 opensource-ops 原则 22）+ 守护猫验 functional parity（per 升级后 shared-rules §9 rule 7）
+- **F199 整体 close** 必须 side-by-side 开源 vs 本地 settings 全对齐（per 升级后 opensource-ops 原则 22）+ 守护猫验 functional parity（per 升级后 shared-rules §9 rule 7）+ `InstallPreviewModal` 以 user-visible disclosure 明确为 F199 外 service lifecycle write
 
 ## Links
 
@@ -161,4 +195,5 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | **D-1 Proof** | `docs/discussions/2026-05-13-f199-d1-service-status-panel-proof/README.md` | visual parity + User Visibility Disclosure |
 | **D-2 PR** | `cat-cafe#1663` (`1e4a96951`) | SkillsContent read-mostly backfill |
 | **D-2 Proof** | `docs/discussions/2026-05-13-f199-d2-skills-content-proof/README.md` | visual parity + User Visibility Disclosure |
+| **D-3 Design** | `docs/discussions/2026-05-13-f199-d3-capability-settings-design/README.md` | D-3a/D-3b split + boundary corrections |
 | **Source PR** | `clowder-ai#669` | 缺失 5 组件的开源来源 |
