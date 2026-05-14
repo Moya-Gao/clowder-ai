@@ -20,8 +20,7 @@ export const limbListAvailableInputSchema = {
     },
     agentKeyCatId: {
       type: 'string',
-      description:
-        '共享 Antigravity MCP 时必填你自己的 catId（如 "antig-opus"），用于选择正确的 sidecar agent key。',
+      description: '共享 Antigravity MCP 时必填你自己的 catId（如 "antig-opus"），用于选择正确的 sidecar agent key。',
     },
   },
 };
@@ -43,8 +42,7 @@ export const limbInvokeInputSchema = {
     },
     agentKeyCatId: {
       type: 'string',
-      description:
-        '共享 Antigravity MCP 时必填你自己的 catId（如 "antig-opus"），用于选择正确的 sidecar agent key。',
+      description: '共享 Antigravity MCP 时必填你自己的 catId（如 "antig-opus"），用于选择正确的 sidecar agent key。',
     },
   },
   required: ['nodeId', 'command'],
@@ -92,8 +90,7 @@ export const limbPairListInputSchema = {
   properties: {
     agentKeyCatId: {
       type: 'string',
-      description:
-        '共享 Antigravity MCP 时必填你自己的 catId（如 "antig-opus"），用于选择正确的 sidecar agent key。',
+      description: '共享 Antigravity MCP 时必填你自己的 catId（如 "antig-opus"），用于选择正确的 sidecar agent key。',
     },
   },
 };
@@ -104,8 +101,7 @@ export const limbPairApproveInputSchema = {
     requestId: { type: 'string', description: '配对请求 ID' },
     agentKeyCatId: {
       type: 'string',
-      description:
-        '共享 Antigravity MCP 时必填你自己的 catId（如 "antig-opus"），用于选择正确的 sidecar agent key。',
+      description: '共享 Antigravity MCP 时必填你自己的 catId（如 "antig-opus"），用于选择正确的 sidecar agent key。',
     },
   },
   required: ['requestId'],
@@ -120,9 +116,13 @@ export async function handleLimbPairList(args: { agentKeyCatId?: string } = {}):
 export async function handleLimbPairApprove(args: { requestId: string; agentKeyCatId?: string }): Promise<ToolResult> {
   const config = getCallbackConfig({ agentKeyCatId: args.agentKeyCatId });
   if (!config) return errorResult(NO_CONFIG_ERROR);
-  return callbackPost('/api/callback/limb/pair/approve', { requestId: args.requestId }, {
-    agentKeyCatId: args.agentKeyCatId,
-  });
+  return callbackPost(
+    '/api/callback/limb/pair/approve',
+    { requestId: args.requestId },
+    {
+      agentKeyCatId: args.agentKeyCatId,
+    },
+  );
 }
 
 // ─── Tool Definitions ────────────────────────────────────────

@@ -18,8 +18,9 @@
  * the existing routing layer. Spec section: F198 Phase B (KD-10).
  *
  * 砚砚 review guards integrated:
- *   1. state==='error' → throws CarrierError (AgentMessage type='error' yielded
- *      before throw)
+ *   1. state==='error' → yields type='error' then type='done' AgentMessage
+ *      (does NOT throw — invoke-single-cat would convert iterator throw into
+ *      duplicate error+done events)
  *   2. child.on('error') → reject promise (ENOENT / spawn failure)
  *   3. JobEventConsumer parses jsonl per-line with try/catch (delegated)
  */
@@ -30,11 +31,18 @@ import { resolveCliCommandOrBare } from '../../../../../utils/cli-resolve.js';
 import { buildChildEnv } from '../../../../../utils/cli-spawn.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
 import {
+  accumulateUsageFromEntries,
+  createUsageAccumulator,
+  finalizeTranscriptUsage,
+  transcriptEntriesToAgentMessages,
+} from './BgTranscriptEventConsumer.js';
+import {
   ANTHROPIC_PROFILE_MODE_KEY,
   buildClaudeEnvOverrides,
   resolveClaudeModelSelection,
 } from './ClaudeAgentService.js';
 import { JobEventConsumer } from './JobEventConsumer.js';
+import { TranscriptTailer } from './TranscriptTailer.js';
 
 const SHORT_ID_PATTERN = /backgrounded\s*·\s*([a-f0-9]{8})/;
 
@@ -55,6 +63,8 @@ export interface ClaudeBgCarrierServiceOptions {
   spawnFn?: typeof spawn;
   /** Test seam — override default ~/.claude/jobs base dir. */
   jobsDir?: string;
+  /** Test seam — invoke() poll interval (ms). Default 500. */
+  pollMs?: number;
 }
 
 interface StartJobResult {
@@ -80,12 +90,14 @@ export class ClaudeBgCarrierService implements AgentService {
   private readonly model: string;
   private readonly spawnFn: typeof spawn;
   private readonly jobsDir?: string;
+  private readonly pollMs: number;
 
   constructor(options?: ClaudeBgCarrierServiceOptions) {
     this.catId = options?.catId ?? createCatId('opus');
     this.model = options?.model ?? getCatModel(this.catId as string);
     this.spawnFn = options?.spawnFn ?? spawn;
     this.jobsDir = options?.jobsDir;
+    this.pollMs = options?.pollMs ?? 500;
   }
 
   /**
@@ -209,13 +221,21 @@ export class ClaudeBgCarrierService implements AgentService {
   /**
    * AgentService contract: invoke and stream back AgentMessages.
    *
-   * Initial cut: emits session_init → done/error based on terminal state.
-   * Streaming partial tokens / tool_use events is deferred to integration
-   * (transcript jsonl tail). state.json + timeline.jsonl already give a
-   * complete answer for short prompts, which covers the prototype scope.
+   * Step 2 (slice 2): file-tail `state.linkScanPath` transcript jsonl as
+   * the daemon writes it; feed new entries to `transcriptEntriesToAgentMessages`
+   * for per-message streaming (R2 Hub observability — see砚砚 cross-cat
+   * Design Gate 2026-05-14). Lifecycle (session_init + done) emitted by
+   * this method once each (砚砚 P1.1).
    *
-   * 砚砚 guard #1: state==='error' → emits error AgentMessage AND throws so
-   * upstream routing distinguishes terminal failure from successful done.
+   * Backward compat: if `linkScanPath` never appears (test fixtures, broken
+   * daemon, very short prompts that finish before transcript materializes),
+   * fall back to surfacing `state.output.result` as a single text + done.
+   *
+   * 砚砚 guard #1: state==='error' → emits type='error' AgentMessage then
+   * type='done' with metadata.diagnostics.terminalState='error' (does NOT
+   * throw — invoke-single-cat catches iterator throws and would convert
+   * them into duplicate error+done events). Pattern matches existing
+   * ClaudeAgentService isCliError branch.
    */
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const startedAt = Date.now();
@@ -232,76 +252,204 @@ export class ClaudeBgCarrierService implements AgentService {
       metadata: { provider: 'claude-bg', model: effectiveModel },
     };
 
-    // codex review (PR #1666 round 4) P1: honor AbortSignal during the long
-    // poll — otherwise cancellation from invoke-single-cat can't stop our
-    // 30-min default polling loop, leaving daemon jobs running and burning
-    // resources. Pass signal through.
+    // codex review (PR #1666 round 4) P1: honor AbortSignal during polling
+    // — otherwise cancellation from invoke-single-cat can't stop our long
+    // poll, leaving daemon jobs running and burning resources.
     //
-    // codex review (PR #1666 round 5) P1.2: when waitForTerminal throws
-    // (abort / timeout / unexpected fs error), issue a best-effort
-    // `claude stop <shortId>` so the detached --bg session stops consuming
-    // quota instead of leaking until natural completion or manual cleanup.
-    let terminal: Awaited<ReturnType<typeof consumer.waitForTerminal>>;
-    try {
-      terminal = await consumer.waitForTerminal({ signal: options?.signal });
-    } catch (err) {
-      this.bestEffortStop(shortId);
-      throw err;
-    }
+    // codex review (PR #1666 round 5) P1.2: on abort / timeout, issue a
+    // best-effort `claude stop <shortId>` so the detached --bg session
+    // stops consuming quota instead of leaking until natural completion.
+    const timeoutMs = 30 * 60_000;
+    const deadline = Date.now() + timeoutMs;
 
-    if (terminal.state === 'error') {
-      // codex review (PR #1666) P1.1 (round 1): yield error AgentMessage and
-      // STOP — do NOT throw. invoke-single-cat.ts catches iterator throws and
-      // converts them into another error + done event, which would produce
-      // duplicate error events. Pattern matches existing ClaudeAgentService
-      // isCliError branch.
+    let tailer: TranscriptTailer | undefined;
+    // cloud codex P2 (2026-05-14): incremental usage accumulator — O(1)
+    // scalar state. Avoids retaining every parsed transcript entry until
+    // terminal (long jobs would build unbounded memory pressure).
+    const usageAcc = createUsageAccumulator();
+    let transcriptEntryCount = 0;
+    // codex slice-2 P1 round-4 (2026-05-14): track the LAST assistant
+    // entry's joined text content. Predicate at terminal:
+    //   trim(lastAssistantText) === trim(state.output.result) → suppress
+    //   otherwise → emit fallback
+    //
+    // Why not includes/endsWith: round-3 used `transcriptText.includes(result)`
+    // but `"I will verify SPIKE_OK".includes("SPIKE_OK")` falsely matches when
+    // result is a substring of EARLIER text — final answer would be silently
+    // lost. Strict-equal-on-last-assistant-text is the conservative coordinate:
+    // "did the model's FINAL prose turn = output.result". One-off edge cases
+    // (multi-text-block last turns where output.result is the concatenation)
+    // get a duplicate text rather than silent loss — acceptable tradeoff.
+    let lastAssistantText = '';
+    const yieldFromTranscript = function* (this: ClaudeBgCarrierService, entries: unknown[]): Generator<AgentMessage> {
+      for (const raw of entries) {
+        if (typeof raw === 'object' && raw !== null) {
+          const entry = raw as Record<string, unknown>;
+          if (entry.type === 'assistant') {
+            // Reset per assistant entry (the LAST entry's content wins).
+            const message = entry.message as Record<string, unknown> | undefined;
+            const blocks = message?.content;
+            const textParts: string[] = [];
+            if (Array.isArray(blocks)) {
+              for (const block of blocks) {
+                if (typeof block !== 'object' || block === null) continue;
+                const b = block as Record<string, unknown>;
+                if (b.type === 'text' && typeof b.text === 'string') {
+                  textParts.push(b.text);
+                }
+              }
+            }
+            // Always reset (even to '' when entry has no text blocks — e.g.
+            // tool_use-only last entry → no transcript-side final prose).
+            lastAssistantText = textParts.join('');
+          }
+        }
+      }
+      for (const msg of transcriptEntriesToAgentMessages(entries, { catId: this.catId })) {
+        yield msg;
+      }
+    }.bind(this);
+
+    while (Date.now() < deadline) {
+      if (options?.signal?.aborted) {
+        this.bestEffortStop(shortId);
+        throw new Error(`ClaudeBgCarrierService.invoke: aborted for ${shortId}`);
+      }
+
+      const state = await consumer.readState();
+
+      // Lazy-init tailer once daemon writes state.linkScanPath. Some short
+      // jobs may complete before linkScanPath appears — handled by legacy
+      // fallback in the terminal branch below.
+      if (!tailer && state?.linkScanPath) {
+        tailer = new TranscriptTailer(state.linkScanPath);
+      }
+
+      // Stream any new transcript entries.
+      // cloud codex round-12 P1 (2026-05-14): wrap tail reads in try/catch
+      // — readNew can fail at runtime (linkScanPath unreadable / removed /
+      // replaced with directory between polls). On non-terminal failure:
+      // bestEffortStop + rethrow (consumer dies, leak guard fires).
       //
-      // codex review (PR #1666) P1.1 (round 2): must STILL emit terminal done
-      // after the error. route-serial.ts / route-parallel.ts key completion
-      // and flush/ack logic off `done` events — error-without-done would
-      // miscount completion + skip per-cat flush.
-      yield {
-        type: 'error',
-        catId: this.catId,
-        sessionId: shortId,
-        error: terminal.detail ?? 'claude --bg job ended in error state',
-        timestamp: Date.now(),
-      };
-      yield {
-        type: 'done',
-        catId: this.catId,
-        sessionId: shortId,
-        timestamp: Date.now(),
-        metadata: {
-          provider: 'claude-bg',
-          model: effectiveModel,
-          diagnostics: { terminalState: 'error', durationMs: Date.now() - startedAt },
-        },
-      };
-      return;
+      // cloud codex round-15 P1 (2026-05-14): if state is ALREADY terminal
+      // when tail read fails, gracefully degrade — output.result fallback
+      // is available, throwing would block backward-compat success path.
+      // Disable tailer so terminal branch treats this as legacy fallback case.
+      if (tailer) {
+        let newEntries: unknown[] = [];
+        try {
+          newEntries = await tailer.readNew();
+        } catch (err) {
+          if (state?.state === 'done' || state?.state === 'error') {
+            // Terminal state — degrade gracefully, fallback path will emit
+            // output.result if present. No leak (job already finished).
+            tailer = undefined;
+          } else {
+            // Non-terminal — consumer can't recover, prevent quota leak.
+            this.bestEffortStop(shortId);
+            throw new Error(
+              `ClaudeBgCarrierService.invoke: transcript read failed for ${shortId}: ${(err as Error).message}`,
+            );
+          }
+        }
+        if (newEntries.length > 0) {
+          accumulateUsageFromEntries(usageAcc, newEntries);
+          transcriptEntryCount += newEntries.length;
+          yield* yieldFromTranscript(newEntries);
+        }
+      }
+
+      if (state?.state === 'done' || state?.state === 'error') {
+        // Final drain: transcript may have grown between last poll and terminal.
+        // codex slice-2 P1 (regression B): use includeTrailingPartial to also
+        // emit the final line when daemon committed state=done before
+        // flushing the trailing \n on the last entry.
+        // cloud codex round-15 P1: we're already in terminal branch here,
+        // so a drain failure should degrade to output.result fallback,
+        // never throw (job already finished, no leak risk).
+        if (tailer) {
+          let finalEntries: unknown[] = [];
+          try {
+            finalEntries = await tailer.readNew({ includeTrailingPartial: true });
+          } catch {
+            // Degrade gracefully — fallback emit will fire below if
+            // output.result is present and transcript lacks matching text.
+            tailer = undefined;
+          }
+          if (finalEntries.length > 0) {
+            accumulateUsageFromEntries(usageAcc, finalEntries);
+            transcriptEntryCount += finalEntries.length;
+            yield* yieldFromTranscript(finalEntries);
+          }
+        }
+
+        // Fallback (codex slice-2 P1 round-4): emit state.output.result
+        // unless trim(lastAssistantText) === trim(output.result). Strict
+        // equality on the LAST assistant entry's joined text — substring /
+        // endsWith would falsely match when result is a prefix/suffix of
+        // earlier text (round-3 SPIKE_OK trap).
+        const resultText = state.output?.result;
+        if (state.state === 'done' && typeof resultText === 'string' && resultText.trim().length > 0) {
+          const transcriptCoversResult = lastAssistantText.trim() === resultText.trim();
+          if (!transcriptCoversResult) {
+            yield {
+              type: 'text',
+              catId: this.catId,
+              sessionId: shortId,
+              content: resultText,
+              timestamp: Date.now(),
+            };
+          }
+        }
+
+        // codex review (PR #1666) P1.1: error path emits error + done (NOT throw).
+        if (state.state === 'error') {
+          yield {
+            type: 'error',
+            catId: this.catId,
+            sessionId: shortId,
+            error: state.detail ?? 'claude --bg job ended in error state',
+            timestamp: Date.now(),
+          };
+        }
+
+        const durationMs = Date.now() - startedAt;
+        // cloud codex round-13 P2: only attach usage when accumulator has
+        // real signal (at least one parsed assistant entry).
+        //
+        // cloud codex round-16 P2: gate is `assistantTurnCount > 0` ONLY
+        // (NOT `tailer && ...`). If streaming observed usage and the
+        // terminal drain failed (tailer degraded to undefined via round-15
+        // graceful path), we still have valid accumulated usage —
+        // discarding it would corrupt cost/usage telemetry on this success.
+        const usage = usageAcc.assistantTurnCount > 0 ? finalizeTranscriptUsage(usageAcc, { durationMs }) : undefined;
+
+        yield {
+          type: 'done',
+          catId: this.catId,
+          sessionId: shortId,
+          timestamp: Date.now(),
+          metadata: {
+            provider: 'claude-bg',
+            model: effectiveModel,
+            ...(usage ? { usage } : {}),
+            diagnostics: {
+              ...(state.state === 'error' ? { terminalState: 'error' } : {}),
+              durationMs,
+              // Report transcript entry count when we actually counted any
+              // (not gated on tailer being currently defined — see round-16).
+              ...(transcriptEntryCount > 0 ? { transcriptEntries: transcriptEntryCount } : {}),
+            },
+          },
+        };
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, this.pollMs));
     }
 
-    const resultText = terminal.output?.result;
-    if (resultText) {
-      yield {
-        type: 'text',
-        catId: this.catId,
-        sessionId: shortId,
-        content: resultText,
-        timestamp: Date.now(),
-      };
-    }
-
-    yield {
-      type: 'done',
-      catId: this.catId,
-      sessionId: shortId,
-      timestamp: Date.now(),
-      metadata: {
-        provider: 'claude-bg',
-        model: effectiveModel,
-        diagnostics: { durationMs: Date.now() - startedAt },
-      },
-    };
+    // Timeout
+    this.bestEffortStop(shortId);
+    throw new Error(`ClaudeBgCarrierService.invoke: timeout ${timeoutMs}ms for ${shortId}`);
   }
 }
