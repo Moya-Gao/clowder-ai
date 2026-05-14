@@ -72,15 +72,22 @@ interface RecallEvent {
     anchor: string;
     rank: number;
     score?: number;
-    sourcePath?: string;       // 砚砚：必须有，否则 Read 路径匹配不上
-    kind?: string;             // feature/decision/lesson/discussion/...
+    targetRef:                  // 砚砚 R2：union ref 覆盖所有 drill-down 目标
+      | { kind: 'doc'; sourcePath: string }
+      | { kind: 'thread'; threadId: string }
+      | { kind: 'session'; sessionId: string }
+      | { kind: 'passage'; passageId: string; threadId?: string; sessionId?: string };
+    docKind?: string;           // feature/decision/lesson/discussion/...
     resultSetId?: string;
   }>;
   consumed: Array<{
     anchor: string;
     rank: number;
-    method: 'Read' | 'Grep' | 'graph_resolve';
-    dwellProxy?: number;       // 47：Read 后到下一个 tool call 的间隔(ms)
+    method:                     // 砚砚 R2：覆盖全部 drill-down 工具
+      | 'Read' | 'Grep' | 'graph_resolve'
+      | 'read_session_events' | 'read_session_digest'
+      | 'read_invocation_detail' | 'get_thread_context';
+    dwellProxy?: number;        // 47：Read 后到下一个 tool call 的间隔(ms)
   }>;
   reformulated: boolean;
   fellBackToGrep: boolean;
@@ -96,13 +103,14 @@ interface RecallEvent {
 ```
 consumed := same_invocation
             AND (tool_call_distance ≤ 20 OR wall_clock ≤ 300s)
-            AND path_match(Read.file_path, candidate.sourcePath)
+            AND target_match(tool_call, candidate.targetRef)
 ```
 
+- **target_match**（砚砚 R2 扩展）：不只是 `Read.file_path ↔ sourcePath`，还覆盖 `read_session_events ↔ sessionId`、`get_thread_context ↔ threadId`、`read_invocation_detail ↔ invocationId` 等 drill-down 匹配
 - **invocation 边界**优于纯 wall-clock（LLM thinking/A2A callback 波动大）
 - **tool_call_distance**比时间更稳定（20 步覆盖"搜→想→读"的典型链）
 - **300s 兜底**防止超长 thinking 丢信号
-- **Grep 分类**：grep 路径命中 candidate.sourcePath → drill-down consumption；全仓 `rg` → fallback，不算 consumed
+- **Grep 分类**：grep 路径命中 candidate.targetRef.sourcePath → drill-down consumption；全仓 `rg` → fallback，不算 consumed
 - v1 上 shadow mode，跑 1 周后看 P95 再 finalize 参数
 
 ### Phase B: Derived Metrics（无模型指标族）
@@ -118,7 +126,7 @@ consumed := same_invocation
 | **Reformulation Rate** | `P(同 invocation 连续搜索)` | query/index 匹配度 |
 | **ReformulationsBeforeConsumption** | `mean(search_count_before_first_consumed)` | 几轮才找到 |
 | **SearchAbandonRate** | `P(搜了但没 consumed 也没 reformulate)` | 候选全不对 |
-| **RejectionAfterReview** | `P(reformulate \| viewed candidates but didn't read)` | 看了但觉得不对 |
+| **ReformulateAfterExposure** | `P(reformulate within compound_window AND no consumed AND tool_call_distance_to_next_search ≤ 3)` | 看了候选但觉得不对，立刻又搜（区别于 Abandon：Abandon 是静默放弃，这里是主动换 query） |
 | **FallbackAfterHighHitRate** | `P(grep fallback \| top-1 confidence=high)` | 摘要/标题不可信 |
 | **Token Cost per Hit** | `total_tokens / consumed_count` | 搜索效率 |
 | **Anchor Popularity** | `consumed_count(anchor) over 30d` | boost 信号 |
@@ -141,18 +149,30 @@ adjusted_score(anchor, query) =
   - δ · stale_penalty(anchor)              // 现有 F163 stale 检测
 ```
 
-**consumption_prior 公式**（OQ-5 resolved, Bayesian shrinkage）：
+**consumption_prior 公式**（OQ-5 resolved, centered Bayesian shrinkage — R2 三猫收敛）：
 
 ```
-shrunk_ctr = (consumed_count_30d + α₀) / (exposure_count_30d + α₀ + β₀)
+shrunk_ctr     = (consumed_count_30d + α₀) / (exposure_count_30d + α₀ + β₀)
+mean_ctr_kind  = global_mean_ctr(anchor.kind)       // 按 doc kind 分桶的全局基线
 recency_factor = T_kind / (T_kind + days_since_last_consumed)
-consumption_prior = shrunk_ctr × recency_factor
+raw_lift       = (shrunk_ctr - mean_ctr_kind) × recency_factor
+
+// 三段式分支（47 R2 提案 + 砚砚 R1 "exposure ≥ 20 才允许 punish" 融合）
+if anchor.kind ∈ constitutional:            // ADR/lesson/canon
+    consumption_prior = max(0, raw_lift)    // 永远不降权
+elif exposure_count_30d < 5:                // cold-start
+    consumption_prior = 0                   // 中性：不奖不罚
+elif exposure_count_30d < 20:               // 低样本
+    consumption_prior = max(0, raw_lift)    // 只允许正向 boost
+else:                                       // 充分数据
+    consumption_prior = raw_lift            // 完整中心化，允许负值
 ```
 
 - **α₀=2, β₀=8**（先验 mean=0.2，等价于"10 次曝光 2 次 click"）
 - **exposure_count 用 30 天滑窗**，不要历史累计
-- **cold-start 保护**：`exposure_count_30d < 5` 的 anchor 用全局 mean_CTR
+- **中心化是关键**（47+砚砚 R2 收敛）：v2 的纯正向 `shrunk_ctr × recency` 等于半残——"高 BM25 但 30 天 0 read"的过时 anchor 跟"高 BM25 且高 read"的活 anchor 一样排前面。减去 `mean_ctr_kind` 才有负信号
 - **grace period**：新 indexed 文档 14 天内不参与 consumption_prior
+- **v2 升级路径**（47 R2 #4）：v1 用 30d hard sliding window；若 shadow 发现窗口边界 anchor 排名有 day-by-day cliff，v2 升级到 event-level decay `w_i = 2^(-age_days/half_life)`
 
 **recency_decay 公式**（OQ-2 resolved, fractional decay + 按 kind 分桶）：
 
@@ -182,13 +202,26 @@ MMR = argmax_i [λ · sim(d_i, query) - (1-λ) · max_j∈S sim(d_i, d_j)]
 
 **RRF k=60 和 pool size**：k 不动（Cormack 2009 经典值），pool 不动（max(limit×4, 20) cap 100）。先加指标 `consumed_anchor_not_in_pool_rate`，如果被 consumed 的 anchor 经常不在候选池才考虑扩 pool 或加第三路召回。
 
+**graph edge-level 权重**（R2 砚砚+47 收敛，铲屎官点名"常用路径加权"）：
+
+当前实现（`GraphResolver.ts:224`）遍历时所有 relation 边权重一样。F200 引入 edge-level 信号：
+
+```
+edge_weight(A → B) =
+    type_base[edge.relation]                    // wikilink=1.0, doc_link=0.9, feature_ref=1.1
+  + λ_edge · traversal_count_30d(A → B)        // 具体这条边被猫穿越的频率
+  × edge_recency_decay(A → B)                  // 边的 access recency（fractional decay）
+```
+
+`type_base` 初始值先 shadow 观察再调。`traversal_count` = graph_resolve 返回 A，猫 Read A 后又 graph_resolve 拿到 B 并 Read B 的次数。
+
 **graph_resolve 候选排序调整**：
 
 ```
 graph_candidate_score(node) =
     text_match(query, node)
   + authority(node)
-  + edge_traversal_frequency(node)          // 新：猫顺着边走的频率
+  + Σ edge_weight(source → node) · source_relevance  // 入边加权（替换 v2 的 node-level frequency）
   + consumption_recency(node)               // 新：最近有人读过
   - dormancy_penalty(node)                  // 新：90d 无人读（constitutional 免疫）
 ```
@@ -205,11 +238,22 @@ interface TaskTrajectory {
   searchChain: RecallEvent[];
   filesRead: string[];
   filesModified: string[];
-  outputVerified: boolean;     // review pass / test pass / CVO accept
+  outputVerified: boolean;     // 候选信号源见下方（47 R2 #5）
   catId: string;
   totalTokenCost: number;
   duration: number;
 }
+```
+
+**outputVerified 候选信号源**（47 R2 #5，Phase D Design Gate 前 finalize）：
+
+```
+outputVerified = signal_or(
+    PR_merged_via_squash,                   // gh PR merge event
+    CI_check_passed_after_modification,     // GitHub check_run success
+    CVO_explicit_accept,                    // 铲屎官"merge"/"好"/"通过"等关键词
+    reviewer_approval_with_no_followup,     // @codex/@opus 放行且无后续修改
+)
 ```
 
 用途：
@@ -242,15 +286,16 @@ interface TaskTrajectory {
 
 ### Phase C（Consumption-Weighted Ranking）
 - [ ] AC-C1: search_evidence 排序引入 consumption_prior（Bayesian shrinkage + 14d grace period）和 recency_decay（fractional + kind 分桶）
-- [ ] AC-C2: graph_resolve 候选排序引入 edge_traversal_frequency + consumption_recency
+- [ ] AC-C2: graph_resolve 候选排序引入入边加权（edge_weight × source_relevance）+ consumption_recency
 - [ ] AC-C3: MMR 去重在 hybrid mode + pool≥3×limit 时生效（λ=0.7 可配置）
 - [ ] AC-C4: shadow mode 先行：新排序 vs 旧排序的 ConsumedMRR 对比
 - [ ] AC-C5: consumption_prior 不影响 authority（constitutional/ADR 免疫降权）
 - [ ] AC-C6: `consumed_anchor_not_in_pool_rate` 指标上线，数据驱动 pool 扩展决策
+- [ ] AC-C7: graph edge_weight（type_base + traversal_count_30d × edge_recency_decay）用于候选排序
 
 ### Phase D（Full Trajectory Records）
 - [ ] AC-D1: TaskTrajectory 按 invocation/thread 粒度聚合
-- [ ] AC-D2: outputVerified 从 review/test/CVO accept 信号自动推断
+- [ ] AC-D2: outputVerified 从候选信号源（PR merge / CI check / CVO accept / reviewer approval）自动推断
 - [ ] AC-D3: 成功轨迹可被 list_recent 或 search_evidence 召回（scope="trajectories"）
 - [ ] AC-D4: Cross-Cat Effort Variance 和 ConsumedButNotUsedRate 指标上线
 
@@ -261,7 +306,7 @@ interface TaskTrajectory {
 | **Primary Users** | 三猫（search_evidence / graph_resolve / list_recent 使用者） |
 | **Activation Signal** | RecallEvent 写入量 > 0 / consumed 命中 > 0 |
 | **Friction Metric** | ConsumedMRR < 0.3（排序太差）/ SearchAbandonRate > 50%（候选全不对）/ Reformulation Rate > 60%（一次搜不到） |
-| **Regression Fixture** | (1) 已知 high-CTR anchor 被新排序降权 (2) authority=constitutional 的 anchor 因低 consumption 被压制 |
+| **Regression Fixture** | (1) high-consumption anchor must not be demoted unless authority/stale guard justifies it (2) authority=constitutional 的 anchor 不可因低 consumption 被压制 |
 | **Sunset Signal** | 6 周后 ConsumedMRR 无提升 → 回滚 Phase C 排序改动 |
 
 ## Dependencies
@@ -281,7 +326,7 @@ interface TaskTrajectory {
 | Goodhart 风险（猫为了指标好看乱读） | consumption 只影响导航排序，不影响 authority；authority 仍来自 spec/ADR/review/CVO |
 | 高 authority 但低 consumption 的关键文档被压制 | constitutional/ADR/lesson 类 anchor 免疫 consumption-based 降权 |
 | 跨猫对比引入"评价猫"的伦理问题 | Phase D 跨猫数据只用于系统诊断（index 盲点），不用于评价个猫能力。Phase E deferred |
-| 热门老文档马太效应（consumption 越高排越前） | Bayesian shrinkage + 30d 滑窗 exposure + fractional decay 三重防线 |
+| 热门老文档马太效应（consumption 越高排越前） | Centered lift（减去 mean_ctr_kind）+ Bayesian shrinkage + 30d 滑窗 exposure + fractional decay 四重防线 |
 
 ## Open Questions
 
@@ -291,7 +336,7 @@ interface TaskTrajectory {
 | OQ-2 | recency_decay half_life | ✅ resolved: fractional decay + 按 kind 分桶（constitutional 不降权 / feature 90d / plan 45d / discussion 21d / thread 14d） |
 | OQ-3 | MMR λ 初始值 | ✅ resolved: λ=0.7（Carbonell 1998 + TREC），pool≥3×limit 才启用，shadow 对比 0.6/0.7/0.8 |
 | OQ-4 | Phase D TaskTrajectory 粒度 | ⬜ 待 Phase D Design Gate |
-| OQ-5 | consumption_prior 公式 | ✅ resolved: Bayesian shrinkage（α₀=2, β₀=8, 30d sliding window, 14d grace period） |
+| OQ-5 | consumption_prior 公式 | ✅ resolved: centered Bayesian shrinkage — `(shrunk_ctr - mean_ctr_kind) × recency`，三段式分支（cold-start/低样本/充分数据），constitutional 永远 max(0, lift) |
 | OQ-6 | 是否需要第三路 consumption-based RRF 召回？ | ⬜ 先上 `consumed_anchor_not_in_pool_rate` 指标（AC-C6），数据驱动决策 |
 
 ## Key Decisions
@@ -306,6 +351,8 @@ interface TaskTrajectory {
 | KD-6 | recency_decay 按 doc kind 分桶，constitutional 不降权 | 不同类型文档热度曲线天差地别。constitutional 低 consumption 不代表不重要（砚砚 + 47 收敛 2026-05-14） | 2026-05-14 |
 | KD-7 | RRF k=60 不动，pool 不动，第三路召回 data-driven | k=60 是 Cormack 2009 经典值。先测 `consumed_anchor_not_in_pool_rate`，数据说了算才扩（砚砚 2026-05-14） | 2026-05-14 |
 | KD-8 | Phase C 只吃 L1 信号，L2/L3 留 Phase D | 分层递进，避免过早引入噪声更大的深层信号（三猫收敛 2026-05-14） | 2026-05-14 |
+| KD-9 | consumption_prior 必须 centered（减全局 mean_ctr_kind） | 纯正向 boost = 半残，低于平均的 anchor 永远不被压。47+砚砚 R2 独立收敛同一结论（Wilson 1927 / Empirical Bayes 标准做法） | 2026-05-14 |
+| KD-10 | graph 引入 edge-level 权重（不只是 node-level） | 铲屎官点名"常用路径加权"；当前 GraphResolver 所有边一视同仁。type_base + traversal_count × recency 三要素（47+砚砚 R2 收敛） | 2026-05-14 |
 
 ## Timeline
 
@@ -313,6 +360,7 @@ interface TaskTrajectory {
 |------|------|
 | 2026-05-14 | 立项。铲屎官启发 + 三猫讨论（46/47/55）收敛方向 |
 | 2026-05-14 | 三猫技术讨论：OQ-1/2/3/5 resolved，spec v2 更新 |
+| 2026-05-14 | R2 review（47+砚砚）：consumption_prior centered lift + graph edge weights + targetRef union + ReformulateAfterExposure 精确化 → spec v3 |
 
 ## Review Gate
 
