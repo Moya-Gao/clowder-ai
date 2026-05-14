@@ -3,7 +3,7 @@ name: vision-rescue
 description: >
   绝境反转方法论：当任务似乎没有希望、反复摆动、准备放弃愿景时的五步突破框架。
   Use when: 任务看起来无解、多次尝试失败后想放弃、输出投降修辞（"现状最优"/"没救了"/"接受现实"）、连续 3+ 轮在希望与绝望间摆动。
-  Not for: 正常 debugging（用 debugging）、常规探索/调研（用 deep-research）、CVO 已签字降级的目标、trivial 任务。
+  Not for: 未出现绝境信号的常规 debugging（用 debugging）、常规探索/调研（用 deep-research）、CVO 已签字降级的目标、trivial 任务。
   Output: Desperation Packet（六问证据评估）+ 新方向行动计划 / CVO 升级请求。
 triggers:
   - "没希望"
@@ -15,6 +15,11 @@ triggers:
   - "放弃"
   - "走投无路"
   - "都试过了"
+  - "现状最优"
+  - "不值得继续"
+  - "保守路径"
+  - "实际价值变了"
+  - "收口"
   - "vision rescue"
 ---
 
@@ -81,7 +86,7 @@ triggers:
 - 求助格式：`我卡在 X，试过 A/B/C，你能从 Y 角度看看吗？`
 - 不是拉人来用同一种方法重试，是拉**不同方法论**的人
 
-> F198：4.7 + 砚砚整晚在 WebFetch + telemetry 打转。46 上来直接 `strings binary` 一刀到底。铲屎官手动拉人才打破回声室。
+> F198：两只猫整晚在 WebFetch + telemetry 打转。第三只猫上来直接 `strings binary` 一刀到底。铲屎官手动拉人才打破回声室。
 
 ### Step 5: 拒绝投降（除非 CVO signoff）
 
