@@ -156,6 +156,38 @@ E-1b spec OQ 必须显式列出："`buildClientServiceManifest` 派生 `availabl
 2. **修完重新 review**：把 PR description 列 P0/P1 mapping + C1/C2/C3 修法 + C4 决策 + C5 E-1b scope link + `scripts/services/*` defer 的 user visibility note
 3. **PR 走 cloud review**：lifecycle 写面属 packages/api 安全 surface，按 merge-gate
 
+## v3 — Cloud review 抓到 P1 + P2（我 v2 漏的，本 PR 必修）
+
+云端 codex bot review on PR #1673（HEAD `f5ea59f9a` verified valid）：
+
+### P1 (orange): mutex 早释放——timeout 时 runner 还在跑但锁已放
+
+`runWithTimeout`（`services-lifecycle-helpers.ts:50-63`）用 `Promise.race(runner, timer)`，timer 赢时直接 return `{timedOut: true}`——**runner promise 不取消、不 await**。然后 `withLock`（`services-lifecycle-routes.ts:72-87`）的 `try/finally` 立刻 `activeServices.delete(serviceId)`。
+
+后果：lifecycle script trap SIGTERM 或运行超过 timeout 时，408 返回 + 锁释放 + **第二个 install 请求来，找不到锁，spawn 第二个 script 跟第一个并发跑**。两个 bash install 同时改 venv，破 mutex 语义。
+
+**修法**：timeout 时 await runner 真正终止（execFile.timeout SIGTERM 后 wait close event）再返回；或者 `withLock` 等 cleanup 完成才 release。这是 P0 safety——并发锁是 P0 design 承诺，timeout 不能破。
+
+### P2 (yellow): process ownership 误判——cmdline 数据参数被当 executable
+
+`isServiceProcessCommand`（`service-lifecycle.ts:72-81`）regex 在 cmdline 任意位置查 script path token：
+```
+(^|[\s"'=])(?:\.\/)?scripts/services/foo.sh($|[\s"'])
+```
+
+如果某进程是 `bash --config scripts/services/whisper-server.sh actual.sh`，`--config` 后空格 + script path 也匹配 `[\s]` 边界。这是 `--config` 的数据值，不是执行的脚本。→ `/start` foreign-port check 把它当 owned 让 start 通过；`/stop` 把它当 owned SIGTERM。**误杀无辜进程**。
+
+**修法**：检查 cmdline 第 2 个 token（`bash <script>` 的 `<script>`）是 script path，而不是 cmdline contains。或者用 procfs/`/proc/<pid>/exe` symlink 拿真 executable。
+
+### v3 verdict
+
+- v2 confirmed C1/C2/C3 修好（`/api/services/audit` owner-gated + sanitize、stop type 删除、owner-mismatch 测试）✅
+- v2 C4 (注释) + C5 (E-1b scope) ✅
+- **v3 新增本 PR 必修**：P1 mutex semantics + P2 process match strictness
+- 修完两条，重新 @ Opus-47 验
+
+不允许任何 P1/P2 follow-up。CVO 已经预言了"会被云端抓出来都是 follow up 吧"，事实证明云端确实抓到了我 v2 漏的——这次要在本 PR 收完。
+
 ## Lesson（本次 review 自反思）
 
 Review v1 把 5 条 concerns 全标"非阻塞 follow-up"，CVO 当场 push back："你这 review 也太松了 我们家不是不允许 follow up 吗？"——踩中 [[feedback_no_followup_tails]]。
