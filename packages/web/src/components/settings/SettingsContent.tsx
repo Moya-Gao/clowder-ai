@@ -17,6 +17,7 @@ import { McpManageContent } from './McpManageContent';
 import { OpsContent } from './OpsContent';
 import { PluginsContent } from './PluginsContent';
 import { RulesPromptsContent } from './RulesPromptsContent';
+import { ServiceStatusPanel } from './ServiceStatusPanel';
 import { SettingsPageHeader } from './SettingsPageHeader';
 import { SettingsPlaceholder } from './SettingsPlaceholder';
 import { SETTINGS_SECTIONS } from './settings-nav-config';
@@ -70,7 +71,15 @@ export function SettingsContent({ section }: SettingsContentProps) {
       case 'skills':
         return <HubSkillsTab />;
       case 'voice':
-        return <VoiceSettingsPanel />;
+        return (
+          <div className="space-y-6">
+            <ServiceStatusPanel
+              filterFeatures={['voice-input', 'voice-output', 'voice-companion', 'voice-postprocess']}
+              title="语音服务"
+            />
+            <VoiceSettingsPanel />
+          </div>
+        );
       case 'system':
         return <HubEnvFilesTab />;
       case 'notify':

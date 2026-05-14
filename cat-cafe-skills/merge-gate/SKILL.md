@@ -303,7 +303,7 @@ git worktree prune  # 清理 dangling worktree references
 - `cat-cafe-skills/**/SKILL.md` 改动（家规、SOP、流程文字 — 云端看不懂语境）
 - `cat-cafe-skills/refs/*.md` 改动（共享 lessons、reference partials）
 - `docs/reflections/*.md` / `docs/discussions/*.md` 纯文字改动
-- 任何 docs-only PR 且本地 reviewer 是缅因猫族（@codex / @gpt52，跨 family）
+- 任何 docs-only PR 且本地 reviewer 是非 author 的缅因猫族 reviewer（跨 family）
 
 **仍必须走云端 review（不能豁免）**：
 - 任何 `packages/**` 代码改动（业务逻辑 / API / 前端）
