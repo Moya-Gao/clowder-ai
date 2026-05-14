@@ -65,11 +65,16 @@ Cat Café 当前 [`ClaudeAgentService.ts:188-194`](../../packages/api/src/domain
 把 Phase A 选定的 carrier 接入 Cat Café：
 
 1. **新增 `ClaudeInteractiveCarrierService`**（或扩 ClaudeAgentService）—— **不删除现有 `-p` 路径**（保留为 sdk_credit fallback）
-2. **Profile mode 加一档**：`subscription_interactive`（新主路径）+ 保留 `subscription`（实质 = -p mode，进 SDK 桶）+ `api_key`
-3. **进程池 + Session Lease**（直接借鉴 [F149](F149-acp-runtime-operations.md) 模式）：
-   - interactive Claude session 启动成本高（spike 后实测，估计 ~5-15s）
-   - thread 按需 attach/detach lease，不是每条消息重启 CLI
-   - idle TTL + max live process count + LRU 回收
+2. **Profile mode 重命名 + 新增一档**（砚砚 P1 — 当前 `subscription` 命名误导）：
+   - `subscription_interactive`（新主路径，走真订阅 usage limits）
+   - `claude_print_oauth`（**当前 `subscription` mode 重命名** — 实质 = `-p` 走 OAuth 鉴权，6/15 后进 SDK $200 桶；旧名让人误以为 6/15 后还安全）
+   - `api_key`（按量付费）
+   - Phase B 实施 codebase migration：`ClaudeAgentService.ts` 里 `mode === 'subscription'` rename 为 `mode === 'claude_print_oauth'`，加旧名 alias 兼容 1 个月过渡
+3. **进程隔离优先；池化需协议证据**（砚砚 P1 — 防上下文污染）：
+   - **默认 per-thread process 隔离**：interactive Claude session 有上下文状态，跨 thread 共享 = 上下文污染 + 状态泄漏风险
+   - **池化 opt-in**：仅当 Phase A 证明 `--remote-control` 协议支持多 session 隔离原语（类似 ACP 的 `newSession`/`loadSession`）时启用
+   - 真启用池化后借鉴 [F149](F149-acp-runtime-operations.md) 模式：idle TTL + max live process count + LRU 回收
+   - interactive Claude session 启动成本高（spike 后实测，估计 ~5-15s）— 即使无池化，warm pool（预启动空 session）可缓解冷启
 4. **事件流桥接**：interactive session → Cat Café `AgentMessage` 流
    - 保留 Hub 可见性（这是 Phase C 的 prereq）
    - 维持现有 [ClaudeEventTransformer](../../packages/api/src/domains/cats/services/agents/providers/ClaudeAgentService.ts) 兼容
@@ -100,7 +105,7 @@ in_context_observability:
 
 ### Phase D: 兜底 + 预算治理 + 切流量（7 天，6/01-6/14）
 
-1. **三档 fallback**：`subscription_interactive`（主） → `subscription`/-p mode（吃 SDK $200 桶） → `api_key`（按量付费）
+1. **三档 fallback**：`subscription_interactive`（主，走真订阅） → `claude_print_oauth`（旧 `subscription` mode 重命名，吃 SDK $200 桶） → `api_key`（按量付费）
 2. **预算治理面板**：
    - 每猫月度额度可配置
    - 告警阈值（$150 / $180 / $195）
@@ -116,18 +121,29 @@ in_context_observability:
 
 监控订阅消耗速率、回归 bug、Anthropic 政策变动、文档沉淀。若 `--remote-control` 也被堵 → 紧急回归 sdk_credit + api_key fallback，重启 Phase A 找新路径。
 
+## Explicit Non-Carriers / Discarded Options
+
+这些方案已评估，记录在此避免后续团队反复误判（砚砚 P2 review 加入）：
+
+| 方案 | 评估 | 为什么不是 carrier |
+|------|------|---------------------|
+| **MCP 反转桥的"外部不可见 polling 形态"** | 否决 | 铲屎官硬约束：失去 Hub oversight，"很危险也很奇怪"。**注意 ≠ 否决 MCP 工具链本身**——`cat_cafe_*` tools 在新 carrier 下仍保留 |
+| **`claude mcp serve`** | 非 carrier，归类辅助能力 | 它暴露的是 Claude Code 自己的工具能力（View/Edit/LS）给**外部** MCP client；不把"宪宪这个 agent"作为可聊天载体暴露。可以做"让其他猫借用 Claude Code 工具表面"的辅助 |
+| **`claude --ide` / IDE 扩展自动化** | 远期备选，不进 Phase A spike | accessibility API / WebDriver 路径脆弱、慢、不可维护；只有候选 1-4 全挂时考虑 |
+| **claude.ai 浏览器自动化** | 否决 | 失去 CLI 所有能力（tools / skills / CLAUDE.md / MCP）；不是 Claude Code carrier，是 Claude chat 替身 |
+
 ## Acceptance Criteria
 
 ### Phase A（Spike + 决策）
 - [ ] AC-A1: `claude --remote-control <name>` 启动成功 + 协议形态文档化（端口/socket/控制面）
-- [ ] AC-A2: 实测 `--remote-control` 落哪个 billing 桶（Anthropic dashboard / billing 实证，不是猜测）
+- [ ] AC-A2: 验证 `--remote-control` 的 billing 桶归属。**可证伪性自检**（砚砚 P1）：政策 6/15 才生效，Phase A 期间 dashboard 可能区分不出 `-p` vs RC — 若不能 conclusively 证实它走订阅，**默认 unsafe**，按"也进 SDK 桶"做 Phase B 规划；同时通过 Anthropic dev support / forum / sales rep 寻求 official 书面确认（书面回复算证据，承诺/截图/聊天记录算辅助）
 - [ ] AC-A3: `claude agents` / `--brief` / tmux 兜底各做 1 次 spike，记录可行性 + 弃用理由
 - [ ] AC-A4: Decision Packet 产出（主路径 + 兜底 + 弃用项 + 证据），砚砚 review 通过 + 铲屎官签字
 
 ### Phase B（Carrier 集成）
 - [ ] AC-B1: 新 `ClaudeInteractiveCarrierService` 实现，单 thread invoke 端到端跑通
 - [ ] AC-B2: Profile mode 加 `subscription_interactive`，可在 Hub UI 切换 + per-thread 覆盖
-- [ ] AC-B3: 进程池 + session lease 落地，10 active thread 不等于 10 个 Claude 进程
+- [ ] AC-B3: 进程隔离 baseline 落地（默认 per-thread process，防上下文污染）；**池化 opt-in**：仅当 Phase A 证明 RC 协议支持多 session 隔离原语时才启用 lease + 池化
 - [ ] AC-B4: 事件流桥接，AgentMessage 流和 `-p` 模式行为等价（同样 message / tool_use / tool_result 在 thread UI 可见）
 - [ ] AC-B5: Cat Café MCP server 在 interactive carrier 下正常工作（`cat_cafe_*` 工具可调用）
 
@@ -201,6 +217,8 @@ in_context_observability:
 | Oversight 在 interactive 模式下信息密度不如 -p 的 NDJSON | Phase C 专门补；跨猫愿景守护是 AC-C6 硬门禁，不通过不放行 |
 | 6/15 来不及 | Phase A 5 天 hard deadline；不通则 Phase D 兜底（预算治理 + 三档 fallback）先上保命，主路径继续找 |
 | 进程池 zombie / 资源泄漏 | 借鉴 F149 已验证的 lease / recovery / eviction 语义 |
+| **AC-A2 billing 桶不可证伪**（5/17 前政策未生效，dashboard 可能区分不出 `-p` vs RC）| 默认 unsafe + Anthropic 官方书面确认 + Phase B 按"也进 SDK 桶"做 fallback 规划；spec 不允许"我赌它走订阅"的乐观主义（砚砚 P1） |
+| **跨 thread 上下文污染**（interactive Claude 有 session state，错误池化会灾难性串话） | 隔离优先：默认 per-thread process；池化 opt-in；RC 协议必须证明支持 session 隔离原语才启用（砚砚 P1） |
 
 ## Open Questions
 
@@ -214,12 +232,13 @@ in_context_observability:
 | OQ-6 | Phase D 灰度切流量按 thread 还是按 cat 还是按 user？ | ⬜ Phase D 设计 |
 | OQ-7 | Interactive session resume 语义？跨 invocation 复用 session 是否会污染 context？ | ⬜ Phase B spike |
 | OQ-8 | Hub 接管按钮的 UX：read-write 切回 read-only 后宪宪能否无缝继续？ | ⬜ Phase C 设计 + 与 F089 团队协调 |
+| OQ-9 | `--remote-control` 协议是否支持多 session 隔离原语？单进程多 thread 共享一个 session 还是有 `newSession`/`loadSession` 类语义？ | ⬜ Phase A spike — **决定 AC-B3 是 baseline 隔离还是池化可启用** |
 
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | MCP 反转桥（让 Claude Code 主动 poll Cat Café）方案否决 | 铲屎官原话："失去对你进度和在干嘛的掌控，很危险也很奇怪"。Hub oversight 是硬约束 | 2026-05-13 |
+| KD-1 | MCP 反转桥的"**外部不可见 polling 形态**"被否决；Cat Café MCP 工具链（`cat_cafe_*` tools）本身在新 carrier 下仍是必需能力 | 铲屎官否决的是"失去对你进度和在干嘛的掌控"——失控来自外部终端 poll 不可见，不是 MCP 工具链；新 carrier 必须保留 MCP 工具供宪宪调用（砚砚 P2 精确化） | 2026-05-13 |
 | KD-2 | `--remote-control` 优先于 tmux 包裹 | 官方接口 vs 模拟键盘；合规 vs 灰色；维护成本低 vs 解析脆弱 | 2026-05-13 |
 | KD-3 | 保留 `-p` 路径作为 SDK credit fallback，不删 | 三档 fallback 保命；Anthropic 政策变动时可回退 | 2026-05-13 |
 | KD-4 | Phase A spike 5 天 hard deadline | 6/15 拐点不可推迟；不通则 Phase D 兜底先上保命 | 2026-05-13 |
