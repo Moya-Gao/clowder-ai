@@ -30,17 +30,27 @@ interface InterventionAdvisory {
   talking_point: string | null;
 }
 
+interface AudioSources {
+  apps: string[];
+  mics: { index: number; name: string; default: boolean }[];
+}
+
 interface FloatingTranscriptWindowProps {
   lines: TranscriptLine[];
   connected: boolean;
   recording: boolean;
+  paused?: boolean;
   sourceLabel?: string;
   elapsed?: number;
   participants?: Participant[];
   savedPath?: string;
   savedRecordingPath?: string;
+  sources?: AudioSources;
   onClose: () => void;
   onStop?: () => void;
+  onPause?: () => void;
+  onResume?: () => void;
+  onStart?: (source: string, appName?: string, deviceIndex?: number) => void;
   onMinimize?: () => void;
   onCorrect?: (chunkNum: number, speakerId: string, speakerLabel: string) => void;
   advisory?: InterventionAdvisory | null;
@@ -87,13 +97,18 @@ export function FloatingTranscriptWindow({
   lines,
   connected,
   recording,
+  paused = false,
   sourceLabel,
   elapsed = 0,
   participants,
   savedPath,
   savedRecordingPath,
+  sources,
   onClose,
   onStop,
+  onPause,
+  onResume,
+  onStart,
   onMinimize,
   onCorrect,
   advisory,
@@ -107,6 +122,7 @@ export function FloatingTranscriptWindow({
   const [minimized, setMinimized] = useState(false);
   const [layout, setLayout] = useState<PersistedLayout>(loadLayout);
   const [correctingChunk, setCorrectingChunk] = useState<number | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string>('');
 
   useEffect(() => {
     if (autoScroll.current && scrollRef.current) {
@@ -204,14 +220,31 @@ export function FloatingTranscriptWindow({
         {/* Header — drag handle */}
         <div className="flex items-center gap-2 border-b border-cafe-border px-3 py-2 cursor-move select-none">
           <span
-            className={`inline-block h-2 w-2 rounded-full ${recording ? 'bg-green-500 animate-pulse' : 'bg-cafe-text-muted'}`}
+            className={`inline-block h-2 w-2 rounded-full ${recording ? (paused ? 'bg-amber-400' : 'bg-green-500 animate-pulse') : 'bg-cafe-text-muted'}`}
           />
           <span className="flex-1 truncate text-sm font-medium text-cafe-text-primary">
-            {recording ? (sourceLabel ?? 'Recording') : 'Transcript'}
+            {recording ? (paused ? 'Paused' : (sourceLabel ?? 'Recording')) : 'Transcript'}
           </span>
           {recording && (
             <>
               <span className="font-mono text-xs text-cafe-text-secondary">{formatDuration(elapsed)}</span>
+              {paused && onResume ? (
+                <button
+                  type="button"
+                  onClick={onResume}
+                  className="rounded px-1.5 py-0.5 text-xs text-green-400 hover:bg-green-500/10"
+                >
+                  Resume
+                </button>
+              ) : onPause ? (
+                <button
+                  type="button"
+                  onClick={onPause}
+                  className="rounded px-1.5 py-0.5 text-xs text-amber-400 hover:bg-amber-500/10"
+                >
+                  Pause
+                </button>
+              ) : null}
               {onStop && (
                 <button
                   type="button"
@@ -293,6 +326,45 @@ export function FloatingTranscriptWindow({
           <div className="border-b border-cafe-border bg-cafe-surface-secondary px-3 py-1.5 text-xs text-cafe-text-secondary space-y-0.5">
             {savedPath && <div>Transcript: {savedPath}</div>}
             {savedRecordingPath && <div>Recording: {savedRecordingPath}</div>}
+          </div>
+        )}
+
+        {/* Source selector — shown when not recording */}
+        {!recording && sources && onStart && (
+          <div className="border-b border-cafe-border bg-cafe-surface-secondary px-3 py-2 space-y-2">
+            <select
+              value={selectedSource}
+              onChange={(e) => setSelectedSource(e.target.value)}
+              className="w-full rounded border border-cafe-border bg-cafe-surface-primary px-2 py-1 text-xs text-cafe-text-primary"
+            >
+              <option value="">Select source...</option>
+              {sources.apps.map((app) => (
+                <option key={app} value={`app:${app}`}>
+                  {app}
+                </option>
+              ))}
+              {sources.mics.map((mic) => (
+                <option key={`mic-${mic.index}`} value={`mic:${mic.index}`}>
+                  {mic.name}
+                  {mic.default ? ' (default)' : ''}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={!selectedSource}
+              onClick={() => {
+                if (!selectedSource) return;
+                const colonIdx = selectedSource.indexOf(':');
+                const type = selectedSource.slice(0, colonIdx);
+                const value = selectedSource.slice(colonIdx + 1);
+                if (type === 'app') onStart('app', value);
+                else onStart('mic', undefined, Number(value));
+              }}
+              className="w-full rounded bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Start
+            </button>
           </div>
         )}
 

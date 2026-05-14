@@ -23,8 +23,14 @@ interface Participant {
   role?: string;
 }
 
+interface AudioSources {
+  apps: string[];
+  mics: { index: number; name: string; default: boolean }[];
+}
+
 interface AudioStatus {
   running: boolean;
+  paused?: boolean;
   source?: string;
   app_name?: string;
   duration_s?: number;
@@ -66,6 +72,7 @@ interface SseEvent {
 export function FloatingTranscriptContainer() {
   const visible = useChatStore((s) => s.floatingTranscriptVisible);
   const setVisible = useChatStore((s) => s.setFloatingTranscriptVisible);
+  const currentThreadId = useChatStore((s) => s.currentThreadId);
 
   const [lines, setLines] = useState<TranscriptLine[]>([]);
   const [status, setStatus] = useState<AudioStatus>({ running: false });
@@ -75,11 +82,12 @@ export function FloatingTranscriptContainer() {
   const [advisoryMode, setAdvisoryMode] = useState<'active' | 'passive'>('passive');
   const [savedPath, setSavedPath] = useState<string | null>(null);
   const [savedRecordingPath, setSavedRecordingPath] = useState<string | null>(null);
+  const [sources, setSources] = useState<AudioSources | null>(null);
   const advisoryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!visible) return;
-    const fetchInitial = async () => {
+    const fetchCritical = async () => {
       try {
         const [statusResp, transcriptResp] = await Promise.all([
           apiFetch('/api/audio/status'),
@@ -99,7 +107,17 @@ export function FloatingTranscriptContainer() {
         }
       } catch {}
     };
-    fetchInitial();
+    const fetchSources = async () => {
+      try {
+        const resp = await apiFetch('/api/audio/sources');
+        if (resp.ok) {
+          const data = (await resp.json()) as AudioSources;
+          setSources(data);
+        }
+      } catch {}
+    };
+    fetchCritical();
+    fetchSources();
   }, [visible]);
 
   useEffect(() => {
@@ -144,9 +162,13 @@ export function FloatingTranscriptContainer() {
             setSavedPath(null);
             setSavedRecordingPath(null);
           } else if (data.status === 'stopped') {
-            setStatus((prev) => ({ ...prev, running: false }));
+            setStatus((prev) => ({ ...prev, running: false, paused: false }));
             if (data.transcript_path) setSavedPath(data.transcript_path);
             if (data.recording_path) setSavedRecordingPath(data.recording_path);
+          } else if (data.status === 'paused') {
+            setStatus((prev) => ({ ...prev, paused: true }));
+          } else if (data.status === 'resumed') {
+            setStatus((prev) => ({ ...prev, paused: false }));
           }
         }
       } catch {}
@@ -155,10 +177,10 @@ export function FloatingTranscriptContainer() {
   }, [visible]);
 
   useEffect(() => {
-    if (!visible || !status.running) return;
+    if (!visible || !status.running || status.paused) return;
     const iv = setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => clearInterval(iv);
-  }, [visible, status.running]);
+  }, [visible, status.running, status.paused]);
 
   const handleStop = useCallback(async () => {
     try {
@@ -171,6 +193,44 @@ export function FloatingTranscriptContainer() {
       }
     } catch {}
   }, []);
+
+  const handlePause = useCallback(async () => {
+    try {
+      const resp = await apiFetch('/api/audio/pause', { method: 'POST' });
+      if (resp.ok) setStatus((prev) => ({ ...prev, paused: true }));
+    } catch {}
+  }, []);
+
+  const handleResume = useCallback(async () => {
+    try {
+      const resp = await apiFetch('/api/audio/resume', { method: 'POST' });
+      if (resp.ok) setStatus((prev) => ({ ...prev, paused: false }));
+    } catch {}
+  }, []);
+
+  const handleStart = useCallback(
+    async (source: string, appName?: string, deviceIndex?: number) => {
+      try {
+        const body: Record<string, unknown> = { source };
+        if (appName) body.app_name = appName;
+        if (deviceIndex != null) body.device = deviceIndex;
+        if (currentThreadId) body.thread_id = currentThreadId;
+        const resp = await apiFetch('/api/audio/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (resp.ok) {
+          setStatus({ running: true, source, app_name: appName });
+          setLines([]);
+          setElapsed(0);
+          setSavedPath(null);
+          setSavedRecordingPath(null);
+        }
+      } catch {}
+    },
+    [currentThreadId],
+  );
 
   const handleCorrect = useCallback(async (chunkNum: number, speakerId: string, speakerLabel: string) => {
     try {
@@ -227,13 +287,18 @@ export function FloatingTranscriptContainer() {
       lines={lines}
       connected={connected}
       recording={status.running}
+      paused={status.paused}
       sourceLabel={sourceLabel}
       elapsed={elapsed}
       participants={status.participants}
       savedPath={savedPath ?? undefined}
       savedRecordingPath={savedRecordingPath ?? undefined}
+      sources={sources ?? undefined}
       onClose={handleClose}
       onStop={handleStop}
+      onPause={handlePause}
+      onResume={handleResume}
+      onStart={handleStart}
       onCorrect={handleCorrect}
       advisory={advisory}
       advisoryMode={advisoryMode}

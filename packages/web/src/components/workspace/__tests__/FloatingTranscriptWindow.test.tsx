@@ -173,6 +173,66 @@ describe('FloatingTranscriptWindow', () => {
     expect(html).toContain('/tmp/recording.mp3');
   });
 
+  it('shows Pause button when recording and not paused', () => {
+    const html = renderToStaticMarkup(
+      <FloatingTranscriptWindow
+        lines={[]}
+        connected={true}
+        recording={true}
+        onClose={() => {}}
+        onStop={() => {}}
+        onPause={() => {}}
+      />,
+    );
+    expect(html).toContain('Pause');
+  });
+
+  it('shows Resume button and paused indicator when paused', () => {
+    const html = renderToStaticMarkup(
+      <FloatingTranscriptWindow
+        lines={[]}
+        connected={true}
+        recording={true}
+        paused={true}
+        onClose={() => {}}
+        onStop={() => {}}
+        onResume={() => {}}
+      />,
+    );
+    expect(html).toContain('Resume');
+    expect(html).toContain('Paused');
+  });
+
+  it('shows source selector and Start button when not recording', () => {
+    const html = renderToStaticMarkup(
+      <FloatingTranscriptWindow
+        lines={[]}
+        connected={true}
+        recording={false}
+        onClose={() => {}}
+        sources={{ apps: ['Google Chrome', 'Zoom'], mics: [{ index: 0, name: 'MacBook Pro Mic', default: true }] }}
+        onStart={() => {}}
+      />,
+    );
+    expect(html).toContain('Google Chrome');
+    expect(html).toContain('Zoom');
+    expect(html).toContain('Start');
+  });
+
+  it('hides source selector when recording is active', () => {
+    const html = renderToStaticMarkup(
+      <FloatingTranscriptWindow
+        lines={sampleLines}
+        connected={true}
+        recording={true}
+        onClose={() => {}}
+        sources={{ apps: ['Google Chrome'], mics: [] }}
+        onStart={() => {}}
+      />,
+    );
+    expect(html).not.toContain('Start');
+  });
+
   it('renders advisory banner even in passive mode (backend is authority)', () => {
     const advisory = {
       type: 'intervention_advisory' as const,

@@ -85,9 +85,11 @@ class AudioSession:
         self._detector = InterventionDetector()
         self._silence_monitor = SilenceMonitor()
         self._artifact_store: TranscriptArtifactStore | None = None
+        self.paused = False
 
     def _reset(self):
         self.running = False
+        self.paused = False
         self.source = None
         self.app_name = None
         self.device = None
@@ -236,6 +238,7 @@ class AudioSession:
             except (asyncio.CancelledError, Exception):
                 pass
             self._task = None
+        self.paused = False
         dur = time.time() - self.started_at if self.started_at else 0
         transcript_path = None
         recording_path = None
@@ -256,6 +259,22 @@ class AudioSession:
         print(f"  ■ Stopped: {self.chunk_count} chunks, {dur:.1f}s")
         return summary
 
+    async def pause(self):
+        if not self.running:
+            raise RuntimeError("Not running")
+        if self.paused:
+            raise RuntimeError("Already paused")
+        self.paused = True
+        await self._broadcast({"type": "status", "status": "paused"})
+
+    async def resume(self):
+        if not self.running:
+            raise RuntimeError("Not running")
+        if not self.paused:
+            raise RuntimeError("Not paused")
+        self.paused = False
+        await self._broadcast({"type": "status", "status": "resumed"})
+
     def status(self) -> dict:
         dur = time.time() - self.started_at if self.started_at and self.running else None
         return {
@@ -274,6 +293,7 @@ class AudioSession:
             "participants": self.participants,
             "advisory_mode": self.advisory_mode,
             "talking_points": self.talking_points,
+            "paused": self.paused,
             "advisory_rate_limiter": self._rate_limiter.status(),
         }
 
@@ -322,7 +342,7 @@ class AudioSession:
         except asyncio.CancelledError:
             pass
         except asyncio.IncompleteReadError as e:
-            if e.partial and self._artifact_store:
+            if e.partial and self._artifact_store and not self.paused:
                 self._artifact_store.append_pcm(e.partial)
         finally:
             stderr_text = await self._drain_capture_stderr()
@@ -393,12 +413,12 @@ class AudioSession:
             while not q.empty():
                 try:
                     queued_pcm = q.get_nowait()
-                    if self._artifact_store:
+                    if self._artifact_store and not self.paused:
                         self._artifact_store.append_pcm(queued_pcm)
                 except asyncio.QueueEmpty:
                     break
             with lock:
-                if buf_pos[0] > 0 and self._artifact_store:
+                if buf_pos[0] > 0 and self._artifact_store and not self.paused:
                     residual = (buf_data[:buf_pos[0]] * 32767).astype(np.int16).tobytes()
                     self._artifact_store.append_pcm(residual)
             if self.running:
@@ -415,6 +435,8 @@ class AudioSession:
                                        "recording_path": recording_path})
 
     async def _process_chunk(self, pcm: bytes):
+        if self.paused:
+            return
         if self._artifact_store:
             self._artifact_store.append_pcm(pcm)
         wav = pcm_to_wav(pcm)
@@ -540,6 +562,22 @@ async def h_start(request):
 async def h_stop(request):
     summary = await session.stop()
     return web.json_response({"ok": True, "summary": summary})
+
+
+async def h_pause(request):
+    try:
+        await session.pause()
+        return web.json_response({"ok": True, "status": session.status()})
+    except RuntimeError as e:
+        return web.json_response({"error": str(e)}, status=400)
+
+
+async def h_resume(request):
+    try:
+        await session.resume()
+        return web.json_response({"ok": True, "status": session.status()})
+    except RuntimeError as e:
+        return web.json_response({"error": str(e)}, status=400)
 
 
 async def h_status(request):
@@ -697,6 +735,8 @@ def main():
     app = web.Application(middlewares=[cors_mw])
     app.router.add_post("/start", h_start)
     app.router.add_post("/stop", h_stop)
+    app.router.add_post("/pause", h_pause)
+    app.router.add_post("/resume", h_resume)
     app.router.add_post("/enroll", h_enroll)
     app.router.add_post("/transcript/correct", h_correct)
     app.router.add_post("/advisory-mode", h_set_advisory_mode)
@@ -715,8 +755,8 @@ def main():
     print(f"  ASR:        {ASR_URL}")
     print(f"  CaptureApp: {cap}")
     print()
-    print("  POST /start   POST /stop   GET /status")
-    print("  GET /transcript   GET /events   GET /sources")
+    print("  POST /start   POST /stop   POST /pause   POST /resume")
+    print("  GET /status   GET /transcript   GET /events   GET /sources")
     print("=" * 60)
     web.run_app(app, host="127.0.0.1", port=PORT, print=None)
 
