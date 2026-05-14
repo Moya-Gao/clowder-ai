@@ -139,7 +139,7 @@ describe('FloatingTranscriptWindow', () => {
         onClose={() => {}}
       />,
     );
-    expect(html).toContain('Saved:');
+    expect(html).toContain('Transcript:');
     expect(html).toContain('/tmp/meeting-2026-05-12.md');
   });
 
@@ -153,7 +153,24 @@ describe('FloatingTranscriptWindow', () => {
         onClose={() => {}}
       />,
     );
-    expect(html).not.toContain('Saved:');
+    expect(html).not.toContain('Transcript:');
+  });
+
+  it('shows recording path when not recording', () => {
+    const html = renderToStaticMarkup(
+      <FloatingTranscriptWindow
+        lines={sampleLines}
+        connected={false}
+        recording={false}
+        savedPath="/tmp/transcript.md"
+        savedRecordingPath="/tmp/recording.mp3"
+        onClose={() => {}}
+      />,
+    );
+    expect(html).toContain('Transcript:');
+    expect(html).toContain('/tmp/transcript.md');
+    expect(html).toContain('Recording:');
+    expect(html).toContain('/tmp/recording.mp3');
   });
 
   it('renders advisory banner even in passive mode (backend is authority)', () => {

@@ -60,6 +60,7 @@ interface SseEvent {
   source_text?: string;
   talking_point?: string | null;
   transcript_path?: string;
+  recording_path?: string;
 }
 
 export function FloatingTranscriptContainer() {
@@ -73,6 +74,7 @@ export function FloatingTranscriptContainer() {
   const [advisory, setAdvisory] = useState<InterventionAdvisory | null>(null);
   const [advisoryMode, setAdvisoryMode] = useState<'active' | 'passive'>('passive');
   const [savedPath, setSavedPath] = useState<string | null>(null);
+  const [savedRecordingPath, setSavedRecordingPath] = useState<string | null>(null);
   const advisoryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -140,9 +142,11 @@ export function FloatingTranscriptContainer() {
             setLines([]);
             setElapsed(0);
             setSavedPath(null);
+            setSavedRecordingPath(null);
           } else if (data.status === 'stopped') {
             setStatus((prev) => ({ ...prev, running: false }));
             if (data.transcript_path) setSavedPath(data.transcript_path);
+            if (data.recording_path) setSavedRecordingPath(data.recording_path);
           }
         }
       } catch {}
@@ -160,9 +164,10 @@ export function FloatingTranscriptContainer() {
     try {
       const resp = await apiFetch('/api/audio/stop', { method: 'POST' });
       if (resp.ok) {
-        const data = (await resp.json()) as { summary?: { transcript_path?: string } };
+        const data = (await resp.json()) as { summary?: { transcript_path?: string; recording_path?: string } };
         setStatus((prev) => ({ ...prev, running: false }));
-        if (data.summary?.transcript_path) setSavedPath(data.summary.transcript_path);
+        setSavedPath(data.summary?.transcript_path ?? null);
+        setSavedRecordingPath(data.summary?.recording_path ?? null);
       }
     } catch {}
   }, []);
@@ -226,6 +231,7 @@ export function FloatingTranscriptContainer() {
       elapsed={elapsed}
       participants={status.participants}
       savedPath={savedPath ?? undefined}
+      savedRecordingPath={savedRecordingPath ?? undefined}
       onClose={handleClose}
       onStop={handleStop}
       onCorrect={handleCorrect}

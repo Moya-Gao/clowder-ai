@@ -32,6 +32,7 @@ interface SseEvent {
   asr_latency?: number;
   text?: string;
   transcript_path?: string;
+  recording_path?: string;
 }
 
 function formatTime(ts: number): string {
@@ -50,6 +51,7 @@ export function TranscriptPanel() {
   const [connected, setConnected] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [savedPath, setSavedPath] = useState<string | null>(null);
+  const [savedRecordingPath, setSavedRecordingPath] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScroll = useRef(true);
   const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
@@ -109,9 +111,11 @@ export function TranscriptPanel() {
             setLines([]);
             setElapsed(0);
             setSavedPath(null);
+            setSavedRecordingPath(null);
           } else if (data.status === 'stopped') {
             setStatus((prev) => ({ ...prev, running: false }));
             if (data.transcript_path) setSavedPath(data.transcript_path);
+            if (data.recording_path) setSavedRecordingPath(data.recording_path);
           }
         }
       } catch {
@@ -143,9 +147,10 @@ export function TranscriptPanel() {
     try {
       const resp = await apiFetch('/api/audio/stop', { method: 'POST' });
       if (resp.ok) {
-        const data = (await resp.json()) as { summary?: { transcript_path?: string } };
+        const data = (await resp.json()) as { summary?: { transcript_path?: string; recording_path?: string } };
         setStatus((prev) => ({ ...prev, running: false }));
-        if (data.summary?.transcript_path) setSavedPath(data.summary.transcript_path);
+        setSavedPath(data.summary?.transcript_path ?? null);
+        setSavedRecordingPath(data.summary?.recording_path ?? null);
       }
     } catch {
       /* offline */
@@ -214,10 +219,11 @@ export function TranscriptPanel() {
         ))}
       </div>
 
-      {/* Saved path */}
-      {!status.running && savedPath && (
-        <div className="border-t border-cafe-border px-3 py-1.5 text-xs text-cafe-text-secondary">
-          Saved: {savedPath}
+      {/* Saved paths */}
+      {!status.running && (savedPath || savedRecordingPath) && (
+        <div className="border-t border-cafe-border px-3 py-1.5 text-xs text-cafe-text-secondary space-y-0.5">
+          {savedPath && <div>Transcript: {savedPath}</div>}
+          {savedRecordingPath && <div>Recording: {savedRecordingPath}</div>}
         </div>
       )}
 

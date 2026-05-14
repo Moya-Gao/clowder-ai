@@ -91,22 +91,29 @@
 
 ## 转写持久化（Phase D）
 
-会议转写自动持久化到 MD 文件（`scripts/meeting-copilot/transcripts/{thread_id}/transcript.md`）。
+会议转写自动持久化到 MD 文件（`scripts/meeting-copilot/transcripts/{thread_id}/transcript-{meeting_id}.md`，同 meeting_id 去重加序号）。
+原始录音同步保存为 MP3（ffmpeg 转换；不可用时保留原始 PCM）。
 
 **你不需要做任何事情——持久化全自动**：
 - 启动会议时自动创建 MD 文件（按 speaking turn 分段，不是每个 chunk 一行）
 - 每 30 秒自动插入 Rolling Summary 段落
+- PCM 音频流自动写盘，finalize 时转 MP3
 - 停止会议时自动 finalize + 标记 meta.json 为 inactive
 
 **你的上下文中会自动注入文件路径**（不是文件内容）：
-- `[Meeting transcript: /path/to/transcript.md]` — 会议转写 MD 文件路径
+- `[Meeting transcript: /path/to/transcript-{meeting_id}.md]` — 会议转写 MD 文件路径
 - `[Latest range: 00:05:30–00:06:00]` — 最新的时间段
 - `[Participants: Host, Alice]` — 参会人列表
+
+**录音路径获取**（不自动注入上下文）：
+- UI 停止录音后在转写窗/浮动窗显示 `Recording: /path/to/recording-{meeting_id}.mp3`
+- `cat_cafe_audio_capture_stop` 返回的 `summary.recording_path` 字段
 
 **读转写的方式**：
 - 快速问答仍用 `cat_cafe_audio_read_transcript`（实时 API，延迟低）
 - 需要全文/深度分析时直接 `Read` 注入的 MD 文件路径（文件包含完整转写 + 摘要）
 - 会议结束后只能用 MD 文件（内存转写已清空）
+- 需要重新转写时用录音文件（更换 ASR 模型后可重跑）
 
 ## 不要做的事
 

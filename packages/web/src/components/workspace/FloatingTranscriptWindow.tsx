@@ -38,6 +38,7 @@ interface FloatingTranscriptWindowProps {
   elapsed?: number;
   participants?: Participant[];
   savedPath?: string;
+  savedRecordingPath?: string;
   onClose: () => void;
   onStop?: () => void;
   onMinimize?: () => void;
@@ -90,6 +91,7 @@ export function FloatingTranscriptWindow({
   elapsed = 0,
   participants,
   savedPath,
+  savedRecordingPath,
   onClose,
   onStop,
   onMinimize,
@@ -144,7 +146,7 @@ export function FloatingTranscriptWindow({
       >
         <div
           tabIndex={-1}
-          className="flex h-9 items-center gap-2 rounded-lg border-2 border-cafe-accent-primary/30 bg-cafe-surface-primary px-3 shadow-lg ring-1 ring-black/10"
+          className="flex h-9 items-center gap-2 rounded-lg border-2 border-cafe-accent-primary/50 bg-cafe-surface-primary px-3 shadow-lg ring-1 ring-black/20"
         >
           <span
             className={`inline-block h-2 w-2 rounded-full ${recording ? 'bg-green-500 animate-pulse' : 'bg-cafe-text-muted'}`}
@@ -197,7 +199,7 @@ export function FloatingTranscriptWindow({
     >
       <div
         tabIndex={-1}
-        className="flex h-full flex-col rounded-lg border-2 border-cafe-accent-primary/30 bg-cafe-surface-primary shadow-2xl ring-1 ring-black/10 backdrop-blur-sm"
+        className="flex h-full flex-col rounded-lg border-2 border-cafe-accent-primary/50 bg-cafe-surface-primary shadow-2xl ring-1 ring-black/20 backdrop-blur-md"
       >
         {/* Header — drag handle */}
         <div className="flex items-center gap-2 border-b border-cafe-border px-3 py-2 cursor-move select-none">
@@ -286,10 +288,11 @@ export function FloatingTranscriptWindow({
           </div>
         )}
 
-        {/* Saved path */}
-        {!recording && savedPath && (
-          <div className="border-b border-cafe-border bg-cafe-surface-secondary px-3 py-1.5 text-xs text-cafe-text-secondary">
-            Saved: {savedPath}
+        {/* Saved paths */}
+        {!recording && (savedPath || savedRecordingPath) && (
+          <div className="border-b border-cafe-border bg-cafe-surface-secondary px-3 py-1.5 text-xs text-cafe-text-secondary space-y-0.5">
+            {savedPath && <div>Transcript: {savedPath}</div>}
+            {savedRecordingPath && <div>Recording: {savedRecordingPath}</div>}
           </div>
         )}
 
