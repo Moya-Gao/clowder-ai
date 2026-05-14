@@ -45,6 +45,19 @@ export function containsRedactedPlaceholder(value: unknown): boolean {
   return false;
 }
 
+function isValidVapidSubject(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  try {
+    const subject = new URL(trimmed);
+    if (subject.protocol === 'mailto:') return subject.pathname.trim().length > 0;
+    if (subject.protocol === 'https:') return subject.hostname.trim().length > 0;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export function validateConnectorSecretUpdate(update: ConnectorSecretUpdateInput): string | null {
   if (!isConnectorSecret(update.name)) return `'${update.name}' is not in connector secrets allowlist`;
   if (containsRedactedPlaceholder(update.value)) {
@@ -57,6 +70,9 @@ export function validateConnectorSecretUpdate(update: ConnectorSecretUpdateInput
     normalizeTelegramBotToken(update.value) == null
   ) {
     return 'TELEGRAM_BOT_TOKEN must look like a Telegram BotFather token (<digits>:<token>)';
+  }
+  if (update.name === 'VAPID_SUBJECT' && update.value != null && !isValidVapidSubject(update.value)) {
+    return 'VAPID_SUBJECT must be a mailto: or https: subject';
   }
   return null;
 }

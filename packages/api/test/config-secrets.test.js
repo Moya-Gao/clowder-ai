@@ -22,6 +22,8 @@ describe('POST /api/config/secrets', () => {
   let envFilePath;
   /** @type {import('../dist/config/config-event-bus.js').ConfigChangeEvent[]} */
   let captured;
+  /** @type {Array<{type:string,data:Record<string, unknown>}>} */
+  let auditEvents;
   let unsub;
 
   before(async () => {
@@ -35,13 +37,22 @@ describe('POST /api/config/secrets', () => {
     tmpDir = mkdtempSync(join(os.tmpdir(), 'secrets-test-'));
     envFilePath = join(tmpDir, '.env');
     writeFileSync(envFilePath, 'EXISTING_VAR=hello\n');
-    await app.register(configSecretsRoutes, { envFilePath });
+    await app.register(configSecretsRoutes, {
+      envFilePath,
+      auditLog: {
+        append: async (input) => {
+          auditEvents.push({ type: input.type, data: input.data });
+          return { id: 'audit-test-id' };
+        },
+      },
+    });
     await app.ready();
   });
 
   beforeEach(() => {
     process.env.DEFAULT_OWNER_USER_ID = OWNER_ID;
     captured = [];
+    auditEvents = [];
     unsub = configEventBus.onConfigChange((e) => captured.push(e));
     // Reset env vars that tests may set
     for (const key of [
@@ -50,6 +61,12 @@ describe('POST /api/config/secrets', () => {
       'FEISHU_APP_SECRET',
       'DINGTALK_APP_KEY',
       'DINGTALK_APP_SECRET',
+      'VAPID_PUBLIC_KEY',
+      'VAPID_PRIVATE_KEY',
+      'VAPID_SUBJECT',
+      'GITHUB_TOKEN',
+      'GITHUB_SETUP_NOISE_BOT_LOGINS',
+      'GITHUB_MCP_PAT',
     ]) {
       delete process.env[key];
     }
@@ -195,6 +212,112 @@ describe('POST /api/config/secrets', () => {
     const envContent = readFileSync(envFilePath, 'utf8');
     assert.match(envContent, /FEISHU_APP_ID=cli_partial/);
     assert.match(envContent, /FEISHU_APP_SECRET=sec_keep/);
+  });
+
+  it('writes VAPID env vars and keeps audit metadata-only', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/config/secrets',
+      headers: SESSION_HEADERS,
+      payload: {
+        updates: [
+          { name: 'VAPID_PUBLIC_KEY', value: 'vapid-public-new' },
+          { name: 'VAPID_PRIVATE_KEY', value: 'vapid-private-new' },
+          { name: 'VAPID_SUBJECT', value: 'mailto:owner@example.com' },
+        ],
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(process.env.VAPID_PUBLIC_KEY, 'vapid-public-new');
+    assert.equal(process.env.VAPID_PRIVATE_KEY, 'vapid-private-new');
+    assert.equal(process.env.VAPID_SUBJECT, 'mailto:owner@example.com');
+
+    const envContent = readFileSync(envFilePath, 'utf8');
+    assert.match(envContent, /VAPID_PUBLIC_KEY=vapid-public-new/);
+    assert.match(envContent, /VAPID_PRIVATE_KEY=vapid-private-new/);
+    assert.match(envContent, /VAPID_SUBJECT=mailto:owner@example.com/);
+
+    const auditJson = JSON.stringify(auditEvents);
+    assert.match(auditJson, /VAPID_PUBLIC_KEY/);
+    assert.doesNotMatch(auditJson, /vapid-public-new|vapid-private-new|owner@example\.com/);
+  });
+
+  it('preserves omitted VAPID private key during contact-only edits', async () => {
+    process.env.VAPID_PRIVATE_KEY = 'vapid-private-keep';
+    writeFileSync(envFilePath, 'VAPID_PRIVATE_KEY=vapid-private-keep\n');
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/config/secrets',
+      headers: SESSION_HEADERS,
+      payload: { updates: [{ name: 'VAPID_SUBJECT', value: 'mailto:new-owner@example.com' }] },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(process.env.VAPID_SUBJECT, 'mailto:new-owner@example.com');
+    assert.equal(process.env.VAPID_PRIVATE_KEY, 'vapid-private-keep');
+    const envContent = readFileSync(envFilePath, 'utf8');
+    assert.match(envContent, /VAPID_SUBJECT=mailto:new-owner@example.com/);
+    assert.match(envContent, /VAPID_PRIVATE_KEY=vapid-private-keep/);
+  });
+
+  it('rejects invalid VAPID_SUBJECT before writing env or audit', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/config/secrets',
+      headers: SESSION_HEADERS,
+      payload: { updates: [{ name: 'VAPID_SUBJECT', value: 'owner@example.com' }] },
+    });
+
+    assert.equal(res.statusCode, 400);
+    assert.match(JSON.parse(res.body).error, /VAPID_SUBJECT/i);
+    assert.equal(process.env.VAPID_SUBJECT, undefined);
+    assert.equal(captured.length, 0);
+    assert.deepEqual(auditEvents, []);
+  });
+
+  it('rejects redacted VAPID placeholder values', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/config/secrets',
+      headers: SESSION_HEADERS,
+      payload: { updates: [{ name: 'VAPID_PRIVATE_KEY', value: '••••••' }] },
+    });
+    assert.equal(res.statusCode, 400);
+    assert.match(JSON.parse(res.body).error, /redacted/i);
+    assert.equal(process.env.VAPID_PRIVATE_KEY, undefined);
+  });
+
+  it('writes GitHub plugin config keys and keeps audit metadata-only', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/config/secrets',
+      headers: SESSION_HEADERS,
+      payload: {
+        updates: [
+          { name: 'GITHUB_TOKEN', value: 'ghp_new_token' },
+          { name: 'GITHUB_SETUP_NOISE_BOT_LOGINS', value: 'chatgpt-codex-connector[bot]' },
+          { name: 'GITHUB_MCP_PAT', value: 'ghp_mcp_token' },
+        ],
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(process.env.GITHUB_TOKEN, 'ghp_new_token');
+    assert.equal(process.env.GITHUB_SETUP_NOISE_BOT_LOGINS, 'chatgpt-codex-connector[bot]');
+    assert.equal(process.env.GITHUB_MCP_PAT, 'ghp_mcp_token');
+
+    const envContent = readFileSync(envFilePath, 'utf8');
+    assert.match(envContent, /GITHUB_TOKEN=ghp_new_token/);
+    assert.match(envContent, /GITHUB_SETUP_NOISE_BOT_LOGINS="?chatgpt-codex-connector\[bot\]"?/);
+    assert.match(envContent, /GITHUB_MCP_PAT=ghp_mcp_token/);
+
+    const auditJson = JSON.stringify(auditEvents);
+    assert.match(auditJson, /GITHUB_TOKEN/);
+    assert.match(auditJson, /GITHUB_SETUP_NOISE_BOT_LOGINS/);
+    assert.match(auditJson, /GITHUB_MCP_PAT/);
+    assert.doesNotMatch(auditJson, /ghp_new_token|ghp_mcp_token|chatgpt-codex-connector/);
   });
 
   it('emits ConfigChangeEvent with source=secrets', async () => {

@@ -25,6 +25,7 @@ import {
   isCatAvailable,
   toAllCatConfigs,
 } from './config/cat-config-loader.js';
+import { configEventBus } from './config/config-event-bus.js';
 import { resolveFrontendBaseUrl, resolveFrontendCorsOrigins } from './config/frontend-origin.js';
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
 import { assertStorageReady } from './config/storage-guard.js';
@@ -64,7 +65,11 @@ import {
   MemoryGovernanceStore,
   OpenCodeAgentService,
 } from './domains/cats/services/index.js';
-import { initPushNotificationService } from './domains/cats/services/push/PushNotificationService.js';
+import {
+  getPushNotificationService,
+  initPushNotificationService,
+  resetPushNotificationService,
+} from './domains/cats/services/push/PushNotificationService.js';
 import type { HandoffConfig } from './domains/cats/services/session/SessionSealer.js';
 import { SessionSealer } from './domains/cats/services/session/SessionSealer.js';
 import { TranscriptReader } from './domains/cats/services/session/TranscriptReader.js';
@@ -1964,25 +1969,47 @@ async function main(): Promise<void> {
   startTtsCacheCleaner(ttsCacheDir);
 
   // C1+C2: Web Push Notifications (optional — requires VAPID keys)
-  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY ?? '';
-  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY ?? '';
-  const vapidSubject = process.env.VAPID_SUBJECT ?? 'mailto:cat-cafe@localhost';
   const pushSubscriptionStore = createPushSubscriptionStore(redis);
-  const pushService =
-    vapidPublicKey && vapidPrivateKey
-      ? initPushNotificationService({
-          subscriptionStore: pushSubscriptionStore,
-          vapidPublicKey,
-          vapidPrivateKey,
-          vapidSubject,
-        })
-      : null;
+  const resolveVapidPublicKey = (): string => process.env.VAPID_PUBLIC_KEY ?? '';
+  const configurePushServiceFromEnv = () => {
+    const currentVapidPublicKey = process.env.VAPID_PUBLIC_KEY ?? '';
+    const currentVapidPrivateKey = process.env.VAPID_PRIVATE_KEY ?? '';
+    const currentVapidSubject = process.env.VAPID_SUBJECT ?? 'mailto:cat-cafe@localhost';
+    if (!currentVapidPublicKey || !currentVapidPrivateKey) {
+      resetPushNotificationService();
+      return null;
+    }
+    return initPushNotificationService({
+      subscriptionStore: pushSubscriptionStore,
+      vapidPublicKey: currentVapidPublicKey,
+      vapidPrivateKey: currentVapidPrivateKey,
+      vapidSubject: currentVapidSubject,
+    });
+  };
+  const pushService = configurePushServiceFromEnv();
   if (pushService) {
     app.log.info('[api] Web Push enabled (VAPID configured)');
   } else {
     app.log.info('[api] Web Push disabled (VAPID keys not set)');
   }
-  await app.register(pushRoutes, { pushSubscriptionStore, pushService, vapidPublicKey });
+  let pushConfigUnsub: (() => void) | null = configEventBus.onKeysChange(
+    ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT'],
+    () => {
+      const nextPushService = configurePushServiceFromEnv();
+      if (nextPushService) {
+        app.log.info('[api] Web Push hot-reloaded (VAPID configured)');
+      } else {
+        app.log.info('[api] Web Push hot-reloaded disabled (VAPID keys not set)');
+      }
+    },
+  );
+  await app.register(pushRoutes, {
+    pushSubscriptionStore,
+    pushService,
+    vapidPublicKey: resolveVapidPublicKey(),
+    getPushService: getPushNotificationService,
+    getVapidPublicKey: resolveVapidPublicKey,
+  });
 
   // F-BLOAT: Progressive disclosure docs endpoints (no auth, static content)
   await app.register(registerCallbackDocsRoutes);
@@ -2667,6 +2694,8 @@ async function main(): Promise<void> {
       // Stop event bus subscribers
       catCatalogSubscriber.unsubscribe();
       accountBindingSubscriber.unsubscribe();
+      pushConfigUnsub?.();
+      pushConfigUnsub = null;
       connectorReloadUnsub?.();
       try {
         await connectorGatewayHandle?.stop();

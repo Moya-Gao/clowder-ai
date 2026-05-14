@@ -16,8 +16,7 @@ import {
 } from '../config/connector-secret-write-guards.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
-
-const LOOPBACK_ADDRS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+import { isLoopbackAddress } from '../utils/loopback-request.js';
 
 const secretsPatchSchema = z.object({
   updates: z
@@ -49,7 +48,7 @@ export async function configSecretsRoutes(app: FastifyInstance, opts: ConfigSecr
 
   app.post('/api/config/secrets', async (request, reply) => {
     // Loopback guard
-    if (!opts.skipLoopbackCheck && !LOOPBACK_ADDRS.has(request.ip)) {
+    if (!opts.skipLoopbackCheck && !isLoopbackAddress(request.ip)) {
       reply.status(403);
       return { error: 'Secrets endpoint is loopback-only' };
     }

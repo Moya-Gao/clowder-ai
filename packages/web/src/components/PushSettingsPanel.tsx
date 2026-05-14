@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { PushServiceConfig } from '@/components/settings/PushServiceConfig';
 import { usePushNotify } from '@/hooks/usePushNotify';
 import { useToastStore } from '@/stores/toastStore';
 
@@ -147,6 +148,8 @@ export function PushSettingsPanel() {
         )}
       </div>
 
+      <PushServiceConfig />
+
       {mappedHints.length > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <div className="text-sm font-medium text-amber-900">修复建议</div>
@@ -202,6 +205,7 @@ export function PushSettingsPanel() {
           </p>
         </div>
         <button
+          type="button"
           onClick={isSubscribed ? unsubscribe : subscribe}
           disabled={isLoading}
           className={`px-4 py-1.5 text-sm rounded-lg font-medium transition-colors ${

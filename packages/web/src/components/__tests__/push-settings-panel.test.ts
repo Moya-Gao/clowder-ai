@@ -5,11 +5,26 @@ import { usePushNotify } from '@/hooks/usePushNotify';
 import { useToastStore } from '@/stores/toastStore';
 import { PushSettingsPanel } from '../PushSettingsPanel';
 
+const mocks = vi.hoisted(() => ({
+  apiFetch: vi.fn(),
+}));
+
 vi.mock('@/hooks/usePushNotify', () => ({
   usePushNotify: vi.fn(),
 }));
 
+vi.mock('@/utils/api-client', () => ({
+  apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
+}));
+
 const mockUsePushNotify = vi.mocked(usePushNotify);
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
 
 describe('PushSettingsPanel test push feedback', () => {
   let container: HTMLDivElement;
@@ -30,6 +45,23 @@ describe('PushSettingsPanel test push feedback', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     useToastStore.setState({ toasts: [] });
+    mocks.apiFetch.mockResolvedValue(
+      jsonResponse({
+        capability: {
+          enabled: false,
+          vapidPublicKeyConfigured: false,
+          pushServiceConfigured: false,
+        },
+        subscription: { count: 0, targets: [] },
+        delivery: {
+          lastAttemptAt: null,
+          lastHttpStatus: null,
+          lastResult: 'not_attempted',
+          lastError: null,
+        },
+        errorHints: ['push_vapid_key_missing', 'push_not_configured'],
+      }),
+    );
 
     mockUsePushNotify.mockReturnValue({
       isSupported: true,

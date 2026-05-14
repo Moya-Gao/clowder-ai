@@ -1,0 +1,17 @@
+{
+  "base": "http://localhost:5172/settings?s=plugins",
+  "api": "http://localhost:3172",
+  "note": "owner fail-closed screenshot uses Playwright route to force the hardened 403 response shape already covered by API tests",
+  "log": [
+    {
+      "page": "plugins",
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+    },
+    {
+      "page": "plugins",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+    }
+  ]
+}

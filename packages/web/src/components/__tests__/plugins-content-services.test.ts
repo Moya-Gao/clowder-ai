@@ -83,6 +83,52 @@ describe('PluginsContent service manifest view', () => {
     expect(container.textContent).not.toContain('卸载');
   });
 
+  it('renders expandable GitHub token config on the plugins page', async () => {
+    mockFetch.mockImplementation(async (path: string) => {
+      if (path === '/api/services') {
+        return {
+          ok: true,
+          json: async () => ({ services: [] }),
+        };
+      }
+      if (path === '/api/connector/status') {
+        return {
+          ok: true,
+          json: async () => ({
+            platforms: [
+              {
+                id: 'github',
+                fields: [
+                  {
+                    envName: 'GITHUB_TOKEN',
+                    label: 'Personal Access Token',
+                    sensitive: true,
+                    currentValue: null,
+                  },
+                ],
+              },
+            ],
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+
+    await renderPluginsContent();
+
+    const githubButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('GitHub'),
+    );
+    expect(githubButton).toBeTruthy();
+
+    await act(async () => {
+      githubButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(container.textContent).toContain('Personal Access Token');
+    expect(container.querySelector('input[name="GITHUB_TOKEN"]')).toBeTruthy();
+  });
+
   it('renders loading state while the service manifest request is pending', () => {
     mockFetch.mockReturnValue(new Promise(() => undefined));
 
@@ -124,6 +170,53 @@ describe('PluginsContent service manifest view', () => {
     await renderPluginsContent();
 
     expect(container.textContent).toContain('服务清单加载失败 (503)');
+  });
+
+  it('keeps GitHub token config reachable when the service manifest fails', async () => {
+    mockFetch.mockImplementation(async (path: string) => {
+      if (path === '/api/services') {
+        return {
+          ok: false,
+          status: 503,
+        };
+      }
+      if (path === '/api/connector/status') {
+        return {
+          ok: true,
+          json: async () => ({
+            platforms: [
+              {
+                id: 'github',
+                fields: [
+                  {
+                    envName: 'GITHUB_TOKEN',
+                    label: 'Personal Access Token',
+                    sensitive: true,
+                    currentValue: null,
+                  },
+                ],
+              },
+            ],
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+
+    await renderPluginsContent();
+
+    expect(container.textContent).toContain('服务清单加载失败 (503)');
+    const githubButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('GitHub'),
+    );
+    expect(githubButton).toBeTruthy();
+
+    await act(async () => {
+      githubButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(container.textContent).toContain('Personal Access Token');
+    expect(container.querySelector('input[name="GITHUB_TOKEN"]')).toBeTruthy();
   });
 
   it('renders unhealthy service probe errors', async () => {

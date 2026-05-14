@@ -113,6 +113,8 @@ interface ConnectorFieldDef {
   optional?: boolean;
   /** Default value used when the env var is not set — aligns status page with runtime normalization */
   defaultValue?: string;
+  /** Field writes persist immediately but runtime consumers only pick them up after an API restart. */
+  restartRequired?: boolean;
 }
 
 interface PlatformStepDef {
@@ -252,6 +254,30 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
       { text: '授权成功后自动连接，无需重启服务' },
     ],
   },
+  {
+    id: 'github',
+    name: 'GitHub',
+    nameEn: 'GitHub',
+    fields: [
+      { envName: 'GITHUB_TOKEN', label: 'Personal Access Token', sensitive: true },
+      {
+        envName: 'GITHUB_SETUP_NOISE_BOT_LOGINS',
+        label: 'Noise 过滤 Bot 列表',
+        sensitive: false,
+        optional: true,
+        defaultValue: 'chatgpt-codex-connector[bot]',
+        restartRequired: true,
+      },
+      { envName: 'GITHUB_MCP_PAT', label: 'MCP 专用 Token', sensitive: true, optional: true },
+    ],
+    docsUrl:
+      'https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens',
+    steps: [
+      { text: '创建 GitHub Personal Access Token（需 repo + notifications 权限）' },
+      { text: '填写 Token 后自动启用 PR Tracking、Review Router、CI/CD Monitor' },
+      { text: '可选：配置 Noise 过滤 Bot 列表以减少 setup-only 评论噪音' },
+    ],
+  },
 ];
 
 /** Mask a sensitive value: show only that it is set, no suffix. Aligns with env-registry *** policy. */
@@ -263,6 +289,7 @@ export interface PlatformFieldStatus {
   envName: string;
   label: string;
   sensitive: boolean;
+  restartRequired?: boolean;
   /** null = not set, masked string = set (sensitive fields show last 4 chars) */
   currentValue: string | null;
 }
@@ -308,6 +335,7 @@ export function buildConnectorStatus(env: Record<string, string | undefined> = p
         envName: f.envName,
         label: f.label,
         sensitive: f.sensitive,
+        restartRequired: f.restartRequired,
         currentValue: effectiveValue ? (f.sensitive ? maskSensitiveValue(effectiveValue) : effectiveValue) : null,
       };
     });

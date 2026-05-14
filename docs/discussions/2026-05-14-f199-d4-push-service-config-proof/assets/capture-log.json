@@ -1,0 +1,10 @@
+{
+  "base": "http://localhost:5172/settings?s=notify",
+  "log": [
+    {
+      "page": "fail",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+    }
+  ]
+}

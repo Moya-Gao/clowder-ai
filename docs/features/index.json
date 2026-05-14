@@ -1227,7 +1227,7 @@
     {
       "id": "F198",
       "name": "Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪",
-      "status": "spec | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0",
+      "status": "in-progress (Phase A ✅ done; Phase B Step 1 foundation ✅ merged 2026-05-14) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0",
       "file": "F198-claude-code-subscription-carrier.md"
     },
     {
@@ -1235,6 +1235,12 @@
       "name": "Console Parity Backfill — F190 Phase D",
       "status": "in-progress (D-1/D-2/D-3a/D-3b merged; D-4 PushServiceConfig next) | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1",
       "file": "F199-console-parity-backfill.md"
+    },
+    {
+      "id": "F200",
+      "name": "Memory Recall Eval — 基于猫真实行为的记忆系统反馈闭环",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F200-memory-recall-eval.md"
     }
   ]
 }

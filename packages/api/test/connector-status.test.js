@@ -5,7 +5,7 @@ import { buildConnectorStatus } from '../dist/routes/connector-hub.js';
 describe('buildConnectorStatus', () => {
   it('returns all platforms as not configured when env is empty', () => {
     const result = buildConnectorStatus({});
-    assert.equal(result.length, 7);
+    assert.equal(result.length, 8);
 
     const xiaoyi = result.find((p) => p.id === 'xiaoyi');
     assert.ok(xiaoyi);
@@ -46,6 +46,14 @@ describe('buildConnectorStatus', () => {
     assert.ok(weixin);
     assert.equal(weixin.configured, false);
     assert.equal(weixin.fields.length, 0);
+
+    const github = result.find((p) => p.id === 'github');
+    assert.ok(github);
+    assert.equal(github.configured, false);
+    assert.deepEqual(
+      github.fields.map((field) => field.envName),
+      ['GITHUB_TOKEN', 'GITHUB_SETUP_NOISE_BOT_LOGINS', 'GITHUB_MCP_PAT'],
+    );
   });
 
   it('marks feishu as configured when all 3 fields are set', () => {
@@ -221,5 +229,32 @@ describe('buildConnectorStatus', () => {
     const wecomAgent = result.find((p) => p.id === 'wecom-agent');
     assert.ok(wecomAgent);
     assert.equal(wecomAgent.configured, false);
+  });
+
+  it('marks GitHub plugin as configured when GITHUB_TOKEN is set and masks sensitive values', () => {
+    const result = buildConnectorStatus({
+      GITHUB_TOKEN: 'ghp_runtime_token',
+      GITHUB_SETUP_NOISE_BOT_LOGINS: 'chatgpt-codex-connector[bot]',
+      GITHUB_MCP_PAT: 'ghp_mcp_token',
+    });
+    const github = result.find((p) => p.id === 'github');
+    assert.ok(github);
+    assert.equal(github.configured, true);
+
+    const token = github.fields.find((f) => f.envName === 'GITHUB_TOKEN');
+    assert.ok(token);
+    assert.equal(token.sensitive, true);
+    assert.equal(token.currentValue, '••••••••');
+
+    const noise = github.fields.find((f) => f.envName === 'GITHUB_SETUP_NOISE_BOT_LOGINS');
+    assert.ok(noise);
+    assert.equal(noise.sensitive, false);
+    assert.equal(noise.currentValue, 'chatgpt-codex-connector[bot]');
+    assert.equal(noise.restartRequired, true);
+
+    const mcpPat = github.fields.find((f) => f.envName === 'GITHUB_MCP_PAT');
+    assert.ok(mcpPat);
+    assert.equal(mcpPat.sensitive, true);
+    assert.equal(mcpPat.currentValue, '••••••••');
   });
 });
