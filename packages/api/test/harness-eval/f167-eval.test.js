@@ -166,6 +166,53 @@ describe('F167 Runtime Eval Snapshot', () => {
     assert.equal(c1.activationCounts['hold_ball_calls'], 2);
   });
 
+  it('does not count tools with similar suffix as hold_ball', () => {
+    const now = Date.now();
+    const snapshot = generateF167Snapshot({
+      traces: {
+        spans: [
+          {
+            traceId: 'abc',
+            spanId: 'neg1',
+            name: 'cat_cafe.tool_use mcp__fake__not_cat_cafe_hold_ball',
+            startTimeMs: now - 1000,
+            endTimeMs: now,
+            durationMs: 1000,
+            status: { code: 0 },
+            attributes: { 'tool.name': 'mcp__fake__not_cat_cafe_hold_ball' },
+            events: [],
+          },
+        ],
+        count: 1,
+      },
+      metrics: {},
+      metricsHistory: { snapshots: [], count: 0 },
+      traceStats: { spanCount: 1, maxSpans: 10000, maxAgeMs: 86400000, oldestStoredAt: now, newestStoredAt: now },
+    });
+    const c1 = snapshot.components.find((c) => c.componentId === 'C1');
+    assert.equal(c1.activationCounts['hold_ball_calls'], 0);
+  });
+
+  it('L1/C1/C2 report no gaps when counters exist at zero (warmup)', () => {
+    const snapshot = generateF167Snapshot({
+      traces: { spans: [], count: 0 },
+      metrics: {
+        cat_cafe_a2a_l1_streak_warn_count: 0,
+        cat_cafe_a2a_l1_streak_break_count: 0,
+        cat_cafe_a2a_c1_zombie_hold_count: 0,
+        cat_cafe_a2a_c1_hold_cancel_count: 0,
+        cat_cafe_a2a_c2_verdict_hint_emitted: 0,
+        cat_cafe_a2a_c2_void_hold_hint_emitted: 0,
+        cat_cafe_a2a_c2_verdict_without_pass_count: 0,
+      },
+      metricsHistory: { snapshots: [], count: 0 },
+      traceStats: { spanCount: 0, maxSpans: 10000, maxAgeMs: 86400000, oldestStoredAt: null, newestStoredAt: null },
+    });
+    for (const comp of snapshot.components) {
+      assert.deepStrictEqual(comp.telemetryGaps, [], `${comp.componentId} should have no gaps with zero-value counters`);
+    }
+  });
+
   it('overall confidence reflects worst component', () => {
     const snapshot = generateF167Snapshot(emptyInput);
     assert.equal(snapshot.overallConfidence, 'no-data');

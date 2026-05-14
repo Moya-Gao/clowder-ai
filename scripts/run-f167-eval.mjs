@@ -254,7 +254,8 @@ if (digestMode) {
   (async () => {
     let sessionCookie = cookie;
     if (!sessionCookie) {
-      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(baseUrl);
+      const host = new URL(baseUrl).hostname;
+      const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host === '::1';
       if (isLocalhost) {
         console.log('No cookie provided — bootstrapping session from /api/session...');
         sessionCookie = await bootstrapSession(baseUrl);

@@ -100,7 +100,7 @@ function countHoldBallFromTraces(spans: EvalTraceSpan[]): number {
   let count = 0;
   for (const span of spans) {
     const toolName = span.attributes['tool.name'] as string | undefined;
-    if (toolName && toolName.endsWith('cat_cafe_hold_ball')) {
+    if (toolName === 'cat_cafe_hold_ball' || (toolName && toolName.endsWith('__cat_cafe_hold_ball'))) {
       count++;
     }
   }

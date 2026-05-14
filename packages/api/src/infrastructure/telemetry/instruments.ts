@@ -279,4 +279,9 @@ export function unregisterLivenessProbe(invocationId: string): void {
 export function warmupCounters(): void {
   l1StreakWarnCount.add(0);
   l1StreakBreakCount.add(0);
+  c1ZombieHoldCount.add(0);
+  c1HoldCancelCount.add(0);
+  c2VerdictHintEmitted.add(0);
+  c2VoidHoldHintEmitted.add(0);
+  c2VerdictWithoutPassCount.add(0);
 }
