@@ -295,6 +295,29 @@ git worktree prune  # 清理 dangling worktree references
 `gh pr view` 的 `--json reviews` 只返回 review body（可能显示"no major issues"），
 但 inline code comment 里可能有 P1。
 
+#### 豁免条件 — 哪些 PR 跳过云端 review（CVO directive 2026-05-13）🔴
+
+云端 codex 没有 Cat Café MCP，看不到 thread / memory / 真相源，不了解家里 SOP 演化历史。对**纯家规/SOP/skill 类文字改动**做云端 review 会引入"被带歪"风险 > 价值。
+
+**默认豁免（本地 review pass 后直接 squash merge）**：
+- `cat-cafe-skills/**/SKILL.md` 改动（家规、SOP、流程文字 — 云端看不懂语境）
+- `cat-cafe-skills/refs/*.md` 改动（共享 lessons、reference partials）
+- `docs/reflections/*.md` / `docs/discussions/*.md` 纯文字改动
+- 任何 docs-only PR 且本地 reviewer 是缅因猫族（@codex / @gpt52，跨 family）
+
+**仍必须走云端 review（不能豁免）**：
+- 任何 `packages/**` 代码改动（业务逻辑 / API / 前端）
+- 任何 test 改动（含 fixture）
+- 涉及 secret / auth / SSRF / DoS 资源边界的改动
+- inbound community PR intake（即使是 docs-only — source intent 验证需要外部视角）
+
+**豁免时仍要做**：
+- 本地 reviewer 跨家族 review pass（必经）
+- `pnpm gate` light path（biome + check:features + git diff --check）
+- PR comment 标注 "Cloud review skipped per CVO directive: <reason>" 留决策依据
+
+事故来源：PR #1661 (SOP 改进 docs-only) 本地砚砚 review pass 后无意识触发云端 review，CVO 立刻 push back "云端不懂家里情况，会被带歪"。
+
 #### 层级 A：通知已包含 severity（自动）
 
 ReviewRouter 现在会在投递通知时**主动拉取** review body + inline comments，
