@@ -25,6 +25,9 @@
  *   3. JobEventConsumer parses jsonl per-line with try/catch (delegated)
  */
 import { spawn } from 'node:child_process';
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { isAbsolute, join, resolve } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { resolveCliCommandOrBare } from '../../../../../utils/cli-resolve.js';
@@ -40,6 +43,7 @@ import {
   ANTHROPIC_PROFILE_MODE_KEY,
   buildClaudeEnvOverrides,
   resolveClaudeModelSelection,
+  resolveDefaultClaudeMcpServerPath,
 } from './ClaudeAgentService.js';
 import { JobEventConsumer } from './JobEventConsumer.js';
 import { TranscriptTailer } from './TranscriptTailer.js';
@@ -65,6 +69,13 @@ export interface ClaudeBgCarrierServiceOptions {
   jobsDir?: string;
   /** Test seam — invoke() poll interval (ms). Default 500. */
   pollMs?: number;
+  /** Absolute path to MCP server entry (dist/index.js) for --mcp-config.
+   *  Resolved from env CAT_CAFE_MCP_SERVER_PATH or repo layout heuristics
+   *  via `resolveDefaultClaudeMcpServerPath` when undefined.
+   *  砚砚 Step-3 P1 (2026-05-14): mirrors ClaudeAgentService.mcpServerPath
+   *  so canary布偶猫 sessions still expose Cat Café MCP tools (cat_cafe_*)
+   *  under --bg. Without this, AC-B4 / R5 break when canary flips. */
+  mcpServerPath?: string;
 }
 
 interface StartJobResult {
@@ -91,6 +102,10 @@ export class ClaudeBgCarrierService implements AgentService {
   private readonly spawnFn: typeof spawn;
   private readonly jobsDir?: string;
   private readonly pollMs: number;
+  private readonly mcpServerPath: string | undefined;
+  /** Windows: cached MCP config file path (created once per instance,
+   *  reused across invocations to avoid temp file spam). */
+  private mcpConfigFilePath: string | undefined;
 
   constructor(options?: ClaudeBgCarrierServiceOptions) {
     this.catId = options?.catId ?? createCatId('opus');
@@ -98,6 +113,14 @@ export class ClaudeBgCarrierService implements AgentService {
     this.spawnFn = options?.spawnFn ?? spawn;
     this.jobsDir = options?.jobsDir;
     this.pollMs = options?.pollMs ?? 500;
+    // 砚砚 Step-3 P1: resolve MCP server path same way as ClaudeAgentService
+    // (single source of truth via `resolveDefaultClaudeMcpServerPath`).
+    const configuredPath = options?.mcpServerPath ?? process.env.CAT_CAFE_MCP_SERVER_PATH;
+    if (configuredPath && configuredPath.trim().length > 0) {
+      this.mcpServerPath = isAbsolute(configuredPath) ? configuredPath : resolve(process.cwd(), configuredPath);
+    } else {
+      this.mcpServerPath = resolveDefaultClaudeMcpServerPath();
+    }
   }
 
   /**
@@ -166,6 +189,38 @@ export class ClaudeBgCarrierService implements AgentService {
       // - api_key + non-Anthropic model → omit --model (let env drive)
       const { effectiveModel, useEnvModelOverride } = resolveClaudeModelSelection(options?.callbackEnv, this.model);
       const args = useEnvModelOverride ? ['--bg', prompt] : ['--bg', prompt, '--model', effectiveModel];
+
+      // 砚砚 Step-3 P1 (2026-05-14): inject --mcp-config when callbackEnv
+      // present + mcpServerPath resolved. Mirrors ClaudeAgentService so
+      // canary布偶猫 sessions retain Cat Café MCP tools (cat_cafe_*) under
+      // --bg. Without this, AC-B4 / R5 break the moment canary flips.
+      //
+      // Windows: claude CLI treats inline JSON as a file path → write JSON
+      // to a temp file. POSIX: pass JSON inline (matches ClaudeAgentService).
+      if (options?.callbackEnv && this.mcpServerPath) {
+        const IS_WINDOWS = process.platform === 'win32';
+        if (IS_WINDOWS) {
+          if (!this.mcpConfigFilePath || !existsSync(this.mcpConfigFilePath)) {
+            const dir = mkdtempSync(join(tmpdir(), 'cat-cafe-bg-mcp-'));
+            this.mcpConfigFilePath = join(dir, 'mcp-config.json');
+            writeFileSync(
+              this.mcpConfigFilePath,
+              JSON.stringify({
+                mcpServers: { 'cat-cafe': { command: 'node', args: [this.mcpServerPath] } },
+              }),
+              'utf-8',
+            );
+          }
+          args.push('--mcp-config', this.mcpConfigFilePath);
+        } else {
+          args.push(
+            '--mcp-config',
+            JSON.stringify({
+              mcpServers: { 'cat-cafe': { command: 'node', args: [this.mcpServerPath] } },
+            }),
+          );
+        }
+      }
 
       // codex review (PR #1666 round 4) P1: resolve claude binary so hosts
       // with claude installed-but-not-on-PATH (production runtime envs

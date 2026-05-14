@@ -436,6 +436,62 @@ test('codex round-7 B-prime: MODEL_OVERRIDE_KEY in callbackEnv used as effective
   );
 });
 
+test('砚砚 Step-3 P1: --mcp-config injected when callbackEnv present and mcpServerPath resolved (AC-B4)', async () => {
+  // 砚砚 Step-3 review: ClaudeBgCarrierService missed mcp-config injection,
+  // mirroring ClaudeAgentService behavior. Without this, canary布偶猫 sessions
+  // lose Cat Café MCP tools (cat_cafe_*) → AC-B4 / R5 break.
+  let capturedArgs = null;
+  const fakeSpawn = (_cmd, args) => {
+    capturedArgs = args;
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    setImmediate(() => {
+      child.stdout.emit('data', Buffer.from('backgrounded · cafe7890\n'));
+      child.emit('close', 0);
+    });
+    return child;
+  };
+  const service = new ClaudeBgCarrierService({
+    spawnFn: fakeSpawn,
+    model: 'claude-opus-4-7',
+    mcpServerPath: '/tmp/fake-mcp-server/dist/index.js',
+  });
+  await service.startJob('hi', {
+    callbackEnv: { CAT_CAFE_INVOCATION_ID: 'inv-xyz' },
+  });
+
+  const mcpIdx = capturedArgs.indexOf('--mcp-config');
+  assert.ok(mcpIdx >= 0, 'must include --mcp-config when callbackEnv present');
+  const nextArg = capturedArgs[mcpIdx + 1];
+  assert.ok(typeof nextArg === 'string' && nextArg.length > 0, '--mcp-config must have a value');
+});
+
+test('砚砚 Step-3 P1: --mcp-config NOT injected when callbackEnv absent', async () => {
+  // Mirrors ClaudeAgentService: only inject MCP config when caller signals
+  // a callback-bound invocation.
+  let capturedArgs = null;
+  const fakeSpawn = (_cmd, args) => {
+    capturedArgs = args;
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    setImmediate(() => {
+      child.stdout.emit('data', Buffer.from('backgrounded · cafe7891\n'));
+      child.emit('close', 0);
+    });
+    return child;
+  };
+  const service = new ClaudeBgCarrierService({
+    spawnFn: fakeSpawn,
+    model: 'claude-opus-4-7',
+    mcpServerPath: '/tmp/fake-mcp-server/dist/index.js',
+  });
+  await service.startJob('hi');
+
+  assert.ok(!capturedArgs.includes('--mcp-config'), 'must NOT include --mcp-config when no callbackEnv');
+});
+
 test('codex round-7 B-prime: api_key mode + non-Anthropic model omits --model (env-driven)', async () => {
   // codex review (PR #1666 round 7) P1.3: when accountEnv/callbackEnv switch
   // to api_key mode with a non-Anthropic model (e.g. glm-5 via proxy),

@@ -52,7 +52,6 @@ import { AuthorizationManager } from './domains/cats/services/auth/Authorization
 import {
   AgentRouter,
   AuditEventTypes,
-  ClaudeAgentService,
   CodexAgentService,
   createDraftStore,
   createInvocationRecordStore,
@@ -995,9 +994,16 @@ async function main(): Promise<void> {
       // getCatModel(catId) which respects env override (CAT_*_MODEL > config > fallback)
       let service: AgentService;
       switch (config.clientId) {
-        case 'anthropic':
-          service = new ClaudeAgentService({ catId });
+        case 'anthropic': {
+          // F198 Phase B Step 3 canary: env-gated carrier selection.
+          // CAT_CAFE_CLAUDE_CARRIER=bg_daemon → --bg carrier (subscription
+          // quota, R1 救宪宪). Unset/other → -p (current production default).
+          const { createClaudeAgentServiceForCanary } = await import(
+            './domains/cats/services/agents/providers/claude-carrier-factory.js'
+          );
+          service = createClaudeAgentServiceForCanary(catId);
           break;
+        }
         case 'openai':
           service = new CodexAgentService({ catId });
           break;
@@ -1924,10 +1930,26 @@ async function main(): Promise<void> {
 
   // Commands route needs opus service for task extraction.
   // Lazy-init: empty catalog (first-run) has no opus entry yet — defer until first use.
-  let _opusService: ClaudeAgentService | undefined;
+  // 砚砚 Step-3 P2 (2026-05-14): route through canary factory so this path
+  // also honors CAT_CAFE_CLAUDE_CARRIER=bg_daemon when canary flips.
+  // 砚砚 Step-3 P1 re-review: invoke() must directly return AsyncIterable
+  // (not Promise<AsyncIterable>), otherwise `for await (... of svc.invoke())`
+  // crashes at runtime. Use sync generator wrapper that defers async setup
+  // to first yield.
+  let _opusService: AgentService | undefined;
   const opusService: AgentService = {
-    invoke(...args: Parameters<AgentService['invoke']>) {
-      return (_opusService ??= new ClaudeAgentService()).invoke(...args);
+    invoke(prompt, options) {
+      // Sync return of AsyncGenerator — IS AsyncIterable. Lazy init happens
+      // before first yield, then delegates.
+      return (async function* opusLazyInvoke() {
+        if (!_opusService) {
+          const { createClaudeAgentServiceForCanary } = await import(
+            './domains/cats/services/agents/providers/claude-carrier-factory.js'
+          );
+          _opusService = createClaudeAgentServiceForCanary('opus' as CatId);
+        }
+        yield* _opusService.invoke(prompt, options);
+      })();
     },
   };
   await app.register(commandsRoutes, {
