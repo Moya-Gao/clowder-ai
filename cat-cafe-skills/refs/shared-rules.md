@@ -629,6 +629,36 @@ spike（拆机制、找方案、验证未知行为）时**禁止 web fetch 当�
 
 完整方法论见 `vision-rescue` skill。来源：F198 "拯救宪宪"，投降包装成理性收口，铲屎官怒怼才打破。
 
+### 16d. Review 补锅匠检测——Round 3 黄灯 / Round 4 停车（2026-05-14 F198 Phase B 教训）
+
+> 铲屎官原话："你们在补锅ing！选错坐标系了！"
+
+**信号**：Review iteration ≥3 轮且 P1 没有收敛（数量不减 / 同类问题反复出现）= **补锅匠模式**。
+不是 reviewer 太严也不是 coder 太差——是在错误的坐标系上反复打补丁。
+
+**Round 3 = 黄灯（自检）**：
+
+Coder 问自己：
+1. 我是在复用已有工具/抽象，还是在重新实现？（F198：BgCarrier 重写了 `buildClaudeEnvOverrides` 已有的逻辑）
+2. 这一轮改动是"修复"还是"补漏"？补漏 = 坐标系可能错了
+3. 如果把已有的同类 service 放在旁边对比，相似度多高？高 = 应该复用不是重写
+
+Reviewer 问自己：
+1. 我连续 3 轮的 P1 是不是同一类问题（错误处理 / 重复代码 / 缺抽象）？
+2. 50%+ P1 能映射到已有 production 代码吗？能 → **必须建议重构方向**，不能继续逐条 P1
+3. 写一份 **Finding Pattern Summary**：这些 P1 指向什么根因？（"缺 X 抽象" / "没复用 Y" / "坐标系 Z 选错了"）
+
+**Round 4 = 强制停车**：
+
+双方都停下来，做一次 **坐标系审计**：
+- 当前方案和已有 production 实现的**结构差异**在哪？
+- 差异是**有意为之**（需求不同）还是**认知缺失**（不知道有现成的）？
+- 认知缺失 → 重构复用。有意为之 → 写清楚为什么，然后继续
+
+**Hook 机制**：PR tracking 的 review feedback callback 在 Round 3+ 注入 Patch Spiral Guard 提醒给 author 和 reviewer 双方。
+
+来源：F198 Phase B `ClaudeBgCarrierService` 6 轮 cloud review、12 个 P1，铲屎官一句"你们在补锅"打断后 refactor `buildClaudeEnvOverrides` 复用，P1 大幅收敛。
+
 ## 17. 决策漏斗：该问的问，不该问的别问
 
 > 铲屎官原话："大宝贝你别问我呀，我们 SOP 没说你自己和你的小伙伴直接闭环吗？"
