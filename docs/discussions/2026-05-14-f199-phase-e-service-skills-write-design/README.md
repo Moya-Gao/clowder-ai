@@ -70,12 +70,16 @@ Required guardrails:
 - **Identity**: session-only user id, no trusted-header write fallback.
 - **Owner**: `DEFAULT_OWNER_USER_ID` must be explicitly configured; mismatch or missing owner returns 403.
 - **Allowlist**: service ids must resolve from the known service registry only.
+- **Per-service mutex**: install/uninstall/start/stop/toggle operations must serialize per service id; concurrent lifecycle writes return `409 Conflict` instead of spawning overlapping scripts.
 - **Script path confinement**: any script path must resolve under repo-owned `scripts/services/`; no arbitrary paths from request body or environment.
 - **Model validation**: selected model must match the existing bounded `org/model-name` style pattern and length.
-- **Process stop safety**: port/PID stop must verify candidate process command line belongs to the service manifest before signalling.
+- **Process stop safety**: port/PID stop must verify candidate process command line belongs to the service manifest before signalling. Use strict script basename/path matching only; no broad prefix fallback such as `mlx`.
+- **Timeout cap**: install/uninstall scripts need a server-side timeout cap; timeout should terminate the child, return an explicit timeout response, and include only bounded tail logs.
+- **Port hygiene**: before starting or auto-starting a service, detect a busy port and refuse with a clear error unless the PID strictly belongs to the same service.
 - **Logs**: tail/output must be bounded; API responses must not return unbounded install logs.
 - **Audit**: metadata-only records: actor, service id, action, selected-model presence/name if non-secret, result; never raw env or command-line values beyond known script id.
 - **Runtime isolation**: no Redis 6399 side effects; no autostart behavior until explicitly designed.
+- **Worktree disclosure**: visual proof / User Visibility Disclosure must state that Settings controls the current process tree; running `cat-cafe` and `cat-cafe-runtime` simultaneously can create port conflicts, and Phase E must fail closed rather than killing another tree.
 
 ### E-2 Skills Write
 
@@ -96,23 +100,35 @@ Required guardrails:
 | Slice | Scope | Exit criteria |
 |---|---|---|
 | E-0 | This design gate + spec reopen | Cross-cat reviewer agrees on boundaries |
-| E-1a | Service lifecycle backend hardening + tests | Owner fail-closed, service allowlist, script confinement, bounded logs, audit metadata-only |
+| E-1a | Service lifecycle backend hardening + tests | Owner fail-closed, service allowlist, per-service mutex, strict process matching, script confinement, timeout cap, port-busy refusal, bounded logs, audit metadata-only |
 | E-1b | `InstallPreviewModal` + service lifecycle controls | Visual proof: prerequisites/model selection, install/start/stop/uninstall, error/fail-closed states |
 | E-2a | Skills write backend hardening + tests | Existing sync/resolve routes owner-gated; destructive managed-only route added only if needed |
 | E-2b | Settings Skills write UI parity | Visual proof: sync, conflict resolve, managed uninstall/disable, error/fail-closed states |
-| E-close | Full F199 close gate rerun | settings diff, User Visibility Disclosure, red-zone grep, transport boundary, independent guardian |
+| E-close | Full F199 close gate rerun | settings diff, User Visibility Disclosure, red-zone grep, transport boundary, independent guardian disclosed as non-author/non-reviewer |
 
 Implementation rule: E-1a before E-1b, E-2a before E-2b. Backend P0s must be closed before exposing buttons.
 
 ## Acceptance Draft
 
 - AC-E1: Phase E design reviewed before code implementation.
-- AC-E2: Service lifecycle routes reject missing owner, non-owner, unknown service id, invalid model id, and escaped script paths.
-- AC-E3: Service lifecycle audit and logs are metadata/bounded; no raw command or unbounded output in audit.
+- AC-E2: Service lifecycle routes reject missing owner, non-owner, unknown service id, invalid model id, escaped script paths, concurrent lifecycle operations, and unsafe busy-port starts.
+- AC-E3: Service lifecycle audit and logs are metadata/bounded; no raw command or unbounded output in audit; install/uninstall has a timeout cap.
 - AC-E4: Settings service UI ports `InstallPreviewModal` and lifecycle controls only on hardened backend.
 - AC-E5: Skills sync / conflict resolve / managed removal are explicit-owner gated and path/name validated.
 - AC-E6: Settings Skills UI ports write actions with clear failure states and preserves read/list/preview behavior.
-- AC-E7: Final F199 close gate reruns source side-by-side, User Visibility Disclosure, red-zone and transport-boundary checks, then independent vision guardian.
+- AC-E7: Final F199 close gate reruns source side-by-side, User Visibility Disclosure, red-zone and transport-boundary checks, then independent vision guardian. The close report must disclose guardian handle and confirm guardian is not Phase E author and not Phase E reviewer; cross-family preferred.
+
+## Review Disposition
+
+Opus-47 reviewed this design in `REVIEW-opus47.md` and approved the direction with required sharpenings:
+
+| Item | Disposition |
+|---|---|
+| P0: per-service install/uninstall mutex | Promoted to E-1a required guardrail and AC-E2 |
+| P0: explicit non-author/non-reviewer guardian | Promoted to E-close exit criteria and AC-E7 |
+| P1: strict `isServiceProcess` matching | Promoted to E-1a process stop safety guardrail |
+| P1: install/uninstall timeout cap | Promoted to E-1a timeout guardrail and AC-E3 |
+| P1: worktree/port hygiene disclosure | Promoted to E-1a port hygiene and worktree disclosure guardrails |
 
 ## Review Ask
 

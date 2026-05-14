@@ -117,8 +117,10 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 - Backend 不直接照搬 spawn surface；先引入 hardened service lifecycle owner gate：
   - session-only identity + explicit owner fail-closed
   - service id allowlist only (`SERVICE_MANIFESTS` / known service registry)
+  - per-service lifecycle mutex（并发 install/uninstall/start/stop/toggle 返回 409，不重叠 spawn）
   - script path resolve limited to repo-owned `scripts/services/*`
-  - model id validation and bounded log output
+  - strict process matching（不采用 `mlx` 这类 prefix fallback）
+  - model id validation, timeout cap, port-busy refusal, and bounded log output
   - audit metadata-only (service id/action/model key presence, no raw command/env)
 - Local prerequisite: home currently lacks source `domains/services/service-registry.ts`, `service-config.ts`, `service-logs.ts`, `process-utils.ts`, `service-autostart.ts`, and `scripts/services/*`; E-1 must port or redesign these as a coherent service lifecycle cell before exposing UI buttons.
 
@@ -154,11 +156,11 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 ### Phase E (reopened parity writes)
 - [x] AC-E0: CVO explicit reopen captured: `InstallPreviewModal` + Skills write actions are F199 Phase E, not ownerless follow-up
 - [ ] AC-E1: Phase E design memo reviewed by non-author reviewer before implementation
-- [ ] AC-E2: Service lifecycle backend has explicit owner fail-closed, service allowlist, script path confinement, model validation, bounded logs, and metadata-only audit
+- [ ] AC-E2: Service lifecycle backend has explicit owner fail-closed, service allowlist, per-service mutex, script path confinement, strict process matching, model validation, install/uninstall timeout cap, port-busy refusal, bounded logs, and metadata-only audit
 - [ ] AC-E3: Settings service UI exposes install/start/stop/uninstall only on hardened backend; `InstallPreviewModal` visual proof covers prerequisites/model selection/error/fail-closed states
 - [ ] AC-E4: Skills write backend has explicit owner fail-closed, project path validation, skill name validation, managed-skill destructive guard, and metadata-only audit
 - [ ] AC-E5: Settings Skills UI exposes sync / conflict resolution / managed uninstall or disable with user-visible errors and proof that D-2 read surfaces still work
-- [ ] AC-E6: F199 final close gate reruns source settings diff, User Visibility Disclosure, red-zone grep, transport boundary check, and independent vision guardian after Phase E merge
+- [ ] AC-E6: F199 final close gate reruns source settings diff, User Visibility Disclosure, red-zone grep, transport boundary check, and independent vision guardian after Phase E merge; close report must disclose a guardian handle that is not Phase E author and not Phase E reviewer (cross-family preferred)
 - [ ] AC-E7: Phase E does not touch F183/F184/F194 red-zone files and does not take over F088/F124 message routing/runtime ownership
 
 ## Dependencies
@@ -179,6 +181,10 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | Phase D scope 失控扩大到非 settings/ 文件 | Scope 锁死 `packages/web/src/components/settings/` + 配套 API route |
 | 跟 F088/F124 transport runtime 边界混淆 | KD-2 重申：只动 config 写面，不接管 message routing |
 | Service lifecycle spawn surface 引入任意命令执行 | E-1 backend 必须 service allowlist + repo-owned script path confinement + owner fail-closed 后再接 UI |
+| Service lifecycle 并发 install/uninstall 撕裂 venv / 日志 / port | E-1a 必须 per-service mutex；并发 lifecycle write 返回 409 |
+| Stop 操作误杀同前缀进程 | E-1a 只允许 strict basename/path match；不采用开源 `prefix.length >= 3` fallback |
+| Install/uninstall 脚本 hang 死 HTTP request | E-1a 必须 server-side timeout cap + bounded tail logs |
+| Worktree/runtime 同时运行端口竞用 | E-1a start/auto-start 前 port-busy refusal；proof disclosure 写明当前进程树边界 |
 | Skills write 操作误删用户自有 skill | E-2 destructive actions 只允许 managed-skill；冲突 resolve 保留 `official` / `mine` 显式选择 |
 
 ## Open Questions (Resolved)
@@ -210,6 +216,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | KD-8 | `useCapabilityState` 只允许 restricted MCP settings 形态进入 D-3b | 源 hook 混 MCP/Skills read/write；Skills toggle/uninstall 会打穿 D-2 read-mostly promise | 2026-05-13 |
 | KD-9 | Reopen F199 Phase E for `InstallPreviewModal` + Skills write actions | CVO 明确指出它们仍是 F190/F199 parity gap；"需要独立 hardening"是 HOW，不是 WHERE | 2026-05-14 |
 | KD-10 | ThreadSidebar and token drift stay out of Phase E | ThreadSidebar 行为等价且红区敏感；token drift 是 brand/visual alignment 判断，不是 missing capability | 2026-05-14 |
+| KD-11 | E-1a must exceed source service lifecycle safety baseline | Open-source lifecycle routes lack per-service mutex, strict bounded path/process checks, and timeout cap; home inherits D-3a/D-4 stricter write-surface standard | 2026-05-14 |
 
 ## Timeline
 
@@ -231,6 +238,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | 2026-05-14 | Independent vision guardian PASS (Opus 4.6); CloseGateReport + reflection capsule added; F199 marked done |
 | 2026-05-14 | CVO challenged KD-7/Skills write deferral: these are F199 next phase, not out-of-feature; F199 reopened as Phase E |
 | 2026-05-14 | Phase E design memo added: service lifecycle + Skills write actions require independent hardening slices before UI parity |
+| 2026-05-14 | Opus-47 design review approved Phase E direction and required E-1a mutex / strict process matching / timeout / port hygiene + explicit guardian disclosure |
 
 ## Review Gate
 
@@ -264,4 +272,5 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | **CloseGateReport** | `docs/discussions/2026-05-14-f199-close-gate/close-gate-report.md` | AC matrix + harness checkpoint + guardian result |
 | **Reflection Capsule** | `docs/reflections/2026-05-14-f199-console-parity-backfill-capsule.md` | Completion reflection |
 | **Phase E Design** | `docs/discussions/2026-05-14-f199-phase-e-service-skills-write-design/README.md` | Reopen correction + threat model + slice plan |
+| **Phase E Design Review** | `docs/discussions/2026-05-14-f199-phase-e-service-skills-write-design/REVIEW-opus47.md` | Opus-47 approve + P0/P1 sharpenings |
 | **Source PR** | `clowder-ai#669` | 缺失 5 组件的开源来源 |
