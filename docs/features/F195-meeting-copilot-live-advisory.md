@@ -465,6 +465,25 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | 2026-05-11 | Phase C3 merged (PR #1633) — intervention advisory loop (SilenceMonitor + question detection + CJK keyword matching + floating advisory UI) |
 | 2026-05-11 | Phase D spec added — 转写持久化 + path injection（铲屎官实测后发现 Phase C 愿景遗漏，两猫收敛设计） |
 | 2026-05-12 | Phase D merged (PR #1642) — TranscriptArtifactStore + rolling summary + path injection + finalize + privacy |
+| 2026-05-13 | Audio recording persistence merged (PR #1646) — append_pcm + ffmpeg MP3 conversion + data loss protection |
+| 2026-05-14 | 愿景守护（砚砚 GPT-5.5）：B/C/D 完整，Phase A 未交付，录音 path UI 不可见 |
+
+## 用户反馈（铲屎官实测 2026-05-14）
+
+### 漂浮转写窗口可读性差
+
+**来源**：铲屎官在会议中实际使用后反馈
+**截图**：`uploads/1778743952792-8ab81c02.png`
+
+**问题描述**：
+- 窗口背景透明度太高，和底层聊天内容混在一起，看不清转写文字
+- 视觉重量不够（标题栏、边框、阴影太轻），浮动感弱
+- 整体不像"浮在上面"的独立面板，更像"贴在页面上"的遮罩
+
+**改进方向**：
+- [ ] 加深背景不透明度 / 毛玻璃效果，拉开和底层内容的视觉层次
+- [ ] 增强边框 + 阴影，强化"浮动面板"感
+- [ ] 状态栏在 disconnected 时更紧凑
 
 ---
 
