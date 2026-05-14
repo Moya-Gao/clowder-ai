@@ -32,13 +32,12 @@ Cat Café 当前 [`ClaudeAgentService.ts:188-194`](../../packages/api/src/domain
 
 > **Status**: ✅ 完成 | **Reflection 见**："Phase A Spike Reflection" 节 + [vision-rescue skill](../../cat-cafe-skills/vision-rescue/SKILL.md) 教学案例
 >
-> **核心收口**：原"`--remote-control` 是金钥匙"假设被证伪——所有 `~/.local/bin/claude` 启动的进程（不论 `-p` / `--bg` / `--remote-control` / interactive）transcript `entrypoint` 都是 `sdk-cli`，**因为父进程 env `CLAUDE_CODE_ENTRYPOINT=sdk-cli` 被继承**。
+> **当前 working hypothesis（Second Revision 收敛，2026-05-13 21:00+）**：
+> - `-p` flag → claude binary 自我 set entrypoint=sdk-cli（客户端层证据；服务端 billing 待 6/15 dashboard / Anthropic dev support 确认）
+> - `--bg` flag → entrypoint=cli（客户端层证据；服务端 billing 同上待 confirm）
+> - **决定性因素是 invocation flag (`-p` vs `--bg`)，不是 env var**
 >
-> **真正的两个独立分类信号**（46 / Opus 4.6 strings binary 一刀切到的判定代码）：
-> 1. **entrypoint**：由 env var `CLAUDE_CODE_ENTRYPOINT` 决定，**unset 时默认 `cli`**
-> 2. **isInteractive**：由 `-p/--print` flag 或 `!stdout.isTTY` 决定
->
-> 服务端真实计费规则不可从客户端字段 conclusive 推断——但 [Anthropic Help Center](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) 明确"`claude -p` 进 SDK credit 桶；interactive Claude Code 不进"，提示**避开 `-p` flag + 让 entrypoint=cli** 是最高概率走订阅的路径。
+> 详见"Phase A Spike Reflection — Second Revision (21:00+)"节。**First Revision 的"`--remote-control` 金钥匙 / env unset 是 fix / 所有 `claude` 都标 sdk-cli"等历史结论已被 Second Revision 控制实验证伪，但保留在 Reflection 节作教学案例**（vision-rescue 案例完整时间线）。
 
 **目标**：测出 `--remote-control` 的实际行为（走哪个桶 + 协议形态 + 是否可远程驱动 + Hub 可见性可行性），决定主路径 + 兜底路径。
 
@@ -157,7 +156,7 @@ in_context_observability:
 
 ### Phase D: 兜底 + 预算治理 + 切流量（7 天，6/01-6/14）
 
-1. **三档 fallback**：`subscription_interactive`（主，走真订阅） → `claude_print_oauth`（旧 `subscription` mode 重命名，吃 SDK $200 桶） → `api_key`（按量付费）
+1. **三档 fallback**：`bg_daemon`（主，`claude --bg` 客户端证据指向订阅 quota） → `print_sdk`（旧 `-p` 路径，进 SDK $200 桶） → `api_key`（按量付费）
 2. **预算治理面板**：
    - 每猫月度额度可配置
    - 告警阈值（$150 / $180 / $195）
@@ -167,11 +166,11 @@ in_context_observability:
    - 6/01 起：10% thread 走新 carrier，观察 1 天
    - 6/05：50%，观察 2 天
    - 6/08：100%
-4. **6/15 前所有 thread 默认 `subscription_interactive`**，留 1 周 buffer
+4. **6/15 前所有 thread 默认 `bg_daemon`**，留 1 周 buffer
 
 ### Phase E: 6/15 后观察 + 优化（持续，6/15+）
 
-监控订阅消耗速率、回归 bug、Anthropic 政策变动、文档沉淀。若 `--remote-control` 也被堵 → 紧急回归 sdk_credit + api_key fallback，重启 Phase A 找新路径。
+监控订阅消耗速率、回归 bug、Anthropic 政策变动、文档沉淀。若 `--bg` daemon 路径被堵（Agent View v2.1.139+ 政策变） → 紧急回归 `print_sdk`（-p mode 进 SDK 桶）+ `api_key` fallback，重启 Phase A 找新路径。
 
 ## Phase A Spike Reflection (vision-rescue applied, 2026-05-13)
 
@@ -212,9 +211,11 @@ in_context_observability:
 
 **之前 "delete env.X → cli +7" spike 的方法论错误**：那次同时切换了 env (delete) 和 flag (`-p` → `--bg`)，没控制变量。cli +7 是 `--bg` 给的，不是 delete 给的。
 
-**真正分界**：
-- `-p` flag → claude binary 自我 set sdk-cli → 6/15 后进 SDK 桶
-- `--bg` flag → 不自我 set → entrypoint=cli → 6/15 后走订阅
+**真正分界（客户端层证据，砚砚 P1：服务端 billing 仍 pending）**：
+- `-p` flag → claude binary 自我 set entrypoint=sdk-cli（客户端字段）→ **最高概率** 6/15 后进 SDK 桶（待 dashboard/dev support conclusive 确认）
+- `--bg` flag → entrypoint=cli（客户端字段）→ **最高概率** 6/15 后走订阅（同上待 confirm）
+
+**不是 confirmed billing 结论**——客户端字段是间接信号，服务端实际计费规则只有 Anthropic 知道。spec 走 working hypothesis + 三档 fallback 兜底（Risk 表）。
 
 **`ClaudeAgentService.ts:71` 的 `env.X = null` 不是 bug**——buildChildEnv 已经正确处理。这一行可以保留也可以删，**fix 不在这里**。
 
@@ -258,7 +259,7 @@ in_context_observability:
 - [ ] AC-D1: 三档 fallback 实现 + 自动触发逻辑（quota 超限 / carrier 挂掉）
 - [ ] AC-D2: 预算治理面板 + 告警阈值生效
 - [ ] AC-D3: 灰度切流量 10% → 50% → 100%，每档观察期内无 P0/P1 regression
-- [ ] AC-D4: 6/15 前所有 thread 默认 `subscription_interactive`
+- [ ] AC-D4: 6/15 前所有 thread 默认 `bg_daemon`
 
 ### Phase E（观察）
 - [ ] AC-E1: 6/15 后 1 周宪宪 daily invocation 数 ≥ 6/15 前 7 日平均的 80%
@@ -301,18 +302,22 @@ in_context_observability:
    - 接管场景（铲屎官 read-write 切换 + 接管后宪宪能继续）
 
 4. **Sunset Signal**：
-   - Anthropic 政策再变（撤销 SDK credit 桶 / interactive 走同一额度 / 堵 `--remote-control`）→ 重新评估
+   - Anthropic 政策再变（撤销 SDK credit 桶 / interactive 走同一额度 / 堵 `--bg` daemon mode）→ 重新评估
    - Interactive carrier 实测总成本（运营复杂度 + Hub 改造 + 监控）> SDK credit $200 + API fallback 的总和 → 回归 -p 模式（3 个月观察期后评估）
 
 ## Risk
 
 | 风险 | 缓解 |
 |------|------|
-| **`--remote-control` 实际也走 SDK 桶**（主线挂掉） | Phase A AC-A2 是 hard gate；备选 `claude agents` / tmux 兜底；预算治理 + api_key fallback 保命 |
-| **`--remote-control` 是 Anthropic 内部 / 隐藏接口**，6/15 后被堵 | 监控 Anthropic changelog；保留 -p + api_key 三档 fallback；持续 spike 后续候选 |
+| ~~`--remote-control` 实际也走 SDK 桶~~ → **obsolete**：RC 不是主路径（KD-6 撤回） | (历史风险) |
+| **`--bg` daemon 的服务端 billing 桶不可证伪**（客户端 entrypoint=cli 是间接信号；6/15 dashboard 才能 confirm） | 默认 unsafe + Anthropic dev support 邮件 + Phase D 三档 fallback 兜底；spec 不允许把 working hypothesis 写成 confirmed |
+| **`--bg` 模式下 MCP 行为变化**（cat_cafe_* tools 在 daemon 模式下是否还能通过 `--mcp-config` 注入？）| Phase B prototype AC-B4 必须实测 |
+| **Cat Café worktree × Agent View 内置 worktree 冲突**（OQ-10）| Phase B 设计阶段决策 `--no-worktree` vs 双层 worktree |
+| **`--bg` prompt 长度 ARG_MAX 风险**（system prompt + thread context + RAG 拼起来可能超）| Phase B prototype 实测；超限则改用 stdin pipe 喂 prompt（待 OQ-11 决策）|
+| **`--bg` 模式 cancel/interrupt 语义不明**（thread 切换 / 用户取消需要 stop job）| Phase B 设计 `claude stop <short>` + SIGTERM 兜底 |
 | Interactive session 启动慢（5-15s）冷启动差 | F149 模式：warm process pool + thread lease + idle TTL；首次冷启动 UX 加 loading state |
 | tmux 解析脆弱（兜底路径） | 优先官方接口；tmux 仅作 last-resort fallback；只在 spike 阶段验证不投产 |
-| **Anthropic TOS 灰色**（自动化 interactive session 是否合规） | 优先官方接口（`--remote-control` / `agents`），不走"模拟键盘"路径；公开使用 with subscription 范围 |
+| **Anthropic TOS 灰色**（自动化 interactive session 是否合规） | 优先官方接口（`claude --bg` Agent View v2.1.139+ 是 Anthropic 官方设计的程序化 carrier），不走"模拟键盘"路径；公开使用 with subscription 范围 |
 | Oversight 在 interactive 模式下信息密度不如 -p 的 NDJSON | Phase C 专门补；跨猫愿景守护是 AC-C6 硬门禁，不通过不放行 |
 | 6/15 来不及 | Phase A 5 天 hard deadline；不通则 Phase D 兜底（预算治理 + 三档 fallback）先上保命，主路径继续找 |
 | 进程池 zombie / 资源泄漏 | 借鉴 F149 已验证的 lease / recovery / eviction 语义 |
@@ -323,8 +328,9 @@ in_context_observability:
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | `claude --remote-control <name>` 实际协议？socket / HTTP / stdin-stdout / Unix domain socket？ | ⬜ Phase A spike |
-| OQ-2 | `--remote-control` 落哪个 billing 桶？（subscription vs SDK credit） | ⬜ Phase A spike — **决定主路径生死** |
+| OQ-1 | ~~`claude --remote-control` 实际协议~~ → **obsoleted by KD-6**：RC 不是主路径 | ✅ obsolete |
+| OQ-2 | ~~`--remote-control` 落哪个 billing 桶~~ → **obsoleted by KD-10**：主路径走 `--bg`；新 billing OQ 见下方 OQ-13 | ✅ obsolete |
+| OQ-13 | **`--bg` daemon 的服务端 billing 桶归属**（最高概率走订阅但需 6/15 dashboard / Anthropic dev support 书面确认）| ⬜ 6/15 后实测 + 平行发邮件 — **决定主路径生死** |
 | OQ-3 | `claude agents` 是什么？background agent 是否独立计费？是否可作为 carrier？ | ⬜ Phase A spike |
 | OQ-4 | Cat Café MCP server 在 interactive carrier 下如何注入？`--mcp-config` 还是 `~/.claude/settings.json` 还是 RC 协议字段？ | ⬜ Phase B 设计 |
 | OQ-5 | tmux 兜底是 Phase A 直接弃用还是 Phase D 保留为 last-resort？ | ⬜ Phase A 决策 |
@@ -382,7 +388,7 @@ in_context_observability:
 | R2 | Hub 内可实时看到宪宪在干嘛 | 铲屎官原话"失去对你进度和在干嘛的掌控，很危险也很奇怪" | AC-C1~C5 + AC-C6 跨猫守护 |
 | R3 | 多档 fallback 保命，不会某天突然没宪宪用 | 铲屎官"你不能没有砚砚 砚砚不能没有你" | AC-D1 三档 fallback + AC-A4 决策含兜底 |
 | R4 | 不影响砚砚 / 烁烁 / 其他猫的调用路径 | 团队稳定性 | Phase B/C 只改 Claude provider 边界，其他 provider 不动 |
-| R5 | Cat Café MCP 工具仍能在 carrier 下使用 | 现有协作链路 | AC-B5 |
+| R5 | Cat Café MCP 工具仍能在 carrier 下使用 | 现有协作链路 | AC-B4 |
 
 ## Links
 
