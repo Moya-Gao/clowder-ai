@@ -41,7 +41,9 @@ Cat Café 当前 [`ClaudeAgentService.ts:188-194`](../../packages/api/src/domain
 
 **目标**：测出 `--remote-control` 的实际行为（走哪个桶 + 协议形态 + 是否可远程驱动 + Hub 可见性可行性），决定主路径 + 兜底路径。
 
-**候选 carrier 优先级**：
+> ⚠️ **以下候选列表 = Historical Phase A initial plan（superseded by KD-10）**。RC / `--bg` / tmux 等已经在 Spike Reflection 收敛，**当前主路径在 Phase B**（`--bg` daemon carrier）。保留这段作 vision-rescue 教学案例完整记录——读者不要把它当 Phase B 前置计划继续跑。
+
+**候选 carrier 优先级（历史 / superseded）**：
 
 1. **`claude --remote-control <name>`**（官方接口，最高优先级）
    - 启动 + observe 协议（socket / 端口 / 控制面 / IPC）
@@ -117,12 +119,18 @@ yield* tailJobEvents(jobShort);  // AgentMessage stream
 
 我们直接消费 daemon 提供的能力，不重新发明。
 
-#### B5. Cat Café worktree × Agent View worktree 冲突分析
+#### B5. Cat Café worktree × Agent View worktree 设计（基于 CLI help + state.json 实证）
 
-Anthropic Agent View 在 `~/.claude/worktrees/<short>/` 自动开 git worktree 做写入隔离——这跟 cat-cafe 自己的 worktree 流程（feat branch + relay-station 同级目录）**机制不同但目录不冲突**。设计点：
-- cat-cafe spawn `claude --bg --cwd <cat-cafe-worktree-path>` 时，Agent View 会在该 worktree 内再开 sub-worktree
-- 决策：是 opt-in `--no-worktree` 让 daemon 不开 sub-worktree（直接在我们 worktree 写）？还是接受双层 worktree（merge 时合并）？
-- 待 Phase B 实施时设计（OQ-10 新增）
+**已确认的事实**（不是假设）：
+- `claude --help` 实际有 `-w, --worktree [name]` flag —— **opt-IN 创建 git worktree**（默认不开）
+- `--cwd` / `--no-worktree` **不存在**（之前 spec 误写）
+- 实测：现有 `--bg` jobs 的 `~/.claude/jobs/<short>/state.json` 显示 `worktree=null, worktreePath=null`（默认不开 worktree，job 直接在 spawn 时的 cwd 跑）
+- spawn 进程 cwd 通过 **Node `child_process.spawn` 的 `cwd` 选项**指定（不是 Claude CLI flag）
+
+**Cat Café 设计**：
+- 默认：`claude --bg <prompt>` 不带 `--worktree`，Node spawn `cwd=<cat-cafe-worktree-path>` 让 job 直接在我们的 feat worktree 里跑（**不双层**）
+- Opt-in 隔离：未来如需让 daemon 自己开 sub-worktree（保护并发 thread 不互相写覆盖），再加 `--worktree <name>` flag
+- 待 Phase B prototype 验证：单进程 `--bg` job 在我们 worktree 里跑时，能不能正确写文件 / 触发 hooks / 不污染 git status
 
 #### B6. Profile mode 简化（撤回旧方案）
 
@@ -188,14 +196,17 @@ in_context_observability:
 
 **真相 vs 之前的错误推断**：
 
-| 之前的推断 | 真相 |
-|----------|------|
-| `entrypoint=sdk-cli` → 进 SDK 桶 | entrypoint 由 env var 决定，跟计费桶可能无关 |
-| `--remote-control` 是金钥匙 | 跟 `-p` 同样 entrypoint=sdk-cli，不是金钥匙 |
-| `--bg` 同 -p 同桶 | 错。Anthropic 官方文档说 `--bg` 走订阅 quota；entrypoint 还是 sdk-cli 只因 env var 没真正 unset |
-| 收敛"现状 -p 就是最优" | 投降伪装成理性——铲屎官否决 |
+**First Revision 历史推断（21:00 前，被 Second Revision 证伪）**：
 
-**剩余不可证伪点**（必须 6/15 后 dashboard 或 Anthropic dev support 邮件 conclusive）：服务端实际计费桶按什么字段分类，客户端不可知。spec working hypothesis 走 **unset entrypoint + 避开 -p** 路径，但仍保留三档 fallback。
+| First Revision 推断 | Second Revision 修正 |
+|---------------------|--------------------|
+| `entrypoint=sdk-cli` → 进 SDK 桶 | entrypoint 是客户端遥测字段，不能直接推服务端计费桶（间接信号，需 dashboard confirm）|
+| `--remote-control` 是金钥匙 | 跟 `-p` 同样 entrypoint=sdk-cli（KD-6 撤回）|
+| `--bg` 跟 -p 同桶（因 env 没 unset） | **错**。控制实验：env 状态无关，**真正区别是 invocation flag**（`-p` → 自我 set sdk-cli；`--bg` → entrypoint=cli）|
+| "现状 -p 就是最优" | 投降伪装成理性——铲屎官否决 + vision-rescue 沉淀 |
+| **fix = unset env var** | **错**。`buildChildEnv(null)` 早就正确 delete。fix = invocation flag 从 `-p` 迁 `--bg` |
+
+**剩余不可证伪点**（必须 6/15 后 dashboard 或 Anthropic dev support 邮件 conclusive）：服务端实际计费桶按什么字段分类，客户端不可知。spec working hypothesis 走 **避开 `-p` flag + 用 `--bg` daemon → entrypoint=cli 客户端证据** 路径，但仍保留三档 fallback。
 
 ### Second Revision（21:00+，控制实验后再次反转）
 
