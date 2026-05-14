@@ -196,4 +196,5 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | **D-2 PR** | `cat-cafe#1663` (`1e4a96951`) | SkillsContent read-mostly backfill |
 | **D-2 Proof** | `docs/discussions/2026-05-13-f199-d2-skills-content-proof/README.md` | visual parity + User Visibility Disclosure |
 | **D-3 Design** | `docs/discussions/2026-05-13-f199-d3-capability-settings-design/README.md` | D-3a/D-3b split + boundary corrections |
+| **D-3a Proof** | `docs/discussions/2026-05-13-f199-d3a-capability-write-hardening-proof/README.md` | backend hardening + User Visibility Disclosure |
 | **Source PR** | `clowder-ai#669` | 缺失 5 组件的开源来源 |

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -11,8 +11,10 @@ import {
 } from '../../../dist/config/capabilities/capability-orchestrator.js';
 import { capabilitiesMcpWriteRoutes } from '../../../dist/routes/capabilities-mcp-write.js';
 
-const OWNER_HEADERS = { 'x-cat-cafe-user': 'lysander' };
-const NON_OWNER_HEADERS = { 'x-cat-cafe-user': 'codex' };
+const HEADER_ONLY_OWNER_HEADERS = { 'x-cat-cafe-user': 'lysander' };
+const OWNER_HEADERS = { 'x-test-session-user': 'lysander' };
+const NON_OWNER_HEADERS = { 'x-test-session-user': 'codex' };
+const REDACTED_SECRET = '••••••';
 
 const savedEnv = new Map();
 
@@ -41,6 +43,12 @@ function getCliConfigPaths(projectRoot) {
 
 async function buildApp(projectRoot) {
   const app = Fastify({ logger: false });
+  app.addHook('preHandler', async (request) => {
+    const raw = request.headers['x-test-session-user'];
+    if (typeof raw === 'string' && raw.trim()) {
+      request.sessionUserId = raw.trim();
+    }
+  });
   await app.register(capabilitiesMcpWriteRoutes, {
     getProjectRoot: () => projectRoot,
     getCliConfigPaths,
@@ -86,6 +94,106 @@ describe('capabilities MCP write routes', () => {
     assert.deepEqual(config?.capabilities, []);
   });
 
+  it('rejects header-only identity for every MCP write route', async () => {
+    setEnv('DEFAULT_OWNER_USER_ID', 'lysander');
+    await writeCapabilitiesConfig(projectRoot, {
+      version: 1,
+      capabilities: [
+        {
+          id: 'secret-mcp',
+          type: 'mcp',
+          enabled: true,
+          source: 'external',
+          mcpServer: { command: 'node', args: ['server.js'], env: { API_KEY: 'old-secret' } },
+        },
+      ],
+    });
+
+    const cases = [
+      {
+        method: 'POST',
+        url: '/api/capabilities/mcp/preview',
+        payload: { id: 'new-mcp', command: 'node', args: ['server.js'] },
+      },
+      {
+        method: 'POST',
+        url: '/api/capabilities/mcp/install',
+        payload: { id: 'new-mcp', command: 'node', args: ['server.js'] },
+      },
+      {
+        method: 'DELETE',
+        url: '/api/capabilities/mcp/secret-mcp',
+      },
+      {
+        method: 'PATCH',
+        url: '/api/capabilities/mcp/secret-mcp/env',
+        payload: { env: { API_KEY: 'new-secret' } },
+      },
+    ];
+
+    for (const testCase of cases) {
+      const res = await app.inject({
+        method: testCase.method,
+        url: testCase.url,
+        headers: HEADER_ONLY_OWNER_HEADERS,
+        payload: testCase.payload,
+      });
+      assert.equal(res.statusCode, 401, `${testCase.method} ${testCase.url} should reject header-only identity`);
+      assert.match(JSON.parse(res.payload).error, /session/i);
+    }
+
+    const config = await readCapabilitiesConfig(projectRoot);
+    assert.equal(config?.capabilities.find((entry) => entry.id === 'secret-mcp')?.enabled, true);
+    assert.ok(!config?.capabilities.some((entry) => entry.id === 'new-mcp'));
+  });
+
+  it('fails closed for MCP preview/install/delete when DEFAULT_OWNER_USER_ID is not configured', async () => {
+    await writeCapabilitiesConfig(projectRoot, {
+      version: 1,
+      capabilities: [
+        {
+          id: 'secret-mcp',
+          type: 'mcp',
+          enabled: true,
+          source: 'external',
+          mcpServer: { command: 'node', args: ['server.js'] },
+        },
+      ],
+    });
+
+    const cases = [
+      {
+        method: 'POST',
+        url: '/api/capabilities/mcp/preview',
+        payload: { id: 'new-mcp', command: 'node', args: ['server.js'] },
+      },
+      {
+        method: 'POST',
+        url: '/api/capabilities/mcp/install',
+        payload: { id: 'new-mcp', command: 'node', args: ['server.js'] },
+      },
+      {
+        method: 'DELETE',
+        url: '/api/capabilities/mcp/secret-mcp?hard=true',
+      },
+    ];
+
+    for (const testCase of cases) {
+      const res = await app.inject({
+        method: testCase.method,
+        url: testCase.url,
+        headers: OWNER_HEADERS,
+        payload: testCase.payload,
+      });
+      assert.equal(res.statusCode, 403, `${testCase.method} ${testCase.url} should fail closed without owner`);
+      assert.match(JSON.parse(res.payload).error, /DEFAULT_OWNER_USER_ID/);
+    }
+
+    const config = await readCapabilitiesConfig(projectRoot);
+    assert.equal(config?.capabilities.length, 1);
+    assert.equal(config?.capabilities[0]?.id, 'secret-mcp');
+  });
+
   it('rejects non-owner MCP deletes when DEFAULT_OWNER_USER_ID is configured', async () => {
     setEnv('DEFAULT_OWNER_USER_ID', 'lysander');
     await writeCapabilitiesConfig(projectRoot, {
@@ -114,6 +222,7 @@ describe('capabilities MCP write routes', () => {
   });
 
   it('rejects redacted placeholder values before writing MCP secrets', async () => {
+    setEnv('DEFAULT_OWNER_USER_ID', 'lysander');
     const res = await app.inject({
       method: 'POST',
       url: '/api/capabilities/mcp/install',
@@ -132,6 +241,7 @@ describe('capabilities MCP write routes', () => {
   });
 
   it('rejects redacted placeholder values in non-env install fields', async () => {
+    setEnv('DEFAULT_OWNER_USER_ID', 'lysander');
     const cases = [
       {
         id: 'redacted-command',
@@ -162,6 +272,7 @@ describe('capabilities MCP write routes', () => {
   });
 
   it('preserves existing env and headers when updating an external MCP with omitted secret fields', async () => {
+    setEnv('DEFAULT_OWNER_USER_ID', 'lysander');
     await writeCapabilitiesConfig(projectRoot, {
       version: 1,
       capabilities: [
@@ -200,7 +311,48 @@ describe('capabilities MCP write routes', () => {
 
     const audit = await readAuditLog(projectRoot);
     assert.equal(audit[0]?.action, 'update');
-    assert.deepEqual(audit[0]?.after?.mcpServer?.env, { API_KEY: 'real-secret', KEEP: 'yes' });
+    assert.deepEqual(audit[0]?.after?.mcpServer?.env, { API_KEY: REDACTED_SECRET, KEEP: REDACTED_SECRET });
+    assert.deepEqual(audit[0]?.after?.mcpServer?.headers, { Authorization: REDACTED_SECRET });
+    const rawAudit = await readFile(join(projectRoot, '.cat-cafe', 'audit.jsonl'), 'utf-8');
+    assert.doesNotMatch(rawAudit, /real-secret|Bearer real-secret/);
+  });
+
+  it('redacts MCP preview and install response secrets without changing persisted config', async () => {
+    setEnv('DEFAULT_OWNER_USER_ID', 'lysander');
+    const payload = {
+      id: 'secret-mcp',
+      transport: 'streamableHttp',
+      url: 'https://mcp.example.test',
+      headers: { Authorization: 'Bearer install-secret' },
+      env: { API_KEY: 'install-secret' },
+    };
+
+    const preview = await app.inject({
+      method: 'POST',
+      url: '/api/capabilities/mcp/preview',
+      headers: OWNER_HEADERS,
+      payload,
+    });
+    assert.equal(preview.statusCode, 200, preview.payload);
+    assert.doesNotMatch(preview.payload, /install-secret/);
+    assert.equal(preview.json().entry.mcpServer.headers.Authorization, REDACTED_SECRET);
+    assert.equal(preview.json().entry.mcpServer.env.API_KEY, REDACTED_SECRET);
+
+    const install = await app.inject({
+      method: 'POST',
+      url: '/api/capabilities/mcp/install',
+      headers: OWNER_HEADERS,
+      payload,
+    });
+    assert.equal(install.statusCode, 200, install.payload);
+    assert.doesNotMatch(install.payload, /install-secret/);
+    assert.equal(install.json().capability.mcpServer.headers.Authorization, REDACTED_SECRET);
+    assert.equal(install.json().capability.mcpServer.env.API_KEY, REDACTED_SECRET);
+
+    const config = await readCapabilitiesConfig(projectRoot);
+    const cap = config?.capabilities.find((entry) => entry.id === 'secret-mcp');
+    assert.equal(cap?.mcpServer?.headers?.Authorization, 'Bearer install-secret');
+    assert.equal(cap?.mcpServer?.env?.API_KEY, 'install-secret');
   });
 
   it('fails closed for env patch when DEFAULT_OWNER_USER_ID is not configured', async () => {
@@ -344,11 +496,14 @@ describe('capabilities MCP write routes', () => {
     assert.equal(audit.length, 1);
     assert.equal(audit[0]?.action, 'update');
     assert.equal(audit[0]?.capabilityId, 'secret-mcp');
-    assert.deepEqual(audit[0]?.before?.mcpServer?.env, { API_KEY: 'old-secret', KEEP: 'yes' });
+    assert.deepEqual(audit[0]?.before?.mcpServer?.env, { API_KEY: REDACTED_SECRET, KEEP: REDACTED_SECRET });
     assert.deepEqual(audit[0]?.after?.mcpServer?.env, {
-      API_KEY: 'new-secret',
-      KEEP: 'yes',
-      NEW_TOKEN: 'token',
+      API_KEY: REDACTED_SECRET,
+      KEEP: REDACTED_SECRET,
+      NEW_TOKEN: REDACTED_SECRET,
     });
+    assert.doesNotMatch(JSON.stringify(audit), /old-secret|new-secret|token/);
+    const rawAudit = await readFile(join(projectRoot, '.cat-cafe', 'audit.jsonl'), 'utf-8');
+    assert.doesNotMatch(rawAudit, /old-secret|new-secret|token/);
   });
 });

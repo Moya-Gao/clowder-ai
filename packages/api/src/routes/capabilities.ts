@@ -45,6 +45,11 @@ import {
   withCapabilityLock,
   writeCapabilitiesConfig,
 } from '../config/capabilities/capability-orchestrator.js';
+import { sanitizeCapabilityForResponse } from '../config/capabilities/capability-redaction.js';
+import {
+  requireCapabilityWriteOwner,
+  resolveCapabilityWriteSessionUserId,
+} from '../config/capabilities/capability-write-guards.js';
 import { isManagedSkill, readSkillsState } from '../config/governance/skills-state.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
@@ -790,10 +795,15 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
 
   // ── PATCH /api/capabilities ──
   app.patch('/api/capabilities', async (request, reply) => {
-    const userId = resolveUserId(request);
+    const userId = resolveCapabilityWriteSessionUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (session cookie or X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (session cookie)' };
+    }
+    const ownerError = requireCapabilityWriteOwner(userId);
+    if (ownerError) {
+      reply.status(ownerError.status);
+      return { error: ownerError.error };
     }
 
     const body = request.body as CapabilityPatchRequest | undefined;
@@ -875,7 +885,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         after: cap,
       });
 
-      return { ok: true, capability: cap };
+      return { ok: true, capability: sanitizeCapabilityForResponse(cap) };
     });
   });
 

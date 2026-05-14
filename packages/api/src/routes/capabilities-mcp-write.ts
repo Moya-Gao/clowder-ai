@@ -8,7 +8,7 @@
  */
 
 import type { CapabilityEntry, McpInstallRequest } from '@cat-cafe/shared';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { appendAuditEntry, readAuditLog } from '../config/capabilities/capability-audit.js';
 import { buildInstallPreview } from '../config/capabilities/capability-install.js';
 import {
@@ -18,12 +18,20 @@ import {
   withCapabilityLock,
   writeCapabilitiesConfig,
 } from '../config/capabilities/capability-orchestrator.js';
+import {
+  sanitizeCapabilityForResponse,
+  sanitizeMcpInstallPreviewForResponse,
+} from '../config/capabilities/capability-redaction.js';
+import {
+  containsRedactedPlaceholder,
+  requireCapabilityWriteOwner,
+  resolveCapabilityWriteSessionUserId,
+} from '../config/capabilities/capability-write-guards.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { resolveMainRepoPath } from '../utils/skill-mount.js';
 import { type McpProbeResult, probeMcpCapability } from './mcp-probe.js';
 
-const REDACTED_PLACEHOLDER = '••••••';
 const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 interface RouteError {
@@ -34,38 +42,6 @@ interface RouteError {
 interface McpEnvPatchRequest {
   env?: Record<string, string>;
   projectPath?: string;
-}
-
-function getConfiguredOwnerId(): string | null {
-  const ownerId = process.env.DEFAULT_OWNER_USER_ID?.trim();
-  return ownerId ? ownerId : null;
-}
-
-function requireOwnerIfConfigured(userId: string): RouteError | null {
-  const ownerId = getConfiguredOwnerId();
-  if (!ownerId) return null;
-  if (userId === ownerId) return null;
-  return { status: 403, error: 'MCP write operations can only be modified by the configured owner' };
-}
-
-function requireExplicitOwner(userId: string): RouteError | null {
-  const ownerId = getConfiguredOwnerId();
-  if (!ownerId) {
-    return { status: 403, error: 'MCP secret writes require DEFAULT_OWNER_USER_ID to be configured' };
-  }
-  if (userId !== ownerId) {
-    return { status: 403, error: 'MCP secret writes can only be modified by the configured owner' };
-  }
-  return null;
-}
-
-function containsRedactedPlaceholder(value: unknown): boolean {
-  if (typeof value === 'string') return value.includes(REDACTED_PLACEHOLDER);
-  if (Array.isArray(value)) return value.some((item) => containsRedactedPlaceholder(item));
-  if (value && typeof value === 'object') {
-    return Object.values(value as Record<string, unknown>).some((item) => containsRedactedPlaceholder(item));
-  }
-  return false;
 }
 
 function rejectRedactedInstallPayload(body: McpInstallRequest): RouteError | null {
@@ -144,8 +120,27 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
 }> = async (app, opts) => {
   const { getProjectRoot, getCliConfigPaths } = opts;
 
+  function requireWriteAccess(request: FastifyRequest, reply: FastifyReply): { userId?: string; error?: string } {
+    const userId = resolveCapabilityWriteSessionUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (session cookie)' };
+    }
+    const ownerError = requireCapabilityWriteOwner(userId);
+    if (ownerError) {
+      reply.status(ownerError.status);
+      return { error: ownerError.error };
+    }
+    return { userId };
+  }
+
   // ── POST /api/capabilities/mcp/preview — install dry-run ──
   app.post('/api/capabilities/mcp/preview', async (request, reply) => {
+    const access = requireWriteAccess(request, reply);
+    if (!access.userId) {
+      return { error: access.error };
+    }
+
     const body = request.body as McpInstallRequest | undefined;
     if (!body?.id || typeof body.id !== 'string') {
       reply.status(400);
@@ -164,7 +159,7 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
 
     const config = await readCapabilitiesConfig(projectRoot);
     try {
-      return buildInstallPreview(body, config?.capabilities);
+      return sanitizeMcpInstallPreviewForResponse(buildInstallPreview(body, config?.capabilities));
     } catch (err) {
       reply.status(400);
       return { error: err instanceof Error ? err.message : 'Invalid install request' };
@@ -173,12 +168,12 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
 
   // ── POST /api/capabilities/mcp/install — create/overwrite MCP ──
   app.post('/api/capabilities/mcp/install', async (request, reply) => {
-    const userId = resolveUserId(request);
+    const userId = resolveCapabilityWriteSessionUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (session cookie or X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (session cookie)' };
     }
-    const ownerError = requireOwnerIfConfigured(userId);
+    const ownerError = requireCapabilityWriteOwner(userId);
     if (ownerError) {
       reply.status(ownerError.status);
       return { error: ownerError.error };
@@ -267,7 +262,7 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
 
       return {
         ok: true,
-        capability: afterEntry,
+        capability: sanitizeCapabilityForResponse(afterEntry),
         probe: probeResult ? { connectionStatus: probeResult.connectionStatus, tools: probeResult.tools } : null,
       };
     });
@@ -275,12 +270,12 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
 
   // ── DELETE /api/capabilities/mcp/:id — soft/hard delete ──
   app.delete('/api/capabilities/mcp/:id', async (request, reply) => {
-    const userId = resolveUserId(request);
+    const userId = resolveCapabilityWriteSessionUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (session cookie or X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (session cookie)' };
     }
-    const ownerError = requireOwnerIfConfigured(userId);
+    const ownerError = requireCapabilityWriteOwner(userId);
     if (ownerError) {
       reply.status(ownerError.status);
       return { error: ownerError.error };
@@ -356,12 +351,12 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
 
   // ── PATCH /api/capabilities/mcp/:id/env — owner-only secret env update ──
   app.patch('/api/capabilities/mcp/:id/env', async (request, reply) => {
-    const userId = resolveUserId(request);
+    const userId = resolveCapabilityWriteSessionUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (session cookie or X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (session cookie)' };
     }
-    const ownerError = requireExplicitOwner(userId);
+    const ownerError = requireCapabilityWriteOwner(userId);
     if (ownerError) {
       reply.status(ownerError.status);
       return { error: ownerError.error };
@@ -441,7 +436,7 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
         after,
       });
 
-      return { ok: true, capability: after };
+      return { ok: true, capability: sanitizeCapabilityForResponse(after) };
     });
   });
 

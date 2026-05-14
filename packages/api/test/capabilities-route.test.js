@@ -12,12 +12,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
+import { readAuditLog } from '../dist/config/capabilities/capability-audit.js';
 import {
   readCapabilitiesConfig,
   writeCapabilitiesConfig,
 } from '../dist/config/capabilities/capability-orchestrator.js';
 
 const AUTH_HEADERS = { 'x-cat-cafe-user': 'test-user' };
+const OWNER_SESSION_HEADERS = { 'x-test-session-user': 'lysander' };
+const NON_OWNER_SESSION_HEADERS = { 'x-test-session-user': 'codex' };
+const REDACTED_SECRET = '••••••';
 
 /** @param {string} prefix */
 async function makeTmpDir(prefix) {
@@ -1163,6 +1167,138 @@ describe('GET /api/capabilities (Fastify)', () => {
     } finally {
       await rm(projectDir, { recursive: true, force: true });
       await app.close();
+    }
+  });
+});
+
+describe('PATCH /api/capabilities write auth (Fastify)', () => {
+  async function buildSessionApp() {
+    const Fastify = (await import('fastify')).default;
+    const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
+    const app = Fastify();
+    app.addHook('preHandler', async (request) => {
+      const raw = request.headers['x-test-session-user'];
+      if (typeof raw === 'string' && raw.trim()) {
+        request.sessionUserId = raw.trim();
+      }
+    });
+    await app.register(capabilitiesRoutes);
+    await app.ready();
+    return app;
+  }
+
+  async function seedProject() {
+    const projectDir = await makeTmpDir('patch-route-auth');
+    await writeCapabilitiesConfig(projectDir, {
+      version: 1,
+      capabilities: [
+        {
+          id: 'secret-mcp',
+          type: 'mcp',
+          enabled: true,
+          source: 'external',
+          mcpServer: {
+            command: 'node',
+            args: ['server.js'],
+            env: { API_KEY: 'raw-secret' },
+            headers: { Authorization: 'Bearer raw-secret' },
+          },
+        },
+      ],
+    });
+    return projectDir;
+  }
+
+  async function patchCapability(app, projectDir, headers) {
+    return app.inject({
+      method: 'PATCH',
+      url: '/api/capabilities',
+      headers,
+      payload: {
+        projectPath: projectDir,
+        capabilityId: 'secret-mcp',
+        capabilityType: 'mcp',
+        scope: 'global',
+        enabled: false,
+      },
+    });
+  }
+
+  it('rejects trusted header identity without a real session', async () => {
+    const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
+    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    const projectDir = await seedProject();
+    const app = await buildSessionApp();
+
+    try {
+      const res = await patchCapability(app, projectDir, { 'x-cat-cafe-user': 'lysander' });
+      assert.equal(res.statusCode, 401);
+      assert.match(JSON.parse(res.payload).error, /session/i);
+
+      const config = await readCapabilitiesConfig(projectDir);
+      assert.equal(config?.capabilities[0]?.enabled, true);
+    } finally {
+      await app.close();
+      await rm(projectDir, { recursive: true, force: true });
+      if (previousOwner === undefined) delete process.env.DEFAULT_OWNER_USER_ID;
+      else process.env.DEFAULT_OWNER_USER_ID = previousOwner;
+    }
+  });
+
+  it('fails closed when DEFAULT_OWNER_USER_ID is missing and rejects non-owners', async () => {
+    const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
+    const projectDir = await seedProject();
+    const app = await buildSessionApp();
+
+    try {
+      delete process.env.DEFAULT_OWNER_USER_ID;
+      const missingOwner = await patchCapability(app, projectDir, OWNER_SESSION_HEADERS);
+      assert.equal(missingOwner.statusCode, 403);
+      assert.match(JSON.parse(missingOwner.payload).error, /DEFAULT_OWNER_USER_ID/);
+
+      process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+      const nonOwner = await patchCapability(app, projectDir, NON_OWNER_SESSION_HEADERS);
+      assert.equal(nonOwner.statusCode, 403);
+      assert.match(JSON.parse(nonOwner.payload).error, /owner/);
+
+      const config = await readCapabilitiesConfig(projectDir);
+      assert.equal(config?.capabilities[0]?.enabled, true);
+    } finally {
+      await app.close();
+      await rm(projectDir, { recursive: true, force: true });
+      if (previousOwner === undefined) delete process.env.DEFAULT_OWNER_USER_ID;
+      else process.env.DEFAULT_OWNER_USER_ID = previousOwner;
+    }
+  });
+
+  it('redacts secret-bearing capability data in toggle responses and audit logs', async () => {
+    const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
+    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    const projectDir = await seedProject();
+    const app = await buildSessionApp();
+
+    try {
+      const res = await patchCapability(app, projectDir, OWNER_SESSION_HEADERS);
+      assert.equal(res.statusCode, 200, res.payload);
+      assert.doesNotMatch(res.payload, /raw-secret/);
+      assert.equal(res.json().capability.mcpServer.env.API_KEY, REDACTED_SECRET);
+      assert.equal(res.json().capability.mcpServer.headers.Authorization, REDACTED_SECRET);
+
+      const config = await readCapabilitiesConfig(projectDir);
+      assert.equal(config?.capabilities[0]?.enabled, false);
+      assert.equal(config?.capabilities[0]?.mcpServer?.env?.API_KEY, 'raw-secret');
+      assert.equal(config?.capabilities[0]?.mcpServer?.headers?.Authorization, 'Bearer raw-secret');
+
+      const audit = await readAuditLog(projectDir);
+      assert.equal(audit.length, 1);
+      assert.doesNotMatch(JSON.stringify(audit), /raw-secret/);
+      assert.equal(audit[0]?.before?.mcpServer?.env?.API_KEY, REDACTED_SECRET);
+      assert.equal(audit[0]?.after?.mcpServer?.headers?.Authorization, REDACTED_SECRET);
+    } finally {
+      await app.close();
+      await rm(projectDir, { recursive: true, force: true });
+      if (previousOwner === undefined) delete process.env.DEFAULT_OWNER_USER_ID;
+      else process.env.DEFAULT_OWNER_USER_ID = previousOwner;
     }
   });
 });
