@@ -69,3 +69,4 @@ created: 2026-02-26
 | F196 | Safety Guardian — 猫猫守护者（紧急安全链路） | idea | 布偶猫 | internal | [F196](features/F196-safety-guardian.md) |
 | F198 | Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪 | spec | 布偶猫 Opus 4.7 | internal | [F198](features/F198-claude-code-subscription-carrier.md) |
 | F199 | Console Parity Backfill — F190 Phase D（5 components backfill） | in-progress (D-1/D-2 merged; D-3 next) | 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | community follow-up | [F199](features/F199-console-parity-backfill.md) |
+| F200 | Memory Recall Eval — 基于猫真实行为的记忆系统反馈闭环 | spec | 布偶猫 | internal | [F200](features/F200-memory-recall-eval.md) |
