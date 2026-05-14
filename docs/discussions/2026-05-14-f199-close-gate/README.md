@@ -8,6 +8,8 @@ created: 2026-05-14
 
 # F199 Close Gate Evidence
 
+> **Superseded note (2026-05-14)**: This report remains valid evidence for the D-1..D-5 first pass, but it is no longer the final F199 close gate. CVO reopened F199 Phase E for `InstallPreviewModal` and Skills write actions. Final close must rerun after Phase E.
+
 F199 backfills the F190 Phase D settings parity gap after the CVO found that the
 home `/settings` surface had style parity but was missing product capability.
 

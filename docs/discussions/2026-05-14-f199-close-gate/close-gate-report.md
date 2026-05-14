@@ -8,6 +8,8 @@ created: 2026-05-14
 
 # F199 Close Gate Report
 
+> **Superseded note (2026-05-14)**: This close gate is retained as D-1..D-5 evidence only. CVO reopened F199 Phase E for `InstallPreviewModal` and Skills write actions; final F199 close requires a new close gate after Phase E merges.
+
 ```yaml
 close_gate_report:
   feature_id: F199

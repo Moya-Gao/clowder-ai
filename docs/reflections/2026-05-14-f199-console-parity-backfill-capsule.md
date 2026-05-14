@@ -8,6 +8,8 @@ created: 2026-05-14
 
 ## What Worked
 
+> **Superseded note (2026-05-14)**: This capsule remains the D-1..D-5 first-pass reflection. CVO reopened F199 Phase E for `InstallPreviewModal` and Skills write actions, so final F199 reflection must be written after Phase E closes.
+
 - Splitting D-3 into backend hardening and MCP UI parity prevented a real unsafe rollout path: the audit/raw-secret and owner-gate gaps were fixed before exposing the richer UI.
 - Per-slice User Visibility Disclosure forced each technical boundary into user-visible language, which made `InstallPreviewModal` and Skills write actions explicit instead of silently missing.
 - Combining D-4 and D-5 into one PR preserved quality while reducing duplicate merge-gate overhead because both surfaces reused the same secret-write hardening pattern.
