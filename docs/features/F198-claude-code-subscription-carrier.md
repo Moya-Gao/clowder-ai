@@ -8,7 +8,7 @@ created: 2026-05-13
 
 # F198: Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪
 
-> **Status**: in-progress (Phase A ✅ done; Phase B Step 1 foundation ✅ merged 2026-05-14; Phase B Step 2 Parity Gate ✅ merged 2026-05-14) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
+> **Status**: in-progress (Phase A ✅; Phase B Step 1 ✅; Step 2 Parity Gate ✅; Step 3 canary flag + alpha smoke ✅; all merged 2026-05-14 — AC-B4 real MCP smoke pending) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
 
 ## Why
 
@@ -272,10 +272,10 @@ in_context_observability:
   - `done` with `metadata.usage`（incremental `UsageAccumulator` — O(1) memory）✅
   - `error` ✅
 - [x] **AC-B3d (Parity Gate)**: 8 golden parity tests + 7 tailer tests + 9 streaming integration tests（含 5 round 黑盒 hardening from 砚砚 + 5 round cloud codex P1/P2 fixes）✅ PR #1669
-- [ ] **AC-B3e (Alpha Smoke)**: 真实端到端验证（**slice 2 follow-up**）
-- [ ] **AC-B4**: Cat Café MCP server 在 `--bg` 模式下 `cat_cafe_*` 工具可调用（待 alpha smoke 一起做）
-- [ ] **AC-B6**: 实测新 carrier transcript `entrypoint=cli`（待 alpha smoke 一起做）
-- [ ] **AC-B8 (Canary Gate)**: AC-B3e 过了 → profile/flag canary 切流量。当前 `-p` 仍是布偶猫生产路径。
+- [x] **AC-B3e (Alpha Smoke)**: 真实端到端 PASS PR #1672 — Bash tool_use + per-message text + done(usage) on real `--bg`
+- [ ] **AC-B4**: Cat Café MCP server 在 `--bg` 模式下 `cat_cafe_*` 工具可调用 — **code 接通+单元测试通过 PR #1672**，real `cat_cafe_*` MCP tool smoke deferred to Step 4
+- [x] **AC-B6**: 真实 transcript `entrypoint=cli` PASS PR #1672（客户端层订阅证据）；服务端 billing 仍 pending dashboard
+- [x] **AC-B8 (Canary Gate)**: env-gated factory `CAT_CAFE_CLAUDE_CARRIER` wired PR #1672。Default unset → `-p` 仍是布偶猫生产路径；opt-in `bg_daemon` → ClaudeBgCarrierService。Canary cohort selection criteria 待 Step 4 + Phase D。
 
 ### Phase C（Hub Oversight — 铲屎官硬约束）
 - [ ] AC-C1: F089 tmux agent pane 在 Hub 内可观看（read-only）
@@ -393,7 +393,8 @@ in_context_observability:
 | 2026-05-14 | **Phase B Step 1 (foundation) merged — PR #1666**: `ClaudeBgCarrierService` + `JobEventConsumer` skeleton（10+ rounds codex review，coordinate-system 重构复用 `buildClaudeEnvOverrides` / `resolveClaudeModelSelection` 共享 helper，18 tests green）。Router 接入（Step 2）待后续 PR — 当前未替换 -p 路径 |
 | 2026-05-14 | **Step 2 Design Gate (砚砚 push back)**：方向修正——不直接 router wiring，先做 **Parity Gate**。新增 `BgTranscriptEventConsumer` 读 transcript jsonl，复用 `transformClaudeEvent` / `extractClaudeUsage`；Golden parity tests + alpha smoke 双门禁；canary flag 切流量 |
 | 2026-05-14 | **Phase B Step 2 (Parity Gate) merged — PR #1669**: `BgTranscriptEventConsumer` (pure functions + UsageAccumulator) + `TranscriptTailer` (per-message file-tail) + `ClaudeBgCarrierService.invoke()` 重写（lifecycle once + transcript streaming + fallback predicate）。砚砚 cross-cat review 6 轮黑盒 hardening + cloud codex 6 轮 P1/P2 fixes（silent completion / SPIKE_OK substring trap / tail read leak guard / memory bound / zero-usage telemetry / drain-degradation usage preservation）。Test suite: 18 → 49 passing |
-| 2026-05-18 (target) | Phase B Step 2 follow-up：alpha smoke (real `--bg` + tool call) + MCP server verify + canary flag (`bg_daemon` profile，仍 -p 默认) |
+| 2026-05-14 | **Phase B Step 3 (canary + alpha smoke) merged — PR #1672**: env-gated `claude-carrier-factory.ts` (CAT_CAFE_CLAUDE_CARRIER=bg_daemon), `_opusService` lazy 走 factory (sync-return AsyncGenerator wrapper), `ClaudeBgCarrierService` MCP injection mirror (--mcp-config). Real alpha smoke PASSED on subscription token: tool_use Bash + 2 text + done(usage 109562 in / 342 out) + transcript entrypoints=["cli"] — R1 客户端层证据落地. Test suite: 49 → 58 passing. **AC-B4 (real cat_cafe_* MCP smoke) deferred to separate slice** per砚砚 review |
+| 2026-05-18 (target) | Phase B Step 4：AC-B4 real `cat_cafe_*` MCP tool smoke + canary cohort selection criteria |
 | 2026-05-27 (target) | Phase B 完成 |
 | 2026-06-05 (target) | Phase C 完成 + 跨猫愿景守护通过 |
 | 2026-06-08 (target) | Phase D 灰度 100% |
