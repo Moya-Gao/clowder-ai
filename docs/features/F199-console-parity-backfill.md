@@ -10,7 +10,7 @@ trigger: cvo-pushback-post-close
 
 # F199: Console Parity Backfill — F190 Phase D
 
-> **Status**: in-progress (D-1/D-2/D-3a/D-3b merged; D-4 PushServiceConfig next) | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1
+> **Status**: in-progress (D-1/D-2/D-3a/D-3b/D-4/D-5 merged; close gate + vision guardian next) | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1
 > **Parent**: [F190 Console Settings/AppShell Skeleton](F190-console-settings-appshell-skeleton.md) (closed 2026-05-13)
 > **Trigger**: CVO push-back 2026-05-13 — F190 close 后发现 settings parity gap
 
@@ -109,9 +109,9 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 - [x] AC-D2: D-2 SkillsContent (read-mostly) merged，external uninstall 仍 deferred 但有 CVO signoff
 - [x] AC-D3a: D-3a capability write hardening merged；所有 capability write routes owner-gated fail-closed，audit JSONL / `/api/capabilities/audit` 不含 raw env/header secret
 - [x] AC-D3b: D-3b MCP settings UI parity merged；restricted MCP-only `useCapabilityState` + capability settings controls 对齐开源，`InstallPreviewModal` / Skills write actions 不进入 F199
-- [ ] AC-D4: D-4 PushServiceConfig merged，用户能在 UI 配置 VAPID + 一键生成 + 联系信箱
-- [ ] AC-D5: D-5 GithubConfigPanel merged，用户能在 UI 配置 GitHub token
-- [ ] AC-D6: 每刀 close 时产出 User Visibility Disclosure table (per feat-lifecycle Step 0.3.5)
+- [x] AC-D4: D-4 PushServiceConfig merged，用户能在 UI 配置 VAPID + 一键生成 + 联系信箱
+- [x] AC-D5: D-5 GithubConfigPanel merged，用户能在 UI 配置 GitHub token
+- [x] AC-D6: 每刀 close 时产出 User Visibility Disclosure table (per feat-lifecycle Step 0.3.5)
 - [ ] AC-D7: F199 整体 close 前，settings/ 开源 vs 本地 `ls` 全对齐 OR 剩余缺失有 CVO 显式 signoff（用 user-visibility 语言披露）
 
 ### 红区保护（继承 F190 KD-3）
@@ -176,6 +176,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | 2026-05-13 | F199 spec synced to D-3a/D-3b split + `InstallPreviewModal` reclassification |
 | 2026-05-13 | D-3a capability write hardening merged via PR #1664 (`be2c406cc`); audit secret leak + owner-gate P0 fixed; local reviewer + cloud review passed |
 | 2026-05-14 | D-3b MCP settings UI parity merged via PR #1665 (`10dc4e768`); source-style MCP settings UI + visual proof attached; local reviewer + cloud review passed |
+| 2026-05-14 | D-4/D-5 PushServiceConfig + GithubConfigPanel merged via PR #1668 (`50cad313`); VAPID/GitHub secret write UI + visual proof attached; local reviewer + cloud review passed |
 
 ## Review Gate
 
@@ -202,4 +203,6 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | **D-3a Proof** | `docs/discussions/2026-05-13-f199-d3a-capability-write-hardening-proof/README.md` | backend hardening + User Visibility Disclosure |
 | **D-3b PR** | `cat-cafe#1665` (`10dc4e768`) | MCP settings UI parity |
 | **D-3b Proof** | `docs/discussions/2026-05-13-f199-d3b-mcp-settings-ui-proof/README.md` | MCP settings UI parity + User Visibility Disclosure |
+| **D-4/D-5 PR** | `cat-cafe#1668` (`50cad313`) | PushServiceConfig + GithubConfigPanel hardening port |
+| **D-4/D-5 Proof** | `docs/discussions/2026-05-14-f199-d4-push-service-config-proof/README.md` | VAPID/GitHub secret write UI + User Visibility Disclosure |
 | **Source PR** | `clowder-ai#669` | 缺失 5 组件的开源来源 |
