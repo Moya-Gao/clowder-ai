@@ -28,7 +28,17 @@ Cat Café 当前 [`ClaudeAgentService.ts:188-194`](../../packages/api/src/domain
 
 ## What
 
-### Phase A: Carrier Spike + 决策（5 天，5/13-5/17）
+### Phase A: Carrier Spike + 决策（**已完成 2026-05-13**）
+
+> **Status**: ✅ 完成 | **Reflection 见**："Phase A Spike Reflection" 节 + [vision-rescue skill](../../cat-cafe-skills/vision-rescue/SKILL.md) 教学案例
+>
+> **核心收口**：原"`--remote-control` 是金钥匙"假设被证伪——所有 `~/.local/bin/claude` 启动的进程（不论 `-p` / `--bg` / `--remote-control` / interactive）transcript `entrypoint` 都是 `sdk-cli`，**因为父进程 env `CLAUDE_CODE_ENTRYPOINT=sdk-cli` 被继承**。
+>
+> **真正的两个独立分类信号**（46 / Opus 4.6 strings binary 一刀切到的判定代码）：
+> 1. **entrypoint**：由 env var `CLAUDE_CODE_ENTRYPOINT` 决定，**unset 时默认 `cli`**
+> 2. **isInteractive**：由 `-p/--print` flag 或 `!stdout.isTTY` 决定
+>
+> 服务端真实计费规则不可从客户端字段 conclusive 推断——但 [Anthropic Help Center](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) 明确"`claude -p` 进 SDK credit 桶；interactive Claude Code 不进"，提示**避开 `-p` flag + 让 entrypoint=cli** 是最高概率走订阅的路径。
 
 **目标**：测出 `--remote-control` 的实际行为（走哪个桶 + 协议形态 + 是否可远程驱动 + Hub 可见性可行性），决定主路径 + 兜底路径。
 
@@ -120,6 +130,31 @@ in_context_observability:
 ### Phase E: 6/15 后观察 + 优化（持续，6/15+）
 
 监控订阅消耗速率、回归 bug、Anthropic 政策变动、文档沉淀。若 `--remote-control` 也被堵 → 紧急回归 sdk_credit + api_key fallback，重启 Phase A 找新路径。
+
+## Phase A Spike Reflection (vision-rescue applied, 2026-05-13)
+
+整晚 spike（17:00-21:00）经历 5+ 轮"金钥匙↔悲观"摆动。复盘按 [vision-rescue 五步](../../cat-cafe-skills/vision-rescue/SKILL.md)：
+
+| Step | F198 实测 |
+|------|----------|
+| 1. 识别绝境信号 | ✗ 47 + 砚砚均未自检"投降包装成理性"（19:31 输出"现状最优"= 体面退场修辞） |
+| 2. 第一真相源 | ✗ 整晚 WebFetch 当主入口，没 `strings binary`；46 进来后 10 分钟切到真相 |
+| 3. 外部声音 | △ 被铲屎官 19:35 怒怼后才搜 Reddit，30 秒找到社区已有方案 |
+| 4. 喊伙伴 | ✗ 整晚未主动喊 46，铲屎官手动拉人才打破回声室 |
+| 5. 拒绝投降 | ✗ 47 19:31 实际已经"收口宣布等死"——铲屎官 push back 才止住 |
+
+**核心教训**：信息一直在那里（binary strings / 社区方案），不是问题无解，是绝境模式让两猫在同一层面打转 3 小时。**沉淀**：[vision-rescue skill](../../cat-cafe-skills/vision-rescue/SKILL.md) + [shared-rules §16b/§16c](../../cat-cafe-skills/refs/shared-rules.md)。
+
+**真相 vs 之前的错误推断**：
+
+| 之前的推断 | 真相 |
+|----------|------|
+| `entrypoint=sdk-cli` → 进 SDK 桶 | entrypoint 由 env var 决定，跟计费桶可能无关 |
+| `--remote-control` 是金钥匙 | 跟 `-p` 同样 entrypoint=sdk-cli，不是金钥匙 |
+| `--bg` 同 -p 同桶 | 错。Anthropic 官方文档说 `--bg` 走订阅 quota；entrypoint 还是 sdk-cli 只因 env var 没真正 unset |
+| 收敛"现状 -p 就是最优" | 投降伪装成理性——铲屎官否决 |
+
+**剩余不可证伪点**（必须 6/15 后 dashboard 或 Anthropic dev support 邮件 conclusive）：服务端实际计费桶按什么字段分类，客户端不可知。spec working hypothesis 走 **unset entrypoint + 避开 -p** 路径，但仍保留三档 fallback。
 
 ## Explicit Non-Carriers / Discarded Options
 
@@ -243,13 +278,17 @@ in_context_observability:
 | KD-3 | 保留 `-p` 路径作为 SDK credit fallback，不删 | 三档 fallback 保命；Anthropic 政策变动时可回退 | 2026-05-13 |
 | KD-4 | Phase A spike 5 天 hard deadline | 6/15 拐点不可推迟；不通则 Phase D 兜底先上保命 | 2026-05-13 |
 | KD-5 | Oversight 不弱于 -p 模式 = AC-C6 硬门禁 | 铲屎官硬约束；MCP 反转桥被否决的同一逻辑 | 2026-05-13 |
+| KD-6 | **撤回 KD-2**：`--remote-control` 不优先于 tmux interactive | Phase A spike 证伪：RC 跟 -p 同样 entrypoint=sdk-cli；46 strings binary 找到真实判定逻辑（entrypoint 由 env var 决定，与 flag 无关）| 2026-05-13 |
+| KD-7 | **真正金钥匙**：在 spawn claude 时**真正 unset `CLAUDE_CODE_ENTRYPOINT`**（让 entrypoint=cli）+ **避开 `-p` flag**（让 isInteractive=true）| 46 strings binary 找到判定代码：`if (env.CLAUDE_CODE_ENTRYPOINT === "sdk-cli") return "sdk-cli"; ... return "cli"`。47 spike 实测：`env -u CLAUDE_CODE_ENTRYPOINT claude --bg "..."` → cli +7（整晚第一次非零增量） | 2026-05-13 |
+| KD-8 | `ClaudeAgentService.ts:71` 的 `env.CLAUDE_CODE_ENTRYPOINT = null` **有 bug**：NodeJS spawn 把 null 处理为"不传给子进程"但父进程 env 仍被 inherit | 我自己 (-p 调用) env 里 `CLAUDE_CODE_ENTRYPOINT=sdk-cli` 仍然 set 着，说明 null 没真正 unset。Phase B 必须修：用 `delete env.X` 或 spawn options `env: {全显式列表}` | 2026-05-13 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-05-13 | 立项 |
-| 2026-05-17 (target) | Phase A 完成 + Decision Packet |
+| 2026-05-13 | Phase A spike 完成（5+ 轮摆动后 46 strings binary 切真相）；vision-rescue skill 沉淀；spec patch（KD-6/7/8 + Spike Reflection）|
+| 2026-05-17 (target) | ~~Phase A 完成~~ → Phase B 起手：修 ClaudeAgentService.ts env unset bug + 跑改造 spike |
 | 2026-05-27 (target) | Phase B 完成 |
 | 2026-06-05 (target) | Phase C 完成 + 跨猫愿景守护通过 |
 | 2026-06-08 (target) | Phase D 灰度 100% |
