@@ -1233,7 +1233,7 @@
     {
       "id": "F199",
       "name": "Console Parity Backfill — F190 Phase D",
-      "status": "in-progress (D-1 merged; D-2 SkillsContent next) | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1",
+      "status": "in-progress (D-1/D-2 merged; D-3 capability trio next) | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1",
       "file": "F199-console-parity-backfill.md"
     }
   ]

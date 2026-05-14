@@ -10,7 +10,7 @@ trigger: cvo-pushback-post-close
 
 # F199: Console Parity Backfill — F190 Phase D
 
-> **Status**: in-progress (D-1 merged; D-2 SkillsContent next) | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1
+> **Status**: in-progress (D-1/D-2 merged; D-3 capability trio next) | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1
 > **Parent**: [F190 Console Settings/AppShell Skeleton](F190-console-settings-appshell-skeleton.md) (closed 2026-05-13)
 > **Trigger**: CVO push-back 2026-05-13 — F190 close 后发现 settings parity gap
 
@@ -82,7 +82,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 
 ### Phase D (All five slices)
 - [x] AC-D1: D-1 ServiceStatusPanel merged，对照开源 visual side-by-side 通过 parity gate (per opensource-ops 原则 22)
-- [ ] AC-D2: D-2 SkillsContent (read-mostly) merged，external uninstall 仍 deferred 但有 CVO signoff
+- [x] AC-D2: D-2 SkillsContent (read-mostly) merged，external uninstall 仍 deferred 但有 CVO signoff
 - [ ] AC-D3: D-3 capability 三件套 merged，capability 写路径走 hardening pattern
 - [ ] AC-D4: D-4 PushServiceConfig merged，用户能在 UI 配置 VAPID + 一键生成 + 联系信箱
 - [ ] AC-D5: D-5 GithubConfigPanel merged，用户能在 UI 配置 GitHub token
@@ -140,6 +140,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | 2026-05-13 | SOP 改进 PR #1661 opened (3 skill files, 4 lessons encoded) |
 | 2026-05-13 | F199 spec 立项 |
 | 2026-05-13 | D-1 ServiceStatusPanel merged via PR #1662 (`0df783473`); visual parity proof + User Visibility Disclosure attached; local reviewer + cloud review passed |
+| 2026-05-13 | D-2 SkillsContent read-mostly merged via PR #1663 (`1e4a96951`); visual parity proof + User Visibility Disclosure attached; local reviewer + cloud review passed |
 
 ## Review Gate
 
@@ -158,4 +159,6 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | **SVG Hotfix PR** | `cat-cafe#1659` (`d928fb696`) | 已合，box/puzzle 图标补回 |
 | **D-1 PR** | `cat-cafe#1662` (`0df783473`) | ServiceStatusPanel read-only backfill |
 | **D-1 Proof** | `docs/discussions/2026-05-13-f199-d1-service-status-panel-proof/README.md` | visual parity + User Visibility Disclosure |
+| **D-2 PR** | `cat-cafe#1663` (`1e4a96951`) | SkillsContent read-mostly backfill |
+| **D-2 Proof** | `docs/discussions/2026-05-13-f199-d2-skills-content-proof/README.md` | visual parity + User Visibility Disclosure |
 | **Source PR** | `clowder-ai#669` | 缺失 5 组件的开源来源 |
