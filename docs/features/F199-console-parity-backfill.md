@@ -14,6 +14,9 @@ trigger: cvo-pushback-post-close
 > **Parent**: [F190 Console Settings/AppShell Skeleton](F190-console-settings-appshell-skeleton.md) (closed 2026-05-13)
 > **Trigger**: CVO push-back 2026-05-13 — F190 close 后发现 settings parity gap
 
+Architecture cell: action-plane
+Map delta: none — F199 backfills existing Console settings surfaces; D-2 is read-mostly and does not introduce a new action owner or capability writer.
+
 ## Why
 
 F190 close (`1039d68a4`) 后 CVO 重启 runtime 用 `/settings` 实测，对比 clowder-ai 开源最新 main，发现 settings/ 目录组件 diff：

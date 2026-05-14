@@ -1,0 +1,11 @@
+{
+  "source": {
+    "label": "source",
+    "logs": []
+  },
+  "home": {
+    "label": "home",
+    "logs": []
+  },
+  "assets": ["source-skills-content.png", "home-skills-content.png", "side-by-side-skills-content.png"]
+}

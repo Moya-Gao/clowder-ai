@@ -9,7 +9,6 @@ import { HubAccountsTab } from '../HubAccountsTab';
 import { HubConnectorConfigTab } from '../HubConnectorConfigTab';
 import { HubEnvFilesTab } from '../HubEnvFilesTab';
 import { HubGovernanceTab } from '../HubGovernanceTab';
-import { HubSkillsTab } from '../HubSkillsTab';
 import { PushSettingsPanel } from '../PushSettingsPanel';
 import { VoiceSettingsPanel } from '../VoiceSettingsPanel';
 import { MarketplaceContent } from './MarketplaceContent';
@@ -20,6 +19,7 @@ import { RulesPromptsContent } from './RulesPromptsContent';
 import { ServiceStatusPanel } from './ServiceStatusPanel';
 import { SettingsPageHeader } from './SettingsPageHeader';
 import { SettingsPlaceholder } from './SettingsPlaceholder';
+import { SkillsContent } from './SkillsContent';
 import { SETTINGS_SECTIONS } from './settings-nav-config';
 
 interface SettingsContentProps {
@@ -57,6 +57,7 @@ function MembersPanel() {
 
 export function SettingsContent({ section }: SettingsContentProps) {
   if (section === 'marketplace') return <MarketplaceContent />;
+  if (section === 'skills') return <SkillsContent />;
 
   const meta = SETTINGS_SECTIONS.find((item) => item.id === section) ?? SETTINGS_SECTIONS[0];
 
@@ -68,8 +69,6 @@ export function SettingsContent({ section }: SettingsContentProps) {
         return <HubAccountsTab />;
       case 'im':
         return <HubConnectorConfigTab />;
-      case 'skills':
-        return <HubSkillsTab />;
       case 'voice':
         return (
           <div className="space-y-6">
