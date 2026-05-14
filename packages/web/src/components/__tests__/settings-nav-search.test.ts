@@ -50,6 +50,18 @@ describe('SettingsNav search filtering', () => {
     expect(container.textContent).toContain('规则与 SOP');
   });
 
+  it('renders a primary icon for every settings section', () => {
+    act(() => {
+      root.render(React.createElement(SettingsNav, { activeSection: 'members', onSelect: vi.fn() }));
+    });
+
+    const buttons = Array.from(container.querySelectorAll('[data-active]'));
+    expect(buttons).toHaveLength(12);
+    for (const button of buttons) {
+      expect(button.querySelector('svg.h-4.w-4')).toBeTruthy();
+    }
+  });
+
   it('filters sections by label match', () => {
     act(() => {
       root.render(
