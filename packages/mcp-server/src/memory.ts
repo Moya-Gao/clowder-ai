@@ -2,7 +2,7 @@
 
 /**
  * Cat Café MCP Server — Memory Surface
- * 只暴露记忆与回溯工具（evidence/reflect/session chain）。
+ * 只暴露记忆与回溯工具（evidence/graph/recent/session chain）。
  */
 
 import { resolve } from 'node:path';
@@ -21,7 +21,7 @@ function createBaseServer(name: string): McpServer {
 
 /**
  * Create a Memory MCP server instance with evidence search,
- * reflection, session chain, and memory retention tools registered.
+ * graph/recent navigation and session chain tools registered.
  */
 export function createMemoryServer(): McpServer {
   const server = createBaseServer('cat-cafe-memory-mcp');
