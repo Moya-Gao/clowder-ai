@@ -8,7 +8,7 @@ created: 2026-05-13
 
 # F198: Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪
 
-> **Status**: spec | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
+> **Status**: in-progress (Phase A ✅ done; Phase B Step 1 foundation ✅ merged 2026-05-14) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
 
 ## Why
 
@@ -371,7 +371,8 @@ in_context_observability:
 | 2026-05-13 | 立项 |
 | 2026-05-13 | Phase A spike 完成（5+ 轮摆动后 46 strings binary 切真相）；vision-rescue skill 沉淀；spec patch（KD-6/7/8 + Spike Reflection）|
 | 2026-05-13 21:00+ | Phase A **再次反转**：worktree 控制实验证伪 KD-8（env null bug 不存在）；新 KD-9 (`-p` flag 是决定性信号) + KD-10（真 fix 是 invocation 改造）；Phase B scope 从"2-line env fix"扩到"`-p` → `--bg` 整体 carrier 改造"|
-| 2026-05-18 (target) | Phase B 起手：prototype `ClaudeBgCarrierService` + JobEventConsumer |
+| 2026-05-14 | **Phase B Step 1 (foundation) merged — PR #1666**: `ClaudeBgCarrierService` + `JobEventConsumer` skeleton（10+ rounds codex review，coordinate-system 重构复用 `buildClaudeEnvOverrides` / `resolveClaudeModelSelection` 共享 helper，18 tests green）。Router 接入（Step 2）待后续 PR — 当前未替换 -p 路径 |
+| 2026-05-18 (target) | Phase B Step 2 起手：router wiring（invoke-single-cat 切换到 `bg_daemon` carrier） |
 | 2026-05-27 (target) | Phase B 完成 |
 | 2026-06-05 (target) | Phase C 完成 + 跨猫愿景守护通过 |
 | 2026-06-08 (target) | Phase D 灰度 100% |
