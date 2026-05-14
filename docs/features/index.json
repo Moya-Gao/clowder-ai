@@ -1233,7 +1233,7 @@
     {
       "id": "F199",
       "name": "Console Parity Backfill — F190 Phase D",
-      "status": "in-progress (D-1/D-2/D-3a/D-3b/D-4/D-5 merged; author close evidence ready; vision guardian next) | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1",
+      "status": "done | **Completed**: 2026-05-14 | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1",
       "file": "F199-console-parity-backfill.md"
     },
     {

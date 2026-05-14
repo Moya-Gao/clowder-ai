@@ -10,7 +10,7 @@ trigger: cvo-pushback-post-close
 
 # F199: Console Parity Backfill — F190 Phase D
 
-> **Status**: in-progress (D-1/D-2/D-3a/D-3b/D-4/D-5 merged; author close evidence ready; vision guardian next) | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-05-14 | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1
 > **Parent**: [F190 Console Settings/AppShell Skeleton](F190-console-settings-appshell-skeleton.md) (closed 2026-05-13)
 > **Trigger**: CVO push-back 2026-05-13 — F190 close 后发现 settings parity gap
 
@@ -140,7 +140,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 
 | # | 问题 | 答复 | 来源 |
 |---|------|------|------|
-| OQ-D1 | reopen F190 vs 开新 F 号？ | ✅ 开新 F 号 F199 | CVO 2026-05-13 |
+| OQ-D1 | reopen F190 vs 开新 F 号？ | ✅ 最终保留 F199；但开新 F 号本身是 Opus-47 未经 CVO 显式 signoff 的误判，CVO 2026-05-14 追认 keep F199 | Correction 2026-05-14 |
 | OQ-D2 | 完整 backfill vs 选择性？ | ✅ 完整 backfill | CVO 2026-05-13 |
 | OQ-D3 | 先开哪刀？ | ✅ D-1 ServiceStatusPanel（猫自决 — 最低风险作为 process 验证刀） | 猫自决 per CVO 2026-05-13 |
 | OQ-D4 | SOP 改进先做？ | ✅ Yes — 已 PR #1661 走 review | CVO 2026-05-13 |
@@ -152,7 +152,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | F190 Phase D 开新 F 号 F199，不 reopen F190 | F190 已正式 close，reopen 让真相源不稳；Phase D 是 follow-up 性质 | 2026-05-13 |
+| KD-1 | F199 最终保留为 F190 Phase D 实施容器；未来开新 F 号 / reopen / rename feature anchor 必须 CVO 显式 signoff | 事后确认：Opus-47 原先按 design memo 推荐自决开 F199 是流程错误；CVO 2026-05-14 选择 keep F199，避免已合历史重写 | 2026-05-14 |
 | KD-2 | 完整处理维度 A gap：6 个 settings parity backfill + 1 个 service lifecycle reclassified-out disclosure | 永久 defer 长期心累，hardening pattern 已摸清，复用成本低；但 `InstallPreviewModal` 不属于 capability settings，不能为凑数打穿 D-1 read-only 边界。维度 B (2 SVG path) 已独立 hotfix close，不属本 feat | 2026-05-13 |
 | KD-3 | D-1 ServiceStatusPanel 先开（猫自决，CVO 不管） | 最低风险，验证新 SOP（parity gate + User Visibility Disclosure）在小 slice 上跑通后再做高风险 secret write | 2026-05-13 |
 | KD-4 | D-4/D-5 secret write 复用 IM connector hardening pattern | Pattern 已审过，新增刀降低 review 成本 | 2026-05-13 |
@@ -178,6 +178,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | 2026-05-14 | D-3b MCP settings UI parity merged via PR #1665 (`10dc4e768`); source-style MCP settings UI + visual proof attached; local reviewer + cloud review passed |
 | 2026-05-14 | D-4/D-5 PushServiceConfig + GithubConfigPanel merged via PR #1668 (`50cad313`); VAPID/GitHub secret write UI + visual proof attached; local reviewer + cloud review passed |
 | 2026-05-14 | Author close evidence added; settings list diff now only `InstallPreviewModal.tsx` (reclassified out), F183/F184/F194 denylist empty, F088/F124 transport runtime not taken over |
+| 2026-05-14 | Independent vision guardian PASS (Opus 4.6); CloseGateReport + reflection capsule added; F199 marked done |
 
 ## Review Gate
 
@@ -207,4 +208,6 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | **D-4/D-5 PR** | `cat-cafe#1668` (`50cad313`) | PushServiceConfig + GithubConfigPanel hardening port |
 | **D-4/D-5 Proof** | `docs/discussions/2026-05-14-f199-d4-push-service-config-proof/README.md` | VAPID/GitHub secret write UI + User Visibility Disclosure |
 | **Close Gate Evidence** | `docs/discussions/2026-05-14-f199-close-gate/README.md` | Total User Visibility Disclosure + settings list diff + red-zone/transport boundary proof |
+| **CloseGateReport** | `docs/discussions/2026-05-14-f199-close-gate/close-gate-report.md` | AC matrix + harness checkpoint + guardian result |
+| **Reflection Capsule** | `docs/reflections/2026-05-14-f199-console-parity-backfill-capsule.md` | Completion reflection |
 | **Source PR** | `clowder-ai#669` | 缺失 5 组件的开源来源 |
