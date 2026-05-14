@@ -273,12 +273,12 @@ outputVerified = signal_or(
 
 ## Acceptance Criteria
 
-### Phase A（Search Session Telemetry）
-- [ ] AC-A1: RecallEvent 被写入 ToolEventLog，包含 candidates（含 targetRef union + docKind）+ consumed 字段
-- [ ] AC-A2: consumed 通过 compound window（same_invocation + tool_call_distance≤20 + 300s cap）+ target_match 自动推断
-- [ ] AC-A3: reformulated / fellBackToGrep / abandoned / nextGraphResolveAfterRead 四个布尔正确标记
-- [ ] AC-A4: Health Dashboard 展示最近 24h 的 RecallEvent 统计摘要
-- [ ] AC-A5: dwellProxy（Read 后到下一个 tool call 的间隔 ms）被记录
+### Phase A（Search Session Telemetry）✅
+- [x] AC-A1: RecallEvent 被写入 ToolEventLog，包含 candidates（含 targetRef union + docKind）+ consumed 字段
+- [x] AC-A2: consumed 通过 compound window（same_invocation + tool_call_distance≤20 + 300s cap）+ target_match 自动推断
+- [x] AC-A3: reformulated / fellBackToGrep / abandoned / nextGraphResolveAfterRead 四个布尔正确标记
+- [x] AC-A4: Health Dashboard 展示最近 24h 的 RecallEvent 统计摘要
+- [x] AC-A5: dwellProxy（Read 后到下一个 tool call 的间隔 ms）被记录
 
 ### Phase B（Derived Metrics）
 - [ ] AC-B1: Consumed@3 / ConsumedMRR / Reformulation Rate / SearchAbandonRate 四个核心指标可通过 API 查询
@@ -365,15 +365,16 @@ outputVerified = signal_or(
 | 2026-05-14 | 三猫技术讨论：OQ-1/2/3/5 resolved，spec v2 更新 |
 | 2026-05-14 | R2 review（47+砚砚）：consumption_prior centered lift + graph edge weights + targetRef union + ReformulateAfterExposure 精确化 → spec v3 |
 | 2026-05-14 | Design Gate PASS（纯后端路径，三猫收敛 + CVO "走起"）→ status: in-progress |
+| 2026-05-14 | Phase A merged（PR #1671）— RecallEvent telemetry pipeline: V19 migration, RecallEventCorrelator, target_match dispatch, derive-result-summary F200 extensions, shadow flag, 46 tests |
 
 ## Plan Gate Checklist（writing-plans 前必须解决）
 
 > 来源：47 R3 六细节 + 砚砚 R3 三小修。spec 不阻塞，但 Plan 必须敲定。
 
-- [ ] **PG-1**: ToolEventLog schema 扩展方案 — `tool_events` 加列 vs 新建 `recall_events` 表？砚砚 R1 提过 ToolEventLog 有 windowing 机制 reusable
-- [ ] **PG-2**: target_match 接口规约 — 每种 consumed.method 对应哪种 targetRef kind 的匹配函数表
-- [ ] **PG-3**: edge_traversal 持久化 schema — 当前 `schema.ts:33` edges 表只有 relation/provenance，需加 traversal stats。**Phase A 就开始记**（否则 Phase C 上线时没历史数据）
-- [ ] **PG-4**: shadow mode env flag — 建议 `F200_CONSUMPTION_RERANK=off|shadow|on`，对齐 F163 freezeFlags
+- [x] **PG-1**: ✅ 新建 `recall_events` 表（V19 migration）— ToolEventLog windowing 不 reuse，独立 schema 更干净
+- [x] **PG-2**: ✅ `recall-target-match.ts` — dispatch table: Read→doc(sourcePath)/passage(passageId), Grep→doc(sourcePath), graph_resolve→thread/session/invocation, read_session_*→session, get_thread_context→thread, anchor fallback
+- [x] **PG-3**: ✅ V19 adds `traversal_count` + `last_traversed_at` to edges table（Phase A 开始记，Phase C 用）
+- [x] **PG-4**: ✅ `F200_CONSUMPTION_RERANK=off|shadow|on` env flag, defaults to `off`
 
 ## Review Gate
 
