@@ -8,7 +8,7 @@ created: 2026-05-14
 
 # F200: Memory Recall Eval — 基于猫真实行为的记忆系统反馈闭环
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -364,6 +364,7 @@ outputVerified = signal_or(
 | 2026-05-14 | 立项。铲屎官启发 + 三猫讨论（46/47/55）收敛方向 |
 | 2026-05-14 | 三猫技术讨论：OQ-1/2/3/5 resolved，spec v2 更新 |
 | 2026-05-14 | R2 review（47+砚砚）：consumption_prior centered lift + graph edge weights + targetRef union + ReformulateAfterExposure 精确化 → spec v3 |
+| 2026-05-14 | Design Gate PASS（纯后端路径，三猫收敛 + CVO "走起"）→ status: in-progress |
 
 ## Plan Gate Checklist（writing-plans 前必须解决）
 
