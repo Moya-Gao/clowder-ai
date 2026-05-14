@@ -188,6 +188,45 @@ E-1b spec OQ 必须显式列出："`buildClientServiceManifest` 派生 `availabl
 
 不允许任何 P1/P2 follow-up。CVO 已经预言了"会被云端抓出来都是 follow up 吧"，事实证明云端确实抓到了我 v2 漏的——这次要在本 PR 收完。
 
+## v4 — v3 旧 P1+P2 已 close，第二轮 cloud 再抓新 P1+P2（HEAD `32e75998b`）
+
+### v3 旧 P1+P2 close 确认 ✅
+
+- **旧 P1 mutex 早释放** → `services-lifecycle-lock.ts` 用 `holdLifecycleLockUntil` symbol 把 runner settlement promise 透过 result 传出，`withLock` finally 看到 hold 就等 runner settle 完成才删 `activeServices`。route 在 `result.timedOut` 时调用 `holdLifecycleLockUntil(result, getLifecycleRunSettlement(result))` 注入。新增 RED→GREEN test `keeps the service lock until a timed-out lifecycle runner settles`（第二个请求在第一个 timeout 但 runner 未 settle 时返 409）。✅
+- **旧 P2 regex 数据参数误判** → `isServiceProcessCommand` 改 tokenize cmdline (`/"([^"]*)"|'([^']*)'|(\S+)/g`)，检查 `tokens[0]` 是 script 或 `tokens[0] in {bash,sh,zsh}` 且 `tokens[1]` 是 script；加 `env` exec 兼容。新增反例 `python worker.py --payload "${resolvedScript}"` should be false。✅
+
+### v4 新 must-fix（第二轮 cloud review on `f5ea59f9`，v3 HEAD `32e75998b` 仍 valid）
+
+#### v4-P1 (orange): lsof 失败时 fail-open → port guard 失效
+
+`service-lifecycle.ts:108-115` `findPidsByPort` 当 `lsof` 报错（command missing / timeout / runtime error）时 return `[]`。`partitionServicePids` 拿到空 → owned=[], foreign=[] → start route 的 `foreign.length > 0` guard 永不成立 → spawn 第二个 service 实例 in 已被占用的端口。stop 同样得到空 → 报"0 process stopped"假阳性。
+
+**这破了 P1-3 跨 worktree 端口 hygiene 承诺**——本来设计上是 "端口被 foreign 占用 → 409 refuse"，lsof 故障时变成 "端口被任何东西占用都允许 spawn"。
+
+**修法**：lsof error 改 fail-closed。option (a) `findPidsByPort` 抛出/返回 null sentinel；caller (start/stop) 检测到 "port 状态未知" → 423 (Locked) 或 503 + audit `reason: 'port-probe-unavailable'`。option (b) 在 result 加 `{ok:true, pids}` vs `{ok:false, error}` shape，所有 caller 都按 ok 分支决策。(a) 简单，建议这条。
+
+新 test：`lsof` mock 抛 error 时 `/api/services/whisper-stt/start` 必须 fail（5xx / 423）不能 200。
+
+#### v4-P2 (yellow): runner 抛异常 → unhandled → Fastify 500，丢 audit failure
+
+`services-lifecycle-routes.ts:93` 区域：`runWithTimeout(...)` 直接 `await`，无 try/catch。如果 runner reject（execFile/spawn emit error），整个 handler unhandled rejection → Fastify 500 兜底。用户看到 unspecific 500，**audit 没写 'failed' event**（因为 runWithTimeout 抛出前 audit 'started' 已写，但 'failed' 没机会写）。
+
+**这破了 audit 真实性 + UX 一致性**——audit 看到 "started 但没 completed/failed/timed_out" 的悬挂事件。
+
+**修法**：`runForeground` / start route 把 `await runWithTimeout` 包 try/catch：
+- catch 时写 audit `status: 'failed', reason: 'runner-error'`
+- 返回 `{ok:false, error: 'lifecycle runner error'}` + 522 / 5xx
+- 不要 leak runner exception message（metadata-only）
+
+新 test：runner 注入抛 throw → API 返 controlled error code + audit 'failed' written。
+
+### v4 verdict
+
+- v3 旧 P1+P2 close ✅
+- v4 新 P1+P2 本 PR 必修，不留 follow-up
+- 修完 32e75998b → v4 HEAD，重新 @ Opus-47 验
+- 第二轮 cloud bot 还可能再抓——但每轮真问题都要在本 PR 收完，CVO 的铁律没变
+
 ## Lesson（本次 review 自反思）
 
 Review v1 把 5 条 concerns 全标"非阻塞 follow-up"，CVO 当场 push back："你这 review 也太松了 我们家不是不允许 follow up 吗？"——踩中 [[feedback_no_followup_tails]]。
