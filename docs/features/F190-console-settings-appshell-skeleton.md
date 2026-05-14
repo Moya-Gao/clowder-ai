@@ -76,7 +76,7 @@ Phase C complete: all four high-risk slices (MCP write / Service Manifest read-o
 - [x] AC-A4: 新 PR 不 rename / overwrite 既有 feature docs，不新增重复 `feature_ids`；尤其不得改动 F179/F185/F186 既有真相源。
 - [x] AC-A5: 新 PR 必须通过 `pnpm check:features`，并针对 Settings/AppShell 导航补充 focused web tests。
 - [x] AC-A6: F183/F184 路由与 mount 保护测试保持通过；thread route marker 必须继续使用真实 `threadId`。
-- [x] AC-A7: alpha 走查 `/settings`、`/settings?s=members`、`/settings?s=mcp`、`/settings?s=ops`，无 blocking console error，且旧 chat 首页可继续进入。Proof: PR #1658 `pnpm gate` + alpha smoke `/`, `/settings?s=members`, `/settings?s=mcp`, `/settings?s=ops`, `/settings?s=plugins`, `/settings?s=im`, `/settings?s=rules`, `/settings?s=voice` all returned 200 after `c1cfa294e`.
+- [x] AC-A7: alpha 走查 `/settings`、`/settings?s=members`、`/settings?s=mcp`、`/settings?s=ops`，无 blocking console error，且旧 chat 首页可继续进入。Proof: PR #1658 `pnpm gate` + alpha smoke `/`, `/settings?s=members`, `/settings?s=mcp`, `/settings?s=ops`, `/settings?s=plugins`, `/settings?s=im`, `/settings?s=rules`, `/settings?s=voice` all returned 200 after `c1cfa294e`. Follow-up visual compare found missing settings nav SVG paths and PR #1659 restored the `box` / `puzzle` icon registry entries with focused regression coverage.
 
 ### Phase B（Settings Section Migrations）
 - [x] AC-B1: 每个 settings section 独立 review slice，单 slice 不超过一个业务域。Proof: PR #1650 按 read-only settings wrapper / rules / ops / marketplace / MCP / skill preview 等 slice 分段 review；Phase C high-risk writes 独立 PR #1651/#1652/#1654/#1655。
@@ -219,6 +219,7 @@ close_gate_report:
 | 2026-05-13 | F190 愿景守护 PASS (Opus-46，同族非作者非 reviewer)：红区零触碰 verified、source intent 保留 |
 | 2026-05-13 | AC-A7 alpha walkthrough completed after alpha hotfix (PR #1658, `c1cfa294e`): Codex + Sonnet smoke passed home/settings routes |
 | 2026-05-13 | F190 close gate truth sync: AC-A/B/C all met, reflection capsule linked, BACKLOG active row removed |
+| 2026-05-13 | Post-close visual hotfix restored missing settings nav SVG paths (`box` / `puzzle`) after upstream/home screenshot compare (PR #1659, `d928fb696`) |
 
 ## Review Gate
 
