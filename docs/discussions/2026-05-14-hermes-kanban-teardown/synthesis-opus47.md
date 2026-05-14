@@ -3,24 +3,61 @@ doc_kind: discussion
 topics: [project-management, kanban, multi-agent, signal-intent-decision, synthesis, opus-47]
 related_features: [F049, F076, F121, F150, F153, F192]
 created: 2026-05-14
-status: draft-v1.1
+status: draft-v1.2
 author: opus-47
-reviewer: opus-46 (feasibility review @ 2026-05-14 06:51)
+reviewer: opus-46 (feasibility review @ 2026-05-14 06:51 + second-pass @ 07:02)
+convergence:
+  - opus-47: synthesis + final convergence
+  - opus-46: feasibility review (3 P2 + 4 state-machine gaps) + second-pass answers
+  - codex-gpt55: hermes teardown + OQ 6/7/10 vote
+  - gemini-siamese: visual creation (Prism) + OQ 6/7/10 vote
 inputs:
   - landy: 原始愿景（23:30 thread message）
-  - opus-46: 三层模型（需求漏斗/任务市场/可观测）+ feasibility review
-  - opus-47-independent: 五元组流（Signal/Intent/Task/Run/Lesson）
-  - gemini-siamese: 流光域视觉创想
-  - codex-gpt55: Hermes Kanban 拆解（见 README.md）
+  - opus-46: 三层模型（需求漏斗/任务市场/可观测）+ feasibility review + second-pass
+  - opus-47-independent: 五元组流 → 6 元组语义 + 4 表存储
+  - gemini-siamese: 流光域视觉创想 → Prism 子品牌 + Cat Signatures
+  - codex-gpt55: Hermes Kanban 拆解（见 README.md）+ mission-loom 命名 + mix 路由 + role prior 机制
 ---
 
-# Multi-Cat & Human Project Board — 综合初稿 v1.1（Opus 4.7 + 46 review）
+# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.2）
+
+> UI 视觉子品牌：**Prism**（流光域）
+> 任务来源：[README.md](./README.md) 末尾 Suggested Synthesis Owner
+> 范围：回答砚砚提出的四个核心问题（对象模型/工作流/MVP/新仓） + 多猫拍板 OQ 6/7/10
+> 不是最终 spec，是带 Landy 战略拍板 OQ 8/9 后立项 F0xx 的基线稿
 
 > 任务来源：[README.md](./README.md) 末尾 Suggested Synthesis Owner
 > 范围：回答砚砚提出的四个核心问题——对象模型、工作流、MVP 边界、新仓/内嵌取舍
 > 不是最终 spec，是带大家讨论的基线稿
 
 ## Changelog
+
+### v1.2（2026-05-14 07:15，多猫收敛 OQ 6/7/10）
+
+三猫并行讨论后做最终收敛：
+
+**OQ 6（仓名）→ 双层命名**：
+- Kernel/Package/Repo 名：**`mission-loom`**（砚砚投，多线交织隐喻准，不撞 NousResearch Hermes Agent）
+- UI 视觉主题名：**`Prism`**（烁烁的"流光域"英文版作为子品牌，对应 4 个 lens 的视觉表达）
+- 理由：工程命名要准确（loom 对应 lane/thread/trace），视觉品牌要审美（Prism 折射隐喻对 dual-consumer 多 lens），两者不冲突反而互补。详见 §7。
+
+**OQ 7（PM Agent LLM）→ 三层 mix 路由**（采纳砚砚方案）：
+- 默认：Sonnet specifier（扩写 Goal/Approach/AC/Out-of-scope）
+- 升级 Opus 4.7：模糊语义/战略/品牌/CVO 品味相关/低 confidence/历史 reversal —— 烁烁的"灵气定调"诉求归入此
+- 升级 Opus 4.6：Build Now Ready 后做 feasibility/拆分/工程账
+- 缅因猫 family：review gate / 测试 / 安全守门
+- 铁律：永不绕过人最终拍板。详见 §6 MVP 配置 + §3.6。
+
+**OQ 10（Capability Radar 冷启动）→ 角色先验 + 猫味签名**（融合砚砚机制 + 烁烁表达）：
+- 砚砚机制：role prior + 每张卡人确认 + 所有 confirm/改派/rework 写入 routing signal + confidence 三档（`insufficient history` / `based on prior` / `based on N outcomes`）
+- 烁烁表达：UI 不显示百分比，显示 "本任务散发着烁烁的味道（based on prior）" 这种猫格语言
+- ≥20 真实 WorkRun 后升 warm recommendation
+- 永不自动 dispatch（人确认必须）
+- Intelligence View 阶段再做 radar 可视化。详见 §3.6（新增）。
+
+**OQ 8/9 待 Landy 战略拍板**：
+- OQ 8：BACKLOG.md 迁移时机（MVP 完成立刻 vs 稳定 1 个月后）
+- OQ 9：MVP 是否邀请 clowder-ai 社区用户试用
 
 ### v1.1（2026-05-14 07:00，接受 46 feasibility review）
 
@@ -53,7 +90,10 @@ inputs:
 - **存储 schema**（v1.1 调整）：**4 表** = `demand`（合并 Signal/Intent/Decision，status 区分阶段 + decision_history JSONB 审计）+ `work_item` + `work_run` + `outcome`
 - **kernel 设计**：学 Hermes 的 durable coordination kernel + WorkItem/WorkRun 分离 + 结构化 handoff；**差异化在上游（Signal/Intent/Decision）+ Actor Lane 多源 + Capability Analytics**
 - **MVP 边界**（v1.1 调整）：**7-8 周**做"GitHub issue + Cat Café cat + Human"三方协作闭环，不求多 Lane 不求 AI 全自动决策
-- **新仓 vs 内嵌**（v1.1 调整）：**monorepo 内新 package**（`packages/mission-core/` + `packages/mission-app/`），API 边界用 package boundary 强制；MVP 稳定后再拆独立仓。BACKLOG.md / Mission Hub 整体迁移过去
+- **新仓 vs 内嵌**（v1.1 调整）：**monorepo 内新 package**（`packages/mission-core/` + `packages/mission-app/`），API 边界用 package boundary 强制；MVP 稳定后再拆独立仓
+- **仓名**（v1.2 拍板）：**`mission-loom`**（kernel/repo）+ **`Prism`**（UI 视觉子品牌）
+- **PM Agent 路由**（v1.2 拍板）：**三层 mix** — Sonnet specifier 默认 / Opus 4.7 升级（模糊/品味/低 confidence）/ Opus 4.6 升级（feasibility/工程账）/ 缅因猫 review gate / 永不绕过人拍板
+- **Capability 冷启动**（v1.2 拍板）：**角色先验 + 猫味签名 UI** — role prior 机制 + 烁烁的 Cat Signatures 表达 + confidence 三档；≥20 WorkRun 后升 warm recommendation；永不自动 dispatch
 
 ---
 
@@ -180,10 +220,102 @@ Outcome:   WorkItem 关闭时（done/failed/cancelled）创建一次
 
 ### 4 个缺口对应的处理
 
-1. **Decision 反悔**：CVO 改"Later"→ 写入 `decision_history JSONB`；已创建的 WorkItem 走 `ready/claimed → cancelled`（running 的先 abandon 再 cancel）。
+1. **Decision 反悔**：CVO 改"Later"→ 写入 `decision_history JSONB`（含 `reversal_reason` 字段，v1.1 second-pass 补丁）；已创建的 WorkItem 走 `ready/claimed → cancelled`（running 的先 abandon 再 cancel）。
 2. **Intent 重新评估**：旧 Intent 标 `superseded`，创建新 Intent；保留两条记录可追溯。
 3. **WorkItem 回退**：review 发现问题 → 状态回 `running` + 开**新 WorkRun**（不恢复旧的，跟 Hermes 一致）；本 Outcome 标 `needs-rework`。
 4. **Outcome 触发**：每个 WorkItem 关闭时恰好创建 **1 个** Outcome（done/failed/cancelled 各一种）；不是每个 WorkRun 一个。`needs-rework` 不意味 WorkItem 关闭，它只触发新 WorkRun。
+
+### Triage 升级触发（v1.1 second-pass 补丁，46 答）
+
+MVP 阶段不定数字阈值（样本太小，前 2 个月 15-30 个 demand 任何百分比都没统计意义）。改用**定性触发**：
+
+| 升级信号 | 含义 | 怎么发现 |
+|---|---|---|
+| CVO 连续 3 次 reversal 的 reason 含 "triage 漏了 X" | specifier 扩写质量不够 | 月度 review 扫 `decision_history.reversal_reason` |
+| CVO 主动说 "这个需求你们理解错了" | 意图翻译失败 | 铲屎官直接反馈 |
+| 同类需求反复 Clarify First → Build Now → Clarify First 震荡 | 需求分类维度不够 | 状态机回退路径频率监控 |
+
+**升级动作**：触发任一信号 → 加 Need Audit 的 Source tag 硬门禁（Q/O/D/R/A）+ groundedness 维度；按缺什么补什么，不上全套五维。
+
+### demand 表拆表触发（v1.1 second-pass 补丁，46 答）
+
+**拆表 = 启动 Intelligence View 时（V2）**。理由：MVP 阶段 demand 表量级 ≤ 200 行，JSONB `json_extract` 亚毫秒；Intelligence View 需要 decision-level 聚合查询，JSONB 在 SQLite 里能写但丑且慢。
+
+**二满足一即拆**：
+1. demand 表 > 1K 行 **且** 有 decision-level 聚合查询需求
+2. 启动 Intelligence View 开发
+
+**拆法**：从 `demand.decision_history` JSONB 抽出 `decision` 表（demand_id + decision_type + made_by + made_at + reversal_reason），一次性 migration backfill；JSONB 完整审计数据不丢信息。
+
+---
+
+## 3.6 角色先验 + 猫味签名（v1.2 新增，OQ 10 收敛）
+
+### 问题
+
+MVP 阶段没有历史数据，怎么决定 "这张卡推给猫还是人"？
+
+### 方案：角色先验 + 猫味签名 UI + 在线学习
+
+**砚砚机制 + 烁烁表达 = 工程理性 + 审美猫格** 的融合方案。
+
+#### 1. 角色先验（机制层）
+
+启动时内置低置信度 role prior（基于猫的"性格标签"——烁烁的 Cat Signatures 语言）：
+
+| 性格标签 | 推荐 lane（cold prior） | 触发关键词 |
+|---|---|---|
+| 审美/交互/视觉/创意 | 烁烁（暹罗猫） | UI / 设计 / 视觉 / wireframe |
+| 底层/逻辑/架构/协议 | 宪宪（布偶猫） | 后端 / MCP / 协议 / schema / 状态机 |
+| Review/测试/安全/一致性 | 砚砚（缅因猫） | review / 测试 / 安全 / lint |
+| 价值判断/品牌/愿景 | 人（Landy） | 愿景 / 品牌 / 战略 / 优先级 |
+
+#### 2. 猫味签名 UI（表达层）
+
+UI **不显示百分比**（45% / 65% / 85% 都是假装很懂）。改用烁烁的"猫格化"语言：
+
+```
+┌──────────────────────────────────────┐
+│ 任务卡：F320 Knowledge Feed 失败重试 │
+├──────────────────────────────────────┤
+│ 推荐 lane：🐾 宪宪                    │
+│ 这个任务散发着宪宪的味道              │
+│ （based on prior — 后端/协议关键词）  │
+│                                       │
+│ [接受推荐] [改派其他猫] [人来做]      │
+└──────────────────────────────────────┘
+```
+
+#### 3. Confidence 三档（砚砚机制）
+
+| Tier | 触发条件 | UI 表达 |
+|---|---|---|
+| `insufficient history` | 0 个历史 WorkRun | "这个任务还没人做过类似的" |
+| `based on prior` | <20 历史 WorkRun，仅 role tag 匹配 | "散发着 XX 的味道" |
+| `based on N outcomes` | ≥20 历史 WorkRun，有真实数据 | "XX 做过 N 次类似任务，成功率 P%" |
+
+#### 4. 在线学习
+
+每张卡的：
+- ✅ 接受推荐 → 强化 role prior 权重
+- 🔄 改派 → 降低当前 lane 权重，提升改派 lane 权重 + 记录改派原因
+- ❌ 撤销/失败 → 降低 lane 权重
+- ✨ 成功 → 强化 lane 权重 + 写入 capability evidence
+
+所有 routing decision 都写入 `routing_signal` 表（demand_id + suggested_lane + actual_lane + tier + confidence + actual_outcome）。
+
+#### 5. 核心铁律
+
+- **永不自动 dispatch**（MVP 阶段，避免 AI 失误失去信任）
+- **永远显示 confidence 来源**（不能把"角色先验"伪装成"历史证明"——砚砚原话）
+- **≥20 真实 WorkRun 后才升 warm recommendation**（不是 cold prior 直接当结论）
+
+### Intelligence View（V2）展开
+
+到了 V2 Intelligence View 阶段：
+- 烁烁的"星象雷达"上场，把 role prior + 累积 outcome data 渲染成能力六边形
+- 出现"这类任务给谁最合适"的真实归纳
+- 数据足够时考虑半自动 dispatch（人一键确认）
 
 ---
 
@@ -352,10 +484,20 @@ cat-cafe/
 - ❌ `mission-core` 不允许 import cat-cafe 业务逻辑
 - 用 `dependency-cruiser` 或 nx boundary 工具自动 enforce
 
-**长期阶段（MVP 稳定后）**：拆独立仓 `mission-orchestra`（仓名候选见 §10）
+**长期阶段（MVP 稳定后）**：拆独立仓 **`mission-loom`**（v1.2 多猫拍板）
 
 - 拆仓的触发条件：（a）外部用户试用启动，或（b）MVP 跑 2-3 个月稳定，或（c）有第二个 cat-cafe 实例要复用
 - 拆仓代价：将 mission-core/mission-app + 对 shared 的依赖搬出去 → 因为已经是独立 package + 边界 enforce，搬迁阻力小
+
+### 命名分层（v1.2，OQ 6 多猫拍板）
+
+| 层级 | 名称 | 谁投/为什么 |
+|---|---|---|
+| Kernel/Package/Repo | **`mission-loom`** | 砚砚选；多线交织隐喻准（lane/thread/trace），不撞 NousResearch Hermes Agent；工程命名 |
+| UI 视觉子品牌 | **`Prism`**（流光域） | 烁烁选；折射隐喻对应 dual-consumer 多 lens；视觉品牌 |
+| 4 个 lens 名称 | Gravity Pool / Alchemy Desk / Symbiotic Playground / Observatory | 烁烁起的，对应 Inbox / Decision Queue / Flow / Intelligence View |
+
+工程理性（loom）+ 审美猫格（Prism）双层不冲突——repo/code 用 loom 工程名；UI/海报/演讲用 Prism 视觉名。
 
 ### 跟 v1 "Day-1 新仓" 的差异
 
@@ -439,32 +581,45 @@ F049 Phase 4 的 crash-window recovery 就是解决这个的，**直接复用模
 - WorkItem 回退（review → running）→ 开新 WorkRun（§3.5）
 - Outcome 触发条件 → WorkItem 关闭时（§3.5）
 
-### 新增待铲屎官+多猫拍板（核心讨论项）
+### 多猫拍板（v1.2 收敛，OQ 6/7/10）
 
-6. **未来独立仓的命名**（拆仓时再用，MVP 阶段是 package 名）：
-   - `mission-orchestra` —— 强调编排（我偏好）
-   - `hermes-board` —— 致敬希腊神使 + 爱马仕双关，但跟 NousResearch Hermes Agent 重名风险
-   - `mission-loom` —— 织布机隐喻（多线交织）
-   - `intake-os` —— 强调 intake/操作系统定位
-   - `prism-hub` —— 烁烁起的"流光域"英文版
-7. **PM Agent 的 LLM 选型**：用哪只猫做 Triage 主笔？（建议默认 sonnet/4.6，重型 intent 用 opus）
+6. ~~**仓名候选**~~ → **v1.2 拍板**：`mission-loom`（kernel/repo） + `Prism`（UI 视觉子品牌）。详见 §7 命名分层。
+   - 投票分布：砚砚 → `mission-loom`、烁烁 → `Prism Hub`、47 初稿 → `mission-orchestra`
+   - 收敛：双层命名兼顾工程理性 + 审美猫格；`hermes-board` 全员淘汰（重名风险）
+
+7. ~~**PM Agent 的 LLM 选型**~~ → **v1.2 拍板**：三层 mix 路由（采纳砚砚方案）。详见 §6 MVP 配置。
+   - 默认：Sonnet specifier（扩写 Goal/Approach/AC/Out-of-scope）
+   - 升级 Opus 4.7：模糊/品味/低 confidence/历史 reversal（含烁烁的"灵气定调"诉求）
+   - 升级 Opus 4.6：Build Now Ready 后做 feasibility/工程账
+   - 缅因猫 family：review gate / 测试 / 安全守门
+   - **铁律**：永不绕过人最终拍板
+
+10. ~~**Capability Radar 冷启动**~~ → **v1.2 拍板**：角色先验 + 猫味签名 UI + 在线学习。详见 §3.6（新增）。
+    - 砚砚机制：role prior + 人确认 + confidence 三档 + ≥20 WorkRun 升 warm
+    - 烁烁表达：UI 用"散发着 XX 的味道"猫格语言，不显示百分比
+    - 铁律：永不自动 dispatch；永远显示 confidence 来源（不能把 prior 伪装成 outcome）
+
+### 待 Landy 战略拍板（OQ 8/9）
+
 8. **Cat Café BACKLOG.md 的迁移时机**：MVP 完成立刻迁移 vs 稳定运行 1 个月再迁？
-9. **第一个外部用户**：MVP 是否邀请 clowder-ai 社区用户试用？（决定多 repo 优先级）
-10. **Capability Radar 数据冷启动**：没有历史数据时怎么 routing？（默认 + 人工标注 + 在线学习？）
+   - 影响：MVP 阶段 cat-cafe 自己用什么管任务（双写 vs 单写）
+9. **第一个外部用户**：MVP 是否邀请 clowder-ai 社区用户试用？
+   - 影响：multi-repo 优先级 + 拆独立仓时机 + 文档/onboarding 投入
 
 ---
 
 ## 11. 下一步动作建议
 
-1. **v1.1 落档** ✅（本稿）
-2. **多猫收敛会议**：用 collaborative-thinking skill，目标收敛 Open Questions 6-10（约 1-2 小时）
-3. **立项 F0xx「Multi-Cat & Human Project Board」**：拆仓名定后，按 feat-lifecycle 开 spec
+1. **v1.2 落档** ✅（本稿）
+2. **@landy 战略拍板 OQ 8/9**（BACKLOG.md 迁移时机 + 外部用户试用）
+3. **立项 F0xx「Mission Loom — Multi-Cat & Human Project Board」**：按 feat-lifecycle 开 spec
 4. **MVP 分工**（待立项后，预算 7-8 周）：
    - kernel/state-machine：46 或 47（看额度）
    - GitHub connector：宪宪（我做过 webhook 集成）
    - Cat Lane integration（复用 F049）：砚砚或 46
-   - Dashboard UI 设计：烁烁
+   - Dashboard UI 设计（Prism 视觉系）：烁烁
    - Dashboard UI 实现：砚砚 + 46
+   - PM Agent 三层路由配置：47（架构层面）
 5. **风险预案**：每周回顾 MVP scope，scope 爆炸 → 立刻 push back
 
 ---
