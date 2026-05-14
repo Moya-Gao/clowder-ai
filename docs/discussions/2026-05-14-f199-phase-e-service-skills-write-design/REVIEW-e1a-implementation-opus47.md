@@ -14,7 +14,13 @@ parent_review: REVIEW-opus47.md (design)
 
 ## Verdict
 
-**APPROVE — open PR**. P0/P1 全中，威胁模型边界落到位，测试覆盖了关键安全 surface。5 个非阻塞 concerns 见下。
+**APPROVE conditional on C1/C2/C3 fixed in this PR**. P0/P1 全中、威胁模型落到位，但我第一稿把 5 条 concerns 全标"非阻塞 follow-up"是错的——CVO 2026-05-14 push back（"我们家不是不允许 follow up 吗？"），符合 [[feedback_no_followup_tails]] 铁律：能本 PR 修的不能留尾巴。
+
+**重新分类（v2）**：
+
+- **C1/C2/C3 本 PR 必修** — 用户可见性 + 类型一致性 + 测试覆盖缺口
+- **C4 砚砚自评估** — 复杂度 5 分钟就清、>10 分钟保留 + 注释意图
+- **C5 写进 E-1b explicit scope** — 不是 vague follow-up
 
 ## P0/P1 verification (vs design REVIEW-opus47.md)
 
@@ -77,39 +83,66 @@ parent_review: REVIEW-opus47.md (design)
 
 12 层 = 5 endpoints × auth/lock + 业务边界，不是堆复杂度代偿。砚砚已经从 15 砍到 12，剩下不能再砍否则会破 fail-closed。Self-check 触发是该有的"我看到了"，不是 fail signal。
 
-## 非阻塞 concerns（不挡 PR，记录到 close gate / 后续 slice）
+## 本 PR 必修（must-fix）
 
-**C1: 审计 pipeline 选择**
+### C1: 审计写出去但 API 读不到 —— 用户可见性 P0
 
-E-1a 用 `EventAuditLog` (`getEventAuditLog()` from `domains/cats/services/orchestration/EventAuditLog`)，跟 D-3a/D-4 用的 `appendCapabilityAudit` / `appendPushAudit` 不是同一管道。D-3a/D-4 的 audit 可通过 `/api/capabilities/audit` 暴露给用户；E-1a 的 service.lifecycle.write 当前没有对应读端 API。
+E-1a 走 `EventAuditLog.append({type:'service.lifecycle.write', data:{...}})`，event 落盘 `data/audit-logs/audit-YYYY-MM-DD.ndjson`。但 EventAuditLog 暴露给用户的 API 只有 `/api/audit/thread/:threadId`（`routes/audit.ts:24`），通过 `auditLog.readByThread(threadId)` 取——**thread-scoped**。
 
-E-1b UI parity 时如果用户希望看到 "谁在什么时候 install 了哪个服务"，需要加一个 `/api/services/audit` 端点或者把 service.lifecycle.write 接进 capability audit pipeline。
+Service lifecycle 写从 Settings UI 触发，**没有 thread context**。结果：audit 写到磁盘但用户/管理员通过 API **永远查不到**。等于 D-3a/D-4 用户能在 `/api/capabilities/audit` 看到 capability 写历史，但 E-1a 的"谁安装/卸载了哪个服务"只在 ndjson 里灰飞烟灭。
 
-**这是 E-1a 外延，不阻塞 merge**——E-1b 设计时决定即可。
+跟 F190 close 时 CVO push back 的"通知页变成纯诊断面板"是同一类用户可见性 gap。本 PR 必须二选一：
 
-**C2: stop 路由忽略 `manifest.scripts.stop`**
+- (a) 加 `/api/services/audit` endpoint（owner-gated、metadata-only、按 serviceId 或 action 过滤）
+- (b) 让 `auditLog.append` 把当前 web session 的 threadId（如果有）挂上，并在 readByThread 里展示 service.lifecycle.write 类型
 
-当前 stop route 只走 `port → partitionServicePids → SIGTERM owned`，没看 `manifest.scripts.stop`。开源 services.ts 是 try stop script first → port SIGTERM。
+(a) 更直接。砚砚自决。
 
-实际影响很小：当前 5 个 service manifest 都没定义 `scripts.stop`。但未来如果加需要 graceful cleanup 的服务（flush state / drain queue），需要补 stop-script 路径。建议在 E-1b 或后续 slice 加。
+### C2: stop 路由忽略 `manifest.scripts.stop` —— 类型/行为不一致
 
-**C3: 测试缺一格——owner 已配但 session user 不匹配**
+`ServiceManifest.scripts.stop?: string`（`service-manifest.ts:38`）类型上允许定义 stop script，但 `services-lifecycle-routes.ts:257-290` 的 stop 路由只走 `port → partition → SIGTERM owned`，**完全不读 `manifest.scripts.stop`**。
 
-`requireLifecycleOwner` 的 `!ownerId || userId !== ownerId` 中，`!ownerId` 分支有测试覆盖，但 `userId !== ownerId` 分支（owner=bob、session=alice → 403）没有专门 test。两个分支语义不一样：一个是"忘了配 owner"，一个是"非 owner 用户尝试操作"。
+两种修法二选一：
 
-建议补一行测试，5 行代码事。
+- (a) 从 type 删除 `stop?` 字段（让 type 反映实际行为，开源 services.ts 的 stop-script 路径不进 home）
+- (b) 实现 stop-script-first → 失败 fallback port SIGTERM（开源 parity）
 
-**C4: 双 timer**
+(a) 更省事，且符合 E-1a backend-only 边界；(b) 是 parity backfill。砚砚二选一在本 PR 处理，不能留模糊"未来加"。
 
-Foreground 路径 `runWithTimeout` 用 race + 同时 `runServiceScript` 内 `execFile({timeout: input.timeoutMs})` 也设了 timer。两个 timer 同时启动，逻辑上是 belt-and-suspenders。当前测试 `marks timed-out scripts even when they emitted output before termination` 显示内层 execFile timer 先赢（output 被 capture）。
+### C3: 测试缺 owner-set-but-mismatch 分支 —— 5 行可补
 
-不影响正确性，但代码层面有冗余。可以选其一：要么外层 race 只服务 detached path，要么删 execFile timeout 让外层 race 单源管 timeout。E-1a 可保持现状，后续重构清理。
+`requireLifecycleOwner` 的 `!ownerId || userId !== ownerId` 两分支语义不一样：
+- `!ownerId` → "管理员忘了配 owner"（当前测试 `fails closed when DEFAULT_OWNER_USER_ID is missing` 覆盖）
+- `userId !== ownerId` → "非 owner 用户尝试操作"（**没有 test**）
 
-**C5: `availableActions: []` 始终空**
+补一条：
+```js
+process.env.DEFAULT_OWNER_USER_ID = 'bob';
+// session is 'lysander' via SESSION_HEADERS
+assert.equal(res.statusCode, 403);
+```
 
-`buildClientServiceManifest` + `resolveServiceState` 不返回 scripts，`availableActions` 写死空数组。E-1b UI 需要知道某个 service 是否有 install/start/stop/uninstall 可用——要么让 client 从其它信号（service has prerequisites? configured?）猜，要么 backend 派生 `availableActions: ('install'|'start'|...)[]`。
+5 行事，本 PR 补。
 
-E-1b 设计时决定，不阻塞 E-1a。
+## 砚砚自评估（不强求本 PR，但要给定结论）
+
+### C4: 双 timer 冗余
+
+Foreground 路径 `runWithTimeout` race + `runServiceScript` 内 `execFile({timeout: input.timeoutMs})` 双 timer 同时启动。逻辑 belt-and-suspenders，测试显示内层 execFile timer 先赢。
+
+砚砚自评：
+- 5 分钟能清（去掉外层 race / 或外层只管 detached）→ 本 PR 清
+- 需要重构 runServiceScript signature（>10 分钟）→ 保留 + 加 1 行注释说明 belt-and-suspenders 意图，记 follow-up issue
+
+**禁止默认留 follow-up——必须二选一**。
+
+## E-1b explicit scope（不是模糊 follow-up）
+
+### C5: `availableActions: []` 占位
+
+E-1b spec OQ 必须显式列出："`buildClientServiceManifest` 派生 `availableActions: ('install'|'start'|'stop'|'uninstall')[]` 给 UI 决定按钮可见性"。
+
+不是 vague follow-up；是 E-1b spec 锁的 scope item。E-1a 这个 PR 不动它，但 E-1b kickoff design memo 必须包含。
 
 ## 风格观察（非问题）
 
@@ -119,9 +152,20 @@ E-1b 设计时决定，不阻塞 E-1a。
 
 ## Action
 
-1. **砚砚开 PR**：title 建议 `feat(F199): Phase E E-1a service lifecycle backend hardening`，PR description 列上 P0/P1 mapping、C1-C5 follow-up、`scripts/services/*` defer 的 user visibility note
-2. **PR 标 cloud review**：lifecycle 写面属 packages/api 安全 surface，按 merge-gate 走云端 review
-3. **F199 close gate 时**：把 C1 (audit pipeline)、C5 (availableActions) 落到 E-1b 设计 OQ；C2 (stop script)、C3 (test gap)、C4 (双 timer) 作为 follow-up tickets 列在 close gate report
+1. **砚砚本 PR 修 C1/C2/C3** + C4 二选一（清或加注释）+ E-1b spec 写明 C5
+2. **修完重新 review**：把 PR description 列 P0/P1 mapping + C1/C2/C3 修法 + C4 决策 + C5 E-1b scope link + `scripts/services/*` defer 的 user visibility note
+3. **PR 走 cloud review**：lifecycle 写面属 packages/api 安全 surface，按 merge-gate
+
+## Lesson（本次 review 自反思）
+
+Review v1 把 5 条 concerns 全标"非阻塞 follow-up"，CVO 当场 push back："你这 review 也太松了 我们家不是不允许 follow up 吗？"——踩中 [[feedback_no_followup_tails]]。
+
+教训：review 给 concerns 不能默认走 follow-up 出口。每条 concern 必须先问：
+1. **本 PR 5-10 分钟能修吗？** → 必修
+2. **是已知 scope 的下一 slice 显式工作吗？** → 写进下 slice spec（不是 vague follow-up）
+3. **真的需要重构 / 跨刀决策？** → 砚砚自评估 5 分钟 vs 重构，给定结论
+
+"留 follow-up" 是最 lazy 的 review 出口，跟 close gate 一样不允许。
 
 ## 如果我这份 review 错了，最可能错在哪
 
