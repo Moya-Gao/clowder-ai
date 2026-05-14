@@ -3,7 +3,7 @@ title: F199 D-1 ServiceStatusPanel Parity Proof
 date: 2026-05-13
 feature: F199
 slice: D-1
-status: review-ready
+status: merged
 author: codex
 ---
 
@@ -45,6 +45,15 @@ Screenshot method:
   - `pnpm biome check packages/web/src/components/settings/ServiceStatusPanel.tsx packages/web/src/components/settings/SettingsContent.tsx packages/web/src/components/__tests__/service-status-panel.test.ts --diagnostic-level=error`
   - `pnpm --filter @cat-cafe/web exec tsc --noEmit --project tsconfig.json`
   - `git diff --check`
+- Merge gate:
+  - `pnpm gate` passed on branch HEAD `c072760a8` after latest-main rebase.
+  - Local review: Opus 4.7 approved `665e0d724`, then extended approval to `2c08f877b` and `c072760a8`.
+  - Cloud review: PR #1662 returned "Didn't find any major issues."
+  - Merged to main via PR #1662: `0df783473`.
+
+## Close-Out
+
+AC-D1 is complete. D-1 intentionally keeps lifecycle controls out of scope: lifecycle write controls are deferred per F199 KD-3 as the process-validation slice, with CVO acceptance of the five-slice backfill plan on 2026-05-13. D-2 continues with `SkillsContent` read-mostly parity.
 
 ## Boundaries
 
