@@ -254,7 +254,7 @@ in_context_observability:
 - [ ] AC-B2: invocation 移除 `-p` + `--output-format stream-json`，使用 `--bg` flag
 - [ ] AC-B3: `JobEventConsumer` 替代 `ClaudeEventTransformer`：tail timeline.jsonl + transcript.jsonl + read state.json，桥接到现有 `AgentMessage` shape
 - [ ] AC-B4: Cat Café MCP server 在 `--bg` 模式下正常工作（`cat_cafe_*` 工具可调用，通过 `--mcp-config` 注入）
-- [ ] AC-B5: Cat Café worktree × Agent View worktree 冲突方案落定（`--no-worktree` 还是 双层 worktree 流程）
+- [ ] AC-B5: Cat Café worktree 隔离方案验证：默认 spawn `claude --bg <prompt>` **不带 `--worktree` flag**（state.json 实证默认 worktree=null）+ Node spawn `cwd=<feat-worktree-path>` → job 直接在 cat-cafe feat worktree 跑通且不污染 git status；opt-in 隔离 (`-w/--worktree <name>`) 作为后续能力另列
 - [ ] AC-B6: 实测新 carrier 产生的 transcript `entrypoint=cli`（非 sdk-cli），作为客户端层证据；服务端 billing 仍 pending dashboard / Anthropic dev support
 - [ ] AC-B7: `ClaudeAgentService(-p)` 保留为 fallback path（SDK credit 桶 + API key 降级）
 
@@ -323,17 +323,13 @@ in_context_observability:
 | ~~`--remote-control` 实际也走 SDK 桶~~ → **obsolete**：RC 不是主路径（KD-6 撤回） | (历史风险) |
 | **`--bg` daemon 的服务端 billing 桶不可证伪**（客户端 entrypoint=cli 是间接信号；6/15 dashboard 才能 confirm） | 默认 unsafe + Anthropic dev support 邮件 + Phase D 三档 fallback 兜底；spec 不允许把 working hypothesis 写成 confirmed |
 | **`--bg` 模式下 MCP 行为变化**（cat_cafe_* tools 在 daemon 模式下是否还能通过 `--mcp-config` 注入？）| Phase B prototype AC-B4 必须实测 |
-| **Cat Café worktree × Agent View 内置 worktree 冲突**（OQ-10）| Phase B 设计阶段决策 `--no-worktree` vs 双层 worktree |
+| **Cat Café feat worktree × `claude --bg` job cwd 行为**（OQ-10）| 默认不带 `--worktree`（CLI flag opt-in 已实证）+ Node spawn `cwd` 控制 job 工作目录；Phase B prototype 验证写文件 / hooks / git status 行为 |
 | **`--bg` prompt 长度 ARG_MAX 风险**（system prompt + thread context + RAG 拼起来可能超）| Phase B prototype 实测；超限则改用 stdin pipe 喂 prompt（待 OQ-11 决策）|
 | **`--bg` 模式 cancel/interrupt 语义不明**（thread 切换 / 用户取消需要 stop job）| Phase B 设计 `claude stop <short>` + SIGTERM 兜底 |
-| Interactive session 启动慢（5-15s）冷启动差 | F149 模式：warm process pool + thread lease + idle TTL；首次冷启动 UX 加 loading state |
-| tmux 解析脆弱（兜底路径） | 优先官方接口；tmux 仅作 last-resort fallback；只在 spike 阶段验证不投产 |
-| **Anthropic TOS 灰色**（自动化 interactive session 是否合规） | 优先官方接口（`claude --bg` Agent View v2.1.139+ 是 Anthropic 官方设计的程序化 carrier），不走"模拟键盘"路径；公开使用 with subscription 范围 |
-| Oversight 在 interactive 模式下信息密度不如 -p 的 NDJSON | Phase C 专门补；跨猫愿景守护是 AC-C6 硬门禁，不通过不放行 |
-| 6/15 来不及 | Phase A 5 天 hard deadline；不通则 Phase D 兜底（预算治理 + 三档 fallback）先上保命，主路径继续找 |
-| 进程池 zombie / 资源泄漏 | 借鉴 F149 已验证的 lease / recovery / eviction 语义 |
-| **AC-A2 billing 桶不可证伪**（5/17 前政策未生效，dashboard 可能区分不出 `-p` vs RC）| 默认 unsafe + Anthropic 官方书面确认 + Phase B 按"也进 SDK 桶"做 fallback 规划；spec 不允许"我赌它走订阅"的乐观主义（砚砚 P1） |
-| **跨 thread 上下文污染**（interactive Claude 有 session state，错误池化会灾难性串话） | 隔离优先：默认 per-thread process；池化 opt-in；RC 协议必须证明支持 session 隔离原语才启用（砚砚 P1） |
+| Interactive session 启动慢（5-15s）冷启动差 | Agent View 内置 `--bg-spare` warm pool（暖池预启动）；首次冷启动 UX 加 loading state |
+| **Anthropic TOS 灰色**（自动化 Claude Code 是否合规）| 优先官方接口（`claude --bg` Agent View v2.1.139+ 是 Anthropic 官方设计的程序化 carrier），不走"模拟键盘"路径；公开使用 with subscription 范围 |
+| Oversight 在 `--bg` 模式下信息密度不如 -p 的 NDJSON | Phase C 专门补（tail timeline.jsonl + transcript.jsonl + read state.json）；跨猫愿景守护是 AC-C6 硬门禁，不通过不放行 |
+| 6/15 来不及 | Phase B 实施有 hard deadline；不通则 Phase D 兜底（预算治理 + 三档 fallback）先上保命 |
 
 ## Open Questions
 
@@ -349,7 +345,7 @@ in_context_observability:
 | OQ-7 | Interactive session resume 语义？跨 invocation 复用 session 是否会污染 context？ | ⬜ Phase B spike |
 | OQ-8 | Hub 接管按钮的 UX：read-write 切回 read-only 后宪宪能否无缝继续？ | ⬜ Phase C 设计 + 与 F089 团队协调 |
 | OQ-9 | ~~`--remote-control` 协议是否支持多 session 隔离原语~~ → **obsoleted by KD-10**：主路径不走 RC 走 `--bg`，Agent View daemon 内置 per-job 隔离 | ✅ obsolete |
-| OQ-10 | Cat Café worktree × Agent View 内置 worktree 冲突方案：`--no-worktree`（避免双层）还是接受双层（daemon 在我们 worktree 内再开 sub-worktree）？| ⬜ Phase B 设计 — 影响 AC-B5 |
+| OQ-10 | `claude --bg` job 在 Cat Café feat worktree 跑时的实际行为：能正确写文件 / 触发 hooks / 不污染 git status 吗？（默认不带 `-w/--worktree`；用 Node spawn cwd 控制工作目录）| ⬜ Phase B prototype 实测 — 影响 AC-B5 |
 | OQ-11 | `--bg` 模式下 prompt 是 argv 还是 stdin？长 prompt（含 system prompt + thread context + RAG）会不会触发 ARG_MAX？ | ⬜ Phase B prototype 阶段实测 |
 | OQ-12 | `--bg` 模式 cancel / interrupt 语义：thread 切换 / 用户取消时怎么发 stop？`claude stop <short>` 是否同步？需不需要 SIGTERM 兜底？ | ⬜ Phase B 设计 |
 
