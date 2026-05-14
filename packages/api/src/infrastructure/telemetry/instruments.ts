@@ -273,3 +273,10 @@ export function registerLivenessProbe(invocationId: string, catId: string, getSt
 export function unregisterLivenessProbe(invocationId: string): void {
   activeProbes.delete(invocationId);
 }
+
+// Pre-touch counters that may never fire in normal operation so they
+// appear in Prometheus output (eval can distinguish 0 from absent).
+export function warmupCounters(): void {
+  l1StreakWarnCount.add(0);
+  l1StreakBreakCount.add(0);
+}
