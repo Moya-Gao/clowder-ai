@@ -472,7 +472,8 @@ Phase Z9 进 review 期间铲屎官 catch 一个相邻但独立子系统的问�
   - 诊断（2026-05-12 17:08 铲屎官）：`缅因猫 -> 布偶猫` handoff 后 UI 仍显示缅因猫 active；F5 hydrate 后变成布偶猫，说明后端最终真相正确，live slot migration 缺失
   - R1 Fix：`a2a_handoff` live event 增加 `targetCatId`（route-serial 两个 handoff yield site），active thread 收到 handoff 时复用 `maybeMigrateSequentialInvocationOwnership` 立即迁移 active slot
   - R2 Fix：guard 从 "slot 不存在就退出" 改成 "slot 已经是 nextCat 才退出"；当 previous-cat `done(isFinal=false)` 已清掉 slot 时，handoff 事件重建 nextCat placeholder slot，保证 cancel button 不消失
-  - RED tests：slot 存在迁移路径 + slot-cleared gap 重建路径；`pnpm gate` pass at `ac5ba1ce`
+  - R3 Fix（2026-05-13）：legacy / old-runtime `a2a_handoff` event 仍可能不带 `invocationId`，导致 live slot migration 无法定位当前 turn。route-serial 两个 handoff yield site 显式带 `invocationId: ownInvocationId`；frontend 对 legacy event 通过 from-cat active slot / session metadata / single active slot 兜底解析 handoff invocation，再迁移到 targetCat
+  - RED tests：slot 存在迁移路径 + slot-cleared gap 重建路径 + legacy handoff missing invocationId resolver；`pnpm gate` pass at `a2372e6e`
 
 - [x] AC-E1: 铲屎官 2026-05-07 报告的 "现在活跃的线程他们气泡都是裂的" 在 alpha 通道实测全部消失（并发 multi-cat handoff 也不裂） ✅ 铲屎官 2026-05-12 确认"用了一下午没发现啥问题"
 - [x] AC-E2: 后端 `/api/messages` 与 `/api/threads/:threadId/queue` 共用同一 canonical helper，单一规则源 ✅ 代码审计：`getThreadLiveInvocations` imported by `messages.ts:1466` + `queue.ts:143`
@@ -498,6 +499,7 @@ Phase Z9 进 review 期间铲屎官 catch 一个相邻但独立子系统的问�
 | R13 | "我发现还是裂开的，🤔 好像修这个你们总修不全怎么办呢？ 有没有好办法？" (2026-05-11 06:51) + "布偶猫1+布偶猫3 合并 / 缅因猫2+缅因猫4 合并" (07:12) | AC-Z24/Z25/Z26/Z27 | backend canonical bubble identity stamp + diagnostic probe + multi-turn replay regression | [x] (PR #1637 squash `49972d42`) |
 | R14 | "f5字后一切消失了 猫猫状态什么都是空闲... 没cancel按钮" (2026-05-11 07:15) | AC-Z28 | F5 hydrate 后 active state / cancel button 与后端 `/queue` 真相源一致 | [x] (PR #1640 squash `3e221535`) |
 | R15 | "缅因猫 -> 布偶猫 但是这里还显示缅因猫正在跑... f5之后正常变成布偶猫" (2026-05-12 17:08) | AC-Z29 | A2A handoff live slot ownership 在 handoff 事件到达时迁移，slot-cleared gap 仍保留 cancel affordance | [x] (PR #1647 squash `72d460638`) |
+| R16 | "sonnet 被 at 了...但是显示你在跑，sonnet 没在跑" (2026-05-13 18:40) | AC-Z29 | legacy / missing-invocation handoff event 仍能从 from-cat active slot 解析当前 turn 并迁移 active slot；新 handoff event 显式带 own invocationId | [x] (PR #1660 squash `bfde0c5c`) |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -602,6 +604,7 @@ Phase Z9 进 review 期间铲屎官 catch 一个相邻但独立子系统的问�
 | 2026-05-11 07:23~07:30 | **Phase Z9 实施完毕 (待 review)** — AC-Z24 诊断 probe (`buildProjectionDiagnostic`, 5/5 GREEN) + AC-Z25 backend always-stamp turnInvocationId 9 sites (route-serial 4 + route-parallel 3 + callbacks.ts 1 + messages.ts broadcast 1 + draft 1 + BoundSessionHistoryImporter 1) RED→GREEN 2/2 + 14/14 regression GREEN + AC-Z27 replay fixtures 4/4 GREEN (F1 multi-turn / F2 single-turn-multi-record / F3 legacy / F1+F3 mixed) + AC-Z26 deferred (frontend `getBubbleInvocationId` 已正确，telemetry follow-up) + AC-Z28 推迟 Phase Z10 (审计发现 `useChatHistory.ts:813` `fetchQueue` 已消费 `/queue`，铲屎官 R14 报告是 timing/race，需独立 runtime 诊断)。Branch `feat/f194-phase-z9` HEAD `9cb567468`。pending: 砚砚 local review + cloud Codex review。|
 | 2026-05-12 | **F194 正式 close** — 铲屎官 alpha 验收"用了一下午没发现啥问题"（2026-05-12 13:29 PST）。愿景守护对照表 by 宪宪/Opus-46（14/14 全 ✅）。反思胶囊 `docs/reflections/2026-05-12-f194-invocation-liveness-capsule.md`。Close gate 4/4 satisfied：单测+集成 / 愿景守护 / alpha 铲屎官确认 / 代码 review 砚砚全 PR APPROVE。Status: done。 |
 | 2026-05-12 18:05 | **Post-close handoff liveness hotfix merged (PR #1647, squash `72d460638`)** — 铲屎官 alpha catch R15：`缅因猫 -> 布偶猫` handoff 后 live active bar 仍显示缅因猫，F5 后 hydrate 变成布偶猫。根因：live `a2a_handoff` event 没有目标猫字段，且上一猫 `done(isFinal=false)` 已清 slot 时 handoff migration 早退，造成 handoff → `invocation_created` 间 cancel affordance 空窗。修复：backend `a2a_handoff` payload 增 `targetCatId`；frontend active handler 在 handoff pill 前迁移 active slot；slot-cleared gap 重建 nextCat placeholder slot。Opus-46 R1/R2 review APPROVE，`pnpm gate` pass at `ac5ba1ce`，fast path squash。 |
+| 2026-05-13 19:09 | **Post-close handoff liveness R2 hotfix merged (PR #1660, squash `bfde0c5c`)** — 铲屎官 alpha catch R16：Sonnet / target cat 已被 handoff，但 active bar 仍显示 source cat。根因：legacy `a2a_handoff` live event 可能缺 `invocationId`，上一版只知道 `targetCatId` 但无法定位当前 sequential turn。修复：route-serial handoff yield 显式带 `ownInvocationId`；frontend legacy resolver 从 from-cat active slot / session metadata / single active slot 恢复 invocationId 后迁移。Opus-46 R1/R2 review APPROVE，review continuity 延续到 `a2372e6e`，`pnpm gate` pass，fast path squash。 |
 
 ## Review Gate
 
