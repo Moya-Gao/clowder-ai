@@ -76,6 +76,7 @@ interface RecallEvent {
       | { kind: 'doc'; sourcePath: string }
       | { kind: 'thread'; threadId: string }
       | { kind: 'session'; sessionId: string }
+      | { kind: 'invocation'; sessionId: string; invocationId: string }
       | { kind: 'passage'; passageId: string; threadId?: string; sessionId?: string };
     docKind?: string;           // feature/decision/lesson/discussion/...
     resultSetId?: string;
@@ -158,7 +159,8 @@ recency_factor = T_kind / (T_kind + days_since_last_consumed)
 raw_lift       = (shrunk_ctr - mean_ctr_kind) × recency_factor
 
 // 三段式分支（47 R2 提案 + 砚砚 R1 "exposure ≥ 20 才允许 punish" 融合）
-if anchor.kind ∈ constitutional:            // ADR/lesson/canon
+if isConstitutional(anchor):                // 实现注意（砚砚 R3）：EvidenceKind 没有 ADR/canon 字面值，
+                                            // 用 authority + sourcePath + docKind 组合判定，不能按 kind 字面 match
     consumption_prior = max(0, raw_lift)    // 永远不降权
 elif exposure_count_30d < 5:                // cold-start
     consumption_prior = 0                   // 中性：不奖不罚
@@ -272,8 +274,8 @@ outputVerified = signal_or(
 ## Acceptance Criteria
 
 ### Phase A（Search Session Telemetry）
-- [ ] AC-A1: RecallEvent 被写入 ToolEventLog，包含 candidates（含 sourcePath/kind）+ consumed 字段
-- [ ] AC-A2: consumed 通过 compound window（same_invocation + tool_call_distance≤20 + 300s cap）+ path match 自动推断
+- [ ] AC-A1: RecallEvent 被写入 ToolEventLog，包含 candidates（含 targetRef union + docKind）+ consumed 字段
+- [ ] AC-A2: consumed 通过 compound window（same_invocation + tool_call_distance≤20 + 300s cap）+ target_match 自动推断
 - [ ] AC-A3: reformulated / fellBackToGrep / abandoned / nextGraphResolveAfterRead 四个布尔正确标记
 - [ ] AC-A4: Health Dashboard 展示最近 24h 的 RecallEvent 统计摘要
 - [ ] AC-A5: dwellProxy（Read 后到下一个 tool call 的间隔 ms）被记录
@@ -305,7 +307,7 @@ outputVerified = signal_or(
 |----|------|
 | **Primary Users** | 三猫（search_evidence / graph_resolve / list_recent 使用者） |
 | **Activation Signal** | RecallEvent 写入量 > 0 / consumed 命中 > 0 |
-| **Friction Metric** | ConsumedMRR < 0.3（排序太差）/ SearchAbandonRate > 50%（候选全不对）/ Reformulation Rate > 60%（一次搜不到） |
+| **Friction Metric** | ConsumedMRR < shadow_baseline × 0.8（排序劣化）/ SearchAbandonRate > 50%（候选全不对）/ Reformulation Rate > 60%（一次搜不到）。初始 baseline 由 Phase B shadow 1 周后确定 |
 | **Regression Fixture** | (1) high-consumption anchor must not be demoted unless authority/stale guard justifies it (2) authority=constitutional 的 anchor 不可因低 consumption 被压制 |
 | **Sunset Signal** | 6 周后 ConsumedMRR 无提升 → 回滚 Phase C 排序改动 |
 
