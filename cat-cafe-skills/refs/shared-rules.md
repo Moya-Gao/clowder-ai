@@ -344,6 +344,11 @@ commit body 补一行 `Why:` 说明决策理由。
 4. 请求 review 附原始需求摘录（≤5 行）
 5. 拿捏不准上升铲屎官
 6. **涉及 UX/前端的验证必须打开浏览器实际操作**——不管是 author 自检、reviewer 审查还是愿景守护，看代码不等于看效果
+7. **"红区零触碰" ≠ "愿景达成"（F190 Phase C post-close 教训 2026-05-13）**：守护猫验"source intent 保留"时必须包含 **functional parity check**，不能把"F1xx 红区零触碰"等同于"愿景达成"——"没改坏现有的" ≠ "把开源该带回来的都带回来了"。
+   - **inbound intake 类 feature 守护**必须 side-by-side 对比开源 vs 本地 UI/功能（不只是看红区文件 grep 0 命中）
+   - **deliberate defer** 必须验是否已 CVO signoff（且 disclosure 用用户可见性语言）
+   - 守护链路：① 审 User Visibility Disclosure ② side-by-side 截图对比 ③ 红区零触碰 grep ④ 愿景三问
+   - 事故：F190 Opus-46 守护 PASS 但漏判 settings/ 7 个 components 视觉/功能 parity gap，依赖红区零触碰 + AC ✅ 就放行 close。详见 `docs/reflections/2026-05-13-f190-console-settings-intake-capsule.md`
 
 ## 10. @ 路由与球权
 

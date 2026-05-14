@@ -138,6 +138,18 @@ description: >
 20. **Intake Guard = 硬约束 + 软约束**：硬约束负责机器阻塞：`Path Guard`（最终 merge diff 只能落在 Intent Issue 文件表 + exception list）、`Overlap Guard`（同文件社区改动 + 家里主线演化 = 禁止 safe-cherry-pick，强制 manual-port）、`High-risk File Guard`（入口接线、route 注册、DI、env、allowlist、auth/callback、sync 脚本等必须给 proof；`--mode=plan` 会自动标红）。软约束负责猫的元认知：intake 不是覆盖文件，而是把 source intent replay 到当前 cat-cafe main，同时保住 home invariants。详见 [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md) Step 1.1。
 21. **三真相不是三份文件表，而是两类行为 + 一个结果**：每个 manual-port 必须写清 `Source Behavior`（社区想带回什么）、`Must Preserve Home Behavior`（家里已有功能/bugfix/安全边界不能丢）、`Proof`（测试、zero-diff 对照、review 证据）。最终判定是 `Result ⊇ Source Intent` 且 `Result ⊇ Home Invariants`。如果猫说不清 home invariant，先停下来查 main 历史 / feature spec / 现有测试，不能继续吸收。
 
+22. **🖼️ Inbound Visual + Functional Parity Gate（F190 Phase C post-close 教训 2026-05-13）**：inbound intake review/愿景守护链路必须做 **开源 vs 本地 visual + functional parity diff**。
+    - **request-review 前 author 产出**：① 开源 vs 本地 components diff（`ls` 级别全列）② visual side-by-side screenshots（每个用户可见 surface / settings section 各一对）
+    - **deliberate defer 必须 CVO signoff**，且 **必须以"用户可见性"语言**披露——不是技术语言：
+      - ❌ "secret write-back deferred" → ✅ "通知页用户无法在 UI 配置 VAPID 公私钥（需手动改 .env + 重启）"
+      - ❌ "Service Manifest lifecycle deferred" → ✅ "插件页无启动/停止按钮，用户只能看状态"
+    - **read-mostly 缺失默认按"漏"处理**，必须举证为"deliberate"才能 defer
+    - **守护猫拷问句式**：看到 deferred 字样必问"这个 deferred 用户能感知到吗？CVO 在哪签的字？"
+    - **事故事实模型（两个独立维度，不是同一个分母）**：
+      - **维度 A（组件级）**：`settings/` 开源 20 components vs 本地 13，缺 **7 个组件级 surface gap**。7 个中 4 个属于 F190 KD-5 high-risk deferred (secret write-back) 或 capability write 链路；剩余 read-mostly/配套项进入 F199 backfill 分类。
+      - **维度 B（路径级）**：另有 **2 个 SVG icon path 漏挂** in `hub-icons.tsx`（`box`/`puzzle`），跟 settings/ 组件 diff **不是同一组成**——已由 PR #1659 (`d928fb696`) 修复。
+    - CVO close-gate 只看到 "Phase C 4/4 ✅"，把维度 A 里的 deliberate defer 伪装成了"完成"。详见 `docs/reflections/2026-05-13-f190-console-settings-intake-capsule.md` 和 `docs/discussions/2026-05-13-f190-phase-d-parity-audit/README.md`。
+
 ## 和其他 skill 的区别
 
 | 容易混淆 | 用哪个 |

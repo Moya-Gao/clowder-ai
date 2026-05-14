@@ -245,6 +245,25 @@ AC 全打勾 ≠ 完成（F041 教训：12 项 AC ✅ 但 UI 不可用）。先�
 
 守护猫负责：愿景三问 + 不满足则踢回修改 + 满足则放行 close。
 
+**🔴 Step 0.3.5: User Visibility Disclosure（F190 Phase C post-close 教训 2026-05-13）— 守护猫审查前置输入**
+
+愿景三问之前，作者必须产出 **User Visibility Disclosure** 表，把"技术决策"翻译成"用户可见性"语言：
+
+| Surface | 用户能做什么（达成态） | 用户实际能做什么（本 feat close 时） | 缺失/退化 | 处置 |
+|---------|--------------------|--------------------------|----------|------|
+| 例: 通知页 | 配 VAPID 公私钥 + 一键生成 + 联系信箱 | 看诊断矩阵 + 修复建议（read-only） | 完全丢失写能力 | deferred to Phase D / CVO signoff: thread `...` |
+
+- ❌ "Service Manifest deferred" → ✅ "通知页用户看到诊断矩阵，无法在 UI 配置 VAPID"
+- ❌ "Phase C 4/4 ✅" → ✅ "通知页/插件页/MCP 写/Skill 管理 4 个 surface 有用户可感缺失，详见 disclosure 表"
+
+**Inbound intake 类 feature 必须额外含**：开源 vs 本地 visual side-by-side screenshots（每个 settings section / 主要 surface 各一对），不能只看"组件 wire 了没"。
+
+**Deliberate defer 必须 CVO signoff**——CVO 在 thread 里显式确认"接受这个 deferred surface 不在本 feat 内交付"才能 close；否则按"漏"处置，必须实做或开 follow-up F 号继续。
+
+守护猫先审 Disclosure 才能做愿景三问。看到 deferred 字样直接拷问："这个 deferred 用户能感知到吗？CVO signoff 在哪？"
+
+事故来源：F190 close 时 settings/ 缺 7 个开源 components，CVO 完全不知道"通知页变成诊断矩阵"——技术决策语言"deferred"没有映射到用户可见性。详见 `docs/reflections/2026-05-13-f190-console-settings-intake-capsule.md`。
+
 **🔴 守护猫提的 P1 = blocker，作者不能 self-resolve（2026-04-26 教训）**
 
 历史踩坑：F173 close 时把没完成的 AC-B2 (handler unification) 抽出去开 F177 stub spec 当作"follow-up anchor"应付守护猫的 P1，本质是把"没完成"藏进新文件后宣布闭环（debt = never，TD = never，stub = never，都是话术包装）。
