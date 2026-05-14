@@ -44,6 +44,7 @@ import {
   guideContextForCat,
   prepareGuideContext,
 } from '../../../../guides/GuideRoutingInterceptor.js';
+import { triggerRecallCorrelation } from '../../../../memory/recall-correlation-hook.js';
 import { assembleContext } from '../../context/ContextAssembler.js';
 import {
   buildInvocationContext,
@@ -334,6 +335,8 @@ export async function* routeSerial(
     log,
     dismissTracker: deps.invocationDeps.dismissTracker,
   });
+
+  const completedCatInvocationIds: Array<[string, string]> = [];
 
   try {
     while (index < worklist.length) {
@@ -2042,6 +2045,7 @@ export async function* routeSerial(
         yield { ...ownStampedDone, ...(mentionsUser ? { mentionsUser } : {}), isFinal };
         activeTrackedA2ASlots.delete(catId);
         if (isFinal) yieldedFinalDone = true;
+        if (ownInvocationId) completedCatInvocationIds.push([catId, ownInvocationId]);
       }
 
       // F27: Advance executedIndex so pushToWorklist knows which cats are done
@@ -2062,6 +2066,22 @@ export async function* routeSerial(
 
     if (options.invocationController && options.completeA2ASlots && activeTrackedA2ASlots.size > 0) {
       options.completeA2ASlots(threadId, [...activeTrackedA2ASlots], options.invocationController);
+    }
+
+    // F200 AC-A1: fire-and-forget recall correlation after all cats complete
+    if (deps.toolEventLog && deps.evidenceStore && completedCatInvocationIds.length > 0) {
+      const evidenceDb = (deps.evidenceStore as { getDb?: () => import('better-sqlite3').Database }).getDb?.();
+      if (evidenceDb) {
+        deps.toolEventLog
+          .readByThread(threadId)
+          .then((events) => {
+            const raw = events as unknown as Parameters<typeof triggerRecallCorrelation>[1];
+            for (const [catId, invId] of completedCatInvocationIds) {
+              triggerRecallCorrelation(evidenceDb, raw, invId, catId).catch(() => {});
+            }
+          })
+          .catch(() => {});
+      }
     }
 
     // F27: Always unregister worklist, even on error/abort.

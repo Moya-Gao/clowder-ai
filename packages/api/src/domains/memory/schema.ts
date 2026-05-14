@@ -66,7 +66,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 18;
+export const CURRENT_SCHEMA_VERSION = 19;
 
 // F163 Phase A: experiment infrastructure tables (cohorts, suggestions, logs)
 export const SCHEMA_V13_TABLES = `
@@ -520,6 +520,47 @@ export function applyMigrations(db: Database.Database): void {
       db.exec('ALTER TABLE edges ADD COLUMN created_at TEXT');
     } catch {}
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(18, new Date().toISOString());
+  }
+
+  // V19: F200 Phase A — recall_events table + edge traversal columns
+  if (currentVersion < 19) {
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS recall_events (
+          recall_id TEXT PRIMARY KEY,
+          cat_id TEXT NOT NULL,
+          invocation_id TEXT NOT NULL,
+          tool_name TEXT NOT NULL,
+          query TEXT NOT NULL,
+          mode TEXT,
+          scope TEXT,
+          candidates_json TEXT NOT NULL,
+          consumed_json TEXT NOT NULL,
+          reformulated INTEGER NOT NULL DEFAULT 0,
+          fell_back_to_grep INTEGER NOT NULL DEFAULT 0,
+          abandoned INTEGER NOT NULL DEFAULT 0,
+          next_graph_resolve_after_read INTEGER NOT NULL DEFAULT 0,
+          token_cost INTEGER NOT NULL DEFAULT 0,
+          timestamp INTEGER NOT NULL
+        )
+      `);
+    } catch {}
+    try {
+      db.exec('CREATE INDEX IF NOT EXISTS idx_recall_events_cat ON recall_events(cat_id)');
+    } catch {}
+    try {
+      db.exec('CREATE INDEX IF NOT EXISTS idx_recall_events_ts ON recall_events(timestamp)');
+    } catch {}
+    try {
+      db.exec('CREATE INDEX IF NOT EXISTS idx_recall_events_inv ON recall_events(invocation_id)');
+    } catch {}
+    try {
+      db.exec('ALTER TABLE edges ADD COLUMN traversal_count INTEGER DEFAULT 0');
+    } catch {}
+    try {
+      db.exec('ALTER TABLE edges ADD COLUMN last_traversed_at TEXT');
+    } catch {}
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(19, new Date().toISOString());
   }
 }
 

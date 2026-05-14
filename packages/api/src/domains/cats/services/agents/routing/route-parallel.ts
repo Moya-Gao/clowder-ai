@@ -19,6 +19,7 @@ import {
   guideContextForCat,
   prepareGuideContext,
 } from '../../../../guides/GuideRoutingInterceptor.js';
+import { triggerRecallCorrelation } from '../../../../memory/recall-correlation-hook.js';
 import { assembleContext } from '../../context/ContextAssembler.js';
 import {
   buildInvocationContext,
@@ -438,6 +439,7 @@ export async function* routeParallel(
   const catHadProviderError = new Set<string>();
   // F22 R2 P1-1: Capture own invocationId per cat from stream
   const catInvocationId = new Map<string, string>();
+  const completedCatInvocationIds: Array<[string, string]> = [];
   const catPayloadStrippers = new Map<string, ReturnType<typeof createLeakedToolCallStreamStripper>>();
   let completedCount = 0;
   let yieldedFinalDone = false;
@@ -806,6 +808,7 @@ export async function* routeParallel(
       // F22: Consume MCP-buffered rich blocks BEFORE text/empty branch —
       // blocks must be persisted even when the cat emits no text (cloud Codex P1).
       const ownInvId = catInvocationId.get(msg.catId);
+      if (ownInvId) completedCatInvocationIds.push([msg.catId, ownInvId]);
       // Issue #83 P2 fix: Remove completed cat from keepalive set.
       // Without this, the shared keepalive timer would touch() a deleted draft,
       // recreating an orphan Redis hash key via HSET.
@@ -1259,6 +1262,22 @@ export async function* routeParallel(
     options.routeSpan.setAttribute(ROUTE_TOTAL_TOKENS, routeTotalTokens);
     // Parallel routes never produce A2A handoffs (MVP safety boundary)
     options.routeSpan.setAttribute(ROUTE_HAS_A2A_HANDOFF, false);
+  }
+
+  // F200 AC-A1: fire-and-forget recall correlation after all cats complete
+  if (deps.toolEventLog && deps.evidenceStore && completedCatInvocationIds.length > 0) {
+    const evidenceDb = (deps.evidenceStore as { getDb?: () => import('better-sqlite3').Database }).getDb?.();
+    if (evidenceDb) {
+      deps.toolEventLog
+        .readByThread(threadId)
+        .then((events) => {
+          const raw = events as unknown as Parameters<typeof triggerRecallCorrelation>[1];
+          for (const [catId, invId] of completedCatInvocationIds) {
+            triggerRecallCorrelation(evidenceDb, raw, invId, catId).catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
   }
 
   // done-guarantee safety net: synthesize final done if loop exited without one

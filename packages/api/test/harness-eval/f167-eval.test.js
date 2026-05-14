@@ -209,7 +209,11 @@ describe('F167 Runtime Eval Snapshot', () => {
       traceStats: { spanCount: 0, maxSpans: 10000, maxAgeMs: 86400000, oldestStoredAt: null, newestStoredAt: null },
     });
     for (const comp of snapshot.components) {
-      assert.deepStrictEqual(comp.telemetryGaps, [], `${comp.componentId} should have no gaps with zero-value counters`);
+      assert.deepStrictEqual(
+        comp.telemetryGaps,
+        [],
+        `${comp.componentId} should have no gaps with zero-value counters`,
+      );
     }
   });
 

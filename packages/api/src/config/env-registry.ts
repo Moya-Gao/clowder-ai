@@ -1307,6 +1307,15 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'evidence',
     sensitive: false,
   },
+  // --- F200 Recall Telemetry ---
+  {
+    name: 'F200_CONSUMPTION_RERANK',
+    defaultValue: 'off',
+    description: 'F200 consumption-weighted rerank (off/shadow/on)',
+    category: 'evidence',
+    sensitive: false,
+    runtimeEditable: true,
+  },
   // --- F163 记忆熵减实验框架 ---
   {
     name: 'F163_AUTHORITY_BOOST',

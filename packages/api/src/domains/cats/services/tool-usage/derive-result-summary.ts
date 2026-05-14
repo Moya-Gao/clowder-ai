@@ -54,20 +54,39 @@ function deriveSearchEvidence(text: string): ResultSummary {
   const found = /Found\s+(\d+)\s+result/i.exec(text);
   const empty = /No results found/i.test(text);
   if (empty) {
-    summary['resultCount'] = 0;
-    summary['topScore'] = null;
+    summary.resultCount = 0;
+    summary.topScore = null;
   } else if (found?.[1]) {
-    summary['resultCount'] = Number.parseInt(found[1], 10);
+    summary.resultCount = Number.parseInt(found[1], 10);
   }
   // Phase F nudge marker (composeMemoryNavigationNudge): "🧭 Memory navigation"
   if (text.includes('🧭 Memory navigation')) {
-    summary['nudgeEmitted'] = true;
-  } else if (summary['resultCount'] != null) {
-    summary['nudgeEmitted'] = false;
+    summary.nudgeEmitted = true;
+  } else if (summary.resultCount != null) {
+    summary.nudgeEmitted = false;
   }
   // Top confidence — "[high]" / "[mid]" / "[low]" in first result block
   const firstHit = /\[(high|mid|low)\]/.exec(text);
-  if (firstHit?.[1]) summary['topConfidence'] = firstHit[1];
+  if (firstHit?.[1]) summary.topConfidence = firstHit[1];
+
+  // F200: extract per-result candidates (anchor + docKind)
+  const f200Cands: Array<{ anchor: string; rank: number; docKind?: string }> = [];
+  const anchorLineRe = /^\s+anchor:\s+(\S+)/gm;
+  const typeLineRe = /^\s+type:\s+(\S+)/gm;
+  let am: RegExpExecArray | null;
+  am = anchorLineRe.exec(text);
+  while (am !== null) {
+    const anchor = am[1]!;
+    const tm = typeLineRe.exec(text);
+    f200Cands.push({ anchor, rank: f200Cands.length, docKind: tm?.[1] });
+    am = anchorLineRe.exec(text);
+  }
+  if (f200Cands.length > 0) summary._f200Candidates = f200Cands;
+
+  if (/\[redacted\s+—\s+\w+\s+collection\]/i.test(text)) {
+    summary._f200HasPrivateHits = true;
+  }
+
   return summary;
 }
 
@@ -76,7 +95,7 @@ function deriveGraphResolve(text: string): ResultSummary {
   // Candidate list mode: "Candidates for ... (N matches ..."
   const candidates = /Candidates\s+for\s+.+?\((\d+)\s+match/i.exec(text);
   if (candidates?.[1]) {
-    summary['candidateCount'] = Number.parseInt(candidates[1], 10);
+    summary.candidateCount = Number.parseInt(candidates[1], 10);
     // Parse ranked anchors: [0] F167 / [1] world:lexander:dragon / [2] docs/decisions/019
     // 砚砚 cloud P2: broaden from `[A-Za-z][\w.-]+` to include `:` and `/` so
     // multi-segment anchors aren't truncated (FM-2 selection linking depends on
@@ -89,22 +108,57 @@ function deriveGraphResolve(text: string): ResultSummary {
       if (m[1]) ranked.push(m[1]);
       m = anchorRe.exec(text);
     }
-    if (ranked.length > 0) summary['rankedCandidateAnchors'] = ranked;
+    if (ranked.length > 0) summary.rankedCandidateAnchors = ranked;
+
+    // F200: extract candidates with docKind from candidate list
+    const f200Cands: Array<{ anchor: string; rank: number; docKind?: string }> = [];
+    const candDetailRe = /\[(\d+)\]\s+([\w.:/-]+)\s+—\s+.+\n\s+kind=(\S+)/g;
+    let cm: RegExpExecArray | null;
+    cm = candDetailRe.exec(text);
+    while (cm !== null) {
+      f200Cands.push({ anchor: cm[2]!, rank: Number.parseInt(cm[1]!, 10), docKind: cm[3] });
+      cm = candDetailRe.exec(text);
+    }
+    if (f200Cands.length > 0) summary._f200Candidates = f200Cands;
   }
   // Graph subgraph mode: "Graph for \"X\":  N nodes, M edges (depth=D)"
   const graph = /Graph\s+for\s+"([^"]+)":\s+(\d+)\s+nodes,\s+(\d+)\s+edges/i.exec(text);
   if (graph) {
-    summary['centerAnchor'] = graph[1];
-    summary['nodeCount'] = Number.parseInt(graph[2]!, 10);
-    summary['edgeCount'] = Number.parseInt(graph[3]!, 10);
-    // Direct graph → no candidate selection
-    summary['candidateCount'] = 1;
-    summary['selectedCandidateIndex'] = 0;
-    summary['selectedAnchor'] = graph[1];
+    summary.centerAnchor = graph[1];
+    summary.nodeCount = Number.parseInt(graph[2]!, 10);
+    summary.edgeCount = Number.parseInt(graph[3]!, 10);
+    summary.candidateCount = 1;
+    summary.selectedCandidateIndex = 0;
+    summary.selectedAnchor = graph[1];
+    // F200: center anchor + neighbor anchors from edges as candidates
+    const center = graph[1]!;
+    const f200Cands: Array<{ anchor: string; rank: number; docKind?: string }> = [{ anchor: center, rank: 0 }];
+    // F200: extract traversed edges for Phase C edge weights
+    const f200Edges: Array<{ from: string; to: string; relation: string }> = [];
+    const edgeRe = /([\w.:/-]+)\s+-\[(\w+)\]->\s+([\w.:/-]+)/g;
+    let em: RegExpExecArray | null;
+    em = edgeRe.exec(text);
+    while (em !== null) {
+      f200Edges.push({ from: em[1]!, to: em[3]!, relation: em[2]! });
+      em = edgeRe.exec(text);
+    }
+    if (f200Edges.length > 0) {
+      summary._f200Edges = f200Edges;
+      const seen = new Set([center]);
+      for (const edge of f200Edges) {
+        for (const anchor of [edge.from, edge.to]) {
+          if (!seen.has(anchor)) {
+            seen.add(anchor);
+            f200Cands.push({ anchor, rank: f200Cands.length });
+          }
+        }
+      }
+    }
+    summary._f200Candidates = f200Cands;
   }
   // No-match
   if (/No graph node found/i.test(text)) {
-    summary['candidateCount'] = 0;
+    summary.candidateCount = 0;
   }
   return summary;
 }
@@ -113,7 +167,19 @@ function deriveListRecent(text: string): ResultSummary {
   const summary: ResultSummary = {};
   // "Recent items (last 7d): N found"
   const m = /Recent\s+items\s+\(last\s+(\S+)\):\s+(\d+)\s+found/i.exec(text);
-  if (m?.[1]) summary['since'] = m[1];
-  if (m?.[2]) summary['resultCount'] = Number.parseInt(m[2], 10);
+  if (m?.[1]) summary.since = m[1];
+  if (m?.[2]) summary.resultCount = Number.parseInt(m[2], 10);
+
+  // F200: extract candidates from recent items
+  const f200Cands: Array<{ anchor: string; rank: number; docKind?: string }> = [];
+  const itemRe = /\|\s+([\w.:/-]+)\s+—\s+.+?\((\w+)\)/g;
+  let rm: RegExpExecArray | null;
+  rm = itemRe.exec(text);
+  while (rm !== null) {
+    f200Cands.push({ anchor: rm[1]!, rank: f200Cands.length, docKind: rm[2] });
+    rm = itemRe.exec(text);
+  }
+  if (f200Cands.length > 0) summary._f200Candidates = f200Cands;
+
   return summary;
 }

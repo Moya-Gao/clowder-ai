@@ -13,6 +13,7 @@ import { GraphResolver } from '../domains/memory/GraphResolver.js';
 import type { IEvidenceStore } from '../domains/memory/interfaces.js';
 import type { LibraryCatalog } from '../domains/memory/LibraryCatalog.js';
 import { RecentBrowseResolver } from '../domains/memory/RecentBrowseResolver.js';
+import { getRecallStats24h } from '../domains/memory/recall-stats.js';
 import { SqliteEvidenceStore } from '../domains/memory/SqliteEvidenceStore.js';
 import { resolveCollectionScanner } from '../domains/memory/scanner-resolver.js';
 import { computeFromThreads } from '../domains/memory/ToolUsageMetricsAggregator.js';
@@ -316,7 +317,21 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
     const eventLog = new ToolEventLog(opts.redis as ConstructorParameters<typeof ToolEventLog>[0]);
     const threadIds = await eventLog.listThreadIds();
     const threads = threadIds.map((threadId) => ({ threadId }));
-    return computeFromThreads(eventLog, threads);
+    const metrics = await computeFromThreads(eventLog, threads);
+
+    // F200 AC-A4: attach recall event stats from evidence.sqlite
+    let recallEventStats: ReturnType<typeof getRecallStats24h> | undefined;
+    for (const store of opts.stores.values()) {
+      const db = (store as StoreWithDb).getDb?.();
+      if (db) {
+        try {
+          recallEventStats = getRecallStats24h(db);
+        } catch {}
+        break;
+      }
+    }
+
+    return { ...metrics, recallEventStats };
   });
 
   // F188 Phase F AC-F2: time-based browse for cold-start / scan-recent use case
