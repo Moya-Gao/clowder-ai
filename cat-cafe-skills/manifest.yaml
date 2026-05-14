@@ -399,6 +399,34 @@ skills:
     sop_step: null
     merged_from: null
 
+  # ── 绝境反转 ──
+  vision-rescue:
+    description: >
+      绝境反转方法论：当任务似乎没有希望、反复摆动、准备放弃愿景时的五步突破框架。
+      Use when: 任务看起来无解、多次尝试失败后想放弃、输出投降修辞（"现状最优"/"没救了"/"接受现实"）、连续 3+ 轮在希望与绝望间摆动。
+      Not for: 正常 debugging（用 debugging）、常规探索/调研（用 deep-research）、CVO 已签字降级的目标、trivial 任务。
+      Output: Desperation Packet（六问证据评估）+ 新方向行动计划 / CVO 升级请求。
+    triggers:
+      - "没希望"
+      - "没救了"
+      - "无解"
+      - "死胡同"
+      - "不可能"
+      - "接受现实"
+      - "放弃"
+      - "走投无路"
+      - "都试过了"
+      - "vision rescue"
+    not_for:
+      - "正常 debugging"
+      - "常规调研"
+      - "CVO 已签字降级"
+      - "trivial 任务"
+    output: "Desperation Packet / 新方向行动计划 / CVO 升级请求"
+    next: ["deep-research", "collaborative-thinking", "self-evolution"]
+    sop_step: null
+    merged_from: null
+
   # ── 跨猫交接 ──
   cross-cat-handoff:
     description: >
