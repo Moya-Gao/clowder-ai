@@ -227,6 +227,76 @@ E-1b spec OQ 必须显式列出："`buildClientServiceManifest` 派生 `availabl
 - 修完 32e75998b → v4 HEAD，重新 @ Opus-47 验
 - 第二轮 cloud bot 还可能再抓——但每轮真问题都要在本 PR 收完，CVO 的铁律没变
 
+## v5 — v4 close ✅，第三轮 cloud 再抓 P1+P2（HEAD `cf24b7f3` 仍 valid）
+
+### v4 close 确认 ✅
+
+- **v4-P1 lsof fail-open** → `findPidsByPort` 区分 "lsof exit-1 + 空输出 (no matches)" vs "真 error" → 真 error reject。新 helper `services-lifecycle-port.ts::createServicePortPartitioner` 抓 throw → 返回 `{ok:false, reason:'port-probe-unavailable'}`。start/stop 看 `!portProbe.ok` → **503 + audit `rejected` + `reason: 'port-probe-unavailable'`**。✅
+- **v4-P2 runner exception unhandled** → `runWithTimeout` 内部捕获 runner reject → 返 `{runnerError: true, ...}`。`runForeground` / start route 检查 `result.runnerError` → **install/uninstall 返 422 + audit `failed` + `reason: 'runner-error'`，start 返 502**，error message metadata-only（"install runner failed" 不 leak raw exception）。新 test file `services-lifecycle-failure-route.test.js` 锁住两条。✅
+
+### v5 新 must-fix（第三轮 cloud review on `32e75998b`，v4 HEAD `cf24b7f3` 仍 valid）
+
+#### v5-P1 (orange): `isServiceProcessCommand` 接受 relative script tokens — 跨 worktree 误判 owned
+
+`service-lifecycle.ts:84` `isScriptToken`:
+```ts
+return token === normalizedScript || token === `./${normalizedScript}` || token === resolvedScript;
+```
+
+`normalizedScript = 'scripts/services/whisper-server.sh'`（relative）。**cat-cafe vs cat-cafe-runtime / cat-cafe-alpha 各自 worktree 都跑 `bash scripts/services/whisper-server.sh`**，ps 拿到的 cmdline 都是 relative 字符串，两边比较都返 true。
+
+后果：
+- `/api/services/whisper-stt/stop` 在 cat-cafe 调用会 SIGTERM cat-cafe-runtime 里跑的同名 service（误杀）
+- `/api/services/whisper-stt/start` 在 cat-cafe-runtime 已有 service 跑时被判为 owned → foreign-port guard 不拦 → 双 spawn
+
+**这破了 P1-3 跨 worktree 端口 hygiene 承诺**（design review 时就锁的）。alpha 测试场景下尤其严重（铲屎官常 `pnpm alpha:start` 跟 cat-cafe main worktree 同时跑）。
+
+**修法**：删 `normalizedScript` 和 `./${normalizedScript}` 分支，只保留 `token === resolvedScript`（absolute path 比较）。如果用户进程用 absolute path 启动 (`bash /path/to/cat-cafe/scripts/services/whisper-server.sh`)，cmdline 会显示 absolute → match。如果用 relative 启动，需要进程显示 absolute path（通过 `readlink /proc/<pid>/cwd` 解析后再判断）才算 owned——但 macOS 没 procfs，这条 caller 走 ps 拿 cwd（`ps -o comm,wd= -p <pid>`，BSD ps 的扩展 `wd`）或者直接拒认 relative。
+
+简化修法：只接受 `resolvedScript` 一种。其他都返 false。这意味着 home worktree 的 ps cmdline 必须显示 absolute path——通过 `runServiceScript` spawn 时用 `scriptPath` (resolved absolute) 而不是 relative 即可保证。**v4 已经在 spawn 时用 absolute scriptPath**（`resolveServiceScriptPath` 返回 absolute），所以家里 spawn 的进程 cmdline 必然带 absolute。但 cat-cafe-runtime / alpha 的 spawn 也是 absolute，**两个 absolute path 不同**（不同 REPO_ROOT），所以 cross-worktree 不会再误匹配。
+
+新 test：cmdline 是 `bash scripts/services/whisper-server.sh`（relative）应返 false；只有 `bash /Users/.../cat-cafe/scripts/services/whisper-server.sh`（home absolute）才返 true。
+
+#### v5-P2 (yellow): detached start 2s 后 lock 释放，可双 spawn
+
+`service-lifecycle.ts:163-167` runServiceScript detached：
+```ts
+const earlyExitTimer = setTimeout(() => {
+  child.unref();
+  resolveRun({ code: null, pid: child.pid });
+}, 2000);
+```
+
+2 秒后 resolve `{code: null}` → runWithTimeout 拿到 result.timedOut=false, result.runnerError=undefined → routes 跳过 timeout/error 分支 → audit 'completed' → withLock finally 立刻 release `activeServices`。
+
+如果 service 真启动需要 >2s 才 bind port，第二个 `/start` 请求来：
+- lock available → 通过 mutex
+- port-busy guard：lsof 查 port 9876 → 端口还没被任何东西绑（first spawn 还在初始化）→ owned=[], foreign=[] → start 允许 spawn
+- 第二个 child spawn → 双实例
+
+**修法**：用 `holdLifecycleLockUntil` 让 mutex 持有到 startup grace period 结束。建议：detached 模式 spawn 后注入 settlement promise：
+```ts
+const STARTUP_GRACE_MS = 60_000;
+const settlement = new Promise<void>((settle) => {
+  const graceTimer = setTimeout(settle, STARTUP_GRACE_MS);
+  child.on('exit', () => { clearTimeout(graceTimer); settle(); });
+});
+// 2s 后 resolve HTTP response，但 result 上挂 settlement
+resolveRun({ code: null, pid: child.pid, settlement });
+```
+
+start route 读 `result.settlement`（或复用 existing `getLifecycleRunSettlement` 机制）注入 `holdLifecycleLockUntil`。HTTP 还是 2s 返 ok（用户 UX 不变），但 mutex 持有 startup grace。
+
+新 test：detached runner resolve `{settlement: pending promise}`，第一 start return 200；2.5s 后第二 start 必须 409（mutex 仍 held by settlement）。
+
+### v5 verdict
+
+- v4 close ✅
+- v5 P1+P2 本 PR 必修
+- 不留 follow-up（CVO 铁律仍生效）
+
+**Cloud review loop 注释**：第三轮云端在 `32e75998b` 上跑找了 5 个真问题，每修一轮看更深一层。Round-4 可能还有 finding，但每轮都是真 bug 就该收。如果哪一轮 cloud bot 只剩 P3 nit（"重构建议"/"命名建议" 没安全影响）则 merge。
+
 ## Lesson（本次 review 自反思）
 
 Review v1 把 5 条 concerns 全标"非阻塞 follow-up"，CVO 当场 push back："你这 review 也太松了 我们家不是不允许 follow up 吗？"——踩中 [[feedback_no_followup_tails]]。
