@@ -99,10 +99,9 @@ function extractRouteSerialCounters(metrics: Record<string, number>): {
 function countHoldBallFromTraces(spans: EvalTraceSpan[]): number {
   let count = 0;
   for (const span of spans) {
-    for (const event of span.events) {
-      if (event.name === 'tool_use' && event.attributes?.['tool.name'] === 'cat_cafe_hold_ball') {
-        count++;
-      }
+    const toolName = span.attributes['tool.name'] as string | undefined;
+    if (toolName && toolName.endsWith('cat_cafe_hold_ball')) {
+      count++;
     }
   }
   return count;

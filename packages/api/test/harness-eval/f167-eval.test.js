@@ -106,13 +106,13 @@ describe('F167 Runtime Eval Snapshot', () => {
     const holdBallSpan = {
       traceId: 'abc',
       spanId: '123',
-      name: 'cat_cafe.invocation',
+      name: 'cat_cafe.tool_use mcp__cat-cafe__cat_cafe_hold_ball',
       startTimeMs: now - 1000,
       endTimeMs: now,
       durationMs: 1000,
       status: { code: 0 },
-      attributes: {},
-      events: [{ name: 'tool_use', timeMs: now - 500, attributes: { 'tool.name': 'cat_cafe_hold_ball' } }],
+      attributes: { 'tool.name': 'mcp__cat-cafe__cat_cafe_hold_ball' },
+      events: [],
     };
     const snapshot = generateF167Snapshot({
       traces: { spans: [holdBallSpan], count: 1 },
@@ -135,20 +135,20 @@ describe('F167 Runtime Eval Snapshot', () => {
     const makeSpan = (id, toolName) => ({
       traceId: 'abc',
       spanId: id,
-      name: 'cat_cafe.invocation',
+      name: `cat_cafe.tool_use ${toolName}`,
       startTimeMs: now - 1000,
       endTimeMs: now,
       durationMs: 1000,
       status: { code: 0 },
-      attributes: {},
-      events: [{ name: 'tool_use', timeMs: now - 500, attributes: { 'tool.name': toolName } }],
+      attributes: { 'tool.name': toolName },
+      events: [],
     });
     const snapshot = generateF167Snapshot({
       traces: {
         spans: [
-          makeSpan('s1', 'cat_cafe_hold_ball'),
-          makeSpan('s2', 'cat_cafe_hold_ball'),
-          makeSpan('s3', 'cat_cafe_post_message'),
+          makeSpan('s1', 'mcp__cat-cafe__cat_cafe_hold_ball'),
+          makeSpan('s2', 'mcp__cat-cafe__cat_cafe_hold_ball'),
+          makeSpan('s3', 'mcp__cat-cafe__cat_cafe_post_message'),
         ],
         count: 3,
       },
