@@ -33,7 +33,7 @@ export function buildTranscriptPathHints(meta: TranscriptMeta): string {
     lines.push(`[Latest range: ${meta.latest_range}]`);
   }
   if (meta.participants.length > 0) {
-    const safe = (n: string) => n.replace(/[\n\r\[\]]/g, '');
+    const safe = (n: string) => n.replace(/[\n\r[\]]/g, '');
     lines.push(`[Participants: ${meta.participants.map((p) => safe(p.name)).join(', ')}]`);
   }
   return lines.join('\n');
