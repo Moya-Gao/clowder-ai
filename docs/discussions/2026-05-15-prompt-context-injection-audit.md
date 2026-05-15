@@ -81,6 +81,23 @@ Confirmed repeated anchors:
 - static teammate tables appear in all three root files, while runtime also injects teammate roster/model data.
 - `Skill 不是可选的`, `Redis 6399`, and key document pointers appear in multiple always-on places.
 
+## Strict Channel Semantics
+
+This document uses "prompt/context injection" as a broad harness term. That is not the same as "API `system` role." The production path must distinguish them:
+
+| Source | Production transport in Cat Cafe runtime | Strict role classification |
+|---|---|---|
+| `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` | Loaded by each native carrier outside Cat Cafe route code | carrier-native root instructions; exact API role is carrier-internal/opaque from this repo |
+| `buildStaticIdentity()` | Built in `route-serial.ts` / `route-parallel.ts`, passed to `invokeSingleCat()` as `params.systemPrompt`, then normally prepended into `effectivePrompt` when injection is needed | query/prompt text in the normal production path, despite the parameter name |
+| `buildInvocationContext()` | Prepended into the per-call prompt parts before context/history/current message | query/prompt text |
+| `modeSystemPrompt`, session bootstrap, MCP fallback instructions, context history | Joined into the same prompt body around invocation context and the current message | query/prompt text |
+| `buildSystemPrompt()` | Backward-compatible helper used by tests and legacy callers; production route uses split `buildStaticIdentity()` + `buildInvocationContext()` | do not use this function name as proof of API `system` role |
+| `ClaudeAgentService` `options.systemPrompt` | If a caller passes it directly to the provider, it becomes `--append-system-prompt` | provider system-prompt flag |
+| `CatAgentService` `options.systemPrompt` | If a caller passes it directly, it becomes Anthropic Messages API `body.system` | strict API system field |
+| Codex / Gemini / Antigravity / Kimi / OpenCode provider paths | No reliable provider system channel in our wrapper; system-like text is prepended or wrapped into the user prompt text | query/prompt text |
+
+Important correction: the identifier `systemPrompt` in TypeScript is a local variable/parameter name, not proof that content enters the model API's `system` role. In the current `invokeSingleCat()` hot path, `params.systemPrompt` is intentionally prepended to `effectivePrompt` because universal CLI prompt text was more reliable than provider-specific system flags.
+
 ## Current Injection Surfaces
 
 | Surface | Primary files | Lifecycle | What it currently carries | Audit risk |
