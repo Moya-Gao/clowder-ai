@@ -377,6 +377,7 @@ outputVerified = signal_or(
 | 2026-05-14 | Design Gate PASS（纯后端路径，三猫收敛 + CVO "走起"）→ status: in-progress |
 | 2026-05-14 | Phase A merged（PR #1671）— RecallEvent telemetry pipeline: V19 migration, RecallEventCorrelator, target_match dispatch, derive-result-summary F200 extensions, shadow flag, 46 tests |
 | 2026-05-15 | Phase B merged（PR #1676）— RecallMetricsComputer: 12 derived metrics, V20 migration (anchor_recall_metrics), API routes, full-history dormancy, 19 tests |
+| 2026-05-15 | Phase B 愿景守护 PASS — Opus-47: 5 痛点全落地，云端 review 5 修复核对，rank 0-indexed 建议带入 Phase C |
 
 ## Plan Gate Checklist（writing-plans 前必须解决）
 
