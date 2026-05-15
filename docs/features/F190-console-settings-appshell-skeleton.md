@@ -342,7 +342,40 @@ Hub（CatCafeHub.tsx）使用 accordion 分 3 组 19 tab，Settings 使用 flat 
 | HubCatEditor.tsx | 成员编辑器，import 存在但 SettingsContent 未引用 |
 | HubCoCreatorEditor.tsx | 共创者编辑器，同上 |
 
-#### 8. 其他待审计
+#### 8. Signal 页面差异（SignalInboxView / SignalArticleDetail）
+
+Signal 页面两仓**双向分叉**：本地功能更多，但开源有 2 项我们缺的。
+
+##### 本地有、开源没有（保留，无需改）
+
+| 功能 | 组件/位置 |
+|------|----------|
+| Stats Cards（今日/未读/7 日） | SignalStatsCards.tsx |
+| Batch Actions（多选/批量已读/归档/标签/删） | BatchActionBar.tsx |
+| Study Timeline | StudyTimeline.tsx |
+| Tier Filter（T1-T4 筛选） | SignalInboxView toSignalTier() |
+| 返回线程按钮 | SignalNav.tsx 返回链接 |
+
+##### 开源有、本地缺（❌ 需补）
+
+| 丢失项 | 说明 |
+|--------|------|
+| Content Enrichment | `/api/signals/articles/{id}/enrich` 全文抓取，enrichedContent/enriching/enrichError 状态全缺 |
+| Thread 讨论导航 | `useRouter` + `getThreadHref` 从 Signal 文章跳转关联 thread（cat-cafe 无此导航） |
+
+##### 布局风格分叉
+
+| 维度 | 本地 | 开源 |
+|------|------|------|
+| 整体风格 | Dashboard 卡片式（stats 突出） | Console panel 式（sidebar + content 紧凑） |
+| 主面板 | `lg:grid-cols-[1.25fr_1fr]` 非对称 | 左 `[420px]` 固定 + 右 `flex-1` |
+| 色彩 | Tailwind token（cocreator-primary 等） | CSS 变量（--console-panel-bg 等） |
+| 圆角 | `rounded-2xl` / `rounded-xl` | `rounded-[18px]` / `rounded-[14px]` |
+| Nav 标签 | `'Signals'` / `'Sources'` | `'收件箱'` / `'信号源'` |
+
+**布局待决策**：两种风格哪个保留？需 CVO 拍板。
+
+#### 9. 其他待审计
 
 | 区域 | 铲屎官提到的问题 | 审计状态 |
 |------|-----------------|----------|
@@ -350,9 +383,51 @@ Hub（CatCafeHub.tsx）使用 accordion 分 3 组 19 tab，Settings 使用 flat 
 | Thread 管理栏 | thread sidebar 视觉差异 | 🔲 待对比 |
 | 顶栏视觉 | 顶栏视觉差异（非按钮） | 🔲 待对比 |
 
+---
+
+### 修改清单汇总（按优先级排序）
+
+> **方向**：F190 follow-up PR，不开新 Feature。
+
+#### P0 — 功能丢失（必须修）
+
+| # | 区域 | 问题 | 修改内容 |
+|---|------|------|----------|
+| F-1 | IM 配置页 | 权限管理断线 | 重新接入 HubPermissionsTab（lazy/Suspense），恢复 PERMISSION_CONNECTORS 映射 |
+| F-2 | IM 配置页 | 连接状态监控丢失 | 补 connectionState/lastHeartbeat/category + connStatePill + formatHeartbeat |
+| F-3 | IM 配置页 | 连接测试丢失 | 补 handleTestConnection() + `/api/connector/{id}/test` |
+| F-4 | 成员管理页 | 降级为只读 | 重新 import HubCatEditor/HubCoCreatorEditor/useConfirm，恢复编辑/删除/切换 |
+| F-5 | Signal 详情 | Content Enrichment 丢失 | 补 `/api/signals/articles/{id}/enrich` + enrichedContent 状态 |
+| F-6 | Signal 详情 | Thread 导航丢失 | 补 useRouter + getThreadHref 跳转关联 thread |
+
+#### P1 — 入口重复（应修）
+
+| # | 区域 | 问题 | 修改内容 |
+|---|------|------|----------|
+| D-1 | ChatContainerHeader（🔴 红区） | ThemeToggle 重复 | 删除（ActivityBar 已有） |
+| D-2 | ChatContainerHeader（🔴 红区） | HubButton 重复 | 删除（ActivityBar 已有） |
+| D-3 | ChatContainerHeader（🔴 红区） | Signal Inbox bell 重复 | 删除（ActivityBar 已有旗帜图标） |
+| D-4 | ThreadSidebar | Memory Hub 按钮重复 | 删除（ActivityBar 已有） |
+| D-5 | ThreadSidebar | IM Hub 按钮重复 | 删除（ActivityBar 已有） |
+
+#### P2 — 参数/样式修正
+
+| # | 区域 | 问题 | 修改内容 |
+|---|------|------|----------|
+| S-1 | 系统配置页 | connector env 暴露 | 补回 `excludeCategories={['connector']}` |
+| S-2 | Hub/Settings 重复 | IM/Env/Governance 三处 | Hub 改为摘要 + deep-link（scope 较大，可后置） |
+
+#### 待 CVO 拍板
+
+| # | 区域 | 问题 | 等什么 |
+|---|------|------|--------|
+| W-1 | 状态栏 | CSS 变量 vs Tailwind 硬编码色 | CVO 觉得开源"有点丑"，样式方向待定 |
+| W-2 | Signal 页面布局 | Dashboard 卡片式 vs Console panel 式 | 两种风格二选一 |
+| W-3 | 字体/Thread 管理栏/顶栏视觉 | 未完成对比 | 铲屎官继续反馈 |
+
 ### 修改约束
 
-- ChatContainerHeader.tsx 是 F183/F184/F194 红区文件，修改前必须获得 CVO override 确认
+- ChatContainerHeader.tsx 是 F183/F184/F194 红区文件，D-1/D-2/D-3 修改前必须获得 CVO override 确认
 - 不开新 Feature，以 F190 follow-up PR 形式修复
 - 所有入口去重必须确保 ActivityBar 对应入口仍在且可用
 
