@@ -322,15 +322,80 @@ Claude Code 系统提示词由以下函数动态拼装：
 | 代码哲学 | 最小改动、不要多想 | 愿景驱动、质量门禁、TDD |
 | 上下文管理 | 工具无记忆，用完即弃 | 有记忆系统、有知识沉淀、压缩后可恢复 |
 
-#### 9.4 Spike 验证清单（待执行）
+#### 9.4 Spike 验证结果（2026-05-15 实测 v2.1.142）
 
-| # | 验证项 | 方法 | 状态 |
+使用 `claude -p` + `--system-prompt` 完全替换式测试：
+
+| # | 验证项 | 方法 | 结果 |
 |---|-------|------|------|
-| 1 | `--append-system-prompt` 在 v2.1.142 是否稳定 | 启动 Claude Code 加 flag，多轮对话测试 | 待做 |
-| 2 | 追加内容是否真的进入 API system role | 让猫在对话里 report 自己看到的 system 内容 | 待做 |
-| 3 | 追加内容是否在压缩后保留 | 长对话触发压缩后检查规则是否仍在 | 待做 |
-| 4 | 我们的规则能否覆盖默认行为指导 | 追加"遇到困难找伙伴"，测试是否生效 | 待做 |
-| 5 | `invoke-single-cat.ts` 的 F-BLOAT "unreliable" 原因是否仍存在 | 读 git blame + 当时的 issue/讨论 | 待做 |
+| 1 | `--system-prompt` 替换生效 | 设置暗号「布偶猫万岁九九八十一」，问猫暗号 | ✅ 猫正确回答暗号 |
+| 2 | 替换后工具是否可用 | 让猫用 Read 工具读 `package.json` | ✅ 成功读取并返回正确内容——**工具能力是 Claude 内置的，不依赖系统提示词** |
+| 3 | 默认"糊弄哲学"是否真的消失 | 问猫是否被告知"Three similar lines..."等 3 条默认规则 | ✅ 猫明确回答"没有出现在我的系统指令里" |
+| 4 | 我们的规则能否替代默认 | 设置"遇到困难找伙伴求助"+"代码质量第一"暗号 | ✅ 暗号正确 + 原则生效 |
+| 5 | F-BLOAT "unreliable" 原因 | 待 git blame 调查（但替换式已证明可行，append 可暂搁） | 待做（优先级降低） |
+
+**结论**：`--system-prompt` 替换式方案**完全可行**。Claude 的工具使用能力是模型训练时内置的，不是系统提示词教的。替换后工具照常工作，默认行为指导彻底清除，我们的规则完整生效。
+
+**决策变更**：原计划用 `--append-system-prompt`（追加式），现改为 `--system-prompt`（替换式）——更干净，一步到位消除"两套系统共存"问题。
+
+### 10. 系统提示词内容分配方案（2026-05-15 审计）
+
+> 基于 §9.4 spike 验证结果，规划哪些内容进入真 system prompt（压缩免疫），哪些留在 user message（可压缩）。
+
+#### 10.1 分配原则
+
+| 层级 | 通道 | 特性 | 放什么 |
+|------|------|------|--------|
+| **L0 压缩免疫层** | `--system-prompt` (API system role) | 每次 API 调用完整发送，不被压缩 | 丢了会导致行为崩溃的核心规则 |
+| **L1 每次注入层** | user message（CLAUDE.md + SystemPromptBuilder） | 每次注入但会被压缩 | 可从代码/文档重新推导的参考信息 |
+| **L2 按需加载层** | Skill / 引用链 | 只在需要时加载 | SOP 步骤、详细流程、模板 |
+
+#### 10.2 L0 压缩免疫层（进真 system prompt）
+
+以下内容丢失后会导致猫猫行为崩溃，**必须**进入 system role：
+
+| 内容 | 当前位置 | 为什么丢了会崩 |
+|------|---------|---------------|
+| **身份 + 伙伴声明** | CLAUDE.md 前 10 行 | 压缩后不知道自己是谁、有队友 |
+| **Magic Words**（8 个铲屎官拉闸词） | `GOVERNANCE_L0_DIGEST` / `shared-rules.md` | 铲屎官喊停猫不停 = P0 |
+| **Rule 0 + P1-P5 第一性原则** | `shared-rules.md` §1-§5 | 判断力基石，丢了变执行机器 |
+| **传球三选一**（@句柄/hold_ball/升级铲屎官） | `shared-rules.md` 传球决策树 | 压缩后链路锁死（已反复发生） |
+| **@ 路由规则**（行首、同行、不分行） | `shared-rules.md` + feedback memories | 路由失效 = 消息发不出去 |
+| **五条铁律** | CLAUDE.md | Redis 6399 误触 = P0、review 必须跨个体 |
+| **WORKFLOW_TRIGGERS**（谁 @ 谁做什么） | `SystemPromptBuilder.ts` | 完成工作不知道传给谁 |
+| **我们的 MCP 工具导航** | `MCP_TOOLS_SECTION` | 不知道有 `search_evidence` / `post_message` |
+| **协作哲学**（伙伴猫不是工具猫） | 新增 | 遇到困难找伙伴，不要一个人死扛 |
+
+**预估 token**：~2,000-2,500 token（精简后）
+
+#### 10.3 L1 每次注入层（留在 user message，可被压缩）
+
+以下内容丢了不会崩，可以从代码/文档重新获取：
+
+| 内容 | 当前位置 | 为什么可压缩 |
+|------|---------|-------------|
+| 队友名册详表 | CLAUDE.md / SystemPromptBuilder | SystemPromptBuilder 动态生成 |
+| SOP 导航表 | CLAUDE.md | Skill 加载时自带 |
+| 记忆路由详述 | CLAUDE.md ~40 行 | 有 `memory-routing-partial.md` 真相源 |
+| 代码规范 | CLAUDE.md | SOP.md 是真相源 |
+| Git 操作模板 | Claude Code 默认 | 模型内置 |
+| 关键文档路径表 | CLAUDE.md | `ls docs/` 就能重建 |
+
+**瘦身收益**：从 CLAUDE.md/SystemPromptBuilder 移走 L0 内容后，user message 层预计减少 ~2,000 token/轮
+
+#### 10.4 迁移路径
+
+```
+Phase 1: 编写 system-prompt-l0.md（L0 内容真相源）
+    ↓
+Phase 2: invoke-single-cat.ts 改用 --system-prompt 加载 L0
+    ↓
+Phase 3: CLAUDE.md 瘦身（删除已进 L0 的内容）
+    ↓
+Phase 4: SystemPromptBuilder 瘦身（GOVERNANCE_L0_DIGEST 等移入 L0）
+    ↓
+Phase 5: 多轮对话 + 压缩测试验证
+```
 
 ## 后果
 
@@ -341,7 +406,7 @@ Claude Code 系统提示词由以下函数动态拼装：
 - **正面**：双向检验标准（"删掉后好行为会消失吗"）与模型类型无关，测的是规则信息量
 - **负面**：`GOVERNANCE_L0_DIGEST` 仍是硬编码常量，手动同步负担存在——长期应考虑编译自动化
 - **待定**：Phase 0 正面重写改动量较大，需分批落地
-- **潜在突破**：`--append-system-prompt` 如验证可行，可将核心规则从 user message 提升到 system role，实现压缩免疫 + 优先级分层 + token 节省三重收益（§9.3）
+- **突破（已验证）**：`--system-prompt` 替换式方案 spike 通过（§9.4）——工具能力内置、默认行为指导可清除、我们的规则完整生效。L0 压缩免疫层方案就绪（§10）
 - **愿景**：从"工具猫"到"伙伴猫"——系统提示词告诉猫有队友、有伙伴、遇到困难可以求助，而不是"最小改动、不要多想"（§9.4）
 
 ## 开放问题
@@ -351,6 +416,8 @@ Claude Code 系统提示词由以下函数动态拼装：
 3. `WORKFLOW_TRIGGERS` 是否应提取为外部配置文件（当前硬编码在 .ts 中）
 4. Pack system guardrails 与 L0 治理的优先级冲突如何仲裁
 5. Skills `refs/` 参考文档的过时检测机制
-6. **`--append-system-prompt` 是否值得重新评估**——当前标记"unreliable"（F-BLOAT 注释），但它是唯一能将关键规则注入 Claude API `system` role 的追加式手段。如果可靠性问题已被上游修复，启用它可以实现真正的优先级分层（system role > user message）
-7. **root md 瘦身实施**——§8.3 已列出删/缩/保留建议，需铲屎官 signoff 后分批落地（愿景级决策）
-8. **Codex `developer_instructions` 是否应启用**——唯一可用的追加式真 system prompt 注入，可将治理规则注入 `developer` role 获得优先级提升
+6. ~~`--append-system-prompt` 是否值得重新评估~~ → **已解决**：直接用 `--system-prompt` 替换式，更干净（§9.4 spike 通过）
+7. **root md 瘦身实施**——§10.3 已列出 L1 层保留内容，L0 移走后 CLAUDE.md 自然变薄
+8. **Codex `developer_instructions` 是否应启用**——Codex 猫的等价方案，待 Claude 猫方案落地后跟进
+9. **`system-prompt-l0.md` 编写**——§10.2 列出了 L0 内容清单，需编写真相源文件 + 编译脚本生成 `--system-prompt` 参数值
+10. **Gemini 猫怎么办**——Gemini CLI 只有替换式 `GEMINI_SYSTEM_MD`（会丢 CLI 自身指令），但 §9.4 证明工具能力内置，替换可能也可行——待独立 spike
