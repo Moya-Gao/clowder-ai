@@ -42,7 +42,7 @@ export interface RecallMetricsReport {
     firstConsumedRankMedian: number;     // median(first_consumed_rank)
     reformulationsBeforeConsumption: number; // mean(search_count_before_first_consumed)
     reformulateAfterExposure: number;    // P(reformulate + no consumed + distance≤3)
-    fallbackAfterHighHitRate: number;    // P(grep_fallback | top-1 confidence=high)
+    grepFallbackRate: number;            // P(grep_fallback | candidates exposed)
     tokenCostPerHit: number;             // total_tokens / consumed_count
   };
   graph: {
@@ -312,7 +312,7 @@ export interface RecallMetricsReport {
     firstConsumedRankMedian: number;
     reformulationsBeforeConsumption: number;
     reformulateAfterExposure: number;
-    fallbackAfterHighHitRate: number;
+    grepFallbackRate: number;
     tokenCostPerHit: number;
   };
   graph: {
@@ -457,9 +457,9 @@ export class RecallMetricsComputer {
       (r) => r.reformulated && r.consumed.length === 0 && !r.fell_back_to_grep,
     ).length;
 
-    // fallbackAfterHighHitRate: fell_back_to_grep when candidates exist
+    // grepFallbackRate: fell_back_to_grep when candidates exist
     const withCandidates = rows.filter((r) => r.candidates.length > 0);
-    const fallbackAfterHigh = withCandidates.filter((r) => r.fell_back_to_grep).length;
+    const grepFallbackCount = withCandidates.filter((r) => r.fell_back_to_grep).length;
 
     return {
       readthroughAt3: readthroughDenom > 0 ? readthroughSum / readthroughDenom : 0,
@@ -468,8 +468,8 @@ export class RecallMetricsComputer {
         ? reformBeforeSum / reformBeforeCount
         : 0,
       reformulateAfterExposure: rows.length > 0 ? reformAfterExposure / rows.length : 0,
-      fallbackAfterHighHitRate: withCandidates.length > 0
-        ? fallbackAfterHigh / withCandidates.length
+      grepFallbackRate: withCandidates.length > 0
+        ? grepFallbackCount / withCandidates.length
         : 0,
       tokenCostPerHit: totalConsumed > 0 ? totalTokens / totalConsumed : 0,
     };
@@ -509,7 +509,7 @@ export class RecallMetricsComputer {
       extended: {
         readthroughAt3: 0, firstConsumedRankMedian: 0,
         reformulationsBeforeConsumption: 0, reformulateAfterExposure: 0,
-        fallbackAfterHighHitRate: 0, tokenCostPerHit: 0,
+        grepFallbackRate: 0, tokenCostPerHit: 0,
       },
       graph: { nonFirstSelectionRate: 0, traversalCompletion: 0 },
     };

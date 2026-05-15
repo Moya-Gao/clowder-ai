@@ -66,7 +66,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 19;
+export const CURRENT_SCHEMA_VERSION = 20;
 
 // F163 Phase A: experiment infrastructure tables (cohorts, suggestions, logs)
 export const SCHEMA_V13_TABLES = `
@@ -561,6 +561,26 @@ export function applyMigrations(db: Database.Database): void {
       db.exec('ALTER TABLE edges ADD COLUMN last_traversed_at TEXT');
     } catch {}
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(19, new Date().toISOString());
+  }
+
+  // V20: F200 Phase B — anchor_recall_metrics table for popularity/dormancy
+  if (currentVersion < 20) {
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS anchor_recall_metrics (
+          anchor TEXT PRIMARY KEY,
+          consumed_count_30d INTEGER NOT NULL DEFAULT 0,
+          exposure_count_30d INTEGER NOT NULL DEFAULT 0,
+          last_consumed_at TEXT,
+          dormancy_days INTEGER,
+          updated_at TEXT NOT NULL
+        )
+      `);
+    } catch {}
+    try {
+      db.exec('CREATE INDEX IF NOT EXISTS idx_anchor_metrics_dormancy ON anchor_recall_metrics(dormancy_days)');
+    } catch {}
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(20, new Date().toISOString());
   }
 }
 

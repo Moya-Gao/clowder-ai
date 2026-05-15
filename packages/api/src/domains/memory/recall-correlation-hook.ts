@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { recordEdgeTraversals } from './edge-traversal.js';
 import { type RawEvent, RecallEventCorrelator } from './RecallEventCorrelator.js';
+import { RecallMetricsComputer } from './RecallMetricsComputer.js';
 
 const MEMORY_TOOLS = new Set(['search_evidence', 'graph_resolve', 'list_recent']);
 
@@ -30,7 +31,10 @@ export async function triggerRecallCorrelation(
 
   const correlator = new RecallEventCorrelator(db);
   const recallEvents = correlator.correlateWindow(fullEvents);
-  if (recallEvents.length > 0) correlator.persistBatch(recallEvents);
+  if (recallEvents.length > 0) {
+    correlator.persistBatch(recallEvents);
+    new RecallMetricsComputer(db).refreshAnchorMetrics();
+  }
 
   const consumedAnchors = new Set(recallEvents.flatMap((re) => re.consumed.map((c) => c.anchor)));
   if (consumedAnchors.size === 0) return;

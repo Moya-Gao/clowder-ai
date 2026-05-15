@@ -128,7 +128,7 @@ consumed := same_invocation
 | **ReformulationsBeforeConsumption** | `mean(search_count_before_first_consumed)` | 几轮才找到 |
 | **SearchAbandonRate** | `P(搜了但没 consumed 也没 reformulate)` | 候选全不对 |
 | **ReformulateAfterExposure** | `P(reformulate within compound_window AND no consumed AND tool_call_distance_to_next_search ≤ 3)` | 看了候选但觉得不对，立刻又搜（区别于 Abandon：Abandon 是静默放弃，这里是主动换 query） |
-| **FallbackAfterHighHitRate** | `P(grep fallback \| top-1 confidence=high)` | 摘要/标题不可信 |
+| **GrepFallbackRate** | `P(grep fallback \| candidates exposed)` | 摘要/标题不可信（Phase C 加 topConfidence 后可细化为 high-confidence 版） |
 | **Token Cost per Hit** | `total_tokens / consumed_count` | 搜索效率 |
 | **Anchor Popularity** | `consumed_count(anchor) over 30d` | boost 信号 |
 | **Anchor Dormancy** | `days_since_last_consumed(anchor)` | sunset 候选信号 |

@@ -173,6 +173,7 @@ import {
   pushRoutes,
   queueRoutes,
   quotaRoutes,
+  recallMetricsRoutes,
   refAudioUploadRoutes,
   reflectRoutes,
   refluxRoutes,
@@ -1404,6 +1405,8 @@ async function main(): Promise<void> {
   if (toolUsageCounter) {
     await app.register(toolUsageRoutes, { toolUsageCounter });
   }
+  // F200 Phase B: Recall metrics API
+  await app.register(recallMetricsRoutes, { evidenceDb: memoryServices.store.getDb() });
   // F153 Phase E: Hub embedded observability routes
   const { telemetryRoutes } = await import('./routes/telemetry.js');
   await app.register(telemetryRoutes, {

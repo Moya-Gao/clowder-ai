@@ -48,6 +48,7 @@ export { projectSetupRoute } from './projects-setup.js';
 export { pushRoutes } from './push.js';
 export { queueRoutes } from './queue.js';
 export { quotaRoutes } from './quota.js';
+export { recallMetricsRoutes } from './recall-metrics.js';
 export { refAudioUploadRoutes } from './ref-audio-upload.js';
 export { reflectRoutes } from './reflect.js';
 export { refluxRoutes } from './reflux-routes.js';
