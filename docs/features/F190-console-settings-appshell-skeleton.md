@@ -9,7 +9,7 @@ community_pr: clowder-ai#645, clowder-ai#662, clowder-ai#669
 
 # F190: Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片
 
-> **Status**: done | **Completed**: 2026-05-13 | **Owner**: Community + Maintainers | **Priority**: P1
+> **Status**: done (Phase F auditing) | **Completed**: 2026-05-13 | **Owner**: Community + Maintainers | **Priority**: P1
 
 ## Why
 
@@ -220,6 +220,74 @@ close_gate_report:
 | 2026-05-13 | AC-A7 alpha walkthrough completed after alpha hotfix (PR #1658, `c1cfa294e`): Codex + Sonnet smoke passed home/settings routes |
 | 2026-05-13 | F190 close gate truth sync: AC-A/B/C all met, reflection capsule linked, BACKLOG active row removed |
 | 2026-05-13 | Post-close visual hotfix restored missing settings nav SVG paths (`box` / `puzzle`) after upstream/home screenshot compare (PR #1659, `d928fb696`) |
+| 2026-05-15 | Phase F audit started: CVO 实测发现 ChatContainerHeader / ThreadSidebar 入口重复 + Hub/Settings 内容重复 + 视觉不一致；recording as F190 follow-up, not new feature |
+
+## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（WIP 审计清单）
+
+> **Status**: auditing | **Trigger**: CVO 2026-05-14 post-F199-close 实测发现多处入口重复 + 视觉不一致
+> **方向**: F190 follow-up fix PR，不开新 Feature（CVO: "禁止新开feat了 原本你们的f199就不应该存在 就是f190的follow up"）
+> **⚠️ 铲屎官还在发现更多问题，此清单持续更新中**
+
+### 设计原则（CVO 确认）
+
+- Settings page 是 canonical home（URL-routable），Hub 只展示摘要 + deep-link，不重复完整配置 UI
+- 三层 shell 各司其职：ActivityBar（全局导航，唯一入口）、ChatContainerHeader（当前 thread 操作）、ThreadSidebar（thread 管理 + 过滤）
+- 入口唯一性：同一功能只在一个 shell 层有入口按钮，不重复
+
+### 审计发现
+
+#### 1. ChatContainerHeader.tsx（🔴 红区文件 — 修改需 CVO override）
+
+对比 clowder-ai 开源 main，本地多出 7 项：
+
+| # | 组件 | 来源 | 处置建议 |
+|---|------|------|----------|
+| 1 | CatCafeLogo | 本地品牌 | 待定 — 问 CVO |
+| 2 | DaemonActiveIndicator | F198 | 保留（本地独有功能） |
+| 3 | ThreadCatPill | F154 | 保留（本地独有功能） |
+| 4 | LiveAudioToggle | F195 | 保留（本地独有功能） |
+| 5 | Signal Inbox bell | Signals 功能 | 待定 — 保留 topbar 还是移走？问 CVO |
+| 6 | **ThemeToggle** | — | ❌ **删除 — ActivityBar 已有，重复入口** |
+| 7 | **HubButton** | — | ❌ **删除 — ActivityBar 已有，重复入口** |
+
+#### 2. ThreadSidebar.tsx（非红区）
+
+对比 clowder-ai 开源 main，"新对话"按钮旁本地多出 4 项：
+
+| # | 组件 | 来源 | 处置建议 |
+|---|------|------|----------|
+| 1 | **Memory Hub 按钮** | — | ❌ **删除 — ActivityBar 已有，重复入口** |
+| 2 | **IM Hub 按钮** | — | ❌ **删除 — ActivityBar 已有，重复入口** |
+| 3 | Mission Hub section | 本地功能 | 保留（开源只有猫猫训练营） |
+| 4 | LabelFilterBar | 本地功能 | 保留（thread 过滤） |
+
+#### 3. Hub 内容与 Settings 页面重复
+
+| Hub 入口 | Settings 入口 | 复用的组件 | 处置建议 |
+|----------|---------------|-----------|----------|
+| system → im | /settings?s=im | HubConnectorConfigTab | Hub 仅展示摘要 + deep-link |
+| system → env | /settings?s=system | HubEnvFilesTab | Hub 仅展示摘要 + deep-link |
+| monitor → governance | /settings?s=rules | HubGovernanceTab | Hub 仅展示摘要 + deep-link |
+
+#### 4. ActivityBar
+
+两仓一致：Home / Memory / Mission / Signals / theme toggle / settings。本地仅提取了 helper 函数（代码重构），无 UI 差异。**无需修改。**
+
+#### 5. 待审计（铲屎官仍在发现中）
+
+| 区域 | 铲屎官提到的问题 | 审计状态 |
+|------|-----------------|----------|
+| 字体 | Settings 里字体不一样 | 🔲 待对比 |
+| 状态栏 | 右边的状态栏不一样 | 🔲 待对比 |
+| Thread 管理栏 | thread sidebar 视觉差异 | 🔲 待对比 |
+| 顶栏视觉 | 顶栏视觉差异（非按钮） | 🔲 待对比 |
+| 其他丢失功能 | "很多东西都被你们改没了" | 🔲 待铲屎官继续反馈 |
+
+### 修改约束
+
+- ChatContainerHeader.tsx 是 F183/F184/F194 红区文件，修改前必须获得 CVO override 确认
+- 不开新 Feature，以 F190 follow-up PR 形式修复
+- 所有入口去重必须确保 ActivityBar 对应入口仍在且可用
 
 ## Review Gate
 
