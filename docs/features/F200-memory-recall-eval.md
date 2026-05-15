@@ -289,11 +289,11 @@ outputVerified = signal_or(
 - [x] AC-A4: Health Dashboard 展示最近 24h 的 RecallEvent 统计摘要
 - [x] AC-A5: dwellProxy（Read 后到下一个 tool call 的间隔 ms）被记录
 
-### Phase B（Derived Metrics）
-- [ ] AC-B1: Consumed@3 / ConsumedMRR / Reformulation Rate / SearchAbandonRate 四个核心指标可通过 API 查询
-- [ ] AC-B2: Anchor Popularity 和 Anchor Dormancy 持久化到 evidence.sqlite 元数据
-- [ ] AC-B3: Token Cost per Hit 可按猫/按工具/按时间段聚合
-- [ ] AC-B4: GraphNonFirstSelectionRate 和 GraphTraversalCompletion 可通过 API 查询
+### Phase B（Derived Metrics）✅
+- [x] AC-B1: Consumed@3 / ConsumedMRR / Reformulation Rate / SearchAbandonRate 四个核心指标可通过 API 查询
+- [x] AC-B2: Anchor Popularity 和 Anchor Dormancy 持久化到 evidence.sqlite 元数据
+- [x] AC-B3: Token Cost per Hit 可按猫/按工具/按时间段聚合
+- [x] AC-B4: GraphNonFirstSelectionRate 和 GraphTraversalCompletion 可通过 API 查询
 
 ### Phase C（Consumption-Weighted Ranking）
 - [ ] AC-C1: search_evidence 排序引入 consumption_prior（Bayesian shrinkage + 14d grace period）和 recency_decay（fractional + kind 分桶）
@@ -376,6 +376,7 @@ outputVerified = signal_or(
 | 2026-05-14 | R2 review（47+砚砚）：consumption_prior centered lift + graph edge weights + targetRef union + ReformulateAfterExposure 精确化 → spec v3 |
 | 2026-05-14 | Design Gate PASS（纯后端路径，三猫收敛 + CVO "走起"）→ status: in-progress |
 | 2026-05-14 | Phase A merged（PR #1671）— RecallEvent telemetry pipeline: V19 migration, RecallEventCorrelator, target_match dispatch, derive-result-summary F200 extensions, shadow flag, 46 tests |
+| 2026-05-15 | Phase B merged（PR #1676）— RecallMetricsComputer: 12 derived metrics, V20 migration (anchor_recall_metrics), API routes, full-history dormancy, 19 tests |
 
 ## Plan Gate Checklist（writing-plans 前必须解决）
 
