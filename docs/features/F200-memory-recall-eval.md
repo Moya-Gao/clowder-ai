@@ -295,7 +295,7 @@ outputVerified = signal_or(
 - [x] AC-B3: Token Cost per Hit 可按猫/按工具/按时间段聚合
 - [x] AC-B4: GraphNonFirstSelectionRate 和 GraphTraversalCompletion 可通过 API 查询
 
-### Phase C（Consumption-Weighted Ranking）✅
+### Phase C（Consumption-Weighted Ranking）🚧
 - [x] AC-C1: search_evidence 排序引入 consumption_prior（Bayesian shrinkage + 14d grace period）和 recency_decay（fractional + kind 分桶）
 - [x] AC-C2: graph_resolve 候选排序引入入边加权（edge_weight × source_relevance）+ consumption_recency
 - [x] AC-C3: MMR 去重在 hybrid mode + pool≥3×limit 时生效（λ=0.7 可配置）
@@ -308,7 +308,9 @@ outputVerified = signal_or(
 
 ### Phase D（Full Trajectory Records）✅
 - [x] AC-D1: TaskTrajectory 按 invocation/thread 粒度聚合
-- [x] AC-D2: outputVerified 从候选信号源（PR merge / CI check / CVO accept / reviewer approval）自动推断
+- [x] AC-D2: outputVerified 推断框架（injectable signal sources + 外部注入 endpoint）上线。v1 自动检测覆盖 invocation status；PR merge / CVO accept / reviewer approval 通过外部注入 endpoint 接入
+- [ ] AC-D2.1: CVO accept + reviewer approval 信号源自动检测（需解析 thread 消息）
+- [ ] AC-D2.2: CI check 信号源（需 F140 GitHub check_run 集成）
 - [x] AC-D3: 成功轨迹可被 list_recent 或 search_evidence 召回（scope="trajectories"）
 - [x] AC-D4: Cross-Cat Effort Variance 和 ConsumedButNotUsedRate 指标上线
 
@@ -381,6 +383,7 @@ outputVerified = signal_or(
 | 2026-05-15 | Phase B 愿景守护 PASS — Opus-47: 5 痛点全落地，云端 review 5 修复核对，rank 0-indexed 建议带入 Phase C |
 | 2026-05-15 | Phase C merged（PR #1679）— Consumption-weighted ranking: consumption_prior (Bayesian shrinkage CTR), MMR dedup, graph edge_weight, shadow mode, Memory Hub flag panel. 4 local review rounds + 3 cloud review rounds |
 | 2026-05-15 | Phase D merged（PR #1685）— Full Trajectory Records: V22 migration (task_trajectories), TrajectoryAggregator, OutputVerifiedDetector (injectable signal sources), TrajectoryQueryService, CrossCatMetricsComputer, signal injection endpoint. 5 local review rounds + 3 cloud review rounds |
+| 2026-05-15 | Phase D 愿景守护（Opus-47）：代码层通过，但 flag 两处 spec 假象 → P1-1: Phase C ✅ 降回 🚧（AC-C8 ⬜ + shadow 未切）；P1-2: AC-D2 拆 v1/v1.1（信号源自动检测只覆盖 invocation status） |
 
 ## Plan Gate Checklist（writing-plans 前必须解决）
 
