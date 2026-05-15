@@ -429,12 +429,12 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 
 | ID | 严重度 | 问题 | 当前证据 | 修复方向 | 状态 |
 |----|--------|------|----------|----------|------|
-| H1 | P1 | `getuploadurl` 只支持 `upload_param`，不支持 `upload_full_url` | `uploadMediaToCdn()` 在无 `upload_param` 时直接 throw；Hermes 兼容 `upload_full_url`，且确认两种上传都用 `POST` | `callGetUploadUrl()` 返回 `upload_param? + upload_full_url?`；优先 `upload_full_url`，否则构造 CDN URL；补 `weixin-cdn.test.js` | needs fix |
-| H2 | P1 | 入站媒体只支持 `encrypt_query_param`，不支持 `full_url` | `downloadMediaFromCdn()` 只拼 `/download?encrypted_query_param=`；Hermes 对 `full_url` 做 WeChat CDN allowlist 后直下 | `platformKey` 支持 `{ fullUrl, aesKey }`；仅允许 WeChat CDN host，防 SSRF；图片/文件/语音解析都写入 fullUrl | needs fix |
-| H3 | P1 | 猫猫发语音仍未有可靠默认路径 | 当前默认 `.silk` 走原生 `voice_item` minimal；历史验证出现"1 秒假语音/完全消失"；Hermes 最新明确不把原生 voice bubble 当可靠路径，`send_voice()` 强制走 file attachment fallback | 默认把 outbound audio 作为可播放文件发送，原生 `voice_item` 只保留在显式实验 env 下；补一条端到端测试证明 voiceMode audio 不静默丢弃且微信端至少收到可播放附件 | needs fix |
-| H4 | P1 | `sendmessage/sendMedia` 对 iLink `-2` 错误分流不足 | Hermes 区分 `-2 unknown error` stale-session 与 `-2` frequency limit，并做 backoff/retry；我们现在非 0 直接 throw | 增加错误分类：`-14`/`-2 unknown error` 触发重新扫码状态，频控 `-2` 做有限 retry/backoff；覆盖 text + media | needs fix |
-| H5 | P2 | `context_token` 和 `get_updates_buf` 只在内存 | 重启后失去 peer token/cursor；Hermes 按 account+peer 落盘恢复 | 将 token/cursor 持久化到 connector state/Redis；断开连接时清理 | needs fix |
-| H6 | P2 | 入站 dedup 只依赖 message id | Hermes 有 message id + 内容指纹二级 dedup；iLink 重放若换 id，可能二次触发猫猫 | 为 weixin 入站加短 TTL 内容指纹 dedup（chatId + normalized text/media hash） | needs fix |
+| H1 | P1 | `getuploadurl` 只支持 `upload_param`，不支持 `upload_full_url` | `uploadMediaToCdn()` 在无 `upload_param` 时直接 throw；Hermes 兼容 `upload_full_url`，且确认两种上传都用 `POST` | `callGetUploadUrl()` 返回 `upload_param? + upload_full_url?`；优先 `upload_full_url`，否则构造 CDN URL；补 `weixin-cdn.test.js` | fixed in PR #1675 |
+| H2 | P1 | 入站媒体只支持 `encrypt_query_param`，不支持 `full_url` | `downloadMediaFromCdn()` 只拼 `/download?encrypted_query_param=`；Hermes 对 `full_url` 做 WeChat CDN allowlist 后直下 | `platformKey` 支持 `{ fullUrl, aesKey }`；仅允许 WeChat CDN host，防 SSRF；图片/文件/语音解析都写入 fullUrl | fixed in PR #1675 |
+| H3 | P1 | 猫猫发语音仍未有可靠默认路径 | 当前默认 `.silk` 走原生 `voice_item` minimal；历史验证出现"1 秒假语音/完全消失"；Hermes 最新明确不把原生 voice bubble 当可靠路径，`send_voice()` 强制走 file attachment fallback | 默认把 outbound audio 作为可播放文件发送，原生 `voice_item` 只保留在显式实验 env 下；补一条端到端测试证明 voiceMode audio 不静默丢弃且微信端至少收到可播放附件 | fixed in PR #1675 |
+| H4 | P1 | `sendmessage/sendMedia` 对 iLink `-2` 错误分流不足 | Hermes 区分 `-2 unknown error` stale-session 与 `-2` frequency limit，并做 backoff/retry；我们现在非 0 直接 throw | 增加错误分类：`-14`/`-2 unknown error` 触发重新扫码状态，频控 `-2` 做有限 retry/backoff；覆盖 text + media | fixed in PR #1675 |
+| H5 | P2 | `context_token` 和 `get_updates_buf` 只在内存 | 重启后失去 peer token/cursor；Hermes 按 account+peer 落盘恢复 | 将 token/cursor 持久化到 connector state/Redis；断开连接时清理 | fixed in PR #1675 |
+| H6 | P2 | 入站 dedup 只依赖 message id | Hermes 有 message id + 内容指纹二级 dedup；iLink 重放若换 id，可能二次触发猫猫 | 为 weixin 入站加短 TTL 内容指纹 dedup（chatId + normalized text/media hash） | fixed in PR #1675 |
 | H7 | P3 | 视频收发未实现 | 协议和 Hermes 都支持 `video_item`；F137 矩阵仍标低优先级 | 仅在用户需要视频时实现 inbound/outbound video | defer |
 | H8 | P3 | Markdown/长文本体验偏保守 | 我们 `stripMarkdownForWeixin()` 去格式；Hermes 保留部分 Markdown 并做 code block/长行 wrap | 后续可把 strip 改成 WeChat-friendly formatter；不阻塞可靠性 | defer |
 
@@ -512,6 +512,7 @@ F137 下一轮修复应把 **file attachment 作为默认成功路径**，把 `v
 | 2026-04-20 | Bugfix: `/uploads/` media_gallery images silently skipped by OutboundDeliveryHook + UPLOAD_DIR cwd drift. Fix: `resolveInternalRouteUrl()` at hook level + `http://` download guard. 砚砚(GPT-5.4) impl + 布偶猫 review + 云端 R3 0P1/0P2 → PR #1298 squash merge (c48996e1) |
 | 2026-03-29 | ⚠️ **Runtime 残留发现**：在 runtime worktree 中发现未提交的 WeixinAdapter 实验性改动——voice_item A/B test 双模式（`WEIXIN_VOICE_ITEM_MODE` env 切换 `minimal` vs `metadata`）。疑为之前某 session 布偶猫违反 P0 铁律直接在 runtime 调试语音问题。代码已 stash 保留（`runtime-rescue: WeixinAdapter voice_item A/B test`）。**若语音问题仍未解决，可 `git stash pop` 恢复这段逻辑在 feature worktree 中正式开发。** 当前 main 上 #854 的方案是 minimal-only。|
 | 2026-05-14 | Hermes 最新个人微信实现对比审计：补 H1-H8 修复队列。明确排除 HermesClaw 同号多 runtime 代理；F137 下一轮优先修 `upload_full_url`、入站 `full_url`、语音默认可播放附件、iLink 错误分流。|
+| 2026-05-15 | F137 WeChat personal media hardening merged (PR #1675): H1-H6 fixed, including `upload_full_url`/`full_url` CDN compatibility, voice default file attachment, iLink `-2`/`-14` handling, session state persistence, inbound dedup, and live token-rotation cursor preservation. |
 
 ## Review Gate
 
