@@ -157,11 +157,11 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 - [x] AC-E0: CVO explicit reopen captured: `InstallPreviewModal` + Skills write actions are F199 Phase E, not ownerless follow-up
 - [ ] AC-E1: Phase E design memo reviewed by non-author reviewer before implementation
 - [x] AC-E2: Service lifecycle backend has explicit owner fail-closed, service allowlist, per-service mutex, script path confinement, strict process matching, model validation, install/uninstall timeout cap, port-busy refusal, bounded logs, and metadata-only audit
-- [ ] AC-E3: Settings service UI exposes install/start/stop/uninstall only on hardened backend; `InstallPreviewModal` visual proof covers prerequisites/model selection/error/fail-closed states
-- [ ] AC-E4: Skills write backend has explicit owner fail-closed, project path validation, skill name validation, managed-skill destructive guard, and metadata-only audit
-- [ ] AC-E5: Settings Skills UI exposes sync / conflict resolution / managed uninstall or disable with user-visible errors and proof that D-2 read surfaces still work
+- [x] AC-E3: Settings service UI exposes install/start/stop/uninstall only on hardened backend; `InstallPreviewModal` visual proof covers prerequisites/model selection/error/fail-closed states
+- [x] AC-E4: Skills write backend has explicit owner fail-closed, project path validation, skill name validation, managed-skill destructive guard, and metadata-only audit
+- [x] AC-E5: Settings Skills UI exposes sync / conflict resolution / managed uninstall or disable with user-visible errors and proof that D-2 read surfaces still work
 - [ ] AC-E6: F199 final close gate reruns source settings diff, User Visibility Disclosure, red-zone grep, transport boundary check, and independent vision guardian after Phase E merge; close report must disclose a guardian handle that is not Phase E author and not Phase E reviewer (cross-family preferred)
-- [ ] AC-E7: Phase E does not touch F183/F184/F194 red-zone files and does not take over F088/F124 message routing/runtime ownership
+- [x] AC-E7: Phase E does not touch F183/F184/F194 red-zone files and does not take over F088/F124 message routing/runtime ownership
 
 ## Dependencies
 
@@ -240,6 +240,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | 2026-05-14 | Phase E design memo added: service lifecycle + Skills write actions require independent hardening slices before UI parity |
 | 2026-05-14 | Opus-47 design review approved Phase E direction and required E-1a mutex / strict process matching / timeout / port hygiene + explicit guardian disclosure |
 | 2026-05-14 | E-1 service lifecycle backend hardening merged via PR #1673 (`03a9b974`); AC-E2 complete, E-3 UI parity remains pending |
+| 2026-05-15 | Phase E UI + skills write hardening merged via PR #1677 (`68cb06b8`); AC-E3/E4/E5/E7 complete; session-only owner gate, managed-skill guard, install action reachable; local gpt55 review + cloud codex review passed |
 
 ## Review Gate
 
