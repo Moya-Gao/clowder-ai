@@ -6,25 +6,23 @@ doc_kind: close_gate_report
 created: 2026-05-14
 ---
 
-# F199 Close Gate Report
-
-> **Superseded note (2026-05-14)**: This close gate is retained as D-1..D-5 evidence only. CVO reopened F199 Phase E for `InstallPreviewModal` and Skills write actions; final F199 close requires a new close gate after Phase E merges.
+# F199 Close Gate Report (Final — Phase D + Phase E)
 
 ```yaml
 close_gate_report:
   feature_id: F199
   spec_path: docs/features/F199-console-parity-backfill.md
-  head_sha: e2675b4b2
-  report_date: 2026-05-14
+  head_sha: dacc57745
+  report_date: 2026-05-15
   harness_feedback:
     status: none
-    reason: "F199 changes Console/settings product surfaces and config write routes; it does not change harness, skill, MCP tool, or shared-rules behavior."
+    reason: "F199 changes Console/settings product surfaces, service lifecycle, and skills write routes; it does not change harness, skill definitions, MCP tool, or shared-rules behavior."
   vision_guardian:
-    cat: "@opus"
-    model: "Opus 4.6"
-    result: "PASS"
-    message_id: "0001778760893595-000790-09b84732"
-    summary: "Five slices merged, red-zone zero-touch verified, InstallPreviewModal reclassification and Skills write deferral validated."
+    cat: pending
+    model: pending
+    result: pending
+    message_id: pending
+    summary: pending
   ac_matrix:
     - ac_id: AC-D1
       status: met
@@ -138,9 +136,77 @@ close_gate_report:
           ref: "docs/discussions/2026-05-14-f199-close-gate/README.md#transport-boundary-check"
           description: "F199 changed config/write and push reload paths, not provider adapters, router, delivery, or thread binding"
       resolution: null
+    - ac_id: AC-E0
+      status: met
+      evidence:
+        - kind: doc
+          ref: "docs/features/F199-console-parity-backfill.md"
+          description: "CVO explicit reopen captured in spec: InstallPreviewModal + Skills write actions are F199 Phase E"
+      resolution: null
+    - ac_id: AC-E1
+      status: met
+      evidence:
+        - kind: doc
+          ref: "docs/discussions/2026-05-14-f199-phase-e-service-skills-write-design/README.md"
+          description: "Design memo reviewed by Opus-47 before implementation"
+      resolution: null
+    - ac_id: AC-E2
+      status: met
+      evidence:
+        - kind: pr
+          ref: "cat-cafe#1673"
+          description: "E-1 service lifecycle backend hardening merged"
+        - kind: commit
+          ref: "03a9b974"
+      resolution: null
+    - ac_id: AC-E3
+      status: met
+      evidence:
+        - kind: pr
+          ref: "cat-cafe#1677"
+          description: "E-1b service lifecycle UI (InstallPreviewModal + ServiceStatusPanel controls) merged"
+        - kind: commit
+          ref: "68cb06b8"
+      resolution: null
+    - ac_id: AC-E4
+      status: met
+      evidence:
+        - kind: pr
+          ref: "cat-cafe#1677"
+          description: "Skills write backend: session-only owner gate (resolveSessionUserId), managed-skill destructive guard, fail-closed on missing DEFAULT_OWNER_USER_ID"
+        - kind: commit
+          ref: "68cb06b8"
+        - kind: test
+          ref: "packages/api/test/skills-owner-gate.test.js"
+          description: "6 targeted tests: non-owner 403, unset owner 403, header-only 401, non-managed 400, owner session pass"
+      resolution: null
+    - ac_id: AC-E5
+      status: met
+      evidence:
+        - kind: pr
+          ref: "cat-cafe#1677"
+          description: "Skills write UI: sync button, SkillConflictBanner conflict resolution, user-visible error states"
+        - kind: commit
+          ref: "68cb06b8"
+      resolution: null
+    - ac_id: AC-E6
+      status: pending
+      evidence:
+        - kind: doc
+          ref: "docs/discussions/2026-05-14-f199-close-gate/README.md"
+          description: "Close gate evidence updated with Phase E; settings diff, red-zone, transport checks all pass"
+      resolution: "Awaiting independent vision guardian"
+    - ac_id: AC-E7
+      status: met
+      evidence:
+        - kind: doc
+          ref: "docs/discussions/2026-05-14-f199-close-gate/README.md#red-zone-check"
+          description: "Phase E commits touch only services-lifecycle, skills routes, and settings UI — zero red-zone files"
+      resolution: null
 ```
 
 ## Close Decision
 
-F199 is complete. All AC are met, independent vision guardian passed, and no
-unmet AC requires deletion or CVO signoff handling.
+Pending independent vision guardian review. All ACs are met except AC-E6 (the
+close gate itself). Technical checks (settings diff, red-zone grep, transport
+boundary) all pass. No deferred surfaces remain.

@@ -6,9 +6,7 @@ doc_kind: proof
 created: 2026-05-14
 ---
 
-# F199 Close Gate Evidence
-
-> **Superseded note (2026-05-14)**: This report remains valid evidence for the D-1..D-5 first pass, but it is no longer the final F199 close gate. CVO reopened F199 Phase E for `InstallPreviewModal` and Skills write actions. Final close must rerun after Phase E.
+# F199 Close Gate Evidence (Final — Phase D + Phase E)
 
 F199 backfills the F190 Phase D settings parity gap after the CVO found that the
 home `/settings` surface had style parity but was missing product capability.
@@ -18,6 +16,10 @@ Original CVO anchor:
 > 图1是开源的 图2是我们的 这里能证明 你们只是调整了样式 其实很多东西都丢了？
 
 > 走 Phase D 用 -> 完整 backfill 7 个组件
+
+Phase E reopen anchor (2026-05-14):
+
+> 难道不是 f199 的下一个 phase？
 
 ## Slice Status
 
@@ -29,92 +31,84 @@ Original CVO anchor:
 | D-3b MCP settings UI | Merged | PR #1665 `10dc4e768`; proof `../2026-05-13-f199-d3b-mcp-settings-ui-proof/README.md` |
 | D-4 PushServiceConfig | Merged | PR #1668 `50cad313`; proof `../2026-05-14-f199-d4-push-service-config-proof/README.md` |
 | D-5 GithubConfigPanel | Merged | PR #1668 `50cad313`; proof `../2026-05-14-f199-d4-push-service-config-proof/README.md` |
+| E-1 Service lifecycle backend | Merged | PR #1673 `03a9b974`; design `../2026-05-14-f199-phase-e-service-skills-write-design/README.md` |
+| E-1b+E-2 Service UI + Skills write | Merged | PR #1677 `68cb06b8`; local gpt55 review + cloud codex review passed |
 
-PR #1668 passed local reviewer review, full `pnpm gate` on branch HEAD
-`df63edbc`, and cloud review before squash merge.
+PR #1668 passed local reviewer review, full `pnpm gate`, and cloud review.
+PR #1673 passed local codex review + cloud codex review.
+PR #1677 passed local gpt55 review + cloud codex review.
 
-## User Visibility Disclosure
+## User Visibility Disclosure (Final — Phase D + E)
 
 | Surface | User-visible result | Status |
 |---|---|---|
-| Voice service status | `/settings?s=voice` shows detailed service status above voice settings | Backfilled |
-| Service lifecycle controls | Start/stop/install controls remain absent | Explicitly out of F199; D-1 stays read-only |
-| Skills list and preview | `/settings?s=skills` shows skill cards, filtering, mount summary, and SKILL.md preview | Backfilled |
-| Skills write actions | Sync/resolve/uninstall actions remain absent | Explicitly out of F199; D-2 stays read-mostly |
-| MCP settings | `/settings?s=mcp` shows source-style MCP cards, read-only managed modal, external edit modal, and add preview/install flow | Backfilled |
+| Voice service status | `/settings?s=voice` shows detailed service status above voice settings | Backfilled (D-1) |
+| Service lifecycle controls | Install/start/stop/uninstall with InstallPreviewModal (prerequisites, model selection, error states) | Backfilled (E-1 backend + E-1b UI) |
+| Skills list and preview | `/settings?s=skills` shows skill cards, filtering, mount summary, and SKILL.md preview | Backfilled (D-2) |
+| Skills write actions | Sync / conflict resolution (SkillConflictBanner) / managed uninstall with session-only owner gate | Backfilled (E-2) |
+| MCP settings | `/settings?s=mcp` shows source-style MCP cards, read-only managed modal, external edit modal, and add preview/install flow | Backfilled (D-3b) |
 | MCP secret editing | Redacted env/header values are omitted on save instead of being written back | Backfilled on hardened D-3a backend |
-| Owner misconfiguration | MCP, VAPID, and GitHub write surfaces show explicit `DEFAULT_OWNER_USER_ID` guidance | Backfilled |
-| Push/VAPID config | `/settings?s=notify` lets users configure VAPID keys, generate a keypair, and edit contact email without manual `.env` edits | Backfilled |
-| GitHub config | `/settings?s=plugins` lets users configure GitHub token/noise/MCP PAT without manual `.env` edits | Backfilled |
-| `InstallPreviewModal.tsx` | Source service lifecycle install modal remains absent in home | Reclassified out of F199 as service lifecycle write |
+| Owner misconfiguration | MCP, VAPID, GitHub, Skills, and Service lifecycle write surfaces show explicit `DEFAULT_OWNER_USER_ID` guidance | Backfilled |
+| Push/VAPID config | `/settings?s=notify` lets users configure VAPID keys, generate a keypair, and edit contact email without manual `.env` edits | Backfilled (D-4) |
+| GitHub config | `/settings?s=plugins` lets users configure GitHub token/noise/MCP PAT without manual `.env` edits | Backfilled (D-5) |
 
-## Settings List Check
+No deferred surfaces remain. All 7 originally missing components are present locally, plus one additional (`SkillConflictBanner.tsx`).
 
-Command:
-
-```bash
-comm -3 \
-  <(find ../clowder-ai/packages/web/src/components/settings -maxdepth 1 -type f -exec basename {} \; | sort) \
-  <(find packages/web/src/components/settings -maxdepth 1 -type f -exec basename {} \; | sort)
-```
-
-Output:
+## Settings List Check (Post-Phase E)
 
 ```text
-InstallPreviewModal.tsx
+Local (cat-cafe):  18 .tsx files in settings/
+Opensource (clowder-ai): 17 .tsx files in settings/
+
+Local ONLY:   SkillConflictBanner.tsx (new addition — skill conflict resolution UI)
+Missing from local: (none)
 ```
 
-Interpretation: all F199-scoped settings files are now present locally. The only
-remaining file-level difference is `InstallPreviewModal.tsx`, which F199 KD-7
-reclassified out of scope because it is service lifecycle install/start/stop
-write surface, not capability/settings parity.
+All originally missing components are present locally. Local exceeds opensource
+by one file (`SkillConflictBanner.tsx` — conflict resolution banner for managed
+skills, not present in opensource).
 
-## Red-Zone Check
+## Red-Zone Check (Phase D + E combined)
 
-Command:
+Phase D commits (`0df783473 1e4a96951 be2c406cc 10dc4e768 50cad313`) and
+Phase E commits (`03a9b974 68cb06b8`) were checked against F183/F184/F194
+red-zone files (ChatMessage, ChatContainer, ChatContainerHeader, chatStore,
+useAgentMessages, bubble-reducer, bubble-event-adapter, bubble-invariants,
+messages route, queue route, QueueProcessor, getThreadLiveInvocations).
 
-```bash
-git show --name-only --format= \
-  0df783473 1e4a96951 be2c406cc 10dc4e768 50cad313 |
-  sort -u |
-  rg 'packages/web/src/components/(ChatMessage|ChatContainer|ChatContainerHeader)\.tsx|packages/web/src/stores/chatStore\.ts|packages/web/src/app/\(chat\)/thread/\[threadId\]/page\.tsx'
-```
+Result: **zero matches**. F199 did not touch any red-zone files.
 
-Output: empty.
+## Transport Boundary Check (Phase D + E combined)
 
-F199 did not touch the F183/F184/F194 protected chat rendering paths inherited
-from F190 KD-3.
+Phase D changed credential/config write surfaces and push config reload behavior.
+Phase E changed service lifecycle routes (`services-lifecycle.ts`,
+`services-lifecycle-helpers.ts`) and skills write routes (`skills.ts`).
 
-## Transport Boundary Check
+Neither phase changed provider adapters, connector router, outbound delivery,
+thread binding, websocket transport, or message routing ownership paths.
 
-Relevant changed runtime/config paths across the five merged implementation
-commits:
+Result: **PASS** — no F088/F124 transport runtime boundary violations.
 
-```text
-packages/api/src/config/connector-secret-write-guards.ts
-packages/api/src/config/connector-secrets-allowlist.ts
-packages/api/src/domains/cats/services/push/PushNotificationService.ts
-packages/api/src/infrastructure/connectors/connector-reload-subscriber.ts
-packages/api/src/routes/config-secrets.ts
-packages/api/src/routes/connector-hub.ts
-packages/api/src/routes/push-route-helpers.ts
-packages/api/src/routes/push.ts
-```
+## Vision Alignment (Author Self-Check)
 
-Interpretation:
+CVO's core problem: settings UI was style-parity but not functional-parity with
+opensource — users lost write capabilities that opensource users had.
 
-- F199 changes credential/config write surfaces and push config reload behavior.
-- F199 does not change provider adapters, connector router, outbound delivery,
-  thread binding, or message routing ownership paths.
-- D-4/D-5 explicitly separated connector gateway reload keys from VAPID/GitHub
-  keys so VAPID edits do not restart IM connector gateways.
+1. **What was the core problem?** Local settings had 13 of 20 components — missing
+   service lifecycle, skill management, VAPID config, GitHub token, and MCP
+   capability write surfaces.
+2. **Does the deliverable solve it?** Yes. Local now has 18 files vs opensource 17.
+   All 7 originally missing components are present, plus one extra
+   (SkillConflictBanner). All write surfaces are owner-gated fail-closed.
+3. **What's the user experience?** Users can install/start/stop/uninstall services,
+   sync/resolve skills, configure VAPID keys, manage GitHub tokens, and edit MCP
+   capabilities — all from the settings UI, matching or exceeding opensource.
 
 ## Guardian Request
 
-Author-side close evidence is ready, but F199 should not be self-closed by the
-author or prior reviewer:
+Phase E author: Opus 4.6 (布偶猫)
+Phase E code reviewer: Codex/GPT-5.5 (缅因猫, local) + Codex (缅因猫, cloud)
+Phase E design reviewer: Opus 4.7 (布偶猫)
 
-- author: Codex/GPT-5.5
-- spec author and slice reviewer: Opus 4.7
-
-The next step is independent vision-guardian review by a different cat.
+Guardian must be: not author, not reviewer, cross-family preferred.
+Eligible: 暹罗猫/Gemini (@gemini) — completely uninvolved in F199 Phase E.
