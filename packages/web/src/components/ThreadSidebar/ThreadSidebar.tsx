@@ -717,38 +717,12 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
 
   return (
     <>
-      <aside className={`${className ?? 'w-60'} border-r border-[var(--console-border-soft)] bg-[var(--console-shell-bg)] flex flex-col h-full`}>
+      <aside
+        className={`${className ?? 'w-60'} border-r border-[var(--console-border-soft)] bg-[var(--console-shell-bg)] flex flex-col h-full`}
+      >
         <div className="px-3 pt-3 pb-2 flex items-center justify-between">
           <span className="text-sm font-semibold text-cafe-black">对话</span>
           <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                const fromParam = currentThreadId ? `?from=${encodeURIComponent(currentThreadId)}` : '';
-                window.location.assign(`/mission-hub${fromParam}`);
-                if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                  onClose?.();
-                }
-              }}
-              className="p-1.5 rounded-lg text-cafe-muted hover:text-cafe-secondary hover:bg-[var(--console-hover-bg)] transition-colors"
-              title="Mission Hub"
-              data-testid="sidebar-mission-control"
-            >
-              <svg
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-              </svg>
-            </button>
             <button
               type="button"
               onClick={() => setShowBootcampList(true)}
@@ -769,6 +743,42 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
               {isCreating ? '...' : '+ 新对话'}
             </button>
           </div>
+        </div>
+
+        <div className="px-3 pb-2">
+          <button
+            type="button"
+            onClick={() => {
+              const fromParam = currentThreadId ? `?from=${encodeURIComponent(currentThreadId)}` : '';
+              window.location.assign(`/mission-hub${fromParam}`);
+              if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                onClose?.();
+              }
+            }}
+            className="group flex w-full items-center justify-between rounded-xl bg-[var(--console-field-bg)] px-3 py-2 text-left text-sm font-medium text-cafe-secondary transition-colors hover:bg-[var(--console-hover-bg)] hover:text-cafe"
+            title="Mission Hub"
+            data-testid="sidebar-mission-control"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <svg
+                aria-hidden="true"
+                className="h-4 w-4 shrink-0 text-cafe-muted transition-colors group-hover:text-cafe-secondary"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+              </svg>
+              <span className="truncate">Mission Hub</span>
+            </span>
+            <span className="text-xs text-cafe-muted transition-colors group-hover:text-cafe-secondary">打开</span>
+          </button>
         </div>
 
         {bindWarning && (
@@ -1007,11 +1017,19 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
             className="flex w-full items-center gap-1.5 px-3 py-2 text-xs text-cafe-muted hover:text-cafe-secondary transition-colors"
             data-testid="trash-bin-toggle"
           >
-            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              aria-hidden="true"
+              className="h-3.5 w-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
             </svg>
             回收站{trashedThreads.length > 0 ? ` (${trashedThreads.length})` : ''}
             <svg
+              aria-hidden="true"
               className={`h-3 w-3 ml-auto transition-transform ${showTrash ? 'rotate-180' : ''}`}
               viewBox="0 0 24 24"
               fill="none"

@@ -45,15 +45,15 @@ export function LabelFilterBar({
   if (labels.length === 0 && uncategorizedCount === 0) return null;
 
   return (
-    <div className="px-3 py-1.5 flex items-center gap-1 flex-wrap border-b border-cafe-subtle">
+    <div className="px-3 pb-2 flex items-center gap-1 flex-wrap">
       {uncategorizedCount > 0 && (
         <button
           type="button"
           onClick={() => handleClick('__uncategorized__')}
           className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-colors ${
             selectedFilter === '__uncategorized__'
-              ? 'border-cafe-muted bg-cafe-surface-elevated text-cafe-black'
-              : 'border-transparent text-cafe-muted hover:text-cafe-secondary'
+              ? 'border-[var(--console-border-soft)] bg-[var(--console-field-bg)] text-cafe-black'
+              : 'border-transparent text-cafe-muted hover:bg-[var(--console-hover-bg)] hover:text-cafe-secondary'
           }`}
         >
           未分类 ({uncategorizedCount})
@@ -63,7 +63,7 @@ export function LabelFilterBar({
         <button
           type="button"
           onClick={onOrganize}
-          className="px-1 py-0.5 text-cafe-muted hover:text-amber-500 transition-colors"
+          className="rounded-full px-1 py-0.5 text-cafe-muted transition-colors hover:bg-[var(--console-hover-bg)] hover:text-amber-500"
           title="猫猫帮你分类"
         >
           <svg
@@ -85,7 +85,7 @@ export function LabelFilterBar({
         <button
           type="button"
           onClick={onManualOrganize}
-          className="px-1 py-0.5 text-cafe-muted hover:text-cafe-secondary transition-colors"
+          className="rounded-full px-1 py-0.5 text-cafe-muted transition-colors hover:bg-[var(--console-hover-bg)] hover:text-cafe-secondary"
           title="手动批量分类"
         >
           <svg
@@ -112,8 +112,8 @@ export function LabelFilterBar({
           onClick={() => handleClick(label.id)}
           className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-colors flex items-center gap-1 ${
             selectedFilter === label.id
-              ? 'border-cafe-muted bg-cafe-surface-elevated text-cafe-black'
-              : 'border-transparent text-cafe-muted hover:text-cafe-secondary'
+              ? 'border-[var(--console-border-soft)] bg-[var(--console-field-bg)] text-cafe-black'
+              : 'border-transparent text-cafe-muted hover:bg-[var(--console-hover-bg)] hover:text-cafe-secondary'
           }`}
           title={label.name}
         >
@@ -126,12 +126,12 @@ export function LabelFilterBar({
           <button
             type="button"
             onClick={() => setShowOverflow(!showOverflow)}
-            className="text-[10px] px-1 py-0.5 text-cafe-muted hover:text-cafe-secondary"
+            className="rounded-full px-1 py-0.5 text-[10px] text-cafe-muted hover:bg-[var(--console-hover-bg)] hover:text-cafe-secondary"
           >
             ...
           </button>
           {showOverflow && (
-            <div className="absolute top-full left-0 mt-1 bg-cafe-surface rounded-lg shadow-lg border border-cafe z-50 py-1 min-w-[120px]">
+            <div className="absolute top-full left-0 mt-1 bg-[var(--console-card-bg)] rounded-lg shadow-lg border border-[var(--console-border-soft)] z-50 py-1 min-w-[120px]">
               {overflowLabels.map((label) => (
                 <button
                   key={label.id}
@@ -140,7 +140,7 @@ export function LabelFilterBar({
                     handleClick(label.id);
                     setShowOverflow(false);
                   }}
-                  className={`w-full text-left text-[10px] px-2 py-1 flex items-center gap-1.5 hover:bg-cafe-surface-elevated ${
+                  className={`w-full text-left text-[10px] px-2 py-1 flex items-center gap-1.5 hover:bg-[var(--console-hover-bg)] ${
                     selectedFilter === label.id ? 'text-cafe-black font-medium' : 'text-cafe-muted'
                   }`}
                 >
@@ -156,7 +156,7 @@ export function LabelFilterBar({
         <button
           type="button"
           onClick={() => onSelect(null)}
-          className="px-1 py-0.5 text-red-400 hover:text-red-500 ml-auto"
+          className="ml-auto rounded-full px-1 py-0.5 text-red-400 hover:bg-red-50 hover:text-red-500"
         >
           <svg aria-hidden="true" className="w-2.5 h-2.5" viewBox="0 0 20 20" fill="currentColor">
             <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" />
