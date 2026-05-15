@@ -1196,6 +1196,36 @@ created: 2026-02-26
 
 ---
 
+### LL-057: root prompt 重复可能是兼容副本，不是天然垃圾
+- 状态：draft
+- 更新时间：2026-05-15
+
+- 坑：看到 `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` 和 `shared-rules.md`、skills、runtime context 重复后，容易直接得出"删掉重复内容"的结论。但这些重复有历史原因：早期猫经常不会主动读取被引用的 `shared-rules.md` / refs，root prompt 才被迫保留精华摘要。如果直接删除，direct CLI、post-compact、未加载 runtime context 的路径会失去安全骨架。
+- 根因：
+  1. **把重复等同于浪费**：prompt 重复里混有两类东西，一类是 stale copy，另一类是 compatibility shim。两者不能同刀处理。
+  2. **引用不是加载**：自然语言里写"参考 shared-rules.md"不等于 agent 已读原文；未验证读取路径前，把 root 摘要删掉会让规则只存在于文档而不进入执行上下文。
+  3. **新注入通道建成后旧通道未退役**：`SystemPromptBuilder`、session hook、skills、MCP schema 都逐步补齐了能力，但 root prompt 的旧摘要没有按能力成熟度回收。
+- 触发条件：做 prompt/context 瘦身、把规则从 root prompt 下沉到 skills/refs/hooks、把静态 roster 迁到 runtime dynamic context、或把 review 事故教训沉淀到规则体系时。
+- 修复（本次落地）：
+  1. 新增 `docs/discussions/2026-05-15-prompt-context-injection-audit.md`，把 root prompt、runtime static/dynamic context、session bootstrap、hooks、skills、MCP schema 等注入面列成 ownership map。
+  2. 明确迁移原则：root prompt 只保留小安全骨架；volatile facts 进 runtime；阶段性解释进 skills；deterministic enforcement 进 hooks/tests/merge gates。
+  3. 明确退役条件：只有确认替代载体在该路径实际加载，才删除 root 摘要。
+- 防护：
+  1. Prompt 瘦身先量 baseline，再删高置信 stale copy。优先删 static teammate table、长 SOP 表、重复 key-doc table。
+  2. `shared-rules.md` 不作为第一批瘦身对象。它是长文真相源；问题是 root prompt 抄太多，不是 truth source 太长。
+  3. 新规则进入 root prompt 前先问：这是每 turn 都必须加载的安全骨架，还是 skill/hook/gate 能承担的阶段性规则？
+  4. 对"猫以前不读引用"这类行为风险，用短 always-visible trigger + deterministic check 兜底，不用整段解释常驻。
+- 来源锚点：
+  - `docs/discussions/2026-05-15-prompt-context-injection-audit.md`
+  - `docs/decisions/030-system-prompt-engineering.md`
+  - `docs/architecture/2026-05-05-architecture-views.md`
+  - `cat-cafe-skills/refs/shared-rules.md`
+- 原理：**Prompt 去重的单位不是字符串，而是加载路径和失效模式。** 同一句规则如果只是 stale copy，就该删；如果是某条执行路径唯一会加载到的安全骨架，就必须先提供已验证替代载体再退役。
+
+- 关联：ADR-030 | F042 | F167
+
+---
+
 ## 8) 维护约定
 
 - 本文件是入口，不替代 ADR/bug-report 原文。

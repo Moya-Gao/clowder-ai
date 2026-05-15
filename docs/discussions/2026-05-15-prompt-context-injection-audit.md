@@ -7,8 +7,8 @@ related:
 topics: [system-prompt, context-injection, harness, skills, hooks, governance]
 doc_kind: discussion
 created: 2026-05-15
-status: draft
-participants: [codex]
+status: draft-converged
+participants: [codex, opus-47, opus-46]
 ---
 
 # Prompt / Context Injection Audit Draft
@@ -33,6 +33,52 @@ This audit should not replace the existing architecture sources:
 - `docs/bug-report/2026-02-23-system-prompt-context-bloat/bug-report.md` diagnosed prompt bloat from repeated static blocks and long callback manuals.
 
 The missing piece is a current, operational ownership table: what belongs in root prompt, what belongs in dynamic context, what belongs in a skill, and what should be a hook/tool instead of natural-language instruction.
+
+## Ragdoll Review Convergence
+
+Opus 4.7 and Opus 4.6 both independently reached the same core diagnosis: the root files are not bloated because someone "forgot" `shared-rules.md`; they are bloated because old harnesses and older model behavior could not be trusted to follow pointers. Root prompts became distilled copies of the rules that cats were otherwise skipping.
+
+That history matters. The right migration is not "delete all duplicated rules." The right migration is:
+
+1. keep a small root safety skeleton for direct CLI sessions and post-compact survival;
+2. make runtime-injected state the source of truth for volatile facts like roster, current model, mode, baton, and routing;
+3. move stage-specific explanations into skills;
+4. move deterministic enforcement into hooks, tests, and merge gates;
+5. only retire a root summary after there is an equivalent pointer, hook, skill, or runtime block that is actually loaded in that path.
+
+Accepted reviewer input:
+
+- Target root prompt size should be roughly 60 lines per carrier, but only after a baseline token report and direct-CLI fallback check.
+- `shared-rules.md` should not be shortened as the first move. It is the long-form truth source; the problem is copying too much of it into always-on root files.
+- Static teammate tables in `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` are a high-confidence deletion candidate because `SystemPromptBuilder` already injects the resolved runtime roster with current models.
+- The memory routing table should have one real source, `cat-cafe-skills/refs/memory-routing-partial.md`; root prompts should carry only a short recall principle and exact entrypoint names.
+- `session-start-recall.sh` should keep deterministic local-state checks. Its recall line is acceptable only as a short trigger; it must not grow into a second memory manual.
+- Review no-middle-state belongs in `shared-rules.md` as a two-line protocol skeleton, in review skills as the explanation/template layer, and in merge-gate as a contradiction check. It does not belong as a new root personality paragraph.
+
+Rejected or narrowed input:
+
+- Do not make "remove warmth from Opus" the fix. That treats a gate contract failure as a personality defect.
+- Do not rewrite `SystemPromptBuilder.ts` before deleting obvious root duplicates. The builder is already carrying legitimate volatile context; the first safe win is retiring stale static copies.
+- Do not delete recall reminders everywhere at once. User evidence says cats sometimes skip referenced docs; prompt slimming must preserve one short always-visible recall trigger until behavior is measured.
+
+## Verified Baseline
+
+As of 2026-05-15:
+
+| Artifact | Lines | Notes |
+|---|---:|---|
+| `AGENTS.md` | 207 | Codex root prompt; contains static teammate table, SOP table, memory routing table, key docs table |
+| `CLAUDE.md` | 188 | Claude root prompt; same duplicated families of content |
+| `GEMINI.md` | 183 | Gemini root prompt; same duplicated families of content |
+| `cat-cafe-skills/refs/shared-rules.md` | 738 | Long-form governance truth source; should not be treated as prompt bloat by itself |
+| `packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts` | 1017 | Runtime static and invocation context builder |
+| `.claude/hooks/user-level/session-start-recall.sh` | 100 | Hook output includes one recall reminder plus local-state checks |
+
+Confirmed repeated anchors:
+
+- `开工前先 recall` appears in all three root files and the session-start hook.
+- static teammate tables appear in all three root files, while runtime also injects teammate roster/model data.
+- `Skill 不是可选的`, `Redis 6399`, and key document pointers appear in multiple always-on places.
 
 ## Current Injection Surfaces
 
@@ -72,7 +118,9 @@ If a rule fits multiple rows, choose the lowest-loading row that still prevents 
 
 The native root files still contain team roster, SOP navigation, and broad shared rules. Runtime also injects callable teammate handles, a roster table with resolved models, workflow triggers, and A2A routing guidance. This duplication is useful for direct CLI sessions outside Cat Cafe, but wasteful inside Cat Cafe invocation context.
 
-Recommendation: split "native direct CLI minimum" from "Cat Cafe runtime-injected state." Root files should keep identity, fatal gotchas, and pointers. Runtime state should remain in `SystemPromptBuilder`, but static blocks should not repeat content already supplied by native carrier files when the carrier is known to have loaded them.
+Recommendation: split "native direct CLI minimum" from "Cat Cafe runtime-injected state." Root files should keep identity, fatal gotchas, and pointers. Runtime state should remain in `SystemPromptBuilder`, but static blocks should not repeat content already supplied by runtime when the carrier is known to have that runtime context.
+
+Compatibility caveat: direct CLI sessions still need a tiny root skeleton because they may not receive Cat Cafe runtime injection. This is why root prompts should be slimmed, not deleted.
 
 ### 2. Review No-Middle-State Should Not Become Another Root Paragraph
 
@@ -92,7 +140,7 @@ Do not remove "温柔" from the broad personality prompt as the main fix. Person
 
 The current `session-start-recall.sh` is mostly operational: dirty docs, unpushed commits, branch warning, recall reminder. That is healthy because it observes local state and emits concrete warnings.
 
-Boundary: keep it short and exact. If recall guidance grows beyond one or two lines, move it into `memory-navigation` skill or MCP tool descriptions. Hook output should not restate team roster, SOP, or governance.
+Boundary: keep it short and exact. If recall guidance grows beyond one or two lines, move it into `memory-routing-partial.md`, a memory skill, or MCP tool descriptions. Hook output should not restate team roster, SOP, or governance. Do not remove the one-line recall trigger until root slimming has a measured behavior check, because the whole reason root summaries grew was that cats skipped referenced docs.
 
 ### 4. Dynamic Context Needs a Token Budget, Not Just Good Intentions
 
@@ -148,6 +196,17 @@ Remove or downshift:
 - long SOP tables already represented by skills
 - repeated shared-rules digest when `GOVERNANCE_L0_DIGEST` is injected by runtime
 - detailed MCP tool manual when tool schema or callback endpoint exists
+
+Target shape:
+
+| Section | Target |
+|---|---|
+| identity and family contract | 3-6 lines |
+| fatal local hazards | 5-8 lines |
+| skill / SOP pointer | 2-4 lines |
+| memory pointer | 2-5 lines |
+| family-specific tool caveats | only what is unique to that family |
+| duplicated roster / long tables | remove |
 
 ### Runtime Static Identity: Session-Level Contract
 
@@ -218,6 +277,13 @@ Rules:
 
 This belongs in review skills and merge gate checks, not as a broad personality rewrite.
 
+Shared-rules skeleton should be short enough to remain always-on:
+
+```markdown
+- Reviewer verdict is binary: APPROVE only when no P0/P1/P2 remains; otherwise REQUEST_CHANGES.
+- "P2 but not blocking" and "approve with follow-up" are invalid review states.
+```
+
 ## Open Questions for Implementation
 
 1. Can Cat Cafe detect whether the native carrier root file was already loaded, so runtime static identity can skip overlapping roster/SOP/governance blocks?
@@ -229,11 +295,31 @@ This belongs in review skills and merge gate checks, not as a broad personality 
 ## Minimal Next Patch Set
 
 1. Add a prompt capture report grouped by injection source, using existing `prompt-captures` plumbing where possible.
-2. Add `review-result-template.md` or equivalent verdict contract under `cat-cafe-skills/refs/`.
-3. Wire `request-review`, `receive-review`, and `merge-gate` to reference that verdict contract.
-4. Add a light contradiction detector for review text before merge gate.
-5. Run a root prompt reduction audit against `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, and `SystemPromptBuilder.buildStaticIdentity()`.
-6. Evaluate LSP availability separately; do not solve it with more prompt text.
+2. Create a duplication matrix for `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `shared-rules.md`, session hooks, and `SystemPromptBuilder`.
+3. Slim root prompts in reversible patches: remove static teammate tables first, then shrink memory routing and SOP tables into pointers.
+4. Add the two-line reviewer verdict skeleton to `shared-rules.md` §7.
+5. Add `review-result-template.md` or equivalent verdict contract under `cat-cafe-skills/refs/`.
+6. Wire `request-review`, `receive-review`, and `merge-gate` to reference that verdict contract.
+7. Add a light contradiction detector for review text before merge gate.
+8. Recompress `GOVERNANCE_L0_DIGEST` from the updated shared rules, or generate it from source if that path is already available.
+9. Evaluate LSP availability separately; do not solve it with more prompt text.
+
+## Migration Order
+
+The safe order is measurement first, then deletion of clear duplicates, then behavior changes:
+
+1. Baseline: capture effective prompt tokens by block type for at least one typical root conversation, one review conversation, and one merge-gate conversation.
+2. Delete high-confidence stale copies: root teammate tables, long SOP route tables, and duplicated key-doc tables.
+3. Compress memory routing in root files to a short recall principle plus exact entrypoints; keep `memory-routing-partial.md` as the detailed source.
+4. Add no-middle-state verdict contract to review skills and shared-rules §7.
+5. Add deterministic contradiction detection in merge gate.
+6. Only then consider changing `SystemPromptBuilder` conditional injection, because builder fields include current volatile state and are higher blast radius.
+
+## Convergence Check
+
+1. ADR update? No. This discussion refines ADR-030 but does not reject a new architecture option.
+2. Lesson update? Yes. Captured as LL-057 in `docs/lessons-learned.md`.
+3. Rule update? Not in this patch. Candidate rule for the implementation plan: "new review/process lessons enter root prompts only as a compressed invariant; explanations go to skills and enforcement goes to gates."
 
 ## Working Position
 
