@@ -9,8 +9,8 @@ related: [F086, F129, ADR-012]
 
 # ADR-030: System Prompt Engineering — 注入链地图 + 写作原则 + 同步纪律
 
-> 状态：草稿（待多猫 Phase 0 审视后定稿）
-> 日期：2026-04-17
+> 状态：草稿（2026-05-15 追加载体通道语义验证 §8）
+> 日期：2026-04-17（§8 追加 2026-05-15）
 > 决策者：铲屎官 + 布偶猫(46/47) + 缅因猫(Codex/GPT-5.4) + 暹罗猫(Gemini)
 > 触发：F167 Phase 0 —— 发现改了 `governance-l0.md` 但忘了同步 `GOVERNANCE_L0_DIGEST`，Magic Words 在运行时对其他猫不生效
 
@@ -216,6 +216,54 @@ pnpm --filter @cat-cafe/api test:system-prompt
 | **待审** | `GOVERNANCE_L0_DIGEST` vs `shared-rules.md` 三层覆盖差异量化 | `SystemPromptBuilder.ts:259` |
 | **待审** | `MCP_TOOLS_SECTION` 工具列表是否过时 | `SystemPromptBuilder.ts:223` |
 
+### 8. 载体通道语义（2026-05-15 源码验证）
+
+> 由 F167 Phase 0 审计 + 铲屎官追问触发，布偶猫 + 缅因猫分别阅读三家 CLI 源码验证。
+
+**核心发现**：`SystemPromptBuilder` 名字有误导——其产物**不进入 API `system` role**，而是 prepend 到 user/query 字符串。
+
+#### 8.1 各注入点实际通道
+
+| 注入点 | 以为进的通道 | 实际通道 | 验证来源 |
+|--------|-------------|---------|---------|
+| `CLAUDE.md` | API system | **user message**（Claude Code 把项目指令拼入 user turn） | Claude Code 源码 `ProjectConfig` 加载路径 |
+| `AGENTS.md` | API system | **user message**（Codex CLI 同理） | Codex CLI 开源代码 |
+| `GEMINI.md` | API system | **user message**（Gemini CLI 同理） | Gemini CLI 开源代码 |
+| `SystemPromptBuilder` 产物 | API system | **user/query string prepend** | `invoke-single-cat.ts:1114-1117`：`effectivePrompt = params.systemPrompt + promptWithMission` |
+| `governance-l0.md` sync 产物 | 各族 system | **user message**（经由各族 CLI 的项目指令加载） | 同上各 CLI 源码 |
+
+**含义**：
+- 三份 root md（CLAUDE/AGENTS/GEMINI）和 `SystemPromptBuilder` 产物在同一个 user message 通道里，**没有优先级分层**——重复 = 纯浪费 token
+- API `system` role 由各 CLI 自身硬编码（Claude Code 的 Anthropic system prompt、Codex 的 OpenAI system message、Gemini 的 systemInstruction），我们无法直接控制
+- `invoke-single-cat.ts:1079-1088` F-BLOAT 注释明确记录：`--append-system-prompt` 曾尝试但"proved unreliable"，已放弃
+
+#### 8.2 各 CLI 真 system prompt 注入能力
+
+| CLI | 注入手段 | 效果 | 生产可用性 |
+|-----|---------|------|-----------|
+| **Claude Code** | `--system-prompt "text"` | **替换**默认 system prompt | ⚠️ 替换式，丢失 Claude Code 自身指令 |
+| **Claude Code** | `--append-system-prompt "text"` | **追加**到默认 system prompt 末尾 | ⚠️ 我们代码里存在但未启用（`ClaudeAgentService.ts:261-264`），F-BLOAT 注释标记"unreliable" |
+| **Codex CLI** | `config.toml` → `developer_instructions` | 进入 OpenAI `developer` role | ✅ 可用，但需写入 `~/.codex/config.toml` |
+| **Codex CLI** | `config.toml` → `base_instructions` | **替换** model 默认指令 | ⚠️ 替换式 |
+| **Gemini CLI** | `GEMINI_SYSTEM_MD` 环境变量 | **替换** systemInstruction | ⚠️ 替换式，丢失 Gemini CLI 自身指令 |
+| **Gemini CLI** | `jitContext: false` 设置 | 禁用 Gemini CLI 自动上下文 | 配合用，非独立注入手段 |
+
+**结论**：三家 CLI 都有真 system prompt 注入能力，但**替换式居多**（丢失 CLI 自身指令），仅 Codex 的 `developer_instructions` 是追加式。Claude Code 的 `--append-system-prompt` 是唯一追加式且不丢指令的选项，但我们自己的代码标记其"unreliable"——是否重新评估是开放问题。
+
+#### 8.3 对 CLAUDE.md / AGENTS.md / GEMINI.md 瘦身的影响
+
+既然 root md 和 SystemPromptBuilder 产物在**同一通道**，去重收益直接 = 省 token：
+
+| 内容 | 当前位置 | 是否与 SystemPromptBuilder 重复 | 建议 |
+|------|---------|-------------------------------|------|
+| 队友名册 | root md 静态表 | ✅ SystemPromptBuilder 动态生成 | **删**（已发现 GEMINI.md 模型版本漂移为证） |
+| SOP 导航表 | CLAUDE.md | ❌ 但 Skill 加载时自带 | **删**，Skill 不是可选的 |
+| 记忆路由详述 | CLAUDE.md ~40 行 | ❌ 但 `memory-routing-partial.md` 是真相源 | **缩**到 3 行指针 |
+| 代码规范 | CLAUDE.md | ❌ 但 SOP.md 是真相源 | **缩**到 1 行引用 |
+| 五条铁律 | CLAUDE.md | ⚠️ 部分与 shared-rules 纪律条款重叠 | **保留**（失效模式不同：root md 每次加载，shared-rules 可能被跳过——铲屎官原话确认） |
+
+铲屎官原话（2026-05-15）解释了为什么 root md 和 shared-rules 有重复："有的东西比如说我和你说 xxx 东西参考 shared-rules.md 你们根本不会去看！哈哈哈 这就是为什么 claude/agents/gemini md 有那么多和这个 shared-rules.md 重复的东西"——**重复是刻意的兼容副本**，因为猫猫不可靠地跟引用链。LL-057 已记录此原则：`Prompt 去重的单位不是字符串，而是加载路径和失效模式`。
+
 ## 后果
 
 - **正面**：注入链地图 + 同步纪律让"改了 A 忘了 B"可预防
@@ -229,7 +277,10 @@ pnpm --filter @cat-cafe/api test:system-prompt
 ## 开放问题
 
 1. `GOVERNANCE_L0_DIGEST` 是否应改为从 `shared-rules.md` 自动编译（消除手动同步）
-2. `CLAUDE.md` 铁律哪些是 `shared-rules.md` 纪律的重复（需逐条比对）
+2. `CLAUDE.md` 铁律哪些是 `shared-rules.md` 纪律的重复（需逐条比对）——铲屎官已确认重复是刻意的兼容副本（§8.3），但仍需量化哪些可安全删除
 3. `WORKFLOW_TRIGGERS` 是否应提取为外部配置文件（当前硬编码在 .ts 中）
 4. Pack system guardrails 与 L0 治理的优先级冲突如何仲裁
 5. Skills `refs/` 参考文档的过时检测机制
+6. **`--append-system-prompt` 是否值得重新评估**——当前标记"unreliable"（F-BLOAT 注释），但它是唯一能将关键规则注入 Claude API `system` role 的追加式手段。如果可靠性问题已被上游修复，启用它可以实现真正的优先级分层（system role > user message）
+7. **root md 瘦身实施**——§8.3 已列出删/缩/保留建议，需铲屎官 signoff 后分批落地（愿景级决策）
+8. **Codex `developer_instructions` 是否应启用**——唯一可用的追加式真 system prompt 注入，可将治理规则注入 `developer` role 获得优先级提升
