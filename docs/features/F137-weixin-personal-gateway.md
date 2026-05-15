@@ -120,9 +120,9 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 | 4 | FILE | 已实现（CDN 下载 + AES 解密） | 已实现（CDN 上传 + `file_item`） |
 | 5 | VIDEO | 协议有定义（`video_item`），代码未实现 | 协议支持，代码未实现 |
 
-#### 出站限制的技术根因
+#### 历史误判：出站不是只能发文本
 
-`/ilink/bot/sendmessage` API 的 `item_list` 仅支持 `text_item`（`type=1`）。`WeixinAdapter.sendMessageApi()`（第 642 行）构造的请求体：
+早期调研曾误判 `/ilink/bot/sendmessage` API 的 `item_list` 仅支持 `text_item`（`type=1`）。当时 `WeixinAdapter.sendMessageApi()` 构造的请求体只有文本：
 
 ```json
 {
@@ -134,7 +134,7 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 }
 ```
 
-**~~之前结论有误~~**：iLink `sendmessage` API **支持发送图片/文件/语音/视频**——通过 `item_list` 中的 `image_item`/`file_item`/`voice_item`/`video_item`。需要先调 `getuploadurl` 获取 CDN 上传地址，用 AES-128-ECB 加密后上传，拿到 `filekey` + `encrypt_query_param` + `aes_key` 后放入 item。官方 `@tencent-weixin/openclaw-weixin@2.0.1` 的 `send-media.ts` + `cdn/upload.ts` 有完整实现。
+**更正**：iLink `sendmessage` API **支持发送图片/文件/语音/视频**——通过 `item_list` 中的 `image_item`/`file_item`/`voice_item`/`video_item`。需要先调 `getuploadurl` 获取 CDN 上传地址，用 AES-128-ECB 加密后上传，拿到 `filekey` + `encrypt_query_param` + `aes_key` 后放入 item。官方 `@tencent-weixin/openclaw-weixin@2.0.1` 的 `send-media.ts` + `cdn/upload.ts` 有完整实现。
 
 > 纠正来源：2026-03-25 布偶猫核实 openclaw v2.0.1 源码 `sendImageMessageWeixin` / `uploadFileToWeixin` 确认。
 
@@ -145,8 +145,8 @@ F088 + F132 覆盖了**企业级 IM**（飞书、Telegram、钉钉、企业微�
 | 文字收/发 | ✅ | ✅ | Phase A 已完成 |
 | 图片收 | ✅ CDN URL | ✅ CDN 下载 + AES 解密 | Phase B 完成 |
 | 图片发 | ✅ CDN 上传 + `image_item` | ✅ `sendMedia()` 已实现 | Phase B 完成 |
-| 语音收 | ✅ CDN | ⚠️ 语音转文字已实现，CDN 下载未接入 | Phase B 部分 |
-| 语音发 | ✅ CDN 上传 | ✅ `sendMedia(audio)` 已实现 | Phase B 完成 |
+| 语音收 | ✅ CDN | ⚠️ 默认用 iLink 转写文本；原始 SILK 需 `WEIXIN_CAPTURE_INBOUND_VOICE_MEDIA=1` 才接入 | Phase B 部分 |
+| 语音发 | ✅ CDN 上传 | ⚠️ `sendMedia(audio)` 已实现，但原生 `voice_item` 仍未实测稳定；需走 2026-05-14 修复队列 | Phase B 部分 |
 | 文件收 | ✅ CDN | ✅ CDN 下载 + AES 解密 | Phase B 完成 |
 | 文件发 | ✅ CDN 上传 | ✅ `sendMedia(file)` 已实现 | Phase B 完成 |
 | 视频收 | ✅ 协议定义 | ❌ 完全没做 | 低优先级 |
@@ -416,6 +416,47 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 - BUG-4 系列的 merge 逻辑（ConnectorInvokeTrigger + QueueProcessor 合并多 turn）不再是 WeChat 接龙的必要条件——但保留为可选的用户体验优化（合并消息 vs 多条碎片消息）
 - `SINGLE_TOKEN_CONNECTORS` 常量和相关 merge 判断可以后续清理
 
+## 2026-05-14 Hermes 最新对比审计
+
+**范围边界**：本节只记录 Cat Cafe 自身个人微信 iLink Bot 适配需要补齐的协议/可靠性问题。HermesClaw 的"同一个个人微信账号被 Hermes/OpenClaw/OpenCode 多 runtime 共享"本地代理模式不纳入 F137；我们只需要让猫猫自己的微信通道可靠工作。
+
+**核对来源**：
+- Hermes Agent latest main（本轮拉到 `ddb8d8fa`，2026-05-14）`gateway/platforms/weixin.py`
+- HermesClaw latest（`d018f6a`，2026-04-29）仅用于识别非目标范围
+- 本仓库现状：`packages/api/src/infrastructure/connectors/adapters/WeixinAdapter.ts`、`weixin-cdn.ts`、`packages/api/test/weixin-adapter.test.js`、`weixin-cdn.test.js`
+
+### 需要修复
+
+| ID | 严重度 | 问题 | 当前证据 | 修复方向 | 状态 |
+|----|--------|------|----------|----------|------|
+| H1 | P1 | `getuploadurl` 只支持 `upload_param`，不支持 `upload_full_url` | `uploadMediaToCdn()` 在无 `upload_param` 时直接 throw；Hermes 兼容 `upload_full_url`，且确认两种上传都用 `POST` | `callGetUploadUrl()` 返回 `upload_param? + upload_full_url?`；优先 `upload_full_url`，否则构造 CDN URL；补 `weixin-cdn.test.js` | needs fix |
+| H2 | P1 | 入站媒体只支持 `encrypt_query_param`，不支持 `full_url` | `downloadMediaFromCdn()` 只拼 `/download?encrypted_query_param=`；Hermes 对 `full_url` 做 WeChat CDN allowlist 后直下 | `platformKey` 支持 `{ fullUrl, aesKey }`；仅允许 WeChat CDN host，防 SSRF；图片/文件/语音解析都写入 fullUrl | needs fix |
+| H3 | P1 | 猫猫发语音仍未有可靠默认路径 | 当前默认 `.silk` 走原生 `voice_item` minimal；历史验证出现"1 秒假语音/完全消失"；Hermes 最新明确不把原生 voice bubble 当可靠路径，`send_voice()` 强制走 file attachment fallback | 默认把 outbound audio 作为可播放文件发送，原生 `voice_item` 只保留在显式实验 env 下；补一条端到端测试证明 voiceMode audio 不静默丢弃且微信端至少收到可播放附件 | needs fix |
+| H4 | P1 | `sendmessage/sendMedia` 对 iLink `-2` 错误分流不足 | Hermes 区分 `-2 unknown error` stale-session 与 `-2` frequency limit，并做 backoff/retry；我们现在非 0 直接 throw | 增加错误分类：`-14`/`-2 unknown error` 触发重新扫码状态，频控 `-2` 做有限 retry/backoff；覆盖 text + media | needs fix |
+| H5 | P2 | `context_token` 和 `get_updates_buf` 只在内存 | 重启后失去 peer token/cursor；Hermes 按 account+peer 落盘恢复 | 将 token/cursor 持久化到 connector state/Redis；断开连接时清理 | needs fix |
+| H6 | P2 | 入站 dedup 只依赖 message id | Hermes 有 message id + 内容指纹二级 dedup；iLink 重放若换 id，可能二次触发猫猫 | 为 weixin 入站加短 TTL 内容指纹 dedup（chatId + normalized text/media hash） | needs fix |
+| H7 | P3 | 视频收发未实现 | 协议和 Hermes 都支持 `video_item`；F137 矩阵仍标低优先级 | 仅在用户需要视频时实现 inbound/outbound video | defer |
+| H8 | P3 | Markdown/长文本体验偏保守 | 我们 `stripMarkdownForWeixin()` 去格式；Hermes 保留部分 Markdown 并做 code block/长行 wrap | 后续可把 strip 改成 WeChat-friendly formatter；不阻塞可靠性 | defer |
+
+### 语音结论
+
+猫猫"发语音"的目标应先定义为 **微信端可靠收到可播放音频**，不应先执着于原生微信语音气泡。历史验证已经证明 `voice_item` 的 metadata/playtime/encode_type 组合不稳定，minimal 模式也只到过"可见但 1 秒假语音"。Hermes 最新选择把 `send_voice()` 降级成 file attachment，是对这个事实的保守工程判断。
+
+F137 下一轮修复应把 **file attachment 作为默认成功路径**，把 `voice_item` 作为显式实验开关：
+
+| 路径 | 默认性 | 目标 |
+|------|--------|------|
+| `audio` → WAV/MP3/M4A 文件附件 | 默认 | 保证微信端可收到、可播放，不再静默丢弃 |
+| `audio` → WAV→SILK→`voice_item` | 实验开关 | 继续探索原生语音气泡，但不作为 AC 成功条件 |
+| inbound voice raw SILK capture | 可选开关 | 默认用 iLink 转写文本；需要原始语音时再打开 |
+
+### 不做
+
+| 项 | 原因 |
+|----|------|
+| HermesClaw/Clawbot 同号多 runtime 代理 | 这是"多个 runtime 共享一个 iLink token"的问题，不是猫猫自身个人微信能力；铲屎官本轮明确排除 |
+| 普通微信群完整支持 | iLink Bot 侧是否投递普通群事件仍不稳定；等腾讯能力明确后再做，不在本轮修复队列 |
+
 ## Open Questions
 
 | # | 问题 | 状态 |
@@ -423,7 +464,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | OQ-1 | bot_token 有效期多长？是否需要定期刷新？ | ⬜ 未定（实测确认） |
 | OQ-2 | 是否支持流式回复（typing_status 模拟 vs 真流式）？ | ✅ 不支持真流式（`message_state: GENERATING` 在 bot 窗口无效），用 typing + final 发送 |
 | OQ-3 | 多账号支持是否需要？ | ⬜ MVP 单账号，多账号 Phase C 预留 |
-| OQ-4 | 语音/视频/文件消息支持？ | ✅ 调研完成：入站已支持图片/文件/语音；出站受 iLink 协议限制仅支持文本。详见"富媒体能力调研"章节 |
+| OQ-4 | 语音/视频/文件消息支持？ | ⚠️ 图片/文件已支持；语音出站可靠性需按 H3 修复；视频未实现。详见"富媒体能力调研"与 2026-05-14 Hermes 最新对比审计 |
 
 ## Key Decisions
 
@@ -470,6 +511,7 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | 2026-04-07 | Bugfix: persist `WEIXIN_BOT_TOKEN` to `.env` on QR confirmation + clear on disconnect — eliminates re-scan on API restart. 砚砚 R2 pass → cloud review pass → PR #999 squash merge (07dccf02) |
 | 2026-04-20 | Bugfix: `/uploads/` media_gallery images silently skipped by OutboundDeliveryHook + UPLOAD_DIR cwd drift. Fix: `resolveInternalRouteUrl()` at hook level + `http://` download guard. 砚砚(GPT-5.4) impl + 布偶猫 review + 云端 R3 0P1/0P2 → PR #1298 squash merge (c48996e1) |
 | 2026-03-29 | ⚠️ **Runtime 残留发现**：在 runtime worktree 中发现未提交的 WeixinAdapter 实验性改动——voice_item A/B test 双模式（`WEIXIN_VOICE_ITEM_MODE` env 切换 `minimal` vs `metadata`）。疑为之前某 session 布偶猫违反 P0 铁律直接在 runtime 调试语音问题。代码已 stash 保留（`runtime-rescue: WeixinAdapter voice_item A/B test`）。**若语音问题仍未解决，可 `git stash pop` 恢复这段逻辑在 feature worktree 中正式开发。** 当前 main 上 #854 的方案是 minimal-only。|
+| 2026-05-14 | Hermes 最新个人微信实现对比审计：补 H1-H8 修复队列。明确排除 HermesClaw 同号多 runtime 代理；F137 下一轮优先修 `upload_full_url`、入站 `full_url`、语音默认可播放附件、iLink 错误分流。|
 
 ## Review Gate
 
@@ -488,4 +530,6 @@ cat-cafe:connector-binding:weixin:o9cq8008zWwzHxRSAQqEgo5Sz34g@im.wechat
 | **SDK 参考** | [wong2/weixin-agent-sdk](https://github.com/wong2/weixin-agent-sdk) | 社区提取的 SDK（736⭐） |
 | **官方包** | [@tencent-weixin/openclaw-weixin](https://www.npmjs.com/package/@tencent-weixin/openclaw-weixin) | 腾讯官方 npm 包（MIT，50K+ weekly） |
 | **社区实现** | [HenryXiaoYang/wechat-openclaw-channel](https://github.com/HenryXiaoYang/wechat-openclaw-channel) | 社区 OpenClaw 接入（545⭐） |
+| **对比参考** | [Hermes Agent Weixin docs](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/weixin) | 2026-05-14 对比审计来源 |
+| **对比参考** | [Hermes Agent v2026.5.7 release](https://github.com/NousResearch/hermes-agent/releases/tag/v2026.5.7) | Weixin QR setup flow 与 Weixin-only setup fix |
 | **Guide** | `docs/guides/im-platform-setup.md` | 需扩展的用户文档 |
