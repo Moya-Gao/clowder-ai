@@ -435,20 +435,32 @@ Cat Cafe MCP quick index:
 
 **实施 Phase（Spike 全部通过后）**：
 
+> ⚠️ **被 F203 KD-5 supersede（2026-05-15 CVO directive）**：feature flag dual-path + 灰度 1 周 telemetry **已砍**。改为直接替换 + `git revert` + runtime 重启 3 分钟回滚。详见 `docs/features/F203-native-system-prompt-l0.md` Phase C。下方原方案保留为历史记录。
+
 ```
 Phase 1: 编写 system-prompt-l0.md（L0 内容真相源）
     ↓
+Phase 2: ClaudeBgCarrierService.ts + CodexAgentService.ts spawn argv 加
+         --system-prompt / -c developer_instructions；effectivePrompt
+         拼装逻辑删除 prepend 路径（不留 fallback）
+    ↓
+Phase 3: runtime 重启 + 47/46/砚砚 各跑一轮 + 铲屎官 10 轮压缩对话验收
+         （F203 Phase C，CVO directive 不灰度）
+    ↓
+Phase 4: CLAUDE.md + SystemPromptBuilder 瘦身（F203 Phase D）
+    ↓
+Phase 5: CC 版本升级拆解 SOP + cron audit（F203 Phase E）
+```
+
+**历史原方案（被 F203 KD-5 supersede）**：
+
+```
 Phase 2a: 加 feature flag CAT_CAFE_USE_NATIVE_SYSTEM_PROMPT + dual-path 代码
 Phase 2b: ClaudeAgentService.ts spawn argv 加 --system-prompt
 Phase 2c: effectivePrompt 拼装逻辑剥离（保留 prepend 作为 fallback）
 Phase 2d: system-prompt-builder.test.js 全套适配（80+ 测试）
 Phase 2e: F-BLOAT 测试保护（resume 不重复注入）
-    ↓
 Phase 3: 灰度 1 周 + telemetry（cache 命中率 / 工具调用模式 / 行为偏差）
-    ↓
-Phase 4: CLAUDE.md + SystemPromptBuilder 瘦身
-    ↓
-Phase 5: 清理 prepend 代码 + feature flag
 ```
 
 ## 后果

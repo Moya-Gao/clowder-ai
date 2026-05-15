@@ -109,8 +109,8 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 
 - [x] AC-A0: S0 — `claude --bg --system-prompt` 兼容性 spike（实测 job `f6474047` 暗号 `F198_BG_SYS_OK` 回收 ✅）
 - [x] AC-A1: S1 — `scripts/measure-system-prompt.mjs` 量 baseline，每猫每模式（serial/parallel/independent）token 数表格 ✅ 2026-05-15 见 `docs/audits/2026-05-15-system-prompt-baseline-v0.md`
-- [~] AC-A2: S2 — 扩展功能性 spike 6 项（部分完成 2026-05-15）：safety ✅ / 并行调用 ❌ 退化 / TaskCreate ✅ / Read schema ✅ / Skill 加载 ⚠️ stuck / 压缩感知 ⏸ 待 Phase C runtime 验。详见 `docs/audits/2026-05-15-functional-spike-s2-s3.md`
-- [~] AC-A3: S3 — F-BLOAT 复现（部分完成 2026-05-15）：S3-a `--append-system-prompt` bg 模式能传内容 ✅（推翻历史"didn't receive content"注释）；S3-b resume 累积待跑
+- [x] AC-A2: S2 — 扩展功能性 spike（砚砚 review 修正后定稿 2026-05-15）：safety ✅ / 并行调用 ✅（误判已撤回）/ TaskCreate ✅ / Read schema ✅ / Skill 加载 ✅ / Schedule ✅ / 压缩感知 ✅。**0 项退化**。详见 `docs/audits/2026-05-15-functional-spike-s2-s3.md`
+- [x] AC-A3: S3 — F-BLOAT 复现（部分完成 2026-05-15）：S3-a `--append-system-prompt` bg 模式能传内容 ✅（推翻历史"didn't receive content"注释）；S3-b resume 累积推迟到 Phase C 实施前跑
 - [x] AC-A4: S4 — Codex `developer_instructions` per-call 注入（砚砚 `62b9255e2` ✅）
 - [ ] AC-A5: S5（推迟到 Phase D 之后）— Gemini `GEMINI_SYSTEM_MD` 替换式 spike
 
@@ -191,8 +191,8 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 |---|-------|-------|------|------|------|
 | S0 | `claude --bg --system-prompt` 兼容性 | 47 | ✅ 2026-05-15 | thread `mp6b68w9w0wt1boc` job `f6474047`，暗号 `F198_BG_SYS_OK` 原样回收 | bg 模式接受 `--system-prompt` argv，替换式生效，daemon lifecycle 正常 |
 | S1 | measure-system-prompt baseline | 47 | ✅ 2026-05-15 | `docs/audits/2026-05-15-system-prompt-baseline-v0.md` + 脚本 `scripts/measure-system-prompt.mjs`（feat/f203-spike-s1-baseline `046bfec17`） | 平均 3,302 tokens（18 sample，range 2,873-3,778）；GOVERNANCE_L0_DIGEST 47% 静态预算（~1,427t）；MCP_TOOLS_SECTION 467t（比 ADR 估算少 33%）；L0 ≤ 4,500 目标有 700-1,600t buffer |
-| S2 | 扩展功能性 spike（6 项） | 47 | 🟡 部分完成 2026-05-15 | `docs/audits/2026-05-15-functional-spike-s2-s3.md` (branch `63448d787`) | 4/6 ✅ + 1 ❌ 退化（并行调用必补 carry-over，~200t）+ 1 ⚠️ stuck（Skill 待 Phase C 验）+ 1 ⏸（压缩感知待 runtime 验） |
-| S3 | F-BLOAT 两失败模式复现 | 47 | 🟡 部分完成 2026-05-15 | 同上 audit S3-a | `--append-system-prompt` bg 模式可传内容（推翻历史注释）；S3-b resume 累积待 Phase C 前跑 |
+| S2 | 扩展功能性 spike（砚砚 review 修正后 7 项均测） | 47 | ✅ 2026-05-15（砚砚 REQUEST_CHANGES → 修正） | `docs/audits/2026-05-15-functional-spike-s2-s3.md` (branch `4fdcfff98`) | **0 项退化**：safety/并行调用/TaskCreate/Read schema/Skill 加载/Schedule/压缩感知 全部 ✅。partial L0 已覆盖。Phase B carry-over 降级为 ≤100t placeholder |
+| S3 | F-BLOAT 两失败模式复现 | 47 | 🟡 S3-a ✅ S3-b 推迟 | 同上 audit | S3-a `--append-system-prompt` bg 模式可传内容（推翻 invoke-single-cat:1086 注释）；S3-b resume 累积推迟到 Phase C 实施前跑 |
 | S4 | Codex `developer_instructions` per-call | 砚砚 | ✅ 2026-05-15 | commit `62b9255e2` + ADR-030 §10.4:429-434 | `codex exec -c 'developer_instructions=...'` 高于 user prompt，不污染 config.toml |
 | S5 | Gemini `GEMINI_SYSTEM_MD` 替换式 | 待定 | ⏸ 推迟 | — | KD-3 推迟到 Codex + Claude 跑通 |
 
@@ -206,6 +206,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-15 | spec 修订：人话版愿景 + 客观性 carry-over 必须保留 + 砍灰度（KD-5/KD-7 铲屎官 directive）|
 | 2026-05-15 | S1 ✅ — baseline 量测脚本 + audit 归档（46% governance + 33% MCP 偏少 + 总 buffer 700-1,600t）|
 | 2026-05-15 | S2 + S3-a 部分完成——并行调用退化（必补 carry-over）；safety/TaskCreate/Read schema 不退化；`--append-system-prompt` bg 实测能传内容（推翻历史注释） |
+| 2026-05-15 | 砚砚 REQUEST_CHANGES → 47 修正：S2-2 误判撤回（按 message.id 聚合 = 真并行）+ S2-5 拆 3 独立 spike 全部不退化 + ADR-030 supersede 注释 + S1 脚本合 main |
 
 ## Review Gate
 
