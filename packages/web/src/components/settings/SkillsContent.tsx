@@ -256,7 +256,7 @@ export function SkillsContent() {
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-3" data-testid="skills-list">
         {filteredSkills.map((skill) => {
           const mountedCount = getMountedCount(skill.mounts);
           const allMounted = mountedCount === PROVIDER_KEYS.length;

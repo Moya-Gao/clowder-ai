@@ -136,8 +136,9 @@ describe('SkillsContent', () => {
       frontendFilter?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(container.textContent).toContain('browser-preview');
-    expect(container.textContent).not.toContain('cross-cat-handoff');
+    const skillsList = container.querySelector('[data-testid="skills-list"]');
+    expect(skillsList?.textContent).toContain('browser-preview');
+    expect(skillsList?.textContent).not.toContain('cross-cat-handoff');
 
     const text = container.textContent ?? '';
     expect(text).not.toContain('立即同步');
