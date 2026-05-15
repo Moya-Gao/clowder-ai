@@ -73,7 +73,7 @@ interface RecallEvent {
     rank: number;
     score?: number;
     targetRef:                  // 砚砚 R2：union ref 覆盖所有 drill-down 目标
-      | { kind: 'doc'; sourcePath: string }
+      | { kind: 'doc'; sourcePath: string; anchor?: string }  // anchor fallback for sourcePath-empty candidates (Phase A P1-1)
       | { kind: 'thread'; threadId: string }
       | { kind: 'session'; sessionId: string }
       | { kind: 'invocation'; sessionId: string; invocationId: string }
