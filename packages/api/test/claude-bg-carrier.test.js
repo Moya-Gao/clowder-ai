@@ -465,6 +465,18 @@ test('砚砚 Step-3 P1: --mcp-config injected when callbackEnv present and mcpSe
   assert.ok(mcpIdx >= 0, 'must include --mcp-config when callbackEnv present');
   const nextArg = capturedArgs[mcpIdx + 1];
   assert.ok(typeof nextArg === 'string' && nextArg.length > 0, '--mcp-config must have a value');
+  // Step-4 alpha finding (defensive code, not approval bypass):
+  // daemon --bg discovers cwd `.mcp.json` walking up tree. WITHOUT
+  // --strict-mcp-config, claude would LOAD discovered servers IN ADDITION
+  // to our injected cat-cafe MCP → unpredictable tool surface in canary
+  // sessions. WITH --strict-mcp-config, only our explicit --mcp-config is
+  // used at runtime. The .mcp.json approval UX gate is SEPARATE — that's
+  // one-time-per-project operator setup (claude attach + approve once).
+  // This flag is about predictable loading, not approval bypass.
+  assert.ok(
+    capturedArgs.includes('--strict-mcp-config'),
+    'must include --strict-mcp-config for predictable MCP loading (only inject our cat-cafe MCP)',
+  );
 });
 
 test('砚砚 Step-3 P1: --mcp-config NOT injected when callbackEnv absent', async () => {

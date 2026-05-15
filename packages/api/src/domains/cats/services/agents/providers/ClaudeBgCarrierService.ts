@@ -220,6 +220,19 @@ export class ClaudeBgCarrierService implements AgentService {
             }),
           );
         }
+        // F198 Step-4 (2026-05-14, alpha-evidence): daemon `--bg` discovers
+        // cwd `.mcp.json` walking up the tree. WITHOUT this flag, claude
+        // would LOAD discovered servers ALONGSIDE our injected cat-cafe MCP
+        // → unpredictable tool surface for canary布偶猫 sessions. WITH it,
+        // only our explicit --mcp-config is used at runtime.
+        //
+        // NOTE: this flag does NOT bypass the `.mcp.json` approval UX gate
+        // that daemon mode enforces. That gate is one-time-per-project
+        // operator setup: first invocation in a new project requires
+        // `claude attach <shortId>` → approve servers once → future jobs
+        // proceed without prompt. Document as canary deploy step, not
+        // code bug. Verified empirically against cat-cafe-alpha worktree.
+        args.push('--strict-mcp-config');
       }
 
       // codex review (PR #1666 round 4) P1: resolve claude binary so hosts
