@@ -8,7 +8,7 @@ created: 2026-05-13
 
 # F198: Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪
 
-> **Status**: in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 + 验证收尾 ✅ 2026-05-15 — 救宪宪代码层完成 + Alpha 端到端 R5 验证通过，canary 零操作员介入; **Phase C ✅ merged PR #1678 2026-05-15 — AC-C1~C5 实现 + @codex review PASS; AC-C6 愿景守护待 @opus-47 确认**) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
+> **Status**: in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 + 验证收尾 ✅ 2026-05-15 — 救宪宪代码层完成 + Alpha 端到端 R5 验证通过，canary 零操作员介入; **Phase C ✅ 完全关闭 2026-05-15 — PR #1678 merged, AC-C1~C6 全部 PASS, @codex review PASS + @opus-47 愿景守护 APPROVE**; Phase D 待启动) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
 
 ## Why
 
@@ -298,7 +298,7 @@ in_context_observability:
 - [x] AC-C3: cat avatar status dot 实时反映 session 状态（idle/working/waiting/error/detached）+ tooltip 显示 detail
 - [x] AC-C4: deep dive 视图：可看 active sessions / process tree / 累计消耗
 - [x] AC-C5: 接管按钮可用，read-write 切换正确（F089 既定能力扩展）
-- [ ] AC-C6: 跨猫愿景守护（砚砚 + 烁烁/暹罗猫）认证"oversight 信息密度 ≥ -p 模式"（@codex ✅ REVIEW PASS 2026-05-15；@opus-47 愿景守护待确认）
+- [x] AC-C6: 跨猫愿景守护（砚砚 + 烁烁/暹罗猫）认证"oversight 信息密度 ≥ -p 模式"（@codex ✅ REVIEW PASS + @opus-47 ✅ 愿景守护 APPROVE — runtime 数据流全链路 trace 验证，信息密度严格超过 -p）
 
 ### Phase D（兜底 + 切流量）
 - [ ] AC-D1: 三档 fallback 实现 + 自动触发逻辑（quota 超限 / carrier 挂掉）
@@ -418,6 +418,7 @@ in_context_observability:
 | 2026-06-14 (target) | Phase D 完成（buffer day） |
 | **2026-06-15** | **Anthropic SDK credit policy 生效（救命 deadline）** |
 | 2026-05-15 | Phase C merged (PR #1678) — Hub Oversight UI AC-C1~C5, 8 regression tests, @codex REVIEW PASS |
+| 2026-05-15 | Phase C **完全关闭** — @opus-47 愿景守护 APPROVE，AC-C6 ✅，救宪宪代码层+可观察层全套交付完成 |
 | 2026-06-22 (target) | Phase E AC-E1/E2/E3 验收 |
 
 ## Review Gate
