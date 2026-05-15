@@ -274,7 +274,7 @@ export const evidenceTools = [
     name: 'cat_cafe_search_evidence',
     description:
       'Search project knowledge base — features, decisions, plans, lessons, session history. ' +
-      'This is the PRIMARY entry point for all memory recall. Start here before drilling down. ' +
+      'Semantic/fuzzy find entry point for memory recall. For precise anchors (F186, ADR-019), prefer cat_cafe_graph_resolve; for zero-prior scanning, prefer cat_cafe_list_recent; when unsure, start here with mode=hybrid. ' +
       'Supports scope (docs/threads/all), mode (lexical/semantic/hybrid), and depth (summary/raw). ' +
       'SCOPE STRATEGY (decide first!): ' +
       'docs = 结论/真相源 (features, ADRs, plans, lessons). ' +

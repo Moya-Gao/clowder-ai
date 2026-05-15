@@ -95,6 +95,6 @@ if [ -n "$WARNINGS" ]; then
 fi
 
 # 通用提醒
-echo "📌 Recall：先用 mcp__cat_cafe_memory__.cat_cafe_search_evidence（备选 mcp__cat_cafe__.cat_cafe_search_evidence）搜当前任务上下文；若未暴露，先用 tool_search 精确搜 cat_cafe_search_evidence（CLAUDE.md 家规）"
+echo "📌 Recall 三入口（按场景选）：精确 anchor/看关系 → cat_cafe_graph_resolve | 零先验/扫最近 → cat_cafe_list_recent | 语义/模糊找 → cat_cafe_search_evidence（不确定→search_evidence mode=hybrid）。结果已融合消费加权排序（F200）。详见 CLAUDE.md 记忆系统段。若 MCP 未暴露，先 tool_search 精确搜工具名。"
 
 exit 0
