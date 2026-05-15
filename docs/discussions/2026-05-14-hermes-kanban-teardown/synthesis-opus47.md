@@ -3,23 +3,23 @@ doc_kind: discussion
 topics: [project-management, kanban, multi-agent, signal-intent-decision, synthesis, opus-47]
 related_features: [F049, F076, F121, F150, F153, F192]
 created: 2026-05-14
-status: draft-v1.2
+status: draft-v1.3
 author: opus-47
 reviewer: opus-46 (feasibility review @ 2026-05-14 06:51 + second-pass @ 07:02)
 convergence:
-  - opus-47: synthesis + final convergence
-  - opus-46: feasibility review (3 P2 + 4 state-machine gaps) + second-pass answers
-  - codex-gpt55: hermes teardown + OQ 6/7/10 vote
+  - opus-47: synthesis + final convergence + integration-first patch
+  - opus-46: feasibility review (3 P2 + 4 state-machine gaps) + second-pass answers + readability pass
+  - codex-gpt55: hermes teardown + OQ 6/7/10 vote + 3 diagrams + integration-first push
   - gemini-siamese: visual creation (Prism) + OQ 6/7/10 vote
 inputs:
-  - landy: 原始愿景（23:30 thread message）
-  - opus-46: 三层模型（需求漏斗/任务市场/可观测）+ feasibility review + second-pass
+  - landy: 原始愿景（23:30 thread message）+ extensibility ask（17:20 thread message）
+  - opus-46: 三层模型（需求漏斗/任务市场/可观测）+ feasibility review + second-pass + readability pass
   - opus-47-independent: 五元组流 → 6 元组语义 + 4 表存储
   - gemini-siamese: 流光域视觉创想 → Prism 子品牌 + Cat Signatures
-  - codex-gpt55: Hermes Kanban 拆解（见 README.md）+ mission-loom 命名 + mix 路由 + role prior 机制
+  - codex-gpt55: Hermes Kanban 拆解（见 README.md）+ mission-loom 命名 + mix 路由 + role prior 机制 + Integration-first 原则
 ---
 
-# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.2）
+# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.3）
 
 > UI 视觉子品牌：**Prism**（流光域）
 > 任务来源：[README.md](./README.md) 末尾 Suggested Synthesis Owner
@@ -31,6 +31,25 @@ inputs:
 > 不是最终 spec，是带大家讨论的基线稿
 
 ## Changelog
+
+### v1.3（2026-05-14 17:30，Integration-first 原则 + Source Connector 架构）
+
+Landy 17:20 提出关键扩展性追问："如果别人公司用 CodeHub 不是 GitHub，能接进来吗？"砚砚提出 Integration-first 原则我接受 + 自决两个技术 OQ：
+
+**核心原则（写入 spec 顶层）**：
+> **Integration-first, GitHub-as-reference**：GitHub 只是第一个 reference connector，**不是产品边界**。所有需求来源（CodeHub / Jira / Linear / 飞书任务 / Slack / Sentry / 内部告警）通过 **Source Connector** 接入；所有执行者通过 **Actor Lane** 接入；kernel 不直接依赖任何单一外部平台。
+
+**新增 §4.5 Source Connector 架构**：
+- Connector 三层（Kernel 固定 / Connector 可插拔 / Mapping 可配置）
+- 增量接入 Level 0-4（手动导入 → webhook → 双向同步 → 字段映射 → 自定义 lane）
+- `SourceConnector` 接口定义
+- 边界：状态机/审计/权限/WorkRun 归档由 kernel 管，插件只能通过 kernel API 写
+
+**砚砚两个 OQ 我自决**（技术架构非战略）：
+- ✅ MVP spec Day-1 显式 SourceConnector 架构边界
+- ✅ GitHub connector 命名为 `connector-github`（reference implementation 显式化），避免 GitHub 被误认为唯一入口
+
+**§6 MVP 调整**：GitHub connector → `connector-github`（reference implementation）。
 
 ### v1.2（2026-05-14 07:15，多猫收敛 OQ 6/7/10）
 
@@ -94,6 +113,7 @@ inputs:
 - **仓名**（v1.2 拍板）：**`mission-loom`**（kernel/repo）+ **`Prism`**（UI 视觉子品牌）
 - **PM Agent 路由**（v1.2 拍板）：**三层 mix** — Sonnet specifier 默认 / Opus 4.7 升级（模糊/品味/低 confidence）/ Opus 4.6 升级（feasibility/工程账）/ 缅因猫 review gate / 永不绕过人拍板
 - **Capability 冷启动**（v1.2 拍板）：**角色先验 + 猫味签名 UI** — role prior 机制 + 烁烁的 Cat Signatures 表达 + confidence 三档；≥20 WorkRun 后升 warm recommendation；永不自动 dispatch
+- **Integration-first 原则**（v1.3 新增）：**GitHub-as-reference, not boundary** — Source Connector 架构 day-1 就位，CodeHub/Jira/Linear/飞书/告警系统皆通过 connector 接入；增量 Level 0-4。详见 §4.5
 
 ---
 
@@ -427,6 +447,87 @@ interface CompletePayload {
 
 ---
 
+## 4.5 Source Connector 架构（v1.3 新增，Integration-first 原则）
+
+### 核心原则
+
+> **Integration-first, GitHub-as-reference**：GitHub 只是第一个 reference connector，**不是产品边界**。所有需求来源（CodeHub / Jira / Linear / 飞书任务 / Slack / Sentry / 内部告警）通过 Source Connector 接入；kernel 不直接依赖任何单一外部平台。
+
+来源：Landy 17:20 提出"如果别人公司用 CodeHub 不是 GitHub 能接进来吗"+ 砚砚的 push（"GitHub 不能成为内核假设"）。我接受作为 day-1 架构边界。
+
+### 三层架构（Kernel 固定 / Connector 可插拔 / Mapping 可配置）
+
+| 层 | 说明 | 谁能改 |
+|---|---|---|
+| **Kernel 固定** | Mission Loom 自己只认标准对象：Signal/Intent/Decision/WorkItem/WorkRun/Outcome | **mission-loom 维护者** —— 改了会破坏 routing/分析/审计 |
+| **Connector 可插拔** | GitHub/CodeHub/Jira/Linear/飞书/企微/Slack/Sentry/内部告警都通过 Source Connector 接入；只负责"翻译"外部对象到 Signal/WorkItem | **接入方** —— 自己实现 connector，无需改 kernel |
+| **Mapping 可配置** | 字段名/状态名/标签体系/优先级映射不同公司不同；走配置文件 | **接入方** —— 配 yaml 不写代码 |
+
+### `SourceConnector` 接口（采纳砚砚草案）
+
+```typescript
+interface SourceConnector {
+  id: string;                                          // e.g. "connector-github" / "connector-codehub"
+  kind: "code-host" | "issue-tracker" | "chat" | "alert" | "custom";
+
+  // 拉取信号（cron 或手动触发）
+  pullSignals(cursor?: string): Promise<SignalEnvelope[]>;
+
+  // webhook 推送（可选，code-host/issue-tracker 推荐）
+  handleWebhook?(request: WebhookRequest): Promise<SignalEnvelope[]>;
+
+  // 反向链接（创建 WorkItem 时把 mission-loom URL 写回外部 issue 评论）
+  linkBack?(demandId: string, externalRef: ExternalRef): Promise<void>;
+
+  // 双向同步 Decision（accept/reject 同步外部 status，可选）
+  syncDecision?(demandId: string, decision: Decision): Promise<void>;
+}
+
+// Mapping 配置示例（yaml）
+// connectors/codehub-acme.yaml:
+//   id: connector-codehub-acme
+//   priority_map:
+//     P0: critical
+//     sev1: critical
+//     P1: high
+//   status_map:
+//     待办: untriaged
+//     处理中: claimed
+//   field_map:
+//     external_id: codehub_issue_id
+```
+
+### 增量接入 Level 0-4（接入方按需选）
+
+不强迫别人一上来做完整插件。Level 0-4 可逐步升级：
+
+| Level | 实现 | 成本 | 适用场景 |
+|---|---|---|---|
+| **0** | 手动导入 / webhook 丢一条 Signal | 0（用 REST API） | 临时试用、PoC |
+| **1** | 只读同步外部需求来源（pullSignals） | 1-2 天 | 想看到外部 issue 进 Inbox |
+| **2** | 双向同步状态、评论、链接（+linkBack/syncDecision） | 1-2 周 | 想让外部 issue 反映 mission-loom decision |
+| **3** | 自定义字段映射、优先级规则、triage prompt | 配置文件，无代码 | 公司有定制术语/优先级体系 |
+| **4** | 接入自己的执行者 / Actor Lane（不只是数据源） | 2-4 周 | 公司有内部 agent runtime 想接入 |
+
+### 边界：什么不能插件化
+
+砚砚明确强调，避免"以为灵活实际是不可分析的分叉"：
+
+| 必须由 kernel 管 | 为什么 |
+|---|---|
+| 状态机（Signal→Intent→Decision→WorkItem→WorkRun→Outcome 转换规则） | 每家自己改 = 跨实例数据无法分析对比 |
+| 审计事件（events 表） | 每家自己改 = 安全/合规问题 |
+| 权限模型 | 每家自己改 = 越权写入风险 |
+| WorkRun 结果归档 | 每家自己改 = Capability Analytics 假数据 |
+
+**铁律**：插件只能通过 kernel API 写入，不能直接写数据库。
+
+### MVP 阶段的 connector
+
+MVP 只做 **`connector-github`** 一个 reference implementation，但架构 day-1 就支持 SourceConnector 接口。这个区分让未来添加 `connector-codehub` / `connector-jira` 不需要改 kernel，只需新建 connector 包。
+
+---
+
 ## 5. UI 三层视图（natively dual-consumer，46 提的关键）
 
 ### Inbox View（给 PM/CVO 看 —— "筛"）
@@ -456,8 +557,8 @@ interface CompletePayload {
 
 ### MVP 必做（Day 1 闭环）
 
-1. **kernel**：4 表 SQLite schema（demand / work_item / work_run / outcome）+ audit event stream
-2. **Signal ingest**：GitHub issue webhook → demand(stage=signal)（先单向，不做双向同步）
+1. **kernel**：4 表 SQLite schema（demand / work_item / work_run / outcome）+ audit event stream + **SourceConnector 接口定义**（v1.3，day-1 架构边界）
+2. **Signal ingest**：**`connector-github`**（reference implementation） issue webhook → demand(stage=signal)（先单向，不做双向同步）
 3. **Triage**（v1.1 简化）：**Hermes 式轻量 triage specifier**（AI 扩写 Goal/Approach/AC/Out-of-scope）→ demand(stage=intent)；不一步到位上 Need Audit 五维评估，等数据证明不够时再升级（46 #3 同意）
 4. **Decision**：CVO/PM 手动拍板（dashboard 一键 accept/reject/clarify/later → 写入 demand.decision_history）
 5. **WorkItem**：Decision = Build Now/Cat Suitable → 自动创建 work_item
@@ -511,12 +612,15 @@ interface CompletePayload {
 ```
 cat-cafe/
 ├── packages/
-│   ├── mission-core/          # 对象模型 + 状态机 + dispatcher（新）
-│   ├── mission-app/           # Dashboard UI（新）
-│   ├── api/                   # connectors（GitHub webhook）放这里（复用现有）
-│   ├── shared/                # 复用现有 types/utils/OTel SDK
-│   └── ...                    # 其它 cat-cafe 现有 packages
+│   ├── mission-core/             # 对象模型 + 状态机 + dispatcher + SourceConnector 接口（新）
+│   ├── mission-app/              # Dashboard UI（新）
+│   ├── connector-github/         # GitHub reference implementation（v1.3 命名）
+│   ├── api/                      # cat-cafe 现有 API 服务
+│   ├── shared/                   # 复用现有 types/utils/OTel SDK
+│   └── ...                       # 其它 cat-cafe 现有 packages
 ```
+
+未来添加 `connector-codehub` / `connector-jira` / `connector-feishu` 时只新增 package，不改 mission-core。
 
 **API 边界强制**：
 - ✅ `mission-core` 只依赖 `shared`，不依赖 `api/web/...`
@@ -638,6 +742,13 @@ F049 Phase 4 的 crash-window recovery 就是解决这个的，**直接复用模
     - 砚砚机制：role prior + 人确认 + confidence 三档 + ≥20 WorkRun 升 warm
     - 烁烁表达：UI 用"散发着 XX 的味道"猫格语言，不显示百分比
     - 铁律：永不自动 dispatch；永远显示 confidence 来源（不能把 prior 伪装成 outcome）
+
+### 47 自决（v1.3，砚砚 push 的两个技术 OQ）
+
+11. ~~**MVP spec Day-1 是否显式 SourceConnector 架构边界？**~~ → **v1.3 自决：是**。详见 §4.5。
+    - 理由：技术架构非战略，作者自决；不显式定下来未来企业接入会很痛
+12. ~~**GitHub connector 是否改名为 `connector-github` reference implementation？**~~ → **v1.3 自决：是**。详见 §6 + §7 monorepo 结构。
+    - 理由：命名上把 reference implementation 显式化，避免"GitHub 是唯一入口"的误读
 
 ### 待 Landy 战略拍板（OQ 8/9）
 
