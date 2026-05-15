@@ -1,0 +1,62 @@
+---
+doc_kind: harness-feedback
+feedback_type: eval-snapshot
+feature_id: F167
+generated_at: "2026-05-15T11:56:16.699Z"
+generated_by: "F192 Phase C eval"
+---
+
+# F167 Runtime Eval Snapshot — 2026-05-15
+
+data_source: "F153 /api/telemetry/*"
+overall_confidence: medium
+
+window:
+  start_ms: 1778804846950
+  end_ms: 1778843423491
+  duration_hours: 10.72
+
+trace_store_stats:
+  span_count: 371
+  max_spans: 10000
+  max_age_ms: 86400000
+
+summary: "F167 A2A harness eval: 4/4 components have telemetry data. 0 telemetry gaps identified. Overall confidence: medium."
+
+components:
+  - id: L1
+    name: "WorklistRegistry (ping-pong breaker)"
+    confidence: medium
+    activation_counts:
+      l1.streak_warn_count: 0
+      l1.streak_break_count: 0
+    friction_counts:
+      {}
+
+  - id: C1
+    name: "hold_ball (MCP tool)"
+    confidence: medium
+    activation_counts:
+      hold_ball_calls: 0
+    friction_counts:
+      c1.zombie_hold_count: 0
+      c1.hold_cancel_count: 0
+
+  - id: C2
+    name: "exit-check (forced-pass guard)"
+    confidence: medium
+    activation_counts:
+      hint_emitted (mixed routing+verdict): null
+      c2.verdict_hint_emitted: 1
+      c2.void_hold_hint_emitted: 0
+      c2.verdict_without_pass_count: 1
+    friction_counts:
+      {}
+
+  - id: route-serial
+    name: "route-serial (A2A handoff routing)"
+    confidence: high
+    activation_counts:
+      inline_action.checked: 5
+    friction_counts:
+      {}

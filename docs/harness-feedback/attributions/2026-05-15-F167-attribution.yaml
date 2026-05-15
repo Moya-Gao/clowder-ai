@@ -1,0 +1,21 @@
+---
+doc_kind: harness-feedback
+feedback_type: attribution
+feature_id: F167
+eval_snapshot_id: "eval-F167-2026-05-15"
+generated_at: "2026-05-15T11:56:16.700Z"
+---
+
+# F167 Attribution Report — 2026-05-15
+
+no_finding_record:
+  reason: "No friction signals detected across 4 components"
+  evidence: "Checked components: L1, C1, C2, route-serial. Friction metrics examined: c1.zombie_hold_count, c1.hold_cancel_count. All values within threshold."
+
+findings: []
+
+action_rate:
+  total: 2
+  acted_on: 2
+  rate: 1
+  sunset_candidate: false
