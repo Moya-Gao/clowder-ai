@@ -162,7 +162,10 @@ interface AgentMsg {
   /** F67: Whether this message @mentions the co-creator */
   mentionsUser?: boolean;
   /** F52: Cross-thread origin metadata */
-  extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
+  extra?: {
+    crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
+    a2aRouting?: { fromCatId?: string; targetCatId?: string; invocationId?: string };
+  };
   /** F121: Reply-to message ID */
   replyTo?: string;
   /** F121: Server-hydrated reply preview */
@@ -991,7 +994,7 @@ function addBackgroundSystemMessage(
   options: HandleBackgroundMessageOptions,
   content: string,
   variant: 'info' | 'a2a_followup' = 'info',
-  extra?: { systemKind?: 'a2a_routing' },
+  extra?: ChatMessage['extra'],
 ): void {
   const id =
     extra?.systemKind === 'a2a_routing' && msg.messageId
@@ -1917,7 +1920,14 @@ export function handleBackgroundAgentMessage(
     if (msg.type === 'a2a_handoff') {
       // F173 bug fix: routing pill needs systemKind marker so chatStore
       // inserts it at the right position vs. next cat's stream bubble.
-      addBackgroundSystemMessage(msg, options, msg.content, 'info', { systemKind: 'a2a_routing' });
+      addBackgroundSystemMessage(msg, options, msg.content, 'info', {
+        systemKind: 'a2a_routing',
+        a2aRouting: {
+          fromCatId: msg.catId,
+          targetCatId: msg.targetCatId,
+          invocationId: msg.invocationId,
+        },
+      });
       return;
     }
 
@@ -3880,7 +3890,14 @@ export function useAgentMessages() {
           variant: 'info',
           content: msg.content ?? '',
           timestamp: serverTs,
-          extra: { systemKind: 'a2a_routing' },
+          extra: {
+            systemKind: 'a2a_routing',
+            a2aRouting: {
+              fromCatId: msg.catId,
+              targetCatId: msg.targetCatId,
+              invocationId: msg.invocationId,
+            },
+          },
         });
       } else if (msg.type === 'provider_signal') {
         // Bug-J: Surface provider-origin warnings (Antigravity capacity retries,

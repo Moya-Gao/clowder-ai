@@ -84,6 +84,7 @@ export function safeParseExtra(raw: string | undefined):
       targetCats?: string[];
       tracing?: { traceId: string; spanId: string; parentSpanId?: string };
       systemKind?: 'a2a_routing';
+      a2aRouting?: { fromCatId?: string; targetCatId?: string; invocationId?: string };
     } = {};
     let hasField = false;
 
@@ -142,6 +143,15 @@ export function safeParseExtra(raw: string | undefined):
 
     if (parsed.systemKind === 'a2a_routing') {
       result.systemKind = 'a2a_routing';
+      hasField = true;
+    }
+
+    if (parsed.a2aRouting && typeof parsed.a2aRouting === 'object') {
+      const routing: NonNullable<typeof result.a2aRouting> = {};
+      if (typeof parsed.a2aRouting.fromCatId === 'string') routing.fromCatId = parsed.a2aRouting.fromCatId;
+      if (typeof parsed.a2aRouting.targetCatId === 'string') routing.targetCatId = parsed.a2aRouting.targetCatId;
+      if (typeof parsed.a2aRouting.invocationId === 'string') routing.invocationId = parsed.a2aRouting.invocationId;
+      result.a2aRouting = routing;
       hasField = true;
     }
 

@@ -274,12 +274,15 @@ export interface ChatMessage {
     /**
      * F173 a2a-handoff bug fix: marker for system messages that must be
      * timestamp-ordered into the message list (not appended at end).
-     * a2a_handoff: routing pill ("缅因猫 → 布偶猫") emitted by route-serial,
+     * a2a_handoff: routing pill (for example "缅因猫(codex) → 布偶猫(Opus 4.7)")
+     * emitted by route-serial,
      * which can arrive after the next cat's stream bubble due to WebSocket
      * pipeline race; without marker it ends up visually after the bubble it
      * should precede.
      */
     systemKind?: 'a2a_routing';
+    /** Machine-readable A2A route metadata. The visible pill text is human-readable; this survives F5. */
+    a2aRouting?: { fromCatId?: string; targetCatId?: string; invocationId?: string };
   };
   /** F045: Extended thinking content, rendered as collapsible block inside assistant bubble */
   thinking?: string;

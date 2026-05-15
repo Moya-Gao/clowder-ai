@@ -36,6 +36,10 @@ const mockSetMessageStreamInvocation = vi.fn((messageId: string, invocationId: s
 const mockRemoveActiveInvocation = vi.fn((invocationId: string) => {
   delete storeState.activeInvocations[invocationId];
 });
+const mockAddActiveInvocation = vi.fn((invocationId: string, catId: string, mode: string) => {
+  storeState.activeInvocations[invocationId] = { catId, mode };
+});
+const mockReplaceThreadTargetCats = vi.fn();
 
 const mockAddMessageToThread = vi.fn();
 // F183 B1.2.2: mockReplaceMessages mirrors store API; impl applies new array
@@ -56,7 +60,11 @@ const storeState = {
     content: string;
     isStreaming?: boolean;
     origin?: string;
-    extra?: { stream?: { invocationId?: string }; systemKind?: 'a2a_routing' };
+    extra?: {
+      stream?: { invocationId?: string };
+      systemKind?: 'a2a_routing';
+      a2aRouting?: { fromCatId?: string; targetCatId?: string; invocationId?: string };
+    };
     timestamp: number;
   }>,
   addMessage: mockAddMessage,
@@ -89,6 +97,8 @@ const storeState = {
   catInvocations: {} as Record<string, { invocationId?: string }>,
   activeInvocations: {} as Record<string, { catId: string; mode: string }>,
   removeActiveInvocation: mockRemoveActiveInvocation,
+  addActiveInvocation: mockAddActiveInvocation,
+  replaceThreadTargetCats: mockReplaceThreadTargetCats,
 };
 
 let captured: ReturnType<typeof useAgentMessages> | undefined;
@@ -164,6 +174,8 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
           type: 'a2a_handoff',
           catId: 'codex',
           content: '布偶猫 → 缅因猫',
+          invocationId: 'inv-handoff',
+          targetCatId: 'opus-47',
           timestamp: SERVER_TS,
         });
       });
@@ -176,6 +188,11 @@ describe('useAgentMessages bubble merge prevention (Bug B)', () => {
     expect(sysMsg, 'a2a_handoff must produce a system message via addMessage').toBeTruthy();
     expect(sysMsg!.timestamp, 'message timestamp must equal SERVER timestamp, not Date.now()').toBe(SERVER_TS);
     expect(sysMsg!.extra?.systemKind, 'systemKind=a2a_routing marker must be present').toBe('a2a_routing');
+    expect(sysMsg!.extra?.a2aRouting, 'structured handoff ids must survive the live handler').toEqual({
+      fromCatId: 'codex',
+      targetCatId: 'opus-47',
+      invocationId: 'inv-handoff',
+    });
     expect(sysMsg!.id, 'id must include monotonic suffix to avoid same-ms collision').toMatch(
       /^a2a-1700000000123-codex-\d+$/,
     );

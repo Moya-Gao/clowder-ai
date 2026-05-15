@@ -165,7 +165,7 @@ function tryAutoCancelPendingHolds(threadId: string, deps: HoldBallCancelDeps | 
 
 async function persistA2ARoutingMessage(
   messageStore: IMessageStore,
-  msg: { content?: string; timestamp: number },
+  msg: { catId?: string; content?: string; invocationId?: string; targetCatId?: string; timestamp: number },
   threadId: string,
 ): Promise<string | undefined> {
   if (!msg.content) return undefined;
@@ -177,7 +177,14 @@ async function persistA2ARoutingMessage(
       mentions: [],
       timestamp: msg.timestamp,
       threadId,
-      extra: { systemKind: 'a2a_routing' },
+      extra: {
+        systemKind: 'a2a_routing',
+        a2aRouting: {
+          fromCatId: msg.catId,
+          targetCatId: msg.targetCatId,
+          invocationId: msg.invocationId,
+        },
+      },
     });
     return stored.id;
   } catch (err) {
@@ -987,7 +994,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             };
 
             if (msg.type === 'a2a_handoff') {
-              const storedId = await persistA2ARoutingMessage(opts.messageStore, msg, resolvedThreadId);
+              const storedId = await persistA2ARoutingMessage(opts.messageStore, broadcastPayload, resolvedThreadId);
               if (storedId) broadcastPayload.messageId = storedId;
             }
 
@@ -1378,7 +1385,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       m.extra?.stream ||
       m.extra?.targetCats ||
       m.extra?.scheduler ||
-      m.extra?.systemKind
+      m.extra?.systemKind ||
+      m.extra?.a2aRouting
         ? {
             extra: {
               ...(m.extra.rich ? { rich: m.extra.rich } : {}),
@@ -1387,6 +1395,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               ...(m.extra.targetCats ? { targetCats: m.extra.targetCats } : {}),
               ...(m.extra.scheduler ? { scheduler: m.extra.scheduler } : {}),
               ...(m.extra.systemKind ? { systemKind: m.extra.systemKind } : {}),
+              ...(m.extra.a2aRouting ? { a2aRouting: m.extra.a2aRouting } : {}),
             },
           }
         : {}),

@@ -80,6 +80,7 @@ import {
   updateStreakOnPush,
 } from '../routing/WorklistRegistry.js';
 import { accumulateTextAggregate } from '../text-aggregation.js';
+import { formatA2AHandoffContent } from './a2a-handoff-label.js';
 import { extractContextEvalSignals } from './context-eval.js';
 import { validateRoutingSyntax } from './final-routing-slot.js';
 import { buildBriefingMessage } from './format-briefing.js';
@@ -1713,7 +1714,7 @@ export async function* routeSerial(
           yield {
             type: 'a2a_handoff' as AgentMessageType,
             catId,
-            content: `${catConfig?.displayName ?? catId} → ${nextConfig?.displayName ?? pendingCat}`,
+            content: formatA2AHandoffContent(catId, pendingCat, catConfig, nextConfig),
             invocationId: ownInvocationId,
             targetCatId: pendingCat,
             timestamp: Date.now(),
@@ -1955,7 +1956,7 @@ export async function* routeSerial(
         yield {
           type: 'a2a_handoff' as AgentMessageType,
           catId,
-          content: `${catConfig?.displayName ?? catId} → ${nextConfig?.displayName ?? pendingCat}`,
+          content: formatA2AHandoffContent(catId, pendingCat, catConfig, nextConfig),
           invocationId: ownInvocationId,
           targetCatId: pendingCat,
           timestamp: Date.now(),
