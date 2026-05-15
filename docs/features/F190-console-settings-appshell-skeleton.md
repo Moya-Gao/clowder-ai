@@ -222,6 +222,8 @@ close_gate_report:
 | 2026-05-13 | Post-close visual hotfix restored missing settings nav SVG paths (`box` / `puzzle`) after upstream/home screenshot compare (PR #1659, `d928fb696`) |
 | 2026-05-15 | Phase F audit started: CVO 实测发现 ChatContainerHeader / ThreadSidebar 入口重复 + Hub/Settings 内容重复 + 视觉不一致；recording as F190 follow-up, not new feature |
 | 2026-05-15 | Codex 二轮审计补充：AppShell desktop ThreadSidebar ownership、BootcampListModal 入口语义、RightStatusPanel Hub gear、Signal enrich backend、HubPermissionsTab contract drift、`/mission` alias |
+| 2026-05-15 | Color Harmony token 整治：CSS 变量收口 thread sidebar / right status panel / signals（PRs #1684 #1686 #1687 #1688 #1691 merged） |
+| 2026-05-15 | CVO 对比开源截图：确认 7 项视觉设计模式差距需跟进（card gap / CTA depth / trash styling / 全部已读 / tag labels / icon containers / line dividers） |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（WIP 审计清单）
 
@@ -428,6 +430,49 @@ Signal 页面两仓**双向分叉**：本地功能更多，但开源有 2 项我
 | C-6 | `/mission` alias 缺失 | 可顺手补，兼容 source/历史链接 |
 | C-7 | theme token packaging / font-size token drift | 先记录，视觉刀再统一；不要盲目全局 import xterm CSS |
 
+#### 11. Visual Design Pattern Gaps — Thread Sidebar + 全局 Line Divider（CVO 2026-05-15）
+
+CVO 对比开源截图后确认以下设计模式需要跟进：
+
+##### 11a. Thread List: Line Divider → Card Gap
+
+| 维度 | 本地 | 开源 |
+|------|------|------|
+| 分隔方式 | `border-b border-gray-50`（线分隔） | `mx-2 rounded-[14px]` + padding（卡片间距） |
+| Active 状态 | `bg-cocreator-light` | `bg-[var(--console-active-bg)]` |
+| Hover 状态 | `hover:bg-cafe-surface-elevated` | `hover:bg-[var(--console-hover-bg)]` |
+
+##### 11b. "新对话" Button Depth
+
+本地：`bg-cocreator-primary text-white hover:bg-cocreator-dark text-xs`，视觉扁平。
+开源：`console-button-primary` CSS class — `color-mix` accent/card-bg 深色混合 + `font-weight: 600`。
+
+##### 11c. Trash Area Styling
+
+本地：`border-t border-[var(--console-border-soft)]` 纯文本行 + `text-cafe-muted`。
+开源：`bg-[var(--console-code-bg)] rounded-xl h-9` 样式化工具行 + `hover:opacity-80`。
+
+##### 11d. "全部已读" Affordance
+
+本地：`text-[10px] text-cafe-muted`（纯文字链接，无容器）。
+CVO 要求：改为 button 或 card 样式，提供可点击视觉暗示。
+
+##### 11e. Tag Label Visual Distinction
+
+ThreadItem 内 `LabelDots` 渲染 `w-1.5 h-1.5` 色点堆叠，视觉区分度低。CVO 要求优化为可辨识标签。
+
+##### 11f. Line Divider Audit — 全局高优先级项
+
+| 文件 | 组件 | 当前模式 | 建议 |
+|------|------|----------|------|
+| ThreadItem.tsx | Thread 列表项 | `border-b border-gray-50` | 改 card gap |
+| QueueEntryRow.tsx | 队列行 | `border-b last:border-b-0` | 改 card gap |
+| IndexStatus.tsx | 状态行（×3） | `border-b border-cafe/50 last:border-b-0` | 改 card gap |
+| CommunityPanel.tsx | 统计/分区 | `border-b border-cocreator-light/20` | 改 card gap |
+| SchedulePanel.tsx | 任务行（×3） | `border-b border-[#E8DFD4]` | 改 card gap |
+| TranslationMatrix.tsx | 表格行 | `divide-y divide-[#F0E8DB]` | 保持（表格合理） |
+| HubGovernanceTab.tsx | 表格行 | `divide-y divide-gray-100` | 保持（表格合理） |
+
 ---
 
 ### 修改清单汇总（按优先级排序）
@@ -467,6 +512,17 @@ Signal 页面两仓**双向分叉**：本地功能更多，但开源有 2 项我
 | S-3 | Mission route | `/mission` alias 缺失 | 补 `/mission` redirect 到 `/mission-hub` |
 | S-4 | Console tokens | font / color token drift | 对齐 font-size/token 命名；不盲目搬 `theme-tokens.css` 或 xterm CSS |
 | S-5 | Thread/Top/Status visual | 视觉不一致 | 在功能修复后统一 spacing、border、radius；保留家里新增功能 |
+
+#### P1 — Visual Design Pattern 跟进（CVO 2026-05-15 确认）
+
+| # | 区域 | 问题 | 修改内容 |
+|---|------|------|----------|
+| V-1 | ThreadItem | Line divider → card gap | 删 `border-b border-gray-50`，加 `mx-2 rounded-[14px]`；active/hover 用 console CSS 变量 |
+| V-2 | ThreadSidebar 新对话 | 按钮视觉扁平 | 切 `console-button-primary` class |
+| V-3 | ThreadSidebar 回收站 | 纯文字行 | 改 `bg-[var(--console-code-bg)] rounded-xl` 样式化行 |
+| V-4 | ThreadSidebar 全部已读 | 纯文字链接 | 改为 button/card 样式 |
+| V-5 | ThreadItem LabelDots | 色点堆叠无区分 | 展示标签名 pill 或加大色点 |
+| V-6 | 全局 line divider | 高优 border-b 列表项 | QueueEntryRow / IndexStatus / CommunityPanel / SchedulePanel card gap 化 |
 
 #### 待 CVO 拍板
 
