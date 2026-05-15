@@ -66,7 +66,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 21;
+export const CURRENT_SCHEMA_VERSION = 22;
 
 // F163 Phase A: experiment infrastructure tables (cohorts, suggestions, logs)
 export const SCHEMA_V13_TABLES = `
@@ -602,6 +602,43 @@ export function applyMigrations(db: Database.Database): void {
       db.exec('ALTER TABLE recall_events ADD COLUMN shadow_ranking_json TEXT');
     } catch {}
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(21, new Date().toISOString());
+  }
+
+  // V22: F200 Phase D — task trajectories
+  if (currentVersion < 22) {
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS task_trajectories (
+          trajectory_id TEXT PRIMARY KEY,
+          invocation_id TEXT NOT NULL,
+          thread_id TEXT NOT NULL,
+          cat_id TEXT NOT NULL,
+          task_context TEXT,
+          search_event_ids_json TEXT NOT NULL DEFAULT '[]',
+          files_read_json TEXT NOT NULL DEFAULT '[]',
+          files_modified_json TEXT NOT NULL DEFAULT '[]',
+          output_verified INTEGER NOT NULL DEFAULT 0,
+          output_verified_signals_json TEXT NOT NULL DEFAULT '[]',
+          total_token_cost INTEGER NOT NULL DEFAULT 0,
+          duration INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+    } catch {}
+    try {
+      db.exec('CREATE INDEX IF NOT EXISTS idx_trajectories_inv ON task_trajectories(invocation_id)');
+    } catch {}
+    try {
+      db.exec('CREATE INDEX IF NOT EXISTS idx_trajectories_thread ON task_trajectories(thread_id)');
+    } catch {}
+    try {
+      db.exec('CREATE INDEX IF NOT EXISTS idx_trajectories_cat ON task_trajectories(cat_id)');
+    } catch {}
+    try {
+      db.exec('CREATE INDEX IF NOT EXISTS idx_trajectories_verified ON task_trajectories(output_verified)');
+    } catch {}
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(22, new Date().toISOString());
   }
 }
 

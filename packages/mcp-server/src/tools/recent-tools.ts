@@ -17,10 +17,10 @@ const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3002';
 
 export const listRecentInputSchema = {
   scope: z
-    .enum(['docs', 'threads', 'memory', 'all'])
+    .enum(['docs', 'threads', 'memory', 'all', 'trajectories'])
     .optional()
     .describe(
-      'Surface to scan, mapped via SCOPE_KIND_MAP to evidence_docs.kind filter (砚砚一审 P2 边界注意): docs = feature/decision/lesson/plan/research/spec/adr/phase docs; threads = indexed discussion docs (NOT raw thread messages — chat history is via get_thread_context); memory = indexed memory/session-digest/reflection docs (NOT raw memory store); all = no kind filter. v1 仅 query evidence_docs 一张表，没有跨 surface raw 索引；live thread messages 或 per-thread memory entries 不会出现在这里.',
+      'Surface to scan. docs/threads/memory/all = evidence_docs kind filter; trajectories = F200 Phase D task_trajectories (search chain + files read/modified + outcome verification).',
     ),
   since: z.string().optional().describe('Time window: "7d" / "24h" / ISO 8601 date (default "7d")'),
   limit: z.number().int().min(1).max(100).optional().describe('Max items (default 20, max 100)'),

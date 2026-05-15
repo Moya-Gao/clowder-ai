@@ -54,6 +54,23 @@ export interface RecallEvent {
   shadowRankingJson?: string | null;
 }
 
+export interface TaskTrajectory {
+  trajectoryId: string;
+  invocationId: string;
+  threadId: string;
+  catId: string;
+  taskContext: string | null;
+  searchEventIds: string[];
+  filesRead: string[];
+  filesModified: string[];
+  outputVerified: boolean;
+  outputVerifiedSignals: string[];
+  totalTokenCost: number;
+  duration: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface F200FlagSnapshot {
   consumptionRerank: 'off' | 'shadow' | 'on';
 }

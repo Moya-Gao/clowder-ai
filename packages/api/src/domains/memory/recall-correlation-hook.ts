@@ -3,6 +3,7 @@ import { recordEdgeTraversals } from './edge-traversal.js';
 import { type RawEvent, RecallEventCorrelator } from './RecallEventCorrelator.js';
 import { RecallMetricsComputer } from './RecallMetricsComputer.js';
 import { lookupShadowRanking } from './SqliteEvidenceStore.js';
+import { TrajectoryAggregator } from './TrajectoryAggregator.js';
 
 const MEMORY_TOOLS = new Set(['search_evidence', 'graph_resolve', 'list_recent']);
 
@@ -56,6 +57,13 @@ export async function triggerRecallCorrelation(
     const metricsComputer = new RecallMetricsComputer(db);
     metricsComputer.refreshAnchorMetrics();
     metricsComputer.refreshGlobalCtrBaseline();
+
+    const threadId = fullEvents.find((e) => e.threadId)?.threadId ?? '';
+    if (threadId) {
+      const aggregator = new TrajectoryAggregator(db);
+      const trajectory = aggregator.aggregate(invocationId, threadId, catId, fullEvents);
+      if (trajectory) aggregator.persist(trajectory);
+    }
   }
 
   const consumedAnchors = new Set(recallEvents.flatMap((re) => re.consumed.map((c) => c.anchor)));

@@ -24,7 +24,14 @@ vi.mock('@/stores/callbackAuthStore', () => ({
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
   useSearchParams: () => new URLSearchParams(),
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
+    prefetch: vi.fn(),
+  }),
 }));
 
 vi.mock('@/hooks/useCafeTheme', () => ({
@@ -73,7 +80,9 @@ describe('ActivityBar SettingsButton — F174 callback-auth badge', () => {
   it('no badge when isAvailable=false', async () => {
     mockAvailable = false;
     mockAggregate = { unviewedFailures24h: 5 };
-    await act(async () => { root.render(React.createElement(ActivityBar)); });
+    await act(async () => {
+      root.render(React.createElement(ActivityBar));
+    });
     expect(container.querySelector('[data-testid="settings-callback-auth-badge"]')).toBeNull();
     expect(container.querySelector('[data-callback-auth-unviewed]')).toBeNull();
   });
@@ -81,14 +90,18 @@ describe('ActivityBar SettingsButton — F174 callback-auth badge', () => {
   it('no badge when unviewedFailures24h=0', async () => {
     mockAvailable = true;
     mockAggregate = { unviewedFailures24h: 0 };
-    await act(async () => { root.render(React.createElement(ActivityBar)); });
+    await act(async () => {
+      root.render(React.createElement(ActivityBar));
+    });
     expect(container.querySelector('[data-testid="settings-callback-auth-badge"]')).toBeNull();
   });
 
   it('amber badge for 1-5 unviewed', async () => {
     mockAvailable = true;
     mockAggregate = { unviewedFailures24h: 3 };
-    await act(async () => { root.render(React.createElement(ActivityBar)); });
+    await act(async () => {
+      root.render(React.createElement(ActivityBar));
+    });
     const badge = container.querySelector('[data-testid="settings-callback-auth-badge"]') as HTMLElement;
     expect(badge).not.toBeNull();
     expect(badge.textContent).toBe('3');
@@ -100,7 +113,9 @@ describe('ActivityBar SettingsButton — F174 callback-auth badge', () => {
   it('red badge for >= 6 unviewed', async () => {
     mockAvailable = true;
     mockAggregate = { unviewedFailures24h: 12 };
-    await act(async () => { root.render(React.createElement(ActivityBar)); });
+    await act(async () => {
+      root.render(React.createElement(ActivityBar));
+    });
     const badge = container.querySelector('[data-testid="settings-callback-auth-badge"]') as HTMLElement;
     expect(badge).not.toBeNull();
     expect(badge.textContent).toBe('12');
@@ -110,7 +125,9 @@ describe('ActivityBar SettingsButton — F174 callback-auth badge', () => {
   it('caps at "99+" with maxWidth 22px', async () => {
     mockAvailable = true;
     mockAggregate = { unviewedFailures24h: 250 };
-    await act(async () => { root.render(React.createElement(ActivityBar)); });
+    await act(async () => {
+      root.render(React.createElement(ActivityBar));
+    });
     const badge = container.querySelector('[data-testid="settings-callback-auth-badge"]') as HTMLElement;
     expect(badge).not.toBeNull();
     expect(badge.textContent).toBe('99+');

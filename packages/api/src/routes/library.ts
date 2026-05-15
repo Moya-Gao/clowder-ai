@@ -17,6 +17,7 @@ import { getRecallStats24h } from '../domains/memory/recall-stats.js';
 import { SqliteEvidenceStore } from '../domains/memory/SqliteEvidenceStore.js';
 import { resolveCollectionScanner } from '../domains/memory/scanner-resolver.js';
 import { computeFromThreads } from '../domains/memory/ToolUsageMetricsAggregator.js';
+import { TrajectoryQueryService } from '../domains/memory/TrajectoryQueryService.js';
 
 export interface LibraryRoutesOptions {
   catalog: LibraryCatalog;
@@ -362,7 +363,7 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
       reply.status(400);
       return { error: 'limit must be 1-100' };
     }
-    const validScopes = ['docs', 'threads', 'memory', 'all'] as const;
+    const validScopes = ['docs', 'threads', 'memory', 'all', 'trajectories'] as const;
     type ScopeT = (typeof validScopes)[number];
     // 砚砚 cloud-5 P2: reject invalid scope rather than silently coercing to undefined.
     // Pre-fix, `scope=thread` (typo) would silently widen to no-scope and skew metrics
@@ -374,6 +375,28 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
         return { error: `scope must be one of: ${validScopes.join(', ')}` };
       }
       scope = qs.scope as ScopeT;
+    }
+    if (scope === 'trajectories') {
+      let trajDb: import('better-sqlite3').Database | undefined;
+      for (const store of opts.stores.values()) {
+        trajDb = (store as StoreWithDb).getDb?.();
+        if (trajDb) break;
+      }
+      if (!trajDb) {
+        reply.status(503);
+        return { error: 'Evidence database not available' };
+      }
+      const trajSvc = new TrajectoryQueryService(trajDb);
+      const days = parseSinceToDays(since);
+      const trajectories = trajSvc.listRecent({ days, limit, verified: undefined });
+      const items = trajectories.map((t) => ({
+        anchor: `trajectory:${t.trajectoryId}`,
+        title: t.taskContext ?? `Trajectory ${t.trajectoryId.slice(0, 8)}`,
+        kind: 'trajectory' as const,
+        updatedAt: new Date(t.updatedAt).toISOString(),
+        source: `cat:${t.catId}`,
+      }));
+      return { items };
     }
     const kinds = qs.kinds?.split(',').filter(Boolean);
     // 砚砚 五审 P1-A: callerCollections removed from query
@@ -406,4 +429,12 @@ function isValidSince(since: string): boolean {
   if (!ISO_8601_RE.test(since)) return false;
   const ms = Date.parse(since);
   return !Number.isNaN(ms);
+}
+
+function parseSinceToDays(since: string): number {
+  if (since.endsWith('d')) return parseInt(since, 10) || 7;
+  if (since.endsWith('h')) return Math.max(1, Math.ceil((parseInt(since, 10) || 24) / 24));
+  const ms = Date.parse(since);
+  if (!Number.isNaN(ms)) return Math.max(1, Math.ceil((Date.now() - ms) / 86_400_000));
+  return 7;
 }
