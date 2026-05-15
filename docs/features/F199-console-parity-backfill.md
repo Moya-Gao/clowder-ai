@@ -155,7 +155,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 
 ### Phase E (reopened parity writes)
 - [x] AC-E0: CVO explicit reopen captured: `InstallPreviewModal` + Skills write actions are F199 Phase E, not ownerless follow-up
-- [ ] AC-E1: Phase E design memo reviewed by non-author reviewer before implementation
+- [x] AC-E1: Phase E design memo reviewed by non-author reviewer before implementation
 - [x] AC-E2: Service lifecycle backend has explicit owner fail-closed, service allowlist, per-service mutex, script path confinement, strict process matching, model validation, install/uninstall timeout cap, port-busy refusal, bounded logs, and metadata-only audit
 - [x] AC-E3: Settings service UI exposes install/start/stop/uninstall only on hardened backend; `InstallPreviewModal` visual proof covers prerequisites/model selection/error/fail-closed states
 - [x] AC-E4: Skills write backend has explicit owner fail-closed, project path validation, skill name validation, managed-skill destructive guard, and metadata-only audit
