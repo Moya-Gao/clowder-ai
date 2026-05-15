@@ -156,7 +156,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 ### Phase E (reopened parity writes)
 - [x] AC-E0: CVO explicit reopen captured: `InstallPreviewModal` + Skills write actions are F199 Phase E, not ownerless follow-up
 - [ ] AC-E1: Phase E design memo reviewed by non-author reviewer before implementation
-- [ ] AC-E2: Service lifecycle backend has explicit owner fail-closed, service allowlist, per-service mutex, script path confinement, strict process matching, model validation, install/uninstall timeout cap, port-busy refusal, bounded logs, and metadata-only audit
+- [x] AC-E2: Service lifecycle backend has explicit owner fail-closed, service allowlist, per-service mutex, script path confinement, strict process matching, model validation, install/uninstall timeout cap, port-busy refusal, bounded logs, and metadata-only audit
 - [ ] AC-E3: Settings service UI exposes install/start/stop/uninstall only on hardened backend; `InstallPreviewModal` visual proof covers prerequisites/model selection/error/fail-closed states
 - [ ] AC-E4: Skills write backend has explicit owner fail-closed, project path validation, skill name validation, managed-skill destructive guard, and metadata-only audit
 - [ ] AC-E5: Settings Skills UI exposes sync / conflict resolution / managed uninstall or disable with user-visible errors and proof that D-2 read surfaces still work
@@ -239,6 +239,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | 2026-05-14 | CVO challenged KD-7/Skills write deferral: these are F199 next phase, not out-of-feature; F199 reopened as Phase E |
 | 2026-05-14 | Phase E design memo added: service lifecycle + Skills write actions require independent hardening slices before UI parity |
 | 2026-05-14 | Opus-47 design review approved Phase E direction and required E-1a mutex / strict process matching / timeout / port hygiene + explicit guardian disclosure |
+| 2026-05-14 | E-1 service lifecycle backend hardening merged via PR #1673 (`03a9b974`); AC-E2 complete, E-3 UI parity remains pending |
 
 ## Review Gate
 
@@ -273,4 +274,5 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | **Reflection Capsule** | `docs/reflections/2026-05-14-f199-console-parity-backfill-capsule.md` | Completion reflection |
 | **Phase E Design** | `docs/discussions/2026-05-14-f199-phase-e-service-skills-write-design/README.md` | Reopen correction + threat model + slice plan |
 | **Phase E Design Review** | `docs/discussions/2026-05-14-f199-phase-e-service-skills-write-design/REVIEW-opus47.md` | Opus-47 approve + P0/P1 sharpenings |
+| **E-1 PR** | `cat-cafe#1673` (`03a9b974`) | service lifecycle backend hardening |
 | **Source PR** | `clowder-ai#669` | 缺失 5 组件的开源来源 |
