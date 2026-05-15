@@ -786,7 +786,13 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             <ThreadSidebar onClose={() => setSidebarOpen(false)} className="w-full" />
           </div>
           <div className="hidden md:flex items-center">
-            <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
+            <ResizeHandle
+              direction="horizontal"
+              label="左侧对话栏"
+              onResize={handleSidebarResize}
+              onCollapse={() => setSidebarOpen(false)}
+              onDoubleClick={resetSidebarWidth}
+            />
           </div>
         </>
       )}
@@ -1082,7 +1088,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           <div className="hidden lg:flex">
             <ResizeHandle
               direction="horizontal"
+              label="右侧状态栏"
               onResize={handleStatusPanelResize}
+              onCollapse={() => setStatusPanelOpen(false)}
               onDoubleClick={resetStatusPanelWidth}
             />
           </div>
@@ -1101,13 +1109,25 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       )}
       {statusPanelOpen && rightPanelMode === 'workspace' && (
         <>
-          <ResizeHandle direction="horizontal" onResize={handleHorizontalResize} onDoubleClick={resetChatBasis} />
+          <ResizeHandle
+            direction="horizontal"
+            label="右侧工作区"
+            onResize={handleHorizontalResize}
+            onCollapse={() => setStatusPanelOpen(false)}
+            onDoubleClick={resetChatBasis}
+          />
           <WorkspacePanel />
         </>
       )}
       {statusPanelOpen && rightPanelMode === 'transcript' && (
         <>
-          <ResizeHandle direction="horizontal" onResize={handleHorizontalResize} onDoubleClick={resetChatBasis} />
+          <ResizeHandle
+            direction="horizontal"
+            label="右侧转录栏"
+            onResize={handleHorizontalResize}
+            onCollapse={() => setStatusPanelOpen(false)}
+            onDoubleClick={resetChatBasis}
+          />
           <TranscriptPanel />
         </>
       )}
