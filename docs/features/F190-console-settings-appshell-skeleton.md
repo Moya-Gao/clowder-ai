@@ -221,6 +221,7 @@ close_gate_report:
 | 2026-05-13 | F190 close gate truth sync: AC-A/B/C all met, reflection capsule linked, BACKLOG active row removed |
 | 2026-05-13 | Post-close visual hotfix restored missing settings nav SVG paths (`box` / `puzzle`) after upstream/home screenshot compare (PR #1659, `d928fb696`) |
 | 2026-05-15 | Phase F audit started: CVO 实测发现 ChatContainerHeader / ThreadSidebar 入口重复 + Hub/Settings 内容重复 + 视觉不一致；recording as F190 follow-up, not new feature |
+| 2026-05-15 | Codex 二轮审计补充：AppShell desktop ThreadSidebar ownership、BootcampListModal 入口语义、RightStatusPanel Hub gear、Signal enrich backend、HubPermissionsTab contract drift、`/mission` alias |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（WIP 审计清单）
 
@@ -273,6 +274,18 @@ close_gate_report:
 
 两仓一致：Home / Memory / Mission / Signals / theme toggle / settings。本地仅提取了 helper 函数（代码重构），无 UI 差异。**无需修改。**
 
+#### 4b. AppShell / ChatContainer ownership（Codex 二轮审计补充）
+
+clowder-ai source 已把桌面 ThreadSidebar 归到 `AppShell`：非 `/settings` / `/signals` / `/memory` / `/mission` 路由时，由 shell 固定渲染 260px desktop rail；`ChatContainer` 只保留 mobile overlay。家里当前仍由 `ChatContainer` 控制 desktop sidebar，导致：
+
+| 差异 | 开源 | 本地 | 影响 |
+|------|------|------|------|
+| Desktop ThreadSidebar owner | AppShell | ChatContainer | 三层 shell 责任不一致，顶栏 hamburger 在 desktop 仍可见 |
+| Hidden routes | AppShell `SIDEBAR_HIDDEN_ROUTES` | 分散在 chat 容器状态 | settings/signals/memory/mission 的 sidebar 展示规则不够集中 |
+| ChatContainer desktop layout | 只负责 chat content | 同时负责 sidebar + chat | 后续顶栏/状态栏视觉对齐会继续互相牵扯 |
+
+**处置建议**：Phase F intake 时恢复 source 的 AppShell ownership，但必须保留家里 F154/F194/F195/F198 顶栏能力；不能整文件覆盖 `ChatContainer` / `ChatContainerHeader`。
+
 #### 5. Settings 页面功能丢失（代码级全量对比 clowder-ai vs local）
 
 ##### 5a. /settings?s=im（IM 配置）— ❌ 严重丢失
@@ -287,6 +300,11 @@ HubConnectorConfigTab.tsx 文件存在但缺失大量功能：
 | Heartbeat 显示 | 平台名称下方的心跳时间（"5m ago"）缺失 |
 | API 降级 | 开源用 `/api/connector/{id}/config` (PUT) 原子更新，本地降级为 `/api/config/secrets` (POST) |
 | 群管理入口 | feishu/wecom-bot/dingtalk 的 `PERMISSION_CONNECTORS` 映射 + 权限配置面缺失 |
+
+Codex 二轮审计补充：
+
+- `HubPermissionsTab` API contract 也发生分叉：开源是 `forwardRef` + `getConfig()/applyConfig()`，用于跟 connector config 同一保存事务；本地组件变成直接保存到 `/api/connector/permissions/{id}`，所以不能只把 import 补回来。
+- 修复时应恢复 source 的权限管理/连接状态/连接测试 UX intent，同时保留家里 Phase C 已 harden 的 owner-gated secret write 边界；禁止为了“对齐开源”把 `/api/config/secrets` 的安全语义回退掉。
 
 ##### 5b. /settings?s=members（成员管理）— ❌ 降级为只读
 
@@ -322,6 +340,10 @@ SettingsContent.tsx 缺失以下导入和功能：
 | notify（通知） | ✅ 一致 | — |
 | ops（运维监控） | ✅ 一致 | — |
 
+##### 5e. /mission route alias（Codex 二轮审计补充）
+
+clowder-ai 有 `packages/web/src/app/mission/page.tsx`，用于把 `/mission` redirect 到 `/mission-hub`。家里只有 Mission Hub 实际页，缺少 `/mission` alias。这个不是 P0 功能丢失，但会破坏开源/历史链接兼容。
+
 #### 6. 状态栏样式差异
 
 | 组件 | 差异类型 | 说明 |
@@ -329,8 +351,11 @@ SettingsContent.tsx 缺失以下导入和功能：
 | ConnectionStatusBar | CSS 变量 vs Tailwind | 开源用 `--console-border-soft` / `--console-hover-bg`，本地用 `cocreator-light` / `cocreator-bg` |
 | ParallelStatusBar | 主题 class vs 硬编码色 | 开源用 `conn-emerald-bg` / `conn-red-text` 主题类，本地用 `bg-green-400` / `text-red-500` 硬编码 |
 | ParallelStatusBar | pill 样式 | 开源 `rounded-xl px-3 py-1.5`，本地 `rounded-full px-2.5 py-1`（更紧凑） |
+| RightStatusPanel | extra Hub gear + token drift | 本地猫猫状态卡右上角还有 Hub 齿轮入口；开源无此入口。若 ActivityBar 是全局唯一 Settings 入口，这也是重复入口 |
 | 字号 | text-xs vs text-[11px] | 本地略小 |
 | 待决策 | CVO: "他们那个有点丑" | 🔲 样式方向待 CVO 拍板 |
+
+注意：`ParallelStatusBar` / `RightStatusPanel` 含家里 F194/F154 行为补丁（例如 active cat intent mode），Phase F 只能做入口/视觉收敛，不能整文件 source-replace。
 
 #### 7. Hub 导航 vs Settings 导航孤立组件
 
@@ -341,6 +366,12 @@ Hub（CatCafeHub.tsx）使用 accordion 分 3 组 19 tab，Settings 使用 flat 
 | HubPermissionsTab.tsx | 权限管理 UI，feishu/wecom-bot/dingtalk 配置 |
 | HubCatEditor.tsx | 成员编辑器，import 存在但 SettingsContent 未引用 |
 | HubCoCreatorEditor.tsx | 共创者编辑器，同上 |
+
+#### 7b. ThreadSidebar 训练营入口行为（Codex 二轮审计补充）
+
+开源 ThreadSidebar 的训练营按钮会打开 `BootcampListModal`，展示已有训练营并允许继续；家里当前按钮直接 `createBootcampThread()`，行为从“入口/列表”降级成“新建”。这不是简单的按钮数量差异，属于入口语义丢失。
+
+**处置建议**：删除 Memory/IM 重复按钮的同时，恢复 ThreadSidebar 内 `BootcampListModal` 行为；保留家里 Mission Hub section、LabelFilterBar、pin/read-state 等本地 thread 管理能力。
 
 #### 8. Signal 页面差异（SignalInboxView / SignalArticleDetail）
 
@@ -360,7 +391,7 @@ Signal 页面两仓**双向分叉**：本地功能更多，但开源有 2 项我
 
 | 丢失项 | 说明 |
 |--------|------|
-| Content Enrichment | `/api/signals/articles/{id}/enrich` 全文抓取，enrichedContent/enriching/enrichError 状态全缺 |
+| Content Enrichment | `/api/signals/articles/{id}/enrich` 全文抓取，`enrichedContent`/`enriching`/`enrichError` 状态全缺；后端 `domains/signals/services/enrich-article.ts` 与 route 也缺 |
 | Thread 讨论导航 | `useRouter` + `getThreadHref` 从 Signal 文章跳转关联 thread（cat-cafe 无此导航） |
 
 ##### 布局风格分叉
@@ -383,6 +414,20 @@ Signal 页面两仓**双向分叉**：本地功能更多，但开源有 2 项我
 | Thread 管理栏 | thread sidebar 视觉差异 | 🔲 待对比 |
 | 顶栏视觉 | 顶栏视觉差异（非按钮） | 🔲 待对比 |
 
+#### 10. Codex 二轮审计结论（2026-05-15）
+
+46 的首轮审计覆盖了大部分功能缺口；二轮补充集中在“入口归属”和“文件存在但 contract 不可直接接回”的问题：
+
+| # | 补充发现 | 结论 |
+|---|----------|------|
+| C-1 | AppShell 未接管 desktop ThreadSidebar | 需要修。否则顶栏/侧栏责任继续混在 ChatContainer，视觉修不干净 |
+| C-2 | ThreadSidebar 训练营按钮从列表入口变成直接创建 | 需要修。恢复 BootcampListModal 入口语义 |
+| C-3 | RightStatusPanel 仍有 Hub 齿轮 | 需要修。也是设置入口重复 |
+| C-4 | Signal enrichment 缺后端 service + route | 需要修。F-5 不是纯前端补状态 |
+| C-5 | HubPermissionsTab contract 与开源分叉 | 需要设计性接回，不能只补 import |
+| C-6 | `/mission` alias 缺失 | 可顺手补，兼容 source/历史链接 |
+| C-7 | theme token packaging / font-size token drift | 先记录，视觉刀再统一；不要盲目全局 import xterm CSS |
+
 ---
 
 ### 修改清单汇总（按优先级排序）
@@ -397,7 +442,7 @@ Signal 页面两仓**双向分叉**：本地功能更多，但开源有 2 项我
 | F-2 | IM 配置页 | 连接状态监控丢失 | 补 connectionState/lastHeartbeat/category + connStatePill + formatHeartbeat |
 | F-3 | IM 配置页 | 连接测试丢失 | 补 handleTestConnection() + `/api/connector/{id}/test` |
 | F-4 | 成员管理页 | 降级为只读 | 重新 import HubCatEditor/HubCoCreatorEditor/useConfirm，恢复编辑/删除/切换 |
-| F-5 | Signal 详情 | Content Enrichment 丢失 | 补 `/api/signals/articles/{id}/enrich` + enrichedContent 状态 |
+| F-5 | Signal 详情 | Content Enrichment 丢失 | 补后端 `enrich-article.ts` service + route `/api/signals/articles/{id}/enrich` + 前端 enrichedContent 状态 |
 | F-6 | Signal 详情 | Thread 导航丢失 | 补 useRouter + getThreadHref 跳转关联 thread |
 
 #### P1 — 入口重复（应修）
@@ -409,6 +454,9 @@ Signal 页面两仓**双向分叉**：本地功能更多，但开源有 2 项我
 | D-3 | ChatContainerHeader（🔴 红区） | Signal Inbox bell 重复 | 删除（ActivityBar 已有旗帜图标） |
 | D-4 | ThreadSidebar | Memory Hub 按钮重复 | 删除（ActivityBar 已有） |
 | D-5 | ThreadSidebar | IM Hub 按钮重复 | 删除（ActivityBar 已有） |
+| D-6 | RightStatusPanel | Hub 齿轮重复 | 删除或改为非入口状态展示（ActivityBar 保留唯一 Settings 入口） |
+| D-7 | AppShell / ChatContainer（🔴 红区） | desktop sidebar owner 错位 | AppShell 接管 desktop ThreadSidebar，ChatContainer 仅保留 mobile overlay |
+| D-8 | ThreadSidebar | 训练营入口语义丢失 | 恢复 BootcampListModal 列表入口，不直接新建训练营 thread |
 
 #### P2 — 参数/样式修正
 
@@ -416,6 +464,9 @@ Signal 页面两仓**双向分叉**：本地功能更多，但开源有 2 项我
 |---|------|------|----------|
 | S-1 | 系统配置页 | connector env 暴露 | 补回 `excludeCategories={['connector']}` |
 | S-2 | Hub/Settings 重复 | IM/Env/Governance 三处 | Hub 改为摘要 + deep-link（scope 较大，可后置） |
+| S-3 | Mission route | `/mission` alias 缺失 | 补 `/mission` redirect 到 `/mission-hub` |
+| S-4 | Console tokens | font / color token drift | 对齐 font-size/token 命名；不盲目搬 `theme-tokens.css` 或 xterm CSS |
+| S-5 | Thread/Top/Status visual | 视觉不一致 | 在功能修复后统一 spacing、border、radius；保留家里新增功能 |
 
 #### 待 CVO 拍板
 
@@ -428,8 +479,11 @@ Signal 页面两仓**双向分叉**：本地功能更多，但开源有 2 项我
 ### 修改约束
 
 - ChatContainerHeader.tsx 是 F183/F184/F194 红区文件，D-1/D-2/D-3 修改前必须获得 CVO override 确认
+- ChatContainer/AppShell ownership 涉及 F183/F184/F194 红区，D-7 必须小刀修改 + focused smoke，不得整文件覆盖
 - 不开新 Feature，以 F190 follow-up PR 形式修复
 - 所有入口去重必须确保 ActivityBar 对应入口仍在且可用
+- IM connector 修复必须保留家里 owner-gated secret write / redaction / hot reload 语义；恢复 source UX，不回退安全边界
+- Signal 修复必须保留家里 stats/batch/timeline/tier filter，只补开源缺口
 
 ## Review Gate
 
