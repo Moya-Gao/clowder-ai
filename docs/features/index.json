@@ -1227,13 +1227,13 @@
     {
       "id": "F198",
       "name": "Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪",
-      "status": "in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 + 验证收尾 ✅ 2026-05-15 — 救宪宪代码层完成 + Alpha 端到端 R5 验证通过，canary 零操作员介入) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0",
+      "status": "in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 + 验证收尾 ✅ 2026-05-15 — 救宪宪代码层完成 + Alpha 端到端 R5 验证通过，canary 零操作员介入; **Phase C scope=A 单 PR 闭环 in-progress 2026-05-15**) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0",
       "file": "F198-claude-code-subscription-carrier.md"
     },
     {
       "id": "F199",
       "name": "Console Parity Backfill — F190 Phase D",
-      "status": "in-progress (Phase E reopened) | **Reopened**: 2026-05-14 | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1",
+      "status": "done | **Completed**: 2026-05-15 | **Reopened**: 2026-05-14 | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1",
       "file": "F199-console-parity-backfill.md"
     },
     {

@@ -10,7 +10,7 @@ trigger: cvo-pushback-post-close
 
 # F199: Console Parity Backfill — F190 Phase D
 
-> **Status**: in-progress (Phase E reopened) | **Reopened**: 2026-05-14 | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-05-15 | **Reopened**: 2026-05-14 | **Owner**: 布偶猫 Opus 4.7 + 缅因猫 GPT-5.5 | **Priority**: P1
 > **Parent**: [F190 Console Settings/AppShell Skeleton](F190-console-settings-appshell-skeleton.md) (closed 2026-05-13)
 > **Trigger**: CVO push-back 2026-05-13 — F190 close 后发现 settings parity gap
 
@@ -160,7 +160,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 - [x] AC-E3: Settings service UI exposes install/start/stop/uninstall only on hardened backend; `InstallPreviewModal` visual proof covers prerequisites/model selection/error/fail-closed states
 - [x] AC-E4: Skills write backend has explicit owner fail-closed, project path validation, skill name validation, managed-skill destructive guard, and metadata-only audit
 - [x] AC-E5: Settings Skills UI exposes sync / conflict resolution / managed uninstall or disable with user-visible errors and proof that D-2 read surfaces still work
-- [ ] AC-E6: F199 final close gate reruns source settings diff, User Visibility Disclosure, red-zone grep, transport boundary check, and independent vision guardian after Phase E merge; close report must disclose a guardian handle that is not Phase E author and not Phase E reviewer (cross-family preferred)
+- [x] AC-E6: F199 final close gate reruns source settings diff, User Visibility Disclosure, red-zone grep, transport boundary check, and independent vision guardian after Phase E merge; close report must disclose a guardian handle that is not Phase E author and not Phase E reviewer (cross-family preferred)
 - [x] AC-E7: Phase E does not touch F183/F184/F194 red-zone files and does not take over F088/F124 message routing/runtime ownership
 
 ## Dependencies
@@ -241,6 +241,7 @@ F190 Phase C 已经把 hardening pattern (`requireExplicitOwner` + `containsReda
 | 2026-05-14 | Opus-47 design review approved Phase E direction and required E-1a mutex / strict process matching / timeout / port hygiene + explicit guardian disclosure |
 | 2026-05-14 | E-1 service lifecycle backend hardening merged via PR #1673 (`03a9b974`); AC-E2 complete, E-3 UI parity remains pending |
 | 2026-05-15 | Phase E UI + skills write hardening merged via PR #1677 (`68cb06b8`); AC-E3/E4/E5/E7 complete; session-only owner gate, managed-skill guard, install action reachable; local gpt55 review + cloud codex review passed |
+| 2026-05-15 | Vision guardian PASS (Opus-47, CVO override); settings diff 18 vs 17 zero missing; all ACs met; F199 marked done |
 
 ## Review Gate
 
