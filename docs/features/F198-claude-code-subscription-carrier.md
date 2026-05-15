@@ -8,7 +8,7 @@ created: 2026-05-13
 
 # F198: Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪
 
-> **Status**: in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 — 救宪宪代码层完成，canary ready to deploy with operator one-time approval) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
+> **Status**: in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 + 验证收尾 ✅ 2026-05-15 — 救宪宪代码层完成 + Alpha 端到端 R5 验证通过，canary 零操作员介入) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
 
 ## Why
 
@@ -273,7 +273,7 @@ in_context_observability:
   - `error` ✅
 - [x] **AC-B3d (Parity Gate)**: 8 golden parity tests + 7 tailer tests + 9 streaming integration tests（含 5 round 黑盒 hardening from 砚砚 + 5 round cloud codex P1/P2 fixes）✅ PR #1669
 - [x] **AC-B3e (Alpha Smoke)**: 真实端到端 PASS PR #1672 — Bash tool_use + per-message text + done(usage) on real `--bg`
-- [x] **AC-B4**: Cat Café MCP server 在 `--bg` 模式下 `cat_cafe_*` 工具可调用 — code 接通 PR #1672 + `--strict-mcp-config` flag PR #1674 (predictable MCP loading)。Alpha-evidence: daemon `.mcp.json` approval gate 是 **operator one-time setup**（daemon UX design），不是代码可绕过；canary 部署 runbook 记录此步骤
+- [x] **AC-B4**: Cat Café MCP server 在 `--bg` 模式下 `cat_cafe_*` 工具可调用 — code 接通 PR #1672 + `--strict-mcp-config` flag PR #1674。**Alpha 端到端验证收尾 2026-05-15**：fresh daemon `77df0627` 全程 `needs: null`，`cat_cafe_search_evidence("F102 记忆系统")` 返回 3 条 anchor（F102 / cat-live-prep / llm-wiki），final text 透传给用户。**机制澄清**（推翻昨晚"需要 operator one-time approval"推测）：daemon non-TTY stdout + `--strict-mcp-config` + 显式 `--mcp-config` → CLI **不触发任何 approval prompt**（`--print` 文档已明示"workspace trust dialog skipped when stdout is not a TTY"，daemon 同样适用 + strict-mcp-config 短路 `.mcp.json` 发现路径）。**Canary 零操作员介入**：开 `CAT_CAFE_CLAUDE_CARRIER=bg_daemon` 即用，无需任何 attach/批准步骤
 - [x] **AC-B6**: 真实 transcript `entrypoint=cli` PASS PR #1672（客户端层订阅证据）；服务端 billing 仍 pending dashboard
 - [x] **AC-B8 (Canary Gate)**: env-gated factory `CAT_CAFE_CLAUDE_CARRIER` wired PR #1672。Default unset → `-p` 仍是布偶猫生产路径；opt-in `bg_daemon` → ClaudeBgCarrierService。Canary cohort selection criteria 待 Step 4 + Phase D。
 
