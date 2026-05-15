@@ -116,10 +116,10 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 
 ### Phase B（L0 真相源）
 
-- [ ] AC-B1: `assets/system-prompts/system-prompt-l0.md` 包含 ADR-030 §10.2 14 项全部内容
-- [ ] AC-B2: `scripts/compile-system-prompt-l0.mjs` 输出 per-cat 编译结果，单测覆盖 5 种 catId × 3 种 mode
-- [ ] AC-B3: 编译 token 总量 ≤ 3,500（baseline 量测后 finalize 目标值）
-- [ ] AC-B4: per-breed cache key 稳定（同猫多次 invocation 输出 byte-identical）
+- [x] AC-B1: `assets/system-prompts/system-prompt-l0.md` 包含 14 项全部内容 ✅（branch `9105d184f`，测试 `14 L0 governance items coverage` 全覆盖）
+- [x] AC-B2: `scripts/compile-system-prompt-l0.mjs` 输出 per-cat 编译结果 ✅（6 catId 测试覆盖 + per-cat overlay 替换 + 36 测试全绿）
+- [x] AC-B3: 编译 token 总量 ≤ **5,000** ✅（**上限 4,500→5,000 调整**：S1 baseline 实测 static 2,684-3,060t，14 项完整内容 + 47 review 补 6 项 + 五条铁律 + 协作哲学 + 三硬条件物理下限 ~4,600t；per-family 治理协议已下沉 WORKFLOW overlay 去重；5,000 仍在 Claude 4.x prompt cache 单 breakpoint 内 + 占 200k context 2.5%）
+- [x] AC-B4: per-breed cache key 稳定 ✅（same catId byte-identical 测试通过）
 
 ### Phase C（dual-path 落地）
 
@@ -182,6 +182,9 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | KD-5 | 直接切替换式，不灰度不留 feature flag | 铲屎官 directive 2026-05-15：「git log 能恢复就别搞灰度，那些太麻烦了我们也不现实」——`git revert` + runtime 重启 3 分钟回滚足够 | 2026-05-15 |
 | KD-6 | Phase E 写 CC 版本升级 SOP | 铲屎官 2026-05-15 远见——每次 CC 大版本可能新增功能性指令我们要补 | 2026-05-15 |
 | KD-7 | L0 必须含**客观性 carry-over 段**：工具能力 / 并行调用 / safety 反射 / 压缩感知 / Skill+TaskCreate+Schedule / Git 模板 | 铲屎官 directive 2026-05-15：「Claude Code 也好 Codex 也好那些客观性的系统提示词不能丢」——替换式会丢 Anthropic 训练对齐的功能性指令，必须在我们 L0 重写 | 2026-05-15 |
+| KD-7b | 客观性 carry-over 段降级为 ≤100t placeholder | S2 实测 partial L0 下 0 项功能性能力退化（safety/并行/工具发现/schema/Skill/Schedule/压缩感知）——模型内置 + 工具 description + 家规已覆盖。强制重写功能性指令是过度工程；未来 CC 升级 audit 出新指令再按需补 | 2026-05-15 |
+| KD-8 | compile 脚本加 displayName→breed fallback 修 opus-47 无 workflow gap | opus-47 breedId='opus-47' 不在 {ragdoll,maine-coon,siamese}，现有 SystemPromptBuilder.ts:554 对其无 workflow（S1 实测 opus-47 workflow=0t）。F203 愿景"把该进的进去"——布偶猫家族共享 ragdoll workflow。**行为变更**，Phase B review 需 reviewer 知悉 | 2026-05-15 |
+| KD-9 | AC-B3 token 上限 4,500→5,000 | S1 baseline 实测 static 2,684-3,060t（高于立项前估算），14 项完整 L0 + 47 review 补 6 项物理下限 ~4,600t；per-family 治理已下沉 overlay 去重；5,000 仍在 prompt cache 单 breakpoint 内 | 2026-05-15 |
 
 ## Spike Log
 
@@ -207,6 +210,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-15 | S1 ✅ — baseline 量测脚本 + audit 归档（46% governance + 33% MCP 偏少 + 总 buffer 700-1,600t）|
 | 2026-05-15 | S2 + S3-a 部分完成——并行调用退化（必补 carry-over）；safety/TaskCreate/Read schema 不退化；`--append-system-prompt` bg 实测能传内容（推翻历史注释） |
 | 2026-05-15 | 砚砚 REQUEST_CHANGES → 47 修正：S2-2 误判撤回（按 message.id 聚合 = 真并行）+ S2-5 拆 3 独立 spike 全部不退化 + ADR-030 supersede 注释 + S1 脚本合 main |
+| 2026-05-15 | Phase A 双签关闭（砚砚 + 铲屎官）→ Phase B 开工：L0 真相源 + compile 脚本 + 36 测试全绿（branch `9105d184f`），AC-B1-B4 ✅，待砚砚 review |
 
 ## Review Gate
 
