@@ -242,11 +242,11 @@ close_gate_report:
 
 | # | 组件 | 来源 | 处置建议 |
 |---|------|------|----------|
-| 1 | CatCafeLogo | 本地品牌 | 待定 — 问 CVO |
-| 2 | DaemonActiveIndicator | F198 | 保留（本地独有功能） |
-| 3 | ThreadCatPill | F154 | 保留（本地独有功能） |
-| 4 | LiveAudioToggle | F195 | 保留（本地独有功能） |
-| 5 | Signal Inbox bell | Signals 功能 | 待定 — 保留 topbar 还是移走？问 CVO |
+| 1 | CatCafeLogo | 本地品牌 | ✅ **保留**（CVO 确认） |
+| 2 | DaemonActiveIndicator | F198 | ✅ **保留**（CVO 确认，本地独有） |
+| 3 | ThreadCatPill | F154 | ✅ **保留**（CVO 确认，本地独有） |
+| 4 | LiveAudioToggle（🎤 麦克风） | F195 会议副驾驶 | ✅ **保留**（本地独有功能） |
+| 5 | **Signal Inbox bell（🔔 铃铛）** | Signals | ❌ **删除 — 开源已移到 ActivityBar（旗帜图标），顶栏是重复入口** |
 | 6 | **ThemeToggle** | — | ❌ **删除 — ActivityBar 已有，重复入口** |
 | 7 | **HubButton** | — | ❌ **删除 — ActivityBar 已有，重复入口** |
 
@@ -273,15 +273,82 @@ close_gate_report:
 
 两仓一致：Home / Memory / Mission / Signals / theme toggle / settings。本地仅提取了 helper 函数（代码重构），无 UI 差异。**无需修改。**
 
-#### 5. 待审计（铲屎官仍在发现中）
+#### 5. Settings 页面功能丢失（代码级全量对比 clowder-ai vs local）
+
+##### 5a. /settings?s=im（IM 配置）— ❌ 严重丢失
+
+HubConnectorConfigTab.tsx 文件存在但缺失大量功能：
+
+| 丢失项 | 说明 |
+|--------|------|
+| Connection State 监控 | `connectionState`/`lastHeartbeat`/`category` 字段缺失，无连接状态 pill（"已连接"/"重连中"等） |
+| HubPermissionsTab 集成 | 文件存在但**未接入** — 飞书/企微/钉钉权限管理 UI 断线（lazy/Suspense 加载缺失） |
+| 连接测试 | `handleTestConnection()` 未实现，`/api/connector/{id}/test` 未接 |
+| Heartbeat 显示 | 平台名称下方的心跳时间（"5m ago"）缺失 |
+| API 降级 | 开源用 `/api/connector/{id}/config` (PUT) 原子更新，本地降级为 `/api/config/secrets` (POST) |
+| 群管理入口 | feishu/wecom-bot/dingtalk 的 `PERMISSION_CONNECTORS` 映射 + 权限配置面缺失 |
+
+##### 5b. /settings?s=members（成员管理）— ❌ 降级为只读
+
+SettingsContent.tsx 缺失以下导入和功能：
+
+| 丢失项 | 说明 |
+|--------|------|
+| HubCatEditor | 成员编辑 UI 未接入（文件存在但 import 缺失） |
+| HubCoCreatorEditor | 共创者编辑 UI 未接入 |
+| useConfirm hook | 破坏性操作确认弹窗缺失 |
+| handleToggleAvailability | 成员可用性切换缺失 |
+| handleDeleteMember | 成员删除缺失 |
+| handleEditorSaved | 编辑保存回调缺失 |
+| **结果** | MembersPanel 只渲染只读 CatOverviewTab，无法编辑/删除/切换可用性 |
+
+##### 5c. /settings?s=system（系统配置）— ⚠️ 参数差异
+
+| 差异项 | 开源 | 本地 |
+|--------|------|------|
+| HubEnvFilesTab | `excludeCategories={['connector']}` | 无 exclusion（可能暴露 connector env 在 system 页面） |
+
+##### 5d. 其他 Settings 页面
+
+| 页面 | 状态 | 说明 |
+|------|------|------|
+| accounts（账户与密钥） | ✅ 一致 | — |
+| skills（Skill 管理） | ✅ 本地多 SkillConflictBanner | F199 Phase E 新增 |
+| mcp（MCP 管理） | ✅ 一致 | — |
+| plugins（插件/集成） | ✅ 一致 | — |
+| marketplace（能力市场） | ✅ 一致 | — |
+| voice（语音管理） | ✅ 一致 | — |
+| rules（规则与 SOP） | ✅ 本地多 HubGovernanceTab + BrakeSettingsPanel | 本地更丰富 |
+| notify（通知） | ✅ 一致 | — |
+| ops（运维监控） | ✅ 一致 | — |
+
+#### 6. 状态栏样式差异
+
+| 组件 | 差异类型 | 说明 |
+|------|---------|------|
+| ConnectionStatusBar | CSS 变量 vs Tailwind | 开源用 `--console-border-soft` / `--console-hover-bg`，本地用 `cocreator-light` / `cocreator-bg` |
+| ParallelStatusBar | 主题 class vs 硬编码色 | 开源用 `conn-emerald-bg` / `conn-red-text` 主题类，本地用 `bg-green-400` / `text-red-500` 硬编码 |
+| ParallelStatusBar | pill 样式 | 开源 `rounded-xl px-3 py-1.5`，本地 `rounded-full px-2.5 py-1`（更紧凑） |
+| 字号 | text-xs vs text-[11px] | 本地略小 |
+| 待决策 | CVO: "他们那个有点丑" | 🔲 样式方向待 CVO 拍板 |
+
+#### 7. Hub 导航 vs Settings 导航孤立组件
+
+Hub（CatCafeHub.tsx）使用 accordion 分 3 组 19 tab，Settings 使用 flat 12 section。以下组件**文件存在但未接入任何导航**：
+
+| 孤立组件 | 说明 |
+|---------|------|
+| HubPermissionsTab.tsx | 权限管理 UI，feishu/wecom-bot/dingtalk 配置 |
+| HubCatEditor.tsx | 成员编辑器，import 存在但 SettingsContent 未引用 |
+| HubCoCreatorEditor.tsx | 共创者编辑器，同上 |
+
+#### 8. 其他待审计
 
 | 区域 | 铲屎官提到的问题 | 审计状态 |
 |------|-----------------|----------|
-| 字体 | Settings 里字体不一样 | 🔲 待对比 |
-| 状态栏 | 右边的状态栏不一样 | 🔲 待对比 |
+| 字体 | Settings 里字体不一样 | 🔲 待视觉对比 |
 | Thread 管理栏 | thread sidebar 视觉差异 | 🔲 待对比 |
 | 顶栏视觉 | 顶栏视觉差异（非按钮） | 🔲 待对比 |
-| 其他丢失功能 | "很多东西都被你们改没了" | 🔲 待铲屎官继续反馈 |
 
 ### 修改约束
 
