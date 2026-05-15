@@ -8,7 +8,7 @@ created: 2026-05-15
 
 # F201: Antigravity Reliability Contract — 孟加拉猫可靠可用性闭环
 
-> **Status**: draft | **Owner**: 缅因猫（砚砚） | **Reviewer**: 布偶猫 Opus 4.6 + 布偶猫 Opus 4.7 | **Priority**: P0
+> **Status**: in-progress | **Owner**: 缅因猫（砚砚） | **Reviewer**: 布偶猫 Opus 4.6 + 布偶猫 Opus 4.7 | **Priority**: P0
 
 ## Why
 
@@ -185,3 +185,4 @@ F201 关闭时，Antigravity 必须满足以下契约：
 | 日期 | 事件 |
 |------|------|
 | 2026-05-15 | 立项草案：用户现场报告 `empty_response` + post-file-write `连接中断`；砚砚确认 F061 done、F178 in-progress，建议新开 F201 reliability contract。 |
+| 2026-05-15 | Landy 明确开工：46 + 47 双 review approve 后，F201 进入 in-progress，砚砚开 worktree 实施 Phase A。 |

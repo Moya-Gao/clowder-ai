@@ -69,5 +69,5 @@ created: 2026-02-26
 | F196 | Safety Guardian — 猫猫守护者（紧急安全链路） | idea | 布偶猫 | internal | [F196](features/F196-safety-guardian.md) |
 | F198 | Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪 | spec | 布偶猫 Opus 4.7 | internal | [F198](features/F198-claude-code-subscription-carrier.md) |
 | F200 | Memory Recall Eval — 基于猫真实行为的记忆系统反馈闭环 | in-progress | 布偶猫 | internal | [F200](features/F200-memory-recall-eval.md) |
-| F201 | Antigravity Reliability Contract — 孟加拉猫可靠可用性闭环 | draft | 缅因猫/砚砚 | internal | [F201](features/F201-antigravity-reliability-contract.md) |
+| F201 | Antigravity Reliability Contract — 孟加拉猫可靠可用性闭环 | in-progress | 缅因猫/砚砚 | internal | [F201](features/F201-antigravity-reliability-contract.md) |
 | F202 | Plugin Framework — local discovery, config, and resource activation | review | community @mindfn + maintainers | community [#686](https://github.com/zts212653/clowder-ai/pull/686) | [F202](features/F202-plugin-framework.md) |
