@@ -18,11 +18,35 @@ close_gate_report:
     status: none
     reason: "F199 changes Console/settings product surfaces, service lifecycle, and skills write routes; it does not change harness, skill definitions, MCP tool, or shared-rules behavior."
   vision_guardian:
-    cat: pending
-    model: pending
-    result: pending
-    message_id: pending
-    summary: pending
+    cat: 布偶猫 / 宪宪 (Opus 4.7) — CVO override
+    model: claude-opus-4-7
+    result: PASS
+    message_id: 0001778817078956-001330-89659123  # CVO @opus47 override message
+    reviewer_conflict_disclosure: "Opus-47 是 Phase E 的 design + implementation reviewer (REVIEW-opus47.md v1-v5)。按 CLAUDE.md 五条铁律 #2 严格语义应该 cross-family non-author non-reviewer——理想守护是 @gemini (暹罗猫)。CVO 2026-05-14 直接 override 把守护任务转给 Opus-47 (\"@opus47 你来做愿景守护！好好对照 开源社区#645 的pr\")。我接球但明示此 conflict：守护结论可能受 reviewer bias 影响，铲屎官保留要求二次 cross-family guardian 的权利。"
+    scope_disclosure: "PR #1677 (E-1b service lifecycle UI + E-2 Skills write actions UI) 我没有作为 reviewer 参与——author Opus-46，local reviewer GPT-5.5，cloud reviewer codex bot。这是守护视角下相对干净的 slice (我对 E-1 backend 有 review 历史 PR #1673，对 E-1b/E-2 UI 是首次 inspect)。"
+    summary: |
+      愿景三问 PASS。
+
+      (1) 核心问题（CVO 原话 "只是调整了样式 其实很多东西都丢了"）→ F190 close 时 settings 13/20 缺 7 功能组件。
+
+      (2) 解决了吗 → 本地 18 vs 开源 17，零文件级缺失，多 SkillConflictBanner 一个；7 原缺失组件 (ServiceStatusPanel / SkillsContent / capability-settings-ui / useCapabilityState / PushServiceConfig / GithubConfigPanel / InstallPreviewModal) 全补；UI verify 接通后端写 API：
+        - ServiceStatusPanel:104 → `/api/services/:id/:action` lifecycle write
+        - ServiceStatusPanel:177 → `InstallPreviewModal` 接入
+        - PushServiceConfig:80 → `/api/push/generate-vapid`
+        - PushServiceConfig:121 → `/api/config/secrets` VAPID 写
+        - GithubConfigPanel:88 → `/api/config/secrets` GITHUB_TOKEN 写
+        - McpManageContent:193 → onSaved 写入
+
+      (3) 用户体验 → 所有写面 owner-gated fail-closed；红区零触碰；跨 worktree 端口 hygiene + 并发 mutex + strict process matching + lsof fail-closed + runner exception controlled + audit metadata-only 全 hardened。
+
+      Cross-check 真相源 clowder-ai PR #645 Console Architecture Restructure：
+      - PR #645 含 Phase 1-5，F199 scope 是 Phase 2 (settings restructure) + Phase 4 (service management)
+      - Phase 1 (ActivityBar / SettingsShell / usePinnedSections) 已在 F190 parent 落地——verify 本地 `components/ActivityBar.tsx` + `hooks/usePinnedSections.ts` 存在
+      - Phase 3/5 (chat cleanup / polish) 不属于 F199 scope，已在前置 phase 或独立 hotfix 落地（不挡 F199 close）
+
+      CVO 原话反推："只是调整了样式" 现已**不成立**——实质 functional 修复了：服务安装 + Skills 管理 + VAPID + GitHub + MCP capability + service lifecycle 完整接通。
+
+      F199 close gate PASS。建议：若 CVO 觉得 reviewer-conflict 实质影响判断，可二次找 @gemini 做 cross-family 复审，不会推翻技术结论（功能已落地），但能补充审美 / UX 维度。
   ac_matrix:
     - ac_id: AC-D1
       status: met
