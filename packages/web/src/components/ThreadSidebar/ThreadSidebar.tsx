@@ -714,11 +714,12 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
     searchQuery: normalizedQuery,
     currentThreadId,
   });
+  const sidebarWidthClass = className === undefined ? 'w-60' : className;
 
   return (
     <>
       <aside
-        className={`${className ?? 'w-60'} border-r border-[var(--console-border-soft)] bg-[var(--console-shell-bg)] flex flex-col h-full`}
+        className={`${sidebarWidthClass} border-r border-[var(--console-border-soft)] bg-[var(--console-shell-bg)] flex flex-col h-full`}
       >
         <div className="px-3 pt-3 pb-2 flex items-center justify-between">
           <span className="text-sm font-semibold text-cafe-black">对话</span>

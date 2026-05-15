@@ -85,6 +85,24 @@ function formatAntigravityUpstreamError(message: string): string {
   );
 }
 
+function metadataString(step: TrajectoryStep, key: string): string | undefined {
+  const value = step.metadata?.[key];
+  return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function formatCodeActionFailure(step: TrajectoryStep): string {
+  const operation = metadataString(step, 'operation');
+  const path = metadataString(step, 'path');
+  const reason = metadataString(step, 'error') ?? step.error?.shortError ?? step.error?.fullError;
+  const details = [
+    operation ? `operation=${operation}` : undefined,
+    path ? `path=${path}` : undefined,
+    step.status ? `status=${step.status}` : undefined,
+  ].filter(Boolean);
+  const suffix = details.length > 0 ? ` (${details.join(', ')})` : '';
+  return reason ? `Code action failed${suffix}: ${reason}` : `Code action failed${suffix}`;
+}
+
 export type StepBucket =
   | 'terminal_output'
   | 'partial_output'
@@ -113,6 +131,12 @@ export function classifyStep(step: TrajectoryStep): StepBucket {
   }
   if (step.type === 'CORTEX_STEP_TYPE_MCP_TOOL') {
     return step.toolResult?.success === false ? 'tool_error' : 'tool_pending';
+  }
+  if (step.type === 'CORTEX_STEP_TYPE_CODE_ACTION') {
+    if (step.toolResult?.success === false) return 'tool_error';
+    return ['ERROR', 'FAILED', 'CANCELED', 'CANCELLED'].some((marker) => step.status.includes(marker))
+      ? 'tool_error'
+      : 'tool_pending';
   }
 
   // Known silent types (no user-facing output)
@@ -187,6 +211,20 @@ export function transformTrajectorySteps(
         break;
 
       case 'tool_pending': {
+        if (step.type === 'CORTEX_STEP_TYPE_CODE_ACTION' && !step.toolCall && !step.toolResult) {
+          messages.push({
+            type: 'system_info',
+            catId,
+            content: JSON.stringify({
+              type: 'code_action',
+              status: step.status,
+              operation: step.metadata?.operation,
+              path: step.metadata?.path,
+            }),
+            metadata,
+            timestamp: Date.now(),
+          });
+        }
         if (step.toolCall) {
           messages.push({
             type: 'system_info',
@@ -224,7 +262,16 @@ export function transformTrajectorySteps(
       }
 
       case 'tool_error': {
-        if (step.type === 'CORTEX_STEP_TYPE_PLANNER_RESPONSE') {
+        if (step.type === 'CORTEX_STEP_TYPE_CODE_ACTION' && !step.toolResult) {
+          messages.push({
+            type: 'error',
+            catId,
+            error: formatCodeActionFailure(step),
+            errorCode: 'code_action_error',
+            metadata,
+            timestamp: Date.now(),
+          });
+        } else if (step.type === 'CORTEX_STEP_TYPE_PLANNER_RESPONSE') {
           const upstreamError = classifyUpstreamError(
             step.plannerResponse?.stopReason ?? '',
             step.plannerResponse?.stopReason,

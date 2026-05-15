@@ -1253,6 +1253,12 @@
       "name": "Plugin Framework — local discovery, config, and resource activation",
       "status": "review | **Owner**: community @mindfn + Cat Cafe maintainers | **Priority**: P1",
       "file": "F202-plugin-framework.md"
+    },
+    {
+      "id": "F203",
+      "name": "Native System Prompt L0 — 压缩免疫核心规则注入",
+      "status": "spec | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P1",
+      "file": "F203-native-system-prompt-l0.md"
     }
   ]
 }

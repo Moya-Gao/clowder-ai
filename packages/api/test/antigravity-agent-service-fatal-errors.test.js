@@ -715,6 +715,47 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     });
   });
 
+  test('model_capacity does not retry after CODE_ACTION side-effect-capable step', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            metadata: { operation: 'write', path: 'docs/example.md' },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const capacity = messages.find((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.ok(capacity, 'must surface model_capacity once CODE_ACTION might have changed files');
+    assert.equal(bridge.resetSession.mock.callCount(), 0, 'must not retry after CODE_ACTION');
+    assert.equal(capacity.metadata?.diagnostics?.retryEligible, false);
+    assert.equal(capacity.metadata?.diagnostics?.dispatchState, 'after_dispatch');
+    assert.equal(capacity.metadata?.diagnostics?.retrySuppressedBy, 'resolved_toolish_step_seen');
+    assert.equal(capacity.metadata?.diagnostics?.toolishStepType, 'CORTEX_STEP_TYPE_CODE_ACTION');
+  });
+
   test('model_capacity retries when the blocked waiting run_command is read-only and undispatched', async () => {
     const bridge = createMockBridge();
     bridge.nativeExecuteAndPush = mock.fn(async () => true);

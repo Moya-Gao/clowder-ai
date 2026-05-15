@@ -30,6 +30,7 @@ import {
   publishAntigravityImages,
   scanAndPublishAntigravityBrainImages,
 } from './antigravity-image-publisher.js';
+import { classifyAntigravityStepEffect, summarizeAntigravityEffects } from './antigravity-step-effects.js';
 import { summarizeStepShape, TRACE_ENABLED, traceLog } from './antigravity-trace.js';
 import { AuditLogger } from './executors/AuditLogger.js';
 import { ExecutorRegistry } from './executors/ExecutorRegistry.js';
@@ -381,14 +382,31 @@ export class AntigravityAgentService implements AgentService {
               const batchHasToolActivity = messages.some(
                 (msg) => msg.type === 'tool_use' || msg.type === 'tool_result',
               );
-              const batchHasToolishStep = batch.steps.some(
-                (step) =>
-                  step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND' ||
-                  step.status === 'CORTEX_STEP_STATUS_WAITING' ||
-                  Boolean(step.toolCall) ||
-                  Boolean(step.toolResult) ||
-                  Boolean(step.metadata?.toolCall?.id),
+              const stepEffects = new Map(
+                batch.steps.map((step) => [step, classifyAntigravityStepEffect(step)] as const),
               );
+              const effectForStep = (step: (typeof batch.steps)[number]) => stepEffects.get(step);
+              const batchEffectSummary = summarizeAntigravityEffects([...stepEffects.values()]);
+              const isLegacyToolishStep = (step: (typeof batch.steps)[number]) =>
+                step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND' ||
+                step.status === 'CORTEX_STEP_STATUS_WAITING' ||
+                Boolean(step.toolCall) ||
+                Boolean(step.toolResult) ||
+                Boolean(step.metadata?.toolCall?.id);
+              const isF201ToolishStep = (step: (typeof batch.steps)[number]) =>
+                isLegacyToolishStep(step) ? true : effectForStep(step)?.blocksBlindRetry === true;
+              const isResolvedF201ToolishStep = (step: (typeof batch.steps)[number]) => {
+                if (step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND') {
+                  return step.status !== 'CORTEX_STEP_STATUS_WAITING' && step.status !== 'CORTEX_STEP_STATUS_ERROR';
+                }
+                const effect = effectForStep(step);
+                if (!effect) return false;
+                if (effect.completedSideEffect) return true;
+                if (effect.failedSideEffect) return true;
+                if (!effect.blocksBlindRetry) return false;
+                return step.status !== 'CORTEX_STEP_STATUS_WAITING' && step.status !== 'CORTEX_STEP_STATUS_ERROR';
+              };
+              const batchHasToolishStep = batch.steps.some(isF201ToolishStep);
               const batchHasUpstreamError = messages.some(
                 (msg) => msg.type === 'error' && msg.errorCode === 'upstream_error',
               );
@@ -401,33 +419,12 @@ export class AntigravityAgentService implements AgentService {
               const batchHasTransientError = batchHasModelCapacity || batchHasNetworkError;
               const getToolishToolName = (step: (typeof batch.steps)[number] | undefined) =>
                 step?.metadata?.toolCall?.name ?? step?.toolCall?.toolName ?? step?.toolResult?.toolName;
-              const firstToolishStep = batch.steps.find(
-                (step) =>
-                  step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND' ||
-                  step.status === 'CORTEX_STEP_STATUS_WAITING' ||
-                  Boolean(step.toolCall) ||
-                  Boolean(step.toolResult) ||
-                  Boolean(step.metadata?.toolCall?.id),
-              );
-              const allBatchToolishStepCount = batch.steps.filter(
-                (step) =>
-                  step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND' ||
-                  step.status === 'CORTEX_STEP_STATUS_WAITING' ||
-                  Boolean(step.toolCall) ||
-                  Boolean(step.toolResult) ||
-                  Boolean(step.metadata?.toolCall?.id),
-              ).length;
+              const firstToolishStep = batch.steps.find(isF201ToolishStep);
+              const allBatchToolishStepCount = batch.steps.filter(isF201ToolishStep).length;
               const batchHasResolvedToolishStep = batch.steps.some((step) => {
-                const isToolish =
-                  step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND' ||
-                  Boolean(step.toolCall) ||
-                  Boolean(step.toolResult) ||
-                  Boolean(step.metadata?.toolCall?.id);
+                const isToolish = isF201ToolishStep(step);
                 if (!isToolish) return false;
-                if (step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND') {
-                  return step.status !== 'CORTEX_STEP_STATUS_WAITING' && step.status !== 'CORTEX_STEP_STATUS_ERROR';
-                }
-                return step.status !== 'CORTEX_STEP_STATUS_WAITING';
+                return isResolvedF201ToolishStep(step);
               });
               const waitingToolishSteps = batch.steps.filter((step) => step.status === 'CORTEX_STEP_STATUS_WAITING');
               const blockingToolishStep = waitingToolishSteps[0] ?? firstToolishStep;
@@ -506,6 +503,19 @@ export class AntigravityAgentService implements AgentService {
                     attemptHasResolvedToolishStep ||
                     attemptHasNativeDispatch ||
                     attemptHasDispatchedToolResult,
+                },
+                sideEffectSummary: {
+                  hasUnsafeSideEffect: batchEffectSummary.hasUnsafeSideEffect,
+                  hasCompletedSideEffect: batchEffectSummary.hasCompletedSideEffect,
+                  hasFailedSideEffect: batchEffectSummary.hasFailedSideEffect,
+                  blocksBlindRetry: batchEffectSummary.blocksBlindRetry,
+                  effects: batchEffectSummary.effects.map((effect) => ({
+                    kind: effect.kind,
+                    effectType: effect.effectType,
+                    toolName: effect.toolName,
+                    target: effect.target,
+                    reason: effect.reason,
+                  })),
                 },
                 toolishRetryEligible,
                 ...extra,

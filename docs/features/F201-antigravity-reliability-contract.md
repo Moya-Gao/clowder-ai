@@ -10,6 +10,9 @@ created: 2026-05-15
 
 > **Status**: in-progress | **Owner**: 缅因猫（砚砚） | **Reviewer**: 布偶猫 Opus 4.6 + 布偶猫 Opus 4.7 | **Priority**: P0
 
+Architecture cell: `transport` + `bubble-pipeline`
+Map delta: none — F201 收口 Antigravity provider/retry/recovery 契约，并通过 F183 bubble pipeline 呈现 typed recovery card；不新增并行 transport 或 UI 渲染边界。
+
 ## Why
 
 2026-05-15 的现场事故暴露出 F061 close 后仍缺少一个“可靠可用”的产品级契约：
