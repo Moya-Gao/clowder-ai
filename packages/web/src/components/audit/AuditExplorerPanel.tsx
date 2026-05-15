@@ -54,7 +54,7 @@ export function AuditExplorerPanel({
   }, [onCloseSession]);
 
   return (
-    <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
+    <section className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3">
       <button
         type="button"
         data-testid="audit-explorer-header"
@@ -68,7 +68,7 @@ export function AuditExplorerPanel({
       {expanded && (
         <div className="mt-2">
           {/* Tab bar */}
-          <div className="flex border-b border-cafe mb-2">
+          <div className="flex border-b border-[var(--console-border-soft)] mb-2">
             {(['events', 'session', 'search'] as const).map((t) => (
               <button
                 type="button"

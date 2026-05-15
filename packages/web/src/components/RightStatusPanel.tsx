@@ -66,7 +66,7 @@ function CatInvocationCard({
         {inv.sessionSeq !== undefined && (
           <span
             className={`text-[10px] px-1 py-0.5 rounded ${
-              inv.sessionSealed ? 'bg-amber-100 text-amber-600' : 'bg-cafe-surface-elevated text-cafe-secondary'
+              inv.sessionSealed ? 'bg-amber-100 text-amber-600' : 'bg-[var(--console-field-bg)] text-cafe-secondary'
             }`}
             title={inv.sessionSealed ? `会话 #${inv.sessionSeq} 已封存` : `会话 #${inv.sessionSeq}`}
           >
@@ -125,7 +125,7 @@ function ThinkingModeToggle({ threadId }: { threadId: string }) {
       </span>
       <button
         onClick={toggle}
-        className="text-[11px] px-2 py-0.5 rounded-full border border-cafe hover:border-gray-400 hover:bg-cafe-surface-elevated transition-colors"
+        className="text-[11px] px-2 py-0.5 rounded-full border border-[var(--console-border-soft)] hover:bg-[var(--console-hover-bg)] transition-colors"
         title={isDebug ? '切换到游戏模式（猫猫互相看不到心里话）' : '切换到调试模式（猫猫互相分享心里话）'}
       >
         {isDebug ? '切换游戏' : '切换调试'}
@@ -207,7 +207,7 @@ function BubbleDisplayToggle({
       <button
         onClick={cycle}
         disabled={bubbleRestorePending}
-        className="text-[11px] px-2 py-0.5 rounded-full border border-cafe hover:border-gray-400 hover:bg-cafe-surface-elevated transition-colors"
+        className="text-[11px] px-2 py-0.5 rounded-full border border-[var(--console-border-soft)] hover:bg-[var(--console-hover-bg)] transition-colors"
       >
         {bubbleRestorePending ? '恢复中...' : BUBBLE_LABELS[next as keyof typeof BUBBLE_LABELS]}
       </button>
@@ -331,12 +331,12 @@ function RuntimeLogsButton() {
   }, [setRevealPath, setOpenFile]);
 
   return (
-    <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
+    <section className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold text-cafe-secondary">运行日志</h3>
         <button
           onClick={handleClick}
-          className="text-[11px] px-2 py-0.5 rounded-full border border-cafe hover:border-gray-400 hover:bg-cafe-surface-elevated transition-colors"
+          className="text-[11px] px-2 py-0.5 rounded-full border border-[var(--console-border-soft)] hover:bg-[var(--console-hover-bg)] transition-colors"
           title="在 Workspace 面板中打开运行日志目录"
         >
           查看日志
@@ -385,7 +385,7 @@ export function RightStatusPanel({
 
   return (
     <aside
-      className="hidden lg:flex border-l border-cocreator-light bg-cafe-surface/90 px-4 py-4 flex-col gap-4 overflow-y-auto"
+      className="hidden lg:flex border-l border-[var(--console-border-soft)] bg-[var(--console-shell-bg)] px-4 py-4 flex-col gap-4 overflow-y-auto"
       style={{ width: width ?? 288, flexShrink: 0 }}
     >
       <div>
@@ -396,7 +396,7 @@ export function RightStatusPanel({
       </div>
 
       {/* ── Active cats: currently working ──────────────── */}
-      <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
+      <section className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3">
         <h3 className="text-xs font-semibold text-cafe-secondary mb-2">
           {activeCats.length > 0 ? '当前调用' : '猫猫状态'}
         </h3>
@@ -428,7 +428,7 @@ export function RightStatusPanel({
 
       {/* ── History cats: appeared before but not in current round ── */}
       {historyCats.length > 0 && (
-        <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
+        <section className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3">
           <button
             onClick={() => setHistoryOpen((v) => !v)}
             className="w-full flex items-center justify-between text-xs font-semibold text-cafe-secondary hover:text-cafe-secondary"
@@ -460,7 +460,7 @@ export function RightStatusPanel({
       )}
 
       {/* ── Message stats (collapsible) ───────────────── */}
-      <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
+      <section className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3">
         <h3 className="text-xs font-semibold text-cafe-secondary mb-2">消息统计</h3>
         <div className="grid grid-cols-2 gap-2 text-xs text-cafe-secondary">
           <div>总数</div>
@@ -484,7 +484,7 @@ export function RightStatusPanel({
         onViewSession={(id, catId) => setViewSession({ id, catId })}
       />
 
-      <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
+      <section className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3">
         <h3 className="text-xs font-semibold text-cafe-secondary mb-2">对话信息</h3>
         <div className="text-xs text-cafe-secondary space-y-2">
           <div>

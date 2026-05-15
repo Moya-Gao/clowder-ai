@@ -175,7 +175,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
   };
 
   return (
-    <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
+    <section className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-semibold text-cafe-secondary">Session Chain</h3>
         <span className="text-[10px] text-cafe-muted">
@@ -228,7 +228,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
             <div
               data-testid="session-card-active"
               data-cat-id={session.catId}
-              className="rounded-md border-[1.5px] bg-cafe-surface p-2.5 shadow-sm"
+              className="rounded-md border-[1.5px] bg-[var(--console-card-bg)] p-2.5 shadow-sm"
               style={{ borderColor: colors.border }}
             >
               <div className="flex items-center justify-between mb-1">
@@ -303,12 +303,12 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
                   key={session.id}
                   data-testid="session-card-sealed"
                   data-cat-id={session.catId}
-                  className="flex items-center gap-2 rounded border bg-cafe-surface px-2.5 py-1.5"
+                  className="flex items-center gap-2 rounded border bg-[var(--console-card-bg)] px-2.5 py-1.5"
                   style={{ borderColor: sealedColors.border }}
                 >
                   <div
                     className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
-                      session.sealReason?.includes('compact') ? 'bg-amber-100' : 'bg-cafe-surface-elevated'
+                      session.sealReason?.includes('compact') ? 'bg-amber-100' : 'bg-[var(--console-field-bg)]'
                     }`}
                   >
                     <span
@@ -346,7 +346,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
                       {onViewSession && (
                         <button
                           type="button"
-                          className="text-[10px] px-2 py-0.5 rounded border border-cafe text-cafe-secondary hover:bg-cafe-surface-elevated"
+                          className="text-[10px] px-2 py-0.5 rounded border border-[var(--console-border-soft)] text-cafe-secondary hover:bg-[var(--console-hover-bg)]"
                           onClick={() => onViewSession(session.id, session.catId)}
                         >
                           查看

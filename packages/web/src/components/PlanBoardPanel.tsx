@@ -75,7 +75,7 @@ function PlanCard({ catId, threadId, inv }: { catId: string; threadId: string; i
         ? 'bg-rose-100 text-rose-700'
         : status === 'running'
           ? 'bg-blue-100 text-blue-700'
-          : 'bg-cafe-surface-elevated text-cafe-secondary';
+          : 'bg-[var(--console-field-bg)] text-cafe-secondary';
 
   return (
     <div className="py-1.5">
@@ -93,7 +93,7 @@ function PlanCard({ catId, threadId, inv }: { catId: string; threadId: string; i
         </div>
         {status === 'interrupted' && (
           <button
-            className="text-[10px] px-2 py-0.5 rounded-full border border-cafe hover:border-gray-400 hover:bg-cafe-surface-elevated transition-colors"
+            className="text-[10px] px-2 py-0.5 rounded-full border border-[var(--console-border-soft)] hover:bg-[var(--console-hover-bg)] transition-colors"
             onClick={async () => {
               if (await confirm({ title: '继续任务', message: '确认继续上次任务？' })) {
                 void handleSend(buildContinueMessage(catId, tp), undefined, threadId);
@@ -163,7 +163,7 @@ export function PlanBoardPanel({ threadId, catInvocations }: PlanBoardPanelProps
   if (totalCats === 0) return null;
 
   return (
-    <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
+    <section className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-semibold text-cafe-secondary">猫猫祟祟 ({totalCats})</h3>
       </div>
@@ -180,7 +180,7 @@ export function PlanBoardPanel({ threadId, catInvocations }: PlanBoardPanelProps
 
       {/* Completed cats — folded */}
       {completedCats.length > 0 && (
-        <div className="mt-2 border-t border-cafe pt-2">
+        <div className="mt-2 border-t border-[var(--console-border-soft)] pt-2">
           <button
             onClick={() => setCompletedOpen((v) => !v)}
             className="w-full flex items-center justify-between text-[10px] text-cafe-secondary hover:text-cafe-secondary"
