@@ -98,6 +98,8 @@ This document uses "prompt/context injection" as a broad harness term. That is n
 
 Important correction: the identifier `systemPrompt` in TypeScript is a local variable/parameter name, not proof that content enters the model API's `system` role. In the current `invokeSingleCat()` hot path, `params.systemPrompt` is intentionally prepended to `effectivePrompt` because universal CLI prompt text was more reliable than provider-specific system flags.
 
+Edge case: the self-heal retry path can set `baseOptions.systemPrompt = params.systemPrompt` after a stale or poisoned session is dropped. In that exceptional retry, providers that honor `options.systemPrompt` may use their system channel/flag. This does not change the normal-path classification above.
+
 ## Current Injection Surfaces
 
 | Surface | Primary files | Lifecycle | What it currently carries | Audit risk |
