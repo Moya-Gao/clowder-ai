@@ -1217,6 +1217,7 @@ created: 2026-02-26
   4. 对"猫以前不读引用"这类行为风险，用短 always-visible trigger + deterministic check 兜底，不用整段解释常驻。
 - 来源锚点：
   - `docs/discussions/2026-05-15-prompt-context-injection-audit.md`
+  - `docs/discussions/2026-04-29-harness-asset-vs-debt-brainstorm.md`
   - `docs/decisions/030-system-prompt-engineering.md`
   - `docs/architecture/2026-05-05-architecture-views.md`
   - `cat-cafe-skills/refs/shared-rules.md`

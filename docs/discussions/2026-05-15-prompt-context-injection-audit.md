@@ -51,6 +51,7 @@ Accepted reviewer input:
 - Target root prompt size should be roughly 60 lines per carrier, but only after a baseline token report and direct-CLI fallback check.
 - `shared-rules.md` should not be shortened as the first move. It is the long-form truth source; the problem is copying too much of it into always-on root files.
 - Static teammate tables in `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` are a high-confidence deletion candidate because `SystemPromptBuilder` already injects the resolved runtime roster with current models.
+- Static teammate tables are stale copies, not compatibility shims; runtime injects roster data unconditionally, so this path does not depend on cats choosing to read a referenced file.
 - The memory routing table should have one real source, `cat-cafe-skills/refs/memory-routing-partial.md`; root prompts should carry only a short recall principle and exact entrypoint names.
 - `session-start-recall.sh` should keep deterministic local-state checks. Its recall line is acceptable only as a short trigger; it must not grow into a second memory manual.
 - Review no-middle-state belongs in `shared-rules.md` as a two-line protocol skeleton, in review skills as the explanation/template layer, and in merge-gate as a contradiction check. It does not belong as a new root personality paragraph.
