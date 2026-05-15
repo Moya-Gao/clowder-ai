@@ -306,11 +306,11 @@ outputVerified = signal_or(
 - [ ] AC-C8: shadow 确认排序改进后，同步更新以下软约束文件的记忆系统段：`CLAUDE.md`、`AGENTS.md`、`cat-cafe-skills/refs/memory-routing-partial.md`（愿景守护检查项）
 - [x] AC-C9: Memory Hub flag panel 中显示 F200_CONSUMPTION_RERANK 开关状态（CVO directive 2026-05-15）
 
-### Phase D（Full Trajectory Records）
-- [ ] AC-D1: TaskTrajectory 按 invocation/thread 粒度聚合
-- [ ] AC-D2: outputVerified 从候选信号源（PR merge / CI check / CVO accept / reviewer approval）自动推断
-- [ ] AC-D3: 成功轨迹可被 list_recent 或 search_evidence 召回（scope="trajectories"）
-- [ ] AC-D4: Cross-Cat Effort Variance 和 ConsumedButNotUsedRate 指标上线
+### Phase D（Full Trajectory Records）✅
+- [x] AC-D1: TaskTrajectory 按 invocation/thread 粒度聚合
+- [x] AC-D2: outputVerified 从候选信号源（PR merge / CI check / CVO accept / reviewer approval）自动推断
+- [x] AC-D3: 成功轨迹可被 list_recent 或 search_evidence 召回（scope="trajectories"）
+- [x] AC-D4: Cross-Cat Effort Variance 和 ConsumedButNotUsedRate 指标上线
 
 ## Eval / Tracking Contract
 
@@ -380,6 +380,7 @@ outputVerified = signal_or(
 | 2026-05-15 | Phase B merged（PR #1676）— RecallMetricsComputer: 12 derived metrics, V20 migration (anchor_recall_metrics), API routes, full-history dormancy, 19 tests |
 | 2026-05-15 | Phase B 愿景守护 PASS — Opus-47: 5 痛点全落地，云端 review 5 修复核对，rank 0-indexed 建议带入 Phase C |
 | 2026-05-15 | Phase C merged（PR #1679）— Consumption-weighted ranking: consumption_prior (Bayesian shrinkage CTR), MMR dedup, graph edge_weight, shadow mode, Memory Hub flag panel. 4 local review rounds + 3 cloud review rounds |
+| 2026-05-15 | Phase D merged（PR #1685）— Full Trajectory Records: V22 migration (task_trajectories), TrajectoryAggregator, OutputVerifiedDetector (injectable signal sources), TrajectoryQueryService, CrossCatMetricsComputer, signal injection endpoint. 5 local review rounds + 3 cloud review rounds |
 
 ## Plan Gate Checklist（writing-plans 前必须解决）
 
