@@ -43,7 +43,7 @@ export function SignalFilterBar({
             if (e.key === 'Enter' && ime.isComposing()) e.preventDefault();
           }}
           placeholder="搜索信号..."
-          className="min-w-0 flex-1 bg-transparent text-xs text-cafe outline-none placeholder:text-cafe-muted"
+          className="min-w-0 flex-1 bg-transparent text-xs text-cafe-black outline-none placeholder:text-cafe-muted"
         />
       </div>
       <select

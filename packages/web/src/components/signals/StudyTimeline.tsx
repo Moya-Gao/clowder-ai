@@ -72,14 +72,14 @@ export function StudyTimeline({ days = 7 }: StudyTimelineProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-cafe">学习时间线</h3>
+        <h3 className="text-sm font-semibold text-cafe-black">学习时间线</h3>
         <div className="flex gap-1">
           {[7, 14, 30].map((d) => (
             <button
               key={d}
               type="button"
               onClick={() => setSelectedDays(d)}
-              className={`rounded-full px-2 py-0.5 text-xs ${selectedDays === d ? 'bg-opus-primary text-white' : 'border border-cafe text-cafe-secondary hover:bg-cafe-surface-elevated'}`}
+              className={`rounded-full px-2 py-0.5 text-xs ${selectedDays === d ? 'bg-opus-primary text-white' : 'border border-[var(--console-border-soft)] text-cafe-secondary hover:bg-[var(--console-hover-bg)]'}`}
             >
               {d}天
             </button>
@@ -99,7 +99,10 @@ export function StudyTimeline({ days = 7 }: StudyTimelineProps) {
           <div className="mb-2 text-xs font-semibold text-cafe-secondary">{formatDate(group[0].lastStudiedAt)}</div>
           <div className="space-y-2 border-l-2 border-opus-light pl-3">
             {group.map((entry) => (
-              <div key={entry.articleId} className="rounded-lg border border-cafe bg-cafe-surface p-2.5">
+              <div
+                key={entry.articleId}
+                className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-2.5"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <a
                     href={`/signals?article=${encodeURIComponent(entry.articleId)}`}
@@ -115,7 +118,7 @@ export function StudyTimeline({ days = 7 }: StudyTimelineProps) {
                     {entry.artifacts.map((a) => (
                       <span
                         key={a.id}
-                        className="rounded-full bg-cafe-surface-elevated px-1.5 py-0.5 text-[10px] text-cafe-secondary"
+                        className="rounded-full bg-[var(--console-field-bg)] px-1.5 py-0.5 text-[10px] text-cafe-secondary"
                       >
                         <HubIcon name={ARTIFACT_ICON_NAMES[a.kind] ?? 'file-text'} className="inline h-3 w-3" />{' '}
                         {a.kind} · {a.state}

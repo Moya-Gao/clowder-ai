@@ -281,7 +281,7 @@ export function SignalInboxView({ initialReferrerThread = null }: { initialRefer
       <div className="flex flex-1 flex-col overflow-hidden rounded-[18px] bg-[var(--console-shell-bg)] shadow-[var(--console-shadow-soft)] m-3 gap-5 px-9 py-8">
         <header className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-cafe">信号</h1>
+            <h1 className="text-2xl font-bold text-cafe-black">信号</h1>
             <p className="mt-1 text-[13px] text-cafe-secondary">浏览、筛选和研读信号文章</p>
           </div>
           <SignalNav active="signals" initialReferrerThread={initialReferrerThread} />

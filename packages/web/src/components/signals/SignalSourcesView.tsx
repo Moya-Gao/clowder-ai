@@ -85,9 +85,9 @@ export function SignalSourcesView({ initialReferrerThread = null }: { initialRef
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-codex-bg/30 via-cafe-white to-cafe-white">
+    <div className="min-h-screen bg-gradient-to-b from-codex-bg/30 via-[var(--console-shell-bg)] to-[var(--console-shell-bg)]">
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6">
-        <header className="rounded-2xl border border-codex-light bg-cafe-surface p-4 shadow-sm">
+        <header className="rounded-2xl border border-codex-light bg-[var(--console-card-bg)] p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-xl font-bold text-cafe-black">Signal Sources</h1>
@@ -108,14 +108,14 @@ export function SignalSourcesView({ initialReferrerThread = null }: { initialRef
           <button
             type="button"
             onClick={() => void setAllEnabled(false)}
-            className="rounded-lg border border-cafe px-3 py-2 text-sm text-cafe-secondary hover:bg-cafe-surface-elevated"
+            className="rounded-lg border border-[var(--console-border-soft)] px-3 py-2 text-sm text-cafe-secondary hover:bg-[var(--console-hover-bg)]"
           >
             全部关闭
           </button>
           <button
             type="button"
             onClick={() => void reloadSources()}
-            className="rounded-lg border border-cocreator-light px-3 py-2 text-sm text-cocreator-dark hover:bg-cocreator-bg"
+            className="rounded-lg border border-[var(--console-border-soft)] px-3 py-2 text-sm text-cafe-secondary hover:bg-[var(--console-hover-bg)]"
           >
             刷新
           </button>
@@ -142,7 +142,7 @@ export function SignalSourcesView({ initialReferrerThread = null }: { initialRef
           {groupedSources.map((group) => (
             <div
               key={`${group.tier}-${group.category}`}
-              className="rounded-2xl border border-cafe bg-cafe-surface p-4 shadow-sm"
+              className="rounded-2xl border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-4 shadow-sm"
             >
               <div className="mb-3 flex items-center gap-2">
                 <SignalTierBadge tier={group.tier} />
@@ -151,7 +151,7 @@ export function SignalSourcesView({ initialReferrerThread = null }: { initialRef
               </div>
               <ul className="space-y-2">
                 {group.sources.map((source) => (
-                  <li key={source.id} className="rounded-xl border border-cafe p-3">
+                  <li key={source.id} className="rounded-xl border border-[var(--console-border-soft)] p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-cafe-black">{source.name}</p>
@@ -194,7 +194,7 @@ export function SignalSourcesView({ initialReferrerThread = null }: { initialRef
                             'rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
                             source.enabled
                               ? 'border-codex-light bg-codex-bg text-codex-dark'
-                              : 'border-cafe bg-cafe-surface-elevated text-cafe-secondary',
+                              : 'border-[var(--console-border-soft)] bg-[var(--console-field-bg)] text-cafe-secondary',
                           ].join(' ')}
                         >
                           {updatingId === source.id ? '更新中...' : source.enabled ? 'ON' : 'OFF'}

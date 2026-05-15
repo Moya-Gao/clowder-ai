@@ -77,8 +77,8 @@ export function SignalNav({ active, initialReferrerThread = null }: SignalNavPro
             className={[
               'inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
               isActive
-                ? 'border-cocreator-primary bg-cocreator-light text-cocreator-dark'
-                : 'border-cafe bg-cafe-surface text-cafe-secondary hover:border-cocreator-light hover:text-cocreator-dark',
+                ? 'border-[var(--console-input-stroke)] bg-[var(--console-hover-bg)] text-cafe-black'
+                : 'border-[var(--console-border-soft)] bg-[var(--console-card-bg)] text-cafe-secondary hover:border-[var(--console-input-stroke)] hover:text-cafe-black',
             ].join(' ')}
           >
             {item.label}

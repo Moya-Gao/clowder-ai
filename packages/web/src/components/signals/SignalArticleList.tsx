@@ -11,9 +11,9 @@ interface SignalArticleListProps {
 }
 
 const statusClassMap: Record<SignalArticleStatus, string> = {
-  inbox: 'text-cocreator-dark bg-cocreator-bg',
-  read: 'text-cafe-secondary bg-cafe-surface-elevated',
-  archived: 'text-cafe-secondary bg-cafe-surface-elevated',
+  inbox: 'text-cafe-black bg-[var(--console-field-bg)]',
+  read: 'text-cafe-secondary bg-[var(--console-field-bg)]',
+  archived: 'text-cafe-secondary bg-[var(--console-field-bg)]',
   starred: 'text-amber-800 bg-amber-100',
 };
 
@@ -40,7 +40,7 @@ export function SignalArticleList({
 }: SignalArticleListProps) {
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-cafe bg-cafe-surface p-8 text-center text-sm text-cafe-secondary">
+      <div className="rounded-xl border border-dashed border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-8 text-center text-sm text-cafe-secondary">
         当前筛选条件下没有文章。
       </div>
     );
@@ -64,10 +64,10 @@ export function SignalArticleList({
                 }
               }}
               className={[
-                'w-full rounded-xl border bg-cafe-surface p-4 text-left shadow-sm transition-colors',
+                'w-full rounded-xl border bg-[var(--console-card-bg)] p-4 text-left shadow-sm transition-colors',
                 selected
-                  ? 'border-cocreator-primary ring-1 ring-cocreator-primary/40'
-                  : 'border-cafe hover:border-cocreator-light',
+                  ? 'border-[var(--console-input-stroke)] ring-1 ring-[var(--console-input-stroke)]/40'
+                  : 'border-[var(--console-border-soft)] hover:border-[var(--console-input-stroke)]',
               ].join(' ')}
             >
               <div className="flex items-start gap-3">
@@ -120,7 +120,7 @@ export function SignalArticleList({
                       event.stopPropagation();
                       void onStatusChange(article.id, 'read');
                     }}
-                    className="rounded-md border border-cafe px-2 py-1 text-xs text-cafe-secondary hover:border-codex-light hover:text-codex-dark"
+                    className="rounded-md border border-[var(--console-border-soft)] px-2 py-1 text-xs text-cafe-secondary hover:border-codex-light hover:text-codex-dark"
                   >
                     已读
                   </button>

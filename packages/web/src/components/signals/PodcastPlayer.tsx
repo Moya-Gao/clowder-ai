@@ -19,7 +19,9 @@ const SPEAKER_COLORS: Record<string, string> = {
 
 function speakerStyle(speaker: string): string {
   return (
-    SPEAKER_COLORS[speaker] ?? SPEAKER_COLORS[speaker.toLowerCase()] ?? 'text-cafe-secondary bg-cafe-surface-elevated'
+    SPEAKER_COLORS[speaker] ??
+    SPEAKER_COLORS[speaker.toLowerCase()] ??
+    'text-cafe-secondary bg-[var(--console-field-bg)]'
   );
 }
 
@@ -233,7 +235,7 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
             type="button"
             disabled={generating}
             onClick={() => void handleGenerate('deep')}
-            className="rounded border border-cafe px-2 py-0.5 text-[10px] text-cafe-secondary hover:bg-cafe-surface-elevated disabled:opacity-50"
+            className="rounded border border-[var(--console-border-soft)] px-2 py-0.5 text-[10px] text-cafe-secondary hover:bg-[var(--console-hover-bg)] disabled:opacity-50"
           >
             深度版
           </button>
@@ -254,7 +256,7 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
               className={`rounded px-2 py-0.5 text-[10px] ${
                 selectedId === p.id
                   ? 'bg-opus-primary text-white'
-                  : 'border border-cafe text-cafe-secondary hover:bg-cafe-surface-elevated'
+                  : 'border border-[var(--console-border-soft)] text-cafe-secondary hover:bg-[var(--console-hover-bg)]'
               }`}
             >
               {p.id.slice(0, 8)}
@@ -267,7 +269,7 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
       {loading && <p className="mt-1 text-[10px] text-cafe-muted">加载中...</p>}
 
       {script && (
-        <div className="mt-2 rounded-md border border-cafe bg-cafe-surface">
+        <div className="mt-2 rounded-md border border-[var(--console-border-soft)] bg-[var(--console-card-bg)]">
           <div className="flex items-center justify-between border-b border-cafe-subtle px-3 py-1.5">
             <span className="text-[10px] text-cafe-muted">
               {script.mode === 'deep' ? '深度版' : '精华版'} · {script.segments.length} 段
@@ -291,7 +293,7 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
               <div
                 key={`${seg.speaker}-${i}`}
                 className={`flex w-full items-start gap-2 px-3 py-2 text-left transition-colors ${
-                  activeSegment === i ? 'bg-opus-bg' : 'hover:bg-cafe-surface-elevated'
+                  activeSegment === i ? 'bg-opus-bg' : 'hover:bg-[var(--console-hover-bg)]'
                 }`}
               >
                 {seg.audioUrl ? (
