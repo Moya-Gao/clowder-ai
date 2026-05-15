@@ -264,6 +264,74 @@ pnpm --filter @cat-cafe/api test:system-prompt
 
 铲屎官原话（2026-05-15）解释了为什么 root md 和 shared-rules 有重复："有的东西比如说我和你说 xxx 东西参考 shared-rules.md 你们根本不会去看！哈哈哈 这就是为什么 claude/agents/gemini md 有那么多和这个 shared-rules.md 重复的东西"——**重复是刻意的兼容副本**，因为猫猫不可靠地跟引用链。LL-057 已记录此原则：`Prompt 去重的单位不是字符串，而是加载路径和失效模式`。
 
+### 9. Claude Code 系统提示词解剖（2026-05-15 源码提取）
+
+> 从 Claude Code v2.1.142 二进制 `strings` 提取 + 源码函数名反推。目的：分清功能性（必须保留）和行为指导（可替换），为 `--append-system-prompt` / `--system-prompt` 方案提供依据。
+
+#### 9.1 系统提示词拼装架构
+
+Claude Code 系统提示词由以下函数动态拼装：
+
+| 函数 | 对应 section | 性质 |
+|------|-------------|------|
+| 身份行 | `You are Claude Code, Anthropic's official CLI for Claude.` | 功能性（含 SDK/Agent 变体） |
+| `Wm3()` | `# System` — tool 执行模型、tag 解释、权限、压缩说明 | **功能性** |
+| `Zm3()` | `# Doing tasks` — 编码哲学 + 安全 + 用户帮助 | **混合**（安全=功能，编码哲学=行为） |
+| `Gm3()` | `# Executing actions with care` — 可逆性、危险操作确认 | **功能性** |
+| `Rm3()` | `# Using your tools` — 并行调用、工具优先级 | **功能性** |
+| `Nm3()` | `# Tone and style` — 简短、无 emoji、格式 | **行为指导** |
+| `Vm3()` | `# Session-specific guidance` — Agent/Skill/Schedule | **功能性** |
+| 工具描述 | 每个工具的参数 schema + 使用说明 | **功能性**（核心） |
+| Git 模板 | commit/PR 创建步骤 | **功能性** |
+
+#### 9.2 行为指导清单（"糊弄大师"哲学）
+
+以下指令在一般场景防止 AI 过度工程化，但与我们**愿景驱动 + TDD + 质量门禁**的工作方式冲突：
+
+| 原文指令 | 效果 | 与我们的冲突 |
+|---------|------|------------|
+| `Don't add features, refactor, or introduce abstractions beyond what the task requires` | 压制架构思维，hotfix only | 我们是愿景驱动，顺手治理是日常 |
+| `A bug fix doesn't need surrounding cleanup` | 禁止顺手清理 | 我们的质量文化：看到脏就顺手擦 |
+| `Three similar lines is better than a premature abstraction` | 反 DRY | 我们有代码规范和 350 行硬上限 |
+| `Don't add error handling for scenarios that can't happen` | 最小防御 | 我们在多猫异步协作，"不可能"经常发生 |
+| `Default to writing no comments` | 零注释 | 我们有"WHY 注释"文化（ADR-030 §4） |
+| `Don't design for hypothetical future requirements` | 禁止前瞻 | 我们有 Phase 规划和设计门禁 |
+| `Your responses should be short and concise` | 简短至上 | 复杂交接需要五件套结构 |
+
+#### 9.3 战略洞察：system role 不被上下文压缩
+
+**核心发现**：API `system` role 的内容在每次 API 调用时完整发送，**不参与上下文压缩**。而 user message 里的内容（包括当前通过 CLAUDE.md / SystemPromptBuilder 注入的所有规则）会随对话增长被压缩或丢失。
+
+**当前问题**：
+- 身份/协作/传球规则通过 user message 注入 → 压缩后丢失 → 重新注入 → 10 轮对话教 10 次传球
+- 每次 invocation 注入 ~5,200 token 的规则（CLAUDE.md 2,820 + SystemPromptBuilder 2,300 + hook 75），但压缩后下一轮又要重新注入
+- Claude Code 默认的"糊弄哲学"在 system role（不被压缩），我们的"伙伴哲学"在 user message（会被压缩）→ 压缩后"糊弄"赢
+
+**如果启用 `--append-system-prompt`**：
+- 核心规则（身份、协作、传球、铁律）进入 system role → **一次注入，永不丢失**
+- 我们的行为指导覆盖 Claude Code 的"糊弄哲学" → 优先级更高
+- user message 空间释放给实际对话内容 → 有效上下文更长
+- 压缩后不再需要重复教规则 → 省 token + 保一致性
+
+**愿景对比**：
+
+| 维度 | Claude Code 默认（工具猫） | 我们的目标（伙伴猫） |
+|------|-------------------------|-------------------|
+| 定位 | 执行指令的工具 | 有队友的伙伴 |
+| 遇到难题 | 失落、放弃、报告失败 | 找伙伴求助（@ 其他猫或铲屎官） |
+| 代码哲学 | 最小改动、不要多想 | 愿景驱动、质量门禁、TDD |
+| 上下文管理 | 工具无记忆，用完即弃 | 有记忆系统、有知识沉淀、压缩后可恢复 |
+
+#### 9.4 Spike 验证清单（待执行）
+
+| # | 验证项 | 方法 | 状态 |
+|---|-------|------|------|
+| 1 | `--append-system-prompt` 在 v2.1.142 是否稳定 | 启动 Claude Code 加 flag，多轮对话测试 | 待做 |
+| 2 | 追加内容是否真的进入 API system role | 让猫在对话里 report 自己看到的 system 内容 | 待做 |
+| 3 | 追加内容是否在压缩后保留 | 长对话触发压缩后检查规则是否仍在 | 待做 |
+| 4 | 我们的规则能否覆盖默认行为指导 | 追加"遇到困难找伙伴"，测试是否生效 | 待做 |
+| 5 | `invoke-single-cat.ts` 的 F-BLOAT "unreliable" 原因是否仍存在 | 读 git blame + 当时的 issue/讨论 | 待做 |
+
 ## 后果
 
 - **正面**：注入链地图 + 同步纪律让"改了 A 忘了 B"可预防
@@ -273,6 +341,8 @@ pnpm --filter @cat-cafe/api test:system-prompt
 - **正面**：双向检验标准（"删掉后好行为会消失吗"）与模型类型无关，测的是规则信息量
 - **负面**：`GOVERNANCE_L0_DIGEST` 仍是硬编码常量，手动同步负担存在——长期应考虑编译自动化
 - **待定**：Phase 0 正面重写改动量较大，需分批落地
+- **潜在突破**：`--append-system-prompt` 如验证可行，可将核心规则从 user message 提升到 system role，实现压缩免疫 + 优先级分层 + token 节省三重收益（§9.3）
+- **愿景**：从"工具猫"到"伙伴猫"——系统提示词告诉猫有队友、有伙伴、遇到困难可以求助，而不是"最小改动、不要多想"（§9.4）
 
 ## 开放问题
 
