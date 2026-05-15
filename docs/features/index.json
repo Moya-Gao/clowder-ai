@@ -1241,6 +1241,12 @@
       "name": "Memory Recall Eval — 基于猫真实行为的记忆系统反馈闭环",
       "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F200-memory-recall-eval.md"
+    },
+    {
+      "id": "F201",
+      "name": "Antigravity Reliability Contract — 孟加拉猫可靠可用性闭环",
+      "status": "draft | **Owner**: 缅因猫（砚砚） | **Reviewer**: 布偶猫 Opus 4.6 + 布偶猫 Opus 4.7 | **Priority**: P0",
+      "file": "F201-antigravity-reliability-contract.md"
     }
   ]
 }
