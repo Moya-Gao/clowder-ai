@@ -59,6 +59,7 @@ Service Manifest、MCP install/manage 写接口、voice refAudio upload、IM con
 | refAudio upload | clowder-ai#669 + home F103/F195 boundary | 已合入 main via cat-cafe#1654 | auth-gated multipart upload + `/uploads` path resolver；不接 F195 meeting audio runtime |
 | IM connector write | clowder-ai#669 + home F132/F134/F136/F137 routes | 已合入 main via cat-cafe#1655 | harden existing credential writes；不新增 callback URL / provider endpoint 写面 |
 | Chat rendering / bubble behavior | clowder-ai#669 | not in F190 | F183/F184/F194 ownership；F190 不触碰 |
+| Service install pipeline + async lifecycle | clowder-ai#674 | **BLOCKED** — REQUEST_CHANGES | P1: F198 编号撞车（家里 F198 = Subscription Carrier）；需改号或折入 F190 sub-scope。111 files / 9k 行需 manual-port，不可 cherry-pick |
 
 Phase C complete: all four high-risk slices (MCP write / Service Manifest read-only / refAudio upload / IM connector write) merged to main. AC-A7 alpha walkthrough completed via Codex + Sonnet smoke on PR #1658.
 
