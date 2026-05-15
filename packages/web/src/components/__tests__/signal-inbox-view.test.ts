@@ -122,7 +122,7 @@ describe('SignalInboxView', () => {
 
     const queryInput = container.querySelector('input[placeholder="搜索信号..."]');
     const selects = container.querySelectorAll('select');
-    let statusSelect = selects.item(0) as HTMLSelectElement | null;
+    const statusSelect = selects.item(0) as HTMLSelectElement | null;
     let tierSelect = selects.item(1) as HTMLSelectElement | null;
     let sourceSelect = selects.item(2) as HTMLSelectElement | null;
     let form = container.querySelector('form');
