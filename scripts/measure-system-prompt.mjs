@@ -18,8 +18,8 @@
 
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { encodingForModel } from 'js-tiktoken';
 import { catRegistry } from '@cat-cafe/shared';
+import { encodingForModel } from 'js-tiktoken';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
@@ -27,9 +27,7 @@ const TEMPLATE_PATH = resolve(REPO_ROOT, 'cat-template.json');
 
 // Bootstrap catRegistry from cat-template.json (same as test helpers do).
 // SystemPromptBuilder consults catRegistry.tryGet(catId); empty registry → empty prompt.
-const { loadCatConfig, toAllCatConfigs } = await import(
-  '../packages/api/dist/config/cat-config-loader.js'
-);
+const { loadCatConfig, toAllCatConfigs } = await import('../packages/api/dist/config/cat-config-loader.js');
 const allConfigs = toAllCatConfigs(loadCatConfig(TEMPLATE_PATH));
 for (const [id, config] of Object.entries(allConfigs)) {
   if (!catRegistry.has(id)) {
@@ -37,12 +35,9 @@ for (const [id, config] of Object.entries(allConfigs)) {
   }
 }
 
-const {
-  buildSystemPrompt,
-  buildStaticIdentity,
-  buildInvocationContext,
-  initGovernanceOverlay,
-} = await import('../packages/api/dist/domains/cats/services/context/SystemPromptBuilder.js');
+const { buildSystemPrompt, buildStaticIdentity, buildInvocationContext, initGovernanceOverlay } = await import(
+  '../packages/api/dist/domains/cats/services/context/SystemPromptBuilder.js'
+);
 
 const enc = encodingForModel('gpt-4o');
 function tok(s) {
@@ -160,7 +155,7 @@ console.log(
   "- `governance` segment = `GOVERNANCE_L0_DIGEST` — current 'family rules' content. F203 Phase B will rewrite + expand with 14-item L0 + 'objective carry-over' segments.",
 );
 console.log(
-  "- `mcp` segment present only when `mcpAvailable=true` (claude family). Phase B compresses original MCP_TOOLS_SECTION (~700 tokens) into quick index (~150 tokens, ADR-030 §10.2 KD-7).",
+  '- `mcp` segment present only when `mcpAvailable=true` (claude family). Phase B compresses original MCP_TOOLS_SECTION (~700 tokens) into quick index (~150 tokens, ADR-030 §10.2 KD-7).',
 );
 console.log();
 console.log('## Summary');
@@ -170,4 +165,6 @@ const avg = (totals.reduce((a, b) => a + b, 0) / totals.length).toFixed(0);
 const max = Math.max(...totals);
 const min = Math.min(...totals);
 console.log(`- Average full system prompt: ${avg} tokens`);
-console.log(`- Range: ${min} - ${max} tokens (across ${CATS.length} cats × ${MODES.length} modes = ${CATS.length * MODES.length} samples)`);
+console.log(
+  `- Range: ${min} - ${max} tokens (across ${CATS.length} cats × ${MODES.length} modes = ${CATS.length * MODES.length} samples)`,
+);

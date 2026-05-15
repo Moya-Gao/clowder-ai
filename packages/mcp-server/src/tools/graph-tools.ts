@@ -223,6 +223,8 @@ export const graphTools = [
       'Use when: you have a precise anchor (F186) and want neighbors/edges, OR a fuzzy term and need candidate anchors.',
       'Not for: pure semantic search → use search_evidence. Scanning recent activity → use list_recent.',
       '',
+      'RANKING (F200 live): Edge weights incorporate consumption frequency — paths cats traverse more often rank higher in candidate ordering. Constitutional edges are immune to demotion.',
+      '',
       'v1 limitation (KD-8): does NOT accept collection scoping params. Visibility is server-derived from agent identity. Future versions may add dimension/collections after server-side identity wiring lands.',
     ].join('\n'),
     inputSchema: graphResolveInputSchema,

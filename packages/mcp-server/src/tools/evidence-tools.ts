@@ -290,6 +290,7 @@ export const evidenceTools = [
       'Split broad topics into 2-3 targeted queries from different angles (e.g. "how it was built" vs "how it is governed"). ' +
       'Watch for antonym gaps: searching 记忆 misses 失忆/压缩/丢失 — search the opposite angle separately if needed. ' +
       'READING RESULTS: confidence = search match quality (rank-based), authority = document reliability (path-based) — two independent dimensions. ' +
+      'RANKING (F200 live): Results are consumption-weighted — docs that cats actually read/used after searching rank higher. Constitutional docs (ADR/lesson/canon) never get demoted. New docs have 14-day grace period. Near-duplicates are MMR-deduplicated for diversity. No action needed — ranking is automatic. ' +
       'DEPTH: Start with summary (default). Use depth=raw only after narrowing scope to drill into specific passages. ' +
       'BOUNDARY: Use this tool to FIND information across the project. For READING raw messages in a specific thread, use get_thread_context instead. ' +
       'F188 PHASE F 7-TOOL FAMILY (cross-reference, choose by scenario): ' +
