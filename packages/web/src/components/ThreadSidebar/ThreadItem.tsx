@@ -114,8 +114,8 @@ export function ThreadItem({
   return (
     <div
       data-thread-id={id}
-      className={`group relative ${indented ? 'pl-7 pr-3' : 'px-3'} py-2.5 border-b border-gray-50 transition-colors cursor-pointer ${
-        isActive ? 'bg-cocreator-light' : 'hover:bg-cafe-surface-elevated'
+      className={`group relative mx-2 rounded-[14px] ${indented ? 'pl-5 pr-3' : 'px-3'} py-2.5 transition-colors cursor-pointer ${
+        isActive ? 'bg-[var(--console-active-bg)]' : 'hover:bg-[var(--console-hover-bg)]'
       }`}
       onClick={() => onSelect(id)}
       title={tooltip}
@@ -346,12 +346,19 @@ function LabelDots({ labels }: { labels?: string[] }) {
     .map((id) => allLabels.find((l) => l.id === id))
     .filter((l): l is NonNullable<typeof l> => l !== undefined);
   if (resolved.length === 0) return null;
-  const shown = resolved.slice(0, 3);
+  const shown = resolved.slice(0, 2);
   const overflow = resolved.length - shown.length;
   return (
     <div className="flex items-center gap-0.5 ml-1" title={resolved.map((l) => l.name).join(', ')}>
       {shown.map((l) => (
-        <span key={l.id} className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: l.color }} />
+        <span
+          key={l.id}
+          className="inline-flex items-center gap-0.5 rounded-full px-1 py-px text-[8px] leading-tight text-cafe-secondary"
+          style={{ backgroundColor: `${l.color}18` }}
+        >
+          <span className="inline-block w-1 h-1 rounded-full flex-shrink-0" style={{ backgroundColor: l.color }} />
+          <span className="max-w-[32px] truncate">{l.name}</span>
+        </span>
       ))}
       {overflow > 0 && <span className="text-[8px] text-cafe-muted">+{overflow}</span>}
     </div>

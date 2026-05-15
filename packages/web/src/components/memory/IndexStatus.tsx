@@ -114,7 +114,7 @@ export function getConfigVars(vars: EnvVar[]): EnvVar[] {
 
 function StatusRow({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="flex items-center justify-between border-b border-cafe/50 py-2 last:border-b-0">
+    <div className="flex items-center justify-between rounded-lg px-2 py-2">
       <span className="text-xs text-cafe-secondary">{label}</span>
       <span className="text-sm font-medium text-cafe-black">{value}</span>
     </div>
@@ -228,10 +228,7 @@ export function IndexStatus() {
             const isUpdating = updatingKey === v.name;
             const current = v.currentValue ?? v.defaultValue;
             return (
-              <div
-                key={v.name}
-                className="flex items-center justify-between border-b border-cafe/50 py-2 last:border-b-0"
-              >
+              <div key={v.name} className="flex items-center justify-between rounded-lg px-2 py-2">
                 <div className="flex-1 pr-3">
                   <div className="text-xs font-medium text-cafe-black">{v.name}</div>
                   <div className="text-[10px] text-cafe-secondary">{v.description}</div>
@@ -276,7 +273,7 @@ export function IndexStatus() {
           <h3 className="mb-2 text-xs font-semibold text-cafe-black">配置参考</h3>
           <p className="mb-2 text-[10px] text-cafe-secondary">以下配置需在 .env 中设置，修改后重启生效。</p>
           {configVars.map((v) => (
-            <div key={v.name} className="border-b border-cafe/50 py-2 last:border-b-0">
+            <div key={v.name} className="rounded-lg px-2 py-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium font-mono text-cafe-black">{v.name}</span>
                 <span className="text-[10px] font-mono text-cafe-secondary truncate max-w-[50%] text-right">

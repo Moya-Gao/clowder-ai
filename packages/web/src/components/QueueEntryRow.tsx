@@ -56,9 +56,7 @@ function QueueEntryRow({
 
   return (
     <div
-      className={`flex items-center gap-2 px-3 py-2 border-b last:border-b-0 ${
-        isPaused ? 'border-amber-100' : 'border-[#9B7EBD]/10'
-      } ${isAgent ? 'bg-[#F3EEFA]' : ''} ${isUrgent ? 'bg-red-50/40' : ''}`}
+      className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isPaused ? 'bg-amber-50/60' : ''} ${isAgent ? 'bg-[#F3EEFA]' : ''} ${isUrgent ? 'bg-red-50/40' : ''}`}
     >
       {/* Drag handle */}
       <button

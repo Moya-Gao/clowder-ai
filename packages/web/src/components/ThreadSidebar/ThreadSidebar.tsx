@@ -738,7 +738,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
               type="button"
               onClick={() => setShowPicker(true)}
               disabled={isCreating}
-              className="text-xs px-2.5 py-1 rounded-lg bg-cocreator-primary text-white hover:bg-cocreator-dark disabled:opacity-40 transition-colors"
+              className="console-button-primary text-xs disabled:opacity-40"
               data-guide-id="sidebar.new-thread"
             >
               {isCreating ? '...' : '+ 新对话'}
@@ -801,7 +801,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
                 type="button"
                 onClick={handleMarkAllRead}
                 disabled={isMarkingAllRead}
-                className="shrink-0 text-[10px] text-cafe-muted hover:text-cocreator-primary disabled:opacity-40 transition-colors whitespace-nowrap"
+                className="shrink-0 rounded-md bg-[var(--console-field-bg)] px-2 py-0.5 text-[10px] text-cafe-secondary hover:bg-[var(--console-hover-bg)] hover:text-cafe-black disabled:opacity-40 transition-colors whitespace-nowrap"
                 data-testid="mark-all-read-btn"
               >
                 {isMarkingAllRead ? '...' : '全部已读'}
@@ -1011,16 +1011,16 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
         </div>
 
         {/* F095 Phase D: Trash bin section */}
-        <div className="border-t border-[var(--console-border-soft)]">
+        <div className="mx-2 mt-1 mb-2">
           <button
             type="button"
             onClick={handleToggleTrash}
-            className="flex w-full items-center gap-1.5 px-3 py-2 text-xs text-cafe-muted hover:text-cafe-secondary transition-colors"
+            className="flex w-full items-center gap-2 h-9 px-2.5 rounded-xl bg-[var(--console-code-bg)] text-xs text-cafe-secondary hover:opacity-80 transition-colors"
             data-testid="trash-bin-toggle"
           >
             <svg
               aria-hidden="true"
-              className="h-3.5 w-3.5"
+              className="h-[15px] w-[15px] flex-shrink-0"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -1028,10 +1028,12 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
             >
               <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
             </svg>
-            回收站{trashedThreads.length > 0 ? ` (${trashedThreads.length})` : ''}
+            <span className="flex-1 text-left">
+              回收站{trashedThreads.length > 0 ? ` (${trashedThreads.length})` : ''}
+            </span>
             <svg
               aria-hidden="true"
-              className={`h-3 w-3 ml-auto transition-transform ${showTrash ? 'rotate-180' : ''}`}
+              className={`h-3 w-3 flex-shrink-0 transition-transform ${showTrash ? 'rotate-180' : ''}`}
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -1041,7 +1043,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
             </svg>
           </button>
           {showTrash && (
-            <div className="max-h-48 overflow-y-auto">
+            <div className="max-h-48 overflow-y-auto mt-1">
               {isLoadingTrash && <div className="px-3 py-2 text-[10px] text-cafe-muted">加载中...</div>}
               {!isLoadingTrash && trashedThreads.length === 0 && (
                 <div className="px-3 py-2 text-[10px] text-cafe-muted">回收站是空的</div>
@@ -1049,7 +1051,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
               {trashedThreads.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs text-cafe-secondary hover:bg-cafe-surface-elevated group"
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs text-cafe-secondary hover:bg-[var(--console-hover-bg)] rounded-lg group"
                 >
                   <span className="truncate flex-1">{t.title ?? '未命名对话'}</span>
                   <button

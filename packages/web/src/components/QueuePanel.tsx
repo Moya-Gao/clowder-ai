@@ -224,7 +224,7 @@ export function QueuePanel({ threadId }: QueuePanelProps) {
       {!isCollapsed && (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={entryIds} strategy={verticalListSortingStrategy}>
-            <div className="max-h-40 overflow-y-auto">
+            <div className="max-h-40 overflow-y-auto flex flex-col gap-0.5 p-1">
               {visibleEntries.map((entry, idx) => {
                 const allMsgIds = [entry.messageId, ...(entry.mergedMessageIds ?? [])].filter(Boolean) as string[];
                 const imageCount = allMsgIds.reduce((count, msgId) => {
