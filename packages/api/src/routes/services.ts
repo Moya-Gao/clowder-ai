@@ -8,10 +8,12 @@ import {
   resolveServiceState,
   resolveServiceStates,
 } from '../domains/services/service-manifest.js';
+import { registerServiceLifecycleRoutes, type ServiceLifecycleRouteOptions } from './services-lifecycle-routes.js';
 
 export interface ServicesRouteOptions {
   env?: NodeJS.ProcessEnv;
   fetchHealth?: FetchServiceHealth;
+  lifecycle?: ServiceLifecycleRouteOptions;
 }
 
 function resolveSessionUserId(request: FastifyRequest): string | null {
@@ -65,4 +67,6 @@ export const servicesRoutes: FastifyPluginAsync<ServicesRouteOptions> = async (a
       error: state.error,
     };
   });
+
+  await registerServiceLifecycleRoutes(app, options);
 };

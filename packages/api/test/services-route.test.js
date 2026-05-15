@@ -281,21 +281,6 @@ describe('services routes', () => {
     }
   });
 
-  it('does not expose service lifecycle write routes in the manifest slice', async () => {
-    const app = await buildApp();
-    try {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/services/whisper-stt/start',
-        headers: SESSION_HEADERS,
-      });
-
-      assert.equal(res.statusCode, 404);
-    } finally {
-      await app.close();
-    }
-  });
-
   it('returns 404 for unknown service health lookups', async () => {
     const app = await buildApp();
     try {

@@ -239,6 +239,15 @@ export const ENV_VARS: EnvDefinition[] = [
     runtimeEditable: false,
   },
   {
+    name: 'CAT_CAFE_SERVICES_CONFIG',
+    defaultValue: '(自动：~/.cat-cafe/services.json)',
+    description: '服务 lifecycle UI 的启用状态配置文件路径（测试/隔离环境可覆盖）',
+    category: 'server',
+    sensitive: false,
+    hubVisible: false,
+    runtimeEditable: false,
+  },
+  {
     name: 'RUNTIME_REPO_PATH',
     defaultValue: '(未设置)',
     description: 'Runtime 仓库路径（自动更新用）',

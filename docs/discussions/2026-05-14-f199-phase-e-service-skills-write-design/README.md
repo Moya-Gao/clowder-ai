@@ -101,7 +101,7 @@ Required guardrails:
 |---|---|---|
 | E-0 | This design gate + spec reopen | Cross-cat reviewer agrees on boundaries |
 | E-1a | Service lifecycle backend hardening + tests | Owner fail-closed, service allowlist, per-service mutex, strict process matching, script confinement, timeout cap, port-busy refusal, bounded logs, audit metadata-only |
-| E-1b | `InstallPreviewModal` + service lifecycle controls | Visual proof: prerequisites/model selection, install/start/stop/uninstall, error/fail-closed states |
+| E-1b | `InstallPreviewModal` + service lifecycle controls | Derive `availableActions: ('install' \| 'start' \| 'stop' \| 'uninstall')[]` from backend state for button visibility; visual proof: prerequisites/model selection, install/start/stop/uninstall, error/fail-closed states |
 | E-2a | Skills write backend hardening + tests | Existing sync/resolve routes owner-gated; destructive managed-only route added only if needed |
 | E-2b | Settings Skills write UI parity | Visual proof: sync, conflict resolve, managed uninstall/disable, error/fail-closed states |
 | E-close | Full F199 close gate rerun | settings diff, User Visibility Disclosure, red-zone grep, transport boundary, independent guardian disclosed as non-author/non-reviewer |
@@ -129,6 +129,7 @@ Opus-47 reviewed this design in `REVIEW-opus47.md` and approved the direction wi
 | P1: strict `isServiceProcess` matching | Promoted to E-1a process stop safety guardrail |
 | P1: install/uninstall timeout cap | Promoted to E-1a timeout guardrail and AC-E3 |
 | P1: worktree/port hygiene disclosure | Promoted to E-1a port hygiene and worktree disclosure guardrails |
+| C5: `availableActions` placeholder from E-1a implementation review | Promoted to E-1b explicit scope: derive typed actions from manifest/backend state before exposing UI controls |
 
 ## Review Ask
 
