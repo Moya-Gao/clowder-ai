@@ -379,7 +379,7 @@ export function RightStatusPanel({
     setViewSession(null);
   }, [threadId]);
 
-  const openHub = useChatStore((s) => s.openHub);
+
 
   const copyText = useCallback((value: string) => {
     void navigator.clipboard.writeText(value);
@@ -399,18 +399,9 @@ export function RightStatusPanel({
 
       {/* ── Active cats: currently working ──────────────── */}
       <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs font-semibold text-cafe-secondary">
-            {activeCats.length > 0 ? '当前调用' : '猫猫状态'}
-          </h3>
-          <button
-            onClick={() => openHub()}
-            className="text-base text-cafe-muted hover:text-blue-600 hover:rotate-45 transition-all duration-200"
-            title="Cat Café Hub"
-          >
-            &#9881;
-          </button>
-        </div>
+        <h3 className="text-xs font-semibold text-cafe-secondary mb-2">
+          {activeCats.length > 0 ? '当前调用' : '猫猫状态'}
+        </h3>
         {activeCats.length > 0 ? (
           <div className="space-y-3">
             {activeCats.map((catId) => {

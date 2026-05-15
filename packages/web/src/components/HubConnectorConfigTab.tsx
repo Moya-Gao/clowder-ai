@@ -1,46 +1,76 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useGuideStore } from '@/stores/guideStore';
 import { apiFetch } from '@/utils/api-client';
 import { FeishuQrPanel } from './FeishuQrPanel';
 import {
-  ChevronDown,
-  ChevronRight,
+  connStatePill,
   DEFAULT_VISUAL,
   ExternalLinkIcon,
+  formatHeartbeat,
   LockIcon,
+  PERMISSION_CONNECTORS,
   PLATFORM_VISUALS,
-  StatusDotConnected,
-  StatusDotIdle,
+  type PlatformStatus,
   StepBadge,
   WifiIcon,
 } from './HubConfigIcons';
 import { WeComBotSetupPanel } from './WeComBotSetupPanel';
 import { WeixinQrPanel } from './WeixinQrPanel';
 
+const HubPermissionsTab = lazy(() => import('./HubPermissionsTab'));
+
 const REDACTED_PLACEHOLDER = '••••••';
 
-interface PlatformFieldStatus {
-  envName: string;
-  label: string;
-  sensitive: boolean;
-  currentValue: string | null;
-}
-
-interface PlatformStepStatus {
-  text: string;
-  mode?: string;
-}
-
-interface PlatformStatus {
-  id: string;
-  name: string;
-  nameEn: string;
-  configured: boolean;
-  fields: PlatformFieldStatus[];
-  docsUrl: string;
-  steps: PlatformStepStatus[];
+function ConnectorActionBar({
+  platformId,
+  saveResult,
+  saving,
+  onSave,
+  onShowResult,
+}: {
+  platformId: string;
+  saveResult: { type: 'success' | 'error'; message: string } | null;
+  saving: boolean;
+  onSave: () => void;
+  onShowResult: (r: { type: 'success' | 'error'; message: string }) => void;
+}) {
+  return (
+    <>
+      {saveResult && (
+        <div
+          className={`rounded-[16px] px-3 py-2 text-xs ${
+            saveResult.type === 'success'
+              ? 'bg-conn-emerald-bg text-conn-emerald-text border border-conn-emerald-ring'
+              : 'bg-conn-red-bg text-conn-red-text border border-conn-red-ring'
+          }`}
+          data-testid="save-result"
+        >
+          {saveResult.message}
+        </div>
+      )}
+      <div className="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          className="console-button-secondary text-[13px]"
+          onClick={() => onShowResult({ type: 'error', message: '连接测试功能尚未实现（F-3 deferred）' })}
+        >
+          <WifiIcon />
+          测试连接
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saving}
+          className="console-button-primary text-[13px] disabled:opacity-50"
+          data-testid={`save-${platformId}`}
+        >
+          {saving ? '保存中...' : '保存配置'}
+        </button>
+      </div>
+    </>
+  );
 }
 
 export function HubConnectorConfigTab() {
@@ -62,7 +92,8 @@ export function HubConnectorConfigTab() {
       const res = await apiFetch('/api/connector/status');
       if (!res.ok) return;
       const data = await res.json();
-      setPlatforms(data.platforms ?? []);
+      const all: PlatformStatus[] = data.platforms ?? [];
+      setPlatforms(all.filter((p) => p.category !== 'plugin'));
     } catch {
       // fall through
     } finally {
@@ -138,7 +169,7 @@ export function HubConnectorConfigTab() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       {platforms.map((platform) => {
         const isExpanded = expandedId === platform.id;
         const v = PLATFORM_VISUALS[platform.id] ?? DEFAULT_VISUAL;
@@ -153,73 +184,94 @@ export function HubConnectorConfigTab() {
         return (
           <div
             key={platform.id}
-            className="border border-cafe rounded-2xl overflow-hidden"
+            className="console-list-card rounded-2xl overflow-hidden shadow-[0_12px_30px_rgba(43,33,26,0.08)] hover:shadow-[0_12px_30px_rgba(43,33,26,0.12)]"
             data-testid={`platform-card-${platform.id}`}
             data-guide-id={`connector.${platform.id}`}
+            data-active={isExpanded ? 'true' : 'false'}
           >
             <button
               type="button"
               onClick={() => handleExpand(platform.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 transition-colors ${isExpanded ? 'bg-sky-50' : 'hover:bg-cafe-surface-elevated'}`}
+              className="flex w-full items-center gap-4 px-5 py-[18px] transition-colors"
             >
               <span
-                className="flex items-center justify-center w-9 h-9 rounded-[10px] shrink-0"
+                className="flex h-11 w-11 items-center justify-center rounded-[12px] shrink-0"
                 style={{ backgroundColor: v.iconBg, color: v.iconColor }}
               >
                 {v.icon}
               </span>
-              <span className="flex-1 text-left min-w-0">
-                <span className="block text-[15px] font-semibold text-cafe">
-                  {platform.name} {platform.nameEn !== platform.name ? platform.nameEn : ''}
+              <span className="flex-1 text-left min-w-0 space-y-1">
+                <span className="block text-[15px] font-extrabold text-cafe">
+                  {platform.name}
+                  {platform.nameEn !== platform.name ? ` ${platform.nameEn}` : ''}
                 </span>
-                <span
-                  className={`flex items-center gap-1 text-xs ${platform.configured ? 'text-green-600' : 'text-cafe-muted'}`}
-                >
-                  {platform.configured ? <StatusDotConnected /> : <StatusDotIdle />}
-                  {platform.configured ? '已配置' : '未配置'}
-                </span>
+                {platform.lastHeartbeat && (
+                  <span className="block text-[11px] text-cafe-muted">{formatHeartbeat(platform.lastHeartbeat)}</span>
+                )}
               </span>
-              <span className="text-cafe-muted shrink-0">{isExpanded ? <ChevronDown /> : <ChevronRight />}</span>
+              <span
+                className={`shrink-0 rounded-[13px] px-2.5 py-1 text-xs font-semibold ${connStatePill(platform).className}`}
+              >
+                {connStatePill(platform).label}
+              </span>
             </button>
 
             {/* F132 Phase E: WeCom Bot guided setup — dedicated panel with validate+connect */}
             {isExpanded && platform.id === 'wecom-bot' && (
-              <div className="border-t border-cafe-subtle px-4 py-4 space-y-3.5">
-                {guideSteps.map((step, idx) => (
-                  <div key={idx} className="space-y-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <StepBadge num={idx + 1} />
-                      <span className="text-[13px] font-medium text-cafe">{step.text}</span>
-                    </div>
-                    {idx === 0 && (
-                      <div className="ml-[26px]">
-                        <a
-                          href={platform.docsUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs text-blue-600 bg-sky-50 rounded-lg px-3 py-2 hover:bg-sky-100 transition-colors"
-                        >
-                          <ExternalLinkIcon />
-                          <span>developer.work.weixin.qq.com → WeCom AI Bot docs</span>
-                        </a>
+              <div className="px-4 py-4 space-y-4">
+                <div className="console-list-card rounded-2xl overflow-hidden shadow-[0_12px_30px_rgba(43,33,26,0.08)]">
+                  <div className="console-code-pane space-y-3.5 px-4 py-4">
+                    {guideSteps.map((step, idx) => (
+                      <div key={idx} className="space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <StepBadge num={idx + 1} />
+                          <span className="text-[13px] font-medium text-cafe">{step.text}</span>
+                        </div>
+                        {idx === 0 && (
+                          <div className="ml-[26px]">
+                            <a
+                              href={platform.docsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="console-inline-link"
+                            >
+                              <ExternalLinkIcon />
+                              <span>developer.work.weixin.qq.com → WeCom AI Bot docs</span>
+                            </a>
+                          </div>
+                        )}
+                        {idx === guideSteps.length - 1 && (
+                          <div className="ml-[26px]">
+                            <WeComBotSetupPanel
+                              configured={platform.configured}
+                              onConnected={() => void fetchStatus()}
+                              onDisconnected={() => void fetchStatus()}
+                            />
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {idx === guideSteps.length - 1 && (
-                      <div className="ml-[26px]">
-                        <WeComBotSetupPanel
-                          configured={platform.configured}
-                          onConnected={() => void fetchStatus()}
-                          onDisconnected={() => void fetchStatus()}
-                        />
-                      </div>
-                    )}
+                    ))}
                   </div>
-                ))}
+                </div>
+
+                {PERMISSION_CONNECTORS[platform.id] && (
+                  <Suspense fallback={<p className="text-xs text-cafe-muted">加载中...</p>}>
+                    <HubPermissionsTab connectorId={platform.id} connectorLabel={PERMISSION_CONNECTORS[platform.id]} />
+                  </Suspense>
+                )}
+
+                <ConnectorActionBar
+                  platformId={platform.id}
+                  saveResult={saveResult}
+                  saving={saving}
+                  onSave={() => handleSave(platform)}
+                  onShowResult={setSaveResult}
+                />
               </div>
             )}
 
             {isExpanded && platform.id === 'weixin' && (
-              <div className="border-t border-cafe-subtle px-4 py-4 space-y-3.5">
+              <div className="console-code-pane space-y-3.5 px-4 py-4">
                 {filteredSteps.map((step, idx) => (
                   <div key={idx} className="space-y-1.5">
                     <div className="flex items-center gap-1.5">
@@ -239,135 +291,131 @@ export function HubConnectorConfigTab() {
             )}
 
             {isExpanded && platform.id !== 'weixin' && platform.id !== 'wecom-bot' && (
-              <div className="border-t border-cafe-subtle px-4 py-4 space-y-3.5">
-                {guideSteps.map((step, idx) => (
-                  <div key={idx} className="space-y-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <StepBadge num={idx + 1} />
-                      <span className="text-[13px] font-medium text-cafe">{step.text}</span>
+              <div className="px-4 py-4 space-y-4">
+                <div className="console-list-card rounded-2xl overflow-hidden shadow-[0_12px_30px_rgba(43,33,26,0.08)]">
+                  <div className="bg-conn-sky-bg px-4 py-3 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-conn-sky-ring flex items-center justify-center text-conn-sky-text">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+                        />
+                      </svg>
                     </div>
-                    {idx === 0 && (
-                      <div className="ml-[26px] space-y-2.5">
-                        <a
-                          href={platform.docsUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs text-blue-600 bg-sky-50 rounded-lg px-3 py-2 hover:bg-sky-100 transition-colors"
-                        >
-                          <ExternalLinkIcon />
-                          <span>{new URL(platform.docsUrl).hostname} → 查看官方文档</span>
-                        </a>
-                        {platform.id === 'feishu' && (
-                          <FeishuQrPanel
-                            configured={platform.configured}
-                            onConfirmed={() => void fetchStatus()}
-                            onDisconnected={() => void fetchStatus()}
-                          />
-                        )}
-                      </div>
-                    )}
+                    <div>
+                      <div className="font-semibold text-sm">基础配置</div>
+                      <div className="text-xs text-cafe-secondary">应用凭证与连接设置</div>
+                    </div>
                   </div>
-                ))}
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5">
-                    <StepBadge num={guideSteps.length + 1} />
-                    <span className="text-[13px] font-medium text-cafe">填写应用凭证</span>
-                  </div>
-                  <div className="ml-[26px] space-y-2.5">
-                    {platform.fields.map((field) => (
-                      <div key={field.envName}>
-                        <label
-                          htmlFor={`config-${field.envName}`}
-                          className="block text-xs font-medium text-cafe-secondary mb-1"
-                        >
-                          {field.label}
-                          {field.sensitive && (
-                            <span className="text-amber-500 ml-1 inline-flex align-middle">
-                              <LockIcon />
-                            </span>
-                          )}
-                        </label>
-                        {field.envName === 'FEISHU_CONNECTION_MODE' ? (
-                          <select
-                            id={`config-${field.envName}`}
-                            value={fieldValues[field.envName] ?? field.currentValue ?? 'webhook'}
-                            onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
-                            className="w-full h-9 px-3 text-[13px] bg-cafe-surface-elevated border border-cafe rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-colors"
-                            data-testid={`field-${field.envName}`}
-                          >
-                            <option value="webhook">Webhook（需公网 URL）</option>
-                            <option value="websocket">WebSocket 长连接（无需公网）</option>
-                          </select>
-                        ) : (
-                          <input
-                            id={`config-${field.envName}`}
-                            type={field.sensitive ? 'password' : 'text'}
-                            placeholder={
-                              field.sensitive
-                                ? field.currentValue
-                                  ? '已设置（输入新值覆盖）'
-                                  : '未设置'
-                                : (field.currentValue ?? '未设置')
-                            }
-                            value={fieldValues[field.envName] ?? ''}
-                            onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
-                            className="w-full h-9 px-3 text-[13px] bg-cafe-surface-elevated border border-cafe rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-colors"
-                            data-testid={`field-${field.envName}`}
-                          />
+                  <div className="p-4 space-y-3.5">
+                    {guideSteps.map((step, idx) => (
+                      <div key={idx} className="space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <StepBadge num={idx + 1} />
+                          <span className="text-[13px] font-medium text-cafe">{step.text}</span>
+                        </div>
+                        {idx === 0 && (
+                          <div className="ml-[26px] space-y-2.5">
+                            <a
+                              href={platform.docsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="console-inline-link"
+                            >
+                              <ExternalLinkIcon />
+                              <span>{new URL(platform.docsUrl).hostname} → 查看官方文档</span>
+                            </a>
+                            {platform.id === 'feishu' && (
+                              <FeishuQrPanel
+                                configured={platform.configured}
+                                onConfirmed={() => void fetchStatus()}
+                                onDisconnected={() => void fetchStatus()}
+                              />
+                            )}
+                          </div>
                         )}
                       </div>
                     ))}
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5">
+                        <StepBadge num={guideSteps.length + 1} />
+                        <span className="text-[13px] font-medium text-cafe">填写应用凭证</span>
+                      </div>
+                      <div className="ml-[26px] space-y-2.5">
+                        {platform.fields.map((field) => (
+                          <div key={field.envName}>
+                            <label
+                              htmlFor={`config-${field.envName}`}
+                              className="block text-xs font-medium text-cafe-secondary mb-1"
+                            >
+                              {field.label}
+                              {field.sensitive && (
+                                <span className="text-conn-amber-text ml-1 inline-flex align-middle">
+                                  <LockIcon />
+                                </span>
+                              )}
+                            </label>
+                            {field.envName === 'FEISHU_CONNECTION_MODE' ? (
+                              <select
+                                id={`config-${field.envName}`}
+                                value={fieldValues[field.envName] ?? field.currentValue ?? 'webhook'}
+                                onChange={(e) =>
+                                  setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))
+                                }
+                                className="console-form-input py-2.5 text-[13px]"
+                                data-testid={`field-${field.envName}`}
+                              >
+                                <option value="webhook">Webhook（需公网 URL）</option>
+                                <option value="websocket">WebSocket 长连接（无需公网）</option>
+                              </select>
+                            ) : (
+                              <input
+                                id={`config-${field.envName}`}
+                                type={field.sensitive ? 'password' : 'text'}
+                                placeholder={
+                                  field.sensitive
+                                    ? field.currentValue
+                                      ? '已设置（输入新值覆盖）'
+                                      : '未设置'
+                                    : (field.currentValue ?? '未设置')
+                                }
+                                value={fieldValues[field.envName] ?? ''}
+                                onChange={(e) =>
+                                  setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))
+                                }
+                                className="console-form-input py-2.5 text-[13px]"
+                                data-testid={`field-${field.envName}`}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5">
-                    <StepBadge num={filteredSteps.length} />
-                    <span className="text-[13px] font-medium text-cafe">测试连接并保存</span>
-                  </div>
-                  {saveResult && (
-                    <div
-                      className={`text-xs px-3 py-2 rounded-lg ml-[26px] ${
-                        saveResult.type === 'success'
-                          ? 'bg-green-50 text-green-700 border border-green-200'
-                          : 'bg-red-50 text-red-700 border border-red-200'
-                      }`}
-                      data-testid="save-result"
-                    >
-                      {saveResult.message}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 ml-[26px]">
-                    <button
-                      type="button"
-                      className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-cafe-secondary bg-cafe-surface border border-cafe rounded-lg hover:bg-cafe-surface-elevated transition-colors"
-                      onClick={() => setSaveResult({ type: 'success', message: '连接测试功能即将上线' })}
-                    >
-                      <WifiIcon />
-                      测试连接
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSave(platform)}
-                      disabled={saving}
-                      className="px-4 py-2 text-[13px] font-semibold text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50"
-                      data-testid={`save-${platform.id}`}
-                    >
-                      {saving ? '保存中...' : '保存配置'}
-                    </button>
-                  </div>
-                </div>
+                {PERMISSION_CONNECTORS[platform.id] && (
+                  <Suspense fallback={<p className="text-xs text-cafe-muted">加载中...</p>}>
+                    <HubPermissionsTab connectorId={platform.id} connectorLabel={PERMISSION_CONNECTORS[platform.id]} />
+                  </Suspense>
+                )}
+
+                <ConnectorActionBar
+                  platformId={platform.id}
+                  saveResult={saveResult}
+                  saving={saving}
+                  onSave={() => handleSave(platform)}
+                  onShowResult={setSaveResult}
+                />
               </div>
             )}
           </div>
         );
       })}
 
-      <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-[10px] px-3.5 py-2.5">
-        <StatusDotConnected />
-        <span className="text-xs font-medium text-green-700">配置保存后自动生效，无需重启</span>
-      </div>
+      <p className="text-xs text-cafe-muted">配置保存后自动生效，无需重启</p>
     </div>
   );
 }

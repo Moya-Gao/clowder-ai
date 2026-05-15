@@ -179,3 +179,54 @@ export function LockIcon() {
     </svg>
   );
 }
+
+// ── Connector config types & helpers ──
+
+export interface PlatformFieldStatus {
+  envName: string;
+  label: string;
+  sensitive: boolean;
+  currentValue: string | null;
+}
+
+export interface PlatformStepStatus {
+  text: string;
+  mode?: string;
+}
+
+export interface PlatformStatus {
+  id: string;
+  name: string;
+  nameEn: string;
+  category?: 'im' | 'plugin';
+  configured: boolean;
+  connectionState?: 'connected' | 'disconnected' | 'reconnecting' | 'unknown';
+  lastHeartbeat?: number | null;
+  fields: PlatformFieldStatus[];
+  docsUrl: string;
+  steps: PlatformStepStatus[];
+}
+
+export const PERMISSION_CONNECTORS: Record<string, string> = {
+  feishu: '飞书',
+  'wecom-bot': '企业微信',
+  dingtalk: '钉钉',
+};
+
+export function connStatePill(p: PlatformStatus): { label: string; className: string } {
+  if (p.connectionState === 'connected')
+    return { label: '已连接', className: 'bg-conn-emerald-bg text-conn-emerald-text' };
+  if (p.connectionState === 'reconnecting')
+    return { label: '重连中', className: 'bg-conn-amber-bg text-conn-amber-text' };
+  if (p.connectionState === 'disconnected' && p.configured)
+    return { label: '已配置', className: 'bg-conn-amber-bg text-conn-amber-text' };
+  if (p.configured) return { label: '已配置', className: 'bg-conn-amber-bg text-conn-amber-text' };
+  return { label: '未配置', className: 'bg-cafe-surface-sunken text-cafe-muted' };
+}
+
+export function formatHeartbeat(ts: number): string {
+  const ago = Math.floor((Date.now() - ts) / 1000);
+  if (ago < 60) return `${ago}s ago`;
+  if (ago < 3600) return `${Math.floor(ago / 60)}m ago`;
+  return `${Math.floor(ago / 3600)}h ago`;
+}

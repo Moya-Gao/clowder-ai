@@ -16,6 +16,9 @@ vi.mock('../FeishuQrPanel', () => ({
       'Feishu QR Mock',
     ),
 }));
+vi.mock('../HubPermissionsTab', () => ({
+  default: () => React.createElement('div', { 'data-testid': 'permissions-mock' }, 'Permissions Mock'),
+}));
 
 import { apiFetch } from '@/utils/api-client';
 

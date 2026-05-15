@@ -6,10 +6,13 @@ import { apiFetch } from '@/utils/api-client';
 import { BrakeSettingsPanel } from '../BrakeSettingsPanel';
 import { CatOverviewTab, type ConfigData } from '../config-viewer-tabs';
 import { HubAccountsTab } from '../HubAccountsTab';
+import { HubCatEditor } from '../HubCatEditor';
+import { HubCoCreatorEditor } from '../HubCoCreatorEditor';
 import { HubConnectorConfigTab } from '../HubConnectorConfigTab';
 import { HubEnvFilesTab } from '../HubEnvFilesTab';
 import { HubGovernanceTab } from '../HubGovernanceTab';
 import { PushSettingsPanel } from '../PushSettingsPanel';
+import { useConfirm } from '../useConfirm';
 import { VoiceSettingsPanel } from '../VoiceSettingsPanel';
 import { MarketplaceContent } from './MarketplaceContent';
 import { McpManageContent } from './McpManageContent';
@@ -26,36 +29,90 @@ interface SettingsContentProps {
   section: string;
 }
 
-function MembersPanel() {
-  const { cats } = useCatData();
+export function SettingsContent({ section }: SettingsContentProps) {
+  const { cats, refresh } = useCatData();
   const [config, setConfig] = useState<ConfigData | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingCat, setEditingCat] = useState<(typeof cats)[number] | null>(null);
+  const [createDraft, setCreateDraft] = useState<Parameters<typeof HubCatEditor>[0]['draft']>(null);
+  const [togglingCatId, setTogglingCatId] = useState<string | null>(null);
+  const [coCreatorEditorOpen, setCoCreatorEditorOpen] = useState(false);
+  const confirm = useConfirm();
 
-  const fetchConfig = useCallback(async () => {
-    setError(null);
+  const fetchData = useCallback(async () => {
+    setFetchError(null);
     try {
       const res = await apiFetch('/api/config');
       if (!res.ok) {
-        setError(`配置加载失败 (${res.status})`);
+        setFetchError(`配置加载失败 (${res.status})`);
         return;
       }
       const payload = (await res.json()) as { config: ConfigData };
       setConfig(payload.config);
     } catch {
-      setError('配置加载失败');
+      setFetchError('配置加载失败');
     }
   }, []);
 
   useEffect(() => {
-    fetchConfig();
-  }, [fetchConfig]);
+    fetchData();
+  }, [fetchData]);
 
-  if (error) return <p className="text-sm text-[var(--semantic-error-text)]">{error}</p>;
-  if (!config) return <p className="text-sm text-cafe-muted">加载中...</p>;
-  return <CatOverviewTab config={config} cats={cats} />;
-}
+  const handleEditorSaved = useCallback(async () => {
+    await Promise.all([fetchData(), refresh()]);
+  }, [fetchData, refresh]);
 
-export function SettingsContent({ section }: SettingsContentProps) {
+  const handleToggleAvailability = useCallback(
+    async (cat: (typeof cats)[number]) => {
+      setTogglingCatId(cat.id);
+      setFetchError(null);
+      try {
+        const res = await apiFetch(`/api/cats/${cat.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ available: cat.roster?.available === false }),
+        });
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+          setFetchError((payload.error as string) ?? `成员状态切换失败 (${res.status})`);
+          return;
+        }
+        await Promise.all([fetchData(), refresh()]);
+      } catch {
+        setFetchError('成员状态切换失败');
+      } finally {
+        setTogglingCatId(null);
+      }
+    },
+    [fetchData, refresh],
+  );
+
+  const handleDeleteMember = useCallback(
+    async (cat: (typeof cats)[number]) => {
+      const ok = await confirm({
+        title: '删除确认',
+        message: `确认删除成员「${cat.displayName}」吗？此操作不可撤销。`,
+        variant: 'danger',
+        confirmLabel: '删除',
+      });
+      if (!ok) return;
+      setFetchError(null);
+      try {
+        const res = await apiFetch(`/api/cats/${cat.id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+          setFetchError((payload.error as string) ?? `删除失败 (${res.status})`);
+          return;
+        }
+        await Promise.all([fetchData(), refresh()]);
+      } catch {
+        setFetchError('删除失败');
+      }
+    },
+    [confirm, fetchData, refresh],
+  );
+
   if (section === 'marketplace') return <MarketplaceContent />;
   if (section === 'skills') return <SkillsContent />;
 
@@ -64,7 +121,29 @@ export function SettingsContent({ section }: SettingsContentProps) {
   const content = (() => {
     switch (meta.id) {
       case 'members':
-        return <MembersPanel />;
+        if (fetchError) return <p className="text-sm text-[var(--semantic-error-text)]">{fetchError}</p>;
+        return config ? (
+          <CatOverviewTab
+            config={config}
+            cats={cats}
+            onAddMember={() => {
+              setEditingCat(null);
+              setCreateDraft(null);
+              setEditorOpen(true);
+            }}
+            onEditMember={(cat) => {
+              setCreateDraft(null);
+              setEditingCat(cat);
+              setEditorOpen(true);
+            }}
+            onEditCoCreator={() => setCoCreatorEditorOpen(true)}
+            onDeleteMember={handleDeleteMember}
+            onToggleAvailability={handleToggleAvailability}
+            togglingCatId={togglingCatId}
+          />
+        ) : (
+          <p className="text-sm text-cafe-muted">加载中...</p>
+        );
       case 'accounts':
         return <HubAccountsTab />;
       case 'im':
@@ -80,7 +159,7 @@ export function SettingsContent({ section }: SettingsContentProps) {
           </div>
         );
       case 'system':
-        return <HubEnvFilesTab />;
+        return <HubEnvFilesTab excludeCategories={['connector']} />;
       case 'notify':
         return <PushSettingsPanel />;
       case 'ops':
@@ -106,6 +185,27 @@ export function SettingsContent({ section }: SettingsContentProps) {
     <>
       <SettingsPageHeader title={meta.label} subtitle={meta.description} />
       {content}
+      {editorOpen && (
+        <HubCatEditor
+          open
+          cat={editingCat}
+          draft={createDraft}
+          onClose={() => {
+            setEditorOpen(false);
+            setEditingCat(null);
+            setCreateDraft(null);
+          }}
+          onSaved={handleEditorSaved}
+        />
+      )}
+      {coCreatorEditorOpen && config && (
+        <HubCoCreatorEditor
+          open
+          coCreator={config.coCreator}
+          onClose={() => setCoCreatorEditorOpen(false)}
+          onSaved={handleEditorSaved}
+        />
+      )}
     </>
   );
 }

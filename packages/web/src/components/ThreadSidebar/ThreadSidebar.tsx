@@ -6,9 +6,8 @@ import { useLabelStore } from '@/stores/label-store';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { loadThreads as loadCachedThreads } from '@/utils/offline-store';
+import { BootcampListModal } from '../BootcampListModal';
 import { BootcampIcon } from '../icons/BootcampIcon';
-import { HubIcon } from '../icons/HubIcon';
-import { MemoryIcon } from '../icons/MemoryIcon';
 
 import { readProjectNames, writeProjectNames } from './active-workspace';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
@@ -31,8 +30,6 @@ import { useScrollAnchor } from './use-scroll-anchor';
 interface ThreadSidebarProps {
   onClose?: () => void;
   className?: string;
-  onBootcampClick?: () => void;
-  onHubClick?: () => void;
 }
 
 function notifyThreadCreateFailure(message: string) {
@@ -44,7 +41,8 @@ function notifyThreadCreateFailure(message: string) {
   });
 }
 
-export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick }: ThreadSidebarProps) {
+export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
+  const [showBootcampList, setShowBootcampList] = useState(false);
   const {
     threads,
     currentThreadId,
@@ -273,42 +271,6 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
     },
     [loadThreads, loadTrash],
   );
-
-  /** F087: Create a bootcamp onboarding thread */
-  const createBootcampThread = useCallback(async () => {
-    setIsCreating(true);
-    try {
-      const res = await apiFetch('/api/threads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: '🎓 猫猫训练营',
-          bootcampState: {
-            v: 1,
-            phase: 'phase-1-intro',
-            startedAt: Date.now(),
-          },
-        }),
-      });
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => '(no body)');
-        console.error('[createBootcampThread] POST /api/threads failed:', res.status, errBody);
-        notifyThreadCreateFailure('训练营线程没有创建成功，请稍后重试。');
-        return;
-      }
-      const thread: Thread = await res.json();
-      navigateToThread(thread.id);
-      if (typeof window !== 'undefined' && window.innerWidth < 768) {
-        onClose?.();
-      }
-      await loadThreads();
-    } catch (err) {
-      console.error('[createBootcampThread] exception:', err);
-      notifyThreadCreateFailure('训练营线程创建失败，请检查网络后重试。');
-    } finally {
-      setIsCreating(false);
-    }
-  }, [navigateToThread, loadThreads, onClose]);
 
   // I-1: Show confirmation dialog instead of deleting immediately
   const handleDeleteRequest = useCallback(
@@ -761,42 +723,14 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={onBootcampClick ?? createBootcampThread}
-              disabled={!onBootcampClick && isCreating}
-              className="text-xs px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-40 transition-colors"
+              onClick={() => setShowBootcampList(true)}
+              className="text-xs px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
               title="猫猫训练营"
               data-testid="sidebar-bootcamp"
               data-guide-id="sidebar.bootcamp"
             >
               <BootcampIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                const fromParam = currentThreadId ? `?from=${encodeURIComponent(currentThreadId)}` : '';
-                window.location.assign(`/memory${fromParam}`);
-                if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                  onClose?.();
-                }
-              }}
-              className="text-xs px-2 py-1 rounded-lg border border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors"
-              title="Memory Hub"
-              data-testid="sidebar-memory"
-            >
-              <MemoryIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
-            </button>
-            {onHubClick && (
-              <button
-                type="button"
-                onClick={onHubClick}
-                className="text-xs px-2 py-1 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                title="IM Hub"
-                data-testid="sidebar-hub"
-                data-guide-id="im-hub.trigger"
-              >
-                <HubIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
-              </button>
-            )}
             <button
               type="button"
               onClick={() => setShowPicker(true)}
@@ -1131,6 +1065,12 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
           onConfirm={handleDeleteConfirm}
         />
       )}
+
+      <BootcampListModal
+        open={showBootcampList}
+        onClose={() => setShowBootcampList(false)}
+        currentThreadId={currentThreadId}
+      />
 
       {showOrganizer && (
         <ThreadOrganizerModal

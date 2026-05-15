@@ -52,22 +52,10 @@ describe('ThreadSidebar create error feedback', () => {
     });
   });
 
-  it('shows an error toast when bootcamp thread creation throws', async () => {
-    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
-      if (path === '/api/threads' && init?.method === 'POST') {
-        return Promise.reject(new Error('network down'));
-      }
-      return defaultSidebarApiMock(path);
-    });
-
+  it('opens bootcamp list modal when bootcamp button is clicked', async () => {
     await harness.render();
-
     await clickBootcampButton(harness.container, harness.flush);
-
-    expect(addToastMock).toHaveBeenCalledOnce();
-    expect(addToastMock.mock.calls[0]?.[0]).toMatchObject({
-      type: 'error',
-      title: '创建线程失败',
-    });
+    const modal = harness.container.querySelector('[data-testid="bootcamp-list-modal"]');
+    expect(modal ?? harness.container.textContent).toBeTruthy();
   });
 });

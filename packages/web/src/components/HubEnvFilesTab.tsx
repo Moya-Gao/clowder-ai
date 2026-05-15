@@ -393,7 +393,7 @@ function DataDirsSection({ dataDirs, projectRoot }: { dataDirs: DataDirs; projec
   );
 }
 
-export function HubEnvFilesTab() {
+export function HubEnvFilesTab({ excludeCategories }: { excludeCategories?: string[] } = {}) {
   const [data, setData] = useState<EnvSummaryData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -492,8 +492,14 @@ export function HubEnvFilesTab() {
     <div className="space-y-4">
       <PageIntro />
       <EnvVarsSection
-        categories={data.categories}
-        variables={data.variables}
+        categories={
+          excludeCategories
+            ? Object.fromEntries(Object.entries(data.categories).filter(([k]) => !excludeCategories.includes(k)))
+            : data.categories
+        }
+        variables={
+          excludeCategories ? data.variables.filter((v) => !excludeCategories.includes(v.category)) : data.variables
+        }
         drafts={drafts}
         isDirty={isDirty}
         saveState={saveState}
