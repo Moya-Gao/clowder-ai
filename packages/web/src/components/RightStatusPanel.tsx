@@ -379,8 +379,6 @@ export function RightStatusPanel({
     setViewSession(null);
   }, [threadId]);
 
-
-
   const copyText = useCallback((value: string) => {
     void navigator.clipboard.writeText(value);
   }, []);

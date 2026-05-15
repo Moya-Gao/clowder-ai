@@ -4,7 +4,6 @@ import { apiFetch } from '@/utils/api-client';
 import { ExportButton } from './ExportButton';
 import { HubButton } from './HubButton';
 import { CatCafeLogo } from './icons/CatCafeLogo';
-import { ThemeToggle } from './ThemeToggle';
 import { ThreadCatPill } from './ThreadCatPill';
 import { VoiceCompanionButton } from './VoiceCompanionButton';
 
@@ -37,8 +36,6 @@ export function ChatContainerHeader({
   onToggleStatusPanel,
   defaultCatId,
 }: ChatContainerHeaderProps) {
-  const signalInboxHref = `/signals?from=${encodeURIComponent(threadId)}`;
-
   return (
     <header className="border-b border-cocreator-light bg-cocreator-bg safe-area-top">
       <div className="px-5 py-3 flex items-center gap-2">
@@ -72,23 +69,6 @@ export function ChatContainerHeader({
         <ExportButton threadId={threadId} />
         <VoiceCompanionButton threadId={threadId} defaultCatId={defaultCatId} />
         <LiveAudioToggle />
-        <button
-          type="button"
-          onClick={() => {
-            window.location.assign(signalInboxHref);
-          }}
-          className="p-1 rounded-lg hover:bg-cocreator-light transition-colors"
-          title="Signal Inbox"
-          aria-label="Signal Inbox"
-        >
-          <svg className="w-5 h-5 text-cafe-secondary" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fillRule="evenodd"
-              d="M5.05 3.636a1 1 0 010 1.414 7 7 0 000 9.9 1 1 0 11-1.414 1.414 9 9 0 010-12.728 1 1 0 011.414 0zm9.9 0a9 9 0 010 12.728 1 1 0 01-1.414-1.414 7 7 0 000-9.9 1 1 0 011.414-1.414zM7.879 6.464a1 1 0 010 1.414 3 3 0 000 4.243 1 1 0 11-1.415 1.414 5 5 0 010-7.07 1 1 0 011.415 0zm4.242 0a5 5 0 010 7.072 1 1 0 01-1.415-1.415 3 3 0 000-4.242 1 1 0 011.415-1.415zM10 9a1 1 0 100 2 1 1 0 000-2z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </button>
         {authPendingCount > 0 && (
           <span
             className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold animate-pulse-subtle"
@@ -97,11 +77,6 @@ export function ChatContainerHeader({
             🔐 {authPendingCount}
           </span>
         )}
-        {/* F056 Phase D: Theme toggle */}
-        <ThemeToggle />
-        {/* F099 P1-2: Hub gear in top bar — always reachable even when right panel shows workspace.
-            F174 D2b-2 (rev2): callback-auth failure badge merges into HubButton itself
-            (no separate top-bar icon — top-bar real estate is scarce). */}
         <HubButton />
         {/* Mobile/tablet: status sheet trigger */}
         <button
