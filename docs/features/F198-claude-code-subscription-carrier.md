@@ -8,7 +8,7 @@ created: 2026-05-13
 
 # F198: Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪
 
-> **Status**: in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 + 验证收尾 ✅ 2026-05-15 — 救宪宪代码层完成 + Alpha 端到端 R5 验证通过，canary 零操作员介入) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
+> **Status**: in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 + 验证收尾 ✅ 2026-05-15 — 救宪宪代码层完成 + Alpha 端到端 R5 验证通过，canary 零操作员介入; **Phase C scope=A 单 PR 闭环 in-progress 2026-05-15**) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
 
 ## Why
 
@@ -278,9 +278,24 @@ in_context_observability:
 - [x] **AC-B8 (Canary Gate)**: env-gated factory `CAT_CAFE_CLAUDE_CARRIER` wired PR #1672。Default unset → `-p` 仍是布偶猫生产路径；opt-in `bg_daemon` → ClaudeBgCarrierService。Canary cohort selection criteria 待 Step 4 + Phase D。
 
 ### Phase C（Hub Oversight — 铲屎官硬约束）
-- [ ] AC-C1: F089 tmux agent pane 在 Hub 内可观看（read-only）
-- [ ] AC-C2: thread UI 实时显示 tool call / tool result / partial text（与 -p 模式 NDJSON 信息密度等价）
-- [ ] AC-C3: cat avatar status dot 实时反映 session 状态（idle/working/waiting/error/detached）
+
+> **Scope 拍板（铲屎官 2026-05-15 03:25）**：选 A — 完整 6 AC 单 PR 闭环（不切片），估 800-1500 行。
+>
+> **Audit baseline（2026-05-15）**：今天 bg_daemon 模式下铲屎官在猫咖能看到：text 气泡 / tool_use / tool_result / error / `ThreadCatStatus` 的 idle/working/done/error 状态点 / Hub workspace 已有的 F089 `AgentPaneViewer` tmux pane（read-only 流）。看不到：daemon `state.json.detail` 实时进度、pane↔thread invocation 联动、active sessions/process tree/quota deep-dive、thread→pane 接管入口、status dot tooltip detail。
+
+**实施 5 件事 → AC 映射**：
+
+| # | 实施项 | 关联 AC | 现状 → 改动 |
+|---|--------|---------|-------------|
+| 1 | daemon `state.detail` 进 AgentMessage stream | AC-C2 | `ClaudeBgCarrierService.ts:195` 现只在 error 时读 detail → 改成 working 期间也定期 yield `status` message |
+| 2 | tmux pane ↔ thread invocation 联动 | AC-C1 | `AgentPaneViewer` 现独立 → pane URL 注入 invocationId/catId metadata，thread 能看到"当前 pane 在跑哪个 invocation" |
+| 3 | Deep-dive 视图（新页面）| AC-C4 | 新建 `/agent-sessions` 路由：active sessions 列表 + per-session detail + 累计 token / 进程树 |
+| 4 | Thread 气泡上"接管"按钮 | AC-C5 | `ChatMessage` 加 takeover 入口 → 路由到 F089 pane read-write 模式 |
+| 5 | Status dot tooltip 加 detail | AC-C3 | `ThreadCatStatus` hover 时显示 `state.detail` 文本 |
+
+- [ ] AC-C1: F089 tmux agent pane 在 Hub 内可观看（read-only）+ 显示当前 invocation metadata
+- [ ] AC-C2: thread UI 实时显示 tool call / tool result / partial text + daemon detail status（与 -p 模式 NDJSON 信息密度等价或更高）
+- [ ] AC-C3: cat avatar status dot 实时反映 session 状态（idle/working/waiting/error/detached）+ tooltip 显示 detail
 - [ ] AC-C4: deep dive 视图：可看 active sessions / process tree / 累计消耗
 - [ ] AC-C5: 接管按钮可用，read-write 切换正确（F089 既定能力扩展）
 - [ ] AC-C6: 跨猫愿景守护（砚砚 + 烁烁/暹罗猫）认证"oversight 信息密度 ≥ -p 模式"
