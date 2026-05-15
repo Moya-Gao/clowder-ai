@@ -185,6 +185,8 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | KD-7b | 客观性 carry-over 段降级为 ≤100t placeholder | S2 实测 partial L0 下 0 项功能性能力退化（safety/并行/工具发现/schema/Skill/Schedule/压缩感知）——模型内置 + 工具 description + 家规已覆盖。强制重写功能性指令是过度工程；未来 CC 升级 audit 出新指令再按需补 | 2026-05-15 |
 | KD-8 | compile 脚本加 displayName→breed fallback 修 opus-47 无 workflow gap | opus-47 breedId='opus-47' 不在 {ragdoll,maine-coon,siamese}，现有 SystemPromptBuilder.ts:554 对其无 workflow（S1 实测 opus-47 workflow=0t）。F203 愿景"把该进的进去"——布偶猫家族共享 ragdoll workflow。**行为变更**，Phase B review 需 reviewer 知悉 | 2026-05-15 |
 | KD-9 | AC-B3 token 上限 4,500→5,000 | S1 baseline 实测 static 2,684-3,060t（高于立项前估算），14 项完整 L0 + 47 review 补 6 项物理下限 ~4,600t；per-family 治理已下沉 overlay 去重；5,000 仍在 prompt cache 单 breakpoint 内 | 2026-05-15 |
+| KD-10 | L0 完全替换走 `--system-prompt-file` 从文件读，不硬编码 ts/js | 铲屎官 directive 2026-05-15：「不能在 ts/js 里硬编码替换后的是什么，应该 --system-prompt-file 从文件读，单独 md 方便维护」。compile 渲染 per-cat L0 → 写文件 → Phase C spawn 引用文件路径；内容真相源始终是 `system-prompt-l0.md`。compile 脚本加 `writeL0File()` + CLI `--out` | 2026-05-15 |
+| KD-11 | 仓库门禁必须 `pnpm biome` / `pnpm check`，禁止 `npx biome` | 砚砚 Phase B review P1 教训：`npx biome` 解析到 0.3.3，项目实际 `pnpm biome` 2.4.1，`npx` 证据绕过项目门禁=假绿。沉淀到 [[feedback_verify_with_repo_toolchain]] | 2026-05-15 |
 
 ## Spike Log
 
@@ -211,6 +213,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-15 | S2 + S3-a 部分完成——并行调用退化（必补 carry-over）；safety/TaskCreate/Read schema 不退化；`--append-system-prompt` bg 实测能传内容（推翻历史注释） |
 | 2026-05-15 | 砚砚 REQUEST_CHANGES → 47 修正：S2-2 误判撤回（按 message.id 聚合 = 真并行）+ S2-5 拆 3 独立 spike 全部不退化 + ADR-030 supersede 注释 + S1 脚本合 main |
 | 2026-05-15 | Phase A 双签关闭（砚砚 + 铲屎官）→ Phase B 开工：L0 真相源 + compile 脚本 + 36 测试全绿（branch `9105d184f`），AC-B1-B4 ✅，待砚砚 review |
+| 2026-05-15 | 砚砚 Phase B review BLOCKING（P1: `pnpm biome` 门禁失败，我误用 `npx biome` 假绿）→ 修复：biome --write 格式 + buildTeammateRoster 复杂度 17→拆 helper + writeL0File（KD-10 CVO directive）。pnpm biome exit 0 + 37 tests（branch `583394f65`），待砚砚 confirm |
 
 ## Review Gate
 
