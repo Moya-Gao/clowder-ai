@@ -89,9 +89,9 @@ F201 关闭时，Antigravity 必须满足以下契约：
 
 - [ ] AC-A1: `empty_response` metadata 至少包含 `cascadeId`、`totalStepsSeen`、`rawStepTypeCounts`、`lastDelivered`、`cascadeHealth`、`sideEffectSummary`。
 - [ ] AC-A2: `stream_error` 根据 side-effect 状态分为 `pre_side_effect_transient`、`post_side_effect_interrupted`、`upstream_stream_interrupted`。
-- [ ] AC-A3: `CORTEX_STEP_TYPE_CODE_ACTION` 不再落入 silent `unknown_activity`；至少被识别为 side-effect-capable activity。
-- [ ] AC-A4: 不能判定 effect 的 step 默认 side-effect-capable，禁止 blind retry；warning budget 只是 telemetry，不能当恢复策略 gate。
-- [ ] AC-A5: UI step bucket 与 effect classification 有显式映射表；测试覆盖每个 fixture step 不出现互相矛盾的 retry/UI 结论。
+- [x] AC-A3: `CORTEX_STEP_TYPE_CODE_ACTION` 不再落入 silent `unknown_activity`；至少被识别为 side-effect-capable activity。
+- [x] AC-A4: 不能判定 effect 的 step 默认 side-effect-capable，禁止 blind retry；warning budget 只是 telemetry，不能当恢复策略 gate。
+- [x] AC-A5: UI step bucket 与 effect classification 有显式映射表；测试覆盖每个 fixture step 不出现互相矛盾的 retry/UI 结论。
 
 ### AC-B: Side-Effect Journal
 
@@ -133,11 +133,12 @@ F201 关闭时，Antigravity 必须满足以下契约：
 
 ## Implementation Phases
 
-### Phase A: Spec + Evidence Baseline
+### ✅ Phase A: Spec + Evidence Baseline
 
 - 固化 2026-05-15 两个事故为 regression cases。
 - 建 `AntigravityReliabilityEvent` / `SideEffectJournalEntry` 的领域模型。
 - 给现有 F061/F172/F174/F178/F183/F193/F194/F197 做边界说明，避免重复 reopen。
+- Merged in PR #1689 (`57acad964`): Phase A also landed the step-effect classifier baseline, `CODE_ACTION` visibility, unknown-step fail-closed retry veto, and UI/effect mapping tests.
 
 ### Phase B: Step Taxonomy + Journal
 
@@ -189,3 +190,4 @@ F201 关闭时，Antigravity 必须满足以下契约：
 |------|------|
 | 2026-05-15 | 立项草案：用户现场报告 `empty_response` + post-file-write `连接中断`；砚砚确认 F061 done、F178 in-progress，建议新开 F201 reliability contract。 |
 | 2026-05-15 | Landy 明确开工：46 + 47 双 review approve 后，F201 进入 in-progress，砚砚开 worktree 实施 Phase A。 |
+| 2026-05-15 | Phase A merged (PR #1689, squash `57acad964`): step-effect classifier baseline、`CODE_ACTION` visibility、unknown-step fail-closed retry veto、UI/effect mapping tests。 |
