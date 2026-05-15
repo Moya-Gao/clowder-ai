@@ -230,6 +230,15 @@ graph_candidate_score(node) =
 
 **实现顺序**：先 shadow mode 跑 consumption rerank 两周 → 确认 ConsumedMRR 提升 → 才切 on。
 
+**Phase C shadow → on 切换门禁**（砚砚 + 46 收敛 2026-05-14）：
+
+binary consumed prior 只允许在 shadow 阶段运行。切 `on` 前必须同时满足：
+1. ConsumedMRR 提升（相对 shadow baseline）
+2. **无 Goodhart 迹象**：短 dwellProxy（<2s）consumed 比例不升高、reformulate rate 不升高、fellBackToGrep rate 不升高
+3. **单次 consumed 永远不能直接抬 rank** — 只能通过 Bayesian shrinkage + exposure sliding window 进入统计。这是防"误点一次越排越高"的核心原则
+
+任一条件不满足 → 不切 on，先做 `signal_strength` 加权（v1.1 upgrade path：用 dwellProxy + nextGraphResolveAfterRead 给 consumed entry 分强弱权重）。
+
 ### Phase D: Full Trajectory Records（完整轨迹）
 
 铲屎官启发的最深一层。把 Phase A-C 的单次搜索视角扩展到任务级，引入 L2/L3 信号：
@@ -341,6 +350,7 @@ outputVerified = signal_or(
 | OQ-4 | Phase D TaskTrajectory 粒度 | ⬜ 待 Phase D Design Gate |
 | OQ-5 | consumption_prior 公式 | ✅ resolved: centered Bayesian shrinkage — `(shrunk_ctr - mean_ctr_kind) × recency`，三段式分支（cold-start/低样本/充分数据），constitutional 永远 max(0, lift) |
 | OQ-6 | 是否需要第三路 consumption-based RRF 召回？ | ⬜ 先上 `consumed_anchor_not_in_pool_rate` 指标（AC-C6），数据驱动决策 |
+| OQ-7 | query-conditioned consumption_prior（按 query_cluster × anchor 统计） | ⬜ v1 不做（3 猫数据量不够撑 pair-level shrinkage）。若 shadow 发现全局热门 anchor 污染无关 query（马太效应实锤），升级到 `consumption_prior(anchor, query_cluster)` + 样本不足 fallback 全局 prior。砚砚提出 2026-05-14 |
 
 ## Key Decisions
 
