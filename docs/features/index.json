@@ -1247,6 +1247,12 @@
       "name": "Antigravity Reliability Contract — 孟加拉猫可靠可用性闭环",
       "status": "draft | **Owner**: 缅因猫（砚砚） | **Reviewer**: 布偶猫 Opus 4.6 + 布偶猫 Opus 4.7 | **Priority**: P0",
       "file": "F201-antigravity-reliability-contract.md"
+    },
+    {
+      "id": "F202",
+      "name": "Plugin Framework — local discovery, config, and resource activation",
+      "status": "review | **Owner**: community @mindfn + Cat Cafe maintainers | **Priority**: P1",
+      "file": "F202-plugin-framework.md"
     }
   ]
 }
