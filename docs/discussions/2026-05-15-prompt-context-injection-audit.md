@@ -87,7 +87,9 @@ This document uses "prompt/context injection" as a broad harness term. That is n
 
 | Source | Production transport in Cat Cafe runtime | Strict role classification |
 |---|---|---|
-| `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` | Loaded by each native carrier outside Cat Cafe route code | carrier-native root instructions; exact API role is carrier-internal/opaque from this repo |
+| `CLAUDE.md` | Claude Code `prependUserContext()` wraps content in `<system-reminder>` and injects as the first **user message** (`api.ts:449-474` in restored source v2.1.88) | **user message**, not API system role |
+| `AGENTS.md` | Codex CLI `build_contextual_user_message()` wraps content in `<INSTRUCTIONS>` and injects as a **user message** (`updates.rs:178-202`; confirmed by test `agents_md.rs:22-27`) | **user message**, not developer role |
+| `GEMINI.md` | Gemini CLI default JIT mode: project-level GEMINI.md goes into first **user message** via `getInitialChatHistory()` (`environmentContext.ts:87-101`); global `~/.gemini/GEMINI.md` goes into `systemInstruction` | **user message** (project-level, JIT=true default); `systemInstruction` (global-level only) |
 | `buildStaticIdentity()` | Built in `route-serial.ts` / `route-parallel.ts`, passed to `invokeSingleCat()` as `params.systemPrompt`, then normally prepended into `effectivePrompt` when injection is needed | query/prompt text in the normal production path, despite the parameter name |
 | `buildInvocationContext()` | Prepended into the per-call prompt parts before context/history/current message | query/prompt text |
 | `modeSystemPrompt`, session bootstrap, MCP fallback instructions, context history | Joined into the same prompt body around invocation context and the current message | query/prompt text |
@@ -97,6 +99,8 @@ This document uses "prompt/context injection" as a broad harness term. That is n
 | Codex / Gemini / Antigravity / Kimi / OpenCode provider paths | No reliable provider system channel in our wrapper; system-like text is prepended or wrapped into the user prompt text | query/prompt text |
 
 Important correction: the identifier `systemPrompt` in TypeScript is a local variable/parameter name, not proof that content enters the model API's `system` role. In the current `invokeSingleCat()` hot path, `params.systemPrompt` is intentionally prepended to `effectivePrompt` because universal CLI prompt text was more reliable than provider-specific system flags.
+
+Carrier source code audit (2026-05-15, opus-46): All three CLI carriers were verified against open-source or restored source. Claude Code (`prependUserContext`), Codex CLI (`build_contextual_user_message`), and Gemini CLI (JIT mode default) all inject project-level instruction files as **user messages**, not into the API system/developer/systemInstruction field. This means root instruction files and `SystemPromptBuilder` output occupy the same channel — duplication between them is pure double-counting with no priority-tier differentiation.
 
 Edge case: the self-heal retry path can set `baseOptions.systemPrompt = params.systemPrompt` after a stale or poisoned session is dropped. In that exceptional retry, providers that honor `options.systemPrompt` may use their system channel/flag. This does not change the normal-path classification above.
 
