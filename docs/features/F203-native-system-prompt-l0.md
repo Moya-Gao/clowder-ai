@@ -108,7 +108,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 ### Phase A（Baseline + 扩展 spike）
 
 - [x] AC-A0: S0 — `claude --bg --system-prompt` 兼容性 spike（实测 job `f6474047` 暗号 `F198_BG_SYS_OK` 回收 ✅）
-- [ ] AC-A1: S1 — `scripts/measure-system-prompt.mjs` 量 baseline，每猫每模式（serial/parallel/independent）token 数表格
+- [x] AC-A1: S1 — `scripts/measure-system-prompt.mjs` 量 baseline，每猫每模式（serial/parallel/independent）token 数表格 ✅ 2026-05-15 见 `docs/audits/2026-05-15-system-prompt-baseline-v0.md`
 - [ ] AC-A2: S2 — 扩展功能性 spike 6 项全 pass（并行调用 / Skill 加载 / TaskCreate / Schedule / 复杂工具 schema / safety reflex），bg 模式下跑
 - [ ] AC-A3: S3 — F-BLOAT 两失败模式复现（"cats didn't receive content" vs "resume 重复累积"），确认 `--system-prompt` 替换式不重新踩坑
 - [x] AC-A4: S4 — Codex `developer_instructions` per-call 注入（砚砚 `62b9255e2` ✅）
@@ -190,7 +190,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | # | Spike | Owner | 状态 | 证据 | 结论 |
 |---|-------|-------|------|------|------|
 | S0 | `claude --bg --system-prompt` 兼容性 | 47 | ✅ 2026-05-15 | thread `mp6b68w9w0wt1boc` job `f6474047`，暗号 `F198_BG_SYS_OK` 原样回收 | bg 模式接受 `--system-prompt` argv，替换式生效，daemon lifecycle 正常 |
-| S1 | measure-system-prompt baseline | 47 | ⬜ 待开工 | 待生成 | — |
+| S1 | measure-system-prompt baseline | 47 | ✅ 2026-05-15 | `docs/audits/2026-05-15-system-prompt-baseline-v0.md` + 脚本 `scripts/measure-system-prompt.mjs`（feat/f203-spike-s1-baseline `046bfec17`） | 平均 3,302 tokens（18 sample，range 2,873-3,778）；GOVERNANCE_L0_DIGEST 47% 静态预算（~1,427t）；MCP_TOOLS_SECTION 467t（比 ADR 估算少 33%）；L0 ≤ 4,500 目标有 700-1,600t buffer |
 | S2 | 扩展功能性 spike（6 项） | 47 | ⬜ 待 S1 后 | 待生成（bg 模式下跑） | — |
 | S3 | F-BLOAT 两失败模式复现 | 47 | ⬜ 待 S2 一起 | 待生成 | — |
 | S4 | Codex `developer_instructions` per-call | 砚砚 | ✅ 2026-05-15 | commit `62b9255e2` + ADR-030 §10.4:429-434 | `codex exec -c 'developer_instructions=...'` 高于 user prompt，不污染 config.toml |
@@ -204,6 +204,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-15 | S0 ✅ — bg + system-prompt 兼容性 spike pass |
 | 2026-05-15 | S4 ✅ — Codex per-call developer_instructions（砚砚） |
 | 2026-05-15 | spec 修订：人话版愿景 + 客观性 carry-over 必须保留 + 砍灰度（KD-5/KD-7 铲屎官 directive）|
+| 2026-05-15 | S1 ✅ — baseline 量测脚本 + audit 归档（46% governance + 33% MCP 偏少 + 总 buffer 700-1,600t）|
 
 ## Review Gate
 
