@@ -9,6 +9,7 @@ import {
   settingsResourceRowClass,
 } from '../SettingsResourceCard';
 import { SettingsPageHeader } from './SettingsPageHeader';
+import { SkillConflictBanner } from './SkillConflictBanner';
 import { SkillPreviewModal } from './SkillPreviewModal';
 
 interface SkillMount {
@@ -96,6 +97,9 @@ export function SkillsContent() {
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORIES);
   const [query, setQuery] = useState('');
   const [previewSkill, setPreviewSkill] = useState<SkillEntry | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [resolving, setResolving] = useState<string | null>(null);
+  const [writeError, setWriteError] = useState<string | null>(null);
 
   const fetchSkills = useCallback(async () => {
     setError(null);
@@ -134,27 +138,81 @@ export function SkillsContent() {
     });
   }, [activeCategory, data, query]);
 
+  async function handleSync() {
+    setSyncing(true);
+    setWriteError(null);
+    try {
+      const res = await apiFetch('/api/skills/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        setWriteError(body.error ?? `Sync failed (${res.status})`);
+        return;
+      }
+      await fetchSkills();
+    } catch {
+      setWriteError('Sync request failed');
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function handleResolveConflict(skillName: string, choice: 'official' | 'mine') {
+    setResolving(skillName);
+    setWriteError(null);
+    try {
+      const res = await apiFetch('/api/skills/resolve-conflict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skillName, choice }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        setWriteError(body.error ?? `Resolve failed (${res.status})`);
+        return;
+      }
+      await fetchSkills();
+    } catch {
+      setWriteError('Resolve request failed');
+    } finally {
+      setResolving(null);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <SettingsPageHeader title="Skill 管理" subtitle="Skill 列表、触发条件和 SKILL.md 预览。" />
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{error}</p>}
+      {writeError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{writeError}</p>}
 
       {data?.staleness?.stale && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-          <span className="font-semibold">Skills 有更新</span>
-          {data.staleness.newSkills.length > 0 && <span className="ml-2">+{data.staleness.newSkills.length} 新增</span>}
-          {data.staleness.removedSkills.length > 0 && (
-            <span className="ml-2">-{data.staleness.removedSkills.length} 移除</span>
-          )}
+        <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+          <div>
+            <span className="font-semibold">Skills 有更新</span>
+            {data.staleness.newSkills.length > 0 && (
+              <span className="ml-2">+{data.staleness.newSkills.length} 新增</span>
+            )}
+            {data.staleness.removedSkills.length > 0 && (
+              <span className="ml-2">-{data.staleness.removedSkills.length} 移除</span>
+            )}
+          </div>
+          <button
+            type="button"
+            disabled={syncing}
+            onClick={() => void handleSync()}
+            className="rounded-[10px] bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+          >
+            {syncing ? 'Syncing...' : 'Sync'}
+          </button>
         </div>
       )}
 
       {data && data.conflicts.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          <span className="font-semibold">Skill 来源冲突</span>
-          <span className="ml-2">{data.conflicts.length} 项需要在同步流程中处理。</span>
-        </div>
+        <SkillConflictBanner conflicts={data.conflicts} resolving={resolving} onResolve={handleResolveConflict} />
       )}
 
       {data && (

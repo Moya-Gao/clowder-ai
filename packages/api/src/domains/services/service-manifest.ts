@@ -69,7 +69,8 @@ export interface ServiceState {
   status: ServiceStatus;
   httpStatus: number | null;
   error: string | null;
-  availableActions: [];
+  availableActions: ('install' | 'start' | 'stop' | 'uninstall')[];
+  prerequisites?: Omit<NonNullable<ServiceManifest['prerequisites']>, 'venvPath'>;
 }
 
 export const MODEL_ENV_VARS: Record<string, string> = {
@@ -306,6 +307,7 @@ export async function resolveServiceState(
     fetchHealth?: FetchServiceHealth;
   } = {},
 ): Promise<ServiceState> {
+  const hasScripts = !!service.scripts;
   const endpoint = resolveServiceEndpoint(service, options.env);
   if (!endpoint) {
     return {
@@ -315,20 +317,28 @@ export async function resolveServiceState(
       status: 'not_configured',
       httpStatus: null,
       error: null,
-      availableActions: [],
+      availableActions: hasScripts ? ['install'] : [],
+      ...(service.prerequisites ? { prerequisites: (({ venvPath: _, ...r }) => r)(service.prerequisites) } : {}),
     };
   }
 
-  const healthProbe = options.fetchHealth ? options.fetchHealth : fetchServiceHealth;
+  const healthProbe = options.fetchHealth ?? fetchServiceHealth;
   const health = await healthProbe(resolveServiceHealthUrl(service, endpoint), service);
+  const status: ServiceStatus = health.ok ? 'healthy' : 'unhealthy';
+  const actions: ServiceState['availableActions'] = hasScripts
+    ? status === 'healthy'
+      ? ['stop', 'uninstall']
+      : ['install', 'start', 'uninstall']
+    : [];
   return {
     ...buildClientServiceManifest(service),
     endpoint: maskServiceEndpoint(endpoint),
     configured: true,
-    status: health.ok ? 'healthy' : 'unhealthy',
+    status,
     httpStatus: typeof health.status === 'number' ? health.status : null,
     error: typeof health.error === 'string' ? health.error : null,
-    availableActions: [],
+    availableActions: actions,
+    ...(service.prerequisites ? { prerequisites: (({ venvPath: _, ...r }) => r)(service.prerequisites) } : {}),
   };
 }
 

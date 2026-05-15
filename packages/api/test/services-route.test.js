@@ -79,7 +79,7 @@ describe('services routes', () => {
       assert.equal(whisper.endpoint, 'http://127.0.0.1:19999/healthy');
       assert.equal(whisper.configured, true);
       assert.equal(whisper.status, 'healthy');
-      assert.deepEqual(whisper.availableActions, []);
+      assert.deepEqual(whisper.availableActions, ['stop', 'uninstall']);
       assert.equal('scripts' in whisper, false);
       assert.equal('installScript' in whisper, false);
       assert.equal('startScript' in whisper, false);
@@ -276,6 +276,25 @@ describe('services routes', () => {
       assert.equal(payload.status, 'healthy');
       assert.equal(payload.httpStatus, 200);
       assert.equal(payload.error, null);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('includes install in available actions for unhealthy services with scripts', async () => {
+    const app = await buildApp({
+      env: { WHISPER_URL: 'http://127.0.0.1:19999/down' },
+    });
+    try {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/services',
+        headers: SESSION_HEADERS,
+      });
+      assert.equal(res.statusCode, 200, res.payload);
+      const whisper = JSON.parse(res.payload).services.find((s) => s.id === 'whisper-stt');
+      assert.equal(whisper.status, 'unhealthy');
+      assert.deepEqual(whisper.availableActions, ['install', 'start', 'uninstall']);
     } finally {
       await app.close();
     }
