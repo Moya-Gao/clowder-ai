@@ -91,6 +91,7 @@ interface EnvVar {
   category: string;
   sensitive: boolean;
   currentValue: string | null;
+  allowedValues?: string[];
 }
 
 interface EnvSummaryResponse {
@@ -145,10 +146,16 @@ export function IndexStatus() {
     }
   }, []);
 
-  const toggleEnvVar = useCallback(
-    async (name: string, currentValue: string | null) => {
+  const cycleEnvVar = useCallback(
+    async (name: string, currentValue: string | null, allowedValues?: string[]) => {
       setUpdatingKey(name);
-      const newValue = currentValue === 'on' ? 'off' : 'on';
+      let newValue: string;
+      if (allowedValues && allowedValues.length > 1) {
+        const idx = allowedValues.indexOf(currentValue ?? allowedValues[0]!);
+        newValue = allowedValues[(idx + 1) % allowedValues.length]!;
+      } else {
+        newValue = currentValue === 'on' ? 'off' : 'on';
+      }
       try {
         await apiFetch('/api/config/env', {
           method: 'PATCH',
@@ -217,8 +224,9 @@ export function IndexStatus() {
           <h3 className="mb-2 text-xs font-semibold text-cafe-black">功能开关</h3>
           {evidenceVars.map((v) => {
             const isOn = v.currentValue === 'on';
-            const isBinary = v.currentValue === 'on' || v.currentValue === 'off' || v.currentValue == null;
+            const hasMultiValues = v.allowedValues && v.allowedValues.length > 2;
             const isUpdating = updatingKey === v.name;
+            const current = v.currentValue ?? v.defaultValue;
             return (
               <div
                 key={v.name}
@@ -228,21 +236,33 @@ export function IndexStatus() {
                   <div className="text-xs font-medium text-cafe-black">{v.name}</div>
                   <div className="text-[10px] text-cafe-secondary">{v.description}</div>
                 </div>
-                {isBinary ? (
+                {hasMultiValues ? (
                   <button
                     type="button"
                     disabled={isUpdating}
-                    onClick={() => toggleEnvVar(v.name, v.currentValue)}
+                    onClick={() => cycleEnvVar(v.name, v.currentValue, v.allowedValues)}
+                    className={`rounded px-2 py-0.5 text-[10px] font-medium text-white transition-colors ${
+                      current === 'on' || current === 'apply'
+                        ? 'bg-emerald-600 hover:bg-emerald-700'
+                        : current === 'off'
+                          ? 'bg-zinc-400 hover:bg-zinc-500'
+                          : 'bg-amber-500 hover:bg-amber-600'
+                    } ${isUpdating ? 'opacity-50' : ''}`}
+                    title={`点击切换: ${v.allowedValues!.join(' → ')}`}
+                  >
+                    {current}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isUpdating}
+                    onClick={() => cycleEnvVar(v.name, v.currentValue)}
                     className={`relative h-5 w-9 rounded-full transition-colors ${isOn ? 'bg-green-500' : 'bg-gray-300'} ${isUpdating ? 'opacity-50' : ''}`}
                   >
                     <span
                       className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${isOn ? 'translate-x-4' : ''}`}
                     />
                   </button>
-                ) : (
-                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-                    {v.currentValue}
-                  </span>
                 )}
               </div>
             );

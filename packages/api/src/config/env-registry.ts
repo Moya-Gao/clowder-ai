@@ -56,6 +56,8 @@ export interface EnvDefinition {
   runtimeEditable?: boolean;
   /** If true, this var should appear in .env.example (enforced by check:env-example) */
   exampleRecommended?: boolean;
+  /** Explicit allowed values for cycle-style toggles (e.g. ['off','shadow','on']) */
+  allowedValues?: string[];
 }
 
 export const ENV_CATEGORIES: Record<EnvCategory, string> = {
@@ -1294,6 +1296,7 @@ export const ENV_VARS: EnvDefinition[] = [
     description: '向量检索模式 (off/shadow/on)，on = 开启 Qwen3 embedding rerank',
     category: 'evidence',
     sensitive: false,
+    allowedValues: ['off', 'shadow', 'on'],
   },
   {
     name: 'F102_ABSTRACTIVE',
@@ -1324,6 +1327,7 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'evidence',
     sensitive: false,
     runtimeEditable: true,
+    allowedValues: ['off', 'shadow', 'on'],
   },
   // --- F163 记忆熵减实验框架 ---
   {
@@ -1333,6 +1337,7 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'evidence',
     sensitive: false,
     runtimeEditable: true,
+    allowedValues: ['off', 'shadow', 'on'],
   },
   {
     name: 'F163_ALWAYS_ON_INJECTION',
@@ -1341,6 +1346,7 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'evidence',
     sensitive: false,
     runtimeEditable: true,
+    allowedValues: ['off', 'shadow', 'on'],
   },
   {
     name: 'F163_RETRIEVAL_RERANK',
@@ -1349,6 +1355,7 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'evidence',
     sensitive: false,
     runtimeEditable: true,
+    allowedValues: ['off', 'shadow', 'on'],
   },
   {
     name: 'F163_COMPRESSION',
@@ -1357,6 +1364,7 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'evidence',
     sensitive: false,
     runtimeEditable: true,
+    allowedValues: ['off', 'suggest', 'apply'],
   },
   {
     name: 'F163_PROMOTION_GATE',
@@ -1365,6 +1373,7 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'evidence',
     sensitive: false,
     runtimeEditable: true,
+    allowedValues: ['off', 'suggest', 'apply'],
   },
   {
     name: 'F163_CONTRADICTION_DETECTION',
@@ -1373,6 +1382,7 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'evidence',
     sensitive: false,
     runtimeEditable: true,
+    allowedValues: ['off', 'suggest', 'apply'],
   },
   {
     name: 'F163_REVIEW_QUEUE',
@@ -1381,6 +1391,7 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'evidence',
     sensitive: false,
     runtimeEditable: true,
+    allowedValues: ['off', 'suggest', 'apply'],
   },
   {
     name: 'EMBED_URL',

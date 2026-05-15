@@ -12,6 +12,7 @@ interface EnvVar {
   sensitive: boolean;
   maskMode?: 'url';
   runtimeEditable?: boolean;
+  allowedValues?: string[];
   currentValue: string | null;
 }
 
