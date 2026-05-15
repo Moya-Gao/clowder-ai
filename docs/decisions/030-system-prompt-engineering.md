@@ -243,12 +243,12 @@ pnpm --filter @cat-cafe/api test:system-prompt
 |-----|---------|------|-----------|
 | **Claude Code** | `--system-prompt "text"` | **替换**默认 system prompt | ⚠️ 替换式，丢失 Claude Code 自身指令 |
 | **Claude Code** | `--append-system-prompt "text"` | **追加**到默认 system prompt 末尾 | ⚠️ 我们代码里存在但未启用（`ClaudeAgentService.ts:261-264`），F-BLOAT 注释标记"unreliable" |
-| **Codex CLI** | `config.toml` → `developer_instructions` | 进入 OpenAI `developer` role | ✅ 可用，但需写入 `~/.codex/config.toml` |
-| **Codex CLI** | `config.toml` → `base_instructions` | **替换** model 默认指令 | ⚠️ 替换式 |
+| **Codex CLI** | `codex exec -c 'developer_instructions="..."'` / `config.toml` → `developer_instructions` | 进入 OpenAI `developer` role | ✅ per-call argv 覆盖已验证，不需要写全局 `~/.codex/config.toml` |
+| **Codex CLI** | `-c 'base_instructions="..."'` / `config.toml` → `base_instructions` | **替换** model 默认指令 | ⚠️ 替换式 |
 | **Gemini CLI** | `GEMINI_SYSTEM_MD` 环境变量 | **替换** systemInstruction | ⚠️ 替换式，丢失 Gemini CLI 自身指令 |
 | **Gemini CLI** | `jitContext: false` 设置 | 禁用 Gemini CLI 自动上下文 | 配合用，非独立注入手段 |
 
-**结论**：三家 CLI 都有真 system prompt 注入能力，但**替换式居多**（丢失 CLI 自身指令），仅 Codex 的 `developer_instructions` 是追加式。Claude Code 的 `--append-system-prompt` 是唯一追加式且不丢指令的选项，但我们自己的代码标记其"unreliable"——是否重新评估是开放问题。
+**结论**：三家 CLI 都有真 system prompt 注入能力，但**替换式居多**（丢失 CLI 自身指令）。Codex 的 `developer_instructions` 是追加式，且可通过 `-c` 做 per-invocation 注入，避免全局 `config.toml` 多猫并发 race。Claude Code 的 `--append-system-prompt` 是追加式且不丢指令的选项，但我们自己的代码标记其"unreliable"——是否重新评估是开放问题。
 
 #### 8.3 对 CLAUDE.md / AGENTS.md / GEMINI.md 瘦身的影响
 
@@ -418,13 +418,20 @@ Cat Cafe MCP quick index:
 
 **前置 Spike（全部无风险，必须在 Phase 1 前完成）**：
 
-| # | Spike | Owner | 依赖 |
-|---|-------|-------|------|
-| S1 | 写 `scripts/measure-system-prompt.mjs` 量 baseline（每猫每模式 token） | 宪宪 | 无 |
-| S2 | 扩 §9.4 spike：并行调用 / Skill / TaskCreate / Schedule / 复杂工具 / safety reflex | 宪宪 | 无 |
-| S3 | F-BLOAT 根因复现实验：git blame + `--system-prompt` resume 行为 | 宪宪 | 无 |
-| S4 | Codex `developer_instructions` per-call 注入路径（argv / env override） | 砚砚 | 无 |
-| S5 | Gemini `GEMINI_SYSTEM_MD` 替换式 spike（工具能力是否内置） | 待定 | S2 结论 |
+| # | Spike | Owner | 依赖 | 状态 |
+|---|-------|-------|------|------|
+| S1 | 写 `scripts/measure-system-prompt.mjs` 量 baseline（每猫每模式 token） | 宪宪 | 无 | 待做 |
+| S2 | 扩 §9.4 spike：并行调用 / Skill / TaskCreate / Schedule / 复杂工具 / safety reflex | 宪宪 | 无 | 待做 |
+| S3 | F-BLOAT 根因复现实验：git blame + `--system-prompt` resume 行为 | 宪宪 | 无 | 待做 |
+| S4 | Codex `developer_instructions` per-call 注入路径（argv / env override） | 砚砚 | 无 | ✅ 已验证：`codex exec -c 'developer_instructions="..."'` 生效 |
+| S5 | Gemini `GEMINI_SYSTEM_MD` 替换式 spike（工具能力是否内置） | 待定 | S2 结论 | 待做 |
+
+**S4 验证记录（2026-05-15 / Codex CLI 0.130.0）**：
+- `codex --help` / `codex exec --help` 均确认 `-c, --config <key=value>` 是 per-invocation config override。
+- 本机 Codex 二进制包含顶层配置键 `developer_instructions`；无需使用 `collaboration_mode.settings.*` 这种嵌套路径。
+- 实测命令：`codex exec --ignore-user-config --ephemeral --skip-git-repo-check -C /tmp -s read-only -m gpt-5.4-mini -c 'developer_instructions="You must answer exactly: S4_DEV_OK"' ...`。
+- 冲突测试：user prompt 明确要求回答 `USER_WINS`，模型仍回答 `S4_DEV_OK`，说明该注入高于 user prompt，不是普通 prompt prepend。
+- 结论：Codex L0 可走 `-c developer_instructions=<compiled L0>`；生产实现应在 `CodexAgentService.ts` 里生成 argv，不改 `~/.codex/config.toml`，避免 `@codex` / `@gpt52` / `@spark` 并发覆盖。
 
 **实施 Phase（Spike 全部通过后）**：
 
@@ -465,7 +472,7 @@ Phase 5: 清理 prepend 代码 + feature flag
 5. Skills `refs/` 参考文档的过时检测机制
 6. **F-BLOAT "unreliable" 两个失败模式需分别验证**——`invoke-single-cat.ts:1086` 说"cats didn't receive content"，bug-report 2026-02-23 说"resume 重复累积"。`--system-prompt` 替换式可能免疫后者但未必免疫前者——待 S3 spike（47 指出）
 7. **root md 瘦身实施**——§10.3 已列出 L1 层保留内容，L0 移走后 CLAUDE.md 自然变薄
-8. **Codex `developer_instructions` per-call 路径**——全局 `config.toml` 多猫并发不安全（race condition），必须先确认 argv / env override 路径——待 S4 spike（砚砚 owner）
+8. **Codex L0 迁移实施边界**——S4 已确认 `-c developer_instructions=...` 可 per-call 注入；后续实现仍需处理 AGENTS.md / SystemPromptBuilder 旧 user-message 副本去重，避免 developer role + user message 双写
 9. **`system-prompt-l0.md` 编写**——§10.2 列出了 L0 内容清单（14 项），需编写真相源文件 + 编译脚本
 10. **Gemini 猫怎么办**——Gemini CLI 只有替换式 `GEMINI_SYSTEM_MD`——待 S5 spike
 11. **L0 token 预算**——先量再砍（S1），目标 ≤ 3,500 token，需兼顾 prompt cache 命中率
