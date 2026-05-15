@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
+import { apiFetch } from '@/utils/api-client';
 import { ExportButton } from './ExportButton';
 import { HubButton } from './HubButton';
 import { CatCafeLogo } from './icons/CatCafeLogo';
@@ -59,6 +61,8 @@ export function ChatContainerHeader({
           <h1 className="text-lg font-bold text-cafe-black">Cat Café</h1>
           <div className="flex items-center gap-2 min-w-0">
             <ThreadIndicator threadId={threadId} />
+            {/* F198 Phase C AC-C5: Daemon active indicator */}
+            <DaemonActiveIndicator threadId={threadId} />
             {/* F154 Phase B: Preferred cat pill — desktop only (KD-10) */}
             <div className="hidden lg:block flex-shrink-0">
               <ThreadCatPill threadId={threadId} />
@@ -118,6 +122,51 @@ export function ChatContainerHeader({
         <RightPanelToggle onToggleStatusPanel={onToggleStatusPanel} statusPanelOpen={statusPanelOpen} />
       </div>
     </header>
+  );
+}
+
+/** F198 Phase C AC-C5: shows amber pill when a bg carrier daemon is running for this thread.
+ *  Clicking it navigates to the Hub agent-sessions oversight tab. */
+function DaemonActiveIndicator({ threadId }: { threadId: string }) {
+  const [daemonShortId, setDaemonShortId] = useState<string | null>(null);
+  const openHub = useChatStore((s) => s.openHub);
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await apiFetch(`/api/threads/${threadId}/active-pane`);
+        if (cancelled) return;
+        if (res.ok) {
+          const body = (await res.json()) as { daemonShortId?: string };
+          setDaemonShortId(body.daemonShortId ?? null);
+        } else {
+          setDaemonShortId(null);
+        }
+      } catch {
+        if (!cancelled) setDaemonShortId(null);
+      }
+    };
+    void check();
+    const timer = setInterval(() => void check(), 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [threadId]);
+
+  if (!daemonShortId) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => openHub('agent-sessions')}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-amber-800 bg-amber-100 hover:bg-amber-200 transition-colors flex-shrink-0"
+      title={`Daemon ${daemonShortId} 运行中 · 点击查看后台会话`}
+    >
+      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+      {daemonShortId}
+    </button>
   );
 }
 

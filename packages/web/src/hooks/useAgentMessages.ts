@@ -332,7 +332,7 @@ export interface BackgroundStoreLike {
   addThreadActiveInvocation: (threadId: string, invocationId: string, catId: string, mode: string) => void;
   /** F108: Remove an active invocation slot from a thread */
   removeThreadActiveInvocation: (threadId: string, invocationId: string) => void;
-  updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
+  updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType, detail?: string) => void;
   /** Batch content-append + metadata + streaming + catStatus into one set(). */
   batchStreamChunkUpdate: (params: {
     threadId: string;
@@ -1813,7 +1813,8 @@ export function handleBackgroundAgentMessage(
 
   if (msg.type === 'status') {
     const mapped = BACKGROUND_STATUS_MAP[msg.content ?? ''] ?? 'streaming';
-    options.store.updateThreadCatStatus(msg.threadId, msg.catId, mapped);
+    const detail = msg.content && !BACKGROUND_STATUS_MAP[msg.content] ? msg.content : undefined;
+    options.store.updateThreadCatStatus(msg.threadId, msg.catId, mapped, detail);
     return;
   }
 

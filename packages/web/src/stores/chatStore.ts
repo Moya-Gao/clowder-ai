@@ -108,6 +108,7 @@ function snapshotActive(s: ChatState): ThreadState {
     intentMode: s.intentMode,
     targetCats: s.targetCats,
     catStatuses: s.catStatuses,
+    catStatusDetails: s.catStatusDetails,
     catInvocations: s.catInvocations,
     currentGame: s.currentGame,
     unreadCount: 0, // active thread always 0
@@ -625,6 +626,8 @@ export interface ChatState {
   intentMode: 'execute' | 'ideate' | null;
   targetCats: string[];
   catStatuses: Record<string, CatStatusType>;
+  /** F198 Phase C AC-C3: daemon detail text per catId */
+  catStatusDetails: Record<string, string>;
   catInvocations: Record<string, CatInvocationInfo>;
   /** F101: Active game in current thread */
   currentGame: GameState | null;
@@ -897,7 +900,7 @@ export interface ChatState {
   armUnreadSuppression: (threadId: string) => void;
   /** F069: Initialize unread state from API (page load recovery) */
   initThreadUnread: (threadId: string, unreadCount: number, hasUserMention: boolean) => void;
-  updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
+  updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType, detail?: string) => void;
   /** F173 PR-C Task 10: clear targetCats / catStatuses + mark stale catInvocations completed
    *  for a specific thread. Mirrors flat when active. Replaces the flat-only clearCatStatuses
    *  inside reconcile / hydration paths so KD-2 mirror invariant holds. */
@@ -1021,6 +1024,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   intentMode: null,
   targetCats: [],
   catStatuses: {},
+  catStatusDetails: {},
   catInvocations: {},
   currentGame: null,
   queue: [],
@@ -1814,8 +1818,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return {
         targetCats: [],
         catStatuses: {},
+        catStatusDetails: {},
         catInvocations: cleanedInvocations,
-        ...mirrorActiveFlat(state, { targetCats: [], catStatuses: {}, catInvocations: cleanedInvocations }),
+        ...mirrorActiveFlat(state, {
+          targetCats: [],
+          catStatuses: {},
+          catStatusDetails: {},
+          catInvocations: cleanedInvocations,
+        }),
       };
     }),
 
@@ -1840,10 +1850,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
       if (threadId === state.currentThreadId) {
         const cleaned = cleanInvocations(state.catInvocations);
-        const patch = { targetCats: [] as string[], catStatuses: {}, catInvocations: cleaned };
+        const patch = { targetCats: [] as string[], catStatuses: {}, catStatusDetails: {}, catInvocations: cleaned };
         return {
           targetCats: [],
           catStatuses: {},
+          catStatusDetails: {},
           catInvocations: cleaned,
           ...mirrorActiveFlat(state, patch),
         };
@@ -1858,6 +1869,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             ...existing,
             targetCats: [],
             catStatuses: {},
+            catStatusDetails: {},
             catInvocations: cleaned,
           },
         },
@@ -2540,7 +2552,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return {
           intentMode: mode,
           catStatuses: {},
-          ...mirrorActiveToThreadStates(state, threadId, { intentMode: mode, catStatuses: {} }),
+          catStatusDetails: {},
+          ...mirrorActiveToThreadStates(state, threadId, { intentMode: mode, catStatuses: {}, catStatusDetails: {} }),
         };
       }
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
@@ -2551,6 +2564,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             ...existing,
             intentMode: mode,
             catStatuses: {},
+            catStatusDetails: {},
             lastActivity: Date.now(),
           },
         },
@@ -2767,21 +2781,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }),
 
   /** Update a specific cat's status in a background thread (for sidebar indicators) */
-  updateThreadCatStatus: (threadId, catId, status) =>
+  updateThreadCatStatus: (threadId, catId, status, detail) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
-        if (state.catStatuses[catId] === status) return state;
+        if (state.catStatuses[catId] === status && !detail) return state;
         const catStatuses = { ...state.catStatuses, [catId]: status };
-        return { catStatuses, ...mirrorActiveToThreadStates(state, threadId, { catStatuses }) };
+        const catStatusDetails = detail ? { ...state.catStatusDetails, [catId]: detail } : state.catStatusDetails;
+        return {
+          catStatuses,
+          catStatusDetails,
+          ...mirrorActiveToThreadStates(state, threadId, { catStatuses, catStatusDetails }),
+        };
       }
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
-      if (existing.catStatuses[catId] === status) return state;
+      if (existing.catStatuses[catId] === status && !detail) return state;
+      const catStatusDetails = detail ? { ...existing.catStatusDetails, [catId]: detail } : existing.catStatusDetails;
       return {
         threadStates: {
           ...state.threadStates,
           [threadId]: {
             ...existing,
             catStatuses: { ...existing.catStatuses, [catId]: status },
+            catStatusDetails,
             lastActivity: Date.now(),
           },
         },

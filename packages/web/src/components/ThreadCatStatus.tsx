@@ -17,6 +17,15 @@ function aggregateStatus(ts: ThreadState): 'idle' | 'working' | 'done' | 'error'
   return 'idle';
 }
 
+function getDaemonDetailTooltip(threadState: ThreadState, status: string): string {
+  if (status !== 'working') return status;
+  const workingCats = Object.entries(threadState.catStatuses)
+    .filter(([, s]) => s === 'streaming' || s === 'pending' || s === 'spawning')
+    .map(([catId]) => catId);
+  const details = workingCats.map((catId) => threadState.catStatusDetails?.[catId]).filter(Boolean);
+  return details.length > 0 ? (details[0] as string) : status;
+}
+
 export function ThreadCatStatus({
   threadState,
   unreadCount,
@@ -37,10 +46,12 @@ export function ThreadCatStatus({
     error: 'text-red-500 animate-cat-shake',
   };
 
+  const tooltip = getDaemonDetailTooltip(threadState, status);
+
   return (
     <span className="inline-flex items-center gap-0.5 flex-shrink-0">
       {status !== 'idle' && (
-        <span className={`text-xs ${statusClasses[status]}`} title={status}>
+        <span className={`text-xs ${statusClasses[status]}`} title={tooltip}>
           ᓚᘏᗢ
         </span>
       )}

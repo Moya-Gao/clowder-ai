@@ -331,6 +331,9 @@ export class ClaudeBgCarrierService implements AgentService {
     const deadline = Date.now() + timeoutMs;
 
     let tailer: TranscriptTailer | undefined;
+    // F198 Phase C (AC-C2): track last emitted detail to deduplicate status messages.
+    // Only emit a new 'status' AgentMessage when state.detail actually changes.
+    let lastEmittedDetail: string | undefined;
     // cloud codex P2 (2026-05-14): incremental usage accumulator — O(1)
     // scalar state. Avoids retaining every parsed transcript entry until
     // terminal (long jobs would build unbounded memory pressure).
@@ -385,6 +388,20 @@ export class ClaudeBgCarrierService implements AgentService {
       }
 
       const state = await consumer.readState();
+
+      // F198 Phase C (AC-C2): emit 'status' when daemon detail changes (dedup by string equality).
+      // 'status' messages do NOT create chat bubbles; frontend routes them to the cat avatar tooltip.
+      // Null/empty detail is ignored — only meaningful progress strings are emitted.
+      const currentDetail = state?.detail;
+      if (currentDetail && currentDetail !== lastEmittedDetail && state?.state !== 'done' && state?.state !== 'error') {
+        lastEmittedDetail = currentDetail;
+        yield {
+          type: 'status',
+          catId: this.catId,
+          content: currentDetail,
+          timestamp: Date.now(),
+        };
+      }
 
       // Lazy-init tailer once daemon writes state.linkScanPath. Some short
       // jobs may complete before linkScanPath appears — handled by legacy

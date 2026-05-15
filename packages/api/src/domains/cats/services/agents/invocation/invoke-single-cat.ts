@@ -1194,6 +1194,17 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           // Redis write failure — session won't persist, but chain continues
         }
 
+        // F198 Phase C P1-1: register bg carrier daemon session for Hub observability.
+        // Only fires when the provider is claude-bg; msg.sessionId is the daemon shortId.
+        if (deps.agentPaneRegistry && msg.metadata?.provider === 'claude-bg') {
+          deps.agentPaneRegistry.registerBgCarrier({
+            invocationId,
+            catId,
+            daemonShortId: msg.sessionId,
+            threadId,
+          });
+        }
+
         // F24: Ensure SessionRecord exists for this session
         if (deps.sessionChainStore && sessionChainActive) {
           try {
@@ -1809,7 +1820,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         if (iterResult.done) break;
         const msg = iterResult.value;
         // F149: provider_signal / liveness_signal must NOT reset timeout — prevents "续命"
-        if (msg.type !== 'provider_signal' && msg.type !== 'liveness_signal') resetInvocationTimeout();
+        // F198 Phase C P2-1: status (daemon detail progress) also must NOT reset timeout —
+        // a daemon sending frequent status updates must not evade the 30-min kill deadline.
+        if (msg.type !== 'provider_signal' && msg.type !== 'liveness_signal' && msg.type !== 'status')
+          resetInvocationTimeout();
         if (shouldTrackGeminiResumeFailures && options.sessionId && msg.type === 'error') {
           const failureKind = classifyResumeFailure(msg.error);
           if (failureKind) {
@@ -1926,7 +1940,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           msg.type !== 'done' &&
           msg.type !== 'session_init' &&
           msg.type !== 'provider_signal' &&
-          msg.type !== 'liveness_signal'
+          msg.type !== 'liveness_signal' &&
+          msg.type !== 'status'
         ) {
           attemptHasContentOutput = true;
           // Substantive = real model output, excludes system_info (e.g. timeout_diagnostics).
@@ -2168,6 +2183,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         deps.agentPaneRegistry.markDone(invocationId, 0);
       }
     }
+    // F198 Phase C P1-1: mark bg carrier done (always, on any terminal state)
+    deps.agentPaneRegistry?.markBgCarrierDone(invocationId);
 
     // F152: End invocation span + emit completion/error log through OTel
     // Three paths: (1) catch already handled, (2) yielded-error, (3) abort, (4) ok

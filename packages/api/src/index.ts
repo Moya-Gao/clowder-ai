@@ -1127,7 +1127,9 @@ async function main(): Promise<void> {
       app.log.error(`[tmux] CAT_CAFE_TMUX_AGENT=1 but tmux not found: ${(err as Error).message}`);
     }
   }
-  const agentPaneRegistry = tmuxGateway ? new AgentPaneRegistry() : undefined;
+  // F198 Phase C P1-1: registry is unconditional — bg carrier sessions (claude --bg)
+  // must be trackable regardless of whether tmux agent panes are enabled.
+  const agentPaneRegistry = new AgentPaneRegistry();
 
   // F120: Preview Gateway (独立端口反向代理) + Port Discovery
   const PREVIEW_GATEWAY_ENABLED = process.env.PREVIEW_GATEWAY_ENABLED !== '0';

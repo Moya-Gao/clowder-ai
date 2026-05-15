@@ -41,6 +41,7 @@ function buildThreadBState(cachedAssistantTs: number) {
     intentMode: 'execute' as const,
     targetCats: ['opus'],
     catStatuses: { opus: 'streaming' as const },
+    catStatusDetails: {},
     catInvocations: {},
     currentGame: null,
 
@@ -600,6 +601,7 @@ describe('useChatHistory replace hydration', () => {
       intentMode: null,
       targetCats: [],
       catStatuses: {},
+      catStatusDetails: {},
       catInvocations: {},
       currentGame: null,
       unreadCount: 1,
@@ -676,6 +678,7 @@ describe('useChatHistory replace hydration', () => {
       intentMode: null,
       targetCats: [],
       catStatuses: {},
+      catStatusDetails: {},
       catInvocations: {},
       currentGame: null,
       unreadCount: 0,

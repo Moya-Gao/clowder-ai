@@ -113,7 +113,8 @@ export type AgentMessageType =
   | 'a2a_handoff'
   | 'system_info' // budget warnings, cancel feedback, extraction progress, thinking
   | 'provider_signal' // F149: upstream capacity/retry signals — skipped by invocation timeout & content flags
-  | 'liveness_signal'; // F149: stream idle watchdog — skipped by invocation timeout & content flags
+  | 'liveness_signal' // F149: stream idle watchdog — skipped by invocation timeout & content flags
+  | 'status'; // F198 Phase C: transient daemon progress detail — updates cat avatar tooltip, not a bubble
 
 /**
  * A message yielded from an agent during invocation

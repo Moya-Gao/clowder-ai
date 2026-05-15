@@ -543,6 +543,8 @@ export interface ThreadState {
   intentMode: 'execute' | 'ideate' | null;
   targetCats: string[];
   catStatuses: Record<string, CatStatusType>;
+  /** F198 Phase C AC-C3: daemon detail text per catId, shown in status dot tooltip */
+  catStatusDetails: Record<string, string>;
   catInvocations: Record<string, CatInvocationInfo>;
   /** F101: Active game in this thread */
   currentGame: GameState | null;
@@ -609,6 +611,7 @@ export const DEFAULT_THREAD_STATE: ThreadState = {
   intentMode: null,
   targetCats: [],
   catStatuses: {},
+  catStatusDetails: {},
   catInvocations: {},
   currentGame: null,
   unreadCount: 0,

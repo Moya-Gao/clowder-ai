@@ -16,6 +16,7 @@ import {
 } from './cat-cafe-hub.navigation';
 import { CatOverviewTab, type ConfigData, SystemTab } from './config-viewer-tabs';
 import { HubAccountsTab } from './HubAccountsTab';
+import { HubAgentSessionsTab } from './HubAgentSessionsTab';
 import { HubCapabilityTab } from './HubCapabilityTab';
 import { HubCatEditor } from './HubCatEditor';
 import { HubClaudeRescueSection } from './HubClaudeRescueSection';
@@ -352,6 +353,7 @@ export function CatCafeHub() {
             {tab === 'health' && <BrakeSettingsPanel />}
             {tab === 'memory' && <HubMemoryTab />}
             {tab === 'rescue' && <HubClaudeRescueSection />}
+            {tab === 'agent-sessions' && <HubAgentSessionsTab />}
             {tab === 'leaderboard' && <HubLeaderboardTab />}
             {tab === 'marketplace' && <MarketplacePanel />}
           </div>
