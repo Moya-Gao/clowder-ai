@@ -717,61 +717,58 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
 
   return (
     <>
-      <aside className={`${className ?? 'w-60'} border-r border-cocreator-light bg-cafe-surface flex flex-col h-full`}>
-        <div className="p-3 border-b border-cocreator-light flex items-center justify-between">
+      <aside className={`${className ?? 'w-60'} border-r border-[var(--console-border-soft)] bg-[var(--console-shell-bg)] flex flex-col h-full`}>
+        <div className="px-3 pt-3 pb-2 flex items-center justify-between">
           <span className="text-sm font-semibold text-cafe-black">对话</span>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
+              onClick={() => {
+                const fromParam = currentThreadId ? `?from=${encodeURIComponent(currentThreadId)}` : '';
+                window.location.assign(`/mission-hub${fromParam}`);
+                if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                  onClose?.();
+                }
+              }}
+              className="p-1.5 rounded-lg text-cafe-muted hover:text-cafe-secondary hover:bg-[var(--console-hover-bg)] transition-colors"
+              title="Mission Hub"
+              data-testid="sidebar-mission-control"
+            >
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+              </svg>
+            </button>
+            <button
+              type="button"
               onClick={() => setShowBootcampList(true)}
-              className="text-xs px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+              className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition-colors"
               title="猫猫训练营"
               data-testid="sidebar-bootcamp"
               data-guide-id="sidebar.bootcamp"
             >
-              <BootcampIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
+              <BootcampIcon className="w-3.5 h-3.5" />
             </button>
             <button
               type="button"
               onClick={() => setShowPicker(true)}
               disabled={isCreating}
-              className="text-xs px-2 py-1 rounded-lg bg-cocreator-primary text-white hover:bg-cocreator-dark disabled:opacity-40 transition-colors"
+              className="text-xs px-2.5 py-1 rounded-lg bg-cocreator-primary text-white hover:bg-cocreator-dark disabled:opacity-40 transition-colors"
               data-guide-id="sidebar.new-thread"
             >
               {isCreating ? '...' : '+ 新对话'}
             </button>
           </div>
-        </div>
-
-        <div className="px-3 py-2 border-b border-cocreator-light">
-          <button
-            type="button"
-            onClick={() => {
-              const fromParam = currentThreadId ? `?from=${encodeURIComponent(currentThreadId)}` : '';
-              window.location.assign(`/mission-hub${fromParam}`);
-              if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                onClose?.();
-              }
-            }}
-            className="flex w-full items-center gap-2 rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-2.5 py-1.5 text-left text-xs font-medium text-[#6C563F] transition-colors hover:bg-[#F7EEDB]"
-            data-testid="sidebar-mission-control"
-          >
-            <svg
-              className="h-4 w-4 shrink-0 text-[#9A866F]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
-            </svg>
-            Mission Hub
-          </button>
         </div>
 
         {bindWarning && (
@@ -780,24 +777,26 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
           </div>
         )}
 
-        <div className="px-3 py-2 border-b border-cocreator-light">
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索对话、项目或 ID..."
-            className="w-full rounded-lg border border-cocreator-light px-2.5 py-1.5 text-xs text-cafe-secondary placeholder:text-gray-400 focus:outline-none focus:border-cocreator-primary"
-          />
-          {unreadIds.size > 0 && (
-            <button
-              type="button"
-              onClick={handleMarkAllRead}
-              disabled={isMarkingAllRead}
-              className="mt-1.5 text-[10px] text-cafe-muted hover:text-cocreator-primary disabled:opacity-40 transition-colors"
-              data-testid="mark-all-read-btn"
-            >
-              {isMarkingAllRead ? '清理中...' : '全部已读'}
-            </button>
-          )}
+        <div className="px-3 pb-2">
+          <div className="flex items-center gap-1.5">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="搜索对话、项目或 ID..."
+              className="flex-1 min-w-0 rounded-lg bg-[var(--console-field-bg)] px-2.5 py-1.5 text-xs text-cafe-secondary placeholder:text-cafe-muted focus:outline-none focus:ring-1 focus:ring-[var(--console-input-stroke)]"
+            />
+            {unreadIds.size > 0 && (
+              <button
+                type="button"
+                onClick={handleMarkAllRead}
+                disabled={isMarkingAllRead}
+                className="shrink-0 text-[10px] text-cafe-muted hover:text-cocreator-primary disabled:opacity-40 transition-colors whitespace-nowrap"
+                data-testid="mark-all-read-btn"
+              >
+                {isMarkingAllRead ? '...' : '全部已读'}
+              </button>
+            )}
+          </div>
         </div>
 
         <LabelFilterBar
@@ -1001,7 +1000,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
         </div>
 
         {/* F095 Phase D: Trash bin section */}
-        <div className="border-t border-cocreator-light">
+        <div className="border-t border-[var(--console-border-soft)]">
           <button
             type="button"
             onClick={handleToggleTrash}
