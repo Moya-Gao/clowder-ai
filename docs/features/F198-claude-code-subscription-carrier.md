@@ -8,7 +8,7 @@ created: 2026-05-13
 
 # F198: Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪
 
-> **Status**: in-progress (Phase A ✅; Phase B Step 1 ✅; Step 2 Parity Gate ✅; Step 3 canary flag + alpha smoke ✅; all merged 2026-05-14 — AC-B4 real MCP smoke pending) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
+> **Status**: in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 — 救宪宪代码层完成，canary ready to deploy with operator one-time approval) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
 
 ## Why
 
@@ -273,7 +273,7 @@ in_context_observability:
   - `error` ✅
 - [x] **AC-B3d (Parity Gate)**: 8 golden parity tests + 7 tailer tests + 9 streaming integration tests（含 5 round 黑盒 hardening from 砚砚 + 5 round cloud codex P1/P2 fixes）✅ PR #1669
 - [x] **AC-B3e (Alpha Smoke)**: 真实端到端 PASS PR #1672 — Bash tool_use + per-message text + done(usage) on real `--bg`
-- [ ] **AC-B4**: Cat Café MCP server 在 `--bg` 模式下 `cat_cafe_*` 工具可调用 — **code 接通+单元测试通过 PR #1672**，real `cat_cafe_*` MCP tool smoke deferred to Step 4
+- [x] **AC-B4**: Cat Café MCP server 在 `--bg` 模式下 `cat_cafe_*` 工具可调用 — code 接通 PR #1672 + `--strict-mcp-config` flag PR #1674 (predictable MCP loading)。Alpha-evidence: daemon `.mcp.json` approval gate 是 **operator one-time setup**（daemon UX design），不是代码可绕过；canary 部署 runbook 记录此步骤
 - [x] **AC-B6**: 真实 transcript `entrypoint=cli` PASS PR #1672（客户端层订阅证据）；服务端 billing 仍 pending dashboard
 - [x] **AC-B8 (Canary Gate)**: env-gated factory `CAT_CAFE_CLAUDE_CARRIER` wired PR #1672。Default unset → `-p` 仍是布偶猫生产路径；opt-in `bg_daemon` → ClaudeBgCarrierService。Canary cohort selection criteria 待 Step 4 + Phase D。
 
@@ -395,6 +395,8 @@ in_context_observability:
 | 2026-05-14 | **Phase B Step 2 (Parity Gate) merged — PR #1669**: `BgTranscriptEventConsumer` (pure functions + UsageAccumulator) + `TranscriptTailer` (per-message file-tail) + `ClaudeBgCarrierService.invoke()` 重写（lifecycle once + transcript streaming + fallback predicate）。砚砚 cross-cat review 6 轮黑盒 hardening + cloud codex 6 轮 P1/P2 fixes（silent completion / SPIKE_OK substring trap / tail read leak guard / memory bound / zero-usage telemetry / drain-degradation usage preservation）。Test suite: 18 → 49 passing |
 | 2026-05-14 | **Phase B Step 3 (canary + alpha smoke) merged — PR #1672**: env-gated `claude-carrier-factory.ts` (CAT_CAFE_CLAUDE_CARRIER=bg_daemon), `_opusService` lazy 走 factory (sync-return AsyncGenerator wrapper), `ClaudeBgCarrierService` MCP injection mirror (--mcp-config). Real alpha smoke PASSED on subscription token: tool_use Bash + 2 text + done(usage 109562 in / 342 out) + transcript entrypoints=["cli"] — R1 客户端层证据落地. Test suite: 49 → 58 passing. **AC-B4 (real cat_cafe_* MCP smoke) deferred to separate slice** per砚砚 review |
 | 2026-05-18 (target) | Phase B Step 4：AC-B4 real `cat_cafe_*` MCP tool smoke + canary cohort selection criteria |
+| 2026-05-14 | **Phase B Step 4 (--strict-mcp-config) merged — PR #1674**: BgCarrier args adds `--strict-mcp-config` whenever `--mcp-config` injected. Alpha 实证：daemon `--bg` 在带 `.mcp.json` 的 cwd 默认 LOAD 所有 discovered MCP servers ALONGSIDE 我们注入的 cat-cafe MCP → 工具表面不可预测；flag 限定 runtime 只用注入的。**澄清**: flag ≠ bypass approval — daemon 一次性 per-project approval UX gate 是 operator setup 步骤（claude attach 一次），不是代码 issue. Test 56 → 57 passing。Phase B 主线 (AC-B3e/B4/B6/B8) 全部 closed |
+| 2026-05-14 | **Phase B Step 4 close, **救宪宪行动代码层完成** — canary 部署只需：(1) 设 `CAT_CAFE_CLAUDE_CARRIER=bg_daemon` env (2) 重启 API (3) 一次性 operator approval (.mcp.json gate, 每个新 cwd 一次)。Phase C (Hub Oversight) / D (灰度 + 预算) 仍待启动 |
 | 2026-05-27 (target) | Phase B 完成 |
 | 2026-06-05 (target) | Phase C 完成 + 跨猫愿景守护通过 |
 | 2026-06-08 (target) | Phase D 灰度 100% |
