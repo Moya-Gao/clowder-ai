@@ -1,0 +1,242 @@
+---
+feature_ids: [F042, F167]
+related:
+  - docs/decisions/030-system-prompt-engineering.md
+  - docs/architecture/2026-05-05-architecture-views.md
+  - docs/bug-report/2026-02-23-system-prompt-context-bloat/bug-report.md
+topics: [system-prompt, context-injection, harness, skills, hooks, governance]
+doc_kind: discussion
+created: 2026-05-15
+status: draft
+participants: [codex]
+---
+
+# Prompt / Context Injection Audit Draft
+
+> This is a first-pass inventory, not an implementation spec. The goal is to make the injection surfaces visible before we add another rule to the prompt stack.
+
+## Trigger
+
+Two signals landed in the same thread:
+
+1. The review no-middle-state incident: reviewers wrote P2/P3 findings while also softening the verdict with "not blocking" or follow-up language. That exposed a verdict contract gap, not merely a personality issue.
+2. Anthropic's 2026-05-14 Claude Code large-codebase article reframed the same harness pattern we already use: root context should stay lean, skills should load on demand, hooks should enforce deterministic behavior, and configuration should be reviewed every few months as models and tools improve.
+
+Cat Cafe already has the pieces. The debt is that too many of them can be injected at once, and some content appears in both native root prompts and runtime user-prompt context.
+
+## Existing Maps
+
+This audit should not replace the existing architecture sources:
+
+- `docs/decisions/030-system-prompt-engineering.md` already identifies "7+ locations" and "3 injection paths" for system prompt engineering.
+- `docs/architecture/2026-05-05-architecture-views.md` has the harness loading sequence and separates session-level identity, per-invocation dynamic context, session bootstrap, runtime hooks, and post-execution processing.
+- `docs/bug-report/2026-02-23-system-prompt-context-bloat/bug-report.md` diagnosed prompt bloat from repeated static blocks and long callback manuals.
+
+The missing piece is a current, operational ownership table: what belongs in root prompt, what belongs in dynamic context, what belongs in a skill, and what should be a hook/tool instead of natural-language instruction.
+
+## Current Injection Surfaces
+
+| Surface | Primary files | Lifecycle | What it currently carries | Audit risk |
+|---|---|---:|---|---|
+| Native root instruction files | `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md` | loaded by carrier / project context | identity, team roster, SOP navigation, shared rules, memory guidance, hard rules | duplicates runtime static identity and dynamic roster; easy to become every-session bulk |
+| Prompt shards and sync | `assets/system-prompts/*.md`, `scripts/sync-system-prompts.ts` | compile/sync to user-level native config and hooks | codex/gemini identities, collab rules, governance L0, dynamic roster rendering | shard truth source and runtime constants can drift |
+| Runtime static identity | `SystemPromptBuilder.buildStaticIdentity()` | session-level candidate; reinjected on new session / compression / registry change | identity, personality, restrictions, A2A examples, callable handles, teammate roster, workflow triggers, CVO info, governance digest, pack blocks, Claude MCP tool summary | currently broad; overlaps root files and some dynamic prompt blocks |
+| Runtime dynamic context | `SystemPromptBuilder.buildInvocationContext()` | every invocation | identity pin, direct-message/cross-thread hints, ping-pong warning, teammates this turn, mode, A2A exit check, routing feedback, SOP stage, voice mode, bootcamp/guide/world/signal/always-on context, trailing handoff decision tree | necessary for volatile state, but long static prose here becomes per-turn tax |
+| Incremental history packet | `route-helpers.ts` | every invocation with message history | `[导航]`, baton, recent messages, smart window, thread memory, related evidence, context coverage map | appears in user-prompt channel, so any duplicated system-like rules here are especially expensive |
+| Session bootstrap | `SessionBootstrap.ts` | session #2+ | previous session digest, thread memory, auto-recall, task snapshot, recall tool instructions | recall instructions overlap root memory guidance and session-start hook |
+| MCP callback fallback | `McpPromptInjector.ts` | per-message for non-native MCP carriers | callback env vars, callback tool list, @ teammate examples | should remain a tiny fallback pointer; full docs belong in skill refs / callback endpoint |
+| User-level session hooks | `.claude/hooks/user-level/session-start-recall.sh` and generated hook targets | SessionStart / local shell | dirty docs warnings, unpushed commits, recall reminder | good for deterministic checks; bad if it grows into another prose prompt |
+| Skills and refs | `cat-cafe-skills/*/SKILL.md`, `cat-cafe-skills/refs/*` | on demand | workflow-specific rules, templates, detailed checklists | right home for most process detail; manifest says route tables are still partly manual |
+| MCP tool descriptions | `packages/mcp-server/src/tools/*` | tool discovery / schema | exact tool affordances, input fields, result semantics | should replace generic prompt reminders when a tool can advertise itself precisely |
+| Pack/governance externalization | `packages/api/src/config/governance/*`, `docs/decisions/021-f129-pack-system-architecture.md` | external project install/runtime | portable rules and pack blocks | useful distribution path, but raw pack prompt must stay schema-compiled, not blindly injected |
+
+## Classification Rule
+
+Every instruction should have exactly one primary home:
+
+| Content type | Primary home | Why |
+|---|---|---|
+| Identity constants and non-negotiable safety boundaries | root prompt or runtime static identity | must survive task changes and compression |
+| Volatile state: current cat, mode, baton, direct-message source, voice mode, current SOP stage | runtime dynamic context | changes every invocation; cannot live in root files |
+| Workflow procedures and templates | skills / refs | load only when doing that workflow |
+| Deterministic checks | hooks, tests, merge gates, linters | machines should enforce machines' rules |
+| Tool usage details | MCP schema / tool descriptions / callback instructions endpoint | tool contracts should travel with the tool |
+| Long rationale and historical lessons | docs / evidence / memory | retrieved when relevant, not injected by default |
+| Navigation by symbol | LSP / code intelligence plugin | not natural-language prompt work |
+
+If a rule fits multiple rows, choose the lowest-loading row that still prevents the failure.
+
+## Immediate Findings
+
+### 1. Root Prompt Is Carrying Runtime Material
+
+The native root files still contain team roster, SOP navigation, and broad shared rules. Runtime also injects callable teammate handles, a roster table with resolved models, workflow triggers, and A2A routing guidance. This duplication is useful for direct CLI sessions outside Cat Cafe, but wasteful inside Cat Cafe invocation context.
+
+Recommendation: split "native direct CLI minimum" from "Cat Cafe runtime-injected state." Root files should keep identity, fatal gotchas, and pointers. Runtime state should remain in `SystemPromptBuilder`, but static blocks should not repeat content already supplied by native carrier files when the carrier is known to have loaded them.
+
+### 2. Review No-Middle-State Should Not Become Another Root Paragraph
+
+The incident tempts us to write "do not be too gentle" into every prompt. That is the wrong layer.
+
+Better placement:
+
+- `cat-cafe-skills/request-review/refs`: define a reviewer verdict contract.
+- `cat-cafe-skills/receive-review`: author fail-closed handling for contradictory review text.
+- `cat-cafe-skills/merge-gate`: accept only an explicit `APPROVE` verdict with no open P1/P2.
+- `shared-rules.md` L0: at most one compressed invariant: "P1/P2 open implies request changes; approve-with-follow-up is invalid."
+- optional deterministic check: scan review replies/PR bodies for `APPROVE` plus `P1|P2|follow-up|deferred|not blocking` in the same verdict block.
+
+Do not remove "温柔" from the broad personality prompt as the main fix. Personality can be warm; review verdicts must be binary and machine-readable.
+
+### 3. Session-Start Hook Should Stay a Hook, Not a Shadow Prompt
+
+The current `session-start-recall.sh` is mostly operational: dirty docs, unpushed commits, branch warning, recall reminder. That is healthy because it observes local state and emits concrete warnings.
+
+Boundary: keep it short and exact. If recall guidance grows beyond one or two lines, move it into `memory-navigation` skill or MCP tool descriptions. Hook output should not restate team roster, SOP, or governance.
+
+### 4. Dynamic Context Needs a Token Budget, Not Just Good Intentions
+
+The harness loading sequence currently lists 19 dynamic context items. Many are legitimate because they are volatile, but "legitimate" does not mean "unbounded."
+
+Recommendation: add a prompt capture audit that groups effective prompt bytes/tokens by source block:
+
+- static identity
+- dynamic invocation context
+- session bootstrap
+- incremental history packet
+- MCP callback fallback
+- mode-specific prompt
+- native carrier root prompt if observable
+
+This would turn "prompt feels fat" into an observable budget.
+
+### 5. LSP Is a Capability Surface, Not Prompt Content
+
+The Anthropic article's most practical reminder for us is symbol-level navigation. We already use `rg`, ownership cells, and memory search, but that does not replace LSP for "same symbol" navigation.
+
+Recommendation: evaluate whether our active carriers expose LSP or code-intelligence plugins. If yes, document the invocation path. If no, add it to the harness backlog as a capability gap. Do not compensate by adding more "use precise search" prompt text.
+
+### 6. Subdirectory Context Is Underused
+
+We usually start from repo root. For a monorepo, local context should come from the code area: `packages/api`, `packages/web`, `packages/mcp-server`, `cat-cafe-skills`, `docs/architecture`, etc.
+
+Recommendation: prefer path-scoped guidance where the same rule is only relevant under one subtree. Candidate directories:
+
+- `packages/api/AGENTS.md`: API test/build commands, callback auth, Redis isolation.
+- `packages/web/AGENTS.md`: frontend verification, browser screenshots, UI density constraints.
+- `packages/mcp-server/AGENTS.md`: tool schema standards and callback auth rules.
+- `cat-cafe-skills/AGENTS.md`: skill authoring quality rules and manifest sync.
+
+Root should point to these, not duplicate them.
+
+## Proposed Layering
+
+### Root Prompt: Small Skeleton
+
+Keep:
+
+- identity and current family contract
+- "we are Cat Cafe" relationship frame
+- fatal safety boundaries: runtime sanctuary, Redis 6399, no self-review, no destructive cleanup
+- one-line skill routing principle: load applicable skill, details live in skill
+- one-line memory principle: recall before project work, exact tool names if needed
+- one-line A2A principle: line-start @ transfers ball; volatile routing details are injected dynamically
+
+Remove or downshift:
+
+- full teammate table when runtime already injects resolved roster
+- long SOP tables already represented by skills
+- repeated shared-rules digest when `GOVERNANCE_L0_DIGEST` is injected by runtime
+- detailed MCP tool manual when tool schema or callback endpoint exists
+
+### Runtime Static Identity: Session-Level Contract
+
+Keep:
+
+- current cat identity, role, restrictions
+- compact A2A syntax examples
+- CVO mention handles
+- compact L0 governance digest
+- pack masks/guardrails
+
+Question:
+
+- teammate roster should probably be behind a "roster changed / direct A2A enabled / no native root roster" condition, not always static.
+
+### Runtime Dynamic Context: Volatile Only
+
+Keep:
+
+- `Identity: @catId model=...`
+- mode, teammates this invocation, direct-message/cross-thread hints
+- routing feedback, active participant hint, SOP stage
+- voice/bootcamp/guide/world/signal/always-on context when active
+- trailing exit decision tree only when A2A is enabled
+
+Remove:
+
+- anything that is merely a policy restatement and does not depend on current thread state.
+
+### Skills: Workflow Details
+
+Move here:
+
+- review verdict contract
+- no-middle-state examples
+- quality-gate checklists
+- merge-gate procedure
+- browser verification details
+- rich block and MCP callback full docs
+
+### Hooks / Gates: Deterministic Enforcement
+
+Move here:
+
+- review verdict contradiction detection
+- prompt drift check between `shared-rules.md`, `governance-l0.md`, and `GOVERNANCE_L0_DIGEST`
+- generated prompt token budget report
+- root prompt age / last audit reminder
+
+## No-Middle-State Placement Draft
+
+Suggested canonical verdict block:
+
+```markdown
+Decision: APPROVE | REQUEST_CHANGES | NEEDS_CLARIFICATION | CVO_REQUIRED
+Blocking P0/P1/P2 open: yes | no
+P3 disposition: fixed | waived-with-reason | none
+Covered HEAD: {sha}
+```
+
+Rules:
+
+- If any verified P0/P1/P2 exists, `Decision` must be `REQUEST_CHANGES`.
+- "P2 but not blocking" is invalid. Downgrade to P3 with reason, or block.
+- P3 is decided in the same review: fix now or waive with reason. It is not backlog.
+- Author receiving contradictory text must fail closed and ask for a corrected verdict.
+- Merge gate must not infer approval from praise text.
+
+This belongs in review skills and merge gate checks, not as a broad personality rewrite.
+
+## Open Questions for Implementation
+
+1. Can Cat Cafe detect whether the native carrier root file was already loaded, so runtime static identity can skip overlapping roster/SOP/governance blocks?
+2. Should `GOVERNANCE_L0_DIGEST` be generated from `shared-rules.md` at build time instead of hard-coded in `SystemPromptBuilder.ts`?
+3. Should `WORKFLOW_TRIGGERS` move from TypeScript constants into `cat-cafe-skills/manifest.yaml` or another data file?
+4. Which carriers currently expose LSP/code-intelligence to cats, and through what plugin/tool path?
+5. What is the acceptable token budget for each prompt block type per invocation?
+
+## Minimal Next Patch Set
+
+1. Add a prompt capture report grouped by injection source, using existing `prompt-captures` plumbing where possible.
+2. Add `review-result-template.md` or equivalent verdict contract under `cat-cafe-skills/refs/`.
+3. Wire `request-review`, `receive-review`, and `merge-gate` to reference that verdict contract.
+4. Add a light contradiction detector for review text before merge gate.
+5. Run a root prompt reduction audit against `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, and `SystemPromptBuilder.buildStaticIdentity()`.
+6. Evaluate LSP availability separately; do not solve it with more prompt text.
+
+## Working Position
+
+The correct fix is not "make Opus less warm." The fix is to stop asking personality text to do gatekeeping work.
+
+Warmth belongs in identity and conversation. Gate semantics belong in templates, checks, and merge gates. Root prompt should carry the few invariants that must always be true; everything else should be scoped, loaded, or enforced.
