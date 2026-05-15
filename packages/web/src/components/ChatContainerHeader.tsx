@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { ExportButton } from './ExportButton';
-import { HubButton } from './HubButton';
 import { CatCafeLogo } from './icons/CatCafeLogo';
 import { ThreadCatPill } from './ThreadCatPill';
 import { VoiceCompanionButton } from './VoiceCompanionButton';
@@ -77,7 +76,6 @@ export function ChatContainerHeader({
             🔐 {authPendingCount}
           </span>
         )}
-        <HubButton />
         {/* Mobile/tablet: status sheet trigger */}
         <button
           onClick={onOpenMobileStatus}

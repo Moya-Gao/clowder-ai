@@ -120,30 +120,29 @@ describe('SignalInboxView', () => {
       await Promise.resolve();
     });
 
-    const queryInput = container.querySelector('input[placeholder="搜索标题、来源、标签..."]');
-    // Component uses tab buttons for status, so only 2 <select> elements: tier + source
+    const queryInput = container.querySelector('input[placeholder="搜索信号..."]');
     const selects = container.querySelectorAll('select');
-    let tierSelect = selects.item(0) as HTMLSelectElement | null;
-    let sourceSelect = selects.item(1) as HTMLSelectElement | null;
+    let statusSelect = selects.item(0) as HTMLSelectElement | null;
+    let tierSelect = selects.item(1) as HTMLSelectElement | null;
+    let sourceSelect = selects.item(2) as HTMLSelectElement | null;
     let form = container.querySelector('form');
 
     expect(queryInput).not.toBeNull();
     expect(form).not.toBeNull();
+    expect(statusSelect).not.toBeNull();
     expect(tierSelect).not.toBeNull();
     expect(sourceSelect).not.toBeNull();
 
-    if (!queryInput || !form || !tierSelect || !sourceSelect) {
+    if (!queryInput || !form || !statusSelect || !tierSelect || !sourceSelect) {
       return;
     }
 
     const sourceOption = sourceSelect.querySelector('option[value="anthropic-news"]');
     expect(sourceOption).not.toBeNull();
 
-    // Switch status to "已读" via tab button
-    const readTabButton = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '已读');
-    expect(readTabButton).toBeTruthy();
     await act(async () => {
-      readTabButton!.click();
+      statusSelect.value = 'read';
+      statusSelect.dispatchEvent(new Event('change', { bubbles: true }));
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -155,8 +154,8 @@ describe('SignalInboxView', () => {
     });
 
     const refreshedSelects = container.querySelectorAll('select');
-    tierSelect = refreshedSelects.item(0) as HTMLSelectElement | null;
-    sourceSelect = refreshedSelects.item(1) as HTMLSelectElement | null;
+    tierSelect = refreshedSelects.item(1) as HTMLSelectElement | null;
+    sourceSelect = refreshedSelects.item(2) as HTMLSelectElement | null;
     form = container.querySelector('form');
     expect(tierSelect).not.toBeNull();
     expect(sourceSelect).not.toBeNull();
@@ -212,7 +211,7 @@ describe('SignalInboxView', () => {
       items: [contentOnlyMatchedArticle],
     });
 
-    const queryInput = container.querySelector('input[placeholder="搜索标题、来源、标签..."]');
+    const queryInput = container.querySelector('input[placeholder="搜索信号..."]');
     let form = container.querySelector('form');
     expect(queryInput).not.toBeNull();
     expect(form).not.toBeNull();
@@ -260,7 +259,7 @@ describe('SignalInboxView', () => {
     });
 
     const queryInput = container.querySelector(
-      'input[placeholder="搜索标题、来源、标签..."]',
+      'input[placeholder="搜索信号..."]',
     ) as HTMLInputElement | null;
     if (!queryInput) throw new Error('Missing query input');
 

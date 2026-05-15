@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useCafeTheme } from '@/hooks/useCafeTheme';
 import { usePinnedSections } from '@/hooks/usePinnedSections';
+import { useCallbackAuthAggregate, useCallbackAuthAvailable } from '@/stores/callbackAuthStore';
 import { HubIcon } from './hub-icons';
 import { MemoryIcon } from './icons/MemoryIcon';
 import { SETTINGS_SECTIONS } from './settings/settings-nav-config';
@@ -172,26 +173,55 @@ function PinnedSections({ pinned, onNav }: { pinned: readonly string[]; onNav: (
   );
 }
 
+const DEGRADED_COLOR = '#F59E0B';
+const BROKEN_COLOR = '#EF4444';
+const BROKEN_THRESHOLD = 6;
+
 function SettingsButton({ pathname, onNav }: { pathname: string; onNav: (path: string) => void }) {
   const searchParams = useSearchParams();
   const isSettingsRoute = pathname.startsWith('/settings');
   const isStandalone = isSettingsRoute && searchParams?.get('standalone') === '1';
   const isSettings = isSettingsRoute && !isStandalone;
 
+  const aggregate = useCallbackAuthAggregate();
+  const isAvailable = useCallbackAuthAvailable();
+  const unviewed = isAvailable ? aggregate.unviewedFailures24h : 0;
+  const showBadge = unviewed > 0;
+  const badgeColor = unviewed >= BROKEN_THRESHOLD ? BROKEN_COLOR : DEGRADED_COLOR;
+  const badgeText = unviewed > 99 ? '99+' : String(unviewed);
+
   return (
     <button
       type="button"
       onClick={() => onNav('/settings')}
-      className={`flex h-10 w-10 items-center justify-center rounded-[9px] transition-all ${
+      className={`relative flex h-10 w-10 items-center justify-center rounded-[9px] transition-all ${
         isSettings
           ? 'bg-[var(--console-rail-active)] shadow-[0_5px_14px_rgba(43,37,32,0.07)]'
           : 'bg-[var(--console-rail-item)] hover:bg-[var(--console-hover-bg)]'
       }`}
-      title="设置"
+      title={showBadge ? `设置 · MCP Callback Auth 24h ${unviewed} 次未查看失败` : '设置'}
       aria-current={isSettings ? 'page' : undefined}
       data-guide-id="hub.trigger"
+      data-testid="settings-button"
+      data-callback-auth-unviewed={showBadge ? String(unviewed) : undefined}
     >
       <SettingsIcon className="h-5 w-5" />
+      {showBadge && (
+        <span
+          data-testid="settings-callback-auth-badge"
+          className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center"
+          style={{
+            backgroundColor: badgeColor,
+            color: '#FFFFFF',
+            maxWidth: '22px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {badgeText}
+        </span>
+      )}
     </button>
   );
 }

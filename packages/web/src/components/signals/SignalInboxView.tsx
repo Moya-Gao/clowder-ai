@@ -23,6 +23,7 @@ import { filterSignalArticles, type SignalArticleFilters } from '@/utils/signals
 import { BatchActionBar } from './BatchActionBar';
 import { SignalArticleDetail as SignalArticleDetailPanel } from './SignalArticleDetail';
 import { SignalArticleList } from './SignalArticleList';
+import { SignalFilterBar } from './SignalFilterBar';
 import { SignalNav } from './SignalNav';
 import { SignalStatsCards } from './SignalStatsCards';
 import { StudyTimeline } from './StudyTimeline';
@@ -276,107 +277,44 @@ export function SignalInboxView({ initialReferrerThread = null }: { initialRefer
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-cocreator-bg via-cafe-white to-cafe-white">
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6">
-        <header className="rounded-2xl border border-cocreator-light bg-cafe-surface p-4 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-bold text-cafe-black">Signal Inbox</h1>
-              <p className="text-sm text-cafe-secondary">浏览、筛选和管理 F21 信号文章</p>
-            </div>
-            <SignalNav active="signals" initialReferrerThread={initialReferrerThread} />
+    <div className="flex h-full flex-col bg-[var(--console-panel-bg)]">
+      <div className="flex flex-1 flex-col overflow-hidden rounded-[18px] bg-[var(--console-shell-bg)] shadow-[var(--console-shadow-soft)] m-3 gap-5 px-9 py-8">
+        <header className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-cafe">信号</h1>
+            <p className="mt-1 text-[13px] text-cafe-secondary">浏览、筛选和研读信号文章</p>
           </div>
+          <SignalNav active="signals" initialReferrerThread={initialReferrerThread} />
         </header>
-
-        <div className="rounded-2xl border border-cafe bg-cafe-surface p-4 shadow-sm space-y-3">
-          <div className="flex gap-1">
-            {(
-              [
-                ['inbox', 'Inbox'],
-                ['starred', '收藏'],
-                ['read', '已读'],
-                ['archived', '归档'],
-                ['all', '全部'],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => handleStatusTab(key)}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  filters.status === key
-                    ? 'bg-cocreator-primary text-white'
-                    : 'text-cafe-secondary hover:bg-cafe-surface-elevated'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <form onSubmit={handleSearchSubmit} className="grid gap-2 md:grid-cols-4">
-            <input
-              value={filters.query}
-              onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))}
-              onCompositionStart={ime.onCompositionStart}
-              onCompositionEnd={ime.onCompositionEnd}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && ime.isComposing()) event.preventDefault();
-              }}
-              placeholder="搜索标题、来源、标签..."
-              className="rounded-lg border border-cafe px-3 py-2 text-sm md:col-span-2"
-            />
-            <select
-              value={filters.tier}
-              onChange={(event) =>
-                setFilters((current) => ({ ...current, tier: event.target.value as SignalArticleFilters['tier'] }))
-              }
-              name="tier"
-              className="rounded-lg border border-cafe px-3 py-2 text-sm"
-            >
-              <option value="all">Tier: 全部</option>
-              <option value="1">Tier 1</option>
-              <option value="2">Tier 2</option>
-              <option value="3">Tier 3</option>
-              <option value="4">Tier 4</option>
-            </select>
-            <select
-              value={filters.source}
-              onChange={(event) => setFilters((current) => ({ ...current, source: event.target.value }))}
-              name="source"
-              className="rounded-lg border border-cafe px-3 py-2 text-sm"
-            >
-              <option value="all">来源: 全部</option>
-              {sources.map((source) => (
-                <option key={source} value={source}>
-                  {source}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="rounded-lg bg-cocreator-primary px-3 py-2 text-sm font-semibold text-white hover:bg-cocreator-dark md:col-span-4"
-            >
-              搜索
-            </button>
-          </form>
-        </div>
 
         <SignalStatsCards stats={stats} />
 
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 shadow-[0_1px_3px_rgba(43,33,26,0.06)]">
             请求失败: {error}
           </div>
         )}
 
-        <section className="grid gap-4 lg:grid-cols-[1.25fr_1fr]">
-          <div className="space-y-2">
-            <div className="text-sm text-cafe-secondary">{loading ? '加载中...' : `共 ${filteredItems.length} 篇`}</div>
-            <BatchActionBar
-              selectedIds={batchSelected}
-              onClear={() => setBatchSelected(new Set())}
-              onComplete={() => void refreshInbox()}
+        <div className="flex min-h-0 flex-1 gap-[18px]">
+          <div className="flex w-[420px] shrink-0 flex-col gap-1 overflow-y-auto rounded-[18px] bg-[var(--console-panel-bg)] p-2">
+            <SignalFilterBar
+              filters={filters}
+              onFilterChange={(patch) => setFilters((cur) => ({ ...cur, ...patch }))}
+              onStatusTab={handleStatusTab}
+              onSubmit={handleSearchSubmit}
+              sources={sources}
+              ime={ime}
             />
+            <div className="flex items-center justify-between px-2 pb-1">
+              <p className="text-xs font-semibold text-cafe-muted">
+                {loading ? '加载中...' : `共 ${filteredItems.length} 篇`}
+              </p>
+              <BatchActionBar
+                selectedIds={batchSelected}
+                onClear={() => setBatchSelected(new Set())}
+                onComplete={() => void refreshInbox()}
+              />
+            </div>
             <SignalArticleList
               items={filteredItems}
               selectedArticleId={selectedArticleId}
@@ -386,21 +324,24 @@ export function SignalInboxView({ initialReferrerThread = null }: { initialRefer
               onToggleSelect={toggleBatchSelect}
             />
           </div>
-          <SignalArticleDetailPanel
-            article={selectedArticle}
-            isLoading={detailLoading}
-            onStatusChange={handleStatusChange}
-            onTagsChange={handleTagsChange}
-            onNoteChange={handleNoteChange}
-            onDelete={handleDelete}
-            collections={collections}
-            onAddToCollection={handleAddToCollection}
-            onCreateCollection={handleCreateCollection}
-          />
-        </section>
-
-        <StudyTimeline />
-      </main>
+          <div className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto">
+            <div className="rounded-[20px] bg-[var(--console-card-bg)] p-[22px] shadow-[0_10px_28px_rgba(43,33,26,0.04)]">
+              <SignalArticleDetailPanel
+                article={selectedArticle}
+                isLoading={detailLoading}
+                onStatusChange={handleStatusChange}
+                onTagsChange={handleTagsChange}
+                onNoteChange={handleNoteChange}
+                onDelete={handleDelete}
+                collections={collections}
+                onAddToCollection={handleAddToCollection}
+                onCreateCollection={handleCreateCollection}
+              />
+            </div>
+            <StudyTimeline />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
