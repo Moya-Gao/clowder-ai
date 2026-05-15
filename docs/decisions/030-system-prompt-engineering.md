@@ -334,9 +334,20 @@ Claude Code 系统提示词由以下函数动态拼装：
 | 4 | 我们的规则能否替代默认 | 设置"遇到困难找伙伴求助"+"代码质量第一"暗号 | ✅ 暗号正确 + 原则生效 |
 | 5 | F-BLOAT "unreliable" 原因 | 待 git blame 调查（但替换式已证明可行，append 可暂搁） | 待做（优先级降低） |
 
-**结论**：`--system-prompt` 替换式方案**完全可行**。Claude 的工具使用能力是模型训练时内置的，不是系统提示词教的。替换后工具照常工作，默认行为指导彻底清除，我们的规则完整生效。
+**结论**：`--system-prompt` 替换式 **basic feasibility passed**。基本工具能力（Read）、暗号注入、默认行为清除已验证。但以下功能性尚未测试，不能称"生产可行"（47/砚砚 review 2026-05-15）：
 
-**决策变更**：原计划用 `--append-system-prompt`（追加式），现改为 `--system-prompt`（替换式）——更干净，一步到位消除"两套系统共存"问题。
+| 待验证功能 | 风险 | 状态 |
+|-----------|------|------|
+| 并行工具调用 | 删 `Rm3()` 后是否仍自动并发 | 待 spike |
+| Skill / TaskCreate / ScheduleWakeup | 依赖 `Vm3()` guidance | 待 spike |
+| 复杂工具 schema（PDF/图像/Notebook） | 只测了简单 Read | 待 spike |
+| destructive 操作 safety reflex | `Gm3()` 删后训练层是否单独够用 | 待 spike |
+| 压缩行为感知 | `Wm3()` 告诉猫"会被压缩"——删了感知可能 recall 时机失准 | 待 spike |
+| resume 时是否重复注入（F-BLOAT 根因） | `--append-system-prompt` 的 bug 是"resume 重复累积"（bug-report 2026-02-23），`--system-prompt` 替换式是否免疫此问题需单独验证 | 待 spike |
+
+**注意**：F-BLOAT 注释说的"cats didn't receive content"和 bug-report 说的"resume 重复累积"是**两个不同失败模式**，不能混淆（47 指出）。
+
+**决策**：方向确认用 `--system-prompt` 替换式。生产采用前需完成扩展 spike（§10.5 S2）。
 
 ### 10. 系统提示词内容分配方案（2026-05-15 审计）
 
@@ -352,21 +363,39 @@ Claude Code 系统提示词由以下函数动态拼装：
 
 #### 10.2 L0 压缩免疫层（进真 system prompt）
 
-以下内容丢失后会导致猫猫行为崩溃，**必须**进入 system role：
+以下内容丢失后会导致猫猫行为崩溃，**必须**进入 system role。
+（47/砚砚 review 2026-05-15 补全 6 项漏项，MCP 改 quick index）
 
-| 内容 | 当前位置 | 为什么丢了会崩 |
-|------|---------|---------------|
-| **身份 + 伙伴声明** | CLAUDE.md 前 10 行 | 压缩后不知道自己是谁、有队友 |
-| **Magic Words**（8 个铲屎官拉闸词） | `GOVERNANCE_L0_DIGEST` / `shared-rules.md` | 铲屎官喊停猫不停 = P0 |
-| **Rule 0 + P1-P5 第一性原则** | `shared-rules.md` §1-§5 | 判断力基石，丢了变执行机器 |
-| **传球三选一**（@句柄/hold_ball/升级铲屎官） | `shared-rules.md` 传球决策树 | 压缩后链路锁死（已反复发生） |
-| **@ 路由规则**（行首、同行、不分行） | `shared-rules.md` + feedback memories | 路由失效 = 消息发不出去 |
-| **五条铁律** | CLAUDE.md | Redis 6399 误触 = P0、review 必须跨个体 |
-| **WORKFLOW_TRIGGERS**（谁 @ 谁做什么） | `SystemPromptBuilder.ts` | 完成工作不知道传给谁 |
-| **我们的 MCP 工具导航** | `MCP_TOOLS_SECTION` | 不知道有 `search_evidence` / `post_message` |
-| **协作哲学**（伙伴猫不是工具猫） | 新增 | 遇到困难找伙伴，不要一个人死扛 |
+| # | 内容 | 当前位置 | 为什么丢了会崩 |
+|---|------|---------|---------------|
+| 1 | **身份 + 伙伴声明** | CLAUDE.md 前 10 行 | 压缩后不知道自己是谁、有队友 |
+| 2 | **Magic Words**（8 个铲屎官拉闸词） | `GOVERNANCE_L0_DIGEST` / `shared-rules.md` | 铲屎官喊停猫不停 = P0 |
+| 3 | **Rule 0 + P1-P5 第一性原则** | `shared-rules.md` §1-§5 | 判断力基石，丢了变执行机器 |
+| 4 | **W1-W8 世界观** | `shared-rules.md` §W1-§W8 | "猫是 Agent 不是 API"/"用户是 CVO"——丢了判断力坍塌（47 补） |
+| 5 | **Push Back 协议机制**（证据+适用性+替代方案） | `shared-rules.md` §Rule 0 | 只说 Rule 0 不说怎么 push back = 规则变绝对刹车没出口（47 补） |
+| 6 | **传球三选一 + 球权只有第一人称** | `shared-rules.md` 传球决策树 | 压缩后链路锁死 + "球在你手上"代替 @ 已反复踩坑（47 补） |
+| 7 | **@ 路由规则**（行首、同行、不分行） | `shared-rules.md` + feedback memories | 路由失效 = 消息发不出去 |
+| 8 | **五条铁律** | CLAUDE.md | Redis 6399 误触 = P0、review 必须跨个体 |
+| 9 | **commit 签名格式 + 模型型号** | `GOVERNANCE_L0_DIGEST` / `shared-rules.md` §5 | 同族多分身归属不明（47 补） |
+| 10 | **共享状态文件只在 main 改 + 改完 commit push** | `shared-rules.md` §14 三层防御 | worktree 改 BACKLOG = 冲突（47 补） |
+| 11 | **铲屎官三硬条件**（不可逆/愿景级/跨猫僵局才 @landy） | `shared-rules.md` §10.4 | 反问式 ping 铲屎官（47 补） |
+| 12 | **WORKFLOW_TRIGGERS**（谁 @ 谁做什么） | `SystemPromptBuilder.ts` | 完成工作不知道传给谁 |
+| 13 | **MCP 工具 quick index**（非完整 SECTION） | 新编 | 不知道有记忆/协作/任务工具 |
+| 14 | **协作哲学**（伙伴猫不是工具猫） | 新增 | 遇到困难找伙伴，不要一个人死扛 |
 
-**预估 token**：~2,000-2,500 token（精简后）
+**MCP quick index 格式**（砚砚提议，~120-180 token，替代原 MCP_TOOLS_SECTION ~600-700 token）：
+```
+Cat Cafe MCP quick index:
+- Memory: cat_cafe_search_evidence / cat_cafe_graph_resolve / cat_cafe_list_recent
+- Collaboration: cat_cafe_post_message / cat_cafe_cross_post_message / cat_cafe_multi_mention
+- Tasks: cat_cafe_create_task / cat_cafe_update_task
+- Rich block: cat_cafe_create_rich_block; schema via cat_cafe_get_rich_block_rules; fields use kind/v/id
+- If a tool is missing, search exact tool name with tool_search.
+```
+
+**预估 token**：~3,000-4,000 token（先量再砍——47 估算 baseline 3,650-4,550，精简目标 ≤ 3,500）
+
+**cache 注意事项**（47 指出）：L0 对同猫必须稳定（per-invocation 不变），否则 prompt cache 命中率掉到地板。变化因子：WORKFLOW_TRIGGERS per-breed（OK，breed 不变）、packBlocks（外部项目场景需单独评估）。
 
 #### 10.3 L1 每次注入层（留在 user message，可被压缩）
 
@@ -383,18 +412,36 @@ Claude Code 系统提示词由以下函数动态拼装：
 
 **瘦身收益**：从 CLAUDE.md/SystemPromptBuilder 移走 L0 内容后，user message 层预计减少 ~2,000 token/轮
 
-#### 10.4 迁移路径
+#### 10.4 迁移路径（47/砚砚 review 后修订）
+
+> 原 5 Phase 过于激进。47 指出"Phase 2 严重低估"，砚砚指出"不能先写 l0.md 直接上"。修订为 spike-first 路径。
+
+**前置 Spike（全部无风险，必须在 Phase 1 前完成）**：
+
+| # | Spike | Owner | 依赖 |
+|---|-------|-------|------|
+| S1 | 写 `scripts/measure-system-prompt.mjs` 量 baseline（每猫每模式 token） | 宪宪 | 无 |
+| S2 | 扩 §9.4 spike：并行调用 / Skill / TaskCreate / Schedule / 复杂工具 / safety reflex | 宪宪 | 无 |
+| S3 | F-BLOAT 根因复现实验：git blame + `--system-prompt` resume 行为 | 宪宪 | 无 |
+| S4 | Codex `developer_instructions` per-call 注入路径（argv / env override） | 砚砚 | 无 |
+| S5 | Gemini `GEMINI_SYSTEM_MD` 替换式 spike（工具能力是否内置） | 待定 | S2 结论 |
+
+**实施 Phase（Spike 全部通过后）**：
 
 ```
 Phase 1: 编写 system-prompt-l0.md（L0 内容真相源）
     ↓
-Phase 2: invoke-single-cat.ts 改用 --system-prompt 加载 L0
+Phase 2a: 加 feature flag CAT_CAFE_USE_NATIVE_SYSTEM_PROMPT + dual-path 代码
+Phase 2b: ClaudeAgentService.ts spawn argv 加 --system-prompt
+Phase 2c: effectivePrompt 拼装逻辑剥离（保留 prepend 作为 fallback）
+Phase 2d: system-prompt-builder.test.js 全套适配（80+ 测试）
+Phase 2e: F-BLOAT 测试保护（resume 不重复注入）
     ↓
-Phase 3: CLAUDE.md 瘦身（删除已进 L0 的内容）
+Phase 3: 灰度 1 周 + telemetry（cache 命中率 / 工具调用模式 / 行为偏差）
     ↓
-Phase 4: SystemPromptBuilder 瘦身（GOVERNANCE_L0_DIGEST 等移入 L0）
+Phase 4: CLAUDE.md + SystemPromptBuilder 瘦身
     ↓
-Phase 5: 多轮对话 + 压缩测试验证
+Phase 5: 清理 prepend 代码 + feature flag
 ```
 
 ## 后果
@@ -406,7 +453,7 @@ Phase 5: 多轮对话 + 压缩测试验证
 - **正面**：双向检验标准（"删掉后好行为会消失吗"）与模型类型无关，测的是规则信息量
 - **负面**：`GOVERNANCE_L0_DIGEST` 仍是硬编码常量，手动同步负担存在——长期应考虑编译自动化
 - **待定**：Phase 0 正面重写改动量较大，需分批落地
-- **突破（已验证）**：`--system-prompt` 替换式方案 spike 通过（§9.4）——工具能力内置、默认行为指导可清除、我们的规则完整生效。L0 压缩免疫层方案就绪（§10）
+- **突破（basic feasibility passed）**：`--system-prompt` 替换式 spike 通过基本验证（§9.4）——工具能力内置、默认行为指导可清除、我们的规则完整生效。需扩展 spike 验证并行调用/Skill/safety 等功能性后方可上生产（§10.5 S2）
 - **愿景**：从"工具猫"到"伙伴猫"——系统提示词告诉猫有队友、有伙伴、遇到困难可以求助，而不是"最小改动、不要多想"（§9.4）
 
 ## 开放问题
@@ -416,8 +463,9 @@ Phase 5: 多轮对话 + 压缩测试验证
 3. `WORKFLOW_TRIGGERS` 是否应提取为外部配置文件（当前硬编码在 .ts 中）
 4. Pack system guardrails 与 L0 治理的优先级冲突如何仲裁
 5. Skills `refs/` 参考文档的过时检测机制
-6. ~~`--append-system-prompt` 是否值得重新评估~~ → **已解决**：直接用 `--system-prompt` 替换式，更干净（§9.4 spike 通过）
+6. **F-BLOAT "unreliable" 两个失败模式需分别验证**——`invoke-single-cat.ts:1086` 说"cats didn't receive content"，bug-report 2026-02-23 说"resume 重复累积"。`--system-prompt` 替换式可能免疫后者但未必免疫前者——待 S3 spike（47 指出）
 7. **root md 瘦身实施**——§10.3 已列出 L1 层保留内容，L0 移走后 CLAUDE.md 自然变薄
-8. **Codex `developer_instructions` 是否应启用**——Codex 猫的等价方案，待 Claude 猫方案落地后跟进
-9. **`system-prompt-l0.md` 编写**——§10.2 列出了 L0 内容清单，需编写真相源文件 + 编译脚本生成 `--system-prompt` 参数值
-10. **Gemini 猫怎么办**——Gemini CLI 只有替换式 `GEMINI_SYSTEM_MD`（会丢 CLI 自身指令），但 §9.4 证明工具能力内置，替换可能也可行——待独立 spike
+8. **Codex `developer_instructions` per-call 路径**——全局 `config.toml` 多猫并发不安全（race condition），必须先确认 argv / env override 路径——待 S4 spike（砚砚 owner）
+9. **`system-prompt-l0.md` 编写**——§10.2 列出了 L0 内容清单（14 项），需编写真相源文件 + 编译脚本
+10. **Gemini 猫怎么办**——Gemini CLI 只有替换式 `GEMINI_SYSTEM_MD`——待 S5 spike
+11. **L0 token 预算**——先量再砍（S1），目标 ≤ 3,500 token，需兼顾 prompt cache 命中率
