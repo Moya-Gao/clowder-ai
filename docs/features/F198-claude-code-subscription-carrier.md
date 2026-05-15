@@ -8,7 +8,7 @@ created: 2026-05-13
 
 # F198: Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪
 
-> **Status**: in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 + 验证收尾 ✅ 2026-05-15 — 救宪宪代码层完成 + Alpha 端到端 R5 验证通过，canary 零操作员介入; **Phase C scope=A 单 PR 闭环 in-progress 2026-05-15**) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
+> **Status**: in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 + 验证收尾 ✅ 2026-05-15 — 救宪宪代码层完成 + Alpha 端到端 R5 验证通过，canary 零操作员介入; **Phase C ✅ merged PR #1678 2026-05-15 — AC-C1~C5 实现 + @codex review PASS; AC-C6 愿景守护待 @opus-47 确认**) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
 
 ## Why
 
@@ -293,12 +293,12 @@ in_context_observability:
 | 4 | Thread 气泡上"接管"按钮 | AC-C5 | `ChatMessage` 加 takeover 入口 → 路由到 F089 pane read-write 模式 |
 | 5 | Status dot tooltip 加 detail | AC-C3 | `ThreadCatStatus` hover 时显示 `state.detail` 文本 |
 
-- [ ] AC-C1: F089 tmux agent pane 在 Hub 内可观看（read-only）+ 显示当前 invocation metadata
-- [ ] AC-C2: thread UI 实时显示 tool call / tool result / partial text + daemon detail status（与 -p 模式 NDJSON 信息密度等价或更高）
-- [ ] AC-C3: cat avatar status dot 实时反映 session 状态（idle/working/waiting/error/detached）+ tooltip 显示 detail
-- [ ] AC-C4: deep dive 视图：可看 active sessions / process tree / 累计消耗
-- [ ] AC-C5: 接管按钮可用，read-write 切换正确（F089 既定能力扩展）
-- [ ] AC-C6: 跨猫愿景守护（砚砚 + 烁烁/暹罗猫）认证"oversight 信息密度 ≥ -p 模式"
+- [x] AC-C1: F089 tmux agent pane 在 Hub 内可观看（read-only）+ 显示当前 invocation metadata
+- [x] AC-C2: thread UI 实时显示 tool call / tool result / partial text + daemon detail status（与 -p 模式 NDJSON 信息密度等价或更高）
+- [x] AC-C3: cat avatar status dot 实时反映 session 状态（idle/working/waiting/error/detached）+ tooltip 显示 detail
+- [x] AC-C4: deep dive 视图：可看 active sessions / process tree / 累计消耗
+- [x] AC-C5: 接管按钮可用，read-write 切换正确（F089 既定能力扩展）
+- [ ] AC-C6: 跨猫愿景守护（砚砚 + 烁烁/暹罗猫）认证"oversight 信息密度 ≥ -p 模式"（@codex ✅ REVIEW PASS 2026-05-15；@opus-47 愿景守护待确认）
 
 ### Phase D（兜底 + 切流量）
 - [ ] AC-D1: 三档 fallback 实现 + 自动触发逻辑（quota 超限 / carrier 挂掉）
@@ -417,6 +417,7 @@ in_context_observability:
 | 2026-06-08 (target) | Phase D 灰度 100% |
 | 2026-06-14 (target) | Phase D 完成（buffer day） |
 | **2026-06-15** | **Anthropic SDK credit policy 生效（救命 deadline）** |
+| 2026-05-15 | Phase C merged (PR #1678) — Hub Oversight UI AC-C1~C5, 8 regression tests, @codex REVIEW PASS |
 | 2026-06-22 (target) | Phase E AC-E1/E2/E3 验收 |
 
 ## Review Gate
