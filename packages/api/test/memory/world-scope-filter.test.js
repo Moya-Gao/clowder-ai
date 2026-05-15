@@ -5,7 +5,7 @@ import { applyMigrations, CURRENT_SCHEMA_VERSION } from '../../dist/domains/memo
 
 describe('Schema V16 (F093 world scope)', () => {
   it('CURRENT_SCHEMA_VERSION is 18', () => {
-    assert.equal(CURRENT_SCHEMA_VERSION, 20);
+    assert.equal(CURRENT_SCHEMA_VERSION, 21);
   });
 
   it('migration adds world_id and scene_id columns', () => {

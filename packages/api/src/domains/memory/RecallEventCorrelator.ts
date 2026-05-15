@@ -41,8 +41,9 @@ export class RecallEventCorrelator {
       INSERT OR IGNORE INTO recall_events
         (recall_id, cat_id, invocation_id, tool_name, query, mode, scope,
          candidates_json, consumed_json, reformulated, fell_back_to_grep,
-         abandoned, next_graph_resolve_after_read, token_cost, timestamp)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         abandoned, next_graph_resolve_after_read, token_cost, timestamp,
+         shadow_ranking_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
   }
 
@@ -100,6 +101,7 @@ export class RecallEventCorrelator {
           e.nextGraphResolveAfterRead ? 1 : 0,
           e.tokenCost,
           e.timestamp,
+          e.shadowRankingJson ?? null,
         ];
         this.insertStmt.run(params);
       }

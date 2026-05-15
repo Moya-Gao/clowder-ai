@@ -20,6 +20,7 @@ export type ConsumedMethod =
 
 export interface RecallCandidate {
   anchor: string;
+  /** @0-indexed — BM25/vector rank from retrieval pipeline. MRR uses rank+1 as position. */
   rank: number;
   score?: number;
   targetRef: TargetRef;
@@ -50,6 +51,7 @@ export interface RecallEvent {
   nextGraphResolveAfterRead: boolean;
   tokenCost: number;
   timestamp: number;
+  shadowRankingJson?: string | null;
 }
 
 export interface F200FlagSnapshot {

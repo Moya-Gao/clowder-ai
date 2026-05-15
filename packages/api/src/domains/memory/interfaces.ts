@@ -115,6 +115,8 @@ export interface EvidenceItem {
   worldId?: string;
   /** F093 Phase A (KD-16): scene scope — derived canon evidence */
   sceneId?: string;
+  /** F200 Phase C: first indexed timestamp (epoch ms) for 14d grace period */
+  firstIndexedAt?: number;
   /** F186: collection-level review status */
   reviewStatus?: ReviewStatus;
   /** AC-I9: passage-level detail when depth=raw */

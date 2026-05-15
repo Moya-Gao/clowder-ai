@@ -166,16 +166,11 @@ describe('GraphQueryResolver', () => {
     assert.equal(result.status, 'candidates');
     assert.equal(result.queryKind, 'search');
     assert.equal(result.candidates.length, 8);
-    assert.deepEqual(result.candidates[0], {
-      anchor: 'F200',
-      title: 'Harness design 0',
-      kind: 'discussion',
-      collectionId: 'project:cat-cafe',
-      source: 'docs/discussions/harness-0.md',
-      matchReason: 'title',
-      snippet: 'Harness design 0',
-      edgeCount: 1,
-    });
+    const first = result.candidates[0];
+    assert.equal(first.anchor, 'F200');
+    assert.equal(first.edgeCount, 1);
+    assert.equal(typeof first.weightedEdgeScore, 'number');
+    assert.ok(first.weightedEdgeScore > 0, 'weightedEdgeScore should be positive for nodes with edges');
   });
 
   it('counts only visible edges in candidate metadata', async () => {
@@ -313,5 +308,52 @@ describe('GraphQueryResolver', () => {
       visible.candidates.map((candidate) => candidate.collectionId),
       ['project:cat-cafe', 'private:landy'],
     );
+  });
+
+  it('sorts candidates by weightedEdgeScore (R2-P3 — edge weight ranking)', async () => {
+    const GraphQueryResolver = await loadResolver();
+    const evidence = [
+      item('F201', { title: 'Harness no-edges', kind: 'discussion', summary: 'discussion harness' }),
+      item('F202', { title: 'Harness many-edges', kind: 'discussion', summary: 'discussion harness' }),
+    ];
+    const store = createStore(evidence, {
+      passthroughSearch: true,
+      related: {
+        F202: [
+          {
+            anchor: 'F100',
+            relation: 'feature_ref',
+            fromCollectionId: 'project:cat-cafe',
+            toCollectionId: 'project:cat-cafe',
+            edgeSensitivity: 'internal',
+            provenance: 'content',
+            traversalCount: 5,
+            lastTraversedAt: new Date().toISOString(),
+          },
+          {
+            anchor: 'F101',
+            relation: 'wikilink',
+            fromCollectionId: 'project:cat-cafe',
+            toCollectionId: 'project:cat-cafe',
+            edgeSensitivity: 'internal',
+            provenance: 'frontmatter',
+            traversalCount: 3,
+            lastTraversedAt: new Date().toISOString(),
+          },
+        ],
+      },
+    });
+    const resolver = new GraphQueryResolver(
+      catalog([{ id: 'project:cat-cafe', sensitivity: 'internal', kind: 'project' }]),
+      new Map([['project:cat-cafe', store]]),
+    );
+
+    const result = await resolver.resolve('harness', { callerCollections: ['project:cat-cafe'] });
+
+    assert.equal(result.status, 'candidates');
+    assert.equal(result.candidates[0].anchor, 'F202', 'candidate with edges should sort first');
+    assert.ok(result.candidates[0].weightedEdgeScore > 0);
+    assert.equal(result.candidates[1].anchor, 'F201');
+    assert.equal(result.candidates[1].weightedEdgeScore, undefined);
   });
 });

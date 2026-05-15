@@ -1,5 +1,6 @@
 import type { CollectionSensitivity } from './collection-types.js';
 import { COLLECTION_SENSITIVITY_ORDER } from './collection-types.js';
+import { computeEdgeWeight } from './graph-edge-weight.js';
 import type { EvidenceItem } from './interfaces.js';
 
 export interface GraphStore {
@@ -12,6 +13,8 @@ export interface GraphStore {
       toCollectionId: string | null;
       edgeSensitivity: string | null;
       provenance: string | null;
+      traversalCount: number;
+      lastTraversedAt: string | null;
     }>
   >;
 }
@@ -33,6 +36,7 @@ export interface GraphEdge {
   edgeSensitivity: CollectionSensitivity;
   provenance: string;
   redacted: boolean;
+  weight?: number;
 }
 
 export interface GraphResult {
@@ -260,6 +264,10 @@ export class GraphResolver {
               const reverseKey = `${relCanonicalAnchor}→${canonicalAnchor}:${rel.relation}`;
               if (!edgeKeySet.has(edgeKey) && !edgeKeySet.has(reverseKey)) {
                 edgeKeySet.add(edgeKey);
+                const daysSinceTraversal = rel.lastTraversedAt
+                  ? (Date.now() - new Date(rel.lastTraversedAt).getTime()) / 86_400_000
+                  : null;
+                const ew = computeEdgeWeight(rel.relation, rel.traversalCount ?? 0, daysSinceTraversal);
                 edgesArr.push({
                   from: isRedacted ? opaqueAnchor(canonicalAnchor) : canonicalAnchor,
                   to: relOutputRedacted ? opaqueAnchor(relCanonicalAnchor) : relCanonicalAnchor,
@@ -268,6 +276,7 @@ export class GraphResolver {
                   edgeSensitivity,
                   provenance: rel.provenance ?? 'manual',
                   redacted: edgeRedacted || (unresolvedRelRedaction?.redacted ?? false),
+                  weight: ew.total,
                 });
               }
 

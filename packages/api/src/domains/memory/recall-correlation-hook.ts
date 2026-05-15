@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import { recordEdgeTraversals } from './edge-traversal.js';
 import { type RawEvent, RecallEventCorrelator } from './RecallEventCorrelator.js';
 import { RecallMetricsComputer } from './RecallMetricsComputer.js';
+import { lookupShadowRanking } from './SqliteEvidenceStore.js';
 
 const MEMORY_TOOLS = new Set(['search_evidence', 'graph_resolve', 'list_recent']);
 
@@ -32,8 +33,29 @@ export async function triggerRecallCorrelation(
   const correlator = new RecallEventCorrelator(db);
   const recallEvents = correlator.correlateWindow(fullEvents);
   if (recallEvents.length > 0) {
+    const candidateAnchorsPerSearch: string[][] = [];
+    for (const e of memoryEvents) {
+      const summary = e.summary as Record<string, unknown> | undefined;
+      const cands = summary?._f200Candidates as Array<{ anchor: string }> | undefined;
+      if (cands && cands.length > 0) {
+        candidateAnchorsPerSearch.push(cands.map((c) => c.anchor));
+      } else {
+        candidateAnchorsPerSearch.push([]);
+      }
+    }
+    for (let i = 0; i < recallEvents.length; i++) {
+      const anchors = candidateAnchorsPerSearch[i];
+      if (anchors && anchors.length > 0) {
+        const shadowRanking = lookupShadowRanking(anchors);
+        recallEvents[i].shadowRankingJson = shadowRanking ? JSON.stringify(shadowRanking) : null;
+      } else {
+        recallEvents[i].shadowRankingJson = null;
+      }
+    }
     correlator.persistBatch(recallEvents);
-    new RecallMetricsComputer(db).refreshAnchorMetrics();
+    const metricsComputer = new RecallMetricsComputer(db);
+    metricsComputer.refreshAnchorMetrics();
+    metricsComputer.refreshGlobalCtrBaseline();
   }
 
   const consumedAnchors = new Set(recallEvents.flatMap((re) => re.consumed.map((c) => c.anchor)));

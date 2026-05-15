@@ -1,5 +1,6 @@
 import type { CollectionSensitivity } from './collection-types.js';
 import { GraphResolver, type GraphResult, type GraphStore } from './GraphResolver.js';
+import { computeEdgeWeight } from './graph-edge-weight.js';
 import type { EvidenceItem, IEvidenceStore } from './interfaces.js';
 
 const CANDIDATE_LIMIT = 8;
@@ -35,6 +36,7 @@ export interface GraphQueryCandidate {
   matchReason: MatchReason;
   snippet?: string;
   edgeCount?: number;
+  weightedEdgeScore?: number;
 }
 
 export type GraphQueryResolution =
@@ -287,22 +289,22 @@ export class GraphQueryResolver {
   }
 
   private async searchCandidates(query: string, callerCollections: Set<string>): Promise<GraphQueryCandidate[]> {
-    const candidates: GraphQueryCandidate[] = [];
+    const pool: GraphQueryCandidate[] = [];
     const seen = new Set<string>();
     for (const [collectionId, store] of this.stores) {
       const manifest = this.catalog.get(collectionId);
       if (!canShowCandidate(manifest, collectionId, callerCollections)) continue;
-      const results = await store.search(query, { mode: 'hybrid', scope: 'all', limit: CANDIDATE_LIMIT });
+      const results = await store.search(query, { mode: 'hybrid', scope: 'all', limit: CANDIDATE_LIMIT * 2 });
       for (const item of results) {
         if (!hasExplainableFieldMatch(item, query)) continue;
         const key = `${collectionId}:${item.anchor}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        candidates.push(await this.toCandidate(query, collectionId, item, store, callerCollections));
-        if (candidates.length >= CANDIDATE_LIMIT) return candidates;
+        pool.push(await this.toCandidate(query, collectionId, item, store, callerCollections));
       }
     }
-    return candidates;
+    pool.sort((a, b) => (b.weightedEdgeScore ?? 0) - (a.weightedEdgeScore ?? 0));
+    return pool.slice(0, CANDIDATE_LIMIT);
   }
 
   private async toCandidate(
@@ -313,11 +315,23 @@ export class GraphQueryResolver {
     callerCollections: Set<string>,
   ): Promise<GraphQueryCandidate> {
     const { matchReason, snippet } = classifyMatch(item, query);
-    const edgeCount = isGraphStore(store)
-      ? (await store.getRelated(item.anchor)).filter((rel) =>
-          canCountRelationEdge(this.catalog, rel, callerCollections),
-        ).length
-      : undefined;
+    let edgeCount: number | undefined;
+    let weightedEdgeScore: number | undefined;
+    if (isGraphStore(store)) {
+      const rels = (await store.getRelated(item.anchor)).filter((rel) =>
+        canCountRelationEdge(this.catalog, rel, callerCollections),
+      );
+      edgeCount = rels.length;
+      if (rels.length > 0) {
+        weightedEdgeScore = 0;
+        for (const rel of rels) {
+          const daysSinceTraversal = rel.lastTraversedAt
+            ? (Date.now() - new Date(rel.lastTraversedAt).getTime()) / 86_400_000
+            : null;
+          weightedEdgeScore += computeEdgeWeight(rel.relation, rel.traversalCount ?? 0, daysSinceTraversal).total;
+        }
+      }
+    }
     return {
       anchor: item.anchor,
       title: item.title,
@@ -327,6 +341,7 @@ export class GraphQueryResolver {
       matchReason,
       ...(snippet ? { snippet } : {}),
       ...(edgeCount !== undefined ? { edgeCount } : {}),
+      ...(weightedEdgeScore !== undefined ? { weightedEdgeScore } : {}),
     };
   }
 

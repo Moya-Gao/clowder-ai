@@ -66,7 +66,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 20;
+export const CURRENT_SCHEMA_VERSION = 21;
 
 // F163 Phase A: experiment infrastructure tables (cohorts, suggestions, logs)
 export const SCHEMA_V13_TABLES = `
@@ -581,6 +581,27 @@ export function applyMigrations(db: Database.Database): void {
       db.exec('CREATE INDEX IF NOT EXISTS idx_anchor_metrics_dormancy ON anchor_recall_metrics(dormancy_days)');
     } catch {}
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(20, new Date().toISOString());
+  }
+
+  // V21: F200 Phase C — global CTR baseline + first_indexed_at + shadow ranking
+  if (currentVersion < 21) {
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS global_ctr_baseline (
+          doc_kind TEXT PRIMARY KEY,
+          mean_ctr REAL NOT NULL DEFAULT 0.2,
+          sample_count INTEGER NOT NULL DEFAULT 0,
+          updated_at INTEGER NOT NULL DEFAULT 0
+        )
+      `);
+    } catch {}
+    try {
+      db.exec('ALTER TABLE evidence_docs ADD COLUMN first_indexed_at INTEGER NOT NULL DEFAULT 0');
+    } catch {}
+    try {
+      db.exec('ALTER TABLE recall_events ADD COLUMN shadow_ranking_json TEXT');
+    } catch {}
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(21, new Date().toISOString());
   }
 }
 

@@ -850,4 +850,35 @@ describe('GraphResolver', () => {
       'all unresolved edge endpoints should be rewritten after traversal redaction is known',
     );
   });
+
+  it('edges carry computed weight from traversal data (F200 AC-C2)', async () => {
+    await store.upsert([
+      { anchor: 'A1', kind: 'feature', status: 'active', title: 'A1', updatedAt: '2026-05-15' },
+      { anchor: 'A2', kind: 'feature', status: 'active', title: 'A2', updatedAt: '2026-05-15' },
+    ]);
+    await store.addEdge({
+      fromAnchor: 'A1',
+      toAnchor: 'A2',
+      relation: 'feature_ref',
+      fromCollectionId: 'project:cat-cafe',
+      toCollectionId: 'project:cat-cafe',
+      edgeSensitivity: 'internal',
+      provenance: 'frontmatter',
+    });
+    const { recordEdgeTraversals } = await import('../../dist/domains/memory/edge-traversal.js');
+    recordEdgeTraversals(store.db, [{ from: 'A1', to: 'A2', relation: 'feature_ref' }]);
+
+    const catalog = {
+      list: () => [{ id: 'project:cat-cafe', sensitivity: 'internal', kind: 'project' }],
+      get: (id) => catalog.list().find((m) => m.id === id),
+    };
+    const stores = new Map([['project:cat-cafe', store]]);
+    const resolver = new GraphResolver(catalog, stores);
+    const result = await resolver.buildSubgraph('A1', { depth: 1, callerCollections: ['project:cat-cafe'] });
+
+    assert.equal(result.edges.length, 1);
+    const edge = result.edges[0];
+    assert.equal(typeof edge.weight, 'number');
+    assert.ok(edge.weight > 1.1, `traversed feature_ref should exceed base 1.1, got ${edge.weight}`);
+  });
 });

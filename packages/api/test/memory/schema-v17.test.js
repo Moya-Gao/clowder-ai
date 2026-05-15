@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 describe('Schema V17 migration', () => {
   it('CURRENT_SCHEMA_VERSION is 18', async () => {
     const { CURRENT_SCHEMA_VERSION } = await import('../../dist/domains/memory/schema.js');
-    assert.equal(CURRENT_SCHEMA_VERSION, 20);
+    assert.equal(CURRENT_SCHEMA_VERSION, 21);
   });
 
   it('V17 adds collection_id and review_status to evidence_docs', async () => {

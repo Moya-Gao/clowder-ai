@@ -18,6 +18,8 @@ export interface RecallMetricsReport {
     reformulateAfterExposure: number;
     grepFallbackRate: number;
     tokenCostPerHit: number;
+    consumedAnchorNotInPoolRate: number;
+    shadowConsumedMRR: number | null;
   };
   graph: {
     nonFirstSelectionRate: number;
@@ -47,11 +49,13 @@ interface RawRow {
   next_graph_resolve_after_read: number;
   token_cost: number;
   timestamp: number;
+  shadow_ranking_json: string | null;
 }
 
 type ParsedRow = RawRow & {
   candidates: RecallCandidate[];
   consumed: ConsumedEntry[];
+  shadowRanking: Array<{ anchor: string; shadowRank: number }> | null;
 };
 
 function toAnchorMetric(row: Record<string, unknown>): AnchorMetric {
@@ -79,6 +83,9 @@ export class RecallMetricsComputer {
       ...r,
       candidates: JSON.parse(r.candidates_json) as RecallCandidate[],
       consumed: JSON.parse(r.consumed_json) as ConsumedEntry[],
+      shadowRanking: r.shadow_ranking_json
+        ? (JSON.parse(r.shadow_ranking_json) as Array<{ anchor: string; shadowRank: number }>)
+        : null,
     }));
 
     return {
@@ -145,6 +152,41 @@ export class RecallMetricsComputer {
         const lastAt = lastConsumed ? new Date(lastConsumed).toISOString() : null;
         const dormancy = lastConsumed !== null ? Math.floor((now - lastConsumed) / 86_400_000) : null;
         upsert.run(anchor, stats.consumed, stats.exposed, lastAt, dormancy, new Date().toISOString());
+      }
+    });
+    tx();
+  }
+
+  refreshGlobalCtrBaseline(): void {
+    const rows = this.db
+      .prepare(`
+        SELECT ed.kind AS doc_kind,
+               arm.consumed_count_30d AS consumed,
+               arm.exposure_count_30d AS exposure
+        FROM anchor_recall_metrics arm
+        JOIN evidence_docs ed ON ed.anchor = arm.anchor
+        WHERE arm.exposure_count_30d > 0
+      `)
+      .all() as Array<{ doc_kind: string; consumed: number; exposure: number }>;
+
+    const byKind = new Map<string, { sum: number; count: number }>();
+    for (const r of rows) {
+      const entry = byKind.get(r.doc_kind) ?? { sum: 0, count: 0 };
+      entry.sum += r.consumed / Math.max(r.exposure, 1);
+      entry.count++;
+      byKind.set(r.doc_kind, entry);
+    }
+
+    const upsert = this.db.prepare(`
+      INSERT INTO global_ctr_baseline (doc_kind, mean_ctr, sample_count, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(doc_kind) DO UPDATE SET mean_ctr = excluded.mean_ctr, sample_count = excluded.sample_count, updated_at = excluded.updated_at
+    `);
+
+    const now = Date.now();
+    const tx = this.db.transaction(() => {
+      for (const [kind, stats] of byKind) {
+        upsert.run(kind, stats.sum / stats.count, stats.count, now);
       }
     });
     tx();
@@ -262,6 +304,17 @@ export class RecallMetricsComputer {
     const withCandidates = rows.filter((r) => r.candidates.length > 0);
     const fallbackAfterHigh = withCandidates.filter((r) => r.fell_back_to_grep).length;
 
+    let consumedNotInPool = 0;
+    let totalConsumedEntries = 0;
+    for (const r of rows) {
+      if (r.consumed.length === 0) continue;
+      const candidateAnchors = new Set(r.candidates.map((c) => c.anchor));
+      for (const c of r.consumed) {
+        totalConsumedEntries++;
+        if (!candidateAnchors.has(c.anchor)) consumedNotInPool++;
+      }
+    }
+
     return {
       readthroughAt3: readthroughDenom > 0 ? readthroughSum / readthroughDenom : 0,
       firstConsumedRankMedian: median,
@@ -269,7 +322,21 @@ export class RecallMetricsComputer {
       reformulateAfterExposure: rows.length > 0 ? reformAfterExposure / rows.length : 0,
       grepFallbackRate: withCandidates.length > 0 ? fallbackAfterHigh / withCandidates.length : 0,
       tokenCostPerHit: totalConsumed > 0 ? totalTokens / totalConsumed : 0,
+      consumedAnchorNotInPoolRate: totalConsumedEntries > 0 ? consumedNotInPool / totalConsumedEntries : 0,
+      shadowConsumedMRR: this.computeShadowMRR(rows),
     };
+  }
+
+  private computeShadowMRR(rows: ParsedRow[]): number | null {
+    const shadowRows = rows.filter((r) => r.shadowRanking !== null && r.consumed.length > 0);
+    if (shadowRows.length === 0) return null;
+    let sum = 0;
+    for (const r of shadowRows) {
+      const rankMap = new Map(r.shadowRanking!.map((s) => [s.anchor, s.shadowRank]));
+      const firstShadowRank = Math.min(...r.consumed.map((c) => rankMap.get(c.anchor) ?? Infinity));
+      if (Number.isFinite(firstShadowRank)) sum += 1 / (firstShadowRank + 1);
+    }
+    return sum / shadowRows.length;
   }
 
   private computeGraph(rows: ParsedRow[]): RecallMetricsReport['graph'] {
@@ -304,6 +371,8 @@ export class RecallMetricsComputer {
         reformulateAfterExposure: 0,
         grepFallbackRate: 0,
         tokenCostPerHit: 0,
+        consumedAnchorNotInPoolRate: 0,
+        shadowConsumedMRR: null,
       },
       graph: { nonFirstSelectionRate: 0, traversalCompletion: 0 },
     };

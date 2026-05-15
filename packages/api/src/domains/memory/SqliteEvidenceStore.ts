@@ -1,9 +1,11 @@
 // F102: SQLite implementation of IEvidenceStore
 
 import Database from 'better-sqlite3';
+import { computeConsumptionPrior } from './consumption-prior.js';
 import { EvidenceWriteQueue } from './evidence-write-queue.js';
 import { ContradictionDetector } from './f163-contradiction-detector.js';
 import { type F163Authority, freezeFlags, pathToAuthority } from './f163-types.js';
+import { freezeF200Flags } from './f200-types.js';
 import type {
   Edge,
   EvidenceItem,
@@ -17,6 +19,8 @@ import {
   rankLexicalBackfillRows,
   splitLexicalBackfillWords,
 } from './lexical-backfill.js';
+import { applyMMR } from './mmr.js';
+import { computeRecencyDecay } from './recency-decay.js';
 import { applyMigrations } from './schema.js';
 import type { VectorStore } from './VectorStore.js';
 
@@ -416,8 +420,10 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         return this.enrichWithDrillDown(lexicalResults);
       }
       try {
+        const f200Pool = freezeF200Flags().consumptionRerank !== 'off' ? limit * 3 : limit;
         return this.enrichWithDrillDown(
-          await this.hybridRRFSearch(query, lexicalCandidates, limit, options, suppressBackstop),
+          await this.hybridRRFSearch(query, lexicalCandidates, f200Pool, options, suppressBackstop),
+          limit,
         );
       } catch {
         return this.enrichWithDrillDown(lexicalResults);
@@ -431,7 +437,13 @@ export class SqliteEvidenceStore implements IEvidenceStore {
    * G-4: Enrich search results with drill-down hints for thread/session items.
    * Tells the cat what MCP tool to use to see full details.
    */
-  private enrichWithDrillDown(results: EvidenceItem[]): EvidenceItem[] {
+  private enrichWithDrillDown(results: EvidenceItem[], targetLimit?: number): EvidenceItem[] {
+    try {
+      if (this.db) applyConsumptionRerank(results, this.db, targetLimit);
+    } catch {
+      // F200 kill-switch: rerank failure → continue with existing ranking
+    }
+    if (targetLimit && results.length > targetLimit) results.length = targetLimit;
     for (const item of results) {
       if (item.kind === 'thread' && item.anchor.startsWith('thread-')) {
         const threadId = item.anchor.replace('thread-', '');
@@ -687,12 +699,15 @@ export class SqliteEvidenceStore implements IEvidenceStore {
 				 authority, activation, verified_at,
 				 source_ids, summary_of_anchor, compression_rationale,
 				 contradicts, invalid_at, review_cycle_days,
-				 world_id, scene_id)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 world_id, scene_id, first_indexed_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`);
+      const lookupFirstIndexed = db.prepare('SELECT first_indexed_at FROM evidence_docs WHERE anchor = ?');
 
       const tx = db.transaction((items: EvidenceItem[]) => {
         for (const item of items) {
+          const existing = lookupFirstIndexed.get(item.anchor) as { first_indexed_at: number } | undefined;
+          const firstIndexedAt = existing != null ? existing.first_indexed_at : Date.now();
           stmt.run(
             item.anchor,
             item.kind,
@@ -720,6 +735,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
             item.reviewCycleDays ?? null,
             item.worldId ?? null,
             item.sceneId ?? null,
+            firstIndexedAt,
           );
         }
       });
@@ -914,6 +930,8 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       toCollectionId: string | null;
       edgeSensitivity: string | null;
       provenance: string | null;
+      traversalCount: number;
+      lastTraversedAt: string | null;
     }>
   > {
     this.ensureOpen();
@@ -924,7 +942,9 @@ export class SqliteEvidenceStore implements IEvidenceStore {
                 from_collection_id AS fromCollectionId,
                 to_collection_id AS toCollectionId,
                 edge_sensitivity AS edgeSensitivity,
-                provenance
+                provenance,
+                COALESCE(traversal_count, 0) AS traversalCount,
+                last_traversed_at AS lastTraversedAt
          FROM edges WHERE from_anchor = ?
          UNION
          SELECT from_anchor AS anchor,
@@ -932,7 +952,9 @@ export class SqliteEvidenceStore implements IEvidenceStore {
                 from_collection_id AS fromCollectionId,
                 to_collection_id AS toCollectionId,
                 edge_sensitivity AS edgeSensitivity,
-                provenance
+                provenance,
+                COALESCE(traversal_count, 0) AS traversalCount,
+                last_traversed_at AS lastTraversedAt
          FROM edges WHERE to_anchor = ?`,
       )
       .all(anchor, anchor) as Array<{
@@ -942,6 +964,8 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       toCollectionId: string | null;
       edgeSensitivity: string | null;
       provenance: string | null;
+      traversalCount: number;
+      lastTraversedAt: string | null;
     }>;
     return rows;
   }
@@ -1100,6 +1124,7 @@ interface RowShape {
   scene_id: string | null;
   collection_id: string | null;
   review_status: string | null;
+  first_indexed_at: number | null;
 }
 
 function rowToItem(row: RowShape): EvidenceItem {
@@ -1136,6 +1161,7 @@ function rowToItem(row: RowShape): EvidenceItem {
   if (row.world_id != null) item.worldId = row.world_id;
   if (row.scene_id != null) item.sceneId = row.scene_id;
   if (row.review_status != null) item.reviewStatus = row.review_status as EvidenceItem['reviewStatus'];
+  if (row.first_indexed_at != null) item.firstIndexedAt = row.first_indexed_at;
   return item;
 }
 
@@ -1174,4 +1200,139 @@ function applyAuthorityBoost(results: EvidenceItem[]): void {
     }
   }
   // shadow: order unchanged, but boost was computed (logging in Task 7)
+}
+
+// ── F200 Phase C: Consumption-weighted rerank ──
+
+interface AnchorMetricRow {
+  anchor: string;
+  consumed_count_30d: number;
+  exposure_count_30d: number;
+  dormancy_days: number | null;
+}
+
+function loadAnchorMetrics(db: Database.Database, anchors: string[]): Map<string, AnchorMetricRow> {
+  if (anchors.length === 0) return new Map();
+  const placeholders = anchors.map(() => '?').join(',');
+  const rows = db
+    .prepare(`SELECT * FROM anchor_recall_metrics WHERE anchor IN (${placeholders})`)
+    .all(...anchors) as AnchorMetricRow[];
+  return new Map(rows.map((r) => [r.anchor, r]));
+}
+
+function loadGlobalCtrBaseline(db: Database.Database): Record<string, number> {
+  const rows = db.prepare('SELECT doc_kind, mean_ctr FROM global_ctr_baseline').all() as Array<{
+    doc_kind: string;
+    mean_ctr: number;
+  }>;
+  const result: Record<string, number> = {};
+  for (const r of rows) result[r.doc_kind] = r.mean_ctr;
+  return result;
+}
+
+const _shadowRankingMap = new Map<string, Array<Array<{ anchor: string; shadowRank: number }>>>();
+const MAX_SHADOW_ENTRIES = 32;
+
+function shadowKey(anchors: string[]): string {
+  return anchors.slice(0, 8).join('|');
+}
+
+function storeShadowRanking(resultAnchors: string[], ranking: Array<{ anchor: string; shadowRank: number }>): void {
+  const key = shadowKey(resultAnchors);
+  const existing = _shadowRankingMap.get(key);
+  if (existing) {
+    existing.push(ranking);
+  } else {
+    if (_shadowRankingMap.size >= MAX_SHADOW_ENTRIES) {
+      const oldest = _shadowRankingMap.keys().next().value;
+      if (oldest != null) _shadowRankingMap.delete(oldest);
+    }
+    _shadowRankingMap.set(key, [ranking]);
+  }
+}
+
+export function lookupShadowRanking(candidateAnchors: string[]): Array<{ anchor: string; shadowRank: number }> | null {
+  const key = shadowKey(candidateAnchors);
+  const stack = _shadowRankingMap.get(key);
+  if (!stack || stack.length === 0) return null;
+  const ranking = stack.shift()!;
+  if (stack.length === 0) _shadowRankingMap.delete(key);
+  return ranking;
+}
+
+export function applyConsumptionRerank(results: EvidenceItem[], db: Database.Database, targetLimit?: number): void {
+  const f200Flags = freezeF200Flags();
+  if (f200Flags.consumptionRerank === 'off' || results.length < 2) return;
+
+  const anchorMetrics = loadAnchorMetrics(
+    db,
+    results.map((r) => r.anchor),
+  );
+  const globalMeanCtr = loadGlobalCtrBaseline(db);
+
+  const K = 60;
+  const BETA = 0.15;
+  const GAMMA = 0.1;
+
+  const scored = results.map((item, i) => {
+    const metrics = anchorMetrics.get(item.anchor);
+    const prior = computeConsumptionPrior(
+      {
+        consumedCount30d: metrics?.consumed_count_30d ?? 0,
+        exposureCount30d: metrics?.exposure_count_30d ?? 0,
+        daysSinceLastConsumed: metrics?.dormancy_days ?? null,
+        docKind: item.kind ?? 'unknown',
+        authority: (item.authority as F163Authority) ?? 'observed',
+        firstIndexedAt: item.firstIndexedAt ?? 0,
+      },
+      globalMeanCtr,
+    );
+
+    const ageDays = item.updatedAt ? (Date.now() - new Date(item.updatedAt).getTime()) / 86_400_000 : 365;
+    const decay = computeRecencyDecay(ageDays, item.kind ?? 'unknown');
+
+    const positionalScore = 1 / (i + K);
+    const newScore = positionalScore + BETA * prior.prior + GAMMA * (decay.factor - 0.5);
+
+    const isConstitutional = prior.branch === 'constitutional';
+    return { item, newScore, originalIndex: i, isConstitutional };
+  });
+
+  const pinned = new Map<number, EvidenceItem>();
+  let movable: Array<{ item: EvidenceItem; newScore: number }> = [];
+  for (const s of scored) {
+    if (s.isConstitutional) pinned.set(s.originalIndex, s.item);
+    else movable.push(s);
+  }
+  movable.sort((a, b) => b.newScore - a.newScore);
+
+  if (targetLimit && movable.length >= 3 * targetLimit) {
+    const mmrItems = movable.map((m) => ({ item: m.item, score: m.newScore }));
+    const mmrResults = applyMMR(mmrItems, targetLimit, 0.7);
+    movable = mmrResults.map((item, i) => ({ item, newScore: targetLimit - i }));
+  }
+
+  const final: EvidenceItem[] = [];
+  let mi = 0;
+  for (let i = 0; i < results.length; i++) {
+    if (pinned.has(i)) {
+      final.push(pinned.get(i)!);
+    } else if (mi < movable.length) {
+      final.push(movable[mi++].item);
+    }
+  }
+
+  const shadowOrder: Array<{ anchor: string; shadowRank: number }> = final.map((item, i) => ({
+    anchor: item.anchor,
+    shadowRank: i,
+  }));
+  if (f200Flags.consumptionRerank === 'on') {
+    for (let i = 0; i < final.length; i++) results[i] = final[i];
+    results.length = final.length;
+  }
+  const keyAnchors =
+    targetLimit != null && results.length > targetLimit
+      ? results.slice(0, targetLimit).map((r) => r.anchor)
+      : results.map((r) => r.anchor);
+  storeShadowRanking(keyAnchors, shadowOrder);
 }

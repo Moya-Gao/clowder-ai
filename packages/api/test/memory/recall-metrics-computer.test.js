@@ -275,6 +275,58 @@ describe('RecallMetricsComputer', () => {
     assert.equal(popular[0].consumedCount30d, 5);
   });
 
+  it('AC-C7: refreshGlobalCtrBaseline computes per-kind mean CTR', () => {
+    const now = Date.now();
+    db.prepare(
+      "INSERT OR IGNORE INTO evidence_docs (anchor, kind, status, title, summary, updated_at, authority) VALUES (?, ?, 'active', ?, '', datetime('now'), 'observed')",
+    ).run('feat-A', 'feature', 'feat-A');
+    db.prepare(
+      "INSERT OR IGNORE INTO evidence_docs (anchor, kind, status, title, summary, updated_at, authority) VALUES (?, ?, 'active', ?, '', datetime('now'), 'observed')",
+    ).run('feat-B', 'feature', 'feat-B');
+    db.prepare(
+      "INSERT OR IGNORE INTO evidence_docs (anchor, kind, status, title, summary, updated_at, authority) VALUES (?, ?, 'active', ?, '', datetime('now'), 'observed')",
+    ).run('plan-A', 'plan', 'plan-A');
+
+    for (let i = 0; i < 10; i++) {
+      insertEvent(db, {
+        recall_id: `r-fa-${i}`,
+        timestamp: now,
+        candidates_json: JSON.stringify([{ anchor: 'feat-A', rank: 0 }]),
+        consumed_json: i < 5 ? JSON.stringify([{ anchor: 'feat-A', rank: 0, method: 'Read' }]) : '[]',
+      });
+    }
+    for (let i = 0; i < 10; i++) {
+      insertEvent(db, {
+        recall_id: `r-fb-${i}`,
+        timestamp: now,
+        candidates_json: JSON.stringify([{ anchor: 'feat-B', rank: 0 }]),
+        consumed_json: i < 3 ? JSON.stringify([{ anchor: 'feat-B', rank: 0, method: 'Read' }]) : '[]',
+      });
+    }
+    for (let i = 0; i < 10; i++) {
+      insertEvent(db, {
+        recall_id: `r-pa-${i}`,
+        timestamp: now,
+        candidates_json: JSON.stringify([{ anchor: 'plan-A', rank: 0 }]),
+        consumed_json: i < 8 ? JSON.stringify([{ anchor: 'plan-A', rank: 0, method: 'Read' }]) : '[]',
+      });
+    }
+
+    const computer = new RecallMetricsComputer(db);
+    computer.refreshAnchorMetrics();
+    computer.refreshGlobalCtrBaseline();
+
+    const feature = db.prepare('SELECT * FROM global_ctr_baseline WHERE doc_kind = ?').get('feature');
+    assert.ok(feature, 'should have feature baseline');
+    assert.equal(feature.mean_ctr, 0.4, 'feature: (5/10 + 3/10) / 2 = 0.4');
+    assert.equal(feature.sample_count, 2);
+
+    const plan = db.prepare('SELECT * FROM global_ctr_baseline WHERE doc_kind = ?').get('plan');
+    assert.ok(plan, 'should have plan baseline');
+    assert.equal(plan.mean_ctr, 0.8, 'plan: 8/10 = 0.8');
+    assert.equal(plan.sample_count, 1);
+  });
+
   it('returns empty report for no events', () => {
     const computer = new RecallMetricsComputer(db);
     const report = computer.computeMetrics({ days: 7 });
@@ -441,6 +493,74 @@ describe('RecallMetricsComputer', () => {
       0.5,
       'only event with candidates should count as after-exposure reformulation (1/2)',
     );
+  });
+
+  it('AC-C6: consumedAnchorNotInPoolRate tracks consumed-but-not-in-candidates', () => {
+    insertEvent(db, {
+      recall_id: 'r-miss',
+      candidates_json: JSON.stringify([{ anchor: 'A', rank: 0 }]),
+      consumed_json: JSON.stringify([{ anchor: 'X', rank: -1, method: 'Read' }]),
+    });
+    insertEvent(db, {
+      recall_id: 'r-hit',
+      candidates_json: JSON.stringify([{ anchor: 'B', rank: 0 }]),
+      consumed_json: JSON.stringify([{ anchor: 'B', rank: 0, method: 'Read' }]),
+    });
+
+    const computer = new RecallMetricsComputer(db);
+    const report = computer.computeMetrics({ days: 1 });
+    assert.equal(report.extended.consumedAnchorNotInPoolRate, 0.5);
+  });
+
+  it('AC-C6: consumedAnchorNotInPoolRate is 0 when all consumed in pool', () => {
+    insertEvent(db, {
+      recall_id: 'r-all-hit',
+      candidates_json: JSON.stringify([
+        { anchor: 'A', rank: 0 },
+        { anchor: 'B', rank: 1 },
+      ]),
+      consumed_json: JSON.stringify([{ anchor: 'A', rank: 0, method: 'Read' }]),
+    });
+
+    const computer = new RecallMetricsComputer(db);
+    const report = computer.computeMetrics({ days: 1 });
+    assert.equal(report.extended.consumedAnchorNotInPoolRate, 0);
+  });
+
+  it('AC-C4: shadowConsumedMRR computed from shadow_ranking_json', () => {
+    const shadowRanking = [
+      { anchor: 'A', shadowRank: 1 },
+      { anchor: 'B', shadowRank: 0 },
+    ];
+    insertEvent(db, {
+      recall_id: 'r-shadow-1',
+      candidates_json: JSON.stringify([
+        { anchor: 'A', rank: 0 },
+        { anchor: 'B', rank: 1 },
+      ]),
+      consumed_json: JSON.stringify([{ anchor: 'A', rank: 0, method: 'Read' }]),
+    });
+    db.prepare('UPDATE recall_events SET shadow_ranking_json = ? WHERE recall_id = ?').run(
+      JSON.stringify(shadowRanking),
+      'r-shadow-1',
+    );
+
+    const computer = new RecallMetricsComputer(db);
+    const report = computer.computeMetrics({ days: 1 });
+    assert.equal(report.core.consumedMRR, 1.0, 'original: A at rank 0 → MRR=1/(0+1)=1.0');
+    assert.equal(report.extended.shadowConsumedMRR, 0.5, 'shadow: A at shadowRank 1 → MRR=1/(1+1)=0.5');
+  });
+
+  it('AC-C4: shadowConsumedMRR is null when no shadow data', () => {
+    insertEvent(db, {
+      recall_id: 'r-no-shadow',
+      candidates_json: JSON.stringify([{ anchor: 'A', rank: 0 }]),
+      consumed_json: JSON.stringify([{ anchor: 'A', rank: 0, method: 'Read' }]),
+    });
+
+    const computer = new RecallMetricsComputer(db);
+    const report = computer.computeMetrics({ days: 1 });
+    assert.equal(report.extended.shadowConsumedMRR, null);
   });
 
   it('P1-3 regression: extended report uses grepFallbackRate field name', () => {

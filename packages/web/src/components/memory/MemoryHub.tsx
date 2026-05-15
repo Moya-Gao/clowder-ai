@@ -5,6 +5,7 @@ import { CollectionGraph } from './CollectionGraph';
 import { EvidenceSearch } from './EvidenceSearch';
 import { HealthReport } from './HealthReport';
 import { IndexStatus } from './IndexStatus';
+import { MemoryFlagPanel } from './MemoryFlagPanel';
 import { MemoryNav, type MemoryTab } from './MemoryNav';
 import { ToolUsageMetricsPanel } from './ToolUsageMetricsPanel';
 
@@ -39,6 +40,7 @@ export function MemoryHub({ activeTab = 'feed', initialQuery, initialReferrerThr
         )}
         {activeTab === 'health' && (
           <div className="space-y-4" data-testid="memory-tab-health">
+            <MemoryFlagPanel />
             <HealthReport />
             <ToolUsageMetricsPanel />
           </div>

@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import type { FastifyPluginAsync } from 'fastify';
+import { freezeF200Flags } from '../domains/memory/f200-types.js';
 import { RecallMetricsComputer } from '../domains/memory/RecallMetricsComputer.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
@@ -67,6 +68,12 @@ export const recallMetricsRoutes: FastifyPluginAsync<RecallMetricsRoutesOptions>
       return { anchors: computer.getDormantAnchors(threshold, limit) };
     }
     return { anchors: computer.getPopularAnchors(limit) };
+  });
+
+  app.get('/api/recall/flags', async (request, reply) => {
+    const userId = resolveHeaderUserId(request);
+    if (!userId) return reply.status(401).send({ error: 'Missing X-Cat-Cafe-User header' });
+    return { f200: freezeF200Flags() };
   });
 
   app.post('/api/recall/anchors/refresh', async (request, reply) => {
