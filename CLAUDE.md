@@ -115,6 +115,18 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 >
 > **何时不用 search_evidence**：你已经知道精确 anchor 想看 graph → `graph_resolve`；你不知道找什么想扫一眼 → `list_recent`。
 
+### 排序行为（F200 — consumption-weighted ranking 已上线）
+
+`search_evidence` 结果现在融合消费信号排序（`F200_CONSUMPTION_RERANK=on`）：
+
+- 被猫猫实际消费（recall→Read/action）的文档排名提升；长期无人读的文档逐渐下沉
+- Constitutional 文档（ADR/lesson/canon）永远不降权——consumption 低不代表不重要
+- 新文档 14 天 grace period + Bayesian 先验，不会因缺数据被埋
+- 近似重复结果 MMR 去重，前排更多样
+- `graph_resolve` 边权重也融合消费频次（常走的路径权重更高）
+
+不需要改变搜索方式——排序自动生效，结果更贴近实际使用价值。
+
 ### 什么时候不用搜
 
 - Trivial 改动（≤5 行、纯格式）

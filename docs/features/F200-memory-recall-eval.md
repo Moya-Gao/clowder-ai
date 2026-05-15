@@ -295,7 +295,7 @@ outputVerified = signal_or(
 - [x] AC-B3: Token Cost per Hit 可按猫/按工具/按时间段聚合
 - [x] AC-B4: GraphNonFirstSelectionRate 和 GraphTraversalCompletion 可通过 API 查询
 
-### Phase C（Consumption-Weighted Ranking）🚧
+### Phase C（Consumption-Weighted Ranking）✅
 - [x] AC-C1: search_evidence 排序引入 consumption_prior（Bayesian shrinkage + 14d grace period）和 recency_decay（fractional + kind 分桶）
 - [x] AC-C2: graph_resolve 候选排序引入入边加权（edge_weight × source_relevance）+ consumption_recency
 - [x] AC-C3: MMR 去重在 hybrid mode + pool≥3×limit 时生效（λ=0.7 可配置）
@@ -303,7 +303,7 @@ outputVerified = signal_or(
 - [x] AC-C5: consumption_prior 不影响 authority（constitutional/ADR 免疫降权）
 - [x] AC-C6: `consumed_anchor_not_in_pool_rate` 指标上线，数据驱动 pool 扩展决策
 - [x] AC-C7: graph edge_weight（type_base + traversal_count_30d × edge_recency_decay）用于候选排序
-- [ ] AC-C8: shadow 确认排序改进后，同步更新以下软约束文件的记忆系统段：`CLAUDE.md`、`AGENTS.md`、`cat-cafe-skills/refs/memory-routing-partial.md`（愿景守护检查项）
+- [x] AC-C8: shadow 确认排序改进后，同步更新以下软约束文件的记忆系统段：`CLAUDE.md`、`AGENTS.md`、`cat-cafe-skills/refs/memory-routing-partial.md`（愿景守护检查项）
 - [x] AC-C9: Memory Hub flag panel 中显示 F200_CONSUMPTION_RERANK 开关状态（CVO directive 2026-05-15）
 
 ### Phase D（Full Trajectory Records）✅
@@ -384,6 +384,7 @@ outputVerified = signal_or(
 | 2026-05-15 | Phase C merged（PR #1679）— Consumption-weighted ranking: consumption_prior (Bayesian shrinkage CTR), MMR dedup, graph edge_weight, shadow mode, Memory Hub flag panel. 4 local review rounds + 3 cloud review rounds |
 | 2026-05-15 | Phase D merged（PR #1685）— Full Trajectory Records: V22 migration (task_trajectories), TrajectoryAggregator, OutputVerifiedDetector (injectable signal sources), TrajectoryQueryService, CrossCatMetricsComputer, signal injection endpoint. 5 local review rounds + 3 cloud review rounds |
 | 2026-05-15 | Phase D 愿景守护（Opus-47）：代码层通过，但 flag 两处 spec 假象 → P1-1: Phase C ✅ 降回 🚧（AC-C8 ⬜ + shadow 未切）；P1-2: AC-D2 拆 v1/v1.1（信号源自动检测只覆盖 invocation status） |
+| 2026-05-15 | AC-C8 完成：CLAUDE.md / AGENTS.md / refs/memory-routing-partial.md 同步 consumption-weighted ranking 上线状态 → Phase C 🚧→✅ |
 
 ## Plan Gate Checklist（writing-plans 前必须解决）
 

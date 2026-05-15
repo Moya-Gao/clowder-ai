@@ -48,6 +48,18 @@ Nudge 文本指向 `cat_cafe_graph_resolve` 和 `cat_cafe_list_recent`。
 
 v1 限制：只看 public/internal collections。Private/restricted 需要未来 server-side identity wiring。
 
+## 排序行为（F200 — consumption-weighted ranking 已上线）
+
+`search_evidence` 结果现在融合消费信号排序（`F200_CONSUMPTION_RERANK=on`）：
+
+- 被猫猫实际消费（recall→Read/action）的文档排名提升；长期无人读的文档逐渐下沉
+- Constitutional 文档（ADR/lesson/canon）永远不降权——consumption 低不代表不重要
+- 新文档 14 天 grace period + Bayesian 先验，不会因缺数据被埋
+- 近似重复结果 MMR 去重，前排更多样
+- `graph_resolve` 边权重也融合消费频次（常走的路径权重更高）
+
+不需要改变搜索方式——排序自动生效，结果更贴近实际使用价值。
+
 ## 参考
 
 - Spec: `docs/features/F188-library-stewardship.md` Phase F
