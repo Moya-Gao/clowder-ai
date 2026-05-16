@@ -304,10 +304,8 @@ describe('GraphQueryResolver', () => {
       callerCollections: ['project:cat-cafe', 'private:landy'],
     });
     assert.equal(visible.status, 'candidates');
-    assert.deepEqual(
-      visible.candidates.map((candidate) => candidate.collectionId),
-      ['project:cat-cafe', 'private:landy'],
-    );
+    const visibleCollections = visible.candidates.map((candidate) => candidate.collectionId).sort();
+    assert.deepEqual(visibleCollections, ['private:landy', 'project:cat-cafe']);
   });
 
   it('sorts candidates by weightedEdgeScore (R2-P3 — edge weight ranking)', async () => {
@@ -355,5 +353,184 @@ describe('GraphQueryResolver', () => {
     assert.ok(result.candidates[0].weightedEdgeScore > 0);
     assert.equal(result.candidates[1].anchor, 'F201');
     assert.equal(result.candidates[1].weightedEdgeScore, undefined);
+  });
+
+  it('ranks title-match candidate above edge-heavy candidate (DF-11 — text match in ranking)', async () => {
+    const GraphQueryResolver = await loadResolver();
+    const manyEdges = Array.from({ length: 20 }, (_, i) => ({
+      anchor: `E${i}`,
+      relation: 'feature_ref',
+      fromCollectionId: 'project:cat-cafe',
+      toCollectionId: 'project:cat-cafe',
+      edgeSensitivity: 'internal',
+      provenance: 'content',
+      traversalCount: 10,
+      lastTraversedAt: new Date().toISOString(),
+    }));
+    const evidence = [
+      item('F102', {
+        title: 'Memory Adapter',
+        kind: 'feature',
+        summary: 'Adapter layer for recall storage internals',
+        keywords: ['adapter', 'memory', 'recall'],
+      }),
+      item('F200', {
+        title: 'Recall Eval Framework',
+        kind: 'feature',
+        summary: 'Evaluation framework for recall quality',
+        keywords: ['eval', 'recall'],
+      }),
+    ];
+    const store = createStore(evidence, {
+      passthroughSearch: true,
+      related: {
+        F102: manyEdges,
+        F200: [
+          {
+            anchor: 'F186',
+            relation: 'related_to',
+            fromCollectionId: 'project:cat-cafe',
+            toCollectionId: 'project:cat-cafe',
+            edgeSensitivity: 'internal',
+            provenance: 'frontmatter',
+            traversalCount: 1,
+            lastTraversedAt: new Date().toISOString(),
+          },
+        ],
+      },
+    });
+    const resolver = new GraphQueryResolver(
+      catalog([{ id: 'project:cat-cafe', sensitivity: 'internal', kind: 'project' }]),
+      new Map([['project:cat-cafe', store]]),
+    );
+
+    const result = await resolver.resolve('recall eval', { callerCollections: ['project:cat-cafe'] });
+
+    assert.equal(result.status, 'candidates');
+    assert.ok(result.candidates.length >= 2, 'should have at least 2 candidates');
+    assert.equal(result.candidates[0].anchor, 'F200', 'title-match candidate should rank first despite fewer edges');
+    assert.equal(result.candidates[0].matchReason, 'title');
+    assert.ok(
+      (result.candidates[0].weightedEdgeScore ?? 0) < (result.candidates[1].weightedEdgeScore ?? 0),
+      'F200 has fewer edges than F102 — text match quality should overcome edge deficit',
+    );
+  });
+
+  it('ranks anchor-token match above edge-heavy candidate for mixed queries (DF-11 R2 — real dogfood scenario)', async () => {
+    const GraphQueryResolver = await loadResolver();
+    const manyEdges = Array.from({ length: 20 }, (_, i) => ({
+      anchor: `E${i}`,
+      relation: 'feature_ref',
+      fromCollectionId: 'project:cat-cafe',
+      toCollectionId: 'project:cat-cafe',
+      edgeSensitivity: 'internal',
+      provenance: 'content',
+      traversalCount: 10,
+      lastTraversedAt: new Date().toISOString(),
+    }));
+    const evidence = [
+      item('F102', {
+        title: 'Memory Adapter',
+        kind: 'feature',
+        summary: 'Adapter layer for recall storage internals with various issues tracked',
+        keywords: ['adapter', 'memory'],
+      }),
+      item('F200', {
+        title: 'Memory Recall Eval',
+        kind: 'feature',
+        summary: 'Evaluation framework for memory recall quality',
+        keywords: ['eval', 'recall'],
+      }),
+    ];
+    const store = createStore(evidence, {
+      passthroughSearch: true,
+      related: {
+        F102: manyEdges,
+        F200: [
+          {
+            anchor: 'F186',
+            relation: 'related_to',
+            fromCollectionId: 'project:cat-cafe',
+            toCollectionId: 'project:cat-cafe',
+            edgeSensitivity: 'internal',
+            provenance: 'frontmatter',
+            traversalCount: 1,
+            lastTraversedAt: new Date().toISOString(),
+          },
+        ],
+      },
+    });
+    const resolver = new GraphQueryResolver(
+      catalog([{ id: 'project:cat-cafe', sensitivity: 'internal', kind: 'project' }]),
+      new Map([['project:cat-cafe', store]]),
+    );
+
+    const result = await resolver.resolve('F200 v1.1 issues', { callerCollections: ['project:cat-cafe'] });
+
+    assert.equal(result.status, 'candidates');
+    assert.ok(result.candidates.length >= 2, 'should have at least 2 candidates');
+    assert.equal(
+      result.candidates[0].anchor,
+      'F200',
+      'anchor-token match ("F200" in query) should rank first despite fewer edges',
+    );
+    assert.equal(result.candidates[0].matchReason, 'anchor');
+  });
+
+  it('does not false-match shorter anchor prefix in longer anchor query (DF-11 R3 — prefix collision guard)', async () => {
+    const GraphQueryResolver = await loadResolver();
+    const store = createStore(
+      [
+        item('F10', {
+          title: 'Old feature ten',
+          kind: 'feature',
+          sourcePath: 'docs/features/F10.md',
+          keywords: ['issues', 'tracking'],
+        }),
+        item('F100', {
+          title: 'New feature hundred',
+          kind: 'feature',
+          sourcePath: 'docs/features/F100.md',
+          keywords: ['issues', 'planning'],
+        }),
+      ],
+      {
+        passthroughSearch: true,
+        related: {
+          F10: Array.from({ length: 15 }, (_, i) => ({
+            anchor: `related-${i}`,
+            relation: 'references',
+            fromCollectionId: 'project:cat-cafe',
+            toCollectionId: 'project:cat-cafe',
+          })),
+          F100: [
+            {
+              anchor: 'single-rel',
+              relation: 'references',
+              fromCollectionId: 'project:cat-cafe',
+              toCollectionId: 'project:cat-cafe',
+            },
+          ],
+        },
+      },
+    );
+    const resolver = new GraphQueryResolver(
+      catalog([{ id: 'project:cat-cafe', sensitivity: 'internal', kind: 'project' }]),
+      new Map([['project:cat-cafe', store]]),
+    );
+
+    const result = await resolver.resolve('F100 issues', { callerCollections: ['project:cat-cafe'] });
+
+    assert.equal(result.status, 'candidates');
+    assert.ok(result.candidates.length >= 2, 'should have at least 2 candidates');
+    assert.equal(
+      result.candidates[0].anchor,
+      'F100',
+      'F100 must rank first — F10 must NOT get anchor match from prefix collision',
+    );
+    assert.equal(result.candidates[0].matchReason, 'anchor');
+    const f10 = result.candidates.find((c) => c.anchor === 'F10');
+    assert.ok(f10, 'F10 should still appear as candidate');
+    assert.notEqual(f10.matchReason, 'anchor', 'F10 must NOT get anchor matchReason from prefix substring');
   });
 });

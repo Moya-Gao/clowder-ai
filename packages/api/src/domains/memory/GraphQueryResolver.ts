@@ -37,6 +37,7 @@ export interface GraphQueryCandidate {
   snippet?: string;
   edgeCount?: number;
   weightedEdgeScore?: number;
+  textMatchScore?: number;
 }
 
 export type GraphQueryResolution =
@@ -169,6 +170,15 @@ function hasExplainableFieldMatch(item: EvidenceItem, query: string): boolean {
   return queryTokens(query).some((token) => searchText.includes(token));
 }
 
+const TEXT_MATCH_SCORES: Record<MatchReason, number> = {
+  anchor: 10,
+  title: 6,
+  source: 3,
+  summary: 3,
+  keyword: 3,
+  content: 1,
+};
+
 function truncateSnippet(value: string | undefined): string | undefined {
   if (!value) return undefined;
   const text = value.replace(/\s+/g, ' ').trim();
@@ -179,6 +189,11 @@ function truncateSnippet(value: string | undefined): string | undefined {
 function classifyMatch(item: EvidenceItem, query: string): { matchReason: MatchReason; snippet?: string } {
   const q = query.toLowerCase();
   if (includesIgnoreCase(item.anchor, q)) return { matchReason: 'anchor', snippet: item.anchor };
+  if (item.anchor) {
+    const anchorLower = item.anchor.toLowerCase();
+    const queryWords = q.match(/[a-z0-9]+/g) ?? [];
+    if (queryWords.some((w) => w === anchorLower)) return { matchReason: 'anchor', snippet: item.anchor };
+  }
   if (includesIgnoreCase(item.title, q)) return { matchReason: 'title', snippet: item.title };
   if (includesIgnoreCase(item.sourcePath, q)) return { matchReason: 'source', snippet: item.sourcePath };
   if (includesIgnoreCase(item.summary, q)) return { matchReason: 'summary', snippet: truncateSnippet(item.summary) };
@@ -303,7 +318,11 @@ export class GraphQueryResolver {
         pool.push(await this.toCandidate(query, collectionId, item, store, callerCollections));
       }
     }
-    pool.sort((a, b) => (b.weightedEdgeScore ?? 0) - (a.weightedEdgeScore ?? 0));
+    pool.sort((a, b) => {
+      const textDiff = (b.textMatchScore ?? 0) - (a.textMatchScore ?? 0);
+      if (textDiff !== 0) return textDiff;
+      return (b.weightedEdgeScore ?? 0) - (a.weightedEdgeScore ?? 0);
+    });
     return pool.slice(0, CANDIDATE_LIMIT);
   }
 
@@ -315,6 +334,7 @@ export class GraphQueryResolver {
     callerCollections: Set<string>,
   ): Promise<GraphQueryCandidate> {
     const { matchReason, snippet } = classifyMatch(item, query);
+    const textMatchScore = TEXT_MATCH_SCORES[matchReason];
     let edgeCount: number | undefined;
     let weightedEdgeScore: number | undefined;
     if (isGraphStore(store)) {
@@ -340,6 +360,7 @@ export class GraphQueryResolver {
       ...(item.sourcePath ? { source: item.sourcePath } : {}),
       matchReason,
       ...(snippet ? { snippet } : {}),
+      textMatchScore,
       ...(edgeCount !== undefined ? { edgeCount } : {}),
       ...(weightedEdgeScore !== undefined ? { weightedEdgeScore } : {}),
     };
