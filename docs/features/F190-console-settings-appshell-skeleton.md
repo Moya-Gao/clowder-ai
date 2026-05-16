@@ -9,7 +9,7 @@ community_pr: clowder-ai#645, clowder-ai#662, clowder-ai#669
 
 # F190: Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片
 
-> **Status**: done (Phase F auditing) | **Completed**: 2026-05-13 | **Owner**: Community + Maintainers | **Priority**: P1
+> **Status**: in-progress (Phase G) | **Completed**: 2026-05-13 (A-C) | **Owner**: Community + Maintainers | **Priority**: P1
 
 ## Why
 
@@ -230,6 +230,7 @@ close_gate_report:
 | 2026-05-16 | V-7/V-8/V-9 status bar token migration merged (PR #1705): ConnectionStatusBar + ParallelStatusBar + RightStatusPanel all migrated to console tokens |
 | 2026-05-16 | CVO 全局 Tailwind 原色审计：本地 ~1361 处硬编码，其中 9 文件（310 处）开源已迁 conn-*/console-* 语义 token。CVO 拍板先修开源已有 path 的第一梯队 |
 | 2026-05-16 | Header button circle pattern + header bg band-aid fix merged (PR #1708): ExportButton/VoiceCompanionButton/LiveAudioToggle/RightPanelToggle aligned to open-source `h-8 w-8 rounded-full` + `console-pill-bg`; header `border-b`/`bg-console-panel-bg` removed to match `safe-area-top` pattern; active-state color inheritance fixed (`--cafe-accent`, SVG inherits parent) |
+| 2026-05-16 | Phase G 立项：三猫对比审计（Opus-46 量化 715 处硬编码 + Opus-47 定性 token 三轨并存根因 + Codex 拆解落地路径），CVO 拍板"能力保留，视觉降噪" |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（WIP 审计清单）
 
@@ -514,6 +515,32 @@ ThreadItem 内 `LabelDots` 渲染 `w-1.5 h-1.5` 色点堆叠，视觉区分度�
 | SchedulePanel.tsx | 任务行（×3） | `border-b border-[#E8DFD4]` | 改 card gap |
 | TranslationMatrix.tsx | 表格行 | `divide-y divide-[#F0E8DB]` | 保持（表格合理） |
 | HubGovernanceTab.tsx | 表格行 | `divide-y divide-gray-100` | 保持（表格合理） |
+
+---
+
+## Phase G: Token 收敛 + 视觉降噪（能力保留）
+
+> **Status**: 📋 spec | **Trigger**: 2026-05-16 三猫对比审计收敛 + CVO 拍板
+> **原则**：能力保留，视觉降噪。不为好看砍功能——开源天然清爽是因为能力少，我们的路线是 token 收敛让现有功能视觉统一。
+> **根因**：cafe-/console-/cocreator- 三套 token 并存，globals.css 623 行（开源 300 行），13 个组件同文件混用多套 token → 系统性视觉熵
+
+### AC
+
+| # | 内容 | 优先级 | 验收标准 |
+|---|------|--------|----------|
+| G-1 | Token 体系收敛：三轨→单轨 | P0 | globals.css 从 623 行降到 ~350 行；cocreator-* 定义全删（redirect 已在 PR #1684）；组件统一引用 cafe-/console-/conn-* 单一源；`--color-cocreator-*` 重复定义（line 61-64 + 223-226）清除 |
+| G-2 | ThreadSidebar 二级控件 + DirectoryPickerModal 统一 console token | P1 | 置顶/收藏/改名/导出/删除/标签/选猫猫 hover controls 全部迁到 conn-*/console-*；DirectoryPickerModal 改用 `rounded-[28px]` + `console-card-bg` + `console-field-bg` + `console-button-primary` |
+| G-3 | Modal/Overlay 色语义化 | P1 | 所有 `bg-black/[0-40%]` 硬编码替换为 `var(--console-overlay-backdrop)` / `var(--console-overlay-medium)`；ChatContainer + ThreadSidebar 的 modal 全覆盖 |
+| G-4 | CardBlock info/success/danger 改 conn-* 语义色 | P2 | `border-l-blue-400 bg-blue-50` → `border-l-conn-blue-ring bg-conn-blue-bg`；info/success/danger/warning 四态全迁 |
+| G-5 | Workspace 面板 line-divider audit | P2 | 列表类组件（GitPanel/BrowserPanel/KnowledgeFeed 里的普通列表行）改 card gap；terminal/diff/log/表格保留线分隔（信息密度需要）；分类标准文档化 |
+| G-6 | 统一动画体系 | P3 | 各组件各写的 `animate-*` keyframes 收敛到 globals.css 统一定义（`pulse-subtle`/`quest-glow`/`guide-breathe` 等）；组件引用统一名 |
+
+### 依赖与约束
+
+- G-1 是 G-2/G-3/G-4 的前置——token 源先收敛，后面组件迁移才不会再引入新轨
+- V-10~V-18（第一梯队 310 处）可并入 G-1 一起做
+- 不碰 F183/F184/F194 红区文件（ChatContainerHeader 已在 PR #1708 修完）
+- CSS-only 变更为主，无逻辑改动
 
 ---
 
