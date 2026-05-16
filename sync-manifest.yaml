@@ -94,6 +94,7 @@ managed_scripts:
   - scripts/rescue-claude-thinking-signature.mjs
   - scripts/init-cafe.sh
   - scripts/runtime-worktree.sh
+  - scripts/lib/quickstart-freshness.sh  # sourced by runtime-worktree.sh — keep in closure
   - scripts/user-redis.sh
   - scripts/user-redis-autobackup.sh
   - scripts/find-redis-dumps.sh
