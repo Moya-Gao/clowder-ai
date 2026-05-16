@@ -53,7 +53,10 @@ export function ConfirmDialog({
   const isDanger = variant === 'danger';
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={onCancel}>
+    <div
+      className="fixed inset-0 bg-[var(--console-overlay-backdrop)] flex items-center justify-center z-50"
+      onClick={onCancel}
+    >
       <div
         className="bg-cafe-surface rounded-xl shadow-xl p-6 max-w-sm w-full mx-4"
         onClick={(e) => e.stopPropagation()}
@@ -81,7 +84,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={!canConfirm}
             className={`px-4 py-2 text-sm text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-              isDanger ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'
+              isDanger ? 'bg-conn-red-text hover:bg-conn-red-hover' : 'bg-conn-blue-text hover:bg-conn-blue-hover'
             }`}
           >
             {confirmLabel}

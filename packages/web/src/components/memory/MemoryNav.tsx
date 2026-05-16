@@ -97,8 +97,8 @@ export function MemoryNav({ active, initialReferrerThread = null }: MemoryNavPro
             className={[
               'inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
               isActive
-                ? 'border-cocreator-primary bg-cocreator-light text-cocreator-dark'
-                : 'border-cafe bg-cafe-surface text-cafe-secondary hover:border-cocreator-light hover:text-cocreator-dark',
+                ? 'border-cafe-accent bg-cafe-surface-sunken text-cafe-interactive'
+                : 'border-cafe bg-cafe-surface text-cafe-secondary hover:border-cafe-subtle hover:text-cafe-interactive',
             ].join(' ')}
           >
             {item.label}

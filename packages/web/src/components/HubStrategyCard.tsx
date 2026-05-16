@@ -125,7 +125,7 @@ export function CatStrategyCard({ entry, onSaved }: { entry: CatStrategyEntry; o
             <span className="font-medium">阈值:</span> 警告 {(entry.effective.thresholds.warn * 100).toFixed(0)}% / 行动{' '}
             {(entry.effective.thresholds.action * 100).toFixed(0)}%
             {entry.effective.strategy === 'compress' && (
-              <span className="text-[10px] text-amber-600 ml-1">(仅观测，不触发封印)</span>
+              <span className="text-[10px] text-conn-amber-text ml-1">(仅观测，不触发封印)</span>
             )}
           </div>
           {entry.effective.strategy === 'hybrid' && entry.effective.hybrid && (
@@ -134,7 +134,7 @@ export function CatStrategyCard({ entry, onSaved }: { entry: CatStrategyEntry; o
             </div>
           )}
           {!entry.hybridCapable && (
-            <div className="text-[10px] text-amber-600">Provider {entry.clientId} 不支持 hybrid 策略</div>
+            <div className="text-[10px] text-conn-amber-text">Provider {entry.clientId} 不支持 hybrid 策略</div>
           )}
           <div className="flex gap-2 pt-1">
             <button
@@ -147,7 +147,7 @@ export function CatStrategyCard({ entry, onSaved }: { entry: CatStrategyEntry; o
               <button
                 onClick={handleReset}
                 disabled={saving}
-                className="text-xs px-2 py-1 rounded bg-red-50 hover:bg-red-100 text-red-600 transition-colors disabled:opacity-40"
+                className="text-xs px-2 py-1 rounded bg-conn-red-bg hover:bg-conn-red-bg text-conn-red-text transition-colors disabled:opacity-40"
               >
                 {saving ? '重置中...' : '重置为默认'}
               </button>
@@ -172,7 +172,7 @@ export function CatStrategyCard({ entry, onSaved }: { entry: CatStrategyEntry; o
           </div>
 
           {strategy === 'compress' && (
-            <p className="text-[10px] text-amber-600 bg-amber-50 rounded px-2 py-1">
+            <p className="text-[10px] text-conn-amber-text bg-conn-amber-bg rounded px-2 py-1">
               Compress 策略下，阈值仅用于观测告警，不会触发封印。Session 会在 CLI 压缩后继续存活。
             </p>
           )}
@@ -233,15 +233,17 @@ export function CatStrategyCard({ entry, onSaved }: { entry: CatStrategyEntry; o
             </div>
           )}
 
-          {warnThreshold >= actionThreshold && <p className="text-[10px] text-red-500">警告阈值必须小于行动阈值</p>}
+          {warnThreshold >= actionThreshold && (
+            <p className="text-[10px] text-conn-red-text">警告阈值必须小于行动阈值</p>
+          )}
 
-          {error && <p className="text-xs text-red-500 bg-red-50 rounded px-2 py-1">{error}</p>}
+          {error && <p className="text-xs text-conn-red-text bg-conn-red-bg rounded px-2 py-1">{error}</p>}
 
           <div className="flex gap-2">
             <button
               onClick={handleSave}
               disabled={saving || warnThreshold >= actionThreshold}
-              className="text-xs px-3 py-1.5 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="text-xs px-3 py-1.5 rounded bg-conn-blue-text text-white hover:bg-conn-blue-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {saving ? '保存中...' : '保存'}
             </button>

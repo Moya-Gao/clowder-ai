@@ -206,7 +206,10 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
   };
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4" onClick={handleClose}>
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-[var(--console-overlay-medium)] px-4"
+      onClick={handleClose}
+    >
       <div
         className="w-full max-w-md rounded-[20px] border border-[#F1E7DF] bg-[#FFFDFC] p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -380,7 +383,7 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
                         placeholder="KEY"
                         className={`w-[38%] rounded border px-2 py-1 font-mono text-xs placeholder:text-[#C4B5A8] ${
                           entry.key.trim() && !isValidEnvKey(entry.key.trim())
-                            ? 'border-red-300 bg-red-50 text-red-600'
+                            ? 'border-red-300 bg-conn-red-bg text-conn-red-text'
                             : 'border-[#E8DCCF] bg-white text-[#5C4D42]'
                         }`}
                       />
@@ -398,7 +401,7 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
                       <button
                         type="button"
                         onClick={() => setEnvEntries(envEntries.filter((_, j) => j !== i))}
-                        className="text-xs text-[#C4B5A8] hover:text-red-400"
+                        className="text-xs text-[#C4B5A8] hover:text-conn-red-text"
                         title="删除"
                       >
                         &times;
@@ -406,7 +409,7 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
                     </div>
                   ))}
                   {envEntries.some((e) => e.key.trim() && !isValidEnvKey(e.key.trim())) && (
-                    <p className="text-[10px] text-red-500">
+                    <p className="text-[10px] text-conn-red-text">
                       {envEntries.some((e) => e.key.trim().startsWith('CAT_CAFE_')) ? 'CAT_CAFE_ 前缀为系统保留；' : ''}
                       变量名须以大写字母或下划线开头，仅含 A-Z、0-9、_
                     </p>
@@ -424,7 +427,7 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
           </div>
         </div>
 
-        {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
+        {error && <p className="mt-3 text-xs text-conn-red-text">{error}</p>}
 
         {/* Save button — bottom right */}
         <div className="mt-4 flex justify-end">

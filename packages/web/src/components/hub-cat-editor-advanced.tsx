@@ -149,7 +149,7 @@ export function AdvancedRuntimeSection({
         <div className="space-y-3 rounded-2xl border border-[#DCE9E0] bg-cafe-surface/80 p-4">
           {loadingStrategy ? <p className="text-sm text-[#7F7168]">Session 策略加载中...</p> : null}
           {strategyError ? (
-            <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{strategyError}</p>
+            <p className="rounded-xl bg-conn-red-bg px-3 py-2 text-sm text-conn-red-text">{strategyError}</p>
           ) : null}
           {strategyForm && !sessionChainEnabled ? (
             <div className="rounded-2xl border border-[#F5D2B8] bg-[#FFF4EC] px-4 py-3 text-xs leading-5 text-[#C27D52]">
@@ -217,7 +217,7 @@ export function AdvancedRuntimeSection({
         <div className="space-y-3 rounded-2xl border border-[#DCE9E0] bg-cafe-surface/80 p-4">
           {loadingCodexSettings ? <p className="text-sm text-[#7F7168]">Codex 运行参数加载中...</p> : null}
           {codexSettingsError ? (
-            <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{codexSettingsError}</p>
+            <p className="rounded-xl bg-conn-red-bg px-3 py-2 text-sm text-conn-red-text">{codexSettingsError}</p>
           ) : null}
           {!loadingCodexSettings && !codexSettingsEditable ? (
             <p className="rounded-xl border border-[#F5D2B8] bg-[#FFF4EC] px-3 py-2 text-xs leading-5 text-[#C27D52]">

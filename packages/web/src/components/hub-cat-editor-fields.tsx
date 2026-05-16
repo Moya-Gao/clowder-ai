@@ -40,7 +40,7 @@ export function SectionCard({
   const toneClasses: Record<string, string> = {
     neutral: 'border-[#F1E7DF] bg-[#FFFDFC]',
     success: 'border-[#CFE5D5] bg-[#F2FAF4]',
-    error: 'border-red-400 bg-red-50 animate-[shake_0.3s_ease-in-out]',
+    error: 'border-conn-red-ring bg-conn-red-bg animate-shake',
   };
   const toneClass = toneClasses[tone] ?? toneClasses.neutral;
   return (

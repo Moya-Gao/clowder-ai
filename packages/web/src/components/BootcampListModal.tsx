@@ -116,7 +116,7 @@ export function BootcampListModal({ open, onClose, currentThreadId }: BootcampLi
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--console-overlay-medium)]"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -126,7 +126,7 @@ export function BootcampListModal({ open, onClose, currentThreadId }: BootcampLi
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-cafe-subtle">
           <div className="flex items-center gap-2.5">
-            <BootcampIcon className="w-6 h-6 text-amber-600" />
+            <BootcampIcon className="w-6 h-6 text-conn-amber-text" />
             <span className="text-lg font-semibold text-cafe">我的训练营</span>
           </div>
           <button
@@ -164,10 +164,10 @@ export function BootcampListModal({ open, onClose, currentThreadId }: BootcampLi
                   disabled={isCurrent}
                   className={`w-full text-left p-4 rounded-xl border transition-colors ${
                     isCurrent
-                      ? 'border-amber-300 bg-amber-50 opacity-60 cursor-default'
+                      ? 'border-conn-amber-ring bg-conn-amber-bg opacity-60 cursor-default'
                       : isCompleted
                         ? 'border-cafe bg-cafe-surface-elevated hover:bg-cafe-surface-elevated'
-                        : 'border-amber-200 bg-amber-50/50 hover:bg-amber-50'
+                        : 'border-conn-amber-ring bg-conn-amber-bg/50 hover:bg-conn-amber-bg'
                   }`}
                   data-testid={`bootcamp-item-${t.id}`}
                 >
@@ -179,10 +179,10 @@ export function BootcampListModal({ open, onClose, currentThreadId }: BootcampLi
                     <span
                       className={`text-xs font-medium px-2.5 py-1 rounded-full ${
                         isCompleted
-                          ? 'bg-green-100 text-green-700'
+                          ? 'bg-conn-green-bg text-conn-green-text'
                           : isCurrent
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-amber-100 text-amber-700'
+                            ? 'bg-conn-amber-bg text-conn-amber-text'
+                            : 'bg-conn-amber-bg text-conn-amber-text'
                       }`}
                     >
                       {isCurrent ? '当前' : isCompleted ? '已完成' : '进行中'}

@@ -192,7 +192,7 @@ export function HubCapabilityTab({ onlyType }: HubCapabilityTabProps = {}) {
 
   return (
     <div className="space-y-4">
-      {error && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+      {error && <p className="text-sm text-conn-red-text bg-conn-red-bg rounded-lg px-3 py-2">{error}</p>}
 
       {/* Header: project + filters */}
       <div className="flex flex-wrap items-center gap-3">

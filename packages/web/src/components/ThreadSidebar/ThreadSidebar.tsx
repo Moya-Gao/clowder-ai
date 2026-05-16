@@ -727,7 +727,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
             <button
               type="button"
               onClick={() => setShowBootcampList(true)}
-              className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition-colors"
+              className="p-1.5 rounded-lg text-conn-amber-text hover:bg-conn-amber-bg transition-colors"
               title="猫猫训练营"
               data-testid="sidebar-bootcamp"
               data-guide-id="sidebar.bootcamp"
@@ -783,7 +783,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
         </div>
 
         {bindWarning && (
-          <div className="px-3 py-1.5 bg-yellow-50 border-b border-yellow-200 text-[10px] text-yellow-700">
+          <div className="px-3 py-1.5 bg-conn-amber-bg border-b border-conn-amber-ring text-[10px] text-conn-amber-text">
             {bindWarning}
           </div>
         )}
@@ -841,7 +841,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
               <button
                 type="button"
                 onClick={expandAll}
-                className="text-[10px] text-cafe-muted hover:text-cocreator-primary transition-colors"
+                className="text-[10px] text-cafe-muted hover:text-cafe-accent transition-colors"
                 data-testid="expand-all-btn"
               >
                 全部展开
@@ -850,7 +850,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
               <button
                 type="button"
                 onClick={collapseAll}
-                className="text-[10px] text-cafe-muted hover:text-cocreator-primary transition-colors"
+                className="text-[10px] text-cafe-muted hover:text-cafe-accent transition-colors"
                 data-testid="collapse-all-btn"
               >
                 全部折叠
@@ -1057,7 +1057,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
                   <button
                     type="button"
                     onClick={() => handleRestore(t.id)}
-                    className="sm:opacity-0 sm:group-hover:opacity-100 text-[10px] text-cocreator-primary hover:text-cocreator-dark transition-all shrink-0"
+                    className="sm:opacity-0 sm:group-hover:opacity-100 text-[10px] text-cafe-accent hover:text-cafe-interactive transition-all shrink-0"
                     data-testid={`restore-btn-${t.id}`}
                   >
                     恢复
@@ -1147,7 +1147,10 @@ function DeleteConfirmDialog({
   }, [isSystem]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onCancel}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--console-overlay-medium)]"
+      onClick={onCancel}
+    >
       <div
         className="bg-cafe-surface rounded-xl shadow-2xl p-5 max-w-sm w-full mx-4"
         onClick={(e) => e.stopPropagation()}
@@ -1156,14 +1159,16 @@ function DeleteConfirmDialog({
         <p className="text-sm text-cafe-secondary mb-1">即将删除「{title}」</p>
         {isSystem ? (
           <>
-            <p className="text-xs text-red-500 mb-2">这是系统级对话（IM Hub 连接器）。删除可能影响平台消息路由。</p>
+            <p className="text-xs text-conn-red-text mb-2">
+              这是系统级对话（IM Hub 连接器）。删除可能影响平台消息路由。
+            </p>
             <p className="text-xs text-cafe-secondary mb-2">请输入对话名称以确认删除：</p>
             <input
               ref={confirmInputRef}
               value={typedName}
               onChange={(e) => setTypedName(e.target.value)}
               placeholder={title}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-cafe focus:outline-none focus:border-red-400 mb-4"
+              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-cafe focus:outline-none focus:border-conn-red-ring mb-4"
             />
           </>
         ) : (
@@ -1183,8 +1188,8 @@ function DeleteConfirmDialog({
             disabled={!confirmed}
             className={`px-3 py-1.5 text-sm rounded-lg text-white transition-colors ${
               isSystem
-                ? 'bg-red-500 hover:bg-red-600 disabled:bg-red-300 disabled:cursor-not-allowed'
-                : 'bg-orange-500 hover:bg-orange-600'
+                ? 'bg-conn-red-text hover:bg-conn-red-hover disabled:bg-conn-red-ring disabled:cursor-not-allowed'
+                : 'bg-conn-amber-text hover:bg-conn-amber-hover'
             }`}
           >
             {isSystem ? '确认删除' : '移入回收站'}

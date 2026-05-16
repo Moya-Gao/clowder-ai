@@ -243,7 +243,7 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
       </div>
 
       {pendingPodcasts.length > 0 && (
-        <p className="mt-1 text-[10px] text-amber-600">{pendingPodcasts.length} 个播客正在生成中...</p>
+        <p className="mt-1 text-[10px] text-conn-amber-text">{pendingPodcasts.length} 个播客正在生成中...</p>
       )}
 
       {readyPodcasts.length > 1 && (
@@ -265,7 +265,7 @@ export function PodcastPlayer({ articleId, podcasts, onArtifactCreated }: Podcas
         </div>
       )}
 
-      {error && <p className="mt-1 text-[10px] text-red-500">{error}</p>}
+      {error && <p className="mt-1 text-[10px] text-conn-red-text">{error}</p>}
       {loading && <p className="mt-1 text-[10px] text-cafe-muted">加载中...</p>}
 
       {script && (

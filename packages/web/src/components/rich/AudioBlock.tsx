@@ -183,7 +183,7 @@ export function AudioBlock({ block, catId }: { block: RichAudioBlock; catId?: st
     <div className="flex items-center gap-3 rounded-lg border border-cafe dark:border-gray-700 bg-cafe-surface-elevated dark:bg-gray-900/40 px-3 py-2">
       <button
         onClick={toggle}
-        className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition-colors"
+        className="flex-shrink-0 w-8 h-8 rounded-full bg-conn-blue-text hover:bg-conn-blue-hover text-white flex items-center justify-center transition-colors"
         title={playing ? '暂停' : '播放'}
         aria-label={playing ? 'Pause' : 'Play'}
       >

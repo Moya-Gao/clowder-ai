@@ -26,9 +26,9 @@ const MESSAGES: Record<1 | 2 | 3, { catId: string; nickname: string; text: strin
 };
 
 const LEVEL_STYLE: Record<1 | 2 | 3, { border: string; bg: string; title: string }> = {
-  1: { border: 'border-amber-300', bg: 'bg-amber-50', title: '休息时间到啦！' },
+  1: { border: 'border-conn-amber-ring', bg: 'bg-conn-amber-bg', title: '休息时间到啦！' },
   2: { border: 'border-orange-400', bg: 'bg-orange-50', title: '猫猫们有点担心你了！' },
-  3: { border: 'border-red-400', bg: 'bg-red-50', title: '三猫紧急拦截！' },
+  3: { border: 'border-conn-red-ring', bg: 'bg-conn-red-bg', title: '三猫紧急拦截！' },
 };
 
 const NIGHT_STYLE = { border: 'border-indigo-300', bg: 'bg-indigo-50/80' };
@@ -109,7 +109,7 @@ export function BrakeModal() {
   const alertBadge = CAT_ALERT_BADGE[level];
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-[var(--console-overlay-medium)] flex items-center justify-center z-50 p-4">
       {/* biome-ignore lint/a11y/noStaticElementInteractions: modal content trap */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: Escape handled globally */}
       <div
@@ -181,7 +181,7 @@ export function BrakeModal() {
             type="button"
             onClick={() => checkin('rest')}
             disabled={submitting}
-            className="w-full py-2.5 rounded-xl text-sm font-medium text-white bg-green-500 hover:bg-green-600 transition-colors disabled:opacity-50"
+            className="w-full py-2.5 rounded-xl text-sm font-medium text-white bg-conn-green-text hover:bg-conn-green-hover transition-colors disabled:opacity-50"
           >
             立刻休息（5 分钟）
           </button>
@@ -204,7 +204,7 @@ export function BrakeModal() {
             </button>
           )}
           {bypassDisabled && (
-            <p className="text-center text-xs text-red-400 py-1">
+            <p className="text-center text-xs text-conn-red-text py-1">
               紧急跳过次数已用完（4 小时内 3 次），请选择休息或收尾
             </p>
           )}

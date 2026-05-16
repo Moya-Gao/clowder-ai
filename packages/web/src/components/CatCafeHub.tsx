@@ -267,7 +267,7 @@ export function CatCafeHub() {
 
   return (
     <div
-      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-[var(--console-overlay-backdrop)] flex items-center justify-center z-50"
       onClick={closeHub}
       data-bootcamp-host="hub-modal"
     >
@@ -292,7 +292,7 @@ export function CatCafeHub() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-3" style={{ minHeight: 0 }}>
-          {fetchError && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{fetchError}</p>}
+          {fetchError && <p className="text-sm text-conn-red-text bg-conn-red-bg rounded-lg px-3 py-2">{fetchError}</p>}
 
           {/* Accordion navigation */}
           <div className="space-y-2">

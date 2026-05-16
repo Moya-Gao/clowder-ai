@@ -210,7 +210,7 @@ export function JsxPreview({ code, filePath, worktreeId }: JsxPreviewProps) {
   if (error) {
     return (
       <div className="flex-1 overflow-auto bg-[#1E1E24] p-4">
-        <div className="text-red-400 text-xs font-mono whitespace-pre-wrap">
+        <div className="text-conn-red-text text-xs font-mono whitespace-pre-wrap">
           <div className="font-semibold mb-2">Bundle Error</div>
           {error}
         </div>

@@ -14,7 +14,7 @@ const statusClassMap: Record<SignalArticleStatus, string> = {
   inbox: 'text-cafe-black bg-[var(--console-field-bg)]',
   read: 'text-cafe-secondary bg-[var(--console-field-bg)]',
   archived: 'text-cafe-secondary bg-[var(--console-field-bg)]',
-  starred: 'text-amber-800 bg-amber-100',
+  starred: 'text-conn-amber-text bg-conn-amber-bg',
 };
 
 function formatDate(input: string): string {
@@ -130,7 +130,7 @@ export function SignalArticleList({
                       event.stopPropagation();
                       void onStatusChange(article.id, 'starred');
                     }}
-                    className="rounded-md border border-amber-200 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50"
+                    className="rounded-md border border-conn-amber-ring px-2 py-1 text-xs text-conn-amber-text hover:bg-conn-amber-bg"
                   >
                     收藏
                   </button>

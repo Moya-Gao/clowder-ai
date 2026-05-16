@@ -77,7 +77,7 @@ export function SessionSearchTab({ threadId, onViewSession }: SessionSearchTabPr
         <button
           type="submit"
           disabled={loading || !query.trim()}
-          className="text-[11px] px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
+          className="text-[11px] px-2 py-1 rounded bg-conn-blue-text text-white hover:bg-conn-blue-hover disabled:opacity-50 transition-colors"
         >
           搜索
         </button>
@@ -90,7 +90,7 @@ export function SessionSearchTab({ threadId, onViewSession }: SessionSearchTabPr
             type="button"
             key={s}
             onClick={() => setScope(s)}
-            className={`px-1.5 py-0.5 rounded ${scope === s ? 'bg-blue-50 text-blue-600' : 'hover:bg-cafe-surface-elevated'}`}
+            className={`px-1.5 py-0.5 rounded ${scope === s ? 'bg-conn-blue-bg text-blue-600' : 'hover:bg-cafe-surface-elevated'}`}
           >
             {s === 'both' ? '全部' : s === 'transcripts' ? '对话' : '摘要'}
           </button>
@@ -98,7 +98,7 @@ export function SessionSearchTab({ threadId, onViewSession }: SessionSearchTabPr
       </div>
 
       {loading && <div className="text-xs text-cafe-muted py-2">搜索中...</div>}
-      {error && <div className="text-xs text-red-500 py-2">搜索失败</div>}
+      {error && <div className="text-xs text-conn-red-text py-2">搜索失败</div>}
 
       {hits !== null &&
         !loading &&
@@ -122,7 +122,7 @@ export function SessionSearchTab({ threadId, onViewSession }: SessionSearchTabPr
                       type="button"
                       data-testid="search-result-session"
                       onClick={() => onViewSession?.(hit.sessionId)}
-                      className="font-mono text-blue-500 hover:text-blue-700 hover:underline"
+                      className="font-mono text-conn-blue-text hover:text-blue-700 hover:underline"
                     >
                       {hit.sessionId}
                     </button>

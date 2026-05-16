@@ -6,8 +6,8 @@ import { apiFetch } from '@/utils/api-client';
 
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   open: { bg: 'bg-yellow-100', text: 'text-yellow-800' },
-  answered: { bg: 'bg-green-100', text: 'text-green-800' },
-  escalated: { bg: 'bg-red-100', text: 'text-red-800' },
+  answered: { bg: 'bg-conn-green-bg', text: 'text-green-800' },
+  escalated: { bg: 'bg-conn-red-bg', text: 'text-red-800' },
 };
 
 type NonNullPath = 'confirmation' | 'evidence' | 'artifact' | 'prototype' | 'escalation';
@@ -165,7 +165,7 @@ export function ResolutionQueue({ projectId, resolutions, cards, onUpdate }: Res
                 {item.recommendation && (
                   <div className="mb-1 text-[10px] text-[#9A866F]">建议: {item.recommendation}</div>
                 )}
-                {item.answer && <div className="rounded bg-green-50 px-2 py-1 text-[#2B2118]">{item.answer}</div>}
+                {item.answer && <div className="rounded bg-conn-green-bg px-2 py-1 text-[#2B2118]">{item.answer}</div>}
                 {item.status === 'open' && (
                   <div className="mt-2 flex gap-2">
                     <input

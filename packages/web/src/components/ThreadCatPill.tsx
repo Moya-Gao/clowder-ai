@@ -148,8 +148,8 @@ export function ThreadCatPill({ threadId }: ThreadCatPillProps) {
         onClick={() => setIsOpen(!isOpen)}
         className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-colors text-xs ${
           cat
-            ? 'border-cocreator-light hover:bg-cocreator-light'
-            : 'border-dashed border-cafe-muted hover:border-cocreator-light hover:bg-cocreator-light'
+            ? 'border-cafe-subtle hover:bg-cafe-surface-sunken'
+            : 'border-dashed border-cafe-muted hover:border-cafe-subtle hover:bg-cafe-surface-sunken'
         }`}
         data-testid="thread-cat-pill"
       >
@@ -178,9 +178,12 @@ export function ThreadCatPill({ threadId }: ThreadCatPillProps) {
             <CatSelector selectedCats={selectedCats} onSelectionChange={handleSelectionChange} />
           </div>
           <div className="flex items-center justify-between px-3 pb-3 pt-2 border-t border-cafe-subtle flex-shrink-0">
-            {saveError && <span className="text-[10px] text-red-400">保存失败</span>}
+            {saveError && <span className="text-[10px] text-conn-red-text">保存失败</span>}
             {!saveError && selectedCats.length > 0 && (
-              <button onClick={() => setSelectedCats([])} className="text-[10px] text-cafe-muted hover:text-red-400">
+              <button
+                onClick={() => setSelectedCats([])}
+                className="text-[10px] text-cafe-muted hover:text-conn-red-text"
+              >
                 清除
               </button>
             )}
@@ -197,7 +200,7 @@ export function ThreadCatPill({ threadId }: ThreadCatPillProps) {
               <button
                 onClick={() => void handleSave()}
                 disabled={!hasChanged || isSaving}
-                className="text-xs px-2 py-0.5 rounded bg-cocreator-primary text-white hover:bg-cocreator-dark disabled:opacity-40"
+                className="text-xs px-2 py-0.5 rounded bg-cafe-accent text-white hover:bg-cafe-interactive disabled:opacity-40"
               >
                 {isSaving ? '...' : '保存'}
               </button>

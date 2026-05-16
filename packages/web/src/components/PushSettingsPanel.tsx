@@ -78,9 +78,9 @@ export function PushSettingsPanel() {
     return (
       <div className="space-y-3">
         <h3 className="text-base font-semibold text-cafe">推送通知</h3>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 space-y-2">
-          <p className="text-sm text-amber-900 font-medium">{environmentHint ?? '当前浏览器不支持推送通知。'}</p>
-          <p className="text-xs text-amber-700">
+        <div className="rounded-xl border border-conn-amber-ring bg-conn-amber-bg px-4 py-4 space-y-2">
+          <p className="text-sm text-conn-amber-text font-medium">{environmentHint ?? '当前浏览器不支持推送通知。'}</p>
+          <p className="text-xs text-conn-amber-text">
             iPhone 用户请将 Cat Café 添加到主屏幕后再开启推送（Safari 普通标签页不支持 Web Push）。
           </p>
         </div>
@@ -111,20 +111,24 @@ export function PushSettingsPanel() {
           <div className="rounded-lg border border-cafe bg-cafe-surface-elevated px-3 py-2">
             <div className="text-cafe-secondary">权限状态</div>
             <div
-              className={`font-semibold ${permission === 'granted' ? 'text-emerald-700' : permission === 'denied' ? 'text-rose-700' : 'text-amber-700'}`}
+              className={`font-semibold ${permission === 'granted' ? 'text-emerald-700' : permission === 'denied' ? 'text-rose-700' : 'text-conn-amber-text'}`}
             >
               {describePermission(permission)}
             </div>
           </div>
           <div className="rounded-lg border border-cafe bg-cafe-surface-elevated px-3 py-2">
             <div className="text-cafe-secondary">推送服务</div>
-            <div className={`font-semibold ${status?.capability.enabled ? 'text-emerald-700' : 'text-amber-700'}`}>
+            <div
+              className={`font-semibold ${status?.capability.enabled ? 'text-emerald-700' : 'text-conn-amber-text'}`}
+            >
               {status?.capability.enabled ? '已启用' : '未启用'}
             </div>
           </div>
           <div className="rounded-lg border border-cafe bg-cafe-surface-elevated px-3 py-2">
             <div className="text-cafe-secondary">设备订阅</div>
-            <div className={`font-semibold ${status?.subscription.count ? 'text-emerald-700' : 'text-amber-700'}`}>
+            <div
+              className={`font-semibold ${status?.subscription.count ? 'text-emerald-700' : 'text-conn-amber-text'}`}
+            >
               {status?.subscription.count ?? 0} 台
             </div>
           </div>
@@ -151,9 +155,9 @@ export function PushSettingsPanel() {
       <PushServiceConfig />
 
       {mappedHints.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <div className="text-sm font-medium text-amber-900">修复建议</div>
-          <ul className="mt-2 space-y-1 text-xs text-amber-800 list-disc pl-4">
+        <div className="rounded-xl border border-conn-amber-ring bg-conn-amber-bg px-4 py-3">
+          <div className="text-sm font-medium text-conn-amber-text">修复建议</div>
+          <ul className="mt-2 space-y-1 text-xs text-conn-amber-text list-disc pl-4">
             {mappedHints.map((hint) => (
               <li key={hint}>{hint}</li>
             ))}
@@ -187,8 +191,8 @@ export function PushSettingsPanel() {
       )}
 
       {environmentHint && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-          <p className="text-xs text-amber-700">{environmentHint}</p>
+        <div className="bg-conn-amber-bg border border-conn-amber-ring rounded-lg px-4 py-3">
+          <p className="text-xs text-conn-amber-text">{environmentHint}</p>
         </div>
       )}
       {lastError && (
@@ -225,7 +229,7 @@ export function PushSettingsPanel() {
             void handleSendTest();
           }}
           disabled={isTesting || isLoading}
-          className="text-xs text-blue-600 hover:text-blue-800 underline"
+          className="text-xs text-blue-600 hover:text-conn-blue-text underline"
         >
           {isTesting ? '发送中...' : '发送测试通知'}
         </button>

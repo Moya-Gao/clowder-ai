@@ -123,9 +123,9 @@ const lineStyles: Record<DiffLine['type'], string> = {
 
 const gutterStyles: Record<DiffLine['type'], string> = {
   add: 'bg-green-900/40 text-green-500',
-  remove: 'bg-red-900/40 text-red-500',
+  remove: 'bg-red-900/40 text-conn-red-text',
   context: 'text-cafe-secondary',
-  header: 'bg-blue-900/20 text-blue-500',
+  header: 'bg-blue-900/20 text-conn-blue-text',
 };
 
 const prefixMap: Record<DiffLine['type'], string> = {
@@ -145,12 +145,12 @@ function UnifiedView({ hunks }: { hunks: DiffHunk[] }) {
           hunk.lines.map((line, li) => (
             <tr key={`${hi}-${li}`} className={lineStyles[line.type]}>
               <td
-                className={`w-10 text-right px-1.5 select-none border-r border-gray-700/50 ${gutterStyles[line.type]}`}
+                className={`w-10 text-right px-1.5 select-none border-r border-[var(--console-border-soft)] ${gutterStyles[line.type]}`}
               >
                 {line.oldLine ?? ''}
               </td>
               <td
-                className={`w-10 text-right px-1.5 select-none border-r border-gray-700/50 ${gutterStyles[line.type]}`}
+                className={`w-10 text-right px-1.5 select-none border-r border-[var(--console-border-soft)] ${gutterStyles[line.type]}`}
               >
                 {line.newLine ?? ''}
               </td>
@@ -176,7 +176,7 @@ function SideBySideView({ hunks }: { hunks: DiffHunk[] }) {
           <tr key={i}>
             {/* Left (old) */}
             <td
-              className={`w-8 text-right px-1 select-none border-r border-gray-700/50 ${pair.left ? gutterStyles[pair.left.type] : 'bg-gray-900/50'}`}
+              className={`w-8 text-right px-1 select-none border-r border-[var(--console-border-soft)] ${pair.left ? gutterStyles[pair.left.type] : 'bg-gray-900/50'}`}
             >
               {pair.left?.oldLine ?? ''}
             </td>
@@ -187,7 +187,7 @@ function SideBySideView({ hunks }: { hunks: DiffHunk[] }) {
             </td>
             {/* Right (new) */}
             <td
-              className={`w-8 text-right px-1 select-none border-l border-r border-gray-700/50 ${pair.right ? gutterStyles[pair.right.type] : 'bg-gray-900/50'}`}
+              className={`w-8 text-right px-1 select-none border-l border-r border-[var(--console-border-soft)] ${pair.right ? gutterStyles[pair.right.type] : 'bg-gray-900/50'}`}
             >
               {pair.right?.newLine ?? ''}
             </td>
@@ -237,7 +237,7 @@ export function DiffViewer({ diff, filePath, compact }: DiffViewerProps) {
             onClick={() => setMode('unified')}
             className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
               mode === 'unified'
-                ? 'bg-cocreator-primary/80 text-white'
+                ? 'bg-cafe-accent/80 text-white'
                 : 'text-cafe-secondary hover:text-cafe-muted hover:bg-cafe-surface/10'
             }`}
           >
@@ -248,7 +248,7 @@ export function DiffViewer({ diff, filePath, compact }: DiffViewerProps) {
             onClick={() => setMode('split')}
             className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
               mode === 'split'
-                ? 'bg-cocreator-primary/80 text-white'
+                ? 'bg-cafe-accent/80 text-white'
                 : 'text-cafe-secondary hover:text-cafe-muted hover:bg-cafe-surface/10'
             }`}
           >
@@ -260,9 +260,9 @@ export function DiffViewer({ diff, filePath, compact }: DiffViewerProps) {
         </div>
       )}
       {filtered.map((file) => (
-        <div key={file.path} className="rounded border border-gray-700/50 overflow-hidden">
+        <div key={file.path} className="rounded border border-[var(--console-border-soft)] overflow-hidden">
           {!compact && (
-            <div className="bg-[#1E1E24] px-3 py-1.5 text-[11px] font-mono text-cafe-muted border-b border-gray-700/50 truncate">
+            <div className="bg-[#1E1E24] px-3 py-1.5 text-[11px] font-mono text-cafe-muted border-b border-[var(--console-border-soft)] truncate">
               {file.path}
             </div>
           )}

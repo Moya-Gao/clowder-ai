@@ -56,7 +56,7 @@ function QueueEntryRow({
 
   return (
     <div
-      className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isPaused ? 'bg-amber-50/60' : ''} ${isAgent ? 'bg-[#F3EEFA]' : ''} ${isUrgent ? 'bg-red-50/40' : ''}`}
+      className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isPaused ? 'bg-conn-amber-bg/60' : ''} ${isAgent ? 'bg-[#F3EEFA]' : ''} ${isUrgent ? 'bg-conn-red-bg/40' : ''}`}
     >
       {/* Drag handle */}
       <button
@@ -71,7 +71,7 @@ function QueueEntryRow({
 
       {/* Number + urgent indicator */}
       <span className="text-xs text-cafe-muted w-5 text-center shrink-0 relative">
-        {isUrgent && <span className="absolute -left-1 top-0.5 w-1.5 h-1.5 rounded-full bg-red-500" />}
+        {isUrgent && <span className="absolute -left-1 top-0.5 w-1.5 h-1.5 rounded-full bg-conn-red-text" />}
         {index + 1}
       </span>
 
@@ -84,19 +84,19 @@ function QueueEntryRow({
               <path d="M4.5 11.5c-.28 0-.5-.22-.5-.5 0-1.93.76-3.74 2.13-5.1C7.5 4.52 9.31 3.76 11.24 3.76c.28 0 .5.22.5.5s-.22.5-.5.5c-1.66 0-3.22.65-4.4 1.82A6.18 6.18 0 005.02 11c0 .28-.22.5-.5.5zM8.02 20.25a1.25 1.25 0 01-1.18-1.63l1.12-3.36A4.01 4.01 0 014.1 11.5c0-2.2 1.79-3.99 3.99-3.99h7.82c2.2 0 3.99 1.79 3.99 3.99a4.01 4.01 0 01-3.86 3.76l1.12 3.36a1.25 1.25 0 01-1.18 1.63H8.02z" />
             </svg>
           ) : isUrgent ? (
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500" />
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-conn-red-text" />
           ) : (
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#9B7EBD]" />
           )}
           <span
-            className={`text-xs ${isAgent ? 'text-[#9B7EBD] font-medium' : isUrgent ? 'text-red-600' : 'text-cafe-muted'}`}
+            className={`text-xs ${isAgent ? 'text-[#9B7EBD] font-medium' : isUrgent ? 'text-conn-red-text' : 'text-cafe-muted'}`}
           >
             {sourceLabel}
           </span>
           {categoryLabel && (
             <span
               className={`text-[9px] px-1 py-px rounded font-medium ${
-                isUrgent ? 'bg-red-100 text-red-600' : 'bg-[#9B7EBD]/15 text-[#9B7EBD]'
+                isUrgent ? 'bg-conn-red-bg text-conn-red-text' : 'bg-[#9B7EBD]/15 text-[#9B7EBD]'
               }`}
             >
               {categoryLabel}
@@ -134,7 +134,7 @@ function QueueEntryRow({
       {/* Remove button */}
       <button
         onClick={() => onRemove(entry.id)}
-        className="p-1 text-cafe-muted hover:text-red-500 transition-colors shrink-0"
+        className="p-1 text-cafe-muted hover:text-conn-red-text transition-colors shrink-0"
         title="撤回"
         aria-label="撤回"
       >

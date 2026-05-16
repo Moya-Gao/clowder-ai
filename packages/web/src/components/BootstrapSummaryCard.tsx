@@ -11,9 +11,9 @@ const TIER_LABELS: Record<string, string> = {
 };
 
 const TIER_COLORS: Record<string, string> = {
-  authoritative: 'bg-cocreator-primary/10 text-cocreator-dark',
+  authoritative: 'bg-cafe-accent/10 text-cafe-interactive',
   derived: 'bg-blue-100 text-blue-700',
-  soft_clue: 'bg-green-100 text-green-700',
+  soft_clue: 'bg-conn-green-bg text-conn-green-text',
 };
 
 interface BootstrapSummaryCardProps {
@@ -88,14 +88,14 @@ export function BootstrapSummaryCard({
 
   return (
     <div data-testid="bootstrap-summary-card" className="flex justify-center mb-3">
-      <div className="max-w-[85%] w-full rounded-lg border border-green-200 bg-green-50/50 p-5">
+      <div className="max-w-[85%] w-full rounded-lg border border-conn-green-ring bg-conn-green-bg/50 p-5">
         <div className="flex items-center gap-4 mb-3">
-          <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-            <CheckCircleIcon className="w-6 h-6 text-green-600" />
+          <div className="w-12 h-12 rounded-full bg-conn-green-bg flex items-center justify-center flex-shrink-0">
+            <CheckCircleIcon className="w-6 h-6 text-conn-green-text" />
           </div>
           <div>
             <p className="text-sm font-medium text-green-800">记忆索引构建完成</p>
-            <p className="text-xs text-green-600 mt-0.5">猫猫现在可以搜索这个项目的历史知识了</p>
+            <p className="text-xs text-conn-green-text mt-0.5">猫猫现在可以搜索这个项目的历史知识了</p>
           </div>
         </div>
 

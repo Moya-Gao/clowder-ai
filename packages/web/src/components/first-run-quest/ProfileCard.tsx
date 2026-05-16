@@ -43,12 +43,12 @@ export function ProfileCard({
   const models = profile.models?.map((m) => m.trim()).filter(Boolean) ?? [];
 
   const borderClass = !isSelected
-    ? 'border-gray-200 hover:border-amber-200'
+    ? 'border-gray-200 hover:border-conn-amber-ring'
     : testResult?.ok
-      ? 'border-green-400 bg-green-50/40 shadow-sm'
+      ? 'border-green-400 bg-conn-green-bg/40 shadow-sm'
       : testResult && !testResult.ok
-        ? 'border-red-300 bg-red-50/30 shadow-sm'
-        : 'border-amber-400 bg-amber-50/60 shadow-sm';
+        ? 'border-red-300 bg-conn-red-bg/30 shadow-sm'
+        : 'border-amber-400 bg-conn-amber-bg/60 shadow-sm';
 
   const [modelError, setModelError] = useState('');
 
@@ -121,7 +121,7 @@ export function ProfileCard({
                 e.stopPropagation();
                 onEdit();
               }}
-              className="shrink-0 text-[11px] text-amber-500 hover:text-amber-700"
+              className="shrink-0 text-[11px] text-conn-amber-text hover:text-conn-amber-text"
             >
               编辑
             </button>
@@ -156,7 +156,7 @@ export function ProfileCard({
                         handleRemove(m);
                       }
                     }}
-                    className="hidden text-gray-300 hover:text-red-400 group-hover:inline"
+                    className="hidden text-gray-300 hover:text-conn-red-text group-hover:inline"
                   >
                     ×
                   </span>
@@ -198,7 +198,7 @@ export function ProfileCard({
             {models.length === 0 && !addingModel && (
               <p className="mt-1 text-[11px] text-gray-400">{'暂无模型，请点击"+ 添加"后测试'}</p>
             )}
-            {modelError && <p className="mt-1 text-[11px] text-red-500">{modelError}</p>}
+            {modelError && <p className="mt-1 text-[11px] text-conn-red-text">{modelError}</p>}
           </div>
 
           {/* Test button */}
@@ -209,10 +209,10 @@ export function ProfileCard({
               disabled={testing || !selectedModel}
               className={`flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs font-medium transition-all ${
                 testing
-                  ? 'cursor-wait border-amber-300 bg-amber-50 text-amber-600'
+                  ? 'cursor-wait border-conn-amber-ring bg-conn-amber-bg text-conn-amber-text'
                   : testResult?.ok
-                    ? 'border-green-400 bg-green-50 text-green-700'
-                    : 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                    ? 'border-green-400 bg-conn-green-bg text-conn-green-text'
+                    : 'border-conn-amber-ring bg-conn-amber-bg text-conn-amber-text hover:bg-conn-amber-bg'
               } disabled:opacity-60`}
             >
               {testing && (
@@ -224,7 +224,7 @@ export function ProfileCard({
               {testing ? '测试中' : testResult?.ok ? '已通过' : '测试连接'}
             </button>
             {testResult && (
-              <span className={`text-xs ${testResult.ok ? 'text-green-600' : 'text-red-500'}`}>
+              <span className={`text-xs ${testResult.ok ? 'text-conn-green-text' : 'text-conn-red-text'}`}>
                 {testResult.message}
               </span>
             )}

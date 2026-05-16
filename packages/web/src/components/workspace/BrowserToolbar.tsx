@@ -33,7 +33,7 @@ export function BrowserToolbar({
 }: BrowserToolbarProps) {
   const ime = useIMEGuard();
   return (
-    <div className="flex items-center gap-1 px-2 py-1.5 border-b border-[#FFDDD2] bg-cafe-surface/60">
+    <div className="flex items-center gap-1 px-2 py-1.5 border-b border-[var(--console-border-soft)] bg-cafe-surface/60">
       <button
         type="button"
         onClick={onBack}
@@ -70,7 +70,7 @@ export function BrowserToolbar({
             if (e.key === 'Enter' && !ime.isComposing()) onNavigate();
           }}
           placeholder="localhost:3000"
-          className="w-full px-2 py-1 text-xs rounded border border-[#FFDDD2] bg-cafe-surface focus:outline-none focus:border-[#E29578] placeholder:text-[#5a4a42]/30"
+          className="w-full px-2 py-1 text-xs rounded border border-[var(--console-border-soft)] bg-cafe-surface focus:outline-none focus:border-[#E29578] placeholder:text-[#5a4a42]/30"
         />
       </div>
 

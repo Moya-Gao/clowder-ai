@@ -67,8 +67,8 @@ export function TemplateStep({ onSelect }: TemplateStepProps) {
             }}
             className={`flex items-start gap-3 rounded-xl border p-3 text-left transition ${
               selected === t.id
-                ? 'border-amber-400 bg-amber-50 shadow-sm'
-                : 'border-gray-200 bg-white hover:border-amber-200 hover:bg-amber-50/30'
+                ? 'border-amber-400 bg-conn-amber-bg shadow-sm'
+                : 'border-gray-200 bg-white hover:border-conn-amber-ring hover:bg-conn-amber-bg/30'
             }`}
           >
             <div

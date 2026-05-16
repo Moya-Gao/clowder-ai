@@ -163,7 +163,7 @@ export function ConfigStep({ client, clientId, onComplete }: ConfigStepProps) {
 
       <div className="scrollbar-cafe mb-3 max-h-80 space-y-1.5 overflow-y-auto">
         {available.length === 0 && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-700">
+          <div className="rounded-lg border border-conn-amber-ring bg-conn-amber-bg p-4 text-center text-sm text-conn-amber-text">
             未找到可用账号，请点击下方新建一个账号认证
           </div>
         )}
@@ -202,7 +202,7 @@ export function ConfigStep({ client, clientId, onComplete }: ConfigStepProps) {
           setEditProfile(undefined);
           setShowModal(true);
         }}
-        className="mb-3 text-xs font-medium text-amber-600 hover:text-amber-700"
+        className="mb-3 text-xs font-medium text-conn-amber-text hover:text-conn-amber-text"
       >
         + 新建账号认证
       </button>

@@ -269,10 +269,10 @@ export function BrowserPanel({ initialPort, initialPath, previewOnly, onNavigate
 
       {!previewOnly && hmrStatus !== 'idle' && (
         <div
-          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] border-b ${hmrStatus === 'connected' ? 'bg-[#FFF5F2] border-[#FFDDD2]' : 'bg-[#FFF0ED] border-[#FFD4CC]'} text-[#5a4a42]/70`}
+          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] border-b ${hmrStatus === 'connected' ? 'bg-[#FFF5F2] border-[var(--console-border-soft)]' : 'bg-[#FFF0ED] border-[var(--console-border-soft)]'} text-[#5a4a42]/70`}
         >
           <span
-            className={`w-1.5 h-1.5 rounded-full inline-block ${hmrStatus === 'connected' ? 'bg-green-500' : 'bg-red-400'}`}
+            className={`w-1.5 h-1.5 rounded-full inline-block ${hmrStatus === 'connected' ? 'bg-conn-green-text' : 'bg-red-400'}`}
           />
           {hmrStatus === 'connected' ? (
             <span>HMR connected · localhost:{targetPort}</span>
@@ -287,12 +287,16 @@ export function BrowserPanel({ initialPort, initialPath, previewOnly, onNavigate
         </div>
       )}
 
-      {error && <div className="px-3 py-1.5 text-xs text-red-600 bg-red-50/80 border-b border-red-100">{error}</div>}
+      {error && (
+        <div className="px-3 py-1.5 text-xs text-conn-red-text bg-conn-red-bg/80 border-b border-red-100">{error}</div>
+      )}
       {warning && !error && (
-        <div className="px-3 py-1.5 text-xs text-amber-700 bg-amber-50/80 border-b border-amber-100">{warning}</div>
+        <div className="px-3 py-1.5 text-xs text-conn-amber-text bg-conn-amber-bg/80 border-b border-amber-100">
+          {warning}
+        </div>
       )}
       {screenshotUrl && (
-        <div className="px-3 py-1.5 text-xs text-green-700 bg-green-50/80 border-b border-green-100">
+        <div className="px-3 py-1.5 text-xs text-conn-green-text bg-conn-green-bg/80 border-b border-green-100">
           Screenshot saved:{' '}
           <a href={screenshotUrl} target="_blank" rel="noreferrer" className="underline">
             {screenshotUrl}
@@ -334,10 +338,10 @@ export function BrowserPanel({ initialPort, initialPath, previewOnly, onNavigate
       {!previewOnly && consoleOpen && <ConsolePanel entries={consoleEntries} onClear={clearConsole} />}
 
       {!previewOnly && (
-        <div className="flex items-center px-2 py-0.5 border-t border-[#FFDDD2] text-[10px] text-[#5a4a42]/40 bg-cafe-surface/40">
+        <div className="flex items-center px-2 py-0.5 border-t border-[var(--console-border-soft)] text-[10px] text-[#5a4a42]/40 bg-cafe-surface/40">
           {targetPort && gatewayPort ? (
             <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+              <span className="w-1.5 h-1.5 rounded-full bg-conn-green-text inline-block" />
               localhost:{targetPort} via gateway:{gatewayPort}
             </span>
           ) : (

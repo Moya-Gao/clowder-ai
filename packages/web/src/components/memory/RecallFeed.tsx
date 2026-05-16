@@ -16,7 +16,7 @@ function RecallCard({ event }: { event: RecallEvent }) {
           {event.query}
         </span>
         {event.resultCount != null && (
-          <span className="rounded bg-cocreator-light px-1.5 py-0.5 text-[10px] font-semibold text-cocreator-dark">
+          <span className="rounded bg-cafe-surface-sunken px-1.5 py-0.5 text-[10px] font-semibold text-cafe-interactive">
             {event.resultCount} hits
           </span>
         )}
@@ -32,7 +32,7 @@ function RecallCard({ event }: { event: RecallEvent }) {
                 <div key={`${event.id}-r${i}`} className="rounded border border-cafe/40 bg-cafe-surface p-1.5">
                   <div className="flex items-center gap-1.5 min-w-0">
                     {r.sourceType && (
-                      <span className="rounded bg-cocreator-light/60 px-1 py-0.5 text-[9px] font-semibold text-cocreator-dark">
+                      <span className="rounded bg-cafe-surface-sunken/60 px-1 py-0.5 text-[9px] font-semibold text-cafe-interactive">
                         {r.sourceType}
                       </span>
                     )}
@@ -52,7 +52,7 @@ function RecallCard({ event }: { event: RecallEvent }) {
                   {anchorToHref(r.anchor) && (
                     <Link
                       href={anchorToHref(r.anchor)!}
-                      className="mt-0.5 flex items-center gap-1 text-[9px] font-mono text-cocreator-dark/70 hover:text-cocreator-dark hover:underline"
+                      className="mt-0.5 flex items-center gap-1 text-[9px] font-mono text-cafe-interactive/70 hover:text-cafe-interactive hover:underline"
                       title={`追溯源头: ${r.anchor}`}
                     >
                       <span aria-hidden>&#x2197;</span>
@@ -93,7 +93,7 @@ export function RecallFeed() {
   return (
     <div data-testid="recall-feed" className="space-y-2 p-3">
       <div className="flex items-center gap-2">
-        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-green-500" />
+        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-conn-green-text" />
         <span className="text-xs font-semibold text-cafe-black">LIVE</span>
         <span className="text-xs text-cafe-secondary">{events.length} recall(s)</span>
       </div>

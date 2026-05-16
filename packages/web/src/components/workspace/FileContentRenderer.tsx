@@ -143,7 +143,7 @@ export function FileContentRenderer({
         <button
           type="button"
           onClick={() => void revealInFinder(file.path)}
-          className="mt-2 px-3 py-1 rounded bg-cocreator-light/20 text-cocreator-dark/60 hover:bg-cocreator-light/40 transition-colors text-[10px]"
+          className="mt-2 px-3 py-1 rounded bg-cafe-surface-sunken/20 text-cafe-interactive/60 hover:bg-cafe-surface-sunken/40 transition-colors text-[10px]"
         >
           在 Finder 中打开
         </button>
@@ -166,7 +166,7 @@ export function FileContentRenderer({
           <button
             type="button"
             onClick={onMdAddToChat}
-            className="absolute top-2 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cocreator-primary text-white text-[11px] font-medium shadow-lg hover:bg-cocreator-dark transition-colors z-10 animate-fade-in"
+            className="absolute top-2 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cafe-accent text-white text-[11px] font-medium shadow-lg hover:bg-cafe-interactive transition-colors z-10 animate-fade-in"
             title="引用到聊天"
           >
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">

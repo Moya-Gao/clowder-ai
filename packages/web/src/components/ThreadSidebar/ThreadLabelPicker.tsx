@@ -95,8 +95,8 @@ export function ThreadLabelPicker({ threadId, currentLabels, onSave }: ThreadLab
         }}
         className={`p-0.5 rounded transition-all ${
           currentLabels.length > 0
-            ? 'text-cocreator-primary'
-            : 'opacity-0 group-hover:opacity-100 text-cafe-muted hover:text-cocreator-primary'
+            ? 'text-cafe-accent'
+            : 'opacity-0 group-hover:opacity-100 text-cafe-muted hover:text-cafe-accent'
         }`}
         title="标签管理"
       >
@@ -138,7 +138,7 @@ export function ThreadLabelPicker({ threadId, currentLabels, onSave }: ThreadLab
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="标签名称"
                     maxLength={20}
-                    className="flex-1 text-xs px-1.5 py-1 rounded border border-cafe-subtle focus:outline-none focus:border-cocreator-primary bg-cafe-surface"
+                    className="flex-1 text-xs px-1.5 py-1 rounded border border-cafe-subtle focus:outline-none focus:border-cafe-accent bg-cafe-surface"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') void handleCreate();
                       if (e.key === 'Escape') setShowCreate(false);
@@ -155,7 +155,7 @@ export function ThreadLabelPicker({ threadId, currentLabels, onSave }: ThreadLab
                   <button
                     onClick={() => void handleCreate()}
                     disabled={!newName.trim()}
-                    className="text-[10px] px-1.5 py-0.5 rounded bg-cocreator-primary text-white disabled:opacity-40"
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-cafe-accent text-white disabled:opacity-40"
                   >
                     创建
                   </button>
@@ -164,16 +164,16 @@ export function ThreadLabelPicker({ threadId, currentLabels, onSave }: ThreadLab
             ) : (
               <button
                 onClick={() => setShowCreate(true)}
-                className="mt-2 text-[10px] text-cocreator-primary hover:underline w-full text-left"
+                className="mt-2 text-[10px] text-cafe-accent hover:underline w-full text-left"
               >
                 + 新建标签
               </button>
             )}
           </div>
-          {saveError && <p className="text-[10px] text-red-500 px-3 mt-1">保存失败，请重试</p>}
+          {saveError && <p className="text-[10px] text-conn-red-text px-3 mt-1">保存失败，请重试</p>}
           <div className="flex items-center justify-between px-3 pb-3 pt-2 border-t border-cafe-subtle flex-shrink-0">
             {selected.length > 0 && (
-              <button onClick={() => setSelected([])} className="text-[10px] text-cafe-muted hover:text-red-400">
+              <button onClick={() => setSelected([])} className="text-[10px] text-cafe-muted hover:text-conn-red-text">
                 清除
               </button>
             )}
@@ -191,7 +191,7 @@ export function ThreadLabelPicker({ threadId, currentLabels, onSave }: ThreadLab
               <button
                 onClick={() => void handleSave()}
                 disabled={!hasChanged || isSaving}
-                className="text-xs px-2 py-0.5 rounded bg-cocreator-primary text-white hover:bg-cocreator-dark disabled:opacity-40"
+                className="text-xs px-2 py-0.5 rounded bg-cafe-accent text-white hover:bg-cafe-interactive disabled:opacity-40"
               >
                 {isSaving ? '...' : '保存'}
               </button>
@@ -206,7 +206,7 @@ export function ThreadLabelPicker({ threadId, currentLabels, onSave }: ThreadLab
 function LabelCheckbox({ label, checked, onChange }: { label: ThreadLabel; checked: boolean; onChange: () => void }) {
   return (
     <label className="flex items-center gap-2 px-1 py-0.5 rounded hover:bg-cafe-surface-elevated cursor-pointer">
-      <input type="checkbox" checked={checked} onChange={onChange} className="rounded accent-cocreator-primary" />
+      <input type="checkbox" checked={checked} onChange={onChange} className="rounded accent-cafe-accent" />
       <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: label.color }} />
       <span className="text-xs text-cafe-secondary truncate">{label.name}</span>
     </label>

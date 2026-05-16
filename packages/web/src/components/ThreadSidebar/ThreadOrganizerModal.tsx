@@ -88,7 +88,7 @@ export function ThreadOrganizerModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <button
         type="button"
-        className="absolute inset-0 bg-black/40 cursor-default"
+        className="absolute inset-0 bg-[var(--console-overlay-medium)] cursor-default"
         tabIndex={-1}
         aria-label="关闭面板"
         onClick={onClose}
@@ -102,7 +102,7 @@ export function ThreadOrganizerModal({
                 type="button"
                 onClick={onSuggestAll}
                 disabled={loading}
-                className="text-[11px] px-2 py-1 rounded-md bg-amber-50 text-amber-600 hover:bg-amber-100 disabled:opacity-40 transition-colors flex items-center gap-1"
+                className="text-[11px] px-2 py-1 rounded-md bg-conn-amber-bg text-conn-amber-text hover:bg-conn-amber-ring disabled:opacity-40 transition-colors flex items-center gap-1"
               >
                 <svg
                   aria-hidden="true"
@@ -134,7 +134,7 @@ export function ThreadOrganizerModal({
         </div>
 
         {failedIds.size > 0 && (
-          <div className="mx-4 mt-2 px-3 py-2 rounded-md bg-red-50 border border-red-200 text-[11px] text-red-600">
+          <div className="mx-4 mt-2 px-3 py-2 rounded-md bg-conn-red-bg border border-conn-red-ring text-[11px] text-conn-red-text">
             {failedIds.size} 个 thread 应用失败，请重试
           </div>
         )}
@@ -149,7 +149,7 @@ export function ThreadOrganizerModal({
               return (
                 <div
                   key={thread.id}
-                  className={`border rounded-lg p-2.5 ${isFailed ? 'border-red-300 bg-red-50/50' : 'border-cafe-subtle'}`}
+                  className={`border rounded-lg p-2.5 ${isFailed ? 'border-conn-red-ring bg-conn-red-bg/50' : 'border-cafe-subtle'}`}
                 >
                   <p className="text-xs text-cafe-black truncate mb-1.5">{thread.title || thread.id}</p>
                   <div className="flex flex-wrap gap-1">

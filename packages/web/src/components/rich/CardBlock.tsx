@@ -7,10 +7,10 @@ import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 
 const TONE_STYLES: Record<string, string> = {
-  info: 'border-l-blue-400 bg-blue-50 dark:bg-blue-950/30',
-  success: 'border-l-green-400 bg-green-50 dark:bg-green-950/30',
+  info: 'border-l-conn-blue-ring bg-conn-blue-bg dark:bg-blue-950/30',
+  success: 'border-l-conn-green-ring bg-conn-green-bg dark:bg-green-950/30',
   warning: 'border-l-yellow-400 bg-yellow-50 dark:bg-yellow-950/30',
-  danger: 'border-l-red-400 bg-red-50 dark:bg-red-950/30',
+  danger: 'border-l-conn-red-ring bg-conn-red-bg dark:bg-red-950/30',
 };
 
 export function CardBlock({ block, messageId }: { block: RichCardBlock; messageId?: string }) {
@@ -138,7 +138,7 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
           ))}
         </div>
       )}
-      {error && <div className="mt-1 text-xs text-red-500">{error}</div>}
+      {error && <div className="mt-1 text-xs text-conn-red-text">{error}</div>}
     </div>
   );
 }

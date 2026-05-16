@@ -254,7 +254,7 @@ function FeatureRow({
                     {featureItems[0].dependencies.evolvedFrom?.map((id) => (
                       <span
                         key={`ef-${id}`}
-                        className="rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"
+                        className="rounded-md border border-conn-blue-ring bg-conn-blue-bg px-1.5 py-0.5 text-[10px] font-medium text-blue-700"
                       >
                         ← {id.toUpperCase()}
                       </span>
@@ -262,7 +262,7 @@ function FeatureRow({
                     {featureItems[0].dependencies.blockedBy?.map((id) => (
                       <span
                         key={`bb-${id}`}
-                        className="rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700"
+                        className="rounded-md border border-conn-red-ring bg-conn-red-bg px-1.5 py-0.5 text-[10px] font-medium text-red-700"
                       >
                         ⊘ {id.toUpperCase()}
                       </span>

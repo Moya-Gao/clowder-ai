@@ -165,7 +165,7 @@ export function FloatingTranscriptWindow({
           className="flex h-9 items-center gap-2 rounded-lg border-2 border-cafe-accent-primary/50 bg-cafe-surface-primary px-3 shadow-lg ring-1 ring-black/20"
         >
           <span
-            className={`inline-block h-2 w-2 rounded-full ${recording ? 'bg-green-500 animate-pulse' : 'bg-cafe-text-muted'}`}
+            className={`inline-block h-2 w-2 rounded-full ${recording ? 'bg-conn-green-text animate-pulse' : 'bg-cafe-text-muted'}`}
           />
           <span className="flex-1 truncate text-xs text-cafe-text-primary">
             {recording ? (sourceLabel ?? 'Recording') : 'Transcript'}
@@ -220,7 +220,7 @@ export function FloatingTranscriptWindow({
         {/* Header — drag handle */}
         <div className="flex items-center gap-2 border-b border-cafe-border px-3 py-2 cursor-move select-none">
           <span
-            className={`inline-block h-2 w-2 rounded-full ${recording ? (paused ? 'bg-amber-400' : 'bg-green-500 animate-pulse') : 'bg-cafe-text-muted'}`}
+            className={`inline-block h-2 w-2 rounded-full ${recording ? (paused ? 'bg-amber-400' : 'bg-conn-green-text animate-pulse') : 'bg-cafe-text-muted'}`}
           />
           <span className="flex-1 truncate text-sm font-medium text-cafe-text-primary">
             {recording ? (paused ? 'Paused' : (sourceLabel ?? 'Recording')) : 'Transcript'}
@@ -232,7 +232,7 @@ export function FloatingTranscriptWindow({
                 <button
                   type="button"
                   onClick={onResume}
-                  className="rounded px-1.5 py-0.5 text-xs text-green-400 hover:bg-green-500/10"
+                  className="rounded px-1.5 py-0.5 text-xs text-green-400 hover:bg-conn-green-text/10"
                 >
                   Resume
                 </button>
@@ -249,7 +249,7 @@ export function FloatingTranscriptWindow({
                 <button
                   type="button"
                   onClick={onStop}
-                  className="rounded px-1.5 py-0.5 text-xs text-red-400 hover:bg-red-500/10"
+                  className="rounded px-1.5 py-0.5 text-xs text-conn-red-text hover:bg-conn-red-text/10"
                 >
                   Stop
                 </button>
@@ -361,7 +361,7 @@ export function FloatingTranscriptWindow({
                 if (type === 'app') onStart('app', value);
                 else onStart('mic', undefined, Number(value));
               }}
-              className="w-full rounded bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full rounded bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-conn-green-text disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Start
             </button>
@@ -420,7 +420,9 @@ export function FloatingTranscriptWindow({
         <div className="flex items-center gap-3 border-t border-cafe-border px-3 py-1.5 text-[10px] text-cafe-text-muted">
           <span>{lines.length} chunks</span>
           <span>avg {avgLatency}s</span>
-          <span className={connected ? 'text-green-500' : 'text-red-400'}>{connected ? 'SSE' : 'disconnected'}</span>
+          <span className={connected ? 'text-green-500' : 'text-conn-red-text'}>
+            {connected ? 'SSE' : 'disconnected'}
+          </span>
         </div>
       </div>
     </Rnd>

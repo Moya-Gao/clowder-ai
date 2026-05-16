@@ -24,7 +24,7 @@ function MiniMessage({ msg }: { msg: ChatMessage }) {
       {!isUser && msg.catId && <CatAvatar catId={msg.catId} size={16} />}
       <p
         className={`text-xs leading-relaxed truncate max-w-[90%] px-2 py-1 rounded-lg ${
-          isUser ? 'bg-cocreator-bg text-cafe-black' : 'bg-cafe-surface-elevated text-cafe-secondary'
+          isUser ? 'bg-cafe-surface text-cafe-black' : 'bg-cafe-surface-elevated text-cafe-secondary'
         } ${msg.isStreaming ? 'opacity-70' : ''}`}
       >
         {msg.content.slice(0, 120)}
@@ -48,9 +48,9 @@ export function SplitPaneCell({
 
   const statusColor =
     catStatus === 'error'
-      ? 'text-red-500'
+      ? 'text-conn-red-text'
       : catStatus === 'working'
-        ? 'text-amber-500'
+        ? 'text-conn-amber-text'
         : catStatus === 'done'
           ? 'text-green-500'
           : 'text-cafe-muted';
@@ -58,7 +58,7 @@ export function SplitPaneCell({
   return (
     <div
       className={`flex flex-col rounded-lg border-2 transition-colors cursor-pointer overflow-hidden ${
-        isSelected ? 'border-cocreator-primary shadow-sm' : 'border-cafe hover:border-cafe'
+        isSelected ? 'border-cafe-accent shadow-sm' : 'border-cafe hover:border-cafe'
       }`}
       onClick={() => onSelect(threadId)}
       onDoubleClick={() => onDoubleClick(threadId)}

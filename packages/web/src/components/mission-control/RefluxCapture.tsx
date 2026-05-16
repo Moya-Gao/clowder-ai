@@ -5,9 +5,9 @@ import { useCallback, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 
 const CATEGORY_STYLES: Record<RefluxCategory, { bg: string; text: string; label: string }> = {
-  methodology: { bg: 'bg-blue-100', text: 'text-blue-800', label: '方法论' },
+  methodology: { bg: 'bg-blue-100', text: 'text-conn-blue-text', label: '方法论' },
   risk_pattern: { bg: 'bg-orange-100', text: 'text-orange-800', label: '风险模式' },
-  resolution_strategy: { bg: 'bg-green-100', text: 'text-green-800', label: '解决策略' },
+  resolution_strategy: { bg: 'bg-conn-green-bg', text: 'text-green-800', label: '解决策略' },
 };
 
 const CATEGORY_OPTIONS: RefluxCategory[] = ['methodology', 'risk_pattern', 'resolution_strategy'];
@@ -139,7 +139,7 @@ export function RefluxCapture({ projectId, patterns, onUpdate }: RefluxCapturePr
                   <button
                     type="button"
                     onClick={() => void handleDelete(p.id)}
-                    className="text-[10px] text-red-500 hover:text-red-700"
+                    className="text-[10px] text-conn-red-text hover:text-red-700"
                   >
                     删除
                   </button>

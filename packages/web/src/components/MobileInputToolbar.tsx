@@ -36,7 +36,7 @@ export function MobileInputToolbar({
           onClose();
         }}
         disabled={disabled || sendDisabled || maxImages}
-        className={`${btnBase} text-cafe-secondary bg-cafe-surface border-cafe hover:border-cocreator-primary hover:text-cocreator-primary`}
+        className={`${btnBase} text-cafe-secondary bg-cafe-surface border-cafe hover:border-cafe-accent hover:text-cafe-accent`}
       >
         <AttachIcon className="w-4 h-4" /> 附件
       </button>
@@ -48,8 +48,8 @@ export function MobileInputToolbar({
         disabled={disabled || sendDisabled}
         className={`${btnBase} ${
           whisperMode
-            ? 'text-amber-600 bg-amber-50 border-amber-300'
-            : 'text-cafe-secondary bg-cafe-surface border-cafe hover:border-amber-400 hover:text-amber-500'
+            ? 'text-conn-amber-text bg-conn-amber-bg border-conn-amber-ring'
+            : 'text-cafe-secondary bg-cafe-surface border-cafe hover:border-amber-400 hover:text-conn-amber-text'
         }`}
       >
         <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">

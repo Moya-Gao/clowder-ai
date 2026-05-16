@@ -122,7 +122,7 @@ export function SignalSourcesView({ initialReferrerThread = null }: { initialRef
         </section>
 
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="rounded-lg border border-conn-red-ring bg-conn-red-bg px-3 py-2 text-sm text-red-700">
             请求失败: {error}
           </div>
         )}
@@ -130,7 +130,9 @@ export function SignalSourcesView({ initialReferrerThread = null }: { initialRef
           <div
             className={[
               'rounded-lg border px-3 py-2 text-sm',
-              fetchResult.ok ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700',
+              fetchResult.ok
+                ? 'border-conn-green-ring bg-conn-green-bg text-conn-green-text'
+                : 'border-conn-red-ring bg-conn-red-bg text-red-700',
             ].join(' ')}
           >
             <span className="font-semibold">{fetchResult.sourceId}</span>: {fetchResult.message}

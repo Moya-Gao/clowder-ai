@@ -3,10 +3,10 @@ import { useIMEGuard } from '@/hooks/useIMEGuard';
 
 /** F070: governance status dot colors */
 const GOV_STATUS_DOT: Record<string, { color: string; title: string }> = {
-  healthy: { color: 'bg-green-400', title: '治理正常' },
-  stale: { color: 'bg-yellow-400', title: '治理过期' },
-  missing: { color: 'bg-red-400', title: '治理缺失' },
-  'never-synced': { color: 'bg-gray-300', title: '未同步治理' },
+  healthy: { color: 'bg-conn-emerald-text', title: '治理正常' },
+  stale: { color: 'bg-conn-amber-text', title: '治理过期' },
+  missing: { color: 'bg-conn-red-text', title: '治理缺失' },
+  'never-synced': { color: 'bg-conn-slate-ring', title: '未同步治理' },
 };
 
 /** Section icon SVG paths (extracted to reduce JSX noise) */
@@ -22,11 +22,11 @@ const ICON_PATHS: Record<string, string> = {
 };
 
 const ICON_COLORS: Record<string, string> = {
-  pin: 'text-cocreator-primary',
-  star: 'text-yellow-500',
+  pin: 'text-cafe-accent',
+  star: 'text-conn-amber-text',
   clock: 'text-cafe-muted',
   archive: 'text-cafe-muted',
-  system: 'text-blue-500',
+  system: 'text-conn-blue-text',
 };
 
 interface SectionGroupProps {
@@ -164,7 +164,7 @@ export function SectionGroup({
             }}
             onBlur={submitRename}
             maxLength={100}
-            className="text-xs font-medium px-1 py-0 rounded border border-cocreator-light focus:outline-none focus:border-cocreator-primary flex-1 min-w-0"
+            className="text-xs font-medium px-1 py-0 rounded border border-cafe-subtle focus:outline-none focus:border-cafe-accent flex-1 min-w-0"
           />
         ) : (
           <span className="text-xs font-medium text-cafe-secondary truncate">{label}</span>
@@ -215,7 +215,7 @@ export function SectionGroup({
             }}
             title={isProjectPinned ? '取消固定项目' : '固定项目到活跃区'}
             testId="project-pin-btn"
-            className={isProjectPinned ? 'text-cocreator-primary' : 'text-cafe-muted hover:text-cafe-muted'}
+            className={isProjectPinned ? 'text-cafe-accent' : 'text-cafe-muted hover:text-cafe-muted'}
           >
             <path d={ICON_PATHS.pin} />
           </ActionButton>
@@ -302,7 +302,7 @@ function MenuItem({ onClick, danger, children }: { onClick: () => void; danger?:
       type="button"
       onClick={onClick}
       className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
-        danger ? 'text-red-500 hover:bg-red-50' : 'text-cafe-secondary hover:bg-cafe-surface-elevated'
+        danger ? 'text-conn-red-text hover:bg-conn-red-bg' : 'text-cafe-secondary hover:bg-cafe-surface-elevated'
       }`}
     >
       {children}

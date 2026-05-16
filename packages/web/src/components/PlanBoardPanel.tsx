@@ -16,7 +16,7 @@ function TaskStatusIcon({ status }: { status: 'completed' | 'in_progress' | 'pen
   if (status === 'completed') {
     return (
       <svg
-        className="w-3.5 h-3.5 text-emerald-600"
+        className="w-3.5 h-3.5 text-conn-emerald-text"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -29,7 +29,7 @@ function TaskStatusIcon({ status }: { status: 'completed' | 'in_progress' | 'pen
   if (status === 'in_progress') {
     return (
       <svg
-        className="w-3.5 h-3.5 text-blue-600 animate-spin"
+        className="w-3.5 h-3.5 text-conn-blue-text animate-spin"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -70,11 +70,11 @@ function PlanCard({ catId, threadId, inv }: { catId: string; threadId: string; i
     status === 'completed' ? '已完成' : status === 'interrupted' ? '已中断' : status === 'running' ? '运行中' : null;
   const statusTone =
     status === 'completed'
-      ? 'bg-green-100 text-green-700'
+      ? 'bg-conn-green-bg text-conn-green-text'
       : status === 'interrupted'
-        ? 'bg-rose-100 text-rose-700'
+        ? 'bg-conn-red-bg text-conn-red-text'
         : status === 'running'
-          ? 'bg-blue-100 text-blue-700'
+          ? 'bg-conn-blue-bg text-conn-blue-text'
           : 'bg-[var(--console-field-bg)] text-cafe-secondary';
 
   return (
@@ -120,9 +120,9 @@ function PlanCard({ catId, threadId, inv }: { catId: string; threadId: string; i
           );
         })}
       </div>
-      <div className="mt-1 ml-3.5 h-1 bg-gray-200 rounded-full overflow-hidden">
+      <div className="mt-1 ml-3.5 h-1 bg-cafe-surface-sunken rounded-full overflow-hidden">
         <div
-          className="h-full bg-green-500 rounded-full transition-all duration-300"
+          className="h-full bg-conn-green-text rounded-full transition-all duration-300"
           style={{ width: `${Math.round((completed / tasks.length) * 100)}%` }}
         />
       </div>

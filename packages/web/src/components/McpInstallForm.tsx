@@ -102,13 +102,13 @@ export function McpInstallForm({ projectPath, onInstalled, onClose, prefilledId 
     return (
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-green-600 font-medium">MCP &ldquo;{id}&rdquo; 已安装</span>
+          <span className="text-conn-green-text font-medium">MCP &ldquo;{id}&rdquo; 已安装</span>
           {result.probe && (
             <span
               className={`text-xs px-1.5 py-0.5 rounded ${
                 result.probe.connectionStatus === 'connected'
-                  ? 'bg-green-50 text-green-600'
-                  : 'bg-amber-50 text-amber-600'
+                  ? 'bg-conn-green-bg text-conn-green-text'
+                  : 'bg-conn-amber-bg text-conn-amber-text'
               }`}
             >
               {result.probe.connectionStatus}
@@ -126,7 +126,7 @@ export function McpInstallForm({ projectPath, onInstalled, onClose, prefilledId 
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-cafe-secondary">添加 MCP</h3>
 
-      {error && <p className="text-xs text-red-500 bg-red-50 rounded px-2 py-1">{error}</p>}
+      {error && <p className="text-xs text-conn-red-text bg-conn-red-bg rounded px-2 py-1">{error}</p>}
 
       {/* ID */}
       <Field label="ID" required>
@@ -235,12 +235,12 @@ export function McpInstallForm({ projectPath, onInstalled, onClose, prefilledId 
               ID: <span className="text-cafe-secondary">{preview.entry.id}</span>
             </p>
             <p>将更新: {preview.cliConfigsAffected.join(', ')}</p>
-            {preview.willProbe && <p className="text-blue-500">安装后将自动探测连接状态</p>}
+            {preview.willProbe && <p className="text-conn-blue-text">安装后将自动探测连接状态</p>}
           </div>
           {preview.risks.length > 0 && (
             <div className="space-y-0.5">
               {preview.risks.map((r) => (
-                <p key={r} className="text-xs text-amber-600">
+                <p key={r} className="text-xs text-conn-amber-text">
                   {r}
                 </p>
               ))}
@@ -266,7 +266,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
     <label className="block text-xs">
       <span className="text-cafe-muted mb-0.5 block">
         {label}
-        {required && <span className="text-red-400 ml-0.5">*</span>}
+        {required && <span className="text-conn-red-text ml-0.5">*</span>}
       </span>
       {children}
     </label>

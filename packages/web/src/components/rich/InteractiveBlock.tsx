@@ -63,7 +63,7 @@ function dispatchInteractiveSend(text: string) {
 /** Render option icon: prefer SVG icon over emoji */
 function OptionIcon({ opt, className = 'w-5 h-5' }: { opt: InteractiveOption; className?: string }) {
   if (opt.icon)
-    return <CafeIcon name={opt.icon} className={`${className} text-amber-600 dark:text-amber-400 shrink-0`} />;
+    return <CafeIcon name={opt.icon} className={`${className} text-conn-amber-text dark:text-amber-400 shrink-0`} />;
   if (opt.emoji) return <span className="text-base shrink-0 leading-none">{opt.emoji}</span>;
   return null;
 }
@@ -121,15 +121,15 @@ function SelectInteraction({
             className={`w-full text-left px-4 py-3 rounded-xl border-[1.5px] text-sm transition-all flex items-center gap-2.5
               ${
                 isSelected
-                  ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30'
+                  ? 'border-amber-500 bg-conn-amber-bg dark:bg-amber-950/30'
                   : disabled
                     ? 'border-cafe dark:border-gray-700 opacity-50 cursor-not-allowed'
-                    : 'border-cafe dark:border-gray-700 hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 cursor-pointer'
+                    : 'border-cafe dark:border-gray-700 hover:border-conn-amber-ring hover:bg-conn-amber-bg/50 dark:hover:bg-amber-950/20 cursor-pointer'
               }`}
           >
             <OptionIcon opt={opt} />
             <div className="flex-1 min-w-0">
-              <span className={`font-semibold ${isSelected ? 'text-amber-700 dark:text-amber-400' : ''}`}>
+              <span className={`font-semibold ${isSelected ? 'text-conn-amber-text dark:text-amber-400' : ''}`}>
                 {opt.label}
               </span>
               {opt.description && (
@@ -138,7 +138,7 @@ function SelectInteraction({
             </div>
             {isSelected && (
               <svg
-                className="w-5 h-5 text-amber-600 shrink-0"
+                className="w-5 h-5 text-conn-amber-text shrink-0"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -165,7 +165,7 @@ function SelectInteraction({
               if (e.key === 'Enter' && !ime.isComposing() && customText.trim()) handleSubmit();
             }}
             placeholder={pendingOpt?.customInputPlaceholder ?? '输入你的想法...'}
-            className="w-full px-4 py-2.5 rounded-xl border-[1.5px] border-amber-300 dark:border-amber-700 bg-cafe-surface dark:bg-gray-900 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 placeholder:text-gray-400"
+            className="w-full px-4 py-2.5 rounded-xl border-[1.5px] border-conn-amber-ring dark:border-amber-700 bg-cafe-surface dark:bg-gray-900 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 placeholder:text-gray-400"
           />
         </div>
       )}
@@ -236,8 +236,8 @@ function MultiSelectInteraction({
             className={`flex items-center gap-2.5 w-full px-4 py-3 rounded-xl border-[1.5px] text-sm transition-all text-left
               ${
                 isChecked
-                  ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30'
-                  : 'border-cafe dark:border-gray-700 hover:border-amber-300'
+                  ? 'border-amber-500 bg-conn-amber-bg dark:bg-amber-950/30'
+                  : 'border-cafe dark:border-gray-700 hover:border-conn-amber-ring'
               }
               ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           >
@@ -259,7 +259,7 @@ function MultiSelectInteraction({
               )}
             </span>
             <OptionIcon opt={opt} />
-            <span className={`font-semibold ${isChecked ? 'text-amber-700 dark:text-amber-400' : ''}`}>
+            <span className={`font-semibold ${isChecked ? 'text-conn-amber-text dark:text-amber-400' : ''}`}>
               {opt.label}
             </span>
           </button>
@@ -369,12 +369,12 @@ function CardGridInteraction({
                   className={`p-4 rounded-2xl border-[1.5px] text-center text-sm transition-all
                     ${
                       isSelected || isPending
-                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 ring-2 ring-amber-400/50'
+                        ? 'border-amber-500 bg-conn-amber-bg dark:bg-amber-950/30 ring-2 ring-amber-400/50'
                         : isHighlighted
-                          ? 'border-amber-400 bg-amber-50/80 dark:bg-amber-950/20 scale-105'
+                          ? 'border-amber-400 bg-conn-amber-bg/80 dark:bg-amber-950/20 scale-105'
                           : disabled
                             ? 'border-cafe dark:border-gray-700 opacity-50 cursor-not-allowed'
-                            : 'border-cafe dark:border-gray-700 bg-cafe-surface-elevated dark:bg-gray-800/50 hover:border-amber-300 hover:shadow-sm cursor-pointer'
+                            : 'border-cafe dark:border-gray-700 bg-cafe-surface-elevated dark:bg-gray-800/50 hover:border-conn-amber-ring hover:shadow-sm cursor-pointer'
                     }`}
                 >
                   {(opt.icon || opt.emoji) && (
@@ -383,7 +383,7 @@ function CardGridInteraction({
                     </div>
                   )}
                   <div
-                    className={`font-semibold ${isSelected || isPending ? 'text-amber-700 dark:text-amber-400' : ''}`}
+                    className={`font-semibold ${isSelected || isPending ? 'text-conn-amber-text dark:text-amber-400' : ''}`}
                   >
                     {opt.label}
                   </div>
@@ -462,12 +462,12 @@ function ConfirmInteraction({
         className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border-[1.5px] flex items-center justify-center gap-1.5
           ${
             selectedId === '__cancel__'
-              ? 'bg-red-50 dark:bg-red-950/30 border-red-400 text-red-600 dark:text-red-400'
+              ? 'bg-conn-red-bg dark:bg-red-950/30 border-conn-red-ring text-conn-red-text dark:text-conn-red-text'
               : disabled && selectedId
                 ? 'bg-cafe-surface-elevated dark:bg-gray-800 border-cafe dark:border-gray-700 text-cafe-muted opacity-50 cursor-not-allowed'
                 : disabled
                   ? 'bg-cafe-surface-elevated dark:bg-gray-800 border-cafe dark:border-gray-700 text-cafe-muted cursor-not-allowed'
-                  : 'bg-red-50/50 dark:bg-red-950/10 border-red-200 dark:border-red-800 text-red-500 hover:bg-red-50 hover:border-red-300 cursor-pointer'
+                  : 'bg-conn-red-bg/50 dark:bg-red-950/10 border-conn-red-ring dark:border-red-800 text-conn-red-text hover:bg-conn-red-bg hover:border-red-300 cursor-pointer'
           }`}
       >
         {selectedId !== '__cancel__' && (
@@ -484,12 +484,12 @@ function ConfirmInteraction({
         className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border-[1.5px] flex items-center justify-center gap-1.5
           ${
             selectedId === '__confirm__'
-              ? 'bg-green-50 dark:bg-green-950/30 border-green-500 text-green-600 dark:text-green-400'
+              ? 'bg-conn-green-bg dark:bg-green-950/30 border-green-500 text-conn-green-text dark:text-green-400'
               : disabled && selectedId
                 ? 'bg-cafe-surface-elevated dark:bg-gray-800 border-cafe dark:border-gray-700 text-cafe-muted opacity-50 cursor-not-allowed'
                 : disabled
                   ? 'bg-cafe-surface-elevated dark:bg-gray-800 border-cafe dark:border-gray-700 text-cafe-muted cursor-not-allowed'
-                  : 'bg-green-50/50 dark:bg-green-950/10 border-green-200 dark:border-green-800 text-green-600 hover:bg-green-50 hover:border-green-300 cursor-pointer'
+                  : 'bg-conn-green-bg/50 dark:bg-green-950/10 border-conn-green-ring dark:border-green-800 text-conn-green-text hover:bg-conn-green-bg hover:border-green-300 cursor-pointer'
           }`}
       >
         {selectedId !== '__confirm__' && (

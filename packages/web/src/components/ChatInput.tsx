@@ -551,7 +551,7 @@ export function ChatInput({
   }, [activeMenu, closeMenus]);
 
   return (
-    <div className="border-t border-cocreator-light bg-cocreator-bg relative safe-area-bottom">
+    <div className="border-t border-cafe-subtle bg-cafe-surface relative safe-area-bottom">
       {/* F39: Queue status bar — visible when cat is running */}
       {hasActiveInvocation && (
         <div className="px-4 pt-2 flex items-center gap-2">
@@ -616,7 +616,7 @@ export function ChatInput({
         </div>
       )}
       {imageLifecycleStatus === 'failed' && uploadError && (
-        <div className="px-4 pt-2 text-xs text-red-500" role="alert">
+        <div className="px-4 pt-2 text-xs text-conn-red-text" role="alert">
           图片发送失败：{uploadError}
         </div>
       )}
@@ -656,8 +656,8 @@ export function ChatInput({
           onClick={() => setMobileToolbar((v) => !v)}
           className={`p-3 rounded-xl transition-all md:hidden ${
             mobileToolbar
-              ? 'text-cocreator-primary bg-cocreator-light rotate-45'
-              : 'text-cafe-muted hover:text-cocreator-primary hover:bg-cafe-surface'
+              ? 'text-cafe-accent bg-cafe-surface-sunken rotate-45'
+              : 'text-cafe-muted hover:text-cafe-accent hover:bg-cafe-surface'
           }`}
           aria-label="展开工具栏"
         >
@@ -674,7 +674,7 @@ export function ChatInput({
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
-          className="hidden md:block p-3 rounded-xl text-cafe-muted hover:text-cocreator-primary hover:bg-cafe-surface disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="hidden md:block p-3 rounded-xl text-cafe-muted hover:text-cafe-accent hover:bg-cafe-surface disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           aria-label="Attach images"
         >
           <AttachIcon className="w-5 h-5" />
@@ -685,8 +685,8 @@ export function ChatInput({
           disabled={disabled || sendTemporarilyDisabled}
           className={`hidden md:block p-3 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
             whisperMode
-              ? 'text-amber-500 bg-amber-50 ring-1 ring-amber-300'
-              : 'text-cafe-muted hover:text-amber-500 hover:bg-cafe-surface'
+              ? 'text-conn-amber-text bg-conn-amber-bg ring-1 ring-conn-amber-ring'
+              : 'text-cafe-muted hover:text-conn-amber-text hover:bg-cafe-surface'
           }`}
           aria-label="Whisper mode"
           title="悄悄话模式"
@@ -704,7 +704,7 @@ export function ChatInput({
           ref={gameBtnRef}
           onClick={handleGameClick}
           disabled={disabled || sendTemporarilyDisabled}
-          className="hidden md:block p-3 rounded-xl text-cafe-muted hover:text-indigo-500 hover:bg-cafe-surface disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="hidden md:block p-3 rounded-xl text-cafe-muted hover:text-conn-indigo-text hover:bg-cafe-surface disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           aria-label="Game mode"
           title="游戏模式"
         >
@@ -731,8 +731,8 @@ export function ChatInput({
             }
             className={`w-full resize-none rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
               whisperMode
-                ? 'border-amber-300 bg-amber-50/50 focus:ring-amber-400'
-                : 'border-cocreator-light bg-cafe-surface focus:ring-cocreator-primary'
+                ? 'border-conn-amber-ring bg-conn-amber-bg/50 focus:ring-conn-amber-ring'
+                : 'border-cafe-subtle bg-cafe-surface focus:ring-cafe-accent'
             }`}
             rows={1}
             disabled={disabled}

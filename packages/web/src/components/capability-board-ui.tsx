@@ -270,7 +270,7 @@ function CapabilityCard({
               onClick={() => onDelete(item.id, false)}
               disabled={isDeleting}
               title="禁用此 MCP"
-              className="p-1 rounded text-slate-300 hover:text-red-400 hover:bg-red-50
+              className="p-1 rounded text-slate-300 hover:text-conn-red-text hover:bg-conn-red-bg
                          transition-colors disabled:opacity-40"
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -460,7 +460,7 @@ function TypeBadge({ type }: { type: 'mcp' | 'skill' }) {
       className={`inline-flex items-center justify-center text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
         type === 'mcp'
           ? 'bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 border border-purple-200/50'
-          : 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 border border-blue-200/50'
+          : 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 border border-conn-blue-ring/50'
       }`}
     >
       {type === 'mcp' ? 'MCP' : 'Skill'}
@@ -537,7 +537,9 @@ function MountStatusBadges({ mounts }: { mounts: Record<string, boolean> }) {
             <span
               key={key}
               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border ${
-                ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50' : 'bg-red-50 text-red-600 border-red-200/50'
+                ok
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50'
+                  : 'bg-conn-red-bg text-conn-red-text border-conn-red-ring/50'
               }`}
             >
               {ok ? (
@@ -584,33 +586,34 @@ export function SkillHealthBanner({ health, items }: { health: SkillHealthSummar
       className={`flex items-start gap-2.5 rounded-lg px-3.5 py-2.5 text-xs border ${
         allGood
           ? 'bg-emerald-50/60 border-emerald-200/40 text-emerald-700'
-          : 'bg-amber-50/60 border-amber-200/40 text-amber-700'
+          : 'bg-conn-amber-bg/60 border-conn-amber-ring/40 text-conn-amber-text'
       }`}
     >
       <HubIcon name={allGood ? 'check' : 'alert-triangle'} className="h-4 w-4 mt-0.5 shrink-0" />
       <div className="space-y-1">
         <div className="flex items-center gap-3">
-          <span className={health.allMounted ? 'text-emerald-600' : 'text-amber-600'}>
+          <span className={health.allMounted ? 'text-emerald-600' : 'text-conn-amber-text'}>
             {health.allMounted ? '全部正确挂载' : '部分挂载异常'}
           </span>
           <span className="text-slate-300">·</span>
-          <span className={health.registrationConsistent ? 'text-emerald-600' : 'text-amber-600'}>
+          <span className={health.registrationConsistent ? 'text-emerald-600' : 'text-conn-amber-text'}>
             {health.registrationConsistent ? '注册一致' : '注册不一致'}
           </span>
         </div>
         {mountFailures.length > 0 && (
-          <div className="space-y-0.5 text-amber-600/80">
+          <div className="space-y-0.5 text-conn-amber-text/80">
             {mountFailures.map((f) => (
               <p key={f.id}>
-                <code className="text-[10px] bg-amber-100/50 px-1 rounded">{f.id}</code> — {f.failed.join(', ')} 未挂载
+                <code className="text-[10px] bg-conn-amber-bg/50 px-1 rounded">{f.id}</code> — {f.failed.join(', ')}{' '}
+                未挂载
               </p>
             ))}
           </div>
         )}
         {health.unregistered.length > 0 && (
-          <p className="text-amber-600/80">未注册: {health.unregistered.join(', ')}</p>
+          <p className="text-conn-amber-text/80">未注册: {health.unregistered.join(', ')}</p>
         )}
-        {health.phantom.length > 0 && <p className="text-amber-600/80">幽灵项: {health.phantom.join(', ')}</p>}
+        {health.phantom.length > 0 && <p className="text-conn-amber-text/80">幽灵项: {health.phantom.join(', ')}</p>}
       </div>
     </div>
   );
@@ -637,7 +640,7 @@ export function FilterChips({
           onClick={() => onChange(opt.value)}
           className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
             value === opt.value
-              ? 'bg-blue-50 border-blue-300 text-blue-700'
+              ? 'bg-conn-blue-bg border-blue-300 text-blue-700'
               : 'border-cafe text-cafe-secondary hover:border-cafe'
           }`}
         >
@@ -661,7 +664,7 @@ export function SectionIconMcp() {
 export function SectionIconSkill() {
   return (
     <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-amber-50 to-yellow-100/50 border border-amber-100/50 shadow-sm">
-      <SkillIcon className="w-4 h-4 text-amber-600" />
+      <SkillIcon className="w-4 h-4 text-conn-amber-text" />
     </div>
   );
 }

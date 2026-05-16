@@ -178,8 +178,8 @@ export function IndexStatus() {
 
   if (error) {
     return (
-      <div data-testid="index-status" className="rounded-lg border border-red-200 bg-red-50 p-4">
-        <p className="text-sm text-red-600">{error}</p>
+      <div data-testid="index-status" className="rounded-lg border border-conn-red-ring bg-conn-red-bg p-4">
+        <p className="text-sm text-conn-red-text">{error}</p>
         <button type="button" onClick={fetchAll} className="mt-2 text-xs text-red-700 underline">
           重试
         </button>
@@ -199,7 +199,9 @@ export function IndexStatus() {
     <div data-testid="index-status" className="space-y-4">
       {/* Health badge */}
       <div className="flex items-center gap-2">
-        <span className={`inline-block h-2.5 w-2.5 rounded-full ${status.healthy ? 'bg-green-500' : 'bg-red-500'}`} />
+        <span
+          className={`inline-block h-2.5 w-2.5 rounded-full ${status.healthy ? 'bg-conn-green-text' : 'bg-conn-red-text'}`}
+        />
         <span className="text-sm font-medium text-cafe-black">{status.healthy ? 'Healthy' : 'Unhealthy'}</span>
         {status.reason && <span className="text-xs text-cafe-secondary">({status.reason})</span>}
       </div>
@@ -254,7 +256,7 @@ export function IndexStatus() {
                     type="button"
                     disabled={isUpdating}
                     onClick={() => cycleEnvVar(v.name, v.currentValue)}
-                    className={`relative h-5 w-9 rounded-full transition-colors ${isOn ? 'bg-green-500' : 'bg-gray-300'} ${isUpdating ? 'opacity-50' : ''}`}
+                    className={`relative h-5 w-9 rounded-full transition-colors ${isOn ? 'bg-conn-green-text' : 'bg-gray-300'} ${isUpdating ? 'opacity-50' : ''}`}
                   >
                     <span
                       className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${isOn ? 'translate-x-4' : ''}`}

@@ -230,7 +230,7 @@ const mdComponents: Components = {
         type="checkbox"
         checked={checked}
         readOnly
-        className="mt-1 h-3.5 w-3.5 rounded border-gray-300 text-blue-500 pointer-events-none"
+        className="mt-1 h-3.5 w-3.5 rounded border-gray-300 text-conn-blue-text pointer-events-none"
       />
     ) : (
       <input type={type} />
@@ -240,7 +240,7 @@ const mdComponents: Components = {
     <blockquote className="border-l-[3px] border-cafe pl-3 my-2 italic opacity-80">{children}</blockquote>
   ),
   a: ({ href, children }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-conn-blue-text hover:underline break-all">
       {withMentions(children)}
     </a>
   ),

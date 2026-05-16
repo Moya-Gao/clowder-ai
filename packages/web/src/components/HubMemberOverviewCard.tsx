@@ -179,7 +179,7 @@ function AvailabilityControls({
   const actionLabel = status.enabled ? '停用成员' : '启用成员';
   const actionTitle = `${actionLabel}：${cat.displayName}`;
   const actionClass = status.enabled
-    ? 'bg-red-50 text-red-600 hover:bg-red-100'
+    ? 'bg-conn-red-bg text-conn-red-text hover:bg-conn-red-bg'
     : 'bg-[#E8F5E9] text-[#4CAF50] hover:bg-[#D7EED9]';
 
   return (
@@ -309,7 +309,7 @@ export function HubMemberOverviewCard({
                 event.stopPropagation();
                 onDelete(cat);
               }}
-              className="rounded-full bg-red-50 p-1.5 text-red-600 transition hover:bg-red-100"
+              className="rounded-full bg-conn-red-bg p-1.5 text-conn-red-text transition hover:bg-conn-red-bg"
               aria-label="删除成员"
             >
               <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 fill-none stroke-current" aria-hidden="true">

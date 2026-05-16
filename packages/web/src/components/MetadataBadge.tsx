@@ -61,7 +61,7 @@ export function MetadataBadge({ metadata }: MetadataBadgeProps) {
           {usage.costUsd != null && (
             <>
               <span className="text-cafe-muted"> · </span>
-              <span className="text-amber-500 animate-cost-glow tabular-nums">{formatCost(usage.costUsd)}</span>
+              <span className="text-conn-amber-text animate-cost-glow tabular-nums">{formatCost(usage.costUsd)}</span>
             </>
           )}
         </span>

@@ -70,7 +70,7 @@ function AddTermRow({ onAdd }: { onAdd: (from: string, to: string) => void }) {
       <button
         onClick={handleAdd}
         disabled={!from.trim() || !to.trim()}
-        className="text-xs px-2.5 py-1.5 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        className="text-xs px-2.5 py-1.5 rounded bg-conn-blue-text text-white hover:bg-conn-blue-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
         添加
       </button>
@@ -139,7 +139,7 @@ function CustomTermRow({
         <button
           onClick={saveEdit}
           disabled={!editFrom.trim() || !editTo.trim()}
-          className="text-blue-500 hover:text-blue-700 disabled:opacity-40"
+          className="text-conn-blue-text hover:text-blue-700 disabled:opacity-40"
           title="保存"
         >
           &#10003;
@@ -153,16 +153,20 @@ function CustomTermRow({
 
   return (
     <div className="flex items-center gap-2 text-xs">
-      <code className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">{term.from}</code>
+      <code className="bg-conn-blue-bg text-blue-700 px-1.5 py-0.5 rounded">{term.from}</code>
       <span className="text-cafe-muted">&rarr;</span>
-      <code className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded">{term.to}</code>
+      <code className="bg-conn-green-bg text-conn-green-text px-1.5 py-0.5 rounded">{term.to}</code>
       <div className="ml-auto flex items-center gap-1">
-        <button onClick={startEdit} className="text-cafe-muted hover:text-blue-500 transition-colors" title="编辑">
+        <button
+          onClick={startEdit}
+          className="text-cafe-muted hover:text-conn-blue-text transition-colors"
+          title="编辑"
+        >
           &#9998;
         </button>
         <button
           onClick={() => onRemove(index)}
-          className="text-cafe-muted hover:text-red-500 transition-colors"
+          className="text-cafe-muted hover:text-conn-red-text transition-colors"
           title="删除"
         >
           &times;
@@ -203,7 +207,7 @@ export function VoiceSettingsPanel() {
       <Section title="内置词典">
         <button
           onClick={() => setShowBuiltIn(!showBuiltIn)}
-          className="text-[11px] text-blue-500 hover:text-blue-700 transition-colors"
+          className="text-[11px] text-conn-blue-text hover:text-blue-700 transition-colors"
         >
           {showBuiltIn ? '收起' : `查看全部 ${BUILT_IN_ENTRIES.length} 条内置规则`}
         </button>
@@ -252,7 +256,7 @@ export function VoiceSettingsPanel() {
 
       {/* Reset */}
       <div className="flex justify-end">
-        <button onClick={resetAll} className="text-xs text-cafe-muted hover:text-red-500 transition-colors">
+        <button onClick={resetAll} className="text-xs text-cafe-muted hover:text-conn-red-text transition-colors">
           重置所有设置
         </button>
       </div>

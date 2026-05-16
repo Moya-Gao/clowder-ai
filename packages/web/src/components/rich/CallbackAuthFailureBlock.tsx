@@ -90,7 +90,7 @@ export function CallbackAuthFailureBlock({ block }: { block: RichCardBlock }) {
     // Shouldn't happen — RichBlocks routes here only when meta.kind matches.
     // Defensive fallback so we never render an empty block.
     return (
-      <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+      <div className="rounded-lg border border-conn-amber-ring bg-conn-amber-bg px-3 py-2 text-xs text-conn-amber-text">
         Callback auth failure (metadata missing)
       </div>
     );

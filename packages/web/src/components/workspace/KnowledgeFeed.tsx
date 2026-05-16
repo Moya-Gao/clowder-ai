@@ -104,7 +104,7 @@ export function KnowledgeFeed() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center text-cocreator-dark/40 text-xs">
+      <div className="flex-1 flex items-center justify-center text-cafe-interactive/40 text-xs">
         Loading knowledge feed...
       </div>
     );
@@ -123,7 +123,7 @@ export function KnowledgeFeed() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Tabs */}
-      <div className="flex border-b border-cocreator-light/40">
+      <div className="flex border-b border-cafe-subtle/40">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -131,8 +131,8 @@ export function KnowledgeFeed() {
             onClick={() => setActiveTab(tab.key)}
             className={`flex items-center gap-1 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
               activeTab === tab.key
-                ? 'text-cocreator-primary border-b-2 border-cocreator-primary'
-                : 'text-cocreator-dark/40 hover:text-cocreator-dark/60'
+                ? 'text-cafe-accent border-b-2 border-cafe-accent'
+                : 'text-cafe-interactive/40 hover:text-cafe-interactive/60'
             }`}
           >
             {tab.label}
@@ -140,8 +140,8 @@ export function KnowledgeFeed() {
               <span
                 className={`text-[9px] rounded-full px-1.5 py-0.5 ${
                   activeTab === tab.key
-                    ? 'bg-cocreator-primary text-white'
-                    : 'bg-cocreator-light/60 text-cocreator-dark/50'
+                    ? 'bg-cafe-accent text-white'
+                    : 'bg-cafe-surface-sunken/60 text-cafe-interactive/50'
                 }`}
               >
                 {tab.count}
@@ -154,7 +154,7 @@ export function KnowledgeFeed() {
       {/* Feed items */}
       <div className="flex-1 overflow-y-auto px-2 py-2 space-y-2">
         {currentItems.length === 0 ? (
-          <div className="text-center text-cocreator-dark/40 text-xs py-8">
+          <div className="text-center text-cafe-interactive/40 text-xs py-8">
             {activeTab === 'review'
               ? '没有待确认的知识'
               : activeTab === 'frequent'
@@ -179,10 +179,10 @@ export function KnowledgeFeed() {
 
       {/* Stats bar */}
       {data?.stats && (
-        <div className="flex items-center justify-center gap-3 px-3 py-1.5 border-t border-cocreator-light/40 bg-cocreator-bg/30">
+        <div className="flex items-center justify-center gap-3 px-3 py-1.5 border-t border-cafe-subtle/40 bg-cafe-surface/30">
           <span className="text-[10px] font-semibold text-blue-600">{data.stats.decisions} decisions</span>
-          <span className="text-[10px] font-semibold text-amber-600">{data.stats.lessons} lessons</span>
-          <span className="text-[10px] font-semibold text-green-600">{data.stats.methods} methods</span>
+          <span className="text-[10px] font-semibold text-conn-amber-text">{data.stats.lessons} lessons</span>
+          <span className="text-[10px] font-semibold text-conn-green-text">{data.stats.methods} methods</span>
         </div>
       )}
     </div>
@@ -209,21 +209,21 @@ function KnowledgeCard({
   const title = marker.content.replace(/^\[(decision|lesson|method)\]\s*/i, '');
 
   const kindColors: Record<string, { bg: string; text: string }> = {
-    decision: { bg: 'bg-blue-50', text: 'text-blue-700' },
-    lesson: { bg: 'bg-amber-50', text: 'text-amber-700' },
-    method: { bg: 'bg-green-50', text: 'text-green-700' },
+    decision: { bg: 'bg-conn-blue-bg', text: 'text-blue-700' },
+    lesson: { bg: 'bg-conn-amber-bg', text: 'text-conn-amber-text' },
+    method: { bg: 'bg-conn-green-bg', text: 'text-conn-green-text' },
   };
   const colors = kindColors[kind] ?? kindColors.lesson!;
 
   return (
-    <div className="bg-cafe-surface rounded-lg border border-cocreator-light/60 p-2.5 space-y-1.5">
+    <div className="bg-cafe-surface rounded-lg border border-cafe-subtle/60 p-2.5 space-y-1.5">
       {/* Top row: kind badge + status */}
       <div className="flex items-center justify-between">
         <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>
           {kind}
         </span>
         {tab === 'settled' && (
-          <span className="text-[9px] font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+          <span className="text-[9px] font-medium text-conn-green-text bg-conn-green-bg px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
             <span>&#10003;</span> 已确认
           </span>
         )}
@@ -233,7 +233,7 @@ function KnowledgeCard({
       <div className="text-xs font-semibold text-cafe-black leading-snug">{title}</div>
 
       {/* Source */}
-      <div className="text-[10px] text-cocreator-dark/40">{marker.source}</div>
+      <div className="text-[10px] text-cafe-interactive/40">{marker.source}</div>
 
       {/* Actions */}
       {tab === 'review' && (
@@ -241,14 +241,14 @@ function KnowledgeCard({
           <button
             type="button"
             onClick={() => onApprove(marker.id)}
-            className="text-[10px] font-semibold text-white bg-cocreator-primary rounded px-2 py-1 hover:opacity-90 transition-opacity"
+            className="text-[10px] font-semibold text-white bg-cafe-accent rounded px-2 py-1 hover:opacity-90 transition-opacity"
           >
             Approve
           </button>
           <button
             type="button"
             onClick={() => onReject(marker.id)}
-            className="text-[10px] font-medium text-cocreator-dark/50 hover:text-cocreator-dark/80 transition-colors px-1.5 py-1"
+            className="text-[10px] font-medium text-cafe-interactive/50 hover:text-cafe-interactive/80 transition-colors px-1.5 py-1"
           >
             Dismiss
           </button>
@@ -259,7 +259,7 @@ function KnowledgeCard({
           <button
             type="button"
             onClick={() => onUndo(marker.id)}
-            className="text-[10px] font-medium text-cocreator-primary hover:underline"
+            className="text-[10px] font-medium text-cafe-accent hover:underline"
           >
             撤回
           </button>

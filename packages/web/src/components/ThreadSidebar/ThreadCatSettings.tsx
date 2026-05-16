@@ -77,8 +77,8 @@ export function ThreadCatSettings({ threadId, currentCats, onSave }: ThreadCatSe
         }}
         className={`p-0.5 rounded transition-all ${
           currentCats.length > 0
-            ? 'text-cocreator-primary'
-            : 'opacity-0 group-hover:opacity-100 text-cafe-muted hover:text-cocreator-primary'
+            ? 'text-cafe-accent'
+            : 'opacity-0 group-hover:opacity-100 text-cafe-muted hover:text-cafe-accent'
         }`}
         title="设置默认猫猫"
       >
@@ -95,10 +95,13 @@ export function ThreadCatSettings({ threadId, currentCats, onSave }: ThreadCatSe
           <div className="p-3 overflow-y-auto max-h-[50vh]">
             <CatSelector selectedCats={selectedCats} onSelectionChange={setSelectedCats} />
           </div>
-          {saveError && <p className="text-[10px] text-red-500 px-3 mt-1">保存失败，请重试</p>}
+          {saveError && <p className="text-[10px] text-conn-red-text px-3 mt-1">保存失败，请重试</p>}
           <div className="flex items-center justify-between px-3 pb-3 pt-2 border-t border-cafe-subtle flex-shrink-0">
             {selectedCats.length > 0 && (
-              <button onClick={() => setSelectedCats([])} className="text-[10px] text-cafe-muted hover:text-red-400">
+              <button
+                onClick={() => setSelectedCats([])}
+                className="text-[10px] text-cafe-muted hover:text-conn-red-text"
+              >
                 清除
               </button>
             )}
@@ -115,7 +118,7 @@ export function ThreadCatSettings({ threadId, currentCats, onSave }: ThreadCatSe
               <button
                 onClick={() => void handleSave()}
                 disabled={!hasChanged || isSaving}
-                className="text-xs px-2 py-0.5 rounded bg-cocreator-primary text-white hover:bg-cocreator-dark disabled:opacity-40"
+                className="text-xs px-2 py-0.5 rounded bg-cafe-accent text-white hover:bg-cafe-interactive disabled:opacity-40"
               >
                 {isSaving ? '...' : '保存'}
               </button>

@@ -135,7 +135,7 @@ export function GovernanceHealth({ cards, digests = [], resolutions = [], slices
             {topRisks.map(([signal, count]) => (
               <div key={signal} className="flex items-center justify-between text-xs">
                 <span className="text-[#6B5D4F]">{signal.replace(/_/g, ' ')}</span>
-                <span className="font-medium text-red-600">{count}</span>
+                <span className="font-medium text-conn-red-text">{count}</span>
               </div>
             ))}
           </div>

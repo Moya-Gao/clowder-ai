@@ -181,7 +181,7 @@ describe('BootstrapPromptCard', () => {
     expect(html).toContain('数据安全');
   });
 
-  it('uses cocreator color classes', () => {
+  it('uses cafe semantic color classes', () => {
     const html = renderToStaticMarkup(
       <BootstrapPromptCard
         indexState={missingState}
@@ -191,8 +191,8 @@ describe('BootstrapPromptCard', () => {
         onSnooze={() => {}}
       />,
     );
-    expect(html).toContain('cocreator-primary');
-    expect(html).toContain('cocreator-bg');
+    expect(html).toContain('cafe-accent');
+    expect(html).toContain('cafe-surface');
   });
 });
 
@@ -222,9 +222,9 @@ describe('BootstrapProgressPill', () => {
     expect(html).toContain('5 / 20 文档');
   });
 
-  it('uses cocreator colors', () => {
+  it('uses cafe semantic colors', () => {
     const html = renderToStaticMarkup(<BootstrapProgressPill progress={scanningProgress} />);
-    expect(html).toContain('cocreator-primary');
+    expect(html).toContain('cafe-accent');
   });
 });
 
@@ -284,8 +284,8 @@ describe('BootstrapSummaryCard', () => {
 
   it('uses green color theme', () => {
     const html = renderToStaticMarkup(<BootstrapSummaryCard summary={mockSummary} docsIndexed={10} />);
-    expect(html).toContain('green-200');
-    expect(html).toContain('green-50');
+    expect(html).toContain('conn-green-bg');
+    expect(html).toContain('conn-green-text');
   });
 
   it('renders SVG icons instead of emoji', () => {

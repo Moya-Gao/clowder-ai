@@ -28,8 +28,8 @@ function timeAgo(ts: number): string {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  invocation_error: 'bg-red-100 text-red-700',
-  phase_completed: 'bg-green-100 text-green-700',
+  invocation_error: 'bg-conn-red-bg text-red-700',
+  phase_completed: 'bg-conn-green-bg text-conn-green-text',
   debate_winner: 'bg-blue-100 text-blue-700',
 };
 
@@ -66,7 +66,7 @@ export function AuditEventsTab({ threadId }: AuditEventsTabProps) {
   }
 
   if (error) {
-    return <div className="text-xs text-red-500 py-2">加载失败</div>;
+    return <div className="text-xs text-conn-red-text py-2">加载失败</div>;
   }
 
   if (events.length === 0) {

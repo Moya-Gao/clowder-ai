@@ -60,7 +60,7 @@ export function MarketplacePanel() {
       {loading && <LoadingSkeleton />}
 
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+        <div className="rounded-lg bg-conn-red-bg p-3 text-sm text-conn-red-text">
           <p>{error}</p>
           <button onClick={handleRetry} className="mt-1 text-xs font-medium text-red-700 underline">
             重试

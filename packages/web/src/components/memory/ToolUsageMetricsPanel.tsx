@@ -70,7 +70,7 @@ export function ToolUsageMetricsPanel({ fetcher }: { fetcher?: () => Promise<Too
     return (
       <div className="rounded-xl border border-cafe bg-white p-5" data-testid="tool-usage-metrics-error">
         <h4 className="mb-2 text-sm font-semibold text-cafe-black">Tool Usage Metrics (F188 Phase F)</h4>
-        <div className="text-xs text-red-600">Failed to load: {error}</div>
+        <div className="text-xs text-conn-red-text">Failed to load: {error}</div>
       </div>
     );
   }

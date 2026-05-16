@@ -13,8 +13,8 @@ const TYPE_COLORS: Record<SliceType, string> = {
 const STATUS_STYLES: Record<SliceStatus, { bg: string; text: string }> = {
   planned: { bg: 'bg-cafe-surface-elevated', text: 'text-cafe-secondary' },
   in_progress: { bg: 'bg-yellow-100', text: 'text-yellow-800' },
-  delivered: { bg: 'bg-green-100', text: 'text-green-800' },
-  validated: { bg: 'bg-blue-100', text: 'text-blue-800' },
+  delivered: { bg: 'bg-conn-green-bg', text: 'text-green-800' },
+  validated: { bg: 'bg-blue-100', text: 'text-conn-blue-text' },
 };
 
 const NEXT_STATUS: Record<SliceStatus, SliceStatus | null> = {

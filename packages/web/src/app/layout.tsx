@@ -7,8 +7,10 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { ToastContainer } from '@/components/ToastContainer';
 import { ConfirmProvider } from '@/components/useConfirm';
 import './globals.css';
+import './connector-tokens.css';
 import './console-shell.css';
 import './console-controls.css';
+import './werewolf-theme.css';
 
 export const viewport: Viewport = {
   width: 'device-width',

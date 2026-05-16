@@ -274,7 +274,7 @@ export function CollectionGraph() {
       <GraphSearchForm inputRef={inputRef} onSubmit={handleSubmit} />
 
       {loading && <div className="text-sm text-cafe-secondary">Loading graph...</div>}
-      {error && <div className="text-sm text-red-500">Error: {error}</div>}
+      {error && <div className="text-sm text-conn-red-text">Error: {error}</div>}
       {candidates.length > 0 && !loading && <GraphCandidates candidates={candidates} onSelect={handleNodeClick} />}
       {noMatch && !loading && <GraphNoMatch examples={noMatch.examples} message={noMatch.message} />}
       {graph && graph.nodes.length === 0 && !loading && (

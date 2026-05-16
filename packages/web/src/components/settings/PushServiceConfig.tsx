@@ -142,7 +142,7 @@ export function PushServiceConfig() {
       ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
       : message?.tone === 'error'
         ? 'border-rose-200 bg-rose-50 text-rose-800'
-        : 'border-blue-200 bg-blue-50 text-blue-800';
+        : 'border-conn-blue-ring bg-conn-blue-bg text-conn-blue-text';
 
   return (
     <div className="rounded-xl border border-cafe bg-cafe-surface p-4 space-y-4">

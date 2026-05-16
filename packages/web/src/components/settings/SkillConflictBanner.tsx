@@ -15,13 +15,16 @@ interface SkillConflictBannerProps {
 
 export function SkillConflictBanner({ conflicts, resolving, onResolve }: SkillConflictBannerProps) {
   return (
-    <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+    <div className="space-y-2 rounded-lg border border-conn-amber-ring bg-conn-amber-bg px-3 py-2 text-xs text-conn-amber-text">
       <p className="font-semibold">Skill 来源冲突 ({conflicts.length})</p>
       {conflicts.map((c) => (
-        <div key={c.skillName} className="flex items-center justify-between gap-3 rounded-lg bg-amber-100/50 px-3 py-2">
+        <div
+          key={c.skillName}
+          className="flex items-center justify-between gap-3 rounded-lg bg-conn-amber-bg/50 px-3 py-2"
+        >
           <div className="min-w-0 flex-1">
             <p className="font-semibold">{c.skillName}</p>
-            <p className="mt-0.5 text-[10px] text-amber-700">
+            <p className="mt-0.5 text-[10px] text-conn-amber-text">
               active: {c.activeLayer} · project: {c.projectTarget ? 'yes' : 'no'} · user: {c.userTarget ? 'yes' : 'no'}
             </p>
           </div>
@@ -38,7 +41,7 @@ export function SkillConflictBanner({ conflicts, resolving, onResolve }: SkillCo
               type="button"
               disabled={resolving === c.skillName}
               onClick={() => void onResolve(c.skillName, 'mine')}
-              className="rounded-[8px] bg-white px-2.5 py-1 text-[10px] font-bold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+              className="rounded-[8px] bg-white px-2.5 py-1 text-[10px] font-bold text-conn-amber-text hover:bg-conn-amber-bg disabled:opacity-50"
             >
               Mine
             </button>

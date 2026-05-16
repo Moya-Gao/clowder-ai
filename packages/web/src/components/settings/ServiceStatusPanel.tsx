@@ -51,7 +51,7 @@ const STATUS_CONFIG: Record<ServiceStatus, { dot: string; label: string }> = {
 const ACTION_CONFIG: Record<ServiceAction, { label: string; tone: string }> = {
   install: { label: 'Install', tone: 'bg-cafe-interactive text-white hover:opacity-90' },
   start: { label: 'Start', tone: 'bg-conn-emerald-bg text-conn-emerald-text hover:opacity-80' },
-  stop: { label: 'Stop', tone: 'bg-amber-100 text-amber-700 hover:opacity-80' },
+  stop: { label: 'Stop', tone: 'bg-conn-amber-bg text-conn-amber-text hover:opacity-80' },
   uninstall: { label: 'Uninstall', tone: 'bg-rose-100 text-rose-700 hover:opacity-80' },
 };
 

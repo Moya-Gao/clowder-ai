@@ -86,7 +86,7 @@ export function RebuildButton({ onComplete }: { onComplete: () => void }) {
   if (job?.status === 'done' && job.result) {
     return (
       <div data-testid="rebuild-done" className="flex items-center gap-2">
-        <span className="rounded bg-green-100 px-2 py-1 text-[10px] text-green-700">
+        <span className="rounded bg-conn-green-bg px-2 py-1 text-[10px] text-conn-green-text">
           索引 {job.result.docsIndexed} 篇 · {(job.result.durationMs / 1000).toFixed(1)}s
         </span>
         <button
@@ -104,12 +104,12 @@ export function RebuildButton({ onComplete }: { onComplete: () => void }) {
   if (job?.status === 'error') {
     return (
       <div data-testid="rebuild-error" className="flex items-center gap-2">
-        <span className="rounded bg-red-100 px-2 py-1 text-[10px] text-red-700">{job.error}</span>
+        <span className="rounded bg-conn-red-bg px-2 py-1 text-[10px] text-red-700">{job.error}</span>
         <button
           type="button"
           disabled={starting}
           onClick={handleStart}
-          className={`rounded-lg border border-cafe bg-white px-3 py-1.5 text-xs text-red-600 transition-colors hover:bg-red-50 ${starting ? 'opacity-50' : ''}`}
+          className={`rounded-lg border border-cafe bg-white px-3 py-1.5 text-xs text-conn-red-text transition-colors hover:bg-conn-red-bg ${starting ? 'opacity-50' : ''}`}
         >
           重试
         </button>

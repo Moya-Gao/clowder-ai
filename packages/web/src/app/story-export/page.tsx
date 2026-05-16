@@ -20,7 +20,7 @@ function StoryBubble({ msg }: { msg: StoryMessage }) {
   const [thinkingExpanded, setThinkingExpanded] = useState(true); // default expanded for export
 
   const bubbleClasses = isUser
-    ? `rounded-2xl rounded-br-sm ${msg.isWhisper ? 'bg-amber-50 text-amber-900 border border-dashed border-amber-300' : 'bg-[#FEF3C7] text-amber-900'}`
+    ? `rounded-2xl rounded-br-sm ${msg.isWhisper ? 'bg-conn-amber-bg text-conn-amber-text border border-dashed border-conn-amber-ring' : 'bg-[#FEF3C7] text-conn-amber-text'}`
     : `${style.bubbleRadius} ${style.font ?? ''} border`;
 
   const bubbleStyle = isUser
@@ -107,10 +107,10 @@ function StoryBubble({ msg }: { msg: StoryMessage }) {
 
 function BadgeTag({ badge }: { badge: NonNullable<StoryMessage['badge']> }) {
   const colorMap = {
-    red: 'bg-red-50 text-red-500',
-    green: 'bg-green-50 text-green-600',
-    amber: 'bg-amber-100 text-amber-600',
-    blue: 'bg-blue-50 text-blue-500',
+    red: 'bg-conn-red-bg text-conn-red-text',
+    green: 'bg-conn-green-bg text-conn-green-text',
+    amber: 'bg-amber-100 text-conn-amber-text',
+    blue: 'bg-conn-blue-bg text-conn-blue-text',
   };
   return <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${colorMap[badge.color]}`}>{badge.text}</span>;
 }

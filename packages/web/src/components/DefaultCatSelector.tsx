@@ -39,21 +39,23 @@ export function DefaultCatSelector({
         </div>
       </div>
       {fetchError && (
-        <div className="flex items-center gap-2 mb-3 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 mb-3 text-xs text-conn-amber-text bg-conn-amber-bg rounded-lg px-3 py-2">
           <span>加载失败，当前默认猫未知</span>
           {onRetry && (
             <button
               type="button"
               data-testid="retry-fetch"
               onClick={onRetry}
-              className="text-amber-700 font-medium underline hover:text-amber-800"
+              className="text-conn-amber-text font-medium underline hover:text-conn-amber-text"
             >
               重试
             </button>
           )}
         </div>
       )}
-      {saveError && <div className="mb-3 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{saveError}</div>}
+      {saveError && (
+        <div className="mb-3 text-xs text-conn-red-text bg-conn-red-bg rounded-lg px-3 py-2">{saveError}</div>
+      )}
       <div className="flex items-center gap-2">
         {currentCat && (
           <span
@@ -68,7 +70,7 @@ export function DefaultCatSelector({
           disabled={isLoading}
           onChange={(e) => onSelect(e.target.value)}
           className={`flex-1 rounded-lg border border-cafe bg-cafe-surface px-3 py-2 text-sm text-cafe-black
-            focus:outline-none focus:ring-1 focus:ring-cocreator-primary focus:border-cocreator-primary
+            focus:outline-none focus:ring-1 focus:ring-cafe-accent focus:border-cafe-accent
             ${isLoading ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
         >
           {!valueInList && (

@@ -36,7 +36,7 @@ export function MemoryFlagPanel() {
   if (error) {
     return (
       <div className="rounded-lg border border-red-800/40 bg-red-950/20 p-4">
-        <p className="text-sm text-red-400">{error}</p>
+        <p className="text-sm text-conn-red-text">{error}</p>
       </div>
     );
   }

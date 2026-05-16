@@ -75,7 +75,7 @@ export function HubAccountItem({ profile, busy, onSave, onDelete, onEdit }: HubA
         <div className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
-            className="rounded-full bg-red-50 p-2 text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+            className="rounded-full bg-conn-red-bg p-2 text-conn-red-text transition hover:bg-conn-red-bg disabled:opacity-50"
             onClick={async () => {
               if (
                 await confirm({

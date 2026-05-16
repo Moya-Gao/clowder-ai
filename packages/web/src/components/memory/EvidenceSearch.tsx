@@ -51,10 +51,10 @@ export const DEPTH_OPTIONS = [
 ] as const;
 
 export const SOURCE_TYPE_COLORS: Record<string, string> = {
-  decision: 'bg-amber-100 text-amber-800',
-  phase: 'bg-blue-100 text-blue-800',
+  decision: 'bg-conn-amber-bg text-conn-amber-text',
+  phase: 'bg-blue-100 text-conn-blue-text',
   feature: 'bg-purple-100 text-purple-800',
-  lesson: 'bg-green-100 text-green-800',
+  lesson: 'bg-conn-green-bg text-green-800',
   research: 'bg-cyan-100 text-cyan-800',
   knowledge: 'bg-pink-100 text-pink-800',
   discussion: 'bg-gray-100 text-gray-700',
@@ -170,14 +170,14 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           placeholder="搜索项目知识..."
-          className="flex-1 rounded-lg border border-cafe bg-white px-3 py-2 text-sm text-cafe-black placeholder:text-cafe-secondary focus:border-cocreator-primary focus:outline-none"
+          className="flex-1 rounded-lg border border-cafe bg-white px-3 py-2 text-sm text-cafe-black placeholder:text-cafe-secondary focus:border-cafe-accent focus:outline-none"
           data-testid="evidence-search-input"
         />
         <button
           type="button"
           onClick={handleSearch}
           disabled={isSearching || !query.trim()}
-          className="rounded-lg bg-cocreator-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cocreator-dark disabled:opacity-40"
+          className="rounded-lg bg-cafe-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cafe-interactive disabled:opacity-40"
           data-testid="evidence-search-button"
         >
           {isSearching ? '...' : '搜索'}
@@ -198,7 +198,7 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
             <option value="lexical">精确</option>
             <option value="semantic">语义</option>
           </select>
-          {depth === 'raw' && <span className="text-[10px] text-amber-600">消息级仅支持精确匹配</span>}
+          {depth === 'raw' && <span className="text-[10px] text-conn-amber-text">消息级仅支持精确匹配</span>}
         </label>
         <label className="flex items-center gap-1 text-cafe-secondary">
           范围:
@@ -250,7 +250,7 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
       </div>
 
       {/* Error */}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-conn-red-text">{error}</p>}
 
       {/* Results */}
       <div className="space-y-2">
@@ -283,7 +283,7 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
               className="mt-1 text-xs text-cafe-secondary"
             />
             {item.passages && item.passages.length > 0 && (
-              <div className="mt-2 space-y-1 border-l-2 border-cocreator-light pl-2">
+              <div className="mt-2 space-y-1 border-l-2 border-cafe-subtle pl-2">
                 {item.passages.map((p) => (
                   <div key={p.passageId} className="text-xs text-cafe-secondary">
                     {p.speaker && <span className="font-medium text-cafe-black">{p.speaker}: </span>}

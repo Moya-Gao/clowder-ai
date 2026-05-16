@@ -161,9 +161,12 @@ export function FirstRunQuestWizard({ open, onClose, onCreated }: FirstRunQuestW
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-[var(--console-overlay-medium)] px-4"
+      onClick={onClose}
+    >
       <div
-        className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-2xl border border-amber-200 bg-white shadow-2xl"
+        className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-2xl border border-conn-amber-ring bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -189,7 +192,9 @@ export function FirstRunQuestWizard({ open, onClose, onCreated }: FirstRunQuestW
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {error && (
-            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">{error}</div>
+            <div className="mb-3 rounded-lg border border-conn-red-ring bg-conn-red-bg p-3 text-sm text-conn-red-text">
+              {error}
+            </div>
           )}
 
           {step === 'template' && <TemplateStep onSelect={handleTemplateSelect} />}
@@ -203,7 +208,7 @@ export function FirstRunQuestWizard({ open, onClose, onCreated }: FirstRunQuestW
           )}
           {step === 'creating' && (
             <div className="flex flex-col items-center py-12">
-              <div className="mb-4 h-8 w-8 animate-spin rounded-full border-2 border-amber-300 border-t-amber-600" />
+              <div className="mb-4 h-8 w-8 animate-spin rounded-full border-2 border-conn-amber-ring border-t-amber-600" />
               <p className="text-sm text-gray-500">正在创建你的第一只猫猫...</p>
             </div>
           )}

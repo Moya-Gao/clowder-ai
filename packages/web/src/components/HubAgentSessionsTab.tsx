@@ -26,7 +26,7 @@ function formatTs(iso?: string): string {
 
 function stateColor(state: string): string {
   if (state === 'done') return 'text-green-400';
-  if (state === 'error' || state === 'failed') return 'text-red-400';
+  if (state === 'error' || state === 'failed') return 'text-conn-red-text';
   if (state === 'working') return 'text-amber-400 animate-pulse';
   return 'text-cafe-muted';
 }
@@ -87,7 +87,7 @@ export function HubAgentSessionsTab() {
         </button>
       </div>
 
-      {error && <div className="text-xs text-red-400 bg-red-950/30 rounded p-2">{error}</div>}
+      {error && <div className="text-xs text-conn-red-text bg-red-950/30 rounded p-2">{error}</div>}
 
       {!loading && sessions.length === 0 && !error && (
         <div className="text-xs text-cafe-muted text-center py-8">没有找到后台会话 (当前 ~/.claude/jobs/ 为空)</div>

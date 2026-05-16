@@ -58,7 +58,7 @@ export function ClientStep({ onSelect }: ClientStepProps) {
       <p className="mb-4 text-xs text-gray-500">猫猫需要一个 CLI 客户端来工作。我们检测到以下已安装的客户端：</p>
 
       {installed.length === 0 ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+        <div className="rounded-xl border border-conn-amber-ring bg-conn-amber-bg p-4 text-sm text-conn-amber-text">
           未检测到已安装的客户端。请先安装至少一个 CLI 工具（如 Claude Code、Codex、OpenCode）。
         </div>
       ) : (
@@ -73,11 +73,13 @@ export function ClientStep({ onSelect }: ClientStepProps) {
               }}
               className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${
                 selected === c.client
-                  ? 'border-amber-400 bg-amber-50 shadow-sm'
-                  : 'border-gray-200 bg-white hover:border-amber-200'
+                  ? 'border-amber-400 bg-conn-amber-bg shadow-sm'
+                  : 'border-gray-200 bg-white hover:border-conn-amber-ring'
               }`}
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100 text-green-600">✓</div>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-conn-green-bg text-conn-green-text">
+                ✓
+              </div>
               <div>
                 <span className="font-semibold text-gray-900">{c.label}</span>
                 {c.version && <span className="ml-2 text-xs text-gray-400">{c.version}</span>}

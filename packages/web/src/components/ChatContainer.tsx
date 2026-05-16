@@ -775,7 +775,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         <>
           {/* Backdrop — mobile only */}
           <div
-            className="fixed inset-0 bg-black/30 z-20 md:hidden"
+            className="fixed inset-0 bg-[var(--console-overlay-backdrop)] z-20 md:hidden"
             onClick={() => setSidebarOpen(false)}
             aria-hidden="true"
           />
@@ -857,7 +857,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             )}
             {messages.length === 0 && !isLoadingHistory ? (
               <div className="text-center mt-20">
-                <PawIcon className="w-12 h-12 text-cocreator-light mx-auto mb-4" />
+                <PawIcon className="w-12 h-12 text-cafe-muted mx-auto mb-4" />
                 <p className="text-lg text-cafe-secondary mb-1">欢迎来到 Cat Café!</p>
                 <p className="text-sm text-cafe-muted">
                   {cats.length > 0 ? '输入 @布偶 召唤布偶猫开始聊天' : '还没有可用成员，先开始新手教程创建第一只猫猫'}
@@ -914,7 +914,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                       <button
                         type="button"
                         onClick={() => setShowBootcampList(true)}
-                        className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-sm font-medium"
+                        className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-conn-amber-ring bg-conn-amber-bg text-conn-amber-text hover:bg-conn-amber-bg transition-colors text-sm font-medium"
                         data-testid="empty-state-bootcamp-list"
                       >
                         <BootcampIcon className="w-4 h-4" />
@@ -926,7 +926,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                     <button
                       type="button"
                       onClick={() => setShowBootcampList(true)}
-                      className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-sm font-medium"
+                      className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-conn-amber-ring bg-conn-amber-bg text-conn-amber-text hover:bg-conn-amber-bg transition-colors text-sm font-medium"
                       data-testid="empty-state-bootcamp"
                     >
                       <BootcampIcon className="w-4 h-4" />
@@ -951,7 +951,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
         <div ref={attachBottomChromeRef}>
           {authPending.length > 0 && (
-            <div className="border-t border-amber-200 bg-amber-50/40 py-2">
+            <div className="border-t border-conn-amber-ring bg-conn-amber-bg/40 py-2">
               {authPending.map((req) => (
                 <AuthorizationCard key={req.requestId} request={req} onRespond={authRespond} />
               ))}
@@ -1145,9 +1145,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         messageSummary={messageSummary}
       />
       {showFirstRunQuestPrompt && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[var(--console-overlay-medium)] px-4">
           <div
-            className="w-full max-w-md rounded-2xl border border-amber-200 bg-white p-6 shadow-2xl"
+            className="w-full max-w-md rounded-2xl border border-conn-amber-ring bg-white p-6 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <h3 className="text-lg font-semibold text-gray-900">开始猫猫新手教程？</h3>

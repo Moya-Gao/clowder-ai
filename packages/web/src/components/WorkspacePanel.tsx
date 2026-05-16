@@ -62,7 +62,7 @@ function SearchResultItem({
     return (
       <>
         {content.slice(0, idx)}
-        <mark className="bg-cocreator-light text-cocreator-dark rounded px-0.5">
+        <mark className="bg-cafe-surface-sunken text-cafe-interactive rounded px-0.5">
           {content.slice(idx, idx + query.length)}
         </mark>
         {content.slice(idx + query.length)}
@@ -74,12 +74,12 @@ function SearchResultItem({
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left px-3 py-1.5 hover:bg-cocreator-bg/60 transition-colors group"
+      className="w-full text-left px-3 py-1.5 hover:bg-cafe-surface/60 transition-colors group"
     >
       <div className="flex items-center gap-1.5">
         <FileIcon name={fileName} />
         <span className="text-xs font-medium text-cafe-black truncate">{fileName}</span>
-        {line > 0 && <span className="text-[10px] text-cocreator-dark/50 font-mono">:{line}</span>}
+        {line > 0 && <span className="text-[10px] text-cafe-interactive/50 font-mono">:{line}</span>}
       </div>
       {dir && <div className="text-[10px] text-cafe-muted truncate ml-5">{dir}</div>}
       {content && <div className="text-[10px] text-cafe-secondary truncate font-mono ml-5 mt-0.5">{highlighted}</div>}
@@ -104,7 +104,7 @@ const CloseIcon = () => (
 
 const SearchIcon = () => (
   <svg
-    className="w-3.5 h-3.5 text-cocreator-dark/40 flex-shrink-0"
+    className="w-3.5 h-3.5 text-cafe-interactive/40 flex-shrink-0"
     viewBox="0 0 16 16"
     fill="currentColor"
     aria-hidden="true"
@@ -118,12 +118,7 @@ const SearchIcon = () => (
 );
 
 const MenuIcon = () => (
-  <svg
-    className="w-4 h-4 text-cocreator-primary flex-shrink-0"
-    viewBox="0 0 20 20"
-    fill="currentColor"
-    aria-hidden="true"
-  >
+  <svg className="w-4 h-4 text-cafe-accent flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
     <path
       fillRule="evenodd"
       d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z"
@@ -586,7 +581,7 @@ export function WorkspacePanel() {
   return (
     <aside
       ref={panelRef}
-      className="hidden lg:flex flex-1 min-w-0 border-l border-cocreator-light bg-cafe-white/95 flex-col overflow-hidden animate-slide-in-right"
+      className="hidden lg:flex flex-1 min-w-0 border-l border-cafe-subtle bg-cafe-white/95 flex-col overflow-hidden animate-slide-in-right"
     >
       {/* ── Focus mode overlay ── */}
       {focusedPane === 'browser' && workspaceMode === 'dev' && viewMode === 'browser' ? (
@@ -648,7 +643,7 @@ export function WorkspacePanel() {
           {worktreeId ? (
             <TerminalTab worktreeId={worktreeId} />
           ) : (
-            <div className="flex items-center justify-center h-full text-sm text-cocreator-dark/50">
+            <div className="flex items-center justify-center h-full text-sm text-cafe-interactive/50">
               请先选择一个 Worktree
             </div>
           )}
@@ -656,7 +651,7 @@ export function WorkspacePanel() {
       ) : (
         <>
           {/* Header */}
-          <div className="px-3 py-2.5 border-b border-cocreator-light flex items-center justify-between bg-cocreator-bg/50">
+          <div className="px-3 py-2.5 border-b border-cafe-subtle flex items-center justify-between bg-cafe-surface/50">
             <div className="flex items-center gap-2 min-w-0">
               <MenuIcon />
               <span className="text-sm font-semibold text-cafe-black">Workspace</span>
@@ -667,8 +662,8 @@ export function WorkspacePanel() {
                 onClick={presentationLock ? disablePresentationLock : enablePresentationLock}
                 className={`w-6 h-6 flex items-center justify-center rounded-md transition-colors ${
                   presentationLock
-                    ? 'text-cocreator-primary bg-cocreator-primary/10 hover:bg-cocreator-primary/20'
-                    : 'text-cocreator-dark/40 hover:text-cocreator-dark hover:bg-cocreator-light/60'
+                    ? 'text-cafe-accent bg-cafe-accent/10 hover:bg-cafe-accent/20'
+                    : 'text-cafe-interactive/40 hover:text-cafe-interactive hover:bg-cafe-surface-sunken/60'
                 }`}
                 title={
                   presentationLock
@@ -685,14 +680,14 @@ export function WorkspacePanel() {
                 </svg>
               </button>
               {presentationLock && (
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-cocreator-primary/15 text-cocreator-primary">
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-cafe-accent/15 text-cafe-accent">
                   Locked
                 </span>
               )}
               <button
                 type="button"
                 onClick={() => setRightPanelMode('status')}
-                className="w-6 h-6 flex items-center justify-center rounded-md text-cocreator-dark/40 hover:text-cocreator-dark hover:bg-cocreator-light/60 transition-colors"
+                className="w-6 h-6 flex items-center justify-center rounded-md text-cafe-interactive/40 hover:text-cafe-interactive hover:bg-cafe-surface-sunken/60 transition-colors"
                 title="切换到状态面板"
               >
                 <CloseIcon />
@@ -702,18 +697,18 @@ export function WorkspacePanel() {
 
           {/* Worktree indicator */}
           {currentWorktree && (
-            <div className="px-3 py-2 border-b border-cocreator-light/60 bg-cocreator-bg/30">
+            <div className="px-3 py-2 border-b border-cafe-subtle/60 bg-cafe-surface/30">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
                 <span className="text-xs font-medium text-cafe-black truncate">{currentWorktree.branch}</span>
-                <span className="text-[10px] font-mono text-cocreator-dark/50">{currentWorktree.head}</span>
+                <span className="text-[10px] font-mono text-cafe-interactive/50">{currentWorktree.head}</span>
               </div>
               {worktrees.length > 1 && (
                 <div className="flex items-center gap-1 mt-1.5">
                   <select
                     value={worktreeId ?? ''}
                     onChange={(e) => setWorktreeId(e.target.value || null)}
-                    className="flex-1 text-[10px] border border-cocreator-light rounded-md px-2 py-1 bg-cafe-surface/80 text-cafe-black focus:outline-none focus:border-cocreator-primary"
+                    className="flex-1 text-[10px] border border-cafe-subtle rounded-md px-2 py-1 bg-cafe-surface/80 text-cafe-black focus:outline-none focus:border-cafe-accent"
                   >
                     {worktrees.map((w) => (
                       <option key={w.id} value={w.id}>
@@ -729,8 +724,8 @@ export function WorkspacePanel() {
           )}
 
           {/* Search bar */}
-          <form onSubmit={handleSearchSubmit} className="px-3 py-2 border-b border-cocreator-light/40">
-            <div className="flex items-center gap-1.5 bg-cafe-surface/80 border border-cocreator-light rounded-lg px-2.5 py-1.5 focus-within:border-cocreator-primary focus-within:ring-1 focus-within:ring-cocreator-primary/20 transition-all">
+          <form onSubmit={handleSearchSubmit} className="px-3 py-2 border-b border-cafe-subtle/40">
+            <div className="flex items-center gap-1.5 bg-cafe-surface/80 border border-cafe-subtle rounded-lg px-2.5 py-1.5 focus-within:border-cafe-accent focus-within:ring-1 focus-within:ring-cafe-accent/20 transition-all">
               <SearchIcon />
               <input
                 type="text"
@@ -752,17 +747,17 @@ export function WorkspacePanel() {
                       ? '搜索文件名/路径...'
                       : '搜索全部...'
                 }
-                className="flex-1 text-xs bg-transparent text-cafe-black placeholder:text-cocreator-dark/30 focus:outline-none"
+                className="flex-1 text-xs bg-transparent text-cafe-black placeholder:text-cafe-interactive/30 focus:outline-none"
               />
               <button
                 type="button"
                 onClick={() => setSearchMode((m) => (m === 'all' ? 'filename' : m === 'filename' ? 'content' : 'all'))}
                 className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium transition-colors ${
                   searchMode === 'all'
-                    ? 'bg-cocreator-primary/15 text-cocreator-primary'
+                    ? 'bg-cafe-accent/15 text-cafe-accent'
                     : searchMode === 'filename'
-                      ? 'bg-cocreator-light text-cocreator-dark'
-                      : 'text-cocreator-dark/40 hover:text-cocreator-dark/60'
+                      ? 'bg-cafe-surface-sunken text-cafe-interactive'
+                      : 'text-cafe-interactive/40 hover:text-cafe-interactive/60'
                 }`}
                 title={
                   searchMode === 'all'
@@ -784,8 +779,8 @@ export function WorkspacePanel() {
               onClick={() => setWorkspaceMode('dev')}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
                 workspaceMode === 'dev'
-                  ? 'bg-cocreator-bg text-cocreator-dark border border-cocreator-light/60'
-                  : 'text-cocreator-dark/40 hover:text-cocreator-dark/60'
+                  ? 'bg-cafe-surface text-cafe-interactive border border-cafe-subtle/60'
+                  : 'text-cafe-interactive/40 hover:text-cafe-interactive/60'
               }`}
             >
               <span className="text-xs">&lt;/&gt;</span> 开发
@@ -795,8 +790,8 @@ export function WorkspacePanel() {
               onClick={() => setWorkspaceMode('recall')}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
                 workspaceMode === 'recall'
-                  ? 'bg-cocreator-primary/10 text-cocreator-primary border border-cocreator-primary/30'
-                  : 'text-cocreator-dark/40 hover:text-cocreator-dark/60'
+                  ? 'bg-cafe-accent/10 text-cafe-accent border border-cafe-accent/30'
+                  : 'text-cafe-interactive/40 hover:text-cafe-interactive/60'
               }`}
             >
               <svg
@@ -819,8 +814,8 @@ export function WorkspacePanel() {
               onClick={() => setWorkspaceMode('schedule')}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
                 workspaceMode === 'schedule'
-                  ? 'bg-cocreator-bg text-cocreator-dark border border-cocreator-light/60'
-                  : 'text-cocreator-dark/40 hover:text-cocreator-dark/60'
+                  ? 'bg-cafe-surface text-cafe-interactive border border-cafe-subtle/60'
+                  : 'text-cafe-interactive/40 hover:text-cafe-interactive/60'
               }`}
             >
               <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
@@ -833,8 +828,8 @@ export function WorkspacePanel() {
               onClick={() => setWorkspaceMode('tasks')}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
                 workspaceMode === 'tasks'
-                  ? 'bg-cocreator-bg text-cocreator-dark border border-cocreator-light/60'
-                  : 'text-cocreator-dark/40 hover:text-cocreator-dark/60'
+                  ? 'bg-cafe-surface text-cafe-interactive border border-cafe-subtle/60'
+                  : 'text-cafe-interactive/40 hover:text-cafe-interactive/60'
               }`}
             >
               <svg
@@ -856,8 +851,8 @@ export function WorkspacePanel() {
               onClick={() => setWorkspaceMode('community')}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
                 workspaceMode === 'community'
-                  ? 'bg-cocreator-bg text-cocreator-dark border border-cocreator-light/60'
-                  : 'text-cocreator-dark/40 hover:text-cocreator-dark/60'
+                  ? 'bg-cafe-surface text-cafe-interactive border border-cafe-subtle/60'
+                  : 'text-cafe-interactive/40 hover:text-cafe-interactive/60'
               }`}
             >
               <svg
@@ -891,7 +886,7 @@ export function WorkspacePanel() {
           ) : (
             <>
               {/* Files / Changes toggle */}
-              <div className="flex border-b border-cocreator-light/40">
+              <div className="flex border-b border-cafe-subtle/40">
                 {(['files', 'changes', 'git', 'terminal', 'browser'] as const).map((mode) => {
                   const labels: Record<typeof mode, string> = {
                     files: 'Files',
@@ -907,8 +902,8 @@ export function WorkspacePanel() {
                       onClick={() => setViewMode(mode)}
                       className={`flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
                         viewMode === mode
-                          ? 'text-cocreator-primary border-b-2 border-cocreator-primary'
-                          : 'text-cocreator-dark/40 hover:text-cocreator-dark/60'
+                          ? 'text-cafe-accent border-b-2 border-cafe-accent'
+                          : 'text-cafe-interactive/40 hover:text-cafe-interactive/60'
                       }`}
                     >
                       {labels[mode]}
@@ -919,7 +914,9 @@ export function WorkspacePanel() {
 
               {/* Error */}
               {error && (
-                <div className="px-3 py-2 text-xs text-red-600 bg-red-50/80 border-b border-red-100">{error}</div>
+                <div className="px-3 py-2 text-xs text-conn-red-text bg-conn-red-bg/80 border-b border-red-100">
+                  {error}
+                </div>
               )}
 
               {/* F120: Port Discovery Toast — matches design Scene 2 */}
@@ -990,7 +987,7 @@ export function WorkspacePanel() {
                   {worktreeId ? (
                     <TerminalTab worktreeId={worktreeId} />
                   ) : (
-                    <div className="flex items-center justify-center h-full text-sm text-cocreator-dark/50">
+                    <div className="flex items-center justify-center h-full text-sm text-cafe-interactive/50">
                       请先选择一个 Worktree
                     </div>
                   )}
@@ -1013,8 +1010,8 @@ export function WorkspacePanel() {
                 <>
                   {/* Search loading indicator */}
                   {searchLoading && (
-                    <div className="border-b border-cocreator-light/40 px-3 py-3 text-xs text-cocreator-dark/70 flex items-center gap-2">
-                      <span className="inline-block w-3 h-3 border-2 border-cocreator-primary border-t-transparent rounded-full animate-spin" />
+                    <div className="border-b border-cafe-subtle/40 px-3 py-3 text-xs text-cafe-interactive/70 flex items-center gap-2">
+                      <span className="inline-block w-3 h-3 border-2 border-cafe-accent border-t-transparent rounded-full animate-spin" />
                       搜索中...
                     </div>
                   )}
@@ -1027,12 +1024,12 @@ export function WorkspacePanel() {
                       const contentHits = searchResults.filter((r) => r.matchType === 'content');
                       const isGrouped = fileHits.length > 0 || contentHits.length > 0;
                       return (
-                        <div className="border-b border-cocreator-light/40 max-h-64 overflow-y-auto">
+                        <div className="border-b border-cafe-subtle/40 max-h-64 overflow-y-auto">
                           {searchResults.length > 0 ? (
                             <>
                               {isGrouped && fileHits.length > 0 && (
                                 <>
-                                  <div className="px-3 py-1.5 text-[10px] text-cocreator-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
+                                  <div className="px-3 py-1.5 text-[10px] text-cafe-interactive/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
                                     文件名匹配 ({fileHits.length})
                                   </div>
                                   {fileHits.map((r, i) => (
@@ -1049,7 +1046,7 @@ export function WorkspacePanel() {
                               )}
                               {isGrouped && contentHits.length > 0 && (
                                 <>
-                                  <div className="px-3 py-1.5 text-[10px] text-cocreator-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
+                                  <div className="px-3 py-1.5 text-[10px] text-cafe-interactive/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
                                     内容匹配 ({contentHits.length})
                                   </div>
                                   {contentHits.map((r, i) => (
@@ -1066,7 +1063,7 @@ export function WorkspacePanel() {
                               )}
                               {!isGrouped && (
                                 <>
-                                  <div className="px-3 py-1.5 text-[10px] text-cocreator-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
+                                  <div className="px-3 py-1.5 text-[10px] text-cafe-interactive/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
                                     {searchResults.length} 个结果
                                   </div>
                                   {searchResults.map((r, i) => (
@@ -1083,11 +1080,11 @@ export function WorkspacePanel() {
                               )}
                             </>
                           ) : (
-                            <div className="px-3 py-3 text-xs text-cocreator-dark/70">
+                            <div className="px-3 py-3 text-xs text-cafe-interactive/70">
                               <div className="font-medium text-cafe-black">
                                 未在 {currentWorktree?.branch ?? '当前工作区'} 中找到 “{searchQuery.trim()}”
                               </div>
-                              <div className="mt-1 text-[11px] text-cocreator-dark/55">
+                              <div className="mt-1 text-[11px] text-cafe-interactive/55">
                                 当前模式：
                                 {searchMode === 'all' ? '全部' : searchMode === 'filename' ? '文件名' : '内容'}
                                 {searchMode === 'content' ? '。可以试试切到 File 或 All。' : '。'}

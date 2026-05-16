@@ -159,7 +159,7 @@ export function TagEditor({
           >
             添加
           </button>
-          {error && <span className="w-full text-xs text-red-500">{error}</span>}
+          {error && <span className="w-full text-xs text-conn-red-text">{error}</span>}
         </div>
       ) : null}
     </div>

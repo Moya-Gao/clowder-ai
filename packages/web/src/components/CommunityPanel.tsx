@@ -66,17 +66,17 @@ const PR_SECTIONS = [
 const ISSUE_STATE_COLORS: Record<string, string> = {
   unreplied: 'text-cafe-accent',
   discussing: 'text-cafe-crosspost',
-  'pending-decision': 'text-amber-600',
-  accepted: 'text-green-600',
+  'pending-decision': 'text-conn-amber-text',
+  accepted: 'text-conn-green-text',
   declined: 'text-cafe-muted',
   closed: 'text-gray-400',
 };
 
 const PR_GROUP_COLORS: Record<string, string> = {
   unreplied: 'text-cafe-accent',
-  replied: 'text-green-600',
-  'has-new-activity': 'text-amber-600',
-  merged: 'text-green-600',
+  replied: 'text-conn-green-text',
+  'has-new-activity': 'text-conn-amber-text',
+  merged: 'text-conn-green-text',
   closed: 'text-gray-400',
 };
 
@@ -318,7 +318,7 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
       />
 
       {/* Stats */}
-      <div className="flex items-center gap-3 px-3 py-1.5 text-[10px] text-cafe-muted border-b border-cocreator-light/20">
+      <div className="flex items-center gap-3 px-3 py-1.5 text-[10px] text-cafe-muted border-b border-cafe-subtle/20">
         <span>Issues: {totalIssues}</span>
         <span>PRs: {totalPrs}</span>
         {loading && <span className="text-cafe-crosspost">同步中...</span>}
@@ -336,7 +336,7 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
         ) : (
           <>
             {/* Issues */}
-            <div className="border-b border-cocreator-light/20">
+            <div className="border-b border-cafe-subtle/20">
               <div className="px-3 py-1.5 text-[10px] font-bold text-cafe-muted uppercase tracking-wider">Issues</div>
               {ISSUE_SECTIONS.map((sec) => {
                 const items = issuesByState(sec.key);

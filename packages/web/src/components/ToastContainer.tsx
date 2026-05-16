@@ -21,12 +21,17 @@ function ToastCard({ toast }: { toast: ToastItem }) {
 
   const borderColor =
     toast.type === 'error'
-      ? 'border-l-red-400'
+      ? 'border-l-conn-red-ring'
       : toast.type === 'success'
-        ? 'border-l-green-400'
-        : 'border-l-amber-400';
+        ? 'border-l-conn-green-ring'
+        : 'border-l-conn-amber-ring';
 
-  const icon = toast.type === 'error' ? 'text-red-500' : toast.type === 'success' ? 'text-green-500' : 'text-amber-500';
+  const icon =
+    toast.type === 'error'
+      ? 'text-conn-red-text'
+      : toast.type === 'success'
+        ? 'text-green-500'
+        : 'text-conn-amber-text';
 
   return (
     <div

@@ -16,10 +16,10 @@ export function BootstrapProgressPill({ progress, expanded: defaultExpanded }: B
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cocreator-primary/20 bg-cocreator-bg/50 hover:bg-cocreator-bg transition-colors text-xs"
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cafe-accent/20 bg-cafe-surface/50 hover:bg-cafe-surface transition-colors text-xs"
       >
-        <span className="inline-block w-3 h-3 rounded-full bg-cocreator-primary animate-pulse" />
-        <span className="text-cocreator-dark font-medium">建立记忆索引…</span>
+        <span className="inline-block w-3 h-3 rounded-full bg-cafe-accent animate-pulse" />
+        <span className="text-cafe-interactive font-medium">建立记忆索引…</span>
         <span className="text-gray-400">
           {PHASE_LABELS[progress.phaseIndex] ?? ''} ({progress.phaseIndex + 1}/{progress.totalPhases})
         </span>
@@ -27,7 +27,7 @@ export function BootstrapProgressPill({ progress, expanded: defaultExpanded }: B
       </button>
 
       {expanded && (
-        <div className="absolute mt-9 z-10 w-64 rounded-lg border border-cocreator-primary/20 bg-white shadow-lg p-3">
+        <div className="absolute mt-9 z-10 w-64 rounded-lg border border-cafe-accent/20 bg-white shadow-lg p-3">
           <div className="space-y-2">
             {PHASE_LABELS.map((label, i) => {
               const isDone = i < progress.phaseIndex;
@@ -37,9 +37,9 @@ export function BootstrapProgressPill({ progress, expanded: defaultExpanded }: B
                   <span
                     className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
                       isDone
-                        ? 'bg-cocreator-primary text-white'
+                        ? 'bg-cafe-accent text-white'
                         : isActive
-                          ? 'bg-cocreator-primary/20 text-cocreator-primary'
+                          ? 'bg-cafe-accent/20 text-cafe-accent'
                           : 'bg-gray-100 text-gray-400'
                     }`}
                   >
@@ -47,7 +47,7 @@ export function BootstrapProgressPill({ progress, expanded: defaultExpanded }: B
                   </span>
                   <span
                     className={
-                      isDone ? 'text-cocreator-dark' : isActive ? 'text-cafe-black font-medium' : 'text-gray-400'
+                      isDone ? 'text-cafe-interactive' : isActive ? 'text-cafe-black font-medium' : 'text-gray-400'
                     }
                   >
                     {label}
@@ -61,7 +61,7 @@ export function BootstrapProgressPill({ progress, expanded: defaultExpanded }: B
             <div className="mt-2 pt-2 border-t border-gray-100">
               <div className="h-1 rounded-full bg-gray-100 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-cocreator-primary transition-all duration-300"
+                  className="h-full rounded-full bg-cafe-accent transition-all duration-300"
                   style={{ width: `${Math.min(100, (progress.docsProcessed / progress.docsTotal) * 100)}%` }}
                 />
               </div>

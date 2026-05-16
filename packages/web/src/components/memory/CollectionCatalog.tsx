@@ -28,10 +28,10 @@ interface DocumentGroup {
 }
 
 const SENSITIVITY_BADGE: Record<string, string> = {
-  public: 'bg-green-100 text-green-800',
-  internal: 'bg-blue-100 text-blue-800',
-  private: 'bg-amber-100 text-amber-800',
-  restricted: 'bg-red-100 text-red-800',
+  public: 'bg-conn-green-bg text-green-800',
+  internal: 'bg-blue-100 text-conn-blue-text',
+  private: 'bg-conn-amber-bg text-conn-amber-text',
+  restricted: 'bg-conn-red-bg text-red-800',
 };
 
 function CollectionDetail({ collectionId }: { collectionId: string }) {
@@ -156,7 +156,7 @@ export function CollectionCatalog() {
               <div className="text-xs text-cafe-secondary mt-1">
                 <span>Last indexed: {c.health.indexFreshness || 'never'}</span>
                 {c.health.pendingReviewCount > 0 && (
-                  <span className="ml-2 text-amber-600">{c.health.pendingReviewCount} pending review</span>
+                  <span className="ml-2 text-conn-amber-text">{c.health.pendingReviewCount} pending review</span>
                 )}
               </div>
             )}

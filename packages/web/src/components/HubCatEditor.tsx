@@ -563,7 +563,7 @@ export function HubCatEditor({ cat, draft, existingCats, open, onClose, onSaved 
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--console-overlay-medium)] px-4"
       onClick={requestClose}
       data-bootcamp-host="cat-editor-modal"
     >
@@ -666,7 +666,7 @@ export function HubCatEditor({ cat, draft, existingCats, open, onClose, onSaved 
             onCodexChange={patchCodex}
           />
           <PersistenceBanner />
-          {error ? <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="rounded-2xl bg-conn-red-bg px-4 py-3 text-sm text-conn-red-text">{error}</p> : null}
         </div>
 
         <div className="flex shrink-0 items-center justify-between border-t border-[#F0DDCD] bg-[#FFF3EA] px-7 py-4">
@@ -680,7 +680,7 @@ export function HubCatEditor({ cat, draft, existingCats, open, onClose, onSaved 
                 aria-label="删除成员"
                 onClick={handleDelete}
                 disabled={saving}
-                className="rounded-full bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                className="rounded-full bg-conn-red-bg px-5 py-2.5 text-sm font-semibold text-conn-red-text transition hover:bg-conn-red-bg disabled:opacity-50"
               >
                 删除成员
               </button>

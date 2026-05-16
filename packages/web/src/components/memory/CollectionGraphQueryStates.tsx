@@ -32,7 +32,7 @@ export function GraphSearchForm({
       />
       <button
         type="submit"
-        className="rounded bg-cocreator-primary px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-cocreator-dark sm:w-auto"
+        className="rounded bg-cafe-accent px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-cafe-interactive sm:w-auto"
         data-testid="graph-fetch-btn"
       >
         View Graph
@@ -54,7 +54,7 @@ export function GraphCandidates({
       <div className="space-y-2">
         {candidates.map((candidate) => (
           <button
-            className="w-full rounded-md border border-[#e5dacd] bg-[#fffdf8] p-3 text-left transition-colors hover:border-cocreator-primary hover:bg-[#f8fbff]"
+            className="w-full rounded-md border border-[#e5dacd] bg-[#fffdf8] p-3 text-left transition-colors hover:border-cafe-accent hover:bg-[#f8fbff]"
             data-testid={`graph-candidate-${candidate.anchor}`}
             key={`${candidate.collectionId}:${candidate.anchor}`}
             onClick={() => onSelect(candidate.anchor, candidate.collectionId)}

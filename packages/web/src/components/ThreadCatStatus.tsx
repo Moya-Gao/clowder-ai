@@ -41,9 +41,9 @@ export function ThreadCatStatus({
 
   const statusClasses: Record<string, string> = {
     idle: 'text-cafe-muted',
-    working: 'text-amber-500 animate-cat-bounce',
+    working: 'text-conn-amber-text animate-cat-bounce',
     done: 'text-green-500',
-    error: 'text-red-500 animate-cat-shake',
+    error: 'text-conn-red-text animate-cat-shake',
   };
 
   const tooltip = getDaemonDetailTooltip(threadState, status);
@@ -64,7 +64,7 @@ export function ThreadCatStatus({
       {unreadCount > 0 && (
         <span
           className={`inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-white text-[10px] font-bold leading-none ${
-            hasUserMention ? 'bg-red-500' : 'bg-amber-500'
+            hasUserMention ? 'bg-conn-red-text' : 'bg-amber-500'
           }`}
         >
           {unreadCount > 99 ? '99+' : unreadCount}

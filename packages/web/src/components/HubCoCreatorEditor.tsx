@@ -129,7 +129,10 @@ export function HubCoCreatorEditor({ open, coCreator, onClose, onSaved }: HubCoC
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-[var(--console-overlay-medium)] px-4"
+      onClick={onClose}
+    >
       <div
         className="flex max-h-[88vh] w-full max-w-3xl flex-col rounded-[28px] border border-[#EFDCCB] bg-[#FDF8F3] shadow-2xl"
         onClick={(event) => event.stopPropagation()}
@@ -257,7 +260,7 @@ export function HubCoCreatorEditor({ open, coCreator, onClose, onSaved }: HubCoC
             </div>
           </SectionCard>
 
-          {error ? <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="rounded-2xl bg-conn-red-bg px-4 py-3 text-sm text-conn-red-text">{error}</p> : null}
         </div>
 
         <div className="flex shrink-0 items-center justify-between border-t border-[#F0DDCD] bg-[#FFF3EA] px-6 py-4">

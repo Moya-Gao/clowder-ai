@@ -59,7 +59,7 @@ export function HubButton() {
   return (
     <button
       onClick={handleClick}
-      className="relative p-1 rounded-lg hover:bg-cocreator-light transition-colors"
+      className="relative p-1 rounded-lg hover:bg-cafe-surface-sunken transition-colors"
       aria-label={tooltip}
       title={tooltip}
       data-bootcamp-step="hub-button"

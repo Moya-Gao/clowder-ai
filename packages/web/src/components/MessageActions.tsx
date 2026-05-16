@@ -167,7 +167,7 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
         >
           <button
             onClick={handleSoftDelete}
-            className="p-1 rounded hover:bg-cafe-surface-elevated text-cafe-muted hover:text-red-500 transition-colors"
+            className="p-1 rounded hover:bg-cafe-surface-elevated text-cafe-muted hover:text-conn-red-text transition-colors"
             title="删除"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -181,7 +181,7 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
           </button>
           <button
             onClick={handleBranchDirect}
-            className="p-1 rounded hover:bg-cafe-surface-elevated text-cafe-muted hover:text-green-600 transition-colors"
+            className="p-1 rounded hover:bg-cafe-surface-elevated text-cafe-muted hover:text-conn-green-text transition-colors"
             title="从这里分支"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,7 +191,7 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
           {isUser && (
             <button
               onClick={handleEdit}
-              className="p-1 rounded hover:bg-cafe-surface-elevated text-cafe-muted hover:text-blue-500 transition-colors"
+              className="p-1 rounded hover:bg-cafe-surface-elevated text-cafe-muted hover:text-conn-blue-text transition-colors"
               title="编辑 (创建分支)"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -206,7 +206,7 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
           )}
           <button
             onClick={handleHardDelete}
-            className="p-1 rounded hover:bg-cafe-surface-elevated text-cafe-muted hover:text-red-600 transition-colors"
+            className="p-1 rounded hover:bg-cafe-surface-elevated text-cafe-muted hover:text-conn-red-text transition-colors"
             title="永久删除"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -247,7 +247,10 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
 
       {/* Edit: inline textarea */}
       {dialog.type === 'edit' && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={close}>
+        <div
+          className="fixed inset-0 bg-[var(--console-overlay-backdrop)] flex items-center justify-center z-50"
+          onClick={close}
+        >
           <div
             className="bg-cafe-surface rounded-xl shadow-xl p-6 max-w-lg w-full mx-4"
             onClick={(e) => e.stopPropagation()}
@@ -268,7 +271,7 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
               <button
                 onClick={handleBranchConfirm}
                 disabled={!dialog.editedContent.trim()}
-                className="px-4 py-2 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-lg disabled:opacity-40"
+                className="px-4 py-2 text-sm text-white bg-conn-blue-text hover:bg-conn-blue-hover rounded-lg disabled:opacity-40"
               >
                 保存
               </button>

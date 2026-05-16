@@ -12,7 +12,7 @@ interface BrowserTabBarProps {
 
 export function BrowserTabBar({ tabs, activeTabId, onSelect, onClose, onAdd }: BrowserTabBarProps) {
   return (
-    <div className="flex items-center bg-[#F5F0EB] border-b border-[#FFDDD2] overflow-x-auto">
+    <div className="flex items-center bg-[#F5F0EB] border-b border-[var(--console-border-soft)] overflow-x-auto">
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId;
         return (
@@ -20,7 +20,7 @@ export function BrowserTabBar({ tabs, activeTabId, onSelect, onClose, onAdd }: B
             key={tab.id}
             type="button"
             onClick={() => onSelect(tab.id)}
-            className={`group flex items-center gap-1 px-3 py-1.5 text-[11px] border-r border-[#FFDDD2]/50 shrink-0 max-w-[180px] transition-colors ${
+            className={`group flex items-center gap-1 px-3 py-1.5 text-[11px] border-r border-[var(--console-border-soft)]/50 shrink-0 max-w-[180px] transition-colors ${
               isActive
                 ? 'bg-[#FDF8F3] text-[#5a4a42] font-medium'
                 : 'text-[#5a4a42]/60 hover:text-[#5a4a42] hover:bg-[#FDF8F3]/50'

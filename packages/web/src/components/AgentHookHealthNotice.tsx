@@ -151,7 +151,7 @@ export function AgentHookHealthNotice({
               <button
                 type="button"
                 onClick={() => void onSync()}
-                className="min-w-[6.5rem] rounded-md bg-cocreator-primary px-3 py-1.5 text-xs font-medium text-cafe-white transition-colors hover:bg-cocreator-dark disabled:opacity-50"
+                className="min-w-[6.5rem] rounded-md bg-cafe-accent px-3 py-1.5 text-xs font-medium text-cafe-white transition-colors hover:bg-cafe-interactive disabled:opacity-50"
               >
                 一键同步
               </button>

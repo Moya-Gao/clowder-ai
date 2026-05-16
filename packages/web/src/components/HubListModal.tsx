@@ -91,7 +91,7 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--console-overlay-medium)]"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -169,7 +169,7 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
                     onClick={() => setPermConnector(c.id)}
                     className={`px-3 py-1 text-xs rounded-full transition-colors ${
                       permConnector === c.id
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-conn-blue-text text-white'
                         : 'bg-cafe-surface-elevated text-cafe-secondary hover:bg-cafe-surface-elevated'
                     }`}
                     data-testid={`perm-connector-${c.id}`}
@@ -190,7 +190,7 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
                 <p className="text-center text-cafe-muted py-8 text-sm">加载中...</p>
               ) : loadError ? (
                 <div
-                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                  className="rounded-xl border border-conn-red-ring bg-conn-red-bg px-4 py-3 text-sm text-red-700"
                   role="alert"
                   data-testid="hub-list-error"
                 >
@@ -217,7 +217,7 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
                             disabled={isCurrent}
                             className={`w-full text-left p-3 rounded-xl border transition-colors ${
                               isCurrent
-                                ? 'border-blue-300 bg-blue-50 opacity-60 cursor-default'
+                                ? 'border-blue-300 bg-conn-blue-bg opacity-60 cursor-default'
                                 : 'border-cafe bg-cafe-surface-elevated hover:bg-cafe-surface-elevated'
                             }`}
                             data-testid={`hub-item-${t.id}`}

@@ -165,7 +165,7 @@ export function SchedulePanel() {
   return (
     <div className="flex flex-col h-full bg-[#FDFAF6]">
       {/* Scope filter bar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-[#E8DFD4]">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-cafe-subtle">
         <button
           type="button"
           onClick={() => setScope('all')}
@@ -196,8 +196,8 @@ export function SchedulePanel() {
       {/* AC-D1: Global governance toggle */}
       {globalControl && (
         <div
-          className={`flex items-center gap-2 px-4 py-1.5 border-b border-[#E8DFD4] ${
-            globalControl.enabled ? 'bg-[#FDFAF6]' : 'bg-red-50'
+          className={`flex items-center gap-2 px-4 py-1.5 border-b border-cafe-subtle ${
+            globalControl.enabled ? 'bg-[#FDFAF6]' : 'bg-conn-red-bg'
           }`}
         >
           <button
@@ -214,18 +214,20 @@ export function SchedulePanel() {
               }`}
             />
           </button>
-          <span className={`text-[10px] font-medium ${globalControl.enabled ? 'text-emerald-700' : 'text-red-600'}`}>
+          <span
+            className={`text-[10px] font-medium ${globalControl.enabled ? 'text-emerald-700' : 'text-conn-red-text'}`}
+          >
             {globalControl.enabled ? 'Scheduler active' : 'Scheduler paused'}
           </span>
           {!globalControl.enabled && globalControl.reason && (
-            <span className="text-[10px] text-red-400 truncate max-w-[160px]">{globalControl.reason}</span>
+            <span className="text-[10px] text-conn-red-text truncate max-w-[160px]">{globalControl.reason}</span>
           )}
         </div>
       )}
 
       {/* Current Thread context banner (V2 design) */}
       {scope === 'current-thread' && currentThreadId && (
-        <div className="flex items-center gap-1.5 px-4 py-1.5 bg-[#F5EDE3]/60 border-b border-[#E8DFD4]">
+        <div className="flex items-center gap-1.5 px-4 py-1.5 bg-[#F5EDE3]/60 border-b border-cafe-subtle">
           <span className="text-[10px] text-[#9A866F]">Showing tasks for:</span>
           <span className="text-[10px] font-medium text-[#5C4B3A]">{currentThreadId.slice(0, 12)}</span>
         </div>
@@ -236,7 +238,7 @@ export function SchedulePanel() {
         {filteredTasks.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-sm text-[#9A866F]">No scheduled tasks</div>
         ) : (
-          <div className="divide-y divide-[#E8DFD4]">
+          <div className="space-y-0.5">
             {filteredTasks.map((task) => {
               const category = task.display?.category ?? fallbackCategory(task.id);
               const label = task.display?.label ?? humanizeId(task.id);
@@ -285,7 +287,7 @@ export function SchedulePanel() {
                           <span className="text-[10px] text-[#9A866F]">{timeAgo(task.lastRun.started_at)}</span>
                           {task.lastRun.outcome === 'RUN_FAILED' && task.lastRun.error_summary && (
                             <span
-                              className="text-[10px] text-red-400 truncate max-w-[160px]"
+                              className="text-[10px] text-conn-red-text truncate max-w-[160px]"
                               title={task.lastRun.error_summary}
                             >
                               {task.lastRun.error_summary}
@@ -304,7 +306,7 @@ export function SchedulePanel() {
                         </span>
                       )}
                       {!(task.effectiveEnabled ?? task.enabled) && (
-                        <span className="ml-auto text-[9px] text-red-400 font-medium">PAUSED</span>
+                        <span className="ml-auto text-[9px] text-conn-red-text font-medium">PAUSED</span>
                       )}
                     </div>
                   </div>
@@ -330,7 +332,7 @@ export function SchedulePanel() {
                               e.stopPropagation();
                               handleDeleteDynamic(task.dynamicTaskId!);
                             }}
-                            className="text-[10px] text-[#9A866F] hover:text-red-500 transition-colors"
+                            className="text-[10px] text-[#9A866F] hover:text-conn-red-text transition-colors"
                           >
                             Delete
                           </button>
@@ -348,7 +350,7 @@ export function SchedulePanel() {
                               <span className="text-[#9A866F]">{timeAgo(r.started_at)}</span>
                               <span className="text-[#9A866F]">{r.duration_ms}ms</span>
                               {r.error_summary && (
-                                <span className="text-red-400 truncate max-w-[200px]">{r.error_summary}</span>
+                                <span className="text-conn-red-text truncate max-w-[200px]">{r.error_summary}</span>
                               )}
                             </div>
                           ))}
@@ -364,17 +366,17 @@ export function SchedulePanel() {
       </div>
 
       {/* Footer: health summary (AC-F1) */}
-      <div className="px-4 py-1.5 border-t border-[#E8DFD4] text-[10px] text-[#9A866F] flex items-center">
+      <div className="px-4 py-1.5 border-t border-cafe-subtle text-[10px] text-[#9A866F] flex items-center">
         <span>
           {tasks.length} tasks · {activeCount} active{pausedCount > 0 ? ` · ${pausedCount} paused` : ''}
         </span>
-        <span className={`ml-auto font-medium ${hasAttention ? 'text-red-500' : 'text-emerald-600'}`}>
+        <span className={`ml-auto font-medium ${hasAttention ? 'text-conn-red-text' : 'text-emerald-600'}`}>
           {hasAttention ? 'Attention needed' : 'All healthy'}
         </span>
       </div>
 
       {/* Conversational CTA (AC-G5: replaces NL input — W1 vision) */}
-      <div className="px-4 py-2.5 bg-[#F5EDE3] border-t border-[#E8DFD4]">
+      <div className="px-4 py-2.5 bg-[#F5EDE3] border-t border-cafe-subtle">
         <p className="text-[11px] text-[#9A866F] text-center">
           Want to add a scheduled task? Tell any cat in the chat — e.g.
           <span className="text-[#5C4B3A] font-medium"> &quot;every morning at 9, check Anthropic news&quot;</span>

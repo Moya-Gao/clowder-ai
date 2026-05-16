@@ -109,7 +109,7 @@ export function GithubConfigPanel() {
       ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
       : message?.tone === 'error'
         ? 'border-rose-200 bg-rose-50 text-rose-800'
-        : 'border-blue-200 bg-blue-50 text-blue-800';
+        : 'border-conn-blue-ring bg-conn-blue-bg text-conn-blue-text';
 
   return (
     <div className="border-t border-cafe px-4 py-3 space-y-3">

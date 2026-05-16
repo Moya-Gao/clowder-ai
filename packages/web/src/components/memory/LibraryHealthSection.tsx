@@ -69,17 +69,17 @@ export function LibraryHealthSection({ report }: { report: HealthReportData }) {
       )}
 
       {report.staleAnchors && report.staleAnchors.items.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <h4 className="mb-2 text-xs font-semibold text-amber-800">Stale Anchors</h4>
+        <div className="rounded-xl border border-conn-amber-ring bg-conn-amber-bg p-4">
+          <h4 className="mb-2 text-xs font-semibold text-conn-amber-text">Stale Anchors</h4>
           <div className="space-y-1">
             {report.staleAnchors.items.slice(0, 10).map((item) => (
-              <div key={item.anchor} className="flex items-center gap-2 text-xs text-amber-700">
+              <div key={item.anchor} className="flex items-center gap-2 text-xs text-conn-amber-text">
                 <span className="font-mono">{item.anchor}</span>
-                <span className="text-amber-500">&rarr; {item.sourcePath}</span>
+                <span className="text-conn-amber-text">&rarr; {item.sourcePath}</span>
               </div>
             ))}
             {report.staleAnchors.items.length > 10 && (
-              <div className="text-[10px] text-amber-500">+{report.staleAnchors.items.length - 10} more</div>
+              <div className="text-[10px] text-conn-amber-text">+{report.staleAnchors.items.length - 10} more</div>
             )}
           </div>
         </div>

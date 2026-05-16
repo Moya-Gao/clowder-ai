@@ -63,7 +63,7 @@ export function LabelFilterBar({
         <button
           type="button"
           onClick={onOrganize}
-          className="rounded-full px-1 py-0.5 text-cafe-muted transition-colors hover:bg-[var(--console-hover-bg)] hover:text-amber-500"
+          className="rounded-full px-1 py-0.5 text-cafe-muted transition-colors hover:bg-[var(--console-hover-bg)] hover:text-conn-amber-text"
           title="猫猫帮你分类"
         >
           <svg
@@ -156,7 +156,7 @@ export function LabelFilterBar({
         <button
           type="button"
           onClick={() => onSelect(null)}
-          className="ml-auto rounded-full px-1 py-0.5 text-red-400 hover:bg-red-50 hover:text-red-500"
+          className="ml-auto rounded-full px-1 py-0.5 text-conn-red-text hover:bg-conn-red-bg hover:text-conn-red-text"
         >
           <svg aria-hidden="true" className="w-2.5 h-2.5" viewBox="0 0 20 20" fill="currentColor">
             <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" />

@@ -139,7 +139,7 @@ export function TraceBrowser() {
         <button
           type="button"
           onClick={fetchTraces}
-          className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+          className="rounded-lg bg-conn-blue-bg px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
         >
           Search
         </button>
@@ -182,7 +182,7 @@ function TraceCard({ trace, expanded, onToggle }: { trace: TraceGroup; expanded:
         </span>
         <span className="text-[10px] tabular-nums text-cafe-secondary">{trace.totalDurationMs.toFixed(0)}ms</span>
         {trace.hasError && (
-          <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700">error</span>
+          <span className="rounded bg-conn-red-bg px-1.5 py-0.5 text-[10px] font-medium text-red-700">error</span>
         )}
         <span className="text-[10px] text-cafe-muted">{new Date(trace.startTime).toLocaleTimeString()}</span>
       </button>
@@ -223,7 +223,7 @@ function TreeWaterfall({
           <div
             key={node.span.spanId}
             onClick={() => onSelectSpan(selected ? null : node.span.spanId)}
-            className={`flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 transition-colors hover:bg-cafe-surface-elevated ${selected ? 'bg-blue-50/70' : ''}`}
+            className={`flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 transition-colors hover:bg-cafe-surface-elevated ${selected ? 'bg-conn-blue-bg/70' : ''}`}
           >
             <div
               className="flex items-center gap-1 truncate text-[10px]"
@@ -389,9 +389,9 @@ function PromptInspector({ invocationId, catId }: { invocationId?: string; catId
 
   const tabs: { key: InspectorTab; label: string; color: string }[] = [
     { key: 'system', label: 'System', color: 'text-blue-600' },
-    { key: 'user', label: 'User', color: 'text-green-600' },
+    { key: 'user', label: 'User', color: 'text-conn-green-text' },
     { key: 'effective', label: 'Full Prompt', color: 'text-purple-600' },
-    { key: 'meta', label: 'Meta', color: 'text-amber-600' },
+    { key: 'meta', label: 'Meta', color: 'text-conn-amber-text' },
   ];
 
   return (
@@ -428,7 +428,7 @@ function PromptInspector({ invocationId, catId }: { invocationId?: string; catId
         {tab === 'system' && (
           <>
             {!selected.injectionDecision.injected && (
-              <div className="mb-2 rounded bg-amber-50 px-2 py-1 text-[10px] text-amber-700">
+              <div className="mb-2 rounded bg-conn-amber-bg px-2 py-1 text-[10px] text-conn-amber-text">
                 Resume — system prompt was not injected this turn
               </div>
             )}
@@ -536,7 +536,7 @@ function PromptMeta({ capture }: { capture: PromptCaptureData }) {
         <div className="ml-2 space-y-0.5">
           <div>
             <span className="text-cafe-muted">injected:</span>{' '}
-            <span className={injectionDecision.injected ? 'text-green-600' : 'text-red-600'}>
+            <span className={injectionDecision.injected ? 'text-conn-green-text' : 'text-conn-red-text'}>
               {String(injectionDecision.injected)}
             </span>
           </div>

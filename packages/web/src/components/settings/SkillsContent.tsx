@@ -74,7 +74,7 @@ function getMountedCount(mounts: SkillMount): number {
 function dependencyTone(status: SkillMcpDependency['status']): string {
   if (status === 'ready') return 'bg-emerald-100 text-emerald-700';
   if (status === 'missing') return 'bg-rose-100 text-rose-700';
-  return 'bg-amber-100 text-amber-700';
+  return 'bg-conn-amber-bg text-conn-amber-text';
 }
 
 function normalizeSearch(value: string): string {
@@ -186,11 +186,11 @@ export function SkillsContent() {
     <div className="space-y-5">
       <SettingsPageHeader title="Skill 管理" subtitle="Skill 列表、触发条件和 SKILL.md 预览。" />
 
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{error}</p>}
-      {writeError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{writeError}</p>}
+      {error && <p className="rounded-lg bg-conn-red-bg px-3 py-2 text-sm text-conn-red-text">{error}</p>}
+      {writeError && <p className="rounded-lg bg-conn-red-bg px-3 py-2 text-sm text-conn-red-text">{writeError}</p>}
 
       {data?.staleness?.stale && (
-        <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+        <div className="flex items-center justify-between rounded-lg border border-conn-blue-ring bg-conn-blue-bg px-3 py-2 text-xs text-conn-blue-text">
           <div>
             <span className="font-semibold">Skills 有更新</span>
             {data.staleness.newSkills.length > 0 && (
@@ -278,7 +278,7 @@ export function SkillsContent() {
                 <div className="shrink-0 text-right">
                   <span
                     className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                      allMounted ? 'bg-conn-emerald-bg text-conn-emerald-text' : 'bg-amber-100 text-amber-700'
+                      allMounted ? 'bg-conn-emerald-bg text-conn-emerald-text' : 'bg-conn-amber-bg text-conn-amber-text'
                     }`}
                   >
                     {allMounted ? '全部挂载' : `${mountedCount}/${PROVIDER_KEYS.length} 已挂载`}
@@ -306,10 +306,10 @@ export function SkillsContent() {
         <div className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
           <div className="flex items-center gap-4 text-xs">
             <span className="font-semibold text-cafe-secondary">{data.summary.total} skills</span>
-            <span className={data.summary.allMounted ? 'text-green-600' : 'text-amber-600'}>
+            <span className={data.summary.allMounted ? 'text-conn-green-text' : 'text-conn-amber-text'}>
               {data.summary.allMounted ? '全部正确挂载' : '部分挂载缺失'}
             </span>
-            <span className={data.summary.registrationConsistent ? 'text-green-600' : 'text-amber-600'}>
+            <span className={data.summary.registrationConsistent ? 'text-conn-green-text' : 'text-conn-amber-text'}>
               {data.summary.registrationConsistent ? '注册一致' : '注册不一致'}
             </span>
           </div>
