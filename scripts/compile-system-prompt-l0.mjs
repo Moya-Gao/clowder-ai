@@ -43,15 +43,20 @@ let _bootstrapped = false;
 let _loadedConfig = null;
 let _isCatAvailable = null;
 let _getCatModel = null;
+// Phase C Task 1 (A8 gap): CVO ref handles 必须来自 co-creator config
+// 渲染（buildStaticIdentity L568-571 同源），非 L0 硬编码 @landy——
+// 否则删 user message 后 co-creator 多 handle / 自定义 name 丢失。
+let _coCreatorConfig = null;
 async function bootstrapCatRegistry() {
   if (_bootstrapped) return;
-  const { loadCatConfig, toAllCatConfigs, isCatAvailable } = await import(
+  const { loadCatConfig, toAllCatConfigs, isCatAvailable, getCoCreatorConfig } = await import(
     '../packages/api/dist/config/cat-config-loader.js'
   );
   const { getCatModel } = await import('../packages/api/dist/config/cat-models.js');
   _loadedConfig = loadCatConfig(); // no-arg: template + catalog overlay (runtime truth)
   _isCatAvailable = isCatAvailable;
   _getCatModel = getCatModel;
+  _coCreatorConfig = getCoCreatorConfig(_loadedConfig);
   const allConfigs = toAllCatConfigs(_loadedConfig);
   for (const [id, config] of Object.entries(allConfigs)) {
     if (!catRegistry.has(id)) {
@@ -231,6 +236,16 @@ function buildWorkflowTriggers(breedId, catId, displayName) {
   return '## 工作流\n（无 per-breed 触发点配置）';
 }
 
+// Phase C Task 1 (A8 gap): 渲染 CVO reference 行，对齐 buildStaticIdentity
+// L568-571（co-creator config 动态 name + mentionPatterns），替代 L0 §4
+// 硬编码 @landy。删 user message 后这是猫认 CVO + 路由 handle 的唯一来源。
+function renderCvoRef() {
+  if (!_coCreatorConfig) return '';
+  const name = _coCreatorConfig.name;
+  const handles = (_coCreatorConfig.mentionPatterns ?? []).map((p) => `\`${p}\``).join(' / ');
+  return `${name}（铲屎官/CVO）。重要决策由${name}拍板。需要关注时行首写 ${handles}。`;
+}
+
 /**
  * Compile per-cat L0 string by substituting template variables.
  *
@@ -251,7 +266,8 @@ export async function compileL0(options) {
   return template
     .replace('{{IDENTITY_BLOCK}}', buildIdentityBlock(config, runtimeModel))
     .replace('{{TEAMMATE_ROSTER}}', buildTeammateRoster(catId))
-    .replace('{{WORKFLOW_TRIGGERS}}', buildWorkflowTriggers(config.breedId, catId, config.displayName));
+    .replace('{{WORKFLOW_TRIGGERS}}', buildWorkflowTriggers(config.breedId, catId, config.displayName))
+    .replace('{{CVO_REF}}', renderCvoRef());
 }
 
 /**

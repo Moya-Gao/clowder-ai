@@ -600,6 +600,35 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
 }
 
 /**
+ * F203 Phase C (Task 2): the pack-only slice of the static identity.
+ *
+ * After L0 (non-pack identity / A2A / roster / workflow triggers / CVO ref /
+ * governance digest / MCP) moves to the compression-immune native system role
+ * (`--system-prompt-file` for Claude, `-c developer_instructions` for Codex —
+ * Task 3/4), the user-message `systemPrompt` must carry ONLY the F129 pack
+ * blocks: per-invocation dynamic + external-project-specific, so they must
+ * never be baked into the cached native prompt nor duplicated there.
+ *
+ * Returns '' for an unknown cat or when there are no pack blocks — the route
+ * layer's `...(x ? { systemPrompt: x } : {})` then omits the prepend entirely.
+ *
+ * Block order mirrors buildStaticIdentity's dual-track priority (ADR-021):
+ * masks → workflows → guardrails → defaults → worldDriver. buildStaticIdentity
+ * keeps its own interleaved push sites unchanged (guard tests must not
+ * regress); both paths consume the same `CompiledPackBlocks` contract.
+ */
+export function buildStaticIdentityPackOnly(catId: CatId, options?: StaticIdentityOptions): string {
+  const config = getConfig(catId as string);
+  if (!config) return '';
+  const pb = options?.packBlocks;
+  if (!pb) return '';
+  const blocks = [pb.masksBlock, pb.workflowsBlock, pb.guardrailBlock, pb.defaultsBlock, pb.worldDriverSummary].filter(
+    (b): b is string => typeof b === 'string' && b.trim().length > 0,
+  );
+  return blocks.join('\n\n');
+}
+
+/**
  * Build dynamic invocation context — changes per call.
  * Includes: teammates, mode, chain position, prompt tags.
  * (MCP tools and 铲屎官 reference moved to buildStaticIdentity for session-level injection.)

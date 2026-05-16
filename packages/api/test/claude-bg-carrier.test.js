@@ -16,6 +16,7 @@ import {
   ClaudeBgCarrierService,
 } from '../dist/domains/cats/services/agents/providers/ClaudeBgCarrierService.js';
 import { JobEventConsumer } from '../dist/domains/cats/services/agents/providers/JobEventConsumer.js';
+import { fakeL0Compiler } from './helpers/fake-l0-compiler.js';
 
 /**
  * Build a fake spawn function emitting controlled stdout/stderr/exit/error.
@@ -57,14 +58,22 @@ test('parses short id from successful claude --bg stdout', async () => {
   const fakeSpawn = buildFakeSpawn({
     stdout: 'Starting background service…\nbackgrounded · abcd1234\n  claude agents             list sessions\n',
   });
-  const service = new ClaudeBgCarrierService({ spawnFn: fakeSpawn, model: 'claude-test-model' });
+  const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
+    spawnFn: fakeSpawn,
+    model: 'claude-test-model',
+  });
   const { shortId } = await service.startJob('hi');
   assert.equal(shortId, 'abcd1234');
 });
 
 test('throws CarrierError when claude --bg exits non-zero', async () => {
   const fakeSpawn = buildFakeSpawn({ exitCode: 1, stderr: 'auth required' });
-  const service = new ClaudeBgCarrierService({ spawnFn: fakeSpawn, model: 'claude-test-model' });
+  const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
+    spawnFn: fakeSpawn,
+    model: 'claude-test-model',
+  });
   await assert.rejects(
     () => service.startJob('hi'),
     (err) => {
@@ -79,7 +88,11 @@ test('throws CarrierError when short id cannot be parsed', async () => {
   const fakeSpawn = buildFakeSpawn({
     stdout: 'Starting background service…\nrandom output line\nno match here\n',
   });
-  const service = new ClaudeBgCarrierService({ spawnFn: fakeSpawn, model: 'claude-test-model' });
+  const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
+    spawnFn: fakeSpawn,
+    model: 'claude-test-model',
+  });
   await assert.rejects(
     () => service.startJob('hi'),
     (err) => {
@@ -94,7 +107,11 @@ test('砚砚 guard #2: spawn error (ENOENT) rejects with CarrierError', async ()
   const fakeSpawn = buildFakeSpawn({
     errorOnSpawn: Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' }),
   });
-  const service = new ClaudeBgCarrierService({ spawnFn: fakeSpawn, model: 'claude-test-model' });
+  const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
+    spawnFn: fakeSpawn,
+    model: 'claude-test-model',
+  });
   await assert.rejects(
     () => service.startJob('hi'),
     (err) => {
@@ -110,7 +127,11 @@ test('砚砚 P1.1: callbackEnv CANNOT re-poison CLAUDE_CODE_ENTRYPOINT', async (
   const fakeSpawn = buildFakeSpawn({
     stdout: 'backgrounded · abcd1234\n',
   });
-  const service = new ClaudeBgCarrierService({ spawnFn: fakeSpawn, model: 'claude-test-model' });
+  const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
+    spawnFn: fakeSpawn,
+    model: 'claude-test-model',
+  });
   await service.startJob('hi', {
     callbackEnv: { CLAUDE_CODE_ENTRYPOINT: 'sdk-cli', CLAUDECODE: '1', OTHER_VAR: 'kept' },
   });
@@ -157,6 +178,7 @@ test('砚砚 guard #1 + codex P1.1: invoke() state===error yields error → done
   });
   const fakeSpawn = buildFakeSpawn({ stdout: 'backgrounded · dead1234\n' });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-test-model',
     jobsDir: tmpJobsDir,
@@ -220,7 +242,11 @@ test('codex round-4 P1: accountEnv merged after callbackEnv but entrypoint guard
   // provider-injected values, but our entrypoint guard MUST stay final
   // (account env trying to re-poison must still be neutralized).
   const fakeSpawn = buildFakeSpawn({ stdout: 'backgrounded · acce1234\n' });
-  const service = new ClaudeBgCarrierService({ spawnFn: fakeSpawn, model: 'claude-test' });
+  const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
+    spawnFn: fakeSpawn,
+    model: 'claude-test',
+  });
   await service.startJob('hi', {
     callbackEnv: { CALLBACK_VAR: 'cb', OVERRIDE_ME: 'from-callback' },
     accountEnv: {
@@ -267,6 +293,7 @@ test('codex round-5 P1.2: aborted invoke() best-effort claude stop <shortId>', a
     return child;
   };
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-test',
     jobsDir: tmpJobsDir,
@@ -334,7 +361,11 @@ test('codex round-6 P1.2: strip ANTHROPIC_* env for subscription-mode carrier', 
   process.env.ANTHROPIC_BASE_URL = 'https://host-default.example';
   try {
     const fakeSpawn = buildFakeSpawn({ stdout: 'backgrounded · ab120000\n' });
-    const service = new ClaudeBgCarrierService({ spawnFn: fakeSpawn, model: 'claude-test' });
+    const service = new ClaudeBgCarrierService({
+      l0CompilerFn: fakeL0Compiler,
+      spawnFn: fakeSpawn,
+      model: 'claude-test',
+    });
     await service.startJob('hi');
     const env = fakeSpawn.lastEnv;
     assert.equal(env.ANTHROPIC_API_KEY, undefined, 'host ANTHROPIC_API_KEY must be stripped');
@@ -371,7 +402,11 @@ test('codex round-6 P1.3: spawn passes options.signal so startup abort kills chi
     });
     return child;
   };
-  const service = new ClaudeBgCarrierService({ spawnFn: fakeSpawn, model: 'claude-test' });
+  const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
+    spawnFn: fakeSpawn,
+    model: 'claude-test',
+  });
   const controller = new AbortController();
   await service.startJob('hi', { signal: controller.signal });
   assert.ok(capturedOpts.signal, 'spawn must receive AbortSignal');
@@ -394,6 +429,7 @@ test('codex P1.2: spawn args include --model flag from configured cat model (sub
     return child;
   };
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
   });
@@ -421,6 +457,7 @@ test('codex round-7 B-prime: MODEL_OVERRIDE_KEY in callbackEnv used as effective
     return child;
   };
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
   });
@@ -453,6 +490,7 @@ test('砚砚 Step-3 P1: --mcp-config injected when callbackEnv present and mcpSe
     return child;
   };
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     mcpServerPath: '/tmp/fake-mcp-server/dist/index.js',
@@ -495,6 +533,7 @@ test('砚砚 Step-3 P1: --mcp-config NOT injected when callbackEnv absent', asyn
     return child;
   };
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     mcpServerPath: '/tmp/fake-mcp-server/dist/index.js',
@@ -522,6 +561,7 @@ test('codex round-7 B-prime: api_key mode + non-Anthropic model omits --model (e
     return child;
   };
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
   });
@@ -552,6 +592,7 @@ test('codex round-9 P2: success-path done metadata reports effectiveModel, not c
   });
   const fakeSpawn = buildFakeSpawn({ stdout: 'backgrounded · aced1234\n' });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,

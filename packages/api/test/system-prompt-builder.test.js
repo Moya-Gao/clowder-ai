@@ -348,6 +348,96 @@ describe('SystemPromptBuilder', () => {
     assert.equal(buildStaticIdentity('opus'), buildStaticIdentity('opus'));
   });
 
+  // --- F203 Phase C Task 2: buildStaticIdentityPackOnly ---
+  // After L0 moves to native system role (--system-prompt-file / -c), the
+  // user-message systemPrompt must carry ONLY F129 pack blocks (per-invocation
+  // dynamic, external-project-specific) — never the non-pack identity/家规
+  // (now compression-immune in the native system prompt). This is the precise
+  // de-dup the CVO asked for ("接通之后再删重复").
+
+  const PACK_FIXTURE = {
+    packName: 'test-pack',
+    masksBlock: 'PACK_MASKS_MARKER_§',
+    workflowsBlock: 'PACK_WORKFLOWS_MARKER_§',
+    guardrailBlock: 'PACK_GUARDRAIL_MARKER_§',
+    defaultsBlock: 'PACK_DEFAULTS_MARKER_§',
+    worldDriverSummary: 'PACK_WORLD_MARKER_§',
+    warnings: [],
+  };
+
+  test('buildStaticIdentityPackOnly returns empty for unknown cat', async () => {
+    const { buildStaticIdentityPackOnly } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    assert.equal(buildStaticIdentityPackOnly('unknown-cat', { packBlocks: PACK_FIXTURE }), '');
+  });
+
+  test('buildStaticIdentityPackOnly returns empty when no pack blocks', async () => {
+    const { buildStaticIdentityPackOnly } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    assert.equal(buildStaticIdentityPackOnly('opus'), '');
+    assert.equal(buildStaticIdentityPackOnly('opus', { packBlocks: null }), '');
+  });
+
+  test('buildStaticIdentityPackOnly contains all pack blocks, NO non-pack content', async () => {
+    const { buildStaticIdentity, buildStaticIdentityPackOnly } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const full = buildStaticIdentity('opus', { packBlocks: PACK_FIXTURE, mcpAvailable: true });
+    const packOnly = buildStaticIdentityPackOnly('opus', { packBlocks: PACK_FIXTURE, mcpAvailable: true });
+
+    // sanity: the full identity DOES carry non-pack + pack
+    assert.ok(full.includes('布偶猫') && full.includes('## 协作') && full.includes('PACK_MASKS_MARKER_§'));
+
+    // pack-only: all 5 pack blocks present
+    for (const b of [
+      'PACK_MASKS_MARKER_§',
+      'PACK_WORKFLOWS_MARKER_§',
+      'PACK_GUARDRAIL_MARKER_§',
+      'PACK_DEFAULTS_MARKER_§',
+      'PACK_WORLD_MARKER_§',
+    ]) {
+      assert.ok(packOnly.includes(b), `pack-only must include ${b}`);
+    }
+    // pack-only: ZERO non-pack anchors (identity / A2A / roster / governance / MCP)
+    assert.ok(!packOnly.includes('布偶猫'), 'pack-only must NOT include identity display name');
+    assert.ok(!packOnly.includes('## 协作'), 'pack-only must NOT include A2A collaboration section');
+    assert.ok(!packOnly.includes('用自己的身份签名'), 'pack-only must NOT include governance digest');
+    assert.ok(!packOnly.includes('cat_cafe_search_evidence'), 'pack-only must NOT include MCP section');
+    assert.ok(!packOnly.includes('缅因猫'), 'pack-only must NOT include teammate roster');
+  });
+
+  test('buildStaticIdentityPackOnly orders blocks masks→workflows→guardrail→defaults→world', async () => {
+    const { buildStaticIdentityPackOnly } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const p = buildStaticIdentityPackOnly('opus', { packBlocks: PACK_FIXTURE });
+    const order = [
+      'PACK_MASKS_MARKER_§',
+      'PACK_WORKFLOWS_MARKER_§',
+      'PACK_GUARDRAIL_MARKER_§',
+      'PACK_DEFAULTS_MARKER_§',
+      'PACK_WORLD_MARKER_§',
+    ].map((m) => p.indexOf(m));
+    assert.deepEqual(
+      order,
+      [...order].sort((a, b) => a - b),
+      'pack blocks must appear in fixed order',
+    );
+  });
+
+  test('buildStaticIdentityPackOnly skips null blocks (partial pack)', async () => {
+    const { buildStaticIdentityPackOnly } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const partial = { ...PACK_FIXTURE, masksBlock: null, defaultsBlock: null, worldDriverSummary: null };
+    const p = buildStaticIdentityPackOnly('opus', { packBlocks: partial });
+    assert.ok(p.includes('PACK_WORKFLOWS_MARKER_§') && p.includes('PACK_GUARDRAIL_MARKER_§'));
+    assert.ok(!p.includes('PACK_MASKS_MARKER_§') && !p.includes('PACK_WORLD_MARKER_§'));
+    assert.ok(!p.includes('布偶猫'), 'still no non-pack');
+  });
+
   test('buildStaticIdentity disambiguates duplicate display names in runtime multi-variant config', async () => {
     const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');

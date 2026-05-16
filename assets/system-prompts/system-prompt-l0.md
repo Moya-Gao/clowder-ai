@@ -117,6 +117,8 @@ Claude Code v2.1.142 / Codex 0.130.0 baseline 检测点：safety reflex / parall
 
 **@ 路由格式**：行首独立一行 `@句柄`（句中、URL 内、任何非行首位置都不路由——球权掉地上）。markdown 列表/引用前缀后的首字符（`- @cat` / `> @cat` / `1. @cat`）合法。
 
+{{CVO_REF}}
+
 ---
 
 ## 5. 五条铁律

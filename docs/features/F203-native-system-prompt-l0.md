@@ -103,6 +103,25 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 - 在 `cat-cafe-skills/refs/cc-system-prompt-audit-sop.md` 写 SOP：每次 CC 大版本（minor 及以上）必跑 audit
 - 同款 SOP 对 Codex CLI 适用：`strings $(which codex)` audit + 归档
 
+### Phase F: 配置栏 系统提示词可见化（铲屎官 2026-05-16 提醒）
+
+铲屎官 2026-05-16 原话："我们的配置栏有个叫规则与SOP 我建议这里需要把我们替换的系统提示词和其他那样可见！这样方便人去看现在的系统提示词到底是什么？如果别人要定制修改也知道要去修改什么？"
+
+**Why 现在补**：Phase C 把 L0 切到 native system role 后，L0 内容只在 `assets/system-prompts/system-prompt-l0.md` + compile 渲染时存在——铲屎官（和其他人）没有可见入口看"当前注入到猫的系统提示词到底长什么样"。`packages/web/src/components/settings/settings-nav-config.ts:74-78` 已有 `id: 'rules'` 配置栏「规则与 SOP」（描述含"模型提示词入口"），但目前只展示家规/SOP 不展示 L0。
+
+落地（待 Design Gate）：
+- 配置栏「规则与 SOP」加 L0 系统提示词查看区：
+  - 真相源：`assets/system-prompts/system-prompt-l0.md` template + per-cat 渲染产物（`compileL0({catId})` 输出）
+  - per-cat 切换：opus-47 / codex / gpt52 / gemini 各自的 compiled L0 都能查看
+  - 区分 template（含 `{{IDENTITY_BLOCK}}` 等占位）vs compiled（占位已替换）
+- 自定义/修改路径明示：
+  - 修改 template → 编辑 `assets/system-prompts/system-prompt-l0.md`
+  - 修改 per-cat 渲染 → 改 `scripts/compile-system-prompt-l0.mjs` 的 builder helper
+  - 改完 → `pnpm gate` + runtime 重启验收（KD-5 git revert 回滚通道）
+- read-only 还是可编辑？→ Design Gate 决定（read-only 安全简单；可编辑要 + dirty/save/reload + 影响范围警告）
+
+依赖：Phase C 合入 main（L0 注入通道稳定后才有意义可见化）。建议作为独立 PR / 独立 thread 跟进。
+
 ## Acceptance Criteria
 
 ### Phase A（Baseline + 扩展 spike）
@@ -123,11 +142,13 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 
 ### Phase C（dual-path 落地）
 
-- [ ] AC-C1: `ClaudeBgCarrierService` argv 加 `--system-prompt`，单测 + e2e（bg + system-prompt + mcp-config 三件套）
-- [ ] AC-C2: `CodexAgentService` argv 加 `-c developer_instructions=...`，并发安全（@codex / @gpt52 / @spark 各自独立 argv，不污染 `~/.codex/config.toml`）
-- [ ] AC-C3: `effectivePrompt` 拼装逻辑删除 `params.systemPrompt` prepend 路径（system prompt 已在 argv，user message 只剩 prompt 本身）
-- [ ] AC-C4: F-BLOAT 测试：resume 时 system prompt 不重复累积
-- [ ] AC-C5: runtime 重启 + 47/46/砚砚 各跑一轮 invocation + 铲屎官 10 轮压缩对话验收
+- [x] AC-C1: `ClaudeBgCarrierService` argv 加 `--system-prompt-file <compileL0>` ✅（Task 3，commit `bfeaab76f`；l0CompilerFn seam + fail-closed CarrierError；claude-bg-carrier-l0.test.js 2 tests + 真子进程 e2e。KD-10：走文件不硬编码）
+- [x] AC-C2: `CodexAgentService` argv 加 `-c developer_instructions=<compileL0>` ✅（Task 4，commit `ebe904529`；per-call argv 不污染 `~/.codex/config.toml`，@codex/@gpt52/@spark cat-scoped；codex-agent-service-l0.test.js 3 tests，S4 砚砚 `62b9255e2` 对齐）
+- [x] AC-C3: 剥离 `params.systemPrompt` 非 pack prepend ✅（Task 2，commit `5305d08c4`；新增 `buildStaticIdentityPackOnly`，route-serial:413/route-parallel:173 切 pack-only，非 pack 走 native system role；system-prompt-builder 113/113 守护零回归）
+- [x] AC-C4: F-BLOAT resume 不累积 ✅（native `--system-prompt-file` replace-mode 天然免疫；pack-only 走未改的先验 new-session gate invoke-single-cat:1079-1088，invoke-single-cat-resume-health 覆盖）
+- [ ] AC-C5: `pnpm gate` + quality-gate + 砚砚 review（本地→云端）+ merge-gate + runtime 重启 47/46/砚砚 各一轮 + 铲屎官 10 轮压缩对话验收（进行中）
+
+> Phase C 实施前置（执行顺序，防回归窗口）：Task 0 spike（`ca3efead7`）→ Task 1 A8 gap（`fd4e634ca`）→ Task 3a 共享 l0-compiler helper（`24dd15541`）→ Task 3/4 接通 → Task 2 删重复。终态：L0（非 pack 身份/家规/MCP）在压缩免疫 native system role，user message 仅 pack blocks + invocationContext + prompt。
 
 ### Phase D（root md 瘦身）
 
@@ -143,6 +164,14 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 - [ ] AC-E3: `cat-cafe-skills/refs/cc-system-prompt-audit-sop.md` SOP 写完
 - [ ] AC-E4: cron / GitHub Action 注册（检测 CC 版本变更触发 audit）
 - [ ] AC-E5: 同款 SOP 对 Codex CLI 适用（`strings $(which codex)` audit + 归档）
+
+### Phase F（系统提示词可见化）
+
+- [ ] AC-F1: Design Gate——决定 read-only vs 可编辑、template/compiled 切换形态、per-cat 切换 UX
+- [ ] AC-F2: 「规则与 SOP」配置栏加 L0 查看区，对接 `assets/system-prompts/system-prompt-l0.md` template
+- [ ] AC-F3: per-cat compiled L0 渲染查看（opus-47 / codex / gpt52 / gemini）—— 调 `compileL0({catId})` 出串
+- [ ] AC-F4: 修改路径明示（template 文件路径 + compile 脚本 builder 入口 + 改完 `pnpm gate` + runtime 重启）
+- [ ] AC-F5（可选）：可编辑（dirty/save/reload + 影响范围警告 + 写回 `assets/system-prompts/system-prompt-l0.md`）—— Design Gate 决定是否做
 
 ## Dependencies
 
@@ -219,6 +248,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-15 | 砚砚 confirm APPROVE（no findings）→ merge-gate：PR #1694，pnpm gate rebase 6771a3c98。worktree `NODE_ENV=production` 跳 devDeps 踩坑（沉淀 memory）。云端 review COMMENTED 2 finding：P1 CLI entrypoint Windows-broken + P2 roster 未过滤 available。Red→Green 修复（isCliEntrypoint + filterAvailableTeammates 纯函数，44 tests），branch `b01d00003`，待 gate + 云端 re-review |
 | 2026-05-15 | 云端 round-2 review（287b97cdf）2 新 finding，**云端抓到 round-1 P2 连环 bug**：P1 bootstrap loadCatConfig(PATH) 跳过 catalog overlay→isCatAvailable stale→P2 fix 实际无效；P2 roster 用静态 defaultModel 忽略 env override。根治（对齐 SystemPromptBuilder 既定 runtime 模式 no-arg loadCatConfig catalog overlay + getCatModel，KD-13），45 tests pass，gate rebase `245080ed`。云端 2 轮（§16d Round 3 黄灯）→ 先 @ 砚砚本地判断根治 + Phase 边界，不并行 re-trigger 云端 |
 | 2026-05-15 | 砚砚本地 APPROVE round-2 根治（确认根治成立 + Phase B 内 + 非 spiral，复跑 45/45 + override 生效）→ re-trigger 云端 round-3 → **云端 "Didn't find any major issues"（clean，根治确认非 spiral）**。**Phase B merged (PR #1694, squash `a1b114ef9`)**——本地砚砚×3轮(BLOCKING×2→APPROVE) + 云端×3轮(round-1/2 4-finding 全根治→round-3 clean)。Status spec→in-progress |
+| 2026-05-16 | Phase C 实施完成（branch `feat/f203-phase-c`，待 review）：Task 0 spike 安全网（`ca3efead7`，A8 GAP 抓出）→ Task 1 A8 CVO_REF（`fd4e634ca`）→ Task 3a 共享 `l0-compiler.ts`（`24dd15541`，subprocess 决策：API dist 不能 in-process import scripts/.mjs）→ Task 3 ClaudeBgCarrier `--system-prompt-file`（`bfeaab76f`，fail-closed）→ Task 4 CodexAgent `-c developer_instructions`（`ebe904529`，S4 对齐 + emit-deferral 根因修复：invoke await L0 早于 spawnCli → 既有测试同步 emit 'exit' 抢跑 listener 丢失，纯 mock 时序假象，非 prod bug）→ Task 2 `buildStaticIdentityPackOnly` 剥离 user-message 非 pack（`5305d08c4`）。AC-C1-C4 ✅。验收：Task3+4 cluster 139/139、route/invoke 194/194、identity 292/292、system-prompt 守护 113/113 全 green。待 AC-C5（gate + 砚砚 review + merge + runtime） |
 
 ## Review Gate
 

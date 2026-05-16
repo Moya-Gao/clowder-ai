@@ -1594,15 +1594,22 @@ describe('AgentRouter', () => {
     });
   });
 
-  test('identity injection: opus prompt contains 布偶猫', async () => {
+  test('F203 Phase C: provider WITHOUT native L0 still gets full static identity in user-message prompt', async () => {
+    // 云端 Codex P1-cloud-1: only ClaudeBgCarrier + CodexAgent inject L0
+    // natively (--system-prompt-file / -c developer_instructions). All other
+    // providers (ClaudeAgentService legacy -p, GeminiAgentService, Antigravity,
+    // CatAgentService, A2A, OpenCode, Dare, Kimi…) still rely on the
+    // user-message `params.systemPrompt` prepend for identity/家规. The route
+    // layer must consult `service.injectsL0Natively?.()` and keep FULL static
+    // identity for non-native services — pack-only-everywhere would orphan
+    // 9 of 11 providers.
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     let opusReceivedPrompt = '';
-    let _opusReceivedOptions;
     const mockClaudeService = {
-      invoke: mock.fn(async function* (prompt, options) {
+      // Intentionally NO injectsL0Natively — represents legacy ClaudeAgentService.
+      invoke: mock.fn(async function* (prompt) {
         opusReceivedPrompt = prompt;
-        _opusReceivedOptions = options;
         yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
         yield { type: 'done', catId: 'opus', timestamp: Date.now() };
       }),
@@ -1622,10 +1629,61 @@ describe('AgentRouter', () => {
       // consume
     }
 
-    // Static identity (布偶猫, Anthropic) prepended to prompt by invoke-single-cat (new session)
-    assert.ok(opusReceivedPrompt.includes('布偶猫'), 'Opus prompt should contain 布偶猫');
-    assert.ok(opusReceivedPrompt.includes('Anthropic'), 'Opus prompt should mention Anthropic');
-    assert.ok(opusReceivedPrompt.includes('hello'), 'Opus prompt should contain original message');
+    // Provider has no native L0 path → static identity MUST ride user message.
+    assert.ok(
+      opusReceivedPrompt.includes('由 Anthropic 提供'),
+      'static provider/identity line MUST be in user-message prompt for non-native-L0 provider',
+    );
+    assert.ok(
+      opusReceivedPrompt.includes('## 协作'),
+      'static A2A collaboration section MUST be present for non-native-L0 provider',
+    );
+    assert.ok(opusReceivedPrompt.includes('Identity: 布偶猫'), 'dynamic invocation identity pin');
+    assert.ok(opusReceivedPrompt.includes('hello'), 'original message');
+  });
+
+  test('F203 Phase C: provider WITH injectsL0Natively=true gets pack-only (non-pack via native channel)', async () => {
+    // The intended behavior for ClaudeBgCarrier + CodexAgent: static identity
+    // travels via --system-prompt-file / -c developer_instructions, not via
+    // user message. Route layer detects via service.injectsL0Natively?.().
+    const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
+
+    let opusReceivedPrompt = '';
+    const mockNativeL0Service = {
+      injectsL0Natively: () => true,
+      invoke: mock.fn(async function* (prompt) {
+        opusReceivedPrompt = prompt;
+        yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      }),
+    };
+
+    const router = new AgentRouter(
+      await migrateRouterOpts({
+        claudeService: mockNativeL0Service,
+        codexService: createMockAgentService('codex'),
+        geminiService: createMockAgentService('gemini'),
+        registry: createMockRegistry(),
+        messageStore: createMockMessageStore(),
+      }),
+    );
+
+    for await (const _ of router.route('user-1', '@opus hello')) {
+      // consume
+    }
+
+    // Provider injects L0 natively → user message must NOT carry static identity.
+    assert.ok(
+      !opusReceivedPrompt.includes('由 Anthropic 提供'),
+      'static provider/identity line must NOT duplicate in user message when provider injects natively',
+    );
+    assert.ok(
+      !opusReceivedPrompt.includes('## 协作'),
+      'static A2A section must NOT duplicate when provider injects natively',
+    );
+    // Dynamic pin + message still flow.
+    assert.ok(opusReceivedPrompt.includes('Identity: 布偶猫'));
+    assert.ok(opusReceivedPrompt.includes('hello'));
   });
 
   test('identity injection: codex prompt in serial chain contains 缅因猫 (#execute)', async () => {

@@ -281,6 +281,24 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
     });
   });
 
+  // Phase C Task 1: A8 gap fix — CVO ref handles 来自 co-creator config
+  // 渲染（非 L0 硬编码 @landy）。Task 0 spike 发现：buildStaticIdentity
+  // L568-571 用 getCoCreatorConfig().mentionPatterns（动态），L0 §4 硬编码
+  // @landy → 删 user message 后 co-creator 多 handle 丢失。修：compile
+  // 注入 {{CVO_REF}} 模板变量。旧 L0 无 {{CVO_REF}} 渲染 → 此测试必红。
+  describe('CVO ref from co-creator config (Phase C Task 1, A8 gap)', () => {
+    test('compileL0 renders co-creator config mentionPatterns, not hardcoded', async () => {
+      const { getCoCreatorConfig } = await import('../packages/api/dist/config/cat-config-loader.js');
+      const cc = getCoCreatorConfig();
+      const l0 = await compileL0({ catId: 'opus-47' });
+      assert.ok(l0.includes(`${cc.name}（铲屎官/CVO）`), `CVO_REF name "${cc.name}" missing`);
+      assert.match(l0, /需要关注时行首写/);
+      for (const p of cc.mentionPatterns) {
+        assert.ok(l0.includes(p), `CVO handle ${p} missing from compiled L0`);
+      }
+    });
+  });
+
   // CVO directive 2026-05-15: 完全替换不硬编码 ts/js，Phase C 用
   // --system-prompt-file 从文件读。writeL0File 是文件输出接口。
   describe('writeL0File (--system-prompt-file support)', () => {

@@ -49,6 +49,7 @@ import { assembleContext } from '../../context/ContextAssembler.js';
 import {
   buildInvocationContext,
   buildStaticIdentity,
+  buildStaticIdentityPackOnly,
   type InvocationContext,
 } from '../../context/SystemPromptBuilder.js';
 import { formatDegradationMessage } from '../../orchestration/DegradationPolicy.js';
@@ -401,8 +402,15 @@ export async function* routeSerial(
           log.warn({ catId: catId as string, err: feedbackErr }, 'consumeMentionRoutingFeedback failed');
         }
       }
-      // MCP documentation: Claude's MCP_TOOLS_SECTION → staticIdentity (in -p content).
-      // Non-Claude HTTP callback instructions → per-message (session history may be lost on compress).
+      // mcpAvailable still gates the per-message HTTP callback fallback below
+      // (needsMcpInjection). F203 Phase C: the non-pack identity/家规/MCP docs
+      // travel via the compression-immune native system role
+      // (--system-prompt-file / -c) ONLY for providers that inject L0 natively
+      // (ClaudeBgCarrier + CodexAgent). Other providers (ClaudeAgentService
+      // legacy -p, Gemini, Antigravity, CatAgent, A2A, OpenCode, Dare, Kimi…)
+      // have no native L0 channel, so they MUST still receive the full static
+      // identity via the user-message systemPrompt prepend — otherwise they
+      // lose identity/家规 entirely (云端 Codex P1-cloud-1, 2026-05-16).
       const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
       // F129: Load active pack blocks (best-effort, failure does not block invocation)
       let packBlocks: import('@cat-cafe/shared').CompiledPackBlocks | null = null;
@@ -410,7 +418,11 @@ export async function* routeSerial(
         const { getActivePackBlocks } = await import('../../../../packs/getActivePackBlocks.js');
         packBlocks = await getActivePackBlocks(deps.packStore);
       }
-      const staticIdentity = buildStaticIdentity(catId, { mcpAvailable, packBlocks });
+      const service = getService(deps.services, catId);
+      const hasNativeL0 = service.injectsL0Natively?.() ?? false;
+      const staticIdentity = hasNativeL0
+        ? buildStaticIdentityPackOnly(catId, { packBlocks })
+        : buildStaticIdentity(catId, { mcpAvailable, packBlocks });
       // F041: inject HTTP callback only when MCP is NOT actually available (fallback)
       const mcpInstructions = needsMcpInjection(mcpAvailable, catConfig?.clientId)
         ? buildMcpCallbackInstructions({
@@ -724,7 +736,7 @@ export async function* routeSerial(
       const invocationStartedAt = Date.now();
       for await (const msg of invokeSingleCat(deps.invocationDeps, {
         catId,
-        service: getService(deps.services, catId),
+        service,
         prompt,
         userId,
         threadId,

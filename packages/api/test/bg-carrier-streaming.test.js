@@ -17,6 +17,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { ClaudeBgCarrierService } from '../dist/domains/cats/services/agents/providers/ClaudeBgCarrierService.js';
+import { fakeL0Compiler } from './helpers/fake-l0-compiler.js';
 
 function buildFakeSpawn({ stdout = '', exitCode = 0 }) {
   return (_cmd, _args, _opts) => {
@@ -89,6 +90,7 @@ test('invoke() streams text/tool_use via TranscriptTailer as transcript grows; e
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -172,6 +174,7 @@ test('cloud codex P2 round-16: drain failure after successful streaming → usag
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -219,6 +222,7 @@ test('cloud codex P1 round-15: terminal state + unreadable transcript → fall b
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -273,6 +277,7 @@ test('cloud codex P2 round-14: assistant entries WITHOUT message.usage → no sy
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -326,6 +331,7 @@ test('cloud codex P2 round-13: transcript declared but empty → no misleading z
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -381,6 +387,7 @@ test('cloud codex P1: tailer.readNew throw → bestEffortStop issued + error ret
     return child;
   };
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -441,6 +448,7 @@ test('cloud codex P2: long transcript (50+ entries) → done.usage correct witho
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -505,6 +513,7 @@ test('codex slice-2 P1 round-4: early text contains result as substring → stil
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -564,6 +573,7 @@ test('codex slice-2 P1 round-3: transcript has EARLY text + tool_use, final answ
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -620,6 +630,7 @@ test('codex slice-2 P1 round-3: transcript text already CONTAINS output.result �
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -669,6 +680,7 @@ test('codex slice-2 P1 round-2: transcript yields tool_use ONLY → output.resul
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -710,6 +722,7 @@ test('codex slice-2 P1 regression A: linkScanPath set + transcript missing → f
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -749,6 +762,7 @@ test('codex slice-2 P1 regression B: transcript last line lacks trailing newline
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -777,6 +791,7 @@ test('invoke() legacy fallback: no linkScanPath but state.output.result present 
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,

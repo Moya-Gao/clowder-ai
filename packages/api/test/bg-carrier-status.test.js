@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { ClaudeBgCarrierService } from '../dist/domains/cats/services/agents/providers/ClaudeBgCarrierService.js';
+import { fakeL0Compiler } from './helpers/fake-l0-compiler.js';
 
 function buildFakeSpawn({ stdout = '', exitCode = 0 }) {
   return (_cmd, _args, _opts) => {
@@ -54,6 +55,7 @@ test('F198-C AC-C2: emits status message when state.detail changes from null to 
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -95,6 +97,7 @@ test('F198-C AC-C2: same detail value repeated across multiple polls → only 1 
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -127,6 +130,7 @@ test('F198-C AC-C2: detail=null → no status message emitted', async () => {
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,
@@ -167,6 +171,7 @@ test('F198-C AC-C2: detail changes multiple times → emits status for each dist
 
   const fakeSpawn = buildFakeSpawn({ stdout: `backgrounded · ${shortId}\n` });
   const service = new ClaudeBgCarrierService({
+    l0CompilerFn: fakeL0Compiler,
     spawnFn: fakeSpawn,
     model: 'claude-opus-4-7',
     jobsDir: tmpJobsDir,

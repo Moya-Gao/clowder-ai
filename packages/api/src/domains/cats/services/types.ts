@@ -256,4 +256,17 @@ export interface AgentService {
    * @returns An async iterable of agent messages
    */
   invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage>;
+
+  /**
+   * F203 Phase C — whether this provider injects the L0 static identity into
+   * its native system role (e.g. Claude `--system-prompt-file`, Codex
+   * `-c developer_instructions`). When true, the routing layer passes a
+   * pack-only `systemPrompt` (non-pack identity travels the native channel,
+   * compression-immune); when false/undefined the routing layer keeps the
+   * full static identity in `params.systemPrompt` so cats with no native
+   * channel still receive identity/家规 via user-message prepend.
+   *
+   * Optional — defaults to false for back-compat with non-native services.
+   */
+  injectsL0Natively?(): boolean;
 }

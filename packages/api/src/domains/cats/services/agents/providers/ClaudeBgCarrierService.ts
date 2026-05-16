@@ -46,6 +46,7 @@ import {
   resolveDefaultClaudeMcpServerPath,
 } from './ClaudeAgentService.js';
 import { JobEventConsumer } from './JobEventConsumer.js';
+import { compileL0ViaSubprocess } from './l0-compiler.js';
 import { TranscriptTailer } from './TranscriptTailer.js';
 
 const SHORT_ID_PATTERN = /backgrounded\s*·\s*([a-f0-9]{8})/;
@@ -76,6 +77,8 @@ export interface ClaudeBgCarrierServiceOptions {
    *  so canary布偶猫 sessions still expose Cat Café MCP tools (cat_cafe_*)
    *  under --bg. Without this, AC-B4 / R5 break when canary flips. */
   mcpServerPath?: string;
+  /** Test seam — replaces the real L0 compiler subprocess (Task 3a). */
+  l0CompilerFn?: typeof compileL0ViaSubprocess;
 }
 
 interface StartJobResult {
@@ -106,11 +109,14 @@ export class ClaudeBgCarrierService implements AgentService {
   /** Windows: cached MCP config file path (created once per instance,
    *  reused across invocations to avoid temp file spam). */
   private mcpConfigFilePath: string | undefined;
+  /** F203 Phase C: compiles per-cat L0 → file for --system-prompt-file. */
+  private readonly l0CompilerFn: typeof compileL0ViaSubprocess;
 
   constructor(options?: ClaudeBgCarrierServiceOptions) {
     this.catId = options?.catId ?? createCatId('opus');
     this.model = options?.model ?? getCatModel(this.catId as string);
     this.spawnFn = options?.spawnFn ?? spawn;
+    this.l0CompilerFn = options?.l0CompilerFn ?? compileL0ViaSubprocess;
     this.jobsDir = options?.jobsDir;
     this.pollMs = options?.pollMs ?? 500;
     // 砚砚 Step-3 P1: resolve MCP server path same way as ClaudeAgentService
@@ -146,6 +152,32 @@ export class ClaudeBgCarrierService implements AgentService {
     }
   }
 
+  /** F203 Phase C — this service injects L0 via `--system-prompt-file` (Task 3). */
+  injectsL0Natively(): boolean {
+    return true;
+  }
+
+  /**
+   * F203 Phase C: compile per-cat L0 → temp file for `--system-prompt-file`
+   * (compression-immune native system role; replaces the user-message prepend
+   * stripped in Task 2). fail-closed: a missing L0 = a cat with no identity/
+   * 家规, strictly worse than a failed invocation, so compile failure throws
+   * loudly. Per-invocation temp file (not reused), left for OS tmp reclamation
+   * — deleting it risks racing the daemon which may read it lazily on resume
+   * (mirrors the per-instance mcp-config temp-file pattern, also not cleaned).
+   * @returns absolute path to the written L0 file.
+   */
+  private async compileL0ToTempFile(): Promise<string> {
+    const l0Dir = mkdtempSync(join(tmpdir(), 'cat-cafe-l0-'));
+    const l0Path = join(l0Dir, 'system-prompt-l0.md');
+    try {
+      await this.l0CompilerFn({ catId: this.catId as string, outPath: l0Path });
+    } catch (err) {
+      throw new CarrierError(`L0 compile failed for ${this.catId as string}: ${(err as Error).message}`, err);
+    }
+    return l0Path;
+  }
+
   /**
    * Launch a `claude --bg <prompt>` background job and resolve once the
    * daemon supervisor has acknowledged the dispatch with a short id.
@@ -154,6 +186,7 @@ export class ClaudeBgCarrierService implements AgentService {
    * reject instead of hanging.
    */
   async startJob(prompt: string, options?: AgentServiceOptions): Promise<StartJobResult> {
+    const l0Path = await this.compileL0ToTempFile();
     return new Promise<StartJobResult>((resolve, reject) => {
       // Critical: even with --bg, the child inherits parent env unless we
       // explicitly strip CLAUDE_CODE_ENTRYPOINT. Otherwise transcript entrypoint
@@ -189,6 +222,8 @@ export class ClaudeBgCarrierService implements AgentService {
       // - api_key + non-Anthropic model → omit --model (let env drive)
       const { effectiveModel, useEnvModelOverride } = resolveClaudeModelSelection(options?.callbackEnv, this.model);
       const args = useEnvModelOverride ? ['--bg', prompt] : ['--bg', prompt, '--model', effectiveModel];
+      // F203 Phase C: native system role from compiled L0 file (above).
+      args.push('--system-prompt-file', l0Path);
 
       // 砚砚 Step-3 P1 (2026-05-14): inject --mcp-config when callbackEnv
       // present + mcpServerPath resolved. Mirrors ClaudeAgentService so
