@@ -535,10 +535,21 @@ ThreadItem 内 `LabelDots` 渲染 `w-1.5 h-1.5` 色点堆叠，视觉区分度�
 | G-5 | Workspace 面板 line-divider audit | P2 | 列表类组件（GitPanel/BrowserPanel/KnowledgeFeed 里的普通列表行）改 card gap；terminal/diff/log/表格保留线分隔（信息密度需要）；分类标准文档化 |
 | G-6 | 统一动画体系 | P3 | 各组件各写的 `animate-*` keyframes 收敛到 globals.css 统一定义（`pulse-subtle`/`quest-glow`/`guide-breathe` 等）；组件引用统一名 |
 
+### PR 规划：1 个 PR 收敛（CVO: "别给我搞成六个PR"）
+
+G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做一次完整 token 审计比拆碎更高效。
+
+执行顺序（同 PR 内分 commit）：
+1. globals.css 清理（G-1 基建）— cocreator-* 删定义 + 重复清除
+2. 组件 token 迁移（G-1 组件层 + G-2 + G-4 + V-10~V-18）— 逐文件机械替换
+3. Modal overlay 语义化（G-3）
+4. Line-divider audit（G-5）
+5. 动画收敛（G-6）
+
 ### 依赖与约束
 
-- G-1 是 G-2/G-3/G-4 的前置——token 源先收敛，后面组件迁移才不会再引入新轨
-- V-10~V-18（第一梯队 310 处）可并入 G-1 一起做
+- G-1 基建 commit 先行，后续 commit 基于收敛后的 token 源
+- V-10~V-18（第一梯队 310 处）并入 G-1 组件层 commit
 - 不碰 F183/F184/F194 红区文件（ChatContainerHeader 已在 PR #1708 修完）
 - CSS-only 变更为主，无逻辑改动
 
