@@ -426,7 +426,9 @@ outputVerified = signal_or(
 | 2026-05-15 | Phase D 愿景守护（Opus-47）：代码层通过，但 flag 两处 spec 假象 → P1-1: Phase C ✅ 降回 🚧（AC-C8 ⬜ + shadow 未切）；P1-2: AC-D2 拆 v1/v1.1（信号源自动检测只覆盖 invocation status） |
 | 2026-05-15 | AC-C8 完成：CLAUDE.md / AGENTS.md / refs/memory-routing-partial.md 同步 consumption-weighted ranking 上线状态 → Phase C 🚧→✅ |
 | 2026-05-15 | 砚砚 review 指引同步：hook 真相源 + search_evidence "PRIMARY" 矛盾 + GEMINI/OPENCODE 覆盖（commit 4a67897c5） |
-| 2026-05-16 | 三猫 dogfooding：search_evidence/graph_resolve(d1)/trajectories ✅；list_recent(docs) 被 global:memory 淹没 + graph depth≥2 hub-node 爆炸 + rerank_reason 不可见 → 4 条 v1.1 findings |
+| 2026-05-16 | 三猫 dogfooding Round 1（广度）：search_evidence/graph_resolve(d1)/trajectories ✅；list_recent(docs) 被 global:memory 淹没 + graph depth≥2 hub-node 爆炸 + rerank_reason 不可见 → DF-1~4 |
+| 2026-05-16 | 铲屎官出题"最惊艳的 harness 设计"：三猫并行用三入口搜索 + 独立判断（46 选 ADR-031 signal loop / 47 选 ADR-027 anti-desperate / 砚砚选 F167 球权协议）→ eval case 化讨论 |
+| 2026-05-16 | 三猫 dogfooding Round 2（冷启动模拟）：46 九路系统测试 + 47/砚砚冷启动重测 → DF-5~11 新发现；核心洞察"新猫更信第一屏"；砚砚修正 DF-6 scope 语义（577708cc1）→ 47 整合结构化 backlog 3 批次（28e9a8d5e） |
 
 ## Plan Gate Checklist（writing-plans 前必须解决）
 
