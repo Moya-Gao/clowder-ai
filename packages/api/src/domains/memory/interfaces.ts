@@ -315,6 +315,7 @@ export interface IEmbeddingService {
   load(): Promise<void>;
   embed(texts: string[]): Promise<Float32Array[]>;
   isReady(): boolean;
+  reprobeIfNeeded(): Promise<void>;
   getModelInfo(): EmbedModelInfo;
   dispose(): void;
 }

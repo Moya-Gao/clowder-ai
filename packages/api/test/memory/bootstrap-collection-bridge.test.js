@@ -162,6 +162,33 @@ describe('ensureProjectCollection', () => {
     rmSync(digitProject, { recursive: true, force: true });
   });
 
+  it('P1-4: wires embeddingService into bootstrap path (production wiring)', async () => {
+    const catalog = new LibraryCatalog();
+    const stores = new Map();
+
+    let embedCallCount = 0;
+    const mockEmbeddingService = {
+      isReady: () => true,
+      reprobeIfNeeded: async () => {},
+      embed: async (texts) => {
+        embedCallCount += texts.length;
+        return texts.map(() => new Float32Array([0.1, 0.2]));
+      },
+      getModelInfo: () => ({ modelId: 'test', modelRev: 'v1', dim: 2 }),
+    };
+
+    const result = await ensureProjectCollection(tmpProject, catalog, stores, tmpDataDir, mockEmbeddingService);
+
+    assert.ok(result.docsIndexed >= 2, `expected ≥2 docs, got ${result.docsIndexed}`);
+    assert.ok(embedCallCount >= 2, `expected ≥2 embed calls, got ${embedCallCount}`);
+
+    const collectionId = expectedCollectionId(tmpProject);
+    const store = stores.get(collectionId);
+    const db = store.getDb();
+    const vecCount = db.prepare('SELECT COUNT(*) as cnt FROM evidence_vectors').get();
+    assert.ok(vecCount.cnt >= 2, `expected ≥2 vectors in db, got ${vecCount.cnt}`);
+  });
+
   it('P2-1: second rebuild reports total docs not just newly indexed', async () => {
     const catalog = new LibraryCatalog();
     const stores = new Map();

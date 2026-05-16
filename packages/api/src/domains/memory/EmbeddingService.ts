@@ -33,6 +33,8 @@ export class EmbeddingService implements IEmbeddingService {
   private modelId = '';
   private modelRev = 'http-client';
   private loader: (() => Promise<void>) | null = null; // test hook
+  private lastProbeAt = 0;
+  private static readonly REPROBE_COOLDOWN_MS = 30_000;
 
   constructor(config: EmbeddingServiceConfig) {
     this.config = config;
@@ -67,6 +69,14 @@ export class EmbeddingService implements IEmbeddingService {
 
   isReady(): boolean {
     return this.ready;
+  }
+
+  async reprobeIfNeeded(): Promise<void> {
+    if (this.ready) return;
+    const now = Date.now();
+    if (now - this.lastProbeAt < EmbeddingService.REPROBE_COOLDOWN_MS) return;
+    this.lastProbeAt = now;
+    await this.load();
   }
 
   getModelInfo(): EmbedModelInfo {

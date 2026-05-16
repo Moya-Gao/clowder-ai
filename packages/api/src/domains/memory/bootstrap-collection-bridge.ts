@@ -1,13 +1,15 @@
 import { createHash } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
-import { CollectionIndexBuilder } from './CollectionIndexBuilder.js';
+import { type CollectionEmbedDeps, CollectionIndexBuilder } from './CollectionIndexBuilder.js';
 import type { CollectionManifest } from './collection-types.js';
 import { resolveCollectionStorePath, saveExternalCollection } from './external-collections.js';
-import type { IEvidenceStore } from './interfaces.js';
+import type { IEmbeddingService, IEvidenceStore } from './interfaces.js';
 import type { LibraryCatalog } from './LibraryCatalog.js';
 import { SqliteEvidenceStore } from './SqliteEvidenceStore.js';
 import { resolveCollectionScanner } from './scanner-resolver.js';
+import { ensureVectorTable } from './schema.js';
+import { VectorStore } from './VectorStore.js';
 
 function deriveCollectionId(projectPath: string): string {
   let name = basename(projectPath)
@@ -23,6 +25,7 @@ export async function ensureProjectCollection(
   catalog: LibraryCatalog,
   stores: Map<string, IEvidenceStore>,
   dataDir: string,
+  embeddingService?: IEmbeddingService,
 ): Promise<{ docsIndexed: number; durationMs: number }> {
   const startMs = Date.now();
   const collectionId = deriveCollectionId(projectPath);
@@ -63,8 +66,23 @@ export async function ensureProjectCollection(
     stores.set(collectionId, store);
   }
 
+  let embedDeps: CollectionEmbedDeps | undefined;
+  if (embeddingService) {
+    try {
+      const db = store.getDb();
+      const sqliteVecMod = await import('sqlite-vec');
+      sqliteVecMod.load(db);
+      const dim = embeddingService.getModelInfo().dim;
+      if (ensureVectorTable(db, dim)) {
+        embedDeps = { embedding: embeddingService, vectorStore: new VectorStore(db, dim) };
+      }
+    } catch {
+      // fail-open: sqlite-vec not available → FTS-only
+    }
+  }
+
   const scanner = resolveCollectionScanner(manifest);
-  const builder = new CollectionIndexBuilder(store, manifest, scanner);
+  const builder = new CollectionIndexBuilder(store, manifest, scanner, embedDeps);
   const result = await builder.rebuild();
 
   if (result.blocked) {
