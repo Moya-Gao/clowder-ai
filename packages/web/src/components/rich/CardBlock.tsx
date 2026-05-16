@@ -14,13 +14,38 @@ const TONE_STYLES: Record<string, string> = {
 };
 
 export function CardBlock({ block, messageId }: { block: RichCardBlock; messageId?: string }) {
-  const toneStyle = TONE_STYLES[block.tone ?? 'info'] ?? TONE_STYLES['info'];
+  const toneStyle = TONE_STYLES[block.tone ?? 'info'] ?? TONE_STYLES.info;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copiedAction, setCopiedAction] = useState<string | null>(null);
 
-  const handleAction = useCallback(
-    async (action: string, payload?: Record<string, unknown>) => {
-      if (action !== 'tts-resynthesize' || !messageId || !payload) return;
+  const copyToClipboard = useCallback(async (payload?: Record<string, unknown>) => {
+    const text = typeof payload?.text === 'string' ? payload.text : '';
+    if (!text) {
+      setError('没有可复制的内容');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedAction('copy-to-clipboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '复制失败');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const resynthesizeTts = useCallback(
+    async (payload?: Record<string, unknown>) => {
+      if (!messageId) {
+        return;
+      }
+      if (!payload) {
+        return;
+      }
 
       setLoading(true);
       setError(null);
@@ -61,6 +86,19 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
     [messageId, block.id],
   );
 
+  const handleAction = useCallback(
+    async (action: string, payload?: Record<string, unknown>) => {
+      if (action === 'copy-to-clipboard') {
+        await copyToClipboard(payload);
+        return;
+      }
+      if (action === 'tts-resynthesize') {
+        await resynthesizeTts(payload);
+      }
+    },
+    [copyToClipboard, resynthesizeTts],
+  );
+
   return (
     <div className={`border-l-4 rounded-r-lg p-3 ${toneStyle}`}>
       <div className="font-medium text-sm">{block.title}</div>
@@ -72,7 +110,7 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
       {block.fields && block.fields.length > 0 && (
         <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1">
           {block.fields.map((f, i) => (
-            <div key={i} className="text-xs">
+            <div key={`${f.label}:${f.value}:${i}`} className="text-xs">
               <span className="text-cafe-secondary">{f.label}:</span>{' '}
               <span className="font-mono break-all">{f.value}</span>
             </div>
@@ -83,13 +121,19 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
         <div className="mt-2 flex gap-2">
           {block.actions.map((a, i) => (
             <button
-              key={i}
+              key={`${a.action}:${a.label}:${i}`}
               type="button"
               disabled={loading}
               onClick={() => handleAction(a.action, a.payload)}
               className="text-xs px-2 py-1 rounded bg-yellow-100 dark:bg-yellow-900/40 hover:bg-yellow-200 dark:hover:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200 border border-yellow-300 dark:border-yellow-700 disabled:opacity-50 transition-colors"
             >
-              {loading ? '合成中...' : a.label}
+              {loading
+                ? a.action === 'tts-resynthesize'
+                  ? '合成中...'
+                  : '处理中...'
+                : copiedAction === a.action
+                  ? '已复制'
+                  : a.label}
             </button>
           ))}
         </div>

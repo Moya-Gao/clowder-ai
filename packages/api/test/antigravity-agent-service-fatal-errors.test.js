@@ -2457,6 +2457,73 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     );
   });
 
+  test('F201 Phase E: post-side-effect stream_error emits typed recovery rich block card', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            metadata: { operation: 'write', path: 'docs/recovery-card.md' },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      streamErrorGraceWindowMs: 10,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    const recoveryMsg = messages.find((m) => {
+      if (m.type !== 'system_info') return false;
+      try {
+        const parsed = JSON.parse(m.content ?? '{}');
+        return parsed?.type === 'rich_block' && parsed?.block?.meta?.kind === 'antigravity_recovery';
+      } catch {
+        return false;
+      }
+    });
+    assert.ok(recoveryMsg, 'post-side-effect stream_error should emit a typed recovery rich block');
+
+    const parsed = JSON.parse(recoveryMsg.content);
+    assert.equal(parsed.type, 'rich_block');
+    assert.equal(parsed.block.kind, 'card');
+    assert.equal(parsed.block.v, 1);
+    assert.equal(parsed.block.tone, 'warning');
+    assert.equal(parsed.block.meta.kind, 'antigravity_recovery');
+    assert.equal(parsed.block.meta.recoveryDecision.action, 'surface_resumable_error');
+    assert.equal(parsed.block.meta.completedEffectCount, 1);
+    assert.match(parsed.block.bodyMarkdown, /停止自动重试/);
+    assert.ok(
+      parsed.block.fields.some(
+        (field) => field.label === '已完成动作' && field.value.includes('docs/recovery-card.md'),
+      ),
+    );
+    assert.ok(parsed.block.fields.some((field) => field.label === '未完成动作'));
+    assert.ok(parsed.block.fields.some((field) => field.label === '建议下一步'));
+    assert.ok(parsed.block.fields.some((field) => field.label === '诊断 ID'));
+    assert.deepEqual(parsed.block.actions?.[0], {
+      label: '复制诊断',
+      action: 'copy-to-clipboard',
+      payload: {
+        text: parsed.block.meta.diagnosticSummary,
+      },
+    });
+  });
+
   test('P2b: retry signal shows capacity-specific Chinese text', async () => {
     const bridge = createMockBridge();
     let sessionIndex = 0;

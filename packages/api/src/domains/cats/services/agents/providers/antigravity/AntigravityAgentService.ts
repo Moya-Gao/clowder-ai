@@ -32,11 +32,13 @@ import {
   publishAntigravityImages,
   scanAndPublishAntigravityBrainImages,
 } from './antigravity-image-publisher.js';
+import { buildAntigravityRecoveryCardMessage } from './antigravity-recovery-card.js';
 import {
   type AntigravityDispatchRelevantStepKind,
   type AntigravityRecoveryDecision,
   decideAntigravityRecovery,
 } from './antigravity-recovery-policy.js';
+import type { AntigravityResumeContext } from './antigravity-resume-context.js';
 import { buildAntigravityResumeContext } from './antigravity-resume-context.js';
 import { classifyAntigravityStepEffect, summarizeAntigravityEffects } from './antigravity-step-effects.js';
 import { summarizeStepShape, TRACE_ENABLED, traceLog } from './antigravity-trace.js';
@@ -365,6 +367,18 @@ export class AntigravityAgentService implements AgentService {
             },
           };
         };
+        const withRecoveryMessages = (msg: AgentMessage, decision: AntigravityRecoveryDecision): AgentMessage[] => {
+          const enriched = withRecoveryDiagnostics(msg, decision);
+          const recoveryCard = buildAntigravityRecoveryCardMessage({
+            catId: this.catId,
+            metadata: enriched.metadata ?? metadata,
+            recoveryDecision: decision,
+            resumeContext: enriched.metadata?.diagnostics?.resumeContext as AntigravityResumeContext | undefined,
+            error: enriched.error,
+            errorCode: enriched.errorCode,
+          });
+          return recoveryCard ? [recoveryCard, enriched] : [enriched];
+        };
 
         // F172 Phase C: collect image file paths from tool results
         const collectedImagePaths = new Set<string>();
@@ -397,7 +411,9 @@ export class AntigravityAgentService implements AgentService {
                   clearPendingStreamError('retried');
                 } else {
                   log.warn({ cascadeId }, 'stream_error grace expired without recovery');
-                  yield withRecoveryDiagnostics(pendingStreamError, streamDecision);
+                  for (const recoveryMsg of withRecoveryMessages(pendingStreamError, streamDecision)) {
+                    yield recoveryMsg;
+                  }
                   clearPendingStreamError('expired');
                   terminalAbort = true;
                 }
@@ -426,7 +442,9 @@ export class AntigravityAgentService implements AgentService {
                   clearPendingStreamError('retried');
                 } else {
                   log.warn({ cascadeId }, 'stream_error grace expired without recovery');
-                  yield withRecoveryDiagnostics(pendingStreamError, streamDecision);
+                  for (const recoveryMsg of withRecoveryMessages(pendingStreamError, streamDecision)) {
+                    yield recoveryMsg;
+                  }
                   clearPendingStreamError('expired');
                   terminalAbort = true;
                 }
@@ -949,7 +967,9 @@ export class AntigravityAgentService implements AgentService {
                 clearPendingStreamError('retried');
               } else {
                 log.warn({ cascadeId }, 'stream_error grace expired after poll completion without recovery');
-                yield withRecoveryDiagnostics(pendingStreamError, streamDecision);
+                for (const recoveryMsg of withRecoveryMessages(pendingStreamError, streamDecision)) {
+                  yield recoveryMsg;
+                }
                 clearPendingStreamError('expired');
                 terminalAbort = true;
               }
@@ -965,7 +985,9 @@ export class AntigravityAgentService implements AgentService {
                 clearPendingStreamError('retried');
               } else {
                 log.warn({ cascadeId }, 'stream_error grace expired on stall without recovery');
-                yield withRecoveryDiagnostics(pendingStreamError, streamDecision);
+                for (const recoveryMsg of withRecoveryMessages(pendingStreamError, streamDecision)) {
+                  yield recoveryMsg;
+                }
                 clearPendingStreamError('expired');
                 terminalAbort = true;
               }
