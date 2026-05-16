@@ -148,14 +148,15 @@ F201 关闭时，Antigravity 必须满足以下契约：
 - journal 先落 invocation metadata / JSONL audit，后续可接 Redis read model。
 - Merged in PR #1693 (`856355f39`): side-effect journal、JSONL audit、raw-target idempotency hashing、sensitive target redaction、legacy toolish gate deletion、outer invoke failure audit flush、F061 read-only `RUN_COMMAND` compatibility。
 
-### Phase C: Recovery Policy
+### ✅ Phase C: Recovery Policy
 
 - 封装 `decideAntigravityRecovery(error, journal, cascadeHealth)`。
 - Phase C 必须 deprecate inline `shouldRetryTransient` 决策，并把 `attemptHasResolvedToolishStep` / native dispatch / tool activity 信号收口进 decision engine；保留 F061 Phase 3 的 `classifyUpstreamError()` 与 `humanErrorMessage()` 作为 error taxonomy helpers，不允许两套 retry policy 并存。
 - pre-side-effect transient 才 fresh retry。
 - post-side-effect interruption 输出 resumable error + journal summary。
 - 构造 resume prompt payload：由 API 根据 journal summary 生成 machine-readable resume context，下一次继续时要求 Antigravity 跳过已完成 side effect，只执行未完成动作。
-- large cascade 自动 retire，防止 2MB+ trajectory 继续累积。
+- large cascade 自动 retire 留到 Phase D：Phase C 保留 `empty_response_without_retryable_cascade_health` 决策接口，Phase D 接 cascade health / retirement gate。
+- Merged in PR #1700 (`f7061700c`): centralized recovery policy、post-side-effect resumable diagnostics + resume context、inline retry policy deletion、journal-derived `executionJournal` compatibility metadata、read-only `MCP_TOOL` transient retry narrowing with explicit tests。
 
 ### Phase D: Smoke + Canary
 
@@ -193,3 +194,4 @@ F201 关闭时，Antigravity 必须满足以下契约：
 | 2026-05-15 | Landy 明确开工：46 + 47 双 review approve 后，F201 进入 in-progress，砚砚开 worktree 实施 Phase A。 |
 | 2026-05-15 | Phase A merged (PR #1689, squash `57acad964`): step-effect classifier baseline、`CODE_ACTION` visibility、unknown-step fail-closed retry veto、UI/effect mapping tests。 |
 | 2026-05-16 | Phase B merged (PR #1693, squash `856355f39`): side-effect journal + JSONL audit、legacy gate 删除、post-side-effect blind retry veto、raw-target idempotency hashing、outer invoke failure audit flush；46/47 review + cloud Codex LGTM。 |
+| 2026-05-16 | Phase C merged (PR #1700, squash `f7061700c`): recovery decision engine、post-side-effect resumable diagnostics + resume context、old inline retry policy removal、journal-derived `executionJournal` compatibility；46/47 review + cloud Codex LGTM。 |
