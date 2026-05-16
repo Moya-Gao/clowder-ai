@@ -36,7 +36,7 @@ export function ChatContainerHeader({
   defaultCatId,
 }: ChatContainerHeaderProps) {
   return (
-    <header className="border-b border-[var(--console-border-soft)] bg-[var(--console-panel-bg)] safe-area-top">
+    <header className="safe-area-top">
       <div className="px-5 py-3 flex items-center gap-2">
         <button
           onClick={onToggleSidebar}
@@ -70,7 +70,7 @@ export function ChatContainerHeader({
         <LiveAudioToggle />
         {authPendingCount > 0 && (
           <span
-            className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold animate-pulse-subtle"
+            className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-conn-amber-bg text-conn-amber-text text-[10px] font-bold animate-pulse-subtle"
             title={`${authPendingCount} 个授权请求等待处理`}
           >
             🔐 {authPendingCount}
@@ -134,10 +134,10 @@ function DaemonActiveIndicator({ threadId }: { threadId: string }) {
     <button
       type="button"
       onClick={() => openHub('agent-sessions')}
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-amber-800 bg-amber-100 hover:bg-amber-200 transition-colors flex-shrink-0"
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-conn-amber-text bg-conn-amber-bg hover:opacity-80 transition-colors flex-shrink-0"
       title={`Daemon ${daemonShortId} 运行中 · 点击查看后台会话`}
     >
-      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+      <span className="w-1.5 h-1.5 rounded-full bg-conn-amber-text animate-pulse" />
       {daemonShortId}
     </button>
   );
@@ -205,15 +205,15 @@ function LiveAudioToggle() {
     <button
       type="button"
       onClick={() => setRightPanelMode(isActive ? 'status' : 'transcript')}
-      className={`flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors hidden lg:block ${
+      className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors hidden lg:flex ${
         isActive
-          ? 'bg-[var(--console-active-bg)] text-green-600'
-          : 'bg-[var(--console-rail-item)] hover:bg-[var(--console-hover-bg)]'
+          ? 'bg-conn-emerald-bg text-conn-emerald-text'
+          : 'bg-[var(--console-pill-bg)] text-cafe-secondary hover:opacity-80'
       }`}
       title={isActive ? 'Close transcript' : 'Live audio transcript'}
       aria-label={isActive ? 'Close transcript' : 'Live audio transcript'}
     >
-      <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+      <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
         <path
           fillRule="evenodd"
           d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z"
@@ -247,12 +247,12 @@ function RightPanelToggle({
   return (
     <button
       onClick={handleClick}
-      className={`flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors ml-1 hidden lg:block ${
+      className={`p-1 rounded-lg text-cafe-secondary hover:bg-[var(--console-hover-bg)] transition-colors ml-1 hidden lg:block ${
         statusPanelOpen
           ? isWorkspace
-            ? 'bg-[var(--console-active-bg)] text-[var(--cafe-accent)]'
-            : 'bg-[var(--console-active-bg)]'
-          : 'bg-[var(--console-rail-item)] hover:bg-[var(--console-hover-bg)]'
+            ? 'bg-[var(--cafe-accent)]/5 text-[var(--cafe-accent)]'
+            : 'bg-[var(--console-hover-bg)]'
+          : ''
       }`}
       aria-label={label}
       title={label}
