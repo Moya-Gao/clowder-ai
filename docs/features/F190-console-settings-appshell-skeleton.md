@@ -231,13 +231,13 @@ close_gate_report:
 | 2026-05-16 | CVO 全局 Tailwind 原色审计：本地 ~1361 处硬编码，其中 9 文件（310 处）开源已迁 conn-*/console-* 语义 token。CVO 拍板先修开源已有 path 的第一梯队 |
 | 2026-05-16 | Header button circle pattern + header bg band-aid fix merged (PR #1708): ExportButton/VoiceCompanionButton/LiveAudioToggle/RightPanelToggle aligned to open-source `h-8 w-8 rounded-full` + `console-pill-bg`; header `border-b`/`bg-console-panel-bg` removed to match `safe-area-top` pattern; active-state color inheritance fixed (`--cafe-accent`, SVG inherits parent) |
 | 2026-05-16 | Phase G 立项：三猫对比审计（Opus-46 量化 715 处硬编码 + Opus-47 定性 token 三轨并存根因 + Codex 拆解落地路径），CVO 拍板"能力保留，视觉降噪" |
-| 2026-05-16 | Phase G merged (PR #1712): globals.css 623→336 行, cocreator-* 全删, 192 files CSS-only token convergence; 砚砚 review PASS + CVO fast-track |
+| 2026-05-16 | Phase G merged (PR #1712): globals.css 623→334 行, cocreator-* 全删, 192 files CSS-only token convergence; 砚砚 review PASS + CVO fast-track |
 
-## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（WIP 审计清单）
+## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（验证后 Gap 清单）
 
-> **Status**: auditing | **Trigger**: CVO 2026-05-14 post-F199-close 实测发现多处入口重复 + 视觉不一致
+> **Status**: verified (2026-05-16 `a9d27674a`) | **Trigger**: CVO 2026-05-14 post-F199-close 实测发现多处入口重复 + 视觉不一致
 > **方向**: F190 follow-up fix PR，不开新 Feature（CVO: "禁止新开feat了 原本你们的f199就不应该存在 就是f190的follow up"）
-> **⚠️ 铲屎官还在发现更多问题，此清单持续更新中**
+> **验证基线**: main `a9d27674a` (2026-05-16)。下方"已修"项均经 grep 实地确认。
 
 ### 设计原则（CVO 确认）
 
@@ -511,8 +511,8 @@ ThreadItem 内 `LabelDots` 渲染 `w-1.5 h-1.5` 色点堆叠，视觉区分度�
 
 | # | 内容 | 优先级 | 验收标准 |
 |---|------|--------|----------|
-| G-1 | Token 体系收敛：三轨→单轨 | P0 | ✅ globals.css 623→336 行；cocreator-* 定义全删；组件统一引用 cafe-/console-/conn-* 单一源；重复定义清除 |
-| G-2 | ThreadSidebar 二级控件 + DirectoryPickerModal 统一 console token | P1 | ✅ 置顶/收藏/改名/导出/删除/标签/选猫猫 hover controls 全部迁到 conn-*/console-*；DirectoryPickerModal 改用 `rounded-[28px]` + `console-card-bg` + `console-field-bg` + `console-button-primary` |
+| G-1 | Token 体系收敛：三轨→单轨 | P0 | ✅ globals.css 623→334 行；cocreator-* 定义全删；组件统一引用 cafe-/console-/conn-* 单一源；重复定义清除 |
+| G-2 | ThreadSidebar 二级控件 + DirectoryPickerModal 统一 console token | P1 | ⚠️ **部分完成**：主壳 + 高频 hover controls 已迁 conn-*/console-*；DirectoryPickerModal 主结构改用 `rounded-[28px]` + `console-card-bg`，但二级控件仍有 45 处 `border-cafe`/`bg-cafe-surface*` 残留（9 文件，DirectoryPickerModal 16 处最多）。后续 V-10~V-18 梯队一并清理 |
 | G-3 | Modal/Overlay 色语义化 | P1 | ✅ 所有 `bg-black/[0-40%]` 硬编码替换为 `var(--console-overlay-backdrop)` / `var(--console-overlay-medium)` |
 | G-4 | CardBlock info/success/danger 改 conn-* 语义色 | P2 | ✅ info/success/danger/warning 四态全迁到 conn-* 语义色 |
 | G-5 | Workspace 面板 line-divider audit | P2 | ✅ 列表类（SchedulePanel）改 card gap；密集内容（DiffViewer/ConsolePanel/BrowserPanel）保留语义化 border |
@@ -542,7 +542,7 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 
 > **方向**：F190 follow-up PR，不开新 Feature。
 
-#### 已修好（2026-05-16 grep 验证 main `89ac87e4d`）
+#### 已修好（2026-05-16 grep 验证 main `a9d27674a`）
 
 | # | 原问题 | 验证 |
 |---|--------|------|

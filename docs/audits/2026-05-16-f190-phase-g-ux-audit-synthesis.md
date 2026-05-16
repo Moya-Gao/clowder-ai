@@ -1,6 +1,6 @@
 # F190 Phase G Post-Merge UI/UX Audit — 三猫综合（完整版）
 
-> **日期**: 2026-05-16 | **基线**: clowder-ai `8d78c1c0` vs cat-cafe `ea5d6e32` (Phase G merged)
+> **日期**: 2026-05-16 | **基线**: clowder-ai `8d78c1c0` vs cat-cafe `a9d27674a` (Phase G merged + Phase F verified)
 > **参与**: Opus-46 (全量组件/token/route/hook 对比) + Opus-47 (dark variant + 组件数量化 + trade-off 定性) + Codex GPT-5.5 (量化 + audit 方法论 + 同步策略)
 > **结论**: **家里已是视觉系统的 source of truth。同步方向反转：家→开源覆盖。**
 
@@ -33,7 +33,7 @@
 
 ---
 
-## 三、已知 Gap（2026-05-16 实地验证 main `ea5d6e32`）
+## 三、已知 Gap（2026-05-16 实地验证 main `a9d27674a`）
 
 > ⚠️ **勘误**：初版文档照搬 Phase F 审计清单未实地验证，多项已修好的 gap 被错误标为"未修"。本版逐项 `grep` 当前 main 代码重新核实。
 
