@@ -34,7 +34,7 @@ describe('ThreadCatStatus', () => {
     );
     expect(html).toContain('ᓚᘏᗢ');
     expect(html).toContain('animate-cat-bounce');
-    expect(html).toContain('text-amber-500');
+    expect(html).toContain('text-conn-amber-text');
   });
 
   it('shows green cat + check when done', () => {
@@ -52,7 +52,7 @@ describe('ThreadCatStatus', () => {
     );
     expect(html).toContain('ᓚᘏᗢ');
     expect(html).toContain('animate-cat-shake');
-    expect(html).toContain('text-red-500');
+    expect(html).toContain('text-conn-red-text');
   });
 
   it('shows unread badge', () => {
@@ -88,7 +88,7 @@ describe('ThreadCatStatus', () => {
         unreadCount: 0,
       }),
     );
-    expect(html).toContain('text-red-500');
+    expect(html).toContain('text-conn-red-text');
   });
 
   it('shows paw badge when hasUserMention is true', () => {
@@ -111,7 +111,7 @@ describe('ThreadCatStatus', () => {
         hasUserMention: true,
       }),
     );
-    expect(html).toContain('bg-red-500');
+    expect(html).toContain('bg-conn-red-text');
     expect(html).not.toContain('bg-amber-500');
   });
 

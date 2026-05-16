@@ -86,8 +86,16 @@ vi.mock('../ChatContainerHeader', () => ({
     React.createElement(
       'div',
       { 'data-testid': 'header' },
-      React.createElement('button', { 'data-testid': 'sidebar-toggle', onClick: props.onToggleSidebar }),
-      React.createElement('button', { 'data-testid': 'mobile-status-trigger', onClick: props.onOpenMobileStatus }),
+      React.createElement('button', {
+        type: 'button',
+        'data-testid': 'sidebar-toggle',
+        onClick: props.onToggleSidebar,
+      }),
+      React.createElement('button', {
+        type: 'button',
+        'data-testid': 'mobile-status-trigger',
+        onClick: props.onOpenMobileStatus,
+      }),
     ),
 }));
 vi.mock('../ThreadSidebar', () => ({
@@ -166,7 +174,7 @@ describe('ChatContainer mobile interactions', () => {
     });
     expect(container.querySelector('[data-testid="sidebar"]')).toBeTruthy();
     // Backdrop should also appear
-    expect(container.querySelector('[class*="bg-black"]')).toBeTruthy();
+    expect(container.querySelector('[class*="console-overlay-backdrop"]')).toBeTruthy();
   });
 
   it('closes sidebar when backdrop is clicked', () => {
@@ -180,7 +188,7 @@ describe('ChatContainer mobile interactions', () => {
     });
     expect(container.querySelector('[data-testid="sidebar"]')).toBeTruthy();
     // Click backdrop
-    const backdrop = container.querySelector('[class*="bg-black"]') as HTMLElement;
+    const backdrop = container.querySelector('[class*="console-overlay-backdrop"]') as HTMLElement;
     act(() => {
       backdrop.click();
     });
