@@ -226,6 +226,7 @@ close_gate_report:
 | 2026-05-15 | Color Harmony token 整治：CSS 变量收口 thread sidebar / right status panel / signals（PRs #1684 #1686 #1687 #1688 #1691 merged） |
 | 2026-05-15 | CVO 对比开源截图：确认 7 项视觉设计模式差距需跟进（card gap / CTA depth / trash styling / 全部已读 / tag labels / icon containers / line dividers） |
 | 2026-05-16 | Header toolbar buttons migrated to console tokens (PR #1701): Export/Voice/LiveAudio/RightPanel all get `console-rail-item` container + unified hover/active states |
+| 2026-05-16 | CVO 拍板状态栏方向：跟进开源 console token 体系（`conn-*` 语义色 + `console-pill` 组件类），但保留家里 `gap-4` 间距（开源 `gap-3` 太拥挤）。记为 V-7/V-8/V-9 |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（WIP 审计清单）
 
@@ -525,12 +526,15 @@ ThreadItem 内 `LabelDots` 渲染 `w-1.5 h-1.5` 色点堆叠，视觉区分度�
 | V-4 | ThreadSidebar 全部已读 | 纯文字链接 | 改为 button/card 样式 |
 | V-5 | ThreadItem LabelDots | 色点堆叠无区分 | 展示标签名 pill 或加大色点 |
 | V-6 | 全局 line divider | 高优 border-b 列表项 | QueueEntryRow / IndexStatus / CommunityPanel / SchedulePanel card gap 化 |
+| V-7 | ConnectionStatusBar | `cocreator-*` → console tokens | 降级/离线/错误框全换 `--console-border-soft` / `--console-hover-bg`；保留 `gap-4` 不跟开源 `gap-3` |
+| V-8 | ParallelStatusBar | Tailwind 硬编码色 → `conn-*` 语义色 | pill 形状 `rounded-full` → `rounded-xl` + border；状态点/停止按钮用 `conn-emerald/red/amber`；hover → opacity；保留家里 `gap-4` |
+| V-9 | RightStatusPanel | 按钮/卡片/badge 收敛 | 按钮用 `console-pill` 模式（hover:text 而非 hover:bg）；badge 用 `conn-*` 色；卡片加投影；保留家里 `gap-4` + 288px 宽度 |
 
 #### 待 CVO 拍板
 
 | # | 区域 | 问题 | 等什么 |
 |---|------|------|--------|
-| W-1 | 状态栏 | CSS 变量 vs Tailwind 硬编码色 | CVO 觉得开源"有点丑"，样式方向待定 |
+| ~~W-1~~ | ~~状态栏~~ | ~~CSS 变量 vs Tailwind 硬编码色~~ | **已拍板（2026-05-16）**：跟进开源 console token 体系，但 `gap-4` 保留家里的（开源 `gap-3` 太拥挤）。详见 V-7/V-8/V-9 |
 | W-2 | Signal 页面布局 | Dashboard 卡片式 vs Console panel 式 | 两种风格二选一 |
 | W-3 | 字体/Thread 管理栏/顶栏视觉 | 未完成对比 | 铲屎官继续反馈 |
 
