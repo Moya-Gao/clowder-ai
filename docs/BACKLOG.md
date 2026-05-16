@@ -72,4 +72,4 @@ created: 2026-02-26
 | F200 | Memory Recall Eval — 基于猫真实行为的记忆系统反馈闭环 | in-progress | 布偶猫 | internal | [F200](features/F200-memory-recall-eval.md) |
 | F201 | Antigravity Reliability Contract — 孟加拉猫可靠可用性闭环 | in-progress | 缅因猫/砚砚 | internal | [F201](features/F201-antigravity-reliability-contract.md) |
 | F202 | Plugin Framework — local discovery, config, and resource activation | review | community @mindfn + maintainers | community [#686](https://github.com/zts212653/clowder-ai/pull/686) | [F202](features/F202-plugin-framework.md) |
-| F203 | Native System Prompt L0 — 压缩免疫核心规则注入 | spec | 布偶猫 Opus 4.7 | internal | [F203](features/F203-native-system-prompt-l0.md) |
+| F203 | Native System Prompt L0 — 压缩免疫核心规则注入 | in-progress | 布偶猫 Opus 4.7 | internal | [F203](features/F203-native-system-prompt-l0.md) |

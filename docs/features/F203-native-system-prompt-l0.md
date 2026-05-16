@@ -161,11 +161,11 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 
 ### Phase E（CC 版本升级 SOP）
 
-- [ ] AC-E1: `scripts/audit-claude-code-system-prompt.mjs` 实现
-- [ ] AC-E2: `docs/audits/cc-system-prompt-v2.1.142.md` 归档当前 baseline
-- [ ] AC-E3: `cat-cafe-skills/refs/cc-system-prompt-audit-sop.md` SOP 写完
-- [ ] AC-E4: cron / GitHub Action 注册（检测 CC 版本变更触发 audit）
-- [ ] AC-E5: 同款 SOP 对 Codex CLI 适用（`strings $(which codex)` audit + 归档）
+- [x] AC-E1: `scripts/audit-claude-code-system-prompt.mjs` 实现 ✅（`--emit`/`--diff`/`--check`；strings 提取 + anchor diff + 版本漂移）
+- [x] AC-E2: 当前 baseline 归档 ✅（既有富文档 `docs/audits/cc-system-prompt-v2.1.143.md`——spec 写 v2.1.142 为 stale，实测 claude=2.1.143——保留 §1-7 富文本 + 新增 §5b 机读 anchor block 使其成合法 `--diff` 源；脚本 `--emit` 自动化补充）
+- [x] AC-E3: `cat-cafe-skills/refs/cc-system-prompt-audit-sop.md` SOP 写完 ✅
+- [x] AC-E4: cron 注册 ✅（项目 scheduler `dyn-1778925760476-s1gprm`，weekly Mon 10:00；CI runner 无二进制故非 GitHub Action）
+- [x] AC-E5: 同款 SOP 对 Codex CLI 适用 ✅（`--cli codex` 参数化——`which codex`=node launcher，复刻 launcher 解析 native 二进制——首份归档 `docs/audits/codex-system-prompt-v0.130.0.md`）
 
 ### Phase F（系统提示词可见化）
 
@@ -253,6 +253,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-16 | Phase C 实施完成（branch `feat/f203-phase-c`，待 review）：Task 0 spike 安全网（`ca3efead7`，A8 GAP 抓出）→ Task 1 A8 CVO_REF（`fd4e634ca`）→ Task 3a 共享 `l0-compiler.ts`（`24dd15541`，subprocess 决策：API dist 不能 in-process import scripts/.mjs）→ Task 3 ClaudeBgCarrier `--system-prompt-file`（`bfeaab76f`，fail-closed）→ Task 4 CodexAgent `-c developer_instructions`（`ebe904529`，S4 对齐 + emit-deferral 根因修复：invoke await L0 早于 spawnCli → 既有测试同步 emit 'exit' 抢跑 listener 丢失，纯 mock 时序假象，非 prod bug）→ Task 2 `buildStaticIdentityPackOnly` 剥离 user-message 非 pack（`5305d08c4`）。AC-C1-C4 ✅。验收：Task3+4 cluster 139/139、route/invoke 194/194、identity 292/292、system-prompt 守护 113/113 全 green。待 AC-C5（gate + 砚砚 review + merge + runtime） |
 | 2026-05-16 | **Phase C merged (PR #1709, squash `d55cb688e`)**——砚砚本地×2 round（cliConfigArgs P1 + 27208798e APPROVE → 云端 round-1 2 P1 修：route 层无差别 pack-only 致非 native provider 失身份 + stripReservedSystemConfigs 漏 `-c` 短形式 → 砚砚 re-review APPROVE → 云端 round-2 又提 P1 "L0 script unresolvable 应有 fallback" → VERIFY 三道门：cloud 提的 dist-only/packaged 部署经验证无现实复现（所有 cat-cafe 部署 = repo worktree），按 merge-gate "P1/P2-无复现 → P3-comment-pass" 处置 + 留 future-proof TODO）。AC-C1-C4 ✅，AC-C5 部分 ✅（待 runtime 重启 alpha 验收）|
 | 2026-05-16 | **Phase D merged (PR #1710, squash `1c92a1d2b`)**——CLAUDE.md 200→62 / AGENTS.md 219→60，删 identity 详述/队友静态表/SOP 表/记忆详述/Knowledge Feed/代码规范/文档表（L0 §1-8 覆盖 OR ADR-030 §10.3 可重建），留 terse 铁律/闭环检查点/各族专属 dev 规则 + 指针 1 行化。砚砚本地 APPROVE（47 盲审）+ 延续 ×2 → 云端 P2（lineCount trailing-newline off-by-one，已修对齐 wc -l）→ 云端 round-2 clean。过程修复**预先就红的共享 main blocker**（check-feature-truth：index.json stale + F190 缺 BACKLOG，`d5c019303` 解全队 merge-gate 阻塞）+ f188-harness-consistency（记忆指针改 FULL `cat_cafe_*` 名）。AC-D1-D4 ✅。下一：Phase E（CC 版本升级拆 SOP）→ Phase F（配置栏可见化）→ C5 runtime 重启验收（CVO directive batch）|
+| 2026-05-16 | **Phase E merged (PR #1715, squash `7a340d28c`)**——audit 工具（`--emit`/`--diff`/`--check`）+ SOP（`cc-system-prompt-audit-sop.md`）+ cron `dyn-1778925760476-s1gprm` + codex 参数化首份归档。砚砚本地 BLOCKING P1（diffSections 只解析 bare `- id`，formatMarkdown 生成 `- id — label`，真实 `--diff` 稳定误报全 anchor）→ 修：regex `(?=\s+—\|\s*$)` em-dash 判别符 + cc-v2.1.143 §5b 机读块（唯一现存 claude 归档成合法 `--diff` 源）+ 3 round-trip/回归测试 → 砚砚 APPROVE（47 盲审 quality-gate 通过）。云端 round-1 2 finding：P1 codex 平台包应用 Node resolution（hoisted 布局）+ P2 `readlink -f` GNU-only → 修：createRequire 锚定 launcher 的 Node-resolved 候选为首选 + 硬编码 fallback 保留、`realpathSync` 替 `readlink -f`（additive，真二进制 Feature Gate 验证未破坏可跑路径）→ 云端 round-2 "Didn't find any major issues"。AC-E1-E5 ✅。下一：Phase F（配置栏「规则与SOP」系统提示词可见化，需 Design Gate）→ C5 runtime 重启验收（CVO batch）|
 
 ## Review Gate
 
