@@ -33,41 +33,38 @@
 
 ---
 
-## 三、已知 Gap 仍未修（Phase F 审计已列，今天确认仍在）
+## 三、已知 Gap（2026-05-16 实地验证 main `ea5d6e32`）
 
-以下是 F190 Phase F 审计已记录、Phase G 未涉及（G 只做 token/CSS）、全量同步前需要**明确标注状态**的 gap。
+> ⚠️ **勘误**：初版文档照搬 Phase F 审计清单未实地验证，多项已修好的 gap 被错误标为"未修"。本版逐项 `grep` 当前 main 代码重新核实。
 
-### P0 — 功能丢失（家里有文件但功能断线）
+### 已修好（Phase F 审计后陆续修复，不再是 gap）
 
-| # | 区域 | 问题 | 具体缺失 | 同步影响 |
-|---|------|------|----------|----------|
-| F-1 | IM 配置页 (`/settings?s=im`) | 权限管理断线 | `HubPermissionsTab` 文件存在但未 lazy/Suspense 接入 SettingsContent；飞书/企微/钉钉权限 UI 不可达 | 同步出去后开源也是断线状态——但开源本来就有这个组件完整接入，说明**家里 Phase A intake 时漏接了** |
-| F-2 | IM 配置页 | 连接状态监控丢失 | `connectionState`/`lastHeartbeat`/`category` 字段、connStatePill、formatHeartbeat 全缺 | 开源有完整连接状态 pill + heartbeat 显示 |
-| F-3 | IM 配置页 | 连接测试丢失 | `handleTestConnection()` 未实现，`/api/connector/{id}/test` 未接 | 开源有完整测试按钮 + loading 状态 |
-| F-4 | 成员管理页 (`/settings?s=members`) | 降级为只读 | HubCatEditor / HubCoCreatorEditor / useConfirm import 缺失；编辑/删除/切换可用性不可用 | 开源有完整 CRUD |
-| F-5 | Signal 详情页 | Content Enrichment 丢失 | 后端 `enrich-article.ts` service + route `/api/signals/articles/{id}/enrich` + 前端 enrichedContent 状态全缺 | 开源有完整全文抓取 + 渲染 |
-| F-6 | Signal 详情页 | Thread 讨论导航丢失 | `useRouter` + `getThreadHref` 从 Signal 文章跳转关联 thread 的链接缺失 | 开源有 |
+| 原编号 | 原问题 | 验证结果 | 证据 |
+|--------|--------|---------|------|
+| D-1~D-3 | Header 重复 ThemeToggle/HubButton/SignalBell | ✅ 已删除 | ChatContainerHeader.tsx 0 匹配 |
+| D-4/D-5 | Sidebar Memory Hub/IM Hub 按钮 | ✅ 已删除 | ThreadSidebar 目录 0 匹配（仅删除确认文案保留"IM Hub"字样） |
+| D-6 | RightStatusPanel Hub 齿轮 | ✅ 已删除 | 0 匹配 |
+| D-8 | 训练营入口语义丢失 | ✅ 已修 | `BootcampListModal` line 9 import + line 1089 渲染 |
+| S-1 | excludeCategories 缺失 | ✅ 已有 | `SettingsContent.tsx:162` → `excludeCategories={['connector']}` |
+| S-3 | `/mission` alias 缺失 | ✅ 已有 | `app/mission/page.tsx` 存在 |
+| F-1 | HubPermissionsTab 未接入 | ✅ 已接 | `HubConnectorConfigTab.tsx:22` lazy import + `:259`/`:401` 渲染 |
+| F-2 | 连接状态/心跳丢失 | ✅ 已有 | `connStatePill` import + `lastHeartbeat` + `formatHeartbeat` |
+| F-4 | 成员管理只读 | ✅ 已有 | `HubCatEditor`/`HubCoCreatorEditor`/`useConfirm`/`handleDeleteMember`/`handleToggleAvailability` 全在 |
 
-### P1 — 入口重复（ActivityBar 是唯一全局导航入口的原则未贯彻）
+### 仍缺（3 项，实地 grep 确认 0 匹配）
 
-| # | 位置 | 重复入口 | 应删/改 | 同步影响 |
-|---|------|---------|---------|----------|
-| D-1 | ChatContainerHeader（🔴 红区） | ThemeToggle | 删除（ActivityBar 已有） | 同步出去时开源没有这个重复——**家里多出来的** |
-| D-2 | ChatContainerHeader（🔴 红区） | HubButton | 删除（ActivityBar 已有） | 同上 |
-| D-3 | ChatContainerHeader（🔴 红区） | Signal Inbox bell 🔔 | 删除（ActivityBar 已有旗帜图标） | 同上 |
-| D-4 | ThreadSidebar | Memory Hub 按钮 | 删除（ActivityBar 已有） | 同上 |
-| D-5 | ThreadSidebar | IM Hub 按钮 | 删除（ActivityBar 已有） | 同上 |
-| D-6 | RightStatusPanel | Hub 齿轮图标 | 删除或改为非入口状态展示 | 同上 |
-| D-7 | AppShell / ChatContainer（🔴 红区） | 桌面 sidebar owner 错位 | AppShell 接管桌面 ThreadSidebar，ChatContainer 仅保留 mobile overlay | 同步出去会暴露 owner 差异 |
-| D-8 | ThreadSidebar 训练营按钮 | 入口语义丢失 | 恢复 BootcampListModal 列表入口（当前直接 createBootcampThread） | 开源有列表入口 |
+| # | 区域 | 问题 | 验证 | 优先级 | 同步影响 |
+|---|------|------|------|--------|----------|
+| F-3 | IM 配置页 | **连接测试按钮**缺失 | `handleTestConnection` 0 匹配；无 `/api/connector/{id}/test` route | P2 | 开源有测试按钮，同步后退化但不致命（配置本身可保存） |
+| F-5 | Signal 详情页 | **Content Enrichment**（全文抓取 + 渲染）缺失 | 前端 `enrichedContent` 0 匹配；后端无 `/api/signals/articles/{id}/enrich` route（现有 `enrichWithStudyMeta` 是内部 metadata 不是全文） | P2 | 家里 Signal 功能整体比开源丰富（stats/batch/study），缺这 1 项不致命 |
+| F-6 | Signal 详情页 | **Thread 讨论导航**缺失 | `getThreadHref`/`threadHref` 0 匹配 | P3 | 小功能缺口 |
 
-### P2 — 参数/样式/兼容性
+### 架构级（中期 follow-up）
 
-| # | 区域 | 问题 | 修改内容 | 同步影响 |
-|---|------|------|----------|----------|
-| S-1 | 系统配置页 | connector env 暴露 | 补回 `excludeCategories={['connector']}` | 安全问题，同步前建议修 |
-| S-2 | Hub/Settings 重复内容 | IM/Env/Governance 三处完整 UI 重复 | Hub 改为摘要 + deep-link 到 Settings | 大改，可后置 |
-| S-3 | Mission route 兼容 | `/mission` alias 缺失 | 补 redirect 到 `/mission-hub` | 小改，顺手补 |
+| # | 区域 | 问题 | 优先级 | 说明 |
+|---|------|------|--------|------|
+| D-7 | AppShell / ChatContainer | 桌面 sidebar owner 错位 | P1 | 开源 AppShell 接管 desktop ThreadSidebar，家里仍由 ChatContainer 管两端。中等重构，需单独 Phase |
+| S-2 | Hub/Settings 重复内容 | IM/Env/Governance 三处 | P2 | 大改，可后置 |
 
 ---
 
@@ -123,36 +120,26 @@
 
 ## 七、全量同步收口检查表
 
-全量同步前需要对每一项做**显式决策**（修/不修/标注 deliberate）：
+> 2026-05-16 实地验证后大幅精简。Phase F 审计的大部分 gap 已在后续 PR 中修好。
 
-### 必须在同步前修的（否则同步出去会暴露问题）
+### 同步前无阻塞项 ✅
 
-| # | 问题 | 原因 | 状态 |
-|---|------|------|------|
-| S-1 | `excludeCategories={['connector']}` 补回 | 安全：connector env 暴露在 system 页面 | 🔲 TODO |
-| S-3 | `/mission` redirect alias | 兼容：开源有，同步后旧链接断 | 🔲 TODO |
+Phase F 的 D-1~D-6（入口重复）、D-8（训练营入口）、S-1（excludeCategories）、S-3（/mission alias）、F-1/F-2/F-4（IM 权限/连接状态/成员 CRUD）全部已修好。**无 P0/P1 同步阻塞。**
 
-### 建议同步前修的（否则开源用户明显感知退化）
+### 可以同步后再修的（标注 known，不阻塞）
 
-| # | 问题 | 原因 | 状态 |
-|---|------|------|------|
-| F-1~F-3 | IM 配置页功能断线 | 开源原本有完整 IM 配置，同步后反而变只读 | 🔲 TODO |
-| F-4 | 成员管理只读 | 同上，开源原本有 CRUD | 🔲 TODO |
-| D-1~D-6 | 入口重复 | 同步后开源用户看到多余按钮 | 🔲 TODO |
-
-### 可以同步后再修的（不阻塞，但需标注 known）
-
-| # | 问题 | 原因 | 状态 |
-|---|------|------|------|
-| F-5/F-6 | Signal enrichment + thread nav | 家里 Signal 本身比开源丰富很多，缺 2 项不致命 | 🔲 后续 |
-| D-7 | AppShell sidebar ownership | 大重构，需要单独 Phase | 🔲 后续 |
-| D-8 | 训练营入口语义 | 小改但需 UX 验证 | 🔲 后续 |
-| L-1~L-5 | 还能学的 5 项 | 纯优化，不影响功能 | 🔲 后续 |
-| S-2 | Hub/Settings 内容去重 | 大改，可后置 | 🔲 后续 |
+| # | 问题 | 优先级 | 原因 |
+|---|------|--------|------|
+| F-3 | IM 连接测试按钮 | P2 | 开源有但家里缺；配置保存本身正常，只是没法"测试连接" |
+| F-5 | Signal Content Enrichment | P2 | 开源有全文抓取；家里 Signal 整体更丰富，缺这 1 项不致命 |
+| F-6 | Signal → Thread 导航 | P3 | 小功能 |
+| D-7 | AppShell sidebar ownership | P1 | 中等重构，单独 Phase |
+| S-2 | Hub/Settings 内容去重 | P2 | 大改，后置 |
+| L-1~L-5 | 还能学的 5 项 | P2-P3 | 纯优化 |
 
 ### 不需要修的（deliberate divergence，同步时保留家里做法）
 
-所有 T-1~T-10 的 trade-off + N-1~N-12 的不学项。这些在同步时以家里为准覆盖出去，不需要向开源对齐。
+所有 T-1~T-10 的 trade-off + N-1~N-12 的不学项。以家里为准覆盖出去。
 
 ---
 
