@@ -228,6 +228,7 @@ close_gate_report:
 | 2026-05-16 | Header toolbar buttons migrated to console tokens (PR #1701): Export/Voice/LiveAudio/RightPanel all get `console-rail-item` container + unified hover/active states |
 | 2026-05-16 | CVO 拍板状态栏方向：跟进开源 console token 体系（`conn-*` 语义色 + `console-pill` 组件类），但保留家里 `gap-4` 间距（开源 `gap-3` 太拥挤）。记为 V-7/V-8/V-9 |
 | 2026-05-16 | V-7/V-8/V-9 status bar token migration merged (PR #1705): ConnectionStatusBar + ParallelStatusBar + RightStatusPanel all migrated to console tokens |
+| 2026-05-16 | CVO 全局 Tailwind 原色审计：本地 ~1361 处硬编码，其中 9 文件（310 处）开源已迁 conn-*/console-* 语义 token。CVO 拍板先修开源已有 path 的第一梯队 |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（WIP 审计清单）
 
@@ -411,7 +412,44 @@ Signal 页面两仓**双向分叉**：本地功能更多，但开源有 2 项我
 
 **布局待决策**：两种风格哪个保留？需 CVO 拍板。
 
-#### 9. 其他待审计
+#### 9. Tailwind 原色硬编码全局审计（2026-05-16 CVO 拍板）
+
+本地 `packages/web/src/` 共 ~1361 处 Tailwind 原色硬编码（`bg-green-400` / `text-red-500` / `border-amber-300` 等），分布在 201 个文件。以下 9 文件为**第一梯队**——开源已全量迁移到 `conn-*` / `console-*` 语义 token，我们可以直接参考 migration path。
+
+##### 第一梯队：开源已修、本地待修（V-10 ~ V-18）
+
+| # | 文件 | 硬编码数 | 开源 token | 状态 |
+|---|------|---------|-----------|------|
+| V-10 | `rich/InteractiveBlock.tsx` | 85 | `conn-amber/emerald/red` + `console-card-bg/pill-bg/border-soft` | 🔲 |
+| V-11 | `capability-board-ui.tsx` | 68 | `conn-*` 语义色 | 🔲 |
+| V-12 | `HubSkillsTab.tsx` | 31 | `conn-*` | 🔲 |
+| V-13 | `PushSettingsPanel.tsx` | 29 | `conn-*` | 🔲 |
+| V-14 | `HubTraceTree.tsx` | 28 | 部分迁移（剩 4 处 tree node 类型色） | 🔲 |
+| V-15 | `memory/EvidenceSearch.tsx` | 22 | `console-form-input/card-soft-bg` | 🔲 |
+| V-16 | `EvidenceCard.tsx` | 19 | `conn-*` | 🔲 |
+| V-17 | `BrakeModal.tsx` | 15 | `conn-emerald-text/red-text` + `console-card-bg/overlay` | 🔲 |
+| V-18 | `workspace/SchedulePanel.tsx` | 13 | `conn-emerald/purple/red` + `console-pill-bg` | 🔲 |
+
+**小计：310 处**。参考开源 `conn-*` / `console-*` token 逐文件迁移，CSS-only 不改行为。
+
+##### 第二梯队：两边都硬编码（暂缓，无现成 path）
+
+| 文件 | 硬编码数 | 说明 |
+|------|---------|------|
+| HubPermissionsTab.tsx | 43 | 开源结构不同，需设计性迁移 |
+| BootstrapSummaryCard.tsx | 30 | 开源删了但没用 token |
+| marketplace-badges.tsx | 23 | 两边都硬编码 |
+| DiffViewer.tsx | 22 | 语法高亮色，可能有意为之 |
+| ChatContainer.tsx | 22 | 两边都硬编码 |
+| AuthorizationCard.tsx | 22 | 两边都硬编码 |
+| TriageBadge.tsx | 18 | 状态标签色 |
+| CapabilityAuditLog.tsx | 18 | 审计日志色 |
+
+##### 色系分布（全局）
+
+gray/slate 300+ | amber 180+ | red 140+ | green 120+ | blue 110+ | 其他 ~130
+
+#### 9b. 其他待审计
 
 | 区域 | 铲屎官提到的问题 | 审计状态 |
 |------|-----------------|----------|
