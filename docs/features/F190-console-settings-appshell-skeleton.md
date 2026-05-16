@@ -225,6 +225,7 @@ close_gate_report:
 | 2026-05-15 | Codex 二轮审计补充：AppShell desktop ThreadSidebar ownership、BootcampListModal 入口语义、RightStatusPanel Hub gear、Signal enrich backend、HubPermissionsTab contract drift、`/mission` alias |
 | 2026-05-15 | Color Harmony token 整治：CSS 变量收口 thread sidebar / right status panel / signals（PRs #1684 #1686 #1687 #1688 #1691 merged） |
 | 2026-05-15 | CVO 对比开源截图：确认 7 项视觉设计模式差距需跟进（card gap / CTA depth / trash styling / 全部已读 / tag labels / icon containers / line dividers） |
+| 2026-05-16 | Header toolbar buttons migrated to console tokens (PR #1701): Export/Voice/LiveAudio/RightPanel all get `console-rail-item` container + unified hover/active states |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（WIP 审计清单）
 
