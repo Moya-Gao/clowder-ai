@@ -95,11 +95,11 @@ F201 关闭时，Antigravity 必须满足以下契约：
 
 ### AC-B: Side-Effect Journal
 
-- [ ] AC-B1: 每个 invocation/cascade 有 side-effect journal，记录 stepId、stepType、operation、target、status、idempotencyKey、observedAt；已 `done` 的 side effect 必须有 idempotencyKey。
+- [x] AC-B1: 每个 invocation/cascade 有 side-effect journal，记录 stepId、stepType、operation、target、status、idempotencyKey、observedAt；已 `done` 的 side effect 必须有 idempotencyKey。
 - [ ] AC-B2: 文件写入/删除 smoke 失败时，错误卡明确列出残留路径和清理状态。
-- [ ] AC-B3: post-side-effect interruption 不触发盲 retry；只输出 resumable state。
+- [x] AC-B3: post-side-effect interruption 不触发盲 retry；只输出 resumable state。
 - [ ] AC-B4: resume prompt 带 journal 摘要，要求 Antigravity 继续未完成动作且不得重复已完成 side effect；若新 side effect 命中已 done 的 idempotencyKey，Cat Café 侧自动 dedup，不只依赖 prompt 约束。
-- [ ] AC-B5: 现有 `executionJournal` inline metadata 被 `AntigravitySideEffectJournal` 明确 subsume 或委托，不保留两个同名不同义的 journal。
+- [x] AC-B5: 现有 `executionJournal` inline metadata 被 `AntigravitySideEffectJournal` 明确 subsume 或委托，不保留两个同名不同义的 journal。
 
 ### AC-C: Availability Smoke
 
@@ -140,12 +140,13 @@ F201 关闭时，Antigravity 必须满足以下契约：
 - 给现有 F061/F172/F174/F178/F183/F193/F194/F197 做边界说明，避免重复 reopen。
 - Merged in PR #1689 (`57acad964`): Phase A also landed the step-effect classifier baseline, `CODE_ACTION` visibility, unknown-step fail-closed retry veto, and UI/effect mapping tests.
 
-### Phase B: Step Taxonomy + Journal
+### ✅ Phase B: Step Taxonomy + Journal
 
 - 把 step 分类从 ad hoc boolean 提升为单点函数：`classifyAntigravityStepEffect(step)`。
 - 明确 `CODE_ACTION`、`MCP_TOOL`、`RUN_COMMAND`、`GENERATE_IMAGE` 的 effect type 和 retry safety。
 - 迁移契约：`classifyStep()` 保留为 UI bucket mapper，但所有 retry/side-effect 问题都委托 `classifyAntigravityStepEffect()`；`batchHasToolishStep` 被 journal/effect summary 替换，不继续新增第三套判断。
 - journal 先落 invocation metadata / JSONL audit，后续可接 Redis read model。
+- Merged in PR #1693 (`856355f39`): side-effect journal、JSONL audit、raw-target idempotency hashing、sensitive target redaction、legacy toolish gate deletion、outer invoke failure audit flush、F061 read-only `RUN_COMMAND` compatibility。
 
 ### Phase C: Recovery Policy
 
@@ -191,3 +192,4 @@ F201 关闭时，Antigravity 必须满足以下契约：
 | 2026-05-15 | 立项草案：用户现场报告 `empty_response` + post-file-write `连接中断`；砚砚确认 F061 done、F178 in-progress，建议新开 F201 reliability contract。 |
 | 2026-05-15 | Landy 明确开工：46 + 47 双 review approve 后，F201 进入 in-progress，砚砚开 worktree 实施 Phase A。 |
 | 2026-05-15 | Phase A merged (PR #1689, squash `57acad964`): step-effect classifier baseline、`CODE_ACTION` visibility、unknown-step fail-closed retry veto、UI/effect mapping tests。 |
+| 2026-05-16 | Phase B merged (PR #1693, squash `856355f39`): side-effect journal + JSONL audit、legacy gate 删除、post-side-effect blind retry veto、raw-target idempotency hashing、outer invoke failure audit flush；46/47 review + cloud Codex LGTM。 |
