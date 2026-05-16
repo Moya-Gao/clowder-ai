@@ -72,6 +72,19 @@ ZL9 = "You are a Claude agent, built on Anthropic's Claude Agent SDK."
 
 `# System` / `# Doing tasks` / `# Tone and style` / `# Using your tools` / `# Session-specific guidance` / `# Memory` / `# Environment` / `# Instructions` / `# Aliases` / `# Keybindings Skill` / `# Functions` / `# Shell Options` / `# Snapshot file` + rg/bfs/ugrep 探测段
 
+### 5b. anchor 全清单（机读 / `diffSections` 可解析）
+
+> 上面是人读的 CC 原生 section 标题；下面是 `ANCHORS_CLAUDE` 锚点 id（与
+> `audit-claude-code-system-prompt.mjs --emit` 产出同结构）。这一份让本基线
+> doc 成为 `--diff` 的合法上一版本（SOP step 1 从最新归档 diff，v2.1.143 是
+> 当前唯一 claude 归档）。下次 claude 升级 `--diff` 此 doc → 走 SOP。
+
+- doing-tasks — # Doing tasks
+- parallel-tools — parallel tool calls · **functional**（必 carry-over L0 §2）
+- destructive-safety — destructive op safety · **functional**（必 carry-over L0 §2）
+- simple-system-prompt — simple_system_prompt mechanism · **functional**（必 carry-over L0 §2）
+- using-tools — # Using your tools · **functional**（必 carry-over L0 §2）
+
 ---
 
 ## 6. Phase C 决策依据：客观性"去哪了"实证
