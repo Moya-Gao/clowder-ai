@@ -119,10 +119,10 @@ F201 关闭时，Antigravity 必须满足以下契约：
 
 ### AC-E: User Experience
 
-- [ ] AC-E1: 前端不再只显示 `Error: 连接中断`；展示 typed recovery card。
-- [ ] AC-E2: card 包含“已完成动作 / 未完成动作 / 建议下一步 / 诊断 ID”。
-- [ ] AC-E3: 用户能复制诊断摘要，直接交给维护猫排查。
-- [ ] AC-E4: typed recovery card 必须走 rich block（v1 复用 `kind: card`，后续可升级 `antigravity_recovery` kind）并接入 F183 bubble pipeline，不另起 React 消息树。
+- [x] AC-E1: 前端不再只显示 `Error: 连接中断`；展示 typed recovery card。
+- [x] AC-E2: card 包含“已完成动作 / 未完成动作 / 建议下一步 / 诊断 ID”。
+- [x] AC-E3: 用户能复制诊断摘要，直接交给维护猫排查。
+- [x] AC-E4: typed recovery card 必须走 rich block（v1 复用 `kind: card`，后续可升级 `antigravity_recovery` kind）并接入 F183 bubble pipeline，不另起 React 消息树。
 
 ### AC-F: Close Gate
 
@@ -165,11 +165,13 @@ F201 关闭时，Antigravity 必须满足以下契约：
 - smoke 使用 sentinel directory，必须清理；清理失败是测试失败。
 - Merged in PR #1702 (`4dcbe0b2b`): cascade-health assessment (`warn`/`retire` thresholds), side-effect-safe pre-turn retirement marker, clean-journal `empty_response` fresh-cascade retry, and `pnpm antigravity:smoke` with readonly dry-run plus explicit sentinel write mode. Full AC-C2/C3 live smoke matrix remains open until real Antigravity alpha runs.
 
-### Phase E: UI Recovery Card
+### ✅ Phase E: UI Recovery Card
 
 - API error metadata 标准化。
-- Web hook 将 Antigravity typed error 显示为 recovery card。
+- API 在 post-side-effect resumable error 前输出 F183 `rich_block` card，包含 completed/pending effects、建议下一步、diagnostic ID 和可复制诊断摘要。
+- Web `CardBlock` 支持 `copy-to-clipboard` action，复用现有 rich block bubble pipeline，不新增 React 消息树。
 - 保留原始红字作为 fallback，不作为主体验。
+- Merged in PR #1707 (`209e707a`): typed recovery rich block card emission for post-side-effect stream errors, diagnostic-copy card action, backend recovery-card regression test, and web card action test. Real Antigravity alpha validation remains in Phase F close gate.
 
 ### Phase F: Close Gate
 
@@ -197,3 +199,4 @@ F201 关闭时，Antigravity 必须满足以下契约：
 | 2026-05-16 | Phase B merged (PR #1693, squash `856355f39`): side-effect journal + JSONL audit、legacy gate 删除、post-side-effect blind retry veto、raw-target idempotency hashing、outer invoke failure audit flush；46/47 review + cloud Codex LGTM。 |
 | 2026-05-16 | Phase C merged (PR #1700, squash `f7061700c`): recovery decision engine、post-side-effect resumable diagnostics + resume context、old inline retry policy removal、journal-derived `executionJournal` compatibility；46/47 review + cloud Codex LGTM。 |
 | 2026-05-16 | Phase D merged (PR #1702, squash `4dcbe0b2b`): cascade health / side-effect-safe preflight retirement、`empty_response` clean-journal fresh retry、availability smoke runner、secret-redacted readonly diagnostics、smoke-owned sentinel cleanup；cloud Codex LGTM。 |
+| 2026-05-16 | Phase E merged (PR #1707, squash `209e707a`): post-side-effect stream error now surfaces a typed recovery `rich_block` card before the enriched error, with completed/pending actions, suggested next step, diagnostic ID, and copy-diagnostic action；cloud Codex LGTM。 |
