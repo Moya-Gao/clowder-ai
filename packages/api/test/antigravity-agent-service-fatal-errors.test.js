@@ -779,6 +779,69 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.equal(capacity.metadata?.diagnostics?.sideEffectJournal?.entries?.[0]?.operation, 'write');
     assert.equal(capacity.metadata?.diagnostics?.sideEffectJournal?.entries?.[0]?.target, 'docs/example.md');
     assert.match(capacity.metadata?.diagnostics?.sideEffectJournal?.entries?.[0]?.idempotencyKey, /^done:code:write:/);
+    assert.equal(capacity.metadata?.diagnostics?.recoveryDecision?.action, 'surface_resumable_error');
+    assert.equal(capacity.metadata?.diagnostics?.recoveryDecision?.reason, 'post_side_effect_interrupted');
+    assert.equal(
+      capacity.metadata?.diagnostics?.resumeContext?.instruction,
+      'continue_without_repeating_completed_side_effects',
+    );
+    assert.equal(capacity.metadata?.diagnostics?.resumeContext?.completedEffects?.length, 1);
+    assert.equal(capacity.metadata?.diagnostics?.resumeContext?.completedEffects?.[0]?.operation, 'write');
+  });
+
+  test('model_capacity intentionally does not retry read-only MCP_TOOL metadata-only batches', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_MCP_TOOL',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            metadata: {
+              toolCall: {
+                id: 'toolu_search_evidence',
+                name: 'cat_cafe_search_evidence',
+                argumentsJson: '{"query":"F201"}',
+              },
+              sourceTrajectoryStepInfo: { cascadeId: 'c1', trajectoryId: 't1', stepIndex: 4 },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+        ],
+        cursor: {
+          baselineStepCount: 0,
+          lastDeliveredStepCount: 2,
+          terminalSeen: true,
+          lastActivityAt: Date.now(),
+        },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    const capacity = messages.find((m) => m.type === 'error' && m.errorCode === 'model_capacity');
+    assert.ok(capacity, 'read-only MCP tool policy should surface the transient error for Phase C');
+    assert.equal(bridge.resetSession.mock.callCount(), 0, 'read-only MCP tool retry narrowing is intentional');
+    assert.deepEqual(capacity.metadata?.diagnostics?.recoveryDecision, {
+      action: 'surface_terminal_error',
+      reason: 'read_only_mcp_tool_transient_retry_intentionally_disabled',
+    });
+    assert.equal(capacity.metadata?.diagnostics?.sideEffectJournal?.hasSideEffect, false);
+    assert.equal(capacity.metadata?.diagnostics?.toolishToolName, 'cat_cafe_search_evidence');
   });
 
   test('model_capacity retries when the blocked waiting run_command is read-only and undispatched', async () => {
@@ -2345,6 +2408,53 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     const warnings = messages.filter((m) => m.type === 'provider_signal');
     assert.ok(warnings.length >= 1, 'should yield retry warning');
     assert.match(warnings.at(-1).content, /连接中断/, 'retry signal should say 连接中断 for stream_interrupted');
+  });
+
+  test('F201 Phase C: stream_error after CODE_ACTION surfaces resumable recovery context', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            metadata: { operation: 'write', path: 'docs/stream-after-write.md' },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      streamErrorGraceWindowMs: 10,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    const streamError = messages.find((m) => m.type === 'error' && m.errorCode === 'stream_error');
+    assert.ok(streamError, 'post-side-effect stream_error must surface instead of blind retry');
+    assert.equal(bridge.resetSession.mock.callCount(), 0, 'must not retry a cascade after file writes');
+    assert.deepEqual(streamError.metadata?.diagnostics?.recoveryDecision, {
+      action: 'surface_resumable_error',
+      reason: 'post_side_effect_interrupted',
+    });
+    assert.equal(
+      streamError.metadata?.diagnostics?.resumeContext?.instruction,
+      'continue_without_repeating_completed_side_effects',
+    );
+    assert.equal(
+      streamError.metadata?.diagnostics?.resumeContext?.completedEffects?.[0]?.target,
+      'docs/stream-after-write.md',
+    );
   });
 
   test('P2b: retry signal shows capacity-specific Chinese text', async () => {

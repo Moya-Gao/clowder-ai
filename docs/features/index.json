@@ -1257,7 +1257,7 @@
     {
       "id": "F203",
       "name": "Native System Prompt L0 — 压缩免疫核心规则注入",
-      "status": "spec | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P1",
       "file": "F203-native-system-prompt-l0.md"
     }
   ]

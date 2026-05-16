@@ -280,8 +280,18 @@ export class AntigravitySideEffectJournal {
   }
 
   toExecutionJournal(input: AntigravityExecutionJournalMetadata): AntigravityExecutionJournalMetadata {
-    // TODO(F201 Phase C): derive compatibility execution metadata from journal state.
-    return { ...input };
+    const summary = this.summary();
+    const observedCompletedOrFailed = [summary.hasCompletedSideEffect, summary.hasFailedSideEffect].some(Boolean);
+    const dispatchAttempted = [input.dispatchAttempted, observedCompletedOrFailed].some(Boolean);
+    const dispatchReturned = [input.dispatchReturned, observedCompletedOrFailed].some(Boolean);
+    const writebackSent = [input.writebackSent, summary.hasCompletedSideEffect].some(Boolean);
+
+    return {
+      approvalSent: input.approvalSent,
+      dispatchAttempted,
+      dispatchReturned,
+      writebackSent,
+    };
   }
 
   async flushAudit(): Promise<void> {

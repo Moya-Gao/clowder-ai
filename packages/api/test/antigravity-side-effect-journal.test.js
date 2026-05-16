@@ -146,18 +146,25 @@ describe('F201 AntigravitySideEffectJournal', () => {
     assert.equal(journal.summary().dedupedEntryCount, 0);
   });
 
-  test('derives legacy executionJournal metadata from the side-effect journal', () => {
+  test('derives legacy executionJournal metadata from completed journal entries', () => {
     const journal = new AntigravitySideEffectJournal({
       threadId: 'thread-1',
       catId: 'antig-opus',
       cascadeId: 'cascade-1',
     });
+    const step = {
+      type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+      status: 'CORTEX_STEP_STATUS_DONE',
+      metadata: { operation: 'write', path: 'docs/example.md' },
+    };
+
+    journal.observeStep({ step, stepIndex: 7, effect: classifyAntigravityStepEffect(step) });
 
     const legacy = journal.toExecutionJournal({
       approvalSent: false,
-      dispatchAttempted: true,
-      dispatchReturned: true,
-      writebackSent: true,
+      dispatchAttempted: false,
+      dispatchReturned: false,
+      writebackSent: false,
     });
 
     assert.deepEqual(legacy, {
@@ -166,6 +173,36 @@ describe('F201 AntigravitySideEffectJournal', () => {
       dispatchReturned: true,
       writebackSent: true,
     });
+  });
+
+  test('keeps pending executionJournal metadata before dispatch while journal carries the pending effect', () => {
+    const journal = new AntigravitySideEffectJournal({
+      threadId: 'thread-1',
+      catId: 'antig-opus',
+      cascadeId: 'cascade-1',
+    });
+    const step = {
+      type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+      status: 'CORTEX_STEP_STATUS_WAITING',
+      runCommand: { commandLine: 'touch tmp/example' },
+    };
+
+    journal.observeStep({ step, stepIndex: 8, effect: classifyAntigravityStepEffect(step) });
+
+    const legacy = journal.toExecutionJournal({
+      approvalSent: false,
+      dispatchAttempted: false,
+      dispatchReturned: false,
+      writebackSent: false,
+    });
+
+    assert.deepEqual(legacy, {
+      approvalSent: false,
+      dispatchAttempted: false,
+      dispatchReturned: false,
+      writebackSent: false,
+    });
+    assert.equal(journal.summary().hasPendingOrUnknownSideEffect, true);
   });
 
   test('buildAntigravitySideEffectJournalEntry creates non-empty synthetic keys for pending effects', () => {
