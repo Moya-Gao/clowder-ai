@@ -8,7 +8,7 @@ created: 2026-05-15
 
 # F203: Native System Prompt L0 — 压缩免疫核心规则注入
 
-> **Status**: spec | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P1
 
 ## Why
 
@@ -218,6 +218,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-15 | 砚砚 Phase B review BLOCKING（P1: `pnpm biome` 门禁失败，我误用 `npx biome` 假绿）→ 修复：biome --write 格式 + buildTeammateRoster 复杂度 17→拆 helper + writeL0File（KD-10 CVO directive）。pnpm biome exit 0 + 37 tests（branch `583394f65`），待砚砚 confirm |
 | 2026-05-15 | 砚砚 confirm APPROVE（no findings）→ merge-gate：PR #1694，pnpm gate rebase 6771a3c98。worktree `NODE_ENV=production` 跳 devDeps 踩坑（沉淀 memory）。云端 review COMMENTED 2 finding：P1 CLI entrypoint Windows-broken + P2 roster 未过滤 available。Red→Green 修复（isCliEntrypoint + filterAvailableTeammates 纯函数，44 tests），branch `b01d00003`，待 gate + 云端 re-review |
 | 2026-05-15 | 云端 round-2 review（287b97cdf）2 新 finding，**云端抓到 round-1 P2 连环 bug**：P1 bootstrap loadCatConfig(PATH) 跳过 catalog overlay→isCatAvailable stale→P2 fix 实际无效；P2 roster 用静态 defaultModel 忽略 env override。根治（对齐 SystemPromptBuilder 既定 runtime 模式 no-arg loadCatConfig catalog overlay + getCatModel，KD-13），45 tests pass，gate rebase `245080ed`。云端 2 轮（§16d Round 3 黄灯）→ 先 @ 砚砚本地判断根治 + Phase 边界，不并行 re-trigger 云端 |
+| 2026-05-15 | 砚砚本地 APPROVE round-2 根治（确认根治成立 + Phase B 内 + 非 spiral，复跑 45/45 + override 生效）→ re-trigger 云端 round-3 → **云端 "Didn't find any major issues"（clean，根治确认非 spiral）**。**Phase B merged (PR #1694, squash `a1b114ef9`)**——本地砚砚×3轮(BLOCKING×2→APPROVE) + 云端×3轮(round-1/2 4-finding 全根治→round-3 clean)。Status spec→in-progress |
 
 ## Review Gate
 
