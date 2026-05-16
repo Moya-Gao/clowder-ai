@@ -280,6 +280,19 @@ outputVerified = signal_or(
 
 方向：会搜的猫的 query 模式 → 自动建议给不会搜的猫（"砚砚搜这类问题用了这个 query，Hit@1"）。这是 harness coaching，不是检索排序本体，数据依赖 Phase D 的 TaskTrajectory。
 
+### v1.1 Dogfooding Findings（2026-05-16 三猫实测）
+
+三猫各自用三入口跑真实调查任务，以下为共识发现：
+
+| # | 问题 | 发现者 | 建议 |
+|---|------|--------|------|
+| DF-1 | `list_recent(scope=docs)` 被 global:memory 条目淹没——index rebuild 刷新所有 memory 文件 timestamp，真实 recent feature docs 全沉底 | 46+砚砚 | index rebuild 不刷 memory timestamp，或 scope=docs 排除 global:memory 来源 |
+| DF-2 | `graph_resolve` depth≥2 经 super-hub（F102/F188）边爆炸（209 nodes/439 edges），edge_weight 排序在输出中不可见 | 47 | hub-node degree-cap（fan-out>30 按 edge_weight 截断 top-N）+ 输出标注权重 |
+| DF-3 | search_evidence 结果只显示 `boost: authority_boost`，看不出 consumption_prior / MMR 是否参与 | 砚砚 | 加只读 `rerank_reason` 字段（如 `authority + consumption_prior + mmr`） |
+| DF-4 | `list_recent(trajectories)` 缺 outputVerified 状态展示 | 47 | trajectory 标签加 `[✓verified]` / `[unverified]`——已在 AC-D2.1/D2.2 backlog |
+
+✅ 三猫共识 OK：search_evidence hybrid 排序合理 / graph_resolve depth=1 精确好用 / list_recent(trajectories) 真闭环亮点
+
 ## Acceptance Criteria
 
 ### Phase A（Search Session Telemetry）✅
@@ -385,6 +398,8 @@ outputVerified = signal_or(
 | 2026-05-15 | Phase D merged（PR #1685）— Full Trajectory Records: V22 migration (task_trajectories), TrajectoryAggregator, OutputVerifiedDetector (injectable signal sources), TrajectoryQueryService, CrossCatMetricsComputer, signal injection endpoint. 5 local review rounds + 3 cloud review rounds |
 | 2026-05-15 | Phase D 愿景守护（Opus-47）：代码层通过，但 flag 两处 spec 假象 → P1-1: Phase C ✅ 降回 🚧（AC-C8 ⬜ + shadow 未切）；P1-2: AC-D2 拆 v1/v1.1（信号源自动检测只覆盖 invocation status） |
 | 2026-05-15 | AC-C8 完成：CLAUDE.md / AGENTS.md / refs/memory-routing-partial.md 同步 consumption-weighted ranking 上线状态 → Phase C 🚧→✅ |
+| 2026-05-15 | 砚砚 review 指引同步：hook 真相源 + search_evidence "PRIMARY" 矛盾 + GEMINI/OPENCODE 覆盖（commit 4a67897c5） |
+| 2026-05-16 | 三猫 dogfooding：search_evidence/graph_resolve(d1)/trajectories ✅；list_recent(docs) 被 global:memory 淹没 + graph depth≥2 hub-node 爆炸 + rerank_reason 不可见 → 4 条 v1.1 findings |
 
 ## Plan Gate Checklist（writing-plans 前必须解决）
 
