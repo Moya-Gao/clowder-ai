@@ -395,7 +395,7 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     assert.equal(msgs[msgs.length - 1].type, 'done');
   });
 
-  test('separates multi-turn assistant text with paragraph breaks (turn newline fix)', async () => {
+  test('raw-concats consecutive assistant streaming deltas without synthetic separators', async () => {
     const proc = createMockProcess();
     const spawnFn = createMockSpawnFn(proc);
     const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
@@ -416,13 +416,12 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     const textMsgs = msgs.filter((m) => m.type === 'text');
 
     assert.equal(textMsgs.length, 3);
-    assert.equal(textMsgs[0].content, 'First turn', 'first turn has no prefix');
-    assert.equal(textMsgs[1].content, '\n\nSecond turn', 'second turn gets paragraph break');
-    assert.equal(textMsgs[2].content, '\n\nThird turn', 'third turn gets paragraph break');
+    assert.equal(textMsgs[0].content, 'First turn');
+    assert.equal(textMsgs[1].content, 'Second turn', 'no synthetic \\n\\n prefix');
+    assert.equal(textMsgs[2].content, 'Third turn', 'no synthetic \\n\\n prefix');
 
-    // Verify concatenation produces proper markdown
     const combined = textMsgs.map((m) => m.content).join('');
-    assert.equal(combined, 'First turn\n\nSecond turn\n\nThird turn');
+    assert.equal(combined, 'First turnSecond turnThird turn');
   });
 });
 

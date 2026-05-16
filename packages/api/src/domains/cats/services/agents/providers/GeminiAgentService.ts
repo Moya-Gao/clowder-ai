@@ -513,16 +513,12 @@ export class GeminiAgentService implements AgentService {
             metadata.sessionId = result.sessionId;
           }
           if (result.type === 'text') {
-            // Separate consecutive assistant text turns with paragraph break.
-            // Each Gemini message/assistant is a complete turn (unlike Claude's
-            // incremental deltas), so direct concatenation loses inter-turn spacing.
-            if (sawAssistantText && result.content) {
-              fullAssistantText += `\n\n${result.content}`;
-              yield { ...result, content: `\n\n${result.content}`, metadata };
-            } else {
-              fullAssistantText += result.content ?? '';
-              yield { ...result, metadata };
-            }
+            // Gemini CLI stream-json emits each content chunk as a separate
+            // message/assistant event with delta:true. These are streaming
+            // deltas, not complete turns. Raw concat is correct; the model's
+            // own content includes newlines where paragraph breaks are intended.
+            fullAssistantText += result.content ?? '';
+            yield { ...result, metadata };
             sawAssistantText = true;
           } else {
             if (fromResultError && result.type === 'error') {
