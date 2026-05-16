@@ -220,6 +220,36 @@ describe('F201 classifyAntigravityStepEffect', () => {
     }
   });
 
+  test('RUN_COMMAND classifier reads CommandLine from metadata toolCall arguments', () => {
+    const readOnly = classifyAntigravityStepEffect({
+      type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+      status: 'CORTEX_STEP_STATUS_WAITING',
+      metadata: {
+        toolCall: {
+          id: 'toolu_read_only',
+          name: 'run_command',
+          argumentsJson: '{"CommandLine":"git log --oneline -5","Cwd":"/tmp","SafeToAutoRun":true}',
+        },
+      },
+    });
+    assert.equal(readOnly.kind, 'tool_read');
+    assert.equal(readOnly.blocksBlindRetry, false);
+
+    const mutating = classifyAntigravityStepEffect({
+      type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+      status: 'CORTEX_STEP_STATUS_WAITING',
+      metadata: {
+        toolCall: {
+          id: 'toolu_mutating',
+          name: 'run_command',
+          argumentsJson: '{"CommandLine":"touch tmp/example","Cwd":"/tmp","SafeToAutoRun":true}',
+        },
+      },
+    });
+    assert.equal(mutating.kind, 'side_effect_pending');
+    assert.equal(mutating.blocksBlindRetry, true);
+  });
+
   test('UI bucket checkpoint does not imply retry-safe effect classification', () => {
     const fixtures = [
       {

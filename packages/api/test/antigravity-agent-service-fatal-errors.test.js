@@ -1,8 +1,27 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, mock, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { AntigravityAgentService } from '../dist/domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { collect, createMockBridge } from './antigravity-agent-service-test-helpers.js';
+
+function readSideEffectAuditEntriesByInvocation(invocationId) {
+  const auditPath = path.join(
+    process.cwd(),
+    'data',
+    'antigravity-audit',
+    `side-effect-journal-${new Date().toISOString().slice(0, 10)}.jsonl`,
+  );
+  if (!fs.existsSync(auditPath)) return [];
+  return fs
+    .readFileSync(auditPath, 'utf-8')
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line))
+    .filter((entry) => entry.invocationId === invocationId);
+}
 
 describe('AntigravityAgentService (Bridge) — fatal errors', () => {
   test('model_capacity retries on a fresh cascade and recovers without surfacing a final error', async () => {
@@ -754,6 +773,12 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.equal(capacity.metadata?.diagnostics?.dispatchState, 'after_dispatch');
     assert.equal(capacity.metadata?.diagnostics?.retrySuppressedBy, 'resolved_toolish_step_seen');
     assert.equal(capacity.metadata?.diagnostics?.toolishStepType, 'CORTEX_STEP_TYPE_CODE_ACTION');
+    assert.equal(capacity.metadata?.diagnostics?.sideEffectJournal?.hasCompletedSideEffect, true);
+    assert.equal(capacity.metadata?.diagnostics?.sideEffectJournal?.blocksBlindRetry, true);
+    assert.equal(capacity.metadata?.diagnostics?.sideEffectJournal?.entries?.length, 1);
+    assert.equal(capacity.metadata?.diagnostics?.sideEffectJournal?.entries?.[0]?.operation, 'write');
+    assert.equal(capacity.metadata?.diagnostics?.sideEffectJournal?.entries?.[0]?.target, 'docs/example.md');
+    assert.match(capacity.metadata?.diagnostics?.sideEffectJournal?.entries?.[0]?.idempotencyKey, /^done:code:write:/);
   });
 
   test('model_capacity retries when the blocked waiting run_command is read-only and undispatched', async () => {
@@ -2420,5 +2445,46 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.equal(streamErrors.length, 1, 'stream_error must surface when toolish step blocks retry');
     assert.equal(bridge.resetSession.mock.callCount(), 0, 'must NOT reset session — toolish step was in-flight');
     assert.equal(bridge.sendMessage.mock.callCount(), 1, 'must NOT resend — single attempt only');
+  });
+
+  test('flushes side-effect journal audit when poll fails after an observed side effect', async () => {
+    const invocationId = `inv-f201-outer-catch-flush-${Date.now()}-${process.pid}`;
+    const bridge = createMockBridge({ cascadeId: 'cascade-f201-outer-catch-flush' });
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            metadata: { operation: 'write', path: 'docs/f201-outer-catch.md' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      throw new Error('Antigravity poll RPC exhausted after side effect');
+    };
+
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const messages = await collect(
+      service.invoke('hello', {
+        auditContext: {
+          threadId: 'thread-f201-outer-catch-flush',
+          invocationId,
+          userId: 'u1',
+          catId: 'antigravity',
+        },
+      }),
+    );
+
+    assert.ok(
+      messages.some((msg) => msg.type === 'error' && /poll RPC exhausted/.test(msg.error ?? '')),
+      'outer catch should still surface the poll failure',
+    );
+
+    const auditEntries = readSideEffectAuditEntriesByInvocation(invocationId);
+    assert.equal(auditEntries.length, 1, 'observed side effect must be flushed before outer catch returns');
+    assert.equal(auditEntries[0].target, 'docs/f201-outer-catch.md');
+    assert.equal(auditEntries[0].operation, 'write');
+    assert.equal(auditEntries[0].status, 'done');
   });
 });

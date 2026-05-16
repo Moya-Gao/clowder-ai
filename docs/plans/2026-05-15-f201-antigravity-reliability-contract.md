@@ -31,7 +31,7 @@ F201 不新增第三套长期分类系统。迁移边界如下：
 |----------------|------|-------------|
 | `classifyStep()` | UI bucket mapping：text/thinking/tool activity/error 是否显示给前端 | 保留，但遇到 effect-sensitive step 时调用 `classifyAntigravityStepEffect()` 取 effect metadata，不自己判断 retry safety |
 | `batchHasToolishStep` inline boolean | 旧 retry gate 的粗粒度 side-effect guard | 删除/替换；retry gate 改读 `AntigravitySideEffectJournal.hasUnsafeSideEffect()` / `hasCompletedSideEffect()` |
-| `executionJournal` inline metadata | 旧错误 metadata 里的临时 execution summary | 被 `AntigravitySideEffectJournal` subsume；若还需兼容字段，由 journal summary 派生 |
+| `executionJournal` inline metadata | 旧错误 metadata 里的临时 execution summary | Phase B 改为 `AntigravitySideEffectJournal` passthrough wrapper；Phase C 由 journal state 真正派生兼容字段 |
 | `classifyAntigravityStepEffect()` | single source of truth for side-effect/retry safety | 新增；所有 retry/resume/smoke 判断只读这一套 effect semantics |
 | `shouldRetryTransient` inline decision | F061 Phase 3 的 transient retry gate | 由 `decideAntigravityRecovery()` 接管；保留 `classifyUpstreamError()` / `humanErrorMessage()` helpers，不保留第二套 retry policy |
 
@@ -157,7 +157,7 @@ Storage v1:
 - In-memory per invocation for decisioning.
 - JSONL audit under existing Antigravity audit area for local diagnosis.
 - Include journal summary in emitted error metadata.
-- Replace the current inline `executionJournal` metadata source; compatibility metadata, if needed, is derived from `AntigravitySideEffectJournal.summary()`.
+- Replace the current inline `executionJournal` metadata source with an `AntigravitySideEffectJournal` passthrough wrapper in Phase B; Phase C derives compatibility metadata from journal state.
 
 **Tests**
 

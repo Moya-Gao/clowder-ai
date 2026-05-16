@@ -140,6 +140,24 @@ function metadataString(step: TrajectoryStep, key: string): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
+function recordString(record: Record<string, unknown>, key: string): string | undefined {
+  const value = record[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function commandLineFromMetadataToolCall(step: TrajectoryStep): string | undefined {
+  const argumentsJson = step.metadata?.toolCall?.argumentsJson;
+  if (!argumentsJson) return undefined;
+  try {
+    const parsed = JSON.parse(argumentsJson) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+    const args = parsed as Record<string, unknown>;
+    return recordString(args, 'CommandLine') ?? recordString(args, 'commandLine');
+  } catch {
+    return undefined;
+  }
+}
+
 export function isReadOnlyMcpTool(toolName: string | undefined): boolean {
   const normalized = normalizeName(toolName);
   if (!normalized) return false;
@@ -204,7 +222,8 @@ export function classifyAntigravityStepEffect(step: TrajectoryStep): Antigravity
   }
 
   if (step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND') {
-    const command = step.runCommand?.commandLine ?? step.runCommand?.proposedCommandLine;
+    const command =
+      step.runCommand?.commandLine ?? step.runCommand?.proposedCommandLine ?? commandLineFromMetadataToolCall(step);
     if (isReadOnlyCommand(command))
       return { ...safeEffect('tool_read', 'read-only shell command'), effectType: 'shell' };
     return {

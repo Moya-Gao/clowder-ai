@@ -23,6 +23,7 @@ import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata }
 import { appendLocalImagePathHints } from '../image-cli-bridge.js';
 import { extractImagePaths } from '../image-paths.js';
 import { AntigravityBridge, type BridgeConnection, type TrajectoryStep } from './AntigravityBridge.js';
+import { AntigravitySideEffectJournal } from './AntigravitySideEffectJournal.js';
 import type { UpstreamErrorKind } from './antigravity-event-transformer.js';
 import { classifyStep, humanErrorMessage, transformTrajectorySteps } from './antigravity-event-transformer.js';
 import {
@@ -155,6 +156,7 @@ export class AntigravityAgentService implements AgentService {
       model: this.model,
       modelVerified: !!this.bridge.resolveModelId(this.model),
     };
+    let flushSideEffectJournalAudit = async () => {};
 
     try {
       // Abort check
@@ -183,6 +185,22 @@ export class AntigravityAgentService implements AgentService {
 
       const threadId = options?.auditContext?.threadId ?? `ephemeral-${Date.now()}`;
       let cascadeId = await this.bridge.getOrCreateSession(threadId, this.catId as string);
+      const createSideEffectJournal = (journalCascadeId: string) =>
+        new AntigravitySideEffectJournal({
+          threadId,
+          catId: this.catId as string,
+          cascadeId: journalCascadeId,
+          ...(options?.auditContext?.invocationId ? { invocationId: options.auditContext.invocationId } : {}),
+          auditDir: join(process.cwd(), 'data', 'antigravity-audit'),
+        });
+      let sideEffectJournal = createSideEffectJournal(cascadeId);
+      flushSideEffectJournalAudit = async () => {
+        try {
+          await sideEffectJournal.flushAudit();
+        } catch (err) {
+          log.warn({ cascadeId, err }, 'Antigravity side-effect journal audit write failed');
+        }
+      };
       let capacityRetryCount = 0;
       let pendingTextReplace = false;
 
@@ -385,16 +403,21 @@ export class AntigravityAgentService implements AgentService {
               const stepEffects = new Map(
                 batch.steps.map((step) => [step, classifyAntigravityStepEffect(step)] as const),
               );
+              for (const [index, step] of batch.steps.entries()) {
+                const effect = stepEffects.get(step);
+                if (!effect) continue;
+                sideEffectJournal.observeStep({
+                  step,
+                  stepIndex: step.metadata?.sourceTrajectoryStepInfo?.stepIndex ?? previousLastDelivered + index,
+                  effect,
+                });
+              }
               const effectForStep = (step: (typeof batch.steps)[number]) => stepEffects.get(step);
               const batchEffectSummary = summarizeAntigravityEffects([...stepEffects.values()]);
-              const isLegacyToolishStep = (step: (typeof batch.steps)[number]) =>
-                step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND' ||
-                step.status === 'CORTEX_STEP_STATUS_WAITING' ||
-                Boolean(step.toolCall) ||
-                Boolean(step.toolResult) ||
-                Boolean(step.metadata?.toolCall?.id);
-              const isF201ToolishStep = (step: (typeof batch.steps)[number]) =>
-                isLegacyToolishStep(step) ? true : effectForStep(step)?.blocksBlindRetry === true;
+              const isF201ToolishStep = (step: (typeof batch.steps)[number]) => {
+                const effect = effectForStep(step);
+                return effect?.blocksBlindRetry === true || effect?.kind === 'tool_read';
+              };
               const isResolvedF201ToolishStep = (step: (typeof batch.steps)[number]) => {
                 if (step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND') {
                   return step.status !== 'CORTEX_STEP_STATUS_WAITING' && step.status !== 'CORTEX_STEP_STATUS_ERROR';
@@ -406,7 +429,7 @@ export class AntigravityAgentService implements AgentService {
                 if (!effect.blocksBlindRetry) return false;
                 return step.status !== 'CORTEX_STEP_STATUS_WAITING' && step.status !== 'CORTEX_STEP_STATUS_ERROR';
               };
-              const batchHasToolishStep = batch.steps.some(isF201ToolishStep);
+              const batchHasDispatchRelevantStep = batch.steps.some(isF201ToolishStep);
               const batchHasUpstreamError = messages.some(
                 (msg) => msg.type === 'error' && msg.errorCode === 'upstream_error',
               );
@@ -465,6 +488,7 @@ export class AntigravityAgentService implements AgentService {
               // can prove dispatch/writeback state more precisely.
               const singleBlockingWaitingRunCommand =
                 allBatchToolishStepCount === 1 &&
+                !batchEffectSummary.blocksBlindRetry &&
                 waitingToolishSteps.length === 1 &&
                 blockingStepIsRunCommand &&
                 blockingToolishStep?.status === 'CORTEX_STEP_STATUS_WAITING' &&
@@ -481,12 +505,12 @@ export class AntigravityAgentService implements AgentService {
                   attemptHasNativeDispatch ||
                   attemptHasDispatchedToolResult
                     ? 'after_dispatch'
-                    : batchHasToolishStep
+                    : batchHasDispatchRelevantStep || waitingToolishSteps.length > 0
                       ? 'before_dispatch'
                       : 'unknown',
                 toolishStepType: blockingToolishStep?.type,
                 toolishToolName,
-                executionJournal: {
+                executionJournal: sideEffectJournal.toExecutionJournal({
                   approvalSent: false,
                   dispatchAttempted:
                     batchHasResolvedToolishStep ||
@@ -503,7 +527,8 @@ export class AntigravityAgentService implements AgentService {
                     attemptHasResolvedToolishStep ||
                     attemptHasNativeDispatch ||
                     attemptHasDispatchedToolResult,
-                },
+                }),
+                sideEffectJournal: sideEffectJournal.summary(),
                 sideEffectSummary: {
                   hasUnsafeSideEffect: batchEffectSummary.hasUnsafeSideEffect,
                   hasCompletedSideEffect: batchEffectSummary.hasCompletedSideEffect,
@@ -527,7 +552,7 @@ export class AntigravityAgentService implements AgentService {
                 !attemptHasNativeDispatch &&
                 !attemptHasToolActivity &&
                 !batchHasToolActivity &&
-                (!batchHasToolishStep || toolishRetryEligible) &&
+                (!batchHasDispatchRelevantStep || toolishRetryEligible) &&
                 capacityRetryCount < self.modelCapacityRetryDelaysMs.length;
 
               const batchMsgTypeCounts: Record<string, number> = {};
@@ -616,6 +641,7 @@ export class AntigravityAgentService implements AgentService {
                   fatalSeen = true;
                   terminalAbort = true;
                   const errorMetadata = msg.metadata ?? metadata;
+                  await flushSideEffectJournalAudit();
                   // This branch is exactly the ambiguity we are debugging:
                   // the model has surfaced a capacity error, but we also saw a
                   // tool-ish step in the same batch, so automatic retry is
@@ -635,7 +661,7 @@ export class AntigravityAgentService implements AgentService {
                                 ? 'native_dispatch_seen'
                                 : attemptHasToolActivity || batchHasToolActivity
                                   ? 'tool_activity_seen'
-                                  : batchHasToolishStep && !toolishRetryEligible
+                                  : batchHasDispatchRelevantStep && !toolishRetryEligible
                                     ? 'toolish_step_present'
                                     : batchHasUpstreamError
                                       ? 'cooccurring_upstream_error'
@@ -771,7 +797,7 @@ export class AntigravityAgentService implements AgentService {
                   log.warn(`nativeExecuteAndPush failed for step: ${err}`);
                 }
               }
-              if (batchHasToolishStep) {
+              if (batchHasDispatchRelevantStep) {
                 attemptHasToolishStep = true;
               }
               if (batchHasResolvedToolishStep) {
@@ -870,6 +896,7 @@ export class AntigravityAgentService implements AgentService {
           await sleepWithAbort(modelCapacityRetryDelayMs, options?.signal);
           this.bridge.resetSession(threadId, this.catId as string);
           cascadeId = await this.bridge.getOrCreateSession(threadId, this.catId as string);
+          sideEffectJournal = createSideEffectJournal(cascadeId);
           yield makeSessionInit(cascadeId);
           continue;
         }
@@ -880,6 +907,7 @@ export class AntigravityAgentService implements AgentService {
         // empty_response only fires when neither text NOR an image surfaced.
         const sawImageOutput = collectedGenerateImageSteps.length > 0 || collectedImagePaths.size > 0;
         if (!hasText && !fatalSeen && !sawImageOutput) {
+          const sideEffectJournalSummary = sideEffectJournal.summary();
           const diagnostics = {
             totalStepsSeen,
             rawStepTypeCounts,
@@ -889,8 +917,23 @@ export class AntigravityAgentService implements AgentService {
             hasText,
             fatalSeen,
             cascadeId,
+            sideEffectJournal: sideEffectJournalSummary,
+            sideEffectSummary: {
+              hasUnsafeSideEffect: sideEffectJournalSummary.hasUnsafeSideEffect,
+              hasCompletedSideEffect: sideEffectJournalSummary.hasCompletedSideEffect,
+              hasFailedSideEffect: sideEffectJournalSummary.hasFailedSideEffect,
+              blocksBlindRetry: sideEffectJournalSummary.blocksBlindRetry,
+              effects: sideEffectJournalSummary.entries.map((entry) => ({
+                kind: entry.effectKind,
+                effectType: entry.effectType,
+                target: entry.target,
+                operation: entry.operation,
+                status: entry.status,
+              })),
+            },
           };
           log.warn(diagnostics, 'empty_response triggered — no text received from Antigravity');
+          await flushSideEffectJournalAudit();
           yield {
             type: 'error',
             catId: this.catId,
@@ -954,12 +997,14 @@ export class AntigravityAgentService implements AgentService {
           }
         }
 
+        await flushSideEffectJournalAudit();
         yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
         return;
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       log.error(`invoke failed: ${errorMsg}`);
+      await flushSideEffectJournalAudit();
       yield { type: 'error', catId: this.catId, error: errorMsg, metadata, timestamp: Date.now() };
       yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
     }
