@@ -107,6 +107,45 @@ describe('RunCommandExecutor', () => {
     assert.equal(rpc.mock.callCount(), 0);
   });
 
+  test('refuses equivalent recursive root deletes', async () => {
+    const rpc = mock.fn();
+    const exec = new RunCommandExecutor({ rpc });
+    const variants = [
+      'rm -rf -- /',
+      'rm -rf /*',
+      'rm -fr /',
+      'rm -r -f /',
+      'sudo rm -Rf /',
+      'echo before && rm -rf /',
+      'rm -rf --no-preserve-root /.',
+      'rm -rf /./',
+      "rm -rf '/.'",
+      'rm -rf /./*',
+      'rm -rf /tmp/..',
+      '/bin/rm -rf /',
+      '/usr/bin/rm -rf /',
+      'RM -rf /',
+    ];
+
+    for (const commandLine of variants) {
+      const result = await exec.execute({ commandLine, cwd: '/tmp' }, ctx());
+      assert.equal(result.status, 'refused', `should refuse: ${commandLine}`);
+    }
+    assert.equal(rpc.mock.callCount(), 0);
+  });
+
+  test('does not refuse non-root recursive deletes', async () => {
+    const rpc = mock.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 }));
+    const exec = new RunCommandExecutor({ rpc });
+    const allowed = ['rm -rf /tmp/cat-cafe-smoke', 'rm -rf ./dist'];
+
+    for (const commandLine of allowed) {
+      const result = await exec.execute({ commandLine, cwd: '/tmp' }, ctx());
+      assert.equal(result.status, 'success', `should allow RPC execution: ${commandLine}`);
+    }
+    assert.equal(rpc.mock.callCount(), allowed.length);
+  });
+
   test('returns error status on rpc failure', async () => {
     const rpc = mock.fn(async () => {
       throw new Error('RPC boom');

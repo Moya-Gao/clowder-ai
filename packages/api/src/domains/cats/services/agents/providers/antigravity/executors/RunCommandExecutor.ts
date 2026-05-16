@@ -1,3 +1,4 @@
+import path from 'node:path';
 import type { TrajectoryStep } from '../AntigravityBridge.js';
 import type { AntigravityToolExecutor, ExecutorContext, ExecutorResult } from './AntigravityToolExecutor.js';
 import { resolveToolName } from './ExecutorRegistry.js';
@@ -19,12 +20,12 @@ type RpcFn = (
 ) => Promise<RunCommandResponse>;
 
 const REDIS_SANCTUM_REASON = 'Redis 6399 is user sanctum (read-only by rule)';
+const RM_RECURSIVE_ROOT_REASON = 'recursive root delete is always refused';
 const FORBIDDEN_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
   { pattern: /-p\s*6399\b/i, reason: REDIS_SANCTUM_REASON },
   { pattern: /--port[=\s]+6399\b/i, reason: REDIS_SANCTUM_REASON },
   { pattern: /rediss?:\/\/[^\s"']*:6399\b/i, reason: REDIS_SANCTUM_REASON },
   { pattern: /\bport\s*:\s*6399\b/i, reason: REDIS_SANCTUM_REASON },
-  { pattern: /\brm\s+-rf\s+\/(\s|$)/i, reason: 'rm -rf / is always refused' },
   { pattern: /:\(\)\{\s*:\|:/i, reason: 'fork bomb pattern refused' },
 ];
 // Any shell control syntax makes the command unsafe for automatic replay.
@@ -47,7 +48,65 @@ const READ_ONLY_PATTERNS: RegExp[] = [
   /^\s*git\s+show(?:\s|$)/i,
 ];
 
+function tokenizeShellLike(segment: string): string[] {
+  const tokens = segment.match(/"[^"]*"|'[^']*'|\S+/g);
+  if (!tokens) return [];
+  return tokens.map((token) => {
+    if (token.startsWith('"') && token.endsWith('"')) return token.slice(1, -1);
+    if (token.startsWith("'") && token.endsWith("'")) return token.slice(1, -1);
+    return token;
+  });
+}
+
+function isRmRecursiveForceFlag(token: string): { recursive: boolean; force: boolean } {
+  if (!/^-[A-Za-z]+$/.test(token)) return { recursive: false, force: false };
+  return {
+    recursive: /[rR]/.test(token),
+    force: /f/.test(token),
+  };
+}
+
+function isRootDeleteTarget(token: string): boolean {
+  const withoutTrailingGlob = token.endsWith('/*') ? token.slice(0, -1) : token;
+  return path.posix.normalize(withoutTrailingGlob) === '/';
+}
+
+function isRmCommandToken(token: string): boolean {
+  return path.posix.basename(token.replaceAll('\\', '/')).toLowerCase() === 'rm';
+}
+
+function hasRecursiveRootDelete(commandLine: string): boolean {
+  const segments = commandLine.split(/[;&|\n\r]+/);
+  for (const segment of segments) {
+    const tokens = tokenizeShellLike(segment);
+    for (let i = 0; i < tokens.length; i += 1) {
+      if (!isRmCommandToken(tokens[i])) continue;
+      let hasRecursive = false;
+      let hasForce = false;
+      for (const token of tokens.slice(i + 1)) {
+        if (token.startsWith('--')) continue;
+        const flag = isRmRecursiveForceFlag(token);
+        if (flag.recursive) {
+          hasRecursive = true;
+        }
+        if (flag.force) {
+          hasForce = true;
+        }
+        if (flag.recursive) {
+          continue;
+        }
+        if (flag.force) {
+          continue;
+        }
+        if (hasRecursive && hasForce && isRootDeleteTarget(token)) return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function getRunCommandRefusalReason(commandLine: string): string | null {
+  if (hasRecursiveRootDelete(commandLine)) return RM_RECURSIVE_ROOT_REASON;
   for (const { pattern, reason } of FORBIDDEN_PATTERNS) {
     if (pattern.test(commandLine)) return reason;
   }

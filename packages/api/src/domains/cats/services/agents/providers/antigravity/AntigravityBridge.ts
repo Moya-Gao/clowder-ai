@@ -178,12 +178,6 @@ export class AntigravityBridge {
       return false;
     }
 
-    // Respect Antigravity's approval metadata: only auto-execute steps the model
-    // explicitly marked as safe-to-auto-run. SafeToAutoRun=false / missing → fall
-    // back to normal approval flow (user or autoApprove via HandleCascadeUserInteraction).
-    // Return 'approval_pending' (truthy) so callers can distinguish from genuinely unsupported steps (false).
-    if (args.SafeToAutoRun !== true) return 'approval_pending';
-
     const commandLine = ((args.CommandLine as string | undefined) ?? (args.commandLine as string | undefined))?.trim();
     if (!commandLine) return false;
     const cwd = (args.Cwd as string | undefined) ?? (args.cwd as string | undefined) ?? opts.cwd;
@@ -215,6 +209,13 @@ export class AntigravityBridge {
       await this.pushToolResult(opts.cascadeId, stepIndex, result, input, opts.modelName);
       return true;
     }
+
+    // Antigravity has no usable approval surface in Cat Cafe's runtime path.
+    // Default to YOLO for run_command, matching Codex/Claude/OpenCode behavior,
+    // while retaining an env opt-out for emergency rollback. Local hard refusal
+    // rules above still run before any LS approval/execution.
+    const yoloRunCommand = process.env.ANTIGRAVITY_YOLO_RUN_COMMAND !== 'false';
+    if (args.SafeToAutoRun !== true && !yoloRunCommand) return 'approval_pending';
 
     // Stage 1: try to satisfy LS PermissionManager before invoking the native executor.
     // If the hint RPC itself fails, still continue to the writeback fallback path.

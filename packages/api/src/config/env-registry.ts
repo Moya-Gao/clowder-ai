@@ -1589,6 +1589,14 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'ANTIGRAVITY_YOLO_RUN_COMMAND',
+    defaultValue: 'true',
+    description:
+      'YOLO 模式：run_command 即使 SafeToAutoRun=false/missing 也走 native execution + writeback（设 false 回退 approval_pending）',
+    category: 'antigravity',
+    sensitive: false,
+  },
+  {
     name: 'ANTIGRAVITY_TRACE_RAW',
     defaultValue: '(未设置 → 关闭)',
     description: '设为 1 启用 Antigravity 原始轨迹 dump（rpc raw response + step shape snapshot）',
