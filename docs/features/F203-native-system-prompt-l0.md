@@ -120,7 +120,9 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
   - 改完 → `pnpm gate` + runtime 重启验收（KD-5 git revert 回滚通道）
 - read-only 还是可编辑？→ Design Gate 决定（read-only 安全简单；可编辑要 + dirty/save/reload + 影响范围警告）
 
-依赖：Phase C 合入 main（L0 注入通道稳定后才有意义可见化）。建议作为独立 PR / 独立 thread 跟进。
+**Design Gate 决定（AC-F1，2026-05-16 opus-47，autonomous）**：**read-only**（做 AC-F2/F3/F4，**defer AC-F5 可编辑**）。依据：① 铲屎官原话是"**可见**/看...**到底是什么**/知道要去**修改什么**"——诉求是可见性 + 修改入口指引，非 in-app 编辑器；② AC-F5 spec 明标"（可选）"；③ L0 治理全猫 identity/家规/safety，web-editable = P0 风险面，而 file+git+`pnpm gate`+restart 已是 KD-5 文档化回滚通道，可编辑 marginal gain ≪ risk（YAGNI/P-value）。read-only 100% 覆盖铲屎官诉求。AC-F5 additive，铲屎官日后要 in-app 编辑可低成本重启。剩余 Design Gate（template/compiled 切换形态 + per-cat 切换 UX）走 console-dev 前端交付范式（Design gate 由设计/暹罗猫审，非逐步铲屎官）。
+
+依赖：Phase C 合入 main（L0 注入通道稳定后才有意义可见化）✅ 已合入。建议作为独立 PR / 独立 thread 跟进。
 
 ## Acceptance Criteria
 
@@ -169,11 +171,11 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 
 ### Phase F（系统提示词可见化）
 
-- [ ] AC-F1: Design Gate——决定 read-only vs 可编辑、template/compiled 切换形态、per-cat 切换 UX
+- [~] AC-F1: Design Gate——read-only vs 可编辑 ✅ 决定 = **read-only（defer AC-F5）**（见上方 Design Gate 决定）；剩 template/compiled 切换形态 + per-cat 切换 UX → console-dev 计划阶段定
 - [ ] AC-F2: 「规则与 SOP」配置栏加 L0 查看区，对接 `assets/system-prompts/system-prompt-l0.md` template
 - [ ] AC-F3: per-cat compiled L0 渲染查看（opus-47 / codex / gpt52 / gemini）—— 调 `compileL0({catId})` 出串
 - [ ] AC-F4: 修改路径明示（template 文件路径 + compile 脚本 builder 入口 + 改完 `pnpm gate` + runtime 重启）
-- [ ] AC-F5（可选）：可编辑（dirty/save/reload + 影响范围警告 + 写回 `assets/system-prompts/system-prompt-l0.md`）—— Design Gate 决定是否做
+- [⊘] AC-F5（可选）：可编辑（dirty/save/reload + 影响范围警告 + 写回）—— **Design Gate 决定 DEFER（不做）**：铲屎官诉求是可见性非编辑器，web-editable 治理 prompt = P0 风险面，KD-5 file+git+gate+restart 已是回滚通道。additive，日后需要可低成本重启
 
 ## Dependencies
 
