@@ -115,4 +115,13 @@ describe('F201 Antigravity recovery policy', () => {
       reason: 'read_only_mcp_tool_transient_retry_intentionally_disabled',
     });
   });
+
+  test('empty_response remains terminal without retryable cascade health', () => {
+    const decision = decideAntigravityRecovery(baseContext({ errorCode: 'empty_response' }));
+
+    assert.deepEqual(decision, {
+      action: 'surface_terminal_error',
+      reason: 'empty_response_without_retryable_cascade_health',
+    });
+  });
 });

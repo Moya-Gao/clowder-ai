@@ -3,6 +3,12 @@ import http from 'node:http';
 import https from 'node:https';
 import { dirname, join } from 'node:path';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
+import {
+  type AntigravityCascadeHealthSnapshot,
+  type AntigravityCascadeHealthThresholds,
+  assessAntigravityCascadeHealth,
+  cascadeHealthThresholdsFromEnv,
+} from './antigravity-cascade-health.js';
 import { discoverAntigravityLS } from './antigravity-ls-discovery.js';
 import { diffDeliveredSteps } from './antigravity-step-delta.js';
 import { RAW_RESPONSE_CAP, TRACE_ENABLED, TRACED_METHODS, traceLog } from './antigravity-trace.js';
@@ -281,6 +287,19 @@ export class AntigravityBridge {
 
   async getTrajectory(cascadeId: string): Promise<CascadeTrajectory> {
     return this.rpcSafe<CascadeTrajectory>('GetCascadeTrajectory', { cascadeId });
+  }
+
+  async getCascadeHealth(
+    cascadeId: string,
+    thresholds: AntigravityCascadeHealthThresholds = cascadeHealthThresholdsFromEnv(),
+  ): Promise<AntigravityCascadeHealthSnapshot> {
+    const trajectory = await this.getTrajectory(cascadeId);
+    return assessAntigravityCascadeHealth({
+      cascadeId,
+      trajectory,
+      thresholds,
+      checkedAt: Date.now(),
+    });
   }
 
   async *pollForSteps(

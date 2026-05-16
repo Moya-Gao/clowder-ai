@@ -87,7 +87,7 @@ F201 关闭时，Antigravity 必须满足以下契约：
 
 ### AC-A: Incident Classification
 
-- [ ] AC-A1: `empty_response` metadata 至少包含 `cascadeId`、`totalStepsSeen`、`rawStepTypeCounts`、`lastDelivered`、`cascadeHealth`、`sideEffectSummary`。
+- [x] AC-A1: `empty_response` metadata 至少包含 `cascadeId`、`totalStepsSeen`、`rawStepTypeCounts`、`lastDelivered`、`cascadeHealth`、`sideEffectSummary`。
 - [ ] AC-A2: `stream_error` 根据 side-effect 状态分为 `pre_side_effect_transient`、`post_side_effect_interrupted`、`upstream_stream_interrupted`。
 - [x] AC-A3: `CORTEX_STEP_TYPE_CODE_ACTION` 不再落入 silent `unknown_activity`；至少被识别为 side-effect-capable activity。
 - [x] AC-A4: 不能判定 effect 的 step 默认 side-effect-capable，禁止 blind retry；warning budget 只是 telemetry，不能当恢复策略 gate。
@@ -103,19 +103,19 @@ F201 关闭时，Antigravity 必须满足以下契约：
 
 ### AC-C: Availability Smoke
 
-- [ ] AC-C1: `pnpm antigravity:smoke` 或等价脚本存在，默认 dry-run / explicit opt-in，不污染真实工作树。
+- [x] AC-C1: `pnpm antigravity:smoke` 或等价脚本存在，默认 dry-run / explicit opt-in，不污染真实工作树。
 - [ ] AC-C2: smoke 覆盖 text-only 回复、MCP read、agent-key thread writeback call、file write/delete sentinel、large cascade retirement。
 - [ ] AC-C3: smoke 连续 3 次通过，且失败时产出 JSON report（ports、cascadeId、step taxonomy、side-effect journal、cleanup）。
-- [ ] AC-C4: runtime/alpha 启动后能运行只读 health probe，区分“Antigravity 未启动”“LS 不通”“MCP config 旧”“上游模型异常”；agent-key 过期/吊销/rotation health 留在 F178。
-- [ ] AC-C5: smoke report 有 typed schema（`AntigravityAvailabilitySmokeReport`）和 shape test，禁止回退成 ad hoc JSON。
-- [ ] AC-C6: sentinel smoke 使用 lockfile（pid + timestamp）；上次异常退出留下 stale lock / leftover 时，下次先报告并清理，清理失败即红灯。
+- [x] AC-C4: runtime/alpha 启动后能运行只读 health probe，区分“Antigravity 未启动”“LS 不通”“MCP config 旧”“上游模型异常”；agent-key 过期/吊销/rotation health 留在 F178。
+- [x] AC-C5: smoke report 有 typed schema（`AntigravityAvailabilitySmokeReport`）和 shape test，禁止回退成 ad hoc JSON。
+- [x] AC-C6: sentinel smoke 使用 lockfile（pid + timestamp）；上次异常退出留下 stale lock / leftover 时，下次先报告并清理，清理失败即红灯。
 
 ### AC-D: Cascade Context Boundary
 
-- [ ] AC-D1: 进入 Antigravity 调用前检查 cascade step count / trajectory size proxy；超过阈值自动 retire 到 fresh cascade，并在消息中标注。
-- [ ] AC-D2: old cascade `empty_response` 可以自动 fresh-cascade retry 一次，但前提是 journal 证明没有 side effect。
-- [ ] AC-D3: retry signal 不抹掉已有 partial text；`textMode=replace` 仅用于明确的 fresh-cascade 重试。
-- [ ] AC-D4: 初始阈值可配置且有测试锚点：warn ≥ 1.5 MiB 或 ≥ 150 steps；retire ≥ 2.0 MiB 或 ≥ 200 steps，且只有 journal clean 时可自动 retire。
+- [x] AC-D1: 进入 Antigravity 调用前检查 cascade step count / trajectory size proxy；超过阈值自动 retire 到 fresh cascade，并在消息中标注。
+- [x] AC-D2: old cascade `empty_response` 可以自动 fresh-cascade retry 一次，但前提是 journal 证明没有 side effect。
+- [x] AC-D3: retry signal 不抹掉已有 partial text；`textMode=replace` 仅用于明确的 fresh-cascade 重试。
+- [x] AC-D4: 初始阈值可配置且有测试锚点：warn ≥ 1.5 MiB 或 ≥ 150 steps；retire ≥ 2.0 MiB 或 ≥ 200 steps，且只有 journal clean 时可自动 retire。
 
 ### AC-E: User Experience
 
@@ -163,6 +163,7 @@ F201 关闭时，Antigravity 必须满足以下契约：
 - 增加 explicit opt-in smoke runner，产生 machine-readable report。
 - alpha 环境加入只读 health probe。
 - smoke 使用 sentinel directory，必须清理；清理失败是测试失败。
+- Branch implementation adds cascade-health assessment (`warn`/`retire` thresholds), pre-turn retirement marker, clean-journal `empty_response` fresh-cascade retry, and `pnpm antigravity:smoke` with readonly dry-run plus explicit sentinel write mode. Full AC-C2/C3 live smoke matrix remains open until real Antigravity alpha runs.
 
 ### Phase E: UI Recovery Card
 

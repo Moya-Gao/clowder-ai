@@ -1,4 +1,5 @@
 import type { AntigravitySideEffectJournalSummary } from './AntigravitySideEffectJournal.js';
+import type { AntigravityCascadeHealthSnapshot } from './antigravity-cascade-health.js';
 
 export type AntigravityRecoveryErrorCode = 'model_capacity' | 'network_error' | 'stream_error' | 'empty_response';
 
@@ -31,6 +32,7 @@ export interface AntigravityRecoveryContext {
   journalSummary: AntigravitySideEffectJournalSummary;
   dispatchState: AntigravityRecoveryDispatchState;
   retryBudget: AntigravityRecoveryRetryBudget;
+  cascadeHealth?: Pick<AntigravityCascadeHealthSnapshot, 'level' | 'reasons' | 'retryableForEmptyResponse'>;
 }
 
 export type AntigravityRecoveryDecision =
@@ -66,6 +68,14 @@ export function decideAntigravityRecovery(ctx: AntigravityRecoveryContext): Anti
   }
 
   if (ctx.errorCode === 'empty_response') {
+    const delayMs = retryDelay(ctx);
+    if (ctx.cascadeHealth?.retryableForEmptyResponse && delayMs != null) {
+      return {
+        action: 'retry_fresh_cascade',
+        reason: 'empty_response_retryable_cascade_health',
+        delayMs,
+      };
+    }
     return { action: 'surface_terminal_error', reason: 'empty_response_without_retryable_cascade_health' };
   }
 

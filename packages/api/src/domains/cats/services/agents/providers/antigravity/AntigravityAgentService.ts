@@ -24,6 +24,7 @@ import { appendLocalImagePathHints } from '../image-cli-bridge.js';
 import { extractImagePaths } from '../image-paths.js';
 import { AntigravityBridge, type BridgeConnection, type TrajectoryStep } from './AntigravityBridge.js';
 import { AntigravitySideEffectJournal } from './AntigravitySideEffectJournal.js';
+import type { AntigravityCascadeHealthSnapshot } from './antigravity-cascade-health.js';
 import type { UpstreamErrorKind } from './antigravity-event-transformer.js';
 import { classifyStep, humanErrorMessage, transformTrajectorySteps } from './antigravity-event-transformer.js';
 import {
@@ -207,6 +208,44 @@ export class AntigravityAgentService implements AgentService {
           log.warn({ cascadeId, err }, 'Antigravity side-effect journal audit write failed');
         }
       };
+      let preflightCascadeRetirement:
+        | { oldCascadeId: string; newCascadeId: string; health: AntigravityCascadeHealthSnapshot }
+        | undefined;
+      const getCascadeHealth = async (
+        targetCascadeId: string,
+        lookupStage: 'preflight' | 'empty_response',
+      ): Promise<AntigravityCascadeHealthSnapshot | undefined> => {
+        if (typeof this.bridge.getCascadeHealth !== 'function') return undefined;
+        return this.bridge.getCascadeHealth(targetCascadeId).then(
+          (cascadeHealth) => cascadeHealth,
+          (err) => {
+            log.warn(
+              { cascadeId: targetCascadeId, err, lookupStage },
+              'Antigravity cascade health lookup failed; continuing with existing cascade',
+            );
+            return undefined;
+          },
+        );
+      };
+      const preflightCascadeHealth = await getCascadeHealth(cascadeId, 'preflight');
+      const shouldRetirePreflightCascade =
+        preflightCascadeHealth?.level === 'retire' && preflightCascadeHealth.retryableForEmptyResponse;
+      if (shouldRetirePreflightCascade) {
+        const oldCascadeId = cascadeId;
+        this.bridge.resetSession(threadId, this.catId as string);
+        cascadeId = await this.bridge.getOrCreateSession(threadId, this.catId as string);
+        sideEffectJournal = createSideEffectJournal(cascadeId);
+        preflightCascadeRetirement = { oldCascadeId, newCascadeId: cascadeId, health: preflightCascadeHealth };
+        log.info(
+          { oldCascadeId, newCascadeId: cascadeId, cascadeHealth: preflightCascadeHealth },
+          'retired oversized Antigravity cascade',
+        );
+      } else if (preflightCascadeHealth?.level === 'retire') {
+        log.warn(
+          { cascadeId, cascadeHealth: preflightCascadeHealth },
+          'skipped preflight Antigravity cascade retirement due to side-effect safety',
+        );
+      }
       let capacityRetryCount = 0;
       let pendingTextReplace = false;
 
@@ -221,6 +260,21 @@ export class AntigravityAgentService implements AgentService {
 
       log.info(`invoke: cascade=${cascadeId}, thread=${threadId}, model=${this.model}`);
       yield makeSessionInit(cascadeId);
+      if (preflightCascadeRetirement) {
+        yield {
+          type: 'system_info' as const,
+          catId: this.catId,
+          content: JSON.stringify({
+            type: 'antigravity_cascade_health',
+            action: 'retired',
+            oldCascadeId: preflightCascadeRetirement.oldCascadeId,
+            newCascadeId: preflightCascadeRetirement.newCascadeId,
+            health: preflightCascadeRetirement.health,
+          }),
+          metadata,
+          timestamp: Date.now(),
+        };
+      }
 
       while (true) {
         const stepsBefore = await this.bridge.sendMessage(cascadeId, effectivePrompt, this.model);
@@ -966,6 +1020,7 @@ export class AntigravityAgentService implements AgentService {
         const sawImageOutput = collectedGenerateImageSteps.length > 0 || collectedImagePaths.size > 0;
         if (!hasText && !fatalSeen && !sawImageOutput) {
           const sideEffectJournalSummary = sideEffectJournal.summary();
+          const cascadeHealth = await getCascadeHealth(cascadeId, 'empty_response');
           const emptyResponseRecoveryDecision = decideAntigravityRecovery({
             errorCode: 'empty_response',
             journalSummary: sideEffectJournalSummary,
@@ -982,6 +1037,7 @@ export class AntigravityAgentService implements AgentService {
               toolishRetryEligible: false,
               dispatchRelevantStepKind: attemptHasToolishStep ? 'unknown' : 'none',
             },
+            cascadeHealth,
           });
           const diagnostics = {
             totalStepsSeen,
@@ -992,6 +1048,7 @@ export class AntigravityAgentService implements AgentService {
             hasText,
             fatalSeen,
             cascadeId,
+            cascadeHealth,
             sideEffectJournal: sideEffectJournalSummary,
             sideEffectSummary: {
               hasUnsafeSideEffect: sideEffectJournalSummary.hasUnsafeSideEffect,
@@ -1008,6 +1065,27 @@ export class AntigravityAgentService implements AgentService {
             },
             ...buildRecoveryDecisionDiagnostics(emptyResponseRecoveryDecision),
           };
+          if (emptyResponseRecoveryDecision.action === 'retry_fresh_cascade') {
+            capacityRetryCount += 1;
+            yield buildRetrySignal(
+              this.catId,
+              metadata,
+              capacityRetryCount,
+              this.modelCapacityRetryDelaysMs.length,
+              emptyResponseRecoveryDecision.delayMs,
+              'unknown',
+            );
+            log.info(
+              { cascadeId, threadId, cascadeHealth, delayMs: emptyResponseRecoveryDecision.delayMs },
+              'retrying Antigravity invoke after empty_response on retired cascade',
+            );
+            await sleepWithAbort(emptyResponseRecoveryDecision.delayMs, options?.signal);
+            this.bridge.resetSession(threadId, this.catId as string);
+            cascadeId = await this.bridge.getOrCreateSession(threadId, this.catId as string);
+            sideEffectJournal = createSideEffectJournal(cascadeId);
+            yield makeSessionInit(cascadeId);
+            continue;
+          }
           log.warn(diagnostics, 'empty_response triggered — no text received from Antigravity');
           await flushSideEffectJournalAudit();
           yield {

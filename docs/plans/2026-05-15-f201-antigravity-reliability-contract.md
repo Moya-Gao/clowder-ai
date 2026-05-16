@@ -235,6 +235,8 @@ Rules:
 
 ## Task 4: Cascade Health Gate
 
+**Status:** implemented in Phase D branch, pending review/merge.
+
 **Files**
 
 - Modify: `packages/api/src/domains/cats/services/agents/providers/antigravity/AntigravityBridge.ts`
@@ -243,13 +245,15 @@ Rules:
 
 **Work**
 
-- Add `getCascadeHealth(cascadeId)` or piggyback existing trajectory polling diagnostics.
-- Track `stepCount`, approximate trajectory byte size, last planner output, and last side-effect timestamp.
-- Initial threshold: `warn` at ≥ 1.5 MiB trajectory proxy or ≥ 150 steps; `retire` at ≥ 2.0 MiB or ≥ 200 steps. Values live behind config/env so F061/F201 empirical data can tune them.
-- If health exceeds retire threshold before a new user turn and journal is clean, retire to fresh cascade.
-- Emit a silent system_info / metadata marker so later diagnosis explains why session reset happened.
+- [x] Add `getCascadeHealth(cascadeId)` or piggyback existing trajectory polling diagnostics.
+- [x] Track `stepCount`, approximate trajectory byte size, last planner output, and last side-effect timestamp.
+- [x] Initial threshold: `warn` at ≥ 1.5 MiB trajectory proxy or ≥ 150 steps; `retire` at ≥ 2.0 MiB or ≥ 200 steps. Values live behind config/env so F061/F201 empirical data can tune them.
+- [x] If health exceeds retire threshold before a new user turn and journal is clean, retire to fresh cascade.
+- [x] Emit a silent system_info / metadata marker so later diagnosis explains why session reset happened.
 
 ## Task 5: Availability Smoke Runner
+
+**Status:** implemented in Phase D branch for readonly health probe + sentinel sandbox. Live text/thread smoke remains alpha/manual evidence.
 
 **Files**
 
@@ -293,10 +297,10 @@ interface AntigravityAvailabilitySmokeReport {
 
 Constraints:
 
-- Default command is read-only.
-- Any write smoke requires explicit flag and sandbox path. Default sentinel root: `~/.cat-cafe/smoke/antigravity-sentinel-<ts>/`; never write under `docs/` for routine smoke.
-- Cleanup failure exits non-zero.
-- Sentinel mode creates a `.antigravity-smoke-lock` with pid + timestamp. Next run checks stale locks and leftovers before writing; stale cleanup failure exits non-zero.
+- [x] Default command is read-only.
+- [x] Any write smoke requires explicit flag and sandbox path. Default sentinel root: `~/.cat-cafe/smoke/antigravity-sentinel-<ts>/`; never write under `docs/` for routine smoke.
+- [x] Cleanup failure exits non-zero.
+- [x] Sentinel mode creates a `.antigravity-smoke-lock` with pid + timestamp. Next run checks stale locks and leftovers before writing; stale cleanup failure exits non-zero.
 
 ## Task 6: UI Recovery Card
 
