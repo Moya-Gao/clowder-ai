@@ -257,9 +257,9 @@ close_gate_report:
 | 2 | DaemonActiveIndicator | F198 | ✅ **保留**（CVO 确认，本地独有） |
 | 3 | ThreadCatPill | F154 | ✅ **保留**（CVO 确认，本地独有） |
 | 4 | LiveAudioToggle（🎤 麦克风） | F195 会议副驾驶 | ✅ **保留**（本地独有功能） |
-| 5 | **Signal Inbox bell（🔔 铃铛）** | Signals | ❌ **删除 — 开源已移到 ActivityBar（旗帜图标），顶栏是重复入口** |
-| 6 | **ThemeToggle** | — | ❌ **删除 — ActivityBar 已有，重复入口** |
-| 7 | **HubButton** | — | ❌ **删除 — ActivityBar 已有，重复入口** |
+| 5 | ~~Signal Inbox bell（🔔 铃铛）~~ | Signals | ✅ **已删除**（2026-05-16 grep 验证：ChatContainerHeader 0 匹配） |
+| 6 | ~~ThemeToggle~~ | — | ✅ **已删除**（同上） |
+| 7 | ~~HubButton~~ | — | ✅ **已删除**（同上） |
 
 #### 2. ThreadSidebar.tsx（非红区）
 
@@ -267,8 +267,8 @@ close_gate_report:
 
 | # | 组件 | 来源 | 处置建议 |
 |---|------|------|----------|
-| 1 | **Memory Hub 按钮** | — | ❌ **删除 — ActivityBar 已有，重复入口** |
-| 2 | **IM Hub 按钮** | — | ❌ **删除 — ActivityBar 已有，重复入口** |
+| 1 | ~~Memory Hub 按钮~~ | — | ✅ **已删除**（2026-05-16 grep 验证：ThreadSidebar 0 匹配） |
+| 2 | ~~IM Hub 按钮~~ | — | ✅ **已删除**（同上） |
 | 3 | Mission Hub section | 本地功能 | 保留（开源只有猫猫训练营） |
 | 4 | LabelFilterBar | 本地功能 | 保留（thread 过滤） |
 
@@ -298,43 +298,25 @@ clowder-ai source 已把桌面 ThreadSidebar 归到 `AppShell`：非 `/settings`
 
 #### 5. Settings 页面功能丢失（代码级全量对比 clowder-ai vs local）
 
-##### 5a. /settings?s=im（IM 配置）— ❌ 严重丢失
+##### 5a. /settings?s=im（IM 配置）— ⚠️ 大部分已修，仅连接测试缺
 
-HubConnectorConfigTab.tsx 文件存在但缺失大量功能：
+> **2026-05-16 实地验证更新**：大部分功能已在后续 PR 修复。
 
-| 丢失项 | 说明 |
-|--------|------|
-| Connection State 监控 | `connectionState`/`lastHeartbeat`/`category` 字段缺失，无连接状态 pill（"已连接"/"重连中"等） |
-| HubPermissionsTab 集成 | 文件存在但**未接入** — 飞书/企微/钉钉权限管理 UI 断线（lazy/Suspense 加载缺失） |
-| 连接测试 | `handleTestConnection()` 未实现，`/api/connector/{id}/test` 未接 |
-| Heartbeat 显示 | 平台名称下方的心跳时间（"5m ago"）缺失 |
-| API 降级 | 开源用 `/api/connector/{id}/config` (PUT) 原子更新，本地降级为 `/api/config/secrets` (POST) |
-| 群管理入口 | feishu/wecom-bot/dingtalk 的 `PERMISSION_CONNECTORS` 映射 + 权限配置面缺失 |
+| 丢失项 | 说明 | 状态（2026-05-16 验证） |
+|--------|------|------------------------|
+| Connection State 监控 | `connectionState`/`lastHeartbeat`/`category` | ✅ **已有** — `connStatePill` import + `lastHeartbeat` + `formatHeartbeat` |
+| HubPermissionsTab 集成 | 飞书/企微/钉钉权限管理 UI | ✅ **已接入** — `HubConnectorConfigTab.tsx:22` lazy import + `:259`/`:401` 渲染 |
+| 连接测试 | `handleTestConnection()` 未实现 | ❌ **仍缺** — 0 匹配 |
+| Heartbeat 显示 | 平台名称下方的心跳时间 | ✅ **已有** — line 208-209 |
+| 群管理入口 | PERMISSION_CONNECTORS 映射 | ✅ **已有** — 随 HubPermissionsTab 接入 |
 
-Codex 二轮审计补充：
+##### 5b. /settings?s=members（成员管理）— ✅ 已修复
 
-- `HubPermissionsTab` API contract 也发生分叉：开源是 `forwardRef` + `getConfig()/applyConfig()`，用于跟 connector config 同一保存事务；本地组件变成直接保存到 `/api/connector/permissions/{id}`，所以不能只把 import 补回来。
-- 修复时应恢复 source 的权限管理/连接状态/连接测试 UX intent，同时保留家里 Phase C 已 harden 的 owner-gated secret write 边界；禁止为了“对齐开源”把 `/api/config/secrets` 的安全语义回退掉。
+> **2026-05-16 实地验证**：全部功能已恢复。`SettingsContent.tsx` line 9-10 import `HubCatEditor`/`HubCoCreatorEditor`，line 15 `useConfirm`，line 66 `handleToggleAvailability`，line 91 `handleDeleteMember`。完整 CRUD 可用。
 
-##### 5b. /settings?s=members（成员管理）— ❌ 降级为只读
+##### 5c. /settings?s=system（系统配置）— ✅ 已修复
 
-SettingsContent.tsx 缺失以下导入和功能：
-
-| 丢失项 | 说明 |
-|--------|------|
-| HubCatEditor | 成员编辑 UI 未接入（文件存在但 import 缺失） |
-| HubCoCreatorEditor | 共创者编辑 UI 未接入 |
-| useConfirm hook | 破坏性操作确认弹窗缺失 |
-| handleToggleAvailability | 成员可用性切换缺失 |
-| handleDeleteMember | 成员删除缺失 |
-| handleEditorSaved | 编辑保存回调缺失 |
-| **结果** | MembersPanel 只渲染只读 CatOverviewTab，无法编辑/删除/切换可用性 |
-
-##### 5c. /settings?s=system（系统配置）— ⚠️ 参数差异
-
-| 差异项 | 开源 | 本地 |
-|--------|------|------|
-| HubEnvFilesTab | `excludeCategories={['connector']}` | 无 exclusion（可能暴露 connector env 在 system 页面） |
+> **2026-05-16 实地验证**：`SettingsContent.tsx:162` 已有 `excludeCategories={['connector']}`。
 
 ##### 5d. 其他 Settings 页面
 
@@ -350,9 +332,9 @@ SettingsContent.tsx 缺失以下导入和功能：
 | notify（通知） | ✅ 一致 | — |
 | ops（运维监控） | ✅ 一致 | — |
 
-##### 5e. /mission route alias（Codex 二轮审计补充）
+##### 5e. /mission route alias — ✅ 已修复
 
-clowder-ai 有 `packages/web/src/app/mission/page.tsx`，用于把 `/mission` redirect 到 `/mission-hub`。家里只有 Mission Hub 实际页，缺少 `/mission` alias。这个不是 P0 功能丢失，但会破坏开源/历史链接兼容。
+> **2026-05-16 实地验证**：`app/mission/page.tsx` 已存在。
 
 #### 6. 状态栏样式差异
 
@@ -361,7 +343,7 @@ clowder-ai 有 `packages/web/src/app/mission/page.tsx`，用于把 `/mission` re
 | ConnectionStatusBar | ✅ V-7 已修 | `cocreator-*` → `--console-border-soft` / `--console-hover-bg` / `conn-amber-text` (PR #1705) |
 | ParallelStatusBar | ✅ V-8 已修 | hardcoded Tailwind → `conn-*` semantic colors; `rounded-full` → `rounded-xl` + console border (PR #1705) |
 | RightStatusPanel | ✅ V-9 已修 | buttons → `console-pill` class; badges → `conn-amber-*` / `conn-emerald-*` (PR #1705) |
-| RightStatusPanel | extra Hub gear | 本地猫猫状态卡右上角还有 Hub 齿轮入口；开源无此入口。若 ActivityBar 是全局唯一 Settings 入口，这也是重复入口 |
+| RightStatusPanel | ~~extra Hub gear~~ | ✅ **已删除**（2026-05-16 grep 验证：0 匹配） |
 | 字号 | text-xs vs text-[11px] | 本地略小 |
 
 注意：`ParallelStatusBar` / `RightStatusPanel` 含家里 F194/F154 行为补丁（例如 active cat intent mode），Phase F 只能做入口/视觉收敛，不能整文件 source-replace。
@@ -370,17 +352,17 @@ clowder-ai 有 `packages/web/src/app/mission/page.tsx`，用于把 `/mission` re
 
 Hub（CatCafeHub.tsx）使用 accordion 分 3 组 19 tab，Settings 使用 flat 12 section。以下组件**文件存在但未接入任何导航**：
 
-| 孤立组件 | 说明 |
-|---------|------|
-| HubPermissionsTab.tsx | 权限管理 UI，feishu/wecom-bot/dingtalk 配置 |
-| HubCatEditor.tsx | 成员编辑器，import 存在但 SettingsContent 未引用 |
-| HubCoCreatorEditor.tsx | 共创者编辑器，同上 |
+| 孤立组件 | 说明 | 状态（2026-05-16 验证） |
+|---------|------|------------------------|
+| ~~HubPermissionsTab.tsx~~ | 权限管理 UI | ✅ **已接入** HubConnectorConfigTab lazy import |
+| ~~HubCatEditor.tsx~~ | 成员编辑器 | ✅ **已接入** SettingsContent line 9 |
+| ~~HubCoCreatorEditor.tsx~~ | 共创者编辑器 | ✅ **已接入** SettingsContent line 10 |
 
 #### 7b. ThreadSidebar 训练营入口行为（Codex 二轮审计补充）
 
-开源 ThreadSidebar 的训练营按钮会打开 `BootcampListModal`，展示已有训练营并允许继续；家里当前按钮直接 `createBootcampThread()`，行为从“入口/列表”降级成“新建”。这不是简单的按钮数量差异，属于入口语义丢失。
+开源 ThreadSidebar 的训练营按钮会打开 `BootcampListModal`，展示已有训练营并允许继续。
 
-**处置建议**：删除 Memory/IM 重复按钮的同时，恢复 ThreadSidebar 内 `BootcampListModal` 行为；保留家里 Mission Hub section、LabelFilterBar、pin/read-state 等本地 thread 管理能力。
+> **2026-05-16 实地验证**：✅ **已修复**。`ThreadSidebar.tsx` line 9 import `BootcampListModal` + line 1089 渲染。Memory/IM 重复按钮也已删除。
 
 #### 8. Signal 页面差异（SignalInboxView / SignalArticleDetail）
 
@@ -560,37 +542,37 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 
 > **方向**：F190 follow-up PR，不开新 Feature。
 
-#### P0 — 功能丢失（必须修）
+#### 已修好（2026-05-16 grep 验证 main `89ac87e4d`）
 
-| # | 区域 | 问题 | 修改内容 |
-|---|------|------|----------|
-| F-1 | IM 配置页 | 权限管理断线 | 重新接入 HubPermissionsTab（lazy/Suspense），恢复 PERMISSION_CONNECTORS 映射 |
-| F-2 | IM 配置页 | 连接状态监控丢失 | 补 connectionState/lastHeartbeat/category + connStatePill + formatHeartbeat |
-| F-3 | IM 配置页 | 连接测试丢失 | 补 handleTestConnection() + `/api/connector/{id}/test` |
-| F-4 | 成员管理页 | 降级为只读 | 重新 import HubCatEditor/HubCoCreatorEditor/useConfirm，恢复编辑/删除/切换 |
-| F-5 | Signal 详情 | Content Enrichment 丢失 | 补后端 `enrich-article.ts` service + route `/api/signals/articles/{id}/enrich` + 前端 enrichedContent 状态 |
-| F-6 | Signal 详情 | Thread 导航丢失 | 补 useRouter + getThreadHref 跳转关联 thread |
+| # | 原问题 | 验证 |
+|---|--------|------|
+| ~~F-1~~ | IM 权限管理断线 | ✅ HubPermissionsTab lazy import + 渲染 |
+| ~~F-2~~ | IM 连接状态/心跳丢失 | ✅ connStatePill + lastHeartbeat + formatHeartbeat |
+| ~~F-4~~ | 成员管理只读 | ✅ HubCatEditor/CoCreatorEditor/useConfirm/handleDelete/handleToggle |
+| ~~D-1~~ | Header ThemeToggle 重复 | ✅ 已删除 |
+| ~~D-2~~ | Header HubButton 重复 | ✅ 已删除 |
+| ~~D-3~~ | Header Signal bell 重复 | ✅ 已删除 |
+| ~~D-4~~ | Sidebar Memory Hub 重复 | ✅ 已删除 |
+| ~~D-5~~ | Sidebar IM Hub 重复 | ✅ 已删除 |
+| ~~D-6~~ | RightStatusPanel Hub 齿轮 | ✅ 已删除 |
+| ~~D-8~~ | 训练营入口语义丢失 | ✅ BootcampListModal 已接入 |
+| ~~S-1~~ | excludeCategories 缺失 | ✅ SettingsContent.tsx:162 |
+| ~~S-3~~ | /mission alias 缺失 | ✅ app/mission/page.tsx |
 
-#### P1 — 入口重复（应修）
+#### 仍缺（3 项）
 
-| # | 区域 | 问题 | 修改内容 |
-|---|------|------|----------|
-| D-1 | ChatContainerHeader（🔴 红区） | ThemeToggle 重复 | 删除（ActivityBar 已有） |
-| D-2 | ChatContainerHeader（🔴 红区） | HubButton 重复 | 删除（ActivityBar 已有） |
-| D-3 | ChatContainerHeader（🔴 红区） | Signal Inbox bell 重复 | 删除（ActivityBar 已有旗帜图标） |
-| D-4 | ThreadSidebar | Memory Hub 按钮重复 | 删除（ActivityBar 已有） |
-| D-5 | ThreadSidebar | IM Hub 按钮重复 | 删除（ActivityBar 已有） |
-| D-6 | RightStatusPanel | Hub 齿轮重复 | 删除或改为非入口状态展示（ActivityBar 保留唯一 Settings 入口） |
-| D-7 | AppShell / ChatContainer（🔴 红区） | desktop sidebar owner 错位 | AppShell 接管 desktop ThreadSidebar，ChatContainer 仅保留 mobile overlay |
-| D-8 | ThreadSidebar | 训练营入口语义丢失 | 恢复 BootcampListModal 列表入口，不直接新建训练营 thread |
+| # | 区域 | 问题 | 修改内容 | 优先级 |
+|---|------|------|----------|--------|
+| F-3 | IM 配置页 | 连接测试按钮丢失 | 补 handleTestConnection() + `/api/connector/{id}/test` | P2 |
+| F-5 | Signal 详情 | Content Enrichment 丢失 | 补后端 enrich route + 前端 enrichedContent 状态 | P2 |
+| F-6 | Signal 详情 | Thread 导航丢失 | 补 getThreadHref 跳转关联 thread | P3 |
 
-#### P2 — 参数/样式修正
+#### 架构级（中期 follow-up）
 
-| # | 区域 | 问题 | 修改内容 |
-|---|------|------|----------|
-| S-1 | 系统配置页 | connector env 暴露 | 补回 `excludeCategories={['connector']}` |
-| S-2 | Hub/Settings 重复 | IM/Env/Governance 三处 | Hub 改为摘要 + deep-link（scope 较大，可后置） |
-| S-3 | Mission route | `/mission` alias 缺失 | 补 `/mission` redirect 到 `/mission-hub` |
+| # | 区域 | 问题 | 修改内容 | 优先级 |
+|---|------|------|----------|--------|
+| D-7 | AppShell / ChatContainer（🔴 红区） | desktop sidebar owner 错位 | AppShell 接管 desktop ThreadSidebar | P1 |
+| S-2 | Hub/Settings 重复 | IM/Env/Governance 三处 | Hub 改为摘要 + deep-link（scope 较大） | P2 |
 | S-4 | Console tokens | font / color token drift | 对齐 font-size/token 命名；不盲目搬 `theme-tokens.css` 或 xterm CSS |
 | S-5 | Thread/Top/Status visual | 视觉不一致 | 在功能修复后统一 spacing、border、radius；保留家里新增功能 |
 
