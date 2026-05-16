@@ -158,12 +158,12 @@ F201 关闭时，Antigravity 必须满足以下契约：
 - large cascade 自动 retire 留到 Phase D：Phase C 保留 `empty_response_without_retryable_cascade_health` 决策接口，Phase D 接 cascade health / retirement gate。
 - Merged in PR #1700 (`f7061700c`): centralized recovery policy、post-side-effect resumable diagnostics + resume context、inline retry policy deletion、journal-derived `executionJournal` compatibility metadata、read-only `MCP_TOOL` transient retry narrowing with explicit tests。
 
-### Phase D: Smoke + Canary
+### ✅ Phase D: Smoke + Canary
 
 - 增加 explicit opt-in smoke runner，产生 machine-readable report。
 - alpha 环境加入只读 health probe。
 - smoke 使用 sentinel directory，必须清理；清理失败是测试失败。
-- Branch implementation adds cascade-health assessment (`warn`/`retire` thresholds), pre-turn retirement marker, clean-journal `empty_response` fresh-cascade retry, and `pnpm antigravity:smoke` with readonly dry-run plus explicit sentinel write mode. Full AC-C2/C3 live smoke matrix remains open until real Antigravity alpha runs.
+- Merged in PR #1702 (`4dcbe0b2b`): cascade-health assessment (`warn`/`retire` thresholds), side-effect-safe pre-turn retirement marker, clean-journal `empty_response` fresh-cascade retry, and `pnpm antigravity:smoke` with readonly dry-run plus explicit sentinel write mode. Full AC-C2/C3 live smoke matrix remains open until real Antigravity alpha runs.
 
 ### Phase E: UI Recovery Card
 
@@ -196,3 +196,4 @@ F201 关闭时，Antigravity 必须满足以下契约：
 | 2026-05-15 | Phase A merged (PR #1689, squash `57acad964`): step-effect classifier baseline、`CODE_ACTION` visibility、unknown-step fail-closed retry veto、UI/effect mapping tests。 |
 | 2026-05-16 | Phase B merged (PR #1693, squash `856355f39`): side-effect journal + JSONL audit、legacy gate 删除、post-side-effect blind retry veto、raw-target idempotency hashing、outer invoke failure audit flush；46/47 review + cloud Codex LGTM。 |
 | 2026-05-16 | Phase C merged (PR #1700, squash `f7061700c`): recovery decision engine、post-side-effect resumable diagnostics + resume context、old inline retry policy removal、journal-derived `executionJournal` compatibility；46/47 review + cloud Codex LGTM。 |
+| 2026-05-16 | Phase D merged (PR #1702, squash `4dcbe0b2b`): cascade health / side-effect-safe preflight retirement、`empty_response` clean-journal fresh retry、availability smoke runner、secret-redacted readonly diagnostics、smoke-owned sentinel cleanup；cloud Codex LGTM。 |
