@@ -227,6 +227,7 @@ close_gate_report:
 | 2026-05-15 | CVO 对比开源截图：确认 7 项视觉设计模式差距需跟进（card gap / CTA depth / trash styling / 全部已读 / tag labels / icon containers / line dividers） |
 | 2026-05-16 | Header toolbar buttons migrated to console tokens (PR #1701): Export/Voice/LiveAudio/RightPanel all get `console-rail-item` container + unified hover/active states |
 | 2026-05-16 | CVO 拍板状态栏方向：跟进开源 console token 体系（`conn-*` 语义色 + `console-pill` 组件类），但保留家里 `gap-4` 间距（开源 `gap-3` 太拥挤）。记为 V-7/V-8/V-9 |
+| 2026-05-16 | V-7/V-8/V-9 status bar token migration merged (PR #1705): ConnectionStatusBar + ParallelStatusBar + RightStatusPanel all migrated to console tokens |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（WIP 审计清单）
 
@@ -353,12 +354,11 @@ clowder-ai 有 `packages/web/src/app/mission/page.tsx`，用于把 `/mission` re
 
 | 组件 | 差异类型 | 说明 |
 |------|---------|------|
-| ConnectionStatusBar | CSS 变量 vs Tailwind | 开源用 `--console-border-soft` / `--console-hover-bg`，本地用 `cocreator-light` / `cocreator-bg` |
-| ParallelStatusBar | 主题 class vs 硬编码色 | 开源用 `conn-emerald-bg` / `conn-red-text` 主题类，本地用 `bg-green-400` / `text-red-500` 硬编码 |
-| ParallelStatusBar | pill 样式 | 开源 `rounded-xl px-3 py-1.5`，本地 `rounded-full px-2.5 py-1`（更紧凑） |
-| RightStatusPanel | extra Hub gear + token drift | 本地猫猫状态卡右上角还有 Hub 齿轮入口；开源无此入口。若 ActivityBar 是全局唯一 Settings 入口，这也是重复入口 |
+| ConnectionStatusBar | ✅ V-7 已修 | `cocreator-*` → `--console-border-soft` / `--console-hover-bg` / `conn-amber-text` (PR #1705) |
+| ParallelStatusBar | ✅ V-8 已修 | hardcoded Tailwind → `conn-*` semantic colors; `rounded-full` → `rounded-xl` + console border (PR #1705) |
+| RightStatusPanel | ✅ V-9 已修 | buttons → `console-pill` class; badges → `conn-amber-*` / `conn-emerald-*` (PR #1705) |
+| RightStatusPanel | extra Hub gear | 本地猫猫状态卡右上角还有 Hub 齿轮入口；开源无此入口。若 ActivityBar 是全局唯一 Settings 入口，这也是重复入口 |
 | 字号 | text-xs vs text-[11px] | 本地略小 |
-| 待决策 | CVO: "他们那个有点丑" | 🔲 样式方向待 CVO 拍板 |
 
 注意：`ParallelStatusBar` / `RightStatusPanel` 含家里 F194/F154 行为补丁（例如 active cat intent mode），Phase F 只能做入口/视觉收敛，不能整文件 source-replace。
 
