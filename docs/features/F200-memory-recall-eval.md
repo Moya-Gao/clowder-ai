@@ -292,13 +292,13 @@ outputVerified = signal_or(
 | # | 问题 | 根因 | 归属 | 发现 |
 |---|------|------|------|------|
 | DF-1 | `list_recent(scope=docs)` 被 global:memory 淹没 + timestamp = **索引重建时间≠内容活跃时间**（kinds=feature 全标 05-16 / kinds=decision 全标 04-18，新猫无法分辨哪个是真活跃主战场）| index rebuild 刷 memory timestamp + list_recent 排序键用错维度 | **F188** | 46+砚砚 R1 / 47 冷启动 reframe 根因 |
-| DF-6 | `list_recent(kinds=["discussion"/"reflection"/"decision"])` 过滤器**完全失效**（30d 也 0 结果，华为研讨会 discussion 查不到）| kinds 参数值与索引实际 kind 标签不匹配 | **F188** | 46 R2 |
 | DF-11 | `graph_resolve` fuzzy candidate ranking 丢失 text_match——`graph_resolve("F200 v1.1 issues")` → F102（边多）排 F200 前 | 代码 fuzzy candidates 只按 `weightedEdgeScore` 排；F200 spec 公式含 `text_match + authority + edge_weight` 但实现漏了 text_match | **F188**（实现与 F200 spec 公式不符）| 砚砚冷启动 |
 
 #### Batch 2 — P2 可解释性 + 跨语言
 
 | # | 问题 | 根因 | 归属 | 发现 |
 |---|------|------|------|------|
+| DF-6 | `list_recent(scope=docs,kinds=["discussion"/"reflection"])` 静默返回 0，但 `scope=threads,kinds=["discussion"]` 实际可用；新猫容易把 `docs/discussions` 误归到 docs scope | `kinds` 会先与 scope ceiling 求交集，空交集直接无结果；MCP schema/description 未提示 kind 所属 scope，也无空交集 nudge | **F188** | 46 R2 / 砚砚复核修正 |
 | DF-2 | `graph_resolve` depth≥2 经 super-hub（F102/F188）边爆炸（209 nodes/439 edges），无 degree cap | hub-node fan-out 无截断；depth=1+relations filter 有 workaround | **F188** | 47 R1 / 三猫 R2 确认 |
 | DF-8 | hybrid 跨语言查询退化——纯 semantic 命中的中文文档，hybrid 反而被无关高 BM25 挤掉；MCP description "不确定用 hybrid" 与实际矛盾 | RRF fusion 中英 query BM25 分极低 | **F102/F188**（检索 mode + tool description）| 46 R2 |
 | DF-3 | search_evidence 只显示 `boost: authority_boost`，看不出 consumption_prior/MMR 是否参与；新猫无法判断"为什么这条排第一" | search 输出缺 explainability 字段 | **F200** | 砚砚+47+46 多轮 |
@@ -316,7 +316,7 @@ outputVerified = signal_or(
 - graph_resolve depth=1 + relations filter（13 nodes 干净可导航）
 - `list_recent(scope=trajectories)` 真闭环亮点——Phase D 真在记三猫探索轨迹，"穷人的 training loop" 在工作
 
-**冷启动结论**：harness 对新猫 graph+概念 search **确实喂饭有效**（不靠老猫记忆）；但 **list_recent 这个新猫最依赖的"零先验扫最近"入口恰恰对新猫最不可靠**（DF-1/DF-6）——这是 F165 Guided Overfitting / F152 Expedition Memory 冷启动愿景的直接威胁，Batch 1 应最高优先。
+**冷启动结论**：harness 对新猫 graph+概念 search **确实喂饭有效**（不靠老猫记忆）；但 **list_recent 这个新猫最依赖的"零先验扫最近"入口恰恰对新猫最不可靠**（DF-1 为核心导航正确性问题；DF-6 为 scope/kinds 语义误导）——这是 F165 Guided Overfitting / F152 Expedition Memory 冷启动愿景的直接威胁，Batch 1 应最高优先。
 
 > **归属说明**：本 backlog 横跨 F188（list_recent/graph_resolve 工具实现）+ F200（rerank_reason/trajectory）+ F102（检索 mode）。F200 spec 作为记忆系统 dogfood 反馈中枢汇总，46 开 worktree 时按归属列分别处置（F188 工具 bug 与 F200 ranking 改进不同 scope）。
 
