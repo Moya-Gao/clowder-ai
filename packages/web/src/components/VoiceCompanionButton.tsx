@@ -116,7 +116,7 @@ function VoicePlaybackControls({ playbackState }: { playbackState: PlaybackState
       <button
         type="button"
         onClick={isPaused ? resumeAudio : pauseAudio}
-        className="p-1 rounded-lg text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+        className="p-1 rounded-lg text-green-500 hover:bg-[var(--console-hover-bg)] transition-colors"
         aria-label={isPaused ? '继续播放' : '暂停'}
         title={isPaused ? '继续播放' : '暂停'}
       >
@@ -133,7 +133,7 @@ function VoicePlaybackControls({ playbackState }: { playbackState: PlaybackState
       <button
         type="button"
         onClick={skipAudio}
-        className="p-1 rounded-lg text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+        className="p-1 rounded-lg text-green-500 hover:bg-[var(--console-hover-bg)] transition-colors"
         aria-label="跳过当前"
         title="跳过当前"
       >
@@ -171,11 +171,11 @@ export function VoiceCompanionButton({ threadId, defaultCatId }: VoiceCompanionB
         type="button"
         onClick={handleClick}
         className={`
-          p-1 rounded-lg transition-colors
+          flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors
           ${
             isActive
-              ? 'text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20'
-              : 'text-cafe-secondary hover:bg-cocreator-light'
+              ? 'bg-[var(--console-active-bg)] text-green-500'
+              : 'bg-[var(--console-rail-item)] text-cafe-secondary hover:bg-[var(--console-hover-bg)]'
           }
         `}
         aria-label={isActive ? '停止语音陪伴' : '语音陪伴'}

@@ -36,11 +36,11 @@ export function ChatContainerHeader({
   defaultCatId,
 }: ChatContainerHeaderProps) {
   return (
-    <header className="border-b border-cocreator-light bg-cocreator-bg safe-area-top">
+    <header className="border-b border-[var(--console-border-soft)] bg-[var(--console-panel-bg)] safe-area-top">
       <div className="px-5 py-3 flex items-center gap-2">
         <button
           onClick={onToggleSidebar}
-          className="p-1 rounded-lg hover:bg-cocreator-light transition-colors mr-1"
+          className="p-1 rounded-lg hover:bg-[var(--console-hover-bg)] transition-colors mr-1"
           title={sidebarOpen ? '收起侧栏' : '展开侧栏'}
           aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
         >
@@ -79,7 +79,7 @@ export function ChatContainerHeader({
         {/* Mobile/tablet: status sheet trigger */}
         <button
           onClick={onOpenMobileStatus}
-          className="p-1 rounded-lg hover:bg-cocreator-light transition-colors ml-1 lg:hidden"
+          className="p-1 rounded-lg hover:bg-[var(--console-hover-bg)] transition-colors ml-1 lg:hidden"
           title="打开状态面板"
           aria-label="打开状态面板"
         >
@@ -205,8 +205,10 @@ function LiveAudioToggle() {
     <button
       type="button"
       onClick={() => setRightPanelMode(isActive ? 'status' : 'transcript')}
-      className={`p-1 rounded-lg hover:bg-cocreator-light transition-colors hidden lg:block ${
-        isActive ? 'bg-green-50 text-green-600' : ''
+      className={`flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors hidden lg:block ${
+        isActive
+          ? 'bg-[var(--console-active-bg)] text-green-600'
+          : 'bg-[var(--console-rail-item)] hover:bg-[var(--console-hover-bg)]'
       }`}
       title={isActive ? 'Close transcript' : 'Live audio transcript'}
       aria-label={isActive ? 'Close transcript' : 'Live audio transcript'}
@@ -245,13 +247,17 @@ function RightPanelToggle({
   return (
     <button
       onClick={handleClick}
-      className={`p-1 rounded-lg hover:bg-cocreator-light transition-colors ml-1 hidden lg:block ${
-        statusPanelOpen ? (isWorkspace ? 'bg-blue-50 text-blue-600' : 'bg-cafe-surface-elevated') : ''
+      className={`flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors ml-1 hidden lg:block ${
+        statusPanelOpen
+          ? isWorkspace
+            ? 'bg-[var(--console-active-bg)] text-[var(--cafe-accent)]'
+            : 'bg-[var(--console-active-bg)]'
+          : 'bg-[var(--console-rail-item)] hover:bg-[var(--console-hover-bg)]'
       }`}
       aria-label={label}
       title={label}
     >
-      <svg className="w-5 h-5 text-cafe-secondary" viewBox="0 0 20 20" fill="currentColor">
+      <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
         <path
           fillRule="evenodd"
           d="M3 4a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm2 0v12h10V4H5z"
