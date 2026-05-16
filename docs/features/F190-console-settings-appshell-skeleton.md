@@ -643,3 +643,4 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 | **Feature** | `docs/features/F056-cat-cafe-design-language.md` | 设计语言约束 |
 | **Feature** | `docs/features/F183-bubble-pipeline-architecture-consolidation.md` | 聊天渲染链路保护 |
 | **Feature** | `docs/features/F184-chatmessage-rendering-mount-investigation.md` | ChatMessage mount 回归保护 |
+| **Audit** | `docs/audits/2026-05-16-f190-phase-g-ux-audit-synthesis.md` | Phase G post-merge 三猫 UX 审计综合（学/不学/trade-off） |
