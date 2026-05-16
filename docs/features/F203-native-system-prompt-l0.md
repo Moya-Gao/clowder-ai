@@ -188,6 +188,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | KD-10 | L0 完全替换走 `--system-prompt-file` 从文件读，不硬编码 ts/js | 铲屎官 directive 2026-05-15：「不能在 ts/js 里硬编码替换后的是什么，应该 --system-prompt-file 从文件读，单独 md 方便维护」。compile 渲染 per-cat L0 → 写文件 → Phase C spawn 引用文件路径；内容真相源始终是 `system-prompt-l0.md`。compile 脚本加 `writeL0File()` + CLI `--out` | 2026-05-15 |
 | KD-11 | 仓库门禁必须 `pnpm biome` / `pnpm check`，禁止 `npx biome` | 砚砚 Phase B review P1 教训：`npx biome` 解析到 0.3.3，项目实际 `pnpm biome` 2.4.1，`npx` 证据绕过项目门禁=假绿。沉淀到 [[feedback_verify_with_repo_toolchain]] | 2026-05-15 |
 | KD-12 | compile 脚本可测性重构：CLI 入口 + roster 过滤抽纯函数 | 云端 review P1（CLI entrypoint `file://${argv1}` POSIX-only，Windows broken）→ 抽 `isCliEntrypoint(metaUrl,argv1)` 用 fileURLToPath+resolve 跨平台；P2（roster 未过滤 available，disabled 猫进 L0 = dead-end @ 路由）→ 抽 `filterAvailableTeammates` + `isCatAvailable(id,config)` 过滤，对齐 SystemPromptBuilder:417。纯函数化使两者可单测（Red→Green，44 tests） | 2026-05-15 |
+| KD-13 | compile bootstrap 必须 no-arg `loadCatConfig()` + roster model 用 `getCatModel` | 云端 round-2 抓到 KD-12 P2 连环 bug：`loadCatConfig(PATH)` 显式 path 跳过 `.cat-cafe/cat-catalog.json` overlay（cat-config-loader.ts:307-327）→ isCatAvailable 基于 stale template → P2 dead-end 防护失效。根治：no-arg `loadCatConfig()`（catalog overlay = runtime 真相）+ `resolveModel`→`getCatModel`（env override > registry）。**根治原则：compile 编译器必须复用 SystemPromptBuilder 既定 runtime 入口（catalog-aware loadCatConfig + getCatModel），不自造静态读取路径** | 2026-05-15 |
 
 ## Spike Log
 
@@ -216,6 +217,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-15 | Phase A 双签关闭（砚砚 + 铲屎官）→ Phase B 开工：L0 真相源 + compile 脚本 + 36 测试全绿（branch `9105d184f`），AC-B1-B4 ✅，待砚砚 review |
 | 2026-05-15 | 砚砚 Phase B review BLOCKING（P1: `pnpm biome` 门禁失败，我误用 `npx biome` 假绿）→ 修复：biome --write 格式 + buildTeammateRoster 复杂度 17→拆 helper + writeL0File（KD-10 CVO directive）。pnpm biome exit 0 + 37 tests（branch `583394f65`），待砚砚 confirm |
 | 2026-05-15 | 砚砚 confirm APPROVE（no findings）→ merge-gate：PR #1694，pnpm gate rebase 6771a3c98。worktree `NODE_ENV=production` 跳 devDeps 踩坑（沉淀 memory）。云端 review COMMENTED 2 finding：P1 CLI entrypoint Windows-broken + P2 roster 未过滤 available。Red→Green 修复（isCliEntrypoint + filterAvailableTeammates 纯函数，44 tests），branch `b01d00003`，待 gate + 云端 re-review |
+| 2026-05-15 | 云端 round-2 review（287b97cdf）2 新 finding，**云端抓到 round-1 P2 连环 bug**：P1 bootstrap loadCatConfig(PATH) 跳过 catalog overlay→isCatAvailable stale→P2 fix 实际无效；P2 roster 用静态 defaultModel 忽略 env override。根治（对齐 SystemPromptBuilder 既定 runtime 模式 no-arg loadCatConfig catalog overlay + getCatModel，KD-13），45 tests pass，gate rebase `245080ed`。云端 2 轮（§16d Round 3 黄灯）→ 先 @ 砚砚本地判断根治 + Phase 边界，不并行 re-trigger 云端 |
 
 ## Review Gate
 
