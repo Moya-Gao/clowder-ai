@@ -152,10 +152,12 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 
 ### Phase D（root md 瘦身）
 
-- [ ] AC-D1: CLAUDE.md ≤ 65 行（当前 188）
-- [ ] AC-D2: AGENTS.md ≤ 65 行（当前 207）
-- [ ] AC-D3: 删队友静态表（独立 PR，可在 Phase A 期间提前做）
-- [ ] AC-D4: SystemPromptBuilder 守护测试全绿（80+ test）
+- [x] AC-D1: CLAUDE.md ≤ 65 行 ✅（200→62，PR #1710 squash `1c92a1d2b`）
+- [x] AC-D2: AGENTS.md ≤ 65 行 ✅（219→60，同 PR）
+- [x] AC-D3: 删队友静态表 ✅（CLAUDE.md/AGENTS.md 静态 roster 表删除，SystemPromptBuilder 动态生成为真相源）
+- [x] AC-D4: 守护测试全绿 ✅（`root-md-slim.test.js` 9/9 + `f188-harness-consistency` 7/7 + `pnpm gate` 3070 tests；SystemPromptBuilder 未改动——Phase D 纯 root md 瘦身不碰 L0 注入链）
+
+> Phase D merge：砚砚本地 APPROVE（no findings，47 盲审 quality-gate）→ 续 review 延续 ×2（rebase + 云端 P2 fix）→ 云端 round-1 P2（lineCount trailing-newline off-by-one，VERIFY 三道门 legit，已修对齐 wc -l）→ 云端 round-2 "no major issues"。terse 铁律/闭环检查点/各族专属 dev 规则保留，记忆三入口用 FULL `cat_cafe_*` 名（f188-compat）。L0 注入链 diff 证 untouched，live invocation 终验 batch 到 C5。
 
 ### Phase E（CC 版本升级 SOP）
 
@@ -250,6 +252,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-15 | 砚砚本地 APPROVE round-2 根治（确认根治成立 + Phase B 内 + 非 spiral，复跑 45/45 + override 生效）→ re-trigger 云端 round-3 → **云端 "Didn't find any major issues"（clean，根治确认非 spiral）**。**Phase B merged (PR #1694, squash `a1b114ef9`)**——本地砚砚×3轮(BLOCKING×2→APPROVE) + 云端×3轮(round-1/2 4-finding 全根治→round-3 clean)。Status spec→in-progress |
 | 2026-05-16 | Phase C 实施完成（branch `feat/f203-phase-c`，待 review）：Task 0 spike 安全网（`ca3efead7`，A8 GAP 抓出）→ Task 1 A8 CVO_REF（`fd4e634ca`）→ Task 3a 共享 `l0-compiler.ts`（`24dd15541`，subprocess 决策：API dist 不能 in-process import scripts/.mjs）→ Task 3 ClaudeBgCarrier `--system-prompt-file`（`bfeaab76f`，fail-closed）→ Task 4 CodexAgent `-c developer_instructions`（`ebe904529`，S4 对齐 + emit-deferral 根因修复：invoke await L0 早于 spawnCli → 既有测试同步 emit 'exit' 抢跑 listener 丢失，纯 mock 时序假象，非 prod bug）→ Task 2 `buildStaticIdentityPackOnly` 剥离 user-message 非 pack（`5305d08c4`）。AC-C1-C4 ✅。验收：Task3+4 cluster 139/139、route/invoke 194/194、identity 292/292、system-prompt 守护 113/113 全 green。待 AC-C5（gate + 砚砚 review + merge + runtime） |
 | 2026-05-16 | **Phase C merged (PR #1709, squash `d55cb688e`)**——砚砚本地×2 round（cliConfigArgs P1 + 27208798e APPROVE → 云端 round-1 2 P1 修：route 层无差别 pack-only 致非 native provider 失身份 + stripReservedSystemConfigs 漏 `-c` 短形式 → 砚砚 re-review APPROVE → 云端 round-2 又提 P1 "L0 script unresolvable 应有 fallback" → VERIFY 三道门：cloud 提的 dist-only/packaged 部署经验证无现实复现（所有 cat-cafe 部署 = repo worktree），按 merge-gate "P1/P2-无复现 → P3-comment-pass" 处置 + 留 future-proof TODO）。AC-C1-C4 ✅，AC-C5 部分 ✅（待 runtime 重启 alpha 验收）|
+| 2026-05-16 | **Phase D merged (PR #1710, squash `1c92a1d2b`)**——CLAUDE.md 200→62 / AGENTS.md 219→60，删 identity 详述/队友静态表/SOP 表/记忆详述/Knowledge Feed/代码规范/文档表（L0 §1-8 覆盖 OR ADR-030 §10.3 可重建），留 terse 铁律/闭环检查点/各族专属 dev 规则 + 指针 1 行化。砚砚本地 APPROVE（47 盲审）+ 延续 ×2 → 云端 P2（lineCount trailing-newline off-by-one，已修对齐 wc -l）→ 云端 round-2 clean。过程修复**预先就红的共享 main blocker**（check-feature-truth：index.json stale + F190 缺 BACKLOG，`d5c019303` 解全队 merge-gate 阻塞）+ f188-harness-consistency（记忆指针改 FULL `cat_cafe_*` 名）。AC-D1-D4 ✅。下一：Phase E（CC 版本升级拆 SOP）→ Phase F（配置栏可见化）→ C5 runtime 重启验收（CVO directive batch）|
 
 ## Review Gate
 
