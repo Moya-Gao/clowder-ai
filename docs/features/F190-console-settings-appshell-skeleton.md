@@ -229,6 +229,7 @@ close_gate_report:
 | 2026-05-16 | CVO 拍板状态栏方向：跟进开源 console token 体系（`conn-*` 语义色 + `console-pill` 组件类），但保留家里 `gap-4` 间距（开源 `gap-3` 太拥挤）。记为 V-7/V-8/V-9 |
 | 2026-05-16 | V-7/V-8/V-9 status bar token migration merged (PR #1705): ConnectionStatusBar + ParallelStatusBar + RightStatusPanel all migrated to console tokens |
 | 2026-05-16 | CVO 全局 Tailwind 原色审计：本地 ~1361 处硬编码，其中 9 文件（310 处）开源已迁 conn-*/console-* 语义 token。CVO 拍板先修开源已有 path 的第一梯队 |
+| 2026-05-16 | Header button circle pattern + header bg band-aid fix merged (PR #1708): ExportButton/VoiceCompanionButton/LiveAudioToggle/RightPanelToggle aligned to open-source `h-8 w-8 rounded-full` + `console-pill-bg`; header `border-b`/`bg-console-panel-bg` removed to match `safe-area-top` pattern; active-state color inheritance fixed (`--cafe-accent`, SVG inherits parent) |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（WIP 审计清单）
 
