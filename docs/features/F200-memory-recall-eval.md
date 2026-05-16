@@ -280,18 +280,45 @@ outputVerified = signal_or(
 
 方向：会搜的猫的 query 模式 → 自动建议给不会搜的猫（"砚砚搜这类问题用了这个 query，Hit@1"）。这是 harness coaching，不是检索排序本体，数据依赖 Phase D 的 TaskTrajectory。
 
-### v1.1 Dogfooding Findings（2026-05-16 三猫实测）
+### v1.1 Dogfooding Backlog（2026-05-16 三猫两轮实测：广度 dogfood + 冷启动模拟）
 
-三猫各自用三入口跑真实调查任务，以下为共识发现：
+三猫两轮真实调查任务实测（Round 1 广度 + Round 2 46 九路 / 砚砚+47 冷启动模拟，刻意抛弃老猫先验）。
+**核心洞察（砚砚一句话）**：新猫更信"第一屏"——老猫被喂偏能靠项目记忆纠偏，新猫不行。因此优先级按**入口第一屏导航正确性**排，不按工程难度排。
 
-| # | 问题 | 发现者 | 建议 |
-|---|------|--------|------|
-| DF-1 | `list_recent(scope=docs)` 被 global:memory 条目淹没——index rebuild 刷新所有 memory 文件 timestamp，真实 recent feature docs 全沉底 | 46+砚砚 | index rebuild 不刷 memory timestamp，或 scope=docs 排除 global:memory 来源 |
-| DF-2 | `graph_resolve` depth≥2 经 super-hub（F102/F188）边爆炸（209 nodes/439 edges），edge_weight 排序在输出中不可见 | 47 | hub-node degree-cap（fan-out>30 按 edge_weight 截断 top-N）+ 输出标注权重 |
-| DF-3 | search_evidence 结果只显示 `boost: authority_boost`，看不出 consumption_prior / MMR 是否参与 | 砚砚 | 加只读 `rerank_reason` 字段（如 `authority + consumption_prior + mmr`） |
-| DF-4 | `list_recent(trajectories)` 缺 outputVerified 状态展示 | 47 | trajectory 标签加 `[✓verified]` / `[unverified]`——已在 AC-D2.1/D2.2 backlog |
+**修复批次（建议 46 开 worktree 按此顺序）**：
 
-✅ 三猫共识 OK：search_evidence hybrid 排序合理 / graph_resolve depth=1 精确好用 / list_recent(trajectories) 真闭环亮点
+#### Batch 1 — P1 导航正确性（新猫第一屏被喂错，最先修）
+
+| # | 问题 | 根因 | 归属 | 发现 |
+|---|------|------|------|------|
+| DF-1 | `list_recent(scope=docs)` 被 global:memory 淹没 + timestamp = **索引重建时间≠内容活跃时间**（kinds=feature 全标 05-16 / kinds=decision 全标 04-18，新猫无法分辨哪个是真活跃主战场）| index rebuild 刷 memory timestamp + list_recent 排序键用错维度 | **F188** | 46+砚砚 R1 / 47 冷启动 reframe 根因 |
+| DF-6 | `list_recent(kinds=["discussion"/"reflection"/"decision"])` 过滤器**完全失效**（30d 也 0 结果，华为研讨会 discussion 查不到）| kinds 参数值与索引实际 kind 标签不匹配 | **F188** | 46 R2 |
+| DF-11 | `graph_resolve` fuzzy candidate ranking 丢失 text_match——`graph_resolve("F200 v1.1 issues")` → F102（边多）排 F200 前 | 代码 fuzzy candidates 只按 `weightedEdgeScore` 排；F200 spec 公式含 `text_match + authority + edge_weight` 但实现漏了 text_match | **F188**（实现与 F200 spec 公式不符）| 砚砚冷启动 |
+
+#### Batch 2 — P2 可解释性 + 跨语言
+
+| # | 问题 | 根因 | 归属 | 发现 |
+|---|------|------|------|------|
+| DF-2 | `graph_resolve` depth≥2 经 super-hub（F102/F188）边爆炸（209 nodes/439 edges），无 degree cap | hub-node fan-out 无截断；depth=1+relations filter 有 workaround | **F188** | 47 R1 / 三猫 R2 确认 |
+| DF-8 | hybrid 跨语言查询退化——纯 semantic 命中的中文文档，hybrid 反而被无关高 BM25 挤掉；MCP description "不确定用 hybrid" 与实际矛盾 | RRF fusion 中英 query BM25 分极低 | **F102/F188**（检索 mode + tool description）| 46 R2 |
+| DF-3 | search_evidence 只显示 `boost: authority_boost`，看不出 consumption_prior/MMR 是否参与；新猫无法判断"为什么这条排第一" | search 输出缺 explainability 字段 | **F200** | 砚砚+47+46 多轮 |
+| DF-4 | `list_recent(trajectories)` 缺 `[verified/unverified]` + filesRead/filesModified 摘要——冷启动猫无法分辨成功路径 vs 弯路 | AC-D2 半残（outputVerified 信号源只实现 2/4：PR merge + invocation status，CVO accept/reviewer approval 是 stub）| **F200**（已在 AC-D2.1/D2.2 backlog）| 47+砚砚 冷启动 |
+
+#### Batch 3 — P3 边缘 case（可延后）
+
+| # | 问题 | 归属 | 发现 |
+|---|------|------|------|
+| DF-7 | semantic confidence 与相关性错位（embedding 距离≠真实相关，"cat naming origin" → Architecture Map 排 high）| F102/F188 | 46 R2 |
+| DF-10 | graph fuzzy 跨域假阳性（"consumption ranking" → 癌症研究 klra5，~20%）| F188 | 46 R2 |
+
+✅ **三猫共识 OK（确认 working，不动）**：
+- search_evidence 概念词召回（不知 F200 编号用"记忆系统消费加权"也能排第一）
+- graph_resolve depth=1 + relations filter（13 nodes 干净可导航）
+- `list_recent(scope=trajectories)` 真闭环亮点——Phase D 真在记三猫探索轨迹，"穷人的 training loop" 在工作
+
+**冷启动结论**：harness 对新猫 graph+概念 search **确实喂饭有效**（不靠老猫记忆）；但 **list_recent 这个新猫最依赖的"零先验扫最近"入口恰恰对新猫最不可靠**（DF-1/DF-6）——这是 F165 Guided Overfitting / F152 Expedition Memory 冷启动愿景的直接威胁，Batch 1 应最高优先。
+
+> **归属说明**：本 backlog 横跨 F188（list_recent/graph_resolve 工具实现）+ F200（rerank_reason/trajectory）+ F102（检索 mode）。F200 spec 作为记忆系统 dogfood 反馈中枢汇总，46 开 worktree 时按归属列分别处置（F188 工具 bug 与 F200 ranking 改进不同 scope）。
 
 ## Acceptance Criteria
 
