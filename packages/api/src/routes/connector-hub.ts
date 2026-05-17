@@ -756,4 +756,47 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     }
     return store.getConfig(connectorId);
   });
+
+  app.post('/api/connector/:id/test', async (request, reply) => {
+    const { error } = requireConnectorWriteIdentity(request, reply);
+    if (error) return error;
+
+    const { id } = request.params as { id: string };
+
+    if (id === 'wecom-bot') {
+      if (!opts.getWeComBotAdapter) {
+        return { valid: false, error: '企微机器人适配器未初始化' };
+      }
+      const adapter = opts.getWeComBotAdapter();
+      if (!adapter) {
+        return { valid: false, error: '企微机器人未配置' };
+      }
+      const state = adapter.getConnectionState();
+      return { valid: state === 'connected', error: state !== 'connected' ? `当前状态: ${state}` : undefined };
+    }
+
+    if (id === 'weixin') {
+      const adapter = opts.weixinAdapter;
+      if (!adapter) {
+        return { valid: false, error: '微信适配器未初始化' };
+      }
+      const isActive = adapter.hasBotToken() && adapter.isPolling();
+      return { valid: isActive, error: !isActive ? '微信未连接（需要扫码登录）' : undefined };
+    }
+
+    if (id === 'feishu') {
+      const status = buildConnectorStatus();
+      const feishu = status.find((p) => p.id === 'feishu');
+      return { valid: feishu?.configured === true, error: !feishu?.configured ? '飞书未配置或凭据无效' : undefined };
+    }
+
+    if (id === 'telegram') {
+      const status = buildConnectorStatus();
+      const tg = status.find((p) => p.id === 'telegram');
+      return { valid: tg?.configured === true, error: !tg?.configured ? 'Telegram Bot Token 未配置' : undefined };
+    }
+
+    reply.status(400);
+    return { valid: false, error: `未知平台: ${id}` };
+  });
 };

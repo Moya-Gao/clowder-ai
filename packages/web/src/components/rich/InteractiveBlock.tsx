@@ -62,8 +62,7 @@ function dispatchInteractiveSend(text: string) {
 
 /** Render option icon: prefer SVG icon over emoji */
 function OptionIcon({ opt, className = 'w-5 h-5' }: { opt: InteractiveOption; className?: string }) {
-  if (opt.icon)
-    return <CafeIcon name={opt.icon} className={`${className} text-conn-amber-text dark:text-amber-400 shrink-0`} />;
+  if (opt.icon) return <CafeIcon name={opt.icon} className={`${className} text-conn-amber-text shrink-0`} />;
   if (opt.emoji) return <span className="text-base shrink-0 leading-none">{opt.emoji}</span>;
   return null;
 }
@@ -123,18 +122,14 @@ function SelectInteraction({
                 isSelected
                   ? 'border-amber-500 bg-conn-amber-bg dark:bg-amber-950/30'
                   : disabled
-                    ? 'border-cafe dark:border-gray-700 opacity-50 cursor-not-allowed'
-                    : 'border-cafe dark:border-gray-700 hover:border-conn-amber-ring hover:bg-conn-amber-bg/50 dark:hover:bg-amber-950/20 cursor-pointer'
+                    ? 'border-cafe opacity-50 cursor-not-allowed'
+                    : 'border-cafe hover:border-conn-amber-ring hover:bg-conn-amber-bg/50 dark:hover:bg-amber-950/20 cursor-pointer'
               }`}
           >
             <OptionIcon opt={opt} />
             <div className="flex-1 min-w-0">
-              <span className={`font-semibold ${isSelected ? 'text-conn-amber-text dark:text-amber-400' : ''}`}>
-                {opt.label}
-              </span>
-              {opt.description && (
-                <span className="block text-xs text-cafe-secondary dark:text-gray-400 mt-0.5">{opt.description}</span>
-              )}
+              <span className={`font-semibold ${isSelected ? 'text-conn-amber-text' : ''}`}>{opt.label}</span>
+              {opt.description && <span className="block text-xs text-cafe-secondary mt-0.5">{opt.description}</span>}
             </div>
             {isSelected && (
               <svg
@@ -165,7 +160,7 @@ function SelectInteraction({
               if (e.key === 'Enter' && !ime.isComposing() && customText.trim()) handleSubmit();
             }}
             placeholder={pendingOpt?.customInputPlaceholder ?? '输入你的想法...'}
-            className="w-full px-4 py-2.5 rounded-xl border-[1.5px] border-conn-amber-ring dark:border-amber-700 bg-cafe-surface dark:bg-gray-900 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 placeholder:text-gray-400"
+            className="w-full px-4 py-2.5 rounded-xl border-[1.5px] border-conn-amber-ring bg-cafe-surface text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 placeholder:text-gray-400"
           />
         </div>
       )}
@@ -237,13 +232,13 @@ function MultiSelectInteraction({
               ${
                 isChecked
                   ? 'border-amber-500 bg-conn-amber-bg dark:bg-amber-950/30'
-                  : 'border-cafe dark:border-gray-700 hover:border-conn-amber-ring'
+                  : 'border-cafe hover:border-conn-amber-ring'
               }
               ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           >
             <span
               className={`shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
-                isChecked ? 'bg-amber-600' : 'border-[1.5px] border-cafe dark:border-gray-600'
+                isChecked ? 'bg-amber-600' : 'border-[1.5px] border-cafe'
               }`}
             >
               {isChecked && (
@@ -259,9 +254,7 @@ function MultiSelectInteraction({
               )}
             </span>
             <OptionIcon opt={opt} />
-            <span className={`font-semibold ${isChecked ? 'text-conn-amber-text dark:text-amber-400' : ''}`}>
-              {opt.label}
-            </span>
+            <span className={`font-semibold ${isChecked ? 'text-conn-amber-text' : ''}`}>{opt.label}</span>
           </button>
         );
       })}
@@ -373,8 +366,8 @@ function CardGridInteraction({
                         : isHighlighted
                           ? 'border-amber-400 bg-conn-amber-bg/80 dark:bg-amber-950/20 scale-105'
                           : disabled
-                            ? 'border-cafe dark:border-gray-700 opacity-50 cursor-not-allowed'
-                            : 'border-cafe dark:border-gray-700 bg-cafe-surface-elevated dark:bg-gray-800/50 hover:border-conn-amber-ring hover:shadow-sm cursor-pointer'
+                            ? 'border-cafe opacity-50 cursor-not-allowed'
+                            : 'border-cafe bg-cafe-surface-elevated hover:border-conn-amber-ring hover:shadow-sm cursor-pointer'
                     }`}
                 >
                   {(opt.icon || opt.emoji) && (
@@ -382,14 +375,10 @@ function CardGridInteraction({
                       <OptionIcon opt={opt} className="w-7 h-7" />
                     </div>
                   )}
-                  <div
-                    className={`font-semibold ${isSelected || isPending ? 'text-conn-amber-text dark:text-amber-400' : ''}`}
-                  >
+                  <div className={`font-semibold ${isSelected || isPending ? 'text-conn-amber-text' : ''}`}>
                     {opt.label}
                   </div>
-                  {opt.description && (
-                    <div className="text-xs text-cafe-secondary dark:text-gray-400 mt-0.5">{opt.description}</div>
-                  )}
+                  {opt.description && <div className="text-xs text-cafe-secondary mt-0.5">{opt.description}</div>}
                 </button>
               );
             })}
@@ -464,9 +453,9 @@ function ConfirmInteraction({
             selectedId === '__cancel__'
               ? 'bg-conn-red-bg dark:bg-red-950/30 border-conn-red-ring text-conn-red-text dark:text-conn-red-text'
               : disabled && selectedId
-                ? 'bg-cafe-surface-elevated dark:bg-gray-800 border-cafe dark:border-gray-700 text-cafe-muted opacity-50 cursor-not-allowed'
+                ? 'bg-cafe-surface-elevated border-cafe text-cafe-muted opacity-50 cursor-not-allowed'
                 : disabled
-                  ? 'bg-cafe-surface-elevated dark:bg-gray-800 border-cafe dark:border-gray-700 text-cafe-muted cursor-not-allowed'
+                  ? 'bg-cafe-surface-elevated border-cafe text-cafe-muted cursor-not-allowed'
                   : 'bg-conn-red-bg/50 dark:bg-red-950/10 border-conn-red-ring dark:border-red-800 text-conn-red-text hover:bg-conn-red-bg hover:border-red-300 cursor-pointer'
           }`}
       >
@@ -486,9 +475,9 @@ function ConfirmInteraction({
             selectedId === '__confirm__'
               ? 'bg-conn-green-bg dark:bg-green-950/30 border-green-500 text-conn-green-text dark:text-green-400'
               : disabled && selectedId
-                ? 'bg-cafe-surface-elevated dark:bg-gray-800 border-cafe dark:border-gray-700 text-cafe-muted opacity-50 cursor-not-allowed'
+                ? 'bg-cafe-surface-elevated border-cafe text-cafe-muted opacity-50 cursor-not-allowed'
                 : disabled
-                  ? 'bg-cafe-surface-elevated dark:bg-gray-800 border-cafe dark:border-gray-700 text-cafe-muted cursor-not-allowed'
+                  ? 'bg-cafe-surface-elevated border-cafe text-cafe-muted cursor-not-allowed'
                   : 'bg-conn-green-bg/50 dark:bg-green-950/10 border-conn-green-ring dark:border-green-800 text-conn-green-text hover:bg-conn-green-bg hover:border-green-300 cursor-pointer'
           }`}
       >
@@ -633,11 +622,9 @@ export function InteractiveBlock({
   );
 
   return (
-    <div className="rounded-2xl border border-cafe dark:border-gray-700 p-4">
+    <div className="rounded-2xl border border-cafe p-4">
       {block.title && <div className="font-semibold text-sm mb-1">{block.title}</div>}
-      {block.description && (
-        <div className="text-xs text-cafe-secondary dark:text-gray-400 mb-3">{block.description}</div>
-      )}
+      {block.description && <div className="text-xs text-cafe-secondary mb-3">{block.description}</div>}
       {block.interactiveType === 'select' && (
         <SelectInteraction
           options={block.options}

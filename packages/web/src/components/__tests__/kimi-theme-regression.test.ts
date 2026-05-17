@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const webRoot = resolve(testDir, '..', '..', '..');
-const globalsCssPath = resolve(webRoot, 'src', 'app', 'globals.css');
+const globalsCssPath = resolve(webRoot, 'src', 'app', 'theme-tokens.css');
 const tailwindConfigPath = resolve(webRoot, 'tailwind.config.js');
 
 describe('kimi theme regression', () => {

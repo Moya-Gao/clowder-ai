@@ -28,7 +28,7 @@ export function BriefingCard({ block: raw }: { block: RichBlock; messageId?: str
           Context Briefing
         </span>
         <span className="mx-1.5 text-blue-300 dark:text-blue-600">·</span>
-        <span className="text-sm text-cafe-secondary dark:text-gray-300 truncate flex-1">{block.title}</span>
+        <span className="text-sm text-cafe-secondary truncate flex-1">{block.title}</span>
         <svg
           className={`w-3.5 h-3.5 text-blue-400 shrink-0 transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}
           viewBox="0 0 24 24"
@@ -49,7 +49,7 @@ export function BriefingCard({ block: raw }: { block: RichBlock; messageId?: str
           {block.fields.map((f, i) => (
             <div key={i} className="text-xs">
               <span className="text-conn-blue-text dark:text-blue-400 font-medium">{f.label}</span>
-              <span className="text-cafe-secondary dark:text-gray-400 ml-1">{f.value}</span>
+              <span className="text-cafe-secondary ml-1">{f.value}</span>
             </div>
           ))}
         </div>
@@ -58,7 +58,7 @@ export function BriefingCard({ block: raw }: { block: RichBlock; messageId?: str
       {/* Expanded: full details */}
       {expanded && block.bodyMarkdown && (
         <div className="px-3 pb-3 pt-1 border-t border-conn-blue-ring/50 dark:border-blue-800/50">
-          <div className="text-xs text-cafe-secondary dark:text-gray-300 [&_.markdown-content]:text-xs [&_p]:mb-1 [&_p:last-child]:mb-0">
+          <div className="text-xs text-cafe-secondary [&_.markdown-content]:text-xs [&_p]:mb-1 [&_p:last-child]:mb-0">
             <MarkdownContent content={block.bodyMarkdown} className="!text-xs" disableCommandPrefix />
           </div>
         </div>

@@ -28,13 +28,15 @@ function ConnectorActionBar({
   saveResult,
   saving,
   onSave,
-  onShowResult,
+  testing,
+  onTest,
 }: {
   platformId: string;
   saveResult: { type: 'success' | 'error'; message: string } | null;
   saving: boolean;
   onSave: () => void;
-  onShowResult: (r: { type: 'success' | 'error'; message: string }) => void;
+  testing: boolean;
+  onTest: () => void;
 }) {
   return (
     <>
@@ -53,11 +55,12 @@ function ConnectorActionBar({
       <div className="flex items-center justify-end gap-2">
         <button
           type="button"
-          className="console-button-secondary text-[13px]"
-          onClick={() => onShowResult({ type: 'error', message: '连接测试功能尚未实现（F-3 deferred）' })}
+          className="console-button-secondary text-[13px] disabled:opacity-50"
+          onClick={onTest}
+          disabled={testing}
         >
           <WifiIcon />
-          测试连接
+          {testing ? '测试中...' : '测试连接'}
         </button>
         <button
           type="button"
@@ -84,6 +87,7 @@ export function HubConnectorConfigTab() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [saveResult, setSaveResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const fetchStatus = useCallback(async () => {
@@ -157,6 +161,26 @@ export function HubConnectorConfigTab() {
       setSaveResult({ type: 'error', message: '网络错误' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTest = async (platform: PlatformStatus) => {
+    setTesting(true);
+    setSaveResult(null);
+    try {
+      const res = await apiFetch(`/api/connector/${encodeURIComponent(platform.id)}/test`, {
+        method: 'POST',
+      });
+      const data = (await res.json().catch(() => ({}))) as { valid?: boolean; error?: string };
+      if (data.valid) {
+        setSaveResult({ type: 'success', message: '连接正常' });
+      } else {
+        setSaveResult({ type: 'error', message: data.error || '连接失败' });
+      }
+    } catch {
+      setSaveResult({ type: 'error', message: '网络错误' });
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -265,7 +289,8 @@ export function HubConnectorConfigTab() {
                   saveResult={saveResult}
                   saving={saving}
                   onSave={() => handleSave(platform)}
-                  onShowResult={setSaveResult}
+                  testing={testing}
+                  onTest={() => handleTest(platform)}
                 />
               </div>
             )}
@@ -407,7 +432,8 @@ export function HubConnectorConfigTab() {
                   saveResult={saveResult}
                   saving={saving}
                   onSave={() => handleSave(platform)}
-                  onShowResult={setSaveResult}
+                  testing={testing}
+                  onTest={() => handleTest(platform)}
                 />
               </div>
             )}

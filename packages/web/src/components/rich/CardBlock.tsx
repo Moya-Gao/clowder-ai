@@ -103,7 +103,7 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
     <div className={`border-l-4 rounded-r-lg p-3 ${toneStyle}`}>
       <div className="font-medium text-sm">{block.title}</div>
       {block.bodyMarkdown && (
-        <div className="mt-1 text-xs text-cafe-secondary dark:text-gray-300 [&_.markdown-content]:text-xs [&_p]:mb-1 [&_p:last-child]:mb-0">
+        <div className="mt-1 text-xs text-cafe-secondary [&_.markdown-content]:text-xs [&_p]:mb-1 [&_p:last-child]:mb-0">
           <MarkdownContent content={block.bodyMarkdown} className="!text-xs" disableCommandPrefix />
         </div>
       )}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFileEditing } from '@/hooks/useFileEditing';
 import { useFileManagement } from '@/hooks/useFileManagement';
 import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { usePersistedState } from '@/hooks/usePersistedState';
@@ -161,9 +162,12 @@ export function WorkspacePanel() {
   const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
   const setPendingChatInsert = useChatStore((s) => s.setPendingChatInsert);
   const currentThreadId = useChatStore((s) => s.currentThreadId);
-  const editToken = useChatStore((s) => s.workspaceEditToken);
-  const editTokenExpiry = useChatStore((s) => s.workspaceEditTokenExpiry);
-  const setEditToken = useChatStore((s) => s.setWorkspaceEditToken);
+  const { editMode, setEditMode, saveError, canEdit, handleToggleEdit, handleSave } = useFileEditing({
+    worktreeId,
+    openFilePath,
+    file,
+    fetchFile,
+  });
 
   const pendingPreviewAutoOpen = useChatStore((s) => s.pendingPreviewAutoOpen);
   const consumePreviewAutoOpen = useChatStore((s) => s.consumePreviewAutoOpen);
@@ -307,11 +311,9 @@ export function WorkspacePanel() {
     };
   }, [worktreeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [editMode, setEditMode] = useState(false);
   const [markdownRendered, setMarkdownRendered] = useState(true);
   const [htmlPreview, setHtmlPreview] = useState(false);
   const [jsxPreview, setJsxPreview] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   // F063: vertical resize — treeBasis as percentage (20-80), persisted
   const [treeBasis, setTreeBasis, resetTreeBasis] = usePersistedState('cat-cafe:treeBasis', 40);
   const panelRef = useRef<HTMLElement>(null);
@@ -496,87 +498,9 @@ export function WorkspacePanel() {
     [createFile, createDir, deleteItem, renameItem, uploadFile, fetchTree, setOpenFile, closeTab, confirm],
   );
 
-  const isTokenValid = editToken && editTokenExpiry && editTokenExpiry > Date.now();
-  const canEdit = file && !file.binary && !file.truncated;
   const isMarkdown = !!(openFilePath && (openFilePath.endsWith('.md') || openFilePath.endsWith('.mdx')));
   const isHtml = !!(openFilePath && /\.html?$/i.test(openFilePath));
   const isJsx = !!(openFilePath && /\.[jt]sx$/i.test(openFilePath));
-
-  const handleToggleEdit = useCallback(async () => {
-    // If already editing with a valid token, toggle off
-    if (editMode && isTokenValid) {
-      setEditMode(false);
-      return;
-    }
-    if (!worktreeId) return;
-    setSaveError(null);
-
-    // Get or refresh token (also handles expired-token-while-editing case)
-    if (!isTokenValid) {
-      try {
-        const res = await apiFetch('/api/workspace/edit-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ worktreeId }),
-        });
-        if (!res.ok) {
-          setSaveError('无法获取编辑权限');
-          return;
-        }
-        const data = await res.json();
-        setEditToken(data.token, data.expiresIn);
-      } catch {
-        setSaveError('网络错误');
-        return;
-      }
-    }
-    setEditMode(true);
-  }, [editMode, worktreeId, isTokenValid, setEditToken]);
-
-  const handleSave = useCallback(
-    async (newContent: string) => {
-      if (!worktreeId || !openFilePath || !file) return;
-      if (!editToken) {
-        setSaveError('编辑会话过期，请点击「编辑」按钮刷新权限后重试保存');
-        return;
-      }
-      setSaveError(null);
-      try {
-        const res = await apiFetch('/api/workspace/file', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            worktreeId,
-            path: openFilePath,
-            content: newContent,
-            baseSha256: file.sha256,
-            editSessionToken: editToken,
-          }),
-        });
-        if (res.status === 409) {
-          setSaveError('冲突：文件已被修改，请重新加载');
-          return;
-        }
-        if (res.status === 401) {
-          setEditToken(null);
-          // Keep editMode=true so unsaved edits aren't lost.
-          // User can click the edit toggle to re-acquire a token and retry.
-          setSaveError('编辑会话过期，请点击「编辑」按钮刷新权限后重试保存');
-          return;
-        }
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({ error: 'Unknown error' }));
-          setSaveError(data.error || '保存失败');
-          return;
-        }
-        // Re-fetch file to get new content + sha256
-        if (openFilePath) await fetchFile(openFilePath);
-      } catch {
-        setSaveError('网络错误');
-      }
-    },
-    [worktreeId, openFilePath, file, editToken, setEditToken, fetchFile],
-  );
 
   return (
     <aside

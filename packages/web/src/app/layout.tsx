@@ -8,6 +8,7 @@ import { ToastContainer } from '@/components/ToastContainer';
 import { ConfirmProvider } from '@/components/useConfirm';
 import '@xterm/xterm/css/xterm.css';
 import './globals.css';
+import './theme-tokens.css';
 import './connector-tokens.css';
 import './console-shell.css';
 import './console-controls.css';

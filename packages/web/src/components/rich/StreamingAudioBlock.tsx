@@ -10,7 +10,7 @@ const CAT_VOICE_COLORS: Record<string, { bg: string; bar: string }> = {
   gemini: { bg: 'bg-[var(--color-gemini-bg)]', bar: 'bg-[var(--color-gemini-primary)]' },
   kimi: { bg: 'bg-[var(--color-kimi-bg)]', bar: 'bg-[var(--color-kimi-primary)]' },
 };
-const DEFAULT_VOICE_COLORS = { bg: 'bg-cafe-surface-elevated dark:bg-gray-800', bar: 'bg-gray-400' };
+const DEFAULT_VOICE_COLORS = { bg: 'bg-cafe-surface-elevated', bar: 'bg-gray-400' };
 
 interface Props {
   request: TtsStreamRequest;
@@ -119,7 +119,7 @@ export function StreamingAudioBlock({ request, catId, autoPlay = true }: Props) 
       </button>
 
       {request.text && (
-        <div className="text-[11px] text-cafe-muted dark:text-gray-500 pl-1 max-w-[420px] whitespace-pre-wrap break-words leading-relaxed">
+        <div className="text-[11px] text-cafe-muted pl-1 max-w-[420px] whitespace-pre-wrap break-words leading-relaxed">
           {request.text}
         </div>
       )}

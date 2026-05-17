@@ -1,6 +1,7 @@
 import type { SignalArticleStatus, StudyMeta } from '@cat-cafe/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MarkdownContent } from '@/components/MarkdownContent';
+import { getThreadHref } from '@/components/ThreadSidebar/thread-navigation';
 import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { apiFetch } from '@/utils/api-client';
 import type { SignalArticleDetail } from '@/utils/signals-api';
@@ -52,6 +53,9 @@ export function SignalArticleDetail({
   const [noteOpen, setNoteOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [expandContent, setExpandContent] = useState(false);
+  const [enrichedContent, setEnrichedContent] = useState<string | null>(null);
+  const [enriching, setEnriching] = useState(false);
+  const [enrichError, setEnrichError] = useState<string | null>(null);
   const pendingTagInputRef = useRef<HTMLInputElement>(null);
   const normalizedPendingTag = pendingTag.trim();
   const ime = useIMEGuard();
@@ -153,11 +157,46 @@ export function SignalArticleDetail({
       if (!res.ok) return;
       const data = (await res.json()) as { threadId: string };
       const query = new URLSearchParams({ signal: article.id, source: article.source });
-      window.location.href = `/thread/${encodeURIComponent(data.threadId)}?${query.toString()}`;
+      window.location.href = `${getThreadHref(data.threadId)}?${query.toString()}`;
     } finally {
       setDiscussLoading(false);
     }
   }, [article, discussLoading]);
+
+  const handleEnrich = useCallback(async () => {
+    if (!article || enriching) return;
+    if (expandContent) {
+      setExpandContent(false);
+      return;
+    }
+    // Always expand existing content immediately
+    setExpandContent(true);
+    if (enrichedContent) return;
+    // Try enrichment in background — failure doesn't block reading
+    setEnriching(true);
+    setEnrichError(null);
+    try {
+      const res = await apiFetch(`/api/signals/articles/${encodeURIComponent(article.id)}/enrich`, {
+        method: 'POST',
+      });
+      if (!res.ok) {
+        setEnrichError('全文抓取失败');
+        return;
+      }
+      const data = (await res.json()) as { enriched: boolean; reason?: string; contentLength?: number };
+      if (data.enriched) {
+        const detail = await apiFetch(`/api/signals/articles/${encodeURIComponent(article.id)}`);
+        if (detail.ok) {
+          const body = (await detail.json()) as { article: { content?: string } };
+          setEnrichedContent(body.article.content || null);
+        }
+      } else if (data.reason === 'fetch_failed') {
+        setEnrichError('无法访问原始页面');
+      }
+    } finally {
+      setEnriching(false);
+    }
+  }, [article, enriching, expandContent, enrichedContent]);
 
   const addPendingTag = useCallback(async () => {
     if (!article) {
@@ -248,18 +287,22 @@ export function SignalArticleDetail({
       <section className="mt-4">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-semibold text-cafe-secondary">正文</h3>
-          <button
-            type="button"
-            onClick={() => setExpandContent((prev) => !prev)}
-            className="text-xs text-opus-dark hover:underline"
-          >
-            {expandContent ? '收起' : '展开阅读'}
-          </button>
+          <div className="flex items-center gap-2">
+            {enrichError && <span className="text-xs text-red-500">{enrichError}</span>}
+            <button
+              type="button"
+              onClick={handleEnrich}
+              disabled={enriching}
+              className="text-xs text-opus-dark hover:underline disabled:opacity-50"
+            >
+              {enriching ? '正在获取全文…' : expandContent ? '收起' : '展开阅读'}
+            </button>
+          </div>
         </div>
         <div
           className={`mt-1 overflow-y-auto rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-field-bg)] p-3 text-sm text-cafe-black ${expandContent ? '' : 'max-h-[300px]'}`}
         >
-          <MarkdownContent content={article.content || '（无正文）'} />
+          <MarkdownContent content={enrichedContent || article.content || '（无正文）'} />
         </div>
       </section>
       <section className="mt-4">
