@@ -584,8 +584,8 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 |---|------|------|----------|--------|
 | D-7 | AppShell / ChatContainer（🔴 红区） | desktop sidebar owner 错位 | AppShell 接管 desktop ThreadSidebar | **Deferred**（CVO 2026-05-17: "先不做，记录一下"） |
 | S-2 | Hub/Settings 重复 | IM/Env/Governance 三处 | Hub 改为摘要 + deep-link | ✅ **已清理** (PR #1742)：CatCafeHub modal + 8 Hub-only 组件 + 6 test 删除（~3,100 行）；3 callers 重定向到 `/settings` deep-link；OpsContent URL deep-linking (`ops=`/`obs=`) |
-| S-4 | Console tokens | font / color token drift | 对齐 font-size/token 命名；不盲目搬 `theme-tokens.css` 或 xterm CSS |
-| S-5 | Thread/Top/Status visual | 视觉不一致 | 在功能修复后统一 spacing、border、radius；保留家里新增功能 |
+| S-4 | Console tokens | font / color token drift | 字号五档收敛（见下方 spec）；消灭 raw px 值 | 🚧 spec 已定，待实现 |
+| S-5 | Thread/Top/Status visual | 视觉不一致 | 间距/圆角 role-based 规范（见下方 spec）；不一刀切 | 🚧 spec 已定，待实现 |
 
 #### P1 — Visual Design Pattern 跟进（CVO 2026-05-15 确认）
 
@@ -607,7 +607,70 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 |---|------|------|--------|
 | ~~W-1~~ | ~~状态栏~~ | ~~CSS 变量 vs Tailwind 硬编码色~~ | **已拍板（2026-05-16）**：跟进开源 console token 体系，但 `gap-4` 保留家里的（开源 `gap-3` 太拥挤）。详见 V-7/V-8/V-9 |
 | ~~W-2~~ | Signal 页面布局 | Dashboard 卡片式 vs Console panel 式 | **已拍板**：保留家里全部功能（stats/batch/timeline/tier），可学习开源样式 |
-| W-3 | 字体/Thread 管理栏/顶栏视觉 | 未完成对比 | 铲屎官继续反馈 |
+| ~~W-3~~ | 字体/Thread 管理栏/顶栏视觉 | 未完成对比 | **已被 S-4/S-5 spec 覆盖**（字号 + 间距规范解决大部分视觉差异） |
+
+### S-4/S-5 执行 Spec（三猫讨论收敛 2026-05-17）
+
+> 参与：opus（提案）+ codex（review 意见）。CVO 授权猫猫自决，约束："别太夸张"、gap-4 保留。
+> 原则：**role-based 规范**，不一刀切。Console 是密集工具界面，header/sidebar/settings panel 密度本来不同。
+
+#### 字号体系（S-4）
+
+| 档位 | Tailwind 类 | 像素 | 使用场景 | 禁止场景 |
+|------|------------|------|----------|----------|
+| micro | `text-[10px]` | 10 | badge 数字、daemon short id、极小状态标注 | 可读标签、按钮文案 |
+| xs | `text-xs` | 12 | 正文标签、按钮文字、sidebar 条目、list item | — |
+| sm | `text-sm` | 14 | section 标题、卡片正文、设置项 label | — |
+| base | `text-base` | 16 | 二级标题、弹窗正文小标题、settings panel 局部标题 | 重复列表 |
+| lg | `text-lg` | 18 | 页面标题、弹窗主标题 | section title（用 sm/base） |
+
+**执行规则**：
+- 禁止：`text-[11px]`、`text-[12px]`、`text-[14px]`、`text-[16px]`、`text-[18px]` — 全部迁到对应 Tailwind 标准类
+- 唯一允许的自定义值：`text-[10px]`（Tailwind 无对应标准类）
+- 落地顺序：先清 `text-[11px]`（全部→`text-xs`），再清 Settings raw text size
+
+#### 间距体系（S-5）
+
+**内边距 — 按 surface role 分档（不追求全局统一）**：
+
+| Surface | Padding | 理由 |
+|---------|---------|------|
+| Header (ChatContainerHeader) | `px-5 py-3` | 命令区/状态区，需要呼吸感 |
+| Sidebar (ThreadSidebar) | `px-3` | 高密列表，需要紧凑 |
+| Settings panel | `px-5 py-4` or `p-5` | 配置面板，宽松 |
+| List row / card | `px-3 py-2` ~ `px-4 py-3` | 可重复元素 |
+| Pill / badge | `px-2 py-0.5` ~ `px-3 py-1.5` | 内联标签 |
+
+**Gap — 五档**：
+
+| 档位 | 值 | 场景 |
+|------|------|------|
+| micro | `gap-1` / `gap-1.5` | icon + text、micro cluster |
+| tight | `gap-2` | pill/button 内部、小控件组 |
+| normal | `gap-3` | compact card/list row 内部 |
+| section | `gap-4` | 组件之间、状态栏 cluster（**已拍板保留**） |
+| page | `gap-5` / `gap-6` | settings/content section stack，不进 sidebar/header |
+
+**圆角 — 四档**：
+
+| 档位 | Tailwind | 像素 | 场景 |
+|------|----------|------|------|
+| sm | `rounded-md` | 6 | badge、小按钮、小 pill |
+| md | `rounded-lg` | 8 | 重复 card/list item/input（默认上限） |
+| lg | `rounded-xl` | 12 | panel、toolbar、较大设置块 |
+| xl | `rounded-2xl` / `rounded-[18px]` | 16-18 | outer shell / modal frame（不进重复元素） |
+
+**执行规则**：
+- 禁止：`rounded-[24px]`、`rounded-[16px]`、`rounded-[10px]` 等 raw 值 — 迁到最近的标准档
+- 不统一 header 与 sidebar 的 padding — 密度差异是设计意图
+- 只改明显不合角色的间距，不为了统一而统一
+
+#### 落地计划
+
+1. 先清 `text-[11px]` + Settings raw text size（最机械、风险最低）
+2. 再清 radius raw 值（`rounded-[24px]` → `rounded-2xl` 等）
+3. 最后审视 gap/padding 明显不合角色的（逐 case 判断，不全局扫）
+4. 一个 PR，CSS-only，不改逻辑
 
 ### 修改约束
 
