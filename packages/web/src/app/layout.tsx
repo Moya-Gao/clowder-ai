@@ -6,6 +6,7 @@ import { SessionBootstrap } from '@/components/SessionBootstrap';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { ToastContainer } from '@/components/ToastContainer';
 import { ConfirmProvider } from '@/components/useConfirm';
+import '@xterm/xterm/css/xterm.css';
 import './globals.css';
 import './connector-tokens.css';
 import './console-shell.css';
