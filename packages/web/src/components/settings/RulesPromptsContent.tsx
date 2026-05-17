@@ -13,9 +13,23 @@ interface ProviderGuide extends RuleFile {
   provider: string;
 }
 
+interface L0CompiledForCat {
+  catId: string;
+  displayName: string;
+  compiled: string;
+  error: string | null;
+}
+
+interface L0PromptsBlock {
+  template: RuleFile;
+  compiledByCat: L0CompiledForCat[];
+  customization: { templatePath: string; compileScript: string; verifyCommand: string };
+}
+
 interface RulesData {
   sharedRules: RuleFile[];
   providerGuides: ProviderGuide[];
+  l0Prompts?: L0PromptsBlock;
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -94,6 +108,10 @@ export function RulesPromptsContent() {
         ))}
       </Section>
 
+      {data.l0Prompts && (
+        <L0PromptsSection l0Prompts={data.l0Prompts} onPreview={(file, label) => setPreviewFile({ file, label })} />
+      )}
+
       {previewFile && (
         <RulePreviewModal label={previewFile.label} file={previewFile.file} onClose={() => setPreviewFile(null)} />
       )}
@@ -128,8 +146,35 @@ function Section({
   );
 }
 
-function RuleFileCard({ file, label, onClick }: { file: RuleFile; label?: string; onClick: () => void }) {
+export function RuleFileCard({
+  file,
+  label,
+  onClick,
+  errorMessage,
+}: {
+  file: RuleFile;
+  label?: string;
+  onClick: () => void;
+  /** F203 Phase F: compile-failed compiled L0 — distinct UX from missing file. */
+  errorMessage?: string;
+}) {
   const displayLabel = label ?? FILE_LABELS[file.path] ?? file.path;
+
+  // Cloud R3 P2: use explicit presence check, not truthy — `new Error('').message === ''`,
+  // so a real compile failure with empty message would falsy-fallthrough to "文件不存在".
+  if (errorMessage !== undefined) {
+    return (
+      <div className="console-list-card rounded-2xl px-4 py-4 shadow-[0_12px_30px_rgba(43,33,26,0.08)]">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-cafe">{displayLabel}</p>
+          <span className="console-status-chip" data-status="warn">
+            编译失败
+          </span>
+        </div>
+        <p className="mt-2 text-xs text-cafe-muted">{errorMessage || '(无错误信息)'}</p>
+      </div>
+    );
+  }
 
   if (!file.exists) {
     return (
@@ -174,6 +219,60 @@ function RuleFileCard({ file, label, onClick }: { file: RuleFile; label?: string
         </svg>
       </span>
     </button>
+  );
+}
+
+/**
+ * F203 Phase F — L0 system prompt section (read-only viewer).
+ * Renders the L0 template card + per-cat compiled cards + customization paths.
+ * Wired into RulesPromptsContent as 3rd Section. Props-driven for testability;
+ * async fetch + modal interaction stay in RulesPromptsContent.
+ */
+export function L0PromptsSection({
+  l0Prompts,
+  onPreview,
+}: {
+  l0Prompts: L0PromptsBlock;
+  onPreview: (file: RuleFile, label: string) => void;
+}) {
+  return (
+    <Section
+      title="L0 系统提示词"
+      description="替换式注入到每只猫的 native system role（Phase C 起；客观性指令 carry-over 保留）。template 是真相源；per-cat 渲染是 compileL0 实际产出。"
+      badge={`1 template + ${l0Prompts.compiledByCat.length} cats`}
+    >
+      <RuleFileCard
+        file={l0Prompts.template}
+        label="L0 Template（含占位）"
+        onClick={() => onPreview(l0Prompts.template, 'L0 Template — system-prompt-l0.md')}
+      />
+      {l0Prompts.compiledByCat.map((c) => {
+        const compiledFile: RuleFile = {
+          path: `compiled://${c.catId}`,
+          content: c.compiled,
+          exists: c.error === null,
+        };
+        return (
+          <RuleFileCard
+            key={c.catId}
+            file={compiledFile}
+            label={c.displayName}
+            onClick={() => onPreview(compiledFile, `${c.displayName} — compiled L0`)}
+            errorMessage={c.error ?? undefined}
+          />
+        );
+      })}
+      <div className="rounded-xl bg-[var(--console-panel-bg)] p-3 text-xs leading-5 text-cafe-muted">
+        <p className="font-medium text-cafe-secondary">如何修改 L0（read-only viewer，编辑入口在文件系统）</p>
+        <p className="mt-1">
+          Template 真相源: <code>{l0Prompts.customization.templatePath}</code>
+        </p>
+        <p>
+          Per-cat 渲染逻辑: <code>{l0Prompts.customization.compileScript}</code>
+        </p>
+        <p>改完验证: {l0Prompts.customization.verifyCommand}</p>
+      </div>
+    </Section>
   );
 }
 
