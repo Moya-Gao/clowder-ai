@@ -234,6 +234,7 @@ close_gate_report:
 | 2026-05-16 | Phase G merged (PR #1712): globals.css 623→334 行, cocreator-* 全删, 192 files CSS-only token convergence; 砚砚 review PASS + CVO fast-track |
 | 2026-05-16 | Phase F gaps merged (PR #1720): F-3/F-5/F-6 functional gaps + L-1~L-5 learnable patterns (token split, dark variant cleanup, voice hook, file editing hook); 砚砚 review PASS + CVO fast-track |
 | 2026-05-17 | Settings content-level parity audit added: Notify / Skills / Chat shell identified as outbound sync blockers; service lifecycle / system env / plugins marked known follow-ups |
+| 2026-05-17 | A/B convergence memo added: A-1 Notify first, A-2 Skills dual model needs composed design, B-1/B-3 share service contract, B-2 is UI + derived state not pure CSS ([discussion](../discussions/2026-05-17-f190-settings-a-b-convergence/README.md)) |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（验证后 Gap 清单）
 
