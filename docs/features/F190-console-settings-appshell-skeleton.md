@@ -611,8 +611,9 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 
 ### S-4/S-5 执行 Spec（三猫讨论收敛 2026-05-17）
 
-> 参与：opus（提案）+ codex（review 意见）。CVO 授权猫猫自决，约束："别太夸张"、gap-4 保留。
+> 参与：opus（提案）+ codex（review 意见）+ opus-47（独立观点）。CVO 授权猫猫自决，约束："别太夸张"、gap-4 保留。
 > 原则：**role-based 规范**，不一刀切。Console 是密集工具界面，header/sidebar/settings panel 密度本来不同。
+> 分歧裁决：16px 保留（砚砚 ✓）；圆角 md=8px（砚砚 ✓）；gap-3 保留（砚砚 ✓）；10px budget + lint（47 ✓）；density scale 命名（47 ✓）。
 
 #### 字号体系（S-4）
 
@@ -627,19 +628,20 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 **执行规则**：
 - 禁止：`text-[11px]`、`text-[12px]`、`text-[14px]`、`text-[16px]`、`text-[18px]` — 全部迁到对应 Tailwind 标准类
 - 唯一允许的自定义值：`text-[10px]`（Tailwind 无对应标准类）
+- **10px budget**（opus-47 提案）：全局 ≤30 处，新增必须 PR review 确认必要性。后续加 biome lint 规则禁止新增非标准像素值
 - 落地顺序：先清 `text-[11px]`（全部→`text-xs`），再清 Settings raw text size
 
 #### 间距体系（S-5）
 
-**内边距 — 按 surface role 分档（不追求全局统一）**：
+**内边距 — 三档 Density Scale（opus-47 提案，不追求全局统一）**：
 
-| Surface | Padding | 理由 |
-|---------|---------|------|
-| Header (ChatContainerHeader) | `px-5 py-3` | 命令区/状态区，需要呼吸感 |
-| Sidebar (ThreadSidebar) | `px-3` | 高密列表，需要紧凑 |
-| Settings panel | `px-5 py-4` or `p-5` | 配置面板，宽松 |
-| List row / card | `px-3 py-2` ~ `px-4 py-3` | 可重复元素 |
-| Pill / badge | `px-2 py-0.5` ~ `px-3 py-1.5` | 内联标签 |
+| Density | Padding | 场景 | 当前对应 |
+|---------|---------|------|----------|
+| **dense** | `px-2 py-1` ~ `px-3 py-1.5` | list items、inline pills、badge | ThreadItem 内部 |
+| **default** | `px-3 py-2` ~ `px-4 py-3` | form fields、buttons、sidebar 条目 | ThreadSidebar `px-3` ✅ |
+| **spacious** | `px-5 py-3` ~ `px-5 py-4` | page header、modal header、shell | ChatContainerHeader `px-5 py-3` ✅ |
+
+Header 和 Sidebar 松紧不同**是设计意图**（spacious vs default），不是 bug。新组件按"surface 层级"选档位。
 
 **Gap — 五档**：
 
@@ -649,7 +651,7 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 | tight | `gap-2` | pill/button 内部、小控件组 |
 | normal | `gap-3` | compact card/list row 内部 |
 | section | `gap-4` | 组件之间、状态栏 cluster（**已拍板保留**） |
-| page | `gap-5` / `gap-6` | settings/content section stack，不进 sidebar/header |
+| page | `gap-6` | settings/content section stack，不进 sidebar/header 密集区 |
 
 **圆角 — 四档**：
 
@@ -660,10 +662,13 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 | lg | `rounded-xl` | 12 | panel、toolbar、较大设置块 |
 | xl | `rounded-2xl` / `rounded-[18px]` | 16-18 | outer shell / modal frame（不进重复元素） |
 
+**独立轨**：`rounded-full`（avatar、pill）— 不进四档系统，独立使用。
+
 **执行规则**：
 - 禁止：`rounded-[24px]`、`rounded-[16px]`、`rounded-[10px]` 等 raw 值 — 迁到最近的标准档
-- 不统一 header 与 sidebar 的 padding — 密度差异是设计意图
+- 不统一 header 与 sidebar 的 padding — 密度差异是设计意图（spacious vs default）
 - 只改明显不合角色的间距，不为了统一而统一
+- **Lint 护栏**（后续加）：禁止新增非标准 `rounded-[Xpx]`（除 18）和非标准 gap 值（gap-3/5/7 等 magic number）
 
 #### 落地计划
 
