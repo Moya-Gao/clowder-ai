@@ -1589,6 +1589,13 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'ANTIGRAVITY_AUTO_RESUME',
+    defaultValue: 'true',
+    description: 'AC-G6 自动续跑：按 resume tier 在 fresh cascade 注入 resumeContext（设 false 关闭）',
+    category: 'antigravity',
+    sensitive: false,
+  },
+  {
     name: 'ANTIGRAVITY_YOLO_RUN_COMMAND',
     defaultValue: 'true',
     description:

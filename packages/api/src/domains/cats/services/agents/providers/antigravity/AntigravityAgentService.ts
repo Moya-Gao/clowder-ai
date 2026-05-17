@@ -4,7 +4,8 @@
  * Replaces CDP WebSocket hack with ConnectRPC via AntigravityBridge.
  * Antigravity thinks (via LS cascade), Bridge reads back and yields AgentMessages.
  */
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
@@ -48,6 +49,11 @@ import {
 } from './antigravity-recovery-policy.js';
 import type { AntigravityResumeContext } from './antigravity-resume-context.js';
 import { buildAntigravityResumeContext } from './antigravity-resume-context.js';
+import {
+  type AntigravityResumeProbeResult,
+  type AntigravityResumeTierDecision,
+  classifyAntigravityResumeTier,
+} from './antigravity-resume-tier.js';
 import { classifyAntigravityStepEffect, summarizeAntigravityEffects } from './antigravity-step-effects.js';
 import { summarizeStepShape, TRACE_ENABLED, traceLog } from './antigravity-trace.js';
 import { AuditLogger } from './executors/AuditLogger.js';
@@ -57,6 +63,7 @@ import { isReadOnlyRunCommand, RunCommandExecutor } from './executors/RunCommand
 const log = createModuleLogger('antigravity-service');
 const STREAM_ERROR_GRACE_WINDOW_MS = 4_500;
 const STALL_PROBE_MAX_ATTEMPTS = 2;
+const DEFAULT_AUTO_RESUME_MAX_ATTEMPTS = 1;
 const DEFAULT_MODEL_CAPACITY_RETRY_DELAYS_MS = [1_000, 3_000, 5_000, 10_000, 15_000, 20_000, 30_000, 36_000];
 
 interface StallProbeBudget {
@@ -65,11 +72,93 @@ interface StallProbeBudget {
 }
 
 type StallLivenessEvidence = { kind: 'trajectory_progress'; observedSteps: number; lastDelivered: number };
+type AntigravityJournalSummary = ReturnType<AntigravitySideEffectJournal['summary']>;
+type AntigravityJournalEntry = AntigravityJournalSummary['entries'][number];
 
 function sanitizeRetryDelays(delays?: readonly number[]): number[] {
   return (delays ?? DEFAULT_MODEL_CAPACITY_RETRY_DELAYS_MS).filter(
     (delay): delay is number => Number.isFinite(delay) && delay >= 0,
   );
+}
+
+function sanitizeAutoResumeMaxAttempts(value?: number): number {
+  if (value === undefined) return DEFAULT_AUTO_RESUME_MAX_ATTEMPTS;
+  if (!Number.isFinite(value)) return DEFAULT_AUTO_RESUME_MAX_ATTEMPTS;
+  return Math.max(0, Math.floor(value));
+}
+
+function isPathInside(childPath: string, parentPath: string): boolean {
+  const rel = relative(parentPath, childPath);
+  if (rel === '') return true;
+  if (rel.startsWith('..')) return false;
+  if (isAbsolute(rel)) return false;
+  return true;
+}
+
+function resolveResumeProbeTarget(target: string | undefined, workingDirectory: string): string | null {
+  if (target === undefined) return null;
+  const trimmed = target.trim();
+  if (trimmed === '') return null;
+  if (/[\n\r]/.test(trimmed)) return null;
+  if (!isAbsolute(trimmed) && !workingDirectory) return null;
+  return isAbsolute(trimmed) ? resolve(trimmed) : resolve(workingDirectory, trimmed);
+}
+
+function isOwnedResumeProbeTarget(resolvedTarget: string): boolean {
+  const normalized = resolvedTarget.replaceAll('\\', '/');
+  if (normalized.includes('/cat-cafe-antigravity-owned')) return true;
+  if (normalized.includes('/.cat-cafe/antigravity/')) return true;
+  return false;
+}
+
+function isOwnedWorktreeProbeTarget(resolvedTarget: string, workingDirectory: string): boolean {
+  if (workingDirectory === '') return false;
+  const resolvedWorkingDirectory = resolve(workingDirectory);
+  if (!isPathInside(resolvedTarget, resolvedWorkingDirectory)) return false;
+  return isOwnedResumeProbeTarget(resolvedWorkingDirectory);
+}
+
+function buildAntigravityResumeProbe(
+  entry: AntigravityJournalEntry,
+  workingDirectory: string,
+): AntigravityResumeProbeResult | null {
+  if (entry.effectType !== 'code' && entry.effectType !== 'artifact') return null;
+  const resolvedTarget = resolveResumeProbeTarget(entry.target, workingDirectory);
+  if (!resolvedTarget) return null;
+
+  const ownedBySandbox = isOwnedResumeProbeTarget(resolvedTarget);
+  const ownedByWorktree = isOwnedWorktreeProbeTarget(resolvedTarget, workingDirectory);
+  let owned = ownedBySandbox;
+  if (!owned) owned = ownedByWorktree;
+
+  const ok = owned ? existsSync(resolvedTarget) : false;
+
+  const kind = resolvedTarget.toLowerCase().includes('sentinel') ? 'sentinel_exists' : 'owned_target';
+  return {
+    kind,
+    target: entry.target,
+    idempotencyKey: entry.idempotencyKey,
+    ok,
+    reliable: true,
+    owned,
+    summary: `${kind}:${entry.target}`,
+  };
+}
+
+function buildAntigravityResumeProbes(input: {
+  journalSummary: AntigravityJournalSummary;
+  workingDirectory: string;
+}): AntigravityResumeProbeResult[] {
+  const probes: AntigravityResumeProbeResult[] = [];
+  for (const entry of input.journalSummary.entries) {
+    const probe = buildAntigravityResumeProbe(entry, input.workingDirectory);
+    if (probe) probes.push(probe);
+  }
+  return probes;
+}
+
+function buildSafeAutoResumePrompt(originalPrompt: string, resumeContext: AntigravityResumeContext): string {
+  return `${originalPrompt}\n\n---\n\n[Cat Cafe Antigravity safe auto-resume]\nThe previous Antigravity cascade was interrupted. Continue the same user request in this fresh cascade.\nDo not repeat completed side effects. Use the resumeContext JSON below as the source of truth for completed and pending effects.\n\nresumeContext:\n${JSON.stringify(resumeContext, null, 2)}`;
 }
 
 function buildRetrySignal(
@@ -144,6 +233,10 @@ export interface AntigravityAgentServiceOptions {
   pollTimeoutMs?: number;
   /** Auto-approve pending Antigravity interactions — YOLO mode (default: true) */
   autoApprove?: boolean;
+  /** Auto-resume eligible post-interruption cascades by effect tier; starts enabled. */
+  autoResume?: boolean;
+  /** Same original invocation auto-resume cap; starts at one attempt. */
+  autoResumeMaxAttempts?: number;
   /** Grace window for buffered recoverable stream_error before surfacing it (default: 4500ms) */
   streamErrorGraceWindowMs?: number;
   /** Capacity retry backoff schedule in ms (default: ~120s total budget). Empty = disabled. */
@@ -158,6 +251,8 @@ export class AntigravityAgentService implements AgentService {
   private readonly bridge: AntigravityBridge;
   private readonly pollTimeoutMs: number;
   private readonly autoApprove: boolean;
+  private readonly autoResume: boolean;
+  private readonly autoResumeMaxAttempts: number;
   private readonly streamErrorGraceWindowMs: number;
   private readonly modelCapacityRetryDelaysMs: number[];
   private readonly supervisorStore: AntigravitySupervisorStore;
@@ -172,7 +267,13 @@ export class AntigravityAgentService implements AgentService {
     const injectedBridge = options?.bridge;
     this.bridge = injectedBridge ?? new AntigravityBridge(options?.connection);
     this.pollTimeoutMs = options?.pollTimeoutMs ?? 60_000;
-    this.autoApprove = options?.autoApprove ?? process.env['ANTIGRAVITY_AUTO_APPROVE'] !== 'false';
+    let autoApprove = process.env.ANTIGRAVITY_AUTO_APPROVE !== 'false';
+    if (options?.autoApprove !== undefined) autoApprove = options.autoApprove;
+    this.autoApprove = autoApprove;
+    let autoResume = process.env.ANTIGRAVITY_AUTO_RESUME !== 'false';
+    if (options?.autoResume !== undefined) autoResume = options.autoResume;
+    this.autoResume = autoResume;
+    this.autoResumeMaxAttempts = sanitizeAutoResumeMaxAttempts(options?.autoResumeMaxAttempts);
     this.streamErrorGraceWindowMs = options?.streamErrorGraceWindowMs ?? STREAM_ERROR_GRACE_WINDOW_MS;
     this.modelCapacityRetryDelaysMs = sanitizeRetryDelays(options?.modelCapacityRetryDelaysMs);
     this.supervisorStore =
@@ -255,6 +356,7 @@ export class AntigravityAgentService implements AgentService {
       if (options?.auditContext?.invocationId) {
         originalInvocationId = options.auditContext.invocationId;
       }
+      let autoResumeAttemptCount = 0;
       const persistSupervisor = async (update: {
         status: AntigravitySupervisorStatus;
         recoveryStrategy: AntigravitySupervisorRecoveryStrategy;
@@ -284,7 +386,7 @@ export class AntigravityAgentService implements AgentService {
           let receiptState: AntigravitySupervisorReceiptState = 'clean';
           if (existing?.receiptState !== undefined) receiptState = existing.receiptState;
           if (update.receiptState !== undefined) receiptState = update.receiptState;
-          let resumeAttemptCount = 0;
+          let resumeAttemptCount = autoResumeAttemptCount;
           if (existing?.resumeAttemptCount !== undefined) resumeAttemptCount = existing.resumeAttemptCount;
           if (update.resumeAttemptCount !== undefined) resumeAttemptCount = update.resumeAttemptCount;
           const createdAt = existing?.createdAt !== undefined ? existing.createdAt : now;
@@ -353,6 +455,7 @@ export class AntigravityAgentService implements AgentService {
       }
       let capacityRetryCount = 0;
       let pendingTextReplace = false;
+      let promptForCurrentCascade = effectivePrompt;
 
       const makeSessionInit = (sessionId: string): AgentMessage => ({
         type: 'session_init',
@@ -362,6 +465,15 @@ export class AntigravityAgentService implements AgentService {
         metadata,
         timestamp: Date.now(),
       });
+
+      const classifyResumeTier = (journalSummary = sideEffectJournal.summary()): AntigravityResumeTierDecision =>
+        classifyAntigravityResumeTier({
+          journalSummary,
+          probes: buildAntigravityResumeProbes({
+            journalSummary,
+            workingDirectory: sanitizedDir,
+          }),
+        });
 
       log.info(`invoke: cascade=${cascadeId}, thread=${threadId}, model=${this.model}`);
       yield makeSessionInit(cascadeId);
@@ -381,8 +493,9 @@ export class AntigravityAgentService implements AgentService {
         };
       }
 
+      let activeAutoResumePrompt: string | undefined;
       while (true) {
-        const stepsBefore = await this.bridge.sendMessage(cascadeId, effectivePrompt, this.model);
+        const stepsBefore = await this.bridge.sendMessage(cascadeId, promptForCurrentCascade, this.model);
 
         // Abort check after send
         if (options?.signal?.aborted) {
@@ -412,6 +525,13 @@ export class AntigravityAgentService implements AgentService {
           [GENAI_MODEL]: normalizeModel(this.model),
           [STREAM_ERROR_PATH]: 'partial_text',
         };
+        let pendingAutoResumeContext:
+          | {
+              journalSummary: ReturnType<AntigravitySideEffectJournal['summary']>;
+              resumeTierDecision: AntigravityResumeTierDecision;
+              resumeAttemptCount?: number;
+            }
+          | undefined;
 
         const clearPendingStreamError = (reason: 'recovered' | 'superseded' | 'expired' | 'retried') => {
           if (!pendingStreamError) return;
@@ -423,25 +543,93 @@ export class AntigravityAgentService implements AgentService {
           pendingStreamError = null;
           streamErrorGraceDeadline = 0;
         };
+        const captureAutoResumeContext = (decision: AntigravityRecoveryDecision) => {
+          if (decision.action !== 'retry_fresh_cascade') return;
+          if (!decision.journalSummary) return;
+          if (!decision.resumeTierDecision) return;
+          if (decision.resumeAttemptCount === undefined) return;
+          pendingAutoResumeContext = {
+            journalSummary: decision.journalSummary,
+            resumeTierDecision: decision.resumeTierDecision,
+            resumeAttemptCount: decision.resumeAttemptCount,
+          };
+        };
+        const service = this;
+        const retryFreshCascade = async function* (
+          delayMs: number,
+          retryKind: UpstreamErrorKind | undefined,
+          logMessage: string,
+        ) {
+          if (hasText) {
+            pendingTextReplace = true;
+            log.info({ cascadeId }, 'hasText before retry — will inject textMode=replace on fresh cascade');
+          }
+          const autoResumeSource = pendingAutoResumeContext;
+          pendingAutoResumeContext = undefined;
+          const autoResumeContext = autoResumeSource
+            ? buildAntigravityResumeContext({
+                cascadeId,
+                interruptedAt: Date.now(),
+                journalSummary: autoResumeSource.journalSummary,
+                resumeTierDecision: autoResumeSource.resumeTierDecision,
+              })
+            : undefined;
+          if (autoResumeSource?.resumeAttemptCount !== undefined) {
+            autoResumeAttemptCount = autoResumeSource.resumeAttemptCount;
+            await persistSupervisor({
+              status: 'auto_resuming',
+              recoveryStrategy: 'auto_resume',
+              lastObservedStepCount: lastDelivered,
+              lastDeliveredStepIndex: lastDelivered,
+              resumeAttemptCount: autoResumeAttemptCount,
+              auditType: 'supervisor_auto_resume',
+            });
+          }
+          capacityRetryCount += 1;
+          yield buildRetrySignal(
+            service.catId,
+            metadata,
+            capacityRetryCount,
+            autoResumeContext
+              ? Math.max(service.modelCapacityRetryDelaysMs.length, service.autoResumeMaxAttempts)
+              : service.modelCapacityRetryDelaysMs.length,
+            delayMs,
+            retryKind,
+          );
+          log.info({ cascadeId, threadId, retryCount: capacityRetryCount, delayMs }, logMessage);
+          await sleepWithAbort(delayMs, options?.signal);
+          service.bridge.resetSession(threadId, service.catId as string);
+          cascadeId = await service.bridge.getOrCreateSession(threadId, service.catId as string);
+          sideEffectJournal = createSideEffectJournal(cascadeId);
+          if (autoResumeContext) {
+            activeAutoResumePrompt = buildSafeAutoResumePrompt(effectivePrompt, autoResumeContext);
+          }
+          promptForCurrentCascade = activeAutoResumePrompt ?? effectivePrompt;
+          yield makeSessionInit(cascadeId);
+        };
         const buildRecoveryDecisionDiagnostics = (decision: AntigravityRecoveryDecision | undefined) => {
           if (!decision) return {};
           const recoveryDecision = { action: decision.action, reason: decision.reason };
           if (decision.action !== 'surface_resumable_error') {
             return { recoveryDecision };
           }
+          let resumeTierDecision = decision.resumeTierDecision;
+          if (resumeTierDecision === undefined) resumeTierDecision = classifyResumeTier(decision.journalSummary);
           return {
             recoveryDecision,
             resumeContext: buildAntigravityResumeContext({
               cascadeId,
               interruptedAt: Date.now(),
               journalSummary: decision.journalSummary,
+              resumeTierDecision,
             }),
           };
         };
-        const decideBufferedStreamErrorRecovery = () =>
-          decideAntigravityRecovery({
+        const decideBufferedStreamErrorRecovery = () => {
+          const journalSummary = sideEffectJournal.summary();
+          return decideAntigravityRecovery({
             errorCode: 'stream_error',
-            journalSummary: sideEffectJournal.summary(),
+            journalSummary,
             retryBudget: {
               attemptsUsed: capacityRetryCount,
               delaysMs: this.modelCapacityRetryDelaysMs,
@@ -455,7 +643,12 @@ export class AntigravityAgentService implements AgentService {
               toolishRetryEligible: false,
               dispatchRelevantStepKind: attemptHasToolishStep ? 'unknown' : 'none',
             },
+            resumeTierDecision: classifyResumeTier(journalSummary),
+            autoResumeEnabled: this.autoResume,
+            resumeAttemptCount: autoResumeAttemptCount,
+            maxAutoResumeAttempts: this.autoResumeMaxAttempts,
           });
+        };
         const withRecoveryDiagnostics = (msg: AgentMessage, decision: AntigravityRecoveryDecision): AgentMessage => {
           const baseMetadata = msg.metadata ?? metadata;
           return {
@@ -537,6 +730,7 @@ export class AntigravityAgentService implements AgentService {
                   log.info({ cascadeId }, 'stream_error grace expired — entering retry path');
                   modelCapacityRetryDelayMs = streamDecision.delayMs;
                   retryErrorKind = 'stream_interrupted';
+                  captureAutoResumeContext(streamDecision);
                   clearPendingStreamError('retried');
                 } else {
                   log.warn({ cascadeId }, 'stream_error grace expired without recovery');
@@ -569,6 +763,7 @@ export class AntigravityAgentService implements AgentService {
                   log.info({ cascadeId }, 'stream_error grace expired — entering retry path');
                   modelCapacityRetryDelayMs = streamDecision.delayMs;
                   retryErrorKind = 'stream_interrupted';
+                  captureAutoResumeContext(streamDecision);
                   clearPendingStreamError('retried');
                 } else {
                   log.warn({ cascadeId }, 'stream_error grace expired without recovery');
@@ -755,10 +950,11 @@ export class AntigravityAgentService implements AgentService {
                 if (effect.blocksBlindRetry) return 'side_effect';
                 return 'unknown';
               })() satisfies AntigravityDispatchRelevantStepKind;
+              const transientJournalSummary = sideEffectJournal.summary();
               const transientRecoveryDecision = batchHasTransientError
                 ? decideAntigravityRecovery({
                     errorCode: batchHasModelCapacity ? 'model_capacity' : 'network_error',
-                    journalSummary: sideEffectJournal.summary(),
+                    journalSummary: transientJournalSummary,
                     retryBudget: {
                       attemptsUsed: capacityRetryCount,
                       delaysMs: self.modelCapacityRetryDelaysMs,
@@ -773,6 +969,10 @@ export class AntigravityAgentService implements AgentService {
                       dispatchRelevantStepKind,
                       hasCooccurringUpstreamError: batchHasUpstreamError,
                     },
+                    resumeTierDecision: classifyResumeTier(transientJournalSummary),
+                    autoResumeEnabled: self.autoResume,
+                    resumeAttemptCount: autoResumeAttemptCount,
+                    maxAutoResumeAttempts: self.autoResumeMaxAttempts,
                   })
                 : undefined;
               const buildBeforeDispatchDiagnostics = (failureLayer: string, extra: Record<string, unknown> = {}) => ({
@@ -913,6 +1113,7 @@ export class AntigravityAgentService implements AgentService {
                   if (transientRecoveryDecision?.action === 'retry_fresh_cascade') {
                     modelCapacityRetryDelayMs = transientRecoveryDecision.delayMs;
                     retryErrorKind = msg.metadata?.upstreamError?.kind as UpstreamErrorKind | undefined;
+                    captureAutoResumeContext(transientRecoveryDecision);
                     continue;
                   }
                   fatalSeen = true;
@@ -1163,6 +1364,7 @@ export class AntigravityAgentService implements AgentService {
                 log.info({ cascadeId }, 'stream_error grace expired after poll — entering retry path');
                 modelCapacityRetryDelayMs = streamDecision.delayMs;
                 retryErrorKind = 'stream_interrupted';
+                captureAutoResumeContext(streamDecision);
                 clearPendingStreamError('retried');
               } else {
                 log.warn({ cascadeId }, 'stream_error grace expired after poll completion without recovery');
@@ -1182,6 +1384,7 @@ export class AntigravityAgentService implements AgentService {
                 log.info({ cascadeId }, 'stream_error grace expired on stall — entering retry path');
                 modelCapacityRetryDelayMs = streamDecision.delayMs;
                 retryErrorKind = 'stream_interrupted';
+                captureAutoResumeContext(streamDecision);
                 clearPendingStreamError('retried');
               } else {
                 log.warn({ cascadeId }, 'stream_error grace expired on stall without recovery');
@@ -1251,28 +1454,13 @@ export class AntigravityAgentService implements AgentService {
         }
 
         if (modelCapacityRetryDelayMs != null) {
-          if (hasText) {
-            pendingTextReplace = true;
-            log.info({ cascadeId }, 'hasText before retry — will inject textMode=replace on fresh cascade');
-          }
-          capacityRetryCount += 1;
-          yield buildRetrySignal(
-            this.catId,
-            metadata,
-            capacityRetryCount,
-            this.modelCapacityRetryDelaysMs.length,
+          for await (const retryMsg of retryFreshCascade(
             modelCapacityRetryDelayMs,
             retryErrorKind,
-          );
-          log.info(
-            { cascadeId, threadId, retryCount: capacityRetryCount, delayMs: modelCapacityRetryDelayMs },
             'retrying Antigravity invoke after transient error',
-          );
-          await sleepWithAbort(modelCapacityRetryDelayMs, options?.signal);
-          this.bridge.resetSession(threadId, this.catId as string);
-          cascadeId = await this.bridge.getOrCreateSession(threadId, this.catId as string);
-          sideEffectJournal = createSideEffectJournal(cascadeId);
-          yield makeSessionInit(cascadeId);
+          )) {
+            yield retryMsg;
+          }
           continue;
         }
 
@@ -1300,6 +1488,10 @@ export class AntigravityAgentService implements AgentService {
               toolishRetryEligible: false,
               dispatchRelevantStepKind: attemptHasToolishStep ? 'unknown' : 'none',
             },
+            resumeTierDecision: classifyResumeTier(sideEffectJournalSummary),
+            autoResumeEnabled: this.autoResume,
+            resumeAttemptCount: autoResumeAttemptCount,
+            maxAutoResumeAttempts: this.autoResumeMaxAttempts,
             cascadeHealth,
           });
           const diagnostics = {
@@ -1329,24 +1521,14 @@ export class AntigravityAgentService implements AgentService {
             ...buildRecoveryDecisionDiagnostics(emptyResponseRecoveryDecision),
           };
           if (emptyResponseRecoveryDecision.action === 'retry_fresh_cascade') {
-            capacityRetryCount += 1;
-            yield buildRetrySignal(
-              this.catId,
-              metadata,
-              capacityRetryCount,
-              this.modelCapacityRetryDelaysMs.length,
+            captureAutoResumeContext(emptyResponseRecoveryDecision);
+            for await (const retryMsg of retryFreshCascade(
               emptyResponseRecoveryDecision.delayMs,
               'unknown',
-            );
-            log.info(
-              { cascadeId, threadId, cascadeHealth, delayMs: emptyResponseRecoveryDecision.delayMs },
               'retrying Antigravity invoke after empty_response on retired cascade',
-            );
-            await sleepWithAbort(emptyResponseRecoveryDecision.delayMs, options?.signal);
-            this.bridge.resetSession(threadId, this.catId as string);
-            cascadeId = await this.bridge.getOrCreateSession(threadId, this.catId as string);
-            sideEffectJournal = createSideEffectJournal(cascadeId);
-            yield makeSessionInit(cascadeId);
+            )) {
+              yield retryMsg;
+            }
             continue;
           }
           if (await persistRecoverySupervisor(emptyResponseRecoveryDecision)) {

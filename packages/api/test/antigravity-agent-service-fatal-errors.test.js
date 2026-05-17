@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { describe, mock, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -2510,6 +2511,434 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.equal(
       streamError.metadata?.diagnostics?.resumeContext?.completedEffects?.[0]?.target,
       'docs/stream-after-write.md',
+    );
+  });
+
+  test('AC-G6: Tier 2 owned sentinel stream_error auto-resumes once with resume context', async () => {
+    const ownedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cat-cafe-antigravity-owned-'));
+    const target = path.join(ownedDir, 'sentinel.json');
+    fs.writeFileSync(target, '{"ok":true}\n', 'utf-8');
+
+    const supervisorStore = new InMemoryAntigravitySupervisorStore();
+    const bridge = createMockBridge();
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () => ['cascade-acg6-tier2-1', 'cascade-acg6-tier2-2'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-acg6-tier2-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+              status: 'CORTEX_STEP_STATUS_DONE',
+              metadata: { operation: 'write', path: target },
+            },
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'CORTEX_STEP_STATUS_DONE',
+              plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+            },
+          ],
+          cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: false, lastActivityAt: Date.now() },
+        };
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return;
+      }
+
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'Recovered from owned sentinel interruption.' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      supervisorStore,
+      streamErrorGraceWindowMs: 10,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(
+      service.invoke('hello', {
+        auditContext: {
+          threadId: 'thread-acg6-tier2',
+          invocationId: 'inv-acg6-tier2',
+          userId: 'u1',
+          catId: 'antigravity',
+        },
+      }),
+    );
+
+    assert.equal(bridge.resetSession.mock.callCount(), 1, 'Tier 2 owned sentinel should auto-resume on fresh cascade');
+    assert.equal(bridge.sendMessage.mock.callCount(), 2, 'auto-resume should send the fresh cascade prompt');
+    assert.equal(
+      messages.some((msg) => msg.type === 'error' && msg.errorCode === 'stream_error'),
+      false,
+      'Tier 2 auto-resume should hide the stream error when fresh cascade succeeds',
+    );
+    assert.ok(
+      messages.some((msg) => msg.type === 'text' && msg.content === 'Recovered from owned sentinel interruption.'),
+      'fresh cascade result should be delivered',
+    );
+
+    const resumedPrompt = bridge.sendMessage.mock.calls[1].arguments[1];
+    assert.match(resumedPrompt, /Cat Cafe Antigravity safe auto-resume/);
+    assert.match(resumedPrompt, /continue_without_repeating_completed_side_effects/);
+    assert.match(resumedPrompt, /tier2_auto_probe_owned/);
+    assert.match(resumedPrompt, new RegExp(target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+
+    const record = await supervisorStore.get('inv-acg6-tier2', 'cascade-acg6-tier2-1');
+    assert.ok(record, 'supervisor should retain the first cascade auto-resume record');
+    assert.equal(record.status, 'auto_resuming');
+    assert.equal(record.recoveryStrategy, 'auto_resume');
+    assert.equal(record.resumeAttemptCount, 1);
+  });
+
+  test('AC-G6: Tier 2 owned sentinel empty_response auto-resumes with resume context', async () => {
+    const ownedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cat-cafe-antigravity-owned-'));
+    const target = path.join(ownedDir, 'empty-response-sentinel.json');
+    fs.writeFileSync(target, '{"ok":true}\n', 'utf-8');
+
+    const supervisorStore = new InMemoryAntigravitySupervisorStore();
+    const bridge = createMockBridge();
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () => ['cascade-acg6-empty-1', 'cascade-acg6-empty-2'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-acg6-empty-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+              status: 'CORTEX_STEP_STATUS_DONE',
+              metadata: { operation: 'write', path: target },
+            },
+          ],
+          cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+        };
+        return;
+      }
+
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'Recovered from owned empty response interruption.' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      supervisorStore,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(
+      service.invoke('hello', {
+        auditContext: {
+          threadId: 'thread-acg6-empty',
+          invocationId: 'inv-acg6-empty',
+          userId: 'u1',
+          catId: 'antigravity',
+        },
+      }),
+    );
+
+    assert.equal(bridge.resetSession.mock.callCount(), 1, 'Tier 2 empty_response should auto-resume once');
+    assert.equal(
+      bridge.sendMessage.mock.callCount(),
+      2,
+      'empty_response auto-resume should send a fresh cascade prompt',
+    );
+    assert.equal(
+      messages.some((msg) => msg.type === 'error' && msg.errorCode === 'empty_response'),
+      false,
+      'Tier 2 empty_response auto-resume should hide the empty_response when fresh cascade succeeds',
+    );
+    assert.ok(
+      messages.some(
+        (msg) => msg.type === 'text' && msg.content === 'Recovered from owned empty response interruption.',
+      ),
+      'fresh cascade result should be delivered',
+    );
+
+    const resumedPrompt = bridge.sendMessage.mock.calls[1].arguments[1];
+    assert.match(resumedPrompt, /Cat Cafe Antigravity safe auto-resume/);
+    assert.match(resumedPrompt, /continue_without_repeating_completed_side_effects/);
+    assert.match(resumedPrompt, /tier2_auto_probe_owned/);
+    assert.match(resumedPrompt, new RegExp(target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+
+    const record = await supervisorStore.get('inv-acg6-empty', 'cascade-acg6-empty-1');
+    assert.ok(record, 'supervisor should retain the empty_response auto-resume record');
+    assert.equal(record.status, 'auto_resuming');
+    assert.equal(record.recoveryStrategy, 'auto_resume');
+    assert.equal(record.resumeAttemptCount, 1);
+  });
+
+  test('AC-G6: safe auto-resume prompt survives a later pre-side-effect retry', async () => {
+    const ownedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cat-cafe-antigravity-owned-'));
+    const target = path.join(ownedDir, 'resume-context-survives-retry.json');
+    fs.writeFileSync(target, '{"ok":true}\n', 'utf-8');
+
+    const supervisorStore = new InMemoryAntigravitySupervisorStore();
+    const bridge = createMockBridge();
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () =>
+      ['cascade-acg6-preserve-1', 'cascade-acg6-preserve-2', 'cascade-acg6-preserve-3'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-acg6-preserve-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+              status: 'CORTEX_STEP_STATUS_DONE',
+              metadata: { operation: 'write', path: target },
+            },
+          ],
+          cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+        };
+        return;
+      }
+
+      if (cascadeId === 'cascade-acg6-preserve-2') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'FINISHED',
+              errorMessage: {
+                error: {
+                  userErrorMessage:
+                    'Our servers are experiencing high traffic right now, please try again in a minute.',
+                },
+              },
+            },
+          ],
+          cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+        };
+        return;
+      }
+
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'Recovered after preserved resume context.' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      supervisorStore,
+      modelCapacityRetryDelaysMs: [0, 0],
+    });
+    const messages = await collect(
+      service.invoke('hello', {
+        auditContext: {
+          threadId: 'thread-acg6-preserve',
+          invocationId: 'inv-acg6-preserve',
+          userId: 'u1',
+          catId: 'antigravity',
+        },
+      }),
+    );
+
+    assert.equal(bridge.resetSession.mock.callCount(), 2, 'empty_response then model_capacity should reset twice');
+    assert.equal(bridge.sendMessage.mock.callCount(), 3, 'second retry should send a third cascade prompt');
+    assert.equal(
+      messages.some(
+        (msg) => msg.type === 'error' && (msg.errorCode === 'empty_response' || msg.errorCode === 'model_capacity'),
+      ),
+      false,
+      'fresh-cascade retries should hide recoverable empty_response/model_capacity when final cascade succeeds',
+    );
+    assert.ok(
+      messages.some((msg) => msg.type === 'text' && msg.content === 'Recovered after preserved resume context.'),
+      'final fresh cascade result should be delivered',
+    );
+
+    const firstResumePrompt = bridge.sendMessage.mock.calls[1].arguments[1];
+    const secondResumePrompt = bridge.sendMessage.mock.calls[2].arguments[1];
+    assert.match(firstResumePrompt, /Cat Cafe Antigravity safe auto-resume/);
+    assert.match(secondResumePrompt, /Cat Cafe Antigravity safe auto-resume/);
+    assert.match(secondResumePrompt, /continue_without_repeating_completed_side_effects/);
+    assert.match(secondResumePrompt, /tier2_auto_probe_owned/);
+    assert.match(secondResumePrompt, new RegExp(target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  });
+
+  test('AC-G6: autoResume=false keeps Tier 2 interruption on manual recovery path', async () => {
+    const ownedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cat-cafe-antigravity-owned-'));
+    const target = path.join(ownedDir, 'sentinel.json');
+    fs.writeFileSync(target, '{"ok":true}\n', 'utf-8');
+
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            metadata: { operation: 'write', path: target },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      autoResume: false,
+      streamErrorGraceWindowMs: 10,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    assert.equal(bridge.resetSession.mock.callCount(), 0, 'disabled auto-resume must not reset the cascade');
+    assert.equal(bridge.sendMessage.mock.callCount(), 1, 'disabled auto-resume must not send a fresh cascade prompt');
+    const streamError = messages.find((msg) => msg.type === 'error' && msg.errorCode === 'stream_error');
+    assert.ok(streamError, 'disabled auto-resume should surface manual recovery');
+    assert.equal(streamError.metadata?.diagnostics?.resumeContext?.resumeTierDecision?.tier, 'tier2_auto_probe_owned');
+  });
+
+  test('AC-G6: auto-resume attempt cap surfaces manual recovery card on the second interruption', async () => {
+    const ownedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cat-cafe-antigravity-owned-'));
+    const target = path.join(ownedDir, 'sentinel.json');
+    fs.writeFileSync(target, '{"ok":true}\n', 'utf-8');
+
+    const bridge = createMockBridge();
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () =>
+      ['cascade-acg6-cap-1', 'cascade-acg6-cap-2', 'cascade-acg6-cap-3'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-acg6-cap-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+              status: 'CORTEX_STEP_STATUS_DONE',
+              metadata: { operation: 'write', path: target },
+            },
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'CORTEX_STEP_STATUS_DONE',
+              plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+            },
+          ],
+          cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: false, lastActivityAt: Date.now() },
+        };
+        return;
+      }
+      if (cascadeId === 'cascade-acg6-cap-2') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+              status: 'CORTEX_STEP_STATUS_DONE',
+              metadata: { operation: 'write', path: target },
+            },
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'CORTEX_STEP_STATUS_DONE',
+              plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+            },
+          ],
+          cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: false, lastActivityAt: Date.now() },
+        };
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      streamErrorGraceWindowMs: 10,
+      modelCapacityRetryDelaysMs: [0, 0],
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    assert.equal(bridge.resetSession.mock.callCount(), 1, 'attempt cap should block the second auto-resume');
+    assert.equal(bridge.sendMessage.mock.callCount(), 2, 'service must not send a third cascade after cap is reached');
+    const streamError = messages.find((msg) => msg.type === 'error' && msg.errorCode === 'stream_error');
+    assert.ok(streamError, 'second interruption should surface after attempt cap');
+    assert.equal(streamError.metadata?.diagnostics?.resumeContext?.resumeTierDecision?.tier, 'tier2_auto_probe_owned');
+
+    const recoveryMsg = messages.find((msg) => {
+      if (msg.type !== 'system_info') return false;
+      const parsed = JSON.parse(msg.content);
+      return parsed.type === 'rich_block' && parsed.block?.meta?.kind === 'antigravity_recovery';
+    });
+    assert.ok(recoveryMsg, 'attempt cap should surface a typed recovery rich block');
+  });
+
+  test('AC-G6: Tier 4 shell delete stays manual even when target path is owned', async () => {
+    const ownedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cat-cafe-antigravity-owned-'));
+    const target = `rm -rf ${ownedDir}`;
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            metadata: {
+              toolCall: {
+                id: 'toolu_acg6_delete',
+                name: 'run_command',
+                argumentsJson: JSON.stringify({ CommandLine: target, Cwd: '/tmp', SafeToAutoRun: true }),
+              },
+            },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      streamErrorGraceWindowMs: 10,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello'));
+
+    assert.equal(bridge.resetSession.mock.callCount(), 0, 'Tier 4 delete must never auto-resume');
+    const streamError = messages.find((msg) => msg.type === 'error' && msg.errorCode === 'stream_error');
+    assert.ok(streamError, 'Tier 4 delete should surface for manual recovery');
+    assert.equal(
+      streamError.metadata?.diagnostics?.resumeContext?.resumeTierDecision?.tier,
+      'tier4_manual_irreversible',
     );
   });
 
