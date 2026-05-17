@@ -4,48 +4,35 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { HubIcon } from '../hub-icons';
 import {
-  settingsResourceActionGroupClass,
   settingsResourceAvatarClass,
   settingsResourceCardClass,
   settingsResourceRowClass,
 } from '../SettingsResourceCard';
 import { GithubConfigPanel } from './GithubConfigPanel';
+import {
+  adaptServiceState,
+  adaptServiceToPlugin,
+  type HomeServiceState,
+  type PluginUiItem,
+  type PluginUiStatus,
+} from './service-ui-adapter';
 
-type ServiceStatus = 'healthy' | 'unhealthy' | 'not_configured';
-
-interface ServiceState {
-  id: string;
-  name: string;
-  description: string;
-  endpoint: string | null;
-  configured: boolean;
-  status: ServiceStatus;
-  features: string[];
-  availableActions: [];
-  error?: string | null;
-}
-
-function describeStatus(status: ServiceStatus): string {
-  if (status === 'healthy') return '运行中';
-  if (status === 'unhealthy') return '不可用';
-  return '未配置';
-}
-
-function statusClass(status: ServiceStatus): string {
-  if (status === 'healthy') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-  if (status === 'unhealthy') return 'bg-rose-50 text-rose-700 border-rose-200';
-  return 'bg-conn-amber-bg text-conn-amber-text border-conn-amber-ring';
-}
+const BADGE_CLASS: Record<PluginUiStatus, string> = {
+  active: 'bg-conn-emerald-bg text-conn-emerald-text',
+  configured: 'bg-conn-amber-bg text-conn-amber-text',
+  available: 'bg-cafe-surface-sunken text-cafe-muted',
+};
 
 export function PluginsContent() {
-  const [services, setServices] = useState<ServiceState[]>([]);
+  const [plugins, setPlugins] = useState<PluginUiItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [githubExpanded, setGithubExpanded] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: cancellation guard pattern
     async function fetchServices() {
       setLoading(true);
       setError(null);
@@ -58,7 +45,8 @@ export function PluginsContent() {
         }
         const payload = (await res.json()) as { services?: unknown };
         if (cancelled) return;
-        setServices(Array.isArray(payload.services) ? (payload.services as ServiceState[]) : []);
+        const list = Array.isArray(payload.services) ? (payload.services as HomeServiceState[]) : [];
+        setPlugins(list.map((s) => adaptServiceToPlugin(adaptServiceState(s))));
       } catch {
         if (!cancelled) setError('服务清单加载失败');
       } finally {
@@ -73,12 +61,12 @@ export function PluginsContent() {
   }, []);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <article className={settingsResourceCardClass}>
         <button
           type="button"
           className={`${settingsResourceRowClass} w-full text-left`}
-          onClick={() => setGithubExpanded((expanded) => !expanded)}
+          onClick={() => setExpandedId(expandedId === 'github' ? null : 'github')}
         >
           <div className={settingsResourceAvatarClass} style={{ backgroundColor: '#24292e' }}>
             <HubIcon name="key" className="h-5 w-5 text-[var(--cafe-surface)]" />
@@ -88,13 +76,11 @@ export function PluginsContent() {
             <p className="mt-0.5 text-xs text-cafe-secondary">PR 追踪、Review 投递、CI/CD 监控与 Token 配置</p>
             <p className="mt-0.5 text-[11px] text-cafe-muted">内置插件</p>
           </div>
-          <div className={settingsResourceActionGroupClass}>
-            <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-              可配置
-            </span>
-          </div>
+          <span className="shrink-0 rounded-[13px] bg-conn-emerald-bg px-2.5 py-0.5 text-[11px] font-bold text-conn-emerald-text">
+            可配置
+          </span>
         </button>
-        {githubExpanded && <GithubConfigPanel />}
+        {expandedId === 'github' && <GithubConfigPanel />}
       </article>
 
       {loading ? (
@@ -102,39 +88,36 @@ export function PluginsContent() {
       ) : error ? (
         <p className="text-sm text-[var(--semantic-error-text)]">{error}</p>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {services.map((service) => (
-            <article key={service.id} className="rounded-xl border border-cafe bg-cafe-surface p-4 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 space-y-1">
-                  <h3 className="text-sm font-semibold text-cafe">{service.name}</h3>
-                  <p className="text-xs text-cafe-secondary">{service.description}</p>
-                </div>
-                <span
-                  className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${statusClass(service.status)}`}
-                >
-                  {describeStatus(service.status)}
-                </span>
+        plugins.map((plugin) => (
+          <article key={plugin.id} className={settingsResourceCardClass}>
+            <div className={settingsResourceRowClass}>
+              <div className={settingsResourceAvatarClass}>{plugin.name.charAt(0).toUpperCase()}</div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-cafe">{plugin.name}</p>
+                <p className="mt-0.5 text-xs text-cafe-secondary">{plugin.description}</p>
+                <p className="mt-0.5 text-[11px] text-cafe-muted">扩展服务</p>
               </div>
-
-              <div className="space-y-1 text-xs text-cafe-secondary">
-                <p className="truncate">Endpoint: {service.endpoint ? service.endpoint : '未设置'}</p>
-                {service.error && <p className="text-rose-700">Error: {service.error}</p>}
-              </div>
-
-              <div className="flex flex-wrap gap-1.5">
-                {service.features.map((feature) => (
+              <span
+                className={`shrink-0 rounded-[13px] px-2.5 py-0.5 text-[11px] font-bold ${BADGE_CLASS[plugin.status]}`}
+              >
+                {plugin.statusLabel}
+              </span>
+            </div>
+            {plugin.features.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 px-4 pb-3">
+                {plugin.features.map((feature) => (
                   <span
                     key={feature}
-                    className="rounded-full border border-cafe bg-cafe-surface-elevated px-2 py-0.5 text-[11px] text-cafe-secondary"
+                    className="rounded-full bg-[var(--console-hover-bg)] px-2 py-0.5 text-[10px] font-semibold text-cafe-secondary"
                   >
                     {feature}
                   </span>
                 ))}
               </div>
-            </article>
-          ))}
-        </div>
+            )}
+            {plugin.error && <p className="px-4 pb-3 text-[11px] text-conn-red-text">{plugin.error}</p>}
+          </article>
+        ))
       )}
     </div>
   );

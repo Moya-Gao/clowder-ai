@@ -76,11 +76,12 @@ describe('PluginsContent service manifest view', () => {
     expect(container.textContent).toContain('Whisper STT');
     expect(container.textContent).toContain('运行中');
     expect(container.textContent).toContain('MLX TTS');
-    expect(container.textContent).toContain('未配置');
-    expect(container.textContent).not.toContain('启动');
-    expect(container.textContent).not.toContain('停止');
-    expect(container.textContent).not.toContain('安装');
-    expect(container.textContent).not.toContain('卸载');
+    expect(container.textContent).toContain('可安装');
+    const buttons = Array.from(container.querySelectorAll('button'));
+    const actionLabels = ['Install', 'Start', 'Stop', 'Uninstall'];
+    for (const label of actionLabels) {
+      expect(buttons.some((b) => b.textContent === label)).toBe(false);
+    }
   });
 
   it('renders expandable GitHub token config on the plugins page', async () => {
@@ -242,7 +243,7 @@ describe('PluginsContent service manifest view', () => {
     await renderPluginsContent();
 
     expect(container.textContent).toContain('Whisper STT');
-    expect(container.textContent).toContain('不可用');
-    expect(container.textContent).toContain('Error: HTTP 503');
+    expect(container.textContent).toContain('已安装');
+    expect(container.textContent).toContain('HTTP 503');
   });
 });

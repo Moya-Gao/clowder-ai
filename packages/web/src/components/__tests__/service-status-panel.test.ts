@@ -103,7 +103,7 @@ describe('ServiceStatusPanel', () => {
 
     expect(container.textContent).toContain('记忆服务');
     expect(container.textContent).toContain('Embedding Model');
-    expect(container.textContent).toContain('不可用');
+    expect(container.textContent).toContain('异常');
     expect(container.textContent).toContain('http://127.0.0.1:9880');
     expect(container.textContent).toContain('HTTP 503');
     expect(container.textContent).not.toContain('Whisper STT');
@@ -125,5 +125,65 @@ describe('ServiceStatusPanel', () => {
     expect(container.textContent).toContain('语音服务');
     expect(container.textContent).toContain('Whisper STT');
     expect(container.querySelector('[data-testid="voice-settings-panel"]')).toBeTruthy();
+  });
+
+  it('reads lines field from /logs DTO during install polling', async () => {
+    const installablePayload = {
+      services: [
+        {
+          id: 'mlx-tts',
+          name: 'MLX TTS',
+          description: 'Text to speech',
+          category: 'voice',
+          features: ['voice-output'],
+          endpoint: null,
+          configured: false,
+          status: 'not_configured',
+          error: null,
+          availableActions: ['install'],
+        },
+      ],
+    };
+
+    let installResolve: (v: { ok: boolean; json: () => Promise<{ ok: boolean }> }) => void = () => {};
+    mockFetch.mockImplementation(async (path: string) => {
+      if (path === '/api/services') {
+        return { ok: true, json: async () => installablePayload };
+      }
+      if (path === '/api/services/mlx-tts/logs') {
+        return {
+          ok: true,
+          json: async () => ({ serviceId: 'mlx-tts', lines: ['Downloading model...', 'Installing deps...'] }),
+        };
+      }
+      if (path === '/api/services/mlx-tts/install') {
+        return new Promise((resolve) => {
+          installResolve = resolve;
+        });
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    await render(React.createElement(ServiceStatusPanel, { filterFeatures: ['voice-output'], title: 'TTS' }));
+
+    const installBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === 'Install');
+    expect(installBtn).toBeTruthy();
+
+    await act(async () => {
+      installBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    // Wait for log poll interval to fire (2s)
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 2100));
+    });
+
+    expect(container.textContent).toContain('Installing deps...');
+
+    // Resolve install to clean up
+    await act(async () => {
+      installResolve({ ok: true, json: async () => ({ ok: true }) });
+      await Promise.resolve();
+    });
   });
 });
