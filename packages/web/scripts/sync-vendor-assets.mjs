@@ -70,10 +70,19 @@ function copyEsbuildWasm() {
   copyAsset(esbuildWasmPath, resolve(vendorRoot, 'esbuild', 'esbuild.wasm'));
 }
 
+function copyXtermCss() {
+  const xtermCssPath = resolve(resolvePackageDir('@xterm/xterm'), 'css', 'xterm.css');
+  if (!existsSync(xtermCssPath)) {
+    throw new Error(`Missing xterm CSS: ${xtermCssPath}`);
+  }
+  copyAsset(xtermCssPath, resolve(vendorRoot, 'xterm', 'xterm.css'));
+}
+
 function main() {
   copyVadAssets();
   copyOnnxRuntimeAssets();
   copyEsbuildWasm();
+  copyXtermCss();
 }
 
 try {

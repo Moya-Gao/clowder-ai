@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-css-tags -- xterm package CSS breaks Next dev's flight CSS loader when imported. */
 import type { Metadata, Viewport } from 'next';
 import { AppShell } from '@/components/AppShell';
 import { BrakeModal } from '@/components/BrakeModal';
@@ -6,7 +7,6 @@ import { SessionBootstrap } from '@/components/SessionBootstrap';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { ToastContainer } from '@/components/ToastContainer';
 import { ConfirmProvider } from '@/components/useConfirm';
-import '@xterm/xterm/css/xterm.css';
 import './globals.css';
 import './theme-tokens.css';
 import './connector-tokens.css';
@@ -43,6 +43,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <link rel="stylesheet" href="/vendor/xterm/xterm.css" />
+      </head>
       <body className="min-h-screen">
         <SessionBootstrap />
         <ThemeProvider>

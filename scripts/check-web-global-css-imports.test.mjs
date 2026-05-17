@@ -5,10 +5,16 @@ import { test } from 'node:test';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const XTERM_CSS_IMPORT_RE = /\bimport\s*(['"])@xterm\/xterm\/css\/xterm\.css\1\s*;?/;
+const XTERM_STYLESHEET_LINK_RE =
+  /<link\s+[^>]*rel=(['"])stylesheet\1[^>]*href=(['"])\/vendor\/xterm\/xterm\.css\2[^>]*\/?>/;
 const WEB_SRC = join(ROOT, 'packages/web/src');
 
 function hasXtermCssImport(source) {
   return XTERM_CSS_IMPORT_RE.test(source);
+}
+
+function hasXtermStylesheetLink(source) {
+  return XTERM_STYLESHEET_LINK_RE.test(source);
 }
 
 function walk(dir) {
@@ -27,13 +33,12 @@ function walk(dir) {
   return files;
 }
 
-test('xterm global CSS is imported only from the Next root layout', () => {
+test('xterm global CSS is linked from the Next root layout and never imported through JS', () => {
   const layoutPath = join(WEB_SRC, 'app/layout.tsx');
   const layoutSource = readFileSync(layoutPath, 'utf8');
-  assert.equal(hasXtermCssImport(layoutSource), true);
+  assert.equal(hasXtermStylesheetLink(layoutSource), true);
 
   const offenders = walk(WEB_SRC)
-    .filter((file) => file !== layoutPath)
     .filter((file) => hasXtermCssImport(readFileSync(file, 'utf8')))
     .map((file) => relative(ROOT, file));
 
@@ -51,4 +56,12 @@ test('xterm CSS import detector catches syntax variants', () => {
   for (const source of variants) {
     assert.equal(hasXtermCssImport(source), true, source);
   }
+});
+
+test('xterm stylesheet is copied into the public vendor directory before dev/build', () => {
+  const syncScript = readFileSync(join(ROOT, 'packages/web/scripts/sync-vendor-assets.mjs'), 'utf8');
+
+  assert.match(syncScript, /@xterm\/xterm/);
+  assert.match(syncScript, /xterm\.css/);
+  assert.match(syncScript, /vendorRoot,\s*['"]xterm['"],\s*['"]xterm\.css['"]/);
 });
