@@ -171,10 +171,10 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 
 ### Phase F（系统提示词可见化）
 
-- [~] AC-F1: Design Gate——read-only vs 可编辑 ✅ 决定 = **read-only（defer AC-F5）**（见上方 Design Gate 决定）；剩 template/compiled 切换形态 + per-cat 切换 UX → console-dev 计划阶段定
-- [ ] AC-F2: 「规则与 SOP」配置栏加 L0 查看区，对接 `assets/system-prompts/system-prompt-l0.md` template
-- [ ] AC-F3: per-cat compiled L0 渲染查看（opus-47 / codex / gpt52 / gemini）—— 调 `compileL0({catId})` 出串
-- [ ] AC-F4: 修改路径明示（template 文件路径 + compile 脚本 builder 入口 + 改完 `pnpm gate` + runtime 重启）
+- [x] AC-F1: Design Gate ✅ — read-only（defer AC-F5）+ template/compiled+per-cat UX 走同 RulesPromptsContent Section/Card/Modal pattern（铲屎官"和其他那样"）
+- [x] AC-F2: 「规则与 SOP」配置栏加 L0 查看区 ✅ — `RulesPromptsContent` 加第 3 个 `<Section>`，对接 `assets/system-prompts/system-prompt-l0.md` template
+- [x] AC-F3: per-cat compiled L0 渲染查看 ✅ — `loadAvailableCatsForL0()`（no-arg loader，template+catalog merge）+ `compileL0ViaSubprocess` Promise.all（13 cats，实测 ~243-438ms 端到端）
+- [x] AC-F4: 修改路径明示 ✅ — `l0Prompts.customization` API 字段（templatePath + compileScript + verifyCommand `pnpm gate + restart`）+ 前端 info row 渲染
 - [⊘] AC-F5（可选）：可编辑（dirty/save/reload + 影响范围警告 + 写回）—— **Design Gate 决定 DEFER（不做）**：铲屎官诉求是可见性非编辑器，web-editable 治理 prompt = P0 风险面，KD-5 file+git+gate+restart 已是回滚通道。additive，日后需要可低成本重启
 
 ## Dependencies
@@ -256,6 +256,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-16 | **Phase C merged (PR #1709, squash `d55cb688e`)**——砚砚本地×2 round（cliConfigArgs P1 + 27208798e APPROVE → 云端 round-1 2 P1 修：route 层无差别 pack-only 致非 native provider 失身份 + stripReservedSystemConfigs 漏 `-c` 短形式 → 砚砚 re-review APPROVE → 云端 round-2 又提 P1 "L0 script unresolvable 应有 fallback" → VERIFY 三道门：cloud 提的 dist-only/packaged 部署经验证无现实复现（所有 cat-cafe 部署 = repo worktree），按 merge-gate "P1/P2-无复现 → P3-comment-pass" 处置 + 留 future-proof TODO）。AC-C1-C4 ✅，AC-C5 部分 ✅（待 runtime 重启 alpha 验收）|
 | 2026-05-16 | **Phase D merged (PR #1710, squash `1c92a1d2b`)**——CLAUDE.md 200→62 / AGENTS.md 219→60，删 identity 详述/队友静态表/SOP 表/记忆详述/Knowledge Feed/代码规范/文档表（L0 §1-8 覆盖 OR ADR-030 §10.3 可重建），留 terse 铁律/闭环检查点/各族专属 dev 规则 + 指针 1 行化。砚砚本地 APPROVE（47 盲审）+ 延续 ×2 → 云端 P2（lineCount trailing-newline off-by-one，已修对齐 wc -l）→ 云端 round-2 clean。过程修复**预先就红的共享 main blocker**（check-feature-truth：index.json stale + F190 缺 BACKLOG，`d5c019303` 解全队 merge-gate 阻塞）+ f188-harness-consistency（记忆指针改 FULL `cat_cafe_*` 名）。AC-D1-D4 ✅。下一：Phase E（CC 版本升级拆 SOP）→ Phase F（配置栏可见化）→ C5 runtime 重启验收（CVO directive batch）|
 | 2026-05-16 | **Phase E merged (PR #1715, squash `7a340d28c`)**——audit 工具（`--emit`/`--diff`/`--check`）+ SOP（`cc-system-prompt-audit-sop.md`）+ cron `dyn-1778925760476-s1gprm` + codex 参数化首份归档。砚砚本地 BLOCKING P1（diffSections 只解析 bare `- id`，formatMarkdown 生成 `- id — label`，真实 `--diff` 稳定误报全 anchor）→ 修：regex `(?=\s+—\|\s*$)` em-dash 判别符 + cc-v2.1.143 §5b 机读块（唯一现存 claude 归档成合法 `--diff` 源）+ 3 round-trip/回归测试 → 砚砚 APPROVE（47 盲审 quality-gate 通过）。云端 round-1 2 finding：P1 codex 平台包应用 Node resolution（hoisted 布局）+ P2 `readlink -f` GNU-only → 修：createRequire 锚定 launcher 的 Node-resolved 候选为首选 + 硬编码 fallback 保留、`realpathSync` 替 `readlink -f`（additive，真二进制 Feature Gate 验证未破坏可跑路径）→ 云端 round-2 "Didn't find any major issues"。AC-E1-E5 ✅。下一：Phase F（配置栏「规则与SOP」系统提示词可见化，需 Design Gate）→ C5 runtime 重启验收（CVO batch）|
+| 2026-05-17 | **Phase F merged (PR #1717, squash `bf269f338`)**——Console「规则与 SOP」加 L0 read-only viewer：`/api/rules` 扩 `l0Prompts`（template + per-cat compiled via `compileL0ViaSubprocess` + customization paths）+ `RulesPromptsContent.tsx` 加第 3 个 Section（复用 Card/Modal pattern）+ `RuleFileCard.errorMessage` 区分"编译失败"。Design Gate autonomous = read-only（铲屎官"先做可见"confirm；AC-F5 编辑器 DEFER）。砚砚 plan-review APPROVE + 2 advisory absorbed（roster=11→12 timing rule + errorMessage UX prop）→ 砚砚 impl-review APPROVE（no P1/P2，266ms / 12/12 sanity）。云端 R1 P1 catalog 硬编码跳 template merge（修：no-arg loadCatConfig KD-13）→ R2 P2 try/catch 吞 config 错（修：移 catch + 注入 loaderFn）→ R3 P2 truthy check 漏空字符串（修：!== undefined + fallback）→ R4 "Didn't find any major issues" 🚀。所有 4 cloud findings 独立真 bug 非 spiral。AC-F1-F4 ✅，AC-F5 ⊘ DEFER（铲屎官未来要再开 sub-phase 即可）。**F203 所有 code Phase done（B/C/D/E/F all merged）**。剩 AC-C5 runtime 重启 alpha 验收（按 CVO directive，post-merge alpha @sonnet + 铲屎官 10 轮压缩客观性验收，[[feedback_alpha_test_use_sonnet]]）|
 
 ## Review Gate
 
