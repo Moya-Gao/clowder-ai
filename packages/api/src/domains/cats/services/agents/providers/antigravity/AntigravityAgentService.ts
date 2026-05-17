@@ -785,7 +785,7 @@ export class AntigravityAgentService implements AgentService {
                   // the model has surfaced a capacity error, but we also saw a
                   // tool-ish step in the same batch, so automatic retry is
                   // intentionally suppressed until we know whether dispatch ran.
-                  yield {
+                  const enrichedTransientError = {
                     ...msg,
                     metadata: {
                       ...errorMetadata,
@@ -813,6 +813,13 @@ export class AntigravityAgentService implements AgentService {
                       },
                     },
                   };
+                  if (transientRecoveryDecision?.action === 'surface_resumable_error') {
+                    for (const recoveryMsg of withRecoveryMessages(enrichedTransientError, transientRecoveryDecision)) {
+                      yield recoveryMsg;
+                    }
+                    continue;
+                  }
+                  yield enrichedTransientError;
                   continue;
                 }
 

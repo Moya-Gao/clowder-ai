@@ -789,6 +789,61 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.equal(capacity.metadata?.diagnostics?.resumeContext?.completedEffects?.[0]?.operation, 'write');
   });
 
+  test('model_capacity after CODE_ACTION emits typed recovery rich block card', async () => {
+    const bridge = createMockBridge();
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            metadata: { operation: 'write', path: 'docs/capacity-after-write.md' },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'Our servers are experiencing high traffic right now, please try again in a minute.',
+              },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    assert.equal(bridge.resetSession.mock.callCount(), 0, 'must not retry after CODE_ACTION');
+    const recoveryMsg = messages.find((m) => {
+      if (m.type !== 'system_info') return false;
+      const parsed = JSON.parse(m.content);
+      return parsed.type === 'rich_block' && parsed.block?.meta?.kind === 'antigravity_recovery';
+    });
+    assert.ok(recoveryMsg, 'post-side-effect model_capacity should emit a typed recovery rich block');
+
+    const parsed = JSON.parse(recoveryMsg.content);
+    assert.equal(parsed.type, 'rich_block');
+    assert.equal(parsed.block.kind, 'card');
+    assert.equal(parsed.block.tone, 'warning');
+    assert.equal(parsed.block.meta.recoveryDecision.action, 'surface_resumable_error');
+    assert.equal(parsed.block.meta.recoveryDecision.reason, 'post_side_effect_interrupted');
+    assert.equal(parsed.block.meta.completedEffectCount, 1);
+    assert.match(parsed.block.bodyMarkdown, /停止自动重试/);
+    assert.ok(
+      parsed.block.fields.some(
+        (field) => field.label === '已完成动作' && field.value.includes('docs/capacity-after-write.md'),
+      ),
+    );
+  });
+
   test('model_capacity intentionally does not retry read-only MCP_TOOL metadata-only batches', async () => {
     const bridge = createMockBridge();
     bridge.pollForSteps = async function* () {
