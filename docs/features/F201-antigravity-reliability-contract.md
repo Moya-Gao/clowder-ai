@@ -23,6 +23,16 @@ Map delta: none — F201 收口 Antigravity provider/retry/recovery 契约，并
 
 这不是“给孟加拉猫降级”的问题。我们要把 Antigravity 从“能接入、能偶尔修”提升到“可诊断、可恢复、可验收、可持续巡检”。
 
+### CVO 判断：长任务不可用 = F201 未完成（2026-05-17）
+
+铲屎官 2026-05-17 头脑风暴拍板：**“现在要是没解决就是 F201 没完成”**。Phase A–E 交付了 side-effect 可追踪 / 不盲 retry / typed recovery card，但**没解决长任务为什么会进入需要 recovery 的状态**。三猫诊断收敛出 root cause 不在 Antigravity 上游，而在我们桥接层的超时/存活判断：
+
+- **布偶猫/宪宪 (Opus 4.7)** — 精确 root cause：`stallProbed` 仅在 `deliveryAdvanced`（有新 step 交付）时复位 → 持续无交付的真卡顿**全局只有一次** stall probe，第二个 60s idle 直接 `throw err` → terminal。坐标系错误：用单一固定 idle timeout 衡量所有“等待”，缺 liveness 信号区分“慢但活”vs“真死”。与 F194 invocation liveness 同源。
+- **缅因猫/砚砚 (GPT-5.5)** — 现场日志证据：不是单纯 idle 超时，而是 native executor success → 2s 后 trajectory 标 ERROR → 2s 后 `STOP_REASON_CLIENT_STREAM_ERROR`，桥接回写时 Antigravity client stream 状态机崩。结论：不能靠“把 stream 变稳定”，要把 stream 降级为**观察通道**，任务生命线必须是我们自己的 durable supervisor + journal + probe + safe resume。
+- **布偶猫/宪宪 (Opus 4.6)** — 三层超时嫌疑：LS→upstream HTTP idle（不可控）/ bridge→LS RPC / tool 执行时间（`pnpm gate` 跑 10min）/ 审批等待。核心矛盾：长 tool 执行时 bridge 不发数据 → upstream 判 idle 断流。Heartbeat/progress signal 防 idle 最高 ROI。
+
+**共识**：Antigravity 上游不稳是环境约束（不可控），但 liveness 判断 + durable supervisor + heartbeat + 受控 YOLO + 自动 resume 是我们这层**完全能控制**的。这是 F201 愿景“不降级、可恢复、可验收”的核心缺口 → 新增 **Phase F: Long-Task Liveness & Durable Supervisor**，Close Gate 顺延为 Phase G；AC-G 全绿（含真实 alpha）才能 close。
+
 ### Incident Evidence Anchors
 
 | 事故 | Anchor | 现象 | F201 回归形态 |
@@ -54,6 +64,7 @@ F201 关闭时，Antigravity 必须满足以下契约：
 3. **恢复必须区分安全等级**：side effect 前的瞬态失败可以自动换 fresh cascade 重试；side effect 后只允许 resumable recovery，不做盲 retry。
 4. **可用性必须有 smoke gate**：text-only、MCP read、agent-key writeback call、file write/delete sentinel、large cascade retirement 至少一组端到端 smoke 可重复跑。
 5. **UI 不再只给红字**：连接中断后展示 typed error card，包含完成动作、残留文件/产物、建议操作和可复制诊断信息。
+6. **长任务必须有存活护栏**：长任务不因单一 idle timeout 被误杀；区分“慢但活”（planner 仍产出 / 有 pending tool）与“真死”（完全静止）；stream 断后任务生命线由 durable supervisor 持有，不依赖 Antigravity stream 稳定；journal 全 `done` 时可自动 resume，有 pending/unknown 时留结构化断点等人工。睡前交代的长任务，第二天不能只剩 `STOP_REASON_CLIENT_STREAM_ERROR`。
 
 ## Journal / Audit Boundary
 
@@ -130,6 +141,18 @@ F201 关闭时，Antigravity 必须满足以下契约：
 - [ ] AC-F2: 集成测试覆盖 pre-side-effect retry 与 post-side-effect non-retry。
 - [ ] AC-F3: 手动 alpha smoke 记录落到 close report。
 - [ ] AC-F4: F178 Phase D 状态不被 F201 偷偷吞掉；若 close 前仍未完成，close report 必须列为 external dependency。
+- [ ] AC-F5: AC-G 全部满足（含 AC-G8 真实 Antigravity alpha 验收）才允许进 close gate；长任务存活未解决则 F201 不得 close（CVO 2026-05-17 拍板）。
+
+### AC-G: Long-Task Liveness & Durable Supervisor
+
+- [ ] AC-G1（root cause 修复）: `stallProbed` 不再“持续无交付时全局仅一次”。stall probe 配额改为有界多次（≥2，指数退避），每次 probe 前判 liveness——“慢但活”不消耗配额，仅“真死”消耗。回归测试：模拟持续无 `deliveryAdvanced` 但上游仍 alive，断言不在第二个 idle 窗口直接 terminal。
+- [ ] AC-G2（liveness 信号）: poll loop 引入 cascade liveness 判据，区分“慢但活”（planner partial text 增长 / 有 pending tool/approval）与“真死”（完全静止 + 无 pending）。idle stall timeout 只对“真死”触发；liveness 模型与 F194 invocation liveness 对齐，不新建并行真相源。
+- [ ] AC-G3（heartbeat 防 idle）: 长 tool / 长等待执行期，bridge 层有 keepalive 机制防 upstream idle 断流；upstream 是否接受 injected planner step 必须先用真实 Antigravity spike 验证，不接受则降级为 trajectory re-pull 探针保活。
+- [ ] AC-G4（durable supervisor）: 存在 task supervisor 持久记录 cascadeId / invocationId / last observed step / last trajectory timestamp / confirmed side effect / pending-or-unknown side effect / current recovery strategy。`STOP_REASON_CLIENT_STREAM_ERROR` 或 stream 断不立即判死——先重拉 trajectory + 重 attach LS + 查 executor 回执再决策。supervisor 状态默认持久化（铁律 #5：用户可恢复数据 TTL=0）。
+- [ ] AC-G5（回执冲突分流）: native executor success 但 trajectory 标 ERROR 的竞态标为 `receipt_conflict`，不当简单失败。恢复按 side-effect 分流：无副作用→可重试/重放；已确认→continuation prompt；未知→probe（`git worktree list` / `git branch` / 文件存在性）后再决策；冲突→标记 + resumable card。
+- [ ] AC-G6（自动 resume）: journal 全 `done`（无 pending/unknown side effect）→ 自动开新 cascade + 注入 Phase C `resumeContext`，无需人工点击；存在 pending/unknown side effect → 仍 surface resumable card 等人工确认，不自动重放。
+- [ ] AC-G7（受控 YOLO）: YOLO 消除“等审批 idle”一类——受控（命令白/黑名单、root delete / Redis 6399 / fork bomb hard-refuse、side-effect journal 全覆盖、超时 + 审计）。spec 明确 YOLO 不解决上游慢/断；可靠性方案不以 YOLO 为主线。
+- [ ] AC-G8（端到端验收）: 睡前交代长任务，第二天结果不能只剩 `STOP_REASON_CLIENT_STREAM_ERROR`——最差留结构化断点（completed/pending + continue-safely 动作），最好 supervisor 自动续完。需真实 Antigravity alpha + 铲屎官参与（与 AC-C2/C3 live matrix、AC-F3 合并验收）。
 
 ## Implementation Phases
 
@@ -173,11 +196,23 @@ F201 关闭时，Antigravity 必须满足以下契约：
 - 保留原始红字作为 fallback，不作为主体验。
 - Merged in PR #1707 (`209e707a`): typed recovery rich block card emission for post-side-effect stream errors, diagnostic-copy card action, backend recovery-card regression test, and web card action test. Real Antigravity alpha validation remains in Phase F close gate.
 
-### Phase F: Close Gate
+### Phase F: Long-Task Liveness & Durable Supervisor
+
+> 三猫头脑风暴收敛（2026-05-17）：47 root cause（`stallProbed` 一次性）、砚砚 supervisor 四层 + 回执冲突现场证据、46 三层超时表 + heartbeat ROI。
+
+- **Design Gate（架构决策，需砚砚 + 47 + CVO 三方拍 OQ-6/7/8）**：supervisor 持久化落哪（invocation metadata / Redis 6398 read model / 复用 F194 liveness 真相源）？heartbeat 上游兼容性（真实 Antigravity spike）？自动 resume 边界？
+- 修 root cause：`stallProbed` 复位逻辑 + liveness 信号（AC-G1/G2）。
+- durable task supervisor + 回执冲突分流（AC-G4/G5）。
+- 长执行期 heartbeat 防 idle（AC-G3，先 spike 验 upstream 兼容）。
+- journal 全 done 自动 resume（AC-G6）+ 受控 YOLO（AC-G7）。
+- 与 F194（invocation liveness）、F178（agent-key writeback，supervisor 跨 invocation 续跑需要）边界对齐，不重建真相源。
+
+### Phase G: Close Gate
 
 - 跑单元、集成、smoke、alpha 手测。
 - 找跨家族 reviewer，至少 46/47 + 砚砚三方签字。
 - close report 写入 F201 timeline。
+- **AC-F5 硬门禁**：AC-G1~G8 全绿（含 AC-G8 真实 Antigravity alpha 长任务验收）才允许 close；未解决长任务存活 → 不得 close。
 
 ## Open Questions for Review
 
@@ -188,6 +223,9 @@ F201 关闭时，Antigravity 必须满足以下契约：
 | OQ-3 | post-side-effect interruption 是否允许自动 resume？ | 默认不自动；输出 resume-ready state，由下一次用户/猫调用带 journal 摘要继续。 |
 | OQ-4 | smoke 是否可以写真实 docs 路径？ | 不可以。必须写 sentinel sandbox，除非用户明确指定现场复现。当前留下的 `_test-write-capability.md` 只作为事故证据，不作为常规 smoke。 |
 | OQ-5 | F178 Phase D 是否并入 F201？ | 不并入。F178 Phase D 是 agent-key inventory/audit，F201 只消费其结果并在 close gate 检查依赖状态。 |
+| OQ-6 | durable supervisor 状态落哪？ | 先 invocation metadata + JSONL（对齐 Phase B journal），跨 invocation 续跑生命线再评估 Redis 6398 read model 或复用 F194 liveness 真相源；Phase F Design Gate 拍板。 |
+| OQ-7 | heartbeat 注入 planner step 上游是否接受？ | Phase F spike 用真实 Antigravity 验证；上游不接受 injected step 则降级为 trajectory re-pull 探针保活，不强推可能被 upstream 拒绝的写法。 |
+| OQ-8 | 自动 resume 的边界？ | 仅 journal 全 `done` 自动续跑；任何 pending/unknown side effect 必须人工确认（自动重放有副作用风险动作 = 破 Phase C 安全铁律）。 |
 
 ## Timeline
 
@@ -200,3 +238,4 @@ F201 关闭时，Antigravity 必须满足以下契约：
 | 2026-05-16 | Phase C merged (PR #1700, squash `f7061700c`): recovery decision engine、post-side-effect resumable diagnostics + resume context、old inline retry policy removal、journal-derived `executionJournal` compatibility；46/47 review + cloud Codex LGTM。 |
 | 2026-05-16 | Phase D merged (PR #1702, squash `4dcbe0b2b`): cascade health / side-effect-safe preflight retirement、`empty_response` clean-journal fresh retry、availability smoke runner、secret-redacted readonly diagnostics、smoke-owned sentinel cleanup；cloud Codex LGTM。 |
 | 2026-05-16 | Phase E merged (PR #1707, squash `209e707a`): post-side-effect stream error now surfaces a typed recovery `rich_block` card before the enriched error, with completed/pending actions, suggested next step, diagnostic ID, and copy-diagnostic action；cloud Codex LGTM。 |
+| 2026-05-17 | **三猫头脑风暴 + CVO 拍板**：铲屎官报告长任务“等东西就挂”。47 定位 root cause（`stallProbed` 仅 `deliveryAdvanced` 复位 → 持续无交付只一次 probe → 60s+60s 必 terminal）；砚砚补现场证据（native-success → trajectory-ERROR → STREAM_ERROR 状态机崩 + durable supervisor 四层方案）；46 补三层超时表 + heartbeat ROI。CVO 拍板“没解决 = F201 未完成”。新增 **Phase F: Long-Task Liveness & Durable Supervisor**（AC-G1~G8），原 Close Gate 顺延 Phase G，AC-F5 硬门禁。Phase F 待 Design Gate（OQ-6/7/8 三方拍板）。 |
