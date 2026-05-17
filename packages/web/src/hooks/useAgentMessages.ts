@@ -2493,7 +2493,7 @@ export function useAgentMessages() {
   }, []);
 
   const findRecoverableAssistantMessage = useCallback(
-    (catId: string, explicitInvocationId?: string) => {
+    (catId: string, explicitInvocationId?: string, options?: { requireStreamOrigin?: boolean }) => {
       // F173 hotfix (砚砚 4 件套 #1) — recovery MUST be identity-aware.
       // Old behavior: first pass matched any isStreaming=true bubble of this cat, which
       // allowed new invocation's chunks to append onto a previous invocation's bubble
@@ -2521,6 +2521,7 @@ export function useAgentMessages() {
         for (let i = currentMessages.length - 1; i >= 0; i--) {
           const msg = currentMessages[i];
           if (msg.type !== 'assistant' || msg.catId !== catId) continue;
+          if (options?.requireStreamOrigin && msg.origin && msg.origin !== 'stream') continue;
           if (!sameBubbleStableKey(msg, invocationId, catId)) continue;
           if (!msg.isStreaming) continue;
           return { id: msg.id, needsStreamingRestore: false };
@@ -2528,6 +2529,7 @@ export function useAgentMessages() {
         for (let i = currentMessages.length - 1; i >= 0; i--) {
           const msg = currentMessages[i];
           if (msg.type !== 'assistant' || msg.catId !== catId) continue;
+          if (options?.requireStreamOrigin && msg.origin && msg.origin !== 'stream') continue;
           if (!sameBubbleStableKey(msg, invocationId, catId)) continue;
           // Cloud P1#3 (PR#1352) — reject bubbles this session's `done` has already
           // finalized. Hydration-loaded non-streaming bubbles (no finalizedStreamRef
@@ -2543,6 +2545,7 @@ export function useAgentMessages() {
       for (let i = currentMessages.length - 1; i >= 0; i--) {
         const msg = currentMessages[i];
         if (msg.type !== 'assistant' || msg.catId !== catId) continue;
+        if (options?.requireStreamOrigin && msg.origin && msg.origin !== 'stream') continue;
         if (!msg.isStreaming) continue;
         if (msg.extra?.stream?.invocationId) continue; // bound to some invocation — never adopt
         return { id: msg.id, needsStreamingRestore: false };
@@ -2979,7 +2982,9 @@ export function useAgentMessages() {
           // multi-turn doesn't fall back to old turn's bubble via parent-only equality.
           const boundInv = found.extra?.stream?.invocationId;
           const expectedKey = options?.turnInvocationId ?? options?.invocationId;
-          const stale = !!expectedKey && !!boundInv && !sameBubbleStableKey(found, expectedKey, catId);
+          const stale =
+            (!!expectedKey && !!boundInv && !sameBubbleStableKey(found, expectedKey, catId)) ||
+            (options?.ensureStreaming === true && found.origin === 'callback');
           if (stale) {
             deleteActive(catId);
           } else {
@@ -3003,7 +3008,9 @@ export function useAgentMessages() {
         }
       }
 
-      const recovered = findRecoverableAssistantMessage(catId, options?.turnInvocationId ?? options?.invocationId);
+      const recovered = findRecoverableAssistantMessage(catId, options?.turnInvocationId ?? options?.invocationId, {
+        requireStreamOrigin: options?.ensureStreaming === true,
+      });
       if (!recovered) return null;
 
       setActive(catId, recovered.id, options?.invocationId);
