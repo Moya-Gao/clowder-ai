@@ -8,7 +8,7 @@ created: 2026-05-01
 
 # F185: 入口级判忙策略分层 — ADR-034 实施
 
-> **Status**: done | **Owner**: 布偶猫/宪宪 | **Priority**: P1
+> **Status**: in-progress (Phase B) | **Owner**: 布偶猫/宪宪 | **Priority**: P1
 >
 > **Decision**: [ADR-034](../../docs/decisions/034-dispatch-busy-gate-unification.md)
 > **Discussion**: `docs/discussions/2026-05-01-dispatch-queue-architecture/`
@@ -65,6 +65,59 @@ CI/review/conflict/scheduled 等 connector trigger policy 必须写入 `sourceCa
 - [x] AC-11: 回归测试：A2A 链中插入 connector entry → connector 不被后续 agent autoExecute 饿死
 - [x] AC-12: 回归测试：continuation entry 仍为 urgent + system-pinned，不被 AC-8 校验拦截
 
+---
+
+## Phase B: routeSerial text-scan fairness gate 扩展至 non-agent
+
+> **Status**: spec-review | **Reopened**: 2026-05-17
+> **起因**: 铲屎官报告 A2A @ 链期间外部消息堆积（截图 2026-05-17）。三猫独立诊断（46/47/55）收敛：Phase A 的 fairness gate 覆盖了 `tryAutoExecute` 但**漏了 `routeSerial` text-scan 路径**。
+
+### Why
+
+Phase A（AC-7）给 `tryAutoExecute()` 加了 non-agent fairness gate——有 connector/user 排队时不启动新 agent。但 `routeSerial` 里的 A2A text-scan（猫输出含 `@猫B` 时决定是否扩展 worklist）走的是另一个 predicate：`hasQueuedUserMessagesForThread`，只看 `source === 'user'`，**不看 connector**。
+
+这意味着：猫A 在跑 → connector 消息来了（CI fail / review feedback）→ 入队 → 猫A 跑完输出 `@猫B` → text-scan 检查 `hasQueuedUserMessagesForThread` → false（connector 不算）→ worklist 扩展，猫B 继续跑 → connector 继续等。
+
+ADR-034 OQ-3 的设计结论是 "non-agent（user + connector）都应阻止 A2A 扩展"，但实现只在 `tryAutoExecute` 落地了，`routeSerial` text-scan 没跟上。`InvocationQueue.hasQueuedUserMessagesForThread` 的注释（L752-756）甚至显式写了 "connector must NOT block"，测试（`invocation-queue.test.js:924`）也断言了这个错误行为。
+
+### What
+
+一个改动点：将 `routeSerial` text-scan 的 fairness predicate 从 `hasQueuedUserMessagesForThread`（只看 user）改为 `hasQueuedNonAgentForThread`（看 user + connector），与 `tryAutoExecute` 的 fairness gate 对齐。
+
+**改动范围（4 个 call site + 1 个 wrapper + 注释/测试）：**
+
+| 文件 | 行 | 改动 |
+|------|-----|------|
+| `routes/messages.ts` | 887 | `hasQueuedUserMessagesForThread` → `hasQueuedNonAgentForThread` |
+| `routes/invocations.ts` | 199 | 同上（走 QueueProcessor wrapper） |
+| `ConnectorInvokeTrigger.ts` | 365 | 同上（直接调 queue） |
+| `QueueProcessor.ts` | 912 | 同上（dequeue 路径） |
+| `QueueProcessor.ts` | 265-268 | wrapper 方法重命名 + 改委托目标 |
+| `InvocationQueue.ts` | 752-757 | 更新注释，移除"connector must NOT block" |
+| `invocation-queue.test.js` | 924 | 断言改为 `true`（connector 应阻止 text-scan） |
+
+**新增回归测试：**
+- connector queued + 猫A 输出 `@猫B` → `routeSerial` 不扩展 worklist，当前 invocation 收敛后由 `onInvocationComplete` 出队 connector
+
+### Acceptance Criteria (Phase B)
+
+- [ ] AC-B1: `routeSerial` text-scan fairness gate 使用 `hasQueuedNonAgentForThread`（检查 user + connector）
+- [ ] AC-B2: 4 个注入 call site 全部从 `hasQueuedUserMessagesForThread` 切换到 `hasQueuedNonAgentForThread`
+- [ ] AC-B3: `QueueProcessor` wrapper 方法重命名，注释更新
+- [ ] AC-B4: `InvocationQueue.hasQueuedUserMessagesForThread` 注释移除 "connector must NOT block" 误导文案
+- [ ] AC-B5: 回归测试：connector entry queued + A2A text-scan → gate 阻止 worklist 扩展
+- [ ] AC-B6: 回归测试：纯 agent entries queued（无 user/connector）→ text-scan 正常扩展（不误阻）
+- [ ] AC-B7: Phase A 已有测试全绿（AC-10/11/12 不回归）
+
+### Risk (Phase B)
+
+| 风险 | 缓解 |
+|------|------|
+| connector 排队时 A2A 链被过度打断（正常 review ping-pong 被 CI pass 通知截断） | CI pass 是 `normal` priority，出队后 A2A 链通过 `tryAutoExecute` 自动恢复。只是当轮 text-scan 不扩展，不是永久阻断 |
+| `hasQueuedUserMessagesForThread` 被其他路径使用 | grep 确认只有 text-scan fairness gate 使用，无其他 caller |
+
+---
+
 ## Dependencies
 
 - **Evolved from**: F122（统一执行通道 — 补齐 connector 入口的原子门控）
@@ -93,7 +146,8 @@ CI/review/conflict/scheduled 等 connector trigger policy 必须写入 `sourceCa
 | 日期 | 事件 |
 |------|------|
 | 2026-05-01 | 四猫审计 → ADR-034 → 三猫 review → 铲屎官 signoff → 立项 |
-| 2026-05-02 | 实现完成，砚砚 R3 放行 + 云端 R2 放行，merged (PR #1531) |
+| 2026-05-02 | Phase A 实现完成，砚砚 R3 放行 + 云端 R2 放行，merged (PR #1531) |
+| 2026-05-17 | 铲屎官报告 A2A @ 链外部消息堆积 → 三猫诊断收敛 → Phase B 立项 |
 
 ## Review Gate
 
