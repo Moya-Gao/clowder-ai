@@ -240,6 +240,7 @@ close_gate_report:
 | 2026-05-17 | A/B convergence batch 2.1 merged (PR #1728): A-2 Skills composed view — `SettingsSkillItem` joins `/api/skills` governance with `/api/capabilities` controls; 6 rounds cloud review (5 P1 + 2 P2 fixed: generation guard, stale-data clear on switch, ref-based project tracking, dual refetch after mutations, filter reset); 砚砚 review PASS + CVO fast-track |
 | 2026-05-17 | A/B convergence batch 2.2 merged (PR #1732): B-1/B-3 service-ui-adapter + ServiceStatusPanel rewrite + PluginsContent typed adapter pipeline; `conn-*` semantic badges; install log poll reads `lines` DTO; 砚砚 3-round review PASS + cloud review 0 P1/P2 |
 | 2026-05-17 | A/B convergence batch 2.3 merged (PR #1734): A-1b Notify visual parity (PushSettingsPanel rewrite + PushDiagnosticsSection extraction + 5-type prefs + collapsed diagnostics + VAPID surfacing + conn-* tokens) + B-4 HubPermissionsTab visual-only consistency (conn-* tokens + a11y + StepBadge + SaveFeedback extraction); 砚砚 2-round review PASS + cloud review P1→P3 降级 (capability guard, no repro) |
+| 2026-05-17 | S-2 Hub dead code cleanup merged (PR #1742): CatCafeHub modal + 8 Hub-only components + 6 tests deleted (~3,100 lines); 3 callers (DaemonActiveIndicator, CallbackAuth, /help+/config) redirected to `/settings` with OpsContent URL deep-linking; 砚砚 review PASS + 4-round cloud review (2 P1 + 4 P2 fixed/降级) |
 | 2026-05-17 | V-10~V-18 semantic token convergence merged (PR #1736): 9 web components raw Tailwind → conn-*/cafe-* tokens; solid-fill CTA buttons preserved as raw Tailwind (no conn-* dark mode fill tokens); 砚砚 2-round review PASS + cloud review P1 fix + re-review PASS |
 | 2026-05-17 | CVO 决策同步：D-7 AppShell ownership deferred（"先不做，记录一下"）；S-2 Hub 重复降级为代码清理（用户层已无 Hub 入口）；Signal enrichment + thread nav 审计纠正（两项已实现，非丢失） |
 
@@ -582,7 +583,7 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 | # | 区域 | 问题 | 修改内容 | 优先级 |
 |---|------|------|----------|--------|
 | D-7 | AppShell / ChatContainer（🔴 红区） | desktop sidebar owner 错位 | AppShell 接管 desktop ThreadSidebar | **Deferred**（CVO 2026-05-17: "先不做，记录一下"） |
-| S-2 | Hub/Settings 重复 | IM/Env/Governance 三处 | Hub 改为摘要 + deep-link | **降级为代码清理**（2026-05-17: CatCafeHub 用户层无入口——仅 DaemonActiveIndicator amber badge 时可见；用户不会遇到重复。清理可选，不阻塞） |
+| S-2 | Hub/Settings 重复 | IM/Env/Governance 三处 | Hub 改为摘要 + deep-link | ✅ **已清理** (PR #1742)：CatCafeHub modal + 8 Hub-only 组件 + 6 test 删除（~3,100 行）；3 callers 重定向到 `/settings` deep-link；OpsContent URL deep-linking (`ops=`/`obs=`) |
 | S-4 | Console tokens | font / color token drift | 对齐 font-size/token 命名；不盲目搬 `theme-tokens.css` 或 xterm CSS |
 | S-5 | Thread/Top/Status visual | 视觉不一致 | 在功能修复后统一 spacing、border、radius；保留家里新增功能 |
 
