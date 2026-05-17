@@ -515,6 +515,39 @@ skills:
     sop_step: null
     merged_from: null
 
+  memory-search-best-practices:
+    description: >
+      记忆系统多刀检索 + recall coverage 策略（8 类题型 recipe）。F200 v1.2 SW-1 配套 skill。
+      Use when: "哪些地方提过 X" / source-map / absence check / delta / coverage 全集 / 冷启动 onboard / 召回任务搜了 1 刀觉得不够。
+      Not for: 只是选入口走第一刀（用 memory-navigation）/ 已知精确 anchor 直接 Read / 代码符号查 Grep/LSP / 新功能开发。
+      Output: multi-query union 召回 + coverage matrix + "何时停下来"判据。
+      GOTCHA: 和 memory-navigation 互补不重叠 — memory-navigation 决定第一刀工具，本 skill 决定要不要补刀+几路+何时停。布偶猫家族必加载：治"我能猜出来 / 碎片够了"病。
+    triggers:
+      - "哪些 thread"
+      - "哪些 md"
+      - "哪些地方提过"
+      - "所有"
+      - "历史上"
+      - "沉淀过"
+      - "source map"
+      - "provenance"
+      - "有没有提过"
+      - "absence check"
+      - "delta"
+      - "上次和现在"
+      - "新猫冷启动"
+      - "coverage"
+      - "全集"
+    not_for:
+      - "选入口（用 memory-navigation）"
+      - "已知精确 anchor 直接 Read"
+      - "代码符号查找"
+      - "新功能开发"
+    output: "Multi-query union recall + coverage matrix + stop criteria"
+    next: ["feat-lifecycle", "debugging", "cross-cat-handoff", "collaborative-thinking"]
+    sop_step: null
+    merged_from: null
+
   # ── 知识工程（F152 Phase 0）──
   knowledge-engineering:
     description: >

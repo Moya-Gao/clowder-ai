@@ -33,6 +33,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `deep-research` | 多源深度调研 | — |
 | `knowledge-engineering` | 外部项目文档重构/冷启动知识注入 | — |
 | `memory-navigation` | 项目记忆三入口路由（graph / recent / search） | — |
+| `memory-search-best-practices` | 记忆系统多刀检索 + recall coverage 策略（8 类题型 recipe） | — |
 | `writing-skills` | 写新 skill | — |
 | `pencil-design` | 设计 UI / .pen 文件 | — |
 | `rich-messaging` | 发语音/发图/发卡片/富媒体 | — |
