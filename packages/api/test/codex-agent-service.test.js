@@ -204,6 +204,10 @@ test('injects cat-cafe MCP config when workingDirectory contains mcp-server', as
         `${serverId} args must point at ${entrypoint}`,
       );
       assert.ok(args.includes(`mcp_servers.${serverId}.enabled=true`), `must inject ${serverId} enabled=true`);
+      assert.ok(
+        args.includes(`mcp_servers.${serverId}.default_tools_approval_mode="approve"`),
+        `${serverId} must have default_tools_approval_mode="approve" for non-interactive codex exec`,
+      );
       // full callback env coverage on every split server (regression guard for F168/F140 cross-thread auth)
       assert.ok(
         args.includes(`mcp_servers.${serverId}.env.CAT_CAFE_API_URL="http://127.0.0.1:3004"`),

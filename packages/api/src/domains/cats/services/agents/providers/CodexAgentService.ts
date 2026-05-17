@@ -233,6 +233,8 @@ function buildCatCafeMcpConfigArgs(workingDirectory?: string, callbackEnv?: Reco
       `mcp_servers.${serverName}.args=[${toTomlString(serverPath)}]`,
       '--config',
       `mcp_servers.${serverName}.enabled=true`,
+      '--config',
+      `mcp_servers.${serverName}.default_tools_approval_mode="approve"`,
     );
 
     for (const key of callbackKeys) {
