@@ -591,12 +591,12 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 
 | # | 区域 | 问题 | 修改内容 |
 |---|------|------|----------|
-| V-1 | ThreadItem | Line divider → card gap | 删 `border-b border-gray-50`，加 `mx-2 rounded-[14px]`；active/hover 用 console CSS 变量 |
-| V-2 | ThreadSidebar 新对话 | 按钮视觉扁平 | 切 `console-button-primary` class |
-| V-3 | ThreadSidebar 回收站 | 纯文字行 | 改 `bg-[var(--console-code-bg)] rounded-xl` 样式化行 |
-| V-4 | ThreadSidebar 全部已读 | 纯文字链接 | 改为 button/card 样式 |
-| V-5 | ThreadItem LabelDots | 色点堆叠无区分 | 展示标签名 pill 或加大色点 |
-| V-6 | 全局 line divider | 高优 border-b 列表项 | QueueEntryRow / IndexStatus / CommunityPanel / SchedulePanel card gap 化 |
+| V-1 | ThreadItem | Line divider → card gap | ✅ `mx-2 rounded-[14px]` + `console-active-bg`/`console-hover-bg` |
+| V-2 | ThreadSidebar 新对话 | 按钮视觉扁平 | ✅ `console-button-primary` class |
+| V-3 | ThreadSidebar 回收站 | 纯文字行 | ✅ `bg-[var(--console-code-bg)] rounded-xl h-9` 样式化行 |
+| V-4 | ThreadSidebar 全部已读 | 纯文字链接 | ✅ `rounded-md bg-[var(--console-field-bg)]` button 样式 |
+| V-5 | ThreadItem LabelDots | 色点堆叠无区分 | ✅ `rounded-full px-1 py-px` label pill 展示标签名 |
+| V-6 | 全局 line divider | 高优 border-b 列表项 | ✅ QueueEntryRow / IndexStatus / CommunityPanel / SchedulePanel 均改 card gap |
 | V-7 | ConnectionStatusBar | `cocreator-*` → console tokens | 降级/离线/错误框全换 `--console-border-soft` / `--console-hover-bg`；保留 `gap-4` 不跟开源 `gap-3` |
 | V-8 | ParallelStatusBar | Tailwind 硬编码色 → `conn-*` 语义色 | pill 形状 `rounded-full` → `rounded-xl` + border；状态点/停止按钮用 `conn-emerald/red/amber`；hover → opacity；保留家里 `gap-4` |
 | V-9 | RightStatusPanel | 按钮/卡片/badge 收敛 | 按钮用 `console-pill` 模式（hover:text 而非 hover:bg）；badge 用 `conn-*` 色；卡片加投影；保留家里 `gap-4` + 288px 宽度 |
