@@ -1,116 +1,50 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { HubIcon } from '../hub-icons';
-import {
-  settingsResourceAvatarClass,
-  settingsResourceCardClass,
-  settingsResourceRowClass,
-} from '../SettingsResourceCard';
+import { ProjectSelector } from './capability-settings-ui';
 import { SettingsPageHeader } from './SettingsPageHeader';
 import { SkillConflictBanner } from './SkillConflictBanner';
 import { SkillPreviewModal } from './SkillPreviewModal';
-
-interface SkillMount {
-  claude: boolean;
-  codex: boolean;
-  gemini: boolean;
-  kimi: boolean;
-}
-
-interface SkillMcpDependency {
-  id: string;
-  status: 'ready' | 'missing' | 'unresolved';
-}
-
-interface SkillEntry {
-  name: string;
-  category: string;
-  trigger: string;
-  mounts: SkillMount;
-  requiresMcp: SkillMcpDependency[];
-}
-
-interface SkillsStaleness {
-  stale: boolean;
-  newSkills: string[];
-  removedSkills: string[];
-}
-
-interface SkillConflict {
-  skillName: string;
-  projectTarget: string;
-  userTarget: string;
-  activeLayer: 'user' | 'project';
-}
-
-interface SkillsData {
-  skills: SkillEntry[];
-  summary: {
-    total: number;
-    allMounted: boolean;
-    registrationConsistent: boolean;
-  };
-  staleness: SkillsStaleness | null;
-  conflicts: SkillConflict[];
-}
-
-interface SkillsApiEntry extends Omit<SkillEntry, 'requiresMcp'> {
-  requiresMcp?: SkillMcpDependency[];
-}
-
-interface SkillsApiData extends Omit<SkillsData, 'skills'> {
-  skills: SkillsApiEntry[];
-}
-
-const ALL_CATEGORIES = '全部';
-const PROVIDER_KEYS: Array<keyof SkillMount> = ['claude', 'codex', 'gemini', 'kimi'];
-
-function getMountedCount(mounts: SkillMount): number {
-  return PROVIDER_KEYS.filter((key) => mounts[key]).length;
-}
-
-function dependencyTone(status: SkillMcpDependency['status']): string {
-  if (status === 'ready') return 'bg-emerald-100 text-emerald-700';
-  if (status === 'missing') return 'bg-rose-100 text-rose-700';
-  return 'bg-conn-amber-bg text-conn-amber-text';
-}
-
-function normalizeSearch(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function normalizeSkillsData(payload: SkillsApiData): SkillsData {
-  return {
-    ...payload,
-    skills: payload.skills.map((skill) => ({
-      ...skill,
-      requiresMcp: skill.requiresMcp ?? [],
-    })),
-  };
-}
+import { HealthStrip, SkillRow } from './SkillsSubComponents';
+import { ALL_CATEGORIES, composeSkillItems, normalizeSearch, normalizeSkillsData } from './skills-types';
+import type { SettingsSkillItem, SkillsApiData, SkillsData } from './skills-types';
+import { useSkillControls } from './useSkillControls';
 
 export function SkillsContent() {
   const [data, setData] = useState<SkillsData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORIES);
   const [query, setQuery] = useState('');
-  const [previewSkill, setPreviewSkill] = useState<SkillEntry | null>(null);
+  const [previewSkill, setPreviewSkill] = useState<SettingsSkillItem | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [resolving, setResolving] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<string | null>(null);
+  const [expandedCats, setExpandedCats] = useState<string | null>(null);
 
-  const fetchSkills = useCallback(async () => {
+  const controls = useSkillControls();
+  const skillsFetchGen = useRef(0);
+  const latestProjectRef = useRef(controls.projectPath);
+  latestProjectRef.current = controls.projectPath;
+
+  const fetchSkills = useCallback(async (forProject?: string) => {
+    const generation = ++skillsFetchGen.current;
+    const isCurrent = () => skillsFetchGen.current === generation;
     setError(null);
     try {
-      const res = await apiFetch('/api/skills');
+      const q = forProject ? `?projectPath=${encodeURIComponent(forProject)}` : '';
+      const res = await apiFetch(`/api/skills${q}`);
+      if (!isCurrent()) return;
       if (!res.ok) {
         setError(`Skills 数据加载失败 (${res.status})`);
         return;
       }
-      setData(normalizeSkillsData((await res.json()) as SkillsApiData));
+      const parsed = normalizeSkillsData((await res.json()) as SkillsApiData);
+      if (!isCurrent()) return;
+      setData(parsed);
     } catch {
+      if (!isCurrent()) return;
       setError('Skills 数据加载失败');
     }
   }, []);
@@ -118,6 +52,11 @@ export function SkillsContent() {
   useEffect(() => {
     void fetchSkills();
   }, [fetchSkills]);
+
+  const composedItems = useMemo(() => {
+    if (!data) return [];
+    return composeSkillItems(data, controls.items);
+  }, [data, controls.items]);
 
   const categories = useMemo(() => {
     if (!data) return [ALL_CATEGORIES];
@@ -129,30 +68,31 @@ export function SkillsContent() {
   }, [data]);
 
   const filteredSkills = useMemo(() => {
-    if (!data) return [];
     const needle = normalizeSearch(query);
-    return data.skills.filter((skill) => {
+    return composedItems.filter((skill) => {
       if (activeCategory !== ALL_CATEGORIES && skill.category !== activeCategory) return false;
       if (!needle) return true;
       return `${skill.name} ${skill.category} ${skill.trigger}`.toLowerCase().includes(needle);
     });
-  }, [activeCategory, data, query]);
+  }, [activeCategory, composedItems, query]);
 
   async function handleSync() {
     setSyncing(true);
     setWriteError(null);
     try {
+      const payload: Record<string, unknown> = {};
+      if (latestProjectRef.current) payload.projectPath = latestProjectRef.current;
       const res = await apiFetch('/api/skills/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: '{}',
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         setWriteError(body.error ?? `Sync failed (${res.status})`);
         return;
       }
-      await fetchSkills();
+      await Promise.all([fetchSkills(latestProjectRef.current ?? undefined), controls.refetch()]);
     } catch {
       setWriteError('Sync request failed');
     } finally {
@@ -164,17 +104,19 @@ export function SkillsContent() {
     setResolving(skillName);
     setWriteError(null);
     try {
+      const payload: Record<string, unknown> = { skillName, choice };
+      if (latestProjectRef.current) payload.projectPath = latestProjectRef.current;
       const res = await apiFetch('/api/skills/resolve-conflict', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skillName, choice }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         setWriteError(body.error ?? `Resolve failed (${res.status})`);
         return;
       }
-      await fetchSkills();
+      await Promise.all([fetchSkills(latestProjectRef.current ?? undefined), controls.refetch()]);
     } catch {
       setWriteError('Resolve request failed');
     } finally {
@@ -182,33 +124,38 @@ export function SkillsContent() {
     }
   }
 
+  const combinedError = error || controls.error;
+
   return (
     <div className="space-y-5">
-      <SettingsPageHeader title="Skill 管理" subtitle="Skill 列表、触发条件和 SKILL.md 预览。" />
+      <SettingsPageHeader title="Skill 管理" subtitle="Skill 注册治理、能力开关和 SKILL.md 预览。" />
 
-      {error && <p className="rounded-lg bg-conn-red-bg px-3 py-2 text-sm text-conn-red-text">{error}</p>}
+      <ProjectSelector
+        resolvedPath={controls.resolvedProjectPath}
+        knownProjects={controls.knownProjects}
+        currentSelection={controls.projectPath}
+        onSwitch={(path) => {
+          setData(null);
+          setActiveCategory(ALL_CATEGORIES);
+          setQuery('');
+          controls.switchProject(path);
+          void fetchSkills(path ?? undefined);
+        }}
+      />
+
+      {combinedError && (
+        <p className="rounded-lg bg-conn-red-bg px-3 py-2 text-sm text-conn-red-text">{combinedError}</p>
+      )}
       {writeError && <p className="rounded-lg bg-conn-red-bg px-3 py-2 text-sm text-conn-red-text">{writeError}</p>}
 
-      {data?.staleness?.stale && (
-        <div className="flex items-center justify-between rounded-lg border border-conn-blue-ring bg-conn-blue-bg px-3 py-2 text-xs text-conn-blue-text">
-          <div>
-            <span className="font-semibold">Skills 有更新</span>
-            {data.staleness.newSkills.length > 0 && (
-              <span className="ml-2">+{data.staleness.newSkills.length} 新增</span>
-            )}
-            {data.staleness.removedSkills.length > 0 && (
-              <span className="ml-2">-{data.staleness.removedSkills.length} 移除</span>
-            )}
-          </div>
-          <button
-            type="button"
-            disabled={syncing}
-            onClick={() => void handleSync()}
-            className="rounded-[10px] bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-          >
-            {syncing ? 'Syncing...' : 'Sync'}
-          </button>
-        </div>
+      {data && (
+        <HealthStrip
+          summary={data.summary}
+          staleness={data.staleness}
+          conflictCount={data.conflicts.length}
+          syncing={syncing}
+          onSync={handleSync}
+        />
       )}
 
       {data && data.conflicts.length > 0 && (
@@ -257,49 +204,18 @@ export function SkillsContent() {
       )}
 
       <div className="space-y-3" data-testid="skills-list">
-        {filteredSkills.map((skill) => {
-          const mountedCount = getMountedCount(skill.mounts);
-          const allMounted = mountedCount === PROVIDER_KEYS.length;
-          return (
-            <div key={skill.name} className={settingsResourceCardClass}>
-              <div className={settingsResourceRowClass}>
-                <button
-                  type="button"
-                  onClick={() => setPreviewSkill(skill)}
-                  className="flex min-w-0 flex-1 items-center gap-4 text-left"
-                >
-                  <div className={settingsResourceAvatarClass}>{skill.name.charAt(0).toUpperCase()}</div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-cafe">{skill.name}</p>
-                    <p className="mt-0.5 truncate text-xs text-cafe-secondary">{skill.trigger ? skill.trigger : '—'}</p>
-                    <p className="mt-0.5 text-label text-cafe-muted">{skill.category ? skill.category : '未分类'}</p>
-                  </div>
-                </button>
-                <div className="shrink-0 text-right">
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                      allMounted ? 'bg-conn-emerald-bg text-conn-emerald-text' : 'bg-conn-amber-bg text-conn-amber-text'
-                    }`}
-                  >
-                    {allMounted ? '全部挂载' : `${mountedCount}/${PROVIDER_KEYS.length} 已挂载`}
-                  </span>
-                </div>
-              </div>
-              {skill.requiresMcp.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 px-4 pb-3">
-                  {skill.requiresMcp.map((dep) => (
-                    <span
-                      key={`${skill.name}:${dep.id}`}
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${dependencyTone(dep.status)}`}
-                    >
-                      {dep.id}:{dep.status}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {filteredSkills.map((skill) => (
+          <SkillRow
+            key={skill.id}
+            skill={skill}
+            catFamilies={controls.catFamilies}
+            toggling={controls.toggling}
+            expandedCats={expandedCats}
+            onPreview={() => setPreviewSkill(skill)}
+            onToggle={controls.handleToggle}
+            onExpandCats={(id) => setExpandedCats(expandedCats === id ? null : id)}
+          />
+        ))}
       </div>
 
       {data && (
@@ -323,6 +239,7 @@ export function SkillsContent() {
           description={previewSkill.trigger}
           triggers={previewSkill.trigger ? [previewSkill.trigger] : []}
           category={previewSkill.category}
+          projectPath={controls.projectPath}
           onClose={() => setPreviewSkill(null)}
         />
       )}

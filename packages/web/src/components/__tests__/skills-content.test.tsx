@@ -6,9 +6,21 @@ vi.mock('@/utils/api-client', () => ({
   apiFetch: vi.fn(),
 }));
 
+vi.mock('@/stores/chatStore', () => ({
+  useChatStore: (selector: (s: { threads: unknown[] }) => unknown) => selector({ threads: [] }),
+}));
+
+vi.mock('../ThreadSidebar/thread-utils', () => ({
+  getProjectPaths: vi.fn(() => []),
+  projectDisplayName: (p: string) => p.split('/').pop() ?? p,
+}));
+
 import { apiFetch } from '@/utils/api-client';
 import { SettingsContent } from '../settings/SettingsContent';
 import { SkillsContent } from '../settings/SkillsContent';
+import { getProjectPaths } from '../ThreadSidebar/thread-utils';
+
+const mockGetProjectPaths = getProjectPaths as ReturnType<typeof vi.fn>;
 
 const mockFetch = apiFetch as ReturnType<typeof vi.fn>;
 
@@ -57,6 +69,29 @@ const skillsPayload = {
   ],
 };
 
+const capabilitiesPayload = {
+  items: [
+    {
+      id: 'cross-cat-handoff',
+      type: 'skill',
+      source: 'cat-cafe',
+      enabled: true,
+      cats: { opus: true, codex: false },
+      triggers: ['交接工作给其他猫'],
+    },
+    {
+      id: 'browser-preview',
+      type: 'skill',
+      source: 'cat-cafe',
+      enabled: true,
+      cats: { opus: true, codex: true },
+      triggers: ['看页面效果'],
+    },
+  ],
+  catFamilies: [{ id: 'ragdoll', name: '布偶猫族', catIds: ['opus', 'codex'] }],
+  projectPath: '/Users/lysander/projects/relay-station/cat-cafe',
+};
+
 async function flushEffects() {
   await act(async () => {
     await Promise.resolve();
@@ -67,6 +102,24 @@ function setInputValue(input: HTMLInputElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
   setter?.call(input, value);
   input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function mockBothApis(skillsOverride?: unknown, capOverride?: unknown) {
+  mockFetch.mockImplementation((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.startsWith('/api/rules/skill/')) {
+      return Promise.resolve(
+        jsonResponse({
+          content: '# browser-preview\n\nLocal preview instructions',
+          path: '/repo/cat-cafe-skills/browser-preview/SKILL.md',
+        }),
+      );
+    }
+    if (url.startsWith('/api/capabilities')) {
+      return Promise.resolve(jsonResponse(capOverride ?? capabilitiesPayload));
+    }
+    return Promise.resolve(jsonResponse(skillsOverride ?? skillsPayload));
+  });
 }
 
 describe('SkillsContent', () => {
@@ -83,18 +136,7 @@ describe('SkillsContent', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     mockFetch.mockReset();
-    mockFetch.mockImplementation((input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.startsWith('/api/rules/skill/')) {
-        return Promise.resolve(
-          jsonResponse({
-            content: '# browser-preview\n\nLocal preview instructions',
-            path: '/repo/cat-cafe-skills/browser-preview/SKILL.md',
-          }),
-        );
-      }
-      return Promise.resolve(jsonResponse(skillsPayload));
-    });
+    mockBothApis();
   });
 
   afterEach(() => {
@@ -115,17 +157,19 @@ describe('SkillsContent', () => {
     await flushEffects();
   }
 
-  it('renders the read-mostly skill list with category filters and no write actions', async () => {
+  it('fetches both /api/skills and /api/capabilities and renders composed view', async () => {
     await render(React.createElement(SkillsContent));
 
-    expect(mockFetch.mock.calls[0][0]).toBe('/api/skills');
+    const urls = mockFetch.mock.calls.map((c: unknown[]) => String(c[0]));
+    expect(urls).toContain('/api/skills');
+    expect(urls.some((u: string) => u.startsWith('/api/capabilities'))).toBe(true);
+
     expect(container.textContent).toContain('Skill 管理');
     expect(container.textContent).toContain('2 skills');
     expect(container.textContent).toContain('cross-cat-handoff');
     expect(container.textContent).toContain('browser-preview');
     expect(container.textContent).toContain('missing-browser:missing');
-    expect(container.textContent).toContain('Skills 有更新');
-    expect(container.textContent).toContain('Skill 来源冲突');
+    expect(container.textContent).toContain('有更新');
 
     const frontendFilter = Array.from(container.querySelectorAll('button')).find(
       (button) => button.textContent === '前端',
@@ -139,13 +183,6 @@ describe('SkillsContent', () => {
     const skillsList = container.querySelector('[data-testid="skills-list"]');
     expect(skillsList?.textContent).toContain('browser-preview');
     expect(skillsList?.textContent).not.toContain('cross-cat-handoff');
-
-    const text = container.textContent ?? '';
-    expect(text).not.toContain('立即同步');
-    expect(text).not.toContain('补齐');
-    expect(text).not.toContain('用官方版本');
-    expect(text).not.toContain('用我的版本');
-    expect(text).not.toContain('卸载');
   });
 
   it('opens a read-only SKILL.md preview from the card', async () => {
@@ -172,7 +209,7 @@ describe('SkillsContent', () => {
     expect(input).toBeTruthy();
 
     await act(async () => {
-      setInputValue(input!, 'handoff');
+      setInputValue(input as HTMLInputElement, 'handoff');
     });
 
     expect(container.textContent).toContain('cross-cat-handoff');
@@ -186,30 +223,149 @@ describe('SkillsContent', () => {
     expect(input).toBeTruthy();
 
     await act(async () => {
-      setInputValue(input!, 'not-a-skill');
+      setInputValue(input as HTMLInputElement, 'not-a-skill');
     });
 
     expect(container.textContent).toContain('暂无匹配的 Skill');
     expect(container.textContent).toContain('调整分类或搜索条件后再试。');
   });
 
-  it('renders API errors without exposing write actions', async () => {
-    mockFetch.mockResolvedValueOnce(jsonResponse({ error: 'unavailable' }, 503));
+  it('renders /api/skills error in the combined error area', async () => {
+    mockFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/capabilities')) {
+        return Promise.resolve(jsonResponse(capabilitiesPayload));
+      }
+      return Promise.resolve(jsonResponse({ error: 'unavailable' }, 503));
+    });
 
     await render(React.createElement(SkillsContent));
 
     expect(container.textContent).toContain('Skills 数据加载失败 (503)');
-    expect(container.textContent).not.toContain('立即同步');
-    expect(container.textContent).not.toContain('卸载');
   });
 
-  it('wires the settings skills section to the read-mostly SkillsContent surface', async () => {
+  it('wires the settings skills section to the composed SkillsContent surface', async () => {
     await render(React.createElement(SettingsContent, { section: 'skills' }));
 
     expect(container.textContent).toContain('Skill 管理');
     expect(container.textContent).toContain('browser-preview');
-    expect(container.textContent).not.toContain('Claude');
-    expect(container.textContent).not.toContain('Kimi');
-    expect(container.textContent).not.toContain('立即同步');
+  });
+
+  it('renders global toggle from capability controls', async () => {
+    await render(React.createElement(SkillsContent));
+
+    const toggles = container.querySelectorAll('.settings-resource-toggle');
+    expect(toggles.length).toBeGreaterThan(0);
+  });
+
+  it('governance-only rows render without toggle when no capability match', async () => {
+    mockFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/capabilities')) {
+        return Promise.resolve(jsonResponse({ items: [], catFamilies: [], projectPath: '/x' }));
+      }
+      return Promise.resolve(jsonResponse(skillsPayload));
+    });
+
+    await render(React.createElement(SkillsContent));
+
+    expect(container.textContent).toContain('cross-cat-handoff');
+    expect(container.textContent).toContain('browser-preview');
+    const toggles = container.querySelectorAll('.settings-resource-toggle');
+    expect(toggles.length).toBe(0);
+  });
+
+  it('posts capabilityType skill on global toggle click', async () => {
+    await render(React.createElement(SkillsContent));
+
+    const toggles = container.querySelectorAll('.settings-resource-toggle');
+    expect(toggles.length).toBeGreaterThan(0);
+
+    await act(async () => {
+      (toggles[0] as HTMLButtonElement).click();
+    });
+    await flushEffects();
+
+    const patchCall = mockFetch.mock.calls.find(
+      (c: unknown[]) => String(c[0]) === '/api/capabilities' && (c[1] as { method?: string })?.method === 'PATCH',
+    );
+    expect(patchCall).toBeTruthy();
+    const body = JSON.parse((patchCall?.[1] as { body: string }).body);
+    expect(body.capabilityType).toBe('skill');
+    expect(body.scope).toBe('global');
+  });
+
+  it('per-cat toggle posts capabilityType skill with scope cat and catId', async () => {
+    await render(React.createElement(SkillsContent));
+
+    // Expand per-cat toggles for the first skill (cross-cat-handoff has cats: {opus: true, codex: false})
+    const expandButtons = Array.from(container.querySelectorAll('button[title="按猫开关"]'));
+    expect(expandButtons.length).toBeGreaterThan(0);
+
+    await act(async () => {
+      (expandButtons[0] as HTMLButtonElement).click();
+    });
+
+    // The per-cat section appears within the first card. Find toggles inside it.
+    const cards = container.querySelectorAll('.settings-resource-card');
+    expect(cards.length).toBeGreaterThan(0);
+    const firstCard = cards[0];
+    const cardToggles = firstCard.querySelectorAll('.settings-resource-toggle');
+    // First card should have: 1 global + 2 per-cat (opus, codex) = 3 toggles
+    expect(cardToggles.length).toBe(3);
+
+    // Click the per-cat toggle for codex (3rd toggle, index 2)
+    const perCatToggle = cardToggles[2] as HTMLButtonElement;
+    mockFetch.mockClear();
+    mockBothApis();
+
+    await act(async () => {
+      perCatToggle.click();
+    });
+    await flushEffects();
+
+    const patchCall = mockFetch.mock.calls.find(
+      (c: unknown[]) => String(c[0]) === '/api/capabilities' && (c[1] as { method?: string })?.method === 'PATCH',
+    );
+    expect(patchCall).toBeTruthy();
+    const body = JSON.parse((patchCall?.[1] as { body: string }).body);
+    expect(body.capabilityType).toBe('skill');
+    expect(body.scope).toBe('cat');
+    expect(body.catId).toBe('codex');
+  });
+
+  it('project switch refetches both /api/skills and /api/capabilities with projectPath', async () => {
+    const altPath = '/Users/lysander/projects/relay-station/other-project';
+    mockGetProjectPaths.mockReturnValue(['/Users/lysander/projects/relay-station/cat-cafe', altPath]);
+
+    await render(React.createElement(SkillsContent));
+
+    // ProjectSelector should be visible since 2 projects
+    const projectSelect = container.querySelector('#cap-project-select') as HTMLSelectElement | null;
+    expect(projectSelect).toBeTruthy();
+
+    // Clear calls to track new fetches
+    mockFetch.mockClear();
+    mockBothApis();
+
+    // Switch to alt project
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
+      setter?.call(projectSelect, altPath);
+      projectSelect?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    // Both APIs should be called with projectPath
+    const skillsCall = mockFetch.mock.calls.find((c: unknown[]) => String(c[0]).startsWith('/api/skills'));
+    const capCall = mockFetch.mock.calls.find((c: unknown[]) => String(c[0]).startsWith('/api/capabilities'));
+
+    expect(skillsCall).toBeTruthy();
+    expect(String(skillsCall?.[0])).toContain(`projectPath=${encodeURIComponent(altPath)}`);
+    expect(capCall).toBeTruthy();
+    expect(String(capCall?.[0])).toContain(`projectPath=${encodeURIComponent(altPath)}`);
+
+    // Reset mock
+    mockGetProjectPaths.mockReturnValue([]);
   });
 });
