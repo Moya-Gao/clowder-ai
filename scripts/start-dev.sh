@@ -1425,7 +1425,7 @@ main() {
     echo "  启动 API Server (端口 $API_PORT)..."
     background_eval_with_null_stdin "$API_LAUNCH_CMD"
     API_PID=$!
-    wait_for_port_or_exit "$API_PORT" "API Server" "$API_PID" 20 || exit 1
+    wait_for_port_or_exit "$API_PORT" "API Server" "$API_PID" "${API_WAIT_TIMEOUT:-60}" || exit 1
 
     # Frontend
     if [ "$PROD_WEB" = true ]; then
