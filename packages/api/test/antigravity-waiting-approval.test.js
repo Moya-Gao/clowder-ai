@@ -328,6 +328,140 @@ describe('Antigravity waiting approval', () => {
     assert.equal(bridge.pollForSteps.mock.calls[1].arguments[1], 1, 'retry must resume from lastDeliveredStepCount=1');
   });
 
+  test('AC-G1: keeps waiting across repeated stalls when trajectory still shows liveness', async () => {
+    const resolveOutstandingSteps = mock.fn(async () => {});
+    let pollCount = 0;
+    let trajectoryCount = 0;
+    const bridge = {
+      ...createMockServiceBridge({ resolveOutstandingSteps }),
+      getTrajectory: mock.fn(async () => {
+        trajectoryCount += 1;
+        return {
+          status: 'CASCADE_RUN_STATUS_RUNNING',
+          numTotalSteps: trajectoryCount,
+          updatedAt: Date.now() + trajectoryCount,
+        };
+      }),
+      pollForSteps: mock.fn(async function* () {
+        pollCount += 1;
+        if (pollCount <= 2) {
+          throw new Error(
+            `Antigravity stall: no activity for 60213ms (steps=${pollCount}, status=CASCADE_RUN_STATUS_RUNNING)`,
+          );
+        }
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'DONE',
+              plannerResponse: { response: 'still alive' },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 1,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+      }),
+    };
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'claude-opus-4-6', bridge });
+
+    const messages = await collect(service.invoke('long task'));
+
+    const texts = messages.filter((msg) => msg.type === 'text');
+    assert.equal(texts.length, 1);
+    assert.equal(texts[0].content, 'still alive');
+    assert.equal(resolveOutstandingSteps.mock.calls.length, 0, 'liveness stall must not burn approval probes');
+    assert.equal(bridge.pollForSteps.mock.calls.length, 3, 'must continue polling after repeated live stalls');
+  });
+
+  test('AC-G1: uses bounded multi-probe budget before treating repeated dead stalls as fatal', async () => {
+    const resolveOutstandingSteps = mock.fn(async () => {});
+    let pollCount = 0;
+    const bridge = {
+      ...createMockServiceBridge({ resolveOutstandingSteps }),
+      pollForSteps: mock.fn(async function* () {
+        pollCount += 1;
+        if (pollCount <= 2) {
+          throw new Error(`Antigravity stall: no activity for 60213ms (steps=0, status=CASCADE_RUN_STATUS_RUNNING)`);
+        }
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'DONE',
+              plannerResponse: { response: 'unblocked after second probe' },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 1,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+      }),
+    };
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'claude-opus-4-6', bridge });
+
+    const messages = await collect(service.invoke('long task'));
+
+    const texts = messages.filter((msg) => msg.type === 'text');
+    assert.equal(texts.length, 1);
+    assert.equal(texts[0].content, 'unblocked after second probe');
+    assert.equal(resolveOutstandingSteps.mock.calls.length, 2, 'should have a bounded multi-probe budget');
+    assert.equal(bridge.pollForSteps.mock.calls.length, 3);
+  });
+
+  test('AC-G1: pending approval trajectory still consumes an approval probe', async () => {
+    const resolveOutstandingSteps = mock.fn(async () => {});
+    let pollCount = 0;
+    const bridge = {
+      ...createMockServiceBridge({ resolveOutstandingSteps }),
+      getTrajectory: mock.fn(async () => ({
+        status: 'CASCADE_RUN_STATUS_RUNNING',
+        numTotalSteps: 0,
+        awaitingUserInput: true,
+        updatedAt: Date.now(),
+      })),
+      pollForSteps: mock.fn(async function* () {
+        pollCount += 1;
+        if (pollCount === 1) {
+          throw new Error('Antigravity stall: no activity for 60213ms (steps=0, status=CASCADE_RUN_STATUS_RUNNING)');
+        }
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'DONE',
+              plannerResponse: { response: 'approved after pending approval probe' },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 1,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+      }),
+    };
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'claude-opus-4-6', bridge });
+
+    const messages = await collect(service.invoke('long task'));
+
+    const texts = messages.filter((msg) => msg.type === 'text');
+    assert.equal(texts.length, 1);
+    assert.equal(texts[0].content, 'approved after pending approval probe');
+    assert.equal(
+      resolveOutstandingSteps.mock.calls.length,
+      1,
+      'pending approval must not be treated as passive liveness',
+    );
+  });
+
   test('service does not probe on stall when autoApprove=false', async () => {
     const resolveOutstandingSteps = mock.fn(async () => {});
     const bridge = {

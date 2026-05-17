@@ -48,7 +48,15 @@ import { isReadOnlyRunCommand, RunCommandExecutor } from './executors/RunCommand
 
 const log = createModuleLogger('antigravity-service');
 const STREAM_ERROR_GRACE_WINDOW_MS = 4_500;
+const STALL_PROBE_MAX_ATTEMPTS = 2;
 const DEFAULT_MODEL_CAPACITY_RETRY_DELAYS_MS = [1_000, 3_000, 5_000, 10_000, 15_000, 20_000, 30_000, 36_000];
+
+interface StallProbeBudget {
+  attempts: number;
+  maxAttempts: number;
+}
+
+type StallLivenessEvidence = { kind: 'trajectory_progress'; observedSteps: number; lastDelivered: number };
 
 function sanitizeRetryDelays(delays?: readonly number[]): number[] {
   return (delays ?? DEFAULT_MODEL_CAPACITY_RETRY_DELAYS_MS).filter(
@@ -76,6 +84,18 @@ function buildRetrySignal(
     metadata,
     timestamp: Date.now(),
   };
+}
+
+function detectStallLivenessFromTrajectory(
+  trajectory: { numTotalSteps?: number; awaitingUserInput?: boolean },
+  lastDelivered: number,
+): StallLivenessEvidence | null {
+  const observedSteps = Number.isFinite(trajectory.numTotalSteps) ? Number(trajectory.numTotalSteps) : 0;
+  if (trajectory.awaitingUserInput === true) return null;
+  if (observedSteps > lastDelivered) {
+    return { kind: 'trajectory_progress', observedSteps, lastDelivered };
+  }
+  return null;
 }
 
 async function sleepWithAbort(delayMs: number, signal?: AbortSignal): Promise<void> {
@@ -292,7 +312,7 @@ export class AntigravityAgentService implements AgentService {
         let fatalSeen = false;
         let terminalAbort = false;
         let autoApproveAttempted = false;
-        let stallProbed = false;
+        const stallProbeBudget: StallProbeBudget = { attempts: 0, maxAttempts: STALL_PROBE_MAX_ATTEMPTS };
         let lastDelivered = stepsBefore;
         let attemptHasToolActivity = false;
         let attemptHasDispatchedToolResult = false;
@@ -489,7 +509,7 @@ export class AntigravityAgentService implements AgentService {
               const deliveryAdvanced = nextLastDelivered > previousLastDelivered;
               if (deliveryAdvanced) {
                 autoApproveAttempted = false;
-                stallProbed = false;
+                stallProbeBudget.attempts = 0;
               }
               lastDelivered = nextLastDelivered;
 
@@ -1000,11 +1020,31 @@ export class AntigravityAgentService implements AgentService {
               }
               break;
             }
-            if (isStall && this.autoApprove && !stallProbed) {
-              stallProbed = true;
+            if (isStall) {
+              try {
+                const liveness = detectStallLivenessFromTrajectory(
+                  await this.bridge.getTrajectory(cascadeId),
+                  lastDelivered,
+                );
+                if (liveness) {
+                  log.info(
+                    { cascadeId, liveness, lastDelivered },
+                    'stall ignored because Antigravity trajectory still shows liveness',
+                  );
+                  retry = true;
+                  continue;
+                }
+              } catch (livenessErr) {
+                log.warn(`stall liveness probe failed: ${livenessErr}`);
+              }
+            }
+            if (isStall && this.autoApprove && stallProbeBudget.attempts < stallProbeBudget.maxAttempts) {
+              stallProbeBudget.attempts += 1;
               try {
                 await this.bridge.resolveOutstandingSteps(cascadeId);
-                log.info(`probe-approved on stall for cascade ${cascadeId}, retrying poll from step ${lastDelivered}`);
+                log.info(
+                  `probe-approved on stall for cascade ${cascadeId}, retrying poll from step ${lastDelivered} (${stallProbeBudget.attempts}/${stallProbeBudget.maxAttempts})`,
+                );
                 retry = true;
                 continue;
               } catch (probeErr) {
