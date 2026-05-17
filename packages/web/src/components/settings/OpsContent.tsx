@@ -18,7 +18,8 @@ export function OpsContent() {
   const opsParam = searchParams.get('ops');
   const obsRaw = searchParams.get('obs');
   const OBS_VALID: ReadonlySet<string> = new Set(['overview', 'traces', 'health', 'callback-auth']);
-  const obsParam = obsRaw && OBS_VALID.has(obsRaw) ? (obsRaw as 'overview' | 'traces' | 'health' | 'callback-auth') : null;
+  const obsParam =
+    obsRaw && OBS_VALID.has(obsRaw) ? (obsRaw as 'overview' | 'traces' | 'health' | 'callback-auth') : null;
   const validOpsParam = opsParam && OPS_SUBSECTIONS.some((s) => s.id === opsParam) ? opsParam : null;
   const [activeTab, setActiveTab] = useState(validOpsParam ?? DEFAULT_OPS_SUBSECTION);
   const [nonce, setNonce] = useState(0);

@@ -63,4 +63,38 @@ describe('F201 Antigravity resume context', () => {
     assert.equal(context.pendingOrUnknownEffects.length, 1);
     assert.equal(context.pendingOrUnknownEffects[0].idempotencyKey, 'pending:shell:run_command:def456');
   });
+
+  test('carries resume tier decision without recomputing side-effect state', () => {
+    const resumeTierDecision = {
+      tier: 'tier3_manual_shared_or_external',
+      canAutoResume: false,
+      recoveryStrategy: 'manual_card',
+      reason: 'shared_or_external_side_effect_requires_manual_review',
+    };
+
+    const context = buildAntigravityResumeContext({
+      cascadeId: 'cascade-1',
+      interruptedAt: 1770000000500,
+      resumeTierDecision,
+      journalSummary: {
+        entries: [],
+        hasSideEffect: false,
+        hasUnsafeSideEffect: false,
+        hasCompletedSideEffect: false,
+        hasFailedSideEffect: false,
+        hasPendingOrUnknownSideEffect: false,
+        blocksBlindRetry: false,
+        dedupedEntryCount: 0,
+        retrySafeSummary: {
+          safeToRetry: true,
+          reason: 'no_side_effect',
+          completedCount: 0,
+          pendingOrUnknownCount: 0,
+          failedCount: 0,
+        },
+      },
+    });
+
+    assert.deepEqual(context.resumeTierDecision, resumeTierDecision);
+  });
 });
