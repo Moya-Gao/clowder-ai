@@ -47,6 +47,7 @@ import {
   resolveAcpBootstrapCwd,
 } from './domains/cats/services/agents/providers/acp/acp-bootstrap-cwd.js';
 import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
+import { RedisAntigravitySupervisorStore } from './domains/cats/services/agents/providers/antigravity/AntigravitySupervisorStore.js';
 import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
 import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
 import {
@@ -1064,6 +1065,11 @@ async function main(): Promise<void> {
         case 'antigravity':
           service = new AntigravityAgentService({
             catId,
+            supervisorStore: redisClient
+              ? new RedisAntigravitySupervisorStore(redisClient, {
+                  auditDir: join(process.cwd(), 'data', 'antigravity-audit'),
+                })
+              : undefined,
           });
           break;
         case 'opencode':

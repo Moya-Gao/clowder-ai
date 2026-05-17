@@ -4,6 +4,7 @@ import path from 'node:path';
 import { describe, mock, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { AntigravityAgentService } from '../dist/domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
+import { InMemoryAntigravitySupervisorStore } from '../dist/domains/cats/services/agents/providers/antigravity/AntigravitySupervisorStore.js';
 import { collect, createMockBridge } from './antigravity-agent-service-test-helpers.js';
 
 function readSideEffectAuditEntriesByInvocation(invocationId) {
@@ -2718,5 +2719,166 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.equal(auditEntries[0].target, 'docs/f201-outer-catch.md');
     assert.equal(auditEntries[0].operation, 'write');
     assert.equal(auditEntries[0].status, 'done');
+  });
+
+  test('F201 Phase F Task 2b: trajectory-progress stall writes supervisor liveness evidence', async () => {
+    const supervisorStore = new InMemoryAntigravitySupervisorStore();
+    const bridge = createMockBridge({ cascadeId: 'cascade-f201-supervisor-liveness' });
+    let pollCount = 0;
+    bridge.pollForSteps = async function* () {
+      pollCount += 1;
+      if (pollCount === 1) {
+        throw new Error('Antigravity poll stall after 60000ms');
+      }
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'Recovered after liveness evidence.' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+    bridge.getTrajectory = mock.fn(async () => ({
+      status: 'CASCADE_RUN_STATUS_RUNNING',
+      numTotalSteps: 2,
+      awaitingUserInput: false,
+    }));
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      supervisorStore,
+    });
+    const messages = await collect(
+      service.invoke('hello', {
+        auditContext: {
+          threadId: 'thread-f201-supervisor-liveness',
+          invocationId: 'inv-f201-supervisor-liveness',
+          userId: 'u1',
+          catId: 'antigravity',
+        },
+      }),
+    );
+
+    assert.ok(messages.some((msg) => msg.type === 'text' && msg.content === 'Recovered after liveness evidence.'));
+
+    const record = await supervisorStore.get('inv-f201-supervisor-liveness', 'cascade-f201-supervisor-liveness');
+    assert.ok(record, 'supervisor record must be persisted for the cascade');
+    assert.equal(record.lastLivenessEvidence?.kind, 'trajectory_progress');
+    assert.equal(record.lastLivenessEvidence?.summary, 'trajectory step count advanced from 0 to 2');
+    assert.equal(record.lastObservedStepCount, 2);
+    assert.equal(record.lastDeliveredStepIndex, 2);
+    assert.equal(record.recoveryStrategy, 'wait');
+  });
+
+  test('F201 Phase F Task 2b: post-side-effect stream_error persists resumable supervisor record', async () => {
+    const supervisorStore = new InMemoryAntigravitySupervisorStore();
+    const bridge = createMockBridge({ cascadeId: 'cascade-f201-supervisor-resumable' });
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            metadata: { operation: 'write', path: 'docs/f201-supervisor-resume.md' },
+          },
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      supervisorStore,
+      streamErrorGraceWindowMs: 0,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(
+      service.invoke('hello', {
+        auditContext: {
+          threadId: 'thread-f201-supervisor-resumable',
+          invocationId: 'inv-f201-supervisor-resumable',
+          userId: 'u1',
+          catId: 'antigravity',
+        },
+      }),
+    );
+
+    assert.ok(
+      messages.some((msg) => msg.type === 'error' && msg.errorCode === 'stream_error'),
+      'post-side-effect stream_error should still surface',
+    );
+
+    const record = await supervisorStore.get('inv-f201-supervisor-resumable', 'cascade-f201-supervisor-resumable');
+    assert.ok(record, 'supervisor record must be persisted for resumable stream interruption');
+    assert.equal(record.status, 'resumable');
+    assert.equal(record.recoveryStrategy, 'manual_card');
+    assert.equal(record.receiptState, 'clean');
+    assert.equal(record.journalSummarySnapshot.entries.length, 1);
+    assert.equal(record.journalSummarySnapshot.entries[0].target, 'docs/f201-supervisor-resume.md');
+    assert.equal(record.journalSummarySnapshot.entries[0].status, 'done');
+  });
+
+  test('F201 Phase F Task 2b: post-side-effect empty_response keeps resumable supervisor record', async () => {
+    const supervisorStore = new InMemoryAntigravitySupervisorStore();
+    const bridge = createMockBridge({ cascadeId: 'cascade-f201-supervisor-empty-response' });
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+            status: 'CORTEX_STEP_STATUS_DONE',
+            metadata: { operation: 'write', path: 'docs/f201-supervisor-empty-response.md' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      supervisorStore,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(
+      service.invoke('hello', {
+        auditContext: {
+          threadId: 'thread-f201-supervisor-empty-response',
+          invocationId: 'inv-f201-supervisor-empty-response',
+          userId: 'u1',
+          catId: 'antigravity',
+        },
+      }),
+    );
+
+    assert.ok(
+      messages.some((msg) => msg.type === 'error' && msg.errorCode === 'empty_response'),
+      'post-side-effect empty_response should still surface',
+    );
+
+    const record = await supervisorStore.get(
+      'inv-f201-supervisor-empty-response',
+      'cascade-f201-supervisor-empty-response',
+    );
+    assert.ok(record, 'supervisor record must be persisted for resumable empty_response');
+    assert.equal(record.status, 'resumable');
+    assert.equal(record.recoveryStrategy, 'manual_card');
+    assert.equal(record.receiptState, 'clean');
+    assert.equal(record.journalSummarySnapshot.entries.length, 1);
+    assert.equal(record.journalSummarySnapshot.entries[0].target, 'docs/f201-supervisor-empty-response.md');
+    assert.equal(record.journalSummarySnapshot.entries[0].status, 'done');
   });
 });

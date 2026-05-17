@@ -24,6 +24,14 @@ import { appendLocalImagePathHints } from '../image-cli-bridge.js';
 import { extractImagePaths } from '../image-paths.js';
 import { AntigravityBridge, type BridgeConnection, type TrajectoryStep } from './AntigravityBridge.js';
 import { AntigravitySideEffectJournal } from './AntigravitySideEffectJournal.js';
+import {
+  type AntigravityLivenessEvidence,
+  type AntigravitySupervisorReceiptState,
+  type AntigravitySupervisorRecoveryStrategy,
+  type AntigravitySupervisorStatus,
+  type AntigravitySupervisorStore,
+  InMemoryAntigravitySupervisorStore,
+} from './AntigravitySupervisorStore.js';
 import type { AntigravityCascadeHealthSnapshot } from './antigravity-cascade-health.js';
 import type { UpstreamErrorKind } from './antigravity-event-transformer.js';
 import { classifyStep, humanErrorMessage, transformTrajectorySteps } from './antigravity-event-transformer.js';
@@ -140,6 +148,8 @@ export interface AntigravityAgentServiceOptions {
   streamErrorGraceWindowMs?: number;
   /** Capacity retry backoff schedule in ms (default: ~120s total budget). Empty = disabled. */
   modelCapacityRetryDelaysMs?: readonly number[];
+  /** F201 Phase F: durable supervisor record store */
+  supervisorStore?: AntigravitySupervisorStore;
 }
 
 export class AntigravityAgentService implements AgentService {
@@ -150,6 +160,7 @@ export class AntigravityAgentService implements AgentService {
   private readonly autoApprove: boolean;
   private readonly streamErrorGraceWindowMs: number;
   private readonly modelCapacityRetryDelaysMs: number[];
+  private readonly supervisorStore: AntigravitySupervisorStore;
 
   constructor(options?: AntigravityAgentServiceOptions) {
     this.catId = options?.catId
@@ -164,6 +175,10 @@ export class AntigravityAgentService implements AgentService {
     this.autoApprove = options?.autoApprove ?? process.env['ANTIGRAVITY_AUTO_APPROVE'] !== 'false';
     this.streamErrorGraceWindowMs = options?.streamErrorGraceWindowMs ?? STREAM_ERROR_GRACE_WINDOW_MS;
     this.modelCapacityRetryDelaysMs = sanitizeRetryDelays(options?.modelCapacityRetryDelaysMs);
+    this.supervisorStore =
+      options?.supervisorStore !== undefined
+        ? options.supervisorStore
+        : new InMemoryAntigravitySupervisorStore({ auditDir: join(process.cwd(), 'data', 'antigravity-audit') });
 
     // F061 Phase 2c: auto-attach default native executors when the service owns its bridge.
     // Tests that inject a mock bridge opt out here; they stub nativeExecuteAndPush directly.
@@ -228,6 +243,74 @@ export class AntigravityAgentService implements AgentService {
           await sideEffectJournal.flushAudit();
         } catch (err) {
           log.warn({ cascadeId, err }, 'Antigravity side-effect journal audit write failed');
+        }
+      };
+      let originalInvocationId = cascadeId;
+      if (options?.callbackEnv?.CAT_CAFE_INVOCATION_ID) {
+        originalInvocationId = options.callbackEnv.CAT_CAFE_INVOCATION_ID;
+      }
+      if (options?.invocationId) {
+        originalInvocationId = options.invocationId;
+      }
+      if (options?.auditContext?.invocationId) {
+        originalInvocationId = options.auditContext.invocationId;
+      }
+      const persistSupervisor = async (update: {
+        status: AntigravitySupervisorStatus;
+        recoveryStrategy: AntigravitySupervisorRecoveryStrategy;
+        lastObservedStepCount?: number;
+        lastDeliveredStepIndex?: number;
+        lastTrajectoryAt?: number;
+        lastLivenessEvidence?: AntigravityLivenessEvidence;
+        receiptState?: AntigravitySupervisorReceiptState;
+        resumeAttemptCount?: number;
+        auditType?: string;
+      }) => {
+        try {
+          const now = Date.now();
+          const existing = await this.supervisorStore.get(originalInvocationId, cascadeId);
+          const lastTrajectoryAt =
+            update.lastTrajectoryAt !== undefined ? update.lastTrajectoryAt : existing?.lastTrajectoryAt;
+          const lastLivenessEvidence =
+            update.lastLivenessEvidence !== undefined ? update.lastLivenessEvidence : existing?.lastLivenessEvidence;
+          let lastObservedStepCount = 0;
+          if (update.lastDeliveredStepIndex !== undefined) lastObservedStepCount = update.lastDeliveredStepIndex;
+          if (existing?.lastObservedStepCount !== undefined) lastObservedStepCount = existing.lastObservedStepCount;
+          if (update.lastObservedStepCount !== undefined) lastObservedStepCount = update.lastObservedStepCount;
+          let lastDeliveredStepIndex = 0;
+          if (update.lastObservedStepCount !== undefined) lastDeliveredStepIndex = update.lastObservedStepCount;
+          if (existing?.lastDeliveredStepIndex !== undefined) lastDeliveredStepIndex = existing.lastDeliveredStepIndex;
+          if (update.lastDeliveredStepIndex !== undefined) lastDeliveredStepIndex = update.lastDeliveredStepIndex;
+          let receiptState: AntigravitySupervisorReceiptState = 'clean';
+          if (existing?.receiptState !== undefined) receiptState = existing.receiptState;
+          if (update.receiptState !== undefined) receiptState = update.receiptState;
+          let resumeAttemptCount = 0;
+          if (existing?.resumeAttemptCount !== undefined) resumeAttemptCount = existing.resumeAttemptCount;
+          if (update.resumeAttemptCount !== undefined) resumeAttemptCount = update.resumeAttemptCount;
+          const createdAt = existing?.createdAt !== undefined ? existing.createdAt : now;
+          const auditType = update.auditType !== undefined ? update.auditType : 'supervisor_upsert';
+          const record = {
+            schemaVersion: 1 as const,
+            originalInvocationId,
+            threadId,
+            catId: this.catId as string,
+            cascadeId,
+            status: update.status,
+            lastObservedStepCount,
+            lastDeliveredStepIndex,
+            ...(lastTrajectoryAt === undefined ? {} : { lastTrajectoryAt }),
+            ...(lastLivenessEvidence === undefined ? {} : { lastLivenessEvidence }),
+            journalSummarySnapshot: sideEffectJournal.summary(),
+            receiptState,
+            recoveryStrategy: update.recoveryStrategy,
+            resumeAttemptCount,
+            createdAt,
+            updatedAt: now,
+          };
+          const persisted = await this.supervisorStore.upsert(record);
+          await this.supervisorStore.appendAudit({ type: auditType, record: persisted });
+        } catch (err) {
+          log.warn({ cascadeId, err }, 'Antigravity supervisor persistence failed; continuing invocation');
         }
       };
       let preflightCascadeRetirement:
@@ -399,6 +482,25 @@ export class AntigravityAgentService implements AgentService {
           });
           return recoveryCard ? [recoveryCard, enriched] : [enriched];
         };
+        const persistRecoverySupervisor = async (decision: AntigravityRecoveryDecision) => {
+          if (decision.action !== 'surface_resumable_error') return;
+          await persistSupervisor({
+            status: 'resumable',
+            recoveryStrategy: 'manual_card',
+            lastObservedStepCount: lastDelivered,
+            lastDeliveredStepIndex: lastDelivered,
+            receiptState: 'clean',
+            auditType: 'supervisor_resumable',
+          });
+        };
+
+        await persistSupervisor({
+          status: 'running',
+          recoveryStrategy: 'wait',
+          lastObservedStepCount: stepsBefore,
+          lastDeliveredStepIndex: lastDelivered,
+          auditType: 'supervisor_started',
+        });
 
         // F172 Phase C: collect image file paths from tool results
         const collectedImagePaths = new Set<string>();
@@ -431,6 +533,7 @@ export class AntigravityAgentService implements AgentService {
                   clearPendingStreamError('retried');
                 } else {
                   log.warn({ cascadeId }, 'stream_error grace expired without recovery');
+                  await persistRecoverySupervisor(streamDecision);
                   for (const recoveryMsg of withRecoveryMessages(pendingStreamError, streamDecision)) {
                     yield recoveryMsg;
                   }
@@ -462,6 +565,7 @@ export class AntigravityAgentService implements AgentService {
                   clearPendingStreamError('retried');
                 } else {
                   log.warn({ cascadeId }, 'stream_error grace expired without recovery');
+                  await persistRecoverySupervisor(streamDecision);
                   for (const recoveryMsg of withRecoveryMessages(pendingStreamError, streamDecision)) {
                     yield recoveryMsg;
                   }
@@ -738,6 +842,13 @@ export class AntigravityAgentService implements AgentService {
                   'step structure snapshot',
                 );
               }
+              await persistSupervisor({
+                status: 'running',
+                recoveryStrategy: 'wait',
+                lastObservedStepCount: lastDelivered,
+                lastDeliveredStepIndex: lastDelivered,
+                auditType: 'supervisor_batch',
+              });
 
               const seenFatalKeys = new Set<string>();
               const batchHasSpecificError = messages.some(
@@ -834,6 +945,7 @@ export class AntigravityAgentService implements AgentService {
                     },
                   };
                   if (transientRecoveryDecision?.action === 'surface_resumable_error') {
+                    await persistRecoverySupervisor(transientRecoveryDecision);
                     for (const recoveryMsg of withRecoveryMessages(enrichedTransientError, transientRecoveryDecision)) {
                       yield recoveryMsg;
                     }
@@ -994,6 +1106,7 @@ export class AntigravityAgentService implements AgentService {
                 clearPendingStreamError('retried');
               } else {
                 log.warn({ cascadeId }, 'stream_error grace expired after poll completion without recovery');
+                await persistRecoverySupervisor(streamDecision);
                 for (const recoveryMsg of withRecoveryMessages(pendingStreamError, streamDecision)) {
                   yield recoveryMsg;
                 }
@@ -1012,6 +1125,7 @@ export class AntigravityAgentService implements AgentService {
                 clearPendingStreamError('retried');
               } else {
                 log.warn({ cascadeId }, 'stream_error grace expired on stall without recovery');
+                await persistRecoverySupervisor(streamDecision);
                 for (const recoveryMsg of withRecoveryMessages(pendingStreamError, streamDecision)) {
                   yield recoveryMsg;
                 }
@@ -1031,6 +1145,19 @@ export class AntigravityAgentService implements AgentService {
                     { cascadeId, liveness, lastDelivered },
                     'stall ignored because Antigravity trajectory still shows liveness',
                   );
+                  await persistSupervisor({
+                    status: 'running',
+                    recoveryStrategy: 'wait',
+                    lastObservedStepCount: liveness.observedSteps,
+                    lastDeliveredStepIndex: lastDelivered,
+                    lastTrajectoryAt: Date.now(),
+                    lastLivenessEvidence: {
+                      kind: liveness.kind,
+                      observedAt: Date.now(),
+                      summary: `trajectory step count advanced from ${liveness.lastDelivered} to ${liveness.observedSteps}`,
+                    },
+                    auditType: 'supervisor_liveness',
+                  });
                   retry = true;
                   continue;
                 }
@@ -1040,6 +1167,13 @@ export class AntigravityAgentService implements AgentService {
             }
             if (isStall && this.autoApprove && stallProbeBudget.attempts < stallProbeBudget.maxAttempts) {
               stallProbeBudget.attempts += 1;
+              await persistSupervisor({
+                status: 'probing',
+                recoveryStrategy: 'probe',
+                lastObservedStepCount: lastDelivered,
+                lastDeliveredStepIndex: lastDelivered,
+                auditType: 'supervisor_probe',
+              });
               try {
                 await this.bridge.resolveOutstandingSteps(cascadeId);
                 log.info(
@@ -1155,6 +1289,10 @@ export class AntigravityAgentService implements AgentService {
             yield makeSessionInit(cascadeId);
             continue;
           }
+          await persistRecoverySupervisor(emptyResponseRecoveryDecision);
+          if (emptyResponseRecoveryDecision.action === 'surface_resumable_error') {
+            terminalAbort = true;
+          }
           log.warn(diagnostics, 'empty_response triggered — no text received from Antigravity');
           await flushSideEffectJournalAudit();
           yield {
@@ -1220,6 +1358,15 @@ export class AntigravityAgentService implements AgentService {
           }
         }
 
+        if (!terminalAbort) {
+          await persistSupervisor({
+            status: 'done',
+            recoveryStrategy: 'wait',
+            lastObservedStepCount: lastDelivered,
+            lastDeliveredStepIndex: lastDelivered,
+            auditType: 'supervisor_done',
+          });
+        }
         await flushSideEffectJournalAudit();
         yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
         return;

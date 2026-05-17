@@ -229,7 +229,7 @@ abstract class AntigravitySupervisorStoreBase
   private readonly auditDir: string | undefined;
   private readonly now: () => number;
 
-  protected constructor(options?: AntigravitySupervisorAuditOptions) {
+  constructor(options?: AntigravitySupervisorAuditOptions) {
     this.auditDir = options?.auditDir;
     this.now = options?.now ? options.now : Date.now;
   }
