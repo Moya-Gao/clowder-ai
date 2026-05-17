@@ -241,6 +241,7 @@ close_gate_report:
 | 2026-05-17 | A/B convergence batch 2.2 merged (PR #1732): B-1/B-3 service-ui-adapter + ServiceStatusPanel rewrite + PluginsContent typed adapter pipeline; `conn-*` semantic badges; install log poll reads `lines` DTO; 砚砚 3-round review PASS + cloud review 0 P1/P2 |
 | 2026-05-17 | A/B convergence batch 2.3 merged (PR #1734): A-1b Notify visual parity (PushSettingsPanel rewrite + PushDiagnosticsSection extraction + 5-type prefs + collapsed diagnostics + VAPID surfacing + conn-* tokens) + B-4 HubPermissionsTab visual-only consistency (conn-* tokens + a11y + StepBadge + SaveFeedback extraction); 砚砚 2-round review PASS + cloud review P1→P3 降级 (capability guard, no repro) |
 | 2026-05-17 | V-10~V-18 semantic token convergence merged (PR #1736): 9 web components raw Tailwind → conn-*/cafe-* tokens; solid-fill CTA buttons preserved as raw Tailwind (no conn-* dark mode fill tokens); 砚砚 2-round review PASS + cloud review P1 fix + re-review PASS |
+| 2026-05-17 | CVO 决策同步：D-7 AppShell ownership deferred（"先不做，记录一下"）；S-2 Hub 重复降级为代码清理（用户层已无 Hub 入口）；Signal enrichment + thread nav 审计纠正（两项已实现，非丢失） |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（验证后 Gap 清单）
 
@@ -387,12 +388,12 @@ Signal 页面两仓**双向分叉**：本地功能更多，但开源有 2 项我
 | Tier Filter（T1-T4 筛选） | SignalInboxView toSignalTier() |
 | 返回线程按钮 | SignalNav.tsx 返回链接 |
 
-##### 开源有、本地缺（❌ 需补）
+##### 开源有、本地缺（❌ 需补）— ✅ 2026-05-17 审计纠正：两项均已实现
 
-| 丢失项 | 说明 |
-|--------|------|
-| Content Enrichment | `/api/signals/articles/{id}/enrich` 全文抓取，`enrichedContent`/`enriching`/`enrichError` 状态全缺；后端 `domains/signals/services/enrich-article.ts` 与 route 也缺 |
-| Thread 讨论导航 | `useRouter` + `getThreadHref` 从 Signal 文章跳转关联 thread（cat-cafe 无此导航） |
+| 丢失项 | 说明 | 2026-05-17 复核 |
+|--------|------|----------------|
+| Content Enrichment | `/api/signals/articles/{id}/enrich` 全文抓取 | ✅ **已有** — `enrich-article.ts` + `webpage-fetcher.ts` + `signals.ts` route + SignalArticleDetail UI（enrichedContent/enriching/enrichError 状态完整） |
+| Thread 讨论导航 | `getThreadHref` 从 Signal 文章跳转关联 thread | ✅ **已有** — `thread-navigation.ts` + `POST /api/signals/articles/:id/discuss` + StudyFoldArea"在对话中讨论"按钮 + 双向 link/unlink API |
 
 ##### 布局风格分叉
 
@@ -580,8 +581,8 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 
 | # | 区域 | 问题 | 修改内容 | 优先级 |
 |---|------|------|----------|--------|
-| D-7 | AppShell / ChatContainer（🔴 红区） | desktop sidebar owner 错位 | AppShell 接管 desktop ThreadSidebar | P1 |
-| S-2 | Hub/Settings 重复 | IM/Env/Governance 三处 | Hub 改为摘要 + deep-link（scope 较大） | P2 |
+| D-7 | AppShell / ChatContainer（🔴 红区） | desktop sidebar owner 错位 | AppShell 接管 desktop ThreadSidebar | **Deferred**（CVO 2026-05-17: "先不做，记录一下"） |
+| S-2 | Hub/Settings 重复 | IM/Env/Governance 三处 | Hub 改为摘要 + deep-link | **降级为代码清理**（2026-05-17: CatCafeHub 用户层无入口——仅 DaemonActiveIndicator amber badge 时可见；用户不会遇到重复。清理可选，不阻塞） |
 | S-4 | Console tokens | font / color token drift | 对齐 font-size/token 命名；不盲目搬 `theme-tokens.css` 或 xterm CSS |
 | S-5 | Thread/Top/Status visual | 视觉不一致 | 在功能修复后统一 spacing、border、radius；保留家里新增功能 |
 
