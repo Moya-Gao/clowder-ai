@@ -47,7 +47,7 @@ triggers:
 | **coverage 全集** | "哪些地方提过 X" | **≥3 刀**：docs/hybrid + threads/semantic + agent expand 同义/缩写/中英二轮 + graph_resolve 命中 anchor 后追 source threads + union dedup | **不是单 top-k**；agent 自己 expand |
 | **source-map / provenance** | "X 这个想法的源头是哪个 thread" | canonical doc 命中后从文档抽 source thread ids → `get_thread_context` Read 原文 | canonical doc 自带 provenance link，跟着走 |
 | **absence check** | "我们提过 Y 没有" | 正反两路：`search(Y)` + `search(Y 相关概念/反义)` 都 0 命中才算 absent | 单刀 0 命中不等于不存在 |
-| **delta** | "上次到现在 X 变了什么" | `list_recent(scope=threads, since=N天)` + 对比 graph 邻居增减 + Read 关键 diff | 时间窗口 + 增量视角 |
+| **delta** | "上次到现在 X 变了什么" | `list_recent(scope=threads, since=N天)` + 对比 graph 邻居增减 + Read 关键 diff。**压缩恢复子场景起手**：先看 TodoWrite + session digest 拿到"上次已知状态" → 再 list_recent 补增量（46 review P3 补） | 时间窗口 + 增量视角 |
 
 ## AUDHD coverage 案例 5 步 recipe（铲屎官真实任务）
 
