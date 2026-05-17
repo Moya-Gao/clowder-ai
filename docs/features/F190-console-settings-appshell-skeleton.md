@@ -606,7 +606,7 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 | # | 区域 | 问题 | 等什么 |
 |---|------|------|--------|
 | ~~W-1~~ | ~~状态栏~~ | ~~CSS 变量 vs Tailwind 硬编码色~~ | **已拍板（2026-05-16）**：跟进开源 console token 体系，但 `gap-4` 保留家里的（开源 `gap-3` 太拥挤）。详见 V-7/V-8/V-9 |
-| W-2 | Signal 页面布局 | Dashboard 卡片式 vs Console panel 式 | 两种风格二选一 |
+| ~~W-2~~ | Signal 页面布局 | Dashboard 卡片式 vs Console panel 式 | **已拍板**：保留家里全部功能（stats/batch/timeline/tier），可学习开源样式 |
 | W-3 | 字体/Thread 管理栏/顶栏视觉 | 未完成对比 | 铲屎官继续反馈 |
 
 ### 修改约束
