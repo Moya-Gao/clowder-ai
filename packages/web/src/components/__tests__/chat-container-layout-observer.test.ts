@@ -243,7 +243,6 @@ vi.mock('../ScrollToBottomButton', () => ({ ScrollToBottomButton: () => null }))
 vi.mock('../SplitPaneView', () => ({
   SplitPaneView: () => React.createElement('div', { 'data-testid': 'split-view' }),
 }));
-vi.mock('../CatCafeHub', () => ({ CatCafeHub: () => null }));
 vi.mock('../AuthorizationCard', () => ({ AuthorizationCard: () => null }));
 vi.mock('../WorkspacePanel', () => ({ WorkspacePanel: () => null }));
 vi.mock('../BootstrapOrchestrator', () => ({ BootstrapOrchestrator: () => null }));

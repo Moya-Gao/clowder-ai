@@ -118,7 +118,6 @@ vi.mock('@/hooks/useSplitPaneKeys', () => ({ useSplitPaneKeys: vi.fn() }));
 vi.mock('../AuthorizationCard', () => ({ AuthorizationCard: () => null }));
 vi.mock('../BootcampListModal', () => ({ BootcampListModal: () => null }));
 vi.mock('../BootstrapOrchestrator', () => ({ BootstrapOrchestrator: () => null }));
-vi.mock('../CatCafeHub', () => ({ CatCafeHub: () => null }));
 vi.mock('../ChatContainerHeader', () => ({ ChatContainerHeader: () => null }));
 vi.mock('../ChatInput', () => ({ ChatInput: () => null }));
 vi.mock('../ChatMessage', () => ({ ChatMessage: () => null }));

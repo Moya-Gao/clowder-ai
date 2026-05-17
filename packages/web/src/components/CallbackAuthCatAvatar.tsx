@@ -11,9 +11,9 @@
  * etc.) so the pattern stays opt-in.
  */
 
+import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import { useCallbackAuthAggregate, useCallbackAuthAvailable, useCallbackAuthByCat } from '@/stores/callbackAuthStore';
-import { useChatStore } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
 
 interface CallbackAuthCatAvatarProps {
@@ -27,11 +27,11 @@ export function CallbackAuthCatAvatar({ catId, size = 32, status }: CallbackAuth
   const cba = useCallbackAuthByCat(catId);
   const aggregate = useCallbackAuthAggregate();
   const isAvailable = useCallbackAuthAvailable();
-  const openHub = useChatStore((s) => s.openHub);
+  const router = useRouter();
 
   const handleOpenDetails = useCallback(() => {
-    openHub('observability', 'callback-auth');
-  }, [openHub]);
+    router.push('/settings?s=ops&ops=observability&obs=callback-auth');
+  }, [router]);
 
   // Cloud Codex #1403 (round 2 + 7): backend snapshot's recent24h.byCat ONLY
   // accumulates FAILURE events — an absent entry means "no failure record",

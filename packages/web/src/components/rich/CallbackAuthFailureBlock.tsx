@@ -12,9 +12,9 @@
  *  - actions: 详情 (跳 HubObservabilityTab) / 重试 (todo) / 隐藏类似消息 (24h opt-out)
  */
 
+import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
 import type { RichCardBlock } from '@/stores/chat-types';
-import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 
 const REASON_LABEL: Record<string, string> = {
@@ -52,11 +52,11 @@ export function CallbackAuthFailureBlock({ block }: { block: RichCardBlock }) {
   const [hideError, setHideError] = useState<string | null>(null);
   const [hidePending, setHidePending] = useState(false);
 
-  const openHub = useChatStore((s) => s.openHub);
+  const router = useRouter();
 
   const handleOpenDetails = useCallback(() => {
-    openHub('observability', 'callback-auth');
-  }, [openHub]);
+    router.push('/settings?s=ops&ops=observability&obs=callback-auth');
+  }, [router]);
 
   const handleHide = useCallback(async () => {
     if (!meta) return;
@@ -147,7 +147,7 @@ export function CallbackAuthFailureBlock({ block }: { block: RichCardBlock }) {
       <div className="mt-3 flex items-center gap-2">
         {/*
          * D2b-3 (HubObservabilityTab Callback Auth subtab) is now wired — 详情
-         * opens the deep-dive panel via openHub('observability', 'callback-auth').
+         * navigates to /settings?s=ops for the deep-dive panel.
          * 重试 still pending (needs callback-tools orchestration, separate concern).
          */}
         <button

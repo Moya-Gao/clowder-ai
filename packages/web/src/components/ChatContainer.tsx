@@ -33,7 +33,6 @@ import { AgentHookHealthNotice, shouldRenderAgentHookHealthNotice } from './Agen
 import { AuthorizationCard } from './AuthorizationCard';
 import { BootcampListModal } from './BootcampListModal';
 import { BootstrapOrchestrator } from './BootstrapOrchestrator';
-import { CatCafeHub } from './CatCafeHub';
 import { ChatContainerHeader } from './ChatContainerHeader';
 import { ChatInput } from './ChatInput';
 import { ChatMessage } from './ChatMessage';
@@ -753,7 +752,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           uploadError={uploadError}
           onZoomToThread={handleZoomToThread}
         />
-        <CatCafeHub />
       </>
     );
   }
@@ -1173,7 +1171,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           </div>
         </div>
       )}
-      <CatCafeHub />
       <FirstRunQuestWizard
         open={showQuestWizard}
         onClose={() => setShowQuestWizard(false)}

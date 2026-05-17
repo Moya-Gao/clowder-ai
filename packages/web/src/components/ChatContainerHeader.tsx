@@ -1,3 +1,4 @@
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useVoiceServicesAvailable } from '@/hooks/useVoiceServicesAvailable';
 import { useChatStore } from '@/stores/chatStore';
@@ -106,10 +107,10 @@ export function ChatContainerHeader({
 }
 
 /** F198 Phase C AC-C5: shows amber pill when a bg carrier daemon is running for this thread.
- *  Clicking it navigates to the Hub agent-sessions oversight tab. */
+ *  Clicking it navigates to the Settings ops tab. */
 function DaemonActiveIndicator({ threadId }: { threadId: string }) {
   const [daemonShortId, setDaemonShortId] = useState<string | null>(null);
-  const openHub = useChatStore((s) => s.openHub);
+  const router = useRouter();
 
   useEffect(() => {
     let cancelled = false;
@@ -140,7 +141,7 @@ function DaemonActiveIndicator({ threadId }: { threadId: string }) {
   return (
     <button
       type="button"
-      onClick={() => openHub('agent-sessions')}
+      onClick={() => router.push('/settings?s=ops&ops=agent-sessions')}
       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-conn-amber-text bg-conn-amber-bg hover:opacity-80 transition-colors flex-shrink-0"
       title={`Daemon ${daemonShortId} 运行中 · 点击查看后台会话`}
     >

@@ -276,7 +276,6 @@ vi.mock('../ThreadExecutionBar', () => ({ ThreadExecutionBar: () => null }));
 vi.mock('../VoteActiveBar', () => ({ VoteActiveBar: () => null }));
 vi.mock('../ScrollToBottomButton', () => ({ ScrollToBottomButton: () => null }));
 vi.mock('../SplitPaneView', () => ({ SplitPaneView: () => null }));
-vi.mock('../CatCafeHub', () => ({ CatCafeHub: () => null }));
 vi.mock('../AuthorizationCard', () => ({ AuthorizationCard: () => null }));
 vi.mock('../WorkspacePanel', () => ({ WorkspacePanel: () => null }));
 vi.mock('../BootstrapOrchestrator', () => ({ BootstrapOrchestrator: () => null }));

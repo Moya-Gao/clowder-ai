@@ -39,8 +39,8 @@ vi.mock('@/stores/callbackAuthStore', () => ({
   useCallbackAuthAvailable: () => mockAvailable,
 }));
 
-vi.mock('@/stores/chatStore', () => ({
-  useChatStore: (selector: (s: { openHub: (...a: unknown[]) => void }) => unknown) => selector({ openHub: () => {} }),
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: () => {} }),
 }));
 
 import { CallbackAuthCatAvatar } from '../CallbackAuthCatAvatar';

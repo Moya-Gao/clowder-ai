@@ -36,8 +36,8 @@ export interface HubObservabilityTabProps {
   /** F174 D2b-3: open directly into a specific subtab (e.g. when D2b-1 详情 button navigates here). */
   initialSubTab?: SubTab;
   /**
-   * F174 D2b-3 cloud P2 #1403: per-openHub nonce. Bumps on every openHub call,
-   * so a second deep-link with SAME (tab, subTab) still re-syncs subTab. Without
+   * F174 D2b-3 cloud P2 #1403: per-navigation nonce. Bumps on every deep-link,
+   * so a second navigation with SAME (tab, subTab) still re-syncs subTab. Without
    * this, value-only diff in the useEffect below would silently no-op when a
    * user manually navigated away and then re-clicked 详情.
    */
