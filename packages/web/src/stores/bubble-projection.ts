@@ -80,6 +80,13 @@ function projectGroup(records: ChatMessage[]): ChatMessage {
   const origin: ChatMessage['origin'] = callbackRecord ? 'callback' : (first.origin ?? 'stream');
 
   const contentParts: string[] = [];
+  // F194 Phase Z11 (铲屎官 R15): split content by origin so the merged
+  // (callback-origin) bubble can still surface the stream working log in the
+  // CLI Output block. cliStdout/speechContent are only emitted when the group
+  // has BOTH stream and callback records (the merge case); pure groups leave
+  // them undefined so existing rendering is unchanged.
+  const streamContentParts: string[] = [];
+  const callbackContentParts: string[] = [];
   const thinkingParts: string[] = [];
   const seenToolIds = new Set<string>();
   const toolEvents: NonNullable<ChatMessage['toolEvents']> = [];
@@ -91,7 +98,12 @@ function projectGroup(records: ChatMessage[]): ChatMessage {
   let mentionsUser = false;
 
   for (const r of sorted) {
-    if (r.content && r.content.trim().length > 0) contentParts.push(r.content);
+    if (r.content && r.content.trim().length > 0) {
+      contentParts.push(r.content);
+      // F194 Phase Z11: bucket by origin for cliStdout / speechContent split.
+      if (r.origin === 'callback') callbackContentParts.push(r.content);
+      else streamContentParts.push(r.content);
+    }
     if (r.thinking && r.thinking.trim().length > 0) thinkingParts.push(r.thinking);
     if (r.mentionsUser) mentionsUser = true;
     for (const ev of r.toolEvents ?? []) {
@@ -147,13 +159,27 @@ function projectGroup(records: ChatMessage[]): ChatMessage {
   else delete projected.contentBlocks;
   if (mentionsUser) projected.mentionsUser = true;
 
+  // F194 Phase Z11 (铲屎官 R15): merge case = group has BOTH stream and
+  // callback content. Expose the origin-split portions so ChatMessage keeps
+  // CLI Output behavior consistent (stream working log → CLI Output stdout;
+  // post_msg speech → main body) regardless of whether a post_msg happened.
+  const isMergeCase = streamContentParts.length > 0 && callbackContentParts.length > 0;
+  const cliStdout = isMergeCase ? streamContentParts.join('\n\n') : undefined;
+  const speechContent = isMergeCase ? callbackContentParts.join('\n\n') : undefined;
+
   // Preserve stream identity on the projected bubble — downstream code uses
   // `getBubbleInvocationId` to dedupe further (e.g. live cleanup, suppression).
   const firstStream = sorted.find((r) => r.extra?.stream)?.extra?.stream;
   const baseExtra = base.extra ?? {};
-  if (firstStream || richBlocks.length > 0 || Object.keys(baseExtra).length > 0) {
+  if (firstStream || richBlocks.length > 0 || isMergeCase || Object.keys(baseExtra).length > 0) {
     const extra: NonNullable<ChatMessage['extra']> = { ...baseExtra };
-    if (firstStream) extra.stream = { ...firstStream };
+    if (firstStream || isMergeCase) {
+      extra.stream = {
+        ...firstStream,
+        ...(cliStdout !== undefined ? { cliStdout } : {}),
+        ...(speechContent !== undefined ? { speechContent } : {}),
+      };
+    }
     if (richBlocks.length > 0) extra.rich = { v: 1, blocks: richBlocks };
     projected.extra = extra;
   }

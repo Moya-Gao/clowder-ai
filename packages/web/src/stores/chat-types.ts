@@ -257,8 +257,22 @@ export interface ChatMessage {
      *    - `invocationId` is the parent/chain invocation id (liveness/queue/cancel/A2A scope, legacy)
      *    - `turnInvocationId` is the per-cat-turn invocation id (bubble identity stable key — required
      *      for same-parent multi-turn-same-cat bubbles to NOT merge; see砚砚 catch 2026-05-09 17:32)
-     *  Frontend `getBubbleInvocationId` prefers `turnInvocationId` (fallback `invocationId` for legacy). */
-    stream?: { invocationId?: string; turnInvocationId?: string };
+     *  Frontend `getBubbleInvocationId` prefers `turnInvocationId` (fallback `invocationId` for legacy).
+     *  F194 Phase Z11: when projection merges a stream record + a post_message callback into one
+     *  canonical bubble (Z8 KD-27), the bubble origin becomes `callback`. ChatMessage then loses the
+     *  CLI Output stdout (it only feeds content to toCliEvents when origin==='stream'). To keep CLI
+     *  Output behavior consistent regardless of post_msg, projection exposes:
+     *    - `cliStdout`: the stream-origin content portion → ChatMessage feeds this to the CLI Output
+     *    - `speechContent`: the callback-origin content portion → ChatMessage renders this as the
+     *      main bubble body (the post_msg speech), instead of the full concat
+     *  Both are set ONLY when a group contains BOTH stream and callback records (the merge case);
+     *  pure-stream / pure-callback groups leave them undefined so existing rendering is unchanged. */
+    stream?: {
+      invocationId?: string;
+      turnInvocationId?: string;
+      cliStdout?: string;
+      speechContent?: string;
+    };
     /** F098-C1: Explicit target cats from post_message API */
     targetCats?: string[];
     /** Scheduler presentation metadata (hidden trigger / ephemeral lifecycle toast) */
