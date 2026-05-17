@@ -233,6 +233,7 @@ close_gate_report:
 | 2026-05-16 | Phase G 立项：三猫对比审计（Opus-46 量化 715 处硬编码 + Opus-47 定性 token 三轨并存根因 + Codex 拆解落地路径），CVO 拍板"能力保留，视觉降噪" |
 | 2026-05-16 | Phase G merged (PR #1712): globals.css 623→334 行, cocreator-* 全删, 192 files CSS-only token convergence; 砚砚 review PASS + CVO fast-track |
 | 2026-05-16 | Phase F gaps merged (PR #1720): F-3/F-5/F-6 functional gaps + L-1~L-5 learnable patterns (token split, dark variant cleanup, voice hook, file editing hook); 砚砚 review PASS + CVO fast-track |
+| 2026-05-17 | Settings content-level parity audit added: Notify / Skills / Chat shell identified as outbound sync blockers; service lifecycle / system env / plugins marked known follow-ups |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（验证后 Gap 清单）
 
@@ -627,3 +628,4 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 | **Feature** | `docs/features/F183-bubble-pipeline-architecture-consolidation.md` | 聊天渲染链路保护 |
 | **Feature** | `docs/features/F184-chatmessage-rendering-mount-investigation.md` | ChatMessage mount 回归保护 |
 | **Audit** | `docs/audits/2026-05-16-f190-phase-g-ux-audit-synthesis.md` | Phase G post-merge 三猫 UX 审计综合（学/不学/trade-off） |
+| **Audit** | `docs/audits/2026-05-17-f190-settings-parity-audit.md` | Settings content-level parity audit before outbound sync |
