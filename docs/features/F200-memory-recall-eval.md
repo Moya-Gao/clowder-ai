@@ -320,6 +320,46 @@ outputVerified = signal_or(
 
 > **归属说明**：本 backlog 横跨 F188（list_recent/graph_resolve 工具实现）+ F200（rerank_reason/trajectory）+ F102（检索 mode）。F200 spec 作为记忆系统 dogfood 反馈中枢汇总，46 开 worktree 时按归属列分别处置（F188 工具 bug 与 F200 ranking 改进不同 scope）。
 
+### v1.2 Backlog（2026-05-17 三猫讨论：硬实力 + 软实力双修）
+
+**触发**：铲屎官 AUDHD recall 任务（"哪些 thread / md 沉淀过 audhd/adhd/asd"）暴露——三猫搜出**不同子集**（46 主干索引 / 47 语义扩散 / 砚砚 source-thread provenance），单 query top-k 无法满足 "X 主题在我们家有哪些沉淀" 这类 coverage/source-map 任务。
+
+**铲屎官核心论点（2026-05-17 拍板）**：
+> "搜索系统怎么知道 audhd 应该搜什么？而是我们可能需要有 hook 或者 mcp tools 描述要告诉猫猫如何搜索！"
+
+→ **Query expansion 不在搜索系统做**（系统是 dumb 的，agent 是 smart 的——领域知识展开由 agent 用 LLM 能力完成）；硬实力只做"可解释的结构性 expansion"（来自 frontmatter aliases / canonical doc 内的 source threads / glossary / graph 显式 alias 边），不做黑盒猜测。引擎层 expansion 违反 KD-8（不用 regex/小模型替猫判断 intent，给数据不给结论）。
+
+**关键发现（铲屎官特别问的"有没有新硬实力 bug"）**：v1.1 全部 merged 后，这一轮 dogfood **没暴露新的紧急硬实力 bug**——核心三入口 + ranking on + Phase D trajectory 都 working。三猫差异 = 检索策略偏好不同，不是引擎缺陷。所以 v1.2 是**能力补充**（coverage 模式）+ **配套软实力**（教猫怎么用），不是紧急 bug 修复。reformulation/abandon rate 偏高（search 43%/55% 等）= ranking on 后的 baseline telemetry，需要 1-2 周趋势数据才能判断；consumption rate 仅 4.3%（94 events / 4 consumed）= 数据量不足无法做强决策，可能 compound window 偏严或猫搜完没真 Read，列入 HW-3 持续观察。
+
+#### 软实力（SW，1-2 天可落，先做，立刻可验证）
+
+| # | 任务 | 描述 | Owner 候选 |
+|---|------|------|-----------|
+| SW-1 | **新建 `memory-search-best-practices` skill** | 题型→recipe 对照表（"X 是什么" / coverage 全集 / 周边关系 / 决策考古 / 冷启动 onboard 等）；AUDHD recall 作为 coverage 模式示例 5 步 recipe；**布偶猫家族专属提示**（不许靠记忆推理，必须 ≥3 路真搜 + Read 原文，治 magic word "我能猜出来" / "碎片够了" 病）；"何时停下来"判据（≥3 路命中无新 anchor 才停） | 47 起草 / 46 review |
+| SW-2 | **MCP tool description 补 SEARCH TIPS** | `search_evidence`：明示"不是全集入口"，coverage intent（"哪些 / 所有 / 历史"）要 expand+多 scope+drilldown；`list_recent`：DF-1 已修后补一句 timestamp 语义说明；`graph_resolve`：depth≥2+无 relations filter 时显式 warn hub fan-out | 砚砚 / 46 |
+| SW-3 | **Hook nudge — coverage intent 识别**（轻量，不增 session-start 噪音） | 改为 **inline nudge**：search payload 末尾，若 query 含 "哪些 / 所有 / 历史上 / 提过" 关键词且单 query 召回 ≤ N 条 → 打一条"这是 coverage 任务，单刀 top-k 不够，参考 memory-search-best-practices skill"（类比 F188 KD-7 deterministic nudge 模式） | 砚砚 |
+
+#### 硬实力（HW，等软实力反馈 1-2 周后再定 spec）
+
+| # | 任务 | 描述 | 前置 |
+|---|------|------|------|
+| HW-1 | **coverage/source-map 模式（砚砚 5 步 pipeline）** | (1) 分 scope 配额（每类 source 保底 top-N 避免 docs 挤掉 threads） (2) 可解释 expansion 从 canonical doc 抽 source threads + frontmatter aliases (3) union+dedup (4) 输出 coverage matrix（item/source/谁提到/直接 vs 间接/置信度） (5) 展示 expansion 来源（用户原词 / doc alias / source thread / graph edge）—— 不偷偷扩 | 等 SW-1 跑 1-2 周，从猫的实际使用模式收敛 spec（避免做出"实现正确但语义错"的硬实力，如 DF-1 list_recent timestamp 教训） |
+| HW-2 | **可解释 expansion 数据源结构化** | frontmatter aliases/tags 索引化；canonical doc 内的 source-thread 链接结构化；graph 增 `alias_of` 显式边类型 | HW-1 spec 拍板后做 |
+| HW-3 | **OQ-6/OQ-7 数据驱动决策** | 46 拉的当前数据：`consumed_anchor_not_in_pool_rate=0%`（阈值 15%）/ `maxAnchor=33%`（阈值 50%）→ 结论方向"不需要第三路 RRF / 不需要 query-conditioned prior"。但 consumption rate 仅 4.3% 数据太薄，需 1-2 周 ranking on + 真实 dogfood 让数据增长后再 close | dogfood 持续累积；监控 consumption rate 是否随 SW-1 落地后回升（猫学会搜→Read 链条更完整） |
+
+#### 优先级与 sequencing
+
+1. **现在做**：SW-1 + SW-2（1-2 天 markdown，立刻可验证 + 立刻可迭代）
+2. **持续做**：dogfood 自吃猫粮（让 consumption 数据涨 + 让 skill 在真实使用下迭代修订）
+3. **1-2 周后**：基于软实力使用反馈定 HW-1 spec（避免错坐标系硬实力）
+4. **数据够时（≥1000 events / consumption rate ≥10%）**：close OQ-6/OQ-7
+
+> **Review focus**（请 @opus 和 @codex 各自独立 review）：
+> 1. SW 先 HW 后的分层是否合理？砚砚之前 5 步直接当 HW-1 写的，我把它推迟到软实力反馈后再 spec——这跟 "v1.1 list_recent timestamp 实现正确但语义错" 的教训一致，但你们可能觉得太保守？
+> 2. SW-1 skill 题型清单是否漏关键 case？（is-什么 / coverage / 周边关系 / 决策考古 / 冷启动 onboard）
+> 3. HW-3 "consumption rate 4.3% 太薄"——我的判断是数据不足无法 close，需更多 dogfood。同意还是觉得现有数据已足够 close？
+> 4. **"这次没新硬实力 bug"** 的判断准确吗？三猫这轮 dogfood 真的没撞到新的隐藏 bug？我作为 47 主要从冷启动 + AUDHD recall 验证，可能盲区——你们各自验证过的角度有没有抓到我没看到的 bug？
+
 ## Acceptance Criteria
 
 ### Phase A（Search Session Telemetry）✅
