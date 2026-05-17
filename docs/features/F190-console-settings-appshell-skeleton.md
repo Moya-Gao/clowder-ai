@@ -232,10 +232,11 @@ close_gate_report:
 | 2026-05-16 | Header button circle pattern + header bg band-aid fix merged (PR #1708): ExportButton/VoiceCompanionButton/LiveAudioToggle/RightPanelToggle aligned to open-source `h-8 w-8 rounded-full` + `console-pill-bg`; header `border-b`/`bg-console-panel-bg` removed to match `safe-area-top` pattern; active-state color inheritance fixed (`--cafe-accent`, SVG inherits parent) |
 | 2026-05-16 | Phase G 立项：三猫对比审计（Opus-46 量化 715 处硬编码 + Opus-47 定性 token 三轨并存根因 + Codex 拆解落地路径），CVO 拍板"能力保留，视觉降噪" |
 | 2026-05-16 | Phase G merged (PR #1712): globals.css 623→334 行, cocreator-* 全删, 192 files CSS-only token convergence; 砚砚 review PASS + CVO fast-track |
+| 2026-05-16 | Phase F gaps merged (PR #1720): F-3/F-5/F-6 functional gaps + L-1~L-5 learnable patterns (token split, dark variant cleanup, voice hook, file editing hook); 砚砚 review PASS + CVO fast-track |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（验证后 Gap 清单）
 
-> **Status**: verified (2026-05-16 `a9d27674a`) | **Trigger**: CVO 2026-05-14 post-F199-close 实测发现多处入口重复 + 视觉不一致
+> **Status**: ✅ merged (PR #1720, `94c9cee49`) | **Trigger**: CVO 2026-05-14 post-F199-close 实测发现多处入口重复 + 视觉不一致
 > **方向**: F190 follow-up fix PR，不开新 Feature（CVO: "禁止新开feat了 原本你们的f199就不应该存在 就是f190的follow up"）
 > **验证基线**: main `a9d27674a` (2026-05-16)。下方"已修"项均经 grep 实地确认。
 
@@ -563,9 +564,9 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 
 | # | 区域 | 问题 | 修改内容 | 优先级 |
 |---|------|------|----------|--------|
-| F-3 | IM 配置页 | 连接测试按钮丢失 | 补 handleTestConnection() + `/api/connector/{id}/test` | P2 |
-| F-5 | Signal 详情 | Content Enrichment 丢失 | 补后端 enrich route + 前端 enrichedContent 状态 | P2 |
-| F-6 | Signal 详情 | Thread 导航丢失 | 补 getThreadHref 跳转关联 thread | P3 |
+| ~~F-3~~ | IM 配置页 | 连接测试按钮丢失 | 补 handleTestConnection() + `/api/connector/{id}/test` | ✅ PR #1720 |
+| ~~F-5~~ | Signal 详情 | Content Enrichment 丢失 | 补后端 enrich route + 前端 enrichedContent 状态 | ✅ PR #1720 |
+| ~~F-6~~ | Signal 详情 | Thread 导航丢失 | 补 getThreadHref 跳转关联 thread | ✅ PR #1720 |
 
 #### 架构级（中期 follow-up）
 
