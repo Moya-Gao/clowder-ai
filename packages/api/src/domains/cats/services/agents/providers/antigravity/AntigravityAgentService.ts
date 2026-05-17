@@ -482,16 +482,23 @@ export class AntigravityAgentService implements AgentService {
           });
           return recoveryCard ? [recoveryCard, enriched] : [enriched];
         };
-        const persistRecoverySupervisor = async (decision: AntigravityRecoveryDecision) => {
-          if (decision.action !== 'surface_resumable_error') return;
+        const persistRecoverySupervisor = async (
+          decision: AntigravityRecoveryDecision,
+          options: { receiptState: AntigravitySupervisorReceiptState; auditType: string } = {
+            receiptState: 'clean',
+            auditType: 'supervisor_resumable',
+          },
+        ) => {
+          if (decision.action !== 'surface_resumable_error') return false;
           await persistSupervisor({
             status: 'resumable',
             recoveryStrategy: 'manual_card',
             lastObservedStepCount: lastDelivered,
             lastDeliveredStepIndex: lastDelivered,
-            receiptState: 'clean',
-            auditType: 'supervisor_resumable',
+            receiptState: options.receiptState,
+            auditType: options.auditType,
           });
+          return true;
         };
 
         await persistSupervisor({
@@ -945,7 +952,9 @@ export class AntigravityAgentService implements AgentService {
                     },
                   };
                   if (transientRecoveryDecision?.action === 'surface_resumable_error') {
-                    await persistRecoverySupervisor(transientRecoveryDecision);
+                    if (await persistRecoverySupervisor(transientRecoveryDecision)) {
+                      terminalAbort = true;
+                    }
                     for (const recoveryMsg of withRecoveryMessages(enrichedTransientError, transientRecoveryDecision)) {
                       yield recoveryMsg;
                     }
@@ -985,6 +994,54 @@ export class AntigravityAgentService implements AgentService {
                     };
                     continue;
                   }
+                  if (attemptHasNativeDispatch) {
+                    const receiptConflictJournalSummary = sideEffectJournal.summary();
+                    const noObservedSideEffect =
+                      !receiptConflictJournalSummary.hasSideEffect && !receiptConflictJournalSummary.blocksBlindRetry;
+                    if (noObservedSideEffect) {
+                      const delayMs = self.modelCapacityRetryDelaysMs[capacityRetryCount];
+                      if (delayMs != null) {
+                        log.info(
+                          { cascadeId, errorCode: msg.errorCode },
+                          'native receipt conflict has no observed side effect — entering retry path',
+                        );
+                        modelCapacityRetryDelayMs = delayMs;
+                        retryErrorKind = msg.metadata?.upstreamError?.kind as UpstreamErrorKind | undefined;
+                        continue;
+                      }
+                    }
+                    const receiptConflictDecision: AntigravityRecoveryDecision = {
+                      action: 'surface_resumable_error',
+                      reason: 'receipt_conflict_native_success_trajectory_error',
+                      journalSummary: receiptConflictJournalSummary,
+                    };
+                    if (
+                      await persistRecoverySupervisor(receiptConflictDecision, {
+                        receiptState: 'native_success_trajectory_error',
+                        auditType: 'supervisor_receipt_conflict',
+                      })
+                    ) {
+                      terminalAbort = true;
+                    }
+                    const receiptConflictError = {
+                      ...msg,
+                      metadata: {
+                        ...errorMetadata,
+                        diagnostics: {
+                          ...errorMetadata.diagnostics,
+                          ...buildBeforeDispatchDiagnostics('receipt_conflict', {
+                            receiptConflict: 'native_success_trajectory_error',
+                            retryEligible: false,
+                            ...buildRecoveryDecisionDiagnostics(receiptConflictDecision),
+                          }),
+                        },
+                      },
+                    };
+                    for (const recoveryMsg of withRecoveryMessages(receiptConflictError, receiptConflictDecision)) {
+                      yield recoveryMsg;
+                    }
+                    continue;
+                  }
                   yield msg;
                   continue;
                 }
@@ -1008,7 +1065,10 @@ export class AntigravityAgentService implements AgentService {
               }
 
               if (modelCapacityRetryDelayMs != null) {
-                log.info({ cascadeId, delayMs: modelCapacityRetryDelayMs }, 'model_capacity retry requested');
+                log.info(
+                  { cascadeId, delayMs: modelCapacityRetryDelayMs, retryErrorKind },
+                  'Antigravity retry requested',
+                );
                 return;
               }
 
@@ -1289,8 +1349,7 @@ export class AntigravityAgentService implements AgentService {
             yield makeSessionInit(cascadeId);
             continue;
           }
-          await persistRecoverySupervisor(emptyResponseRecoveryDecision);
-          if (emptyResponseRecoveryDecision.action === 'surface_resumable_error') {
+          if (await persistRecoverySupervisor(emptyResponseRecoveryDecision)) {
             terminalAbort = true;
           }
           log.warn(diagnostics, 'empty_response triggered — no text received from Antigravity');

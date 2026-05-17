@@ -2881,4 +2881,190 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.equal(record.journalSummarySnapshot.entries[0].target, 'docs/f201-supervisor-empty-response.md');
     assert.equal(record.journalSummarySnapshot.entries[0].status, 'done');
   });
+
+  test('F201 Phase F Task 3: native success plus trajectory error persists receipt conflict', async () => {
+    const supervisorStore = new InMemoryAntigravitySupervisorStore();
+    const bridge = createMockBridge({ cascadeId: 'cascade-f201-receipt-conflict' });
+    bridge.nativeExecuteAndPush = mock.fn(async (step) => step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND');
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_receipt_conflict',
+                name: 'run_command',
+                argumentsJson: JSON.stringify({
+                  CommandLine: 'touch docs/f201-receipt-conflict.md',
+                  Cwd: '/tmp',
+                  SafeToAutoRun: true,
+                }),
+              },
+              sourceTrajectoryStepInfo: {
+                cascadeId: 'cascade-f201-receipt-conflict',
+                trajectoryId: 'traj-f201-receipt-conflict',
+                stepIndex: 1,
+              },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+            status: 'FINISHED',
+            errorMessage: {
+              error: {
+                userErrorMessage: 'The model produced an invalid tool call after native execution.',
+              },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      supervisorStore,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(
+      service.invoke('hello', {
+        auditContext: {
+          threadId: 'thread-f201-receipt-conflict',
+          invocationId: 'inv-f201-receipt-conflict',
+          userId: 'u1',
+          catId: 'antigravity',
+        },
+      }),
+    );
+
+    assert.equal(
+      bridge.nativeExecuteAndPush.mock.calls.filter(
+        (call) => call.arguments[0]?.type === 'CORTEX_STEP_TYPE_RUN_COMMAND',
+      ).length,
+      1,
+      'native executor must report success first',
+    );
+    const upstreamError = messages.find((msg) => msg.type === 'error' && msg.errorCode === 'upstream_error');
+    assert.ok(upstreamError, 'trajectory ERROR should still surface to the user');
+    assert.equal(
+      upstreamError.metadata?.diagnostics?.receiptConflict,
+      'native_success_trajectory_error',
+      'error diagnostics must identify receipt conflict instead of a plain upstream failure',
+    );
+    const recoveryMsg = messages.find((msg) => {
+      if (msg.type !== 'system_info') return false;
+      return msg.content?.includes('"antigravity_recovery"');
+    });
+    assert.ok(recoveryMsg, 'receipt conflict should surface the resumable recovery card');
+    const recoveryBlock = JSON.parse(recoveryMsg.content).block;
+    assert.equal(recoveryBlock.meta.recoveryDecision.reason, 'receipt_conflict_native_success_trajectory_error');
+    assert.equal(recoveryBlock.meta.pendingOrUnknownEffectCount, 1);
+    assert.ok(
+      recoveryBlock.fields.some(
+        (field) => field.label === '未完成动作' && field.value.includes('touch docs/f201-receipt-conflict.md'),
+      ),
+      'recovery card should include the pending run_command split',
+    );
+
+    const record = await supervisorStore.get('inv-f201-receipt-conflict', 'cascade-f201-receipt-conflict');
+    assert.ok(record, 'supervisor record must be persisted for receipt conflict');
+    assert.equal(record.status, 'resumable');
+    assert.equal(record.recoveryStrategy, 'manual_card');
+    assert.equal(record.receiptState, 'native_success_trajectory_error');
+    assert.equal(record.journalSummarySnapshot.entries.length, 1);
+    assert.equal(record.journalSummarySnapshot.entries[0].target, 'touch docs/f201-receipt-conflict.md');
+    assert.equal(record.journalSummarySnapshot.entries[0].status, 'pending');
+  });
+
+  test('F201 Phase F Task 3: native success plus trajectory error retries when no side effect was observed', async () => {
+    const bridge = createMockBridge();
+    bridge.nativeExecuteAndPush = mock.fn(async (step) => step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND');
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () =>
+      ['cascade-f201-receipt-clean-1', 'cascade-f201-receipt-clean-2'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-f201-receipt-clean-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+              status: 'CORTEX_STEP_STATUS_WAITING',
+              metadata: {
+                toolCall: {
+                  id: 'toolu_receipt_clean',
+                  name: 'run_command',
+                  argumentsJson: JSON.stringify({
+                    CommandLine: 'git status --short',
+                    Cwd: '/tmp',
+                    SafeToAutoRun: true,
+                  }),
+                },
+                sourceTrajectoryStepInfo: {
+                  cascadeId: 'cascade-f201-receipt-clean-1',
+                  trajectoryId: 'traj-f201-receipt-clean',
+                  stepIndex: 1,
+                },
+              },
+            },
+          ],
+          cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+        };
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'FINISHED',
+              errorMessage: {
+                error: {
+                  userErrorMessage: 'The model produced an invalid tool call after read-only native execution.',
+                },
+              },
+            },
+          ],
+          cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+        };
+        return;
+      }
+
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'Recovered after receipt conflict replay.' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(service.invoke('hello', { workingDirectory: '/tmp' }));
+
+    assert.equal(bridge.resetSession.mock.callCount(), 1, 'no-side-effect receipt conflict should replay');
+    assert.equal(bridge.sendMessage.mock.callCount(), 2, 'retry should resend prompt to a fresh cascade');
+    assert.equal(
+      messages.some((msg) => msg.type === 'error' && msg.errorCode === 'upstream_error'),
+      false,
+      'no-side-effect receipt conflict should stay hidden when replay succeeds',
+    );
+    assert.ok(
+      messages.some((msg) => msg.type === 'text' && msg.content === 'Recovered after receipt conflict replay.'),
+      'fresh cascade result should be delivered',
+    );
+  });
 });
