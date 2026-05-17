@@ -335,9 +335,9 @@ outputVerified = signal_or(
 
 | # | 任务 | 描述 | Owner 候选 |
 |---|------|------|-----------|
-| SW-1 | **新建 `memory-search-best-practices` skill** | 题型→recipe 对照表（"X 是什么" / coverage 全集 / 周边关系 / 决策考古 / 冷启动 onboard 等）；AUDHD recall 作为 coverage 模式示例 5 步 recipe；**布偶猫家族专属提示**（不许靠记忆推理，必须 ≥3 路真搜 + Read 原文，治 magic word "我能猜出来" / "碎片够了" 病）；"何时停下来"判据（≥3 路命中无新 anchor 才停） | 47 起草 / 46 review |
+| SW-1 | **新建 `memory-search-best-practices` skill** | 题型→recipe 对照表（**8 类**）：(1) "X 是什么" (2) coverage 全集 "哪些地方提过 X" (3) 周边关系 (4) 决策考古 "为什么当时这么决定" (5) 冷启动 onboard (6) **source-map / provenance map** — 从 canonical doc 追 source threads（砚砚 review 补） (7) **absence check** — "有没有提过 X / 证明否定"，搜索策略与 coverage 不同（砚砚 review 补） (8) **delta** — "上次我看到的和现在有什么不同"，压缩后恢复 / Phase 间衔接典型（46 review 补）；AUDHD recall 作为 coverage 示例 5 步 recipe；**布偶猫家族专属提示**（不许靠记忆推理，必须 ≥3 路真搜 + Read 原文，治 magic word "我能猜出来" / "碎片够了" 病）；"何时停下来"判据（≥3 路命中无新 anchor 才停） | 47 起草 / 46 review |
 | SW-2 | **MCP tool description 补 SEARCH TIPS** | `search_evidence`：明示"不是全集入口"，coverage intent（"哪些 / 所有 / 历史"）要 expand+多 scope+drilldown；`list_recent`：DF-1 已修后补一句 timestamp 语义说明；`graph_resolve`：depth≥2+无 relations filter 时显式 warn hub fan-out | 砚砚 / 46 |
-| SW-3 | **Hook nudge — coverage intent 识别**（轻量，不增 session-start 噪音） | 改为 **inline nudge**：search payload 末尾，若 query 含 "哪些 / 所有 / 历史上 / 提过" 关键词且单 query 召回 ≤ N 条 → 打一条"这是 coverage 任务，单刀 top-k 不够，参考 memory-search-best-practices skill"（类比 F188 KD-7 deterministic nudge 模式） | 砚砚 |
+| SW-3 | **Hook nudge — coverage intent 识别**（轻量，不增 session-start 噪音） | 改为 **inline nudge**：search payload 末尾，**触发条件 = query 含 coverage intent 关键词**（"哪些 / 所有 / 历史上 / 提过 / 沉淀"）—— 打一条"这是 coverage 任务，单刀 top-k 不够（AUDHD 案例：每猫拿到 10 条但全集需三猫合起来），参考 memory-search-best-practices skill"。**result count ≤ N 仅作"加重提示权重"，不作触发前提**（砚砚 P2-1：召回多 ≠ 全集，AUDHD 实证）。类比 F188 KD-7 deterministic nudge 模式 | 砚砚 |
 
 #### 硬实力（HW，等软实力反馈 1-2 周后再定 spec）
 
@@ -345,14 +345,16 @@ outputVerified = signal_or(
 |---|------|------|------|
 | HW-1 | **coverage/source-map 模式（砚砚 5 步 pipeline）** | (1) 分 scope 配额（每类 source 保底 top-N 避免 docs 挤掉 threads） (2) 可解释 expansion 从 canonical doc 抽 source threads + frontmatter aliases (3) union+dedup (4) 输出 coverage matrix（item/source/谁提到/直接 vs 间接/置信度） (5) 展示 expansion 来源（用户原词 / doc alias / source thread / graph edge）—— 不偷偷扩 | 等 SW-1 跑 1-2 周，从猫的实际使用模式收敛 spec（避免做出"实现正确但语义错"的硬实力，如 DF-1 list_recent timestamp 教训） |
 | HW-2 | **可解释 expansion 数据源结构化** | frontmatter aliases/tags 索引化；canonical doc 内的 source-thread 链接结构化；graph 增 `alias_of` 显式边类型 | HW-1 spec 拍板后做 |
-| HW-3 | **OQ-6/OQ-7 数据驱动决策** | 46 拉的当前数据：`consumed_anchor_not_in_pool_rate=0%`（阈值 15%）/ `maxAnchor=33%`（阈值 50%）→ 结论方向"不需要第三路 RRF / 不需要 query-conditioned prior"。但 consumption rate 仅 4.3% 数据太薄，需 1-2 周 ranking on + 真实 dogfood 让数据增长后再 close | dogfood 持续累积；监控 consumption rate 是否随 SW-1 落地后回升（猫学会搜→Read 链条更完整） |
+| HW-3 | **OQ-6/OQ-7 数据驱动决策** | 46 拉的当前数据：`consumed_anchor_not_in_pool_rate=0%`（阈值 15%）/ `maxAnchor=33%`（阈值 50%）→ 结论方向"不需要第三路 RRF / 不需要 query-conditioned prior"。但 consumption rate 仅 4.3% 数据太薄，**"没有证据需要行动" ≠ "有证据证明不需要行动"**——需 1-2 周 ranking on + 真实 dogfood 让数据增长后再 close。**统计窗口必须限定 post-v1.1 + post-SW**（砚砚 P2-2）——v1.1 之前的 events 含 DF-1 timestamp 错乱 + DF-6 静默 0 + 猫还没学 coverage recipe，会系统性压低 consumption rate，拿脏数据做决策 = 错 baseline。**前置依赖（46 P3）**：runtime 同步后需确认 `POST /api/recall/metrics` API live（46 23:09 实测 v1.1 已 merge 但 runtime 尚未 sync 时 404）—— 不需代码改动，runtime 重启自动 freshness gate 解决 | dogfood 持续累积；监控 consumption rate 是否随 SW-1 落地后回升（猫学会搜→Read 链条更完整） |
 
 #### 优先级与 sequencing
 
 1. **现在做**：SW-1 + SW-2（1-2 天 markdown，立刻可验证 + 立刻可迭代）
 2. **持续做**：dogfood 自吃猫粮（让 consumption 数据涨 + 让 skill 在真实使用下迭代修订）
 3. **1-2 周后**：基于软实力使用反馈定 HW-1 spec（避免错坐标系硬实力）
-4. **数据够时（≥1000 events / consumption rate ≥10%）**：close OQ-6/OQ-7
+4. **数据够时（≥1000 events / consumption rate ≥10%，统计窗口限定 post-v1.1 + post-SW）**：close OQ-6/OQ-7
+
+> **Review 状态**（2026-05-17）：砚砚 + 46 双 reviewer pass。2 P2 patched（SW-3 nudge 改 intent 触发不绑 result count / HW-3 窗口限定 post-v1.1+post-SW），1 P3 标注（runtime metrics API sync 是 HW-3 前置）。SW-1 题型 5→8（+source-map +absence-check +delta）。Patch commit 接续 `9d475a918`。47 可直接开 SW-1（writing-skills SOP）。
 
 > **Review focus**（请 @opus 和 @codex 各自独立 review）：
 > 1. SW 先 HW 后的分层是否合理？砚砚之前 5 步直接当 HW-1 写的，我把它推迟到软实力反馈后再 spec——这跟 "v1.1 list_recent timestamp 实现正确但语义错" 的教训一致，但你们可能觉得太保守？
