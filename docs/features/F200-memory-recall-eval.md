@@ -473,6 +473,8 @@ outputVerified = signal_or(
 | 2026-05-16 | 三猫 dogfooding Round 2（冷启动模拟）：46 九路系统测试 + 47/砚砚冷启动重测 → DF-5~11 新发现；核心洞察"新猫更信第一屏"；砚砚修正 DF-6 scope 语义（577708cc1）→ 47 整合结构化 backlog 3 批次（28e9a8d5e） |
 | 2026-05-16 | v1.1 Batch 1 merged（PR #1714）— DF-11 textMatchScore ranking + token-boundary reverse anchor check + DF-1 GlobalIndexBuilder mtime. 砚砚 3 轮 review（2 P1 修复：mixed-query anchor detection + prefix collision guard）+ 云端 review P1 降级 P3（pre-existing limitation） |
 | 2026-05-17 | v1.1 Batch 2+3 merged（PR #1719）— DF-6 scope/kinds nudge + DF-2 graph truncation + DF-8 CJK RRF boost + DF-3 search explainability + DF-4 trajectory metadata + DF-7 semantic confidence + DF-10 cross-domain penalty. 砚砚 2 轮 local review（4 P1 wiring + 1 P1 privacy + 1 P2 concurrency）+ 云端 4 轮（1 P1 sort + 1 P2 raw explain + 1 P2 verified forwarding） |
+| 2026-05-17 | v1.2 SW-1 delivered — `memory-search-best-practices` skill 创建并注册：8 类题型 recipe、AUDHD coverage 示例、布偶猫家族 Read-before-reason 拉闸、delta 压缩恢复子场景；46 review 放行 + P3 fold |
+| 2026-05-17 | v1.2 SW-2/SW-3 merged（PR #1731）— MCP 三入口 description 补 SEARCH TIPS + `search_evidence` coverage-intent inline nudge（不绑 result count，独立 `📚 Coverage task` marker）。46 review 放行 + 云端 4 轮（P2 English trigger 收窄、P1 file length split、P1 docs frontmatter、P2 mention regex） |
 
 ## Plan Gate Checklist（writing-plans 前必须解决）
 
