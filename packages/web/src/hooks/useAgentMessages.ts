@@ -186,6 +186,55 @@ function normalizeInvocationForCat(invocationId: string | undefined, catId: stri
   return invocationId?.endsWith(suffix) ? invocationId.slice(0, -suffix.length) : invocationId;
 }
 
+type ActiveInvocationSlots = Record<string, { catId: string; mode: string; startedAt?: number }>;
+
+function findTerminalActiveInvocationSlot(
+  activeInvocations: ActiveInvocationSlots | undefined,
+  catInvocations: Record<string, CatInvocationInfo> | undefined,
+  catId: string,
+  invocationId: string | undefined,
+  turnInvocationId: string | undefined,
+): string | undefined {
+  const slots: ActiveInvocationSlots = activeInvocations === undefined ? {} : activeInvocations;
+  const direct = catInvocations?.[catId];
+  let terminalTurn = turnInvocationId;
+  if (terminalTurn === undefined) {
+    terminalTurn = invocationId;
+  }
+
+  const exactKeys = new Set<string>();
+  if (invocationId) {
+    exactKeys.add(invocationId);
+    exactKeys.add(`${invocationId}-${catId}`);
+  }
+  if (turnInvocationId) {
+    exactKeys.add(turnInvocationId);
+    exactKeys.add(`${turnInvocationId}-${catId}`);
+  }
+
+  const entries = Object.entries(slots);
+  for (let i = entries.length - 1; i >= 0; i -= 1) {
+    const [key, info] = entries[i]!;
+    if (info.catId === catId && exactKeys.has(key)) return key;
+  }
+
+  // Z9 dual identity: activeInvocations is keyed by the parent liveness id from
+  // intent_mode, while terminal stream events can carry the per-cat turn id.
+  // If catInvocations confirms this terminal turn belongs to the parent slot,
+  // remove that parent-key slot too. This stays safe for same-cat preemption:
+  // a newer slot has a different parent key, so it won't match direct.invocationId.
+  if (terminalTurn && direct?.turnInvocationId === terminalTurn && direct.invocationId) {
+    for (let i = entries.length - 1; i >= 0; i -= 1) {
+      const [key, info] = entries[i]!;
+      if (info.catId !== catId) continue;
+      if (key.startsWith('hydrated-')) continue;
+      if (normalizeInvocationForCat(key, catId) === direct.invocationId) return key;
+    }
+  }
+
+  return undefined;
+}
+
 function sameInvocationForCat(candidate: string | undefined, expected: string, catId: string): boolean {
   return normalizeInvocationForCat(candidate, catId) === expected;
 }
@@ -2320,6 +2369,15 @@ export function useAgentMessages() {
       }
       if (latestRealSlot === msgInvocationId) return false; // slot-fresh override
 
+      const directState = state.catInvocations?.[catId];
+      if (
+        directState?.turnInvocationId === msgInvocationId &&
+        directState.invocationId &&
+        latestRealSlot === directState.invocationId
+      ) {
+        return false;
+      }
+
       const activeRefId = getActive(catId)?.id;
       if (activeRefId) {
         const activeBubble = state.messages.find((m) => m.id === activeRefId);
@@ -2335,9 +2393,12 @@ export function useAgentMessages() {
         return latestRealSlot !== msgInvocationId;
       }
 
-      const direct = state.catInvocations?.[catId]?.invocationId;
-      if (direct !== undefined) {
-        return direct !== msgInvocationId;
+      if (directState?.turnInvocationId !== undefined) {
+        if (directState.turnInvocationId === msgInvocationId) return false;
+      }
+
+      if (directState?.invocationId !== undefined) {
+        return directState.invocationId !== msgInvocationId;
       }
 
       for (let i = state.messages.length - 1; i >= 0; i--) {
@@ -3617,6 +3678,13 @@ export function useAgentMessages() {
         if (isStaleDone && msg.invocationId) {
           settlePendingActiveCallbackOnTerminal(msg.threadId, msg.catId, msg.invocationId, 'clear');
         }
+        const terminalActiveSlotKey = findTerminalActiveInvocationSlot(
+          useChatStore.getState().activeInvocations,
+          useChatStore.getState().catInvocations,
+          msg.catId,
+          msg.invocationId,
+          msg.turnInvocationId,
+        );
 
         let messageId: string | null = null;
         if (!isStaleDone) {
@@ -3783,9 +3851,10 @@ export function useAgentMessages() {
         if (
           isStaleDone &&
           msg.invocationId &&
-          useChatStore.getState().catInvocations?.[msg.catId]?.invocationId === msg.invocationId
+          (useChatStore.getState().catInvocations?.[msg.catId]?.invocationId === msg.invocationId ||
+            useChatStore.getState().catInvocations?.[msg.catId]?.turnInvocationId === msg.invocationId)
         ) {
-          setCatInvocation(msg.catId, { invocationId: undefined });
+          setCatInvocation(msg.catId, { invocationId: undefined, turnInvocationId: undefined });
         }
         // Always remove the finishing cat's invocation slot, regardless of isFinal.
         // isFinal=false means "more cats coming" but THIS cat is done — its slot must go.
@@ -3798,6 +3867,9 @@ export function useAgentMessages() {
             removeActiveInvocation(msg.invocationId);
           }
           removeActiveInvocation(`${msg.invocationId}-${msg.catId}`);
+          if (terminalActiveSlotKey) {
+            removeActiveInvocation(terminalActiveSlotKey);
+          }
           // Hydrated synthetic IDs (hydrated-${threadId}-${catId}) won't match the real
           // invocationId from the server. Only clean up hydrated- prefixed orphans to
           // avoid accidentally deleting a NEW invocation's slot during same-cat preempt
