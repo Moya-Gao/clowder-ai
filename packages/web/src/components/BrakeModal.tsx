@@ -31,7 +31,7 @@ const LEVEL_STYLE: Record<1 | 2 | 3, { border: string; bg: string; title: string
   3: { border: 'border-conn-red-ring', bg: 'bg-conn-red-bg', title: '三猫紧急拦截！' },
 };
 
-const NIGHT_STYLE = { border: 'border-indigo-300', bg: 'bg-indigo-50/80' };
+const NIGHT_STYLE = { border: 'border-conn-indigo-ring', bg: 'bg-conn-indigo-bg' };
 
 /** Compact urgency badge for avatar corner (emoji-free) */
 const CAT_ALERT_BADGE: Record<1 | 2 | 3, string> = {
@@ -118,7 +118,7 @@ export function BrakeModal() {
       >
         {/* Header */}
         <div className="text-center">
-          <h2 className={`text-lg font-bold ${nightMode ? 'text-indigo-200' : ''}`}>
+          <h2 className={`text-lg font-bold ${nightMode ? 'text-conn-indigo-text' : ''}`}>
             {nightMode ? '深夜了，猫猫们想你休息' : style.title}
           </h2>
           <p className="text-sm text-cafe-secondary mt-1">已专注工作 {activeMinutes} 分钟</p>
@@ -164,7 +164,7 @@ export function BrakeModal() {
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="例：正在修复线上 P0 故障"
-              className="w-full border border-cafe rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+              className="w-full border border-cafe rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-conn-amber-ring"
               onCompositionStart={ime.onCompositionStart}
               onCompositionEnd={ime.onCompositionEnd}
               onKeyDown={(e) => {

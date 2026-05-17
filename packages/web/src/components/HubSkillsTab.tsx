@@ -100,10 +100,10 @@ function CategoryGroup({
                   <button
                     type="button"
                     onClick={() => onPreviewSkill(skill)}
-                    className="rounded text-left transition hover:bg-conn-blue-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                    className="rounded text-left transition hover:bg-conn-blue-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-conn-blue-ring"
                     title="预览 SKILL.md"
                   >
-                    <code className="font-mono text-blue-600 bg-conn-blue-bg px-1.5 py-0.5 rounded text-[11px]">
+                    <code className="font-mono text-conn-blue-text bg-conn-blue-bg px-1.5 py-0.5 rounded text-[11px]">
                       {skill.name}
                     </code>
                   </button>
@@ -119,9 +119,9 @@ function CategoryGroup({
                           key={`${skill.name}:${dep.id}`}
                           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                             dep.status === 'ready'
-                              ? 'bg-emerald-100 text-emerald-700'
+                              ? 'bg-conn-emerald-bg text-conn-emerald-text'
                               : dep.status === 'missing'
-                                ? 'bg-rose-100 text-rose-700'
+                                ? 'bg-conn-red-bg text-conn-red-text'
                                 : 'bg-conn-amber-bg text-conn-amber-text'
                           }`}
                         >
@@ -202,10 +202,10 @@ function StaleBanner({
         </button>
       </div>
       {hasNew && (
-        <div className="mt-1.5 text-blue-600">
+        <div className="mt-1.5 text-conn-blue-text">
           新增:{' '}
           {staleness.newSkills.map((n) => (
-            <code key={n} className="mx-0.5 bg-blue-100 px-1 rounded">
+            <code key={n} className="mx-0.5 bg-conn-blue-bg px-1 rounded">
               {n}
             </code>
           ))}

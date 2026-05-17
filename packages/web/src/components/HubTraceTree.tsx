@@ -134,12 +134,12 @@ export function TraceBrowser() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="traceId or catId..."
-          className="flex-1 rounded-lg border border-cafe-border bg-cafe-surface px-3 py-1.5 text-sm text-cafe placeholder:text-cafe-muted focus:border-blue-400 focus:outline-none"
+          className="flex-1 rounded-lg border border-cafe-border bg-cafe-surface px-3 py-1.5 text-sm text-cafe placeholder:text-cafe-muted focus:border-conn-blue-ring focus:outline-none"
         />
         <button
           type="button"
           onClick={fetchTraces}
-          className="rounded-lg bg-conn-blue-bg px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+          className="rounded-lg bg-conn-blue-bg px-3 py-1.5 text-xs font-medium text-conn-blue-text hover:bg-conn-blue-bg"
         >
           Search
         </button>
@@ -182,7 +182,7 @@ function TraceCard({ trace, expanded, onToggle }: { trace: TraceGroup; expanded:
         </span>
         <span className="text-[10px] tabular-nums text-cafe-secondary">{trace.totalDurationMs.toFixed(0)}ms</span>
         {trace.hasError && (
-          <span className="rounded bg-conn-red-bg px-1.5 py-0.5 text-[10px] font-medium text-red-700">error</span>
+          <span className="rounded bg-conn-red-bg px-1.5 py-0.5 text-[10px] font-medium text-conn-red-text">error</span>
         )}
         <span className="text-[10px] text-cafe-muted">{new Date(trace.startTime).toLocaleTimeString()}</span>
       </button>
@@ -244,7 +244,7 @@ function TreeWaterfall({
             )}
             <div className="relative h-3 flex-1 rounded bg-cafe-surface-elevated">
               <div
-                className={`absolute h-full rounded ${statusOk ? 'bg-blue-400' : 'bg-red-400'}`}
+                className={`absolute h-full rounded ${statusOk ? 'bg-conn-blue-text' : 'bg-conn-red-text'}`}
                 style={{ left: `${left}%`, width: `${width}%` }}
               />
             </div>
@@ -277,7 +277,7 @@ function SpanDetail({ span }: { span: TraceSpan | undefined }) {
             <button
               type="button"
               onClick={() => setXrayOpen(!xrayOpen)}
-              className="rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-medium text-purple-700 transition-colors hover:bg-purple-100"
+              className="rounded-md bg-conn-purple-bg px-2 py-0.5 text-[10px] font-medium text-conn-purple-text transition-colors hover:bg-conn-purple-hover hover:text-white"
             >
               {xrayOpen ? 'Close' : 'X-Ray'}
             </button>
@@ -388,16 +388,16 @@ function PromptInspector({ invocationId, catId }: { invocationId?: string; catId
   if (!selected) return null;
 
   const tabs: { key: InspectorTab; label: string; color: string }[] = [
-    { key: 'system', label: 'System', color: 'text-blue-600' },
+    { key: 'system', label: 'System', color: 'text-conn-blue-text' },
     { key: 'user', label: 'User', color: 'text-conn-green-text' },
-    { key: 'effective', label: 'Full Prompt', color: 'text-purple-600' },
+    { key: 'effective', label: 'Full Prompt', color: 'text-conn-purple-text' },
     { key: 'meta', label: 'Meta', color: 'text-conn-amber-text' },
   ];
 
   return (
-    <div className="mt-3 rounded-lg border border-purple-200 bg-white p-3">
+    <div className="mt-3 rounded-lg border border-conn-purple-ring bg-cafe-surface p-3">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[11px] font-medium text-purple-700">Prompt X-Ray</span>
+        <span className="text-[11px] font-medium text-conn-purple-text">Prompt X-Ray</span>
         <div className="flex items-center gap-2 text-[10px] text-cafe-muted">
           <span>{selected.model}</span>
           <span>·</span>
@@ -467,27 +467,28 @@ function PromptTokenBar({ capture }: { capture: PromptCaptureData }) {
   return (
     <div>
       <div className="flex h-2 overflow-hidden rounded-full bg-cafe-surface-elevated">
-        <div className="bg-blue-400" style={{ width: `${sysPct}%` }} title={`System: ${sysPct.toFixed(0)}%`} />
+        <div className="bg-conn-blue-text" style={{ width: `${sysPct}%` }} title={`System: ${sysPct.toFixed(0)}%`} />
         {missionPct > 0 && (
           <div
-            className="bg-amber-400"
+            className="bg-conn-amber-text"
             style={{ width: `${missionPct}%` }}
             title={`Mission: ${missionPct.toFixed(0)}%`}
           />
         )}
-        <div className="bg-green-400" style={{ width: `${userPct}%` }} title={`User: ${userPct.toFixed(0)}%`} />
+        <div className="bg-conn-green-text" style={{ width: `${userPct}%` }} title={`User: ${userPct.toFixed(0)}%`} />
       </div>
       <div className="mt-0.5 flex gap-3 text-[9px] text-cafe-muted">
         <span>
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-400" /> System {sysPct.toFixed(0)}%
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-conn-blue-text" /> System {sysPct.toFixed(0)}%
         </span>
         {missionPct > 0 && (
           <span>
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400" /> Mission {missionPct.toFixed(0)}%
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-conn-amber-text" /> Mission{' '}
+            {missionPct.toFixed(0)}%
           </span>
         )}
         <span>
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400" /> User {userPct.toFixed(0)}%
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-conn-green-text" /> User {userPct.toFixed(0)}%
         </span>
       </div>
     </div>

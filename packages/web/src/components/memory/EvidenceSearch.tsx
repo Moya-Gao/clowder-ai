@@ -52,13 +52,13 @@ export const DEPTH_OPTIONS = [
 
 export const SOURCE_TYPE_COLORS: Record<string, string> = {
   decision: 'bg-conn-amber-bg text-conn-amber-text',
-  phase: 'bg-blue-100 text-conn-blue-text',
-  feature: 'bg-purple-100 text-purple-800',
-  lesson: 'bg-conn-green-bg text-green-800',
-  research: 'bg-cyan-100 text-cyan-800',
-  knowledge: 'bg-pink-100 text-pink-800',
-  discussion: 'bg-gray-100 text-gray-700',
-  commit: 'bg-gray-100 text-gray-600',
+  phase: 'bg-conn-blue-bg text-conn-blue-text',
+  feature: 'bg-conn-purple-bg text-conn-purple-text',
+  lesson: 'bg-conn-green-bg text-conn-green-text',
+  research: 'bg-conn-cyan-bg text-conn-cyan-text',
+  knowledge: 'bg-conn-violet-bg text-conn-violet-text',
+  discussion: 'bg-conn-gray-bg text-conn-gray-text',
+  commit: 'bg-conn-gray-bg text-conn-gray-text',
 };
 
 export const SOURCE_TYPE_LABELS: Record<string, string> = {
@@ -264,7 +264,7 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
               </span>
               {item.source && (
                 <span
-                  className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${item.source === 'project' ? 'bg-indigo-100 text-indigo-800' : 'bg-teal-100 text-teal-800'}`}
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${item.source === 'project' ? 'bg-conn-indigo-bg text-conn-indigo-text' : 'bg-conn-cyan-bg text-conn-cyan-text'}`}
                 >
                   {item.source === 'project' ? '项目' : '全局'}
                 </span>
