@@ -240,6 +240,7 @@ close_gate_report:
 | 2026-05-17 | A/B convergence batch 2.1 merged (PR #1728): A-2 Skills composed view — `SettingsSkillItem` joins `/api/skills` governance with `/api/capabilities` controls; 6 rounds cloud review (5 P1 + 2 P2 fixed: generation guard, stale-data clear on switch, ref-based project tracking, dual refetch after mutations, filter reset); 砚砚 review PASS + CVO fast-track |
 | 2026-05-17 | A/B convergence batch 2.2 merged (PR #1732): B-1/B-3 service-ui-adapter + ServiceStatusPanel rewrite + PluginsContent typed adapter pipeline; `conn-*` semantic badges; install log poll reads `lines` DTO; 砚砚 3-round review PASS + cloud review 0 P1/P2 |
 | 2026-05-17 | A/B convergence batch 2.3 merged (PR #1734): A-1b Notify visual parity (PushSettingsPanel rewrite + PushDiagnosticsSection extraction + 5-type prefs + collapsed diagnostics + VAPID surfacing + conn-* tokens) + B-4 HubPermissionsTab visual-only consistency (conn-* tokens + a11y + StepBadge + SaveFeedback extraction); 砚砚 2-round review PASS + cloud review P1→P3 降级 (capability guard, no repro) |
+| 2026-05-17 | V-10~V-18 semantic token convergence merged (PR #1736): 9 web components raw Tailwind → conn-*/cafe-* tokens; solid-fill CTA buttons preserved as raw Tailwind (no conn-* dark mode fill tokens); 砚砚 2-round review PASS + cloud review P1 fix + re-review PASS |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（验证后 Gap 清单）
 
@@ -413,15 +414,15 @@ Signal 页面两仓**双向分叉**：本地功能更多，但开源有 2 项我
 
 | # | 文件 | 硬编码数 | 开源 token | 状态 |
 |---|------|---------|-----------|------|
-| V-10 | `rich/InteractiveBlock.tsx` | 85 | `conn-amber/emerald/red` + `console-card-bg/pill-bg/border-soft` | 🔲 |
-| V-11 | `capability-board-ui.tsx` | 68 | `conn-*` 语义色 | 🔲 |
-| V-12 | `HubSkillsTab.tsx` | 31 | `conn-*` | 🔲 |
+| V-10 | `rich/InteractiveBlock.tsx` | 85 | `conn-amber/emerald/red` + `console-card-bg/pill-bg/border-soft` | ✅ PR #1736 |
+| V-11 | `capability-board-ui.tsx` | 68 | `conn-*` 语义色 | ✅ PR #1736 |
+| V-12 | `HubSkillsTab.tsx` | 31 | `conn-*` | ✅ PR #1736 |
 | V-13 | `PushSettingsPanel.tsx` | 29 | `conn-*` | ✅ PR #1734 |
-| V-14 | `HubTraceTree.tsx` | 28 | 部分迁移（剩 4 处 tree node 类型色） | 🔲 |
-| V-15 | `memory/EvidenceSearch.tsx` | 22 | `console-form-input/card-soft-bg` | 🔲 |
-| V-16 | `EvidenceCard.tsx` | 19 | `conn-*` | 🔲 |
-| V-17 | `BrakeModal.tsx` | 15 | `conn-emerald-text/red-text` + `console-card-bg/overlay` | 🔲 |
-| V-18 | `workspace/SchedulePanel.tsx` | 13 | `conn-emerald/purple/red` + `console-pill-bg` | 🔲 |
+| V-14 | `HubTraceTree.tsx` | 28 | 部分迁移（剩 4 处 tree node 类型色） | ✅ PR #1736 |
+| V-15 | `memory/EvidenceSearch.tsx` | 22 | `console-form-input/card-soft-bg` | ✅ PR #1736 |
+| V-16 | `EvidenceCard.tsx` | 19 | `conn-*` | ✅ PR #1736 |
+| V-17 | `BrakeModal.tsx` | 15 | `conn-emerald-text/red-text` + `console-card-bg/overlay` | ✅ PR #1736 |
+| V-18 | `workspace/SchedulePanel.tsx` | 13 | `conn-emerald/purple/red` + `console-pill-bg` | ✅ PR #1736 |
 
 **小计：310 处**。参考开源 `conn-*` / `console-*` token 逐文件迁移，CSS-only 不改行为。
 
