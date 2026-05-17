@@ -7,9 +7,17 @@
  *   - hydrate (`mergeReplaceHydrationMessages` → project history records)
  *
  * Contract (KD-27, AC-Z20):
- *   - Group by `(catId, getBubbleInvocationId(msg))` — same key as the legacy
- *     hydrate `streamKey`. Records without catId or invocation key are passed
- *     through unchanged (system / user / un-namespaced bubbles).
+ *   - Stream/work-log records group by `(catId, getBubbleInvocationId(msg))` —
+ *     same key as the legacy hydrate `streamKey`.
+ *   - Callback-origin records with their own message id are MCP `post_message`
+ *     speech, not CLI work logs; they group by their callback message id. This
+ *     keeps post_msg as a separate bubble while preserving stream grouping for
+ *     tool/stdout output.
+ *   - Exact-key callback_final records whose id equals an existing stream record
+ *     id are terminal updates for the stream bubble, not post_msg speech; they
+ *     stay in the stream group to avoid duplicate bubble ids.
+ *   - Records without catId or invocation key are passed through unchanged
+ *     (system / user / un-namespaced bubbles).
  *   - Within a group, records are sorted by `timestamp asc` then `id asc` for
  *     determinism. The *first* (earliest) record's id becomes the canonical
  *     bubble id, but a callback record (origin === 'callback') wins the id if
@@ -27,14 +35,14 @@
  *     按 ts asc 取最后一个 record 的显式 isStreaming 值；(3) 没有显式值 → false。
  *     **不能用 ANY=true** — 旧 stream record 残留 isStreaming=true + 后到 callback
  *     final 时，ANY 会把投影 bubble 当成仍 streaming，复活我们要杀的 live 残留。
- *   - origin: 'callback' if any record has callback origin; else 'stream'.
+ *   - origin: 'callback' for callback groups; else 'stream'.
  *   - timestamp: earliest record ts (for stable sort).
  *
- * Why this contract: the alpha thread `thread_moyfjyjc0662weit` opus
- * invocation `2fe279aa` persists 3 raw records (2 stream + 1 callback) with
- * 3 distinct content segments sharing the same invocationId. F5 hydrate
- * "看起来" 收敛成 1 bubble; live reducer creates 3 bubbles. Z8 makes both
- * paths use this single projection so live ≡ hydrate.
+ * Why this contract evolved: Z8 made live ≡ hydrate by sharing projection.
+ * Z11 fixed a blind spot where stream stdout disappeared after post_msg merge.
+ * Runtime evidence then clarified the intended UI model: post_msg speech is its
+ * own bubble; CLI work logs stay in the stream bubble. Projection therefore
+ * still unifies live/hydrate, but does not merge callback speech into stream.
  */
 
 import { getBubbleInvocationId } from '@/debug/bubbleIdentity';
@@ -54,14 +62,30 @@ interface ProjectionOutput {
 interface GroupKey {
   catId: string;
   invocationId: string;
+  originBucket: 'stream' | 'callback';
 }
 
-function bubbleGroupKey(msg: ChatMessage): GroupKey | null {
+function getBaseInvocationKey(msg: ChatMessage): string | null {
   if (msg.type !== 'assistant') return null;
   if (!msg.catId) return null;
   const inv = getBubbleInvocationId(msg as ChatMessage);
   if (!inv) return null;
-  return { catId: msg.catId, invocationId: inv };
+  return `${msg.catId}::${inv}`;
+}
+
+function bubbleGroupKey(msg: ChatMessage, streamIdsByBaseKey: Map<string, Set<string>>): GroupKey | null {
+  if (msg.type !== 'assistant') return null;
+  if (!msg.catId) return null;
+  const inv = getBubbleInvocationId(msg as ChatMessage);
+  if (!inv) return null;
+  if (msg.origin === 'callback') {
+    const baseKey = `${msg.catId}::${inv}`;
+    if (msg.id && streamIdsByBaseKey.get(baseKey)?.has(msg.id)) {
+      return { catId: msg.catId, invocationId: inv, originBucket: 'stream' };
+    }
+    return { catId: msg.catId, invocationId: msg.id ?? inv, originBucket: 'callback' };
+  }
+  return { catId: msg.catId, invocationId: inv, originBucket: 'stream' };
 }
 
 function compareRecords(a: ChatMessage, b: ChatMessage): number {
@@ -80,11 +104,11 @@ function projectGroup(records: ChatMessage[]): ChatMessage {
   const origin: ChatMessage['origin'] = callbackRecord ? 'callback' : (first.origin ?? 'stream');
 
   const contentParts: string[] = [];
-  // F194 Phase Z11 (铲屎官 R15): split content by origin so the merged
-  // (callback-origin) bubble can still surface the stream working log in the
-  // CLI Output block. cliStdout/speechContent are only emitted when the group
-  // has BOTH stream and callback records (the merge case); pure groups leave
-  // them undefined so existing rendering is unchanged.
+  // F194 Phase Z11 follow-up: exact-key callback_final records may still merge
+  // into the stream group as terminal updates. Split content by origin so those
+  // rare merged groups can surface the stream working log in the CLI Output
+  // block while rendering callback text as the assistant body. Ordinary
+  // post_msg callbacks have their own callback bucket and do not reach here.
   const streamContentParts: string[] = [];
   const callbackContentParts: string[] = [];
   const thinkingParts: string[] = [];
@@ -159,10 +183,11 @@ function projectGroup(records: ChatMessage[]): ChatMessage {
   else delete projected.contentBlocks;
   if (mentionsUser) projected.mentionsUser = true;
 
-  // F194 Phase Z11 (铲屎官 R15): merge case = group has BOTH stream and
-  // callback content. Expose the origin-split portions so ChatMessage keeps
+  // F194 Phase Z11 follow-up: merge case = exact-key terminal callback record
+  // plus stream content. Expose the origin-split portions so ChatMessage keeps
   // CLI Output behavior consistent (stream working log → CLI Output stdout;
-  // post_msg speech → main body) regardless of whether a post_msg happened.
+  // callback terminal text → main body). Ordinary post_msg speech is projected
+  // as a separate callback bubble by bubbleGroupKey above.
   const isMergeCase = streamContentParts.length > 0 && callbackContentParts.length > 0;
   const cliStdout = isMergeCase ? streamContentParts.join('\n\n') : undefined;
   const speechContent = isMergeCase ? callbackContentParts.join('\n\n') : undefined;
@@ -197,14 +222,24 @@ function projectGroup(records: ChatMessage[]): ChatMessage {
 export function projectCanonicalBubbles({ records }: ProjectionInput): ProjectionOutput {
   const groupedKeys = new Map<string, ChatMessage[]>();
   const passthrough: ChatMessage[] = [];
+  const streamIdsByBaseKey = new Map<string, Set<string>>();
 
   for (const r of records) {
-    const k = bubbleGroupKey(r);
+    if (r.origin !== 'stream' || !r.id) continue;
+    const baseKey = getBaseInvocationKey(r);
+    if (!baseKey) continue;
+    const ids = streamIdsByBaseKey.get(baseKey);
+    if (ids) ids.add(r.id);
+    else streamIdsByBaseKey.set(baseKey, new Set([r.id]));
+  }
+
+  for (const r of records) {
+    const k = bubbleGroupKey(r, streamIdsByBaseKey);
     if (!k) {
       passthrough.push(r);
       continue;
     }
-    const keyStr = `${k.catId}::${k.invocationId}`;
+    const keyStr = `${k.originBucket}::${k.catId}::${k.invocationId}`;
     const list = groupedKeys.get(keyStr);
     if (list) list.push(r);
     else groupedKeys.set(keyStr, [r]);

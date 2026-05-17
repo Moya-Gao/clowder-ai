@@ -70,7 +70,7 @@ describe('F194 Phase Z9 AC-Z27 — replay fixtures', () => {
     expect(sonnetBubble?.content).toContain('Windows 打包');
   });
 
-  it('F2 single turn multi-record: stream + tool + callback share same turnInvocationId → 1 bubble', () => {
+  it('F2 single turn multi-record: stream/tool share one bubble, callback post_message is separate', () => {
     // After Z9 backend stamp, all raw records of one visible cat-turn carry the
     // SAME turnInvocationId. Whether stream / tool execution / callback / rich
     // blocks — they all collapse to one bubble correctly.
@@ -116,15 +116,16 @@ describe('F194 Phase Z9 AC-Z27 — replay fixtures', () => {
       },
     ];
     const { messages } = projectCanonicalBubbles({ records });
-    expect(messages).toHaveLength(1);
-    const bubble = messages[0]!;
-    expect(bubble.catId).toBe('codex');
-    expect(bubble.origin).toBe('callback');
-    expect(bubble.content).toContain('streaming output');
-    expect(bubble.content).toContain('final callback output with conclusion');
-    expect(bubble.toolEvents?.length).toBe(1);
-    expect(bubble.toolEvents?.[0]?.id).toBe('tool-1');
-    expect(bubble.isStreaming).toBe(false);
+    expect(messages).toHaveLength(2);
+    const streamBubble = messages.find((m) => m.origin === 'stream')!;
+    const callbackBubble = messages.find((m) => m.origin === 'callback')!;
+    expect(streamBubble.catId).toBe('codex');
+    expect(streamBubble.content).toContain('streaming output');
+    expect(streamBubble.toolEvents?.length).toBe(1);
+    expect(streamBubble.toolEvents?.[0]?.id).toBe('tool-1');
+    expect(callbackBubble.catId).toBe('codex');
+    expect(callbackBubble.content).toContain('final callback output with conclusion');
+    expect(callbackBubble.isStreaming).toBe(false);
   });
 
   it('F3 legacy no turn: pre-Z9 records with parent-only → fallback to parent group key', () => {

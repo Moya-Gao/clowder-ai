@@ -497,15 +497,15 @@ describe('background thread socket handling', () => {
         timestamp: now + 3,
       });
 
-      // Z8 R3 (砚砚): bg defer drain 同 contract，concat。
+      // Z11 correction: stream work-log remains separate from callback post_message speech.
       const bgDeferMsgs = useChatStore.getState().getThreadState('thread-bg').messages;
-      expect(bgDeferMsgs).toHaveLength(1);
-      const m1 = bgDeferMsgs[0]!;
-      expect(m1.id).toBe('bg-callback-deferred');
-      expect(m1.origin).toBe('callback');
-      expect(m1.isStreaming).toBe(false);
-      expect(m1.content).toContain('stream head + late tail');
-      expect(m1.content).toContain('authoritative callback');
+      expect(bgDeferMsgs).toHaveLength(2);
+      const stream1 = bgDeferMsgs.find((m) => m.origin === 'stream')!;
+      const callback1 = bgDeferMsgs.find((m) => m.origin === 'callback')!;
+      expect(stream1.content).toContain('stream head + late tail');
+      expect(callback1.id).toBe('bg-callback-deferred');
+      expect(callback1.isStreaming).toBe(false);
+      expect(callback1.content).toContain('authoritative callback');
     });
 
     it('drains deferred background callback when that cat emits non-final done', () => {
@@ -541,15 +541,15 @@ describe('background thread socket handling', () => {
         timestamp: now + 2,
       });
 
-      // Z8 R3 (砚砚): non-final done drain 同 contract，concat。
+      // Z11 correction: stream work-log remains separate from callback post_message speech.
       const bgNonFinalMsgs = useChatStore.getState().getThreadState('thread-bg').messages;
-      expect(bgNonFinalMsgs).toHaveLength(1);
-      const m2 = bgNonFinalMsgs[0]!;
-      expect(m2.id).toBe('bg-callback-nonfinal-done');
-      expect(m2.origin).toBe('callback');
-      expect(m2.isStreaming).toBe(false);
-      expect(m2.content).toContain('stream head');
-      expect(m2.content).toContain('authoritative callback from opus');
+      expect(bgNonFinalMsgs).toHaveLength(2);
+      const stream2 = bgNonFinalMsgs.find((m) => m.origin === 'stream')!;
+      const callback2 = bgNonFinalMsgs.find((m) => m.origin === 'callback')!;
+      expect(stream2.content).toContain('stream head');
+      expect(callback2.id).toBe('bg-callback-nonfinal-done');
+      expect(callback2.isStreaming).toBe(false);
+      expect(callback2.content).toContain('authoritative callback from opus');
     });
 
     it('unlabeled background late chunk fails open after invocation gone — callback bubble preserved (砚砚 A.12)', () => {
@@ -2114,16 +2114,17 @@ describe('background thread socket handling', () => {
       });
 
       const ts = useChatStore.getState().getThreadState('thread-bg');
-      // Z8 R3 (砚砚): single bubble after collapse + concat (stream raw + callback content).
-      expect(ts.messages).toHaveLength(1);
-      const m3 = ts.messages[0]!;
-      expect(m3.id).toBe('bg-cb-canon-1');
-      expect(m3.catId).toBe('opus');
-      expect(m3.origin).toBe('callback');
-      expect(m3.isStreaming).toBe(false);
-      expect(m3.extra?.stream?.invocationId).toBe('inv-canon-1');
-      expect(m3.content).toContain('streaming...'); // pre-existing stream raw preserved
-      expect(m3.content).toContain('final canonical answer');
+      // Z11 correction: stream raw stays in the CLI bubble, callback speech gets its own bubble.
+      expect(ts.messages).toHaveLength(2);
+      const stream3 = ts.messages.find((m) => m.origin === 'stream')!;
+      const callback3 = ts.messages.find((m) => m.origin === 'callback')!;
+      expect(stream3.catId).toBe('opus');
+      expect(stream3.content).toContain('streaming...');
+      expect(callback3.id).toBe('bg-cb-canon-1');
+      expect(callback3.catId).toBe('opus');
+      expect(callback3.isStreaming).toBe(false);
+      expect(callback3.extra?.stream?.invocationId).toBe('inv-canon-1');
+      expect(callback3.content).toContain('final canonical answer');
     });
 
     it('bg callback with canonical invocationId without replacementTarget creates new bubble via reducer', () => {

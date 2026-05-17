@@ -56,16 +56,17 @@ describe('F194 Phase Z8 cloud R3 P1 — applyBubbleEventWithRecovery dual-id cal
       },
     });
 
-    // Z8 contract: projection collapses stream + callback into one canonical bubble.
     const bubbles = result.nextMessages.filter((m) => m.type === 'assistant');
-    expect(bubbles).toHaveLength(1);
-    const bubble = bubbles[0]!;
+    expect(bubbles).toHaveLength(2);
+    const streamBubble = bubbles.find((m) => m.origin === 'stream')!;
+    const callbackBubble = bubbles.find((m) => m.origin === 'callback')!;
 
-    // Both stream AND callback content must be present (concat by ts asc).
+    // Both stream AND callback content must be present, but as distinct bubbles:
+    // stream-origin is the CLI working log, callback-origin is post_message speech.
     // Pre-fix bug: stream content silently dropped (lookup mismatch → no synthetic
     // record appended → reducer's destructive overwrite wins).
-    expect(bubble.content).toContain('streaming progress that MUST be preserved');
-    expect(bubble.content).toContain('final callback message');
+    expect(streamBubble.content).toContain('streaming progress that MUST be preserved');
+    expect(callbackBubble.content).toContain('final callback message');
   });
 
   it('callback_final with legacy single-id stream row still preserves content (regression guard)', () => {
@@ -102,9 +103,67 @@ describe('F194 Phase Z8 cloud R3 P1 — applyBubbleEventWithRecovery dual-id cal
     });
 
     const bubbles = result.nextMessages.filter((m) => m.type === 'assistant');
-    expect(bubbles).toHaveLength(1);
-    const bubble = bubbles[0]!;
-    expect(bubble.content).toContain('legacy streaming content');
-    expect(bubble.content).toContain('legacy callback message');
+    expect(bubbles).toHaveLength(2);
+    expect(bubbles.find((m) => m.origin === 'stream')?.content).toContain('legacy streaming content');
+    expect(bubbles.find((m) => m.origin === 'callback')?.content).toContain('legacy callback message');
+  });
+
+  it('does not duplicate stream stdout when reducer already kept the stream raw record', () => {
+    // Z11 stores stream stdout separately for CLI Output rendering. The Z8
+    // callback recovery path still needs a synthetic stream only when the
+    // reducer overwrites the raw stream record. If callback_final appends a new
+    // callback bubble and keeps the original stream row, adding the synthetic
+    // row duplicates stdout in live state; F5 hydrate does not have that
+    // synthetic row, so the duplicate disappears after refresh.
+    const parentId = 'parent-live-z11';
+    const turnId = 'turn-live-z11';
+    const stdout = "砚砚 APPROVED at 050131ef5. Proceeding to merge-gate. You've hit your org's monthly usage limit";
+
+    const streamRecord: ChatMessage = {
+      id: 'msg-stream-z11-live',
+      type: 'assistant',
+      catId: 'opus',
+      content: stdout,
+      timestamp: 1000,
+      isStreaming: true,
+      origin: 'stream',
+      toolEvents: [
+        {
+          id: 'tool-z11-live',
+          type: 'tool_use',
+          label: 'command_execution',
+          timestamp: 1000,
+        },
+      ],
+      extra: { stream: { invocationId: parentId, turnInvocationId: turnId } },
+    };
+
+    const result = applyBubbleEventWithRecovery({
+      threadId: 'thread-z11-live',
+      currentMessages: [streamRecord],
+      event: {
+        type: 'callback_final',
+        threadId: 'thread-z11-live',
+        actorId: 'opus',
+        canonicalInvocationId: turnId,
+        chainInvocationId: parentId,
+        bubbleKind: 'assistant_text',
+        originPhase: 'callback/history',
+        sourcePath: 'callback',
+        // Different message id: reducer append path preserves the stream raw
+        // record, so recovery must not add another synthetic copy.
+        messageId: 'msg-callback-z11-live',
+        timestamp: 2000,
+        payload: { content: 'final callback message' },
+      },
+    });
+
+    const bubbles = result.nextMessages.filter((m) => m.type === 'assistant');
+    expect(bubbles).toHaveLength(2);
+    const streamBubble = bubbles.find((m) => m.origin === 'stream')!;
+    const callbackBubble = bubbles.find((m) => m.origin === 'callback')!;
+    expect(streamBubble.content).toBe(stdout);
+    expect(streamBubble.content.indexOf(stdout)).toBe(streamBubble.content.lastIndexOf(stdout));
+    expect(callbackBubble.content).toContain('final callback message');
   });
 });

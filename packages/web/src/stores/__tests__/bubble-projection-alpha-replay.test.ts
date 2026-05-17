@@ -6,8 +6,9 @@
  *
  * Fixture is the alpha thread `thread_moyfjyjc0662weit` opus invocation
  * `2fe279aa` (3 raw records: 2 stream + 1 callback). Pre-Z8 this scenario
- * showed 2-3 bubbles in live and 1 (or wrong content) in hydrate. Post-Z8 both
- * paths converge to the SAME bubble.
+ * showed different live and hydrate projections. Post-Z11 both paths converge
+ * to the same canonical list: stream work logs merge, callback post_message
+ * speech stays as its own bubble.
  */
 import { describe, expect, it } from 'vitest';
 import alphaThreeRecords from '../__fixtures__/z8-alpha-3-records.json';
@@ -77,7 +78,9 @@ describe('F194 Phase Z8 AC-Z23 — alpha replay regression (R12 root case)', () 
     expect(reducerCallbackBubble?.content).toBe('final callback message'); // pre-Z8 destructive path
     expect(reducerCallbackBubble?.content).not.toContain('streaming progress'); // confirmed lost
 
-    // Hydrate-equivalent projection (Z8 contract: project from raw stream + callback records)
+    // Hydrate-equivalent projection: project from raw stream + callback records.
+    // Exact-key callback_final has the same id as the stream record, so it is a terminal
+    // update for that stream bubble rather than a separate post_message speech bubble.
     const hydrateProjected = projectCanonicalBubbles({
       records: [
         streamRecord,
@@ -98,23 +101,22 @@ describe('F194 Phase Z8 AC-Z23 — alpha replay regression (R12 root case)', () 
     const hydrateBubble = hydrateProjected[0]!;
     expect(hydrateBubble.content).toContain('streaming progress that must not be lost'); // stream preserved
     expect(hydrateBubble.content).toContain('final callback message'); // callback preserved
-    expect(hydrateBubble.origin).toBe('callback');
     expect(hydrateBubble.isStreaming).toBe(false);
 
     // The wrapper integration MUST produce same as hydrate projection — verify via
     // direct usage in bubble-projection-alpha-replay-via-wrapper.test.ts (in useAgentMessages tests)
   });
 
-  it('alpha replay produces stable canonical id across reorderings (callback wins)', () => {
+  it('alpha replay produces stable canonical ids across reorderings', () => {
     const rawRecords = alphaThreeRecords as unknown as ChatMessage[];
     // Reverse order
     const reversed = [...rawRecords].reverse();
     const a = projectCanonicalBubbles({ records: rawRecords }).messages;
     const b = projectCanonicalBubbles({ records: reversed }).messages;
-    // Same canonical bubble regardless of input order
-    expect(a[0]!.id).toBe(b[0]!.id);
-    expect(a[0]!.content).toBe(b[0]!.content);
-    expect(a[0]!.origin).toBe(b[0]!.origin);
-    expect(a[0]!.toolEvents?.length).toBe(b[0]!.toolEvents?.length);
+    // Same canonical bubble list regardless of input order
+    expect(a.map((m) => m.id)).toEqual(b.map((m) => m.id));
+    expect(a.map((m) => m.content)).toEqual(b.map((m) => m.content));
+    expect(a.map((m) => m.origin)).toEqual(b.map((m) => m.origin));
+    expect(a.map((m) => m.toolEvents?.length ?? 0)).toEqual(b.map((m) => m.toolEvents?.length ?? 0));
   });
 });

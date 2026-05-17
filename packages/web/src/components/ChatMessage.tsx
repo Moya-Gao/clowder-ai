@@ -119,12 +119,11 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const direction = catData ? parseDirection(message, () => ({ toCat: getMentionToCat(), re: getMentionRe() })) : null;
 
   const isStreamOrigin = message.origin === 'stream';
-  // F194 Phase Z11 (铲屎官 R15): when projection merged a stream record + a
-  // post_message callback into one bubble (Z8 KD-27), origin becomes 'callback'
-  // and the CLI Output would lose its stdout. Projection exposes the origin-
-  // split portions on extra.stream so CLI Output behaves consistently whether
-  // or not there's a post_msg: CLI Output always shows the stream working log;
-  // the post_msg speech renders as the main body (see speechBody below).
+  // F194 Phase Z11 follow-up: ordinary post_msg speech is projected as a
+  // separate callback bubble, but exact-key callback_final records can still
+  // merge into the stream bubble as terminal updates. Projection exposes the
+  // origin-split portions on extra.stream so CLI Output keeps the stream
+  // working log while the callback terminal text renders as the body.
   const mergedCliStdout = message.extra?.stream?.cliStdout;
   const mergedSpeechContent = message.extra?.stream?.speechContent;
   const cliStdoutContent = mergedCliStdout ?? (isStreamOrigin ? message.content : undefined);
@@ -393,10 +392,9 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
             <ContentBlocks blocks={message.contentBlocks!} />
           ) : !isStreamOrigin && hasTextContent ? (
-            // F194 Phase Z11 (铲屎官 R15): in the merge case (stream + post_msg
-            // collapsed into one callback-origin bubble), the stream working log
-            // is already shown in the CLI Output block via cliStdout — render
-            // only the post_msg speech here to avoid duplicating the stream text.
+            // F194 Phase Z11 follow-up: exact-key terminal callback merge keeps
+            // the stream working log in CLI Output via cliStdout; render only
+            // callback text here to avoid duplicating the stream text.
             <CollapsibleMarkdown content={mergedSpeechContent ?? message.content} className={catStyle?.font} />
           ) : message.isStreaming ? (
             <span className="text-xs text-cafe-secondary">Thinking...</span>

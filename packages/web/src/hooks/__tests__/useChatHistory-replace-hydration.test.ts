@@ -920,19 +920,16 @@ describe('useChatHistory replace hydration', () => {
       hasMore: false,
     });
 
-    // F194 Phase Z8 (KD-27 + 砚砚 R1 OQ-1): hydrate writer boundary projection
-    // collapses (catId='opus', invocationId='inv-dual') into ONE canonical bubble.
-    // Per Z8 contract: callback record wins canonical id, content concat by ts asc.
-    // Local placeholder still reconciled away (phase priority drops local).
-    // Original cloud P1 invariant — "later callback wins over earlier stream" — is
-    // preserved through projection canonical-id rule (callbackRecord.id wins).
-    expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['b1', 'server-callback-X']);
+    // Z11 correction: hydrate keeps stream work-log and callback post_message as separate bubbles.
+    // Local placeholder is still reconciled away (phase priority drops local).
+    expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['b1', 'server-stream-X', 'server-callback-X']);
     expect(useChatStore.getState().messages.find((m) => m.id === 'live-stream-X')).toBeUndefined();
-    const collapsed = useChatStore.getState().messages.find((m) => m.id === 'server-callback-X');
-    // Z8 projection: origin = callback, content includes both stream and callback segments
-    expect(collapsed?.origin).toBe('callback');
-    expect(collapsed?.content).toContain('thin'); // earlier stream content preserved
-    expect(collapsed?.content).toContain('final callback answer');
+    const stream = useChatStore.getState().messages.find((m) => m.id === 'server-stream-X');
+    const callback = useChatStore.getState().messages.find((m) => m.id === 'server-callback-X');
+    expect(stream?.origin).toBe('stream');
+    expect(stream?.content).toContain('thin');
+    expect(callback?.origin).toBe('callback');
+    expect(callback?.content).toContain('final callback answer');
   });
 
   it('preserves local blob URLs when a kept stream bubble survives replace hydration', async () => {

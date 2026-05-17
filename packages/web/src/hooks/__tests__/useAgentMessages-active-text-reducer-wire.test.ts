@@ -468,17 +468,17 @@ describe('F183 Phase B1.2.2 — active text stream wire-up to reducer', () => {
       });
     });
 
-    // Z8 R3 (砚砚): callback collapse + concat. content includes pre-existing stream raw + callback raw.
+    // Z11 correction: stream work-log and callback speech are separate bubbles.
     expect(mockReplaceMessages).toHaveBeenCalled();
     const lastCall = mockReplaceMessages.mock.calls[mockReplaceMessages.mock.calls.length - 1];
     const nextMessages = lastCall[0] as ChatMessage[];
-    expect(nextMessages).toHaveLength(1);
-    const merged = nextMessages[0]!;
-    expect(merged.id).toBe('msg-inv-cb-1-codex');
-    expect(merged.origin).toBe('callback');
-    expect(merged.isStreaming).toBe(false);
-    expect(merged.content).toContain('streaming...'); // stream raw preserved
-    expect(merged.content).toContain('final answer'); // callback content
+    expect(nextMessages).toHaveLength(2);
+    const stream = nextMessages.find((m) => m.origin === 'stream')!;
+    const callback = nextMessages.find((m) => m.origin === 'callback')!;
+    expect(stream.content).toContain('streaming...'); // stream raw preserved
+    expect(callback.id).toBe('msg-inv-cb-1-codex');
+    expect(callback.isStreaming).toBe(false);
+    expect(callback.content).toContain('final answer'); // callback content
     // legacy patchMessage(content/origin/isStreaming) MUST NOT be invoked
     const contentPatchCalls = mockPatchMessage.mock.calls.filter(
       (c) => c[1]?.content !== undefined || c[1]?.origin !== undefined || c[1]?.isStreaming !== undefined,

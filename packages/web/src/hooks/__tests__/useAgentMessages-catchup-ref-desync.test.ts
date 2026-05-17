@@ -450,17 +450,14 @@ describe('useAgentMessages catch-up ref desync (#266 Round 2)', () => {
       });
     });
 
-    // F194 Phase Z8 (R3 verdict by 砚砚): callback collapse + stream content concat.
-    // Z8 contract: 1 bubble per (catId, invocationId), callback wins canonical id +
-    // origin, content = stream content (preserved as raw fact) + callback content.
-    // No "callback supersede stream" special case — concat is the contract.
-    expect(storeState.messages).toHaveLength(1);
-    const finalBubble = storeState.messages[0]!;
+    // Z11 correction: callback post_message speech must not swallow stream work-log content.
+    expect(storeState.messages).toHaveLength(2);
+    const streamBubble = storeState.messages.find((m) => m.origin === 'stream')!;
+    const finalBubble = storeState.messages.find((m) => m.origin === 'callback')!;
+    expect(streamBubble.content).toContain('stream head + late stream tail');
     expect(finalBubble.id).toBe('callback-race-final');
     expect(finalBubble.catId).toBe('opus');
-    expect(finalBubble.origin).toBe('callback');
     expect(finalBubble.isStreaming).toBe(false);
-    expect(finalBubble.content).toContain('stream head + late stream tail');
     expect(finalBubble.content).toContain('authoritative callback');
   });
 
@@ -513,14 +510,14 @@ describe('useAgentMessages catch-up ref desync (#266 Round 2)', () => {
       });
     });
 
-    // Z8 R3 (砚砚): callback collapse + concat. content includes stream raw + callback raw.
-    expect(storeState.messages).toHaveLength(1);
-    const merged = storeState.messages[0]!;
+    // Z11 correction: stream work-log and callback speech are separate bubbles.
+    expect(storeState.messages).toHaveLength(2);
+    const mergedStream = storeState.messages.find((m) => m.origin === 'stream')!;
+    const merged = storeState.messages.find((m) => m.origin === 'callback')!;
     expect(merged.id).toBe('callback-text-final');
-    expect(merged.origin).toBe('callback');
     expect(merged.isStreaming).toBe(false);
-    expect(merged.content).toContain('stream head');
-    expect(merged.content).toContain('terminal stream tail');
+    expect(mergedStream.content).toContain('stream head');
+    expect(mergedStream.content).toContain('terminal stream tail');
     expect(merged.content).toContain('authoritative callback after text final');
   });
 
@@ -564,17 +561,16 @@ describe('useAgentMessages catch-up ref desync (#266 Round 2)', () => {
       });
     });
 
-    // Z8 R3 (砚砚): empty terminal stream chunk should not add empty content segment;
-    // bubble has stream head + callback content, no extra blank.
-    expect(storeState.messages).toHaveLength(1);
-    const merged2 = storeState.messages[0]!;
+    // Z11 correction: empty terminal stream chunk should not add empty content segment.
+    expect(storeState.messages).toHaveLength(2);
+    const stream2 = storeState.messages.find((m) => m.origin === 'stream')!;
+    const merged2 = storeState.messages.find((m) => m.origin === 'callback')!;
     expect(merged2.id).toBe('callback-text-final-empty');
-    expect(merged2.origin).toBe('callback');
     expect(merged2.isStreaming).toBe(false);
-    expect(merged2.content).toContain('stream head');
+    expect(stream2.content).toContain('stream head');
     expect(merged2.content).toContain('authoritative callback after empty text final');
     // No double-blank pollution
-    expect(merged2.content).not.toMatch(/\n\n\n/);
+    expect(stream2.content).not.toMatch(/\n\n\n/);
   });
 
   it('drains deferred callback on timeout when terminal done is missing', () => {
@@ -620,13 +616,13 @@ describe('useAgentMessages catch-up ref desync (#266 Round 2)', () => {
         vi.advanceTimersByTime(5 * 60 * 1000);
       });
 
-      // Z8 R3 (砚砚): timeout drain 同 contract，concat。
-      expect(storeState.messages).toHaveLength(1);
-      const merged3 = storeState.messages[0]!;
+      // Z11 correction: timeout drain preserves stream and callback as separate bubbles.
+      expect(storeState.messages).toHaveLength(2);
+      const stream3 = storeState.messages.find((m) => m.origin === 'stream')!;
+      const merged3 = storeState.messages.find((m) => m.origin === 'callback')!;
       expect(merged3.id).toBe('callback-timeout-final');
-      expect(merged3.origin).toBe('callback');
       expect(merged3.isStreaming).toBe(false);
-      expect(merged3.content).toContain('stale stream text');
+      expect(stream3.content).toContain('stale stream text');
       expect(merged3.content).toContain('authoritative callback after missing done');
       expect(mockRequestStreamCatchUp).toHaveBeenCalledWith('thread-1');
     } finally {
@@ -677,14 +673,14 @@ describe('useAgentMessages catch-up ref desync (#266 Round 2)', () => {
         vi.advanceTimersByTime(5 * 60 * 1000);
       });
 
-      // Z8 R3 (砚砚): bg timeout drain 同 contract，concat。
+      // Z11 correction: bg timeout drain preserves stream and callback as separate bubbles.
       const bgMsgs = threadMessages.get('thread-bg') ?? [];
-      expect(bgMsgs).toHaveLength(1);
-      const merged4 = bgMsgs[0]!;
+      expect(bgMsgs).toHaveLength(2);
+      const stream4 = bgMsgs.find((m) => m.origin === 'stream')!;
+      const merged4 = bgMsgs.find((m) => m.origin === 'callback')!;
       expect(merged4.id).toBe('bg-callback-timeout-final');
-      expect(merged4.origin).toBe('callback');
       expect(merged4.isStreaming).toBe(false);
-      expect(merged4.content).toContain('background stream head');
+      expect(stream4.content).toContain('background stream head');
       expect(merged4.content).toContain('authoritative background callback after missing terminal');
       expect(mockRequestStreamCatchUp).toHaveBeenCalledWith('thread-bg');
     } finally {
@@ -956,14 +952,14 @@ describe('useAgentMessages catch-up ref desync (#266 Round 2)', () => {
       });
     });
 
-    // Z8 R3 (砚砚): bg drain 同 contract，concat。
+    // Z11 correction: bg drain preserves stream and callback as separate bubbles.
     const bgResetMsgs = threadMessages.get('thread-bg') ?? [];
-    expect(bgResetMsgs).toHaveLength(1);
-    const merged6 = bgResetMsgs[0]!;
+    expect(bgResetMsgs).toHaveLength(2);
+    const stream6 = bgResetMsgs.find((m) => m.origin === 'stream')!;
+    const merged6 = bgResetMsgs.find((m) => m.origin === 'callback')!;
     expect(merged6.id).toBe('bg-callback-reset');
-    expect(merged6.origin).toBe('callback');
     expect(merged6.isStreaming).toBe(false);
-    expect(merged6.content).toContain('background stream head');
+    expect(stream6.content).toContain('background stream head');
     expect(merged6.content).toContain('authoritative background callback');
   });
 
@@ -1015,13 +1011,13 @@ describe('useAgentMessages catch-up ref desync (#266 Round 2)', () => {
       });
     });
 
-    // Z8 R3 (砚砚): thread switch + drain 同 contract，concat。
-    expect(storeState.messages).toHaveLength(1);
-    const merged5 = storeState.messages[0]!;
+    // Z11 correction: thread switch + drain preserves stream and callback as separate bubbles.
+    expect(storeState.messages).toHaveLength(2);
+    const stream5 = storeState.messages.find((m) => m.origin === 'stream')!;
+    const merged5 = storeState.messages.find((m) => m.origin === 'callback')!;
     expect(merged5.id).toBe('bg-callback-current-reset');
-    expect(merged5.origin).toBe('callback');
     expect(merged5.isStreaming).toBe(false);
-    expect(merged5.content).toContain('background stream before switch');
+    expect(stream5.content).toContain('background stream before switch');
     expect(merged5.content).toContain('authoritative callback after switch');
   });
 });

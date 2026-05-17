@@ -4,33 +4,30 @@ import { projectCanonicalBubbles } from '../bubble-projection';
 import type { ChatMessage } from '../chat-types';
 
 describe('F194 Phase Z8 — projectCanonicalBubbles (AC-Z20)', () => {
-  it('AC-Z20 alpha replay: 3 raw records sharing invocationId → 1 canonical bubble (R12 root case)', () => {
+  it('AC-Z20/Z11 alpha replay: stream records merge, callback post_message remains its own bubble', () => {
     // Source: thread_moyfjyjc0662weit opus invocation 2fe279aa
     // 2 stream + 1 callback, 3 distinct content segments, all sharing invocationId.
     // Phase Z1-Z7 reducer/hydrate paths produced 2-3 separate bubbles depending on path.
-    // Z8 contract: 1 bubble per (catId, invocationId), content concatenated by ts asc,
-    // toolEvents deduped, isStreaming true if any record streaming.
+    // Z11 correction: stream-origin work logs share one CLI bubble; callback-origin
+    // post_message speech is a separate bubble even when it shares the same invocation.
     const records = alphaThreeRecords as unknown as ChatMessage[];
     expect(records).toHaveLength(3);
 
     const { messages } = projectCanonicalBubbles({ records });
 
-    expect(messages).toHaveLength(1);
-    const bubble = messages[0]!;
-    expect(bubble.type).toBe('assistant');
-    expect(bubble.catId).toBe('opus');
-    // origin = callback wins when any record is callback
-    expect(bubble.origin).toBe('callback');
-    // canonical id = callback record id (server-canonical)
-    expect(bubble.id).toBe('0001778468150545-000021-b0d93885');
-    // content concat by ts asc — all 3 segments present, separated by '\n\n'
-    expect(bubble.content).toContain('好，铲屎官同意了'); // first stream
-    expect(bubble.content).toContain('砚砚三个 findings 全对'); // second stream
-    expect(bubble.content).toContain('@codex 砚砚'); // callback
+    expect(messages).toHaveLength(2);
+    const streamBubble = messages.find((m) => m.origin === 'stream')!;
+    const callbackBubble = messages.find((m) => m.origin === 'callback')!;
+    expect(streamBubble.type).toBe('assistant');
+    expect(streamBubble.catId).toBe('opus');
+    expect(streamBubble.content).toContain('好，铲屎官同意了'); // first stream
+    expect(streamBubble.content).toContain('砚砚三个 findings 全对'); // second stream
+    expect(callbackBubble.id).toBe('0001778468150545-000021-b0d93885');
+    expect(callbackBubble.content).toContain('@codex 砚砚');
     // toolEvents deduped — first record has 5 tools, second has 16 tools (different ids)
-    expect(bubble.toolEvents?.length).toBeGreaterThan(0);
+    expect(streamBubble.toolEvents?.length).toBeGreaterThan(0);
     // stream identity preserved for downstream dedupe
-    expect(bubble.extra?.stream?.invocationId).toBe('2fe279aa-255c-4d22-b3e7-a3e718c3b52e');
+    expect(streamBubble.extra?.stream?.invocationId).toBe('2fe279aa-255c-4d22-b3e7-a3e718c3b52e');
   });
 
   it('passes through user/system messages unchanged', () => {
@@ -105,8 +102,7 @@ describe('F194 Phase Z8 — projectCanonicalBubbles (AC-Z20)', () => {
     expect(messages[0]!.isStreaming).toBe(false);
   });
 
-  it('R1 P1#1 (砚砚): callback record forces isStreaming = false (terminal)', () => {
-    // Even if other records are streaming, callback origin = cat finalize = bubble done.
+  it('R1 P1#1/Z11: callback speech is terminal without finalizing the separate stream bubble', () => {
     const records: ChatMessage[] = [
       {
         id: 'a1',
@@ -128,9 +124,11 @@ describe('F194 Phase Z8 — projectCanonicalBubbles (AC-Z20)', () => {
       },
     ];
     const { messages } = projectCanonicalBubbles({ records });
-    expect(messages).toHaveLength(1);
-    expect(messages[0]!.isStreaming).toBe(false);
-    expect(messages[0]!.origin).toBe('callback');
+    expect(messages).toHaveLength(2);
+    const callbackBubble = messages.find((m) => m.origin === 'callback')!;
+    const streamBubble = messages.find((m) => m.origin === 'stream')!;
+    expect(callbackBubble.isStreaming).toBe(false);
+    expect(streamBubble.isStreaming).toBe(true);
   });
 
   it('cloud R2 P2 (codex): projection merges contentBlocks across records (image/structured preserved)', () => {
@@ -161,12 +159,13 @@ describe('F194 Phase Z8 — projectCanonicalBubbles (AC-Z20)', () => {
       },
     ];
     const { messages } = projectCanonicalBubbles({ records });
-    expect(messages).toHaveLength(1);
-    const m = messages[0]!;
-    expect(m.contentBlocks).toHaveLength(1);
-    expect(m.contentBlocks?.[0]).toMatchObject({ type: 'image', url: 'https://x/y.png' });
-    expect(m.content).toContain('here is an image');
-    expect(m.content).toContain('final commentary');
+    expect(messages).toHaveLength(2);
+    const streamBubble = messages.find((m) => m.origin === 'stream')!;
+    const callbackBubble = messages.find((m) => m.origin === 'callback')!;
+    expect(streamBubble.contentBlocks).toHaveLength(1);
+    expect(streamBubble.contentBlocks?.[0]).toMatchObject({ type: 'image', url: 'https://x/y.png' });
+    expect(streamBubble.content).toContain('here is an image');
+    expect(callbackBubble.content).toContain('final commentary');
   });
 
   it('cloud R1 P1 (codex): projection preserves metadata/replyTo/replyPreview/visibility/etc from canonical record', () => {
@@ -205,8 +204,8 @@ describe('F194 Phase Z8 — projectCanonicalBubbles (AC-Z20)', () => {
       },
     ];
     const { messages } = projectCanonicalBubbles({ records });
-    expect(messages).toHaveLength(1);
-    const m = messages[0]!;
+    expect(messages).toHaveLength(2);
+    const m = messages.find((msg) => msg.origin === 'callback')!;
     expect(m.id).toBe('callback-b');
     expect(m.metadata).toEqual({ provider: 'anthropic', model: 'opus-4' });
     expect(m.replyTo).toBe('msg-replied-to');
@@ -216,10 +215,10 @@ describe('F194 Phase Z8 — projectCanonicalBubbles (AC-Z20)', () => {
     expect(m.revealedAt).toBe(999);
     expect(m.deliveredAt).toBe(250);
     expect(m.mentionsUser).toBe(true);
-    // Content concat + canonical origin still work
-    expect(m.content).toContain('streaming');
+    // Callback fields are preserved without swallowing the stream work-log bubble.
     expect(m.content).toContain('final');
     expect(m.origin).toBe('callback');
+    expect(messages.find((msg) => msg.origin === 'stream')?.content).toContain('streaming');
   });
 
   it('isStreaming = true when only streaming records exist (single-record streaming case)', () => {

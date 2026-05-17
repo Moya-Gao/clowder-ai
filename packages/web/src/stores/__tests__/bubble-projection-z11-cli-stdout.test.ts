@@ -7,18 +7,18 @@
  * (callback-origin) bubble's CLI Output loses its stdout — only tools remain.
  * 铲屎官 wants CLI Output behavior IDENTICAL whether or not there's a post_msg.
  *
- * Fix (chosen option A — keep Z8 merge, restore consistency): projection exposes
- *   - extra.stream.cliStdout: stream-origin content portion (→ CLI Output stdout)
- *   - extra.stream.speechContent: callback-origin content portion (→ main body)
- * ONLY when a group has BOTH stream and callback records. content concat stays
- * unchanged so R12/R13/search/hydrate are untouched.
+ * Z11 initial fix kept Z8 merge and exposed cliStdout/speechContent. Runtime
+ * evidence later showed this still violates the user's expected model:
+ * post_message speech is its own bubble, while stream-origin CLI work logs stay
+ * in the CLI bubble. Projection must therefore split callback-origin speech
+ * records from stream-origin work-log records even when they share the same turn.
  */
 import { describe, expect, it } from 'vitest';
 import { projectCanonicalBubbles } from '../bubble-projection';
 import type { ChatMessage } from '../chat-types';
 
-describe('F194 Phase Z11 — projection exposes cliStdout + speechContent on merge (AC-Z29)', () => {
-  it('stream + callback same turn → merged bubble carries cliStdout (stream) + speechContent (callback)', () => {
+describe('F194 Phase Z11 — projection keeps post_message speech separate from CLI work logs (AC-Z29)', () => {
+  it('stream + callback same turn → two bubbles: CLI work log + post_message speech', () => {
     const parent = 'inv-z11-parent';
     const turn = 'turn-z11';
     const records: ChatMessage[] = [
@@ -46,18 +46,17 @@ describe('F194 Phase Z11 — projection exposes cliStdout + speechContent on mer
     ];
 
     const { messages } = projectCanonicalBubbles({ records });
-    expect(messages).toHaveLength(1);
-    const b = messages[0]!;
-    expect(b.origin).toBe('callback');
-    // content concat unchanged (R12/R13/search/hydrate contract preserved)
-    expect(b.content).toContain('Confirmed — branch at 47c91e45c');
-    expect(b.content).toContain('@codex Review continuity confirmed');
-    // Z11: stream portion exposed for CLI Output stdout
-    expect(b.extra?.stream?.cliStdout).toBe('Confirmed — branch at 47c91e45c, single fix commit');
-    // Z11: callback portion exposed for main body (the post_msg speech)
-    expect(b.extra?.stream?.speechContent).toBe('@codex Review continuity confirmed to 47c91e45 — APPROVE.');
-    // tools preserved
-    expect(b.toolEvents?.length).toBe(1);
+    expect(messages).toHaveLength(2);
+    const streamBubble = messages[0]!;
+    const callbackBubble = messages[1]!;
+    expect(streamBubble.origin).toBe('stream');
+    expect(streamBubble.content).toBe('Confirmed — branch at 47c91e45c, single fix commit');
+    expect(streamBubble.toolEvents?.length).toBe(1);
+    expect(streamBubble.extra?.stream?.cliStdout).toBeUndefined();
+    expect(streamBubble.extra?.stream?.speechContent).toBeUndefined();
+    expect(callbackBubble.origin).toBe('callback');
+    expect(callbackBubble.content).toBe('@codex Review continuity confirmed to 47c91e45 — APPROVE.');
+    expect(callbackBubble.toolEvents).toBeUndefined();
   });
 
   it('pure stream (no callback) → cliStdout/speechContent NOT set (rendering unchanged)', () => {
@@ -101,7 +100,7 @@ describe('F194 Phase Z11 — projection exposes cliStdout + speechContent on mer
     expect(messages[0]!.extra?.stream?.speechContent).toBeUndefined();
   });
 
-  it('multiple stream records + callback → cliStdout concats all stream parts', () => {
+  it('multiple stream records + callback → stream parts merge, callback remains separate', () => {
     const parent = 'inv-multi';
     const turn = 'turn-multi';
     const records: ChatMessage[] = [
@@ -134,8 +133,10 @@ describe('F194 Phase Z11 — projection exposes cliStdout + speechContent on mer
       },
     ];
     const { messages } = projectCanonicalBubbles({ records });
-    expect(messages).toHaveLength(1);
-    expect(messages[0]!.extra?.stream?.cliStdout).toBe('first stream chunk\n\nsecond stream chunk');
-    expect(messages[0]!.extra?.stream?.speechContent).toBe('final speech');
+    expect(messages).toHaveLength(2);
+    expect(messages[0]!.origin).toBe('stream');
+    expect(messages[0]!.content).toBe('first stream chunk\n\nsecond stream chunk');
+    expect(messages[1]!.origin).toBe('callback');
+    expect(messages[1]!.content).toBe('final speech');
   });
 });
