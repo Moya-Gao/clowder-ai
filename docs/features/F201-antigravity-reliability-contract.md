@@ -37,7 +37,7 @@ Map delta: none — F201 收口 Antigravity provider/retry/recovery 契约，并
 
 铲屎官要求把三件事讲成人话并拍板，Phase F 按以下决议落地：
 
-1. **任务进度记在哪里**：新增 Antigravity 专属 durable supervisor read model（Redis，TTL=0）作为恢复真相源；JSONL 只做审计黑匣子；F194 invocation liveness 只消费摘要投影，不承载 provider-specific 的 cascade / side-effect / executor receipt 细节。
+1. **任务进度记在哪里**：新增 Antigravity 专属 durable supervisor read model（Redis，TTL=0）作为长任务断点/恢复真相源；JSONL 只做审计黑匣子；F194 invocation liveness 只消费摘要投影，不承载 provider-specific 的 cascade / executor receipt 细节。side-effect 状态仍以 Phase B `AntigravitySideEffectJournal` 为唯一真相源，supervisor 只持久化 journal summary snapshot + recovery strategy，不重新分类或平行维护第二套 side-effect journal。
 2. **心跳如何判断“慢但活”**：heartbeat 必须由真实 liveness evidence 支撑，不能靠“每 60 秒假装发一句”。证据包括：本地工具 pid/log/exit 仍活跃、trajectory step/partial text 有增长或 mutation、awaiting approval 明确存在、LS/RPC 可重连且能拉到新状态。没有证据时不续命，进入 probe / recovery。
 3. **什么时候自动 resume**：不是“只有 journal 全 done 才能自动续”，而是按 side-effect 可逆性 / 可探测性 / 可去重分级。只读、sandbox/sentinel、owned worktree、可 probe 且可去重的动作可自动续；pending/unknown 经过 probe 能归类安全后也可自动续；不可探测、外部不可逆、权限/发布/force-push/Redis 6399/不受控删除等动作必须 surface recovery card 等人工确认。
 
@@ -156,9 +156,9 @@ F201 关闭时，Antigravity 必须满足以下契约：
 - [ ] AC-G1（root cause 修复）: `stallProbed` 不再“持续无交付时全局仅一次”。stall probe 配额改为有界多次（≥2，指数退避），每次 probe 前判 liveness——“慢但活”不消耗配额，仅“真死”消耗。回归测试：模拟持续无 `deliveryAdvanced` 但上游仍 alive，断言不在第二个 idle 窗口直接 terminal。
 - [ ] AC-G2（liveness 信号）: poll loop 引入 cascade liveness 判据，区分“慢但活”与“真死”。“慢但活”必须有证据：planner partial text 增长 / step mutation / pending tool or approval / native executor pid 或 log 更新 / LS-RPC 可重连且 trajectory timestamp 推进。idle stall timeout 只对“完全静止 + 无 pending + 无 executor evidence”的真死触发；liveness 摘要与 F194 invocation liveness 对齐，不新建并行 UI 真相源。
 - [ ] AC-G3（heartbeat 防 idle）: 长 tool / 长等待执行期，bridge 层有 keepalive 机制防 upstream idle 断流；upstream 是否接受 injected planner step 必须先用真实 Antigravity spike 验证，不接受则降级为 trajectory re-pull 探针保活。
-- [ ] AC-G4（durable supervisor）: 存在 Antigravity 专属 Redis supervisor record（TTL=0）持久记录 threadId / catId / invocationId / cascadeId / status / last observed step / last trajectory timestamp / native executor evidence / confirmed side effect / pending-or-unknown side effect / receipt state / recovery strategy / resume attempt count。JSONL 继续做 append-only audit；F194 只接收摘要投影。`STOP_REASON_CLIENT_STREAM_ERROR` 或 stream 断不立即判死——先重拉 trajectory + 重 attach LS + 查 executor 回执再决策。
+- [ ] AC-G4（durable supervisor）: 存在 Antigravity 专属 Redis supervisor record（TTL=0）持久记录 threadId / catId / invocationId / cascadeId / status / last observed step / last trajectory timestamp / native executor evidence / journal summary snapshot / receipt state / recovery strategy / resume attempt count。side-effect 状态以 Phase B `AntigravitySideEffectJournal` 为唯一真相源；supervisor 只持久化 journal 派生摘要，不重新分类 side effect、不平行维护第二套 journal。JSONL 继续做 append-only audit；F194 只接收摘要投影。`STOP_REASON_CLIENT_STREAM_ERROR` 或 stream 断不立即判死——先重拉 trajectory + 重 attach LS + 查 executor 回执再决策。
 - [ ] AC-G5（回执冲突分流）: native executor success 但 trajectory 标 ERROR 的竞态标为 `receipt_conflict`，不当简单失败。恢复按 side-effect 分流：无副作用→可重试/重放；已确认→continuation prompt；未知→probe（`git worktree list` / `git branch` / 文件存在性）后再决策；冲突→标记 + resumable card。
-- [ ] AC-G6（自动 resume）: 自动续跑按 effect tier 分级，而不是只看 journal 是否全 `done`。Tier 1 只读 / build / test / lint 可自动续；Tier 2 owned sandbox / sentinel / worktree / branch 等可 probe 且可去重的动作，probe 清楚后可自动续；Tier 3 覆盖已有业务文件、修改共享状态、GitHub 写操作、跨 thread 发消息等默认 surface card；Tier 4 force push / merge PR / close issue or PR / release publish / Redis 6399 / credential or permission mutation / 不受控删除等永不自动续。自动续跑必须注入 Phase C `resumeContext`，且同一原始 invocation 设置 resume attempt 上限防循环。
+- [ ] AC-G6（自动 resume）: 自动续跑按 effect tier 分级，而不是只看 journal 是否全 `done`。tier 判定只读取 Phase B journal summary + deterministic probe 结果；不能证明归类时必须 fail-closed，默认进入最高风险/人工确认路径，绝不向 Tier 1/2 自动续跑 fall-through。Tier 1 只读 / build / test / lint 可自动续；Tier 2 owned sandbox / sentinel / worktree / branch 等可 probe 且可去重的动作，probe 清楚后可自动续；Tier 3 覆盖已有业务文件、修改共享状态、GitHub 写操作、跨 thread 发消息等默认 surface card；Tier 4 force push / merge PR / close issue or PR / release publish / Redis 6399 / credential or permission mutation / 不受控删除等永不自动续。自动续跑必须注入 Phase C `resumeContext`，且同一原始 invocation 设置 resume attempt 上限防循环。
 - [ ] AC-G7（受控 YOLO）: YOLO 消除“等审批 idle”一类——受控（命令白/黑名单、root delete / Redis 6399 / fork bomb hard-refuse、side-effect journal 全覆盖、超时 + 审计）。spec 明确 YOLO 不解决上游慢/断；可靠性方案不以 YOLO 为主线。
 - [ ] AC-G8（端到端验收）: 睡前交代长任务，第二天结果不能只剩 `STOP_REASON_CLIENT_STREAM_ERROR`——最差留结构化断点（completed/pending + continue-safely 动作），最好 supervisor 自动续完。需真实 Antigravity alpha + 铲屎官参与（与 AC-C2/C3 live matrix、AC-F3 合并验收）。
 
@@ -208,7 +208,7 @@ F201 关闭时，Antigravity 必须满足以下契约：
 
 > 三猫头脑风暴收敛（2026-05-17）：47 root cause（`stallProbed` 一次性）、砚砚 supervisor 四层 + 回执冲突现场证据、46 三层超时表 + heartbeat ROI。
 
-- **Design Gate 决议已拍（2026-05-17）**：supervisor 落 Antigravity 专属 Redis read model + JSONL audit + F194 摘要投影；heartbeat 先做真实 Antigravity spike，禁止未验证的 fake planner 注入；自动 resume 按 side-effect 可逆性 / 可探测性 / 可去重分级。
+- **Design Gate 决议已拍（2026-05-17）**：supervisor 落 Antigravity 专属 Redis read model + JSONL audit + F194 摘要投影；side-effect 状态只从 Phase B journal 派生，不建第二套真相源；heartbeat 先做真实 Antigravity spike，禁止未验证的 fake planner 注入；自动 resume 按 side-effect 可逆性 / 可探测性 / 可去重分级，无法分类时 fail-closed。
 - 修 root cause：`stallProbed` 复位逻辑 + liveness 信号（AC-G1/G2）。
 - durable task supervisor + 回执冲突分流（AC-G4/G5）。
 - 长执行期 heartbeat 防 idle（AC-G3，先 spike 验 upstream 兼容）。
@@ -231,9 +231,9 @@ F201 关闭时，Antigravity 必须满足以下契约：
 | OQ-3 | post-side-effect interruption 是否允许自动 resume？ | ✅ Superseded by OQ-8 Phase F Design Gate：不再用“有 side effect 就默认不自动”的粗粒度规则，改为按 side-effect 可逆性 / 可探测性 / 可去重分级；不可探测或外部不可逆仍必须人工确认。 |
 | OQ-4 | smoke 是否可以写真实 docs 路径？ | 不可以。必须写 sentinel sandbox，除非用户明确指定现场复现。当前留下的 `_test-write-capability.md` 只作为事故证据，不作为常规 smoke。 |
 | OQ-5 | F178 Phase D 是否并入 F201？ | 不并入。F178 Phase D 是 agent-key inventory/audit，F201 只消费其结果并在 close gate 检查依赖状态。 |
-| OQ-6 | durable supervisor 状态落哪？ | ✅ Design Gate 决议（2026-05-17）：Antigravity 专属 Redis supervisor record（TTL=0）作为恢复真相源；JSONL 为审计；F194 只接摘要投影，不承载 provider-specific 细节。 |
+| OQ-6 | durable supervisor 状态落哪？ | ✅ Design Gate 决议（2026-05-17）：Antigravity 专属 Redis supervisor record（TTL=0）作为长任务断点/恢复真相源；JSONL 为审计；F194 只接摘要投影，不承载 provider-specific 细节。side-effect 状态仍以 Phase B journal 为唯一真相源，supervisor 只存 journal summary snapshot + recovery strategy。 |
 | OQ-7 | heartbeat 注入 planner step 上游是否接受？ | ✅ Design Gate 决议：先用真实 Antigravity spike 验证，不默认注入 fake planner step；heartbeat 必须有真实 liveness evidence，上游不接受则降级为 trajectory re-pull + supervisor resume。 |
-| OQ-8 | 自动 resume 的边界？ | ✅ Design Gate 决议：按 side-effect 可逆性 / 可探测性 / 可去重分级；只读、owned sandbox、可 probe 的动作可自动续；不可探测、外部不可逆、权限/发布/force-push/Redis 6399/不受控删除等必须人工确认。 |
+| OQ-8 | 自动 resume 的边界？ | ✅ Design Gate 决议：按 side-effect 可逆性 / 可探测性 / 可去重分级；只读、owned sandbox、可 probe 的动作可自动续；不可探测、外部不可逆、权限/发布/force-push/Redis 6399/不受控删除等必须人工确认。无法分类的动作默认最高风险档，fail-closed，绝不自动续跑。 |
 
 ## Timeline
 
@@ -248,3 +248,4 @@ F201 关闭时，Antigravity 必须满足以下契约：
 | 2026-05-16 | Phase E merged (PR #1707, squash `209e707a`): post-side-effect stream error now surfaces a typed recovery `rich_block` card before the enriched error, with completed/pending actions, suggested next step, diagnostic ID, and copy-diagnostic action；cloud Codex LGTM。 |
 | 2026-05-17 | **三猫头脑风暴 + CVO 拍板**：铲屎官报告长任务“等东西就挂”。47 定位 root cause（`stallProbed` 仅 `deliveryAdvanced` 复位 → 持续无交付只一次 probe → 60s+60s 必 terminal）；砚砚补现场证据（native-success → trajectory-ERROR → STREAM_ERROR 状态机崩 + durable supervisor 四层方案）；46 补三层超时表 + heartbeat ROI。CVO 拍板“没解决 = F201 未完成”。新增 **Phase F: Long-Task Liveness & Durable Supervisor**（AC-G1~G8），原 Close Gate 顺延 Phase G，AC-F5 硬门禁。 |
 | 2026-05-17 | **Phase F Design Gate 决议**：铲屎官要求“讲人话”后拍板三项边界。任务账本落 Antigravity 专属 Redis supervisor（TTL=0）+ JSONL audit + F194 摘要投影；heartbeat 必须基于真实 liveness evidence，先做 Antigravity spike，不默认 fake planner 注入；自动 resume 从“journal 全 done”扩展为 side-effect tier 分级（可逆 / 可探测 / 可去重可自动续，不可逆或不可探测必须人工确认）。 |
+| 2026-05-17 | **Phase F 架构边界 review**：47 approve OQ-6/7/8，但要求 implementation plan 硬写两条 P1：supervisor side-effect 字段必须从 Phase B journal 派生，不能重建第二套 journal；tier 分类不确定时必须 fail-closed，默认人工确认，不能向自动续跑 fall-through。本 spec 已补 AC-G4/G6/OQ-6/OQ-8。 |
