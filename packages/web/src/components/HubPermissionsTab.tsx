@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { apiFetch } from '../utils/api-client';
+import { StepBadge } from './HubConfigIcons';
+import { SettingsResourceToggleSwitch } from './SettingsResourceCard';
 
 interface GroupEntry {
   externalChatId: string;
@@ -23,6 +25,15 @@ const EMPTY_CONFIG: PermissionConfig = {
   adminOpenIds: [],
   allowedGroups: [],
 };
+
+const CARD_SHADOW = 'shadow-[0_12px_30px_rgba(43,33,26,0.08)]';
+
+function SaveFeedback({ result, saving }: { result: 'ok' | 'error' | null; saving: boolean }) {
+  if (saving) return <div className="text-xs text-cafe-muted">保存中...</div>;
+  if (result === 'ok') return <div className="text-xs text-conn-emerald-text">已保存</div>;
+  if (result === 'error') return <div className="text-xs text-conn-red-text">保存失败</div>;
+  return null;
+}
 
 interface HubPermissionsTabProps {
   connectorId: string;
@@ -114,16 +125,23 @@ export default function HubPermissionsTab({ connectorId, connectorLabel }: HubPe
   return (
     <div className="space-y-4">
       <div className="text-xs text-cafe-muted flex items-center gap-1">
-        <span className="text-conn-blue-text cursor-pointer">{connectorLabel}</span>
+        <span className="text-cafe-interactive cursor-pointer">{connectorLabel}</span>
         <span>›</span>
         <span>群聊权限</span>
       </div>
 
-      <div className="border border-cafe rounded-xl overflow-hidden">
+      <div className={`console-list-card rounded-2xl overflow-hidden ${CARD_SHADOW}`}>
         {/* Header */}
-        <div className="bg-conn-green-bg dark:bg-green-900/20 px-4 py-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-green-200 dark:bg-green-800 flex items-center justify-center text-conn-green-text dark:text-green-400">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="bg-conn-emerald-bg px-5 py-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-[10px] bg-conn-emerald-text/20 flex items-center justify-center text-conn-emerald-text">
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -132,46 +150,42 @@ export default function HubPermissionsTab({ connectorId, connectorLabel }: HubPe
             </svg>
           </div>
           <div>
-            <div className="font-semibold text-sm">群聊权限管理</div>
-            <div className="text-xs text-cafe-secondary">控制谁能用 bot、谁能用管理命令</div>
+            <div className="font-semibold text-sm text-cafe">群聊权限管理</div>
+            <div className="text-xs text-cafe-muted">控制谁能用 bot、谁能用管理命令</div>
           </div>
         </div>
 
-        <div className="p-4 space-y-5">
+        <div className="p-5 space-y-5 divide-y divide-[var(--console-border-soft)]">
           {/* Section 1: Group Whitelist */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-[18px] h-[18px] rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
-                  1
-                </span>
-                <span className="font-semibold text-sm">群白名单</span>
+              <div className="flex items-center gap-2.5">
+                <StepBadge num={1} />
+                <span className="font-semibold text-sm text-cafe">群白名单</span>
               </div>
-              <button
+              <SettingsResourceToggleSwitch
+                enabled={config.whitelistEnabled}
+                busy={saving}
                 onClick={() => saveConfig({ whitelistEnabled: !config.whitelistEnabled })}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.whitelistEnabled ? 'bg-conn-blue-text' : 'bg-gray-300 dark:bg-gray-600'}`}
-                disabled={saving}
-              >
-                <div
-                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-cafe-surface transition-transform ${config.whitelistEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}
-                />
-              </button>
+                title={config.whitelistEnabled ? '关闭白名单' : '开启白名单'}
+              />
             </div>
-            <p className="text-xs text-cafe-secondary">开启后，仅白名单内的群可使用 bot</p>
+            <p className="text-xs text-cafe-muted">开启后，仅白名单内的群可使用 bot</p>
 
             {config.whitelistEnabled && (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {config.allowedGroups.map((g) => (
                   <div
                     key={g.externalChatId}
-                    className="flex items-center gap-2 px-3 py-2 bg-cafe-surface-elevated rounded-lg text-xs"
+                    className="flex items-center gap-2 px-3 py-2 bg-[var(--console-field-bg)] rounded-lg text-xs"
                   >
                     <svg
-                      className="w-3.5 h-3.5 text-conn-blue-text"
+                      className="w-3.5 h-3.5 text-cafe-interactive shrink-0"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
                       strokeWidth={2}
+                      aria-hidden="true"
                     >
                       <path
                         strokeLinecap="round"
@@ -184,8 +198,9 @@ export default function HubPermissionsTab({ connectorId, connectorLabel }: HubPe
                       {g.label ? <span className="text-cafe-muted">{g.externalChatId.slice(-8)}</span> : null}
                     </span>
                     <button
+                      type="button"
                       onClick={() => removeGroup(g.externalChatId)}
-                      className="text-conn-red-text hover:text-conn-red-text"
+                      className="text-conn-red-text hover:opacity-80 transition-opacity"
                     >
                       ✕
                     </button>
@@ -196,18 +211,19 @@ export default function HubPermissionsTab({ connectorId, connectorLabel }: HubPe
                     value={newGroupId}
                     onChange={(e) => setNewGroupId(e.target.value)}
                     placeholder="chat_id"
-                    className="flex-1 px-2 py-1.5 text-xs border border-cafe rounded-lg bg-transparent"
+                    className="console-form-input flex-1 !rounded-lg !px-2.5 !py-1.5 !text-xs"
                   />
                   <input
                     value={newGroupLabel}
                     onChange={(e) => setNewGroupLabel(e.target.value)}
                     placeholder="群名（可选）"
-                    className="flex-1 px-2 py-1.5 text-xs border border-cafe rounded-lg bg-transparent"
+                    className="console-form-input flex-1 !rounded-lg !px-2.5 !py-1.5 !text-xs"
                   />
                   <button
+                    type="button"
                     onClick={addGroup}
                     disabled={!newGroupId.trim()}
-                    className="px-3 py-1.5 text-xs bg-conn-blue-text text-white rounded-lg disabled:opacity-40"
+                    className="px-3 py-1.5 text-xs font-medium bg-cafe-interactive text-white rounded-lg disabled:opacity-40 transition-opacity"
                   >
                     添加
                   </button>
@@ -216,22 +232,26 @@ export default function HubPermissionsTab({ connectorId, connectorLabel }: HubPe
             )}
           </div>
 
-          <hr className="border-cafe-subtle" />
-
           {/* Section 2: Admin List */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="w-[18px] h-[18px] rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
-                2
-              </span>
-              <span className="font-semibold text-sm">管理员</span>
+          <div className="pt-5 space-y-3">
+            <div className="flex items-center gap-2.5">
+              <StepBadge num={2} />
+              <span className="font-semibold text-sm text-cafe">管理员</span>
             </div>
-            <p className="text-xs text-cafe-secondary">管理员可使用 /allow-group、/deny-group、/new、/use 等管理命令</p>
+            <p className="text-xs text-cafe-muted">管理员可使用 /allow-group、/deny-group、/new、/use 等管理命令</p>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {config.adminOpenIds.map((id, i) => (
-                <div key={id} className="flex items-center gap-2 px-3 py-2 bg-cafe-surface-elevated rounded-lg text-xs">
-                  <svg className="w-3.5 h-3.5 text-conn-amber-text" fill="currentColor" viewBox="0 0 20 20">
+                <div
+                  key={id}
+                  className="flex items-center gap-2 px-3 py-2 bg-[var(--console-field-bg)] rounded-lg text-xs"
+                >
+                  <svg
+                    className="w-3.5 h-3.5 text-conn-amber-text shrink-0"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                    aria-hidden="true"
+                  >
                     <path
                       fillRule="evenodd"
                       d="M10 1a.75.75 0 0 1 .65.378l2.005 3.518 3.907.896a.75.75 0 0 1 .35 1.238l-2.634 2.87.363 3.964a.75.75 0 0 1-1.054.747L10 12.868l-3.587 1.743a.75.75 0 0 1-1.054-.747l.363-3.964L3.088 7.03a.75.75 0 0 1 .35-1.238l3.907-.896L9.35 1.378A.75.75 0 0 1 10 1Z"
@@ -244,7 +264,11 @@ export default function HubPermissionsTab({ connectorId, connectorLabel }: HubPe
                       Owner
                     </span>
                   )}
-                  <button onClick={() => removeAdmin(id)} className="text-conn-red-text hover:text-conn-red-text">
+                  <button
+                    type="button"
+                    onClick={() => removeAdmin(id)}
+                    className="text-conn-red-text hover:opacity-80 transition-opacity"
+                  >
                     ✕
                   </button>
                 </div>
@@ -254,15 +278,16 @@ export default function HubPermissionsTab({ connectorId, connectorLabel }: HubPe
                   value={newAdminId}
                   onChange={(e) => setNewAdminId(e.target.value)}
                   placeholder="open_id (ou_xxxx...)"
-                  className="flex-1 px-2 py-1.5 text-xs border border-cafe rounded-lg bg-transparent"
+                  className="console-form-input flex-1 !rounded-lg !px-2.5 !py-1.5 !text-xs"
                   onCompositionStart={ime.onCompositionStart}
                   onCompositionEnd={ime.onCompositionEnd}
                   onKeyDown={(e) => e.key === 'Enter' && !ime.isComposing() && addAdmin()}
                 />
                 <button
+                  type="button"
                   onClick={addAdmin}
                   disabled={!newAdminId.trim()}
-                  className="px-3 py-1.5 text-xs bg-conn-blue-text text-white rounded-lg disabled:opacity-40"
+                  className="px-3 py-1.5 text-xs font-medium bg-cafe-interactive text-white rounded-lg disabled:opacity-40 transition-opacity"
                 >
                   添加
                 </button>
@@ -270,36 +295,30 @@ export default function HubPermissionsTab({ connectorId, connectorLabel }: HubPe
             </div>
           </div>
 
-          <hr className="border-cafe-subtle" />
-
           {/* Section 3: Command Admin Only */}
-          <div className="space-y-2">
+          <div className="pt-5 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-[18px] h-[18px] rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
-                  3
-                </span>
-                <span className="font-semibold text-sm">群聊命令仅管理员</span>
+              <div className="flex items-center gap-2.5">
+                <StepBadge num={3} />
+                <span className="font-semibold text-sm text-cafe">群聊命令仅管理员</span>
               </div>
-              <button
+              <SettingsResourceToggleSwitch
+                enabled={config.commandAdminOnly}
+                busy={saving}
                 onClick={() => saveConfig({ commandAdminOnly: !config.commandAdminOnly })}
-                className={`relative w-10 h-5 rounded-full transition-colors ${config.commandAdminOnly ? 'bg-conn-blue-text' : 'bg-gray-300 dark:bg-gray-600'}`}
-                disabled={saving}
-              >
-                <div
-                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-cafe-surface transition-transform ${config.commandAdminOnly ? 'translate-x-5' : 'translate-x-0.5'}`}
-                />
-              </button>
+                title={config.commandAdminOnly ? '允许所有人使用命令' : '限制命令仅管理员'}
+              />
             </div>
-            <p className="text-xs text-cafe-secondary">开启后，非管理员在群聊发 /threads /new /use 会收到提示</p>
+            <p className="text-xs text-cafe-muted">开启后，非管理员在群聊发 /threads /new /use 会收到提示</p>
             {config.commandAdminOnly && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-conn-red-bg dark:bg-red-900/20 rounded-lg text-xs text-red-700 dark:text-conn-red-text">
+              <div className="flex items-center gap-2 px-3 py-2 bg-conn-red-bg rounded-lg text-xs text-conn-red-text">
                 <svg
-                  className="w-3.5 h-3.5 text-conn-red-text shrink-0"
+                  className="w-3.5 h-3.5 shrink-0"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                   strokeWidth={2}
+                  aria-hidden="true"
                 >
                   <path
                     strokeLinecap="round"
@@ -314,24 +333,7 @@ export default function HubPermissionsTab({ connectorId, connectorLabel }: HubPe
         </div>
       </div>
 
-      {/* Save feedback */}
-      {saveResult === 'ok' && (
-        <div className="text-xs text-conn-green-text flex items-center gap-1">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-          </svg>
-          已保存
-        </div>
-      )}
-      {saveResult === 'error' && (
-        <div className="text-xs text-conn-red-text flex items-center gap-1">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-          </svg>
-          保存失败
-        </div>
-      )}
-      {saving && <div className="text-xs text-cafe-muted">保存中...</div>}
+      <SaveFeedback result={saveResult} saving={saving} />
     </div>
   );
 }
