@@ -239,6 +239,7 @@ close_gate_report:
 | 2026-05-17 | A/B convergence batch 2 design added: A-2 composed Skills view (`/api/skills` governance + `/api/capabilities` skill toggles, no destructive disable), B-1/B-3 typed service adapter before lifecycle/catalog UI, B-4 resolved as keep permission immediate-save + secret explicit submit ([discussion](../discussions/2026-05-17-f190-settings-batch2-design/README.md)) |
 | 2026-05-17 | A/B convergence batch 2.1 merged (PR #1728): A-2 Skills composed view — `SettingsSkillItem` joins `/api/skills` governance with `/api/capabilities` controls; 6 rounds cloud review (5 P1 + 2 P2 fixed: generation guard, stale-data clear on switch, ref-based project tracking, dual refetch after mutations, filter reset); 砚砚 review PASS + CVO fast-track |
 | 2026-05-17 | A/B convergence batch 2.2 merged (PR #1732): B-1/B-3 service-ui-adapter + ServiceStatusPanel rewrite + PluginsContent typed adapter pipeline; `conn-*` semantic badges; install log poll reads `lines` DTO; 砚砚 3-round review PASS + cloud review 0 P1/P2 |
+| 2026-05-17 | A/B convergence batch 2.3 merged (PR #1734): A-1b Notify visual parity (PushSettingsPanel rewrite + PushDiagnosticsSection extraction + 5-type prefs + collapsed diagnostics + VAPID surfacing + conn-* tokens) + B-4 HubPermissionsTab visual-only consistency (conn-* tokens + a11y + StepBadge + SaveFeedback extraction); 砚砚 2-round review PASS + cloud review P1→P3 降级 (capability guard, no repro) |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（验证后 Gap 清单）
 
@@ -415,7 +416,7 @@ Signal 页面两仓**双向分叉**：本地功能更多，但开源有 2 项我
 | V-10 | `rich/InteractiveBlock.tsx` | 85 | `conn-amber/emerald/red` + `console-card-bg/pill-bg/border-soft` | 🔲 |
 | V-11 | `capability-board-ui.tsx` | 68 | `conn-*` 语义色 | 🔲 |
 | V-12 | `HubSkillsTab.tsx` | 31 | `conn-*` | 🔲 |
-| V-13 | `PushSettingsPanel.tsx` | 29 | `conn-*` | 🔲 |
+| V-13 | `PushSettingsPanel.tsx` | 29 | `conn-*` | ✅ PR #1734 |
 | V-14 | `HubTraceTree.tsx` | 28 | 部分迁移（剩 4 处 tree node 类型色） | 🔲 |
 | V-15 | `memory/EvidenceSearch.tsx` | 22 | `console-form-input/card-soft-bg` | 🔲 |
 | V-16 | `EvidenceCard.tsx` | 19 | `conn-*` | 🔲 |
