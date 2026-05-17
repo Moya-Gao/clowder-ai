@@ -119,6 +119,12 @@ export interface EvidenceItem {
   firstIndexedAt?: number;
   /** F186: collection-level review status */
   reviewStatus?: ReviewStatus;
+  /** F200 v1.1 DF-3: explains why this result matched (anchor/title/summary/keyword/content) */
+  matchReason?: string;
+  /** F200 v1.1 DF-3: ranking factor breakdown when explain=true */
+  rankingFactors?: { bm25Score?: number; consumptionPrior?: number; mmrPenalty?: number };
+  /** F200 v1.1 DF-7: calibrated relevance confidence [0,1] */
+  confidence?: number;
   /** AC-I9: passage-level detail when depth=raw */
   passages?: Array<{
     passageId: string;
@@ -203,6 +209,8 @@ export interface SearchOptions {
   worldId?: string;
   /** F093 Phase A (KD-16): filter to a specific scene within a world */
   sceneId?: string;
+  /** F200 v1.1 DF-3: include explainability fields in results */
+  explain?: boolean;
 }
 
 export interface MarkerFilter {

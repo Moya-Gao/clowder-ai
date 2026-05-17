@@ -57,6 +57,10 @@ export const searchEvidenceInputSchema = {
     .describe(
       'Comma-separated collection IDs to search (e.g. "world:lexander,global:methods"). Only effective with dimension=collection',
     ),
+  explain: z
+    .boolean()
+    .optional()
+    .describe('When true, include rankingFactors (bm25Score, consumptionPrior, mmrPenalty) on each result'),
 };
 
 export async function handleSearchEvidence(input: {
@@ -71,6 +75,7 @@ export async function handleSearchEvidence(input: {
   threadId?: string | undefined;
   dimension?: string | undefined;
   collections?: string | undefined;
+  explain?: boolean | undefined;
 }): Promise<ToolResult> {
   const params = new URLSearchParams({ q: input.query });
   if (input.limit != null) params.set('limit', String(input.limit));
@@ -83,6 +88,7 @@ export async function handleSearchEvidence(input: {
   if (input.threadId) params.set('threadId', input.threadId);
   if (input.dimension) params.set('dimension', input.dimension);
   if (input.collections) params.set('collections', input.collections);
+  if (input.explain) params.set('explain', 'true');
 
   const url = `${API_URL}/api/evidence/search?${params.toString()}`;
   const queryLabel = JSON.stringify(input.query);
@@ -104,6 +110,8 @@ export async function handleSearchEvidence(input: {
         sourceType: string;
         authority?: string;
         boostSource?: string[];
+        matchReason?: string;
+        rankingFactors?: { bm25Score?: number; consumptionPrior?: number; mmrPenalty?: number };
         passages?: Array<{
           passageId: string;
           content: string;
@@ -171,6 +179,16 @@ export async function handleSearchEvidence(input: {
       }
       if (r.boostSource && r.boostSource.length > 0 && !r.boostSource.every((s) => s === 'legacy')) {
         lines.push(`  boost: ${r.boostSource.join(', ')}`);
+      }
+      if (r.matchReason) {
+        lines.push(`  match: ${r.matchReason}`);
+      }
+      if (r.rankingFactors) {
+        const factors = Object.entries(r.rankingFactors)
+          .filter(([, v]) => v != null)
+          .map(([k, v]) => `${k}=${typeof v === 'number' ? v.toFixed(3) : v}`)
+          .join(', ');
+        if (factors) lines.push(`  ranking: ${factors}`);
       }
       const snippet = r.snippet.length > 200 ? `${r.snippet.slice(0, 200)}...` : r.snippet;
       lines.push(`  > ${snippet.replace(/\n/g, ' ')}`);

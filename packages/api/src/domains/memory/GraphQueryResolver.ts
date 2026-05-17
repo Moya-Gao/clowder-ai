@@ -318,12 +318,25 @@ export class GraphQueryResolver {
         pool.push(await this.toCandidate(query, collectionId, item, store, callerCollections));
       }
     }
+    const primaryCollectionId = this.inferPrimaryCollection(query);
     pool.sort((a, b) => {
       const textDiff = (b.textMatchScore ?? 0) - (a.textMatchScore ?? 0);
       if (textDiff !== 0) return textDiff;
-      return (b.weightedEdgeScore ?? 0) - (a.weightedEdgeScore ?? 0);
+      const aDomainPenalty = a.collectionId === primaryCollectionId ? 0 : 2;
+      const bDomainPenalty = b.collectionId === primaryCollectionId ? 0 : 2;
+      const scoreDiff = (b.weightedEdgeScore ?? 0) - bDomainPenalty - ((a.weightedEdgeScore ?? 0) - aDomainPenalty);
+      if (scoreDiff !== 0) return scoreDiff;
+      return aDomainPenalty - bDomainPenalty;
     });
     return pool.slice(0, CANDIDATE_LIMIT);
+  }
+
+  private inferPrimaryCollection(query: string): string | undefined {
+    for (const [collectionId] of this.stores) {
+      const manifest = this.catalog.get(collectionId);
+      if (manifest?.kind === 'project') return collectionId;
+    }
+    return this.stores.keys().next().value;
   }
 
   private async toCandidate(

@@ -26,6 +26,7 @@ const searchSchema = z.object({
   threadId: z.string().optional(),
   dimension: z.enum(['project', 'global', 'library', 'collection', 'all']).optional(),
   collections: z.string().optional(),
+  explain: z.enum(['true', '1']).optional(),
   activeFeatureIds: z.string().optional(),
   truthSourceRef: z.string().optional(),
   recentArtifactRefs: z.string().optional(),
@@ -90,6 +91,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       threadId,
       dimension,
       collections: rawCollections,
+      explain: rawExplain,
       activeFeatureIds: rawFeatureIds,
       truthSourceRef,
       recentArtifactRefs: rawArtifactRefs,
@@ -116,6 +118,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         ?.split(',')
         .map((s) => s.trim())
         .filter(Boolean);
+      const explain = rawExplain != null;
       const searchOpts = {
         limit: effectiveLimit,
         scope,
@@ -127,6 +130,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         threadId,
         dimension,
         collections: parsedCollections,
+        explain,
       };
       // F-4: Use KnowledgeResolver for federated project + global search
       const resolveResult = opts.knowledgeResolver ? await opts.knowledgeResolver.resolve(q, searchOpts) : null;
@@ -172,6 +176,8 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         ...(item.authority ? { authority: item.authority } : {}),
         ...(singleSource ? { source: singleSource } : {}),
         ...(item.passages ? { passages: item.passages } : {}),
+        ...(item.matchReason ? { matchReason: item.matchReason } : {}),
+        ...(explain && item.rankingFactors ? { rankingFactors: item.rankingFactors } : {}),
       }));
       // F163 AC-A3: report always_on injection sources in response envelope
       let injectionSources: string[] | undefined;

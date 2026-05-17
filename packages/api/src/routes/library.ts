@@ -19,7 +19,6 @@ import { SqliteEvidenceStore } from '../domains/memory/SqliteEvidenceStore.js';
 import { resolveCollectionScanner } from '../domains/memory/scanner-resolver.js';
 import { ensureVectorTable } from '../domains/memory/schema.js';
 import { computeFromThreads } from '../domains/memory/ToolUsageMetricsAggregator.js';
-import { TrajectoryQueryService } from '../domains/memory/TrajectoryQueryService.js';
 import { VectorStore } from '../domains/memory/VectorStore.js';
 
 export interface LibraryRoutesOptions {
@@ -371,6 +370,7 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
       since?: string;
       limit?: string;
       kinds?: string;
+      verified?: string;
     };
     const since = qs.since?.trim() || '7d';
     // 砚砚 cloud-7 P2: validate `since` format. parseSinceToIso falls back to
@@ -400,34 +400,17 @@ export const libraryRoutes: FastifyPluginAsync<LibraryRoutesOptions> = async (ap
       }
       scope = qs.scope as ScopeT;
     }
-    if (scope === 'trajectories') {
-      let trajDb: import('better-sqlite3').Database | undefined;
-      for (const store of opts.stores.values()) {
-        trajDb = (store as StoreWithDb).getDb?.();
-        if (trajDb) break;
-      }
-      if (!trajDb) {
-        reply.status(503);
-        return { error: 'Evidence database not available' };
-      }
-      const trajSvc = new TrajectoryQueryService(trajDb);
-      const days = parseSinceToDays(since);
-      const trajectories = trajSvc.listRecent({ days, limit, verified: undefined });
-      const items = trajectories.map((t) => ({
-        anchor: `trajectory:${t.trajectoryId}`,
-        title: t.taskContext ?? `Trajectory ${t.trajectoryId.slice(0, 8)}`,
-        kind: 'trajectory' as const,
-        updatedAt: new Date(t.updatedAt).toISOString(),
-        source: `cat:${t.catId}`,
-      }));
-      return { items };
-    }
+    // DF-4 P1-1 fix: removed trajectory special-case that bypassed resolver.
+    // scope='trajectories' now flows through RecentBrowseResolver.list() which
+    // returns filesRead/filesModified/verified metadata from task_trajectories.
     const kinds = qs.kinds?.split(',').filter(Boolean);
+    const verified = qs.verified === 'true' ? true : qs.verified === 'false' ? false : undefined;
     // 砚砚 五审 P1-A: callerCollections removed from query
     const callerCollections: string[] | undefined = undefined;
     const resolver = new RecentBrowseResolver(opts.catalog, opts.stores);
-    const items = await resolver.list({ scope, since, limit, kinds, callerCollections });
-    return { items };
+    const result = await resolver.list({ scope, since, limit, kinds, callerCollections, verified });
+    if (result.nudge) return { items: result.items, nudge: result.nudge };
+    return { items: result.items };
   });
 };
 
@@ -453,12 +436,4 @@ function isValidSince(since: string): boolean {
   if (!ISO_8601_RE.test(since)) return false;
   const ms = Date.parse(since);
   return !Number.isNaN(ms);
-}
-
-function parseSinceToDays(since: string): number {
-  if (since.endsWith('d')) return parseInt(since, 10) || 7;
-  if (since.endsWith('h')) return Math.max(1, Math.ceil((parseInt(since, 10) || 24) / 24));
-  const ms = Date.parse(since);
-  if (!Number.isNaN(ms)) return Math.max(1, Math.ceil((Date.now() - ms) / 86_400_000));
-  return 7;
 }

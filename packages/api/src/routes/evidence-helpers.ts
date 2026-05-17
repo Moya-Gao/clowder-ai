@@ -53,6 +53,10 @@ export interface EvidenceResult {
       createdAt?: string;
     }>;
   }>;
+  /** DF-3: explainability — which field matched (always present) */
+  matchReason?: string;
+  /** DF-3: explainability — scoring breakdown (only with explain=true) */
+  rankingFactors?: { bm25Score?: number; consumptionPrior?: number; mmrPenalty?: number };
 }
 
 /** F163: Boost source attribution (search-path reranking, not injection) */

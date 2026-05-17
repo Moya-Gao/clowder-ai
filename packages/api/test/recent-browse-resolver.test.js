@@ -87,7 +87,7 @@ describe('RecentBrowseResolver (AC-F2)', () => {
       ]),
     );
 
-    const items = await resolver.list({ since: '7d', limit: 3 });
+    const { items } = await resolver.list({ since: '7d', limit: 3 });
     assert.equal(items.length, 3);
     // Cross-store merged and sorted desc by updatedAt
     assert.equal(items[0].anchor, 'F200'); // latest 11:00Z
@@ -120,12 +120,12 @@ describe('RecentBrowseResolver (AC-F2)', () => {
     );
 
     // Without callerCollections: private skipped
-    const withoutCaller = await resolver.list({ since: '7d', limit: 10 });
+    const { items: withoutCaller } = await resolver.list({ since: '7d', limit: 10 });
     assert.equal(withoutCaller.length, 1);
     assert.equal(withoutCaller[0].anchor, 'F100');
 
     // With callerCollections: private visible
-    const withCaller = await resolver.list({
+    const { items: withCaller } = await resolver.list({
       since: '7d',
       limit: 10,
       callerCollections: ['world:lexander', 'project:cafe'],
@@ -247,7 +247,7 @@ describe('RecentBrowseResolver (AC-F2)', () => {
       ]),
     );
 
-    const items = await resolver.list({ since: '7d', limit: 10 });
+    const { items } = await resolver.list({ since: '7d', limit: 10 });
     assert.equal(items.length, 1, 'only the store with getDb contributes');
     assert.equal(items[0].source, 'project:cafe');
   });

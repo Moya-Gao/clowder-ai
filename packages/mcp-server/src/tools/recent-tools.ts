@@ -38,10 +38,14 @@ interface RecentItem {
   kind: string;
   updatedAt: string;
   source: string;
+  filesRead?: number;
+  filesModified?: number;
+  verified?: boolean;
 }
 
 interface RecentResponse {
   items: RecentItem[];
+  nudge?: string;
 }
 
 export async function handleListRecent(input: {
@@ -76,12 +80,26 @@ function formatRecent(data: RecentResponse, since: string): string {
   const lines: string[] = [];
   lines.push(`Recent items (last ${since}): ${data.items.length} found`);
   lines.push('');
-  if (data.items.length === 0) {
+  if (data.nudge) {
+    lines.push(`⚠️ ${data.nudge}`);
+    lines.push('');
+  }
+  if (data.items.length === 0 && !data.nudge) {
     lines.push('(no items in this window)');
+  } else if (data.items.length === 0) {
+    // nudge already shown above
   } else {
     for (const item of data.items) {
       const date = item.updatedAt.slice(0, 10);
-      lines.push(`  ${date} | ${item.anchor} — ${item.title} (${item.kind}) [source: ${item.source}]`);
+      let line = `  ${date} | ${item.anchor} — ${item.title} (${item.kind}) [source: ${item.source}]`;
+      if (item.kind === 'trajectory') {
+        const parts: string[] = [];
+        if (item.verified != null) parts.push(item.verified ? '✓verified' : '✗unverified');
+        if (item.filesRead != null) parts.push(`${item.filesRead} read`);
+        if (item.filesModified != null) parts.push(`${item.filesModified} modified`);
+        if (parts.length > 0) line += ` {${parts.join(', ')}}`;
+      }
+      lines.push(line);
     }
   }
   lines.push('');

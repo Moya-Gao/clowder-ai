@@ -68,6 +68,7 @@ interface GraphSubgraphInner {
   edges: GraphEdge[];
   center?: string;
   depth: number;
+  truncated?: boolean;
 }
 
 interface GraphSubgraphResponse {
@@ -157,6 +158,9 @@ function formatGraph(g: GraphSubgraphInner, relationsFilter?: readonly string[])
   lines.push(
     `Graph for "${g.center ?? '(no center)'}":  ${visibleNodes.length} nodes, ${visibleEdges.length} edges (depth=${g.depth})`,
   );
+  if (g.truncated) {
+    lines.push('⚠️ Graph was truncated (hub-node degree cap hit). Some edges/nodes omitted.');
+  }
   lines.push('');
   for (const n of visibleNodes) {
     const marker = n.anchor === g.center ? '★' : ' ';

@@ -24,6 +24,13 @@ import { computeRecencyDecay } from './recency-decay.js';
 import { applyMigrations } from './schema.js';
 import type { VectorStore } from './VectorStore.js';
 
+// DF-8: asymmetric RRF weight for CJK queries — BM25/FTS5 has poor recall
+// for Chinese text, so boost NN contributions to prevent suppression.
+export const CJK_NN_WEIGHT = 1.5;
+export function hasCJKCharacters(text: string): boolean {
+  return /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(text);
+}
+
 export interface PassageResult {
   docAnchor: string;
   passageId: string;
@@ -380,7 +387,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         const bHas = b.passages?.length ? 1 : 0;
         return bHas - aHas; // passage-bearing first, stable within each group
       });
-      return this.enrichWithDrillDown(results.slice(0, limit));
+      return this.enrichWithDrillDown(results.slice(0, limit), undefined, options, trimmed);
     }
 
     // ── F163: Post-retrieval authority boost (fail-open: Task 11) ──
@@ -401,49 +408,62 @@ export class SqliteEvidenceStore implements IEvidenceStore {
 
     // G-4: all paths go through enrichWithDrillDown before returning
     if (searchMode === 'lexical') {
-      return this.enrichWithDrillDown(lexicalResults);
+      return this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed);
     }
 
     if (searchMode === 'semantic') {
       if (!embeddingAvailable) {
-        return this.enrichWithDrillDown(lexicalResults);
+        return this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed);
       }
       try {
-        return this.enrichWithDrillDown(await this.semanticNNSearch(query, limit, options, suppressBackstop));
+        return this.enrichWithDrillDown(
+          await this.semanticNNSearch(query, limit, options, suppressBackstop),
+          undefined,
+          options,
+          trimmed,
+        );
       } catch {
-        return this.enrichWithDrillDown(lexicalResults);
+        return this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed);
       }
     }
 
     if (searchMode === 'hybrid') {
       if (!embeddingAvailable) {
-        return this.enrichWithDrillDown(lexicalResults);
+        return this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed);
       }
       try {
         const f200Pool = freezeF200Flags().consumptionRerank !== 'off' ? limit * 3 : limit;
         return this.enrichWithDrillDown(
           await this.hybridRRFSearch(query, lexicalCandidates, f200Pool, options, suppressBackstop),
           limit,
+          options,
+          trimmed,
         );
       } catch {
-        return this.enrichWithDrillDown(lexicalResults);
+        return this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed);
       }
     }
 
-    return this.enrichWithDrillDown(lexicalResults);
+    return this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed);
   }
 
   /**
    * G-4: Enrich search results with drill-down hints for thread/session items.
    * Tells the cat what MCP tool to use to see full details.
    */
-  private enrichWithDrillDown(results: EvidenceItem[], targetLimit?: number): EvidenceItem[] {
+  private enrichWithDrillDown(
+    results: EvidenceItem[],
+    targetLimit?: number,
+    options?: SearchOptions,
+    query = '',
+  ): EvidenceItem[] {
     try {
       if (this.db) applyConsumptionRerank(results, this.db, targetLimit);
     } catch {
       // F200 kill-switch: rerank failure → continue with existing ranking
     }
     if (targetLimit && results.length > targetLimit) results.length = targetLimit;
+    annotateMatchReasons(results, query, options?.explain);
     for (const item of results) {
       if (item.kind === 'thread' && item.anchor.startsWith('thread-')) {
         const threadId = item.anchor.replace('thread-', '');
@@ -561,6 +581,8 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     // RRF fusion: score = Σ 1/(k + rank_i), k=60
     const RRF_K = 60;
     const scores = new Map<string, number>();
+    // DF-8: boost NN weight for CJK queries (BM25 has poor CJK recall)
+    const nnWeight = hasCJKCharacters(query) ? CJK_NN_WEIGHT : 1.0;
 
     // BM25 ranks
     for (let i = 0; i < lexicalResults.length; i++) {
@@ -568,10 +590,10 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       scores.set(anchor, (scores.get(anchor) ?? 0) + 1 / (RRF_K + i));
     }
 
-    // NN ranks
+    // NN ranks (weighted for CJK)
     for (let i = 0; i < nnResults.length; i++) {
       const anchor = nnResults[i].anchor;
-      scores.set(anchor, (scores.get(anchor) ?? 0) + 1 / (RRF_K + i));
+      scores.set(anchor, (scores.get(anchor) ?? 0) + nnWeight / (RRF_K + i));
     }
 
     // Collect all unique anchors, hydrate missing ones from DB
@@ -1335,4 +1357,25 @@ export function applyConsumptionRerank(results: EvidenceItem[], db: Database.Dat
       ? results.slice(0, targetLimit).map((r) => r.anchor)
       : results.map((r) => r.anchor);
   storeShadowRanking(keyAnchors, shadowOrder);
+}
+
+function annotateMatchReasons(results: EvidenceItem[], query: string, explain?: boolean): void {
+  if (!query) return;
+  const q = query.toLowerCase();
+  for (const item of results) {
+    if (item.anchor.toLowerCase().includes(q)) {
+      item.matchReason = 'anchor';
+    } else if (item.title.toLowerCase().includes(q)) {
+      item.matchReason = 'title';
+    } else if (item.summary?.toLowerCase().includes(q)) {
+      item.matchReason = 'summary';
+    } else if (item.keywords?.some((k) => k.toLowerCase().includes(q))) {
+      item.matchReason = 'keyword';
+    } else {
+      item.matchReason = 'content';
+    }
+    if (explain) {
+      item.rankingFactors = { bm25Score: results.indexOf(item) + 1 };
+    }
+  }
 }

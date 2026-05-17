@@ -44,8 +44,12 @@ export interface GraphResult {
   edges: GraphEdge[];
   center?: string;
   depth: number;
+  truncated?: boolean;
   deprecationWarnings?: string[];
 }
+
+const MAX_EDGES_PER_NODE = 15;
+const MAX_TOTAL_NODES = 50;
 
 interface CatalogLike {
   list(): Array<{ id: string; sensitivity: CollectionSensitivity; kind: string }>;
@@ -122,6 +126,8 @@ export class GraphResolver {
     let redactedCounter = 0;
     let frontier = [anchor];
     let resolvedCenterAnchor = anchor;
+    let truncated = false;
+    const nodeEdgeCount = new Map<string, number>();
 
     const opaqueAnchor = (realAnchor: string): string => {
       if (redactedAnchorMap.has(realAnchor)) return redactedAnchorMap.get(realAnchor)!;
@@ -225,16 +231,22 @@ export class GraphResolver {
 
         if (d >= depth) continue;
 
+        let nodeCapped = false;
         for (const [, s] of this.stores) {
+          if (nodeCapped) break;
           for (const lookupAnchor of lookupAnchorsFor(canonicalAnchor)) {
+            if (nodeCapped) break;
             if (!(await canUseLookupAnchorInStore(s, lookupAnchor, canonicalAnchor))) continue;
             const related = await s.getRelated(lookupAnchor);
             for (const rel of related) {
               if (!relationTouchesCollection(collectionId, rel)) continue;
-              // 砚砚 cloud-9 P1: skip disallowed-relation edges so they don't
-              // expand the frontier nor add edges; render-time filtering alone
-              // would still reach nodes via filtered edges and inflate cost.
               if (relationFilter && !relationFilter.has(rel.relation)) continue;
+              const currentNodeEdges = nodeEdgeCount.get(canonicalAnchor) ?? 0;
+              if (currentNodeEdges >= MAX_EDGES_PER_NODE || nodesMap.size >= MAX_TOTAL_NODES) {
+                truncated = true;
+                nodeCapped = true;
+                break;
+              }
               const relCollectionId = await inferCollectionId(rel.anchor, this.catalog, this.stores);
               const relStore = relCollectionId ? this.stores.get(relCollectionId) : undefined;
               const relDoc = relStore ? await relStore.getByAnchor(rel.anchor) : null;
@@ -264,6 +276,7 @@ export class GraphResolver {
               const reverseKey = `${relCanonicalAnchor}→${canonicalAnchor}:${rel.relation}`;
               if (!edgeKeySet.has(edgeKey) && !edgeKeySet.has(reverseKey)) {
                 edgeKeySet.add(edgeKey);
+                nodeEdgeCount.set(canonicalAnchor, (nodeEdgeCount.get(canonicalAnchor) ?? 0) + 1);
                 const daysSinceTraversal = rel.lastTraversedAt
                   ? (Date.now() - new Date(rel.lastTraversedAt).getTime()) / 86_400_000
                   : null;
@@ -326,6 +339,7 @@ export class GraphResolver {
       edges: finalEdges,
       center,
       depth,
+      truncated: truncated || undefined,
     };
   }
 }

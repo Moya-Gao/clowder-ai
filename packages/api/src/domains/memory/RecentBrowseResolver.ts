@@ -21,14 +21,23 @@ export interface RecentItem {
   kind: string;
   updatedAt: string;
   source: string;
+  filesRead?: number;
+  filesModified?: number;
+  verified?: boolean;
+}
+
+export interface ListRecentResult {
+  items: RecentItem[];
+  nudge?: string;
 }
 
 export interface ListRecentOptions {
-  scope?: 'docs' | 'threads' | 'memory' | 'all';
+  scope?: 'docs' | 'threads' | 'memory' | 'all' | 'trajectories';
   since: string; // "7d" / "24h" / ISO 8601 date string
   limit: number;
   kinds?: readonly string[];
   callerCollections?: readonly string[]; // server-derived ACL, not from MCP client
+  verified?: boolean;
 }
 
 /** Map scope filter to evidence_docs.kind values (砚砚 三审 P1-4 — true cross-surface). */
@@ -51,10 +60,30 @@ export class RecentBrowseResolver {
     private readonly stores: Map<string, IEvidenceStore>,
   ) {}
 
-  async list(opts: ListRecentOptions): Promise<RecentItem[]> {
+  async list(opts: ListRecentOptions): Promise<ListRecentResult> {
     const cutoff = parseSinceToIso(opts.since);
+
+    if (opts.scope === 'trajectories') {
+      return this.listTrajectories(cutoff, opts);
+    }
+
     const callerSet = opts.callerCollections ? new Set(opts.callerCollections) : null;
     const manifests = new Map(this.catalog.list().map((m) => [m.id, m]));
+
+    // DF-6: detect scope/kinds intersection mismatch and produce a nudge
+    let nudge: string | undefined;
+    const scopeKindsForNudge = opts.scope ? SCOPE_KIND_MAP[opts.scope] : null;
+    if (opts.kinds && opts.kinds.length > 0 && scopeKindsForNudge) {
+      const scopeSet = new Set(scopeKindsForNudge);
+      const intersection = opts.kinds.filter((k) => scopeSet.has(k));
+      if (intersection.length === 0) {
+        const correctScope = findScopeForKinds(opts.kinds);
+        nudge =
+          `The requested kinds [${opts.kinds.join(', ')}] are not within scope="${opts.scope}". ` +
+          `Try scope="${correctScope}" instead.`;
+        return { items: [], nudge };
+      }
+    }
 
     const results: RecentItem[] = [];
     for (const [id, store] of this.stores) {
@@ -69,11 +98,6 @@ export class RecentBrowseResolver {
       const db = (store as StoreWithDb).getDb?.();
       if (!db) continue;
 
-      // 砚砚 三审 P1-4: scope maps to evidence_docs.kind filter (cross-surface in single table)
-      // 砚砚 cloud-3 P2: `kinds` NARROWS scope, doesn't replace it. If both supplied,
-      // intersect — caller saying `scope=threads&kinds=feature` means "feature-shaped
-      // items within thread scope", which is empty for the current mapping (feature is
-      // docs-side). Returning docs would violate the scope contract.
       const scopeKinds = opts.scope ? SCOPE_KIND_MAP[opts.scope] : null;
       let effectiveKinds: readonly string[] | null;
       if (opts.kinds && opts.kinds.length > 0) {
@@ -81,13 +105,11 @@ export class RecentBrowseResolver {
           const scopeSet = new Set(scopeKinds);
           effectiveKinds = opts.kinds.filter((k) => scopeSet.has(k));
         } else {
-          // scope='all' or unspecified → kinds alone (no scope ceiling)
           effectiveKinds = opts.kinds;
         }
       } else {
         effectiveKinds = scopeKinds;
       }
-      // Intersection empty → no rows can match; skip this store to avoid degenerate query
       if (opts.kinds && opts.kinds.length > 0 && scopeKinds && effectiveKinds && effectiveKinds.length === 0) {
         continue;
       }
@@ -116,10 +138,72 @@ export class RecentBrowseResolver {
       }
     }
 
-    return results
+    const items = results
       .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0))
       .slice(0, opts.limit);
+    return { items };
   }
+
+  private listTrajectories(cutoff: string, opts: ListRecentOptions): ListRecentResult {
+    const callerSet = opts.callerCollections ? new Set(opts.callerCollections) : null;
+    const manifests = new Map(this.catalog.list().map((m) => [m.id, m]));
+    const items: RecentItem[] = [];
+    for (const [id, store] of this.stores) {
+      const manifest = manifests.get(id);
+      if (!manifest) continue;
+      if ((manifest.sensitivity === 'private' || manifest.sensitivity === 'restricted') && !callerSet?.has(id)) {
+        continue;
+      }
+      const db = (store as StoreWithDb).getDb?.();
+      if (!db) continue;
+      try {
+        const cutoffMs = new Date(cutoff).getTime();
+        let sql = 'SELECT * FROM task_trajectories WHERE created_at >= ?';
+        const params: Array<string | number | boolean> = [cutoffMs];
+        if (opts.verified !== undefined) {
+          sql += ' AND output_verified = ?';
+          params.push(opts.verified ? 1 : 0);
+        }
+        sql += ' ORDER BY created_at DESC LIMIT ?';
+        params.push(opts.limit);
+        const rows = db.prepare(sql).all(...params) as Array<{
+          trajectory_id: string;
+          task_context: string | null;
+          cat_id: string;
+          files_read_json: string;
+          files_modified_json: string;
+          output_verified: number;
+          created_at: number;
+        }>;
+        for (const r of rows) {
+          const filesRead = JSON.parse(r.files_read_json || '[]') as string[];
+          const filesModified = JSON.parse(r.files_modified_json || '[]') as string[];
+          items.push({
+            anchor: r.trajectory_id,
+            title: r.task_context ?? `Trajectory by ${r.cat_id}`,
+            kind: 'trajectory',
+            updatedAt: new Date(r.created_at).toISOString(),
+            source: r.cat_id,
+            filesRead: filesRead.length,
+            filesModified: filesModified.length,
+            verified: r.output_verified === 1,
+          } as RecentItem);
+        }
+      } catch {
+        // table might not exist in all stores
+      }
+    }
+    items.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
+    return { items: items.slice(0, opts.limit) };
+  }
+}
+
+function findScopeForKinds(kinds: readonly string[]): string {
+  for (const [scope, scopeKinds] of Object.entries(SCOPE_KIND_MAP)) {
+    if (scope === 'all' || !scopeKinds) continue;
+    if (kinds.some((k) => scopeKinds.includes(k))) return scope;
+  }
+  return 'all';
 }
 
 /** Parse "7d" / "24h" / ISO date → canonical UTC ISO 8601 cutoff string. */
