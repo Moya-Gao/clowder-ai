@@ -237,6 +237,7 @@ close_gate_report:
 | 2026-05-17 | A/B convergence memo added: A-1 Notify first, A-2 Skills dual model needs composed design, B-1/B-3 share service contract, B-2 is UI + derived state not pure CSS ([discussion](../discussions/2026-05-17-f190-settings-a-b-convergence/README.md)) |
 | 2026-05-17 | A/B convergence batch 1 merged (PR #1725): A-3 token migration (ChatInput/ChatContainer/FirstRunQuestWizard/VoiceCompanionButton), A-1 PushSettingsPanel full rewrite (5-type prefs + collapsed diagnostics + VAPID surfacing), B-5 VoiceSettingsPanel token/a11y overhaul, B-2 HubEnvFilesTab category groups + restart count fix; 砚砚 review PASS + CVO fast-track |
 | 2026-05-17 | A/B convergence batch 2 design added: A-2 composed Skills view (`/api/skills` governance + `/api/capabilities` skill toggles, no destructive disable), B-1/B-3 typed service adapter before lifecycle/catalog UI, B-4 resolved as keep permission immediate-save + secret explicit submit ([discussion](../discussions/2026-05-17-f190-settings-batch2-design/README.md)) |
+| 2026-05-17 | A/B convergence batch 2.1 merged (PR #1728): A-2 Skills composed view — `SettingsSkillItem` joins `/api/skills` governance with `/api/capabilities` controls; 6 rounds cloud review (5 P1 + 2 P2 fixed: generation guard, stale-data clear on switch, ref-based project tracking, dual refetch after mutations, filter reset); 砚砚 review PASS + CVO fast-track |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（验证后 Gap 清单）
 
