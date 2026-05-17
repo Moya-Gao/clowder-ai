@@ -153,7 +153,7 @@ F201 关闭时，Antigravity 必须满足以下契约：
 
 ### AC-G: Long-Task Liveness & Durable Supervisor
 
-- [ ] AC-G1（root cause 修复）: `stallProbed` 不再“持续无交付时全局仅一次”。stall probe 配额改为有界多次（≥2，指数退避），每次 probe 前判 liveness——“慢但活”不消耗配额，仅“真死”消耗。回归测试：模拟持续无 `deliveryAdvanced` 但上游仍 alive，断言不在第二个 idle 窗口直接 terminal。
+- [x] AC-G1（root cause 修复）: `stallProbed` 不再“持续无交付时全局仅一次”。stall probe 配额改为有界多次（≥2，指数退避），每次 probe 前判 liveness——“慢但活”不消耗配额，仅“真死”消耗。回归测试：模拟持续无 `deliveryAdvanced` 但上游仍 alive，断言不在第二个 idle 窗口直接 terminal。PR #1735 merged Task 2a: bounded stall probe budget + trajectory-progress liveness guard.
 - [ ] AC-G2（liveness 信号）: poll loop 引入 cascade liveness 判据，区分“慢但活”与“真死”。“慢但活”必须有证据：planner partial text 增长 / step mutation / pending tool or approval / native executor pid 或 log 更新 / LS-RPC 可重连且 trajectory timestamp 推进。idle stall timeout 只对“完全静止 + 无 pending + 无 executor evidence”的真死触发；liveness 摘要与 F194 invocation liveness 对齐，不新建并行 UI 真相源。
 - [ ] AC-G3（heartbeat 防 idle）: 长 tool / 长等待执行期，bridge 层有 keepalive 机制防 upstream idle 断流；upstream 是否接受 injected planner step 必须先用真实 Antigravity spike 验证，不接受则降级为 trajectory re-pull 探针保活。
 - [ ] AC-G4（durable supervisor）: 存在 Antigravity 专属 Redis supervisor record（TTL=0）持久记录 threadId / catId / invocationId / cascadeId / status / last observed step / last trajectory timestamp / native executor evidence / journal summary snapshot / receipt state / recovery strategy / resume attempt count。side-effect 状态以 Phase B `AntigravitySideEffectJournal` 为唯一真相源；supervisor 只持久化 journal 派生摘要，不重新分类 side effect、不平行维护第二套 journal。JSONL 继续做 append-only audit；F194 只接收摘要投影。`STOP_REASON_CLIENT_STREAM_ERROR` 或 stream 断不立即判死——先重拉 trajectory + 重 attach LS + 查 executor 回执再决策。
@@ -209,7 +209,7 @@ F201 关闭时，Antigravity 必须满足以下契约：
 > 三猫头脑风暴收敛（2026-05-17）：47 root cause（`stallProbed` 一次性）、砚砚 supervisor 四层 + 回执冲突现场证据、46 三层超时表 + heartbeat ROI。
 
 - **Design Gate 决议已拍（2026-05-17）**：supervisor 落 Antigravity 专属 Redis read model + JSONL audit + F194 摘要投影；side-effect 状态只从 Phase B journal 派生，不建第二套真相源；heartbeat 先做真实 Antigravity spike，禁止未验证的 fake planner 注入；自动 resume 按 side-effect 可逆性 / 可探测性 / 可去重分级，无法分类时 fail-closed。
-- 修 root cause：`stallProbed` 复位逻辑 + liveness 信号（AC-G1/G2）。
+- Task 2a merged in PR #1735 (`7d7a809e`): `stallProbed` one-shot root cause fixed with bounded probe budget + trajectory-progress liveness guard（AC-G1 ✅；AC-G2 broader liveness evidence remains open）。
 - durable task supervisor + 回执冲突分流（AC-G4/G5）。
 - 长执行期 heartbeat 防 idle（AC-G3，先 spike 验 upstream 兼容）。
 - effect-tier 自动 resume（AC-G6）+ 受控 YOLO（AC-G7）。
@@ -249,3 +249,4 @@ F201 关闭时，Antigravity 必须满足以下契约：
 | 2026-05-17 | **三猫头脑风暴 + CVO 拍板**：铲屎官报告长任务“等东西就挂”。47 定位 root cause（`stallProbed` 仅 `deliveryAdvanced` 复位 → 持续无交付只一次 probe → 60s+60s 必 terminal）；砚砚补现场证据（native-success → trajectory-ERROR → STREAM_ERROR 状态机崩 + durable supervisor 四层方案）；46 补三层超时表 + heartbeat ROI。CVO 拍板“没解决 = F201 未完成”。新增 **Phase F: Long-Task Liveness & Durable Supervisor**（AC-G1~G8），原 Close Gate 顺延 Phase G，AC-F5 硬门禁。 |
 | 2026-05-17 | **Phase F Design Gate 决议**：铲屎官要求“讲人话”后拍板三项边界。任务账本落 Antigravity 专属 Redis supervisor（TTL=0）+ JSONL audit + F194 摘要投影；heartbeat 必须基于真实 liveness evidence，先做 Antigravity spike，不默认 fake planner 注入；自动 resume 从“journal 全 done”扩展为 side-effect tier 分级（可逆 / 可探测 / 可去重可自动续，不可逆或不可探测必须人工确认）。 |
 | 2026-05-17 | **Phase F 架构边界 review**：47 approve OQ-6/7/8，但要求 implementation plan 硬写两条 P1：supervisor side-effect 字段必须从 Phase B journal 派生，不能重建第二套 journal；tier 分类不确定时必须 fail-closed，默认人工确认，不能向自动续跑 fall-through。本 spec 已补 AC-G4/G6/OQ-6/OQ-8。 |
+| 2026-05-17 | **Phase F Task 2a merged (PR #1735, squash `7d7a809e`)**：AC-G1 direct root cause fixed。`stallProbed` one-shot boolean replaced by bounded per-invocation probe budget；trajectory step progress counts as passive liveness and does not consume approval probes；`awaitingUserInput` remains approval-probe path. 46/47 local review + cloud Codex LGTM；`pnpm gate` passed on `03b9f613`. |
