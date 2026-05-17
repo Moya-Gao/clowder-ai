@@ -6,8 +6,8 @@ import {
   settingsResourceCardClass,
   settingsResourceRowClass,
 } from '../SettingsResourceCard';
-import { PROVIDER_KEYS, dependencyTone } from './skills-types';
 import type { SettingsSkillItem, SkillsData, SkillsStaleness } from './skills-types';
+import { dependencyTone, PROVIDER_KEYS } from './skills-types';
 
 export function HealthStrip({
   summary,

@@ -100,6 +100,15 @@ describe('MCP List Recent Tool (AC-F2)', () => {
     assert.ok(recentTools[0].description.includes('KD-8'), 'description must mention KD-8 v1 limitation');
   });
 
+  test('description states updatedAt is source-file mtime for docs/memory entries', async () => {
+    const { recentTools } = await import('../dist/tools/recent-tools.js');
+    const description = recentTools[0].description;
+
+    assert.ok(description.includes('updatedAt'), 'description should explain timestamp semantics');
+    assert.ok(description.includes('mtime'), 'description should say docs/memory timestamps use file mtime');
+    assert.ok(description.includes('scope/kinds'), 'description should warn about scope/kinds intersection');
+  });
+
   test('handles fetch error gracefully', async () => {
     const { handleListRecent } = await import('../dist/tools/recent-tools.js');
     globalThis.fetch = async () => {

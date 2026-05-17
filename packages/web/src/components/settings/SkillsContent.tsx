@@ -8,8 +8,8 @@ import { SettingsPageHeader } from './SettingsPageHeader';
 import { SkillConflictBanner } from './SkillConflictBanner';
 import { SkillPreviewModal } from './SkillPreviewModal';
 import { HealthStrip, SkillRow } from './SkillsSubComponents';
-import { ALL_CATEGORIES, composeSkillItems, normalizeSearch, normalizeSkillsData } from './skills-types';
 import type { SettingsSkillItem, SkillsApiData, SkillsData } from './skills-types';
+import { ALL_CATEGORIES, composeSkillItems, normalizeSearch, normalizeSkillsData } from './skills-types';
 import { useSkillControls } from './useSkillControls';
 
 export function SkillsContent() {

@@ -226,6 +226,7 @@ export const graphTools = [
       'Drill into the knowledge graph by anchor or fuzzy query.',
       'Use when: you have a precise anchor (F186) and want neighbors/edges, OR a fuzzy term and need candidate anchors.',
       'Not for: pure semantic search → use search_evidence. Scanning recent activity → use list_recent.',
+      'Depth tip: depth>=2 without a relations filter can trigger hub fan-out around super-hubs (F102/F188). Prefer depth=1 first, or pass relations to narrow traversal.',
       '',
       'RANKING (F200 live): Edge weights incorporate consumption frequency — paths cats traverse more often rank higher in candidate ordering. Constitutional edges are immune to demotion.',
       '',

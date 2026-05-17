@@ -7,6 +7,7 @@
  */
 
 import { z } from 'zod';
+import { composeCoverageIntentNudge } from './evidence-coverage-nudge.js';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
@@ -153,7 +154,8 @@ export async function handleSearchEvidence(input: {
     if (data.results.length === 0) {
       const noResultMsg = `${EVIDENCE_RESULT_MARKER} No results found for: ${input.query}`;
       const nudge = composeMemoryNavigationNudge(data); // F188 AC-F3 + KD-7
-      const parts = [degradedBanner, noResultMsg, nudge, depthLine].filter(Boolean);
+      const coverageNudge = composeCoverageIntentNudge(input.query);
+      const parts = [degradedBanner, noResultMsg, nudge, coverageNudge, depthLine].filter(Boolean);
       return successResult(parts.join('\n\n'));
     }
 
@@ -233,6 +235,12 @@ export async function handleSearchEvidence(input: {
       lines.push('');
     }
 
+    const coverageNudge = composeCoverageIntentNudge(input.query);
+    if (coverageNudge) {
+      lines.push(coverageNudge);
+      lines.push('');
+    }
+
     lines.push(depthLine);
 
     return successResult(lines.join('\n'));
@@ -307,6 +315,7 @@ export const evidenceTools = [
       'Mix Chinese + English keywords for better recall (记忆 + memory). ' +
       'Split broad topics into 2-3 targeted queries from different angles (e.g. "how it was built" vs "how it is governed"). ' +
       'Watch for antonym gaps: searching 记忆 misses 失忆/压缩/丢失 — search the opposite angle separately if needed. ' +
+      'SEARCH TIPS — coverage/source-map tasks: this is not an exhaustive all-mentions entrypoint. If the user asks "哪些 / 所有 / 历史上 / 提过 / 沉淀", follow the memory-search-best-practices skill: expand terms yourself, search docs + threads separately, then drill into canonical docs/source threads and report coverage gaps. ' +
       'READING RESULTS: confidence = search match quality (rank-based), authority = document reliability (path-based) — two independent dimensions. ' +
       'RANKING (F200 live): Results are consumption-weighted — docs that cats actually read/used after searching rank higher. Constitutional docs (ADR/lesson/canon) never get demoted. New docs have 14-day grace period. Near-duplicates are MMR-deduplicated for diversity. No action needed — ranking is automatic. ' +
       'DEPTH: Start with summary (default). Use depth=raw only after narrowing scope to drill into specific passages. ' +

@@ -124,6 +124,8 @@ export const recentTools = [
       'Browse recent docs/threads by time window. NO query needed — designed for cold-start "我记得最近讨论过什么" / "压缩后扫一眼" scenarios.',
       'Use when: zero prior knowledge of what to search for; want to scan latest activity.',
       'Not for: precise anchor lookup → graph_resolve. Semantic search → search_evidence.',
+      'Timestamp semantics: for docs/memory entries, updatedAt is the source file mtime (content activity), not index rebuild time; trajectories use task trajectory updatedAt.',
+      'Scope/kinds tip: scope and kinds are intersected. If you ask for docs + discussion and get a scope/kinds nudge, try scope=threads or split the scan.',
       '',
       'v1 limitation (KD-8): does NOT accept collection scoping params. Sees public/internal collections only via server-side identity. Private collections excluded.',
     ].join('\n'),

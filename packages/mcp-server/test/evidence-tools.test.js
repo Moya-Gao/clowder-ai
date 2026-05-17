@@ -233,4 +233,13 @@ describe('MCP Evidence Tools', () => {
       'should include JSON-quoted query in request error output',
     );
   });
+
+  test('search_evidence description warns coverage tasks are not single-query exhaustive', async () => {
+    const { evidenceTools } = await import('../dist/tools/evidence-tools.js');
+    const description = evidenceTools[0].description;
+
+    assert.ok(description.includes('coverage'), 'description should name coverage/source-map intent');
+    assert.ok(description.includes('memory-search-best-practices'), 'description should point to the search skill');
+    assert.ok(description.includes('docs + threads'), 'description should recommend multi-scope coverage searches');
+  });
 });

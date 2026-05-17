@@ -211,6 +211,15 @@ describe('MCP Graph Resolve Tool (AC-F1)', () => {
     assert.ok(graphTools[0].description.includes('KD-8'), 'description must mention KD-8 v1 limitation');
   });
 
+  test('description warns depth>=2 without relations can trigger hub fan-out', async () => {
+    const { graphTools } = await import('../dist/tools/graph-tools.js');
+    const description = graphTools[0].description;
+
+    assert.ok(description.includes('hub fan-out'), 'description should warn about hub fan-out');
+    assert.ok(description.includes('depth>=2'), 'description should name the risky depth');
+    assert.ok(description.includes('relations'), 'description should recommend relations filters');
+  });
+
   test('handles fetch error gracefully', async () => {
     const { handleGraphResolve } = await import('../dist/tools/graph-tools.js');
     globalThis.fetch = async () => {
