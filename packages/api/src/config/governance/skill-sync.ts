@@ -7,7 +7,7 @@
  */
 
 import { lstat, mkdir, readlink, rm, symlink } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 import { computeSourceManifestHash, listSourceSkillNames, readSkillsState, writeSkillsState } from './skills-state.js';
 
@@ -55,6 +55,10 @@ async function removeSymlinkIfExists(linkPath: string): Promise<void> {
   }
 }
 
+function symlinkTargetFor(linkPath: string, sourcePath: string): string {
+  return process.platform === 'win32' ? sourcePath : relative(dirname(linkPath), sourcePath);
+}
+
 /**
  * Sync per-skill symlinks for all 4 providers and update skills-state.json.
  *
@@ -78,7 +82,7 @@ export async function syncSkills(projectRoot: string, skillsSource: string): Pro
 
     for (const skillName of currentNames) {
       const linkPath = join(skillsDir, skillName);
-      const target = join(skillsSource, skillName);
+      const target = symlinkTargetFor(linkPath, join(skillsSource, skillName));
       await ensureCorrectSymlink(linkPath, target);
     }
 
@@ -90,7 +94,7 @@ export async function syncSkills(projectRoot: string, skillsSource: string): Pro
 
   // Update skills-state.json
   const newHash = await computeSourceManifestHash(skillsSource);
-  const sourceRoot = skillsSource; // absolute path for now
+  const sourceRoot = relative(projectRoot, skillsSource);
   await writeSkillsState(projectRoot, {
     managedSkillNames: currentNames,
     sourceRoot,

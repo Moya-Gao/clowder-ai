@@ -50,7 +50,7 @@ describe('Skill Sync Service (ADR-025 Phase 2)', () => {
         assert.ok(s.isSymbolicLink(), `${provider}/skills/${skill} should be a symlink`);
 
         const target = await readlink(linkPath);
-        const expectedTarget = join(skillsSource, skill);
+        const expectedTarget = relative(join(projectRoot, provider, 'skills'), join(skillsSource, skill));
         assert.equal(target, expectedTarget, `${provider}/skills/${skill} should point to source`);
       }
     }
@@ -65,6 +65,7 @@ describe('Skill Sync Service (ADR-025 Phase 2)', () => {
     const state = await readSkillsState(projectRoot);
     assert.ok(state, 'skills-state.json should exist after sync');
     assert.deepStrictEqual(state.managedSkillNames.sort(), ['debugging', 'tdd', 'worktree']);
+    assert.equal(state.sourceRoot, relative(projectRoot, skillsSource));
     assert.ok(state.sourceManifestHash.startsWith('sha256:'));
     assert.ok(state.lastSyncedAt, 'should have a timestamp');
     assert.equal(result.newHash, state.sourceManifestHash);
@@ -104,7 +105,7 @@ describe('Skill Sync Service (ADR-025 Phase 2)', () => {
     await syncSkills(projectRoot, skillsSource);
 
     const target = await readlink(join(claudeSkills, 'tdd'));
-    assert.equal(target, join(skillsSource, 'tdd'), 'should fix the wrong symlink');
+    assert.equal(target, relative(claudeSkills, join(skillsSource, 'tdd')), 'should fix the wrong symlink');
   });
 
   test('is idempotent — second sync produces same result', async () => {
