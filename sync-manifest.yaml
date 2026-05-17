@@ -229,6 +229,7 @@ excluded:
   - README.md                # 由 transform 替换为开源版
   - README.opensource.md     # 源文件，不直接导出
   - README.opensource.zh-CN.md # 源文件，不直接导出
+  - README.opensource.ja-JP.md # 源文件，不直接导出
   - CONTRIBUTING.md          # 由 transform 替换为开源版
   - CONTRIBUTING.opensource.md # 源文件，不直接导出
   - SETUP.md                 # 由 transform 替换为开源版（cat-cafe 没有内部 SETUP.md）
@@ -295,6 +296,11 @@ transforms:
     type: generate
     source: README.opensource.zh-CN.md
     description: "开源版 README 中文版（从 README.opensource.zh-CN.md 复制）"
+
+  - target: README.ja-JP.md
+    type: generate
+    source: README.opensource.ja-JP.md
+    description: "开源版 README 日文版（从 README.opensource.ja-JP.md 复制）"
 
   - target: CONTRIBUTING.md
     type: generate

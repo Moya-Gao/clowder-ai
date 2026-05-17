@@ -1280,6 +1280,13 @@ if [ -f "$STAGING_DIR/README.opensource.zh-CN.md" ]; then
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 
+# 3i-1c: README.ja-JP.md — 复制开源版日文 README
+if [ -f "$STAGING_DIR/README.opensource.ja-JP.md" ]; then
+  cp "$STAGING_DIR/README.opensource.ja-JP.md" "$FILTERED_DIR/README.ja-JP.md"
+  echo "  ✓ README.ja-JP.md (opensource JA version, $(wc -l < "$STAGING_DIR/README.opensource.ja-JP.md") lines)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
 # 3i-2: CONTRIBUTING.md — 复制开源版替换内部版
 if [ -f "$STAGING_DIR/CONTRIBUTING.opensource.md" ]; then
   cp "$STAGING_DIR/CONTRIBUTING.opensource.md" "$FILTERED_DIR/CONTRIBUTING.md"

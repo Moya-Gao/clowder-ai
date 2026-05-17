@@ -87,7 +87,7 @@ is_public_only() {
     .github/FUNDING.yml|.github/ISSUE_TEMPLATE/*|.github/DISCUSSION_TEMPLATE/*) return 0 ;;
     CHANGELOG.md|docs/community/*) return 0 ;;
     # Generated/replaced files
-    README.md|CONTRIBUTING.md|SETUP.md|LICENSE|.env.example) return 0 ;;
+    CONTRIBUTING.md|SETUP.md|LICENSE|.env.example) return 0 ;;
     .github/pull_request_template.md) return 0 ;;
     CLAUDE.md|AGENTS.md|GEMINI.md) return 0 ;;
     cat-config.json) return 0 ;;
@@ -111,6 +111,9 @@ is_manual_port() {
     packages/api/src/config/env-registry.ts) return 0 ;;
     packages/api/src/config/frontend-origin.ts) return 0 ;;
     packages/api/src/config/governance/governance-pack.ts) return 0 ;;
+    # Root public README files are generated from README.opensource* sources.
+    # Community edits must be ported back to those sources, not cherry-picked.
+    README.md|README.zh-CN.md|README.ja-JP.md) return 0 ;;
     # ALL docs — sanitizer does cat-name / port / internal-path transforms on every .md
     docs/*) return 0 ;;
     # ALL scripts — sanitizer does global replacements on all .sh files
