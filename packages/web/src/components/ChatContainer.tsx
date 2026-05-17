@@ -1147,7 +1147,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       {showFirstRunQuestPrompt && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[var(--console-overlay-medium)] px-4">
           <div
-            className="w-full max-w-md rounded-2xl border border-conn-amber-ring bg-white p-6 shadow-2xl"
+            className="w-full max-w-md rounded-2xl border border-conn-amber-ring bg-[var(--console-card-bg)] p-6 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <h3 className="text-lg font-semibold text-gray-900">开始猫猫新手教程？</h3>

@@ -207,9 +207,17 @@ describe('PushSettingsPanel test push feedback', () => {
       root.render(React.createElement(PushSettingsPanel));
     });
 
-    expect(container.textContent).toContain('服务状态：已启用');
-    expect(container.textContent).toContain('设备订阅：1 台');
-    expect(container.textContent).toContain('最近投递：成功');
+    const diagToggle = Array.from(container.querySelectorAll('button')).find((btn) =>
+      btn.textContent?.includes('诊断信息'),
+    );
+    await act(async () => {
+      diagToggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(container.textContent).toContain('推送服务');
+    expect(container.textContent).toContain('已启用');
+    expect(container.textContent).toContain('1 台');
+    expect(container.textContent).toContain('最近投递：正常');
   });
 
   it('renders mapped repair actions from errorHints', async () => {

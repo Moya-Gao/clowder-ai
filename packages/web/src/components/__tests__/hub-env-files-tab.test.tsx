@@ -144,7 +144,6 @@ describe('HubEnvFilesTab', () => {
     expect(container.textContent).toContain('.cat-cafe/cat-catalog.json');
     expect(container.textContent).toContain('当前环境变量、配置文件、数据目录三段式不变');
     expect(container.textContent).toContain('变量值可直接编辑，保存后自动回填 .env');
-    expect(container.textContent).toContain('写回 .env 后需重启相关服务生效');
     expect(container.textContent).toContain('URL 型连接串当前值已脱敏');
     expect(container.querySelector('input[aria-label="API_SERVER_PORT"]')).toBeNull();
     expect(container.querySelector('input[aria-label="PREVIEW_GATEWAY_PORT"]')).toBeNull();

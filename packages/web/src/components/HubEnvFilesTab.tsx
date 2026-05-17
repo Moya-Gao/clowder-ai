@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 
@@ -12,6 +12,7 @@ interface EnvVar {
   sensitive: boolean;
   maskMode?: 'url';
   runtimeEditable?: boolean;
+  deprecated?: string;
   allowedValues?: string[];
   currentValue: string | null;
 }
@@ -197,9 +198,13 @@ function buildConfigFiles(projectRoot: string) {
 
 const RESTART_REQUIRED_ENV_VARS = new Set(['API_SERVER_PORT', 'PREVIEW_GATEWAY_PORT']);
 
+function needsRestart(variable: EnvVar): boolean {
+  return variable.runtimeEditable === false || RESTART_REQUIRED_ENV_VARS.has(variable.name);
+}
+
 function buildVariableHint(variable: EnvVar): string | null {
   const hints: string[] = [];
-  if (RESTART_REQUIRED_ENV_VARS.has(variable.name)) {
+  if (needsRestart(variable)) {
     hints.push('写回 .env 后需重启相关服务生效。');
   }
   if (variable.maskMode === 'url') {
@@ -268,6 +273,29 @@ function ConfigFilesSection({ projectRoot }: { projectRoot: string }) {
   );
 }
 
+function EnvCategoryGroup({ label, count, children }: { label: string; count: number; children: ReactNode }) {
+  const [collapsed, setCollapsed] = useState(false);
+  return (
+    <div className="console-list-card rounded-2xl shadow-[0_4px_16px_rgba(43,33,26,0.05)] overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-[var(--console-hover-bg)]"
+      >
+        <span
+          className="text-[11px] text-cafe-muted transition-transform"
+          style={{ transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+        >
+          ▾
+        </span>
+        <span className="text-[13px] font-semibold text-cafe">{label}</span>
+        <span className="console-pill rounded-full px-2 py-0.5 text-[10px] font-semibold text-cafe-muted">{count}</span>
+      </button>
+      {!collapsed && <div className="divide-y divide-[var(--console-border-soft)] px-4 pb-2">{children}</div>}
+    </div>
+  );
+}
+
 function EnvVarsSection({
   categories,
   variables,
@@ -293,68 +321,81 @@ function EnvVarsSection({
     }))
     .filter((g) => g.vars.length > 0);
 
+  const pendingRestartCount = variables.filter(
+    (v) => needsRestart(v) && drafts[v.name] !== undefined && drafts[v.name] !== initialDraftValue(v),
+  ).length;
+
   return (
     <Section title="环境变量">
       <div className="mb-3 rounded-[12px] border border-[#D7E9D7] bg-[#F6FBF6] px-3 py-2 text-xs leading-5 text-[#5B7A5C]">
-        变量值可直接编辑，保存后自动回填 `.env`。写回 .env 后需重启相关服务生效；URL
-        型连接串当前值已脱敏，修改时请填写完整值。
+        变量值可直接编辑，保存后自动回填 `.env`。URL 型连接串当前值已脱敏，修改时请填写完整值。
       </div>
       <div className="space-y-3">
         {grouped.map((group) => (
-          <div key={group.key}>
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#77A777]">{group.label}</p>
-            <div className="space-y-1">
-              {group.vars.map((v) => (
-                <div
-                  key={v.name}
-                  className="grid gap-2 rounded-[12px] border border-[#F3E8DE] bg-cafe-surface px-3 py-2 text-xs md:grid-cols-[minmax(0,1fr)_220px]"
-                >
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex items-baseline gap-1.5 min-w-0">
-                      <code className="shrink-0 font-mono text-[#6A5A50]">{v.name}</code>
-                      <span className="truncate text-[#B59A88]">{v.description}</span>
-                    </div>
-                    <div className="text-[11px] text-[#B59A88]">默认: {v.defaultValue}</div>
-                    {!isEditableVariable(v) && (
-                      <div className={`font-mono text-[11px] ${v.currentValue ? 'text-[#6A5A50]' : 'text-[#D4C5BA]'}`}>
-                        {v.currentValue ?? '未设置'}
-                      </div>
+          <EnvCategoryGroup key={group.key} label={group.label} count={group.vars.length}>
+            {group.vars.map((v) => (
+              <div key={v.name} className="grid gap-2 py-2 text-xs md:grid-cols-[minmax(0,1fr)_220px]">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span
+                      className={`shrink-0 text-[10px] ${needsRestart(v) ? 'text-conn-amber-text' : 'text-conn-emerald-text'}`}
+                      title={needsRestart(v) ? '需重启生效' : '即时生效'}
+                    >
+                      {v.deprecated ? '⛔' : needsRestart(v) ? '🟡' : '🟢'}
+                    </span>
+                    <code className="shrink-0 font-mono text-[#6A5A50]">{v.name}</code>
+                    <span className="truncate text-[#B59A88]">{v.description}</span>
+                    {v.deprecated && (
+                      <span className="shrink-0 rounded bg-conn-red-bg px-1 py-0.5 text-[10px] font-semibold text-conn-red-text">
+                        已废弃
+                      </span>
                     )}
                   </div>
-                  {isEditableVariable(v) ? (
-                    <div className="space-y-1">
-                      <input
-                        aria-label={v.name}
-                        type={isSensitiveEditable(v) ? 'password' : 'text'}
-                        autoComplete={isSensitiveEditable(v) ? 'off' : undefined}
-                        value={drafts[v.name] ?? ''}
-                        onChange={(e) => onDraftChange(v.name, e.target.value)}
-                        placeholder={
-                          isSensitiveEditable(v)
-                            ? v.currentValue
-                              ? '已设置（留空不修改）'
-                              : '输入密钥'
-                            : isMaskedUrlVariable(v)
-                              ? '保持当前值（已脱敏）'
-                              : v.defaultValue
-                        }
-                        className="rounded-[10px] border border-[#E8DCCF] bg-[#F7F3F0] px-3 py-2 font-mono text-xs text-[#6A5A50]"
-                      />
-                      {buildVariableHint(v) ? (
-                        <div className="text-[11px] leading-5 text-[#B59A88]">{buildVariableHint(v)}</div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="rounded-[10px] border border-dashed border-[#E8DCCF] bg-[#F7F3F0] px-3 py-2 text-[11px] text-[#8A776B]">
-                      只读变量（认证凭证 / 仅启动期生效）
+                  <div className="text-[11px] text-[#B59A88]">默认: {v.defaultValue}</div>
+                  {!isEditableVariable(v) && (
+                    <div className={`font-mono text-[11px] ${v.currentValue ? 'text-[#6A5A50]' : 'text-[#D4C5BA]'}`}>
+                      {v.currentValue ?? '未设置'}
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
-          </div>
+                {isEditableVariable(v) ? (
+                  <div className="space-y-1">
+                    <input
+                      aria-label={v.name}
+                      type={isSensitiveEditable(v) ? 'password' : 'text'}
+                      autoComplete={isSensitiveEditable(v) ? 'off' : undefined}
+                      value={drafts[v.name] ?? ''}
+                      onChange={(e) => onDraftChange(v.name, e.target.value)}
+                      placeholder={
+                        isSensitiveEditable(v)
+                          ? v.currentValue
+                            ? '已设置（留空不修改）'
+                            : '输入密钥'
+                          : isMaskedUrlVariable(v)
+                            ? '保持当前值（已脱敏）'
+                            : v.defaultValue
+                      }
+                      className="rounded-[10px] border border-[var(--console-border-soft)] bg-[#F7F3F0] px-3 py-2 font-mono text-xs text-[#6A5A50]"
+                    />
+                    {buildVariableHint(v) ? (
+                      <div className="text-[11px] leading-5 text-[#B59A88]">{buildVariableHint(v)}</div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="rounded-[10px] border border-dashed border-[var(--console-border-soft)] bg-[#F7F3F0] px-3 py-2 text-[11px] text-[#8A776B]">
+                    只读变量（认证凭证 / 仅启动期生效）
+                  </div>
+                )}
+              </div>
+            ))}
+          </EnvCategoryGroup>
         ))}
       </div>
+      {pendingRestartCount > 0 && (
+        <div className="mt-3 rounded-[12px] border border-conn-amber-ring bg-conn-amber-bg px-3 py-2 text-xs leading-5 text-conn-amber-text">
+          {pendingRestartCount} 项变更需要重启生效
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
           type="button"

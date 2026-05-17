@@ -166,7 +166,7 @@ export function FirstRunQuestWizard({ open, onClose, onCreated }: FirstRunQuestW
       onClick={onClose}
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-2xl border border-conn-amber-ring bg-white shadow-2xl"
+        className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-2xl border border-conn-amber-ring bg-[var(--console-card-bg)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

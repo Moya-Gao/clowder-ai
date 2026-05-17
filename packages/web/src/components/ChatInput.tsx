@@ -551,7 +551,7 @@ export function ChatInput({
   }, [activeMenu, closeMenus]);
 
   return (
-    <div className="border-t border-cafe-subtle bg-cafe-surface relative safe-area-bottom">
+    <div className="border-t border-cafe-subtle bg-[var(--console-shell-bg)] relative safe-area-bottom">
       {/* F39: Queue status bar — visible when cat is running */}
       {hasActiveInvocation && (
         <div className="px-4 pt-2 flex items-center gap-2">
