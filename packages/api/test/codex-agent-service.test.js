@@ -155,7 +155,7 @@ test('uses exec resume when sessionId is provided', async () => {
   assert.ok(!args.includes('approval_policy=\\"on-request\\"'), 'argv should not contain literal backslash escapes');
 });
 
-test('injects cat-cafe MCP config when workingDirectory contains mcp-server', async () => {
+test('injects cat-cafe MCP config from runtime root, not thread workingDirectory', async () => {
   const tmpRoot = mkdtempSync(join(import.meta.dirname ?? '.', '.tmp-mcp-test-'));
   const mcpDistDir = join(tmpRoot, 'packages', 'mcp-server', 'dist');
   mkdirSync(mcpDistDir, { recursive: true });
@@ -202,6 +202,10 @@ test('injects cat-cafe MCP config when workingDirectory contains mcp-server', as
       assert.ok(
         argsConfig.includes(`packages/mcp-server/dist/${entrypoint}`),
         `${serverId} args must point at ${entrypoint}`,
+      );
+      assert.ok(
+        !argsConfig.includes(tmpRoot),
+        `${serverId} args must not resolve MCP binary from thread workingDirectory`,
       );
       assert.ok(args.includes(`mcp_servers.${serverId}.enabled=true`), `must inject ${serverId} enabled=true`);
       assert.ok(

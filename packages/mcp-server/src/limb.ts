@@ -14,6 +14,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { installShutdownHandlers, startRefreshLoop } from './refresh-loop.js';
 import { registerLimbToolset } from './server-toolsets.js';
 import { initCatCafeDir } from './utils/path-validator.js';
 
@@ -41,6 +42,9 @@ async function main(): Promise<void> {
   console.error('[cat-cafe-limb] MCP Server starting...');
   await server.connect(transport);
   console.error('[cat-cafe-limb] MCP Server running on stdio');
+
+  const refreshLoop = startRefreshLoop();
+  installShutdownHandlers(refreshLoop);
 }
 
 const isEntryPoint = process.argv[1] && resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);

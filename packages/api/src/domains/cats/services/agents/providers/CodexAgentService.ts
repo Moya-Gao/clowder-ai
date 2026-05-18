@@ -192,15 +192,18 @@ const CAT_CAFE_MCP_SERVER_ENTRIES = [
   ['cat-cafe-limb', 'limb.js'],
 ] as const;
 
-function buildCatCafeMcpConfigArgs(workingDirectory?: string, callbackEnv?: Record<string, string>): string[] {
-  const candidateRoots: string[] = [];
-  if (workingDirectory) candidateRoots.push(workingDirectory);
-  candidateRoots.push(process.cwd());
-
-  // file path: packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts
-  // repo root = dirname(fileURLToPath(import.meta.url)) up to .../cat-cafe
+function buildCatCafeMcpConfigArgs(_workingDirectory?: string, callbackEnv?: Record<string, string>): string[] {
   const fileDir = dirname(fileURLToPath(import.meta.url));
-  candidateRoots.push(resolve(fileDir, '../../../../../../../..'));
+  // The thread workingDirectory is the user's project/workspace. Cat Cafe MCP
+  // binaries are runtime-owned, so resolving from workingDirectory can pick a
+  // fork checkout with incomplete node_modules and silently drop all MCP tools.
+  const candidateRoots = [
+    process.env.CAT_CAFE_RUNTIME_ROOT?.trim(),
+    process.cwd(),
+    // file path: packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts
+    // repo root = dirname(fileURLToPath(import.meta.url)) up to .../cat-cafe
+    resolve(fileDir, '../../../../../../../..'),
+  ].filter((root): root is string => !!root);
 
   let mcpDistDir: string | undefined;
   for (const root of candidateRoots) {
