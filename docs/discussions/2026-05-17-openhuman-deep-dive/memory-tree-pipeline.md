@@ -2,7 +2,7 @@
 
 > Owner: 布偶猫🐾 (Opus-47) / 数据快照: HEAD `db087a7d3` / v0.53.49-staging
 > 范围: hot path / fast-score / engine.rs / hotness router / leaf 状态机 / 6 retrieval primitive
-> 状态: **in-progress（第二波 Round 1）** — §1 已钉死，§2-§5 待续
+> 状态: **47 scope complete（第二波 R1+R2）** — §1-§5 全闭，可进 Step 5+6 合流
 > 方法: open-source-teardown — 每个 claim 追到 `file:line`，断环就降级措辞
 
 ## §1. Hot path 真实代码（A3 验证）— ⚠️ **partial，推翻 first-pass 乐观**
@@ -46,24 +46,68 @@ RPC openhuman.memory_tree_ingest
 
 **对 Cat Café（预对照，Step 5 细化）**：模式可学（cheap-signal short-circuit 省 LLM），但若我们 F102 ingest 借鉴，**不能照抄"热路径无 LLM"的措辞**——要写清"borderline 仍同步 LLM，需 timeout/降级"，否则重蹈他们 doc-vs-code 不一致。
 
-## §2. tree_summarizer/engine.rs 610 行 — hour→day→month→year→root（待续）
+## §2. tree_summarizer/engine.rs 610 行 — ✅ **LLM 层级摘要，由 seal/digest job 驱动**
 
-`tree_summarizer/{engine.rs 610 / store.rs 31k / ops.rs / bus.rs / schemas.rs / types.rs}` —— 下一 Round 追 LLM 层级摘要真实链路 + Provider 抽象 + 失败重试。
+跨猫已交叉追实，本节做架构 owner 综合（不重复追，断环已闭）：
 
-## §3. Topic tree hotness router 算法（遗留 2，待续）
+- **类型确认**（46 §1 算法表）：`tree_summarizer/engine.rs` 610 行 = 真 LLM 层级摘要（hour→day→month→year→root），Provider LLM 生成，是 11 个算法组件中仅有的 2 个真 LLM 之一。
+- **触发链确认**（砚砚 §2 handler）：engine.rs **不在 ingest 热路径**，由 LLM-bound job 驱动 —— `seal` job（`handlers/mod.rs:357-429`，每次 seal 一层 + label extractor + commit summary + cascade follow-up）/ `digest_daily`（`handlers/mod.rs:488-503`，UTC end-of-day global digest）/ `topic_route` 经 `maybe_spawn_topic_tree → backfill_topic_tree` 触发 summariser（`jobs/types.rs:55-65`）。
+- **架构结论**：层级摘要是 OpenHuman "LLM Wiki" 的核心引擎，但被正确隔离在异步 job worker（慢路径），与 §1 热路径 + §3 hotness 解耦。这是扎实工程模式 —— LLM 重活全在可重试 job 队列，hot path 只 enqueue。
 
-claims-ledger A2 caveat：topic tree 用 "hotness" 决定是否物化。需判定是 LLM judge 还是规则阈值 —— 落在 `topic_route` job kind + `tree_topic/`。
+## §3. Topic tree hotness router — ✅ **纯算术，非 LLM judge**（遗留 2 闭）
 
-## §4. Leaf 状态机 pending→admitted→buffered→sealed→dropped（待续）
+46 §1 已追实（`tree_topic/hotness.rs:7-12`），本节确认 claims-ledger A2 caveat 结案：
 
-§1 已见 lifecycle 列 + `CHUNK_STATUS_PENDING_EXTRACTION` 常量 + re-ingest 不回退守护逻辑（`ingest.rs:251-295`）。下一 Round 追完整转移图（admit/buffer/seal 在 jobs worker 哪一段）。
+- 物化分数 = `ln(mentions+1) + 0.5×distinct_sources + recency_decay(age) + graph_centrality + 2.0×query_hits` —— **纯算术，无 LLM**
+- recency decay = 分段线性（≤1d→1.0；1-7d→1.0→0.5；7-30d→0.5→0.0；>30d→0.0，`hotness.rs:63-84`）
+- 阈值常数（creation=10.0 / archive=2.0 / recheck_every=100，`tree_topic/types.rs:23-30`）
+- **结论**：topic tree 是否物化是**可解释规则阈值**，不是 LLM judge。A2 caveat 结案 ✅。
 
-## §5. 6 retrieval primitive 排序与一致性（待续）
+## §4. Leaf 状态机 pending→admitted→buffered→sealed→dropped — ✅ **转移图闭合**
 
-`tools/impl/memory/tree/` 6 个：search_entities / query_topic / query_source / query_global / drill_down / fetch_leaves。下一 Round 追排序函数 + 跨树一致性。
+我 §1（热路径侧）+ 砚砚 §2（job handler 侧）交叉拼出完整转移图：
 
-## Round 1 交付小结
+```
+[ingest 热路径]                          [jobs worker 慢路径]
+pending_extraction ──(extract_chunk handler: handle_extract)──┬─→ admitted ──(append_buffer)──→ buffered ──(seal)──→ sealed
+  │ §1 ingest.rs:251-295 仅 None|pending     │ 砚砚 handlers/mod.rs:51-163        │ handlers:219-354    │ handlers:357-429
+  │ 才 reset+enqueue（admitted/buffered/     └─→ dropped（fast-score !kept）
+  │ sealed/dropped 不回退，防 re-ingest 重复进树）
+  └ flush_stale（handlers:506-526）扫 stale buffer → 强制 enqueue seal
+```
 
-- ✅ Hot path 入口链路追实（rpc → ingest → persist → jobs enqueue），含 lifecycle 防回退守护
-- ✅ **A3 修订为 ⚠️ partial**：默认 cloud 下 borderline chunk 在 ingest 热路径同步调 LLM（推翻 first-pass）
-- ⏭ §2-§5 待下一 Round（同一产物增量推进，符合 skill「commit 后传球，不一气呵成」）
+- **关键守护**（§1 已钉）：re-ingest 同 content 不把已进度 chunk 打回 `pending_extraction`（`ingest.rs:251-295` pre-upsert snapshot）—— 防重复进同一 summary tree。
+- **原子性**（砚砚 §2）：`append_buffer` 在单 tx 内做 buffer upsert + 条件 enqueue seal + lifecycle→buffered，显式消掉 "buffer committed but seal job lost" 的 crash window。
+- **结论**：状态机转移有明确 handler 归属 + 单 tx 原子性 + crash recovery（stale lock），工程严谨。转移图闭合 ✅。
+
+## §5. 6 retrieval primitive 排序与一致性 — ✅ **非统一 ranker，recency + 可选 cosine rerank**（我新追）
+
+`tools/impl/memory/tree/mod.rs:10-24` 把 6 个 primitive consolidate 成单一 `memory_tree` tool 用 `mode` 路由。排序逻辑分两类：
+
+| Primitive | 默认排序 | 有 `query` 时 | 语义? | 证据 |
+|-----------|---------|--------------|-------|------|
+| `search_entities` | `ORDER BY mention_count DESC, last_seen_ms DESC` | **不变**（纯 SQL LIKE，无 rerank） | ❌ 纯 SQL substring | `retrieval/search.rs:109-129`；blank-query guard 防 `LIKE '%%'` dump（`search.rs:41`）；DEFAULT_LIMIT=5/MAX=100 |
+| `query_source` | recency：`time_range_end DESC` | cosine 相似度 rerank（embed query → `cosine_similarity` vs node embedding，sim DESC then time，无 embedding 的 hit fallback） | ⚠️ 可选 embedding | `retrieval/source.rs:85-88,149-189` |
+| `query_topic` | `score DESC, timestamp DESC` | cosine rerank | ⚠️ 可选 | `retrieval/schemas.rs:160-169`（跨 source/topic/global 三树 + entity 的 materialised root） |
+| `query_global` | recency / score DESC | cosine rerank | ⚠️ 可选 | `retrieval/global.rs` 同 source 模式 |
+| `drill_down` | 子节点遍历顺序 | cosine rerank 子节点（limit 在 rerank 后取 top-K，relevance-based） | ⚠️ 可选 | `retrieval/drill_down.rs:78-146` |
+| `fetch_leaves` | leaf 原序（raw 取回） | n/a | ❌ | `retrieval/fetch.rs` |
+
+**架构结论（直喂 Step 5 对照）**：
+
+- OpenHuman retrieval = **recency-default + 可选 cosine 语义 rerank**，`search_entities` 是纯 SQL 频次-时近排序。
+- **无 BM25 / 无 RRF 融合 / 无 consumption 权重 / 无 query-cluster prior** —— 与 46 §4「零反馈闭环」一致：排序信号全是 ingest-time 静态（score/mention/recency/embedding），没有 recall 行为反推。
+- 跨树一致性：`query_topic` 按 entity id 跨三树取回 + materialised root，各树独立排序后合并，不做全局再融合。
+- **对照 Cat Café F200**：我们是 consumption-weighted RRF（BM25 + vector NN + 消费先验 + MMR dedup）三路融合 + recall_events 闭环。OpenHuman 是单路 recency/cosine、零消费反馈。**不同护城河，不是优劣**（Step 5 细化）。
+
+## Round 2 交付小结 — 47 scope（Memory Tree 核心）completed
+
+| § | 结论 | 状态 |
+|---|------|------|
+| §1 | Hot path 入口链路追实；**A3 修订 ⚠️partial**（默认 cloud borderline 同步调 LLM） | ✅ R1 |
+| §2 | engine.rs 610 = 真 LLM 层级摘要，由 seal/digest/topic_route job 驱动（慢路径，与热路径解耦） | ✅ 交叉闭 |
+| §3 | hotness router = 纯算术规则阈值，**非 LLM judge**（遗留 2 结案） | ✅ 交叉闭 |
+| §4 | leaf 状态机转移图闭合（热路径+job handler 拼合），单 tx 原子 + crash recovery | ✅ 交叉闭 |
+| §5 | retrieval 非统一 ranker = recency + 可选 cosine rerank，无 RRF/消费权重（我新追） | ✅ R2 |
+
+**Memory Tree 核心 verdict（给合流）**：A1「不是 vector store 套壳」✅ 成立 —— 三树 + 6 primitive + 状态机 + job 队列都是真代码；但 A3 措辞需降级（borderline 同步 LLM），retrieval 是 recency/cosine 单路无消费反馈（与 46 零闭环、砚砚 raw provenance 一致收敛）。**47 scope 完成，可进 Step 5+6 合流。**
