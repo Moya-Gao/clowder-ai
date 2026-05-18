@@ -58,12 +58,12 @@ review_log:
 
 > **副标题**：群体智能不是多叫几个模型，而是把状态、验证、记忆、治理、恢复工程化
 >
-> **贯穿一句话**：行业在卷模型能力，[数据待盘] 个 Feature 的实践发现 ——
+> **贯穿一句话**：行业在卷模型能力，102 天 / 200+ Feature 的实践发现 ——
 > 真正的乘数效应在环境工程，且环境必须能自我观测、自我修剪、自我升级。
 
 ---
 
-## 0. 开场：[数据待盘] 个 Feature 的工程现场
+## 0. 开场：102 天、6,413 commits、200+ Feature 的工程现场
 
 **站在 Anthropic 五种 multi-agent 协作模式之上（三猫 R3 收敛）**：
 
@@ -76,18 +76,17 @@ Anthropic 2026-04 公开的 multi-agent coordination patterns 共五种：**Gene
 
 📊 **配图：Figure 1 — Anthropic 五模式 → Cat Café 组合架构**（见附录 C）
 
-**现场数据**[全部待盘]：
-- commits 数（铲屎官估算近百天 → [数据待查 git log]）
-- 实际起止时间（直播脚本 4-25 说"50 天"，今天 5-17 → [按 git first-commit 实盘]）
-- Feature 总数（最新 F203，含已废弃 + 未开 → [按 docs/features/ 实盘]）
-- 模型厂商数（Anthropic / OpenAI / Google / 其它接入 → [按 limb pair list + roster 实盘]）
+**现场数据**（2026-05-17 实盘）：
+- **102 天**：首 commit `b8a253215` 2026-02-04（pnpm monorepo 初始化）→ 2026-05-17（~14.6 周 / ~3.4 个月）
+- **6,413 commits**：当前 main 历史 —— 直播脚本 4-25 记录 3,492，**三周翻倍**（叙事张力点）
+- **200+ Feature**：`docs/features/` 211 个 spec 文档，编号至 F203（含 appendix / 已废弃 / 未开工）
+- **3 大主力厂商 + 多家接入**：Anthropic（Claude Opus/Sonnet）/ OpenAI（GPT-5.x）/ Google（Gemini）长期主力，另接入 MiniMax / 智谱 GLM / Kimi / Qwen / DeepSeek 等
 
 📌 **按段搜证清单**：
-- `git log --reverse | head -20`（首次 commit 时间 + 早期 commit 内容）
-- `git log --oneline | wc -l`（commit 总数）
-- `ls docs/features/F*.md | wc -l`（Feature 总数）
-- `docs/stories/three-days-productization/`（产品化里程碑 anchor）
+- ✅ git 数据已实盘（首 commit 2026-02-04 / 6,413 commits / 211 Feature 文档）
+- `docs/stories/three-days-productization/`（产品化里程碑 anchor，正式稿可挂故事线）
 - `docs/discussions/2026-04-20-claude-multi-agent-coordination-patterns/article-complete-technical-edition-v2.md`（Anthropic 五模式选型详述）
+- 验证：3,492→6,413 三周翻倍 + AI 签名比例（直播 4-25 记 77%）是否有更新数据
 
 ---
 
