@@ -172,4 +172,69 @@ describe('G6: connection invalidation and reconnect', () => {
     assert.ok(batches.length >= 1, 'should recover and yield steps');
     assert.equal(batches[0].steps[0].plannerResponse.response, 'recovered');
   });
+
+  test('pollForSteps surfaces terminal idle before timestamp heartbeat', async () => {
+    const bridge = createBridge();
+    let callCount = 0;
+
+    mock.method(bridge, 'getTrajectory', async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          status: 'CASCADE_RUN_STATUS_RUNNING',
+          numTotalSteps: 0,
+          updatedAt: 100,
+        };
+      }
+      return {
+        status: 'CASCADE_RUN_STATUS_IDLE',
+        numTotalSteps: 0,
+        updatedAt: 100 + callCount,
+      };
+    });
+
+    const iterator = bridge.pollForSteps('cascade-terminal-heartbeat', 0, 0, 1);
+    const first = await iterator.next();
+    await iterator.return?.();
+
+    assert.equal(first.done, false);
+    assert.equal(
+      first.value.cursor.terminalSeen,
+      true,
+      'terminal completion must not be masked by timestamp heartbeat',
+    );
+    assert.equal(first.value.steps.length, 0);
+    assert.ok(callCount >= 2);
+  });
+
+  test('pollForSteps bounds non-terminal timestamp heartbeat by idle timeout', async () => {
+    const bridge = createBridge();
+    let now = 0;
+    let callCount = 0;
+
+    mock.method(Date, 'now', () => now);
+    mock.method(bridge, 'getTrajectory', async () => {
+      callCount++;
+      now += 10;
+      return {
+        status: 'CASCADE_RUN_STATUS_RUNNING',
+        numTotalSteps: 0,
+        updatedAt: now,
+      };
+    });
+
+    const iterator = bridge.pollForSteps('cascade-running-heartbeat', 0, 25, 0);
+    const heartbeat = await iterator.next();
+
+    assert.equal(heartbeat.done, false);
+    assert.equal(heartbeat.value.cursor.livenessEvidence?.kind, 'trajectory_timestamp_progress');
+
+    await assert.rejects(
+      () => iterator.next(),
+      /Antigravity stall: no activity/,
+      'timestamp-only heartbeat must not keep non-terminal cascades alive forever',
+    );
+    await iterator.return?.();
+    assert.ok(callCount >= 3);
+  });
 });

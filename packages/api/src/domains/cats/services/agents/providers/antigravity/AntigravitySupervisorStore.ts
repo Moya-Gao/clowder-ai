@@ -9,6 +9,7 @@ export type AntigravitySupervisorStatus = 'running' | 'probing' | 'resumable' | 
 
 export type AntigravityLivenessEvidenceKind =
   | 'trajectory_progress'
+  | 'trajectory_timestamp_progress'
   | 'step_mutation'
   | 'pending_tool'
   | 'pending_approval'
@@ -17,6 +18,23 @@ export type AntigravityLivenessEvidenceKind =
 
 export interface AntigravityLivenessEvidence {
   kind: AntigravityLivenessEvidenceKind;
+  observedAt: number;
+  summary: string;
+}
+
+export type AntigravityNativeExecutorEvidenceStatus =
+  | 'started'
+  | 'completed'
+  | 'approval_pending'
+  | 'no_executor'
+  | 'not_handled'
+  | 'error';
+
+export interface AntigravityNativeExecutorEvidence {
+  toolName: string;
+  stepType: string;
+  stepIndex: number;
+  status: AntigravityNativeExecutorEvidenceStatus;
   observedAt: number;
   summary: string;
 }
@@ -48,6 +66,15 @@ const SUPERVISOR_RECOVERY_STRATEGIES = new Set<AntigravitySupervisorRecoveryStra
   'stop',
 ]);
 
+const NATIVE_EXECUTOR_EVIDENCE_STATUSES = new Set<AntigravityNativeExecutorEvidenceStatus>([
+  'started',
+  'completed',
+  'approval_pending',
+  'no_executor',
+  'not_handled',
+  'error',
+]);
+
 const SUPERVISOR_REQUIRED_STRING_FIELDS = ['originalInvocationId', 'threadId', 'catId', 'cascadeId'] as const;
 
 const SUPERVISOR_REQUIRED_NUMBER_FIELDS = [
@@ -69,6 +96,7 @@ export interface AntigravitySupervisorRecord {
   lastDeliveredStepIndex: number;
   lastTrajectoryAt?: number;
   lastLivenessEvidence?: AntigravityLivenessEvidence;
+  nativeExecutorEvidence?: AntigravityNativeExecutorEvidence;
   /**
    * F201 Phase F Task 1: single side-effect truth source.
    * This is a copied snapshot from AntigravitySideEffectJournal.summary(), not a
@@ -167,6 +195,19 @@ function isValidLivenessEvidence(value: unknown): value is AntigravityLivenessEv
   return hasString(value, 'kind') && hasNumber(value, 'observedAt') && hasString(value, 'summary');
 }
 
+function isValidNativeExecutorEvidence(value: unknown): value is AntigravityNativeExecutorEvidence {
+  if (!isPlainObject(value)) return false;
+  return (
+    hasString(value, 'toolName') &&
+    hasString(value, 'stepType') &&
+    hasNumber(value, 'stepIndex') &&
+    hasString(value, 'status') &&
+    NATIVE_EXECUTOR_EVIDENCE_STATUSES.has(value.status as AntigravityNativeExecutorEvidenceStatus) &&
+    hasNumber(value, 'observedAt') &&
+    hasString(value, 'summary')
+  );
+}
+
 function isValidJournalSummarySnapshot(value: unknown): value is AntigravitySideEffectJournalSummary {
   return isPlainObject(value) && Array.isArray(value.entries);
 }
@@ -182,6 +223,12 @@ function hasOptionalLivenessEvidence(record: Record<string, unknown>): boolean {
   return isValidLivenessEvidence(evidence);
 }
 
+function hasOptionalNativeExecutorEvidence(record: Record<string, unknown>): boolean {
+  const evidence = record.nativeExecutorEvidence;
+  if (evidence === undefined) return true;
+  return isValidNativeExecutorEvidence(evidence);
+}
+
 function isValidSupervisorRecord(value: unknown): value is AntigravitySupervisorRecord {
   if (!isPlainObject(value)) return false;
   if (value.schemaVersion !== 1) return false;
@@ -193,6 +240,7 @@ function isValidSupervisorRecord(value: unknown): value is AntigravitySupervisor
     SUPERVISOR_RECOVERY_STRATEGIES.has(value.recoveryStrategy as AntigravitySupervisorRecoveryStrategy) &&
     hasOptionalNumber(value, 'lastTrajectoryAt') &&
     hasOptionalLivenessEvidence(value) &&
+    hasOptionalNativeExecutorEvidence(value) &&
     isValidJournalSummarySnapshot(value.journalSummarySnapshot)
   );
 }

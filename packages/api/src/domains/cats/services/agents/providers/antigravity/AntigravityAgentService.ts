@@ -27,6 +27,7 @@ import { AntigravityBridge, type BridgeConnection, type TrajectoryStep } from '.
 import { AntigravitySideEffectJournal } from './AntigravitySideEffectJournal.js';
 import {
   type AntigravityLivenessEvidence,
+  type AntigravityNativeExecutorEvidence,
   type AntigravitySupervisorReceiptState,
   type AntigravitySupervisorRecoveryStrategy,
   type AntigravitySupervisorStatus,
@@ -71,7 +72,15 @@ interface StallProbeBudget {
   maxAttempts: number;
 }
 
-type StallLivenessEvidence = { kind: 'trajectory_progress'; observedSteps: number; lastDelivered: number };
+type StallLivenessEvidence =
+  | { kind: 'trajectory_progress'; observedSteps: number; lastDelivered: number }
+  | {
+      kind: 'trajectory_timestamp_progress';
+      observedSteps: number;
+      lastDelivered: number;
+      trajectoryAt: number;
+      previousTrajectoryAt: number;
+    };
 type AntigravityJournalSummary = ReturnType<AntigravitySideEffectJournal['summary']>;
 type AntigravityJournalEntry = AntigravityJournalSummary['entries'][number];
 
@@ -184,13 +193,28 @@ function buildRetrySignal(
 }
 
 function detectStallLivenessFromTrajectory(
-  trajectory: { numTotalSteps?: number; awaitingUserInput?: boolean },
+  trajectory: { numTotalSteps?: number; awaitingUserInput?: boolean; updatedAt?: number | string },
   lastDelivered: number,
+  previousTrajectoryAt?: number,
 ): StallLivenessEvidence | null {
   const observedSteps = Number.isFinite(trajectory.numTotalSteps) ? Number(trajectory.numTotalSteps) : 0;
   if (trajectory.awaitingUserInput === true) return null;
   if (observedSteps > lastDelivered) {
     return { kind: 'trajectory_progress', observedSteps, lastDelivered };
+  }
+  const trajectoryAt =
+    typeof trajectory.updatedAt === 'number'
+      ? trajectory.updatedAt
+      : typeof trajectory.updatedAt === 'string'
+        ? Date.parse(trajectory.updatedAt)
+        : undefined;
+  if (
+    trajectoryAt !== undefined &&
+    Number.isFinite(trajectoryAt) &&
+    previousTrajectoryAt !== undefined &&
+    trajectoryAt > previousTrajectoryAt
+  ) {
+    return { kind: 'trajectory_timestamp_progress', observedSteps, lastDelivered, trajectoryAt, previousTrajectoryAt };
   }
   return null;
 }
@@ -364,6 +388,7 @@ export class AntigravityAgentService implements AgentService {
         lastDeliveredStepIndex?: number;
         lastTrajectoryAt?: number;
         lastLivenessEvidence?: AntigravityLivenessEvidence;
+        nativeExecutorEvidence?: AntigravityNativeExecutorEvidence;
         receiptState?: AntigravitySupervisorReceiptState;
         resumeAttemptCount?: number;
         auditType?: string;
@@ -375,6 +400,10 @@ export class AntigravityAgentService implements AgentService {
             update.lastTrajectoryAt !== undefined ? update.lastTrajectoryAt : existing?.lastTrajectoryAt;
           const lastLivenessEvidence =
             update.lastLivenessEvidence !== undefined ? update.lastLivenessEvidence : existing?.lastLivenessEvidence;
+          const nativeExecutorEvidence =
+            update.nativeExecutorEvidence !== undefined
+              ? update.nativeExecutorEvidence
+              : existing?.nativeExecutorEvidence;
           let lastObservedStepCount = 0;
           if (update.lastDeliveredStepIndex !== undefined) lastObservedStepCount = update.lastDeliveredStepIndex;
           if (existing?.lastObservedStepCount !== undefined) lastObservedStepCount = existing.lastObservedStepCount;
@@ -402,6 +431,7 @@ export class AntigravityAgentService implements AgentService {
             lastDeliveredStepIndex,
             ...(lastTrajectoryAt === undefined ? {} : { lastTrajectoryAt }),
             ...(lastLivenessEvidence === undefined ? {} : { lastLivenessEvidence }),
+            ...(nativeExecutorEvidence === undefined ? {} : { nativeExecutorEvidence }),
             journalSummarySnapshot: sideEffectJournal.summary(),
             receiptState,
             recoveryStrategy: update.recoveryStrategy,
@@ -749,14 +779,14 @@ export class AntigravityAgentService implements AgentService {
                 return;
               }
 
-              let timeoutHandle;
+              let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
               const raced = await Promise.race([
                 iterator.next(),
                 new Promise<'__grace_timeout__'>((resolve) => {
                   timeoutHandle = setTimeout(() => resolve('__grace_timeout__'), remainingMs);
                 }),
               ]);
-              clearTimeout(timeoutHandle);
+              if (timeoutHandle) clearTimeout(timeoutHandle);
               if (raced === '__grace_timeout__') {
                 const streamDecision = decideBufferedStreamErrorRecovery();
                 if (streamDecision.action === 'retry_fresh_cascade') {
@@ -788,7 +818,34 @@ export class AntigravityAgentService implements AgentService {
 
             if (nextBatch.done) return;
             const batch = nextBatch.value;
+            const persistCursorLiveness = async (evidence: AntigravityLivenessEvidence | undefined) => {
+              if (!evidence) return;
+              await persistSupervisor({
+                status: 'running',
+                recoveryStrategy: 'wait',
+                lastObservedStepCount: batch.cursor.lastDeliveredStepCount,
+                lastDeliveredStepIndex: batch.cursor.lastDeliveredStepCount,
+                ...(batch.cursor.lastTrajectoryAt === undefined
+                  ? {}
+                  : { lastTrajectoryAt: batch.cursor.lastTrajectoryAt }),
+                lastLivenessEvidence: evidence,
+                auditType: 'supervisor_liveness',
+              });
+            };
+            if (batch.steps.length === 0 && batch.cursor.livenessEvidence && !batch.cursor.awaitingUserInput) {
+              await persistCursorLiveness(batch.cursor.livenessEvidence);
+              continue;
+            }
             if (batch.cursor.awaitingUserInput) {
+              const approvalLivenessEvidence =
+                batch.cursor.livenessEvidence !== undefined
+                  ? batch.cursor.livenessEvidence
+                  : {
+                      kind: 'pending_approval' as const,
+                      observedAt: Date.now(),
+                      summary: 'trajectory is awaiting user approval',
+                    };
+              await persistCursorLiveness(approvalLivenessEvidence);
               if (self.autoApprove && !autoApproveAttempted) {
                 autoApproveAttempted = true;
                 try {
@@ -883,6 +940,11 @@ export class AntigravityAgentService implements AgentService {
               const batchHasTransientError = batchHasModelCapacity || batchHasNetworkError;
               const getToolishToolName = (step: (typeof batch.steps)[number] | undefined) =>
                 step?.metadata?.toolCall?.name ?? step?.toolCall?.toolName ?? step?.toolResult?.toolName;
+              const stepIndexFor = (step: (typeof batch.steps)[number]) => {
+                const sourceStepIndex = step.metadata?.sourceTrajectoryStepInfo?.stepIndex;
+                if (sourceStepIndex !== undefined) return sourceStepIndex;
+                return previousLastDelivered + batch.steps.indexOf(step);
+              };
               const firstToolishStep = batch.steps.find(isF201ToolishStep);
               const allBatchToolishStepCount = batch.steps.filter(isF201ToolishStep).length;
               const batchHasResolvedToolishStep = batch.steps.some((step) => {
@@ -1024,6 +1086,19 @@ export class AntigravityAgentService implements AgentService {
                 ...extra,
               });
               const willRetryFreshCascade = transientRecoveryDecision?.action === 'retry_fresh_cascade';
+              const pendingToolLivenessEvidence = (() => {
+                const pendingStep = waitingToolishSteps[0];
+                if (!pendingStep) return undefined;
+                const pendingToolishName = getToolishToolName(pendingStep);
+                const pendingToolName = pendingToolishName !== undefined ? pendingToolishName : pendingStep.type;
+                return {
+                  kind: 'pending_tool' as const,
+                  observedAt: Date.now(),
+                  summary: `waiting tool step ${pendingToolName} is pending native handling`,
+                };
+              })();
+              const batchLivenessEvidence =
+                pendingToolLivenessEvidence !== undefined ? pendingToolLivenessEvidence : batch.cursor.livenessEvidence;
 
               const batchMsgTypeCounts: Record<string, number> = {};
               for (const msg of messages) {
@@ -1054,7 +1129,11 @@ export class AntigravityAgentService implements AgentService {
                 recoveryStrategy: 'wait',
                 lastObservedStepCount: lastDelivered,
                 lastDeliveredStepIndex: lastDelivered,
-                auditType: 'supervisor_batch',
+                ...(batch.cursor.lastTrajectoryAt === undefined
+                  ? {}
+                  : { lastTrajectoryAt: batch.cursor.lastTrajectoryAt }),
+                ...(batchLivenessEvidence === undefined ? {} : { lastLivenessEvidence: batchLivenessEvidence }),
+                auditType: batchLivenessEvidence === undefined ? 'supervisor_batch' : 'supervisor_liveness',
               });
 
               const seenFatalKeys = new Set<string>();
@@ -1274,15 +1353,65 @@ export class AntigravityAgentService implements AgentService {
               }
 
               if (terminalAbort) break;
+              const persistNativeExecutorEvidence = async (
+                step: (typeof batch.steps)[number],
+                status: AntigravityNativeExecutorEvidence['status'],
+              ) => {
+                const toolishName = getToolishToolName(step);
+                const toolName = toolishName !== undefined ? toolishName : step.type;
+                const observedAt = Date.now();
+                const summary = `native executor ${status.replace(/_/g, ' ')} ${toolName} step ${stepIndexFor(step)}`;
+                const nativeExecutorEvidence: AntigravityNativeExecutorEvidence = {
+                  toolName,
+                  stepType: step.type,
+                  stepIndex: stepIndexFor(step),
+                  status,
+                  observedAt,
+                  summary,
+                };
+                await persistSupervisor({
+                  status: 'running',
+                  recoveryStrategy: 'wait',
+                  lastObservedStepCount: lastDelivered,
+                  lastDeliveredStepIndex: lastDelivered,
+                  ...(batch.cursor.lastTrajectoryAt === undefined
+                    ? {}
+                    : { lastTrajectoryAt: batch.cursor.lastTrajectoryAt }),
+                  lastLivenessEvidence: {
+                    kind: 'native_executor_active',
+                    observedAt,
+                    summary,
+                  },
+                  nativeExecutorEvidence,
+                  auditType: 'supervisor_liveness',
+                });
+              };
               for (const step of batch.steps) {
                 const toolCallId = step.metadata?.toolCall?.id;
                 if (toolCallId && handledToolCallIds.has(toolCallId)) continue;
+                const hasToolCallId = Boolean(toolCallId);
+                const isWaitingStep = step.status === 'CORTEX_STEP_STATUS_WAITING';
+                const recordNativeExecutor = hasToolCallId ? true : isWaitingStep;
                 try {
+                  if (recordNativeExecutor) {
+                    await persistNativeExecutorEvidence(step, 'started');
+                  }
                   const handled = await self.bridge.nativeExecuteAndPush(step, {
                     cascadeId,
                     cwd: sanitizedDir,
                     modelName: self.model,
                   });
+                  if (recordNativeExecutor) {
+                    const evidenceStatus =
+                      handled === true
+                        ? 'completed'
+                        : handled === 'approval_pending'
+                          ? 'approval_pending'
+                          : handled === 'no_executor'
+                            ? 'no_executor'
+                            : 'not_handled';
+                    await persistNativeExecutorEvidence(step, evidenceStatus);
+                  }
                   if (handled === true) {
                     // Any truthy native step handling means this invoke already
                     // advanced a local tool path, so later capacity errors must
@@ -1334,6 +1463,9 @@ export class AntigravityAgentService implements AgentService {
                     break;
                   }
                 } catch (err) {
+                  if (recordNativeExecutor) {
+                    await persistNativeExecutorEvidence(step, 'error');
+                  }
                   log.warn(`nativeExecuteAndPush failed for step: ${err}`);
                 }
               }
@@ -1399,30 +1531,44 @@ export class AntigravityAgentService implements AgentService {
             }
             if (isStall) {
               try {
+                const existingSupervisor = await this.supervisorStore.get(originalInvocationId, cascadeId);
                 const liveness = detectStallLivenessFromTrajectory(
                   await this.bridge.getTrajectory(cascadeId),
                   lastDelivered,
+                  existingSupervisor?.lastTrajectoryAt,
                 );
                 if (liveness) {
-                  log.info(
-                    { cascadeId, liveness, lastDelivered },
-                    'stall ignored because Antigravity trajectory still shows liveness',
-                  );
-                  await persistSupervisor({
-                    status: 'running',
-                    recoveryStrategy: 'wait',
-                    lastObservedStepCount: liveness.observedSteps,
-                    lastDeliveredStepIndex: lastDelivered,
-                    lastTrajectoryAt: Date.now(),
-                    lastLivenessEvidence: {
-                      kind: liveness.kind,
-                      observedAt: Date.now(),
-                      summary: `trajectory step count advanced from ${liveness.lastDelivered} to ${liveness.observedSteps}`,
-                    },
-                    auditType: 'supervisor_liveness',
-                  });
-                  retry = true;
-                  continue;
+                  if (stallProbeBudget.attempts >= stallProbeBudget.maxAttempts) {
+                    log.warn(
+                      { cascadeId, liveness, lastDelivered, stallProbeBudget },
+                      'trajectory-derived liveness exhausted stall probe budget; surfacing stall',
+                    );
+                  } else {
+                    stallProbeBudget.attempts += 1;
+                    log.info(
+                      { cascadeId, liveness, lastDelivered },
+                      'stall ignored because Antigravity trajectory still shows liveness',
+                    );
+                    await persistSupervisor({
+                      status: 'running',
+                      recoveryStrategy: 'wait',
+                      lastObservedStepCount: liveness.observedSteps,
+                      lastDeliveredStepIndex: lastDelivered,
+                      lastTrajectoryAt:
+                        liveness.kind === 'trajectory_timestamp_progress' ? liveness.trajectoryAt : Date.now(),
+                      lastLivenessEvidence: {
+                        kind: liveness.kind,
+                        observedAt: Date.now(),
+                        summary:
+                          liveness.kind === 'trajectory_timestamp_progress'
+                            ? `trajectory timestamp advanced from ${liveness.previousTrajectoryAt} to ${liveness.trajectoryAt}`
+                            : `trajectory step count advanced from ${liveness.lastDelivered} to ${liveness.observedSteps}`,
+                      },
+                      auditType: 'supervisor_liveness',
+                    });
+                    retry = true;
+                    continue;
+                  }
                 }
               } catch (livenessErr) {
                 log.warn(`stall liveness probe failed: ${livenessErr}`);

@@ -89,7 +89,21 @@ export interface CascadeTrajectory {
   status: string;
   numTotalSteps: number;
   awaitingUserInput?: boolean;
+  updatedAt?: number | string;
   trajectory?: { steps: TrajectoryStep[] };
+}
+
+export type BridgeLivenessEvidenceKind =
+  | 'trajectory_progress'
+  | 'trajectory_timestamp_progress'
+  | 'step_mutation'
+  | 'pending_approval'
+  | 'rpc_reconnected';
+
+export interface BridgeLivenessEvidence {
+  kind: BridgeLivenessEvidenceKind;
+  observedAt: number;
+  summary: string;
 }
 
 export interface DeliveryCursor {
@@ -98,6 +112,8 @@ export interface DeliveryCursor {
   terminalSeen: boolean;
   lastActivityAt: number;
   awaitingUserInput?: boolean;
+  lastTrajectoryAt?: number;
+  livenessEvidence?: BridgeLivenessEvidence;
 }
 
 export interface StepBatch {
@@ -115,6 +131,16 @@ function hasGeneratingPlannerResponse(steps: TrajectoryStep[]): boolean {
   return steps.some(
     (step) => step.type === 'CORTEX_STEP_TYPE_PLANNER_RESPONSE' && step.status === 'CORTEX_STEP_STATUS_GENERATING',
   );
+}
+
+function trajectoryTimestampMs(trajectory: CascadeTrajectory): number | undefined {
+  const updatedAt = trajectory.updatedAt;
+  if (typeof updatedAt === 'number' && Number.isFinite(updatedAt)) return updatedAt;
+  if (typeof updatedAt === 'string') {
+    const parsed = Date.parse(updatedAt);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
 }
 
 export class AntigravityBridge {
@@ -317,13 +343,16 @@ export class AntigravityBridge {
     const maxRpcRetries = 3;
     let deliveredFingerprints: string[] = [];
     let deliveredPlannerTexts: string[] = [];
+    let lastTrajectoryAt: number | undefined;
 
     while (true) {
       if (signal?.aborted) throw new Error('Aborted');
 
       let traj: CascadeTrajectory;
+      let recoveredAfterRpcError = false;
       try {
         traj = await this.getTrajectory(cascadeId);
+        recoveredAfterRpcError = rpcRetries > 0;
         rpcRetries = 0;
       } catch (err) {
         rpcRetries++;
@@ -336,6 +365,11 @@ export class AntigravityBridge {
       const currentSteps = traj.numTotalSteps ?? 0;
       const isTerminal = traj.status === 'CASCADE_RUN_STATUS_IDLE';
       const awaitingUserInput = traj.awaitingUserInput === true;
+      const trajectoryAt = trajectoryTimestampMs(traj);
+      const previousTrajectoryAt = lastTrajectoryAt;
+      if (trajectoryAt !== undefined) lastTrajectoryAt = trajectoryAt;
+      const trajectoryTimestampAdvanced =
+        trajectoryAt !== undefined && previousTrajectoryAt !== undefined && trajectoryAt > previousTrajectoryAt;
       const hasInlineSteps = Array.isArray(traj.trajectory?.steps);
       const shouldFetchForNewSteps = currentSteps > delivered;
       const shouldFetchForMutation = currentSteps > 0 && deliveredFingerprints.length > 0 && hasInlineSteps;
@@ -373,6 +407,18 @@ export class AntigravityBridge {
         lastActivityAt = Date.now();
         const newSteps = allSteps.slice(delivered, currentSteps);
         const emittedSteps = replaySteps.concat(newSteps);
+        const livenessEvidence: BridgeLivenessEvidence =
+          currentSteps > delivered
+            ? {
+                kind: 'trajectory_progress',
+                observedAt: Date.now(),
+                summary: `trajectory step count advanced from ${delivered} to ${currentSteps}`,
+              }
+            : {
+                kind: 'step_mutation',
+                observedAt: Date.now(),
+                summary: `trajectory step content mutated at delivered count ${delivered}`,
+              };
         delivered = currentSteps;
         deliveredFingerprints = nextFingerprints;
         deliveredPlannerTexts = nextPlannerTexts;
@@ -387,6 +433,8 @@ export class AntigravityBridge {
             terminalSeen: terminalReady,
             lastActivityAt,
             awaitingUserInput,
+            ...(trajectoryAt === undefined ? {} : { lastTrajectoryAt: trajectoryAt }),
+            livenessEvidence,
           },
         };
         if (terminalReady) return;
@@ -396,6 +444,11 @@ export class AntigravityBridge {
           if (!waitingApprovalSignaled) {
             waitingApprovalSignaled = true;
             log.info(`cascade ${cascadeId} awaiting user input; suppressing stall timeout`);
+            const livenessEvidence: BridgeLivenessEvidence = {
+              kind: 'pending_approval',
+              observedAt: Date.now(),
+              summary: 'trajectory is awaiting user approval',
+            };
             yield {
               steps: [],
               cursor: {
@@ -404,6 +457,8 @@ export class AntigravityBridge {
                 terminalSeen: false,
                 lastActivityAt,
                 awaitingUserInput: true,
+                ...(trajectoryAt === undefined ? {} : { lastTrajectoryAt: trajectoryAt }),
+                livenessEvidence,
               },
             };
           }
@@ -428,6 +483,29 @@ export class AntigravityBridge {
           throw new Error(
             `Antigravity stall: no activity for ${idleMs}ms (steps=${currentSteps}, status=${traj.status})`,
           );
+        }
+        if (!isTerminal && trajectoryTimestampAdvanced) {
+          const livenessEvidence: BridgeLivenessEvidence = {
+            kind: recoveredAfterRpcError ? 'rpc_reconnected' : 'trajectory_timestamp_progress',
+            observedAt: Date.now(),
+            summary: recoveredAfterRpcError
+              ? `LS-RPC reconnected and trajectory timestamp advanced from ${previousTrajectoryAt} to ${trajectoryAt}`
+              : `trajectory timestamp advanced from ${previousTrajectoryAt} to ${trajectoryAt}`,
+          };
+          yield {
+            steps: [],
+            cursor: {
+              baselineStepCount: stepsBefore,
+              lastDeliveredStepCount: delivered,
+              terminalSeen: false,
+              lastActivityAt,
+              awaitingUserInput: false,
+              lastTrajectoryAt: trajectoryAt,
+              livenessEvidence,
+            },
+          };
+          await new Promise((r) => setTimeout(r, pollIntervalMs));
+          continue;
         }
       }
 

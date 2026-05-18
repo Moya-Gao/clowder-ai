@@ -3204,6 +3204,194 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.equal(record.recoveryStrategy, 'wait');
   });
 
+  test('AC-G2/G3/G4: timestamp heartbeat writes durable supervisor liveness evidence', async () => {
+    const supervisorStore = new InMemoryAntigravitySupervisorStore();
+    const bridge = createMockBridge({ cascadeId: 'cascade-f201-timestamp-heartbeat' });
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [],
+        cursor: {
+          baselineStepCount: 0,
+          lastDeliveredStepCount: 0,
+          terminalSeen: false,
+          lastActivityAt: Date.now(),
+          lastTrajectoryAt: 1770000002000,
+          livenessEvidence: {
+            kind: 'trajectory_timestamp_progress',
+            observedAt: 1770000002100,
+            summary: 'trajectory timestamp advanced while no step was deliverable',
+          },
+        },
+      };
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'Recovered after timestamp heartbeat.' },
+          },
+        ],
+        cursor: {
+          baselineStepCount: 0,
+          lastDeliveredStepCount: 1,
+          terminalSeen: true,
+          lastActivityAt: Date.now(),
+          lastTrajectoryAt: 1770000003000,
+        },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      supervisorStore,
+    });
+    const messages = await collect(
+      service.invoke('hello', {
+        auditContext: {
+          threadId: 'thread-f201-timestamp-heartbeat',
+          invocationId: 'inv-f201-timestamp-heartbeat',
+          userId: 'u1',
+          catId: 'antigravity',
+        },
+      }),
+    );
+
+    assert.ok(messages.some((msg) => msg.type === 'text' && msg.content === 'Recovered after timestamp heartbeat.'));
+
+    const record = await supervisorStore.get('inv-f201-timestamp-heartbeat', 'cascade-f201-timestamp-heartbeat');
+    assert.ok(record, 'supervisor record must be persisted for timestamp heartbeat');
+    assert.equal(record.lastLivenessEvidence?.kind, 'trajectory_timestamp_progress');
+    assert.equal(record.lastLivenessEvidence?.summary, 'trajectory timestamp advanced while no step was deliverable');
+    assert.equal(record.lastTrajectoryAt, 1770000003000);
+    assert.equal(record.recoveryStrategy, 'wait');
+  });
+
+  test('AC-G2/G3: timestamp-only stall liveness is bounded and cannot mask a dead cascade', async () => {
+    const supervisorStore = new InMemoryAntigravitySupervisorStore();
+    const bridge = createMockBridge({ cascadeId: 'cascade-f201-timestamp-dead' });
+    let pollCount = 0;
+    bridge.pollForSteps = async function* () {
+      pollCount += 1;
+      if (pollCount === 1) {
+        yield {
+          steps: [],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 0,
+            terminalSeen: false,
+            lastActivityAt: Date.now(),
+            lastTrajectoryAt: 1770000001000,
+            livenessEvidence: {
+              kind: 'trajectory_timestamp_progress',
+              observedAt: 1770000001100,
+              summary: 'trajectory timestamp advanced while no step was deliverable',
+            },
+          },
+        };
+      }
+      if (pollCount > 3) {
+        throw new Error(`unbounded timestamp-only liveness retry (${pollCount})`);
+      }
+      throw new Error('Antigravity poll stall after 20ms');
+    };
+    let trajectoryCalls = 0;
+    bridge.getTrajectory = mock.fn(async () => {
+      trajectoryCalls += 1;
+      return {
+        status: 'CASCADE_RUN_STATUS_RUNNING',
+        numTotalSteps: 0,
+        awaitingUserInput: false,
+        updatedAt: 1770000001000 + trajectoryCalls * 1000,
+      };
+    });
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      supervisorStore,
+      pollTimeoutMs: 20,
+    });
+    const messages = await collect(
+      service.invoke('hello', {
+        auditContext: {
+          threadId: 'thread-f201-timestamp-dead',
+          invocationId: 'inv-f201-timestamp-dead',
+          userId: 'u1',
+          catId: 'antigravity',
+        },
+      }),
+    );
+
+    const errorMessages = messages.filter((msg) => msg.type === 'error').map((msg) => String(msg.error));
+
+    assert.equal(pollCount, 3, 'timestamp-only liveness must stop at the stall probe budget');
+    assert.ok(
+      errorMessages.some((error) => /Antigravity poll stall/.test(error)),
+      'bounded timestamp-only liveness should surface the original stall',
+    );
+    assert.equal(
+      errorMessages.some((error) => /unbounded timestamp-only liveness retry/.test(error)),
+      false,
+      'timestamp-only liveness must not continue past the bound',
+    );
+  });
+
+  test('AC-G2/G3: numTotalSteps-only stall liveness is bounded and cannot mask a dead cascade', async () => {
+    const supervisorStore = new InMemoryAntigravitySupervisorStore();
+    const bridge = createMockBridge({ cascadeId: 'cascade-f201-step-count-dead' });
+    let pollCount = 0;
+    bridge.pollForSteps = async function* () {
+      pollCount += 1;
+      if (pollCount > 3) {
+        throw new Error(`unbounded step-count liveness retry (${pollCount})`);
+      }
+      throw new Error('Antigravity poll stall after 20ms');
+    };
+    let trajectoryCalls = 0;
+    bridge.getTrajectory = mock.fn(async () => {
+      trajectoryCalls += 1;
+      return {
+        status: 'CASCADE_RUN_STATUS_RUNNING',
+        numTotalSteps: trajectoryCalls,
+        awaitingUserInput: false,
+      };
+    });
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      supervisorStore,
+      pollTimeoutMs: 20,
+    });
+    const messages = await collect(
+      service.invoke('hello', {
+        auditContext: {
+          threadId: 'thread-f201-step-count-dead',
+          invocationId: 'inv-f201-step-count-dead',
+          userId: 'u1',
+          catId: 'antigravity',
+        },
+      }),
+    );
+
+    const errorMessages = messages.filter((msg) => msg.type === 'error').map((msg) => String(msg.error));
+
+    assert.equal(pollCount, 3, 'numTotalSteps-only liveness must stop at the stall probe budget');
+    assert.ok(
+      errorMessages.some((error) => /Antigravity poll stall/.test(error)),
+      'bounded numTotalSteps-only liveness should surface the original stall',
+    );
+    assert.equal(
+      errorMessages.some((error) => /unbounded step-count liveness retry/.test(error)),
+      false,
+      'numTotalSteps-only liveness must not continue past the bound',
+    );
+  });
+
   test('F201 Phase F Task 2b: post-side-effect stream_error persists resumable supervisor record', async () => {
     const supervisorStore = new InMemoryAntigravitySupervisorStore();
     const bridge = createMockBridge({ cascadeId: 'cascade-f201-supervisor-resumable' });
@@ -3409,6 +3597,10 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.equal(record.status, 'resumable');
     assert.equal(record.recoveryStrategy, 'manual_card');
     assert.equal(record.receiptState, 'native_success_trajectory_error');
+    assert.equal(record.lastLivenessEvidence?.kind, 'native_executor_active');
+    assert.equal(record.nativeExecutorEvidence?.toolName, 'run_command');
+    assert.equal(record.nativeExecutorEvidence?.status, 'completed');
+    assert.equal(record.nativeExecutorEvidence?.stepIndex, 1);
     assert.equal(record.journalSummarySnapshot.entries.length, 1);
     assert.equal(record.journalSummarySnapshot.entries[0].target, 'touch docs/f201-receipt-conflict.md');
     assert.equal(record.journalSummarySnapshot.entries[0].status, 'pending');

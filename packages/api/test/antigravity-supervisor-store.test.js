@@ -68,6 +68,14 @@ function buildSupervisorRecord(overrides = {}) {
       observedAt: 1770000000200,
       summary: 'trajectory step count advanced from 6 to 8',
     },
+    nativeExecutorEvidence: {
+      toolName: 'run_command',
+      stepType: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+      stepIndex: 7,
+      status: 'completed',
+      observedAt: 1770000000250,
+      summary: 'native executor completed run_command step 7',
+    },
     journalSummarySnapshot: buildJournalSummary(),
     receiptState: 'clean',
     recoveryStrategy: 'wait',
@@ -100,6 +108,7 @@ describe('F201 AntigravitySupervisorStore', () => {
 
     assert.ok(found);
     assert.equal(found.journalSummarySnapshot.entries[0].target, '[REDACTED_TARGET]');
+    assert.equal(found.nativeExecutorEvidence.status, 'completed');
 
     found.journalSummarySnapshot.entries[0].target = 'mutated-after-get';
     const foundAgain = await store.get('inv-1', 'cascade-1');
@@ -173,6 +182,23 @@ describe('F201 AntigravitySupervisorStore', () => {
     assert.equal(await store.get('inv-1', 'cascade-1'), null);
 
     redis.values.set(expectedKey, JSON.stringify([]));
+    assert.equal(await store.get('inv-1', 'cascade-1'), null);
+
+    redis.values.set(
+      expectedKey,
+      JSON.stringify(
+        buildSupervisorRecord({
+          nativeExecutorEvidence: {
+            toolName: 'run_command',
+            stepType: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            stepIndex: 1,
+            status: 'unknown_status',
+            observedAt: 1770000000200,
+            summary: 'bad native status',
+          },
+        }),
+      ),
+    );
     assert.equal(await store.get('inv-1', 'cascade-1'), null);
   });
 

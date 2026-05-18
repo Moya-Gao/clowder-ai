@@ -142,6 +142,50 @@ describe('G2: pollForSteps yields steps incrementally', () => {
     assert.equal(yielded[1].cursor.terminalSeen, true);
   });
 
+  test('AC-G2/G3: emits heartbeat liveness when trajectory timestamp advances without new steps', async () => {
+    const bridge = createBridge();
+    let callCount = 0;
+    const trajectories = [
+      {
+        status: 'CASCADE_RUN_STATUS_RUNNING',
+        numTotalSteps: 0,
+        updatedAt: 1770000000000,
+      },
+      {
+        status: 'CASCADE_RUN_STATUS_RUNNING',
+        numTotalSteps: 0,
+        updatedAt: 1770000002000,
+      },
+      {
+        status: 'CASCADE_RUN_STATUS_IDLE',
+        numTotalSteps: 1,
+        updatedAt: 1770000003000,
+        trajectory: {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'DONE',
+              plannerResponse: { response: 'finished after timestamp heartbeat' },
+            },
+          ],
+        },
+      },
+    ];
+    mock.method(bridge, 'getTrajectory', async () => trajectories[Math.min(callCount++, trajectories.length - 1)]);
+    mock.method(bridge, 'getTrajectorySteps', async () => trajectories[2].trajectory.steps);
+
+    const yielded = [];
+    for await (const batch of bridge.pollForSteps('cascade-1', 0, 5000, 10)) {
+      yielded.push(batch);
+    }
+
+    const heartbeat = yielded.find((batch) => batch.steps.length === 0 && batch.cursor.livenessEvidence);
+    assert.ok(heartbeat, 'timestamp progress should emit an internal heartbeat batch');
+    assert.equal(heartbeat.cursor.livenessEvidence.kind, 'trajectory_timestamp_progress');
+    assert.equal(heartbeat.cursor.lastTrajectoryAt, 1770000002000);
+    assert.equal(yielded.at(-1).steps[0].plannerResponse.response, 'finished after timestamp heartbeat');
+  });
+
   test('keeps polling when cascade is IDLE but planner response is still generating', async () => {
     const bridge = createBridge();
     let callCount = 0;
