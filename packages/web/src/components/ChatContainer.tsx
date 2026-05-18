@@ -600,9 +600,12 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   // queue hydration or a missed intent_mode event). In that case we still need
   // the top cancel affordance — otherwise the thread looks active in the
   // execution bar but offers no single-cat cancel control.
+  const activeInvocationCount = Object.keys(activeInvocations).length;
+  const singleSpawningTarget =
+    targetCats.length === 1 && targetCats[0] !== undefined && catStatuses[targetCats[0]] === 'spawning';
   const showThinkingIndicator =
     intentMode === 'execute' ||
-    (intentMode == null && hasActiveInvocation && Object.keys(activeInvocations).length === 1);
+    (intentMode == null && hasActiveInvocation && (activeInvocationCount === 1 || singleSpawningTarget));
 
   useVoiceAutoPlay();
   useVoiceStream();

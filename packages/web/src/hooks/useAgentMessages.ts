@@ -2472,8 +2472,18 @@ export function useAgentMessages() {
       if (store.currentThreadId && currentTargets.length === 1 && currentTargets[0] !== nextCatId) {
         replaceThreadTargetCats(store.currentThreadId, [nextCatId]);
       }
+
+      const currentStatus = store.catStatuses?.[nextCatId];
+      if (
+        currentStatus !== 'spawning' &&
+        currentStatus !== 'streaming' &&
+        currentStatus !== 'alive_but_silent' &&
+        currentStatus !== 'suspected_stall'
+      ) {
+        setCatStatus(nextCatId, 'spawning');
+      }
     },
-    [addActiveInvocation, removeActiveInvocation, replaceThreadTargetCats],
+    [addActiveInvocation, removeActiveInvocation, replaceThreadTargetCats, setCatStatus],
   );
 
   const resolveSequentialHandoffInvocationId = useCallback((fromCatId?: string, explicitInvocationId?: string) => {

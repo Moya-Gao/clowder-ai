@@ -50,6 +50,7 @@ const storeState = {
       },
     },
   } as Record<string, unknown>,
+  catStatuses: {} as Record<string, string>,
   addMessage: mockAddMessage,
   appendToMessage: mockAppendToMessage,
   appendToolEvent: mockAppendToolEvent,
@@ -115,6 +116,7 @@ describe('useAgentMessages system_info invocation_created', () => {
     captured = undefined;
     storeState.messages = [];
     storeState.targetCats = ['codex'];
+    storeState.catStatuses = {};
     storeState.activeInvocations = {};
     mockRemoveActiveInvocation.mockImplementation((invocationId: string) => {
       delete storeState.activeInvocations[invocationId];
@@ -127,7 +129,11 @@ describe('useAgentMessages system_info invocation_created', () => {
     mockReplaceThreadTargetCats.mockImplementation((_threadId: string, cats: string[]) => {
       storeState.targetCats = [...cats];
     });
+    mockSetCatStatus.mockImplementation((catId: string, status: string) => {
+      storeState.catStatuses[catId] = status;
+    });
     mockAddMessage.mockClear();
+    mockSetCatStatus.mockClear();
     mockSetCatInvocation.mockClear();
     mockSetMessageStreamInvocation.mockClear();
     mockRemoveActiveInvocation.mockClear();
@@ -401,12 +407,14 @@ describe('useAgentMessages system_info invocation_created', () => {
     expect(mockRemoveActiveInvocation).toHaveBeenCalledWith('inv-root');
     expect(mockAddActiveInvocation).toHaveBeenCalledWith('inv-root', 'opus', 'execute', 123456);
     expect(mockReplaceThreadTargetCats).toHaveBeenCalledWith('thread-1', ['opus']);
+    expect(mockSetCatStatus).toHaveBeenCalledWith('opus', 'spawning');
     expect(storeState.activeInvocations['inv-root']).toEqual({
       catId: 'opus',
       mode: 'execute',
       startedAt: 123456,
     });
     expect(storeState.targetCats).toEqual(['opus']);
+    expect(storeState.catStatuses.opus).toBe('spawning');
   });
 
   it('migrates legacy a2a_handoff without invocationId by resolving the current cat active slot', () => {

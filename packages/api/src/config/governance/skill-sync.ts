@@ -6,7 +6,7 @@
  * the project-level portion of scripts/sync-skills.sh.
  */
 
-import { lstat, mkdir, readlink, rm, symlink } from 'node:fs/promises';
+import { lstat, mkdir, readlink, realpath, rm, symlink } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 
 import { computeSourceManifestHash, listSourceSkillNames, readSkillsState, writeSkillsState } from './skills-state.js';
@@ -55,6 +55,35 @@ async function removeSymlinkIfExists(linkPath: string): Promise<void> {
   }
 }
 
+async function shouldSkipDirectoryLevelSkillsSymlink(skillsDir: string, skillsSource: string): Promise<boolean> {
+  try {
+    if (!(await lstat(skillsDir)).isSymbolicLink()) return false;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw err;
+  }
+
+  let mountedRoot: string;
+  let expectedRoot: string;
+  try {
+    mountedRoot = await realpath(skillsDir);
+    expectedRoot = await realpath(skillsSource);
+  } catch (err) {
+    throw new Error(
+      `Invalid directory-level skills mount at ${skillsDir}: symlink must resolve to the current skills source ${skillsSource}. ${
+        (err as Error).message
+      }`,
+    );
+  }
+
+  if (mountedRoot !== expectedRoot) {
+    throw new Error(
+      `Invalid directory-level skills mount at ${skillsDir}: resolves to ${mountedRoot}, expected ${expectedRoot}.`,
+    );
+  }
+  return true;
+}
+
 function symlinkTargetFor(linkPath: string, sourcePath: string): string {
   return process.platform === 'win32' ? sourcePath : relative(dirname(linkPath), sourcePath);
 }
@@ -78,6 +107,11 @@ export async function syncSkills(projectRoot: string, skillsSource: string): Pro
   // Create/update symlinks for current skills
   for (const providerDir of PROVIDER_DIRS) {
     const skillsDir = join(projectRoot, providerDir);
+    if (await shouldSkipDirectoryLevelSkillsSymlink(skillsDir, skillsSource)) {
+      // Legacy directory-level mounts are already valid. Do not follow the
+      // symlink and write per-skill links back into the source skills tree.
+      continue;
+    }
     await mkdir(skillsDir, { recursive: true });
 
     for (const skillName of currentNames) {

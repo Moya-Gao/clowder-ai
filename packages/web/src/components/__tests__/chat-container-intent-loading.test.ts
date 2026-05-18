@@ -26,8 +26,8 @@ function createMockStoreState() {
     isLoading: false,
     hasActiveInvocation: false,
     intentMode: null,
-    targetCats: [],
-    catStatuses: {},
+    targetCats: [] as string[],
+    catStatuses: {} as Record<string, string>,
     catInvocations: {},
     activeInvocations: {},
     addMessage: vi.fn(),
@@ -226,6 +226,20 @@ describe('ChatContainer intent_mode loading lock', () => {
     };
     storeState.intentMode = null;
     storeState.targetCats = [];
+
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-1' }));
+    });
+
+    expect(mockThinkingIndicator).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders ThinkingIndicator during single-cat spawn_started before intent_mode registers a slot', () => {
+    storeState.hasActiveInvocation = true;
+    storeState.activeInvocations = {};
+    storeState.intentMode = null;
+    storeState.targetCats = ['codex'];
+    storeState.catStatuses = { codex: 'spawning' };
 
     act(() => {
       root.render(React.createElement(ChatContainer, { threadId: 'thread-1' }));
