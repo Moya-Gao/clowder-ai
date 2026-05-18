@@ -6,7 +6,7 @@ topics: [skills, workflow, agent, interview, langgraph, dify, eval, sop]
 doc_kind: script
 created: 2026-05-11
 status: draft
-duration_target: 7-8min
+duration_target: 8min
 presenter: landy
 cat_voices: [opus, codex]
 source_material:
@@ -131,7 +131,22 @@ Anthropic 在 2025 年 10 月发布了 Agent Skills，用文件夹组织指令�
 
 ---
 
-### [Part 6: 判断矩阵 + 面试怎么答] 🎬 6:15 — 7:10 | Landy
+### [追问：Skills 会取代 MCP 吗？] 🎬 6:15 — 7:00 | Landy
+
+面试官可能继续追："现在不是都说 MCP 落日了吗？Skills 会不会取代 MCP？"
+
+回答：不会。被淘汰的是朴素 MCP——把 93 个工具的 schema 一股脑塞进 context 的旧用法、质量差的社区 server、以及旧的 HTTP+SSE transport。MCP 协议本身没死，它刚迁移到 Streamable HTTP，Anthropic 还在持续强化 Code Execution with MCP。
+
+MCP 和 Skills 不在同一层：
+
+- **MCP 是连接层** — 让 agent 安全、标准化地访问外部系统。读数据库、发企微消息、创建 Jira ticket，这些需要 MCP、CLI 或 API 作为执行通道。
+- **Skills 是知识层** — 告诉 agent 拿到这些能力之后，按什么流程用、避什么坑。一个 Skill 写得再好，它也不能凭空发消息。
+
+所以成熟的答案不是"Skills 替代 MCP"，而是：**MCP 负责 access，Skills 负责 expertise，Workflow/Gate 负责确定性和审计。** 三层各管各的。
+
+---
+
+### [Part 7: 判断矩阵 + 面试怎么答] 🎬 7:00 — 7:55 | Landy
 
 面试官追问"那具体什么场景用什么"，你甩一个判断矩阵：
 
@@ -154,7 +169,7 @@ Anthropic 在 2025 年 10 月发布了 Agent Skills，用文件夹组织指令�
 
 ---
 
-### [收尾] 🎬 7:10 — 7:30 | Landy
+### [收尾] 🎬 7:55 — 8:15 | Landy
 
 > 记住：面试里最有力的回答不是选边站，是**"我知道两边各自的天花板，而且我在自己的系统里找到了平衡点。"**
 >
