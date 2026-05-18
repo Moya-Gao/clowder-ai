@@ -63,6 +63,7 @@ created: 2026-02-26
 | F179 | Desktop Installer Release Pipeline — Win NSIS + Mac DMG 自动附 release | spec | 布偶猫 | community (v0.9.0 反馈) | [F179](features/F179-desktop-installer-release-pipeline.md) |
 | F180 | Agent CLI Hook Health and Sync — user-level hook 检测 + 一键同步 | in-progress | 缅因猫/砚砚 | community [#614](https://github.com/zts212653/clowder-ai/issues/614) | [F180](features/F180-agent-cli-hook-health.md) |
 | F181 | Reserved Feature Slot — 待补充需求锚点 | idea | 待定 | internal | [F181](features/F181-reserved-feature-slot.md) |
+| F185 | 入口级判忙策略分层 — ADR-034 实施（dispatch / queue / fairness gate） | in-progress | 布偶猫/宪宪 | internal | [F185](features/F185-dispatch-busy-gate-unification.md) |
 | F188 | Library Stewardship — 图书馆管护与成长（rebuild + health + graph fidelity + materialize + pin） | spec | 布偶猫 | internal | [F188](features/F188-library-stewardship.md) |
 | F189 | Operation Context Unification — 操作上下文单点化（HTTP/MCP/CLI/A2A 统一 builder） | spec | 布偶猫 | internal | [F189](features/F189-operation-context-unification.md) |
 | F190 | Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片 | in-progress | Community + Maintainers | community | [F190](features/F190-console-settings-appshell-skeleton.md) |

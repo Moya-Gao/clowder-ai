@@ -6,6 +6,16 @@ const execFileAsync = promisify(execFile);
 const STALE_AGENT_BROWSER_CHROME_SECONDS = 60 * 60;
 const USER_DATA_DIR_RE = /--user-data-dir=(?:"([^"]+)"|'([^']+)'|(\S+))/;
 
+// LL-056 extension: ownership is by user-data-dir, not symptom field — list every
+// known headless owner so a leak from any of them gets cleaned. Markers must be
+// specific enough that user-managed manual debug dirs are NOT swept up.
+const TRACKED_USER_DATA_DIR_OWNERS = [
+  'agent-browser-chrome', // vercel-labs / minhlucvan agent-browser-mcp
+  'rod/user-data', // github.com/go-rod/rod (e.g. xiaohongshu-mcp)
+  'playwright_chromiumdev_profile-', // Playwright default ephemeral temp profile
+  'puppeteer_dev_chrome_profile-', // puppeteer default temp profile
+];
+
 export interface OrphanCleanResult {
   found: number;
   killed: number;
@@ -31,10 +41,25 @@ interface ProcessEntry {
 }
 
 function isChromeBinary(args: string): boolean {
+  // Extract the binary-path prefix (everything before the first ` -<flag>`).
+  // Helper binary names contain spaces ("Chromium Helper (Renderer)") so \S*-style
+  // regexes can't span them — but binary names never start with `-`, so the
+  // first " -" reliably marks the flag boundary. Restricting the helper substring
+  // check to this prefix prevents prompt-text false matches (砚砚 R2 class).
+  const binaryPath = args.split(' -')[0];
   return (
     args.startsWith('/Applications/Google Chrome.app/') ||
     args.startsWith('/Applications/Chromium.app/') ||
-    /^\/(?:usr|opt|snap)\S*\/(?:google-chrome|chromium|chrome)/.test(args)
+    /^\/(?:usr|opt|snap)\S*\/(?:google-chrome|chromium|chrome)/.test(args) ||
+    // LL-056 ext: user-local cached Chromium (rod / puppeteer / playwright auto-downloads)
+    /^\/\S*\/Chromium\.app\/Contents\/MacOS\/Chromium(?:\s|$)/.test(args) ||
+    // LL-056 ext (Linux): Playwright/Puppeteer/Rod cache Chromium in chrome-linux[64]/ subdir
+    /^\/\S*\/chrome-linux(?:64)?\/(?:chrome|headless_shell)(?:\s|$)/.test(args) ||
+    // LL-056 ext: Playwright/Puppeteer cached headless-shell builds live in chrome-headless-shell-* dir
+    /^\/\S*\/chrome-headless-shell(?:\s|$)/.test(args) ||
+    // LL-056 ext: cached macOS Chromium helper processes (Renderer/GPU/Network/Plugin).
+    // Scoped to binary-path prefix so prompt text can't false-match.
+    /\/Chromium\.app\/Contents\/Frameworks\//.test(binaryPath)
   );
 }
 
@@ -86,7 +111,7 @@ function parseAgentBrowserUserDataDir(args: string): string | null {
     userDataDir = m[3];
   }
   if (userDataDir === undefined) return null;
-  if (!userDataDir.includes('agent-browser-chrome')) return null;
+  if (!TRACKED_USER_DATA_DIR_OWNERS.some((owner) => userDataDir.includes(owner))) return null;
   return userDataDir;
 }
 

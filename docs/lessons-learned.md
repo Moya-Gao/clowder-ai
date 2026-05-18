@@ -1170,7 +1170,7 @@ created: 2026-02-26
 
 ### LL-056: stale browser profile 不是 orphan——cleanup 要按资源所有权分组
 - 状态：draft
-- 更新时间：2026-05-10
+- 更新时间：2026-05-17（pattern enumeration 扩展：rod / playwright / puppeteer）
 
 - 坑：F145 的 agent-browser Chrome startup cleanup 只扫描 `ppid=1` 的 orphan Chrome 进程。第 5 次复发时，现场是 61 个 `agent-browser-chrome-*` headless Chrome 进程抢 CPU，Chrome main process 自己还活着，helper 的 `ppid` 指向 Chrome main 而不是 launchd，所以原逻辑直接漏掉。结果 `pnpm start` 的 API server 在 20s 内监听不上 3002，看起来像 runtime 启动超时，根因实际是 stale browser profile 长时间占 CPU。
 - 根因：
@@ -1185,6 +1185,8 @@ created: 2026-02-26
   1. 进程 cleanup 不要只看 parent 链；先问“资源所有权边界是什么”。对浏览器这类多进程 runtime，通常是 profile/socket/session dir，而不是单个 PID。
   2. 外部 CLI upgrade 是必要排查项，但不能代替本地 guard。wrapper 没有生命周期管理时，A 类 startup guard 和 C 类上游修复必须并存。
   3. 启发式阈值要有测试表达 tradeoff：本次 1h 阈值只在 cat-cafe startup 时运行，不是周期清理；误杀代价是重开 agent-browser session，低于 runtime 起不来的代价。
+  4. **Owner enumeration completeness（2026-05-17 增）**：坐标系对了之后，pattern 列表必须穷举所有 known headless owner，且每条 marker 必须**具体到 owner 自动生成的 profile prefix**——不能用宽泛字串。第 6 次复发是 xiaohongshu-mcp 用 go-rod，user-data-dir 落在 `rod/user-data/...`，初版只列了 `agent-browser-chrome` 一种 owner 导致漏清。当前白名单：`agent-browser-chrome` / `rod/user-data` / `playwright_chromiumdev_profile-` / `puppeteer_dev_chrome_profile-`。**反例**：初稿用 `'playwright'` 模糊匹配会把 `/tmp/my-playwright-debug-profile` 等用户手动 debug session 误判为孤儿，被 stale≥1h 路径 SIGKILL（砚砚 review BLOCKING）。新增任何 headless 工具 → 验证 owner 源码确认 default temp profile prefix → 加 pattern + positive fixture + 至少一条 negative fixture 防止过宽。
+  5. **Cross-platform binary matching completeness（2026-05-17 增）**：owner pattern 通过 `--user-data-dir` 命中只是第一道门，进程必须先过 `isChromeBinary` 才会被 parser 接受。macOS 用 `.app` bundle，Linux 把 Chromium 装在 `chrome-linux/` 或 `chrome-linux64/` 子目录下，**且 Playwright/Puppeteer 还把 headless-only 构建拆到单独目录** `chrome-headless-shell-{version}/chrome-headless-shell-{platform}/chrome-headless-shell`（macOS + Linux 同形态）。**而且 macOS 的 helper（Renderer/GPU/Network/Plugin）的 binary 名带空格**（`Chromium Helper (Renderer)`），用 `\S*` 风格的正则会在 framework 段就截断匹配，所以 main + helper 不能用同一条 regex 覆盖。漏掉任一变体 → owner pattern 在该环境全失效。当前 binary matcher 必须覆盖：`/Applications/{Google Chrome,Chromium}.app/` macOS bundle / `/(usr|opt|snap)/.../chrome\|chromium` Linux 系统包 / `*/Chromium.app/Contents/MacOS/Chromium` cached macOS main binary（云端 codex P1）/ `*/chrome-linux(64)?/(chrome\|headless_shell)` cached Linux binary（云端 codex P1）/ `*/chrome-headless-shell` cached headless shell（砚砚 P1）/ `/Chromium.app/Contents/Frameworks/` cached macOS helper（云端 codex P1 二审）。**通则**：新增 binary 路径时，必须同时确认 owner 是否还有 *headless variant* 装在不同 cache dir + 有 *helper sub-binary* 在 framework 路径下（带空格无法用同一条 \S*-style regex 一并覆盖）。**Binary path 含空格时（如 macOS helper）禁止用 args 全局 substring 检查**——必须先 `args.split(' -')[0]` 截出 binary path 部分再检查；否则 Node/claude 进程的 prompt text 含同样字串 + tracked user-data-dir 时会被误杀（R2 类回归，砚砚 P1 二审 catch）。每条带空格的 binary matcher 必须配 negative fixture：node prompt 含该 path 字串 + 带 tracked owner user-data-dir，验证不命中。
 - 来源锚点：
   - `docs/features/F145-mcp-portable-provisioning.md` Known Issues（PR #1407 只修了 orphan cleanup）
   - `packages/api/src/utils/orphan-chrome-cleaner.ts`

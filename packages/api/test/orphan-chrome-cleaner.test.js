@@ -52,6 +52,54 @@ const LINUX_CHROME_ORPHAN =
 const LINUX_OPT_CHROME_ORPHAN =
   '    1 12346 /opt/google/chrome/chrome --type=renderer --user-data-dir=/tmp/agent-browser-chrome-def456';
 
+// go-rod orphan (e.g. xiaohongshu-mcp / any github.com/go-rod/rod consumer)
+// LL-056 extension — same ownership pattern (user-data-dir), different upstream owner
+const ROD_CHROME_ORPHAN =
+  '    1 50001 /Users/lysander/.cache/rod/browser/chromium-1321438/Chromium.app/Contents/MacOS/Chromium --type=renderer --user-data-dir=/var/folders/41/n9jlv4ps78b90cb9vkgwtdv00000gn/T/rod/user-data/93beb2e1cde1b932 --remote-debugging-port=0';
+
+// Playwright orphan (puppeteer-like Chromium)
+const PLAYWRIGHT_CHROME_ORPHAN =
+  '    1 50002 /Applications/Chromium.app/Contents/MacOS/Chromium --type=renderer --user-data-dir=/var/folders/41/T/playwright_chromiumdev_profile-abc123 --remote-debugging-port=0';
+
+// Puppeteer orphan
+const PUPPETEER_CHROME_ORPHAN =
+  '    1 50003 /Applications/Chromium.app/Contents/MacOS/Chromium --type=renderer --user-data-dir=/var/folders/41/T/puppeteer_dev_chrome_profile-XYZ789 --remote-debugging-port=0';
+
+// User-managed Playwright debug profile — NOT a Playwright auto-generated temp profile.
+// Must NOT be matched: the owner marker 'playwright_chromiumdev_profile-' is absent.
+// (砚砚 P1 review: avoid SIGKILLing long-running manual Playwright sessions on startup.)
+const USER_PLAYWRIGHT_DEBUG_PROFILE =
+  '    1 50004 /Applications/Chromium.app/Contents/MacOS/Chromium --type=renderer --user-data-dir=/tmp/my-playwright-debug-profile --remote-debugging-port=0';
+
+// Linux Playwright orphan — cached Chromium under ~/.cache/ms-playwright/.../chrome-linux/chrome
+// (cloud codex P1: cross-platform completeness)
+const LINUX_PLAYWRIGHT_CHROME_ORPHAN =
+  '    1 50005 /home/runner/.cache/ms-playwright/chromium-1124/chrome-linux/chrome --type=renderer --user-data-dir=/tmp/playwright_chromiumdev_profile-linux-abc --remote-debugging-port=0';
+
+// Linux Puppeteer orphan — cached Chromium under ~/.cache/puppeteer/.../chrome-linux64/chrome
+const LINUX_PUPPETEER_CHROME_ORPHAN =
+  '    1 50006 /home/runner/.cache/puppeteer/chrome/linux-120.0.6099.71/chrome-linux64/chrome --type=renderer --user-data-dir=/tmp/puppeteer_dev_chrome_profile-linux-xyz --remote-debugging-port=0';
+
+// Linux Playwright headless-shell orphan — chrome-headless-shell-{ver}/chrome-headless-shell-linux64/chrome-headless-shell
+// (砚砚 P1: full Chromium vs headless shell live in different cache dirs)
+const LINUX_PLAYWRIGHT_HEADLESS_SHELL_ORPHAN =
+  '    1 50007 /home/runner/.cache/ms-playwright/chrome-headless-shell-1124/chrome-headless-shell-linux64/chrome-headless-shell --type=renderer --user-data-dir=/tmp/playwright_chromiumdev_profile-hs-abc --remote-debugging-port=0';
+
+// macOS Puppeteer headless-shell orphan — same shape but mac suffix
+const MACOS_PUPPETEER_HEADLESS_SHELL_ORPHAN =
+  '    1 50008 /Users/runner/.cache/puppeteer/chrome-headless-shell/mac-120.0.6099.71/chrome-headless-shell-mac-arm64/chrome-headless-shell --type=renderer --user-data-dir=/tmp/puppeteer_dev_chrome_profile-hs-mac --remote-debugging-port=0';
+
+// Cached macOS Chromium helper (Renderer/GPU/Network) — path contains spaces
+// (云端 codex P1: helpers live in Contents/Frameworks/.../Helpers/..., not Contents/MacOS/Chromium)
+const CACHED_MACOS_CHROMIUM_HELPER_ORPHAN =
+  '    1 50009 /Users/lysander/.cache/rod/browser/chromium-1321438/Chromium.app/Contents/Frameworks/Chromium Framework.framework/Versions/128.0.6568.0/Helpers/Chromium Helper (Renderer).app/Contents/MacOS/Chromium Helper (Renderer) --type=renderer --user-data-dir=/var/folders/41/T/rod/user-data/abc123 --remote-debugging-port=0';
+
+// Negative: Node/claude prompt text that happens to contain Chromium.app/Frameworks substring
+// + tracked user-data-dir. binary path is /Users/.../claude, not Chromium. Must NOT match.
+// (砚砚 P1 二审: prevent regression of R2 class — substring scan over full args is unsafe.)
+const NODE_PROMPT_WITH_CHROMIUM_FRAMEWORK =
+  '    1 70295 /Users/lysander/.local/bin/claude -p Path looks like /Chromium.app/Contents/Frameworks/Renderer in prompt --user-data-dir=/var/folders/41/T/rod/user-data/xxx test';
+
 const FIXTURE = [CHROME_ORPHAN, ACTIVE_CHROME, NODE_BOTH_KEYWORDS, NODE_MARKER_ONLY, NORMAL_CHROME, ''].join('\n');
 
 describe('parseOrphanPids', () => {
@@ -88,6 +136,56 @@ describe('parseOrphanPids', () => {
   test('matches Linux Chrome orphan (/opt/google/chrome/chrome)', () => {
     const pids = parseOrphanPids(LINUX_OPT_CHROME_ORPHAN, 1);
     assert.deepEqual(pids, [12346]);
+  });
+
+  test('matches orphan Chromium with go-rod user-data-dir (LL-056 ext)', () => {
+    const pids = parseOrphanPids(ROD_CHROME_ORPHAN, 1);
+    assert.deepEqual(pids, [50001]);
+  });
+
+  test('matches orphan Chromium with Playwright user-data-dir (LL-056 ext)', () => {
+    const pids = parseOrphanPids(PLAYWRIGHT_CHROME_ORPHAN, 1);
+    assert.deepEqual(pids, [50002]);
+  });
+
+  test('matches orphan Chromium with Puppeteer user-data-dir (LL-056 ext)', () => {
+    const pids = parseOrphanPids(PUPPETEER_CHROME_ORPHAN, 1);
+    assert.deepEqual(pids, [50003]);
+  });
+
+  test('does NOT match user-managed Playwright debug profile (砚砚 P1)', () => {
+    const pids = parseOrphanPids(USER_PLAYWRIGHT_DEBUG_PROFILE, 1);
+    assert.deepEqual(pids, []);
+  });
+
+  test('matches Linux Playwright orphan with chrome-linux/chrome binary (cloud codex P1)', () => {
+    const pids = parseOrphanPids(LINUX_PLAYWRIGHT_CHROME_ORPHAN, 1);
+    assert.deepEqual(pids, [50005]);
+  });
+
+  test('matches Linux Puppeteer orphan with chrome-linux64/chrome binary (cloud codex P1)', () => {
+    const pids = parseOrphanPids(LINUX_PUPPETEER_CHROME_ORPHAN, 1);
+    assert.deepEqual(pids, [50006]);
+  });
+
+  test('matches Linux Playwright headless-shell orphan (砚砚 P1)', () => {
+    const pids = parseOrphanPids(LINUX_PLAYWRIGHT_HEADLESS_SHELL_ORPHAN, 1);
+    assert.deepEqual(pids, [50007]);
+  });
+
+  test('matches macOS Puppeteer headless-shell orphan (砚砚 P1)', () => {
+    const pids = parseOrphanPids(MACOS_PUPPETEER_HEADLESS_SHELL_ORPHAN, 1);
+    assert.deepEqual(pids, [50008]);
+  });
+
+  test('matches cached macOS Chromium helper process (cloud codex P1)', () => {
+    const pids = parseOrphanPids(CACHED_MACOS_CHROMIUM_HELPER_ORPHAN, 1);
+    assert.deepEqual(pids, [50009]);
+  });
+
+  test('does NOT match Node prompt containing Chromium.app/Frameworks substring (砚砚 P1 二审)', () => {
+    const pids = parseOrphanPids(NODE_PROMPT_WITH_CHROMIUM_FRAMEWORK, 1);
+    assert.deepEqual(pids, []);
   });
 
   test('excludes own PID', () => {
