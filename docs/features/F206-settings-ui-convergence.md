@@ -8,7 +8,7 @@ created: 2026-05-18
 
 # F206: Settings UI Convergence — 组件语言归一
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -24,7 +24,7 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 
 ## What
 
-### Phase A: Settings Primitives + 4 页面归一
+### Phase A: Settings Primitives + 4 页面归一 ✅
 
 1. **定义 7 个 Settings Primitives**（`packages/web/src/components/settings/primitives/`）：
 
@@ -56,14 +56,14 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 ## Acceptance Criteria
 
 ### Phase A（Primitives + 4 页面归一）
-- [ ] AC-A1: 7 个 primitives 组件创建并 export，有 TypeScript 类型约束
-- [ ] AC-A2: 成员管理页使用 SettingsRow/SettingsFilterTabs/SettingsCard，功能无损
-- [ ] AC-A3: 账户与密钥页使用 SettingsRow（折叠态），展开编辑模型 chips 功能保留
-- [ ] AC-A4: Skill 管理页使用 SettingsRow/SettingsStatusStrip/SettingsFilterTabs，功能无损
-- [ ] AC-A5: 系统配置页使用 SettingsField/SettingsStatusStrip/SettingsBreadcrumb，功能无损
-- [ ] AC-A6: 4 页面层 0 个 raw Tailwind atomic class（`bg-*`/`text-*`/`border-*`/`rounded-*`/`px-*`/`py-*`），raw class 只能存在于 primitives 内部
-- [ ] AC-A7: `pnpm test` + `pnpm check` 全绿
-- [ ] AC-A8: 每个迁移页产出 before/after 截图归档到 `docs/evidence/settings-comparison/`
+- [x] AC-A1: 7 个 primitives 组件创建并 export，有 TypeScript 类型约束（实际产出 20+ primitives）
+- [x] AC-A2: 成员管理页使用 SettingsRow/SettingsFilterTabs/SettingsCard，功能无损
+- [x] AC-A3: 账户与密钥页使用 SettingsRow（折叠态），展开编辑模型 chips 功能保留
+- [x] AC-A4: Skill 管理页使用 SettingsRow/SettingsStatusStrip/SettingsFilterTabs，功能无损
+- [x] AC-A5: 系统配置页使用 SettingsField/SettingsStatusStrip/SettingsBreadcrumb，功能无损
+- [x] AC-A6: 4 页面层 0 个 raw Tailwind atomic class（`bg-*`/`text-*`/`border-*`/`rounded-*`/`px-*`/`py-*`），raw class 只能存在于 primitives 内部
+- [x] AC-A7: `pnpm test` + `pnpm check` 全绿
+- [ ] AC-A8: 每个迁移页产出 before/after 截图归档到 `docs/evidence/settings-comparison/`（deferred to Phase B）
 
 ### Phase B（8 页适配 + Enforcement）
 - [ ] AC-B1: 8 个低定制页面使用合适 primitives 包装（Resource/List 类用 SettingsRow，非列表页用 SettingsSection，不强塞 row）
@@ -111,4 +111,5 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 | 日期 | 事件 |
 |------|------|
 | 2026-05-18 | 立项，三猫共识 + CVO directive |
+| 2026-05-18 | Phase A merged (PR #1765) — 20+ primitives + 4 page migrations |
 | 2026-05-22 | 目标 close（时间盒 4 天，CVO：不能 5-7 天） |
