@@ -48,6 +48,10 @@ review_log:
       - Ch.5 新增 §5.6 轨迹经济学（采纳砚砚"第二根主线"升级，非 46 局部小节）
       - 配图：Figure 1-7 全量编号（阅读序）+ 附录 C 图清单（类型/回答什么/真相源/优先级）；采纳砚砚"图先定正文自然收敛"原则
       - 学术界 eval 轨迹观察 → §5.6 反证我们结构性优势（三猫一致）
+  - 2026-05-17 R3 收敛 review：46 APPROVE（§3.4 magic word 表 + Ch.2 定位段无失真）；砚砚 1 P1 + 2 P2 全部 verified + applied
+      - P1 §4.7 LLM Wiki 定义失真（凭印象写错）→ 按对照 doc 真相源改：raw sources + LLM 维护 wiki pages / schema-ingest-query-lint / 有 lint 维护循环非"无治理" + 砚砚精确句"knowledge compiler vs memory runtime"（[[feedback_external_project_scope_honesty]] 教训：不用未证实对方弱点撑论证）
+      - P2-1 §5.6 "启动成本 0/用就有" 过满 → "真实协作天然产 raw trace（边际成本低）；typed/归因/outputVerified 仍有工程成本"
+      - P2-2 §5.6 "归属：平台所有" 太绝对 → "取决于研究项目与平台协议"；我方强点改为"用户本地拥有 + 可选择导出"
 ---
 
 # 从 ReAct 到 TeamAct：把多模型协作做成 Agent-Native 软件工程系统
@@ -374,16 +378,16 @@ F102 存储基座（IEvidenceStore）
 | 系统 | 数据源 | 治理 | 反馈闭环 | 谁的知识 | 解决什么问题 |
 |------|--------|------|---------|---------|------------|
 | **RAG** | 外部文档 chunk（被动） | 无 | 无 | 外部世界 | 上下文不够 |
-| **Karpathy LLM Wiki** | LLM 训练知识预蒸馏 | 静态（wiki 编辑者） | 无 | 外部世界（预蒸馏） | 不要每次重新发现 |
+| **Karpathy LLM Wiki** | raw sources + LLM 维护的 wiki pages | schema / ingest-query-lint / 人类 curate | 知识维护闭环（lint 查矛盾/过期/孤儿页）；缺任务结果驱动的 runtime feedback | 被编译后的外部/项目知识 | 不要每次从原文重新发现 |
 | **Agentic Search**（Perplexity / Operator / Deep Research）| 公开 web 实时 | 无 | 无 | 外部世界（实时）| 当前任务找资料 |
 | **Cat Café 记忆** | **项目内 docs + 讨论 + trace（猫自己产）** | **authority / activation / status / 消费加权** | **F200 consumption-weighted ranking** | **团队自己的 lived experience** | **多 agent 长程协作怎么不漂、怎么复用、怎么评估** |
 
 **两个独有特性**（别人都没有）：
 
 1. **知识生产者 = 知识消费者**：猫写 lesson → 猫搜 lesson → 绕开坑。RAG/Wiki/Agentic Search 的知识都来自系统外部
-2. **有反馈闭环**：用了有用 → 排前面（revealed preference）。其他三者都是 read-mostly 无 usage feedback
+2. **有 runtime outcome 反馈闭环**：用了有用 → 排前面（revealed preference）。RAG/Agentic Search 是 read-mostly；LLM Wiki 有知识维护 lint 循环（不是没治理），但都缺"任务结果反向决定知识排序"的 runtime feedback
 
-**一句差异化**：Cat Café 记忆是**项目内部 lived experience 的可治理编译产物 + cross-agent revealed preference 反馈循环**——不是 RAG 的优化 / 不是 LLM Wiki 的项目化 / 不是 agentic search 的内部版。差异点不在检索算法，在 **truth source / authority / provenance / usage feedback / outputVerified / harness eval 全在闭环里**。
+**一句差异化**（砚砚对照 doc §10 精确句，诚实说法 §9）：**LLM Wiki 是 knowledge compiler；Cat Café 是 memory runtime + project reality navigation**。不是"LLM Wiki 没治理"——Karpathy 文档已有 lint/contradiction/stale 意识；我们是**把 lint 推成了 runtime governance + eval**，加上多 agent 协作（球权/handoff/cross-vendor review）。差异点不在检索算法，在 **truth source / authority / provenance / usage feedback / outputVerified / harness eval 全在闭环里**。
 
 📊 **配图：Figure 6 — 四种 Memory/Retrieval 范式对比 + Cat Café 反馈飞轮**（见附录 C）
 
@@ -475,9 +479,9 @@ F192 AC-C3 拍板 **7-class 归因矩阵**（不是早期讨论的四层）：
 | 维度 | 学术界仿真 app 采集 | Cat Café |
 |---|---|---|
 | 数据来源 | 专门造 app 采集合成轨迹 | 真实软件工程协作的副产品 |
-| 启动成本 | 高（先建仿真环境） | 0（用就有） |
+| 采集成本 | 高（先建仿真环境） | 真实协作天然产 raw trace（边际成本低）；typed / 归因 / outputVerified 仍有工程成本，但不需另造仿真环境 |
 | 真实性 | 仿真用户行为，分布飘移 | in-the-wild revealed preference |
-| 归属 | 平台所有 | **用户本地拥有**（ADR-031） |
+| 归属 | 取决于研究项目与平台协议 | **用户本地拥有 + 可选择导出**（ADR-031） |
 | 跨 provider | 单一仿真平台 | Claude/GPT/Gemini 同一套 |
 
 **关键**：raw trajectory 也不够，必须 **typed**（`searchChain / filesRead / filesModified / outputVerified / attribution`）——这正是 F200 TaskTrajectory + F192 socio-technical eval 在做的。我们不是"造个假的小红书钓鱼"，而是工作流本身就是鱼塘。学术界的痛点（benchmark 局限 + 轨迹昂贵 + cold-start 数据获取）恰好反证我们的结构性优势。
