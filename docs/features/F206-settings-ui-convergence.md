@@ -53,6 +53,14 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 3. **重跑截图对比**，确认 12 页视觉节奏一致
 4. 全量 outbound sync 准备就绪
 
+### Phase C: Console 非 Settings 页面视觉对齐 📋
+
+铲屎官 2026-05-18 反馈：重启 runtime 后发现 Signals 等非 Settings 页面样式与开源差距大。
+
+1. **Signals 列表样式对齐开源**：布局从卡片式改紧凑行式，Tier badge 修复（`text-[11px]` + `shrink-0 whitespace-nowrap` 防圆形溢出），功能保留（批量操作/学习次数/笔记等）
+2. **Mission Hub 去重**：对话侧栏顶部 Mission Hub 卡片去掉（左侧导航已有入口）
+3. **侧栏导航图标加 tooltip**：hover 显示功能名称（对话/记忆/Mission Hub/信号等）
+
 ## Acceptance Criteria
 
 ### Phase A（Primitives + 4 页面归一）
@@ -70,6 +78,11 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 - [x] AC-B2: 编译期 enforcement 落地（Biome lint rule / TS contract 至少其一），PR checklist 作为加固而非替代
 - [x] AC-B3: 新旧截图对比确认 12 页视觉节奏一致
 - [x] AC-B4: Outbound sync 就绪（lint 通过 / 0 raw atomic class in page layer / 12 页截图复测一致），sync 动作本身独立 close
+
+### Phase C（Console 非 Settings 视觉对齐）
+- [ ] AC-C1: Signals 列表样式对齐开源（紧凑行布局 + Tier badge 不溢出 + 间距统一），功能无损
+- [ ] AC-C2: 对话侧栏 Mission Hub 卡片移除，左侧导航入口保留
+- [ ] AC-C3: 侧栏导航图标 hover 显示 tooltip（功能名称）
 
 ## Dependencies
 
@@ -96,6 +109,7 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 
 - Phase A: codex 本地 review → opus-47 愿景守护（不走云端）
 - Phase B: codex 本地 review → opus-47 愿景守护（不走云端）
+- Phase C: codex 本地 review → opus-47 愿景守护（不走云端）
 
 ## Links
 
@@ -113,4 +127,5 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 | 2026-05-18 | 立项，三猫共识 + CVO directive |
 | 2026-05-18 | Phase A merged (PR #1765) — 20+ primitives + 4 page migrations |
 | 2026-05-18 | Phase B merged (PR #1769) — 8 page migrations + enforcement + accounts IA fix |
+| 2026-05-18 | CVO 反馈：Signals 样式/Mission Hub 去重/侧栏 tooltip → Phase C 追加 |
 | 2026-05-22 | 目标 close（时间盒 4 天，CVO：不能 5-7 天） |
