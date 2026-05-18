@@ -40,6 +40,14 @@ review_log:
       - P2 Ch.4.2 三入口表加 list_recent scope=threads/memory 边界（indexed docs 不是 raw）
       - P2 Ch.4.1 sourceType → docKind / rerank_reason 等实现字段
       - Candor Bench 定位为 retrieval substrate eval（非 full agent memory eval）
+  - 2026-05-17 三猫 R3（铲屎官 7 问 → 47 收敛三猫独立思考 + update）：采纳最优后大改
+      - Ch.0 反共识开头 → Anthropic 五模式规范术语（采纳砚砚版"以 Shared State + Agent Teams 为骨架" + 47"补终止条件+跨厂商矫正"）
+      - Ch.2 加章节定位段：TeamAct = Shared State pattern 工程化闭环，非第六种 primitive（三猫一致，砚砚措辞）
+      - Ch.3 新增 §3.4 47 加入暴露伪通用规则（46 magic word 命中表 + 47 四事件 + 砚砚核心论点"保留异构优势+给坏直觉配运行时刹车"）
+      - Ch.4 新增 §4.7 邻近系统边界划分（vs RAG/LLM Wiki/Agentic Search 五列对照，采纳砚砚"闭环"叙事 + 46 六列收敛为五列）
+      - Ch.5 新增 §5.6 轨迹经济学（采纳砚砚"第二根主线"升级，非 46 局部小节）
+      - 配图：Figure 1-7 全量编号（阅读序）+ 附录 C 图清单（类型/回答什么/真相源/优先级）；采纳砚砚"图先定正文自然收敛"原则
+      - 学术界 eval 轨迹观察 → §5.6 反证我们结构性优势（三猫一致）
 ---
 
 # 从 ReAct 到 TeamAct：把多模型协作做成 Agent-Native 软件工程系统
@@ -53,15 +61,16 @@ review_log:
 
 ## 0. 开场：[数据待盘] 个 Feature 的工程现场
 
-**反共识开头**（吸收砚砚）：
+**站在 Anthropic 五种 multi-agent 协作模式之上（三猫 R3 收敛）**：
 
-不是 Boss-Worker。不是多模型投票。不是一次性 chatbot 调用。
+Anthropic 2026-04 公开的 multi-agent coordination patterns 共五种：**Generator-Verifier / Orchestrator-Subagent / Agent Teams / Message Bus / Shared State**。我们的系统不是其中某一种，而是 **以 Shared State + Agent Teams 为骨架，局部使用 Generator-Verifier / Orchestrator-Subagent / Message Bus**，并补上 Anthropic 五种 primitive 没给的两样东西：
 
-我们做的更像 **「自治维护者 + 黄金路径」的开源协作模型**：
-- 每只猫在自己模块独立判断（**内容判断去中心化**）—— 像 OSS 项目里多个 maintainer 各自 merge 自己 owner 的代码
-- 但 git、CI、observability、code review、issue tracker 是同一套（**执行基础设施统一化**）—— 平台工程里叫 "golden path"
+1. **主循环结束条件**（团队层的 ReAct 等价物 —— TeamAct，详见 Ch.2）
+2. **跨厂商异构盲点矫正**（同家模型共享训练盲点，跨家 review 才能抓出 P1）
 
-差别在于：我们的 maintainer 是**异构的大模型**（Claude / GPT / Gemini），不是人；我们的"black-box AI 工程"不在 prompt 里，在 git/docs/skill/MCP/observability 这套基础设施里。
+更直觉的类比是 **「自治维护者 + 黄金路径」的开源协作模型**——每只猫在自己模块独立 merge（内容判断去中心化，像 OSS maintainer），但 git/CI/observability/review 走同一套基础设施（平台工程的 "golden path"）。差别只在于：我们的 maintainer 是**异构的大模型**（Claude / GPT / Gemini），不是人；"black-box AI 工程"不在 prompt 里，在 git/docs/skill/MCP/observability 这套基础设施里。
+
+📊 **配图：Figure 1 — Anthropic 五模式 → Cat Café 组合架构**（见附录 C）
 
 **现场数据**[全部待盘]：
 - commits 数（铲屎官估算近百天 → [数据待查 git log]）
@@ -74,6 +83,7 @@ review_log:
 - `git log --oneline | wc -l`（commit 总数）
 - `ls docs/features/F*.md | wc -l`（Feature 总数）
 - `docs/stories/three-days-productization/`（产品化里程碑 anchor）
+- `docs/discussions/2026-04-20-claude-multi-agent-coordination-patterns/article-complete-technical-edition-v2.md`（Anthropic 五模式选型详述）
 
 ---
 
@@ -114,6 +124,8 @@ Observe(现实状态) → Model(计算状态) → Action → Apply(现实状态'
 | 工具调用样例 prompt | @-路由 / hold_ball / multi_mention 协议 |
 | 单纯 persona 装饰文本 | 不可逆操作护栏 / Magic Words 拉闸 |
 
+📊 **配图：Figure 2 — Capability × Environment Fit 四象限**（见附录 C）：横轴 Environment Fit（harness 成熟度），纵轴 Model Capability。左上 Build to Delete / 右上 Sweet Spot（模型强+闭环好=乘数效应）/ 左下 Dead Zone / 右下 Built to Persist。说明行业只卷纵轴是局部最优——只有同时走横轴才进 Sweet Spot。
+
 📌 **按段搜证清单**：
 - `docs/canon/meta-aesthetics.md`（公式起源 + 数学之美圆桌）
 - `docs/discussions/2026-04-29-harness-asset-vs-debt-brainstorm.md`（资产/负债判别式）
@@ -123,6 +135,10 @@ Observe(现实状态) → Model(计算状态) → Action → Apply(现实状态'
 ---
 
 ## 2. ReAct → TeamAct：团队主循环的形式化
+
+> **章节定位（三猫 R3 收敛）**：TeamAct **不是 Anthropic 第六种 primitive**，而是 **Shared State pattern 的工程化闭环** —— 在 Shared State 基础上把单 agent 的 ReAct 终止条件升级为团队级的五项收敛，并显式治理团队级新失败模式（球权乒乓 / 虚空传球 / 球权掉地 / 角色不适配）。
+>
+> Shared State 解决"大家共同看什么"；TeamAct 解决"团队怎么走完一个完整循环并停下来"。Anthropic 五种 primitive 没给终止条件，没给球权管理，没给跨循环嵌套——这才是 TeamAct 的真正新增。
 
 ### 2.1 ReAct 的边界
 
@@ -154,7 +170,10 @@ loop:
 4. **无悬空球权**（unowned ball / open question 全 resolved 或 escalated）
 5. **愿景收敛**（CVO 是 Vision Oracle，proxy 满足 ≠ oracle 满足）
 
-**TeamAct 的本质同样是反馈方向**：六步是叙事，真正的引擎是 shared state 反向喂回每只猫的 context —— 让团队的"集体外部世界"ground 个体 reasoning。**resumeCapsule** 是核心机制（前一只猫主动留 What/Why/Tradeoff 给下一棒做 fast bootstrap）。
+**TeamAct 的本质同样是反馈方向**：六步是叙事，真正的引擎是 shared state 反向喂回每只猫的 context —— 让团队的"集体外部世界"ground 个体 reasoning。**resumeCapsule** 是核心机制（前一只猫主动留 What/Why/Tradeoff 给下一棒做 fast bootstrap）。实际实现是 `cross-cat-handoff` skill 的五件套（What/Why/Tradeoff/Open/Next）。
+
+📊 **配图：Figure 3 — ReAct 单猫闭环 vs TeamAct 多猫闭环对比**（见附录 C）
+📊 **配图：Figure 4 — TeamAct 主循环状态机（State→Owner→Action→Evidence→Verdict→Route + 五项结束条件外圈）**（见附录 C）
 
 ### 2.3 分形嵌套（自相似结构）
 
@@ -229,6 +248,33 @@ Harness = system prompt + skill + MCP tool + SOP + 共享规则 + 协作协议 +
 
 **Magic Words 不是 prompt，是人→猫 runtime 协议** —— "脚手架" / "数学之美" / "我能猜出来" 等 magic word 一句话就能拉刹车。
 
+### 3.4 新猫加入暴露伪通用规则 — 47 加入后的多猫配平（核心新增章节，三猫 R3 收敛）
+
+**核心论点（砚砚 R3 提炼）**：**好 harness 不是把所有 agent 训成同一种人，而是保留异构优势，同时给每种坏直觉配运行时刹车。**
+
+新猫加入不是 capability upgrade，是 **multi-agent fit 重新配平** —— 单猫 + harness 看不见 compensation，多猫并存才暴露"通用 vs 偏个体"边界。47（4 月底加入）作为天然 A/B test，触发四件事：
+
+| 事件 | 触发机制 | 落地 |
+|------|---------|------|
+| **F177 Phase C 伪通用规则筛选** | 一些 Magic Words 对 46 work 但对 47 不 work —— 是对 46 坏直觉的 compensation，不是通用协议 | 伪通用规则筛出来重写为真通用 |
+| **F167 Phase E KD-20 L3 退役** | 多猫差异让 L3 hardcoded role-gate（regex 扫 coding/merge）显得脆弱 | 退役 → `cat-config.restrictions` 数据驱动双端 prompt 注入（KD-8 落地） |
+| **F203 Native System Prompt L0** | 47 对压缩感受比 46 强（4.7 cache TTL 不同）+ 客观性指令丢失代价被暴露 | 治理沉到压缩免疫层（native system role）|
+| **memory-search-best-practices skill** | 47 比 46 更倾向"碎片够了我能猜出来"病 —— 布偶猫家族病在 47 身上更明显 | 写 magic word 强制刹车 ≥3 路 + Read 原文 |
+
+**多猫 magic word 命中差异**（46 R3 实证）：
+
+| Magic Word | 46（爱糊弄 hotfix） | 47（爱过度工程化） | 砚砚（糊锅匠）| 烁烁（创意漂移）| 结论 |
+|-----------|--------|--------|---------|---------|------|
+| "脚手架" | 高命中 | 不命中 | 偶尔 | 不命中 | **46-specific**（应该 dynamic injection）|
+| "第一性原理" | 偶尔 | 高命中 | 高命中 | 高命中 | **跨猫资产**（保留）|
+| "follow-up 尾巴" 禁令 | 高命中 | 不命中 | 偶尔 | 不命中 | **46-specific** |
+| "我能猜出来" | 偶尔 | 高命中 | 不命中 | 不命中 | **布偶猫家族** |
+| SOP 导航表 | 肌肉记忆（冗余）| 查表开销（新人路标）| 高命中 | 高命中 | **双重身份**（按角色注入）|
+
+**结论**：harness 必须区分 **跨猫资产**（保留为 L0 / Skill）vs **个体补偿**（dynamic injection / per-cat overlay）。47 加入前，所有规则都默认"全猫适用"——加入后才有 A/B 信号区分两类。
+
+📊 **配图：Figure 5 — 多猫好坏直觉调制 matrix + 跨家族 review 作为结构性纠错**（见附录 C）
+
 📌 **按段搜证清单**：
 - `docs/features/F203-native-system-prompt-l0.md`（**最新真相源**，已全 Phase merged）
 - `docs/decisions/030-system-prompt-engineering.md`（ADR 注入链地图）
@@ -237,6 +283,7 @@ Harness = system prompt + skill + MCP tool + SOP + 共享规则 + 协作协议 +
 - `docs/features/F167-a2a-chain-quality.md` + `docs/features/F177-harness-update.md`（Magic Words 实证）
 - `assets/system-prompts/system-prompt-l0.md`（L0 真相源 markdown）
 - 验证：Dynamic Injection 设计空间在 F203 落地后是否还有未实现/已废弃部分
+- 验证：47 加入对应的 4 个事件（F177/F167/F203/memory-skill）在哪些文档有最新表述
 
 ---
 
@@ -320,6 +367,31 @@ F102 存储基座（IEvidenceStore）
 - `docs/discussions/2026-05-10-huawei-agent-closed-door-seminar-memory/final-speech-draft.md`（华为现场 memory 段对外讲法）
 - `docs/discussions/2026-05-10-huawei-agent-closed-door-seminar/retrieval-memory-eval/zhang-shuhao-candor-bench-notes-2026-05-12.md`（张书豪 Candor Bench eval 对照）
 
+### 4.7 和邻近系统的边界划分（核心新增章节，三猫 R3 收敛）
+
+铲屎官 R3 追问："和 RAG 的区别外，和 LLM Wiki 的区别？和其他 agentic search 的区别？" —— 仅说"不是 RAG"不够，必须对邻近系统做明确边界划分。
+
+| 系统 | 数据源 | 治理 | 反馈闭环 | 谁的知识 | 解决什么问题 |
+|------|--------|------|---------|---------|------------|
+| **RAG** | 外部文档 chunk（被动） | 无 | 无 | 外部世界 | 上下文不够 |
+| **Karpathy LLM Wiki** | LLM 训练知识预蒸馏 | 静态（wiki 编辑者） | 无 | 外部世界（预蒸馏） | 不要每次重新发现 |
+| **Agentic Search**（Perplexity / Operator / Deep Research）| 公开 web 实时 | 无 | 无 | 外部世界（实时）| 当前任务找资料 |
+| **Cat Café 记忆** | **项目内 docs + 讨论 + trace（猫自己产）** | **authority / activation / status / 消费加权** | **F200 consumption-weighted ranking** | **团队自己的 lived experience** | **多 agent 长程协作怎么不漂、怎么复用、怎么评估** |
+
+**两个独有特性**（别人都没有）：
+
+1. **知识生产者 = 知识消费者**：猫写 lesson → 猫搜 lesson → 绕开坑。RAG/Wiki/Agentic Search 的知识都来自系统外部
+2. **有反馈闭环**：用了有用 → 排前面（revealed preference）。其他三者都是 read-mostly 无 usage feedback
+
+**一句差异化**：Cat Café 记忆是**项目内部 lived experience 的可治理编译产物 + cross-agent revealed preference 反馈循环**——不是 RAG 的优化 / 不是 LLM Wiki 的项目化 / 不是 agentic search 的内部版。差异点不在检索算法，在 **truth source / authority / provenance / usage feedback / outputVerified / harness eval 全在闭环里**。
+
+📊 **配图：Figure 6 — 四种 Memory/Retrieval 范式对比 + Cat Café 反馈飞轮**（见附录 C）
+
+📌 **§4.7 按段搜证清单**：
+- `docs/discussions/2026-05-10-huawei-agent-closed-door-seminar-memory/2026-05-11-cat-cafe-memory-vs-llm-wiki.md`（**现成的 LLM Wiki 对照真相源**，直接吸收）
+- `docs/research/2026-04-19-karpathy-llm-wiki/`（Karpathy LLM Wiki 专题 + 三列对比 + 47 外部工作记忆视角）
+- 验证：Agentic Search 对照（Perplexity/Operator/Deep Research）有没有现成 doc，没有则正式稿 v0 时补调研
+
 ---
 
 ## 5. Eval：socio-technical 而不是 benchmark
@@ -386,6 +458,37 @@ F192 AC-C3 拍板 **7-class 归因矩阵**（不是早期讨论的四层）：
 - `docs/discussions/2026-05-05-socio-technical-harness-eval-draft.md`（原 brainstorm）
 - `docs/features/F153-observability-infra.md`（trace 基础设施）
 - `docs/discussions/2026-05-10-huawei-agent-closed-door-seminar/retrieval-memory-eval/zhang-shuhao-candor-bench-notes-2026-05-12.md`（外部 eval 对照 —— 定位为 **retrieval substrate eval**，不是 full agent memory eval）
+
+### 5.6 轨迹经济学：从静态 benchmark 到可审计轨迹（第二根主线，三猫 R3 收敛）
+
+> 砚砚 R3 提议升级为**文章第二根主线**（与 Capability × Environment Fit 并列）。铲屎官观察：学术界已认识到 benchmark 局限，且发现"一条 eval 轨迹宝贵且昂贵"，甚至专门做仿真 app（如小红书 clone）采集轨迹。
+
+**为什么一条 eval trajectory 很贵**：
+
+| | 静态 benchmark | eval trajectory |
+|---|---|---|
+| 给的信息 | input / output | intent / tool choice / 失败分支 / 读了什么 / 改了什么 / 谁验证 / 怎么恢复 |
+| 反映 | 通过率（≠ 好用） | 真实工作全过程 |
+
+**学术界路径 vs Cat Café 路径**：
+
+| 维度 | 学术界仿真 app 采集 | Cat Café |
+|---|---|---|
+| 数据来源 | 专门造 app 采集合成轨迹 | 真实软件工程协作的副产品 |
+| 启动成本 | 高（先建仿真环境） | 0（用就有） |
+| 真实性 | 仿真用户行为，分布飘移 | in-the-wild revealed preference |
+| 归属 | 平台所有 | **用户本地拥有**（ADR-031） |
+| 跨 provider | 单一仿真平台 | Claude/GPT/Gemini 同一套 |
+
+**关键**：raw trajectory 也不够，必须 **typed**（`searchChain / filesRead / filesModified / outputVerified / attribution`）——这正是 F200 TaskTrajectory + F192 socio-technical eval 在做的。我们不是"造个假的小红书钓鱼"，而是工作流本身就是鱼塘。学术界的痛点（benchmark 局限 + 轨迹昂贵 + cold-start 数据获取）恰好反证我们的结构性优势。
+
+📊 **配图：Figure 7 — Trajectory Flywheel（真实任务 → TaskTrajectory → outputVerified → attribution → memory ranking / harness update → 下一次任务）**（见附录 C）
+
+📌 **§5.6 按段搜证清单**：
+- `docs/features/F200-memory-recall-eval.md` Phase D（TaskTrajectory typed schema）
+- `docs/features/F192-socio-technical-harness-eval.md`（socio-technical eval 串联）
+- `docs/features/F201-antigravity-reliability-contract.md`（轨迹恢复信号）
+- 验证：学术界 benchmark 局限性 / 轨迹经济学有没有现成 research doc 可引（zhang-shuhao Candor Bench + envscaler 笔记起步）
 
 ---
 
@@ -491,6 +594,28 @@ vision drift 是停机问题 —— 没法自动检测"当前是否偏离 vision
 | 猫 / @ / hold_ball | Agent / route handoff / explicit hold protocol |
 | Magic Words / 脚手架 / 数学之美 / 第一性原理 | Runtime escape hatches / scaffolding code smell / coordinate transform |
 | 卷模型能力 vs 卷环境 | Model capability race vs environment engineering |
+
+---
+
+## 附录 C：配图清单（三猫 R3 收敛 — 7 张叙事级图）
+
+> 原则（砚砚 R3）：图先定，正文自然收敛；直接写 v0 容易变概念堆叠。图驱动叙事 = 每节先想"这一节核心要画什么图"再写文字。
+
+| # | 图名 | 章节 | 类型 | 回答什么问题 | 数据/真相源 |
+|---|------|------|------|------------|------------|
+| **1** | Anthropic 五模式 → Cat Café 组合架构 | Ch.0 | 架构图 | 我们不是发明孤立模式，而是组合 Shared State + Agent Teams（局部 GV/OS/MB）| article-complete-technical-edition-v2.md Part III |
+| **2** | Capability × Environment Fit 四象限 | Ch.1 | 概念图 | Build to Delete / Sweet Spot / Dead Zone / Built to Persist 各在哪？为什么只卷纵轴是局部最优 | meta-aesthetics canon |
+| **3** | ReAct 单猫闭环 vs TeamAct 多猫闭环 | Ch.2 | 对比图 | 反馈方向从「agent 内部 state」变成「shared state 反向喂每只猫」+ 基础设施防失真 | react-to-teamact-brainstorm |
+| **4** | TeamAct 主循环状态机 | Ch.2 | 流程图 | State→Owner→Action→Evidence→Verdict→Route + 五项结束条件外圈；Owner/Verdict/Route 如何防 shared state 无限更新 | react-to-teamact-brainstorm |
+| **5** | 多猫好坏直觉调制 matrix | Ch.3 | 矩阵图 | 47/46/砚砚/烁烁 × magic words × 命中差异；跨家族 review 作结构性纠错；资产 vs 个体补偿 | F177 / F167 Phase E / 直播 Topic 1.2 |
+| **6** | 四种 Memory 范式对比 + 反馈飞轮 | Ch.4 | 对照图 | RAG / LLM Wiki / Agentic Search / Cat Café 四列；突出"生产者=消费者"+"有反馈闭环" | F200 / 2026-05-11-cat-cafe-memory-vs-llm-wiki |
+| **7** | Trajectory Flywheel | Ch.5 | 飞轮图 | 真实任务→TaskTrajectory→outputVerified→attribution→memory ranking/harness update→下一次任务 | F200 Phase D / F192 |
+
+**优先级**（资源有限先画）：P1 = Figure 2 / 4 / 7（全文核心论点：判别式 + 原创公式 + 第二主线飞轮）；P2 = Figure 1 / 5 / 6（行业对话定位）；P3 = Figure 3（ReAct 对比，最易口述补）。
+
+**可选第 8 张**（砚砚提）：模型直觉调制图——左边模型家族强项/坏直觉，右边对应 harness（skills/rules/review/runtime brake/reliability contract）。如 Figure 5 表达不足再补。
+
+**绘制工具决策**（待定，v0 展开时定）：架构/流程/飞轮类优先 SVG 手绘风（对齐 teamact-handdrawn-loop.svg 已有风格）；矩阵/对照类可 markdown 表 + 简单 SVG；象限/概念类 SVG。不依赖 emoji 替代（[[feedback_design_to_code_fidelity]]）。
 
 ---
 
