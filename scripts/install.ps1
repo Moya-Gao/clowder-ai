@@ -430,6 +430,18 @@ REDIS_PORT=6399
 # this is the only call that persists it to disk.
 Apply-InstallerAuthEnv -State $authState -EnvFile $envFile
 
+# #675: Generate TELEMETRY_HMAC_SALT if missing
+if (Test-Path $envFile) {
+    $hasSalt = Select-String -Path $envFile -Pattern "^TELEMETRY_HMAC_SALT=.+" -Quiet
+    if (-not $hasSalt) {
+        $bytes = [byte[]]::new(32)
+        [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+        $salt = -join ($bytes | ForEach-Object { "{0:x2}" -f $_ })
+        Add-Content -Path $envFile -Value "TELEMETRY_HMAC_SALT=$salt"
+        Write-Ok "Generated TELEMETRY_HMAC_SALT"
+    }
+}
+
 # Load .env into current session so NEXT_PUBLIC_* vars are available at build time
 if (Test-Path $envFile) {
     foreach ($line in (Get-Content $envFile)) {
