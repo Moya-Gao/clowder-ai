@@ -54,6 +54,10 @@
 
 **合流（Step 5+6，cross-cat）**：三份产物齐后由 **47 整合** → Cat Café 对比（Learn/Gap/Do Not Follow）+ 候选 lessons（影响 F200/F102/F148）→ **非作者跨族 review**（砚砚或 46 中未参与整合的一只）。
 
+✅ **Step 2a 完成**：Memory Tree 核心（47 scope → [memory-tree-pipeline.md](./memory-tree-pipeline.md)，§1-§5 全闭）
+✅ **Step 3+4 完成**：算法剥皮 + 反馈链（46 scope → [algorithm-stripping-and-feedback.md](./algorithm-stripping-and-feedback.md)）
+✅ **Step 5+6 合流完成**：Cat Café 对比 + 候选 lessons（47 整合 → [synthesis-and-lessons.md](./synthesis-and-lessons.md)）；claims-ledger B1/B2/C1/D1/F1 已按三猫证据更新。**待非作者跨族 review（砚砚 @codex）**
+
 **为什么这样切**：① Memory Tree 核心是 headline claim 验证、归 architecture owner；② 砚砚 first-pass 已 trace ingest/chunker/jobs，pipeline+provenance 是其 revealed strength 且直喂 F200；③ skill 明确 Step 3/4 算法剥皮宜由**非 first-pass 作者**做（46 全新视角防自证），46 强在跨域+比较表语义判断。
 
 ## 第一波 high-level 体感（带证据 anchor，详见后续两份）

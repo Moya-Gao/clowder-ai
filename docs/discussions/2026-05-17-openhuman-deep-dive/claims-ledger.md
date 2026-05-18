@@ -50,7 +50,7 @@
   - 路径：connect OAuth → auto-fetch 20-min loop → memory tree 摄入 → LLM summarize → agent prompt 注入
   - `tree_summarizer/engine.rs` 真实做 LLM 摘要
   - **没找到**：reward / RL / eval / fine-tune 类反馈闭环
-- **Verdict**: ⚠️ **partial / 重定义** — claim 真实指的是"**摄入快**"（数据 OAuth → 本地摘要），不是"**学习快**"
+- **Verdict**: ⚠️ **confirmed partial / 重定义**（46 §4 + 47 §5 交叉确认）— claim 真实指的是"**摄入快**"（数据 OAuth → 本地摘要），不是"**学习快**"。"认识你" = ingestion latency，**零 recall-eval 反馈闭环**（`access_count` 硬编码 None，build_context 不 log 消费，retrieval 无消费权重）
   - "认识你" 在 OpenHuman 体系里 = "agent prompt 里有你最近邮件/聊天的 LLM 摘要"
   - 跟"agent 真的形成对你偏好的 model"是两个事
 - **Caveat**: 我们 F200 关心的"recall 是否被消费、是否准、是否需要新摄入"在 OpenHuman 体系里**没看到对应 eval 层**——这是个 architectural 选择不是缺陷，但要写清"两家在比不同的事"
@@ -60,7 +60,7 @@
 
 - **Source**: README L86-88 比较段
 - **Evidence**: hermes / openclaw 的 README/spec 我们 ref/ 都有但第一波没核对
-- **Verdict**: ❓ **未验证** — 是否真比 Hermes 快需要单独对比，**不能直接转述他们 README**
+- **Verdict**: ⚠️ **比较表 fair 但 marketing-biased**（46 §5）— README 🚫/⚠️/✅/🚀 四级表无结构性 overclaim（没 claim "我们也有 self-learning"），但 emoji 梯度（🚀 > ✅）视觉暗示优越性，而两家在做不同维度的事。**但 head-to-head "OpenHuman 比 Hermes 快" 仍 ❓**：无人重追 ref/hermes，不能直接转述他们 README（feedback_external_project_scope_honesty）
 - **Caveat**: 这种 "we are first" claim 在开源生态属于 strong promotional，应保留怀疑（参见铲屎官教训 [feedback_external_project_scope_honesty]）
 
 ## C. TokenJuice（token 压缩）
@@ -73,7 +73,7 @@
   - 模块结构：`classify` / `reduce` (928 行) / `rules/{loader,compiler,builtin}` / `text` / `tool_integration` / `types`
   - **三层 rule overlay**：builtin (vendored JSON) / user (`~/.config/tokenjuice/rules/`) / project (`.tokenjuice/rules/`)
   - 示例：`git status` 输出 `"M: src/lib.rs"` —— 纯文本 pattern 重写
-- **Verdict**: ✅ **verified** — 是真规则引擎，不是 LLM judge；可解释、可配置、可叠加
+- **Verdict**: ✅ **mechanism verified；"80%" is aspirational**（46 §2）— 是真规则引擎不是 LLM judge，可解释/可配置/可叠加；但 fixture 实测 `git_status` 66% / `cargo_test_failure` 仅 20%（失败路径保留上下文），README "up to 80%" 是最佳场景上限非典型值，"up to" 诚实但易被误读为均值
 - **Caveat**:
   - "80% 压缩" 是 README 数字，实际比率取决于工具输出形态，需要看 `tokenjuice_integration.rs` 测试数据 confirm（Step 2）
   - **不是他们自家算法**（port of vincentkoc/tokenjuice）——README 没有 overclaim 这点（mod.rs 顶注释写明出处），但 README 段落口吻偏 "我们的 TokenJuice"
@@ -89,7 +89,7 @@
   - 完整 trait → REST endpoint 映射表（README §"Trait method → endpoint"）
   - 安全：plaintext-bearer 守 loopback；`AGENTMEMORY_REQUIRE_HTTPS=1` 强 HTTPS
   - **明确无 fallback**："private, simple, predictable"——避免 silent SQLite fallback 掩盖配置错误
-- **Verdict**: ✅ **verified** — 真插件，不是 trait stub；安全细节做到位
+- **Verdict**: ✅ **verified（补充：单轨替换非双轨）**（46 §3）— 真插件不是 trait stub，安全细节做到位。**澄清**：选 agentmemory 后 factory 完整跳过 UnifiedMemory（`factories.rs:373`），替换的是 recall trait backend；Memory Tree 是**正交独立**的文件层管道（仍走本地 `chunks.db`），不是"两套并存冗余"也不是 agentmemory 替换整个 memory 系统
 - **Caveat**:
   - 选了 agentmemory 后，**Memory Tree 仍走自己的 `chunks.db`**（两套并存）——README 没明确分离这一点，可能引读者误以为 agentmemory 替换整个 memory 系统
   - field mapping 是 lossy 的：`MemoryCategory::Daily` 和 `MemoryCategory::Conversation` 都映射到 `type: "conversation"`，反向不可逆
@@ -129,7 +129,7 @@
   - `grep -i 'self.?improv|self.?learn|reward|reinforce|fine.?tune|eval.?loop|feedback.?loop'` → 11 个文件
   - 实际 RL/reward 类核心实现：**0 个**
   - `learning/` 模块只有 `stability_detector.rs` + `mod.rs` + `config/schema/learning.rs` — 是配置 hook，不是算法
-- **Verdict**: 🚫 **none claimed in OpenHuman, but absence is structurally interesting**
+- **Verdict**: 🚫 **confirmed：零反馈闭环**（46 §4 全面 absence check）— `access_count: Option<u32>` 类型存在但所有 emission 点硬编码 `None`（`rpc_models.rs:499-501`, `ops/documents.rs:476-479`）；`build_context()` 注入 prompt 不 log 消费；interaction signal 来自 ingest-time 标签非 recall 行为；learning 模块无 reward/RL
   - OpenHuman **没有 overclaim self-improvement**（这点诚实），但也**没有 recall eval / 反馈环**——它选择了"扩大上下文 + 检索"这一路
   - 跟我们 F200 的"消费加权 + recall eval + 三入口"是完全不同的 architectural 哲学
 - **Cat Café 对比 hook**: 这是个**护城河差异**而非"谁强"——
