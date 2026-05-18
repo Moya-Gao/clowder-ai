@@ -127,7 +127,7 @@ Observe(现实状态) → Model(计算状态) → Action → Apply(现实状态'
 | 工具调用样例 prompt | @-路由 / hold_ball / multi_mention 协议 |
 | 单纯 persona 装饰文本 | 不可逆操作护栏 / Magic Words 拉闸 |
 
-📊 **配图：Figure 2 — Capability × Environment Fit 四象限**（见附录 C）：横轴 Environment Fit（harness 成熟度），纵轴 Model Capability。左上 Build to Delete / 右上 Sweet Spot（模型强+闭环好=乘数效应）/ 左下 Dead Zone / 右下 Built to Persist。说明行业只卷纵轴是局部最优——只有同时走横轴才进 Sweet Spot。
+📊 **配图：Figure 2 — 能力 × Harness 契合度 + Harness 投资半衰期**（见附录 C）：双面板。左面板是能力 × harness 契合度四象限，只描述状态/瓶颈（死区 / 能力裸奔区 / 能力瓶颈区 / 乘数区），不把 Build to Delete / Built to Persist 当象限名；右面板是 harness 投资半衰期曲线，解释有保质期的脚手架当下价值高但会折旧，复利型基础设施随模型能力演进增值。说明行业只卷纵轴是局部最优——真正的预算问题是区分“补模型当前认知缺陷”与“编码外部现实/协作协议/可验证边界”。
 
 📌 **按段搜证清单**：
 - `docs/canon/meta-aesthetics.md`（公式起源 + 数学之美圆桌）
@@ -607,7 +607,7 @@ vision drift 是停机问题 —— 没法自动检测"当前是否偏离 vision
 | # | 图名 | 章节 | 类型 | 回答什么问题 | 数据/真相源 |
 |---|------|------|------|------------|------------|
 | **1** | Anthropic 五模式 → Cat Café 组合架构 | Ch.0 | 架构图 | 我们不是发明孤立模式，而是组合 Shared State + Agent Teams（局部 GV/OS/MB）| article-complete-technical-edition-v2.md Part III |
-| **2** | Capability × Environment Fit 四象限 | Ch.1 | 概念图 | Build to Delete / Sweet Spot / Dead Zone / Built to Persist 各在哪？为什么只卷纵轴是局部最优 | meta-aesthetics canon |
+| **2** | 能力 × Harness 契合度 + Harness 投资半衰期 | Ch.1 | 双面板概念图 | 左：死区 / 能力裸奔区 / 能力瓶颈区 / 乘数区，回答瓶颈在哪；右：有保质期的脚手架 vs 复利型基础设施两条回报曲线，回答如何分配预算与 sunset | meta-aesthetics canon / 2026-04-29 harness-asset-vs-debt brainstorm |
 | **3** | ReAct 单猫闭环 vs TeamAct 多猫闭环 | Ch.2 | 对比图 | 反馈方向从「agent 内部 state」变成「shared state 反向喂每只猫」+ 基础设施防失真 | react-to-teamact-brainstorm |
 | **4** | TeamAct 主循环状态机 | Ch.2 | 流程图 | State→Owner→Action→Evidence→Verdict→Route + 五项结束条件外圈；Owner/Verdict/Route 如何防 shared state 无限更新 | react-to-teamact-brainstorm |
 | **5** | 多猫好坏直觉调制 matrix | Ch.3 | 矩阵图 | 47/46/砚砚/烁烁 × magic words × 命中差异；跨家族 review 作结构性纠错；资产 vs 个体补偿 | F177 / F167 Phase E / 直播 Topic 1.2 |

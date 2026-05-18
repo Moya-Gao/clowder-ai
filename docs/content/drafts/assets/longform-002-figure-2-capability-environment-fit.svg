@@ -1,122 +1,137 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100" role="img" aria-labelledby="title desc">
-  <title id="title">Figure 2 — Capability multiplied by environment fit</title>
-  <desc id="desc">A four-quadrant diagram plotting model capability against environment fit. The top-left is Build to Delete, the top-right is the Sweet Spot, the bottom-left is the Dead Zone, and the bottom-right is Built to Persist.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1050" viewBox="0 0 1800 1050" role="img" aria-labelledby="title desc">
+  <title id="title">Figure 2 — 能力、Harness 契合度与 Harness 投资半衰期</title>
+  <desc id="desc">双面板图。左面板是模型能力乘以 Harness 契合度的四象限：死区、能力裸奔区、能力瓶颈区、乘数区。右面板是 Harness 投资半衰期：有保质期的脚手架当下价值高但随模型能力演进折旧，复利型基础设施随模型能力演进增值。</desc>
   <defs>
     <style>
       .paper { fill: #fffaf0; }
-      .ink { fill: #25313b; font-family: "Chalkboard SE", "Comic Sans MS", "Inter", "Segoe UI", sans-serif; }
-      .title { font-size: 48px; font-weight: 800; }
-      .subtitle { font-size: 24px; fill: #5b6672; }
-      .axis { font-size: 28px; font-weight: 800; }
-      .quadTitle { font-size: 34px; font-weight: 850; }
-      .quadSub { font-size: 21px; font-weight: 700; fill: #3f4b57; }
-      .body { font-size: 20px; fill: #4d5965; }
-      .small { font-size: 18px; fill: #5a6470; }
-      .noteTitle { font-size: 23px; font-weight: 800; }
-      .note { font-size: 18px; fill: #44505b; }
-      .line { fill: none; stroke: #25313b; stroke-width: 4.2; stroke-linecap: round; stroke-linejoin: round; }
-      .thin { fill: none; stroke: #25313b; stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
-      .dash { stroke-dasharray: 10 10; }
+      .ink { fill: #25313b; font-family: "PingFang SC", "Hiragino Sans GB", "Heiti SC", "Noto Sans CJK SC", "Inter", sans-serif; }
+      .title { font-size: 42px; font-weight: 800; }
+      .subtitle { font-size: 22px; fill: #596572; }
+      .panelTitle { font-size: 28px; font-weight: 850; }
+      .panelNote { font-size: 17px; fill: #596572; }
+      .axis { font-size: 21px; font-weight: 800; }
+      .axisHint { font-size: 16px; fill: #687481; }
+      .quadTitle { font-size: 28px; font-weight: 850; }
+      .quadBody { font-size: 18px; fill: #3f4b57; }
+      .curveTitle { font-size: 24px; font-weight: 850; }
+      .curveBody { font-size: 17px; fill: #3f4b57; }
+      .small { font-size: 15px; fill: #5b6672; }
+      .micro { font-size: 13px; fill: #687481; }
+      .line { fill: none; stroke: #25313b; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+      .thin { fill: none; stroke: #25313b; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+      .softLine { fill: none; stroke: #25313b; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.24; }
+      .dash { stroke-dasharray: 9 10; }
     </style>
-    <marker id="arrow" viewBox="0 0 10 10" refX="8.4" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.4" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 Z" fill="#25313b"/>
     </marker>
-    <marker id="arrowGreen" viewBox="0 0 10 10" refX="8.4" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
-      <path d="M0 0 L10 5 L0 10 Z" fill="#2f7d4b"/>
-    </marker>
-    <marker id="arrowRed" viewBox="0 0 10 10" refX="8.4" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
-      <path d="M0 0 L10 5 L0 10 Z" fill="#a0443d"/>
-    </marker>
-    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="130%">
-      <feDropShadow dx="0" dy="9" stdDeviation="10" flood-color="#6f6252" flood-opacity="0.16"/>
+    <filter id="softShadow" x="-8%" y="-10%" width="116%" height="125%">
+      <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="#6f6252" flood-opacity="0.14"/>
     </filter>
   </defs>
 
-  <rect class="paper" width="1600" height="1100"/>
-  <path class="thin" d="M42 46 C300 23 520 44 760 31 C1044 16 1308 28 1555 48" opacity="0.24"/>
-  <path class="thin" d="M48 1018 C304 1040 582 1018 820 1030 C1110 1044 1324 1030 1548 1015" opacity="0.20"/>
+  <rect class="paper" width="1800" height="1050"/>
+  <path class="softLine" d="M52 48 C304 27 562 50 806 34 C1130 14 1476 28 1748 50"/>
+  <path class="softLine" d="M54 984 C352 1010 666 984 938 997 C1248 1012 1515 998 1740 982"/>
 
-  <text class="ink title" x="78" y="92">Capability × Environment Fit</text>
-  <text class="ink subtitle" x="82" y="130">Model capability compounds only when the world around the model is engineered to persist.</text>
+  <text class="ink title" x="70" y="82">能力 × Harness 契合度，不等于 Harness 投资寿命</text>
+  <text class="ink subtitle" x="73" y="122">左边看“现在瓶颈在哪里”；右边看“这层 harness 应该怎么投、什么时候删”。</text>
 
-  <!-- Plot area -->
+  <!-- Left panel: quadrant state map -->
   <g filter="url(#softShadow)">
-    <rect x="226" y="210" width="1088" height="690" rx="28" fill="#fffdfa" stroke="#25313b" stroke-width="4.5"/>
-    <path d="M770 211 C762 355 772 534 768 901" class="line" opacity="0.78"/>
-    <path d="M226 555 C492 548 820 562 1314 553" class="line" opacity="0.78"/>
+    <rect x="70" y="175" width="820" height="720" rx="24" fill="#fffdfa" stroke="#25313b" stroke-width="4"/>
+  </g>
+  <text class="ink panelTitle" x="105" y="225">A. 状态图：你的瓶颈在哪？</text>
+  <text class="ink panelNote" x="107" y="254">四象限只描述状态，不评价哪类 harness “高级”。</text>
+  <text class="ink panelNote" x="107" y="280">只换模型=上移；投 harness=右移；乘数效应在右上。</text>
 
-    <!-- Quadrant fills -->
-    <path d="M250 236 C392 224 610 231 746 238 C756 332 752 453 748 535 C590 544 402 535 250 542 C236 452 238 326 250 236 Z" fill="#ffe8e0" opacity="0.86"/>
-    <path d="M792 236 C938 224 1132 232 1291 240 C1300 333 1293 456 1290 535 C1130 543 948 536 792 542 C783 450 786 326 792 236 Z" fill="#dcf5df" opacity="0.90"/>
-    <path d="M250 577 C396 566 594 572 746 580 C754 677 752 795 746 876 C588 888 408 878 250 882 C238 786 240 674 250 577 Z" fill="#eef0f4" opacity="0.94"/>
-    <path d="M792 577 C938 566 1130 572 1290 580 C1300 675 1294 794 1290 876 C1128 888 948 879 792 882 C783 786 786 674 792 577 Z" fill="#e6efff" opacity="0.92"/>
+  <g transform="translate(122 292)">
+    <rect x="0" y="0" width="675" height="505" rx="18" fill="#fffdf8" stroke="#25313b" stroke-width="3.2"/>
+    <path class="line" d="M337 505 C333 392 340 261 337 0" opacity="0.78"/>
+    <path class="line" d="M0 252 C151 247 351 257 675 252" opacity="0.78"/>
+    <path class="line" d="M0 505 C170 502 410 508 675 505" marker-end="url(#arrow)"/>
+    <path class="line" d="M0 505 C-4 345 2 154 0 0" marker-end="url(#arrow)"/>
 
-    <!-- Main axes, redrawn on top -->
-    <path d="M770 900 C762 720 772 490 768 214" class="line" marker-end="url(#arrow)"/>
-    <path d="M226 555 C520 548 906 562 1314 553" class="line" marker-end="url(#arrow)"/>
+    <path d="M20 20 C97 10 232 19 319 20 C326 92 321 170 318 234 C226 241 101 233 21 239 C12 169 14 89 20 20 Z" fill="#fff0d6" opacity="0.92"/>
+    <path d="M356 20 C456 10 572 18 654 22 C662 90 657 169 654 234 C562 241 456 234 356 239 C349 169 351 88 356 20 Z" fill="#dff3e5" opacity="0.94"/>
+    <path d="M20 273 C104 264 232 271 319 276 C326 347 322 430 318 486 C226 495 104 488 21 490 C13 421 14 343 20 273 Z" fill="#eceff3" opacity="0.95"/>
+    <path d="M356 273 C456 264 573 271 654 276 C662 347 657 430 654 486 C562 495 456 488 356 490 C349 421 351 343 356 273 Z" fill="#e4edf9" opacity="0.95"/>
 
-    <!-- Quadrant content -->
-    <text class="ink quadTitle" x="304" y="300">Build to Delete</text>
-    <text class="ink quadSub" x="304" y="332">High capability, low environment fit</text>
-    <text class="ink body" x="304" y="382">Strong models compensate for missing</text>
-    <text class="ink body" x="304" y="410">infrastructure with brute-force reasoning.</text>
-    <text class="ink small" x="304" y="462">Examples:</text>
-    <text class="ink small" x="328" y="492">chain-of-thought templates</text>
-    <text class="ink small" x="328" y="520">manual recovery boilerplate</text>
-    <text class="ink small" x="328" y="548">brittle format prompts</text>
+    <text class="ink quadTitle" x="60" y="72">能力裸奔区</text>
+    <text class="ink quadBody" x="60" y="108">强模型，弱 harness</text>
+    <text class="ink quadBody" x="60" y="139">单次表现亮眼</text>
+    <text class="ink quadBody" x="60" y="170">但状态不复利</text>
 
-    <text class="ink quadTitle" x="858" y="300">Sweet Spot</text>
-    <text class="ink quadSub" x="858" y="332">High capability, high environment fit</text>
-    <text class="ink body" x="858" y="382">The model is strong, and the environment</text>
-    <text class="ink body" x="858" y="410">lets that strength compound.</text>
-    <text class="ink small" x="858" y="462">Signals:</text>
-    <text class="ink small" x="882" y="492">shared reality</text>
-    <text class="ink small" x="882" y="520">verification loops</text>
-    <text class="ink small" x="882" y="548">cross-agent memory</text>
+    <text class="ink quadTitle" x="405" y="72">乘数区</text>
+    <text class="ink quadBody" x="405" y="108">强模型，成熟 harness</text>
+    <text class="ink quadBody" x="405" y="139">观察、行动、验证</text>
+    <text class="ink quadBody" x="405" y="170">形成复利闭环</text>
 
-    <text class="ink quadTitle" x="304" y="650">Dead Zone</text>
-    <text class="ink quadSub" x="304" y="682">Low capability, low environment fit</text>
-    <text class="ink body" x="304" y="730">Weak models in bare environments</text>
-    <text class="ink body" x="304" y="758">cannot form a useful loop.</text>
-    <text class="ink small" x="304" y="810">Symptoms:</text>
-    <text class="ink small" x="328" y="840">demo-only workflows</text>
-    <text class="ink small" x="328" y="868">no persistent state</text>
+    <text class="ink quadTitle" x="60" y="326">死区</text>
+    <text class="ink quadBody" x="60" y="362">模型弱，harness 也弱</text>
+    <text class="ink quadBody" x="60" y="393">只能 demo</text>
+    <text class="ink quadBody" x="60" y="424">难以形成闭环</text>
 
-    <text class="ink quadTitle" x="858" y="650">Built to Persist</text>
-    <text class="ink quadSub" x="858" y="682">Low capability, high environment fit</text>
-    <text class="ink body" x="858" y="730">The environment is ready before the</text>
-    <text class="ink body" x="858" y="758">next model generation fully exploits it.</text>
-    <text class="ink small" x="858" y="810">Examples:</text>
-    <text class="ink small" x="882" y="840">git / docs / search tools</text>
-    <text class="ink small" x="882" y="868">traces / tests / review gates</text>
+    <text class="ink quadTitle" x="405" y="326">能力瓶颈区</text>
+    <text class="ink quadBody" x="405" y="362">harness 已把路铺好</text>
+    <text class="ink quadBody" x="405" y="393">仍跑不好时</text>
+    <text class="ink quadBody" x="405" y="424">瓶颈可归因到模型</text>
 
-    <!-- Path arrows -->
-    <path d="M395 760 C526 684 650 628 760 555 C884 472 995 391 1123 320" fill="none" stroke="#2f7d4b" stroke-width="5.6" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowGreen)" opacity="0.68"/>
-
-    <path d="M407 760 C408 633 407 500 407 333" fill="none" stroke="#a0443d" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="13 12" marker-end="url(#arrowRed)" opacity="0.64"/>
+    <text class="ink axis" x="218" y="543">Harness 契合度</text>
+    <text class="ink axisHint" x="9" y="526">低</text>
+    <text class="ink axisHint" x="641" y="526">高</text>
+    <g transform="translate(-56 334) rotate(-90)">
+      <text class="ink axis">模型能力</text>
+    </g>
+    <text class="ink axisHint" x="-34" y="487">低</text>
+    <text class="ink axisHint" x="-34" y="22">高</text>
   </g>
 
-  <!-- Axis labels -->
-  <text class="ink axis" x="585" y="978">Environment Fit</text>
-  <text class="ink small" x="301" y="978">low</text>
-  <text class="ink small" x="1238" y="978">high</text>
-
-  <g transform="translate(118 680) rotate(-90)">
-    <text class="ink axis">Model Capability</text>
+  <!-- Right panel: half-life / value curves -->
+  <g filter="url(#softShadow)">
+    <rect x="935" y="175" width="795" height="720" rx="24" fill="#fffdfa" stroke="#25313b" stroke-width="4"/>
   </g>
-  <text class="ink small" x="138" y="855">low</text>
-  <text class="ink small" x="136" y="250">high</text>
+  <text class="ink panelTitle" x="970" y="225">B. 寿命图：这层 harness 值得怎么投？</text>
+  <text class="ink panelNote" x="972" y="254">Build to Delete / Built to Persist 是折旧模型，不是好坏标签。</text>
+  <text class="ink panelNote" x="972" y="280">先判根因：补当前认知缺陷，还是编码外部现实。</text>
 
-  <!-- Discriminant note -->
-  <path d="M1380 292 C1442 278 1512 292 1532 342 C1548 404 1514 474 1450 484 C1390 496 1328 464 1320 404 C1312 350 1330 308 1380 292 Z" fill="#fffdfa" stroke="#25313b" stroke-width="3.5"/>
-  <text class="ink noteTitle" x="1352" y="346">Discriminant</text>
-  <text class="ink note" x="1352" y="382">If the next model</text>
-  <text class="ink note" x="1352" y="410">upgrade makes it</text>
-  <text class="ink note" x="1352" y="438">less useful, delete.</text>
+  <g transform="translate(1010 313)">
+    <rect x="0" y="0" width="610" height="390" rx="18" fill="#fffdf8" stroke="#25313b" stroke-width="3"/>
+    <path class="line" d="M48 340 C190 336 400 342 560 338" marker-end="url(#arrow)"/>
+    <path class="line" d="M48 340 C44 236 51 128 48 42" marker-end="url(#arrow)"/>
 
-  <path d="M1366 602 C1422 588 1500 602 1527 646 C1554 700 1518 760 1454 774 C1392 788 1330 758 1320 704 C1308 650 1326 614 1366 602 Z" fill="#fffdfa" stroke="#25313b" stroke-width="3.5"/>
-  <text class="ink noteTitle" x="1350" y="652">Persistence test</text>
-  <text class="ink note" x="1350" y="688">If the upgrade makes</text>
-  <text class="ink note" x="1350" y="716">it more useful, harden</text>
-  <text class="ink note" x="1350" y="744">and measure it.</text>
+    <path class="thin dash" d="M120 98 C219 112 319 145 417 204 C474 239 515 279 545 319" stroke="#c26843" stroke-width="5.2"/>
+    <path class="thin" d="M122 304 C210 288 281 244 358 184 C421 134 480 103 544 85" stroke="#2f7d68" stroke-width="5.4"/>
+
+    <circle cx="120" cy="98" r="8" fill="#c26843"/>
+    <circle cx="122" cy="304" r="8" fill="#2f7d68"/>
+
+    <text class="ink axis" x="225" y="382">模型能力演进</text>
+    <text class="ink axisHint" x="505" y="382">→</text>
+    <g transform="translate(8 262) rotate(-90)">
+      <text class="ink axis">边际价值</text>
+    </g>
+
+    <text class="ink curveTitle" x="246" y="92" fill="#2f7d68">复利型基础设施</text>
+    <text class="ink curveBody" x="247" y="123">弱模型吃不满，强模型越能放大</text>
+
+    <text class="ink curveTitle" x="75" y="178" fill="#c26843">有保质期的脚手架</text>
+    <text class="ink curveBody" x="76" y="209">当下救命，随原生能力增强而折旧</text>
+  </g>
+
+  <g transform="translate(982 742)">
+    <path d="M0 0 C86 -14 196 -7 278 -4 C286 48 282 88 278 130 C190 138 86 132 0 134 C-8 86 -6 42 0 0 Z" fill="#fff3df" stroke="#25313b" stroke-width="2.5"/>
+    <text class="ink curveTitle" x="24" y="42">脚手架怎么投</text>
+    <text class="ink curveBody" x="24" y="76">轻量做，快验证</text>
+    <text class="ink curveBody" x="24" y="106">标 sunset，准备删</text>
+
+    <path d="M330 0 C420 -13 542 -7 650 -3 C660 49 655 88 650 130 C540 138 420 133 330 134 C322 86 324 42 330 0 Z" fill="#e4f4e9" stroke="#25313b" stroke-width="2.5"/>
+    <text class="ink curveTitle" x="354" y="42">基础设施怎么投</text>
+    <text class="ink curveBody" x="354" y="76">认真做，加测试</text>
+    <text class="ink curveBody" x="354" y="106">写文档，长期维护</text>
+  </g>
+
+  <path d="M914 192 C907 344 921 520 914 864" class="thin dash" opacity="0.38"/>
+
+  <text class="ink micro" x="982" y="724">例：tool 别名兜底。补模型当前记不住名字 → 脚手架；统一跨 provider / 版本接口 → 基础设施。</text>
 </svg>
