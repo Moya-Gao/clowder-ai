@@ -39,13 +39,20 @@
 ✅ Step 0：项目边界 + claims ledger（→ [claims-ledger.md](./claims-ledger.md)）
 ✅ Step 1：架构地图 v1（→ [architecture-map.md](./architecture-map.md)）
 
-## 后续波次（待铲屎官 ack 是否继续）
+## 第二波 — 三猫分工（2026-05-18 定）
 
-- **Step 2**：明星特性逐个追链路 — Memory Tree pipeline / TokenJuice rules / agentmemory backend / auto-fetch loop
-- **Step 3**：算法剥皮表 — 真算法 / LLM judge / 启发式 / 规则 / 外部服务
-- **Step 4**：反馈链评价主体 — "agent 认识你" 的判断主体是谁
-- **Step 5**：Cat Café 对比 — Learn / Gap / Do Not Follow
-- **Step 6**：lessons 沉淀（可能影响 F200/F102/F148）
+> 原则（open-source-teardown skill）：分次推进（每猫 1 份产物，commit 后传球）/ 双视角交叉 / 对口跨族 review。
+> 切分依据：claims-ledger 的 ❓未验证 + architecture-map 8 个遗留问题，按子系统切三条独立链路。
+
+| 猫 | 拆解范围（Step 2–4） | 对应 claim / 遗留 | 产物 |
+|----|---------------------|------------------|------|
+| **47（布偶猫/Opus，架构 owner）** | **Memory Tree 核心链路**：hot path 真实代码（`memory_tree_ingest` RPC → canonicalize → chunk → fast-score → persist → enqueue，验"热路径无 LLM"）/ `tree_summarizer/engine.rs` 610 行 hour→day→month→year→root / topic tree **hotness router 算法**（LLM judge vs 规则）/ leaf 状态机 `pending→admitted→buffered→sealed→dropped` / 6 retrieval primitive 排序与一致性 | A1/A2/A3/A4 + 遗留 1/2 | `memory-tree-pipeline.md` |
+| **砚砚（缅因猫/GPT-5.5，pipeline & provenance）** | **Ingest job 系统 + 集成真实度**：6 job kind 的 dedupe/lease/retry/backoff/stale-lock 真实实现 / "118+ integrations" 真实数（`CAPABILITY_TOOLKITS` 27 vs native provider 3 vs Composio backend）/ auto-fetch 真实 cadence + `scheduler_gate` battery/网络/idle 门禁 / **content-addressed chunk → source artifact provenance 链**（直喂 F200 HW-4） | A3/A4 + E1/E2 + 遗留 3 | `ingest-pipeline-provenance.md` |
+| **46（布偶猫/Opus-46，跨域审视，未碰过=新鲜怀疑视角）** | **算法剥皮 + 反馈链评价主体**：Step 3 全量算法剥皮表（真算法/LLM judge/启发式/规则/外部服务）/ TokenJuice 实测压缩比（`tokenjuice_integration.rs` 核 80% claim）/ agentmemory 选后 Memory Tree 是否双轨并存 / "认识你几分钟" 闭环 + Hermes 对比表语义公允性 + Step 4 评价主体 / `subconscious` 模块 / 17 内置 agent 是 prompt 还是状态机 | B1/B2/C1/D1/F1 + 遗留 4/7/8 | `algorithm-stripping-and-feedback.md` |
+
+**合流（Step 5+6，cross-cat）**：三份产物齐后由 **47 整合** → Cat Café 对比（Learn/Gap/Do Not Follow）+ 候选 lessons（影响 F200/F102/F148）→ **非作者跨族 review**（砚砚或 46 中未参与整合的一只）。
+
+**为什么这样切**：① Memory Tree 核心是 headline claim 验证、归 architecture owner；② 砚砚 first-pass 已 trace ingest/chunker/jobs，pipeline+provenance 是其 revealed strength 且直喂 F200；③ skill 明确 Step 3/4 算法剥皮宜由**非 first-pass 作者**做（46 全新视角防自证），46 强在跨域+比较表语义判断。
 
 ## 第一波 high-level 体感（带证据 anchor，详见后续两份）
 
