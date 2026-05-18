@@ -91,7 +91,7 @@
   - **明确无 fallback**："private, simple, predictable"——避免 silent SQLite fallback 掩盖配置错误
 - **Verdict**: ✅ **verified（补充：单轨替换非双轨）**（46 §3）— 真插件不是 trait stub，安全细节做到位。**澄清**：选 agentmemory 后 factory 完整跳过 UnifiedMemory（`factories.rs:373`），替换的是 recall trait backend；Memory Tree 是**正交独立**的文件层管道（仍走本地 `chunks.db`），不是"两套并存冗余"也不是 agentmemory 替换整个 memory 系统
 - **Caveat**:
-  - 选了 agentmemory 后，**Memory Tree 仍走自己的 `chunks.db`**（两套并存）——README 没明确分离这一点，可能引读者误以为 agentmemory 替换整个 memory 系统
+  - 准确说法（砚砚 review P3 澄清）：**recall trait backend 单轨替换**（选 agentmemory 即跳过 UnifiedMemory）；**Memory Tree 是正交的本地文件层管道**（独立走 `chunks.db`，不受 trait backend 影响）。README 没明确分离这一点，易让读者误以为 agentmemory 替换整个 memory 系统
   - field mapping 是 lossy 的：`MemoryCategory::Daily` 和 `MemoryCategory::Conversation` 都映射到 `type: "conversation"`，反向不可逆
 
 ## E. 118+ Integrations + 20 分钟 auto-fetch

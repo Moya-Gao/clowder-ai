@@ -51,7 +51,7 @@ OpenHuman 是**真实工程含金量很高的 local-first LLM Wiki 桌面产品*
 |----|------------|----------|------|
 | **L-A** | Provenance 必须是结构化指针（raw artifact → ref → 重建），不靠重 parse 渲染文本。OpenHuman RawRef 正例 + 我们 F200 HW-4 反例指向同一教训 | **F200**（HW-4 已修方向被外部实现验证）/ F102 | 砚砚 §4 + 47 §1 |
 | **L-B** | 能力说明分 tier："可调用工具" ≠ "可自动摄入记忆"；矩阵字段语义要细到不会被读成"已落地链路" | MCP tool description 纪律 / writing-skills | 砚砚 §3（`memory_ingest=native_provider` 过宽）|
-| **L-C** | 永不写"no X in hot path"式绝对文案除非代码保证所有默认路径；建议加一条 doc-vs-code drift 自审 | 文档纪律 / shared-rules 候选 | 47 §1 + 砚砚 §5 + 46 §1 三猫独立收敛 |
+| **L-C** | 永不写"no X in hot path"式绝对文案除非代码保证所有默认路径；建议加一条 doc-vs-code drift 自审 | **lessons-learned / docs-drift discipline 候选**（砚砚 review P3 校准：先 lessons-learned，不直接升 shared-rules，除非后续再现同类"默认路径与文档口径不一致"复发样本） | 47 §1 + 砚砚 §5 + 46 §1 三猫独立收敛 |
 | **L-D** | 拆解明星项目时"营销数字"必须追代码核（118→27→3→2），README 口吻 ≠ 代码事实 | open-source-teardown skill 自身（已有 Common Mistakes，本案可作 case） | 砚砚 §3 + 46 §2/§5 |
 
 ### 对 F200/F102/F148 的具体启发
