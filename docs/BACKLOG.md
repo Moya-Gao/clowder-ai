@@ -72,3 +72,5 @@ created: 2026-02-26
 | F201 | Antigravity Reliability Contract — 孟加拉猫可靠可用性闭环 | in-progress | 缅因猫/砚砚 | internal | [F201](features/F201-antigravity-reliability-contract.md) |
 | F202 | Plugin Framework — local discovery, config, and resource activation | review | community @mindfn + maintainers | community [#686](https://github.com/zts212653/clowder-ai/pull/686) | [F202](features/F202-plugin-framework.md) |
 | F203 | Native System Prompt L0 — 压缩免疫核心规则注入 | in-progress | 布偶猫 Opus 4.7 | internal | [F203](features/F203-native-system-prompt-l0.md) |
+| F204 | Weixin MP Publisher Plugin — 微信公众号文章发布插件 | review | community @mindfn + maintainers | community [#688](https://github.com/zts212653/clowder-ai/pull/688) | [F204](features/F204-weixin-mp-publisher-plugin.md) |
+| F205 | MediaHub Video Provider Plugins — 视频生成/分析插件 | spec | community @mindfn + maintainers | community [#689](https://github.com/zts212653/clowder-ai/pull/689) | [F205](features/F205-video-provider-plugins.md) |

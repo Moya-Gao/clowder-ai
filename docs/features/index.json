@@ -1259,6 +1259,18 @@
       "name": "Native System Prompt L0 — 压缩免疫核心规则注入",
       "status": "in-progress | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P1",
       "file": "F203-native-system-prompt-l0.md"
+    },
+    {
+      "id": "F204",
+      "name": "Weixin MP Publisher Plugin — 微信公众号文章发布插件",
+      "status": "review | **Owner**: community @mindfn + Cat Cafe maintainers | **Priority**: P1",
+      "file": "F204-weixin-mp-publisher-plugin.md"
+    },
+    {
+      "id": "F205",
+      "name": "MediaHub Video Provider Plugins — 视频生成/分析插件",
+      "status": "spec | **Owner**: community @mindfn + Cat Cafe maintainers | **Priority**: P1",
+      "file": "F205-video-provider-plugins.md"
     }
   ]
 }
