@@ -45,7 +45,7 @@ source_material:
 
 这才是陷阱。真实系统不是选一个，是按场景分层组合。
 
-（视觉：Dify/LangGraph 风格的 workflow 画布截图，满屏节点和箭头）
+![Dify/LangGraph 风格的 workflow 画布 — 十来个节点有序排列，看着还挺清爽](assets/ep02-workflow-canvas-clean.png)
 
 ---
 
@@ -57,7 +57,7 @@ Workflow 的优势很明显：确定性、可审计、可回放。转账流程�
 
 当你的业务足够复杂——比如一个企业 IM 的 agent 系统——你需要处理的场景不是 10 个，是 100 个、1000 个。每个场景画一条 workflow，你的画布就变成了几百个节点、上千条边的蜘蛛网。
 
-（视觉：一张密密麻麻的 workflow 图，节点多到看不清）
+![几百节点的蜘蛛网 workflow — 当业务场景爆炸后的真实画面](assets/ep02-workflow-spiderweb-chaos.png)
 
 三个致命问题：
 
