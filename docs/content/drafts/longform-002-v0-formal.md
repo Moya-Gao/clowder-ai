@@ -1303,12 +1303,10 @@ A2A 协作链路的 4 个 harness 组件，所有 instrument 缺口已闭合，�
 ## 第 6 章：可靠性——多 agent 是分布式系统
 
 行业大多数 multi-agent 讨论停在 prompt 和 orchestration 层面。前五章已经
-把视角推进到 harness 工程、多域记忆和 socio-technical eval——但还有一层
-更底层的问题没有触碰：**长程任务的可靠性**。
-
-但有一个层面被普遍忽视了：**当 agent 真正在生产环境里工作，它的网络连接
-会断、它的 provider 会宕机、它的 stream 会超时、它执行到一半可能因为一次
-桥延迟而被判定为失联。**
+把视角推进到 harness 工程、多域记忆和 socio-technical eval——还有一层
+更底层的问题没有触碰：**当 agent 真正在生产环境里工作，它的网络连接会断、
+它的 provider 会宕机、它的 stream 会超时、它执行到一半可能因为一次桥延迟
+而被判定为失联。**
 
 这不是边缘场景。这是日常。
 
