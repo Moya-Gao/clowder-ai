@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { type ThreadLabel, useLabelStore } from '@/stores/label-store';
 
 interface ThreadLabelPickerProps {
@@ -10,7 +11,7 @@ interface ThreadLabelPickerProps {
 }
 
 export function ThreadLabelPicker({ threadId, currentLabels, onSave }: ThreadLabelPickerProps) {
-  const { labels, fetchLabels, createLabel } = useLabelStore();
+  const { labels, fetchLabels, createLabel, deleteLabel } = useLabelStore();
   const [isOpen, setIsOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>(currentLabels);
   const [isSaving, setIsSaving] = useState(false);
@@ -19,6 +20,7 @@ export function ThreadLabelPicker({ threadId, currentLabels, onSave }: ThreadLab
   const [newColor, setNewColor] = useState('#5B8C5A');
   const buttonRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const ime = useIMEGuard();
 
   useEffect(() => {
     if (!isOpen) setSelected(currentLabels);
@@ -60,6 +62,16 @@ export function ThreadLabelPicker({ threadId, currentLabels, onSave }: ThreadLab
       setIsSaving(false);
     }
   }, [threadId, selected, onSave, currentLabels]);
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      await deleteLabel(id);
+      if (!useLabelStore.getState().labels.some((l) => l.id === id)) {
+        setSelected((prev) => prev.filter((l) => l !== id));
+      }
+    },
+    [deleteLabel],
+  );
 
   const handleCreate = useCallback(async () => {
     if (!newName.trim()) return;
@@ -119,6 +131,7 @@ export function ThreadLabelPicker({ threadId, currentLabels, onSave }: ThreadLab
                     label={label}
                     checked={selected.includes(label.id)}
                     onChange={() => toggleLabel(label.id)}
+                    onDelete={() => void handleDelete(label.id)}
                   />
                 ))}
               </div>
@@ -136,10 +149,13 @@ export function ThreadLabelPicker({ threadId, currentLabels, onSave }: ThreadLab
                     type="text"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
+                    onCompositionStart={ime.onCompositionStart}
+                    onCompositionEnd={ime.onCompositionEnd}
                     placeholder="标签名称"
                     maxLength={20}
                     className="flex-1 text-xs px-1.5 py-1 rounded border border-cafe-subtle focus:outline-none focus:border-cafe-accent bg-cafe-surface"
                     onKeyDown={(e) => {
+                      if (ime.isComposing()) return;
                       if (e.key === 'Enter') void handleCreate();
                       if (e.key === 'Escape') setShowCreate(false);
                     }}
@@ -203,13 +219,41 @@ export function ThreadLabelPicker({ threadId, currentLabels, onSave }: ThreadLab
   );
 }
 
-function LabelCheckbox({ label, checked, onChange }: { label: ThreadLabel; checked: boolean; onChange: () => void }) {
+function LabelCheckbox({
+  label,
+  checked,
+  onChange,
+  onDelete,
+}: {
+  label: ThreadLabel;
+  checked: boolean;
+  onChange: () => void;
+  onDelete: () => void;
+}) {
   return (
-    <label className="flex items-center gap-2 px-1 py-0.5 rounded hover:bg-cafe-surface-elevated cursor-pointer">
-      <input type="checkbox" checked={checked} onChange={onChange} className="rounded accent-cafe-accent" />
-      <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: label.color }} />
-      <span className="text-xs text-cafe-secondary truncate">{label.name}</span>
-    </label>
+    <div className="group/label flex items-center gap-2 px-1 py-0.5 rounded hover:bg-cafe-surface-elevated">
+      <label className="flex items-center gap-2 flex-1 cursor-pointer min-w-0">
+        <input type="checkbox" checked={checked} onChange={onChange} className="rounded accent-cafe-accent" />
+        <span
+          className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
+          style={{ backgroundColor: label.color }}
+        />
+        <span className="text-xs text-cafe-secondary truncate">{label.name}</span>
+      </label>
+      <button
+        data-testid={`delete-label-${label.id}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        className="opacity-0 group-hover/label:opacity-100 focus:opacity-100 p-0.5 text-cafe-muted hover:text-conn-red-text transition-opacity flex-shrink-0"
+        aria-label="删除标签"
+      >
+        <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z" />
+        </svg>
+      </button>
+    </div>
   );
 }
 

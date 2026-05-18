@@ -80,6 +80,17 @@ export const useLabelStore = create<LabelState>((set, get) => ({
       set((state) => ({
         labels: state.labels.filter((l) => l.id !== id),
       }));
+      const { useChatStore } = await import('./chatStore');
+      const store = useChatStore.getState();
+      if (store.threads.some((t) => t.labels?.includes(id))) {
+        store.setThreads(
+          store.threads.map((t) => {
+            if (!t.labels?.includes(id)) return t;
+            const filtered = t.labels.filter((l) => l !== id);
+            return { ...t, labels: filtered.length > 0 ? filtered : undefined };
+          }),
+        );
+      }
     } catch {
       /* ignore */
     }
