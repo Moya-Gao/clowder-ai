@@ -9,7 +9,7 @@ community_pr: clowder-ai#645, clowder-ai#662, clowder-ai#669
 
 # F190: Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片
 
-> **Status**: in-progress (Phase G) | **Completed**: 2026-05-13 (A-C) | **Owner**: Community + Maintainers | **Priority**: P1
+> **Status**: in-progress (S-4/S-5 执行) | **Completed**: 2026-05-13 (A-C), 2026-05-17 (F/G/S-2/token convergence) | **Owner**: Community + Maintainers | **Priority**: P1
 
 ## Why
 
@@ -243,6 +243,8 @@ close_gate_report:
 | 2026-05-17 | S-2 Hub dead code cleanup merged (PR #1742): CatCafeHub modal + 8 Hub-only components + 6 tests deleted (~3,100 lines); 3 callers (DaemonActiveIndicator, CallbackAuth, /help+/config) redirected to `/settings` with OpsContent URL deep-linking; 砚砚 review PASS + 4-round cloud review (2 P1 + 4 P2 fixed/降级) |
 | 2026-05-17 | V-10~V-18 semantic token convergence merged (PR #1736): 9 web components raw Tailwind → conn-*/cafe-* tokens; solid-fill CTA buttons preserved as raw Tailwind (no conn-* dark mode fill tokens); 砚砚 2-round review PASS + cloud review P1 fix + re-review PASS |
 | 2026-05-17 | CVO 决策同步：D-7 AppShell ownership deferred（"先不做，记录一下"）；S-2 Hub 重复降级为代码清理（用户层已无 Hub 入口）；Signal enrichment + thread nav 审计纠正（两项已实现，非丢失） |
+| 2026-05-17 | S-2 Hub 死代码清理完成 (PR #1742)；S-4/S-5 三猫讨论收敛 spec 已定（字号五档 + 间距 role-based + 圆角四档）；CVO 授权自决执行（"你们定义就行，别太夸张"） |
+| 2026-05-17 | CVO 确认 W-2 已关闭（"signal我拍板了n次"）；F190 剩余仅 S-4/S-5 CSS 执行 + D-7 deferred |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（验证后 Gap 清单）
 
