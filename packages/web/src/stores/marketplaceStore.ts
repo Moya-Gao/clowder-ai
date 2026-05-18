@@ -56,8 +56,8 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         params.set('artifactKinds', artifactKindsFilter.join(','));
       }
       const res = await apiFetch(`/api/marketplace/search?${params}`);
-      const data = (await res.json()) as { results: MarketplaceSearchResult[] };
-      set({ results: data.results, loading: false });
+      const data = (await res.json()) as { results?: MarketplaceSearchResult[] };
+      set({ results: data.results ?? [], loading: false });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Search failed', loading: false });
     }
@@ -72,8 +72,8 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       if (trustFilter.length > 0) params.set('trustLevels', trustFilter.join(','));
       if (artifactKindsFilter.length > 0) params.set('artifactKinds', artifactKindsFilter.join(','));
       const res = await apiFetch(`/api/marketplace/search?${params}`);
-      const data = (await res.json()) as { results: MarketplaceSearchResult[] };
-      set({ results: data.results, loading: false });
+      const data = (await res.json()) as { results?: MarketplaceSearchResult[] };
+      set({ results: data.results ?? [], loading: false });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Browse failed', loading: false });
     }
