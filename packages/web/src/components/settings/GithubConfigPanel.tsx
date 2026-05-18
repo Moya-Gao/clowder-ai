@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { SettingsPrimaryButton, SettingsStatusStrip, SettingsText } from './primitives';
 
 const REDACTED_PLACEHOLDER = '••••••';
 
@@ -104,28 +105,34 @@ export function GithubConfigPanel() {
     }
   };
 
-  const messageToneClass =
-    message?.tone === 'success'
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-      : message?.tone === 'error'
-        ? 'border-rose-200 bg-rose-50 text-rose-800'
-        : 'border-conn-blue-ring bg-conn-blue-bg text-conn-blue-text';
+  const messageTone = message?.tone === 'success' ? 'success' : message?.tone === 'error' ? 'error' : 'info';
 
   return (
-    <div className="border-t border-cafe px-4 py-3 space-y-3">
+    <div
+      className="space-y-3"
+      style={{ borderTop: '1px solid var(--cafe-border)', paddingInline: '1rem', paddingBlock: '0.75rem' }}
+    >
       <div className="space-y-1">
-        <p className="text-sm font-medium text-cafe">GitHub Token</p>
-        <p className="text-xs text-cafe-secondary">
+        <SettingsText as="p" variant="sm" tone="default" className="font-medium">
+          GitHub Token
+        </SettingsText>
+        <SettingsText as="p" tone="secondary">
           保存后写入运行时 .env；secret 字段留空会保留现有值。标记为重启的字段需重启 API 后生效。
-        </p>
+        </SettingsText>
       </div>
 
       {fields.length === 0 ? (
-        <p className="text-xs text-cafe-muted">加载配置项...</p>
+        <SettingsText as="p" tone="muted">
+          加载配置项...
+        </SettingsText>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {fields.map((field) => (
-            <label key={field.envName} className="space-y-1 text-xs font-medium text-cafe-secondary">
+            <label
+              key={field.envName}
+              className="space-y-1 font-medium"
+              style={{ fontSize: '0.75rem', color: 'var(--cafe-text-secondary)' }}
+            >
               {field.label}
               <input
                 name={field.envName}
@@ -139,28 +146,43 @@ export function GithubConfigPanel() {
                       : '未配置'
                     : (field.currentValue ?? '未配置')
                 }
-                className="w-full rounded-lg border border-cafe bg-cafe-surface-elevated px-3 py-2 text-sm text-cafe"
+                className="w-full"
+                style={{
+                  borderRadius: '0.5rem',
+                  border: '1px solid var(--cafe-border)',
+                  backgroundColor: 'var(--cafe-surface-elevated)',
+                  paddingInline: '0.75rem',
+                  paddingBlock: '0.5rem',
+                  fontSize: '0.875rem',
+                  color: 'var(--cafe-text)',
+                }}
                 data-testid={`field-${field.envName}`}
               />
-              {field.restartRequired && <span className="block text-xs text-cafe-muted">重启 API 后生效</span>}
+              {field.restartRequired && (
+                <SettingsText as="span" tone="muted" className="block">
+                  重启 API 后生效
+                </SettingsText>
+              )}
             </label>
           ))}
         </div>
       )}
 
-      {message && <div className={`rounded-lg border px-3 py-2 text-xs ${messageToneClass}`}>{message.text}</div>}
+      {message && (
+        <SettingsStatusStrip tone={messageTone} size="xs" bordered>
+          {message.text}
+        </SettingsStatusStrip>
+      )}
 
       <div className="flex justify-end">
-        <button
-          type="button"
+        <SettingsPrimaryButton
           onClick={() => {
             void handleSave();
           }}
           disabled={saving || fields.length === 0}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
           {saving ? '保存中...' : '保存 GitHub 配置'}
-        </button>
+        </SettingsPrimaryButton>
       </div>
     </div>
   );

@@ -5,24 +5,26 @@ import { apiFetch } from '@/utils/api-client';
 import { HubIcon } from '../hub-icons';
 import { SettingsResourceIconButton, settingsResourceCardClass } from '../SettingsResourceCard';
 import { InstallPreviewModal } from './InstallPreviewModal';
+import { SettingsBadge, SettingsText } from './primitives';
 import { adaptServiceState, type HomeServiceState, type ServiceUiState } from './service-ui-adapter';
 
-const STATUS_DOT: Record<string, string> = {
-  running: 'bg-conn-emerald-text',
-  stopped: 'bg-cafe-surface-sunken',
-  not_configured: 'bg-cafe-surface-sunken',
-  error: 'bg-conn-red-text',
-  installing: 'bg-conn-amber-text',
-  starting: 'bg-conn-amber-text',
+const STATUS_DOT_COLOR: Record<string, string> = {
+  running: 'var(--conn-emerald-text)',
+  stopped: 'var(--cafe-surface-sunken)',
+  not_configured: 'var(--cafe-surface-sunken)',
+  error: 'var(--conn-red-text)',
+  installing: 'var(--conn-amber-text)',
+  starting: 'var(--conn-amber-text)',
 };
 
-const ACTION_CONFIG: Record<string, { label: string; tone: string }> = {
-  install: { label: 'Install', tone: 'bg-cafe-interactive text-white hover:opacity-90' },
-  start: { label: 'Start', tone: 'bg-conn-emerald-bg text-conn-emerald-text hover:opacity-80' },
-  stop: { label: 'Stop', tone: 'bg-conn-amber-bg text-conn-amber-text hover:opacity-80' },
+type ActionBadgeTone = 'blue' | 'emerald' | 'amber';
+const ACTION_CONFIG: Record<string, { label: string; tone: ActionBadgeTone }> = {
+  install: { label: 'Install', tone: 'blue' },
+  start: { label: 'Start', tone: 'emerald' },
+  stop: { label: 'Stop', tone: 'amber' },
 };
 
-const ROW_CLASS = 'flex items-center gap-4 px-5 py-4';
+const ROW_STYLE = { paddingInline: '1.25rem', paddingBlock: '1rem' } as const;
 const LOG_POLL_MS = 2000;
 
 interface ServiceStatusPanelProps {
@@ -142,26 +144,47 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
 
   return (
     <div className="space-y-3">
-      {title && <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cafe-muted">{title}</p>}
+      {title && (
+        <SettingsText as="p" tone="muted" className="font-semibold uppercase tracking-[0.22em]">
+          {title}
+        </SettingsText>
+      )}
       {services.map((service) => {
-        const dotClass = STATUS_DOT[service.status] ?? STATUS_DOT.not_configured;
+        const dotColor = STATUS_DOT_COLOR[service.status] ?? STATUS_DOT_COLOR.not_configured;
         const isBusy = acting.has(service.id);
         const error = actionError?.id === service.id ? actionError.message : null;
         const logLine = progress.get(service.id);
 
         return (
           <div key={service.id} className={settingsResourceCardClass}>
-            <div className={ROW_CLASS}>
-              <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
+            <div className="flex items-center gap-4" style={ROW_STYLE}>
+              <span
+                className="inline-block h-2 w-2 shrink-0"
+                style={{ borderRadius: '9999px', backgroundColor: dotColor }}
+              />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-cafe">{service.name}</p>
-                <p className="mt-0.5 truncate text-xs text-cafe-muted">
+                <SettingsText as="p" variant="sm" tone="default" className="font-medium">
+                  {service.name}
+                </SettingsText>
+                <SettingsText as="p" tone="muted" className="mt-0.5 truncate">
                   {service.category} · {service.statusLabel}
                   {service.endpoint ? ` · ${service.endpoint}` : ''}
-                </p>
-                {service.error && <p className="mt-0.5 truncate text-xs text-conn-red-text">{service.error}</p>}
-                {error && <p className="mt-0.5 text-xs text-conn-red-text">{error}</p>}
-                {logLine && <p className="mt-0.5 truncate font-mono text-xs text-cafe-muted">{logLine}</p>}
+                </SettingsText>
+                {service.error && (
+                  <SettingsText as="p" tone="red" className="mt-0.5 truncate">
+                    {service.error}
+                  </SettingsText>
+                )}
+                {error && (
+                  <SettingsText as="p" tone="red" className="mt-0.5">
+                    {error}
+                  </SettingsText>
+                )}
+                {logLine && (
+                  <SettingsText as="p" tone="muted" className="mt-0.5 truncate font-mono">
+                    {logLine}
+                  </SettingsText>
+                )}
               </div>
 
               {service.availableActions.length > 0 && (
@@ -172,15 +195,16 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
                       const acfg = ACTION_CONFIG[action];
                       if (!acfg) return null;
                       return (
-                        <button
+                        <SettingsBadge
                           key={action}
-                          type="button"
+                          tone={acfg.tone}
+                          as="button"
                           disabled={isBusy}
                           onClick={() => handleAction(service, action)}
-                          className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${acfg.tone} disabled:opacity-50`}
+                          className="font-bold"
                         >
                           {isBusy ? '...' : acfg.label}
-                        </button>
+                        </SettingsBadge>
                       );
                     })}
                   {service.availableActions.includes('uninstall') && (

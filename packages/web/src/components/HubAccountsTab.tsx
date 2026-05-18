@@ -5,8 +5,7 @@ import { apiFetch } from '@/utils/api-client';
 import { HubAccountItem, type ProfileEditPayload } from './HubAccountItem';
 import type { AccountsResponse, ProfileItem } from './hub-accounts.types';
 import { normalizeBuiltinClientIds, resolveAccountActionId } from './hub-accounts.view';
-import { SettingsBreadcrumb, SettingsPrimaryButton, SettingsStatusStrip } from './settings/primitives';
-import { SettingsPageHeader } from './settings/SettingsPageHeader';
+import { SettingsPrimaryButton, SettingsStatusStrip, SettingsText } from './settings/primitives';
 import { type UnifiedAuthEditData, UnifiedAuthModal } from './UnifiedAuthModal';
 
 export function HubAccountsTab() {
@@ -124,19 +123,19 @@ export function HubAccountsTab() {
     <div className="space-y-4">
       {error && <SettingsStatusStrip tone="error">{error}</SettingsStatusStrip>}
 
-      <div>
-        <SettingsBreadcrumb segments={[{ label: '系统配置' }, { label: '账号配置' }]} />
-        <SettingsPageHeader title="账号配置" subtitle="每个账号可添加或删除模型。账号配置全局共享，所有项目通用。">
-          <SettingsPrimaryButton
-            data-guide-id="accounts.create-form"
-            onClick={() => {
-              setEditTarget(undefined);
-              setShowAuthModal(true);
-            }}
-          >
-            + 新增账户认证
-          </SettingsPrimaryButton>
-        </SettingsPageHeader>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <SettingsText tone="secondary" variant="xs">
+          存储路径: {data.projectPath}/.cat-cafe
+        </SettingsText>
+        <SettingsPrimaryButton
+          data-guide-id="accounts.create-form"
+          onClick={() => {
+            setEditTarget(undefined);
+            setShowAuthModal(true);
+          }}
+        >
+          + 新增账户认证
+        </SettingsPrimaryButton>
       </div>
 
       <div role="group" aria-label="Account List" className="space-y-4" data-guide-id="accounts.account-list">
@@ -154,7 +153,7 @@ export function HubAccountsTab() {
 
       <SettingsStatusStrip tone="muted">点击卡片进入编辑 →</SettingsStatusStrip>
       <SettingsStatusStrip tone="muted">
-        secrets 存储在启动目录下 `.cat-cafe/credentials.json`，Git 忽略。
+        secrets 存储在 {data.projectPath}/.cat-cafe/credentials.json，Git 忽略。
       </SettingsStatusStrip>
 
       <UnifiedAuthModal

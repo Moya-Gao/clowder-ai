@@ -3,6 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { PushStatusPayload } from '@/hooks/usePushNotify';
 import { apiFetch } from '@/utils/api-client';
+import {
+  SettingsCard,
+  SettingsPrimaryButton,
+  SettingsSecondaryButton,
+  SettingsStatusStrip,
+  SettingsText,
+} from './primitives';
 
 const REDACTED_PLACEHOLDER = '••••••';
 
@@ -137,38 +144,50 @@ export function PushServiceConfig() {
     }
   };
 
-  const messageToneClass =
-    message?.tone === 'success'
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-      : message?.tone === 'error'
-        ? 'border-rose-200 bg-rose-50 text-rose-800'
-        : 'border-conn-blue-ring bg-conn-blue-bg text-conn-blue-text';
+  const messageTone = message?.tone === 'success' ? 'success' : message?.tone === 'error' ? 'error' : 'info';
+
+  const inputStyle = {
+    borderRadius: '0.5rem',
+    border: '1px solid var(--cafe-border)',
+    backgroundColor: 'var(--cafe-surface-elevated)',
+    paddingInline: '0.75rem',
+    paddingBlock: '0.5rem',
+    fontSize: '0.875rem',
+    color: 'var(--cafe-text)',
+  } as const;
+
+  const labelStyle = { fontSize: '0.75rem', color: 'var(--cafe-text-secondary)' } as const;
 
   return (
-    <div className="rounded-xl border border-cafe bg-cafe-surface p-4 space-y-4">
+    <SettingsCard className="space-y-4">
       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div className="space-y-1">
-          <div className="text-sm font-medium text-cafe">VAPID 推送密钥</div>
-          <p className="text-xs text-cafe-secondary">保存后写入运行时 .env；密钥字段留空会保留现有值。</p>
+          <SettingsText as="div" variant="sm" tone="default" className="font-medium">
+            VAPID 推送密钥
+          </SettingsText>
+          <SettingsText as="p" tone="secondary">
+            保存后写入运行时 .env；密钥字段留空会保留现有值。
+          </SettingsText>
         </div>
-        <div className="text-xs text-cafe-secondary md:text-right">
+        <SettingsText as="div" tone="secondary">
           <div>公钥：{status?.capability.vapidPublicKeyConfigured ? '已配置' : '未配置'}</div>
           <div>PushService：{status?.capability.pushServiceConfigured ? '可用' : '不可用'}</div>
-        </div>
+        </SettingsText>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <label className="space-y-1 text-xs font-medium text-cafe-secondary">
+        <label className="space-y-1 font-medium" style={labelStyle}>
           推送公钥
           <input
             name="VAPID_PUBLIC_KEY"
             value={form.VAPID_PUBLIC_KEY}
             onChange={(event) => updateField('VAPID_PUBLIC_KEY', event.target.value)}
             placeholder={status?.capability.vapidPublicKeyConfigured ? '已配置，留空保持不变' : 'VAPID public key'}
-            className="w-full rounded-lg border border-cafe bg-cafe-surface-elevated px-3 py-2 text-sm text-cafe"
+            className="w-full"
+            style={inputStyle}
           />
         </label>
-        <label className="space-y-1 text-xs font-medium text-cafe-secondary">
+        <label className="space-y-1 font-medium" style={labelStyle}>
           推送私钥
           <input
             name="VAPID_PRIVATE_KEY"
@@ -176,46 +195,48 @@ export function PushServiceConfig() {
             value={form.VAPID_PRIVATE_KEY}
             onChange={(event) => updateField('VAPID_PRIVATE_KEY', event.target.value)}
             placeholder={status?.capability.pushServiceConfigured ? '已配置，留空保持不变' : 'VAPID private key'}
-            className="w-full rounded-lg border border-cafe bg-cafe-surface-elevated px-3 py-2 text-sm text-cafe"
+            className="w-full"
+            style={inputStyle}
           />
         </label>
       </div>
 
-      <label className="block space-y-1 text-xs font-medium text-cafe-secondary">
+      <label className="block space-y-1 font-medium" style={labelStyle}>
         联系信息
         <input
           name="VAPID_SUBJECT"
           value={form.VAPID_SUBJECT}
           onChange={(event) => updateField('VAPID_SUBJECT', event.target.value)}
           placeholder="mailto:admin@example.com"
-          className="w-full rounded-lg border border-cafe bg-cafe-surface-elevated px-3 py-2 text-sm text-cafe"
+          className="w-full"
+          style={inputStyle}
         />
       </label>
 
-      {message && <div className={`rounded-lg border px-3 py-2 text-xs ${messageToneClass}`}>{message.text}</div>}
+      {message && (
+        <SettingsStatusStrip tone={messageTone} size="xs" bordered>
+          {message.text}
+        </SettingsStatusStrip>
+      )}
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <button
-          type="button"
+        <SettingsSecondaryButton
           onClick={() => {
             void handleGenerate();
           }}
           disabled={busy !== null}
-          className="rounded-lg border border-cafe bg-cafe-surface-elevated px-4 py-2 text-sm font-medium text-cafe hover:bg-cafe-surface disabled:opacity-50"
         >
           {busy === 'generate' ? '生成中...' : '生成 VAPID 密钥'}
-        </button>
-        <button
-          type="button"
+        </SettingsSecondaryButton>
+        <SettingsPrimaryButton
           onClick={() => {
             void handleSave();
           }}
           disabled={busy !== null}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
           {busy === 'save' ? '保存中...' : '保存推送配置'}
-        </button>
+        </SettingsPrimaryButton>
       </div>
-    </div>
+    </SettingsCard>
   );
 }

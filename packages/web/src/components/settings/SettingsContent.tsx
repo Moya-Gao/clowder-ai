@@ -18,6 +18,7 @@ import { MarketplaceContent } from './MarketplaceContent';
 import { McpManageContent } from './McpManageContent';
 import { OpsContent } from './OpsContent';
 import { PluginsContent } from './PluginsContent';
+import { SettingsText } from './primitives';
 import { RulesPromptsContent } from './RulesPromptsContent';
 import { ServiceStatusPanel } from './ServiceStatusPanel';
 import { SettingsPageHeader } from './SettingsPageHeader';
@@ -121,7 +122,12 @@ export function SettingsContent({ section }: SettingsContentProps) {
   const content = (() => {
     switch (meta.id) {
       case 'members':
-        if (fetchError) return <p className="text-sm text-[var(--semantic-error-text)]">{fetchError}</p>;
+        if (fetchError)
+          return (
+            <SettingsText as="p" variant="sm" tone="red">
+              {fetchError}
+            </SettingsText>
+          );
         return config ? (
           <CatOverviewTab
             config={config}
@@ -142,7 +148,9 @@ export function SettingsContent({ section }: SettingsContentProps) {
             togglingCatId={togglingCatId}
           />
         ) : (
-          <p className="text-sm text-cafe-muted">加载中...</p>
+          <SettingsText as="p" variant="sm" tone="muted">
+            加载中...
+          </SettingsText>
         );
       case 'accounts':
         return <HubAccountsTab />;

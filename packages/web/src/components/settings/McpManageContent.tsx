@@ -12,6 +12,7 @@ import {
   settingsResourceRowClass,
 } from '../SettingsResourceCard';
 import { PerCatToggles, ProjectSelector, ToggleSwitch } from './capability-settings-ui';
+import { SettingsEmptyState, SettingsPrimaryButton, SettingsText } from './primitives';
 import { useCapabilityState } from './useCapabilityState';
 
 interface ModalState {
@@ -69,13 +70,7 @@ export function McpManageContent() {
   return (
     <div className="space-y-5">
       <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={handleCreate}
-          className="flex h-[34px] shrink-0 items-center justify-center rounded-xl bg-[var(--cafe-accent,#C65F3D)] px-3.5 text-compact font-bold text-[var(--cafe-surface)] transition-opacity hover:opacity-90"
-        >
-          新增 MCP
-        </button>
+        <SettingsPrimaryButton onClick={handleCreate}>新增 MCP</SettingsPrimaryButton>
       </div>
 
       <ProjectSelector
@@ -86,28 +81,46 @@ export function McpManageContent() {
       />
 
       {cap.error && (
-        <div className="console-status-chip" data-status="error">
+        <SettingsText as="p" variant="sm" tone="red">
           {cap.error}
-        </div>
+        </SettingsText>
       )}
 
       {cap.loading && (
         <div className="space-y-3">
           {[1, 2, 3].map((index) => (
-            <div key={index} className="animate-pulse rounded-xl bg-[var(--console-card-bg)] p-4">
-              <div className="h-4 w-1/3 rounded bg-[var(--console-border-soft)]" />
-              <div className="mt-2 h-3 w-2/3 rounded bg-[var(--console-border-soft)]" />
+            <div
+              key={index}
+              className="animate-pulse h-[68px]"
+              style={{
+                borderRadius: '0.75rem',
+                backgroundColor: 'var(--console-card-bg)',
+                padding: '1rem',
+              }}
+            >
+              <div
+                className="h-4 w-1/3"
+                style={{ borderRadius: '0.25rem', backgroundColor: 'var(--console-border-soft)' }}
+              />
+              <div
+                className="mt-2 h-3 w-2/3"
+                style={{ borderRadius: '0.25rem', backgroundColor: 'var(--console-border-soft)' }}
+              />
             </div>
           ))}
         </div>
       )}
 
       {!cap.loading && cap.items.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-[var(--console-card-bg)] px-8 py-16 text-center">
-          <HubIcon name="box" className="mb-3 h-10 w-10 text-cafe-muted opacity-40" />
-          <p className="text-base font-semibold text-cafe">暂无已安装的 MCP</p>
-          <p className="mt-1 text-xs text-cafe-muted">点击上方按钮手动新增 MCP 配置</p>
-        </div>
+        <SettingsEmptyState
+          icon={
+            <span className="mb-3" style={{ color: 'var(--cafe-text-muted)' }}>
+              <HubIcon name="box" className="h-10 w-10 opacity-40" />
+            </span>
+          }
+          title="暂无已安装的 MCP"
+          description="点击上方按钮手动新增 MCP 配置"
+        />
       )}
 
       <div className="space-y-2">
@@ -121,17 +134,28 @@ export function McpManageContent() {
           return (
             <div key={item.id} className={settingsResourceCardClass}>
               <div className={settingsResourceRowClass}>
-                <HubIcon name="plug" className="h-[18px] w-[18px] shrink-0 text-cafe-muted" />
+                <span style={{ color: 'var(--cafe-text-muted)' }}>
+                  <HubIcon name="plug" className="h-[18px] w-[18px] shrink-0" />
+                </span>
                 <button
                   type="button"
                   onClick={() => handleCardClick(item)}
-                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-4 text-left"
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-4"
+                  style={{ textAlign: 'left' }}
                 >
                   <div className={settingsResourceAvatarClass}>{item.id.charAt(0).toUpperCase()}</div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-cafe">{item.id}</p>
-                    <p className="mt-0.5 truncate text-xs text-cafe-secondary">{item.description || '—'}</p>
-                    {subInfo && <p className="mt-0.5 truncate text-label font-mono text-cafe-muted">{subInfo}</p>}
+                    <SettingsText as="p" variant="sm" tone="default" className="font-bold">
+                      {item.id}
+                    </SettingsText>
+                    <SettingsText as="p" tone="secondary" className="mt-0.5 truncate">
+                      {item.description || '—'}
+                    </SettingsText>
+                    {subInfo && (
+                      <SettingsText as="p" tone="muted" className="mt-0.5 truncate font-mono">
+                        {subInfo}
+                      </SettingsText>
+                    )}
                   </div>
                 </button>
                 <div className={settingsResourceActionGroupClass}>

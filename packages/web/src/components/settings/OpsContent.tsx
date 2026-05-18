@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BrakeSettingsPanel } from '../BrakeSettingsPanel';
 import { HubAgentSessionsTab } from '../HubAgentSessionsTab';
 import { HubClaudeRescueSection } from '../HubClaudeRescueSection';
@@ -12,6 +12,9 @@ import { HubObservabilityTab } from '../HubObservabilityTab';
 import { HubRoutingPolicyTab } from '../HubRoutingPolicyTab';
 import { HubToolUsageTab } from '../HubToolUsageTab';
 import { DEFAULT_OPS_SUBSECTION, OPS_SUBSECTIONS } from './ops-nav-config';
+import { SettingsFilterTabs } from './primitives';
+
+const OPS_TABS = OPS_SUBSECTIONS.map((s) => ({ key: s.id, label: s.label }));
 
 export function OpsContent() {
   const searchParams = useSearchParams();
@@ -20,7 +23,10 @@ export function OpsContent() {
   const OBS_VALID: ReadonlySet<string> = new Set(['overview', 'traces', 'health', 'callback-auth']);
   const obsParam =
     obsRaw && OBS_VALID.has(obsRaw) ? (obsRaw as 'overview' | 'traces' | 'health' | 'callback-auth') : null;
-  const validOpsParam = opsParam && OPS_SUBSECTIONS.some((s) => s.id === opsParam) ? opsParam : null;
+  const validOpsParam = useMemo(
+    () => (opsParam && OPS_SUBSECTIONS.some((s) => s.id === opsParam) ? opsParam : null),
+    [opsParam],
+  );
   const [activeTab, setActiveTab] = useState(validOpsParam ?? DEFAULT_OPS_SUBSECTION);
   const [nonce, setNonce] = useState(0);
 
@@ -33,21 +39,8 @@ export function OpsContent() {
 
   return (
     <div>
-      <div className="flex gap-1.5 mb-5 flex-wrap">
-        {OPS_SUBSECTIONS.map((sub) => (
-          <button
-            key={sub.id}
-            type="button"
-            onClick={() => setActiveTab(sub.id)}
-            className={`px-3.5 py-1.5 text-xs font-medium rounded-full transition-colors ${
-              activeTab === sub.id
-                ? 'bg-cafe-accent text-[var(--cafe-surface)]'
-                : 'console-pill text-cafe-secondary hover:text-cafe'
-            }`}
-          >
-            {sub.label}
-          </button>
-        ))}
+      <div className="mb-5">
+        <SettingsFilterTabs tabs={OPS_TABS} activeKey={activeTab} onTabChange={setActiveTab} />
       </div>
       <OpsSubsectionContent subsection={activeTab} obsSubTab={obsParam} nonce={nonce} />
     </div>

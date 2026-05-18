@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { SettingsBadge, SettingsCard, SettingsSection, SettingsText } from './primitives';
 
 interface RuleFile {
   path: string;
@@ -70,43 +71,52 @@ export function RulesPromptsContent() {
 
   if (error) {
     return (
-      <div className="console-status-chip" data-status="error">
+      <SettingsText as="p" variant="sm" tone="red">
         {error}
-      </div>
+      </SettingsText>
     );
   }
-  if (!data) return <p className="text-sm text-cafe-muted">加载中...</p>;
+  if (!data)
+    return (
+      <SettingsText as="p" variant="sm" tone="muted">
+        加载中...
+      </SettingsText>
+    );
 
   return (
     <div className="space-y-6">
-      <Section
+      <SettingsSection
         title="共享规则"
         description="全部成员遵循的协作规则和流程规范（shared-rules.md 摘要注入系统提示词，SOP.md 为参考文档）"
-        badge={`${data.sharedRules.length} files`}
+        badge={<SettingsBadge tone="slate">{data.sharedRules.length} files</SettingsBadge>}
       >
-        {data.sharedRules.map((file) => (
-          <RuleFileCard
-            key={file.path}
-            file={file}
-            onClick={() => setPreviewFile({ file, label: FILE_LABELS[file.path] ?? file.path })}
-          />
-        ))}
-      </Section>
+        <div className="space-y-3">
+          {data.sharedRules.map((file) => (
+            <RuleFileCard
+              key={file.path}
+              file={file}
+              onClick={() => setPreviewFile({ file, label: FILE_LABELS[file.path] ?? file.path })}
+            />
+          ))}
+        </div>
+      </SettingsSection>
 
-      <Section
+      <SettingsSection
         title="模型指南"
         description="每只猫的角色定义和模型特定约束"
-        badge={`${data.providerGuides.length} guides`}
+        badge={<SettingsBadge tone="slate">{data.providerGuides.length} guides</SettingsBadge>}
       >
-        {data.providerGuides.map((guide) => (
-          <RuleFileCard
-            key={guide.path}
-            file={guide}
-            label={PROVIDER_LABELS[guide.provider]}
-            onClick={() => setPreviewFile({ file: guide, label: PROVIDER_LABELS[guide.provider] ?? guide.path })}
-          />
-        ))}
-      </Section>
+        <div className="space-y-3">
+          {data.providerGuides.map((guide) => (
+            <RuleFileCard
+              key={guide.path}
+              file={guide}
+              label={PROVIDER_LABELS[guide.provider]}
+              onClick={() => setPreviewFile({ file: guide, label: PROVIDER_LABELS[guide.provider] ?? guide.path })}
+            />
+          ))}
+        </div>
+      </SettingsSection>
 
       {data.l0Prompts && (
         <L0PromptsSection l0Prompts={data.l0Prompts} onPreview={(file, label) => setPreviewFile({ file, label })} />
@@ -116,33 +126,6 @@ export function RulesPromptsContent() {
         <RulePreviewModal label={previewFile.label} file={previewFile.file} onClose={() => setPreviewFile(null)} />
       )}
     </div>
-  );
-}
-
-function Section({
-  title,
-  description,
-  badge,
-  children,
-}: {
-  title: string;
-  description: string;
-  badge: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="console-list-card rounded-2xl p-5 md:p-6 shadow-[0_12px_30px_rgba(43,33,26,0.08)]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1.5">
-          <h3 className="text-lg font-semibold tracking-[-0.03em] text-cafe">{title}</h3>
-          <p className="max-w-2xl text-sm leading-6 text-cafe-secondary">{description}</p>
-        </div>
-        <span className="console-pill inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-cafe-secondary">
-          {badge}
-        </span>
-      </div>
-      <div className="mt-4 space-y-3">{children}</div>
-    </section>
   );
 }
 
@@ -160,65 +143,68 @@ export function RuleFileCard({
 }) {
   const displayLabel = label ?? FILE_LABELS[file.path] ?? file.path;
 
-  // Cloud R3 P2: use explicit presence check, not truthy — `new Error('').message === ''`,
-  // so a real compile failure with empty message would falsy-fallthrough to "文件不存在".
   if (errorMessage !== undefined) {
     return (
-      <div className="console-list-card rounded-2xl px-4 py-4 shadow-[0_12px_30px_rgba(43,33,26,0.08)]">
+      <SettingsCard>
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-medium text-cafe">{displayLabel}</p>
-          <span className="console-status-chip" data-status="warn">
-            编译失败
-          </span>
+          <SettingsText as="p" variant="sm" tone="default" className="font-medium">
+            {displayLabel}
+          </SettingsText>
+          <SettingsBadge tone="amber">编译失败</SettingsBadge>
         </div>
-        <p className="mt-2 text-xs text-cafe-muted">{errorMessage || '(无错误信息)'}</p>
-      </div>
+        <SettingsText as="p" tone="muted" className="mt-2">
+          {errorMessage || '(无错误信息)'}
+        </SettingsText>
+      </SettingsCard>
     );
   }
 
   if (!file.exists) {
     return (
-      <div className="console-list-card rounded-2xl px-4 py-4 shadow-[0_12px_30px_rgba(43,33,26,0.08)]">
+      <SettingsCard>
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-medium text-cafe">{displayLabel}</p>
-          <span className="console-status-chip" data-status="error">
-            文件不存在
-          </span>
+          <SettingsText as="p" variant="sm" tone="default" className="font-medium">
+            {displayLabel}
+          </SettingsText>
+          <SettingsBadge tone="red">文件不存在</SettingsBadge>
         </div>
-        <p className="mt-2 text-xs text-cafe-muted">{file.path}</p>
-      </div>
+        <SettingsText as="p" tone="muted" className="mt-2">
+          {file.path}
+        </SettingsText>
+      </SettingsCard>
     );
   }
 
   const lineCount = file.content.split('\n').length;
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="console-list-card flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-4 text-left shadow-[0_12px_30px_rgba(43,33,26,0.08)] transition-colors hover:bg-[var(--console-hover-bg)]"
-    >
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-medium text-cafe">{displayLabel}</p>
-          <span className="console-status-chip" data-status="info">
-            可预览
-          </span>
+    <SettingsCard onClick={onClick}>
+      <div className="flex w-full items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <SettingsText as="p" variant="sm" tone="default" className="font-medium">
+              {displayLabel}
+            </SettingsText>
+            <SettingsBadge tone="blue">可预览</SettingsBadge>
+          </div>
+          <SettingsText as="p" tone="muted" className="mt-1">
+            {file.path} · {lineCount} 行
+          </SettingsText>
         </div>
-        <p className="mt-1 text-xs text-cafe-muted">
-          {file.path} · {lineCount} 行
-        </p>
+        <span
+          className="console-pill flex h-10 w-10 shrink-0 items-center justify-center"
+          style={{ borderRadius: '9999px', color: 'var(--cafe-text-secondary)' }}
+        >
+          <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path
+              fillRule="evenodd"
+              d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </span>
       </div>
-      <span className="console-pill flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-cafe-secondary">
-        <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-          <path
-            fillRule="evenodd"
-            d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-            clipRule="evenodd"
-          />
-        </svg>
-      </span>
-    </button>
+    </SettingsCard>
   );
 }
 
@@ -236,43 +222,58 @@ export function L0PromptsSection({
   onPreview: (file: RuleFile, label: string) => void;
 }) {
   return (
-    <Section
+    <SettingsSection
       title="L0 系统提示词"
       description="替换式注入到每只猫的 native system role（Phase C 起；客观性指令 carry-over 保留）。template 是真相源；per-cat 渲染是 compileL0 实际产出。"
-      badge={`1 template + ${l0Prompts.compiledByCat.length} cats`}
+      badge={<SettingsBadge tone="slate">1 template + {l0Prompts.compiledByCat.length} cats</SettingsBadge>}
     >
-      <RuleFileCard
-        file={l0Prompts.template}
-        label="L0 Template（含占位）"
-        onClick={() => onPreview(l0Prompts.template, 'L0 Template — system-prompt-l0.md')}
-      />
-      {l0Prompts.compiledByCat.map((c) => {
-        const compiledFile: RuleFile = {
-          path: `compiled://${c.catId}`,
-          content: c.compiled,
-          exists: c.error === null,
-        };
-        return (
-          <RuleFileCard
-            key={c.catId}
-            file={compiledFile}
-            label={c.displayName}
-            onClick={() => onPreview(compiledFile, `${c.displayName} — compiled L0`)}
-            errorMessage={c.error ?? undefined}
-          />
-        );
-      })}
-      <div className="rounded-xl bg-[var(--console-panel-bg)] p-3 text-xs leading-5 text-cafe-muted">
-        <p className="font-medium text-cafe-secondary">如何修改 L0（read-only viewer，编辑入口在文件系统）</p>
-        <p className="mt-1">
-          Template 真相源: <code>{l0Prompts.customization.templatePath}</code>
-        </p>
-        <p>
-          Per-cat 渲染逻辑: <code>{l0Prompts.customization.compileScript}</code>
-        </p>
-        <p>改完验证: {l0Prompts.customization.verifyCommand}</p>
+      <div className="space-y-3">
+        <RuleFileCard
+          file={l0Prompts.template}
+          label="L0 Template（含占位）"
+          onClick={() => onPreview(l0Prompts.template, 'L0 Template — system-prompt-l0.md')}
+        />
+        {l0Prompts.compiledByCat.map((c) => {
+          const compiledFile: RuleFile = {
+            path: `compiled://${c.catId}`,
+            content: c.compiled,
+            exists: c.error === null,
+          };
+          return (
+            <RuleFileCard
+              key={c.catId}
+              file={compiledFile}
+              label={c.displayName}
+              onClick={() => onPreview(compiledFile, `${c.displayName} — compiled L0`)}
+              errorMessage={c.error ?? undefined}
+            />
+          );
+        })}
+        <div
+          className="leading-5"
+          style={{
+            borderRadius: '0.75rem',
+            backgroundColor: 'var(--console-panel-bg)',
+            padding: '0.75rem',
+            fontSize: '0.75rem',
+            color: 'var(--cafe-text-muted)',
+          }}
+        >
+          <SettingsText as="p" tone="secondary" className="font-medium">
+            如何修改 L0（read-only viewer，编辑入口在文件系统）
+          </SettingsText>
+          <SettingsText as="p" tone="muted" className="mt-1">
+            Template 真相源: <code>{l0Prompts.customization.templatePath}</code>
+          </SettingsText>
+          <SettingsText as="p" tone="muted">
+            Per-cat 渲染逻辑: <code>{l0Prompts.customization.compileScript}</code>
+          </SettingsText>
+          <SettingsText as="p" tone="muted">
+            改完验证: {l0Prompts.customization.verifyCommand}
+          </SettingsText>
+        </div>
       </div>
-    </Section>
+    </SettingsSection>
   );
 }
 
@@ -288,35 +289,71 @@ function RulePreviewModal({ label, file, onClose }: { label: string; file: RuleF
   const lineCount = file.content.split('\n').length;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--console-overlay-backdrop)] p-4 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center backdrop-blur-sm"
+      style={{ backgroundColor: 'var(--console-overlay-backdrop)', padding: '1rem' }}
+    >
       <button type="button" aria-label="关闭预览" className="absolute inset-0 cursor-default" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
-        className="relative z-10 flex max-h-[calc(100vh-32px)] w-full max-w-[620px] flex-col overflow-hidden rounded-2xl bg-[var(--console-card-bg)] p-[26px] shadow-[0_20px_48px_rgba(43,33,26,0.14)]"
+        className="relative z-10 flex max-h-[calc(100vh-32px)] w-full max-w-[620px] flex-col overflow-hidden"
+        style={{
+          borderRadius: '1rem',
+          backgroundColor: 'var(--console-card-bg)',
+          padding: '26px',
+          boxShadow: '0 20px 48px rgba(43,33,26,0.14)',
+        }}
       >
         <div className="flex shrink-0 items-center gap-[14px]">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--console-active-bg)] text-lg font-bold text-[var(--console-modal-title)]">
+          <div
+            className="flex h-11 w-11 shrink-0 items-center justify-center font-bold"
+            style={{
+              borderRadius: '0.75rem',
+              backgroundColor: 'var(--console-active-bg)',
+              fontSize: '1.125rem',
+              color: 'var(--console-modal-title)',
+            }}
+          >
             📜
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-extrabold text-cafe">{label}</h2>
-            <p className="text-xs text-cafe-muted">
+            <SettingsText
+              as="h2"
+              variant="base"
+              tone="default"
+              className="font-extrabold"
+              style={{ fontSize: '1.25rem' }}
+            >
+              {label}
+            </SettingsText>
+            <SettingsText as="p" tone="muted">
               {file.path} · {lineCount} 行
-            </p>
+            </SettingsText>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="关闭"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-base text-cafe-muted transition hover:bg-[var(--console-modal-close-bg)] hover:text-[var(--console-modal-close-fg)]"
+            className="flex h-8 w-8 shrink-0 items-center justify-center transition"
+            style={{
+              borderRadius: '0.75rem',
+              fontSize: '1rem',
+              color: 'var(--cafe-text-muted)',
+            }}
           >
             ✕
           </button>
         </div>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-2xl bg-[var(--console-panel-bg)] p-4">
-          <pre className="max-h-[50vh] overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-cafe-secondary">
+        <div
+          className="mt-4 min-h-0 flex-1 overflow-y-auto"
+          style={{ borderRadius: '1rem', backgroundColor: 'var(--console-panel-bg)', padding: '1rem' }}
+        >
+          <pre
+            className="max-h-[50vh] overflow-auto whitespace-pre-wrap break-words font-mono leading-6"
+            style={{ fontSize: '0.75rem', color: 'var(--cafe-text-secondary)' }}
+          >
             {file.content}
           </pre>
         </div>

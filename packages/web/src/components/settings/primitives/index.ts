@@ -14,6 +14,7 @@ export { SettingsInlineItem } from './SettingsInlineItem';
 export { SettingsPillButton } from './SettingsPillButton';
 export { SettingsPrimaryButton } from './SettingsPrimaryButton';
 export { SettingsRow } from './SettingsRow';
+export { SettingsSecondaryButton } from './SettingsSecondaryButton';
 export { SettingsSection } from './SettingsSection';
 export { SettingsStatusStrip } from './SettingsStatusStrip';
 export { SettingsText } from './SettingsText';

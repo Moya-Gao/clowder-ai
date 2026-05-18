@@ -9,6 +9,7 @@ import {
   settingsResourceRowClass,
 } from '../SettingsResourceCard';
 import { GithubConfigPanel } from './GithubConfigPanel';
+import { SettingsBadge, SettingsText } from './primitives';
 import {
   adaptServiceState,
   adaptServiceToPlugin,
@@ -17,10 +18,11 @@ import {
   type PluginUiStatus,
 } from './service-ui-adapter';
 
-const BADGE_CLASS: Record<PluginUiStatus, string> = {
-  active: 'bg-conn-emerald-bg text-conn-emerald-text',
-  configured: 'bg-conn-amber-bg text-conn-amber-text',
-  available: 'bg-cafe-surface-sunken text-cafe-muted',
+type BadgeTone = 'emerald' | 'amber' | 'slate';
+const STATUS_BADGE_TONE: Record<PluginUiStatus, BadgeTone> = {
+  active: 'emerald',
+  configured: 'amber',
+  available: 'slate',
 };
 
 export function PluginsContent() {
@@ -65,55 +67,75 @@ export function PluginsContent() {
       <article className={settingsResourceCardClass}>
         <button
           type="button"
-          className={`${settingsResourceRowClass} w-full text-left`}
+          className={`${settingsResourceRowClass} w-full`}
+          style={{ textAlign: 'left' }}
           onClick={() => setExpandedId(expandedId === 'github' ? null : 'github')}
         >
           <div className={settingsResourceAvatarClass} style={{ backgroundColor: '#24292e' }}>
-            <HubIcon name="key" className="h-5 w-5 text-[var(--cafe-surface)]" />
+            <span style={{ color: 'var(--cafe-surface)' }}>
+              <HubIcon name="key" className="h-5 w-5" />
+            </span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-cafe">GitHub</p>
-            <p className="mt-0.5 text-xs text-cafe-secondary">PR 追踪、Review 投递、CI/CD 监控与 Token 配置</p>
-            <p className="mt-0.5 text-xs text-cafe-muted">内置插件</p>
+            <SettingsText as="p" variant="sm" tone="default" className="font-semibold">
+              GitHub
+            </SettingsText>
+            <SettingsText as="p" tone="secondary" className="mt-0.5">
+              PR 追踪、Review 投递、CI/CD 监控与 Token 配置
+            </SettingsText>
+            <SettingsText as="p" tone="muted" className="mt-0.5">
+              内置插件
+            </SettingsText>
           </div>
-          <span className="shrink-0 rounded-xl bg-conn-emerald-bg px-2.5 py-0.5 text-xs font-bold text-conn-emerald-text">
+          <SettingsBadge tone="emerald" className="shrink-0 font-bold">
             可配置
-          </span>
+          </SettingsBadge>
         </button>
         {expandedId === 'github' && <GithubConfigPanel />}
       </article>
 
       {loading ? (
-        <p className="text-sm text-cafe-muted">加载中...</p>
+        <SettingsText as="p" variant="sm" tone="muted">
+          加载中...
+        </SettingsText>
       ) : error ? (
-        <p className="text-sm text-[var(--semantic-error-text)]">{error}</p>
+        <SettingsText as="p" variant="sm" tone="red">
+          {error}
+        </SettingsText>
       ) : (
         plugins.map((plugin) => (
           <article key={plugin.id} className={settingsResourceCardClass}>
             <div className={settingsResourceRowClass}>
               <div className={settingsResourceAvatarClass}>{plugin.name.charAt(0).toUpperCase()}</div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-cafe">{plugin.name}</p>
-                <p className="mt-0.5 text-xs text-cafe-secondary">{plugin.description}</p>
-                <p className="mt-0.5 text-xs text-cafe-muted">扩展服务</p>
+                <SettingsText as="p" variant="sm" tone="default" className="font-semibold">
+                  {plugin.name}
+                </SettingsText>
+                <SettingsText as="p" tone="secondary" className="mt-0.5">
+                  {plugin.description}
+                </SettingsText>
+                <SettingsText as="p" tone="muted" className="mt-0.5">
+                  扩展服务
+                </SettingsText>
               </div>
-              <span className={`shrink-0 rounded-xl px-2.5 py-0.5 text-xs font-bold ${BADGE_CLASS[plugin.status]}`}>
+              <SettingsBadge tone={STATUS_BADGE_TONE[plugin.status]} className="shrink-0 font-bold">
                 {plugin.statusLabel}
-              </span>
+              </SettingsBadge>
             </div>
             {plugin.features.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 px-4 pb-3">
+              <div className="flex flex-wrap gap-1.5 pb-3" style={{ paddingInline: '1rem' }}>
                 {plugin.features.map((feature) => (
-                  <span
-                    key={feature}
-                    className="rounded-full bg-[var(--console-hover-bg)] px-2 py-0.5 text-[10px] font-semibold text-cafe-secondary"
-                  >
+                  <SettingsBadge key={feature} tone="slate" size="xxs">
                     {feature}
-                  </span>
+                  </SettingsBadge>
                 ))}
               </div>
             )}
-            {plugin.error && <p className="px-4 pb-3 text-xs text-conn-red-text">{plugin.error}</p>}
+            {plugin.error && (
+              <SettingsText as="p" tone="red" className="pb-3" style={{ paddingInline: '1rem' }}>
+                {plugin.error}
+              </SettingsText>
+            )}
           </article>
         ))
       )}
