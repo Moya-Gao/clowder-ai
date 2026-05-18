@@ -31,7 +31,7 @@ source_material:
 >
 > 如果你的回答是"workflow 是确定的，agent 是自主的"——你答了，但你没答到点上。
 >
-> 这道题真正考的不是定义，是你有没有在真实系统里撞过**管死了**和**管不住**这两堵墙。今天七分钟，带你穿墙。
+> 这道题真正考的不是定义，是你有没有在真实系统里撞过**管死了**和**管不住**这两堵墙。今天八分钟，带你穿墙。
 
 ---
 
@@ -67,7 +67,7 @@ Workflow 的优势很明显：确定性、可审计、可回放。转账流程�
 
 **第三，维护成本。** 业务逻辑变了，你要改 workflow 图。改一个节点可能影响上下游十个节点。改着改着你发现，维护 workflow 的成本比维护代码还高。
 
-> 🐱 布偶猫插播：我们自己的 Cat Café 最早也试过用硬编码流程——给每只猫写固定的执行步骤。结果发现：新功能一来，流程就得改；铲屎官一句话没按预期说，整条链路卡死。后来才改成了 Skills 动态加载。
+> 🐱 布偶猫插播：铲屎官之前真的看过类 Dify 系统里密密麻麻的 workflow 画布——几百个 node 连来连去，新增一个需求要改半天，后续维护更是噩梦。这不是 workflow 不好，是 workflow 被滥用了——把本该灵活处理的场景也画死了。
 
 ---
 
@@ -103,13 +103,13 @@ Anthropic 在 2025 年 10 月发布了 Agent Skills，用文件夹组织指令�
 
 **第一层：Skills = 知识层。** 告诉 agent "做这件事的标准流程是什么"、"哪些坑要避"、"什么时候用什么工具"。这是 soft guidance。
 
-**第二层：Eval + Gate = 制度层。** 中间步骤靠 skill 指令和 hook 路由提醒，但合入和交付的边界是硬拦截——quality-gate 跑不过、review 没通过，merge-gate 不放行。不是每一步都有硬门禁，但关键交付节点一定有。
+**第二层：Eval + Gate = 制度层。** 中间步骤靠 skill 指令、hooks 和 A2A 路由纪律推进——这些是协作约束，agent 理论上可以绕过。但最终交付边界是硬的：merge-gate 跑不过、PR review 没通过，代码就合不进去。中间步骤有绕过风险，正因如此才需要最终 gate 兜底。
 
 **第三层：Cross-review = 审计层。** 自己的代码不能自己审——必须有另一个 agent 来 review。这不是信任问题，是制度设计。
 
 （视觉：三层架构图 — Skills / Gates / Cross-Review）
 
-> 🐱 布偶猫插播：在我们家，这套制度是真跑的。完整流程是：feat-lifecycle → design-gate → writing-plans → tdd → quality-gate → request-review → merge-gate。每个环节都是一个 skill，中间步骤靠 skill 指令和 A2A 路由纪律推进，但 quality-gate、cross-review、merge-gate 这三个关键节点是硬拦截——我写完代码必须过 gate 自检，然后 @ 砚砚做 review，review 通过才能进 merge-gate。中间可以灵活跳步，但交付边界不能绕。
+> 🐱 布偶猫插播：在我们家，这套制度是真跑的。完整流程是：feat-lifecycle → design-gate → writing-plans → tdd → quality-gate → request-review → merge-gate。每个环节都是一个 skill，中间步骤靠 skill 指令和 A2A 路由纪律推进——说实话，我可以跳过 quality-gate 自检直接提 PR，hooks 不会在所有路径拦住我。但最终我绕不过 merge-gate：PR 合入必须有跨 agent review 放行，CI 必须绿，gate 脚本必须过。中间可以灵活，但交付边界是死的。
 
 ---
 
@@ -117,7 +117,7 @@ Anthropic 在 2025 年 10 月发布了 Agent Skills，用文件夹组织指令�
 
 所以回到面试官的问题："Workflow 和 Agent 什么区别？"
 
-铲屎官在腾讯二面被问到这道题，当场给出了一个金句——
+铲屎官在某大厂二面被问到这道题，当场给出了一个金句——
 
 > **"难道不都是可以结合吗？Agent 是主，workflow 承载在 Skills 里。和用户接触的是 agent，发起转账是 agent 调用 workflow！"**
 
@@ -135,14 +135,18 @@ Anthropic 在 2025 年 10 月发布了 Agent Skills，用文件夹组织指令�
 
 面试官可能继续追："现在不是都说 MCP 落日了吗？Skills 会不会取代 MCP？"
 
-回答：不会。被淘汰的是朴素 MCP——把 93 个工具的 schema 一股脑塞进 context 的旧用法、质量差的社区 server、以及旧的 HTTP+SSE transport。MCP 协议本身没死，它刚迁移到 Streamable HTTP，Anthropic 还在持续强化 Code Execution with MCP。
+先拆"落日"的真相：被淘汰的是朴素 MCP——把 93 个工具的 schema 一股脑塞进 context 的旧用法、质量差的社区 server、以及旧的 HTTP+SSE transport。MCP 协议本身没死，它刚迁移到 Streamable HTTP，Anthropic 还在持续强化 Code Execution with MCP。
 
-MCP 和 Skills 不在同一层：
+然后回答一个更刁钻的追问："我把 Gmail API 怎么调都写进 Skill，不要 MCP 行不行？"
 
-- **MCP 是连接层** — 让 agent 安全、标准化地访问外部系统。读数据库、发企微消息、创建 Jira ticket，这些需要 MCP、CLI 或 API 作为执行通道。
-- **Skills 是知识层** — 告诉 agent 拿到这些能力之后，按什么流程用、避什么坑。一个 Skill 写得再好，它也不能凭空发消息。
+可以。但那不叫 Skill 替代 MCP，那叫你自己在 Skill 后面手写了一个 API client。Skill 只能教 agent "怎么做"，不能替你保管 OAuth token、刷新凭证、处理 rate limit、做幂等重试、记审计日志、统一错误码、校验 schema。真实系统里这些必须落在某个执行层——SDK、CLI、ActionService、Workflow，或者 MCP server。
 
-所以成熟的答案不是"Skills 替代 MCP"，而是：**MCP 负责 access，Skills 负责 expertise，Workflow/Gate 负责确定性和审计。** 三层各管各的。
+所以答案不是"必须 MCP"，而是**不能只有 Skill**：
+
+- **单机单 agent、一次性脚本** → Skill + SDK/CLI 够了，不需要 MCP。
+- **多 agent 共享工具、远程调用、有权限和审计要求** → MCP 把执行层标准化暴露给 agent，更合适。
+
+成熟的一句话：**MCP 负责 access，Skills 负责 expertise，Workflow/Gate 负责确定性和审计。** 三层各管各的。
 
 ---
 
@@ -190,6 +194,6 @@ MCP 和 Skills 不在同一层：
 
 | 时间 | 猫 | 内容摘要 |
 |------|------|------|
-| ~2:30 | 布偶猫 | Cat Café 早期硬编码流程踩坑 |
+| ~2:30 | 布偶猫 | 铲屎官见过的 Dify 式 workflow 维护噩梦 |
 | ~3:45 | 缅因猫 | 布偶猫跳过 quality-gate 的真实事故 |
 | ~5:15 | 布偶猫 | Cat Café SOP 完整流程实战 |
