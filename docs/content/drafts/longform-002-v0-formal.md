@@ -89,6 +89,46 @@ Subagent（复杂任务拆解）、Message Bus（异步交接）。
 Bus、Shared State 如何组合进我们的系统——Shared State + Agent Teams 作为结构
 骨架，其余在局部按需使用。*
 
+```text
+低保真草图 v0：五个原语不是五选一，而是组合进一套长期运行的工程系统
+
+┌──────────────────────────────┐
+│ Anthropic 五种协作原语         │
+├──────────────────────────────┤
+│ Generator-Verifier           │ ──→ review / author-reviewer 纠错
+│ Orchestrator-Subagent        │ ──→ bounded delegation / worker
+│ Agent Teams                  │ ──→ 长期存活的异构 agent 团队
+│ Message Bus                  │ ──→ @handoff / invocation queue / 事件路由
+│ Shared State                 │ ──→ repo / docs / memory / trace / tasks
+└──────────────────────────────┘
+              │
+              │ 组合，不是替代
+              ▼
+┌────────────────────────────────────────────────┐
+│ Cat Café 组合架构                               │
+├────────────────────────────────────────────────┤
+│ Human CVO / Vision Oracle                       │
+│        │                                        │
+│        ▼                                        │
+│ TeamAct Loop                                    │
+│ State → Owner → Action → Evidence              │
+│        → Verdict → Route                       │
+│        │                                        │
+│        ▼                                        │
+│ Long-lived Agent Team                           │
+│ Claude / GPT / Gemini / ...                     │
+│        │                                        │
+│        ▼                                        │
+│ Shared Reality Layer                            │
+│ repo / git / docs / memory / trace / PR / eval  │
+└────────────────────────────────────────────────┘
+
+正式图方向：
+左侧五张 primitive 卡片 → 中间“组合”箭头 → 右侧三层架构。
+视觉重点不是“我们发明第六种模式”，而是“在 shared state + agent teams
+上补了 TeamAct 终止条件、跨厂商验证和持久现实层”。
+```
+
 ---
 
 ## 第 1 章 —— 核心公式：能力 × Harness 契合度
