@@ -34,9 +34,12 @@
 ### A4. "Chunks ≤3k tokens, deterministic content-addressed IDs"
 
 - **Source**: `memory-tree.md` L18-21 + L86
-- **Evidence**: 暂仅 spec，未追 chunker 实现
-- **Verdict**: ❓ 待 Step 2 追 `chunker` 实现位置
-- **Caveat**: claim 本身是合理工程设计
+- **Evidence**:
+  - `src/openhuman/memory/tree/chunker.rs:28-39` — `DEFAULT_CHUNK_MAX_TOKENS = 3_000`，`ChunkerOptions::default()` 使用该值
+  - `src/openhuman/memory/tree/chunker.rs:57-83` — chat/email 按消息边界 greedy pack；document 走 paragraph budget
+  - `src/openhuman/memory/tree/types.rs:256-279` — `chunk_id = sha256(source_kind | source_id | seq | content)[0..32]`
+- **Verdict**: ✅ **verified** — 3k token budget + deterministic id 都有真实代码
+- **Caveat**: id 不是纯 content hash，而是 `(source_kind, source_id, seq, content)` 混合 hash；更准确说是 **content-addressed-ish / provenance-scoped deterministic id**
 
 ## B. "Agent 在几分钟内认识你"（核心营销 claim）
 
@@ -96,16 +99,26 @@
 ### E1. "118+ third-party integrations with one-click OAuth"
 
 - **Source**: README L64
-- **Evidence**: `src/openhuman/integrations/` 顶级模块存在；`src-tauri/src/*_scanner/` 桌面侧实现 slack/whatsapp/telegram/imessage/gmessages/discord/meet/gmail
-- **Verdict**: ❓ **partial verified** — 桌面 scanner 真实存在，集成总数 118+ 没数（Step 2 数 OAuth catalog）
-- **Caveat**: 118 是 marketing 数字，真实独立、production-ready 的有多少需要数
+- **Evidence**:
+  - `src/openhuman/composio/providers/mod.rs:59-87` — local core `CAPABILITY_TOOLKITS` 共 **27** 个 toolkit
+  - `src/openhuman/composio/providers/mod.rs:99-126` — `native_provider` 仅等同 Gmail / Notion / Slack
+  - `src/openhuman/composio/providers/registry.rs:80-83` — production default providers 只注册 `GmailProvider` / `NotionProvider` / `SlackProvider`
+  - `src/openhuman/composio/providers/notion/provider.rs:283-292` + `sync_state.rs:301-335` — Notion 写 namespace memory document，不走 Memory Tree raw-provenance path
+- **Verdict**: ⚠️ **partial / marketing overcount** — OAuth/tool execution/catalog 能力是真，但 **118+ 不能理解成 118 个 native memory ingest provider**。本地矩阵 27 个 toolkit；native provider 3 个；其中 Gmail/Slack 是 Memory Tree raw-provenance ingest，Notion 是 namespace memory incremental sync
+- **Caveat**: 118+ 可能来自 Composio backend/global catalog，不在本地 core `CAPABILITY_TOOLKITS` 中；对 Cat Café 对比时应拆成 "tool catalog" / "native provider" / "Memory Tree ingest" 三层
 
 ### E2. "Auto-fetch every 20 minutes, no prompts/polling loops to write"
 
 - **Source**: README L64 + `gitbooks/features/obsidian-wiki/auto-fetch.md`
-- **Evidence**: spec 描述清楚，scheduler 在 memory-tree spec 也提及（"00:00 UTC enqueue digest"）
-- **Verdict**: ❓ 待 Step 2 看 `scheduler_gate/` + `cron/` + integrations 模块的真实 auto-fetch 实现
-- **Caveat**: 20 分钟硬 cadence 对低频源（如 GitHub repo）是浪费，对高频源（如 Slack）是太慢
+- **Evidence**:
+  - `src/openhuman/composio/periodic.rs:55-65` — global tick `TICK_SECONDS = 1200`（20 min）
+  - `src/openhuman/composio/periodic.rs:185-205` — 只扫 active connection；无 registered provider / 无 sync interval 都跳过
+  - `src/openhuman/composio/providers/gmail/provider.rs:119-121` — Gmail interval 15 min
+  - `src/openhuman/composio/providers/slack/provider.rs:103-105` — Slack interval 15 min
+  - `src/openhuman/composio/providers/notion/provider.rs:77-79` — Notion interval 30 min
+  - `src/openhuman/composio/periodic.rs:18-24` — direct mode 没有 realtime trigger webhook，只剩 periodic poll-based sync
+- **Verdict**: ⚠️ **partial** — 20-min global tick 真实，但实际 sync cadence = global tick + per-provider interval + active connection + registered provider；不是所有 27/118 integration 都自动 fetch
+- **Caveat**: `periodic.rs:27-39` 注释仍写 "One global tick (5min)"，但运行常量是 1200s；这是源码注释 drift
 
 ## F. Self-improvement / Self-learning（**关键 absence check**）
 

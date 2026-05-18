@@ -38,6 +38,8 @@
 
 ✅ Step 0：项目边界 + claims ledger（→ [claims-ledger.md](./claims-ledger.md)）
 ✅ Step 1：架构地图 v1（→ [architecture-map.md](./architecture-map.md)）
+✅ Step 2a：Memory Tree hot path（47 scope Round 1 → [memory-tree-pipeline.md](./memory-tree-pipeline.md)）
+✅ Step 2b：Ingest job + integrations + provenance（砚砚 scope → [ingest-pipeline-provenance.md](./ingest-pipeline-provenance.md)）
 
 ## 第二波 — 三猫分工（2026-05-18 定）
 
