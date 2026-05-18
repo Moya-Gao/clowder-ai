@@ -92,13 +92,13 @@ created: 2026-05-07
 - [x] AC-C1: 新增 `cat-cafe-limb` server entry point（`packages/mcp-server/src/limb.ts` + `dist/limb.js` build artifact）— commit pending PR
 - [x] AC-C2 / AC-C3: `.mcp.json` + `.codex/config.toml` migration — **two-track**：
   - **Hub 自动流程（primary）**：`capability-orchestrator.ts` 是 source of truth；`CAT_CAFE_SPLIT_SERVER_IDS` 加入 `cat-cafe-limb`；`buildCatCafeSplitMcpDescriptors` 生成 `dist/limb.js`；`bootstrapCapabilities` 不再添加 all-in-one；`ensureCatCafeMainServer` 语义翻转——splits 存在时 **移除** legacy `cat-cafe` + **补齐** `cat-cafe-limb`（覆盖 3-split→4-split 自动迁移）。每次 `GET /api/capabilities` 由 [`generateCliConfigs`](../../packages/api/src/routes/capabilities.ts) idempotent merge-write 把项目根 `.mcp.json` / `.codex/config.toml` 重写到 4-split + limb 拓扑——Hub 一开 user-local CLI configs 自动迁移 — commit pending PR
-  - **手工 diff（fallback）**：`.mcp.json` + `.codex/config.toml` 在 `.gitignore`（user-local，PR 不能 commit user-local diff），但 [Phase C migration guide](../F193-phase-C-migration.md) 提供手工 diff 给"不走 Hub flow / 立即修本地 harness"的兜底路径
+  - **手工 diff（fallback）**：`.mcp.json` + `.codex/config.toml` 在 `.gitignore`（user-local，PR 不能 commit user-local diff），但 [Phase C migration guide](assets/F193/F193-phase-C-migration.md) 提供手工 diff 给"不走 Hub flow / 立即修本地 harness"的兜底路径
 - [x] AC-C4: `tool-registration.test.js` 守护 `createLimbServer` 只注册 limb tool surface（4 项：`limb_list_available` / `limb_invoke` / `limb_pair_list` / `limb_pair_approve`）— commit pending PR
 
 ### Phase D（废弃工具清理）
 - [x] AC-D1: 移除 `reflect` 工具注册（含 server-toolsets / tools/index）+ 同步清理 `SystemPromptBuilder.MCP_TOOLS_SECTION` 中 `cat_cafe_reflect: 反思性合成` 这行 + `tool-registration.test.js` 守护 + 删除 `reflect-tools.ts` + `reflect-tools.test.js` + skill 文档无残留 — commit pending PR
 - [x] AC-D2: 移除 `guide_resolve` legacy alias + 同步清理 SystemPromptBuilder（确认无引用）+ tool-registration test 守护 + 删除 `handleGuideResolve` handler — commit pending PR
-- [x] AC-D3: `.mcp.json` / `.codex/config.toml` 中 `probe-connected` / `probe-env` / `probe-off` — gitignored user-local config，走 [Phase C migration guide](../F193-phase-C-migration.md) probe-* 清理段（同 Phase C two-track 模式）— commit pending PR
+- [x] AC-D3: `.mcp.json` / `.codex/config.toml` 中 `probe-connected` / `probe-env` / `probe-off` — gitignored user-local config，走 [Phase C migration guide](assets/F193/F193-phase-C-migration.md) probe-* 清理段（同 Phase C two-track 模式）— commit pending PR
 
 ## 需求点 Checklist
 

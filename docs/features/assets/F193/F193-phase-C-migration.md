@@ -25,7 +25,7 @@ Phase C completes the F043 split-only direction: 4 split servers (collab + memor
 - `ensureCatCafeMainServer()` flipped semantics: when splits exist, **removes** legacy `cat-cafe` + **adds** `cat-cafe-limb` if missing (covers 3-split → 4-split auto-upgrade for existing installs)
 - `migrateLegacyCatCafeCapability()` converts seed-only legacy `cat-cafe` → 4 splits (now includes limb via updated `CAT_CAFE_SPLIT_SERVER_IDS`)
 
-`capabilities.json` auto-heals every API write. **And so do `.mcp.json` / `.codex/config.toml`** — every `GET /api/capabilities` call ends with `generateCliConfigs(config, getCliConfigPaths(projectRoot))` ([capabilities.ts:454](../packages/api/src/routes/capabilities.ts)), which idempotently merge-writes the project-root `.mcp.json` and `.codex/config.toml` from the canonical `capabilities.json`. So once the orchestrator side is on Phase C, the next Hub-driven capabilities flow rewrites your local CLI configs to the 4-split + limb topology automatically.
+`capabilities.json` auto-heals every API write. **And so do `.mcp.json` / `.codex/config.toml`** — every `GET /api/capabilities` call ends with `generateCliConfigs(config, getCliConfigPaths(projectRoot))` ([capabilities.ts:454](../../../../packages/api/src/routes/capabilities.ts)), which idempotently merge-writes the project-root `.mcp.json` and `.codex/config.toml` from the canonical `capabilities.json`. So once the orchestrator side is on Phase C, the next Hub-driven capabilities flow rewrites your local CLI configs to the 4-split + limb topology automatically.
 
 The PR can't `commit` your `.mcp.json` / `.codex/config.toml` directly because they're gitignored (user-local paths + per-machine variations). But the orchestrator does regenerate them on the next capabilities GET.
 

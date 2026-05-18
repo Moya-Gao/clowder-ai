@@ -34,7 +34,7 @@ created: 2026-05-09
 
 - F193 spec: `docs/features/F193-cross-thread-comm-unification.md`
 - F193 plan files: `docs/plans/2026-05-08-F193-phase-C.md`, `docs/plans/2026-05-08-F193-phase-D.md`
-- Phase C migration guide: `docs/F193-phase-C-migration.md`
+- Phase C migration guide: `docs/features/assets/F193/F193-phase-C-migration.md`
 - Bug reports（pre-existing flakes 不阻塞 phase PR）：
   - `docs/bug-report/2026-05-08-gate-api-mcp-probe-flaky/`
   - `docs/bug-report/2026-05-09-gate-web-prerender-useContext-null/`
