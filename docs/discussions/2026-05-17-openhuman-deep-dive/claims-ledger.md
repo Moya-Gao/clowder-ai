@@ -28,8 +28,8 @@
 
 - **Source**: `memory-tree.md` L80-89
 - **Evidence**: spec 描述非常具体，6 种 job kind 列表清晰（`extract_chunk` / `append_buffer` / `seal` / `topic_route` / `digest_daily` / `flush_stale`）
-- **Verdict**: ❓ **未验证**（spec 写得清楚，但 hot path 真实代码位置（`memory_tree_ingest` RPC 入口）第一波没追）— 第二波必查 `tree_summarizer/ops.rs` 和 ingest entry
-- **Caveat**: claim 本身是好工程模式（hot path 无 LLM），如果验证通过是值得我们 F102 ingest 借鉴的
+- **Verdict**: ⚠️ **partial**（2026-05-18 第二波追实，47 修订 — 见 [memory-tree-pipeline.md](./memory-tree-pipeline.md) §1）。入口链路属实（`memory/tree/rpc.rs:48` → `ingest.rs:73/96/118` → `persist():155` → `jobs::enqueue_tx(extract_chunk):308`），但 **"no LLM in this lane" 对默认 cloud 配置不成立**：`score_chunks_fast`（`ingest.rs:193`）经 `ScoringConfig::from_config`（`score/mod.rs:121`，`llm_backend="cloud"` 默认 always-wire LLM）→ borderline chunk 在热路径内同步 `.await` cloud LLM；short-circuit 仅让 definite keep/drop 免 LLM
+- **Caveat**: 真实形态 = regex-first 两段式 + borderline 同步 LLM。模式可学（cheap-signal short-circuit 省 LLM），但 OpenHuman 自家 `ingest.rs:1-7` 模块注释与代码不一致；我们 F102 若借鉴**不能照抄"热路径无 LLM"措辞**，需写清 borderline LLM timeout/降级
 
 ### A4. "Chunks ≤3k tokens, deterministic content-addressed IDs"
 
