@@ -78,11 +78,20 @@ function copyXtermCss() {
   copyAsset(xtermCssPath, resolve(vendorRoot, 'xterm', 'xterm.css'));
 }
 
+function copyAppGlobalCss() {
+  const connectorTokensPath = resolve(webRoot, 'src', 'app', 'connector-tokens.css');
+  if (!existsSync(connectorTokensPath)) {
+    throw new Error(`Missing connector tokens CSS: ${connectorTokensPath}`);
+  }
+  copyAsset(connectorTokensPath, resolve(vendorRoot, 'app', 'connector-tokens.css'));
+}
+
 function main() {
   copyVadAssets();
   copyOnnxRuntimeAssets();
   copyEsbuildWasm();
   copyXtermCss();
+  copyAppGlobalCss();
 }
 
 try {

@@ -7,6 +7,9 @@ const ROOT = resolve(import.meta.dirname, '..');
 const XTERM_CSS_IMPORT_RE = /\bimport\s*(['"])@xterm\/xterm\/css\/xterm\.css\1\s*;?/;
 const XTERM_STYLESHEET_LINK_RE =
   /<link\s+[^>]*rel=(['"])stylesheet\1[^>]*href=(['"])\/vendor\/xterm\/xterm\.css\2[^>]*\/?>/;
+const CONNECTOR_TOKENS_IMPORT_RE = /\bimport\s*(['"])\.\/connector-tokens\.css\1\s*;?/;
+const CONNECTOR_TOKENS_STYLESHEET_LINK_RE =
+  /<link\s+[^>]*rel=(['"])stylesheet\1[^>]*href=(['"])\/vendor\/app\/connector-tokens\.css\2[^>]*\/?>/;
 const WEB_SRC = join(ROOT, 'packages/web/src');
 
 function hasXtermCssImport(source) {
@@ -15,6 +18,14 @@ function hasXtermCssImport(source) {
 
 function hasXtermStylesheetLink(source) {
   return XTERM_STYLESHEET_LINK_RE.test(source);
+}
+
+function hasConnectorTokensImport(source) {
+  return CONNECTOR_TOKENS_IMPORT_RE.test(source);
+}
+
+function hasConnectorTokensStylesheetLink(source) {
+  return CONNECTOR_TOKENS_STYLESHEET_LINK_RE.test(source);
 }
 
 function walk(dir) {
@@ -45,6 +56,18 @@ test('xterm global CSS is linked from the Next root layout and never imported th
   assert.deepEqual(offenders, []);
 });
 
+test('app token global CSS is linked from the Next root layout and never imported through JS', () => {
+  const layoutPath = join(WEB_SRC, 'app/layout.tsx');
+  const layoutSource = readFileSync(layoutPath, 'utf8');
+  assert.equal(hasConnectorTokensStylesheetLink(layoutSource), true);
+
+  const offenders = walk(WEB_SRC)
+    .filter((file) => hasConnectorTokensImport(readFileSync(file, 'utf8')))
+    .map((file) => relative(ROOT, file));
+
+  assert.deepEqual(offenders, []);
+});
+
 test('xterm CSS import detector catches syntax variants', () => {
   const variants = [
     'import "@xterm/xterm/css/xterm.css";',
@@ -58,10 +81,30 @@ test('xterm CSS import detector catches syntax variants', () => {
   }
 });
 
+test('app token CSS import detector catches syntax variants', () => {
+  const variants = [
+    'import "./connector-tokens.css";',
+    "import './connector-tokens.css'",
+    "import  './connector-tokens.css' ;",
+    'import\n  "./connector-tokens.css";',
+  ];
+
+  for (const source of variants) {
+    assert.equal(hasConnectorTokensImport(source), true, source);
+  }
+});
+
 test('xterm stylesheet is copied into the public vendor directory before dev/build', () => {
   const syncScript = readFileSync(join(ROOT, 'packages/web/scripts/sync-vendor-assets.mjs'), 'utf8');
 
   assert.match(syncScript, /@xterm\/xterm/);
   assert.match(syncScript, /xterm\.css/);
   assert.match(syncScript, /vendorRoot,\s*['"]xterm['"],\s*['"]xterm\.css['"]/);
+});
+
+test('app token stylesheet is copied into the public vendor directory before dev/build', () => {
+  const syncScript = readFileSync(join(ROOT, 'packages/web/scripts/sync-vendor-assets.mjs'), 'utf8');
+
+  assert.match(syncScript, /connector-tokens\.css/);
+  assert.match(syncScript, /vendorRoot,\s*['"]app['"],\s*['"]connector-tokens\.css['"]/);
 });

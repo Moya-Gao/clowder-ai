@@ -1037,7 +1037,27 @@ printf '%s' "$(frontend_launch_command)"
 `,
   );
 
-  assert.equal(output, 'cd packages/web && PORT=3013 exec pnpm exec next start -p 3013 -H 0.0.0.0');
+  assert.equal(
+    output,
+    'cd packages/web && pnpm run sync:vendor-assets && PORT=3013 exec pnpm exec next start -p 3013 -H 0.0.0.0',
+  );
+});
+
+test('frontend_launch_command syncs vendor assets before Next dev when package lifecycle hooks are bypassed', () => {
+  const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
+  const output = runSourceOnlySnippet(
+    scriptPath,
+    `
+PROD_WEB=false
+WEB_PORT=3011
+printf '%s' "$(frontend_launch_command)"
+`,
+  );
+
+  assert.equal(
+    output,
+    'cd packages/web && pnpm run sync:vendor-assets && NEXT_IGNORE_INCORRECT_LOCKFILE=1 PORT=3011 exec pnpm exec next dev -p 3011',
+  );
 });
 
 test('web_production_build_ready requires BUILD_ID instead of only .next directory', () => {
