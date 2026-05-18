@@ -125,6 +125,7 @@ Why: F187 改的是用户面向的 thread 组织/分类/Sidebar 筛选语义，�
 | 2026-05-08 | Phase C vision guard fix merged (PR #1593) — ✨→modal flow + trashed thread label cleanup |
 | 2026-05-08 | Bug fix merged (PR #1602) — ✨全部建议 polling/pending-label retry fix |
 | 2026-05-08 | Feature closed — 愿景守护通过（gpt52 放行） |
+| 2026-05-18 | Bug fix merged (PR #1759) — IME composition guard + label delete + ghost label sync + delete error resilience |
 
 ## Review Gate
 
