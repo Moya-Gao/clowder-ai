@@ -25,6 +25,7 @@ import {
   splitCommandArgs,
   validateModelFormatForClient,
 } from '@/components/hub-cat-editor.model';
+import { AdvancedRuntimeSection } from '@/components/hub-cat-editor-advanced';
 
 const mockApiFetch = vi.mocked(apiFetch);
 
@@ -104,6 +105,70 @@ describe('HubCatEditor', () => {
     act(() => root.unmount());
     container.remove();
     vi.clearAllMocks();
+  });
+
+  async function renderAdvancedRuntimeSection(clientId: HubCatEditorFormState['clientId']) {
+    const form: HubCatEditorFormState = {
+      catId: `runtime-${clientId}`,
+      name: `runtime-${clientId}`,
+      displayName: `Runtime ${clientId}`,
+      variantLabel: '',
+      nickname: '',
+      avatar: '/avatars/default.png',
+      colorPrimary: '#16a34a',
+      colorSecondary: '#bbf7d0',
+      mentionPatterns: `@runtime-${clientId}`,
+      roleDescription: 'runtime config',
+      personality: '',
+      teamStrengths: '',
+      caution: '',
+      strengths: '',
+      clientId,
+      accountRef: '',
+      defaultModel: 'test-model',
+      commandArgs: '',
+      cliConfigArgs: [],
+      cliEffort: '',
+      provider: '',
+      sessionChain: 'true',
+      maxPromptTokens: '',
+      maxContextTokens: '',
+      maxMessages: '',
+      maxContentLengthPerMsg: '',
+      ...emptyVoiceFields,
+    };
+
+    await act(async () => {
+      root.render(
+        React.createElement(AdvancedRuntimeSection, {
+          cat: null,
+          form,
+          strategyForm: null,
+          loadingStrategy: false,
+          strategyError: null,
+          codexSettings: null,
+          loadingCodexSettings: false,
+          codexSettingsError: null,
+          codexSettingsEditable: false,
+          showCodexSettings: false,
+          onChange: vi.fn(),
+          onStrategyChange: vi.fn(),
+          onCodexChange: vi.fn(),
+        }),
+      );
+    });
+  }
+
+  it('shows extra CLI args editor for CLI clients and hides it for API-only clients', async () => {
+    for (const clientId of ['anthropic', 'openai', 'google', 'kimi', 'dare', 'opencode'] as const) {
+      await renderAdvancedRuntimeSection(clientId);
+      expect(container.textContent, clientId).toContain('额外 CLI 参数');
+    }
+
+    for (const clientId of ['antigravity', 'catagent'] as const) {
+      await renderAdvancedRuntimeSection(clientId);
+      expect(container.textContent, clientId).not.toContain('额外 CLI 参数');
+    }
   });
 
   it('buildCatPayload keeps name in PATCH payload when editing an existing cat', () => {

@@ -181,7 +181,9 @@ describe('ThreadLabelPicker', () => {
       await flush();
 
       const checkboxes = container.querySelectorAll('input[type="checkbox"]') as NodeListOf<HTMLInputElement>;
-      const l1Checkbox = Array.from(checkboxes).find((cb) => cb.checked && cb.closest('label')?.textContent?.includes('feat'));
+      const l1Checkbox = Array.from(checkboxes).find(
+        (cb) => cb.checked && cb.closest('label')?.textContent?.includes('feat'),
+      );
       expect(l1Checkbox?.checked).toBe(true);
     });
 
