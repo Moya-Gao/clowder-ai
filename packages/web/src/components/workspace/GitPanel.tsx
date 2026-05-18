@@ -12,7 +12,7 @@ function StatusBadge({ status, variant }: { status: string; variant: 'staged' | 
     untracked: 'bg-cafe-surface-elevated text-cafe-secondary',
   };
   return (
-    <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-mono font-bold ${colors[variant]}`}>
+    <span className={`inline-block px-1 py-0.5 rounded text-[10px] font-mono font-bold ${colors[variant]}`}>
       {status}
     </span>
   );

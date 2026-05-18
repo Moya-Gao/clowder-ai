@@ -42,7 +42,7 @@ function ConnectorActionBar({
     <>
       {saveResult && (
         <div
-          className={`rounded-[16px] px-3 py-2 text-xs ${
+          className={`rounded-2xl px-3 py-2 text-xs ${
             saveResult.type === 'success'
               ? 'bg-conn-emerald-bg text-conn-emerald-text border border-conn-emerald-ring'
               : 'bg-conn-red-bg text-conn-red-text border border-conn-red-ring'
@@ -55,7 +55,7 @@ function ConnectorActionBar({
       <div className="flex items-center justify-end gap-2">
         <button
           type="button"
-          className="console-button-secondary text-[13px] disabled:opacity-50"
+          className="console-button-secondary text-sm disabled:opacity-50"
           onClick={onTest}
           disabled={testing}
         >
@@ -66,7 +66,7 @@ function ConnectorActionBar({
           type="button"
           onClick={onSave}
           disabled={saving}
-          className="console-button-primary text-[13px] disabled:opacity-50"
+          className="console-button-primary text-sm disabled:opacity-50"
           data-testid={`save-${platformId}`}
         >
           {saving ? '保存中...' : '保存配置'}
@@ -219,22 +219,22 @@ export function HubConnectorConfigTab() {
               className="flex w-full items-center gap-4 px-5 py-[18px] transition-colors"
             >
               <span
-                className="flex h-11 w-11 items-center justify-center rounded-[12px] shrink-0"
+                className="flex h-11 w-11 items-center justify-center rounded-xl shrink-0"
                 style={{ backgroundColor: v.iconBg, color: v.iconColor }}
               >
                 {v.icon}
               </span>
               <span className="flex-1 text-left min-w-0 space-y-1">
-                <span className="block text-[15px] font-extrabold text-cafe">
+                <span className="block text-base font-extrabold text-cafe">
                   {platform.name}
                   {platform.nameEn !== platform.name ? ` ${platform.nameEn}` : ''}
                 </span>
                 {platform.lastHeartbeat && (
-                  <span className="block text-[11px] text-cafe-muted">{formatHeartbeat(platform.lastHeartbeat)}</span>
+                  <span className="block text-xs text-cafe-muted">{formatHeartbeat(platform.lastHeartbeat)}</span>
                 )}
               </span>
               <span
-                className={`shrink-0 rounded-[13px] px-2.5 py-1 text-xs font-semibold ${connStatePill(platform).className}`}
+                className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-semibold ${connStatePill(platform).className}`}
               >
                 {connStatePill(platform).label}
               </span>
@@ -249,7 +249,7 @@ export function HubConnectorConfigTab() {
                       <div key={idx} className="space-y-1.5">
                         <div className="flex items-center gap-1.5">
                           <StepBadge num={idx + 1} />
-                          <span className="text-[13px] font-medium text-cafe">{step.text}</span>
+                          <span className="text-sm font-medium text-cafe">{step.text}</span>
                         </div>
                         {idx === 0 && (
                           <div className="ml-[26px]">
@@ -301,7 +301,7 @@ export function HubConnectorConfigTab() {
                   <div key={idx} className="space-y-1.5">
                     <div className="flex items-center gap-1.5">
                       <StepBadge num={idx + 1} />
-                      <span className="text-[13px] font-medium text-cafe">{step.text}</span>
+                      <span className="text-sm font-medium text-cafe">{step.text}</span>
                     </div>
                     {idx === 0 && (
                       <div className="ml-[26px]">
@@ -338,7 +338,7 @@ export function HubConnectorConfigTab() {
                       <div key={idx} className="space-y-1.5">
                         <div className="flex items-center gap-1.5">
                           <StepBadge num={idx + 1} />
-                          <span className="text-[13px] font-medium text-cafe">{step.text}</span>
+                          <span className="text-sm font-medium text-cafe">{step.text}</span>
                         </div>
                         {idx === 0 && (
                           <div className="ml-[26px] space-y-2.5">
@@ -366,7 +366,7 @@ export function HubConnectorConfigTab() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-1.5">
                         <StepBadge num={guideSteps.length + 1} />
-                        <span className="text-[13px] font-medium text-cafe">填写应用凭证</span>
+                        <span className="text-sm font-medium text-cafe">填写应用凭证</span>
                       </div>
                       <div className="ml-[26px] space-y-2.5">
                         {platform.fields.map((field) => (
@@ -389,7 +389,7 @@ export function HubConnectorConfigTab() {
                                 onChange={(e) =>
                                   setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))
                                 }
-                                className="console-form-input py-2.5 text-[13px]"
+                                className="console-form-input py-2.5 text-sm"
                                 data-testid={`field-${field.envName}`}
                               >
                                 <option value="webhook">Webhook（需公网 URL）</option>
@@ -410,7 +410,7 @@ export function HubConnectorConfigTab() {
                                 onChange={(e) =>
                                   setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))
                                 }
-                                className="console-form-input py-2.5 text-[13px]"
+                                className="console-form-input py-2.5 text-sm"
                                 data-testid={`field-${field.envName}`}
                               />
                             )}

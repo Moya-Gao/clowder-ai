@@ -129,7 +129,7 @@ export function AdvancedRuntimeSection({
               emptyLabel="无额外参数"
               tone="green"
             />
-            <p className="text-[11px] leading-4 text-[#8A776B]">
+            <p className="text-xs leading-4 text-[#8A776B]">
               每条直接追加到 CLI 命令，不做隐式转换。`CLI Effort` 请优先用上面的结构化字段。参考：
               {form.clientId === 'opencode' ? (
                 <a href="https://opencode.ai/docs/cli" target="_blank" rel="noreferrer" className="underline">

@@ -12,7 +12,7 @@ function Badge({ label, variant }: { label: string; variant: 'danger' | 'warning
     muted: 'bg-cafe-surface-elevated text-cafe-secondary',
   };
   return (
-    <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-mono font-bold ${colors[variant]}`}>
+    <span className={`inline-block px-1 py-0.5 rounded text-[10px] font-mono font-bold ${colors[variant]}`}>
       {label}
     </span>
   );

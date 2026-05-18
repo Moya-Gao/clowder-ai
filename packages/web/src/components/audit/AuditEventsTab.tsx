@@ -86,7 +86,7 @@ export function AuditEventsTab({ threadId }: AuditEventsTabProps) {
             className="w-full text-left rounded border border-cafe-subtle px-2 py-1.5 cursor-pointer hover:bg-cafe-surface-elevated transition-colors"
             onClick={() => setExpandedId(isExpanded ? null : evt.id)}
           >
-            <div className="flex items-center gap-1.5 text-[11px]">
+            <div className="flex items-center gap-1.5 text-xs">
               <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${colorClass}`}>{evt.type}</span>
               <span className="text-cafe-muted ml-auto">{timeAgo(evt.timestamp)}</span>
             </div>

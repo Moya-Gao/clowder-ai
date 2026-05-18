@@ -6,9 +6,9 @@ import { TagEditor } from './hub-tag-editor';
 
 export function AccountsSummaryCard() {
   return (
-    <div className="rounded-[20px] border border-[#F1E7DF] bg-[#FFFDFC] p-[18px]">
-      <p className="text-[13px] font-semibold text-[#E29578]">系统配置 &gt; 账号配置</p>
-      <p className="mt-2 text-[13px] leading-6 text-[#8A776B]">
+    <div className="rounded-2xl border border-[#F1E7DF] bg-[#FFFDFC] p-[18px]">
+      <p className="text-sm font-semibold text-[#E29578]">系统配置 &gt; 账号配置</p>
+      <p className="mt-2 text-sm leading-6 text-[#8A776B]">
         每个账号可添加或删除模型。账号配置全局共享，所有项目通用。
       </p>
     </div>
@@ -47,7 +47,7 @@ export function CreateApiKeyAccountSection({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-[20px] border border-[#E8C9AF] bg-[#F7EEE6] p-[18px]">
+    <div className="rounded-2xl border border-[#E8C9AF] bg-[#F7EEE6] p-[18px]">
       <button
         type="button"
         onClick={() =>

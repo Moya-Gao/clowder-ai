@@ -181,7 +181,7 @@ export function SkillsContent() {
               </button>
             ))}
           </div>
-          <label className="flex min-w-[220px] items-center gap-2 rounded-[12px] bg-[var(--console-card-bg)] px-3 py-2 text-xs text-cafe-muted">
+          <label className="flex min-w-[220px] items-center gap-2 rounded-xl bg-[var(--console-card-bg)] px-3 py-2 text-xs text-cafe-muted">
             <HubIcon name="search" className="h-3.5 w-3.5" />
             <input
               value={query}
@@ -198,7 +198,7 @@ export function SkillsContent() {
       {data && filteredSkills.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-2xl bg-[var(--console-card-bg)] px-8 py-16 text-center">
           <HubIcon name="zap" className="mb-3 h-10 w-10 text-cafe-muted opacity-40" />
-          <p className="text-[15px] font-semibold text-cafe">暂无匹配的 Skill</p>
+          <p className="text-base font-semibold text-cafe">暂无匹配的 Skill</p>
           <p className="mt-1 text-xs text-cafe-muted">调整分类或搜索条件后再试。</p>
         </div>
       )}

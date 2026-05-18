@@ -117,7 +117,7 @@ export function WorkflowSopPanel({ backlogItemId }: WorkflowSopPanelProps) {
   if (!backlogItemId) {
     return (
       <section className="rounded-2xl border border-[#E7DAC7] bg-[#FFFDF8] p-3" data-testid="mc-workflow-sop">
-        <p className="text-[11px] text-[#8B7864]">选择一个 backlog 项查看 SOP 状态</p>
+        <p className="text-xs text-[#8B7864]">选择一个 backlog 项查看 SOP 状态</p>
       </section>
     );
   }
@@ -125,7 +125,7 @@ export function WorkflowSopPanel({ backlogItemId }: WorkflowSopPanelProps) {
   if (loading) {
     return (
       <section className="rounded-2xl border border-[#E7DAC7] bg-[#FFFDF8] p-3" data-testid="mc-workflow-sop">
-        <p className="text-[11px] text-[#8B7864]">加载 SOP 告示牌中...</p>
+        <p className="text-xs text-[#8B7864]">加载 SOP 告示牌中...</p>
       </section>
     );
   }
@@ -133,7 +133,7 @@ export function WorkflowSopPanel({ backlogItemId }: WorkflowSopPanelProps) {
   if (fetchError) {
     return (
       <section className="rounded-2xl border border-[#E7DAC7] bg-[#FFFDF8] p-3" data-testid="mc-workflow-sop">
-        <p className="text-[11px] text-conn-red-text">{fetchError}</p>
+        <p className="text-xs text-conn-red-text">{fetchError}</p>
       </section>
     );
   }
@@ -141,7 +141,7 @@ export function WorkflowSopPanel({ backlogItemId }: WorkflowSopPanelProps) {
   if (!sop) {
     return (
       <section className="rounded-2xl border border-[#E7DAC7] bg-[#FFFDF8] p-3" data-testid="mc-workflow-sop">
-        <p className="rounded-lg border border-dashed border-[#DDCCB5] px-2 py-2 text-[11px] text-[#8B7864]">
+        <p className="rounded-lg border border-dashed border-[#DDCCB5] px-2 py-2 text-xs text-[#8B7864]">
           暂无 SOP 告示牌数据
         </p>
       </section>
@@ -165,14 +165,14 @@ export function WorkflowSopPanel({ backlogItemId }: WorkflowSopPanelProps) {
 
       {/* Baton holder + next skill */}
       <div className="mb-3 rounded-xl border border-[#EADFCF] bg-[#FFF9F0] px-2.5 py-2">
-        <p className="text-[11px] text-[#6E5A46]">
+        <p className="text-xs text-[#6E5A46]">
           接力棒：
           <span className="font-semibold text-[#4B3A2A]" data-testid="sop-baton-holder">
             {sop.batonHolder}
           </span>
         </p>
         {sop.nextSkill && (
-          <p className="text-[11px] text-[#6E5A46]">
+          <p className="text-xs text-[#6E5A46]">
             下一步 Skill：<span className="font-medium text-[#8B6F47]">{sop.nextSkill}</span>
           </p>
         )}
@@ -184,7 +184,7 @@ export function WorkflowSopPanel({ backlogItemId }: WorkflowSopPanelProps) {
         data-testid="sop-resume-capsule"
       >
         <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[#9A866F]">Resume Capsule</p>
-        <p className="text-[11px] text-[#4B3A2A]">
+        <p className="text-xs text-[#4B3A2A]">
           <span className="font-medium text-[#6E5A46]">Goal：</span>
           {sop.resumeCapsule.goal}
         </p>
@@ -193,14 +193,14 @@ export function WorkflowSopPanel({ backlogItemId }: WorkflowSopPanelProps) {
             <span className="text-[10px] font-medium text-[#6E5A46]">Done：</span>
             <ul className="ml-3 list-disc">
               {sop.resumeCapsule.done.map((item, i) => (
-                <li key={i} className="text-[11px] text-[#4B3A2A]">
+                <li key={i} className="text-xs text-[#4B3A2A]">
                   {item}
                 </li>
               ))}
             </ul>
           </div>
         )}
-        <p className="mt-1 text-[11px] text-[#4B3A2A]">
+        <p className="mt-1 text-xs text-[#4B3A2A]">
           <span className="font-medium text-[#6E5A46]">Focus：</span>
           {sop.resumeCapsule.currentFocus}
         </p>
@@ -211,7 +211,7 @@ export function WorkflowSopPanel({ backlogItemId }: WorkflowSopPanelProps) {
         <p className="text-[10px] font-semibold uppercase tracking-wide text-[#9A866F]">Checks</p>
         {checkEntries.map(([key, status]) => (
           <div key={key} className="flex items-center justify-between">
-            <span className="text-[11px] text-[#6E5A46]">{CHECK_LABELS[key]}</span>
+            <span className="text-xs text-[#6E5A46]">{CHECK_LABELS[key]}</span>
             <CheckBadge status={status} />
           </div>
         ))}

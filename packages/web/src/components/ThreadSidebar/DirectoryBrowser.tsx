@@ -201,7 +201,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
         <button
           type="button"
           onClick={handleStartCreateDir}
-          className="ml-auto flex-shrink-0 px-2 py-1 flex items-center gap-1 rounded-md border border-cafe-accent/30 bg-cafe-surface/50 text-cafe-accent hover:bg-cafe-surface hover:border-cafe-accent/50 transition-colors text-[11px] font-medium"
+          className="ml-auto flex-shrink-0 px-2 py-1 flex items-center gap-1 rounded-md border border-cafe-accent/30 bg-cafe-surface/50 text-cafe-accent hover:bg-cafe-surface hover:border-cafe-accent/50 transition-colors text-xs font-medium"
           title="新建文件夹"
         >
           <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -356,7 +356,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
         {/* ── Action bar ── */}
         <div className="flex items-center gap-2 pt-1">
           {browseResult && (
-            <span className="text-[11px] text-cafe-secondary truncate flex-1" title={browseResult.current}>
+            <span className="text-xs text-cafe-secondary truncate flex-1" title={browseResult.current}>
               {browseResult.current}
             </span>
           )}

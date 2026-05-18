@@ -196,7 +196,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
             <span className="text-conn-amber-text text-xs">&#9888;</span>
             <span className="text-[10px] font-medium text-conn-amber-text">Post-compact safety active</span>
           </div>
-          <p className="text-[9px] text-conn-amber-text mt-0.5 ml-4">
+          <p className="text-xs text-conn-amber-text mt-0.5 ml-4">
             High-risk ops may be blocked after context compression
           </p>
         </div>
@@ -223,7 +223,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
           <div key={session.id} className="mb-2">
             <div className="flex items-center gap-1 mb-1">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-conn-green-text" />
-              <span className="text-[9px] font-bold text-conn-green-text uppercase tracking-wider">Active</span>
+              <span className="text-[10px] font-bold text-conn-green-text uppercase tracking-wider">Active</span>
             </div>
             <div
               data-testid="session-card-active"
@@ -239,7 +239,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
                 <span
                   data-testid="session-badge-active"
                   data-cat-id={session.catId}
-                  className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                  className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                   style={{ backgroundColor: colors.badgeBg, color: colors.badgeText }}
                 >
                   {session.catId}
@@ -293,7 +293,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
       {sealedSessions.length > 0 && (
         <div className="mt-1">
           <div className="flex items-center gap-1 mb-1">
-            <span className="text-[9px] font-bold text-cafe-muted uppercase tracking-wider">Sealed</span>
+            <span className="text-[10px] font-bold text-cafe-muted uppercase tracking-wider">Sealed</span>
           </div>
           <div className="space-y-1">
             {sealedSessions.map((session) => {
@@ -321,18 +321,18 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-medium text-cafe-secondary">Session #{session.seq + 1}</span>
+                      <span className="text-xs font-medium text-cafe-secondary">Session #{session.seq + 1}</span>
                       <span
                         data-testid="session-badge-sealed"
                         data-cat-id={session.catId}
-                        className="text-[9px] px-1 py-0.5 rounded-full font-medium"
+                        className="text-[10px] px-1 py-0.5 rounded-full font-medium"
                         style={{ backgroundColor: sealedColors.badgeBg, color: sealedColors.badgeText }}
                       >
                         {session.catId}
                       </span>
                       <SessionIdTag id={session.cliSessionId ?? session.id} />
                     </div>
-                    <div className="text-[9px] text-cafe-muted truncate">
+                    <div className="text-[10px] text-cafe-muted truncate">
                       {session.sealedAt ? timeAgo(session.sealedAt) : 'sealing'}
                       {session.contextHealth ? ` · ${Math.round(session.contextHealth.fillRatio * 100)}%` : ''}
                       {' · '}

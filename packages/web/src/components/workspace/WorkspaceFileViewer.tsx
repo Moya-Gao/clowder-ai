@@ -144,7 +144,7 @@ export function WorkspaceFileViewer({
               key={tab}
               type="button"
               onClick={() => setOpenFile(tab)}
-              className={`group flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono border-r border-[#2a2a32] flex-shrink-0 transition-colors ${
+              className={`group flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono border-r border-[#2a2a32] flex-shrink-0 transition-colors ${
                 tab === openFilePath
                   ? 'bg-[#2a2a32] text-gray-200'
                   : 'text-cafe-secondary hover:text-cafe-muted hover:bg-[#252530]'
@@ -180,7 +180,7 @@ export function WorkspaceFileViewer({
       <div className="px-3 py-1 bg-[#1E1E24] flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           {file.size > 0 && (
-            <span className="text-[9px] text-cafe-secondary font-mono flex-shrink-0">
+            <span className="text-[10px] text-cafe-secondary font-mono flex-shrink-0">
               {file.size < 1024 ? `${file.size}B` : `${Math.round(file.size / 1024)}KB`}
             </span>
           )}

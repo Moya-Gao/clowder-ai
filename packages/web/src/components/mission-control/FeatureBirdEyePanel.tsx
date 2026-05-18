@@ -110,8 +110,8 @@ export function FeatureBirdEyePanel({ items, threadsByBacklogId, threadCountByFe
             onClick={() => setDoneExpanded(!doneExpanded)}
             className="flex w-full items-center justify-between rounded-lg border border-dashed border-[#D4E8D0] bg-[#F6FBF5] px-2 py-1.5 text-left"
           >
-            <span className="text-[11px] font-medium text-[#2C5A28]">已完成 · {doneGroups.length} 个 Feature</span>
-            <span className="text-[11px] text-[#6B8F65]">{doneExpanded ? '收起 ▲' : '展开 ▼'}</span>
+            <span className="text-xs font-medium text-[#2C5A28]">已完成 · {doneGroups.length} 个 Feature</span>
+            <span className="text-xs text-[#6B8F65]">{doneExpanded ? '收起 ▲' : '展开 ▼'}</span>
           </button>
           {doneExpanded && (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -151,9 +151,9 @@ function FeatureCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-xs font-semibold text-[#4B3A2A] shrink-0">{tag}</span>
-          {featureName && <span className="text-[11px] text-[#8B7864] truncate">{featureName}</span>}
+          {featureName && <span className="text-xs text-[#8B7864] truncate">{featureName}</span>}
         </div>
-        <span className="text-[11px] text-[#8B7864] shrink-0 ml-2">{featureItems.length} 项</span>
+        <span className="text-xs text-[#8B7864] shrink-0 ml-2">{featureItems.length} 项</span>
       </div>
       <div className="mt-1.5 flex flex-wrap gap-1">
         {(Object.entries(counts) as [BacklogStatus, number][]).map(([status, count]) => (
@@ -165,7 +165,7 @@ function FeatureCard({
           </span>
         ))}
       </div>
-      {totalThreads > 0 && <p className="mt-1 text-[11px] text-[#6E5A46]">{totalThreads} 个线程关联</p>}
+      {totalThreads > 0 && <p className="mt-1 text-xs text-[#6E5A46]">{totalThreads} 个线程关联</p>}
     </article>
   );
 }

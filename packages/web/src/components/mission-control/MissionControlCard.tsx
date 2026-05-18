@@ -33,7 +33,7 @@ export function MissionControlCard({ item, selected, onSelect }: MissionControlC
           {item.priority.toUpperCase()}
         </span>
       </div>
-      <p className="line-clamp-2 text-[11px] leading-relaxed text-[#715F4C]">{item.summary}</p>
+      <p className="line-clamp-2 text-xs leading-relaxed text-[#715F4C]">{item.summary}</p>
       {item.tags.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {item.tags.map((tag) => (

@@ -114,7 +114,7 @@ export function ThreadItem({
   return (
     <div
       data-thread-id={id}
-      className={`group relative mx-2 rounded-[14px] ${indented ? 'pl-5 pr-3' : 'px-3'} py-2.5 transition-colors cursor-pointer ${
+      className={`group relative mx-2 rounded-xl ${indented ? 'pl-5 pr-3' : 'px-3'} py-2.5 transition-colors cursor-pointer ${
         isActive ? 'bg-[var(--console-active-bg)]' : 'hover:bg-[var(--console-hover-bg)]'
       }`}
       onClick={() => onSelect(id)}
@@ -351,14 +351,14 @@ function LabelDots({ labels }: { labels?: string[] }) {
       {shown.map((l) => (
         <span
           key={l.id}
-          className="inline-flex items-center gap-0.5 rounded-full px-1 py-px text-[8px] leading-tight text-cafe-secondary"
+          className="inline-flex items-center gap-0.5 rounded-full px-1 py-px text-[10px] leading-tight text-cafe-secondary"
           style={{ backgroundColor: `${l.color}18` }}
         >
           <span className="inline-block w-1 h-1 rounded-full flex-shrink-0" style={{ backgroundColor: l.color }} />
           <span className="max-w-[32px] truncate">{l.name}</span>
         </span>
       ))}
-      {overflow > 0 && <span className="text-[8px] text-cafe-muted">+{overflow}</span>}
+      {overflow > 0 && <span className="text-[10px] text-cafe-muted">+{overflow}</span>}
     </div>
   );
 }

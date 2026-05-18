@@ -15,7 +15,7 @@ function CatTag({ catId }: { catId: string }) {
   const label = family && detail && family !== detail ? `${family} · ${detail}` : (family ?? detail ?? catId);
 
   return (
-    <span className="text-[11px] font-medium" style={{ color: '#8E8E93', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+    <span className="text-xs font-medium" style={{ color: '#8E8E93', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
       {label}
     </span>
   );
@@ -24,7 +24,7 @@ function CatTag({ catId }: { catId: string }) {
 export function CatHeroCard({ cat, unit }: { cat: RankedCat; unit: string }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl p-5" style={{ background: '#F4EFE7' }}>
-      <span className="text-[28px]">{MEDAL[cat.rank - 1] ?? `#${cat.rank}`}</span>
+      <span className="text-3xl">{MEDAL[cat.rank - 1] ?? `#${cat.rank}`}</span>
       <CatAvatar catId={cat.catId} size={72} />
       <span className="text-lg font-medium" style={{ fontFamily: 'Fraunces, serif', color: '#2D2D2D' }}>
         {cat.displayName}
@@ -33,7 +33,7 @@ export function CatHeroCard({ cat, unit }: { cat: RankedCat; unit: string }) {
       <span className="text-4xl font-medium tracking-tight" style={{ fontFamily: 'Fraunces, serif', color: '#8B6F47' }}>
         {cat.count}
       </span>
-      <span className="text-[11px] font-medium" style={{ color: '#8E8E93' }}>
+      <span className="text-xs font-medium" style={{ color: '#8E8E93' }}>
         {unit}
       </span>
     </div>
@@ -51,7 +51,7 @@ export function WorkMetric({ cat, label }: { cat: RankedCat | undefined; label: 
       </span>
       {cat && (
         <span
-          className="inline-flex self-start rounded-md px-2.5 py-1 text-[11px] font-semibold"
+          className="inline-flex self-start rounded-md px-2.5 py-1 text-xs font-semibold"
           style={{ background: 'rgba(139,111,71,0.08)', color: '#8B6F47', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
         >
           🏅 {cat.displayName}
@@ -74,10 +74,10 @@ export function MiniRanked({ items, unit }: { items: RankedCat[]; unit: string }
         <li key={cat.catId} className="flex items-center gap-2">
           <span className="text-sm">{MEDAL[cat.rank - 1] ?? `#${cat.rank}`}</span>
           <CatAvatar catId={cat.catId} size={24} />
-          <span className="text-[13px] font-semibold" style={{ color: '#2D2D2D' }}>
+          <span className="text-sm font-semibold" style={{ color: '#2D2D2D' }}>
             {cat.displayName}
           </span>
-          <span className="text-[11px] ml-auto" style={{ color: '#8E8E93' }}>
+          <span className="text-xs ml-auto" style={{ color: '#8E8E93' }}>
             {cat.count} {unit}
           </span>
         </li>
@@ -98,10 +98,10 @@ export function StreakRanked({ items }: { items: StreakCat[] }) {
       {items.slice(0, 5).map((cat) => (
         <li key={cat.catId} className="flex items-center gap-2">
           <span className="text-sm">{MEDAL[cat.rank - 1] ?? `#${cat.rank}`}</span>
-          <span className="text-[13px] font-semibold" style={{ color: '#2D2D2D' }}>
+          <span className="text-sm font-semibold" style={{ color: '#2D2D2D' }}>
             {cat.displayName}
           </span>
-          <span className="text-[11px] ml-auto" style={{ color: '#8E8E93' }}>
+          <span className="text-xs ml-auto" style={{ color: '#8E8E93' }}>
             连续 {cat.currentStreak} 天 (最长 {cat.maxStreak})
           </span>
         </li>

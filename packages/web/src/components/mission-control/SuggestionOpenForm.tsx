@@ -55,7 +55,7 @@ export function SuggestionOpenForm({
         });
       }}
     >
-      <label className="block text-[11px] font-medium text-[#5E4C3A]">
+      <label className="block text-xs font-medium text-[#5E4C3A]">
         建议领取猫猫
         <select
           value={catId}
@@ -70,7 +70,7 @@ export function SuggestionOpenForm({
           ))}
         </select>
       </label>
-      <label className="block text-[11px] font-medium text-[#5E4C3A]">
+      <label className="block text-xs font-medium text-[#5E4C3A]">
         Why
         <textarea
           value={why}
@@ -79,7 +79,7 @@ export function SuggestionOpenForm({
           data-testid="mc-suggest-why"
         />
       </label>
-      <label className="block text-[11px] font-medium text-[#5E4C3A]">
+      <label className="block text-xs font-medium text-[#5E4C3A]">
         Plan
         <textarea
           value={plan}

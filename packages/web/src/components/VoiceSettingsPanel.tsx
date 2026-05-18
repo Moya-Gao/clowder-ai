@@ -13,7 +13,7 @@ function Section({ eyebrow, title, children }: { eyebrow: string; title: string;
   return (
     <section className="console-list-card rounded-2xl p-5 shadow-[0_12px_30px_rgba(43,33,26,0.08)]">
       <div className="space-y-1.5 mb-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cafe-muted">{eyebrow}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cafe-muted">{eyebrow}</p>
         <h3 className="text-sm font-semibold text-cafe-secondary">{title}</h3>
       </div>
       {children}
@@ -191,7 +191,7 @@ export function VoiceSettingsPanel() {
     <>
       {/* Custom terms */}
       <Section eyebrow="Custom Terms" title="自定义术语纠正">
-        <p className="text-[11px] text-cafe-secondary mb-2">添加你自己的纠正规则。自定义规则优先于内置词典。</p>
+        <p className="text-xs text-cafe-secondary mb-2">添加你自己的纠正规则。自定义规则优先于内置词典。</p>
         {settings.customTerms.length > 0 ? (
           <div className="space-y-1.5 mb-1">
             {settings.customTerms.map((term, i) => (
@@ -205,7 +205,7 @@ export function VoiceSettingsPanel() {
             ))}
           </div>
         ) : (
-          <p className="text-[11px] text-cafe-muted italic">暂无自定义规则</p>
+          <p className="text-xs text-cafe-muted italic">暂无自定义规则</p>
         )}
         <AddTermRow onAdd={addTerm} />
       </Section>
@@ -215,7 +215,7 @@ export function VoiceSettingsPanel() {
         <button
           type="button"
           onClick={() => setShowBuiltIn(!showBuiltIn)}
-          className="text-[11px] text-cafe-interactive hover:text-cafe-accent transition-colors"
+          className="text-xs text-cafe-interactive hover:text-cafe-accent transition-colors"
         >
           {showBuiltIn ? '收起' : `查看全部 ${BUILT_IN_ENTRIES.length} 条内置规则`}
         </button>
@@ -253,7 +253,7 @@ export function VoiceSettingsPanel() {
 
       {/* Custom prompt (advanced) */}
       <Section eyebrow="Advanced" title="Whisper 上下文提示">
-        <p className="text-[11px] text-cafe-secondary mb-2">
+        <p className="text-xs text-cafe-secondary mb-2">
           自定义发给 Whisper 的上下文提示词。模型会偏向识别提示中出现的术语。留空使用默认值。
         </p>
         <textarea

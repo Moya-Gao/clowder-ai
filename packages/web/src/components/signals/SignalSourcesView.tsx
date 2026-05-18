@@ -170,7 +170,7 @@ export function SignalSourcesView({ initialReferrerThread = null }: { initialRef
                             href={source.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="rounded-md border border-opus-light px-2 py-0.5 text-[11px] text-opus-dark hover:bg-opus-bg"
+                            className="rounded-md border border-opus-light px-2 py-0.5 text-xs text-opus-dark hover:bg-opus-bg"
                           >
                             访问 ↗
                           </a>

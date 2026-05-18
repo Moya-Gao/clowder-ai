@@ -123,7 +123,7 @@ export function CallbackAuthFailureBlock({ block }: { block: RichCardBlock }) {
         </span>
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[11px]" style={{ color: '#5A4A40' }}>
+      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs" style={{ color: '#5A4A40' }}>
         <span>
           <span style={{ color: '#A89386' }}>TOOL · </span>
           <span className="font-mono">{meta.tool}</span>
@@ -139,7 +139,7 @@ export function CallbackAuthFailureBlock({ block }: { block: RichCardBlock }) {
       </div>
 
       {block.bodyMarkdown && (
-        <div className="mt-2 text-[11px]" style={{ color: '#5A4A40' }}>
+        <div className="mt-2 text-xs" style={{ color: '#5A4A40' }}>
           {block.bodyMarkdown}
         </div>
       )}
@@ -154,7 +154,7 @@ export function CallbackAuthFailureBlock({ block }: { block: RichCardBlock }) {
           type="button"
           onClick={handleOpenDetails}
           title="打开 HubObservabilityTab 的 Callback Auth 子 tab 看 24h 详情"
-          className="rounded px-3 py-1 text-[11px] font-semibold border"
+          className="rounded px-3 py-1 text-xs font-semibold border"
           style={{ backgroundColor: '#FFFFFF', color: '#9A3412', borderColor: '#FED7AA' }}
         >
           详情
@@ -163,7 +163,7 @@ export function CallbackAuthFailureBlock({ block }: { block: RichCardBlock }) {
           type="button"
           disabled
           title="重试需要 callback-tools 编排，独立 feature 跟进"
-          className="rounded px-3 py-1 text-[11px] font-semibold cursor-not-allowed opacity-50"
+          className="rounded px-3 py-1 text-xs font-semibold cursor-not-allowed opacity-50"
           style={{ backgroundColor: '#9A3412', color: '#FFFFFF' }}
         >
           重试 (跟进中)
@@ -171,7 +171,7 @@ export function CallbackAuthFailureBlock({ block }: { block: RichCardBlock }) {
         <button
           type="button"
           disabled={hidden || hidePending}
-          className="text-[11px] disabled:cursor-not-allowed"
+          className="text-xs disabled:cursor-not-allowed"
           style={{ color: hidden ? '#16A34A' : '#A89386', textDecoration: hidden ? 'none' : 'underline' }}
           onClick={handleHide}
         >
@@ -180,7 +180,7 @@ export function CallbackAuthFailureBlock({ block }: { block: RichCardBlock }) {
       </div>
 
       {hideError && (
-        <div className="mt-2 text-[11px]" style={{ color: '#DC2626' }}>
+        <div className="mt-2 text-xs" style={{ color: '#DC2626' }}>
           {hideError}
         </div>
       )}

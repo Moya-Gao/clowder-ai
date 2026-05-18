@@ -174,7 +174,7 @@ export function SessionEventsViewer({ sessionId, catId, onClose }: SessionEvents
             {(data as ChatMessage[]).map((msg, i) => (
               <div
                 key={`${msg.role}-${msg.timestamp}-${i}`}
-                className={`rounded px-2 py-1.5 text-[11px] ${
+                className={`rounded px-2 py-1.5 text-xs ${
                   msg.role === 'assistant'
                     ? assistantStyle
                     : (ROLE_STYLES[msg.role] ?? 'bg-cafe-surface-elevated text-cafe-secondary')
@@ -190,7 +190,7 @@ export function SessionEventsViewer({ sessionId, catId, onClose }: SessionEvents
         {!error && view === 'handoff' && (
           <div className="space-y-1.5">
             {(data as HandoffSummary[]).map((inv) => (
-              <div key={inv.invocationId} className="rounded border border-cafe-subtle px-2 py-1.5 text-[11px]">
+              <div key={inv.invocationId} className="rounded border border-cafe-subtle px-2 py-1.5 text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-cafe-secondary">{inv.invocationId}</span>
                   <span className="text-cafe-muted">{fmtDuration(inv.durationMs)}</span>

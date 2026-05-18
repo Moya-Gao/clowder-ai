@@ -103,7 +103,7 @@ function CategoryGroup({
                     className="rounded text-left transition hover:bg-conn-blue-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-conn-blue-ring"
                     title="预览 SKILL.md"
                   >
-                    <code className="font-mono text-conn-blue-text bg-conn-blue-bg px-1.5 py-0.5 rounded text-[11px]">
+                    <code className="font-mono text-conn-blue-text bg-conn-blue-bg px-1.5 py-0.5 rounded text-xs">
                       {skill.name}
                     </code>
                   </button>
@@ -112,7 +112,7 @@ function CategoryGroup({
                 <td className="py-1.5 pr-3">
                   <div className="flex flex-wrap gap-1">
                     {(skill.requiresMcp ?? []).length === 0 ? (
-                      <span className="text-[11px] text-cafe-muted">—</span>
+                      <span className="text-xs text-cafe-muted">—</span>
                     ) : (
                       skill.requiresMcp?.map((dep) => (
                         <span

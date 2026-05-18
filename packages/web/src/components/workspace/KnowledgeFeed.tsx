@@ -138,7 +138,7 @@ export function KnowledgeFeed() {
             {tab.label}
             {tab.count != null && tab.count > 0 && (
               <span
-                className={`text-[9px] rounded-full px-1.5 py-0.5 ${
+                className={`text-[10px] rounded-full px-1.5 py-0.5 ${
                   activeTab === tab.key
                     ? 'bg-cafe-accent text-white'
                     : 'bg-cafe-surface-sunken/60 text-cafe-interactive/50'
@@ -219,11 +219,11 @@ function KnowledgeCard({
     <div className="bg-cafe-surface rounded-lg border border-cafe-subtle/60 p-2.5 space-y-1.5">
       {/* Top row: kind badge + status */}
       <div className="flex items-center justify-between">
-        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>
+        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>
           {kind}
         </span>
         {tab === 'settled' && (
-          <span className="text-[9px] font-medium text-conn-green-text bg-conn-green-bg px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+          <span className="text-[10px] font-medium text-conn-green-text bg-conn-green-bg px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
             <span>&#10003;</span> 已确认
           </span>
         )}

@@ -223,7 +223,7 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
                             data-testid={`hub-item-${t.id}`}
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-[15px] font-medium text-cafe">
+                              <span className="text-base font-medium text-cafe">
                                 {t.title ?? `${CONNECTOR_LABELS[connectorId] ?? connectorId} IM Hub`}
                               </span>
                               {isCurrent && (

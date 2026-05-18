@@ -100,7 +100,7 @@ export function IdentitySection({
       />
 
       <div className="flex items-center gap-3">
-        <span className="w-[140px] shrink-0 text-[13px] font-medium text-[#5C4B42]">Avatar</span>
+        <span className="w-[140px] shrink-0 text-sm font-medium text-[#5C4B42]">Avatar</span>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -139,7 +139,7 @@ export function IdentitySection({
       </div>
 
       <div className="flex items-center gap-3">
-        <span className="w-[140px] shrink-0 text-[13px] font-medium text-[#5C4B42]">Background Color</span>
+        <span className="w-[140px] shrink-0 text-sm font-medium text-[#5C4B42]">Background Color</span>
         <div className="flex items-center gap-2">
           <label title="Primary">
             <input
@@ -185,7 +185,7 @@ export function IdentitySection({
       />
 
       <div className="flex items-start gap-3">
-        <span className="w-[140px] shrink-0 pt-1 text-[13px] font-medium text-[#5C4B42]">Strengths</span>
+        <span className="w-[140px] shrink-0 pt-1 text-sm font-medium text-[#5C4B42]">Strengths</span>
         <div className="min-w-0 flex-1">
           <TagEditor
             tags={strengthTags}
@@ -249,7 +249,7 @@ function ComboField({
   const listId = `combo-${label.replace(/\s+/g, '-').toLowerCase()}`;
   return (
     <label className="flex flex-col gap-1.5 text-[#5C4B42] sm:flex-row sm:items-center sm:gap-3">
-      <span className="text-[13px] font-semibold text-[#8A776B] sm:w-[140px] sm:shrink-0">
+      <span className="text-sm font-semibold text-[#8A776B] sm:w-[140px] sm:shrink-0">
         {label}
         {required && <span className="ml-0.5 text-[#E29578]">*</span>}
       </span>
@@ -259,7 +259,7 @@ function ComboField({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           list={listId}
-          className="w-full rounded-[10px] border border-[#E8DCCF] bg-[#F7F3F0] px-3.5 py-2 text-[14px] leading-5 text-[#2D2118] placeholder:text-[#C4B5A8] outline-none transition focus:border-[#D49266] focus:ring-2 focus:ring-[#F5D2B8]"
+          className="w-full rounded-xl border border-[#E8DCCF] bg-[#F7F3F0] px-3.5 py-2 text-sm leading-5 text-[#2D2118] placeholder:text-[#C4B5A8] outline-none transition focus:border-[#D49266] focus:ring-2 focus:ring-[#F5D2B8]"
           placeholder={placeholder}
         />
         <datalist id={listId}>
@@ -427,7 +427,7 @@ export function AccountSection({
                   required
                   placeholder="如 anthropic、openai、openai-responses、openrouter、maas"
                 />
-                <p className="text-[11px] leading-4 text-[#8A776B]">
+                <p className="text-xs leading-4 text-[#8A776B]">
                   OpenCode 根据 Provider 名称决定实际的 API 协议类型（如 openai → Chat Completions, anthropic →
                   Messages, openai-responses → Responses）
                 </p>
@@ -437,15 +437,15 @@ export function AccountSection({
             form.defaultModel.trim() &&
             !form.defaultModel.includes('/') &&
             !form.provider.trim() ? (
-              <div className="rounded-[10px] border border-dashed border-[#DCC9B8] bg-[#F7F3F0] px-3 py-2">
-                <p className="text-[11px] leading-4 text-[#8A776B]">
+              <div className="rounded-xl border border-dashed border-[#DCC9B8] bg-[#F7F3F0] px-3 py-2">
+                <p className="text-xs leading-4 text-[#8A776B]">
                   建议使用 `providerId/modelId` 格式（例如 `openai/gpt-5.4`），部分 provider 需要前缀才能正确路由。
                 </p>
               </div>
             ) : null}
             {callHint ? (
-              <div className="rounded-[10px] border border-dashed border-[#DCC9B8] bg-[#F7F3F0] px-3 py-2">
-                <p className="whitespace-pre-wrap text-[11px] leading-4 text-[#8A776B]">
+              <div className="rounded-xl border border-dashed border-[#DCC9B8] bg-[#F7F3F0] px-3 py-2">
+                <p className="whitespace-pre-wrap text-xs leading-4 text-[#8A776B]">
                   {callHint.label}
                   <span className="font-semibold text-[#5C4D43]">{callHint.url}</span>
                   {callHint.warning}

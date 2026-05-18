@@ -16,7 +16,7 @@ function FieldShell({
   const labelColor = tone === 'success' ? 'text-[#5B7A5C]' : 'text-[#8A776B]';
   return (
     <label className="flex flex-col gap-1.5 text-[#5C4B42] sm:flex-row sm:items-center sm:gap-3">
-      <span className={`text-[13px] font-semibold ${labelColor} sm:w-[140px] sm:shrink-0`}>
+      <span className={`text-sm font-semibold ${labelColor} sm:w-[140px] sm:shrink-0`}>
         {label}
         {required && <span className="ml-0.5 text-[#E29578]">*</span>}
       </span>
@@ -44,10 +44,10 @@ export function SectionCard({
   };
   const toneClass = toneClasses[tone] ?? toneClasses.neutral;
   return (
-    <section className={`rounded-[20px] border p-[18px] transition-colors ${toneClass}`} {...rest}>
+    <section className={`rounded-2xl border p-[18px] transition-colors ${toneClass}`} {...rest}>
       <div className="space-y-1">
-        <h4 className="text-[17px] font-bold text-[#2D2118]">{title}</h4>
-        {description ? <p className="text-[14px] leading-6 text-[#7F7168]">{description}</p> : null}
+        <h4 className="text-lg font-bold text-[#2D2118]">{title}</h4>
+        {description ? <p className="text-sm leading-6 text-[#7F7168]">{description}</p> : null}
       </div>
       <div className="mt-3 space-y-3">{children}</div>
     </section>
@@ -83,7 +83,7 @@ export function TextField({
         aria-label={ariaLabel ?? label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={`w-full rounded-[10px] border px-3.5 py-2 text-[14px] leading-5 text-[#2D2118] placeholder:text-[#C4B5A8] outline-none transition focus:ring-2 ${inputColors}`}
+        className={`w-full rounded-xl border px-3.5 py-2 text-sm leading-5 text-[#2D2118] placeholder:text-[#C4B5A8] outline-none transition focus:ring-2 ${inputColors}`}
         inputMode={inputMode}
         placeholder={placeholder}
         required={required}
@@ -117,7 +117,7 @@ export function TextAreaField({
         aria-label={ariaLabel ?? label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={`min-h-[92px] w-full rounded-[10px] border px-3.5 py-2 text-[14px] leading-5 text-[#2D2118] outline-none transition focus:ring-2 ${inputColors}`}
+        className={`min-h-[92px] w-full rounded-xl border px-3.5 py-2 text-sm leading-5 text-[#2D2118] outline-none transition focus:ring-2 ${inputColors}`}
         placeholder={placeholder}
       />
     </FieldShell>
@@ -155,7 +155,7 @@ export function SelectField({
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
         required={required}
-        className={`w-full rounded-[10px] border px-3.5 py-2 text-[14px] leading-5 text-[#2D2118] outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${inputColors}`}
+        className={`w-full rounded-xl border px-3.5 py-2 text-sm leading-5 text-[#2D2118] outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${inputColors}`}
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -184,7 +184,7 @@ export function RangeField({
   return (
     <label className="flex flex-col gap-2 text-[#5C4B42] sm:flex-row sm:items-start sm:gap-3">
       <div className="sm:w-[140px] sm:shrink-0 sm:pt-1">
-        <span className="text-[13px] font-semibold text-[#5B7A5C]">{label}</span>
+        <span className="text-sm font-semibold text-[#5B7A5C]">{label}</span>
       </div>
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex items-center justify-between gap-3">
@@ -210,8 +210,8 @@ export function RangeField({
 
 export function PersistenceBanner() {
   return (
-    <div className="rounded-[16px] border border-[#FFE0B2] bg-[#FFF3E0] px-4 py-3">
-      <p className="text-[13px] font-bold text-[#E65100]">运行时持久化</p>
+    <div className="rounded-2xl border border-[#FFE0B2] bg-[#FFF3E0] px-4 py-3">
+      <p className="text-sm font-bold text-[#E65100]">运行时持久化</p>
       <p className="mt-1 text-xs leading-5 text-[#BF360C]">
         所有配置修改在运行时即时生效，并自动持久化到 `.cat-cafe/cat-catalog.json` 文件。重启后自动恢复，无需手动保存。
       </p>

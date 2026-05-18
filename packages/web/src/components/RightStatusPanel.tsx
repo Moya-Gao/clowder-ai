@@ -127,7 +127,7 @@ function ThinkingModeToggle({ threadId }: { threadId: string }) {
       </span>
       <button
         onClick={toggle}
-        className="console-pill rounded-full px-3 py-1 text-[11px] transition-colors hover:text-cafe"
+        className="console-pill rounded-full px-3 py-1 text-xs transition-colors hover:text-cafe"
         title={isDebug ? '切换到游戏模式（猫猫互相看不到心里话）' : '切换到调试模式（猫猫互相分享心里话）'}
       >
         {isDebug ? '切换游戏' : '切换调试'}
@@ -209,7 +209,7 @@ function BubbleDisplayToggle({
       <button
         onClick={cycle}
         disabled={bubbleRestorePending}
-        className="console-pill rounded-full px-3 py-1 text-[11px] transition-colors hover:text-cafe"
+        className="console-pill rounded-full px-3 py-1 text-xs transition-colors hover:text-cafe"
       >
         {bubbleRestorePending ? '恢复中...' : BUBBLE_LABELS[next as keyof typeof BUBBLE_LABELS]}
       </button>
@@ -266,12 +266,12 @@ function RevealWhispersButton({ threadId }: { threadId: string }) {
     <div className="flex items-center justify-between">
       <span>悄悄话:</span>
       {status === 'done' ? (
-        <span className="text-[11px] text-conn-emerald-text">已揭秘 {revealedCount} 条</span>
+        <span className="text-xs text-conn-emerald-text">已揭秘 {revealedCount} 条</span>
       ) : (
         <button
           onClick={handleReveal}
           disabled={status === 'pending'}
-          className="console-pill rounded-full px-3 py-1 text-[11px] text-conn-amber-text hover:opacity-90 transition-colors disabled:opacity-50"
+          className="console-pill rounded-full px-3 py-1 text-xs text-conn-amber-text hover:opacity-90 transition-colors disabled:opacity-50"
           title="揭晓本线程所有悄悄话"
         >
           {status === 'pending' ? '揭秘中...' : '揭秘全部'}
@@ -338,7 +338,7 @@ function RuntimeLogsButton() {
         <h3 className="text-xs font-semibold text-cafe-secondary">运行日志</h3>
         <button
           onClick={handleClick}
-          className="console-pill rounded-full px-3 py-1 text-[11px] transition-colors hover:text-cafe"
+          className="console-pill rounded-full px-3 py-1 text-xs transition-colors hover:text-cafe"
           title="在 Workspace 面板中打开运行日志目录"
         >
           查看日志

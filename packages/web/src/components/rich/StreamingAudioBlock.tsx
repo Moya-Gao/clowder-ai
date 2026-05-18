@@ -119,12 +119,12 @@ export function StreamingAudioBlock({ request, catId, autoPlay = true }: Props) 
       </button>
 
       {request.text && (
-        <div className="text-[11px] text-cafe-muted pl-1 max-w-[420px] whitespace-pre-wrap break-words leading-relaxed">
+        <div className="text-xs text-cafe-muted pl-1 max-w-[420px] whitespace-pre-wrap break-words leading-relaxed">
           {request.text}
         </div>
       )}
 
-      {state.status === 'error' && <div className="text-[11px] text-conn-red-text pl-1">{state.error}</div>}
+      {state.status === 'error' && <div className="text-xs text-conn-red-text pl-1">{state.error}</div>}
 
       <audio ref={audioRef} preload="none" />
     </div>

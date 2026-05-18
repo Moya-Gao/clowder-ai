@@ -112,7 +112,7 @@ export function LinkedRootRemoveButton({ id, onRemoved }: { id: string; onRemove
       type="button"
       onClick={handleRemove}
       title="Unlink this folder"
-      className="ml-1 text-[8px] text-conn-red-text/60 hover:text-conn-red-text transition-colors"
+      className="ml-1 text-xs text-conn-red-text/60 hover:text-conn-red-text transition-colors"
     >
       x
     </button>

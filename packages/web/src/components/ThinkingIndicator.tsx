@@ -122,7 +122,7 @@ export function ThinkingIndicator({ onCancel }: ThinkingIndicatorProps = {}) {
         <div className="flex items-center gap-2.5">
           <TimerIcon className="w-4 h-4 animate-pulse" style={{ color: '#D4A64A' }} />
           <div className="flex flex-col gap-0.5">
-            <span className="text-[13px] font-semibold" style={{ color: '#1A1918' }}>
+            <span className="text-sm font-semibold" style={{ color: '#1A1918' }}>
               {name} 静默等待中… {elapsed}
             </span>
             <span className="text-xs" style={{ color: '#6D6C6A' }}>
@@ -149,7 +149,7 @@ export function ThinkingIndicator({ onCancel }: ThinkingIndicatorProps = {}) {
           <div className="flex items-center gap-2.5 min-w-0">
             <TriangleAlertIcon className="w-4 h-4 flex-shrink-0" style={{ color: '#D08068' }} />
             <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-[13px] font-semibold" style={{ color: '#1A1918' }}>
+              <span className="text-sm font-semibold" style={{ color: '#1A1918' }}>
                 {name} 可能卡住了 — {elapsed} 无输出
               </span>
               <span className="text-xs" style={{ color: '#6D6C6A' }}>
@@ -164,7 +164,7 @@ export function ThinkingIndicator({ onCancel }: ThinkingIndicatorProps = {}) {
               type="button"
               data-testid="cancel-btn"
               onClick={() => onCancel(currentThreadId, catId)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-[13px] font-semibold text-white flex-shrink-0 transition-opacity hover:opacity-90"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white flex-shrink-0 transition-opacity hover:opacity-90"
               style={{ backgroundColor: '#D08068' }}
             >
               <SquareIcon className="w-3.5 h-3.5" />

@@ -162,14 +162,14 @@ export function AudioBlock({ block, catId }: { block: RichAudioBlock; catId?: st
 
           {/* Duration */}
           {audioDuration > 0 && (
-            <span className="text-[11px] text-cafe-secondary flex-shrink-0 tabular-nums">
+            <span className="text-xs text-cafe-secondary flex-shrink-0 tabular-nums">
               {formatDuration(audioDuration)}
             </span>
           )}
         </button>
 
         {/* Voice text transcript */}
-        <div className="text-[11px] text-cafe-muted pl-1 max-w-[420px] whitespace-pre-wrap break-words leading-relaxed">
+        <div className="text-xs text-cafe-muted pl-1 max-w-[420px] whitespace-pre-wrap break-words leading-relaxed">
           {block.text}
         </div>
 

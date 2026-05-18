@@ -61,7 +61,7 @@ export function HealthStrip({
           type="button"
           disabled={syncing}
           onClick={onSync}
-          className="rounded-[10px] bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+          className="rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
         >
           {syncing ? 'Syncing...' : 'Sync'}
         </button>
@@ -105,7 +105,7 @@ export function SkillRow({
 
         <div className="flex shrink-0 items-center gap-2">
           <span
-            className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+            className={`rounded-full px-2.5 py-1 text-xs font-bold ${
               allMounted ? 'bg-conn-emerald-bg text-conn-emerald-text' : 'bg-conn-amber-bg text-conn-amber-text'
             }`}
           >
@@ -132,7 +132,7 @@ export function SkillRow({
                     e.stopPropagation();
                     onExpandCats(skill.id);
                   }}
-                  className="flex h-[26px] w-[26px] items-center justify-center rounded-[8px] bg-[var(--console-hover-bg)] text-cafe-muted transition-colors hover:text-cafe-secondary"
+                  className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-[var(--console-hover-bg)] text-cafe-muted transition-colors hover:text-cafe-secondary"
                   title="按猫开关"
                 >
                   <HubIcon name={isExpanded ? 'chevron-up' : 'chevron-down'} className="h-3.5 w-3.5" />
@@ -197,7 +197,7 @@ function PerCatSkillToggles({
                 const busy = toggling === `${skillId}:${catId}`;
                 return (
                   <div key={catId} className="flex items-center justify-between">
-                    <span className="text-[11px] text-cafe-secondary">{catId}</span>
+                    <span className="text-xs text-cafe-secondary">{catId}</span>
                     <SettingsResourceToggleSwitch
                       enabled={enabled}
                       busy={busy}

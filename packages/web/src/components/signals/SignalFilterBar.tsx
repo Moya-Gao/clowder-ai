@@ -2,7 +2,7 @@ import type React from 'react';
 import type { SignalArticleFilters } from '@/utils/signals-view';
 
 const SELECT_CLASS =
-  'h-8 appearance-none rounded-lg bg-[var(--console-card-bg)] px-2 text-[11px] text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] outline-none';
+  'h-8 appearance-none rounded-lg bg-[var(--console-card-bg)] px-2 text-xs text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] outline-none';
 
 interface SignalFilterBarProps {
   filters: SignalArticleFilters;

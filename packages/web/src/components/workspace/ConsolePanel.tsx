@@ -27,13 +27,13 @@ interface ConsolePanelProps {
 
 export function ConsolePanel({ entries, onClear }: ConsolePanelProps) {
   return (
-    <div className="flex flex-col border-t border-[var(--console-border-soft)] bg-cafe-surface/80 text-[11px] font-mono">
+    <div className="flex flex-col border-t border-[var(--console-border-soft)] bg-cafe-surface/80 text-xs font-mono">
       {/* Header bar */}
       <div className="flex items-center justify-between px-2 py-1 border-b border-[var(--console-border-soft)] bg-[#FDF8F3]">
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] font-semibold text-[#5a4a42]/70 uppercase tracking-wider">Console</span>
           {entries.length > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full bg-[#E29578]/20 text-[#E29578] text-[9px] font-bold">
+            <span className="px-1.5 py-0.5 rounded-full bg-[#E29578]/20 text-[#E29578] text-[10px] font-bold">
               {entries.length}
             </span>
           )}

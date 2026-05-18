@@ -8,14 +8,14 @@ export function McpToolsSection({ tools }: { tools?: McpTool[] }) {
         {tools && tools.length > 0 ? (
           <div className="max-h-[30vh] space-y-1 overflow-y-auto">
             {tools.map((tool) => (
-              <div key={tool.name} className="rounded-[10px] bg-[var(--console-panel-bg)] px-3 py-2">
+              <div key={tool.name} className="rounded-xl bg-[var(--console-panel-bg)] px-3 py-2">
                 <p className="text-compact font-bold text-cafe">{tool.name}</p>
                 {tool.description && <p className="mt-0.5 text-label text-cafe-muted">{tool.description}</p>}
               </div>
             ))}
           </div>
         ) : (
-          <div className="rounded-[10px] bg-[var(--console-panel-bg)] px-3 py-2.5 text-[12px] text-cafe-muted">
+          <div className="rounded-xl bg-[var(--console-panel-bg)] px-3 py-2.5 text-xs text-cafe-muted">
             未探测到工具（服务未连接或无已注册工具）
           </div>
         )}
@@ -29,7 +29,7 @@ export function McpPreviewSection({ preview }: { preview: McpInstallPreview | nu
   return (
     <FormSection>
       <FormItem label="安装预览">
-        <div className="space-y-2 rounded-[10px] bg-[var(--console-panel-bg)] px-3 py-2.5 text-xs text-cafe-secondary">
+        <div className="space-y-2 rounded-xl bg-[var(--console-panel-bg)] px-3 py-2.5 text-xs text-cafe-secondary">
           <p>
             ID: <span className="font-bold text-cafe">{preview.entry.id}</span>
           </p>

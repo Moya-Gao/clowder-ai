@@ -44,7 +44,7 @@ function StatusPill({ label, level }: { label: string; level: ConnectionLevel })
     <div className={`rounded-xl border px-3 py-2 ${LEVEL_CLASS[level]}`}>
       <div className="flex items-center gap-2">
         <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: LEVEL_DOT_COLOR[level] }} />
-        <span className="text-[11px] font-medium tracking-wide">{label}</span>
+        <span className="text-xs font-medium tracking-wide">{label}</span>
       </div>
       <p className="mt-1 text-sm font-semibold">{LEVEL_LABEL[level]}</p>
     </div>
@@ -69,7 +69,7 @@ export function ConnectionStatusBar({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-medium text-cafe-secondary">连接状态 · Steam & Brew</p>
-        <p className="text-[11px] text-cafe-muted">最近探测 {formatCheckTime(checkedAt)}</p>
+        <p className="text-xs text-cafe-muted">最近探测 {formatCheckTime(checkedAt)}</p>
       </div>
 
       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">

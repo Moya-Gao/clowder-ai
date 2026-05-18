@@ -35,7 +35,7 @@ export function SuggestionDecisionPanel({
         <p>Why：{item.suggestion?.why}</p>
         <p>Plan：{item.suggestion?.plan}</p>
       </div>
-      <label className="block text-[11px] font-medium text-[#5E4C3A]">
+      <label className="block text-xs font-medium text-[#5E4C3A]">
         Dispatch Phase
         <select
           value={selectedPhase}
@@ -59,7 +59,7 @@ export function SuggestionDecisionPanel({
       </button>
       {item.status === 'suggested' && (
         <>
-          <label className="block text-[11px] font-medium text-[#5E4C3A]">
+          <label className="block text-xs font-medium text-[#5E4C3A]">
             驳回备注（可选）
             <input
               value={rejectNote}

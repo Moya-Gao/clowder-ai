@@ -166,7 +166,7 @@ export function FileContentRenderer({
           <button
             type="button"
             onClick={onMdAddToChat}
-            className="absolute top-2 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cafe-accent text-white text-[11px] font-medium shadow-lg hover:bg-cafe-interactive transition-colors z-10 animate-fade-in"
+            className="absolute top-2 right-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cafe-accent text-white text-xs font-medium shadow-lg hover:bg-cafe-interactive transition-colors z-10 animate-fade-in"
             title="引用到聊天"
           >
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">

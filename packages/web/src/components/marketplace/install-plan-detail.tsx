@@ -15,7 +15,7 @@ const MODE_ACTION: Record<string, { label: string; icon: string; hint: string }>
 function ConfigRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-3 border-b border-cafe-border/50 py-1.5 last:border-0">
-      <span className="w-20 shrink-0 text-[11px] text-cafe-muted">{label}</span>
+      <span className="w-20 shrink-0 text-xs text-cafe-muted">{label}</span>
       <span className="text-xs font-mono text-cafe">{value}</span>
     </div>
   );

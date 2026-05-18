@@ -118,7 +118,7 @@ export function ThinkingContent({
           userInteracted.current = true;
           setExpanded((v) => !v);
         }}
-        className="w-full flex items-center gap-2 text-[11px] font-mono transition-colors"
+        className="w-full flex items-center gap-2 text-xs font-mono transition-colors"
         style={{ padding: '8px 12px', backgroundColor: surface }}
       >
         <span style={{ color: breedColor || '#6B7280' }}>

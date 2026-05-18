@@ -24,7 +24,7 @@ export function BriefingCard({ block: raw }: { block: RichBlock; messageId?: str
         className="w-full flex items-center gap-1.5 px-3 py-2 text-left hover:bg-blue-100/50 dark:hover:bg-blue-900/30 transition-colors"
       >
         <CafeIcon name="search" className="w-3.5 h-3.5 text-conn-blue-text dark:text-blue-400 shrink-0" />
-        <span className="text-[11px] font-medium text-blue-600 dark:text-blue-300 uppercase tracking-wide">
+        <span className="text-xs font-medium text-blue-600 dark:text-blue-300 uppercase tracking-wide">
           Context Briefing
         </span>
         <span className="mx-1.5 text-blue-300 dark:text-blue-600">·</span>

@@ -102,7 +102,7 @@ export function ThreadOrganizerModal({
                 type="button"
                 onClick={onSuggestAll}
                 disabled={loading}
-                className="text-[11px] px-2 py-1 rounded-md bg-conn-amber-bg text-conn-amber-text hover:bg-conn-amber-ring disabled:opacity-40 transition-colors flex items-center gap-1"
+                className="text-xs px-2 py-1 rounded-md bg-conn-amber-bg text-conn-amber-text hover:bg-conn-amber-ring disabled:opacity-40 transition-colors flex items-center gap-1"
               >
                 <svg
                   aria-hidden="true"
@@ -134,7 +134,7 @@ export function ThreadOrganizerModal({
         </div>
 
         {failedIds.size > 0 && (
-          <div className="mx-4 mt-2 px-3 py-2 rounded-md bg-conn-red-bg border border-conn-red-ring text-[11px] text-conn-red-text">
+          <div className="mx-4 mt-2 px-3 py-2 rounded-md bg-conn-red-bg border border-conn-red-ring text-xs text-conn-red-text">
             {failedIds.size} 个 thread 应用失败，请重试
           </div>
         )}
@@ -182,14 +182,14 @@ export function ThreadOrganizerModal({
         </div>
 
         <div className="flex items-center justify-between px-4 py-3 border-t border-cafe-subtle">
-          <span className="text-[11px] text-cafe-muted">
+          <span className="text-xs text-cafe-muted">
             {assignedCount > 0 ? `已选 ${assignedCount} 个 thread` : '点击标签为 thread 分类'}
           </span>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="text-[11px] px-3 py-1.5 rounded-md text-cafe-muted hover:text-cafe-secondary"
+              className="text-xs px-3 py-1.5 rounded-md text-cafe-muted hover:text-cafe-secondary"
             >
               取消
             </button>
@@ -197,7 +197,7 @@ export function ThreadOrganizerModal({
               type="button"
               onClick={handleApply}
               disabled={assignedCount === 0 || applying}
-              className="text-[11px] px-3 py-1.5 rounded-md bg-cafe-accent text-white disabled:opacity-40 transition-opacity"
+              className="text-xs px-3 py-1.5 rounded-md bg-cafe-accent text-white disabled:opacity-40 transition-opacity"
             >
               {applying ? '应用中...' : `批量应用 (${assignedCount})`}
             </button>

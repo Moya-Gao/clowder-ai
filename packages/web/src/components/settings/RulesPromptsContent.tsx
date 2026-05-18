@@ -137,7 +137,7 @@ function Section({
           <h3 className="text-lg font-semibold tracking-[-0.03em] text-cafe">{title}</h3>
           <p className="max-w-2xl text-sm leading-6 text-cafe-secondary">{description}</p>
         </div>
-        <span className="console-pill inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold text-cafe-secondary">
+        <span className="console-pill inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-cafe-secondary">
           {badge}
         </span>
       </div>
@@ -293,14 +293,14 @@ function RulePreviewModal({ label, file, onClose }: { label: string; file: RuleF
       <div
         role="dialog"
         aria-modal="true"
-        className="relative z-10 flex max-h-[calc(100vh-32px)] w-full max-w-[620px] flex-col overflow-hidden rounded-[24px] bg-[var(--console-card-bg)] p-[26px] shadow-[0_20px_48px_rgba(43,33,26,0.14)]"
+        className="relative z-10 flex max-h-[calc(100vh-32px)] w-full max-w-[620px] flex-col overflow-hidden rounded-2xl bg-[var(--console-card-bg)] p-[26px] shadow-[0_20px_48px_rgba(43,33,26,0.14)]"
       >
         <div className="flex shrink-0 items-center gap-[14px]">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[var(--console-active-bg)] text-[18px] font-bold text-[var(--console-modal-title)]">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--console-active-bg)] text-lg font-bold text-[var(--console-modal-title)]">
             📜
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-[20px] font-extrabold text-cafe">{label}</h2>
+            <h2 className="text-xl font-extrabold text-cafe">{label}</h2>
             <p className="text-xs text-cafe-muted">
               {file.path} · {lineCount} 行
             </p>
@@ -309,14 +309,14 @@ function RulePreviewModal({ label, file, onClose }: { label: string; file: RuleF
             type="button"
             onClick={onClose}
             aria-label="关闭"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-[16px] text-cafe-muted transition hover:bg-[var(--console-modal-close-bg)] hover:text-[var(--console-modal-close-fg)]"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-base text-cafe-muted transition hover:bg-[var(--console-modal-close-bg)] hover:text-[var(--console-modal-close-fg)]"
           >
             ✕
           </button>
         </div>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-[16px] bg-[var(--console-panel-bg)] p-4">
-          <pre className="max-h-[50vh] overflow-auto whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-cafe-secondary">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-2xl bg-[var(--console-panel-bg)] p-4">
+          <pre className="max-h-[50vh] overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-cafe-secondary">
             {file.content}
           </pre>
         </div>

@@ -57,7 +57,7 @@ function BrowserPushCard({
   return (
     <div className={`console-list-card rounded-2xl overflow-hidden ${CARD_SHADOW}`}>
       <div className="flex items-center gap-4 px-5 py-[18px]">
-        <span className="flex h-11 w-11 items-center justify-center rounded-[12px] shrink-0 bg-[var(--cafe-accent,#C65F3D)]">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl shrink-0 bg-[var(--cafe-accent,#C65F3D)]">
           <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5" className="h-5 w-5" aria-hidden="true">
             <path
               d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"
@@ -67,8 +67,8 @@ function BrowserPushCard({
           </svg>
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-extrabold text-cafe">浏览器推送</p>
-          <p className="text-[11px] text-cafe-muted">
+          <p className="text-base font-extrabold text-cafe">浏览器推送</p>
+          <p className="text-xs text-cafe-muted">
             {isSubscribed ? '已订阅 · 通知栏接收' : pushConfigured ? '未订阅' : '推送服务未配置'}
           </p>
         </div>
@@ -98,7 +98,7 @@ function BrowserPushCard({
 
       {!pushConfigured && (
         <div className="px-5 py-3 border-t border-[var(--console-border-soft)]">
-          <p className="mb-3 text-[11px] text-cafe-muted leading-relaxed">
+          <p className="mb-3 text-xs text-cafe-muted leading-relaxed">
             浏览器推送需要配置服务端密钥对来标识推送身份。终端运行{' '}
             <code className="text-[10px] bg-[var(--console-field-bg)] px-1 py-0.5 rounded">
               npx web-push generate-vapid-keys
@@ -212,7 +212,7 @@ export function PushSettingsPanel() {
 
         <div className={`console-list-card rounded-2xl overflow-hidden ${CARD_SHADOW}`}>
           <div className="flex items-center gap-4 px-5 py-[18px]">
-            <span className="flex h-11 w-11 items-center justify-center rounded-[12px] shrink-0 bg-conn-emerald-text">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl shrink-0 bg-conn-emerald-text">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -226,10 +226,10 @@ export function PushSettingsPanel() {
               </svg>
             </span>
             <div className="flex-1 min-w-0">
-              <p className="text-[15px] font-extrabold text-cafe">应用内通知</p>
-              <p className="text-[11px] text-cafe-muted">页面内消息提示，始终开启</p>
+              <p className="text-base font-extrabold text-cafe">应用内通知</p>
+              <p className="text-xs text-cafe-muted">页面内消息提示，始终开启</p>
             </div>
-            <span className="shrink-0 rounded-[13px] px-2.5 py-1 text-xs font-semibold bg-conn-emerald-bg text-conn-emerald-text">
+            <span className="shrink-0 rounded-xl px-2.5 py-1 text-xs font-semibold bg-conn-emerald-bg text-conn-emerald-text">
               已开启
             </span>
           </div>
@@ -240,7 +240,7 @@ export function PushSettingsPanel() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-cafe">通知偏好</h3>
-          {prefsSaved && <span className="text-[11px] text-conn-emerald-text">已保存</span>}
+          {prefsSaved && <span className="text-xs text-conn-emerald-text">已保存</span>}
         </div>
         <p className="text-xs text-cafe-muted">选择哪些事件触发通知</p>
         <div
@@ -257,8 +257,8 @@ export function PushSettingsPanel() {
                 onChange={() => togglePref(type.id)}
                 className="h-3.5 w-3.5 rounded accent-[var(--color-cafe-accent)]"
               />
-              <span className="text-[13px] font-medium text-cafe">{type.label}</span>
-              <span className="text-[11px] text-cafe-muted">{type.desc}</span>
+              <span className="text-sm font-medium text-cafe">{type.label}</span>
+              <span className="text-xs text-cafe-muted">{type.desc}</span>
             </label>
           ))}
         </div>

@@ -114,7 +114,7 @@ export function PushDiagnosticsSection({ permission, status, pushConfigured }: P
 
           {pushConfigured && <PushServiceConfig />}
 
-          <p className="text-[11px] text-cafe-muted">
+          <p className="text-xs text-cafe-muted">
             iPhone/iPad：PWA Web Push 需先&ldquo;添加到主屏幕&rdquo;再开启通知（Safari 普通标签页不支持）。
           </p>
         </div>

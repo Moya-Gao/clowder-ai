@@ -170,7 +170,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
           <button
             type="button"
             onClick={handleFetchQr}
-            className="flex items-center gap-1.5 rounded-lg bg-[#3370FF] px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#295ad6]"
+            className="flex items-center gap-1.5 rounded-lg bg-[#3370FF] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#295ad6]"
             data-testid="feishu-generate-qr"
           >
             <QrCodeIcon />

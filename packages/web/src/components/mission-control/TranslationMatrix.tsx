@@ -61,7 +61,7 @@ export function TranslationMatrix({ cards, selectedCardId, onSelectCard, onCreat
             key={f.value}
             type="button"
             onClick={() => setBucketFilter(f.value)}
-            className={`rounded-full px-3 py-1 text-[11px] font-medium transition-colors ${
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               bucketFilter === f.value ? 'bg-[#8B6F47] text-white' : 'bg-[#F4EFE7] text-[#6B5D4F] hover:bg-[#E7DAC7]'
             }`}
           >

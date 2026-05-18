@@ -397,7 +397,7 @@ function PromptInspector({ invocationId, catId }: { invocationId?: string; catId
   return (
     <div className="mt-3 rounded-lg border border-conn-purple-ring bg-cafe-surface p-3">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[11px] font-medium text-conn-purple-text">Prompt X-Ray</span>
+        <span className="text-xs font-medium text-conn-purple-text">Prompt X-Ray</span>
         <div className="flex items-center gap-2 text-[10px] text-cafe-muted">
           <span>{selected.model}</span>
           <span>·</span>
@@ -477,7 +477,7 @@ function PromptTokenBar({ capture }: { capture: PromptCaptureData }) {
         )}
         <div className="bg-conn-green-text" style={{ width: `${userPct}%` }} title={`User: ${userPct.toFixed(0)}%`} />
       </div>
-      <div className="mt-0.5 flex gap-3 text-[9px] text-cafe-muted">
+      <div className="mt-0.5 flex gap-3 text-[10px] text-cafe-muted">
         <span>
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-conn-blue-text" /> System {sysPct.toFixed(0)}%
         </span>

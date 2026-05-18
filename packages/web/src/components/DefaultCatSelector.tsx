@@ -35,7 +35,7 @@ export function DefaultCatSelector({
       <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="text-sm font-bold text-cafe-black">全局默认猫</h3>
-          <p className="text-[11px] text-cafe-muted mt-0.5">新 thread 没有历史时，默认由这只猫回复</p>
+          <p className="text-xs text-cafe-muted mt-0.5">新 thread 没有历史时，默认由这只猫回复</p>
         </div>
       </div>
       {fetchError && (

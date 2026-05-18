@@ -101,7 +101,7 @@ export function HubRoutingPolicyTab() {
       <HubQuotaBoardTab />
 
       <Section title="路由策略（猫粮约束子模块）">
-        <p className="text-[11px] text-cafe-secondary mb-3">
+        <p className="text-xs text-cafe-secondary mb-3">
           默认是猫猫自治路由；这里只放你明确要求的硬约束（比如预算/猫粮）。显式 @ 指名永远优先。
         </p>
 
@@ -111,7 +111,7 @@ export function HubRoutingPolicyTab() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-sm font-medium text-cafe">Review scope</div>
-              <div className="text-[11px] text-cafe-secondary">当消息明显是 review/合入/PR 场景时生效</div>
+              <div className="text-xs text-cafe-secondary">当消息明显是 review/合入/PR 场景时生效</div>
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={reviewAvoidOpus} onChange={(e) => setReviewAvoidOpus(e.target.checked)} />
@@ -122,7 +122,7 @@ export function HubRoutingPolicyTab() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-sm font-medium text-cafe">Architecture scope</div>
-              <div className="text-[11px] text-cafe-secondary">当消息明显是 架构/设计/tradeoff 场景时生效</div>
+              <div className="text-xs text-cafe-secondary">当消息明显是 架构/设计/tradeoff 场景时生效</div>
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -135,7 +135,7 @@ export function HubRoutingPolicyTab() {
           </div>
 
           <div className="flex items-center justify-between gap-3 pt-2">
-            <div className="text-[11px] text-cafe-secondary">
+            <div className="text-xs text-cafe-secondary">
               {currentPolicy ? '当前已启用策略' : '当前未启用策略'}
               {savedAt ? ` · 已保存 ${new Date(savedAt).toLocaleTimeString()}` : ''}
             </div>

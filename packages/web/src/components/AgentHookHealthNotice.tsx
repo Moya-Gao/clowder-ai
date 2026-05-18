@@ -159,7 +159,7 @@ export function AgentHookHealthNotice({
             {syncing && <span className="text-xs font-medium">同步中...</span>}
           </div>
 
-          <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <span className="rounded-full border border-cafe-subtle bg-cafe-surface-elevated px-2 py-0.5 text-cafe-secondary">
               Claude：{statusText(groupStatus(health, 'claude'))}
             </span>
@@ -172,7 +172,7 @@ export function AgentHookHealthNotice({
           </div>
 
           {problematicTargets.length > 0 && (
-            <details className="mt-2 text-[11px]">
+            <details className="mt-2 text-xs">
               <summary className="cursor-pointer font-medium">预览将修复的改动</summary>
               <ul className="mt-1 space-y-1">
                 {problematicTargets.map((target) => (

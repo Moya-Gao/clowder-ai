@@ -85,7 +85,7 @@ export function HubToolUsageTab() {
       <div className="flex items-center justify-between rounded-xl bg-[#FDF8F3] px-4 py-3">
         <div>
           <h3 className="text-sm font-semibold text-[#5C4A3A]">工具使用日志</h3>
-          <p className="text-[11px] text-[#A08A76]">猫猫们的每日工具箱使用记录</p>
+          <p className="text-xs text-[#A08A76]">猫猫们的每日工具箱使用记录</p>
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -140,7 +140,7 @@ export function HubToolUsageTab() {
         <div className="rounded-xl border border-dashed border-[#E8DDD2] bg-[#FDF8F3] py-10 text-center">
           <HubIcon name="store" className="h-7 w-7 text-[#A08A76]" />
           <p className="mt-2 text-xs text-[#A08A76]">还没有工具使用记录</p>
-          <p className="text-[11px] text-[#C4B5A4]">猫猫们开始工作后，数据会自动出现在这里</p>
+          <p className="text-xs text-[#C4B5A4]">猫猫们开始工作后，数据会自动出现在这里</p>
         </div>
       )}
 
@@ -162,7 +162,7 @@ function SummaryCards({ total, byCategory }: { total: number; byCategory: Record
     <div className="grid grid-cols-4 gap-3">
       <div className="rounded-xl border border-[#E8DDD2] bg-[#FDF8F3] p-3 text-center">
         <div className="text-2xl font-bold text-[#5C4A3A]">{total.toLocaleString()}</div>
-        <div className="text-[11px] text-[#A08A76]">总调用</div>
+        <div className="text-xs text-[#A08A76]">总调用</div>
       </div>
       {CATEGORIES.map((cat) => {
         const style = CATEGORY_STYLE[cat];
@@ -177,7 +177,7 @@ function SummaryCards({ total, byCategory }: { total: number; byCategory: Record
             <div className="text-xl font-bold" style={{ color: style.color }}>
               {count.toLocaleString()}
             </div>
-            <div className="text-[11px]" style={{ color: style.color }}>
+            <div className="text-xs" style={{ color: style.color }}>
               {style.label}
               {total > 0 && <span className="ml-1 opacity-60">({Math.round((count / total) * 100)}%)</span>}
             </div>
@@ -217,9 +217,7 @@ function DailyTrend({ daily }: { daily: ToolUsageReport['daily'] }) {
           const pct = (dayTotal / maxDay) * 100;
           return (
             <div key={day.date} className="flex items-center gap-3 text-xs">
-              <span className="w-12 shrink-0 text-right tabular-nums text-[11px] text-[#A08A76]">
-                {day.date.slice(5)}
-              </span>
+              <span className="w-12 shrink-0 text-right tabular-nums text-xs text-[#A08A76]">{day.date.slice(5)}</span>
               <div className="flex h-6 flex-1 items-center">
                 <div className="flex h-full overflow-hidden rounded-md" style={{ width: `${Math.max(pct, 3)}%` }}>
                   {CATEGORIES.map((cat) => {
@@ -239,7 +237,7 @@ function DailyTrend({ daily }: { daily: ToolUsageReport['daily'] }) {
                   })}
                 </div>
               </div>
-              <span className="w-20 shrink-0 tabular-nums text-[11px] text-[#5C4A3A]">
+              <span className="w-20 shrink-0 tabular-nums text-xs text-[#5C4A3A]">
                 <span className="font-medium">{dayTotal}</span>
                 <span className="ml-1 text-[10px] text-[#A08A76]">
                   ({day.native}/{day.mcp}/{day.skill})
@@ -291,7 +289,7 @@ function TopToolsTable({ tools }: { tools: ToolUsageReport['topTools'] }) {
                       />
                     </div>
                   </div>
-                  <span className="w-10 text-right tabular-nums text-[11px] text-[#5C4A3A]">{tool.count}</span>
+                  <span className="w-10 text-right tabular-nums text-xs text-[#5C4A3A]">{tool.count}</span>
                 </div>
               ))}
             </div>

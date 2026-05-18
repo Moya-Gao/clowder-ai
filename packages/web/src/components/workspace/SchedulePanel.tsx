@@ -265,13 +265,13 @@ export function SchedulePanel() {
                         title={task.lastRun?.outcome ?? 'never run'}
                       />
                       <span
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${CATEGORY_STYLES[category]}`}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${CATEGORY_STYLES[category]}`}
                       >
                         {CATEGORY_LABELS[category]}
                       </span>
                       <span className="text-xs font-medium text-cafe truncate flex-1">{label}</span>
                       {task.source === 'dynamic' && (
-                        <span className="px-1 py-0.5 rounded text-[8px] font-medium bg-conn-violet-bg text-conn-violet-text">
+                        <span className="px-1 py-0.5 rounded text-[10px] font-medium bg-conn-violet-bg text-conn-violet-text">
                           user
                         </span>
                       )}
@@ -306,7 +306,7 @@ export function SchedulePanel() {
                         </span>
                       )}
                       {!(task.effectiveEnabled ?? task.enabled) && (
-                        <span className="ml-auto text-[9px] text-conn-red-text font-medium">PAUSED</span>
+                        <span className="ml-auto text-[10px] text-conn-red-text font-medium">PAUSED</span>
                       )}
                     </div>
                   </div>
@@ -377,7 +377,7 @@ export function SchedulePanel() {
 
       {/* Conversational CTA (AC-G5: replaces NL input — W1 vision) */}
       <div className="px-4 py-2.5 bg-cafe-surface-elevated border-t border-cafe-subtle">
-        <p className="text-[11px] text-cafe-muted text-center">
+        <p className="text-xs text-cafe-muted text-center">
           Want to add a scheduled task? Tell any cat in the chat — e.g.
           <span className="text-cafe font-medium"> &quot;every morning at 9, check Anthropic news&quot;</span>
         </p>

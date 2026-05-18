@@ -33,7 +33,7 @@ export function SkillConflictBanner({ conflicts, resolving, onResolve }: SkillCo
               type="button"
               disabled={resolving === c.skillName}
               onClick={() => void onResolve(c.skillName, 'official')}
-              className="rounded-[8px] bg-amber-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-amber-700 disabled:opacity-50"
+              className="rounded-lg bg-amber-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-amber-700 disabled:opacity-50"
             >
               Official
             </button>
@@ -41,7 +41,7 @@ export function SkillConflictBanner({ conflicts, resolving, onResolve }: SkillCo
               type="button"
               disabled={resolving === c.skillName}
               onClick={() => void onResolve(c.skillName, 'mine')}
-              className="rounded-[8px] bg-white px-2.5 py-1 text-[10px] font-bold text-conn-amber-text hover:bg-conn-amber-bg disabled:opacity-50"
+              className="rounded-lg bg-white px-2.5 py-1 text-[10px] font-bold text-conn-amber-text hover:bg-conn-amber-bg disabled:opacity-50"
             >
               Mine
             </button>

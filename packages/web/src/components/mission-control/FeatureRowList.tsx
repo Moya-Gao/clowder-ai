@@ -112,8 +112,8 @@ export function FeatureRowList({
             className="flex w-full items-center gap-2 rounded-xl bg-[#F4EFE7] px-4 py-3"
           >
             <span className="text-xs text-[#9A866F]">{doneExpanded ? '▼' : '▸'}</span>
-            <span className="text-[13px] font-semibold text-[#7A6B5A]">已完成</span>
-            <span className="rounded-full bg-[#E7DAC7] px-2 py-0.5 text-[11px] font-bold text-[#7A6B5A]">
+            <span className="text-sm font-semibold text-[#7A6B5A]">已完成</span>
+            <span className="rounded-full bg-[#E7DAC7] px-2 py-0.5 text-xs font-bold text-[#7A6B5A]">
               {doneGroups.length}
             </span>
             <span className="text-xs text-[#B5A48E]">{doneGroups.map(([t]) => t).join(' · ')}</span>
@@ -179,9 +179,9 @@ function FeatureRow({
     >
       <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 px-4 py-3 text-left">
         <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_DOT[status]}`} />
-        <span className="w-11 shrink-0 text-[13px] font-bold text-[#8B6F47]">{tag}</span>
+        <span className="w-11 shrink-0 text-sm font-bold text-[#8B6F47]">{tag}</span>
         <span className="min-w-0 flex-1 truncate text-sm text-[#2B2118]">{name ?? featureItems[0]?.title ?? ''}</span>
-        <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold ${badge.bg} ${badge.text}`}>
+        <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${badge.bg} ${badge.text}`}>
           {badge.label}
         </span>
         {totalThreadCount > 0 && (
@@ -207,7 +207,7 @@ function FeatureRow({
         <div className="border-t border-[#E7DAC7] px-4 py-3" data-testid={`mc-feature-detail-${tag}`}>
           <div className="grid gap-4 md:grid-cols-[1fr_280px]">
             <div>
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#9A866F]">任务进度</p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#9A866F]">任务进度</p>
               <div className="space-y-1.5">
                 {featureItems.map((item) => (
                   <button
@@ -249,7 +249,7 @@ function FeatureRow({
               </div>
               {featureItems[0]?.dependencies && (
                 <div className="mt-3">
-                  <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-[#9A866F]">依赖关系</p>
+                  <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[#9A866F]">依赖关系</p>
                   <div className="flex flex-wrap gap-1">
                     {featureItems[0].dependencies.evolvedFrom?.map((id) => (
                       <span
@@ -278,7 +278,7 @@ function FeatureRow({
                   </div>
                 </div>
               )}
-              {detailLoading && <p className="mt-3 text-[11px] text-[#B5A48E] animate-pulse">加载 Phase 进度...</p>}
+              {detailLoading && <p className="mt-3 text-xs text-[#B5A48E] animate-pulse">加载 Phase 进度...</p>}
               {detail && (
                 <div className="mt-3">
                   <FeatureProgressPanel detail={detail} />
@@ -286,7 +286,7 @@ function FeatureRow({
               )}
             </div>
             <div>
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#9A866F]">关联线程</p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#9A866F]">关联线程</p>
               <div className="space-y-1.5">
                 {featureItems
                   .filter((i) => i.status === 'dispatched' && threadsByBacklogId[i.id])
@@ -338,7 +338,7 @@ function FeatureRow({
                   ))}
                 {titleMatchedThreads.length === 0 &&
                   featureItems.filter((i) => i.status === 'dispatched' && threadsByBacklogId[i.id]).length === 0 && (
-                    <p className="text-[11px] text-[#B5A48E]">暂无关联线程</p>
+                    <p className="text-xs text-[#B5A48E]">暂无关联线程</p>
                   )}
               </div>
             </div>

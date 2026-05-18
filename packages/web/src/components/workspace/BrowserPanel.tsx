@@ -269,7 +269,7 @@ export function BrowserPanel({ initialPort, initialPath, previewOnly, onNavigate
 
       {!previewOnly && hmrStatus !== 'idle' && (
         <div
-          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] border-b ${hmrStatus === 'connected' ? 'bg-[#FFF5F2] border-[var(--console-border-soft)]' : 'bg-[#FFF0ED] border-[var(--console-border-soft)]'} text-[#5a4a42]/70`}
+          className={`flex items-center gap-1.5 px-3 py-1 text-xs border-b ${hmrStatus === 'connected' ? 'bg-[#FFF5F2] border-[var(--console-border-soft)]' : 'bg-[#FFF0ED] border-[var(--console-border-soft)]'} text-[#5a4a42]/70`}
         >
           <span
             className={`w-1.5 h-1.5 rounded-full inline-block ${hmrStatus === 'connected' ? 'bg-conn-green-text' : 'bg-red-400'}`}

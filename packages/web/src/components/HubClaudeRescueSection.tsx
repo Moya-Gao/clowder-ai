@@ -128,7 +128,7 @@ export function HubClaudeRescueSection() {
           专治 Claude session 的坏 thinking signature。执行前会自动备份 transcript，只会移除纯 thinking-only assistant
           turn。
         </p>
-        <p className="text-[11px] text-conn-amber-text">扫描范围：当前机器上的 `~/.claude/projects/**/*.jsonl`</p>
+        <p className="text-xs text-conn-amber-text">扫描范围：当前机器上的 `~/.claude/projects/**/*.jsonl`</p>
       </div>
 
       {error && (
@@ -156,7 +156,7 @@ export function HubClaudeRescueSection() {
             <p className="text-xs font-medium text-conn-amber-text">
               检测到 {sessions.length} 只布偶猫 session 需要救援
             </p>
-            <p className="text-[11px] text-conn-amber-text">先勾选要动刀的 session，再执行一键救活。</p>
+            <p className="text-xs text-conn-amber-text">先勾选要动刀的 session，再执行一键救活。</p>
           </div>
           <div className="space-y-2">
             {sessions.map((session) => {

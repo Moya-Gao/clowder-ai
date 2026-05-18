@@ -124,8 +124,8 @@ export function HubAccountsTab() {
 
       <div className="flex items-start justify-between gap-3 px-1">
         <div>
-          <p className="text-[13px] font-semibold text-[#E29578]">系统配置 &gt; 账号配置</p>
-          <p className="mt-1 text-[13px] leading-6 text-[#8A776B]">
+          <p className="text-sm font-semibold text-[#E29578]">系统配置 &gt; 账号配置</p>
+          <p className="mt-1 text-sm leading-6 text-[#8A776B]">
             每个账号可添加或删除模型。账号配置全局共享，所有项目通用。
           </p>
         </div>
@@ -155,7 +155,7 @@ export function HubAccountsTab() {
         ))}
       </div>
 
-      <p className="text-[13px] text-[#B59A88]">点击卡片进入编辑 →</p>
+      <p className="text-sm text-[#B59A88]">点击卡片进入编辑 →</p>
       <p className="text-xs leading-5 text-[#B59A88]">
         secrets 存储在启动目录下 `.cat-cafe/credentials.json`，Git 忽略。
       </p>

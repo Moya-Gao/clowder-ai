@@ -108,7 +108,7 @@ export function ProfileCard({
                 <p className="text-xs text-gray-500">OAuth 认证账号</p>
               ) : (
                 <>
-                  <p className="truncate text-[11px] text-gray-400">
+                  <p className="truncate text-xs text-gray-400">
                     {profile.baseUrl || (profile.clientId && PROVIDER_DEFAULT_HOST[profile.clientId]) || ''}
                   </p>
                   <p className="text-xs text-gray-500">API Key: {profile.hasApiKey ? '已配置' : '未配置'}</p>
@@ -121,7 +121,7 @@ export function ProfileCard({
                 e.stopPropagation();
                 onEdit();
               }}
-              className="shrink-0 text-[11px] text-conn-amber-text hover:text-conn-amber-text"
+              className="shrink-0 text-xs text-conn-amber-text hover:text-conn-amber-text"
             >
               编辑
             </button>
@@ -129,7 +129,7 @@ export function ProfileCard({
 
           {/* Model chips with add/delete */}
           <div>
-            <p className="mb-1 text-[11px] font-medium text-gray-500">模型</p>
+            <p className="mb-1 text-xs font-medium text-gray-500">模型</p>
             <div className="flex flex-wrap gap-1.5">
               {models.map((m) => (
                 <button
@@ -196,9 +196,9 @@ export function ProfileCard({
               )}
             </div>
             {models.length === 0 && !addingModel && (
-              <p className="mt-1 text-[11px] text-gray-400">{'暂无模型，请点击"+ 添加"后测试'}</p>
+              <p className="mt-1 text-xs text-gray-400">{'暂无模型，请点击"+ 添加"后测试'}</p>
             )}
-            {modelError && <p className="mt-1 text-[11px] text-conn-red-text">{modelError}</p>}
+            {modelError && <p className="mt-1 text-xs text-conn-red-text">{modelError}</p>}
           </div>
 
           {/* Test button */}

@@ -105,13 +105,13 @@ export function HubCoCreatorOverviewCard({ coCreator, onEdit }: { coCreator: CoC
           onEdit();
         }
       }}
-      className="rounded-[20px] px-[18px] py-[18px] shadow-sm"
+      className="rounded-2xl px-[18px] py-[18px] shadow-sm"
       style={{ backgroundColor: secondary, border: `2px solid ${primary}` }}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div
-            className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-[11px] font-bold text-white"
+            className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white"
             style={{ backgroundColor: primary }}
           >
             {avatarSrc ? (
@@ -126,7 +126,7 @@ export function HubCoCreatorOverviewCard({ coCreator, onEdit }: { coCreator: CoC
           </div>
           <h3 className="text-base font-bold text-[#2D2118]">{coCreator.name}</h3>
         </div>
-        <span className="rounded-full bg-[#FFF3E0] px-2.5 py-1 text-[11px] font-semibold text-[#E65100] flex items-center gap-1">
+        <span className="rounded-full bg-[#FFF3E0] px-2.5 py-1 text-xs font-semibold text-[#E65100] flex items-center gap-1">
           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path
               strokeLinecap="round"
@@ -137,10 +137,10 @@ export function HubCoCreatorOverviewCard({ coCreator, onEdit }: { coCreator: CoC
           Owner
         </span>
       </div>
-      <p className="mt-2.5 text-[13px] text-[#8A776B]">
+      <p className="mt-2.5 text-sm text-[#8A776B]">
         别名: {coCreator.aliases.join(' · ') || '无'} · 只能编辑，不能新增或删除
       </p>
-      <p className="mt-2 text-[13px]" style={{ color: primary }}>
+      <p className="mt-2 text-sm" style={{ color: primary }}>
         {formatMentionPreview(coCreator.mentionPatterns, 2)}
       </p>
     </section>
@@ -150,7 +150,7 @@ export function HubCoCreatorOverviewCard({ coCreator, onEdit }: { coCreator: CoC
 export function HubOverviewToolbar({ onAddMember }: { onAddMember?: () => void }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <p className="text-[13px] text-[#8F8075]">全部 · 已启用 · 已停用 · CLI（OAuth） · CLI（配置）</p>
+      <p className="text-sm text-[#8F8075]">全部 · 已启用 · 已停用 · CLI（OAuth） · CLI（配置）</p>
       <button
         type="button"
         onClick={onAddMember}
@@ -184,7 +184,7 @@ function AvailabilityControls({
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${status.className}`}>{status.label}</span>
+      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}>{status.label}</span>
       {onToggleAvailability ? (
         <button
           type="button"
@@ -195,7 +195,7 @@ function AvailabilityControls({
           disabled={togglingAvailability}
           title={actionTitle}
           aria-label={actionTitle}
-          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition disabled:cursor-default disabled:opacity-50 ${actionClass}`}
+          className={`rounded-full px-2.5 py-1 text-xs font-semibold transition disabled:cursor-default disabled:opacity-50 ${actionClass}`}
         >
           {togglingAvailability ? '切换中...' : actionLabel}
         </button>
@@ -250,7 +250,7 @@ export function HubMemberOverviewCard({
       onDrop={draggable ? (event) => onDrop?.(cat, event) : undefined}
       onDragEnd={draggable ? (event) => onDragEnd?.(cat, event) : undefined}
       onClick={editCard}
-      className={`rounded-[20px] px-[18px] py-[18px] shadow-sm transition hover:shadow-md ${isDragging ? 'opacity-40' : ''}`}
+      className={`rounded-2xl px-[18px] py-[18px] shadow-sm transition hover:shadow-md ${isDragging ? 'opacity-40' : ''}`}
       style={cardStyle}
     >
       <div className="flex items-start justify-between gap-3">
@@ -259,7 +259,7 @@ export function HubMemberOverviewCard({
             <span
               aria-hidden="true"
               title="拖动排序"
-              className="mt-1 cursor-grab select-none text-[18px] leading-none text-[#B59A88]"
+              className="mt-1 cursor-grab select-none text-lg leading-none text-[#B59A88]"
             >
               ⠿
             </span>
@@ -273,8 +273,8 @@ export function HubMemberOverviewCard({
             data-guide-id={guideTargetId}
             className="min-w-0 flex-1 cursor-pointer text-left"
           >
-            <h3 className="text-[17px] font-bold text-[#2D2118]">{title}</h3>
-            <p className="mt-2.5 text-[13px] text-[#8A776B]">
+            <h3 className="text-lg font-bold text-[#2D2118]">{title}</h3>
+            <p className="mt-2.5 text-sm text-[#8A776B]">
               {getMetaSummary(cat, configCat)}
               {cat.adapterMode ? (
                 <span
@@ -288,8 +288,8 @@ export function HubMemberOverviewCard({
             </p>
 
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <p className="text-[13px] text-[#9D7BC7]">{formatMentionPreview(cat.mentionPatterns)}</p>
-              <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${sessionChain.className}`}>
+              <p className="text-sm text-[#9D7BC7]">{formatMentionPreview(cat.mentionPatterns)}</p>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${sessionChain.className}`}>
                 {sessionChain.label}
               </span>
             </div>

@@ -134,7 +134,7 @@ export function HubCoCreatorEditor({ open, coCreator, onClose, onSaved }: HubCoC
       onClick={onClose}
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-3xl flex-col rounded-[28px] border border-[#EFDCCB] bg-[#FDF8F3] shadow-2xl"
+        className="flex max-h-[88vh] w-full max-w-3xl flex-col rounded-2xl border border-[#EFDCCB] bg-[#FDF8F3] shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex shrink-0 items-start justify-between border-b border-[#F0DDCD] px-6 py-5">
@@ -162,7 +162,7 @@ export function HubCoCreatorEditor({ open, coCreator, onClose, onSaved }: HubCoC
             />
 
             <div className="flex items-center gap-3">
-              <span className="w-[140px] shrink-0 text-[13px] font-medium text-[#5C4B42]">Avatar</span>
+              <span className="w-[140px] shrink-0 text-sm font-medium text-[#5C4B42]">Avatar</span>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -204,7 +204,7 @@ export function HubCoCreatorEditor({ open, coCreator, onClose, onSaved }: HubCoC
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="w-[140px] shrink-0 text-[13px] font-medium text-[#5C4B42]">Background Color</span>
+              <span className="w-[140px] shrink-0 text-sm font-medium text-[#5C4B42]">Background Color</span>
               <div className="flex items-center gap-2">
                 <label title="Primary">
                   <input
@@ -230,7 +230,7 @@ export function HubCoCreatorEditor({ open, coCreator, onClose, onSaved }: HubCoC
 
           <SectionCard title="别名与 @ 路由">
             <div className="flex items-start gap-3">
-              <span className="w-[140px] shrink-0 pt-1 text-[13px] font-medium text-[#5C4B42]">别名</span>
+              <span className="w-[140px] shrink-0 pt-1 text-sm font-medium text-[#5C4B42]">别名</span>
               <div className="min-w-0 flex-1">
                 <TagEditor
                   tags={aliases}
@@ -244,7 +244,7 @@ export function HubCoCreatorEditor({ open, coCreator, onClose, onSaved }: HubCoC
             </div>
 
             <div className="flex items-start gap-3">
-              <span className="w-[140px] shrink-0 pt-1 text-[13px] font-medium text-[#5C4B42]">@ 标签</span>
+              <span className="w-[140px] shrink-0 pt-1 text-sm font-medium text-[#5C4B42]">@ 标签</span>
               <div className="min-w-0 flex-1">
                 <TagEditor
                   tags={mentionPatterns}

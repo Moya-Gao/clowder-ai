@@ -184,7 +184,7 @@ export function DirectoryPickerModal({
     >
       <div
         ref={modalRef}
-        className="bg-[var(--console-card-bg)] rounded-[28px] shadow-2xl w-full max-w-[640px] mx-4 max-h-[85vh] flex flex-col overflow-hidden"
+        className="bg-[var(--console-card-bg)] rounded-2xl shadow-2xl w-full max-w-[640px] mx-4 max-h-[85vh] flex flex-col overflow-hidden"
       >
         {/* ── Header + Title ── */}
         <div className="px-5 pt-4 pb-3 border-b border-cafe-subtle">
@@ -367,7 +367,7 @@ export function DirectoryPickerModal({
                       const label = cat ? formatCatName(cat) : catId;
                       return (
                         <div key={catId} className="flex items-center gap-2">
-                          <span className="text-[11px] text-cafe-secondary w-16 truncate flex-shrink-0" title={label}>
+                          <span className="text-xs text-cafe-secondary w-16 truncate flex-shrink-0" title={label}>
                             {label}
                           </span>
                           <input
@@ -375,7 +375,7 @@ export function DirectoryPickerModal({
                             onChange={(e) => setSessionInputs((prev) => ({ ...prev, [catId]: e.target.value }))}
                             placeholder="CLI Session ID"
                             maxLength={500}
-                            className="flex-1 text-[11px] font-mono px-2 py-1 rounded border border-cafe bg-cafe-surface-elevated focus:outline-none focus:ring-1 focus:ring-cafe-accent"
+                            className="flex-1 text-xs font-mono px-2 py-1 rounded border border-cafe bg-cafe-surface-elevated focus:outline-none focus:ring-1 focus:ring-cafe-accent"
                           />
                         </div>
                       );
@@ -451,7 +451,7 @@ export function DirectoryPickerModal({
                 className={`truncate flex-1 ${
                   showBrowser
                     ? 'text-xs font-medium text-cafe-accent bg-cafe-surface px-2 py-1 rounded-md'
-                    : 'text-[11px] text-cafe-secondary'
+                    : 'text-xs text-cafe-secondary'
                 }`}
                 title={selectedPath === 'lobby' ? '大厅' : selectedPath}
               >

@@ -568,14 +568,14 @@ export function HubCatEditor({ cat, draft, existingCats, open, onClose, onSaved 
       data-bootcamp-host="cat-editor-modal"
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-[560px] flex-col rounded-[32px] border border-[#F0DDCD] bg-[#FFF8F2] shadow-2xl"
+        className="flex max-h-[88vh] w-full max-w-[560px] flex-col rounded-2xl border border-[#F0DDCD] bg-[#FFF8F2] shadow-2xl"
         data-guide-id="member-editor.profile"
         onClick={(event) => event.stopPropagation()}
         data-bootcamp-step="cat-editor"
       >
         <div className="flex shrink-0 items-start justify-between border-b border-[#F0DDCD] px-7 py-5">
           <div>
-            <p className="text-[13px] font-semibold text-[#77A777]">
+            <p className="text-sm font-semibold text-[#77A777]">
               成员协作 &gt; 总览 &gt; {cat ? '编辑成员' : '添加成员'}
             </p>
           </div>
@@ -595,9 +595,9 @@ export function HubCatEditor({ cat, draft, existingCats, open, onClose, onSaved 
           {!cat && templates.length > 0 && (
             <section
               data-guide-id="add-member.template-picker"
-              className="space-y-2 rounded-[20px] border border-[#F1E7DF] bg-[#FFFDFC] p-[18px]"
+              className="space-y-2 rounded-2xl border border-[#F1E7DF] bg-[#FFFDFC] p-[18px]"
             >
-              <h4 className="text-[15px] font-bold text-[#2D2118]">模板快选（可选）</h4>
+              <h4 className="text-base font-bold text-[#2D2118]">模板快选（可选）</h4>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"

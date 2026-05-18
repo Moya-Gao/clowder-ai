@@ -142,7 +142,7 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
 
   return (
     <div className="space-y-3">
-      {title && <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cafe-muted">{title}</p>}
+      {title && <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cafe-muted">{title}</p>}
       {services.map((service) => {
         const dotClass = STATUS_DOT[service.status] ?? STATUS_DOT.not_configured;
         const isBusy = acting.has(service.id);
@@ -159,9 +159,9 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
                   {service.category} · {service.statusLabel}
                   {service.endpoint ? ` · ${service.endpoint}` : ''}
                 </p>
-                {service.error && <p className="mt-0.5 truncate text-[11px] text-conn-red-text">{service.error}</p>}
-                {error && <p className="mt-0.5 text-[11px] text-conn-red-text">{error}</p>}
-                {logLine && <p className="mt-0.5 truncate font-mono text-[11px] text-cafe-muted">{logLine}</p>}
+                {service.error && <p className="mt-0.5 truncate text-xs text-conn-red-text">{service.error}</p>}
+                {error && <p className="mt-0.5 text-xs text-conn-red-text">{error}</p>}
+                {logLine && <p className="mt-0.5 truncate font-mono text-xs text-cafe-muted">{logLine}</p>}
               </div>
 
               {service.availableActions.length > 0 && (
@@ -177,7 +177,7 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
                           type="button"
                           disabled={isBusy}
                           onClick={() => handleAction(service, action)}
-                          className={`rounded-[10px] px-3 py-1.5 text-[11px] font-bold transition-colors ${acfg.tone} disabled:opacity-50`}
+                          className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${acfg.tone} disabled:opacity-50`}
                         >
                           {isBusy ? '...' : acfg.label}
                         </button>

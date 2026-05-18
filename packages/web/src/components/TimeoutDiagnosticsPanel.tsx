@@ -96,12 +96,12 @@ export function TimeoutDiagnosticsPanel({ errorMessage, diagnostics, description
     <div data-testid="timeout-diagnostics" className="flex flex-col gap-2.5">
       {/* Error banner */}
       <div
-        className="flex items-center gap-2.5 rounded-[10px]"
+        className="flex items-center gap-2.5 rounded-xl"
         style={{ backgroundColor: '#FFF0ED', border: '1px solid #D0806833', padding: '10px 14px' }}
       >
         <CircleXIcon className="w-4 h-4 flex-shrink-0" style={{ color: '#D08068' }} />
         <div className="flex flex-col gap-0.5 min-w-0">
-          <span className="text-[13px] font-semibold" style={{ color: '#1A1918' }}>
+          <span className="text-sm font-semibold" style={{ color: '#1A1918' }}>
             {errorMessage}
           </span>
           {description && (
@@ -137,10 +137,10 @@ export function TimeoutDiagnosticsPanel({ errorMessage, diagnostics, description
           <div className="flex flex-col gap-1">
             {rows.map((row) => (
               <div key={row.key} className="flex gap-2">
-                <span className="text-[11px] font-medium" style={{ color: '#9C9B99' }}>
+                <span className="text-xs font-medium" style={{ color: '#9C9B99' }}>
                   {row.key}
                 </span>
-                <span className="text-[11px]" style={{ color: row.purple ? '#C4A0E8' : '#D89575' }}>
+                <span className="text-xs" style={{ color: row.purple ? '#C4A0E8' : '#D89575' }}>
                   {row.value}
                 </span>
               </div>

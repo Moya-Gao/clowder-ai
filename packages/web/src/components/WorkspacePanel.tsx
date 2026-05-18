@@ -1008,7 +1008,7 @@ export function WorkspacePanel() {
                               <div className="font-medium text-cafe-black">
                                 未在 {currentWorktree?.branch ?? '当前工作区'} 中找到 “{searchQuery.trim()}”
                               </div>
-                              <div className="mt-1 text-[11px] text-cafe-interactive/55">
+                              <div className="mt-1 text-xs text-cafe-interactive/55">
                                 当前模式：
                                 {searchMode === 'all' ? '全部' : searchMode === 'filename' ? '文件名' : '内容'}
                                 {searchMode === 'content' ? '。可以试试切到 File 或 All。' : '。'}

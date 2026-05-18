@@ -149,13 +149,13 @@ function IssueRow({
             e.stopPropagation();
             onDispatch(item.id);
           }}
-          className="text-[9px] text-cafe-crosspost bg-cafe-crosspost/10 px-1.5 py-0.5 rounded hover:bg-cafe-crosspost/20 transition-colors"
+          className="text-xs text-cafe-crosspost bg-cafe-crosspost/10 px-1.5 py-0.5 rounded hover:bg-cafe-crosspost/20 transition-colors"
         >
           发送给系统猫
         </button>
       )}
       {item.replyState === 'unreplied' && item.state !== 'unreplied' && (
-        <span className="text-[9px] text-cafe-accent bg-cafe-accent/10 px-1 rounded">未回复</span>
+        <span className="text-xs text-cafe-accent bg-cafe-accent/10 px-1 rounded">未回复</span>
       )}
     </div>
   );

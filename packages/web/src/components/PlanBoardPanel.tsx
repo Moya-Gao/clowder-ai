@@ -85,11 +85,11 @@ function PlanCard({ catId, threadId, inv }: { catId: string; threadId: string; i
             className={`inline-block h-2 w-2 rounded-full ${status === 'running' ? 'animate-pulse' : ''}`}
             style={{ backgroundColor: dotColor }}
           />
-          <span className="text-[11px] font-medium text-cafe-secondary">{cat ? formatCatName(cat) : catId}</span>
+          <span className="text-xs font-medium text-cafe-secondary">{cat ? formatCatName(cat) : catId}</span>
           <span className="text-[10px] text-cafe-muted">
             {completed}/{tasks.length}
           </span>
-          {statusLabel && <span className={`text-[9px] px-1 py-0.5 rounded ${statusTone}`}>{statusLabel}</span>}
+          {statusLabel && <span className={`text-xs px-1 py-0.5 rounded ${statusTone}`}>{statusLabel}</span>}
         </div>
         {status === 'interrupted' && (
           <button
@@ -108,7 +108,7 @@ function PlanCard({ catId, threadId, inv }: { catId: string; threadId: string; i
         {tasks.map((t) => {
           const taskText = t.status === 'in_progress' ? (t.activeForm ?? t.subject) : t.subject;
           return (
-            <div key={t.id} className="flex items-start gap-1 text-[11px] leading-tight">
+            <div key={t.id} className="flex items-start gap-1 text-xs leading-tight">
               <span className="sr-only">{taskStatusA11yText(t.status)} </span>
               <span className="mt-px flex-shrink-0" aria-hidden="true">
                 <TaskStatusIcon status={t.status} />

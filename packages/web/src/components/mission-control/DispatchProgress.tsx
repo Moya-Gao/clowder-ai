@@ -36,7 +36,7 @@ export function DispatchProgress({ digests }: DispatchProgressProps) {
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${style.bg} ${style.text}`}>
                   {style.label}
                 </span>
-                <span className="text-[11px] font-medium text-[#6B5D4F]">@{digest.catId}</span>
+                <span className="text-xs font-medium text-[#6B5D4F]">@{digest.catId}</span>
               </div>
               <span className="text-[10px] text-[#9A866F]">
                 {new Date(digest.completedAt).toLocaleString('zh-CN', {
@@ -52,7 +52,7 @@ export function DispatchProgress({ digests }: DispatchProgressProps) {
             <p className="mt-2 text-sm text-[#4B3A2A]">{digest.summary}</p>
 
             {/* Mission context */}
-            <div className="mt-2 text-[11px] text-[#9A866F]">
+            <div className="mt-2 text-xs text-[#9A866F]">
               <span className="font-medium">任务:</span> {digest.missionPack.mission}
             </div>
 
@@ -63,7 +63,7 @@ export function DispatchProgress({ digests }: DispatchProgressProps) {
                   完成标准 ({metCount}/{totalCriteria})
                 </div>
                 {digest.doneWhenResults.map((r) => (
-                  <div key={r.criterion} className="flex items-start gap-1.5 text-[11px]">
+                  <div key={r.criterion} className="flex items-start gap-1.5 text-xs">
                     <svg
                       viewBox="0 0 24 24"
                       fill="none"
@@ -100,7 +100,7 @@ export function DispatchProgress({ digests }: DispatchProgressProps) {
 
             {/* Next steps */}
             {digest.nextSteps.length > 0 && (
-              <div className="mt-2 text-[11px] text-[#9A866F]">
+              <div className="mt-2 text-xs text-[#9A866F]">
                 <span className="font-medium">下一步:</span> {digest.nextSteps.join('; ')}
               </div>
             )}

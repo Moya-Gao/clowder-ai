@@ -301,7 +301,7 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
                     {p.context && p.context.length > 0 && (
                       <div className="ml-3 mt-0.5 space-y-0.5 border-l border-cafe/30 pl-2">
                         {p.context.map((ctx) => (
-                          <div key={ctx.passageId} className="text-[11px] text-cafe-secondary/70">
+                          <div key={ctx.passageId} className="text-xs text-cafe-secondary/70">
                             {ctx.speaker && <span className="font-medium">{ctx.speaker}: </span>}
                             <span>{ctx.content}</span>
                           </div>

@@ -16,7 +16,7 @@ function CommandGroup({ category, label }: { category: CommandCategory; label: s
   if (cmds.length === 0) return null;
   return (
     <div className="mb-3 last:mb-0">
-      <p className="text-[11px] font-semibold text-cafe-secondary uppercase tracking-wide mb-1.5">{label}</p>
+      <p className="text-xs font-semibold text-cafe-secondary uppercase tracking-wide mb-1.5">{label}</p>
       <div className="space-y-1">
         {cmds.map((cmd) => (
           <div key={cmd.name + cmd.usage} className="flex items-baseline gap-3 text-xs">

@@ -89,7 +89,7 @@ export function SignalArticleList({
                   </p>
                   <div className="mt-1.5 flex items-center gap-2">
                     <SignalTierBadge tier={article.tier} />
-                    <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${statusClassMap[article.status]}`}>
+                    <span className={`rounded px-2 py-0.5 text-xs font-medium ${statusClassMap[article.status]}`}>
                       {article.status}
                     </span>
                     <span className="text-xs text-cafe-muted">·</span>

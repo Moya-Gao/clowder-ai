@@ -173,7 +173,7 @@ export function BootcampListModal({ open, onClose, currentThreadId }: BootcampLi
                 >
                   {/* Top row: title + badge */}
                   <div className="flex items-center justify-between mb-2">
-                    <span className={`text-[15px] font-semibold ${isCompleted ? 'text-cafe-secondary' : 'text-cafe'}`}>
+                    <span className={`text-base font-semibold ${isCompleted ? 'text-cafe-secondary' : 'text-cafe'}`}>
                       {t.title ?? '猫猫训练营'}
                     </span>
                     <span
@@ -189,7 +189,7 @@ export function BootcampListModal({ open, onClose, currentThreadId }: BootcampLi
                     </span>
                   </div>
                   {/* Meta: task + phase */}
-                  <div className="flex items-center justify-between text-[13px] text-cafe-secondary mb-2">
+                  <div className="flex items-center justify-between text-sm text-cafe-secondary mb-2">
                     <div className="flex items-center gap-4">
                       {t.selectedTaskId && <span>{t.selectedTaskId}</span>}
                       <span>

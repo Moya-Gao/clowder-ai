@@ -630,7 +630,7 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 **执行规则**：
 - 禁止：`text-[11px]`、`text-[12px]`、`text-[14px]`、`text-[16px]`、`text-[18px]` — 全部迁到对应 Tailwind 标准类
 - 唯一允许的自定义值：`text-[10px]`（Tailwind 无对应标准类）
-- **10px budget**（opus-47 提案）：全局 ≤30 处，新增必须 PR review 确认必要性。后续加 biome lint 规则禁止新增非标准像素值
+- **10px budget**（opus-47 提案）：全局 ≤30 处，新增必须 PR review 确认必要性。后续加 biome lint 规则禁止新增非标准像素值。**注：当前存量 ~475 处（历史积累），本轮 S-4 只做 raw px 归类，budget 收敛是独立后续任务**
 - 落地顺序：先清 `text-[11px]`（全部→`text-xs`），再清 Settings raw text size
 
 #### 间距体系（S-5）

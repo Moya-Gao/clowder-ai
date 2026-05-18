@@ -39,7 +39,7 @@ export function McpModalHeader({ title, subtitle, onClose }: { title: string; su
         type="button"
         onClick={onClose}
         aria-label="关闭"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-cafe-muted transition hover:bg-[var(--console-modal-close-bg)] hover:text-[var(--console-modal-close-fg)]"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-cafe-muted transition hover:bg-[var(--console-modal-close-bg)] hover:text-[var(--console-modal-close-fg)]"
       >
         <HubIcon name="x" className="h-4 w-4" />
       </button>

@@ -197,7 +197,7 @@ export function ProjectSetupCard({
                     </span>
                   </div>
                 </div>
-                <p className="text-[11px] text-gray-500 mb-3 ml-8">将现有的代码宝藏搬到新营地，包含完整历史记录。</p>
+                <p className="text-xs text-gray-500 mb-3 ml-8">将现有的代码宝藏搬到新营地，包含完整历史记录。</p>
                 <div className="flex gap-2 ml-8">
                   <input
                     type="text"
@@ -234,7 +234,7 @@ export function ProjectSetupCard({
                   <HubIcon name="terminal" className="h-5 w-5 text-cafe-accent" />
                   <div className="flex-1">
                     <span className="text-sm font-semibold text-cafe-black">初始化全新项目</span>
-                    <p className="text-[11px] text-gray-500 mt-0.5">从零开始，为你铺设标准的协作规则和猫砂盆。</p>
+                    <p className="text-xs text-gray-500 mt-0.5">从零开始，为你铺设标准的协作规则和猫砂盆。</p>
                   </div>
                   <button
                     type="button"
@@ -255,7 +255,7 @@ export function ProjectSetupCard({
                   <span className="text-sm font-semibold text-cafe-black">
                     {isGitRepo ? '初始化协作配置' : '跳过 Git，仅初始化协作'}
                   </span>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
+                  <p className="text-xs text-gray-500 mt-0.5">
                     {isGitRepo ? '已检测到 Git，仅需铺设协作规则。' : '无版本控制，时光回溯和代码审查功能将不可用。'}
                   </p>
                 </div>

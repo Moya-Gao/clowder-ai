@@ -95,12 +95,12 @@ export function EvidenceCard({ result }: { result: EvidenceResult }) {
           </div>
           <div className="flex flex-col items-end gap-1 flex-shrink-0">
             <span
-              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${conf.bg} ${conf.text}`}
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${conf.bg} ${conf.text}`}
             >
               {conf.label}
             </span>
             {status?.badge && (
-              <span className={`text-[8px] font-black px-1 py-0.25 rounded border ${status.badge}`}>
+              <span className={`text-[10px] font-black px-1 py-0.25 rounded border ${status.badge}`}>
                 {status.label}
               </span>
             )}
@@ -111,7 +111,7 @@ export function EvidenceCard({ result }: { result: EvidenceResult }) {
           text={result.snippet}
           as="p"
           clampClass="line-clamp-2"
-          className="text-[11px] text-slate-400 leading-relaxed mt-1.5"
+          className="text-xs text-slate-400 leading-relaxed mt-1.5"
         />
 
         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-700">

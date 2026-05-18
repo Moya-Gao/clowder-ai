@@ -43,7 +43,7 @@ function FeatureNode({ data }: NodeProps<Node<FeatureNodeData>>) {
         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors.dot }} />
         <span className="text-xs font-bold text-[#8B6F47]">{data.featureId}</span>
       </div>
-      <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-[#5A4A38]">{data.name}</p>
+      <p className="mt-1 line-clamp-2 text-xs leading-snug text-[#5A4A38]">{data.name}</p>
       <Handle type="source" position={Position.Bottom} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
     </div>
   );
@@ -117,7 +117,7 @@ export function DependencyGraphTab({ items }: DependencyGraphTabProps) {
               key={s}
               type="button"
               onClick={() => setScope(s)}
-              className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
                 scope === s ? 'bg-[#8B6F47] text-white' : 'bg-[#F5EDE0] text-[#9A866F] hover:bg-[#E7DAC7]'
               }`}
               data-testid={`mc-dep-scope-${s}`}
@@ -126,7 +126,7 @@ export function DependencyGraphTab({ items }: DependencyGraphTabProps) {
             </button>
           ))}
         </div>
-        <span className="text-[11px] text-[#9A866F]" data-testid="mc-dep-stats">
+        <span className="text-xs text-[#9A866F]" data-testid="mc-dep-stats">
           {filtered.length} 个 Feature / {layouted.edges.length} 条依赖
         </span>
       </div>
@@ -137,7 +137,7 @@ export function DependencyGraphTab({ items }: DependencyGraphTabProps) {
         <LegendDot color="#5B9BD5" label="执行中" />
         <LegendDot color="#7CB87C" label="已完成" />
         <LegendDot color="#C4B5A0" label="待建议" />
-        <span className="text-[11px] text-[#9A866F]">
+        <span className="text-xs text-[#9A866F]">
           <span style={{ color: EDGE_STYLES.evolved.stroke }}>── 演化</span>
           {' · '}
           <span style={{ color: EDGE_STYLES.blocked.stroke }}>- - 阻塞</span>
@@ -202,19 +202,19 @@ function NodeDetailPanel({ data, onClose }: { data: FeatureNodeData; onClose: ()
       {data.evolvedFrom.length > 0 && (
         <div className="mt-2">
           <span className="text-[10px] font-medium text-[#9A866F]">演化自：</span>
-          <span className="text-[11px] text-blue-700">{data.evolvedFrom.join(', ')}</span>
+          <span className="text-xs text-blue-700">{data.evolvedFrom.join(', ')}</span>
         </div>
       )}
       {data.blockedBy.length > 0 && (
         <div className="mt-1">
           <span className="text-[10px] font-medium text-[#9A866F]">被阻塞：</span>
-          <span className="text-[11px] text-red-700">{data.blockedBy.join(', ')}</span>
+          <span className="text-xs text-red-700">{data.blockedBy.join(', ')}</span>
         </div>
       )}
       {data.related.length > 0 && (
         <div className="mt-1">
           <span className="text-[10px] font-medium text-[#9A866F]">关联：</span>
-          <span className="text-[11px] text-cafe-secondary">{data.related.join(', ')}</span>
+          <span className="text-xs text-cafe-secondary">{data.related.join(', ')}</span>
         </div>
       )}
     </div>
@@ -225,7 +225,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   return (
     <span className="flex items-center gap-1">
       <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-      <span className="text-[11px] text-[#9A866F]">{label}</span>
+      <span className="text-xs text-[#9A866F]">{label}</span>
     </span>
   );
 }

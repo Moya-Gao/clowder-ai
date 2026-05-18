@@ -157,7 +157,7 @@ function PinnedSections({ pinned, onNav }: { pinned: readonly string[]; onNav: (
             key={sec.id}
             type="button"
             onClick={() => onNav(`/settings?s=${sec.id}&standalone=1`)}
-            className={`flex h-10 w-10 items-center justify-center rounded-[9px] transition-all ${
+            className={`flex h-10 w-10 items-center justify-center rounded-lg transition-all ${
               active
                 ? 'bg-[var(--console-rail-active)] shadow-[0_5px_14px_rgba(43,37,32,0.07)]'
                 : 'bg-[var(--console-rail-item)] hover:bg-[var(--console-hover-bg)]'
@@ -194,7 +194,7 @@ function SettingsButton({ pathname, onNav }: { pathname: string; onNav: (path: s
     <button
       type="button"
       onClick={() => onNav('/settings')}
-      className={`relative flex h-10 w-10 items-center justify-center rounded-[9px] transition-all ${
+      className={`relative flex h-10 w-10 items-center justify-center rounded-lg transition-all ${
         isSettings
           ? 'bg-[var(--console-rail-active)] shadow-[0_5px_14px_rgba(43,37,32,0.07)]'
           : 'bg-[var(--console-rail-item)] hover:bg-[var(--console-hover-bg)]'
@@ -254,7 +254,7 @@ export function ActivityBar({ className }: ActivityBarProps) {
             key={item.id}
             type="button"
             onClick={() => handleNav(item.path)}
-            className={`flex h-10 w-10 items-center justify-center rounded-[9px] transition-all ${
+            className={`flex h-10 w-10 items-center justify-center rounded-lg transition-all ${
               active
                 ? 'bg-[var(--console-rail-active)] shadow-[0_5px_14px_rgba(43,37,32,0.07)]'
                 : 'bg-[var(--console-rail-item)] hover:bg-[var(--console-hover-bg)]'
@@ -276,7 +276,7 @@ export function ActivityBar({ className }: ActivityBarProps) {
         <button
           type="button"
           onClick={toggleTheme}
-          className="flex h-10 w-10 items-center justify-center rounded-[9px] bg-[var(--console-rail-item)] hover:bg-[var(--console-hover-bg)] transition-all"
+          className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--console-rail-item)] hover:bg-[var(--console-hover-bg)] transition-all"
           title={mounted && resolvedTheme === 'dark' ? '切换到日间模式' : '切换到夜间模式'}
         >
           {mounted && resolvedTheme === 'dark' ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}
@@ -285,7 +285,7 @@ export function ActivityBar({ className }: ActivityBarProps) {
           fallback={
             <button
               type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-[9px] bg-[var(--console-rail-item)] transition-all"
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--console-rail-item)] transition-all"
               title="设置"
               data-guide-id="hub.trigger"
             >

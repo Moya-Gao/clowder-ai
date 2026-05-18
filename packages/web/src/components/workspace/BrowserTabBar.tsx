@@ -20,7 +20,7 @@ export function BrowserTabBar({ tabs, activeTabId, onSelect, onClose, onAdd }: B
             key={tab.id}
             type="button"
             onClick={() => onSelect(tab.id)}
-            className={`group flex items-center gap-1 px-3 py-1.5 text-[11px] border-r border-[var(--console-border-soft)]/50 shrink-0 max-w-[180px] transition-colors ${
+            className={`group flex items-center gap-1 px-3 py-1.5 text-xs border-r border-[var(--console-border-soft)]/50 shrink-0 max-w-[180px] transition-colors ${
               isActive
                 ? 'bg-[#FDF8F3] text-[#5a4a42] font-medium'
                 : 'text-[#5a4a42]/60 hover:text-[#5a4a42] hover:bg-[#FDF8F3]/50'
@@ -45,7 +45,7 @@ export function BrowserTabBar({ tabs, activeTabId, onSelect, onClose, onAdd }: B
       <button
         type="button"
         onClick={onAdd}
-        className="px-2 py-1.5 text-[11px] text-[#5a4a42]/40 hover:text-[#5a4a42] hover:bg-[#FDF8F3]/50 transition-colors shrink-0"
+        className="px-2 py-1.5 text-xs text-[#5a4a42]/40 hover:text-[#5a4a42] hover:bg-[#FDF8F3]/50 transition-colors shrink-0"
         title="New tab"
       >
         +

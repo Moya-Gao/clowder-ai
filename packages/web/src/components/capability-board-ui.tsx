@@ -152,7 +152,7 @@ export function CapabilitySection({
       <div className="flex items-center gap-3 mb-3 pl-1">
         {icon}
         <div>
-          <h3 className="text-[15px] font-bold text-cafe tracking-wide">{title}</h3>
+          <h3 className="text-base font-bold text-cafe tracking-wide">{title}</h3>
           <p className="text-xs font-medium text-cafe-muted mt-0.5">
             {subtitle} · {items.length}
           </p>
@@ -334,7 +334,7 @@ function CapabilityCard({
                     {item.triggers.map((t) => (
                       <span
                         key={t}
-                        className="px-2 py-1 bg-cafe-surface border border-conn-indigo-bg/50 text-conn-indigo-text rounded-md text-[11px] font-medium shadow-sm"
+                        className="px-2 py-1 bg-cafe-surface border border-conn-indigo-bg/50 text-conn-indigo-text rounded-md text-xs font-medium shadow-sm"
                       >
                         &quot;{t}&quot;
                       </span>
@@ -380,7 +380,7 @@ function CatFamilyToggles({
 
   return (
     <div className="pt-2 border-t border-conn-indigo-bg/30">
-      <span className="text-[11px] font-medium text-cafe-muted uppercase tracking-wider">启用状态（按猫）</span>
+      <span className="text-xs font-medium text-cafe-muted uppercase tracking-wider">启用状态（按猫）</span>
       <div className="mt-1.5 space-y-1">
         {catFamilies.map((family) => {
           const isOpen = openFamily === family.id;
@@ -395,8 +395,8 @@ function CatFamilyToggles({
                 onClick={() => setOpenFamily(isOpen ? null : family.id)}
                 className="w-full flex items-center justify-between px-3 py-1.5 text-left"
               >
-                <span className="text-[12px] font-medium text-cafe-secondary">{family.name}</span>
-                <span className="text-[11px] text-cafe-muted">
+                <span className="text-xs font-medium text-cafe-secondary">{family.name}</span>
+                <span className="text-xs text-cafe-muted">
                   {enabledCount}/{relevantCatIds.length}
                   <svg
                     className={`inline-block w-3 h-3 ml-1 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
@@ -419,8 +419,8 @@ function CatFamilyToggles({
                     if (!(catId in item.cats)) {
                       return (
                         <div key={catId} className="flex items-center justify-between py-0.5">
-                          <span className="text-[11px] text-cafe-secondary font-mono">{catId}</span>
-                          <span className="text-[12px] text-cafe-muted select-none" title="该 Skill 对此猫不适用">
+                          <span className="text-xs text-cafe-secondary font-mono">{catId}</span>
+                          <span className="text-xs text-cafe-muted select-none" title="该 Skill 对此猫不适用">
                             –
                           </span>
                         </div>
@@ -430,7 +430,7 @@ function CatFamilyToggles({
                     const isCatToggling = toggling === `${item.type}:${item.id}:${catId}`;
                     return (
                       <div key={catId} className="flex items-center justify-between py-0.5">
-                        <span className="text-[11px] text-cafe-secondary font-mono">{catId}</span>
+                        <span className="text-xs text-cafe-secondary font-mono">{catId}</span>
                         <ToggleSwitch
                           enabled={catEnabled}
                           disabled={isCatToggling}
@@ -539,7 +539,7 @@ function MountStatusBadges({ mounts }: { mounts: Record<string, boolean> }) {
           return (
             <span
               key={key}
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border ${
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border ${
                 ok
                   ? 'bg-conn-emerald-bg text-conn-emerald-text border-conn-emerald-ring/50'
                   : 'bg-conn-red-bg text-conn-red-text border-conn-red-ring/50'

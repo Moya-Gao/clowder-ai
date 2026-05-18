@@ -72,7 +72,7 @@ export function McpManageContent() {
         <button
           type="button"
           onClick={handleCreate}
-          className="flex h-[34px] shrink-0 items-center justify-center rounded-[10px] bg-[var(--cafe-accent,#C65F3D)] px-3.5 text-compact font-bold text-[var(--cafe-surface)] transition-opacity hover:opacity-90"
+          className="flex h-[34px] shrink-0 items-center justify-center rounded-xl bg-[var(--cafe-accent,#C65F3D)] px-3.5 text-compact font-bold text-[var(--cafe-surface)] transition-opacity hover:opacity-90"
         >
           新增 MCP
         </button>
@@ -105,7 +105,7 @@ export function McpManageContent() {
       {!cap.loading && cap.items.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-2xl bg-[var(--console-card-bg)] px-8 py-16 text-center">
           <HubIcon name="box" className="mb-3 h-10 w-10 text-cafe-muted opacity-40" />
-          <p className="text-[15px] font-semibold text-cafe">暂无已安装的 MCP</p>
+          <p className="text-base font-semibold text-cafe">暂无已安装的 MCP</p>
           <p className="mt-1 text-xs text-cafe-muted">点击上方按钮手动新增 MCP 配置</p>
         </div>
       )}

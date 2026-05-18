@@ -36,7 +36,7 @@ const BREED_STYLES: Record<string, { radius: string; font?: string }> = {
 };
 const DEFAULT_BREED_STYLE = { radius: 'rounded-2xl' };
 const SCHEDULER_ACCENT_BADGE_CLASS =
-  'inline-flex w-fit items-center gap-1.5 rounded-full border border-conn-amber-ring bg-conn-amber-bg px-2.5 py-1 text-[11px] font-semibold text-conn-amber-text shadow-sm';
+  'inline-flex w-fit items-center gap-1.5 rounded-full border border-conn-amber-ring bg-conn-amber-bg px-2.5 py-1 text-xs font-semibold text-conn-amber-text shadow-sm';
 const SCHEDULER_ACCENT_BUBBLE_CLASS =
   'border-conn-amber-ring bg-conn-amber-bg/70 ring-1 ring-amber-200 shadow-[0_10px_24px_rgba(217,119,6,0.16)] bg-gradient-to-b from-amber-50/60 to-transparent';
 
@@ -259,7 +259,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           </div>
         </div>
         <div
-          className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 flex items-center justify-center text-[11px] font-bold text-white"
+          className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 flex items-center justify-center text-xs font-bold text-white"
           style={{ backgroundColor: coCreatorPrimary, boxShadow: `0 0 0 2px ${coCreatorSecondary}` }}
         >
           {coCreator.avatar ? (

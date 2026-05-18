@@ -149,7 +149,7 @@ export function ParallelStatusBar({ onStop, threadId }: { onStop?: () => void; t
       </div>
       {agg && (
         <div
-          className="flex items-center gap-3 mt-1.5 text-[11px] text-cafe-secondary"
+          className="flex items-center gap-3 mt-1.5 text-xs text-cafe-secondary"
           data-testid="parallel-usage-summary"
         >
           {agg.inputTokens != null && (

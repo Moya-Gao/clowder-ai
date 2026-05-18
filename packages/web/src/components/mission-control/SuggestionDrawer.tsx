@@ -146,23 +146,23 @@ export function SuggestionDrawer({
               setPlan('');
             }}
           />
-          <div className="rounded-lg border border-[#D8C9B4] bg-[#FCF6EB] p-2 text-[11px] text-[#735F47]">
+          <div className="rounded-lg border border-[#D8C9B4] bg-[#FCF6EB] p-2 text-xs text-[#735F47]">
             <p>
               Self-claim policy：<span className="font-semibold">{currentSelfClaimScope}</span>
             </p>
             {currentSelfClaimScope === 'once' && (
-              <p className="mt-1 text-[11px] text-[#846D55]">once：每只猫只允许一次非幂等自领。</p>
+              <p className="mt-1 text-xs text-[#846D55]">once：每只猫只允许一次非幂等自领。</p>
             )}
             {currentSelfClaimScope === 'thread' && (
-              <p className="mt-1 text-[11px] text-[#846D55]">thread：同一只猫同一时间只允许一个 active lease 线程。</p>
+              <p className="mt-1 text-xs text-[#846D55]">thread：同一只猫同一时间只允许一个 active lease 线程。</p>
             )}
             {selfClaimPolicyBlocker === 'once' && (
-              <p className="mt-1 text-[11px] text-[#A14A2D]" data-testid="mc-self-claim-blocker-once">
+              <p className="mt-1 text-xs text-[#A14A2D]" data-testid="mc-self-claim-blocker-once">
                 当前阻断原因：once 自领额度已用完。
               </p>
             )}
             {selfClaimPolicyBlocker === 'thread' && (
-              <p className="mt-1 text-[11px] text-[#A14A2D]" data-testid="mc-self-claim-blocker-thread">
+              <p className="mt-1 text-xs text-[#A14A2D]" data-testid="mc-self-claim-blocker-thread">
                 当前阻断原因：该猫已有 active lease 线程。
               </p>
             )}
@@ -185,7 +185,7 @@ export function SuggestionDrawer({
                 直接自领并派发
               </button>
             ) : (
-              <p className="mt-1 text-[11px] text-[#846D55]">当前策略为 disabled：请走「建议 + 批准」流程。</p>
+              <p className="mt-1 text-xs text-[#846D55]">当前策略为 disabled：请走「建议 + 批准」流程。</p>
             )}
           </div>
         </div>
@@ -209,7 +209,7 @@ export function SuggestionDrawer({
           <p>已派发到 Thread：{item.dispatchedThreadId}</p>
           <p>Phase：{item.dispatchedThreadPhase}</p>
           {item.lease && (
-            <div className="mt-2 rounded border border-[#CFE3FB] bg-[#F7FBFF] px-2 py-1.5 text-[11px] text-[#36516E]">
+            <div className="mt-2 rounded border border-[#CFE3FB] bg-[#F7FBFF] px-2 py-1.5 text-xs text-[#36516E]">
               <p>Lease：{item.lease.state}</p>
               <p>Owner：{item.lease.ownerCatId}</p>
               <p>ExpiresAt：{new Date(item.lease.expiresAt).toLocaleString()}</p>
@@ -221,7 +221,7 @@ export function SuggestionDrawer({
                 type="button"
                 disabled={submitting || !leaseOwnerCatId}
                 onClick={() => void onAcquireLease({ itemId: item.id, catId: leaseOwnerCatId, ttlMs: 60_000 })}
-                className="rounded border border-[#7AA4CC] px-2 py-1 text-[11px] font-semibold text-[#2F4D69] disabled:opacity-40"
+                className="rounded border border-[#7AA4CC] px-2 py-1 text-xs font-semibold text-[#2F4D69] disabled:opacity-40"
                 data-testid="mc-lease-acquire"
               >
                 获取 Lease
@@ -233,7 +233,7 @@ export function SuggestionDrawer({
                   type="button"
                   disabled={submitting || !leaseOwnerCatId}
                   onClick={() => void onHeartbeatLease({ itemId: item.id, catId: leaseOwnerCatId, ttlMs: 60_000 })}
-                  className="rounded border border-[#7AA4CC] px-2 py-1 text-[11px] font-semibold text-[#2F4D69] disabled:opacity-40"
+                  className="rounded border border-[#7AA4CC] px-2 py-1 text-xs font-semibold text-[#2F4D69] disabled:opacity-40"
                   data-testid="mc-lease-heartbeat"
                 >
                   续租 Heartbeat
@@ -242,7 +242,7 @@ export function SuggestionDrawer({
                   type="button"
                   disabled={submitting || !leaseOwnerCatId}
                   onClick={() => void onReleaseLease({ itemId: item.id, catId: leaseOwnerCatId })}
-                  className="rounded border border-[#B7BFD0] px-2 py-1 text-[11px] font-semibold text-[#4A5568] disabled:opacity-40"
+                  className="rounded border border-[#B7BFD0] px-2 py-1 text-xs font-semibold text-[#4A5568] disabled:opacity-40"
                   data-testid="mc-lease-release"
                 >
                   释放 Lease
@@ -254,7 +254,7 @@ export function SuggestionDrawer({
                 type="button"
                 disabled={submitting}
                 onClick={() => void onReclaimLease({ itemId: item.id })}
-                className="rounded border border-[#D4B483] px-2 py-1 text-[11px] font-semibold text-[#7A5A2D] disabled:opacity-40"
+                className="rounded border border-[#D4B483] px-2 py-1 text-xs font-semibold text-[#7A5A2D] disabled:opacity-40"
                 data-testid="mc-lease-reclaim"
               >
                 回收过期 Lease
@@ -264,7 +264,7 @@ export function SuggestionDrawer({
           {item.dispatchedThreadId && (
             <Link
               href={`/thread/${item.dispatchedThreadId}`}
-              className="mt-2 inline-flex rounded bg-[#1F1A16] px-2 py-1 text-[11px] font-semibold text-white"
+              className="mt-2 inline-flex rounded bg-[#1F1A16] px-2 py-1 text-xs font-semibold text-white"
               data-testid="mc-open-thread-link"
             >
               打开执行 Thread

@@ -94,7 +94,7 @@ export function PerCatToggles({
                 const busy = toggling === `${item.id}:${catId}`;
                 return (
                   <div key={catId} className="flex items-center justify-between">
-                    <span className="text-[11px] text-cafe-secondary">{catId}</span>
+                    <span className="text-xs text-cafe-secondary">{catId}</span>
                     <ToggleSwitch
                       enabled={enabled}
                       busy={busy}

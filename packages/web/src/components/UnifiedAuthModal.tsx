@@ -211,7 +211,7 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
       onClick={handleClose}
     >
       <div
-        className="w-full max-w-md rounded-[20px] border border-[#F1E7DF] bg-[#FFFDFC] p-5 shadow-2xl"
+        className="w-full max-w-md rounded-2xl border border-[#F1E7DF] bg-[#FFFDFC] p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -228,7 +228,7 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
           </button>
         </div>
 
-        <p className="mb-1 text-[11px] text-[#B59A88]">{isEdit ? '编辑账户' : '系统配置 > 账户配置 > 添加认证'}</p>
+        <p className="mb-1 text-xs text-[#B59A88]">{isEdit ? '编辑账户' : '系统配置 > 账户配置 > 添加认证'}</p>
         <h4 className="mb-4 text-base font-semibold text-[#5C4D42]">{isEdit ? '编辑账户认证' : '添加账户认证'}</h4>
 
         {/* Mode toggle */}

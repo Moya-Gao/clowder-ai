@@ -521,7 +521,7 @@ export function MissionControlPage({ initialReferrerThread = null }: { initialRe
           <button
             type="button"
             onClick={() => setActiveTab('features')}
-            className={`px-5 py-2.5 text-[13px] font-semibold transition-colors ${
+            className={`px-5 py-2.5 text-sm font-semibold transition-colors ${
               activeTab === 'features'
                 ? 'border-b-2 border-[#8B6F47] text-[#8B6F47]'
                 : 'text-[#9A866F] hover:text-[#6B5D4F]'
@@ -533,7 +533,7 @@ export function MissionControlPage({ initialReferrerThread = null }: { initialRe
           <button
             type="button"
             onClick={() => setActiveTab('dependencies')}
-            className={`px-5 py-2.5 text-[13px] font-semibold transition-colors ${
+            className={`px-5 py-2.5 text-sm font-semibold transition-colors ${
               activeTab === 'dependencies'
                 ? 'border-b-2 border-[#8B6F47] text-[#8B6F47]'
                 : 'text-[#9A866F] hover:text-[#6B5D4F]'
@@ -547,7 +547,7 @@ export function MissionControlPage({ initialReferrerThread = null }: { initialRe
               key={p.id}
               type="button"
               onClick={() => setActiveTab(p.id)}
-              className={`px-5 py-2.5 text-[13px] font-semibold transition-colors ${
+              className={`px-5 py-2.5 text-sm font-semibold transition-colors ${
                 activeTab === p.id
                   ? 'border-b-2 border-[#8B6F47] text-[#8B6F47]'
                   : 'text-[#9A866F] hover:text-[#6B5D4F]'
@@ -686,7 +686,7 @@ function StatusDot({ color, label, textColor }: { color: string; label: string; 
   return (
     <span className="flex items-center gap-1.5">
       <span className={`h-2 w-2 rounded-full ${color}`} />
-      <span className={`text-[13px] font-semibold ${textColor}`}>{label}</span>
+      <span className={`text-sm font-semibold ${textColor}`}>{label}</span>
     </span>
   );
 }

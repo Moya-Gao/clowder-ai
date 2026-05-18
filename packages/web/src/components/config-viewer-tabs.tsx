@@ -178,7 +178,7 @@ export function CatOverviewTab({
       />
       {config.coCreator ? <HubCoCreatorOverviewCard coCreator={config.coCreator} onEdit={onEditCoCreator} /> : null}
       {dragError ? (
-        <p className="text-[13px] text-[#C14E4E]" role="alert">
+        <p className="text-sm text-[#C14E4E]" role="alert">
           {dragError}
         </p>
       ) : null}
@@ -202,11 +202,11 @@ export function CatOverviewTab({
           />
         ))}
       </div>
-      <p className="text-[13px] text-[#B59A88]">按住 ⠿ 拖动卡片可自由排序；点击卡片进入成员配置 →</p>
+      <p className="text-sm text-[#B59A88]">按住 ⠿ 拖动卡片可自由排序；点击卡片进入成员配置 →</p>
       {cats.length === 0 && <p className="text-sm text-cafe-muted">未找到成员配置数据</p>}
       {disabledCats.length > 0 && (
         <div className="space-y-3">
-          <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide">已停用成员</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">已停用成员</p>
           {disabledCats.map((catData) => (
             <HubMemberOverviewCard
               key={catData.id}
@@ -269,7 +269,7 @@ function BubbleToggle({
       <span>{label}</span>
       <button
         onClick={toggle}
-        className="text-[11px] px-2 py-0.5 rounded-full border border-cafe hover:border-gray-400 hover:bg-cafe-surface-elevated transition-colors"
+        className="text-xs px-2 py-0.5 rounded-full border border-cafe hover:border-gray-400 hover:bg-cafe-surface-elevated transition-colors"
       >
         {display === 'expanded' ? '展开' : '折叠'}
       </button>

@@ -139,7 +139,7 @@ const prefixMap: Record<DiffLine['type'], string> = {
 
 function UnifiedView({ hunks }: { hunks: DiffHunk[] }) {
   return (
-    <table className="w-full text-[11px] font-mono border-collapse">
+    <table className="w-full text-xs font-mono border-collapse">
       <tbody>
         {hunks.map((hunk, hi) =>
           hunk.lines.map((line, li) => (
@@ -170,7 +170,7 @@ function SideBySideView({ hunks }: { hunks: DiffHunk[] }) {
   const pairs = useMemo(() => hunks.flatMap((h) => pairLines(h.lines)), [hunks]);
 
   return (
-    <table className="w-full text-[11px] font-mono border-collapse">
+    <table className="w-full text-xs font-mono border-collapse">
       <tbody>
         {pairs.map((pair, i) => (
           <tr key={i}>
@@ -262,7 +262,7 @@ export function DiffViewer({ diff, filePath, compact }: DiffViewerProps) {
       {filtered.map((file) => (
         <div key={file.path} className="rounded border border-[var(--console-border-soft)] overflow-hidden">
           {!compact && (
-            <div className="bg-[#1E1E24] px-3 py-1.5 text-[11px] font-mono text-cafe-muted border-b border-[var(--console-border-soft)] truncate">
+            <div className="bg-[#1E1E24] px-3 py-1.5 text-xs font-mono text-cafe-muted border-b border-[var(--console-border-soft)] truncate">
               {file.path}
             </div>
           )}

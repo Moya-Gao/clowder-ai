@@ -36,7 +36,7 @@ export function HubAccountItem({ profile, busy, onSave, onDelete, onEdit }: HubA
 
   return (
     <div
-      className={`rounded-[20px] border border-[#F1E7DF] bg-[#FFFDFC] p-[18px] transition ${onEdit ? 'cursor-pointer hover:border-[#D49266]/40' : ''}`}
+      className={`rounded-2xl border border-[#F1E7DF] bg-[#FFFDFC] p-[18px] transition ${onEdit ? 'cursor-pointer hover:border-[#D49266]/40' : ''}`}
       onClick={() => onEdit?.(profile)}
     >
       <div className="flex items-start justify-between gap-3">
@@ -44,7 +44,7 @@ export function HubAccountItem({ profile, busy, onSave, onDelete, onEdit }: HubA
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-base font-bold text-[#2D2118]">{profile.displayName}</span>
             <span
-              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                 profile.authType === 'oauth' ? 'bg-[#FFF3E0] text-[#D49266]' : 'bg-[#F3E8FF] text-[#9D7BC7]'
               }`}
             >

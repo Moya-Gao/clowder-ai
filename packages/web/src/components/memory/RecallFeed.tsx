@@ -32,13 +32,13 @@ function RecallCard({ event }: { event: RecallEvent }) {
                 <div key={`${event.id}-r${i}`} className="rounded border border-cafe/40 bg-cafe-surface p-1.5">
                   <div className="flex items-center gap-1.5 min-w-0">
                     {r.sourceType && (
-                      <span className="rounded bg-cafe-surface-sunken/60 px-1 py-0.5 text-[9px] font-semibold text-cafe-interactive">
+                      <span className="rounded bg-cafe-surface-sunken/60 px-1 py-0.5 text-[10px] font-semibold text-cafe-interactive">
                         {r.sourceType}
                       </span>
                     )}
                     <ExpandableText text={r.title} clampClass="truncate" className="font-medium text-cafe-black" />
                     {r.confidence && (
-                      <span className="ml-auto text-[9px] text-cafe-secondary/70">[{r.confidence}]</span>
+                      <span className="ml-auto text-[10px] text-cafe-secondary/70">[{r.confidence}]</span>
                     )}
                   </div>
                   {r.snippet && (
@@ -52,7 +52,7 @@ function RecallCard({ event }: { event: RecallEvent }) {
                   {anchorToHref(r.anchor) && (
                     <Link
                       href={anchorToHref(r.anchor)!}
-                      className="mt-0.5 flex items-center gap-1 text-[9px] font-mono text-cafe-interactive/70 hover:text-cafe-interactive hover:underline"
+                      className="mt-0.5 flex items-center gap-1 text-xs font-mono text-cafe-interactive/70 hover:text-cafe-interactive hover:underline"
                       title={`追溯源头: ${r.anchor}`}
                     >
                       <span aria-hidden>&#x2197;</span>

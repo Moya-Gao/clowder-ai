@@ -227,7 +227,7 @@ function ToolRow({
     <button
       type="button"
       data-testid={`tool-row-${event.id}`}
-      className="w-full text-left cursor-pointer rounded font-mono text-[11px] flex items-center gap-2"
+      className="w-full text-left cursor-pointer rounded font-mono text-xs flex items-center gap-2"
       style={{
         padding: '5px 8px',
         borderRadius: 4,
@@ -308,7 +308,7 @@ function ToolsSection({
       <button
         type="button"
         data-testid="tools-section-toggle"
-        className="w-full flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-mono rounded transition-colors"
+        className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs font-mono rounded transition-colors"
         style={{ color: '#94A3B8' }}
         onClick={() => {
           toolsUserInteracted.current = true;
@@ -419,7 +419,7 @@ export function CliOutputBlock({
       <button
         type="button"
         onClick={handleToggle}
-        className="w-full flex items-center gap-2 text-[11px] font-mono transition-colors"
+        className="w-full flex items-center gap-2 text-xs font-mono transition-colors"
         style={{ padding: '8px 12px', color: '#94A3B8', backgroundColor: surface }}
       >
         <span style={{ color: accent }}>
@@ -473,7 +473,7 @@ export function CliOutputBlock({
               )}
               <div
                 style={{ padding: '8px 12px 10px 12px' }}
-                className="font-mono text-[11px] leading-relaxed cli-output-md"
+                className="font-mono text-xs leading-relaxed cli-output-md"
               >
                 <span style={{ color: '#CBD5E1' }}>
                   <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />

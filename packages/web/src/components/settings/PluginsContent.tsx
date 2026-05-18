@@ -74,9 +74,9 @@ export function PluginsContent() {
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-cafe">GitHub</p>
             <p className="mt-0.5 text-xs text-cafe-secondary">PR 追踪、Review 投递、CI/CD 监控与 Token 配置</p>
-            <p className="mt-0.5 text-[11px] text-cafe-muted">内置插件</p>
+            <p className="mt-0.5 text-xs text-cafe-muted">内置插件</p>
           </div>
-          <span className="shrink-0 rounded-[13px] bg-conn-emerald-bg px-2.5 py-0.5 text-[11px] font-bold text-conn-emerald-text">
+          <span className="shrink-0 rounded-xl bg-conn-emerald-bg px-2.5 py-0.5 text-xs font-bold text-conn-emerald-text">
             可配置
           </span>
         </button>
@@ -95,11 +95,9 @@ export function PluginsContent() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-cafe">{plugin.name}</p>
                 <p className="mt-0.5 text-xs text-cafe-secondary">{plugin.description}</p>
-                <p className="mt-0.5 text-[11px] text-cafe-muted">扩展服务</p>
+                <p className="mt-0.5 text-xs text-cafe-muted">扩展服务</p>
               </div>
-              <span
-                className={`shrink-0 rounded-[13px] px-2.5 py-0.5 text-[11px] font-bold ${BADGE_CLASS[plugin.status]}`}
-              >
+              <span className={`shrink-0 rounded-xl px-2.5 py-0.5 text-xs font-bold ${BADGE_CLASS[plugin.status]}`}>
                 {plugin.statusLabel}
               </span>
             </div>
@@ -115,7 +113,7 @@ export function PluginsContent() {
                 ))}
               </div>
             )}
-            {plugin.error && <p className="px-4 pb-3 text-[11px] text-conn-red-text">{plugin.error}</p>}
+            {plugin.error && <p className="px-4 pb-3 text-xs text-conn-red-text">{plugin.error}</p>}
           </article>
         ))
       )}

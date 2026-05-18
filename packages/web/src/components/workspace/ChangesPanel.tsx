@@ -101,8 +101,8 @@ export function ChangesPanel({ worktreeId, basisPct }: ChangesPanelProps) {
             >
               <span className={`text-[10px] font-mono font-bold w-3 ${info.color}`}>{info.label}</span>
               <FileIcon name={f.path} />
-              <span className="text-[11px] text-cafe-black truncate">{f.path.split('/').pop()}</span>
-              <span className="text-[9px] text-cafe-muted truncate ml-auto">
+              <span className="text-xs text-cafe-black truncate">{f.path.split('/').pop()}</span>
+              <span className="text-[10px] text-cafe-muted truncate ml-auto">
                 {f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : ''}
               </span>
             </button>

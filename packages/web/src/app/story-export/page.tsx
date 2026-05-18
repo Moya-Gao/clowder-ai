@@ -88,7 +88,7 @@ function StoryBubble({ msg }: { msg: StoryMessage }) {
 
         {/* Annotation */}
         {msg.annotation && (
-          <div className={`mt-1 text-[11px] text-cafe-muted ${isUser ? 'text-right' : ''}`}>{msg.annotation}</div>
+          <div className={`mt-1 text-xs text-cafe-muted ${isUser ? 'text-right' : ''}`}>{msg.annotation}</div>
         )}
         {/* Reaction row */}
         {msg.reactions && (
