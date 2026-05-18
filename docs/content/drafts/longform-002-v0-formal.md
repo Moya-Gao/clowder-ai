@@ -38,9 +38,9 @@ each other's work, and maintain shared documentation.
 |--------|-------|
 | Calendar time | 102 days (Feb 4 – May 17, 2026) |
 | Total commits | 6,413 on main |
-| Feature specifications | 211 shipped or in-progress |
+| Feature specifications | 211 documents (through F203; incl. appendices, deprecated, not-yet-started) |
 | Primary model vendors | 3 (Anthropic, OpenAI, Google) |
-| AI-authored commit ratio | ~77% (measured Apr 25; likely higher now) |
+| AI-authored commit ratio | ~77% (measured Apr 25; not re-measured since) |
 
 These aren't toy benchmarks. This is a production codebase — a monorepo with
 API server, web client, mobile app, shared libraries, CI pipelines, and
@@ -204,8 +204,9 @@ their existing environment. The infrastructure doesn't age; it appreciates.
 The remaining chapters unpack what "environment engineering" means in practice:
 the team-level execution loop (Ch. 2), governance that survives context
 compression (Ch. 3), memory systems with feedback (Ch. 4), evaluation that
-traces root cause (Ch. 5), and reliability contracts for long-running agents
-(Ch. 6).
+traces root cause (Ch. 5), reliability contracts for long-running agents
+(Ch. 6), and the emergent mathematics of cross-vendor collective intelligence
+(Ch. 7).
 
 ![Figure 2 — Capability × Environment Fit: Four Quadrants](assets/longform-002-figure-2-capability-environment-fit.svg)
 
