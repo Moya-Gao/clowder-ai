@@ -61,14 +61,15 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 - [ ] AC-A3: 账户与密钥页使用 SettingsRow（折叠态），展开编辑模型 chips 功能保留
 - [ ] AC-A4: Skill 管理页使用 SettingsRow/SettingsStatusStrip/SettingsFilterTabs，功能无损
 - [ ] AC-A5: 系统配置页使用 SettingsField/SettingsStatusStrip/SettingsBreadcrumb，功能无损
-- [ ] AC-A6: 4 个页面 0 个 raw hex 色值（延续 PR #1758 token 迁移）
+- [ ] AC-A6: 4 页面层 0 个 raw Tailwind atomic class（`bg-*`/`text-*`/`border-*`/`rounded-*`/`px-*`/`py-*`），raw class 只能存在于 primitives 内部
 - [ ] AC-A7: `pnpm test` + `pnpm check` 全绿
+- [ ] AC-A8: 每个迁移页产出 before/after 截图归档到 `docs/evidence/settings-comparison/`
 
 ### Phase B（8 页适配 + Enforcement）
-- [ ] AC-B1: 8 个低定制页面换 SettingsSection/SettingsRow 包装
-- [ ] AC-B2: Biome lint rule 或 PR checklist enforcement 就位
+- [ ] AC-B1: 8 个低定制页面使用合适 primitives 包装（Resource/List 类用 SettingsRow，非列表页用 SettingsSection，不强塞 row）
+- [ ] AC-B2: 编译期 enforcement 落地（Biome lint rule / TS contract 至少其一），PR checklist 作为加固而非替代
 - [ ] AC-B3: 新旧截图对比确认 12 页视觉节奏一致
-- [ ] AC-B4: Outbound sync 到开源仓完成
+- [ ] AC-B4: Outbound sync 就绪（lint 通过 / 0 raw atomic class in page layer / 12 页截图复测一致），sync 动作本身独立 close
 
 ## Dependencies
 
@@ -87,7 +88,7 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | 不走云端 review，opus coding + codex review + opus-47 愿景守护 | CVO directive：快速路，减少社区分叉 | 2026-05-18 |
+| KD-1 | 不走云端 review，opus coding + codex review + opus-47 愿景守护 | CVO directive：快速路，减少社区分叉。Guardian 47 是同 family (ragdoll) 不同个体（fallback path per 五条铁律 #2），CVO 指定。理想 cross-family 选项是 @gemini，本次因速度优先 + 47 未参与 review 而采用 fallback。 | 2026-05-18 |
 | KD-2 | 归一 ≠ 砍功能学开源 | 开源一致是功能简单，我们要功能保留+抽象到 primitives | 2026-05-18 |
 | KD-3 | 先归一再 outbound sync | 同步出去的代码是社区二次参考点，混乱版污染下游 | 2026-05-18 |
 
@@ -102,7 +103,7 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 |------|------|------|
 | **审计** | `docs/evidence/settings-comparison/settings-comparison.md` | 12 页截图对比 + 差异分析 |
 | **Feature** | `docs/features/F190-console-settings-appshell-skeleton.md` | 前序：Console Settings intake |
-| **Feature** | `docs/features/F199-settings-parity-audit.md` | 前序：Settings parity audit |
+| **Feature** | `docs/features/F199-console-parity-backfill.md` | 前序：Console parity backfill |
 | **PR** | PR #1758 | hex→semantic token 迁移（颜色层已完成） |
 
 ## Timeline
@@ -110,3 +111,4 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 | 日期 | 事件 |
 |------|------|
 | 2026-05-18 | 立项，三猫共识 + CVO directive |
+| 2026-05-22 | 目标 close（时间盒 4 天，CVO：不能 5-7 天） |

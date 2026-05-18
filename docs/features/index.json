@@ -1271,6 +1271,12 @@
       "name": "MediaHub Video Provider Plugins — 视频生成/分析插件",
       "status": "spec | **Owner**: community @mindfn + Cat Cafe maintainers | **Priority**: P1",
       "file": "F205-video-provider-plugins.md"
+    },
+    {
+      "id": "F206",
+      "name": "Settings UI Convergence — 组件语言归一",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F206-settings-ui-convergence.md"
     }
   ]
 }
