@@ -82,8 +82,8 @@ function classifyPath(absPath: string, projectRoot: string, isDir: boolean): { k
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-[#F1E7DF] bg-[#FFFDFC] p-[18px]">
-      <h3 className="text-lg font-bold text-[#2D2118]">{title}</h3>
+    <section className="rounded-2xl border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-[18px]">
+      <h3 className="text-lg font-bold text-cafe">{title}</h3>
       <div className="mt-3">{children}</div>
     </section>
   );
@@ -91,9 +91,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function PageIntro() {
   return (
-    <section className="rounded-2xl border border-[#F1E7DF] bg-[#FFFDFC] p-[18px]">
-      <p className="text-sm font-semibold text-[#E29578]">系统配置 &gt; 环境 &amp; 文件</p>
-      <p className="mt-2 text-sm leading-6 text-[#8A776B]">
+    <section className="rounded-2xl border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-[18px]">
+      <p className="text-sm font-semibold text-cafe-accent">系统配置 &gt; 环境 &amp; 文件</p>
+      <p className="mt-2 text-sm leading-6 text-cafe-secondary">
         当前环境变量、配置文件、数据目录三段式不变。新增：变量值可直接编辑，保存后自动回填 .env。
       </p>
     </section>
@@ -258,12 +258,12 @@ function ConfigFilesSection({ projectRoot }: { projectRoot: string }) {
           return (
             <div
               key={f.name}
-              className="flex items-baseline gap-2 rounded-xl border border-[#F3E8DE] bg-cafe-surface px-3 py-2"
+              className="flex items-baseline gap-2 rounded-xl border border-[var(--console-border-soft)] bg-cafe-surface px-3 py-2"
             >
-              <code className="shrink-0 rounded bg-[#F7F3F0] px-1.5 py-0.5 font-mono text-xs text-[#6A5A50]">
+              <code className="shrink-0 rounded bg-[var(--console-field-bg)] px-1.5 py-0.5 font-mono text-xs text-cafe-secondary">
                 {f.name}
               </code>
-              <span className="text-xs text-[#8A776B]">{f.desc}</span>
+              <span className="text-xs text-cafe-secondary">{f.desc}</span>
               <PathAction classification={cls} absPath={f.path} />
             </div>
           );
@@ -327,7 +327,7 @@ function EnvVarsSection({
 
   return (
     <Section title="环境变量">
-      <div className="mb-3 rounded-xl border border-[#D7E9D7] bg-[#F6FBF6] px-3 py-2 text-xs leading-5 text-[#5B7A5C]">
+      <div className="mb-3 rounded-xl border border-conn-emerald-ring bg-conn-emerald-bg px-3 py-2 text-xs leading-5 text-conn-emerald-text">
         变量值可直接编辑，保存后自动回填 `.env`。URL 型连接串当前值已脱敏，修改时请填写完整值。
       </div>
       <div className="space-y-3">
@@ -343,17 +343,17 @@ function EnvVarsSection({
                     >
                       {v.deprecated ? '⛔' : needsRestart(v) ? '🟡' : '🟢'}
                     </span>
-                    <code className="shrink-0 font-mono text-[#6A5A50]">{v.name}</code>
-                    <span className="truncate text-[#B59A88]">{v.description}</span>
+                    <code className="shrink-0 font-mono text-cafe-secondary">{v.name}</code>
+                    <span className="truncate text-cafe-muted">{v.description}</span>
                     {v.deprecated && (
                       <span className="shrink-0 rounded bg-conn-red-bg px-1 py-0.5 text-[10px] font-semibold text-conn-red-text">
                         已废弃
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-[#B59A88]">默认: {v.defaultValue}</div>
+                  <div className="text-xs text-cafe-muted">默认: {v.defaultValue}</div>
                   {!isEditableVariable(v) && (
-                    <div className={`font-mono text-xs ${v.currentValue ? 'text-[#6A5A50]' : 'text-[#D4C5BA]'}`}>
+                    <div className={`font-mono text-xs ${v.currentValue ? 'text-cafe-secondary' : 'text-cafe-muted'}`}>
                       {v.currentValue ?? '未设置'}
                     </div>
                   )}
@@ -375,14 +375,14 @@ function EnvVarsSection({
                             ? '保持当前值（已脱敏）'
                             : v.defaultValue
                       }
-                      className="rounded-xl border border-[var(--console-border-soft)] bg-[#F7F3F0] px-3 py-2 font-mono text-xs text-[#6A5A50]"
+                      className="rounded-xl border border-[var(--console-border-soft)] bg-[var(--console-field-bg)] px-3 py-2 font-mono text-xs text-cafe-secondary"
                     />
                     {buildVariableHint(v) ? (
-                      <div className="text-xs leading-5 text-[#B59A88]">{buildVariableHint(v)}</div>
+                      <div className="text-xs leading-5 text-cafe-muted">{buildVariableHint(v)}</div>
                     ) : null}
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-dashed border-[var(--console-border-soft)] bg-[#F7F3F0] px-3 py-2 text-xs text-[#8A776B]">
+                  <div className="rounded-xl border border-dashed border-[var(--console-border-soft)] bg-[var(--console-field-bg)] px-3 py-2 text-xs text-cafe-secondary">
                     只读变量（认证凭证 / 仅启动期生效）
                   </div>
                 )}
@@ -401,7 +401,7 @@ function EnvVarsSection({
           type="button"
           onClick={onSave}
           disabled={!isDirty || saveState.saving}
-          className="rounded-full bg-[#D49266] px-4 py-2 text-xs font-semibold text-white hover:bg-[#c47f52] disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-full bg-cafe-accent px-4 py-2 text-xs font-semibold text-[var(--cafe-accent-foreground)] hover:bg-cafe-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saveState.saving ? '保存中...' : '保存到 .env'}
         </button>
@@ -422,10 +422,10 @@ function DataDirsSection({ dataDirs, projectRoot }: { dataDirs: DataDirs; projec
           return (
             <div
               key={d.name}
-              className="flex items-baseline gap-2 rounded-xl border border-[#F3E8DE] bg-cafe-surface px-3 py-2"
+              className="flex items-baseline gap-2 rounded-xl border border-[var(--console-border-soft)] bg-cafe-surface px-3 py-2"
             >
-              <span className="shrink-0 text-xs font-medium text-[#6A5A50]">{d.name}</span>
-              <span className="text-xs text-[#8A776B]">{d.desc}</span>
+              <span className="shrink-0 text-xs font-medium text-cafe-secondary">{d.name}</span>
+              <span className="text-xs text-cafe-secondary">{d.desc}</span>
               <PathAction classification={cls} absPath={d.path} />
             </div>
           );

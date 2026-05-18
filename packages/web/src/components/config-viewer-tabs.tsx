@@ -27,7 +27,7 @@ export type { Capabilities, CatConfig, ConfigData, ContextBudget } from './confi
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-3">
+    <section className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3">
       <h3 className="text-xs font-semibold text-cafe-secondary mb-2">{title}</h3>
       {children}
     </section>
@@ -178,7 +178,7 @@ export function CatOverviewTab({
       />
       {config.coCreator ? <HubCoCreatorOverviewCard coCreator={config.coCreator} onEdit={onEditCoCreator} /> : null}
       {dragError ? (
-        <p className="text-sm text-[#C14E4E]" role="alert">
+        <p className="text-sm text-conn-red-text" role="alert">
           {dragError}
         </p>
       ) : null}
@@ -202,7 +202,7 @@ export function CatOverviewTab({
           />
         ))}
       </div>
-      <p className="text-sm text-[#B59A88]">按住 ⠿ 拖动卡片可自由排序；点击卡片进入成员配置 →</p>
+      <p className="text-sm text-cafe-muted">按住 ⠿ 拖动卡片可自由排序；点击卡片进入成员配置 →</p>
       {cats.length === 0 && <p className="text-sm text-cafe-muted">未找到成员配置数据</p>}
       {disabledCats.length > 0 && (
         <div className="space-y-3">
@@ -269,7 +269,7 @@ function BubbleToggle({
       <span>{label}</span>
       <button
         onClick={toggle}
-        className="text-xs px-2 py-0.5 rounded-full border border-cafe hover:border-gray-400 hover:bg-cafe-surface-elevated transition-colors"
+        className="text-xs px-2 py-0.5 rounded-full border border-[var(--console-border-soft)] hover:border-[var(--console-border-strong)] hover:bg-[var(--console-hover-bg)] transition-colors"
       >
         {display === 'expanded' ? '展开' : '折叠'}
       </button>
