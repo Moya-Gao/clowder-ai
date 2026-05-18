@@ -44,7 +44,7 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
    - **Skill 管理**：保留搜索/分类/状态条，但 row+toolbar 对齐 SettingsRow
    - **系统配置**：右侧提示块改 badge/inline hint，breadcrumb 改 SettingsBreadcrumb
 
-### Phase B: 8 页适配 + Enforcement + 验收
+### Phase B: 8 页适配 + Enforcement + 验收 ✅
 
 1. **8 低定制页面适配**：换 SettingsSection/SettingsRow 包装（不主动重构功能）
 2. **Enforcement**：
@@ -66,10 +66,10 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 - [ ] AC-A8: 每个迁移页产出 before/after 截图归档到 `docs/evidence/settings-comparison/`（deferred to Phase B）
 
 ### Phase B（8 页适配 + Enforcement）
-- [ ] AC-B1: 8 个低定制页面使用合适 primitives 包装（Resource/List 类用 SettingsRow，非列表页用 SettingsSection，不强塞 row）
-- [ ] AC-B2: 编译期 enforcement 落地（Biome lint rule / TS contract 至少其一），PR checklist 作为加固而非替代
-- [ ] AC-B3: 新旧截图对比确认 12 页视觉节奏一致
-- [ ] AC-B4: Outbound sync 就绪（lint 通过 / 0 raw atomic class in page layer / 12 页截图复测一致），sync 动作本身独立 close
+- [x] AC-B1: 8 个低定制页面使用合适 primitives 包装（Resource/List 类用 SettingsRow，非列表页用 SettingsSection，不强塞 row）
+- [x] AC-B2: 编译期 enforcement 落地（Biome lint rule / TS contract 至少其一），PR checklist 作为加固而非替代
+- [x] AC-B3: 新旧截图对比确认 12 页视觉节奏一致
+- [x] AC-B4: Outbound sync 就绪（lint 通过 / 0 raw atomic class in page layer / 12 页截图复测一致），sync 动作本身独立 close
 
 ## Dependencies
 
@@ -112,4 +112,5 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 |------|------|
 | 2026-05-18 | 立项，三猫共识 + CVO directive |
 | 2026-05-18 | Phase A merged (PR #1765) — 20+ primitives + 4 page migrations |
+| 2026-05-18 | Phase B merged (PR #1769) — 8 page migrations + enforcement + accounts IA fix |
 | 2026-05-22 | 目标 close（时间盒 4 天，CVO：不能 5-7 天） |
