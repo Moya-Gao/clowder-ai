@@ -14,7 +14,7 @@ notes:
   - 正式稿：去黑话、对外读者语态、Appendix B 翻译表已执行
   - 中文版：47 基于 46 英文 v0 中文化，保持叙事结构 + 骨架中文术语
   - 英文 v0 保留在 git 历史（commit 39cc1c612 / 61270975c）可恢复
-  - Figure 2 已重画为中文双面板：四象限状态图 + harness 投资半衰期曲线
+  - Figure 2 已改为生成式 PNG：状态图 + 判别器 + 投资寿命曲线
   - Ch.0 + Ch.1 先交铲屎官定调；通过后续写 Ch.2-7
 ---
 
@@ -194,13 +194,12 @@ Harness 里的每一层代码都有自己的半衰期。有些随模型变强而
 的评估（第 5 章）、长程 agent 的可靠性契约（第 6 章），以及跨厂商群体智能的涌现
 数学（第 7 章）。
 
-**〔 Figure 2 —— 双面板 〕**
+**〔 Figure 2 —— 从状态到判别，再到投资寿命 〕**
 
-![Figure 2：能力、Harness 契合度与 Harness 投资半衰期](assets/longform-002-figure-2-capability-environment-fit.svg)
+![Figure 2：从状态到判别，再到投资寿命](assets/longform-002-figure-2-harness-classifier.png)
 
-> 这张图故意拆成左右两块：左面板只回答“当前瓶颈在哪里”，右面板才回答“这层
-> harness 是有保质期的脚手架，还是复利型基础设施”。不要把 Build to Delete /
-> Built to Persist 当成象限名。
+> 这张图拆成三步：先看当前瓶颈在哪里，再判断这层 harness 解决的根因是什么，
+> 最后才决定它该按脚手架还是基础设施来投。
 
 **左面板：能力 × Harness 契合度——你的瓶颈在哪？**
 

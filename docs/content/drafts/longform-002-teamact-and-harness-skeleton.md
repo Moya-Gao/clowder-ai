@@ -127,7 +127,7 @@ Observe(现实状态) → Model(计算状态) → Action → Apply(现实状态'
 | 工具调用样例 prompt | @-路由 / hold_ball / multi_mention 协议 |
 | 单纯 persona 装饰文本 | 不可逆操作护栏 / Magic Words 拉闸 |
 
-📊 **配图：Figure 2 — 能力 × Harness 契合度 + Harness 投资半衰期**（见附录 C）：双面板。左面板是能力 × harness 契合度四象限，只描述状态/瓶颈（死区 / 能力裸奔区 / 能力瓶颈区 / 乘数区），不把 Build to Delete / Built to Persist 当象限名；右面板是 harness 投资半衰期曲线，解释有保质期的脚手架当下价值高但会折旧，复利型基础设施随模型能力演进增值。说明行业只卷纵轴是局部最优——真正的预算问题是区分“补模型当前认知缺陷”与“编码外部现实/协作协议/可验证边界”。
+📊 **配图：Figure 2 — 从状态到判别，再到投资寿命**（见附录 C）：三段式生成式 PNG。左栏是能力 × harness 契合度四象限，只描述状态/瓶颈（死区 / 能力裸奔区 / 能力瓶颈区 / 乘数区）；中栏是判别器，回答“这层 harness 在解决什么”：补模型当前认知缺陷 → Build to Delete（有保质期的脚手架），编码外部现实 / 协作协议 / 可验证边界 → Built to Persist（复利型基础设施），两者都有 → 拆层；右栏是投资寿命曲线，解释判完以后怎么投。说明行业只卷纵轴是局部最优——真正的预算问题是先判根因，再决定投入强度与 sunset。
 
 📌 **按段搜证清单**：
 - `docs/canon/meta-aesthetics.md`（公式起源 + 数学之美圆桌）
@@ -607,7 +607,7 @@ vision drift 是停机问题 —— 没法自动检测"当前是否偏离 vision
 | # | 图名 | 章节 | 类型 | 回答什么问题 | 数据/真相源 |
 |---|------|------|------|------------|------------|
 | **1** | Anthropic 五模式 → Cat Café 组合架构 | Ch.0 | 架构图 | 我们不是发明孤立模式，而是组合 Shared State + Agent Teams（局部 GV/OS/MB）| article-complete-technical-edition-v2.md Part III |
-| **2** | 能力 × Harness 契合度 + Harness 投资半衰期 | Ch.1 | 双面板概念图 | 左：死区 / 能力裸奔区 / 能力瓶颈区 / 乘数区，回答瓶颈在哪；右：有保质期的脚手架 vs 复利型基础设施两条回报曲线，回答如何分配预算与 sunset | meta-aesthetics canon / 2026-04-29 harness-asset-vs-debt brainstorm |
+| **2** | 从状态到判别，再到投资寿命 | Ch.1 | 三段式生成式 PNG | 左：死区 / 能力裸奔区 / 能力瓶颈区 / 乘数区，回答瓶颈在哪；中：判别器，回答这层 harness 是补当前认知缺陷、编码外部现实，还是两者都有；右：有保质期的脚手架 vs 复利型基础设施两条回报曲线，回答如何分配预算与 sunset | meta-aesthetics canon / 2026-04-29 harness-asset-vs-debt brainstorm |
 | **3** | ReAct 单猫闭环 vs TeamAct 多猫闭环 | Ch.2 | 对比图 | 反馈方向从「agent 内部 state」变成「shared state 反向喂每只猫」+ 基础设施防失真 | react-to-teamact-brainstorm |
 | **4** | TeamAct 主循环状态机 | Ch.2 | 流程图 | State→Owner→Action→Evidence→Verdict→Route + 五项结束条件外圈；Owner/Verdict/Route 如何防 shared state 无限更新 | react-to-teamact-brainstorm |
 | **5** | 多猫好坏直觉调制 matrix | Ch.3 | 矩阵图 | 47/46/砚砚/烁烁 × magic words × 命中差异；跨家族 review 作结构性纠错；资产 vs 个体补偿 | F177 / F167 Phase E / 直播 Topic 1.2 |
@@ -618,7 +618,7 @@ vision drift 是停机问题 —— 没法自动检测"当前是否偏离 vision
 
 **可选第 8 张**（砚砚提）：模型直觉调制图——左边模型家族强项/坏直觉，右边对应 harness（skills/rules/review/runtime brake/reliability contract）。如 Figure 5 表达不足再补。
 
-**绘制工具决策**（待定，v0 展开时定）：架构/流程/飞轮类优先 SVG 手绘风（对齐 teamact-handdrawn-loop.svg 已有风格）；矩阵/对照类可 markdown 表 + 简单 SVG；象限/概念类 SVG。不依赖 emoji 替代（[[feedback_design_to_code_fidelity]]）。
+**绘制工具决策**（v0）：Figure 2 采用生成式 PNG（避免 SVG 长文本挤压）；后续图按复杂度选择：结构严谨、文字多的图优先生成式 PNG / Figma 风格导出，简单流程图才使用 SVG。原则是先保证读者可读，不为工具形式牺牲信息传达。
 
 ---
 
