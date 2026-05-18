@@ -817,6 +817,112 @@ describe('routeSerial A2A worklist', () => {
     assert.equal(handoffs.length, 0, 'should not emit handoff when fairness guard blocks extension');
   });
 
+  it('defers A2A handoff via callback when fairness gate blocks (F185-B AC-B3/B6)', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const deps = createMockDeps({
+      opus: createMockService('opus', '代码完成\n@缅因猫 请 review'),
+      codex: createMockService('codex', 'should not run inline'),
+    });
+
+    const deferredEntries = [];
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1', {
+      queueHasQueuedMessages: () => true,
+      deferA2AEnqueue: (entry) => deferredEntries.push(entry),
+    })) {
+      messages.push(msg);
+    }
+
+    // Codex must NOT execute inline
+    const codexText = messages.filter((m) => m.type === 'text' && m.catId === 'codex');
+    assert.equal(codexText.length, 0, 'codex must not run inline when fairness gate blocks');
+
+    // But deferred enqueue callback must be called with correct metadata
+    assert.equal(deferredEntries.length, 1, 'exactly one deferred A2A entry expected');
+    const deferred = deferredEntries[0];
+    assert.deepEqual(deferred.targetCats, ['codex'], 'deferred target must be codex');
+    assert.equal(deferred.source, 'agent', 'deferred entry source must be agent');
+    assert.equal(deferred.sourceCategory, 'a2a', 'deferred entry sourceCategory must be a2a');
+    assert.equal(deferred.callerCatId, 'opus', 'deferred entry callerCatId must be opus');
+    assert.ok(deferred.content, 'deferred entry must carry caller content (storedContent)');
+    assert.equal(deferred.autoExecute, true, 'deferred entry must have autoExecute=true');
+    assert.equal(deferred.priority, 'normal', 'deferred entry priority must be normal');
+  });
+
+  it('does not defer A2A enqueue when signal is aborted (cloud P1-1)', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const ac = new AbortController();
+    const deps = createMockDeps({
+      opus: {
+        async *invoke() {
+          yield { type: 'text', catId: 'opus', content: '完成\n@缅因猫 帮忙', timestamp: Date.now() };
+          ac.abort();
+          yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+        },
+      },
+      codex: createMockService('codex', 'should not run'),
+    });
+
+    const deferredEntries = [];
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1', {
+      queueHasQueuedMessages: () => true,
+      deferA2AEnqueue: (entry) => deferredEntries.push(entry),
+      signal: ac.signal,
+    })) {
+      messages.push(msg);
+    }
+
+    assert.equal(deferredEntries.length, 0, 'deferred enqueue must not fire when signal is aborted');
+  });
+
+  it('does not defer A2A enqueue for cat already in pendingTail (cloud P1-2)', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const deps = createMockDeps({
+      opus: createMockService('opus', '完成\n@缅因猫 请review'),
+      codex: createMockService('codex', 'already in targets, should not be deferred'),
+    });
+
+    const deferredEntries = [];
+    const messages = [];
+    // codex is already in targetCats → it's in pendingTail when opus runs
+    for await (const msg of routeSerial(deps, ['opus', 'codex'], 'test', 'user1', 'thread1', {
+      queueHasQueuedMessages: () => true,
+      deferA2AEnqueue: (entry) => deferredEntries.push(entry),
+    })) {
+      messages.push(msg);
+    }
+
+    assert.equal(deferredEntries.length, 0, 'must not defer-enqueue cat already in pendingTail');
+    // codex should still run from worklist (inline execution)
+    const codexText = messages.filter((m) => m.type === 'text' && m.catId === 'codex');
+    assert.ok(codexText.length > 0, 'codex must still run from worklist even when fairness gate blocks deferred');
+  });
+
+  it('does not call deferA2AEnqueue when fairness gate is clear (F185-B AC-B8)', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const deps = createMockDeps({
+      opus: createMockService('opus', '看看吧\n@缅因猫 帮忙'),
+      codex: createMockService('codex', '收到'),
+    });
+
+    const deferredEntries = [];
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1', {
+      queueHasQueuedMessages: () => false,
+      deferA2AEnqueue: (entry) => deferredEntries.push(entry),
+    })) {
+      messages.push(msg);
+    }
+
+    // Codex SHOULD execute inline (gate is clear)
+    const codexText = messages.filter((m) => m.type === 'text' && m.catId === 'codex');
+    assert.ok(codexText.length > 0, 'codex must run inline when fairness gate is clear');
+
+    // No deferred entries
+    assert.equal(deferredEntries.length, 0, 'no deferred enqueue when gate is clear');
+  });
+
   it('skips A2A text-scan @mention when cat already dispatched via callback (cross-path dedup)', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({

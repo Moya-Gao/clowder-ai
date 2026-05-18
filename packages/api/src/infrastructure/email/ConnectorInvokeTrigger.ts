@@ -362,7 +362,8 @@ export class ConnectorInvokeTrigger {
       for await (const msg of router.routeExecution(userId, message, threadId, messageId, targetCats, intent, {
         ...(contentBlocks ? { contentBlocks } : {}),
         ...(controller?.signal ? { signal: controller.signal } : {}),
-        queueHasQueuedMessages: (tid: string) => invocationQueue.hasQueuedUserMessagesForThread(tid),
+        queueHasQueuedMessages: (tid: string) => invocationQueue.hasQueuedNonAgentForThread(tid),
+        deferA2AEnqueue: (e) => invocationQueue.enqueue(e as any),
         hasQueuedOrActiveAgentForCat: (tid: string, catId: string) =>
           invocationQueue.hasActiveOrQueuedAgentForCat(tid, catId),
         cursorBoundaries,

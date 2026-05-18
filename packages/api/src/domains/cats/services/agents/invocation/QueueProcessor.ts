@@ -267,6 +267,16 @@ export class QueueProcessor {
     return this.deps.queue.hasQueuedUserMessagesForThread(threadId);
   }
 
+  /** F185 Phase B: non-agent fairness gate for text-scan A2A — user + connector block, agent does not. */
+  hasQueuedNonAgentForThread(threadId: string): boolean {
+    return this.deps.queue.hasQueuedNonAgentForThread(threadId);
+  }
+
+  /** F185 Phase B: thin enqueue wrapper for deferred A2A entries from retry/invocations path. */
+  enqueueRaw(input: any) {
+    return this.deps.queue.enqueue(input);
+  }
+
   /** A2A dedup: check if a specific cat already has a queued or processing entry for this thread. */
   hasQueuedAgentForCat(threadId: string, catId: string): boolean {
     return this.deps.queue.hasQueuedAgentForCat(threadId, catId);
@@ -909,7 +919,8 @@ export class QueueProcessor {
         {
           ...(contentBlocks.length > 0 ? { contentBlocks } : {}),
           ...(controller.signal ? { signal: controller.signal } : {}),
-          queueHasQueuedMessages: (tid: string) => queue.hasQueuedUserMessagesForThread(tid),
+          queueHasQueuedMessages: (tid: string) => queue.hasQueuedNonAgentForThread(tid),
+          deferA2AEnqueue: (e: any) => queue.enqueue(e),
           hasQueuedOrActiveAgentForCat: (tid: string, catId: string) => queue.hasActiveOrQueuedAgentForCat(tid, catId),
           invocationController: controller,
           trackA2ASlot: (tid: string, catId: string, uid: string, ctrl: AbortController) => {

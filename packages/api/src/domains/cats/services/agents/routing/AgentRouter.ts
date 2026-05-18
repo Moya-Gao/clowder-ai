@@ -49,7 +49,7 @@ import type { AgentMessage, AgentService } from '../../types.js';
 import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
 import type { TaskProgressStore } from '../invocation/TaskProgressStore.js';
 import type { AgentRegistry } from '../registry/AgentRegistry.js';
-import type { PersistenceContext, RouteStrategyDeps } from '../routing/route-helpers.js';
+import type { PersistenceContext, RouteOptions, RouteStrategyDeps } from '../routing/route-helpers.js';
 import { routeParallel } from '../routing/route-parallel.js';
 import { routeSerial } from '../routing/route-serial.js';
 import { resolveCatTarget } from './cat-target-resolver.js';
@@ -965,6 +965,8 @@ export class AgentRouter {
       signal?: AbortSignal;
       queueHasQueuedMessages?: (threadId: string) => boolean;
       hasQueuedOrActiveAgentForCat?: (threadId: string, catId: string) => boolean;
+      /** F185 Phase B: deferred A2A enqueue when fairness gate blocks text-scan expansion */
+      deferA2AEnqueue?: RouteOptions['deferA2AEnqueue'];
       invocationController?: AbortController;
       trackA2ASlot?: (threadId: string, catId: CatId, userId: string, controller: AbortController) => void;
       completeA2ASlots?: (threadId: string, catIds: readonly CatId[], controller: AbortController) => void;
@@ -1022,6 +1024,7 @@ export class AgentRouter {
       signal: options?.signal,
       queueHasQueuedMessages: options?.queueHasQueuedMessages,
       hasQueuedOrActiveAgentForCat: options?.hasQueuedOrActiveAgentForCat,
+      deferA2AEnqueue: options?.deferA2AEnqueue,
       invocationController: options?.invocationController,
       trackA2ASlot: options?.trackA2ASlot,
       completeA2ASlots: options?.completeA2ASlots,

@@ -150,6 +150,7 @@ export class InvocationQueue {
       callerCatId?: string;
       priority?: 'urgent' | 'normal';
       suggestedSkill?: string;
+      messageId?: string | null;
       /** Defaults true for request replay dedupe; connector coalescing can opt out for in-flight entries. */
       dedupeProcessing?: boolean;
     },
@@ -205,7 +206,7 @@ export class InvocationQueue {
       userId: input.userId,
       idempotencyKey: input.idempotencyKey,
       content: input.content,
-      messageId: null,
+      messageId: input.messageId ?? null,
       mergedMessageIds: [],
       source: input.source,
       targetCats: [...input.targetCats],
@@ -750,10 +751,9 @@ export class InvocationQueue {
   }
 
   /**
-   * Whether any user-sourced message is queued for this thread.
-   * Agent/connector-sourced entries are excluded — they have their own
-   * per-cat dedup via hasActiveOrQueuedAgentForCat and must NOT block
-   * the A2A text-scan fairness gate in routeSerial.
+   * Whether any user-sourced message is queued for this thread (user-only filter).
+   * F185 Phase B: text-scan fairness gate now uses hasQueuedNonAgentForThread instead.
+   * Retained for backward compatibility but no longer used by fairness gates.
    */
   hasQueuedUserMessagesForThread(threadId: string): boolean {
     for (const q of this.queues.values()) {

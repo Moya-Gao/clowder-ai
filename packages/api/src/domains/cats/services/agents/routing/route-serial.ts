@@ -252,6 +252,7 @@ export async function* routeSerial(
     modeSystemPromptByCat,
     queueHasQueuedMessages,
     hasQueuedOrActiveAgentForCat,
+    deferA2AEnqueue,
   } = options;
   const previousResponses: { catId: CatId; content: string }[] = [];
   const thinkingMode = options.thinkingMode ?? 'play';
@@ -1587,12 +1588,12 @@ export async function* routeSerial(
           }
         }
 
-        // Diagnostic: log when A2A text-scan gate blocks (previously silent)
+        // Diagnostic: log when A2A text-scan gate blocks
         if (a2aMentions.length > 0) {
           if (queuedMessagesPending) {
             log.info(
               { threadId, catId, a2aMentions, a2aCount: worklistEntry.a2aCount },
-              'A2A text-scan blocked: user messages pending in queue (fairness gate)',
+              'A2A text-scan blocked: non-agent messages pending in queue (fairness gate)',
             );
           } else if (worklistEntry.a2aCount >= maxDepth) {
             log.info(
@@ -1691,6 +1692,62 @@ export async function* routeSerial(
             } else {
               dispatchSpan.end();
             }
+          }
+        } else if (a2aMentions.length > 0 && queuedMessagesPending && deferA2AEnqueue && !signal?.aborted) {
+          // F185 Phase B: deferred enqueue — preserve A2A handoff behind non-agent entries
+          const pendingTailDeferred = worklist.slice(index + 1);
+          for (const nextCat of a2aMentions) {
+            if (worklistEntry.a2aCount >= maxDepth) break;
+            if (pendingTailDeferred.includes(nextCat)) continue;
+            if (hasQueuedOrActiveAgentForCat && hasQueuedOrActiveAgentForCat(threadId, nextCat)) {
+              log.info(
+                { threadId, catId: nextCat, fromCat: catId },
+                'A2A text-scan dedup (deferred): cat actively processing, skipping',
+              );
+              continue;
+            }
+            // F167 L1 + F185-B AC-B3a: ping-pong streak check for deferred path
+            const hadSubstantiveToolCallDeferred = collectedToolNames.some((n) => isSubstantiveTool(n));
+            const streakDeferred = updateStreakOnPush(worklistEntry, catId, nextCat, {
+              hadSubstantiveToolCall: hadSubstantiveToolCallDeferred,
+              outputLength: storedContent.length,
+            });
+            if (streakDeferred.blockPingPong) {
+              log.info(
+                { threadId, catId: nextCat, fromCat: catId, count: streakDeferred.count },
+                'F167 L1: A2A ping-pong terminated in deferred path (streak >= 4)',
+              );
+              yield {
+                type: 'system_info' as AgentMessageType,
+                catId,
+                content: JSON.stringify({
+                  type: 'a2a_pingpong_terminated',
+                  fromCatId: catId,
+                  targetCatId: nextCat,
+                  pairCount: streakDeferred.count,
+                }),
+                timestamp: Date.now(),
+              } as AgentMessage;
+              continue;
+            }
+            deferA2AEnqueue({
+              threadId,
+              userId,
+              content: storedContent,
+              source: 'agent',
+              sourceCategory: 'a2a',
+              targetCats: [nextCat],
+              callerCatId: catId,
+              messageId: storedMsgId,
+              autoExecute: true,
+              priority: 'normal',
+              intent: 'execute',
+            });
+            worklistEntry.a2aCount++;
+            log.info(
+              { threadId, catId: nextCat, fromCat: catId },
+              'A2A text-scan deferred: enqueued behind non-agent entries (F185-B)',
+            );
           }
         }
 

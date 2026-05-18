@@ -93,10 +93,28 @@ export interface RouteOptions {
   currentUserMessageId?: string | undefined;
   /** Max A2A chain depth for routeSerial (default: MAX_A2A_DEPTH env or 2) */
   maxA2ADepth?: number | undefined;
-  /** Queue fairness hook: when true for current thread, routeSerial must stop extending A2A chain. */
+  /** Queue fairness hook: when true for current thread, routeSerial must stop extending A2A chain.
+   *  F185 Phase B: should use hasQueuedNonAgentForThread (user + connector), not user-only. */
   queueHasQueuedMessages?: ((threadId: string) => boolean) | undefined;
   /** A2A dedup hook: skip text-scan @mention if cat already dispatched via callback path. */
   hasQueuedOrActiveAgentForCat?: ((threadId: string, catId: string) => boolean) | undefined;
+  /** F185 Phase B: deferred A2A enqueue — called when fairness gate blocks text-scan expansion
+   *  but A2A targets were detected. Entry is queued behind non-agent entries instead of being silently dropped. */
+  deferA2AEnqueue?:
+    | ((entry: {
+        threadId: string;
+        userId: string;
+        content: string;
+        source: 'agent';
+        sourceCategory: 'a2a';
+        targetCats: string[];
+        callerCatId: string;
+        messageId?: string;
+        autoExecute: true;
+        priority: 'normal';
+        intent: 'execute';
+      }) => void)
+    | undefined;
   /** ADR-008 S3: When provided, cursor boundaries are collected here instead of acking immediately.
    *  Caller acks after invocation succeeds. If absent, legacy immediate ack behavior. */
   cursorBoundaries?: Map<string, string>;

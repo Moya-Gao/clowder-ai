@@ -884,7 +884,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               ...(opts.invocationQueue
                 ? {
                     queueHasQueuedMessages: (tid: string) =>
-                      opts.invocationQueue?.hasQueuedUserMessagesForThread(tid) ?? false,
+                      opts.invocationQueue?.hasQueuedNonAgentForThread(tid) ?? false,
+                    deferA2AEnqueue: (e) => opts.invocationQueue?.enqueue(e as any),
                     hasQueuedOrActiveAgentForCat: (tid: string, catId: string) =>
                       opts.invocationQueue?.hasActiveOrQueuedAgentForCat(tid, catId) ?? false,
                   }
