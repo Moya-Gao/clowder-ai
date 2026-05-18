@@ -30,6 +30,12 @@ review_log:
       - P1 Ch.4.5 穷人的 training loop → retrieval-mediated adaptation loop（ADR-031 §"温度入口"）+ 数据归属边界（用户拥有，Cat Cafe neutral infrastructure）
       - P1 Ch.4.5 outputVerified 降调：v1 仅自动检测 invocation status；PR/CVO/reviewer 走外部注入；自动桥接仍 pending — CVO/reviewer approval 自动检测（AC-D2.1）/ CI check 信号源（AC-D2.2）/ GitHub PR merge → `pr_merged` 自动桥接（AC-D2.3）
   - 2026-05-17 砚砚 R2（二审 confirm）：6 处 R1 修改 verified + 1 P2 补刀（AC 编号错位）+ 1 过程提醒（git author 漂移）→ P2 applied，commit `b3eeaf11b` 不强改历史，本次 commit 起用 --author 校准归属
+  - 2026-05-17 46 R1（Ch.2/Ch.7 reviewer 核证）：APPROVE + 1 P1 + 3 P2 + 3 P3 → P1/P2 全部 applied，P3 留 v0 全文展开时吸收
+      - P1 Ch.7.2 数学术语错误：precision → error recall（precision = TP/(TP+FP) 是另一个东西）
+      - P2-1 Ch.2.4 补 KD-17 突破：ping-pong breaker 从"计次数"进化到"看 tool_call"（KD-8 给数据不给结论落地）
+      - P2-2 Ch.2.4 补 KD-20 退役：L3 hardcoded role-gate 退役 → cat-config.restrictions 数据驱动 prompt 注入（KD-8 又一落地）
+      - P2-3 Ch.7.2 加思想实验 disclaimer：参数化 sensitivity analysis，不是实测数据
+      - P3 留 v0：球权三代演化叙事 / Ch.7.1 分经验声明 vs 学术框架两层 / resumeCapsule 实际实现是 cross-cat-handoff skill
       - P2 Ch.5.4 软硬双修拆开：v1.2 SW-1/2/3 先做，HW-1/2/3 延后 1-2 周
       - P2 Ch.4.2 三入口表加 list_recent scope=threads/memory 边界（indexed docs 不是 raw）
       - P2 Ch.4.1 sourceType → docKind / rerank_reason 等实现字段
@@ -166,6 +172,13 @@ feat creation（系统层）
 - `@` 是路由指令，不是叙述 —— 行首才有效，句中无效
 - 球权第一人称（只能声明自己持球，不能声明别人持球）
 - 新失败模式：球掉地 / 乒乓球 / 虚空传球 / 角色不适配 handoff
+
+**设计洞察（KD-8 给数据不给结论原则的两次落地）**：
+
+- **乒乓球熔断的进化**（F167 Phase D KD-17）：第一版用"连续传球次数"做 breaker → 误杀正经 review 链。坐标系修正后改为检测**实质 tool_call + 输出长度**——"干活 = 实质 tool_call + 长内容；闲聊惯性 = 短文本 + 零 tool"。RLHF "接一句"反射才是乒乓球的真正 signature，不靠 intent 分类
+- **角色门禁的退役 → 数据驱动替代**（F167 Phase E KD-20）：L3 硬编码 role-gate（regex 扫 "coding/merge" 关键词硬拦）退役 → 替换为 `cat-config.restrictions` 数据驱动双端 prompt 注入（发送方队友名册 + 目标猫 self-awareness）。能力限制作为数据让模型自判断，零代码改动可扩展
+
+**核心哲学**：好 harness 不替模型思考，而是让模型在正确坐标系里思考。
 
 ### 2.5 Generator 有 Push Back 权利（46 提出的原创点）
 
@@ -418,9 +431,14 @@ F192 AC-C3 拍板 **7-class 归因矩阵**（不是早期讨论的四层）：
 
 ### 7.2 协作正收益条件（数学）
 
+> **Disclaimer**：以下是参数化思想实验（sensitivity analysis），不是实测数据。目的是建立结构性直觉——"什么结构赚、什么结构亏"——而不是给出精确数字。
+
 多 agent 会亏还是赚，取决于结构。`article-complete-technical-edition-v2.md` 的数学部分推导过：
 
-- **reviewer 抓错率 > 误伤率**（precision > false-positive rate）才有正收益
+- **reviewer 抓错率 > 误伤率**（error recall > false-positive rate）才有正收益
+  - 抓错率 = reviewer 能抓出的错误占总错误的比例（recall / sensitivity）
+  - 误伤率 = reviewer 把正确的改错的比例（false positive rate）
+  - 注意：**不是 precision** —— precision = TP/(TP+FP) 是另一个东西，46 R1 P1 纠正
 - **shared state 提高传球保真率**（前一只猫的 What/Why/Tradeoff 显式记录，下一只猫不需要从头脑补）
 - **Generator push back 权利** 防 reviewer 单边专断 + 维持正确率
 
