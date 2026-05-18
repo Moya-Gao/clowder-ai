@@ -358,7 +358,7 @@ outputVerified = signal_or(
 
 > **2026-05-18 Runtime Signal Check（说人话版）**：现在能看见"哪只猫 / 哪个 thread / 哪次 invocation / 用了哪个工具 / 搜了什么 / 返回了哪些候选 / 后面有没有 Read 或消费 / 有没有放弃或换 query / 形成了哪条 trajectory / 读改了哪些文件"。现在还不能可靠判断"排序策略一定更好"或"哪条 trajectory 一定成功"，因为 consumed 只有 6 条，`outputVerified` 强信号自动接入还是 0。GitHub PR merge 在模型里是 `pr_merged` 强信号，endpoint 支持外部注入，但自动桥接仍待接入；CVO accept / reviewer approval / CI check 同理。
 >
-> **2026-05-18 Consumption Accuracy Caveat（铲屎官挑战后补）**：当前 `consumed` 不是"猫亲口确认我用了这条结果"，而是 `RecallEventCorrelator` 在同一只猫 / 同一 invocation / 后续 20 个 tool calls 或 300s 内，用 `Read` / `Grep` / `graph_resolve` / session read 等工具事件反推的 proxy。它会漏掉很多真实消费：猫只读 search snippet 就回答、用 `sed/cat/nl` 等 Bash 读文件、读了候选里链接出去的 source thread、并发多次 search 后再读导致归因不唯一、或者超过时间/距离窗口才读。反过来，同一个后续 Read 也可能被多个前序 search 同时归因。因此 consumption 指标适合看趋势和粗粒度排序反馈，**不能当单条结果的绝对真相**；OQ-6/OQ-7 关闭前必须先做 consumption attribution audit。
+> **2026-05-18 Consumption Accuracy Caveat（铲屎官挑战后补）**：当前 `consumed` 不是"猫亲口确认我用了这条结果"，而是 `RecallEventCorrelator` 在同一只猫 / 同一 invocation / 后续 20 个 tool calls 或 300s 内，用 `Read` / `Grep` / `graph_resolve` / session read 等工具事件反推的 proxy。它会漏掉很多真实消费：猫只读 search snippet 就回答、用 `sed/cat/nl` 等 Bash 读文件、读了候选里链接出去的 source thread、并发多次 search 后再读导致归因不唯一、或者超过时间/距离窗口才读。反过来，同一个后续 Read 也可能被多个前序 search 同时归因。因此 consumption 指标适合看趋势和粗粒度排序反馈，**不能当单条结果的绝对真相**；OQ-6/OQ-7 关闭前必须先做 consumption attribution audit。初筛报告见 `docs/audits/2026-05-18-f200-consumption-attribution-audit.md`。
 
 > **Review 状态**（2026-05-17）：砚砚 + 46 双 reviewer pass。2 P2 patched（SW-3 nudge 改 intent 触发不绑 result count / HW-3 窗口限定 post-v1.1+post-SW），1 P3 标注（runtime metrics API sync 是 HW-3 前置）。SW-1 题型 5→8（+source-map +absence-check +delta）。Patch commit 接续 `9d475a918`。47 可直接开 SW-1（writing-skills SOP）。
 
