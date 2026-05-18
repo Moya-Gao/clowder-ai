@@ -32,6 +32,7 @@ export function MarketplacePanel() {
   const getInstallPlan = useMarketplaceStore((s) => s.getInstallPlan);
   const clearSelection = useMarketplaceStore((s) => s.clearSelection);
   const search = useMarketplaceStore((s) => s.search);
+  const browse = useMarketplaceStore((s) => s.browse);
 
   const handleSelect = useCallback(
     (result: (typeof results)[number]) => {
@@ -43,7 +44,8 @@ export function MarketplacePanel() {
 
   const handleRetry = useCallback(() => {
     if (query) search(query);
-  }, [query, search]);
+    else browse();
+  }, [browse, query, search]);
 
   useEffect(() => {
     return () => clearSelection();
@@ -68,9 +70,11 @@ export function MarketplacePanel() {
         </div>
       )}
 
-      {!loading && !error && query && results.length > 0 && (
+      {!loading && !error && results.length > 0 && (
         <>
-          <p className="text-xs text-cafe-muted">找到 {results.length} 个结果</p>
+          <p className="text-xs text-cafe-muted">
+            {query ? `找到 ${results.length} 个结果` : `共 ${results.length} 个能力`}
+          </p>
           <div className="space-y-2">
             {results.map((r) => (
               <ArtifactCard key={`${r.ecosystem}:${r.artifactId}`} result={r} onSelect={handleSelect} />
@@ -83,7 +87,7 @@ export function MarketplacePanel() {
         <div className="py-8 text-center text-sm text-cafe-muted">未找到匹配 &ldquo;{query}&rdquo; 的能力</div>
       )}
 
-      {!loading && !error && !query && (
+      {!loading && !error && !query && results.length === 0 && (
         <div className="flex flex-col items-center py-12 text-cafe-muted">
           <HubIcon name="search" className="mb-3 h-8 w-8 opacity-30" />
           <p className="text-sm">搜索关键词，发现能力</p>
