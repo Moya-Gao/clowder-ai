@@ -63,7 +63,7 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 - [x] AC-A5: 系统配置页使用 SettingsField/SettingsStatusStrip/SettingsBreadcrumb，功能无损
 - [x] AC-A6: 4 页面层 0 个 raw Tailwind atomic class（`bg-*`/`text-*`/`border-*`/`rounded-*`/`px-*`/`py-*`），raw class 只能存在于 primitives 内部
 - [x] AC-A7: `pnpm test` + `pnpm check` 全绿
-- [ ] AC-A8: 每个迁移页产出 before/after 截图归档到 `docs/evidence/settings-comparison/`（deferred to Phase B）
+- [x] AC-A8: 每个迁移页产出 before/after 截图归档到 `docs/evidence/settings-comparison/`（Phase A before: `ours-{01,02,04,09}-*.png`；after: `after-{01,02,04,09}-*.png`）
 
 ### Phase B（8 页适配 + Enforcement）
 - [x] AC-B1: 8 个低定制页面使用合适 primitives 包装（Resource/List 类用 SettingsRow，非列表页用 SettingsSection，不强塞 row）
