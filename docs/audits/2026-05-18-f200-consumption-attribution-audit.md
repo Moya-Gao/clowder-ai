@@ -2,7 +2,7 @@
 title: F200 Consumption Attribution Audit
 date: 2026-05-18
 owner: codex
-status: initial-sample
+status: stratified-sample-round-1
 feature: F200
 ---
 
@@ -122,6 +122,119 @@ walks each search's later window independently, so a single read can be:
 
 Interpretation: `consumed` is useful as trend telemetry, but not reliable as per-result truth.
 
+## Stratified Sampling Round 1 (2026-05-18)
+
+This round sampled:
+
+- all 6 rows with `consumed_json!='[]'`
+- recent post-v1.1 / post-SW rows after `1779060000000`
+- candidate-gap rows with raw Redis `ToolEventLog` comparison
+- Codex-style shell-read invocations
+
+### Result 1: candidate gap is mostly result-summary merge failure, not search-result parsing
+
+Post-v1.1 sample after `1779060000000`:
+
+| cat | tool | total | no candidates | consumed |
+|---|---:|---:|---:|---:|
+| codex | `search_evidence` | 5 | 0 | 1 |
+| codex | `list_recent` | 1 | 0 | 1 |
+| codex | `graph_resolve` | 1 | 0 | 0 |
+| opus | `search_evidence` | 9 | 9 | 0 |
+| opus-47 | `search_evidence` | 4 | 4 | 0 |
+| opus-47 | `list_recent` | 1 | 1 | 0 |
+
+Raw Redis evidence:
+
+- Codex MCP results have `_resultMerged=true`, `resultCount`, and `_f200Candidates`.
+- Opus / Opus-47 candidate-gap rows only have input-side fields such as
+  `query/scope/mode/limit`; no `_resultMerged`, no `resultCount`, no `_f200Candidates`.
+
+Examples:
+
+| recall_id | cat | tool | query | raw event summary |
+|---|---|---|---|---|
+| `ff005827-c472-44f7-bebf-9da42aefb09c` | opus | `search_evidence` | `harness eval socio-technical 评估 质量` | input fields only |
+| `c87d1e80-c35b-473f-8a38-926a390854c0` | opus-47 | `search_evidence` | `agent-native software engineering harness eval socio-technical` | input fields only |
+| `959ba88a-efc0-4f43-b873-66d680c08f33` | opus-47 | `search_evidence` | `karpathy llm wiki 拆解 对照 cat-cafe 记忆系统` | input fields only |
+| `235883f6-d4a3-444b-80d9-86ea60983770` | codex | `search_evidence` | `F200 memory recall eval agent-native...` | `_resultMerged + _f200Candidates` |
+
+Mechanism:
+
+- `derive-result-summary.ts` can parse the current MCP text format when it is actually called
+  with the correct normalized tool name.
+- Codex `mcp_tool_call` results include a first-line label like `mcp:server/tool (completed)`,
+  so `route-parallel.ts` can infer the tool name and call `updateSummary`.
+- Claude/Opus parallel tool results often do not carry a result-side `toolName`, `toolUseId`, or
+  `mcp:` first-line label. In that path, `route-parallel.ts` has no pending-tool FIFO fallback
+  equivalent to `route-serial.ts`, so result-side summaries are never merged into the original
+  tool event.
+
+Conclusion:
+
+Root cause 1 is **not primarily** the `deriveSearchEvidence()` anchor regex. The first fix should
+be route-level: make parallel routing reliably pair result summaries back to their tool_use events
+for all cats, either by propagating `toolUseId` or by maintaining a per-cat pending tool-result FIFO
+like serial routing. After that, add `sourcePath` to F200 candidates so path-based reads can match.
+
+### Result 2: shell reads are a real Codex false-negative class
+
+Concrete invocation:
+
+- invocation: `a4b155a6-fad2-4f25-b250-4494cfddef3b`
+- cat: `codex`
+- thread: `thread_mpaic7f0es8t3y8u`
+
+Raw events show multiple memory searches with candidates, then many `command_execution` file reads:
+
+- `sed -n '1,260p' docs/features/F200-memory-recall-eval.md`
+- `sed -n '1,240p' docs/features/F192-socio-technical-harness-eval.md`
+- `sed -n ... docs/discussions/...`
+- `rg --files docs | ...`
+- `nl -ba ...`
+
+Current correlator behavior:
+
+- `CONSUMED_METHODS` excludes `command_execution`.
+- `task_trajectories.files_read_json` is also `[]` for this invocation because shell reads are not
+  normalized into read artifacts.
+- The only consumed credit in this invocation comes from a later `graph_resolve(F200)`, not from
+  the shell-read documents that were actually used for the answer.
+
+Conclusion:
+
+Root cause 2 should be fixed in the same HW-4 batch: parse safe read-only shell commands
+(`sed`, `nl`, `cat`, `rg`, possibly `find` when it resolves concrete files) into doc read targets.
+This should feed both consumption correlation and trajectory `filesRead`.
+
+### Result 3: all current positives are ambiguous, not clean per-search truth
+
+All 6 `consumed_json!='[]'` rows come from only 2 Codex invocations:
+
+| invocation | consumed rows | common consumed signal |
+|---|---:|---|
+| `538bac66-81ab-4309-b966-abc38e92e8ab` | 4 | repeated later `graph_resolve(F200)` |
+| `a4b155a6-fad2-4f25-b250-4494cfddef3b` | 2 | later `graph_resolve(F200)` |
+
+The positives are not obviously wrong-document false positives: both invocations were genuinely
+about F200 / memory recall. But they are **not clean per-search positives** either:
+
+- one later `graph_resolve(F200)` can credit multiple previous searches,
+- `list_recent` credited F200 at rank 16 because a later graph query selected F200,
+- repeated `graph_resolve(F200)` calls create duplicate positive rows in the same invocation.
+
+Conclusion:
+
+Root cause 3 is real enough to include in this repair. HW-4 should introduce result-set or
+bundle-level provenance for attribution. Minimum acceptable v1:
+
+- keep per-search `consumed`, but attach the consuming event id / method / distance;
+- group searches in one invocation into a `resultSetId` or `searchBundleId` when they are run before
+  the first downstream read/graph drill;
+- mark ambiguous bundle consumption separately from clean single-result consumption.
+
+Without this, OQ-6/OQ-7 would be decided from duplicated/ambiguous positives.
+
 ## Sampling Protocol
 
 For the full audit, use stratified sampling rather than pure random sampling:
@@ -164,9 +277,40 @@ Potential fixes after audit:
 - Add an explicit consume marker for MCP tools where the agent selects/drills into a result.
 - Treat coverage-task invocations as bundle-level consumption rather than single-search consumption.
 
+## Round 1 Repair Scope
+
+The next implementation batch should include:
+
+1. **Result-summary merge reliability**
+   - Add parallel-route result pairing for Claude/Opus path.
+   - Prefer exact `toolUseId` if available.
+   - Otherwise use a per-cat pending FIFO, matching serial route behavior.
+   - Add regression tests where a `tool_result` has result text but no result-side tool name.
+2. **Structured F200 candidates**
+   - Preserve `sourcePath` in `_f200Candidates` for `search_evidence` / `list_recent` where the API
+     already has it.
+   - Do not rely solely on anchors for file-path matching.
+3. **Shell-read consumption**
+   - Parse safe `command_execution` reads (`sed`, `nl`, `cat`, `rg`) into file read targets.
+   - Feed the same normalized paths into both `RecallEventCorrelator` and task trajectory
+     `filesRead`.
+4. **Ambiguity-aware attribution**
+   - Add consuming event provenance and a bundle / result-set marker.
+   - Separate clean per-result consumption from ambiguous coverage-bundle consumption.
+
+Out of scope for this batch:
+
+- explicit human "I used this result" confirmation UI;
+- ranking policy changes based on consumption metrics;
+- OQ-6 / OQ-7 close decisions.
+
 ## Current Judgment
 
 `consumed_json` is currently good enough for coarse trend telemetry, but not accurate enough to
-drive OQ-6/OQ-7 decisions by itself. Before using consumption metrics to change ranking policy,
-we need the attribution audit above and likely at least one implementation fix for shell reads or
-candidate extraction.
+drive OQ-6/OQ-7 decisions by itself. Round 1 sampling changed the repair direction:
+
+- candidate gaps are primarily a route-level result-summary merge bug for Claude/Opus paths;
+- shell reads are a real Codex false-negative class;
+- existing positives are mostly ambiguous bundle-level signals, not clean per-search truth.
+
+Therefore HW-4 should repair the telemetry substrate before any consumption-based ranking decision.
