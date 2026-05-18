@@ -329,7 +329,7 @@ outputVerified = signal_or(
 
 → **Query expansion 不在搜索系统做**（系统是 dumb 的，agent 是 smart 的——领域知识展开由 agent 用 LLM 能力完成）；硬实力只做"可解释的结构性 expansion"（来自 frontmatter aliases / canonical doc 内的 source threads / glossary / graph 显式 alias 边），不做黑盒猜测。引擎层 expansion 违反 KD-8（不用 regex/小模型替猫判断 intent，给数据不给结论）。
 
-**关键发现（铲屎官特别问的"有没有新硬实力 bug"）**：v1.1 全部 merged 后，这一轮 dogfood **没暴露新的紧急硬实力 bug**——核心三入口 + ranking on + Phase D trajectory 都 working。三猫差异 = 检索策略偏好不同，不是引擎缺陷。所以 v1.2 是**能力补充**（coverage 模式）+ **配套软实力**（教猫怎么用），不是紧急 bug 修复。reformulation/abandon rate 偏高（search 43%/55% 等）= ranking on 后的 baseline telemetry，需要 1-2 周趋势数据才能判断；consumption rate 仅 4.3%（94 events / 4 consumed）= 数据量不足无法做强决策，可能 compound window 偏严或猫搜完没真 Read，列入 HW-3 持续观察。
+**关键发现（铲屎官特别问的"有没有新硬实力 bug"）**：v1.1 全部 merged 后，这一轮 dogfood **没暴露新的紧急硬实力 bug**——核心三入口 + ranking on + Phase D trajectory 都 working。三猫差异 = 检索策略偏好不同，不是引擎缺陷。所以 v1.2 是**能力补充**（coverage 模式）+ **配套软实力**（教猫怎么用），不是紧急 bug 修复。2026-05-18 runtime 重启后实测：metrics API 已 live（`GET /api/recall/metrics?days=7&refresh=1` + `X-Cat-Cafe-User`），7 天窗口内采到 **146 条 recall events / 6 条 consumed（4.11%）/ 58 条 trajectories / 380 条 anchor metrics**。这说明"其他猫、其他 thread 调用 search_evidence/list_recent/graph_resolve"已经在被记录；但有效 consumption 样本仍太少，只能看使用体感和趋势，不能据此 close OQ-6/OQ-7 这类排序策略决策。另：58 条 trajectory 里 `outputVerified=0`，说明轨迹采集已工作，但强成功信号（PR merged / CVO accept / reviewer approval / CI passed）还没自动流入。
 
 #### 软实力（SW，1-2 天可落，先做，立刻可验证）
 
@@ -345,7 +345,7 @@ outputVerified = signal_or(
 |---|------|------|------|
 | HW-1 | **coverage/source-map 模式（砚砚 5 步 pipeline）** | (1) 分 scope 配额（每类 source 保底 top-N 避免 docs 挤掉 threads） (2) 可解释 expansion 从 canonical doc 抽 source threads + frontmatter aliases (3) union+dedup (4) 输出 coverage matrix（item/source/谁提到/直接 vs 间接/置信度） (5) 展示 expansion 来源（用户原词 / doc alias / source thread / graph edge）—— 不偷偷扩 | 等 SW-1 跑 1-2 周，从猫的实际使用模式收敛 spec（避免做出"实现正确但语义错"的硬实力，如 DF-1 list_recent timestamp 教训） |
 | HW-2 | **可解释 expansion 数据源结构化** | frontmatter aliases/tags 索引化；canonical doc 内的 source-thread 链接结构化；graph 增 `alias_of` 显式边类型 | HW-1 spec 拍板后做 |
-| HW-3 | **OQ-6/OQ-7 数据驱动决策** | 46 拉的当前数据：`consumed_anchor_not_in_pool_rate=0%`（阈值 15%）/ `maxAnchor=33%`（阈值 50%）→ 结论方向"不需要第三路 RRF / 不需要 query-conditioned prior"。但 consumption rate 仅 4.3% 数据太薄，**"没有证据需要行动" ≠ "有证据证明不需要行动"**——需 1-2 周 ranking on + 真实 dogfood 让数据增长后再 close。**统计窗口必须限定 post-v1.1 + post-SW**（砚砚 P2-2）——v1.1 之前的 events 含 DF-1 timestamp 错乱 + DF-6 静默 0 + 猫还没学 coverage recipe，会系统性压低 consumption rate，拿脏数据做决策 = 错 baseline。**前置依赖（46 P3）**：runtime 同步后需确认 `POST /api/recall/metrics` API live（46 23:09 实测 v1.1 已 merge 但 runtime 尚未 sync 时 404）—— 不需代码改动，runtime 重启自动 freshness gate 解决 | dogfood 持续累积；监控 consumption rate 是否随 SW-1 落地后回升（猫学会搜→Read 链条更完整） |
+| HW-3 | **OQ-6/OQ-7 数据驱动决策** | Runtime 重启后实测：`consumed_anchor_not_in_pool_rate=0%`（阈值 15%）/ `maxAnchor≈33%`（阈值 50%）→ 当前结论方向仍是"暂不需要第三路 RRF / 暂不需要 query-conditioned prior"。但 7 天窗口只有 **146 events / 6 consumed（4.11%）**，数据太薄，**"没有证据需要行动" ≠ "有证据证明不需要行动"**——需 1-2 周 ranking on + 真实 dogfood 让数据增长后再 close。**统计窗口必须限定 post-v1.1 + post-SW**（砚砚 P2-2）——v1.1 之前的 events 含 DF-1 timestamp 错乱 + DF-6 静默 0 + 猫还没学 coverage recipe，会系统性压低 consumption rate，拿脏数据做决策 = 错 baseline。**运行时检查**：metrics API 已 live，正确入口是 `GET /api/recall/metrics?days=...&refresh=1`，需要 `X-Cat-Cafe-User` header | dogfood 持续累积；监控 consumption rate 是否随 SW-1/2/3 落地后回升（猫学会搜→Read 链条更完整） |
 
 #### 优先级与 sequencing
 
@@ -353,6 +353,8 @@ outputVerified = signal_or(
 2. **持续做**：dogfood 自吃猫粮（让 consumption 数据涨 + 让 skill 在真实使用下迭代修订）
 3. **1-2 周后**：基于软实力使用反馈定 HW-1 spec（避免错坐标系硬实力）
 4. **数据够时（≥1000 events / consumption rate ≥10%，统计窗口限定 post-v1.1 + post-SW）**：close OQ-6/OQ-7
+
+> **2026-05-18 Runtime Signal Check（说人话版）**：现在能看见"哪只猫 / 哪个 thread / 哪次 invocation / 用了哪个工具 / 搜了什么 / 返回了哪些候选 / 后面有没有 Read 或消费 / 有没有放弃或换 query / 形成了哪条 trajectory / 读改了哪些文件"。现在还不能可靠判断"排序策略一定更好"或"哪条 trajectory 一定成功"，因为 consumed 只有 6 条，`outputVerified` 强信号自动接入还是 0。GitHub PR merge 在模型里是 `pr_merged` 强信号，endpoint 支持外部注入，但自动桥接仍待接入；CVO accept / reviewer approval / CI check 同理。
 
 > **Review 状态**（2026-05-17）：砚砚 + 46 双 reviewer pass。2 P2 patched（SW-3 nudge 改 intent 触发不绑 result count / HW-3 窗口限定 post-v1.1+post-SW），1 P3 标注（runtime metrics API sync 是 HW-3 前置）。SW-1 题型 5→8（+source-map +absence-check +delta）。Patch commit 接续 `9d475a918`。47 可直接开 SW-1（writing-skills SOP）。
 
@@ -393,6 +395,7 @@ outputVerified = signal_or(
 - [x] AC-D2: outputVerified 推断框架（injectable signal sources + 外部注入 endpoint）上线。v1 自动检测覆盖 invocation status；PR merge / CVO accept / reviewer approval 通过外部注入 endpoint 接入
 - [ ] AC-D2.1: CVO accept + reviewer approval 信号源自动检测（需解析 thread 消息）
 - [ ] AC-D2.2: CI check 信号源（需 F140 GitHub check_run 集成）
+- [ ] AC-D2.3: GitHub PR merge → `pr_merged` trajectory signal 自动桥接（当前 `pr_merged` 是强信号且 endpoint 支持外部注入，但 runtime 实测 58 条 trajectory 的 `outputVerifiedSignals=[]`，自动桥接尚未喂数）
 - [x] AC-D3: 成功轨迹可被 list_recent 或 search_evidence 召回（scope="trajectories"）
 - [x] AC-D4: Cross-Cat Effort Variance 和 ConsumedButNotUsedRate 指标上线
 
@@ -475,6 +478,7 @@ outputVerified = signal_or(
 | 2026-05-17 | v1.1 Batch 2+3 merged（PR #1719）— DF-6 scope/kinds nudge + DF-2 graph truncation + DF-8 CJK RRF boost + DF-3 search explainability + DF-4 trajectory metadata + DF-7 semantic confidence + DF-10 cross-domain penalty. 砚砚 2 轮 local review（4 P1 wiring + 1 P1 privacy + 1 P2 concurrency）+ 云端 4 轮（1 P1 sort + 1 P2 raw explain + 1 P2 verified forwarding） |
 | 2026-05-17 | v1.2 SW-1 delivered — `memory-search-best-practices` skill 创建并注册：8 类题型 recipe、AUDHD coverage 示例、布偶猫家族 Read-before-reason 拉闸、delta 压缩恢复子场景；46 review 放行 + P3 fold |
 | 2026-05-17 | v1.2 SW-2/SW-3 merged（PR #1731）— MCP 三入口 description 补 SEARCH TIPS + `search_evidence` coverage-intent inline nudge（不绑 result count，独立 `📚 Coverage task` marker）。46 review 放行 + 云端 4 轮（P2 English trigger 收窄、P1 file length split、P1 docs frontmatter、P2 mention regex） |
+| 2026-05-18 | Runtime signal check after restart（砚砚）— metrics API live（GET + `X-Cat-Cafe-User`），7d 采到 146 recall events / 6 consumed / 58 trajectories / 380 anchor metrics；跨猫跨 thread 调用已被记录，但 consumed 样本太少，OQ-6/OQ-7 不 close；trajectory `outputVerified=0/58`，PR merge / CVO accept / reviewer approval / CI passed 强信号仍需自动桥接。当前 Codex invocation 的 MCP 连接曾读到 stale schema/nudge（绑定 main repo long-lived MCP process），main `mcp-server` dist 已 rebuild，后续新 invocation / MCP restart 应看到 SW-2/SW-3 |
 
 ## Plan Gate Checklist（writing-plans 前必须解决）
 
