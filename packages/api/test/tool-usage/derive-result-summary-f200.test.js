@@ -77,6 +77,37 @@ describe('F200 candidate extraction in deriveResultSummary', () => {
     assert.equal(candidates[1].docKind, 'decision');
   });
 
+  it('search_evidence extracts sourcePath into candidates (HW-4 根因②b)', () => {
+    // 砚砚 P1-2: structured chain — evidence.ts now passes item.sourcePath
+    // (interfaces.ts:79) → EvidenceResult → MCP renders `  sourcePath: <path>`
+    // machine line → deriveSearchEvidence parses it so path-based shell/Read
+    // consumption can match without relying solely on anchor.
+    const text = `Evidence search results: Found 2 result(s) for "F200":
+
+[high] F200 Memory Recall Eval
+  anchor: F200
+  type: feature
+  sourcePath: docs/features/F200-memory-recall-eval.md
+  > Snippet
+
+[mid] Socio-Technical Harness
+  anchor: F192
+  type: feature
+  sourcePath: docs/features/F192-socio-technical-harness-eval.md
+  > Another`;
+    const summary = deriveResultSummary('search_evidence', text);
+    const candidates = summary['_f200Candidates'];
+    assert.ok(candidates, '_f200Candidates present');
+    assert.equal(candidates[0].anchor, 'F200');
+    assert.equal(
+      candidates[0].sourcePath,
+      'docs/features/F200-memory-recall-eval.md',
+      'sourcePath parsed from machine line for candidate 0',
+    );
+    assert.equal(candidates[1].anchor, 'F192');
+    assert.equal(candidates[1].sourcePath, 'docs/features/F192-socio-technical-harness-eval.md');
+  });
+
   it('search_evidence with no results has no candidates', () => {
     const text = 'No results found for "nonexistent query"';
     const summary = deriveResultSummary('search_evidence', text);

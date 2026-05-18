@@ -57,6 +57,46 @@ describe('F200 Phase D — trajectory persistence via correlation hook', () => {
     ];
   }
 
+  it('HW-4 根因②c: command_execution shell-read feeds files_read_json', async () => {
+    const base = Date.now();
+    const events = [
+      {
+        invocationId: 'inv-sc',
+        sessionId: 's1',
+        threadId: 'thread-sc',
+        catId: 'codex',
+        toolName: 'search_evidence',
+        timestamp: base,
+        turnIndex: 0,
+        status: 'ok',
+        summary: {
+          _f200Candidates: [
+            { anchor: 'F200', rank: 0, sourcePath: 'docs/features/F200-memory-recall-eval.md', docKind: 'feature' },
+          ],
+        },
+      },
+      {
+        invocationId: 'inv-sc',
+        sessionId: 's1',
+        threadId: 'thread-sc',
+        catId: 'codex',
+        toolName: 'command_execution',
+        timestamp: base + 3000,
+        turnIndex: 1,
+        status: 'ok',
+        summary: { command: `/bin/zsh -lc "sed -n '1,260p' docs/features/F200-memory-recall-eval.md"` },
+      },
+    ];
+    await triggerRecallCorrelation(db, events, 'inv-sc', 'codex');
+    const t = db.prepare('SELECT * FROM task_trajectories WHERE invocation_id = ?').get('inv-sc');
+    assert.ok(t, 'trajectory created');
+    const filesRead = JSON.parse(t.files_read_json);
+    assert.ok(
+      filesRead.includes('docs/features/F200-memory-recall-eval.md'),
+      `shell-read path must feed files_read_json, got ${JSON.stringify(filesRead)}`,
+    );
+  });
+
   it('creates a task_trajectories record after correlation', async () => {
     const events = makeSearchThenReadEvents('inv-100', 'opus-46');
     await triggerRecallCorrelation(db, events, 'inv-100', 'opus-46');

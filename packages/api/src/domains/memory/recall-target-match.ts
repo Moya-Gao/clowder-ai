@@ -1,5 +1,6 @@
 // F200: target_match — PG-2 dispatch for consumption detection
 import type { TargetRef } from './f200-types.js';
+import { parseShellReadPaths } from './parse-shell-read-paths.js';
 
 export function targetMatch(method: string, toolInput: Record<string, unknown>, ref: TargetRef): boolean {
   switch (method) {
@@ -44,6 +45,19 @@ export function targetMatch(method: string, toolInput: Record<string, unknown>, 
       if (ref.kind !== 'thread') return false;
       const tid = typeof toolInput.threadId === 'string' ? toolInput.threadId : '';
       return tid !== '' && tid === ref.threadId;
+    }
+    case 'command_execution': {
+      // F200 HW-4 根因②a: Codex reads docs via shell-wrapped commands
+      // (`/bin/zsh -lc "sed -n '1,260p' FILE"`). Parse safe read-only shell
+      // file targets and match against doc sourcePath/anchor (same as Read).
+      if (ref.kind !== 'doc') return false;
+      const command = typeof toolInput.command === 'string' ? toolInput.command : '';
+      if (command === '') return false;
+      for (const p of parseShellReadPaths(command)) {
+        if (ref.sourcePath !== '' && p.includes(ref.sourcePath)) return true;
+        if (ref.anchor && p.includes(ref.anchor)) return true;
+      }
+      return false;
     }
     default:
       return false;

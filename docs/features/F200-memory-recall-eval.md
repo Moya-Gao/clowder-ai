@@ -486,6 +486,7 @@ outputVerified = signal_or(
 | 2026-05-18 | 铲屎官 challenge consumption accuracy：大规模并发搜索下"哪条真的被消费"不能只看反推。砚砚核代码确认当前 consumed = same-cat/same-invocation/windowed tool-event proxy，存在 snippet-only、Bash 读文件、source-thread drilldown、并发 search 归因不唯一、窗口外消费等漏报/误归因风险 → F200 v1.2 增 HW-4 attribution audit，作为 HW-3 OQ-6/OQ-7 数据决策前置 |
 | 2026-05-18 | 铲屎官拍板 HW-4 必须修：当前 eval 采集管道在跑，但 consumption attribution 不可靠，F200 consumption-based eval 暂不能作为可信裁判。HW-4 从"审计项"升为 P1 修复项：先抽样验证，再修 candidate extraction / shell-read consumption / sourcePath/resultSetId 归因，修复前不 close OQ-6/OQ-7 |
 | 2026-05-18 | HW-4 attribution audit Round 1（砚砚）— 分层抽样确认：候选缺失主因是 Claude/Opus parallel route result-summary 未 merge（Codex MCP path 候选完整），不是单纯 `deriveSearchEvidence` 正则；Codex shell-read 是系统性 false negative；6 条 consumed positive 全是 2 个 invocation 内后续 `graph_resolve(F200)` 的 ambiguous bundle signal。修复方向定为 parallel result pairing + sourcePath candidates + shell-read parsing + ambiguity-aware resultSet/bundle provenance。 |
+| 2026-05-18 | HW-4 attribution fix 实现完成（Opus-47，feat/f200-hw4）— 四件 RED→GREEN：parallel per-cat FIFO（`4183dd392`）/ shell-read parser+consumption+trajectory（`76474a96f`+`acd4cebc9`）/ EvidenceResult.sourcePath 结构化链路（`fd8d3795f`）/ schema V23 ambiguity-aware resultSet+clarity+provenance（`d04ead1f6`）。`memory/*` 1074 pass 0 fail（schema 守护版本 23 同步）。砚砚 plan R1 review pass（2 P1+1 P2 已修）。Out of scope：human-confirm UI / ranking 改 / OQ-6-7 close 未碰。待 quality-gate + 跨族 PR review |
 
 ## Plan Gate Checklist（writing-plans 前必须解决）
 

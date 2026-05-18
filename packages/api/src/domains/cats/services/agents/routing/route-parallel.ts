@@ -480,6 +480,16 @@ export async function* routeParallel(
     return stripper;
   }
 
+  // F200 HW-4 根因①: per-cat pending tool FIFO. Claude/Opus parallel
+  // tool_result often carries no result-side toolName/toolUseId/mcp label;
+  // without a fallback the result-side summary (incl. _f200Candidates) is
+  // never merged (audit Round 1: 59.2% candidates_json=[]). route-serial.ts
+  // has consumePendingToolResult; parallel had none. Keyed by catId because
+  // parallel runs multiple cats concurrently.
+  // 砚砚 HW-4 R1-2 review: entries carry toolUseId so an exact result can
+  // splice its own entry by id (not the first same-name), preventing
+  // same-name queue drift (search→graph→search).
+  const pendingToolResultsByCat = new Map<string, Array<{ toolName: string; toolUseId?: string }>>();
   const invocationStartedAt = Date.now();
   for await (const msg of mergeStreams(streams, (idx, err) => {
     log.error({ streamIndex: idx, err }, 'Parallel stream error');
@@ -642,6 +652,14 @@ export async function* routeParallel(
             summary,
           })
           .catch(() => {});
+        // F200 HW-4 根因①: enqueue into per-cat FIFO so a later nameless
+        // result-side tool_result can still be paired back to this tool.
+        {
+          const pk = msg.catId ?? 'unknown';
+          const pq = pendingToolResultsByCat.get(pk) ?? [];
+          pq.push({ toolName: normalizedToolName, toolUseId: msg.toolUseId });
+          pendingToolResultsByCat.set(pk, pq);
+        }
         // 砚砚 二审 P1-4: Skill tool_use → SkillLoadEventLog (AS-4)
         if (rawToolName === 'Skill' && deps.skillLoadEventLog) {
           const skillName =
@@ -688,6 +706,32 @@ export async function* routeParallel(
               const labelMatch = /\[tool:([\w\-:/_.]+)\]/.exec(firstLine);
               if (labelMatch?.[1]) toolNameCandidate = labelMatch[1];
             }
+          }
+        }
+        // F200 HW-4 根因①: per-cat pending FIFO. Nameless result-side
+        // (Claude/Opus parallel) → FIFO fallback (mirrors route-serial.ts:197-227
+        // pure-FIFO branch). Resolved name → splice its FIFO entry so a later
+        // nameless result can't mis-pair (砚砚 R1 review: queue-drift guard).
+        {
+          const resultMsg2 = effectiveMsg as { catId?: string; toolUseId?: string };
+          const cq = resultMsg2.catId ? pendingToolResultsByCat.get(resultMsg2.catId) : undefined;
+          if (toolNameCandidate) {
+            if (cq) {
+              // 砚砚 HW-4 R1-2: exact result → splice its OWN entry by
+              // toolUseId when present (precise); else first same-name.
+              // Prevents same-name drift (search→graph→search).
+              let si = -1;
+              if (resultMsg2.toolUseId) {
+                si = cq.findIndex((e) => e.toolUseId === resultMsg2.toolUseId);
+              }
+              if (si < 0) {
+                const nn = normalizeMcpToolName(toolNameCandidate);
+                si = cq.findIndex((e) => e.toolName === nn);
+              }
+              if (si >= 0) cq.splice(si, 1);
+            }
+          } else if (cq && cq.length > 0) {
+            toolNameCandidate = cq.shift()!.toolName;
           }
         }
         if (toolNameCandidate) {

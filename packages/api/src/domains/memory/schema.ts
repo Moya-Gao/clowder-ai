@@ -66,7 +66,7 @@ END`,
 END`,
 ];
 
-export const CURRENT_SCHEMA_VERSION = 22;
+export const CURRENT_SCHEMA_VERSION = 23;
 
 // F163 Phase A: experiment infrastructure tables (cohorts, suggestions, logs)
 export const SCHEMA_V13_TABLES = `
@@ -639,6 +639,19 @@ export function applyMigrations(db: Database.Database): void {
       db.exec('CREATE INDEX IF NOT EXISTS idx_trajectories_verified ON task_trajectories(output_verified)');
     } catch {}
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(22, new Date().toISOString());
+  }
+
+  // V23: F200 HW-4 根因③ — ambiguity-aware attribution (砚砚 audit Round 1
+  // Result 3): bundle id for same-invocation search groups + clean/ambiguous
+  // attribution clarity. Per-consumed provenance lives in consumed_json.
+  if (currentVersion < 23) {
+    try {
+      db.exec('ALTER TABLE recall_events ADD COLUMN result_set_id TEXT');
+    } catch {}
+    try {
+      db.exec('ALTER TABLE recall_events ADD COLUMN attribution_clarity TEXT');
+    } catch {}
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(23, new Date().toISOString());
   }
 }
 

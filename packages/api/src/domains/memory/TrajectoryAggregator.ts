@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import type { TaskTrajectory } from './f200-types.js';
+import { parseShellReadPaths } from './parse-shell-read-paths.js';
 
 const FILE_TOOLS_READ = new Set(['Read']);
 const FILE_TOOLS_MODIFY = new Set(['Edit', 'Write']);
@@ -52,6 +53,19 @@ export class TrajectoryAggregator {
     const seenModified = new Set<string>();
 
     for (const e of events) {
+      // F200 HW-4 根因②c: Codex shell-reads (sed/nl/cat/rg) are logged as
+      // command_execution — reuse the same parser as RecallEventCorrelator
+      // (single source of truth) so trajectory filesRead matches consumption.
+      if (e.toolName === 'command_execution') {
+        const cmd = typeof e.summary?.command === 'string' ? e.summary.command : '';
+        for (const p of parseShellReadPaths(cmd)) {
+          if (!seenRead.has(p)) {
+            filesRead.push(p);
+            seenRead.add(p);
+          }
+        }
+        continue;
+      }
       const filePath = (e.summary?.file_path as string) ?? (e.summary?.path as string) ?? null;
       if (!filePath) continue;
 

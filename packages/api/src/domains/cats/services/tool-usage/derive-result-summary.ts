@@ -69,17 +69,20 @@ function deriveSearchEvidence(text: string): ResultSummary {
   const firstHit = /\[(high|mid|low)\]/.exec(text);
   if (firstHit?.[1]) summary.topConfidence = firstHit[1];
 
-  // F200: extract per-result candidates (anchor + docKind)
-  const f200Cands: Array<{ anchor: string; rank: number; docKind?: string }> = [];
-  const anchorLineRe = /^\s+anchor:\s+(\S+)/gm;
-  const typeLineRe = /^\s+type:\s+(\S+)/gm;
-  let am: RegExpExecArray | null;
-  am = anchorLineRe.exec(text);
-  while (am !== null) {
-    const anchor = am[1]!;
-    const tm = typeLineRe.exec(text);
-    f200Cands.push({ anchor, rank: f200Cands.length, docKind: tm?.[1] });
-    am = anchorLineRe.exec(text);
+  // F200: extract per-result candidates (anchor + docKind + sourcePath).
+  // HW-4 根因②b (砚砚 P1-2): block-scoped so the optional sourcePath/type
+  // lines pair to their own anchor instead of a global regex drifting
+  // across result blocks when sourcePath is absent on some results.
+  const f200Cands: Array<{ anchor: string; rank: number; docKind?: string; sourcePath?: string }> = [];
+  const anchorMatches = [...text.matchAll(/^\s+anchor:\s+(\S+)/gm)];
+  for (let i = 0; i < anchorMatches.length; i++) {
+    const anchor = anchorMatches[i]![1]!;
+    const blockStart = anchorMatches[i]!.index ?? 0;
+    const blockEnd = i + 1 < anchorMatches.length ? (anchorMatches[i + 1]!.index ?? text.length) : text.length;
+    const block = text.slice(blockStart, blockEnd);
+    const docKind = /^\s+type:\s+(\S+)/m.exec(block)?.[1];
+    const sourcePath = /^\s+sourcePath:\s+(\S+)/m.exec(block)?.[1];
+    f200Cands.push({ anchor, rank: f200Cands.length, docKind, ...(sourcePath ? { sourcePath } : {}) });
   }
   if (f200Cands.length > 0) summary._f200Candidates = f200Cands;
 

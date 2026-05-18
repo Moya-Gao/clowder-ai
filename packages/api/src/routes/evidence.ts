@@ -174,6 +174,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         sourceType: mapKindToSourceType(item.kind),
         boostSource: effectiveBoostSource,
         ...(item.authority ? { authority: item.authority } : {}),
+        ...(item.sourcePath ? { sourcePath: item.sourcePath } : {}),
         ...(singleSource ? { source: singleSource } : {}),
         ...(item.passages ? { passages: item.passages } : {}),
         ...(item.matchReason ? { matchReason: item.matchReason } : {}),

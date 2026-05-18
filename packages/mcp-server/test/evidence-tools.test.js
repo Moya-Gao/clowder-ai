@@ -89,6 +89,34 @@ describe('MCP Evidence Tools', () => {
     assert.ok(!result.content[0].text.includes('Evidence store error'), 'must not misreport graceful degradation');
   });
 
+  test('HW-4 根因②b: renders sourcePath machine line for path-based consumption match', async () => {
+    const { handleSearchEvidence } = await import('../dist/tools/evidence-tools.js');
+
+    globalThis.fetch = async () => ({
+      ok: true,
+      json: async () => ({
+        degraded: false,
+        results: [
+          {
+            title: 'F200 Memory Recall Eval',
+            anchor: 'F200',
+            snippet: 'eval substrate',
+            confidence: 'high',
+            sourceType: 'feature',
+            sourcePath: 'docs/features/F200-memory-recall-eval.md',
+          },
+        ],
+      }),
+    });
+
+    const result = await handleSearchEvidence({ query: 'F200' });
+    const text = result.content[0].text;
+    assert.ok(
+      text.includes('sourcePath: docs/features/F200-memory-recall-eval.md'),
+      'expected stable `sourcePath:` machine line in rendered output (deriveSearchEvidence parses it)',
+    );
+  });
+
   test('Hook F-1: appends Read reminder when high/mid doc anchors present', async () => {
     const { handleSearchEvidence } = await import('../dist/tools/evidence-tools.js');
 

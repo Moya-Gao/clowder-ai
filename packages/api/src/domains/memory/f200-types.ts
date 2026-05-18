@@ -16,7 +16,9 @@ export type ConsumedMethod =
   | 'read_session_events'
   | 'read_session_digest'
   | 'read_invocation_detail'
-  | 'get_thread_context';
+  | 'get_thread_context'
+  // F200 HW-4 根因②a: Codex shell-read (`/bin/zsh -lc "sed ... FILE"`)
+  | 'command_execution';
 
 export interface RecallCandidate {
   anchor: string;
@@ -33,6 +35,10 @@ export interface ConsumedEntry {
   rank: number;
   method: ConsumedMethod;
   dwellProxy?: number;
+  /** F200 HW-4 根因③: consuming event provenance (toolName@timestamp) +
+   * its window distance — so a positive isn't an opaque proxy. */
+  consumingEventId?: string;
+  distance?: number;
 }
 
 export interface RecallEvent {
@@ -52,6 +58,12 @@ export interface RecallEvent {
   tokenCost: number;
   timestamp: number;
   shadowRankingJson?: string | null;
+  /** F200 HW-4 根因③: same-invocation searches before the first downstream
+   * read/graph/shell-read share one bundle id (砚砚 audit Result 3). */
+  resultSetId?: string;
+  /** F200 HW-4 根因③: 'clean' = unique single-search attribution;
+   * 'ambiguous' = overlapping bundle candidate pool (not per-search truth). */
+  attributionClarity?: 'clean' | 'ambiguous';
 }
 
 export interface TaskTrajectory {

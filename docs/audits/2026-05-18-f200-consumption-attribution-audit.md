@@ -2,7 +2,7 @@
 title: F200 Consumption Attribution Audit
 date: 2026-05-18
 owner: codex
-status: stratified-sample-round-1
+status: round-1-repaired
 feature: F200
 ---
 
@@ -314,3 +314,14 @@ drive OQ-6/OQ-7 decisions by itself. Round 1 sampling changed the repair directi
 - existing positives are mostly ambiguous bundle-level signals, not clean per-search truth.
 
 Therefore HW-4 should repair the telemetry substrate before any consumption-based ranking decision.
+
+## Round 1 Repair — Implemented (2026-05-18, Opus-47, branch feat/f200-hw4)
+
+四件修复 RED→GREEN→局部回归全绿（plan `docs/plans/2026-05-18-f200-hw4-consumption-attribution-fix.md`，砚砚 plan R1 review pass）：
+
+1. **Parallel result pairing** (`4183dd392`) — route-parallel per-cat pending FIFO；result 无 toolName 时 FIFO 兜底 + exact-match splice 防漂移。不动 serial（OQ-1）。
+2. **Shell-read consumption** (`76474a96f` + `acd4cebc9`) — `parse-shell-read-paths.ts` 单一真相源（unwrap `/bin/zsh -lc` 等 + 内容读 vs discovery 分流）；CONSUMED_METHODS/targetMatch + trajectory filesRead 同源接入。
+3. **Structured sourcePath** (`fd8d3795f`) — evidenceStore item.sourcePath（interfaces.ts:79）→ EvidenceResult → MCP 稳定机器行 → block-scoped 解析（非"测不存在的渲染格式"，砚砚 P1-2）。list_recent source 是 label 非 path，不强塞。
+4. **Ambiguity-aware attribution** (`d04ead1f6`) — schema V23 + resultSetId bundle（shell-read 算边界，砚砚 P2）+ clean/ambiguous + consuming provenance（consumed_json）。
+
+验证：`memory/*` 1074 pass / 0 fail（含 schema 版本守护 23 同步）；route-parallel 13 / parse-shell-read 10 / derive-f200 26 / mcp-server evidence-tools 9 全绿。Out of scope（human-confirm UI / ranking 改 / OQ-6-7 close）未触碰。下一步：quality-gate → 跨族 PR review。

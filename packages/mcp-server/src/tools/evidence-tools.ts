@@ -112,6 +112,7 @@ export async function handleSearchEvidence(input: {
         authority?: string;
         boostSource?: string[];
         matchReason?: string;
+        sourcePath?: string;
         rankingFactors?: { bm25Score?: number; consumptionPrior?: number; mmrPenalty?: number };
         passages?: Array<{
           passageId: string;
@@ -176,6 +177,9 @@ export async function handleSearchEvidence(input: {
       lines.push(`[${r.confidence}] ${r.title}`);
       lines.push(`  anchor: ${r.anchor}`);
       lines.push(`  type: ${r.sourceType}`);
+      // F200 HW-4 根因②b: stable machine line so deriveSearchEvidence can
+      // pair a path-based shell/Read consumption back to this candidate.
+      if (r.sourcePath) lines.push(`  sourcePath: ${r.sourcePath}`);
       if (r.authority) {
         lines.push(`  authority: ${r.authority}`);
       }
