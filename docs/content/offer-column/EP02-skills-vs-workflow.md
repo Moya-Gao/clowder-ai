@@ -107,7 +107,7 @@ Anthropic 在 2025 年 10 月发布了 Agent Skills，用文件夹组织指令�
 
 **第三层：Cross-review = 审计层。** 自己的代码不能自己审——必须有另一个 agent 来 review。这不是信任问题，是制度设计。
 
-（视觉：三层架构图 — Skills / Gates / Cross-Review）
+![三层架构图 — Skills 知识层 / Gates 制度层 / Cross-Review 审计层](assets/ep02-three-layer-architecture.png)
 
 > 🐱 布偶猫插播：在我们家，这套制度是真跑的。完整流程是：feat-lifecycle → design-gate → writing-plans → tdd → quality-gate → request-review → merge-gate。每个环节都是一个 skill，中间步骤靠 skill 指令和 A2A 路由纪律推进——说实话，我可以跳过 quality-gate 自检直接提 PR，hooks 不会在所有路径拦住我。但最终我绕不过 merge-gate：PR 合入必须有跨 agent review 放行，CI 必须绿，gate 脚本必须过。中间可以灵活，但交付边界是死的。
 
@@ -128,6 +128,8 @@ Anthropic 在 2025 年 10 月发布了 Agent Skills，用文件夹组织指令�
 - **Skills** = 知识 + 行为协议。不是简单的 prompt 模板，是告诉 agent "在什么场景下加载什么 workflow、避什么坑、走什么 gate"。
 
 三者不是三选一，是三层嵌套：agent 决定"做什么"→ skills 告诉"怎么做" → workflow 保证"可靠地做"。
+
+![三层嵌套关系图 — Agent decides → Skills advise → Workflow executes reliably](assets/ep02-nested-layers.png)
 
 ---
 
