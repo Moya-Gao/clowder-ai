@@ -9,7 +9,7 @@ community_pr: clowder-ai#645, clowder-ai#662, clowder-ai#669
 
 # F190: Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片
 
-> **Status**: in-progress (S-4/S-5 执行) | **Completed**: 2026-05-13 (A-C), 2026-05-17 (F/G/S-2/token convergence) | **Owner**: Community + Maintainers | **Priority**: P1
+> **Status**: done | **Completed**: 2026-05-13 (A-C), 2026-05-17 (F/G/S-2/token convergence), 2026-05-18 (S-4/S-5 CSS execution) | **Owner**: Community + Maintainers | **Priority**: P1
 
 ## Why
 
@@ -245,6 +245,8 @@ close_gate_report:
 | 2026-05-17 | CVO 决策同步：D-7 AppShell ownership deferred（"先不做，记录一下"）；S-2 Hub 重复降级为代码清理（用户层已无 Hub 入口）；Signal enrichment + thread nav 审计纠正（两项已实现，非丢失） |
 | 2026-05-17 | S-2 Hub 死代码清理完成 (PR #1742)；S-4/S-5 三猫讨论收敛 spec 已定（字号五档 + 间距 role-based + 圆角四档）；CVO 授权自决执行（"你们定义就行，别太夸张"） |
 | 2026-05-17 | CVO 确认 W-2 已关闭（"signal我拍板了n次"）；F190 剩余仅 S-4/S-5 CSS 执行 + D-7 deferred |
+| 2026-05-18 | S-4/S-5 CSS token unification merged (PR #1748, `8e439a187`): 133 files typography 5-tier + border-radius 4-tier; 砚砚 P2 fix (role-aware 10px classification) + cloud review 0 P1/P2 |
+| 2026-05-18 | F190 所有 actionable 项完成。剩余：D-7 AppShell ownership deferred（CVO："先不做"）；10px budget 收敛 + biome lint 规则属独立后续任务 |
 
 ## Phase F: Console IA Convergence — 入口去重 + Shell 一致性（验证后 Gap 清单）
 
@@ -586,8 +588,8 @@ G-1~G-6 全是 CSS class 替换，无逻辑改动。一个 PR 让 reviewer 做�
 |---|------|------|----------|--------|
 | D-7 | AppShell / ChatContainer（🔴 红区） | desktop sidebar owner 错位 | AppShell 接管 desktop ThreadSidebar | **Deferred**（CVO 2026-05-17: "先不做，记录一下"） |
 | S-2 | Hub/Settings 重复 | IM/Env/Governance 三处 | Hub 改为摘要 + deep-link | ✅ **已清理** (PR #1742)：CatCafeHub modal + 8 Hub-only 组件 + 6 test 删除（~3,100 行）；3 callers 重定向到 `/settings` deep-link；OpsContent URL deep-linking (`ops=`/`obs=`) |
-| S-4 | Console tokens | font / color token drift | 字号五档收敛（见下方 spec）；消灭 raw px 值 | 🚧 spec 已定，待实现 |
-| S-5 | Thread/Top/Status visual | 视觉不一致 | 间距/圆角 role-based 规范（见下方 spec）；不一刀切 | 🚧 spec 已定，待实现 |
+| S-4 | Console tokens | font / color token drift | 字号五档收敛（见下方 spec）；消灭 raw px 值 | ✅ PR #1748 merged（133 files CSS-only，砚砚 review PASS + cloud review 0 P1/P2） |
+| S-5 | Thread/Top/Status visual | 视觉不一致 | 间距/圆角 role-based 规范（见下方 spec）；不一刀切 | ✅ PR #1748 merged（同 PR，border-radius 四档统一） |
 
 #### P1 — Visual Design Pattern 跟进（CVO 2026-05-15 确认）
 
