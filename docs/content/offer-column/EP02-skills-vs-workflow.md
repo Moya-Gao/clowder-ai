@@ -167,7 +167,7 @@ Anthropic 在 2025 年 10 月发布了 Agent Skills，用文件夹组织指令�
 
 **第二句讲问题：** "纯 Workflow 的问题是组合爆炸和能力浪费——几百个节点的 DAG 维护成本比代码还高，而且限制了模型的自主能力。纯 Skills 的问题是 agent 可能不遵循——需要 eval gate 和 cross-review 做制度保障。"
 
-**第三句亮实战：** "我在自己的系统里三层都用了——Skills 负责 SOP 知识，quality-gate 和 merge-gate 做硬门禁，跨 agent review 做审计。agent 可以灵活决策，但副作用执行必须走确定性骨架。"
+**第三句亮实战：** "我在自己的系统里三层都用了——Skills 负责 SOP 知识，quality-gate 提供自检标准，merge-gate / PR review / CI 才是最终硬门禁，跨 agent review 做审计。agent 可以灵活决策，但副作用执行和合入边界必须走确定性骨架。"
 
 面试官追问，你就讲跳步踩坑的故事。
 
