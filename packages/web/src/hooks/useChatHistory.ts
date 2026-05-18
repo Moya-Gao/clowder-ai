@@ -549,6 +549,34 @@ export function useChatHistory(threadId: string) {
     [cancelPendingRestore],
   );
 
+  // Fix: /queue returns before /messages. If /queue says idle it clears
+  // hasActiveInvocation. When /messages then returns draft messages (isDraft=true,
+  // meaning a cat is still streaming), we must restore the active invocation state
+  // so the cancel button stays visible.
+  const restoreActiveFromDrafts = useCallback(
+    (forThread: string, rawMessages: Array<{ isDraft?: boolean; catId?: string }>) => {
+      const draftCatIds = [...new Set(rawMessages.filter((m) => m.isDraft && m.catId).map((m) => m.catId!))];
+      if (draftCatIds.length === 0) return;
+
+      const store = useChatStore.getState();
+      const isCurrentThread = store.currentThreadId === forThread;
+      const threadState = store.threadStates[forThread];
+      const alreadyActive = isCurrentThread ? store.hasActiveInvocation : threadState?.hasActiveInvocation === true;
+      if (alreadyActive) return;
+
+      store.setThreadHasActiveInvocation(forThread, true);
+      for (const catId of draftCatIds) {
+        const syntheticId = `hydrated-${forThread}-${catId}`;
+        if (isCurrentThread) {
+          store.addActiveInvocation(syntheticId, catId, 'execute');
+        } else {
+          store.addThreadActiveInvocation(forThread, syntheticId, catId, 'execute');
+        }
+      }
+    },
+    [],
+  );
+
   // Fetch history page from API
   // When replace=true, clears existing messages before setting (used for force-refresh).
   const fetchHistory = useCallback(
@@ -690,6 +718,7 @@ export function useChatHistory(threadId: string) {
           // 到 1 bubble per (catId, invocationId)，确保 hydrate ≡ live。
           const projectedMerged = projectCanonicalBubbles({ records: mergedMsgs }).messages;
           hydrateThread(fetchForThread, projectedMerged, data.hasMore ?? false);
+          restoreActiveFromDrafts(fetchForThread, data.messages ?? []);
           return true;
         }
         // F194 Phase Z8 AC-Z22 + R2 P2 (砚砚): page-boundary projection — project
@@ -703,6 +732,7 @@ export function useChatHistory(threadId: string) {
         // Replace store with projected union (cleaner than prepend + post-merge).
         // hasMore propagates older-history pagination state.
         replaceMessages(unionProjected, data.hasMore ?? false);
+        restoreActiveFromDrafts(fetchForThread, data.messages ?? []);
         // F164: Snapshot fetched messages to IndexedDB (fire-and-forget)
         const snapshotState = useChatStore.getState();
         if (snapshotState.currentThreadId === fetchForThread) {
@@ -721,7 +751,7 @@ export function useChatHistory(threadId: string) {
         }
       }
     },
-    [setLoadingHistory, prependHistory, replaceMessages, hydrateThread, threadId],
+    [setLoadingHistory, prependHistory, replaceMessages, hydrateThread, restoreActiveFromDrafts, threadId],
   );
 
   const fetchTasks = useCallback(async () => {
