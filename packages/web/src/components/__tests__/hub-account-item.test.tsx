@@ -100,6 +100,12 @@ describe('HubAccountItem', () => {
       root.render(<HubAccountItem profile={profile} busy={false} onSave={vi.fn(async () => {})} onDelete={() => {}} />);
     });
 
+    const expandBtn = container.querySelector<HTMLButtonElement>('button[aria-label="展开"]');
+    expect(expandBtn).toBeTruthy();
+    await act(async () => {
+      expandBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
     expect(container.textContent).toContain('+ 添加');
     expect(container.textContent).not.toContain('编辑');
     expect(container.textContent).not.toContain('绑定范围');
@@ -124,6 +130,12 @@ describe('HubAccountItem', () => {
 
     await act(async () => {
       root.render(<HubAccountItem profile={profile} busy={false} onSave={vi.fn(async () => {})} onDelete={() => {}} />);
+    });
+
+    const expandBtn = container.querySelector<HTMLButtonElement>('button[aria-label="展开"]');
+    expect(expandBtn).toBeTruthy();
+    await act(async () => {
+      expandBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
     expect(container.textContent).not.toContain('测试');

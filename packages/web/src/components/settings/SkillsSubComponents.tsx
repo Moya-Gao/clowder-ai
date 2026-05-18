@@ -6,8 +6,21 @@ import {
   settingsResourceCardClass,
   settingsResourceRowClass,
 } from '../SettingsResourceCard';
+import {
+  SettingsBadge,
+  SettingsCard,
+  SettingsCardSubSection,
+  SettingsEmptyState,
+  SettingsFilterTabs,
+  SettingsIconButton,
+  SettingsPrimaryButton,
+  SettingsSearchInput,
+  SettingsStatusStrip,
+  SettingsText,
+  SettingsToolbar,
+} from './primitives';
 import type { SettingsSkillItem, SkillsData, SkillsStaleness } from './skills-types';
-import { dependencyTone, PROVIDER_KEYS } from './skills-types';
+import { PROVIDER_KEYS } from './skills-types';
 
 export function HealthStrip({
   summary,
@@ -26,47 +39,36 @@ export function HealthStrip({
   const isStale = staleness?.stale ?? false;
 
   return (
-    <div
-      className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs ${
-        hasIssues
-          ? 'border-conn-amber-ring bg-conn-amber-bg text-conn-amber-text'
-          : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-      }`}
+    <SettingsStatusStrip
+      tone={hasIssues ? 'warn' : 'success'}
+      bordered
+      size="xs"
+      actions={
+        isStale ? (
+          <SettingsPrimaryButton onClick={onSync} disabled={syncing}>
+            {syncing ? 'Syncing...' : 'Sync'}
+          </SettingsPrimaryButton>
+        ) : undefined
+      }
     >
-      <div className="flex items-center gap-3">
-        <span className={summary.allMounted ? 'text-emerald-600' : ''}>
-          {summary.allMounted ? '挂载正常' : '挂载异常'}
-        </span>
-        <span className="text-cafe-muted">·</span>
-        <span className={summary.registrationConsistent ? 'text-emerald-600' : ''}>
-          {summary.registrationConsistent ? '注册一致' : '注册不一致'}
-        </span>
-        {conflictCount > 0 && (
-          <>
-            <span className="text-cafe-muted">·</span>
-            <span>{conflictCount} 冲突</span>
-          </>
-        )}
-        {isStale && (
-          <>
-            <span className="text-cafe-muted">·</span>
-            <span className="font-semibold">有更新</span>
-            {(staleness?.newSkills.length ?? 0) > 0 && <span>+{staleness?.newSkills.length} 新增</span>}
-            {(staleness?.removedSkills.length ?? 0) > 0 && <span>-{staleness?.removedSkills.length} 移除</span>}
-          </>
-        )}
-      </div>
-      {isStale && (
-        <button
-          type="button"
-          disabled={syncing}
-          onClick={onSync}
-          className="rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-        >
-          {syncing ? 'Syncing...' : 'Sync'}
-        </button>
+      {summary.allMounted ? <SettingsText tone="emerald">挂载正常</SettingsText> : <span>挂载异常</span>}
+      <SettingsText tone="muted">·</SettingsText>
+      {summary.registrationConsistent ? <SettingsText tone="emerald">注册一致</SettingsText> : <span>注册不一致</span>}
+      {conflictCount > 0 && (
+        <>
+          <SettingsText tone="muted">·</SettingsText>
+          <span>{conflictCount} 冲突</span>
+        </>
       )}
-    </div>
+      {isStale && (
+        <>
+          <SettingsText tone="muted">·</SettingsText>
+          <span className="font-semibold">有更新</span>
+          {(staleness?.newSkills.length ?? 0) > 0 && <span>+{staleness?.newSkills.length} 新增</span>}
+          {(staleness?.removedSkills.length ?? 0) > 0 && <span>-{staleness?.removedSkills.length} 移除</span>}
+        </>
+      )}
+    </SettingsStatusStrip>
   );
 }
 
@@ -94,23 +96,30 @@ export function SkillRow({
   return (
     <div className={settingsResourceCardClass}>
       <div className={settingsResourceRowClass}>
-        <button type="button" onClick={onPreview} className="flex min-w-0 flex-1 items-center gap-4 text-left">
+        <button
+          type="button"
+          onClick={onPreview}
+          className="flex min-w-0 flex-1 items-center gap-4"
+          style={{ textAlign: 'left' }}
+        >
           <div className={settingsResourceAvatarClass}>{skill.name.charAt(0).toUpperCase()}</div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-cafe">{skill.name}</p>
-            <p className="mt-0.5 truncate text-xs text-cafe-secondary">{skill.trigger || '—'}</p>
-            <p className="mt-0.5 text-label text-cafe-muted">{skill.category || '未分类'}</p>
+            <SettingsText as="p" variant="sm" tone="default" className="font-bold">
+              {skill.name}
+            </SettingsText>
+            <SettingsText as="p" tone="secondary" className="mt-0.5 truncate">
+              {skill.trigger || '—'}
+            </SettingsText>
+            <SettingsText as="p" tone="muted" className="mt-0.5">
+              {skill.category || '未分类'}
+            </SettingsText>
           </div>
         </button>
 
         <div className="flex shrink-0 items-center gap-2">
-          <span
-            className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-              allMounted ? 'bg-conn-emerald-bg text-conn-emerald-text' : 'bg-conn-amber-bg text-conn-amber-text'
-            }`}
-          >
+          <SettingsBadge tone={allMounted ? 'emerald' : 'amber'}>
             {allMounted ? '全部挂载' : `${skill.governance.mountedCount}/${PROVIDER_KEYS.length} 已挂载`}
-          </span>
+          </SettingsBadge>
         </div>
 
         <div className="flex shrink-0 items-center gap-2 pl-2">
@@ -126,17 +135,15 @@ export function SkillRow({
                 title={skill.controls.enabled ? '全局禁用' : '全局启用'}
               />
               {catFamilies.length > 0 && Object.keys(skill.controls.cats).length > 0 && (
-                <button
-                  type="button"
+                <SettingsIconButton
                   onClick={(e) => {
                     e.stopPropagation();
                     onExpandCats(skill.id);
                   }}
-                  className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-[var(--console-hover-bg)] text-cafe-muted transition-colors hover:text-cafe-secondary"
                   title="按猫开关"
                 >
                   <HubIcon name={isExpanded ? 'chevron-up' : 'chevron-down'} className="h-3.5 w-3.5" />
-                </button>
+                </SettingsIconButton>
               )}
             </>
           )}
@@ -144,14 +151,15 @@ export function SkillRow({
       </div>
 
       {skill.governance.requiresMcp.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 px-4 pb-3">
+        <div className="flex flex-wrap gap-1.5 pb-3" style={{ paddingInline: '1rem' }}>
           {skill.governance.requiresMcp.map((dep) => (
-            <span
+            <SettingsBadge
               key={`${skill.id}:${dep.id}`}
-              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${dependencyTone(dep.status)}`}
+              tone={dep.status === 'ready' ? 'emerald' : dep.status === 'missing' ? 'red' : 'amber'}
+              size="xxs"
             >
               {dep.id}:{dep.status}
-            </span>
+            </SettingsBadge>
           ))}
         </div>
       )}
@@ -183,21 +191,24 @@ function PerCatSkillToggles({
   onToggle: (skillId: string, enabled: boolean, catId?: string) => void;
 }) {
   return (
-    <div className="border-t border-[var(--console-border-soft)] px-4 pb-3 pt-2">
-      <span className="text-[10px] font-medium uppercase tracking-wider text-cafe-muted">按猫开关</span>
+    <SettingsCardSubSection label="按猫开关">
       <div className="mt-1.5 space-y-1">
         {catFamilies.map((family) => {
           const relevantCats = family.catIds.filter((catId) => catId in cats);
           if (relevantCats.length === 0) return null;
           return (
             <div key={family.id} className="space-y-1">
-              {relevantCats.length > 1 && <span className="text-[10px] text-cafe-muted">{family.name}</span>}
+              {relevantCats.length > 1 && (
+                <SettingsText variant="micro" tone="muted">
+                  {family.name}
+                </SettingsText>
+              )}
               {relevantCats.map((catId) => {
                 const enabled = cats[catId] ?? false;
                 const busy = toggling === `${skillId}:${catId}`;
                 return (
                   <div key={catId} className="flex items-center justify-between">
-                    <span className="text-xs text-cafe-secondary">{catId}</span>
+                    <SettingsText tone="secondary">{catId}</SettingsText>
                     <SettingsResourceToggleSwitch
                       enabled={enabled}
                       busy={busy}
@@ -213,6 +224,61 @@ function PerCatSkillToggles({
           );
         })}
       </div>
-    </div>
+    </SettingsCardSubSection>
+  );
+}
+
+export function SkillsFilterToolbar({
+  categories,
+  activeCategory,
+  onCategoryChange,
+  query,
+  onQueryChange,
+}: {
+  categories: string[];
+  activeCategory: string;
+  onCategoryChange: (c: string) => void;
+  query: string;
+  onQueryChange: (q: string) => void;
+}) {
+  const tabs = categories.map((c) => ({ key: c, label: c }));
+  return (
+    <SettingsToolbar>
+      <SettingsFilterTabs tabs={tabs} activeKey={activeCategory} onTabChange={onCategoryChange} />
+      <SettingsSearchInput
+        icon={<HubIcon name="search" className="h-3.5 w-3.5" />}
+        value={query}
+        onChange={onQueryChange}
+        placeholder="筛选 Skill"
+      />
+    </SettingsToolbar>
+  );
+}
+
+export function SkillsEmptyState() {
+  return (
+    <SettingsEmptyState
+      icon={<HubIcon name="zap" className="mb-3 h-10 w-10 opacity-40" />}
+      title="暂无匹配的 Skill"
+      description="调整分类或搜索条件后再试。"
+    />
+  );
+}
+
+export function SkillsSummaryFooter({ summary }: { summary: SkillsData['summary'] }) {
+  return (
+    <SettingsCard>
+      <div className="flex items-center gap-4">
+        <SettingsText tone="secondary" className="font-semibold">
+          {summary.total} skills
+        </SettingsText>
+        <SettingsText tone={summary.allMounted ? 'green' : 'amber'}>
+          {summary.allMounted ? '全部正确挂载' : '部分挂载缺失'}
+        </SettingsText>
+        <SettingsText tone={summary.registrationConsistent ? 'green' : 'amber'}>
+          {summary.registrationConsistent ? '注册一致' : '注册不一致'}
+        </SettingsText>
+      </div>
+    </SettingsCard>
   );
 }

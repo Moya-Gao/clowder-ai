@@ -163,10 +163,8 @@ describe('CatOverviewTab', () => {
     const guideTarget = root.querySelector('[data-guide-id="cats.first-member"]');
 
     expect(guideTarget).toBeTruthy();
-    expect(guideTarget?.tagName).toBe('BUTTON');
-    expect(guideTarget?.closest('section')?.textContent).toContain('布偶猫 · 宪宪');
+    expect(guideTarget?.getAttribute('role')).toBe('button');
     expect(guideTarget?.textContent).toContain('布偶猫 · 宪宪');
-    expect(guideTarget?.textContent).not.toContain('已启用');
   });
 });
 

@@ -5,6 +5,8 @@ import { apiFetch } from '@/utils/api-client';
 import { HubAccountItem, type ProfileEditPayload } from './HubAccountItem';
 import type { AccountsResponse, ProfileItem } from './hub-accounts.types';
 import { normalizeBuiltinClientIds, resolveAccountActionId } from './hub-accounts.view';
+import { SettingsBreadcrumb, SettingsPrimaryButton, SettingsStatusStrip } from './settings/primitives';
+import { SettingsPageHeader } from './settings/SettingsPageHeader';
 import { type UnifiedAuthEditData, UnifiedAuthModal } from './UnifiedAuthModal';
 
 export function HubAccountsTab() {
@@ -115,31 +117,26 @@ export function HubAccountsTab() {
   const customAccounts = useMemo(() => displayAccounts.filter((a) => !a.builtin), [displayAccounts]);
   const displayCards = useMemo(() => [...builtinAccounts, ...customAccounts], [builtinAccounts, customAccounts]);
 
-  if (loading) return <p className="text-sm text-cafe-muted">加载中...</p>;
-  if (!data) return <p className="text-sm text-cafe-muted">暂无数据</p>;
+  if (loading) return <SettingsStatusStrip tone="muted">加载中...</SettingsStatusStrip>;
+  if (!data) return <SettingsStatusStrip tone="muted">暂无数据</SettingsStatusStrip>;
 
   return (
     <div className="space-y-4">
-      {error && <p className="text-sm text-conn-red-text bg-conn-red-bg rounded-lg px-3 py-2">{error}</p>}
+      {error && <SettingsStatusStrip tone="error">{error}</SettingsStatusStrip>}
 
-      <div className="flex items-start justify-between gap-3 px-1">
-        <div>
-          <p className="text-sm font-semibold text-cafe-accent">系统配置 &gt; 账号配置</p>
-          <p className="mt-1 text-sm leading-6 text-cafe-secondary">
-            每个账号可添加或删除模型。账号配置全局共享，所有项目通用。
-          </p>
-        </div>
-        <button
-          type="button"
-          data-guide-id="accounts.create-form"
-          onClick={() => {
-            setEditTarget(undefined);
-            setShowAuthModal(true);
-          }}
-          className="shrink-0 rounded-full bg-cafe-accent px-4 py-1.5 text-xs font-semibold text-[var(--cafe-accent-foreground)] hover:bg-cafe-accent-hover transition"
-        >
-          + 新增账户认证
-        </button>
+      <div>
+        <SettingsBreadcrumb segments={[{ label: '系统配置' }, { label: '账号配置' }]} />
+        <SettingsPageHeader title="账号配置" subtitle="每个账号可添加或删除模型。账号配置全局共享，所有项目通用。">
+          <SettingsPrimaryButton
+            data-guide-id="accounts.create-form"
+            onClick={() => {
+              setEditTarget(undefined);
+              setShowAuthModal(true);
+            }}
+          >
+            + 新增账户认证
+          </SettingsPrimaryButton>
+        </SettingsPageHeader>
       </div>
 
       <div role="group" aria-label="Account List" className="space-y-4" data-guide-id="accounts.account-list">
@@ -155,10 +152,10 @@ export function HubAccountsTab() {
         ))}
       </div>
 
-      <p className="text-sm text-cafe-muted">点击卡片进入编辑 →</p>
-      <p className="text-xs leading-5 text-cafe-muted">
+      <SettingsStatusStrip tone="muted">点击卡片进入编辑 →</SettingsStatusStrip>
+      <SettingsStatusStrip tone="muted">
         secrets 存储在启动目录下 `.cat-cafe/credentials.json`，Git 忽略。
-      </p>
+      </SettingsStatusStrip>
 
       <UnifiedAuthModal
         key={editTarget?.id ?? 'create'}
