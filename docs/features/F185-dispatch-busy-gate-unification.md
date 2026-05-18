@@ -69,7 +69,7 @@ CI/review/conflict/scheduled 等 connector trigger policy 必须写入 `sourceCa
 
 ## Phase B: routeSerial text-scan fairness gate 扩展至 non-agent
 
-> **Status**: spec-review | **Reopened**: 2026-05-17
+> **Status**: ✅ merged (PR #1747) | **Reopened**: 2026-05-17
 > **起因**: 铲屎官报告 A2A @ 链期间外部消息堆积（截图 2026-05-17）。三猫独立诊断（46/47/55）收敛：Phase A 的 fairness gate 覆盖了 `tryAutoExecute` 但**漏了 `routeSerial` text-scan 路径**。
 
 ### Why
@@ -132,17 +132,17 @@ ADR-034 OQ-3 的设计结论是 "non-agent（user + connector）都应阻止 A2A
 
 ### Acceptance Criteria (Phase B)
 
-- [ ] AC-B1: `routeSerial` text-scan fairness gate 使用 `hasQueuedNonAgentForThread`（检查 user + connector）
-- [ ] AC-B2: 4 个注入 call site 全部从 `hasQueuedUserMessagesForThread` 切换到 `hasQueuedNonAgentForThread`
-- [ ] AC-B3: fairness gate 命中时，text-scan 命中的 A2A targets 入队（deferred enqueue），不静默丢弃。entry 必须携带完整元数据（见 What §2 字段表）：`sourceCategory='a2a'`、`callerCatId`、`content=storedContent`、`triggerMessageId=storedMsgId`
-- [ ] AC-B3a: 入队前应用全部 text-scan guards：`maxDepth`、`hasQueuedOrActiveAgentForCat` dedup、F167 ping-pong streak
-- [ ] AC-B4: `QueueProcessor` wrapper 方法重命名，注释更新
-- [ ] AC-B5: `InvocationQueue.hasQueuedUserMessagesForThread` 注释移除 "connector must NOT block" 误导文案
-- [ ] AC-B6: 回归测试：connector queued + A2A text-scan → gate 阻止 worklist 扩展 + A2A target 入队，断言 entry 的 `content`/`triggerMessageId`/`callerCatId`/`sourceCategory` 全部正确
-- [ ] AC-B7: 回归测试：deferred A2A entry 在 connector 出队完成后被 `tryAutoExecute` 拉起，猫B invocation 能读取猫A交接上下文
-- [ ] AC-B8: 回归测试：纯 agent entries queued（无 user/connector）→ text-scan 正常扩展（不误阻）
-- [ ] AC-B9: 回归测试：user queued + A2A text-scan → 同样 deferred enqueue（修复 Phase A 遗留）
-- [ ] AC-B10: Phase A 已有测试全绿（AC-10/11/12 不回归）
+- [x] AC-B1: `routeSerial` text-scan fairness gate 使用 `hasQueuedNonAgentForThread`（检查 user + connector）
+- [x] AC-B2: 4 个注入 call site 全部从 `hasQueuedUserMessagesForThread` 切换到 `hasQueuedNonAgentForThread`
+- [x] AC-B3: fairness gate 命中时，text-scan 命中的 A2A targets 入队（deferred enqueue），不静默丢弃。entry 必须携带完整元数据（见 What §2 字段表）：`sourceCategory='a2a'`、`callerCatId`、`content=storedContent`、`messageId=storedMsgId`
+- [x] AC-B3a: 入队前应用全部 text-scan guards：`maxDepth`、`hasQueuedOrActiveAgentForCat` dedup、F167 ping-pong streak + abort guard + pendingTail dedup
+- [x] AC-B4: `QueueProcessor` wrapper 方法重命名，注释更新
+- [x] AC-B5: `InvocationQueue.hasQueuedUserMessagesForThread` 注释移除 "connector must NOT block" 误导文案
+- [x] AC-B6: 回归测试：connector queued + A2A text-scan → gate 阻止 worklist 扩展 + A2A target 入队，断言 entry 的 `content`/`messageId`/`callerCatId`/`sourceCategory` 全部正确
+- [x] AC-B7: 回归测试：deferred A2A entry 在 connector 出队完成后被 `tryAutoExecute` 拉起，猫B invocation 能读取猫A交接上下文
+- [x] AC-B8: 回归测试：纯 agent entries queued（无 user/connector）→ text-scan 正常扩展（不误阻）
+- [x] AC-B9: 回归测试：user queued + A2A text-scan → 同样 deferred enqueue（修复 Phase A 遗留）
+- [x] AC-B10: Phase A 已有测试全绿（AC-10/11/12 不回归）
 
 ### Risk (Phase B)
 
@@ -187,6 +187,7 @@ ADR-034 OQ-3 的设计结论是 "non-agent（user + connector）都应阻止 A2A
 | 2026-05-01 | 四猫审计 → ADR-034 → 三猫 review → 铲屎官 signoff → 立项 |
 | 2026-05-02 | Phase A 实现完成，砚砚 R3 放行 + 云端 R2 放行，merged (PR #1531) |
 | 2026-05-17 | 铲屎官报告 A2A @ 链外部消息堆积 → 三猫诊断收敛 → Phase B 立项 |
+| 2026-05-18 | Phase B merged (PR #1747) — 砚砚 R2 放行 + 云端 R2 放行（2 轮 P1 修复） |
 
 ## Review Gate
 
