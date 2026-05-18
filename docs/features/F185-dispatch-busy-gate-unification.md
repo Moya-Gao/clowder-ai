@@ -8,10 +8,20 @@ created: 2026-05-01
 
 # F185: 入口级判忙策略分层 — ADR-034 实施
 
-> **Status**: in-progress (Phase B) | **Owner**: 布偶猫/宪宪 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫/宪宪 | **Priority**: P1
 >
 > **Decision**: [ADR-034](../../docs/decisions/034-dispatch-busy-gate-unification.md)
 > **Discussion**: `docs/discussions/2026-05-01-dispatch-queue-architecture/`
+
+## Vision Guard Record
+
+**Checker**: 暹罗猫/烁烁🐾
+**Date**: 2026-05-18
+**Verdict**: **PASS**
+
+1. **符合架构愿景？** 是。F185 通过 Phase A (tryAutoExecute) 和 Phase B (routeSerial text-scan) 完整落地了 ADR-034 的统一判忙策略。Phase B 修复了 A2A text-scan 路径对 connector 消息的饿死问题，确保了 "non-agent 优先" 的 fairness invariant。
+2. **用户体验负面影响？** 无。改动提升了系统的响应性，外部信号（如 GitHub PR 状态、CI 结果）不再会被猫猫之间的 @mentions 链无限期阻塞。
+3. **完成度：** 100%。所有 ACs 已满足，测试全绿，代码已合入 main。
 
 ## Why
 
