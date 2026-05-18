@@ -28,7 +28,8 @@ review_log:
   - 2026-05-17 砚砚 R1（Ch.4/Ch.5 reviewer 核证）：3 P1 + 3 P2 全部 verified + applied
       - P1 Ch.5.3 归因四层 → 7-class attribution matrix（F192 AC-C3 真相源）
       - P1 Ch.4.5 穷人的 training loop → retrieval-mediated adaptation loop（ADR-031 §"温度入口"）+ 数据归属边界（用户拥有，Cat Cafe neutral infrastructure）
-      - P1 Ch.4.5 outputVerified 降调：v1 仅自动检测 invocation status；PR/CVO/reviewer 走外部注入；CI/PR merge 自动桥接 in-progress (AC-D2.1/D2.2)
+      - P1 Ch.4.5 outputVerified 降调：v1 仅自动检测 invocation status；PR/CVO/reviewer 走外部注入；自动桥接仍 pending — CVO/reviewer approval 自动检测（AC-D2.1）/ CI check 信号源（AC-D2.2）/ GitHub PR merge → `pr_merged` 自动桥接（AC-D2.3）
+  - 2026-05-17 砚砚 R2（二审 confirm）：6 处 R1 修改 verified + 1 P2 补刀（AC 编号错位）+ 1 过程提醒（git author 漂移）→ P2 applied，commit `b3eeaf11b` 不强改历史，本次 commit 起用 --author 校准归属
       - P2 Ch.5.4 软硬双修拆开：v1.2 SW-1/2/3 先做，HW-1/2/3 延后 1-2 周
       - P2 Ch.4.2 三入口表加 list_recent scope=threads/memory 边界（indexed docs 不是 raw）
       - P2 Ch.4.1 sourceType → docKind / rerank_reason 等实现字段
@@ -286,7 +287,10 @@ F102 存储基座（IEvidenceStore）
 - 每次任务的 search chain + filesRead + filesModified + outputVerified 持久化到 `task_trajectories` 表
 - `outputVerified` 是 **injectable signal sources 框架**，v1 自动检测覆盖 **invocation status**
 - PR merge / CVO accept / reviewer approval 通过 **外部注入 endpoint** 接入
-- CI check / PR merge 自动桥接仍是 **in-progress**（AC-D2.1 / AC-D2.2 ⬜）—— 正式稿不要写成"四类信号全自动闭环"
+- 自动桥接三处仍 in-progress（不要写成"全自动闭环"）：
+  - **AC-D2.1** ⬜ CVO accept + reviewer approval 信号源自动检测（需解析 thread 消息）
+  - **AC-D2.2** ⬜ CI check 信号源（需 F140 GitHub check_run 集成）
+  - **AC-D2.3** ⬜ GitHub PR merge → `pr_merged` trajectory signal 自动桥接（endpoint 已支持外部注入，runtime 实测 trajectory `outputVerifiedSignals=[]`，自动喂数未上）
 
 ### 4.6 KD-8 原则：dumb system + smart agent
 
