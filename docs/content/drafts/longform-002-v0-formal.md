@@ -349,15 +349,55 @@ TeamAct 的本质同样是反馈方向：六步是叙事骨架，真正的引擎
 
 **〔 Figure 3 — ReAct 单 agent 闭环 vs TeamAct 多 agent 闭环 〕**
 
-*低保真占位，待砚砚生成。左边：单 agent ReAct 循环（Thought↔Action↔Observation，
-一条反馈回路）。右边：多 agent TeamAct 循环（State→Owner→Action→Evidence→
-Verdict→Route，shared state 层作为所有 agent 的共同反馈源，五项终止条件画在
-外圈）。*
+低保真草图 v0：左边只画单个 agent 内部的 Thought / Action / Observation；右边画
+Shared State 作为团队共同反馈源，TeamAct 六步围绕它闭环。
+
+```mermaid
+flowchart LR
+  subgraph R["ReAct：单 agent 内部闭环"]
+    T["Thought<br/>推理"] --> A["Action<br/>工具调用"] --> O["Observation<br/>观察结果"] --> T
+  end
+
+  subgraph TA["TeamAct：多 agent 共享状态闭环"]
+    SS[("Shared State<br/>仓库 / spec / 任务 / 记忆 / 交接胶囊")]
+    S["State<br/>读状态"] --> OW["Owner<br/>任务归属"] --> ACT["Action<br/>执行"]
+    ACT --> EV["Evidence<br/>证据"] --> VD["Verdict<br/>验证"] --> RT["Route<br/>路由"]
+    RT --> SS --> S
+    SS -.-> C1["Agent A"]
+    SS -.-> C2["Agent B"]
+    SS -.-> C3["Agent C"]
+    END["五项终止条件<br/>AC 达成 / 证据 / 跨 agent 验证 / 无悬空归属 / 愿景收敛"] -.-> VD
+  end
+```
+
+最终图要保留这个重点：ReAct 的反馈源是 Observation，TeamAct 的反馈源是 Shared
+State；TeamAct 不是第六种协作模式，而是 Shared State 上的团队级闭环。
 
 **〔 Figure 4 — TeamAct 状态机 〕**
 
-*低保真占位。完整的六步状态机 + 五项结束条件作为外圈守卫。Owner/Verdict/Route
-三个节点标出它们如何防止 shared state 被无限更新。*
+低保真草图 v0：六步是主路径，失败模式挂在 Owner / Verdict / Route 三个容易出事
+的节点上；五项终止条件是外圈守卫。
+
+```mermaid
+flowchart TB
+  S["1 State<br/>读共享状态"] --> O["2 Owner<br/>明确谁负责"]
+  O --> A["3 Action<br/>持有者执行"]
+  A --> E["4 Evidence<br/>提交证据"]
+  E --> V["5 Verdict<br/>验证是否成立"]
+  V --> R["6 Route<br/>下一棒路由"]
+  R --> S
+
+  O -. "无人接 / 球掉地" .-> U["超时检测<br/>升级"]
+  R -. "未知目标 / 虚空传球" .-> RV["路由校验<br/>可达性检查"]
+  R -. "短文本 + 零工具调用" .-> PP["乒乓球熔断<br/>看实质产出"]
+  V -. "证据不够 / review 不通过" .-> A
+  R -. "角色错配" .-> CAP["能力声明<br/>路由建议"]
+
+  END["终止守卫<br/>1 AC 全达成<br/>2 证据已附<br/>3 跨 agent 验证<br/>4 无悬空归属<br/>5 愿景收敛"] -.-> R
+```
+
+最终图要让读者一眼看懂：TeamAct 不是聊天顺序，而是任务归属、验证和路由共同构成的
+状态机。
 
 ### 分形嵌套：自相似的循环结构
 
@@ -712,8 +752,28 @@ Harness 里有一类特殊的机制：runtime 逃生舱。
 
 **〔 Figure 5 — 多 agent 坏直觉调制矩阵 〕**
 
-*低保真占位，待砚砚生成。矩阵：agent × 治理规则 × 命中率差异。突出跨厂商
-review 作为结构性纠错机制。*
+低保真草图 v0：矩阵不是为了给 agent 贴标签，而是显示同一条治理规则在不同 agent
+身上的命中率不同，从而区分跨 agent 资产和个体补偿。
+
+| 治理规则 / 拉刹车词 | 46：最小修复惯性 | 47：过度工程化 | 砚砚：错误坐标系 fallback | 烁烁：创意漂移 | 治理归类 |
+|---|---:|---:|---:|---:|---|
+| “脚手架” | 高 | 低 | 中 | 低 | 个体补偿：偏 46 |
+| “第一性原理” | 中 | 高 | 高 | 高 | 跨 agent 资产 |
+| “follow-up 尾巴” 禁令 | 高 | 低 | 中 | 低 | 个体补偿：偏 46 |
+| “我能猜出来 / 碎片够了” | 中 | 高 | 低 | 低 | 家族补偿：偏布偶猫 |
+| SOP 导航表 | 低 | 中 | 高 | 高 | 双重身份：新手路标 / 老手冗余 |
+
+```text
+同家族 review：         跨厂商 review：
+相似训练分布            误差分布更不相关
+盲点容易重叠            更容易抓结构性盲点
+
+结论：不要把所有规则都写进公共层。
+跨 agent 资产进 L0 / Skill；个体补偿按 agent 动态注入。
+```
+
+最终图要突出两件事：第一，harness 是“放大好直觉、压住坏直觉”的调制器；第二，
+多 agent 本身就是治理规则的 A/B 测试信号源。
 
 ---
 
