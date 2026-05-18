@@ -428,6 +428,7 @@ export type {
 // Plugin Framework types (F202 声明式插件注册)
 export type {
   PluginConfigField,
+  PluginConfigOption,
   PluginHealthCheck,
   PluginInfo,
   PluginManifest,
