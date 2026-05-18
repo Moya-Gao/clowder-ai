@@ -3606,6 +3606,90 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.equal(record.journalSummarySnapshot.entries[0].status, 'pending');
   });
 
+  test('AC-G7: YOLO-dispatched approval-gated run_command remains side-effect journal covered', async () => {
+    const supervisorStore = new InMemoryAntigravitySupervisorStore();
+    const bridge = createMockBridge({ cascadeId: 'cascade-f201-yolo-journal' });
+    bridge.nativeExecuteAndPush = mock.fn(async (step) => step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND');
+    bridge.pollForSteps = async function* () {
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+            status: 'CORTEX_STEP_STATUS_WAITING',
+            metadata: {
+              toolCall: {
+                id: 'toolu_yolo_journal',
+                name: 'run_command',
+                argumentsJson: JSON.stringify({
+                  CommandLine: 'touch docs/f201-yolo-journal.md',
+                  Cwd: '/tmp',
+                  SafeToAutoRun: false,
+                }),
+              },
+              sourceTrajectoryStepInfo: {
+                cascadeId: 'cascade-f201-yolo-journal',
+                trajectoryId: 'traj-f201-yolo-journal',
+                stepIndex: 1,
+              },
+            },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+      };
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { stopReason: 'STOP_REASON_CLIENT_STREAM_ERROR' },
+          },
+        ],
+        cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      supervisorStore,
+      streamErrorGraceWindowMs: 0,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(
+      service.invoke('hello', {
+        auditContext: {
+          threadId: 'thread-f201-yolo-journal',
+          invocationId: 'inv-f201-yolo-journal',
+          userId: 'u1',
+          catId: 'antigravity',
+        },
+      }),
+    );
+
+    assert.equal(
+      bridge.nativeExecuteAndPush.mock.calls.filter(
+        (call) => call.arguments[0]?.metadata?.toolCall?.id === 'toolu_yolo_journal',
+      ).length,
+      1,
+      'YOLO path must dispatch SafeToAutoRun=false run_command once',
+    );
+    assert.ok(
+      messages.some((msg) => msg.type === 'error' && msg.errorCode === 'stream_error'),
+      'post-dispatch stream_error should still surface',
+    );
+
+    const record = await supervisorStore.get('inv-f201-yolo-journal', 'cascade-f201-yolo-journal');
+    assert.ok(record, 'supervisor record must be persisted for YOLO-dispatched interruption');
+    assert.equal(record.status, 'resumable');
+    assert.equal(record.recoveryStrategy, 'manual_card');
+    assert.equal(record.nativeExecutorEvidence?.toolName, 'run_command');
+    assert.equal(record.nativeExecutorEvidence?.status, 'completed');
+    assert.equal(record.journalSummarySnapshot.entries.length, 1);
+    assert.equal(record.journalSummarySnapshot.entries[0].target, 'touch docs/f201-yolo-journal.md');
+    assert.equal(record.journalSummarySnapshot.entries[0].status, 'pending');
+  });
+
   test('F201 Phase F Task 3: native success plus trajectory error retries when no side effect was observed', async () => {
     const bridge = createMockBridge();
     bridge.nativeExecuteAndPush = mock.fn(async (step) => step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND');

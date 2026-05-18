@@ -1604,6 +1604,13 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'ANTIGRAVITY_RUN_COMMAND_TIMEOUT_MS',
+    defaultValue: '600000',
+    description: '受控 YOLO run_command 单次原生命令执行超时（毫秒，1..3600000）；无效值回退默认值',
+    category: 'antigravity',
+    sensitive: false,
+  },
+  {
     name: 'ANTIGRAVITY_TRACE_RAW',
     defaultValue: '(未设置 → 关闭)',
     description: '设为 1 启用 Antigravity 原始轨迹 dump（rpc raw response + step shape snapshot）',

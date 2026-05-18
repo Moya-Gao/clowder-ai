@@ -15,9 +15,24 @@ import { RAW_RESPONSE_CAP, TRACE_ENABLED, TRACED_METHODS, traceLog } from './ant
 import type { AuditSink, ExecutorResult } from './executors/AntigravityToolExecutor.js';
 import type { ExecutorRegistry } from './executors/ExecutorRegistry.js';
 import { formatToolResult } from './executors/formatToolResult.js';
-import { getRunCommandRefusalReason } from './executors/RunCommandExecutor.js';
+import { getRunCommandRefusalReason, MAX_RUN_COMMAND_TIMEOUT_MS } from './executors/RunCommandExecutor.js';
 
 const log = createModuleLogger('antigravity-bridge');
+
+const DEFAULT_RPC_TIMEOUT_MS = 30_000;
+const RUN_COMMAND_RPC_TIMEOUT_BUFFER_MS = 5_000;
+
+export function antigravityRpcTimeoutMs(method: string, payload: unknown): number {
+  if (method !== 'RunCommand') return DEFAULT_RPC_TIMEOUT_MS;
+  if (payload == null) return DEFAULT_RPC_TIMEOUT_MS;
+  if (typeof payload !== 'object') return DEFAULT_RPC_TIMEOUT_MS;
+  const rawTimeoutMs = (payload as { timeoutMs?: unknown }).timeoutMs;
+  if (typeof rawTimeoutMs !== 'number') return DEFAULT_RPC_TIMEOUT_MS;
+  if (!Number.isSafeInteger(rawTimeoutMs)) return DEFAULT_RPC_TIMEOUT_MS;
+  if (rawTimeoutMs <= 0) return DEFAULT_RPC_TIMEOUT_MS;
+  if (rawTimeoutMs > MAX_RUN_COMMAND_TIMEOUT_MS) return DEFAULT_RPC_TIMEOUT_MS;
+  return Math.max(DEFAULT_RPC_TIMEOUT_MS, Math.floor(rawTimeoutMs) + RUN_COMMAND_RPC_TIMEOUT_BUFFER_MS);
+}
 
 const HARDCODED_MODEL_MAP: Record<string, string> = {
   'gemini-3.1-pro': 'MODEL_PLACEHOLDER_M37',
@@ -125,6 +140,10 @@ export interface BridgeOptions {
   sessionStorePath?: string;
 }
 
+export interface AntigravityRpcOptions {
+  signal?: AbortSignal;
+}
+
 const DEFAULT_SESSION_STORE = join(process.cwd(), 'data', 'antigravity-sessions.json');
 
 function hasGeneratingPlannerResponse(steps: TrajectoryStep[]): boolean {
@@ -170,8 +189,12 @@ export class AntigravityBridge {
    * Public RPC entrypoint for executors that need to reach the Antigravity LS.
    * Resolves connection lazily. Keeps the private rpc() signature internal.
    */
-  async callRpc<T = Record<string, unknown>>(method: string, payload: unknown): Promise<T> {
-    return this.rpcSafe<T>(method, payload);
+  async callRpc<T = Record<string, unknown>>(
+    method: string,
+    payload: unknown,
+    options?: AntigravityRpcOptions,
+  ): Promise<T> {
+    return this.rpcSafe<T>(method, payload, options);
   }
 
   /**
@@ -624,16 +647,20 @@ export class AntigravityBridge {
     return msg.includes('ECONNREFUSED') || msg.includes('ECONNRESET') || msg.includes('EHOSTUNREACH');
   }
 
-  private async rpcSafe<T = Record<string, unknown>>(method: string, payload: unknown): Promise<T> {
+  private async rpcSafe<T = Record<string, unknown>>(
+    method: string,
+    payload: unknown,
+    options?: AntigravityRpcOptions,
+  ): Promise<T> {
     let conn = await this.ensureConnected();
     try {
-      return await this.rpc<T>(conn, method, payload);
+      return await this.rpc<T>(conn, method, payload, options);
     } catch (err) {
       if (this.isConnectionError(err)) {
         log.warn(`connection lost on ${method}, rediscovering LS...`);
         this.invalidateConnection();
         conn = await this.ensureConnected();
-        return this.rpc<T>(conn, method, payload);
+        return this.rpc<T>(conn, method, payload, options);
       }
       throw err;
     }
@@ -674,13 +701,43 @@ export class AntigravityBridge {
     }
   }
 
-  private rpc<T = Record<string, unknown>>(conn: BridgeConnection, method: string, payload: unknown): Promise<T> {
+  private rpc<T = Record<string, unknown>>(
+    conn: BridgeConnection,
+    method: string,
+    payload: unknown,
+    options?: AntigravityRpcOptions,
+  ): Promise<T> {
     const mod = conn.useTls ? https : http;
     const protocol = conn.useTls ? 'https' : 'http';
     const url = `${protocol}://127.0.0.1:${conn.port}/exa.language_server_pb.LanguageServerService/${method}`;
     const body = JSON.stringify(payload);
+    const signal = options?.signal;
 
     return new Promise((resolve, reject) => {
+      const abortError = (): Error => {
+        const reason = signal?.reason;
+        return reason instanceof Error ? reason : new Error(`LS ${method}: aborted`);
+      };
+      if (signal?.aborted) {
+        reject(abortError());
+        return;
+      }
+
+      let settled = false;
+      let removeAbortListener = () => {};
+      const resolveOnce = (value: T) => {
+        if (settled) return;
+        settled = true;
+        removeAbortListener();
+        resolve(value);
+      };
+      const rejectOnce = (err: Error) => {
+        if (settled) return;
+        settled = true;
+        removeAbortListener();
+        reject(err);
+      };
+
       const req = mod.request(
         url,
         {
@@ -691,7 +748,7 @@ export class AntigravityBridge {
             'x-codeium-csrf-token': conn.csrfToken,
           },
           rejectUnauthorized: false,
-          timeout: 30_000,
+          timeout: antigravityRpcTimeoutMs(method, payload),
         },
         (res) => {
           let data = '';
@@ -707,21 +764,35 @@ export class AntigravityBridge {
                 );
               }
               try {
-                resolve(JSON.parse(data) as T);
+                resolveOnce(JSON.parse(data) as T);
               } catch {
-                resolve(data as unknown as T);
+                resolveOnce(data as unknown as T);
               }
             } else {
-              reject(new Error(`LS ${method}: ${res.statusCode} — ${data.substring(0, 200)}`));
+              rejectOnce(new Error(`LS ${method}: ${res.statusCode} — ${data.substring(0, 200)}`));
             }
           });
         },
       );
-      req.on('error', reject);
+      req.on('error', rejectOnce);
       req.on('timeout', () => {
-        req.destroy();
-        reject(new Error(`LS ${method}: timeout`));
+        const err = new Error(`LS ${method}: timeout`);
+        rejectOnce(err);
+        req.destroy(err);
       });
+      if (signal) {
+        const onAbort = () => {
+          const err = abortError();
+          rejectOnce(err);
+          req.destroy(err);
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+        removeAbortListener = () => signal.removeEventListener('abort', onAbort);
+        if (signal.aborted) {
+          onAbort();
+          return;
+        }
+      }
       req.write(body);
       req.end();
     });

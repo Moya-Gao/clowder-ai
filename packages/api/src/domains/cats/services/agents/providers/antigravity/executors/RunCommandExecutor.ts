@@ -16,9 +16,13 @@ interface RunCommandResponse {
 
 type RpcFn = (
   method: 'RunCommand',
-  payload: { command: string; args?: string[]; cwd: string },
+  payload: { command: string; args?: string[]; cwd: string; timeoutMs?: number },
+  options?: { signal?: AbortSignal },
 ) => Promise<RunCommandResponse>;
 
+export const DEFAULT_RUN_COMMAND_TIMEOUT_MS = 600_000;
+export const MAX_RUN_COMMAND_TIMEOUT_MS = 3_600_000;
+const RUN_COMMAND_TIMEOUT_ENV = 'ANTIGRAVITY_RUN_COMMAND_TIMEOUT_MS';
 const REDIS_SANCTUM_REASON = 'Redis 6399 is user sanctum (read-only by rule)';
 const RM_RECURSIVE_ROOT_REASON = 'recursive root delete is always refused';
 const FORBIDDEN_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
@@ -124,6 +128,38 @@ export function isReadOnlyRunCommand(commandLine: string): boolean {
   return READ_ONLY_PATTERNS.some((pattern) => pattern.test(commandLine.trim()));
 }
 
+export function runCommandTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env[RUN_COMMAND_TIMEOUT_ENV];
+  if (!raw) return DEFAULT_RUN_COMMAND_TIMEOUT_MS;
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed)) return DEFAULT_RUN_COMMAND_TIMEOUT_MS;
+  if (parsed <= 0) return DEFAULT_RUN_COMMAND_TIMEOUT_MS;
+  if (parsed > MAX_RUN_COMMAND_TIMEOUT_MS) return DEFAULT_RUN_COMMAND_TIMEOUT_MS;
+  return parsed;
+}
+
+function timeoutError(timeoutMs: number): Error {
+  return new Error(`RunCommand timed out after ${timeoutMs}ms`);
+}
+
+async function withRunCommandTimeout<T>(run: (signal: AbortSignal) => Promise<T>, timeoutMs: number): Promise<T> {
+  const controller = new AbortController();
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  timeoutHandle = setTimeout(() => controller.abort(timeoutError(timeoutMs)), timeoutMs);
+  timeoutHandle.unref?.();
+  try {
+    return await run(controller.signal);
+  } catch (err) {
+    if (controller.signal.aborted) {
+      const reason = controller.signal.reason;
+      throw reason instanceof Error ? reason : timeoutError(timeoutMs);
+    }
+    throw err;
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
+}
+
 export class RunCommandExecutor implements AntigravityToolExecutor<RunCommandInput, { exitCode: number }> {
   readonly toolName = 'run_command';
 
@@ -150,16 +186,26 @@ export class RunCommandExecutor implements AntigravityToolExecutor<RunCommandInp
 
     const t0 = Date.now();
     try {
+      const timeoutMs = runCommandTimeoutMs();
       // Antigravity LS RunCommand joins `command + args` with spaces and passes
       // to an outer shell. Sending `{ command: '/bin/sh', args: ['-c', cmd] }`
       // causes the outer shell to parse "sh -c cmd" only consuming the first
       // word of cmd — all flags/extra args get discarded. Pass the full command
       // line directly as `command` with no args so the outer shell handles it
       // verbatim (pipes, redirects, chained `&&` all work).
-      const resp = await this.deps.rpc('RunCommand', {
-        command: input.commandLine,
-        cwd: input.cwd,
-      });
+      const resp = await withRunCommandTimeout(
+        (signal) =>
+          this.deps.rpc(
+            'RunCommand',
+            {
+              command: input.commandLine,
+              cwd: input.cwd,
+              timeoutMs,
+            },
+            { signal },
+          ),
+        timeoutMs,
+      );
       const durationMs = Date.now() - t0;
       const exitCode = resp.exitCode ?? 0;
       const result: ExecutorResult<{ exitCode: number }> = {

@@ -311,7 +311,7 @@ export class AntigravityAgentService implements AgentService {
       const registry = new ExecutorRegistry();
       registry.register(
         new RunCommandExecutor({
-          rpc: (method, payload) => this.bridge.callRpc(method, payload),
+          rpc: (method, payload, options) => this.bridge.callRpc(method, payload, options),
         }),
       );
       const audit = new AuditLogger(join(process.cwd(), 'data', 'antigravity-audit'));
