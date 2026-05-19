@@ -64,13 +64,38 @@ notes:
 我们发现，Anthropic 的五种多 agent 协作模式——**Generator-Verifier**（生产者-
 验证者）、**Orchestrator-Subagent**（编排者-子 agent）、**Agent Teams**（长期
 团队）、**Message Bus**（消息总线）、**Shared State**（共享状态）——是对的原语。
-我们的系统没有发明第六种，而是把它们组合起来：**以 Shared State + Agent Teams
-为骨架**，在合适的局部用 Generator-Verifier（跨厂商 review）、Orchestrator-
-Subagent（复杂任务拆解）、Message Bus（异步交接）。
+我们的系统没有发明第六种。但五种模式真正落地后，我们发现了三件文档里没写的事。
 
-但仅有这五种模式，留下了两个关键问题没有回答：
+**第一件：模式会叠加。** 同一个交互行为，从不同层面看是不同模式。拿写这篇
+文章本身举例：一只 Claude agent 写一章，一只 GPT agent 审真实度——从**质量保证**
+层面看，这是 Generator-Verifier（author 生产、reviewer 验证）；从**协作关系**
+层面看，这是 Agent Teams（reviewer 是独立 agent，有自己的立场，可以 push back，
+author 不能强制通过）；从**任务编排**层面看，写作 agent 决定了”一章一章写→
+review→产品负责人审”的序列，有 Orchestrator-Subagent 的结构特征。它不是五选一
+——是同时是三种，取决于你在问什么问题。
 
-1. **团队循环什么时候*结束*？** —— 单个 agent 有 ReAct 的"观察-思考-行动"循环，
+**第二件：模式会动态切换。** 同一只 agent 在同一个任务里会跨模式。写作 agent
+调用搜索子 agent 去查文献——这是纯粹的 Orchestrator-Subagent：子 agent 没有
+自主权，搜完即消失，结果由父 agent 全权裁决。同一只写作 agent 十秒后 @ reviewer
+——切换到 Agent Teams：reviewer 是长期存活的独立个体，有记忆、有身份、有权
+退回整章要求重写。模式边界不是写在配置文件里的，是交互对象的自主性决定的。
+
+**第三件：产品负责人不在五种模式里。** 我们的产品负责人（CVO）不参与日常执行
+——不写代码、不做 review、不拆任务。他只在方向层介入：审核每一章的走向，
+用一组”拉闸词”在 agent 偏离愿景时紧急制动。他不是 Orchestrator（不编排
+任务），不是 Verifier（不做质量校验），更像一个**愿景锚点**——五种模式
+描述的是 agent 之间的协作，而方向校准发生在 agent 系统的外面。第 7 章会
+回到这一点。
+
+五种模式**以 Shared State + Agent Teams 为骨架**组合起来——Shared State 是
+所有 agent 读写的持久真相层（代码库、文档、记忆库、任务状态），Agent Teams
+是长期存活的异构团队。在这个骨架上，Generator-Verifier 提供跨厂商质量校验，
+Orchestrator-Subagent 处理有限范围的任务拆解和委托，Message Bus 支撑异步
+交接和跨线程契约。
+
+但仅有这五种模式的组合，还留下了两个关键问题没有回答：
+
+1. **团队循环什么时候*结束*？** —— 单个 agent 有 ReAct 的”观察-思考-行动”循环，
    有清晰的终止条件。一组 agent 互相传递状态，可以永远循环下去。我们把团队级的
    终止条件形式化为 **TeamAct**（第 2 章）。
 
@@ -81,52 +106,57 @@ Subagent（复杂任务拆解）、Message Bus（异步交接）。
 最贴切的类比来自开源软件：每个 agent 像一个**自治维护者**——有权在自己的模块里
 合并代码，独立做内容判断。但他们共享同一套**黄金路径基础设施**：git、CI、review
 协议、可观测性、文档规范。和人类开源的区别在哪？我们的维护者是异构的大语言模型
-（Claude、GPT、Gemini），而那套"工程"不在 prompt 里——在环绕它们的持久系统里。
+（Claude、GPT、Gemini），而那套”工程”不在 prompt 里——在环绕它们的持久系统里。
 
-**〔 Figure 1 —— Anthropic 五模式 → 我们的组合架构 〕**
+**〔 Figure 1 —— Anthropic 五模式 → Cat Café 组合架构 〕**
 
-*一张图：展示 Generator-Verifier、Orchestrator-Subagent、Agent Teams、Message
-Bus、Shared State 如何组合进我们的系统——Shared State + Agent Teams 作为结构
-骨架，其余在局部按需使用。*
+*一张图：左侧五种原语；右侧展示同一个交互如何同时叠加多种模式，以及模式在
+不同粒度上的动态切换。CVO 作为愿景锚点位于 agent 系统外部。*
 
 ```text
-低保真草图 v0：五个原语不是五选一，而是组合进一套长期运行的工程系统
+低保真草图 v0：五个原语不是五选一——它们在不同粒度上同时叠加
 
 ┌──────────────────────────────┐
 │ Anthropic 五种协作原语         │
 ├──────────────────────────────┤
-│ Generator-Verifier           │ ──→ review / author-reviewer 纠错
-│ Orchestrator-Subagent        │ ──→ bounded delegation / worker
-│ Agent Teams                  │ ──→ 长期存活的异构 agent 团队
-│ Message Bus                  │ ──→ @handoff / invocation queue / 事件路由
-│ Shared State                 │ ──→ repo / docs / memory / trace / tasks
-└──────────────────────────────┘
-              │
-              │ 组合，不是替代
-              ▼
-┌────────────────────────────────────────────────┐
-│ Cat Café 组合架构                               │
-├────────────────────────────────────────────────┤
-│ Human CVO / Vision Oracle                       │
-│        │                                        │
-│        ▼                                        │
-│ TeamAct Loop                                    │
-│ State → Owner → Action → Evidence              │
-│        → Verdict → Route                       │
-│        │                                        │
-│        ▼                                        │
-│ Long-lived Agent Team                           │
-│ Claude / GPT / Gemini / ...                     │
-│        │                                        │
-│        ▼                                        │
-│ Shared Reality Layer                            │
-│ repo / git / docs / memory / trace / PR / eval  │
-└────────────────────────────────────────────────┘
+│ Generator-Verifier           │
+│ Orchestrator-Subagent        │
+│ Agent Teams                  │
+│ Message Bus                  │
+│ Shared State                 │
+└───────────┬──────────────────┘
+            │ 组合 + 叠加
+            ▼
+┌────────────────────────────────────────────────────────┐
+│                Cat Café 组合架构                        │
+│                                                        │
+│  ┌─ CVO / Vision Oracle ──────────────────────────┐   │
+│  │  方向校准・拉闸词・Phase 审核                     │   │
+│  │  （不在五种模式里——位于 agent 系统外部）          │   │
+│  └───────────────┬────────────────────────────────┘   │
+│                  ▼                                     │
+│  ┌─ Agent Teams 骨架 ────────────────────────────┐    │
+│  │  长期存活的异构团队（Claude / GPT / Gemini）     │    │
+│  │                                                │    │
+│  │  同一个交互，多模式叠加：                        │    │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────────┐  │    │
+│  │  │ G-V      │ │ O-S      │ │ Msg Bus      │  │    │
+│  │  │跨厂商    │ │搜索/拆解  │ │异步交接      │  │    │
+│  │  │review    │ │子agent    │ │跨thread契约  │  │    │
+│  │  └──────────┘ └──────────┘ └──────────────┘  │    │
+│  └───────────────┬────────────────────────────────┘   │
+│                  ▼                                     │
+│  ┌─ Shared State / 持久现实层 ───────────────────┐    │
+│  │  repo · git · docs · memory · trace · eval     │    │
+│  │  （所有 agent 的单一真相源）                     │    │
+│  └────────────────────────────────────────────────┘   │
+└────────────────────────────────────────────────────────┘
 
-正式图方向：
-左侧五张 primitive 卡片 → 中间“组合”箭头 → 右侧三层架构。
-视觉重点不是“我们发明第六种模式”，而是“在 shared state + agent teams
-上补了 TeamAct 终止条件、跨厂商验证和持久现实层”。
+关键视觉信息：
+1. CVO 在最上层但在系统外部（虚线框），不是 Orchestrator
+2. G-V / O-S / Msg Bus 在 Agent Teams 内部叠加，不是独立层
+3. Shared State 是底座，所有模式都读写同一层持久状态
+4. 同一只 agent 可以在 O-S（调子agent）和 AT（@独立猫）间动态切换
 ```
 
 ---
