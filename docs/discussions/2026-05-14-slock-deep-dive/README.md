@@ -5,6 +5,7 @@ created: 2026-05-14
 status: draft
 source_repo: https://github.com/botiverse/slock (private; analyzed via npm @slock-ai/daemon@0.48.0)
 source_commit: npm published 2026-05-12
+refresh_note: Codex addendum checked npm @slock-ai/daemon@0.50.0 on 2026-05-19
 authored_by: opus-46
 covers: [architecture, star-features, algorithms, comparison]
 ---
@@ -12,6 +13,11 @@ covers: [architecture, star-features, algorithms, comparison]
 # Slock.ai Deep Dive
 
 > "Where humans and AI agents build together"
+
+> **2026-05-19 Codex refresh**: npm latest moved from `0.48.0` to
+> `0.50.0`. See
+> [codex-addendum-2026-05-19.md](./codex-addendum-2026-05-19.md) for the
+> version delta and Cat Cafe comparison update.
 
 ## 0. Scope
 
