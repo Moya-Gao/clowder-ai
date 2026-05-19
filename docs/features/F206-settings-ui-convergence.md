@@ -53,7 +53,7 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 3. **重跑截图对比**，确认 12 页视觉节奏一致
 4. 全量 outbound sync 准备就绪
 
-### Phase C: Console 非 Settings 页面视觉对齐 📋
+### Phase C: Console 非 Settings 页面视觉对齐 ✅
 
 铲屎官 2026-05-18 反馈：重启 runtime 后发现 Signals 等非 Settings 页面样式与开源差距大。
 
@@ -80,9 +80,9 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 - [x] AC-B4: Outbound sync 就绪（lint 通过 / 0 raw atomic class in page layer / 12 页截图复测一致），sync 动作本身独立 close
 
 ### Phase C（Console 非 Settings 视觉对齐）
-- [ ] AC-C1: Signals 列表样式对齐开源（紧凑行布局 + Tier badge 不溢出 + 间距统一），功能无损
-- [ ] AC-C2: 对话侧栏 Mission Hub 卡片移除，左侧导航入口保留
-- [ ] AC-C3: 侧栏导航图标 hover 显示 tooltip（功能名称）
+- [x] AC-C1: Signals 列表样式对齐开源（紧凑行布局 + Tier badge 不溢出 + 间距统一），功能无损
+- [x] AC-C2: 对话侧栏 Mission Hub 卡片移除，左侧导航入口保留
+- [x] AC-C3: 侧栏导航图标 hover 显示 tooltip（功能名称）
 
 ## Dependencies
 
@@ -128,4 +128,5 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 | 2026-05-18 | Phase A merged (PR #1765) — 20+ primitives + 4 page migrations |
 | 2026-05-18 | Phase B merged (PR #1769) — 8 page migrations + enforcement + accounts IA fix |
 | 2026-05-18 | CVO 反馈：Signals 样式/Mission Hub 去重/侧栏 tooltip → Phase C 追加 |
+| 2026-05-18 | Phase C merged (PR #1770) — Signals styling + Mission Hub dedup + nav tooltips |
 | 2026-05-22 | 目标 close（时间盒 4 天，CVO：不能 5-7 天） |
