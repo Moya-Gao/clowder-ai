@@ -1245,7 +1245,7 @@
     {
       "id": "F201",
       "name": "Antigravity Reliability Contract — 孟加拉猫可靠可用性闭环",
-      "status": "in-progress | **Owner**: 缅因猫（砚砚） | **Reviewer**: 布偶猫 Opus 4.6 + 布偶猫 Opus 4.7 | **Priority**: P0",
+      "status": "close-gate | **Owner**: 缅因猫（砚砚） | **Reviewer**: 布偶猫 Opus 4.6 + 布偶猫 Opus 4.7 | **Priority**: P0",
       "file": "F201-antigravity-reliability-contract.md"
     },
     {
