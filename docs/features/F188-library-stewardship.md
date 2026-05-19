@@ -8,7 +8,7 @@ created: 2026-05-06
 
 # F188: Library Stewardship — 图书馆管护与成长
 
-> **Status**: in-progress (Phase A/B/C/Graph readability/Graph Query/F/G/I merged) | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress (Phase A/B/C/Graph readability/Graph Query/F/G/I/D merged) | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -82,7 +82,7 @@ Privacy Contract：
 - private/restricted 候选不得因搜索 fallback 泄露真实 anchor/title/path；只可显示 opaque/redacted 占位或不返回。
 - unresolved private edge 的 opaque anchor 一致性要求仍适用：候选列表、node endpoint、edge endpoint 不得互相泄露。
 
-### Phase D: Chat-to-Collection Materialization
+### Phase D: Chat-to-Collection Materialization ✅
 
 聊天中产出的知识由猫猫审核后 auto-materialize 到目标 Collection。
 
@@ -228,9 +228,9 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 - [x] AC-C7g: 浏览器验收覆盖 `F186`、`f186`、`harness`、无证据自然语言 query 四类输入；截图证明候选列表、空状态、graph 展示和隐私文案可读
 
 ### Phase D（Chat-to-Collection Materialization）
-- [ ] AC-D1: 猫猫在 Knowledge Feed approve 时可以选择目标 Collection
-- [ ] AC-D2: materialize 后自动触发增量 reindex
-- [ ] AC-D3: materialize 产出的文件有 frontmatter（至少 doc_kind + created）
+- [x] AC-D1: 猫猫在 Knowledge Feed approve 时可以选择目标 Collection
+- [x] AC-D2: materialize 后自动触发增量 reindex
+- [x] AC-D3: materialize 产出的文件有 frontmatter（至少 doc_kind + created）
 
 ### Phase E（Replay Seed / Pin）
 - [ ] AC-E1: 铲屎官可以在 RecallFeed 里 Pin 一条结果（标记 useful / wrong / missing / stale）
@@ -390,6 +390,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | 2026-05-13 | **Phase G merged (PR #1643 squash `2202a40b`)** — G.1 graph_resolve nested response unwrap + G.2 list_recent description precise rewrite。砚砚 Design Gate 二审放行 (P1×3+P2 一审退回收窄)、PR review P1 (index.json 同步) ack。G.3 (list_recent collection-aware) 拆到 Phase H 待 Design Gate |
 | 2026-05-18 | Phase I scoped — Collection Lifecycle Management（铲屎官实操 `domain:finance` 暴露 CRUD 缺口 + 砚砚 brainstorm 收敛 9 AC）；依赖关系确认：Phase I 是 Phase D 的前置依赖 |
 | 2026-05-19 | Phase I merged (PR #1774) — 6-state lifecycle state machine, REST CRUD routes (register/rebuild/archive/unarchive/sensitivity/rename/unbind), 5 MCP tools, CreateCollectionDialog UI, managed vault mode. 砚砚 local review 4 rounds + cloud codex 8 rounds (7 fixes: built-in guard, path traversal, prototype pollution, DryRunResult alignment, blocked recovery, rebuild warning, status filter normalization) |
+| 2026-05-19 | Phase D merged (PR #1777) — Collection selector UI + MaterializeOptions.indexBuilder override + CollectionIndexBuilder.incrementalUpdate + approve route guards (archived/storeless). 砚砚 local review 3 rounds + cloud codex review |
 
 ## Review Gate
 
