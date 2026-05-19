@@ -61,6 +61,12 @@ inputs:
 - 不悄悄改架构，方向性追加只作为 V2+ roadmap + OQ 待 CVO 拍板
 - MVP kernel 保持单仓 + 单 team 假设，但 schema/接口留好未来扩展空间
 
+**v1.4 second-pass patch（2026-05-18 04:25，46 confirm 后小调整）**：
+- 46 second-pass 无阻塞，A/B/A/A OQ 倾向全同意
+- 唯一建议：schema day-1 加 `team_id TEXT NOT NULL DEFAULT 'default'` + `repo_id TEXT NOT NULL DEFAULT 'default'` 默认列（4 张主表），零开发成本避 V2 跨团队 ALTER TABLE + backfill + 重建索引的痛
+- 这是 P1 原则"每步产物是终态基座不是脚手架"的直接应用
+- 已 patch 进 §3 schema skeleton，MVP 用户感知不到这两个字段
+
 ### v1.3（2026-05-14 17:30，Integration-first 原则 + Source Connector 架构）
 
 Landy 17:20 提出关键扩展性追问："如果别人公司用 CodeHub 不是 GitHub，能接进来吗？"砚砚提出 Integration-first 原则我接受 + 自决两个技术 OQ：
@@ -262,6 +268,70 @@ KanbanFlow 的设计假设是「PM 在外面做完筛选，看板里都是已批
 46 push back：Signal/Intent/Decision 都是"需求侧"的不同阶段，物理上合并 `demand` 表能降 50% schema 复杂度，不影响审计完整性（`decision_history JSONB` 记录每次改主意）。WorkItem/WorkRun/Outcome 保持独立——这是 Hermes 教我们的核心分离不能丢。
 
 **何时考虑拆出 Decision 独立表**：未来需要"我们多少次 Decision 改了主意"这类大规模分析，JSONB 解析成本高时再拆。MVP 阶段需求侧数据量级是百级，JSONB 查询完全够。
+
+### v1.4 schema skeleton（46 second-pass 建议：Day-1 留 team_id + repo_id 默认列）
+
+46 建议：MVP 不做多 team feature，但 schema 必须 day-1 加 `team_id` + `repo_id`，零开发成本避 V2 跨团队 ALTER TABLE + backfill + 重建索引的痛。这是 P1 原则"每步产物是终态基座不是脚手架"的直接应用。
+
+```sql
+-- 4 张主表 day-1 必加字段
+CREATE TABLE demand (
+  id            TEXT PRIMARY KEY,
+  team_id       TEXT NOT NULL DEFAULT 'default',   -- v1.4 加（V2 跨团队基座）
+  repo_id       TEXT NOT NULL DEFAULT 'default',   -- v1.4 加（V2 跨仓基座）
+  stage         TEXT NOT NULL,                      -- signal | intent | decision
+  status        TEXT NOT NULL,                      -- 状态域 详见 §3.5
+  -- ... 其它业务字段
+  decision_history JSONB,                          -- v1.4 含 reversal_reason 字段
+  created_at    INTEGER NOT NULL,
+  updated_at    INTEGER NOT NULL
+);
+
+CREATE TABLE work_item (
+  id            TEXT PRIMARY KEY,
+  demand_id     TEXT NOT NULL REFERENCES demand(id),
+  team_id       TEXT NOT NULL DEFAULT 'default',   -- v1.4 加
+  repo_id       TEXT NOT NULL DEFAULT 'default',   -- v1.4 加
+  status        TEXT NOT NULL,                      -- ready/claimed/running/blocked/review/done/cancelled/failed
+  -- ... owner/AC/dependencies/lease
+  depends_on    JSONB,                              -- 数组：依赖的其它 work_item_id（V2 跨仓 link 时升级为 cross-repo refs）
+  created_at    INTEGER NOT NULL,
+  updated_at    INTEGER NOT NULL
+);
+
+CREATE TABLE work_run (
+  id            TEXT PRIMARY KEY,
+  work_item_id  TEXT NOT NULL REFERENCES work_item(id),
+  team_id       TEXT NOT NULL DEFAULT 'default',   -- v1.4 加（denorm 加速查询）
+  actor_lane    TEXT NOT NULL,                      -- human / cat / external_agent / ci
+  actor_id      TEXT NOT NULL,                      -- 具体执行者（opus / codex / landy / external runtime id）
+  status        TEXT NOT NULL,                      -- running/succeeded/failed/abandoned
+  summary       TEXT,
+  metadata      JSONB,
+  artifacts     JSONB,                              -- prUrl/commitSha/threadId/filesPaths
+  handoff_context JSONB,                           -- keyDecisions/openQuestions
+  started_at    INTEGER NOT NULL,
+  ended_at      INTEGER
+);
+
+CREATE TABLE outcome (
+  id            TEXT PRIMARY KEY,
+  work_item_id  TEXT NOT NULL REFERENCES work_item(id),
+  team_id       TEXT NOT NULL DEFAULT 'default',   -- v1.4 加（denorm 加速查询）
+  result        TEXT NOT NULL,                      -- accepted/needs-rework/superseded/vision-degraded
+  summary       TEXT,
+  lesson_candidate JSONB,                          -- Knowledge Feed 候选（W7 横切）
+  created_at    INTEGER NOT NULL
+);
+
+-- 辅助表
+CREATE TABLE events (...);                          -- 全局 audit
+CREATE TABLE routing_signal (...);                  -- §3.6 在线学习
+```
+
+**MVP 阶段所有数据**：`team_id = 'default'` + `repo_id = 'default'`（或单仓 GitHub repo 唯一标识）。用户感知不到这两个字段。
+
+**V2 跨团队时**：新增 team 管理 UI + team-scoped 视图权限 + 多 repo 绑定，**不需要改 schema**——只需开始填入真实 team_id/repo_id。这就是 46 说的"零迁移痛"。
 
 ### Decision 独立成实体的关键理由（这是我跟砚砚同步的看法）
 
