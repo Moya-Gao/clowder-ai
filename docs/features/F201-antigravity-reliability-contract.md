@@ -403,6 +403,9 @@ close_gate_report:
         - kind: alpha
           ref: "cascade-order P1 withdrawal"
           description: "HTML head order proves Next app CSS loads before static console CSS, so Tailwind does not override console controls"
+        - kind: alpha
+          ref: "Bengal Cat (antig-opus) real Antigravity smoke 2026-05-19"
+          description: "Controlled YOLO end-to-end: pwd+git-status 44ms PASS, node setTimeout 5s 5083ms PASS, /tmp write/read/delete 20ms PASS, MCP shell_exec 11ms PASS. Zero approval deadlock, native-executor bypasses UI gate."
 
   unmet: []
   deleted_or_scoped_out:
@@ -457,3 +460,4 @@ close_gate_report:
 | 2026-05-19 | **AC-G8 NODE_ENV root-cause hotfix merged (PR #1773, squash `a24cf2d53`)**：frontend `next dev` now forces `NODE_ENV=development`, preventing an inherited production shell from routing Tailwind `globals.css` through an incomplete dev CSS loader chain. Regression test proves ambient `NODE_ENV=production` is overridden. 47 root-cause review + cloud Codex LGTM；`pnpm gate` passed on `ef973ea4`. |
 | 2026-05-19 | **AC-G8 alpha smoke PASS + close-gate report drafted**：Opus-47 reran alpha under the original polluted-shell condition (`NODE_ENV=production`); `/` and `/settings` returned 200, PostCSS was back in the `globals.css` loader chain, five `/vendor/app/*.css` files returned 200, and the cascade-order P1 was withdrawn via deterministic `<head>` order evidence. Close report, reflection capsule, and harness feedback are ready for non-author vision guardian + CVO signoff. |
 | 2026-05-19 | **Close gate PASS + CVO signoff**：Opus-46 completed non-author/non-reviewer vision guardian review with PASS. Landy approved deleting/reclassifying legacy AC-B2/C2/C3 and asked the controlled YOLO timeout boundary to align to implementation. Implementation check confirmed the default 600s budget is per Antigravity `run_command` execution, not per tool group/cascade; shell chains inside one `run_command` still share that one budget and can raise `ANTIGRAVITY_RUN_COMMAND_TIMEOUT_MS` when needed. F201 closed as `done`. |
+| 2026-05-19 | **Bengal Cat (antig-opus) real Antigravity smoke PASS**：铲屎官重启更新最新 runtime 后，孟加拉猫执行三轮 end-to-end smoke。① 只读 `pwd && git status`：44ms，exit 0，native-executor 自动执行无 approval 死锁；② `node setTimeout 5s`：5083ms，exit 0，controlled YOLO 正确等待短任务；③ `/tmp` 临时文件写/读/删/确认不存在：20ms，exit 0，写路径完整可用。bonus MCP `cat_cafe_shell_exec` 只读通道 11ms 返回。全程零人工审批，native-executor 绕过 Antigravity UI gate 成功执行。「恭喜宝贝变成正常猫猫了」。 |
