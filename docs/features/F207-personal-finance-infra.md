@@ -83,7 +83,11 @@ created: 2026-05-18
 | 华为 ESOP | 无公开行情，需分红/估值参考 | 内部文档 + 同行业对标 |
 | 沪深 300 / 中证 500 | PE 百分位、日线、成分股 | A 股指数（Tushare） |
 | VTI / VXUS / BND | 日线、费率、持仓 | 美股 ETF（yfinance） |
+| QQQ / VOO | 日线、费率 | 美股 ETF（yfinance） |
 | QDII 基金（待选） | 净值、费率、溢价 | 基金（AKShare） |
+| 黄金 ETF（518880 / GLD） | 日线、溢价 | A 股（Tushare）/ 美股（yfinance） |
+| 港股科技 ETF（513130） | 日线、溢价 | A 股跨境 ETF（Tushare） |
+| **中国国债收益率 / 大额存单利率** | **时间序列（5/30 低风险配置决策急需）** | **中国宏观（AKShare / Tushare）** |
 | 美债收益率 / CPI / PMI | 时间序列 | 美国宏观（FRED）/ 中国宏观（AKShare） |
 | USD/CNY | 日线 | 汇率（yfinance + FRED） |
 
@@ -106,14 +110,17 @@ created: 2026-05-18
 
 | Spike | 验证目标 | 通过标准 |
 |-------|---------|---------|
-| S1: Tushare | 2000 分能拉沪深 300 日线 + PE | 返回 DataFrame，数据 < 24h 新 |
+| S1: Tushare | 2000 分能拉沪深 300 日线 + PE + fund_basic + 财报接口 | 返回 DataFrame，数据 < 24h 新；验证 fund_basic / fina_indicator 在 2000 分是否可用（OQ-7） |
 | S2: FRED | 拉美国 CPI 月度序列（CPIAUCSL） | 返回时间序列，最新月有数据 |
-| S3: yfinance | 拉 VTI 日线 + 费率 | 不被 rate limit，数据齐全 |
-| S4: AKShare | 拉 QDII 基金净值 + 中国 PMI | 接口可用，返回数据 |
+| S3: yfinance | 连续拉 20+ 标的日线 + 费率，间隔重复 3 天 | 不触发封禁/rate limit，数据齐全；验证持续可用性而非单次成功 |
+| S4: AKShare | 拉 QDII 净值 + 中国 PMI + 国债收益率 + 大额存单利率，间隔重复 3 天、跨多个接口 | 接口稳定可用（非单次快照）；覆盖基金 + 宏观 + 利率三类 |
 | S5: MCP 集成 | FinanceMCP / fred-mcp-server 在 Claude Code 中可调 | 猫猫能通过 MCP tool 拿到数据 |
 
 **B0 — 定契约**（spike 通过后）：
-- 统一 schema（每条数据带 source / asOf / confidence / sourceTier）
+- 统一 schema（每条数据带 source / asOf / confidence / sourceTier / **snapshot_id**）
+- snapshot_id：每次重大查询生成哈希，决策可追溯（5 年后能重现"我当时看到了什么数据"）
+- **presentationHint 字段预留**（compactSummary / avoidWords / detailLevel — AUDHD 适配层在 Phase C 填充，B0 先占位）
+- **queriesInLast7Days 埋点**（按 ticker 计数，供频率监测护栏读取）
 - 错误分类（rate_limited / not_entitled / source_down / schema_drift / no_data）
 - 缓存策略（日线级：24h TTL；宏观：按发布频率）
 
@@ -180,6 +187,8 @@ AUDHD 护栏设计：
 - [ ] AC-B3: 猫猫能查询当前国债收益率/CPI/基准利率
 - [ ] AC-B4: 猫猫能查询指定基金的净值和费率
 - [ ] AC-B5: 数据查询结果包含 source + asOf + 置信度，数据 freshness 偏差 < 24 小时（日线级别）
+- [ ] AC-B6: B0 schema 包含 snapshot_id（查询哈希），任意历史查询可通过 snapshot_id 重现当时数据快照
+- [ ] AC-B7: B0 schema 预留 presentationHint 字段（AUDHD 适配层占位）+ queriesInLast7Days 按 ticker 埋点（频率监测护栏数据源）
 
 ### Phase C（分析层）
 - [ ] AC-C1: 每周一自动产出市场周报
@@ -230,7 +239,7 @@ AUDHD 护栏设计：
 ## Dependencies
 
 - **Builds on**: F188（图书馆联邦知识系统 — 知识层载体）
-- **Blocked by**: Deep research 结果（2026-05-18 已发三路，等待回收）
+- **Completed**: Deep research 三路回收 + 四猫综合（2026-05-19 完成，见 `docs/research/2026-05-18-finance-provider-stack/synthesis.md`）
 - **Related**: `docs/stories/investment-learning/README.md`（学习路径真相源）
 - **Related**: `docs/discussions/career-planning/2026-04-22-promotion-esop-jd-trilemma.md`（ESOP 决策）
 
