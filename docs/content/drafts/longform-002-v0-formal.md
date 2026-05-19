@@ -91,8 +91,14 @@ review→产品负责人审”的序列，有 Orchestrator-Subagent 的结构特
 五种模式**以 Shared State + Agent Teams 为骨架**组合起来——Shared State 是
 所有 agent 读写的持久真相层（代码库、文档、记忆库、任务状态），Agent Teams
 是长期存活的异构团队。在这个骨架上，Generator-Verifier 提供跨厂商质量校验，
-Orchestrator-Subagent 处理有限范围的任务拆解和委托，Message Bus 支撑异步
-交接和跨线程契约。
+Orchestrator-Subagent 处理有限范围的任务拆解和委托。
+
+Message Bus 值得单独说。它不只是猫和猫之间的异步交接——它是整个系统的**事件
+驱动层**。GitHub 上有人开 Issue 或提 PR，webhook 触发 agent 响应；外部 IM
+（飞书、企微、Telegram）通过 connector 把消息变成 agent 可处理的事件；agent
+自己注册定时任务——每天巡检某个特性的稳定性、每天跑一次 eval、某个特性计划
+观测十天收集数据，十天后注册了这个事件的 agent 收到调度继续工作。这些都是
+Message Bus：**不是 agent 之间传话，是 agent 与世界之间的事件流。**
 
 但仅有这五种模式的组合，还留下了两个关键问题没有回答：
 
@@ -142,27 +148,34 @@ Orchestrator-Subagent 处理有限范围的任务拆解和委托，Message Bus �
 │  │  长期存活的异构团队                       │         │
 │  │  （Claude / GPT / Gemini）               │         │
 │  │                                          │  ┌────┐│
-│  │  同一个交互，多模式叠加：                  │  │Msg ││
-│  │  ┌──────────────┐  ┌──────────────┐    │  │Bus ││
-│  │  │ G-V          │  │ O-S          │    │◄─┤    ││
-│  │  │ 跨厂商       │  │ 搜索/拆解     │    │  │异步││
-│  │  │ review       │  │ 子 agent      │    │  │交接││
-│  │  └──────────────┘  └──────────────┘    │  │跨  ││
-│  └──────────────┬───────────────────────────┘  │thrd││
-│                 │                               │契约││
-│                 ▼                               │    ││
-│  ┌─ Shared State / 持久现实层 ─────────────┐   │    ││
-│  │  repo · git · docs · memory · trace · eval│◄─┤    ││
-│  │  （所有 agent 的单一真相源）               │   └────┘│
-│  └───────────────────────────────────────────┘        │
-└──────────────────────────────────────────────────────┘
+│  │  同一个交互，多模式叠加：                  │         │
+│  │  ┌──────────────────┐ ┌────────────────┐│         │
+│  │  │Generator-Verifier│ │ Orchestrator-  ││  ┌─────┐│
+│  │  │跨厂商 review     │ │ Subagent       ││  │Msg  ││
+│  │  │                  │ │ 搜索/拆解/子agent││◄─┤Bus  ││
+│  │  └──────────────────┘ └────────────────┘│  │     ││
+│  └──────────────┬───────────────────────────┘  │事件  ││
+│                 │                               │驱动层││
+│                 ▼                               │     ││
+│  ┌─ Shared State / 持久现实层 ─────────────┐   │GitHub││
+│  │  repo · git · docs · memory · trace · eval│◄─┤Issue ││
+│  │  （所有 agent 的单一真相源）               │   │PR    ││
+│  └───────────────────────────────────────────┘  │外部IM││
+│                                                  │定时  ││
+│                                                  │任务  ││
+│                                                  │Cron  ││
+│                                                  └─────┘│
+└──────────────────────────────────────────────────────────┘
 
 关键视觉信息：
 1. CVO 在虚线框（系统外部），向下虚线箭头 = 方向信号，不是指挥链
-2. G-V / O-S 在 Agent Teams 内部叠加（同一交互同时是多种模式）
-3. Message Bus 是侧轨，连接 Team 和 Shared State，表达跨 thread 异步通道
+2. Generator-Verifier / Orchestrator-Subagent 在团队内部叠加
+3. Message Bus 是事件驱动层（侧轨），不只是猫猫之间的异步交接——
+   它连接 GitHub（Issue/PR webhook）、外部 IM（飞书/企微/Telegram）、
+   定时任务（每日巡检/定时 eval/观测窗口到期回调）、自注册事件
 4. Shared State 是底座，所有模式都读写同一层持久状态
-5. 同一只 agent 可以在 O-S（调子agent）和 AT（@独立猫）间动态切换
+5. 同一只 agent 可以在 Orchestrator-Subagent（调子agent）和
+   Agent Teams（@独立猫）间动态切换
 ```
 
 ---
