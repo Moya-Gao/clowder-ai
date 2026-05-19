@@ -7,9 +7,13 @@ const ROOT = resolve(import.meta.dirname, '..');
 const XTERM_CSS_IMPORT_RE = /\bimport\s*(['"])@xterm\/xterm\/css\/xterm\.css\1\s*;?/;
 const XTERM_STYLESHEET_LINK_RE =
   /<link\s+[^>]*rel=(['"])stylesheet\1[^>]*href=(['"])\/vendor\/xterm\/xterm\.css\2[^>]*\/?>/;
-const CONNECTOR_TOKENS_IMPORT_RE = /\bimport\s*(['"])\.\/connector-tokens\.css\1\s*;?/;
-const CONNECTOR_TOKENS_STYLESHEET_LINK_RE =
-  /<link\s+[^>]*rel=(['"])stylesheet\1[^>]*href=(['"])\/vendor\/app\/connector-tokens\.css\2[^>]*\/?>/;
+const APP_STATIC_CSS_FILES = [
+  'theme-tokens.css',
+  'console-shell.css',
+  'console-controls.css',
+  'connector-tokens.css',
+  'werewolf-theme.css',
+];
 const WEB_SRC = join(ROOT, 'packages/web/src');
 
 function hasXtermCssImport(source) {
@@ -20,12 +24,19 @@ function hasXtermStylesheetLink(source) {
   return XTERM_STYLESHEET_LINK_RE.test(source);
 }
 
-function hasConnectorTokensImport(source) {
-  return CONNECTOR_TOKENS_IMPORT_RE.test(source);
+function hasAppStaticCssImport(source, fileName) {
+  const escaped = fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pathPattern = `(?:[^'")]*\\/)?${escaped}`;
+  const jsImport = new RegExp(`\\bimport\\s*(?:\\(\\s*)?(?:[^'"()]+\\s+from\\s+)?(['"])${pathPattern}\\1\\s*;?`);
+  const cssImport = new RegExp(`@import\\s+(?:url\\(\\s*)?(['"]?)${pathPattern}\\1\\s*\\)?\\s*;?`);
+  return jsImport.test(source) || cssImport.test(source);
 }
 
-function hasConnectorTokensStylesheetLink(source) {
-  return CONNECTOR_TOKENS_STYLESHEET_LINK_RE.test(source);
+function hasAppStaticCssStylesheetLink(source, fileName) {
+  const escaped = fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`<link\\s+[^>]*rel=(['"])stylesheet\\1[^>]*href=(['"])/vendor/app/${escaped}\\2[^>]*/?>`).test(
+    source,
+  );
 }
 
 function walk(dir) {
@@ -36,7 +47,7 @@ function walk(dir) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...walk(path));
-    } else if (entry.isFile() && /\.(tsx?|jsx?)$/.test(entry.name)) {
+    } else if (entry.isFile() && /\.(tsx?|jsx?|css)$/.test(entry.name)) {
       files.push(path);
     }
   }
@@ -56,14 +67,23 @@ test('xterm global CSS is linked from the Next root layout and never imported th
   assert.deepEqual(offenders, []);
 });
 
-test('app token global CSS is linked from the Next root layout and never imported through JS', () => {
+test('app static global CSS is linked from the Next root layout and never imported through source files', () => {
   const layoutPath = join(WEB_SRC, 'app/layout.tsx');
   const layoutSource = readFileSync(layoutPath, 'utf8');
-  assert.equal(hasConnectorTokensStylesheetLink(layoutSource), true);
 
-  const offenders = walk(WEB_SRC)
-    .filter((file) => hasConnectorTokensImport(readFileSync(file, 'utf8')))
-    .map((file) => relative(ROOT, file));
+  for (const fileName of APP_STATIC_CSS_FILES) {
+    assert.equal(hasAppStaticCssStylesheetLink(layoutSource, fileName), true, `${fileName} is linked`);
+  }
+
+  const offenders = [];
+  for (const file of walk(WEB_SRC)) {
+    const source = readFileSync(file, 'utf8');
+    for (const fileName of APP_STATIC_CSS_FILES) {
+      if (hasAppStaticCssImport(source, fileName)) {
+        offenders.push(`${relative(ROOT, file)} imports ${fileName}`);
+      }
+    }
+  }
 
   assert.deepEqual(offenders, []);
 });
@@ -81,16 +101,24 @@ test('xterm CSS import detector catches syntax variants', () => {
   }
 });
 
-test('app token CSS import detector catches syntax variants', () => {
+test('app static CSS import detector catches syntax variants', () => {
   const variants = [
     'import "./connector-tokens.css";',
     "import './connector-tokens.css'",
     "import  './connector-tokens.css' ;",
     'import\n  "./connector-tokens.css";',
+    'import "@/app/connector-tokens.css";',
+    'import "../app/connector-tokens.css";',
+    'import styles from "./connector-tokens.css";',
+    'import("./connector-tokens.css");',
+    '@import "./connector-tokens.css";',
+    '@import url("./connector-tokens.css");',
+    "@import url('../app/connector-tokens.css');",
+    '@import url(@/app/connector-tokens.css);',
   ];
 
   for (const source of variants) {
-    assert.equal(hasConnectorTokensImport(source), true, source);
+    assert.equal(hasAppStaticCssImport(source, 'connector-tokens.css'), true, source);
   }
 });
 
@@ -102,9 +130,25 @@ test('xterm stylesheet is copied into the public vendor directory before dev/bui
   assert.match(syncScript, /vendorRoot,\s*['"]xterm['"],\s*['"]xterm\.css['"]/);
 });
 
-test('app token stylesheet is copied into the public vendor directory before dev/build', () => {
+test('app static stylesheets are copied into the public vendor directory before dev/build', () => {
   const syncScript = readFileSync(join(ROOT, 'packages/web/scripts/sync-vendor-assets.mjs'), 'utf8');
 
-  assert.match(syncScript, /connector-tokens\.css/);
-  assert.match(syncScript, /vendorRoot,\s*['"]app['"],\s*['"]connector-tokens\.css['"]/);
+  for (const fileName of APP_STATIC_CSS_FILES) {
+    assert.match(syncScript, new RegExp(fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+  assert.match(syncScript, /resolve\(vendorRoot,\s*['"]app['"],\s*file\)/);
+});
+
+test('app static stylesheets are watched while Next dev runs', () => {
+  const webPackage = JSON.parse(readFileSync(join(ROOT, 'packages/web/package.json'), 'utf8'));
+  const startDev = readFileSync(join(ROOT, 'scripts/start-dev.sh'), 'utf8');
+  const syncScript = readFileSync(join(ROOT, 'packages/web/scripts/sync-vendor-assets.mjs'), 'utf8');
+
+  assert.match(webPackage.scripts.dev, /sync-vendor-assets\.mjs --watch -- next dev/);
+  assert.match(startDev, /sync-vendor-assets\.mjs --watch -- next dev/);
+  assert.doesNotMatch(startDev, /sync-vendor-assets\.mjs --watch -- pnpm exec next dev/);
+  assert.match(syncScript, /watch\(resolve\(webRoot,\s*['"]src['"],\s*['"]app['"]\)/);
+  assert.match(syncScript, /appGlobalCssFiles\.includes\(file\)/);
+  assert.match(syncScript, /file\.includes\(['"]\.css\.['"]\)/);
+  assert.doesNotMatch(syncScript, /watch\(src,/);
 });
