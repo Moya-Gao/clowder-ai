@@ -3,23 +3,25 @@ doc_kind: discussion
 topics: [project-management, kanban, multi-agent, signal-intent-decision, synthesis, opus-47]
 related_features: [F049, F076, F121, F150, F153, F192]
 created: 2026-05-14
-status: draft-v1.3
+status: draft-v1.4
 author: opus-47
-reviewer: opus-46 (feasibility review @ 2026-05-14 06:51 + second-pass @ 07:02)
+reviewer: opus-46 (feasibility review @ 2026-05-14 06:51 + second-pass @ 07:02 + reading-comp @ 2026-05-18 21:10)
 convergence:
-  - opus-47: synthesis + final convergence + integration-first patch
-  - opus-46: feasibility review (3 P2 + 4 state-machine gaps) + second-pass answers + readability pass
+  - opus-47: synthesis + final convergence + integration-first patch + roadmap vision patch
+  - opus-46: feasibility review (3 P2 + 4 state-machine gaps) + second-pass answers + readability pass + reading comprehension of guoliang dialogue
   - codex-gpt55: hermes teardown + OQ 6/7/10 vote + 3 diagrams + integration-first push
   - gemini-siamese: visual creation (Prism) + OQ 6/7/10 vote
+  - guoliang-external: wecom dialogue 2026-05-18 14:56-15:46 → 跨仓跨团队 + 团队级小黑板 + 记忆基础设施 + 云端分布式猫猫 4 大方向追加
 inputs:
-  - landy: 原始愿景（23:30 thread message）+ extensibility ask（17:20 thread message）
-  - opus-46: 三层模型（需求漏斗/任务市场/可观测）+ feasibility review + second-pass + readability pass
+  - landy: 原始愿景（23:30 thread message）+ extensibility ask（17:20 thread message）+ guoliang dialogue convergence（2026-05-18）
+  - opus-46: 三层模型（需求漏斗/任务市场/可观测）+ feasibility review + second-pass + readability pass + reading comp
   - opus-47-independent: 五元组流 → 6 元组语义 + 4 表存储
   - gemini-siamese: 流光域视觉创想 → Prism 子品牌 + Cat Signatures
   - codex-gpt55: Hermes Kanban 拆解（见 README.md）+ mission-loom 命名 + mix 路由 + role prior 机制 + Integration-first 原则
+  - guoliang-external: 双入口 + 跨仓跨团队 + 多仓 SDD + 记忆萃取 + 云端分布式
 ---
 
-# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.3）
+# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.4）
 
 > UI 视觉子品牌：**Prism**（流光域）
 > 任务来源：[README.md](./README.md) 末尾 Suggested Synthesis Owner
@@ -31,6 +33,33 @@ inputs:
 > 不是最终 spec，是带大家讨论的基线稿
 
 ## Changelog
+
+### v1.4（2026-05-18 21:30，Docker 部署 + Roadmap Vision 追加郭良 4 大方向）
+
+来源：Landy + 郭良（外部讨论者）wecom 对话 2026-05-18 14:56-15:46，46 做阅读理解后传球。
+
+**46 阅读理解的关键修正**（铲屎官 21:13 push back）：
+- 46 第一轮把"云端"等同于"换 Postgres"，铲屎官纠正——SQLite + Redis 装 Docker 即云端部署，HTTP API server 单写者模式完全够用（Hermes 自己就是 SQLite）
+- ✅ **存储方案不变**：SQLite 主存 + Redis 活动态 + Docker volume 持久化（保持 v1.3）
+- ✅ **新增 §12 Deployment**：Docker 打包方案 + docker-compose（46 预批）
+
+**郭良带来的 4 大方向性追加**（46 撤 SQLite 错时连带撤过头，47 v1.4 补回）：
+
+| 方向 | 郭良/Landy 原话 | 47 处理 |
+|---|---|---|
+| **跨仓跨团队（team-level board）** | "真实开发团队不一定围绕一个工程展开 / 我们的看板服务于全体项目 全体用户 全体 agent" | V2 优先方向，**MVP 守住单仓**，但 kernel day-1 留 `team_id + repo[]` 数据建模空间 |
+| **团队级 Agent 小黑板** | "云端的团队的看板会不会成为团队 agent 的小黑板 / 微服务 A 依赖微服务 B 什么特性 → 开发微服务 A 的 agent 就会知道" | V2-V3 方向，对应 Knowledge Feed 升级为一等公民"依赖关系图" |
+| **记忆作为基础设施** | "依赖梳理/特性级/服务级/各种设计原则 不希望用到的时候再初始化 → agent 交互过程中持续沉淀萃取" | V3 方向，扩展 Knowledge Feed 横切到"依赖图/设计原则/架构债"持久化层 |
+| **云端分布式猫猫（终极愿景）** | "他不应该是看板而是云端分布式版本的猫猫才是终极" | V4 lighthouse vision，spec 记录但不规划实现路径 |
+
+**新增 §13 Roadmap Vision**：V1 看板 MVP → V2 跨仓跨团队 → V3 记忆基础设施 → V4 云端分布式猫猫。**MVP scope 严格守住 v1.3 的 7-8 周不变**，遵循郭良原话"先锤一版看板，别一上来就想太复杂"。
+
+**新增 OQ 13-16**：4 大方向的优先级/时机/scope 等 Landy 拍板。详见 §10。
+
+**关键纪律守住**：
+- 不因为新方向膨胀 MVP scope（守住"先锤一版看板"）
+- 不悄悄改架构，方向性追加只作为 V2+ roadmap + OQ 待 CVO 拍板
+- MVP kernel 保持单仓 + 单 team 假设，但 schema/接口留好未来扩展空间
 
 ### v1.3（2026-05-14 17:30，Integration-first 原则 + Source Connector 架构）
 
@@ -114,6 +143,8 @@ Landy 17:20 提出关键扩展性追问："如果别人公司用 CodeHub 不是 
 - **PM Agent 路由**（v1.2 拍板）：**三层 mix** — Sonnet specifier 默认 / Opus 4.7 升级（模糊/品味/低 confidence）/ Opus 4.6 升级（feasibility/工程账）/ 缅因猫 review gate / 永不绕过人拍板
 - **Capability 冷启动**（v1.2 拍板）：**角色先验 + 猫味签名 UI** — role prior 机制 + 烁烁的 Cat Signatures 表达 + confidence 三档；≥20 WorkRun 后升 warm recommendation；永不自动 dispatch
 - **Integration-first 原则**（v1.3 新增）：**GitHub-as-reference, not boundary** — Source Connector 架构 day-1 就位，CodeHub/Jira/Linear/飞书/告警系统皆通过 connector 接入；增量 Level 0-4。详见 §4.5
+- **Deployment**（v1.4 新增）：**Docker 打包**（API server + SQLite volume + Redis）+ `docker-compose up` 即云端，多人多机器通过 HTTP API 共享同一份状态。详见 §12
+- **Roadmap Vision**（v1.4 新增）：V1 单仓单 team 看板 MVP → V2 跨仓跨团队（team-level board）→ V3 记忆基础设施（依赖图/设计原则/架构债持续沉淀）→ V4 云端分布式猫猫（lighthouse）。MVP 严格守住 v1.3 的 7-8 周 scope。详见 §13
 
 ---
 
