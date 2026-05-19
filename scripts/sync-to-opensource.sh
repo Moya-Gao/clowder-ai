@@ -2021,6 +2021,7 @@ if [ -s "$DEAD_LINKS_FILE" ]; then
     [ -f "$full_path" ] || { STRIP_FAIL=$((STRIP_FAIL + 1)); continue; }
     DEAD_LINK="$link" perl -i -pe '
       my $ql = quotemeta($ENV{DEAD_LINK});
+      s/!\[([^\]]+)\]\($ql(?:#[^)]*)?\)/*(image: $1)*/g;
       s/\[([^\]]+)\]\($ql(?:#[^)]*)?\)/$1/g;
     ' "$full_path" && STRIP_OK=$((STRIP_OK + 1)) || STRIP_FAIL=$((STRIP_FAIL + 1))
   done < "$DEAD_LINKS_FILE"
