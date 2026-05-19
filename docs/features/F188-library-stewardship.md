@@ -111,20 +111,19 @@ Privacy Contract：
 - **Scope = G.1 + G.2，禁止塞 G.3**（schema/UX 改造）。G.1 是 P0 runtime，应该 5-行 wrapper fix 直接 ship，不被大改拖延
 - G.3 移到 Phase H（独立 Design Gate） — 需要重新定义 selection algorithm + schema + MCP text + `deriveResultSummary` 同步
 
-### Phase H: list_recent Collection-Aware Selection (待 Design Gate)
+### Phase H: Collection-Aware Recent Selection
 
-砚砚 一审 P1-3: 仅按 collection group 显示不解决 selection 问题——`RecentBrowseResolver.ts:119` 当前是每个 store 取 limit 后全局按 `updatedAt` 排序再 `.slice(limit)`。如果只返回后分组，R1 占位 doc 仍占满 top 20。
+**Design Gate 通过（2026-05-19，宪宪提案 + 砚砚二审）**
 
-**2026-05-19 dogfood 更新（砚砚）**：问题仍存在，但当前挤占者从原设想的 `world:lexander` R1 临时文档变成了 `docs/library/finance/*` / F207 research 这类同日 project 文档 burst。`cat_cafe_list_recent(scope=docs, limit=20)` 返回 19 条 finance plan + 1 条 F179；`limit=50` 仍是全局 updatedAt 截断，没有 collection/source/kind group 保底。注意：这些 finance 文档当前以 `source: project:cat-cafe` 出现（不是 `domain:finance`，private collection 对 list_recent 不可见），所以 Phase H Design Gate 不能只问“per-collection cap”，还要定义 group key：collection、source root、kind、doc path prefix 是否需要组合成 selection bucket。
+核心问题：`RecentBrowseResolver.ts:143` 全局 `updatedAt` 排序 + `.slice(limit)` 导致任何 collection 的 burst 挤掉其他 collection。
 
-**待 Design Gate 决策点**：
-- API contract 保留 `{items}` vs 改 `{items, groups}` vs 完全替换 `{groups}`？（砚砚一审 P1-2: 至少保留 `{items}` backward compat 给 telemetry parser + 现有 caller）
-- Selection 算法：per-collection cap / project-first bucket / source-root bucket / kind bucket / 每组 top K / total limit 怎么算？
-- MCP text 渲染 + `deriveResultSummary` 同步更新策略
-- UI consumer (`RecentBrowsePanel`) 怎么消费 `{items, groups}` 双源
-- Regression fixture 必备：①「`world:lexander` 20 条新 R1-TMP + `project:cat-cafe` 较旧 teardown」输入下，输出仍包含 project group；②「`project:cat-cafe` 内 `docs/library/finance/*` 20 条同日 plan + 较旧 F188/F200/F201 feature」输入下，输出仍包含 core project feature group（同源 burst 不再挤掉）
+**2026-05-19 dogfood**：`list_recent(scope=docs, limit=20)` 返回 19 条 `docs/library/finance/*`，全部显示 `source: project:cat-cafe`。根因：`factory.ts` 中 `project:cat-cafe.root = docs/` 包含了 `domain:finance.root = docs/library/finance/`，导致 private child collection 的 docs 通过 parent 泄露 + 归属污染。
 
-不能跟 G.1/G.2 hotfix 混 — 单独走完整 Design Gate → wktree → tdd 流程。
+**Design Gate 收敛决策**：
+- **KD-H1**: overlap 修复优先于 selection 算法（privacy/ownership bug > UI 分组）
+- **KD-H2**: 算法用 Guaranteed Minimum + Best-of-Rest，v1 只按 collection 分配；intra-collection burst (kind/path-prefix bucket) 为 P3 follow-up，不做
+- **KD-H3**: API 保留 `{items}` 向后兼容 F200，新增 `{groups: SelectionGroup[]}`（`type: 'collection'`）
+- **KD-H4**: `RecentBrowsePanel` 不消费 list_recent item payload（只展示 tool-usage-metrics 聚合）→ UI 改动 N/A
 
 ### Phase I: Collection Lifecycle Management ✅
 
@@ -264,11 +263,13 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 - [x] AC-G3: rewrite `list_recent` tool description（`recent-tools.ts:23` 的 scope 字段）reflect 实际边界：「threads/memory scope maps to indexed discussion/session/memory/reflection **docs** (not raw thread messages or memory store)」。砚砚一审 P2: 不 oversell `SCOPE_KIND_MAP` 边界（只是 evidence_docs.kind filter，非跨 surface 全量索引）
 - [x] AC-G4: F188 spec OQ-4 状态从"⬜ 待 F197 close 后开 F188 Phase F hotfix PR" → "✅ Phase G AC-G1/G2 实做完成"
 
-### Phase H（list_recent Collection-Aware Selection — 单独 Design Gate）
-- [ ] AC-H1: Design Gate 收敛决策：API contract 形状 (保留 `{items}` / 改 `{items, groups}` / 替换 `{groups}`)，selection algorithm (per-collection cap / project-first bucket / source-root bucket / kind bucket / 每组 top K)，MCP text / `deriveResultSummary` 同步策略，UI consumer (`RecentBrowsePanel`) 改动
-- [ ] AC-H2: backward compatibility — telemetry parser + 现有 caller 不破
-- [ ] AC-H3: Regression fixtures: (a) `world:lexander` 20 条新 R1-TMP + `project:cat-cafe` 较旧 teardown，输入下输出仍包含 project group；(b) `project:cat-cafe` 内 `docs/library/finance/*` 20 条新 plan + 较旧 core feature（F188/F200/F201），输入下输出仍包含 core project feature group
-- [ ] AC-H4: UI 守护 — 烁烁 alpha visual review "R1 占位 doc 是否还挤掉 project teardown" 反例验证
+### Phase H（Collection-Aware Recent Selection — Design Gate 2026-05-19 通过）
+- [ ] AC-H1: Collection overlap cleanup — 同一文件只归属最具体的 collection；parent scanner 动态排除子 collection root；rebuild 清理历史残留行；测试证明 private child docs 不通过 parent 的 `list_recent` 泄出
+- [ ] AC-H2: Guaranteed Minimum selection — eligible collection（通过 visibility filter + 有结果）保底 ≥1 条；eligible > limit 时按最新 item 排序取前 limit 个各 1 条；best-of-rest 去重（同 anchor 不重复）；最终 items 保持全局 updatedAt 排序兼容 F200
+- [ ] AC-H3: 返回 `groups: SelectionGroup[]`（`type: 'collection'`，v1 只实现 collection）
+- [ ] AC-H4: MCP text footer 显示 collection 分布
+- [ ] AC-H5: Regression fixture — cross-collection burst（3 collections，1 个 50 条新 + 其他各 3 条，limit=20 → 三个都有露出）+ overlap privacy（private child docs 不通过 parent 泄出）
+- [ ] AC-H6: RecentBrowsePanel UI → N/A（证据：它只消费 `/api/library/tool-usage-metrics` 聚合数据，不渲染 list_recent item payload）
 
 ### Phase I（Collection Lifecycle Management）✅
 - [x] AC-I1: Collection lifecycle 状态机实现：`registered → indexing → active → stale → blocked → archived`，manifest 持久化状态字段，状态流转有 guard（如 `archived` 不能直接 → `active`，需先 → `registered` 再 rebuild）
