@@ -1396,6 +1396,18 @@ if (!pkg.scripts.check.includes("pnpm check:start-profile-isolation")) {
 }
 delete pkg.scripts["check:architecture-ownership"];
 delete pkg.scripts["test:architecture-ownership"];
+// Internal-only scripts referencing non-exported files
+const internalScripts = [
+  "antigravity:smoke",
+  "check:hmac-salt",
+  "check:antigravity-smoke",
+  "check:web-global-css-imports",
+  "check:settings-primitives",
+];
+for (const s of internalScripts) {
+  delete pkg.scripts[s];
+  pkg.scripts.check = pkg.scripts.check.replace(` && pnpm ${s}`, "");
+}
 fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n");
 PACKAGE_JSON_TRANSFORM_EOF
   echo "  ✓ package.json (public direct-launch wrappers + profile isolation check + home-only scripts removed)"
