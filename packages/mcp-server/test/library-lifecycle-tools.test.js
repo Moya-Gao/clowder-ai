@@ -97,7 +97,13 @@ describe('MCP Library Lifecycle Tools (AC-I4)', () => {
             overview: { docCount: 50 },
           },
           {
-            manifest: { id: 'domain:archived', displayName: 'Old', status: 'archived', sensitivity: 'internal', kind: 'domain' },
+            manifest: {
+              id: 'domain:archived',
+              displayName: 'Old',
+              status: 'archived',
+              sensitivity: 'internal',
+              kind: 'domain',
+            },
             overview: null,
           },
         ],
@@ -317,10 +323,7 @@ describe('MCP Library Lifecycle Tools (AC-I4)', () => {
     assert.equal(result.isError, undefined, 'creation itself should succeed');
     const text = result.content[0].text;
     assert.ok(text.includes('domain:risky'), 'should show collection id');
-    assert.ok(
-      /blocked|secret/i.test(text),
-      `result must warn about blocked/secrets state, got: ${text.slice(0, 300)}`,
-    );
+    assert.ok(/blocked|secret/i.test(text), `result must warn about blocked/secrets state, got: ${text.slice(0, 300)}`);
   });
 
   test('handles fetch error gracefully', async () => {
