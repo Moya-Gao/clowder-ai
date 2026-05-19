@@ -8,7 +8,7 @@ created: 2026-05-06
 
 # F188: Library Stewardship — 图书馆管护与成长
 
-> **Status**: in-progress (Phase A/B/C/Graph readability/Graph Query/F/G/I/D merged) | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress (Phase A/B/C/Graph readability/Graph Query/F/G/I/D merged; Phase E superseded by F200; Phase H remaining) | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -88,11 +88,11 @@ Privacy Contract：
 
 管道两头已有（Knowledge Feed 30 分钟自动摘要 + approve API 支持 targetCollection），中间需要：猫猫侧触发流程 + materialize 后自动触发增量 reindex。
 
-### Phase E: Replay Seed / Pin
+### Phase E: Replay Seed / Pin — Superseded by F200 ✅
 
-手动 Pin 机制（铲屎官 + 猫猫主动标记 recall 结果好/坏）→ 接入 Query Replay 种子池。
+**关闭结论（2026-05-19）**：不单独实现 F188 Phase E。原方案依赖铲屎官或猫猫主动给 recall 结果打 `useful / wrong / missing / stale` 标签；实际 dogfood 后确认这个交互不成立——铲屎官不会逐条 pin，猫猫干活时也没有动机停下来评价记忆系统。
 
-每条 Pin 带 reason：`useful` / `wrong` / `missing` / `stale`。不做自动置信度标记（铲屎官否决：猫猫判断 recall 好坏本身不靠谱，标 low 可能实际 fit，标 high 可能垃圾）。
+该反馈闭环由 **F200 Memory Recall Eval** 接管：F200 用真实猫行为采集 `RecallEvent` / candidates / consumed / trajectory / outputVerified 等隐式信号，覆盖“搜索结果是否被读、是否被用、是否产出被验证”的 replay seed 需求。F188 不再新增手动 Pin UI 或 MCP。
 
 ### Phase G: Phase F Post-launch Quick Hotfix (2026-05-12 立项 / 砚砚 一审收窄)
 
@@ -115,12 +115,14 @@ Privacy Contract：
 
 砚砚 一审 P1-3: 仅按 collection group 显示不解决 selection 问题——`RecentBrowseResolver.ts:119` 当前是每个 store 取 limit 后全局按 `updatedAt` 排序再 `.slice(limit)`。如果只返回后分组，R1 占位 doc 仍占满 top 20。
 
+**2026-05-19 dogfood 更新（砚砚）**：问题仍存在，但当前挤占者从原设想的 `world:lexander` R1 临时文档变成了 `docs/library/finance/*` / F207 research 这类同日 project 文档 burst。`cat_cafe_list_recent(scope=docs, limit=20)` 返回 19 条 finance plan + 1 条 F179；`limit=50` 仍是全局 updatedAt 截断，没有 collection/source/kind group 保底。注意：这些 finance 文档当前以 `source: project:cat-cafe` 出现（不是 `domain:finance`，private collection 对 list_recent 不可见），所以 Phase H Design Gate 不能只问“per-collection cap”，还要定义 group key：collection、source root、kind、doc path prefix 是否需要组合成 selection bucket。
+
 **待 Design Gate 决策点**：
 - API contract 保留 `{items}` vs 改 `{items, groups}` vs 完全替换 `{groups}`？（砚砚一审 P1-2: 至少保留 `{items}` backward compat 给 telemetry parser + 现有 caller）
-- Selection 算法：per-collection cap / project-first bucket / 每组 top K / total limit 怎么算？
+- Selection 算法：per-collection cap / project-first bucket / source-root bucket / kind bucket / 每组 top K / total limit 怎么算？
 - MCP text 渲染 + `deriveResultSummary` 同步更新策略
 - UI consumer (`RecentBrowsePanel`) 怎么消费 `{items, groups}` 双源
-- Regression fixture 必备：「`world:lexander` 20 条新 R1-TMP + `project:cat-cafe` 较旧 teardown」输入下，输出仍包含 project group（R1 不再挤掉）
+- Regression fixture 必备：①「`world:lexander` 20 条新 R1-TMP + `project:cat-cafe` 较旧 teardown」输入下，输出仍包含 project group；②「`project:cat-cafe` 内 `docs/library/finance/*` 20 条同日 plan + 较旧 F188/F200/F201 feature」输入下，输出仍包含 core project feature group（同源 burst 不再挤掉）
 
 不能跟 G.1/G.2 hotfix 混 — 单独走完整 Design Gate → wktree → tdd 流程。
 
@@ -232,10 +234,10 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 - [x] AC-D2: materialize 后自动触发增量 reindex
 - [x] AC-D3: materialize 产出的文件有 frontmatter（至少 doc_kind + created）
 
-### Phase E（Replay Seed / Pin）
-- [ ] AC-E1: 铲屎官可以在 RecallFeed 里 Pin 一条结果（标记 useful / wrong / missing / stale）
-- [ ] AC-E2: 猫猫可以通过 API/MCP 标记 recall 结果
-- [ ] AC-E3: Pin 数据接入 Query Replay 种子池
+### Phase E（Replay Seed / Pin — Superseded by F200）
+- [x] AC-E1: Closed/no-op — 铲屎官手动 Pin UI 不做；F200 用隐式 consumption / trajectory 信号替代逐条人工标注
+- [x] AC-E2: Closed/no-op — 猫猫 API/MCP 手动 Pin 不做；F200 自动记录 recall → read/use/verify 行为链，猫猫不需要额外停下来打标签
+- [x] AC-E3: Closed/no-op — Pin → Query Replay seed 不做；F200 Phase D trajectory 数据是 replay seed 的更高保真输入，人工纠偏入口如需补充应进入 F200 backlog，不回流到 F188
 
 ### Phase F（Agent-facing Memory Tools）
 - [x] AC-F1: MCP tool `cat_cafe_graph_resolve(query, depth?, relations?, dimension?, collections?)` 实现，复用 GraphResolver；query 支持精确 anchor + 模糊词（候选列表）；depth 默认 1 上限 3；relations 支持 wikilink / doc_link / feature_ref / related_to 子集；**`callerCollections` 不在 MCP 输入 schema 里**——必须由服务端从 agent identity / session ACL 派生（详见 KD-8），client-supplied `collections` 仅作请求范围 filter，**不能扩展可见性**；private/restricted 节点/边 redaction 规则与 GraphResolver Web 入口一致（unresolved private anchor opaque 化、跨 collection 边按 sensitivity 过滤）；unit test 验证："传 `collections=["world:private-x"]` 当 caller 不在该 collection 时，private 节点必须 redact，不能因 `collections` 参数被自授权"
@@ -263,9 +265,9 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 - [x] AC-G4: F188 spec OQ-4 状态从"⬜ 待 F197 close 后开 F188 Phase F hotfix PR" → "✅ Phase G AC-G1/G2 实做完成"
 
 ### Phase H（list_recent Collection-Aware Selection — 单独 Design Gate）
-- [ ] AC-H1: Design Gate 收敛决策：API contract 形状 (保留 `{items}` / 改 `{items, groups}` / 替换 `{groups}`)，selection algorithm (per-collection cap / project-first bucket / 每组 top K)，MCP text / `deriveResultSummary` 同步策略，UI consumer (`RecentBrowsePanel`) 改动
+- [ ] AC-H1: Design Gate 收敛决策：API contract 形状 (保留 `{items}` / 改 `{items, groups}` / 替换 `{groups}`)，selection algorithm (per-collection cap / project-first bucket / source-root bucket / kind bucket / 每组 top K)，MCP text / `deriveResultSummary` 同步策略，UI consumer (`RecentBrowsePanel`) 改动
 - [ ] AC-H2: backward compatibility — telemetry parser + 现有 caller 不破
-- [ ] AC-H3: Regression fixture: `world:lexander` 20 条新 R1-TMP + `project:cat-cafe` 较旧 teardown，输入下输出仍包含 project group（R1 不再挤掉）
+- [ ] AC-H3: Regression fixtures: (a) `world:lexander` 20 条新 R1-TMP + `project:cat-cafe` 较旧 teardown，输入下输出仍包含 project group；(b) `project:cat-cafe` 内 `docs/library/finance/*` 20 条新 plan + 较旧 core feature（F188/F200/F201），输入下输出仍包含 core project feature group
 - [ ] AC-H4: UI 守护 — 烁烁 alpha visual review "R1 占位 doc 是否还挤掉 project teardown" 反例验证
 
 ### Phase I（Collection Lifecycle Management）✅
@@ -350,14 +352,14 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 |---|------|------|
 | OQ-1 | Phase A rebuild 进度：按文件数百分比 vs 按 Phase（scan / chunk / embed）？ | ✅ 按 Phase 阶段边界（scanning→indexing→cleanup→embedding→done） |
 | OQ-2 | Phase B stale anchor 检测频率：rebuild 时顺带 vs 独立定时扫描？ | ⬜ 未定 |
-| OQ-3 | Phase E Pin 的 UI 入口：RecallFeed 内嵌 vs 独立 Pin 管理页？ | ⬜ 未定 |
+| OQ-3 | Phase E Pin 的 UI 入口：RecallFeed 内嵌 vs 独立 Pin 管理页？ | ✅ 关闭：Phase E superseded by F200；不做 F188 手动 Pin UI |
 | OQ-4 | **上线后暴露 (Phase F follow-up, 2026-05-12 砚砚 dogfood 发现)**：`graph_resolve` MCP wrapper API↔response shape mismatch — `GraphQueryResolver.ts:257` 返回 `{ status:'graph', graph: {nodes,edges,...} }`（nested），但 `graph-tools.ts:60 GraphSubgraph` interface 期望 flat `{ status:'graph', nodes, edges, ... }`，导致 `g.edges.filter`/`for of visibleEdges` 抛 "Cannot read of undefined" / "is not iterable"。**修法**：MCP wrapper 解 `data.graph.{nodes,edges,center,depth}` 后再传给 formatGraph。 | ✅ Phase G AC-G1/G2 实做完成 (2026-05-12)：unwrap `data.graph` + GraphSubgraphResponse type 对齐 API contract + 测试 fixture 改 nested shape (RED→GREEN)。R1 占位 doc / list_recent collection-aware 拆到 Phase H 独立 Design Gate (砚砚一审 P1 收窄) |
 
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | 不做自动置信度标记，只做手动 Pin | 铲屎官否决：猫猫判断 recall 好坏不靠谱 | 2026-05-06 |
+| KD-1 | ~~不做自动置信度标记，只做手动 Pin~~ → 被 KD-10 取代 | 早期判断：铲屎官否决“猫猫自动置信度标记”；后续 dogfood 证明手动 Pin 本身也不现实 | 2026-05-06 |
 | KD-2 | 不拆成多个小 feature，合成一个 Stewardship | 铲屎官 + GPT-5.5 收敛：价值链是一条线，拆碎了每个都是半截能力 | 2026-05-06 |
 | KD-3 | Phase A 做最小状态表，不做完整 Job Ledger | GPT-5.5 建议中间态：够看够用，等 job 类型多了再抽象 | 2026-05-06 |
 | KD-4 | Graph UI 质量以信息可读性和感官验收为准，不以"画出了节点和边"为准 | 铲屎官反馈：裸 anchor、文字溢出、控件被裁会让 graph 虽然功能正常但不可用 | 2026-05-08 |
@@ -366,6 +368,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | KD-7 | Phase F **不上 PostToolUse hook 作为 v1 必交付**，用 `search_evidence` return payload 末尾 deterministic nudge 替代；FM-5（nudge 失效率 ≥40%）是回到 hook 选项的触发条件 | 砚砚 Design Gate 建议：PostToolUse hook 是 cross-cutting harness 改动，单 Phase F 不该带；payload 内 nudge 是同入口同 trace 的最小可达方案，FM-5 验证有效性；v2 nudge 失效再上 hook | 2026-05-10 |
 | KD-8 | **MCP visibility 边界服务端派生**：`callerCollections` / `allowedCollections` 等决定 private/restricted 可见性的 ACL 字段**必须由服务端从 agent identity / session 派生**，**禁止**作为 MCP 输入参数；client-supplied `collections` 仅作请求范围 filter，不能扩展可见性；任何 MCP wrapper 暴露 ACL 类参数 = privilege escalation = 直接 reject PR | 砚砚 二次 review P1-1：把 `callerCollections` 写进 MCP schema = 让模型自授权 private collection visibility；GraphResolver/GraphQueryResolver 都把它当"调用方可见集合"，server-side option 不能下放到 client | 2026-05-10 |
 | KD-9 | Phase F 实现 **1 个 PR 一次合入**（不拆碎）：AC-F1~F11 + event log + harness 同步 + skill + Dashboard 全做完；baseline 采集用 4.6 review #2 (b) 单方案——event log 上线即开始采，AC-F8 的 30% 改善阈值标 **provisional**，PR merge 后首次 eval 用真实数据校准（不要 pre-launch baseline 窗口） | 铲屎官 push back（2026-05-10）：「拆碎 PR 导致原本一天的事五天才搞完」；重读 4.6 review #2 原文 (a)/(b) 是两选一不是组合，(b) 单选已够解 baseline 循环；KD-6「能力+harness 同 PR」也天然兼容 | 2026-05-10 |
+| KD-10 | Phase E 手动 Pin 关闭，Replay/feedback 闭环归 F200 | 铲屎官指出“铲屎官逐条 pin 不现实，猫猫干活时也没动机 pin”；砚砚 + 47 独立读 F200 后确认：F200 的 RecallEvent / consumption / trajectory / outputVerified pipeline 已覆盖 F188 E 的真实目标。F188 只保留 library navigation / collection 管护职责 | 2026-05-19 |
 
 ## Timeline
 
@@ -391,10 +394,11 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | 2026-05-18 | Phase I scoped — Collection Lifecycle Management（铲屎官实操 `domain:finance` 暴露 CRUD 缺口 + 砚砚 brainstorm 收敛 9 AC）；依赖关系确认：Phase I 是 Phase D 的前置依赖 |
 | 2026-05-19 | Phase I merged (PR #1774) — 6-state lifecycle state machine, REST CRUD routes (register/rebuild/archive/unarchive/sensitivity/rename/unbind), 5 MCP tools, CreateCollectionDialog UI, managed vault mode. 砚砚 local review 4 rounds + cloud codex 8 rounds (7 fixes: built-in guard, path traversal, prototype pollution, DryRunResult alignment, blocked recovery, rebuild warning, status filter normalization) |
 | 2026-05-19 | Phase D merged (PR #1777) — Collection selector UI + MaterializeOptions.indexBuilder override + CollectionIndexBuilder.incrementalUpdate + approve route guards (archived/storeless). 砚砚 local review 3 rounds + cloud codex review |
+| 2026-05-19 | Phase E closed as **Superseded by F200** — AC-E1/E2/E3 marked closed/no-op; manual Pin UI/MCP rejected as unrealistic, feedback/replay seed pipeline owned by F200 Memory Recall Eval |
 
 ## Review Gate
 
-- Phase A-E: 跨猫 review（砚砚优先），涉及 UX 的 Phase（A3/B/E）需浏览器验证
+- Phase A-D: 跨猫 review（砚砚优先），涉及 UX 的 Phase（A3/B）需浏览器验证；Phase E 已 superseded by F200，不再开 F188 实现 PR
 - Graph readability follow-up: 必须用浏览器截图验证 `f186`/`F186` 两种输入，确认节点标题、Inspector、legend/filter/stats 全部可读且无裁切
 - Graph Query Resolution follow-up: spec 先经 46 review；实现前必须确认 query → candidate → graph 的 UX，不准只做 silent search fallback
 - Phase F: spec 先经砚砚 Design Gate（重点 review eval 设计 + harness 配套清单是否齐全 + P1/P2 trigger 阈值是否可观测）；实现 PR 必须跨猫 review；close 必须通过 cold-start eval（NDCG@10 不退化 + turns-to-baton 改善 ≥30%）
