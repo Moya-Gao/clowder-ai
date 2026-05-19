@@ -17,15 +17,15 @@ function RecallCard({ event }: { event: RecallEvent }) {
         </span>
         {event.resultCount != null && (
           <span className="rounded bg-cafe-surface-sunken px-1.5 py-0.5 text-[10px] font-semibold text-cafe-interactive">
-            {event.resultCount} hits
+            {event.resultCount} 条命中
           </span>
         )}
       </button>
       {expanded && (
         <div className="mt-2 space-y-1 border-t border-cafe/50 pt-2 text-xs text-cafe-secondary">
-          {event.mode && <div>Mode: {event.mode}</div>}
-          {event.scope && <div>Scope: {event.scope}</div>}
-          <div>Time: {new Date(event.timestamp).toLocaleTimeString()}</div>
+          {event.mode && <div>模式: {event.mode}</div>}
+          {event.scope && <div>范围: {event.scope}</div>}
+          <div>时间: {new Date(event.timestamp).toLocaleTimeString()}</div>
           {event.results && event.results.length > 0 && (
             <div className="mt-1.5 space-y-1.5">
               {event.results.map((r, i) => (
@@ -94,8 +94,8 @@ export function RecallFeed() {
     <div data-testid="recall-feed" className="space-y-2 p-3">
       <div className="flex items-center gap-2">
         <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-conn-green-text" />
-        <span className="text-xs font-semibold text-cafe-black">LIVE</span>
-        <span className="text-xs text-cafe-secondary">{events.length} recall(s)</span>
+        <span className="text-xs font-semibold text-cafe-black">实时</span>
+        <span className="text-xs text-cafe-secondary">{events.length} 次召回</span>
       </div>
       {events.map((evt) => (
         <RecallCard key={evt.id} event={evt} />
