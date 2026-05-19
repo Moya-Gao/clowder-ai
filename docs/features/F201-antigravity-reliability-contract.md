@@ -239,7 +239,7 @@ F201 关闭时，Antigravity 必须满足以下契约：
 close_gate_report:
   feature_id: F201
   spec_path: docs/features/F201-antigravity-reliability-contract.md
-  head_sha: "0340783c6 + close sync commit pending"
+  head_sha: "a24cf2d53 root-cause fix; 6e47e95ab close-gate doc sync"
   report_date: 2026-05-19
   state: "ready_for_vision_guardian_and_cvo_signoff"
 
