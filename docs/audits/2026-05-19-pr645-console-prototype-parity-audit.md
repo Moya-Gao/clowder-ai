@@ -28,7 +28,7 @@ Decision boundary:
 | State | closed, unmerged |
 | Head | `a384b50c9d200b7b27d6a3a90860ce3816d48fe3` |
 | File count | 523 files |
-| Pencil assets | One large `.pen`: `docs/design/f179-console-layout.pen` |
+| Pencil assets | One large `.pen`: `docs/design/f190-console-layout.pen` |
 | Source-intent docs | `docs/design/console-design-system.md`, `docs/features/F179-console-architecture-restructure.md`, `docs/features/F186-service-manifest.md`, `docs/architecture/service-manifest-sop.md` |
 
 ## Restored Assets
@@ -38,7 +38,7 @@ Public design assets restored to their design location:
 | Restored path | Source path in #645 | Purpose |
 |---|---|---|
 | `docs/design/console-design-system.md` | `docs/design/console-design-system.md` | Console visual grammar: Inset Paper model, no-border layering, spacing/radius/token rules |
-| `docs/design/f179-console-layout.pen` | `docs/design/f179-console-layout.pen` | Pencil source for Activity Rail / Console / Settings layout |
+| `docs/design/f190-console-layout.pen` | `docs/design/f190-console-layout.pen` | Pencil source for Activity Rail / Console / Settings layout |
 
 Source-intent docs archived as evidence, not canonical feature specs, to avoid reintroducing obsolete `F179` / `F186` anchors as current truth sources:
 
