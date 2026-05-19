@@ -6,7 +6,6 @@
 
 import assert from 'node:assert/strict';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import Fastify from 'fastify';
@@ -42,7 +41,7 @@ describe('Thread API', () => {
   });
 
   async function createTempWorkspace() {
-    const dir = await mkdtemp(join(tmpdir(), 'cat-cafe-bootcamp-workspace-'));
+    const dir = await mkdtemp(join(process.cwd(), '.tmp-bootcamp-workspace-'));
     tmpRoots.push(dir);
     return realpath(dir);
   }

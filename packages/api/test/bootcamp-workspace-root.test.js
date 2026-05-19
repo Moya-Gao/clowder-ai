@@ -1,13 +1,12 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
 const tmpRoots = [];
 
 async function createTempDir() {
-  const dir = await mkdtemp(join(tmpdir(), 'cat-cafe-bootcamp-workspace-root-'));
+  const dir = await mkdtemp(join(process.cwd(), '.tmp-bootcamp-workspace-root-'));
   tmpRoots.push(dir);
   return realpath(dir);
 }
