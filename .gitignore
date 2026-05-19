@@ -169,6 +169,9 @@ world.sqlite
 world.sqlite-shm
 world.sqlite-wal
 
+# Antigravity smoke test outputs
+.cat-cafe-antigravity-*-smoke.json
+
 # Temporary data files (browser automation artifacts)
 forzadata-*.txt
 __pycache__/
