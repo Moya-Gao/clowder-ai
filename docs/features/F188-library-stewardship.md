@@ -124,7 +124,7 @@ Privacy Contract：
 
 不能跟 G.1/G.2 hotfix 混 — 单独走完整 Design Gate → wktree → tdd 流程。
 
-### Phase I: Collection Lifecycle Management (2026-05-18 立项)
+### Phase I: Collection Lifecycle Management ✅
 
 铲屎官实操暴露：想手动创建 `domain:finance` collection 绑定 `docs/library/finance/` 下 5+ 篇理财知识文档，**找不到任何入口**。当前 Collection 唯一创建路径是 `POST /api/library/register`（localhost REST，需手工拼 JSON body），无 MCP/CLI/UI 创建方式。Phase D (Chat→Collection materialization) 也依赖"Collection 已存在"前提——lifecycle 不闭环，D 无法独立 ship。
 
@@ -268,16 +268,16 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 - [ ] AC-H3: Regression fixture: `world:lexander` 20 条新 R1-TMP + `project:cat-cafe` 较旧 teardown，输入下输出仍包含 project group（R1 不再挤掉）
 - [ ] AC-H4: UI 守护 — 烁烁 alpha visual review "R1 占位 doc 是否还挤掉 project teardown" 反例验证
 
-### Phase I（Collection Lifecycle Management）
-- [ ] AC-I1: Collection lifecycle 状态机实现：`registered → indexing → active → stale → blocked → archived`，manifest 持久化状态字段，状态流转有 guard（如 `archived` 不能直接 → `active`，需先 → `registered` 再 rebuild）
-- [ ] AC-I2: dry-run API（`POST /api/library/dry-run`）+ MCP tool `cat_cafe_library_dry_run(kind, root, exclude?)`：扫描源目录，返回 file count / scanner level / exclude patterns / secret findings / estimated index size，**不写入任何持久化状态**
-- [ ] AC-I3: create 支持两种源模式——bind existing root（指定 `root` 路径）AND managed markdown vault（`root` 留空则自动创建 `~/.cat-cafe/library/sources/{collection-id}/`）；创建后自动触发首次 indexing
-- [ ] AC-I4: MCP tools 覆盖 lifecycle 核心操作：`cat_cafe_library_list` / `cat_cafe_library_dry_run` / `cat_cafe_library_create` / `cat_cafe_library_rebuild` / `cat_cafe_library_archive`；**visibility 不可自授权**（继承 KD-8：sensitivity/ACL 服务端派生，MCP 不暴露提权参数）
-- [ ] AC-I5: MemoryHub Collection 管理 UI——list 页展示所有 Collection（状态 badge + 文档数 + 最后索引时间）；detail 页展示配置（kind/root/sensitivity/exclude）+ rebuild 按钮 + archive 按钮；create 入口（dry-run → confirm → create 流程）
-- [ ] AC-I6: archive/unbind 不等于 hard delete——compiled index 归档到 `~/.cat-cafe/library/archives/{collection-id}/`，manifest 标记 `archived`，search/graph 不再返回该 Collection 结果；**可恢复**（unarchive → rebuild）
-- [ ] AC-I7: sensitivity 变更双向流——widening（`private → internal → public`）需确认提示；narrowing（`public → private`）立即生效 + 触发 reindex 刷新可见性
-- [ ] AC-I8: Phase D（Chat→Collection materialization）只消费 lifecycle API 创建/选择 Collection，**不自行绕过 lifecycle 直接写 manifest**——Phase I 是 Phase D 的前置依赖
-- [ ] AC-I9: 端到端验收场景：铲屎官通过 MCP/UI 创建 `domain:finance`，bind `docs/library/finance/` 下 5+ 篇理财知识 .md 文件，触发 rebuild，search/graph/catalog 全部能查到 finance 内容，默认 `private` sensitivity
+### Phase I（Collection Lifecycle Management）✅
+- [x] AC-I1: Collection lifecycle 状态机实现：`registered → indexing → active → stale → blocked → archived`，manifest 持久化状态字段，状态流转有 guard（如 `archived` 不能直接 → `active`，需先 → `registered` 再 rebuild）
+- [x] AC-I2: dry-run API（`POST /api/library/dry-run`）+ MCP tool `cat_cafe_library_dry_run(kind, root, exclude?)`：扫描源目录，返回 file count / scanner level / exclude patterns / secret findings / estimated index size，**不写入任何持久化状态**
+- [x] AC-I3: create 支持两种源模式——bind existing root（指定 `root` 路径）AND managed markdown vault（`root` 留空则自动创建 `~/.cat-cafe/library/sources/{collection-id}/`）；创建后自动触发首次 indexing
+- [x] AC-I4: MCP tools 覆盖 lifecycle 核心操作：`cat_cafe_library_list` / `cat_cafe_library_dry_run` / `cat_cafe_library_create` / `cat_cafe_library_rebuild` / `cat_cafe_library_archive`；**visibility 不可自授权**（继承 KD-8：sensitivity/ACL 服务端派生，MCP 不暴露提权参数）
+- [x] AC-I5: MemoryHub Collection 管理 UI——list 页展示所有 Collection（状态 badge + 文档数 + 最后索引时间）；detail 页展示配置（kind/root/sensitivity/exclude）+ rebuild 按钮 + archive 按钮；create 入口（dry-run → confirm → create 流程）
+- [x] AC-I6: archive/unbind 不等于 hard delete——compiled index 归档到 `~/.cat-cafe/library/archives/{collection-id}/`，manifest 标记 `archived`，search/graph 不再返回该 Collection 结果；**可恢复**（unarchive → rebuild）
+- [x] AC-I7: sensitivity 变更双向流——widening（`private → internal → public`）需确认提示；narrowing（`public → private`）立即生效 + 触发 reindex 刷新可见性
+- [x] AC-I8: Phase D（Chat→Collection materialization）只消费 lifecycle API 创建/选择 Collection，**不自行绕过 lifecycle 直接写 manifest**——Phase I 是 Phase D 的前置依赖
+- [x] AC-I9: 端到端验收场景：铲屎官通过 MCP/UI 创建 `domain:finance`，bind `docs/library/finance/` 下 5+ 篇理财知识 .md 文件，触发 rebuild，search/graph/catalog 全部能查到 finance 内容，默认 `private` sensitivity
 
 ## Eval / Tracking Contract
 
@@ -389,6 +389,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | 2026-05-12 | Phase F dogfood: F197 (ACP transformer 单事件拆双消息) merged & closed by 烁烁 alpha 愿景守护 PASS; OQ-4 graph_resolve shape bug 由砚砚 dogfood 暴露 → 立 Phase G hotfix |
 | 2026-05-13 | **Phase G merged (PR #1643 squash `2202a40b`)** — G.1 graph_resolve nested response unwrap + G.2 list_recent description precise rewrite。砚砚 Design Gate 二审放行 (P1×3+P2 一审退回收窄)、PR review P1 (index.json 同步) ack。G.3 (list_recent collection-aware) 拆到 Phase H 待 Design Gate |
 | 2026-05-18 | Phase I scoped — Collection Lifecycle Management（铲屎官实操 `domain:finance` 暴露 CRUD 缺口 + 砚砚 brainstorm 收敛 9 AC）；依赖关系确认：Phase I 是 Phase D 的前置依赖 |
+| 2026-05-19 | Phase I merged (PR #1774) — 6-state lifecycle state machine, REST CRUD routes (register/rebuild/archive/unarchive/sensitivity/rename/unbind), 5 MCP tools, CreateCollectionDialog UI, managed vault mode. 砚砚 local review 4 rounds + cloud codex 8 rounds (7 fixes: built-in guard, path traversal, prototype pollution, DryRunResult alignment, blocked recovery, rebuild warning, status filter normalization) |
 
 ## Review Gate
 
