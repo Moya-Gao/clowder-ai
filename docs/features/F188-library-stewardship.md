@@ -8,7 +8,7 @@ created: 2026-05-06
 
 # F188: Library Stewardship — 图书馆管护与成长
 
-> **Status**: in-progress (Phase A/B/C/Graph readability/Graph Query/F/G/I/D merged; Phase E superseded by F200; Phase H remaining) | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress (Phase A/B/C/Graph readability/Graph Query/F/G/I/D/H merged; Phase E superseded by F200) | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -263,13 +263,13 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 - [x] AC-G3: rewrite `list_recent` tool description（`recent-tools.ts:23` 的 scope 字段）reflect 实际边界：「threads/memory scope maps to indexed discussion/session/memory/reflection **docs** (not raw thread messages or memory store)」。砚砚一审 P2: 不 oversell `SCOPE_KIND_MAP` 边界（只是 evidence_docs.kind filter，非跨 surface 全量索引）
 - [x] AC-G4: F188 spec OQ-4 状态从"⬜ 待 F197 close 后开 F188 Phase F hotfix PR" → "✅ Phase G AC-G1/G2 实做完成"
 
-### Phase H（Collection-Aware Recent Selection — Design Gate 2026-05-19 通过）
-- [ ] AC-H1: Collection overlap cleanup — 同一文件只归属最具体的 collection；parent scanner 动态排除子 collection root；rebuild 清理历史残留行；测试证明 private child docs 不通过 parent 的 `list_recent` 泄出
-- [ ] AC-H2: Guaranteed Minimum selection — eligible collection（通过 visibility filter + 有结果）保底 ≥1 条；eligible > limit 时按最新 item 排序取前 limit 个各 1 条；best-of-rest 去重（同 anchor 不重复）；最终 items 保持全局 updatedAt 排序兼容 F200
-- [ ] AC-H3: 返回 `groups: SelectionGroup[]`（`type: 'collection'`，v1 只实现 collection）
-- [ ] AC-H4: MCP text footer 显示 collection 分布
-- [ ] AC-H5: Regression fixture — cross-collection burst（3 collections，1 个 50 条新 + 其他各 3 条，limit=20 → 三个都有露出）+ overlap privacy（private child docs 不通过 parent 泄出）
-- [ ] AC-H6: RecentBrowsePanel UI → N/A（证据：它只消费 `/api/library/tool-usage-metrics` 聚合数据，不渲染 list_recent item payload）
+### Phase H（Collection-Aware Recent Selection — Design Gate 2026-05-19 通过）✅
+- [x] AC-H1: Collection overlap cleanup — 同一文件只归属最具体的 collection；parent scanner 动态排除子 collection root；rebuild 清理历史残留行；测试证明 private child docs 不通过 parent 的 `list_recent` 泄出
+- [x] AC-H2: Guaranteed Minimum selection — eligible collection（通过 visibility filter + 有结果）保底 ≥1 条；eligible > limit 时按最新 item 排序取前 limit 个各 1 条；best-of-rest 去重（同 anchor 不重复）；最终 items 保持全局 updatedAt 排序兼容 F200
+- [x] AC-H3: 返回 `groups: SelectionGroup[]`（`type: 'collection'`，v1 只实现 collection）
+- [x] AC-H4: MCP text footer 显示 collection 分布
+- [x] AC-H5: Regression fixture — cross-collection burst（3 collections，1 个 50 条新 + 其他各 3 条，limit=20 → 三个都有露出）+ overlap privacy（private child docs 不通过 parent 泄出）
+- [x] AC-H6: RecentBrowsePanel UI → N/A（证据：它只消费 `/api/library/tool-usage-metrics` 聚合数据，不渲染 list_recent item payload）
 
 ### Phase I（Collection Lifecycle Management）✅
 - [x] AC-I1: Collection lifecycle 状态机实现：`registered → indexing → active → stale → blocked → archived`，manifest 持久化状态字段，状态流转有 guard（如 `archived` 不能直接 → `active`，需先 → `registered` 再 rebuild）
@@ -396,6 +396,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | 2026-05-19 | Phase I merged (PR #1774) — 6-state lifecycle state machine, REST CRUD routes (register/rebuild/archive/unarchive/sensitivity/rename/unbind), 5 MCP tools, CreateCollectionDialog UI, managed vault mode. 砚砚 local review 4 rounds + cloud codex 8 rounds (7 fixes: built-in guard, path traversal, prototype pollution, DryRunResult alignment, blocked recovery, rebuild warning, status filter normalization) |
 | 2026-05-19 | Phase D merged (PR #1777) — Collection selector UI + MaterializeOptions.indexBuilder override + CollectionIndexBuilder.incrementalUpdate + approve route guards (archived/storeless). 砚砚 local review 3 rounds + cloud codex review |
 | 2026-05-19 | Phase E closed as **Superseded by F200** — AC-E1/E2/E3 marked closed/no-op; manual Pin UI/MCP rejected as unrealistic, feedback/replay seed pipeline owned by F200 Memory Recall Eval |
+| 2026-05-19 | **Phase H merged (PR #1783)** — Collection-Aware Recent Selection: overlap exclusion (CatCafeScanner + IndexBuilder + runtime registration), guaranteed minimum selection, SelectionGroup API, MCP footer, regression fixtures. 砚砚 local review 5 rounds (R1-R5: CatCafeScanner exclude wiring, parseSingle bypass, runtime registration update, immediate row purge + catalog sync, SQL LIKE wildcard escape) + cloud codex 4 rounds (edge purge, batch chunking, vector cleanup) |
 
 ## Review Gate
 
