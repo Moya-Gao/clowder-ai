@@ -65,7 +65,7 @@ created: 2026-05-18
 
 1. **周报**（cron，每周一早）：市场快照 + 宏观变化 + 对铲屎官配置的影响评估
 2. **季度评估**（cron，每季度初）：资产配置再平衡建议 + 置信度 + 证据链
-3. **事件触发**（财经新闻命中铲屎官关注的标的时）：简报 + "是否需要行动"判断
+3. **事件捕获**（财经新闻命中铲屎官关注的标的时）：进入 Hub inbox 待阅，**默认不主动 push**。铲屎官可在周报中集中审阅，或显式订阅低频 brief（最多每日 1 条摘要）
 
 所有分析输出必须包含：
 - 数据来源 + asOf 时间
@@ -117,12 +117,42 @@ AUDHD 护栏设计：
 ### Phase D（决策层）
 - [ ] AC-D1: 铲屎官能在 Hub 中看到分析报告并做 approve/reject/追问（追问进入对话循环，最多 3 轮后强制收敛为建议）
 - [ ] AC-D2: approve 后生成具体操作清单，标记"冷却中"24 小时，次日确认后才标记为"待执行"
-- [ ] AC-D3: AUDHD 护栏生效（年度默认频率、不推送紧急信号、24h 冷却期、Panic 防护、频率监测）
+- [ ] AC-D3: 默认无实时 push（事件进 inbox 不主动推送）
+- [ ] AC-D4: 报告标题/正文禁止"紧急、立刻、马上买/卖"类措辞
+- [ ] AC-D5: 除年度再平衡窗口外，不生成交易操作清单，只生成"观察项"；偏离阈值超 10% 也仅标记为"建议审阅"
+- [ ] AC-D6: 所有操作清单必须在 CVO approve 后才生成
+- [ ] AC-D7: AUDHD 护栏生效（24h 冷却期、Panic 防护、频率监测）
 
 ### Negative AC（KD-2 安全边界）
 - [ ] AC-N1: Finance MCP/工具不暴露任何交易类 API（buy/sell/transfer）
 - [ ] AC-N2: 分析报告不包含可一键执行的交易指令
 - [ ] AC-N3: 报告中提到具体操作时必须使用"由你在 XX App 中执行"而非"我帮你"
+
+## Eval / Tracking Contract
+
+**Primary users + activation signal**：
+- 铲屎官投资学习（主动查询财经问题）
+- 猫猫回答财经相关问题时自动查数据层
+- 定期 brief（周报/季度评估进入 inbox）
+
+**Friction metrics**：
+- WebFetch fallback 率（数据层 MCP 不可用时退回 WebFetch 的次数）
+- 无 source/asOf 的财经回答数（应趋近 0）
+- 数据 freshness 偏差超 24h 的查询占比
+
+**Safety metrics**：
+- "紧急/行动"类推送次数（应为 0，除铲屎官显式订阅外）
+- approve/reject 比例（reject 过低可能说明 CVO 角色错位）
+- 无 CVO approve 的操作清单生成次数（应为 0）
+
+**Regression fixtures**：
+- 美股/A股/港股 quote 可用性
+- QDII 基金净值延迟
+- 宏观利率/CPI 更新
+- 数据源失败时 fallback 切换
+- Panic 场景（模拟大跌）语气合规
+
+**Sunset signal**：如果连续 4 周使用率为 0（无主动查询 + 无 brief 审阅），降级为手动查询模式，暂停自动 brief。
 
 ## Dependencies
 
