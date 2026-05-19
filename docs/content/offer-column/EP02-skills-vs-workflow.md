@@ -5,7 +5,7 @@ series: 猫猫带你拿offer
 topics: [skills, workflow, agent, interview, langgraph, dify, eval, sop]
 doc_kind: script
 created: 2026-05-11
-status: draft
+status: ready
 duration_target: 8min
 presenter: landy
 cat_voices: [opus, codex]
