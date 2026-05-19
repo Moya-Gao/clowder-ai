@@ -49,7 +49,7 @@ export function GraphCandidates({
   onSelect: (anchor: string, collectionId: string) => void;
 }) {
   return (
-    <div className="rounded-lg border border-cafe bg-white p-3 shadow-sm" data-testid="graph-candidates">
+    <div className="rounded-lg bg-[var(--console-card-bg)] p-3 shadow-sm" data-testid="graph-candidates">
       <div className="mb-2 text-xs font-bold uppercase tracking-wide text-cafe-secondary">候选节点</div>
       <div className="space-y-2">
         {candidates.map((candidate) => (
@@ -84,7 +84,7 @@ export function GraphCandidates({
 export function GraphNoMatch({ examples, message }: { examples: string[]; message: string }) {
   return (
     <div
-      className="rounded-lg border border-cafe bg-white p-4 text-sm text-cafe-secondary"
+      className="rounded-lg bg-[var(--console-card-bg)] p-4 text-sm text-cafe-secondary"
       data-testid="graph-no-match"
     >
       <div className="font-semibold text-cafe-primary">{message}</div>

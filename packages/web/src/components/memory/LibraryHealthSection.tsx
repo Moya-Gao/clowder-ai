@@ -2,7 +2,7 @@ import type { HealthReportData } from './HealthReport';
 
 function MetricCard({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="flex-1 rounded-xl border border-cafe bg-white p-4">
+    <div className="flex-1 rounded-xl bg-[var(--console-card-bg)] p-4">
       <div className="text-xs text-cafe-secondary">{label}</div>
       <div className="mt-1 text-2xl font-semibold text-cafe-black">{value}</div>
       <div className="mt-0.5 text-[10px] text-cafe-muted">{sub}</div>
@@ -35,7 +35,7 @@ export function LibraryHealthSection({ report }: { report: HealthReportData }) {
       </div>
 
       {report.searchQuality && report.searchQuality.totalSearches > 0 && (
-        <div className="rounded-xl border border-cafe bg-white p-5">
+        <div className="rounded-xl bg-[var(--console-card-bg)] p-5">
           <h4 className="mb-3 text-sm font-semibold text-cafe-black">搜索质量</h4>
           <div className="mb-3 flex gap-4 text-xs text-cafe-secondary">
             <span>共 {report.searchQuality.totalSearches} 次搜索</span>
@@ -57,7 +57,7 @@ export function LibraryHealthSection({ report }: { report: HealthReportData }) {
       )}
 
       {report.replayDrift?.available && (
-        <div className="rounded-xl border border-cafe bg-white p-5">
+        <div className="rounded-xl bg-[var(--console-card-bg)] p-5">
           <h4 className="mb-2 text-sm font-semibold text-cafe-black">重放漂移</h4>
           <div className="flex gap-4 text-xs text-cafe-secondary">
             <span>{report.replayDrift.sampleCount} 条重复查询</span>

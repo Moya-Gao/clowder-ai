@@ -47,7 +47,7 @@ export function MemoryFlagPanel() {
   const badge = MODE_LABELS[mode] ?? MODE_LABELS.off!;
 
   return (
-    <div className="rounded-lg border border-cafe bg-cafe-card p-4" data-testid="memory-flag-panel">
+    <div className="rounded-lg bg-[var(--console-card-bg)] p-4" data-testid="memory-flag-panel">
       <h3 className="mb-3 text-sm font-medium text-cafe-text">召回功能标志</h3>
       <div className="flex items-center gap-3">
         <span className="text-xs text-cafe-muted">F200 消费重排序</span>

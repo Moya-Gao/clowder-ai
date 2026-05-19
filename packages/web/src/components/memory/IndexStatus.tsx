@@ -207,7 +207,7 @@ export function IndexStatus() {
       </div>
 
       {/* Stats */}
-      <div className="rounded-lg border border-cafe bg-white p-3">
+      <div className="rounded-lg bg-[var(--console-card-bg)] p-3">
         <StatusRow label="后端" value={status.backend} />
         <StatusRow label="文档" value={status.docsCount} />
         <StatusRow label="线程" value={status.threadsCount} />
@@ -222,7 +222,7 @@ export function IndexStatus() {
 
       {/* Feature flags */}
       {evidenceVars.length > 0 && (
-        <div className="rounded-lg border border-cafe bg-white p-3">
+        <div className="rounded-lg bg-[var(--console-card-bg)] p-3">
           <h3 className="mb-2 text-xs font-semibold text-cafe-black">功能开关</h3>
           {evidenceVars.map((v) => {
             const isOn = v.currentValue === 'on';
@@ -271,7 +271,7 @@ export function IndexStatus() {
 
       {/* Config reference — all non-toggle evidence env vars */}
       {configVars.length > 0 && (
-        <div className="rounded-lg border border-cafe bg-white p-3">
+        <div className="rounded-lg bg-[var(--console-card-bg)] p-3">
           <h3 className="mb-2 text-xs font-semibold text-cafe-black">配置参考</h3>
           <p className="mb-2 text-[10px] text-cafe-secondary">以下配置需在 .env 中设置，修改后重启生效。</p>
           {configVars.map((v) => (

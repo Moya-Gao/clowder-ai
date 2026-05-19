@@ -9,7 +9,7 @@ function RecallCard({ event }: { event: RecallEvent }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-lg border border-cafe bg-white p-2.5">
+    <div className="rounded-lg bg-[var(--console-card-bg)] p-2.5">
       <button type="button" onClick={() => setExpanded(!expanded)} className="flex w-full items-center gap-2 text-left">
         <span className="text-xs text-cafe-secondary">{expanded ? '\u25BE' : '\u25B8'}</span>
         <span className="flex-1 text-sm font-medium text-cafe-black truncate" title={event.query}>

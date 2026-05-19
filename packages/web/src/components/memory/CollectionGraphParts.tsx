@@ -147,7 +147,7 @@ export function GraphInspector({
   uniqueRelations,
 }: GraphInspectorProps) {
   return (
-    <div data-testid="graph-side-panel" className="min-w-0 space-y-4 rounded-md border border-[#e5dacd] bg-white p-4">
+    <div data-testid="graph-side-panel" className="min-w-0 space-y-4 rounded-md bg-[var(--console-card-bg)] p-4">
       <div data-testid="graph-node-detail" className="space-y-3">
         <div>
           <div className="text-[10px] font-bold uppercase tracking-wide text-cafe-secondary">Selected node</div>
@@ -299,7 +299,7 @@ export function GraphTooltip({ node }: { node: GraphNode }) {
   return (
     <div
       data-testid="graph-tooltip"
-      className="absolute inset-x-4 top-4 sm:left-auto sm:right-4 sm:max-w-xs rounded-lg bg-cafe-surface p-3 text-xs shadow-lg border border-cafe pointer-events-none"
+      className="absolute inset-x-4 top-4 sm:left-auto sm:right-4 sm:max-w-xs rounded-lg bg-cafe-surface p-3 text-xs shadow-lg pointer-events-none"
     >
       <div className="font-semibold text-cafe-primary">{node.title}</div>
       <div className="text-cafe-secondary">{node.kind}</div>

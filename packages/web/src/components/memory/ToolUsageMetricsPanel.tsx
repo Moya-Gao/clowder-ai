@@ -68,7 +68,7 @@ export function ToolUsageMetricsPanel({ fetcher }: { fetcher?: () => Promise<Too
 
   if (error) {
     return (
-      <div className="rounded-xl border border-cafe bg-white p-5" data-testid="tool-usage-metrics-error">
+      <div className="rounded-xl bg-[var(--console-card-bg)] p-5" data-testid="tool-usage-metrics-error">
         <h4 className="mb-2 text-sm font-semibold text-cafe-black">工具使用指标</h4>
         <div className="text-xs text-conn-red-text">加载失败: {error}</div>
       </div>
@@ -77,7 +77,7 @@ export function ToolUsageMetricsPanel({ fetcher }: { fetcher?: () => Promise<Too
 
   if (!report) {
     return (
-      <div className="rounded-xl border border-cafe bg-white p-5" data-testid="tool-usage-metrics-loading">
+      <div className="rounded-xl bg-[var(--console-card-bg)] p-5" data-testid="tool-usage-metrics-loading">
         <h4 className="mb-2 text-sm font-semibold text-cafe-black">工具使用指标</h4>
         <div className="text-xs text-cafe-muted">加载中…</div>
       </div>
@@ -85,7 +85,7 @@ export function ToolUsageMetricsPanel({ fetcher }: { fetcher?: () => Promise<Too
   }
 
   return (
-    <div className="rounded-xl border border-cafe bg-white p-5" data-testid="tool-usage-metrics-panel">
+    <div className="rounded-xl bg-[var(--console-card-bg)] p-5" data-testid="tool-usage-metrics-panel">
       <div className="mb-3 flex items-baseline justify-between">
         <h4 className="text-sm font-semibold text-cafe-black">工具使用指标</h4>
         <div className="text-[10px] text-cafe-muted">

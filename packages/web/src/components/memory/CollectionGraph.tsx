@@ -61,7 +61,7 @@ function GraphCanvas({
 }) {
   const renderedHeight = Math.round((viewHeight / H) * 560);
   return (
-    <div className="relative min-w-0 overflow-auto rounded-md border border-[#e5dacd] bg-white">
+    <div className="relative min-w-0 overflow-auto rounded-md bg-[var(--console-card-bg)]">
       <svg
         viewBox={`0 0 ${W} ${viewHeight}`}
         className="w-full"
@@ -282,7 +282,7 @@ export function CollectionGraph() {
       )}
 
       {graph && graph.nodes.length > 0 && (
-        <div className="relative rounded-lg border border-cafe bg-[#fbfaf7] p-3">
+        <div className="relative rounded-lg bg-[var(--console-card-bg)] p-3">
           {graphNote === 'no_edges' && <GraphNoEdgesNote />}
           <div data-testid="graph-stage" className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
             <GraphCanvas
