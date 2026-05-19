@@ -3,7 +3,7 @@ doc_kind: discussion
 topics: [project-management, kanban, multi-agent, signal-intent-decision, synthesis, opus-47]
 related_features: [F049, F076, F121, F150, F153, F192]
 created: 2026-05-14
-status: draft-v1.4
+status: draft-v1.5
 author: opus-47
 reviewer: opus-46 (feasibility review @ 2026-05-14 06:51 + second-pass @ 07:02 + reading-comp @ 2026-05-18 21:10)
 convergence:
@@ -21,7 +21,7 @@ inputs:
   - guoliang-external: 双入口 + 跨仓跨团队 + 多仓 SDD + 记忆萃取 + 云端分布式
 ---
 
-# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.4）
+# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.5）
 
 > UI 视觉子品牌：**Prism**（流光域）
 > 任务来源：[README.md](./README.md) 末尾 Suggested Synthesis Owner
@@ -33,6 +33,27 @@ inputs:
 > 不是最终 spec，是带大家讨论的基线稿
 
 ## Changelog
+
+### v1.5（2026-05-18 00:30，Landy co-design：需求转换层正名 + FE→WorkItem 拆分治理）
+
+Landy 会议中（已拉郭良进会）抛出深度架构思考，点中真实 gap。新增 §3.7：
+
+**洞察 1（正名）**：Signal/Intent/Decision = **Demand Funnel（需求转换层）**——"把任意混乱输入规整成标准需求"。Landy 独立推导 = 46 v1.1 的 demand 表合并方案，互相验证。spec 全文采用此命名。
+
+**洞察 2（授权模型）**：猫初筛，人终审——跟 §3.6 + OQ 7 一致，正式写入 Demand Funnel 授权规则。
+
+**gap（核心）**：`Decision → WorkItem` 是单步的，但 Decision 输出的 FE（feat）**可能跨多团队/多微服务/多代码仓**，缺"拆分治理层"。
+
+我的架构判断（待 Landy confirm）：
+- **FE 不是新实体**——是 demand 表 decision=BuildNow 那条记录的语义名
+- **拆分是「动作」不是「新实体」**——复用 46 second-pass 加的 `work_item.team_id + repo_id + depends_on` + 新增 `parent_id`（self-ref），不新增第 7 个对象（守住"先锤一版看板"）
+- **谁拆治理**：V1 单仓猫初拆+人审；V2 跨仓 +gitnexus 式依赖分析+人治理；V3 依赖图持续沉淀
+- **gitnexus**（Landy 提的概念）= 跨仓特性级/服务级依赖图分析，V1 不做，V2 接住郭良多仓 SDD 真实场景
+- **swimlane**（图2 Team NY/LA）= WorkItem 按 team_id 分组，V1 单泳道 V2 多泳道
+
+**schema 补丁**：`work_item` 加 `parent_id TEXT REFERENCES work_item(id)`（FE→子任务拆分树）。
+
+**connectors 印证**：Landy 列的 IM 提单（NL 自动转化）/ 内部云捷系统 / 客户采访 / GitHub issue = §4.5 Source Connector 多源，已覆盖。
 
 ### v1.4（2026-05-18 21:30，Docker 部署 + Roadmap Vision 追加郭良 4 大方向）
 
@@ -290,6 +311,7 @@ CREATE TABLE demand (
 CREATE TABLE work_item (
   id            TEXT PRIMARY KEY,
   demand_id     TEXT NOT NULL REFERENCES demand(id),
+  parent_id     TEXT REFERENCES work_item(id),      -- v1.5 加（FE→子任务拆分树；NULL=FE 本体/单体任务）
   team_id       TEXT NOT NULL DEFAULT 'default',   -- v1.4 加
   repo_id       TEXT NOT NULL DEFAULT 'default',   -- v1.4 加
   status        TEXT NOT NULL,                      -- ready/claimed/running/blocked/review/done/cancelled/failed
@@ -477,6 +499,97 @@ UI **不显示百分比**（45% / 65% / 85% 都是假装很懂）。改用烁烁
 - 烁烁的"星象雷达"上场，把 role prior + 累积 outcome data 渲染成能力六边形
 - 出现"这类任务给谁最合适"的真实归纳
 - 数据足够时考虑半自动 dispatch（人一键确认）
+
+---
+
+## 3.7 需求转换层正名 + FE→WorkItem 拆分治理（v1.5 新增，Landy co-design 2026-05-18 00:27）
+
+Landy 在会议中点破了两个核心洞察 + 暴露了一个真实的对象模型 gap。本节正名 + 补 gap。
+
+### 洞察 1：Signal/Intent/Decision = 需求转换层（Demand Funnel）
+
+Landy 原话："其实我们这三层是在做需求的转换层？可能有规整的需求 也可能有随意的需求。decision 这里输出的就得是统一规整的需求了"。
+
+**这跟 46 v1.1 的 demand 表合并方案不谋而合**——独立推导出同一个抽象，互相验证：
+
+| 层 | 输入 | 输出 | 物理存储 |
+|---|---|---|---|
+| **Demand Funnel**（需求转换层）= Signal + Intent + Decision | 任意混乱输入（IM 自然语言 / 客户采访 / 内部云捷系统 / GitHub issue） | **统一规整的需求** | `demand` 表（v1.1 已合并，stage 字段区分） |
+
+正式命名：Signal→Intent→Decision 这一段叫 **Demand Funnel（需求转换层）**，职责是"把任意混乱输入规整成标准需求"。**spec 全文采用此命名。**
+
+"能不能合并？"——**物理存储上 46 在 v1.1 已经合并了**（demand 表 + stage 字段）。语义保留三段是因为授权模型需要区分阶段（见洞察 2）。Landy 和 46 独立得出同一结论 = 这个抽象稳。
+
+### 洞察 2：授权模型 = 猫初筛，人终审
+
+Landy 原话："decision 这里 可能是最终授权得是人，初步筛选是猫"。
+
+这跟 §3.6 + OQ 7（PM Agent 三层路由）+ "永不绕过人最终拍板"铁律完全一致。正式写入 Demand Funnel 的授权规则：
+
+| 阶段 | 谁做 | 产出 |
+|---|---|---|
+| Signal → Intent | 猫（Sonnet specifier 默认 / 升级 Opus） | 规整化候选 |
+| Intent → Decision（初筛） | 猫（评估 + 推荐处置） | Decision 候选 + evidence |
+| Decision 终审 | **人（CVO/PM）** | 最终授权（Build Now / Decline / ...） |
+
+### gap：FE → WorkItem 之间缺"拆分治理层"
+
+Landy 原话："IR 原始需求 → FE（就是我们的 feat 了）。但是如果一个 FE 分到了不同的小团队？！我们这个 FE 到底是需要继续拆分到具体的小团队吗？有可能是不同的微服务？比如三个微服务互相有依赖，他们是三个代码仓。这里猫猫得拆清楚可能是个挑战 需要有 gitnexus？人治理？"
+
+**这是真实 gap。** 现有对象模型 `Decision → WorkItem` 是单步的，但 Landy 指出：Decision 输出的 FE（feat）**可能跨多团队/多微服务/多代码仓**，从 FE 到 WorkItem 之间缺一个"拆分 + 依赖梳理"环节。
+
+### 术语对齐
+
+| Landy 的词 | spec 对象 | 关系 |
+|---|---|---|
+| IR（原始需求） | Signal | Demand Funnel 入口 |
+| FE（feat） | Decision(Build Now) 的输出 | **不是新实体**——是 demand 表里 decision=BuildNow 那条记录的语义名 |
+| 分栏 todo（KanbanFlow 截图） | WorkItem 的 Flow View | FE 拆分后的执行单元 |
+| swimlane（图2 Team NY/LA） | WorkItem 按 team_id 分组 | V2 多泳道，V1 单泳道 |
+
+### 架构判断：拆分是「动作」不是「新实体」
+
+**我的判断（待 Landy confirm）**：不新增第 7 个实体，复用 46 second-pass 刚加的 `work_item.team_id + repo_id + depends_on`：
+
+```
+Decision(Build Now) = FE
+   │
+   │  ◄── 拆分治理动作（谁拆见下表）
+   ▼
+WorkItem (parent)            ← FE 本体，status=blocked 直到子项完成
+   ├── WorkItem (child, team_A, repo_1)   depends_on: []
+   ├── WorkItem (child, team_B, repo_2)   depends_on: [child_A]   ← 跨仓依赖
+   └── WorkItem (child, team_C, repo_3)   depends_on: [child_A, child_B]
+```
+
+复用已有机制：
+- `work_item.parent_id`（新增字段，self-ref）+ `depends_on JSONB`（v1.4 已加）
+- `team_id` + `repo_id`（v1.4 second-pass 已加）
+- Hermes dependency engine 模式（parent 没 done，child 不被领走 / 有依赖的 child 等依赖满足才 ready）
+
+**为什么不新增实体**：守住"先锤一版看板"（郭良 15:15 原话）。拆分是 FE→WorkItem 的一个**流程动作**，谁拆是职责问题（PM/猫/工具），不需要新对象。
+
+### 「谁来拆」治理：V1 vs V2
+
+| 阶段 | 拆分范围 | 谁拆 | 工具 |
+|---|---|---|---|
+| **V1 (MVP)** | 单仓单 team | 猫初拆（Sonnet/Opus specifier 把 FE 拆成 work_item 列表）+ 人审 | 无需 gitnexus，单仓依赖人脑/猫脑够 |
+| **V2 (跨仓跨团队)** | 多仓多 team | 猫初拆 + **gitnexus 式依赖分析辅助** + 人治理终审 | gitnexus = 跨仓依赖图分析（= 郭良的"多仓 SDD 依赖梳理"）|
+| **V3 (记忆基础设施)** | 同 V2 | 依赖图持续沉淀，拆分时自动注入历史依赖知识 | Knowledge Feed 升级形态（§13 V3） |
+
+**gitnexus 定位**（Landy 提的概念）：跨仓 + 特性级/服务级依赖图分析工具。**V1 不做**（单仓不需要），V2 作为拆分治理的辅助。这正好接住郭良的多仓 SDD 真实场景——**郭良的痛点 = 我们 V2 的 gitnexus 需求来源**。
+
+### V1 守住的边界
+
+- ✅ V1 支持 FE→多 WorkItem 拆分，但**仅单仓单 team**（parent/child 都在 default team/repo）
+- ✅ schema day-1 留好跨仓拆分的字段（parent_id + depends_on + team_id + repo_id）
+- ❌ V1 不做 gitnexus（跨仓依赖分析）
+- ❌ V1 不做多 swimlane UI（单泳道够用）
+- ❌ 不因为"未来跨仓"在 V1 提前造依赖分析引擎（YAGNI）
+
+### swimlane 映射（回答 Landy "对应我们的 WorkItem？"）
+
+是的，KanbanFlow 截图里的 To-do/Do today/In progress/Done **卡片 = WorkItem 的 Flow View 列**；图2 的 General/Team NY/Team LA **泳道 = WorkItem 按 `team_id` 分组**。V1 单泳道（team_id=default），V2 多泳道（真实 team_id）。Flow View 的列 = WorkItem.status 状态域（§3.5）。
 
 ---
 
