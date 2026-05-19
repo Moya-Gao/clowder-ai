@@ -128,63 +128,7 @@ Feature B 有一个接口没闭环，阻塞了自己。这时 A 线程的 agent 
 *一张图：左侧五种原语；右侧展示同一个交互如何同时叠加多种模式，以及模式在
 不同粒度上的动态切换。CVO 作为愿景锚点位于 agent 系统外部。*
 
-```text
-低保真草图 v0：五个原语不是五选一——它们在不同粒度上同时叠加
-
-┌──────────────────────────────┐
-│ Anthropic 五种协作原语         │
-├──────────────────────────────┤
-│ Generator-Verifier           │
-│ Orchestrator-Subagent        │
-│ Agent Teams                  │
-│ Message Bus                  │
-│ Shared State                 │
-└───────────┬──────────────────┘
-            │ 组合 + 叠加
-            ▼
-┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
-  CVO / Vision Oracle
-  方向校准 · 拉闸词 · Phase 验收
-  （不在五种模式里——位于 agent 系统外部）
-└ ─ ─ ─ ─ ─ ─ ─ ┬ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
-                  ╎ 方向信号（虚线 = 非指挥链）
-                  ▽
-┌──────────────────────────────────────────────────────┐
-│              Cat Café 组合架构                         │
-│                                                      │
-│  ┌─ Agent Teams 骨架 ──────────────────────┐         │
-│  │  长期存活的异构团队                       │         │
-│  │  （Claude / GPT / Gemini）               │         │
-│  │                                          │  ┌────┐│
-│  │  同一个交互，多模式叠加：                  │         │
-│  │  ┌──────────────────┐ ┌────────────────┐│         │
-│  │  │Generator-Verifier│ │ Orchestrator-  ││  ┌─────┐│
-│  │  │跨厂商 review     │ │ Subagent       ││  │Msg  ││
-│  │  │                  │ │ 搜索/拆解/子agent││◄─┤Bus  ││
-│  │  └──────────────────┘ └────────────────┘│  │     ││
-│  └──────────────┬───────────────────────────┘  │事件  ││
-│                 │                               │驱动层││
-│                 ▼                               │     ││
-│  ┌─ Shared State / 持久现实层 ─────────────┐   │GitHub││
-│  │  repo · git · docs · memory · trace · eval│◄─┤Issue ││
-│  │  （所有 agent 的单一真相源）               │   │PR    ││
-│  └───────────────────────────────────────────┘  │外部IM││
-│                                                  │定时  ││
-│                                                  │任务  ││
-│                                                  │Cron  ││
-│                                                  └─────┘│
-└──────────────────────────────────────────────────────────┘
-
-关键视觉信息：
-1. CVO 在虚线框（系统外部），向下虚线箭头 = 方向信号，不是指挥链
-2. Generator-Verifier / Orchestrator-Subagent 在团队内部叠加
-3. Message Bus 是事件驱动层（侧轨），不只是猫猫之间的异步交接——
-   它连接 GitHub（Issue/PR webhook）、外部 IM（飞书/企微/Telegram）、
-   定时任务（每日巡检/定时 eval/观测窗口到期回调）、自注册事件
-4. Shared State 是底座，所有模式都读写同一层持久状态
-5. 同一只 agent 可以在 Orchestrator-Subagent（调子agent）和
-   Agent Teams（@独立猫）间动态切换
-```
+![Figure 1：Anthropic 五模式到 Cat Café 组合架构](assets/longform-002-figure-1-combo-architecture.png)
 
 ---
 
@@ -741,39 +685,7 @@ trace、人工确认和记忆系统。
 
 **〔 Figure 7 —— Harness 现实闭环运行时 〕**
 
-低保真草图 v0：
-
-```text
-        人类意图 / 产品边界
-                 │
-                 ▼
-        Shared State 共享现实
-   feature / task / git / thread / memory
-                 │
-                 ▼
-            Agent 推理
-                 │
-                 ▼
-        Tool Mediation 工具中介
-   MCP / Skill / Connector / Scheduler / Sandbox
-                 │
-                 ▼
-        现实副作用
-   code / docs / PR / external systems
-                 │
-                 ▼
-        Evidence & Sensors 证据与传感器
-   tests / trace / review / outputVerified
-                 │
-                 ▼
-        Governance & Entropy Control
-   L0 / Magic Words / hotfix review / sunset
-                 │
-                 ▼
-        Memory & Lessons
-   knowledge federation / lessons / eval signals
-                 └───────────────↺ 回到 Shared State
-```
+![Figure 7：Harness 现实闭环运行时](assets/longform-002-figure-7-harness-runtime.png)
 
 这张图有两个重点。第一，模型不直接接触"现实"，它通过 Harness 的各个表面接触现实。
 第二，现实不是一次性输入，而是闭环：每次行动产生证据，证据进入治理和记忆，记忆再
@@ -1105,44 +1017,7 @@ markdown 仍是真相源，SQLite / 全文检索 / 向量检索 / RRF 融合排�
 
 **〔 Figure 8 —— Cat Café 多域记忆运行时架构 〕**
 
-低保真草图 v0：
-
-```text
-┌──────────────────────── 多域真相源 / Collections（知识域） ───────────────┐
-│ 项目主域        全局方法论      个人上下文       虚拟世界       专业领域     │
-│ spec/ADR/       skills/规则     偏好/健康/       world:...      金融/医疗/   │
-│ lesson/code     跨项目教训      工作习惯         设定集         生物实验设计 │
-│                                                                        │
-│ 外部连接器 / 外部项目：GitHub / Gmail / IM / Docs / 其他 repo            │
-│ 运行时 trace：search / read / edit / review / outputVerified             │
-└───────────────────────────────┬────────────────────────────────────────┘
-                                │ 扫描器 / 连接器 / 来源溯源
-                                ▼
-┌──────────────────────── 扫描与编译层 ────────────────────────────────────┐
-│ markdown truth source → SQLite FTS + vector + graph + metadata            │
-│ 索引可重建；真相源仍在人类可读的文件或外部系统里                         │
-└───────────────────────────────┬────────────────────────────────────────┘
-                                │
-                                ▼
-┌──────────────────────── 联邦检索层 ──────────────────────────────────────┐
-│ scope: 选择检索表面（docs / threads / memory）                             │
-│ dimension + collections: 选择知识域；按权限过滤；跨知识域 RRF 融合           │
-└───────────────────────────────┬────────────────────────────────────────┘
-                                │
-              ┌─────────────────┴─────────────────┐
-              ▼                                   ▼
-┌────────────────────────┐        ┌──────────────────────────────────────┐
-│ 治理层                  │        │ Agent 佩戴协议层                      │
-│ 权威性 / 触发方式 /     │        │ graph_resolve / list_recent /          │
-│ 生命周期 / 来源溯源 /   │        │ search_evidence + 搜索技能 + 追源纪律 │
-│ 过期与矛盾检测          │        └──────────────────┬───────────────────┘
-└────────────┬───────────┘                           │
-             │                                       ▼
-             └──────────────→ 反馈闭环：真实使用行为 / 任务结果
-                              consumed / searchChain / filesRead /
-                              outputVerified（结果验证）/ attribution（归因）
-                              → 排序调整 / sunset / governance review
-```
+![Figure 8：Cat Café 多域记忆运行时架构](assets/longform-002-figure-8-memory-runtime.png)
 
 ### 用行为信号而非自评
 
@@ -1885,23 +1760,7 @@ Agent Quality = Capability × Environment Fit
 
 **〔 Figure 12 —— 伙伴系统如何改写输出分布 〕**
 
-```text
-单 agent 输出分布
-
-低质量 ──────── 中位质量 ──────── 高质量
-   │                │                │
-   └──── 用户直接看到完整波动 ──────┘
-
-
-Cat Café 伙伴系统输出分布
-
-低质量 ──────── 中位质量 ──────── 高质量
-   │                │                │
-   │        review / test / trace    │
-   │        memory / recovery / eval │
-   ▼                │                ▼
-左尾被截断      用户看到更稳输出      右尾被拉长
-```
+![Figure 12：伙伴系统如何改写输出分布](assets/longform-002-figure-12-partner-distribution.png)
 
 这张图解释的是：团队不是让每一次输出都神奇变好，而是改变了输出分布的形状。
 坏结果更难漏出去，好路径更容易被发现。
