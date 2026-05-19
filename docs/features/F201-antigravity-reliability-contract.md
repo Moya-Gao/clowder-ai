@@ -8,7 +8,7 @@ created: 2026-05-15
 
 # F201: Antigravity Reliability Contract — 孟加拉猫可靠可用性闭环
 
-> **Status**: close-gate | **Owner**: 缅因猫（砚砚） | **Reviewer**: 布偶猫 Opus 4.6 + 布偶猫 Opus 4.7 | **Priority**: P0
+> **Status**: done | **Owner**: 缅因猫（砚砚） | **Reviewer**: 布偶猫 Opus 4.6 + 布偶猫 Opus 4.7 | **Priority**: P0
 
 Architecture cell: `transport` + `bubble-pipeline`
 Map delta: none — F201 收口 Antigravity provider/retry/recovery 契约，并通过 F183 bubble pipeline 呈现 typed recovery card；不新增并行 transport 或 UI 渲染边界。
@@ -231,9 +231,9 @@ F201 关闭时，Antigravity 必须满足以下契约：
 
 ## Close Gate Report
 
-**State**: ready for vision guardian + CVO close signoff.  
+**State**: done — vision guardian PASS + CVO close signoff captured.  
 **Author**: 缅因猫/砚砚（Codex, GPT-5.5）.  
-**Required next reviewer**: non-author, non-reviewer vision guardian.
+**Vision guardian**: 布偶猫/宪宪（Opus 4.6） PASS.
 
 ```yaml
 close_gate_report:
@@ -241,13 +241,22 @@ close_gate_report:
   spec_path: docs/features/F201-antigravity-reliability-contract.md
   head_sha: "a24cf2d53 root-cause fix; 6e47e95ab close-gate doc sync"
   report_date: 2026-05-19
-  state: "ready_for_vision_guardian_and_cvo_signoff"
+  state: "done"
+
+  cvo_signoff:
+    date: 2026-05-19
+    source: "thread event 0001779184326808-000249-989c2493"
+    decisions:
+      - "Approved deleting/reclassifying legacy AC-B2, AC-C2, and AC-C3, with the condition that the report aligns to current implementation."
+      - "Confirmed controlled YOLO timeout boundary after implementation check: the 600s default applies per Antigravity run_command tool execution, not to the whole cascade or a group of tools."
+      - "A shell chain packed into one run_command still shares one 600s budget; long single-command workflows can raise ANTIGRAVITY_RUN_COMMAND_TIMEOUT_MS."
 
   user_visibility_disclosure:
     now_visible:
       - "Antigravity stream/empty-response failures now carry structured diagnostics instead of a plain red error."
       - "Post-side-effect failures surface completed/pending effects and a copyable diagnostic summary."
       - "Long waits are evaluated with bounded liveness evidence instead of a single idle timeout."
+      - "Each Antigravity run_command execution is bounded by a default 600s timeout; multi-tool sequences get a fresh budget per run_command, while shell chains inside one run_command share that budget."
       - "Safe owned work can auto-resume through a capped fresh cascade; unsafe/irreversible work surfaces a manual card."
       - "Alpha starts reliably even when the caller shell has NODE_ENV=production."
     deliberately_not_in_f201:
@@ -286,7 +295,7 @@ close_gate_report:
     - ac_id: AC-B2
       status: deleted
       resolution: "Smoke cleanup is a CLI/report concern, not a runtime recovery card. The shipped contract is AntigravityAvailabilitySmokeReport.cleanup + diagnostics.preflight.cleanedLeftovers; runtime side-effect interruption remains covered by the typed recovery card."
-      cvo_signoff_required: true
+      cvo_signoff: "approved_by_landy_2026-05-19"
       evidence:
         - kind: test
           ref: "scripts/antigravity-availability-smoke.test.mjs"
@@ -309,7 +318,7 @@ close_gate_report:
     - ac_id: AC-C2
       status: deleted
       resolution: "The original full live matrix was superseded by the 2026-05-17 Phase F compression decision. F201 close gates on readonly/sentinel smoke guards plus AC-G8 alpha validation; agent-key thread writeback health remains an F178 dependency."
-      cvo_signoff_required: true
+      cvo_signoff: "approved_by_landy_2026-05-19"
       evidence:
         - kind: doc
           ref: "F201 Phase F Remaining implementation compression"
@@ -320,7 +329,7 @@ close_gate_report:
     - ac_id: AC-C3
       status: deleted
       resolution: "The standalone 3-run live matrix was replaced by deterministic AC-G8 alpha evidence plus typed JSON smoke report guards. This avoids a long-running external Antigravity dependency becoming a fake completion criterion."
-      cvo_signoff_required: true
+      cvo_signoff: "approved_by_landy_2026-05-19"
       evidence:
         - kind: test
           ref: "scripts/antigravity-availability-smoke.test.mjs"
@@ -404,9 +413,7 @@ close_gate_report:
     - ac_id: AC-C3
       reason: "3-run external live matrix would be brittle and was replaced by deterministic alpha evidence + typed report guards"
   follow_ups: []
-  close_blockers:
-    - "vision guardian review by a non-author, non-reviewer cat"
-    - "CVO signoff for the three scoped-out legacy AC lines and final feature close"
+  close_blockers: []
 ```
 
 ## Open Questions for Review
@@ -449,3 +456,4 @@ close_gate_report:
 | 2026-05-19 | **AC-G8 alpha app CSS static-link hotfix merged (PR #1760, squash `e8cc8135f`)**：all app-level global CSS that does not require Next/PostCSS processing is copied into `public/vendor/app` and linked statically, with directory watch sync covering atomic-save dev edits. `globals.css` remains JS-imported because Tailwind directives require processing; cascade visual smoke remains an AC-G8 close-gate item. 47 cross-cat review + cloud Codex LGTM. |
 | 2026-05-19 | **AC-G8 NODE_ENV root-cause hotfix merged (PR #1773, squash `a24cf2d53`)**：frontend `next dev` now forces `NODE_ENV=development`, preventing an inherited production shell from routing Tailwind `globals.css` through an incomplete dev CSS loader chain. Regression test proves ambient `NODE_ENV=production` is overridden. 47 root-cause review + cloud Codex LGTM；`pnpm gate` passed on `ef973ea4`. |
 | 2026-05-19 | **AC-G8 alpha smoke PASS + close-gate report drafted**：Opus-47 reran alpha under the original polluted-shell condition (`NODE_ENV=production`); `/` and `/settings` returned 200, PostCSS was back in the `globals.css` loader chain, five `/vendor/app/*.css` files returned 200, and the cascade-order P1 was withdrawn via deterministic `<head>` order evidence. Close report, reflection capsule, and harness feedback are ready for non-author vision guardian + CVO signoff. |
+| 2026-05-19 | **Close gate PASS + CVO signoff**：Opus-46 completed non-author/non-reviewer vision guardian review with PASS. Landy approved deleting/reclassifying legacy AC-B2/C2/C3 and asked the controlled YOLO timeout boundary to align to implementation. Implementation check confirmed the default 600s budget is per Antigravity `run_command` execution, not per tool group/cascade; shell chains inside one `run_command` still share that one budget and can raise `ANTIGRAVITY_RUN_COMMAND_TIMEOUT_MS` when needed. F201 closed as `done`. |
