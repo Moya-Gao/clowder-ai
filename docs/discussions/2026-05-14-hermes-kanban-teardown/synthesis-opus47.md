@@ -781,28 +781,240 @@ F049 Phase 4 的 crash-window recovery 就是解决这个的，**直接复用模
 12. ~~**GitHub connector 是否改名为 `connector-github` reference implementation？**~~ → **v1.3 自决：是**。详见 §6 + §7 monorepo 结构。
     - 理由：命名上把 reference implementation 显式化，避免"GitHub 是唯一入口"的误读
 
-### 待 Landy 战略拍板（OQ 8/9）
+### 待 Landy 战略拍板（OQ 8/9 + v1.4 新增 OQ 13-16）
 
 8. **Cat Café BACKLOG.md 的迁移时机**：MVP 完成立刻迁移 vs 稳定运行 1 个月再迁？
    - 影响：MVP 阶段 cat-cafe 自己用什么管任务（双写 vs 单写）
 9. **第一个外部用户**：MVP 是否邀请 clowder-ai 社区用户试用？
    - 影响：multi-repo 优先级 + 拆独立仓时机 + 文档/onboarding 投入
 
+**v1.4 新增（郭良 4 大方向）**：
+
+13. **跨仓跨团队（team-level board）优先级**：
+    - A: V2 优先（MVP 后立刻开 V2 spec）
+    - B: V2 中等（先看 MVP dogfood 效果再定）
+    - C: V3 推后（先做记忆基础设施再做跨团队）
+    - 47 倾向：A（如果郭良的多仓 SDD 是真实场景且他愿意当 V2 dogfood 用户）
+
+14. **团队级 Agent 小黑板**：作为 V2 内置 vs V3 单独 phase？
+    - A: V2 内置（跟跨仓跨团队一起做）
+    - B: V3 单独 phase（先验证跨仓 board 价值再加小黑板）
+    - 47 倾向：B（小黑板是涌现需求，先看 V2 用户怎么用再设计）
+
+15. **郭良的多仓 SDD 场景作为第二 dogfood**：
+    - A: V2 阶段邀请郭良团队作为 design partner
+    - B: 不主动邀请，等他自己来
+    - 47 倾向：A（郭良带的真实需求 + 已经在帮我们做 PM-level 思考，是天然 design partner）
+
+16. **远期"云端分布式猫猫"（V4 lighthouse）是否纳入 spec**：
+    - A: 纳入（v1.4 §13 已加，作为方向感不是计划）
+    - B: 不纳入（避免 spec 范围膨胀，V4 是 Cat Café harness 演进事不是 Mission Loom 事）
+    - 47 倾向：A（已写在 §13，作为 lighthouse vision 标记但不规划实现路径，scope 不膨胀）
+
 ---
 
 ## 11. 下一步动作建议
 
-1. **v1.2 落档** ✅（本稿）
-2. **@landy 战略拍板 OQ 8/9**（BACKLOG.md 迁移时机 + 外部用户试用）
+1. **v1.4 落档** ✅（本稿）
+2. **@landy 战略拍板 OQ 8/9 + OQ 13-16**（BACKLOG.md 迁移时机 + 外部用户试用 + 4 大方向追加优先级）
 3. **立项 F0xx「Mission Loom — Multi-Cat & Human Project Board」**：按 feat-lifecycle 开 spec
 4. **MVP 分工**（待立项后，预算 7-8 周）：
    - kernel/state-machine：46 或 47（看额度）
-   - GitHub connector：宪宪（我做过 webhook 集成）
+   - connector-github reference implementation：宪宪（我做过 webhook 集成）
    - Cat Lane integration（复用 F049）：砚砚或 46
    - Dashboard UI 设计（Prism 视觉系）：烁烁
    - Dashboard UI 实现：砚砚 + 46
    - PM Agent 三层路由配置：47（架构层面）
-5. **风险预案**：每周回顾 MVP scope，scope 爆炸 → 立刻 push back
+   - Docker/docker-compose 打包：46 或 47（v1.4 新增）
+5. **风险预案**：每周回顾 MVP scope，scope 爆炸 → 立刻 push back；郭良 V2-V4 方向不能反向污染 MVP
+
+---
+
+## 12. Deployment（v1.4 新增）
+
+### 决策：Docker 打包，云端单实例
+
+**铲屎官 2026-05-18 21:13 push back**：SQLite + Redis 装 Docker 即云端，多人多机器通过 HTTP API 共享同一份状态。**不需要换 Postgres**。
+
+### 架构
+
+```
+┌────────────────── Docker Container ──────────────────┐
+│                                                       │
+│   ┌─────────────┐   ┌──────────────┐                 │
+│   │ API Server  │←→│ mission-core │                  │
+│   │ (HTTP/WS)   │   │  + dispatcher│                 │
+│   └─────────────┘   └──────────────┘                 │
+│         │                  │                          │
+│         ▼                  ▼                          │
+│   ┌─────────────┐   ┌──────────────┐                 │
+│   │ SQLite      │   │ Redis        │                 │
+│   │ (Docker     │   │ (Docker      │                 │
+│   │  volume)    │   │  container)  │                 │
+│   └─────────────┘   └──────────────┘                 │
+│                                                       │
+└───────────────────────────────────────────────────────┘
+              ▲                  ▲                 ▲
+              │                  │                 │
+       ┌──────┴──────┐    ┌─────┴────┐    ┌──────┴──────┐
+       │ Cat Café    │    │ Web      │    │ External    │
+       │ (cat lane)  │    │ Dashboard│    │ Agent       │
+       └─────────────┘    └──────────┘    └─────────────┘
+              人和猫都通过 HTTP API 访问同一份状态
+```
+
+### `docker-compose.yml`（草案）
+
+```yaml
+services:
+  mission-loom:
+    build: .
+    ports:
+      - "${MISSION_LOOM_PORT:-3030}:3030"
+    volumes:
+      - mission-loom-sqlite:/data/sqlite
+    environment:
+      REDIS_URL: redis://redis:6379
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
+    depends_on: [redis]
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - mission-loom-redis:/data
+
+volumes:
+  mission-loom-sqlite:
+  mission-loom-redis:
+```
+
+### 为什么 SQLite 在 Docker 内够用（46 第一轮错位修正）
+
+| 担心 | 实际情况 |
+|---|---|
+| 多人写冲突 | API server 是唯一写者，所有人和猫通过 HTTP 排队 |
+| 文件锁问题 | 容器内单进程访问，没有跨进程竞争 |
+| 性能瓶颈 | MVP 阶段量级 ≤ 几千行，SQLite WAL mode 完全够 |
+| 可移植性 | Docker volume 直接备份/迁移；切换主机=拉镜像 |
+| Hermes 已验证 | NousResearch Hermes Agent 自己就是 SQLite + 单 host |
+
+### 何时考虑升级 Postgres
+
+**触发条件**：
+1. 多 host 部署（不是单容器横向扩展）
+2. WorkRun > 100K/月（SQLite WAL 写吞吐到极限）
+3. V2 跨团队需要 logical replication（团队数据隔离 + 跨团队聚合查询）
+
+V1 阶段 SQLite + Docker volume 完全够用。V2-V3 视实际负载升级。
+
+### 不做的
+
+- ❌ 第一天就上 Kubernetes（单容器够用）
+- ❌ 第一天就做读写分离（单写者模式简洁）
+- ❌ 第一天就 sharding（V2 跨团队再考虑）
+
+---
+
+## 13. Roadmap Vision（v1.4 新增，郭良/Landy 对话沉淀）
+
+### 来源
+
+Landy + 郭良 wecom 对话 2026-05-18 14:56-15:46。郭良提出 Hermes 的工程局限 → 团队级看板 → 跨仓跨团队 → 团队 agent 小黑板 → 记忆基础设施 → 云端分布式猫猫。Landy 收敛："先要一个云端版本的看板"。
+
+### 四阶段路标
+
+```
+V1 (MVP, 7-8 周)         V2 (3-6 月后)              V3 (6-12 月)              V4 (lighthouse)
+───────────────────────  ───────────────────────────  ─────────────────────────  ──────────────────────
+单仓单 team 看板          跨仓跨团队 board             记忆作为基础设施           云端分布式猫猫
+                                                                                  (Mission Loom 退场)
+- 6 元组 kernel           - team_id + repo[] 数据建模 - 依赖关系图持续沉淀       - 看板/state machine
+- GitHub connector        - 多 repo 自动聚合 view     - 设计原则一等公民         成为分布式 agent
+- Cat + Human Lane        - 跨 team Decision queue    - 架构债务自动检测         运行时的子能力
+- Inbox + Flow view       - 跨 repo 依赖可视化        - SDD 多仓特性级依赖图    - 不再有"看板"
+- Docker 单容器           - 团队级 capability radar   - 服务级 contract 沉淀
+- 单实例 (1 团队)         - 多 team 实例 (1 instance)
+```
+
+### 各阶段触发条件
+
+- **V1 → V2**：MVP 跑稳 3 个月 + 第一个外部用户试用（OQ 9）+ 跨团队需求来自真实场景（如郭良的多仓 SDD）
+- **V2 → V3**：V2 跑稳 6 个月 + 团队 agent 小黑板成为高频使用（评估 metric：依赖查询 QPS / 跨仓 link 数 / agent 自助查询率）
+- **V3 → V4**：基础设施层稳定 + Cat Café harness 演进到分布式形态（这不是 Mission Loom 独立做的事，是跨产品融合）
+
+### 关键守则
+
+**MVP 不为 V2-V4 做任何提前优化**，但要给未来留接口：
+
+| 决策 | MVP 做什么 | 为 V2+ 留什么 |
+|---|---|---|
+| 数据建模 | 单仓单 team | `team_id` + `repo_id` 字段 day-1 加，单 team 时填 default |
+| Connector | 只有 connector-github | SourceConnector 接口 day-1 就位（§4.5），未来加 connector-codehub 不动 kernel |
+| Lane | Cat + Human | Actor Lane Contract day-1 设计支持 External Agent Lane（§4） |
+| 部署 | 单 Docker 容器 | API server 设计是 stateless（可横向扩展，state 在 SQLite/Redis） |
+| 记忆 | Knowledge Feed 横切（v1.0 设计） | 不在 MVP 做依赖图，但 evidence index schema 留 `entity_type` 字段（未来扩展 dependency/principle/debt 类型） |
+
+### 郭良 4 大方向的具体内容（备 OQ 13-16 讨论用）
+
+#### 方向 1：跨仓跨团队（V2 优先）
+
+郭良原话："真实的开发团队不是围绕一个仓工作的"。
+
+V2 设计目标：
+- 一个 mission-loom 实例管理多个 team（每个 team 多个 repo）
+- 跨 team Decision queue（团队 A 的需求需要团队 B 评估）
+- 跨 repo 依赖可视化（service A 依赖 service B 的 feature X）
+
+数据建模 day-1 就要为这准备：
+```
+team:    { id, name, owner_user_id, created_at }
+repo:    { id, team_id, source_connector_id, external_repo_ref }
+demand:  { ..., team_id, repo_id, ... }
+work_item: { ..., team_id, repo_id, depends_on_demand_ids[] }
+```
+
+#### 方向 2：团队级 Agent 小黑板（V2-V3）
+
+郭良原话："微服务 A 依赖微服务 B 什么特性，开发微服务 A 的 agent 就会知道"。
+
+这是 Knowledge Feed 横切的升级形态。MVP 阶段 Knowledge Feed 只从 Outcome 抽 lesson；V2 阶段扩展为"agent 主动查询 + 持续沉淀"：
+- Agent 开发 service A 前可查询 "service B 暴露了哪些特性 / 有哪些 known issue / 有哪些 pending change"
+- Agent 完成开发后自动沉淀 "service A 新增了 feature X，依赖 service B 的 Y"
+
+#### 方向 3：记忆基础设施（V3）
+
+郭良原话："依赖梳理/特性级/服务级/各种设计原则 不希望用到的时候再初始化 → agent 交互过程中持续沉淀萃取"。
+
+V3 阶段把 Knowledge Feed 升级为**记忆基础设施**：
+
+| 实体类型 | 含义 | 抽取来源 |
+|---|---|---|
+| Dependency Graph | feat A 依赖 feat B 的什么特性 | WorkItem.depends_on + Outcome.handoff_metadata |
+| Design Principle | 团队/项目的设计约定 | Decision.reasoning + Outcome.review findings |
+| Architecture Debt | 知道有但还没修的债 | Decision = Later + Outcome = needs-rework patterns |
+| Service Contract | service A 暴露给 service B 的 API | connector-github PR diff + WorkItem completion |
+
+#### 方向 4：云端分布式猫猫（V4 lighthouse）
+
+Landy 原话："他不应该是看板而是云端分布式版本的猫猫才是终极"。
+
+V4 不是 Mission Loom 独立做的事，是 Cat Café harness 演进的方向。Mission Loom 在 V4 阶段：
+- 退场为分布式 agent runtime 的"任务状态机子能力"
+- 看板/dashboard 仍然存在但不是主入口
+- 主入口是分布式 agent 之间的协作协议
+
+V4 不在本 spec 规划，只在此记录方向感。
+
+### 守住"先锤一版看板"纪律
+
+郭良 15:15 原话："看板是个任务状态机的可视化。我觉得从拆任务这件事本身就可以往下挖。一开始先别想太复杂，先锤一版看板吧。"
+
+**v1.4 守则**：
+- ✅ MVP scope 严格守住 v1.3 的 7-8 周
+- ✅ Roadmap Vision 是路标不是计划——V2-V4 不分配人力不算 commit
+- ✅ Day-1 留接口（team_id/SourceConnector/Actor Lane/evidence entity_type），但不实现 V2 功能
+- ❌ 不为"未来要做"而提前优化（YAGNI）
+- ❌ 不让 4 大方向反向污染 MVP（防 scope 爆炸）
 
 ---
 
