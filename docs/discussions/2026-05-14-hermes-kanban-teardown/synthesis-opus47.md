@@ -3,7 +3,7 @@ doc_kind: discussion
 topics: [project-management, kanban, multi-agent, signal-intent-decision, synthesis, opus-47]
 related_features: [F049, F076, F121, F150, F153, F192]
 created: 2026-05-14
-status: draft-v1.5
+status: draft-v1.6
 author: opus-47
 reviewer: opus-46 (feasibility review @ 2026-05-14 06:51 + second-pass @ 07:02 + reading-comp @ 2026-05-18 21:10)
 convergence:
@@ -21,7 +21,7 @@ inputs:
   - guoliang-external: 双入口 + 跨仓跨团队 + 多仓 SDD + 记忆萃取 + 云端分布式
 ---
 
-# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.5）
+# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.6）
 
 > UI 视觉子品牌：**Prism**（流光域）
 > 任务来源：[README.md](./README.md) 末尾 Suggested Synthesis Owner
@@ -33,6 +33,20 @@ inputs:
 > 不是最终 spec，是带大家讨论的基线稿
 
 ## Changelog
+
+### v1.6（2026-05-18 00:45，Landy 质疑 WorkItem/WorkRun 分离 → 补 rationale）
+
+Landy 00:42 问"WorkRun 为什么不能在 WorkItem 里体现"。这说明 spec §3 的 WorkItem/WorkRun 分离 rationale 写太简略（之前只有"每次 claim 开新 WorkRun，学 Hermes 不覆盖"一句）。
+
+新增 §3 "WorkItem / WorkRun 分离的关键理由" 小节（与"Decision 独立成实体"小节平行）：
+- 用 Landy 自己的三次 attempt 例子（卡住/换猫/过 review）展开
+- 塞进 WorkItem 的两种写法都崩：覆盖字段丢历史 / JSON 数组无法索引聚合
+- 1:N 关系必须独立表（测试用例:CI run 类比）
+- **没有 WorkRun = 没有 eval 数据源**，回扣 Landy 23:30 初心三问
+- Hermes "Attempt History Is First-Class" 最强一课
+- 回应"WorkItem→分栏"：看板列=WorkItem 维度，卡片内 attempt 历史=WorkRun 维度（烁烁的尾迹）
+
+**无对象模型改动**——这是 rationale 补强，6 元组不变。
 
 ### v1.5（2026-05-18 00:30，Landy co-design：需求转换层正名 + FE→WorkItem 拆分治理）
 
@@ -362,6 +376,32 @@ Hermes 的 triage specifier 是「一次性 spec 扩写」，**它没有 Decisio
 2. 同一 Intent 在不同时间点的 Decision 可能不同（情境变化、新证据涌入）
 3. Decision 是**审计真相源**——"我们为什么没做 X" 的答案在这里
 4. 这是我们区别于 Hermes/Trello/Jira 的核心差异化
+
+### WorkItem / WorkRun 分离的关键理由（v1.6 补，Landy 2026-05-18 00:42 质疑）
+
+> Landy 原话："WorkRun（执行）是一次具体的做事过程——同一个任务可能跑多次，比如第一次卡住了、第二次换猫接手、第三次通过 review，为什么不能在 WorkItem 里体现呢？"
+
+**能塞，但塞了会丢三样东西，而且丢的正好是你 23:30 初心要的（"agent 效果到底怎么样 / eval tracing"）。**
+
+用 Landy 自己的三次 attempt 例子展开：
+
+| | WorkItem（要做的事，1 行） | WorkRun（做的过程，3 行） |
+|---|---|---|
+| 第 1 次卡住 | — | run#1: actor=opus, status=failed, error=依赖未就绪, trace=…, 耗时 2h |
+| 第 2 次换猫接手 | （同一行，status 还是 running） | run#2: actor=codex, handoff_from=run#1, status=failed, trace=…, 耗时 3h |
+| 第 3 次过 review | （同一行，status→done） | run#3: actor=sonnet, status=succeeded, prUrl=…, 耗时 1h |
+
+**塞进 WorkItem 的两种写法都崩**：
+- **写法 A（覆盖字段）**：WorkItem 加 `attempt_count` + `last_error` → 第 3 次成功后，"前两次谁做的、为什么失败、各花多久" **全被覆盖丢光**
+- **写法 B（塞 JSON 数组）**：WorkItem 加 `runs JSONB` → 每次 heartbeat/状态变更要 rewrite 整行；trace 数据埋在 JSON 里**无法索引、无法聚合**；Capability Radar（"砚砚做这类任务成功率 90%"）直接做不出来
+
+**1:N 关系必须独立表**（关系建模基本原则）。类比：测试用例 : 每次 CI run / 招聘岗位 : 每个候选人面试轮次——没人会把"每次 CI run 日志"塞进"测试用例"那一行。
+
+**没有 WorkRun = 没有 eval 数据源**。Landy 23:30 初心三问："agent 效果到底怎么样 / agent 执行的结果 / 这类任务猫独立完成率"——这三个问题的答案**全部 attach 在 WorkRun 上**（actor + status + 耗时 + 返工次数 + trace friction）。WorkItem 只能回答"这事做完没"，回答不了"做得好不好、谁做的、几次才成"。
+
+**这是 Hermes 教我们最强的一课**（砚砚拆解 §"Attempt History Is First-Class"）：Hermes 不用最新状态覆盖 task，每次 claim 创建 `task_runs` 行，retry context 带 prior outcome——"agent performance 应该 attach 到 attempts，不是 tasks"。我们直接继承。
+
+**回应"WorkItem → 分栏"**：看板分栏（To-do/In progress/Done）展示的是 **WorkItem**（一张任务卡）；WorkRun **不在分栏上显示为卡片**，而是点开 WorkItem 卡片后看到的**执行轨迹**（第1次卡@opus → 第2次换@codex → 第3次过review@sonnet）。这正是烁烁视觉创想里"多维猫爬架的尾迹（Trail）"——尾迹乱=这个任务反复返工。**看板列=WorkItem 维度；卡片内的 attempt 历史=WorkRun 维度。两个维度，一个看板。**
 
 ### Knowledge Feed 横切（采纳 47 独立思考 + 现有 F102/W7 机制）
 
