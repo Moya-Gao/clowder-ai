@@ -8,7 +8,7 @@ created: 2026-05-06
 
 # F188: Library Stewardship — 图书馆管护与成长
 
-> **Status**: in-progress (Phase A/B/C/Graph readability/Graph Query/F/G merged) | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress (Phase A/B/C/Graph readability/Graph Query/F/G/I merged) | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -397,7 +397,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 - Graph readability follow-up: 必须用浏览器截图验证 `f186`/`F186` 两种输入，确认节点标题、Inspector、legend/filter/stats 全部可读且无裁切
 - Graph Query Resolution follow-up: spec 先经 46 review；实现前必须确认 query → candidate → graph 的 UX，不准只做 silent search fallback
 - Phase F: spec 先经砚砚 Design Gate（重点 review eval 设计 + harness 配套清单是否齐全 + P1/P2 trigger 阈值是否可观测）；实现 PR 必须跨猫 review；close 必须通过 cold-start eval（NDCG@10 不退化 + turns-to-baton 改善 ≥30%）
-- Phase I: spec 已与砚砚 brainstorm 收敛；实现前需 Design Gate 确认 API contract / 状态机 / UI wireframe；涉及 UX（AC-I5 MemoryHub UI）需浏览器验证
+- Phase I: merged in PR #1774；砚砚 local review + cloud review closed P1/P2，涉及 UX（AC-I5 MemoryHub UI）已纳入 merge evidence
 
 ## Links
 
