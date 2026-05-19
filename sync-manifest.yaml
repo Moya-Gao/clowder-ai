@@ -50,6 +50,8 @@ managed_files:
   # docs/design/ 安全文件（三猫审计 2026-04-10，人设类暂不同步）
   - docs/design/clowder-ai-brand.md
   - docs/design/naming-contract.md
+  - docs/design/console-design-system.md
+  - docs/design/f179-console-layout.pen
   - docs/design/F090-pixel-cat-brawl-visuals.md
   - docs/design/hero-prism-motion.md
 

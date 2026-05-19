@@ -708,5 +708,8 @@ Header 和 Sidebar 松紧不同**是设计意图**（spacious vs default），�
 | **Feature** | `docs/features/F056-cat-cafe-design-language.md` | 设计语言约束 |
 | **Feature** | `docs/features/F183-bubble-pipeline-architecture-consolidation.md` | 聊天渲染链路保护 |
 | **Feature** | `docs/features/F184-chatmessage-rendering-mount-investigation.md` | ChatMessage mount 回归保护 |
+| **Design Asset** | `docs/design/console-design-system.md` | #645 Console 视觉语言原始设计系统（2026-05-19 资产恢复） |
+| **Design Asset** | `docs/design/f179-console-layout.pen` | #645 Pencil Console/AppShell 原型（2026-05-19 资产恢复） |
+| **Audit** | `docs/audits/2026-05-19-pr645-console-prototype-parity-audit.md` | #645 原型资产恢复 + 可验证功能 parity matrix |
 | **Audit** | `docs/audits/2026-05-16-f190-phase-g-ux-audit-synthesis.md` | Phase G post-merge 三猫 UX 审计综合（学/不学/trade-off） |
 | **Audit** | `docs/audits/2026-05-17-f190-settings-parity-audit.md` | Settings content-level parity audit before outbound sync |
