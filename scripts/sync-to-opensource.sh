@@ -1552,6 +1552,22 @@ if [ -f "$STAGING_DIR/docs/BACKLOG.md" ]; then
   mkdir -p "$FILTERED_DIR/docs"
   cp "$STAGING_DIR/docs/BACKLOG.md" "$FILTERED_DIR/docs/ROADMAP.md"
   sedi -e 's/# BACKLOG/# Roadmap/' "$FILTERED_DIR/docs/ROADMAP.md"
+  # Strip rows for features not in exported index (RED-tier features are excluded by export-public-feature-docs)
+  if [ -f "$FEATURES_EXPORT_DIR/index.json" ]; then
+    node -e "
+      const fs = require('fs');
+      const [indexPath, roadmapPath] = process.argv.slice(1);
+      const idx = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+      const ids = new Set((idx.features || []).map(f => f.id));
+      const lines = fs.readFileSync(roadmapPath, 'utf-8').split('\n');
+      const kept = lines.filter(line => {
+        const m = line.match(/^\|\s*(F\d{3,4})\s*\|/);
+        return !m || ids.has(m[1]);
+      });
+      fs.writeFileSync(roadmapPath, kept.join('\n'));
+      if (kept.length < lines.length) console.log('    Stripped ' + (lines.length - kept.length) + ' non-exported feature row(s) from ROADMAP');
+    " "$FEATURES_EXPORT_DIR/index.json" "$FILTERED_DIR/docs/ROADMAP.md"
+  fi
   echo "  ✓ docs/ROADMAP.md (generated from BACKLOG)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
