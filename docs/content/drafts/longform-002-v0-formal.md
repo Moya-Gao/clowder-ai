@@ -483,7 +483,7 @@ TeamAct 的本质同样是反馈方向：六步是叙事骨架，真正的引擎
 什么——让接手的 agent 能快速 bootstrap 而不需要重新读完整个上下文。这不是可选的
 礼貌行为，是协议层的硬要求。
 
-**〔 Figure 3 — ReAct 单 agent 闭环 vs TeamAct 多 agent 闭环 〕**
+**〔 Figure 4 — ReAct 单 agent 闭环 vs TeamAct 多 agent 闭环 〕**
 
 低保真草图 v0：左边只画单个 agent 内部的 Thought / Action / Observation；右边画
 Shared State 作为团队共同反馈源，TeamAct 六步围绕它闭环。
@@ -509,7 +509,7 @@ flowchart LR
 最终图要保留这个重点：ReAct 的反馈源是 Observation，TeamAct 的反馈源是 Shared
 State；TeamAct 不是第六种协作模式，而是 Shared State 上的团队级闭环。
 
-**〔 Figure 4 — TeamAct 状态机 〕**
+**〔 Figure 5 — TeamAct 状态机 〕**
 
 低保真草图 v0：六步是主路径，失败模式挂在 Owner / Verdict / Route 三个容易出事
 的节点上；五项终止条件是外圈守卫。
@@ -886,7 +886,7 @@ Harness 里有一类特殊的机制：runtime 逃生舱。
 坏直觉高度相似——跨厂商 review 才能抓出本家族的结构性盲点。这不是"多样性"的
 政治正确，是检测理论里的基本原理：你需要一个与你的误差分布不相关的检测器。
 
-**〔 Figure 5 — 多 agent 坏直觉调制矩阵 〕**
+**〔 Figure 6 — 多 agent 坏直觉调制矩阵 〕**
 
 低保真草图 v0：矩阵不是为了给 agent 贴标签，而是显示同一条治理规则在不同 agent
 身上的命中率不同，从而区分跨 agent 资产和个体补偿。
@@ -1150,7 +1150,7 @@ Agentic Search 是读多写少的系统。LLM Wiki 有知识维护循环（lint 
 知识的使用效果，并用使用效果反向优化知识的可发现性。项目是工作现场，不是
 记忆边界。
 
-**〔 Figure 6 — 四种 Memory/Retrieval 范式对比 + 反馈飞轮 〕**
+**〔 Figure 7 — 四种 Memory/Retrieval 范式对比 + 反馈飞轮 〕**
 
 低保真草图 v0：上半部分是四列对比表，下半部分是 Cat Café 独有的反馈飞轮。
 
@@ -1370,7 +1370,7 @@ review 意见、merge/reject 决策。这些不需要专门搭仿真环境采集
 砍掉或精简了。这和 Ch.3 说的 harness 半衰期是同一个原则：**所有机制都必须
 用自己的指标来审判自己。**
 
-**〔 Figure 7 — Trajectory Flywheel 〕**
+**〔 Figure 8 — Trajectory Flywheel 〕**
 
 低保真草图 v0：飞轮六环 + 自杀开关，每环标注数据结构。
 
