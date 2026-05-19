@@ -1157,6 +1157,24 @@
       "name": "Console Settings Shell — 全局导航 + 设置面板骨架",
       "status": "Implemented (branch), pending merge | **Owner**: Ragdoll | **Priority**: P0",
       "file": "F190-console-settings-shell.md"
+    },
+    {
+      "id": "F197",
+      "name": "Plugin Framework — Phase 1 Implementation Plan",
+      "status": "unknown",
+      "file": "F197-plugin-framework-plan.md"
+    },
+    {
+      "id": "F197",
+      "name": "Plugin Framework — 声明式插件注册与资源编排",
+      "status": "spec (rev4 — 整合 @codex 三轮复核)",
+      "file": "F197-plugin-framework.md"
+    },
+    {
+      "id": "F208",
+      "name": "Harness Control Plane — 统一 harness unit 生命周期管理",
+      "status": "spec | **Owner**: Ragdoll | **Priority**: P1",
+      "file": "F208-harness-control-plane.md"
     }
   ]
 }
