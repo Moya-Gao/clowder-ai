@@ -43,6 +43,7 @@ thread_ids: [thread_mnpgz36wuta8m679]
 | 2026-05-08（周五）20:00 | 灵动时刻 Interaive — AI Native 全栈工程师 | HR 面 | 已完成 | 深圳主体；薪酬结构类似字节 `12+3`；有期权但无回购政策；下一轮还有 agent 同事面，详见 `2026-05-08-interaive-hr-notes.md` |
 | 2026-05-11（周一）19:00 | 字节跳动 — 正式一面（具体团队待确认） | 三面 | 已确认 | 抖音 AI 方向老板面；HR 口述一二面评价整体积极，详见 `2026-05-11-bytedance-third-interview-prep-status.md` |
 | 2026-05-19（周二）20:00 | 阿里国际站 / Alibaba.com — AI Agent开发工程师/专家（Accio） | 一面 | 已确认 | 杭州；重点先判断 `Accio` 是买家侧 AI Mode、卖家侧 Accio Work，还是更底层的 agent/runtime 能力；详见 `2026-05-19-accio-alibaba-interview-prep.md` |
+| 2026-05-21（周四）19:00 | 高德 — 高级 AI 应用工程师（Agent研发专项） | 视频面试 | 已确认 | 阿里巴巴集团人力资源部通知；详情见邮件；具体轮次待面试中确认 |
 
 ---
 
