@@ -746,42 +746,6 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
           </div>
         </div>
 
-        <div className="px-3 pb-2">
-          <button
-            type="button"
-            onClick={() => {
-              const fromParam = currentThreadId ? `?from=${encodeURIComponent(currentThreadId)}` : '';
-              window.location.assign(`/mission-hub${fromParam}`);
-              if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                onClose?.();
-              }
-            }}
-            className="group flex w-full items-center justify-between rounded-xl bg-[var(--console-field-bg)] px-3 py-2 text-left text-sm font-medium text-cafe-secondary transition-colors hover:bg-[var(--console-hover-bg)] hover:text-cafe"
-            title="Mission Hub"
-            data-testid="sidebar-mission-control"
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <svg
-                aria-hidden="true"
-                className="h-4 w-4 shrink-0 text-cafe-muted transition-colors group-hover:text-cafe-secondary"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-              </svg>
-              <span className="truncate">Mission Hub</span>
-            </span>
-            <span className="text-xs text-cafe-muted transition-colors group-hover:text-cafe-secondary">打开</span>
-          </button>
-        </div>
-
         {bindWarning && (
           <div className="px-3 py-1.5 bg-conn-amber-bg border-b border-conn-amber-ring text-[10px] text-conn-amber-text">
             {bindWarning}
