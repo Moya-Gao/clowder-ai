@@ -2007,10 +2007,25 @@ while IFS= read -r mdfile; do
 done < <(find "$TARGET_DIR" -name '*.md' -not -path '*/.git/*' -not -path '*/node_modules/*' -not -path '*/fixtures/*')
 if [ -s "$DEAD_LINKS_FILE" ]; then
   DEAD_LINK_COUNT=$(wc -l < "$DEAD_LINKS_FILE" | tr -d ' ')
-  echo -e "  ${YELLOW}⚠ Found $DEAD_LINK_COUNT dead link(s) in target:${NC}"
+  echo -e "  ${YELLOW}⚠ Found $DEAD_LINK_COUNT dead link(s) in target — auto-stripping:${NC}"
   head -20 "$DEAD_LINKS_FILE" | while IFS= read -r line; do echo "    $line"; done
   [ "$DEAD_LINK_COUNT" -gt 20 ] && echo "    ... and $((DEAD_LINK_COUNT - 20)) more"
-  echo -e "  ${YELLOW}  (non-blocking warning — review before push)${NC}"
+
+  # Auto-strip dead links: [text](dead-path) → text
+  STRIP_OK=0
+  STRIP_FAIL=0
+  while IFS= read -r entry; do
+    mdfile=$(echo "$entry" | sed 's/^  ⚠ //' | sed 's/ → .*//')
+    link=$(echo "$entry" | sed 's/.* → //')
+    full_path="$TARGET_DIR/$mdfile"
+    [ -f "$full_path" ] || { STRIP_FAIL=$((STRIP_FAIL + 1)); continue; }
+    DEAD_LINK="$link" perl -i -pe '
+      my $ql = quotemeta($ENV{DEAD_LINK});
+      s/\[([^\]]+)\]\($ql(?:#[^)]*)?\)/$1/g;
+    ' "$full_path" && STRIP_OK=$((STRIP_OK + 1)) || STRIP_FAIL=$((STRIP_FAIL + 1))
+  done < "$DEAD_LINKS_FILE"
+  FAIL_MSG=""; [ "$STRIP_FAIL" -gt 0 ] && FAIL_MSG=", $STRIP_FAIL failed"
+  echo "  ✓ Stripped $STRIP_OK dead link(s)$FAIL_MSG"
 else
   echo "  ✓ No dead links detected"
 fi
