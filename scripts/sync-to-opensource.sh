@@ -1983,17 +1983,28 @@ while IFS= read -r mdfile; do
   dir=$(dirname "$mdfile")
   # Extract relative markdown links: [text](path) — skip http/https/mailto/anchors
   # Use perl instead of grep -oP for macOS compatibility (BSD grep lacks -P)
-  perl -nle 'while (/\[.*?\]\(([^)]+)\)/g) { print $1 }' "$mdfile" 2>/dev/null | while IFS= read -r link; do
+  # Also skip links inside code fences (``` blocks) and site-relative URLs (/en/...)
+  perl -ne '
+    if (/^```/) { $in_fence = !$in_fence; next }
+    next if $in_fence;
+    while (/\[.*?\]\(([^)]+)\)/g) { print "$1\n" }
+  ' "$mdfile" 2>/dev/null | while IFS= read -r link; do
     link_path="${link%%#*}"
     [ -z "$link_path" ] && continue
-    case "$link_path" in http://*|https://*|mailto:*|ftp://*|tel:*) continue ;; esac
+    case "$link_path" in http://*|https://*|mailto:*|ftp://*|tel:*|/*) continue ;; esac
+    case "$link_path" in cat-cafe://*) continue ;; esac
+    # Skip obvious template/placeholder patterns
+    case "$link_path" in url|path|URL|PATH) continue ;; esac
+    [[ "$link_path" == *'...'* ]] && continue
+    [[ "$link_path" == *'xxx'* ]] && continue
+    [[ "$link_path" == *'\*'* ]] && continue
     target_path="$dir/$link_path"
     if [ ! -e "$target_path" ]; then
       rel_mdfile="${mdfile#$TARGET_DIR/}"
       echo "  ⚠ $rel_mdfile → $link_path" >> "$DEAD_LINKS_FILE"
     fi
   done
-done < <(find "$TARGET_DIR" -name '*.md' -not -path '*/.git/*' -not -path '*/node_modules/*')
+done < <(find "$TARGET_DIR" -name '*.md' -not -path '*/.git/*' -not -path '*/node_modules/*' -not -path '*/fixtures/*')
 if [ -s "$DEAD_LINKS_FILE" ]; then
   DEAD_LINK_COUNT=$(wc -l < "$DEAD_LINKS_FILE" | tr -d ' ')
   echo -e "  ${YELLOW}⚠ Found $DEAD_LINK_COUNT dead link(s) in target:${NC}"
