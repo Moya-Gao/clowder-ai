@@ -70,23 +70,38 @@ Markdown 文件 + frontmatter 元数据 + FTS5 索引。recall 靠 tag 字典交
 
 ## 4-6. 深挖/算法/对比
 
-→ 待第二轮产出。
+→ [star-features-and-comparison.md](star-features-and-comparison.md)（第二轮产出）
 
-## 7. 初步印象 (Lessons 待确认)
+## 7. Lessons（经铲屎官挑战后修正）
 
 **值得学的**:
-1. **Thinking 文本作为 recall query** — 比只用用户输入更精准，因为 thinking 暴露了 agent 的真实意图
-2. **每轮重建上下文** — 成本控制策略，与我们的压缩策略互补
-3. **Compact 而非截断** — 保留 tool 调用骨架，去掉输出细节，比粗暴 truncate 信息保留更好
-4. **轮内 memory 去重** — 简单 Set，避免同一条 memory 在一轮内反复浮现
+1. **每轮重建上下文** — 成本控制策略，与我们的压缩策略互补：长对话中历史 tool
+   输出一直在 context 里吃 cache token，compact + rebuild 把成本控制在最近 10 轮
+2. **Compact 而非截断** — 保留 tool 调用骨架（tool_name + summary），去掉原始
+   输出，比粗暴 truncate 信息保留更好
+3. **前缀层稳定设计** — 6 层 context 的前 5 层几乎不变，有意为 provider prefix
+   cache 优化
+
+**经挑战后降级/否定的**:
+1. ~~Thinking 文本作为 recall query~~ → **否定**。tag 子串匹配天花板太低，
+   thinking 文本的丰富信号被浪费。我们的 agent 深思熟虑后选 mode/scope/query
+   严格优于被动 tag 匹配（铲屎官挑战 R2）
+2. ~~Mid-turn passive recall 是安全网~~ → **否定**。每个 tool_execution_start
+   都注入 memory hints = 上下文污染。agent 不需要记忆的时候塞记忆 = 噪声。
+   我们的 session hook 每轮提醒一次 + agent 按需搜索 = 一次精准提醒 > 十次
+   盲目注入（铲屎官挑战 R3）
 
 **不跟的**:
-1. **纯 tag 匹配** — 我们的 BM25+vector hybrid 严格更强，支持跨语言和语义近义
-2. **自动经验 = prompt 指令** — 我们的 knowledge feed + self-evolution 是结构化流程，不依赖模型自觉
-3. **Pi SDK 强绑定** — 我们是 Claude 原生 + MCP-first，provider delegation 层不适用
-4. **Vanilla JS 前端** — 已有 React
+1. **纯 tag 匹配** — 封闭词汇 + 子串匹配，跨语言/同义词全是盲区；
+   我们的 BM25+vector hybrid 是严格超集
+2. **自动经验 = prompt 指令** — 不可靠，我们有结构化 knowledge feed + self-evolution
+3. **Mid-turn 被动 recall** — 违反"系统保持简单，把智能留给 agent"原则
+4. **Pi SDK 强绑定** — 多一层 SDK = 多一层控制权让渡
+5. **无反馈闭环** — 搜了用了排名不变，记忆是静态书架
 
 **对标定位**:
 - march-cli 的 CLI 层 ≈ 轻量版 Claude Code（工具集相似，记忆更轻量）
 - march-cli 的 Group Chat 层 ≈ Cat Café 的 A2A thread 协作（但用群聊而非 @传球）
 - 相比 Hermes：march-cli 更聚焦 coding + 记忆，Hermes 更聚焦 skill 市场 + RL pipeline + 多平台 gateway
+- march-cli 的记忆设计哲学和我们相同（markdown 真相源 + 索引可重建），但走了
+  "系统帮 agent 想起来"的路线，我们走的是"agent 自己决定什么时候需要记忆"
