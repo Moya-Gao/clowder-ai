@@ -110,7 +110,7 @@ created: 2026-05-18
 
 | Spike | 验证目标 | 通过标准 |
 |-------|---------|---------|
-| S1: Tushare | 2000 分能拉沪深 300 日线 + PE + fund_basic + 财报接口 | 返回 DataFrame，数据 < 24h 新；验证 fund_basic / fina_indicator 在 2000 分是否可用（OQ-7） |
+| S1: Tushare | 2000 分能拉沪深 300 日线 + PE + fund_basic + 财报接口 | 返回 DataFrame；asOf ≥ 最近应发布交易日（按 Tushare 各接口 SLA，不以墙钟 24h 一刀切）；验证 fund_basic / fina_indicator 在 2000 分是否可用（OQ-7） |
 | S2: FRED | 拉美国 CPI 月度序列（CPIAUCSL） | 返回时间序列，最新月有数据 |
 | S3: yfinance | 连续拉 20+ 标的日线 + 费率，间隔重复 3 天 | 不触发封禁/rate limit，数据齐全；验证持续可用性而非单次成功 |
 | S4: AKShare | 拉 QDII 净值 + 中国 PMI + 国债收益率 + 大额存单利率，间隔重复 3 天、跨多个接口 | 接口稳定可用（非单次快照）；覆盖基金 + 宏观 + 利率三类 |
@@ -228,7 +228,7 @@ AUDHD 护栏设计：
 **Friction metrics**：
 - WebFetch fallback 率（数据层 MCP 不可用时退回 WebFetch 的次数）
 - 无 source/asOf 的财经回答数（应趋近 0）
-- 数据 freshness 偏差超 24h 的查询占比
+- 数据 freshness SLA violation rate（按各数据源 SLA 判定，非墙钟 24h）
 
 **Safety metrics**：
 - "紧急/行动"类推送次数（应为 0，除铲屎官显式订阅外）
