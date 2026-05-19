@@ -114,15 +114,17 @@ created: 2026-05-18
 | S2: FRED | 拉美国 CPI 月度序列（CPIAUCSL） | 返回时间序列，最新月有数据 |
 | S3: yfinance | 连续拉 20+ 标的日线 + 费率，间隔重复 3 天 | 不触发封禁/rate limit，数据齐全；验证持续可用性而非单次成功 |
 | S4: AKShare | 拉 QDII 净值 + 中国 PMI + 国债收益率 + 大额存单利率，间隔重复 3 天、跨多个接口 | 接口稳定可用（非单次快照）；覆盖基金 + 宏观 + 利率三类 |
-| S5: MCP 集成 | FinanceMCP / fred-mcp-server 在 Claude Code 中可调 | 猫猫能通过 MCP tool 拿到数据 |
+| S5: MCP 集成 | FinanceMCP / fred-mcp-server 在 Claude Code 中可调 | 验证 raw provider 连通性（spike 证据）——**不是最终工具面**，B0 会在此基础上包装 `cat-cafe-finance` 事实层 |
 
-**B0 — 定契约**（spike 通过后）：
+**B0 — 定契约 + `cat-cafe-finance` 本地事实层骨架**（spike 通过后）：
+- `cat-cafe-finance` 包：统一 schema + provider adapter interface + 缓存 + normalized errors
 - 统一 schema（每条数据带 source / asOf / confidence / sourceTier / **snapshot_id**）
 - snapshot_id：每次重大查询生成哈希，决策可追溯（5 年后能重现"我当时看到了什么数据"）
 - **presentationHint 字段预留**（compactSummary / avoidWords / detailLevel — AUDHD 适配层在 Phase C 填充，B0 先占位）
 - **queriesInLast7Days 埋点**（按 ticker 计数，供频率监测护栏读取）
 - 错误分类（rate_limited / not_entitled / source_down / schema_drift / no_data）
-- 缓存策略（日线级：24h TTL；宏观：按发布频率）
+- 缓存策略（日线按交易日历 TTL；宏观按发布频率；基金 NAV 标注 T+1/T+2 延迟）
+- **猫猫只通过 `cat-cafe-finance` 工具查数据，不直接调裸 provider MCP**
 
 **B1 — 接稳定源**：FRED + Tushare（spike 验证最稳的先接）
 
@@ -182,13 +184,19 @@ AUDHD 护栏设计：
 - [ ] AC-A4: README 中列出的所有书都有对应知识条目
 
 ### Phase B（数据层）
-- [ ] AC-B1: 猫猫能查询美股/A 股/港股当日收盘价
-- [ ] AC-B2: 猫猫能查询指定公司的最近一季财报
-- [ ] AC-B3: 猫猫能查询当前国债收益率/CPI/基准利率
-- [ ] AC-B4: 猫猫能查询指定基金的净值和费率
-- [ ] AC-B5: 数据查询结果包含 source + asOf + 置信度，数据 freshness 偏差 < 24 小时（日线级别）
+
+**v0.1 scope（对应 v0.1 资产观察清单）**：
+- [ ] AC-B1: 猫猫能查询 v0.1 清单内标的的最新行情（A 股指数 / 美股 ETF / A 股跨境 ETF / 黄金 ETF — 均为交易所 ETF/指数，非个股）
+- [ ] AC-B2: 猫猫能查询中美国债收益率 / CPI / PMI / 大额存单利率（宏观时间序列）
+- [ ] AC-B3: 猫猫能查询指定基金的净值和费率（QDII + 指数基金）
+- [ ] AC-B4: 数据查询结果包含 source + asOf + 置信度；freshness 以各数据源 SLA 为准（日线 ≥ 最近交易日收盘；基金 NAV 允许 T+1/T+2 延迟；月度宏观按发布日历）——不以墙钟 24h 一刀切
+- [ ] AC-B5: 所有数据通过 `cat-cafe-finance` 本地事实层返回（统一 schema + 缓存 + 错误处理），猫猫不直接调裸 provider MCP
 - [ ] AC-B6: B0 schema 包含 snapshot_id（查询哈希），任意历史查询可通过 snapshot_id 重现当时数据快照
 - [ ] AC-B7: B0 schema 预留 presentationHint 字段（AUDHD 适配层占位）+ queriesInLast7Days 按 ticker 埋点（频率监测护栏数据源）
+
+**Phase B 完整目标（v0.1 之后扩展）**：
+- [ ] AC-B8: 猫猫能查询港股个股行情（当前 v0.1 仅通过 A 股跨境 ETF 覆盖港股暴露）
+- [ ] AC-B9: 猫猫能查询指定公司最近一季财报（公司基本面，v0.1 不含个股）
 
 ### Phase C（分析层）
 - [ ] AC-C1: 每周一自动产出市场周报
