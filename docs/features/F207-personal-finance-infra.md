@@ -68,18 +68,60 @@ created: 2026-05-18
 
 ### Phase B: 数据层 — Finance Provider Stack
 
-**Blocked by**: 三路 deep research 结果回收 + 综合（prompt 已发，2026-05-18）
+**Research 完成**（2026-05-19）：3 路 cloud deep research + 4 猫独立综合 → `docs/research/2026-05-18-finance-provider-stack/synthesis.md`
 
-基于 deep research 结果选定 provider stack，接入数据管道：
-- 市场快照（指数/股价/汇率/黄金 — 日线级别）
-- 公司基本面（财报/估值/同比）
-- 宏观指标（利率/CPI/国债收益率）
-- 基金/ETF 数据（净值/费率/持仓）
-- 财经新闻索引（标题/摘要/链接，不抓全文）
+#### 设计原则（KD-6, KD-7, KD-8）
 
-形态待定（直接 MCP / CLI 包装 / Python bridge），由 deep research 结果决定。
+1. **Provider orchestration, not provider monogamy** — 分层、分市场、分可信度，不追求单一万能数据源
+2. **Convenience layer ≠ truth source** — 免费工具好用但不权威，付费工具权威但覆盖有限
+3. **猫猫不直接调裸 provider** — 所有数据源包一层（缓存 + 错误处理 + 来源标签），猫猫调我们的工具
 
-**Decision Gate**：如果 deep research 回收后结论为"现成方案均不满足，需要自建"且工作量 > 5 人天，重新讨论 scope/priority（可能降级为仅覆盖美股+A股两个市场域的 MVP）。
+#### v0.1 资产观察清单
+
+| 资产 | 数据需求 | 对应数据域 |
+|------|---------|-----------|
+| 华为 ESOP | 无公开行情，需分红/估值参考 | 内部文档 + 同行业对标 |
+| 沪深 300 / 中证 500 | PE 百分位、日线、成分股 | A 股指数（Tushare） |
+| VTI / VXUS / BND | 日线、费率、持仓 | 美股 ETF（yfinance） |
+| QDII 基金（待选） | 净值、费率、溢价 | 基金（AKShare） |
+| 美债收益率 / CPI / PMI | 时间序列 | 美国宏观（FRED）/ 中国宏观（AKShare） |
+| USD/CNY | 日线 | 汇率（yfinance + FRED） |
+
+#### Provider Stack（四猫共识）
+
+| 数据域 | 主源 | 补洞/Fallback | 预算 |
+|--------|------|-------------|------|
+| A 股 + 中国证券 | Tushare Pro 2000 分 | AKShare | ~200 元/年 |
+| 美国宏观 | FRED API | — | 免费 |
+| 美股 + 全球 ETF | yfinance（MCP wrapper） | Alpha Vantage 免费层 | 免费 |
+| 中国宏观 | AKShare macro_china_* | Tushare 宏观接口 | 免费 |
+| 基金 + QDII | AKShare 基金接口 | Tushare fund_basic | 免费 |
+| 汇率 | yfinance CNY=X + FRED DEXCHUS | — | 免费 |
+
+**总预算**：~200 元/年（留 300 元升级余量）
+
+#### 实施：Spike → 三刀切
+
+**B-spike（先验证，再承诺）**：云端报告说能用 ≠ 真能用。在定契约之前，先跑通每个数据源。
+
+| Spike | 验证目标 | 通过标准 |
+|-------|---------|---------|
+| S1: Tushare | 2000 分能拉沪深 300 日线 + PE | 返回 DataFrame，数据 < 24h 新 |
+| S2: FRED | 拉美国 CPI 月度序列（CPIAUCSL） | 返回时间序列，最新月有数据 |
+| S3: yfinance | 拉 VTI 日线 + 费率 | 不被 rate limit，数据齐全 |
+| S4: AKShare | 拉 QDII 基金净值 + 中国 PMI | 接口可用，返回数据 |
+| S5: MCP 集成 | FinanceMCP / fred-mcp-server 在 Claude Code 中可调 | 猫猫能通过 MCP tool 拿到数据 |
+
+**B0 — 定契约**（spike 通过后）：
+- 统一 schema（每条数据带 source / asOf / confidence / sourceTier）
+- 错误分类（rate_limited / not_entitled / source_down / schema_drift / no_data）
+- 缓存策略（日线级：24h TTL；宏观：按发布频率）
+
+**B1 — 接稳定源**：FRED + Tushare（spike 验证最稳的先接）
+
+**B2 — 接脆弱源**：yfinance + AKShare（加缓存 + 重试 + fallback）
+
+**Decision Gate**：如果 spike 发现某数据源不可用（如 Tushare 2000 分不够 / yfinance 被封），重新评估 scope。工作量上限 5 人天。
 
 铲屎官朋友（蛋散）的实战反馈：Agent 只做数据搬运，分析是人脑做。数据源包括天天基金 skill、腾讯自选股、东方财富、同花顺、金投网。
 
@@ -210,12 +252,16 @@ AUDHD 护栏设计：
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 数据层具体用哪些工具？ | ⏳ 等 deep research 回收 |
-| OQ-2 | F188 Library 的 Collection 创建机制是否就绪？ | ⬜ 未定 |
+| OQ-1 | 数据层具体用哪些工具？ | ✅ Tushare + FRED + yfinance + AKShare（synthesis.md） |
+| OQ-2 | F188 Library 的 Collection 创建机制是否就绪？ | ✅ 已就绪（Phase A 已完成 Collection 注册） |
 | OQ-3 | 铲屎官朋友提到的"天天基金 skill"具体是什么？ | ⬜ 未定 |
-| OQ-4 | 周报/季度报告的具体格式和发送渠道？ | ⬜ 未定 |
+| OQ-4 | 周报/季度报告的具体格式和发送渠道？ | ⬜ 未定（Phase C） |
 | OQ-5 | 什么场景必须建议铲屎官找真人理财师？（猫猫能力边界） | ⬜ 未定 |
-| OQ-6 | 季度盲测的具体流程？（铲屎官先独立判断的交互设计） | ⬜ 未定 |
+| OQ-6 | 季度盲测的具体流程？（铲屎官先独立判断的交互设计） | ⬜ 未定（Phase D） |
+| OQ-7 | Tushare 2000 分够不够？哪些接口需要更高积分？ | ⏳ B-spike S1 验证 |
+| OQ-8 | Python provider 和 Node 包装层怎么桥接？（MCP stdio / HTTP） | ⬜ 未定（B0 定） |
+| OQ-9 | API key 存哪？（.env / keychain / config）| ⬜ 未定（B0 定） |
+| OQ-10 | Tushare 年费续费提醒机制？（永续年费不是一次性） | ⬜ 未定 |
 
 ## Key Decisions
 
@@ -226,6 +272,9 @@ AUDHD 护栏设计：
 | KD-3 | 默认年度再平衡，不做高频操作 | AUDHD 多巴胺护栏 + 铲屎官非交易员 | 2026-05-18 |
 | KD-4 | 数据层工具选型由 deep research 驱动 | 我们是金融外行，Agent Team Leadership 7 步法 | 2026-05-18 |
 | KD-5 | 投资者画像：静态加密 + 授权制访问（类比 GPT/Claude App 银行授权） | 安全目标是设备丢失保护 + 访问需 consent — CVO 指令 | 2026-05-18 |
+| KD-6 | Provider orchestration, not provider monogamy | 三路 deep research + 四猫综合共识 | 2026-05-19 |
+| KD-7 | Tushare 2000 分起步（~200 元），留 300 元升级余量 | 四猫投票 3:1（烁烁推荐 5000 分），spike 验证后再决定是否升级 | 2026-05-19 |
+| KD-8 | Phase B 先 spike 再定契约 | 铲屎官指令："云端猫猫们说能用真的能用吗？" | 2026-05-19 |
 
 ## Timeline
 
@@ -234,7 +283,11 @@ AUDHD 护栏设计：
 | 2026-04-22 | 铲屎官开始投资学习 |
 | 2026-05-18 | 识别 info-gap → 转向基建 → 三猫讨论 → deep research 发出 |
 | 2026-05-18 | F207 立项 |
-| TBD | Deep research 回收 → Phase B 选型 |
+| 2026-05-18 | Deep research 三路发出 |
+| 2026-05-19 | Deep research 回收 + 四猫独立综合 + 最终 synthesis |
+| 2026-05-19 | Phase B spec 更新（spike → 三刀切） |
+| TBD | B-spike 验证（S1-S5） |
+| TBD | B0 定契约 → B1 接稳定源 → B2 接脆弱源 |
 
 ## Review Gate
 
@@ -249,4 +302,5 @@ AUDHD 护栏设计：
 | **学习路径** | `docs/stories/investment-learning/README.md` | 书单 + 学习层级 |
 | **ESOP 决策** | `docs/discussions/career-planning/2026-04-22-promotion-esop-jd-trilemma.md` | 三难决策 + 4-08 共识 |
 | **Deep Research Prompt** | `docs/prompts/2026-05-18-finance-provider-stack-research-prompt.md` | 数据层选型调研 brief |
+| **Deep Research 综合** | `docs/research/2026-05-18-finance-provider-stack/synthesis.md` | 四猫综合 + 人话版 |
 | **F188** | `docs/features/F188-library-stewardship.md` | 联邦知识系统（知识层载体） |
