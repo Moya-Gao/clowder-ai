@@ -8,7 +8,7 @@ created: 2026-05-18
 
 # F206: Settings UI Convergence — 组件语言归一
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -129,4 +129,5 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 | 2026-05-18 | Phase B merged (PR #1769) — 8 page migrations + enforcement + accounts IA fix |
 | 2026-05-18 | CVO 反馈：Signals 样式/Mission Hub 去重/侧栏 tooltip → Phase C 追加 |
 | 2026-05-18 | Phase C merged (PR #1770) — Signals styling + Mission Hub dedup + nav tooltips |
+| 2026-05-18 | F206 closed — opus-47 愿景守護 PASS，全 3 Phase 完成 |
 | 2026-05-22 | 目标 close（时间盒 4 天，CVO：不能 5-7 天） |
