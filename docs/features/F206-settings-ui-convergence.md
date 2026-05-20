@@ -166,7 +166,7 @@ Phase J post-merge audit（砚砚）识别 5 个 Hub 文件仍有 ~27 处 real U
 6. **HubMemberOverviewCard exempt 标注**：2 处 coCreator config default color → exempt comment
 7. **HubObservabilityTab exempt 标注**：1 处 data-viz chart stroke → exempt comment
 
-### Phase L: text-[10px] bulk migration → text-micro 📋
+### Phase L: text-[10px] bulk migration → text-micro ✅
 
 Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 135 files。Phase D 已注册 `text-micro` token（`10px/14px`），仅迁移了 2 处作为 proof-of-concept。本 Phase 完成全量迁移。
 
@@ -273,9 +273,9 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 - [x] AC-K7: `pnpm test` + `pnpm check` + `pnpm build` 全绿
 
 ### Phase L（text-[10px] bulk migration → text-micro）
-- [ ] AC-L1: 510 occurrences of `text-[10px]` replaced with `text-micro` across 135 files
-- [ ] AC-L2: Zero `text-[10px]` remaining in `packages/web/src/` (rg verified)
-- [ ] AC-L3: `pnpm test` + `pnpm check` + `pnpm build` 全绿
+- [x] AC-L1: 510 occurrences of `text-[10px]` replaced with `text-micro` across 135 files
+- [x] AC-L2: Zero `text-[10px]` remaining in `packages/web/src/` (rg verified)
+- [x] AC-L3: `pnpm test` + `pnpm check` + `pnpm build` 全绿
 
 ## Dependencies
 
@@ -344,3 +344,5 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 | 2026-05-20 | Phase J merged (PR #1813) — Hub 6 files ~152 hex → 45 hub-* semantic tokens + ChangesPanel ws-editor-deep fix |
 | 2026-05-20 | Phase K spec added — Hub residual mini sweep (~27 hex across 5 files) + 3 exempt annotations; text-[10px] bulk deferred to Phase L |
 | 2026-05-20 | Phase K merged (PR #1814) — 16 new hub-* tokens (61 total), 5 files migrated, 3 exempt annotated |
+| 2026-05-20 | Phase L spec added — text-[10px] → text-micro bulk migration (510 instances, 135 files) |
+| 2026-05-20 | Phase L merged (PR #1815) — text-[10px] → text-micro bulk migration complete (510 instances, 135 files, 1 test selector) |
