@@ -157,6 +157,13 @@ created: 2026-05-18
 3. 如果同意再平衡 → 猫猫生成具体操作清单（"买 X 基金 Y 元"）
 4. 铲屎官自己执行交易（猫猫不碰交易操作）
 
+**数据源配置管理**（类似 Memory Hub 的前端界面）：
+- Connector 开关：启用/禁用各数据源（Tushare / FRED / yfinance / AKShare）
+- API key / token 配置：加密存储，前端只显示脱敏后的 `****65e5`
+- 数据源状态看板：在线 / 限流 / 过期 / 异常
+- Tushare 积分余量 + 年费续费提醒
+- 未来扩展：一键添加新 connector（如社区 ttfund-skills）
+
 **硬约束**：Cat Café 不直连任何交易 API——所有交易由铲屎官在券商/银行 App 中自行执行。
 
 AUDHD 护栏设计：
@@ -271,13 +278,13 @@ AUDHD 护栏设计：
 |---|------|------|
 | OQ-1 | 数据层具体用哪些工具？ | ✅ Tushare + FRED + yfinance + AKShare（synthesis.md） |
 | OQ-2 | F188 Library 的 Collection 创建机制是否就绪？ | ✅ 已就绪（Phase A 已完成 Collection 注册） |
-| OQ-3 | 铲屎官朋友提到的"天天基金 skill"具体是什么？ | ⬜ 未定 |
+| OQ-3 | 铲屎官朋友提到的"天天基金 skill"具体是什么？ | ✅ 社区 ttfund-skills（爬天天基金），功能与 AKShare 基金模块重叠，可作为替代/补充 connector |
 | OQ-4 | 周报/季度报告的具体格式和发送渠道？ | ⬜ 未定（Phase C） |
 | OQ-5 | 什么场景必须建议铲屎官找真人理财师？（猫猫能力边界） | ⬜ 未定 |
 | OQ-6 | 季度盲测的具体流程？（铲屎官先独立判断的交互设计） | ⬜ 未定（Phase D） |
 | OQ-7 | Tushare 2000 分够不够？哪些接口需要更高积分？ | ⏳ B-spike S1 验证 |
 | OQ-8 | Python provider 和 Node 包装层怎么桥接？（MCP stdio / HTTP） | ⬜ 未定（B0 定） |
-| OQ-9 | API key 存哪？（.env / keychain / config）| ⬜ 未定（B0 定） |
+| OQ-9 | API key 存哪？（.env / keychain / config）| ⏳ spike 阶段用 .env；正式版需前端配置界面（类 Memory Hub，见 Phase D 数据源配置管理） |
 | OQ-10 | Tushare 年费续费提醒机制？（永续年费不是一次性） | ⬜ 未定 |
 
 ## Key Decisions
