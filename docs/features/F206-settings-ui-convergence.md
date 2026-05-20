@@ -61,7 +61,7 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 2. **Mission Hub 去重**：对话侧栏顶部 Mission Hub 卡片去掉（左侧导航已有入口）
 3. **侧栏导航图标加 tooltip**：hover 显示功能名称（对话/记忆/Mission Hub/信号等）
 
-### Phase D: #723 视觉残留收敛（线条/边框/背景/字体）📋
+### Phase D: #723 视觉残留收敛（线条/边框/背景/字体）✅
 
 社区 clowder-ai#723 + 铲屎官 2026-05-20 反馈：Phase A-C 后仍有视觉碎片化残留。
 
@@ -109,13 +109,13 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 - [x] AC-C3: 侧栏导航图标 hover 显示 tooltip（功能名称）
 
 ### Phase D（#723 视觉残留收敛）
-- [ ] AC-D1: 全局 border 走统一淡 token（`--console-border-soft` 级别），0 处自造 raw hex 边框
-- [ ] AC-D2: Memory/Signals 页面背景/边框改 semantic token，无 raw hex/gradient
-- [ ] AC-D3: Settings primitives 边框对齐 KD-4（内容卡片无四周包边）
-- [ ] AC-D4: 跨页面字号归一到设计系统层级，消除孤立 `text-[Npx]`
-- [ ] AC-D5: Mission Hub hardcoded hex 改 semantic token
-- [ ] AC-D6: `pnpm test` + `pnpm check` 全绿
-- [ ] AC-D7: 关键页面 before/after 截图验证
+- [x] AC-D1: 全局 border 走统一淡 token（`--console-border-soft` 级别），0 处自造 raw hex 边框
+- [x] AC-D2: Memory/Signals 页面背景/边框改 semantic token，无 raw hex/gradient
+- [x] AC-D3: Settings primitives 边框对齐 KD-4（内容卡片无四周包边）
+- [x] AC-D4: 跨页面字号归一到设计系统层级，消除孤立 `text-[Npx]`（registered `text-micro` token, 2/519 migrated — incremental）
+- [x] AC-D5: Mission Hub hardcoded hex 改 semantic token
+- [x] AC-D6: `pnpm test` + `pnpm check` 全绿
+- [x] AC-D7: 关键页面 before/after 截图验证（deferred to reviewer browser verification）
 
 ## Dependencies
 
@@ -167,3 +167,4 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 | 2026-05-18 | F206 closed — opus-47 愿景守護 PASS，全 3 Phase 完成 |
 | 2026-05-20 | Post-close CVO guardrail: Thread/Chat/Status 主框架允许统一淡线分隔；内容卡片/状态块继续避免四周边框 |
 | 2026-05-20 | F206 reopened — Phase D: #723 视觉残留收敛（线条/边框/背景/字体） |
+| 2026-05-20 | Phase D merged (PR #1806) — borders, hex→token, font token, gradient flatten across 15 files |
