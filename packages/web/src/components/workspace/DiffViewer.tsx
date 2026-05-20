@@ -262,11 +262,11 @@ export function DiffViewer({ diff, filePath, compact }: DiffViewerProps) {
       {filtered.map((file) => (
         <div key={file.path} className="rounded border border-[var(--console-border-soft)] overflow-hidden">
           {!compact && (
-            <div className="bg-[#1E1E24] px-3 py-1.5 text-xs font-mono text-cafe-muted border-b border-[var(--console-border-soft)] truncate">
+            <div className="bg-[var(--ws-editor-bg)] px-3 py-1.5 text-xs font-mono text-cafe-muted border-b border-[var(--console-border-soft)] truncate">
               {file.path}
             </div>
           )}
-          <div className="overflow-x-auto bg-[#16161c]">
+          <div className="overflow-x-auto bg-[var(--ws-editor-deep)]">
             {mode === 'unified' ? <UnifiedView hunks={file.hunks} /> : <SideBySideView hunks={file.hunks} />}
           </div>
         </div>

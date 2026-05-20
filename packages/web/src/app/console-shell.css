@@ -112,20 +112,6 @@
   --mc-risk-critical: #c05a38;
   --mc-risk-high: #e4a853;
   --mc-risk-medium: #8b8b8b;
-  --terminal-bg: #413a50;
-  --terminal-btn-bg: #493a50;
-  --terminal-bg-deep: #16161c;
-  --terminal-border: #2a2a32;
-  --terminal-text: #e2e8f0;
-  --terminal-text-muted: #888888;
-  --terminal-text-dim: #666666;
-  --terminal-text-error: #f7768e;
-  --terminal-text-warn: #e0af68;
-  --terminal-text-success: #9ece6a;
-  --terminal-button-border: #444444;
-  --terminal-button-text: #aaaaaa;
-  --terminal-error-border: #6b3030;
-  --terminal-selected-bg: #2a2b3d;
   --ws-surface: #fdf8f3;
   --ws-surface-hover: #fff5f2;
   --ws-surface-warm: #f5f0eb;
@@ -136,6 +122,22 @@
   --ws-editor-bg: #1e1e24;
   --ws-editor-surface: #2a2a32;
   --ws-editor-hover: #252530;
+  --ws-editor-deep: #16161c;
+  --ws-editor-fg: #fdf8f3;
+  --ws-editor-gutter: #815b5b;
+
+  --terminal-chrome: #2a2b3d;
+  --terminal-fg: #a9b1d6;
+  --terminal-text: #aaa;
+  --terminal-text-muted: #888;
+  --terminal-text-dim: #666;
+  --terminal-text-faint: #555;
+  --terminal-btn-border: #444;
+  --terminal-btn-danger-border: #6b3030;
+  --terminal-status-ok: #9ece6a;
+  --terminal-status-warn: #e0af68;
+  --terminal-status-error: #f7768e;
+  --terminal-status-info: #7aa2f7;
 }
 
 [data-theme="dark"] {

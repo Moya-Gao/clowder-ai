@@ -98,14 +98,14 @@ export function FileContentRenderer({
   if (file.binary) {
     if (file.mime.startsWith('image/'))
       return (
-        <div className="flex-1 flex items-center justify-center bg-[#1E1E24] p-4 overflow-auto">
+        <div className="flex-1 flex items-center justify-center bg-[var(--ws-editor-bg)] p-4 overflow-auto">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={rawUrl(file.path)} alt={file.path} className="max-w-full max-h-full object-contain rounded" />
         </div>
       );
     if (file.mime.startsWith('audio/'))
       return (
-        <div className="flex-1 flex flex-col items-center justify-center bg-[#1E1E24] p-6 gap-3">
+        <div className="flex-1 flex flex-col items-center justify-center bg-[var(--ws-editor-bg)] p-6 gap-3">
           <HubIcon name="music" className="h-8 w-8 text-cafe-secondary" />
           <audio controls src={rawUrl(file.path)} className="w-full max-w-md">
             浏览器不支持音频播放
@@ -117,14 +117,14 @@ export function FileContentRenderer({
       );
     if (file.mime.startsWith('video/'))
       return (
-        <div className="flex-1 flex items-center justify-center bg-[#1E1E24] p-4 overflow-auto">
+        <div className="flex-1 flex items-center justify-center bg-[var(--ws-editor-bg)] p-4 overflow-auto">
           <video controls src={rawUrl(file.path)} className="max-w-full max-h-full rounded">
             浏览器不支持视频播放
           </video>
         </div>
       );
     return (
-      <div className="flex flex-col items-center justify-center py-8 bg-[#1E1E24] text-cafe-secondary text-xs">
+      <div className="flex flex-col items-center justify-center py-8 bg-[var(--ws-editor-bg)] text-cafe-secondary text-xs">
         <svg
           viewBox="0 0 24 24"
           fill="none"
