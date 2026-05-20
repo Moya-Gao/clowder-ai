@@ -118,6 +118,20 @@ Phase G 后砚砚 post-merge audit 识别 workspace/browser chrome 5 文件共 3
 7. **BrowserTabs test 更新**：assertion `bg-[#FDF8F3]` → `bg-[var(--ws-surface)]`
 8. **ThreadSidebar border KD-4 assessment**：全部 border 在 interactive controls 上（modals/inputs/dropdowns/buttons），per KD-4 全部 justified，无需移除
 
+### Phase I: Workspace editor/terminal hex → 16 always-dark semantic tokens ✅
+
+Phase H 后砚砚 post-merge audit 识别 workspace editor/terminal 7 文件共 43 处 raw hex。
+
+1. **16 新 always-dark CSS tokens**：3 `ws-editor-*` extensions（deep/fg/gutter）+ 13 `terminal-*`（chrome/fg/text/btn/status），无 dark-mode overrides
+2. **CodeViewer 迁移**：6 hex → ws-editor-*/ws-accent tokens（EditorView.theme）
+3. **FileContentRenderer 迁移**：4 hex → ws-editor-bg（image/audio/video/binary backgrounds）
+4. **DiffViewer 迁移**：2 hex → ws-editor-bg/ws-editor-deep
+5. **JsxPreview 迁移**：2 hex → ws-editor-bg + 2 iframe HTML exempt
+6. **TerminalTab 迁移**：inline styles → 10 terminal tokens + 3 xterm.js exempt
+7. **AgentPaneViewer 迁移**：inline styles → 8 terminal tokens + 3 xterm.js exempt
+8. **AgentPaneList 迁移**：6 hex → terminal tokens（zero remaining）
+9. **Dead token cleanup**：移除 14 个无引用的 pre-existing `--terminal-*` tokens
+
 ### Post-close Guardrail: 线条分隔 vs 背景分层
 
 铲屎官 2026-05-20 追加口径：Thread 栏、对话栏、底部/右侧状态栏这类主框架区域，可以保留“统一底色 + 极淡线条分隔”的模式，不必强制改成背景色分层。目标接近网易云/微信的克制分隔：线条存在但不抢眼。
@@ -189,6 +203,14 @@ Phase G 后砚砚 post-merge audit 识别 workspace/browser chrome 5 文件共 3
 - [x] AC-H6: Zero raw hex in all 5 migrated workspace files（rg verified）
 - [x] AC-H7: `pnpm test` + `pnpm check` + `pnpm build` 全绿
 
+### Phase I（Workspace editor/terminal hex → always-dark tokens）
+- [x] AC-I1: 16 new always-dark CSS tokens defined in console-shell.css（3 ws-editor-* + 13 terminal-*）
+- [x] AC-I2: CodeViewer/DiffViewer/FileContentRenderer/JsxPreview — editor hex → ws-editor-* tokens
+- [x] AC-I3: TerminalTab/AgentPaneViewer/AgentPaneList — terminal hex → terminal-* tokens
+- [x] AC-I4: 8 remaining hex properly exempt（xterm.js canvas 6 + iframe HTML 2）with comments
+- [x] AC-I5: 14 dead pre-existing `--terminal-*` tokens removed（zero references verified）
+- [x] AC-I6: `pnpm test` + `pnpm check` + `pnpm build` 全绿
+
 ## Dependencies
 
 - **Evolved from**: F190（Console Settings 骨架 intake）、F199（Settings parity audit）
@@ -221,6 +243,7 @@ Phase G 后砚砚 post-merge audit 识别 workspace/browser chrome 5 文件共 3
 - Phase F: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token 替换）
 - Phase G: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token + border 清理）
 - Phase H: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration）
+- Phase I: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration + dead token cleanup）
 
 ## Links
 
@@ -248,3 +271,4 @@ Phase G 后砚砚 post-merge audit 识别 workspace/browser chrome 5 文件共 3
 | 2026-05-20 | Phase F merged (PR #1809) — 22 mission-control files, 356 hex→token, +24 mc-* semantic tokens |
 | 2026-05-20 | Phase G merged (PR #1810) — border sweep, data-viz exempt, MobileStatusSheet KD-4, dedicated progress token |
 | 2026-05-20 | Phase H merged (PR #1811) — workspace browser chrome 31 hex → 10 ws-* semantic tokens, ThreadSidebar border KD-4 justified |
+| 2026-05-20 | Phase I merged (PR #1812) — workspace editor/terminal 43 hex → 16 always-dark tokens, 14 dead tokens removed |
