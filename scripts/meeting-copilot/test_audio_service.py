@@ -281,5 +281,46 @@ class TestAdvisoryMode(unittest.TestCase):
             self.session.set_talking_points("not a list")
 
 
+class TestAsrContext(unittest.TestCase):
+    def setUp(self):
+        self.session = AudioSession()
+
+    def test_empty_context_by_default(self):
+        assert self.session._build_asr_context() == ""
+
+    def test_context_includes_participant_names(self):
+        self.session.enroll([
+            {"id": "p1", "name": "铲屎官", "role": "host"},
+            {"id": "p2", "name": "Alice"},
+        ])
+        ctx = self.session._build_asr_context()
+        assert "铲屎官" in ctx
+        assert "Alice" in ctx
+
+    def test_context_includes_talking_points(self):
+        self.session.set_talking_points(["Q3 预算", "技术选型"])
+        ctx = self.session._build_asr_context()
+        assert "Q3 预算" in ctx
+        assert "技术选型" in ctx
+
+    def test_context_combines_all_sources(self):
+        self.session.enroll([{"id": "p1", "name": "铲屎官", "role": "host"}])
+        self.session.set_talking_points(["预算"])
+        ctx = self.session._build_asr_context()
+        assert "铲屎官" in ctx
+        assert "预算" in ctx
+        assert ";" in ctx
+
+    def test_context_includes_env_var(self):
+        original = _mod.ASR_CONTEXT
+        try:
+            _mod.ASR_CONTEXT = "Cat Café, 布偶猫"
+            ctx = self.session._build_asr_context()
+            assert "Cat Café" in ctx
+            assert "布偶猫" in ctx
+        finally:
+            _mod.ASR_CONTEXT = original
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -23,7 +23,6 @@ import os
 import struct
 import subprocess
 import sys
-import threading
 import time
 from pathlib import Path
 
@@ -31,6 +30,7 @@ from aiohttp import web, ClientSession, ClientTimeout, FormData
 from intervention import AdvisoryRateLimiter, SilenceMonitor, InterventionDetector
 from transcript_store import TranscriptArtifactStore
 from transcript_window import TranscriptWindow
+from vad_chunker import VadChunker
 
 ASR_URL = os.getenv("ASR_URL", "http://localhost:9876")
 PORT = int(os.getenv("AUDIO_SERVICE_PORT", "9881"))
@@ -46,6 +46,10 @@ CAPTURE_BIN = os.getenv("CAPTURE_APP_AUDIO_BIN") or str(
     / "MacOS"
     / "CaptureAppAudio"
 )
+VAD_ENABLED = os.getenv("VAD_ENABLED", "1") != "0"
+LLM_POSTPROCESS_ENABLED = os.getenv("LLM_POSTPROCESS_ENABLED", "0") == "1"
+LLM_POSTPROCESS_URL = os.getenv("LLM_POSTPROCESS_URL", "http://localhost:9878")
+ASR_CONTEXT = os.getenv("ASR_CONTEXT", "")
 
 
 def pcm_to_wav(pcm: bytes, sr: int = SAMPLE_RATE) -> bytes:
@@ -136,6 +140,16 @@ class AudioSession:
             {"id": p["id"], "name": p["name"], "role": p.get("role", "participant")}
             for p in participants
         ]
+
+    def _build_asr_context(self) -> str:
+        parts = []
+        if self.participants:
+            parts.append(", ".join(p["name"] for p in self.participants))
+        if self.talking_points:
+            parts.append(", ".join(self.talking_points))
+        if ASR_CONTEXT:
+            parts.append(ASR_CONTEXT)
+        return "; ".join(parts)
 
     def _attribute_speaker(self) -> dict:
         host = next((p for p in self.participants if p.get("role") == "host"), None)
@@ -324,7 +338,8 @@ class AudioSession:
             return ""
 
     async def _run_app(self, app_name: str, chunk_sec: float):
-        chunk_bytes = int(chunk_sec * SAMPLE_RATE * 2)
+        chunker = VadChunker(enabled=VAD_ENABLED, chunk_sec=chunk_sec)
+        read_size = int(0.5 * SAMPLE_RATE * 2)
         if not Path(CAPTURE_BIN).exists():
             print(f"  ✗ CaptureAppAudio not found: {CAPTURE_BIN}", file=sys.stderr)
             self.running = False
@@ -335,16 +350,33 @@ class AudioSession:
             CAPTURE_BIN, "stream", app_name, "86400", str(chunk_sec),
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         )
+        was_paused = False
         try:
             while self.running:
-                pcm = await self._process.stdout.readexactly(chunk_bytes)
-                await self._process_chunk(pcm)
+                pcm = await self._process.stdout.read(read_size)
+                if not pcm:
+                    break
+                if self.paused:
+                    if not was_paused:
+                        remaining = chunker.flush()
+                        if remaining:
+                            await self._process_chunk(remaining, force=True)
+                        chunker._buf.clear()
+                        was_paused = True
+                    continue
+                was_paused = False
+                if self._artifact_store:
+                    self._artifact_store.append_pcm(pcm)
+                segments = chunker.feed(pcm)
+                for seg in segments:
+                    await self._process_chunk(seg)
         except asyncio.CancelledError:
             pass
-        except asyncio.IncompleteReadError as e:
-            if e.partial and self._artifact_store and not self.paused:
-                self._artifact_store.append_pcm(e.partial)
         finally:
+            if not self.paused:
+                remaining = chunker.flush()
+                if remaining:
+                    await self._process_chunk(remaining)
             stderr_text = await self._drain_capture_stderr()
             if stderr_text:
                 print(f"  CaptureAppAudio: {stderr_text}", file=sys.stderr)
@@ -366,42 +398,51 @@ class AudioSession:
         import numpy as np
         import sounddevice as sd
 
-        chunk_samples = int(chunk_sec * SAMPLE_RATE)
-        buf_data = np.zeros(chunk_samples, dtype=np.float32)
-        buf_pos = [0]
+        chunker = VadChunker(enabled=VAD_ENABLED, chunk_sec=chunk_sec)
         loop = asyncio.get_event_loop()
-        q: asyncio.Queue = asyncio.Queue()
-        lock = threading.Lock()
+        q: asyncio.Queue = asyncio.Queue(maxsize=500)
+
+        _overflow_logged = [False]
+
+        def _enqueue(pcm_data):
+            try:
+                q.put_nowait(pcm_data)
+            except asyncio.QueueFull:
+                if not _overflow_logged[0]:
+                    _overflow_logged[0] = True
+                    print("  ⚠ Mic queue overflow — dropping audio frames", file=sys.stderr)
 
         def cb(indata, frames, time_info, status_flags):
             if not self.running:
                 return
             mono = indata[:, 0] if indata.ndim > 1 else indata.flatten()
-            with lock:
-                rem = chunk_samples - buf_pos[0]
-                n = min(len(mono), rem)
-                buf_data[buf_pos[0] : buf_pos[0] + n] = mono[:n]
-                buf_pos[0] += n
-                if buf_pos[0] >= chunk_samples:
-                    pcm = (buf_data * 32767).astype(np.int16).tobytes()
-                    overflow = len(mono) - n
-                    buf_data[:] = 0
-                    buf_pos[0] = 0
-                    if overflow > 0:
-                        buf_data[:overflow] = mono[n:]
-                        buf_pos[0] = overflow
-                    loop.call_soon_threadsafe(q.put_nowait, pcm)
+            pcm = (mono * 32767).astype(np.int16).tobytes()
+            loop.call_soon_threadsafe(_enqueue, pcm)
 
         stream = sd.InputStream(
             device=device_idx, samplerate=SAMPLE_RATE, channels=1,
             dtype="float32", blocksize=1024, callback=cb,
         )
+        was_paused = False
         try:
             stream.start()
             while self.running:
                 try:
                     pcm = await asyncio.wait_for(q.get(), timeout=1.0)
-                    await self._process_chunk(pcm)
+                    if self.paused:
+                        if not was_paused:
+                            remaining = chunker.flush()
+                            if remaining:
+                                await self._process_chunk(remaining, force=True)
+                            chunker._buf.clear()
+                            was_paused = True
+                        continue
+                    was_paused = False
+                    if self._artifact_store:
+                        self._artifact_store.append_pcm(pcm)
+                    segments = chunker.feed(pcm)
+                    for seg in segments:
+                        await self._process_chunk(seg)
                 except asyncio.TimeoutError:
                     continue
         except asyncio.CancelledError:
@@ -410,17 +451,17 @@ class AudioSession:
             stream.stop()
             stream.close()
             await asyncio.sleep(0)
-            while not q.empty():
-                try:
-                    queued_pcm = q.get_nowait()
-                    if self._artifact_store and not self.paused:
-                        self._artifact_store.append_pcm(queued_pcm)
-                except asyncio.QueueEmpty:
-                    break
-            with lock:
-                if buf_pos[0] > 0 and self._artifact_store and not self.paused:
-                    residual = (buf_data[:buf_pos[0]] * 32767).astype(np.int16).tobytes()
-                    self._artifact_store.append_pcm(residual)
+            if not self.paused:
+                while not q.empty():
+                    try:
+                        queued_pcm = q.get_nowait()
+                        if self._artifact_store:
+                            self._artifact_store.append_pcm(queued_pcm)
+                    except asyncio.QueueEmpty:
+                        break
+                remaining = chunker.flush()
+                if remaining:
+                    await self._process_chunk(remaining)
             if self.running:
                 self.running = False
                 transcript_path = None
@@ -434,11 +475,9 @@ class AudioSession:
                                        "transcript_path": transcript_path,
                                        "recording_path": recording_path})
 
-    async def _process_chunk(self, pcm: bytes):
-        if self.paused:
+    async def _process_chunk(self, pcm: bytes, force: bool = False):
+        if self.paused and not force:
             return
-        if self._artifact_store:
-            self._artifact_store.append_pcm(pcm)
         wav = pcm_to_wav(pcm)
         self.chunk_count += 1
         ts = time.time()
@@ -448,6 +487,9 @@ class AudioSession:
             form = FormData()
             form.add_field("file", wav, filename="chunk.wav", content_type="audio/wav")
             form.add_field("language", "zh")
+            context = self._build_asr_context()
+            if context:
+                form.add_field("initial_prompt", context)
             t0 = time.perf_counter()
             async with self._http.post(
                 f"{ASR_URL}/v1/audio/transcriptions",
@@ -460,6 +502,20 @@ class AudioSession:
         except Exception as e:
             text = f"[ASR error: {e}]"
         self.total_asr_time += asr_latency
+        if LLM_POSTPROCESS_ENABLED and text and not text.startswith("[ASR error"):
+            try:
+                async with self._http.post(
+                    f"{LLM_POSTPROCESS_URL}/v1/text/refine",
+                    json={"text": text, "context": context},
+                    timeout=ClientTimeout(total=10),
+                ) as pp_resp:
+                    if pp_resp.status == 200:
+                        pp_result = await pp_resp.json()
+                        refined = pp_result.get("text", "")
+                        if refined:
+                            text = refined
+            except Exception:
+                pass
         speaker = self._attribute_speaker()
         line = {
             "ts": ts,
@@ -748,12 +804,18 @@ def main():
     app.router.add_get("/sources", h_sources)
     app.on_cleanup.append(on_cleanup)
     cap = "found" if Path(CAPTURE_BIN).exists() else "NOT FOUND"
+    vad = "ON" if VAD_ENABLED else "OFF"
+    llm_pp = f"ON → {LLM_POSTPROCESS_URL}" if LLM_POSTPROCESS_ENABLED else "OFF"
     print("=" * 60)
     print("  F195 Audio Capture Service")
     print("=" * 60)
     print(f"  Port:       :{PORT}")
     print(f"  ASR:        {ASR_URL}")
+    print(f"  VAD:        {vad}")
+    print(f"  LLM Post:   {llm_pp}")
     print(f"  CaptureApp: {cap}")
+    if ASR_CONTEXT:
+        print(f"  ASR Context: {ASR_CONTEXT}")
     print()
     print("  POST /start   POST /stop   POST /pause   POST /resume")
     print("  GET /status   GET /transcript   GET /events   GET /sources")
