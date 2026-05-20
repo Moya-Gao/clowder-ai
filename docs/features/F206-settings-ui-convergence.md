@@ -166,6 +166,15 @@ Phase J post-merge audit（砚砚）识别 5 个 Hub 文件仍有 ~27 处 real U
 6. **HubMemberOverviewCard exempt 标注**：2 处 coCreator config default color → exempt comment
 7. **HubObservabilityTab exempt 标注**：1 处 data-viz chart stroke → exempt comment
 
+### Phase L: text-[10px] bulk migration → text-micro 📋
+
+Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 135 files。Phase D 已注册 `text-micro` token（`10px/14px`），仅迁移了 2 处作为 proof-of-concept。本 Phase 完成全量迁移。
+
+1. **全量替换 `text-[10px]` → `text-micro`**：135 files, 510 occurrences，纯 className 字符串替换
+2. **分布**：root 185 / workspace 100 / mission-control 80 / memory 46 / ThreadSidebar 38 / signals 23 / game 20 / audit 12 / settings 6
+3. **行为差异**：`text-[10px]` = `font-size: 10px`；`text-micro` = `font-size: 10px; line-height: 14px`。line-height 增加是 design system 意图（统一 micro text 行高），不是回归
+4. **验证**：替换后 zero `text-[10px]` remaining（rg verified），`pnpm test` + `pnpm check` + `pnpm build` 全绿
+
 ### Post-close Guardrail: 线条分隔 vs 背景分层
 
 铲屎官 2026-05-20 追加口径：Thread 栏、对话栏、底部/右侧状态栏这类主框架区域，可以保留“统一底色 + 极淡线条分隔”的模式，不必强制改成背景色分层。目标接近网易云/微信的克制分隔：线条存在但不抢眼。
@@ -263,6 +272,11 @@ Phase J post-merge audit（砚砚）识别 5 个 Hub 文件仍有 ~27 处 real U
 - [x] AC-K6: HubMemberOverviewCard + HubObservabilityTab config/data-viz → exempt comment
 - [x] AC-K7: `pnpm test` + `pnpm check` + `pnpm build` 全绿
 
+### Phase L（text-[10px] bulk migration → text-micro）
+- [ ] AC-L1: 510 occurrences of `text-[10px]` replaced with `text-micro` across 135 files
+- [ ] AC-L2: Zero `text-[10px]` remaining in `packages/web/src/` (rg verified)
+- [ ] AC-L3: `pnpm test` + `pnpm check` + `pnpm build` 全绿
+
 ## Dependencies
 
 - **Evolved from**: F190（Console Settings 骨架 intake）、F199（Settings parity audit）
@@ -298,6 +312,7 @@ Phase J post-merge audit（砚砚）识别 5 个 Hub 文件仍有 ~27 处 real U
 - Phase I: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration + dead token cleanup）
 - Phase J: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration）
 - Phase K: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration + exempt annotations）
+- Phase L: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 className bulk migration）
 
 ## Links
 
