@@ -24,6 +24,7 @@ import {
   ROUTE_TOTAL_TOKENS,
 } from '../../../../../infrastructure/telemetry/genai-semconv.js';
 import {
+  a2aDispatchCount,
   c2VerdictHintEmitted,
   c2VerdictWithoutPassCount,
   c2VoidHoldHintEmitted,
@@ -1669,6 +1670,8 @@ export async function* routeSerial(
                   },
                   parentCtx,
                 );
+                // F153 Phase I: counter for Step Summary aggregate; only AGENT_ID attribute (mentioner cat).
+                a2aDispatchCount.add(1, { [AGENT_ID]: catId as string });
               }
             }
 
