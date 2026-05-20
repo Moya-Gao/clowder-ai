@@ -226,3 +226,147 @@ no playful elements, no cartoon style, no decorative blobs.
 4. 根据校准结果决定纯 imagegen 还是 hybrid raster 正式路线。
 5. 批量生成剩余 8 页。
 6. 组装 PPTX 或图片序列。
+
+## 9. 校准图最终 prompt v1
+
+### 9.1 P1 封面
+
+```text
+Create a 16:9 high-end Huawei internal strategy presentation cover slide.
+Style: Huawei Intelligent World 2035 whitepaper, deep black background,
+Huawei red geometric light trails, cold gray industrial grid, premium
+technology consulting report, cinematic but disciplined, clean and powerful.
+Use the highest available resolution and design for 3840x2160 composition.
+Reserve a clean top-left safe area for an official Huawei logo asset; do not draw the logo.
+
+Exact large Chinese title:
+通用机器人：AGI走向物理世界
+
+Exact subtitle:
+产业洞察与路径预判 2026
+
+Small tag:
+Intelligent World 2035
+
+Layout:
+- Top-left small blank logo safe area.
+- Center-left large title, strong modern Chinese typography.
+- Lower-left subtitle and date line.
+- Right side: elegant humanoid robot silhouette standing between a smart factory,
+  city skyline, and abstract physical-world data field.
+- Use red light trails to connect robot body, factory arms, sensors, and cloud.
+- Keep 35 percent negative space so it feels like a Huawei whitepaper cover.
+
+Visual metaphor:
+AGI crossing from digital intelligence into the physical world.
+
+No fake brand logo, no generated Huawei petal mark, no random numbers,
+no cute robot, no colorful cyberpunk poster, no decorative blobs.
+```
+
+### 9.2 P7 纯 imagegen 版
+
+```text
+Create a 16:9 high-end Huawei internal strategy presentation slide.
+Style: Huawei Intelligent World 2035 whitepaper plus strategy module density:
+deep black background, Huawei red geometric light trails, cold gray industrial
+grid, premium technology consulting report, sharp modular layout.
+Use the highest available resolution and design for 3840x2160 composition.
+Reserve a clean top-left safe area for an official Huawei logo asset; do not draw the logo.
+
+Exact title:
+三大核心挑战：手、世界、数据
+
+Exact core message:
+马斯克三问，对应三大鸿沟
+
+Three vertical pillars, each pillar with exact Chinese text:
+
+Pillar 1 title:
+灵巧手
+Small labels:
+精细操作
+寿命 10-50 万次
+成本高
+
+Pillar 2 title:
+非结构化世界
+Small labels:
+环境多变
+泛化不足
+场景应变弱
+
+Pillar 3 title:
+真实数据荒
+Small labels:
+触觉/力控稀缺
+比自动驾驶多 1-2 个数量级
+只能物理采集
+
+Bottom quote:
+硬件打地基，软件建高楼
+
+Layout:
+- Header title at top-left under the blank logo safe area.
+- Three strong vertical pillars across the middle, each pillar has an icon:
+  robotic hand, dynamic 3D environment, multimodal data cube.
+- Each pillar includes title and three small labels, all Chinese text must be
+  crisp and readable.
+- Bottom red conclusion strip with the quote.
+
+No garbled Chinese characters, no fake brand logo, no generated Huawei petal mark,
+no random numbers, no cute robot, no colorful cyberpunk poster, no decorative blobs.
+```
+
+### 9.3 P7 hybrid raster 版
+
+```text
+Create a 16:9 Huawei internal strategy slide that looks like a post-produced
+hybrid raster composite: cinematic AI-generated background plus crisp digital
+typography layer. The final image should feel flatter, cleaner, and more
+layout-controlled than a pure generative poster.
+Style: Huawei Intelligent World 2035 whitepaper, deep black background,
+Huawei red geometric light trails, cold gray industrial grid, premium strategy
+report, precise alignment, straight edges.
+Use the highest available resolution and design for 3840x2160 composition.
+Reserve a clean top-left safe area for an official Huawei logo asset; do not draw the logo.
+
+Exact title:
+三大核心挑战：手、世界、数据
+
+Exact core message:
+马斯克三问，对应三大鸿沟
+
+Create a clean three-column layout with sharp red divider lines and dark glass panels.
+Use crisp, digitally composed typography for all text below:
+
+Column 1:
+灵巧手
+精细操作
+寿命 10-50 万次
+成本高
+
+Column 2:
+非结构化世界
+环境多变
+泛化不足
+场景应变弱
+
+Column 3:
+真实数据荒
+触觉/力控稀缺
+比自动驾驶多 1-2 个数量级
+只能物理采集
+
+Bottom conclusion:
+硬件打地基，软件建高楼
+
+Visual details:
+- Background: abstract robot hand blueprint, factory sensor grid, 3D physical
+  world mesh, subtle red energy lines.
+- Foreground: restrained report-like modules, not a poster.
+- Text must be straight, flat, high contrast, and readable at small size.
+
+No garbled Chinese characters, no fake brand logo, no generated Huawei petal mark,
+no random numbers beyond the specified numbers, no cute robot, no colorful cyberpunk poster.
+```
