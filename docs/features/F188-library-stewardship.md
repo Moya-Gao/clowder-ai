@@ -397,6 +397,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | 2026-05-19 | Phase D merged (PR #1777) — Collection selector UI + MaterializeOptions.indexBuilder override + CollectionIndexBuilder.incrementalUpdate + approve route guards (archived/storeless). 砚砚 local review 3 rounds + cloud codex review |
 | 2026-05-19 | Phase E closed as **Superseded by F200** — AC-E1/E2/E3 marked closed/no-op; manual Pin UI/MCP rejected as unrealistic, feedback/replay seed pipeline owned by F200 Memory Recall Eval |
 | 2026-05-19 | **Phase H merged (PR #1783)** — Collection-Aware Recent Selection: overlap exclusion (CatCafeScanner + IndexBuilder + runtime registration), guaranteed minimum selection, SelectionGroup API, MCP footer, regression fixtures. 砚砚 local review 5 rounds (R1-R5: CatCafeScanner exclude wiring, parseSingle bypass, runtime registration update, immediate row purge + catalog sync, SQL LIKE wildcard escape) + cloud codex 4 rounds (edge purge, batch chunking, vector cleanup) |
+| 2026-05-20 | Phase B proactive badge follow-up merged (PR #1790) — MemoryNav health badge: useHealthBadgeCount hook + buildMemoryTabItems badges param + 99+ cap. opus-47 愿景守護踢回"索引坏了没人知道" → Path A badge 修復。砚砚 local review 2 rounds + cloud codex review |
 
 ## Review Gate
 
