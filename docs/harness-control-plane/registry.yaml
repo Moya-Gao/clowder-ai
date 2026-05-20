@@ -16,8 +16,8 @@ units:
       execute_mechanism: mcp-tool  # cat_cafe_hold_ball MCP tool
       exit_condition: "wakeAfterMs expires OR user cancels OR cat releases"
     eval:
-      activation_signal: "hold_ball call returns status=ok (Phase B: add OTel counter hold_ball_count)"
-      friction_metric: "User cancels hold prematurely (Phase B: add hold_cancel_count) = trust_gap; user manually pings waiting cat = harness_gap"
+      activation_signal: "cat_cafe.hold_ball.registered counter increments (OTel)"
+      friction_metric: "1 - (cat_cafe.hold_ball.cancelled_with_reason / cat_cafe.hold_ball.cancelled); target < 20%"
       success_signal: "Wake-up fires, cat executes nextStep without user intervention"
       regression_fixtures:
         - "hold → wake → nextStep executes (happy path)"
@@ -25,16 +25,15 @@ units:
         - "hold → cancel with reason → reason field non-empty"
     governance:
       owner: opus
-      upgrade_criteria: "friction_rate < 10% over 2 weeks → promote sub-rules to always-on"
-      degrade_criteria: "friction_rate > 30% or zombie_rate > 20% → add manual confirmation step"
-      sunset_signal: "PR tracking + CI webhook covers 100% of wait cases → hold_ball redundant"
+      upgrade_criteria: "friction_rate < 10% AND trust_gap_rate < 5% over 2 weeks → promote to always-on"
+      degrade_criteria: "friction_rate > 30% OR trust_gap_rate > 20% OR zombie_rate > 15% → add manual confirmation"
+      sunset_signal: "Zero holdBallRegistered for 3 months + CI webhooks cover all wait cases"
 
-    # Four Semantic Interfaces (implementation pointers)
     interfaces:
-      trace: "F153 telemetry — hold/release/cancel/timeout/zombie events"
-      eval: "F192 Pilot — thread-segment observation, compensation detection"
-      feedback: "Phase B: cancel reason field (hold_cancel_with_reason_count)"
-      governance: "Weekly review: friction_rate + zombie_rate thresholds"
+      trace: "OTel counters: hold_ball.registered/.cancelled/.cancelled_with_reason/.rejected"
+      eval: "Thread-segment observation — trust_gap detection via cancel reason analysis"
+      feedback: "Cancel reason field (TRUST_GAP/HARNESS_GAP/STUCK/OTHER) + free-text message"
+      governance: "Weekly threshold check + monthly registry review. See hold-ball-phase-b.md §4"
 
   - id: search_evidence
     name: "Memory Recall"

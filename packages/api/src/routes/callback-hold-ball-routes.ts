@@ -20,6 +20,7 @@ import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskSt
 import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
 import type { TaskTemplate } from '../infrastructure/scheduler/templates/types.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
+import { holdBallCancelled, holdBallCancelledWithReason, holdBallRegistered, holdBallRejected } from '../infrastructure/telemetry/instruments.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { requireCallbackAuth } from './callback-auth-prehandler.js';
 import { deriveCallbackActor } from './callback-scope-helpers.js';
@@ -107,6 +108,7 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
 
     const currentCount = getHoldCount(threadId, catIdStr);
     if (currentCount >= MAX_HOLDS_PER_WINDOW) {
+      holdBallRejected.add(1, { 'agent.id': catIdStr });
       log.warn(
         { threadId, catId: catIdStr, currentCount, windowMs: HOLD_WINDOW_MS },
         'F167 C1: hold_ball rejected — maxHoldsPerWindow reached',
@@ -129,21 +131,7 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
       return { error: 'Internal error: reminder template not found' };
     }
 
-    // F167 Phase G (KD-23): single-slot semantics. Before scheduling a new hold
-    // wake, cancel + remove any pending hold task for the same (threadId, catId).
-    // Keyed on `createdBy === 'hold-ball:{catId}'` + `deliveryThreadId === threadId`.
-    // Per-cat rolling window counter is orthogonal (still enforced above).
-    //
-    // P1 fix (cloud Codex review on c04c5552a): the old sequence was
-    // "cancel prior → insert new → register new", so if insert/register threw
-    // partway we'd return 500 with NO scheduled wake (prior cancelled, new never
-    // committed). Fix: insert + register the NEW task first; only on success
-    // cancel prior. If any step throws, prior hold is retained untouched.
-    // P2 fix (cloud Codex round-2 + gpt52 pushback): panel /api/schedule/tasks
-    // lets users pass body.createdBy AND body.display.category, so both are
-    // forgeable. Anchor on id prefix: `hold-ball-*` ids are only minted by this
-    // route; `/api/schedule/tasks` mints `dyn-*`. Combine with templateId +
-    // createdBy + deliveryThreadId for defense in depth.
+    // F167 Phase G (KD-23): single-slot — insert new first, then cancel prior.
     const pendingHoldCreatedBy = `hold-ball:${catIdStr}`;
     const pendingHolds = dynamicTaskStore
       .getAll()
@@ -187,8 +175,6 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
       createdBy: `hold-ball:${catIdStr}`,
       createdAt: new Date().toISOString(),
     });
-    // Atomic swap: try register; on failure, remove the just-inserted row so
-    // prior hold stays authoritative (caller gets 500; prior wake still fires).
     try {
       taskRunner.registerDynamic(spec, taskId);
     } catch (err) {
@@ -201,9 +187,6 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
       return { error: 'Failed to register hold wake with scheduler' };
     }
 
-    // New hold fully committed. Cancel prior pending holds (best-effort — a
-    // failure here leaves an extra stale wake, not zero wakes, which is the
-    // milder of the two failure modes).
     for (const prior of pendingHolds) {
       try {
         taskRunner.unregister(prior.id);
@@ -220,6 +203,7 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
       }
     }
 
+    holdBallRegistered.add(1, { 'agent.id': catIdStr });
     const newCount = incrementHoldCount(threadId, catIdStr);
 
     const wakeAtStr = new Date(fireAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -274,6 +258,13 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
     };
   });
 
+  const cancelReasonSchema = z
+    .object({
+      reason: z.enum(['TRUST_GAP', 'HARNESS_GAP', 'STUCK', 'OTHER']).optional(),
+      message: z.string().max(500).optional(),
+    })
+    .optional();
+
   app.delete<{ Params: { taskId: string } }>('/api/callbacks/hold-ball/:taskId', async (request, reply) => {
     const userId = resolveUserId(request);
     if (!userId) {
@@ -297,17 +288,32 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
       }
     }
 
+    const body = cancelReasonSchema.safeParse(request.body);
+    const cancelReason = body.success ? body.data?.reason : undefined;
+    const cancelMessage = body.success ? body.data?.message : undefined;
+
     executeHoldCancel(task, { dynamicTaskStore, taskRunner });
     const catId = task.createdBy?.replace('hold-ball:', '') ?? 'unknown';
-    log.info({ taskId, threadId, catId, userId }, 'F167 Phase J: hold_ball cancelled by user');
+    holdBallCancelled.add(1, {
+      'agent.id': catId,
+      'cancel.reason': cancelReason ?? 'unspecified',
+    });
+    if (cancelReason) {
+      holdBallCancelledWithReason.add(1, { 'agent.id': catId, 'cancel.reason': cancelReason });
+    }
+    log.info(
+      { taskId, threadId, catId, userId, cancelReason, cancelMessage },
+      'F167 Phase J: hold_ball cancelled by user',
+    );
 
     if (threadId) {
       try {
-        const cancelMessage = `🏓 ${catId} 持球已取消`;
+        const reasonSuffix = cancelReason ? ` (${cancelReason})` : '';
+        const visibilityMsg = `🏓 ${catId} 持球已取消${reasonSuffix}`;
         const stored = await messageStore.append({
           userId: 'system',
           catId: null,
-          content: cancelMessage,
+          content: visibilityMsg,
           mentions: [],
           timestamp: Date.now(),
           threadId,
@@ -328,6 +334,6 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
       }
     }
 
-    return { status: 'ok', cancelled: true, taskId };
+    return { status: 'ok', cancelled: true, taskId, cancelReason };
   });
 }

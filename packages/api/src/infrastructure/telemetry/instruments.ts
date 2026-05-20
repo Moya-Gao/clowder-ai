@@ -242,3 +242,29 @@ export function registerLivenessProbe(invocationId: string, catId: string, getSt
 export function unregisterLivenessProbe(invocationId: string): void {
   activeProbes.delete(invocationId);
 }
+
+// --- F208 Phase B: Hold Ball OTel counters ---
+
+export const holdBallRegistered = lazy(() =>
+  meter().createCounter('cat_cafe.hold_ball.registered', {
+    description: 'Hold ball calls that succeeded (F208 Phase B trace)',
+  }),
+);
+
+export const holdBallCancelled = lazy(() =>
+  meter().createCounter('cat_cafe.hold_ball.cancelled', {
+    description: 'Hold ball cancellations (F208 Phase B trace)',
+  }),
+);
+
+export const holdBallCancelledWithReason = lazy(() =>
+  meter().createCounter('cat_cafe.hold_ball.cancelled_with_reason', {
+    description: 'Hold ball cancellations that include a structured reason (F208 Phase B friction metric)',
+  }),
+);
+
+export const holdBallRejected = lazy(() =>
+  meter().createCounter('cat_cafe.hold_ball.rejected', {
+    description: 'Hold ball calls rejected by rate limit (F208 Phase B trace)',
+  }),
+);
