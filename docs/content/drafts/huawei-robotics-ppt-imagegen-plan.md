@@ -434,6 +434,19 @@ no random numbers beyond the specified numbers, no cute robot, no colorful cyber
 - SVG: `docs/content/drafts/assets/huawei-robotics-p7-complex-lofi.svg`
 - PNG: `docs/content/drafts/assets/huawei-robotics-p7-complex-lofi.png`
 
+P7 composite v1 文件：
+
+- Imagegen 视觉素材 sheet: `docs/content/drafts/assets/huawei-robotics-p7-asset-sheet.png`
+- Cropped hand asset: `docs/content/drafts/assets/huawei-robotics-p7-hand.png`
+- Cropped environment asset: `docs/content/drafts/assets/huawei-robotics-p7-environment.png`
+- Cropped data cube asset: `docs/content/drafts/assets/huawei-robotics-p7-data-cube.png`
+- Composite SVG: `docs/content/drafts/assets/huawei-robotics-p7-composite.svg`
+- Composite PNG: `docs/content/drafts/assets/huawei-robotics-p7-composite.png`
+
+v1 观察：asset sheet 没有文字是预期行为，因为文字层由 SVG master 保真；但生成出的
+三枚素材是浅底成图，合成到浅底报告页里对比度偏弱。下一轮视觉素材应要求“transparent
+background / dark ink outline / no white canvas”，或直接在 SVG 里手绘线性图标。
+
 ### 10.3 P7 试验判据
 
 | 维度 | 通过标准 |

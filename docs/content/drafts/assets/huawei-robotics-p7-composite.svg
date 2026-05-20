@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <style>
+      .bg { fill: #f7f5ef; }
+      .ink { fill: #111827; font-family: "PingFang SC", "Microsoft YaHei", Arial, sans-serif; }
+      .muted { fill: #5f6673; font-family: "PingFang SC", "Microsoft YaHei", Arial, sans-serif; }
+      .red-stroke { stroke: #c7000b; }
+      .panel { fill: #ffffff; stroke: #b8c0cc; stroke-width: 2; }
+      .panel-red { fill: #fff7f7; stroke: #c7000b; stroke-width: 2.2; }
+      .tag { fill: #f2f4f7; stroke: #cfd5de; stroke-width: 1.4; }
+      .tag-red { fill: #fff0f0; stroke: #c7000b; stroke-width: 1.4; }
+      .title { font-size: 44px; font-weight: 800; }
+      .subtitle { font-size: 22px; font-weight: 600; }
+      .h2 { font-size: 26px; font-weight: 800; }
+      .h3 { font-size: 22px; font-weight: 800; }
+      .body { font-size: 18px; font-weight: 600; }
+      .small { font-size: 15px; font-weight: 500; }
+      .tiny { font-size: 13px; font-weight: 500; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c7000b"/>
+    </marker>
+    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
+      <path d="M 28 0 L 0 0 0 28" fill="none" stroke="#e7e9ee" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1600" height="900"/>
+  <rect x="0" y="0" width="1600" height="900" fill="url(#grid)" opacity="0.55"/>
+
+  <rect x="46" y="36" width="118" height="44" rx="4" fill="#ffffff" stroke="#cfd5de" stroke-width="2"/>
+  <text class="muted small" x="105" y="64" text-anchor="middle">LOGO SAFE</text>
+
+  <text class="ink title" x="210" y="78">三大核心挑战：手、世界、数据</text>
+  <text class="muted subtitle" x="214" y="115">马斯克三问，对应通用机器人商业化的三大鸿沟</text>
+  <line x1="210" y1="130" x2="1518" y2="130" stroke="#c7000b" stroke-width="4"/>
+
+  <rect class="panel-red" x="52" y="162" width="1488" height="92" rx="8"/>
+  <circle cx="92" cy="207" r="25" fill="#c7000b"/>
+  <text fill="#fff" font-family="Arial" font-size="22" font-weight="800" x="92" y="215" text-anchor="middle">Q</text>
+  <text class="ink h2" x="134" y="198">马斯克三问</text>
+  <text class="muted body" x="134" y="229">精细操作能力  /  理解现实世界的 AI 大脑  /  大规模量产能力</text>
+  <rect class="tag-red" x="820" y="184" width="210" height="46" rx="4"/>
+  <text class="ink body" x="925" y="214" text-anchor="middle">不是会跑，而是会干活</text>
+  <rect class="tag-red" x="1050" y="184" width="190" height="46" rx="4"/>
+  <text class="ink body" x="1145" y="214" text-anchor="middle">Demo ≠ 商用</text>
+  <rect class="tag-red" x="1260" y="184" width="235" height="46" rx="4"/>
+  <text class="ink body" x="1378" y="214" text-anchor="middle">硬件打地基</text>
+
+  <rect class="panel" x="52" y="286" width="476" height="236" rx="8"/>
+  <image href="huawei-robotics-p7-hand.png" x="334" y="338" width="178" height="150" opacity="0.68" preserveAspectRatio="xMidYMid meet"/>
+  <rect x="52" y="286" width="476" height="52" fill="#111827" rx="8"/>
+  <rect x="52" y="330" width="476" height="8" fill="#111827"/>
+  <rect x="70" y="302" width="54" height="38" fill="#c7000b"/>
+  <text fill="#fff" font-family="Arial" font-size="20" font-weight="800" x="97" y="328" text-anchor="middle">01</text>
+  <text fill="#fff" font-family="PingFang SC, Microsoft YaHei, Arial" font-size="25" font-weight="800" x="146" y="322">灵巧手鸿沟</text>
+  <text class="ink h3" x="82" y="376">长期灵巧作业仍不成熟</text>
+  <rect class="tag" x="82" y="402" width="126" height="36" rx="4"/><text class="ink small" x="145" y="425" text-anchor="middle">精细操作</text>
+  <rect class="tag" x="222" y="402" width="160" height="36" rx="4"/><text class="ink small" x="302" y="425" text-anchor="middle">二指夹爪局限</text>
+  <rect class="tag" x="396" y="402" width="100" height="36" rx="4"/><text class="ink small" x="446" y="425" text-anchor="middle">成本高</text>
+  <rect class="tag-red" x="82" y="454" width="186" height="36" rx="4"/><text class="ink small" x="175" y="477" text-anchor="middle">寿命 10-50 万次</text>
+  <rect class="tag-red" x="286" y="454" width="210" height="36" rx="4"/><text class="ink small" x="391" y="477" text-anchor="middle">软硬耦合强</text>
+
+  <rect class="panel" x="562" y="286" width="476" height="236" rx="8"/>
+  <image href="huawei-robotics-p7-environment.png" x="824" y="338" width="194" height="158" opacity="0.58" preserveAspectRatio="xMidYMid meet"/>
+  <rect x="562" y="286" width="476" height="52" fill="#111827" rx="8"/>
+  <rect x="562" y="330" width="476" height="8" fill="#111827"/>
+  <rect x="580" y="302" width="54" height="38" fill="#c7000b"/>
+  <text fill="#fff" font-family="Arial" font-size="20" font-weight="800" x="607" y="328" text-anchor="middle">02</text>
+  <text fill="#fff" font-family="PingFang SC, Microsoft YaHei, Arial" font-size="25" font-weight="800" x="656" y="322">非结构化世界鸿沟</text>
+  <text class="ink h3" x="592" y="376">现实环境高度动态、不可穷举</text>
+  <rect class="tag" x="592" y="402" width="126" height="36" rx="4"/><text class="ink small" x="655" y="425" text-anchor="middle">环境多变</text>
+  <rect class="tag" x="732" y="402" width="126" height="36" rx="4"/><text class="ink small" x="795" y="425" text-anchor="middle">泛化不足</text>
+  <rect class="tag" x="872" y="402" width="136" height="36" rx="4"/><text class="ink small" x="940" y="425" text-anchor="middle">场景应变弱</text>
+  <rect class="tag-red" x="592" y="454" width="186" height="36" rx="4"/><text class="ink small" x="685" y="477" text-anchor="middle">倒水都很难</text>
+  <rect class="tag-red" x="796" y="454" width="212" height="36" rx="4"/><text class="ink small" x="902" y="477" text-anchor="middle">Sim2Real 迁移挑战</text>
+
+  <rect class="panel" x="1072" y="286" width="468" height="236" rx="8"/>
+  <image href="huawei-robotics-p7-data-cube.png" x="1346" y="336" width="166" height="154" opacity="0.62" preserveAspectRatio="xMidYMid meet"/>
+  <rect x="1072" y="286" width="468" height="52" fill="#111827" rx="8"/>
+  <rect x="1072" y="330" width="468" height="8" fill="#111827"/>
+  <rect x="1090" y="302" width="54" height="38" fill="#c7000b"/>
+  <text fill="#fff" font-family="Arial" font-size="20" font-weight="800" x="1117" y="328" text-anchor="middle">03</text>
+  <text fill="#fff" font-family="PingFang SC, Microsoft YaHei, Arial" font-size="25" font-weight="800" x="1166" y="322">真实数据荒鸿沟</text>
+  <text class="ink h3" x="1102" y="376">机器人没有互联网化石燃料</text>
+  <rect class="tag" x="1102" y="402" width="150" height="36" rx="4"/><text class="ink small" x="1177" y="425" text-anchor="middle">触觉/力控稀缺</text>
+  <rect class="tag" x="1266" y="402" width="112" height="36" rx="4"/><text class="ink small" x="1322" y="425" text-anchor="middle">只能采集</text>
+  <rect class="tag" x="1392" y="402" width="112" height="36" rx="4"/><text class="ink small" x="1448" y="425" text-anchor="middle">平台依赖</text>
+  <rect class="tag-red" x="1102" y="454" width="228" height="36" rx="4"/><text class="ink small" x="1216" y="477" text-anchor="middle">比自动驾驶多 1-2 个数量级</text>
+  <rect class="tag-red" x="1348" y="454" width="156" height="36" rx="4"/><text class="ink small" x="1426" y="477" text-anchor="middle">闭环未形成</text>
+
+  <text class="muted small" x="794" y="556" text-anchor="middle">三大鸿沟不是孤立问题，而是软硬数据闭环无法规模化</text>
+  <path class="red-stroke" d="M 258 540 C 400 570, 505 585, 610 604" fill="none" stroke-width="3" marker-end="url(#arrow)"/>
+  <path class="red-stroke" d="M 800 540 C 800 570, 800 586, 800 604" fill="none" stroke-width="3" marker-end="url(#arrow)"/>
+  <path class="red-stroke" d="M 1310 540 C 1190 570, 1090 585, 990 604" fill="none" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <rect class="panel" x="52" y="604" width="1488" height="118" rx="8"/>
+  <text class="ink h2" x="82" y="646">技术闭环：从数据制造到长序列执行</text>
+  <rect class="tag-red" x="82" y="670" width="168" height="38" rx="4"/><text class="ink small" x="166" y="694" text-anchor="middle">仿真 / 自监督</text>
+  <path class="red-stroke" d="M 260 689 L 328 689" stroke-width="3" marker-end="url(#arrow)"/>
+  <rect class="tag" x="342" y="670" width="162" height="38" rx="4"/><text class="ink small" x="423" y="694" text-anchor="middle">示范学习</text>
+  <path class="red-stroke" d="M 514 689 L 582 689" stroke-width="3" marker-end="url(#arrow)"/>
+  <rect class="tag" x="596" y="670" width="168" height="38" rx="4"/><text class="ink small" x="680" y="694" text-anchor="middle">舰队数据采集</text>
+  <path class="red-stroke" d="M 774 689 L 842 689" stroke-width="3" marker-end="url(#arrow)"/>
+  <rect class="tag-red" x="856" y="670" width="108" height="38" rx="4"/><text class="ink small" x="910" y="694" text-anchor="middle">VLA</text>
+  <path class="red-stroke" d="M 974 689 L 1042 689" stroke-width="3" marker-end="url(#arrow)"/>
+  <rect class="tag" x="1056" y="670" width="142" height="38" rx="4"/><text class="ink small" x="1127" y="694" text-anchor="middle">世界模型</text>
+  <path class="red-stroke" d="M 1208 689 L 1276 689" stroke-width="3" marker-end="url(#arrow)"/>
+  <rect class="tag-red" x="1290" y="670" width="190" height="38" rx="4"/><text class="ink small" x="1385" y="694" text-anchor="middle">灵巧手控制闭环</text>
+
+  <rect class="panel-red" x="52" y="750" width="710" height="94" rx="8"/>
+  <text class="ink h3" x="82" y="788">短期判断：更保守</text>
+  <text class="muted body" x="82" y="822">2-3 年洗牌 · Demo 先行 · “卖铲子”先获利</text>
+  <rect class="panel-red" x="830" y="750" width="710" height="94" rx="8"/>
+  <text class="ink h3" x="860" y="788">长期判断：更乐观</text>
+  <text class="muted body" x="860" y="822">工业先行 → 消费再起 · 垂直整合制胜</text>
+
+  <rect x="52" y="862" width="1488" height="3" fill="#c7000b"/>
+  <text class="muted tiny" x="52" y="884">P7 composite v1 · SVG master text + imagegen visual assets · [砚砚/GPT-55]</text>
+</svg>
