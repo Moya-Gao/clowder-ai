@@ -77,7 +77,10 @@ export function RebuildButton({ onComplete }: { onComplete: () => void }) {
           <span className="font-medium text-cafe-black">{job.percent}%</span>
         </div>
         <div className="mt-1 h-1.5 rounded-full bg-cafe-surface">
-          <div className="h-full rounded-full bg-[#6BAF8D] transition-all" style={{ width: `${job.percent}%` }} />
+          <div
+            className="h-full rounded-full bg-[var(--memory-progress-fill)] transition-all"
+            style={{ width: `${job.percent}%` }}
+          />
         </div>
       </div>
     );

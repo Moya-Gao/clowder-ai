@@ -96,6 +96,7 @@ const AUTHORITY_LABELS: Record<string, string> = {
   validated: '已验证',
   constitutional: '宪法级',
 };
+// data-viz palette exempt: chart authority tier colors
 const AUTHORITY_COLORS: Record<string, string> = {
   observed: '#E8C872',
   candidate: '#6B9BD2',
@@ -121,6 +122,7 @@ function DonutRing({ byAuthority, total }: { byAuthority: Record<string, number>
   return (
     <div className="flex items-center gap-6 rounded-xl bg-[var(--console-card-bg)] p-5">
       <div className="relative flex h-[100px] w-[100px] items-center justify-center">
+        {/* data-viz palette exempt: donut chart track/segment/text colors */}
         <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
           <circle cx="50" cy="50" r="40" fill="none" stroke="#F0EDE6" strokeWidth="16" />
           {hasMultiple ? (
@@ -175,6 +177,7 @@ function KindBarChart({ byKind }: { byKind: Record<string, number> }) {
           <div key={kind} className="flex items-center gap-3">
             <span className="w-20 text-right text-xs text-cafe-secondary">{kind}</span>
             <div className="flex-1">
+              {/* data-viz palette exempt: kind distribution bar color */}
               <div
                 className="h-6 rounded-md bg-[#D4C5A9] transition-all"
                 style={{ width: `${computeBarWidth(count, max)}%` }}

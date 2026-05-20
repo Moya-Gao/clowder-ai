@@ -55,6 +55,7 @@ export function GraphNodeGlyph({ centerAnchor, node, onHover, onNodeClick, pos }
         filter="url(#node-shadow)"
       />
       <rect x={glyph.x} y={glyph.y} width={5} height={glyph.height} rx={2.5} fill={glyph.fill} opacity={0.95} />
+      {/* data-viz palette exempt: SVG text fills are graph-specific */}
       {node.redacted ? (
         <text x={glyph.x + 16} y={pos.y + 4} fontSize={13} fill="#374151" fontWeight="700">
           🔒 Redacted
@@ -110,6 +111,7 @@ function glyphViewModel(node: GraphNode, centerAnchor: string | undefined, pos: 
     anchorLabel,
     anchorSize: isCenter ? 13 : 11,
     anchorY: isCenter ? y + 21 : y + 19,
+    // data-viz palette exempt: node background/border colors are graph-specific
     background: isCenter ? '#eff6ff' : node.kind === 'unresolved' ? '#f3f4f6' : '#fffdf8',
     border: isCenter ? '#2563eb' : '#d6cabc',
     dimmed,
@@ -239,7 +241,10 @@ function RelationRow({
 
 function GraphSummary({ graph }: { graph: GraphResult }) {
   return (
-    <div className="border-t border-[#eee3d6] pt-3 text-[10px] text-cafe-secondary" data-testid="graph-summary">
+    <div
+      className="border-t border-[var(--console-border-soft)] pt-3 text-[10px] text-cafe-secondary"
+      data-testid="graph-summary"
+    >
       <div className="flex flex-wrap gap-3">
         <span>节点: {graph.nodes.length}</span>
         <span>关系边: {graph.edges.length}</span>
@@ -252,7 +257,7 @@ function GraphSummary({ graph }: { graph: GraphResult }) {
 
 function GraphLegend({ uniqueKinds }: { uniqueKinds: string[] }) {
   return (
-    <div className="border-t border-[#eee3d6] pt-3">
+    <div className="border-t border-[var(--console-border-soft)] pt-3">
       <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-cafe-secondary">图例</div>
       <div className="flex flex-wrap items-center gap-2" data-testid="graph-legend">
         {uniqueKinds.map((k) => (
@@ -276,7 +281,10 @@ function GraphEdgeFilter({
   uniqueRelations: string[];
 }) {
   return (
-    <div className="border-t border-[#eee3d6] pt-3 text-[10px] text-cafe-secondary" data-testid="graph-edge-filter">
+    <div
+      className="border-t border-[var(--console-border-soft)] pt-3 text-[10px] text-cafe-secondary"
+      data-testid="graph-edge-filter"
+    >
       <div className="mb-2 font-bold uppercase tracking-wide">关系类型</div>
       <div className="flex flex-wrap items-center gap-2">
         {uniqueRelations.map((rel) => (

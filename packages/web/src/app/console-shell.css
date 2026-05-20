@@ -83,6 +83,7 @@
   --field-success-text: #5b7a5c;
   --field-success-focus: #77a777;
   --field-success-hint: #6c7a6d;
+  --memory-progress-fill: #6baf8d;
   --field-persist-bg: #fff3e0;
   --field-persist-border: #ffe0b2;
   --field-persist-title: #e65100;
@@ -204,6 +205,7 @@
   --field-success-text: #8fb990;
   --field-success-focus: #77a777;
   --field-success-hint: #8a9b8c;
+  --memory-progress-fill: #7cc9a0;
   --field-persist-bg: color-mix(in srgb, #e65100 14%, var(--console-card-bg) 86%);
   --field-persist-border: color-mix(in srgb, #e65100 22%, var(--console-card-bg) 78%);
   --field-persist-title: #ff8a50;
