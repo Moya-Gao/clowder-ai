@@ -19,6 +19,7 @@ import { getCatVoice } from '../../../../../config/cat-voices.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import {
   AGENT_ID,
+  type CallerTraceContext,
   ROUTE_HAS_A2A_HANDOFF,
   ROUTE_TOTAL_CATS_INVOKED,
   ROUTE_TOTAL_TOKENS,
@@ -1699,6 +1700,11 @@ export async function* routeSerial(
         } else if (a2aMentions.length > 0 && queuedMessagesPending && deferA2AEnqueue && !signal?.aborted) {
           // F185 Phase B: deferred enqueue — preserve A2A handoff behind non-agent entries
           const pendingTailDeferred = worklist.slice(index + 1);
+          // F153 Phase I: lazy mention_dispatch span for deferred path (mirrors inline path at :1661-1675).
+          // End span immediately because the child route runs through QueueProcessor in a separate
+          // loop; the captured trace context is propagated via entry.callerTraceContext so the
+          // dispatched route still parents itself under this dispatch span.
+          let deferredDispatchCtx: CallerTraceContext | undefined;
           for (const nextCat of a2aMentions) {
             if (worklistEntry.a2aCount >= maxDepth) break;
             if (pendingTailDeferred.includes(nextCat)) continue;
@@ -1733,6 +1739,33 @@ export async function* routeSerial(
               } as AgentMessage;
               continue;
             }
+            // F153 Phase I: create dispatch span on first real enqueue and capture its trace
+            // context for cross-route causality.
+            if (!deferredDispatchCtx) {
+              const mentionerSpan = catInvocationSpans.get(index);
+              if (mentionerSpan) {
+                const parentCtx = trace.setSpan(context.active(), mentionerSpan);
+                const dSpan = routeSerialTracer.startSpan(
+                  'cat_cafe.mention_dispatch',
+                  {
+                    attributes: {
+                      [AGENT_ID]: catId as string,
+                      'dispatch.target_count': a2aMentions.length,
+                      'dispatch.source': 'text-scan-deferred',
+                    },
+                  },
+                  parentCtx,
+                );
+                a2aDispatchCount.add(1, { [AGENT_ID]: catId as string });
+                const sc = dSpan.spanContext();
+                dSpan.end();
+                deferredDispatchCtx = {
+                  traceId: sc.traceId,
+                  spanId: sc.spanId,
+                  traceFlags: sc.traceFlags,
+                };
+              }
+            }
             deferA2AEnqueue({
               threadId,
               userId,
@@ -1745,6 +1778,7 @@ export async function* routeSerial(
               autoExecute: true,
               priority: 'normal',
               intent: 'execute',
+              ...(deferredDispatchCtx ? { callerTraceContext: deferredDispatchCtx } : {}),
             });
             worklistEntry.a2aCount++;
             log.info(
