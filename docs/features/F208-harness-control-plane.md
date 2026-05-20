@@ -72,9 +72,9 @@ v0 scope：6-field registry + 3 pilots + YAML 文件。**不是平台，不建 r
 - [ ] AC-A5: Eval 观测模型文档化——thread-level 观测单位 + 三种用户补偿行为模式 + 时间窗口聚合策略
 
 ### Phase B（球权端到端验证）
-- [ ] AC-B1: Trace 接口——hold_ball 事件（hold/release/cancel/timeout/zombie）可通过 F153 telemetry 观测，定义 trace event schema。需新增 event_type 过滤能力或 hold_ball 专属 trace span（当前 `/api/telemetry/traces` 仅支持 traceId/invocationId/catId/limit）
+- [ ] AC-B1: Trace 接口——hold_ball 事件（hold/cancel/wake/reject）可通过 OTel counter 观测（`cat_cafe.hold_ball.registered/.cancelled/.wake/.rejected`），定义 trace event schema。zombie/timeout correlation 属 Phase C（需 eval pipeline 关联 wake 与后续 invocation）
 - [ ] AC-B2: Eval 接口——基于 thread 段的球权效果评估，能检测至少一种用户补偿行为（如：不必要的 cancel = trust gap）
-- [ ] AC-B3: Feedback 接口——hold_ball 取消增加结构化 `reason` 字段（当前缺失，铲屎官明确指出）+ 新增 `hold_cancel_count` 与 `hold_cancel_with_reason_count` 两个配对 Prometheus counter（均为 Phase B 新建，用于 Friction Metric 计算）
+- [ ] AC-B3: Feedback 接口——hold_ball 取消增加结构化 `reason` 字段（当前缺失，铲屎官明确指出）+ 新增 `cat_cafe.hold_ball.cancelled` 与 `cat_cafe.hold_ball.cancelled_with_reason` 两个配对 OTel counter（均为 Phase B 新建，用于 Friction Metric 计算）
 - [ ] AC-B4: Governance 接口——球权子规则的升级/降级/sunset 判据定义，含至少一个具体判据示例
 
 ### Phase C（Migration Playbook + 第二 Pilot）
@@ -98,7 +98,7 @@ v0 scope：6-field registry + 3 pilots + YAML 文件。**不是平台，不建 r
 | 过度抽象——contract 太重，实际不写 | v0 = YAML 文件 + 3 pilots，不建平台；Phase C 回顾是否过重 |
 | 和 F192 scope 重叠 | **明确边界**：F192 owns eval pipeline（消费 telemetry → 聚合 → 归因 → 行动）+ F167 component registry（AC-D1 已完成的 hard/soft/eval 三栏格式）；F208 owns 统一 unit lifecycle metadata registry（runtime/eval/governance 三层 contract）。F208 registry **引用** F192 eval artifact 和 component registry 格式，不重建 eval pipeline。两个 registry 的关系：F192 的是"某个 feature 下的 harness 组件清单"，F208 的是"所有 harness unit 的生命周期元数据" |
 | Thread-level eval 实现复杂度高 | Phase B 先做"能检测一种补偿行为"，不追求全覆盖 |
-| 球权 trace 数据不足 | 当前 hold_ball 只有内存 rolling counter，无 OTel counter；Phase B 需新增 hold_ball_count / hold_cancel_count 等 Prometheus counter |
+| 球权 trace 数据不足 | 当前 hold_ball 只有内存 rolling counter；Phase B 新增 `cat_cafe.hold_ball.*` OTel counters（registered/cancelled/cancelled_with_reason/wake/rejected） |
 
 ## Open Questions
 
