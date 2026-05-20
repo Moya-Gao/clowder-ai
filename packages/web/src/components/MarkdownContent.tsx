@@ -1,11 +1,12 @@
 'use client';
 
-import { Children, type ReactNode, useCallback, useRef, useState } from 'react';
+import { Children, isValidElement, type ReactNode, useCallback, useRef, useState } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
 import { getMentionColor, getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import { useChatStore } from '@/stores/chatStore';
+import { MermaidDiagram } from './MermaidDiagram';
 import { createWorkspaceImageComponent, createWorkspaceLinkComponent } from './workspace-md-components';
 
 /* ── @mention highlighting ─────────────────────────────────── */
@@ -199,6 +200,34 @@ function withMentionsAndLinks(children: ReactNode): ReactNode {
   });
 }
 
+function hasMermaidLanguage(className = ''): boolean {
+  return /\blanguage-mermaid\b/i.test(className);
+}
+
+function codeChildToString(child: ReactNode): string {
+  if (typeof child === 'string') return child;
+  if (typeof child === 'number') return String(child);
+  return '';
+}
+
+function codeChildrenToString(children: ReactNode): string {
+  return Children.toArray(children)
+    .map((child) => codeChildToString(child))
+    .join('')
+    .replace(/\n$/, '');
+}
+
+function isMermaidPre(children: ReactNode): boolean {
+  const firstChild = Children.toArray(children)[0];
+  if (!isValidElement<{ className?: string }>(firstChild)) return false;
+  if (firstChild.type === MermaidDiagram) return true;
+  return hasMermaidLanguage(firstChild.props.className);
+}
+
+function inlineCodeClassName(className = ''): string {
+  return `${className} bg-gray-200/50 rounded px-1 py-0.5 text-[0.85em] font-mono`;
+}
+
 /* ── Markdown component overrides ──────────────────────────── */
 const mdComponents: Components = {
   p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{withMentionsAndLinks(children)}</p>,
@@ -247,10 +276,13 @@ const mdComponents: Components = {
   hr: () => <hr className="my-3 border-cafe" />,
 
   /* Code blocks with copy button */
-  pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
-  code: ({ className, children }) => (
-    <code className={`${className ?? ''} bg-gray-200/50 rounded px-1 py-0.5 text-[0.85em] font-mono`}>{children}</code>
-  ),
+  pre: ({ children }) => (isMermaidPre(children) ? children : <CodeBlock>{children}</CodeBlock>),
+  code: ({ className = '', children }) =>
+    hasMermaidLanguage(className) ? (
+      <MermaidDiagram source={codeChildrenToString(children)} />
+    ) : (
+      <code className={inlineCodeClassName(className)}>{children}</code>
+    ),
 
   /* Tables (GFM) */
   table: ({ children }) => (

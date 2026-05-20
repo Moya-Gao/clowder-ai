@@ -259,6 +259,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 文件编辑能力 | 只读 / 可编辑 | **可编辑** — 铲屎官帮忙编辑后猫猫可直接 commit | 铲屎官 (2026-03-05) |
 | Worktree 感知 | 忽略 / 感知 | **必须感知 worktree** — 猫猫可能在不同 worktree 工作，文件系统需显示对应 worktree 的文件 | 铲屎官 (2026-03-05) |
 | 演示锁定追踪方式 | 单开新 feature / 作为 F063 增量 | **作为 F063 post-completion enhancement 追踪** — 不单开新 feature，避免 Workspace 能力分散 | 铲屎官 (2026-05-06) |
+| Mermaid 图表渲染 | 新 feature / 作为 F063 Markdown 渲染增量 | **作为 F063 post-completion enhancement 追踪** — workspace 已负责 Markdown rendered mode，`mermaid` fenced block 是同一渲染面的格式支持 | 铲屎官 (2026-05-19) |
 | 参考实现 | 自研 / 参考现有 | **参考 Claude.ai Project + Codex 布局**，取其精华 | 铲屎官 (2026-03-05) |
 | UI 设计语言 | 通用 / 猫猫化 | **对齐 F056 Cat Café 设计语言（猫猫化不是猫化）** | 铲屎官 (2026-03-05) |
 | 设计稿工具 | Figma / Pencil | **Pencil MCP**（用 `pencil-design` skill） | 铲屎官 (2026-03-05) |
@@ -368,6 +369,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-05-06 | 愿景守护：砚砚(GPT-5.4) 放行，0 P1/P2. 发现 2 residual risks (AC-PL6 测试层次 + AC-PL2 scroll) |
 | 2026-05-07 | 铲屎官判定 AC-PL2 residual risk 为"未来反复修 bug 的地方"，要求修复 |
 | 2026-05-07 | **AC-PL2 scroll viewport persist 合入** (PR #1578): scrollTop 加入 PresentationLockSnapshot + CodeViewer/Markdown viewport bridge (restoreScrollTop/restoreKey/onScrollTopChange). 砚砚(codex) R1→R4 (3P1+3P2→0) + 云端 0P1 2P2 (1 fixed, 1 downgraded P3), 9 新测试 |
+| 2026-05-19 | 铲屎官在 `docs/content/drafts/longform-002-v0-formal.md` 发现 `mermaid` fenced block 在 workspace rendered mode 不支持；判定作为 F063 Markdown 渲染增量支持，不单开新 feature |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -440,6 +442,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | P2B-9 | **BUG**: 引用到聊天不带 worktree 信息 — 格式改为 `` `path` (🌿 branch) ``，让猫猫知道引用的是哪个 worktree | AC-15 | **done** |
 | P2B-10 | **BUG**: "Add to chat" 按钮固定在文件查看器顶部，滚动到下方代码时按钮不可见 — 改为跟随选区浮动或 sticky 在可视区域 | AC-15 | **done** |
 | P2B-11 | **BUG**: Markdown 渲染模式下相对链接不可跳转 — `[F046](features/F046-xxx.md)` 这样的相对路径链接在 Rendered 模式下点击无效（`target="_blank"` 打开的是无意义的浏览器 URL）。应拦截相对 `.md` 链接，解析为相对于当前文件的路径，用 `setWorkspaceOpenFile` 在 workspace 内打开目标文件 | — | **done** |
+| P2B-12 | **Enhancement**: Markdown rendered mode 支持 `mermaid` fenced code block，避免长文/设计文档里的流程图退化成普通代码块 | — | **done** |
 
 ### Phase 2C: 预览能力
 
