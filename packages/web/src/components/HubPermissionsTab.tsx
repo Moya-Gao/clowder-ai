@@ -26,7 +26,7 @@ const EMPTY_CONFIG: PermissionConfig = {
   allowedGroups: [],
 };
 
-const CARD_SHADOW = 'shadow-[0_12px_30px_rgba(43,33,26,0.08)]';
+const CARD_SHADOW = 'shadow-[var(--hub-shadow)]';
 
 function SaveFeedback({ result, saving }: { result: 'ok' | 'error' | null; saving: boolean }) {
   if (saving) return <div className="text-xs text-cafe-muted">保存中...</div>;

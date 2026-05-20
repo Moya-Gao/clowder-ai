@@ -184,6 +184,22 @@
   --hub-quota-error-border: #f5c7c7;
   --hub-quota-error-bg: #fff4f4;
   --hub-quota-error-text: #c74e4e;
+  --hub-lb-error-bg: rgba(212, 132, 94, 0.1);
+  --hub-tag-green-border: #cfe5d5;
+  --hub-tag-green-bg: #e8f5e9;
+  --hub-tag-green-text: #4f7b50;
+  --hub-tag-orange-border: #e8c9af;
+  --hub-tag-purple-border: #d9c5ef;
+  --hub-tag-purple-bg: #f3edfa;
+  --hub-tag-purple-text: #8b68b7;
+  --hub-tag-action-text: #9a5a2c;
+  --hub-input-focus-ring: #f5d2b8;
+  --hub-alert-success-border: #dce9e0;
+  --hub-alert-success-bg: #f5fbf6;
+  --hub-alert-success-text: #6c7a6d;
+  --hub-alert-warning-text: #c27d52;
+  --hub-shadow: 0 12px 30px rgba(43, 33, 26, 0.08);
+  --hub-shadow-hover: 0 12px 30px rgba(43, 33, 26, 0.12);
 }
 
 [data-theme="dark"] {
@@ -337,6 +353,22 @@
   --hub-quota-error-border: color-mix(in srgb, #c74e4e 24%, var(--console-card-bg) 76%);
   --hub-quota-error-bg: color-mix(in srgb, #c74e4e 10%, var(--console-card-bg) 90%);
   --hub-quota-error-text: #e08080;
+  --hub-lb-error-bg: color-mix(in srgb, #e0a070 10%, var(--console-card-bg) 90%);
+  --hub-tag-green-border: color-mix(in srgb, #6ba589 24%, var(--console-card-bg) 76%);
+  --hub-tag-green-bg: color-mix(in srgb, #6ba589 12%, var(--console-card-bg) 88%);
+  --hub-tag-green-text: #80c0a0;
+  --hub-tag-orange-border: color-mix(in srgb, var(--cafe-accent) 24%, var(--console-card-bg) 76%);
+  --hub-tag-purple-border: color-mix(in srgb, #8b68b7 24%, var(--console-card-bg) 76%);
+  --hub-tag-purple-bg: color-mix(in srgb, #8b68b7 14%, var(--console-card-bg) 86%);
+  --hub-tag-purple-text: #b090d0;
+  --hub-tag-action-text: #d4a060;
+  --hub-input-focus-ring: color-mix(in srgb, var(--cafe-accent) 20%, var(--console-card-bg) 80%);
+  --hub-alert-success-border: color-mix(in srgb, #6ba589 20%, var(--console-card-bg) 80%);
+  --hub-alert-success-bg: color-mix(in srgb, #6ba589 8%, var(--console-card-bg) 92%);
+  --hub-alert-success-text: #8aa08a;
+  --hub-alert-warning-text: #d4a060;
+  --hub-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+  --hub-shadow-hover: 0 12px 30px rgba(0, 0, 0, 0.24);
   --ws-surface: color-mix(in srgb, var(--cafe-surface-elevated) 90%, black 10%);
   --ws-surface-hover: color-mix(in srgb, var(--cafe-surface-elevated) 84%, white 4%);
   --ws-surface-warm: color-mix(in srgb, var(--cafe-surface) 85%, black 15%);
