@@ -301,6 +301,16 @@ in_context_observability:
 - [x] AC-C6: 跨猫愿景守护（砚砚 + 烁烁/暹罗猫）认证"oversight 信息密度 ≥ -p 模式"（@codex ✅ REVIEW PASS + @opus-47 ✅ 愿景守护 APPROVE — runtime 数据流全链路 trace 验证，信息密度严格超过 -p）
 
 ### Phase D（兜底 + 切流量）
+
+> **实证缺口（2026-05-19 F203 alpha canary flip 撞出 3 个 production-gap，promote 为 Phase D P1）**：
+>
+> | # | 现象 | spec 之前状态 | 处理 |
+> |---|------|--------------|------|
+> | 1 | BgCarrier 缺 `--permission-mode bypassPermissions` → 每个 tool call 在 detached daemon TTY 弹 prompt → web UI 看不见，session 整个卡死 | 之前 OQ 没明列，alpha smoke 漏覆盖 | ✅ **Fixed PR #1785 (`6e1adbbbe` 2026-05-20)** — bg carrier --permission-mode bypassPermissions parity with -p |
+> | 2 | 发完消息回复完成后 UI 永远显示"猫猫正在回复"卡死；用户 cancel 后新发消息**新建 session 不 resume** | **OQ-12（line 384）** `--bg cancel/interrupt 语义` + **OQ-7（line 379）** `Interactive session resume 语义` 都已标 ⬜ Phase B spike，**没真关** | ⬜ **Phase D P1 待修** |
+>
+> 实证教训：Phase B/C "alpha-validated ✅ canary 零操作员介入" = alpha **单 happy-path 跑通**，**production 真用浮的 gap 全被 alpha smoke 漏过**。"切流量"前必须先 hardening 这些 gap，否则 6/15 cutover 真翻 = 全员协作链路断。来源：F203-47（跨 thread）→ F198-47（本 spec owner，同一 model 不同 invocation）2026-05-19 投诉。
+
 - [ ] AC-D1: 三档 fallback 实现 + 自动触发逻辑（quota 超限 / carrier 挂掉）
 - [ ] AC-D2: 预算治理面板 + 告警阈值生效
 - [ ] AC-D3: 灰度切流量 10% → 50% → 100%，每档观察期内无 P0/P1 regression
@@ -416,6 +426,8 @@ in_context_observability:
 | 2026-06-05 (target) | Phase C 完成 + 跨猫愿景守护通过 |
 | 2026-06-08 (target) | Phase D 灰度 100% |
 | 2026-06-14 (target) | Phase D 完成（buffer day） |
+| 2026-05-19 | **F203 alpha canary trial → 3 production-gaps surfaced**：铲屎官在 runtime 翻 `CAT_CAFE_CLAUDE_CARRIER=bg_daemon` 真用，撞到 (1) tool call permission prompt 卡 daemon、(2) UI status 永远显"正在回复"、(3) cancel 后新消息新建 session 不 resume。Phase B/C "alpha-validated ≠ production-ready" 实证。F203-47 跨线程通报 F198-47 |
+| 2026-05-20 | **Phase D P1 #1 fixed — PR #1785 (squash `6e1adbbbe`)**：`ClaudeBgCarrierService` 加 `--permission-mode bypassPermissions` parity with `-p`，regression test pin。剩 #2 (OQ-12 cancel/lifecycle) + #3 (OQ-7 resume vs new session) 待修 |
 | **2026-06-15** | **Anthropic SDK credit policy 生效（救命 deadline）** |
 | 2026-05-15 | Phase C merged (PR #1678) — Hub Oversight UI AC-C1~C5, 8 regression tests, @codex REVIEW PASS |
 | 2026-05-15 | Phase C **完全关闭** — @opus-47 愿景守护 APPROVE，AC-C6 ✅，救宪宪代码层+可观察层全套交付完成 |
