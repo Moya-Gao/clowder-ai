@@ -21,6 +21,9 @@ const log = createModuleLogger('antigravity-bridge');
 
 const DEFAULT_RPC_TIMEOUT_MS = 30_000;
 const RUN_COMMAND_RPC_TIMEOUT_BUFFER_MS = 5_000;
+// Antigravity 2.x rejects the proto default 0 (UNSPECIFIED) for StartCascade.
+// The IDE client defaults regular conversations to CASCADE_CLIENT.
+const CORTEX_TRAJECTORY_SOURCE_CASCADE_CLIENT = 1;
 
 export function antigravityRpcTimeoutMs(method: string, payload: unknown): number {
   if (method !== 'RunCommand') return DEFAULT_RPC_TIMEOUT_MS;
@@ -308,7 +311,9 @@ export class AntigravityBridge {
     return this.conn;
   }
   async startCascade(): Promise<string> {
-    const resp = await this.rpcSafe<{ cascadeId?: string }>('StartCascade', { source: 0 });
+    const resp = await this.rpcSafe<{ cascadeId?: string }>('StartCascade', {
+      source: CORTEX_TRAJECTORY_SOURCE_CASCADE_CLIENT,
+    });
     if (!resp.cascadeId) throw new Error('StartCascade: no cascadeId returned');
     log.debug(`cascade created: ${resp.cascadeId}`);
     return resp.cascadeId;
