@@ -52,7 +52,7 @@ role-agent 最容易抓住的是"给谁加载什么知识"这一层，但最容�
 
 **〔 Figure 0 —— 任务画像 × 猫猫能力画像 → 动态路由 〕**
 
-![Figure 0：任务画像 × 猫猫能力画像 → 动态路由](assets/longform-002-figure-0-capability-routing.png)
+![Figure 0：任务画像 × 猫猫能力画像 → 动态路由](assets/longform-002-figure-00-capability-routing.png)
 
 ```text
 需求进入 Cat Café
