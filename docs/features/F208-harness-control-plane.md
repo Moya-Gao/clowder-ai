@@ -74,7 +74,7 @@ v0 scope：6-field registry + 3 pilots + YAML 文件。**不是平台，不建 r
 ### Phase B（球权端到端验证）
 - [ ] AC-B1: Trace 接口——hold_ball 事件（hold/release/cancel/timeout/zombie）可通过 F153 telemetry 观测，定义 trace event schema。需新增 event_type 过滤能力或 hold_ball 专属 trace span（当前 `/api/telemetry/traces` 仅支持 traceId/invocationId/catId/limit）
 - [ ] AC-B2: Eval 接口——基于 thread 段的球权效果评估，能检测至少一种用户补偿行为（如：不必要的 cancel = trust gap）
-- [ ] AC-B3: Feedback 接口——hold_ball 取消增加结构化 `reason` 字段（当前缺失，铲屎官明确指出）+ 新增 `hold_cancel_with_reason_count` counter（与现有 `hold_cancel_count` 配对，用于 Friction Metric 计算）
+- [ ] AC-B3: Feedback 接口——hold_ball 取消增加结构化 `reason` 字段（当前缺失，铲屎官明确指出）+ 新增 `hold_cancel_count` 与 `hold_cancel_with_reason_count` 两个配对 Prometheus counter（均为 Phase B 新建，用于 Friction Metric 计算）
 - [ ] AC-B4: Governance 接口——球权子规则的升级/降级/sunset 判据定义，含至少一个具体判据示例
 
 ### Phase C（Migration Playbook + 第二 Pilot）
@@ -112,7 +112,7 @@ v0 scope：6-field registry + 3 pilots + YAML 文件。**不是平台，不建 r
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | 球权（hold_ball）作为第一个 pilot unit | 铲屎官明确指定；天然具备 trace signal（F153 counter）、eval 基础（F192 pilot）、feedback gap（cancel 无 reason）、governance 需求（子规则演化） | 2026-05-20 |
+| KD-1 | 球权（hold_ball）作为第一个 pilot unit | 铲屎官明确指定；天然具备 trace signal（内存 rolling counter，Phase B 升级为 OTel）、eval 基础（thread-segment 观测）、feedback gap（cancel 无 reason）、governance 需求（子规则演化） | 2026-05-20 |
 | KD-2 | v0 = YAML registry + 文档，不是 runtime platform | 铲屎官强调"语义级别的架构"；先验证概念再决定是否需要 runtime 支撑 | 2026-05-20 |
 | KD-3 | Eval 观测单位 = thread 段 + 时间窗口，不是单次 tool call | 铲屎官原话："不能局限于某一个，应该是某一段时间内的"。单次 tool call 无法判断 harness 是否有效 | 2026-05-20 |
 | KD-4 | F208 与 F192 的 authority boundary：F192 owns eval pipeline + F167 component registry（AC-D1 格式）；F208 owns 统一 unit lifecycle metadata registry + 四接口框架。F208 引用 F192 eval artifact，不重建 eval pipeline | 防止 scope 重叠——F192 回答"这个组件表现怎样"，F208 回答"这个 unit 该升级还是下线" | 2026-05-20 |
