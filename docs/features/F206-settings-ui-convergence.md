@@ -8,7 +8,7 @@ created: 2026-05-18
 
 # F206: Settings UI Convergence — 组件语言归一
 
-> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -61,6 +61,18 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 2. **Mission Hub 去重**：对话侧栏顶部 Mission Hub 卡片去掉（左侧导航已有入口）
 3. **侧栏导航图标加 tooltip**：hover 显示功能名称（对话/记忆/Mission Hub/信号等）
 
+### Phase D: #723 视觉残留收敛（线条/边框/背景/字体）📋
+
+社区 clowder-ai#723 + 铲屎官 2026-05-20 反馈：Phase A-C 后仍有视觉碎片化残留。
+
+1. **线条色值统一**：全局 border token 归一到 `--console-border-soft` / `border-cafe-subtle/20`，消除各处自造 raw hex 边框
+2. **Memory/Signals 背景边框**：MemoryHub/MemoryNav/SignalNav/SignalSourcesView 的 raw colors、独立 gradient、硬编码 border 改走 semantic token
+3. **Settings primitives 边框残留**：SettingsCard/SettingsRow/SettingsSection 的边框对齐 KD-4 规则（内容卡片避免四周包边）
+4. **字体碎片化**：跨页面 `text-[Npx]` 不统一，归一到设计系统字号层级
+5. **Mission Hub 背景**：MissionControlPage hardcoded `#F4EFE7/#FFFDF8/#E7DAC7` 改走 semantic token
+
+> **不含 i18n**：VoiceSettings/SignalFilter/KnowledgeFeed 的硬编码英文标签归 F147 localization scope，不混进本 Phase。
+
 ### Post-close Guardrail: 线条分隔 vs 背景分层
 
 铲屎官 2026-05-20 追加口径：Thread 栏、对话栏、底部/右侧状态栏这类主框架区域，可以保留“统一底色 + 极淡线条分隔”的模式，不必强制改成背景色分层。目标接近网易云/微信的克制分隔：线条存在但不抢眼。
@@ -96,6 +108,15 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 - [x] AC-C2: 对话侧栏 Mission Hub 卡片移除，左侧导航入口保留
 - [x] AC-C3: 侧栏导航图标 hover 显示 tooltip（功能名称）
 
+### Phase D（#723 视觉残留收敛）
+- [ ] AC-D1: 全局 border 走统一淡 token（`--console-border-soft` 级别），0 处自造 raw hex 边框
+- [ ] AC-D2: Memory/Signals 页面背景/边框改 semantic token，无 raw hex/gradient
+- [ ] AC-D3: Settings primitives 边框对齐 KD-4（内容卡片无四周包边）
+- [ ] AC-D4: 跨页面字号归一到设计系统层级，消除孤立 `text-[Npx]`
+- [ ] AC-D5: Mission Hub hardcoded hex 改 semantic token
+- [ ] AC-D6: `pnpm test` + `pnpm check` 全绿
+- [ ] AC-D7: 关键页面 before/after 截图验证
+
 ## Dependencies
 
 - **Evolved from**: F190（Console Settings 骨架 intake）、F199（Settings parity audit）
@@ -123,6 +144,7 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 - Phase A: codex 本地 review → opus-47 愿景守护（不走云端）
 - Phase B: codex 本地 review → opus-47 愿景守护（不走云端）
 - Phase C: codex 本地 review → opus-47 愿景守护（不走云端）
+- Phase D: codex 本地 review → 云端 review（代码改动，不豁免）
 
 ## Links
 
@@ -144,4 +166,4 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 | 2026-05-18 | Phase C merged (PR #1770) — Signals styling + Mission Hub dedup + nav tooltips |
 | 2026-05-18 | F206 closed — opus-47 愿景守護 PASS，全 3 Phase 完成 |
 | 2026-05-20 | Post-close CVO guardrail: Thread/Chat/Status 主框架允许统一淡线分隔；内容卡片/状态块继续避免四周边框 |
-| 2026-05-22 | 目标 close（时间盒 4 天，CVO：不能 5-7 天） |
+| 2026-05-20 | F206 reopened — Phase D: #723 视觉残留收敛（线条/边框/背景/字体） |
