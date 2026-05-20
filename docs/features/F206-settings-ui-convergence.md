@@ -154,6 +154,18 @@ Phase I 后砚砚 post-merge audit 识别 Hub/Leaderboard/Quota 6 文件共 ~152
 8. **ChangesPanel workspace fix**：`bg-[#16161c]` → `bg-[var(--ws-editor-deep)]`（Phase I token）
 9. **FileIcons exempt**：15 file-type brand colors marked exempt（fixed per language identity, not theme-dependent）
 
+### Phase K: Hub residual mini sweep + exempt annotations 📋
+
+Phase J post-merge audit（砚砚）识别 5 个 Hub 文件仍有 ~27 处 real UI raw hex + 3 个文件需 exempt 标注。原定 text-[10px] bulk 顺延 Phase L。
+
+1. **HubLeaderboardTab 迁移**：~5 hex → 复用 Phase J 的 hub-lb-*/hub-surface-* tokens
+2. **hub-tag-editor 迁移**：~8 hex → hub-*/field-* tokens（tag/status UI 色）
+3. **hub-cat-editor-advanced 迁移**：~10 hex → hub-*/hub-surface-* tokens（advanced 面板）
+4. **HubConnectorConfigTab + HubPermissionsTab 迁移**：~4 rgba shadow → token 化或统一 shadow utility
+5. **HubConfigIcons exempt 标注**：16 处 connector/icon palette → exempt comment
+6. **HubMemberOverviewCard exempt 标注**：2 处 coCreator config default color → exempt comment
+7. **HubObservabilityTab exempt 标注**：1 处 data-viz chart stroke → exempt comment
+
 ### Post-close Guardrail: 线条分隔 vs 背景分层
 
 铲屎官 2026-05-20 追加口径：Thread 栏、对话栏、底部/右侧状态栏这类主框架区域，可以保留“统一底色 + 极淡线条分隔”的模式，不必强制改成背景色分层。目标接近网易云/微信的克制分隔：线条存在但不抢眼。
@@ -242,6 +254,15 @@ Phase I 后砚砚 post-merge audit 识别 Hub/Leaderboard/Quota 6 文件共 ~152
 - [x] AC-J6: Zero raw hex in styling code across all 8 migrated files（rg verified, exempt items only remain）
 - [x] AC-J7: `pnpm test` + `pnpm check` + `pnpm build` 全绿
 
+### Phase K（Hub residual mini sweep + exempt annotations）
+- [ ] AC-K1: HubLeaderboardTab ~5 hex → hub-lb-*/hub-surface-* tokens
+- [ ] AC-K2: hub-tag-editor ~8 hex → hub-*/field-* tokens
+- [ ] AC-K3: hub-cat-editor-advanced ~10 hex → hub-* tokens
+- [ ] AC-K4: HubConnectorConfigTab + HubPermissionsTab ~4 rgba → shadow token/utility
+- [ ] AC-K5: HubConfigIcons 16 connector/icon palette colors → exempt comment
+- [ ] AC-K6: HubMemberOverviewCard + HubObservabilityTab config/data-viz → exempt comment
+- [ ] AC-K7: `pnpm test` + `pnpm check` + `pnpm build` 全绿
+
 ## Dependencies
 
 - **Evolved from**: F190（Console Settings 骨架 intake）、F199（Settings parity audit）
@@ -276,6 +297,7 @@ Phase I 后砚砚 post-merge audit 识别 Hub/Leaderboard/Quota 6 文件共 ~152
 - Phase H: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration）
 - Phase I: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration + dead token cleanup）
 - Phase J: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration）
+- Phase K: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration + exempt annotations）
 
 ## Links
 
@@ -305,3 +327,4 @@ Phase I 后砚砚 post-merge audit 识别 Hub/Leaderboard/Quota 6 文件共 ~152
 | 2026-05-20 | Phase H merged (PR #1811) — workspace browser chrome 31 hex → 10 ws-* semantic tokens, ThreadSidebar border KD-4 justified |
 | 2026-05-20 | Phase I merged (PR #1812) — workspace editor/terminal 43 hex → 16 always-dark tokens, 14 dead tokens removed |
 | 2026-05-20 | Phase J merged (PR #1813) — Hub 6 files ~152 hex → 45 hub-* semantic tokens + ChangesPanel ws-editor-deep fix |
+| 2026-05-20 | Phase K spec added — Hub residual mini sweep (~27 hex across 5 files) + 3 exempt annotations; text-[10px] bulk deferred to Phase L |
