@@ -370,6 +370,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-05-07 | 铲屎官判定 AC-PL2 residual risk 为"未来反复修 bug 的地方"，要求修复 |
 | 2026-05-07 | **AC-PL2 scroll viewport persist 合入** (PR #1578): scrollTop 加入 PresentationLockSnapshot + CodeViewer/Markdown viewport bridge (restoreScrollTop/restoreKey/onScrollTopChange). 砚砚(codex) R1→R4 (3P1+3P2→0) + 云端 0P1 2P2 (1 fixed, 1 downgraded P3), 9 新测试 |
 | 2026-05-19 | 铲屎官在 `docs/content/drafts/longform-002-v0-formal.md` 发现 `mermaid` fenced block 在 workspace rendered mode 不支持；判定作为 F063 Markdown 渲染增量支持，不单开新 feature |
+| 2026-05-20 | **Mermaid Markdown rendering 合入** (PR #1789): workspace Markdown rendered mode 支持 `mermaid` fenced block，动态加载 Mermaid + strict security + DOMPurify SVG sanitization. 宪宪 review 通过 + 云端 no major issues, `pnpm gate` 通过 |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
