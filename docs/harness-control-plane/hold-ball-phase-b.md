@@ -164,6 +164,6 @@ Friction = `1 - (cancelled_with_reason / cancelled)`
 
 ### 4.4 Governance Review Cadence
 
-- **Weekly**: Automated check of friction_rate and trust_gap_rate thresholds
-- **On threshold breach**: Immediate alert to owner (opus) via thread system message
+- **Weekly**: Manual check of friction_rate and trust_gap_rate against documented thresholds (automation deferred per Phase C retrospective)
+- **On threshold breach**: Escalate to owner (opus) via thread message
 - **Monthly**: Registry review — is the unit still relevant?

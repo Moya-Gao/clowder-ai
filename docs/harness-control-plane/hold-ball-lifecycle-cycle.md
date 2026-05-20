@@ -73,7 +73,7 @@ Note: `cancelled_with_reason` only increments on manual DELETE with a structured
 - Criteria for `sunset` NOT triggered.
 
 **Evidence**: [hold-ball-phase-b.md §4 governance thresholds]
-**Decided by**: automated threshold check — single-cycle sample suppressed by minimum volume requirement
+**Decided by**: manual threshold evaluation against documented criteria — single-cycle sample suppressed by minimum volume requirement
 
 ## Cycle Summary
 

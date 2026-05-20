@@ -33,7 +33,7 @@ units:
       trace: "OTel counters: hold_ball.registered/.cancelled/.cancelled_with_reason/.wake/.rejected"
       eval: "Thread-segment observation — trust_gap detection via cancel reason analysis"
       feedback: "Cancel reason field (TRUST_GAP/HARNESS_GAP/STUCK/OTHER) + free-text message"
-      governance: "Weekly threshold check + monthly registry review. See hold-ball-phase-b.md §4"
+      governance: "Manual threshold evaluation + monthly registry review. See hold-ball-phase-b.md §4"
 
   - id: search_evidence
     name: "Memory Recall"
@@ -62,7 +62,7 @@ units:
       trace: "Stub: stderr JSON log (search_depth metric). Phase C+: migrate to OTel counter cat_cafe.search_evidence.called/.result_count/.zero_hits"
       eval: "F200 owns methodology. Stub: re-search detection via thread-segment query dedup within 2min window"
       feedback: "Stub: no feedback channel yet. Phase C+: add result satisfaction signal (thumbs up/down on search results)"
-      governance: "Weekly hit_rate + latency check. F163 variant switching provides existing degrade pattern"
+      governance: "Stub: manual review against documented criteria. Phase C+: weekly hit_rate + latency requires OTel + dashboard. F163 variant switching provides existing degrade pattern"
 
   - id: route-serial
     name: "A2A Serial Routing"
