@@ -190,6 +190,45 @@ Alice 质疑方案成本和时间线；铲屎官提议先做最小验证。
 - `packages/web/src/components/workspace/TranscriptPanel.tsx` — same thread/device/source improvements
 - `packages/api/src/routes/audio-proxy.ts` — proxied pause/resume/sources endpoints
 
+### Phase F: ASR 管道增强（转写质量从"不可用"到"能用"） 📋
+
+**目的**：修复铲屎官实际使用后反馈的"语音转写质量太烂了"。根因不在模型（Qwen3-ASR-1.7B 中文会议 WER 5.88，远优于 Whisper 的 19.11），而在管道缺失——3s 固定切片无 VAD、无热词注入、无后处理、无标点恢复。
+
+> **铲屎官原话（2026-05-19）**：
+> "我现在用了好几次！我发现最大的痛点竟然是语音转写质量太烂了！！！"
+
+> **调研来源**：
+> - [布偶猫调研](../research/2026-05-19-asr-quality-improvement-survey.md)
+> - [砚砚调研](../research/2026-05-19-asr-quality-improvement-survey-codex.md)
+> - 两份调研独立收敛到同一结论：**不换模型，修管道**
+
+**代码现状（Phase F 写 spec 前实际验证过）**：
+
+| 组件 | 现状 | 改动 |
+|------|------|------|
+| MLX 推理 | ✅ 已在用（`qwen3-asr-api.py` 跑 `mlx-audio`） | 不需改 |
+| `initial_prompt`/`context` | ✅ ASR 服务端已支持，但 `audio-service.py:449-450` 没传 | **接线** |
+| LLM 后修正 | ✅ `llm-postprocess-api.py`（port 9878）已实现 | **接入主管道** |
+| 客户端 VAD | ✅ Silero VAD v5 在 `useVadInterrupt.ts`（F112） | 仅用于播放打断 |
+| 服务端 VAD | ❌ 不存在 | **新增** |
+| 标点恢复 | ❌ | **新增** |
+
+**AC**：
+- [ ] AC-F1: **服务端 VAD 替换 3s 固定切片** — `audio-service.py` 加入 Silero VAD（Python），检测语音段动态切片（短静音合并、长停顿 flush、上限兜底），消除断句截词和静音幻觉
+- [ ] AC-F2: **热词上下文注入** — `audio-service.py` 向 ASR 发请求时传 `initial_prompt` 字段（两个 ASR 后端已支持），内容包含参会者姓名、项目术语、会议主题；热词来源：MCP `audio_capture_start` 时传入 + `/talking-points` 已有端点
+- [ ] AC-F3: **LLM 后修正接入** — `audio-service.py` ASR 返回粗文本后，调用 `llm-postprocess-api.py`（port 9878）做同音纠错，已有保守型 fallback（输出 >2.5x 输入则返回原文）
+- [ ] AC-F4: **标点恢复** — 扩展 LLM 后修正的 system prompt 加入标点和分段指令（或独立轻量模型），输出从流水账变成可读文本
+- [ ] AC-F5: **A/B 对照验收** — 用同一段真实会议录音（≥3 分钟），Phase F 前后分别跑一次，对比断句质量、专有名词命中率、标点可读性；不需要自动化评测，人工对比即可
+- [ ] AC-F6: **配置外露** — `ASR_CONTEXT`（热词表路径/内容）、`LLM_POSTPROCESS_ENABLED`（后修正开关）、`VAD_ENABLED`（VAD 开关）作为环境变量，方便开关各层
+
+**技术难度**：⭐⭐ 低（核心工作是接线 + VAD 集成，不是造新东西）
+
+**不含（明确排除）**：
+- 说话人分离（Diarization）— 连 Granola $1.5B 桌面端都不做实时 diarization，放 Phase A 会后批处理
+- 模型升级到 7B — 管道修好后再评估是否需要
+- Swift 原生重写 — 长期演进方向，不是短期收益
+- ASR 后端切换 — Qwen3-ASR-1.7B 中文会议表现优秀，不换
+
 ### 已有基础设施
 
 | 能力 | 状态 | 来源 |
@@ -211,6 +250,7 @@ Alice 质疑方案成本和时间线；铲屎官提议先做最小验证。
 | **C 主动增强** | Turn-taking 检测 + 实时 diarization + 主动推送 + meeting context 注入 + 浮动转写窗 | ⭐⭐⭐⭐⭐ 很高 |
 | **D 持久化** | MD 文件持久化 + path injection（user turn context） + rolling summary | ⭐⭐⭐ 中 |
 | **E 采集控制** | 前端源选择 + Start + Pause/Resume + 后端 pause 端点 + SSE 三态 | ⭐⭐ 低 |
+| **F ASR 管道增强** | 服务端 VAD + 热词上下文接线 + LLM 后修正接入 + 标点恢复 | ⭐⭐ 低（主要是接线） |
 
 ### 已知缺口（Phase B/C 需调研验证）
 
