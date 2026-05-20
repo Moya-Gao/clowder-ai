@@ -548,10 +548,7 @@ test('F153 Phase I (F185 deferred): route-serial creates mention_dispatch span i
   // After the deferred guard, the same block should create a mention_dispatch span tagged as deferred.
   const dispatchSpanIdx = src.indexOf("'cat_cafe.mention_dispatch'", deferredIdx);
   const deferredSourceIdx = src.indexOf("'dispatch.source': 'text-scan-deferred'", deferredIdx);
-  assert.ok(
-    dispatchSpanIdx > deferredIdx,
-    'Deferred branch should create cat_cafe.mention_dispatch span',
-  );
+  assert.ok(dispatchSpanIdx > deferredIdx, 'Deferred branch should create cat_cafe.mention_dispatch span');
   assert.ok(
     deferredSourceIdx > deferredIdx,
     "Deferred dispatch span should set dispatch.source='text-scan-deferred' (distinct from callback/inline)",
@@ -611,11 +608,7 @@ test('F153 Phase I behavioral (F185 deferred): captured ctx parents the dispatch
   const route1 = otelTracer.startSpan('cat_cafe.route');
   const route1Ctx = traceApi.setSpan(ctxApi.active(), route1);
 
-  const invA = otelTracer.startSpan(
-    'cat_cafe.invocation',
-    { attributes: { 'agent.id': 'opus' } },
-    route1Ctx,
-  );
+  const invA = otelTracer.startSpan('cat_cafe.invocation', { attributes: { 'agent.id': 'opus' } }, route1Ctx);
 
   // Lazy create dispatch span as child of mentioner invocation, then immediately end.
   const invACtx = traceApi.setSpan(ctxApi.active(), invA);
