@@ -50,4 +50,19 @@ describe('MermaidDiagram', () => {
     expect(container.innerHTML).toContain('safe-node');
     expect(container.innerHTML).not.toContain('<script');
   });
+
+  it('uses SVG labels so sanitization does not erase Mermaid node text', async () => {
+    await act(async () => {
+      root.render(<MermaidDiagram source={'flowchart TD\n  A["State<br/>读状态"] --> B["Owner<br/>负责"]'} />);
+    });
+
+    await vi.waitFor(() => expect(container.querySelector('svg')).toBeTruthy());
+    expect(mermaidMock.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flowchart: expect.objectContaining({
+          htmlLabels: false,
+        }),
+      }),
+    );
+  });
 });

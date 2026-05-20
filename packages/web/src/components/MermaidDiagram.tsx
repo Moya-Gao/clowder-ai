@@ -39,6 +39,9 @@ export function MermaidDiagram({ source }: { source: string }) {
           startOnLoad: false,
           securityLevel: 'strict',
           theme: 'neutral',
+          flowchart: {
+            htmlLabels: false,
+          },
         });
 
         const { svg } = await mermaid.render(diagramId, normalizedSource);
