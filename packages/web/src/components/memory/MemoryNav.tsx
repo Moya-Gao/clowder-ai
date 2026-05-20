@@ -101,7 +101,7 @@ export function MemoryNav({ active, initialReferrerThread = null }: MemoryNavPro
     <nav aria-label="Memory navigation" className="flex flex-wrap items-center gap-2">
       <a
         href={backHref}
-        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-3 py-1.5 text-xs font-medium text-[#8B6F47] transition-colors hover:bg-[#F7EEDB]"
+        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[var(--console-border-strong)] bg-[var(--console-card-bg)] px-3 py-1.5 text-xs font-medium text-[var(--console-button-emphasis)] transition-colors hover:bg-[var(--console-hover-bg)]"
         data-testid="memory-back-to-chat"
       >
         <svg
@@ -136,7 +136,7 @@ export function MemoryNav({ active, initialReferrerThread = null }: MemoryNavPro
             {item.badge != null && item.badge > 0 && (
               <span
                 data-testid="health-badge"
-                className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold leading-none text-white"
+                className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-micro font-bold leading-none text-white"
               >
                 {item.badge > 99 ? '99+' : item.badge}
               </span>

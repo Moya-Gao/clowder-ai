@@ -54,7 +54,7 @@ export function GraphCandidates({
       <div className="space-y-2">
         {candidates.map((candidate) => (
           <button
-            className="w-full rounded-md border border-[#e5dacd] bg-[#fffdf8] p-3 text-left transition-colors hover:border-cafe-accent hover:bg-[#f8fbff]"
+            className="w-full rounded-md border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3 text-left transition-colors hover:border-cafe-accent hover:bg-[var(--console-hover-bg)]"
             data-testid={`graph-candidate-${candidate.anchor}`}
             key={`${candidate.collectionId}:${candidate.anchor}`}
             onClick={() => onSelect(candidate.anchor, candidate.collectionId)}
@@ -103,7 +103,7 @@ export function GraphNoMatch({ examples, message }: { examples: string[]; messag
 export function GraphNoEdgesNote() {
   return (
     <div
-      className="mb-3 rounded-md border border-[#e5dacd] bg-white px-3 py-2 text-xs font-semibold text-cafe-secondary"
+      className="mb-3 rounded-md border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] px-3 py-2 text-xs font-semibold text-cafe-secondary"
       data-testid="graph-no-edges-note"
     >
       暂无关联边：这个节点存在，但当前深度下没有可见的 graph 关系。Inspector 仍会显示节点信息。
