@@ -229,6 +229,10 @@ no playful elements, no cartoon style, no decorative blobs.
 
 ## 9. 校准图最终 prompt v1
 
+> 2026-05-20 复盘：v1 校准图证明单靠文字 prompt 会把内容页推向低密度科技海报，
+> 不像华为企业图示。后续内容页废弃“纯文字 prompt 直出”路线，改为 §10 的低保真
+> 蓝图驱动路线。P1 封面可保留电影感，P3/P7/P8/P9 等内容页必须先锁结构。
+
 ### 9.1 P1 封面
 
 ```text
@@ -369,4 +373,70 @@ Visual details:
 
 No garbled Chinese characters, no fake brand logo, no generated Huawei petal mark,
 no random numbers beyond the specified numbers, no cute robot, no colorful cyberpunk poster.
+```
+
+## 10. 方法优化 v2：低保真蓝图驱动生成
+
+核心修正：**先画信息架构，再生成视觉质感。**
+
+`longform-002-v0-formal.md` 里的 Figure 0-13 能保持信息密度，是因为先有低保真草图：
+盒子、箭头、层级、编号、文本数量和阅读路径都已经固定；imagegen 只负责把草图升级成
+有质感的图，而不是从空白 prompt 里猜版式。
+
+机器人 PPT 改成四步：
+
+1. **结构蓝图**：先产出 16:9 低保真 SVG/PNG，固定标题、模块、箭头、数据点和页脚。
+2. **视觉升级**：把低保真图作为 reference image，让 imagegen 严格保留结构，只升级
+   华为企业报告质感。
+3. **真实文字层**：标题、数字、小标签、logo 默认由真实文字/真实资产后处理；若
+   imagegen 文字完美再视作 bonus，不作为依赖。
+4. **评分再批量**：按信息密度、华为风格、文字保真、跨页一致性四项评分，不达标不扩展。
+
+### 10.1 华为风格重定向
+
+内容页不再默认深黑红光轨。新的风格目标是：
+
+- 背景：浅灰/象牙白/低饱和冷白，必要时局部深色区块。
+- 结构：硬边框、编号圆点、分层标题条、细线箭头、矩阵/流程/控制面。
+- 颜色：华为红只做强调，配合深墨黑、冷灰、少量蓝/青色功能色。
+- 密度：每页 8-16 个信息单元，至少 2 层结构，不靠大图撑版面。
+- 质感：企业白皮书/战略报告，不是赛博海报，不是发布会 KV。
+
+### 10.2 首张最复杂试验页
+
+选择 **P7：三大核心挑战：手、世界、数据**。
+
+理由：
+
+- 它同时包含三支柱、马斯克三问、数据量/寿命数字、技术闭环和底部结论。
+- 它最容易暴露 imagegen 对小号中文、数字和高密布局的弱点。
+- 如果 P7 跑通，P3 数据看板、P5 四驱动力、P8 数据鸿沟、P9 路线图都能复用同一方法。
+
+低保真蓝图文件：
+
+- SVG: `docs/content/drafts/assets/huawei-robotics-p7-complex-lofi.svg`
+- PNG: `docs/content/drafts/assets/huawei-robotics-p7-complex-lofi.png`
+
+### 10.3 P7 试验判据
+
+| 维度 | 通过标准 |
+|---|---|
+| 结构保留 | 生成图仍保留三支柱、五步链路、技术闭环、底部双判断四个区块 |
+| 信息密度 | 至少 12 个可读信息单元，不能退化成三张大卡片 |
+| 华为风格 | 像企业战略报告/白皮书图示，少海报感 |
+| 文字策略 | 小字允许后处理，但生成图必须给出清晰文字槽位 |
+| 可扩展性 | 这套版式能扩展成 P3/P5/P8/P9 的同族页面 |
+
+### 10.4 下一轮 imagegen prompt 方向
+
+```text
+Use the attached low-fidelity slide blueprint as the strict layout reference.
+Preserve every major box, hierarchy, arrow direction, section count, and reading path.
+Upgrade it into a Huawei-style enterprise strategy report diagram:
+light ivory background, hard-edged modules, Huawei red accents, dark ink typography,
+thin technical grid lines, numbered section badges, precise alignment.
+
+Do not turn it into a cinematic poster. Do not reduce the number of modules.
+Do not merge boxes. Do not replace the information architecture with a large robot image.
+Keep text areas clean for later real-text overlay.
 ```
