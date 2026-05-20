@@ -8,7 +8,7 @@ created: 2026-05-06
 
 # F188: Library Stewardship — 图书馆管护与成长
 
-> **Status**: in-progress (Phase A/B/C/Graph readability/Graph Query/F/G/I/D/H merged; Phase E superseded by F200) | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-05-20 | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -352,7 +352,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | Phase A rebuild 进度：按文件数百分比 vs 按 Phase（scan / chunk / embed）？ | ✅ 按 Phase 阶段边界（scanning→indexing→cleanup→embedding→done） |
-| OQ-2 | Phase B stale anchor 检测频率：rebuild 时顺带 vs 独立定时扫描？ | ⬜ 未定 |
+| OQ-2 | Phase B stale anchor 检测频率：rebuild 时顺带 vs 独立定时扫描？ | ✅ 按需计算（health-report API 调用时实时扫描）；当前 docs 规模够用，若 API 变慢再改定时扫描 |
 | OQ-3 | Phase E Pin 的 UI 入口：RecallFeed 内嵌 vs 独立 Pin 管理页？ | ✅ 关闭：Phase E superseded by F200；不做 F188 手动 Pin UI |
 | OQ-4 | **上线后暴露 (Phase F follow-up, 2026-05-12 砚砚 dogfood 发现)**：`graph_resolve` MCP wrapper API↔response shape mismatch — `GraphQueryResolver.ts:257` 返回 `{ status:'graph', graph: {nodes,edges,...} }`（nested），但 `graph-tools.ts:60 GraphSubgraph` interface 期望 flat `{ status:'graph', nodes, edges, ... }`，导致 `g.edges.filter`/`for of visibleEdges` 抛 "Cannot read of undefined" / "is not iterable"。**修法**：MCP wrapper 解 `data.graph.{nodes,edges,center,depth}` 后再传给 formatGraph。 | ✅ Phase G AC-G1/G2 实做完成 (2026-05-12)：unwrap `data.graph` + GraphSubgraphResponse type 对齐 API contract + 测试 fixture 改 nested shape (RED→GREEN)。R1 占位 doc / list_recent collection-aware 拆到 Phase H 独立 Design Gate (砚砚一审 P1 收窄) |
 
@@ -398,6 +398,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | 2026-05-19 | Phase E closed as **Superseded by F200** — AC-E1/E2/E3 marked closed/no-op; manual Pin UI/MCP rejected as unrealistic, feedback/replay seed pipeline owned by F200 Memory Recall Eval |
 | 2026-05-19 | **Phase H merged (PR #1783)** — Collection-Aware Recent Selection: overlap exclusion (CatCafeScanner + IndexBuilder + runtime registration), guaranteed minimum selection, SelectionGroup API, MCP footer, regression fixtures. 砚砚 local review 5 rounds (R1-R5: CatCafeScanner exclude wiring, parseSingle bypass, runtime registration update, immediate row purge + catalog sync, SQL LIKE wildcard escape) + cloud codex 4 rounds (edge purge, batch chunking, vector cleanup) |
 | 2026-05-20 | Phase B proactive badge follow-up merged (PR #1790) — MemoryNav health badge: useHealthBadgeCount hook + buildMemoryTabItems badges param + 99+ cap. opus-47 愿景守護踢回"索引坏了没人知道" → Path A badge 修復。砚砚 local review 2 rounds + cloud codex review |
+| 2026-05-20 | **Feature closed** — opus-47 愿景守护复审放行（5 点铲屎官原话全覆盖 + PR #1790 数据流追踪验证 badge 非死代码）。9 Phase（A-I，E superseded by F200），14 PR。反思胶囊：`docs/reflections/2026-05-20-f188-library-stewardship-capsule.md` |
 
 ## Review Gate
 
