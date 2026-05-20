@@ -18,66 +18,68 @@ created: 2026-05-20
 | Time | Event | Counter | Attributes |
 |------|-------|---------|------------|
 | T+0 | Cat holds ball | `registered` | agent.id=opus |
-| T+30s | User sends message | `cancelled` | agent.id=opus, cancel.reason=AUTO_USER_MESSAGE |
+| T+30s | User cancels hold | `cancelled` | agent.id=opus, cancel.reason=TRUST_GAP |
+| T+30s | (with_reason fires) | `cancelled_with_reason` | agent.id=opus, cancel.reason=TRUST_GAP |
 | T+2min | Cat holds ball again | `registered` | agent.id=opus |
 | T+5min | Scheduler fires wake | `wake` | agent.id=opus |
 
-Trace chain: hold → auto-cancel → hold → wake (complete happy path + interruption path).
+Counter totals at end of window:
+- `registered` = 2, `cancelled` = 1, `cancelled_with_reason` = 1, `wake` = 1, `rejected` = 0
+
+Note: `cancelled_with_reason` only increments on manual DELETE with a structured reason body (TRUST_GAP/HARNESS_GAP/STUCK/OTHER). Auto-cancel via user message only increments `cancelled` with reason=AUTO_USER_MESSAGE — it does NOT count toward `cancelled_with_reason`.
 
 ### Step 2: Eval (Is It Working)
 
 **Observation unit**: Thread segment from first hold to post-wake message.
 
 **Compensation behavior detection**:
-- Auto-cancel at T+30s: User sent a message while hold was active.
-  - Reason = `AUTO_USER_MESSAGE` (system auto-cancel, not manual)
-  - Classification: **Not a compensation behavior** — system correctly auto-cancelled because user wanted to interact directly.
-- Second hold at T+2min: Cat re-holds after user interaction completed.
-  - No cancel → wake fires normally at T+5min.
-  - Classification: **Success** — hold fulfilled its purpose (bounded wait).
+- Manual cancel at T+30s with reason=TRUST_GAP: User didn't trust the hold to complete.
+  - Classification: **Trust gap** — user cancelled because they didn't believe the hold would work.
+- Second hold at T+2min succeeded: wake fired at T+5min, cat acted on nextStep.
+  - Classification: **Success** — hold fulfilled its purpose after user's initial distrust.
 
 **Friction Metric calculation**:
-- Total cancels in window: 1 (`cancelled` counter)
-- Cancels with structured reason: 1 (`cancelled_with_reason` counter, reason=AUTO_USER_MESSAGE)
-- Friction = 1 - (1/1) = 0% — all cancels have reasons.
+- Total cancels: 1 (`cancelled` counter)
+- Cancels with structured reason: 1 (`cancelled_with_reason` counter)
+- Friction = 1 - (1/1) = 0% — all manual cancels include a reason.
 
-**Trust gap rate**: 0 TRUST_GAP cancels / 1 total cancel = 0%.
+**Trust gap rate**: 1 TRUST_GAP / 1 total cancel = 100% (all cancels are trust gap).
 
-**Conclusion**: Unit is working correctly. No friction detected.
+**Conclusion**: Friction metric is healthy (reasons are captured), but trust_gap_rate is high. This single cycle has too little data for a governance decision — need sustained observation.
 
 ### Step 3: Feedback (What to Change)
 
-**Structured feedback received**: None in this cycle.
-- The auto-cancel had reason `AUTO_USER_MESSAGE` — this is expected behavior, not a complaint.
-- No manual DELETE with TRUST_GAP/HARNESS_GAP/STUCK reason observed.
+**Structured feedback received**: 1 TRUST_GAP cancel.
+- User cancelled at T+30s because they didn't trust the hold.
+- After seeing the second hold succeed (wake at T+5min), user may build trust.
 
 **Feedback channel validation**:
 - DELETE endpoint accepts optional `{ reason, message }` body ✓
-- Cancel reason flows to OTel counter attribute ✓
+- Cancel reason flows to `holdBallCancelled` counter attribute ✓
+- Structured reason triggers `holdBallCancelledWithReason` counter ✓
 - `cancel.reason` is in metric allowlist ✓
 
-**Actionable insight**: No feedback signals indicate problems. Unit is transparent and non-intrusive.
+**Actionable insight**: TRUST_GAP feedback indicates the hold's visibility message may need improvement — user should see clearer evidence that the hold is actively monitoring.
 
 ### Step 4: Governance (Lifecycle Decision)
 
 **Input**: Eval aggregates from this cycle.
 - friction_rate = 0% (target < 20%) ✓
-- trust_gap_rate = 0% (target < 5%) ✓
-- zombie_rate = N/A (Phase C — not yet measurable)
+- trust_gap_rate = 100% (target < 5%) ✗ — but sample size = 1, not actionable
 
 **Decision**: `maintain`
-- Criteria for `upgrade` (friction < 10% AND trust_gap < 5% over 2 weeks) cannot be evaluated yet — insufficient data volume (1 cycle ≠ 2 weeks).
-- Criteria for `degrade` (friction > 30% OR trust_gap > 20%) NOT triggered.
-- Criteria for `sunset` (zero holds for 3 months) NOT triggered.
+- Criteria for `upgrade` not met — trust_gap_rate is 100%, and data volume is insufficient (1 cycle ≠ 2 weeks).
+- Criteria for `degrade` (trust_gap > 20%): technically triggered on this cycle, but governance requires a 7-day window, not a single event. No action.
+- Criteria for `sunset` NOT triggered.
 
 **Evidence**: [hold-ball-phase-b.md §4 governance thresholds]
-**Decided by**: automated threshold check (no escalation needed)
+**Decided by**: automated threshold check — single-cycle sample suppressed by minimum volume requirement
 
 ## Cycle Summary
 
 ```
-trace (4 events) → eval (0% friction, 0% trust_gap)
-  → feedback (no actionable signals) → governance (maintain)
+trace (5 counter events) → eval (0% friction, 100% trust_gap on n=1)
+  → feedback (1 TRUST_GAP signal) → governance (maintain, insufficient volume)
 ```
 
-The four semantic interfaces form a closed loop: trace provides data, eval interprets it, feedback enriches with user intent, governance decides the unit's future. This cycle validates that the loop functions end-to-end for hold_ball.
+This cycle validates that all four interfaces function end-to-end: trace captures events, eval computes metrics, feedback provides structured user intent, governance evaluates but correctly defers on low sample size.

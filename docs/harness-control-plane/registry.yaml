@@ -46,7 +46,7 @@ units:
       execute_mechanism: mcp-tool
       exit_condition: "results returned or timeout"
     eval:
-      activation_signal: "cat_cafe.search_evidence.called counter increments (stub: stderr JSON log)"
+      activation_signal: "stderr JSON log with metric=search_depth (evidence-tools.ts:134). Phase C+: migrate to OTel counter"
       friction_metric: "User re-searches same query within 2min = harness_gap (recall insufficient)"
       success_signal: "Search result cited in cat's next response (thread-segment correlation)"
       regression_fixtures:
@@ -55,8 +55,8 @@ units:
         - "search → results ignored → cat produces answer without citing"
     governance:
       owner: codex
-      upgrade_criteria: "hit_rate > 90% AND re-search_rate < 5% over 2 weeks → promote semantic mode"
-      degrade_criteria: "hit_rate < 50% OR latency_p99 > 3s → fallback to lexical mode"
+      upgrade_criteria: "hit_rate > 90% AND re-search_rate < 5% over 2 weeks → promote semantic mode (requires Phase C+ OTel)"
+      degrade_criteria: "hit_rate < 50% OR latency_p99 > 3s → fallback to lexical mode (requires Phase C+ OTel)"
       sunset_signal: "Zero search calls for 3 months OR replaced by external RAG pipeline"
     interfaces:
       trace: "Stub: stderr JSON log (search_depth metric). Phase C+: migrate to OTel counter cat_cafe.search_evidence.called/.result_count/.zero_hits"
