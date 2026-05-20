@@ -82,10 +82,12 @@ reviewers:
 
 选择 **华为智能世界白皮书风 + 战略洞察页**：
 
-- 主色：华为红、深黑、冷灰、白。
+- **v2 收口**：内容页以浅底企业报告图示为主；深黑/红光轨只保留给 P1 封面、P10
+  结语或局部深色 header，不作为 P2-P9 默认风格。
+- 主色：华为红、深墨黑、冷灰、象牙白。
 - 气质：克制、坚定、工程化、长期主义。
-- 图形：红色光轨、工业网格、3D 机器人轮廓、城市/工厂/数据空间、斜切几何面。
-- 版式：一页一核心判断；2-4 个信息模块；大数字做视觉锚点。
+- 图形：硬边框、编号徽标、细线箭头、工业网格、数据标签、控制面式模块。
+- 版式：一页一核心判断；8-16 个信息单元；至少 2 层结构；大数字只做局部锚点。
 - 避免：满屏小字、伪中文、花哨渐变、过度赛博、像游戏海报。
 
 ### 2.3 文本策略
@@ -122,6 +124,9 @@ reviewers:
 
 ## 4. 首轮校准
 
+> v2 收口：本节是 v1 校准记录，不再作为后续内容页生产路线。后续内容页按 §10：
+> SVG master 锁结构/文字/坐标，imagegen 只出图标、纹理、光感素材，最后合成。
+
 不建议第一轮只做封面。封面太容易，不能验证方案风险。
 
 首轮生成 2 页：
@@ -154,6 +159,9 @@ P7 是 go/no-go 页。它不是考主标题，而是考最小号短标签、数�
   页面专属视觉和真实文字。此时 hybrid raster 不是 fallback，而是正式路线。
 
 ## 5. Prompt 结构
+
+> v2 收口：本节 prompt 模板仅适用于 P1/P10 这类封面/结语视觉页。P2-P9 内容页
+> 不再用深黑整页 prompt 直出，改用 §10 的蓝图驱动 + 分层合成。
 
 每页 prompt 使用同一模板：
 
@@ -386,11 +394,20 @@ no random numbers beyond the specified numbers, no cute robot, no colorful cyber
 机器人 PPT 改成四步：
 
 1. **结构蓝图**：先产出 16:9 低保真 SVG/PNG，固定标题、模块、箭头、数据点和页脚。
-2. **视觉升级**：把低保真图作为 reference image，让 imagegen 严格保留结构，只升级
-   华为企业报告质感。
-3. **真实文字层**：标题、数字、小标签、logo 默认由真实文字/真实资产后处理；若
-   imagegen 文字完美再视作 bonus，不作为依赖。
+2. **素材生成**：imagegen 只生成 SVG 不擅长的视觉素材：三支柱图标、局部纹理、
+   光感、工业网格质感。不得整张重绘低保真图。
+3. **合成输出**：SVG 作为结构、文字、坐标、密度的 master，把 imagegen 素材合成到
+   固定槽位，再导出扁平 PNG。
 4. **评分再批量**：按信息密度、华为风格、文字保真、跨页一致性四项评分，不达标不扩展。
+
+层级分工：
+
+| 层 | 工具 | 职责 |
+|---|---|---|
+| 结构层 | SVG/HTML/CSS | 几何、盒子、箭头、阅读路径、跨页 design system |
+| 文字层 | SVG/HTML/CSS | 标题、数字、小标签、logo 安放区，保证零乱码 |
+| 视觉素材层 | imagegen | robotic hand / 3D environment / data cube 图标，纹理、光感、深度 |
+| 输出层 | 浏览器截图 / PNG 导出 | 合成后的不可编辑 raster slide |
 
 ### 10.1 华为风格重定向
 
@@ -421,7 +438,7 @@ no random numbers beyond the specified numbers, no cute robot, no colorful cyber
 
 | 维度 | 通过标准 |
 |---|---|
-| 结构保留 | 生成图仍保留三支柱、五步链路、技术闭环、底部双判断四个区块 |
+| 结构保留 | 成图保留 4 个真实顶层区块：马斯克三问 band / 三支柱 / 技术闭环 6 节点链路 / 底部双判断 |
 | 信息密度 | 至少 12 个可读信息单元，不能退化成三张大卡片 |
 | 华为风格 | 像企业战略报告/白皮书图示，少海报感 |
 | 文字策略 | 小字允许后处理，但生成图必须给出清晰文字槽位 |
@@ -430,13 +447,15 @@ no random numbers beyond the specified numbers, no cute robot, no colorful cyber
 ### 10.4 下一轮 imagegen prompt 方向
 
 ```text
-Use the attached low-fidelity slide blueprint as the strict layout reference.
-Preserve every major box, hierarchy, arrow direction, section count, and reading path.
-Upgrade it into a Huawei-style enterprise strategy report diagram:
-light ivory background, hard-edged modules, Huawei red accents, dark ink typography,
-thin technical grid lines, numbered section badges, precise alignment.
+Generate a premium Huawei-style enterprise report icon/texture asset sheet,
+not a full slide. Do not render any text.
 
-Do not turn it into a cinematic poster. Do not reduce the number of modules.
-Do not merge boxes. Do not replace the information architecture with a large robot image.
-Keep text areas clean for later real-text overlay.
+Create three matching visual assets on a clean transparent or plain light background:
+1. robotic dexterous hand icon / technical render
+2. non-structured 3D physical environment mesh
+3. multimodal data cube / sensor data volume
+
+Style: Huawei enterprise whitepaper, precise, technical, restrained, red accents,
+dark ink lines, subtle depth, compatible with a light ivory strategy diagram.
+No Chinese text, no logo, no poster composition.
 ```
