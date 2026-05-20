@@ -579,6 +579,7 @@ run_target_public_gate() {
   local gate_target_real
   local step_fail=false
   local original_dir="$PWD"
+  local l0_compile_log=""
   local test_public_log=""
 
   gate_target_real="$(resolve_physical_path "$gate_target")"
@@ -608,6 +609,17 @@ run_target_public_gate() {
   if ! pnpm --filter @cat-cafe/api build 2>&1 | tail -3; then
     echo -e "  ${RED}✗ api build failed${NC}"
     step_fail=true
+  fi
+
+  echo "  Smoke test (F203 native L0 compiler)..."
+  l0_compile_log=$(mktemp "${TMPDIR:-/tmp}/cat-cafe-l0-compile.XXXXXX")
+  if ! run_public_acceptance_env node scripts/compile-system-prompt-l0.mjs --cat codex >/dev/null 2>"$l0_compile_log"; then
+    echo -e "  ${RED}✗ F203 native L0 compile failed${NC} (full log: $l0_compile_log)"
+    cat "$l0_compile_log"
+    step_fail=true
+  else
+    echo "  ✓ F203 native L0 compile passed"
+    rm -f "$l0_compile_log"
   fi
 
   echo "  Smoke test (test:public)..."
@@ -1731,6 +1743,12 @@ if [ -n "$INTERNAL_REGEX" ]; then
   if [ -n "$found" ]; then
     echo -e "  ${YELLOW}⚠ Internal patterns found:${NC}"
     echo "$found" | while read f; do echo "    $f"; done
+    l0_internal_found=$(printf '%s\n' "$found" | grep -F 'assets/system-prompts/system-prompt-l0.md' || true)
+    if [ -n "$l0_internal_found" ]; then
+      echo -e "  ${RED}✗ Native L0 prompt still contains internal-only patterns:${NC}"
+      echo "$l0_internal_found" | while read f; do echo "    $f"; done
+      SCAN_FAILED=true
+    fi
     SCAN_WARNINGS=$((SCAN_WARNINGS + 1))
   fi
 fi

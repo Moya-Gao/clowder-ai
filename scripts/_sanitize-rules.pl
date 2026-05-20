@@ -27,6 +27,27 @@ s/suces-MacBook[^ ]*/dev-machine/g;
 # Only the Chinese label needs translation.
 s/6399 圣域/production Redis (sacred)/g;
 
+# ── F203 native L0 prompt template ──
+# This file is governance-like content. Token-level sanitization can leave
+# broken or home-only rules behind, so rewrite the public-only rules explicitly.
+if ($ARGV =~ m{assets/system-prompts/system-prompt-l0\.md$}) {
+  s/^# Cat Café L0 — Native System Prompt（压缩免疫层）$/# Clowder AI L0 — Native System Prompt/;
+  s/^> \*\*决策来源\*\*：.*$/> **Decision source**: public agent collaboration protocol and runtime safety contract./;
+  s/^> \*\*F203 Phase A 实测验证\*\*：.*$/> **Validation**: public sync runs compiler smoke tests before export./;
+  s/Cat Café 的护城河是情感壁垒不是技术壁垒（IKEA 效应 \+ 自我延伸 \+ 安全依恋）/Clowder AI 的价值来自可验证、可持续的长期协作，而不是一次性的工具调用/g;
+  s/Cat Café/Clowder AI/g;
+  s/Cat Cafe/Clowder AI/g;
+  s/铲屎官/co-creator/g;
+  s/改 Redis 圣域/修改生产数据边界/g;
+
+  if (/^1\. \*\*(?:Redis 6399 圣域|Redis production Redis \(sacred\))\*\* — /) {
+    $_ = "1. **Runtime data safety** — Use isolated development/test data stores; never point local experiments at production user data\n";
+  }
+  if (/^4\. \*\*Alpha 验收通道\*\* — /) {
+    $_ = "4. **Release acceptance channel** — Validate merged changes in an isolated acceptance environment; test unmerged work in a feature checkout\n";
+  }
+}
+
 # ── Port remapping (all files) ──
 # Convention: internal 3001(Frontend)→3003, internal 3002(API)→3004
 # So that API = Frontend + 1 holds in both environments.

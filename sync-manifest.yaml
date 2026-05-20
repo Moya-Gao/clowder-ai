@@ -39,6 +39,8 @@ managed_files:
   - TRADEMARKS.md
   - .github/workflows/ci.yml
   - .github/workflows/release-desktop.yml
+  # F203 native system prompt L0 runtime closure
+  - assets/system-prompts/system-prompt-l0.md
   # F180 user-level hook templates for open-source users
   - .claude/hooks/user-level/README.md
   - .claude/hooks/user-level/claude-settings.template.json
@@ -78,6 +80,7 @@ managed_scripts:
   - scripts/check-env-port-drift.test.mjs
   - scripts/check-env-registry.test.mjs
   - scripts/check-env-example.test.mjs
+  - scripts/compile-system-prompt-l0.mjs
   - scripts/check-skills-mount.sh
   - scripts/check-skills-manifest.mjs
   - scripts/check-followup-tails.mjs
@@ -288,6 +291,10 @@ transforms:
   - target: cat-cafe-skills/refs/shared-rules.md
     type: sanitize
     description: "通用化第一性原理（去铲屎官个人引用）"
+
+  - target: assets/system-prompts/system-prompt-l0.md
+    type: sanitize
+    description: "公开版 native L0 模板（去内部 Redis/alpha 端口与家内战略表述）"
 
   - target: README.md
     type: generate
