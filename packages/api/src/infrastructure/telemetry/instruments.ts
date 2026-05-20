@@ -263,6 +263,12 @@ export const holdBallCancelledWithReason = lazy(() =>
   }),
 );
 
+export const holdBallWake = lazy(() =>
+  meter().createCounter('cat_cafe.hold_ball.wake', {
+    description: 'Hold ball wake-up events fired by scheduler (F208 Phase B trace)',
+  }),
+);
+
 export const holdBallRejected = lazy(() =>
   meter().createCounter('cat_cafe.hold_ball.rejected', {
     description: 'Hold ball calls rejected by rate limit (F208 Phase B trace)',

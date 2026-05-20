@@ -1,4 +1,5 @@
 import { SCHEDULER_TRIGGER_PREFIX } from '@cat-cafe/shared';
+import { holdBallWake } from '../../telemetry/instruments.js';
 import type { TaskSpec_P1 } from '../types.js';
 import type { DynamicTaskParams, TaskTemplate } from './types.js';
 
@@ -46,7 +47,10 @@ export const reminderTemplate: TaskTemplate = {
             ...(ctx.invokeTrigger ? { extra: { scheduler: { hiddenTrigger: true } } } : {}),
           });
 
-          // Wake a cat to act on the trigger message
+          if (instanceId.startsWith('hold-ball-')) {
+            holdBallWake.add(1, { 'agent.id': catId });
+          }
+
           if (ctx.invokeTrigger) {
             ctx.invokeTrigger.trigger(tid, catId, triggerUserId, content, messageId, undefined, {
               sourceCategory: 'scheduled',

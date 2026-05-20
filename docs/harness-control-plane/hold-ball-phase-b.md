@@ -18,9 +18,15 @@ created: 2026-05-20
 | holdBallRegistered | `cat_cafe.hold_ball.registered` | `agent.id` | POST /api/callbacks/hold-ball returns 200 |
 | holdBallCancelled | `cat_cafe.hold_ball.cancelled` | `agent.id`, `cancel.reason` | DELETE /api/callbacks/hold-ball/:taskId succeeds |
 | holdBallCancelledWithReason | `cat_cafe.hold_ball.cancelled_with_reason` | `agent.id`, `cancel.reason` | Cancel includes structured reason (TRUST_GAP/HARNESS_GAP/STUCK/OTHER) |
+| holdBallWake | `cat_cafe.hold_ball.wake` | `agent.id` | Scheduler fires hold-ball reminder (reminder template execute) |
 | holdBallRejected | `cat_cafe.hold_ball.rejected` | `agent.id` | POST returns 429 (maxHoldsPerWindow exceeded) |
 
-Implementation: `packages/api/src/infrastructure/telemetry/instruments.ts`
+Attribute allowlist: `cancel.reason` added to `metric-allowlist.ts` (CANCEL_REASON in genai-semconv.ts).
+
+Implementation:
+- Counters: `packages/api/src/infrastructure/telemetry/instruments.ts`
+- Allowlist: `packages/api/src/infrastructure/telemetry/metric-allowlist.ts`
+- Wake wiring: `packages/api/src/infrastructure/scheduler/templates/reminder.ts`
 
 ### 1.2 Trace Event Schema
 
@@ -43,8 +49,8 @@ Event mapping to existing code paths:
 - **hold**: `holdBallRegistered` counter + log `F167 C1: hold_ball registered`
 - **cancel**: `holdBallCancelled` counter + log `F167 Phase J: hold_ball cancelled`
 - **reject**: `holdBallRejected` counter + log `F167 C1: hold_ball rejected`
-- **wake**: Fires via TaskRunnerV2 reminder template (existing scheduler path)
-- **zombie**: Detected when wake fires but cat doesn't respond within followup window (future: requires cross-referencing wake event with subsequent invocation)
+- **wake**: `holdBallWake` counter in reminder template, gated on `hold-ball-` task ID prefix
+- **zombie**: Requires eval pipeline correlation: wake fired but no subsequent invocation for that cat in that thread within a followup window. Phase C scope — needs cross-referencing `holdBallWake` with invocation traces
 
 ### 1.3 Observability Path
 
@@ -140,7 +146,7 @@ Friction = `1 - (cancelled_with_reason / cancelled)`
 
 ### 4.2 Degrade Criteria
 
-**Condition**: `friction_rate > 30%` OR `trust_gap_rate > 20%` OR `zombie_rate > 15%` over any 7-day window.
+**Condition**: `friction_rate > 30%` OR `trust_gap_rate > 20%` over any 7-day window. (Phase C adds `zombie_rate > 15%` once eval pipeline correlation is available.)
 
 **Concrete example**: Over 7 days, 30 holds fire, 12 are cancelled, only 3 have a reason, and 6 are TRUST_GAP:
 - friction = 1 - 3/12 = 75% → TRIGGERED

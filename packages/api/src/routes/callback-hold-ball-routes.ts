@@ -19,8 +19,13 @@ import { createModuleLogger } from '../infrastructure/logger.js';
 import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskStore.js';
 import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
 import type { TaskTemplate } from '../infrastructure/scheduler/templates/types.js';
+import {
+  holdBallCancelled,
+  holdBallCancelledWithReason,
+  holdBallRegistered,
+  holdBallRejected,
+} from '../infrastructure/telemetry/instruments.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
-import { holdBallCancelled, holdBallCancelledWithReason, holdBallRegistered, holdBallRejected } from '../infrastructure/telemetry/instruments.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { requireCallbackAuth } from './callback-auth-prehandler.js';
 import { deriveCallbackActor } from './callback-scope-helpers.js';

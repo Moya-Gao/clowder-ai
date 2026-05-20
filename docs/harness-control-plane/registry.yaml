@@ -26,11 +26,11 @@ units:
     governance:
       owner: opus
       upgrade_criteria: "friction_rate < 10% AND trust_gap_rate < 5% over 2 weeks → promote to always-on"
-      degrade_criteria: "friction_rate > 30% OR trust_gap_rate > 20% OR zombie_rate > 15% → add manual confirmation"
+      degrade_criteria: "friction_rate > 30% OR trust_gap_rate > 20% → add manual confirmation (Phase C adds zombie_rate)"
       sunset_signal: "Zero holdBallRegistered for 3 months + CI webhooks cover all wait cases"
 
     interfaces:
-      trace: "OTel counters: hold_ball.registered/.cancelled/.cancelled_with_reason/.rejected"
+      trace: "OTel counters: hold_ball.registered/.cancelled/.cancelled_with_reason/.wake/.rejected"
       eval: "Thread-segment observation — trust_gap detection via cancel reason analysis"
       feedback: "Cancel reason field (TRUST_GAP/HARNESS_GAP/STUCK/OTHER) + free-text message"
       governance: "Weekly threshold check + monthly registry review. See hold-ball-phase-b.md §4"

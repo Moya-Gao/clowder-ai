@@ -35,6 +35,9 @@ export const ROUTING_INTENT = 'cat_cafe.routing.intent';
 export const CALLBACK_TOOL = 'callback.tool';
 export const CALLBACK_REASON = 'callback.reason';
 
+// --- F208 Phase B: hold ball cancel reason ---
+export const CANCEL_REASON = 'cancel.reason';
+
 // --- Route aggregate attributes (set at route completion) ---
 export const ROUTE_TOTAL_CATS_INVOKED = 'route.total_cats_invoked';
 export const ROUTE_TOTAL_TOKENS = 'route.total_tokens';
