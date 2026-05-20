@@ -1,3 +1,4 @@
+// F206 exempt: file-type brand colors — fixed per language identity, not theme-dependent
 const FILE_ICONS: Record<string, { color: string; label: string }> = {
   ts: { color: '#3178C6', label: 'TS' },
   tsx: { color: '#3178C6', label: 'TX' },

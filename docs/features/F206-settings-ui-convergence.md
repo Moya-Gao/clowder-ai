@@ -132,6 +132,28 @@ Phase H 后砚砚 post-merge audit 识别 workspace editor/terminal 7 文件共 
 8. **AgentPaneList 迁移**：6 hex → terminal tokens（zero remaining）
 9. **Dead token cleanup**：移除 14 个无引用的 pre-existing `--terminal-*` tokens
 
+### Phase J: Hub visual raw-hex sweep + ChangesPanel ws-editor-deep fix 🚧
+
+Phase I 后砚砚 post-merge audit 识别 Hub/Leaderboard/Quota 6 文件共 ~152 处 raw hex + ChangesPanel 1 处 workspace 漏网。
+
+1. **45 新 `--hub-*` CSS tokens**（light + dark mode）到 `console-shell.css`：
+   - `--hub-surface-*`（6 tokens）— Hub 面板/页脚/表单背景
+   - `--hub-heading` / `--hub-text-*`（6 tokens）— 标题/正文/次要/幽灵文字
+   - `--hub-border-*`（5 tokens）— 边框/暖调/柔和/强调/表单
+   - `--hub-accent-*`（4 tokens）— 主操作/hover/面包屑/暖调
+   - `--hub-btn-*`（3 tokens）— 深色按钮/hover
+   - `--hub-cat-*`（6 tokens）— 工具使用 3 类别色 + 背景
+   - `--hub-lb-*`（8 tokens）— 排行榜文字/强调/卡片/section/badge/progress 背景
+   - `--hub-quota-*`（6 tokens）— 额度标签/错误色
+2. **HubToolUsageTab 迁移**：~41 hex → hub-* tokens（summary cards/daily trend/top tools/by-cat）
+3. **HubCoCreatorEditor 迁移**：~27 hex → hub-* + ws-accent tokens（modal chrome/form fields/avatar）
+4. **HubQuotaBoardTab 迁移**：~27 hex → hub-* + field-success-* tokens（quota pools/error banner/tags）
+5. **HubCatEditor 迁移**：~24 hex → hub-* + field-success-focus tokens（member editor modal）
+6. **leaderboard-cards 迁移**：~17 hex → hub-lb-* tokens via inline `style={{}}`
+7. **leaderboard-phase-bc 迁移**：~16 hex → hub-lb-* tokens via inline `style={{}}`
+8. **ChangesPanel workspace fix**：`bg-[#16161c]` → `bg-[var(--ws-editor-deep)]`（Phase I token）
+9. **FileIcons exempt**：15 file-type brand colors marked exempt（fixed per language identity, not theme-dependent）
+
 ### Post-close Guardrail: 线条分隔 vs 背景分层
 
 铲屎官 2026-05-20 追加口径：Thread 栏、对话栏、底部/右侧状态栏这类主框架区域，可以保留“统一底色 + 极淡线条分隔”的模式，不必强制改成背景色分层。目标接近网易云/微信的克制分隔：线条存在但不抢眼。
@@ -211,6 +233,15 @@ Phase H 后砚砚 post-merge audit 识别 workspace editor/terminal 7 文件共 
 - [x] AC-I5: 14 dead pre-existing `--terminal-*` tokens removed（zero references verified）
 - [x] AC-I6: `pnpm test` + `pnpm check` + `pnpm build` 全绿
 
+### Phase J（Hub visual raw-hex sweep + ChangesPanel fix）
+- [ ] AC-J1: 45 new `--hub-*` CSS tokens defined in console-shell.css（light + dark mode）
+- [ ] AC-J2: HubToolUsageTab/HubCoCreatorEditor/HubQuotaBoardTab/HubCatEditor — ~119 hex → hub-* tokens
+- [ ] AC-J3: leaderboard-cards/leaderboard-phase-bc — ~33 hex → hub-lb-* tokens via inline styles
+- [ ] AC-J4: ChangesPanel `bg-[#16161c]` → `bg-[var(--ws-editor-deep)]`
+- [ ] AC-J5: FileIcons 15 file-type brand colors marked exempt with comment
+- [ ] AC-J6: Zero raw hex in styling code across all 8 migrated files（rg verified, exempt items only remain）
+- [ ] AC-J7: `pnpm test` + `pnpm check` + `pnpm build` 全绿
+
 ## Dependencies
 
 - **Evolved from**: F190（Console Settings 骨架 intake）、F199（Settings parity audit）
@@ -244,6 +275,7 @@ Phase H 后砚砚 post-merge audit 识别 workspace editor/terminal 7 文件共 
 - Phase G: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token + border 清理）
 - Phase H: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration）
 - Phase I: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration + dead token cleanup）
+- Phase J: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration）
 
 ## Links
 
@@ -272,3 +304,4 @@ Phase H 后砚砚 post-merge audit 识别 workspace editor/terminal 7 文件共 
 | 2026-05-20 | Phase G merged (PR #1810) — border sweep, data-viz exempt, MobileStatusSheet KD-4, dedicated progress token |
 | 2026-05-20 | Phase H merged (PR #1811) — workspace browser chrome 31 hex → 10 ws-* semantic tokens, ThreadSidebar border KD-4 justified |
 | 2026-05-20 | Phase I merged (PR #1812) — workspace editor/terminal 43 hex → 16 always-dark tokens, 14 dead tokens removed |
+| 2026-05-20 | Phase J in review — Hub 6 files ~152 hex → 45 hub-* semantic tokens + ChangesPanel ws-editor-deep fix |
