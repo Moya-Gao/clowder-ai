@@ -138,16 +138,16 @@ export function WorkspaceFileViewer({
     <div className="flex-1 flex flex-col min-h-0 animate-fade-in">
       {/* Tab bar */}
       {openTabs.length > 0 && (
-        <div className="flex bg-[#1E1E24] border-b border-[#2a2a32] overflow-x-auto scrollbar-none">
+        <div className="flex bg-[var(--ws-editor-bg)] border-b border-[var(--ws-editor-surface)] overflow-x-auto scrollbar-none">
           {openTabs.map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setOpenFile(tab)}
-              className={`group flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono border-r border-[#2a2a32] flex-shrink-0 transition-colors ${
+              className={`group flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono border-r border-[var(--ws-editor-surface)] flex-shrink-0 transition-colors ${
                 tab === openFilePath
-                  ? 'bg-[#2a2a32] text-gray-200'
-                  : 'text-cafe-secondary hover:text-cafe-muted hover:bg-[#252530]'
+                  ? 'bg-[var(--ws-editor-surface)] text-gray-200'
+                  : 'text-cafe-secondary hover:text-cafe-muted hover:bg-[var(--ws-editor-hover)]'
               }`}
               title={tab}
             >
@@ -177,7 +177,7 @@ export function WorkspaceFileViewer({
       )}
 
       {/* Toolbar */}
-      <div className="px-3 py-1 bg-[#1E1E24] flex items-center justify-between">
+      <div className="px-3 py-1 bg-[var(--ws-editor-bg)] flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           {file.size > 0 && (
             <span className="text-[10px] text-cafe-secondary font-mono flex-shrink-0">
@@ -315,7 +315,7 @@ export function WorkspaceFileViewer({
       />
 
       {file.truncated && (
-        <div className="px-3 py-1.5 text-[10px] text-amber-400 bg-[#1E1E24] border-t border-amber-900/30">
+        <div className="px-3 py-1.5 text-[10px] text-amber-400 bg-[var(--ws-editor-bg)] border-t border-amber-900/30">
           \u6587\u4EF6\u5DF2\u622A\u65AD (超过 1MB)
         </div>
       )}

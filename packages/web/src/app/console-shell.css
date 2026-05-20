@@ -126,6 +126,16 @@
   --terminal-button-text: #aaaaaa;
   --terminal-error-border: #6b3030;
   --terminal-selected-bg: #2a2b3d;
+  --ws-surface: #fdf8f3;
+  --ws-surface-hover: #fff5f2;
+  --ws-surface-warm: #f5f0eb;
+  --ws-surface-alert: #fff0ed;
+  --ws-accent: #e29578;
+  --ws-accent-hover: #d4856a;
+  --ws-text: #5a4a42;
+  --ws-editor-bg: #1e1e24;
+  --ws-editor-surface: #2a2a32;
+  --ws-editor-hover: #252530;
 }
 
 [data-theme="dark"] {
@@ -234,6 +244,13 @@
   --mc-risk-critical: #e07060;
   --mc-risk-high: #e4a853;
   --mc-risk-medium: #a0a0a0;
+  --ws-surface: color-mix(in srgb, var(--cafe-surface-elevated) 90%, black 10%);
+  --ws-surface-hover: color-mix(in srgb, var(--cafe-surface-elevated) 84%, white 4%);
+  --ws-surface-warm: color-mix(in srgb, var(--cafe-surface) 85%, black 15%);
+  --ws-surface-alert: color-mix(in srgb, #ef4444 8%, var(--console-card-bg) 92%);
+  --ws-accent: #d4856a;
+  --ws-accent-hover: #c47a5d;
+  --ws-text: #c4a58f;
 }
 
 .console-shell {
