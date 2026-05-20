@@ -402,6 +402,11 @@ schema 往回推。**Persist 的投入方式是：先钉终态，每步产物在
 
 **〔 Figure 3 —— 投资账本：Cat Café 的真实 Delete / Persist 分布 〕**
 
+![Figure 3：投资账本 Delete / Persist 分布](assets/longform-002-figure-3-investment-ledger.png)
+
+<details>
+<summary>低保真草图对照</summary>
+
 > | Build to Delete（有保质期） | 分类错误 | Built to Persist（复利型） |
 > |:---|:---:|---:|
 > | 治理规则 user-message prepend（已删除 → 迁移至压缩免疫层） | 6 补丁链：应为脚手架却按基础设施加码 → | 恢复基础设施（side-effect 日志 + 存活探针 + 恢复卡片） |
@@ -409,6 +414,8 @@ schema 往回推。**Persist 的投入方式是：先钉终态，每步产物在
 > | hotfix 补丁（2 周强制升级审查） | 个体名硬编码：类别对但编码粒度错 → | 跨角色 review 协议 |
 > | | | harness 工程方法论（适配 → 留痕 → 信号提取 → 定期退役） |
 > | ↓ 模型越强，边际价值递减 | **Delete 的时机由谁判定？→ 第 5 章** | ↑ 模型越强，复利越大 |
+
+</details>
 
 三类错误指向一个共同问题：**判别器告诉你该分哪类，但没告诉你什么时候执行
 Delete。**
@@ -491,10 +498,15 @@ TeamAct 的本质同样是反馈方向：六步是叙事骨架，真正的引擎
 
 **〔 Figure 4 — ReAct 单 agent 闭环 vs TeamAct 多 agent 闭环 〕**
 
+![Figure 4：ReAct vs TeamAct](assets/longform-002-figure-4-react-teamact.png)
+
+<details>
+<summary>低保真草图对照</summary>
+
 低保真草图 v0：左边只画单个 agent 内部的 Thought / Action / Observation；右边画
 Shared State 作为团队共同反馈源，TeamAct 六步围绕它闭环。
 
-```mermaid
+```text
 flowchart LR
   subgraph R["ReAct：单 agent 内部闭环"]
     T["Thought<br/>推理"] --> A["Action<br/>工具调用"] --> O["Observation<br/>观察结果"] --> T
@@ -512,15 +524,22 @@ flowchart LR
   end
 ```
 
+</details>
+
 最终图要保留这个重点：ReAct 的反馈源是 Observation，TeamAct 的反馈源是 Shared
 State；TeamAct 不是第六种协作模式，而是 Shared State 上的团队级闭环。
 
 **〔 Figure 5 — TeamAct 状态机 〕**
 
+![Figure 5：TeamAct 状态机](assets/longform-002-figure-5-teamact-state-machine.png)
+
+<details>
+<summary>低保真草图对照</summary>
+
 低保真草图 v0：六步是主路径，失败模式挂在 Owner / Verdict / Route 三个容易出事
 的节点上；五项终止条件是外圈守卫。
 
-```mermaid
+```text
 flowchart TB
   S["1 State<br/>读共享状态"] --> O["2 Owner<br/>明确谁负责"]
   O --> A["3 Action<br/>持有者执行"]
@@ -537,6 +556,8 @@ flowchart TB
 
   END["终止守卫<br/>1 AC 全达成<br/>2 证据已附<br/>3 跨 agent 验证<br/>4 无悬空归属<br/>5 愿景收敛"] -.-> R
 ```
+
+</details>
 
 最终图要让读者一眼看懂：TeamAct 不是聊天顺序，而是任务归属、验证和路由共同构成的
 状态机。
@@ -697,6 +718,11 @@ reviewer 是守门员，不是 cheerleader。
 
 **〔 Figure 6 —— 一条消息驱动的 TeamAct 全流程 〕**
 
+![Figure 6：一条消息驱动的 TeamAct 全流程](assets/longform-002-figure-6-message-driven-teamact.png)
+
+<details>
+<summary>低保真草图对照</summary>
+
 > **主流程**（从左到右）：
 >
 > ```
@@ -717,6 +743,8 @@ reviewer 是守门员，不是 cheerleader。
 >
 > **底部保护机制**：超时 → 自动升级 ｜ 乒乓球熔断（连续传球 ≥ 4 次 + 零实质
 > 工具调用 → 中断）｜ 虚空持球检测（文本声明持球但没有持球注册工具凭证 → 告警）
+
+</details>
 
 **为什么不能用简化版。** 如果没有 shared state，每个 agent 的上下文只来自对话历史
 ——压缩后丢失，每轮都从零开始。如果没有显式路由，agent 之间的任务归属退化为
@@ -1297,6 +1325,11 @@ Agentic Search 是读多写少的系统。LLM Wiki 有知识维护循环（lint 
 
 **〔 Figure 9 — 四种 Memory/Retrieval 范式对比 + 反馈飞轮 〕**
 
+![Figure 9：四种 Memory / Retrieval 范式对比](assets/longform-002-figure-9-memory-retrieval-comparison.png)
+
+<details>
+<summary>低保真草图对照</summary>
+
 低保真草图 v0：上半部分是四列对比表，下半部分是 Cat Café 独有的反馈飞轮。
 
 | 维度 | RAG | LLM Wiki | Agentic Search | Cat Café 记忆 |
@@ -1326,6 +1359,8 @@ Cat Café 反馈飞轮（下半图）：
 最终图要突出两件事：第一，四列对比中 Cat Café 是唯一同时满足"生产者=消费者"
 和"有运行时结果反馈"的；第二，反馈飞轮不是单次检索，是一个持续转动的循环
 ——每次任务的使用行为都在优化下次任务的知识可发现性。
+
+</details>
 
 ---
 
@@ -1528,6 +1563,11 @@ Eval 的产物不只是一个结论。更有价值的是轨迹：agent 的意图
 
 **〔 Figure 10 — Harness Eval Control Plane：从观测到底层改进决策 〕**
 
+![Figure 10：Harness Eval Control Plane](assets/longform-002-figure-10-eval-control-plane.png)
+
+<details>
+<summary>低保真草图对照</summary>
+
 低保真草图 v0：画最终收敛架构，不画当前"每条线各自一个定时任务"的临时形态。
 当前 F192/F200 作为两条已接入的评估管线放在图里，但图的主体是未来统一控制面。
 
@@ -1575,6 +1615,8 @@ Eval 的产物不只是一个结论。更有价值的是轨迹：agent 的意图
                                     ▼
                               下一轮真实工作流
 ```
+
+</details>
 
 这张图要传达三个判断：
 
@@ -1726,6 +1768,11 @@ provider 耦合。不是让所有 provider 变一样——是让运维决策有�
 
 **〔 Figure 11 —— 多 agent 可靠性控制面 〕**
 
+![Figure 11：多 agent 可靠性控制面](assets/longform-002-figure-11-reliability-control-plane.png)
+
+<details>
+<summary>低保真草图对照</summary>
+
 ```text
 故障输入
   ├─ 通道中断：stream 断了，但任务可能还在跑
@@ -1755,6 +1802,8 @@ Transport × Binding × Runtime Contract × Event Adapter
 TeamAct Shared State
 证据、任务归属、下一步路由、人工确认点
 ```
+
+</details>
 
 这张图里的关键不是"多一层框架"，而是把三类失败都收进同一个控制面：
 通道中断不再等于任务失败，状态分裂不再由各接口各猜，provider 差异不再直接
@@ -1979,6 +2028,11 @@ Cat Café 伙伴系统输出分布
 
 **〔 Figure 13 —— 协作成本不是 token 总和 〕**
 
+![Figure 13：协作成本不是 token 总和](assets/longform-002-figure-13-collaboration-cost.png)
+
+<details>
+<summary>低保真草图对照</summary>
+
 ```text
 简单任务
   单 agent：低 token + 低返工风险 → 更划算
@@ -1991,6 +2045,8 @@ Cat Café 伙伴系统输出分布
 结论：
   token 是账单的一行，不是完整账本。
 ```
+
+</details>
 
 这也解释了为什么人类当路由器不一定更省。人类把 agent A 的意思转述给 agent B，
 看起来省了 agent-to-agent 讨论，但实际引入了低带宽、有损压缩和额外心智负担。
@@ -2082,4 +2138,4 @@ review 严重度、commit、AC、trace。对人类读者来说，这像黑话；
 
 *英文 v0 起草：[布偶猫/Opus-46🐾]*
 *结构守护 + 中文化：[宪宪/Opus-47🐾]*
-*Figure 2：[砚砚/GPT-5.5🐾]；其余配图待补*
+*Figures 1-13 生成式配图：[砚砚/GPT-5.5🐾]；低保真草图保留为对照*
