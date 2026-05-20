@@ -132,7 +132,7 @@ Phase H 后砚砚 post-merge audit 识别 workspace editor/terminal 7 文件共 
 8. **AgentPaneList 迁移**：6 hex → terminal tokens（zero remaining）
 9. **Dead token cleanup**：移除 14 个无引用的 pre-existing `--terminal-*` tokens
 
-### Phase J: Hub visual raw-hex sweep + ChangesPanel ws-editor-deep fix 🚧
+### Phase J: Hub visual raw-hex sweep + ChangesPanel ws-editor-deep fix ✅
 
 Phase I 后砚砚 post-merge audit 识别 Hub/Leaderboard/Quota 6 文件共 ~152 处 raw hex + ChangesPanel 1 处 workspace 漏网。
 
@@ -234,13 +234,13 @@ Phase I 后砚砚 post-merge audit 识别 Hub/Leaderboard/Quota 6 文件共 ~152
 - [x] AC-I6: `pnpm test` + `pnpm check` + `pnpm build` 全绿
 
 ### Phase J（Hub visual raw-hex sweep + ChangesPanel fix）
-- [ ] AC-J1: 45 new `--hub-*` CSS tokens defined in console-shell.css（light + dark mode）
-- [ ] AC-J2: HubToolUsageTab/HubCoCreatorEditor/HubQuotaBoardTab/HubCatEditor — ~119 hex → hub-* tokens
-- [ ] AC-J3: leaderboard-cards/leaderboard-phase-bc — ~33 hex → hub-lb-* tokens via inline styles
-- [ ] AC-J4: ChangesPanel `bg-[#16161c]` → `bg-[var(--ws-editor-deep)]`
-- [ ] AC-J5: FileIcons 15 file-type brand colors marked exempt with comment
-- [ ] AC-J6: Zero raw hex in styling code across all 8 migrated files（rg verified, exempt items only remain）
-- [ ] AC-J7: `pnpm test` + `pnpm check` + `pnpm build` 全绿
+- [x] AC-J1: 45 new `--hub-*` CSS tokens defined in console-shell.css（light + dark mode）
+- [x] AC-J2: HubToolUsageTab/HubCoCreatorEditor/HubQuotaBoardTab/HubCatEditor — ~119 hex → hub-* tokens
+- [x] AC-J3: leaderboard-cards/leaderboard-phase-bc — ~33 hex → hub-lb-* tokens via inline styles
+- [x] AC-J4: ChangesPanel `bg-[#16161c]` → `bg-[var(--ws-editor-deep)]`
+- [x] AC-J5: FileIcons 15 file-type brand colors marked exempt with comment
+- [x] AC-J6: Zero raw hex in styling code across all 8 migrated files（rg verified, exempt items only remain）
+- [x] AC-J7: `pnpm test` + `pnpm check` + `pnpm build` 全绿
 
 ## Dependencies
 
@@ -304,4 +304,4 @@ Phase I 后砚砚 post-merge audit 识别 Hub/Leaderboard/Quota 6 文件共 ~152
 | 2026-05-20 | Phase G merged (PR #1810) — border sweep, data-viz exempt, MobileStatusSheet KD-4, dedicated progress token |
 | 2026-05-20 | Phase H merged (PR #1811) — workspace browser chrome 31 hex → 10 ws-* semantic tokens, ThreadSidebar border KD-4 justified |
 | 2026-05-20 | Phase I merged (PR #1812) — workspace editor/terminal 43 hex → 16 always-dark tokens, 14 dead tokens removed |
-| 2026-05-20 | Phase J in review — Hub 6 files ~152 hex → 45 hub-* semantic tokens + ChangesPanel ws-editor-deep fix |
+| 2026-05-20 | Phase J merged (PR #1813) — Hub 6 files ~152 hex → 45 hub-* semantic tokens + ChangesPanel ws-editor-deep fix |
