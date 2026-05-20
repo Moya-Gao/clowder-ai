@@ -225,6 +225,17 @@ export class ClaudeBgCarrierService implements AgentService {
       // F203 Phase C: native system role from compiled L0 file (above).
       args.push('--system-prompt-file', l0Path);
 
+      // F198 Phase D carrier parity (2026-05-19 hotfix): ClaudeAgentService
+      // ('-p' carrier) passes `--permission-mode bypassPermissions` so cats can
+      // invoke tools (Bash / Edit / etc.) without per-call approval prompts.
+      // ClaudeBgCarrierService ('--bg' carrier) was missing this flag → the
+      // daemon-spawned claude process reverted to default permission mode →
+      // every tool call prompted inside the detached daemon TTY (invisible
+      // from web UI) → invocations hung. Realized when 铲屎官 flipped
+      // CAT_CAFE_CLAUDE_CARRIER=bg_daemon in runtime and布偶猫 cats stalled
+      // on first Bash call. Parity-keep with ClaudeAgentService PERMISSION_MODE.
+      args.push('--permission-mode', 'bypassPermissions');
+
       // 砚砚 Step-3 P1 (2026-05-14): inject --mcp-config when callbackEnv
       // present + mcpServerPath resolved. Mirrors ClaudeAgentService so
       // canary布偶猫 sessions retain Cat Café MCP tools (cat_cafe_*) under
