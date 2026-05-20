@@ -66,11 +66,12 @@ related: [F086, F129, ADR-012]
 | `GOVERNANCE_L0_DIGEST` | `SystemPromptBuilder.ts:259` | **ALL cats at runtime** | `shared-rules.md` |
 | `WORKFLOW_TRIGGERS` | `SystemPromptBuilder.ts:278` | 各族工作流 | 同文件（无外部源） |
 | `MCP_TOOLS_SECTION` | `SystemPromptBuilder.ts:223` | Claude 猫 only | 同文件 |
-| `governance-l0.md` | `assets/system-prompts/` | Codex/Gemini sync 产物 | `shared-rules.md` |
-| `codex.md` / `gemini.md` | `assets/system-prompts/cats/` | 各族身份 | 自身 |
-| `CLAUDE.md` | repo root | 布偶猫(Opus) | 自身（不被 sync） |
-| `AGENTS.md` | repo root | 缅因猫(Codex) | sync 产物 |
-| `cat-config.json` | repo root | 全体猫 roster | 自身 |
+| `system-prompt-l0.md` (native L0) | `assets/system-prompts/` → `compile-system-prompt-l0.mjs` | **Claude + Codex** developer 层 native 注入（压缩免疫，F203） | 自身 |
+| `governance-l0.md` | `assets/system-prompts/` | Gemini sync 产物（Codex 已退役走 native L0） | `shared-rules.md` |
+| `gemini.md` | `assets/system-prompts/cats/` | 暹罗猫身份 | 自身 |
+| `CLAUDE.md` | repo root | 布偶猫(Opus) harness 级 | 自身（不被 sync） |
+| `AGENTS.md` | repo root | 缅因猫(Codex) harness 级 project-doc | 自身（不被 sync） |
+| `cat-config.json` | repo root | 全体猫 roster + 身份编译源 | 自身 |
 | Pack blocks | `governance-pack.ts` | 外部项目 | Pack 定义 |
 
 ### 3. 同步纪律：改一处 → 必查全链
@@ -88,9 +89,8 @@ pnpm --filter @cat-cafe/api test:system-prompt
 ```
 
 **改身份/性格时：**
-- 布偶猫 → 改 `CLAUDE.md`（完）
-- 缅因猫 → 改 `assets/system-prompts/cats/codex.md` → `pnpm sync:system-prompts`
-- 暹罗猫 → 改 `assets/system-prompts/cats/gemini.md` → `pnpm sync:system-prompts`
+- 布偶猫 / 缅因猫 → 改 `cat-config.json`（角色/性格），native L0 由 `compile-system-prompt-l0.mjs` 编译注入（无 sync）；缅因猫 workflow / 长任务纪律改 `compile-system-prompt-l0.mjs` 的 `WORKFLOW_TRIGGERS_INLINE['maine-coon']`
+- 暹罗猫 → 改 `assets/system-prompts/cats/gemini.md` → `pnpm sync:system-prompts`（暹罗猫尚未迁移 native L0）
 
 **改工作流触发点时：**
 - 改 `WORKFLOW_TRIGGERS` in `SystemPromptBuilder.ts`（完，无外部源）

@@ -179,16 +179,20 @@ function renderCollabRules(shardsDir: string): string {
 // --- Renderers ---
 
 /**
- * Render the full system prompt for Codex (缅因猫).
- * Target: ~/.codex/AGENTS.md
- * Format: governance + collab + cat identity, separated by horizontal rules.
+ * Codex (缅因猫) native config target — F203: retired to empty.
+ *
+ * 缅因猫已切到 native `developer_instructions` L0 注入（压缩免疫层，真相源
+ * `assets/system-prompts/system-prompt-l0.md` + `scripts/compile-system-prompt-l0.mjs`）。
+ * `~/.codex/AGENTS.md` 这条 F050 user-layer fallback 路径已退役——Codex CLI 默认
+ * prepend 它到 user message，与 developer L0 重复注入身份/家规/队友/Magic Words。
+ * 渲染空字符串让 `--apply` 清空该文件，`checkDrift` 持续守护它不被旧内容污染。
+ * Codex CLI 专属的「长任务纪律」已迁入 `compile-system-prompt-l0.mjs` 的
+ * maine-coon WORKFLOW overlay。
+ *
+ * Gemini 路径（`renderForGemini`）暂留——暹罗猫尚未切到 native L0 注入。
  */
-export function renderForCodex(shardsDir: string): string {
-  const governance = readShard(shardsDir, 'governance-l0.md');
-  const collab = renderCollabRules(shardsDir);
-  const identity = readShard(shardsDir, 'cats/codex.md');
-
-  return [identity, '', '---', '', collab, '', '---', '', governance].join('\n');
+export function renderForCodex(): string {
+  return '';
 }
 
 /**
@@ -216,7 +220,7 @@ export function buildTargets(shardsDir: string, targetRoot?: string): SyncTarget
   return [
     {
       name: 'codex',
-      render: () => renderForCodex(shardsDir),
+      render: () => renderForCodex(),
       targetPath: join(root, '.codex', 'AGENTS.md'),
     },
     {

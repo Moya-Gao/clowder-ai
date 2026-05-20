@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -12,37 +12,12 @@ const SHARDS_DIR = join(REPO_ROOT, 'assets', 'system-prompts');
 
 describe('sync-system-prompts', () => {
   describe('renderForCodex', () => {
-    it('should include governance-l0 content', () => {
-      const result = renderForCodex(SHARDS_DIR);
-      assert.ok(result.includes('家规'), 'missing 家规');
-      assert.ok(result.includes('P1'), 'missing P1 principle');
-      assert.ok(result.includes('Magic Words'), 'missing magic words');
-    });
-
-    it('should include shared OpenAI maine-coon identity', () => {
-      const result = renderForCodex(SHARDS_DIR);
-      assert.ok(result.includes('砚砚'), 'missing 砚砚 nickname');
-      assert.ok(result.includes('OpenAI 家族共享'), 'missing shared home prompt marker');
-      assert.ok(result.includes('@gpt52'), 'missing gpt52 handle');
-      assert.ok(result.includes('@spark'), 'missing spark handle');
-      assert.ok(result.includes('默认按 `@codex` 行事'), 'missing default cat guard');
-    });
-
-    it('should include dynamic collab rules from cat-config roster', () => {
-      const result = renderForCodex(SHARDS_DIR);
-      const config = JSON.parse(readFileSync(join(REPO_ROOT, 'cat-config.json'), 'utf-8')) as {
-        roster: Record<string, unknown>;
-      };
-      assert.ok(result.includes('@opus'), 'missing @opus handle');
-      assert.ok(result.includes('@opencode'), 'missing @opencode handle');
-      assert.ok(result.includes(`共 ${Object.keys(config.roster).length} 只猫`), 'missing dynamic roster count');
-      assert.ok(result.includes('到我这里结束了吗'), 'missing exit check');
-    });
-
-    it('should produce valid markdown', () => {
-      const result = renderForCodex(SHARDS_DIR);
-      assert.ok(result.startsWith('#'), 'should start with markdown heading');
-      assert.ok(result.length > 100, 'should be substantial content');
+    // F203 codex user-layer strip: 缅因猫已切到 native developer_instructions
+    // L0（压缩免疫层）。`~/.codex/AGENTS.md` 这条 F050 user-layer fallback 路径
+    // 已退役——Codex CLI 默认 prepend 它到 user message，与 developer L0 重复
+    // 注入身份/家规/队友。renderForCodex 渲染空字符串让 `--apply` 清空该文件。
+    it('renders empty (codex migrated to native developer L0)', () => {
+      assert.equal(renderForCodex(), '', 'codex AGENTS.md should render empty');
     });
   });
 

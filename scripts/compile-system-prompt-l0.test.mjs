@@ -5,7 +5,7 @@
  *   - 14 L0 governance items + objective carry-over placeholder all present
  *   - per-cat overlay (IDENTITY_BLOCK / TEAMMATE_ROSTER / WORKFLOW_TRIGGERS) substituted
  *   - per-breed cache key stable (same catId twice = byte-identical output)
- *   - token total ≤ 4,500 (AC-B3)
+ *   - token total ≤ 5,500 (AC-B3, KD-14)
  *   - 5 catIds × 3 modes minimum coverage (AC-B2)
  */
 
@@ -122,6 +122,27 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
       assert.ok(siamese.includes('完成设计/视觉资产'));
     });
 
+    // F203 codex user-layer strip: 长任务纪律是 Codex CLI harness 专属知识
+    // （exec_command session_id / 伪后台陷阱 / detached spawn / fire-and-forget
+    // 探针），原本只在退役的 ~/.codex/AGENTS.md user-layer。剥离 user-layer 前
+    // 必须先进 maine-coon native L0 overlay，否则砚砚丢这条 harness 教训。
+    // 砚砚 plan-review 要求：codex/gpt52/spark 全 maine-coon variant 都覆盖，
+    // 非 maine-coon（ragdoll/siamese）不泄漏。spark 不在 CATS 但同 breedId。
+    test('maine-coon overlay carries Codex-CLI 长任务纪律 (codex + gpt52)', async () => {
+      for (const catId of ['codex', 'gpt52']) {
+        const maine = await compileL0({ catId });
+        assert.ok(maine.includes('长任务纪律'), `${catId}: missing 长任务纪律 heading`);
+        assert.ok(maine.includes('exec_command'), `${catId}: missing exec_command session_id guidance`);
+        assert.ok(maine.includes('detached'), `${catId}: missing detached spawn guidance`);
+        assert.ok(maine.includes('fire-and-forget') || maine.includes('探针'), `${catId}: missing probe guidance`);
+      }
+      // 长任务纪律是 maine-coon 专属——不应泄漏到布偶猫 / 暹罗猫 overlay
+      const ragdoll = await compileL0({ catId: 'opus-47' });
+      assert.ok(!ragdoll.includes('长任务纪律'), '长任务纪律 leaked into ragdoll overlay');
+      const siamese = await compileL0({ catId: 'gemini25' });
+      assert.ok(!siamese.includes('长任务纪律'), '长任务纪律 leaked into siamese overlay');
+    });
+
     test('MCP quick index present (≤200t goal)', async () => {
       const l0 = await compileL0({ catId: 'opus-47' });
       assert.ok(l0.includes('cat_cafe_search_evidence'));
@@ -186,18 +207,18 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
     });
   });
 
-  // AC-B3 上限 5,000：4,500 是 S1 baseline 前估算；S1 实测 static
-  // 已 2,684-3,060t，14 项完整 L0（含 47 review 补 6 项 + 五条铁律 +
-  // 协作哲学 + 三硬条件 + 球权第一人称）物理下限 ~4,600t。per-breed
-  // 治理协议已下沉 WORKFLOW overlay 去重。5,000 含 buffer，仍在
-  // Claude 4.x prompt cache 单 breakpoint（最小 1,024t）内，占 200k
-  // context 2.5%。详见 F203 AC-B3 + audit。
-  describe('Token budget (AC-B3, ≤5,000)', () => {
+  // AC-B3 上限 5,500（KD-14）：4,500→5,000（KD-9，S1 实测 static 物理
+  // 下限 ~4,600t）→5,500。第二次上移因 codex user-layer strip 把 Codex
+  // CLI 专属「长任务纪律」从退役的 ~/.codex/AGENTS.md 迁入 maine-coon
+  // native overlay——maine-coon 实测 5,154-5,155t，5,000 buffer 已耗尽。
+  // 5,500 仍在 Claude 4.x prompt cache 单 breakpoint（最小 1,024t）内，
+  // 占 200k context 2.75%。详见 F203 AC-B3 + KD-14。
+  describe('Token budget (AC-B3, ≤5,500)', () => {
     for (const catId of CATS) {
-      test(`${catId}: total tokens ≤ 5,000`, async () => {
+      test(`${catId}: total tokens ≤ 5,500`, async () => {
         const l0 = await compileL0({ catId });
         const tokens = tok(l0);
-        assert.ok(tokens <= 5000, `${catId} L0 = ${tokens} tokens (limit 5,000)`);
+        assert.ok(tokens <= 5500, `${catId} L0 = ${tokens} tokens (limit 5,500)`);
       });
     }
   });

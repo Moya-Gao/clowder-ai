@@ -126,6 +126,11 @@ const WORKFLOW_TRIGGERS_INLINE = {
     '',
     '### 缅因猫家族治理（fallback 层数检测 F177 Phase D）',
     '同文件新增 ≥3 层 fallback（`try/catch`/`??`/`||`/`else-if` 级联）→ 坐标系自检：① 修坐标系还是补错误坐标系？② 坐标变换能否消除？③ 每层为什么不能去掉？',
+    '',
+    '### 长任务纪律（Codex CLI harness 专属）',
+    '- `exec_command` 返回 `session_id` = 命令存活；同 `session_id` 续 `write_stdin`，别因暂无输出另起命令。',
+    "- 无头 harness 里 `bash &` / `nohup` / `disown` / `setsid` 是伪后台（父进程退出子进程随之死）；真后台用 Node `spawn(..., { detached: true, stdio: 'ignore' })` + `unref()`。",
+    '- Fire-and-forget（含 `pnpm gate` / `pnpm test` / merge-gate）必须约定 `pid` / `log` / `exit` 探针——无探针不算启动成功；轮询是验结果不是续命。',
   ].join('\n'),
   siamese: [
     '## 工作流（主动 @ 触发点）',
