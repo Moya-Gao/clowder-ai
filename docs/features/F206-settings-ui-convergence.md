@@ -61,6 +61,18 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 2. **Mission Hub 去重**：对话侧栏顶部 Mission Hub 卡片去掉（左侧导航已有入口）
 3. **侧栏导航图标加 tooltip**：hover 显示功能名称（对话/记忆/Mission Hub/信号等）
 
+### Post-close Guardrail: 线条分隔 vs 背景分层
+
+铲屎官 2026-05-20 追加口径：Thread 栏、对话栏、底部/右侧状态栏这类主框架区域，可以保留“统一底色 + 极淡线条分隔”的模式，不必强制改成背景色分层。目标接近网易云/微信的克制分隔：线条存在但不抢眼。
+
+**实现规则：**
+
+1. 主框架边界允许用线：ThreadSidebar ↔ Chat、Chat ↔ input/status、右侧状态栏/辅助栏 ↔ 主内容。
+2. 线条必须统一走同一组淡色 token（优先 `--console-border-soft` / `border-cafe-subtle/20` 级别），禁止每块自造 raw hex、深色边框或高对比描边。
+3. 线条是“结构边界”，不是“卡片轮廓”。除了对话主区域的必要框架线，状态栏、统计块、消息统计、Session Chain、Memory/Signals/Settings 内部模块等能不用卡片外框就不用外框，优先用背景、间距、分组标题、轻量 divider。
+4. Review 时不要一刀切套 CDS §1.1：先判断区域角色。框架边界可用线；内容卡片/统计卡/列表项不应回到四周包边。
+5. 视觉验收要看“线条强度”：如果截图里边框先于内容被看见，视为过强，需要降到更淡 token 或改为背景/间距分隔。
+
 ## Acceptance Criteria
 
 ### Phase A（Primitives + 4 页面归一）
@@ -104,6 +116,7 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 | KD-1 | 不走云端 review，opus coding + codex review + opus-47 愿景守护 | CVO directive：快速路，减少社区分叉。Guardian 47 是同 family (ragdoll) 不同个体（fallback path per 五条铁律 #2），CVO 指定。理想 cross-family 选项是 @gemini，本次因速度优先 + 47 未参与 review 而采用 fallback。 | 2026-05-18 |
 | KD-2 | 归一 ≠ 砍功能学开源 | 开源一致是功能简单，我们要功能保留+抽象到 primitives | 2026-05-18 |
 | KD-3 | 先归一再 outbound sync | 同步出去的代码是社区二次参考点，混乱版污染下游 | 2026-05-18 |
+| KD-4 | 框架边界可用极淡统一线条，内容卡片避免四周包边 | 铲屎官 2026-05-20 明确：Thread 栏/对话栏/状态栏可统一底色 + 淡线分隔；状态栏等内容块仍应“能不要框线就不要框线”，避免改着改着忘回卡片包边 | 2026-05-20 |
 
 ## Review Gate
 
@@ -130,4 +143,5 @@ PR #1758 完成了颜色 token 迁移（hex→semantic），但组件级视觉�
 | 2026-05-18 | CVO 反馈：Signals 样式/Mission Hub 去重/侧栏 tooltip → Phase C 追加 |
 | 2026-05-18 | Phase C merged (PR #1770) — Signals styling + Mission Hub dedup + nav tooltips |
 | 2026-05-18 | F206 closed — opus-47 愿景守護 PASS，全 3 Phase 完成 |
+| 2026-05-20 | Post-close CVO guardrail: Thread/Chat/Status 主框架允许统一淡线分隔；内容卡片/状态块继续避免四周边框 |
 | 2026-05-22 | 目标 close（时间盒 4 天，CVO：不能 5-7 天） |
