@@ -42,24 +42,27 @@ units:
     owner: codex
     description: "Primary entry point for project memory recall (search + graph + list)."
     runtime:
-      load_trigger: static  # always available via MCP
+      load_trigger: static
       execute_mechanism: mcp-tool
       exit_condition: "results returned or timeout"
     eval:
-      activation_signal: pending  # F200 定义
-      friction_metric: pending
-      success_signal: pending
-      regression_fixtures: []
+      activation_signal: "cat_cafe.search_evidence.called counter increments (stub: stderr JSON log)"
+      friction_metric: "User re-searches same query within 2min = harness_gap (recall insufficient)"
+      success_signal: "Search result cited in cat's next response (thread-segment correlation)"
+      regression_fixtures:
+        - "search → results returned → cat cites result (happy path)"
+        - "search → zero results → user rephrases and searches again"
+        - "search → results ignored → cat produces answer without citing"
     governance:
       owner: codex
-      upgrade_criteria: pending
-      degrade_criteria: pending
-      sunset_signal: pending
+      upgrade_criteria: "hit_rate > 90% AND re-search_rate < 5% over 2 weeks → promote semantic mode"
+      degrade_criteria: "hit_rate < 50% OR latency_p99 > 3s → fallback to lexical mode"
+      sunset_signal: "Zero search calls for 3 months OR replaced by external RAG pipeline"
     interfaces:
-      trace: pending
-      eval: F200
-      feedback: pending
-      governance: pending
+      trace: "Stub: stderr JSON log (search_depth metric). Phase C+: migrate to OTel counter cat_cafe.search_evidence.called/.result_count/.zero_hits"
+      eval: "F200 owns methodology. Stub: re-search detection via thread-segment query dedup within 2min window"
+      feedback: "Stub: no feedback channel yet. Phase C+: add result satisfaction signal (thumbs up/down on search results)"
+      governance: "Weekly hit_rate + latency check. F163 variant switching provides existing degrade pattern"
 
   - id: route-serial
     name: "A2A Serial Routing"
