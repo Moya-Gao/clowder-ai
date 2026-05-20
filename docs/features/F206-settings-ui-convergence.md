@@ -105,6 +105,19 @@ Phase F 后砚砚 post-merge audit 识别 5 个文件的边界残留 + data-viz 
 4. **Data-viz palette exempt 注释**：CollectionGraphModel / CollectionGraphParts / HealthReport 的图表色 hex 添加豁免标注，防止未来审计反复 reopen
 5. **新增 CSS token**：`--memory-progress-fill`（light `#6baf8d` / dark `#7cc9a0`）
 
+### Phase H: Workspace browser chrome hex → ws-* semantic tokens ✅
+
+Phase G 后砚砚 post-merge audit 识别 workspace/browser chrome 5 文件共 31 处 raw hex。
+
+1. **10 新 `--ws-*` CSS token**：7 warm UI chrome（surface/hover/warm/alert/accent/accent-hover/text）+ 3 dark editor（editor-bg/editor-surface/editor-hover），7 dark-mode `color-mix()` overrides
+2. **BrowserPanel 迁移**：6 hex → ws-* tokens（main container bg, HMR status, text, accent）
+3. **BrowserToolbar 迁移**：7 hex → ws-* tokens（nav buttons, URL bar, Go button, console toggle）
+4. **ConsolePanel 迁移**：6 hex → ws-* tokens（header, badges, output text）
+5. **BrowserTabBar 迁移**：5 hex → ws-* tokens（container, active/inactive tabs）
+6. **WorkspaceFileViewer 迁移**：4 hex → ws-* tokens（always-dark editor chrome, no dark override needed）
+7. **BrowserTabs test 更新**：assertion `bg-[#FDF8F3]` → `bg-[var(--ws-surface)]`
+8. **ThreadSidebar border KD-4 assessment**：全部 border 在 interactive controls 上（modals/inputs/dropdowns/buttons），per KD-4 全部 justified，无需移除
+
 ### Post-close Guardrail: 线条分隔 vs 背景分层
 
 铲屎官 2026-05-20 追加口径：Thread 栏、对话栏、底部/右侧状态栏这类主框架区域，可以保留“统一底色 + 极淡线条分隔”的模式，不必强制改成背景色分层。目标接近网易云/微信的克制分隔：线条存在但不抢眼。
@@ -167,6 +180,15 @@ Phase F 后砚砚 post-merge audit 识别 5 个文件的边界残留 + data-viz 
 - [x] AC-G4: Data-viz palette exempt comments on all chart/graph hex（3 files, 7+ locations）
 - [x] AC-G5: `pnpm test` + `pnpm check` + `pnpm build` 全绿
 
+### Phase H（Workspace browser chrome hex → ws-* tokens）
+- [x] AC-H1: 10 new `--ws-*` CSS tokens defined in console-shell.css（7 light + 3 dark editor + 7 dark-mode overrides）
+- [x] AC-H2: BrowserPanel/BrowserToolbar/ConsolePanel/BrowserTabBar — 24 hex → ws-* tokens（warm UI chrome）
+- [x] AC-H3: WorkspaceFileViewer — 4 hex → ws-editor-* tokens（always-dark, no dark override）
+- [x] AC-H4: BrowserTabs test assertion updated（`bg-[var(--ws-surface)]`）
+- [x] AC-H5: ThreadSidebar border KD-4 assessment — all borders justified（interactive controls only）
+- [x] AC-H6: Zero raw hex in all 5 migrated workspace files（rg verified）
+- [x] AC-H7: `pnpm test` + `pnpm check` + `pnpm build` 全绿
+
 ## Dependencies
 
 - **Evolved from**: F190（Console Settings 骨架 intake）、F199（Settings parity audit）
@@ -198,6 +220,7 @@ Phase F 后砚砚 post-merge audit 识别 5 个文件的边界残留 + data-viz 
 - Phase E: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token 替换）
 - Phase F: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token 替换）
 - Phase G: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token + border 清理）
+- Phase H: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration）
 
 ## Links
 
@@ -224,3 +247,4 @@ Phase F 后砚砚 post-merge audit 识别 5 个文件的边界残留 + data-viz 
 | 2026-05-20 | Phase E merged (PR #1808) — 7 out-of-scope files, ~100 hex→token, +20 new CSS custom properties (field-success/persist) |
 | 2026-05-20 | Phase F merged (PR #1809) — 22 mission-control files, 356 hex→token, +24 mc-* semantic tokens |
 | 2026-05-20 | Phase G merged (PR #1810) — border sweep, data-viz exempt, MobileStatusSheet KD-4, dedicated progress token |
+| 2026-05-20 | Phase H merged (PR #1811) — workspace browser chrome 31 hex → 10 ws-* semantic tokens, ThreadSidebar border KD-4 justified |
