@@ -3017,14 +3017,32 @@ export function useAgentMessages() {
           // F194 Phase Z3 R9 P1-1 (砚砚): use stable-key match (turn > parent) so same-parent
           // multi-turn doesn't fall back to old turn's bubble via parent-only equality.
           const boundInv = found.extra?.stream?.invocationId;
+          const boundTurnInv = found.extra?.stream?.turnInvocationId;
           let expectedKey = options?.invocationId;
           if (effectiveTurnInvocationId) expectedKey = effectiveTurnInvocationId;
+          const shouldUpgradeParentOnlyActiveStream =
+            found.origin === 'stream' &&
+            found.isStreaming === true &&
+            !!options?.invocationId &&
+            !!effectiveTurnInvocationId &&
+            boundInv === options.invocationId &&
+            !boundTurnInv;
           const stale =
-            (!!expectedKey && !!boundInv && !sameBubbleStableKey(found, expectedKey, catId)) ||
+            (!!expectedKey &&
+              !!boundInv &&
+              !shouldUpgradeParentOnlyActiveStream &&
+              !sameBubbleStableKey(found, expectedKey, catId)) ||
             (options?.ensureStreaming === true && found.origin === 'callback');
           if (stale) {
             deleteActive(catId);
           } else {
+            if (shouldUpgradeParentOnlyActiveStream) {
+              const upgradeInvocationId = options?.invocationId;
+              const upgradeTurnInvocationId = effectiveTurnInvocationId;
+              if (upgradeInvocationId && upgradeTurnInvocationId) {
+                setMessageStreamInvocation(found.id, upgradeInvocationId, upgradeTurnInvocationId);
+              }
+            }
             if (expectedKey && !boundInv) {
               // F194 Phase Z3 R10 P1-1 (砚砚): write dual id — invocationId=parent (chain SoT), turn separate
               // R11 P1 (砚砚): setActive must use parent (AC-Z8: liveness/queue/cancel SoT). turn is bubble identity only.
