@@ -77,6 +77,16 @@
   --semantic-info-bg: #f0f9ff;
   --semantic-info-text: #0369a1;
   --semantic-muted-text: #94a3b8;
+  --field-success-bg: #e8f5e9;
+  --field-success-card-bg: #f2faf4;
+  --field-success-border: #cfe5d5;
+  --field-success-text: #5b7a5c;
+  --field-success-focus: #77a777;
+  --field-success-hint: #6c7a6d;
+  --field-persist-bg: #fff3e0;
+  --field-persist-border: #ffe0b2;
+  --field-persist-title: #e65100;
+  --field-persist-text: #bf360c;
   --terminal-bg: #413a50;
   --terminal-btn-bg: #493a50;
   --terminal-bg-deep: #16161c;
@@ -164,6 +174,16 @@
   --semantic-info-bg: color-mix(in srgb, #0ea5e9 12%, var(--console-card-bg) 88%);
   --semantic-info-text: #38bdf8;
   --semantic-muted-text: #6b7280;
+  --field-success-bg: color-mix(in srgb, #5b7a5c 18%, var(--console-card-bg) 82%);
+  --field-success-card-bg: color-mix(in srgb, #5b7a5c 10%, var(--console-card-bg) 90%);
+  --field-success-border: color-mix(in srgb, #77a777 24%, var(--console-card-bg) 76%);
+  --field-success-text: #8fb990;
+  --field-success-focus: #77a777;
+  --field-success-hint: #8a9b8c;
+  --field-persist-bg: color-mix(in srgb, #e65100 14%, var(--console-card-bg) 86%);
+  --field-persist-border: color-mix(in srgb, #e65100 22%, var(--console-card-bg) 78%);
+  --field-persist-title: #ff8a50;
+  --field-persist-text: #ffab91;
 }
 
 .console-shell {

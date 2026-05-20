@@ -845,21 +845,21 @@ export function WorkspacePanel() {
 
               {/* F120: Port Discovery Toast — matches design Scene 2 */}
               {portDiscoveryToast && (
-                <div className="mx-3 my-2 p-4 rounded-xl bg-cafe-surface shadow-md border border-[#E8E7E5]">
+                <div className="mx-3 my-2 p-4 rounded-xl bg-cafe-surface shadow-md border border-[var(--console-border-soft)]">
                   <div className="flex items-start justify-between mb-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-[#E29578] text-base">◉</span>
-                      <span className="text-sm font-semibold text-[#1A1918]">Dev Server Detected</span>
+                      <span className="text-cafe-accent text-base">◉</span>
+                      <span className="text-sm font-semibold text-cafe">Dev Server Detected</span>
                     </div>
                     <button
                       type="button"
-                      className="text-[#9C9B99] hover:text-[#5a4a42] text-xs"
+                      className="text-cafe-muted hover:text-cafe text-xs"
                       onClick={() => setPortDiscoveryToast(null)}
                     >
                       ✕
                     </button>
                   </div>
-                  <p className="text-xs text-[#6D6C6A] ml-6 mb-3">
+                  <p className="text-xs text-cafe-secondary ml-6 mb-3">
                     localhost:{portDiscoveryToast.port} is now listening
                     {portDiscoveryToast.framework && portDiscoveryToast.framework !== 'unknown'
                       ? ` (${portDiscoveryToast.framework})`
@@ -868,7 +868,7 @@ export function WorkspacePanel() {
                   <div className="flex items-center gap-2 ml-6">
                     <button
                       type="button"
-                      className="px-3 py-1.5 rounded-md bg-[#E29578] text-white text-xs font-medium hover:bg-[#d4856a] transition-colors"
+                      className="px-3 py-1.5 rounded-md bg-cafe-accent text-white text-xs font-medium hover:bg-cafe-accent-hover transition-colors"
                       onClick={() => {
                         setPreviewPort(portDiscoveryToast.port);
                         setViewMode('browser');
@@ -879,7 +879,7 @@ export function WorkspacePanel() {
                     </button>
                     <button
                       type="button"
-                      className="px-3 py-1.5 text-xs text-[#5a4a42]/70 hover:text-[#5a4a42]"
+                      className="px-3 py-1.5 text-xs text-cafe-secondary hover:text-cafe"
                       onClick={() => setPortDiscoveryToast(null)}
                     >
                       Dismiss
