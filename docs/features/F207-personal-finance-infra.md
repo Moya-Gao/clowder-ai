@@ -91,30 +91,33 @@ created: 2026-05-18
 | 美债收益率 / CPI / PMI | 时间序列 | 美国宏观（FRED）/ 中国宏观（AKShare） |
 | USD/CNY | 日线 | 汇率（yfinance + FRED） |
 
-#### Provider Stack（四猫共识）
+#### Provider Stack（spike 后更新 2026-05-20）
 
 | 数据域 | 主源 | 补洞/Fallback | 预算 |
 |--------|------|-------------|------|
-| A 股 + 中国证券 | Tushare Pro 2000 分 | AKShare | ~200 元/年 |
+| 基金 + QDII + 指数估值 + 黄金 + 债券 | **ttfund-skills**（天天基金官方 API） | AKShare 基金接口 | **免费** |
 | 美国宏观 | FRED API | — | 免费 |
-| 美股 + 全球 ETF | yfinance（MCP wrapper） | Alpha Vantage 免费层 | 免费 |
-| 中国宏观 | AKShare macro_china_* | Tushare 宏观接口 | 免费 |
-| 基金 + QDII | AKShare 基金接口 | Tushare fund_basic | 免费 |
+| 美股 + 全球 ETF | yfinance | Alpha Vantage 免费层 | 免费 |
+| 中国宏观（PMI/国债收益率/M2） | AKShare macro_china_* / bond_china_yield | ttfund BOND_MARKET | 免费 |
 | 汇率 | yfinance CNY=X + FRED DEXCHUS | — | 免费 |
+| A 股个股（如需扩展） | Tushare Pro（可选升级） | — | ~200 元/年 |
 
-**总预算**：~200 元/年（留 300 元升级余量）
+**总预算**：**0 元/年**（ttfund spike 通过后 Tushare 降为可选升级，500 元预算全作余量）
+
+> **KD-9**: ttfund-skills 替代 Tushare 成为中国基金/指数估值主源（2026-05-20 spike 验证：沪深 300 PE 百分位 + 成分股 + 行业分布全覆盖）。Tushare 降为可选升级——若铲屎官未来需要 A 股个股财报/交易日历再买。
 
 #### 实施：Spike → 三刀切
 
 **B-spike（先验证，再承诺）**：云端报告说能用 ≠ 真能用。在定契约之前，先跑通每个数据源。
 
-| Spike | 验证目标 | 通过标准 |
-|-------|---------|---------|
-| S1: Tushare | 2000 分能拉沪深 300 日线 + PE + fund_basic + 财报接口 | 返回 DataFrame；asOf ≥ 最近应发布交易日（按 Tushare 各接口 SLA，不以墙钟 24h 一刀切）；验证 fund_basic / fina_indicator 在 2000 分是否可用（OQ-7） |
-| S2: FRED | 拉美国 CPI 月度序列（CPIAUCSL） | 返回时间序列，最新月有数据 |
-| S3: yfinance | 连续拉 20+ 标的日线 + 费率，间隔重复 3 天 | 不触发封禁/rate limit，数据齐全；验证持续可用性而非单次成功 |
-| S4: AKShare | 拉 QDII 净值 + 中国 PMI + 国债收益率 + 大额存单利率，间隔重复 3 天、跨多个接口 | 接口稳定可用（非单次快照）；覆盖基金 + 宏观 + 利率三类 |
-| S5: MCP 集成 | FinanceMCP / fred-mcp-server 在 Claude Code 中可调 | 验证 raw provider 连通性（spike 证据）——**不是最终工具面**，B0 会在此基础上包装 `cat-cafe-finance` 事实层 |
+| Spike | 验证目标 | 通过标准 | 状态 |
+|-------|---------|---------|------|
+| S1: Tushare | ~~2000 分能拉沪深 300 日线 + PE~~ | ~~已被 ttfund 替代~~ | **降级** — ttfund 覆盖指数估值，Tushare 变可选 |
+| S2: FRED | 拉美国 CPI 月度序列（CPIAUCSL） | 返回时间序列，最新月有数据 | **PASS** — CPI/美债/联邦利率全通（2026-05-20） |
+| S3: yfinance | 连续拉 20+ 标的日线 + 费率，间隔重复 3 天 | 不触发封禁/rate limit，数据齐全 | **Day 1 PASS** — 21/21 标的通，费率字段 N/A（已知限制） |
+| S4: AKShare | 拉 QDII 净值 + 中国 PMI + 国债收益率，间隔重复 3 天 | 接口稳定可用（非单次快照） | **Day 1 部分通过** — 基金/PMI/国债 OK，LPR/Shibor SSL 失败 |
+| S5: MCP 集成 | FinanceMCP / fred-mcp-server 在 Claude Code 中可调 | 验证 raw provider 连通性（spike 证据） | 待测 |
+| **S6: ttfund-skills** | **天天基金官方 API 16 个 skill 端点** | **基金信息/NAV/指数估值/持仓/黄金/债券可用** | **PASS** — 砚砚验证 3 个端点 + 布偶猫验证指数估值（PE 百分位全覆盖） |
 
 **B0 — 定契约 + `cat-cafe-finance` 本地事实层骨架**（spike 通过后）：
 - `cat-cafe-finance` 包：统一 schema + provider adapter interface + 缓存 + normalized errors
@@ -299,6 +302,7 @@ AUDHD 护栏设计：
 | KD-6 | Provider orchestration, not provider monogamy | 三路 deep research + 四猫综合共识 | 2026-05-19 |
 | KD-7 | Tushare 2000 分起步（~200 元），留 300 元升级余量 | 四猫投票 3:1（烁烁推荐 5000 分），spike 验证后再决定是否升级 | 2026-05-19 |
 | KD-8 | Phase B 先 spike 再定契约 | 铲屎官指令："云端猫猫们说能用真的能用吗？" | 2026-05-19 |
+| KD-9 | ttfund-skills 替代 Tushare 成为基金/指数估值主源，Tushare 降为可选升级 | Spike S6 验证：PE 百分位/PB/ROE/行业权重全覆盖 + 官方 API 比 Tushare 稳 + 免费（年预算 200→0 元） | 2026-05-20 |
 
 ## Timeline
 
@@ -310,7 +314,10 @@ AUDHD 护栏设计：
 | 2026-05-18 | Deep research 三路发出 |
 | 2026-05-19 | Deep research 回收 + 四猫独立综合 + 最终 synthesis |
 | 2026-05-19 | Phase B spec 更新（spike → 三刀切） |
-| TBD | B-spike 验证（S1-S5） |
+| 2026-05-19 | B-spike 启动：S2 FRED ✅ PASS、S3 yfinance Day 1 ✅ PASS（fees N/A）、S4 AKShare Day 1 ⚠️ partial（LPR/Shibor SSL 失败，债券收益率 OK） |
+| 2026-05-20 | 砚砚安装 ttfund-skills（commit db4d013ed）→ S6 ttfund ✅ PASS（3 端点验证） |
+| 2026-05-20 | **KD-9 pivot**：ttfund-skills 覆盖 PE 百分位 → Tushare 降为可选 → 年预算 0 元 |
+| TBD | S3/S4 Day 2-3 持续测试、S5 MCP 集成 spike |
 | TBD | B0 定契约 → B1 接稳定源 → B2 接脆弱源 |
 
 ## Review Gate
