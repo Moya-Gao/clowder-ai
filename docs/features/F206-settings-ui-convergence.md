@@ -95,6 +95,16 @@ Phase E 后审计显示 `mission-control/` 目录有 356 处 raw hex，是全仓
 3. **替换模式**：Tailwind class hex → token class、JS object hex → `var(--mc-*)`、inline style hex → `var(--mc-*)`
 4. **豁免**：data-viz 41 处 hex（图表颜色需独立 policy）、text-[10px] 510 处留 Phase G
 
+### Phase G: Border sweep + data-viz UI chrome ✅
+
+Phase F 后砚砚 post-merge audit 识别 5 个文件的边界残留 + data-viz 豁免标注缺失。
+
+1. **CollectionGraphParts border 迁移**：3 处 `border-[#eee3d6]` → `border-[var(--console-border-soft)]`（UI chrome section dividers）
+2. **RebuildButton 进度条 token**：`bg-[#6BAF8D]` → `bg-[var(--memory-progress-fill)]`（新增 dedicated token，不复用 field-scoped）
+3. **MobileStatusSheet KD-4 去边框**：3 个 section 移除 `border border-cafe`（内容块不用框线）
+4. **Data-viz palette exempt 注释**：CollectionGraphModel / CollectionGraphParts / HealthReport 的图表色 hex 添加豁免标注，防止未来审计反复 reopen
+5. **新增 CSS token**：`--memory-progress-fill`（light `#6baf8d` / dark `#7cc9a0`）
+
 ### Post-close Guardrail: 线条分隔 vs 背景分层
 
 铲屎官 2026-05-20 追加口径：Thread 栏、对话栏、底部/右侧状态栏这类主框架区域，可以保留“统一底色 + 极淡线条分隔”的模式，不必强制改成背景色分层。目标接近网易云/微信的克制分隔：线条存在但不抢眼。
@@ -150,6 +160,13 @@ Phase E 后审计显示 `mission-control/` 目录有 356 处 raw hex，是全仓
 - [x] AC-F3: mission-control/ 目录 zero raw hex（`rg '#[0-9a-fA-F]{3,8}'` 无匹配）
 - [x] AC-F4: `pnpm test` + `pnpm check` + `pnpm build` 全绿
 
+### Phase G（Border sweep + data-viz UI chrome）
+- [x] AC-G1: CollectionGraphParts 3 处 border hex → `--console-border-soft` token
+- [x] AC-G2: RebuildButton progress bar → dedicated `--memory-progress-fill` token（not field-scoped）
+- [x] AC-G3: MobileStatusSheet 3 section borders removed per KD-4
+- [x] AC-G4: Data-viz palette exempt comments on all chart/graph hex（3 files, 7+ locations）
+- [x] AC-G5: `pnpm test` + `pnpm check` + `pnpm build` 全绿
+
 ## Dependencies
 
 - **Evolved from**: F190（Console Settings 骨架 intake）、F199（Settings parity audit）
@@ -180,6 +197,7 @@ Phase E 后审计显示 `mission-control/` 目录有 356 处 raw hex，是全仓
 - Phase D: codex 本地 review → 云端 review（代码改动，不豁免）
 - Phase E: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token 替换）
 - Phase F: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token 替换）
+- Phase G: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token + border 清理）
 
 ## Links
 
@@ -205,3 +223,4 @@ Phase E 后审计显示 `mission-control/` 目录有 356 处 raw hex，是全仓
 | 2026-05-20 | Phase D merged (PR #1806) — borders, hex→token, font token, gradient flatten across 15 files |
 | 2026-05-20 | Phase E merged (PR #1808) — 7 out-of-scope files, ~100 hex→token, +20 new CSS custom properties (field-success/persist) |
 | 2026-05-20 | Phase F merged (PR #1809) — 22 mission-control files, 356 hex→token, +24 mc-* semantic tokens |
+| 2026-05-20 | Phase G merged (PR #1810) — border sweep, data-viz exempt, MobileStatusSheet KD-4, dedicated progress token |
