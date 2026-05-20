@@ -154,7 +154,7 @@ Phase I 后砚砚 post-merge audit 识别 Hub/Leaderboard/Quota 6 文件共 ~152
 8. **ChangesPanel workspace fix**：`bg-[#16161c]` → `bg-[var(--ws-editor-deep)]`（Phase I token）
 9. **FileIcons exempt**：15 file-type brand colors marked exempt（fixed per language identity, not theme-dependent）
 
-### Phase K: Hub residual mini sweep + exempt annotations 📋
+### Phase K: Hub residual mini sweep + exempt annotations ✅
 
 Phase J post-merge audit（砚砚）识别 5 个 Hub 文件仍有 ~27 处 real UI raw hex + 3 个文件需 exempt 标注。原定 text-[10px] bulk 顺延 Phase L。
 
@@ -255,13 +255,13 @@ Phase J post-merge audit（砚砚）识别 5 个 Hub 文件仍有 ~27 处 real U
 - [x] AC-J7: `pnpm test` + `pnpm check` + `pnpm build` 全绿
 
 ### Phase K（Hub residual mini sweep + exempt annotations）
-- [ ] AC-K1: HubLeaderboardTab ~5 hex → hub-lb-*/hub-surface-* tokens
-- [ ] AC-K2: hub-tag-editor ~8 hex → hub-*/field-* tokens
-- [ ] AC-K3: hub-cat-editor-advanced ~10 hex → hub-* tokens
-- [ ] AC-K4: HubConnectorConfigTab + HubPermissionsTab ~4 rgba → shadow token/utility
-- [ ] AC-K5: HubConfigIcons 16 connector/icon palette colors → exempt comment
-- [ ] AC-K6: HubMemberOverviewCard + HubObservabilityTab config/data-viz → exempt comment
-- [ ] AC-K7: `pnpm test` + `pnpm check` + `pnpm build` 全绿
+- [x] AC-K1: HubLeaderboardTab ~5 hex → hub-lb-*/hub-surface-* tokens
+- [x] AC-K2: hub-tag-editor ~8 hex → hub-*/field-* tokens
+- [x] AC-K3: hub-cat-editor-advanced ~10 hex → hub-* tokens
+- [x] AC-K4: HubConnectorConfigTab + HubPermissionsTab ~4 rgba → shadow token/utility
+- [x] AC-K5: HubConfigIcons 16 connector/icon palette colors → exempt comment
+- [x] AC-K6: HubMemberOverviewCard + HubObservabilityTab config/data-viz → exempt comment
+- [x] AC-K7: `pnpm test` + `pnpm check` + `pnpm build` 全绿
 
 ## Dependencies
 
@@ -328,3 +328,4 @@ Phase J post-merge audit（砚砚）识别 5 个 Hub 文件仍有 ~27 处 real U
 | 2026-05-20 | Phase I merged (PR #1812) — workspace editor/terminal 43 hex → 16 always-dark tokens, 14 dead tokens removed |
 | 2026-05-20 | Phase J merged (PR #1813) — Hub 6 files ~152 hex → 45 hub-* semantic tokens + ChangesPanel ws-editor-deep fix |
 | 2026-05-20 | Phase K spec added — Hub residual mini sweep (~27 hex across 5 files) + 3 exempt annotations; text-[10px] bulk deferred to Phase L |
+| 2026-05-20 | Phase K merged (PR #1814) — 16 new hub-* tokens (61 total), 5 files migrated, 3 exempt annotated |
