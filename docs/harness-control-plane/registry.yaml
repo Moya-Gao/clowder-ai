@@ -16,8 +16,8 @@ units:
       execute_mechanism: mcp-tool  # cat_cafe_hold_ball MCP tool
       exit_condition: "wakeAfterMs expires OR user cancels OR cat releases"
     eval:
-      activation_signal: "hold_ball call returns status=ok (F153 counter: hold_ball_count)"
-      friction_metric: "User cancels hold prematurely (hold_cancel_count) = trust_gap; user manually pings waiting cat = harness_gap"
+      activation_signal: "hold_ball call returns status=ok (Phase B: add OTel counter hold_ball_count)"
+      friction_metric: "User cancels hold prematurely (Phase B: add hold_cancel_count) = trust_gap; user manually pings waiting cat = harness_gap"
       success_signal: "Wake-up fires, cat executes nextStep without user intervention"
       regression_fixtures:
         - "hold → wake → nextStep executes (happy path)"

@@ -98,7 +98,7 @@ v0 scope：6-field registry + 3 pilots + YAML 文件。**不是平台，不建 r
 | 过度抽象——contract 太重，实际不写 | v0 = YAML 文件 + 3 pilots，不建平台；Phase C 回顾是否过重 |
 | 和 F192 scope 重叠 | **明确边界**：F192 owns eval pipeline（消费 telemetry → 聚合 → 归因 → 行动）+ F167 component registry（AC-D1 已完成的 hard/soft/eval 三栏格式）；F208 owns 统一 unit lifecycle metadata registry（runtime/eval/governance 三层 contract）。F208 registry **引用** F192 eval artifact 和 component registry 格式，不重建 eval pipeline。两个 registry 的关系：F192 的是"某个 feature 下的 harness 组件清单"，F208 的是"所有 harness unit 的生命周期元数据" |
 | Thread-level eval 实现复杂度高 | Phase B 先做"能检测一种补偿行为"，不追求全覆盖 |
-| 球权 trace 数据不足 | F192 Phase D 已补 hold_cancel_count 等 counter，先用现有数据 |
+| 球权 trace 数据不足 | 当前 hold_ball 只有内存 rolling counter，无 OTel counter；Phase B 需新增 hold_ball_count / hold_cancel_count 等 Prometheus counter |
 
 ## Open Questions
 
@@ -134,7 +134,7 @@ v0 scope：6-field registry + 3 pilots + YAML 文件。**不是平台，不建 r
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
-| **Feature** | `docs/features/F192-socio-technical-harness-eval.md` | Eval 方法论来源 |
+| **Feature** | F192 Socio-Technical Harness Eval（main 分支） | Eval 方法论来源（develop_base 未同步） |
 | **Feature** | `docs/features/F126-limb-control-plane.md` | Limb 作为一类 harness unit |
 | **Feature** | `docs/features/F167-a2a-chain-quality.md` | 球权子规则，第一个 pilot |
 | **Feature** | `docs/features/F153-observability-infra.md` | Trace 数据来源 |
@@ -145,7 +145,7 @@ v0 scope：6-field registry + 3 pilots + YAML 文件。**不是平台，不建 r
 > F208 本身是 harness 类 feature，按 F192 Phase B 门禁要求填写。
 
 **Primary Users**: 三猫（harness 的一线使用者和维护者）+ 铲屎官（governance 决策者）
-**Activation Signal**: Phase B 完成后，球权 pilot 的 trace event 在 F153 telemetry 中可观测（hold/release/cancel/timeout 至少各出现 1 次）；可验证方式：`GET /api/telemetry/metrics` 中 `hold_cancel_count` / `zombie_hold_count` 等 C1 counter 非零（现有 F192-D0 counter）。注：当前 `/api/telemetry/traces` 仅支持 `traceId/invocationId/catId/limit` 过滤，不支持按 component 过滤——Phase B AC-B1 需新增 event_type 过滤能力或定义 hold_ball 专属 trace span
-**Friction Metric**: 球权 cancel 事件中缺少 reason 字段的比例（Phase B 前 = 100%，Phase B 后目标 < 20%）；可验证方式：`hold_cancel_count`（已有，F192-D0）vs `hold_cancel_with_reason_count`（**Phase B AC-B3 新增 counter**，当前不存在）的差值
+**Activation Signal**: Phase B 完成后，球权 pilot 的 trace event 在 F153 telemetry 中可观测（hold/release/cancel/timeout 至少各出现 1 次）；可验证方式：`GET /api/telemetry/metrics` 中 Phase B 新增的 `hold_ball_count` / `hold_cancel_count` / `zombie_hold_count` counter 非零。注：当前 hold_ball 仅有内存 rolling counter（callback-hold-ball-routes.ts），OTel counter 为 Phase B 新建
+**Friction Metric**: 球权 cancel 事件中缺少 reason 字段的比例（Phase B 前 = 100%，Phase B 后目标 < 20%）；可验证方式：Phase B 新增的 `hold_cancel_count` vs `hold_cancel_with_reason_count` 差值（两者均为 Phase B 新建 counter）
 **Regression Fixture**: (1) hold_ball 后 release 正常流——trace 链完整；(2) zombie hold 超时——timeout event 触发；(3) cancel 携带 reason——reason 字段非空。三个 fixture 作为 Phase B 验收的具体测试场景
 **Sunset Signal**: 连续 3 个月无 registry/governance activity（可观测：registry.yaml 的 git log 无 commit + 无 governance 类 harness-feedback 文档产出 + 无 governance 相关 AC 变更）→ 候选 sunset

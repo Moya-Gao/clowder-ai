@@ -1,3 +1,10 @@
+---
+feature_ids: [F208]
+topics: [harness-engineering, control-plane, contract]
+doc_kind: spec
+created: 2026-05-20
+---
+
 # Harness Unit Contract (F208)
 
 > **Version**: 1.0.0

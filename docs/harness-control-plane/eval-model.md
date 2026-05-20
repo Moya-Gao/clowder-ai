@@ -1,6 +1,13 @@
-# Harness Eval Observation Model (F208/F192)
+---
+feature_ids: [F208]
+topics: [harness-engineering, eval, observation-model]
+doc_kind: spec
+created: 2026-05-20
+---
 
-> **Authority**: F192 Socio-Technical Eval
+# Harness Eval Observation Model (F208)
+
+> **Methodology source**: F192 Socio-Technical Eval (main 分支, develop_base 未同步)
 > **Implementation**: F208 Control Plane
 
 ## 1. The Observation Unit
