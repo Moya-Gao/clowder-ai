@@ -36,12 +36,12 @@ export function DispatchProgress({ digests }: DispatchProgressProps) {
             {/* Header: status + cat + time */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${style.bg} ${style.text}`}>
+                <span className={`rounded-full px-2 py-0.5 text-micro font-medium ${style.bg} ${style.text}`}>
                   {style.label}
                 </span>
                 <span className="text-xs font-medium text-cafe-secondary">@{digest.catId}</span>
               </div>
-              <span className="text-[10px] text-cafe-secondary">
+              <span className="text-micro text-cafe-secondary">
                 {new Date(digest.completedAt).toLocaleString('zh-CN', {
                   month: '2-digit',
                   day: '2-digit',
@@ -62,7 +62,7 @@ export function DispatchProgress({ digests }: DispatchProgressProps) {
             {/* doneWhen checklist */}
             {totalCriteria > 0 && (
               <div className="mt-2 space-y-1">
-                <div className="text-[10px] font-medium text-cafe-secondary">
+                <div className="text-micro font-medium text-cafe-secondary">
                   完成标准 ({metCount}/{totalCriteria})
                 </div>
                 {digest.doneWhenResults.map((r) => (
@@ -90,14 +90,14 @@ export function DispatchProgress({ digests }: DispatchProgressProps) {
             {/* Files changed */}
             {digest.filesChanged.length > 0 && (
               <div className="mt-2">
-                <span className="text-[10px] font-medium text-cafe-secondary">
+                <span className="text-micro font-medium text-cafe-secondary">
                   变更文件 ({digest.filesChanged.length})
                 </span>
                 <div className="mt-0.5 flex flex-wrap gap-1">
                   {digest.filesChanged.map((f) => (
                     <span
                       key={f}
-                      className="rounded bg-[var(--console-hover-bg)] px-1.5 py-0.5 text-[10px] font-mono text-cafe-secondary"
+                      className="rounded bg-[var(--console-hover-bg)] px-1.5 py-0.5 text-micro font-mono text-cafe-secondary"
                     >
                       {f}
                     </span>

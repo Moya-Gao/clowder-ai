@@ -152,7 +152,7 @@ export function GraphInspector({
     <div data-testid="graph-side-panel" className="min-w-0 space-y-4 rounded-md bg-[var(--console-card-bg)] p-4">
       <div data-testid="graph-node-detail" className="space-y-3">
         <div>
-          <div className="text-[10px] font-bold uppercase tracking-wide text-cafe-secondary">Selected node</div>
+          <div className="text-micro font-bold uppercase tracking-wide text-cafe-secondary">Selected node</div>
           <div className="mt-1 text-sm font-black text-cafe-primary">
             {selectedNode ? selectedNode.anchor : 'No node'}
           </div>
@@ -178,7 +178,7 @@ export function GraphInspector({
 
 function SelectedNodeMeta({ node }: { node: GraphNode }) {
   return (
-    <div className="grid grid-cols-2 gap-2 text-[10px] text-cafe-secondary">
+    <div className="grid grid-cols-2 gap-2 text-micro text-cafe-secondary">
       <span>类型</span>
       <span className="font-semibold text-cafe-primary">{node.kind}</span>
       <span>集合</span>
@@ -200,9 +200,9 @@ function SelectedRelations({
 }) {
   return (
     <div>
-      <div className="text-[10px] font-bold uppercase tracking-wide text-cafe-secondary">关系</div>
+      <div className="text-micro font-bold uppercase tracking-wide text-cafe-secondary">关系</div>
       <div className="mt-2 space-y-1">
-        {edges.length === 0 && <div className="text-[10px] text-cafe-secondary">暂无可见关系。</div>}
+        {edges.length === 0 && <div className="text-micro text-cafe-secondary">暂无可见关系。</div>}
         {edges.slice(0, 8).map((edge) => (
           <RelationRow
             edge={edge}
@@ -229,7 +229,7 @@ function RelationRow({
   const otherAnchor = outbound ? edge.to : edge.from;
   const other = nodeByAnchor.get(otherAnchor);
   return (
-    <div className="text-[10px] text-cafe-secondary">
+    <div className="text-micro text-cafe-secondary">
       <span className="font-bold text-cafe-primary">
         {outbound ? '→' : '←'} {edge.relation.replace(/_/g, ' ')}
       </span>{' '}
@@ -242,7 +242,7 @@ function RelationRow({
 function GraphSummary({ graph }: { graph: GraphResult }) {
   return (
     <div
-      className="border-t border-[var(--console-border-soft)] pt-3 text-[10px] text-cafe-secondary"
+      className="border-t border-[var(--console-border-soft)] pt-3 text-micro text-cafe-secondary"
       data-testid="graph-summary"
     >
       <div className="flex flex-wrap gap-3">
@@ -258,10 +258,10 @@ function GraphSummary({ graph }: { graph: GraphResult }) {
 function GraphLegend({ uniqueKinds }: { uniqueKinds: string[] }) {
   return (
     <div className="border-t border-[var(--console-border-soft)] pt-3">
-      <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-cafe-secondary">图例</div>
+      <div className="mb-2 text-micro font-bold uppercase tracking-wide text-cafe-secondary">图例</div>
       <div className="flex flex-wrap items-center gap-2" data-testid="graph-legend">
         {uniqueKinds.map((k) => (
-          <span key={k} className="flex items-center gap-1 text-[10px] text-cafe-secondary">
+          <span key={k} className="flex items-center gap-1 text-micro text-cafe-secondary">
             <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: kindFill(k) }} />
             {k}
           </span>
@@ -282,7 +282,7 @@ function GraphEdgeFilter({
 }) {
   return (
     <div
-      className="border-t border-[var(--console-border-soft)] pt-3 text-[10px] text-cafe-secondary"
+      className="border-t border-[var(--console-border-soft)] pt-3 text-micro text-cafe-secondary"
       data-testid="graph-edge-filter"
     >
       <div className="mb-2 font-bold uppercase tracking-wide">关系类型</div>

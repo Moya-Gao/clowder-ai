@@ -29,20 +29,20 @@ const CHECK_LABELS: Record<keyof WorkflowSop['checks'], string> = {
 function CheckBadge({ status }: { status: CheckStatus }) {
   if (status === 'verified') {
     return (
-      <span className="inline-flex items-center gap-0.5 rounded-full bg-[var(--mc-status-done-bg)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--mc-status-done-text)]">
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-[var(--mc-status-done-bg)] px-1.5 py-0.5 text-micro font-medium text-[var(--mc-status-done-text)]">
         verified
       </span>
     );
   }
   if (status === 'attested') {
     return (
-      <span className="inline-flex items-center gap-0.5 rounded-full bg-[var(--mc-status-suggested-bg)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--mc-status-suggested-text)]">
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-[var(--mc-status-suggested-bg)] px-1.5 py-0.5 text-micro font-medium text-[var(--mc-status-suggested-text)]">
         attested
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-0.5 rounded-full bg-[var(--console-hover-bg)] px-1.5 py-0.5 text-[10px] font-medium text-cafe-secondary">
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-[var(--console-hover-bg)] px-1.5 py-0.5 text-micro font-medium text-cafe-secondary">
       unknown
     </span>
   );
@@ -55,7 +55,7 @@ function StagePills({ current }: { current: SopStage }) {
       {STAGE_ORDER.map((stage, idx) => {
         const isCurrent = stage === current;
         const isPast = idx < currentIdx;
-        let className = 'rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors';
+        let className = 'rounded-full px-2 py-0.5 text-micro font-medium transition-colors';
         if (isCurrent) {
           className += ' bg-[var(--mc-accent)] text-white';
         } else if (isPast) {
@@ -170,7 +170,7 @@ export function WorkflowSopPanel({ backlogItemId }: WorkflowSopPanelProps) {
       {/* Header */}
       <div className="mb-2">
         <h2 className="text-sm font-semibold text-cafe">SOP 告示牌</h2>
-        <p className="text-[10px] text-cafe-secondary">{sop.featureId}</p>
+        <p className="text-micro text-cafe-secondary">{sop.featureId}</p>
       </div>
 
       {/* Stage pills */}
@@ -198,14 +198,14 @@ export function WorkflowSopPanel({ backlogItemId }: WorkflowSopPanelProps) {
         className="mb-3 rounded-xl border border-cafe-subtle bg-[var(--console-card-bg)] px-2.5 py-2"
         data-testid="sop-resume-capsule"
       >
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-cafe-secondary">Resume Capsule</p>
+        <p className="mb-1 text-micro font-semibold uppercase tracking-wide text-cafe-secondary">Resume Capsule</p>
         <p className="text-xs text-cafe">
           <span className="font-medium text-cafe-secondary">Goal：</span>
           {sop.resumeCapsule.goal}
         </p>
         {sop.resumeCapsule.done.length > 0 && (
           <div className="mt-1">
-            <span className="text-[10px] font-medium text-cafe-secondary">Done：</span>
+            <span className="text-micro font-medium text-cafe-secondary">Done：</span>
             <ul className="ml-3 list-disc">
               {sop.resumeCapsule.done.map((item, i) => (
                 <li key={i} className="text-xs text-cafe">
@@ -223,7 +223,7 @@ export function WorkflowSopPanel({ backlogItemId }: WorkflowSopPanelProps) {
 
       {/* Checks */}
       <div className="mb-2 space-y-1" data-testid="sop-checks">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-cafe-secondary">Checks</p>
+        <p className="text-micro font-semibold uppercase tracking-wide text-cafe-secondary">Checks</p>
         {checkEntries.map(([key, status]) => (
           <div key={key} className="flex items-center justify-between">
             <span className="text-xs text-cafe-secondary">{CHECK_LABELS[key]}</span>
@@ -234,7 +234,7 @@ export function WorkflowSopPanel({ backlogItemId }: WorkflowSopPanelProps) {
 
       {/* Footer */}
       <div className="border-t border-[var(--console-border-soft)] pt-1.5">
-        <p className="text-[10px] text-cafe-muted">
+        <p className="text-micro text-cafe-muted">
           更新于{' '}
           {new Date(sop.updatedAt).toLocaleString('zh-CN', {
             month: '2-digit',

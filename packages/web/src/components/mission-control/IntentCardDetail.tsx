@@ -52,7 +52,7 @@ export function IntentCardDetail({ card, onTriaged }: IntentCardDetailProps) {
       <div className="flex items-center gap-2">
         <SourceBadge tag={card.sourceTag} />
         {card.triage && <BucketBadge bucket={card.triage.bucket} />}
-        <span className="text-[10px] text-cafe-muted">{card.id}</span>
+        <span className="text-micro text-cafe-muted">{card.id}</span>
       </div>
 
       {/* Core slots */}
@@ -68,7 +68,7 @@ export function IntentCardDetail({ card, onTriaged }: IntentCardDetailProps) {
       {/* Original text */}
       {card.originalText && (
         <div className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-hover-bg)] p-3">
-          <div className="mb-1 text-[10px] font-semibold uppercase text-cafe-secondary">甲方原文</div>
+          <div className="mb-1 text-micro font-semibold uppercase text-cafe-secondary">甲方原文</div>
           <div className="text-cafe">{card.originalText}</div>
         </div>
       )}
@@ -76,10 +76,10 @@ export function IntentCardDetail({ card, onTriaged }: IntentCardDetailProps) {
       {/* Risk signals */}
       {card.riskSignals.length > 0 && (
         <div className="space-y-1">
-          <div className="text-[10px] font-semibold uppercase text-cafe-secondary">Risk Signals</div>
+          <div className="text-micro font-semibold uppercase text-cafe-secondary">Risk Signals</div>
           <div className="flex flex-wrap gap-1">
             {card.riskSignals.map((signal) => (
-              <span key={signal} className="rounded-full bg-conn-red-bg px-2 py-0.5 text-[10px] text-red-700">
+              <span key={signal} className="rounded-full bg-conn-red-bg px-2 py-0.5 text-micro text-red-700">
                 {RISK_LABELS[signal]}
               </span>
             ))}
@@ -89,7 +89,7 @@ export function IntentCardDetail({ card, onTriaged }: IntentCardDetailProps) {
 
       {/* Triage form */}
       <div className="space-y-2 rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3">
-        <div className="text-[10px] font-semibold uppercase text-cafe-secondary">Triage 评估</div>
+        <div className="text-micro font-semibold uppercase text-cafe-secondary">Triage 评估</div>
         <ScoreSlider label="Clarity" value={clarity} onChange={setClarity} />
         <ScoreSlider label="Groundedness" value={groundedness} onChange={setGroundedness} />
         <ScoreSlider label="Necessity" value={necessity} onChange={setNecessity} />
@@ -102,7 +102,7 @@ export function IntentCardDetail({ card, onTriaged }: IntentCardDetailProps) {
                 key={s}
                 type="button"
                 onClick={() => setSizeBand(s)}
-                className={`rounded px-2 py-0.5 text-[10px] font-medium ${
+                className={`rounded px-2 py-0.5 text-micro font-medium ${
                   sizeBand === s
                     ? 'bg-[var(--mc-accent)] text-white'
                     : 'bg-[var(--console-hover-bg)] text-cafe-secondary'
@@ -152,7 +152,7 @@ function ScoreSlider({ label, value, onChange }: { label: string; value: number;
             key={n}
             type="button"
             onClick={() => onChange(n)}
-            className={`h-6 w-6 rounded text-[10px] font-medium ${
+            className={`h-6 w-6 rounded text-micro font-medium ${
               value === n ? 'bg-[var(--mc-accent)] text-white' : 'bg-[var(--console-hover-bg)] text-cafe-secondary'
             }`}
           >

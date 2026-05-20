@@ -109,7 +109,7 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub: st
     <div className="flex-1 rounded-xl bg-[var(--console-card-bg)] p-4">
       <div className="text-xs text-cafe-secondary">{label}</div>
       <div className="mt-1 text-2xl font-semibold text-cafe-black">{value}</div>
-      <div className="mt-0.5 text-[10px] text-cafe-muted">{sub}</div>
+      <div className="mt-0.5 text-micro text-cafe-muted">{sub}</div>
     </div>
   );
 }
@@ -278,7 +278,7 @@ export function HealthReport() {
       <LibraryHealthSection report={report} />
 
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-cafe-muted">生成于 {new Date(report.generatedAt).toLocaleString()}</span>
+        <span className="text-micro text-cafe-muted">生成于 {new Date(report.generatedAt).toLocaleString()}</span>
         <button
           type="button"
           onClick={fetchReport}

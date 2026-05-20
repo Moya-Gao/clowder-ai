@@ -78,11 +78,11 @@ function PhaseRow({ phase, expanded, onToggle }: { phase: FeatureDocPhase; expan
         <span className={`w-[36px] shrink-0 text-right font-mono text-xs font-medium ${pctColor}`}>
           {total > 0 ? `${pct}%` : '—'}
         </span>
-        <span className="shrink-0 text-[10px] text-cafe-muted">{expanded ? '▼' : '▸'}</span>
+        <span className="shrink-0 text-micro text-cafe-muted">{expanded ? '▼' : '▸'}</span>
       </button>
       {expanded && total > 0 && (
         <div className="ml-[68px] mt-1 space-y-0.5" data-testid={`mc-phase-acs-${phase.id}`}>
-          <p className="mb-1 text-[10px] font-medium text-cafe-secondary">{phase.name}</p>
+          <p className="mb-1 text-micro font-medium text-cafe-secondary">{phase.name}</p>
           {phase.acs.map((ac) => (
             <div key={ac.id} className="flex items-center gap-1.5 text-xs">
               {ac.done ? (

@@ -31,9 +31,9 @@ export function ConsolePanel({ entries, onClear }: ConsolePanelProps) {
       {/* Header bar */}
       <div className="flex items-center justify-between px-2 py-1 border-b border-[var(--console-border-soft)] bg-[var(--ws-surface)]">
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-semibold text-[var(--ws-text)]/70 uppercase tracking-wider">Console</span>
+          <span className="text-micro font-semibold text-[var(--ws-text)]/70 uppercase tracking-wider">Console</span>
           {entries.length > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full bg-[var(--ws-accent)]/20 text-[var(--ws-accent)] text-[10px] font-bold">
+            <span className="px-1.5 py-0.5 rounded-full bg-[var(--ws-accent)]/20 text-[var(--ws-accent)] text-micro font-bold">
               {entries.length}
             </span>
           )}
@@ -42,7 +42,7 @@ export function ConsolePanel({ entries, onClear }: ConsolePanelProps) {
           <button
             type="button"
             onClick={onClear}
-            className="text-[10px] text-[var(--ws-text)]/50 hover:text-[var(--ws-text)] transition-colors"
+            className="text-micro text-[var(--ws-text)]/50 hover:text-[var(--ws-text)] transition-colors"
           >
             Clear
           </button>

@@ -80,7 +80,7 @@ export function TranslationMatrix({ cards, selectedCardId, onSelectCard, onCreat
       ) : (
         <div className="overflow-hidden rounded-lg border border-[var(--console-border-soft)]">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[var(--console-hover-bg)] text-[10px] font-semibold uppercase text-cafe-secondary">
+            <thead className="bg-[var(--console-hover-bg)] text-micro font-semibold uppercase text-cafe-secondary">
               <tr>
                 <th className="px-3 py-2">甲方原文</th>
                 <th className="px-3 py-2">Intent Card</th>
@@ -108,7 +108,7 @@ export function TranslationMatrix({ cards, selectedCardId, onSelectCard, onCreat
                     {card.triage ? (
                       <BucketBadge bucket={card.triage.bucket} />
                     ) : (
-                      <span className="text-[10px] text-cafe-muted">未评估</span>
+                      <span className="text-micro text-cafe-muted">未评估</span>
                     )}
                   </td>
                 </tr>

@@ -176,7 +176,7 @@ export function HubCoCreatorEditor({ open, coCreator, onClose, onSaved }: HubCoC
                 onClick={() => fileInputRef.current?.click()}
                 className="flex items-center gap-2 rounded-lg border border-[var(--hub-border-field)] bg-[var(--hub-surface-field)] px-3 py-1.5 text-sm text-[var(--hub-text)] transition hover:border-[var(--hub-accent)]"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--hub-border-field)] bg-cafe-surface text-[10px] text-[var(--hub-text-muted)]">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--hub-border-field)] bg-cafe-surface text-micro text-[var(--hub-text-muted)]">
                   {avatar ? (
                     // biome-ignore lint/performance/noImgElement: co-creator avatar may be runtime upload URL
                     // eslint-disable-next-line @next/next/no-img-element

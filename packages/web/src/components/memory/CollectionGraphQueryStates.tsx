@@ -62,13 +62,13 @@ export function GraphCandidates({
           >
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-black text-cafe-primary">{candidate.anchor}</span>
-              <span className="rounded bg-cafe-surface px-1.5 py-0.5 text-[10px] font-bold text-cafe-secondary">
+              <span className="rounded bg-cafe-surface px-1.5 py-0.5 text-micro font-bold text-cafe-secondary">
                 {candidate.kind}
               </span>
-              <span className="text-[10px] font-semibold text-cafe-secondary">{candidate.edgeCount ?? 0} 条关系</span>
+              <span className="text-micro font-semibold text-cafe-secondary">{candidate.edgeCount ?? 0} 条关系</span>
             </div>
             <div className="mt-1 text-sm font-semibold text-cafe-primary">{candidate.title}</div>
-            <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-cafe-secondary">
+            <div className="mt-1 flex flex-wrap gap-2 text-micro text-cafe-secondary">
               <span>{candidate.collectionId}</span>
               {candidate.source && <span>{candidate.source}</span>}
               <span>匹配: {candidate.matchReason}</span>

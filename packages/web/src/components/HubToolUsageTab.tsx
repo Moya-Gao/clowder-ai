@@ -199,7 +199,7 @@ function DailyTrend({ daily }: { daily: ToolUsageReport['daily'] }) {
     <section className="space-y-3 rounded-xl border border-[var(--hub-border)] bg-[var(--hub-surface)] p-4">
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-semibold text-[var(--hub-text)]">每日使用趋势</h4>
-        <div className="flex gap-4 text-[10px]">
+        <div className="flex gap-4 text-micro">
           {CATEGORIES.map((cat) => {
             const s = CATEGORY_STYLE[cat];
             return (
@@ -241,7 +241,7 @@ function DailyTrend({ daily }: { daily: ToolUsageReport['daily'] }) {
               </div>
               <span className="w-20 shrink-0 tabular-nums text-xs text-[var(--hub-text)]">
                 <span className="font-medium">{dayTotal}</span>
-                <span className="ml-1 text-[10px] text-[var(--hub-text-soft)]">
+                <span className="ml-1 text-micro text-[var(--hub-text-soft)]">
                   ({day.native}/{day.mcp}/{day.skill})
                 </span>
               </span>
@@ -278,7 +278,7 @@ function TopToolsTable({ tools }: { tools: ToolUsageReport['topTools'] }) {
             <div className="space-y-1">
               {items.map((tool, i) => (
                 <div key={`${cat}:${tool.name}`} className="flex items-center gap-1.5 text-xs">
-                  <span className="w-4 text-right text-[10px] text-[var(--hub-text-soft)]">{i + 1}</span>
+                  <span className="w-4 text-right text-micro text-[var(--hub-text-soft)]">{i + 1}</span>
                   <span className="min-w-0 flex-1 truncate text-[var(--hub-text)]" title={tool.name}>
                     {tool.name}
                   </span>

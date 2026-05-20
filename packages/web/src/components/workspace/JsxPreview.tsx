@@ -224,7 +224,7 @@ export function JsxPreview({ code, filePath, worktreeId }: JsxPreviewProps) {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      <div className="px-2 py-1 bg-blue-900/20 text-blue-400 text-[10px] border-b border-blue-900/30 flex-shrink-0">
+      <div className="px-2 py-1 bg-blue-900/20 text-blue-400 text-micro border-b border-blue-900/30 flex-shrink-0">
         JSX Preview (esbuild-wasm) — local imports resolved, npm packages via esm.sh
       </div>
       <div className="flex-1 min-h-0 bg-cafe-surface">

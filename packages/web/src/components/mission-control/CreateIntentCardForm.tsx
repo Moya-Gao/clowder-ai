@@ -107,7 +107,7 @@ export function CreateIntentCardForm({ projectId, onCreated, onCancel }: CreateI
           { label: 'Non-goal', value: nonGoal, set: setNonGoal, ph: '明确不做的' },
         ].map((f) => (
           <label key={f.label} className="block">
-            <span className="text-[10px] font-medium text-cafe-secondary">{f.label}</span>
+            <span className="text-micro font-medium text-cafe-secondary">{f.label}</span>
             <input
               type="text"
               value={f.value}
@@ -122,7 +122,7 @@ export function CreateIntentCardForm({ projectId, onCreated, onCancel }: CreateI
       {/* Source tag + metadata */}
       <div className="flex gap-2">
         <label className="block flex-1">
-          <span className="text-[10px] font-medium text-cafe-secondary">Source Tag</span>
+          <span className="text-micro font-medium text-cafe-secondary">Source Tag</span>
           <select
             value={sourceTag}
             onChange={(e) => setSourceTag(e.target.value as SourceTag)}
@@ -136,7 +136,7 @@ export function CreateIntentCardForm({ projectId, onCreated, onCancel }: CreateI
           </select>
         </label>
         <label className="block flex-1">
-          <span className="text-[10px] font-medium text-cafe-secondary">Confidence</span>
+          <span className="text-micro font-medium text-cafe-secondary">Confidence</span>
           <select
             value={confidence}
             onChange={(e) => setConfidence(Number(e.target.value))}
@@ -152,7 +152,7 @@ export function CreateIntentCardForm({ projectId, onCreated, onCancel }: CreateI
       {/* Source detail + Decision owner */}
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
-          <span className="text-[10px] font-medium text-cafe-secondary">Source Detail</span>
+          <span className="text-micro font-medium text-cafe-secondary">Source Detail</span>
           <input
             type="text"
             value={sourceDetail}
@@ -162,7 +162,7 @@ export function CreateIntentCardForm({ projectId, onCreated, onCancel }: CreateI
           />
         </label>
         <label className="block">
-          <span className="text-[10px] font-medium text-cafe-secondary">Decision Owner</span>
+          <span className="text-micro font-medium text-cafe-secondary">Decision Owner</span>
           <input
             type="text"
             value={decisionOwner}
@@ -175,14 +175,14 @@ export function CreateIntentCardForm({ projectId, onCreated, onCancel }: CreateI
 
       {/* Risk signals */}
       <div>
-        <span className="text-[10px] font-medium text-cafe-secondary">Risk Signals</span>
+        <span className="text-micro font-medium text-cafe-secondary">Risk Signals</span>
         <div className="mt-1 flex flex-wrap gap-1">
           {RISK_SIGNALS.map((s) => (
             <button
               key={s.value}
               type="button"
               onClick={() => toggleRisk(s.value)}
-              className={`rounded-full px-2 py-0.5 text-[10px] ${
+              className={`rounded-full px-2 py-0.5 text-micro ${
                 riskSignals.includes(s.value)
                   ? 'bg-conn-red-bg text-red-800'
                   : 'bg-[var(--console-hover-bg)] text-cafe-secondary'

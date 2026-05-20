@@ -156,17 +156,17 @@ export function ResolutionQueue({ projectId, resolutions, cards, onUpdate }: Res
                 className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3 text-xs"
               >
                 <div className="mb-1 flex items-center gap-2">
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${style.bg} ${style.text}`}>
+                  <span className={`rounded-full px-2 py-0.5 text-micro font-medium ${style.bg} ${style.text}`}>
                     {item.status}
                   </span>
-                  <span className="rounded bg-[var(--console-hover-bg)] px-1.5 py-0.5 text-[10px] font-medium text-cafe-secondary">
+                  <span className="rounded bg-[var(--console-hover-bg)] px-1.5 py-0.5 text-micro font-medium text-cafe-secondary">
                     {item.path}
                   </span>
-                  <span className="text-[10px] text-cafe-muted">{item.cardId.slice(0, 8)}</span>
+                  <span className="text-micro text-cafe-muted">{item.cardId.slice(0, 8)}</span>
                 </div>
                 <div className="mb-1 font-medium text-cafe">{item.question}</div>
                 {item.recommendation && (
-                  <div className="mb-1 text-[10px] text-cafe-secondary">建议: {item.recommendation}</div>
+                  <div className="mb-1 text-micro text-cafe-secondary">建议: {item.recommendation}</div>
                 )}
                 {item.answer && <div className="rounded bg-conn-green-bg px-2 py-1 text-cafe">{item.answer}</div>}
                 {item.status === 'open' && (
@@ -180,14 +180,14 @@ export function ResolutionQueue({ projectId, resolutions, cards, onUpdate }: Res
                     <button
                       type="button"
                       onClick={() => void handleAnswer(item.id)}
-                      className="rounded bg-green-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-green-700"
+                      className="rounded bg-green-600 px-2 py-1 text-micro font-medium text-white hover:bg-green-700"
                     >
                       Answer
                     </button>
                     <button
                       type="button"
                       onClick={() => void handleEscalate(item.id)}
-                      className="rounded bg-red-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-red-700"
+                      className="rounded bg-red-600 px-2 py-1 text-micro font-medium text-white hover:bg-red-700"
                     >
                       Escalate
                     </button>

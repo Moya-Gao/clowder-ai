@@ -164,7 +164,7 @@ function FeatureCard({
         {(Object.entries(counts) as [BacklogStatus, number][]).map(([status, count]) => (
           <span
             key={status}
-            className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLORS[status]}`}
+            className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-micro font-medium ${STATUS_COLORS[status]}`}
           >
             {STATUS_LABELS[status]} {count}
           </span>
@@ -180,7 +180,7 @@ function DoneFeatureChip({ tag, featureItems }: { tag: string; featureItems: Bac
   const featureName = extractFeatureName(featureItems);
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full bg-[var(--mc-status-done-bg)] px-2 py-0.5 text-[10px] text-[var(--mc-status-done-text)]"
+      className="inline-flex items-center gap-1 rounded-full bg-[var(--mc-status-done-bg)] px-2 py-0.5 text-micro text-[var(--mc-status-done-text)]"
       data-testid={`mc-bird-eye-done-chip-${tag}`}
     >
       <span className="font-medium">{tag}</span>

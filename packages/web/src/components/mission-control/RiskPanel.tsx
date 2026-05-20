@@ -86,7 +86,7 @@ export function RiskPanel({ projectId, cards }: RiskPanelProps) {
       <div className="flex items-center justify-between rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] px-4 py-3">
         <div>
           <div className="text-sm font-semibold text-cafe">風險預警</div>
-          <div className="text-[10px] text-cafe-secondary">对全部 Intent Cards 运行风险检测</div>
+          <div className="text-micro text-cafe-secondary">对全部 Intent Cards 运行风险检测</div>
         </div>
         <button
           type="button"
@@ -103,17 +103,17 @@ export function RiskPanel({ projectId, cards }: RiskPanelProps) {
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3 text-center">
             <div className="text-lg font-bold text-cafe">{summary.totalCards}</div>
-            <div className="text-[10px] font-medium text-cafe-secondary">Total Cards</div>
+            <div className="text-micro font-medium text-cafe-secondary">Total Cards</div>
           </div>
           <div className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3 text-center">
             <div className="text-lg font-bold text-[var(--mc-risk-critical)]">{summary.cardsWithRisks}</div>
-            <div className="text-[10px] font-medium text-cafe-secondary">Cards w/ Risks</div>
+            <div className="text-micro font-medium text-cafe-secondary">Cards w/ Risks</div>
           </div>
           <div className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3 text-center">
             <div className="text-lg font-bold text-cafe">
               {Object.values(summary.signals).reduce((a, b) => a + b, 0)}
             </div>
-            <div className="text-[10px] font-medium text-cafe-secondary">Total Signals</div>
+            <div className="text-micro font-medium text-cafe-secondary">Total Signals</div>
           </div>
         </div>
       )}
@@ -128,7 +128,7 @@ export function RiskPanel({ projectId, cards }: RiskPanelProps) {
           >
             <div className="mb-2 flex items-center gap-2">
               <span
-                className="rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
+                className="rounded-full px-2 py-0.5 text-micro font-medium text-white"
                 style={{ backgroundColor: SEVERITY_COLORS[severity] }}
               >
                 {severity}
@@ -136,7 +136,7 @@ export function RiskPanel({ projectId, cards }: RiskPanelProps) {
               <span className="text-xs font-semibold text-cafe">
                 {RISK_LABELS[signal as RiskSignal] ?? signal.replace(/_/g, ' ')}
               </span>
-              <span className="text-[10px] text-cafe-secondary">({signalCards.length})</span>
+              <span className="text-micro text-cafe-secondary">({signalCards.length})</span>
             </div>
             <div className="space-y-1">
               {signalCards.map((card) => (
@@ -144,7 +144,7 @@ export function RiskPanel({ projectId, cards }: RiskPanelProps) {
                   key={card.id}
                   className="flex items-center gap-2 rounded bg-[var(--console-hover-bg)] px-2 py-1 text-xs"
                 >
-                  <span className="shrink-0 font-mono text-[10px] text-cafe-secondary">{card.id.slice(0, 8)}</span>
+                  <span className="shrink-0 font-mono text-micro text-cafe-secondary">{card.id.slice(0, 8)}</span>
                   <span className="truncate text-cafe">{card.goal || '—'}</span>
                 </div>
               ))}

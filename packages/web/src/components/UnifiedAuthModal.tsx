@@ -340,7 +340,7 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
             {isOAuth &&
               (MODEL_SUGGESTIONS[initialClientId ?? clientId] ?? []).filter((m) => !models.includes(m)).length > 0 && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                  <span className="text-[10px] text-cafe-muted">推荐</span>
+                  <span className="text-micro text-cafe-muted">推荐</span>
                   {(MODEL_SUGGESTIONS[initialClientId ?? clientId] ?? [])
                     .filter((m) => !models.includes(m))
                     .map((m) => (
@@ -348,7 +348,7 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
                         key={m}
                         type="button"
                         onClick={() => setModels([...models, m])}
-                        className="rounded-full border border-dashed border-[var(--console-border-soft)] px-2 py-0.5 text-[10px] text-cafe-secondary transition hover:border-cafe-accent hover:text-cafe-accent"
+                        className="rounded-full border border-dashed border-[var(--console-border-soft)] px-2 py-0.5 text-micro text-cafe-secondary transition hover:border-cafe-accent hover:text-cafe-accent"
                       >
                         + {m}
                       </button>
@@ -364,12 +364,12 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
               onClick={() => setAdvancedOpen((v) => !v)}
               className="flex w-full items-center gap-1 px-3 py-2 text-xs font-medium text-cafe-secondary hover:bg-[var(--console-card-bg)]"
             >
-              <span className="text-[10px]">{advancedOpen ? '\u25BE' : '\u25B8'}</span>
+              <span className="text-micro">{advancedOpen ? '\u25BE' : '\u25B8'}</span>
               高级配置 (可选)
             </button>
             {advancedOpen && (
               <div className="border-t border-[var(--console-border-soft)] px-3 pb-3 pt-2">
-                <p className="mb-2 text-[10px] text-cafe-muted">
+                <p className="mb-2 text-micro text-cafe-muted">
                   自定义环境变量，启动 agent 时注入子进程 (CAT_CAFE_ 前缀为保留变量)
                 </p>
                 <div className="space-y-1.5">
@@ -389,7 +389,7 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
                             : 'border-[var(--console-border-soft)] bg-white text-cafe'
                         }`}
                       />
-                      <span className="text-[10px] text-cafe-muted">=</span>
+                      <span className="text-micro text-cafe-muted">=</span>
                       <input
                         value={entry.value}
                         onChange={(e) => {
@@ -411,7 +411,7 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
                     </div>
                   ))}
                   {envEntries.some((e) => e.key.trim() && !isValidEnvKey(e.key.trim())) && (
-                    <p className="text-[10px] text-conn-red-text">
+                    <p className="text-micro text-conn-red-text">
                       {envEntries.some((e) => e.key.trim().startsWith('CAT_CAFE_')) ? 'CAT_CAFE_ 前缀为系统保留；' : ''}
                       变量名须以大写字母或下划线开头，仅含 A-Z、0-9、_
                     </p>
@@ -420,7 +420,7 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
                 <button
                   type="button"
                   onClick={() => setEnvEntries([...envEntries, { key: '', value: '' }])}
-                  className="mt-2 text-[10px] font-medium text-cafe-accent hover:text-cafe-accent-hover"
+                  className="mt-2 text-micro font-medium text-cafe-accent hover:text-cafe-accent-hover"
                 >
                   + 添加变量
                 </button>

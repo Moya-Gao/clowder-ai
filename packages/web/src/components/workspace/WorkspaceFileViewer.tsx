@@ -180,7 +180,7 @@ export function WorkspaceFileViewer({
       <div className="px-3 py-1 bg-[var(--ws-editor-bg)] flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           {file.size > 0 && (
-            <span className="text-[10px] text-cafe-secondary font-mono flex-shrink-0">
+            <span className="text-micro text-cafe-secondary font-mono flex-shrink-0">
               {file.size < 1024 ? `${file.size}B` : `${Math.round(file.size / 1024)}KB`}
             </span>
           )}
@@ -269,13 +269,13 @@ export function WorkspaceFileViewer({
       </div>
 
       {saveError && (
-        <div className="px-3 py-1.5 text-[10px] text-conn-red-text bg-red-900/20 border-b border-red-900/30">
+        <div className="px-3 py-1.5 text-micro text-conn-red-text bg-red-900/20 border-b border-red-900/30">
           {saveError}
         </div>
       )}
 
       {pendingExternalSha && (
-        <div className="px-3 py-1.5 text-[10px] text-amber-300 bg-amber-900/20 border-b border-amber-900/30 flex items-center justify-between">
+        <div className="px-3 py-1.5 text-micro text-amber-300 bg-amber-900/20 border-b border-amber-900/30 flex items-center justify-between">
           <span>文件已被外部修改</span>
           <span className="flex gap-2">
             <button type="button" onClick={onApplyExternalChange} className="underline hover:text-amber-200">
@@ -315,7 +315,7 @@ export function WorkspaceFileViewer({
       />
 
       {file.truncated && (
-        <div className="px-3 py-1.5 text-[10px] text-amber-400 bg-[var(--ws-editor-bg)] border-t border-amber-900/30">
+        <div className="px-3 py-1.5 text-micro text-amber-400 bg-[var(--ws-editor-bg)] border-t border-amber-900/30">
           \u6587\u4EF6\u5DF2\u622A\u65AD (超过 1MB)
         </div>
       )}
@@ -345,7 +345,7 @@ function ToolbarBtn({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${active ? ac : 'text-cafe-secondary hover:text-cafe-muted hover:bg-cafe-surface/10'} ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
+      className={`px-2 py-0.5 rounded text-micro font-medium transition-colors ${active ? ac : 'text-cafe-secondary hover:text-cafe-muted hover:bg-cafe-surface/10'} ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
       title={title}
     >
       {children}

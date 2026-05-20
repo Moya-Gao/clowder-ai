@@ -196,7 +196,7 @@ function NodeDetailPanel({ data, onClose }: { data: FeatureNodeData; onClose: ()
           <span className="h-3 w-3 rounded-full" style={{ backgroundColor: colors.dot }} />
           <span className="text-sm font-bold text-cafe-secondary">{data.featureId}</span>
           <span
-            className="rounded-md px-1.5 py-0.5 text-[10px] font-medium"
+            className="rounded-md px-1.5 py-0.5 text-micro font-medium"
             style={{ backgroundColor: colors.bg, color: colors.border }}
           >
             {STATUS_LABEL[data.status]}
@@ -209,19 +209,19 @@ function NodeDetailPanel({ data, onClose }: { data: FeatureNodeData; onClose: ()
       <p className="mt-1 text-xs text-cafe-secondary">{data.name}</p>
       {data.evolvedFrom.length > 0 && (
         <div className="mt-2">
-          <span className="text-[10px] font-medium text-cafe-secondary">演化自：</span>
+          <span className="text-micro font-medium text-cafe-secondary">演化自：</span>
           <span className="text-xs text-blue-700">{data.evolvedFrom.join(', ')}</span>
         </div>
       )}
       {data.blockedBy.length > 0 && (
         <div className="mt-1">
-          <span className="text-[10px] font-medium text-cafe-secondary">被阻塞：</span>
+          <span className="text-micro font-medium text-cafe-secondary">被阻塞：</span>
           <span className="text-xs text-red-700">{data.blockedBy.join(', ')}</span>
         </div>
       )}
       {data.related.length > 0 && (
         <div className="mt-1">
-          <span className="text-[10px] font-medium text-cafe-secondary">关联：</span>
+          <span className="text-micro font-medium text-cafe-secondary">关联：</span>
           <span className="text-xs text-cafe-secondary">{data.related.join(', ')}</span>
         </div>
       )}

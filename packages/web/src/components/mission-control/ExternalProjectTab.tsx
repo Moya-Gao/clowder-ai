@@ -252,7 +252,7 @@ export function ExternalProjectTab({ project }: ExternalProjectTabProps) {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          {importStatus && <span className="text-[10px] text-cafe-secondary">{importStatus}</span>}
+          {importStatus && <span className="text-micro text-cafe-secondary">{importStatus}</span>}
           <button
             type="button"
             onClick={() => void handleImportBacklog()}
@@ -266,7 +266,7 @@ export function ExternalProjectTab({ project }: ExternalProjectTabProps) {
 
       {/* Stale barrier: show refreshing indicator and block interactions until fresh data arrives */}
       {isStale && (
-        <div className="px-6 py-1 text-center text-[10px] text-cafe-secondary animate-pulse">
+        <div className="px-6 py-1 text-center text-micro text-cafe-secondary animate-pulse">
           Refreshing project data...
         </div>
       )}
@@ -343,13 +343,13 @@ export function ExternalProjectTab({ project }: ExternalProjectTabProps) {
                       className="flex items-center justify-between rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] px-4 py-3"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="rounded bg-[var(--console-hover-bg)] px-2 py-0.5 text-[10px] font-bold text-cafe-secondary">
+                        <span className="rounded bg-[var(--console-hover-bg)] px-2 py-0.5 text-micro font-bold text-cafe-secondary">
                           {item.tags[0] ?? '—'}
                         </span>
                         <span className="text-sm font-medium text-cafe">{item.title}</span>
                       </div>
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        className={`rounded-full px-2 py-0.5 text-micro font-medium ${
                           item.status === 'done'
                             ? 'bg-conn-green-bg text-green-800'
                             : item.status === 'dispatched'

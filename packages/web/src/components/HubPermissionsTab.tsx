@@ -260,7 +260,7 @@ export default function HubPermissionsTab({ connectorId, connectorLabel }: HubPe
                   </svg>
                   <span className="flex-1 truncate text-cafe-secondary">{id}</span>
                   {i === 0 && (
-                    <span className="px-1.5 py-0.5 bg-conn-amber-bg text-conn-amber-text rounded text-[10px] font-semibold">
+                    <span className="px-1.5 py-0.5 bg-conn-amber-bg text-conn-amber-text rounded text-micro font-semibold">
                       Owner
                     </span>
                   )}

@@ -62,7 +62,7 @@ export function RefluxCapture({ projectId, patterns, onUpdate }: RefluxCapturePr
       <div className="flex items-center justify-between">
         <div>
           <div className="text-sm font-semibold text-cafe">经验回流</div>
-          <div className="text-[10px] text-cafe-secondary">方法论经验沉淀 — 只回流知识，不回流项目数据</div>
+          <div className="text-micro text-cafe-secondary">方法论经验沉淀 — 只回流知识，不回流项目数据</div>
         </div>
         <button
           type="button"
@@ -134,7 +134,7 @@ export function RefluxCapture({ projectId, patterns, onUpdate }: RefluxCapturePr
               >
                 <div className="mb-1 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${style.bg} ${style.text}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-micro font-medium ${style.bg} ${style.text}`}>
                       {style.label}
                     </span>
                     <span className="font-medium text-cafe">{p.title}</span>
@@ -142,14 +142,14 @@ export function RefluxCapture({ projectId, patterns, onUpdate }: RefluxCapturePr
                   <button
                     type="button"
                     onClick={() => void handleDelete(p.id)}
-                    className="text-[10px] text-conn-red-text hover:text-red-700"
+                    className="text-micro text-conn-red-text hover:text-red-700"
                   >
                     删除
                   </button>
                 </div>
                 <div className="text-cafe-secondary">{p.insight}</div>
                 {p.evidence && (
-                  <div className="mt-1 rounded bg-[var(--console-hover-bg)] px-2 py-1 text-[10px] text-cafe-secondary">
+                  <div className="mt-1 rounded bg-[var(--console-hover-bg)] px-2 py-1 text-micro text-cafe-secondary">
                     {p.evidence}
                   </div>
                 )}

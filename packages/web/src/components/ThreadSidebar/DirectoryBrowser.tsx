@@ -258,7 +258,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
                 取消
               </button>
             </div>
-            {mkdirError && <p className="text-[10px] text-conn-red-text mt-1 ml-6">{mkdirError}</p>}
+            {mkdirError && <p className="text-micro text-conn-red-text mt-1 ml-6">{mkdirError}</p>}
           </div>
         )}
 
@@ -270,7 +270,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
 
         {info && (
           <div className="px-3 py-1.5 mb-1">
-            <p className="text-[10px] text-cafe-accent">{info}</p>
+            <p className="text-micro text-cafe-accent">{info}</p>
           </div>
         )}
 
@@ -301,7 +301,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
               >
                 <FolderIcon className={isActive ? 'text-cafe-accent' : 'text-cafe-muted'} />
                 <span className="font-medium text-cafe-black truncate flex-1">{entry.name}</span>
-                {isActive && <span className="text-[10px] text-cafe-accent flex-shrink-0">当前项目</span>}
+                {isActive && <span className="text-micro text-cafe-accent flex-shrink-0">当前项目</span>}
                 <svg
                   aria-hidden="true"
                   className="w-3.5 h-3.5 text-cafe-muted flex-shrink-0"

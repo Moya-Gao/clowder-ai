@@ -78,7 +78,7 @@ export function ChatContainerHeader({
         )}
         {authPendingCount > 0 && (
           <span
-            className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-conn-amber-bg text-conn-amber-text text-[10px] font-bold animate-pulse-subtle"
+            className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-conn-amber-bg text-conn-amber-text text-micro font-bold animate-pulse-subtle"
             title={`${authPendingCount} 个授权请求等待处理`}
           >
             🔐 {authPendingCount}
@@ -142,7 +142,7 @@ function DaemonActiveIndicator({ threadId }: { threadId: string }) {
     <button
       type="button"
       onClick={() => router.push('/settings?s=ops&ops=agent-sessions')}
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-conn-amber-text bg-conn-amber-bg hover:opacity-80 transition-colors flex-shrink-0"
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-micro font-mono text-conn-amber-text bg-conn-amber-bg hover:opacity-80 transition-colors flex-shrink-0"
       title={`Daemon ${daemonShortId} 运行中 · 点击查看后台会话`}
     >
       <span className="w-1.5 h-1.5 rounded-full bg-conn-amber-text animate-pulse" />

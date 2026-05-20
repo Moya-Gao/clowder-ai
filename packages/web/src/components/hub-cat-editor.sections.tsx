@@ -106,7 +106,7 @@ export function IdentitySection({
           onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-2 rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] px-3 py-1.5 text-sm text-cafe-secondary transition hover:border-cafe-accent"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--console-border-soft)] bg-white text-[10px] text-cafe-secondary">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--console-border-soft)] bg-white text-micro text-cafe-secondary">
             {avatarSrc ? (
               <AvatarImageWithFallback src={avatarSrc} alt="Avatar preview" className="h-full w-full object-cover" />
             ) : (

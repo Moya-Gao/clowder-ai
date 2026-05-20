@@ -133,7 +133,7 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
                       type="button"
                       disabled={idx === 0}
                       onClick={() => void handleReorder(slice.id, sorted[idx - 1].id)}
-                      className="text-[10px] text-cafe-secondary disabled:opacity-20"
+                      className="text-micro text-cafe-secondary disabled:opacity-20"
                     >
                       ▲
                     </button>
@@ -141,28 +141,28 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
                       type="button"
                       disabled={idx === sorted.length - 1}
                       onClick={() => void handleReorder(slice.id, sorted[idx + 1].id)}
-                      className="text-[10px] text-cafe-secondary disabled:opacity-20"
+                      className="text-micro text-cafe-secondary disabled:opacity-20"
                     >
                       ▼
                     </button>
                   </div>
                   <button type="button" onClick={() => toggle(slice.id)} className="flex flex-1 items-center gap-2">
                     <span
-                      className="rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
+                      className="rounded-full px-2 py-0.5 text-micro font-medium text-white"
                       style={{ backgroundColor: TYPE_COLORS[slice.sliceType] }}
                     >
                       {slice.sliceType}
                     </span>
                     <span className="font-medium text-cafe">{slice.name}</span>
                   </button>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${sStyle.bg} ${sStyle.text}`}>
+                  <span className={`rounded-full px-2 py-0.5 text-micro font-medium ${sStyle.bg} ${sStyle.text}`}>
                     {slice.status.replace('_', ' ')}
                   </span>
                   {nextStatus && (
                     <button
                       type="button"
                       onClick={() => void handleStatusChange(slice.id, nextStatus)}
-                      className="rounded bg-[var(--console-hover-bg)] px-2 py-0.5 text-[10px] font-medium text-cafe-secondary hover:bg-[var(--console-border-soft)]"
+                      className="rounded bg-[var(--console-hover-bg)] px-2 py-0.5 text-micro font-medium text-cafe-secondary hover:bg-[var(--console-border-soft)]"
                     >
                       → {nextStatus.replace('_', ' ')}
                     </button>
