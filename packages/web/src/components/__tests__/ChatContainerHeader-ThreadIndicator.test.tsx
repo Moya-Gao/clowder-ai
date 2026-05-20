@@ -15,7 +15,7 @@ vi.mock('@/stores/chatStore', () => {
   return { useChatStore: hook };
 });
 
-import { ThreadIndicator } from '../ChatContainerHeader';
+import { ThreadIndicator, tailTruncate } from '../ChatContainerHeader';
 
 const LONG_TITLE = 'A'.repeat(120);
 
@@ -47,6 +47,57 @@ describe('ThreadIndicator — P1-1 truncation layout (#727)', () => {
     const html = renderToStaticMarkup(<ThreadIndicator threadId="default" />);
     expect(html).toContain('大厅');
     expect(html).not.toContain('flex-shrink-0');
+  });
+});
+
+describe('ThreadIndicator — project chip bounded width + tail truncation', () => {
+  it('caps the chip width with responsive max-width + overflow-hidden so a long basename cannot push the header wider', () => {
+    mockStore.threads = [
+      {
+        id: 'thread-1',
+        title: 't',
+        projectPath:
+          '/Users/me/workspace/AI/this-is-an-unreasonably-long-worktree-dir-name-that-should-not-stretch-the-header',
+      },
+    ];
+    const html = renderToStaticMarkup(<ThreadIndicator threadId="thread-1" />);
+    // chip span carries width cap + overflow guard on top of flex-shrink-0
+    expect(html).toContain('max-w-[40%]');
+    expect(html).toContain('sm:max-w-[200px]');
+    expect(html).toContain('overflow-hidden');
+    expect(html).toContain('whitespace-nowrap');
+  });
+
+  it('renders tail-truncated basename with leading ellipsis so worktree suffix stays visible', () => {
+    const LONG_BASENAME = 'cat-cafe-experimental-feature-with-extremely-verbose-name';
+    mockStore.threads = [{ id: 'thread-1', title: 't', projectPath: `/Users/me/workspace/AI/${LONG_BASENAME}` }];
+    const html = renderToStaticMarkup(<ThreadIndicator threadId="thread-1" />);
+    // The trailing portion that distinguishes the worktree must survive.
+    const tail = LONG_BASENAME.slice(-10);
+    expect(html).toContain(tail);
+    // Leading ellipsis marks the truncation.
+    expect(html).toMatch(/·\s+…/);
+    // Full path is still in the tooltip so copy-to-clipboard semantics are unchanged.
+    expect(html).toContain(`/Users/me/workspace/AI/${LONG_BASENAME}`);
+  });
+});
+
+describe('tailTruncate helper', () => {
+  it('returns the input unchanged when length <= maxLen', () => {
+    expect(tailTruncate('clowder-ai')).toBe('clowder-ai');
+    expect(tailTruncate('a'.repeat(24))).toBe('a'.repeat(24));
+  });
+
+  it('prefixes a leading ellipsis and preserves maxLen-1 trailing chars', () => {
+    const input = 'a'.repeat(40);
+    const out = tailTruncate(input, 24);
+    expect(out).toHaveLength(24);
+    expect(out.startsWith('…')).toBe(true);
+    expect(out.slice(1)).toBe('a'.repeat(23));
+  });
+
+  it('keeps the distinguishing suffix of a worktree-style basename', () => {
+    expect(tailTruncate('cat-cafe-experimental-build-2026-spring', 24)).toBe('…ental-build-2026-spring');
   });
 });
 

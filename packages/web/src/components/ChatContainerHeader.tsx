@@ -151,6 +151,14 @@ function DaemonActiveIndicator({ threadId }: { threadId: string }) {
   );
 }
 
+/** Tail-preserving truncation for project chip — leading ellipsis keeps the
+ *  distinguishing suffix visible (worktree name, nested dir), which the
+ *  /Users/.../ prefix never carries. */
+export function tailTruncate(name: string, maxLen = 24): string {
+  if (name.length <= maxLen) return name;
+  return `…${name.slice(-(maxLen - 1))}`;
+}
+
 /** Thread indicator: shows which thread you're currently chatting in */
 export function ThreadIndicator({ threadId }: { threadId: string }) {
   const threads = useChatStore((s) => s.threads);
@@ -167,6 +175,7 @@ export function ThreadIndicator({ threadId }: { threadId: string }) {
   const INTERNAL_BASENAMES = ['cat-cafe', 'cat-cafe-runtime', 'clowder-ai'];
   const brandName = process.env.NEXT_PUBLIC_BRAND_NAME ?? '';
   const projectName = INTERNAL_BASENAMES.includes(rawBasename) && brandName ? brandName : rawBasename;
+  const displayName = tailTruncate(projectName);
 
   const handleCopyPath = () => {
     if (!rawPath || rawPath === 'default') return;
@@ -194,7 +203,7 @@ export function ThreadIndicator({ threadId }: { threadId: string }) {
       </span>
       {projectName && (
         <span
-          className="flex-shrink-0 text-cafe-muted cursor-pointer hover:text-cafe-secondary transition-colors"
+          className="flex-shrink-0 max-w-[40%] sm:max-w-[200px] overflow-hidden whitespace-nowrap text-cafe-muted cursor-pointer hover:text-cafe-secondary transition-colors"
           title={copied ? '已复制!' : rawPath}
           onClick={handleCopyPath}
           onKeyDown={(e) => {
@@ -207,7 +216,7 @@ export function ThreadIndicator({ threadId }: { threadId: string }) {
           tabIndex={0}
         >
           {' '}
-          · {projectName}
+          · {displayName}
         </span>
       )}
     </div>
