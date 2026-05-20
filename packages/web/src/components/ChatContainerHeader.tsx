@@ -152,7 +152,7 @@ function DaemonActiveIndicator({ threadId }: { threadId: string }) {
 }
 
 /** Thread indicator: shows which thread you're currently chatting in */
-function ThreadIndicator({ threadId }: { threadId: string }) {
+export function ThreadIndicator({ threadId }: { threadId: string }) {
   const threads = useChatStore((s) => s.threads);
   const currentThread = threads.find((t) => t.id === threadId);
   const [copied, setCopied] = useState(false);
@@ -170,21 +170,31 @@ function ThreadIndicator({ threadId }: { threadId: string }) {
 
   const handleCopyPath = () => {
     if (!rawPath || rawPath === 'default') return;
-    navigator.clipboard.writeText(rawPath).then(
-      () => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      },
-      () => {},
-    );
+    // Guard: Clipboard API can be undefined in insecure contexts (http://) or older webviews.
+    // writeText() can also throw synchronously, not just reject — wrap the whole call.
+    try {
+      const cb = typeof navigator !== 'undefined' && navigator.clipboard ? navigator.clipboard : null;
+      if (!cb || typeof cb.writeText !== 'function') return;
+      cb.writeText(rawPath).then(
+        () => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        },
+        () => {},
+      );
+    } catch {
+      /* clipboard unavailable — fail quietly */
+    }
   };
 
   return (
-    <p className="text-xs text-cafe-secondary truncate min-w-0" title={title}>
-      <span className="font-medium text-cafe-secondary">{title}</span>
+    <div className="flex min-w-0 items-baseline text-xs text-cafe-secondary">
+      <span className="truncate min-w-0 font-medium text-cafe-secondary" title={title}>
+        {title}
+      </span>
       {projectName && (
         <span
-          className="text-cafe-muted cursor-pointer hover:text-cafe-secondary transition-colors"
+          className="flex-shrink-0 text-cafe-muted cursor-pointer hover:text-cafe-secondary transition-colors"
           title={copied ? '已复制!' : rawPath}
           onClick={handleCopyPath}
           onKeyDown={(e) => {
@@ -200,7 +210,7 @@ function ThreadIndicator({ threadId }: { threadId: string }) {
           · {projectName}
         </span>
       )}
-    </p>
+    </div>
   );
 }
 
