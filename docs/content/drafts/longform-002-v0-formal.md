@@ -506,7 +506,7 @@ TeamAct 的本质同样是反馈方向：六步是叙事骨架，真正的引擎
 低保真草图 v0：左边只画单个 agent 内部的 Thought / Action / Observation；右边画
 Shared State 作为团队共同反馈源，TeamAct 六步围绕它闭环。
 
-```text
+```mermaid
 flowchart LR
   subgraph R["ReAct：单 agent 内部闭环"]
     T["Thought<br/>推理"] --> A["Action<br/>工具调用"] --> O["Observation<br/>观察结果"] --> T
@@ -539,7 +539,7 @@ State；TeamAct 不是第六种协作模式，而是 Shared State 上的团队�
 低保真草图 v0：六步是主路径，失败模式挂在 Owner / Verdict / Route 三个容易出事
 的节点上；五项终止条件是外圈守卫。
 
-```text
+```mermaid
 flowchart TB
   S["1 State<br/>读共享状态"] --> O["2 Owner<br/>明确谁负责"]
   O --> A["3 Action<br/>持有者执行"]
