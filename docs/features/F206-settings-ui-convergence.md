@@ -80,6 +80,21 @@ Phase D 审计后发现 7 个文件仍有 raw hex，机械性 token 替换 + 新
 1. **7 文件 ~100 处 raw hex → semantic token**：ThreadExecutionBar(3) / DirectoryBrowser(6) / WorkspacePanel(8) / hub-cat-editor-voice(~14) / hub-cat-editor.sections(~12) / UnifiedAuthModal(~48) / hub-cat-editor-fields(~12)
 2. **新增 CSS custom properties**：`--field-success-*`（sage green, 6 tokens）+ `--field-persist-*`（warm orange, 4 tokens），独立于 `--semantic-success-*`（Material green），light+dark mode 都有
 
+### Phase F: MissionControl 22 文件 semantic token 迁移 ✅
+
+Phase E 后审计显示 `mission-control/` 目录有 356 处 raw hex，是全仓最大残留热区。
+
+1. **22 个 mission-control/*.tsx 子组件 + dag-graph-utils.ts** 的 356 处 raw hex → CSS custom properties
+2. **新增 24 个 semantic token**（light + dark mode）到 `console-shell.css`：
+   - `--mc-status-{open,suggested,dispatched,done}-{dot,bg,text}` — backlog 状态色
+   - `--mc-status-risk` — 风险标记色
+   - `--mc-edge-{evolved,blocked,related}` — DAG 依赖图边色
+   - `--mc-accent` / `--mc-accent-hover` — 操作按钮主色
+   - `--mc-slice-{learning,value,hardening}` — 切片类型色
+   - `--mc-risk-{critical,high,medium}` — 风险严重度色
+3. **替换模式**：Tailwind class hex → token class、JS object hex → `var(--mc-*)`、inline style hex → `var(--mc-*)`
+4. **豁免**：data-viz 41 处 hex（图表颜色需独立 policy）、text-[10px] 510 处留 Phase G
+
 ### Post-close Guardrail: 线条分隔 vs 背景分层
 
 铲屎官 2026-05-20 追加口径：Thread 栏、对话栏、底部/右侧状态栏这类主框架区域，可以保留“统一底色 + 极淡线条分隔”的模式，不必强制改成背景色分层。目标接近网易云/微信的克制分隔：线条存在但不抢眼。
@@ -129,6 +144,12 @@ Phase D 审计后发现 7 个文件仍有 raw hex，机械性 token 替换 + 新
 - [x] AC-E2: 新增 `--field-success-*`（sage green, 6 tokens）+ `--field-persist-*`（warm orange, 4 tokens）CSS custom properties，light+dark mode
 - [x] AC-E3: `pnpm test` + `pnpm check` 全绿
 
+### Phase F（MissionControl semantic token 迁移）
+- [x] AC-F1: 22 个 mission-control 子组件文件迁移完成（git diff --stat 确认）
+- [x] AC-F2: 24 个 semantic token 定义（console-shell.css +48 lines，light+dark）
+- [x] AC-F3: mission-control/ 目录 zero raw hex（`rg '#[0-9a-fA-F]{3,8}'` 无匹配）
+- [x] AC-F4: `pnpm test` + `pnpm check` + `pnpm build` 全绿
+
 ## Dependencies
 
 - **Evolved from**: F190（Console Settings 骨架 intake）、F199（Settings parity audit）
@@ -158,6 +179,7 @@ Phase D 审计后发现 7 个文件仍有 raw hex，机械性 token 替换 + 新
 - Phase C: codex 本地 review → opus-47 愿景守护（不走云端）
 - Phase D: codex 本地 review → 云端 review（代码改动，不豁免）
 - Phase E: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token 替换）
+- Phase F: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token 替换）
 
 ## Links
 
@@ -182,3 +204,4 @@ Phase D 审计后发现 7 个文件仍有 raw hex，机械性 token 替换 + 新
 | 2026-05-20 | F206 reopened — Phase D: #723 视觉残留收敛（线条/边框/背景/字体） |
 | 2026-05-20 | Phase D merged (PR #1806) — borders, hex→token, font token, gradient flatten across 15 files |
 | 2026-05-20 | Phase E merged (PR #1808) — 7 out-of-scope files, ~100 hex→token, +20 new CSS custom properties (field-success/persist) |
+| 2026-05-20 | Phase F merged (PR #1809) — 22 mission-control files, 356 hex→token, +24 mc-* semantic tokens |
