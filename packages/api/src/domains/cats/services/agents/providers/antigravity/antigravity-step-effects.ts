@@ -219,6 +219,7 @@ export function classifyAntigravityStepEffect(step: TrajectoryStep): Antigravity
 
   if (
     step.type === 'CORTEX_STEP_TYPE_CHECKPOINT' ||
+    step.type === 'CORTEX_STEP_TYPE_CONVERSATION_HISTORY' ||
     step.type === 'CORTEX_STEP_TYPE_EPHEMERAL_MESSAGE' ||
     step.type === 'CORTEX_STEP_TYPE_USER_INPUT'
   ) {

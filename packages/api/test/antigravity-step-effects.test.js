@@ -196,6 +196,42 @@ describe('F201 classifyAntigravityStepEffect', () => {
     assert.equal(summary.blocksBlindRetry, false);
   });
 
+  test('CONVERSATION_HISTORY does not affect retry safety', () => {
+    const step = {
+      type: 'CORTEX_STEP_TYPE_CONVERSATION_HISTORY',
+      status: 'CORTEX_STEP_STATUS_DONE',
+    };
+
+    const effect = classifyAntigravityStepEffect(step);
+    assert.equal(effect.kind, 'none');
+    assert.equal(effect.sideEffectCapable, false);
+    assert.equal(effect.blocksBlindRetry, false);
+
+    const summary = summarizeAntigravityStepEffects([step]);
+    assert.equal(summary.hasUnsafeSideEffect, false);
+    assert.equal(summary.hasCompletedSideEffect, false);
+    assert.equal(summary.blocksBlindRetry, false);
+    assert.equal(summary.effects.length, 0);
+
+    const mixedSummary = summarizeAntigravityStepEffects([
+      step,
+      {
+        type: 'CORTEX_STEP_TYPE_MCP_TOOL',
+        status: 'CORTEX_STEP_STATUS_DONE',
+        mcpTool: {
+          serverName: 'cat-cafe-memory',
+          toolCall: {
+            name: 'cat_cafe_list_session_chain',
+            argumentsJson: JSON.stringify({ threadId: 'thread-1', catId: 'antig-opus' }),
+          },
+        },
+      },
+    ]);
+    assert.equal(mixedSummary.hasUnsafeSideEffect, false);
+    assert.equal(mixedSummary.blocksBlindRetry, false);
+    assert.equal(mixedSummary.effects.length, 0);
+  });
+
   test('sed -n with in-place edit flag is not read-only', () => {
     for (const commandLine of [
       "sed -n 's/foo/bar/p' -i file.txt",
