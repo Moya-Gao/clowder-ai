@@ -190,7 +190,7 @@ Alice 质疑方案成本和时间线；铲屎官提议先做最小验证。
 - `packages/web/src/components/workspace/TranscriptPanel.tsx` — same thread/device/source improvements
 - `packages/api/src/routes/audio-proxy.ts` — proxied pause/resume/sources endpoints
 
-### Phase F: ASR 管道增强（转写质量从"不可用"到"能用"） 📋
+### Phase F: ASR 管道增强（转写质量从"不可用"到"能用"） ✅
 
 **目的**：修复铲屎官实际使用后反馈的"语音转写质量太烂了"。根因不在模型（Qwen3-ASR-1.7B 中文会议 WER 5.88，远优于 Whisper 的 19.11），而在管道缺失——3s 固定切片无 VAD、无热词注入、无后处理、无标点恢复。
 
@@ -214,12 +214,18 @@ Alice 质疑方案成本和时间线；铲屎官提议先做最小验证。
 | 标点恢复 | ❌ | **新增** |
 
 **AC**：
-- [ ] AC-F1: **服务端 VAD 替换 3s 固定切片** — `audio-service.py` 加入 Silero VAD（Python），检测语音段动态切片（短静音合并、长停顿 flush、上限兜底），消除断句截词和静音幻觉
-- [ ] AC-F2: **热词上下文注入** — `audio-service.py` 向 ASR 发请求时传 `initial_prompt` 字段（两个 ASR 后端已支持），内容包含参会者姓名、项目术语、会议主题；热词来源：MCP `audio_capture_start` 时传入 + `/talking-points` 已有端点
-- [ ] AC-F3: **LLM 后修正接入** — `audio-service.py` ASR 返回粗文本后，调用 `llm-postprocess-api.py`（port 9878）做同音纠错，已有保守型 fallback（输出 >2.5x 输入则返回原文）
-- [ ] AC-F4: **标点恢复** — 扩展 LLM 后修正的 system prompt 加入标点和分段指令（或独立轻量模型），输出从流水账变成可读文本
-- [ ] AC-F5: **A/B 对照验收** — 用同一段真实会议录音（≥3 分钟），Phase F 前后分别跑一次，对比断句质量、专有名词命中率、标点可读性；不需要自动化评测，人工对比即可
-- [ ] AC-F6: **配置外露** — `ASR_CONTEXT`（热词表路径/内容）、`LLM_POSTPROCESS_ENABLED`（后修正开关）、`VAD_ENABLED`（VAD 开关）作为环境变量，方便开关各层
+- [x] AC-F1: **服务端 VAD 替换 3s 固定切片** — `audio-service.py` 加入 Silero VAD（Python），检测语音段动态切片（短静音合并、长停顿 flush、上限兜底），消除断句截词和静音幻觉
+- [x] AC-F2: **热词上下文注入** — `audio-service.py` 向 ASR 发请求时传 `initial_prompt` 字段（两个 ASR 后端已支持），内容包含参会者姓名、项目术语、会议主题；热词来源：MCP `audio_capture_start` 时传入 + `/talking-points` 已有端点
+- [x] AC-F3: **LLM 后修正接入** — `audio-service.py` ASR 返回粗文本后，调用 `llm-postprocess-api.py`（port 9878）做同音纠错，已有保守型 fallback（输出 >2.5x 输入则返回原文）
+- [x] AC-F4: **标点恢复** — 扩展 LLM 后修正的 system prompt 加入标点和分段指令（或独立轻量模型），输出从流水账变成可读文本
+- [x] AC-F5: **A/B 对照验收** — 用同一段真实会议录音（≥3 分钟），Phase F 前后分别跑一次，对比断句质量、专有名词命中率、标点可读性；不需要自动化评测，人工对比即可
+- [x] AC-F6: **配置外露** — `ASR_CONTEXT`（热词表路径/内容）、`LLM_POSTPROCESS_ENABLED`（后修正开关）、`VAD_ENABLED`（VAD 开关）作为环境变量，方便开关各层
+
+**交付物**（PR #1796，2026-05-20 merged）：
+- `scripts/meeting-copilot/vad_chunker.py` — VadChunker 模块（Silero VAD v5 语音分段，fallback 固定切片）
+- `scripts/meeting-copilot/test_vad_chunker.py` — VadChunker 单元测试（13 cases，含 mid-utterance silence counter bug fix 验证）
+- `scripts/meeting-copilot/audio-service.py` — 集成 VAD chunker + 热词上下文 `_build_asr_context()` + LLM 后修正接入 + pause-transition flush
+- `scripts/meeting-copilot/test_audio_service.py` — ASR context 构建测试（5 cases）
 
 **技术难度**：⭐⭐ 低（核心工作是接线 + VAD 集成，不是造新东西）
 
@@ -534,6 +540,8 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | 2026-05-14 | Recording path UI + 浮动窗可读性修复 merged (PR #1667) |
 | 2026-05-14 | Phase E spec added — 铲屎官反馈：用户自主启动采集（选 App + Start）+ 暂停/恢复按钮 |
 | 2026-05-14 | Phase E merged (PR #1670) — 音频源选择器 + 用户自主 Start + Pause/Resume + SSE 三态 + drain-path pause guards |
+| 2026-05-19 | Phase F spec added — 铲屎官反馈"语音转写质量太烂了"，两份独立调研收敛：不换模型修管道 |
+| 2026-05-20 | Phase F merged (PR #1796) — Silero VAD 动态切片 + 热词上下文注入 + LLM 后修正接入 + 标点恢复 + 环境变量配置 |
 
 ## 用户反馈（铲屎官实测 2026-05-14）
 
