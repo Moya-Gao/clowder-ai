@@ -80,7 +80,7 @@ Provides structured feedback channel for tuning.
 Decides the unit's future state based on accumulated evidence.
 - **Input**: Eval aggregates (daily/weekly), feedback history, usage counters.
 - **Output**: `{ decision: upgrade | degrade | sunset | maintain, evidence: string[], decided_by: string }`.
-- **Trigger**: Periodic review (weekly cron) or threshold breach (friction_rate > 30%).
+- **Trigger**: Periodic manual review (weekly) or threshold breach (friction_rate > 30%). Automation deferred until cron/dashboard exists.
 
 ## 5. UI/UX Design (Design Gate)
 

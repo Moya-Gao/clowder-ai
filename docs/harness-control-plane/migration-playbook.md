@@ -109,7 +109,7 @@ created: 2026-05-20
 
 2. **Include at least one worked example** showing how the threshold would be evaluated.
 
-3. **Define review cadence** (weekly automated check + monthly manual review).
+3. **Define review cadence** (weekly manual check + monthly registry review; automate when cron/dashboard available).
 
 ## Step 7: Run a Complete Cycle
 
