@@ -1,0 +1,89 @@
+# Cat Cafe Harness Registry (F208)
+# Status: Pilot Phase
+# Schema: docs/harness-control-plane/README.md
+
+units:
+  - id: hold_ball
+    name: "Ball Ownership (Hold)"
+    type: tool
+    status: active
+    owner: opus
+    description: "Allows a cat to hold the conversation baton while waiting for a bounded external condition (CI, PR checks)."
+
+    # Three-Layer Contract
+    runtime:
+      load_trigger: dynamic  # injected when dispatch detects external wait condition
+      execute_mechanism: mcp-tool  # cat_cafe_hold_ball MCP tool
+      exit_condition: "wakeAfterMs expires OR user cancels OR cat releases"
+    eval:
+      activation_signal: "hold_ball call returns status=ok (F153 counter: hold_ball_count)"
+      friction_metric: "User cancels hold prematurely (hold_cancel_count) = trust_gap; user manually pings waiting cat = harness_gap"
+      success_signal: "Wake-up fires, cat executes nextStep without user intervention"
+      regression_fixtures:
+        - "hold → wake → nextStep executes (happy path)"
+        - "hold → timeout → zombie detection fires"
+        - "hold → cancel with reason → reason field non-empty"
+    governance:
+      owner: opus
+      upgrade_criteria: "friction_rate < 10% over 2 weeks → promote sub-rules to always-on"
+      degrade_criteria: "friction_rate > 30% or zombie_rate > 20% → add manual confirmation step"
+      sunset_signal: "PR tracking + CI webhook covers 100% of wait cases → hold_ball redundant"
+
+    # Four Semantic Interfaces (implementation pointers)
+    interfaces:
+      trace: "F153 telemetry — hold/release/cancel/timeout/zombie events"
+      eval: "F192 Pilot — thread-segment observation, compensation detection"
+      feedback: "Phase B: cancel reason field (hold_cancel_with_reason_count)"
+      governance: "Weekly review: friction_rate + zombie_rate thresholds"
+
+  - id: search_evidence
+    name: "Memory Recall"
+    type: tool
+    status: active
+    owner: codex
+    description: "Primary entry point for project memory recall (search + graph + list)."
+    runtime:
+      load_trigger: static  # always available via MCP
+      execute_mechanism: mcp-tool
+      exit_condition: "results returned or timeout"
+    eval:
+      activation_signal: pending  # F200 定义
+      friction_metric: pending
+      success_signal: pending
+      regression_fixtures: []
+    governance:
+      owner: codex
+      upgrade_criteria: pending
+      degrade_criteria: pending
+      sunset_signal: pending
+    interfaces:
+      trace: pending
+      eval: F200
+      feedback: pending
+      governance: pending
+
+  - id: route-serial
+    name: "A2A Serial Routing"
+    type: guard
+    status: active
+    owner: opus
+    description: "Ensures valid @mention or hold_ball at session end (传球决策树)."
+    runtime:
+      load_trigger: static  # injected in every dispatch context
+      execute_mechanism: prompt-injection
+      exit_condition: "cat produces valid ball-pass action"
+    eval:
+      activation_signal: pending
+      friction_metric: pending
+      success_signal: pending
+      regression_fixtures: []
+    governance:
+      owner: opus
+      upgrade_criteria: pending
+      degrade_criteria: pending
+      sunset_signal: pending
+    interfaces:
+      trace: pending
+      eval: pending
+      feedback: pending
+      governance: pending
