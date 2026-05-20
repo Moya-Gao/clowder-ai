@@ -16,7 +16,7 @@ created: 2026-05-20
 | Counter | Metric Name | Attributes | When Incremented |
 |---------|-------------|------------|------------------|
 | holdBallRegistered | `cat_cafe.hold_ball.registered` | `agent.id` | POST /api/callbacks/hold-ball returns 200 |
-| holdBallCancelled | `cat_cafe.hold_ball.cancelled` | `agent.id`, `cancel.reason` | DELETE /api/callbacks/hold-ball/:taskId succeeds |
+| holdBallCancelled | `cat_cafe.hold_ball.cancelled` | `agent.id`, `cancel.reason` | Any cancel: manual DELETE or auto-cancel on user message |
 | holdBallCancelledWithReason | `cat_cafe.hold_ball.cancelled_with_reason` | `agent.id`, `cancel.reason` | Cancel includes structured reason (TRUST_GAP/HARNESS_GAP/STUCK/OTHER) |
 | holdBallWake | `cat_cafe.hold_ball.wake` | `agent.id` | Scheduler fires hold-ball reminder (reminder template execute) |
 | holdBallRejected | `cat_cafe.hold_ball.rejected` | `agent.id` | POST returns 429 (maxHoldsPerWindow exceeded) |
@@ -40,14 +40,14 @@ payload:
   threadId: string
   catId: string
   taskId: string        # scheduler task ID (hold-ball-*)
-  reason?: string       # hold: reason for holding; cancel: TRUST_GAP|HARNESS_GAP|STUCK|OTHER
+  reason?: string       # hold: reason for holding; cancel: TRUST_GAP|HARNESS_GAP|STUCK|OTHER|AUTO_USER_MESSAGE
   wakeAfterMs?: number  # hold only
   holdsInWindow?: number
 ```
 
 Event mapping to existing code paths:
 - **hold**: `holdBallRegistered` counter + log `F167 C1: hold_ball registered`
-- **cancel**: `holdBallCancelled` counter + log `F167 Phase J: hold_ball cancelled`
+- **cancel**: `holdBallCancelled` counter (manual DELETE + auto-cancel on user message with reason `AUTO_USER_MESSAGE`)
 - **reject**: `holdBallRejected` counter + log `F167 C1: hold_ball rejected`
 - **wake**: `holdBallWake` counter in reminder template, gated on `hold-ball-` task ID prefix
 - **zombie**: Requires eval pipeline correlation: wake fired but no subsequent invocation for that cat in that thread within a followup window. Phase C scope — needs cross-referencing `holdBallWake` with invocation traces

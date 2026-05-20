@@ -145,7 +145,7 @@ v0 scope：6-field registry + 3 pilots + YAML 文件。**不是平台，不建 r
 > F208 本身是 harness 类 feature，按 F192 Phase B 门禁要求填写。
 
 **Primary Users**: 三猫（harness 的一线使用者和维护者）+ 铲屎官（governance 决策者）
-**Activation Signal**: Phase B 完成后，球权 pilot 的 trace event 在 F153 telemetry 中可观测（hold/release/cancel/timeout 至少各出现 1 次）；可验证方式：`GET /api/telemetry/metrics` 中 Phase B 新增的 `hold_ball_count` / `hold_cancel_count` / `zombie_hold_count` counter 非零。注：当前 hold_ball 仅有内存 rolling counter（callback-hold-ball-routes.ts），OTel counter 为 Phase B 新建
-**Friction Metric**: 球权 cancel 事件中缺少 reason 字段的比例（Phase B 前 = 100%，Phase B 后目标 < 20%）；可验证方式：Phase B 新增的 `hold_cancel_count` vs `hold_cancel_with_reason_count` 差值（两者均为 Phase B 新建 counter）
-**Regression Fixture**: (1) hold_ball 后 release 正常流——trace 链完整；(2) zombie hold 超时——timeout event 触发；(3) cancel 携带 reason——reason 字段非空。三个 fixture 作为 Phase B 验收的具体测试场景
+**Activation Signal**: Phase B 完成后，球权 pilot 的 trace event 在 F153 telemetry 中可观测（hold/cancel/wake 至少各出现 1 次）；可验证方式：`GET /api/telemetry/metrics` 中 Phase B 新增的 `cat_cafe.hold_ball.registered` / `cat_cafe.hold_ball.cancelled` / `cat_cafe.hold_ball.wake` counter 非零
+**Friction Metric**: 球权 cancel 事件中缺少 reason 字段的比例（Phase B 前 = 100%，Phase B 后目标 < 20%）；可验证方式：`cat_cafe.hold_ball.cancelled` vs `cat_cafe.hold_ball.cancelled_with_reason` 差值（两者均为 Phase B 新建 counter）
+**Regression Fixture**: (1) hold_ball 后 wake 正常流——trace 链完整；(2) cancel 携带 reason——reason 字段非空；(3) auto-cancel on user message——counter 增量正确。zombie 检测推迟至 Phase C（需 eval pipeline 关联 wake 与后续 invocation）
 **Sunset Signal**: 连续 3 个月无 registry/governance activity（可观测：registry.yaml 的 git log 无 commit + 无 governance 类 harness-feedback 文档产出 + 无 governance 相关 AC 变更）→ 候选 sunset

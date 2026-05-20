@@ -21,8 +21,8 @@ units:
       success_signal: "Wake-up fires, cat executes nextStep without user intervention"
       regression_fixtures:
         - "hold → wake → nextStep executes (happy path)"
-        - "hold → timeout → zombie detection fires"
         - "hold → cancel with reason → reason field non-empty"
+        - "user message → auto-cancel → counter increments with AUTO_USER_MESSAGE"
     governance:
       owner: opus
       upgrade_criteria: "friction_rate < 10% AND trust_gap_rate < 5% over 2 weeks → promote to always-on"

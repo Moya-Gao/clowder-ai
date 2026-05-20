@@ -84,6 +84,7 @@ interface StreamingHookLike {
   notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
 }
 
+import { holdBallCancelled } from '../infrastructure/telemetry/instruments.js';
 import { normalizeErrorMessage } from '../utils/normalize-error.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { buildGameSeats, parseGameCommand, sanitizeCatIds } from './game-command-interceptor.js';
@@ -135,6 +136,10 @@ function tryAutoCancelPendingHolds(threadId: string, deps: HoldBallCancelDeps | 
   if (!deps) return;
   try {
     const cancelled = cancelPendingHoldsForThread(threadId, deps);
+    for (const task of cancelled) {
+      const catId = task.createdBy?.replace('hold-ball:', '') ?? 'unknown';
+      holdBallCancelled.add(1, { 'agent.id': catId, 'cancel.reason': 'AUTO_USER_MESSAGE' });
+    }
     if (cancelled.length > 0) {
       log.info(
         { threadId, cancelledCount: cancelled.length, taskIds: cancelled.map((t) => t.id) },
