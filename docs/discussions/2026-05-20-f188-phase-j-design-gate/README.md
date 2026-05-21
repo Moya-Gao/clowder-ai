@@ -8,7 +8,7 @@ created: 2026-05-20
 # F188 Phase J Design Gate: Health Debt Governance
 
 > **Author**: 布偶猫 (Opus 4.6) | **Reviewer**: 砚砚 (GPT-5.5)
-> **Status**: R2 — 修 P1×3 + P2×2 后二审
+> **Status**: R3 — 修 R2 P1×1 + P2×3 后三审
 > **Scope**: 解决 OQ-5/OQ-6/OQ-7，产出可审 contract
 
 ## Architecture Ownership
@@ -56,7 +56,7 @@ created: 2026-05-20
 
 | review_status | 语义 | 谁进 | 数量 |
 |---------------|------|------|------|
-| `trusted_legacy` | authority 由 kind 规则正确推断，内容无需重审 | constitutional(57) + validated(222) | 279 |
+| `trusted_legacy` | kind×source_path 白名单匹配，默认不需重审（但可 `mark_stale`/`escalate` 拉回） | lesson+feature+decision 且 source_path 匹配 | 由 dry-run 确定 |
 | `needs_review` | candidate 级，等猫猫 triage | candidate(444) | 444 |
 | `reviewed` | 猫猫已审查确认 | cat verify action 写入 | 0 (初始) |
 | `escalated` | 猫猫标记需铲屎官判断 | cat escalate action 写入 | 0 (初始) |
@@ -80,15 +80,31 @@ ORDER BY arm.consumed_count_30d DESC NULLS LAST;
 
 单一真相源：F200 写 `anchor_recall_metrics`，F188 只读。不做 double-write。
 
-### review_status schema migration
+### review_status schema migration（P1 R3 修正：按 kind×source_path 白名单，不按 authority）
+
+authority 不等于 provenance——`CollectionIndexBuilder` 会用 `reviewPolicy.authorityCeiling` 覆盖文档 authority（CollectionIndexBuilder.ts:86），external collection 的普通文档可能 authority='validated' 但未经 Design Gate。因此迁移必须用 `kind + source_path` 白名单，不能只看 authority。
 
 ```sql
 ALTER TABLE evidence_docs ADD COLUMN review_status TEXT;
--- 迁移 legacy trust
+
+-- Step 1: trusted_legacy — 只限 kind 规则正确推断 + source_path 匹配已知位置的文档
 UPDATE evidence_docs SET review_status = 'trusted_legacy'
-  WHERE authority IN ('constitutional', 'validated') AND verified_at IS NULL;
+  WHERE verified_at IS NULL AND (
+    (kind = 'lesson'   AND source_path LIKE 'docs/lessons/%')
+    OR (kind = 'feature'  AND source_path LIKE 'docs/features/%')
+    OR (kind = 'decision' AND source_path LIKE 'docs/decisions/%')
+  );
+
+-- Step 2: needs_review — candidate authority + 非 observed kind
 UPDATE evidence_docs SET review_status = 'needs_review'
-  WHERE authority = 'candidate' AND verified_at IS NULL;
+  WHERE verified_at IS NULL
+    AND review_status IS NULL
+    AND COALESCE(authority, 'observed') NOT IN ('observed');
+
+-- Step 3: legacy_anomaly — authority × kind 不一致的异常项（dry-run 必须逐条输出）
+-- 例如：constitutional_plan:1（plan 不该是 constitutional）、collection-derived validated 等
+-- 这些项保持 needs_review，dry-run 输出 anomaly 明细供人工检查
+
 -- observed 和已有 verified_at 的不动
 ```
 
@@ -98,23 +114,36 @@ UPDATE evidence_docs SET review_status = 'needs_review'
 {
   "buckets": {
     "trusted_legacy": {
-      "count": 279,
-      "breakdown": { "constitutional_lesson": 57, "constitutional_plan": 1, "validated_feature": 208, "validated_decision": 13 },
+      "count": "N (由 kind×source_path 白名单决定)",
+      "breakdown_by_kind_source": [
+        { "kind": "lesson", "source_prefix": "docs/lessons/", "count": 57 },
+        { "kind": "feature", "source_prefix": "docs/features/", "count": 208 },
+        { "kind": "decision", "source_prefix": "docs/decisions/", "count": 13 }
+      ],
       "action": "SET review_status = 'trusted_legacy'",
-      "risk": "low — authority correct by kind rule, no verified_at written"
+      "risk": "low — kind + source_path 双重匹配"
     },
     "needs_review": {
-      "count": 444,
+      "count": "M (所有非 observed、非 trusted_legacy、verified_at IS NULL)",
       "action": "SET review_status = 'needs_review'",
       "risk": "none — 等 cat verification workflow"
     }
   },
+  "anomalies": {
+    "description": "authority × kind 不一致的文档（进 needs_review 但需人工关注）",
+    "items": [
+      { "anchor": "...", "authority": "constitutional", "kind": "plan", "source_path": "...", "note": "plan 不该是 constitutional" }
+    ]
+  },
+  "authority_kind_source_matrix": "完整 authority × kind × source_path_prefix 交叉表（验证迁移覆盖率）",
   "before": { "unverified_displayed": 724 },
-  "after": { "needs_attention": 444, "trusted_legacy": 279, "verified_at_still_null": 723 }
+  "after": { "needs_attention": "needs_review count", "trusted_legacy": "白名单 count", "anomaly_in_needs_review": "异常条目数" }
 }
 ```
 
-health report 改为显示 `needs_review` count（444）而不是 `verified_at IS NULL` count（724）。`trusted_legacy` 不显示在"待处理"里。
+**数字校验**：`trusted_legacy + needs_review + (observed/NULL 不动) = total`。dry-run 必须输出 `authority × kind × source_path_prefix` 矩阵，确保无遗漏无重复。之前 R2 的 279 + 444 = 723 ≠ 724，差 1 条正是 `constitutional_plan:1` 这类异常——用 kind×source_path 白名单后，该条进 `needs_review`，数字自洽。
+
+health report 改为显示 `needs_review` count 而不是 `verified_at IS NULL` count（724）。`trusted_legacy` 不显示在"待处理"里。
 
 ## Contract 2: Orphan Edge Repair（OQ-6）
 
@@ -207,16 +236,16 @@ for (const match of masked.matchAll(/\bF(\d{2,4})(?![-a-zA-Z])\b/g)) {
               └──────────┘ └──────────┘
 ```
 
-`trusted_legacy`（279 docs）和 `NULL`/observed（1404 docs）不进入此工作流。
+`NULL`/observed（1404 docs）不进入此工作流。`trusted_legacy` 默认不需要 triage，但猫猫发现问题时可以 `mark_stale` 或 `escalate` 将其拉回工作流。
 
 ### Action Set（MCP tool `cat_cafe_library_verify`）
 
 | action | 前置状态 | 写入 | 语义 |
 |--------|---------|------|------|
 | `confirm` | `needs_review` | `review_status='reviewed'`, `verified_at=NOW()` | 猫猫确认内容正确 |
-| `mark_stale` | `needs_review` \| `reviewed` | `review_status='needs_review'`, `verified_at=NULL` | 内容已过时，打回重审 |
-| `escalate` | `needs_review` | `review_status='escalated'` | 猫猫无法判断，升级铲屎官 |
-| `ignore` | `needs_review` | `review_status=NULL` | 降级为 observed，不需要治理 |
+| `mark_stale` | `needs_review` \| `reviewed` \| `trusted_legacy` | `review_status='needs_review'`, `verified_at=NULL` | 内容已过时或发现问题，打回重审 |
+| `escalate` | `needs_review` \| `trusted_legacy` | `review_status='escalated'` | 猫猫无法判断，升级铲屎官 |
+| `dismiss_review` | `needs_review` | `review_status=NULL` | 不再需要治理审查（不改 authority，仅移出 triage 队列） |
 
 ### Audit Log（复用 `f163_logs` 表，不新建）
 
