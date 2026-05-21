@@ -182,7 +182,7 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 1. **SettingsRow active tone 修复**：`bg-conn-purple-bg` (#f3e8ff) → `bg-[var(--console-card-bg)]` (#fffdfb)，enabled/disabled 区分靠 badge + inactive 灰色背景
 2. **SettingsShell sidebar 对齐**：`--console-panel-bg` (#f6efe7) → `--console-shell-bg` (#fcfaf7)，和 ThreadSidebar 一致
 
-### Phase P: Settings residual primitive sweep 🚧
+### Phase P: Settings residual primitive sweep ✅
 
 Phase O post-merge audit（砚砚）识别 5 个 Settings/Voice 文件仍有 legacy cafe-* token + custom eyebrow pattern。
 
@@ -314,11 +314,11 @@ Phase O post-merge audit（砚砚）识别 5 个 Settings/Voice 文件仍有 leg
 - [x] AC-O5: `pnpm gate` 全绿
 
 ### Phase P（Settings residual primitive sweep）
-- [ ] AC-P1: VoiceSettingsPanel — 4x focus border + 2x edit border + 2x code pill bg migrated to console tokens
-- [ ] AC-P2: InstallPreviewModal — border-cafe input migrated to --console-border-soft
-- [ ] AC-P3: SettingsInlineItem — bg-cafe-surface migrated to --console-card-bg (primitive self-heal)
-- [ ] AC-P4: SkillConflictBanner — bg-white migrated to --console-card-bg (adaptive)
-- [ ] AC-P5: `pnpm gate` 全绿
+- [x] AC-P1: VoiceSettingsPanel — 4x focus border + 2x edit border + 2x code pill bg migrated to console tokens
+- [x] AC-P2: InstallPreviewModal — border-cafe input migrated to --console-border-soft
+- [x] AC-P3: SettingsInlineItem — bg-cafe-surface migrated to --console-card-bg (primitive self-heal)
+- [x] AC-P4: SkillConflictBanner — bg-white migrated to --console-card-bg (adaptive)
+- [x] AC-P5: `pnpm gate` 全绿
 
 ## Dependencies
 
@@ -396,3 +396,4 @@ Phase O post-merge audit（砚砚）识别 5 个 Settings/Voice 文件仍有 leg
 | 2026-05-21 | Phase M merged (PR #1817) — settings tone unify: purple member cards fixed + sidebar bg aligned to thread sidebar |
 | 2026-05-21 | Phase N merged (PR #1818) — console page shell convergence: MemoryHub/MemoryNav/MissionControlPage/ChatContainer tokens aligned |
 | 2026-05-21 | Phase O merged (PR #1819) — Memory/Mission inner control primitive sweep: 25 files, CTA buttons exempt, chip hierarchy preserved |
+| 2026-05-21 | Phase P merged (PR #1820) — Settings residual primitive sweep: 4 files, focus/border/surface tokens migrated, uppercase eyebrow deferred |
