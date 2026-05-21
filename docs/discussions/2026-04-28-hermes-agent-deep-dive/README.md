@@ -140,6 +140,7 @@ source_commit: adef1f33
 ### 最终合流
 
 - [comparison-with-cat-cafe.md](./comparison-with-cat-cafe.md)：合流四份证据，全景对比表（20 维度）+ 算法层面横扫 + 我们的 tradeoff 论证 + 追/不追优先级 + 8 条拆解 SOP 输入。[宪宪/Opus-47🐾]
+- [ppt-self-evolution-slide-draft.md](./ppt-self-evolution-slide-draft.md)：面向一页 PPT 的 Hermes 自演进链路图草稿，补“十次 tool iteration 触发”“patch skill 能力”“curator 生命周期”和人话解说词。
 - `open-source-project-teardown-skill-draft.md`（待写）：把 8 条 SOP 固化为可执行 skill。
 
 ## 收敛检查
