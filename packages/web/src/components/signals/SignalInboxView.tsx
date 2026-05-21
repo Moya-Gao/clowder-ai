@@ -35,6 +35,9 @@ const initialFilters: SignalArticleFilters = {
   tier: 'all',
 };
 
+const CONTENT_SURFACE_CLASS =
+  'rounded-2xl border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-[18px] shadow-[0_12px_30px_rgba(43,33,26,0.06)]';
+
 function uniqueSources(items: readonly SignalArticle[]): readonly string[] {
   return Array.from(new Set(items.map((item) => item.source))).sort();
 }
@@ -287,7 +290,10 @@ export function SignalInboxView({ initialReferrerThread = null }: { initialRefer
       </header>
 
       <main className="flex min-h-0 flex-1 p-5">
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden rounded-2xl bg-[var(--console-card-bg)] p-[18px]">
+        <div
+          className={`flex min-h-0 flex-1 flex-col gap-4 overflow-hidden ${CONTENT_SURFACE_CLASS}`}
+          data-testid="signal-inbox-content-surface"
+        >
           <SignalStatsCards stats={stats} />
 
           {error && (

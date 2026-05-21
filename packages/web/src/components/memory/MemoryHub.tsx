@@ -16,6 +16,9 @@ interface MemoryHubProps {
   readonly initialReferrerThread?: string | null;
 }
 
+const CONTENT_SURFACE_CLASS =
+  'rounded-2xl border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-[18px] shadow-[0_12px_30px_rgba(43,33,26,0.06)]';
+
 export function MemoryHub({ activeTab = 'feed', initialQuery, initialReferrerThread = null }: MemoryHubProps) {
   return (
     <div className="flex h-full flex-col bg-[var(--console-shell-bg)]" data-testid="memory-hub">
@@ -24,7 +27,7 @@ export function MemoryHub({ activeTab = 'feed', initialQuery, initialReferrerThr
       </header>
 
       <main className="flex-1 overflow-y-auto p-5">
-        <div className="rounded-2xl bg-[var(--console-card-bg)] p-[18px]">
+        <div className={CONTENT_SURFACE_CLASS} data-testid="memory-content-surface">
           {activeTab === 'feed' && (
             <div data-testid="memory-tab-feed">
               <KnowledgeFeed />
