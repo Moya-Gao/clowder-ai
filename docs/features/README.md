@@ -144,6 +144,7 @@
 | F199 | F199: Console Parity Backfill — F190 Phase D+E settings parity backfill (7 组件 + service lifecycle + skills write hardening) | done | [F199-console-parity-backfill.md](./F199-console-parity-backfill.md) |
 | F201 | F201: Antigravity Reliability Contract — 孟加拉猫可靠可用性闭环 | done | [F201-antigravity-reliability-contract.md](./F201-antigravity-reliability-contract.md) |
 | F188 | F188: Library Stewardship — 图书馆管护与成长（rebuild + health + graph + materialize + lifecycle） | done | [F188-library-stewardship.md](./F188-library-stewardship.md) |
+| F206 | F206: Settings UI Convergence — 组件语言归一（16 Phase A-P, 20+ primitives, 100+ semantic tokens, 全仓视觉归一） | done | [F206-settings-ui-convergence.md](./F206-settings-ui-convergence.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |

@@ -8,7 +8,7 @@ created: 2026-05-18
 
 # F206: Settings UI Convergence — 组件语言归一
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-05-21
 
 ## Why
 
@@ -340,7 +340,8 @@ Phase O post-merge audit（砚砚）识别 5 个 Settings/Voice 文件仍有 leg
 | KD-1 | 不走云端 review，opus coding + codex review + opus-47 愿景守护 | CVO directive：快速路，减少社区分叉。Guardian 47 是同 family (ragdoll) 不同个体（fallback path per 五条铁律 #2），CVO 指定。理想 cross-family 选项是 @gemini，本次因速度优先 + 47 未参与 review 而采用 fallback。 | 2026-05-18 |
 | KD-2 | 归一 ≠ 砍功能学开源 | 开源一致是功能简单，我们要功能保留+抽象到 primitives | 2026-05-18 |
 | KD-3 | 先归一再 outbound sync | 同步出去的代码是社区二次参考点，混乱版污染下游 | 2026-05-18 |
-| KD-4 | 框架边界可用极淡统一线条，内容卡片避免四周包边 | 铲屎官 2026-05-20 明确：Thread 栏/对话栏/状态栏可统一底色 + 淡线分隔；状态栏等内容块仍应“能不要框线就不要框线”，避免改着改着忘回卡片包边 | 2026-05-20 |
+| KD-4 | 框架边界可用极淡统一线条，内容卡片避免四周包边 | 铲屎官 2026-05-20 明确：Thread 栏/对话栏/状态栏可统一底色 + 淡线分隔；状态栏等内容块仍应”能不要框线就不要框线”，避免改着改着忘回卡片包边 | 2026-05-20 |
+| KD-5 | 红区文件纯 CSS token 迁移豁免 + reopen anchor CVO 追认 | Phase L/N 触碰 ChatContainer.tsx/ChatMessage.tsx（F183/F184/F194 红区），diff 实证纯 className 视觉 token 迁移（零行为风险）。CVO 2026-05-21 追认豁免。同时追认 F206 reopen 承载 Phase D-P（原 close `8891cd400` → reopen `675a7c104`，anchor 归属 CVO 事后 signoff） | 2026-05-21 |
 
 ## Review Gate
 
@@ -397,3 +398,4 @@ Phase O post-merge audit（砚砚）识别 5 个 Settings/Voice 文件仍有 leg
 | 2026-05-21 | Phase N merged (PR #1818) — console page shell convergence: MemoryHub/MemoryNav/MissionControlPage/ChatContainer tokens aligned |
 | 2026-05-21 | Phase O merged (PR #1819) — Memory/Mission inner control primitive sweep: 25 files, CTA buttons exempt, chip hierarchy preserved |
 | 2026-05-21 | Phase P merged (PR #1820) — Settings residual primitive sweep: 4 files, focus/border/surface tokens migrated, uppercase eyebrow deferred |
+| 2026-05-21 | F206 closed — opus-47 愿景守護 PASS（愿景达成，2 个程序 P0 由 CVO 追认：reopen anchor + 红区 CSS 豁免 KD-5）|
