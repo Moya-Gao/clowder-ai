@@ -296,6 +296,13 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 - [x] AC-N4: ChatContainer export mode bg migrated from bg-cafe-surface to --console-shell-bg
 - [x] AC-N5: `pnpm gate` 全绿
 
+### Phase O（Memory/Mission inner control primitive sweep）
+- [x] AC-O1: 10 Memory files migrated — form inputs, search bars, filter dropdowns, chip badges, passage borders all use console-* tokens
+- [x] AC-O2: 15 Mission-control files migrated — form inputs (bg-cafe-surface → --console-card-bg), focus borders (border-cafe-accent → --console-border-strong), badge/card bg (bg-cafe-surface-elevated → --console-card-bg), section borders (border-cafe-subtle → --console-border-soft)
+- [x] AC-O3: CTA buttons exempt — bg-cafe-accent/bg-cafe-primary semantic action tokens preserved (WCAG AA contrast, --console-button-emphasis dark mode 3.31:1 with text-white fails threshold)
+- [x] AC-O4: Chip/badge hierarchy preserved — child elements use --console-panel-bg (not --console-card-bg same as parent) to maintain visual distinction
+- [x] AC-O5: `pnpm gate` 全绿
+
 ## Dependencies
 
 - **Evolved from**: F190（Console Settings 骨架 intake）、F199（Settings parity audit）
@@ -333,6 +340,8 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 - Phase K: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration + exempt annotations）
 - Phase L: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 className bulk migration）
 - Phase M: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token swap）
+- Phase N: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 console token alignment）
+- Phase O: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration for inner controls）
 
 ## Links
 
@@ -368,3 +377,4 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 | 2026-05-20 | Phase L merged (PR #1815) — text-[10px] → text-micro bulk migration complete (510 instances, 135 files, 1 test selector) |
 | 2026-05-21 | Phase M merged (PR #1817) — settings tone unify: purple member cards fixed + sidebar bg aligned to thread sidebar |
 | 2026-05-21 | Phase N merged (PR #1818) — console page shell convergence: MemoryHub/MemoryNav/MissionControlPage/ChatContainer tokens aligned |
+| 2026-05-21 | Phase O merged (PR #1819) — Memory/Mission inner control primitive sweep: 25 files, CTA buttons exempt, chip hierarchy preserved |
