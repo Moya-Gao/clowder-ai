@@ -28,29 +28,30 @@ related: [F086, F129, ADR-012]
 ┌─────────────────────────────────────────────────────────┐
 │                    真相源层（Source of Truth）             │
 │                                                          │
-│  shared-rules.md ──→ 所有猫的规则真相源                    │
-│  cat-config.json ──→ 名册 + review 策略                   │
-│  CLAUDE.md       ──→ 布偶猫(Opus)专属（非 sync 产物）      │
-│  assets/system-prompts/cats/{codex,gemini}.md             │
-│                  ──→ 各族身份碎片                          │
+│  shared-rules.md ──→ governance L0 唯一真相源              │
+│  cat-config.json ──→ 名册 + review 策略 + 身份编译源        │
+│  CLAUDE.md / AGENTS.md ─→ harness project-doc（参考）      │
+│  assets/system-prompts/cats/gemini.md                     │
+│                  ──→ 暹罗猫身份碎片（legacy sync）          │
 └───────────┬─────────────┬──────────────┬────────────────┘
             │             │              │
             ▼             ▼              ▼
 ┌──────────────┐ ┌──────────────┐ ┌────────────────────┐
 │ 编译产物层    │ │ Sync 产物层   │ │ 运行时常量层        │
 │              │ │              │ │                    │
-│governance-l0 │ │~/.codex/     │ │GOVERNANCE_L0_DIGEST│
-│  .md         │ │ AGENTS.md    │ │WORKFLOW_TRIGGERS   │
-│(sync 脚本    │ │~/.gemini/    │ │MCP_TOOLS_SECTION   │
-│ 渲染)        │ │ GEMINI.md    │ │(SystemPromptBuilder│
-│              │ │(sync 脚本)   │ │ .ts 硬编码)        │
+│governance-l0 │ │~/.gemini/    │ │Compiled governance │
+│compiler      │ │ GEMINI.md    │ │L0 loader           │
+│(shared-rules │ │(legacy sync) │ │WORKFLOW_TRIGGERS   │
+│ → L0 block)  │ │              │ │MCP_TOOLS_SECTION   │
 └──────┬───────┘ └──────┬───────┘ └────────┬───────────┘
        │                │                   │
        ▼                ▼                   ▼
 ┌─────────────────────────────────────────────────────────┐
 │              运行时注入层（每次 Invocation）                │
 │                                                          │
-│  buildStaticIdentity()  ← 身份 + 治理 + 工作流 + Pack     │
+│  native L0 compiler     ← system-prompt-l0.md + governance│
+│  buildStaticIdentity()  ← fallback 身份 + 治理 + 工作流     │
+│                            + Pack（同 governance 编译产物）│
 │  buildInvocationContext() ← 模式 + 路由 + SOP + 参与者    │
 │  buildReviewerSection()  ← 可用 reviewer 列表             │
 │  McpPromptInjector       ← HTTP 回调指令（非 Claude 猫）   │
@@ -63,10 +64,11 @@ related: [F086, F129, ADR-012]
 
 | 注入点 | 文件位置 | 影响范围 | 真相源 |
 |--------|---------|---------|--------|
-| `GOVERNANCE_L0_DIGEST` | `SystemPromptBuilder.ts:259` | **ALL cats at runtime** | `shared-rules.md` |
-| `WORKFLOW_TRIGGERS` | `SystemPromptBuilder.ts:278` | 各族工作流 | 同文件（无外部源） |
+| Governance L0 compiler | `packages/api/src/domains/cats/services/context/governance-l0.ts` | **ALL cats**（native + fallback） | `cat-cafe-skills/refs/shared-rules.md` + `.local/.local-override` |
+| `WORKFLOW_TRIGGERS` | `SystemPromptBuilder.ts` + `compile-system-prompt-l0.mjs` overlay | 各族工作流 | 同文件（无外部源） |
 | `MCP_TOOLS_SECTION` | `SystemPromptBuilder.ts:223` | Claude 猫 only | 同文件 |
-| `system-prompt-l0.md` (native L0) | `assets/system-prompts/` → `compile-system-prompt-l0.mjs` | **Claude + Codex** developer 层 native 注入（压缩免疫，F203） | 自身 |
+| `system-prompt-l0.md` (native L0) | `assets/system-prompts/` → `compile-system-prompt-l0.mjs` | **Claude + Codex** developer 层 native 注入（压缩免疫，F203） | 自身 + compiled governance L0 |
+| `SystemPromptBuilder` fallback | `packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts` | 非 native L0 provider / pack fallback | compiled governance L0（同上） |
 | `governance-l0.md` | `assets/system-prompts/` | Gemini sync 产物（Codex 已退役走 native L0） | `shared-rules.md` |
 | `gemini.md` | `assets/system-prompts/cats/` | 暹罗猫身份 | 自身 |
 | `CLAUDE.md` | repo root | 布偶猫(Opus) harness 级 | 自身（不被 sync） |
@@ -81,12 +83,15 @@ related: [F086, F129, ADR-012]
 ```
 shared-rules.md   ← 改这里
     ↓ 必须同步
-governance-l0.md  ← pnpm sync:system-prompts（如有 sync 脚本）
-    ↓ 必须手动同步
-GOVERNANCE_L0_DIGEST ← SystemPromptBuilder.ts 中的硬编码常量
+governance-l0.ts compiler projection（缺 anchor fail-closed）
+    ↓ 同一编译产物进入两条路径
+compile-system-prompt-l0.mjs（native L0） + SystemPromptBuilder fallback
     ↓ 必须跑测试
-pnpm --filter @cat-cafe/api test:system-prompt
+pnpm --filter @cat-cafe/api build
+node --test packages/api/test/governance-l0.test.js packages/api/test/system-prompt-builder.test.js scripts/compile-system-prompt-l0.test.mjs
 ```
+
+本地覆盖文件 `shared-rules.local.md` / `shared-rules.local-override.md` 挂在 governance 编译层：native L0 与 fallback 同时生效；override 保留 replace final governance block 语义。
 
 **改身份/性格时：**
 - 布偶猫 / 缅因猫 → 改 `cat-config.json`（角色/性格），native L0 由 `compile-system-prompt-l0.mjs` 编译注入（无 sync）；缅因猫 workflow / 长任务纪律改 `compile-system-prompt-l0.mjs` 的 `WORKFLOW_TRIGGERS_INLINE['maine-coon']`
@@ -142,16 +147,18 @@ pnpm --filter @cat-cafe/api test:system-prompt
 #### 4.4 禁止冗余注入
 
 同一条规则不在多处重复。当前已知冗余（待 Phase 0 审计）：
-- `shared-rules.md` 的纪律条款 vs `CLAUDE.md` 的铁律 → 应引用不重复
-- `governance-l0.md` vs `GOVERNANCE_L0_DIGEST` → 应由 sync 保证一致，或废弃编译产物
+- `shared-rules.md` 的纪律条款 vs `CLAUDE.md` / `AGENTS.md` 的铁律 → root md 只保留 harness 级 defense-in-depth，不复制完整家规
+- `governance-l0.md` vs native L0 / fallback digest → F203 KD-15 已收敛为 `shared-rules.md` → governance compiler → native + fallback 共用编译产物
 
 ### 5. 守护测试
 
-`SystemPromptBuilder` 已有 80+ 测试（`packages/api/test/system-prompt-builder.test.js`）。
+`SystemPromptBuilder` + governance compiler 已有守护测试。
 
 **新增规则**：
-- 改 `GOVERNANCE_L0_DIGEST` → 必须跑 `node --test packages/api/test/system-prompt-builder.test.js`
-- 测试会验证 digest 中包含 Magic Words、原则编号等关键字
+- 改 `shared-rules.md` / governance compiler → 必须跑：
+  - `pnpm --filter @cat-cafe/api build`
+  - `node --test packages/api/test/governance-l0.test.js packages/api/test/system-prompt-builder.test.js scripts/compile-system-prompt-l0.test.mjs`
+- 测试会验证 compiled governance L0 中包含 Magic Words、原则编号、世界观、A2A、family overlay 等关键字
 
 ### 6. 模型演进适配（双向原则）
 
@@ -177,6 +184,8 @@ pnpm --filter @cat-cafe/api test:system-prompt
 
 ## Phase 0 审计发现（2026-04-17 三猫协作）
 
+> 历史记录：本节保留 2026-04-17 审计时的原始位置引用。`assets/system-prompts/cats/codex.md` 已在 F203 KD-14 退役删除；`GOVERNANCE_L0_DIGEST` 已在 F203 KD-15 退役为 governance compiler。新改动按 §2 / §3 的 live map 操作。
+
 ### P1 漂移修复（已完成）
 
 | # | 问题 | 根因 | 修复 |
@@ -191,9 +200,9 @@ pnpm --filter @cat-cafe/api test:system-prompt
 
 | 动作 | 内容 | 位置 |
 |------|------|------|
-| **保留** | 个体判定规则 + 家族分工 | `codex.md:5` |
+| **保留** | 个体判定规则 + 家族分工 | `codex.md:5`（historical，F203 KD-14 后迁入 native overlay / cat-config） |
 | **保留** | 完成 review / 修完 bug 后交棒条款 | `WORKFLOW_TRIGGERS.maine-coon` |
-| **重写** | "禁止式"执行纪律 → 状态迁移式正面表述（BLOCKED/REVIEW READY/DONE） | `codex.md:32` + `WORKFLOW_TRIGGERS:293` |
+| **重写** | "禁止式"执行纪律 → 状态迁移式正面表述（BLOCKED/REVIEW READY/DONE） | `codex.md:32`（historical） + `WORKFLOW_TRIGGERS` |
 | **重写** | "讨论完成就 @" → "仅 serial/handoff 场景且需要对方行动才 @；parallel 禁 @" | `WORKFLOW_TRIGGERS:288` |
 | **删除** | "Review 别人代码有立场"与"Review 布偶猫代码有立场"语义重复 | `WORKFLOW_TRIGGERS:290` |
 
@@ -213,7 +222,7 @@ pnpm --filter @cat-cafe/api test:system-prompt
 | 动作 | 内容 | 位置 |
 |------|------|------|
 | **待审** | `CLAUDE.md` 铁律 vs `shared-rules.md` 纪律重叠度 | `CLAUDE.md` 五条铁律 |
-| **待审** | `GOVERNANCE_L0_DIGEST` vs `shared-rules.md` 三层覆盖差异量化 | `SystemPromptBuilder.ts:259` |
+| **已解** | `GOVERNANCE_L0_DIGEST` vs `shared-rules.md` 三层覆盖差异量化 | F203 KD-15：governance compiler 单源化 |
 | **待审** | `MCP_TOOLS_SECTION` 工具列表是否过时 | `SystemPromptBuilder.ts:223` |
 
 ### 8. 载体通道语义（2026-05-15 源码验证）
@@ -369,14 +378,14 @@ Claude Code 系统提示词由以下函数动态拼装：
 | # | 内容 | 当前位置 | 为什么丢了会崩 |
 |---|------|---------|---------------|
 | 1 | **身份 + 伙伴声明** | CLAUDE.md 前 10 行 | 压缩后不知道自己是谁、有队友 |
-| 2 | **Magic Words**（8 个铲屎官拉闸词） | `GOVERNANCE_L0_DIGEST` / `shared-rules.md` | 铲屎官喊停猫不停 = P0 |
+| 2 | **Magic Words**（8 个铲屎官拉闸词） | compiled governance L0（`shared-rules.md` → `governance-l0.ts`） | 铲屎官喊停猫不停 = P0 |
 | 3 | **Rule 0 + P1-P5 第一性原则** | `shared-rules.md` §1-§5 | 判断力基石，丢了变执行机器 |
 | 4 | **W1-W8 世界观** | `shared-rules.md` §W1-§W8 | "猫是 Agent 不是 API"/"用户是 CVO"——丢了判断力坍塌（47 补） |
 | 5 | **Push Back 协议机制**（证据+适用性+替代方案） | `shared-rules.md` §Rule 0 | 只说 Rule 0 不说怎么 push back = 规则变绝对刹车没出口（47 补） |
 | 6 | **传球三选一 + 球权只有第一人称** | `shared-rules.md` 传球决策树 | 压缩后链路锁死 + "球在你手上"代替 @ 已反复踩坑（47 补） |
 | 7 | **@ 路由规则**（行首、同行、不分行） | `shared-rules.md` + feedback memories | 路由失效 = 消息发不出去 |
 | 8 | **五条铁律** | CLAUDE.md | Redis 6399 误触 = P0、review 必须跨个体 |
-| 9 | **commit 签名格式 + 模型型号** | `GOVERNANCE_L0_DIGEST` / `shared-rules.md` §5 | 同族多分身归属不明（47 补） |
+| 9 | **commit 签名格式 + 模型型号** | compiled governance L0（`shared-rules.md` → `governance-l0.ts`） | 同族多分身归属不明（47 补） |
 | 10 | **共享状态文件只在 main 改 + 改完 commit push** | `shared-rules.md` §14 三层防御 | worktree 改 BACKLOG = 冲突（47 补） |
 | 11 | **铲屎官三硬条件**（不可逆/愿景级/跨猫僵局才 @landy） | `shared-rules.md` §10.4 | 反问式 ping 铲屎官（47 补） |
 | 12 | **WORKFLOW_TRIGGERS**（谁 @ 谁做什么） | `SystemPromptBuilder.ts` | 完成工作不知道传给谁 |
@@ -470,14 +479,14 @@ Phase 3: 灰度 1 周 + telemetry（cache 命中率 / 工具调用模式 / 行�
 - **正面**：Magic Words 真相源已修正到 `shared-rules.md`
 - **正面**：Rule 0 + Push Back 协议补齐了"对齐好直觉"这半边——规则不再只有刹车没有油门
 - **正面**：双向检验标准（"删掉后好行为会消失吗"）与模型类型无关，测的是规则信息量
-- **负面**：`GOVERNANCE_L0_DIGEST` 仍是硬编码常量，手动同步负担存在——长期应考虑编译自动化
+- **正面（F203 KD-15 已完成）**：`GOVERNANCE_L0_DIGEST` 硬编码常量退役，`shared-rules.md` 通过 governance compiler 同时供 native L0 与 fallback 使用
 - **待定**：Phase 0 正面重写改动量较大，需分批落地
 - **突破（basic feasibility passed）**：`--system-prompt` 替换式 spike 通过基本验证（§9.4）——工具能力内置、默认行为指导可清除、我们的规则完整生效。需扩展 spike 验证并行调用/Skill/safety 等功能性后方可上生产（§10.5 S2）
 - **愿景**：从"工具猫"到"伙伴猫"——系统提示词告诉猫有队友、有伙伴、遇到困难可以求助，而不是"最小改动、不要多想"（§9.4）
 
 ## 开放问题
 
-1. `GOVERNANCE_L0_DIGEST` 是否应改为从 `shared-rules.md` 自动编译（消除手动同步）
+1. ✅ 已解决（F203 KD-15）：`shared-rules.md` 自动编译为 governance L0，native + fallback 共用同一编译产物
 2. `CLAUDE.md` 铁律哪些是 `shared-rules.md` 纪律的重复（需逐条比对）——铲屎官已确认重复是刻意的兼容副本（§8.3），但仍需量化哪些可安全删除
 3. `WORKFLOW_TRIGGERS` 是否应提取为外部配置文件（当前硬编码在 .ts 中）
 4. Pack system guardrails 与 L0 治理的优先级冲突如何仲裁

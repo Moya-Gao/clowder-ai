@@ -23,6 +23,13 @@ const CATS = ['opus', 'opus-47', 'sonnet', 'codex', 'gpt52', 'gemini25'];
 
 describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
   describe('14 L0 governance items coverage', () => {
+    test('template delegates governance block to shared-rules compiler (#747)', () => {
+      const template = readFileSync(new URL('../assets/system-prompts/system-prompt-l0.md', import.meta.url), 'utf8');
+      assert.ok(template.includes('{{GOVERNANCE_L0}}'));
+      assert.ok(!template.includes('### Rule 0 — 规则是边界不是全部'));
+      assert.ok(!template.includes('### 第一性原理 P1-P5'));
+    });
+
     test('身份 + 伙伴声明 present', async () => {
       const l0 = await compileL0({ catId: 'opus-47' });
       assert.match(l0, /你是.+(布偶猫|缅因猫|暹罗猫)/);
