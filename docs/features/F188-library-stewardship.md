@@ -8,7 +8,7 @@ created: 2026-05-06
 
 # F188: Library Stewardship — 图书馆管护与成长
 
-> **Status**: done | **Completed**: 2026-05-20 | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: reopened | **Completed (A-I)**: 2026-05-20 | **Reopened**: 2026-05-20 (Phase J) | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -33,6 +33,30 @@ F186 建成了图书馆的骨架（Collection 联邦 + Scanner + Security + Grap
 Memory Health Dashboard 增强：从"有多少东西"升级到"哪里脏了、漏了、坏了"。
 
 指标：stale anchors（引用已删文件的锚点）、search miss / low-hit query（搜索质量缺口）、orphan edges（悬空图边）、replay drift（Query Replay 质量漂移趋势）、Knowledge Feed pending（等确认的知识候选积压量）、needs_review 积压。
+
+### Phase J: Health Debt Governance（2026-05-20 reopen）
+
+PR #1790 把 Health Dashboard 的问题数主动 surfacing 到 MemoryNav 后，铲屎官第一次在日常路径看到真实债务：
+
+- `201` 条 orphan edges：孤立边引用不存在的文档
+- `724` 篇 unverified docs：非 `observed` authority 但 `verified_at IS NULL`
+- `12` 条 Knowledge Feed pending：待处理知识动态
+
+这证明 Phase B 的 badge 在跑，但也暴露出新的闭环缺口：**指标可信以后，系统必须告诉猫猫如何治理，而不是把数字扔给铲屎官。** Phase J 不重做 Health Dashboard，也不改变 F200；它把 Phase B 暴露出来的两类核心 health debt（orphan edges / verification debt）变成可解释、可 dry-run、可修复、可回归的治理流程。
+
+**砚砚独立判断（2026-05-20）**：
+
+1. **orphan edges 是 F188 该管的结构债**：它来自 F188 Phase C edge extraction / graph health，当前抽样显示大头是 `F20` vs `F020` 这类 feature anchor canonicalization 缺失。修复必须包含一次性 migration + 写入时 normalize，不能只在 dashboard 上解释数字。
+2. **unverified 不是 F200 能自动清零的问题**：F200 consumption / trajectory 证明“这篇被用过、对导航有用”，不等于“这篇内容被验证为真”。F200 信号可以作为 review candidate / usage prior，但**不能直接写 `verified_at` 或提升 authority**。
+3. **不能盲降级 legacy authority**：`validated` / `constitutional` 且 `verified_at IS NULL` 是历史数据语义不完整，不等于内容不可信。Phase J 必须先区分 `authority`（来源/治理层级）、`verified_at`（验证事件时间）、`usage_signal`（被猫用过）三件事，再决定迁移策略。
+4. **铲屎官不做 724 次点击**：治理默认由猫猫批处理 / 抽样 / dry-run / 自动修复承担，只有高风险、语义冲突、跨 feature 决策才升级给铲屎官。
+
+**Scope**：
+
+- orphan edge detail + repair：列出具体 from/to/relation/provenance，分类 feature-ref canonicalization / true ghost / non-doc wikilink / related-field drift，支持 dry-run 和 apply。
+- edge write prevention：所有 edge writer（frontmatter `related_features`、WikiLink、Markdown link、body F-ref）统一走 canonical target resolver。
+- verification semantics cleanup：明确 authority / verification / usage 三层语义，迁移 legacy NULL `verified_at`，但不把 F200 consumption 当 truth verification。
+- cat-owned review workflow：猫猫能批量确认、标记需复查、或上升少量关键问题；铲屎官只看到需要愿景/事实判断的少数项。
 
 ### Phase C: Graph Fidelity ✅
 
@@ -201,6 +225,17 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 - [x] AC-B4: 展示 replay drift 趋势（如 Query Replay 已有数据）
 - [x] AC-B5: 展示 Knowledge Feed pending + needs_review 积压
 
+### Phase J（Health Debt Governance — reopened 2026-05-20）
+- [ ] AC-J1: Health debt semantics spec 落地：明确 `authority`（来源/治理层级）、`verified_at`（显式验证事件）、`usage_signal`（F200 consumption / trajectory）三者互不替代；F200 consumption 不得自动写 `verified_at` 或提升 authority
+- [ ] AC-J2: Orphan edge details API/UI：`orphanEdges` 不只返回 count，还能返回分页/抽样 details（from_anchor / to_anchor / relation / provenance / from_exists / to_exists / suggested_classification），Health Dashboard 可 drill down
+- [ ] AC-J3: Orphan edge repair dry-run：提供 dry-run 报告，分类至少覆盖 `feature_ref_missing_zero_padding`、`feature_ref_true_ghost`、`wikilink_non_doc_target`、`related_target_missing`；报告包含 before/after count 和拟执行 SQL/edge changes 摘要
+- [ ] AC-J4: Orphan edge repair apply：只对 dry-run 可证明安全的项自动修复（如 `F20 → F020` 且 canonical anchor 存在）；true ghost / non-doc wikilink 进入 review bucket 或按策略删除；修复同时清理 edges / vectors / derived graph read-model，不留下 dangling rows
+- [ ] AC-J5: Edge write prevention：所有 edge 写入路径统一调用 canonical target resolver；body F-ref 抽取不得把年份 `F2025`、`F32-b` 等误写成 feature anchor；regression tests 覆盖 `F20→F020`、`F020` no-op、`F2025` no edge、missing target 分类
+- [ ] AC-J6: Verification debt migration：对 `authority != observed AND verified_at IS NULL` 做迁移 dry-run，输出 buckets（trusted legacy / needs cat review / stale candidate / escalate to CVO）；禁止仅因 `verified_at IS NULL` 盲降级 `validated` / `constitutional`
+- [ ] AC-J7: Cat-owned verification workflow：猫猫可批量确认低风险 legacy docs、标记 review-needed、或上升少量高风险项；铲屎官不承担逐篇点击，只有语义冲突、事实判断、愿景级取舍才升级
+- [ ] AC-J8: F200 integration boundary：F200 consumption 可写入 usage fields（如 last_consumed_at / consumption_count / review_candidate_reason）或生成 review candidate，但不能作为 truth verification；F200 → F188 的接口有单向边界测试
+- [ ] AC-J9: Dogfood acceptance report：在 runtime DB 副本或 dry-run 环境验证当前 `201 orphanEdges` 和 `724 unverified` 的拆解；报告包含抽样证据、修复前后 count、不可自动修复列表、以及是否需要 CVO 介入的具体项数
+
 ### Phase C（Graph Fidelity）✅
 - [x] AC-C0a: edges 表 schema 迁移（补 from_collection_id / to_collection_id / edge_sensitivity / provenance / created_at 列）
 - [x] AC-C0b: `inferCollectionId` 对裸 anchor（无 collection 前缀）不再 silent skip，降级为 fallback collection 或 warning
@@ -332,6 +367,9 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | 空状态跨域扩搜引导 | 做不好都是噪音（铲屎官原话） | Health Dashboard 证明存在 repeated search miss 后再考虑，且只能 title-only / ≤3 条 |
 | 完整 Durable Job Ledger | Phase A 的最小状态表足够 | memory jobs 类型 ≥3（reindex / graph extraction / health report / replay）且最小状态表不够支撑 retry / queue / parent-child 时 |
 | GBrain compiled wiki / dream cycle 自动写回 | 永久 non-goal | 我们只做 derived read-model，不让它写回真相源。除非铲屎官明确推翻治理约束 |
+| F200 consumption 自动等同 truth verification | F200 明确只评估 navigation utility，不评估文档真伪/authority | 如需让 usage signal 参与 verification，必须先在 F188/F200 之间定义人工/猫审确认边界 |
+| 铲屎官逐篇验证 unverified docs | 724 次点击不是可用 workflow，且违背 Phase E dogfood 结论 | 仅当猫猫批处理后剩下少量高风险/事实争议项，才上升给铲屎官 |
+| 无 dry-run 直接批量改 runtime evidence DB | edge/authority migration 都可能影响 recall/graph 结果，必须可解释可回滚 | 只允许在 dry-run report + 备份/副本验证后 apply |
 
 ## Dependencies
 
@@ -355,6 +393,9 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | OQ-2 | Phase B stale anchor 检测频率：rebuild 时顺带 vs 独立定时扫描？ | ✅ 按需计算（health-report API 调用时实时扫描）；当前 docs 规模够用，若 API 变慢再改定时扫描 |
 | OQ-3 | Phase E Pin 的 UI 入口：RecallFeed 内嵌 vs 独立 Pin 管理页？ | ✅ 关闭：Phase E superseded by F200；不做 F188 手动 Pin UI |
 | OQ-4 | **上线后暴露 (Phase F follow-up, 2026-05-12 砚砚 dogfood 发现)**：`graph_resolve` MCP wrapper API↔response shape mismatch — `GraphQueryResolver.ts:257` 返回 `{ status:'graph', graph: {nodes,edges,...} }`（nested），但 `graph-tools.ts:60 GraphSubgraph` interface 期望 flat `{ status:'graph', nodes, edges, ... }`，导致 `g.edges.filter`/`for of visibleEdges` 抛 "Cannot read of undefined" / "is not iterable"。**修法**：MCP wrapper 解 `data.graph.{nodes,edges,center,depth}` 后再传给 formatGraph。 | ✅ Phase G AC-G1/G2 实做完成 (2026-05-12)：unwrap `data.graph` + GraphSubgraphResponse type 对齐 API contract + 测试 fixture 改 nested shape (RED→GREEN)。R1 占位 doc / list_recent collection-aware 拆到 Phase H 独立 Design Gate (砚砚一审 P1 收窄) |
+| OQ-5 | Phase J verification migration 是否需要新增字段（如 `verification_state` / `verification_source`），还是复用 `verified_at` + audit log？ | ⬜ Phase J Design Gate 决定；硬约束：不得把 F200 consumption 直接写成 truth verification |
+| OQ-6 | Non-doc WikiLink（如指向代码块、memory 文件名、非 evidence anchor）的 graph policy：删除边、保留 unresolved、还是转为 external reference？ | ⬜ Phase J Design Gate 决定；dry-run 必须先列出样本 |
+| OQ-7 | `validated` / `constitutional` 且 `verified_at IS NULL` 的 legacy docs 如何迁移？ | ⬜ Phase J Design Gate 决定；默认不盲降级，先按来源/路径/历史 authority 分类 |
 
 ## Key Decisions
 
@@ -370,6 +411,8 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | KD-8 | **MCP visibility 边界服务端派生**：`callerCollections` / `allowedCollections` 等决定 private/restricted 可见性的 ACL 字段**必须由服务端从 agent identity / session 派生**，**禁止**作为 MCP 输入参数；client-supplied `collections` 仅作请求范围 filter，不能扩展可见性；任何 MCP wrapper 暴露 ACL 类参数 = privilege escalation = 直接 reject PR | 砚砚 二次 review P1-1：把 `callerCollections` 写进 MCP schema = 让模型自授权 private collection visibility；GraphResolver/GraphQueryResolver 都把它当"调用方可见集合"，server-side option 不能下放到 client | 2026-05-10 |
 | KD-9 | Phase F 实现 **1 个 PR 一次合入**（不拆碎）：AC-F1~F11 + event log + harness 同步 + skill + Dashboard 全做完；baseline 采集用 4.6 review #2 (b) 单方案——event log 上线即开始采，AC-F8 的 30% 改善阈值标 **provisional**，PR merge 后首次 eval 用真实数据校准（不要 pre-launch baseline 窗口） | 铲屎官 push back（2026-05-10）：「拆碎 PR 导致原本一天的事五天才搞完」；重读 4.6 review #2 原文 (a)/(b) 是两选一不是组合，(b) 单选已够解 baseline 循环；KD-6「能力+harness 同 PR」也天然兼容 | 2026-05-10 |
 | KD-10 | Phase E 手动 Pin 关闭，Replay/feedback 闭环归 F200 | 铲屎官指出“铲屎官逐条 pin 不现实，猫猫干活时也没动机 pin”；砚砚 + 47 独立读 F200 后确认：F200 的 RecallEvent / consumption / trajectory / outputVerified pipeline 已覆盖 F188 E 的真实目标。F188 只保留 library navigation / collection 管护职责 | 2026-05-19 |
+| KD-11 | F188 reopen Phase J：Health Dashboard 指标必须走向治理闭环 | PR #1790 让 health issue count 主动可见后，铲屎官 dogfood 看到 `201 orphanEdges` / `724 unverified` 并追问可信度与治理。结论：Phase B badge 完成 awareness，但 F188 还需要把可信诊断变成 dry-run / repair / cat-owned review workflow | 2026-05-20 |
+| KD-12 | F200 consumption 不是 truth verification | F200 明确评价 navigation utility，不评价文档真伪或 authority。消费记录可作为 usage prior / review candidate，不能直接写 `verified_at`、不能清空 unverified、不能提升 authority | 2026-05-20 |
 
 ## Timeline
 
@@ -399,6 +442,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | 2026-05-19 | **Phase H merged (PR #1783)** — Collection-Aware Recent Selection: overlap exclusion (CatCafeScanner + IndexBuilder + runtime registration), guaranteed minimum selection, SelectionGroup API, MCP footer, regression fixtures. 砚砚 local review 5 rounds (R1-R5: CatCafeScanner exclude wiring, parseSingle bypass, runtime registration update, immediate row purge + catalog sync, SQL LIKE wildcard escape) + cloud codex 4 rounds (edge purge, batch chunking, vector cleanup) |
 | 2026-05-20 | Phase B proactive badge follow-up merged (PR #1790) — MemoryNav health badge: useHealthBadgeCount hook + buildMemoryTabItems badges param + 99+ cap. opus-47 愿景守護踢回"索引坏了没人知道" → Path A badge 修復。砚砚 local review 2 rounds + cloud codex review |
 | 2026-05-20 | **Feature closed** — opus-47 愿景守护复审放行（5 点铲屎官原话全覆盖 + PR #1790 数据流追踪验证 badge 非死代码）。9 Phase（A-I，E superseded by F200），14 PR。反思胶囊：`docs/reflections/2026-05-20-f188-library-stewardship-capsule.md` |
+| 2026-05-20 | **Feature reopened / Phase J scoped** — PR #1790 dogfood 后铲屎官看到真实 health debt：`201 orphanEdges` / `724 unverified`。砚砚独立核 F188/F200 边界后新增 Health Debt Governance：orphan edge repair + verification debt semantics + cat-owned review workflow |
 
 ## Review Gate
 
@@ -407,6 +451,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 - Graph Query Resolution follow-up: spec 先经 46 review；实现前必须确认 query → candidate → graph 的 UX，不准只做 silent search fallback
 - Phase F: spec 先经砚砚 Design Gate（重点 review eval 设计 + harness 配套清单是否齐全 + P1/P2 trigger 阈值是否可观测）；实现 PR 必须跨猫 review；close 必须通过 cold-start eval（NDCG@10 不退化 + turns-to-baton 改善 ≥30%）
 - Phase I: merged in PR #1774；砚砚 local review + cloud review closed P1/P2，涉及 UX（AC-I5 MemoryHub UI）已纳入 merge evidence
+- Phase J: implementation 前必须先过 Design Gate（重点：verification semantics、F200 边界、orphan edge migration safety）；任何 runtime DB migration 必须 dry-run + 备份/副本验证；实现 PR 需砚砚 review + cloud review，dogfood acceptance report 是 close gate 输入
 
 ## Links
 
