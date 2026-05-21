@@ -190,6 +190,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-10 | 铲屎官确认 Phase C = 4 核心 AC，剩余推 Phase D（KD-6） |
 | 2026-05-11 | Phase C merged (PR #1626) |
 | 2026-05-11 | Phase D merged (PR #1627) — 10/10 AC, 砚砚 review + cloud review clean |
+| 2026-05-21 | P1 fix: C2 semantic misclassification merged (PR #1816) — verdict_without_pass/void_hold moved from activationCounts to frictionCounts |
 
 ## Review Gate
 
