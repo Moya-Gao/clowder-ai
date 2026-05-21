@@ -98,38 +98,36 @@ export const telemetryRoutes: FastifyPluginAsync<TelemetryRoutesOptions> = async
   });
 
   /**
-   * GET /api/telemetry/step-summary — aggregate Step Summary for a route (F153 Phase I).
+   * GET /api/telemetry/step-summary — per-route Step Summary (F153 Phase I).
    *
    * Query params:
-   *   traceId — OTel trace ID (required)
+   *   traceId      — OTel trace ID (required)
+   *   routeSpanId  — scope to this route span's subtree (optional; auto-detects root route when omitted)
    *
-   * Returns descriptive step metrics (per AC-I1/I6, KD-32 descriptive only — no
-   * efficiency or quality scoring). Null sub-counts indicate restored spans or
-   * no provider marker (AC-I4 — UI must render '—' for null, never '0').
+   * Returns descriptive step metrics scoped to one route (per AC-I1/I6, KD-32
+   * descriptive only — no efficiency or quality scoring). Null sub-counts
+   * indicate restored spans or no provider marker (AC-I4 — UI must render
+   * '—' for null, never '0').
    */
-  app.get<{ Querystring: { traceId?: string } }>('/api/telemetry/step-summary', async (request, reply) => {
-    if (!requireSession(request, reply)) return;
-    if (!opts.traceStore) {
-      return reply.status(503).send({ error: 'Trace store not available (OTel may be disabled)' });
-    }
-    const traceId = request.query.traceId;
-    if (!traceId) {
-      return reply.status(400).send({ error: 'traceId is required' });
-    }
-    // F153 Phase I (Maine Coon P1 + round-2 non-blocking): limit = actual store capacity to
-    // ensure we read ALL spans for the trace, not just the newest 500. Long multi-cat tasks
-    // easily exceed 500 spans (route + many invocation + cli_session + llm_call + tool_use +
-    // mention_dispatch), and query() is newest-first; a 500-cap would silently undercount
-    // agent_loop_count / tool_call_count / error_count for exactly the long traces Step
-    // Summary is designed to surface. Source from stats().maxSpans so tests / future
-    // configurations that use a non-default buffer capacity remain honored.
-    const spans = opts.traceStore.query({ traceId, limit: opts.traceStore.stats().maxSpans });
-    const summary = computeStepSummary(spans, traceId);
-    if (!summary) {
-      return reply.status(404).send({ error: 'No spans found for traceId' });
-    }
-    return summary;
-  });
+  app.get<{ Querystring: { traceId?: string; routeSpanId?: string } }>(
+    '/api/telemetry/step-summary',
+    async (request, reply) => {
+      if (!requireSession(request, reply)) return;
+      if (!opts.traceStore) {
+        return reply.status(503).send({ error: 'Trace store not available (OTel may be disabled)' });
+      }
+      const traceId = request.query.traceId;
+      if (!traceId) {
+        return reply.status(400).send({ error: 'traceId is required' });
+      }
+      const spans = opts.traceStore.query({ traceId, limit: opts.traceStore.stats().maxSpans });
+      const summary = computeStepSummary(spans, traceId, request.query.routeSpanId);
+      if (!summary) {
+        return reply.status(404).send({ error: 'No spans found for traceId' });
+      }
+      return summary;
+    },
+  );
 
   /**
    * GET /api/telemetry/metrics — read Prometheus metrics from in-process registry.

@@ -122,7 +122,7 @@ test('F153 Phase I (P1-2): step-summary route reads full buffer, not capped at 5
 test('F153 Phase I (round-2 P2): legacy worklist callback success also mints dispatch span/counter', () => {
   const src = readFileSync(resolve(__dirname, '../../src/routes/callback-a2a-trigger.ts'), 'utf8');
   // The lazy helper must be invoked in the worklist success branch (enqueued.length > 0)
-  // — otherwise callbacks routed via the legacy F27 worklist path will silently skip the
+  // — otherwise callbacks routed via the legacy F027 worklist path will silently skip the
   // mention_dispatch span and a2a.dispatch.count counter even when dispatch did happen.
   const worklistBlock = src.split('if (hasWorklist(threadId))')[1] ?? '';
   const successBranch = worklistBlock.split('if (enqueued.length > 0)')[1] ?? '';
@@ -169,7 +169,7 @@ const COMPUTE_PATH = '../../dist/infrastructure/telemetry/step-summary.js';
 async function importComputeStepSummary() {
   try {
     return (await import(COMPUTE_PATH)).computeStepSummary;
-  } catch (err) {
+  } catch {
     // Build not run yet — skip behavioral tests cleanly.
     return null;
   }
@@ -290,10 +290,10 @@ test('AC-I1: error_count counts only spans with ERROR status code', async () => 
 
   const summary = computeStepSummary(
     [
-      span({ name: 'cat_cafe.route', durationMs: 1 }),
-      span({ name: 'cat_cafe.invocation', status: { code: 2 } }),
-      span({ name: 'cat_cafe.llm_call', status: { code: 2 } }),
-      span({ name: 'cat_cafe.llm_call', status: { code: 0 } }),
+      span({ name: 'cat_cafe.route', spanId: 'r', durationMs: 1 }),
+      span({ name: 'cat_cafe.invocation', spanId: 'i', parentSpanId: 'r', status: { code: 2 } }),
+      span({ name: 'cat_cafe.llm_call', spanId: 'l1', parentSpanId: 'i', status: { code: 2 } }),
+      span({ name: 'cat_cafe.llm_call', spanId: 'l2', parentSpanId: 'i', status: { code: 0 } }),
     ],
     't',
   );
@@ -307,12 +307,160 @@ test('AC-I7: empty spans returns null (no synthetic data)', async () => {
   assert.equal(computeStepSummary([], 't'), null);
 });
 
+// ── Route vs trace scope (maintainer inbound review) ──────────────
+
+test('Route scope: multi-route trace only counts spans within target route subtree', async () => {
+  const computeStepSummary = await importComputeStepSummary();
+  if (!computeStepSummary) return;
+
+  // route1 → invocation1 → mention_dispatch → route2 → invocation2
+  const spans = [
+    span({
+      name: 'cat_cafe.route',
+      spanId: 'route1',
+      durationMs: 5000,
+      attributes: { 'route.total_tokens': 1000 },
+    }),
+    span({
+      name: 'cat_cafe.invocation',
+      spanId: 'inv1',
+      parentSpanId: 'route1',
+      attributes: { 'agent_loop.count': 3, 'tool.basic_call_count': 1 },
+    }),
+    span({ name: 'cat_cafe.tool_use Read', spanId: 't1', parentSpanId: 'inv1' }),
+    span({ name: 'cat_cafe.mention_dispatch', spanId: 'd1', parentSpanId: 'inv1' }),
+    span({
+      name: 'cat_cafe.route',
+      spanId: 'route2',
+      parentSpanId: 'route1',
+      durationMs: 2000,
+      attributes: { 'route.total_tokens': 500 },
+    }),
+    span({
+      name: 'cat_cafe.invocation',
+      spanId: 'inv2',
+      parentSpanId: 'route2',
+      attributes: { 'agent_loop.count': 2, 'tool.basic_call_count': 0 },
+    }),
+    span({ name: 'cat_cafe.tool_use Edit', spanId: 't2', parentSpanId: 'inv2' }),
+  ];
+
+  // Scope to route1: includes everything (route2 is a child of route1)
+  const s1 = computeStepSummary(spans, 'trace-multi', 'route1');
+  assert.equal(s1.routeSpanId, 'route1');
+  assert.equal(s1.agent_loop_count, 5, 'route1 subtree: 3 + 2');
+  assert.equal(s1.tool_call_count, 1 + 0 + 2, 'basic + MCP within full subtree');
+  assert.equal(s1.a2a_dispatch_count, 1);
+  assert.equal(s1.duration_ms, 5000);
+  assert.equal(s1.token_total, 1000);
+
+  // Scope to route2: only inv2 and its children
+  const s2 = computeStepSummary(spans, 'trace-multi', 'route2');
+  assert.equal(s2.routeSpanId, 'route2');
+  assert.equal(s2.agent_loop_count, 2, 'route2 subtree only');
+  assert.equal(s2.tool_call_count, 0 + 1, 'basic + MCP within route2');
+  assert.equal(s2.a2a_dispatch_count, 0, 'mention_dispatch is under route1, not route2');
+  assert.equal(s2.duration_ms, 2000);
+  assert.equal(s2.token_total, 500);
+});
+
+test('Route scope: auto-detect picks root route (no parent route) when routeSpanId omitted', async () => {
+  const computeStepSummary = await importComputeStepSummary();
+  if (!computeStepSummary) return;
+
+  const spans = [
+    span({
+      name: 'cat_cafe.route',
+      spanId: 'root-route',
+      durationMs: 3000,
+      attributes: { 'route.total_tokens': 800 },
+    }),
+    span({
+      name: 'cat_cafe.invocation',
+      spanId: 'inv',
+      parentSpanId: 'root-route',
+      attributes: { 'agent_loop.count': 2 },
+    }),
+    span({
+      name: 'cat_cafe.route',
+      spanId: 'child-route',
+      parentSpanId: 'root-route',
+      durationMs: 1000,
+      attributes: { 'route.total_tokens': 200 },
+    }),
+  ];
+
+  const summary = computeStepSummary(spans, 'trace-auto');
+  assert.equal(summary.routeSpanId, 'root-route', 'Should auto-detect root route');
+  assert.equal(summary.duration_ms, 3000);
+  assert.equal(summary.token_total, 800);
+});
+
+test('Mixed-provider: partial agent_loop.count coverage sets agent_loop_partial=true', async () => {
+  const computeStepSummary = await importComputeStepSummary();
+  if (!computeStepSummary) return;
+
+  const spans = [
+    span({
+      name: 'cat_cafe.route',
+      spanId: 'r',
+      durationMs: 4000,
+      attributes: { 'route.total_tokens': 600 },
+    }),
+    // Claude invocation — has agent_loop.count
+    span({
+      name: 'cat_cafe.invocation',
+      spanId: 'claude-inv',
+      parentSpanId: 'r',
+      attributes: { 'agent_loop.count': 5 },
+    }),
+    // Gemini invocation — no agent_loop.count (provider does not emit marker)
+    span({
+      name: 'cat_cafe.invocation',
+      spanId: 'gemini-inv',
+      parentSpanId: 'r',
+      attributes: {},
+    }),
+  ];
+
+  const summary = computeStepSummary(spans, 'trace-mixed');
+  assert.equal(summary.agent_loop_count, 5, 'Sum of available counts (lower bound)');
+  assert.equal(summary.agent_loop_partial, true, 'Should flag partial coverage');
+});
+
+test('Full coverage: agent_loop_partial is false when all invocations have the attribute', async () => {
+  const computeStepSummary = await importComputeStepSummary();
+  if (!computeStepSummary) return;
+
+  const spans = [
+    span({ name: 'cat_cafe.route', spanId: 'r', durationMs: 100 }),
+    span({
+      name: 'cat_cafe.invocation',
+      spanId: 'i1',
+      parentSpanId: 'r',
+      attributes: { 'agent_loop.count': 3 },
+    }),
+    span({
+      name: 'cat_cafe.invocation',
+      spanId: 'i2',
+      parentSpanId: 'r',
+      attributes: { 'agent_loop.count': 2 },
+    }),
+  ];
+
+  const summary = computeStepSummary(spans, 'trace-full');
+  assert.equal(summary.agent_loop_count, 5);
+  assert.equal(summary.agent_loop_partial, false);
+});
+
 // ── Frontend wiring (AC-I1, AC-I4) ─────────────────────────────────
 
-test('F153 Phase I: HubTraceTree renders StepSummaryPanel for each expanded trace', () => {
+test('F153 Phase I: HubTraceTree renders StepSummaryPanel with route scope', () => {
   const src = readFileSync(resolve(__dirname, '../../../web/src/components/HubTraceTree.tsx'), 'utf8');
   assert.ok(src.includes('StepSummaryPanel'), 'Should define StepSummaryPanel component');
   assert.ok(src.includes('/api/telemetry/step-summary'), 'Should fetch step-summary endpoint');
   assert.ok(src.includes("n === null ? '—'"), "Null sub-counts must render '—' (non-degradation, AC-I4)");
   assert.ok(src.includes('Restored (history)'), 'Should badge restored traces');
+  assert.ok(src.includes('routeSpanId'), 'Should pass routeSpanId to scope summary to route subtree');
+  assert.ok(src.includes('agent_loop_partial'), 'Should handle partial coverage indicator');
 });

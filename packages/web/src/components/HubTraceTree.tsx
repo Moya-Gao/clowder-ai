@@ -140,7 +140,10 @@ function TraceCard({ trace, expanded, onToggle }: { trace: TraceGroup; expanded:
       {expanded && (
         <div className="border-t border-cafe-border px-3 pb-3 pt-2 space-y-2">
           <div className="text-micro text-cafe-muted font-mono">traceId: {trace.traceId}</div>
-          <StepSummaryPanel traceId={trace.traceId} />
+          <StepSummaryPanel
+            traceId={trace.traceId}
+            routeSpanId={trace.spans.find((s) => s.name === 'cat_cafe.route')?.spanId}
+          />
           <TreeWaterfall trace={trace} selectedSpan={selectedSpan} onSelectSpan={setSelectedSpan} />
           {selectedSpan && <SpanDetail span={trace.spans.find((s) => s.spanId === selectedSpan)} />}
         </div>
@@ -522,6 +525,7 @@ function PromptMeta({ capture }: { capture: PromptCaptureData }) {
 
 interface StepSummaryData {
   traceId: string;
+  routeSpanId?: string;
   agent_loop_count: number | null;
   tool_call_count: number | null;
   a2a_dispatch_count: number | null;
@@ -530,15 +534,18 @@ interface StepSummaryData {
   error_count: number;
   is_restored: boolean;
   width_avg_tools_per_loop: number | null;
+  agent_loop_partial: boolean;
 }
 
-function StepSummaryPanel({ traceId }: { traceId: string }) {
+function StepSummaryPanel({ traceId, routeSpanId }: { traceId: string; routeSpanId?: string }) {
   const [data, setData] = useState<StepSummaryData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    apiFetch(`/api/telemetry/step-summary?traceId=${encodeURIComponent(traceId)}`)
+    const qs = new URLSearchParams({ traceId });
+    if (routeSpanId) qs.set('routeSpanId', routeSpanId);
+    apiFetch(`/api/telemetry/step-summary?${qs.toString()}`)
       .then(async (res) => {
         if (cancelled) return;
         if (res.ok) {
@@ -555,7 +562,7 @@ function StepSummaryPanel({ traceId }: { traceId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [traceId]);
+  }, [traceId, routeSpanId]);
 
   if (loading) {
     return <div className="text-[10px] text-cafe-muted">Loading Step Summary…</div>;
@@ -574,7 +581,11 @@ function StepSummaryPanel({ traceId }: { traceId: string }) {
         )}
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <StepCell label="Agent loops" value={fmt(data.agent_loop_count)} primary />
+        <StepCell
+          label="Agent loops"
+          value={data.agent_loop_partial ? `${fmt(data.agent_loop_count)}+` : fmt(data.agent_loop_count)}
+          primary
+        />
         <StepCell label="Tool calls" value={fmt(data.tool_call_count)} />
         <StepCell label="A2A dispatch" value={fmt(data.a2a_dispatch_count)} />
         <StepCell label="Duration" value={`${data.duration_ms.toFixed(0)} ms`} />

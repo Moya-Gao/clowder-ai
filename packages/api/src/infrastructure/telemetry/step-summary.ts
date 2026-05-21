@@ -1,8 +1,10 @@
 /**
- * F153 Phase I: Step Summary aggregation.
+ * F153 Phase I: Step Summary aggregation — per-route scope.
  *
- * Computes per-route step metrics from a trace's stored spans. Descriptive
- * only (no efficiency or quality scoring, per KD-16/KD-32).
+ * Computes step metrics scoped to a single `cat_cafe.route` span subtree.
+ * When `routeSpanId` is provided, only descendants of that route are counted.
+ * When omitted, the root route span is auto-detected. Descriptive only (no
+ * efficiency or quality scoring, per KD-16/KD-32).
  *
  * Null sub-counts (`agent_loop_count` / `tool_call_count` / `a2a_dispatch_count`)
  * are returned when the trace is restored (flattened to
@@ -16,9 +18,11 @@ import type { TraceSpanDTO } from './local-trace-store.js';
 /** OTel SpanStatusCode.ERROR */
 const SPAN_STATUS_ERROR = 2;
 
-/** Step summary for one trace (one route). */
+/** Step summary scoped to one route span subtree. */
 export interface StepSummary {
   traceId: string;
+  /** The route span this summary is scoped to (undefined only for legacy/restored traces). */
+  routeSpanId?: string;
   /** Length: total agent loops in this route. null when restored or no provider marker. */
   agent_loop_count: number | null;
   /** Total tool calls (MCP child spans + basic-tool counter). null when restored. */
@@ -35,41 +39,81 @@ export interface StepSummary {
   is_restored: boolean;
   /** Width: avg tools per agent loop. null when either length or tool count is null. */
   width_avg_tools_per_loop: number | null;
+  /** True when some live invocations have agent_loop.count and others do not (mixed-provider). */
+  agent_loop_partial: boolean;
 }
 
 /**
- * Aggregate spans of a single trace into a StepSummary. Returns null when no spans.
+ * Collect all descendant spans of `rootSpanId` (BFS on parentSpanId), including root itself.
+ */
+function collectSubtree(spans: TraceSpanDTO[], rootSpanId: string): TraceSpanDTO[] {
+  const byParent = new Map<string, TraceSpanDTO[]>();
+  for (const s of spans) {
+    if (s.parentSpanId) {
+      const arr = byParent.get(s.parentSpanId) ?? [];
+      arr.push(s);
+      byParent.set(s.parentSpanId, arr);
+    }
+  }
+  const root = spans.find((s) => s.spanId === rootSpanId);
+  if (!root) return [];
+  const result: TraceSpanDTO[] = [root];
+  const queue = [rootSpanId];
+  for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
+    for (const child of byParent.get(id) ?? []) {
+      result.push(child);
+      queue.push(child.spanId);
+    }
+  }
+  return result;
+}
+
+/**
+ * Aggregate spans into a StepSummary scoped to a single route. Returns null when no spans.
+ *
+ * @param routeSpanId — scope to this route span's subtree. When omitted, auto-detects
+ *   the root `cat_cafe.route` span (the one without a parent that is also a route).
  *
  * NOTE: descriptive only — never compute efficiency / quality / normative scores
  * here. The UI must not synthesize such fields either (per AC-I5, KD-32).
  */
-export function computeStepSummary(spans: TraceSpanDTO[], traceId: string): StepSummary | null {
+export function computeStepSummary(spans: TraceSpanDTO[], traceId: string, routeSpanId?: string): StepSummary | null {
   if (spans.length === 0) return null;
 
-  const routeSpan = spans.find((s) => s.name === 'cat_cafe.route');
-  const liveInvocationSpans = spans.filter((s) => s.name === 'cat_cafe.invocation');
-  const restoredInvocationSpans = spans.filter((s) => s.name === 'cat_cafe.invocation.restored');
+  // Determine the target route span and scope spans to its subtree.
+  let targetRouteSpanId = routeSpanId;
+  if (!targetRouteSpanId) {
+    const routeSpans = spans.filter((s) => s.name === 'cat_cafe.route');
+    const routeSpanIds = new Set(routeSpans.map((s) => s.spanId));
+    const rootRoute = routeSpans.find((s) => !s.parentSpanId || !routeSpanIds.has(s.parentSpanId));
+    targetRouteSpanId = rootRoute?.spanId;
+  }
 
-  // Restored when there are no live invocation spans but restored ones exist.
+  const scopedSpans = targetRouteSpanId ? collectSubtree(spans, targetRouteSpanId) : spans;
+  if (scopedSpans.length === 0) return null;
+
+  const routeSpan = scopedSpans.find((s) => s.spanId === targetRouteSpanId);
+  const liveInvocationSpans = scopedSpans.filter((s) => s.name === 'cat_cafe.invocation');
+  const restoredInvocationSpans = scopedSpans.filter((s) => s.name === 'cat_cafe.invocation.restored');
+
   const isRestored = liveInvocationSpans.length === 0 && restoredInvocationSpans.length > 0;
 
-  // agent_loop_count: sum the `agent_loop.count` attribute across live invocation spans.
-  // null when restored OR when no live invocation span exposed the attribute
-  // (provider did not emit cat_cafe.agent_loop marker — AC-I2 non-degradation).
+  // agent_loop_count: sum `agent_loop.count` across live invocation spans in this route subtree.
   let agentLoopCount: number | null = null;
+  let agentLoopPartial = false;
   if (!isRestored) {
-    const counts = liveInvocationSpans
-      .map((s) => s.attributes['agent_loop.count'])
-      .filter((v): v is number => typeof v === 'number');
-    if (counts.length > 0) {
-      agentLoopCount = counts.reduce((a, b) => a + b, 0);
+    const withAttr = liveInvocationSpans.filter((s) => typeof s.attributes['agent_loop.count'] === 'number');
+    const withoutAttr = liveInvocationSpans.filter((s) => typeof s.attributes['agent_loop.count'] !== 'number');
+    if (withAttr.length > 0) {
+      agentLoopCount = withAttr.map((s) => s.attributes['agent_loop.count'] as number).reduce((a, b) => a + b, 0);
+      agentLoopPartial = withoutAttr.length > 0;
     }
   }
 
-  // tool_call_count: MCP/business child spans + basic-tool counter attribute (dual-track per KD-35).
+  // tool_call_count: MCP child spans + basic-tool counter (dual-track per KD-35).
   let toolCallCount: number | null = null;
   if (!isRestored) {
-    const mcpToolUseSpans = spans.filter((s) => s.name.startsWith('cat_cafe.tool_use ')).length;
+    const mcpToolUseSpans = scopedSpans.filter((s) => s.name.startsWith('cat_cafe.tool_use ')).length;
     const basicCounts = liveInvocationSpans
       .map((s) => s.attributes['tool.basic_call_count'])
       .filter((v): v is number => typeof v === 'number')
@@ -77,30 +121,27 @@ export function computeStepSummary(spans: TraceSpanDTO[], traceId: string): Step
     toolCallCount = mcpToolUseSpans + basicCounts;
   }
 
-  // a2a_dispatch_count: count of cat_cafe.mention_dispatch spans (KD-34: derive from span, not metric counter).
+  // a2a_dispatch_count: mention_dispatch spans within this route subtree only.
   let a2aDispatchCount: number | null = null;
   if (!isRestored) {
-    a2aDispatchCount = spans.filter((s) => s.name === 'cat_cafe.mention_dispatch').length;
+    a2aDispatchCount = scopedSpans.filter((s) => s.name === 'cat_cafe.mention_dispatch').length;
   }
 
-  // duration_ms: prefer route span duration; fallback to trace time range.
-  const durationMs = routeSpan?.durationMs ?? computeTraceDuration(spans);
+  const durationMs = routeSpan?.durationMs ?? computeTraceDuration(scopedSpans);
 
-  // token_total: from route span (route.total_tokens), set in route-serial.ts finally block.
   const tokenTotal =
     routeSpan && typeof routeSpan.attributes['route.total_tokens'] === 'number'
       ? (routeSpan.attributes['route.total_tokens'] as number)
       : 0;
 
-  // error_count: spans with ERROR status code.
-  const errorCount = spans.filter((s) => s.status.code === SPAN_STATUS_ERROR).length;
+  const errorCount = scopedSpans.filter((s) => s.status.code === SPAN_STATUS_ERROR).length;
 
-  // Width: avg tools per loop.
   const width: number | null =
     agentLoopCount != null && agentLoopCount > 0 && toolCallCount != null ? toolCallCount / agentLoopCount : null;
 
   return {
     traceId,
+    routeSpanId: targetRouteSpanId,
     agent_loop_count: agentLoopCount,
     tool_call_count: toolCallCount,
     a2a_dispatch_count: a2aDispatchCount,
@@ -109,6 +150,7 @@ export function computeStepSummary(spans: TraceSpanDTO[], traceId: string): Step
     error_count: errorCount,
     is_restored: isRestored,
     width_avg_tools_per_loop: width,
+    agent_loop_partial: agentLoopPartial,
   };
 }
 
