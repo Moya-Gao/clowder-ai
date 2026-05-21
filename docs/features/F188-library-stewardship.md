@@ -413,6 +413,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | KD-10 | Phase E 手动 Pin 关闭，Replay/feedback 闭环归 F200 | 铲屎官指出“铲屎官逐条 pin 不现实，猫猫干活时也没动机 pin”；砚砚 + 47 独立读 F200 后确认：F200 的 RecallEvent / consumption / trajectory / outputVerified pipeline 已覆盖 F188 E 的真实目标。F188 只保留 library navigation / collection 管护职责 | 2026-05-19 |
 | KD-11 | F188 reopen Phase J：Health Dashboard 指标必须走向治理闭环 | PR #1790 让 health issue count 主动可见后，铲屎官 dogfood 看到 `201 orphanEdges` / `724 unverified` 并追问可信度与治理。结论：Phase B badge 完成 awareness，但 F188 还需要把可信诊断变成 dry-run / repair / cat-owned review workflow | 2026-05-20 |
 | KD-12 | F200 consumption 不是 truth verification | F200 明确评价 navigation utility，不评价文档真伪或 authority。消费记录可作为 usage prior / review candidate，不能直接写 `verified_at`、不能清空 unverified、不能提升 authority | 2026-05-20 |
+| KD-13 | Phase J 三维分离：authority / verified_at / usage_signal | authority（治理层级）/ verified_at（显式验证事件）/ usage_signal（F200 消费）三维独立。F200 consumption 不写 verified_at，不提升 authority。review_status 是 triage 状态（trusted_legacy / needs_review / reviewed / escalated），独立于 authority。Design Gate R4 通过 | 2026-05-21 |
 
 ## Timeline
 
