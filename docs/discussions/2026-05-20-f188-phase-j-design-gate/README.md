@@ -8,7 +8,7 @@ created: 2026-05-20
 # F188 Phase J Design Gate: Health Debt Governance
 
 > **Author**: 布偶猫 (Opus 4.6) | **Reviewer**: 砚砚 (GPT-5.5)
-> **Status**: R3 — 修 R2 P1×1 + P2×3 后三审
+> **Status**: R4 — 修 R3 P2×1 后四审
 > **Scope**: 解决 OQ-5/OQ-6/OQ-7，产出可审 contract
 
 ## Architecture Ownership
@@ -84,18 +84,26 @@ ORDER BY arm.consumed_count_30d DESC NULLS LAST;
 
 authority 不等于 provenance——`CollectionIndexBuilder` 会用 `reviewPolicy.authorityCeiling` 覆盖文档 authority（CollectionIndexBuilder.ts:86），external collection 的普通文档可能 authority='validated' 但未经 Design Gate。因此迁移必须用 `kind + source_path` 白名单，不能只看 authority。
 
+**source_path 格式注意（R4 修正）**：`CatCafeScanner` 存 `relative(projectRoot, filePath)`，即 `docs/features/...`；但 `pathToAuthority()` 先 `replace(/^docs\//, '')` 再按 `features/`/`decisions/` 判断。lessons-learned.md 直接存为 `lessons-learned.md`（无 `docs/` 前缀）。迁移 SQL 必须同时覆盖两种前缀。
+
 ```sql
 ALTER TABLE evidence_docs ADD COLUMN review_status TEXT;
 
--- Step 1: trusted_legacy — 只限 kind 规则正确推断 + source_path 匹配已知位置的文档
+-- Step 1: trusted_legacy — kind 规则正确推断 + source_path 匹配已知位置
+-- source_path 可能带或不带 docs/ 前缀，用 REPLACE 归一化后匹配
 UPDATE evidence_docs SET review_status = 'trusted_legacy'
   WHERE verified_at IS NULL AND (
-    (kind = 'lesson'   AND source_path LIKE 'docs/lessons/%')
-    OR (kind = 'feature'  AND source_path LIKE 'docs/features/%')
-    OR (kind = 'decision' AND source_path LIKE 'docs/decisions/%')
+    (kind = 'lesson'   AND (
+      source_path LIKE 'docs/lessons/%'
+      OR source_path LIKE 'lessons/%'
+      OR source_path = 'lessons-learned.md'
+      OR source_path = 'docs/lessons-learned.md'
+    ))
+    OR (kind = 'feature'  AND (source_path LIKE 'docs/features/%' OR source_path LIKE 'features/%'))
+    OR (kind = 'decision' AND (source_path LIKE 'docs/decisions/%' OR source_path LIKE 'decisions/%'))
   );
 
--- Step 2: needs_review — candidate authority + 非 observed kind
+-- Step 2: needs_review — 非 observed、未被 Step 1 覆盖的文档
 UPDATE evidence_docs SET review_status = 'needs_review'
   WHERE verified_at IS NULL
     AND review_status IS NULL
@@ -116,9 +124,9 @@ UPDATE evidence_docs SET review_status = 'needs_review'
     "trusted_legacy": {
       "count": "N (由 kind×source_path 白名单决定)",
       "breakdown_by_kind_source": [
-        { "kind": "lesson", "source_prefix": "docs/lessons/", "count": 57 },
-        { "kind": "feature", "source_prefix": "docs/features/", "count": 208 },
-        { "kind": "decision", "source_prefix": "docs/decisions/", "count": 13 }
+        { "kind": "lesson", "normalized_prefix": "lessons/|lessons-learned.md", "count": 57 },
+        { "kind": "feature", "normalized_prefix": "features/", "count": 208 },
+        { "kind": "decision", "normalized_prefix": "decisions/", "count": 13 }
       ],
       "action": "SET review_status = 'trusted_legacy'",
       "risk": "low — kind + source_path 双重匹配"
