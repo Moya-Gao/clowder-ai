@@ -140,9 +140,10 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 
 落地：
 - `/api/rules` 返回 `consumption` 元数据：`actual-prompt` / `reference` / `skill-on-demand`。
-- 「规则与 SOP」面板显示三类标签：
+- 「规则与 SOP」面板显示四类标签：
   - **实际进 prompt**：`shared-rules.md` → governance L0 compiler → native/fallback；L0 template / per-cat compiled L0。
-  - **只是参考**：`docs/SOP.md`、root `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` 这类 project-doc / harness doc。
+  - **harness 注入**：root `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` 这类 provider project-doc 会被对应 CLI/harness 注入上下文，但不是 Cat Café native L0 真相源。
+  - **只是参考**：`docs/SOP.md` 等人工流程文档，不直接进入 native L0。
   - **skill 按需加载**：`SKILL.md` 仅在 skill 被选择/调用时读取。
 
 **#748**（SOP vocabulary / `sop_navigation` 分散）暂缓：等 #747/#749 合入后再讨论，不在本切片偷做。
@@ -205,7 +206,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 - [x] AC-G1: `shared-rules.md` 编译生成 governance L0 ✅（`governance-l0.ts` deterministic compiler；缺 anchor fail-closed；测试覆盖 Rule 0 / P1-P5 / W1-W8 / Magic Words / A2A / family overlays）
 - [x] AC-G2: native L0 与 fallback 共用同一编译产物 ✅（`system-prompt-l0.md` §3 `{{GOVERNANCE_L0}}` + `SystemPromptBuilder` 同读 `loadCompiledGovernanceL0*`）
 - [x] AC-G3: `.local.md` / `.local-override.md` 挂到编译层 ✅（native + fallback 同时生效；override replace 语义保留）
-- [x] AC-G4: Rules & SOP 面板展示消费链 ✅（`/api/rules` 增 `consumption`；前端 legend + card badge 显示“实际进 prompt / 只是参考 / skill 按需加载”）
+- [x] AC-G4: Rules & SOP 面板展示消费链 ✅（`/api/rules` 增 `consumption`；前端 legend + card badge 显示“实际进 prompt / harness 注入 / 只是参考 / skill 按需加载”）
 - [⊘] AC-G5: #748 SOP vocabulary / `sop_navigation` 收敛 ⏸（铲屎官明确先思考；等 #747/#749 完成后再讨论）
 
 ## Dependencies
@@ -255,7 +256,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | KD-13 | compile bootstrap 必须 no-arg `loadCatConfig()` + roster model 用 `getCatModel` | 云端 round-2 抓到 KD-12 P2 连环 bug：`loadCatConfig(PATH)` 显式 path 跳过 `.cat-cafe/cat-catalog.json` overlay（cat-config-loader.ts:307-327）→ isCatAvailable 基于 stale template → P2 dead-end 防护失效。根治：no-arg `loadCatConfig()`（catalog overlay = runtime 真相）+ `resolveModel`→`getCatModel`（env override > registry）。**根治原则：compile 编译器必须复用 SystemPromptBuilder 既定 runtime 入口（catalog-aware loadCatConfig + getCatModel），不自造静态读取路径** | 2026-05-15 |
 | KD-14 | codex user-layer strip：`~/.codex/AGENTS.md` 退役 + 「长任务纪律」迁入 native overlay + AC-B3 上限 5,000→5,500 | 砚砚 production 观察（cross-thread）：Codex invocation 的 developer 层已有 native L0，但 user 层仍被 Codex CLI 默认 prepend `~/.codex/AGENTS.md`（F050 sync-system-prompts.ts 渲染的 179 行静态身份/家规/队友/Magic Words）= 双重注入。根因：Phase C「精确剥离重复」只 strip 了 wrapper 的 user-message inline prepend，没收口 F050 home-file 路径。修复：`renderForCodex` 退役为空（`--apply` 清空文件，drift 守护）；Codex CLI 专属「长任务纪律」（exec_command session_id / 伪后台陷阱 / detached spawn 探针，L0 §6 maine-coon overlay 原本没有）迁入 native overlay。maine-coon 实测升至 5,154-5,155t，KD-9 的 5,000 buffer 耗尽 → AC-B3 上移到 5,500（物理下限随必要内容上移=真实测量，同 KD-9 逻辑，非脚手架；5,500 仍在 prompt cache 单 breakpoint 内 + 占 context 2.75%）。Gemini 路径（`renderForGemini`）暂留——暹罗猫未切 native L0 | 2026-05-20 |
 | KD-15 | `shared-rules.md` 是 governance L0 唯一真相源；native + fallback 必须共用编译产物 | #747：手写 `system-prompt-l0.md` §3 + `SystemPromptBuilder` fallback digest + `shared-rules.md` 三份物理表示会漂移，且 `.local-override` 只影响 fallback。修复：`governance-l0.ts` deterministic compiler 读取 `shared-rules.md`，native L0 通过 `{{GOVERNANCE_L0}}` 注入，fallback 同读 `loadCompiledGovernanceL0*`；`.local.md` append / `.local-override.md` replace 在编译层统一处理。 | 2026-05-21 |
-| KD-16 | Rules & SOP 面板必须展示 prompt 消费链，而不只是文件列表 | #749：铲屎官需要知道“实际进 prompt / 只是参考 / skill 按需加载”。`/api/rules` 增 `consumption` 元数据，前端用三类标签显式展示 shared-rules→governance L0→native/fallback、SOP/root md 参考文档、SKILL.md 按需加载。#748 词汇收敛 deferred，不抢跑。 | 2026-05-21 |
+| KD-16 | Rules & SOP 面板必须展示 prompt 消费链，而不只是文件列表 | #749：铲屎官需要知道“实际进 prompt / 只是参考 / skill 按需加载”。`/api/rules` 增 `consumption` 元数据，前端用四类标签显式展示 shared-rules→governance L0→native/fallback、root provider project-doc 的 harness 注入、SOP 参考文档、SKILL.md 按需加载。#748 词汇收敛 deferred，不抢跑。 | 2026-05-21 |
 
 ## Spike Log
 
@@ -292,7 +293,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-16 | **Phase E merged (PR #1715, squash `7a340d28c`)**——audit 工具（`--emit`/`--diff`/`--check`）+ SOP（`cc-system-prompt-audit-sop.md`）+ cron `dyn-1778925760476-s1gprm` + codex 参数化首份归档。砚砚本地 BLOCKING P1（diffSections 只解析 bare `- id`，formatMarkdown 生成 `- id — label`，真实 `--diff` 稳定误报全 anchor）→ 修：regex `(?=\s+—\|\s*$)` em-dash 判别符 + cc-v2.1.143 §5b 机读块（唯一现存 claude 归档成合法 `--diff` 源）+ 3 round-trip/回归测试 → 砚砚 APPROVE（47 盲审 quality-gate 通过）。云端 round-1 2 finding：P1 codex 平台包应用 Node resolution（hoisted 布局）+ P2 `readlink -f` GNU-only → 修：createRequire 锚定 launcher 的 Node-resolved 候选为首选 + 硬编码 fallback 保留、`realpathSync` 替 `readlink -f`（additive，真二进制 Feature Gate 验证未破坏可跑路径）→ 云端 round-2 "Didn't find any major issues"。AC-E1-E5 ✅。下一：Phase F（配置栏「规则与SOP」系统提示词可见化，需 Design Gate）→ C5 runtime 重启验收（CVO batch）|
 | 2026-05-17 | **Phase F merged (PR #1717, squash `bf269f338`)**——Console「规则与 SOP」加 L0 read-only viewer：`/api/rules` 扩 `l0Prompts`（template + per-cat compiled via `compileL0ViaSubprocess` + customization paths）+ `RulesPromptsContent.tsx` 加第 3 个 Section（复用 Card/Modal pattern）+ `RuleFileCard.errorMessage` 区分"编译失败"。Design Gate autonomous = read-only（铲屎官"先做可见"confirm；AC-F5 编辑器 DEFER）。砚砚 plan-review APPROVE + 2 advisory absorbed（roster=11→12 timing rule + errorMessage UX prop）→ 砚砚 impl-review APPROVE（no P1/P2，266ms / 12/12 sanity）。云端 R1 P1 catalog 硬编码跳 template merge（修：no-arg loadCatConfig KD-13）→ R2 P2 try/catch 吞 config 错（修：移 catch + 注入 loaderFn）→ R3 P2 truthy check 漏空字符串（修：!== undefined + fallback）→ R4 "Didn't find any major issues" 🚀。所有 4 cloud findings 独立真 bug 非 spiral。AC-F1-F4 ✅，AC-F5 ⊘ DEFER（铲屎官未来要再开 sub-phase 即可）。**F203 所有 code Phase done（B/C/D/E/F all merged）**。剩 AC-C5 runtime 重启 alpha 验收（按 CVO directive，post-merge alpha @sonnet + 铲屎官 10 轮压缩客观性验收，[[feedback_alpha_test_use_sonnet]]）|
 | 2026-05-20 | **Codex user-layer strip merged (PR #1787, squash `14ae04be`)**——砚砚 cross-thread production 观察：Codex invocation developer 层已有 native L0，但 user 层仍被 Codex CLI 默认 prepend `~/.codex/AGENTS.md`（F050 `sync-system-prompts.ts` 渲染的 179 行静态身份/家规/队友/Magic Words）= 双重注入。根因：Phase C「精确剥离重复」只 strip 了 wrapper 的 user-message inline prepend，没收口 F050 home-file 注入路径。修复：`renderForCodex` 退役为空（`--apply` 清空 `~/.codex/AGENTS.md` + `checkDrift` 守护）+ Codex CLI 专属「长任务纪律」（exec_command session_id / 伪后台陷阱 / detached spawn 探针）迁入 maine-coon native overlay + 删孤儿 `cats/codex.md` + AC-B3 token 上限 5,000→5,500（KD-14，maine-coon 实测 5,154-5,155t）。砚砚 plan-review（MOVE not COPY 坐标修正）→ PR review 2×P2（ADR-030 §2/§3 live 速查表死链 + 测试注释 KD-10 误引应 KD-14）→ 修复 → 砚砚 APPROVE → 云端 review "Didn't find any major issues"。Gemini user-layer 暂留（暹罗猫未切 native L0）。post-merge `sync-system-prompts.ts --apply` 清空 home file |
-| 2026-05-21 | **Governance L0 single-source + consumption chain (#747/#749)**——`shared-rules.md` deterministic compile 成 governance L0，`system-prompt-l0.md` §3 改 `{{GOVERNANCE_L0}}`，`SystemPromptBuilder` fallback 同读编译产物，`.local/.local-override` 上移到编译层；`/api/rules` + Rules & SOP 面板展示“实际进 prompt / 只是参考 / skill 按需加载”消费链。#748 暂缓讨论。 |
+| 2026-05-21 | **Governance L0 single-source + consumption chain (#747/#749) merged**（PR #1830, squash `06cff348`）——`shared-rules.md` deterministic compile 成 governance L0，`system-prompt-l0.md` §3 改 `{{GOVERNANCE_L0}}`，`SystemPromptBuilder` fallback 同读编译产物，`.local/.local-override` 上移到编译层；`/api/rules` + Rules & SOP 面板展示“实际进 prompt / harness 注入 / 只是参考 / skill 按需加载”消费链。Opus 本地 review P2（硬编码投影 drift）→ drift-guard 修复；云端 P2/P1（duplicate heading fail-open + docs frontmatter）全修后 clean。#748 暂缓讨论。 |
 
 ## Review Gate
 
