@@ -175,6 +175,13 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 3. **行为差异**：`text-[10px]` = `font-size: 10px`；`text-micro` = `font-size: 10px; line-height: 14px`。line-height 增加是 design system 意图（统一 micro text 行高），不是回归
 4. **验证**：替换后 zero `text-[10px]` remaining（rg verified），`pnpm test` + `pnpm check` + `pnpm build` 全绿
 
+### Phase M: settings tone unify (purple cards + sidebar bg) ✅
+
+铲屎官 2026-05-21 指出两个视觉问题：成员管理里所有已启用猫猫卡片显示紫色背景（connector purple token 错误用作 generic active 状态）+ 设置栏与对话栏侧栏底色不统一。
+
+1. **SettingsRow active tone 修复**：`bg-conn-purple-bg` (#f3e8ff) → `bg-[var(--console-card-bg)]` (#fffdfb)，enabled/disabled 区分靠 badge + inactive 灰色背景
+2. **SettingsShell sidebar 对齐**：`--console-panel-bg` (#f6efe7) → `--console-shell-bg` (#fcfaf7)，和 ThreadSidebar 一致
+
 ### Post-close Guardrail: 线条分隔 vs 背景分层
 
 铲屎官 2026-05-20 追加口径：Thread 栏、对话栏、底部/右侧状态栏这类主框架区域，可以保留“统一底色 + 极淡线条分隔”的模式，不必强制改成背景色分层。目标接近网易云/微信的克制分隔：线条存在但不抢眼。
@@ -277,6 +284,11 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 - [x] AC-L2: Zero `text-[10px]` remaining in `packages/web/src/` (rg verified)
 - [x] AC-L3: `pnpm test` + `pnpm check` + `pnpm build` 全绿
 
+### Phase M（settings tone unify — purple cards + sidebar bg）
+- [x] AC-M1: SettingsRow active tone no longer uses connector purple — uses console-card-bg
+- [x] AC-M2: Settings sidebar background aligned to --console-shell-bg (same as ThreadSidebar)
+- [x] AC-M3: `pnpm gate` 全绿
+
 ## Dependencies
 
 - **Evolved from**: F190（Console Settings 骨架 intake）、F199（Settings parity audit）
@@ -313,6 +325,7 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 - Phase J: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration）
 - Phase K: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration + exempt annotations）
 - Phase L: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 className bulk migration）
+- Phase M: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token swap）
 
 ## Links
 
@@ -346,3 +359,4 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 | 2026-05-20 | Phase K merged (PR #1814) — 16 new hub-* tokens (61 total), 5 files migrated, 3 exempt annotated |
 | 2026-05-20 | Phase L spec added — text-[10px] → text-micro bulk migration (510 instances, 135 files) |
 | 2026-05-20 | Phase L merged (PR #1815) — text-[10px] → text-micro bulk migration complete (510 instances, 135 files, 1 test selector) |
+| 2026-05-21 | Phase M merged (PR #1817) — settings tone unify: purple member cards fixed + sidebar bg aligned to thread sidebar |
