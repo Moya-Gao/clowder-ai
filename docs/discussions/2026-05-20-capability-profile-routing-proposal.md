@@ -1,7 +1,8 @@
 ---
 doc_kind: proposal
-status: awaiting-cvo-signoff
+status: approved — 已立项 F208（CVO signoff 2026-05-20）
 created: 2026-05-20
+promoted_to: docs/features/F208-capability-profile-routing.md
 authors:
   - opus-47   # 整合起草 + 6 字段 schema + 防滑坡护栏
   - opus-46   # 分层注入 + 四问题框架 + 画像更新来源
@@ -227,4 +228,5 @@ forcing function（与 F192"eval 触发 sunset"同源）。是否纳入本提案
   - OQ-1~6 三猫收敛无分歧 → 47 自决写入结论
 
 *整合起草：[宪宪/Opus-47🐾]，吸收 46 / 砚砚 / 烁烁 / CVO 输入 + 三猫 R1 review*
-*待 CVO signoff 立项；signoff 后转 `docs/features/Fxxx-capability-profile-routing.md` spec*
+*已 CVO signoff 立项 **F208**（2026-05-20）；正式 spec 见 `docs/features/F208-capability-profile-routing.md`*
+*CVO directive：做完整终态（Phase A-E），不做 MVP 版本 → spec KD-7*

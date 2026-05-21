@@ -75,3 +75,4 @@ created: 2026-02-26
 | F205 | MediaHub Video Provider Plugins — 视频生成/分析插件 | spec | community @mindfn + maintainers | community [#689](https://github.com/zts212653/clowder-ai/pull/689) | [F205](features/F205-video-provider-plugins.md) |
 | F206 | Settings UI Convergence — 组件语言归一 | in-progress | 布偶猫 | community [#723](https://github.com/zts212653/clowder-ai/issues/723) | [F206](features/F206-settings-ui-convergence.md) |
 | F207 | AI Family Office — 个人投资学习基建（画像/知识/数据/分析/决策五层） | spec | 布偶猫 | internal | [F207](features/F207-personal-finance-infra.md) |
+| F208 | Capability Profile Routing — 能力画像档案 + 认知路由 | spec | 布偶猫 | internal | [F208](features/F208-capability-profile-routing.md) |
