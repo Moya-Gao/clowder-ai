@@ -84,9 +84,14 @@ export function computeStepSummary(spans: TraceSpanDTO[], traceId: string, route
   let targetRouteSpanId = routeSpanId;
   if (!targetRouteSpanId) {
     const routeSpans = spans.filter((s) => s.name === 'cat_cafe.route');
-    const routeSpanIds = new Set(routeSpans.map((s) => s.spanId));
-    const rootRoute = routeSpans.find((s) => !s.parentSpanId || !routeSpanIds.has(s.parentSpanId));
-    targetRouteSpanId = rootRoute?.spanId;
+    const allSpanIds = new Set(spans.map((s) => s.spanId));
+    // Root route = parent absent from this trace (not just absent from route spans).
+    // In A2A chains, child routes parent to mention_dispatch, not to the parent route.
+    // Earliest startTimeMs breaks ties when multiple routes lack an in-trace parent.
+    const candidates = routeSpans
+      .filter((s) => !s.parentSpanId || !allSpanIds.has(s.parentSpanId))
+      .sort((a, b) => a.startTimeMs - b.startTimeMs);
+    targetRouteSpanId = candidates[0]?.spanId;
   }
 
   const scopedSpans = targetRouteSpanId ? collectSubtree(spans, targetRouteSpanId) : spans;

@@ -140,10 +140,7 @@ function TraceCard({ trace, expanded, onToggle }: { trace: TraceGroup; expanded:
       {expanded && (
         <div className="border-t border-cafe-border px-3 pb-3 pt-2 space-y-2">
           <div className="text-micro text-cafe-muted font-mono">traceId: {trace.traceId}</div>
-          <StepSummaryPanel
-            traceId={trace.traceId}
-            routeSpanId={trace.spans.find((s) => s.name === 'cat_cafe.route')?.spanId}
-          />
+          <StepSummaryPanel traceId={trace.traceId} />
           <TreeWaterfall trace={trace} selectedSpan={selectedSpan} onSelectSpan={setSelectedSpan} />
           {selectedSpan && <SpanDetail span={trace.spans.find((s) => s.spanId === selectedSpan)} />}
         </div>

@@ -309,15 +309,18 @@ test('AC-I7: empty spans returns null (no synthetic data)', async () => {
 
 // ── Route vs trace scope (maintainer inbound review) ──────────────
 
-test('Route scope: multi-route trace only counts spans within target route subtree', async () => {
+test('Route scope: multi-route trace (real A2A shape) only counts spans within target route subtree', async () => {
   const computeStepSummary = await importComputeStepSummary();
   if (!computeStepSummary) return;
 
-  // route1 → invocation1 → mention_dispatch → route2 → invocation2
+  // Real A2A shape: route1 → invocation1 → mention_dispatch → route2 → invocation2
+  // route2.parentSpanId = dispatch span (NOT route1) — mirrors actual OTel propagation.
   const spans = [
     span({
       name: 'cat_cafe.route',
       spanId: 'route1',
+      startTimeMs: 0,
+      endTimeMs: 5000,
       durationMs: 5000,
       attributes: { 'route.total_tokens': 1000 },
     }),
@@ -332,7 +335,9 @@ test('Route scope: multi-route trace only counts spans within target route subtr
     span({
       name: 'cat_cafe.route',
       spanId: 'route2',
-      parentSpanId: 'route1',
+      parentSpanId: 'd1',
+      startTimeMs: 1000,
+      endTimeMs: 3000,
       durationMs: 2000,
       attributes: { 'route.total_tokens': 500 },
     }),
@@ -345,7 +350,7 @@ test('Route scope: multi-route trace only counts spans within target route subtr
     span({ name: 'cat_cafe.tool_use Edit', spanId: 't2', parentSpanId: 'inv2' }),
   ];
 
-  // Scope to route1: includes everything (route2 is a child of route1)
+  // Scope to route1: includes everything (route2 is a descendant via dispatch)
   const s1 = computeStepSummary(spans, 'trace-multi', 'route1');
   assert.equal(s1.routeSpanId, 'route1');
   assert.equal(s1.agent_loop_count, 5, 'route1 subtree: 3 + 2');
@@ -362,19 +367,30 @@ test('Route scope: multi-route trace only counts spans within target route subtr
   assert.equal(s2.a2a_dispatch_count, 0, 'mention_dispatch is under route1, not route2');
   assert.equal(s2.duration_ms, 2000);
   assert.equal(s2.token_total, 500);
+
+  // Auto-detect (no routeSpanId): must pick route1, not route2, because route1 has
+  // no parent in the trace while route2's parent (dispatch d1) is in the trace.
+  const sAuto = computeStepSummary(spans, 'trace-multi');
+  assert.equal(sAuto.routeSpanId, 'route1', 'Auto-detect must pick root route, not child');
+  assert.equal(sAuto.agent_loop_count, 5);
 });
 
-test('Route scope: auto-detect picks root route (no parent route) when routeSpanId omitted', async () => {
+test('Route scope: auto-detect picks root even when spans arrive newest-first', async () => {
   const computeStepSummary = await importComputeStepSummary();
   if (!computeStepSummary) return;
 
+  // Simulate LocalTraceStore newest-first order: child route appears before root.
   const spans = [
     span({
       name: 'cat_cafe.route',
-      spanId: 'root-route',
-      durationMs: 3000,
-      attributes: { 'route.total_tokens': 800 },
+      spanId: 'child-route',
+      parentSpanId: 'dispatch1',
+      startTimeMs: 2000,
+      endTimeMs: 3000,
+      durationMs: 1000,
+      attributes: { 'route.total_tokens': 200 },
     }),
+    span({ name: 'cat_cafe.mention_dispatch', spanId: 'dispatch1', parentSpanId: 'inv' }),
     span({
       name: 'cat_cafe.invocation',
       spanId: 'inv',
@@ -383,15 +399,16 @@ test('Route scope: auto-detect picks root route (no parent route) when routeSpan
     }),
     span({
       name: 'cat_cafe.route',
-      spanId: 'child-route',
-      parentSpanId: 'root-route',
-      durationMs: 1000,
-      attributes: { 'route.total_tokens': 200 },
+      spanId: 'root-route',
+      startTimeMs: 0,
+      endTimeMs: 3000,
+      durationMs: 3000,
+      attributes: { 'route.total_tokens': 800 },
     }),
   ];
 
   const summary = computeStepSummary(spans, 'trace-auto');
-  assert.equal(summary.routeSpanId, 'root-route', 'Should auto-detect root route');
+  assert.equal(summary.routeSpanId, 'root-route', 'Must pick root even when child-route appears first in array');
   assert.equal(summary.duration_ms, 3000);
   assert.equal(summary.token_total, 800);
 });
