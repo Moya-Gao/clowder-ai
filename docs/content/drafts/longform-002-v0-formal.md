@@ -18,7 +18,9 @@ notes:
   - Ch.0 + Ch.1 先交铲屎官定调；通过后续写 Ch.2-7
 ---
 
-# 从 Role Agent 到能力画像：Cat Café 的 AI-native 多智能体协作实验
+# 从 Role Agent 到能力画像：赛博猫咖 Cat Café 的 AI-native 多智能体协作实验
+
+*百天总结与一些暴论*
 
 ![题图：Cat Café 能力四天王](assets/longform-002-cover-four-cats.png)
 
