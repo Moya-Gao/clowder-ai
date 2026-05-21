@@ -182,6 +182,16 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 1. **SettingsRow active tone 修复**：`bg-conn-purple-bg` (#f3e8ff) → `bg-[var(--console-card-bg)]` (#fffdfb)，enabled/disabled 区分靠 badge + inactive 灰色背景
 2. **SettingsShell sidebar 对齐**：`--console-panel-bg` (#f6efe7) → `--console-shell-bg` (#fcfaf7)，和 ThreadSidebar 一致
 
+### Phase P: Settings residual primitive sweep 🚧
+
+Phase O post-merge audit（砚砚）识别 5 个 Settings/Voice 文件仍有 legacy cafe-* token + custom eyebrow pattern。
+
+1. **VoiceSettingsPanel 迁移**：4x `focus:border-cafe-accent` → `focus:border-[var(--console-border-strong)]`、2x `border-cafe-accent/40` → `border-[var(--console-border-soft)]`、2x `bg-cafe-surface-elevated` code pills → `bg-[var(--console-panel-bg)]`
+2. **InstallPreviewModal 迁移**：1x `border-cafe` input → `border-[var(--console-border-soft)]`
+3. **SettingsInlineItem primitive 修复**：`bg-cafe-surface` → `bg-[var(--console-card-bg)]`（primitive 自身残留，优先级最高）
+4. **SkillConflictBanner 修复**：`bg-white` → `bg-[var(--console-card-bg)]`（adaptive dark mode）
+5. **Uppercase eyebrow 保留**：`uppercase tracking-[0.22em]` 是跨文件一致的 typography pattern（VoiceSettingsPanel/ServiceStatusPanel/InstallPreviewModal），本 Phase 不改——改需 design decision
+
 ### Post-close Guardrail: 线条分隔 vs 背景分层
 
 铲屎官 2026-05-20 追加口径：Thread 栏、对话栏、底部/右侧状态栏这类主框架区域，可以保留“统一底色 + 极淡线条分隔”的模式，不必强制改成背景色分层。目标接近网易云/微信的克制分隔：线条存在但不抢眼。
@@ -303,6 +313,13 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 - [x] AC-O4: Chip/badge hierarchy preserved — child elements use --console-panel-bg (not --console-card-bg same as parent) to maintain visual distinction
 - [x] AC-O5: `pnpm gate` 全绿
 
+### Phase P（Settings residual primitive sweep）
+- [ ] AC-P1: VoiceSettingsPanel — 4x focus border + 2x edit border + 2x code pill bg migrated to console tokens
+- [ ] AC-P2: InstallPreviewModal — border-cafe input migrated to --console-border-soft
+- [ ] AC-P3: SettingsInlineItem — bg-cafe-surface migrated to --console-card-bg (primitive self-heal)
+- [ ] AC-P4: SkillConflictBanner — bg-white migrated to --console-card-bg (adaptive)
+- [ ] AC-P5: `pnpm gate` 全绿
+
 ## Dependencies
 
 - **Evolved from**: F190（Console Settings 骨架 intake）、F199（Settings parity audit）
@@ -342,6 +359,7 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 - Phase M: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token swap）
 - Phase N: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 console token alignment）
 - Phase O: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration for inner controls）
+- Phase P: codex 本地 review → 云端 skip（CVO KD-1 速度优先，纯 CSS token migration for settings/voice residuals）
 
 ## Links
 
