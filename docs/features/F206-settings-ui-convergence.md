@@ -289,6 +289,13 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 - [x] AC-M2: Settings sidebar background aligned to --console-shell-bg (same as ThreadSidebar)
 - [x] AC-M3: `pnpm gate` 全绿
 
+### Phase N（console page shell convergence）
+- [x] AC-N1: MemoryHub shell bg + header border migrated to console tokens (--console-shell-bg, --console-border-soft)
+- [x] AC-N2: MemoryNav tab pills migrated from cafe-accent/surface-sunken to console-border-strong/card-bg/button-emphasis
+- [x] AC-N3: MissionControlPage root bg aligned from --console-panel-bg to --console-shell-bg
+- [x] AC-N4: ChatContainer export mode bg migrated from bg-cafe-surface to --console-shell-bg
+- [x] AC-N5: `pnpm gate` 全绿
+
 ## Dependencies
 
 - **Evolved from**: F190（Console Settings 骨架 intake）、F199（Settings parity audit）
@@ -360,3 +367,4 @@ Phase K post-merge audit（砚砚）确认 `text-[10px]` 精确 510 处 across 1
 | 2026-05-20 | Phase L spec added — text-[10px] → text-micro bulk migration (510 instances, 135 files) |
 | 2026-05-20 | Phase L merged (PR #1815) — text-[10px] → text-micro bulk migration complete (510 instances, 135 files, 1 test selector) |
 | 2026-05-21 | Phase M merged (PR #1817) — settings tone unify: purple member cards fixed + sidebar bg aligned to thread sidebar |
+| 2026-05-21 | Phase N merged (PR #1818) — console page shell convergence: MemoryHub/MemoryNav/MissionControlPage/ChatContainer tokens aligned |
