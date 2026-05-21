@@ -30,18 +30,21 @@ spawned_from: docs/content/drafts/longform-002-v0-formal.md
 
 ## 关联检测（feat-lifecycle Step 0 — 防重复立项）
 
+> **成熟度诚实标注（砚砚 R1 P1 修正）**：下表区分"已完成可依赖"和"进行中的设计依赖"。
+> v1 设计为**不阻塞于任何进行中 feature 完成**——手写档案起步。
+
 | Feature | 状态 | 与本提案的关系 |
 |---------|------|--------------|
-| **F154** Cat Routing Personalization | done | **互补不重复**。F154 = 人工偏好层（铲屎官手动设 `preferredCats` / 全局默认猫 / `/focus` 选猫）。本提案 = 能力画像驱动的**猫自主认知路由**。F154 答"人想要谁回复"，本提案答"猫判断谁的能力最适合这个任务"。本提案可作为 F154 路由链（`@mention → preferredCats → default`）内的一个增强输入——但核心是不同维度 |
-| **F078** Smart Routing Group Mentions | done | 机械路由链基础设施（@群组路由）。related，本提案不改路由链，只改"猫做路由判断时读什么" |
-| **F200** Memory Recall Eval | done | **数据源依赖**。本提案画像的"事实层自动累积"直接复用 F200 的 TaskTrajectory + consumption signal |
-| **F192** Socio-Technical Harness Eval | done | **eval 框架依赖**。本提案"画像 eval → 反馈 → 进化"复用 F192 的 Eval Contract + 7-class attribution |
-| **F203** Native System Prompt L0 | done | **注入通道依赖**。本提案"L0 速查卡"复用 F203 的 native system prompt 压缩免疫注入 |
+| **F154** Cat Routing Personalization | ✅ done（2026-04-12） | **互补不重复**。F154 = 人工偏好层（铲屎官手动设 `preferredCats` / 全局默认猫 / `/focus` 选猫）。本提案 = 能力画像驱动的**猫自主认知路由**。F154 答"人想要谁回复"，本提案答"猫判断谁的能力最适合这个任务"。不同维度 |
+| **F078** Smart Routing Group Mentions | ✅ done | 机械路由链基础设施（@群组路由）。related，本提案不改路由链，只改"猫做路由判断时读什么" |
+| **F200** Memory Recall Eval | 🚧 in-progress（Phase A-D merged，feature 未 close） | **未来数据源**。L2 自动累积*设计上*复用 F200 TaskTrajectory + consumption signal——但 **v1 不依赖 F200 完成**，先手写档案 + provenance link 起步，F200 信号稳定后再接自动累积 |
+| **F192** Socio-Technical Harness Eval | 🚧 in-progress（Phase A-D merged，feature 未 close） | **未来 eval 框架**。"画像 eval → 进化"*设计上*复用 F192 Eval Contract + 7-class attribution——v1 同样不依赖其完成 |
+| **F203** Native System Prompt L0 | 🚧 in-progress（code Phase 全 merged，剩 alpha 验收） | **未来注入通道**。若速查卡日后压一行进 L0 才用 F203 通道——但 v1 不进 L0（见架构维度一） |
 
 **结论**：全新独立需求（能力画像档案 + 认知路由 + 开源定制化），不是任何现有
-feature 的子任务。站在 F154+F078+F200+F192+F203 五块已有积木上——正好印证
-longform-002 主线"组合已有 primitive，不发明第六块"。**可立新号，必须 related
-这五个。**
+feature 的子任务。它站在 F154/F078（已完成的路由基础设施）之上，并*设计上*衔接
+F200/F192/F203（进行中的 eval/注入依赖）——但 **v1 刻意设计为不阻塞于后三者完成**。
+正好印证 longform-002 主线"组合已有 primitive"。**可立新号，必须 related 这五个。**
 
 ## 核心原则：不做算法路由（CVO directive）
 
@@ -63,20 +66,26 @@ longform-002 主线"组合已有 primitive，不发明第六块"。**可立新�
 
 ### 维度一 — 三层渐进披露（像 skill，CVO + 46 + 砚砚共识）
 
-| 层 | 内容 | 载体 | 何时读 |
-|----|------|------|--------|
-| **L0 速查卡** | 一句话画像 + 强项 + 翻车信号（≤6 行/猫） | native system prompt（F203 通道，压缩免疫） | 简单传球，扫一眼 |
-| **L1 详细画像** | 6 字段 schema（下方） | `docs/team/cat-dossier.md`，传球时**像 skill 按需加载** | 中等复杂度路由 |
+> **v1 边界（砚砚 R1 P2 修正）**：L0 **不进 native system prompt**——动态画像会变，
+> 塞 L0 容易变 stale hardcode。v1 的 L0 只放"画像档案存在 + 何时读"的指针；速查卡
+> 本体放 docs，由 hook/skill 按需加载。等画像稳定后，再考虑压一行摘要进 L0。
+
+| 层 | 内容 | 载体（v1） | 何时读 |
+|----|------|----------|--------|
+| **L0 指针** | "队友画像档案存在 + 复杂传球时该读" 一句话指针 | root md / session hook（**不进 F203 L0**） | 每次在场，提示去读 |
+| **L1 详细画像** | 一句话画像 + 6 字段 schema（下方） | `docs/team/cat-dossier.md`，传球时**像 skill 按需加载** | 简单/中等路由，扫一眼 |
 | **L2 证据层** | trajectory（F200）/ review 记录 / CVO 观察 | 链接到真相源 | 高风险/有争议路由，drill down |
 
 ### 维度二 — 三源合成（砚砚核心，防自评偏差）
 
-画像不是自评简历。每条画像条目标注来源 + 优先级：
+画像不是自评简历。每条画像条目标注来源 + 优先级。**优先级分域（砚砚 R1 P2 修正——
+不是单一排序，看的是哪类能力）**：
 
-1. **CVO 体感**（最准——看得最全）
-2. **Peer 评价**（次准——每天协作，但有盲区）
-3. **Eval / trajectory**（最客观但最粗——成功率/被 blocking 次数/rework 率）
-4. **自我反思**（优先级最低，仅参考——猫看不清自己）
+| 能力域 | 最高优先级来源 | 理由 |
+|--------|--------------|------|
+| 愿景 / taste / 用户体验 | **CVO 体感** | 只有 CVO 能定义愿景和品味 |
+| 技术行为 / 协作行为 / 盲点 | **Peer 评价 + Eval/trajectory** | 代码质量、协议风险、协作反模式，每天协作的 peer 和客观轨迹比 CVO 体感更准 |
+| 任何域 | **自我反思优先级最低** | 猫看不清自己，仅作参考 |
 
 ### 维度三 — 三态演化（铲屎官开源 baseline 愿景，47 结构化）
 
@@ -107,8 +116,9 @@ longform-002 主线"组合已有 primitive，不发明第六块"。**可立新�
 
 1. **传球加载**（像 skill）：猫准备传球时，按需加载目标猫的 L1 画像——不常驻，
    用完即走（渐进披露第二层的触发）。
-2. **缺省 hook**（像记忆组件）：猫传球前没读画像 → hook inline 提醒"接球后先
-   Recall 队友画像，判断自己是否最优解"（类比 F188 session-start recall 提示）。
+2. **非阻塞提醒**（砚砚 R1 P2 修正——不做强 hook）：v1 **不检测"猫有没有读画像"**
+   （检测工具调用 = 过度工程，每次提醒 = 噪音）。只在 session/handoff 文案里写一句
+   "复杂或不确定的传球，先读队友画像"——简单传球不打扰。等画像证明有用后再考虑强化。
 3. **eval → 反馈 → 自主进化**：trajectory/eval 自动累积**事实层**；peer/CVO 蒸馏
    **总结层**。画像随团队协作持续长出来，不是一次画死。
 
@@ -169,29 +179,52 @@ forcing function（与 F192"eval 触发 sunset"同源）。是否纳入本提案
 | **Regression Fixture** | ① 砚砚+47 组队做实现 → 画像须提示协作反模式（fallback 牛角尖）② 复杂架构图任务 → 画像须路由到砚砚而非烁烁 ③ 新画像更新必须带 provenance，缺来源 = 不合法 |
 | **Sunset Signal** | 6 个月后路由错配率无下降 / 画像从未被任何传球猫读过 → 回滚为纯 roster |
 
-## Open Questions
+## Open Questions — 收敛状态
 
-| # | 问题 |
-|---|------|
-| OQ-1 | L0 速查卡进 system prompt 的 token 预算——全队画像注入是否超 F203 的 L0 上限？可能只注入"当前 thread 活跃猫" |
-| OQ-2 | 总结层蒸馏触发机制——定期 cron？还是 feat close / review 完成事件触发？ |
-| OQ-3 | 开源 baseline 如何 fork——新团队拿到的是空画像模板，还是 landy 版预填？预填会不会误导（别人的猫不是我们的猫） |
-| OQ-4 | 坐标系熔断器是本提案 scope，还是独立 feature？（它不依赖画像，是协作反模式检测，可独立） |
-| OQ-5 | 画像和 F154 `preferredCats` 的关系——画像是否作为 F154 路由链的增强输入，还是完全独立通道 |
-| OQ-6 | settings 成员画像页：纯 read-only，还是带 CVO 轻量"添加观察"录入入口？（read-only 安全简单；录入入口让 CVO 体感实时进总结层，但要 + 署名/审计）——走 Design Gate |
+> 三猫（46/47/砚砚）review 后，**OQ-1~6 全部收敛、无分歧**，按 architectural KD
+> autonomy 由 47 自决写入结论，不需 CVO 逐条决策。OQ-7 为 46 新提，待立项后 Phase 细化。
+
+| # | 问题 | 收敛结论 |
+|---|------|---------|
+| OQ-1 | L0 注入 token 预算 | ✅ v1 不全队塞 L0——L0 只放指针，L1/L2 按需加载（已落地到架构维度一） |
+| OQ-2 | 总结层蒸馏触发 | ✅ **事件触发**（feat close / review 完成），不用 cron——cron 无事也制造噪音 |
+| OQ-3 | 开源 baseline 如何 fork | ✅ **空模板 + Cat Café 示例档案**（示例明确标 demo，不作别人团队默认画像）。预填会误导——别人的猫不是我们的猫 |
+| OQ-4 | 坐标系熔断器 scope | ✅ **独立 feature**——检测协作反模式、不依赖画像，不塞本提案 |
+| OQ-5 | 画像 vs F154 preferredCats | ✅ **独立通道**。画像只帮猫判断传球，**不自动改 preferredCats**——否则画像变成 preferredCats 自动版 = 滑回算法路由 |
+| OQ-6 | settings 页 read-only vs 录入 | ✅ **read-only 起步 + CVO"添加观察"入口**；观察进 pending/provenance、不直接覆盖总结层；走 Design Gate 定交互（46：Phase C 就做不拖后） |
+| OQ-7 | 新猫 cold start（46 新提）| ⬜ 待 Phase 细化。新猫三源全空（只有 ① 固有特质，从模型 spec 推断）→ 路由可能永不传给新猫（冷启动死循环）。初步方向：固有特质起步 + 前 N 次任务保底曝光"试用路由"。**开源给别人时别人的猫全是新猫**，此问题被放大，必须在 Phase 设计解决 |
 
 ## 立项建议
 
 - **新 F 号**（待 CVO signoff——开 F 号是 CVO 硬条件），related: F154/F078/F200/F192/F203
 - 名称建议：`Capability Profile Routing — 能力画像档案 + 认知路由`
-- **第一步不阻塞立项，今天就能做**：把四猫整合的 6 字段画像落成 `docs/team/cat-dossier.md`
-  手写起步版（L0+L1）。猫读档案传球这件事不需要等组件做完——明天就能用。
-- 后续 Phase（signoff 后细化）：L2 自动累积（接 F200 trajectory）→ 传球加载 + hook
-  → **前端 settings 成员画像页**（Console 前端，read-only 起步）→ eval 回流蒸馏
-  → 开源 baseline 打包 → 坐标系熔断器（视 OQ-4）。
-- **前端是 must-have 不是可选 Phase**：没有可见层，CVO 无法贡献体感 = 三源合成断一源。
+
+**Scope 硬边界（46 R1 P2-1——防"做着做着全部同时推进"）**：
+
+| 阶段 | 内容 | 依赖 |
+|------|------|------|
+| **MVP** | 手写 `docs/team/cat-dossier.md`（L1 一句话画像 + 6 字段）+ L0 指针进 root md/hook | 无——今天就能做 |
+| **Phase A** | 传球加载（像 skill 按需 Read）+ 非阻塞文案提醒 | MVP |
+| **Phase B** | L2 自动累积（接 F200 trajectory） | F200 信号稳定 |
+| **Phase C** | 前端 settings 成员画像页（read-only + CVO 添加观察入口，走 Design Gate） | Phase A |
+| **Phase D** | eval 回流蒸馏 + 开源 baseline 打包（空模板 + 示例） | F192 + Phase B |
+| 坐标系熔断器 | **独立 feature**，不在本提案 scope（OQ-4 收敛） | — |
+
+- **MVP 不阻塞立项，今天就能做**：手写 cat-dossier.md，猫读档案传球明天就能用。
+- **前端（Phase C）是 must-have 不是可选**：没有可见层 CVO 无法贡献体感 = 三源断一源。
 
 ---
 
-*整合起草：[宪宪/Opus-47🐾]，吸收 46 / 砚砚 / 烁烁 / CVO 四方输入*
+## Review Log
+
+- **2026-05-20 三猫 R1 review（46 / 砚砚 / 孟加拉猫）→ 47 逐项 applied**：
+  - 砚砚 P1：F200/F192 成熟度失真（标 done 实际 in-progress）→ 关联检测表改 in-progress + 明确 v1 不依赖其完成
+  - 砚砚 P2：L0 速查卡 v1 不进 native system prompt（动态画像会 stale hardcode）→ L0 改为只放指针
+  - 砚砚 P2：CVO 体感分域（愿景/taste 域 CVO 最高，技术/协作域 peer/eval 最高）
+  - 砚砚 P2：hook 降级为非阻塞文案提醒（不检测"猫有没有读画像"）
+  - 46 P2-1：scope 边界硬化 → MVP / Phase A-D 硬边界表
+  - 46 P2-2：新猫 cold start → 新增 OQ-7
+  - OQ-1~6 三猫收敛无分歧 → 47 自决写入结论
+
+*整合起草：[宪宪/Opus-47🐾]，吸收 46 / 砚砚 / 烁烁 / CVO 输入 + 三猫 R1 review*
 *待 CVO signoff 立项；signoff 后转 `docs/features/Fxxx-capability-profile-routing.md` spec*
