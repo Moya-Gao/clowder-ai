@@ -4,7 +4,7 @@ related_features: [F117, F167, F193]
 topics: [a2a, mcp, post-message, targetCats, routing]
 doc_kind: bug-report
 created: 2026-05-21
-status: reported
+status: fixed-in-branch
 severity: P1
 ---
 
@@ -58,28 +58,32 @@ P1。
 
 理由：这是 A2A 串行协作的核心链路。失败表现不是显式报错，而是“消息可见但下一棒不执行”，会让球权状态和实际运行状态分叉，铲屎官被迫人工转发。
 
-## 5. 根因候选
+## 5. 根因
 
-还没完成 runtime 复现，先记录候选点，避免过早下结论：
+确认根因是 **post_message 返回契约用“请求路由目标”冒充“实际新增唤醒目标”**：
 
-1. `post-message` callback route 解析出了 `mentions`，但 `router / invocationRecordStore / invocationQueue / queueProcessor` 某个依赖在实际运行路径缺失或状态不满足，导致 `canEnqueueA2A` 或 auto-execute 失效。
-2. `enqueueA2ATargets` 成功 enqueue，但 `QueueProcessor.tryAutoExecute` 被 busy slot / duplicate guard / stale invocation 状态挡住，返回值没有把“未实际唤醒”反馈给调用者。
-3. final-routing guard 把 `cat_cafe_post_message.targetCats` 当成合法传球出口，但它只验证“结构化意图存在”，不验证后端实际路由成功，导致静默失败无二次提醒。
-4. prompt 层和工具层存在契约冲突：`McpPromptInjector` 写着“为了 @ 队友不要调 post-message”，但 F055 / tool schema / final-routing guard 又把 `post_message.targetCats` 视为合法结构化传球。
+1. 运行时日志显示，正确 `@codex` 被解析为 `targetCats: ["codex"]`，但 `InvocationQueue.hasQueuedAgentForCat(threadId, "codex")` 命中已有 queued entry，`enqueueA2ATargets` 返回 `enqueued: []`。
+2. `MessageDeliveryService.resolveCallbackDeliveryDecision` 丢弃了 `a2aResult.enqueued`，只返回 `shouldBroadcastNow`。
+3. `/api/callbacks/post-message` 成功响应继续用 `mentions` 构造 `message: "消息已路由给 @codex"`，没有暴露实际 `enqueued: []`。
+4. `callback-a2a-trigger.ts` 日志在 `enqueued: []` 时仍打印 `A2A callback: enqueued to InvocationQueue`，进一步误导排查。
 
-## 6. 修复建议
+所以这不是 parser 没识别 `@`，而是 duplicate/no-op 路径没有把“未新增唤醒”反馈给调用者，造成作者和 final-routing guard 都误以为球已经传出。
 
-先做 Red→Green：
+## 6. 修复
 
-1. 新增端到端测试：通过 `/api/callbacks/post-message` 用 invocation token 发 `targetCats: ["opus"]` 和行首 `@opus` 两组 case。
-2. 断言不止返回 `status: "ok"`，还要确认：
-   - response `message` / `routed` 能表达实际 enqueue 结果；
-   - `InvocationQueue` 有 agent entry；
-   - `QueueProcessor.tryAutoExecute` 被调用；
-   - 目标猫 invocation 被启动，或明确返回“已排队但未执行”的结构化状态。
-3. 若设计上不再允许 `post_message` 作为传球工具，则反向修正：
-   - `cat_cafe_post_message` schema / docs 移除“targetCats 可路由”的承诺；
-   - final-routing guard 不再把 `post_message.targetCats` 当合法出口；
-   - prompt 层统一要求直接行首 @ 或专用 A2A routing tool。
+分支：`fix/post-message-a2a-routing`
 
-当前倾向：保留 `post_message.targetCats` 作为合法结构化路由，因为 F055/F098/F167 多处已经依赖这个契约；修实现和端到端验收更符合现有设计。
+修复点：
+
+1. `MessageDeliveryService` 返回实际 `enqueued`、`enqueueAttempted`、`enqueueFailed`。
+2. `post-message` 成功响应新增 `routed`，并用实际 `enqueued` 构造人类可读 `message`。
+3. duplicate/no-op 路径返回 `routed: []`，message 改为 `@codex 未新增唤醒（可能已有待处理队列或当前不可调度）。`
+4. `callback-a2a-trigger.ts` 日志区分 `enqueued.length > 0` 和 `no new InvocationQueue entries enqueued`。
+5. 新增 Red→Green 回归：`post-message does not claim routed when InvocationQueue skips a duplicate queued target`。
+
+验证：
+
+- `pnpm --filter @cat-cafe/api build` ✅
+- `pnpm --filter @cat-cafe/api exec node --test test/callback-a2a-postmsg.test.js test/callback-delivery.test.js test/callback-routes.test.js test/callback-routes-agent-key.test.js test/callbacks-f182-c.test.js test/auto-reply-to-worklist.test.js` → 136/136 ✅
+- `pnpm biome check ... --diagnostic-level=error` → 0 errors ✅
+- `mention-ack.test.js` 仍有 2 个 `@opus` worklist 旧失败；已在 main 复现，同本修复无关。

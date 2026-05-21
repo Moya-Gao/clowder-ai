@@ -514,10 +514,7 @@ describe('Thread API', () => {
     });
 
     assert.equal(res.statusCode, 200);
-    assert.deepEqual(calls, [
-      ['mark', thread.id],
-      ['flush'],
-    ]);
+    assert.deepEqual(calls, [['mark', thread.id], ['flush']]);
 
     await isolated.close();
   });
