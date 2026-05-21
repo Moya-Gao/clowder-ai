@@ -225,16 +225,16 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 - [x] AC-B4: 展示 replay drift 趋势（如 Query Replay 已有数据）
 - [x] AC-B5: 展示 Knowledge Feed pending + needs_review 积压
 
-### Phase J（Health Debt Governance — reopened 2026-05-20）
-- [ ] AC-J1: Health debt semantics spec 落地：明确 `authority`（来源/治理层级）、`verified_at`（显式验证事件）、`usage_signal`（F200 consumption / trajectory）三者互不替代；F200 consumption 不得自动写 `verified_at` 或提升 authority
-- [ ] AC-J2: Orphan edge details API/UI：`orphanEdges` 不只返回 count，还能返回分页/抽样 details（from_anchor / to_anchor / relation / provenance / from_exists / to_exists / suggested_classification），Health Dashboard 可 drill down
-- [ ] AC-J3: Orphan edge repair dry-run：提供 dry-run 报告，分类至少覆盖 `feature_ref_missing_zero_padding`、`feature_ref_true_ghost`、`wikilink_non_doc_target`、`related_target_missing`；报告包含 before/after count 和拟执行 SQL/edge changes 摘要
-- [ ] AC-J4: Orphan edge repair apply：只对 dry-run 可证明安全的项自动修复（如 `F20 → F020` 且 canonical anchor 存在）；true ghost / non-doc wikilink 进入 review bucket 或按策略删除；修复同时清理 edges / vectors / derived graph read-model，不留下 dangling rows
-- [ ] AC-J5: Edge write prevention：所有 edge 写入路径统一调用 canonical target resolver；body F-ref 抽取不得把年份 `F2025`、`F32-b` 等误写成 feature anchor；regression tests 覆盖 `F20→F020`、`F020` no-op、`F2025` no edge、missing target 分类
-- [ ] AC-J6: Verification debt migration：对 `authority != observed AND verified_at IS NULL` 做迁移 dry-run，输出 buckets（trusted legacy / needs cat review / stale candidate / escalate to CVO）；禁止仅因 `verified_at IS NULL` 盲降级 `validated` / `constitutional`
-- [ ] AC-J7: Cat-owned verification workflow：猫猫可批量确认低风险 legacy docs、标记 review-needed、或上升少量高风险项；铲屎官不承担逐篇点击，只有语义冲突、事实判断、愿景级取舍才升级
-- [ ] AC-J8: F200 integration boundary：F200 consumption 可写入 usage fields（如 last_consumed_at / consumption_count / review_candidate_reason）或生成 review candidate，但不能作为 truth verification；F200 → F188 的接口有单向边界测试
-- [ ] AC-J9: Dogfood acceptance report：在 runtime DB 副本或 dry-run 环境验证当前 `201 orphanEdges` 和 `724 unverified` 的拆解；报告包含抽样证据、修复前后 count、不可自动修复列表、以及是否需要 CVO 介入的具体项数
+### Phase J（Health Debt Governance — reopened 2026-05-20）✅
+- [x] AC-J1: Health debt semantics spec 落地：明确 `authority`（来源/治理层级）、`verified_at`（显式验证事件）、`usage_signal`（F200 consumption / trajectory）三者互不替代；F200 consumption 不得自动写 `verified_at` 或提升 authority
+- [x] AC-J2: Orphan edge details API/UI：`orphanEdges` 不只返回 count，还能返回分页/抽样 details（from_anchor / to_anchor / relation / provenance / from_exists / to_exists / suggested_classification），Health Dashboard 可 drill down
+- [x] AC-J3: Orphan edge repair dry-run：提供 dry-run 报告，分类至少覆盖 `feature_ref_missing_zero_padding`、`feature_ref_true_ghost`、`wikilink_non_doc_target`、`related_target_missing`；报告包含 before/after count 和拟执行 SQL/edge changes 摘要
+- [x] AC-J4: Orphan edge repair apply：只对 dry-run 可证明安全的项自动修复（如 `F20 → F020` 且 canonical anchor 存在）；true ghost / non-doc wikilink 进入 review bucket 或按策略删除；修复同时清理 edges / vectors / derived graph read-model，不留下 dangling rows
+- [x] AC-J5: Edge write prevention：所有 edge 写入路径统一调用 canonical target resolver；body F-ref 抽取不得把年份 `F2025`、`F32-b` 等误写成 feature anchor；regression tests 覆盖 `F20→F020`、`F020` no-op、`F2025` no edge、missing target 分类
+- [x] AC-J6: Verification debt migration：对 `authority != observed AND verified_at IS NULL` 做迁移 dry-run，输出 buckets（trusted legacy / needs cat review / stale candidate / escalate to CVO）；禁止仅因 `verified_at IS NULL` 盲降级 `validated` / `constitutional`
+- [x] AC-J7: Cat-owned verification workflow：猫猫可批量确认低风险 legacy docs、标记 review-needed、或上升少量高风险项；铲屎官不承担逐篇点击，只有语义冲突、事实判断、愿景级取舍才升级
+- [x] AC-J8: F200 integration boundary：F200 consumption 可写入 usage fields（如 last_consumed_at / consumption_count / review_candidate_reason）或生成 review candidate，但不能作为 truth verification；F200 → F188 的接口有单向边界测试
+- [x] AC-J9: Dogfood acceptance report：在 runtime DB 副本或 dry-run 环境验证当前 `201 orphanEdges` 和 `724 unverified` 的拆解；报告包含抽样证据、修复前后 count、不可自动修复列表、以及是否需要 CVO 介入的具体项数
 
 ### Phase C（Graph Fidelity）✅
 - [x] AC-C0a: edges 表 schema 迁移（补 from_collection_id / to_collection_id / edge_sensitivity / provenance / created_at 列）
@@ -444,6 +444,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | 2026-05-20 | Phase B proactive badge follow-up merged (PR #1790) — MemoryNav health badge: useHealthBadgeCount hook + buildMemoryTabItems badges param + 99+ cap. opus-47 愿景守護踢回"索引坏了没人知道" → Path A badge 修復。砚砚 local review 2 rounds + cloud codex review |
 | 2026-05-20 | **Feature closed** — opus-47 愿景守护复审放行（5 点铲屎官原话全覆盖 + PR #1790 数据流追踪验证 badge 非死代码）。9 Phase（A-I，E superseded by F200），14 PR。反思胶囊：`docs/reflections/2026-05-20-f188-library-stewardship-capsule.md` |
 | 2026-05-20 | **Feature reopened / Phase J scoped** — PR #1790 dogfood 后铲屎官看到真实 health debt：`201 orphanEdges` / `724 unverified`。砚砚独立核 F188/F200 边界后新增 Health Debt Governance：orphan edge repair + verification debt semantics + cat-owned review workflow |
+| 2026-05-21 | **Phase J merged (PR #1822)** — Health Debt Governance: orphan edge repair (5-bucket classifier + dry-run + apply + from-orphan auto-delete), verification debt migration (3-dimensional separation + review_status state machine), cat-owned verification workflow, F200 boundary tests, dogfood acceptance report. 砚砚 local review 3 rounds + cloud codex 7 rounds (R1-R7: health metric fallback, backup collision, dismiss_review status, from-orphan disk check, wikilink from-orphan, feature_ref from-orphan, runExclusive; R7 pushback accepted — no revert of R3 fix) |
 
 ## Review Gate
 
