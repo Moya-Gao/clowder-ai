@@ -117,10 +117,11 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toContain('console-button-emphasis');
   });
 
-  it('HubConnectorConfigTab uses explicit shadow, not --hub-shadow var', () => {
+  it('HubConnectorConfigTab uses SettingsRow-aligned shadow, not --hub-shadow var', () => {
     const src = readSrc('HubConnectorConfigTab.tsx');
     expect(src).not.toContain('var(--hub-shadow)');
-    expect(src).toContain('shadow-[0_12px_30px_rgba(43,33,26,0.08)]');
+    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+    expect(src).not.toContain('shadow-[0_12px_30px');
   });
 
   it('SignalInboxView title is text-xl, list pane has no border-r', () => {
@@ -909,5 +910,37 @@ describe('F723 round 4 — primitive convergence guard', () => {
     const src = readSrc('marketplace/marketplace-panel.tsx');
     expect(src).not.toContain('bg-white');
     expect(src).not.toContain('border-cafe-border');
+  });
+});
+
+describe('F723 round 4.1 — deeper primitive convergence guard', () => {
+  it('SignalFilterBar: search on first row, selects on second, source has max-w', () => {
+    const src = readSrc('signals/SignalFilterBar.tsx');
+    expect(src).toMatch(/space-y/);
+    expect(src).toMatch(/max-w-\[120px\]/);
+  });
+
+  it('ArtifactCard: no bg-white, no border-cafe-border, no purple hover', () => {
+    const src = readSrc('marketplace/artifact-card.tsx');
+    expect(src).not.toContain('bg-white');
+    expect(src).not.toContain('border-cafe-border');
+    expect(src).not.toContain('border-purple');
+    expect(src).toContain('console-card-bg');
+  });
+
+  it('InstallPlanDetail: no bg-white, no border-cafe-border, no blue-600 button', () => {
+    const src = readSrc('marketplace/install-plan-detail.tsx');
+    expect(src).not.toContain('bg-white');
+    expect(src).not.toContain('border-cafe-border');
+    expect(src).not.toContain('bg-blue-600');
+    expect(src).not.toContain('purple-50');
+    expect(src).not.toContain('purple-500');
+    expect(src).toContain('bg-cafe-accent');
+  });
+
+  it('HubConnectorConfigTab card shells match SettingsRow: rounded-xl + 0.04 shadow', () => {
+    const src = readSrc('HubConnectorConfigTab.tsx');
+    expect(src).toContain('rounded-xl overflow-hidden shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+    expect(src).not.toContain('shadow-[0_12px_30px');
   });
 });
