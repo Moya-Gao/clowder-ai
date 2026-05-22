@@ -290,11 +290,17 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       updates.set(update.name, update.value);
     }
 
-    // Owner gate: when owner is explicitly configured, only owner can write sensitive vars
+    // Sensitive env writes require session-auth (not forgeable header identity)
     const touchesSensitive = hasSensitiveEditableVars(updates.keys());
     if (touchesSensitive) {
+      const sessionUserId = (request as FastifyRequest & { sessionUserId?: string }).sessionUserId;
+      const sessionOperator = typeof sessionUserId === 'string' && sessionUserId.trim() ? sessionUserId.trim() : null;
+      if (!sessionOperator) {
+        reply.status(401);
+        return { error: 'Sensitive env writes require session authentication' };
+      }
       const ownerId = process.env.DEFAULT_OWNER_USER_ID?.trim();
-      if (ownerId && operator !== ownerId) {
+      if (ownerId && sessionOperator !== ownerId) {
         reply.status(403);
         return { error: 'Sensitive env vars can only be modified by the owner' };
       }
