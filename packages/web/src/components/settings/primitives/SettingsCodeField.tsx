@@ -12,5 +12,5 @@ export function SettingsReadOnlyField({ children }: { children: ReactNode }) {
 }
 
 export function SettingsVarRow({ children }: { children: ReactNode }) {
-  return <div className="grid gap-2 py-2 text-xs md:grid-cols-[minmax(0,1fr)_220px]">{children}</div>;
+  return <div className="grid gap-2 py-2 text-xs md:grid-cols-[minmax(0,1fr)_300px]">{children}</div>;
 }

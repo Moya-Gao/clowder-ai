@@ -310,9 +310,6 @@ export function EnvVarsSection({
                       </SettingsBadge>
                     )}
                   </div>
-                  <SettingsText as="div" tone="muted">
-                    默认: {v.defaultValue}
-                  </SettingsText>
                   {!isEditableVariable(v) && (
                     <SettingsText as="div" tone={v.currentValue ? 'secondary' : 'muted'} className="font-mono">
                       {v.currentValue ?? '未设置'}
@@ -337,11 +334,6 @@ export function EnvVarsSection({
                             : v.defaultValue
                       }
                     />
-                    {buildVariableHint(v) ? (
-                      <SettingsText as="div" tone="muted" className="leading-5">
-                        {buildVariableHint(v)}
-                      </SettingsText>
-                    ) : null}
                   </div>
                 ) : (
                   <SettingsReadOnlyField>只读变量（认证凭证 / 仅启动期生效）</SettingsReadOnlyField>

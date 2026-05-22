@@ -146,18 +146,12 @@ export function PushServiceConfig({ embedded = false }: { embedded?: boolean } =
 
   const content = (
     <>
-      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-1">
-          <SettingsText as="div" variant="sm" tone="default" className="font-medium">
-            VAPID 推送密钥
-          </SettingsText>
-          <SettingsText as="p" tone="secondary">
-            保存后写入运行时 .env；密钥字段留空会保留现有值。
-          </SettingsText>
-        </div>
-        <SettingsText as="div" tone="secondary">
-          <div>公钥：{status?.capability.vapidPublicKeyConfigured ? '已配置' : '未配置'}</div>
-          <div>PushService：{status?.capability.pushServiceConfigured ? '可用' : '不可用'}</div>
+      <div className="space-y-1">
+        <SettingsText as="div" variant="sm" tone="default" className="font-medium">
+          VAPID 推送密钥
+        </SettingsText>
+        <SettingsText as="p" tone="secondary">
+          保存后写入运行时 .env；密钥字段留空会保留现有值。
         </SettingsText>
       </div>
 

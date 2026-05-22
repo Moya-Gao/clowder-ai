@@ -759,3 +759,64 @@ describe('F723 interactive button guard — no grey pill on action/toggle contro
     expect(src).toMatch(/console-hover-bg[\s\S]*?trash-bin-toggle/);
   });
 });
+
+describe('F723 round 3 — input/select/stat unification guard', () => {
+  it('PushServiceConfig: no right-side status block (公钥/PushService)', () => {
+    const src = readSrc('settings/PushServiceConfig.tsx');
+    expect(src).not.toContain('公钥：');
+    expect(src).not.toContain('PushService：');
+  });
+
+  it('EnvSubComponents: no per-row "默认:" line or buildVariableHint rendering', () => {
+    const src = readSrc('settings/EnvSubComponents.tsx');
+    expect(src).not.toMatch(/默认: \{v\.defaultValue\}/);
+    expect(src).not.toMatch(/buildVariableHint\(v\)\s*\?\s*\(/);
+  });
+
+  it('EvidenceSearch selects use console-field-bg + cafe-accent focus ring', () => {
+    const src = readSrc('memory/EvidenceSearch.tsx');
+    const selects = src.match(/<select[\s\S]*?<\/select>/g) ?? [];
+    expect(selects.length).toBeGreaterThanOrEqual(4);
+    for (const sel of selects) {
+      expect(sel).toContain('console-field-bg');
+      expect(sel).toContain('focus:ring-2 focus:ring-cafe-accent/30');
+      expect(sel).not.toContain('console-border-soft');
+    }
+  });
+
+  it('SignalFilterBar SELECT_CLASS uses console-field-bg + cafe-accent focus ring', () => {
+    const src = readSrc('signals/SignalFilterBar.tsx');
+    expect(src).toContain('bg-[var(--console-field-bg)]');
+    expect(src).toContain('focus:ring-2 focus:ring-cafe-accent/30');
+    expect(src).not.toMatch(/SELECT_CLASS[\s\S]*?console-card-bg/);
+  });
+
+  it('SignalFilterBar search wrapper uses console-field-bg, not console-card-bg', () => {
+    const src = readSrc('signals/SignalFilterBar.tsx');
+    const searchWrapper = src.match(/rounded-lg bg-\[var\(--console-[\w-]+\)\][^"]*focus-within/);
+    expect(searchWrapper).not.toBeNull();
+    expect(searchWrapper![0]).toContain('console-field-bg');
+    expect(searchWrapper![0]).not.toContain('console-card-bg');
+  });
+
+  it('SignalArticleList selected state uses console-active-bg, hover uses console-hover-bg', () => {
+    const src = readSrc('signals/SignalArticleList.tsx');
+    expect(src).toContain('bg-[var(--console-active-bg)]');
+    expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
+    expect(src).not.toMatch(/selected\s*\?\s*'bg-\[var\(--console-card-bg\)\]/);
+  });
+
+  it('HealthReport StatCard value uses text-base font-bold, not text-2xl', () => {
+    const src = readSrc('memory/HealthReport.tsx');
+    const statCard = src.match(/function StatCard[\s\S]*?^}/m)?.[0] ?? '';
+    expect(statCard).toContain('text-base font-bold');
+    expect(statCard).not.toContain('text-2xl');
+  });
+
+  it('LibraryHealthSection MetricCard value uses text-base font-bold, not text-2xl', () => {
+    const src = readSrc('memory/LibraryHealthSection.tsx');
+    const metricCard = src.match(/function MetricCard[\s\S]*?^}/m)?.[0] ?? '';
+    expect(metricCard).toContain('text-base font-bold');
+    expect(metricCard).not.toContain('text-2xl');
+  });
+});
