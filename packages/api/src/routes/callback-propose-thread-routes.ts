@@ -93,8 +93,10 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
     }
 
     // Idempotency fast path: only return success if the proposal is fully VISIBLE — i.e. the
-    // rich card has been appended (cardMessageId set). Returning for an in-flight proposal would
-    // hand the caller a proposalId that may yet be cleaned up if the card append fails.
+    // rich card has been appended (cardMessageId set). For proposals where cardMessageId is
+    // missing, try a best-effort self-heal: scan the source thread for a card whose rich block
+    // id matches this proposalId, and backfill the marker. This recovers from the "card written,
+    // marker write failed" partial commit.
     if (clientRequestId) {
       const cached = await proposalStore.getDedupProposalId(record.userId, clientRequestId);
       if (cached) {
@@ -103,6 +105,16 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
           return { proposalId: proposal.proposalId, status: proposal.status, deduped: true };
         }
         if (proposal && !proposal.cardMessageId) {
+          const recoveredId = await findCardMessageInThread(messageStore, proposal.sourceThreadId, proposal.proposalId);
+          if (recoveredId) {
+            // best-effort backfill so subsequent retries skip the scan
+            try {
+              await proposalStore.setCardMessageId(proposal.proposalId, recoveredId);
+            } catch {
+              // ignore; we can still answer this request
+            }
+            return { proposalId: proposal.proposalId, status: proposal.status, deduped: true };
+          }
           reply.status(503);
           reply.header('retry-after', '1');
           return {
@@ -142,9 +154,24 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
       const winningId = await proposalStore.reserveDedup(record.userId, clientRequestId, candidate);
       if (winningId !== candidate) {
         // Loser path. Return deduped success ONLY if the winner's proposal is FULLY VISIBLE
-        // (cardMessageId set). Otherwise the caller would act on a phantom id that may
-        // disappear if the winner's card append fails.
+        // (cardMessageId set). If marker is missing, try the same source-thread self-heal as
+        // the fast path before reporting in-flight.
         const canonical = await proposalStore.get(winningId);
+        if (canonical && !canonical.cardMessageId) {
+          const recoveredId = await findCardMessageInThread(
+            messageStore,
+            canonical.sourceThreadId,
+            canonical.proposalId,
+          );
+          if (recoveredId) {
+            try {
+              await proposalStore.setCardMessageId(canonical.proposalId, recoveredId);
+            } catch {
+              // ignore
+            }
+            return { proposalId: winningId, status: canonical.status, deduped: true };
+          }
+        }
         if (!canonical || !canonical.cardMessageId) {
           reply.status(503);
           reply.header('retry-after', '1');
@@ -229,8 +256,15 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
     }
 
     // Card is now persisted — mark the proposal as visible so the dedup fast path can return
-    // it as a successful prior result on retries.
-    await proposalStore.setCardMessageId(proposal.proposalId, stored.id);
+    // it as a successful prior result on retries. Marker write failures are degraded to a
+    // warning rather than rolling back (the card is already on the user's screen). Subsequent
+    // retries can self-heal via fast-path source-thread scan + backfill.
+    const warnings: string[] = [];
+    try {
+      await proposalStore.setCardMessageId(proposal.proposalId, stored.id);
+    } catch (err) {
+      warnings.push(`setCardMessageId failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
     socketManager.broadcastToRoom(`thread:${record.threadId}`, 'connector_message', {
       threadId: record.threadId,
@@ -245,6 +279,36 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
     });
     socketManager.emitToUser(record.userId, 'proposal_created', proposal);
 
-    return { proposalId: proposal.proposalId, status: proposal.status, messageId: stored.id };
+    return {
+      proposalId: proposal.proposalId,
+      status: proposal.status,
+      messageId: stored.id,
+      ...(warnings.length > 0 ? { warnings } : {}),
+    };
   });
+}
+
+/**
+ * Best-effort recovery: scan a source thread for the rich card belonging to proposalId.
+ * The card's first rich block uses id `proposal-{proposalId}` (see buildProposalCardBlock),
+ * which makes the lookup deterministic without adding a new store index.
+ */
+async function findCardMessageInThread(
+  messageStore: IMessageStore,
+  threadId: string,
+  proposalId: string,
+): Promise<string | null> {
+  try {
+    const messages = await messageStore.getByThread(threadId);
+    const target = `proposal-${proposalId}`;
+    for (const msg of messages) {
+      const blocks = msg.extra?.rich?.blocks ?? [];
+      for (const block of blocks) {
+        if (block.id === target) return msg.id;
+      }
+    }
+  } catch {
+    // self-heal is best-effort; swallow store errors
+  }
+  return null;
 }

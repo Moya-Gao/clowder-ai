@@ -404,6 +404,63 @@ describe('F128 propose / approve / reject flow', () => {
     assert.equal(threadStore.size, threadsBefore + 1, 'thread must remain (only one new thread, not zero)');
   });
 
+  test('setCardMessageId failure: 200 with warning + retry self-heals via source thread scan', async () => {
+    const { InMemoryProposalStore } = await import('../dist/domains/cats/services/stores/ports/ProposalStore.js');
+    class FlakyMarkerStore extends InMemoryProposalStore {
+      constructor() {
+        super();
+        this.failNext = true;
+      }
+      setCardMessageId(proposalId, cardMessageId) {
+        if (this.failNext) {
+          this.failNext = false;
+          throw new Error('synthetic marker write failure');
+        }
+        return super.setCardMessageId(proposalId, cardMessageId);
+      }
+    }
+    proposalStore = new FlakyMarkerStore();
+    const app = await createApp();
+    const source = await threadStore.create('alice', 'Source');
+    const { invocationId, callbackToken } = registry.create('alice', 'opus', source.id);
+    const payload = {
+      invocationId,
+      callbackToken,
+      title: 'Marker fail test',
+      reason: 'Marker write throws',
+      clientRequestId: 'marker-fail-key',
+    };
+    const send = () => app.inject({ method: 'POST', url: '/api/callbacks/propose-thread', payload });
+
+    const first = await send();
+    assert.equal(first.statusCode, 200, 'card-append-then-marker-fail must NOT 500 (card is already visible)');
+    const firstBody = JSON.parse(first.body);
+    assert.ok(Array.isArray(firstBody.warnings), 'warnings array should surface the marker failure');
+    assert.ok(
+      firstBody.warnings.some((w) => w.includes('setCardMessageId')),
+      `expected setCardMessageId warning, got ${JSON.stringify(firstBody.warnings)}`,
+    );
+    // The proposal exists and the card is in the source thread, but the marker is still empty.
+    const stored = await proposalStore.get(firstBody.proposalId);
+    assert.ok(stored, 'proposal must be present');
+    assert.equal(stored.cardMessageId, undefined, 'marker should be empty after the failed write');
+    const sourceMessages = await messageStore.getByThread(source.id);
+    assert.ok(
+      sourceMessages.some((m) => String(m.content ?? '').startsWith('提议新建 thread')),
+      'card message must already be in the source thread',
+    );
+
+    // Retry must self-heal via source thread scan, not stay stuck on 503.
+    const second = await send();
+    assert.equal(second.statusCode, 200, 'retry must self-heal, not stay 503');
+    const secondBody = JSON.parse(second.body);
+    assert.equal(secondBody.proposalId, firstBody.proposalId, 'retry must return the same proposalId');
+    assert.equal(secondBody.deduped, true);
+    // After the retry, the marker is backfilled.
+    const healed = await proposalStore.get(firstBody.proposalId);
+    assert.ok(healed.cardMessageId, 'cardMessageId should be backfilled by self-heal');
+  });
+
   test('concurrent retry during in-flight card append returns 503 (not phantom 200 deduped)', async () => {
     const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
     // BlockingMessageStore lets the test gate exactly when the FIRST card append resolves.
