@@ -216,10 +216,10 @@ export function HubConnectorConfigTab() {
             <button
               type="button"
               onClick={() => handleExpand(platform.id)}
-              className="flex w-full items-center gap-4 px-5 py-[18px] transition-colors"
+              className="flex w-full items-center gap-3 px-4 py-3 transition-colors"
             >
               <span
-                className="flex h-11 w-11 items-center justify-center rounded-xl shrink-0"
+                className="flex h-9 w-9 items-center justify-center rounded-xl shrink-0"
                 style={{ backgroundColor: v.iconBg, color: v.iconColor }}
               >
                 {v.icon}

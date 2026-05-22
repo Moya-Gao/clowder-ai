@@ -824,10 +824,10 @@ describe('F723 round 3 — input/select/stat unification guard', () => {
     expect(metricCard).not.toContain('text-2xl');
   });
 
-  it('EvidenceSearch input uses ThreadSidebar-style: border-soft + transparent bg + input-stroke focus', () => {
+  it('EvidenceSearch input uses field-bg + input-stroke focus', () => {
     const src = readSrc('memory/EvidenceSearch.tsx');
-    expect(src).toContain('border-[var(--console-border-soft)]');
-    expect(src).toContain('bg-transparent');
+    expect(src).toContain('console-field-bg');
+    expect(src).not.toContain('bg-transparent');
     expect(src).toContain('focus:ring-[var(--console-input-stroke)]');
     expect(src).not.toContain('formInputClass');
   });
@@ -948,17 +948,21 @@ describe('F723 round 4.1 — deeper primitive convergence guard', () => {
 });
 
 describe('F723 round 5 — ops tab/button convergence guard', () => {
-  it('OpsContent tabs: active has bg highlight, inactive has hover bg', () => {
+  it('OpsContent tabs: active has bg highlight, no underline/emphasis, inactive has hover bg', () => {
     const src = readSrc('settings/OpsContent.tsx');
     expect(src).toContain('bg-[var(--console-active-bg)]');
+    expect(src).not.toContain('border-b-2');
+    expect(src).not.toContain('console-button-emphasis');
     expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
   });
 
-  it('HubObservabilityTab sub-tabs: no blue pill, active uses console-active-bg + cafe-accent', () => {
+  it('HubObservabilityTab sub-tabs: no blue pill, no accent text, active uses console-active-bg + bold', () => {
     const src = readSrc('HubObservabilityTab.tsx');
     expect(src).not.toContain('bg-conn-blue-bg');
     expect(src).not.toContain('text-blue-700');
-    expect(src).toContain('bg-[var(--console-active-bg)] text-cafe-accent');
+    expect(src).not.toContain('text-cafe-accent');
+    expect(src).not.toContain('border-b');
+    expect(src).toContain('bg-[var(--console-active-bg)] font-semibold text-cafe');
     expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
   });
 
@@ -1045,12 +1049,12 @@ describe('F723 round 6 — select/toggle/button primitive convergence', () => {
     expect(src).not.toContain('focus:ring-2');
   });
 
-  it('VoiceSettingsPanel select: field-bg background, appearance-none, input-stroke focus', () => {
+  it('VoiceSettingsPanel select: field-bg background, native arrow (no appearance-none), input-stroke focus', () => {
     const src = readSrc('VoiceSettingsPanel.tsx');
     const selectMatch = src.match(/id="voice-language-select"[\s\S]*?<\/select>/);
     expect(selectMatch).not.toBeNull();
     expect(selectMatch![0]).toContain('console-field-bg');
-    expect(selectMatch![0]).toContain('appearance-none');
+    expect(selectMatch![0]).not.toContain('appearance-none');
     expect(selectMatch![0]).toContain('console-input-stroke');
   });
 
@@ -1118,5 +1122,136 @@ describe('F723 round 6 — select/toggle/button primitive convergence', () => {
     expect(src).toContain('console-field-bg');
     expect(src).toContain('console-input-stroke');
     expect(src).toContain('bg-cafe-accent');
+  });
+});
+
+describe('F723 round 7 — CVO visual convergence: tabs, search, selects, buttons, cards', () => {
+  it('OpsContent: no border-b-2 underline or console-button-emphasis on active tab', () => {
+    const src = readSrc('settings/OpsContent.tsx');
+    expect(src).not.toContain('border-b-2');
+    expect(src).not.toContain('console-button-emphasis');
+    expect(src).toContain("text-cafe'");
+  });
+
+  it('HubObservabilityTab: sub-tabs no accent color, no border-b, active uses bold', () => {
+    const src = readSrc('HubObservabilityTab.tsx');
+    expect(src).not.toContain('text-cafe-accent');
+    const subtabContainer = src.match(/data-guide-id="observability\.subtabs"[\s\S]*?<\/div>/);
+    expect(subtabContainer).not.toBeNull();
+    expect(subtabContainer![0]).not.toContain('border-b');
+    expect(src).toContain('font-semibold text-cafe');
+  });
+
+  it('HubTraceTree: search input uses field-bg, button is secondary, no blue', () => {
+    const src = readSrc('HubTraceTree.tsx');
+    const searchBlock = src.match(/<input[\s\S]*?Search[\s\S]*?<\/button>/);
+    expect(searchBlock).not.toBeNull();
+    expect(searchBlock![0]).not.toContain('border-cafe-border');
+    expect(searchBlock![0]).not.toContain('bg-cafe-surface');
+    expect(searchBlock![0]).not.toContain('conn-blue-ring');
+    expect(searchBlock![0]).not.toContain('bg-conn-blue-bg');
+    expect(searchBlock![0]).toContain('console-field-bg');
+    expect(searchBlock![0]).toContain('console-card-bg');
+  });
+
+  it('DependencyGraphTab: scope pills no mc-accent/white, use console-active-bg', () => {
+    const src = readSrc('mission-control/DependencyGraphTab.tsx');
+    expect(src).not.toMatch(/bg-\[var\(--mc-accent\)\] text-white/);
+    expect(src).toContain('bg-[var(--console-active-bg)] font-semibold text-cafe');
+  });
+
+  it('MissionControlPage StatusDot: text-xs not text-sm', () => {
+    const src = readSrc('mission-control/MissionControlPage.tsx');
+    const statusDot = src.match(/function StatusDot[\s\S]*?^}/m);
+    expect(statusDot).not.toBeNull();
+    expect(statusDot![0]).toContain('text-xs');
+    expect(statusDot![0]).not.toContain('text-sm');
+  });
+
+  it('InstallPlanDetail: gear tile h-12 w-12, icon h-6 w-6, button not full-width', () => {
+    const src = readSrc('marketplace/install-plan-detail.tsx');
+    expect(src).toContain('h-12 w-12');
+    expect(src).toContain('h-6 w-6 text-cafe-accent');
+    expect(src).not.toMatch(/class(?:Name)?="flex w-full/);
+  });
+
+  it('EvidenceSearch: search input field-bg no border, button secondary, filter selects self-describing labels', () => {
+    const src = readSrc('memory/EvidenceSearch.tsx');
+    const searchInput = src.match(/<input[\s\S]*?data-testid="evidence-search-input"[\s\S]*?\/>/);
+    expect(searchInput).not.toBeNull();
+    expect(searchInput![0]).not.toContain('border-[var(--console-border-soft)]');
+    expect(searchInput![0]).not.toContain('bg-transparent');
+    expect(searchInput![0]).toContain('console-field-bg');
+    const searchBtn = src.match(/<button[\s\S]*?data-testid="evidence-search-button"[\s\S]*?<\/button>/);
+    expect(searchBtn).not.toBeNull();
+    expect(searchBtn![0]).not.toContain('bg-cafe-accent');
+    expect(searchBtn![0]).toContain('console-card-bg');
+    expect(src).toContain('混合检索');
+    expect(src).toContain('全部维度');
+    expect(src).toContain('全部范围');
+    expect(src).toContain('仅摘要');
+  });
+
+  it('All selects: no appearance-none (native arrow visible)', () => {
+    for (const file of [
+      'signals/SignalFilterBar.tsx',
+      'VoiceSettingsPanel.tsx',
+    ]) {
+      const src = readSrc(file);
+      expect(src).not.toContain('appearance-none');
+    }
+    const eSrc = readSrc('memory/EvidenceSearch.tsx');
+    expect(eSrc).not.toContain('appearance-none');
+    const cdSrc = readSrc('memory/CreateCollectionDialog.tsx');
+    const cdSelects = cdSrc.match(/<select[\s\S]*?<\/select>/g) ?? [];
+    for (const sel of cdSelects) {
+      expect(sel).not.toContain('appearance-none');
+    }
+  });
+
+  it('CollectionCatalog action buttons: secondary shadow, no border-soft micro pill', () => {
+    const src = readSrc('memory/CollectionCatalog.tsx');
+    const actionButtons = (src.match(/<button[\s\S]*?<\/button>/g) ?? []).filter(
+      (b) => b.includes('rebuild-') || b.includes('archive-') || b.includes('unarchive-'),
+    );
+    for (const btn of actionButtons) {
+      expect(btn).not.toContain('border-[var(--console-border-soft)]');
+      expect(btn).not.toContain('text-micro');
+      expect(btn).toContain('shadow-[0_1px_3px');
+      expect(btn).toContain('rounded-lg');
+    }
+  });
+
+  it('HubConnectorConfigTab: platform card header uses resource-card sizing, not custom h-11/px-5', () => {
+    const src = readSrc('HubConnectorConfigTab.tsx');
+    expect(src).not.toContain('h-11 w-11');
+    expect(src).not.toContain('px-5 py-[18px]');
+    expect(src).toContain('h-9 w-9');
+    expect(src).toContain('px-4 py-3');
+  });
+
+  it('SettingsCollapsibleCard: rounded-xl + 0.04 shadow, not rounded-2xl or 0.05', () => {
+    const src = readSrc('settings/primitives/SettingsCollapsibleCard.tsx');
+    expect(src).not.toContain('rounded-2xl');
+    expect(src).not.toContain('0.05)');
+    expect(src).toContain('rounded-xl');
+    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+  });
+
+  it('McpManageContent: skeleton uses Tailwind classes, not inline style for card shell', () => {
+    const src = readSrc('settings/McpManageContent.tsx');
+    const skeleton = src.match(/animate-pulse[\s\S]*?<\/div>\s*<\/div>/);
+    expect(skeleton).not.toBeNull();
+    expect(skeleton![0]).toContain('rounded-xl');
+    expect(skeleton![0]).not.toMatch(/style=.*borderRadius/);
+  });
+
+  it('McpInstallForm: no form-input class, uses field-bg + input-stroke, buttons use secondary/accent pattern', () => {
+    const src = readSrc('McpInstallForm.tsx');
+    expect(src).not.toContain('form-input');
+    expect(src).not.toContain('bg-cafe-surface');
+    expect(src).not.toContain('border border-cafe');
+    expect(src).toContain('console-field-bg');
+    expect(src).toContain('console-input-stroke');
   });
 });

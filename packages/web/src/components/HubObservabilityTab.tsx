@@ -55,15 +55,15 @@ export function HubObservabilityTab({ initialSubTab = 'overview', subTabNonce }:
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 border-b border-cafe-border pb-2" data-guide-id="observability.subtabs">
+      <div className="flex items-center gap-2" data-guide-id="observability.subtabs">
         {SUB_TABS.map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setSubTab(t)}
             data-guide-id={`observability.${t}`}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-              subTab === t ? 'bg-[var(--console-active-bg)] text-cafe-accent' : 'text-cafe-secondary hover:bg-[var(--console-hover-bg)]'
+            className={`rounded-lg px-3 py-1.5 text-xs transition-colors ${
+              subTab === t ? 'bg-[var(--console-active-bg)] font-semibold text-cafe' : 'font-medium text-cafe-secondary hover:bg-[var(--console-hover-bg)]'
             }`}
           >
             {SUB_TAB_LABELS[t]}

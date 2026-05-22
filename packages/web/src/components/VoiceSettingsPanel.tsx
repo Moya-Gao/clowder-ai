@@ -242,7 +242,7 @@ export function VoiceSettingsPanel() {
             id="voice-language-select"
             value={settings.language}
             onChange={(e) => setLanguage(e.target.value as typeof settings.language)}
-            className="appearance-none rounded-lg bg-[var(--console-field-bg)] px-2 py-1.5 text-xs text-cafe-secondary outline-none transition focus:ring-1 focus:ring-[var(--console-input-stroke)]"
+            className="rounded-lg bg-[var(--console-field-bg)] pl-2 pr-6 py-1.5 text-xs text-cafe-secondary outline-none transition focus:ring-1 focus:ring-[var(--console-input-stroke)]"
           >
             <option value="zh">中文</option>
             <option value="en">English</option>

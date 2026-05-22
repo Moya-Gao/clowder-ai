@@ -48,7 +48,7 @@ export function OpsContent() {
               onClick={() => setActiveTab(tab.key)}
               className={`inline-flex items-center px-5 py-2.5 text-sm font-semibold transition-colors ${
                 isActive
-                  ? 'rounded-lg bg-[var(--console-active-bg)] border-b-2 border-[var(--console-button-emphasis)] text-[var(--console-button-emphasis)]'
+                  ? 'rounded-lg bg-[var(--console-active-bg)] text-cafe'
                   : 'text-cafe-muted hover:text-cafe-secondary hover:bg-[var(--console-hover-bg)]'
               }`}
             >

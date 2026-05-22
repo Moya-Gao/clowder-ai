@@ -641,7 +641,7 @@ function StatusDot({ color, label, textColor }: { color: string; label: string; 
   return (
     <span className="flex items-center gap-1.5">
       <span className={`h-2 w-2 rounded-full ${color}`} />
-      <span className={`text-sm font-semibold ${textColor}`}>{label}</span>
+      <span className={`text-xs font-medium ${textColor}`}>{label}</span>
     </span>
   );
 }

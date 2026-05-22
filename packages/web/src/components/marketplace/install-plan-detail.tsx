@@ -80,8 +80,8 @@ export function InstallPlanDetail({
       </div>
 
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--console-active-bg)]">
-          <HubIcon name="settings" className="h-5 w-5 text-cafe-accent" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--console-active-bg)]">
+          <HubIcon name="settings" className="h-6 w-6 text-cafe-accent" />
         </div>
         <div className="flex-1">
           <h3 className="text-sm font-semibold text-cafe">{result.displayName}</h3>
@@ -155,7 +155,7 @@ export function InstallPlanDetail({
         <button
           onClick={handleAction}
           disabled={!canAct}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-cafe-accent py-2.5 text-sm font-medium text-white transition-colors hover:bg-cafe-interactive disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-cafe-accent px-5 py-2 text-xs font-medium text-white transition-colors hover:bg-cafe-interactive disabled:opacity-50"
         >
           <HubIcon name={action.icon} className="h-4 w-4" />
           {copied ? '已复制!' : action.label}

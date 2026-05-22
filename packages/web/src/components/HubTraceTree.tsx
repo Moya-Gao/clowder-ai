@@ -84,12 +84,12 @@ export function TraceBrowser() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="traceId or catId..."
-          className="flex-1 rounded-lg border border-cafe-border bg-cafe-surface px-3 py-1.5 text-sm text-cafe placeholder:text-cafe-muted focus:border-conn-blue-ring focus:outline-none"
+          className="flex-1 rounded-lg bg-[var(--console-field-bg)] px-3 py-1.5 text-xs text-cafe placeholder:text-cafe-muted outline-none transition focus:ring-1 focus:ring-[var(--console-input-stroke)]"
         />
         <button
           type="button"
           onClick={fetchTraces}
-          className="rounded-lg bg-conn-blue-bg px-3 py-1.5 text-xs font-medium text-conn-blue-text hover:bg-conn-blue-bg"
+          className="rounded-lg bg-[var(--console-card-bg)] px-3 py-1.5 text-xs font-medium text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] transition-colors hover:bg-[var(--console-hover-bg)]"
         >
           Search
         </button>

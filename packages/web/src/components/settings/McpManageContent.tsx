@@ -91,21 +91,10 @@ export function McpManageContent() {
           {[1, 2, 3].map((index) => (
             <div
               key={index}
-              className="animate-pulse h-[68px]"
-              style={{
-                borderRadius: '0.75rem',
-                backgroundColor: 'var(--console-card-bg)',
-                padding: '1rem',
-              }}
+              className="animate-pulse h-[68px] rounded-xl bg-[var(--console-card-bg)] p-4 shadow-[0_8px_22px_rgba(43,33,26,0.04)]"
             >
-              <div
-                className="h-4 w-1/3"
-                style={{ borderRadius: '0.25rem', backgroundColor: 'var(--console-border-soft)' }}
-              />
-              <div
-                className="mt-2 h-3 w-2/3"
-                style={{ borderRadius: '0.25rem', backgroundColor: 'var(--console-border-soft)' }}
-              />
+              <div className="h-4 w-1/3 rounded bg-[var(--console-border-soft)]" />
+              <div className="mt-2 h-3 w-2/3 rounded bg-[var(--console-border-soft)]" />
             </div>
           ))}
         </div>

@@ -104,7 +104,7 @@ export function CreateCollectionDialog({ onClose, onCreated }: { onClose: () => 
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value)}
-              className="mt-1 block w-full appearance-none rounded-lg bg-[var(--console-field-bg)] px-2 py-1.5 text-xs text-cafe-secondary outline-none transition focus:ring-1 focus:ring-[var(--console-input-stroke)]"
+              className="mt-1 block w-full rounded-lg bg-[var(--console-field-bg)] pl-2 pr-6 py-1.5 text-xs text-cafe-secondary outline-none transition focus:ring-1 focus:ring-[var(--console-input-stroke)]"
             >
               {COLLECTION_KINDS.map((k) => (
                 <option key={k} value={k}>
@@ -151,7 +151,7 @@ export function CreateCollectionDialog({ onClose, onCreated }: { onClose: () => 
           <select
             value={sensitivity}
             onChange={(e) => setSensitivity(e.target.value)}
-            className="mt-1 block w-full appearance-none rounded-lg bg-[var(--console-field-bg)] px-2 py-1.5 text-xs text-cafe-secondary outline-none transition focus:ring-1 focus:ring-[var(--console-input-stroke)]"
+            className="mt-1 block w-full rounded-lg bg-[var(--console-field-bg)] pl-2 pr-6 py-1.5 text-xs text-cafe-secondary outline-none transition focus:ring-1 focus:ring-[var(--console-input-stroke)]"
           >
             {SENSITIVITIES.map((s) => (
               <option key={s} value={s}>

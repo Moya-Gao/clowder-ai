@@ -122,8 +122,8 @@ export function DependencyGraphTab({ items }: DependencyGraphTabProps) {
               onClick={() => setScope(s)}
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
                 scope === s
-                  ? 'bg-[var(--mc-accent)] text-white'
-                  : 'bg-[var(--console-hover-bg)] text-cafe-secondary hover:bg-[var(--console-border-soft)]'
+                  ? 'bg-[var(--console-active-bg)] font-semibold text-cafe'
+                  : 'bg-[var(--console-hover-bg)] text-cafe-secondary hover:bg-[var(--console-active-bg)]'
               }`}
               data-testid={`mc-dep-scope-${s}`}
             >
