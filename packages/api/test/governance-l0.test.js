@@ -47,8 +47,8 @@ describe('governance-l0 compiler (#747)', () => {
     assert.ok(l0.includes('球权只有第一人称'));
     assert.ok(l0.includes('共享状态文件'));
     assert.ok(l0.includes('只在 main 改'));
-    assert.ok(l0.includes('缅因猫 fallback 层数检测'));
-    assert.ok(l0.includes('暹罗猫 创意-实现解耦'));
+    assert.ok(l0.includes('fallback 层数检测'));
+    assert.ok(l0.includes('创意-实现解耦'));
   });
 
   it('guards hard-projected compact phrases against shared-rules drift (opus review P2)', () => {
