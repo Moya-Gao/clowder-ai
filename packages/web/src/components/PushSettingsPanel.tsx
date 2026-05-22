@@ -57,7 +57,7 @@ function BrowserPushCard({
   return (
     <div className={`console-list-card rounded-2xl overflow-hidden ${CARD_SHADOW}`}>
       <div className="flex items-center gap-4 px-5 py-[18px]">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl shrink-0 bg-[var(--cafe-accent,#C65F3D)]">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl shrink-0 bg-[var(--cafe-accent,#E49A7D)]">
           <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5" className="h-5 w-5" aria-hidden="true">
             <path
               d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"

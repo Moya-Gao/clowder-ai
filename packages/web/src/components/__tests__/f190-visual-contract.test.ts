@@ -260,11 +260,10 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
   });
 
-  it('ChatInput default border is console-border-soft, focus uses console-input-stroke', () => {
+  it('ChatInput default border is transparent, focus uses console-input-stroke ring', () => {
     const src = readSrc('ChatInput.tsx');
     expect(src).not.toMatch(/border-t border-cafe-subtle/);
-    expect(src).toContain('border-[var(--console-border-soft)]');
-    expect(src).toContain('focus:border-[var(--console-input-stroke)]');
+    expect(src).toContain('border-transparent bg-[var(--console-field-bg)]');
     expect(src).toContain('focus:ring-[var(--console-input-stroke)]');
   });
 
@@ -303,20 +302,19 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).not.toMatch(/text-\[\d+px\]/);
   });
 
-  it('SettingsDeleteButton: muted default, cafe-accent hover with bg', () => {
+  it('SettingsDeleteButton: accent default, darker hover with bg', () => {
     const src = readSrc('settings/primitives/SettingsDeleteButton.tsx');
-    expect(src).toContain('text-cafe-muted');
-    expect(src).toContain('hover:text-[var(--cafe-accent)]');
+    expect(src).toContain('text-cafe-accent');
     expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
-    expect(src).not.toContain('#D08068');
+    expect(src).toContain('hover:text-cafe');
+    expect(src).not.toContain('text-cafe-muted');
   });
 
-  it('SettingsResourceIconButton danger tone: muted → cafe-accent hover with bg', () => {
+  it('SettingsResourceIconButton: accent default for both tones, hover darkens', () => {
     const src = readSrc('SettingsResourceCard.tsx');
     expect(src).toContain("tone === 'danger'");
-    expect(src).toMatch(/danger[\s\S]*?hover:text-\[var\(--cafe-accent\)\]/);
-    expect(src).toMatch(/danger[\s\S]*?hover:bg-\[var\(--console-hover-bg\)\]/);
-    expect(src).not.toContain('#D08068');
+    expect(src).toContain('text-cafe-accent hover:bg-[var(--console-hover-bg)] hover:text-cafe');
+    expect(src).not.toMatch(/className=.*text-cafe-muted.*hover/);
   });
 
   it('HubAccountItem: click-to-edit only, no inline expand/TagEditor', () => {
@@ -641,5 +639,34 @@ describe('F723 cross-page typography consistency', () => {
       const src = readSrc(file);
       expect(src).not.toContain('console-divider-t');
     }
+  });
+
+  it('ChatInput textarea default has transparent border, not console-border-soft', () => {
+    const src = readSrc('ChatInput.tsx');
+    expect(src).not.toMatch(/border-\[var\(--console-border-soft\)\].*bg-\[var\(--console-field-bg\)\]/);
+    expect(src).toContain('border-transparent bg-[var(--console-field-bg)]');
+  });
+
+  it('interactive icon buttons use text-cafe-accent, not text-cafe-muted', () => {
+    for (const file of [
+      'settings/primitives/SettingsIconButton.tsx',
+      'settings/primitives/SettingsDeleteButton.tsx',
+    ]) {
+      const src = readSrc(file);
+      expect(src).toContain('text-cafe-accent');
+      expect(src).not.toMatch(/className=.*text-cafe-muted.*hover/);
+    }
+  });
+
+  it('light mode --console-field-bg is lighter than --console-panel-bg', () => {
+    const css = readFileSync(resolve(testDir, '../../app/console-shell.css'), 'utf8');
+    const fieldBg = css.match(/--console-field-bg:\s*(#[0-9a-fA-F]{6})/);
+    expect(fieldBg).not.toBeNull();
+    const hex = parseInt(fieldBg![1].slice(1), 16);
+    const r = (hex >> 16) & 0xff;
+    const g = (hex >> 8) & 0xff;
+    const b = hex & 0xff;
+    const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+    expect(luminance).toBeGreaterThan(235);
   });
 });

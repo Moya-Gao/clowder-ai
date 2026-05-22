@@ -674,7 +674,7 @@ export function ChatInput({
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
-          className="hidden md:block p-3 rounded-xl text-cafe-muted hover:text-cafe-accent hover:bg-cafe-surface disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="hidden md:block p-3 rounded-xl text-cafe-accent hover:text-cafe hover:bg-cafe-surface disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           aria-label="Attach images"
         >
           <AttachIcon className="w-5 h-5" />
@@ -686,7 +686,7 @@ export function ChatInput({
           className={`hidden md:block p-3 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
             whisperMode
               ? 'text-conn-amber-text bg-conn-amber-bg ring-1 ring-conn-amber-ring'
-              : 'text-cafe-muted hover:text-conn-amber-text hover:bg-cafe-surface'
+              : 'text-cafe-accent hover:text-conn-amber-text hover:bg-cafe-surface'
           }`}
           aria-label="Whisper mode"
           title="悄悄话模式"
@@ -704,7 +704,7 @@ export function ChatInput({
           ref={gameBtnRef}
           onClick={handleGameClick}
           disabled={disabled || sendTemporarilyDisabled}
-          className="hidden md:block p-3 rounded-xl text-cafe-muted hover:text-conn-indigo-text hover:bg-cafe-surface disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="hidden md:block p-3 rounded-xl text-cafe-accent hover:text-conn-indigo-text hover:bg-cafe-surface disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           aria-label="Game mode"
           title="游戏模式"
         >
@@ -732,7 +732,7 @@ export function ChatInput({
             className={`w-full resize-none rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
               whisperMode
                 ? 'border-conn-amber-text/30 bg-conn-amber-bg/50 focus:ring-conn-amber-text'
-                : 'border-[var(--console-border-soft)] bg-[var(--console-field-bg)] focus:border-[var(--console-input-stroke)] focus:ring-[var(--console-input-stroke)]'
+                : 'border-transparent bg-[var(--console-field-bg)] focus:border-transparent focus:ring-[var(--console-input-stroke)]'
             }`}
             rows={1}
             disabled={disabled}

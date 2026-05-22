@@ -30,8 +30,8 @@ export function SettingsResourceIconButton({
       className={joinClasses(
         'settings-resource-action flex h-[30px] w-[30px] items-center justify-center rounded-lg transition-colors disabled:cursor-default disabled:opacity-50',
         tone === 'danger'
-          ? 'text-cafe-muted hover:bg-[var(--console-hover-bg)] hover:text-[var(--cafe-accent)]'
-          : 'text-cafe-muted hover:bg-[var(--console-hover-bg)] hover:text-cafe-secondary',
+          ? 'text-cafe-accent hover:bg-[var(--console-hover-bg)] hover:text-cafe'
+          : 'text-cafe-accent hover:bg-[var(--console-hover-bg)] hover:text-cafe',
         className,
       )}
     >
@@ -68,7 +68,7 @@ export function SettingsResourceToggleSwitch({
       className={joinClasses(
         'settings-resource-toggle relative inline-flex h-[22px] w-10 shrink-0 rounded-full transition-colors disabled:cursor-default',
         busy ? 'opacity-50' : 'cursor-pointer',
-        enabled ? 'bg-[var(--cafe-accent,#C65F3D)]' : 'bg-[var(--console-border-soft)]',
+        enabled ? 'bg-[var(--cafe-accent,#E49A7D)]' : 'bg-[var(--console-border-soft)]',
       )}
     >
       <span

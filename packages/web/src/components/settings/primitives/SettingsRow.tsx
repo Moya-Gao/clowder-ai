@@ -89,7 +89,7 @@ export function SettingsRow({
               e.stopPropagation();
               onToggle();
             }}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-cafe-muted transition-colors hover:text-cafe-secondary"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-cafe-accent transition-colors hover:text-cafe"
             aria-expanded={isExpanded}
             aria-label={isExpanded ? '收起' : '展开'}
           >

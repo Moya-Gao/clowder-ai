@@ -9,9 +9,9 @@
   --console-border-strong: #d4c4b6;
   --console-shadow: 0 8px 32px rgba(43, 37, 32, 0.04);
   --console-shadow-soft: 0 8px 24px rgba(43, 37, 32, 0.03);
-  --console-field-bg: #f0e6dc;
+  --console-field-bg: #f8f4f0;
   --console-active-bg: #ead8cd;
-  --console-hover-bg: #f0e6dc;
+  --console-hover-bg: #f3ebe3;
   --console-rail-bg: #eee6dc;
   --console-rail-item: #e8ddd2;
   --console-rail-active: #fffdfb;
