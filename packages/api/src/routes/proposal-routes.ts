@@ -124,10 +124,12 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
 
     if (finalInitialMessage) {
       await messageStore.append({
+        userId,
+        catId: null,
+        content: finalInitialMessage,
+        mentions: [],
+        timestamp: Date.now(),
         threadId: thread.id,
-        sender: 'user',
-        senderId: userId,
-        content: { type: 'text', text: finalInitialMessage },
       });
     }
 

@@ -681,11 +681,7 @@ export async function handleBootcampEnvCheck(input: { threadId: string }): Promi
 
 export const proposeThreadInputSchema = {
   title: z.string().min(1).max(200).describe('Title for the proposed thread (user can edit before approving)'),
-  reason: z
-    .string()
-    .min(1)
-    .max(1000)
-    .describe('Why a new thread is needed (shown to the user on the proposal card)'),
+  reason: z.string().min(1).max(1000).describe('Why a new thread is needed (shown to the user on the proposal card)'),
   preferredCats: z
     .array(z.string().min(1))
     .max(10)
@@ -696,11 +692,7 @@ export const proposeThreadInputSchema = {
     .max(4000)
     .optional()
     .describe('Optional first message body that will be posted by the user into the new thread on approve'),
-  parentThreadId: z
-    .string()
-    .min(1)
-    .optional()
-    .describe('Optional parent thread ID. Defaults to the current thread.'),
+  parentThreadId: z.string().min(1).optional().describe('Optional parent thread ID. Defaults to the current thread.'),
   clientRequestId: z
     .string()
     .min(1)

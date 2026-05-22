@@ -121,10 +121,12 @@ export function ProposalCard({ block }: ProposalCardProps) {
       {!editing && (
         <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
           <div>
-            <span className="text-gray-500">父 Thread:</span> <span className="font-mono break-all">{edits.parentThreadId}</span>
+            <span className="text-gray-500">父 Thread:</span>{' '}
+            <span className="font-mono break-all">{edits.parentThreadId}</span>
           </div>
           <div>
-            <span className="text-gray-500">建议成员:</span> <span className="font-mono break-all">{edits.preferredCats || '（未指定）'}</span>
+            <span className="text-gray-500">建议成员:</span>{' '}
+            <span className="font-mono break-all">{edits.preferredCats || '（未指定）'}</span>
           </div>
           {edits.initialMessage && (
             <div className="sm:col-span-2">

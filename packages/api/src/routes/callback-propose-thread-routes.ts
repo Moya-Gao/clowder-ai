@@ -9,8 +9,8 @@
  * proposal-routes.ts.
  */
 
-import { catIdSchema } from '@cat-cafe/shared';
 import type { CatId, RichCardBlock, ThreadProposal } from '@cat-cafe/shared';
+import { catIdSchema } from '@cat-cafe/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
@@ -72,8 +72,16 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
       return { error: 'Invalid request body', details: parsed.error.issues };
     }
 
-    const { invocationId, callbackToken, title, reason, preferredCats, initialMessage, parentThreadId, clientRequestId } =
-      parsed.data;
+    const {
+      invocationId,
+      callbackToken,
+      title,
+      reason,
+      preferredCats,
+      initialMessage,
+      parentThreadId,
+      clientRequestId,
+    } = parsed.data;
     const record = registry.verify(invocationId, callbackToken);
     if (!record) {
       reply.status(401);

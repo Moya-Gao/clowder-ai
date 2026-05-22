@@ -57,10 +57,10 @@ import { createBacklogStore } from './domains/cats/services/stores/factories/Bac
 import { createMemoryStore } from './domains/cats/services/stores/factories/MemoryStoreFactory.js';
 import { createMessageStore } from './domains/cats/services/stores/factories/MessageStoreFactory.js';
 import { createPendingRequestStore } from './domains/cats/services/stores/factories/PendingRequestStoreFactory.js';
+import { createProposalStore } from './domains/cats/services/stores/factories/ProposalStoreFactory.js';
 import { createPushSubscriptionStore } from './domains/cats/services/stores/factories/PushSubscriptionStoreFactory.js';
 import { createReadStateStore } from './domains/cats/services/stores/factories/ReadStateStoreFactory.js';
 import { createSummaryStore } from './domains/cats/services/stores/factories/SummaryStoreFactory.js';
-import { createProposalStore } from './domains/cats/services/stores/factories/ProposalStoreFactory.js';
 import { createTaskStore } from './domains/cats/services/stores/factories/TaskStoreFactory.js';
 import { createThreadStore } from './domains/cats/services/stores/factories/ThreadStoreFactory.js';
 import { createWorkflowSopStore } from './domains/cats/services/stores/factories/WorkflowSopStoreFactory.js';

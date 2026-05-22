@@ -779,7 +779,13 @@
       "name": "猫猫管理重构 — 账户配置与猫猫实例分离，支持动态创建猫 + 自定义别名 @ 路由",
       "status": "spec | **Owner**: 待定 | **Priority**: P1",
       "file": "F127-cat-instance-management.md"
+    },
+    {
+      "id": "F128",
+      "name": "Cat Thread Proposal (formerly \"Cat-Initiated Thread Creation\")",
+      "status": "spec v2 | **Owner**: opus | **Priority**: P1",
+      "file": "F128-cat-create-thread.md"
     }
   ],
-  "generated_at": "2026-03-18T12:09:18.262Z"
+  "generated_at": "2026-05-22T08:42:51.776Z"
 }

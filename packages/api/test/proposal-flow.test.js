@@ -34,9 +34,7 @@ describe('F128 propose / approve / reject flow', () => {
     );
     const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
     const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
-    const { InMemoryProposalStore } = await import(
-      '../dist/domains/cats/services/stores/ports/ProposalStore.js'
-    );
+    const { InMemoryProposalStore } = await import('../dist/domains/cats/services/stores/ports/ProposalStore.js');
 
     registry = new InvocationRegistry();
     threadStore = new ThreadStore();
@@ -62,7 +60,12 @@ describe('F128 propose / approve / reject flow', () => {
       socketManager,
       threadStore,
       proposalStore,
-      evidenceStore: { ingestRaw() {}, search() { return []; } },
+      evidenceStore: {
+        ingestRaw() {},
+        search() {
+          return [];
+        },
+      },
       markerQueue: { enqueue() {} },
       reflectionService: { reflect() {} },
     });
@@ -252,11 +255,13 @@ describe('F128 propose / approve / reject flow', () => {
     const app = await createApp();
     const source = await threadStore.create('alice', 'Source');
     const { proposalId } = JSON.parse(
-      (await propose(app, {
-        userId: 'alice',
-        threadId: source.id,
-        body: { title: 'orig title', initialMessage: 'orig msg' },
-      })).body,
+      (
+        await propose(app, {
+          userId: 'alice',
+          threadId: source.id,
+          body: { title: 'orig title', initialMessage: 'orig msg' },
+        })
+      ).body,
     );
 
     const res = await approve(app, 'alice', proposalId, {
