@@ -52,7 +52,7 @@ export interface EvidenceSearchResponse {
   results: EvidenceResult[];
   degraded: boolean;
   degradeReason?: string;
-  /** AC-K1: actual retrieval mode when depth=raw forces lexical */
+  /** Actual retrieval mode after resolver/store degradation handling. */
   effectiveMode?: 'lexical' | 'semantic' | 'hybrid';
   freshness?: EvidenceFreshness;
   reimportTrigger?: EvidenceReimportTrigger;
