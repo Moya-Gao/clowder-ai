@@ -211,10 +211,13 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toContain('console-modal-close-bg');
   });
 
-  it('HubPermissionsTab uses explicit shadow, no hub-* CSS vars', () => {
+  it('HubPermissionsTab uses rounded-xl + 0.04 shadow, no hub-* CSS vars', () => {
     const src = readSrc('HubPermissionsTab.tsx');
     expect(src).not.toMatch(/var\(--hub-/);
-    expect(src).toContain('shadow-[0_12px_30px_rgba(43,33,26,0.08)]');
+    expect(src).toContain('rounded-xl');
+    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+    expect(src).not.toContain('rounded-2xl');
+    expect(src).not.toContain('0_12px_30px');
   });
 
   it('MemoryNav uses underline tabs matching MissionHub, not soft pills', () => {
@@ -1253,5 +1256,20 @@ describe('F723 round 7 — CVO visual convergence: tabs, search, selects, button
     expect(src).not.toContain('border border-cafe');
     expect(src).toContain('console-field-bg');
     expect(src).toContain('console-input-stroke');
+  });
+
+  it('InstallPlanDetail: disabled (direct_mcp) button uses neutral secondary, not accent', () => {
+    const src = readSrc('marketplace/install-plan-detail.tsx');
+    expect(src).toContain('cursor-not-allowed');
+    expect(src).toMatch(/canAct[\s\S]*?bg-cafe-accent[\s\S]*?console-card-bg[\s\S]*?cursor-not-allowed/);
+    expect(src).not.toMatch(/!canAct[\s\S]{0,50}bg-cafe-accent/);
+  });
+
+  it('MissionControlPage tabs: no underline/emphasis, use rounded-lg active-bg', () => {
+    const src = readSrc('mission-control/MissionControlPage.tsx');
+    expect(src).not.toContain('border-b-2');
+    expect(src).not.toContain('console-button-emphasis');
+    expect(src).toContain("rounded-lg bg-[var(--console-active-bg)] text-cafe'");
+    expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
   });
 });

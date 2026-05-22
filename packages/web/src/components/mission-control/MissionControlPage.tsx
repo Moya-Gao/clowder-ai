@@ -475,8 +475,8 @@ export function MissionControlPage() {
               onClick={() => setActiveTab('features')}
               className={`px-5 py-2.5 text-sm font-semibold transition-colors ${
                 activeTab === 'features'
-                  ? 'border-b-2 border-[var(--console-button-emphasis)] text-[var(--console-button-emphasis)]'
-                  : 'text-cafe-muted hover:text-cafe-secondary'
+                  ? 'rounded-lg bg-[var(--console-active-bg)] text-cafe'
+                  : 'text-cafe-muted hover:text-cafe-secondary hover:bg-[var(--console-hover-bg)]'
               }`}
               data-testid="mc-tab-features"
             >
@@ -487,8 +487,8 @@ export function MissionControlPage() {
               onClick={() => setActiveTab('dependencies')}
               className={`px-5 py-2.5 text-sm font-semibold transition-colors ${
                 activeTab === 'dependencies'
-                  ? 'border-b-2 border-[var(--console-button-emphasis)] text-[var(--console-button-emphasis)]'
-                  : 'text-cafe-muted hover:text-cafe-secondary'
+                  ? 'rounded-lg bg-[var(--console-active-bg)] text-cafe'
+                  : 'text-cafe-muted hover:text-cafe-secondary hover:bg-[var(--console-hover-bg)]'
               }`}
               data-testid="mc-tab-dependencies"
             >
@@ -501,8 +501,8 @@ export function MissionControlPage() {
                 onClick={() => setActiveTab(p.id)}
                 className={`px-5 py-2.5 text-sm font-semibold transition-colors ${
                   activeTab === p.id
-                    ? 'border-b-2 border-[var(--console-button-emphasis)] text-[var(--console-button-emphasis)]'
-                    : 'text-cafe-muted hover:text-cafe-secondary'
+                    ? 'rounded-lg bg-[var(--console-active-bg)] text-cafe'
+                    : 'text-cafe-muted hover:bg-[var(--console-hover-bg)]'
                 }`}
               >
                 {p.name}
@@ -561,8 +561,8 @@ export function MissionControlPage() {
                       type="button"
                       className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                         rightPanelTab === 'suggestion'
-                          ? 'border-b-2 border-[var(--console-button-emphasis)] text-cafe'
-                          : 'text-cafe-muted hover:text-cafe-secondary'
+                          ? 'rounded-lg bg-[var(--console-active-bg)] text-cafe'
+                          : 'text-cafe-muted hover:bg-[var(--console-hover-bg)]'
                       }`}
                       onClick={() => setRightPanelTab('suggestion')}
                       data-testid="mc-right-tab-suggestion"
@@ -573,8 +573,8 @@ export function MissionControlPage() {
                       type="button"
                       className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                         rightPanelTab === 'sop'
-                          ? 'border-b-2 border-[var(--console-button-emphasis)] text-cafe'
-                          : 'text-cafe-muted hover:text-cafe-secondary'
+                          ? 'rounded-lg bg-[var(--console-active-bg)] text-cafe'
+                          : 'text-cafe-muted hover:bg-[var(--console-hover-bg)]'
                       }`}
                       onClick={() => setRightPanelTab('sop')}
                       data-testid="mc-right-tab-sop"
@@ -585,8 +585,8 @@ export function MissionControlPage() {
                       type="button"
                       className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                         rightPanelTab === 'threads'
-                          ? 'border-b-2 border-[var(--console-button-emphasis)] text-cafe'
-                          : 'text-cafe-muted hover:text-cafe-secondary'
+                          ? 'rounded-lg bg-[var(--console-active-bg)] text-cafe'
+                          : 'text-cafe-muted hover:bg-[var(--console-hover-bg)]'
                       }`}
                       onClick={() => setRightPanelTab('threads')}
                       data-testid="mc-right-tab-threads"
