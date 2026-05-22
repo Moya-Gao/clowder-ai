@@ -25,6 +25,10 @@ participants: [landy, codex, opus-47, opus-46]
    - 从 Everything（只定位不回答）/ Smart Folder（存问题不存结果）抽两个可迁移微创新。
    - 结论：锚定 agentic search 硬约束；给 anchor contract 补 `entity` sourceType，让“搜 landy 健康 / gemini 基础设施”这类实体召回变准。
 
+4. [当前检索剖面与 F209 优化方案](./04-current-retrieval-state-and-f209-optimization.md)
+   - 基于当前代码摊开 `search_evidence` 的真实检索栈：BM25、embedding、docs/thread/message passage、collection 联邦、F200 rerank。
+   - 结论：下一步不是“再加一个摘要器”，而是补齐消息级语义、实体门牌号、typed message-window drill-down、活查询 Perspective 与召回 eval。
+
 ## 核心共识
 
 ChatGPT / Claude.ai 的产品记忆能延续关系、偏好和近期主题，但不能稳定承担架构决策、tradeoff、版本边界和完整推理链。Cat Café 不应该追求“让模型记得更多”，而应该让模型在需要时能查到同一套可审计证据。
@@ -35,3 +39,4 @@ ChatGPT / Claude.ai 的产品记忆能延续关系、偏好和近期主题，但
 
 03 在此之上补一条：外部工具值得学的是**检索的形状**（确定性定位器 + 可保存的活查询），不是**记忆的形态**（摘要注入）；且一切都服从 agentic search——系统给线索与原文坐标，判断永远归猫。
 
+04 把这条讨论落到当前实现：Cat Café 已经不是纯 RAG，而是一套 evidence-first 检索栈；真正的缺口在 `depth=raw` 仍是 lexical-only、实体别名不是一等索引、消息窗口读取还不是统一 contract。该方案已提升为 **F209: Evidence Recall Optimization**。

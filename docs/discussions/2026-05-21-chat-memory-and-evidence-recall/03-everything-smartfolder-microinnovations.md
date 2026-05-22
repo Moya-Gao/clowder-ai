@@ -4,7 +4,7 @@ date: 2026-05-21
 status: discussion
 doc_kind: discussion
 topics: [memory, agentic-search, everything, smart-folder, entity-recall, evidence-recall, mcp]
-related_features: [F102, F188, F200]
+related_features: [F102, F188, F200, F209]
 participants: [landy, opus-47, opus-46, codex]
 ---
 
@@ -19,6 +19,8 @@ participants: [landy, opus-47, opus-46, codex]
 两个都必须服从一条不可让渡的硬约束——**agentic search**：猫抓到一条线索（小金鱼），自己顺藤摸瓜找到知识簇（鱼群），系统永远只给【线索 + 原文坐标】，不端【煮好的结论】。
 
 本文是这条讨论线（铲屎官 ↔ opus-47 / opus-46 / codex，2026-05-21）的收敛。01 摊开外部产品记忆剖面，02 提出 evidence-first thread recall；本文聚焦一个 01/02 没展开的角度：**从 Everything / Smart Folder 这两个外部工具，能偷到什么可迁移的微创新，以及它们怎么落到我们的 anchor contract 上。**
+
+> **Codex 实现核对（2026-05-21）**：本文提出的"实体门牌号 + 活的藤"方向成立，但还漏了一个更底层的实现缺口：当前 `depth=raw` 仍是 lexical-only，消息级 passage 还没有语义向量路径。也就是说，"landy 奶奶"这类没有精确字面命中的旧聊天召回，不能只靠 alias / Perspective 解决，必须补 **message/passage-level semantic recall**。完整剖面与立项方案见 [04 当前检索剖面与 F209 优化方案](./04-current-retrieval-state-and-f209-optimization.md)。
 
 ## 1. 先钉约束：agentic search 是验收标尺
 
@@ -215,11 +217,11 @@ facet 用**现成的确定信号**（thread 的 speaker / @mention、frontmatter
 7. **facet（health / career / infrastructure）从哪来？** 倾向只用现成结构化信号（frontmatter `topics`、文件 `type`、doc kind、thread speaker / mention），不引入内容分类器。若某 facet 必须推断，应作为候选呈现而非真相。
 8. **实体召回如何联邦全局层与项目层？** `person:landy` 的证据可能同时存在于全局记忆层（MEMORY.md 及其索引的记忆文件）与项目层（`evidence.sqlite`）。需确认 RRF 联邦能否覆盖实体维度。
 9. **"藤被反复拉而自动固化"的阈值如何防 rich-get-richer？** 自动涌现用 F200 consumption 信号，但 consumption 只能影响 navigation utility、不能动 truth / authority；需要 exploration / freshness 对冲项，避免召回单一化（"成功轨迹"类视图尤其危险）。
-10. **scope 与立项**：本文涉及 F102（索引 / `GraphResolver`）、F188（navigation / Perspective）、F200（consumption telemetry）。按 phase 拆还是开新 F 号，需 CVO signoff。
+10. **scope 与立项**：✅ 已提升为 **F209 Evidence Recall Optimization**。F102（索引 / `GraphResolver`）、F188（navigation / Perspective）、F200（consumption telemetry）保留为 related/base，不把本轮需求拆散塞回旧 Phase。
 
 ## 8. 结论
 
-我们不缺"更聪明的语义搜索"，也不该抄外部产品的摘要注入式记忆。从 Everything / Smart Folder 真正该偷的是两个微创新——
+我们不缺的是"替猫下结论的更聪明搜索"，也不该抄外部产品的摘要注入式记忆。从 Everything / Smart Folder 真正该偷的是两个微创新——
 
 > **把"东西在哪"指得又快又准（连实体都有门牌号），并让猫能存下"常顺的那几根藤"。**
 
