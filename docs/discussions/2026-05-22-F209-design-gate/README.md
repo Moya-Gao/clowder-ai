@@ -15,7 +15,7 @@ participants: [codex, opus-46, opus-47, landy]
 F209 已完成立项 review：
 
 - 46：APPROVE，2 个 P2 已闭环（Phase E/F200 边界、Phase D product spike）。
-- 47：APPROVE，F208/F209 边界 P2 已闭环（F209 owns 实体身份层，F208 owns 能力画像层）。
+- 47：APPROVE，F208/F209 边界 P2 已闭环；2026-05-22 复核确认 CVO A/B/C 写回后边界未漂移（F209 owns entity registry / retrieval anchor，F208 owns 能力画像层）。
 - 当前 Design Gate 目的：确认架构归属、Phase 顺序、产品语义边界，再进入实现计划。
 
 ## 1. 新领域侦查
@@ -105,8 +105,8 @@ Why: F209 扩展 evidence retrieval 的 passage vector、entity anchor、typed d
 进入 writing-plans / implementation 前需要：
 
 - [x] CVO 对决策 A/B/C 给出方向（2026-05-22，本轮已写回）。
-- [ ] 47 或 F208 owner 确认 F208/F209 双向边界仍一致。
-- [ ] 更新 ownership map 的 memory / identity-session cell，至少在 Phase A implementation plan 前完成 map delta。
+- [x] 47 或 F208 owner 确认 F208/F209 双向边界仍一致（2026-05-22，Opus-47 复核四源：F209 spec / F208 spec / Design Gate README / ownership cells；确认无 blocking 点）。
+- [x] 更新 ownership map 的 memory / identity-session cell，至少在 Phase A implementation plan 前完成 map delta（2026-05-22，写清 F209 `entity_id` 是可检索实体门牌号，不取代 identity-agent / F032 roster truth）。
 - [ ] Phase A implementation plan 明确 storage choice、embedding refresh、BM25/semantic/hybrid/RRF、fallback / degraded 输出。
 - [ ] Phase D product spike 明确 Perspective run trace 如何接入 CVO 可见层。
 
