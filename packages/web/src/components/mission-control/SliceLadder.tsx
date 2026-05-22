@@ -114,7 +114,7 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
 
       {/* Slice list */}
       {sorted.length === 0 && !showForm ? (
-        <div className="rounded-lg border border-dashed border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-6 text-center text-xs text-cafe-secondary">
+        <div className="rounded-lg bg-[var(--console-shell-bg)] p-6 text-center text-xs text-cafe-secondary">
           暂无切片
         </div>
       ) : (
@@ -126,7 +126,7 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
             return (
               <div
                 key={slice.id}
-                className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3 text-xs"
+                className="rounded-xl bg-[var(--console-card-bg)] p-3 text-xs shadow-[0_8px_22px_rgba(43,33,26,0.04)]"
               >
                 <div className="flex items-center gap-2">
                   <div className="flex flex-col gap-0.5">
@@ -209,12 +209,12 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
         <div
           style={{
             background: 'var(--console-card-bg)',
-            border: '1px solid var(--console-border-soft)',
             borderRadius: 10,
             padding: 14,
             display: 'flex',
             flexDirection: 'column',
             gap: 8,
+            boxShadow: '0 8px 22px rgba(43,33,26,0.04)',
           }}
         >
           <input
@@ -222,9 +222,10 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
             onChange={(e) => setName(e.target.value)}
             placeholder="Slice name"
             style={{
-              border: '1px solid var(--console-border-soft)',
-              borderRadius: 6,
+              border: '1px solid transparent',
+              borderRadius: 10,
               padding: '6px 10px',
+              background: 'var(--console-field-bg, var(--console-card-bg))',
               fontSize: typographyTokens.fontSizePx.compact,
             }}
           />
@@ -232,9 +233,10 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
             value={sliceType}
             onChange={(e) => setSliceType(e.target.value as SliceType)}
             style={{
-              border: '1px solid var(--console-border-soft)',
-              borderRadius: 6,
+              border: '1px solid transparent',
+              borderRadius: 10,
               padding: '6px 10px',
+              background: 'var(--console-field-bg, var(--console-card-bg))',
               fontSize: typographyTokens.fontSizePx.compact,
             }}
           >
@@ -248,9 +250,10 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
             placeholder="Description"
             rows={2}
             style={{
-              border: '1px solid var(--console-border-soft)',
-              borderRadius: 6,
+              border: '1px solid transparent',
+              borderRadius: 10,
               padding: '6px 10px',
+              background: 'var(--console-field-bg, var(--console-card-bg))',
               fontSize: typographyTokens.fontSizePx.compact,
               resize: 'vertical',
             }}
@@ -260,9 +263,10 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
             onChange={(e) => setActor(e.target.value)}
             placeholder="Actor"
             style={{
-              border: '1px solid var(--console-border-soft)',
-              borderRadius: 6,
+              border: '1px solid transparent',
+              borderRadius: 10,
               padding: '6px 10px',
+              background: 'var(--console-field-bg, var(--console-card-bg))',
               fontSize: typographyTokens.fontSizePx.compact,
             }}
           />
@@ -271,9 +275,10 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
             onChange={(e) => setWorkflow(e.target.value)}
             placeholder="Workflow"
             style={{
-              border: '1px solid var(--console-border-soft)',
-              borderRadius: 6,
+              border: '1px solid transparent',
+              borderRadius: 10,
               padding: '6px 10px',
+              background: 'var(--console-field-bg, var(--console-card-bg))',
               fontSize: typographyTokens.fontSizePx.compact,
             }}
           />
@@ -283,9 +288,10 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
             placeholder="Verifiable outcome"
             rows={2}
             style={{
-              border: '1px solid var(--console-border-soft)',
-              borderRadius: 6,
+              border: '1px solid transparent',
+              borderRadius: 10,
               padding: '6px 10px',
+              background: 'var(--console-field-bg, var(--console-card-bg))',
               fontSize: typographyTokens.fontSizePx.compact,
               resize: 'vertical',
             }}

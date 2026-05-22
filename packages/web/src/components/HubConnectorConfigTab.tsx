@@ -225,7 +225,7 @@ export function HubConnectorConfigTab() {
                 {v.icon}
               </span>
               <span className="flex-1 text-left min-w-0 space-y-1">
-                <span className="block text-base font-extrabold text-cafe">
+                <span className="block text-sm font-semibold text-cafe">
                   {platform.name}
                   {platform.nameEn !== platform.name ? ` ${platform.nameEn}` : ''}
                 </span>

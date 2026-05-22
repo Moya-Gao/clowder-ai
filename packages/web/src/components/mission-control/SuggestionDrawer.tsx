@@ -242,7 +242,7 @@ export function SuggestionDrawer({
                   type="button"
                   disabled={submitting || !leaseOwnerCatId}
                   onClick={() => void onReleaseLease({ itemId: item.id, catId: leaseOwnerCatId })}
-                  className="rounded border border-[var(--console-border-soft)] px-2 py-1 text-xs font-semibold text-cafe-secondary disabled:opacity-40"
+                  className="rounded bg-[var(--console-shell-bg)] px-2 py-1 text-xs font-semibold text-cafe-secondary disabled:opacity-40"
                   data-testid="mc-lease-release"
                 >
                   释放 Lease

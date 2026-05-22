@@ -532,3 +532,102 @@ describe('F190 divider guard — console-scope dividers use semantic class', () 
     });
   }
 });
+
+describe('F723 Mission Hub — card/border unification guard', () => {
+  const MC_CARD_SCOPE = [
+    'mission-control/CreateIntentCardForm.tsx',
+    'mission-control/IntentCardDetail.tsx',
+    'mission-control/ImportProjectModal.tsx',
+    'mission-control/SuggestionDecisionPanel.tsx',
+    'mission-control/GovernanceHealth.tsx',
+    'mission-control/NeedAuditFrame.tsx',
+    'mission-control/DispatchProgress.tsx',
+    'mission-control/ResolutionQueue.tsx',
+    'mission-control/RefluxCapture.tsx',
+    'mission-control/RiskPanel.tsx',
+    'mission-control/DependencyGraphTab.tsx',
+    'mission-control/TranslationMatrix.tsx',
+    'mission-control/FeatureBirdEyePanel.tsx',
+    'mission-control/ThreadSituationPanel.tsx',
+    'mission-control/WorkflowSopPanel.tsx',
+    'mission-control/SliceLadder.tsx',
+    'mission-control/ExternalProjectTab.tsx',
+    'mission-control/QuickCreateForm.tsx',
+    'mission-control/FeatureRowList.tsx',
+    'mission-control/SuggestionDrawer.tsx',
+    'mission-control/MissionControlCard.tsx',
+    'mission-control/MissionControlPage.tsx',
+  ];
+
+  for (const file of MC_CARD_SCOPE) {
+    it(`${file}: no raw "border border-[var(--console-border-soft)]" on containers`, () => {
+      const src = readSrc(file);
+      const rawCardBorders = src.match(/className="[^"]*\bborder border-\[var\(--console-border-soft\)\][^"]*"/g) ?? [];
+      expect(rawCardBorders).toEqual([]);
+    });
+  }
+
+  it('MissionControlCard uses shadow for main card container', () => {
+    const src = readSrc('mission-control/MissionControlCard.tsx');
+    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+    expect(src).not.toMatch(/w-full rounded-xl border p-3/);
+  });
+
+  it('Mission Hub inputs use border-transparent + field-bg pattern, no raw border', () => {
+    for (const file of [
+      'mission-control/CreateIntentCardForm.tsx',
+      'mission-control/ImportProjectModal.tsx',
+      'mission-control/NeedAuditFrame.tsx',
+      'mission-control/SuggestionOpenForm.tsx',
+      'mission-control/SuggestionDecisionPanel.tsx',
+      'mission-control/ResolutionQueue.tsx',
+      'mission-control/RefluxCapture.tsx',
+    ]) {
+      const src = readSrc(file);
+      expect(src).toContain('border-transparent');
+      expect(src).toContain('console-field-bg');
+      expect(src).not.toContain('border border-[var(--console-border-soft)]');
+    }
+  });
+});
+
+describe('F723 IM connector — typography and card guard', () => {
+  it('HubConnectorConfigTab heading uses text-sm font-semibold, not text-base font-extrabold', () => {
+    const src = readSrc('HubConnectorConfigTab.tsx');
+    expect(src).toContain('text-sm font-semibold');
+    expect(src).not.toContain('text-base font-extrabold');
+  });
+
+  it('WeComBotSetupPanel inputs use field-bg pattern, not border-cafe', () => {
+    const src = readSrc('WeComBotSetupPanel.tsx');
+    expect(src).toContain('border-transparent');
+    expect(src).toContain('console-field-bg');
+    expect(src).not.toMatch(/border border-cafe rounded-lg/);
+  });
+
+  it('FeishuQrPanel QR card uses shadow, not border', () => {
+    const src = readSrc('FeishuQrPanel.tsx');
+    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+  });
+});
+
+describe('F723 cross-page typography consistency', () => {
+  it('all console page h1 titles use text-xl font-bold', () => {
+    for (const file of [
+      'memory/MemoryHub.tsx',
+      'signals/SignalInboxView.tsx',
+      'signals/SignalSourcesView.tsx',
+      'mission-control/MissionControlPage.tsx',
+    ]) {
+      const src = readSrc(file);
+      expect(src).toContain('text-xl font-bold');
+    }
+  });
+
+  it('all sub-tab navs use text-sm font-semibold', () => {
+    for (const file of ['memory/MemoryNav.tsx', 'signals/SignalNav.tsx']) {
+      const src = readSrc(file);
+      expect(src).toContain('text-sm font-semibold');
+    }
+  });
+});

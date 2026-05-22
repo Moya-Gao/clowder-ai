@@ -186,7 +186,7 @@ function FeatureRow({
 
   return (
     <div
-      className={`rounded-xl border ${expanded ? 'border-[var(--console-border-soft)] border-2' : 'border-[var(--console-border-soft)]'} bg-[var(--console-card-bg)] overflow-hidden`}
+      className={`rounded-xl bg-[var(--console-card-bg)] overflow-hidden shadow-[0_8px_22px_rgba(43,33,26,0.04)] ${expanded ? 'ring-1 ring-[var(--console-border-soft)]' : ''}`}
       data-testid={`mc-feature-row-${tag}`}
     >
       <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 px-4 py-3 text-left">
@@ -282,7 +282,7 @@ function FeatureRow({
                     {featureItems[0].dependencies.related?.map((id) => (
                       <span
                         key={`rel-${id}`}
-                        className="rounded-md border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] px-1.5 py-0.5 text-micro font-medium text-cafe-secondary"
+                        className="rounded-md bg-[var(--console-hover-bg)] px-1.5 py-0.5 text-micro font-medium text-cafe-secondary"
                       >
                         ↔ {id.toUpperCase()}
                       </span>
