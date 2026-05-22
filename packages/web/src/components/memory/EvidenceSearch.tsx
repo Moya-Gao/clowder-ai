@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { ExpandableText } from '../ExpandableText';
+import { formInputClass } from '../mcp-form-helpers';
 
 export interface EvidenceSearchParams {
   q: string;
@@ -170,14 +171,14 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           placeholder="搜索项目知识..."
-          className="flex-1 rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] px-3 py-2 text-sm text-cafe-black placeholder:text-cafe-secondary focus:border-[var(--console-border-strong)] focus:outline-none"
+          className={`flex-1 ${formInputClass}`}
           data-testid="evidence-search-input"
         />
         <button
           type="button"
           onClick={handleSearch}
           disabled={isSearching || !query.trim()}
-          className="rounded-lg bg-cafe-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cafe-interactive disabled:opacity-40"
+          className="h-9 shrink-0 rounded-lg bg-cafe-accent px-4 text-compact font-medium text-white transition-colors hover:bg-cafe-interactive disabled:opacity-40"
           data-testid="evidence-search-button"
         >
           {isSearching ? '...' : '搜索'}

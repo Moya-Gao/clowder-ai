@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { formInputClass } from '../mcp-form-helpers';
 import { SettingsPrimaryButton, SettingsStatusStrip, SettingsText } from './primitives';
 
 const REDACTED_PLACEHOLDER = '••••••';
@@ -136,7 +137,7 @@ export function GithubConfigPanel() {
                       : '未配置'
                     : (field.currentValue ?? '未配置')
                 }
-                className="w-full rounded-[10px] border-transparent bg-[var(--console-field-bg,var(--console-card-bg))] px-3 py-2 text-sm text-cafe focus:outline-none focus:ring-1 focus:ring-cafe-accent"
+                className={formInputClass}
                 data-testid={`field-${field.envName}`}
               />
               {field.restartRequired && (

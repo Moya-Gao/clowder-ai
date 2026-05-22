@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { PushStatusPayload } from '@/hooks/usePushNotify';
 import { apiFetch } from '@/utils/api-client';
+import { formInputClass } from '../mcp-form-helpers';
 import {
   SettingsCard,
   SettingsPrimaryButton,
@@ -143,8 +144,7 @@ export function PushServiceConfig({ embedded = false }: { embedded?: boolean } =
 
   const messageTone = message?.tone === 'success' ? 'success' : message?.tone === 'error' ? 'error' : 'info';
 
-  const inputClass =
-    'w-full rounded-lg border border-[var(--console-border-soft)] bg-[var(--cafe-surface-elevated)] px-3 py-2 text-sm text-cafe';
+  const inputClass = formInputClass;
 
   const labelClass = 'text-xs text-cafe-secondary' as const;
 
@@ -165,7 +165,7 @@ export function PushServiceConfig({ embedded = false }: { embedded?: boolean } =
         </SettingsText>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3">
         <label className={`space-y-1 font-medium ${labelClass}`}>
           推送公钥
           <input
@@ -187,18 +187,17 @@ export function PushServiceConfig({ embedded = false }: { embedded?: boolean } =
             className={inputClass}
           />
         </label>
+        <label className={`space-y-1 font-medium ${labelClass}`}>
+          联系信息
+          <input
+            name="VAPID_SUBJECT"
+            value={form.VAPID_SUBJECT}
+            onChange={(event) => updateField('VAPID_SUBJECT', event.target.value)}
+            placeholder="mailto:admin@example.com"
+            className={inputClass}
+          />
+        </label>
       </div>
-
-      <label className={`block space-y-1 font-medium ${labelClass}`}>
-        联系信息
-        <input
-          name="VAPID_SUBJECT"
-          value={form.VAPID_SUBJECT}
-          onChange={(event) => updateField('VAPID_SUBJECT', event.target.value)}
-          placeholder="mailto:admin@example.com"
-          className={inputClass}
-        />
-      </label>
 
       {message && (
         <SettingsStatusStrip tone={messageTone} size="xs" bordered>
@@ -206,7 +205,7 @@ export function PushServiceConfig({ embedded = false }: { embedded?: boolean } =
         </SettingsStatusStrip>
       )}
 
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex justify-end gap-2">
         <SettingsSecondaryButton
           onClick={() => {
             void handleGenerate();
