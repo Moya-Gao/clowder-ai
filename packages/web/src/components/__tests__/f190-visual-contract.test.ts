@@ -243,9 +243,11 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toContain('shadow-[0_12px_30px_rgba(43,33,26,0.08)]');
   });
 
-  it('SettingsRow has default shadow', () => {
+  it('SettingsRow has default shadow and text-compact font-bold title', () => {
     const src = readSrc('settings/primitives/SettingsRow.tsx');
     expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+    expect(src).toContain('text-compact font-bold');
+    expect(src).not.toMatch(/text-sm font-semibold/);
   });
 
   it('SettingsCard has default shadow', () => {
@@ -295,9 +297,9 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toMatch(/<aside[\s\S]{0,200}bg-\[var\(--console-panel-bg\)\]/);
   });
 
-  it('SettingsNav item text uses text-xs token, no hardcoded size', () => {
+  it('SettingsNav item text uses text-compact token, no hardcoded size', () => {
     const src = readSrc('settings/SettingsNav.tsx');
-    expect(src).toContain('text-xs');
+    expect(src).toContain('text-compact');
     expect(src).not.toMatch(/text-\[\d+px\]/);
   });
 
@@ -373,10 +375,9 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     }
   });
 
-  it('Settings hierarchy: page header text-xl, section text-base, no font-extrabold', () => {
+  it('Settings hierarchy: page header text-2xl extrabold, section text-base semibold', () => {
     const header = readSrc('settings/SettingsPageHeader.tsx');
-    expect(header).toContain('text-xl font-bold');
-    expect(header).not.toContain('font-extrabold');
+    expect(header).toContain('text-2xl font-extrabold');
     const section = readSrc('settings/primitives/SettingsSection.tsx');
     expect(section).toContain('text-base font-semibold');
     expect(section).not.toContain('text-lg font-bold');
@@ -403,6 +404,18 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     const src = readSrc('mission-control/MissionControlPage.tsx');
     expect(src).toContain('console-divider-b');
     expect(src).not.toMatch(/border-b border-\[var\(--console-border-soft\)\]/);
+  });
+
+  it('RightStatusPanel section headings use text-cafe (dark), not text-cafe-secondary', () => {
+    const src = readSrc('RightStatusPanel.tsx');
+    const headingMatches = src.match(/text-label font-bold text-cafe[ "]/g) ?? [];
+    expect(headingMatches.length).toBeGreaterThanOrEqual(4);
+    expect(src).not.toMatch(/text-label font-bold text-cafe-secondary/);
+  });
+
+  it('ThreadSidebar aside has no console-divider-r (resize handle is the visual separator)', () => {
+    const src = readSrc('ThreadSidebar/ThreadSidebar.tsx');
+    expect(src).not.toMatch(/<aside[^>]*console-divider-r/);
   });
 });
 

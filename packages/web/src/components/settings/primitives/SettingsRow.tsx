@@ -76,7 +76,7 @@ export function SettingsRow({
         {icon && <div className="shrink-0">{icon}</div>}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-semibold text-cafe">{title}</span>
+            <span className="truncate text-compact font-bold text-cafe">{title}</span>
             {badges}
           </div>
           {meta && <div className="mt-0.5 truncate text-xs text-cafe-secondary">{meta}</div>}
