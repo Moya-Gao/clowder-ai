@@ -62,6 +62,8 @@ managed_files:
 managed_scripts:
   - scripts/check-dir-size.sh
   - scripts/download-source-overrides.sh
+  - scripts/check-node-runtime.mjs
+  - scripts/node-runtime-guard.test.mjs
   - scripts/start-dev.sh
   - scripts/derive-worktree-ports.mjs
   - scripts/derive-worktree-ports.test.mjs
@@ -100,6 +102,7 @@ managed_scripts:
   - scripts/init-cafe.sh
   - scripts/runtime-worktree.sh
   - scripts/lib/quickstart-freshness.sh  # sourced by runtime-worktree.sh — keep in closure
+  - scripts/lib/node-runtime-guard.sh  # sourced by start/runtime/alpha launchers — keep in closure
   - scripts/user-redis.sh
   - scripts/user-redis-autobackup.sh
   - scripts/find-redis-dumps.sh
