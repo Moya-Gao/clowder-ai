@@ -4,7 +4,7 @@ date: 2026-05-21
 status: discussion
 doc_kind: discussion
 topics: [memory, evidence-recall, search-evidence, passage-vector, entity-anchor, perspective]
-related_features: [F102, F188, F200, F209]
+related_features: [F102, F188, F200, F208, F209]
 participants: [landy, codex]
 ---
 
@@ -168,6 +168,8 @@ read_file_slice(path, lineStart, lineEnd)
 - provenance
 - updated_at
 
+与 F208 的分层：F209 的 entity registry 是**身份层**，只 owns `entity_id` / alias / type / provenance，回答“这些称呼是不是同一个实体”；F208 的 `cat-dossier` 是**能力画像层**，回答“这只猫强什么、盲点在哪、适合如何路由”。因此 F208 应消费 F209 的 `entity_id` 作为猫/人标识键，不另造平行猫 ID。
+
 索引时记录 candidate mentions；检索时做确定性 alias expansion。注意边界：
 
 - alias 字典可以自动建议，但入库要有 provenance。
@@ -244,7 +246,7 @@ Perspective 不是 topic map，不存结果。它只是猫反复使用的检索�
 
 1. `passage_vectors` 的存储形态：复用现有 vector store，还是独立 vec0 table？
 2. message passage embedding 的 refresh 策略：热路径 append 即 embed，还是批处理？
-3. entity registry 的真相源放哪里：runtime catalog、docs/team/entity-aliases.md，还是 DB + git-backed export？
+3. entity registry 的真相源放哪里：runtime catalog、docs/team/entity-aliases.md，还是 DB + git-backed export？注意它只 owns 身份层；F208 画像层消费 `entity_id`。
 4. candidate facet 的 UI / MCP 表达：如何让猫一眼看出“候选，不是真相”？
 5. typed reader 的 MCP surface 是新增工具，还是扩现有 `read_session_events/read_invocation_detail` 家族？
 6. Perspective 谁来创建：✅ v1 猫手动保存；F200 自动建议 / settings 可见化后置，Design Gate 前做 product spike。

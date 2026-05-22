@@ -1,6 +1,6 @@
 ---
 feature_ids: [F209]
-related_features: [F102, F188, F200, F192]
+related_features: [F102, F188, F200, F192, F208]
 topics: [memory, evidence-recall, passage-vector, entity-anchor, perspective, eval]
 doc_kind: spec
 created: 2026-05-21
@@ -70,6 +70,8 @@ F209 完整终态包含五层：
 
 把实体做成一等检索轴，解决 `landy` / `铲屎官` / `CVO` 这种别名误伤。
 
+与 F208 的边界：**F209 owns 实体身份层**，回答“`landy` / `铲屎官` / `CVO` 是否同一个实体”，提供 `entity_id`、alias、type 与 provenance 真相源；**F208 owns 实体能力画像层**，回答“砚砚强什么、盲点在哪、适合接什么任务”。F208 的 `cat-dossier` 消费 F209 的 `entity_id` 作为猫/人标识键，不另造一套猫 ID。
+
 ### Acceptance Criteria
 
 - [ ] AC-B1: 有 durable entity registry，支持 `entity_id`、aliases、type、provenance、updated_at。
@@ -77,6 +79,7 @@ F209 完整终态包含五层：
 - [ ] AC-B3: 索引层可记录 entity mentions，结果能解释“为何命中 person:landy / cat:gemini”。
 - [ ] AC-B4: entity 与 project/global/library/collection 联邦检索兼容。
 - [ ] AC-B5: 隐私实体默认受 scope 控制，不跨域泄漏。
+- [ ] AC-B6: F208 `cat-dossier` 等画像消费者使用 F209 `entity_id`，不创建平行猫 ID / 人 ID namespace。
 
 ## Phase C: Typed Drill-down Readers
 
@@ -144,6 +147,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 - **Related**: F188 Library Stewardship — navigation / collection 维度。
 - **Related**: F200 Memory Recall Eval — consumption signal 与召回评估。
 - **Related**: F192 Socio-Technical Harness Eval — eval contract / finding→action 框架。
+- **Related**: F208 Capability Profile Routing — 能力画像档案层；消费 F209 `entity_id`，不 owns id/alias 真相源。
 
 ## Risk
 
@@ -151,6 +155,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 |------|------|
 | embedding 被误解成“模型替猫判断” | AC-A4 强制返回 anchor + context；embedding 只做 sensor，不做 conclusion |
 | entity/facet 推断污染真相源 | alias 只做确定字典；candidate facet 必须标 candidate + provenance |
+| F208/F209 在 `docs/team/` 重复建猫/人身份表 | F209 owns identity registry；F208 owns capability profile；AC-B6 强制复用 `entity_id` |
 | raw hybrid 召回噪音变大 | Eval golden set + false confidence rate + contextWindow |
 | Perspective 变成固化 topic map | 只存 query plan，每次现场重跑；不存结果 |
 | F200 consumption rich-get-richer | 交由 F200 统一做 exploration/freshness 对冲；F209 只贡献 fixture |
@@ -162,7 +167,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 |---|------|------|
 | OQ-1 | `passage_vectors` 复用现有 vector store，还是独立 passage vector table？ | ⬜ Design Gate |
 | OQ-2 | message passage embedding 是热路径 append 即 embed，还是批处理？ | ⬜ Design Gate |
-| OQ-3 | entity registry 真相源放 docs、DB，还是 DB + git-backed export？ | ⬜ Design Gate |
+| OQ-3 | entity registry 真相源放 docs、DB，还是 DB + git-backed export？（仅身份层；F208 画像层消费 `entity_id`） | ⬜ Design Gate |
 | OQ-4 | candidate facet 如何表达，才能让猫一眼看出“不是真相”？ | ⬜ Design Gate |
 | OQ-5 | typed reader 是新增 MCP tools，还是扩现有 read_session/read_invocation 家族？ | ✅ resolved → 默认扩展现有工具；file slice 优先用猫已有 `rg`/`sed`/Read |
 | OQ-6 | Perspective 的创建入口：猫手动保存、F200 自动建议、还是 settings 可见？ | ✅ resolved for v1 → 猫手动保存；F200 自动建议/settings 可见后置 |
@@ -178,6 +183,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | KD-4 | Embedding 是 sensor，不是判断者 | 只要结果带 anchor + 原文窗口，语义召回不会违反 KD-8 | 2026-05-21 |
 | KD-5 | Perspective 存 query plan，不存 result set | 结果集会 stale；活查询每次现场重跑才保鲜 | 2026-05-21 |
 | KD-6 | F209 不自建 retrieval eval 系统，向 F200 贡献 fixture | 避免 F209/F200 双 owner；F200 是 Memory Recall Eval 的统一归属 | 2026-05-22 |
+| KD-7 | F209 owns 实体身份层；F208 owns 能力画像层 | 防止两个 feature 在 `docs/team/` 各建一套猫/人身份 namespace；画像层必须复用 `entity_id` | 2026-05-22 |
 
 ## Eval / Tracking Contract
 
