@@ -152,7 +152,7 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).not.toContain('field-success');
     expect(src).toContain('console-list-card');
     expect(src).toContain('text-cafe');
-    expect(src).toContain('console-button-emphasis');
+    expect(src).toContain('cafe-accent');
     expect(src).toContain('conn-red-ring');
   });
 
@@ -946,8 +946,9 @@ describe('F723 round 4.1 — deeper primitive convergence guard', () => {
 });
 
 describe('F723 round 5 — ops tab/button convergence guard', () => {
-  it('OpsContent inactive tabs have hover background', () => {
+  it('OpsContent tabs: active has bg highlight, inactive has hover bg', () => {
     const src = readSrc('settings/OpsContent.tsx');
+    expect(src).toContain('bg-[var(--console-active-bg)]');
     expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
   });
 
@@ -969,9 +970,11 @@ describe('F723 round 5 — ops tab/button convergence guard', () => {
     expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
   });
 
-  it('HubAgentSessionsTab refresh uses secondary button, not bg-cafe-surface', () => {
+  it('HubAgentSessionsTab: all buttons use secondary card-bg pattern, no cafe-surface/shell-bg', () => {
     const src = readSrc('HubAgentSessionsTab.tsx');
     expect(src).not.toMatch(/rounded bg-cafe-surface hover:bg-cafe-surface-hover/);
+    expect(src).not.toContain('console-shell-bg');
+    expect(src).not.toMatch(/rounded bg-cafe-surface text-cafe-muted/);
     expect(src).toContain('console-card-bg');
     expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
   });
@@ -1005,5 +1008,12 @@ describe('F723 round 5 — ops tab/button convergence guard', () => {
     expect(src).toContain('accent-[var(--cafe-accent)]');
     expect(src).toContain('text-cafe-accent');
     expect(src).not.toMatch(/console-list-card rounded-2xl/);
+  });
+
+  it('HubQuotaBoardTab 刷新全部 uses cafe-accent primary, not console-button-emphasis', () => {
+    const src = readSrc('HubQuotaBoardTab.tsx');
+    expect(src).not.toMatch(/bg-\[var\(--console-button-emphasis\)\].*刷新全部/s);
+    expect(src).toContain('bg-cafe-accent');
+    expect(src).toContain('hover:bg-cafe-interactive');
   });
 });

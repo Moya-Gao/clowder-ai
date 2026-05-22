@@ -108,7 +108,7 @@ export function HubAgentSessionsTab() {
                   <button
                     type="button"
                     onClick={() => setAttachOverlay(attachOverlay === s.daemonShortId ? null : s.daemonShortId)}
-                    className="text-micro px-1.5 py-0.5 rounded-lg bg-[var(--console-shell-bg)] text-cafe-muted hover:text-cafe hover:bg-[var(--console-hover-bg)] transition-colors"
+                    className="text-micro px-1.5 py-0.5 rounded-lg bg-[var(--console-card-bg)] text-cafe-muted shadow-[0_1px_3px_rgba(43,33,26,0.06)] hover:text-cafe hover:bg-[var(--console-hover-bg)] transition-colors"
                   >
                     接管
                   </button>
@@ -129,7 +129,7 @@ export function HubAgentSessionsTab() {
                   <button
                     type="button"
                     onClick={() => void handleCopy(s.daemonShortId)}
-                    className="text-micro px-1.5 py-0.5 rounded bg-cafe-surface text-cafe-muted hover:text-cafe-text transition-colors flex-shrink-0"
+                    className="text-micro px-1.5 py-0.5 rounded-lg bg-[var(--console-card-bg)] text-cafe-muted shadow-[0_1px_3px_rgba(43,33,26,0.06)] hover:text-cafe hover:bg-[var(--console-hover-bg)] transition-colors flex-shrink-0"
                   >
                     {copied ? '已复制 ✓' : '复制'}
                   </button>
