@@ -260,10 +260,10 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
   });
 
-  it('ChatInput default border is transparent, focus uses console-input-stroke ring', () => {
+  it('ChatInput default border uses console-border-soft, focus uses console-input-stroke ring', () => {
     const src = readSrc('ChatInput.tsx');
     expect(src).not.toMatch(/border-t border-cafe-subtle/);
-    expect(src).toContain('border-transparent bg-transparent');
+    expect(src).toContain('border-[var(--console-border-soft)]');
     expect(src).toContain('focus:ring-[var(--console-input-stroke)]');
   });
 
@@ -641,16 +641,16 @@ describe('F723 cross-page typography consistency', () => {
     }
   });
 
-  it('ChatInput textarea default has transparent border and bg, focus shows card-bg', () => {
+  it('ChatInput textarea default has soft border and transparent bg, focus shows card-bg', () => {
     const src = readSrc('ChatInput.tsx');
-    expect(src).not.toMatch(/border-\[var\(--console-border-soft\)\].*bg-\[var\(--console-field-bg\)\]/);
-    expect(src).toContain('border-transparent bg-transparent');
+    expect(src).toContain('border-[var(--console-border-soft)] bg-transparent');
     expect(src).toContain('focus:bg-[var(--console-card-bg)]');
   });
 
-  it('homepage inputs (ThreadSidebar search) use transparent bg, not field-bg', () => {
+  it('homepage inputs (ThreadSidebar search) use soft border + transparent bg', () => {
     const src = readSrc('ThreadSidebar/ThreadSidebar.tsx');
     expect(src).not.toMatch(/搜索[\s\S]{0,200}bg-\[var\(--console-field-bg\)\]/);
+    expect(src).toContain('border-[var(--console-border-soft)]');
     expect(src).toContain('bg-transparent');
   });
 
@@ -734,9 +734,9 @@ describe('F723 interactive button guard — no grey pill on action/toggle contro
     expect(src).not.toMatch(/<button[\s\S]*?console-pill-bg/);
   });
 
-  it('ThreadSidebar: trash toggle has no console-code-bg', () => {
+  it('ThreadSidebar: trash toggle has light bg, not console-code-bg', () => {
     const src = readSrc('ThreadSidebar/ThreadSidebar.tsx');
     expect(src).not.toContain('console-code-bg');
-    expect(src).toMatch(/bg-transparent[\s\S]*?trash-bin-toggle/);
+    expect(src).toMatch(/console-hover-bg[\s\S]*?trash-bin-toggle/);
   });
 });

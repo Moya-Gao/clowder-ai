@@ -15,7 +15,7 @@
   --console-rail-bg: #eee6dc;
   --console-rail-item: #e8ddd2;
   --console-rail-active: #fffdfb;
-  --console-input-stroke: #e49a7d;
+  --console-input-stroke: var(--cafe-accent);
   --console-stop: #f26767;
   --console-runtime-bg: #eef8f0;
   --console-runtime-field-bg: #e4f3e6;
@@ -201,6 +201,13 @@
   --hub-alert-warning-text: #c27d52;
   --hub-shadow: 0 12px 30px rgba(43, 33, 26, 0.08);
   --hub-shadow-hover: 0 12px 30px rgba(43, 33, 26, 0.12);
+}
+
+[data-chat-container] {
+  scrollbar-width: none;
+}
+[data-chat-container]::-webkit-scrollbar {
+  display: none;
 }
 
 [data-theme="dark"] {
