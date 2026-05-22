@@ -123,7 +123,7 @@ export function HubToolUsageTab() {
             type="button"
             onClick={() => fetchData(true)}
             disabled={loading}
-            className="rounded-lg bg-[var(--console-button-emphasis)] px-3 py-1 text-xs text-[var(--cafe-surface)] hover:bg-[var(--console-button-emphasis-hover)] disabled:opacity-50"
+            className="rounded-lg bg-[var(--console-card-bg)] px-3 py-1 text-xs text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] hover:bg-[var(--console-hover-bg)] disabled:opacity-50"
           >
             {loading ? '冲泡中...' : '刷新'}
           </button>

@@ -109,12 +109,14 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).not.toMatch(/border border-indigo-100/);
   });
 
-  it('HubToolUsageTab uses console/cafe tokens, no hub-* CSS vars', () => {
+  it('HubToolUsageTab uses console/cafe tokens, no hub-* CSS vars, refresh is secondary button', () => {
     const src = readSrc('HubToolUsageTab.tsx');
     expect(src).not.toMatch(/var\(--hub-/);
     expect(src).toContain('console-list-card');
     expect(src).toContain('console-form-input');
-    expect(src).toContain('console-button-emphasis');
+    expect(src).not.toContain('console-button-emphasis');
+    expect(src).toContain('console-card-bg');
+    expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
   });
 
   it('HubConnectorConfigTab uses SettingsRow-aligned shadow, not --hub-shadow var', () => {
