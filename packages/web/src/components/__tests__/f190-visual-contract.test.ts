@@ -654,11 +654,15 @@ describe('F723 cross-page typography consistency', () => {
     expect(src).toContain('bg-transparent');
   });
 
-  it('MessageNavigator has connecting rail using console token, no raw grey', () => {
+  it('MessageNavigator has 1px connecting rail, no viewport thumb or raw grey', () => {
     const src = readSrc('MessageNavigator.tsx');
+    expect(src).toContain('w-px');
     expect(src).toContain('console-border-soft');
+    expect(src).not.toContain('w-1.5');
+    expect(src).not.toContain('opacity-40');
     expect(src).not.toContain('bg-gray-200');
     expect(src).not.toContain('bg-gray-300/50');
+    expect(src).not.toContain('viewport');
   });
 
   it('interactive icon buttons use text-cafe-accent, not text-cafe-muted', () => {
