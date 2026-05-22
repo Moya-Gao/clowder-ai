@@ -10,9 +10,9 @@ created: 2026-05-21
 **Feature:** F192 — `docs/features/F192-socio-technical-harness-eval.md`
 **Goal:** 用 `eval:a2a` 跑通 Harness Eval Control Plane 的最小闭环：registry → eval cat invocation → verdict handoff → feature owner response → re-eval closure，同时清理旧 `harness-fit-digest` 双触发风险。
 **Acceptance Criteria:** AC-E1~E8（E-pilot only）
-**Architecture cell:** observability / harness-eval
-**Map delta:** update required
-**Map delta why:** Phase E 将 F192 从单域 runtime eval pipeline 扩成 cross-domain control plane；E-pilot 先在现有 F192 boundary 内落 registry/contract，ownership map update 放本 Phase 收尾。
+**Architecture cell:** harness-eval
+**Map delta:** new cell required
+**Map delta why:** Phase E 将 F192 从单域 runtime eval pipeline 扩成 cross-domain control plane；E-pilot 新增 ownership cell 来承载 eval domain registry、verdict handoff、legacy cleanup 和 re-eval closure。
 **Architecture:** Docs-backed domain registry is the source of configured eval domains for E-pilot; generated JSON/YAML artifacts are derived evidence. API/runtime code validates domain registry, Verdict Handoff Packet schema, eval-cat invocation packet, legacy scheduled-task migration plan, and re-eval closure state. No Eval Hub UI in E-pilot.
 **Tech Stack:** TypeScript, Zod, node:test, YAML/JSON docs artifacts, existing scheduler store/routes, existing F167 runtime eval pipeline.
 **前端验证:** No
@@ -291,12 +291,12 @@ git commit -m "feat(F192): AC-E7 re-eval closure state machine [砚砚/GPT-5.5�
 
 ---
 
-## Task 6: AC-E8 — E-pilot Dogfood Verdict
+## Task 6: AC-E8 — E-pilot Contract Demo Fixture
 
 **Files:**
 - Create: `packages/api/src/infrastructure/harness-eval/eval-a2a-adapter.ts`
 - Test: `packages/api/test/harness-eval/eval-a2a-adapter.test.js`
-- Create report: `docs/harness-feedback/verdicts/2026-05-21-eval-a2a-pilot-verdict.md`
+- Create fixture report: `docs/harness-feedback/verdicts/fixtures/2026-05-21-eval-a2a-contract-demo.md`
 
 **Step 1: Write failing adapter tests**
 
@@ -316,20 +316,22 @@ Consume existing F192 Phase C/D outputs:
 
 Do not duplicate F153 telemetry logic.
 
-**Step 3: Generate dogfood verdict**
+**Step 3: Generate contract demo fixture**
 
-Run the adapter on current available A2A data or fixture-backed recent snapshot. Produce a report with:
+Run the adapter on representative A2A fixture data. Produce a clearly labeled contract demo fixture with:
 - packet id.
-- evidence refs.
+- evidence refs that point to the representative fixture source, not missing live snapshot artifacts.
 - owner ask.
-- response/closure status: resolved if re-eval evidence exists; otherwise pending with next eval time.
+- response/closure status: pending. Do not fake owner response or re-eval closure.
+
+Live day-over-day F167 telemetry verdict generation is deferred until real snapshot / attribution artifacts are available in runtime.
 
 **Step 4: Verify and commit**
 
 ```bash
 pnpm --filter @cat-cafe/api build
 node --test packages/api/test/harness-eval/eval-a2a-adapter.test.js
-git commit -m "feat(F192): AC-E8 eval-a2a dogfood verdict [砚砚/GPT-5.5🐾]"
+git commit -m "feat(F192): AC-E8 eval-a2a contract demo fixture [砚砚/GPT-5.5🐾]"
 ```
 
 ---
@@ -343,7 +345,7 @@ git commit -m "feat(F192): AC-E8 eval-a2a dogfood verdict [砚砚/GPT-5.5🐾]"
 
 **Step 1: Update AC checklist**
 
-Mark AC-E2~E8 complete only after tests and dogfood report exist.
+Mark AC-E2~E8 complete only after tests and contract demo fixture exist.
 
 **Step 2: Record ownership map delta**
 

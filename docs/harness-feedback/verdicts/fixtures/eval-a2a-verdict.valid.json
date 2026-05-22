@@ -1,0 +1,40 @@
+{
+  "id": "vhp_eval_a2a_2026_05_21_001",
+  "domainId": "eval:a2a",
+  "createdAt": "2026-05-21T20:00:00.000Z",
+  "phenomenon": "route-serial verdict hints increased above baseline",
+  "harnessUnderEval": {
+    "featureId": "F167",
+    "componentId": "C2",
+    "name": "forced-pass guard"
+  },
+  "evidencePacket": {
+    "snapshotRefs": ["fixture:snapshot-F167-day9"],
+    "attributionRefs": ["fixture:attribution-F167-day9"],
+    "metricRefs": ["cat_cafe_a2a_c2_verdict_without_pass_count"],
+    "sampleTraceRefs": ["trace:f167-c2-day9"]
+  },
+  "dailyTrend": {
+    "window": "24h",
+    "current": { "verdictWithoutPass": 9 },
+    "baseline": { "verdictWithoutPass": 2 },
+    "threshold": { "verdictWithoutPass": 5 },
+    "direction": "regressed"
+  },
+  "rootCauseHypothesis": {
+    "summary": "C2 is firing because author messages include verdict language without line-start handoff.",
+    "confidence": "medium",
+    "alternatives": ["thread context compression hid the prior pass", "tool telemetry duplicated one span"]
+  },
+  "verdict": "fix",
+  "ownerAsk": {
+    "targetFeatureId": "F167",
+    "targetOwnerCatId": "opus47",
+    "requestedAction": "Inspect C2 forced-pass wording and decide whether the guard needs stricter handoff hints."
+  },
+  "acceptanceReevalPlan": {
+    "nextEvalAt": "2026-05-22T20:00:00.000Z",
+    "closureCondition": "next eval shows verdictWithoutPass <= threshold for 24h"
+  },
+  "counterarguments": ["If traces are duplicated, this should be dismissed after dedupe verification."]
+}
