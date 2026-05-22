@@ -9,10 +9,12 @@ import { HtmlWidgetBlock } from './HtmlWidgetBlock';
 import { InteractiveBlock } from './InteractiveBlock';
 import { InteractiveBlockGroup } from './InteractiveBlockGroup';
 import { MediaGalleryBlock } from './MediaGalleryBlock';
+import { isProposalCardBlock, ProposalCard } from './ProposalCard';
 
 function RichBlockRenderer({ block, catId, messageId }: { block: RichBlock; catId?: string; messageId?: string }) {
   switch (block.kind) {
     case 'card':
+      if (isProposalCardBlock(block)) return <ProposalCard block={block} messageId={messageId} />;
       return <CardBlock block={block} messageId={messageId} />;
     case 'diff':
       return <DiffBlock block={block} />;

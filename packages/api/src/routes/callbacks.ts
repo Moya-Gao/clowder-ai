@@ -1123,6 +1123,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       registry,
       proposalStore: opts.proposalStore,
       threadStore: opts.threadStore,
+      messageStore: opts.messageStore,
       socketManager,
     });
   }

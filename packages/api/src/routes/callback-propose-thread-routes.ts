@@ -10,10 +10,11 @@
  */
 
 import { catIdSchema } from '@cat-cafe/shared';
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId, RichCardBlock, ThreadProposal } from '@cat-cafe/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
+import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { IProposalStore } from '../domains/cats/services/stores/ports/ProposalStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
@@ -33,11 +34,36 @@ export interface ProposeThreadDeps {
   registry: InvocationRegistry;
   proposalStore: IProposalStore;
   threadStore: IThreadStore;
+  messageStore: IMessageStore;
   socketManager: SocketManager;
 }
 
+export function buildProposalCardBlock(proposal: ThreadProposal): RichCardBlock {
+  const fields: Array<{ label: string; value: string }> = [
+    { label: '父 Thread', value: proposal.parentThreadId },
+    {
+      label: '建议成员',
+      value: proposal.preferredCats.length > 0 ? proposal.preferredCats.join(', ') : '（未指定）',
+    },
+  ];
+  if (proposal.initialMessage) fields.push({ label: '首条消息', value: proposal.initialMessage });
+  return {
+    id: `proposal-${proposal.proposalId}`,
+    kind: 'card',
+    v: 1,
+    title: `📥 提议新建 thread：${proposal.title}`,
+    bodyMarkdown: proposal.reason,
+    tone: 'info',
+    fields,
+    actions: [
+      { label: '批准并创建', action: 'propose:approve', payload: { proposalId: proposal.proposalId } },
+      { label: '驳回', action: 'propose:reject', payload: { proposalId: proposal.proposalId } },
+    ],
+  };
+}
+
 export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: ProposeThreadDeps): void {
-  const { registry, proposalStore, threadStore, socketManager } = deps;
+  const { registry, proposalStore, threadStore, messageStore, socketManager } = deps;
 
   app.post('/api/callbacks/propose-thread', async (request, reply) => {
     const parsed = proposeThreadCallbackSchema.safeParse(request.body);
@@ -103,8 +129,30 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
       await proposalStore.rememberDedup(record.userId, clientRequestId, proposal.proposalId);
     }
 
+    // Render the proposal as a card in the source thread so the user sees + acts on it.
+    const cardBlock = buildProposalCardBlock(proposal);
+    const stored = await messageStore.append({
+      userId: record.userId,
+      catId: record.catId,
+      content: `提议新建 thread：${title}`,
+      mentions: [],
+      timestamp: Date.now(),
+      threadId: record.threadId,
+      extra: { rich: { v: 1 as const, blocks: [cardBlock] } },
+    });
+    socketManager.broadcastToRoom(`thread:${record.threadId}`, 'connector_message', {
+      threadId: record.threadId,
+      message: {
+        id: stored.id,
+        type: 'cat',
+        catId: record.catId,
+        content: stored.content,
+        timestamp: stored.timestamp,
+        extra: stored.extra,
+      },
+    });
     socketManager.emitToUser(record.userId, 'proposal_created', { proposal });
 
-    return { proposalId: proposal.proposalId, status: proposal.status };
+    return { proposalId: proposal.proposalId, status: proposal.status, messageId: stored.id };
   });
 }

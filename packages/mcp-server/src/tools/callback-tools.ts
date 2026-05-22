@@ -677,6 +677,71 @@ export async function handleBootcampEnvCheck(input: { threadId: string }): Promi
   return callbackPost('/api/callbacks/bootcamp-env-check', { threadId: input.threadId });
 }
 
+// ============ Propose Thread (F128) ============
+
+export const proposeThreadInputSchema = {
+  title: z.string().min(1).max(200).describe('Title for the proposed thread (user can edit before approving)'),
+  reason: z
+    .string()
+    .min(1)
+    .max(1000)
+    .describe('Why a new thread is needed (shown to the user on the proposal card)'),
+  preferredCats: z
+    .array(z.string().min(1))
+    .max(10)
+    .optional()
+    .describe('Optional cat IDs to preselect for the new thread (e.g. ["codex","gemini"])'),
+  initialMessage: z
+    .string()
+    .max(4000)
+    .optional()
+    .describe('Optional first message body that will be posted by the user into the new thread on approve'),
+  parentThreadId: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Optional parent thread ID. Defaults to the current thread.'),
+  clientRequestId: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Optional idempotency key. Resending with the same value returns the same proposalId.'),
+};
+
+export async function handleProposeThread(input: {
+  title: string;
+  reason: string;
+  preferredCats?: string[] | undefined;
+  initialMessage?: string | undefined;
+  parentThreadId?: string | undefined;
+  clientRequestId?: string | undefined;
+}): Promise<ToolResult> {
+  const body: Record<string, unknown> = {
+    title: input.title,
+    reason: input.reason,
+  };
+  if (input.preferredCats?.length) body.preferredCats = input.preferredCats;
+  if (input.initialMessage) body.initialMessage = input.initialMessage;
+  if (input.parentThreadId) body.parentThreadId = input.parentThreadId;
+  if (input.clientRequestId) body.clientRequestId = input.clientRequestId;
+
+  const result = await callbackPost('/api/callbacks/propose-thread', body);
+  if (!result.isError) {
+    try {
+      const data = JSON.parse((result.content[0] as { text: string }).text);
+      if (data?.status === 'stale_ignored') {
+        return errorResult(
+          'Proposal was NOT created: this invocation has been superseded by a newer one (stale_ignored).',
+        );
+      }
+    } catch {
+      // parse failure is fine
+    }
+  }
+  return result;
+}
+
 export const callbackTools = [
   {
     name: 'cat_cafe_post_message',
@@ -811,5 +876,16 @@ export const callbackTools = [
       'Returns the full check results for display to the user.',
     inputSchema: bootcampEnvCheckInputSchema,
     handler: handleBootcampEnvCheck,
+  },
+  // F128: Cat-initiated thread proposal (user approves before thread is created)
+  {
+    name: 'cat_cafe_propose_thread',
+    description:
+      'Propose a new thread to the user. Returns proposalId, NOT a threadId — the thread is only created after the user approves the proposal card. Use sparingly: ' +
+      'only when a clearly separable, long-running discussion genuinely deserves its own thread, or when the owner asks for "新开一个 thread". ' +
+      'Do NOT use to escape the current conversation, to split routine tasks, or proactively without an obvious need. ' +
+      'parentThreadId defaults to the current thread. After proposing, continue your current work — do not assume the thread exists until the user approves.',
+    inputSchema: proposeThreadInputSchema,
+    handler: handleProposeThread,
   },
 ] as const;
