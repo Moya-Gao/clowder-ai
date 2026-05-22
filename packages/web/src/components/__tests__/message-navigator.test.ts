@@ -149,10 +149,11 @@ describe('MessageNavigator', () => {
     expect(buttons.length).toBe(18);
   });
 
-  it('renders dots without grey track rail or viewport thumb', () => {
+  it('renders connecting rail between dots using console border token', () => {
     const msgs = [makeMsg('m1', 'user'), makeMsg('m2', 'assistant', 'opus'), makeMsg('m3', 'assistant', 'codex')];
     const html = render(msgs);
 
+    expect(html).toContain('--console-border-soft');
     expect(html).not.toContain('bg-gray-200');
     expect(html).not.toContain('bg-gray-300/50');
     expect(html).toContain('rounded-full');

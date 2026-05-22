@@ -654,8 +654,9 @@ describe('F723 cross-page typography consistency', () => {
     expect(src).toContain('bg-transparent');
   });
 
-  it('MessageNavigator has no grey track rail or viewport thumb', () => {
+  it('MessageNavigator has connecting rail using console token, no raw grey', () => {
     const src = readSrc('MessageNavigator.tsx');
+    expect(src).toContain('console-border-soft');
     expect(src).not.toContain('bg-gray-200');
     expect(src).not.toContain('bg-gray-300/50');
   });
