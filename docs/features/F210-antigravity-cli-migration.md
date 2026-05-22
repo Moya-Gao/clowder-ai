@@ -227,6 +227,7 @@ AC-A5 remains open because Phase A only verified MCP config file paths and launc
 | 2026-05-22 | 铲屎官要求砚砚立项并校正孟加拉猫草稿事实 |
 | 2026-05-22 | 纠偏：F209 已被 Evidence Recall Optimization 占用；迁移 spec 重新落到 main 的 F210 |
 | 2026-05-22 | Phase A recon partial：`agy 1.0.1` installed/probed; auth/MCP/sandbox/install facts frozen; success fixture blocked by missing default model |
+| 2026-05-22 | Phase A recon partial merged via PR #1841; AC-A1/A2/A4/A6 closed, AC-A3/A5 remain blocked by missing default model and unverified MCP runtime loading |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |
