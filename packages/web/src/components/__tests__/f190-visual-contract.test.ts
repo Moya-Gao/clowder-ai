@@ -630,4 +630,16 @@ describe('F723 cross-page typography consistency', () => {
       expect(src).toContain('text-sm font-semibold');
     }
   });
+
+  it('settings expand areas (per-cat toggles, sub-sections, rows) have no console-divider-t', () => {
+    for (const file of [
+      'settings/capability-settings-ui.tsx',
+      'settings/primitives/SettingsCollapsibleCard.tsx',
+      'settings/primitives/SettingsRow.tsx',
+      'settings/GithubConfigPanel.tsx',
+    ]) {
+      const src = readSrc(file);
+      expect(src).not.toContain('console-divider-t');
+    }
+  });
 });
