@@ -157,4 +157,13 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).not.toMatch(/border border-cafe/);
     expect(src).toContain('console-list-card');
   });
+
+  it('hub-tag-editor pills have no border, no hub-* CSS vars', () => {
+    const src = readSrc('hub-tag-editor.tsx');
+    expect(src).not.toMatch(/var\(--hub-/);
+    expect(src).not.toMatch(/rounded-full border px/);
+    expect(src).toContain('console-runtime-field-bg');
+    expect(src).toContain('console-pill-bg');
+    expect(src).toContain('conn-purple-bg');
+  });
 });
