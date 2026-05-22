@@ -236,7 +236,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 - [x] 每个需求点都能映射到 AC / KD
 - [x] 每个 AC 有验证方式
 - [x] Eval Contract 存在（memory / MCP / harness 行为变更）
-- [ ] Design Gate 时补 Architecture map delta 细节
+- [x] Design Gate 时补 Architecture map delta 细节（2026-05-22：`memory` / `identity-session` ownership cell 已更新）
 
 ## Timeline
 
@@ -263,5 +263,6 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | Discussion | `docs/discussions/2026-05-21-chat-memory-and-evidence-recall/04-current-retrieval-state-and-f209-optimization.md` | 当前检索剖面 + 本 feature 来源 |
 | Prior discussion | `docs/discussions/2026-05-21-chat-memory-and-evidence-recall/03-everything-smartfolder-microinnovations.md` | Everything / Smart Folder 微创新 |
 | Design Gate | `docs/discussions/2026-05-22-F209-design-gate/README.md` | F209 架构归属、Phase 顺序、CVO decision packet |
+| Plan | `docs/plans/2026-05-22-f209-phase-a-passage-recall.md` | Phase A passage-level semantic / hybrid raw retrieval implementation plan |
 | Feature | `docs/features/F102-memory-adapter-refactor.md` | evidence store / passage / raw lexical 基座 |
 | Feature | `docs/features/F200-memory-recall-eval.md` | retrieval consumption / eval 反馈 |

@@ -107,7 +107,7 @@ Why: F209 扩展 evidence retrieval 的 passage vector、entity anchor、typed d
 - [x] CVO 对决策 A/B/C 给出方向（2026-05-22，本轮已写回）。
 - [x] 47 或 F208 owner 确认 F208/F209 双向边界仍一致（2026-05-22，Opus-47 复核四源：F209 spec / F208 spec / Design Gate README / ownership cells；确认无 blocking 点）。
 - [x] 更新 ownership map 的 memory / identity-session cell，至少在 Phase A implementation plan 前完成 map delta（2026-05-22，写清 F209 `entity_id` 是可检索实体门牌号，不取代 identity-agent / F032 roster truth）。
-- [ ] Phase A implementation plan 明确 storage choice、embedding refresh、BM25/semantic/hybrid/RRF、fallback / degraded 输出。
+- [x] Phase A implementation plan 明确 storage choice、embedding refresh、BM25/semantic/hybrid/RRF、fallback / degraded 输出（见 `docs/plans/2026-05-22-f209-phase-a-passage-recall.md`）。
 - [ ] Phase D product spike 明确 Perspective run trace 如何接入 CVO 可见层。
 
 ## 6. 当前建议
