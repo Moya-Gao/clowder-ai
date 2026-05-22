@@ -126,11 +126,24 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toContain('console-border-soft');
   });
 
-  it('HubQuotaBoardTab uses console-list-card shadow, not hub-border-soft borders', () => {
+  it('HubQuotaBoardTab uses console-list-card shadow, no hub-* CSS vars', () => {
     const src = readSrc('HubQuotaBoardTab.tsx');
-    expect(src).not.toMatch(/border border-\[var\(--hub-border-soft\)\]/);
+    expect(src).not.toMatch(/var\(--hub-/);
     expect(src).not.toContain('field-success');
     expect(src).toContain('console-list-card');
+    expect(src).toContain('text-cafe');
+    expect(src).toContain('console-button-emphasis');
+    expect(src).toContain('conn-red-ring');
+  });
+
+  it('hub-cat-editor-advanced uses console-runtime-* tokens, no hub-* CSS vars', () => {
+    const src = readSrc('hub-cat-editor-advanced.tsx');
+    expect(src).not.toMatch(/var\(--hub-/);
+    expect(src).toContain('console-runtime-hint');
+    expect(src).toContain('console-runtime-group-bg');
+    expect(src).toContain('console-runtime-field-bg');
+    expect(src).toContain('console-field-bg');
+    expect(src).toMatch(/rounded-\[14px\].*console-runtime-group-bg/);
   });
 
   it('HubRoutingPolicyTab uses console-list-card shadow, not border-cafe', () => {
