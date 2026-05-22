@@ -299,11 +299,11 @@ function RightPanelToggle({
   return (
     <button
       onClick={handleClick}
-      className={`p-1 rounded-lg text-cafe-secondary hover:bg-[var(--console-hover-bg)] transition-colors ml-1 hidden lg:block ${
+      className={`p-1 rounded-lg text-cafe-secondary hover:text-cafe-accent transition-colors ml-1 hidden lg:block ${
         statusPanelOpen
           ? isWorkspace
             ? 'bg-[var(--cafe-accent)]/5 text-[var(--cafe-accent)]'
-            : 'bg-[var(--console-hover-bg)]'
+            : 'text-cafe-accent'
           : ''
       }`}
       aria-label={label}
