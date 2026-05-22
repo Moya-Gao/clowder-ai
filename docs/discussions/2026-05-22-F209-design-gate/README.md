@@ -56,12 +56,13 @@ Why: F209 扩展 evidence retrieval 的 passage vector、entity anchor、typed d
 | Phase D product spike | 实现前必须先产 2-3 个 user story + runtime contract | Perspective 最容易漂成漂亮概念 |
 | F208/F209 | F209 owns identity registry；F208 owns cat-dossier capability profile | 防止 `docs/team/` 双身份表 |
 | Embedding 语义 | embedding 是 sensor，不是判断者 | 结果必须带 anchor + 原文窗口，猫读证据判断 |
+| 摘要记忆 | 不进 F209，另作 future related feature | 摘要涉及系统级摘要猫、CVO 选择、审核/过期，产品形态不同 |
 
 ## 4. CVO Decision Packet
 
 ### 决策 A：是否按 evidence-first 路线继续 F209？
 
-**推荐**：继续。F209 不是给模型塞摘要，而是让猫更快找到原始证据。
+**CVO 方向（2026-05-22）**：继续，但补充记录“摘要记忆未来要解决”。F209 不是给模型塞摘要，而是让猫更快找到原始证据；摘要记忆应另作系统级摘要猫 / 用户可选范围 / 审核过期机制的 future related feature。
 
 | 维度 | 判断 |
 |------|------|
@@ -70,13 +71,16 @@ Why: F209 扩展 evidence retrieval 的 passage vector、entity anchor、typed d
 | 主要风险 | 召回面变宽后噪音增加；entity/candidate 被误读成真相 |
 | 护栏 | anchor + context window 强制返回；candidate 标注；F200 eval 统一评估 |
 
-**需要 CVO 拍板**：认可 F209 的产品定位是“证据召回优化”，不是“让模型记住更多摘要”。
+**当前结论**：F209 定位为“证据召回优化”，不是“摘要记忆”。Design Gate 通过时把摘要记忆作为 future related 记录，不塞进本 feature。
 
 ### 决策 B：Phase 顺序是否先 A，再 B/C/D/E？
 
-**推荐**：
+**CVO 方向（2026-05-22）**：不要把 Phase A 拆成只做一个向量表；Phase A 必须是完整 raw retrieval 切片。
 
 1. Phase A：passage-level semantic recall。
+   - BM25 / lexical：字面词命中。
+   - Embedding / semantic：语义相近命中。
+   - RRF hybrid：两路融合。
 2. Phase C：typed drill-down reader（可和 A 紧邻）。
 3. Phase B：entity registry。
 4. Phase D：Perspective product spike 后再实现。
@@ -84,28 +88,30 @@ Why: F209 扩展 evidence retrieval 的 passage vector、entity anchor、typed d
 
 理由：A 是当前最硬缺口；没有 passage vectors，entity / Perspective 对“非字面命中”的帮助会被削弱。
 
-**需要 CVO 拍板**：是否同意先做 Phase A 作为第一实现切片。
+**当前结论**：同意先做 Phase A，但关闭条件必须包含 lexical / semantic / hybrid 三路行为与 degraded/explain，不允许只以“写入 passage vector”关闭。
 
-### 决策 C：Perspective 是否保持“猫用活查询藤”，暂不做用户 Smart Folder UI？
+### 决策 C：Perspective 是否保持“猫用活查询藤”，但接入 CVO 可见层？
 
-**推荐**：是。v1 只做猫手动保存 / 复用 query plan，不做用户面向 UI。
+**CVO 方向（2026-05-22）**：Perspective v1 不是给铲屎官操作搜索的 UI，但要能给铲屎官看。它应接入现有 Memory / Recall 实时面板或同等“明厨亮灶”可见层，展示猫如何跑 `search_evidence` / `graph_resolve` / typed drill-down。
 
-理由：Perspective 的价值是保存检索路径，不是保存结果集；过早做 UI 会把它推向“漂亮文件夹”，反而容易变成 stale truth。
+人话定义：
 
-**需要 CVO 拍板**：v1 先服务猫，不做用户 UI；settings 可见化后置。
+> Perspective v1 是猫保存和复用的一条“检索路线”。猫操作它，系统现场重跑；CVO 不负责点它搜索，但可以看到它跑了哪些步骤、命中了多少、打开了哪些 anchors、有没有降级。
+
+**当前结论**：v1 猫操作、CVO 可见，不做用户 Smart Folder UI。用户可操作 UI / settings 管理后置，另走 product/design gate。
 
 ## 5. Design Gate 出口条件
 
 进入 writing-plans / implementation 前需要：
 
-- [ ] CVO 对决策 A/B/C 给出方向。
+- [x] CVO 对决策 A/B/C 给出方向（2026-05-22，本轮已写回）。
 - [ ] 47 或 F208 owner 确认 F208/F209 双向边界仍一致。
 - [ ] 更新 ownership map 的 memory / identity-session cell，至少在 Phase A implementation plan 前完成 map delta。
-- [ ] Phase A implementation plan 明确 storage choice、embedding refresh、fallback / degraded 输出。
+- [ ] Phase A implementation plan 明确 storage choice、embedding refresh、BM25/semantic/hybrid/RRF、fallback / degraded 输出。
+- [ ] Phase D product spike 明确 Perspective run trace 如何接入 CVO 可见层。
 
 ## 6. 当前建议
 
 作者建议 Design Gate 放行方向为：
 
-> F209 继续按 evidence-first 召回优化推进；第一切片先做 Phase A passage-level semantic recall，同时为 Phase C typed drill-down 预留 anchor contract。Entity registry 和 Perspective 不抢跑，分别在 Phase B / Phase D product spike 后实现。所有 eval 统一接 F200，不自建第二套 retrieval eval。
-
+> F209 继续按 evidence-first 召回优化推进；摘要记忆另作 future related，不进 scope。第一切片先做 Phase A，但必须是 BM25 / embedding / RRF hybrid 的完整 raw retrieval 闭环，同时为 Phase C typed drill-down 预留 anchor contract。Entity registry 不抢跑。Perspective v1 是猫操作、CVO 可见的活查询路线，先做 product spike，再实现。所有 eval 统一接 F200，不自建第二套 retrieval eval。

@@ -16,7 +16,7 @@ Cat Café 现在的记忆检索已经不是“一个 RAG”：
 
 > **BM25 + embedding + docs/thread/message passage + collection 联邦 + F200 行为信号 rerank**。
 
-真正缺的不是再加一个摘要器，而是把**消息级原文**也纳入同等强度的 evidence recall：能先搜到候选证据，再打开原始 message / invocation / file / thread window，由猫判断。
+真正缺的不是再加一个摘要器，而是把**消息级原文**也纳入同等强度的 evidence recall：能先搜到候选证据，再打开原始 message / invocation / file / thread window，由猫判断。摘要记忆未来可能需要，但它是系统级摘要猫 / 用户可选范围 / 审核过期机制的另一个产品问题，不放进 F209。
 
 因此本轮收敛为新 feature：
 
@@ -156,6 +156,8 @@ read_file_slice(path, lineStart, lineEnd)
 - raw hybrid 用 passage BM25 + passage vector NN 做 RRF。
 - 返回结果必须仍然是 message anchor + context window，不返回“摘要结论”。
 
+Phase A 的关闭条件不是“向量写进去了”，而是 raw 检索三条腿都能跑：BM25/lexical、embedding/semantic、RRF hybrid。
+
 这是“奶奶没有字面出现也能找线索”的基础。
 
 ### Phase B：实体门牌号
@@ -206,9 +208,9 @@ query_plan:
   drilldown: on-demand
 ```
 
-Perspective 不是 topic map，不存结果。它只是猫反复使用的检索路径。
+Perspective 不是 topic map，不存结果。它只是猫反复使用的检索路径。v1 是**猫操作、CVO 可见**：猫保存 / 打开 query plan，系统现场重跑；铲屎官不用把它当搜索 UI 操作，但能在 Memory / Recall 明厨亮灶里看到它跑了哪些步骤、命中多少、打开了哪些 anchors、有没有降级。
 
-这一层必须先做 product spike，不能直接开写：至少回答“谁创建 Perspective、什么时候打开、返回什么结构”。v1 倾向猫手动保存 query plan；F200 自动建议和 settings 可见化后置。
+这一层必须先做 product spike，不能直接开写：至少回答“谁创建 Perspective、什么时候打开、返回什么结构、运行过程在哪里给 CVO 看”。v1 倾向猫手动保存 query plan；F200 自动建议和用户 Smart Folder UI 后置。
 
 ### Phase E：F200 eval 集成
 
@@ -236,10 +238,11 @@ Perspective 不是 topic map，不存结果。它只是猫反复使用的检索�
 ## 5. 非目标
 
 - 不做小模型 topic splitter。
-- 不做摘要注入式 memory。
+- 不做摘要注入式 memory；摘要记忆另作 future related。
 - 不做自动 topic map 真相源。
 - 不做算法替猫判断 intent。
 - 不把 Perspective 的结果缓存成“当前事实”。
+- 不做用户操作的 Smart Folder UI。
 - 不用实体 / facet 推断替代原文证据。
 
 ## 6. Open Questions
@@ -249,7 +252,7 @@ Perspective 不是 topic map，不存结果。它只是猫反复使用的检索�
 3. entity registry 的真相源放哪里：runtime catalog、docs/team/entity-aliases.md，还是 DB + git-backed export？注意它只 owns 身份层；F208 画像层消费 `entity_id`。
 4. candidate facet 的 UI / MCP 表达：如何让猫一眼看出“候选，不是真相”？
 5. typed reader 的 MCP surface 是新增工具，还是扩现有 `read_session_events/read_invocation_detail` 家族？
-6. Perspective 谁来创建：✅ v1 猫手动保存；F200 自动建议 / settings 可见化后置，Design Gate 前做 product spike。
+6. Perspective 谁来创建：✅ v1 猫手动保存 / 复用；CVO 可见运行过程；F200 自动建议 / 用户 Smart Folder UI 后置，Design Gate 前做 product spike。
 7. retrieval eval 的初始 golden set 谁维护：✅ F200 统一收；F209 每个 Phase 贡献 fixture。
 
 ## 7. 收敛

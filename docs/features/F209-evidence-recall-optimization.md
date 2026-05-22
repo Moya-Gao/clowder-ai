@@ -48,15 +48,22 @@ F209 完整终态包含五层：
 ## Non-goals
 
 - 不做小模型 topic splitter。
-- 不做摘要注入式 memory。
+- 不做摘要注入式 memory；系统级摘要猫 / 用户选择摘要范围属于 future related feature，不进 F209 scope。
 - 不做自动 topic map 真相源。
 - 不做算法替猫判断 intent。
 - 不把 Perspective 的结果缓存成“事实”。
+- 不做用户操作的 Smart Folder UI（Perspective v1 是猫操作、CVO 可见，不是用户搜索入口）。
 - 不用 entity / facet 推断替代原文证据。
 
 ## Phase A: Passage-level Semantic Recall
 
 让 `depth=raw` 支持 semantic/hybrid，而不是强制降级 lexical。
+
+Phase A 不是“先只建一个向量表”的碎片切片。可关闭的最小完整切片必须同时保住三条检索腿：
+
+- **BM25 / lexical**：字面词命中仍然最快、最可解释。
+- **Embedding / semantic**：解决“没出现原词但意思相关”的旧聊天召回。
+- **RRF hybrid**：把 BM25 与 embedding 候选融合，既保精确命中，也扩语义召回。
 
 ### Acceptance Criteria
 
@@ -65,6 +72,7 @@ F209 完整终态包含五层：
 - [ ] AC-A3: `search_evidence(depth=raw, mode=hybrid)` 用 passage BM25 + passage vector NN 做 RRF。
 - [ ] AC-A4: raw results 仍返回 `passageId`、speaker、timestamp、contextWindow、thread/message anchor；不返回“摘要结论”。
 - [ ] AC-A5: embedding unavailable 时 fail-open 到 lexical，并明确 `degraded/effectiveMode`。
+- [ ] AC-A6: Phase A 不能只以“向量已写入”关闭；必须验证 lexical / semantic / hybrid 三种 raw 检索模式与 RRF 融合行为。
 
 ## Phase B: Entity Anchor / Alias Registry
 
@@ -108,13 +116,15 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 1. 猫在什么场景下创建 Perspective？
 2. 猫如何打开 / 复用 Perspective？
 3. Perspective 返回什么结构，如何保证它只是“活查询藤”，不是固化结果集？
+4. CVO 在哪里看到 Perspective 运行过程，如何和现有 `search_evidence` 明厨亮灶联动？
 
 候选 runtime 形态：
 
 - 存储：git-backed query plan（YAML / markdown frontmatter 均可，Design Gate 定）。
 - 执行：解释成一组 `search_evidence` / `graph_resolve` / typed reader 调用建议。
 - 返回：带 anchor 的候选线索 + drill-down hints，不返回结论。
-- v1 创建入口：猫手动保存；F200 自动建议与 settings 可视化放后续 Phase。
+- 可见性：Perspective run 复用现有 Memory / Recall 实时面板或同等可见层，展示 query plan id、执行步骤、命中数量、打开过的 anchors 与 degraded 状态。
+- v1 入口：猫手动保存 / 复用；CVO 可看运行过程但不作为用户搜索操作员；F200 自动建议与用户 Smart Folder UI 后置。
 
 ### Acceptance Criteria
 
@@ -124,6 +134,17 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 - [ ] AC-D3: Perspective 可由猫保存 / 命名 / 复用；默认用户不是操作员。
 - [ ] AC-D4: skill / 任务可激活建议 Perspective，但只给“藤”，不下结论。
 - [ ] AC-D5: Perspective 消费信号可进入 F200 navigation utility，不改变 truth / authority。
+- [ ] AC-D6: Perspective run 对 CVO 可见，至少展示 query plan id、step、hit count、opened anchors、degraded/effectiveMode。
+- [ ] AC-D7: v1 不提供用户操作的 Smart Folder UI；如果未来做，必须另走 product/design gate。
+
+## Deferred / Future Related: Summary Memory
+
+摘要记忆是必须解决的问题，但不属于 F209。F209 只优化“找证据、开原文、让猫判断”。如果未来做摘要，应另立 feature，至少讨论：
+
+- 产品形态：系统级 thread / 系统级摘要猫，而不是每个普通 thread 里临时塞摘要。
+- 用户控制：CVO 可配置由哪只猫做摘要、哪些 thread / 阶段需要摘要、哪些内容禁止摘要。
+- 审核与过期：摘要必须带 anchors、生成者、时间、过期 / superseded 状态，不能变成无来源真相。
+- 消费边界：摘要可作为入口 / digest，不能替代 `search_evidence` 原文证据。
 
 ## Phase E: F200 Eval Integration
 
@@ -158,6 +179,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | F208/F209 在 `docs/team/` 重复建猫/人身份表 | F209 owns identity registry；F208 owns capability profile；AC-B6 强制复用 `entity_id` |
 | raw hybrid 召回噪音变大 | Eval golden set + false confidence rate + contextWindow |
 | Perspective 变成固化 topic map | 只存 query plan，每次现场重跑；不存结果 |
+| Perspective 变成黑盒猫内工具，CVO 无法迭代 | AC-D6 要求运行过程在 Memory / Recall 可见层明厨亮灶 |
 | F200 consumption rich-get-richer | 交由 F200 统一做 exploration/freshness 对冲；F209 只贡献 fixture |
 | 大 thread / 大文件把猫上下文撑爆 | typed reader 默认窗口化，禁止大 blob 默认展开 |
 
@@ -170,7 +192,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | OQ-3 | entity registry 真相源放 docs、DB，还是 DB + git-backed export？（仅身份层；F208 画像层消费 `entity_id`） | ⬜ Design Gate |
 | OQ-4 | candidate facet 如何表达，才能让猫一眼看出“不是真相”？ | ⬜ Design Gate |
 | OQ-5 | typed reader 是新增 MCP tools，还是扩现有 read_session/read_invocation 家族？ | ✅ resolved → 默认扩展现有工具；file slice 优先用猫已有 `rg`/`sed`/Read |
-| OQ-6 | Perspective 的创建入口：猫手动保存、F200 自动建议、还是 settings 可见？ | ✅ resolved for v1 → 猫手动保存；F200 自动建议/settings 可见后置 |
+| OQ-6 | Perspective 的创建入口：猫手动保存、F200 自动建议、还是 settings 可见？ | ✅ resolved for v1 → 猫手动保存；CVO 可见运行过程；F200 自动建议 / 用户 Smart Folder UI 后置 |
 | OQ-7 | initial golden query set 谁维护，是否由 F200 统一收？ | ✅ resolved → F200 统一拥有；F209 每 Phase 贡献 fixture |
 
 ## Key Decisions
@@ -184,6 +206,9 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | KD-5 | Perspective 存 query plan，不存 result set | 结果集会 stale；活查询每次现场重跑才保鲜 | 2026-05-21 |
 | KD-6 | F209 不自建 retrieval eval 系统，向 F200 贡献 fixture | 避免 F209/F200 双 owner；F200 是 Memory Recall Eval 的统一归属 | 2026-05-22 |
 | KD-7 | F209 owns 实体身份层；F208 owns 能力画像层 | 防止两个 feature 在 `docs/team/` 各建一套猫/人身份 namespace；画像层必须复用 `entity_id` | 2026-05-22 |
+| KD-8 | 摘要记忆不进 F209，另作 future related feature | 摘要涉及系统级摘要猫、用户可选范围、审核/过期与产品形态；F209 只做 evidence-first recall | 2026-05-22 |
+| KD-9 | Phase A 是 lexical + semantic + hybrid 的完整 raw retrieval 切片 | CVO 明确不要拆碎；只建 passage vector 不能解决实际检索体验 | 2026-05-22 |
+| KD-10 | Perspective v1 猫操作、CVO 可见；不做用户 Smart Folder UI | 保持“猫用活查询藤”边界，同时接入 search_evidence 明厨亮灶让 CVO 可迭代 | 2026-05-22 |
 
 ## Eval / Tracking Contract
 
@@ -191,7 +216,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 |----|------|
 | **Primary Users** | 需要从旧 thread/docs/sessions 找证据的猫；Activation Signal：`search_evidence` 在复杂 thread recall 中被调用 |
 | **Friction Metric** | 搜到摘要但打不开原文窗口的比例；raw 搜不到但人工能在 transcript 找到的比例；>3 轮 query reformulation |
-| **Regression Fixture** | ① `depth=raw&mode=hybrid` 不再静默 lexical-only ② `landy/铲屎官/CVO` alias 能归一到同一实体候选 ③ Perspective 打开后现场重跑且结果带 anchor，不返回固化结果集。F209 贡献 fixture，F200 统一纳入 golden set |
+| **Regression Fixture** | ① `depth=raw&mode=hybrid` 不再静默 lexical-only ② `landy/铲屎官/CVO` alias 能归一到同一实体候选 ③ Perspective 打开后现场重跑且结果带 anchor，不返回固化结果集 ④ Perspective run 在 CVO 可见层显示 step / hits / opened anchors。F209 贡献 fixture，F200 统一纳入 golden set |
 | **Sunset Signal** | 6 个月内 golden query recall@k 无提升，或猫仍主要绕过 F209 直接人工 grep transcript → 回滚 Perspective / entity layer，仅保留 passage vector |
 
 ## 需求点 Checklist
@@ -204,6 +229,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | R4 | “Everything 为什么那么快，SmartFolder 是否能找奶奶相关内容？” | AC-B1~B5, AC-D0~D5 | entity alias + Perspective walk-through | [ ] |
 | R5 | “现在检索有 bm25/embedding/docs/thread/msg，先列现状再优化” | discussion 04 + KD-1 | discussion doc review | [x] |
 | R6 | “别补锅，要用我们现有 search_evidence / graph_resolve / list_recent 思路” | KD-3, Non-goals | spec 不引入摘要 memory / 小模型 splitter | [x] |
+| R7 | “Perspective 不是给铲屎官搜，但能给铲屎官看；和 search_evidence 明厨亮灶联动” | AC-D6, AC-D7, KD-10 | Memory / Recall 面板显示 Perspective run trace | [ ] |
 
 ### 覆盖检查
 
@@ -219,6 +245,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | 2026-05-21 | 铲屎官追问 ChatGPT / Claude.ai 产品记忆边界，形成 01/02/03 讨论 |
 | 2026-05-21 | Codex 代码剖面确认当前 `depth=raw` lexical-only、passage-level vector 未做 |
 | 2026-05-21 | 立项 F209 |
+| 2026-05-22 | CVO Design Gate 方向写回：摘要记忆出 scope、Phase A 必须是 BM25/embedding/RRF 完整切片、Perspective v1 猫操作且 CVO 可见 |
 
 ## Review Gate
 
