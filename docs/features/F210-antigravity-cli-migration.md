@@ -28,6 +28,7 @@ Cat Cafe currently invokes Siamese through `GeminiAgentService` with `GEMINI_ADA
 | Gemini CLI consumer requests stop on 2026-06-18, but enterprise/API key access remains | Google Developers Blog, 2026-05-19 | Keep `gemini-cli` as an explicit fallback/enterprise adapter until the contract is settled |
 | Antigravity CLI install is a native binary bootstrapper, not an npm package | `https://antigravity.google/cli/install.sh`, fetched 2026-05-22 | Existing npm packaging/offline install scripts need a different path |
 | The installed binary name is `agy` | Official installer script sets `BINARY_PATH="$TARGET_DIR/agy"` | Do not write migration code assuming `antigravity` or `@google/antigravity-cli` |
+| `antigravity` and `agy` are different binary surfaces | Current Desktop adapter spawns `antigravity chat --mode agent`; official CLI installer writes `agy` | Treat `antigravity` as Desktop app CLI entry and `agy` as the standalone Antigravity CLI carrier |
 | Local machine currently has Gemini CLI `0.38.2`; `agy` is not installed | `gemini --version`; `command -v agy` | Phase A must install/probe before code migration |
 | Existing Cat Cafe `antigravity` adapter is Desktop/MCP callback, not Antigravity CLI | `GeminiAgentService.invokeAntigravity()` spawns `antigravity chat --mode agent` detached and requires `callbackEnv` | Add a distinct `antigravity-cli` adapter; avoid reusing the ambiguous old name |
 
@@ -57,7 +58,10 @@ Install/probe Antigravity CLI in an isolated path, without changing runtime/glob
 
 - Confirm official install path for macOS, Linux, and Windows.
 - Capture `agy --help` / auth / headless invocation flags.
-- Verify whether `agy` supports non-interactive prompt mode, stream output, session resume, model selection, working-directory/include-directory controls, and MCP config migration.
+- Verify whether `agy` supports non-interactive prompt mode, subprocess-friendly output mode, session resume, model selection, working-directory/include-directory controls, and MCP config migration.
+- Verify `agy` auth model: OAuth device flow vs API key vs inherited Desktop credentials, including whether headless non-interactive startup is possible.
+- Verify MCP config loading and conflict controls: default Antigravity MCP directories, `--no-mcp`, `--mcp-config`, or equivalent.
+- Verify sandbox/permission model and whether an auto-approve flag equivalent to Gemini CLI `-y` exists.
 - Produce raw event fixtures for at least text-only, tool use, error, and interrupted sessions.
 
 ### Phase B: Adapter Contract
@@ -129,8 +133,11 @@ Offline packaging must explicitly decide whether to vendor the native `agy` bina
 ### Phase A（Official CLI Recon）
 
 - [ ] AC-A1: Spec/recon note cites Google official transition timeline and enterprise exception.
-- [ ] AC-A2: Recon records exact `agy` install, auth, headless, output-format, resume, model, cwd/include-dir, and MCP config behavior.
+- [ ] AC-A2: Recon records exact `agy` install, headless command, subprocess-friendly output mode if any, resume, model, and cwd/include-dir behavior.
 - [ ] AC-A3: Raw Antigravity CLI fixtures exist for success text, tool use, result/error, and interrupted run.
+- [ ] AC-A4: Recon records `agy` auth model, headless non-interactive auth feasibility, and whether it shares credentials with Antigravity Desktop.
+- [ ] AC-A5: Recon records `agy` MCP config loading behavior and whether it supports `--no-mcp` / `--mcp-config` or equivalent conflict controls.
+- [ ] AC-A6: Recon records `agy` sandbox/permission model and whether it has an auto-approve flag equivalent to Gemini CLI `-y`.
 
 ### Phase B（Adapter Contract）
 
@@ -177,6 +184,7 @@ Offline packaging must explicitly decide whether to vendor the native `agy` bina
 
 | 风险 | 缓解 |
 |------|------|
+| `agy` may not support any subprocess stdout streaming mode | Make OQ-1 Phase A day-1 blocking; if unsupported, pivot to MCP/ACP bridge instead of forcing stdout parsing |
 | Antigravity CLI does not expose NDJSON stream-json | Phase A fixture first; choose new parser or ACP mapping before code migration |
 | Native `agy` install cannot be vendored cleanly for offline desktop builds | Keep installer decision explicit in Phase D; do not fake npm package availability |
 | Consumer deadline overgeneralized into “Gemini CLI is dead for everyone” | Preserve enterprise/API-key fallback and document exact scope |
@@ -187,7 +195,7 @@ Offline packaging must explicitly decide whether to vendor the native `agy` bina
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | What exact headless command and output mode does `agy` support? | ⬜ Phase A |
+| OQ-1 | What exact headless command and subprocess-friendly output mode, if any, does `agy` support? | BLOCKING — Phase A day 1 |
 | OQ-2 | Does `agy` support session resume with stable IDs? | ⬜ Phase A |
 | OQ-3 | Does `agy` support model override, and how does that map to Cat Cafe cat identity? | ⬜ Phase A |
 | OQ-4 | What is the correct Windows install / binary path? | ⬜ Phase A |
@@ -202,6 +210,7 @@ Offline packaging must explicitly decide whether to vendor the native `agy` bina
 | KD-3 | New adapter name is `antigravity-cli` | Existing `antigravity` means Desktop/MCP callback in current code | 2026-05-22 |
 | KD-4 | Keep `gemini-cli` fallback until enterprise path is settled | Enterprise users may still rely on Gemini CLI; deleting it would remove a valid route | 2026-05-22 |
 | KD-5 | F209 is occupied by Evidence Recall Optimization; this migration uses F210 | Feature IDs are shared truth and must be assigned from current main, not from a worktree snapshot | 2026-05-22 |
+| KD-6 | `agy` subprocess output support is a blocking Phase A question | Antigravity Desktop harness differs materially from Gemini CLI stream-json; implementation strategy depends on this answer | 2026-05-22 |
 
 ## Timeline
 
@@ -209,6 +218,10 @@ Offline packaging must explicitly decide whether to vendor the native `agy` bina
 |------|------|
 | 2026-05-22 | 铲屎官要求砚砚立项并校正孟加拉猫草稿事实 |
 | 2026-05-22 | 纠偏：F209 已被 Evidence Recall Optimization 占用；迁移 spec 重新落到 main 的 F210 |
+| 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
+| 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
+| 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |
+| 2026-06-16 | Target: Phase F docs + default switch, with 2-day buffer before 2026-06-18 consumer deadline |
 
 ## Review Gate
 
