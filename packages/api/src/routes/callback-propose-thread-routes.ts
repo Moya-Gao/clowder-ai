@@ -185,16 +185,37 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
     }
 
     // Render the proposal as a card in the source thread so the user sees + acts on it.
+    // The card is the ONLY user-facing approval entry point (no pending dashboard fallback),
+    // so if appending it fails we must NOT leave a phantom proposal — delete it and release
+    // the dedup so retries can re-create a visible card.
     const cardBlock = buildProposalCardBlock(proposal);
-    const stored = await messageStore.append({
-      userId: record.userId,
-      catId: record.catId,
-      content: `提议新建 thread：${title}`,
-      mentions: [],
-      timestamp: Date.now(),
-      threadId: record.threadId,
-      extra: { rich: { v: 1 as const, blocks: [cardBlock] } },
-    });
+    let stored;
+    try {
+      stored = await messageStore.append({
+        userId: record.userId,
+        catId: record.catId,
+        content: `提议新建 thread：${title}`,
+        mentions: [],
+        timestamp: Date.now(),
+        threadId: record.threadId,
+        extra: { rich: { v: 1 as const, blocks: [cardBlock] } },
+      });
+    } catch (err) {
+      try {
+        await proposalStore.delete(proposal.proposalId);
+      } catch {
+        // best-effort cleanup
+      }
+      if (reservedDedup && clientRequestId) {
+        try {
+          await proposalStore.releaseDedup(record.userId, clientRequestId, proposal.proposalId);
+        } catch {
+          // best-effort cleanup
+        }
+      }
+      throw err;
+    }
+
     socketManager.broadcastToRoom(`thread:${record.threadId}`, 'connector_message', {
       threadId: record.threadId,
       message: {

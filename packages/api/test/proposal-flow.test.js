@@ -404,6 +404,50 @@ describe('F128 propose / approve / reject flow', () => {
     assert.equal(threadStore.size, threadsBefore + 1, 'thread must remain (only one new thread, not zero)');
   });
 
+  test('card append failure cleans up proposal + releases dedup so retry creates a visible card', async () => {
+    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    // Fail the first card append (the cat-authored "提议新建 thread" message), succeed after.
+    class FailFirstAppendStore extends MessageStore {
+      constructor() {
+        super();
+        this.failNext = true;
+      }
+      append(msg) {
+        if (this.failNext && msg.content && String(msg.content).startsWith('提议新建 thread')) {
+          this.failNext = false;
+          throw new Error('synthetic card append failure');
+        }
+        return super.append(msg);
+      }
+    }
+    messageStore = new FailFirstAppendStore();
+    const app = await createApp();
+    const source = await threadStore.create('alice', 'Source');
+    const { invocationId, callbackToken } = registry.create('alice', 'opus', source.id);
+    const payload = {
+      invocationId,
+      callbackToken,
+      title: 'Card retry test',
+      reason: 'Verify card append cleanup',
+      clientRequestId: 'card-retry-key',
+    };
+
+    const first = await app.inject({ method: 'POST', url: '/api/callbacks/propose-thread', payload });
+    assert.notEqual(first.statusCode, 200, 'first attempt must surface the card append failure');
+    // Cleanup must leave no phantom pending proposal behind.
+    const pendingAfterFirst = await proposalStore.listPending('alice');
+    assert.equal(pendingAfterFirst.length, 0, 'failed propose must not leave a phantom pending proposal');
+
+    const second = await app.inject({ method: 'POST', url: '/api/callbacks/propose-thread', payload });
+    assert.equal(second.statusCode, 200, 'second attempt should succeed');
+    const body = JSON.parse(second.body);
+    assert.notEqual(body.deduped, true, 'retry must not be silently absorbed by stale dedup key');
+    assert.ok(body.proposalId, 'retry must return a real proposalId');
+    const sourceMessages = await messageStore.getByThread(source.id);
+    const cardMessage = sourceMessages.find((m) => String(m.content ?? '').startsWith('提议新建 thread'));
+    assert.ok(cardMessage, 'retry must have appended a visible card message to the source thread');
+  });
+
   test('reserve success + create failure releases dedup so retry can reclaim', async () => {
     const { InMemoryProposalStore } = await import('../dist/domains/cats/services/stores/ports/ProposalStore.js');
     // Fail the first create() call, succeed on subsequent ones.

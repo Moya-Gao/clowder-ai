@@ -185,6 +185,22 @@ export class RedisProposalStore implements IProposalStore {
   }
 
   /**
+   * Hard delete: remove proposal hash + all index entries. Idempotent.
+   * Used to clean up after propose's card append fails so retries can re-create a visible card.
+   */
+  async delete(proposalId: string): Promise<void> {
+    const proposal = await this.get(proposalId);
+    const pipeline = this.redis.multi();
+    pipeline.del(ProposalKeys.detail(proposalId));
+    if (proposal) {
+      pipeline.zrem(ProposalKeys.userList(proposal.createdBy), proposalId);
+      pipeline.zrem(ProposalKeys.userPending(proposal.createdBy), proposalId);
+      pipeline.zrem(ProposalKeys.threadList(proposal.sourceThreadId), proposalId);
+    }
+    await pipeline.exec();
+  }
+
+  /**
    * Release a previously reserved dedup key IF it still points at expectedProposalId.
    * Uses a small Lua script for atomic compare-and-delete so we never wipe a sibling's
    * reservation if a different winner has already replaced the key.

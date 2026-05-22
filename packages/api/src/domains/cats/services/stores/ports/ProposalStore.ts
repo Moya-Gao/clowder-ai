@@ -70,6 +70,12 @@ export interface IProposalStore {
    */
   reserveDedup(userId: string, clientRequestId: string, proposalId: string): string | Promise<string>;
   /**
+   * Hard delete: remove proposal record and all index entries. Used to clean up after a
+   * partial-commit failure during propose (e.g. proposal created but its card message
+   * failed to post). Idempotent — no error if the proposal is already gone.
+   */
+  delete(proposalId: string): void | Promise<void>;
+  /**
    * Idempotency cleanup: release the dedup reservation IF it currently points at expectedProposalId.
    * Used when `create` fails after a successful reservation, so retries can reclaim the key.
    * No-op if the key is missing or points at a different proposalId (defensive: never wipe
@@ -189,6 +195,10 @@ export class InMemoryProposalStore implements IProposalStore {
     if (this.dedupCache.get(key) === expectedProposalId) {
       this.dedupCache.delete(key);
     }
+  }
+
+  delete(proposalId: string): void {
+    this.proposals.delete(proposalId);
   }
 
   private collect(predicate: (p: ThreadProposal) => boolean, limit: number): ThreadProposal[] {
