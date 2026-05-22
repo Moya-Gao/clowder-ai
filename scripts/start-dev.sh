@@ -1277,7 +1277,7 @@ ensure_api_native_addons() {
     [ "${CAT_CAFE_SKIP_NATIVE_ADDON_GUARD:-0}" = "1" ] && return 0
     [ -f "$PROJECT_DIR/packages/api/package.json" ] || return 0
 
-    if (cd "$PROJECT_DIR/packages/api" && node -e "require('better-sqlite3')" >/dev/null 2>&1); then
+    if (cd "$PROJECT_DIR/packages/api" && node -e "const Database = require('better-sqlite3'); const db = new Database(':memory:'); db.close();" >/dev/null 2>&1); then
         return 0
     fi
 
@@ -1285,7 +1285,7 @@ ensure_api_native_addons() {
     echo -e "${YELLOW}检测到 API native 依赖与当前 Node 不匹配，重建 better-sqlite3...${NC}"
     run_logged_step "better-sqlite3 rebuild" 20 pnpm -C "$PROJECT_DIR/packages/api" rebuild better-sqlite3
 
-    if ! (cd "$PROJECT_DIR/packages/api" && node -e "require('better-sqlite3')" >/dev/null 2>&1); then
+    if ! (cd "$PROJECT_DIR/packages/api" && node -e "const Database = require('better-sqlite3'); const db = new Database(':memory:'); db.close();" >/dev/null 2>&1); then
         echo -e "${RED}  ✗ better-sqlite3 重建后仍无法加载。请确认当前 Node 在 >=20 <26 范围内。${NC}" >&2
         return 1
     fi

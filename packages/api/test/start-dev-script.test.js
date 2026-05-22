@@ -328,6 +328,10 @@ test('ensure_api_native_addons rebuilds better-sqlite3 after Node ABI drift', ()
       join(binDir, 'node'),
       `#!/bin/bash
 if [ "\${1:-}" = "-e" ]; then
+  case "\${2:-}" in
+    *"new Database(':memory:')"*) ;;
+    *) exit 2 ;;
+  esac
   count=0
   [ -f "${nodeProbeCount}" ] && count="$(cat "${nodeProbeCount}")"
   count=$((count + 1))
