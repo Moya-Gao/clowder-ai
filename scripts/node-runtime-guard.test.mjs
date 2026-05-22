@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -167,4 +167,11 @@ test('preinstall node runtime check accepts Node 24', () => {
   });
 
   assert.equal(result.status, 0, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
+});
+
+test('package engines do not make pnpm start warn before startup can re-exec Node 24', () => {
+  const pkg = JSON.parse(readFileSync(resolve(import.meta.dirname, '..', 'package.json'), 'utf8'));
+
+  assert.equal(pkg.engines.node, '>=20.0.0');
+  assert.doesNotMatch(pkg.engines.node, /<\s*26/);
 });
