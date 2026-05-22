@@ -657,7 +657,7 @@ export function ChatInput({
           className={`p-3 rounded-xl transition-all md:hidden ${
             mobileToolbar
               ? 'text-cafe-accent bg-cafe-surface-sunken rotate-45'
-              : 'text-cafe-muted hover:text-cafe-accent hover:bg-cafe-surface'
+              : 'text-cafe-accent hover:text-cafe hover:bg-cafe-surface'
           }`}
           aria-label="展开工具栏"
         >

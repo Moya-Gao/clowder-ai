@@ -648,21 +648,24 @@ describe('F723 cross-page typography consistency', () => {
   });
 
   it('interactive icon buttons use text-cafe-accent, not text-cafe-muted', () => {
-    for (const file of [
-      'settings/primitives/SettingsIconButton.tsx',
-      'settings/primitives/SettingsDeleteButton.tsx',
-    ]) {
+    for (const file of ['settings/primitives/SettingsIconButton.tsx', 'settings/primitives/SettingsDeleteButton.tsx']) {
       const src = readSrc(file);
       expect(src).toContain('text-cafe-accent');
       expect(src).not.toMatch(/className=.*text-cafe-muted.*hover/);
     }
   });
 
-  it('light mode --console-field-bg is lighter than --console-panel-bg', () => {
+  it('light mode --console-field-bg is light, distinct from --console-hover-bg, and not old #f0e6dc', () => {
     const css = readFileSync(resolve(testDir, '../../app/console-shell.css'), 'utf8');
-    const fieldBg = css.match(/--console-field-bg:\s*(#[0-9a-fA-F]{6})/);
-    expect(fieldBg).not.toBeNull();
-    const hex = parseInt(fieldBg![1].slice(1), 16);
+    const fieldMatch = css.match(/--console-field-bg:\s*(#[0-9a-fA-F]{6})/);
+    const hoverMatch = css.match(/--console-hover-bg:\s*(#[0-9a-fA-F]{6})/);
+    if (!fieldMatch || !hoverMatch) throw new Error('light mode field/hover tokens not found');
+    const fieldHex = fieldMatch[1].toLowerCase();
+    const hoverHex = hoverMatch[1].toLowerCase();
+    expect(fieldHex).not.toBe('#f0e6dc');
+    expect(hoverHex).not.toBe('#f0e6dc');
+    expect(fieldHex).not.toBe(hoverHex);
+    const hex = parseInt(fieldHex.slice(1), 16);
     const r = (hex >> 16) & 0xff;
     const g = (hex >> 8) & 0xff;
     const b = hex & 0xff;
