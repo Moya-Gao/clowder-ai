@@ -91,7 +91,7 @@ export function HubToolUsageTab() {
           <select
             value={catFilter}
             onChange={(e) => setCatFilter(e.target.value)}
-            className="rounded-lg border border-[var(--hub-border)] bg-[var(--hub-surface-clean)] px-2 py-1 text-xs text-[var(--hub-text)]"
+            className="rounded-lg border border-transparent bg-[var(--hub-surface-clean)] px-2 py-1 text-xs text-[var(--hub-text)]"
           >
             <option value="">全部猫猫</option>
             {Object.entries(CAT_LABELS).map(([id, label]) => (
@@ -103,7 +103,7 @@ export function HubToolUsageTab() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="rounded-lg border border-[var(--hub-border)] bg-[var(--hub-surface-clean)] px-2 py-1 text-xs text-[var(--hub-text)]"
+            className="rounded-lg border border-transparent bg-[var(--hub-surface-clean)] px-2 py-1 text-xs text-[var(--hub-text)]"
           >
             <option value="">全部类型</option>
             {CATEGORIES.map((cat) => (
@@ -115,7 +115,7 @@ export function HubToolUsageTab() {
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
-            className="rounded-lg border border-[var(--hub-border)] bg-[var(--hub-surface-clean)] px-2 py-1 text-xs text-[var(--hub-text)]"
+            className="rounded-lg border border-transparent bg-[var(--hub-surface-clean)] px-2 py-1 text-xs text-[var(--hub-text)]"
           >
             <option value={7}>近 7 天</option>
             <option value={14}>近 14 天</option>
@@ -137,7 +137,7 @@ export function HubToolUsageTab() {
       {error && <div className="rounded-lg bg-conn-red-bg px-3 py-2 text-xs text-conn-red-text">{error}</div>}
 
       {!error && total === 0 && !loading && (
-        <div className="rounded-xl border border-dashed border-[var(--hub-border)] bg-[var(--hub-surface)] py-10 text-center">
+        <div className="rounded-xl bg-[var(--hub-surface)] py-10 text-center shadow-[0_2px_8px_rgba(43,33,26,0.06)]">
           <HubIcon name="store" className="h-7 w-7 text-[var(--hub-text-soft)]" />
           <p className="mt-2 text-xs text-[var(--hub-text-soft)]">还没有工具使用记录</p>
           <p className="text-xs text-[var(--hub-text-ghost)]">猫猫们开始工作后，数据会自动出现在这里</p>
@@ -160,7 +160,7 @@ export function HubToolUsageTab() {
 function SummaryCards({ total, byCategory }: { total: number; byCategory: Record<string, number> }) {
   return (
     <div className="grid grid-cols-4 gap-3">
-      <div className="rounded-xl border border-[var(--hub-border)] bg-[var(--hub-surface)] p-3 text-center">
+      <div className="rounded-xl bg-[var(--hub-surface)] p-3 text-center shadow-[0_8px_22px_rgba(43,33,26,0.04)]">
         <div className="text-2xl font-bold text-[var(--hub-text)]">{total.toLocaleString()}</div>
         <div className="text-xs text-[var(--hub-text-soft)]">总调用</div>
       </div>
@@ -196,7 +196,7 @@ function DailyTrend({ daily }: { daily: ToolUsageReport['daily'] }) {
   const sorted = [...daily].reverse();
 
   return (
-    <section className="space-y-3 rounded-xl border border-[var(--hub-border)] bg-[var(--hub-surface)] p-4">
+    <section className="space-y-3 rounded-xl bg-[var(--hub-surface)] p-4 shadow-[0_8px_22px_rgba(43,33,26,0.04)]">
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-semibold text-[var(--hub-text)]">每日使用趋势</h4>
         <div className="flex gap-4 text-micro">
@@ -269,7 +269,7 @@ function TopToolsTable({ tools }: { tools: ToolUsageReport['topTools'] }) {
         return (
           <section
             key={cat}
-            className="space-y-2 rounded-xl border border-[var(--hub-border)] bg-[var(--hub-surface-clean)] p-3"
+            className="space-y-2 rounded-xl bg-[var(--hub-surface-clean)] p-3 shadow-[0_8px_22px_rgba(43,33,26,0.04)]"
           >
             <h4 className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: style.color }}>
               <HubIcon name={style.iconName} className="h-3.5 w-3.5" />
@@ -313,7 +313,7 @@ function ByCatSection({ byCat }: { byCat: Record<string, Record<string, number>>
   if (entries.length === 0) return null;
 
   return (
-    <section className="space-y-3 rounded-xl border border-[var(--hub-border)] bg-[var(--hub-surface-clean)] p-4">
+    <section className="space-y-3 rounded-xl bg-[var(--hub-surface-clean)] p-4 shadow-[0_8px_22px_rgba(43,33,26,0.04)]">
       <h4 className="text-xs font-semibold text-[var(--hub-text)]">猫猫工具使用分布</h4>
       <div className="space-y-2">
         {entries.map(([catId, cats]) => {

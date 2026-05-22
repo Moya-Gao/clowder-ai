@@ -151,9 +151,8 @@ export function HubAccountsTab() {
         ))}
       </div>
 
-      <SettingsStatusStrip tone="muted">点击卡片进入编辑 →</SettingsStatusStrip>
       <SettingsStatusStrip tone="muted">
-        secrets 存储在 {data.projectPath}/.cat-cafe/credentials.json，Git 忽略。
+        secrets 存储在 .cat-cafe/credentials.json，已被 Git 忽略。
       </SettingsStatusStrip>
 
       <UnifiedAuthModal

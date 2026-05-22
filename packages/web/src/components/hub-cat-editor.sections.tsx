@@ -104,9 +104,9 @@ export function IdentitySection({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-2 rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] px-3 py-1.5 text-sm text-cafe-secondary transition hover:border-cafe-accent"
+          className="flex items-center gap-2 rounded-[10px] bg-[var(--console-field-bg,var(--console-card-bg))] px-3 py-1.5 text-[13px] text-cafe-secondary transition hover:opacity-80"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--console-border-soft)] bg-white text-micro text-cafe-secondary">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-micro text-cafe-secondary">
             {avatarSrc ? (
               <AvatarImageWithFallback src={avatarSrc} alt="Avatar preview" className="h-full w-full object-cover" />
             ) : (
@@ -259,7 +259,7 @@ function ComboField({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           list={listId}
-          className="w-full rounded-xl border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] px-3.5 py-2 text-sm leading-5 text-cafe placeholder:text-[var(--cafe-text-muted)] outline-none transition focus:border-cafe-accent focus:ring-2 focus:ring-cafe-accent/30"
+          className="w-full rounded-[10px] border border-transparent bg-[var(--console-field-bg,var(--console-card-bg))] px-3.5 py-2 text-[13px] leading-5 text-cafe placeholder:text-[var(--cafe-text-muted)] outline-none transition focus:border-cafe-accent focus:ring-2 focus:ring-cafe-accent/30"
           placeholder={placeholder}
         />
         <datalist id={listId}>
@@ -437,14 +437,14 @@ export function AccountSection({
             form.defaultModel.trim() &&
             !form.defaultModel.includes('/') &&
             !form.provider.trim() ? (
-              <div className="rounded-xl border border-dashed border-[var(--console-border-soft)] bg-[var(--console-card-bg)] px-3 py-2">
+              <div className="rounded-[10px] bg-[var(--console-field-bg,var(--console-card-bg))] px-3 py-2">
                 <p className="text-xs leading-4 text-cafe-secondary">
                   建议使用 `providerId/modelId` 格式（例如 `openai/gpt-5.4`），部分 provider 需要前缀才能正确路由。
                 </p>
               </div>
             ) : null}
             {callHint ? (
-              <div className="rounded-xl border border-dashed border-[var(--console-border-soft)] bg-[var(--console-card-bg)] px-3 py-2">
+              <div className="rounded-[10px] bg-[var(--console-field-bg,var(--console-card-bg))] px-3 py-2">
                 <p className="whitespace-pre-wrap text-xs leading-4 text-cafe-secondary">
                   {callHint.label}
                   <span className="font-semibold text-cafe">{callHint.url}</span>

@@ -43,7 +43,7 @@ export function BrakeSettingsPanel() {
         <p className="text-sm text-cafe-secondary mt-1">三猫会在你连续工作一段时间后提醒你休息</p>
       </div>
 
-      <div className="rounded-lg border border-cafe bg-cafe-surface-elevated/70 p-4 space-y-4">
+      <div className="console-list-card rounded-2xl bg-[var(--console-card-bg)] p-4 space-y-4 shadow-[0_8px_22px_rgba(43,33,26,0.04)]">
         {/* Toggle */}
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-cafe-secondary">启用健康守护</span>
@@ -86,7 +86,7 @@ export function BrakeSettingsPanel() {
         </div>
 
         {/* Night mode info */}
-        <div className="rounded-md bg-indigo-50 border border-indigo-100 px-3 py-2">
+        <div className="rounded-[10px] bg-[var(--console-field-bg,var(--console-card-bg))] px-3 py-2">
           <p className="text-xs text-indigo-600 flex items-center gap-1">
             <svg
               className="w-3.5 h-3.5 flex-shrink-0"

@@ -385,15 +385,12 @@ export function ChatMessage({ message, getCatById, onEditCat }: ChatMessageProps
           </div>
         )}
         <div
-          className={`border px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden ${
-            catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-cafe-surface border-cafe rounded-2xl'
+          className={`px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden ${
+            catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-cafe-surface rounded-2xl'
           } ${showSchedulerAccent ? SCHEDULER_ACCENT_BUBBLE_CLASS : ''}`}
           style={
             catStyle
-              ? {
-                  backgroundColor: catStyle.bgColor,
-                  ...(!showSchedulerAccent ? { borderColor: catStyle.borderColor } : {}),
-                }
+              ? { backgroundColor: catStyle.bgColor }
               : undefined
           }
         >

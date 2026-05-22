@@ -31,7 +31,7 @@ export function DefaultCatSelector({
   const valueInList = currentDefaultCatId && cats.some((c) => c.id === currentDefaultCatId);
 
   return (
-    <div className="rounded-xl border border-cafe bg-cafe-surface p-4">
+    <div className="h-[72px] rounded-[14px] bg-[var(--console-card-bg)] p-4 shadow-[0_12px_30px_rgba(43,33,26,0.08)]">
       <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="text-sm font-bold text-cafe-black">全局默认猫</h3>
@@ -69,7 +69,7 @@ export function DefaultCatSelector({
           value={valueInList ? currentDefaultCatId : ''}
           disabled={isLoading}
           onChange={(e) => onSelect(e.target.value)}
-          className={`flex-1 rounded-lg border border-cafe bg-cafe-surface px-3 py-2 text-sm text-cafe-black
+          className={`h-[34px] w-[220px] rounded-[10px] border-transparent bg-[var(--console-shell-bg)] px-3 py-1 text-[13px] text-cafe
             focus:outline-none focus:ring-1 focus:ring-cafe-accent focus:border-cafe-accent
             ${isLoading ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
         >

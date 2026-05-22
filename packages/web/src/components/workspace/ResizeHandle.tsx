@@ -111,26 +111,21 @@ export function ResizeHandle({ direction, onResize, onCollapse, onDoubleClick, l
 
   const isH = direction === 'horizontal';
   const orientation = isH ? 'vertical' : 'horizontal';
-  const tooltip = '点击折叠\n拖动调整\n双击复位';
 
   return (
     <div
       role="separator"
       aria-orientation={orientation}
-      aria-label={`${label}分隔条：点击折叠，拖动调整宽度，双击复位`}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={0}
+      aria-label={`${label}分隔条`}
       tabIndex={0}
-      title={tooltip}
       onMouseDown={handleMouseDown}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}
-      className={`flex-shrink-0 group relative z-10 ${
+      className={`flex-shrink-0 group relative ${
         isH
-          ? 'w-3 cursor-col-resize hover:bg-[var(--console-hover-bg)] active:bg-[var(--console-active-bg)]'
-          : 'h-3 cursor-row-resize hover:bg-[var(--console-hover-bg)] active:bg-[var(--console-active-bg)]'
+          ? 'w-1 cursor-col-resize hover:bg-[var(--console-hover-bg)] active:bg-[var(--console-active-bg)]'
+          : 'h-1 cursor-row-resize hover:bg-[var(--console-hover-bg)] active:bg-[var(--console-active-bg)]'
       } ${dragging ? 'bg-[var(--console-active-bg)]' : ''} transition-colors`}
     >
       <div
@@ -138,15 +133,8 @@ export function ResizeHandle({ direction, onResize, onCollapse, onDoubleClick, l
           isH
             ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-8 rounded-full'
             : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-0.5 w-8 rounded-full'
-        } bg-[var(--console-border-soft)] group-hover:bg-[var(--console-input-stroke)] transition-colors ${dragging ? 'bg-[var(--console-input-stroke)]' : ''}`}
+        } bg-[var(--console-border-soft)] group-hover:bg-cafe-accent/60 transition-colors ${dragging ? 'bg-cafe-accent/60' : ''}`}
       />
-      <span
-        className={`pointer-events-none absolute z-20 whitespace-pre rounded-lg bg-cafe-black px-2.5 py-2 text-xs leading-5 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${
-          isH ? 'left-1/2 top-1/2 ml-3 -translate-y-1/2' : 'left-1/2 top-1/2 mt-3 -translate-x-1/2'
-        }`}
-      >
-        {tooltip}
-      </span>
     </div>
   );
 }

@@ -38,16 +38,16 @@ export function SectionCard({
   children: ReactNode;
 } & React.HTMLAttributes<HTMLElement>) {
   const toneClasses: Record<string, string> = {
-    neutral: 'border-[var(--console-border-soft)] bg-[var(--console-card-bg)]',
-    success: 'border-[var(--field-success-border)] bg-[var(--field-success-card-bg)]',
-    error: 'border-conn-red-ring bg-conn-red-bg animate-shake',
+    neutral: 'bg-[var(--console-card-bg)] shadow-[0_8px_22px_rgba(43,33,26,0.04)]',
+    success: 'bg-[var(--field-success-card-bg)] shadow-[0_8px_22px_rgba(43,33,26,0.04)]',
+    error: 'bg-conn-red-bg shadow-[0_8px_22px_rgba(43,33,26,0.04)] animate-shake',
   };
   const toneClass = toneClasses[tone] ?? toneClasses.neutral;
   return (
-    <section className={`rounded-2xl border p-[18px] transition-colors ${toneClass}`} {...rest}>
+    <section className={`rounded-[18px] p-[18px] transition-colors ${toneClass}`} {...rest}>
       <div className="space-y-1">
-        <h4 className="text-lg font-bold text-cafe">{title}</h4>
-        {description ? <p className="text-sm leading-6 text-cafe-secondary">{description}</p> : null}
+        <h4 className="text-[15px] font-bold text-cafe">{title}</h4>
+        {description ? <p className="text-[13px] leading-6 text-cafe-secondary">{description}</p> : null}
       </div>
       <div className="mt-3 space-y-3">{children}</div>
     </section>
@@ -75,15 +75,15 @@ export function TextField({
 }) {
   const inputColors =
     tone === 'success'
-      ? 'border-[var(--field-success-border)] bg-[var(--field-success-bg)] focus:border-[var(--field-success-focus)] focus:ring-[var(--field-success-border)]'
-      : 'border-[var(--console-border-soft)] bg-[var(--console-card-bg)] focus:border-cafe-accent focus:ring-cafe-accent/30';
+      ? 'border-transparent bg-[var(--field-success-bg)] focus:border-[var(--field-success-focus)] focus:ring-[var(--field-success-border)]'
+      : 'border-transparent bg-[var(--console-field-bg,var(--console-card-bg))] focus:border-cafe-accent focus:ring-cafe-accent/30';
   return (
     <FieldShell label={label} required={required} tone={tone}>
       <input
         aria-label={ariaLabel ?? label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={`w-full rounded-xl border px-3.5 py-2 text-sm leading-5 text-cafe placeholder:text-[var(--cafe-text-muted)] outline-none transition focus:ring-2 ${inputColors}`}
+        className={`w-full rounded-[10px] border px-3 py-1.5 text-[13px] leading-5 text-cafe placeholder:text-[var(--cafe-text-muted)] outline-none transition focus:ring-2 ${inputColors}`}
         inputMode={inputMode}
         placeholder={placeholder}
         required={required}
@@ -109,15 +109,15 @@ export function TextAreaField({
 }) {
   const inputColors =
     tone === 'success'
-      ? 'border-[var(--field-success-border)] bg-[var(--field-success-bg)] focus:border-[var(--field-success-focus)] focus:ring-[var(--field-success-border)]'
-      : 'border-[var(--console-border-soft)] bg-[var(--console-card-bg)] focus:border-cafe-accent focus:ring-cafe-accent/30';
+      ? 'border-transparent bg-[var(--field-success-bg)] focus:border-[var(--field-success-focus)] focus:ring-[var(--field-success-border)]'
+      : 'border-transparent bg-[var(--console-field-bg,var(--console-card-bg))] focus:border-cafe-accent focus:ring-cafe-accent/30';
   return (
     <FieldShell label={label} tone={tone}>
       <textarea
         aria-label={ariaLabel ?? label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={`min-h-[92px] w-full rounded-xl border px-3.5 py-2 text-sm leading-5 text-cafe outline-none transition focus:ring-2 ${inputColors}`}
+        className={`min-h-[92px] w-full rounded-[10px] border px-3 py-1.5 text-[13px] leading-5 text-cafe outline-none transition focus:ring-2 ${inputColors}`}
         placeholder={placeholder}
       />
     </FieldShell>
@@ -145,8 +145,8 @@ export function SelectField({
 }) {
   const inputColors =
     tone === 'success'
-      ? 'border-[var(--field-success-border)] bg-[var(--field-success-bg)] focus:border-[var(--field-success-focus)] focus:ring-[var(--field-success-border)]'
-      : 'border-[var(--console-border-soft)] bg-[var(--console-card-bg)] focus:border-cafe-accent focus:ring-cafe-accent/30';
+      ? 'border-transparent bg-[var(--field-success-bg)] focus:border-[var(--field-success-focus)] focus:ring-[var(--field-success-border)]'
+      : 'border-transparent bg-[var(--console-field-bg,var(--console-card-bg))] focus:border-cafe-accent focus:ring-cafe-accent/30';
   return (
     <FieldShell label={label} required={required} tone={tone}>
       <select
@@ -155,7 +155,7 @@ export function SelectField({
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
         required={required}
-        className={`w-full rounded-xl border px-3.5 py-2 text-sm leading-5 text-cafe outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${inputColors}`}
+        className={`w-full rounded-[10px] border px-3 py-1.5 text-[13px] leading-5 text-cafe outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${inputColors}`}
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -210,7 +210,7 @@ export function RangeField({
 
 export function PersistenceBanner() {
   return (
-    <div className="rounded-2xl border border-[var(--field-persist-border)] bg-[var(--field-persist-bg)] px-4 py-3">
+    <div className="rounded-[18px] bg-[var(--field-persist-bg)] px-4 py-3 shadow-[0_8px_22px_rgba(43,33,26,0.04)]">
       <p className="text-sm font-bold text-[var(--field-persist-title)]">运行时持久化</p>
       <p className="mt-1 text-xs leading-5 text-[var(--field-persist-text)]">
         所有配置修改在运行时即时生效，并自动持久化到 `.cat-cafe/cat-catalog.json` 文件。重启后自动恢复，无需手动保存。
