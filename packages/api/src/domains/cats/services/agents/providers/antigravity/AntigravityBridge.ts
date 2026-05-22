@@ -12,6 +12,7 @@ import {
 import { discoverAntigravityLS } from './antigravity-ls-discovery.js';
 import { diffDeliveredSteps } from './antigravity-step-delta.js';
 import { isReadOnlyMcpTool } from './antigravity-step-effects.js';
+import { isLsOwnedApprovalTool, toolNameFromWaitingStep } from './antigravity-tool-surface.js';
 import { RAW_RESPONSE_CAP, TRACE_ENABLED, TRACED_METHODS, traceLog } from './antigravity-trace.js';
 import type { AntigravityToolExecutor, AuditSink, ExecutorResult } from './executors/AntigravityToolExecutor.js';
 import type { ExecutorRegistry } from './executors/ExecutorRegistry.js';
@@ -293,6 +294,12 @@ export class AntigravityBridge {
     if (process.env.ANTIGRAVITY_NATIVE_EXECUTOR === '0') return false;
     if (!this.executorRegistry || !this.executorAudit) return false;
     if (step.status !== 'CORTEX_STEP_STATUS_WAITING') return false;
+
+    const waitingToolName = toolNameFromWaitingStep(step);
+    if (isLsOwnedApprovalTool(waitingToolName)) {
+      log.info(`nativeExecuteAndPush: routing LS-owned tool ${waitingToolName} to approval flow`);
+      return 'approval_pending' as const;
+    }
 
     const executor = this.executorRegistry.resolve(step);
     if (!executor) return 'no_executor' as const;

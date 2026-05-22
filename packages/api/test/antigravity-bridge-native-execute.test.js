@@ -214,6 +214,35 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
     assert.equal(rpcMock.mock.callCount(), 0);
   });
 
+  test('routes LS-owned file write tools to approval_pending instead of native writeback', async () => {
+    const lsOwnedTools = ['write_to_file', 'write_file', 'replace_file_content', 'multi_replace_file_content'];
+    for (const toolName of lsOwnedTools) {
+      const { bridge, rpcMock } = makeBridge();
+      const step = {
+        type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+        status: 'CORTEX_STEP_STATUS_WAITING',
+        metadata: {
+          toolCall: {
+            id: `toolu_${toolName}`,
+            name: toolName,
+            argumentsJson: JSON.stringify({ Path: 'src/index.ts', Content: 'unsafe' }),
+          },
+          sourceTrajectoryStepInfo: { trajectoryId: 'traj-1', stepIndex: 9, cascadeId: 'c1' },
+        },
+      };
+
+      const handled = await bridge.nativeExecuteAndPush(step, {
+        cascadeId: 'c1',
+        cwd: '/tmp',
+        modelName: 'claude-opus-4-6',
+      });
+
+      assert.equal(handled, 'approval_pending', `${toolName} must be approved by Antigravity LS, not executed here`);
+      assert.equal(rpcMock.mock.callCount(), 0, `${toolName} must not call RunCommand or pushToolResult RPCs`);
+      assert.equal(bridge.sendMessage.mock.callCount(), 0, `${toolName} must not synthetic-writeback a file result`);
+    }
+  });
+
   test('executes Antigravity 2.x call_mcp_tool wrapper using the nested MCP tool payload', async () => {
     const storePath = tempStorePath();
     cleanupPaths.push(storePath);
@@ -438,20 +467,20 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
     }));
     const registry = new ExecutorRegistry();
     registry.register({
-      toolName: 'write_file',
-      canHandle: (step) => step.metadata?.toolCall?.name === 'write_file',
+      toolName: 'delete_file',
+      canHandle: (step) => step.metadata?.toolCall?.name === 'delete_file',
       execute: executeMock,
     });
     bridge.attachExecutors(registry, new AuditLogger(logDir));
 
     const step = {
-      type: 'CORTEX_STEP_TYPE_WRITE_FILE',
+      type: 'CORTEX_STEP_TYPE_DELETE_FILE',
       status: 'CORTEX_STEP_STATUS_WAITING',
       metadata: {
         toolCall: {
-          id: 'toolu_write',
-          name: 'write_file',
-          argumentsJson: JSON.stringify({ Path: 'src/index.ts', Content: 'unsafe' }),
+          id: 'toolu_delete',
+          name: 'delete_file',
+          argumentsJson: JSON.stringify({ Path: 'src/index.ts' }),
         },
         sourceTrajectoryStepInfo: { trajectoryId: 'traj-1', stepIndex: 8, cascadeId: 'c1' },
       },

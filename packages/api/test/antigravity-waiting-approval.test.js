@@ -268,6 +268,62 @@ describe('Antigravity waiting approval', () => {
     assert.equal(text?.content, 'approved without waiting for stall');
   });
 
+  test('service auto-approves approval_pending LS-owned write tools without unsupported_waiting_tool', async () => {
+    const resolveOutstandingSteps = mock.fn(async () => {});
+    const waitingStep = {
+      type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+      status: 'CORTEX_STEP_STATUS_WAITING',
+      metadata: {
+        toolCall: {
+          id: 'toolu_write_to_file',
+          name: 'write_to_file',
+          argumentsJson: JSON.stringify({ Path: 'docs/probe.md', Content: 'probe' }),
+        },
+      },
+    };
+    const bridge = {
+      ...createMockServiceBridge({ resolveOutstandingSteps }),
+      nativeExecuteAndPush: mock.fn(async (step) =>
+        step.metadata?.toolCall?.name === 'write_to_file' ? 'approval_pending' : false,
+      ),
+      pollForSteps: mock.fn(async function* () {
+        yield {
+          steps: [waitingStep],
+          cursor: {
+            baselineStepCount: 0,
+            lastDeliveredStepCount: 0,
+            terminalSeen: false,
+            lastActivityAt: Date.now(),
+            awaitingUserInput: false,
+          },
+        };
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'DONE',
+              plannerResponse: { response: 'write approved by LS' },
+            },
+          ],
+          cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+        };
+      }),
+    };
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'claude-opus-4-6', bridge });
+
+    const messages = await collect(service.invoke('write file'));
+
+    assert.equal(resolveOutstandingSteps.mock.calls.length, 1, 'LS-owned write tool should trigger auto-approve');
+    assert.equal(resolveOutstandingSteps.mock.calls[0].arguments[0], 'test-cascade-001');
+    assert.equal(
+      messages.some((msg) => msg.type === 'error' && msg.errorCode === 'unsupported_waiting_tool'),
+      false,
+      'LS-owned write tool approval must not be surfaced as unsupported',
+    );
+    const text = messages.find((msg) => msg.type === 'text');
+    assert.equal(text?.content, 'write approved by LS');
+  });
+
   test('P1: probe retry resumes from last delivered cursor, not from stepsBefore', async () => {
     const resolveOutstandingSteps = mock.fn(async () => {});
     let callCount = 0;
