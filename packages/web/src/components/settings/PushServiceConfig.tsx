@@ -144,10 +144,6 @@ export function PushServiceConfig({ embedded = false }: { embedded?: boolean } =
 
   const messageTone = message?.tone === 'success' ? 'success' : message?.tone === 'error' ? 'error' : 'info';
 
-  const inputClass = formInputClass;
-
-  const labelClass = 'text-xs text-cafe-secondary' as const;
-
   const content = (
     <>
       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
@@ -165,36 +161,36 @@ export function PushServiceConfig({ embedded = false }: { embedded?: boolean } =
         </SettingsText>
       </div>
 
-      <div className="grid gap-3">
-        <label className={`space-y-1 font-medium ${labelClass}`}>
-          推送公钥
+      <div className="grid gap-2">
+        <label className="flex items-center gap-3">
+          <span className="w-20 shrink-0 text-xs font-medium text-cafe-secondary">推送公钥</span>
           <input
             name="VAPID_PUBLIC_KEY"
             value={form.VAPID_PUBLIC_KEY}
             onChange={(event) => updateField('VAPID_PUBLIC_KEY', event.target.value)}
             placeholder={status?.capability.vapidPublicKeyConfigured ? '已配置，留空保持不变' : 'VAPID public key'}
-            className={inputClass}
+            className={`flex-1 ${formInputClass}`}
           />
         </label>
-        <label className={`space-y-1 font-medium ${labelClass}`}>
-          推送私钥
+        <label className="flex items-center gap-3">
+          <span className="w-20 shrink-0 text-xs font-medium text-cafe-secondary">推送私钥</span>
           <input
             name="VAPID_PRIVATE_KEY"
             type="password"
             value={form.VAPID_PRIVATE_KEY}
             onChange={(event) => updateField('VAPID_PRIVATE_KEY', event.target.value)}
             placeholder={status?.capability.pushServiceConfigured ? '已配置，留空保持不变' : 'VAPID private key'}
-            className={inputClass}
+            className={`flex-1 ${formInputClass}`}
           />
         </label>
-        <label className={`space-y-1 font-medium ${labelClass}`}>
-          联系信息
+        <label className="flex items-center gap-3">
+          <span className="w-20 shrink-0 text-xs font-medium text-cafe-secondary">联系信息</span>
           <input
             name="VAPID_SUBJECT"
             value={form.VAPID_SUBJECT}
             onChange={(event) => updateField('VAPID_SUBJECT', event.target.value)}
             placeholder="mailto:admin@example.com"
-            className={inputClass}
+            className={`flex-1 ${formInputClass}`}
           />
         </label>
       </div>

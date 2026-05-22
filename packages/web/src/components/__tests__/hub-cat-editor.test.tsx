@@ -1895,7 +1895,7 @@ describe('HubCatEditor', () => {
     expect(mockApiFetch).not.toHaveBeenCalledWith('/api/cats', expect.objectContaining({ method: 'POST' }));
   });
 
-  it('deletes an existing member only after confirmation', async () => {
+  it('does not show delete action inside the editor modal (delete lives on member list)', async () => {
     const existingCat: CatData = {
       id: 'runtime-antigravity',
       name: '运行时桥接猫',
@@ -1909,16 +1909,12 @@ describe('HubCatEditor', () => {
       roleDescription: '桥接通道',
       personality: '稳定',
     };
-    const onSaved = vi.fn(() => Promise.resolve());
     mockApiFetch.mockImplementation((path: string) => {
       if (path === '/api/accounts') {
         return Promise.resolve(jsonResponse({ projectPath: '/tmp/project', activeProfileId: null, providers: [] }));
       }
       if (path === '/api/config/session-strategy') {
         return Promise.resolve(jsonResponse({ cats: [] }));
-      }
-      if (path === '/api/cats/runtime-antigravity') {
-        return Promise.resolve(jsonResponse({ deleted: true }));
       }
       if (path === '/api/cat-templates') {
         return Promise.resolve(jsonResponse({ templates: [] }));
@@ -1927,36 +1923,12 @@ describe('HubCatEditor', () => {
     });
 
     await act(async () => {
-      root.render(React.createElement(HubCatEditor, { open: true, cat: existingCat, onClose: vi.fn(), onSaved }));
+      root.render(React.createElement(HubCatEditor, { open: true, cat: existingCat, onClose: vi.fn(), onSaved: vi.fn() }));
     });
     await flushEffects();
 
-    const deleteButton = queryField<HTMLButtonElement>(container, 'button[aria-label="删除成员"]');
-    mockConfirm.mockResolvedValueOnce(false);
-
-    await act(async () => {
-      deleteButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    await flushEffects();
-
-    expect(mockConfirm).toHaveBeenCalledTimes(1);
-    expect(mockApiFetch).not.toHaveBeenCalledWith(
-      '/api/cats/runtime-antigravity',
-      expect.objectContaining({ method: 'DELETE' }),
-    );
-    expect(onSaved).toHaveBeenCalledTimes(0);
-
-    mockConfirm.mockResolvedValueOnce(true);
-    await act(async () => {
-      deleteButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    await flushEffects();
-
-    expect(mockApiFetch).toHaveBeenCalledWith(
-      '/api/cats/runtime-antigravity',
-      expect.objectContaining({ method: 'DELETE' }),
-    );
-    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('button[aria-label="删除成员"]')).toBeNull();
+    expect(container.textContent).not.toContain('删除成员');
   });
 
   it('prompts before closing when there are unsaved edits', async () => {
@@ -1996,7 +1968,7 @@ describe('HubCatEditor', () => {
     mockConfirm.mockResolvedValue(true);
   });
 
-  it('shows delete action for all members', async () => {
+  it('does not show delete action inside editor for any member type', async () => {
     const existingCat: CatData = {
       id: 'codex',
       name: '缅因猫',
@@ -2033,7 +2005,7 @@ describe('HubCatEditor', () => {
     });
     await flushEffects();
 
-    expect(container.querySelector('button[aria-label="删除成员"]')).not.toBeNull();
+    expect(container.querySelector('button[aria-label="删除成员"]')).toBeNull();
   });
 
   it('loads runtime controls for an existing member and saves strategy separately', async () => {
@@ -2200,7 +2172,7 @@ describe('HubCatEditor', () => {
     expect(queryField<HTMLSelectElement>(container, 'select[aria-label^="Codex Auth Mode"]').disabled).toBe(false);
     expect(container.textContent).toContain('运行时持久化');
     expect(container.textContent).toContain('保存');
-    expect(container.textContent).toContain('删除成员');
+    expect(container.textContent).not.toContain('删除成员');
     expect(container.textContent).not.toContain('账号与运行方式');
     expect(container.textContent).not.toContain('Primary');
     expect(container.textContent).not.toContain('Secondary');
