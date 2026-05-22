@@ -134,9 +134,6 @@ export function McpManageContent() {
           return (
             <div key={item.id} className={settingsResourceCardClass}>
               <div className={settingsResourceRowClass}>
-                <span style={{ color: 'var(--cafe-text-muted)' }}>
-                  <HubIcon name="plug" className="h-[18px] w-[18px] shrink-0" />
-                </span>
                 <button
                   type="button"
                   onClick={() => handleCardClick(item)}
