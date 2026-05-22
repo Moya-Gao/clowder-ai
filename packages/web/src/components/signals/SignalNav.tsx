@@ -55,10 +55,10 @@ export function SignalNav({ active, initialReferrerThread = null }: SignalNavPro
             href={item.href}
             aria-current={isActive ? 'page' : undefined}
             className={[
-              'inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
+              'inline-flex items-center rounded-md px-2 py-[3px] text-[11px] font-semibold transition-colors',
               isActive
-                ? 'border-[var(--console-border-strong)] bg-[var(--console-card-bg)] text-[var(--console-button-emphasis)]'
-                : 'border-[var(--console-border-soft)] bg-[var(--console-shell-bg)] text-cafe-secondary hover:border-[var(--console-border-strong)] hover:text-cafe-black',
+                ? 'bg-[var(--console-active-bg)] text-cafe-interactive'
+                : 'bg-[var(--console-pill-bg,var(--console-card-soft-bg))] text-cafe-secondary hover:text-cafe',
             ].join(' ')}
           >
             {item.label}

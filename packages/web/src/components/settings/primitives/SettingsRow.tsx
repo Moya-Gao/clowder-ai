@@ -59,7 +59,7 @@ export function SettingsRow({
 
   return (
     <div
-      className={`rounded-xl ${rowToneClasses[tone]} px-4 py-3 transition ${onClick ? 'cursor-pointer hover:shadow-md' : ''} ${isDragging ? 'opacity-40' : ''} ${className ?? ''}`}
+      className={`rounded-xl ${rowToneClasses[tone]} px-4 py-3 shadow-[0_8px_22px_rgba(43,33,26,0.04)] transition ${onClick ? 'cursor-pointer hover:shadow-md' : ''} ${isDragging ? 'opacity-40' : ''} ${className ?? ''}`}
       onClick={onClick}
       onKeyDown={onKeyDown}
       draggable={draggable || undefined}

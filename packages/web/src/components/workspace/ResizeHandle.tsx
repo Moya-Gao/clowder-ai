@@ -122,16 +122,16 @@ export function ResizeHandle({ direction, onResize, onCollapse, onDoubleClick, l
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}
-      className={`flex-shrink-0 relative ${
+      className={`group flex-shrink-0 relative ${
         isH ? 'w-1 cursor-col-resize' : 'h-1 cursor-row-resize'
       } transition-colors`}
     >
       <div
         className={`absolute ${
           isH
-            ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-8 rounded-full'
-            : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-0.5 w-8 rounded-full'
-        } bg-[var(--console-border-soft)] transition-colors`}
+            ? 'inset-y-0 left-1/2 -translate-x-1/2 w-px'
+            : 'inset-x-0 top-1/2 -translate-y-1/2 h-px'
+        } bg-[var(--console-border-soft)] group-hover:bg-cafe-accent/60 transition-colors ${dragging ? 'bg-cafe-accent/60' : ''}`}
       />
     </div>
   );

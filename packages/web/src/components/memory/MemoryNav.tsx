@@ -106,10 +106,10 @@ export function MemoryNav({ active, initialReferrerThread = null }: MemoryNavPro
             href={item.href}
             aria-current={isActive ? 'page' : undefined}
             className={[
-              'inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
+              'inline-flex items-center whitespace-nowrap rounded-md px-2 py-[3px] text-[11px] font-semibold transition-colors',
               isActive
-                ? 'border-[var(--console-border-strong)] bg-[var(--console-card-bg)] text-[var(--console-button-emphasis)]'
-                : 'border-[var(--console-border-soft)] bg-[var(--console-shell-bg)] text-cafe-secondary hover:border-[var(--console-border-strong)] hover:text-cafe',
+                ? 'bg-[var(--console-active-bg)] text-cafe-interactive'
+                : 'bg-[var(--console-pill-bg,var(--console-card-soft-bg))] text-cafe-secondary hover:text-cafe',
             ].join(' ')}
           >
             {item.label}

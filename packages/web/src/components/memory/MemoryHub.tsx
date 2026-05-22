@@ -21,6 +21,12 @@ export function MemoryHub({ activeTab = 'feed', initialQuery, initialReferrerThr
     <div className="flex h-full flex-col bg-[var(--console-panel-bg)]" data-testid="memory-hub">
       <main className="flex-1 overflow-y-auto">
         <div className="m-3 flex flex-col gap-[18px] rounded-[18px] bg-[var(--console-shell-bg)] px-9 py-8 shadow-[var(--console-shadow-soft)]" data-testid="memory-content-surface">
+          <header className="flex items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-cafe">记忆</h1>
+              <p className="mt-1 text-[13px] text-cafe-secondary">查看知识涌现、检索证据和索引健康状态</p>
+            </div>
+          </header>
           <div>
             <MemoryNav active={activeTab} initialReferrerThread={initialReferrerThread} />
           </div>

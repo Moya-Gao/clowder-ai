@@ -31,7 +31,7 @@ export function DefaultCatSelector({
   const valueInList = currentDefaultCatId && cats.some((c) => c.id === currentDefaultCatId);
 
   return (
-    <div className="h-[72px] rounded-[14px] bg-[var(--console-card-bg)] p-4 shadow-[0_12px_30px_rgba(43,33,26,0.08)]">
+    <div className="rounded-[14px] bg-[var(--console-card-bg)] p-4 shadow-[0_12px_30px_rgba(43,33,26,0.08)]">
       <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="text-sm font-bold text-cafe-black">全局默认猫</h3>

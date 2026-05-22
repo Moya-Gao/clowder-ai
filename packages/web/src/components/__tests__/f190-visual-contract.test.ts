@@ -118,11 +118,11 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toMatch(/>信号源</);
   });
 
-  it('ResizeHandle has no accent hover/drag colors, keeps cursor-col-resize', () => {
+  it('ResizeHandle uses full-height line with hover feedback', () => {
     const src = readSrc('workspace/ResizeHandle.tsx');
-    expect(src).not.toContain('cafe-accent');
-    expect(src).not.toContain('console-hover-bg');
-    expect(src).not.toContain('console-active-bg');
+    expect(src).toContain('inset-y-0');
+    expect(src).toContain('cafe-accent/60');
+    expect(src).toContain('group-hover');
     expect(src).toContain('cursor-col-resize');
     expect(src).toContain('cursor-row-resize');
     expect(src).toContain('console-border-soft');
@@ -195,6 +195,69 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     const src = readSrc('HubPermissionsTab.tsx');
     expect(src).not.toMatch(/var\(--hub-/);
     expect(src).toContain('shadow-[0_12px_30px_rgba(43,33,26,0.08)]');
+  });
+
+  it('MemoryNav uses soft pills (rounded-md, no border), not strong-border pills', () => {
+    const src = readSrc('memory/MemoryNav.tsx');
+    expect(src).toContain('rounded-md');
+    expect(src).toContain('console-active-bg');
+    expect(src).toContain('cafe-interactive');
+    expect(src).not.toMatch(/rounded-full border/);
+    expect(src).not.toContain('console-border-strong');
+  });
+
+  it('SignalNav uses soft pills (rounded-md, no border), matching MemoryNav', () => {
+    const src = readSrc('signals/SignalNav.tsx');
+    expect(src).toContain('rounded-md');
+    expect(src).toContain('console-active-bg');
+    expect(src).not.toMatch(/rounded-full border/);
+    expect(src).not.toContain('console-border-strong');
+  });
+
+  it('MemoryHub has h1 title header', () => {
+    const src = readSrc('memory/MemoryHub.tsx');
+    expect(src).toMatch(/<h1.*text-2xl font-bold/);
+  });
+
+  it('DefaultCatSelector has no fixed height, uses shadow', () => {
+    const src = readSrc('DefaultCatSelector.tsx');
+    expect(src).not.toContain('h-[72px]');
+    expect(src).toContain('shadow-[0_12px_30px_rgba(43,33,26,0.08)]');
+  });
+
+  it('SettingsRow has default shadow', () => {
+    const src = readSrc('settings/primitives/SettingsRow.tsx');
+    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+  });
+
+  it('SettingsCard has default shadow', () => {
+    const src = readSrc('settings/primitives/SettingsCard.tsx');
+    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+  });
+
+  it('SettingsSection has default shadow', () => {
+    const src = readSrc('settings/primitives/SettingsSection.tsx');
+    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+  });
+
+  it('ChatInput container has no border-t, textarea uses console-input-stroke', () => {
+    const src = readSrc('ChatInput.tsx');
+    expect(src).not.toMatch(/border-t border-cafe-subtle/);
+    expect(src).toContain('console-input-stroke');
+  });
+
+  it('PluginsContent shows only GitHub, no service-ui-adapter', () => {
+    const src = readSrc('settings/PluginsContent.tsx');
+    expect(src).toContain('GitHub');
+    expect(src).not.toContain('adaptServiceToPlugin');
+    expect(src).not.toContain('/api/services');
+  });
+
+  it('SettingsDeleteButton uses HubIcon trash, not inline SVG', () => {
+    const src = readSrc('settings/primitives/SettingsDeleteButton.tsx');
+    expect(src).toContain('HubIcon');
+    expect(src).toContain("name=\"trash\"");
+    expect(src).not.toContain('<path');
   });
 
   it('hub-tag-editor pills have no border, no hub-* CSS vars', () => {

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import type { BuiltinAccountClient, ProfileAuthType } from './hub-accounts.types';
+import { HubIcon } from './hub-icons';
 import { builtinClientLabel } from './hub-accounts.view';
 import { TagEditor } from './hub-tag-editor';
 
@@ -406,7 +407,7 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
                         className="text-xs text-cafe-muted hover:text-conn-red-text"
                         title="删除"
                       >
-                        &times;
+                        <HubIcon name="trash" className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   ))}
