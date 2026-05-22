@@ -124,38 +124,65 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
     // SET NX. The loser of a concurrent retry must NOT create anything (otherwise the pending
     // list grows by N for N concurrent retries even though they share one clientRequestId).
     let proposalId: string;
+    let reservedDedup = false;
     if (clientRequestId) {
       const candidate = generateProposalId();
       const winningId = await proposalStore.reserveDedup(record.userId, clientRequestId, candidate);
       if (winningId !== candidate) {
-        // Loser path: never create. The winner's create may not yet be visible (microtask race),
-        // but the dedup key is the authoritative source of truth — the canonical proposalId is
-        // winningId. Callers can GET /api/proposals/:id to read the eventual status.
+        // Loser path. We can return a deduped success ONLY if the winner's proposal is real.
+        // If the winner crashed between reserve and create, the dedup key points at nothing —
+        // returning a phantom success would mislead the caller (they'd see no card / no proposal
+        // to GET). Tell them to retry; once the winner's release_on_failure cleanup runs,
+        // retries will reclaim the key and succeed.
         const canonical = await proposalStore.get(winningId);
+        if (!canonical) {
+          reply.status(503);
+          reply.header('retry-after', '1');
+          return {
+            error: 'Proposal reservation in-flight by a concurrent request; retry shortly',
+            status: 'retryable',
+          };
+        }
         return {
           proposalId: winningId,
-          status: canonical?.status ?? 'pending',
+          status: canonical.status,
           deduped: true,
         };
       }
       proposalId = candidate;
+      reservedDedup = true;
     } else {
       proposalId = generateProposalId();
     }
 
-    const proposal = await proposalStore.create({
-      proposalId,
-      sourceThreadId: record.threadId,
-      sourceInvocationId: invocationId,
-      sourceCatId: record.catId,
-      title,
-      reason,
-      parentThreadId: resolvedParentThreadId,
-      preferredCats: (preferredCats ?? []) as CatId[],
-      projectPath: sourceThread.projectPath,
-      createdBy: record.userId,
-      ...(initialMessage ? { initialMessage } : {}),
-    });
+    let proposal: ThreadProposal;
+    try {
+      proposal = await proposalStore.create({
+        proposalId,
+        sourceThreadId: record.threadId,
+        sourceInvocationId: invocationId,
+        sourceCatId: record.catId,
+        title,
+        reason,
+        parentThreadId: resolvedParentThreadId,
+        preferredCats: (preferredCats ?? []) as CatId[],
+        projectPath: sourceThread.projectPath,
+        createdBy: record.userId,
+        ...(initialMessage ? { initialMessage } : {}),
+      });
+    } catch (err) {
+      // Critical: if we reserved a dedup key but failed to create the proposal it points at,
+      // release the reservation so the caller's retry can claim it. Without this, the key stays
+      // a phantom pointer for the dedup TTL window.
+      if (reservedDedup && clientRequestId) {
+        try {
+          await proposalStore.releaseDedup(record.userId, clientRequestId, proposalId);
+        } catch {
+          // best-effort cleanup; surface the original error
+        }
+      }
+      throw err;
+    }
 
     // Render the proposal as a card in the source thread so the user sees + acts on it.
     const cardBlock = buildProposalCardBlock(proposal);

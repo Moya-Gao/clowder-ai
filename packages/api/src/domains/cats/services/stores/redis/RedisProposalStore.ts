@@ -184,6 +184,22 @@ export class RedisProposalStore implements IProposalStore {
     return existing ?? proposalId;
   }
 
+  /**
+   * Release a previously reserved dedup key IF it still points at expectedProposalId.
+   * Uses a small Lua script for atomic compare-and-delete so we never wipe a sibling's
+   * reservation if a different winner has already replaced the key.
+   */
+  async releaseDedup(userId: string, clientRequestId: string, expectedProposalId: string): Promise<void> {
+    const script = `
+      local current = redis.call('GET', KEYS[1])
+      if current == ARGV[1] then
+        redis.call('DEL', KEYS[1])
+      end
+      return 1
+    `;
+    await this.redis.eval(script, 1, ProposalKeys.dedup(userId, clientRequestId), expectedProposalId);
+  }
+
   private async casTransition(
     proposalId: string,
     userId: string,

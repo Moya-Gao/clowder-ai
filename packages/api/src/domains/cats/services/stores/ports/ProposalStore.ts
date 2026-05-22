@@ -69,6 +69,13 @@ export interface IProposalStore {
    * value if a concurrent request beat it. Use the returned value as the canonical proposalId.
    */
   reserveDedup(userId: string, clientRequestId: string, proposalId: string): string | Promise<string>;
+  /**
+   * Idempotency cleanup: release the dedup reservation IF it currently points at expectedProposalId.
+   * Used when `create` fails after a successful reservation, so retries can reclaim the key.
+   * No-op if the key is missing or points at a different proposalId (defensive: never wipe
+   * someone else's winning reservation).
+   */
+  releaseDedup(userId: string, clientRequestId: string, expectedProposalId: string): void | Promise<void>;
 }
 
 const DEFAULT_LIST_LIMIT = 100;
@@ -175,6 +182,13 @@ export class InMemoryProposalStore implements IProposalStore {
     if (existing !== undefined) return existing;
     this.dedupCache.set(key, proposalId);
     return proposalId;
+  }
+
+  releaseDedup(userId: string, clientRequestId: string, expectedProposalId: string): void {
+    const key = dedupKey(userId, clientRequestId);
+    if (this.dedupCache.get(key) === expectedProposalId) {
+      this.dedupCache.delete(key);
+    }
   }
 
   private collect(predicate: (p: ThreadProposal) => boolean, limit: number): ThreadProposal[] {

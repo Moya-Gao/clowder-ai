@@ -404,6 +404,47 @@ describe('F128 propose / approve / reject flow', () => {
     assert.equal(threadStore.size, threadsBefore + 1, 'thread must remain (only one new thread, not zero)');
   });
 
+  test('reserve success + create failure releases dedup so retry can reclaim', async () => {
+    const { InMemoryProposalStore } = await import('../dist/domains/cats/services/stores/ports/ProposalStore.js');
+    // Fail the first create() call, succeed on subsequent ones.
+    class FailFirstCreateStore extends InMemoryProposalStore {
+      constructor() {
+        super();
+        this.createCalls = 0;
+      }
+      create(input) {
+        this.createCalls += 1;
+        if (this.createCalls === 1) throw new Error('synthetic create failure');
+        return super.create(input);
+      }
+    }
+    proposalStore = new FailFirstCreateStore();
+    const app = await createApp();
+    const source = await threadStore.create('alice', 'Source');
+    const { invocationId, callbackToken } = registry.create('alice', 'opus', source.id);
+    const payload = {
+      invocationId,
+      callbackToken,
+      title: 'Retry test',
+      reason: 'Need to verify dedup release',
+      clientRequestId: 'retry-key',
+    };
+
+    // First attempt: reserveDedup succeeds, create throws → expect failure response.
+    const first = await app.inject({ method: 'POST', url: '/api/callbacks/propose-thread', payload });
+    assert.notEqual(first.statusCode, 200, 'first attempt must surface the create failure');
+
+    // dedup must be released, so a retry with the same key creates a real proposal.
+    const second = await app.inject({ method: 'POST', url: '/api/callbacks/propose-thread', payload });
+    assert.equal(second.statusCode, 200, 'second attempt should succeed');
+    const body = JSON.parse(second.body);
+    assert.notEqual(body.deduped, true, 'retry must not return a phantom deduped response');
+    assert.ok(body.proposalId, 'retry must return a real proposalId');
+    const stored = await proposalStore.get(body.proposalId);
+    assert.ok(stored, 'retry must have actually created a proposal');
+    assert.equal(stored.status, 'pending');
+  });
+
   test('dedup race: loser leaves no orphan proposal in the pending list', async () => {
     const { InMemoryProposalStore } = await import('../dist/domains/cats/services/stores/ports/ProposalStore.js');
     // Inject delay in reserveDedup so two concurrent requests with same clientRequestId race.
