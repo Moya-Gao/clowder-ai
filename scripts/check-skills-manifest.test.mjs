@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 const SCRIPT = resolve(process.cwd(), 'scripts/check-skills-manifest.mjs');
+
+function skillDoc(name, body = 'no hardcoded handles') {
+  return ['---', `name: ${name}`, `description: Test fixture for ${name}.`, '---', '', `# ${name}`, '', body, ''].join(
+    '\n',
+  );
+}
 
 function writeBaseFixture(root) {
   const skillsDir = join(root, 'cat-cafe-skills');
@@ -52,8 +58,8 @@ function writeBaseFixture(root) {
     'utf-8',
   );
 
-  writeFileSync(join(skillsDir, 'skill-a', 'SKILL.md'), '# skill-a\n\nno hardcoded handles\n', 'utf-8');
-  writeFileSync(join(skillsDir, 'skill-b', 'SKILL.md'), '# skill-b\n\nno hardcoded handles\n', 'utf-8');
+  writeFileSync(join(skillsDir, 'skill-a', 'SKILL.md'), skillDoc('skill-a'), 'utf-8');
+  writeFileSync(join(skillsDir, 'skill-b', 'SKILL.md'), skillDoc('skill-b'), 'utf-8');
 }
 
 function runChecker(root) {
@@ -117,6 +123,13 @@ describe('check-skills-manifest.mjs', () => {
     assert.throws(() => runChecker(sandboxRoot), /next|missing|failed|error/i);
   });
 
+  it('fails when manifest skill SKILL.md is missing YAML frontmatter', () => {
+    const skillPath = join(sandboxRoot, 'cat-cafe-skills', 'skill-a', 'SKILL.md');
+    writeFileSync(skillPath, '# skill-a\n\nno hardcoded handles\n', 'utf-8');
+
+    assert.throws(() => runChecker(sandboxRoot), /skill-frontmatter|frontmatter|failed|error/i);
+  });
+
   it('fails when SKILL.md contains hardcoded cat handle', () => {
     const skillPath = join(sandboxRoot, 'cat-cafe-skills', 'skill-a', 'SKILL.md');
     writeFileSync(skillPath, '# skill-a\n\n请 @codex review\n', 'utf-8');
@@ -133,14 +146,14 @@ describe('check-skills-manifest.mjs', () => {
 
   it('allows cat nickname on exempted lines (signatures, attributions)', () => {
     const skillPath = join(sandboxRoot, 'cat-cafe-skills', 'skill-a', 'SKILL.md');
-    const content = [
-      '# skill-a',
-      '',
-      '> 来源：2026-04-04 砚砚提议',
-      '签名表见 refs/commit-signatures.md。示例：宪宪/Opus-46',
-      '[宪宪/Opus-46🐾]',
-      '',
-    ].join('\n');
+    const content = skillDoc(
+      'skill-a',
+      [
+        '> 来源：2026-04-04 砚砚提议',
+        '签名表见 refs/commit-signatures.md。示例：宪宪/Opus-46',
+        '[宪宪/Opus-46🐾]',
+      ].join('\n'),
+    );
     writeFileSync(skillPath, content, 'utf-8');
 
     const output = runChecker(sandboxRoot);
@@ -149,7 +162,7 @@ describe('check-skills-manifest.mjs', () => {
 
   it('allows handle inside code fence', () => {
     const skillPath = join(sandboxRoot, 'cat-cafe-skills', 'skill-a', 'SKILL.md');
-    const content = ['# skill-a', '', '```bash', 'gh pr comment 123 --body "@codex review"', '```', ''].join('\n');
+    const content = skillDoc('skill-a', ['```bash', 'gh pr comment 123 --body "@codex review"', '```'].join('\n'));
     writeFileSync(skillPath, content, 'utf-8');
 
     const output = runChecker(sandboxRoot);
@@ -158,7 +171,7 @@ describe('check-skills-manifest.mjs', () => {
 
   it('allows handle inside backtick-quoted content', () => {
     const skillPath = join(sandboxRoot, 'cat-cafe-skills', 'skill-a', 'SKILL.md');
-    const content = ['# skill-a', '', '只发 `@codex review` 一行', ''].join('\n');
+    const content = skillDoc('skill-a', '只发 `@codex review` 一行');
     writeFileSync(skillPath, content, 'utf-8');
 
     const output = runChecker(sandboxRoot);
@@ -167,7 +180,7 @@ describe('check-skills-manifest.mjs', () => {
 
   it('allows nickname inside double-quoted content', () => {
     const skillPath = join(sandboxRoot, 'cat-cafe-skills', 'skill-a', 'SKILL.md');
-    const content = ['# skill-a', '', '叙述性提及用名字（"砚砚已完成 X"而非"@codex 已完成 X"）', ''].join('\n');
+    const content = skillDoc('skill-a', '叙述性提及用名字（"砚砚已完成 X"而非"@codex 已完成 X"）');
     writeFileSync(skillPath, content, 'utf-8');
 
     const output = runChecker(sandboxRoot);
@@ -215,6 +228,7 @@ describe('check-skills-manifest.mjs', () => {
   it('stays clean when requires_mcp dependency is ready', () => {
     const fakeBin = join(sandboxRoot, 'fake-pencil-bin');
     writeFileSync(fakeBin, '#!/bin/sh\nexit 0\n', 'utf-8');
+    chmodSync(fakeBin, 0o755);
 
     const manifestPath = join(sandboxRoot, 'cat-cafe-skills', 'manifest.yaml');
     const updated = [
