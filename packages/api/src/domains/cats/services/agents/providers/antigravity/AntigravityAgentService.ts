@@ -560,7 +560,8 @@ export class AntigravityAgentService implements AgentService {
         let hasTerminalText = false;
         let fatalSeen = false;
         let terminalAbort = false;
-        let autoApproveAttempted = false;
+        let cursorAutoApproveAttempted = false;
+        const autoApprovedPendingStepKeys = new Set<string>();
         const stallProbeBudget: StallProbeBudget = { attempts: 0, maxAttempts: STALL_PROBE_MAX_ATTEMPTS };
         let lastDelivered = stepsBefore;
         let attemptHasToolActivity = false;
@@ -871,8 +872,8 @@ export class AntigravityAgentService implements AgentService {
                       summary: 'trajectory is awaiting user approval',
                     };
               await persistCursorLiveness(approvalLivenessEvidence);
-              if (self.autoApprove && !autoApproveAttempted) {
-                autoApproveAttempted = true;
+              if (self.autoApprove && !cursorAutoApproveAttempted) {
+                cursorAutoApproveAttempted = true;
                 try {
                   await self.bridge.resolveOutstandingSteps(cascadeId);
                   log.info(`auto-approved pending interaction for cascade ${cascadeId}`);
@@ -896,7 +897,7 @@ export class AntigravityAgentService implements AgentService {
               const nextLastDelivered = batch.cursor.lastDeliveredStepCount;
               const deliveryAdvanced = nextLastDelivered > previousLastDelivered;
               if (deliveryAdvanced) {
-                autoApproveAttempted = false;
+                cursorAutoApproveAttempted = false;
                 stallProbeBudget.attempts = 0;
               }
               lastDelivered = nextLastDelivered;
@@ -1474,13 +1475,18 @@ export class AntigravityAgentService implements AgentService {
                     attemptHasNativeDispatch = true;
                   }
                   if (handled === 'approval_pending') {
-                    if (self.autoApprove && !autoApproveAttempted) {
-                      autoApproveAttempted = true;
+                    const approvalKey =
+                      toolCallId !== undefined && toolCallId !== ''
+                        ? `${cascadeId}:tool:${toolCallId}`
+                        : `${cascadeId}:step:${step.type}:${stepIndexFor(step)}`;
+                    if (self.autoApprove && !autoApprovedPendingStepKeys.has(approvalKey)) {
+                      autoApprovedPendingStepKeys.add(approvalKey);
                       try {
-                        await self.bridge.resolveOutstandingSteps(cascadeId);
+                        await self.bridge.approvePendingInteraction(cascadeId, step);
                         log.info(`auto-approved pending native tool interaction for cascade ${cascadeId}`);
                         continue;
                       } catch (err) {
+                        autoApprovedPendingStepKeys.delete(approvalKey);
                         log.warn(`auto-approve pending native tool interaction failed: ${err}`);
                       }
                     }

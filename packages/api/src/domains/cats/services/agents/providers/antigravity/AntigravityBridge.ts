@@ -753,6 +753,26 @@ export class AntigravityBridge {
     log.info(`resolved outstanding steps for cascade ${cascadeId}`);
   }
 
+  async approvePendingInteraction(cascadeId: string, step: TrajectoryStep): Promise<void> {
+    if (step.type === 'CORTEX_STEP_TYPE_CODE_ACTION') {
+      await this.acknowledgeCodeActionStep(cascadeId, step);
+      return;
+    }
+    await this.resolveOutstandingSteps(cascadeId);
+  }
+
+  private async acknowledgeCodeActionStep(cascadeId: string, step: TrajectoryStep): Promise<void> {
+    const stepIndex = step.metadata?.sourceTrajectoryStepInfo?.stepIndex;
+    const payload: Record<string, unknown> = { cascadeId, accept: true };
+    if (typeof stepIndex === 'number') payload.stepIndices = [stepIndex];
+    await this.rpcSafe('AcknowledgeCodeActionStep', payload);
+    log.info(
+      `acknowledged code action step for cascade ${cascadeId}${
+        typeof stepIndex === 'number' ? ` step ${stepIndex}` : ''
+      }`,
+    );
+  }
+
   async approveInteraction(cascadeId: string, interaction: Record<string, unknown>): Promise<void> {
     await this.rpcSafe('HandleCascadeUserInteraction', { cascadeId, interaction });
     log.info(`approved interaction for cascade ${cascadeId}`);

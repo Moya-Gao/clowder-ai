@@ -243,6 +243,38 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
     }
   });
 
+  test('acknowledges CODE_ACTION approvals with Antigravity code-action RPC', async () => {
+    const { bridge, rpcMock } = makeBridge();
+    const step = {
+      type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+      status: 'CORTEX_STEP_STATUS_WAITING',
+      metadata: {
+        toolCall: {
+          id: 'toolu_write_to_file',
+          name: 'write_to_file',
+          argumentsJson: JSON.stringify({ Path: 'src/index.ts', Content: 'safe probe' }),
+        },
+        sourceTrajectoryStepInfo: { trajectoryId: 'traj-1', stepIndex: 9, cascadeId: 'c1' },
+      },
+    };
+
+    await bridge.approvePendingInteraction('c1', step);
+
+    const methods = rpcMock.mock.calls.map((c) => {
+      const args = c.arguments;
+      return typeof args[0] === 'string' ? args[0] : args[1];
+    });
+    assert.deepEqual(methods, ['AcknowledgeCodeActionStep']);
+
+    const payload = rpcMock.mock.calls[0].arguments[2];
+    assert.deepEqual(payload, {
+      cascadeId: 'c1',
+      accept: true,
+      stepIndices: [9],
+    });
+    assert.equal(bridge.sendMessage.mock.callCount(), 0, 'code action approval must not synthetic-writeback');
+  });
+
   test('executes Antigravity 2.x call_mcp_tool wrapper using the nested MCP tool payload', async () => {
     const storePath = tempStorePath();
     cleanupPaths.push(storePath);
