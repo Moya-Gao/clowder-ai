@@ -1,6 +1,6 @@
 ---
 feature_ids: [F192]
-related_features: [F167, F153, F086]
+related_features: [F167, F153, F086, F188, F200]
 topics: [harness-engineering, eval, socio-technical, observability, cat-user-feedback]
 doc_kind: spec
 created: 2026-05-07
@@ -88,6 +88,20 @@ Phase C 骨架跑通后，完善基础设施 + 扩展到更多工具。含原 Ph
 - 根据 digest 结论决定：升级为 ADR / 精简 / sunset
 - **Attribution Action-Rate（meta-loop）**：tracking findings → acted-on 比例，连续 3 月 < 50% 则 pipeline 自候选 sunset
 
+### Phase E: Harness Eval Control Plane / Eval Hub
+
+Phase A-D 证明了 F192 能对单个 harness domain（F167/A2A）做预期声明、runtime 观测、归因和 digest。但铲屎官在 2026-05-21 指出：eval 的第一性目的不是"有个告警"或"有个定时任务"，而是**长期追踪并解释 harness 运行效果，产出 delete/sunset / build / fix / keep 的证据化 verdict，再把诊断交给负责 feature 的猫处理，由后续 eval 复验**。
+
+Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
+
+- 每个 eval domain 有独立系统 thread（如 `eval:a2a`、`eval:memory`），保留该域长期分析上下文
+- 每个 harness 注册 Eval Contract（服务谁 / 触发条件 / 摩擦指标 / 回归用例 / sunset 信号）
+- eval 猫产出结构化 Verdict Handoff Packet，不能只说"你去看看"
+- Eval Hub 展示 verdict、趋势、handoff、owner 响应、复验状态和社区报告
+- F192/F200/F188 当前各自注册的定时任务迁移到统一 runtime，迁移完成后必须关闭旧任务，避免双触发
+
+**Delete includes sunset**：`delete` verdict 包含"模型/猫猫能力变强后不再需要该 harness"的 sunset 场景。实现上可显示为 `sunset`，但 lifecycle 语义是删除/退役/收回注意力预算。
+
 ## Acceptance Criteria
 
 ### Phase A（基础骨架）
@@ -125,6 +139,45 @@ Phase C 骨架跑通后，完善基础设施 + 扩展到更多工具。含原 Ph
 - [x] AC-D8: digest 结论写入 feature spec（升级 / 精简 / sunset）
 - [x] AC-D9: Attribution Action-Rate——tracking Phase C/D findings 的 acted-on 比例。pipeline 自身 eval contract 含 action-rate metric；连续 3 月 < 50% 则候选 sunset
 
+### Phase E（Harness Eval Control Plane / Eval Hub）
+- [ ] AC-E1: Architecture Decision / Design Gate 明确 Phase E 不是新 F 号，而是 F192 的横切控制面升级；写清 eval 第一性原理、domain thread、Eval Hub、legacy scheduled-task 迁移和 verdict handoff 契约
+- [ ] AC-E2: Eval Domain Registry 定义最小 schema（domain id、system thread id、eval cat / owner policy、frequency、source adapters、legacy scheduled-task ids、handoff target resolver、SLA）
+- [ ] AC-E3: Verdict Handoff Packet schema 落地，字段至少含 phenomenon、harness under eval、evidence packet、daily trend、root-cause hypothesis、verdict、owner ask、acceptance / re-eval plan、counterarguments；缺字段不得 cross-thread handoff
+- [ ] AC-E4: Per-domain system thread bootstrap：至少建立 `eval:a2a` 与 `eval:memory` 两个域的 thread / registry 绑定；thread 只承载域内长期分析，不当全局垃圾桶
+- [ ] AC-E5: Eval Hub v1 展示 active verdicts、trend windows、handoff 状态、owner 响应、re-eval closure、stale findings、community reports；它是 harness lifecycle 控制面，不是单纯 metrics dashboard
+- [ ] AC-E6: Unified Eval Runtime 接入首批 adapters：F192 A2A harness eval、F200 memory recall eval、F188 library health governance；adapter 只产出标准 verdict / finding，不复制各自业务数据真相源
+- [ ] AC-E7: Legacy scheduled-task cleanup：列出现有 F192/F200/F188 相关 scheduled tasks；每个 adapter 接入后必须 disable / redirect 对应旧任务，并有 regression test 或 dry-run report 证明不会双触发
+- [ ] AC-E8: Re-eval closure loop：feature owner 处理 handoff 后，只有后续 eval 复验或明确 CVO accept / suppress 才能 close verdict；猫猫不能靠一句"修了"自闭环
+- [ ] AC-E9: Community path：支持社区实例把本地 eval finding 导出为脱敏 issue packet；也支持社区项目注册自有 eval domain，不 fork Cat Café core
+- [ ] AC-E10: Dogfood acceptance：用真实数据跑一次 `eval:a2a` + `eval:memory`，产出至少 2 份 Verdict Handoff Packet，并证明至少 1 个旧定时任务已安全迁移或被标记为 pending migration
+
+## 需求点 Checklist
+
+| ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
+|----|---------------------------|---------|----------|------|
+| R1 | "eval 是为了 tracing harness 后看 harness 效果如何，是不是需要 sunset / delete / build" | AC-E1, AC-E3, AC-E5 | Design Gate + Verdict Packet fixture | [ ] |
+| R2 | "delete 还有一种情况是 sunset，比如猫猫变强了，不需要了" | AC-E1, AC-E3 | Verdict enum + sunset fixture | [ ] |
+| R3 | "负责 a2a eval 的猫要分析、深度分析原因、对比每天" | AC-E2, AC-E4, AC-E5 | domain thread registry + trend window fixture | [ ] |
+| R4 | "eval 猫要跨线程通讯，发给负责的猫，让负责的猫来深度看" | AC-E3, AC-E8 | cross-thread handoff packet + re-eval closure test | [ ] |
+| R5 | "verdict → handoff 要不要结构化，必须带证据包" | AC-E3 | schema validation rejects incomplete packet | [ ] |
+| R6 | "诊断 / eval 结果需要一个看板，叫 Eval Hub" | AC-E5 | Eval Hub screenshot / API response | [ ] |
+| R7 | "接入完成得清理遗留定时任务，避免双触发" | AC-E7, AC-E10 | scheduled task inventory + dry-run migration report | [ ] |
+| R8 | "社区小伙伴发现自己的场景有掉球，也能提 issue / 接自己的项目 eval" | AC-E9 | sanitized issue packet fixture + custom domain fixture | [ ] |
+
+### 覆盖检查
+- [ ] 每个需求点都能映射到至少一个 AC
+- [ ] 每个 AC 都有验证方式
+- [ ] 前端需求已准备需求→证据映射表（Eval Hub Phase 需要）
+
+## Phase E Eval / Tracking Contract
+
+| 项 | Contract |
+|----|----------|
+| Primary Users + Activation Signal | eval 猫、feature owner、CVO、社区 maintainer。触发：harness 进入 registry / existing domain adapter 接入 / verdict 产生 / owner action 完成后待复验 |
+| Friction Metric | incomplete_handoff_count、duplicate_trigger_count、unowned_verdict_count、stale_verdict_days、unverified_close_count、legacy_task_overlap_count |
+| Regression Fixture | 1) F192 `harness-fit-digest` 迁入后旧 scheduled task 不再重复发；2) F200 memory eval 产出 verdict 后必须带 evidence packet；3) F188 orphan-edge health finding 不能只显示指标，必须能形成 owner ask + re-eval plan |
+| Sunset Signal | 若 Phase E 连续 2 个 eval domain 接入后，verdict handoff acted-on rate < 50% 且 duplicate_trigger_count > 0，说明控制面比旧竖井更重，必须进入 simplify / sunset review |
+
 ### Phase D Digest Conclusions (AC-D8)
 
 Based on the first micro fit digest (2026-05-11):
@@ -139,6 +192,8 @@ Based on the first micro fit digest (2026-05-11):
 - **Related**: F167（A2A Chain Quality——pilot 目标）
 - **Related**: F153（Observability Infrastructure——canonical trace 来源）
 - **Related**: F086（Cat Orchestration——anti-散文反思 discipline）
+- **Related**: F188（Library Stewardship——health governance / orphan edge / verification debt 作为 memory-domain eval 输入）
+- **Related**: F200（Memory Recall Eval——memory-domain 专项 eval 竖井，Phase E 首批迁移对象）
 - **Related**: ADR-031（Harness Engineering 方法论）
 - **Related**: ADR-032（Local-First Trace Producer Enabler）
 
@@ -154,6 +209,10 @@ Based on the first micro fit digest (2026-05-11):
 | 又把 eval 做成文档 | Phase C AC-C2 要求 telemetry 数据驱动的 snapshot，手填 = 不通过；AC-C4 明确写入 Phase B 重新定性 |
 | 跨猫 403 阻塞 aggregate eval | Phase C 先走单猫可拉的 aggregate 数据；403 不阻塞骨架，Phase D 解决 |
 | F153 API 格式变化导致 F192 破碎 | AC-C1 adapter contract test 兜底——变化失败在 adapter 层，不散落一地 |
+| Phase E 退化成"漂亮 metrics dashboard" | AC-E3/E5 强制 verdict + handoff + re-eval closure；Eval Hub 不以分数为终点 |
+| F192/F200/F188 旧定时任务与新 runtime 双触发 | AC-E7/AC-E10 强制 inventory + disable/redirect + dry-run 证明 |
+| domain thread 变成新垃圾桶 | AC-E4 限定 thread 只按域承载长期分析；工作状态 / verdict SOT 在 registry + Eval Hub |
+| eval 猫武断给 delete/sunset verdict | AC-E3 要 counterarguments；高影响 delete/sunset 需 CVO accept 或 Design Gate 签字 |
 
 ## Open Questions
 
@@ -164,6 +223,11 @@ Based on the first micro fit digest (2026-05-11):
 | OQ-3 | skill/SOP step telemetry 怎么捕获？ | ⬜ Phase D 探索 |
 | OQ-4 | 跨猫 session 403 如何处理？三个方案：(A) Service token (B) ADR-032 export 层 (C) Push-based | ⬜ Phase C 先走 aggregate 脱敏不阻塞；Phase D 解决 |
 | OQ-5 | Daily snapshot 存储格式：markdown（可被 search_evidence 索引）vs SQLite（查询效率） | ⬜ Phase D 定 |
+| OQ-6 | Eval Domain Registry 真相源放 SQLite、docs registry 还是 hybrid？ | ⬜ Phase E Design Gate |
+| OQ-7 | Eval Hub 首屏是在 Console 独立页面，还是挂到现有 Health / Observability 区域？ | ⬜ Phase E Design Gate（需 design-in-context） |
+| OQ-8 | delete/sunset verdict 的签字门槛：哪些可以 eval 猫自决，哪些必须 CVO accept？ | ⬜ Phase E Design Gate |
+| OQ-9 | 旧 scheduled task 的 disable / redirect 如何可逆，避免迁移失败后丢报告？ | ⬜ Phase E Design Gate |
+| OQ-10 | 社区 issue packet 的脱敏边界和上游接收格式是什么？ | ⬜ Phase E Design Gate |
 
 ## Key Decisions
 
@@ -175,6 +239,10 @@ Based on the first micro fit digest (2026-05-11):
 | KD-4 | Sunset Signal 空填 = Design Gate 不通过，不设 reviewer 签字降级 | 治"只加不删"的核心机制；说不清何时删 = 没想清楚要解决什么（46 决策） | 2026-05-07 |
 | KD-5 | Phase C scope pivot：从"文档模板 + monthly digest"改为"runtime eval 基础设施"。Phase B 重新定性为"Eval Contract & Evidence Artifact Pilot"（预期声明层），不是 runtime eval 完成证明 | Phase B AC 设计把"pilot"翻译成了"写文档模板验证 schema"，没有从 F153 拉运行时数据跑真正的 eval。CVO 原话："f192的基础设施根本没做呀！""一个 harness 需要有硬/软/eval，eval 去观测 harness 跑的如何→归因→抽象→解决"。三猫讨论收敛后铲屎官确认（2026-05-08） | 2026-05-08 |
 | KD-6 | Phase C = 4 条核心 AC（骨架），剩余推 Phase D。原 Phase C (Tool Eval Contracts + Monthly Digest) 推为 Phase D 后半 | 7 条 AC 是终态蓝图，一口气做完有过度设计风险。3-4 条先搭骨架跑通端到端，再扩展（铲屎官 2026-05-10 确认） | 2026-05-10 |
+| KD-7 | Phase E 不开新 F 号，作为 F192 的 Harness Eval Control Plane / Eval Hub 升级 | 关联检测显示 F192 已 owns harness eval + runtime pipeline；longform 第 5 章也把统一 Eval Hub 定位为 F192/F200 竖井的终态收敛 | 2026-05-21 |
+| KD-8 | Verdict Handoff Packet 是硬 contract，不是文案建议 | 没有 evidence / trend / root cause / owner ask / re-eval plan 的 handoff 无法 enforce "有理有据"，会退化成"你去看看" | 2026-05-21 |
+| KD-9 | 每个 eval domain 要有专属 system thread，但 thread 不是状态真相源 | 深度分析需要长期上下文；状态和趋势仍进入 registry/Eval Hub，避免 thread 变垃圾桶 | 2026-05-21 |
+| KD-10 | 旧 scheduled task 清理是接入 AC，不是收尾优化 | F192/F200/F188 已有各自定时/报告机制；不迁移清理会双触发，导致猫猫收到重复 verdict，破坏信任 | 2026-05-21 |
 
 ## Timeline
 
@@ -191,6 +259,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-11 | Phase C merged (PR #1626) |
 | 2026-05-11 | Phase D merged (PR #1627) — 10/10 AC, 砚砚 review + cloud review clean |
 | 2026-05-21 | P1 fix: C2 semantic misclassification merged (PR #1816) — verdict_without_pass/void_hold moved from activationCounts to frictionCounts |
+| 2026-05-21 | Phase E kickoff — Harness Eval Control Plane / Eval Hub；CVO 明确 eval 第一性目标 = harness delete/build/fix/keep verdict + structured handoff + legacy scheduled-task cleanup |
 
 ## Review Gate
 
@@ -198,13 +267,18 @@ Based on the first micro fit digest (2026-05-11):
 - Phase B: 跨家族 review
 - Phase C: spec 更新需跨家族 review；实现需跨家族 review
 - Phase D: digest 结论需铲屎官确认
+- Phase E: 架构级 Design Gate（猫猫讨论 → 铲屎官拍板）；implementation 需跨家族 review；Eval Hub UI 需 design-in-context + 铲屎官验收；legacy scheduled-task cleanup 需 dry-run report
 
 ## Links
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | Discussion | `docs/discussions/2026-05-05-socio-technical-harness-eval-draft.md` | 原始草案 |
+| Discussion | `docs/discussions/2026-05-21-f192-phase-e-eval-hub-kickoff/README.md` | Phase E kickoff / Design Gate 草案 |
+| Article Draft | `docs/content/drafts/longform-002-v0-formal.md` | 第 5 章 Eval / Harness Eval Control Plane 论述 |
 | Decision | `docs/decisions/031-harness-engineering-methodology.md` | 方法论基础 |
 | Decision | `docs/decisions/032-cat-cafe-as-local-first-trace-enabler.md` | 数据归属边界 |
 | Feature | `docs/features/F167-a2a-chain-quality.md` | Pilot 目标 |
 | Feature | `docs/features/F153-observability-infra.md` | Canonical trace 来源 |
+| Feature | `docs/features/F188-library-stewardship.md` | Memory/library health governance 首批接入域 |
+| Feature | `docs/features/F200-memory-recall-eval.md` | Memory recall eval 首批迁移对象 |
