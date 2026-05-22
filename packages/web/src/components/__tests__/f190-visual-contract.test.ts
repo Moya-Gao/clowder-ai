@@ -108,15 +108,15 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toContain('shadow-[0_12px_30px_rgba(43,33,26,0.08)]');
   });
 
-  it('SignalInboxView title is text-2xl, list pane has no border-r', () => {
+  it('SignalInboxView title is text-xl, list pane has no border-r', () => {
     const src = readSrc('signals/SignalInboxView.tsx');
-    expect(src).toMatch(/text-2xl font-bold/);
+    expect(src).toMatch(/text-xl font-bold/);
     expect(src).not.toMatch(/border-r border-\[var\(--console-border-soft\)\]/);
   });
 
-  it('SignalSourcesView title is "信号源" text-2xl', () => {
+  it('SignalSourcesView title is "信号源" text-xl', () => {
     const src = readSrc('signals/SignalSourcesView.tsx');
-    expect(src).toContain('text-2xl font-bold');
+    expect(src).toContain('text-xl font-bold');
     expect(src).toMatch(/>信号源</);
   });
 
@@ -217,9 +217,9 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).not.toContain('console-active-bg');
   });
 
-  it('MemoryHub has h1 title header', () => {
+  it('MemoryHub has h1 title header at text-xl', () => {
     const src = readSrc('memory/MemoryHub.tsx');
-    expect(src).toMatch(/<h1.*text-2xl font-bold/);
+    expect(src).toMatch(/<h1.*text-xl font-bold/);
   });
 
   it('DefaultCatSelector has no fixed height, uses shadow', () => {
@@ -243,10 +243,12 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
   });
 
-  it('ChatInput container has no border-t, textarea uses console-input-stroke', () => {
+  it('ChatInput default border is console-border-soft, focus uses console-input-stroke', () => {
     const src = readSrc('ChatInput.tsx');
     expect(src).not.toMatch(/border-t border-cafe-subtle/);
-    expect(src).toContain('console-input-stroke');
+    expect(src).toContain('border-[var(--console-border-soft)]');
+    expect(src).toContain('focus:border-[var(--console-input-stroke)]');
+    expect(src).toContain('focus:ring-[var(--console-input-stroke)]');
   });
 
   it('PluginsContent shows only GitHub, no service-ui-adapter', () => {
@@ -272,9 +274,10 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toContain('conn-purple-bg');
   });
 
-  it('WorkspacePanel has no border-l (ResizeHandle provides the divider)', () => {
+  it('WorkspacePanel aside: no border-l, uses console-panel-bg', () => {
     const src = readSrc('WorkspacePanel.tsx');
     expect(src).not.toMatch(/border-l border-cafe-subtle/);
+    expect(src).toMatch(/<aside[\s\S]{0,200}bg-\[var\(--console-panel-bg\)\]/);
   });
 
   it('SettingsNav item text uses text-[12px], not text-compact', () => {
@@ -319,5 +322,34 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     for (const src of [inbox, sources]) {
       expect(src).not.toMatch(/<h1[\s\S]*?<SignalNav[^>]*\/>\s*<\/div>/);
     }
+  });
+
+  it('typography: text-compact and text-label are defined in tailwind config', () => {
+    const config = readFileSync(resolve(testDir, '..', '..', '..', 'tailwind.config.js'), 'utf8');
+    expect(config).toMatch(/compact:\s*\[/);
+    expect(config).toMatch(/label:\s*\[/);
+    expect(config).toMatch(/micro:\s*\[/);
+  });
+
+  it('console page titles use text-xl font-bold, not text-2xl', () => {
+    for (const [file, tag] of [
+      ['memory/MemoryHub.tsx', '记忆'],
+      ['signals/SignalInboxView.tsx', '信号'],
+      ['signals/SignalSourcesView.tsx', '信号源'],
+      ['mission-control/MissionControlPage.tsx', 'Mission Hub'],
+    ] as const) {
+      const src = readSrc(file);
+      expect(src).toContain('text-xl font-bold');
+      expect(src).toContain(tag);
+    }
+  });
+
+  it('Settings hierarchy: page header text-xl, section text-base, no font-extrabold', () => {
+    const header = readSrc('settings/SettingsPageHeader.tsx');
+    expect(header).toContain('text-xl font-bold');
+    expect(header).not.toContain('font-extrabold');
+    const section = readSrc('settings/primitives/SettingsSection.tsx');
+    expect(section).toContain('text-base font-semibold');
+    expect(section).not.toContain('text-lg font-bold');
   });
 });

@@ -92,7 +92,7 @@ export function SignalSourcesView({ initialReferrerThread = null }: { initialRef
       <main className="flex-1 overflow-y-auto">
         <div className={`${CONTENT_SURFACE_CLASS} space-y-4`} data-testid="signal-sources-content-surface">
           <div>
-            <h1 className="text-2xl font-bold text-cafe">信号源</h1>
+            <h1 className="text-xl font-bold text-cafe">信号源</h1>
             <p className="mt-0.5 text-xs text-cafe-secondary">集中管理信号源开关，无需手改 yaml。</p>
           </div>
           <SignalNav active="sources" initialReferrerThread={initialReferrerThread} />

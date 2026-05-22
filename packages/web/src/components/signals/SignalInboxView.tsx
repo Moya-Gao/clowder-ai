@@ -287,7 +287,7 @@ export function SignalInboxView({ initialReferrerThread = null }: { initialRefer
           data-testid="signal-inbox-content-surface"
         >
           <div>
-            <h1 className="text-2xl font-bold text-cafe">信号</h1>
+            <h1 className="text-xl font-bold text-cafe">信号</h1>
             <p className="mt-0.5 text-xs text-cafe-secondary">浏览、筛选和研读信号文章</p>
           </div>
           <SignalNav active="signals" initialReferrerThread={initialReferrerThread} />

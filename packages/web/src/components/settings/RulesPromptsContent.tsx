@@ -158,13 +158,7 @@ function RulePreviewModal({ label, file, onClose }: { label: string; file: RuleF
             📜
           </div>
           <div className="min-w-0 flex-1">
-            <SettingsText
-              as="h2"
-              variant="base"
-              tone="default"
-              className="font-extrabold"
-              style={{ fontSize: '1.25rem' }}
-            >
+            <SettingsText as="h2" variant="base" tone="default" className="font-bold" style={{ fontSize: '1.25rem' }}>
               {label}
             </SettingsText>
             <SettingsText as="p" tone="muted">

@@ -179,6 +179,8 @@ module.exports = {
       },
       fontSize: {
         micro: ['10px', { lineHeight: '14px' }],
+        label: ['11px', { lineHeight: '16px' }],
+        compact: ['13px', { lineHeight: '20px' }],
       },
       keyframes: {
         'fade-in': {
