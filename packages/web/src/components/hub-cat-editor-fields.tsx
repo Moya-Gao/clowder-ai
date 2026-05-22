@@ -86,14 +86,14 @@ export function TextField({
   const inputColors =
     tone === 'success'
       ? 'border-transparent bg-[var(--console-runtime-field-bg)] focus:border-[var(--console-runtime-label)] focus:ring-[var(--console-runtime-label)]/30'
-      : 'border-transparent bg-[var(--console-field-bg)] focus:border-cafe-accent focus:ring-cafe-accent/30';
+      : 'border-transparent bg-[var(--console-field-bg)] focus:ring-[var(--console-input-stroke)]';
   return (
     <FieldShell label={label} required={required} tone={tone}>
       <input
         aria-label={ariaLabel ?? label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={`w-full rounded-[10px] border px-3 py-1.5 text-compact leading-5 text-cafe-black placeholder:text-cafe-muted outline-none transition focus:ring-2 ${inputColors}`}
+        className={`w-full rounded-[10px] border px-3 py-1.5 text-compact leading-5 text-cafe-black placeholder:text-cafe-muted outline-none transition focus:ring-1 ${inputColors}`}
         inputMode={inputMode}
         placeholder={placeholder}
         required={required}
@@ -120,14 +120,14 @@ export function TextAreaField({
   const inputColors =
     tone === 'success'
       ? 'border-transparent bg-[var(--console-runtime-field-bg)] focus:border-[var(--console-runtime-label)] focus:ring-[var(--console-runtime-label)]/30'
-      : 'border-transparent bg-[var(--console-field-bg)] focus:border-cafe-accent focus:ring-cafe-accent/30';
+      : 'border-transparent bg-[var(--console-field-bg)] focus:ring-[var(--console-input-stroke)]';
   return (
     <FieldShell label={label} tone={tone}>
       <textarea
         aria-label={ariaLabel ?? label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={`min-h-[92px] w-full rounded-[10px] border px-3 py-1.5 text-compact leading-5 text-cafe-black outline-none transition focus:ring-2 ${inputColors}`}
+        className={`min-h-[92px] w-full rounded-[10px] border px-3 py-1.5 text-compact leading-5 text-cafe-black outline-none transition focus:ring-1 ${inputColors}`}
         placeholder={placeholder}
       />
     </FieldShell>
@@ -156,7 +156,7 @@ export function SelectField({
   const inputColors =
     tone === 'success'
       ? 'border-transparent bg-[var(--console-runtime-field-bg)] focus:border-[var(--console-runtime-label)] focus:ring-[var(--console-runtime-label)]/30'
-      : 'border-transparent bg-[var(--console-field-bg)] focus:border-cafe-accent focus:ring-cafe-accent/30';
+      : 'border-transparent bg-[var(--console-field-bg)] focus:ring-[var(--console-input-stroke)]';
   return (
     <FieldShell label={label} required={required} tone={tone}>
       <select
@@ -165,7 +165,7 @@ export function SelectField({
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
         required={required}
-        className={`w-full rounded-[10px] border px-3 py-1.5 text-compact leading-5 text-cafe-black outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${inputColors}`}
+        className={`w-full rounded-[10px] border px-3 py-1.5 text-compact leading-5 text-cafe-black outline-none transition focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60 ${inputColors}`}
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>

@@ -777,21 +777,21 @@ describe('F723 round 3 — input/select/stat unification guard', () => {
     expect(src).not.toMatch(/buildVariableHint\(v\)\s*\?\s*\(/);
   });
 
-  it('EvidenceSearch selects use console-field-bg + cafe-accent focus ring', () => {
+  it('EvidenceSearch selects use console-field-bg + input-stroke focus ring', () => {
     const src = readSrc('memory/EvidenceSearch.tsx');
     const selects = src.match(/<select[\s\S]*?<\/select>/g) ?? [];
     expect(selects.length).toBeGreaterThanOrEqual(4);
     for (const sel of selects) {
       expect(sel).toContain('console-field-bg');
-      expect(sel).toContain('focus:ring-2 focus:ring-cafe-accent/30');
+      expect(sel).toContain('focus:ring-1 focus:ring-[var(--console-input-stroke)]');
       expect(sel).not.toContain('console-border-soft');
     }
   });
 
-  it('SignalFilterBar SELECT_CLASS uses console-field-bg + cafe-accent focus ring', () => {
+  it('SignalFilterBar SELECT_CLASS uses console-field-bg + input-stroke focus ring', () => {
     const src = readSrc('signals/SignalFilterBar.tsx');
     expect(src).toContain('bg-[var(--console-field-bg)]');
-    expect(src).toContain('focus:ring-2 focus:ring-cafe-accent/30');
+    expect(src).toContain('focus:ring-1 focus:ring-[var(--console-input-stroke)]');
     expect(src).not.toMatch(/SELECT_CLASS[\s\S]*?console-card-bg/);
   });
 
@@ -1014,8 +1014,95 @@ describe('F723 round 5 — ops tab/button convergence guard', () => {
 
   it('HubQuotaBoardTab 刷新全部 uses cafe-accent primary, not console-button-emphasis', () => {
     const src = readSrc('HubQuotaBoardTab.tsx');
-    expect(src).not.toMatch(/bg-\[var\(--console-button-emphasis\)\].*刷新全部/s);
+    expect(src).not.toMatch(/bg-\[var\(--console-button-emphasis\)\][\s\S]*?刷新全部/);
     expect(src).toContain('bg-cafe-accent');
     expect(src).toContain('hover:bg-cafe-interactive');
+  });
+});
+
+describe('F723 round 6 — select/toggle/button primitive convergence', () => {
+  it('formInputClass uses input-stroke focus, not cafe-accent ring', () => {
+    const src = readSrc('mcp-form-helpers.tsx');
+    expect(src).toContain('focus:ring-[var(--console-input-stroke)]');
+    expect(src).not.toContain('focus:ring-cafe-accent');
+    expect(src).not.toContain('focus:border-cafe-accent');
+  });
+
+  it('EvidenceSearch selects use input-stroke focus, not cafe-accent ring', () => {
+    const src = readSrc('memory/EvidenceSearch.tsx');
+    const selects = src.match(/<select[\s\S]*?<\/select>/g) ?? [];
+    expect(selects.length).toBeGreaterThanOrEqual(4);
+    for (const sel of selects) {
+      expect(sel).toContain('console-input-stroke');
+      expect(sel).not.toContain('cafe-accent/30');
+    }
+  });
+
+  it('SignalFilterBar: selects + search wrapper use input-stroke, not cafe-accent ring', () => {
+    const src = readSrc('signals/SignalFilterBar.tsx');
+    expect(src).toContain('console-input-stroke');
+    expect(src).not.toContain('cafe-accent/30');
+    expect(src).not.toContain('focus:ring-2');
+  });
+
+  it('VoiceSettingsPanel select: field-bg background, appearance-none, input-stroke focus', () => {
+    const src = readSrc('VoiceSettingsPanel.tsx');
+    const selectMatch = src.match(/id="voice-language-select"[\s\S]*?<\/select>/);
+    expect(selectMatch).not.toBeNull();
+    expect(selectMatch![0]).toContain('console-field-bg');
+    expect(selectMatch![0]).toContain('appearance-none');
+    expect(selectMatch![0]).toContain('console-input-stroke');
+  });
+
+  it('DefaultCatSelector select: field-bg background, input-stroke focus', () => {
+    const src = readSrc('DefaultCatSelector.tsx');
+    expect(src).toContain('console-field-bg');
+    expect(src).toContain('console-input-stroke');
+    expect(src).not.toContain('console-shell-bg');
+    expect(src).not.toContain('focus:ring-cafe-accent');
+    expect(src).not.toContain('focus:border-cafe-accent');
+  });
+
+  it('hub-cat-editor-fields neutral fields: input-stroke focus, no cafe-accent ring', () => {
+    const src = readSrc('hub-cat-editor-fields.tsx');
+    expect(src).not.toContain('focus:border-cafe-accent');
+    expect(src).not.toContain('focus:ring-cafe-accent/30');
+    expect(src).toContain('focus:ring-[var(--console-input-stroke)]');
+    expect(src).not.toContain('focus:ring-2');
+  });
+
+  it('IndexStatus toggles: cafe-accent for on, no emerald/zinc hardcodes on toggle buttons', () => {
+    const src = readSrc('memory/IndexStatus.tsx');
+    expect(src).not.toContain('bg-emerald-600');
+    expect(src).not.toContain('bg-zinc-400');
+    const toggleButtons = src.match(/role="switch"[\s\S]*?<\/button>/g) ??
+      src.match(/rounded-full transition-colors[\s\S]*?<\/button>/g) ?? [];
+    for (const btn of toggleButtons) {
+      expect(btn).not.toContain('bg-conn-green-text');
+      expect(btn).not.toContain('bg-gray-300');
+    }
+    expect(src).toContain('bg-cafe-accent');
+  });
+
+  it('Memory secondary buttons: shadow pattern, no border-soft', () => {
+    for (const file of [
+      'memory/HealthReport.tsx',
+      'memory/RebuildButton.tsx',
+      'memory/IndexStatus.tsx',
+    ]) {
+      const src = readSrc(file);
+      const buttons = src.match(/<button[\s\S]*?<\/button>/g) ?? [];
+      const secondaryButtons = buttons.filter((b) => b.includes('console-card-bg') && b.includes('text-cafe-secondary'));
+      for (const btn of secondaryButtons) {
+        expect(btn).not.toContain('border-[var(--console-border-soft)]');
+        expect(btn).toContain('shadow-[0_1px_3px');
+      }
+    }
+  });
+
+  it('CollectionCatalog 新建集合 uses cafe-accent, not cafe-primary', () => {
+    const src = readSrc('memory/CollectionCatalog.tsx');
+    expect(src).not.toContain('bg-cafe-primary');
+    expect(src).toContain('bg-cafe-accent');
   });
 });

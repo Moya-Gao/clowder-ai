@@ -167,7 +167,7 @@ export function CollectionCatalog() {
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="px-3 py-1 text-xs text-white bg-cafe-primary rounded hover:bg-cafe-primary/90"
+          className="px-3 py-1 text-xs text-white bg-cafe-accent rounded-lg hover:bg-cafe-interactive"
           data-testid="create-collection-btn"
         >
           + 新建集合

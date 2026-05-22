@@ -2,7 +2,7 @@ import type React from 'react';
 import type { SignalArticleFilters } from '@/utils/signals-view';
 
 const SELECT_CLASS =
-  'h-8 appearance-none rounded-lg bg-[var(--console-field-bg)] px-2 text-xs text-cafe-secondary outline-none transition focus:ring-2 focus:ring-cafe-accent/30';
+  'h-8 appearance-none rounded-lg bg-[var(--console-field-bg)] px-2 text-xs text-cafe-secondary outline-none transition focus:ring-1 focus:ring-[var(--console-input-stroke)]';
 
 interface SignalFilterBarProps {
   filters: SignalArticleFilters;
@@ -23,7 +23,7 @@ export function SignalFilterBar({
 }: SignalFilterBarProps) {
   return (
     <form onSubmit={onSubmit} className="space-y-1.5 px-1 py-1">
-      <div className="flex min-w-0 items-center gap-1.5 rounded-lg bg-[var(--console-field-bg)] px-2.5 h-8 transition-shadow focus-within:ring-2 focus-within:ring-cafe-accent/30">
+      <div className="flex min-w-0 items-center gap-1.5 rounded-lg bg-[var(--console-field-bg)] px-2.5 h-8 transition-shadow focus-within:ring-1 focus-within:ring-[var(--console-input-stroke)]">
         <svg
           className="h-[13px] w-[13px] shrink-0 text-cafe-muted"
           viewBox="0 0 24 24"

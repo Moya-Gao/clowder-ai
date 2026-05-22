@@ -177,7 +177,7 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
           type="button"
           onClick={handleSearch}
           disabled={isSearching || !query.trim()}
-          className="h-8 shrink-0 rounded-lg bg-cafe-accent px-4 text-compact font-medium text-white transition-colors hover:bg-cafe-interactive disabled:opacity-40"
+          className="h-8 shrink-0 rounded-lg bg-cafe-accent px-4 text-compact font-medium text-white transition-colors hover:bg-cafe-interactive disabled:opacity-50"
           data-testid="evidence-search-button"
         >
           {isSearching ? '...' : '搜索'}
@@ -192,7 +192,7 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
             value={depth === 'raw' ? 'lexical' : mode}
             onChange={(e) => setMode(e.target.value as EvidenceSearchParams['mode'])}
             disabled={depth === 'raw'}
-            className="h-7 appearance-none rounded-lg bg-[var(--console-field-bg)] px-2 text-xs text-cafe-secondary outline-none transition focus:ring-2 focus:ring-cafe-accent/30 disabled:opacity-50"
+            className="h-7 appearance-none rounded-lg bg-[var(--console-field-bg)] px-2 text-xs text-cafe-secondary outline-none transition focus:ring-1 focus:ring-[var(--console-input-stroke)] disabled:opacity-50"
           >
             <option value="hybrid">混合</option>
             <option value="lexical">精确</option>
@@ -207,7 +207,7 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
             onChange={(e) =>
               setScope(e.target.value === 'all' ? undefined : (e.target.value as EvidenceSearchParams['scope']))
             }
-            className="h-7 appearance-none rounded-lg bg-[var(--console-field-bg)] px-2 text-xs text-cafe-secondary outline-none transition focus:ring-2 focus:ring-cafe-accent/30"
+            className="h-7 appearance-none rounded-lg bg-[var(--console-field-bg)] px-2 text-xs text-cafe-secondary outline-none transition focus:ring-1 focus:ring-[var(--console-input-stroke)]"
           >
             <option value="all">全部</option>
             <option value="docs">文档</option>
@@ -223,7 +223,7 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
             onChange={(e) =>
               setDepth(e.target.value === 'summary' ? undefined : (e.target.value as EvidenceSearchParams['depth']))
             }
-            className="h-7 appearance-none rounded-lg bg-[var(--console-field-bg)] px-2 text-xs text-cafe-secondary outline-none transition focus:ring-2 focus:ring-cafe-accent/30"
+            className="h-7 appearance-none rounded-lg bg-[var(--console-field-bg)] px-2 text-xs text-cafe-secondary outline-none transition focus:ring-1 focus:ring-[var(--console-input-stroke)]"
           >
             {DEPTH_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -239,7 +239,7 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
             onChange={(e) =>
               setDimension(e.target.value === 'all' ? undefined : (e.target.value as EvidenceSearchParams['dimension']))
             }
-            className="h-7 appearance-none rounded-lg bg-[var(--console-field-bg)] px-2 text-xs text-cafe-secondary outline-none transition focus:ring-2 focus:ring-cafe-accent/30"
+            className="h-7 appearance-none rounded-lg bg-[var(--console-field-bg)] px-2 text-xs text-cafe-secondary outline-none transition focus:ring-1 focus:ring-[var(--console-input-stroke)]"
             data-testid="evidence-dimension-select"
           >
             <option value="all">全部</option>

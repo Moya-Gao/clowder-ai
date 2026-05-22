@@ -23,7 +23,7 @@ export function kvToObj(
 }
 
 export const formInputClass =
-  'h-9 w-full rounded-lg border border-transparent bg-[var(--console-field-bg)] px-3 text-compact text-cafe outline-none placeholder:text-cafe-muted transition focus:border-cafe-accent focus:ring-2 focus:ring-cafe-accent/30';
+  'h-9 w-full rounded-lg border border-transparent bg-[var(--console-field-bg)] px-3 text-compact text-cafe outline-none placeholder:text-cafe-muted transition focus:ring-1 focus:ring-[var(--console-input-stroke)]';
 
 export function FormSection({ children }: { children: React.ReactNode }) {
   return <div className="space-y-2 rounded-xl p-3">{children}</div>;
