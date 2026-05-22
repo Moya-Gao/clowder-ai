@@ -30,6 +30,7 @@ import { enqueueA2ATargets } from './callback-a2a-trigger.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { registerCallbackBootcampRoutes } from './callback-bootcamp-routes.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
+import { registerCallbackProposeThreadRoutes } from './callback-propose-thread-routes.js';
 import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
@@ -47,6 +48,8 @@ export interface CallbackRoutesOptions {
   backlogStore?: IBacklogStore;
   /** For thinking mode filtering in thread-context */
   threadStore?: IThreadStore;
+  /** F128: cat-side thread proposals (propose endpoint) */
+  proposalStore?: import('../domains/cats/services/stores/ports/ProposalStore.js').IProposalStore;
   /** For post_message @mention → invocation triggering */
   router?: AgentRouter;
   invocationRecordStore?: IInvocationRecordStore;
@@ -1112,6 +1115,16 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
   // F087: Bootcamp state transition callbacks
   if (opts.threadStore) {
     registerCallbackBootcampRoutes(app, { registry, threadStore: opts.threadStore });
+  }
+
+  // F128: Cat-side thread proposal callback
+  if (opts.proposalStore && opts.threadStore) {
+    registerCallbackProposeThreadRoutes(app, {
+      registry,
+      proposalStore: opts.proposalStore,
+      threadStore: opts.threadStore,
+      socketManager,
+    });
   }
 
   await registerCallbackMemoryRoutes(app, {

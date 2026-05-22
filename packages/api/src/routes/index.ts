@@ -27,6 +27,7 @@ export { memoryPublishRoutes } from './memory-publish.js';
 export { messageActionsRoutes } from './message-actions.js';
 export { messagesRoutes } from './messages.js';
 export { projectsRoutes } from './projects.js';
+export { proposalRoutes } from './proposal-routes.js';
 export { providerProfilesRoutes } from './provider-profiles.js';
 export { pushRoutes } from './push.js';
 export { queueRoutes } from './queue.js';
