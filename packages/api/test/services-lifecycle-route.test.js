@@ -97,7 +97,7 @@ describe('service lifecycle write routes', () => {
       });
 
       assert.equal(res.statusCode, 403, res.payload);
-      assert.match(JSON.parse(res.payload).error, /DEFAULT_OWNER_USER_ID/);
+      assert.match(JSON.parse(res.payload).error, /configured owner/);
     } finally {
       await app.close();
       restoreOwner(previousOwner);

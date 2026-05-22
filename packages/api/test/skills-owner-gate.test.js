@@ -72,7 +72,7 @@ describe('Skills write-route owner gate (AC-E4)', () => {
     }
   });
 
-  it('POST /api/skills/sync returns 403 when DEFAULT_OWNER_USER_ID is unset', async () => {
+  it('POST /api/skills/sync allows session-auth when DEFAULT_OWNER_USER_ID is unset', async () => {
     const prev = process.env.DEFAULT_OWNER_USER_ID;
     delete process.env.DEFAULT_OWNER_USER_ID;
 
@@ -85,7 +85,7 @@ describe('Skills write-route owner gate (AC-E4)', () => {
         payload: {},
       });
 
-      assert.equal(res.statusCode, 403, 'unset owner ID should fail closed');
+      assert.notEqual(res.statusCode, 403, 'unset owner should not fail closed');
     } finally {
       if (prev === undefined) delete process.env.DEFAULT_OWNER_USER_ID;
       else process.env.DEFAULT_OWNER_USER_ID = prev;
