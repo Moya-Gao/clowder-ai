@@ -404,6 +404,63 @@ describe('F128 propose / approve / reject flow', () => {
     assert.equal(threadStore.size, threadsBefore + 1, 'thread must remain (only one new thread, not zero)');
   });
 
+  test('concurrent retry during in-flight card append returns 503 (not phantom 200 deduped)', async () => {
+    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    // BlockingMessageStore lets the test gate exactly when the FIRST card append resolves.
+    let releaseFirstAppend;
+    const firstAppendBlocked = new Promise((resolve) => {
+      releaseFirstAppend = resolve;
+    });
+    let firstAppendSeen = false;
+    class BlockingMessageStore extends MessageStore {
+      async append(msg) {
+        if (!firstAppendSeen && String(msg.content ?? '').startsWith('提议新建 thread')) {
+          firstAppendSeen = true;
+          await firstAppendBlocked;
+        }
+        return super.append(msg);
+      }
+    }
+    messageStore = new BlockingMessageStore();
+    const app = await createApp();
+    const source = await threadStore.create('alice', 'Source');
+    const { invocationId, callbackToken } = registry.create('alice', 'opus', source.id);
+    const payload = {
+      invocationId,
+      callbackToken,
+      title: 'In-flight test',
+      reason: 'Card append blocks',
+      clientRequestId: 'inflight-key',
+    };
+    const send = () => app.inject({ method: 'POST', url: '/api/callbacks/propose-thread', payload });
+
+    // Kick off the first request — it will hang at messageStore.append.
+    const firstPromise = send();
+    // Yield to let first request reach the append await.
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Now send the second request with the same clientRequestId. The first has a proposal
+    // record + dedup key but no cardMessageId yet — fast path must NOT return 200 deduped.
+    const second = await send();
+    assert.equal(second.statusCode, 503, `expected 503 in-flight, got ${second.statusCode}: ${second.body}`);
+    const body = JSON.parse(second.body);
+    assert.equal(body.status, 'retryable');
+    assert.notEqual(body.deduped, true, 'in-flight retry must not be marked deduped');
+
+    // Now let the first request finish (successfully) and re-run a retry — it should succeed.
+    releaseFirstAppend();
+    const first = await firstPromise;
+    assert.equal(first.statusCode, 200);
+    const winningId = JSON.parse(first.body).proposalId;
+
+    // A subsequent retry now sees cardMessageId set and gets a proper deduped success.
+    const third = await send();
+    assert.equal(third.statusCode, 200);
+    const thirdBody = JSON.parse(third.body);
+    assert.equal(thirdBody.proposalId, winningId);
+    assert.equal(thirdBody.deduped, true);
+  });
+
   test('card append failure cleans up proposal + releases dedup so retry creates a visible card', async () => {
     const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
     // Fail the first card append (the cat-authored "提议新建 thread" message), succeed after.

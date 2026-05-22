@@ -92,14 +92,26 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
       return { status: 'stale_ignored' };
     }
 
-    // Idempotency fast path: same (userId, clientRequestId) → return existing proposal.
+    // Idempotency fast path: only return success if the proposal is fully VISIBLE — i.e. the
+    // rich card has been appended (cardMessageId set). Returning for an in-flight proposal would
+    // hand the caller a proposalId that may yet be cleaned up if the card append fails.
     if (clientRequestId) {
       const cached = await proposalStore.getDedupProposalId(record.userId, clientRequestId);
       if (cached) {
         const proposal = await proposalStore.get(cached);
-        if (proposal) {
+        if (proposal && proposal.cardMessageId) {
           return { proposalId: proposal.proposalId, status: proposal.status, deduped: true };
         }
+        if (proposal && !proposal.cardMessageId) {
+          reply.status(503);
+          reply.header('retry-after', '1');
+          return {
+            error: 'Proposal in-flight (card pending); retry shortly',
+            status: 'retryable',
+          };
+        }
+        // Cached but proposal missing — winner crashed before persisting; let the
+        // SET-NX path below reclaim the dedup key.
       }
     }
 
@@ -129,17 +141,17 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
       const candidate = generateProposalId();
       const winningId = await proposalStore.reserveDedup(record.userId, clientRequestId, candidate);
       if (winningId !== candidate) {
-        // Loser path. We can return a deduped success ONLY if the winner's proposal is real.
-        // If the winner crashed between reserve and create, the dedup key points at nothing —
-        // returning a phantom success would mislead the caller (they'd see no card / no proposal
-        // to GET). Tell them to retry; once the winner's release_on_failure cleanup runs,
-        // retries will reclaim the key and succeed.
+        // Loser path. Return deduped success ONLY if the winner's proposal is FULLY VISIBLE
+        // (cardMessageId set). Otherwise the caller would act on a phantom id that may
+        // disappear if the winner's card append fails.
         const canonical = await proposalStore.get(winningId);
-        if (!canonical) {
+        if (!canonical || !canonical.cardMessageId) {
           reply.status(503);
           reply.header('retry-after', '1');
           return {
-            error: 'Proposal reservation in-flight by a concurrent request; retry shortly',
+            error: canonical
+              ? 'Proposal in-flight by a concurrent request (card pending); retry shortly'
+              : 'Proposal reservation in-flight by a concurrent request; retry shortly',
             status: 'retryable',
           };
         }
@@ -215,6 +227,10 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
       }
       throw err;
     }
+
+    // Card is now persisted — mark the proposal as visible so the dedup fast path can return
+    // it as a successful prior result on retries.
+    await proposalStore.setCardMessageId(proposal.proposalId, stored.id);
 
     socketManager.broadcastToRoom(`thread:${record.threadId}`, 'connector_message', {
       threadId: record.threadId,

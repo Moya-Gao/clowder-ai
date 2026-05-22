@@ -40,6 +40,14 @@ export interface ThreadProposal {
   createdBy: string;
   createdAt: number;
 
+  /**
+   * Message id of the rich proposal card that was successfully appended to the source thread.
+   * Acts as the visibility commit marker: until this is set, the proposal is in-flight and
+   * MUST NOT be returned via the dedup fast path. Concurrent retries between create() and
+   * card append would otherwise hand callers a phantom proposalId that gets cleaned up.
+   */
+  cardMessageId?: string;
+
   // Audit — approval outcome
   approvedBy?: string;
   approvedAt?: number;

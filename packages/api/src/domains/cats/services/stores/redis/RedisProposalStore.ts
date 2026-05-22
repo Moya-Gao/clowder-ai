@@ -185,6 +185,14 @@ export class RedisProposalStore implements IProposalStore {
   }
 
   /**
+   * Mark the proposal as visible: persist the rich-card messageId. Until this is set,
+   * dedup fast paths return 503 retryable so callers don't act on a phantom proposalId.
+   */
+  async setCardMessageId(proposalId: string, cardMessageId: string): Promise<void> {
+    await this.redis.hset(ProposalKeys.detail(proposalId), 'cardMessageId', cardMessageId);
+  }
+
+  /**
    * Hard delete: remove proposal hash + all index entries. Idempotent.
    * Used to clean up after propose's card append fails so retries can re-create a visible card.
    */
@@ -305,6 +313,7 @@ export class RedisProposalStore implements IProposalStore {
       String(proposal.createdAt),
     ];
     if (proposal.initialMessage) fields.push('initialMessage', proposal.initialMessage);
+    if (proposal.cardMessageId) fields.push('cardMessageId', proposal.cardMessageId);
     return fields;
   }
 
@@ -332,6 +341,7 @@ export class RedisProposalStore implements IProposalStore {
     if (data.rejectedBy) proposal.rejectedBy = data.rejectedBy;
     if (data.rejectedAt) proposal.rejectedAt = parseInt(data.rejectedAt, 10);
     if (data.rejectionReason) proposal.rejectionReason = data.rejectionReason;
+    if (data.cardMessageId) proposal.cardMessageId = data.cardMessageId;
     return proposal;
   }
 }

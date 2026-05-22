@@ -70,6 +70,12 @@ export interface IProposalStore {
    */
   reserveDedup(userId: string, clientRequestId: string, proposalId: string): string | Promise<string>;
   /**
+   * Mark the proposal as visible by recording the rich-card messageId that was appended to the
+   * source thread. Until this is set, dedup fast paths must treat the proposal as in-flight
+   * and not return it as a successful prior result.
+   */
+  setCardMessageId(proposalId: string, cardMessageId: string): void | Promise<void>;
+  /**
    * Hard delete: remove proposal record and all index entries. Used to clean up after a
    * partial-commit failure during propose (e.g. proposal created but its card message
    * failed to post). Idempotent — no error if the proposal is already gone.
@@ -195,6 +201,11 @@ export class InMemoryProposalStore implements IProposalStore {
     if (this.dedupCache.get(key) === expectedProposalId) {
       this.dedupCache.delete(key);
     }
+  }
+
+  setCardMessageId(proposalId: string, cardMessageId: string): void {
+    const proposal = this.proposals.get(proposalId);
+    if (proposal) proposal.cardMessageId = cardMessageId;
   }
 
   delete(proposalId: string): void {
