@@ -290,15 +290,11 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       updates.set(update.name, update.value);
     }
 
-    // Owner gate: sensitive-editable vars require EXPLICIT owner config (F136 trust anchor)
+    // Owner gate: when owner is explicitly configured, only owner can write sensitive vars
     const touchesSensitive = hasSensitiveEditableVars(updates.keys());
     if (touchesSensitive) {
       const ownerId = process.env.DEFAULT_OWNER_USER_ID?.trim();
-      if (!ownerId) {
-        reply.status(403);
-        return { error: 'Sensitive env write requires DEFAULT_OWNER_USER_ID to be configured' };
-      }
-      if (operator !== ownerId) {
+      if (ownerId && operator !== ownerId) {
         reply.status(403);
         return { error: 'Sensitive env vars can only be modified by the owner' };
       }

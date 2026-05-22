@@ -21,12 +21,7 @@ export function resolveConnectorSessionUserId(request: FastifyRequest): string |
 
 export function requireConnectorWriteOwner(userId: string): ConnectorWriteRouteError | null {
   const ownerId = process.env.DEFAULT_OWNER_USER_ID?.trim();
-  if (!ownerId) {
-    return {
-      status: 403,
-      error: 'Connector credential writes require DEFAULT_OWNER_USER_ID to be configured',
-    };
-  }
+  if (!ownerId) return null;
   if (userId !== ownerId) {
     return {
       status: 403,

@@ -24,11 +24,8 @@ interface ConnectorStatusResponse {
 }
 
 function friendlyError(message: string, fallback: string): string {
-  if (message.includes('DEFAULT_OWNER_USER_ID')) {
-    return 'DEFAULT_OWNER_USER_ID 未配置，后端拒绝写入 GitHub token。请先配置 owner 后再保存。';
-  }
   if (message.includes('configured owner')) {
-    return '当前登录用户不是配置 owner，不能修改 GitHub token。';
+    return '当前会话用户不是配置 owner，不能修改 GitHub token。';
   }
   return message.trim() || fallback;
 }

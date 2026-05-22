@@ -35,11 +35,8 @@ function asStatusPayload(value: unknown): PushStatusPayload | null {
 }
 
 function friendlyError(message: string, fallback: string): string {
-  if (message.includes('DEFAULT_OWNER_USER_ID')) {
-    return 'DEFAULT_OWNER_USER_ID 未配置，后端拒绝写入推送密钥。请先配置 owner 后再保存。';
-  }
   if (message.includes('configured owner')) {
-    return '当前登录用户不是配置 owner，不能修改推送密钥。';
+    return '当前会话用户不是配置 owner，不能修改推送密钥。';
   }
   return message.trim() || fallback;
 }
