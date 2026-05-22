@@ -18,6 +18,12 @@ export interface CreateProposalInput {
   projectPath: string;
   initialMessage?: string;
   createdBy: string;
+  /**
+   * Optional explicit proposalId. When supplied, the store uses this value instead of
+   * generating one. Used by the propose route to reserve a dedup key BEFORE creating
+   * the proposal, ensuring losers in a concurrent retry never produce orphan records.
+   */
+  proposalId?: string;
 }
 
 export interface ClaimForApprovalInput {
@@ -77,7 +83,7 @@ export class InMemoryProposalStore implements IProposalStore {
   create(input: CreateProposalInput): ThreadProposal {
     const now = Date.now();
     const proposal: ThreadProposal = {
-      proposalId: generateProposalId(),
+      proposalId: input.proposalId ?? generateProposalId(),
       status: 'pending',
       sourceThreadId: input.sourceThreadId,
       sourceInvocationId: input.sourceInvocationId,

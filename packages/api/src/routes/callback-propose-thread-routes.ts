@@ -10,7 +10,7 @@
  */
 
 import type { CatId, RichCardBlock, ThreadProposal } from '@cat-cafe/shared';
-import { catIdSchema } from '@cat-cafe/shared';
+import { catIdSchema, generateProposalId } from '@cat-cafe/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
@@ -92,7 +92,7 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
       return { status: 'stale_ignored' };
     }
 
-    // Idempotency fast path: same (userId, clientRequestId) → same proposalId.
+    // Idempotency fast path: same (userId, clientRequestId) → return existing proposal.
     if (clientRequestId) {
       const cached = await proposalStore.getDedupProposalId(record.userId, clientRequestId);
       if (cached) {
@@ -120,7 +120,31 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
       resolvedParentThreadId = parentThreadId;
     }
 
+    // P2: Reserve dedup BEFORE create. Pre-generate a candidate proposalId, then atomically
+    // SET NX. The loser of a concurrent retry must NOT create anything (otherwise the pending
+    // list grows by N for N concurrent retries even though they share one clientRequestId).
+    let proposalId: string;
+    if (clientRequestId) {
+      const candidate = generateProposalId();
+      const winningId = await proposalStore.reserveDedup(record.userId, clientRequestId, candidate);
+      if (winningId !== candidate) {
+        // Loser path: never create. The winner's create may not yet be visible (microtask race),
+        // but the dedup key is the authoritative source of truth — the canonical proposalId is
+        // winningId. Callers can GET /api/proposals/:id to read the eventual status.
+        const canonical = await proposalStore.get(winningId);
+        return {
+          proposalId: winningId,
+          status: canonical?.status ?? 'pending',
+          deduped: true,
+        };
+      }
+      proposalId = candidate;
+    } else {
+      proposalId = generateProposalId();
+    }
+
     const proposal = await proposalStore.create({
+      proposalId,
       sourceThreadId: record.threadId,
       sourceInvocationId: invocationId,
       sourceCatId: record.catId,
@@ -132,19 +156,6 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
       createdBy: record.userId,
       ...(initialMessage ? { initialMessage } : {}),
     });
-
-    // Atomically reserve the dedup key. If another concurrent request already reserved
-    // the same clientRequestId, the returned proposalId will be theirs — our just-created
-    // proposal becomes an orphan (will TTL out) and we return the canonical winner.
-    if (clientRequestId) {
-      const winningId = await proposalStore.reserveDedup(record.userId, clientRequestId, proposal.proposalId);
-      if (winningId !== proposal.proposalId) {
-        const canonical = await proposalStore.get(winningId);
-        if (canonical) {
-          return { proposalId: canonical.proposalId, status: canonical.status, deduped: true };
-        }
-      }
-    }
 
     // Render the proposal as a card in the source thread so the user sees + acts on it.
     const cardBlock = buildProposalCardBlock(proposal);

@@ -74,7 +74,7 @@ export class RedisProposalStore implements IProposalStore {
   async create(input: CreateProposalInput): Promise<ThreadProposal> {
     const now = Date.now();
     const proposal: ThreadProposal = {
-      proposalId: generateProposalId(),
+      proposalId: input.proposalId ?? generateProposalId(),
       status: 'pending',
       sourceThreadId: input.sourceThreadId,
       sourceInvocationId: input.sourceInvocationId,

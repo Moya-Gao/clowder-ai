@@ -112,6 +112,8 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
       return { error: 'Proposal status changed concurrently — retry approve' };
     }
 
+    // Stage 1: create the thread. Only this step is allowed to rollback the claim,
+    // because nothing user-visible has been committed yet.
     let thread;
     try {
       thread = await threadStore.create(userId, finalTitle, proposal.projectPath, finalParentThreadId, {
@@ -120,24 +122,14 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
         approvedBy: userId,
         approvedAt: Date.now(),
       });
-      if (finalPreferredCats.length > 0) {
-        await threadStore.updatePreferredCats(thread.id, finalPreferredCats);
-      }
-      if (finalInitialMessage) {
-        await messageStore.append({
-          userId,
-          catId: null,
-          content: finalInitialMessage,
-          mentions: [],
-          timestamp: Date.now(),
-          threadId: thread.id,
-        });
-      }
     } catch (err) {
       await proposalStore.rollbackClaim(proposal.proposalId);
       throw err;
     }
 
+    // Stage 2: finalize the proposal NOW that a real threadId exists. After this point,
+    // any side-effect failure is reported as a warning — the proposal must NOT roll back
+    // (that would leave an orphan thread).
     const finalized = await proposalStore.finalizeApproval({
       proposalId: proposal.proposalId,
       createdThreadId: thread.id,
@@ -149,9 +141,34 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
       },
     });
     if (!finalized) {
-      // Should not happen — we hold the approving claim. Surface as 500 for caller to retry.
+      // Should not happen — we hold the approving claim. Surface as 500; thread is intentionally
+      // kept (writing finalize is the only contract violation here, not the thread itself).
       reply.status(500);
-      return { error: 'Proposal finalize failed unexpectedly after claim' };
+      return { error: 'Proposal finalize failed unexpectedly after claim', threadId: thread.id };
+    }
+
+    // Stage 3: best-effort side effects. Failures become warnings, not 500s.
+    const warnings: string[] = [];
+    if (finalPreferredCats.length > 0) {
+      try {
+        await threadStore.updatePreferredCats(thread.id, finalPreferredCats);
+      } catch (err) {
+        warnings.push(`updatePreferredCats failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    if (finalInitialMessage) {
+      try {
+        await messageStore.append({
+          userId,
+          catId: null,
+          content: finalInitialMessage,
+          mentions: [],
+          timestamp: Date.now(),
+          threadId: thread.id,
+        });
+      } catch (err) {
+        warnings.push(`initialMessage append failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
 
     const updatedThread = (await threadStore.get(thread.id)) ?? thread;
@@ -162,6 +179,7 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
       proposalId: finalized.proposalId,
       threadId: thread.id,
       status: finalized.status,
+      ...(warnings.length > 0 ? { warnings } : {}),
     };
   });
 

@@ -365,4 +365,77 @@ describe('F128 propose / approve / reject flow', () => {
     assert.ok(userMsg, 'expected user-authored initial message');
     assert.equal(userMsg.content, 'edited msg');
   });
+
+  test('initialMessage append failure does NOT roll back the thread or proposal (best-effort warning)', async () => {
+    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    // Wrap messageStore.append to throw on user-authored posts so we hit the side-effect path
+    // AFTER thread creation + finalize. The proposal must stay approved; the thread must stay.
+    class FailingMessageStore extends MessageStore {
+      append(msg) {
+        if (msg.catId === null && msg.userId === 'alice') {
+          throw new Error('synthetic append failure');
+        }
+        return super.append(msg);
+      }
+    }
+    messageStore = new FailingMessageStore();
+    const app = await createApp();
+    const source = await threadStore.create('alice', 'Source');
+    const proposalRes = await propose(app, {
+      userId: 'alice',
+      threadId: source.id,
+      body: { initialMessage: 'will fail to post' },
+    });
+    const { proposalId } = JSON.parse(proposalRes.body);
+    const threadsBefore = threadStore.size;
+
+    const res = await approve(app, 'alice', proposalId);
+
+    assert.equal(res.statusCode, 200, 'approve still returns 200 (thread created successfully)');
+    const body = JSON.parse(res.body);
+    assert.equal(body.status, 'approved');
+    assert.ok(Array.isArray(body.warnings), 'warnings array should be present');
+    assert.ok(
+      body.warnings.some((w) => w.includes('initialMessage')),
+      `expected initialMessage warning, got ${JSON.stringify(body.warnings)}`,
+    );
+    const proposal = await proposalStore.get(proposalId);
+    assert.equal(proposal.status, 'approved', 'proposal must NOT roll back to pending after thread creation');
+    assert.equal(threadStore.size, threadsBefore + 1, 'thread must remain (only one new thread, not zero)');
+  });
+
+  test('dedup race: loser leaves no orphan proposal in the pending list', async () => {
+    const { InMemoryProposalStore } = await import('../dist/domains/cats/services/stores/ports/ProposalStore.js');
+    // Inject delay in reserveDedup so two concurrent requests with same clientRequestId race.
+    class SlowReserveStore extends InMemoryProposalStore {
+      async reserveDedup(userId, clientRequestId, proposalId) {
+        await new Promise((r) => setTimeout(r, 30));
+        return super.reserveDedup(userId, clientRequestId, proposalId);
+      }
+    }
+    proposalStore = new SlowReserveStore();
+    const app = await createApp();
+    const source = await threadStore.create('alice', 'Source');
+    // Real concurrent-retry scenario: same invocation retried twice (e.g. callbackPost retry
+    // after a network hiccup), same clientRequestId. Creating two separate invocations would
+    // trip the stale_ignored guard before dedup is even evaluated.
+    const { invocationId, callbackToken } = registry.create('alice', 'opus', source.id);
+    const send = () =>
+      app.inject({
+        method: 'POST',
+        url: '/api/callbacks/propose-thread',
+        payload: { invocationId, callbackToken, title: 'New thread', reason: 'Because', clientRequestId: 'race-key' },
+      });
+
+    const [first, second] = await Promise.all([send(), send()]);
+    const firstBody = JSON.parse(first.body);
+    const secondBody = JSON.parse(second.body);
+    // Both responses converge on the same proposalId.
+    assert.equal(secondBody.proposalId, firstBody.proposalId, 'both requests must see the same proposalId');
+
+    // The pending list must contain exactly ONE proposal (no orphan from the loser).
+    const pending = await proposalStore.listPending('alice');
+    assert.equal(pending.length, 1, `expected 1 pending proposal, found ${pending.length}`);
+    assert.equal(pending[0].proposalId, firstBody.proposalId);
+  });
 });
