@@ -30,17 +30,21 @@ Direct `cat_cafe_create_thread` semantics are rejected. The replacement is `cat_
 
 ## What
 
-### Three-layer split
+### Single PR scope — propose flow end-to-end
 
-| Slice | Scope | Sequence |
-|-------|-------|---------|
-| **PR-1** Backend proposal model | `RedisProposalStore`, `cat_cafe_propose_thread` MCP tool, `POST /api/callbacks/propose-thread` (cat auth), `POST /api/proposals/:id/approve` & `/reject` (user auth), audit fields, tests | first, mergeable alone |
-| **PR-2** Proposal card UI | Rich `card` block rendered in source thread with prefilled editable fields + Approve/Edit/Reject buttons, frontend wiring to approval endpoints, status transitions (pending → created/rejected) | after PR-1 |
-| **PR-3** Hierarchy sidebar (deferred) | `parentThreadId` rendering, tree connectors, collapse — kept from v1 design but pushed to follow-up; reconcile with F190 console restructure | optional follow-up |
+Owner decision (2026-05-22, mid-spec): do **not** split — proposal-first is a single coherent feature that's only useful end-to-end. The PR ships:
 
-PR-1 is the primary deliverable. PR-2 makes it usable. PR-3 is non-blocking.
+| Layer | Scope |
+|-------|-------|
+| **Backend** | `RedisProposalStore`, `cat_cafe_propose_thread` MCP tool, `POST /api/callbacks/propose-thread` (cat auth), `POST /api/proposals/:id/approve` & `/reject` (user auth), audit fields, tests |
+| **Frontend** | Proposal card rendered in the source thread (reuses rich `card` block kind) with prefilled editable fields and Approve / Edit / Reject buttons; status transitions reflected via `proposal_updated` WS event |
+| **Prompt + skill** | `MCP_TOOLS_SECTION` updated for propose semantics; `thread-orchestration` skill rewritten for propose-first flow |
 
-## Backend design (PR-1)
+### Deferred (NOT in this PR)
+
+**Hierarchy sidebar UI** (parent/child tree rendering): kept on disk as v1 design reference, but explicitly **out of scope** here. Reason: between v1's `ThreadSidebar` and `main`, F190 console restructure reorganized the sidebar; layering hierarchy onto the v1 component shape would either revert F190 or create a hybrid that's worse than either. A separate follow-up will design hierarchy UI against the post-F190 sidebar shape if still desired. The backend `parentThreadId` field + `getChildThreads()` are kept so the hierarchy follow-up has the data it needs.
+
+## Backend design
 
 ### Proposal lifecycle
 
@@ -188,9 +192,9 @@ Replaces `cat_cafe_create_thread` (deleted). Tool description (drafted, refine i
 | `callback-create-thread-routes.ts` | rename + rewrite to `callback-propose-thread-routes.ts` |
 | `callback-tools.ts: cat_cafe_create_thread` | rename to `cat_cafe_propose_thread`, return shape changes |
 | `callback-create-thread.test.js` | rewrite for propose semantics |
-| Frontend hierarchy files (ThreadHierarchyToggle / thread-hierarchy / ThreadItem hierarchy bits / ThreadSidebar hierarchy bits) | drop from PR-1; defer to PR-3 (or discard if F190 supersedes) |
-| `designs/F128-thread-hierarchy-sidebar.pen` | keep on disk but mark as PR-3 reference; PR-2 needs a new `F128-proposal-card.pen` |
-| `thread-orchestration` skill | rewrite to propose-first flow; consider whether it still makes sense post-correction |
+| Frontend hierarchy files (`ThreadHierarchyToggle.tsx`, `thread-hierarchy.ts`, `thread-hierarchy.test.ts`, hierarchy bits in `ThreadItem.tsx` / `ThreadSidebar.tsx`) | **delete** from this PR; defer to hierarchy follow-up (will redesign post-F190) |
+| `designs/F128-thread-hierarchy-sidebar.pen` | keep on disk but mark as deferred follow-up reference; this PR needs a new `F128-proposal-card.pen` |
+| `thread-orchestration` skill | rewrite to propose-first flow (cat proposes → wait for user approval → continue) |
 
 ### Code to keep / extend
 
@@ -200,21 +204,31 @@ Replaces `cat_cafe_create_thread` (deleted). Tool description (drafted, refine i
 
 ## Acceptance Criteria
 
-### PR-1 (Backend)
+### Backend
 
-- [ ] AC-1.1: `RedisProposalStore` implements create/get/listByUser/listPending/markApproved/markRejected with proper Redis indices
-- [ ] AC-1.2: `POST /api/callbacks/propose-thread` creates proposal, does NOT create thread, returns `proposalId`, supports `clientRequestId` idempotency, enforces stale guard, validates parent ownership
-- [ ] AC-1.3: `cat_cafe_propose_thread` MCP tool registered with strong description; old `cat_cafe_create_thread` removed
-- [ ] AC-1.4: `POST /api/proposals/:id/approve` (user auth) creates thread, is idempotent on re-approve, rejects cross-user attempts (403), conflicts on already-rejected (409), applies user edits, posts initial message if provided, writes audit fields, emits both `thread_created` + `proposal_updated`
-- [ ] AC-1.5: `POST /api/proposals/:id/reject` (user auth) is idempotent, conflicts on already-approved, writes audit, emits `proposal_updated`
-- [ ] AC-1.6: `Proposal` schema in shared types matches the spec model above
-- [ ] AC-1.7: Tests cover: cat auth happy path, stale guard, ownership rejection, idempotency, user approve happy path, double-approve idempotency, cross-user approve 403, approve-after-reject 409, reject happy path, reject-then-approve 409, edit-on-approve applied to created thread
-- [ ] AC-1.8: All file sizes ≤ 350 lines (split routes if needed)
-- [ ] AC-1.9: No `any` types
+- [ ] AC-B1: `RedisProposalStore` implements create/get/listByUser/listPending/markApproved/markRejected with proper Redis indices
+- [ ] AC-B2: `POST /api/callbacks/propose-thread` creates proposal, does NOT create thread, returns `proposalId`, supports `clientRequestId` idempotency, enforces stale guard, validates parent ownership
+- [ ] AC-B3: `cat_cafe_propose_thread` MCP tool registered with strong description; old `cat_cafe_create_thread` removed
+- [ ] AC-B4: `POST /api/proposals/:id/approve` (user auth) creates thread, is idempotent on re-approve, rejects cross-user attempts (403), conflicts on already-rejected (409), applies user edits, posts initial message if provided, writes audit fields, emits both `thread_created` + `proposal_updated`
+- [ ] AC-B5: `POST /api/proposals/:id/reject` (user auth) is idempotent, conflicts on already-approved, writes audit, emits `proposal_updated`
+- [ ] AC-B6: `Proposal` schema in shared types matches the spec model above
+- [ ] AC-B7: Tests cover: cat auth happy path, stale guard, ownership rejection, idempotency, user approve happy path, double-approve idempotency, cross-user approve 403, approve-after-reject 409, reject happy path, reject-then-approve 409, edit-on-approve applied to created thread
 
-### PR-2 (Card UI) — separate spec when PR-1 lands
+### Frontend
 
-### PR-3 (Hierarchy sidebar) — deferred, separate spec; reconcile with F190 console first
+- [ ] AC-F1: Proposal card renders in source thread on `proposal_created` socket event (no manual refresh)
+- [ ] AC-F2: Card prefills with cat-supplied fields; user can edit `title`, `parentThreadId`, `preferredCats`, `initialMessage` before approve
+- [ ] AC-F3: Approve button POSTs to `/api/proposals/:id/approve`; on success, sidebar shows new thread (via `thread_created` WS event); card flips to `approved` state with link to created thread
+- [ ] AC-F4: Reject button POSTs to `/api/proposals/:id/reject`; card flips to `rejected` state; thread is not created
+- [ ] AC-F5: Double-click protection on Approve/Reject (rely on backend idempotency + button disable on click)
+- [ ] AC-F6: Frontend tests cover render, edit, approve happy path, reject path, status flip via WS event
+
+### Cross-cutting
+
+- [ ] AC-X1: All file sizes ≤ 350 lines (split routes/components if needed)
+- [ ] AC-X2: No `any` types
+- [ ] AC-X3: `MCP_TOOLS_SECTION` updated; `thread-orchestration` skill rewritten for propose-first
+- [ ] AC-X4: `pnpm check` + `pnpm lint` + all affected tests green
 
 ## Risks
 
@@ -239,8 +253,8 @@ Replaces `cat_cafe_create_thread` (deleted). Tool description (drafted, refine i
 | 2026-03-14 | v1 kickoff (direct-create semantics) |
 | 2026-03-14 ~ 03-31 | v1 implementation + maintainer reviews, blocked |
 | 2026-05-22 | Maintainer correction: switch to proposal-first; spec rewritten as v2 |
-| TBD | PR-1 (backend) |
-| TBD | PR-2 (card UI) |
+| 2026-05-22 | Owner decision: single PR (no split) — backend + card UI ship together; hierarchy sidebar deferred |
+| TBD | Implementation complete + PR opened |
 
 ## References
 
