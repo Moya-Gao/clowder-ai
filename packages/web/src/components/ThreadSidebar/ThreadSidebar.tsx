@@ -977,7 +977,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
           <button
             type="button"
             onClick={handleToggleTrash}
-            className="flex w-full items-center gap-2 h-9 px-2.5 rounded-xl bg-[var(--console-code-bg)] text-xs text-cafe-secondary hover:opacity-80 transition-colors"
+            className="flex w-full items-center gap-2 h-9 px-2.5 rounded-xl bg-transparent text-xs text-cafe-secondary hover:text-cafe-accent transition-colors"
             data-testid="trash-bin-toggle"
           >
             <svg

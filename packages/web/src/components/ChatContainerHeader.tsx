@@ -260,7 +260,7 @@ function LiveAudioToggle() {
       className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors hidden lg:flex ${
         isActive
           ? 'bg-conn-emerald-bg text-conn-emerald-text'
-          : 'bg-[var(--console-pill-bg)] text-cafe-secondary hover:opacity-80'
+          : 'bg-transparent text-cafe-secondary hover:text-cafe-accent'
       }`}
       title={isActive ? 'Close transcript' : 'Live audio transcript'}
       aria-label={isActive ? 'Close transcript' : 'Live audio transcript'}

@@ -173,7 +173,7 @@ export function VoiceCompanionButton({ threadId, defaultCatId }: VoiceCompanionB
         className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
           isActive
             ? 'bg-conn-emerald-bg text-conn-emerald-text hover:opacity-80'
-            : 'bg-[var(--console-pill-bg)] text-cafe-secondary hover:opacity-80'
+            : 'bg-transparent text-cafe-secondary hover:text-cafe-accent'
         }`}
         aria-label={isActive ? '停止语音陪伴' : '语音陪伴'}
         title={isActive ? '停止语音陪伴' : '语音陪伴'}

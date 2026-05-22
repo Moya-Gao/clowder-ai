@@ -686,3 +686,39 @@ describe('F723 cross-page typography consistency', () => {
     expect(luminance).toBeGreaterThan(235);
   });
 });
+
+describe('F723 interactive button guard — no grey pill on action/toggle controls', () => {
+  it('ExportButton: no console-pill-bg on the toggle button', () => {
+    const src = readSrc('ExportButton.tsx');
+    expect(src).not.toContain('console-pill-bg');
+    expect(src).toContain('bg-transparent');
+  });
+
+  it('VoiceCompanionButton: inactive state has no console-pill-bg', () => {
+    const src = readSrc('VoiceCompanionButton.tsx');
+    expect(src).not.toContain('console-pill-bg');
+    expect(src).toContain('bg-transparent');
+  });
+
+  it('ChatContainerHeader: LiveAudioToggle inactive has no console-pill-bg', () => {
+    const src = readSrc('ChatContainerHeader.tsx');
+    expect(src).not.toContain('console-pill-bg');
+    expect(src).toContain('bg-transparent');
+  });
+
+  it('RightStatusPanel: action buttons (toggle/cycle/reveal) have no console-pill class', () => {
+    const src = readSrc('RightStatusPanel.tsx');
+    expect(src).not.toMatch(/<button[\s\S]*?console-pill/);
+  });
+
+  it('HubCoCreatorEditor: upload button has no console-pill-bg', () => {
+    const src = readSrc('HubCoCreatorEditor.tsx');
+    expect(src).not.toMatch(/<button[\s\S]*?console-pill-bg/);
+  });
+
+  it('ThreadSidebar: trash toggle has no console-code-bg', () => {
+    const src = readSrc('ThreadSidebar/ThreadSidebar.tsx');
+    expect(src).not.toContain('console-code-bg');
+    expect(src).toMatch(/bg-transparent[\s\S]*?trash-bin-toggle/);
+  });
+});

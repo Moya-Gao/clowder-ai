@@ -130,7 +130,7 @@ function ThinkingModeToggle({ threadId }: { threadId: string }) {
       </span>
       <button
         onClick={toggle}
-        className="console-pill rounded-full px-3 py-1 text-xs transition-colors hover:text-cafe"
+        className="rounded-full px-3 py-1 text-xs text-cafe-secondary transition-colors hover:text-cafe-accent"
         title={isDebug ? '切换到游戏模式（猫猫互相看不到心里话）' : '切换到调试模式（猫猫互相分享心里话）'}
       >
         {isDebug ? '切换游戏' : '切换调试'}
@@ -212,7 +212,7 @@ function BubbleDisplayToggle({
       <button
         onClick={cycle}
         disabled={bubbleRestorePending}
-        className="console-pill rounded-full px-3 py-1 text-xs transition-colors hover:text-cafe"
+        className="rounded-full px-3 py-1 text-xs text-cafe-secondary transition-colors hover:text-cafe-accent"
       >
         {bubbleRestorePending ? '恢复中...' : BUBBLE_LABELS[next as keyof typeof BUBBLE_LABELS]}
       </button>
@@ -274,7 +274,7 @@ function RevealWhispersButton({ threadId }: { threadId: string }) {
         <button
           onClick={handleReveal}
           disabled={status === 'pending'}
-          className="console-pill rounded-full px-3 py-1 text-xs text-conn-amber-text hover:opacity-90 transition-colors disabled:opacity-50"
+          className="rounded-full px-3 py-1 text-xs text-conn-amber-text hover:opacity-90 transition-colors disabled:opacity-50"
           title="揭晓本线程所有悄悄话"
         >
           {status === 'pending' ? '揭秘中...' : '揭秘全部'}
