@@ -47,7 +47,7 @@ interface SettingsCardSubSectionProps {
 
 export function SettingsCardSubSection({ label, children }: SettingsCardSubSectionProps) {
   return (
-    <div className="border-t border-[var(--console-border-soft)] px-4 pb-3 pt-2">
+    <div className="console-divider-t px-4 pb-3 pt-2">
       {label && (
         <SettingsText variant="micro" tone="muted" className="font-medium uppercase tracking-wider">
           {label}

@@ -69,7 +69,7 @@ export function DefaultCatSelector({
           value={valueInList ? currentDefaultCatId : ''}
           disabled={isLoading}
           onChange={(e) => onSelect(e.target.value)}
-          className={`h-[34px] w-[220px] rounded-[10px] border-transparent bg-[var(--console-shell-bg)] px-3 py-1 text-[13px] text-cafe
+          className={`h-[34px] w-[220px] rounded-[10px] border-transparent bg-[var(--console-shell-bg)] px-3 py-1 text-compact text-cafe
             focus:outline-none focus:ring-1 focus:ring-cafe-accent focus:border-cafe-accent
             ${isLoading ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
         >

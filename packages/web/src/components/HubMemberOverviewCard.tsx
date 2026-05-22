@@ -100,8 +100,8 @@ function OwnerAvatar({ coCreator }: { coCreator: CoCreatorConfig }) {
   const avatarSrc = safeAvatarSrc(coCreator.avatar);
   return (
     <div
-      className="flex h-8 w-8 items-center justify-center overflow-hidden"
-      style={{ backgroundColor: primary, color: '#fff', fontSize: '0.75rem', fontWeight: 700, borderRadius: '9999px' }}
+      className="flex h-8 w-8 items-center justify-center overflow-hidden text-xs font-bold"
+      style={{ backgroundColor: primary, color: '#fff', borderRadius: '9999px' }}
     >
       {avatarSrc ? (
         <AvatarImageWithFallback
@@ -271,12 +271,7 @@ export function HubMemberOverviewCard({
       isDragging={isDragging}
       dragHandle={
         draggable ? (
-          <span
-            aria-hidden="true"
-            title="拖动排序"
-            className="select-none leading-none"
-            style={{ fontSize: '1.125rem' }}
-          >
+          <span aria-hidden="true" title="拖动排序" className="select-none leading-none text-lg">
             ⠿
           </span>
         ) : undefined

@@ -97,7 +97,7 @@ export function MemoryNav({ active, initialReferrerThread = null }: MemoryNavPro
   const items = useMemo(() => buildMemoryTabItems(fromSuffix, badges), [fromSuffix, badges]);
 
   return (
-    <nav aria-label="Memory navigation" className="flex border-b border-[var(--console-border-soft)]">
+    <nav aria-label="Memory navigation" className="flex console-divider-b">
       {items.map((item) => {
         const isActive = item.id === active;
         return (

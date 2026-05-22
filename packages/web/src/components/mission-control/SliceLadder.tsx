@@ -169,7 +169,7 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
                   )}
                 </div>
                 {isExpanded && (
-                  <div className="mt-2 space-y-1 border-t border-[var(--console-border-soft)] pt-2 text-cafe-secondary">
+                  <div className="mt-2 space-y-1 console-divider-t pt-2 text-cafe-secondary">
                     {slice.description && (
                       <div>
                         <strong>Description:</strong> {slice.description}

@@ -84,7 +84,7 @@ function BrowserPushCard({
       </div>
 
       {isSubscribed && (
-        <div className="flex items-center gap-2 px-5 py-3 border-t border-[var(--console-border-soft)]">
+        <div className="flex items-center gap-2 px-5 py-3 console-divider-t">
           <button
             type="button"
             onClick={onSendTest}
@@ -97,7 +97,7 @@ function BrowserPushCard({
       )}
 
       {!pushConfigured && (
-        <div className="px-5 py-3 border-t border-[var(--console-border-soft)]">
+        <div className="px-5 py-3 console-divider-t">
           <p className="mb-3 text-xs text-cafe-muted leading-relaxed">
             浏览器推送需要配置服务端密钥对来标识推送身份。终端运行{' '}
             <code className="text-micro bg-[var(--console-field-bg)] px-1 py-0.5 rounded">

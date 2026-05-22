@@ -128,11 +128,7 @@ export function GithubConfigPanel() {
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {fields.map((field) => (
-            <label
-              key={field.envName}
-              className="space-y-1 font-medium"
-              style={{ fontSize: '0.75rem', color: 'var(--cafe-text-secondary)' }}
-            >
+            <label key={field.envName} className="space-y-1 text-xs font-medium text-cafe-secondary">
               {field.label}
               <input
                 name={field.envName}
@@ -146,16 +142,7 @@ export function GithubConfigPanel() {
                       : '未配置'
                     : (field.currentValue ?? '未配置')
                 }
-                className="w-full"
-                style={{
-                  borderRadius: '0.5rem',
-                  border: '1px solid var(--console-border-soft)',
-                  backgroundColor: 'var(--cafe-surface-elevated)',
-                  paddingInline: '0.75rem',
-                  paddingBlock: '0.5rem',
-                  fontSize: '0.875rem',
-                  color: 'var(--cafe-text)',
-                }}
+                className="w-full rounded-lg border border-[var(--console-border-soft)] bg-cafe-surface-elevated px-3 py-2 text-sm text-cafe"
                 data-testid={`field-${field.envName}`}
               />
               {field.restartRequired && (

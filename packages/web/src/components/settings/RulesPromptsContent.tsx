@@ -117,6 +117,145 @@ export function RulesPromptsContent() {
   );
 }
 
+export function RuleFileCard({
+  file,
+  label,
+  onClick,
+  errorMessage,
+}: {
+  file: RuleFile;
+  label?: string;
+  onClick: () => void;
+  /** F203 Phase F: compile-failed compiled L0 — distinct UX from missing file. */
+  errorMessage?: string;
+}) {
+  const displayLabel = label ?? FILE_LABELS[file.path] ?? file.path;
+
+  if (errorMessage !== undefined) {
+    return (
+      <SettingsCard>
+        <div className="flex items-center justify-between gap-3">
+          <SettingsText as="p" variant="sm" tone="default" className="font-medium">
+            {displayLabel}
+          </SettingsText>
+          <SettingsBadge tone="amber">编译失败</SettingsBadge>
+        </div>
+        <SettingsText as="p" tone="muted" className="mt-2">
+          {errorMessage || '(无错误信息)'}
+        </SettingsText>
+      </SettingsCard>
+    );
+  }
+
+  if (!file.exists) {
+    return (
+      <SettingsCard>
+        <div className="flex items-center justify-between gap-3">
+          <SettingsText as="p" variant="sm" tone="default" className="font-medium">
+            {displayLabel}
+          </SettingsText>
+          <SettingsBadge tone="red">文件不存在</SettingsBadge>
+        </div>
+        <SettingsText as="p" tone="muted" className="mt-2">
+          {file.path}
+        </SettingsText>
+      </SettingsCard>
+    );
+  }
+
+  const lineCount = file.content.split('\n').length;
+
+  return (
+    <SettingsCard onClick={onClick}>
+      <div className="flex w-full items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <SettingsText as="p" variant="sm" tone="default" className="font-medium">
+              {displayLabel}
+            </SettingsText>
+            <SettingsBadge tone="blue">可预览</SettingsBadge>
+          </div>
+          <SettingsText as="p" tone="muted" className="mt-1">
+            {file.path} · {lineCount} 行
+          </SettingsText>
+        </div>
+        <span
+          className="console-pill flex h-10 w-10 shrink-0 items-center justify-center"
+          style={{ borderRadius: '9999px', color: 'var(--cafe-text-secondary)' }}
+        >
+          <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path
+              fillRule="evenodd"
+              d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </span>
+      </div>
+    </SettingsCard>
+  );
+}
+
+/**
+ * F203 Phase F — L0 system prompt section (read-only viewer).
+ * Renders the L0 template card + per-cat compiled cards + customization paths.
+ * Wired into RulesPromptsContent as 3rd Section. Props-driven for testability;
+ * async fetch + modal interaction stay in RulesPromptsContent.
+ */
+export function L0PromptsSection({
+  l0Prompts,
+  onPreview,
+}: {
+  l0Prompts: L0PromptsBlock;
+  onPreview: (file: RuleFile, label: string) => void;
+}) {
+  return (
+    <SettingsSection
+      title="L0 系统提示词"
+      description="替换式注入到每只猫的 native system role（Phase C 起；客观性指令 carry-over 保留）。template 是真相源；per-cat 渲染是 compileL0 实际产出。"
+      badge={<SettingsBadge tone="slate">1 template + {l0Prompts.compiledByCat.length} cats</SettingsBadge>}
+    >
+      <div className="space-y-3">
+        <RuleFileCard
+          file={l0Prompts.template}
+          label="L0 Template（含占位）"
+          onClick={() => onPreview(l0Prompts.template, 'L0 Template — system-prompt-l0.md')}
+        />
+        {l0Prompts.compiledByCat.map((c) => {
+          const compiledFile: RuleFile = {
+            path: `compiled://${c.catId}`,
+            content: c.compiled,
+            exists: c.error === null,
+          };
+          return (
+            <RuleFileCard
+              key={c.catId}
+              file={compiledFile}
+              label={c.displayName}
+              onClick={() => onPreview(compiledFile, `${c.displayName} — compiled L0`)}
+              errorMessage={c.error ?? undefined}
+            />
+          );
+        })}
+        <div className="rounded-xl bg-[var(--console-panel-bg)] p-3 text-xs leading-5 text-cafe-muted">
+          <SettingsText as="p" tone="secondary" className="font-medium">
+            如何修改 L0（read-only viewer，编辑入口在文件系统）
+          </SettingsText>
+          <SettingsText as="p" tone="muted" className="mt-1">
+            Template 真相源: <code>{l0Prompts.customization.templatePath}</code>
+          </SettingsText>
+          <SettingsText as="p" tone="muted">
+            Per-cat 渲染逻辑: <code>{l0Prompts.customization.compileScript}</code>
+          </SettingsText>
+          <SettingsText as="p" tone="muted">
+            改完验证: {l0Prompts.customization.verifyCommand}
+          </SettingsText>
+        </div>
+      </div>
+    </SettingsSection>
+  );
+}
+
 function RulePreviewModal({ label, file, onClose }: { label: string; file: RuleFile; onClose: () => void }) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -146,19 +285,11 @@ function RulePreviewModal({ label, file, onClose }: { label: string; file: RuleF
         }}
       >
         <div className="flex shrink-0 items-center gap-[14px]">
-          <div
-            className="flex h-11 w-11 shrink-0 items-center justify-center font-bold"
-            style={{
-              borderRadius: '0.75rem',
-              backgroundColor: 'var(--console-active-bg)',
-              fontSize: '1.125rem',
-              color: 'var(--console-modal-title)',
-            }}
-          >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--console-active-bg)] text-lg font-bold text-[var(--console-modal-title)]">
             📜
           </div>
           <div className="min-w-0 flex-1">
-            <SettingsText as="h2" variant="base" tone="default" className="font-bold" style={{ fontSize: '1.25rem' }}>
+            <SettingsText as="h2" variant="base" tone="default" className="text-xl font-bold">
               {label}
             </SettingsText>
             <SettingsText as="p" tone="muted">
@@ -169,12 +300,7 @@ function RulePreviewModal({ label, file, onClose }: { label: string; file: RuleF
             type="button"
             onClick={onClose}
             aria-label="关闭"
-            className="flex h-8 w-8 shrink-0 items-center justify-center transition"
-            style={{
-              borderRadius: '0.75rem',
-              fontSize: '1rem',
-              color: 'var(--cafe-text-muted)',
-            }}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-base text-cafe-muted transition"
           >
             ✕
           </button>
@@ -184,10 +310,7 @@ function RulePreviewModal({ label, file, onClose }: { label: string; file: RuleF
           className="mt-4 min-h-0 flex-1 overflow-y-auto"
           style={{ borderRadius: '1rem', backgroundColor: 'var(--console-panel-bg)', padding: '1rem' }}
         >
-          <pre
-            className="max-h-[50vh] overflow-auto whitespace-pre-wrap break-words font-mono leading-6"
-            style={{ fontSize: '0.75rem', color: 'var(--cafe-text-secondary)' }}
-          >
+          <pre className="max-h-[50vh] overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-cafe-secondary">
             {file.content}
           </pre>
         </div>

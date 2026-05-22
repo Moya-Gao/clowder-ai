@@ -201,7 +201,7 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
 
   it('MemoryNav uses underline tabs matching MissionHub, not soft pills', () => {
     const src = readSrc('memory/MemoryNav.tsx');
-    expect(src).toContain('border-b border-[var(--console-border-soft)]');
+    expect(src).toContain('console-divider-b');
     expect(src).toContain('border-b-2 border-[var(--console-button-emphasis)]');
     expect(src).toContain('text-sm font-semibold');
     expect(src).not.toContain('rounded-md');
@@ -210,7 +210,7 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
 
   it('SignalNav uses underline tabs matching MissionHub, not soft pills', () => {
     const src = readSrc('signals/SignalNav.tsx');
-    expect(src).toContain('border-b border-[var(--console-border-soft)]');
+    expect(src).toContain('console-divider-b');
     expect(src).toContain('border-b-2 border-[var(--console-button-emphasis)]');
     expect(src).toContain('text-sm font-semibold');
     expect(src).not.toContain('rounded-md');
@@ -280,10 +280,10 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toMatch(/<aside[\s\S]{0,200}bg-\[var\(--console-panel-bg\)\]/);
   });
 
-  it('SettingsNav item text uses text-[12px], not text-compact', () => {
+  it('SettingsNav item text uses text-xs token, no hardcoded size', () => {
     const src = readSrc('settings/SettingsNav.tsx');
-    expect(src).toContain('text-[12px]');
-    expect(src).not.toContain('text-compact');
+    expect(src).toContain('text-xs');
+    expect(src).not.toMatch(/text-\[\d+px\]/);
   });
 
   it('SettingsDeleteButton: muted default, cafe-accent hover with bg', () => {
@@ -352,4 +352,118 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(section).toContain('text-base font-semibold');
     expect(section).not.toContain('text-lg font-bold');
   });
+
+  it('divider primitives defined in console-shell.css', () => {
+    const css = readFileSync(resolve(testDir, '..', '..', 'app', 'console-shell.css'), 'utf8');
+    expect(css).toContain('.console-divider-t');
+    expect(css).toContain('.console-divider-b');
+    expect(css).toContain('.console-divider-r');
+    expect(css).toContain('.console-divider-l');
+    expect(css).toMatch(/console-divider-t[\s\S]*?border-top[\s\S]*?var\(--console-border-soft\)/);
+  });
+
+  it('MemoryNav + SignalNav use console-divider-b, not raw border pattern', () => {
+    for (const file of ['memory/MemoryNav.tsx', 'signals/SignalNav.tsx']) {
+      const src = readSrc(file);
+      expect(src).toContain('console-divider-b');
+      expect(src).not.toMatch(/border-b border-\[var\(--console-border-soft\)\]/);
+    }
+  });
+
+  it('MissionControlPage tabs use console-divider-b, not raw border pattern', () => {
+    const src = readSrc('mission-control/MissionControlPage.tsx');
+    expect(src).toContain('console-divider-b');
+    expect(src).not.toMatch(/border-b border-\[var\(--console-border-soft\)\]/);
+  });
+});
+
+describe('F190 typography guard — no hardcoded font sizes in console scope', () => {
+  const CONSOLE_SCOPE = [
+    'settings/SettingsNav.tsx',
+    'settings/primitives/SettingsRow.tsx',
+    'settings/primitives/SettingsSection.tsx',
+    'settings/primitives/SettingsCard.tsx',
+    'settings/SettingsPageHeader.tsx',
+    'settings/RulesPromptsContent.tsx',
+    'settings/SkillPreviewModal.tsx',
+    'settings/InstallPreviewModal.tsx',
+    'settings/GithubConfigPanel.tsx',
+    'settings/PushServiceConfig.tsx',
+    'hub-cat-editor-fields.tsx',
+    'hub-cat-editor-voice.tsx',
+    'hub-cat-editor-advanced.tsx',
+    'hub-cat-editor.sections.tsx',
+    'hub-tag-editor.tsx',
+    'HubCatEditor.tsx',
+    'HubCoCreatorEditor.tsx',
+    'HubQuotaBoardTab.tsx',
+    'HubToolUsageTab.tsx',
+    'HubLeaderboardTab.tsx',
+    'HubMemberOverviewCard.tsx',
+    'RightStatusPanel.tsx',
+    'DefaultCatSelector.tsx',
+    'memory/MemoryHub.tsx',
+    'signals/SignalInboxView.tsx',
+    'signals/SignalSourcesView.tsx',
+    'mission-control/MissionControlPage.tsx',
+    'leaderboard-cards.tsx',
+    'leaderboard-phase-bc.tsx',
+  ];
+
+  const ALLOWED_EXCEPTIONS = ['text-[28px]'];
+
+  for (const file of CONSOLE_SCOPE) {
+    it(`${file}: no hardcoded text-[Xpx] (use tokens: text-micro/label/xs/compact/sm/base/lg/xl)`, () => {
+      const src = readSrc(file);
+      const matches = src.match(/text-\[\d+px\]/g) ?? [];
+      const violations = matches.filter((m) => !ALLOWED_EXCEPTIONS.includes(m));
+      expect(violations).toEqual([]);
+    });
+  }
+
+  for (const file of CONSOLE_SCOPE) {
+    it(`${file}: no inline fontSize in style objects`, () => {
+      const src = readSrc(file);
+      expect(src).not.toMatch(/fontSize:\s*['"]\d/);
+    });
+  }
+});
+
+describe('F190 divider guard — console-scope dividers use semantic class', () => {
+  const DIVIDER_SCOPE = [
+    'memory/MemoryNav.tsx',
+    'signals/SignalNav.tsx',
+    'mission-control/MissionControlPage.tsx',
+    'settings/primitives/SettingsRow.tsx',
+    'settings/primitives/SettingsCollapsibleCard.tsx',
+    'settings/capability-settings-ui.tsx',
+    'UnifiedAuthModal.tsx',
+    'PushSettingsPanel.tsx',
+    'ThreadExecutionBar.tsx',
+    'ParallelStatusBar.tsx',
+    'audit/AuditExplorerPanel.tsx',
+    'mission-control/WorkflowSopPanel.tsx',
+    'mission-control/FeatureRowList.tsx',
+    'workspace/WorldPanel.tsx',
+    'PlanBoardPanel.tsx',
+    'workspace/ConsolePanel.tsx',
+    'workspace/BrowserToolbar.tsx',
+    'workspace/BrowserPanel.tsx',
+    'workspace/DiffViewer.tsx',
+    'rich/DiffBlock.tsx',
+    'mission-control/ExternalProjectTab.tsx',
+    'mission-control/SliceLadder.tsx',
+    'mission-control/ThreadSituationPanel.tsx',
+    'memory/CollectionGraphParts.tsx',
+    'ThreadSidebar/ThreadSidebar.tsx',
+    'ThreadSidebar/DirectoryBrowser.tsx',
+  ];
+
+  for (const file of DIVIDER_SCOPE) {
+    it(`${file}: uses console-divider-* class, no clean raw border-[var(--console-border-soft)]`, () => {
+      const src = readSrc(file);
+      const rawDividers = src.match(/border-[tbrl] border-\[var\(--console-border-soft\)\](?!\/)/g) ?? [];
+      expect(rawDividers).toEqual([]);
+    });
+  }
 });

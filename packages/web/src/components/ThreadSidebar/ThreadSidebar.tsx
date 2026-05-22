@@ -718,9 +718,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
 
   return (
     <>
-      <aside
-        className={`${sidebarWidthClass} border-r border-[var(--console-border-soft)] bg-[var(--console-shell-bg)] flex flex-col h-full`}
-      >
+      <aside className={`${sidebarWidthClass} console-divider-r bg-[var(--console-shell-bg)] flex flex-col h-full`}>
         <div className="px-3 pt-3 pb-2 flex items-center justify-between">
           <span className="text-sm font-semibold text-cafe-black">对话</span>
           <div className="flex items-center gap-1.5">

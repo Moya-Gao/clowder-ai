@@ -338,10 +338,10 @@ function RuntimeLogsButton() {
   return (
     <section className={`${SIDEBAR_CARD} px-3 py-2`}>
       <div className="flex items-center justify-between">
-        <h3 className="text-[11px] font-bold text-cafe-secondary">运行日志</h3>
+        <h3 className="text-label font-bold text-cafe-secondary">运行日志</h3>
         <button
           onClick={handleClick}
-          className="text-[11px] font-bold text-cafe-secondary transition-colors hover:text-cafe"
+          className="text-label font-bold text-cafe-secondary transition-colors hover:text-cafe"
           title="在 Workspace 面板中打开运行日志目录"
         >
           查看日志
@@ -395,15 +395,15 @@ export function RightStatusPanel({
       style={{ width: width ?? 304, flexShrink: 0, background: 'var(--console-shell-bg)' }}
     >
       <div className="px-0.5 pb-1">
-        <p className="text-[15px] font-bold text-cafe">状态栏</p>
-        <span className="text-[10px] text-cafe-secondary">
+        <p className="text-sm font-bold text-cafe">状态栏</p>
+        <span className="text-micro text-cafe-secondary">
           当前模式：<span className="font-medium">{modeLabel(intentMode)}</span>
         </span>
       </div>
 
       {/* ── Active cats: currently working ──────────────── */}
       <section className={`${SIDEBAR_CARD} p-2.5`}>
-        <h3 className="text-[11px] font-bold text-cafe-secondary mb-2">
+        <h3 className="text-label font-bold text-cafe-secondary mb-2">
           {activeCats.length > 0 ? '当前调用' : '猫猫状态'}
         </h3>
         {activeCats.length > 0 ? (
@@ -437,7 +437,7 @@ export function RightStatusPanel({
         <section className={`${SIDEBAR_CARD} p-2.5`}>
           <button
             onClick={() => setHistoryOpen((v) => !v)}
-            className="w-full flex items-center justify-between text-[11px] font-bold text-cafe-secondary hover:text-cafe-secondary"
+            className="w-full flex items-center justify-between text-label font-bold text-cafe-secondary hover:text-cafe-secondary"
           >
             <span>历史参与 ({historyCats.length})</span>
             <span className="text-micro">{historyOpen ? '▲' : '▼'}</span>
@@ -467,7 +467,7 @@ export function RightStatusPanel({
 
       {/* ── Message stats (collapsible) ───────────────── */}
       <section className={`${SIDEBAR_CARD} p-2.5`}>
-        <h3 className="text-[11px] font-bold text-cafe-secondary mb-2">消息统计</h3>
+        <h3 className="text-label font-bold text-cafe-secondary mb-2">消息统计</h3>
         <div className="grid grid-cols-2 gap-2 text-xs text-cafe-secondary">
           <div>总数</div>
           <div className="text-right font-medium">{messageSummary.total}</div>
@@ -491,7 +491,7 @@ export function RightStatusPanel({
       />
 
       <section className={`${SIDEBAR_CARD} p-2.5`}>
-        <h3 className="text-[11px] font-bold text-cafe-secondary mb-2">对话信息</h3>
+        <h3 className="text-label font-bold text-cafe-secondary mb-2">对话信息</h3>
         <div className="text-xs text-cafe-secondary space-y-2">
           <div>
             Thread:{' '}

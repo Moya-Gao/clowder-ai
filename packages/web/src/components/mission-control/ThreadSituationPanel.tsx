@@ -91,10 +91,7 @@ export function ThreadSituationPanel({
               <p className="text-xs font-semibold text-cafe">{item.title}</p>
               {matchType === 'title' && <p className="text-micro text-cafe-muted">通过标题匹配</p>}
               {displayThreads.map((t) => (
-                <div
-                  key={t.id}
-                  className="mt-1 border-t border-[var(--console-border-soft)] pt-1 first:mt-0 first:border-t-0 first:pt-0"
-                >
+                <div key={t.id} className="mt-1 console-divider-t pt-1 first:mt-0 first:border-t-0 first:pt-0">
                   <p className="text-xs text-cafe-secondary">Thread：{t.title || t.id}</p>
                   <p className="text-xs text-cafe-secondary">
                     最近活跃：

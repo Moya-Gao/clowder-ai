@@ -234,7 +234,7 @@ export function ExternalProjectTab({ project }: ExternalProjectTabProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Sub-header */}
-      <div className="flex items-center justify-between border-b border-[var(--console-border-soft)] bg-[var(--console-card-bg)] px-6 py-2">
+      <div className="flex items-center justify-between console-divider-b bg-[var(--console-card-bg)] px-6 py-2">
         <div className="flex gap-1">
           {SUB_TABS.map((t) => (
             <button

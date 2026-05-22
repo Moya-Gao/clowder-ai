@@ -200,7 +200,7 @@ export function HubQuotaBoardTab() {
   return (
     <section className="console-list-card space-y-3 rounded-2xl p-[18px] shadow-[0_12px_30px_rgba(43,33,26,0.08)]">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-[17px] font-bold text-cafe">配额看板</h3>
+        <h3 className="text-lg font-bold text-cafe">配额看板</h3>
         <div className="flex items-center gap-3">
           {quota?.fetchedAt ? (
             <span className="text-xs text-cafe-muted">{new Date(quota.fetchedAt).toLocaleTimeString()}</span>
@@ -229,8 +229,8 @@ export function HubQuotaBoardTab() {
       ))}
 
       <section className="rounded-2xl bg-[var(--console-field-bg)] px-4 py-3">
-        <p className="text-[13px] font-bold text-[var(--cafe-accent)]">F127 变化说明</p>
-        <p className="mt-1 text-[13px] leading-6 text-cafe-muted">
+        <p className="text-compact font-bold text-[var(--cafe-accent)]">F127 变化说明</p>
+        <p className="mt-1 text-compact leading-6 text-cafe-muted">
           1. 从猫粮看板改名为配额看板
           <br />
           2. 按账号配置维度（非 Provider）分组
@@ -249,9 +249,9 @@ function PoolGroupSection({ group }: { group: AccountQuotaPoolGroup }) {
     <section
       className={`rounded-2xl px-4 py-4 ${group.tone === 'success' ? 'bg-conn-emerald-bg' : 'bg-[var(--console-field-bg)]'}`}
     >
-      <h4 className="text-[17px] font-bold text-cafe">{group.title}</h4>
+      <h4 className="text-lg font-bold text-cafe">{group.title}</h4>
       <p
-        className={`mt-1 text-[13px] leading-6 ${group.tone === 'success' ? 'text-conn-emerald-text' : 'text-cafe-muted'}`}
+        className={`mt-1 text-compact leading-6 ${group.tone === 'success' ? 'text-conn-emerald-text' : 'text-cafe-muted'}`}
       >
         {group.description}
       </p>
@@ -299,7 +299,7 @@ function PoolSection({
         {memberTags.map((tag) => (
           <span
             key={tag}
-            className="rounded-full bg-conn-purple-bg px-2 py-0.5 text-[11px] font-medium text-[var(--color-opus-primary)]"
+            className="rounded-full bg-conn-purple-bg px-2 py-0.5 text-label font-medium text-[var(--color-opus-primary)]"
           >
             {tag}
           </span>

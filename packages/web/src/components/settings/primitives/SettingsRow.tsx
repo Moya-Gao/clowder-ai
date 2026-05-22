@@ -105,9 +105,7 @@ export function SettingsRow({
           </button>
         )}
       </div>
-      {children && isExpanded && (
-        <div className="mt-3 border-t border-[var(--console-border-soft)] pt-3">{children}</div>
-      )}
+      {children && isExpanded && <div className="mt-3 console-divider-t pt-3">{children}</div>}
     </div>
   );
 }

@@ -127,7 +127,7 @@ export function AdvancedRuntimeSection({
               emptyLabel="无额外参数"
               tone="green"
             />
-            <p className="text-[11px] leading-4 text-cafe-muted">
+            <p className="text-label leading-4 text-cafe-muted">
               每条直接追加到 CLI 命令，与系统参数重复时以用户参数为准。`CLI Effort` 请优先用上面的结构化字段。
             </p>
           </div>

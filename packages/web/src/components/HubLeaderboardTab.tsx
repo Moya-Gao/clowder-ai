@@ -66,7 +66,7 @@ export function HubLeaderboardTab() {
               type="button"
               key={opt.value}
               onClick={() => setRange(opt.value)}
-              className="rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors"
+              className="rounded-lg px-4 py-2.5 text-compact font-medium transition-colors"
               style={
                 range === opt.value
                   ? { background: 'var(--cafe-accent)', color: 'var(--cafe-surface)' }
@@ -97,7 +97,7 @@ export function HubLeaderboardTab() {
         <>
           {/* Hero — Most Beloved */}
           <SectionCard title="本周之星">
-            <p className="text-[13px]" style={{ color: 'var(--cafe-text-muted)' }}>
+            <p className="text-compact" style={{ color: 'var(--cafe-text-muted)' }}>
               Who is the most beloved feline?
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">

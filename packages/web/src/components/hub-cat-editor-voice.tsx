@@ -29,7 +29,7 @@ function RefAudioField({ value, onUpload }: { value: string; onUpload: (file: Fi
       <span className="text-sm font-medium text-cafe-secondary sm:w-[140px] sm:shrink-0">Ref Audio</span>
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <span
-          className="min-w-0 flex-1 truncate rounded-[10px] border-transparent bg-[var(--console-field-bg,var(--console-card-bg))] px-3 py-2 text-[13px] leading-5 text-cafe"
+          className="min-w-0 flex-1 truncate rounded-[10px] border-transparent bg-[var(--console-field-bg,var(--console-card-bg))] px-3 py-2 text-compact leading-5 text-cafe"
           title={value}
         >
           {filename ? filename : <span className="text-cafe-muted">未设置</span>}
@@ -37,7 +37,7 @@ function RefAudioField({ value, onUpload }: { value: string; onUpload: (file: Fi
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          className="shrink-0 rounded-[10px] bg-[var(--console-field-bg,var(--console-card-bg))] px-3 py-2 text-[13px] font-semibold text-cafe-secondary transition hover:opacity-80"
+          className="shrink-0 rounded-[10px] bg-[var(--console-field-bg,var(--console-card-bg))] px-3 py-2 text-compact font-semibold text-cafe-secondary transition hover:opacity-80"
         >
           上传
         </button>

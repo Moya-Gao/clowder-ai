@@ -47,9 +47,7 @@ function NavItem({
         >
           <HubIcon name={section.icon} className="h-4 w-4" />
         </span>
-        <span className={`text-[12px] truncate ${active ? 'font-medium' : 'text-cafe-secondary'}`}>
-          {section.label}
-        </span>
+        <span className={`text-xs truncate ${active ? 'font-medium' : 'text-cafe-secondary'}`}>{section.label}</span>
       </button>
       <button
         type="button"

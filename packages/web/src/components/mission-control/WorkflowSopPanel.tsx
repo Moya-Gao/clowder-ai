@@ -233,7 +233,7 @@ export function WorkflowSopPanel({ backlogItemId }: WorkflowSopPanelProps) {
       </div>
 
       {/* Footer */}
-      <div className="border-t border-[var(--console-border-soft)] pt-1.5">
+      <div className="console-divider-t pt-1.5">
         <p className="text-micro text-cafe-muted">
           更新于{' '}
           {new Date(sop.updatedAt).toLocaleString('zh-CN', {

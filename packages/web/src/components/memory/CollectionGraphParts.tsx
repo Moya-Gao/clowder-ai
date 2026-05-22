@@ -241,10 +241,7 @@ function RelationRow({
 
 function GraphSummary({ graph }: { graph: GraphResult }) {
   return (
-    <div
-      className="border-t border-[var(--console-border-soft)] pt-3 text-micro text-cafe-secondary"
-      data-testid="graph-summary"
-    >
+    <div className="console-divider-t pt-3 text-micro text-cafe-secondary" data-testid="graph-summary">
       <div className="flex flex-wrap gap-3">
         <span>节点: {graph.nodes.length}</span>
         <span>关系边: {graph.edges.length}</span>
@@ -257,7 +254,7 @@ function GraphSummary({ graph }: { graph: GraphResult }) {
 
 function GraphLegend({ uniqueKinds }: { uniqueKinds: string[] }) {
   return (
-    <div className="border-t border-[var(--console-border-soft)] pt-3">
+    <div className="console-divider-t pt-3">
       <div className="mb-2 text-micro font-bold uppercase tracking-wide text-cafe-secondary">图例</div>
       <div className="flex flex-wrap items-center gap-2" data-testid="graph-legend">
         {uniqueKinds.map((k) => (
@@ -281,10 +278,7 @@ function GraphEdgeFilter({
   uniqueRelations: string[];
 }) {
   return (
-    <div
-      className="border-t border-[var(--console-border-soft)] pt-3 text-micro text-cafe-secondary"
-      data-testid="graph-edge-filter"
-    >
+    <div className="console-divider-t pt-3 text-micro text-cafe-secondary" data-testid="graph-edge-filter">
       <div className="mb-2 font-bold uppercase tracking-wide">关系类型</div>
       <div className="flex flex-wrap items-center gap-2">
         {uniqueRelations.map((rel) => (

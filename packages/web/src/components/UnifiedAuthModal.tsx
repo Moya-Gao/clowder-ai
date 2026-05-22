@@ -369,7 +369,7 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
               高级配置 (可选)
             </button>
             {advancedOpen && (
-              <div className="border-t border-[var(--console-border-soft)] px-3 pb-3 pt-2">
+              <div className="console-divider-t px-3 pb-3 pt-2">
                 <p className="mb-2 text-micro text-cafe-muted">
                   自定义环境变量，启动 agent 时注入子进程 (CAT_CAFE_ 前缀为保留变量)
                 </p>

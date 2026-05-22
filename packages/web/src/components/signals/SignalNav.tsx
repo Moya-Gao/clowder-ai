@@ -46,7 +46,7 @@ export function SignalNav({ active, initialReferrerThread = null }: SignalNavPro
   );
 
   return (
-    <nav aria-label="Signal navigation" className="flex border-b border-[var(--console-border-soft)]">
+    <nav aria-label="Signal navigation" className="flex console-divider-b">
       {items.map((item) => {
         const isActive = item.id === active;
         return (

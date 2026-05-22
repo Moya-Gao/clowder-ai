@@ -577,7 +577,7 @@ export function HubCatEditor({ cat, draft, existingCats, open, onClose, onSaved 
         data-bootcamp-step="cat-editor"
       >
         <div className="flex shrink-0 items-start justify-between px-7 py-5">
-          <p id="member-editor-title" className="text-[13px] font-extrabold text-[var(--console-modal-title)]">
+          <p id="member-editor-title" className="text-compact font-extrabold text-[var(--console-modal-title)]">
             {cat ? cat.displayName || cat.name || cat.id : '添加成员'}
           </p>
           <button
@@ -604,7 +604,7 @@ export function HubCatEditor({ cat, draft, existingCats, open, onClose, onSaved 
                 <button
                   type="button"
                   onClick={() => handleTemplateSelect(null)}
-                  className={`h-8 rounded-2xl px-3.5 text-[13px] font-extrabold transition ${
+                  className={`h-8 rounded-2xl px-3.5 text-compact font-extrabold transition ${
                     selectedTemplateId === 'custom'
                       ? 'bg-[var(--cafe-accent)] text-[var(--cafe-surface)]'
                       : 'bg-[var(--console-field-bg)] text-[var(--console-template-text)]'
@@ -617,7 +617,7 @@ export function HubCatEditor({ cat, draft, existingCats, open, onClose, onSaved 
                     key={t.id}
                     type="button"
                     onClick={() => handleTemplateSelect(selectedTemplateId === t.id ? null : t)}
-                    className={`h-8 rounded-2xl px-3.5 text-[13px] font-extrabold transition ${
+                    className={`h-8 rounded-2xl px-3.5 text-compact font-extrabold transition ${
                       selectedTemplateId === t.id
                         ? 'bg-[var(--cafe-accent)] text-[var(--cafe-surface)]'
                         : 'bg-[var(--console-field-bg)] text-[var(--console-template-text)]'
@@ -678,7 +678,7 @@ export function HubCatEditor({ cat, draft, existingCats, open, onClose, onSaved 
               aria-label="删除成员"
               onClick={handleDelete}
               disabled={saving}
-              className="text-[13px] font-bold text-cafe-muted transition hover:text-conn-red-text"
+              className="text-compact font-bold text-cafe-muted transition hover:text-conn-red-text"
             >
               删除成员
             </button>
@@ -689,7 +689,7 @@ export function HubCatEditor({ cat, draft, existingCats, open, onClose, onSaved 
             type="button"
             onClick={handleSave}
             disabled={saving || saveBlockedByProfileBinding}
-            className="h-8 rounded-[10px] bg-[var(--cafe-accent)] px-4 text-[13px] font-extrabold text-[var(--cafe-surface)] transition hover:bg-[var(--cafe-accent-hover)] disabled:opacity-50"
+            className="h-8 rounded-[10px] bg-[var(--cafe-accent)] px-4 text-compact font-extrabold text-[var(--cafe-surface)] transition hover:bg-[var(--cafe-accent-hover)] disabled:opacity-50"
           >
             {saving ? '保存中…' : '保存'}
           </button>

@@ -469,7 +469,7 @@ export function MissionControlPage() {
             />
           )}
 
-          <div className="mt-4 flex border-b border-[var(--console-border-soft)]">
+          <div className="mt-4 flex console-divider-b">
             <button
               type="button"
               onClick={() => setActiveTab('features')}
@@ -510,7 +510,7 @@ export function MissionControlPage() {
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-5 border-b border-[var(--console-border-soft)] py-2.5">
+          <div className="flex flex-wrap items-center gap-5 console-divider-b py-2.5">
             <StatusDot
               color="bg-cafe-status-degraded"
               label={`${pendingCount} 待审批`}
@@ -556,7 +556,7 @@ export function MissionControlPage() {
                 </div>
 
                 <div className="flex min-h-0 flex-col">
-                  <div className="flex border-b border-[var(--console-border-soft)]">
+                  <div className="flex console-divider-b">
                     <button
                       type="button"
                       className={`px-3 py-1.5 text-xs font-medium transition-colors ${

@@ -85,7 +85,7 @@ export function HubToolUsageTab() {
       <div className="flex items-center justify-between rounded-xl bg-[var(--console-card-bg)] px-4 py-3">
         <div>
           <h3 className="text-sm font-semibold text-cafe">工具使用日志</h3>
-          <p className="text-[11px] text-cafe-muted">猫猫们的每日工具箱使用记录</p>
+          <p className="text-label text-cafe-muted">猫猫们的每日工具箱使用记录</p>
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -140,7 +140,7 @@ export function HubToolUsageTab() {
         <div className="rounded-xl border border-dashed border-[var(--console-border-soft)] bg-[var(--console-card-bg)] py-10 text-center">
           <HubIcon name="store" className="h-7 w-7 text-cafe-muted" />
           <p className="mt-2 text-xs text-cafe-muted">还没有工具使用记录</p>
-          <p className="text-[11px] text-cafe-muted">猫猫们开始工作后，数据会自动出现在这里</p>
+          <p className="text-label text-cafe-muted">猫猫们开始工作后，数据会自动出现在这里</p>
         </div>
       )}
 
@@ -162,7 +162,7 @@ function SummaryCards({ total, byCategory }: { total: number; byCategory: Record
     <div className="grid grid-cols-4 gap-3">
       <div className="console-list-card rounded-2xl shadow-[0_12px_30px_rgba(43,33,26,0.08)] p-3 text-center">
         <div className="text-2xl font-bold text-cafe">{total.toLocaleString()}</div>
-        <div className="text-[11px] text-cafe-muted">总调用</div>
+        <div className="text-label text-cafe-muted">总调用</div>
       </div>
       {CATEGORIES.map((cat) => {
         const style = CATEGORY_STYLE[cat];
@@ -177,7 +177,7 @@ function SummaryCards({ total, byCategory }: { total: number; byCategory: Record
             <div className="text-xl font-bold" style={{ color: style.color }}>
               {count.toLocaleString()}
             </div>
-            <div className="text-[11px]" style={{ color: style.color }}>
+            <div className="text-label" style={{ color: style.color }}>
               {style.label}
               {total > 0 && <span className="ml-1 opacity-60">({Math.round((count / total) * 100)}%)</span>}
             </div>
@@ -199,7 +199,7 @@ function DailyTrend({ daily }: { daily: ToolUsageReport['daily'] }) {
     <section className="space-y-3 console-list-card rounded-2xl shadow-[0_12px_30px_rgba(43,33,26,0.08)] p-4">
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-semibold text-cafe">每日使用趋势</h4>
-        <div className="flex gap-4 text-[10px]">
+        <div className="flex gap-4 text-micro">
           {CATEGORIES.map((cat) => {
             const s = CATEGORY_STYLE[cat];
             return (
@@ -217,7 +217,7 @@ function DailyTrend({ daily }: { daily: ToolUsageReport['daily'] }) {
           const pct = (dayTotal / maxDay) * 100;
           return (
             <div key={day.date} className="flex items-center gap-3 text-xs">
-              <span className="w-12 shrink-0 text-right tabular-nums text-[11px] text-cafe-muted">
+              <span className="w-12 shrink-0 text-right tabular-nums text-label text-cafe-muted">
                 {day.date.slice(5)}
               </span>
               <div className="flex h-6 flex-1 items-center">
@@ -239,9 +239,9 @@ function DailyTrend({ daily }: { daily: ToolUsageReport['daily'] }) {
                   })}
                 </div>
               </div>
-              <span className="w-20 shrink-0 tabular-nums text-[11px] text-cafe">
+              <span className="w-20 shrink-0 tabular-nums text-label text-cafe">
                 <span className="font-medium">{dayTotal}</span>
-                <span className="ml-1 text-[10px] text-cafe-muted">
+                <span className="ml-1 text-micro text-cafe-muted">
                   ({day.native}/{day.mcp}/{day.skill})
                 </span>
               </span>
@@ -278,7 +278,7 @@ function TopToolsTable({ tools }: { tools: ToolUsageReport['topTools'] }) {
             <div className="space-y-1">
               {items.map((tool, i) => (
                 <div key={`${cat}:${tool.name}`} className="flex items-center gap-1.5 text-xs">
-                  <span className="w-4 text-right text-[10px] text-cafe-muted">{i + 1}</span>
+                  <span className="w-4 text-right text-micro text-cafe-muted">{i + 1}</span>
                   <span className="min-w-0 flex-1 truncate text-cafe" title={tool.name}>
                     {tool.name}
                   </span>
@@ -294,7 +294,7 @@ function TopToolsTable({ tools }: { tools: ToolUsageReport['topTools'] }) {
                       />
                     </div>
                   </div>
-                  <span className="w-10 text-right tabular-nums text-[11px] text-cafe">{tool.count}</span>
+                  <span className="w-10 text-right tabular-nums text-label text-cafe">{tool.count}</span>
                 </div>
               ))}
             </div>

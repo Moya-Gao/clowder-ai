@@ -149,7 +149,7 @@ export function PushServiceConfig() {
   const inputClass =
     'w-full rounded-lg border border-[var(--console-border-soft)] bg-[var(--cafe-surface-elevated)] px-3 py-2 text-sm text-cafe';
 
-  const labelStyle = { fontSize: '0.75rem', color: 'var(--cafe-text-secondary)' } as const;
+  const labelClass = 'text-xs text-cafe-secondary' as const;
 
   return (
     <SettingsCard className="space-y-4">
@@ -169,7 +169,7 @@ export function PushServiceConfig() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <label className="space-y-1 font-medium" style={labelStyle}>
+        <label className={`space-y-1 font-medium ${labelClass}`}>
           推送公钥
           <input
             name="VAPID_PUBLIC_KEY"
@@ -179,7 +179,7 @@ export function PushServiceConfig() {
             className={inputClass}
           />
         </label>
-        <label className="space-y-1 font-medium" style={labelStyle}>
+        <label className={`space-y-1 font-medium ${labelClass}`}>
           推送私钥
           <input
             name="VAPID_PRIVATE_KEY"
@@ -192,7 +192,7 @@ export function PushServiceConfig() {
         </label>
       </div>
 
-      <label className="block space-y-1 font-medium" style={labelStyle}>
+      <label className={`block space-y-1 font-medium ${labelClass}`}>
         联系信息
         <input
           name="VAPID_SUBJECT"

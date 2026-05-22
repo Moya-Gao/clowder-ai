@@ -216,10 +216,7 @@ function FeatureRow({
       </button>
 
       {expanded && (
-        <div
-          className="border-t border-[var(--console-border-soft)] px-4 py-3"
-          data-testid={`mc-feature-detail-${tag}`}
-        >
+        <div className="console-divider-t px-4 py-3" data-testid={`mc-feature-detail-${tag}`}>
           <div className="grid gap-4 md:grid-cols-[1fr_280px]">
             <div>
               <p className="mb-2 text-xs font-bold uppercase tracking-wider text-cafe-secondary">任务进度</p>

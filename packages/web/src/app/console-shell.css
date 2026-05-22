@@ -604,6 +604,20 @@
   pointer-events: none;
 }
 
+/* ── Divider primitives — single source of truth for section separators ── */
+.console-divider-t {
+  border-top: 1px solid var(--console-border-soft);
+}
+.console-divider-b {
+  border-bottom: 1px solid var(--console-border-soft);
+}
+.console-divider-l {
+  border-left: 1px solid var(--console-border-soft);
+}
+.console-divider-r {
+  border-right: 1px solid var(--console-border-soft);
+}
+
 .console-inspector-section {
   background: color-mix(in srgb, var(--console-card-bg) 60%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--console-border-soft) 50%, transparent);

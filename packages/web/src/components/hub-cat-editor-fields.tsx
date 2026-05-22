@@ -16,7 +16,7 @@ function FieldShell({
   const labelColor = tone === 'success' ? 'text-[var(--console-runtime-label)]' : 'text-cafe-secondary';
   return (
     <label className="flex flex-col gap-1.5 text-cafe sm:flex-row sm:items-center sm:gap-[14px]">
-      <span className={`text-[12px] font-bold ${labelColor} sm:w-[150px] sm:shrink-0`}>
+      <span className={`text-xs font-bold ${labelColor} sm:w-[150px] sm:shrink-0`}>
         {label}
         {required && <span className="ml-0.5 text-conn-red-text">*</span>}
       </span>
@@ -93,7 +93,7 @@ export function TextField({
         aria-label={ariaLabel ?? label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={`w-full rounded-[10px] border px-3 py-1.5 text-[13px] leading-5 text-cafe-black placeholder:text-cafe-muted outline-none transition focus:ring-2 ${inputColors}`}
+        className={`w-full rounded-[10px] border px-3 py-1.5 text-compact leading-5 text-cafe-black placeholder:text-cafe-muted outline-none transition focus:ring-2 ${inputColors}`}
         inputMode={inputMode}
         placeholder={placeholder}
         required={required}
@@ -127,7 +127,7 @@ export function TextAreaField({
         aria-label={ariaLabel ?? label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={`min-h-[92px] w-full rounded-[10px] border px-3 py-1.5 text-[13px] leading-5 text-cafe-black outline-none transition focus:ring-2 ${inputColors}`}
+        className={`min-h-[92px] w-full rounded-[10px] border px-3 py-1.5 text-compact leading-5 text-cafe-black outline-none transition focus:ring-2 ${inputColors}`}
         placeholder={placeholder}
       />
     </FieldShell>
@@ -165,7 +165,7 @@ export function SelectField({
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
         required={required}
-        className={`w-full rounded-[10px] border px-3 py-1.5 text-[13px] leading-5 text-cafe-black outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${inputColors}`}
+        className={`w-full rounded-[10px] border px-3 py-1.5 text-compact leading-5 text-cafe-black outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${inputColors}`}
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -194,7 +194,7 @@ export function RangeField({
   return (
     <label className="flex flex-col gap-2 text-cafe sm:flex-row sm:items-start sm:gap-[14px]">
       <div className="sm:w-[150px] sm:shrink-0 sm:pt-1">
-        <span className="text-[12px] font-extrabold text-[var(--console-runtime-label)]">{label}</span>
+        <span className="text-xs font-extrabold text-[var(--console-runtime-label)]">{label}</span>
       </div>
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex items-center justify-between gap-3">
@@ -221,7 +221,7 @@ export function RangeField({
 export function PersistenceBanner() {
   return (
     <div className="rounded-[16px] bg-[var(--console-persistence-bg)] p-4 shadow-[0_6px_18px_rgba(198,95,61,0.09)]">
-      <p className="text-[13px] font-extrabold text-[var(--cafe-accent)]">运行时持久化</p>
+      <p className="text-compact font-extrabold text-[var(--cafe-accent)]">运行时持久化</p>
       <p className="mt-1.5 text-xs font-bold leading-5 text-[var(--cafe-accent)]">
         所有配置修改在运行时即时生效，并自动持久化到 `.cat-cafe/cat-catalog.json` 文件。重启后自动恢复，无需手动保存。
       </p>
