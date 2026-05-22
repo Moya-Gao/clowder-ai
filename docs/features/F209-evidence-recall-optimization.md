@@ -39,7 +39,7 @@ F209 完整终态包含五层：
 2. **Entity anchor / alias registry**：人、猫、功能、外部概念有确定门牌号。
 3. **Typed message-window drill-down**：搜到 message / invocation / file 后能打开合适窗口，不打开巨型 blob。
 4. **Perspective live query plan**：保存“常顺的藤”，每次现场重跑，不存结果。
-5. **Retrieval eval**：用真实 golden queries 验证召回，不让 F200 消费信号变成 rich-get-richer。
+5. **F200 eval integration**：F209 每个 Phase 贡献 retrieval fixture，F200 统一拥有 golden query set / recall metric / consumption rerank。
 
 核心边界：
 
@@ -82,6 +82,12 @@ F209 完整终态包含五层：
 
 统一 anchor contract，但保留 typed readers，不造万能黑盒。
 
+Phase C 的默认方向是**扩展现有读取工具**，不是重复造一套 reader：
+
+- thread/message：扩展现有 thread context 读取能力，补 `messageId + before/after` window。
+- invocation：复用 / 补强现有 `read_invocation_detail`。
+- file：优先使用猫已有的 `rg` / `sed` / file slice 能力；只有 MCP 场景确实需要时再补 typed file reader。
+
 ### Acceptance Criteria
 
 - [ ] AC-C1: 支持 message window reader：按 `threadId + messageId + before/after` 打开上下文。
@@ -94,25 +100,43 @@ F209 完整终态包含五层：
 
 从 Smart Folder 学“存问题，不存结果”。
 
+Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此进入实现前必须先做 product spike，回答三个 user story：
+
+1. 猫在什么场景下创建 Perspective？
+2. 猫如何打开 / 复用 Perspective？
+3. Perspective 返回什么结构，如何保证它只是“活查询藤”，不是固化结果集？
+
+候选 runtime 形态：
+
+- 存储：git-backed query plan（YAML / markdown frontmatter 均可，Design Gate 定）。
+- 执行：解释成一组 `search_evidence` / `graph_resolve` / typed reader 调用建议。
+- 返回：带 anchor 的候选线索 + drill-down hints，不返回结论。
+- v1 创建入口：猫手动保存；F200 自动建议与 settings 可视化放后续 Phase。
+
 ### Acceptance Criteria
 
+- [ ] AC-D0: Design Gate 前完成 Perspective product spike，给出 2-3 个 user story + runtime contract。
 - [ ] AC-D1: Perspective 存 query plan / route recipe，不存结果集。
 - [ ] AC-D2: 打开 Perspective 时现场重跑，结果全带 anchor + drill-down。
 - [ ] AC-D3: Perspective 可由猫保存 / 命名 / 复用；默认用户不是操作员。
 - [ ] AC-D4: skill / 任务可激活建议 Perspective，但只给“藤”，不下结论。
 - [ ] AC-D5: Perspective 消费信号可进入 F200 navigation utility，不改变 truth / authority。
 
-## Phase E: Retrieval Eval + Feedback Loop
+## Phase E: F200 Eval Integration
 
-避免“更聪明但更偏”的检索回归。
+避免“更聪明但更偏”的检索回归，但**不在 F209 自建第二套 eval 系统**。边界如下：
+
+- **F209 owns**：每个 Phase 的 regression fixture、触发场景、预期 anchor / drill-down 行为。
+- **F200 owns**：golden query set、recall@k / open-rate / false-confidence 指标、consumption rerank、exploration/freshness 对冲。
+- **接口**：F209 Phase 完成时向 F200 贡献 fixtures；F200 统一跑 retrieval eval 并产出 finding。
 
 ### Acceptance Criteria
 
-- [ ] AC-E1: 建立 golden query set，至少覆盖旧聊天、实体别名、非字面语义、feature provenance、跨 collection。
-- [ ] AC-E2: 指标包含 recall@k、anchor open rate、false confidence rate、raw drill-down success。
-- [ ] AC-E3: F200 consumption rerank 对 navigation utility 生效，但不得改变 authority/truth。
-- [ ] AC-E4: 有 freshness / exploration 对冲，防 rich-get-richer。
-- [ ] AC-E5: 每个 Phase 至少新增 2 条回归 fixture。
+- [ ] AC-E1: F209 每个 Phase 至少向 F200 贡献 2 条 retrieval regression fixture。
+- [ ] AC-E2: fixture 至少包含 query、scope/mode/depth、expected anchor pattern、expected drill-down behavior。
+- [ ] AC-E3: F200 统一持有 recall@k / anchor open rate / false confidence / raw drill-down success 指标。
+- [ ] AC-E4: F200 consumption signal 只能影响 navigation utility，不得改变 authority/truth。
+- [ ] AC-E5: F200 负责 exploration / freshness 对冲，防 rich-get-richer；F209 不重复实现。
 
 ## Dependencies
 
@@ -129,7 +153,7 @@ F209 完整终态包含五层：
 | entity/facet 推断污染真相源 | alias 只做确定字典；candidate facet 必须标 candidate + provenance |
 | raw hybrid 召回噪音变大 | Eval golden set + false confidence rate + contextWindow |
 | Perspective 变成固化 topic map | 只存 query plan，每次现场重跑；不存结果 |
-| F200 consumption rich-get-richer | exploration/freshness 对冲；consumption 不影响 authority |
+| F200 consumption rich-get-richer | 交由 F200 统一做 exploration/freshness 对冲；F209 只贡献 fixture |
 | 大 thread / 大文件把猫上下文撑爆 | typed reader 默认窗口化，禁止大 blob 默认展开 |
 
 ## Open Questions
@@ -140,9 +164,9 @@ F209 完整终态包含五层：
 | OQ-2 | message passage embedding 是热路径 append 即 embed，还是批处理？ | ⬜ Design Gate |
 | OQ-3 | entity registry 真相源放 docs、DB，还是 DB + git-backed export？ | ⬜ Design Gate |
 | OQ-4 | candidate facet 如何表达，才能让猫一眼看出“不是真相”？ | ⬜ Design Gate |
-| OQ-5 | typed reader 是新增 MCP tools，还是扩现有 read_session/read_invocation 家族？ | ⬜ Design Gate |
-| OQ-6 | Perspective 的创建入口：猫手动保存、F200 自动建议、还是 settings 可见？ | ⬜ Design Gate |
-| OQ-7 | initial golden query set 谁维护，是否由 F200 统一收？ | ⬜ Design Gate |
+| OQ-5 | typed reader 是新增 MCP tools，还是扩现有 read_session/read_invocation 家族？ | ✅ resolved → 默认扩展现有工具；file slice 优先用猫已有 `rg`/`sed`/Read |
+| OQ-6 | Perspective 的创建入口：猫手动保存、F200 自动建议、还是 settings 可见？ | ✅ resolved for v1 → 猫手动保存；F200 自动建议/settings 可见后置 |
+| OQ-7 | initial golden query set 谁维护，是否由 F200 统一收？ | ✅ resolved → F200 统一拥有；F209 每 Phase 贡献 fixture |
 
 ## Key Decisions
 
@@ -153,6 +177,7 @@ F209 完整终态包含五层：
 | KD-3 | 统一 anchor contract，不统一读取实现 | file/message/invocation/thread 的最佳读取方式不同；统一成万能 reader 会制造巨型 blob | 2026-05-21 |
 | KD-4 | Embedding 是 sensor，不是判断者 | 只要结果带 anchor + 原文窗口，语义召回不会违反 KD-8 | 2026-05-21 |
 | KD-5 | Perspective 存 query plan，不存 result set | 结果集会 stale；活查询每次现场重跑才保鲜 | 2026-05-21 |
+| KD-6 | F209 不自建 retrieval eval 系统，向 F200 贡献 fixture | 避免 F209/F200 双 owner；F200 是 Memory Recall Eval 的统一归属 | 2026-05-22 |
 
 ## Eval / Tracking Contract
 
@@ -160,7 +185,7 @@ F209 完整终态包含五层：
 |----|------|
 | **Primary Users** | 需要从旧 thread/docs/sessions 找证据的猫；Activation Signal：`search_evidence` 在复杂 thread recall 中被调用 |
 | **Friction Metric** | 搜到摘要但打不开原文窗口的比例；raw 搜不到但人工能在 transcript 找到的比例；>3 轮 query reformulation |
-| **Regression Fixture** | ① `depth=raw&mode=hybrid` 不再静默 lexical-only ② `landy/铲屎官/CVO` alias 能归一到同一实体候选 ③ Perspective 打开后现场重跑且结果带 anchor，不返回固化结果集 |
+| **Regression Fixture** | ① `depth=raw&mode=hybrid` 不再静默 lexical-only ② `landy/铲屎官/CVO` alias 能归一到同一实体候选 ③ Perspective 打开后现场重跑且结果带 anchor，不返回固化结果集。F209 贡献 fixture，F200 统一纳入 golden set |
 | **Sunset Signal** | 6 个月内 golden query recall@k 无提升，或猫仍主要绕过 F209 直接人工 grep transcript → 回滚 Perspective / entity layer，仅保留 passage vector |
 
 ## 需求点 Checklist
@@ -170,7 +195,7 @@ F209 完整终态包含五层：
 | R1 | “一个 thread 什么都聊，压缩后你能找回之前记忆吗？” | AC-A1~A5, AC-C1 | raw semantic + message window fixture | [ ] |
 | R2 | “不要小模型替猫思考，search_evidence 为什么不能用在群聊里？” | KD-2, AC-A4 | 搜索只返回候选 + anchor；猫读原文 | [ ] |
 | R3 | “每条消息都有 invocation，这样不就能搜了？” | AC-C1, AC-C2 | message / invocation typed readers | [ ] |
-| R4 | “Everything 为什么那么快，SmartFolder 是否能找奶奶相关内容？” | AC-B1~B5, AC-D1~D5 | entity alias + Perspective walk-through | [ ] |
+| R4 | “Everything 为什么那么快，SmartFolder 是否能找奶奶相关内容？” | AC-B1~B5, AC-D0~D5 | entity alias + Perspective walk-through | [ ] |
 | R5 | “现在检索有 bm25/embedding/docs/thread/msg，先列现状再优化” | discussion 04 + KD-1 | discussion doc review | [x] |
 | R6 | “别补锅，要用我们现有 search_evidence / graph_resolve / list_recent 思路” | KD-3, Non-goals | spec 不引入摘要 memory / 小模型 splitter | [x] |
 

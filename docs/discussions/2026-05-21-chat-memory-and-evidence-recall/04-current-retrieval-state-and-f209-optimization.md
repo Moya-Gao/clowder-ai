@@ -183,7 +183,7 @@ read_file_slice(path, lineStart, lineEnd)
 - file slice：按 path + line range 打开。
 - thread digest/session digest 仍走现有 digest reader。
 
-目标不是造一个万能 reader，而是避免猫搜到线索后只能打开一个超大 blob。
+目标不是造一个万能 reader，也不是重复造已有工具。默认策略是：message window 扩展现有 thread context 读取能力；invocation 复用 / 补强 `read_invocation_detail`；file slice 优先让猫用 `rg` / `sed` / Read。统一的是 anchor contract，不是读取实现。
 
 ### Phase D：活查询 Perspective
 
@@ -206,14 +206,16 @@ query_plan:
 
 Perspective 不是 topic map，不存结果。它只是猫反复使用的检索路径。
 
-### Phase E：召回 eval 与反馈闭环
+这一层必须先做 product spike，不能直接开写：至少回答“谁创建 Perspective、什么时候打开、返回什么结构”。v1 倾向猫手动保存 query plan；F200 自动建议和 settings 可见化后置。
 
-补一组 retrieval eval，避免“看起来更聪明，其实召回更偏”：
+### Phase E：F200 eval 集成
 
-- golden queries：例如 `landy 奶奶`、`gemini 基础设施`、`F208 能力画像路由`。
-- 指标：recall@k、anchor open rate、false confidence rate、raw drill-down success。
+避免“看起来更聪明，其实召回更偏”，但不在 F209 自建第二套 eval：
+
+- F209 每个 Phase 贡献 retrieval regression fixtures。
+- F200 统一拥有 golden query set、recall@k、anchor open rate、false confidence、raw drill-down success。
 - F200 consumption signal 只能影响 navigation utility，不得改变 authority。
-- 加 exploration / freshness 对冲，防 rich-get-richer。
+- F200 统一做 exploration / freshness 对冲，防 rich-get-richer。
 
 ## 4. 对 03 的修正
 
@@ -245,8 +247,8 @@ Perspective 不是 topic map，不存结果。它只是猫反复使用的检索�
 3. entity registry 的真相源放哪里：runtime catalog、docs/team/entity-aliases.md，还是 DB + git-backed export？
 4. candidate facet 的 UI / MCP 表达：如何让猫一眼看出“候选，不是真相”？
 5. typed reader 的 MCP surface 是新增工具，还是扩现有 `read_session_events/read_invocation_detail` 家族？
-6. Perspective 谁来创建：猫手动保存、F200 消费信号自动建议、还是 CVO 在 settings 里命名？
-7. retrieval eval 的初始 golden set 由谁维护：F200 统一收，还是 F209 自带最小集？
+6. Perspective 谁来创建：✅ v1 猫手动保存；F200 自动建议 / settings 可见化后置，Design Gate 前做 product spike。
+7. retrieval eval 的初始 golden set 谁维护：✅ F200 统一收；F209 每个 Phase 贡献 fixture。
 
 ## 7. 收敛
 
