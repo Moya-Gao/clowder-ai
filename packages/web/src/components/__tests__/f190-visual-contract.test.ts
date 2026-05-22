@@ -92,10 +92,12 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).not.toMatch(/border border-indigo-100/);
   });
 
-  it('HubToolUsageTab selects use border-transparent, sections use shadow not border', () => {
+  it('HubToolUsageTab uses console/cafe tokens, no hub-* CSS vars', () => {
     const src = readSrc('HubToolUsageTab.tsx');
-    expect(src).not.toMatch(/border border-\[var\(--hub-border\)\]/);
-    expect(src).not.toMatch(/border-dashed/);
+    expect(src).not.toMatch(/var\(--hub-/);
+    expect(src).toContain('console-list-card');
+    expect(src).toContain('console-form-input');
+    expect(src).toContain('console-button-emphasis');
   });
 
   it('HubConnectorConfigTab uses explicit shadow, not --hub-shadow var', () => {
@@ -156,6 +158,43 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     const src = readSrc('DailyUsageSection.tsx');
     expect(src).not.toMatch(/border border-cafe/);
     expect(src).toContain('console-list-card');
+  });
+
+  it('leaderboard-cards uses cafe/console tokens, no hub-lb-* CSS vars', () => {
+    const src = readSrc('leaderboard-cards.tsx');
+    expect(src).not.toMatch(/var\(--hub-/);
+    expect(src).toContain('cafe-text-primary');
+    expect(src).toContain('cafe-accent');
+    expect(src).toContain('console-pill-bg');
+  });
+
+  it('leaderboard-phase-bc uses cafe/console tokens, no hub-lb-* CSS vars', () => {
+    const src = readSrc('leaderboard-phase-bc.tsx');
+    expect(src).not.toMatch(/var\(--hub-/);
+    expect(src).toContain('cafe-text-primary');
+    expect(src).toContain('cafe-accent');
+  });
+
+  it('HubLeaderboardTab uses cafe/console tokens, no hub-lb-* CSS vars', () => {
+    const src = readSrc('HubLeaderboardTab.tsx');
+    expect(src).not.toMatch(/var\(--hub-/);
+    expect(src).toContain('cafe-text-primary');
+    expect(src).toContain('console-pill-bg');
+    expect(src).toContain('cafe-accent');
+  });
+
+  it('HubCoCreatorEditor uses console-modal-* tokens, no hub-* CSS vars', () => {
+    const src = readSrc('HubCoCreatorEditor.tsx');
+    expect(src).not.toMatch(/var\(--hub-/);
+    expect(src).toContain('console-card-bg');
+    expect(src).toContain('console-modal-title');
+    expect(src).toContain('console-modal-close-bg');
+  });
+
+  it('HubPermissionsTab uses explicit shadow, no hub-* CSS vars', () => {
+    const src = readSrc('HubPermissionsTab.tsx');
+    expect(src).not.toMatch(/var\(--hub-/);
+    expect(src).toContain('shadow-[0_12px_30px_rgba(43,33,26,0.08)]');
   });
 
   it('hub-tag-editor pills have no border, no hub-* CSS vars', () => {
