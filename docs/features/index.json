@@ -1289,6 +1289,18 @@
       "name": "Capability Profile Routing — 能力画像档案 + 认知路由",
       "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F208-capability-profile-routing.md"
+    },
+    {
+      "id": "F209",
+      "name": "Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤",
+      "status": "spec | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
+      "file": "F209-evidence-recall-optimization.md"
+    },
+    {
+      "id": "F210",
+      "name": "Gemini CLI to Antigravity CLI Migration",
+      "status": "spec | **Owner**: 缅因猫（砚砚） | **Priority**: P1",
+      "file": "F210-antigravity-cli-migration.md"
     }
   ]
 }
