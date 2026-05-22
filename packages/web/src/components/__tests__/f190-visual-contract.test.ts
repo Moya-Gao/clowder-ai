@@ -106,4 +106,14 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toContain('text-2xl font-bold');
     expect(src).toMatch(/>信号源</);
   });
+
+  it('ResizeHandle has no accent hover/drag colors, keeps cursor-col-resize', () => {
+    const src = readSrc('workspace/ResizeHandle.tsx');
+    expect(src).not.toContain('cafe-accent');
+    expect(src).not.toContain('console-hover-bg');
+    expect(src).not.toContain('console-active-bg');
+    expect(src).toContain('cursor-col-resize');
+    expect(src).toContain('cursor-row-resize');
+    expect(src).toContain('console-border-soft');
+  });
 });
