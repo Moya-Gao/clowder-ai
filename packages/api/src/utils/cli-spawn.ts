@@ -4,6 +4,7 @@
  */
 
 import { spawn as nodeSpawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Span } from '@opentelemetry/api';
@@ -46,6 +47,16 @@ export const SEMANTIC_COMPLETION_GRACE_MS = 5_000;
 export interface CliSpawnerDeps {
   /** Inject a custom spawn function (for testing) */
   spawnFn?: SpawnFn;
+}
+
+export function resolveCliSupervisorNodeArgs(moduleUrl = import.meta.url, execArgv = process.execArgv): string[] {
+  const jsPath = fileURLToPath(new URL('./cli-supervisor.js', moduleUrl));
+  if (existsSync(jsPath)) return [jsPath];
+
+  const tsPath = fileURLToPath(new URL('./cli-supervisor.ts', moduleUrl));
+  if (existsSync(tsPath)) return [...execArgv, tsPath];
+
+  return [jsPath];
 }
 
 /** Env vars to strip from child processes to prevent E2BIG (overly large values). */
@@ -596,9 +607,9 @@ function defaultSpawn(
     env.PATH = env.PATH ? `${binDir}:${env.PATH}` : binDir;
   }
 
-  const supervisorPath = fileURLToPath(new URL('./cli-supervisor.js', import.meta.url));
+  const supervisorArgs = resolveCliSupervisorNodeArgs();
 
-  return nodeSpawn(process.execPath, [supervisorPath, '--', command, ...args], {
+  return nodeSpawn(process.execPath, [...supervisorArgs, '--', command, ...args], {
     cwd: options.cwd,
     env: {
       ...env,

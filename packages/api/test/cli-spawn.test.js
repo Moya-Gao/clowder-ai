@@ -7,16 +7,23 @@ import assert from 'node:assert/strict';
 import { spawn as nodeSpawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { mock, test } from 'node:test';
 import { clearTimeout as clearKeepAliveTimeout, setTimeout as setKeepAliveTimeout } from 'node:timers';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const { spawnCli, isCliError, isCliTimeout, isLivenessWarning, KILL_GRACE_MS, SEMANTIC_COMPLETION_GRACE_MS } =
-  await import('../dist/utils/cli-spawn.js');
+const {
+  spawnCli,
+  isCliError,
+  isCliTimeout,
+  isLivenessWarning,
+  KILL_GRACE_MS,
+  SEMANTIC_COMPLETION_GRACE_MS,
+  resolveCliSupervisorNodeArgs,
+} = await import('../dist/utils/cli-spawn.js');
 const { DEFAULT_CLI_TIMEOUT_MS } = await import('../dist/utils/cli-timeout.js');
 const { isParseError } = await import('../dist/utils/ndjson-parser.js');
 const { ProcessLivenessProbe } = await import('../dist/utils/ProcessLivenessProbe.js');
@@ -122,6 +129,42 @@ test(
     assert.equal(event?.parentPid, String(process.pid));
   },
 );
+
+test('resolveCliSupervisorNodeArgs falls back to source ts file under tsx runtime', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'cat-cafe-cli-supervisor-source-'));
+  try {
+    const utilsDir = join(tempDir, 'src', 'utils');
+    await mkdir(utilsDir, { recursive: true });
+    const cliSpawnPath = join(utilsDir, 'cli-spawn.ts');
+    const supervisorPath = join(utilsDir, 'cli-supervisor.ts');
+    await writeFile(cliSpawnPath, '');
+    await writeFile(supervisorPath, '');
+
+    const args = resolveCliSupervisorNodeArgs(pathToFileURL(cliSpawnPath).href, ['--import', 'tsx']);
+
+    assert.deepEqual(args, ['--import', 'tsx', supervisorPath]);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('resolveCliSupervisorNodeArgs prefers built js file when present', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'cat-cafe-cli-supervisor-dist-'));
+  try {
+    const utilsDir = join(tempDir, 'dist', 'utils');
+    await mkdir(utilsDir, { recursive: true });
+    const cliSpawnPath = join(utilsDir, 'cli-spawn.js');
+    const supervisorPath = join(utilsDir, 'cli-supervisor.js');
+    await writeFile(cliSpawnPath, '');
+    await writeFile(supervisorPath, '');
+
+    const args = resolveCliSupervisorNodeArgs(pathToFileURL(cliSpawnPath).href, ['--import', 'tsx']);
+
+    assert.deepEqual(args, [supervisorPath]);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
 
 test(
   'cli supervisor terminates supervised child when original parent is gone',
