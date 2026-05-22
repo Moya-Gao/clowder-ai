@@ -339,7 +339,7 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     }
   });
 
-  it('typography: compact tokens are defined once and wired into tailwind config', () => {
+  it('typography: tokens defined once in JSON, wired into tailwind config + CSS vars via plugin', () => {
     const tokens = JSON.parse(
       readFileSync(resolve(testDir, '..', '..', 'styles', 'typography-tokens.json'), 'utf8'),
     ) as {
@@ -354,6 +354,10 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(tokens.fontSizePx).toHaveProperty('label');
     expect(config).toContain("require('./src/styles/typography-tokens.json')");
     expect(config).toContain('fontSize: typographyTokens.fontSize');
+    expect(config).toContain('--console-font-');
+    expect(config).toContain('fontSizePx');
+    const css = readFileSync(resolve(testDir, '..', '..', 'app', 'console-shell.css'), 'utf8');
+    expect(css).not.toMatch(/--console-font-\w+:\s*\d+px/);
   });
 
   it('console page titles use text-xl font-bold, not text-2xl', () => {
