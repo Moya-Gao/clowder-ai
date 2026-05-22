@@ -303,6 +303,7 @@ export function EnvVarsSection({
                     </SettingsText>
                     <SettingsText tone="muted" className="truncate">
                       {v.description}
+                      {v.defaultValue && <span className="ml-1 opacity-60">（默认: {v.defaultValue}）</span>}
                     </SettingsText>
                     {v.deprecated && (
                       <SettingsBadge tone="red" size="xxs">

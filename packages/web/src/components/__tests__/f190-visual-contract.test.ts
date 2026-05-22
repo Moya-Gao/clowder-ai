@@ -767,9 +767,10 @@ describe('F723 round 3 — input/select/stat unification guard', () => {
     expect(src).not.toContain('PushService：');
   });
 
-  it('EnvSubComponents: no per-row "默认:" line or buildVariableHint rendering', () => {
+  it('EnvSubComponents: default value inline (not separate line), no per-row buildVariableHint', () => {
     const src = readSrc('settings/EnvSubComponents.tsx');
-    expect(src).not.toMatch(/默认: \{v\.defaultValue\}/);
+    expect(src).toMatch(/v\.description[\s\S]*?默认: \{v\.defaultValue\}/);
+    expect(src).not.toMatch(/<SettingsText[^>]*>[\s\n]*默认: \{v\.defaultValue\}/);
     expect(src).not.toMatch(/buildVariableHint\(v\)\s*\?\s*\(/);
   });
 
@@ -818,5 +819,25 @@ describe('F723 round 3 — input/select/stat unification guard', () => {
     const metricCard = src.match(/function MetricCard[\s\S]*?^}/m)?.[0] ?? '';
     expect(metricCard).toContain('text-base font-bold');
     expect(metricCard).not.toContain('text-2xl');
+  });
+
+  it('EvidenceSearch input uses ThreadSidebar-style: border-soft + transparent bg + input-stroke focus', () => {
+    const src = readSrc('memory/EvidenceSearch.tsx');
+    expect(src).toContain('border-[var(--console-border-soft)]');
+    expect(src).toContain('bg-transparent');
+    expect(src).toContain('focus:ring-[var(--console-input-stroke)]');
+    expect(src).not.toContain('formInputClass');
+  });
+
+  it('KnowledgeFeed inner tabs use text-xs font-medium, not uppercase tracking-wider', () => {
+    const src = readSrc('workspace/KnowledgeFeed.tsx');
+    expect(src).toContain('text-xs font-medium');
+    expect(src).not.toContain('uppercase tracking-wider');
+  });
+
+  it('PushServiceConfig title and description on one line, not separate blocks', () => {
+    const src = readSrc('settings/PushServiceConfig.tsx');
+    expect(src).toMatch(/VAPID 推送密钥[\s\S]*?保存后写入/);
+    expect(src).not.toMatch(/<\/SettingsText>[\s\S]*?<SettingsText[^>]*>[\s\n]*保存后写入/);
   });
 });
