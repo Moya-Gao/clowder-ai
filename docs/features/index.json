@@ -1293,7 +1293,7 @@
     {
       "id": "F209",
       "name": "Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤",
-      "status": "spec | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
+      "status": "in-progress (Phase A ✅ merged PR #1842) | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
       "file": "F209-evidence-recall-optimization.md"
     },
     {

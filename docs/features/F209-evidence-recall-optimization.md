@@ -8,7 +8,7 @@ created: 2026-05-21
 
 # F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤
 
-> **Status**: spec | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A ✅ merged PR #1842) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -55,7 +55,7 @@ F209 完整终态包含五层：
 - 不做用户操作的 Smart Folder UI（Perspective v1 是猫操作、CVO 可见，不是用户搜索入口）。
 - 不用 entity / facet 推断替代原文证据。
 
-## Phase A: Passage-level Semantic Recall
+## Phase A: Passage-level Semantic Recall ✅
 
 让 `depth=raw` 支持 semantic/hybrid，而不是强制降级 lexical。
 
@@ -67,12 +67,12 @@ Phase A 不是“先只建一个向量表”的碎片切片。可关闭的最小
 
 ### Acceptance Criteria
 
-- [ ] AC-A1: `evidence_passages` 的 message / transcript passage 有 embedding path（`passage_vectors` 或等价结构）。
-- [ ] AC-A2: `search_evidence(depth=raw, mode=semantic)` 能走 passage-level NN，而不是降级 lexical。
-- [ ] AC-A3: `search_evidence(depth=raw, mode=hybrid)` 用 passage BM25 + passage vector NN 做 RRF。
-- [ ] AC-A4: raw results 仍返回 `passageId`、speaker、timestamp、contextWindow、thread/message anchor；不返回“摘要结论”。
-- [ ] AC-A5: embedding unavailable 时 fail-open 到 lexical，并明确 `degraded/effectiveMode`。
-- [ ] AC-A6: Phase A 不能只以“向量已写入”关闭；必须验证 lexical / semantic / hybrid 三种 raw 检索模式与 RRF 融合行为。
+- [x] AC-A1: `evidence_passages` 的 message / transcript passage 有 embedding path（`passage_vectors` 或等价结构）。
+- [x] AC-A2: `search_evidence(depth=raw, mode=semantic)` 能走 passage-level NN，而不是降级 lexical。
+- [x] AC-A3: `search_evidence(depth=raw, mode=hybrid)` 用 passage BM25 + passage vector NN 做 RRF。
+- [x] AC-A4: raw results 仍返回 `passageId`、speaker、timestamp、contextWindow、thread/message anchor；不返回“摘要结论”。
+- [x] AC-A5: embedding unavailable 时 fail-open 到 lexical，并明确 `degraded/effectiveMode`。
+- [x] AC-A6: Phase A 不能只以“向量已写入”关闭；必须验证 lexical / semantic / hybrid 三种 raw 检索模式与 RRF 融合行为。
 
 ## Phase B: Entity Anchor / Alias Registry
 
@@ -187,8 +187,8 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | `passage_vectors` 复用现有 vector store，还是独立 passage vector table？ | ⬜ Design Gate |
-| OQ-2 | message passage embedding 是热路径 append 即 embed，还是批处理？ | ⬜ Design Gate |
+| OQ-1 | `passage_vectors` 复用现有 vector store，还是独立 passage vector table？ | ✅ resolved → 独立 `passage_vectors` vec0 table，由 `PassageVectorStore` 管 passage-level embedding |
+| OQ-2 | message passage embedding 是热路径 append 即 embed，还是批处理？ | ✅ resolved → dirty flush 中批量补齐 missing passage embeddings；embedding unavailable 时 raw semantic/hybrid fail-open 到 lexical |
 | OQ-3 | entity registry 真相源放 docs、DB，还是 DB + git-backed export？（仅身份层；F208 画像层消费 `entity_id`） | ⬜ Design Gate |
 | OQ-4 | candidate facet 如何表达，才能让猫一眼看出“不是真相”？ | ⬜ Design Gate |
 | OQ-5 | typed reader 是新增 MCP tools，还是扩现有 read_session/read_invocation 家族？ | ✅ resolved → 默认扩展现有工具；file slice 优先用猫已有 `rg`/`sed`/Read |
@@ -246,6 +246,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | 2026-05-21 | Codex 代码剖面确认当前 `depth=raw` lexical-only、passage-level vector 未做 |
 | 2026-05-21 | 立项 F209 |
 | 2026-05-22 | CVO Design Gate 方向写回：摘要记忆出 scope、Phase A 必须是 BM25/embedding/RRF 完整切片、Perspective v1 猫操作且 CVO 可见 |
+| 2026-05-22 | Phase A merged (PR #1842) — passage vectors + raw semantic / hybrid RRF recall + degraded/effectiveMode propagation + F200 fixtures |
 
 ## Review Gate
 
