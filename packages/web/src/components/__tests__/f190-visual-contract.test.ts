@@ -707,10 +707,17 @@ describe('F723 interactive button guard — no grey pill on action/toggle contro
     expect(src).toContain('bg-transparent');
   });
 
-  it('ChatContainerHeader: RightPanelToggle has no console-hover-bg as active/hover bg', () => {
+  it('ChatContainerHeader: RightPanelToggle text color in conditional branches, no cascade conflict', () => {
     const src = readSrc('ChatContainerHeader.tsx');
-    expect(src).not.toMatch(/RightPanelToggle[\s\S]*?hover:bg-\[var\(--console-hover-bg\)\]/);
-    expect(src).toContain('hover:text-cafe-accent');
+    const lines = src.split('\n');
+    const start = lines.findIndex((l) => l.includes('function RightPanelToggle'));
+    const fnSrc = lines.slice(start, start + 50).join('\n');
+    expect(fnSrc).not.toContain('hover:bg-[var(--console-hover-bg)]');
+    expect(fnSrc).toContain('hover:text-cafe-accent');
+    const classBase = fnSrc.match(/className=\{`([^$]*)\$/);
+    if (classBase) {
+      expect(classBase[1]).not.toContain('text-cafe-secondary');
+    }
   });
 
   it('RightStatusPanel: action buttons (toggle/cycle/reveal) have no console-pill class', () => {
