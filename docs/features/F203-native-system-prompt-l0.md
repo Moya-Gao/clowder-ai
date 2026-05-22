@@ -146,7 +146,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
   - **只是参考**：`docs/SOP.md` 等人工流程文档，不直接进入 native L0。
   - **skill 按需加载**：`SKILL.md` 仅在 skill 被选择/调用时读取。
 
-**#748**（SOP vocabulary / `sop_navigation` 分散）暂缓：等 #747/#749 合入后再讨论，不在本切片偷做。
+**#748**（SOP vocabulary / `sop_navigation` 分散）：#747/#749 已合入；2026-05-22 社区（terrenceeLeung / 天一）提交设计提案（第三选项——新建 `SopDefinition` 单一源、`sop_navigation` 并入），方向对齐 green light。CVO 决策：归 F203、不新开 F 号，作为 Phase G 之后的独立 work item；实现路径同 #747（Cat Café 上游实现 + 同步），kickoff 待社区补全 `development.yaml` schema 草案。详见 Timeline 2026-05-22 + clowder-ai#748。
 
 ## Acceptance Criteria
 
@@ -207,7 +207,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 - [x] AC-G2: native L0 与 fallback 共用同一编译产物 ✅（`system-prompt-l0.md` §3 `{{GOVERNANCE_L0}}` + `SystemPromptBuilder` 同读 `loadCompiledGovernanceL0*`）
 - [x] AC-G3: `.local.md` / `.local-override.md` 挂到编译层 ✅（native + fallback 同时生效；override replace 语义保留）
 - [x] AC-G4: Rules & SOP 面板展示消费链 ✅（`/api/rules` 增 `consumption`；前端 legend + card badge 显示“实际进 prompt / harness 注入 / 只是参考 / skill 按需加载”）
-- [⊘] AC-G5: #748 SOP vocabulary / `sop_navigation` 收敛 ⏸（铲屎官明确先思考；等 #747/#749 完成后再讨论）
+- [⊘] AC-G5: #748 SOP vocabulary / `sop_navigation` 收敛 ⏸（移出 Phase G；2026-05-22 方向对齐——归 F203 独立 work item，详见 Timeline）
 
 ## Dependencies
 
@@ -297,6 +297,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-21 | **Governance L0 single-source + consumption chain (#747/#749) merged**（PR #1830, squash `06cff348`）——`shared-rules.md` deterministic compile 成 governance L0，`system-prompt-l0.md` §3 改 `{{GOVERNANCE_L0}}`，`SystemPromptBuilder` fallback 同读编译产物，`.local/.local-override` 上移到编译层；`/api/rules` + Rules & SOP 面板展示“实际进 prompt / harness 注入 / 只是参考 / skill 按需加载”消费链。Opus 本地 review P2（硬编码投影 drift）→ drift-guard 修复；云端 P2/P1（duplicate heading fail-open + docs frontmatter）全修后 clean。#748 暂缓讨论。 |
 | 2026-05-21 | **Governance L0 sanitizer-invariant anchors merged (PR #1831, squash `7749a189`)**——Outbound sync temp public gate fail-closed：public sanitizer rewrote `shared-rules.md` family headings (`缅因猫`/`暹罗猫` → `Maine Coon`/`Siamese`) while `governance-l0.ts` still asserted exact localized headings, causing API startup L0 compile failure before clowder-ai was touched. Fix: assert sanitizer-invariant protocol cores and extract output labels from the actual shared-rules heading（KD-17）。Opus re-review verified real sanitizer end-to-end: sanitized shared-rules compiles, output follows `Maine Coon`/`Siamese`, no localized label leak in public path. Cloud review clean. |
 | 2026-05-21 | **Governance L0 public-sync test guard merged (PR #1832, squash `aaf51040`)**——Outbound sync temp public gate advanced past API startup after KD-17, then exposed the older governance L0 unit test still asserting private localized labels (`缅因猫`/`暹罗猫`) instead of sanitizer-invariant protocol cores. Fix: test asserts `fallback 层数检测` / `创意-实现解耦` so internal and public-sanitized outputs both pass; also tightened color-token audit `.test.` filtering to avoid worktree-path false negatives. Opus re-review + cloud review clean. |
+| 2026-05-22 | **#748 SOP stage 定义统一——方向对齐**：社区（terrenceeLeung / 天一）在 clowder-ai#748 提交设计提案——新建 `SopDefinition`（`sop-definitions/development.yaml`）单一机器可读源、`sop_navigation` 并入它（第三选项，非「删除」或「原样接线」）。Opus 核实提案代码事实（`sop_navigation` 零消费 / `SopStage` 硬编码 union / 一行 hint）准确 → green light。**CVO 决策：#748 归 F203、不新开 F 号**——与 #747 同属「家规 / SOP 外化」线（separate change set，same feature）。实现路径同 #747：Cat Café 上游实现 + 同步，社区作 design owner + 同步 PR reviewer。kickoff 前敲定 2 点：① hard_rules/pitfalls 迁入 `SopDefinition` 后仍零消费 → 须诚实标注「parked, no consumer」② `sopDefinitionId` seam 守 YAGNI（只加字段 + 默认值，不建 resolver）。回复见 clowder-ai#748。 |
 
 ## Review Gate
 
