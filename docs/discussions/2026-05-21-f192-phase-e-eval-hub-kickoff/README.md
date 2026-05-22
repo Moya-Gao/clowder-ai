@@ -30,6 +30,21 @@ created: 2026-05-21
 
 If implemented as a new feature, F192 would become a half-finished vertical line and the system would duplicate ownership. Phase E extends the existing F192 authority boundary instead.
 
+## Owner Review R1 Update
+
+宪宪/Opus-47 reviewed the kickoff as F192 owner + cross-family Design Gate reviewer. Verdict:
+
+- Architecture core endorsed: F192 Phase E, structured Verdict Handoff Packet, re-eval closure, legacy scheduled-task cleanup, domain thread as working home but not SOT
+- Required change: split Phase E into a build sequence instead of one 10-AC phase
+- Added OQs: eval cat invocation model; Eval Hub vs F188 Health Dashboard overlap
+
+Build order is now:
+
+1. **E-pilot**: only `eval:a2a`, no UI, prove registry / handoff / re-eval / legacy cleanup
+2. **E-hub**: build Eval Hub from real a2a verdicts
+3. **E-scale**: add `eval:memory` via F200 + F188 adapters
+4. **E-community**: community issue packet / custom domain path
+
 ## First Principles
 
 1. **Eval is not monitoring.** F153 answers "what happened"; eval answers "against the expected harness behavior, what should change?"
@@ -89,6 +104,8 @@ Eval Hub v1 should show:
 
 It is not a metrics dashboard. A number without verdict / owner / re-eval plan is not an Eval Hub item.
 
+**Sequencing constraint**: Eval Hub must not be built before at least one real domain verdict exists. E-pilot produces the first `eval:a2a` verdict; E-hub then surfaces that real lifecycle.
+
 ### Decision 4: Legacy scheduled-task cleanup is part of adapter acceptance
 
 When a domain adapter is connected to unified runtime, the corresponding old scheduled task must be inventoried and either:
@@ -117,6 +134,8 @@ Acceptance requires a dry-run report proving no double trigger for that domain.
 | OQ-3 | Delete/sunset signoff threshold | Some sunset verdicts can remove active harness behavior |
 | OQ-4 | Legacy scheduled-task migration mechanism | Prevent duplicate reports while preserving rollback |
 | OQ-5 | Community report privacy boundary | Issue packets must be useful and safe |
+| OQ-6 | Eval cat invocation model | Unified scheduler must wake the right eval cat in the right domain thread with longitudinal context |
+| OQ-7 | Eval Hub vs F188 Health Dashboard | F188 health is `eval:memory` input; need explicit coexist / absorb / replace decision to avoid duplicate health surfaces |
 
 ## Architecture Cell
 
