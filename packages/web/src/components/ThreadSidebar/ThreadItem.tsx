@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import type { ThreadState } from '@/stores/chat-types';
+import { useLabelStore } from '@/stores/label-store';
 import { API_URL } from '@/utils/api-client';
+// F174 D2b-2 (rev): per-cat callback-auth dot was rejected (铲屎官 alpha 反馈
+// "莫名其妙的颜色" — 16px participant avatars lacked any affordance). Status now
+// surfaces system-level via <CallbackAuthHealthIndicator /> in ChatContainerHeader,
+// and per-cat (with "AFFECTED CATS" affordance) inside HubCallbackAuthPanel.
 import { CatAvatar } from '../CatAvatar';
+import { HubIcon } from '../icons/HubIcon';
+import { PawIcon } from '../icons/PawIcon';
 import { ThreadCatStatus } from '../ThreadCatStatus';
 import { ThreadCatSettings } from './ThreadCatSettings';
-import { ChildCountBadge, HierarchyArrow } from './ThreadHierarchyToggle';
+import { ThreadLabelPicker } from './ThreadLabelPicker';
 import { formatRelativeTime } from './thread-utils';
 
 export interface ThreadItemProps {
@@ -20,21 +28,14 @@ export interface ThreadItemProps {
   onTogglePin?: (id: string, pinned: boolean) => void | Promise<void>;
   onToggleFavorite?: (id: string, favorited: boolean) => void | Promise<void>;
   onUpdatePreferredCats?: (id: string, cats: string[]) => void | Promise<void>;
+  onUpdateLabels?: (id: string, labels: string[]) => void | Promise<void>;
   isPinned?: boolean;
   isFavorited?: boolean;
   threadState?: ThreadState;
   indented?: boolean;
   preferredCats?: string[];
-  /** Thread hierarchy: number of child threads (>0 = parent thread) */
-  childCount?: number;
-  /** Thread hierarchy: whether child threads are visible */
-  isExpanded?: boolean;
-  /** Thread hierarchy: toggle expand/collapse of child threads */
-  onToggleExpand?: () => void;
-  /** Thread hierarchy: this thread is a child of another thread */
-  isChildThread?: boolean;
-  /** Thread hierarchy: this is the last child (renders └── instead of ├──) */
-  isLastChild?: boolean;
+  threadLabels?: string[];
+  isHubThread?: boolean;
 }
 
 export function ThreadItem({
@@ -49,16 +50,14 @@ export function ThreadItem({
   onTogglePin,
   onToggleFavorite,
   onUpdatePreferredCats,
+  onUpdateLabels,
   isPinned,
   isFavorited,
   threadState,
   indented,
   preferredCats,
-  childCount,
-  isExpanded,
-  onToggleExpand,
-  isChildThread,
-  isLastChild,
+  threadLabels,
+  isHubThread,
 }: ThreadItemProps) {
   const { getCatById } = useCatData();
   const canDelete = id !== 'default' && onDelete;
@@ -69,7 +68,7 @@ export function ThreadItem({
   const [isSaving, setIsSaving] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title ?? '');
   const inputRef = useRef<HTMLInputElement>(null);
-  const isComposingRef = useRef(false);
+  const ime = useIMEGuard();
 
   useEffect(() => {
     if (!isEditing) setDraftTitle(title ?? '');
@@ -105,6 +104,7 @@ export function ThreadItem({
 
   // Build hover tooltip: full title + participants + time (clowder-ai#29)
   const displayTitle = title ?? (id === 'default' ? '大厅' : '未命名对话');
+  const hasDraft = !isActive && (threadState?.hasDraft ?? false);
   const participantNames = participants.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
   const tooltipLines = [displayTitle];
   if (participantNames) tooltipLines.push(`参与: ${participantNames}`);
@@ -113,36 +113,13 @@ export function ThreadItem({
 
   return (
     <div
-      className={`group relative ${isChildThread ? 'pl-10 pr-3' : indented ? 'pl-7 pr-3' : 'px-3'} py-2.5 border-b border-gray-50 transition-colors cursor-pointer ${
-        isActive ? 'bg-owner-bg' : isExpanded ? 'bg-purple-50/40' : 'hover:bg-gray-50'
+      data-thread-id={id}
+      className={`group relative mx-2 rounded-xl ${indented ? 'pl-5 pr-3' : 'px-3'} py-2.5 transition-colors cursor-pointer ${
+        isActive ? 'bg-[var(--console-active-bg)]' : 'hover:bg-[var(--console-hover-bg)]'
       }`}
       onClick={() => onSelect(id)}
       title={tooltip}
     >
-      {/* Child thread tree-line connector: ├── (mid) or └── (last) */}
-      {isChildThread && (
-        <>
-          <div className={`absolute left-7 top-0 w-px bg-gray-200 ${isLastChild ? 'h-5' : 'bottom-0'}`} />
-          <div className="absolute left-7 top-5 w-3 h-px bg-gray-200" />
-        </>
-      )}
-      {/* Main layout: [arrow?] [avatar] [content area] */}
-      <div className="flex items-start gap-2">
-        {/* Expand/collapse arrow only (badge moved to time row) */}
-        {childCount != null && childCount > 0 && onToggleExpand && (
-          <HierarchyArrow isExpanded={isExpanded ?? false} onToggle={onToggleExpand} />
-        )}
-        {/* Cat avatar — first participant or first preferredCat */}
-        {(() => {
-          const avatarCatId = participants[0] ?? preferredCats?.[0];
-          return avatarCatId ? (
-            <div className="flex-shrink-0 mt-0.5">
-              <CatAvatar catId={avatarCatId} size={20} />
-            </div>
-          ) : null;
-        })()}
-        {/* Content area: title + meta row */}
-        <div className="flex-1 min-w-0">
       {/* Title row */}
       <div className="flex items-start justify-between gap-1 mb-1">
         {isEditing ? (
@@ -151,14 +128,10 @@ export function ThreadItem({
             value={draftTitle}
             onChange={(e) => setDraftTitle(e.target.value)}
             onClick={(e) => e.stopPropagation()}
-            onCompositionStart={() => {
-              isComposingRef.current = true;
-            }}
-            onCompositionEnd={() => {
-              isComposingRef.current = false;
-            }}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !isComposingRef.current) {
+              if (e.key === 'Enter' && !ime.isComposing()) {
                 e.preventDefault();
                 void submitRename();
               }
@@ -173,12 +146,13 @@ export function ThreadItem({
             }}
             disabled={isSaving}
             maxLength={200}
-            className="text-sm px-1.5 py-0.5 rounded border border-owner-light focus:outline-none focus:border-owner-primary w-full mr-2 disabled:opacity-70"
+            className="text-sm px-1.5 py-0.5 rounded border border-cafe-subtle focus:outline-none focus:border-cafe-accent w-full mr-2 disabled:opacity-70"
           />
         ) : (
           <span
-            className={`text-sm leading-snug line-clamp-1 flex-1 min-w-0 ${isActive ? 'font-semibold text-cafe-black' : 'text-gray-700'}`}
+            className={`text-sm leading-snug line-clamp-2 flex-1 min-w-0 ${isActive ? 'font-semibold text-cafe-black' : 'text-cafe-secondary'}`}
           >
+            {isHubThread && <HubIcon className="w-3.5 h-3.5 inline-block mr-1 text-cafe-accent align-text-bottom" />}
             {title ?? (id === 'default' ? '大厅' : '未命名对话')}
           </span>
         )}
@@ -192,8 +166,8 @@ export function ThreadItem({
               }}
               className={`p-0.5 rounded transition-all ${
                 isPinned
-                  ? 'text-owner-primary'
-                  : 'opacity-0 group-hover:opacity-100 text-gray-300 hover:text-owner-primary'
+                  ? 'text-cafe-accent'
+                  : 'opacity-0 group-hover:opacity-100 text-cafe-muted hover:text-cafe-accent'
               }`}
               title={isPinned ? '取消置顶' : '置顶'}
             >
@@ -209,8 +183,8 @@ export function ThreadItem({
               }}
               className={`p-0.5 rounded transition-all ${
                 isFavorited
-                  ? 'text-yellow-500'
-                  : 'opacity-0 group-hover:opacity-100 text-gray-300 hover:text-yellow-400'
+                  ? 'text-conn-amber-text'
+                  : 'opacity-0 group-hover:opacity-100 text-cafe-muted hover:text-conn-amber-hover'
               }`}
               title={isFavorited ? '取消收藏' : '收藏'}
             >
@@ -220,6 +194,10 @@ export function ThreadItem({
           {/* Cat settings button */}
           {id !== 'default' && onUpdatePreferredCats && !isEditing && (
             <ThreadCatSettings threadId={id} currentCats={preferredCats ?? []} onSave={onUpdatePreferredCats} />
+          )}
+          {/* Label picker button */}
+          {id !== 'default' && onUpdateLabels && !isEditing && (
+            <ThreadLabelPicker threadId={id} currentLabels={threadLabels ?? []} onSave={onUpdateLabels} />
           )}
           {/* Rename button */}
           {canRename && !isEditing && (
@@ -231,10 +209,10 @@ export function ThreadItem({
                 e.stopPropagation();
                 setIsEditing(true);
               }}
-              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-owner-bg transition-all"
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-cafe-surface transition-all"
               title="重命名对话"
             >
-              <svg className="w-3 h-3 text-gray-300 hover:text-owner-primary" viewBox="0 0 16 16" fill="currentColor">
+              <svg className="w-3 h-3 text-cafe-muted hover:text-cafe-accent" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M11.013 1.427a1.75 1.75 0 112.474 2.474l-7.2 7.2a2 2 0 01-.84.49l-2.22.634a.75.75 0 01-.926-.926l.634-2.22a2 2 0 01.49-.84l7.588-7.588zm1.414 1.06a.25.25 0 00-.353 0L11.2 3.36l1.44 1.44.874-.874a.25.25 0 000-.353l-1.086-1.086zM11.58 5.86l-1.44-1.44-6.072 6.072a.5.5 0 00-.123.21l-.303 1.06 1.06-.303a.5.5 0 00.21-.123l6.668-6.668z" />
                 <path d="M2.25 13A.75.75 0 013 12.25v-.5a.75.75 0 011.5 0v.5c0 .138.112.25.25.25h8a.75.75 0 010 1.5h-8A1.75 1.75 0 012.25 13z" />
               </svg>
@@ -247,10 +225,14 @@ export function ThreadItem({
                 e.stopPropagation();
                 window.open(`${API_URL}/api/export/thread/${id}?format=md`);
               }}
-              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-blue-50 transition-all"
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-conn-blue-bg transition-all"
               title="导出对话"
             >
-              <svg className="w-3 h-3 text-gray-300 hover:text-blue-400" viewBox="0 0 16 16" fill="currentColor">
+              <svg
+                className="w-3 h-3 text-cafe-muted hover:text-conn-blue-hover"
+                viewBox="0 0 16 16"
+                fill="currentColor"
+              >
                 <path d="M2.75 14A1.75 1.75 0 011 12.25v-2.5a.75.75 0 011.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 00.25-.25v-2.5a.75.75 0 011.5 0v2.5A1.75 1.75 0 0113.25 14H2.75z" />
                 <path d="M7.25 7.689V2a.75.75 0 011.5 0v5.689l1.97-1.969a.749.749 0 111.06 1.06l-3.25 3.25a.749.749 0 01-1.06 0L4.22 6.78a.749.749 0 111.06-1.06l1.97 1.969z" />
               </svg>
@@ -263,10 +245,10 @@ export function ThreadItem({
                 e.stopPropagation();
                 onDelete(id);
               }}
-              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-50 transition-all"
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-conn-red-bg transition-all"
               title="删除对话"
             >
-              <svg className="w-3 h-3 text-gray-300 hover:text-red-400" viewBox="0 0 16 16" fill="currentColor">
+              <svg className="w-3 h-3 text-cafe-muted hover:text-conn-red-text" viewBox="0 0 16 16" fill="currentColor">
                 <path
                   fillRule="evenodd"
                   d="M5 3.25V4H2.75a.75.75 0 000 1.5h.3l.815 8.15A1.5 1.5 0 005.357 15h5.285a1.5 1.5 0 001.493-1.35l.815-8.15h.3a.75.75 0 000-1.5H11v-.75A2.25 2.25 0 008.75 1h-1.5A2.25 2.25 0 005 3.25zm2.25-.75a.75.75 0 00-.75.75V4h3v-.75a.75.75 0 00-.75-.75h-1.5z"
@@ -277,37 +259,56 @@ export function ThreadItem({
           )}
         </div>
       </div>
-      {/* Bottom row: remaining participant avatars + time + badge/handle + status */}
-      <div className="flex items-center gap-1">
-        {/* Participant avatars — show all (matches original design) */}
-        {participants.length > 0 && (
-          <div className="flex items-center -space-x-1">
-            {participants.map((catId) => (
-              <CatAvatar key={catId} catId={catId} size={14} />
-            ))}
-          </div>
-        )}
-        <span className="text-[10px] text-gray-400">{formatRelativeTime(lastActiveAt, true)}</span>
-        {/* Parent thread: show "N 子线程" badge next to time */}
-        {childCount != null && childCount > 0 && (
-          <ChildCountBadge count={childCount} isExpanded={isExpanded ?? false} />
-        )}
-        {/* Child thread: show @handle next to time */}
-        {isChildThread && preferredCats && preferredCats.length > 0 && (
-          <span className="text-[10px] text-gray-400">
-            · @{getCatById(preferredCats[0])?.id ?? preferredCats[0]}
-          </span>
-        )}
-        {threadState && (
-          <ThreadCatStatus
-            threadState={threadState}
-            unreadCount={threadState.unreadCount}
-            hasUserMention={threadState.hasUserMention}
-          />
-        )}
+      {/* Bottom row: avatars + status + compact time */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          {participants.length > 0 ? (
+            participants.map((catId) => <CatAvatar key={catId} catId={catId} size={16} />)
+          ) : id !== 'default' ? (
+            <>
+              <PawIcon className="text-xs" />
+              <span className="text-micro text-cafe-muted">还没有猫猫加入</span>
+            </>
+          ) : null}
+          {preferredCats && preferredCats.length > 0 && (
+            <div
+              className="flex items-center gap-0.5 ml-1"
+              title={`默认: ${preferredCats.map((id) => getCatById(id)?.displayName ?? id).join(', ')}`}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-2.5 w-2.5 text-cafe-muted shrink-0"
+              >
+                <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
+              </svg>
+              {preferredCats.map((catId) => (
+                <span
+                  key={catId}
+                  className="inline-block w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: getCatById(catId)?.color.primary ?? '#9CA3AF' }}
+                />
+              ))}
+            </div>
+          )}
+          <LabelDots labels={threadLabels} />
+          {threadState && (
+            <ThreadCatStatus
+              threadState={threadState}
+              unreadCount={threadState.unreadCount}
+              hasUserMention={threadState.hasUserMention}
+            />
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {hasDraft && <span className="text-micro font-medium text-conn-red-text">[草稿]</span>}
+          <span className="text-micro text-cafe-muted">{formatRelativeTime(lastActiveAt, true)}</span>
+        </div>
       </div>
-      </div>{/* close content area */}
-      </div>{/* close main layout */}
     </div>
   );
 }
@@ -333,5 +334,31 @@ function StarIcon({ filled }: { filled?: boolean }) {
     >
       <path d="M8 1.5l2.09 4.26 4.71.68-3.41 3.32.8 4.69L8 12.26l-4.19 2.19.8-4.69L1.2 6.44l4.71-.68L8 1.5z" />
     </svg>
+  );
+}
+
+function LabelDots({ labels }: { labels?: string[] }) {
+  const { labels: allLabels } = useLabelStore();
+  if (!labels || labels.length === 0) return null;
+  const resolved = labels
+    .map((id) => allLabels.find((l) => l.id === id))
+    .filter((l): l is NonNullable<typeof l> => l !== undefined);
+  if (resolved.length === 0) return null;
+  const shown = resolved.slice(0, 2);
+  const overflow = resolved.length - shown.length;
+  return (
+    <div className="flex items-center gap-0.5 ml-1" title={resolved.map((l) => l.name).join(', ')}>
+      {shown.map((l) => (
+        <span
+          key={l.id}
+          className="inline-flex items-center gap-0.5 rounded-full px-1 py-px text-micro leading-tight text-cafe-secondary"
+          style={{ backgroundColor: `${l.color}18` }}
+        >
+          <span className="inline-block w-1 h-1 rounded-full flex-shrink-0" style={{ backgroundColor: l.color }} />
+          <span className="max-w-[32px] truncate">{l.name}</span>
+        </span>
+      ))}
+      {overflow > 0 && <span className="text-micro text-cafe-muted">+{overflow}</span>}
+    </div>
   );
 }
