@@ -54,7 +54,7 @@ async function readError(res: Response, fallback: string): Promise<string> {
   return fallback;
 }
 
-export function PushServiceConfig() {
+export function PushServiceConfig({ embedded = false }: { embedded?: boolean } = {}) {
   const [form, setForm] = useState<PushConfigFormState>(EMPTY_FORM);
   const [status, setStatus] = useState<PushStatusPayload | null>(null);
   const [busy, setBusy] = useState<'generate' | 'save' | null>(null);
@@ -151,8 +151,8 @@ export function PushServiceConfig() {
 
   const labelClass = 'text-xs text-cafe-secondary' as const;
 
-  return (
-    <SettingsCard className="space-y-4">
+  const content = (
+    <>
       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div className="space-y-1">
           <SettingsText as="div" variant="sm" tone="default" className="font-medium">
@@ -227,6 +227,12 @@ export function PushServiceConfig() {
           {busy === 'save' ? '保存中...' : '保存推送配置'}
         </SettingsPrimaryButton>
       </div>
-    </SettingsCard>
+    </>
   );
+
+  if (embedded) {
+    return <div className="space-y-4">{content}</div>;
+  }
+
+  return <SettingsCard className="space-y-4">{content}</SettingsCard>;
 }

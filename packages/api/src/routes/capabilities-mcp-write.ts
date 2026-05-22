@@ -137,7 +137,7 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
       reply.status(401);
       return { error: 'Identity required (session cookie)' };
     }
-    const ownerError = requireCapabilityWriteOwner(userId);
+    const ownerError = requireCapabilityWriteOwner(userId, { allowMissingOwner: true });
     if (ownerError) {
       reply.status(ownerError.status);
       return { error: ownerError.error };
@@ -184,7 +184,7 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
       reply.status(401);
       return { error: 'Identity required (session cookie)' };
     }
-    const ownerError = requireCapabilityWriteOwner(userId);
+    const ownerError = requireCapabilityWriteOwner(userId, { allowMissingOwner: true });
     if (ownerError) {
       reply.status(ownerError.status);
       return { error: ownerError.error };
@@ -286,7 +286,7 @@ export const capabilitiesMcpWriteRoutes: FastifyPluginAsync<{
       reply.status(401);
       return { error: 'Identity required (session cookie)' };
     }
-    const ownerError = requireCapabilityWriteOwner(userId);
+    const ownerError = requireCapabilityWriteOwner(userId, { allowMissingOwner: true });
     if (ownerError) {
       reply.status(ownerError.status);
       return { error: ownerError.error };

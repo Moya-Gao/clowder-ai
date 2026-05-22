@@ -30,8 +30,8 @@ export function SettingsResourceIconButton({
       className={joinClasses(
         'settings-resource-action flex h-[30px] w-[30px] items-center justify-center rounded-lg transition-colors disabled:cursor-default disabled:opacity-50',
         tone === 'danger'
-          ? 'text-cafe-accent hover:bg-[var(--console-hover-bg)] hover:text-cafe'
-          : 'text-cafe-accent hover:bg-[var(--console-hover-bg)] hover:text-cafe',
+          ? 'text-cafe-muted hover:bg-[var(--console-hover-bg)] hover:text-cafe-accent'
+          : 'text-cafe-muted hover:bg-[var(--console-hover-bg)] hover:text-cafe-accent',
         className,
       )}
     >

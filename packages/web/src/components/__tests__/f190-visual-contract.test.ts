@@ -302,19 +302,19 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).not.toMatch(/text-\[\d+px\]/);
   });
 
-  it('SettingsDeleteButton: accent default, darker hover with bg', () => {
+  it('SettingsDeleteButton: muted default, accent hover with bg', () => {
     const src = readSrc('settings/primitives/SettingsDeleteButton.tsx');
-    expect(src).toContain('text-cafe-accent');
+    expect(src).toContain('text-cafe-muted');
     expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
-    expect(src).toContain('hover:text-cafe');
-    expect(src).not.toContain('text-cafe-muted');
+    expect(src).toContain('hover:text-cafe-accent');
+    expect(src).not.toMatch(/className=.*text-cafe-accent.*hover/);
   });
 
-  it('SettingsResourceIconButton: accent default for both tones, hover darkens', () => {
+  it('SettingsResourceIconButton: muted default for both tones, hover uses accent', () => {
     const src = readSrc('SettingsResourceCard.tsx');
     expect(src).toContain("tone === 'danger'");
-    expect(src).toContain('text-cafe-accent hover:bg-[var(--console-hover-bg)] hover:text-cafe');
-    expect(src).not.toMatch(/className=.*text-cafe-muted.*hover/);
+    expect(src).toContain('text-cafe-muted hover:bg-[var(--console-hover-bg)] hover:text-cafe-accent');
+    expect(src).not.toMatch(/className=.*text-cafe-accent.*hover/);
   });
 
   it('HubAccountItem: click-to-edit only, no inline expand/TagEditor', () => {
@@ -654,7 +654,7 @@ describe('F723 cross-page typography consistency', () => {
     expect(src).toContain('bg-transparent');
   });
 
-  it('MessageNavigator has 1px connecting rail, no viewport thumb or raw grey', () => {
+  it('MessageNavigator has 1px connecting rail, no extra viewport thumb or raw grey', () => {
     const src = readSrc('MessageNavigator.tsx');
     expect(src).toContain('w-px');
     expect(src).toContain('console-border-soft');
@@ -665,11 +665,30 @@ describe('F723 cross-page typography consistency', () => {
     expect(src).not.toContain('viewport');
   });
 
-  it('interactive icon buttons use text-cafe-accent, not text-cafe-muted', () => {
+  it('chat container keeps a visible thin scrollbar for position context', () => {
+    const css = readFileSync(resolve(testDir, '../../app/console-shell.css'), 'utf8');
+    const chatRules = css.match(/\[data-chat-container\][\s\S]*?\[data-theme="dark"\]/)?.[0] ?? '';
+    expect(css).toContain('[data-chat-container]');
+    expect(css).toContain('scrollbar-width: thin');
+    expect(css).toContain('[data-chat-container]::-webkit-scrollbar-thumb');
+    expect(chatRules).not.toContain('scrollbar-width: none');
+    expect(chatRules).not.toContain('display: none');
+  });
+
+  it('PushSettingsPanel uses resource-card shell and embeds PushServiceConfig content', () => {
+    const src = readSrc('PushSettingsPanel.tsx');
+    expect(src).toContain('settingsResourceCardClass');
+    expect(src).toContain('settingsResourceRowClass');
+    expect(src).toContain('<PushServiceConfig embedded />');
+    expect(src).not.toContain('CARD_SHADOW');
+  });
+
+  it('interactive icon buttons use muted default, accent hover', () => {
     for (const file of ['settings/primitives/SettingsIconButton.tsx', 'settings/primitives/SettingsDeleteButton.tsx']) {
       const src = readSrc(file);
-      expect(src).toContain('text-cafe-accent');
-      expect(src).not.toMatch(/className=.*text-cafe-muted.*hover/);
+      expect(src).toContain('text-cafe-muted');
+      expect(src).toContain('hover:text-cafe-accent');
+      expect(src).not.toMatch(/className=.*text-cafe-accent.*hover/);
     }
   });
 

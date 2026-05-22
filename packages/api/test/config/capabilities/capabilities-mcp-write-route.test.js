@@ -147,7 +147,7 @@ describe('capabilities MCP write routes', () => {
     assert.ok(!config?.capabilities.some((entry) => entry.id === 'new-mcp'));
   });
 
-  it('fails closed for MCP preview/install/delete when DEFAULT_OWNER_USER_ID is not configured', async () => {
+  it('allows session MCP preview/install/delete when DEFAULT_OWNER_USER_ID is not configured', async () => {
     await writeCapabilitiesConfig(projectRoot, {
       version: 1,
       capabilities: [
@@ -185,13 +185,12 @@ describe('capabilities MCP write routes', () => {
         headers: OWNER_HEADERS,
         payload: testCase.payload,
       });
-      assert.equal(res.statusCode, 403, `${testCase.method} ${testCase.url} should fail closed without owner`);
-      assert.match(JSON.parse(res.payload).error, /DEFAULT_OWNER_USER_ID/);
+      assert.equal(res.statusCode, 200, `${testCase.method} ${testCase.url} should allow session owner fallback`);
     }
 
     const config = await readCapabilitiesConfig(projectRoot);
     assert.equal(config?.capabilities.length, 1);
-    assert.equal(config?.capabilities[0]?.id, 'secret-mcp');
+    assert.equal(config?.capabilities[0]?.id, 'new-mcp');
   });
 
   it('rejects non-owner MCP deletes when DEFAULT_OWNER_USER_ID is configured', async () => {

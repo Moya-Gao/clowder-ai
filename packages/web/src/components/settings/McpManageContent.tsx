@@ -169,6 +169,7 @@ export function McpManageContent() {
                       onClick={() => setExpandedId(expanded ? null : item.id)}
                       title="按猫开关"
                       aria-label="按猫开关"
+                      className={expanded ? 'bg-[var(--console-hover-bg)] text-cafe-accent' : undefined}
                     >
                       <HubIcon name="users" className="h-4 w-4" />
                     </SettingsResourceIconButton>
