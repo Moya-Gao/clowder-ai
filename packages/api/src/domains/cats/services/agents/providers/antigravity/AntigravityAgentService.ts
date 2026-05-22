@@ -59,6 +59,7 @@ import { classifyAntigravityStepEffect, summarizeAntigravityEffects } from './an
 import { summarizeStepShape, TRACE_ENABLED, traceLog } from './antigravity-trace.js';
 import { AuditLogger } from './executors/AuditLogger.js';
 import { ExecutorRegistry } from './executors/ExecutorRegistry.js';
+import { ANTIGRAVITY_IDE_READ_TOOL_NAMES, AntigravityIdeReadToolExecutor } from './executors/IdeReadToolExecutor.js';
 import { CallMcpToolExecutor } from './executors/McpToolExecutor.js';
 import { isReadOnlyRunCommand, RunCommandExecutor } from './executors/RunCommandExecutor.js';
 
@@ -95,6 +96,22 @@ function sanitizeAutoResumeMaxAttempts(value?: number): number {
   if (value === undefined) return DEFAULT_AUTO_RESUME_MAX_ATTEMPTS;
   if (!Number.isFinite(value)) return DEFAULT_AUTO_RESUME_MAX_ATTEMPTS;
   return Math.max(0, Math.floor(value));
+}
+
+function hasTerminalPlannerText(steps: readonly TrajectoryStep[]): boolean {
+  return steps.some((step) => {
+    if (step.type !== 'CORTEX_STEP_TYPE_PLANNER_RESPONSE') return false;
+    if (step.status !== 'CORTEX_STEP_STATUS_DONE' && step.status !== 'FINISHED' && step.status !== 'DONE') {
+      return false;
+    }
+    if (step.plannerResponse?.stopReason === 'STOP_REASON_CLIENT_STREAM_ERROR') return false;
+    const text = step.plannerResponse?.modifiedResponse ?? step.plannerResponse?.response;
+    return typeof text === 'string' && text.trim() !== '';
+  });
+}
+
+function isAssistantPrefillTailError(rawError: string): boolean {
+  return /assistant message prefill/i.test(rawError) && /conversation must end with a user message/i.test(rawError);
 }
 
 function isPathInside(childPath: string, parentPath: string): boolean {
@@ -316,6 +333,9 @@ export class AntigravityAgentService implements AgentService {
         }),
       );
       registry.register(new CallMcpToolExecutor());
+      for (const toolName of ANTIGRAVITY_IDE_READ_TOOL_NAMES) {
+        registry.register(new AntigravityIdeReadToolExecutor(toolName));
+      }
       const audit = new AuditLogger(join(process.cwd(), 'data', 'antigravity-audit'));
       this.bridge.attachExecutors(registry, audit);
     }
@@ -537,6 +557,7 @@ export class AntigravityAgentService implements AgentService {
         }
 
         let hasText = false;
+        let hasTerminalText = false;
         let fatalSeen = false;
         let terminalAbort = false;
         let autoApproveAttempted = false;
@@ -892,6 +913,7 @@ export class AntigravityAgentService implements AgentService {
               }
 
               const messages = transformTrajectorySteps(batch.steps, self.catId, metadata);
+              const batchHasTerminalPlannerText = batch.cursor.terminalSeen && hasTerminalPlannerText(batch.steps);
               for (const p of collectImagePathsFromSteps(batch.steps)) collectedImagePaths.add(p);
               // F172 Phase G: capture DONE GENERATE_IMAGE steps for the post-invocation brain scan
               for (const step of batch.steps) {
@@ -1161,6 +1183,9 @@ export class AntigravityAgentService implements AgentService {
               });
 
               const seenFatalKeys = new Set<string>();
+              const batchHasFatalError = messages.some(
+                (msg) => msg.type === 'error' && msg.errorCode !== undefined && msg.errorCode !== 'tool_error',
+              );
               const batchHasSpecificError = messages.some(
                 (msg) =>
                   msg.type === 'error' &&
@@ -1276,6 +1301,10 @@ export class AntigravityAgentService implements AgentService {
                   }
                   const errorMetadata = msg.metadata ?? metadata;
                   const rawError = msg.metadata?.upstreamError?.rawReason ?? msg.error ?? '';
+                  if (hasTerminalText && isAssistantPrefillTailError(rawError)) {
+                    log.info({ cascadeId }, 'suppressed assistant-prefill upstream_error after terminal planner text');
+                    continue;
+                  }
                   const looksLikeApprovalDenied = /user denied permission/i.test(rawError);
                   const looksLikeApprovalTimeout = /context canceled/i.test(rawError);
                   if (
@@ -1367,6 +1396,8 @@ export class AntigravityAgentService implements AgentService {
                 terminalAbort = true;
                 yield msg;
               }
+
+              if (batchHasTerminalPlannerText && !batchHasFatalError) hasTerminalText = true;
 
               if (modelCapacityRetryDelayMs != null) {
                 log.info(
