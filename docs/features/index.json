@@ -1299,7 +1299,7 @@
     {
       "id": "F210",
       "name": "Gemini CLI to Antigravity CLI Migration",
-      "status": "spec | **Owner**: 缅因猫（砚砚） | **Priority**: P1",
+      "status": "in-progress | **Owner**: 缅因猫（砚砚） | **Priority**: P1",
       "file": "F210-antigravity-cli-migration.md"
     }
   ]

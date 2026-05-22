@@ -1,0 +1,7 @@
+Command: HOME=/tmp/cat-cafe-f210-agy-recon/home /tmp/cat-cafe-f210-agy-recon/bin/agy install --help
+Captured: 2026-05-22
+
+Usage of /tmp/cat-cafe-f210-agy-recon/bin/agy install:
+  --dir           Custom directory target to configure PATH for
+  --skip-aliases  Bypasses shell profile alias purging
+  --skip-path     Bypasses shell profile PATH appending

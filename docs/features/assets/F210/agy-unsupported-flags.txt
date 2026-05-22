@@ -1,0 +1,23 @@
+Command:
+for flag in --model --mcp-config --no-mcp --include-dir --cwd --resume --json --output-format; do
+  HOME=/tmp/cat-cafe-f210-agy-recon/home /tmp/cat-cafe-f210-agy-recon/bin/agy "$flag" test
+done
+
+Captured: 2026-05-22
+
+Each command exited 2 with the same pattern:
+
+flags provided but not defined: -model
+flags provided but not defined: -mcp-config
+flags provided but not defined: -no-mcp
+flags provided but not defined: -include-dir
+flags provided but not defined: -cwd
+flags provided but not defined: -resume
+flags provided but not defined: -json
+flags provided but not defined: -output-format
+
+Implications:
+- Model override is not exposed as a top-level CLI flag in AGY CLI 1.0.1.
+- MCP conflict controls are not exposed as --mcp-config or --no-mcp in AGY CLI 1.0.1.
+- Gemini CLI --include-dir does not map directly; use repeatable --add-dir.
+- There is no JSON/NDJSON output flag comparable to Gemini CLI -o stream-json.

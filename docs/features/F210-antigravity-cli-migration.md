@@ -8,7 +8,7 @@ created: 2026-05-22
 
 # F210: Gemini CLI to Antigravity CLI Migration
 
-> **Status**: spec | **Owner**: 缅因猫（砚砚） | **Priority**: P1
+> **Status**: in-progress | **Owner**: 缅因猫（砚砚） | **Priority**: P1
 
 Architecture cell: `transport`
 Map delta: none
@@ -132,12 +132,18 @@ Offline packaging must explicitly decide whether to vendor the native `agy` bina
 
 ### Phase A（Official CLI Recon）
 
-- [ ] AC-A1: Spec/recon note cites Google official transition timeline and enterprise exception.
-- [ ] AC-A2: Recon records exact `agy` install, headless command, subprocess-friendly output mode if any, resume, model, and cwd/include-dir behavior.
+- [x] AC-A1: Spec/recon note cites Google official transition timeline and enterprise exception.
+- [x] AC-A2: Recon records exact `agy` install, headless command, subprocess-friendly output mode if any, resume, model, and cwd/include-dir behavior.
 - [ ] AC-A3: Raw Antigravity CLI fixtures exist for success text, tool use, result/error, and interrupted run.
-- [ ] AC-A4: Recon records `agy` auth model, headless non-interactive auth feasibility, and whether it shares credentials with Antigravity Desktop.
+- [x] AC-A4: Recon records `agy` auth model, headless non-interactive auth feasibility, and whether it shares credentials with Antigravity Desktop.
 - [ ] AC-A5: Recon records `agy` MCP config loading behavior and whether it supports `--no-mcp` / `--mcp-config` or equivalent conflict controls.
-- [ ] AC-A6: Recon records `agy` sandbox/permission model and whether it has an auto-approve flag equivalent to Gemini CLI `-y`.
+- [x] AC-A6: Recon records `agy` sandbox/permission model and whether it has an auto-approve flag equivalent to Gemini CLI `-y`.
+
+Phase A recon source: `docs/features/assets/F210/phase-a-recon-2026-05-22.md`.
+
+AC-A3 remains open because `agy --print` is blocked before a successful reply on this machine: real-home auth succeeds via macOS keyring, but execution fails with `neither PlanModel nor RequestedModel specified`, and AGY CLI 1.0.1 exposes no top-level `--model` flag. Captured fixtures currently cover auth-required/OAuth, keyring auth + missing-model error, unsupported flags, and auth interruption; success text/tool-use/provider-error/in-flight interruption still need a selected default model or a verified settings key.
+
+AC-A5 remains open because Phase A only verified MCP config file paths and launch-time flag absence. Runtime MCP loading behavior in `agy --print` mode, settings-level disable controls, and Cat Cafe callbackEnv compatibility are still unverified behind the same successful-run blocker as AC-A3.
 
 ### Phase B（Adapter Contract）
 
@@ -184,8 +190,9 @@ Offline packaging must explicitly decide whether to vendor the native `agy` bina
 
 | 风险 | 缓解 |
 |------|------|
-| `agy` may not support any subprocess stdout streaming mode | Make OQ-1 Phase A day-1 blocking; if unsupported, pivot to MCP/ACP bridge instead of forcing stdout parsing |
+| `agy` may not support any subprocess-friendly success output beyond plain final text | Keep successful stdout fixture blocking before adapter/parser work; if unsupported, pivot to MCP/ACP bridge instead of forcing stdout parsing |
 | Antigravity CLI does not expose NDJSON stream-json | Phase A fixture first; choose new parser or ACP mapping before code migration |
+| `agy --print` can authenticate but fail before execution when no default model is selected | Do not implement the adapter until missing-model behavior is a first-class error or a verified settings/onboarding path exists |
 | Native `agy` install cannot be vendored cleanly for offline desktop builds | Keep installer decision explicit in Phase D; do not fake npm package availability |
 | Consumer deadline overgeneralized into “Gemini CLI is dead for everyone” | Preserve enterprise/API-key fallback and document exact scope |
 | Adapter name collision causes Desktop callback path to break | Add `antigravity-cli` as new name and alias old Desktop behavior deliberately |
@@ -195,10 +202,10 @@ Offline packaging must explicitly decide whether to vendor the native `agy` bina
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | What exact headless command and subprocess-friendly output mode, if any, does `agy` support? | BLOCKING — Phase A day 1 |
-| OQ-2 | Does `agy` support session resume with stable IDs? | ⬜ Phase A |
-| OQ-3 | Does `agy` support model override, and how does that map to Cat Cafe cat identity? | ⬜ Phase A |
-| OQ-4 | What is the correct Windows install / binary path? | ⬜ Phase A |
+| OQ-1 | What exact headless command and subprocess-friendly output mode, if any, does `agy` support? | Partial — `--print` confirmed as headless mode; successful stdout format remains unverified (no JSON/NDJSON flag) |
+| OQ-2 | Does `agy` support session resume with stable IDs? | Partial — `--continue` and `--conversation <id>` exist; stability needs successful conversation fixture |
+| OQ-3 | Does `agy` support model override, and how does that map to Cat Cafe cat identity? | BLOCKING — no top-level `--model`; docs expose interactive `/model` |
+| OQ-4 | What is the correct Windows install / binary path? | Answered for installer default: `%LOCALAPPDATA%\agy\bin\agy.exe`; packaging verification still Phase D |
 | OQ-5 | Should the old `antigravity` adapter be renamed in env values or kept as legacy alias only? | ⬜ Phase B |
 
 ## Key Decisions
@@ -211,6 +218,7 @@ Offline packaging must explicitly decide whether to vendor the native `agy` bina
 | KD-4 | Keep `gemini-cli` fallback until enterprise path is settled | Enterprise users may still rely on Gemini CLI; deleting it would remove a valid route | 2026-05-22 |
 | KD-5 | F209 is occupied by Evidence Recall Optimization; this migration uses F210 | Feature IDs are shared truth and must be assigned from current main, not from a worktree snapshot | 2026-05-22 |
 | KD-6 | `agy` subprocess output support is a blocking Phase A question | Antigravity Desktop harness differs materially from Gemini CLI stream-json; implementation strategy depends on this answer | 2026-05-22 |
+| KD-7 | Do not start Phase B adapter implementation until the missing-model path is resolved | `agy --print` can auth successfully but still fail before execution if no default model is selected, and 1.0.1 has no `--model` flag | 2026-05-22 |
 
 ## Timeline
 
@@ -218,6 +226,7 @@ Offline packaging must explicitly decide whether to vendor the native `agy` bina
 |------|------|
 | 2026-05-22 | 铲屎官要求砚砚立项并校正孟加拉猫草稿事实 |
 | 2026-05-22 | 纠偏：F209 已被 Evidence Recall Optimization 占用；迁移 spec 重新落到 main 的 F210 |
+| 2026-05-22 | Phase A recon partial：`agy 1.0.1` installed/probed; auth/MCP/sandbox/install facts frozen; success fixture blocked by missing default model |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |
@@ -234,6 +243,8 @@ Offline packaging must explicitly decide whether to vendor the native `agy` bina
 |------|------|------|
 | Official | https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/ | Google transition announcement and timeline |
 | Official | https://antigravity.google/cli/install.sh | Official Antigravity CLI installer; fetched 2026-05-22 |
+| Recon | `docs/features/assets/F210/phase-a-recon-2026-05-22.md` | Phase A `agy 1.0.1` facts and fixture index |
+| Fixture | `docs/features/assets/F210/agy-help.txt` / `agy-unsupported-flags.txt` / `agy-print-auth-required.txt` / `agy-real-home-no-default-model.txt` | Raw CLI evidence, sanitized |
 | Code | `packages/api/src/domains/cats/services/agents/providers/GeminiAgentService.ts` | Current Gemini CLI and Desktop adapter split |
 | Code | `packages/api/src/utils/cli-resolve.ts` | CLI install hints |
 | Code | `packages/api/src/utils/cli-spawn-win.ts` | Windows CLI shim assumptions |
