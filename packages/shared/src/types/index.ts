@@ -176,6 +176,7 @@ export {
 export type {
   CatId,
   MessageId,
+  ProposalId,
   SessionId,
   ThreadId,
   UserId,
@@ -183,11 +184,13 @@ export type {
 export {
   createCatId,
   createMessageId,
+  createProposalId,
   createSessionId,
   createThreadId,
   createUserId,
   generateId,
   generateMessageId,
+  generateProposalId,
   generateSessionId,
   generateThreadId,
 } from './ids.js';
@@ -274,6 +277,12 @@ export {
   MIN_TIMEOUT_MINUTES,
   MULTI_MENTION_TERMINAL_STATES,
 } from './multi-mention.js';
+// Proposal types (F128 Cat Thread Proposal)
+export type {
+  ProposalApproveOverrides,
+  ProposalStatus,
+  ThreadProposal,
+} from './proposal.js';
 // Reflux types (F076 Phase 2 — 回流)
 export type {
   CreateRefluxPatternInput,
