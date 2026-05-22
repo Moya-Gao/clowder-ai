@@ -235,5 +235,6 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 |------|------|------|
 | Discussion | `docs/discussions/2026-05-21-chat-memory-and-evidence-recall/04-current-retrieval-state-and-f209-optimization.md` | 当前检索剖面 + 本 feature 来源 |
 | Prior discussion | `docs/discussions/2026-05-21-chat-memory-and-evidence-recall/03-everything-smartfolder-microinnovations.md` | Everything / Smart Folder 微创新 |
+| Design Gate | `docs/discussions/2026-05-22-F209-design-gate/README.md` | F209 架构归属、Phase 顺序、CVO decision packet |
 | Feature | `docs/features/F102-memory-adapter-refactor.md` | evidence store / passage / raw lexical 基座 |
 | Feature | `docs/features/F200-memory-recall-eval.md` | retrieval consumption / eval 反馈 |
