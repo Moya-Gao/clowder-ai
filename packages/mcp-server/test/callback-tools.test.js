@@ -89,6 +89,11 @@ describe('MCP Callback Tools', () => {
     // agent-key path, MUST unset invocation env vars (closing 砚砚 review P1).
     delete process.env.CAT_CAFE_INVOCATION_ID;
     delete process.env.CAT_CAFE_CALLBACK_TOKEN;
+    delete process.env.CAT_CAFE_AGENT_KEY_SECRET;
+    delete process.env.CAT_CAFE_AGENT_KEY_FILE;
+    const agentKeyFile = join(outboxDir, 'antigravity-agent-key.secret');
+    writeFileSync(agentKeyFile, 'test-agent-key\n', { mode: 0o600 });
+    process.env.CAT_CAFE_AGENT_KEY_FILES = JSON.stringify({ antigravity: agentKeyFile });
     const { handlePostMessage } = await import('../dist/tools/callback-tools.js');
 
     let capturedOptions;

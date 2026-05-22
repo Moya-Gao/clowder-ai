@@ -5,6 +5,7 @@
 
 import { spawn as nodeSpawn } from 'node:child_process';
 import { dirname, isAbsolute } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Span } from '@opentelemetry/api';
 import { context, SpanStatusCode, trace } from '@opentelemetry/api';
 import { createModuleLogger } from '../infrastructure/logger.js';
@@ -595,9 +596,15 @@ function defaultSpawn(
     env.PATH = env.PATH ? `${binDir}:${env.PATH}` : binDir;
   }
 
-  return nodeSpawn(command, [...args], {
+  const supervisorPath = fileURLToPath(new URL('./cli-supervisor.js', import.meta.url));
+
+  return nodeSpawn(process.execPath, [supervisorPath, '--', command, ...args], {
     cwd: options.cwd,
-    env,
+    env: {
+      ...env,
+      CAT_CAFE_SUPERVISOR_PARENT_PID: String(process.pid),
+      CAT_CAFE_SUPERVISOR_KILL_GRACE_MS: String(Math.max(250, KILL_GRACE_MS - 500)),
+    },
     stdio: options.stdio,
   });
 }

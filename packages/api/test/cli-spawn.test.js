@@ -4,10 +4,16 @@
  */
 
 import assert from 'node:assert/strict';
+import { spawn as nodeSpawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import { existsSync } from 'node:fs';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { mock, test } from 'node:test';
 import { clearTimeout as clearKeepAliveTimeout, setTimeout as setKeepAliveTimeout } from 'node:timers';
+import { fileURLToPath } from 'node:url';
 
 const { spawnCli, isCliError, isCliTimeout, isLivenessWarning, KILL_GRACE_MS, SEMANTIC_COMPLETION_GRACE_MS } =
   await import('../dist/utils/cli-spawn.js');
@@ -96,6 +102,116 @@ test('spawnCli yields parsed JSON events from stdout', async () => {
   assert.equal(spawnFn.mock.calls[0].arguments[0], 'test-cli');
   assert.deepEqual(spawnFn.mock.calls[0].arguments[1], ['--json']);
 });
+
+test(
+  'spawnCli default spawn supervisors Unix CLI children with parent pid',
+  { skip: process.platform === 'win32' && 'Unix supervisor is not used on Windows' },
+  async () => {
+    const results = await collect(
+      spawnCli({
+        command: process.execPath,
+        args: [
+          '-e',
+          'console.log(JSON.stringify({ type: "env", parentPid: process.env.CAT_CAFE_SUPERVISOR_PARENT_PID ?? null }))',
+        ],
+        timeoutMs: 5_000,
+      }),
+    );
+
+    const event = results.find((item) => item?.type === 'env');
+    assert.equal(event?.parentPid, String(process.pid));
+  },
+);
+
+test(
+  'cli supervisor terminates supervised child when original parent is gone',
+  { skip: process.platform === 'win32' && 'Unix process-group supervisor is not used on Windows' },
+  async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), 'cat-cafe-cli-supervisor-'));
+    const markerPath = join(tempDir, 'terminated.txt');
+    const supervisorPath = fileURLToPath(new URL('../dist/utils/cli-supervisor.js', import.meta.url));
+    const childScript = [
+      'const fs = require("node:fs");',
+      `process.on("SIGTERM", () => { fs.writeFileSync(${JSON.stringify(markerPath)}, "SIGTERM"); process.exit(0); });`,
+      'setInterval(() => {}, 60_000);',
+    ].join('\n');
+
+    let supervisor;
+    try {
+      supervisor = nodeSpawn(process.execPath, [supervisorPath, '--', process.execPath, '-e', childScript], {
+        env: {
+          ...process.env,
+          CAT_CAFE_SUPERVISOR_PARENT_PID: '999999',
+          CAT_CAFE_SUPERVISOR_POLL_MS: '500',
+          CAT_CAFE_SUPERVISOR_KILL_GRACE_MS: '300',
+        },
+        stdio: ['ignore', 'ignore', 'pipe'],
+      });
+      let stderr = '';
+      supervisor.stderr.on('data', (chunk) => {
+        stderr += chunk.toString();
+      });
+
+      const exit = await new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          supervisor.kill('SIGKILL');
+          resolve({ timedOut: true, stderr });
+        }, 3_000);
+        supervisor.once('exit', (code, signal) => {
+          clearTimeout(timer);
+          resolve({ code, signal, stderr });
+        });
+      });
+
+      assert.notEqual(exit.timedOut, true, `supervisor did not exit: ${exit.stderr}`);
+      assert.equal(existsSync(markerPath), true, `child did not receive SIGTERM; stderr=${exit.stderr}`);
+      assert.equal(await readFile(markerPath, 'utf8'), 'SIGTERM');
+    } finally {
+      supervisor?.kill('SIGKILL');
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'cli supervisor escalates stubborn supervised child before parent kill grace elapses',
+  { skip: process.platform === 'win32' && 'Unix process-group supervisor is not used on Windows' },
+  async () => {
+    const supervisorPath = fileURLToPath(new URL('../dist/utils/cli-supervisor.js', import.meta.url));
+    const childScript = ['process.on("SIGTERM", () => {});', 'setInterval(() => {}, 60_000);'].join('\n');
+    const supervisor = nodeSpawn(process.execPath, [supervisorPath, '--', process.execPath, '-e', childScript], {
+      env: {
+        ...process.env,
+        CAT_CAFE_SUPERVISOR_PARENT_PID: '999999',
+        CAT_CAFE_SUPERVISOR_POLL_MS: '100',
+        CAT_CAFE_SUPERVISOR_KILL_GRACE_MS: '150',
+      },
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    let stderr = '';
+    supervisor.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    try {
+      const exit = await new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          supervisor.kill('SIGKILL');
+          resolve({ timedOut: true, stderr });
+        }, 2_000);
+        supervisor.once('exit', (code, signal) => {
+          clearTimeout(timer);
+          resolve({ code, signal, stderr });
+        });
+      });
+
+      assert.notEqual(exit.timedOut, true, `supervisor did not escalate: ${exit.stderr}`);
+      assert.equal(exit.code, 137, `SIGKILL child should surface as 137; stderr=${exit.stderr}`);
+    } finally {
+      supervisor.kill('SIGKILL');
+    }
+  },
+);
 
 test('spawnCli does not yield stderr data', async () => {
   const proc = createMockProcess();
