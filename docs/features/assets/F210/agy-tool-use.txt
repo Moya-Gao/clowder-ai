@@ -1,0 +1,42 @@
+Command A:
+/tmp/cat-cafe-f210-agy-recon/bin/agy \
+  --dangerously-skip-permissions \
+  --log-file /tmp/cat-cafe-f210-agy-headless-spike-tool.log \
+  --print-timeout 45s \
+  --print "Use the terminal to run pwd, then reply exactly TOOL_OK followed by a colon and the path returned. Do not include any other text."
+
+Captured: 2026-05-22
+Exit: 0
+
+stdout:
+TOOL_OK:/Users/lysander/.gemini/antigravity-cli
+
+stderr:
+(empty)
+
+Command B:
+/tmp/cat-cafe-f210-agy-recon/bin/agy \
+  --dangerously-skip-permissions \
+  --add-dir /Users/lysander/projects/relay-station/cat-cafe-f210-agy-headless-spike \
+  --log-file /tmp/cat-cafe-f210-agy-headless-spike-tool-adddir.log \
+  --print-timeout 45s \
+  --print "Use the terminal to run pwd, then reply exactly PWD_RESULT followed by a colon and the path returned. Do not include any other text."
+
+Captured: 2026-05-22
+Exit: 0
+
+stdout:
+PWD_RESULT:/Users/lysander/projects/relay-station/cat-cafe-f210-agy-headless-spike
+
+stderr:
+(empty)
+
+Selected log lines:
+I... CLI settings initialized: permissions=<nil>, toolPermission=request-review
+I... Propagating selected model override to backend: label="Gemini 3.5 Flash (High)"
+
+Notes:
+- `--dangerously-skip-permissions` allowed terminal tool use without an approval prompt.
+- Without `--add-dir`, the terminal command ran from the AGY CLI app data directory.
+- With `--add-dir <repo>`, the terminal command ran from the intended repo worktree.
+- Tool events were not emitted to stdout; stdout only contained the final assistant text.

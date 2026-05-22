@@ -12,7 +12,9 @@ const SYNC_SCRIPT = resolve(ROOT, 'scripts/sync-to-opensource.sh');
 function createSandbox(envFile = '') {
   const dir = mkdtempSync(join(tmpdir(), 'cc-start-dev-profile-'));
   mkdirSync(join(dir, 'scripts'), { recursive: true });
+  mkdirSync(join(dir, 'scripts/lib'), { recursive: true });
   cpSync(resolve(ROOT, 'scripts/start-dev.sh'), join(dir, 'scripts', 'start-dev.sh'));
+  cpSync(resolve(ROOT, 'scripts/lib/node-runtime-guard.sh'), join(dir, 'scripts/lib', 'node-runtime-guard.sh'));
 
   const downloadOverrides = resolve(ROOT, 'scripts/download-source-overrides.sh');
   if (existsSync(downloadOverrides)) {

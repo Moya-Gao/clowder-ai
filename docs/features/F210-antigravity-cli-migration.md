@@ -141,9 +141,9 @@ Offline packaging must explicitly decide whether to vendor the native `agy` bina
 
 Phase A recon source: `docs/features/assets/F210/phase-a-recon-2026-05-22.md`.
 
-AC-A3 remains open because `agy --print` is blocked before a successful reply on this machine: real-home auth succeeds via macOS keyring, but execution fails with `neither PlanModel nor RequestedModel specified`, and AGY CLI 1.0.1 exposes no top-level `--model` flag. Captured fixtures currently cover auth-required/OAuth, keyring auth + missing-model error, unsupported flags, and auth interruption; success text/tool-use/provider-error/in-flight interruption still need a selected default model or a verified settings key.
+AC-A3 remains open only for the remaining provider-error and manual in-flight interruption fixtures. The follow-up headless spike captured successful text, tool-use, resume, timeout, auth-required/OAuth, keyring auth + missing-model, unsupported flags, and auth interruption fixtures. `agy --print` can now complete on this machine after silent keyring auth fetches an account-side selected model override, but AGY CLI 1.0.1 still exposes no top-level `--model` flag.
 
-AC-A5 remains open because Phase A only verified MCP config file paths and launch-time flag absence. Runtime MCP loading behavior in `agy --print` mode, settings-level disable controls, and Cat Cafe callbackEnv compatibility are still unverified behind the same successful-run blocker as AC-A3.
+AC-A5 remains open because successful `agy --print` now shows runtime MCP schema materialization under `~/.gemini/antigravity-cli/mcp`, but config precedence, settings-level disable/override controls, and Cat Cafe callbackEnv compatibility are not fully verified. Launch-time `--no-mcp` / `--mcp-config` flags remain absent in 1.0.1.
 
 ### Phase B（Adapter Contract）
 
@@ -190,21 +190,24 @@ AC-A5 remains open because Phase A only verified MCP config file paths and launc
 
 | 风险 | 缓解 |
 |------|------|
-| `agy` may not support any subprocess-friendly success output beyond plain final text | Keep successful stdout fixture blocking before adapter/parser work; if unsupported, pivot to MCP/ACP bridge instead of forcing stdout parsing |
+| `agy` supports only plain final-text stdout, not a subprocess event stream | Prototype with a dedicated plain-text parser; keep resume/tool/timeout fixtures as parser tests and pivot to MCP/ACP only if tool/result fidelity proves insufficient |
 | Antigravity CLI does not expose NDJSON stream-json | Phase A fixture first; choose new parser or ACP mapping before code migration |
-| `agy --print` can authenticate but fail before execution when no default model is selected | Do not implement the adapter until missing-model behavior is a first-class error or a verified settings/onboarding path exists |
+| `agy --print` can authenticate but fail before execution when no account-side default model is selected | Implement a preflight/onboarding error before default switch; do not assume Cat Cafe can choose model from env until a setting or CLI flag is verified |
 | Native `agy` install cannot be vendored cleanly for offline desktop builds | Keep installer decision explicit in Phase D; do not fake npm package availability |
 | Consumer deadline overgeneralized into “Gemini CLI is dead for everyone” | Preserve enterprise/API-key fallback and document exact scope |
 | Adapter name collision causes Desktop callback path to break | Add `antigravity-cli` as new name and alias old Desktop behavior deliberately |
 | Default switch before E2E green breaks Siamese | AC-E4 blocks default flip until live smoke passes |
+| `agy --conversation` stdout may include prior assistant output | Treat resume parsing as separate from new-conversation parsing; do not assume stdout is response delta-only |
+| `agy --print-timeout` can emit timeout on stdout and exit 0 | Classify timeout/error text or logs explicitly; exit code alone is not a success signal |
+| `agy --print` may load user/global MCP servers that compete with Cat Cafe-injected MCP servers | Phase B must choose an MCP isolation policy before enabling tool use: disable/override if AGY exposes a supported control, or run with a documented compatibility matrix for shared servers |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | What exact headless command and subprocess-friendly output mode, if any, does `agy` support? | Partial — `--print` confirmed as headless mode; successful stdout format remains unverified (no JSON/NDJSON flag) |
-| OQ-2 | Does `agy` support session resume with stable IDs? | Partial — `--continue` and `--conversation <id>` exist; stability needs successful conversation fixture |
-| OQ-3 | Does `agy` support model override, and how does that map to Cat Cafe cat identity? | BLOCKING — no top-level `--model`; docs expose interactive `/model` |
+| OQ-1 | What exact headless command and subprocess-friendly output mode, if any, does `agy` support? | Answered for prototype — `--print` / `--prompt`; stdout is plain final text for new successful runs; no JSON/NDJSON flag; timeout prints stdout error and exits 0 |
+| OQ-2 | Does `agy` support session resume with stable IDs? | Partial — `--conversation <id>` resumes, but stdout fixture included prior assistant text plus new text; `--continue` still needs delta behavior check |
+| OQ-3 | Does `agy` support model override, and how does that map to Cat Cafe cat identity? | Partial — no top-level `--model`; real HOME succeeded via account-side selected model override after keyring auth; deterministic per-cat model selection still unverified |
 | OQ-4 | What is the correct Windows install / binary path? | Answered for installer default: `%LOCALAPPDATA%\agy\bin\agy.exe`; packaging verification still Phase D |
 | OQ-5 | Should the old `antigravity` adapter be renamed in env values or kept as legacy alias only? | ⬜ Phase B |
 
@@ -218,7 +221,7 @@ AC-A5 remains open because Phase A only verified MCP config file paths and launc
 | KD-4 | Keep `gemini-cli` fallback until enterprise path is settled | Enterprise users may still rely on Gemini CLI; deleting it would remove a valid route | 2026-05-22 |
 | KD-5 | F209 is occupied by Evidence Recall Optimization; this migration uses F210 | Feature IDs are shared truth and must be assigned from current main, not from a worktree snapshot | 2026-05-22 |
 | KD-6 | `agy` subprocess output support is a blocking Phase A question | Antigravity Desktop harness differs materially from Gemini CLI stream-json; implementation strategy depends on this answer | 2026-05-22 |
-| KD-7 | Do not start Phase B adapter implementation until the missing-model path is resolved | `agy --print` can auth successfully but still fail before execution if no default model is selected, and 1.0.1 has no `--model` flag | 2026-05-22 |
+| KD-7 | Phase B prototype may start only with explicit model preflight/onboarding and timeout classification | `agy --print` can now succeed, but model selection is account-side rather than CLI/env controlled, and timeouts can exit 0 | 2026-05-22 |
 
 ## Timeline
 
@@ -228,6 +231,7 @@ AC-A5 remains open because Phase A only verified MCP config file paths and launc
 | 2026-05-22 | 纠偏：F209 已被 Evidence Recall Optimization 占用；迁移 spec 重新落到 main 的 F210 |
 | 2026-05-22 | Phase A recon partial：`agy 1.0.1` installed/probed; auth/MCP/sandbox/install facts frozen; success fixture blocked by missing default model |
 | 2026-05-22 | Phase A recon partial merged via PR #1841; AC-A1/A2/A4/A6 closed, AC-A3/A5 remain blocked by missing default model and unverified MCP runtime loading |
+| 2026-05-22 | Follow-up headless spike：`agy --print` success/tool/resume/timeout fixtures captured; OQ-1 answered for prototype, OQ-3 downgraded to deterministic model-selection preflight |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |

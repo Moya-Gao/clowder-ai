@@ -1,0 +1,65 @@
+Commands:
+test -f "$HOME/.gemini/antigravity-cli/mcp_config.json"; printf '%s\n' $?
+test -f .agents/mcp_config.json; printf '%s\n' $?
+find "$HOME/.gemini" -maxdepth 3 -name 'mcp_config.json' -print
+node -e '[print server names from ~/.gemini/config/mcp_config.json]'
+find "$HOME/.gemini/antigravity-cli/mcp" -maxdepth 2 -type d -print
+strings /tmp/cat-cafe-f210-agy-recon/bin/agy | rg -i 'mcp_config|override_mcp_config|forceDisable|disabledTools'
+
+Captured: 2026-05-22
+
+Direct config checks:
+- ~/.gemini/antigravity-cli/mcp_config.json: absent
+- .agents/mcp_config.json in the repo worktree: absent
+- ~/.gemini/config/mcp_config.json: present
+- ~/.gemini/antigravity/mcp_config.json: present
+- ~/.gemini/antigravity-ide/mcp_config.json: present
+
+Server names in ~/.gemini/config/mcp_config.json:
+MCP_DOCKER
+agent-browser
+cat-cafe
+cat-cafe-collab
+cat-cafe-limb
+cat-cafe-memory
+cat-cafe-signals
+github-mcp-server
+pencil
+pinchtab
+playwright
+probe-connected
+probe-env
+probe-off
+secret-mcp
+xiaohongshu
+
+Runtime cache directories under ~/.gemini/antigravity-cli/mcp after successful print mode:
+MCP_DOCKER
+agent-browser
+cat-cafe
+cat-cafe-collab
+cat-cafe-limb
+cat-cafe-memory
+cat-cafe-signals
+github-mcp-server
+pencil
+pinchtab
+playwright
+probe-connected
+probe-env
+xiaohongshu
+
+Selected binary-string clues:
+override_mcp_config_json
+overrideMcpConfigJson
+mcp_config_json
+mcpConfigJson
+McpToolConfig.GetForceDisable
+McpServerSpec.GetDisabled
+McpServerSpec.GetDisabledTools
+
+Notes:
+- The runtime cache directories match enabled-looking servers from ~/.gemini/config/mcp_config.json, not a repo-local .agents/mcp_config.json.
+- `probe-off` and `secret-mcp` were present in config but did not appear as runtime cache directories in this snapshot.
+- The binary strings suggest settings/server-side MCP override and disable structures exist, but this fixture does not prove a supported user-facing settings.json schema.
+- `--no-mcp` and `--mcp-config` remain unsupported top-level launch flags; see agy-unsupported-flags.txt.
