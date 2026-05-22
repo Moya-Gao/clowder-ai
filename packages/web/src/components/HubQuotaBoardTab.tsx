@@ -198,7 +198,7 @@ export function HubQuotaBoardTab() {
   ];
 
   return (
-    <section className="space-y-3 rounded-2xl border border-[var(--hub-border-soft)] bg-[var(--hub-surface-clean)] p-[18px]">
+    <section className="console-list-card space-y-3 rounded-2xl p-[18px] shadow-[0_12px_30px_rgba(43,33,26,0.08)]">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-lg font-bold text-[var(--hub-heading)]">配额看板</h3>
         <div className="flex items-center gap-3">
@@ -249,11 +249,11 @@ export function HubQuotaBoardTab() {
 function PoolGroupSection({ group }: { group: AccountQuotaPoolGroup }) {
   return (
     <section
-      className={`rounded-2xl border px-4 py-4 ${group.tone === 'success' ? 'border-[var(--field-success-border)] bg-[var(--field-success-card-bg)]' : 'border-[var(--hub-border-soft)] bg-[var(--hub-surface-clean)]'}`}
+      className={`rounded-2xl px-4 py-4 ${group.tone === 'success' ? 'bg-[var(--console-runtime-bg)]' : 'bg-[var(--hub-surface-clean)] shadow-[0_8px_22px_rgba(43,33,26,0.04)]'}`}
     >
       <h4 className="text-lg font-bold text-[var(--hub-heading)]">{group.title}</h4>
       <p
-        className={`mt-1 text-sm leading-6 ${group.tone === 'success' ? 'text-[var(--field-success-hint)]' : 'text-[var(--hub-text-muted)]'}`}
+        className={`mt-1 text-sm leading-6 ${group.tone === 'success' ? 'text-[var(--console-runtime-hint)]' : 'text-[var(--hub-text-muted)]'}`}
       >
         {group.description}
       </p>
@@ -294,7 +294,7 @@ function PoolSection({
   const dotClass = worstUtil >= 0 ? riskDotClass(worstUtil) : 'text-cafe-muted';
 
   return (
-    <div className="rounded-2xl border border-[var(--hub-border-soft)] bg-[var(--hub-surface-clean)] px-4 py-3">
+    <div className="console-list-card rounded-2xl px-4 py-3 shadow-[0_12px_30px_rgba(43,33,26,0.08)]">
       <div className="mb-1 flex flex-wrap items-center gap-2">
         <span className={`text-xs ${dotClass}`} aria-hidden="true">
           {'\u25CF'}

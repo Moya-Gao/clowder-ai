@@ -42,10 +42,19 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).not.toMatch(/rounded-xl border.*border-\[var\(--console-border-soft\)\].*bg-\[var\(--console-card-bg\)\]/);
   });
 
-  it('PersistenceBanner uses shadow, not field-persist-border', () => {
+  it('editor fields use console-runtime-* tokens, not field-success-*', () => {
     const src = readSrc('hub-cat-editor-fields.tsx');
-    expect(src).not.toContain('field-persist-border');
-    expect(src).toMatch(/PersistenceBanner[\s\S]*?shadow-\[0_8px_22px/);
+    expect(src).not.toContain('field-success');
+    expect(src).not.toContain('field-persist');
+    expect(src).toContain('console-runtime-label');
+    expect(src).toContain('console-runtime-field-bg');
+    expect(src).toContain('console-persistence-bg');
+  });
+
+  it('PersistenceBanner uses console-persistence-bg, not field-persist-*', () => {
+    const src = readSrc('hub-cat-editor-fields.tsx');
+    expect(src).toMatch(/PersistenceBanner[\s\S]*?console-persistence-bg/);
+    expect(src).toMatch(/PersistenceBanner[\s\S]*?shadow-\[0_6px_18px/);
   });
 
   it('VoiceConfigSection uses shadow, not dashed border', () => {
@@ -115,5 +124,24 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toContain('cursor-col-resize');
     expect(src).toContain('cursor-row-resize');
     expect(src).toContain('console-border-soft');
+  });
+
+  it('HubQuotaBoardTab uses console-list-card shadow, not hub-border-soft borders', () => {
+    const src = readSrc('HubQuotaBoardTab.tsx');
+    expect(src).not.toMatch(/border border-\[var\(--hub-border-soft\)\]/);
+    expect(src).not.toContain('field-success');
+    expect(src).toContain('console-list-card');
+  });
+
+  it('HubRoutingPolicyTab uses console-list-card shadow, not border-cafe', () => {
+    const src = readSrc('HubRoutingPolicyTab.tsx');
+    expect(src).not.toMatch(/border border-cafe/);
+    expect(src).toContain('console-list-card');
+  });
+
+  it('DailyUsageSection uses console-list-card shadow, not border-cafe', () => {
+    const src = readSrc('DailyUsageSection.tsx');
+    expect(src).not.toMatch(/border border-cafe/);
+    expect(src).toContain('console-list-card');
   });
 });
