@@ -255,7 +255,7 @@ module.exports = {
     },
   },
   plugins: [
-    function ({ addBase }) {
+    ({ addBase }) => {
       const vars = {};
       for (const [name, px] of Object.entries(typographyTokens.fontSizePx)) {
         vars[`--console-font-${name}`] = `${px}px`;
