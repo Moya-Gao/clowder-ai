@@ -1105,4 +1105,18 @@ describe('F723 round 6 — select/toggle/button primitive convergence', () => {
     expect(src).not.toContain('bg-cafe-primary');
     expect(src).toContain('bg-cafe-accent');
   });
+
+  it('CreateCollectionDialog: no border-soft inputs, no blue/cafe-primary buttons, uses field-bg + input-stroke', () => {
+    const src = readSrc('memory/CreateCollectionDialog.tsx');
+    expect(src).not.toContain('border-[var(--console-border-soft)]');
+    expect(src).not.toContain('text-blue-700');
+    expect(src).not.toContain('border-blue-300');
+    expect(src).not.toContain('bg-blue-50');
+    expect(src).not.toContain('text-blue-800');
+    expect(src).not.toContain('bg-cafe-primary');
+    expect(src).not.toContain('text-red-600');
+    expect(src).toContain('console-field-bg');
+    expect(src).toContain('console-input-stroke');
+    expect(src).toContain('bg-cafe-accent');
+  });
 });
