@@ -1,6 +1,8 @@
 import { access, readdir, readFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 
+import type { EntityMatch } from '../domains/memory/interfaces.js';
+
 export interface EvidenceFreshness {
   status: 'fresh' | 'stale' | 'unknown';
   checkedAt: string;
@@ -61,6 +63,8 @@ export interface EvidenceResult {
   }>;
   /** DF-3: explainability — which field matched (always present) */
   matchReason?: string;
+  /** F209 Phase B: entity alias / mention explanation for retrieval-anchor hits */
+  entityMatches?: EntityMatch[];
   /** F200 HW-4 根因②b (砚砚 P1-2): source file path for path-based
    * consumption match (shell-read / Read). Sourced from evidenceStore
    * search item (interfaces.ts sourcePath); structured chain, not text-parse. */

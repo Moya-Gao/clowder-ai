@@ -17,6 +17,19 @@ const DOC_SOURCE_TYPES = new Set(['feature', 'decision', 'phase', 'lesson', 'pla
 const EVIDENCE_RESULT_MARKER = 'Evidence search results:';
 let searchCount = 0;
 
+type EvidenceEntityMatch = {
+  entityId: string;
+  type?: string;
+  canonicalName?: string;
+  matchedAlias?: string;
+  surface?: string;
+  source?: string;
+  docAnchor?: string;
+  passageId?: string;
+  why?: string;
+  provenance?: Array<{ source?: string; anchor?: string; note?: string; date?: string }>;
+};
+
 export const searchEvidenceInputSchema = {
   query: z.string().min(1).describe('Search query for project knowledge'),
   limit: z.number().int().min(1).max(20).optional().describe('Max results (default 5)'),
@@ -112,6 +125,7 @@ export async function handleSearchEvidence(input: {
         authority?: string;
         boostSource?: string[];
         matchReason?: string;
+        entityMatches?: EvidenceEntityMatch[];
         sourcePath?: string;
         rankingFactors?: { bm25Score?: number; consumptionPrior?: number; mmrPenalty?: number };
         passages?: Array<{
@@ -194,6 +208,11 @@ export async function handleSearchEvidence(input: {
       }
       if (r.matchReason) {
         lines.push(`  match: ${r.matchReason}`);
+      }
+      if (r.entityMatches && r.entityMatches.length > 0) {
+        for (const entityMatch of r.entityMatches) {
+          lines.push(...formatEntityMatchLines(entityMatch));
+        }
       }
       if (r.rankingFactors) {
         const factors = Object.entries(r.rankingFactors)
@@ -312,6 +331,32 @@ function formatDegradedBanner(
     return `[DEGRADED] raw passage vector search failed; fell back to lexical retrieval${modeNote}`;
   }
   return '[DEGRADED] Evidence store error — results may be incomplete';
+}
+
+function formatEntityMatchLines(match: EvidenceEntityMatch): string[] {
+  const details = [
+    match.type ? `type=${match.type}` : null,
+    match.canonicalName ? `canonicalName=${match.canonicalName}` : null,
+    match.matchedAlias ? `matchedAlias=${match.matchedAlias}` : null,
+    match.surface ? `surface=${match.surface}` : null,
+    match.source ? `source=${match.source}` : null,
+    match.docAnchor ? `docAnchor=${match.docAnchor}` : null,
+    match.passageId ? `passageId=${match.passageId}` : null,
+  ].filter(Boolean);
+  const lines = [`  entity: ${match.entityId}${details.length > 0 ? ` (${details.join(', ')})` : ''}`];
+
+  if (match.why) {
+    lines.push(`    why: ${match.why}`);
+  }
+
+  const provenance = (match.provenance ?? [])
+    .map((p) => [p.source, p.anchor, p.note, p.date].filter(Boolean).join(' / '))
+    .filter(Boolean);
+  if (provenance.length > 0) {
+    lines.push(`    provenance: ${provenance.join('; ')}`);
+  }
+
+  return lines;
 }
 
 export const evidenceTools = [

@@ -117,6 +117,54 @@ describe('MCP Evidence Tools', () => {
     );
   });
 
+  test('renders entity match explanations returned by search_evidence API', async () => {
+    const { handleSearchEvidence } = await import('../dist/tools/evidence-tools.js');
+
+    globalThis.fetch = async () => ({
+      ok: true,
+      json: async () => ({
+        degraded: false,
+        results: [
+          {
+            title: 'Vision discussion',
+            anchor: 'thread:vision',
+            snippet: 'CVO asked about entity anchors',
+            confidence: 'high',
+            sourceType: 'discussion',
+            matchReason: 'entity:person:landy',
+            entityMatches: [
+              {
+                entityId: 'person:landy',
+                type: 'person',
+                canonicalName: 'Landy',
+                matchedAlias: 'CVO',
+                surface: '铲屎官',
+                source: 'passage',
+                docAnchor: 'thread:vision',
+                passageId: 'p1',
+                provenance: [{ source: 'F209 Phase B MCP contract test' }],
+                why: 'query CVO matched entity person:landy via alias 铲屎官',
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    const result = await handleSearchEvidence({ query: 'CVO', mode: 'hybrid' });
+    const text = result.content[0].text;
+
+    assert.ok(text.includes('match: entity:person:landy'), 'should keep coarse entity match reason');
+    assert.ok(text.includes('entity: person:landy'), 'should render entity id');
+    assert.ok(text.includes('matchedAlias=CVO'), 'should render the query alias');
+    assert.ok(text.includes('surface=铲屎官'), 'should render the matched surface');
+    assert.ok(
+      text.includes('why: query CVO matched entity person:landy via alias 铲屎官'),
+      'should render entity match why explanation',
+    );
+    assert.ok(text.includes('provenance: F209 Phase B MCP contract test'), 'should render entity match provenance');
+  });
+
   test('Hook F-1: appends Read reminder when high/mid doc anchors present', async () => {
     const { handleSearchEvidence } = await import('../dist/tools/evidence-tools.js');
 

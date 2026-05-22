@@ -87,6 +87,58 @@ describe('evidence route DI (IEvidenceStore path)', () => {
     assert.ok('sourceType' in r, 'DI evidence result must have sourceType');
   });
 
+  it('preserves entity match explanations in search results', async () => {
+    const mockStore = createMockEvidenceStore({
+      search: async () => [
+        {
+          anchor: 'thread:vision',
+          kind: 'thread',
+          status: 'active',
+          title: 'Vision discussion',
+          summary: 'CVO asked about entity anchors',
+          updatedAt: new Date().toISOString(),
+          matchReason: 'entity:person:landy',
+          entityMatches: [
+            {
+              entityId: 'person:landy',
+              type: 'person',
+              canonicalName: 'Landy',
+              matchedAlias: 'CVO',
+              surface: '铲屎官',
+              source: 'passage',
+              docAnchor: 'thread:vision',
+              passageId: 'p1',
+              provenance: [{ source: 'F209 Phase B route contract test' }],
+              why: 'query CVO matched entity person:landy via alias 铲屎官',
+            },
+          ],
+        },
+      ],
+    });
+    const { evidenceRoutes } = await import('../../dist/routes/evidence.js');
+    app = Fastify();
+    await app.register(evidenceRoutes, {
+      hindsightClient: MOCK_HINDSIGHT,
+      sharedBank: 'cat-cafe-shared',
+      evidenceStore: mockStore,
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=CVO',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    const match = body.results[0]?.entityMatches?.[0];
+    assert.equal(match?.entityId, 'person:landy');
+    assert.equal(match?.matchedAlias, 'CVO');
+    assert.equal(match?.surface, '铲屎官');
+    assert.equal(match?.provenance?.[0]?.source, 'F209 Phase B route contract test');
+    assert.match(match?.why ?? '', /CVO.*person:landy.*铲屎官/);
+  });
+
   it('returns 400 for missing q even with IEvidenceStore', async () => {
     const mockStore = createMockEvidenceStore();
     const { evidenceRoutes } = await import('../../dist/routes/evidence.js');
