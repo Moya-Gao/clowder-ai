@@ -42,15 +42,21 @@ export interface EvidenceResult {
   boostSource: BoostSource[];
   /** AC-I9: passage-level detail when depth=raw */
   passages?: Array<{
+    docAnchor?: string;
     passageId: string;
     content: string;
     speaker?: string;
     createdAt?: string;
+    threadId?: string;
+    messageId?: string;
     context?: Array<{
+      docAnchor?: string;
       passageId: string;
       content: string;
       speaker?: string;
       createdAt?: string;
+      threadId?: string;
+      messageId?: string;
     }>;
   }>;
   /** DF-3: explainability — which field matched (always present) */

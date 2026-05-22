@@ -216,7 +216,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 |----|------|
 | **Primary Users** | 需要从旧 thread/docs/sessions 找证据的猫；Activation Signal：`search_evidence` 在复杂 thread recall 中被调用 |
 | **Friction Metric** | 搜到摘要但打不开原文窗口的比例；raw 搜不到但人工能在 transcript 找到的比例；>3 轮 query reformulation |
-| **Regression Fixture** | ① `depth=raw&mode=hybrid` 不再静默 lexical-only ② `landy/铲屎官/CVO` alias 能归一到同一实体候选 ③ Perspective 打开后现场重跑且结果带 anchor，不返回固化结果集 ④ Perspective run 在 CVO 可见层显示 step / hits / opened anchors。F209 贡献 fixture，F200 统一纳入 golden set |
+| **Regression Fixture** | Phase A fixture: `docs/eval/f209-phase-a-raw-retrieval-fixtures.md`（raw semantic 非字面消息召回；raw hybrid 保留 lexical + semantic passage hits）。后续 Phase 继续贡献：`landy/铲屎官/CVO` alias 归一、Perspective 现场重跑、Perspective run 可见层 step / hits / opened anchors。F209 贡献 fixture，F200 统一纳入 golden set |
 | **Sunset Signal** | 6 个月内 golden query recall@k 无提升，或猫仍主要绕过 F209 直接人工 grep transcript → 回滚 Perspective / entity layer，仅保留 passage vector |
 
 ## 需求点 Checklist
@@ -264,5 +264,6 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | Prior discussion | `docs/discussions/2026-05-21-chat-memory-and-evidence-recall/03-everything-smartfolder-microinnovations.md` | Everything / Smart Folder 微创新 |
 | Design Gate | `docs/discussions/2026-05-22-F209-design-gate/README.md` | F209 架构归属、Phase 顺序、CVO decision packet |
 | Plan | `docs/plans/2026-05-22-f209-phase-a-passage-recall.md` | Phase A passage-level semantic / hybrid raw retrieval implementation plan |
+| Eval fixture | `docs/eval/f209-phase-a-raw-retrieval-fixtures.md` | Phase A raw semantic / hybrid retrieval fixtures for F200 |
 | Feature | `docs/features/F102-memory-adapter-refactor.md` | evidence store / passage / raw lexical 基座 |
 | Feature | `docs/features/F200-memory-recall-eval.md` | retrieval consumption / eval 反馈 |

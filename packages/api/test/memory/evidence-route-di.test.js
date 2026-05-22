@@ -131,6 +131,67 @@ describe('evidence route DI (IEvidenceStore path)', () => {
     assert.equal(body.degraded, true);
     assert.equal(body.results.length, 0);
   });
+
+  it('uses IEvidenceStore.searchWithMeta metadata when available', async () => {
+    const mockStore = createMockEvidenceStore({
+      searchWithMeta: async () => ({
+        items: [],
+        meta: {
+          degraded: true,
+          degradeReason: 'passage_embedding_unavailable',
+          effectiveMode: 'lexical',
+        },
+      }),
+    });
+    const { evidenceRoutes } = await import('../../dist/routes/evidence.js');
+    app = Fastify();
+    await app.register(evidenceRoutes, {
+      hindsightClient: MOCK_HINDSIGHT,
+      sharedBank: 'cat-cafe-shared',
+      evidenceStore: mockStore,
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=test&depth=raw&mode=semantic',
+    });
+
+    const body = res.json();
+    assert.equal(body.degraded, true);
+    assert.equal(body.degradeReason, 'passage_embedding_unavailable');
+    assert.equal(body.effectiveMode, 'lexical');
+  });
+
+  it('surfaces raw non-lexical degradation when KnowledgeResolver omits metadata', async () => {
+    const mockStore = createMockEvidenceStore();
+    const mockResolver = {
+      resolve: async () => ({
+        results: [],
+        sources: ['project'],
+        query: 'test',
+      }),
+    };
+    const { evidenceRoutes } = await import('../../dist/routes/evidence.js');
+    app = Fastify();
+    await app.register(evidenceRoutes, {
+      hindsightClient: MOCK_HINDSIGHT,
+      sharedBank: 'cat-cafe-shared',
+      evidenceStore: mockStore,
+      knowledgeResolver: mockResolver,
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=test&depth=raw&mode=semantic&dimension=library',
+    });
+
+    const body = res.json();
+    assert.equal(body.degraded, true);
+    assert.equal(body.degradeReason, 'raw_lexical_only');
+    assert.equal(body.effectiveMode, 'lexical');
+  });
 });
 
 describe('reflect route DI (IReflectionService path)', () => {

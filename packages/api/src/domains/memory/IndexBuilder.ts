@@ -20,7 +20,8 @@ import type {
 export { KIND_DIRS } from './CatCafeScanner.js';
 
 import { extractDocLinkEdges, extractFeatureRefEdges, extractWikiLinkEdges } from './edge-extractors.js';
-import { embedIndexedItems } from './embed-utils.js';
+import { embedIndexedItems, embedPassages, type PassageEmbeddingRow } from './embed-utils.js';
+import { type PassageVectorStore, passageVectorKey } from './PassageVectorStore.js';
 import type { SqliteEvidenceStore } from './SqliteEvidenceStore.js';
 import { SIGNAL_FLAGS } from './summary-config.js';
 import type { VectorStore } from './VectorStore.js';
@@ -139,7 +140,11 @@ export class IndexBuilder implements IIndexBuilder {
   constructor(
     private readonly store: SqliteEvidenceStore,
     private readonly docsRoot: string,
-    private embedDeps?: { embedding: IEmbeddingService; vectorStore: VectorStore },
+    private embedDeps?: {
+      embedding: IEmbeddingService;
+      vectorStore: VectorStore;
+      passageVectorStore?: PassageVectorStore;
+    },
     private readonly transcriptDataDir?: string,
     private readonly threadListFn?: ThreadListFn,
     private readonly messageListFn?: MessageListFn,
@@ -157,7 +162,11 @@ export class IndexBuilder implements IIndexBuilder {
     }
   }
 
-  setEmbedDeps(deps: { embedding: IEmbeddingService; vectorStore: VectorStore }): void {
+  setEmbedDeps(deps: {
+    embedding: IEmbeddingService;
+    vectorStore: VectorStore;
+    passageVectorStore?: PassageVectorStore;
+  }): void {
     this.embedDeps = deps;
   }
 
@@ -475,6 +484,7 @@ export class IndexBuilder implements IIndexBuilder {
           items: indexedItems,
           embedding,
           vectorStore,
+          onVectorReset: () => this.embedDeps?.passageVectorStore?.clearAll(),
           allDocsProvider: () => {
             const db = store.getDb();
             const allDocs = db.prepare('SELECT anchor, title, summary FROM evidence_docs').all() as Array<{
@@ -491,6 +501,7 @@ export class IndexBuilder implements IIndexBuilder {
         // fail-open: embedding errors don't block indexing
       }
     }
+    await this.embedMissingPassages();
 
     // Persist current indexing version so next startup can detect changes
     await this.storeIndexingVersion();
@@ -834,9 +845,44 @@ export class IndexBuilder implements IIndexBuilder {
     const dirtySnapshots = dirtyIds.map((id) => threadMap.get(id)).filter(Boolean) as ThreadSnapshot[];
     if (dirtySnapshots.length > 0) {
       await this.indexPassages(dirtySnapshots);
+      await this.embedMissingPassages(dirtySnapshots.map((t) => `thread-${t.id}`));
     }
 
     return flushed;
+  }
+
+  /** F209 Phase A: embed newly indexed raw passages without blocking lexical recall. */
+  private async embedMissingPassages(docAnchors?: string[]): Promise<void> {
+    const deps = this.embedDeps;
+    if (!deps?.passageVectorStore) return;
+
+    try {
+      const db = this.store.getDb();
+      let sql = 'SELECT doc_anchor AS docAnchor, passage_id AS passageId, content FROM evidence_passages';
+      const params: unknown[] = [];
+      if (docAnchors?.length) {
+        sql += ` WHERE doc_anchor IN (${docAnchors.map(() => '?').join(',')})`;
+        params.push(...docAnchors);
+      }
+      sql += ' ORDER BY id';
+
+      const rows = db.prepare(sql).all(...params) as PassageEmbeddingRow[];
+      if (rows.length === 0) return;
+
+      const existingRows = db.prepare('SELECT passage_key AS passageKey FROM passage_vectors').all() as Array<{
+        passageKey: string;
+      }>;
+      const existing = new Set(existingRows.map((r) => r.passageKey));
+      const missing = rows.filter((r) => !existing.has(passageVectorKey(r.docAnchor, r.passageId)));
+
+      await embedPassages({
+        passages: missing,
+        embedding: deps.embedding,
+        passageVectorStore: deps.passageVectorStore,
+      });
+    } catch {
+      // fail-open: passage vectors are an accelerator; passage_fts remains canonical.
+    }
   }
 
   /**

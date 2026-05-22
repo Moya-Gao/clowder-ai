@@ -674,3 +674,22 @@ export function ensureVectorTable(db: Database.Database, dim: number): boolean {
     return false; // sqlite-vec not loaded — fail-open
   }
 }
+
+/**
+ * Ensure passage-level vec0 table exists for raw semantic / hybrid recall.
+ * Kept separate from evidence_vectors because hydration target is
+ * evidence_passages, not evidence_docs.
+ */
+export function ensurePassageVectorTable(db: Database.Database, dim: number): boolean {
+  try {
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS passage_vectors USING vec0(
+        passage_key TEXT PRIMARY KEY,
+        embedding float[${dim}]
+      )
+    `);
+    return true;
+  } catch {
+    return false; // sqlite-vec not loaded — fail-open
+  }
+}

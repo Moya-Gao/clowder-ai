@@ -127,16 +127,22 @@ export interface EvidenceItem {
   confidence?: number;
   /** AC-I9: passage-level detail when depth=raw */
   passages?: Array<{
+    docAnchor?: string;
     passageId: string;
     content: string;
     speaker?: string;
     createdAt?: string;
+    threadId?: string;
+    messageId?: string;
     /** AC-I8: surrounding passages when contextWindow is set */
     context?: Array<{
+      docAnchor?: string;
       passageId: string;
       content: string;
       speaker?: string;
       createdAt?: string;
+      threadId?: string;
+      messageId?: string;
     }>;
   }>;
 }
@@ -213,6 +219,23 @@ export interface SearchOptions {
   explain?: boolean;
 }
 
+export type SearchDegradeReason =
+  | 'passage_embedding_unavailable'
+  | 'passage_vector_search_error'
+  | 'evidence_store_error'
+  | 'raw_lexical_only';
+
+export interface SearchExecutionMeta {
+  degraded: boolean;
+  degradeReason?: SearchDegradeReason;
+  effectiveMode?: 'lexical' | 'semantic' | 'hybrid';
+}
+
+export interface EvidenceSearchExecution {
+  items: EvidenceItem[];
+  meta: SearchExecutionMeta;
+}
+
 export interface MarkerFilter {
   status?: MarkerStatus;
   targetKind?: EvidenceKind;
@@ -255,6 +278,7 @@ export interface KnowledgeResult {
   results: EvidenceItem[];
   sources: Array<'project' | 'global'>;
   query: string;
+  meta?: SearchExecutionMeta;
   collectionGroups?: CollectionGroup[];
   deprecationWarnings?: string[];
 }
@@ -269,6 +293,7 @@ export interface ReflectionContext {
 
 export interface IEvidenceStore {
   search(query: string, options?: SearchOptions): Promise<EvidenceItem[]>;
+  searchWithMeta?(query: string, options?: SearchOptions): Promise<EvidenceSearchExecution>;
   upsert(items: EvidenceItem[]): Promise<void>;
   deleteByAnchor(anchor: string): Promise<void>;
   getByAnchor(anchor: string): Promise<EvidenceItem | null>;

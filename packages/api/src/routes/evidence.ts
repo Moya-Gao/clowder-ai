@@ -9,7 +9,14 @@ import {
   rankToConfidence,
   type SalienceTaskContext,
 } from '../domains/memory/f163-types.js';
-import type { IEvidenceStore, IIndexBuilder, IKnowledgeResolver } from '../domains/memory/interfaces.js';
+import type {
+  EvidenceItem,
+  IEvidenceStore,
+  IIndexBuilder,
+  IKnowledgeResolver,
+  SearchExecutionMeta,
+  SearchOptions,
+} from '../domains/memory/interfaces.js';
 import type { RebuildJobTracker } from '../domains/memory/RebuildJobTracker.js';
 import { type BoostSource, type EvidenceResult, mapKindToSourceType } from './evidence-helpers.js';
 
@@ -98,9 +105,6 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
     } = parseResult.data;
 
     const effectiveLimit = limit ?? 5;
-    // AC-K1: depth=raw forces lexical-only (passage-level vectors not yet available)
-    const requestedMode = mode ?? 'lexical';
-    const isRawDegraded = depth === 'raw' && requestedMode !== 'lexical';
     // F163: freeze flags once per request, compute variant ID
     const f163Flags = freezeFlags();
     const rawVariantId = computeVariantId(f163Flags);
@@ -119,7 +123,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         .map((s) => s.trim())
         .filter(Boolean);
       const explain = rawExplain != null;
-      const searchOpts = {
+      const searchOpts: SearchOptions = {
         limit: effectiveLimit,
         scope,
         mode,
@@ -132,9 +136,23 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         collections: parsedCollections,
         explain,
       };
+      let searchMeta: SearchExecutionMeta = { degraded: false };
       // F-4: Use KnowledgeResolver for federated project + global search
       const resolveResult = opts.knowledgeResolver ? await opts.knowledgeResolver.resolve(q, searchOpts) : null;
-      const items = resolveResult ? resolveResult.results : await opts.evidenceStore.search(q, searchOpts);
+      let items: EvidenceItem[];
+      if (resolveResult) {
+        items = resolveResult.results;
+        searchMeta = resolveResult.meta ?? missingResolverMeta(searchOpts);
+      } else {
+        if (opts.evidenceStore.searchWithMeta) {
+          const execution = await opts.evidenceStore.searchWithMeta(q, searchOpts);
+          items = execution.items;
+          searchMeta = execution.meta;
+        } else {
+          items = await opts.evidenceStore.search(q, searchOpts);
+          searchMeta = missingResolverMeta(searchOpts);
+        }
+      }
       const resolvedSources = resolveResult?.sources;
       // Tag per-result source when dimension is explicit (single-source)
       const singleSource = resolvedSources && resolvedSources.length === 1 ? resolvedSources[0] : undefined;
@@ -235,9 +253,10 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
 
       return {
         results,
-        degraded: isRawDegraded,
+        degraded: searchMeta.degraded,
         variantId,
-        ...(isRawDegraded ? { degradeReason: 'raw_lexical_only', effectiveMode: 'lexical' as const } : {}),
+        ...(searchMeta.degradeReason ? { degradeReason: searchMeta.degradeReason } : {}),
+        ...(searchMeta.effectiveMode ? { effectiveMode: searchMeta.effectiveMode } : {}),
         ...(injectionSources && injectionSources.length > 0 ? { injectionSources } : {}),
         ...(responseGroups && responseGroups.length > 0 ? { collectionGroups: responseGroups } : {}),
         ...(resolveResult?.deprecationWarnings ? { deprecationWarnings: resolveResult.deprecationWarnings } : {}),
@@ -427,3 +446,10 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
     return job;
   });
 };
+
+function missingResolverMeta(options: SearchOptions): SearchExecutionMeta {
+  if (options.depth === 'raw' && (options.mode ?? 'lexical') !== 'lexical') {
+    return { degraded: true, degradeReason: 'raw_lexical_only', effectiveMode: 'lexical' };
+  }
+  return { degraded: false };
+}

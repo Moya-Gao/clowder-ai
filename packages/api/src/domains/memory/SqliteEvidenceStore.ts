@@ -10,8 +10,10 @@ import type {
   Edge,
   EvidenceItem,
   EvidenceKind,
+  EvidenceSearchExecution,
   IEmbeddingService,
   IEvidenceStore,
+  SearchExecutionMeta,
   SearchOptions,
 } from './interfaces.js';
 import {
@@ -20,6 +22,7 @@ import {
   splitLexicalBackfillWords,
 } from './lexical-backfill.js';
 import { applyMMR } from './mmr.js';
+import { type PassageVectorStore, parsePassageVectorKey, passageVectorKey } from './PassageVectorStore.js';
 import { computeRecencyDecay } from './recency-decay.js';
 import { applyMigrations } from './schema.js';
 import type { VectorStore } from './VectorStore.js';
@@ -48,6 +51,7 @@ export interface PassageResult {
 export interface EmbedDeps {
   embedding: IEmbeddingService;
   vectorStore: VectorStore;
+  passageVectorStore?: PassageVectorStore;
   mode: 'off' | 'shadow' | 'on';
 }
 
@@ -78,12 +82,16 @@ export class SqliteEvidenceStore implements IEvidenceStore {
   }
 
   async search(query: string, options?: SearchOptions): Promise<EvidenceItem[]> {
+    return (await this.searchWithMeta(query, options)).items;
+  }
+
+  async searchWithMeta(query: string, options?: SearchOptions): Promise<EvidenceSearchExecution> {
     this.ensureOpen();
     const limit = options?.limit ?? 10;
     // P2 fix (砚砚): hybrid needs a wider BM25 candidate pool for meaningful RRF
     const bm25Pool = options?.mode === 'hybrid' ? Math.min(Math.max(limit * 4, 20), 100) : limit;
     const trimmed = query.trim();
-    if (!trimmed) return [];
+    if (!trimmed) return { items: [], meta: { degraded: false } };
     const lexicalBackfillWords = splitLexicalBackfillWords(trimmed);
 
     // Phase D: resolve scope → kind filter
@@ -324,70 +332,12 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       }
     }
 
-    // Phase E + AC-I9: passage search when depth=raw and scope includes threads
-    if (options?.depth === 'raw' && (!options?.scope || options.scope === 'all' || options.scope === 'threads')) {
-      const cw = options?.contextWindow;
-      const passages = this.searchPassages(
-        trimmed,
-        limit,
-        { dateFrom: options?.dateFrom, dateTo: options?.dateTo },
-        cw && cw > 0 ? { contextWindow: cw } : undefined,
-      );
-      // Group passages by docAnchor for structured return
-      // P1-2 fix: when threadId filter is active, skip passages from other threads
-      const passagesByAnchor = new Map<string, typeof passages>();
-      for (const p of passages) {
-        if (threadAnchor && p.docAnchor !== threadAnchor) continue;
-        const arr = passagesByAnchor.get(p.docAnchor) ?? [];
-        arr.push(p);
-        passagesByAnchor.set(p.docAnchor, arr);
-      }
-      for (const [anchor, pList] of passagesByAnchor) {
-        // Find existing result or synthesize from parent doc
-        let item = results.find((r) => r.anchor === anchor);
-        if (!item) {
-          const parentDoc = this.db?.prepare('SELECT * FROM evidence_docs WHERE anchor = ?').get(anchor) as
-            | RowShape
-            | undefined;
-          if (parentDoc) {
-            item = rowToItem(parentDoc);
-            item.summary = `[passage match] ${pList[0].speaker ? `${pList[0].speaker}: ` : ''}${pList[0].content.slice(0, 200)}`;
-            results.push(item);
-            seenAnchors.add(anchor);
-          }
-        }
-        if (item) {
-          item.passages = pList.map((p) => ({
-            passageId: p.passageId,
-            content: p.content,
-            speaker: p.speaker,
-            createdAt: p.createdAt,
-            ...(p.context
-              ? {
-                  context: p.context.map((c) => ({
-                    passageId: c.passageId,
-                    content: c.content,
-                    speaker: c.speaker,
-                    createdAt: c.createdAt,
-                  })),
-                }
-              : {}),
-          }));
-        }
-      }
-    }
-
-    // P1 fix (砚砚 review): depth=raw must stay lexical-only — no passage vectors yet.
-    // Short-circuit BEFORE mode split to prevent semantic/hybrid from eating raw results.
     if (options?.depth === 'raw') {
-      // Passage ranking fix: results with passage matches must rank before
-      // doc-only hits so low-limit queries surface message-level content.
-      results.sort((a, b) => {
-        const aHas = a.passages?.length ? 1 : 0;
-        const bHas = b.passages?.length ? 1 : 0;
-        return bHas - aHas; // passage-bearing first, stable within each group
-      });
-      return this.enrichWithDrillDown(results.slice(0, limit), undefined, options, trimmed);
+      const rawResult = await this.rawPassageSearch(query, results, limit, options);
+      return {
+        items: this.enrichWithDrillDown(rawResult.items, undefined, options, trimmed),
+        meta: rawResult.meta,
+      };
     }
 
     // ── F163: Post-retrieval authority boost (fail-open: Task 11) ──
@@ -408,43 +358,376 @@ export class SqliteEvidenceStore implements IEvidenceStore {
 
     // G-4: all paths go through enrichWithDrillDown before returning
     if (searchMode === 'lexical') {
-      return this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed);
+      return {
+        items: this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed),
+        meta: { degraded: false },
+      };
     }
 
     if (searchMode === 'semantic') {
       if (!embeddingAvailable) {
-        return this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed);
+        return {
+          items: this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed),
+          meta: { degraded: false },
+        };
       }
       try {
-        return this.enrichWithDrillDown(
-          await this.semanticNNSearch(query, limit, options, suppressBackstop),
-          undefined,
-          options,
-          trimmed,
-        );
+        return {
+          items: this.enrichWithDrillDown(
+            await this.semanticNNSearch(query, limit, options, suppressBackstop),
+            undefined,
+            options,
+            trimmed,
+          ),
+          meta: { degraded: false },
+        };
       } catch {
-        return this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed);
+        return {
+          items: this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed),
+          meta: { degraded: false },
+        };
       }
     }
 
     if (searchMode === 'hybrid') {
       if (!embeddingAvailable) {
-        return this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed);
+        return {
+          items: this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed),
+          meta: { degraded: false },
+        };
       }
       try {
         const f200Pool = freezeF200Flags().consumptionRerank !== 'off' ? limit * 3 : limit;
-        return this.enrichWithDrillDown(
-          await this.hybridRRFSearch(query, lexicalCandidates, f200Pool, options, suppressBackstop),
-          limit,
-          options,
-          trimmed,
-        );
+        return {
+          items: this.enrichWithDrillDown(
+            await this.hybridRRFSearch(query, lexicalCandidates, f200Pool, options, suppressBackstop),
+            limit,
+            options,
+            trimmed,
+          ),
+          meta: { degraded: false },
+        };
       } catch {
-        return this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed);
+        return {
+          items: this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed),
+          meta: { degraded: false },
+        };
       }
     }
 
-    return this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed);
+    return {
+      items: this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed),
+      meta: { degraded: false },
+    };
+  }
+
+  private async rawPassageSearch(
+    query: string,
+    baseResults: EvidenceItem[],
+    limit: number,
+    options: SearchOptions,
+  ): Promise<EvidenceSearchExecution> {
+    if (options.scope && options.scope !== 'all' && options.scope !== 'threads') {
+      return { items: this.rankRawResults(baseResults, limit), meta: { degraded: false } };
+    }
+
+    const mode = options.mode ?? 'lexical';
+    const pool = Math.min(Math.max(limit * 4, 20), 100);
+    const timeFilter = { dateFrom: options.dateFrom, dateTo: options.dateTo };
+    const lexical = (): PassageResult[] => this.searchPassages(query, pool, timeFilter);
+
+    let passages: PassageResult[];
+    let meta: SearchExecutionMeta = { degraded: false };
+    if (mode === 'semantic') {
+      if (!this.isPassageEmbeddingAvailable()) {
+        passages = lexical();
+        meta = {
+          degraded: true,
+          degradeReason: 'passage_embedding_unavailable',
+          effectiveMode: 'lexical',
+        };
+      } else {
+        try {
+          passages = await this.semanticPassageNNSearch(query, pool, options);
+        } catch {
+          passages = lexical();
+          meta = {
+            degraded: true,
+            degradeReason: 'passage_vector_search_error',
+            effectiveMode: 'lexical',
+          };
+        }
+      }
+    } else if (mode === 'hybrid') {
+      if (!this.isPassageEmbeddingAvailable()) {
+        passages = lexical();
+        meta = {
+          degraded: true,
+          degradeReason: 'passage_embedding_unavailable',
+          effectiveMode: 'lexical',
+        };
+      } else {
+        try {
+          passages = await this.hybridPassageRRFSearch(query, lexical(), pool, options);
+        } catch {
+          passages = lexical();
+          meta = {
+            degraded: true,
+            degradeReason: 'passage_vector_search_error',
+            effectiveMode: 'lexical',
+          };
+        }
+      }
+    } else {
+      passages = lexical();
+    }
+
+    return { items: this.hydratePassageResults(baseResults, passages, limit, options), meta };
+  }
+
+  private isPassageEmbeddingAvailable(): boolean {
+    return Boolean(
+      this.embedDeps?.embedding.isReady() && this.embedDeps.mode === 'on' && this.embedDeps.passageVectorStore,
+    );
+  }
+
+  private async semanticPassageNNSearch(
+    query: string,
+    limit: number,
+    options?: SearchOptions,
+  ): Promise<PassageResult[]> {
+    const queryVec = await this.embedDeps!.embedding.embed([query]);
+    const nnResults = this.embedDeps!.passageVectorStore!.search(queryVec[0], limit);
+    return this.hydratePassageVectorHits(nnResults, options);
+  }
+
+  private async hybridPassageRRFSearch(
+    query: string,
+    lexicalPassages: PassageResult[],
+    limit: number,
+    options?: SearchOptions,
+  ): Promise<PassageResult[]> {
+    const semanticPassages = await this.semanticPassageNNSearch(query, limit, options);
+    const rrfK = 60;
+    const nnWeight = hasCJKCharacters(query) ? CJK_NN_WEIGHT : 1.0;
+    const scores = new Map<string, number>();
+    const passageMap = new Map<string, PassageResult>();
+
+    for (let i = 0; i < lexicalPassages.length; i++) {
+      const passage = lexicalPassages[i];
+      const key = passageVectorKey(passage.docAnchor, passage.passageId);
+      scores.set(key, (scores.get(key) ?? 0) + 1 / (rrfK + i));
+      passageMap.set(key, passage);
+    }
+
+    for (let i = 0; i < semanticPassages.length; i++) {
+      const passage = semanticPassages[i];
+      const key = passageVectorKey(passage.docAnchor, passage.passageId);
+      scores.set(key, (scores.get(key) ?? 0) + nnWeight / (rrfK + i));
+      passageMap.set(key, passage);
+    }
+
+    return [...scores.keys()]
+      .sort((a, b) => (scores.get(b) ?? 0) - (scores.get(a) ?? 0))
+      .map((key) => passageMap.get(key))
+      .filter((p): p is PassageResult => Boolean(p))
+      .slice(0, limit);
+  }
+
+  private hydratePassageVectorHits(
+    hits: Array<{ passageKey: string; distance: number }>,
+    options?: SearchOptions,
+  ): PassageResult[] {
+    if (!this.db || hits.length === 0) return [];
+
+    const parsed = hits
+      .map((hit) => {
+        try {
+          return { ...parsePassageVectorKey(hit.passageKey), passageKey: hit.passageKey, distance: hit.distance };
+        } catch {
+          return null;
+        }
+      })
+      .filter((hit): hit is { docAnchor: string; passageId: string; passageKey: string; distance: number } =>
+        Boolean(hit),
+      );
+    if (parsed.length === 0) return [];
+
+    const clauses = parsed.map(() => '(doc_anchor = ? AND passage_id = ?)').join(' OR ');
+    const params: unknown[] = parsed.flatMap((p) => [p.docAnchor, p.passageId]);
+    let sql = `SELECT doc_anchor, passage_id, content, speaker, position, created_at FROM evidence_passages WHERE (${clauses})`;
+
+    if (options?.threadId) {
+      sql += ' AND doc_anchor = ?';
+      params.push(`thread-${options.threadId}`);
+    }
+    if (options?.dateFrom) {
+      sql += ' AND created_at >= ?';
+      params.push(options.dateFrom);
+    }
+    if (options?.dateTo) {
+      sql += ' AND created_at <= ?';
+      params.push(options.dateTo.length === 10 ? `${options.dateTo}T23:59:59` : options.dateTo);
+    }
+
+    const rows = this.db.prepare(sql).all(...params) as Array<{
+      doc_anchor: string;
+      passage_id: string;
+      content: string;
+      speaker: string | null;
+      position: number | null;
+      created_at: string | null;
+    }>;
+    const rowMap = new Map(rows.map((r) => [passageVectorKey(r.doc_anchor, r.passage_id), r]));
+
+    const passages: PassageResult[] = [];
+    for (let index = 0; index < parsed.length; index++) {
+      const hit = parsed[index];
+      const row = rowMap.get(hit.passageKey);
+      if (!row) continue;
+      passages.push({
+        docAnchor: row.doc_anchor,
+        passageId: row.passage_id,
+        content: row.content,
+        speaker: row.speaker ?? undefined,
+        position: row.position ?? undefined,
+        rank: hit.distance ?? index,
+        createdAt: row.created_at ?? undefined,
+      });
+    }
+    return passages;
+  }
+
+  private hydratePassageResults(
+    baseResults: EvidenceItem[],
+    passages: PassageResult[],
+    limit: number,
+    options?: SearchOptions,
+  ): EvidenceItem[] {
+    const results = [...baseResults];
+    const threadAnchor = options?.threadId ? `thread-${options.threadId}` : undefined;
+    const passageOrder = new Map<string, number>();
+    const passagesByAnchor = new Map<string, PassageResult[]>();
+    const withContext = this.attachPassageContext(passages, options?.contextWindow);
+
+    for (let index = 0; index < withContext.length; index++) {
+      const passage = withContext[index];
+      if (threadAnchor && passage.docAnchor !== threadAnchor) continue;
+      const arr = passagesByAnchor.get(passage.docAnchor) ?? [];
+      arr.push(passage);
+      passagesByAnchor.set(passage.docAnchor, arr);
+      if (!passageOrder.has(passage.docAnchor)) passageOrder.set(passage.docAnchor, index);
+    }
+
+    for (const [anchor, pList] of passagesByAnchor) {
+      let item = results.find((r) => r.anchor === anchor);
+      if (!item) {
+        const parentDoc = this.db?.prepare('SELECT * FROM evidence_docs WHERE anchor = ?').get(anchor) as
+          | RowShape
+          | undefined;
+        if (parentDoc) {
+          item = rowToItem(parentDoc);
+          item.summary = `[passage match] ${pList[0].speaker ? `${pList[0].speaker}: ` : ''}${pList[0].content.slice(0, 200)}`;
+          results.push(item);
+        }
+      }
+      if (item) item.passages = pList.map((p) => this.toEvidencePassage(p));
+    }
+
+    return this.rankRawResults(results, limit, passageOrder);
+  }
+
+  private attachPassageContext(passages: PassageResult[], contextWindow?: number): PassageResult[] {
+    if (!contextWindow || contextWindow <= 0 || !this.db) return passages;
+    const ctxStmt = this.db.prepare(
+      `SELECT doc_anchor, passage_id, content, speaker, position, created_at
+       FROM evidence_passages
+       WHERE doc_anchor = ? AND position BETWEEN ? AND ? AND passage_id != ?
+       ORDER BY position`,
+    );
+
+    return passages.map((passage) => {
+      if (passage.position == null) return passage;
+      const ctxRows = ctxStmt.all(
+        passage.docAnchor,
+        passage.position - contextWindow,
+        passage.position + contextWindow,
+        passage.passageId,
+      ) as Array<{
+        doc_anchor: string;
+        passage_id: string;
+        content: string;
+        speaker: string | null;
+        position: number | null;
+        created_at: string | null;
+      }>;
+      return {
+        ...passage,
+        context: ctxRows.map((c) => ({
+          docAnchor: c.doc_anchor,
+          passageId: c.passage_id,
+          content: c.content,
+          speaker: c.speaker ?? undefined,
+          position: c.position ?? undefined,
+          createdAt: c.created_at ?? undefined,
+        })),
+      };
+    });
+  }
+
+  private toEvidencePassage(passage: PassageResult): NonNullable<EvidenceItem['passages']>[number] {
+    const threadId = passage.docAnchor.startsWith('thread-') ? passage.docAnchor.slice('thread-'.length) : undefined;
+    const messageId = passage.passageId.startsWith('msg-') ? passage.passageId.slice('msg-'.length) : undefined;
+    return {
+      docAnchor: passage.docAnchor,
+      passageId: passage.passageId,
+      content: passage.content,
+      speaker: passage.speaker,
+      createdAt: passage.createdAt,
+      threadId,
+      messageId,
+      ...(passage.context
+        ? {
+            context: passage.context.map((c) => {
+              const ctxThreadId = c.docAnchor.startsWith('thread-') ? c.docAnchor.slice('thread-'.length) : undefined;
+              const ctxMessageId = c.passageId.startsWith('msg-') ? c.passageId.slice('msg-'.length) : undefined;
+              return {
+                docAnchor: c.docAnchor,
+                passageId: c.passageId,
+                content: c.content,
+                speaker: c.speaker,
+                createdAt: c.createdAt,
+                threadId: ctxThreadId,
+                messageId: ctxMessageId,
+              };
+            }),
+          }
+        : {}),
+    };
+  }
+
+  private rankRawResults(
+    results: EvidenceItem[],
+    limit: number,
+    passageOrder: Map<string, number> = new Map(),
+  ): EvidenceItem[] {
+    const originalOrder = new Map(results.map((item, index) => [item.anchor, index]));
+    results.sort((a, b) => {
+      const aHas = a.passages?.length ? 1 : 0;
+      const bHas = b.passages?.length ? 1 : 0;
+      if (aHas !== bHas) return bHas - aHas;
+      if (aHas && bHas) {
+        return (
+          (passageOrder.get(a.anchor) ?? Number.MAX_SAFE_INTEGER) -
+          (passageOrder.get(b.anchor) ?? Number.MAX_SAFE_INTEGER)
+        );
+      }
+      return (
+        (originalOrder.get(a.anchor) ?? Number.MAX_SAFE_INTEGER) -
+        (originalOrder.get(b.anchor) ?? Number.MAX_SAFE_INTEGER)
+      );
+    });
+    return results.slice(0, limit);
   }
 
   /**

@@ -115,15 +115,21 @@ export async function handleSearchEvidence(input: {
         sourcePath?: string;
         rankingFactors?: { bm25Score?: number; consumptionPrior?: number; mmrPenalty?: number };
         passages?: Array<{
+          docAnchor?: string;
           passageId: string;
           content: string;
           speaker?: string;
           createdAt?: string;
+          threadId?: string;
+          messageId?: string;
           context?: Array<{
+            docAnchor?: string;
             passageId: string;
             content: string;
             speaker?: string;
             createdAt?: string;
+            threadId?: string;
+            messageId?: string;
           }>;
         }>;
       }>;
@@ -292,9 +298,18 @@ function formatDegradedBanner(
   effectiveMode?: 'lexical' | 'semantic' | 'hybrid',
 ): string | null {
   if (!degraded) return null;
+  // Kept for legacy/web contract compatibility; F209 Phase A no longer emits this reason in production.
   if (degradeReason === 'raw_lexical_only') {
     const modeNote = effectiveMode ? ` (effectiveMode=${effectiveMode})` : '';
     return `[DEGRADED] depth=raw currently uses lexical retrieval only${modeNote}`;
+  }
+  if (degradeReason === 'passage_embedding_unavailable') {
+    const modeNote = effectiveMode ? ` (effectiveMode=${effectiveMode})` : '';
+    return `[DEGRADED] raw passage embeddings unavailable; fell back to lexical retrieval${modeNote}`;
+  }
+  if (degradeReason === 'passage_vector_search_error') {
+    const modeNote = effectiveMode ? ` (effectiveMode=${effectiveMode})` : '';
+    return `[DEGRADED] raw passage vector search failed; fell back to lexical retrieval${modeNote}`;
   }
   return '[DEGRADED] Evidence store error — results may be incomplete';
 }
