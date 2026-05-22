@@ -128,6 +128,13 @@ describe('IndexBuilder passage embeddings', () => {
       timestamp: Date.now(),
     });
 
+    const refreshCalls = [];
+    const originalRefresh = store.refreshEntityMentions.bind(store);
+    store.refreshEntityMentions = async (anchors) => {
+      refreshCalls.push(anchors);
+      await originalRefresh(anchors);
+    };
+
     builder.markThreadDirty('thread_embed1');
     await builder.flushDirtyThreads();
 
@@ -135,6 +142,7 @@ describe('IndexBuilder passage embeddings', () => {
     const passageCount = db.prepare('SELECT count(*) as c FROM evidence_passages').get().c;
     assert.equal(passageCount, 2);
     assert.equal(passageVectorStore.count(), 2, 'dirty flush should backfill missing passage vectors');
+    assert.equal(refreshCalls.length, 1, 'dirty flush should refresh entity mentions once per dirty batch');
   });
 
   it('fails open when passage embedding throws', async () => {

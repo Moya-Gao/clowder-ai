@@ -2,17 +2,21 @@
 
 import Database from 'better-sqlite3';
 import { computeConsumptionPrior } from './consumption-prior.js';
+import { type EntityMentionPassageHit, EntityRegistryStore } from './EntityRegistry.js';
 import { EvidenceWriteQueue } from './evidence-write-queue.js';
 import { ContradictionDetector } from './f163-contradiction-detector.js';
 import { type F163Authority, freezeFlags, pathToAuthority } from './f163-types.js';
 import { freezeF200Flags } from './f200-types.js';
 import type {
   Edge,
+  EntityMatch,
+  EntityRecord,
   EvidenceItem,
   EvidenceKind,
   EvidenceSearchExecution,
   IEmbeddingService,
   IEvidenceStore,
+  QueryEntityMatch,
   SearchExecutionMeta,
   SearchOptions,
 } from './interfaces.js';
@@ -55,10 +59,19 @@ export interface EmbedDeps {
   mode: 'off' | 'shadow' | 'on';
 }
 
+interface SearchFilterContext {
+  effectiveKind?: EvidenceKind;
+  excludeSessionAndThread: boolean;
+  excludePackKnowledge: boolean;
+  threadAnchor?: string;
+  suppressBackstop: boolean;
+}
+
 export class SqliteEvidenceStore implements IEvidenceStore {
   private db: Database.Database | null = null;
   private readonly dbPath: string;
   private embedDeps?: EmbedDeps;
+  private entityRegistry?: EntityRegistryStore;
   /** F163: single-writer queue serializes all evidence.sqlite mutations */
   private readonly writeQueue = new EvidenceWriteQueue();
 
@@ -79,6 +92,32 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     this.db.pragma('busy_timeout = 5000');
 
     applyMigrations(this.db);
+    this.entityRegistry = new EntityRegistryStore(this.db);
+  }
+
+  async upsertEntities(entities: EntityRecord[]): Promise<void> {
+    return this.writeQueue.enqueue(() => {
+      this.ensureOpen();
+      this.entityRegistry?.upsert(entities);
+      this.entityRegistry?.refreshMentions();
+    });
+  }
+
+  async getEntity(entityId: string): Promise<EntityRecord | null> {
+    this.ensureOpen();
+    return this.entityRegistry?.get(entityId) ?? null;
+  }
+
+  async resolveEntityAliases(query: string): Promise<QueryEntityMatch[]> {
+    this.ensureOpen();
+    return this.entityRegistry?.resolveQuery(query) ?? [];
+  }
+
+  async refreshEntityMentions(docAnchors?: string[]): Promise<void> {
+    return this.writeQueue.enqueue(() => {
+      this.ensureOpen();
+      this.entityRegistry?.refreshMentions(docAnchors);
+    });
   }
 
   async search(query: string, options?: SearchOptions): Promise<EvidenceItem[]> {
@@ -93,6 +132,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     const trimmed = query.trim();
     if (!trimmed) return { items: [], meta: { degraded: false } };
     const lexicalBackfillWords = splitLexicalBackfillWords(trimmed);
+    const queryEntityMatches = this.entityRegistry?.resolveQuery(trimmed) ?? [];
 
     // Phase D: resolve scope → kind filter
     // scope='threads' → kind='thread' (P1 fix: was incorrectly mapped to 'session')
@@ -332,8 +372,29 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       }
     }
 
+    const entityMentionDocs = this.hydrateEntityMentionDocs(queryEntityMatches, options, bm25Pool, {
+      effectiveKind,
+      excludeSessionAndThread,
+      excludePackKnowledge,
+      threadAnchor,
+      suppressBackstop,
+    });
+    for (const item of entityMentionDocs.items) {
+      if (!seenAnchors.has(item.anchor)) {
+        results.push(item);
+        seenAnchors.add(item.anchor);
+      }
+    }
+
     if (options?.depth === 'raw') {
-      const rawResult = await this.rawPassageSearch(query, results, limit, options);
+      const rawResult = await this.rawPassageSearch(
+        query,
+        results,
+        limit,
+        options,
+        queryEntityMatches,
+        entityMentionDocs.matchesByAnchor,
+      );
       return {
         items: this.enrichWithDrillDown(rawResult.items, undefined, options, trimmed),
         meta: rawResult.meta,
@@ -359,7 +420,12 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     // G-4: all paths go through enrichWithDrillDown before returning
     if (searchMode === 'lexical') {
       return {
-        items: this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed),
+        items: this.enrichWithDrillDown(
+          this.attachEntityMatches(lexicalResults, entityMentionDocs.matchesByAnchor),
+          undefined,
+          options,
+          trimmed,
+        ),
         meta: { degraded: false },
       };
     }
@@ -367,14 +433,23 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     if (searchMode === 'semantic') {
       if (!embeddingAvailable) {
         return {
-          items: this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed),
+          items: this.enrichWithDrillDown(
+            this.attachEntityMatches(lexicalResults, entityMentionDocs.matchesByAnchor),
+            undefined,
+            options,
+            trimmed,
+          ),
           meta: { degraded: false },
         };
       }
       try {
+        const semanticItems = await this.semanticNNSearch(query, limit, options, suppressBackstop);
         return {
           items: this.enrichWithDrillDown(
-            await this.semanticNNSearch(query, limit, options, suppressBackstop),
+            this.attachEntityMatches(
+              this.mergeEntityResults(entityMentionDocs.items, semanticItems, limit),
+              entityMentionDocs.matchesByAnchor,
+            ),
             undefined,
             options,
             trimmed,
@@ -383,7 +458,12 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         };
       } catch {
         return {
-          items: this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed),
+          items: this.enrichWithDrillDown(
+            this.attachEntityMatches(lexicalResults, entityMentionDocs.matchesByAnchor),
+            undefined,
+            options,
+            trimmed,
+          ),
           meta: { degraded: false },
         };
       }
@@ -392,15 +472,24 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     if (searchMode === 'hybrid') {
       if (!embeddingAvailable) {
         return {
-          items: this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed),
+          items: this.enrichWithDrillDown(
+            this.attachEntityMatches(lexicalResults, entityMentionDocs.matchesByAnchor),
+            undefined,
+            options,
+            trimmed,
+          ),
           meta: { degraded: false },
         };
       }
       try {
         const f200Pool = freezeF200Flags().consumptionRerank !== 'off' ? limit * 3 : limit;
+        const hybridItems = await this.hybridRRFSearch(query, lexicalCandidates, f200Pool, options, suppressBackstop);
         return {
           items: this.enrichWithDrillDown(
-            await this.hybridRRFSearch(query, lexicalCandidates, f200Pool, options, suppressBackstop),
+            this.attachEntityMatches(
+              this.mergeEntityResults(entityMentionDocs.items, hybridItems, f200Pool),
+              entityMentionDocs.matchesByAnchor,
+            ),
             limit,
             options,
             trimmed,
@@ -409,14 +498,24 @@ export class SqliteEvidenceStore implements IEvidenceStore {
         };
       } catch {
         return {
-          items: this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed),
+          items: this.enrichWithDrillDown(
+            this.attachEntityMatches(lexicalResults, entityMentionDocs.matchesByAnchor),
+            undefined,
+            options,
+            trimmed,
+          ),
           meta: { degraded: false },
         };
       }
     }
 
     return {
-      items: this.enrichWithDrillDown(lexicalResults, undefined, options, trimmed),
+      items: this.enrichWithDrillDown(
+        this.attachEntityMatches(lexicalResults, entityMentionDocs.matchesByAnchor),
+        undefined,
+        options,
+        trimmed,
+      ),
       meta: { degraded: false },
     };
   }
@@ -426,9 +525,14 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     baseResults: EvidenceItem[],
     limit: number,
     options: SearchOptions,
+    queryEntityMatches: QueryEntityMatch[],
+    entityMatchesByAnchor: Map<string, EntityMatch[]>,
   ): Promise<EvidenceSearchExecution> {
     if (options.scope && options.scope !== 'all' && options.scope !== 'threads') {
-      return { items: this.rankRawResults(baseResults, limit), meta: { degraded: false } };
+      return {
+        items: this.attachEntityMatches(this.rankRawResults(baseResults, limit), entityMatchesByAnchor),
+        meta: { degraded: false },
+      };
     }
 
     const mode = options.mode ?? 'lexical';
@@ -482,7 +586,144 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       passages = lexical();
     }
 
-    return { items: this.hydratePassageResults(baseResults, passages, limit, options), meta };
+    const entityPassageHits = this.entityRegistry?.findMentionPassages(queryEntityMatches, pool, {
+      threadId: options.threadId,
+      dateFrom: options.dateFrom,
+      dateTo: options.dateTo,
+    });
+    const entityPassages = entityPassageHits?.passages.map((p) => this.entityHitToPassageResult(p)) ?? [];
+    const mergedEntityMatches = mergeEntityMatchMaps(entityMatchesByAnchor, entityPassageHits?.matchesByAnchor);
+    const mergedPassages = mergePassageResults(entityPassages, passages);
+    return {
+      items: this.attachEntityMatches(
+        this.hydratePassageResults(baseResults, mergedPassages, limit, options),
+        mergedEntityMatches,
+      ),
+      meta,
+    };
+  }
+
+  private hydrateEntityMentionDocs(
+    queryEntityMatches: QueryEntityMatch[],
+    options: SearchOptions | undefined,
+    limit: number,
+    filters: SearchFilterContext,
+  ): { items: EvidenceItem[]; matchesByAnchor: Map<string, EntityMatch[]> } {
+    const mentionHits = this.entityRegistry?.findMentionAnchors(queryEntityMatches, limit, {
+      kind: filters.effectiveKind,
+      excludeSessionAndThread: filters.excludeSessionAndThread,
+      excludePackKnowledge: filters.excludePackKnowledge,
+      status: options?.status,
+      keywords: options?.keywords,
+      anchor: filters.threadAnchor,
+      dateFrom: options?.dateFrom,
+      dateTo: options?.dateTo,
+      worldId: options?.worldId,
+      sceneId: options?.sceneId,
+      provenanceTier: options?.provenanceTier,
+      suppressBackstop: filters.suppressBackstop,
+    });
+    if (!mentionHits || mentionHits.anchors.length === 0 || !this.db) {
+      return { items: [], matchesByAnchor: new Map() };
+    }
+
+    const placeholders = mentionHits.anchors.map(() => '?').join(',');
+    let sql = `SELECT * FROM evidence_docs WHERE anchor IN (${placeholders})`;
+    const params: unknown[] = [...mentionHits.anchors];
+
+    if (filters.effectiveKind) {
+      sql += ' AND kind = ?';
+      params.push(filters.effectiveKind);
+    }
+    if (filters.excludeSessionAndThread) {
+      sql += " AND kind != 'session' AND kind != 'thread'";
+    }
+    if (filters.excludePackKnowledge) {
+      sql += " AND kind != 'pack-knowledge'";
+    }
+    if (options?.status) {
+      sql += ' AND status = ?';
+      params.push(options.status);
+    }
+    if (options?.keywords?.length) {
+      sql += ` AND (${options.keywords.map(() => 'keywords LIKE ?').join(' OR ')})`;
+      params.push(...options.keywords.map((kw) => `%"${kw}"%`));
+    }
+    if (filters.threadAnchor) {
+      sql += ' AND anchor = ?';
+      params.push(filters.threadAnchor);
+    }
+    if (options?.dateFrom) {
+      sql += ' AND updated_at >= ?';
+      params.push(options.dateFrom);
+    }
+    if (options?.dateTo) {
+      sql += ' AND updated_at <= ?';
+      params.push(options.dateTo.length === 10 ? `${options.dateTo}T23:59:59` : options.dateTo);
+    }
+    if (options?.worldId) {
+      sql += ' AND world_id = ?';
+      params.push(options.worldId);
+    }
+    if (options?.sceneId) {
+      sql += ' AND scene_id = ?';
+      params.push(options.sceneId);
+    }
+    if (options?.provenanceTier) {
+      sql += ' AND provenance_tier = ?';
+      params.push(options.provenanceTier);
+    }
+    if (filters.suppressBackstop) {
+      sql += " AND activation != 'backstop'";
+    }
+
+    const rows = this.db.prepare(sql).all(...params) as RowShape[];
+    const rowMap = new Map(rows.map((row) => [row.anchor, row]));
+    const items = mentionHits.anchors
+      .map((anchor) => rowMap.get(anchor))
+      .filter((row): row is RowShape => Boolean(row))
+      .map((row) => rowToItem(row));
+    return { items, matchesByAnchor: mentionHits.matchesByAnchor };
+  }
+
+  private attachEntityMatches(items: EvidenceItem[], matchesByAnchor: Map<string, EntityMatch[]>): EvidenceItem[] {
+    if (matchesByAnchor.size === 0) return items;
+    for (const item of items) {
+      const matches = dedupeEntityMatches(matchesByAnchor.get(item.anchor) ?? []);
+      if (matches.length > 0) item.entityMatches = matches;
+    }
+    return items;
+  }
+
+  private mergeEntityResults(entityItems: EvidenceItem[], items: EvidenceItem[], limit: number): EvidenceItem[] {
+    if (entityItems.length === 0) return items.slice(0, limit);
+    const out: EvidenceItem[] = [];
+    const seen = new Set<string>();
+    const entityCap = items.length > 0 ? Math.max(1, Math.ceil(limit / 2)) : limit;
+    for (const item of entityItems.slice(0, entityCap)) {
+      if (seen.has(item.anchor)) continue;
+      seen.add(item.anchor);
+      out.push(item);
+      if (out.length >= limit) break;
+    }
+    for (const item of items) {
+      if (seen.has(item.anchor)) continue;
+      seen.add(item.anchor);
+      out.push(item);
+      if (out.length >= limit) break;
+    }
+    return out.slice(0, limit);
+  }
+
+  private entityHitToPassageResult(hit: EntityMentionPassageHit): PassageResult {
+    return {
+      docAnchor: hit.docAnchor,
+      passageId: hit.passageId,
+      content: hit.content,
+      speaker: hit.speaker,
+      position: hit.position,
+      createdAt: hit.createdAt,
+    };
   }
 
   private isPassageEmbeddingAvailable(): boolean {
@@ -1046,6 +1287,7 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       });
 
       tx(items);
+      this.entityRegistry?.refreshMentions(items.map((item) => item.anchor));
     });
   }
 
@@ -1426,6 +1668,46 @@ export class SqliteEvidenceStore implements IEvidenceStore {
   }
 }
 
+function mergeEntityMatchMaps(
+  left: Map<string, EntityMatch[]>,
+  right?: Map<string, EntityMatch[]>,
+): Map<string, EntityMatch[]> {
+  if (!right || right.size === 0) return left;
+  const merged = new Map<string, EntityMatch[]>();
+  for (const [anchor, matches] of left) merged.set(anchor, [...matches]);
+  for (const [anchor, matches] of right) {
+    const arr = merged.get(anchor) ?? [];
+    arr.push(...matches);
+    merged.set(anchor, arr);
+  }
+  return merged;
+}
+
+function mergePassageResults(entityPassages: PassageResult[], passages: PassageResult[]): PassageResult[] {
+  if (entityPassages.length === 0) return passages;
+  const out: PassageResult[] = [];
+  const seen = new Set<string>();
+  for (const passage of [...entityPassages, ...passages]) {
+    const key = passageVectorKey(passage.docAnchor, passage.passageId);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(passage);
+  }
+  return out;
+}
+
+function dedupeEntityMatches(matches: EntityMatch[]): EntityMatch[] {
+  const seen = new Set<string>();
+  const out: EntityMatch[] = [];
+  for (const match of matches) {
+    const key = `${match.entityId}\u0000${match.docAnchor}\u0000${match.passageId ?? ''}\u0000${match.surface}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(match);
+  }
+  return out;
+}
+
 // ── Row mapping ──────────────────────────────────────────────────────
 
 interface RowShape {
@@ -1674,7 +1956,9 @@ function annotateMatchReasons(results: EvidenceItem[], query: string, explain?: 
   if (!query) return;
   const q = query.toLowerCase();
   for (const item of results) {
-    if (item.anchor.toLowerCase().includes(q)) {
+    if (item.entityMatches?.length) {
+      item.matchReason = `entity:${item.entityMatches[0].entityId}`;
+    } else if (item.anchor.toLowerCase().includes(q)) {
       item.matchReason = 'anchor';
     } else if (item.title.toLowerCase().includes(q)) {
       item.matchReason = 'title';

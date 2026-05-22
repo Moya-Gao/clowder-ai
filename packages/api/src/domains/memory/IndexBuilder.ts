@@ -35,8 +35,9 @@ import type { VectorStore } from './VectorStore.js';
  *   1 — initial (implicit, pre-versioning)
  *   2 — CatCafeScanner: section headings → keywords (PR #1179)
  *   3 — Phase D: pathToAuthority backfill (authority derived from path)
+ *   4 — F209 Phase B: entity mention extraction from docs/passages
  */
-export const INDEXING_VERSION = 3;
+export const INDEXING_VERSION = 4;
 
 /** Higher number = higher priority for anchor ownership */
 const KIND_PRIORITY: Record<EvidenceKind, number> = {
@@ -925,6 +926,7 @@ export class IndexBuilder implements IIndexBuilder {
 
       // Route batch insert through single-writer queue (F163 AC-A5)
       await this.store.runExclusive(() => tx(messages));
+      await this.store.refreshEntityMentions([`thread-${thread.id}`]);
     }
   }
 
@@ -1019,6 +1021,7 @@ export class IndexBuilder implements IIndexBuilder {
         await this.store.runExclusive(() => tx());
       }
     }
+    if (added > 0) await this.store.refreshEntityMentions([`thread-${threadId}`]);
     return added;
   }
 }

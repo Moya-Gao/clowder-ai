@@ -78,15 +78,17 @@ Phase A 不是“先只建一个向量表”的碎片切片。可关闭的最小
 
 把实体做成一等检索轴，解决 `landy` / `铲屎官` / `CVO` 这种别名误伤。
 
-与 F208 的边界：**F209 owns 实体身份层**，回答“`landy` / `铲屎官` / `CVO` 是否同一个实体”，提供 `entity_id`、alias、type 与 provenance 真相源；**F208 owns 实体能力画像层**，回答“砚砚强什么、盲点在哪、适合接什么任务”。F208 的 `cat-dossier` 消费 F209 的 `entity_id` 作为猫/人标识键，不另造一套猫 ID。
+与 F208 / F032 的边界：**F209 owns entity registry / retrieval anchor 层**，回答“`landy` / `铲屎官` / `CVO` 是否同一个可检索实体”，提供 `entity_id`、alias、type 与 provenance 真相源；它不是 roster truth，不决定谁是猫、当前 model、role 或 reviewer eligibility。**F208 owns 实体能力画像层**，回答“砚砚强什么、盲点在哪、适合接什么任务”。F208 的 `cat-dossier` 消费 F209 的 `entity_id` 作为猫/人标识键，不另造一套猫 ID。
+
+Phase B 隐私模型：entity registry 跟随所属 evidence store / collection 的边界；本 slice 不在实体记录上携带半接线的 `privacy_scope` / `sensitivity` 字段。AC-B5 由 collection routing 与 `redactForTranscript` 白名单 redaction 承担；mixed-scope entity seeding 后置到有完整 router enforcement 的设计。
 
 ### Acceptance Criteria
 
-- [ ] AC-B1: 有 durable entity registry，支持 `entity_id`、aliases、type、provenance、updated_at。
-- [ ] AC-B2: `search_evidence` query 可进行确定性 alias expansion；alias 字典不是 classifier。
-- [ ] AC-B3: 索引层可记录 entity mentions，结果能解释“为何命中 person:landy / cat:gemini”。
-- [ ] AC-B4: entity 与 project/global/library/collection 联邦检索兼容。
-- [ ] AC-B5: 隐私实体默认受 scope 控制，不跨域泄漏。
+- [x] AC-B1: 有 durable entity registry，支持 `entity_id`、aliases、type、provenance、updated_at。
+- [x] AC-B2: `search_evidence` query 可进行确定性 alias expansion；alias 字典不是 classifier。
+- [x] AC-B3: 索引层可记录 entity mentions，结果能解释“为何命中 person:landy / cat:gemini”。
+- [x] AC-B4: entity 与 project/global/library/collection 联邦检索兼容。
+- [x] AC-B5: 隐私实体默认受 scope 控制，不跨域泄漏。
 - [ ] AC-B6: F208 `cat-dossier` 等画像消费者使用 F209 `entity_id`，不创建平行猫 ID / 人 ID namespace。
 
 ## Phase C: Typed Drill-down Readers
@@ -176,7 +178,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 |------|------|
 | embedding 被误解成“模型替猫判断” | AC-A4 强制返回 anchor + context；embedding 只做 sensor，不做 conclusion |
 | entity/facet 推断污染真相源 | alias 只做确定字典；candidate facet 必须标 candidate + provenance |
-| F208/F209 在 `docs/team/` 重复建猫/人身份表 | F209 owns identity registry；F208 owns capability profile；AC-B6 强制复用 `entity_id` |
+| F208/F209 在 `docs/team/` 重复建猫/人身份表 | F209 owns entity registry / retrieval anchor；F208 owns capability profile；F032 / identity-session owns roster truth；AC-B6 强制复用 `entity_id` |
 | raw hybrid 召回噪音变大 | Eval golden set + false confidence rate + contextWindow |
 | Perspective 变成固化 topic map | 只存 query plan，每次现场重跑；不存结果 |
 | Perspective 变成黑盒猫内工具，CVO 无法迭代 | AC-D6 要求运行过程在 Memory / Recall 可见层明厨亮灶 |
@@ -189,7 +191,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 |---|------|------|
 | OQ-1 | `passage_vectors` 复用现有 vector store，还是独立 passage vector table？ | ✅ resolved → 独立 `passage_vectors` vec0 table，由 `PassageVectorStore` 管 passage-level embedding |
 | OQ-2 | message passage embedding 是热路径 append 即 embed，还是批处理？ | ✅ resolved → dirty flush 中批量补齐 missing passage embeddings；embedding unavailable 时 raw semantic/hybrid fail-open 到 lexical |
-| OQ-3 | entity registry 真相源放 docs、DB，还是 DB + git-backed export？（仅身份层；F208 画像层消费 `entity_id`） | ⬜ Design Gate |
+| OQ-3 | entity registry 真相源放 docs、DB，还是 DB + git-backed export？（仅身份层；F208 画像层消费 `entity_id`） | ✅ resolved → SQLite DB 是 runtime 真相源；未来如需 git-backed export 只做审计/迁移导出，不作为第二 registry |
 | OQ-4 | candidate facet 如何表达，才能让猫一眼看出“不是真相”？ | ⬜ Design Gate |
 | OQ-5 | typed reader 是新增 MCP tools，还是扩现有 read_session/read_invocation 家族？ | ✅ resolved → 默认扩展现有工具；file slice 优先用猫已有 `rg`/`sed`/Read |
 | OQ-6 | Perspective 的创建入口：猫手动保存、F200 自动建议、还是 settings 可见？ | ✅ resolved for v1 → 猫手动保存；CVO 可见运行过程；F200 自动建议 / 用户 Smart Folder UI 后置 |
@@ -205,7 +207,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | KD-4 | Embedding 是 sensor，不是判断者 | 只要结果带 anchor + 原文窗口，语义召回不会违反 KD-8 | 2026-05-21 |
 | KD-5 | Perspective 存 query plan，不存 result set | 结果集会 stale；活查询每次现场重跑才保鲜 | 2026-05-21 |
 | KD-6 | F209 不自建 retrieval eval 系统，向 F200 贡献 fixture | 避免 F209/F200 双 owner；F200 是 Memory Recall Eval 的统一归属 | 2026-05-22 |
-| KD-7 | F209 owns 实体身份层；F208 owns 能力画像层 | 防止两个 feature 在 `docs/team/` 各建一套猫/人身份 namespace；画像层必须复用 `entity_id` | 2026-05-22 |
+| KD-7 | F209 owns entity registry / retrieval anchor 层；F208 owns 能力画像层；F032 owns roster truth | 防止两个 feature 在 `docs/team/` 各建一套猫/人身份 namespace；画像层必须复用 `entity_id`，但不得把 `entity_id` 当 roster truth | 2026-05-22 |
 | KD-8 | 摘要记忆不进 F209，另作 future related feature | 摘要涉及系统级摘要猫、用户可选范围、审核/过期与产品形态；F209 只做 evidence-first recall | 2026-05-22 |
 | KD-9 | Phase A 是 lexical + semantic + hybrid 的完整 raw retrieval 切片 | CVO 明确不要拆碎；只建 passage vector 不能解决实际检索体验 | 2026-05-22 |
 | KD-10 | Perspective v1 猫操作、CVO 可见；不做用户 Smart Folder UI | 保持“猫用活查询藤”边界，同时接入 search_evidence 明厨亮灶让 CVO 可迭代 | 2026-05-22 |
@@ -216,7 +218,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 |----|------|
 | **Primary Users** | 需要从旧 thread/docs/sessions 找证据的猫；Activation Signal：`search_evidence` 在复杂 thread recall 中被调用 |
 | **Friction Metric** | 搜到摘要但打不开原文窗口的比例；raw 搜不到但人工能在 transcript 找到的比例；>3 轮 query reformulation |
-| **Regression Fixture** | Phase A fixture: `docs/eval/f209-phase-a-raw-retrieval-fixtures.md`（raw semantic 非字面消息召回；raw hybrid 保留 lexical + semantic passage hits）。后续 Phase 继续贡献：`landy/铲屎官/CVO` alias 归一、Perspective 现场重跑、Perspective run 可见层 step / hits / opened anchors。F209 贡献 fixture，F200 统一纳入 golden set |
+| **Regression Fixture** | Phase A fixture: `docs/eval/f209-phase-a-raw-retrieval-fixtures.md`（raw semantic 非字面消息召回；raw hybrid 保留 lexical + semantic passage hits）。Phase B fixture: `docs/eval/f209-phase-b-entity-anchor-fixtures.md`（`landy/铲屎官/CVO` alias 归一、raw entity passage anchor、private collection redaction）。后续 Phase 继续贡献：Perspective 现场重跑、Perspective run 可见层 step / hits / opened anchors。F209 贡献 fixture，F200 统一纳入 golden set |
 | **Sunset Signal** | 6 个月内 golden query recall@k 无提升，或猫仍主要绕过 F209 直接人工 grep transcript → 回滚 Perspective / entity layer，仅保留 passage vector |
 
 ## 需求点 Checklist
@@ -247,6 +249,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | 2026-05-21 | 立项 F209 |
 | 2026-05-22 | CVO Design Gate 方向写回：摘要记忆出 scope、Phase A 必须是 BM25/embedding/RRF 完整切片、Perspective v1 猫操作且 CVO 可见 |
 | 2026-05-22 | Phase A merged (PR #1842) — passage vectors + raw semantic / hybrid RRF recall + degraded/effectiveMode propagation + F200 fixtures |
+| 2026-05-22 | Phase B implementation branch opened — SQLite entity registry + deterministic alias expansion + entity mention index + F200 fixtures; AC-B6 left open for F208 consumer integration |
 
 ## Review Gate
 
@@ -265,6 +268,8 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | Prior discussion | `docs/discussions/2026-05-21-chat-memory-and-evidence-recall/03-everything-smartfolder-microinnovations.md` | Everything / Smart Folder 微创新 |
 | Design Gate | `docs/discussions/2026-05-22-F209-design-gate/README.md` | F209 架构归属、Phase 顺序、CVO decision packet |
 | Plan | `docs/plans/2026-05-22-f209-phase-a-passage-recall.md` | Phase A passage-level semantic / hybrid raw retrieval implementation plan |
+| Plan | `docs/plans/2026-05-22-f209-phase-b-entity-anchor.md` | Phase B entity registry / alias expansion implementation plan |
 | Eval fixture | `docs/eval/f209-phase-a-raw-retrieval-fixtures.md` | Phase A raw semantic / hybrid retrieval fixtures for F200 |
+| Eval fixture | `docs/eval/f209-phase-b-entity-anchor-fixtures.md` | Phase B entity alias / privacy retrieval fixtures for F200 |
 | Feature | `docs/features/F102-memory-adapter-refactor.md` | evidence store / passage / raw lexical 基座 |
 | Feature | `docs/features/F200-memory-recall-eval.md` | retrieval consumption / eval 反馈 |

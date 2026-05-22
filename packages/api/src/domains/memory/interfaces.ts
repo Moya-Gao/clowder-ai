@@ -125,6 +125,8 @@ export interface EvidenceItem {
   rankingFactors?: { bm25Score?: number; consumptionPrior?: number; mmrPenalty?: number };
   /** F200 v1.1 DF-7: calibrated relevance confidence [0,1] */
   confidence?: number;
+  /** F209 Phase B: entity alias / mention explanations for retrieval-anchor hits */
+  entityMatches?: EntityMatch[];
   /** AC-I9: passage-level detail when depth=raw */
   passages?: Array<{
     docAnchor?: string;
@@ -145,6 +147,46 @@ export interface EvidenceItem {
       messageId?: string;
     }>;
   }>;
+}
+
+export type EntityType = 'person' | 'cat' | 'feature' | 'concept' | 'external';
+
+export interface EntityProvenance {
+  source: string;
+  anchor?: string;
+  note?: string;
+  date?: string;
+}
+
+export interface EntityRecord {
+  entityId: string;
+  type: EntityType;
+  canonicalName: string;
+  aliases: string[];
+  provenance: EntityProvenance[];
+  createdAt?: string;
+  updatedAt: string;
+}
+
+export interface QueryEntityMatch {
+  entityId: string;
+  type: EntityType;
+  canonicalName: string;
+  matchedAlias: string;
+  provenance: EntityProvenance[];
+}
+
+export interface EntityMatch {
+  entityId: string;
+  type: EntityType;
+  canonicalName: string;
+  matchedAlias: string;
+  surface: string;
+  source: 'doc' | 'passage';
+  docAnchor: string;
+  passageId?: string;
+  provenance: EntityProvenance[];
+  why: string;
 }
 
 export type EdgeRelation =
@@ -295,6 +337,10 @@ export interface IEvidenceStore {
   search(query: string, options?: SearchOptions): Promise<EvidenceItem[]>;
   searchWithMeta?(query: string, options?: SearchOptions): Promise<EvidenceSearchExecution>;
   upsert(items: EvidenceItem[]): Promise<void>;
+  upsertEntities?(entities: EntityRecord[]): Promise<void>;
+  getEntity?(entityId: string): Promise<EntityRecord | null>;
+  resolveEntityAliases?(query: string): Promise<QueryEntityMatch[]>;
+  refreshEntityMentions?(docAnchors?: string[]): Promise<void>;
   deleteByAnchor(anchor: string): Promise<void>;
   getByAnchor(anchor: string): Promise<EvidenceItem | null>;
   health(): Promise<boolean>;
