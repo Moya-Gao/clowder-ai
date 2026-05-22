@@ -171,21 +171,6 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
   return (
     <div className="absolute right-0.5 top-2 bottom-2 w-5 z-10">
       <div ref={trackRef} className="relative h-full cursor-pointer" onClick={handleTrackClick}>
-        {/* Track rail */}
-        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-200 -translate-x-1/2" />
-
-        {/* Viewport indicator (scrollbar thumb) — P2 fix: clamp to prevent overflow */}
-        {(() => {
-          const thumbH = Math.max(viewport.height * 100, 5);
-          const thumbTop = Math.min(viewport.top * 100, 100 - thumbH);
-          return (
-            <div
-              className="absolute left-1/2 -translate-x-1/2 w-2.5 rounded-full bg-gray-300/50 transition-all duration-100 pointer-events-none"
-              style={{ top: `${thumbTop}%`, height: `${thumbH}%` }}
-            />
-          );
-        })()}
-
         {/* Sampled dots */}
         {sampledItems.map(({ msg, sourceIdx }, idx) => {
           const top = sampledItems.length <= 1 ? 50 : (idx / (sampledItems.length - 1)) * 100;

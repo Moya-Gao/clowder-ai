@@ -756,14 +756,14 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="搜索对话、项目或 ID..."
-              className="flex-1 min-w-0 rounded-lg bg-[var(--console-field-bg)] px-2.5 py-1.5 text-xs text-cafe-secondary placeholder:text-cafe-muted focus:outline-none focus:ring-1 focus:ring-[var(--console-input-stroke)]"
+              className="flex-1 min-w-0 rounded-lg bg-transparent px-2.5 py-1.5 text-xs text-cafe-secondary placeholder:text-cafe-muted focus:outline-none focus:bg-[var(--console-card-bg)] focus:ring-1 focus:ring-[var(--console-input-stroke)]"
             />
             {unreadIds.size > 0 && (
               <button
                 type="button"
                 onClick={handleMarkAllRead}
                 disabled={isMarkingAllRead}
-                className="shrink-0 rounded-md bg-[var(--console-field-bg)] px-2 py-0.5 text-micro text-cafe-secondary hover:bg-[var(--console-hover-bg)] hover:text-cafe-black disabled:opacity-40 transition-colors whitespace-nowrap"
+                className="shrink-0 rounded-md bg-transparent px-2 py-0.5 text-micro text-cafe-secondary hover:bg-[var(--console-hover-bg)] hover:text-cafe-black disabled:opacity-40 transition-colors whitespace-nowrap"
                 data-testid="mark-all-read-btn"
               >
                 {isMarkingAllRead ? '...' : '全部已读'}

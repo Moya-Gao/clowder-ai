@@ -190,7 +190,7 @@ export function ChatInputActionButton({
         <button
           onClick={voice.startRecording}
           disabled={disabled}
-          className="p-3 rounded-xl text-cafe-accent hover:text-cafe hover:bg-cafe-surface disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="p-3 rounded-xl text-cafe-muted hover:text-cafe-accent hover:bg-cafe-surface disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           aria-label="Start voice input (⌥V)"
           title="语音输入 (⌥V)"
         >

@@ -263,7 +263,7 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
   it('ChatInput default border is transparent, focus uses console-input-stroke ring', () => {
     const src = readSrc('ChatInput.tsx');
     expect(src).not.toMatch(/border-t border-cafe-subtle/);
-    expect(src).toContain('border-transparent bg-[var(--console-field-bg)]');
+    expect(src).toContain('border-transparent bg-transparent');
     expect(src).toContain('focus:ring-[var(--console-input-stroke)]');
   });
 
@@ -641,10 +641,23 @@ describe('F723 cross-page typography consistency', () => {
     }
   });
 
-  it('ChatInput textarea default has transparent border, not console-border-soft', () => {
+  it('ChatInput textarea default has transparent border and bg, focus shows card-bg', () => {
     const src = readSrc('ChatInput.tsx');
     expect(src).not.toMatch(/border-\[var\(--console-border-soft\)\].*bg-\[var\(--console-field-bg\)\]/);
-    expect(src).toContain('border-transparent bg-[var(--console-field-bg)]');
+    expect(src).toContain('border-transparent bg-transparent');
+    expect(src).toContain('focus:bg-[var(--console-card-bg)]');
+  });
+
+  it('homepage inputs (ThreadSidebar search) use transparent bg, not field-bg', () => {
+    const src = readSrc('ThreadSidebar/ThreadSidebar.tsx');
+    expect(src).not.toMatch(/搜索[\s\S]{0,200}bg-\[var\(--console-field-bg\)\]/);
+    expect(src).toContain('bg-transparent');
+  });
+
+  it('MessageNavigator has no grey track rail or viewport thumb', () => {
+    const src = readSrc('MessageNavigator.tsx');
+    expect(src).not.toContain('bg-gray-200');
+    expect(src).not.toContain('bg-gray-300/50');
   });
 
   it('interactive icon buttons use text-cafe-accent, not text-cafe-muted', () => {
