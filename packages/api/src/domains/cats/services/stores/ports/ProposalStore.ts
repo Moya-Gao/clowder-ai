@@ -20,9 +20,13 @@ export interface CreateProposalInput {
   createdBy: string;
 }
 
-export interface ApproveProposalInput {
+export interface ClaimForApprovalInput {
   proposalId: string;
   approvedBy: string;
+}
+
+export interface FinalizeApprovalInput {
+  proposalId: string;
   createdThreadId: string;
   overrides?: ProposalApproveOverrides;
 }
@@ -39,12 +43,26 @@ export interface IProposalStore {
   listByUser(userId: string, limit?: number): ThreadProposal[] | Promise<ThreadProposal[]>;
   listPending(userId: string, limit?: number): ThreadProposal[] | Promise<ThreadProposal[]>;
   listByThread(threadId: string, limit?: number): ThreadProposal[] | Promise<ThreadProposal[]>;
-  markApproved(input: ApproveProposalInput): ThreadProposal | null | Promise<ThreadProposal | null>;
+  /**
+   * Atomic CAS pending → approving. Returns the claimed proposal snapshot, or null if status
+   * was not pending (e.g. already approved/rejected/claimed). Caller MUST call finalizeApproval
+   * or rollbackClaim afterwards.
+   */
+  claimForApproval(input: ClaimForApprovalInput): ThreadProposal | null | Promise<ThreadProposal | null>;
+  /** CAS approving → approved. Returns updated proposal or null if status drifted. */
+  finalizeApproval(input: FinalizeApprovalInput): ThreadProposal | null | Promise<ThreadProposal | null>;
+  /** CAS approving → pending. Used when thread creation fails after claim. */
+  rollbackClaim(proposalId: string): boolean | Promise<boolean>;
+  /** CAS pending → rejected. Returns null if status is not pending (e.g. already approving/approved). */
   markRejected(input: RejectProposalInput): ThreadProposal | null | Promise<ThreadProposal | null>;
   /** Idempotency: return cached proposalId for (userId, clientRequestId) if any. */
   getDedupProposalId(userId: string, clientRequestId: string): string | null | Promise<string | null>;
-  /** Idempotency: record (userId, clientRequestId) → proposalId mapping with short TTL. */
-  rememberDedup(userId: string, clientRequestId: string, proposalId: string): void | Promise<void>;
+  /**
+   * Idempotency: try to reserve (userId, clientRequestId) → proposalId atomically.
+   * Returns the proposalId actually stored — caller's value if newly reserved, or the existing
+   * value if a concurrent request beat it. Use the returned value as the canonical proposalId.
+   */
+  reserveDedup(userId: string, clientRequestId: string, proposalId: string): string | Promise<string>;
 }
 
 const DEFAULT_LIST_LIMIT = 100;
@@ -94,11 +112,18 @@ export class InMemoryProposalStore implements IProposalStore {
     return this.collect((p) => p.sourceThreadId === threadId, limit);
   }
 
-  markApproved(input: ApproveProposalInput): ThreadProposal | null {
+  claimForApproval(input: ClaimForApprovalInput): ThreadProposal | null {
     const proposal = this.proposals.get(input.proposalId);
     if (!proposal || proposal.status !== 'pending') return null;
-    proposal.status = 'approved';
+    proposal.status = 'approving';
     proposal.approvedBy = input.approvedBy;
+    return cloneProposal(proposal);
+  }
+
+  finalizeApproval(input: FinalizeApprovalInput): ThreadProposal | null {
+    const proposal = this.proposals.get(input.proposalId);
+    if (!proposal || proposal.status !== 'approving') return null;
+    proposal.status = 'approved';
     proposal.approvedAt = Date.now();
     proposal.createdThreadId = input.createdThreadId;
     if (input.overrides?.title !== undefined) proposal.title = input.overrides.title;
@@ -116,6 +141,14 @@ export class InMemoryProposalStore implements IProposalStore {
     return cloneProposal(proposal);
   }
 
+  rollbackClaim(proposalId: string): boolean {
+    const proposal = this.proposals.get(proposalId);
+    if (!proposal || proposal.status !== 'approving') return false;
+    proposal.status = 'pending';
+    delete proposal.approvedBy;
+    return true;
+  }
+
   markRejected(input: RejectProposalInput): ThreadProposal | null {
     const proposal = this.proposals.get(input.proposalId);
     if (!proposal || proposal.status !== 'pending') return null;
@@ -130,8 +163,12 @@ export class InMemoryProposalStore implements IProposalStore {
     return this.dedupCache.get(dedupKey(userId, clientRequestId)) ?? null;
   }
 
-  rememberDedup(userId: string, clientRequestId: string, proposalId: string): void {
-    this.dedupCache.set(dedupKey(userId, clientRequestId), proposalId);
+  reserveDedup(userId: string, clientRequestId: string, proposalId: string): string {
+    const key = dedupKey(userId, clientRequestId);
+    const existing = this.dedupCache.get(key);
+    if (existing !== undefined) return existing;
+    this.dedupCache.set(key, proposalId);
+    return proposalId;
   }
 
   private collect(predicate: (p: ThreadProposal) => boolean, limit: number): ThreadProposal[] {

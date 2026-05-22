@@ -709,14 +709,16 @@ export async function handleProposeThread(input: {
   parentThreadId?: string | undefined;
   clientRequestId?: string | undefined;
 }): Promise<ToolResult> {
+  // P2-1: always send an idempotency key — auto-generate when the caller didn't supply one,
+  // so transient network retries from callbackPost never produce duplicate proposals.
   const body: Record<string, unknown> = {
     title: input.title,
     reason: input.reason,
+    clientRequestId: input.clientRequestId ?? randomUUID(),
   };
   if (input.preferredCats?.length) body.preferredCats = input.preferredCats;
   if (input.initialMessage) body.initialMessage = input.initialMessage;
   if (input.parentThreadId) body.parentThreadId = input.parentThreadId;
-  if (input.clientRequestId) body.clientRequestId = input.clientRequestId;
 
   const result = await callbackPost('/api/callbacks/propose-thread', body);
   if (!result.isError) {

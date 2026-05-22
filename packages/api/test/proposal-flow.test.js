@@ -251,6 +251,93 @@ describe('F128 propose / approve / reject flow', () => {
     assert.equal(res.statusCode, 409);
   });
 
+  test('approve writes audit metadata onto the created thread', async () => {
+    const app = await createApp();
+    const source = await threadStore.create('alice', 'Source');
+    const proposalRes = await propose(app, { userId: 'alice', threadId: source.id });
+    const { proposalId } = JSON.parse(proposalRes.body);
+
+    const approveRes = await approve(app, 'alice', proposalId);
+    const { threadId } = JSON.parse(approveRes.body);
+    const thread = await threadStore.get(threadId);
+    assert.equal(thread.createdFromProposalId, proposalId);
+    assert.equal(thread.sourceThreadId, source.id);
+    assert.equal(thread.approvedBy, 'alice');
+    assert.ok(typeof thread.approvedAt === 'number' && thread.approvedAt > 0);
+  });
+
+  test('thread_created socket event emits the Thread itself (no envelope wrapper)', async () => {
+    const app = await createApp();
+    const source = await threadStore.create('alice', 'Source');
+    const proposalRes = await propose(app, { userId: 'alice', threadId: source.id });
+    const { proposalId } = JSON.parse(proposalRes.body);
+    socketEvents.length = 0;
+
+    await approve(app, 'alice', proposalId);
+    const evt = socketEvents.find((e) => e.event === 'thread_created');
+    assert.ok(evt, 'thread_created should be emitted');
+    assert.ok(evt.data && typeof evt.data.id === 'string', 'payload must have id at top level (P1-1)');
+    assert.equal(typeof evt.data.thread, 'undefined', 'payload must NOT be wrapped in {thread}');
+  });
+
+  test('concurrent approve + reject leaves no orphan thread', async () => {
+    const { InMemoryProposalStore } = await import('../dist/domains/cats/services/stores/ports/ProposalStore.js');
+    // Wrap store to inject a delay between claim and finalize so reject has a chance to interleave.
+    class SlowApprovalStore extends InMemoryProposalStore {
+      async claimForApproval(input) {
+        const claimed = super.claimForApproval(input);
+        await new Promise((r) => setTimeout(r, 30));
+        return claimed;
+      }
+    }
+    proposalStore = new SlowApprovalStore();
+    const app = await createApp();
+    const source = await threadStore.create('alice', 'Source');
+    const proposalRes = await propose(app, { userId: 'alice', threadId: source.id });
+    const { proposalId } = JSON.parse(proposalRes.body);
+    const threadsBefore = threadStore.size;
+
+    const [approveRes, rejectRes] = await Promise.all([
+      approve(app, 'alice', proposalId),
+      // small delay to make sure approve claims first
+      new Promise((r) => setTimeout(r, 5)).then(() => reject(app, 'alice', proposalId)),
+    ]);
+
+    // Exactly one transition wins. Approve claims first → reject must 409.
+    assert.equal(approveRes.statusCode, 200);
+    assert.equal(rejectRes.statusCode, 409);
+    const proposal = await proposalStore.get(proposalId);
+    assert.equal(proposal.status, 'approved');
+    // No orphan: approve created 1 thread (source + new = +1).
+    assert.equal(threadStore.size, threadsBefore + 1);
+  });
+
+  test('reject wins over approve when reject claims first (no orphan thread)', async () => {
+    const { InMemoryProposalStore } = await import('../dist/domains/cats/services/stores/ports/ProposalStore.js');
+    class SlowApprovalStore extends InMemoryProposalStore {
+      async claimForApproval(input) {
+        await new Promise((r) => setTimeout(r, 30));
+        return super.claimForApproval(input);
+      }
+    }
+    proposalStore = new SlowApprovalStore();
+    const app = await createApp();
+    const source = await threadStore.create('alice', 'Source');
+    const { proposalId } = JSON.parse((await propose(app, { userId: 'alice', threadId: source.id })).body);
+    const threadsBefore = threadStore.size;
+
+    const [approveRes, rejectRes] = await Promise.all([
+      approve(app, 'alice', proposalId),
+      reject(app, 'alice', proposalId),
+    ]);
+
+    assert.equal(rejectRes.statusCode, 200);
+    assert.equal(approveRes.statusCode, 409);
+    assert.equal(threadStore.size, threadsBefore, 'reject must not create any thread');
+    const proposal = await proposalStore.get(proposalId);
+    assert.equal(proposal.status, 'rejected');
+  });
+
   test('approve applies user overrides (title + initialMessage)', async () => {
     const app = await createApp();
     const source = await threadStore.create('alice', 'Source');

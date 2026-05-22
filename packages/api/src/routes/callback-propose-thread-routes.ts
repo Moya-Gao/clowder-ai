@@ -92,7 +92,7 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
       return { status: 'stale_ignored' };
     }
 
-    // Idempotency: same (userId, clientRequestId) → same proposalId.
+    // Idempotency fast path: same (userId, clientRequestId) → same proposalId.
     if (clientRequestId) {
       const cached = await proposalStore.getDedupProposalId(record.userId, clientRequestId);
       if (cached) {
@@ -133,8 +133,17 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
       ...(initialMessage ? { initialMessage } : {}),
     });
 
+    // Atomically reserve the dedup key. If another concurrent request already reserved
+    // the same clientRequestId, the returned proposalId will be theirs — our just-created
+    // proposal becomes an orphan (will TTL out) and we return the canonical winner.
     if (clientRequestId) {
-      await proposalStore.rememberDedup(record.userId, clientRequestId, proposal.proposalId);
+      const winningId = await proposalStore.reserveDedup(record.userId, clientRequestId, proposal.proposalId);
+      if (winningId !== proposal.proposalId) {
+        const canonical = await proposalStore.get(winningId);
+        if (canonical) {
+          return { proposalId: canonical.proposalId, status: canonical.status, deduped: true };
+        }
+      }
     }
 
     // Render the proposal as a card in the source thread so the user sees + acts on it.
@@ -159,7 +168,7 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
         extra: stored.extra,
       },
     });
-    socketManager.emitToUser(record.userId, 'proposal_created', { proposal });
+    socketManager.emitToUser(record.userId, 'proposal_created', proposal);
 
     return { proposalId: proposal.proposalId, status: proposal.status, messageId: stored.id };
   });

@@ -8,7 +8,13 @@
 
 import type { CatId } from './ids.js';
 
-export type ProposalStatus = 'pending' | 'approved' | 'rejected';
+/**
+ * Status lifecycle:
+ *   pending → approving → approved   (claim then finalize, atomic against reject)
+ *   pending → rejected               (one-shot)
+ *   approving → pending              (rollback on thread-creation failure)
+ */
+export type ProposalStatus = 'pending' | 'approving' | 'approved' | 'rejected';
 
 /**
  * A thread proposal created by a cat, awaiting user decision.

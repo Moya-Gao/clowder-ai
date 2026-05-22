@@ -86,6 +86,10 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
         deduped: true,
       };
     }
+    if (proposal.status === 'approving') {
+      reply.status(409);
+      return { error: 'Proposal is being approved by another request; retry shortly', status: proposal.status };
+    }
 
     const overrides = bodyParse.data;
     const finalTitle = overrides.title ?? proposal.title;
@@ -101,14 +105,41 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
     const finalPreferredCats = (overrides.preferredCats ?? proposal.preferredCats) as CatId[];
     const finalInitialMessage = resolveInitialMessage(proposal.initialMessage, overrides.initialMessage);
 
-    const thread = await threadStore.create(userId, finalTitle, proposal.projectPath, finalParentThreadId);
-    if (finalPreferredCats.length > 0) {
-      await threadStore.updatePreferredCats(thread.id, finalPreferredCats);
+    // Atomic claim — guards against concurrent approve/reject leaving an orphan thread.
+    const claimed = await proposalStore.claimForApproval({ proposalId: proposal.proposalId, approvedBy: userId });
+    if (!claimed) {
+      reply.status(409);
+      return { error: 'Proposal status changed concurrently — retry approve' };
     }
 
-    const marked = await proposalStore.markApproved({
+    let thread;
+    try {
+      thread = await threadStore.create(userId, finalTitle, proposal.projectPath, finalParentThreadId, {
+        createdFromProposalId: proposal.proposalId,
+        sourceThreadId: proposal.sourceThreadId,
+        approvedBy: userId,
+        approvedAt: Date.now(),
+      });
+      if (finalPreferredCats.length > 0) {
+        await threadStore.updatePreferredCats(thread.id, finalPreferredCats);
+      }
+      if (finalInitialMessage) {
+        await messageStore.append({
+          userId,
+          catId: null,
+          content: finalInitialMessage,
+          mentions: [],
+          timestamp: Date.now(),
+          threadId: thread.id,
+        });
+      }
+    } catch (err) {
+      await proposalStore.rollbackClaim(proposal.proposalId);
+      throw err;
+    }
+
+    const finalized = await proposalStore.finalizeApproval({
       proposalId: proposal.proposalId,
-      approvedBy: userId,
       createdThreadId: thread.id,
       overrides: {
         title: finalTitle,
@@ -117,30 +148,20 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
         initialMessage: finalInitialMessage === undefined ? null : finalInitialMessage,
       },
     });
-    if (!marked) {
-      reply.status(409);
-      return { error: 'Proposal status changed concurrently — retry approve' };
-    }
-
-    if (finalInitialMessage) {
-      await messageStore.append({
-        userId,
-        catId: null,
-        content: finalInitialMessage,
-        mentions: [],
-        timestamp: Date.now(),
-        threadId: thread.id,
-      });
+    if (!finalized) {
+      // Should not happen — we hold the approving claim. Surface as 500 for caller to retry.
+      reply.status(500);
+      return { error: 'Proposal finalize failed unexpectedly after claim' };
     }
 
     const updatedThread = (await threadStore.get(thread.id)) ?? thread;
-    socketManager.emitToUser(userId, 'thread_created', { thread: updatedThread });
-    socketManager.emitToUser(userId, 'proposal_updated', { proposal: marked });
+    socketManager.emitToUser(userId, 'thread_created', updatedThread);
+    socketManager.emitToUser(userId, 'proposal_updated', finalized);
 
     return {
-      proposalId: marked.proposalId,
+      proposalId: finalized.proposalId,
       threadId: thread.id,
-      status: marked.status,
+      status: finalized.status,
     };
   });
 
@@ -174,6 +195,13 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
       reply.status(409);
       return { error: 'Proposal already approved', status: proposal.status };
     }
+    if (proposal.status === 'approving') {
+      reply.status(409);
+      return {
+        error: 'Proposal is being approved — wait for the in-flight approve to settle',
+        status: proposal.status,
+      };
+    }
     if (proposal.status === 'rejected') {
       return { proposalId: proposal.proposalId, status: proposal.status, deduped: true };
     }
@@ -188,9 +216,32 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
       return { error: 'Proposal status changed concurrently — retry reject' };
     }
 
-    socketManager.emitToUser(userId, 'proposal_updated', { proposal: marked });
+    socketManager.emitToUser(userId, 'proposal_updated', marked);
 
     return { proposalId: marked.proposalId, status: marked.status };
+  });
+
+  app.get('/api/proposals/:proposalId', async (request, reply) => {
+    const paramsParse = proposalParamsSchema.safeParse(request.params);
+    if (!paramsParse.success) {
+      reply.status(400);
+      return { error: 'Invalid proposalId' };
+    }
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+    const proposal = await proposalStore.get(paramsParse.data.proposalId);
+    if (!proposal) {
+      reply.status(404);
+      return { error: 'Proposal not found' };
+    }
+    if (proposal.createdBy !== userId) {
+      reply.status(403);
+      return { error: 'Proposal does not belong to the current user' };
+    }
+    return { proposal };
   });
 
   app.get('/api/proposals/pending', async (request, reply) => {

@@ -131,7 +131,13 @@ export class RedisThreadStore implements IThreadStore {
     }
   }
 
-  async create(userId: string, title?: string, projectPath?: string, parentThreadId?: string): Promise<Thread> {
+  async create(
+    userId: string,
+    title?: string,
+    projectPath?: string,
+    parentThreadId?: string,
+    proposalAudit?: import('../ports/ThreadStore.js').ThreadProposalAudit,
+  ): Promise<Thread> {
     const now = Date.now();
     const thread: Thread = {
       id: generateThreadId(),
@@ -142,6 +148,14 @@ export class RedisThreadStore implements IThreadStore {
       lastActiveAt: now,
       createdAt: now,
       ...(parentThreadId ? { parentThreadId } : {}),
+      ...(proposalAudit
+        ? {
+            createdFromProposalId: proposalAudit.createdFromProposalId,
+            sourceThreadId: proposalAudit.sourceThreadId,
+            approvedBy: proposalAudit.approvedBy,
+            approvedAt: proposalAudit.approvedAt,
+          }
+        : {}),
     };
 
     const key = ThreadKeys.detail(thread.id);
@@ -614,6 +628,19 @@ export class RedisThreadStore implements IThreadStore {
     if (thread.parentThreadId) {
       result.parentThreadId = thread.parentThreadId;
     }
+    // F128: Proposal audit metadata (only present on threads created via approve flow)
+    if (thread.createdFromProposalId) {
+      result.createdFromProposalId = thread.createdFromProposalId;
+    }
+    if (thread.sourceThreadId) {
+      result.sourceThreadId = thread.sourceThreadId;
+    }
+    if (thread.approvedBy) {
+      result.approvedBy = thread.approvedBy;
+    }
+    if (thread.approvedAt) {
+      result.approvedAt = String(thread.approvedAt);
+    }
     return result;
   }
 
@@ -691,6 +718,20 @@ export class RedisThreadStore implements IThreadStore {
     // F128: Parent thread for orchestration tracking
     if (data.parentThreadId) {
       result.parentThreadId = data.parentThreadId;
+    }
+    // F128: Proposal audit metadata
+    if (data.createdFromProposalId) {
+      result.createdFromProposalId = data.createdFromProposalId;
+    }
+    if (data.sourceThreadId) {
+      result.sourceThreadId = data.sourceThreadId;
+    }
+    if (data.approvedBy) {
+      result.approvedBy = data.approvedBy;
+    }
+    const approvedAt = parseInt(data.approvedAt ?? '0', 10);
+    if (approvedAt > 0) {
+      result.approvedAt = approvedAt;
     }
     return result;
   }

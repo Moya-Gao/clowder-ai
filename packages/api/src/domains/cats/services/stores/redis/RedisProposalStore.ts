@@ -15,8 +15,9 @@ import type { CatId, ProposalApproveOverrides, ProposalStatus, ThreadProposal } 
 import { generateProposalId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import type {
-  ApproveProposalInput,
+  ClaimForApprovalInput,
   CreateProposalInput,
+  FinalizeApprovalInput,
   IProposalStore,
   RejectProposalInput,
 } from '../ports/ProposalStore.js';
@@ -27,24 +28,32 @@ const DEFAULT_DEDUP_TTL_SECONDS = 10 * 60; // 10 minutes
 const DEFAULT_LIST_LIMIT = 100;
 
 /**
- * CAS Lua: atomically check status='pending' → HSET + ZREM from pending set.
+ * CAS Lua: atomically check current status matches expected → HSET fields + ZREM/ZADD pending index.
  * KEYS[1] = proposal:{id}, KEYS[2] = proposals:pending:{userId}
- * ARGV[1] = proposalId, ARGV[2..N] = HSET field/value pairs
- * Returns 1 on success, 0 if status is not 'pending'.
+ * ARGV[1] = proposalId
+ * ARGV[2] = expected status (e.g. "pending")
+ * ARGV[3] = pending-index action: "zrem" | "zadd" | "noop"
+ * ARGV[4] = score for zadd (createdAt), required when action="zadd"
+ * ARGV[5..N] = HSET field/value pairs
+ * Returns 1 on success, 0 if current status doesn't match expected.
  */
 const CAS_TRANSITION_LUA = `
 local current = redis.call('HGET', KEYS[1], 'status')
-if current ~= 'pending' then
+if current ~= ARGV[2] then
   return 0
 end
 local fields = {}
-for i = 2, #ARGV do
+for i = 5, #ARGV do
   fields[#fields + 1] = ARGV[i]
 end
 if #fields > 0 then
   redis.call('HSET', KEYS[1], unpack(fields))
 end
-redis.call('ZREM', KEYS[2], ARGV[1])
+if ARGV[3] == 'zrem' then
+  redis.call('ZREM', KEYS[2], ARGV[1])
+elseif ARGV[3] == 'zadd' then
+  redis.call('ZADD', KEYS[2], ARGV[4], ARGV[1])
+end
 return 1
 `;
 
@@ -109,14 +118,40 @@ export class RedisProposalStore implements IProposalStore {
     return this.loadFromIndex(ProposalKeys.threadList(threadId), limit);
   }
 
-  async markApproved(input: ApproveProposalInput): Promise<ThreadProposal | null> {
+  async claimForApproval(input: ClaimForApprovalInput): Promise<ThreadProposal | null> {
     const proposal = await this.get(input.proposalId);
     if (!proposal || proposal.status !== 'pending') return null;
+    const ok = await this.casTransition(proposal.proposalId, proposal.createdBy, 'pending', 'zrem', '', [
+      'status',
+      'approving',
+      'approvedBy',
+      input.approvedBy,
+    ]);
+    if (!ok) return null;
+    return { ...proposal, status: 'approving', approvedBy: input.approvedBy };
+  }
+
+  async finalizeApproval(input: FinalizeApprovalInput): Promise<ThreadProposal | null> {
+    const proposal = await this.get(input.proposalId);
+    if (!proposal || proposal.status !== 'approving') return null;
     const now = Date.now();
-    const updated = applyApprove(proposal, input, now);
-    const pairs = this.approvedFields(updated);
-    const ok = await this.casTransition(updated.proposalId, updated.createdBy, pairs);
+    const updated = applyFinalize(proposal, input, now);
+    const pairs = this.finalizedFields(updated);
+    const ok = await this.casTransition(updated.proposalId, updated.createdBy, 'approving', 'noop', '', pairs);
     return ok ? updated : null;
+  }
+
+  async rollbackClaim(proposalId: string): Promise<boolean> {
+    const proposal = await this.get(proposalId);
+    if (!proposal || proposal.status !== 'approving') return false;
+    return this.casTransition(
+      proposal.proposalId,
+      proposal.createdBy,
+      'approving',
+      'zadd',
+      String(proposal.createdAt),
+      ['status', 'pending', 'approvedBy', ''],
+    );
   }
 
   async markRejected(input: RejectProposalInput): Promise<ThreadProposal | null> {
@@ -132,7 +167,7 @@ export class RedisProposalStore implements IProposalStore {
     };
     const pairs = ['status', 'rejected', 'rejectedBy', input.rejectedBy, 'rejectedAt', String(now)];
     if (input.rejectionReason) pairs.push('rejectionReason', input.rejectionReason);
-    const ok = await this.casTransition(updated.proposalId, updated.createdBy, pairs);
+    const ok = await this.casTransition(updated.proposalId, updated.createdBy, 'pending', 'zrem', '', pairs);
     return ok ? updated : null;
   }
 
@@ -140,28 +175,41 @@ export class RedisProposalStore implements IProposalStore {
     return this.redis.get(ProposalKeys.dedup(userId, clientRequestId));
   }
 
-  async rememberDedup(userId: string, clientRequestId: string, proposalId: string): Promise<void> {
-    await this.redis.set(ProposalKeys.dedup(userId, clientRequestId), proposalId, 'EX', this.dedupTtlSeconds);
+  /** Atomic SET NX: returns the value actually stored (newly set or existing). */
+  async reserveDedup(userId: string, clientRequestId: string, proposalId: string): Promise<string> {
+    const key = ProposalKeys.dedup(userId, clientRequestId);
+    const result = await this.redis.set(key, proposalId, 'EX', this.dedupTtlSeconds, 'NX');
+    if (result === 'OK') return proposalId;
+    const existing = await this.redis.get(key);
+    return existing ?? proposalId;
   }
 
-  private async casTransition(proposalId: string, userId: string, fieldPairs: string[]): Promise<boolean> {
+  private async casTransition(
+    proposalId: string,
+    userId: string,
+    expectedStatus: ProposalStatus,
+    pendingIndexAction: 'zrem' | 'zadd' | 'noop',
+    zaddScore: string,
+    fieldPairs: string[],
+  ): Promise<boolean> {
     const result = (await this.redis.eval(
       CAS_TRANSITION_LUA,
       2,
       ProposalKeys.detail(proposalId),
       ProposalKeys.userPending(userId),
       proposalId,
+      expectedStatus,
+      pendingIndexAction,
+      zaddScore,
       ...fieldPairs,
     )) as number;
     return result === 1;
   }
 
-  private approvedFields(updated: ThreadProposal): string[] {
+  private finalizedFields(updated: ThreadProposal): string[] {
     const fields: string[] = [
       'status',
       'approved',
-      'approvedBy',
-      updated.approvedBy ?? '',
       'approvedAt',
       String(updated.approvedAt ?? 0),
       'title',
@@ -256,11 +304,10 @@ export class RedisProposalStore implements IProposalStore {
   }
 }
 
-function applyApprove(proposal: ThreadProposal, input: ApproveProposalInput, now: number): ThreadProposal {
+function applyFinalize(proposal: ThreadProposal, input: FinalizeApprovalInput, now: number): ThreadProposal {
   const updated: ThreadProposal = {
     ...proposal,
     status: 'approved',
-    approvedBy: input.approvedBy,
     approvedAt: now,
     createdThreadId: input.createdThreadId,
   };

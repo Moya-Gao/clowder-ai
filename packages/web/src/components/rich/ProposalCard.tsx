@@ -1,11 +1,17 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MarkdownContent } from '@/components/MarkdownContent';
 import type { RichCardBlock } from '@/stores/chat-types';
 import { apiFetch } from '@/utils/api-client';
 
-type Status = 'pending' | 'approved' | 'rejected';
+type Status = 'pending' | 'approving' | 'approved' | 'rejected';
+
+interface ProposalSnapshot {
+  proposalId: string;
+  status: Status;
+  createdThreadId?: string;
+}
 
 interface ProposalCardProps {
   block: RichCardBlock;
@@ -49,6 +55,43 @@ export function ProposalCard({ block }: ProposalCardProps) {
     preferredCats: readField(block, '建议成员'),
     initialMessage: readField(block, '首条消息'),
   }));
+
+  // Mount: fetch real status so reload / multi-tab views don't drift to stale "pending".
+  useEffect(() => {
+    if (!proposalId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch(`/api/proposals/${proposalId}`);
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { proposal: ProposalSnapshot };
+        if (data.proposal && !cancelled) {
+          setStatus(data.proposal.status);
+          if (data.proposal.createdThreadId) setResultThreadId(data.proposal.createdThreadId);
+        }
+      } catch {
+        // best-effort sync; keep the optimistic 'pending' if fetch fails
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [proposalId]);
+
+  // Subscribe to socket-driven updates so other tabs / async approves reflect immediately.
+  useEffect(() => {
+    if (!proposalId || typeof window === 'undefined') return;
+    const handler = (ev: Event) => {
+      const detail = (ev as CustomEvent<ProposalSnapshot>).detail;
+      if (!detail || detail.proposalId !== proposalId) return;
+      setStatus(detail.status);
+      if (detail.createdThreadId) setResultThreadId(detail.createdThreadId);
+    };
+    window.addEventListener('cat-cafe:proposal-updated', handler);
+    return () => {
+      window.removeEventListener('cat-cafe:proposal-updated', handler);
+    };
+  }, [proposalId]);
 
   const approve = useCallback(async () => {
     if (!proposalId) return;
@@ -169,6 +212,7 @@ export function ProposalCard({ block }: ProposalCardProps) {
           </button>
         </div>
       )}
+      {status === 'approving' && <div className="mt-2 text-xs text-blue-600 dark:text-blue-300">批准中…</div>}
       {status === 'approved' && (
         <div className="mt-2 text-xs text-green-700 dark:text-green-300">
           ✓ 已批准，thread 已创建 {resultThreadId ? <span className="font-mono">({resultThreadId})</span> : null}
