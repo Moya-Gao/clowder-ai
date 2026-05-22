@@ -38,18 +38,25 @@ triggers:
 - **交付物**: 代码 + 测试 + 文档（具体到文件）
 - **验收条件**: 怎么算完（测试绿 / lint 过 / review 通过）
 
-### Step 2: 建 Thread — 每个子任务一个 thread
+### Step 2: 提议 Thread — 每个子任务一个提议（用户审批后才创建）
+
+**重要：cat 不直接创建 thread。** 调用 `cat_cafe_propose_thread` 创建一个**提议卡片**，等用户在 source thread 里点"批准"，后端才真正创建 thread。
 
 ```
-→ cat_cafe_create_thread(
+→ cat_cafe_propose_thread(
     title: "简洁描述任务目标",
+    reason: "为什么这个子任务值得自己一个 thread（必填）",
     preferredCats: ["执行猫", "review猫"]
   )
 ```
 
+**返回值**：`{ proposalId, status: "pending" }` —— **不是 threadId**。Thread 还未存在，不要尝试 `cross_post` 到一个尚未批准的 proposal。
+
 **命名规则**：`[优先级/批次] 动词 + 对象`
 - 例："P1 功能完善：Web UI + Semantic Scholar + API 降级"
 - 例："P2 工程质量：CI/CD + Linting"
+
+**提议后**：继续主 thread 的工作，等用户批准。批准后用户会在新 thread 里出现，此时再 cross_post 给被分配的猫。
 
 ### Step 3: 选猫 — 按任务性质匹配能力
 
@@ -63,7 +70,7 @@ triggers:
 
 **铁律**：同一子任务的实现和 review 不能是同一只猫（no self-review）。
 
-在 thread 里发任务描述 + 分工提议。**必须包含主 thread ID**，这是子 thread 识别归属的唯一可靠来源：
+用户批准 proposal 后，新 thread 出现在 sidebar。此时在新 thread 里发任务描述 + 分工提议。**必须包含主 thread ID**，这是子 thread 识别归属的唯一可靠来源：
 
 ```
 → cat_cafe_cross_post_message(
@@ -145,10 +152,11 @@ A 完成 → 通知主 thread → 确认 commit → A merge
 ## Quick Reference
 
 ```
-拆解 → 建 thread → 选猫(含主 Thread ID) → 并行执行 → 待 commit 通知 → 确认 → 串行触发 → 汇总
+拆解 → 提议 thread → 等用户批准 → 选猫(含主 Thread ID) → 并行执行 → 待 commit 通知 → 确认 → 串行触发 → 汇总
 
-主 thread = 指挥部（拆 + 确认 + 收）
-子 thread = 战场（做 + review + 等确认）
+主 thread = 指挥部（拆 + 提议 + 确认 + 收）
+子 thread = 战场（做 + review + 等确认）— 仅在用户批准 proposal 后存在
+Proposal = 卡片（cat 提议 → 用户审核/编辑/批准 → 后端创建 thread）
 第一条消息 = 必须含 ## 主 Thread（ID + 标题）
 Worktree = 隔离（不冲突）
 汇报 = 及时 + 等确认（不让 team lead 追，也不越权 commit）
@@ -166,6 +174,8 @@ Worktree = 隔离（不冲突）
 | 忘记在子 thread 发任务描述 | 被拉的猫不知道干啥 | 建 thread 后立刻发 scope + 分工 |
 | 子 thread 第一条消息没写主 Thread ID | 猫汇报到错误的 thread | 第一条消息必须含 `## 主 Thread` header |
 | 子 thread 完成直接 commit 不等确认 | team lead 失去控制权 | 待 commit 时通知主 thread 等确认 |
+| 把 propose 返回的 proposalId 当成 threadId 用 | cross_post 到不存在的 thread | propose 不创建 thread，只有 user 批准后才有 threadId。等批准事件再发首条消息 |
+| 提议一个 proposal 后立刻假设 thread 存在 | 后续操作全失败 | 必须等用户在 proposal 卡片上点"批准"。批准前继续主 thread 工作 |
 
 ## 和其他 Skill 的区别
 
