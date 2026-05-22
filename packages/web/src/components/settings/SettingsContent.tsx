@@ -3,14 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
-import { BrakeSettingsPanel } from '../BrakeSettingsPanel';
 import { CatOverviewTab, type ConfigData } from '../config-viewer-tabs';
 import { HubAccountsTab } from '../HubAccountsTab';
 import { HubCatEditor } from '../HubCatEditor';
 import { HubCoCreatorEditor } from '../HubCoCreatorEditor';
 import { HubConnectorConfigTab } from '../HubConnectorConfigTab';
 import { HubEnvFilesTab } from '../HubEnvFilesTab';
-import { HubGovernanceTab } from '../HubGovernanceTab';
 import { PushSettingsPanel } from '../PushSettingsPanel';
 import { useConfirm } from '../useConfirm';
 import { VoiceSettingsPanel } from '../VoiceSettingsPanel';
@@ -192,13 +190,7 @@ export function SettingsContent({ section, initialEditCatId }: SettingsContentPr
       case 'ops':
         return <OpsContent />;
       case 'rules':
-        return (
-          <div className="space-y-5">
-            <RulesPromptsContent />
-            <HubGovernanceTab />
-            <BrakeSettingsPanel />
-          </div>
-        );
+        return <RulesPromptsContent />;
       case 'mcp':
         return <McpManageContent />;
       case 'plugins':

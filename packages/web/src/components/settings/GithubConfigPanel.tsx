@@ -123,7 +123,7 @@ export function GithubConfigPanel() {
           加载配置项...
         </SettingsText>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3">
           {fields.map((field) => (
             <label key={field.envName} className="space-y-1 text-xs font-medium text-cafe-secondary">
               {field.label}

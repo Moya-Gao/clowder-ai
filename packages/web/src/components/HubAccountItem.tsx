@@ -22,7 +22,11 @@ function summaryMeta(profile: ProfileItem): string {
     if (host) parts.push(host);
     parts.push(profile.hasApiKey ? '已配置' : '未配置');
   }
-  parts.push(`${profile.models?.length ?? 0} 模型`);
+  if (profile.models && profile.models.length > 0) {
+    parts.push(profile.models.join(', '));
+  } else {
+    parts.push('0 模型');
+  }
   return parts.join(' · ');
 }
 

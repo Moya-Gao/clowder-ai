@@ -193,7 +193,7 @@ export function HubConnectorConfigTab() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {platforms.map((platform) => {
         const isExpanded = expandedId === platform.id;
         const v = PLATFORM_VISUALS[platform.id] ?? DEFAULT_VISUAL;
