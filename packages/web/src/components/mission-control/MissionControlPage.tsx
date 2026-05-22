@@ -440,23 +440,7 @@ export function MissionControlPage() {
       <main className="min-w-0 flex-1 overflow-y-auto">
         <div className={`${CONTENT_SURFACE_CLASS} flex min-h-full flex-col`} data-testid="mission-content-surface">
           <header className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <svg
-                className="h-5 w-5 text-cafe-muted"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-              </svg>
-              <h1 className="text-lg font-bold text-cafe">Mission Hub</h1>
-            </div>
+            <h1 className="text-lg font-bold text-cafe">Mission Hub</h1>
             <div className="flex items-center gap-2">
               <button
                 type="button"

@@ -190,7 +190,10 @@ function AvailabilityToggle({
     <SettingsResourceToggleSwitch
       enabled={enabled}
       busy={busy}
-      onClick={(e) => { e.stopPropagation(); onToggle(cat); }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle(cat);
+      }}
       title={`${label}：${cat.displayName}`}
       ariaLabel={`${label}：${cat.displayName}`}
     />
@@ -290,7 +293,15 @@ export function HubMemberOverviewCard({
             busy={togglingAvailability}
           />
           {onDelete && (
-            <SettingsResourceIconButton tone="danger" onClick={(e) => { e.stopPropagation(); onDelete(cat); }} title="删除成员" aria-label="删除成员">
+            <SettingsResourceIconButton
+              tone="danger"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(cat);
+              }}
+              title="删除成员"
+              aria-label="删除成员"
+            >
               <HubIcon name="trash" className="h-3.5 w-3.5" />
             </SettingsResourceIconButton>
           )}

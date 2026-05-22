@@ -203,9 +203,7 @@ export function HubQuotaBoardTab() {
         <h3 className="text-[17px] font-bold text-cafe">配额看板</h3>
         <div className="flex items-center gap-3">
           {quota?.fetchedAt ? (
-            <span className="text-xs text-cafe-muted">
-              {new Date(quota.fetchedAt).toLocaleTimeString()}
-            </span>
+            <span className="text-xs text-cafe-muted">{new Date(quota.fetchedAt).toLocaleTimeString()}</span>
           ) : null}
           <button
             type="button"
@@ -269,9 +267,7 @@ function PoolGroupSection({ group }: { group: AccountQuotaPoolGroup }) {
             />
           ))
         ) : (
-          <div className="rounded-[14px] bg-cafe-surface/80 px-4 py-3 text-xs text-cafe-muted">
-            暂无 API Key 账号
-          </div>
+          <div className="rounded-[14px] bg-cafe-surface/80 px-4 py-3 text-xs text-cafe-muted">暂无 API Key 账号</div>
         )}
       </div>
     </section>

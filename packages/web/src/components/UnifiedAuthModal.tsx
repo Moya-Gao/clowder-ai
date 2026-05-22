@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import type { BuiltinAccountClient, ProfileAuthType } from './hub-accounts.types';
-import { HubIcon } from './hub-icons';
 import { builtinClientLabel } from './hub-accounts.view';
+import { HubIcon } from './hub-icons';
 import { TagEditor } from './hub-tag-editor';
 
 const CLIENT_OPTIONS: BuiltinAccountClient[] = ['anthropic', 'openai', 'google', 'kimi', 'dare', 'opencode'];

@@ -10,10 +10,10 @@ const src = readFileSync(resolve(testDir, '..', 'HubMemberOverviewCard.tsx'), 'u
 
 describe('HubMemberOverviewCard action isolation', () => {
   it('toggle onClick calls stopPropagation to prevent row edit', () => {
-    expect(src).toMatch(/SettingsResourceToggleSwitch[\s\S]*?onClick=\{.*stopPropagation/);
+    expect(src).toMatch(/SettingsResourceToggleSwitch[\s\S]*?onClick=\{[\s\S]*?stopPropagation/);
   });
 
   it('delete onClick calls stopPropagation to prevent row edit', () => {
-    expect(src).toMatch(/SettingsResourceIconButton[\s\S]*?onClick=\{.*stopPropagation/);
+    expect(src).toMatch(/SettingsResourceIconButton[\s\S]*?onClick=\{[\s\S]*?stopPropagation/);
   });
 });

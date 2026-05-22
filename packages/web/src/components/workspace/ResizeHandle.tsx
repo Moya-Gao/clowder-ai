@@ -128,9 +128,7 @@ export function ResizeHandle({ direction, onResize, onCollapse, onDoubleClick, l
     >
       <div
         className={`absolute ${
-          isH
-            ? 'inset-y-0 left-1/2 -translate-x-1/2 w-px'
-            : 'inset-x-0 top-1/2 -translate-y-1/2 h-px'
+          isH ? 'inset-y-0 left-1/2 -translate-x-1/2 w-px' : 'inset-x-0 top-1/2 -translate-y-1/2 h-px'
         } bg-[var(--console-border-soft)] group-hover:bg-cafe-accent/60 transition-colors ${dragging ? 'bg-cafe-accent/60' : ''}`}
       />
     </div>

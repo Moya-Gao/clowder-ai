@@ -17,7 +17,7 @@ export function SettingsDeleteButton({
         onClick();
       }}
       disabled={disabled}
-      className="rounded-full bg-conn-red-bg p-1.5 text-conn-red-text transition hover:opacity-80 disabled:opacity-50"
+      className="rounded-full p-1.5 text-cafe-muted transition-colors hover:text-[#D08068] disabled:opacity-50"
       aria-label={ariaLabel}
     >
       <HubIcon name="trash" className="h-3.5 w-3.5" />

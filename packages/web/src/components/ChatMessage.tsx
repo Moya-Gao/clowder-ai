@@ -388,11 +388,7 @@ export function ChatMessage({ message, getCatById, onEditCat }: ChatMessageProps
           className={`px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden ${
             catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-cafe-surface rounded-2xl'
           } ${showSchedulerAccent ? SCHEDULER_ACCENT_BUBBLE_CLASS : ''}`}
-          style={
-            catStyle
-              ? { backgroundColor: catStyle.bgColor }
-              : undefined
-          }
+          style={catStyle ? { backgroundColor: catStyle.bgColor } : undefined}
         >
           {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
             <ContentBlocks blocks={message.contentBlocks!} />

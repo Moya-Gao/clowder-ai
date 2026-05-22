@@ -1312,9 +1312,7 @@ describe('HubCatEditor', () => {
     });
     await flushEffects();
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -1402,9 +1400,7 @@ describe('HubCatEditor', () => {
 
     expect(queryField<HTMLSelectElement>(container, 'select[aria-label="认证信息"]').value).toBe('');
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -1489,9 +1485,7 @@ describe('HubCatEditor', () => {
 
     expect(queryField<HTMLSelectElement>(container, 'select[aria-label="认证信息"]').value).toBe('');
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -1546,9 +1540,7 @@ describe('HubCatEditor', () => {
     });
     await flushEffects();
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     expect(saveButton).toBeTruthy();
     expect((saveButton as HTMLButtonElement).disabled).toBe(false);
 
@@ -1663,9 +1655,7 @@ describe('HubCatEditor', () => {
 
     await changeField(queryField(container, 'select[aria-label="认证信息"]'), '', 'change');
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -1743,9 +1733,7 @@ describe('HubCatEditor', () => {
     await changeField(queryField(container, 'input[aria-label="Model"]'), 'gemini-bridge');
     await changeField(queryField(container, 'input[aria-label="CLI Command"]'), 'chat --mode agent');
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -1832,9 +1820,7 @@ describe('HubCatEditor', () => {
     await changeField(queryField(container, 'input[aria-label="Max Messages"]'), '');
     await changeField(queryField(container, 'input[aria-label="Max Content Length Per Msg"]'), '');
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -2231,9 +2217,7 @@ describe('HubCatEditor', () => {
     await changeField(queryField(container, 'select[aria-label^="Codex Approval"]'), 'never', 'change');
     await changeField(queryField(container, 'select[aria-label^="Codex Auth Mode"]'), 'api_key', 'change');
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -2371,9 +2355,7 @@ describe('HubCatEditor', () => {
 
     await changeField(queryField(container, 'input[aria-label="Nickname"]'), '砚砚');
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -2456,9 +2438,7 @@ describe('HubCatEditor', () => {
     expect(container.querySelector('input[aria-label="Session Warn Threshold"]')).toBeNull();
     expect(container.querySelector('input[aria-label="Session Action Threshold"]')).toBeNull();
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -2656,9 +2636,7 @@ describe('HubCatEditor', () => {
 
     await changeField(queryField(container, 'select[aria-label^="Codex Sandbox"]'), 'danger-full-access', 'change');
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -2739,9 +2717,7 @@ describe('HubCatEditor', () => {
 
     await changeField(queryField(container, 'input[aria-label="Nickname"]'), '新昵称');
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -2837,9 +2813,7 @@ describe('HubCatEditor', () => {
     await changeField(queryField(container, 'input[aria-label="Nickname"]'), '新昵称');
     await changeField(queryField(container, 'select[aria-label^="Codex Sandbox"]'), 'danger-full-access', 'change');
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -2972,9 +2946,7 @@ describe('HubCatEditor', () => {
     await changeField(queryField(container, 'select[aria-label^="Codex Sandbox"]'), 'danger-full-access', 'change');
     await changeField(queryField(container, 'select[aria-label^="Codex Approval"]'), 'never', 'change');
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -3110,9 +3082,7 @@ describe('HubCatEditor', () => {
     await changeField(queryField(container, 'select[aria-label="Session Strategy"]'), 'handoff', 'change');
     await changeField(queryField(container, 'input[aria-label="Session Warn Threshold"]'), '0.55');
 
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === '保存',
-    );
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });

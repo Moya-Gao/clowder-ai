@@ -39,7 +39,9 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     const src = readSrc('hub-cat-editor-fields.tsx');
     expect(src).toContain('rounded-[10px]');
     expect(src).toContain('border-transparent');
-    expect(src).not.toMatch(/rounded-xl border.*border-\[var\(--console-border-soft\)\].*bg-\[var\(--console-card-bg\)\]/);
+    expect(src).not.toMatch(
+      /rounded-xl border.*border-\[var\(--console-border-soft\)\].*bg-\[var\(--console-card-bg\)\]/,
+    );
   });
 
   it('editor fields use console-runtime-* tokens, not field-success-*', () => {
@@ -197,21 +199,22 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toContain('shadow-[0_12px_30px_rgba(43,33,26,0.08)]');
   });
 
-  it('MemoryNav uses soft pills (rounded-md, no border), not strong-border pills', () => {
+  it('MemoryNav uses underline tabs matching MissionHub, not soft pills', () => {
     const src = readSrc('memory/MemoryNav.tsx');
-    expect(src).toContain('rounded-md');
-    expect(src).toContain('console-active-bg');
-    expect(src).toContain('cafe-interactive');
-    expect(src).not.toMatch(/rounded-full border/);
-    expect(src).not.toContain('console-border-strong');
+    expect(src).toContain('border-b border-[var(--console-border-soft)]');
+    expect(src).toContain('border-b-2 border-[var(--console-button-emphasis)]');
+    expect(src).toContain('text-sm font-semibold');
+    expect(src).not.toContain('rounded-md');
+    expect(src).not.toContain('console-active-bg');
   });
 
-  it('SignalNav uses soft pills (rounded-md, no border), matching MemoryNav', () => {
+  it('SignalNav uses underline tabs matching MissionHub, not soft pills', () => {
     const src = readSrc('signals/SignalNav.tsx');
-    expect(src).toContain('rounded-md');
-    expect(src).toContain('console-active-bg');
-    expect(src).not.toMatch(/rounded-full border/);
-    expect(src).not.toContain('console-border-strong');
+    expect(src).toContain('border-b border-[var(--console-border-soft)]');
+    expect(src).toContain('border-b-2 border-[var(--console-button-emphasis)]');
+    expect(src).toContain('text-sm font-semibold');
+    expect(src).not.toContain('rounded-md');
+    expect(src).not.toContain('console-active-bg');
   });
 
   it('MemoryHub has h1 title header', () => {
@@ -256,7 +259,7 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
   it('SettingsDeleteButton uses HubIcon trash, not inline SVG', () => {
     const src = readSrc('settings/primitives/SettingsDeleteButton.tsx');
     expect(src).toContain('HubIcon');
-    expect(src).toContain("name=\"trash\"");
+    expect(src).toContain('name="trash"');
     expect(src).not.toContain('<path');
   });
 
@@ -267,5 +270,44 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toContain('console-runtime-field-bg');
     expect(src).toContain('console-pill-bg');
     expect(src).toContain('conn-purple-bg');
+  });
+
+  it('WorkspacePanel has no border-l (ResizeHandle provides the divider)', () => {
+    const src = readSrc('WorkspacePanel.tsx');
+    expect(src).not.toMatch(/border-l border-cafe-subtle/);
+  });
+
+  it('SettingsNav item text uses text-[12px], not text-compact', () => {
+    const src = readSrc('settings/SettingsNav.tsx');
+    expect(src).toContain('text-[12px]');
+    expect(src).not.toContain('text-compact');
+  });
+
+  it('SettingsDeleteButton: no bg, muted default, red-orange hover', () => {
+    const src = readSrc('settings/primitives/SettingsDeleteButton.tsx');
+    expect(src).toContain('text-cafe-muted');
+    expect(src).toContain('hover:text-[#D08068]');
+    expect(src).not.toContain('bg-conn-red');
+  });
+
+  it('SettingsResourceIconButton danger tone: no bg, muted → red-orange hover', () => {
+    const src = readSrc('SettingsResourceCard.tsx');
+    expect(src).toContain("tone === 'danger'");
+    expect(src).toMatch(/danger[\s\S]*?hover:text-\[#D08068\]/);
+    expect(src).not.toMatch(/danger[\s\S]*?bg-\[var\(--console-hover-bg\)\][\s\S]*?neutral/);
+  });
+
+  it('HubAccountItem: click-to-edit only, no inline expand/TagEditor', () => {
+    const src = readSrc('HubAccountItem.tsx');
+    expect(src).not.toContain('TagEditor');
+    expect(src).not.toContain('useState');
+    expect(src).not.toContain('expanded');
+    expect(src).toContain('onEdit');
+  });
+
+  it('MissionControlPage h1 has no SVG grid icon', () => {
+    const src = readSrc('mission-control/MissionControlPage.tsx');
+    expect(src).toMatch(/<h1.*Mission Hub/);
+    expect(src).not.toMatch(/<svg[\s\S]*?<rect[\s\S]*?Mission Hub/);
   });
 });

@@ -217,9 +217,7 @@ export function AdvancedRuntimeSection({
               Codex 配置基线未加载成功，以下 3 项已禁用；请刷新后重试，避免保存时误以为已生效。
             </p>
           ) : null}
-          <p className="text-center text-xs font-semibold text-cafe-muted">
-            ── Codex 专属 (仅 Client=Codex 时显示) ──
-          </p>
+          <p className="text-center text-xs font-semibold text-cafe-muted">── Codex 专属 (仅 Client=Codex 时显示) ──</p>
           <p className="rounded-[10px] bg-[var(--console-runtime-field-bg)] px-3 py-2 text-xs leading-5 text-[var(--console-runtime-hint)]">
             成员资料与 Codex 执行参数收敛到同一个入口保存。保存后会分别写入成员 overlay 与全局运行配置。
           </p>

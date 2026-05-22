@@ -28,8 +28,10 @@ export function SettingsResourceIconButton({
       type="button"
       {...props}
       className={joinClasses(
-        'settings-resource-action flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-[var(--console-hover-bg)] transition-opacity hover:opacity-80 disabled:cursor-default disabled:opacity-50',
-        tone === 'danger' ? 'text-[var(--cafe-accent)]' : 'text-cafe-muted hover:text-cafe-secondary',
+        'settings-resource-action flex h-[30px] w-[30px] items-center justify-center rounded-lg transition-colors disabled:cursor-default disabled:opacity-50',
+        tone === 'danger'
+          ? 'text-cafe-muted hover:text-[#D08068]'
+          : 'bg-[var(--console-hover-bg)] text-cafe-muted hover:text-cafe-secondary hover:opacity-80',
         className,
       )}
     >
