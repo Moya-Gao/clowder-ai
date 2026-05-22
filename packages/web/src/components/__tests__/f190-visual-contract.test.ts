@@ -283,18 +283,20 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).not.toContain('text-compact');
   });
 
-  it('SettingsDeleteButton: no bg, muted default, red-orange hover', () => {
+  it('SettingsDeleteButton: muted default, cafe-accent hover with bg', () => {
     const src = readSrc('settings/primitives/SettingsDeleteButton.tsx');
     expect(src).toContain('text-cafe-muted');
-    expect(src).toContain('hover:text-[#D08068]');
-    expect(src).not.toContain('bg-conn-red');
+    expect(src).toContain('hover:text-[var(--cafe-accent)]');
+    expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
+    expect(src).not.toContain('#D08068');
   });
 
-  it('SettingsResourceIconButton danger tone: no bg, muted → red-orange hover', () => {
+  it('SettingsResourceIconButton danger tone: muted → cafe-accent hover with bg', () => {
     const src = readSrc('SettingsResourceCard.tsx');
     expect(src).toContain("tone === 'danger'");
-    expect(src).toMatch(/danger[\s\S]*?hover:text-\[#D08068\]/);
-    expect(src).not.toMatch(/danger[\s\S]*?bg-\[var\(--console-hover-bg\)\][\s\S]*?neutral/);
+    expect(src).toMatch(/danger[\s\S]*?hover:text-\[var\(--cafe-accent\)\]/);
+    expect(src).toMatch(/danger[\s\S]*?hover:bg-\[var\(--console-hover-bg\)\]/);
+    expect(src).not.toContain('#D08068');
   });
 
   it('HubAccountItem: click-to-edit only, no inline expand/TagEditor', () => {
@@ -309,5 +311,13 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     const src = readSrc('mission-control/MissionControlPage.tsx');
     expect(src).toMatch(/<h1.*Mission Hub/);
     expect(src).not.toMatch(/<svg[\s\S]*?<rect[\s\S]*?Mission Hub/);
+  });
+
+  it('SignalNav is below title, not inline (both views)', () => {
+    const inbox = readSrc('signals/SignalInboxView.tsx');
+    const sources = readSrc('signals/SignalSourcesView.tsx');
+    for (const src of [inbox, sources]) {
+      expect(src).not.toMatch(/<h1[\s\S]*?<SignalNav[^>]*\/>\s*<\/div>/);
+    }
   });
 });

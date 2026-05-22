@@ -286,13 +286,11 @@ export function SignalInboxView({ initialReferrerThread = null }: { initialRefer
           className={`flex min-h-0 flex-1 flex-col gap-4 overflow-hidden ${CONTENT_SURFACE_CLASS}`}
           data-testid="signal-inbox-content-surface"
         >
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-cafe">信号</h1>
-              <p className="mt-0.5 text-xs text-cafe-secondary">浏览、筛选和研读信号文章</p>
-            </div>
-            <SignalNav active="signals" initialReferrerThread={initialReferrerThread} />
+          <div>
+            <h1 className="text-2xl font-bold text-cafe">信号</h1>
+            <p className="mt-0.5 text-xs text-cafe-secondary">浏览、筛选和研读信号文章</p>
           </div>
+          <SignalNav active="signals" initialReferrerThread={initialReferrerThread} />
           <SignalStatsCards stats={stats} />
 
           {error && (
