@@ -446,7 +446,7 @@ export function MissionControlPage() {
                 type="button"
                 onClick={() => void handleImportFromDocs()}
                 disabled={submitting}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--console-shell-bg)] px-3 py-1.5 text-xs font-medium text-cafe-secondary transition-colors hover:bg-[var(--console-hover-bg)] disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--console-card-bg)] px-3 py-1.5 text-xs font-medium text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] transition-colors hover:bg-[var(--console-hover-bg)] disabled:opacity-40"
                 data-testid="mc-import-docs"
               >
                 导入 Backlog
@@ -454,7 +454,7 @@ export function MissionControlPage() {
               <button
                 type="button"
                 onClick={() => setShowImportModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--console-shell-bg)] px-3 py-1.5 text-xs font-medium text-cafe-secondary transition-colors hover:bg-[var(--console-hover-bg)]"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--console-card-bg)] px-3 py-1.5 text-xs font-medium text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] transition-colors hover:bg-[var(--console-hover-bg)]"
                 data-testid="mc-import-project"
               >
                 + 导入项目

@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, MouseEventHandler, ReactNode } from 'react';
 
 export const settingsResourceCardClass =
-  'settings-resource-card rounded-2xl bg-[var(--console-card-bg)] shadow-[0_12px_30px_rgba(43,33,26,0.08)] transition-shadow hover:shadow-[0_12px_30px_rgba(43,33,26,0.12)]';
+  'settings-resource-card rounded-xl bg-[var(--console-card-bg)] shadow-[0_8px_22px_rgba(43,33,26,0.04)] transition-shadow hover:shadow-md';
 
 export const settingsResourceRowClass = 'settings-resource-row flex items-center gap-3 px-4 py-3';
 

@@ -21,7 +21,7 @@ interface SettingsSearchInputProps {
 
 export function SettingsSearchInput({ icon, value, onChange, placeholder }: SettingsSearchInputProps) {
   return (
-    <label className="flex min-w-[220px] items-center gap-2 rounded-xl bg-[var(--console-card-bg)] px-3 py-2 text-xs text-cafe-muted">
+    <label className="flex min-w-[220px] items-center gap-2 rounded-lg border border-[var(--console-border-soft)] bg-transparent px-3 py-2 text-xs text-cafe-muted transition-shadow focus-within:bg-[var(--console-card-bg)] focus-within:ring-1 focus-within:ring-[var(--console-input-stroke)]">
       {icon}
       <input
         value={value}

@@ -1,6 +1,5 @@
 'use client';
 
-import type { CSSProperties } from 'react';
 import { usePinnedSections } from '@/hooks/usePinnedSections';
 import { HubIcon } from '../hub-icons';
 import { SETTINGS_SECTIONS, type SettingsSection } from './settings-nav-config';
@@ -31,19 +30,11 @@ function NavItem({
         onClick={onSelect}
         data-guide-id={`settings.${section.id}`}
         data-active={active ? 'true' : 'false'}
-        className={`flex w-full items-center gap-2 rounded-lg px-2.5 h-9 text-left transition-colors ${active ? 'bg-[var(--console-active-bg)] font-medium' : 'hover:bg-[var(--console-hover-bg)]'}`}
-        style={
-          active
-            ? ({
-                ['--console-active-bg' as string]: `color-mix(in srgb, ${section.color} 10%, var(--console-card-bg) 90%)`,
-                color: section.color,
-              } as CSSProperties)
-            : undefined
-        }
+        className={`flex w-full items-center gap-2 rounded-lg px-2.5 h-9 text-left transition-colors ${active ? 'bg-[var(--console-active-bg)] font-medium text-cafe-black' : 'hover:bg-[var(--console-hover-bg)]'}`}
       >
         <span
           className="flex-shrink-0"
-          style={active ? { color: section.color } : { color: 'var(--cafe-text-secondary)' }}
+          style={{ color: active ? 'var(--cafe-accent)' : 'var(--cafe-text-secondary)' }}
         >
           <HubIcon name={section.icon} className="h-4 w-4" />
         </span>

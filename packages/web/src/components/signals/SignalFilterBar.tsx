@@ -22,7 +22,7 @@ export function SignalFilterBar({
   ime,
 }: SignalFilterBarProps) {
   return (
-    <form onSubmit={onSubmit} className="flex items-center gap-1.5 px-1 pb-1">
+    <form onSubmit={onSubmit} className="flex items-center gap-1.5 px-1 py-1">
       <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg bg-[var(--console-field-bg)] px-2.5 h-8 transition-shadow focus-within:ring-2 focus-within:ring-cafe-accent/30">
         <svg
           className="h-[13px] w-[13px] text-cafe-muted"

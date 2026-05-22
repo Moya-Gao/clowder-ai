@@ -841,3 +841,73 @@ describe('F723 round 3 — input/select/stat unification guard', () => {
     expect(src).not.toMatch(/<\/SettingsText>[\s\S]*?<SettingsText[^>]*>[\s\n]*保存后写入/);
   });
 });
+
+describe('F723 round 4 — primitive convergence guard', () => {
+  it('MarketplaceSearch: no bg-white, no purple focus, no bg-cafe-text chip', () => {
+    const src = readSrc('marketplace/marketplace-search.tsx');
+    expect(src).not.toContain('bg-white');
+    expect(src).not.toContain('focus:border-purple');
+    expect(src).not.toContain('focus:ring-purple');
+    expect(src).not.toContain('bg-cafe-text');
+    expect(src).toContain('console-border-soft');
+    expect(src).toContain('console-input-stroke');
+    expect(src).toContain('bg-cafe-accent text-white');
+  });
+
+  it('SettingsSearchInput uses border-soft + transparent bg + input-stroke focus', () => {
+    const src = readSrc('settings/primitives/SettingsToolbar.tsx');
+    expect(src).toContain('border-[var(--console-border-soft)]');
+    expect(src).toContain('bg-transparent');
+    expect(src).toContain('console-input-stroke');
+  });
+
+  it('VoiceSettingsPanel inputs use input-stroke focus, not console-border-strong', () => {
+    const src = readSrc('VoiceSettingsPanel.tsx');
+    expect(src).toContain('console-input-stroke');
+    expect(src).not.toContain('console-border-strong');
+  });
+
+  it('SettingsNav active: no section.color tinting, uses unified active-bg', () => {
+    const src = readSrc('settings/SettingsNav.tsx');
+    expect(src).toContain('bg-[var(--console-active-bg)]');
+    expect(src).not.toMatch(/color-mix\(in srgb/);
+    expect(src).not.toMatch(/color:\s*section\.color/);
+  });
+
+  it('SettingsResourceCard uses rounded-xl + 0.04 shadow, matching SettingsRow', () => {
+    const src = readSrc('SettingsResourceCard.tsx');
+    expect(src).toContain('rounded-xl');
+    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+    expect(src).not.toContain('rounded-2xl');
+    expect(src).not.toContain('shadow-[0_12px_30px');
+  });
+
+  it('MarketplacePanel calls browse() on mount', () => {
+    const src = readSrc('marketplace/marketplace-panel.tsx');
+    expect(src).toMatch(/useEffect\(\(\)\s*=>\s*\{[\s\n]*browse\(\)/);
+  });
+
+  it('MissionControlPage import buttons: visible card-bg, not shell-bg', () => {
+    const src = readSrc('mission-control/MissionControlPage.tsx');
+    expect(src).not.toMatch(/mc-import[\s\S]*?console-shell-bg/);
+    expect(src).toContain('console-card-bg');
+  });
+
+  it('QuickCreateForm submit uses cafe-accent, not cafe-text', () => {
+    const src = readSrc('mission-control/QuickCreateForm.tsx');
+    expect(src).toContain('bg-cafe-accent');
+    expect(src).not.toMatch(/bg-\[var\(--cafe-text\)\]/);
+  });
+
+  it('VoiceSettingsPanel Section cards match SettingsRow: rounded-xl + 0.04 shadow', () => {
+    const src = readSrc('VoiceSettingsPanel.tsx');
+    expect(src).toContain('rounded-xl');
+    expect(src).not.toMatch(/rounded-2xl[\s\S]*?shadow-\[0_12px/);
+  });
+
+  it('MarketplacePanel skeleton uses theme tokens, no bg-white', () => {
+    const src = readSrc('marketplace/marketplace-panel.tsx');
+    expect(src).not.toContain('bg-white');
+    expect(src).not.toContain('border-cafe-border');
+  });
+});
