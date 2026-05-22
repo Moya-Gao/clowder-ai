@@ -292,14 +292,21 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
  * Best-effort recovery: scan a source thread for the rich card belonging to proposalId.
  * The card's first rich block uses id `proposal-{proposalId}` (see buildProposalCardBlock),
  * which makes the lookup deterministic without adding a new store index.
+ *
+ * Limit choice: messageStore.getByThread defaults to a small page (~50). For a self-heal
+ * scan we need a much wider window so old proposals whose marker write failed long ago can
+ * still recover after the thread accumulated more activity. SELF_HEAL_SCAN_LIMIT is set high
+ * enough to cover practically any thread (well above realistic chat lengths) without paging.
  */
+const SELF_HEAL_SCAN_LIMIT = 10000;
+
 async function findCardMessageInThread(
   messageStore: IMessageStore,
   threadId: string,
   proposalId: string,
 ): Promise<string | null> {
   try {
-    const messages = await messageStore.getByThread(threadId);
+    const messages = await messageStore.getByThread(threadId, SELF_HEAL_SCAN_LIMIT);
     const target = `proposal-${proposalId}`;
     for (const msg of messages) {
       const blocks = msg.extra?.rich?.blocks ?? [];

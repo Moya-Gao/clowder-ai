@@ -404,6 +404,61 @@ describe('F128 propose / approve / reject flow', () => {
     assert.equal(threadStore.size, threadsBefore + 1, 'thread must remain (only one new thread, not zero)');
   });
 
+  test('self-heal works even when 60+ messages have accumulated after the marker failure', async () => {
+    const { InMemoryProposalStore } = await import('../dist/domains/cats/services/stores/ports/ProposalStore.js');
+    class FlakyMarkerStore extends InMemoryProposalStore {
+      constructor() {
+        super();
+        this.failNext = true;
+      }
+      setCardMessageId(proposalId, cardMessageId) {
+        if (this.failNext) {
+          this.failNext = false;
+          throw new Error('synthetic marker failure');
+        }
+        return super.setCardMessageId(proposalId, cardMessageId);
+      }
+    }
+    proposalStore = new FlakyMarkerStore();
+    const app = await createApp();
+    const source = await threadStore.create('alice', 'Source');
+    const { invocationId, callbackToken } = registry.create('alice', 'opus', source.id);
+    const payload = {
+      invocationId,
+      callbackToken,
+      title: 'Old card retry',
+      reason: 'Marker fails then thread fills up',
+      clientRequestId: 'old-card-key',
+    };
+    const send = () => app.inject({ method: 'POST', url: '/api/callbacks/propose-thread', payload });
+
+    // First request: marker write fails, but card is appended and the proposal exists.
+    const first = await send();
+    assert.equal(first.statusCode, 200);
+
+    // Now flood the source thread with 60+ messages so the card sinks below the default
+    // getByThread() window (~50). Without a wider self-heal scan, the retry below would 503.
+    for (let i = 0; i < 60; i++) {
+      await messageStore.append({
+        userId: 'alice',
+        catId: null,
+        content: `filler ${i}`,
+        mentions: [],
+        timestamp: Date.now() + i,
+        threadId: source.id,
+      });
+    }
+
+    // Retry with the same clientRequestId must still self-heal, even though the card is now
+    // far down the message history.
+    const second = await send();
+    assert.equal(second.statusCode, 200, `retry must self-heal old card, got ${second.statusCode}`);
+    const secondBody = JSON.parse(second.body);
+    assert.equal(secondBody.deduped, true);
+    const healed = await proposalStore.get(secondBody.proposalId);
+    assert.ok(healed.cardMessageId, 'marker must be backfilled by wide-window self-heal');
+  });
+
   test('setCardMessageId failure: 200 with warning + retry self-heals via source thread scan', async () => {
     const { InMemoryProposalStore } = await import('../dist/domains/cats/services/stores/ports/ProposalStore.js');
     class FlakyMarkerStore extends InMemoryProposalStore {
