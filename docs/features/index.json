@@ -788,7 +788,7 @@
     },
     {
       "id": "F128",
-      "name": "Cat-Initiated Thread Creation — 猫程序化创建 Thread",
+      "name": "Cat-Proposed Thread Creation — 猫猫提议创建 Thread",
       "status": "spec | **Source**: clowder-ai #82 (bouillipx) / PR #85 | **Priority**: P2",
       "file": "F128-cat-create-thread.md"
     },
