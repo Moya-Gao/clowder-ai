@@ -100,7 +100,7 @@ export function IdentitySection({
       />
 
       <div className="flex items-center gap-3">
-        <span className="w-[140px] shrink-0 text-sm font-medium text-cafe-secondary">Avatar</span>
+        <span className="text-xs font-bold text-cafe-secondary sm:w-[150px] sm:shrink-0">Avatar</span>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -139,7 +139,7 @@ export function IdentitySection({
       </div>
 
       <div className="flex items-center gap-3">
-        <span className="w-[140px] shrink-0 text-sm font-medium text-cafe-secondary">Background Color</span>
+        <span className="text-xs font-bold text-cafe-secondary sm:w-[150px] sm:shrink-0">Background Color</span>
         <div className="flex items-center gap-2">
           <label title="Primary">
             <input
@@ -249,7 +249,7 @@ function ComboField({
   const listId = `combo-${label.replace(/\s+/g, '-').toLowerCase()}`;
   return (
     <label className="flex flex-col gap-1.5 text-cafe-secondary sm:flex-row sm:items-center sm:gap-3">
-      <span className="text-sm font-semibold text-cafe-secondary sm:w-[140px] sm:shrink-0">
+      <span className="text-xs font-bold text-cafe-secondary sm:w-[150px] sm:shrink-0">
         {label}
         {required && <span className="ml-0.5 text-cafe-accent">*</span>}
       </span>

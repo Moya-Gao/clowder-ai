@@ -96,7 +96,10 @@ export function HubAgentSessionsTab() {
       {sessions.length > 0 && (
         <div className="space-y-2">
           {sessions.map((s) => (
-            <div key={s.daemonShortId} className="rounded border border-cafe-border bg-cafe-surface p-3 space-y-1">
+            <div
+              key={s.daemonShortId}
+              className="rounded-xl bg-[var(--console-card-bg)] p-3 shadow-[0_8px_22px_rgba(43,33,26,0.04)] space-y-1"
+            >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-xs text-cafe-text">{s.daemonShortId}</span>
                 <div className="flex items-center gap-2">
@@ -105,7 +108,7 @@ export function HubAgentSessionsTab() {
                   <button
                     type="button"
                     onClick={() => setAttachOverlay(attachOverlay === s.daemonShortId ? null : s.daemonShortId)}
-                    className="text-micro px-1.5 py-0.5 rounded border border-cafe-border text-cafe-muted hover:text-cafe-text hover:border-cafe-text transition-colors"
+                    className="text-micro px-1.5 py-0.5 rounded-lg bg-[var(--console-shell-bg)] text-cafe-muted hover:text-cafe hover:bg-[var(--console-hover-bg)] transition-colors"
                   >
                     接管
                   </button>

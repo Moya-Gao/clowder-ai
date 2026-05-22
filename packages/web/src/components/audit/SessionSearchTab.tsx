@@ -72,7 +72,7 @@ export function SessionSearchTab({ threadId, onViewSession }: SessionSearchTabPr
             if (e.key === 'Enter' && ime.isComposing()) e.preventDefault();
           }}
           placeholder="搜索 session 内容..."
-          className="flex-1 text-xs border border-cafe rounded px-2 py-1 focus:outline-none focus:border-blue-300"
+          className="flex-1 text-xs rounded-[10px] border-transparent bg-[var(--console-field-bg,var(--console-card-bg))] px-2 py-1 focus:outline-none focus:ring-1 focus:ring-cafe-accent"
         />
         <button
           type="submit"
@@ -112,7 +112,7 @@ export function SessionSearchTab({ threadId, onViewSession }: SessionSearchTabPr
               return (
                 <div
                   key={`${hit.sessionId}-${hit.kind}-${i}`}
-                  className="rounded border border-cafe-subtle px-2 py-1.5 hover:bg-cafe-surface-elevated transition-colors"
+                  className="rounded-lg bg-[var(--console-shell-bg)] px-2 py-1.5 hover:bg-cafe-surface-elevated transition-colors"
                 >
                   <div className="flex items-center gap-1.5 text-xs">
                     <span className={`px-1 py-0.5 rounded text-micro font-medium ${badge.bg} ${badge.text}`}>

@@ -26,7 +26,7 @@ function RefAudioField({ value, onUpload }: { value: string; onUpload: (file: Fi
 
   return (
     <div className="flex flex-col gap-1.5 text-cafe-secondary sm:flex-row sm:items-center sm:gap-3">
-      <span className="text-sm font-medium text-cafe-secondary sm:w-[140px] sm:shrink-0">Ref Audio</span>
+      <span className="text-xs font-bold text-cafe-secondary sm:w-[150px] sm:shrink-0">Ref Audio</span>
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <span
           className="min-w-0 flex-1 truncate rounded-[10px] border-transparent bg-[var(--console-field-bg,var(--console-card-bg))] px-3 py-2 text-compact leading-5 text-cafe"

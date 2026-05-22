@@ -108,10 +108,7 @@ export function GithubConfigPanel() {
   const messageTone = message?.tone === 'success' ? 'success' : message?.tone === 'error' ? 'error' : 'info';
 
   return (
-    <div
-      className="space-y-3"
-      style={{ borderTop: '1px solid var(--console-border-soft)', paddingInline: '1rem', paddingBlock: '0.75rem' }}
-    >
+    <div className="space-y-3 console-divider-t px-4 py-3">
       <div className="space-y-1">
         <SettingsText as="p" variant="sm" tone="default" className="font-medium">
           GitHub Token
@@ -142,7 +139,7 @@ export function GithubConfigPanel() {
                       : '未配置'
                     : (field.currentValue ?? '未配置')
                 }
-                className="w-full rounded-lg border border-[var(--console-border-soft)] bg-cafe-surface-elevated px-3 py-2 text-sm text-cafe"
+                className="w-full rounded-[10px] border-transparent bg-[var(--console-field-bg,var(--console-card-bg))] px-3 py-2 text-sm text-cafe focus:outline-none focus:ring-1 focus:ring-cafe-accent"
                 data-testid={`field-${field.envName}`}
               />
               {field.restartRequired && (
