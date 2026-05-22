@@ -49,6 +49,24 @@ function assertPresent(markdown: string, needle: string): void {
   }
 }
 
+function extractProtocolLabel(markdown: string, coreAnchor: string): string {
+  const matches = [...markdown.matchAll(/^###\s+(.+)$/gm)]
+    .map((match) => normalizeInline(match[1] ?? ''))
+    .filter((heading) => heading.includes(coreAnchor));
+  if (matches.length === 0) {
+    throw new Error(`compileGovernanceL0: missing required shared-rules anchor "${coreAnchor}"`);
+  }
+  if (matches.length > 1) {
+    throw new Error(`compileGovernanceL0: duplicate required shared-rules anchor "${coreAnchor}"`);
+  }
+  return (
+    matches[0]
+      ?.replace(/\s*（[^）]*）\s*$/, '')
+      .replace(/协议$/, '')
+      .trim() ?? ''
+  );
+}
+
 function extractFirstParagraphAfterHeading(markdown: string, heading: string): string {
   const start = markdown.indexOf(heading);
   if (start < 0) {
@@ -119,8 +137,8 @@ export function compileGovernanceL0FromMarkdown(markdown: string): string {
     '## 14. 共享状态文件只在 main 改',
     '## 16. 实事求是',
     '### 46 hotfix 标签 + 跨猫升级 review',
-    '### 缅因猫 fallback 层数检测协议',
-    '### 暹罗猫 创意-实现解耦协议',
+    'fallback 层数检测协议',
+    '创意-实现解耦协议',
     '## 0. 身份契约',
   ]) {
     assertPresent(markdown, anchor);
@@ -130,6 +148,8 @@ export function compileGovernanceL0FromMarkdown(markdown: string): string {
   const worldviews = extractNumberedHeadings(markdown, 'W', 8);
   const magicWords = extractMagicWords(markdown);
   const identityContract = extractFirstParagraphAfterHeading(markdown, '## 0. 身份契约');
+  const fallbackProtocolLabel = extractProtocolLabel(markdown, 'fallback 层数检测协议');
+  const creativeProtocolLabel = extractProtocolLabel(markdown, '创意-实现解耦协议');
 
   return [
     '## 3. 家规（shared-rules.md）',
@@ -161,8 +181,8 @@ export function compileGovernanceL0FromMarkdown(markdown: string): string {
     '',
     '### 治理协议（per-family）',
     '- 46 hotfix 止血：fix/hotfix/quick fix/minimal fix/band-aid/temp/workaround → hotfix；跨猫 review 铁律：hotfix PR 必须跨族或同族不同个体 review，不允许 self-merge；2 周升级 review 三选一。',
-    '- 缅因猫 fallback 层数检测：同一文件新增 ≥3 层 fallback → 坐标系自检、替代方案评估、说明每层为何不能去掉。',
-    '- 暹罗猫 创意-实现解耦：发现问题 ≠ 动手实现；记录 + handoff；白名单外代码改动需要 Dry Run Gate。',
+    `- ${fallbackProtocolLabel}：同一文件新增 ≥3 层 fallback → 坐标系自检、替代方案评估、说明每层为何不能去掉。`,
+    `- ${creativeProtocolLabel}：发现问题 ≠ 动手实现；记录 + handoff；白名单外代码改动需要 Dry Run Gate。`,
   ].join('\n');
 }
 

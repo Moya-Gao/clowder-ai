@@ -92,6 +92,17 @@ describe('governance-l0 compiler (#747)', () => {
     );
   });
 
+  it('accepts public-sanitized family labels in governance protocol headings (outbound sync)', () => {
+    const sanitizedSharedRules = sharedRules
+      .replace('### 缅因猫 fallback 层数检测协议', '### Maine Coon fallback 层数检测协议')
+      .replace('### 暹罗猫 创意-实现解耦协议', '### Siamese 创意-实现解耦协议');
+
+    const l0 = compileGovernanceL0FromMarkdown(sanitizedSharedRules);
+
+    assert.ok(l0.includes('Maine Coon fallback 层数检测'));
+    assert.ok(l0.includes('Siamese 创意-实现解耦'));
+  });
+
   it('loads base shared-rules.md and returns source metadata', async () => {
     const loaded = await loadCompiledGovernanceL0(root);
 
