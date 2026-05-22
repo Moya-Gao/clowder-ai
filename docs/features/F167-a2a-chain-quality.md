@@ -753,6 +753,16 @@ cat_cafe_hold_ball({
 | 5. 诊断不解决 | `shared-rules §10` 要求 push back 后必须接/退/升；runtime prompt 同步注入（`shared-rules.md:252`, `SystemPromptBuilder.ts:578`） | ✅ |
 | 6. Codex context overflow | `dynamic contextWindow + autoCompactTokenLimit per variant` 已合入 main，spec 记录 `41/41 codex-agent-service + 31/31 config tests` 全绿（AC-B9/B10） | ✅ |
 
+### Case E3: 砚砚完成修复后停在汇报，未进入 peer review（2026-05-22）
+
+| 维度 | 内容 |
+|------|------|
+| 我以为 | 当前模式是"独立回答"，修复完成后给铲屎官汇报即可，peer review 可以等铲屎官再指示。 |
+| 实际要求 | 代码修复完成后仍在 Cat Café SOP 内：quality-gate → request-review → peer reviewer，而不是把球交还给铲屎官。 |
+| 偏差根因 | **独立回答锚定 + 出口检查漏执行**：把"独立回答"理解成免除 A2A/SOP 出口；看到自己已解释清楚就停止，没有执行"下一棒谁能做"。 |
+| 纠正轮次 | 铲屎官 1 次纠正后补做：清理根目录截图、补跑 quality-gate、commit、本地 review 请求、路由给 `@opus`。 |
+| 元心智哪条没执行 | Q1 角色确认没执行到位：我当时是 author，不是只回答问题的解释器；Q3 坐标变换也漏了，没有把"修好了"转换成 SOP 的下一状态。 |
+
 ## Review Gate
 
 - Phase 0: **多猫协作审视**（所有猫参与各自 prompt 审视）+ 现有 system-prompt-builder 测试全绿
