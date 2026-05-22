@@ -3,6 +3,7 @@
 import type { RankedCat, StreakCat } from '@cat-cafe/shared';
 import { type ReactNode } from 'react';
 import { useCatData } from '@/hooks/useCatData';
+import typographyTokens from '@/styles/typography-tokens.json';
 import { CatAvatar } from './CatAvatar';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
@@ -27,7 +28,9 @@ function CatTag({ catId }: { catId: string }) {
 export function CatHeroCard({ cat, unit }: { cat: RankedCat; unit: string }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl p-5" style={{ background: 'var(--console-pill-bg)' }}>
-      <span className="text-[28px]">{MEDAL[cat.rank - 1] ?? `#${cat.rank}`}</span>
+      <span style={{ fontSize: typographyTokens.fontSizePx.leaderboardMedal }}>
+        {MEDAL[cat.rank - 1] ?? `#${cat.rank}`}
+      </span>
       <CatAvatar catId={cat.catId} size={72} />
       <span
         className="text-lg font-medium"

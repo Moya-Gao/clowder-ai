@@ -1,5 +1,6 @@
 'use client';
 
+import typographyTokens from '@/styles/typography-tokens.json';
 import {
   compactAnchorLabel,
   type GraphEdge,
@@ -15,7 +16,8 @@ const DIMMED_SENSITIVITIES = new Set(['private', 'restricted']);
 
 function labelWidth(anchor: string, title: string, isCenter: boolean): number {
   const anchorWidth = [...anchor].length * 8;
-  const titleWidth = [...title].length * (isCenter ? 14 : 11);
+  const titleWidth =
+    [...title].length * (isCenter ? typographyTokens.fontSizePx.sm : typographyTokens.fontSizePx.label);
   const raw = Math.max(anchorWidth, titleWidth) + 34;
   return Math.max(isCenter ? 210 : 132, Math.min(isCenter ? 340 : 210, raw));
 }
@@ -57,7 +59,13 @@ export function GraphNodeGlyph({ centerAnchor, node, onHover, onNodeClick, pos }
       <rect x={glyph.x} y={glyph.y} width={5} height={glyph.height} rx={2.5} fill={glyph.fill} opacity={0.95} />
       {/* data-viz palette exempt: SVG text fills are graph-specific */}
       {node.redacted ? (
-        <text x={glyph.x + 16} y={pos.y + 4} fontSize={13} fill="#374151" fontWeight="700">
+        <text
+          x={glyph.x + 16}
+          y={pos.y + 4}
+          fontSize={typographyTokens.fontSizePx.compact}
+          fill="#374151"
+          fontWeight="700"
+        >
           🔒 Redacted
         </text>
       ) : (
@@ -109,7 +117,7 @@ function glyphViewModel(node: GraphNode, centerAnchor: string | undefined, pos: 
   const dimmed = node.redacted ? true : DIMMED_SENSITIVITIES.has(node.sensitivity);
   return {
     anchorLabel,
-    anchorSize: isCenter ? 13 : 11,
+    anchorSize: isCenter ? typographyTokens.fontSizePx.compact : typographyTokens.fontSizePx.label,
     anchorY: isCenter ? y + 21 : y + 19,
     // data-viz palette exempt: node background/border colors are graph-specific
     background: isCenter ? '#eff6ff' : node.kind === 'unresolved' ? '#f3f4f6' : '#fffdf8',
@@ -119,7 +127,7 @@ function glyphViewModel(node: GraphNode, centerAnchor: string | undefined, pos: 
     height,
     strokeWidth: isCenter ? 2.5 : 1.5,
     title,
-    titleSize: isCenter ? 12 : 10,
+    titleSize: isCenter ? typographyTokens.fontSizePx.xs : typographyTokens.fontSizePx.micro,
     titleY: isCenter ? y + 40 : y + 35,
     width,
     x: pos.x - width / 2,

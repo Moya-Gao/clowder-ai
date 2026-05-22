@@ -119,7 +119,7 @@ function DaemonActiveIndicator({ threadId }: { threadId: string }) {
         const res = await apiFetch(`/api/threads/${threadId}/active-pane`);
         if (cancelled) return;
         if (res.ok) {
-          const body = (await res.json()) as { daemonShortId?: string };
+          const body = (await res.json()) as { active?: boolean; daemonShortId?: string };
           setDaemonShortId(body.daemonShortId ?? null);
         } else {
           setDaemonShortId(null);

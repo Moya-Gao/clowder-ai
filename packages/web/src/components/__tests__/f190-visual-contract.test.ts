@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -8,6 +8,21 @@ import { describe, expect, it } from 'vitest';
 const testDir = dirname(fileURLToPath(import.meta.url));
 function readSrc(relativePath: string): string {
   return readFileSync(resolve(testDir, '..', relativePath), 'utf8');
+}
+
+function collectSourceFiles(root: string): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(root)) {
+    const full = resolve(root, entry);
+    if (full.includes('/__tests__/')) continue;
+    const stat = statSync(full);
+    if (stat.isDirectory()) {
+      files.push(...collectSourceFiles(full));
+    } else if (/\.(ts|tsx|css)$/.test(entry)) {
+      files.push(full);
+    }
+  }
+  return files;
 }
 
 describe('F190 visual contract — no hard borders in card/panel components', () => {
@@ -324,11 +339,21 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     }
   });
 
-  it('typography: text-compact and text-label are defined in tailwind config', () => {
+  it('typography: compact tokens are defined once and wired into tailwind config', () => {
+    const tokens = JSON.parse(
+      readFileSync(resolve(testDir, '..', '..', 'styles', 'typography-tokens.json'), 'utf8'),
+    ) as {
+      fontSize: Record<string, unknown>;
+      fontSizePx: Record<string, unknown>;
+    };
     const config = readFileSync(resolve(testDir, '..', '..', '..', 'tailwind.config.js'), 'utf8');
-    expect(config).toMatch(/compact:\s*\[/);
-    expect(config).toMatch(/label:\s*\[/);
-    expect(config).toMatch(/micro:\s*\[/);
+    expect(tokens.fontSize).toHaveProperty('compact');
+    expect(tokens.fontSize).toHaveProperty('label');
+    expect(tokens.fontSize).toHaveProperty('micro');
+    expect(tokens.fontSizePx).toHaveProperty('compact');
+    expect(tokens.fontSizePx).toHaveProperty('label');
+    expect(config).toContain("require('./src/styles/typography-tokens.json')");
+    expect(config).toContain('fontSize: typographyTokens.fontSize');
   });
 
   it('console page titles use text-xl font-bold, not text-2xl', () => {
@@ -406,18 +431,24 @@ describe('F190 typography guard — no hardcoded font sizes in console scope', (
     'signals/SignalInboxView.tsx',
     'signals/SignalSourcesView.tsx',
     'mission-control/MissionControlPage.tsx',
+    'mission-control/SliceLadder.tsx',
+    'mission-control/dag-graph-utils.ts',
     'leaderboard-cards.tsx',
     'leaderboard-phase-bc.tsx',
+    'workspace/TerminalTab.tsx',
+    'workspace/AgentPaneViewer.tsx',
+    'workspace/AgentPaneList.tsx',
+    'workspace/JsxPreview.tsx',
+    'memory/CollectionGraph.tsx',
+    'memory/CollectionGraphParts.tsx',
+    'cli-output/CliOutputBlock.tsx',
   ];
-
-  const ALLOWED_EXCEPTIONS = ['text-[28px]'];
 
   for (const file of CONSOLE_SCOPE) {
     it(`${file}: no hardcoded text-[Xpx] (use tokens: text-micro/label/xs/compact/sm/base/lg/xl)`, () => {
       const src = readSrc(file);
       const matches = src.match(/text-\[\d+px\]/g) ?? [];
-      const violations = matches.filter((m) => !ALLOWED_EXCEPTIONS.includes(m));
-      expect(violations).toEqual([]);
+      expect(matches).toEqual([]);
     });
   }
 
@@ -427,6 +458,21 @@ describe('F190 typography guard — no hardcoded font sizes in console scope', (
       expect(src).not.toMatch(/fontSize:\s*['"]\d/);
     });
   }
+
+  it('src-wide guard: no raw pixel font definitions outside typography tokens', () => {
+    const srcRoot = resolve(testDir, '..', '..');
+    const violations = collectSourceFiles(srcRoot).flatMap((file) => {
+      const src = readFileSync(file, 'utf8');
+      const matches = [
+        ...(src.match(/text-\[\d+(?:\.\d+)?px\]/g) ?? []),
+        ...(src.match(/fontSize:\s*['"]?\d/g) ?? []),
+        ...(src.match(/fontSize=\{\d/g) ?? []),
+        ...(src.match(/font-size:\s*(?:\d|0\.)/g) ?? []),
+      ];
+      return matches.map((match) => `${file.replace(srcRoot, 'src')}: ${match}`);
+    });
+    expect(violations).toEqual([]);
+  });
 });
 
 describe('F190 divider guard — console-scope dividers use semantic class', () => {
@@ -455,6 +501,8 @@ describe('F190 divider guard — console-scope dividers use semantic class', () 
     'mission-control/SliceLadder.tsx',
     'mission-control/ThreadSituationPanel.tsx',
     'memory/CollectionGraphParts.tsx',
+    'memory/RecallFeed.tsx',
+    'memory/ToolUsageMetricsPanel.tsx',
     'ThreadSidebar/ThreadSidebar.tsx',
     'ThreadSidebar/DirectoryBrowser.tsx',
   ];
@@ -462,7 +510,7 @@ describe('F190 divider guard — console-scope dividers use semantic class', () 
   for (const file of DIVIDER_SCOPE) {
     it(`${file}: uses console-divider-* class, no clean raw border-[var(--console-border-soft)]`, () => {
       const src = readSrc(file);
-      const rawDividers = src.match(/border-[tbrl] border-\[var\(--console-border-soft\)\](?!\/)/g) ?? [];
+      const rawDividers = src.match(/border-[tbrl] border-\[var\(--console-border-soft\)\]/g) ?? [];
       expect(rawDividers).toEqual([]);
     });
   }

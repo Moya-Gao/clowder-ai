@@ -57,7 +57,7 @@ export function ConsolePanel({ entries, onClear }: ConsolePanelProps) {
           entries.map((entry, i) => (
             <div
               key={`${entry.timestamp}-${i}`}
-              className={`flex items-start gap-2 px-2 py-0.5 border-b border-[var(--console-border-soft)]/30 ${LEVEL_BG[entry.level]}`}
+              className={`flex items-start gap-2 px-2 py-0.5 console-divider-b ${LEVEL_BG[entry.level]}`}
             >
               <span className={`shrink-0 w-10 ${LEVEL_STYLES[entry.level]}`}>{entry.level}</span>
               <span className="text-[var(--ws-text)]/80 break-all">{entry.args.join(' ')}</span>

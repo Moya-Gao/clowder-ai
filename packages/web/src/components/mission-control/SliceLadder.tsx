@@ -2,6 +2,7 @@
 
 import type { Slice, SliceStatus, SliceType } from '@cat-cafe/shared';
 import { useCallback, useState } from 'react';
+import typographyTokens from '@/styles/typography-tokens.json';
 import { apiFetch } from '@/utils/api-client';
 
 const TYPE_COLORS: Record<SliceType, string> = {
@@ -224,7 +225,7 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
               border: '1px solid var(--console-border-soft)',
               borderRadius: 6,
               padding: '6px 10px',
-              fontSize: 13,
+              fontSize: typographyTokens.fontSizePx.compact,
             }}
           />
           <select
@@ -234,7 +235,7 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
               border: '1px solid var(--console-border-soft)',
               borderRadius: 6,
               padding: '6px 10px',
-              fontSize: 13,
+              fontSize: typographyTokens.fontSizePx.compact,
             }}
           >
             <option value="learning">Learning</option>
@@ -250,7 +251,7 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
               border: '1px solid var(--console-border-soft)',
               borderRadius: 6,
               padding: '6px 10px',
-              fontSize: 13,
+              fontSize: typographyTokens.fontSizePx.compact,
               resize: 'vertical',
             }}
           />
@@ -262,7 +263,7 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
               border: '1px solid var(--console-border-soft)',
               borderRadius: 6,
               padding: '6px 10px',
-              fontSize: 13,
+              fontSize: typographyTokens.fontSizePx.compact,
             }}
           />
           <input
@@ -273,7 +274,7 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
               border: '1px solid var(--console-border-soft)',
               borderRadius: 6,
               padding: '6px 10px',
-              fontSize: 13,
+              fontSize: typographyTokens.fontSizePx.compact,
             }}
           />
           <textarea
@@ -285,7 +286,7 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
               border: '1px solid var(--console-border-soft)',
               borderRadius: 6,
               padding: '6px 10px',
-              fontSize: 13,
+              fontSize: typographyTokens.fontSizePx.compact,
               resize: 'vertical',
             }}
           />
@@ -298,7 +299,7 @@ export function SliceLadder({ projectId, slices, onUpdate }: SliceLadderProps) {
               color: 'white',
               borderRadius: 8,
               padding: '6px 0',
-              fontSize: 13,
+              fontSize: typographyTokens.fontSizePx.compact,
               fontWeight: 500,
               border: 'none',
               cursor: 'pointer',

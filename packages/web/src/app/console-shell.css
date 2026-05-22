@@ -53,6 +53,10 @@
   --console-overlay-heavy: rgba(0, 0, 0, 0.7);
   --console-overlay-heavy-hover: rgba(0, 0, 0, 0.9);
   --console-overlay-light: rgba(0, 0, 0, 0.2);
+  --console-font-micro: 10px;
+  --console-font-label: 11px;
+  --console-font-compact: 13px;
+  --console-font-sm: 14px;
   --console-xray-bg: #faf5ff;
   --console-xray-text: #7e22ce;
   --console-xray-border: #e9d5ff;
@@ -483,7 +487,7 @@
   border-radius: 999px;
   padding: 0.35rem 0.7rem;
   color: var(--cafe-text-secondary);
-  font-size: 0.7rem;
+  font-size: var(--console-font-label);
   font-weight: 600;
   line-height: 1;
 }

@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+const typographyTokens = require('./src/styles/typography-tokens.json');
+
 module.exports = {
   darkMode: ['selector', '[data-theme="dark"]'],
   content: ['./src/**/*.{js,ts,jsx,tsx,mdx}', '../shared/src/**/*.{js,ts}'],
@@ -177,11 +179,7 @@ module.exports = {
           glow: 'var(--ww-shadow-glow)',
         },
       },
-      fontSize: {
-        micro: ['10px', { lineHeight: '14px' }],
-        label: ['11px', { lineHeight: '16px' }],
-        compact: ['13px', { lineHeight: '20px' }],
-      },
+      fontSize: typographyTokens.fontSize,
       keyframes: {
         'fade-in': {
           '0%': { opacity: '0', transform: 'translateY(4px)' },
