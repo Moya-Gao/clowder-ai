@@ -11,18 +11,9 @@ export function resolveCapabilityWriteSessionUserId(request: FastifyRequest): st
   return typeof sessionUserId === 'string' && sessionUserId.trim() ? sessionUserId.trim() : null;
 }
 
-export function requireCapabilityWriteOwner(
-  userId: string,
-  options?: { allowMissingOwner?: boolean },
-): CapabilityWriteRouteError | null {
+export function requireCapabilityWriteOwner(userId: string): CapabilityWriteRouteError | null {
   const ownerId = process.env.DEFAULT_OWNER_USER_ID?.trim();
-  if (!ownerId) {
-    if (options?.allowMissingOwner) return null;
-    return {
-      status: 403,
-      error: 'Capability writes require DEFAULT_OWNER_USER_ID to be configured',
-    };
-  }
+  if (!ownerId) return null;
   if (userId !== ownerId) {
     return {
       status: 403,

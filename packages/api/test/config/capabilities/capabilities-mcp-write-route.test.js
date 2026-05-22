@@ -393,7 +393,24 @@ describe('capabilities MCP write routes', () => {
     assert.equal(cap?.mcpServer?.env?.API_KEY, 'install-secret');
   });
 
-  it('fails closed for env patch when DEFAULT_OWNER_USER_ID is not configured', async () => {
+  it('allows session env patch when DEFAULT_OWNER_USER_ID is not configured', async () => {
+    await writeCapabilitiesConfig(projectRoot, {
+      version: 1,
+      capabilities: [
+        {
+          id: 'secret-mcp',
+          type: 'mcp',
+          enabled: true,
+          source: 'external',
+          mcpServer: {
+            command: 'node',
+            args: ['server.js'],
+            env: { API_KEY: 'old-secret', KEEP: 'yes' },
+          },
+        },
+      ],
+    });
+
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/capabilities/mcp/secret-mcp/env',
@@ -401,8 +418,10 @@ describe('capabilities MCP write routes', () => {
       payload: { env: { API_KEY: 'new-secret' } },
     });
 
-    assert.equal(res.statusCode, 403);
-    assert.match(JSON.parse(res.payload).error, /DEFAULT_OWNER_USER_ID/);
+    assert.equal(res.statusCode, 200, res.payload);
+    const config = await readCapabilitiesConfig(projectRoot);
+    const cap = config?.capabilities.find((entry) => entry.id === 'secret-mcp');
+    assert.deepEqual(cap?.mcpServer?.env, { API_KEY: 'new-secret', KEEP: 'yes' });
   });
 
   it('rejects malformed env patch payloads before touching config', async () => {

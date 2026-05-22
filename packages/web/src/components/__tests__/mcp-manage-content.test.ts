@@ -189,13 +189,13 @@ describe('McpManageContent', () => {
     expect(JSON.stringify(body)).not.toContain('••••••');
   });
 
-  it('shows owner fail-closed errors from MCP preview', async () => {
+  it('shows configured-owner errors from MCP preview', async () => {
     mockFetch.mockImplementation(async (url: string) => {
       if (url === '/api/capabilities/mcp/preview') {
         return {
           ok: false,
           status: 403,
-          json: async () => ({ error: 'Capability writes require DEFAULT_OWNER_USER_ID to be configured' }),
+          json: async () => ({ error: 'Capability writes can only be modified by the configured owner' }),
         };
       }
       return ITEMS_RESPONSE;
@@ -215,7 +215,8 @@ describe('McpManageContent', () => {
       buttonByText('预览').click();
     });
 
-    expect(container.textContent).toContain('DEFAULT_OWNER_USER_ID');
+    expect(container.textContent).toContain('configured owner');
+    expect(container.textContent).not.toContain('DEFAULT_OWNER_USER_ID');
   });
 
   it('keeps existing external MCP soft-delete behavior', async () => {

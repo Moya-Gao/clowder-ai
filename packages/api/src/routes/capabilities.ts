@@ -832,7 +832,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       reply.status(401);
       return { error: 'Identity required (session cookie)' };
     }
-    const ownerError = requireCapabilityWriteOwner(userId, { allowMissingOwner: true });
+    const ownerError = requireCapabilityWriteOwner(userId);
     if (ownerError) {
       reply.status(ownerError.status);
       return { error: ownerError.error };
