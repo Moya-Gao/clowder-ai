@@ -108,7 +108,7 @@ export function GithubConfigPanel() {
   const messageTone = message?.tone === 'success' ? 'success' : message?.tone === 'error' ? 'error' : 'info';
 
   return (
-    <div className="space-y-3 console-divider-t px-4 py-3">
+    <div className="space-y-3 px-4 py-3">
       <div className="space-y-1">
         <SettingsText as="p" variant="sm" tone="default" className="font-medium">
           GitHub Token
