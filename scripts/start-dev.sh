@@ -1283,7 +1283,7 @@ ensure_api_native_addons() {
 
     echo ""
     echo -e "${YELLOW}检测到 API native 依赖与当前 Node 不匹配，重建 better-sqlite3...${NC}"
-    run_logged_step "better-sqlite3 rebuild" 20 pnpm rebuild better-sqlite3
+    run_logged_step "better-sqlite3 rebuild" 20 pnpm -C "$PROJECT_DIR/packages/api" rebuild better-sqlite3
 
     if ! (cd "$PROJECT_DIR/packages/api" && node -e "require('better-sqlite3')" >/dev/null 2>&1); then
         echo -e "${RED}  ✗ better-sqlite3 重建后仍无法加载。请确认当前 Node 在 >=20 <26 范围内。${NC}" >&2

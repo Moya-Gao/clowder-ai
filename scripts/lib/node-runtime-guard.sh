@@ -7,6 +7,7 @@
 
 CAT_CAFE_NODE_MIN_MAJOR="${CAT_CAFE_NODE_MIN_MAJOR:-20}"
 CAT_CAFE_NODE_MAX_MAJOR_EXCLUSIVE="${CAT_CAFE_NODE_MAX_MAJOR_EXCLUSIVE:-26}"
+CAT_CAFE_NODE_PINNED_MAJOR="${CAT_CAFE_NODE_PINNED_MAJOR:-24}"
 CAT_CAFE_NODE_PREFERRED_MAJORS="${CAT_CAFE_NODE_PREFERRED_MAJORS:-24 25 22 20}"
 
 node_runtime_version() {
@@ -92,6 +93,21 @@ ensure_supported_node_runtime() {
   fi
 
   if [ -n "$current_node" ] && node_runtime_supported "$current_node"; then
+    if [ -n "$CAT_CAFE_NODE_PINNED_MAJOR" ] &&
+      [ "$current_major" != "$CAT_CAFE_NODE_PINNED_MAJOR" ] &&
+      [ "${CAT_CAFE_NODE_RUNTIME_GUARD_REEXEC:-0}" != "1" ]; then
+      local pinned_node pinned_dir pinned_version
+      if pinned_node="$(find_supported_node_runtime)"; then
+        pinned_dir="$(cd "$(dirname "$pinned_node")" && pwd -P)"
+        pinned_version="$(node_runtime_version "$pinned_node" || echo unknown)"
+        if [ -x "$pinned_node" ] && [ "$pinned_node" != "$current_node" ]; then
+          echo "[node-runtime] current Node ${current_version:-<missing>} is supported but Cat Cafe startup is pinned to Node ${CAT_CAFE_NODE_PINNED_MAJOR}; re-exec with $pinned_node ($pinned_version)" >&2
+          export PATH="$pinned_dir:$PATH"
+          export CAT_CAFE_NODE_RUNTIME_GUARD_REEXEC=1
+          exec bash "$script_path" "$@"
+        fi
+      fi
+    fi
     return 0
   fi
 

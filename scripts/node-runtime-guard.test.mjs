@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -94,7 +94,48 @@ find_supported_node_runtime
     );
 
     assert.equal(result.status, 0, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
-    assert.equal(result.stdout.trim(), expected);
+    assert.equal(realpathSync(result.stdout.trim()), realpathSync(expected));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('node runtime guard re-execs to pinned Node 24 when current Node 25 is otherwise supported', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'cat-cafe-node-guard-pin-'));
+  try {
+    fakeNode(join(tmp, 'current', 'bin'), '25.9.0');
+    const expected = fakeNode(join(tmp, 'brew', 'node@24', 'bin'), '24.16.0');
+    const brew = join(tmp, 'bin', 'brew');
+    const script = join(tmp, 'guarded-script.sh');
+    mkdirSync(join(tmp, 'bin'), { recursive: true });
+    writeFileSync(
+      brew,
+      `#!/bin/bash
+if [ "\${1:-}" = "--prefix" ] && [ "\${2:-}" = "node@24" ]; then
+  printf '%s\\n' "${join(tmp, 'brew', 'node@24')}"
+  exit 0
+fi
+exit 1
+`,
+      { mode: 0o755 },
+    );
+    writeFileSync(
+      script,
+      `#!/bin/bash
+source "${resolve(import.meta.dirname, '..')}/scripts/lib/node-runtime-guard.sh"
+ensure_supported_node_runtime "$0"
+command -v node
+`,
+      { mode: 0o755 },
+    );
+
+    const result = runBash(`"${script}"`, {
+      PATH: `${join(tmp, 'current', 'bin')}:${join(tmp, 'bin')}:${process.env.PATH ?? ''}`,
+    });
+
+    assert.equal(result.status, 0, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
+    assert.equal(realpathSync(result.stdout.trim()), realpathSync(expected));
+    assert.match(result.stderr, /pinned to Node 24/);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
