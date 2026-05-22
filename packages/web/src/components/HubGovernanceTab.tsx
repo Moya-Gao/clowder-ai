@@ -125,7 +125,7 @@ export function HubGovernanceTab() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-cafe-secondary">外部项目治理状态</h3>
-        <button type="button" onClick={fetchHealth} className="text-xs text-conn-blue-text hover:text-blue-700">
+        <button type="button" onClick={fetchHealth} className="text-xs px-2 py-1 rounded-lg bg-[var(--console-card-bg)] text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] hover:bg-[var(--console-hover-bg)]">
           刷新
         </button>
       </div>
@@ -167,7 +167,7 @@ export function HubGovernanceTab() {
                         type="button"
                         onClick={() => handleConfirm(p.projectPath)}
                         disabled={confirming === p.projectPath}
-                        className="text-xs px-2 py-1 rounded bg-conn-blue-text text-white hover:bg-conn-blue-hover disabled:opacity-50"
+                        className="text-xs px-2 py-1 rounded-lg bg-cafe-accent text-white hover:bg-cafe-interactive disabled:opacity-50"
                       >
                         {confirming === p.projectPath ? '同步中...' : '立即同步'}
                       </button>

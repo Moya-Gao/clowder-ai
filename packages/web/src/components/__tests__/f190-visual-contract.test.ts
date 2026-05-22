@@ -944,3 +944,66 @@ describe('F723 round 4.1 — deeper primitive convergence guard', () => {
     expect(src).not.toContain('shadow-[0_12px_30px');
   });
 });
+
+describe('F723 round 5 — ops tab/button convergence guard', () => {
+  it('OpsContent inactive tabs have hover background', () => {
+    const src = readSrc('settings/OpsContent.tsx');
+    expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
+  });
+
+  it('HubObservabilityTab sub-tabs: no blue pill, active uses console-active-bg + cafe-accent', () => {
+    const src = readSrc('HubObservabilityTab.tsx');
+    expect(src).not.toContain('bg-conn-blue-bg');
+    expect(src).not.toContain('text-blue-700');
+    expect(src).toContain('bg-[var(--console-active-bg)] text-cafe-accent');
+    expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
+  });
+
+  it('DailyUsageSection: no bg-gray-800 button, section uses rounded-xl + 0.04 shadow', () => {
+    const src = readSrc('DailyUsageSection.tsx');
+    expect(src).not.toContain('bg-gray-800');
+    expect(src).not.toContain('bg-gray-700');
+    expect(src).not.toContain('rounded-2xl');
+    expect(src).not.toContain('shadow-[0_12px_30px');
+    expect(src).toContain('rounded-xl');
+    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+  });
+
+  it('HubAgentSessionsTab refresh uses secondary button, not bg-cafe-surface', () => {
+    const src = readSrc('HubAgentSessionsTab.tsx');
+    expect(src).not.toMatch(/rounded bg-cafe-surface hover:bg-cafe-surface-hover/);
+    expect(src).toContain('console-card-bg');
+    expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
+  });
+
+  it('HubGovernanceTab: no blue refresh link, sync button uses cafe-accent', () => {
+    const src = readSrc('HubGovernanceTab.tsx');
+    expect(src).not.toContain('text-conn-blue-text hover:text-blue-700');
+    expect(src).not.toContain('bg-conn-blue-text');
+    expect(src).not.toContain('hover:bg-conn-blue-hover');
+    expect(src).toContain('bg-cafe-accent');
+    expect(src).toContain('hover:bg-cafe-interactive');
+  });
+
+  it('HubRoutingPolicyTab: no bg-blue-600 save, section uses rounded-xl + 0.04 shadow', () => {
+    const src = readSrc('HubRoutingPolicyTab.tsx');
+    expect(src).not.toContain('bg-blue-600');
+    expect(src).toContain('bg-cafe-accent');
+    expect(src).toContain('hover:bg-cafe-interactive');
+    expect(src).not.toContain('rounded-2xl');
+    expect(src).not.toContain('shadow-[0_12px_30px');
+    expect(src).toContain('rounded-xl');
+    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
+  });
+
+  it('BrakeSettingsPanel: no blue-600 toggle/slider, no indigo info text, card uses rounded-xl', () => {
+    const src = readSrc('BrakeSettingsPanel.tsx');
+    expect(src).not.toContain('bg-blue-600');
+    expect(src).not.toContain('accent-blue-600');
+    expect(src).not.toContain('text-indigo-600');
+    expect(src).toContain('bg-cafe-accent');
+    expect(src).toContain('accent-[var(--cafe-accent)]');
+    expect(src).toContain('text-cafe-accent');
+    expect(src).not.toMatch(/console-list-card rounded-2xl/);
+  });
+});

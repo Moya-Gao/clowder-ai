@@ -49,7 +49,7 @@ export function OpsContent() {
               className={`inline-flex items-center px-5 py-2.5 text-sm font-semibold transition-colors ${
                 isActive
                   ? 'border-b-2 border-[var(--console-button-emphasis)] text-[var(--console-button-emphasis)]'
-                  : 'text-cafe-muted hover:text-cafe-secondary'
+                  : 'text-cafe-muted hover:text-cafe-secondary hover:bg-[var(--console-hover-bg)]'
               }`}
             >
               {tab.label}

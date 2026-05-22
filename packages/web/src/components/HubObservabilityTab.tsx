@@ -63,7 +63,7 @@ export function HubObservabilityTab({ initialSubTab = 'overview', subTabNonce }:
             onClick={() => setSubTab(t)}
             data-guide-id={`observability.${t}`}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-              subTab === t ? 'bg-conn-blue-bg text-blue-700' : 'text-cafe-secondary hover:bg-cafe-surface-elevated'
+              subTab === t ? 'bg-[var(--console-active-bg)] text-cafe-accent' : 'text-cafe-secondary hover:bg-[var(--console-hover-bg)]'
             }`}
           >
             {SUB_TAB_LABELS[t]}

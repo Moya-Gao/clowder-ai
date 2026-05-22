@@ -87,14 +87,14 @@ export function DailyUsageSection() {
   const grandTotal = report?.grandTotal;
 
   return (
-    <section className="console-list-card rounded-2xl shadow-[0_12px_30px_rgba(43,33,26,0.08)] p-4 space-y-3">
+    <section className="console-list-card rounded-xl shadow-[0_8px_22px_rgba(43,33,26,0.04)] p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-cafe">近 7 日猫粮消耗</h3>
         <button
           type="button"
           onClick={() => fetchUsage(true)}
           disabled={loading}
-          className="px-3 py-1 text-xs rounded-md bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-50"
+          className="px-3 py-1 text-xs rounded-lg bg-[var(--console-card-bg)] text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] hover:bg-[var(--console-hover-bg)] disabled:opacity-50"
         >
           {loading ? '加载中...' : '刷新'}
         </button>
