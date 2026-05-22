@@ -8,7 +8,7 @@ created: 2026-05-21
 
 # F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤
 
-> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846; AC-B6 waits F208 consumer integration) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; AC-B6 waits F208 consumer integration) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -251,6 +251,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | 2026-05-22 | Phase A merged (PR #1842) — passage vectors + raw semantic / hybrid RRF recall + degraded/effectiveMode propagation + F200 fixtures |
 | 2026-05-22 | Phase B implementation branch opened — SQLite entity registry + deterministic alias expansion + entity mention index + F200 fixtures; AC-B6 left open for F208 consumer integration |
 | 2026-05-22 | Phase B merged (PR #1846) — entity registry + deterministic alias expansion + entity mention index + collection-safe redaction contract + F200 fixtures; AC-B6 remains open for F208 consumer integration |
+| 2026-05-22 | Phase B contract fix merged (PR #1851) — REST / MCP `search_evidence` now surfaces `entityMatches` explanation details for AC-B3 |
 
 ## Review Gate
 
