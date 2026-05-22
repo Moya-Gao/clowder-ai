@@ -149,7 +149,7 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 ### Phase E（Harness Eval Control Plane / Eval Hub）
 
 #### E-pilot（`eval:a2a`，无 UI）
-- [ ] AC-E1: Architecture Decision / Design Gate 明确 Phase E 不是新 F 号，而是 F192 的横切控制面升级；写清 eval 第一性原理、domain thread、legacy scheduled-task 迁移和 verdict handoff 契约
+- [x] AC-E1: Architecture Decision / Design Gate 明确 Phase E 不是新 F 号，而是 F192 的横切控制面升级；写清 eval 第一性原理、domain thread、legacy scheduled-task 迁移和 verdict handoff 契约
 - [ ] AC-E2: Eval Domain Registry v0 定义 `eval:a2a` 最小 schema（domain id、system thread id、eval cat invocation policy、frequency、source adapter、legacy scheduled-task ids、handoff target resolver、SLA）
 - [ ] AC-E3: Verdict Handoff Packet schema 落地，字段至少含 phenomenon、harness under eval、evidence packet、daily trend、root-cause hypothesis、verdict、owner ask、acceptance / re-eval plan、counterarguments；缺字段不得 cross-thread handoff
 - [ ] AC-E4: `eval:a2a` domain thread bootstrap：thread 只承载 A2A eval 长期分析；状态 / verdict / trend SOT 在 registry，不在 thread 文本
@@ -243,12 +243,12 @@ Based on the first micro fit digest (2026-05-11):
 | OQ-3 | skill/SOP step telemetry 怎么捕获？ | ⬜ Phase D 探索 |
 | OQ-4 | 跨猫 session 403 如何处理？三个方案：(A) Service token (B) ADR-032 export 层 (C) Push-based | ⬜ Phase C 先走 aggregate 脱敏不阻塞；Phase D 解决 |
 | OQ-5 | Daily snapshot 存储格式：markdown（可被 search_evidence 索引）vs SQLite（查询效率） | ⬜ Phase D 定 |
-| OQ-6 | Eval Domain Registry 真相源放 SQLite、docs registry 还是 hybrid？ | ⬜ Phase E Design Gate |
+| OQ-6 | Eval Domain Registry 真相源放 SQLite、docs registry 还是 hybrid？ | ✅ E-pilot: docs-backed registry + generated JSON/YAML snapshots；E-hub 可加 SQLite read model |
 | OQ-7 | Eval Hub 首屏是在 Console 独立页面，还是挂到现有 Health / Observability 区域？ | ⬜ Phase E Design Gate（需 design-in-context） |
-| OQ-8 | delete/sunset verdict 的签字门槛：哪些可以 eval 猫自决，哪些必须 CVO accept？ | ⬜ Phase E Design Gate |
-| OQ-9 | 旧 scheduled task 的 disable / redirect 如何可逆，避免迁移失败后丢报告？ | ⬜ Phase E Design Gate |
+| OQ-8 | delete/sunset verdict 的签字门槛：哪些可以 eval 猫自决，哪些必须 CVO accept？ | ✅ 高影响 delete/sunset 默认 requires CVO accept；fix/build/keep_observe 可由 eval owner + feature owner 闭环 |
+| OQ-9 | 旧 scheduled task 的 disable / redirect 如何可逆，避免迁移失败后丢报告？ | ✅ E-pilot: inventory → dry-run report → redirect/disable with rollback record；无 dry-run 不切 |
 | OQ-10 | 社区 issue packet 的脱敏边界和上游接收格式是什么？ | ⬜ Phase E Design Gate |
-| OQ-11 | eval 猫 invocation 模型：统一 scheduled task 如何唤醒指定 eval 猫进入对应 domain thread，并加载纵向上下文做 day-over-day analysis？ | ⬜ E-pilot Design Gate |
+| OQ-11 | eval 猫 invocation 模型：统一 scheduled task 如何唤醒指定 eval 猫进入对应 domain thread，并加载纵向上下文做 day-over-day analysis？ | ✅ E-pilot: AC-E5 mandates unified scheduled invocation packet for `eval:a2a` |
 | OQ-12 | Eval Hub 与 F188 Health Dashboard / badge 的关系：吸收、替代还是共存？ | ⬜ E-hub/E-scale Design Gate |
 
 ## Key Decisions
@@ -284,6 +284,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-21 | P1 fix: C2 semantic misclassification merged (PR #1816) — verdict_without_pass/void_hold moved from activationCounts to frictionCounts |
 | 2026-05-21 | Phase E kickoff — Harness Eval Control Plane / Eval Hub；CVO 明确 eval 第一性目标 = harness delete/build/fix/keep verdict + structured handoff + legacy scheduled-task cleanup |
 | 2026-05-21 | Owner Design Gate R1 — 宪宪/Opus-47 endorse 架构核，要求 Phase E sub-sequence：E-pilot → E-hub → E-scale → E-community；补 eval cat invocation 和 F188 Health overlap OQ |
+| 2026-05-21 | Phase E Design Gate passed — owner review verified E-pilot sequencing, Verdict Handoff Packet contract, eval-cat invocation primitive, and F188 Health boundary guard；AC-E1 complete |
 
 ## Review Gate
 
