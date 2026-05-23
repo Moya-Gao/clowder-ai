@@ -29,11 +29,12 @@ Before F210, Cat Cafe invoked Siamese through `GeminiAgentService` with `GEMINI_
 | Antigravity CLI install is a native binary bootstrapper, not an npm package | `https://antigravity.google/cli/install.sh`, fetched 2026-05-22 | Existing npm packaging/offline install scripts need a different path |
 | The installed binary name is `agy` | Official installer script sets `BINARY_PATH="$TARGET_DIR/agy"` | Do not write migration code assuming `antigravity` or `@google/antigravity-cli` |
 | `antigravity` and `agy` are different binary surfaces | Current Desktop adapter spawns `antigravity chat --mode agent`; official CLI installer writes `agy` | Treat `antigravity` as Desktop app CLI entry and `agy` as the standalone Antigravity CLI carrier |
-| Local machine currently has Gemini CLI `0.38.2`; `agy` is not installed | `gemini --version`; `command -v agy` | Phase A must install/probe before code migration |
+| Phase A started with Gemini CLI `0.38.2` and no global `agy`; Phase G installed global `agy 1.0.1` and local Gemini CLI is now `0.42.0` | Phase A recon; `docs/features/assets/F210/phase-g-acp-probe-2026-05-23.md` | The default runtime can now find `agy`, but model/profile routing still needs a deterministic selector contract |
 | Existing Cat Cafe `antigravity` adapter is Desktop/MCP callback, not Antigravity CLI | `GeminiAgentService.invokeAntigravity()` spawns `antigravity chat --mode agent` detached and requires `callbackEnv` | Add a distinct `antigravity-cli` adapter; avoid reusing the ambiguous old name |
 | Antigravity reasoning models include Gemini 3.1 Pro (high/low), Gemini 3 Flash, Claude Sonnet 4.6 (thinking), Claude Opus 4.6 (thinking), and GPT-OSS-120b | `https://antigravity.google/docs/models`, fetched 2026-05-23 | Multi-model targets are real product surfaces, but Cat Cafe still needs a deterministic model-selection contract before exposing per-cat AGY profiles |
 | Antigravity CLI exposes `/model` as an interactive persistent configuration command | `https://antigravity.google/docs/cli-features`, fetched 2026-05-23 | A sticky default model is not the same as a per-invocation `--model` flag; do not claim per-cat isolation until settings behavior is verified |
 | Antigravity pricing currently lists Gemini 3.5 Flash access | `https://antigravity.google/pricing`, fetched 2026-05-23 | Treat `gemini-3.5-flash` as a desired profile pending exact selector/settings id verification |
+| Gemini CLI exposes ACP (`gemini --acp`), but AGY CLI `1.0.1` does not expose a supported/documented ACP server mode | `gemini --help`; `agy --help`; `agy help acp`; `docs/features/assets/F210/phase-g-acp-probe-2026-05-23.md` | If AGY later ships ACP, prefer that route; until then do not swap `agy` into `GeminiAcpAdapter` or claim `/model` is programmatically controllable |
 
 ## Scope
 
@@ -120,6 +121,7 @@ Offline packaging must explicitly decide whether to vendor the native `agy` bina
 Add deterministic Cat Cafe profiles for Antigravity CLI only after the model-selection surface is verified.
 
 - Minimum target profile set: Claude Opus 4.6 (thinking), Gemini 3.1 Pro, and Gemini 3.5 Flash.
+- Prefer an ACP-based integration if AGY adds a supported ACP server mode, because Gemini ACP already gives Cat Cafe a programmatic session/model/tool lifecycle.
 - Verify whether `~/.gemini/antigravity-cli/settings.json`, `/model`, statusline metadata, or another supported surface exposes stable model ids.
 - Prove profile isolation before adding user-facing cats: one Cat Cafe invocation must not silently inherit another profile's sticky AGY default.
 - If AGY remains sticky/global without a per-invocation override, expose a preflight/onboarding warning instead of pretending per-cat model routing is deterministic.
@@ -219,6 +221,8 @@ The default route is now `antigravity-cli` when neither constructor options nor 
 
 Phase G starts from the current constraint: `GeminiAgentService.invokeAntigravityCLI()` intentionally reports `model: account-selected (antigravity-cli)` and emits `antigravity_cli_model_override_unsupported` when a Cat Cafe model override is requested. This is correct until a stable model id/config contract is proven. The immediate runtime update after PR #1863 only switches Siamese's default carrier to AGY; it does not yet mean Opus/Gemini profile routing is deterministic.
 
+Phase G ACP probe source: `docs/features/assets/F210/phase-g-acp-probe-2026-05-23.md`. Current result: `agy 1.0.1` is globally installed and `agy --print` works, but AGY does not expose a supported/documented ACP server mode. Gemini CLI `0.42.0` still exposes `--acp`, `--model`, and `stream-json`; AGY exposes interactive `/model` instead. Do not route AGY through `GeminiAcpAdapter` unless a future AGY release adds a compatible ACP surface.
+
 ## Dependencies
 
 - **Evolved from**: F053（Gemini session resume behavior must be revalidated under `agy`）
@@ -244,6 +248,7 @@ Phase G starts from the current constraint: `GeminiAgentService.invokeAntigravit
 | `agy --print-timeout` can emit timeout on stdout and exit 0 | Classify timeout/error text or logs explicitly; exit code alone is not a success signal |
 | `agy --print` may load user/global MCP servers that compete with Cat Cafe-injected MCP servers | Phase B must choose an MCP isolation policy before enabling tool use: disable/override if AGY exposes a supported control, or run with a documented compatibility matrix for shared servers |
 | AGY model selection is sticky/global rather than per invocation | Phase G must verify settings isolation or fail closed with preflight diagnostics; never expose Opus/Gemini AGY cats that silently inherit another profile's selected model |
+| Treating AGY `/model` as equivalent to Gemini ACP `unstable_setSessionModel` would create false per-cat isolation | Phase G ACP probe confirms AGY 1.0.1 has no supported ACP server mode; only use ACP semantics after AGY exposes a compatible server surface |
 
 ## Open Questions
 
@@ -255,6 +260,7 @@ Phase G starts from the current constraint: `GeminiAgentService.invokeAntigravit
 | OQ-4 | What is the correct Windows install / binary path? | Answered — source and desktop installers resolve `%LOCALAPPDATA%\agy\bin\agy.exe`, matching Phase D packaging verification |
 | OQ-5 | Should the old `antigravity` adapter be renamed in env values or kept as legacy alias only? | Answered — legacy `antigravity` remains the Desktop/MCP callback adapter; `antigravity-cli` is the new headless `agy` adapter name (KD-3) |
 | OQ-6 | What exact AGY selector ids map to Opus, Gemini 3.1 Pro, and Gemini 3.5 Flash? | Open — official docs name the product models, but Cat Cafe needs exact config/statusline ids before wiring profiles |
+| OQ-7 | Can AGY reuse Cat Cafe's existing Gemini ACP adapter? | Answered no for AGY `1.0.1` — no supported/documented `agy --acp` or ACP subcommand exists; keep plain-text adapter until AGY exposes ACP or an equivalent programmatic lifecycle |
 
 ## Key Decisions
 
@@ -268,6 +274,7 @@ Phase G starts from the current constraint: `GeminiAgentService.invokeAntigravit
 | KD-6 | `agy` subprocess output support is a blocking Phase A question | Antigravity Desktop harness differs materially from Gemini CLI stream-json; implementation strategy depends on this answer | 2026-05-22 |
 | KD-7 | Phase B prototype may start only with explicit model preflight/onboarding and timeout classification | `agy --print` can now succeed, but model selection is account-side rather than CLI/env controlled, and timeouts can exit 0 | 2026-05-22 |
 | KD-8 | Runtime may update after Phase F, but AGY multi-model profiles remain Phase G | PR #1863 safely switches the default carrier; Opus/Gemini 3.1 Pro/Gemini 3.5 Flash require model-selection verification before user-facing routing | 2026-05-23 |
+| KD-9 | Prefer AGY ACP only if AGY ships a compatible server mode | Gemini CLI ACP has the lifecycle Cat Cafe wants, but AGY 1.0.1 does not expose that surface; swapping `command: "agy"` into the ACP pool would be a false integration | 2026-05-23 |
 
 ## Timeline
 
@@ -284,6 +291,7 @@ Phase G starts from the current constraint: `GeminiAgentService.invokeAntigravit
 | 2026-05-23 | Phase E E2E smoke merged via PR #1861：`GEMINI_ADAPTER=antigravity-cli` routes Siamese through Cat Cafe and returns `CAT_CAFE_AGY_E2E_OK`; wiring tests keep explicit `gemini-cli` fallback; default stayed unchanged at that point until the Phase F default-switch review |
 | 2026-05-23 | Phase F docs/default switch merged via PR #1863：default Siamese adapter is now `antigravity-cli`; README/env/architecture docs synced; explicit `gemini-cli` fallback and legacy Desktop `antigravity` adapter preserved |
 | 2026-05-23 | CVO scope add: Phase G will verify AGY multi-model profiles for Opus, Gemini 3.1 Pro, and Gemini 3.5 Flash before exposing deterministic Cat Cafe routing |
+| 2026-05-23 | Phase G ACP probe：global `agy 1.0.1` installed and `agy --print` smoke passed; Gemini CLI exposes `--acp`, but AGY does not expose supported/documented ACP, so Phase G cannot close deterministic Opus/Gemini profile routing through ACP |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |
@@ -304,6 +312,7 @@ Phase G starts from the current constraint: `GeminiAgentService.invokeAntigravit
 | Official | https://antigravity.google/docs/cli-features | AGY CLI `/model`, settings, MCP, sandbox, and statusline docs; fetched 2026-05-23 |
 | Official | https://antigravity.google/pricing | Antigravity plan model-access list including Gemini 3.5 Flash; fetched 2026-05-23 |
 | Recon | `docs/features/assets/F210/phase-a-recon-2026-05-22.md` | Phase A `agy 1.0.1` facts and fixture index |
+| Recon | `docs/features/assets/F210/phase-g-acp-probe-2026-05-23.md` | Phase G global install, ACP absence, and AGY print smoke evidence |
 | Fixture | `docs/features/assets/F210/agy-help.txt` / `agy-unsupported-flags.txt` / `agy-print-auth-required.txt` / `agy-real-home-no-default-model.txt` | Raw CLI evidence, sanitized |
 | Code | `packages/api/src/domains/cats/services/agents/providers/GeminiAgentService.ts` | Current Gemini CLI and Desktop adapter split |
 | Code | `packages/api/src/utils/cli-resolve.ts` | CLI install hints |
