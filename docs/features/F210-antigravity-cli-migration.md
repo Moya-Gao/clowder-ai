@@ -124,6 +124,8 @@ Add deterministic Cat Cafe profiles for Antigravity CLI only after the model-sel
 - Minimum target profile set: Claude Opus 4.6 (thinking), Gemini 3.1 Pro, and Gemini 3.5 Flash.
 - Prefer an ACP-based integration if AGY adds a supported ACP server mode, because Gemini ACP already gives Cat Cafe a programmatic session/model/tool lifecycle.
 - Verify whether `~/.gemini/antigravity-cli/settings.json`, `/model`, statusline metadata, or another supported surface exposes stable model ids.
+- Verify Cat Cafe can run AGY with auto-approval (`--dangerously-skip-permissions`, the AGY equivalent of yolo) for unattended agent turns. Human approval prompts are not a viable runtime boundary for Cat Cafe cats executing scripts.
+- Verify per-cat profile sandboxing: each logical AGY cat must have isolated HOME / AGY config state, model setting, trusted worktree, MCP config, and permission posture before Cat Cafe exposes multiple AGY profiles.
 - Prove profile isolation before adding user-facing cats: one Cat Cafe invocation must not silently inherit another profile's sticky AGY default.
 - If AGY remains sticky/global without a per-invocation override, expose a preflight/onboarding warning instead of pretending per-cat model routing is deterministic.
 
@@ -137,6 +139,7 @@ Add deterministic Cat Cafe profiles for Antigravity CLI only after the model-sel
 | R4 | 现有 `antigravity` adapter 名称会和新 CLI 混淆 | AC-B1, AC-B2 | adapter unit tests | [x] |
 | R5 | 不要把企业例外/旧 fallback 写没 | AC-E2, AC-E4 | fallback tests + docs | [x] |
 | R6 | “antigravity-cli 至少要接入 Opus / Gemini 3.1 Pro / 3.5 Flash” | AC-G1, AC-G2, AC-G3 | official model docs + local AGY settings/probe + E2E smoke per profile | [ ] |
+| R7 | “AGY 也得开 yolo；隔离不同猫要验证 HOME/AGY config sandbox，并给 worktree 权限” | AC-G4, AC-G5 | profile-sandbox smoke with `--dangerously-skip-permissions`, isolated settings/MCP/trusted workspace, and worktree access probe | [ ] |
 
 ### 覆盖检查
 
@@ -219,10 +222,14 @@ The non-ACP `GeminiAgentService` default route is now `antigravity-cli` when nei
 - [ ] AC-G1: Spec/recon records official Antigravity reasoning model availability and the exact AGY model-selection storage surface.
 - [ ] AC-G2: Cat Cafe can select or verify at least Claude Opus 4.6 (thinking), Gemini 3.1 Pro, and Gemini 3.5 Flash without cross-cat sticky-state bleed.
 - [ ] AC-G3: Runtime preflight reports a clear actionable warning when AGY is missing, no default model is selected, or requested profile selection cannot be verified.
+- [ ] AC-G4: Cat Cafe AGY invocations run with an explicit auto-approval policy (`--dangerously-skip-permissions`) only inside an isolated AGY profile sandbox; no unattended runtime path may depend on interactive permission prompts.
+- [ ] AC-G5: Profile-sandbox smoke proves each AGY profile can access its assigned worktree and MCP config while keeping `~/.gemini/antigravity-cli/settings.json` / `trustedWorkspaces` / permissions isolated from other profiles.
 
 Phase G starts from the current constraint: `GeminiAgentService.invokeAntigravityCLI()` intentionally reports `model: account-selected (antigravity-cli)` and emits `antigravity_cli_model_override_unsupported` when a Cat Cafe model override is requested. This is correct until a stable model id/config contract is proven. The immediate runtime update after PR #1863 only switches the non-ACP Google service default to AGY; it does not move catalog ACP cats off `gemini --acp`, and it does not mean Opus/Gemini profile routing is deterministic.
 
-Phase G ACP probe source: `docs/features/assets/F210/phase-g-acp-probe-2026-05-23.md`. Current result: `agy 1.0.1` is globally installed and `agy --print` works, but AGY does not expose a supported/documented ACP server mode. Gemini CLI `0.42.0` still exposes `--acp`, `--model`, and `stream-json`; AGY exposes interactive `/model` instead. Do not route AGY through `GeminiAcpAdapter` unless a future AGY release adds a compatible ACP surface.
+Phase G ACP probe source: `docs/features/assets/F210/phase-g-acp-probe-2026-05-23.md`. Current result: `agy 1.0.1` is globally installed and `agy --print` works, but AGY does not expose a supported/documented ACP server mode. Gemini CLI `0.42.0` still exposes `--acp`, `--model`, and `stream-json`; AGY exposes interactive `/model` plus persistent `~/.gemini/antigravity-cli/settings.json` model selection instead. Do not route AGY through `GeminiAcpAdapter` unless a future AGY release adds a compatible ACP surface.
+
+Phase G must treat approval policy and model isolation as the same design surface: `--dangerously-skip-permissions` is required for unattended Cat Cafe operation, but it is only acceptable after the invocation is confined to a per-cat AGY profile sandbox with explicit worktree/MCP access. A shared global HOME with a shared `settings.json` would couple model choice, workspace trust, and permission posture across cats, so it is not a valid multi-profile architecture.
 
 ## Dependencies
 
@@ -250,6 +257,8 @@ Phase G ACP probe source: `docs/features/assets/F210/phase-g-acp-probe-2026-05-2
 | `agy --print` may load user/global MCP servers that compete with Cat Cafe-injected MCP servers | Phase B must choose an MCP isolation policy before enabling tool use: disable/override if AGY exposes a supported control, or run with a documented compatibility matrix for shared servers |
 | AGY model selection is sticky/global rather than per invocation | Phase G must verify settings isolation or fail closed with preflight diagnostics; never expose Opus/Gemini AGY cats that silently inherit another profile's selected model |
 | Treating AGY `/model` as equivalent to Gemini ACP `unstable_setSessionModel` would create false per-cat isolation | Phase G ACP probe confirms AGY 1.0.1 has no supported ACP server mode; only use ACP semantics after AGY exposes a compatible server surface |
+| AGY interactive permission prompts block unattended Cat Cafe turns and train users to approve unread scripts | Phase G requires `--dangerously-skip-permissions` for AGY runtime paths, paired with profile sandboxing and explicit worktree/MCP scoping |
+| Isolating HOME/AGY config may accidentally remove trusted workspace or MCP access | Profile-sandbox smoke must prove `trustedWorkspaces`, MCP config, and assigned worktree access are present for each cat profile before enabling it |
 
 ## Open Questions
 
@@ -262,6 +271,8 @@ Phase G ACP probe source: `docs/features/assets/F210/phase-g-acp-probe-2026-05-2
 | OQ-5 | Should the old `antigravity` adapter be renamed in env values or kept as legacy alias only? | Answered — legacy `antigravity` remains the Desktop/MCP callback adapter; `antigravity-cli` is the new headless `agy` adapter name (KD-3) |
 | OQ-6 | What exact AGY selector ids map to Opus, Gemini 3.1 Pro, and Gemini 3.5 Flash? | Open — official docs name the product models, but Cat Cafe needs exact config/statusline ids before wiring profiles |
 | OQ-7 | Can AGY reuse Cat Cafe's existing Gemini ACP adapter? | Answered no for AGY `1.0.1` — no supported/documented `agy --acp` or ACP subcommand exists; keep plain-text adapter until AGY exposes ACP or an equivalent programmatic lifecycle |
+| OQ-8 | Can Cat Cafe isolate AGY profiles by HOME / `~/.gemini/antigravity-cli` config while preserving auth, model selection, trusted worktree, and MCP access? | Open — required for Opus/Gemini multi-profile routing; must be proven before user-facing cats |
+| OQ-9 | What is the minimum safe AGY permission posture for unattended runtime calls? | Open policy detail — CVO direction is yolo/auto-approve for usability, implemented as `--dangerously-skip-permissions` only inside a scoped profile sandbox |
 
 ## Key Decisions
 
@@ -277,6 +288,7 @@ Phase G ACP probe source: `docs/features/assets/F210/phase-g-acp-probe-2026-05-2
 | KD-8 | Runtime may update after Phase F, but AGY multi-model profiles remain Phase G | PR #1863 safely switches the default carrier; Opus/Gemini 3.1 Pro/Gemini 3.5 Flash require model-selection verification before user-facing routing | 2026-05-23 |
 | KD-9 | Prefer AGY ACP only if AGY ships a compatible server mode | Gemini CLI ACP has the lifecycle Cat Cafe wants, but AGY 1.0.1 does not expose that surface; swapping `command: "agy"` into the ACP pool would be a false integration | 2026-05-23 |
 | KD-10 | ACP catalog precedence is a separate routing layer from `GEMINI_ADAPTER` | `index.ts` instantiates `GeminiAcpAdapter` before falling back to `GeminiAgentService`; adapter defaults do not affect existing ACP cats | 2026-05-23 |
+| KD-11 | AGY yolo is required but must be sandbox-scoped | Interactive approval prompts are unusable for Cat Cafe agent turns; auto-approval is acceptable only when HOME/config, worktree, MCP, and model profile isolation are proven | 2026-05-23 |
 
 ## Timeline
 
@@ -295,6 +307,7 @@ Phase G ACP probe source: `docs/features/assets/F210/phase-g-acp-probe-2026-05-2
 | 2026-05-23 | CVO scope add: Phase G will verify AGY multi-model profiles for Opus, Gemini 3.1 Pro, and Gemini 3.5 Flash before exposing deterministic Cat Cafe routing |
 | 2026-05-23 | Phase G ACP probe：global `agy 1.0.1` installed and `agy --print` smoke passed; Gemini CLI exposes `--acp`, but AGY does not expose supported/documented ACP, so Phase G cannot close deterministic Opus/Gemini profile routing through ACP |
 | 2026-05-23 | Runtime correction：alpha start on `8cdc573bd` confirmed Gemini ACP pool still initializes from catalog `acp` config; the AGY default does not replace existing `gemini --acp` cats |
+| 2026-05-23 | CVO scope add: AGY Cat Cafe runtime must use yolo/auto-approval and must validate HOME/AGY config profile sandboxing with worktree/MCP permissions before multi-cat exposure |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |

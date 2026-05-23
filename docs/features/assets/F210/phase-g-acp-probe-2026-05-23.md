@@ -33,6 +33,10 @@ PATH="$HOME/.local/bin:$PATH" agy \
   --dangerously-skip-permissions \
   --add-dir /Users/lysander/projects/relay-station/cat-cafe-f210-agy-acp-probe \
   --print "Reply exactly: CAT_CAFE_AGY_GLOBAL_OK"
+jq "." ~/.gemini/antigravity-cli/settings.json
+find ~/.gemini/antigravity-cli -maxdepth 2 -type f \
+  \( -name "*.json" -o -name "*.toml" -o -name "*.yaml" -o -name "*.yml" \) \
+  -not -path "*/mcp/*"
 ```
 
 ## Findings
@@ -45,6 +49,9 @@ PATH="$HOME/.local/bin:$PATH" agy \
 | Can AGY headless print work from the global install? | Yes. A global-install smoke returned exactly `CAT_CAFE_AGY_GLOBAL_OK`. | `/tmp/cat-cafe-f210-global-agy-smoke.log` plus stdout |
 | Which model did the global smoke use? | Account-side sticky selection resolved to `Gemini 3.5 Flash (Medium)`. No local per-invocation model flag was used. | Redacted AGY log line: `Propagating selected model override to backend: label="Gemini 3.5 Flash (Medium)"` |
 | Does the AGY adapter replace current catalog ACP cats? | No. `packages/api/src/index.ts` checks `getAcpConfig(id)` first and instantiates `GeminiAcpAdapter`; only configs without `acp` fall back to `GeminiAgentService` and its `GEMINI_ADAPTER` default. | `packages/api/src/index.ts`; alpha start logs |
+| Where does AGY persist interactive model/depth selection? | `~/.gemini/antigravity-cli/settings.json` appears after interactive `/model` use and contains a string `model` value such as `Gemini 3.5 Flash (High)`, plus `trustedWorkspaces`, `statusLine`, theme, and telemetry keys. | Local `jq` inspection after CVO interactive AGY session |
+| What is the AGY auto-approval control? | The only verified CLI-level yolo equivalent is `--dangerously-skip-permissions`. It must be explicit for unattended Cat Cafe runtime calls; relying on interactive approvals makes agent turns unusable and trains users to approve unread scripts. | `agy --help`; CVO runtime observation 2026-05-23 |
+| What does profile sandboxing need to preserve? | A per-cat sandbox must carry isolated `settings.json` model/depth, `trustedWorkspaces`, MCP config, and worktree access. Isolating HOME/config without granting the assigned worktree or MCP servers would make AGY unable to operate. | CVO runtime observation; local config layout |
 
 ## Decision
 
@@ -59,4 +66,6 @@ AGY CLI `1.0.1` does not currently expose that supported mode. Therefore F210 mu
   1. AGY exposes a supported ACP server mode with session model control.
   2. AGY exposes a documented per-invocation model flag.
   3. AGY exposes a stable settings/statusline model id that Cat Cafe can isolate per invocation or per profile.
+- The current best lead is profile sandboxing around `~/.gemini/antigravity-cli/settings.json`, not a CLI flag. Phase G must validate whether a per-cat HOME / AGY config root can isolate model choice while preserving auth, `trustedWorkspaces`, MCP config, and worktree access.
+- Cat Cafe AGY runtime should use `--dangerously-skip-permissions` inside that sandbox. The permission model should move from human popup approval to environment scoping, because users cannot realistically review every script an agent asks to execute.
 - If the only available surface remains interactive `/model`, Phase G should ship preflight/onboarding diagnostics rather than user-facing multi-profile cats.
