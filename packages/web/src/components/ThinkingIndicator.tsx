@@ -1,6 +1,7 @@
 'use client';
 
 import { useCatData } from '@/hooks/useCatData';
+import { useThreadLiveness } from '@/hooks/useThreadScopedSelectors';
 import type { CatStatusType, LivenessWarningSnapshot } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 
@@ -70,7 +71,8 @@ function SquareIcon({ className }: { className?: string }) {
 }
 
 interface ThinkingIndicatorProps {
-  onCancel?: (threadId: string) => void;
+  onCancel?: (threadId: string, catId?: string) => void;
+  threadId?: string;
 }
 
 /**
@@ -78,21 +80,35 @@ interface ThinkingIndicatorProps {
  * Shows a simple banner when only one cat is being invoked (execute mode).
  * F118 Phase C: Extended with liveness warning states.
  */
-export function ThinkingIndicator({ onCancel }: ThinkingIndicatorProps = {}) {
-  const targetCats = useChatStore((s) => s.targetCats);
-  const catStatuses = useChatStore((s) => s.catStatuses);
-  const catInvocations = useChatStore((s) => s.catInvocations);
+export function ThinkingIndicator({ onCancel, threadId }: ThinkingIndicatorProps) {
   const currentThreadId = useChatStore((s) => s.currentThreadId);
+  const effectiveThreadId = threadId ?? currentThreadId;
+  const { targetCats, catStatuses, catInvocations, activeInvocations } = useThreadLiveness(effectiveThreadId);
   const { getCatById } = useCatData();
 
-  if (targetCats.length !== 1) return null;
-  const catId = targetCats[0];
+  // Derive display+cancel target from the same truth source (activeInvocations)
+  // to avoid "显示 A、取消 B" when targetCats is stale.
+  const slots = Object.values(activeInvocations ?? {});
+  const catId = slots.length === 1 ? slots[0]?.catId : targetCats.length === 1 ? targetCats[0] : undefined;
+  if (!catId) return null;
   const status: CatStatusType = catStatuses[catId] ?? 'pending';
   if (status === 'done') return null;
 
   const catData = getCatById(catId);
   const name = catData?.displayName ?? catId;
   const warning: LivenessWarningSnapshot | undefined = catInvocations?.[catId]?.livenessWarning;
+
+  // F118 D2: spawning — CLI not yet connected, earliest signal
+  if (status === 'spawning') {
+    return (
+      <div className="px-5 py-2 border-b border-cafe bg-cafe-surface-elevated">
+        <div className="flex items-center gap-2">
+          <span className="text-sm leading-none animate-pulse">🐾</span>
+          <span className="text-sm text-cafe-secondary">{name} 启动中...</span>
+        </div>
+      </div>
+    );
+  }
 
   // F118: alive_but_silent — amber warning banner
   if (status === 'alive_but_silent' && warning) {
@@ -106,7 +122,7 @@ export function ThinkingIndicator({ onCancel }: ThinkingIndicatorProps = {}) {
         <div className="flex items-center gap-2.5">
           <TimerIcon className="w-4 h-4 animate-pulse" style={{ color: '#D4A64A' }} />
           <div className="flex flex-col gap-0.5">
-            <span className="text-[13px] font-semibold" style={{ color: '#1A1918' }}>
+            <span className="text-sm font-semibold" style={{ color: '#1A1918' }}>
               {name} 静默等待中… {elapsed}
             </span>
             <span className="text-xs" style={{ color: '#6D6C6A' }}>
@@ -133,7 +149,7 @@ export function ThinkingIndicator({ onCancel }: ThinkingIndicatorProps = {}) {
           <div className="flex items-center gap-2.5 min-w-0">
             <TriangleAlertIcon className="w-4 h-4 flex-shrink-0" style={{ color: '#D08068' }} />
             <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-[13px] font-semibold" style={{ color: '#1A1918' }}>
+              <span className="text-sm font-semibold" style={{ color: '#1A1918' }}>
                 {name} 可能卡住了 — {elapsed} 无输出
               </span>
               <span className="text-xs" style={{ color: '#6D6C6A' }}>
@@ -143,11 +159,12 @@ export function ThinkingIndicator({ onCancel }: ThinkingIndicatorProps = {}) {
               </span>
             </div>
           </div>
-          {onCancel && currentThreadId && (
+          {onCancel && effectiveThreadId && (
             <button
+              type="button"
               data-testid="cancel-btn"
-              onClick={() => onCancel(currentThreadId)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-[13px] font-semibold text-white flex-shrink-0 transition-opacity hover:opacity-90"
+              onClick={() => onCancel(effectiveThreadId, catId)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white flex-shrink-0 transition-opacity hover:opacity-90"
               style={{ backgroundColor: '#D08068' }}
             >
               <SquareIcon className="w-3.5 h-3.5" />
@@ -161,10 +178,10 @@ export function ThinkingIndicator({ onCancel }: ThinkingIndicatorProps = {}) {
 
   // Default: normal thinking/streaming indicator
   return (
-    <div className="px-5 py-2 border-b border-gray-200 bg-gray-50">
+    <div className="px-5 py-2 border-b border-cafe bg-cafe-surface-elevated">
       <div className="flex items-center gap-2">
-        <span className="text-sm animate-pulse">🐾</span>
-        <span className="text-sm text-gray-500">
+        <span className="text-sm leading-none animate-pulse">🐾</span>
+        <span className="text-sm text-cafe-secondary">
           {name}
           {status === 'streaming' ? '回复中...' : '思考中...'}
         </span>

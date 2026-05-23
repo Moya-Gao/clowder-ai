@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/index.js';
 import type { PortDiscoveryService } from '../domains/preview/port-discovery.js';
 import { validatePort } from '../domains/preview/port-validator.js';
+import { getDefaultUploadDir } from '../utils/upload-paths.js';
 
 interface PreviewRouteOpts {
   portDiscovery: PortDiscoveryService;
@@ -17,9 +18,10 @@ interface PreviewRouteOpts {
 export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, opts) => {
   const { portDiscovery, gatewayPort, runtimePorts } = opts;
   const auditLog = getEventAuditLog();
+  const gatewayAvailable = gatewayPort > 0;
 
   app.get('/api/preview/status', async () => {
-    return { available: true, gatewayPort };
+    return { available: gatewayAvailable, gatewayPort };
   });
 
   app.post<{ Body: { port: number; host?: string } }>('/api/preview/validate-port', async (req) => {
@@ -43,6 +45,9 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, o
 
   // P1-3: Consolidated audit endpoints for preview lifecycle
   app.post<{ Body: { port: number; host?: string; threadId?: string } }>('/api/preview/open', async (req) => {
+    if (!gatewayAvailable) {
+      return { allowed: false, reason: 'Preview gateway unavailable' };
+    }
     const { port, host, threadId } = req.body;
     const result = validatePort(port, { host, gatewaySelfPort: gatewayPort, runtimePorts });
     if (result.allowed) {
@@ -88,6 +93,9 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, o
   app.post<{ Body: { port: number; path?: string; threadId?: string; worktreeId?: string } }>(
     '/api/preview/auto-open',
     async (req) => {
+      if (!gatewayAvailable) {
+        return { allowed: false, reason: 'Preview gateway unavailable' };
+      }
       const { port, path, threadId, worktreeId } = req.body;
       const result = validatePort(port, { host: 'localhost', gatewaySelfPort: gatewayPort, runtimePorts });
       if (!result.allowed) {
@@ -115,7 +123,10 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, o
     },
   );
 
-  // F120 Phase C: Screenshot upload — converts data URL to file
+  // F120 Phase C: Screenshot upload — converts data URL to file.
+  // Avatar uploads have moved to /api/uploads/avatar (multipart). This route is
+  // screenshots-only and uses the Fastify default bodyLimit (1 MiB), which is
+  // adequate for in-iframe screenshot data URLs.
   app.post<{ Body: { dataUrl: string; threadId?: string } }>('/api/preview/screenshot', async (req, reply) => {
     const { dataUrl, threadId } = req.body;
     const match = dataUrl?.match(/^data:image\/(png|jpeg|webp);base64,(.+)$/);
@@ -124,7 +135,7 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, o
     }
     const ext = match[1] === 'jpeg' ? 'jpg' : match[1]!;
     const buffer = Buffer.from(match[2]!, 'base64');
-    const uploadDir = resolve('uploads');
+    const uploadDir = getDefaultUploadDir(process.env.UPLOAD_DIR);
     await mkdir(uploadDir, { recursive: true });
     const filename = `screenshot-${Date.now()}-${randomUUID().slice(0, 8)}.${ext}`;
     await writeFile(join(uploadDir, filename), buffer);

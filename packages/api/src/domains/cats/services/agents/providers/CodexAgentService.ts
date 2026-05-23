@@ -19,10 +19,12 @@ import { existsSync } from 'node:fs';
 import { dirname, join, parse, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type CatId, createCatId } from '@cat-cafe/shared';
-import { getCatEffort } from '../../../../../config/cat-config-loader.js';
+import { getCatContextWindowConfig, getCatEffort } from '../../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getCodexApprovalPolicy, getCodexSandboxMode } from '../../../../../config/codex-cli.js';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
+import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
 import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
@@ -31,11 +33,15 @@ import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, 
 import type { AuditLogSink, RawArchiveSink } from '../providers/codex-audit-hooks.js';
 import { extractCommandExecutionLifecycle, sanitizeRawEvent } from '../providers/codex-audit-hooks.js';
 import { type CodexStreamState, transformCodexEvent } from '../providers/codex-event-transform.js';
+import { scanAndPublishCodexImages } from '../providers/codex-image-scanner.js';
 import {
   type CodexSessionContextSnapshotResolver,
   createCodexSessionContextSnapshotResolver,
 } from '../providers/codex-session-context-snapshot.js';
 import { extractImagePaths } from '../providers/image-paths.js';
+import { compileL0ViaSubprocess } from './l0-compiler.js';
+
+const log = createModuleLogger('codex-agent');
 
 /**
  * Options for constructing CodexAgentService (dependency injection)
@@ -48,24 +54,28 @@ interface CodexAgentServiceOptions {
   model?: string;
   /** Inject a custom spawn function (for testing) */
   spawnFn?: SpawnFn;
+  /** Test seam — replaces the real L0 compiler subprocess (Task 3a). */
+  l0CompilerFn?: typeof compileL0ViaSubprocess;
   /** Inject audit log sink (for testing) */
   auditLog?: AuditLogSink;
   /** Inject raw archive sink (for testing) */
   rawArchive?: RawArchiveSink;
   /** Inject session context resolver (for testing) */
   contextSnapshotResolver?: CodexSessionContextSnapshotResolver;
+  /** Override executable name/path for Codex-family CLIs. */
+  cliCommand?: string;
 }
 
 type CodexAuthMode = 'oauth' | 'api_key' | 'auto';
 
-function getCodexAuthMode(): CodexAuthMode {
-  const raw = process.env.CODEX_AUTH_MODE?.trim().toLowerCase();
+function getCodexAuthMode(callbackEnv?: Record<string, string>): CodexAuthMode {
+  const raw = callbackEnv?.CODEX_AUTH_MODE?.trim().toLowerCase();
   if (raw === 'api_key' || raw === 'auto' || raw === 'oauth') return raw;
   return 'oauth';
 }
 
-function applyAuthMode(env: Record<string, string>): Record<string, string | null> {
-  if (getCodexAuthMode() !== 'oauth') return env;
+function applyAuthMode(env: Record<string, string>, authMode: CodexAuthMode): Record<string, string | null> {
+  if (authMode !== 'oauth') return env;
 
   // OAuth-first default: explicitly delete key-based credentials from child env.
   // spawnCli interprets `null` as "remove this key from inherited process.env".
@@ -132,50 +142,109 @@ function toTomlString(value: string): string {
 }
 
 /**
+ * F203 Phase C — `--config` keys the system controls. User cliConfigArgs
+ * cannot override these. Currently `developer_instructions` carries the
+ * compiled L0 (identity / 家规 invariant). Adding here without updating
+ * the F203 spec is a P1 — silent system-config drop hides L0 from the cat.
+ * (砚砚 review 2026-05-16 BLOCKING finding.)
+ */
+const RESERVED_SYSTEM_CONFIG_KEYS: ReadonlySet<string> = new Set(['developer_instructions']);
+
+/**
+ * Strip `--config <key=value>` / `-c <key=value>` pairs from a pre-split
+ * cliConfigArgs array when `key` is reserved. The downstream `dedup()`
+ * would otherwise skip the system push for any key already in
+ * userConfigKeys — silently dropping the L0 the moment a user adds the
+ * same key. `-c` is the documented short alias of `--config` per
+ * `codex exec --help` so both forms must be intercepted (云端 Codex
+ * P1-cloud-2, 2026-05-16).
+ */
+function stripReservedSystemConfigs(args: string[], catId: string): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if ((a === '--config' || a === '-c') && i + 1 < args.length) {
+      const key = args[i + 1].split('=')[0];
+      if (key && RESERVED_SYSTEM_CONFIG_KEYS.has(key)) {
+        log.warn({ catId, key, form: a }, 'cliConfigArgs override of reserved system config key dropped');
+        i++; // also skip the value pair
+        continue;
+      }
+    }
+    out.push(a);
+  }
+  return out;
+}
+
+/**
  * F041/F043 root fix:
  * Ensure Codex subprocess always receives cat-cafe MCP server config
  * based on the current thread working directory.
  */
-function buildCatCafeMcpConfigArgs(workingDirectory?: string, callbackEnv?: Record<string, string>): string[] {
-  const candidateRoots: string[] = [];
-  if (workingDirectory) candidateRoots.push(workingDirectory);
-  candidateRoots.push(process.cwd());
+// F193 Phase C: split-only. Legacy `cat-cafe` (all-in-one via
+// registerFullToolset) is no longer auto-provisioned because it exposes
+// limb tools that `cat-cafe-limb` now hosts directly — keeping both would
+// duplicate the limb tool surface in Codex sessions (cloud round 6 P1).
+const CAT_CAFE_MCP_SERVER_ENTRIES = [
+  ['cat-cafe-collab', 'collab.js'],
+  ['cat-cafe-memory', 'memory.js'],
+  ['cat-cafe-signals', 'signals.js'],
+  ['cat-cafe-limb', 'limb.js'],
+] as const;
 
-  // file path: packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts
-  // repo root = dirname(fileURLToPath(import.meta.url)) up to .../cat-cafe
+function buildCatCafeMcpConfigArgs(_workingDirectory?: string, callbackEnv?: Record<string, string>): string[] {
   const fileDir = dirname(fileURLToPath(import.meta.url));
-  candidateRoots.push(resolve(fileDir, '../../../../../../../..'));
+  // The thread workingDirectory is the user's project/workspace. Cat Cafe MCP
+  // binaries are runtime-owned, so resolving from workingDirectory can pick a
+  // fork checkout with incomplete node_modules and silently drop all MCP tools.
+  const candidateRoots = [
+    process.env.CAT_CAFE_RUNTIME_ROOT?.trim(),
+    process.cwd(),
+    // file path: packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts
+    // repo root = dirname(fileURLToPath(import.meta.url)) up to .../cat-cafe
+    resolve(fileDir, '../../../../../../../..'),
+  ].filter((root): root is string => !!root);
 
-  let serverPath: string | undefined;
+  let mcpDistDir: string | undefined;
   for (const root of candidateRoots) {
-    const candidate = resolve(root, 'packages/mcp-server/dist/index.js');
-    if (existsSync(candidate)) {
-      serverPath = candidate;
+    const candidate = resolve(root, 'packages/mcp-server/dist');
+    if (existsSync(resolve(candidate, 'index.js'))) {
+      mcpDistDir = candidate;
       break;
     }
   }
-  if (!serverPath) return [];
+  if (!mcpDistDir) return [];
 
-  const args = [
-    '--config',
-    'mcp_servers.cat-cafe.command="node"',
-    '--config',
-    `mcp_servers.cat-cafe.args=[${toTomlString(serverPath)}]`,
-    '--config',
-    'mcp_servers.cat-cafe.enabled=true',
-  ];
+  const args: string[] = [];
 
   const callbackKeys = [
     'CAT_CAFE_API_URL',
     'CAT_CAFE_INVOCATION_ID',
     'CAT_CAFE_CALLBACK_TOKEN',
     'CAT_CAFE_USER_ID',
+    'CAT_CAFE_CAT_ID',
     'CAT_CAFE_SIGNAL_USER',
   ] as const;
-  for (const key of callbackKeys) {
-    const value = callbackEnv?.[key];
-    if (!value) continue;
-    args.push('--config', `mcp_servers.cat-cafe.env.${key}=${toTomlString(value)}`);
+  for (const [serverName, entrypoint] of CAT_CAFE_MCP_SERVER_ENTRIES) {
+    const serverPath = resolve(mcpDistDir, entrypoint);
+    if (!existsSync(serverPath)) continue;
+
+    args.push(
+      '--config',
+      `mcp_servers.${serverName}.command="node"`,
+      '--config',
+      `mcp_servers.${serverName}.args=[${toTomlString(serverPath)}]`,
+      '--config',
+      `mcp_servers.${serverName}.enabled=true`,
+      '--config',
+      `mcp_servers.${serverName}.default_tools_approval_mode="approve"`,
+    );
+
+    for (const key of callbackKeys) {
+      const value = callbackEnv?.[key];
+      if (!value) continue;
+      args.push('--config', `mcp_servers.${serverName}.env.${key}=${toTomlString(value)}`);
+    }
   }
 
   return args;
@@ -217,30 +286,152 @@ export class CodexAgentService implements AgentService {
   private readonly auditLog: AuditLogSink;
   private readonly rawArchive: RawArchiveSink;
   private readonly contextSnapshotResolver: CodexSessionContextSnapshotResolver;
+  private readonly cliCommand: string;
+  /** F203 Phase C: compiles per-cat L0 → OpenAI developer role (-c). */
+  private readonly l0CompilerFn: typeof compileL0ViaSubprocess;
 
   constructor(options?: CodexAgentServiceOptions) {
     this.catId = options?.catId ?? createCatId('codex');
     this.spawnFn = options?.spawnFn;
+    this.l0CompilerFn = options?.l0CompilerFn ?? compileL0ViaSubprocess;
     this.model = options?.model ?? getCatModel(this.catId as string);
     this.auditLog = options?.auditLog ?? getEventAuditLog();
     this.rawArchive = options?.rawArchive ?? new CliRawArchive();
     this.contextSnapshotResolver = options?.contextSnapshotResolver ?? createCodexSessionContextSnapshotResolver();
+    this.cliCommand = options?.cliCommand ?? 'codex';
+  }
+
+  /** F203 Phase C — this service injects L0 via `-c developer_instructions=` (Task 4). */
+  injectsL0Natively(): boolean {
+    return true;
+  }
+
+  /**
+   * F203 Phase C: compile per-cat L0 → `-c developer_instructions=` argv
+   * (S4-verified, 砚砚 62b9255e2 — enters the OpenAI `developer` role,
+   * additive, NOT replacing Codex's base instructions; per-invocation argv,
+   * NOT ~/.codex/config.toml which would race @codex/@gpt52/@spark).
+   * fail-closed: on compile failure return an error descriptor (caller yields
+   * error + done + return, mirroring the CLI-not-found path) — a missing L0
+   * = a cat with no identity/家规, strictly worse than a failed invocation.
+   */
+  private async compileDeveloperInstructionsArgs(
+    cliModel: string,
+  ): Promise<{ args: string[] } | { error: string; metadata: MessageMetadata }> {
+    try {
+      const compiledL0 = await this.l0CompilerFn({ catId: this.catId as string });
+      return { args: ['--config', `developer_instructions=${toTomlString(compiledL0)}`] };
+    } catch (err) {
+      return {
+        error: `L0 compile failed for ${this.catId as string}: ${(err as Error).message}`,
+        metadata: { provider: 'openai', model: cliModel },
+      };
+    }
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     // Codex CLI has no system prompt flag; prepend identity to prompt text
     const effectivePrompt = options?.systemPrompt ? `${options.systemPrompt}\n\n${prompt}` : prompt;
+    const effectiveModel = options?.callbackEnv?.CAT_CAFE_OPENAI_MODEL_OVERRIDE ?? this.model;
     const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
     const imageArgs = imagePaths.flatMap((path) => ['--image', path]);
 
     const sandboxMode = getCodexSandboxMode();
     const approvalPolicy = getCodexApprovalPolicy();
-    const modelArgs = ['--model', this.model];
-    const effortLevel = getCatEffort(this.catId as string);
+    const effortLevel = getCatEffort(this.catId as string, undefined, 'openai');
     const reasoningArgs = ['--config', `model_reasoning_effort="${effortLevel}"`];
     const approvalArgs = ['--config', `approval_policy="${approvalPolicy}"`];
+    const ctxConfig = getCatContextWindowConfig(this.catId as string);
+    const contextWindowArgs: string[] = ctxConfig
+      ? [
+          '--config',
+          `model_context_window=${ctxConfig.contextWindow}`,
+          '--config',
+          `model_auto_compact_token_limit=${ctxConfig.autoCompactTokenLimit}`,
+        ]
+      : [];
     const catCafeMcpArgs = buildCatCafeMcpConfigArgs(options?.workingDirectory, options?.callbackEnv);
     const gitRepoArgs = buildGitRepoArgs(options?.workingDirectory);
+    // User-defined CLI args from the member editor (#567) — passed as-is, no implicit wrapping.
+    // Each entry is split by whitespace (e.g. "--config model_reasoning_effort=\"low\"").
+    // F203 Phase C / 砚砚 P1: strip reserved system config keys (developer_instructions,
+    // carries L0) before dedup — otherwise dedup() would skip the system push and the
+    // L0 would be silently overridden by any cliConfigArgs entry with the same key.
+    const userConfigArgs = stripReservedSystemConfigs(
+      (options?.cliConfigArgs ?? []).flatMap((arg) => arg.trim().split(/\s+/)),
+      this.catId as string,
+    );
+    // Collect user --config / -c keys so system-injected duplicates can be
+    // skipped. `-c` is the documented short alias of `--config` per
+    // `codex exec --help`; both forms must be recognized here (云端 Codex
+    // P1-cloud-2, 2026-05-16).
+    const userConfigKeys = new Set<string>();
+    const userFlagSet = new Set<string>();
+    for (let i = 0; i < userConfigArgs.length; i++) {
+      const a = userConfigArgs[i];
+      if ((a === '--config' || a === '-c') && i + 1 < userConfigArgs.length) {
+        const key = userConfigArgs[i + 1].split('=')[0];
+        if (key) userConfigKeys.add(key);
+      } else if (a.startsWith('-')) {
+        userFlagSet.add(a);
+      }
+    }
+
+    // Codex CLI deprecated OPENAI_BASE_URL env var.
+    // Configure a custom model provider via --config model_providers.*
+    // Source: https://github.com/openai/codex codex-rs/core/src/model_provider_info.rs
+    //   - env_key: env var name for the API key
+    //   - base_url: API endpoint
+    //   - wire_api: "responses" (HTTP, the only supported value)
+    // Check both callbackEnv and accountEnv — after F171 env separation,
+    // user-configured OPENAI_BASE_URL lives in accountEnv, not callbackEnv.
+    const customBaseUrl =
+      options?.callbackEnv?.OPENAI_BASE_URL ??
+      options?.callbackEnv?.OPENAI_API_BASE ??
+      options?.accountEnv?.OPENAI_BASE_URL ??
+      options?.accountEnv?.OPENAI_API_BASE;
+    const customProviderArgs: string[] = customBaseUrl
+      ? [
+          '--config',
+          'model_provider="custom"',
+          '--config',
+          `model_providers.custom.base_url=${toTomlString(customBaseUrl)}`,
+          '--config',
+          'model_providers.custom.name="Custom API Key"',
+          '--config',
+          'model_providers.custom.wire_api="responses"',
+          '--config',
+          'model_providers.custom.env_key="OPENAI_API_KEY"',
+        ]
+      : [];
+
+    // Codex CLI sends the model name verbatim to the API (model_info.slug).
+    // model_provider="custom" only controls which provider entry (base_url, env_key) to use.
+    // The model name is user-configured (no system-added prefix to strip).
+    // Use --config model=... instead of --model to bypass the CLI's built-in metadata lookup
+    // for custom providers (non-builtin models trigger a cosmetic warning via --model).
+    const cliModel = effectiveModel;
+    const modelArgs: string[] = !cliModel
+      ? []
+      : customBaseUrl
+        ? ['--config', `model=${toTomlString(cliModel)}`]
+        : ['--model', cliModel];
+
+    // F203 Phase C: compile per-cat L0 → OpenAI `developer` role args.
+    // fail-closed (generator contract, mirrors the CLI-not-found path below).
+    const l0Result = await this.compileDeveloperInstructionsArgs(cliModel);
+    if ('error' in l0Result) {
+      yield {
+        type: 'error' as const,
+        catId: this.catId,
+        error: l0Result.error,
+        metadata: l0Result.metadata,
+        timestamp: Date.now(),
+      };
+      yield { type: 'done' as const, catId: this.catId, metadata: l0Result.metadata, timestamp: Date.now() };
+      return;
+    }
+    const developerInstructionsArgs = l0Result.args;
 
     // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）
     // --add-dir .git: 允许写入 .git/ 目录（index.lock、objects、refs），解锁 git commit
@@ -248,15 +439,38 @@ export class CodexAgentService implements AgentService {
     // 这是预期行为——新建会话即可获得 .git 写入权限。
     const promptArgs = ['--', effectivePrompt];
 
+    // Dedup: skip system --config/--flag pairs that the user explicitly overrides (#567).
+    const dedup = (src: string[]): string[] => {
+      const out: string[] = [];
+      for (let i = 0; i < src.length; i++) {
+        if (src[i] === '--config' && i + 1 < src.length) {
+          const key = src[i + 1].split('=')[0];
+          if (userConfigKeys.has(key)) {
+            i++;
+            continue;
+          }
+        } else if (src[i].startsWith('-') && userFlagSet.has(src[i])) {
+          if (i + 1 < src.length && !src[i + 1].startsWith('-')) i++;
+          continue;
+        }
+        out.push(src[i]);
+      }
+      return out;
+    };
+
     const args: string[] = options?.sessionId
       ? [
           'exec',
           'resume',
           options.sessionId,
           '--json',
-          ...modelArgs,
-          ...reasoningArgs,
-          ...approvalArgs,
+          ...dedup(modelArgs),
+          ...dedup(reasoningArgs),
+          ...dedup(contextWindowArgs),
+          ...dedup(approvalArgs),
+          ...dedup(developerInstructionsArgs),
+          ...dedup(customProviderArgs),
+          ...userConfigArgs,
           ...gitRepoArgs,
           ...catCafeMcpArgs,
           ...imageArgs,
@@ -265,33 +479,94 @@ export class CodexAgentService implements AgentService {
       : [
           'exec',
           '--json',
-          ...modelArgs,
-          ...reasoningArgs,
+          ...dedup(modelArgs),
+          ...dedup(reasoningArgs),
+          ...dedup(contextWindowArgs),
           '--sandbox',
           sandboxMode,
           '--add-dir',
           '.git',
-          ...approvalArgs,
+          ...dedup(approvalArgs),
+          ...dedup(developerInstructionsArgs),
+          ...dedup(customProviderArgs),
+          ...userConfigArgs,
           ...gitRepoArgs,
           ...catCafeMcpArgs,
           ...imageArgs,
           ...promptArgs,
         ];
 
-    const metadata: MessageMetadata = { provider: 'openai', model: this.model };
+    const metadata: MessageMetadata = { provider: 'openai', model: cliModel };
     const auditContext = options?.auditContext;
     const recentStreamErrors: string[] = [];
 
     try {
-      // Use real HOME — project-level AGENTS.md already overrides global ~/.codex/AGENTS.md.
-      // HOME isolation was removed because Codex CLI rebuilds ~/.codex/ on startup,
-      // overwriting pre-copied auth.json/config.toml/sessions (see bug-report/tea-coffee/).
-      const codexEnv = applyAuthMode(options?.callbackEnv ?? {});
+      // HOME isolation: only for API Key mode.
+      // OAuth mode needs real HOME (~/.codex/auth.json for token refresh).
+      // API Key mode must AVOID real HOME — stale OAuth token refresh will fail
+      // and abort the CLI before it reaches the custom provider config.
+      const authMode = getCodexAuthMode(options?.callbackEnv);
+      const rawEnv = { ...(options?.callbackEnv ?? {}) };
+      // Strip deprecated OPENAI_BASE_URL — now handled via --config model_providers
+      if (customBaseUrl) {
+        delete rawEnv.OPENAI_BASE_URL;
+        delete rawEnv.OPENAI_API_BASE;
+      }
+      // For API Key mode: use temp HOME to prevent OAuth token refresh interference.
+      // On Windows, Rust/codex uses USERPROFILE (not HOME) for config directory.
+      if (authMode === 'api_key' && customBaseUrl) {
+        const { mkdtempSync } = await import('node:fs');
+        const { tmpdir } = await import('node:os');
+        const isolatedHome = mkdtempSync(`${tmpdir()}/codex-apikey-`);
+        rawEnv.HOME = isolatedHome;
+        if (process.platform === 'win32') {
+          rawEnv.USERPROFILE = isolatedHome;
+        }
+      }
+      const codexEnv = applyAuthMode(rawEnv, authMode);
+      // F171: Account env vars applied LAST — user overrides provider-injected values.
+      // Strip OPENAI_BASE_URL/OPENAI_API_BASE if already consumed via --config model_providers
+      // to prevent the deprecated env var from conflicting with the CLI config.
+      if (options?.accountEnv) {
+        for (const [k, v] of Object.entries(options.accountEnv)) {
+          if (customBaseUrl && (k === 'OPENAI_BASE_URL' || k === 'OPENAI_API_BASE')) continue;
+          codexEnv[k] = v;
+        }
+      }
 
       const semanticCompletionController = new AbortController();
 
+      const codexCommand = resolveCliCommand(this.cliCommand);
+      if (!codexCommand) {
+        yield {
+          type: 'error' as const,
+          catId: this.catId,
+          error: formatCliNotFoundError(this.cliCommand),
+          metadata,
+          timestamp: Date.now(),
+        };
+        yield { type: 'done' as const, catId: this.catId, metadata, timestamp: Date.now() };
+        return;
+      }
+
+      log.debug(
+        {
+          catId: this.catId,
+          command: codexCommand,
+          model: cliModel,
+          originalModel: effectiveModel,
+          customBaseUrl: customBaseUrl ?? null,
+          sessionId: options?.sessionId ?? null,
+          invocationId: options?.invocationId ?? null,
+          cwd: options?.workingDirectory ?? null,
+          authMode,
+          argCount: args.length,
+        },
+        'Invoking Codex CLI',
+      );
+
       const cliOpts = {
-        command: 'codex' as const,
+        command: codexCommand,
         args,
         ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
         env: codexEnv,
@@ -302,6 +577,7 @@ export class CodexAgentService implements AgentService {
           ? { rawArchivePath: this.rawArchive.getPath(options.invocationId) }
           : {}),
         ...(options?.livenessProbe ? { livenessProbe: options.livenessProbe } : {}),
+        ...(options?.parentSpan ? { parentSpan: options.parentSpan } : {}),
         semanticCompletionSignal: semanticCompletionController.signal,
       };
       const events = options?.spawnCliOverride
@@ -319,11 +595,14 @@ export class CodexAgentService implements AgentService {
 
         if (auditContext) {
           this.rawArchive.append(auditContext.invocationId, sanitizeRawEvent(event)).catch((err) => {
-            console.warn('[audit] Codex raw event archive write failed', {
-              threadId: auditContext.threadId,
-              invocationId: auditContext.invocationId,
-              err,
-            });
+            log.warn(
+              {
+                threadId: auditContext.threadId,
+                invocationId: auditContext.invocationId,
+                err,
+              },
+              '[audit] Codex raw event archive write failed',
+            );
           });
         }
 
@@ -348,7 +627,7 @@ export class CodexAgentService implements AgentService {
           yield {
             type: 'error',
             catId: this.catId,
-            error: `缅因猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s)`,
+            error: `缅因猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
             metadata,
             timestamp: Date.now(),
           };
@@ -356,6 +635,16 @@ export class CodexAgentService implements AgentService {
         }
         // F118 Phase C: Forward liveness warnings to frontend with catId
         if (isLivenessWarning(event)) {
+          const warningEvent = event as { level?: string; silenceDurationMs?: number };
+          log.warn(
+            {
+              catId: this.catId,
+              invocationId: options?.invocationId,
+              level: warningEvent.level,
+              silenceMs: warningEvent.silenceDurationMs,
+            },
+            '[CodexAgent] liveness warning — CLI may be stuck',
+          );
           yield {
             type: 'system_info' as const,
             catId: this.catId,
@@ -369,7 +658,8 @@ export class CodexAgentService implements AgentService {
           // Suppress the error ONLY if we saw substantive output (item.completed).
           // thread.started alone is NOT enough — that just means session init.
           if (event.exitCode === 1 && event.signal === null && sawSubstantiveOutput) {
-            console.warn(
+            log.warn(
+              {},
               `[codex] Codex CLI exited with code 1 after substantive output (suppressing as Codex 0.98+ quirk)`,
             );
             continue;
@@ -414,11 +704,14 @@ export class CodexAgentService implements AgentService {
                 },
               })
               .catch((err) => {
-                console.warn('[audit] Codex CLI tool lifecycle write failed', {
-                  threadId: auditContext.threadId,
-                  invocationId: auditContext.invocationId,
-                  err,
-                });
+                log.warn(
+                  {
+                    threadId: auditContext.threadId,
+                    invocationId: auditContext.invocationId,
+                    err,
+                  },
+                  '[audit] Codex CLI tool lifecycle write failed',
+                );
               });
           }
         }
@@ -486,10 +779,35 @@ export class CodexAgentService implements AgentService {
             metadata.usage = usage;
           }
         } catch (err) {
-          console.warn('[codex] failed to resolve session context snapshot', {
-            sessionId: metadata.sessionId,
-            err,
+          log.warn(
+            {
+              sessionId: metadata.sessionId,
+              err,
+            },
+            '[codex] failed to resolve session context snapshot',
+          );
+        }
+      }
+
+      // F172 Phase B: Scan for generated images and publish to /uploads/
+      if (metadata.sessionId) {
+        try {
+          const published = await scanAndPublishCodexImages({
+            codexSessionId: metadata.sessionId,
+            uploadDir: options?.uploadDir,
+            codexHome: rawEnv.HOME ? join(rawEnv.HOME, '.codex') : undefined,
           });
+          for (const img of published) {
+            yield {
+              type: 'system_info' as const,
+              catId: this.catId,
+              content: JSON.stringify({ type: 'rich_block', block: img.richBlock, provenance: img.provenance }),
+              metadata,
+              timestamp: Date.now(),
+            };
+          }
+        } catch (err) {
+          log.warn({ sessionId: metadata.sessionId, err }, '[F172] codex image scan failed');
         }
       }
 

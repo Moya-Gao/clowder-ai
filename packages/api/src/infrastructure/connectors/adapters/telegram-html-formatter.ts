@@ -1,7 +1,5 @@
 import type { RichBlock } from '@cat-cafe/shared';
 
-const TELEGRAM_MAX = 4096;
-
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -36,13 +34,11 @@ function blockToHtml(block: RichBlock): string {
 }
 
 export function formatTelegramHtml(blocks: RichBlock[], catDisplayName: string, textContent?: string): string {
-  const header = `<b>[${esc(catDisplayName)}🐱]</b>`;
+  const header = `<b>【${esc(catDisplayName)}🐱】</b>`;
   const parts = [header];
   if (textContent) {
     parts.push(esc(textContent));
   }
   parts.push(blocks.map(blockToHtml).join('\n\n'));
-  const full = parts.join('\n\n');
-  if (full.length <= TELEGRAM_MAX) return full;
-  return `${full.slice(0, TELEGRAM_MAX - 1)}…`;
+  return parts.join('\n\n');
 }

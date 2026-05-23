@@ -16,9 +16,9 @@ describe('governance-pack', () => {
     assert.ok(block.includes(MANAGED_BLOCK_END));
   });
 
-  it('contains internal port 3001 (transformed by sync pipeline for open-source)', () => {
+  it('contains internal port 3003 (transformed by sync pipeline for open-source)', () => {
     const block = getGovernanceManagedBlock('claude');
-    assert.ok(block.includes('3001'), 'Source should use internal port 3001');
+    assert.ok(block.includes('3003'), 'Source should use internal port 3003');
   });
 
   it('contains internal port 6399 (transformed by sync pipeline for open-source)', () => {
@@ -28,7 +28,7 @@ describe('governance-pack', () => {
 
   it('port reservation concept is present', () => {
     const block = getGovernanceManagedBlock('claude');
-    assert.ok(block.includes('reserved'), 'Port reservation concept should be present');
+    assert.ok(block.includes('local defaults'), 'Port defaults guidance should be present');
     assert.ok(block.includes('production Redis'), 'Redis port guidance should be present');
   });
 
@@ -54,6 +54,7 @@ describe('governance-pack', () => {
     assert.ok(getGovernanceManagedBlock('claude').includes('claude'));
     assert.ok(getGovernanceManagedBlock('codex').includes('codex'));
     assert.ok(getGovernanceManagedBlock('gemini').includes('gemini'));
+    assert.ok(getGovernanceManagedBlock('kimi').includes('kimi'));
   });
 
   it('pack version is semver', () => {

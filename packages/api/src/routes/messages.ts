@@ -14,22 +14,41 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId, MessageContent } from '@cat-cafe/shared';
+import { type CatId, catRegistry, type MessageContent } from '@cat-cafe/shared';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import multipart from '@fastify/multipart';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { getAllCatIdsFromConfig, getDefaultCatId } from '../config/cat-config-loader.js';
+import { getDefaultCatId } from '../config/cat-config-loader.js';
+import { resolveFrontendBaseUrl } from '../config/frontend-origin.js';
+import {
+  type CollaborationContinuityCapsuleV1,
+  extractContinuityCapsuleFromAgentMessage,
+} from '../domains/cats/services/agents/invocation/CollaborationContinuityCapsule.js';
+import {
+  ensureTerminalStatus,
+  RouteChainCompletionTracker,
+} from '../domains/cats/services/agents/invocation/ensureTerminalStatus.js';
+import { getThreadLiveInvocations } from '../domains/cats/services/agents/invocation/getThreadLiveInvocations.js';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
+import { reconcileZombies } from '../domains/cats/services/agents/invocation/reconcileZombies.js';
+import type { TaskProgressStore } from '../domains/cats/services/agents/invocation/TaskProgressStore.js';
+import { stampVisibleTurn } from '../domains/cats/services/agents/invocation/visible-turn.js';
 import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-helpers.js';
-import { GameAutoPlayer } from '../domains/cats/services/game/GameAutoPlayer.js';
+import { resetStreak } from '../domains/cats/services/agents/routing/WorklistRegistry.js';
+import {
+  accumulateTextParts,
+  flattenTextParts,
+  flattenTurnTextParts,
+} from '../domains/cats/services/agents/text-aggregation.js';
+import { createGameDriver } from '../domains/cats/services/game/createGameDriver.js';
+import type { GameDriver } from '../domains/cats/services/game/GameDriver.js';
 import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
 import { WerewolfLobby } from '../domains/cats/services/game/werewolf/WerewolfLobby.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
-import type { AutoSummarizer } from '../domains/cats/services/orchestration/AutoSummarizer.js';
 import { getPushNotificationService } from '../domains/cats/services/push/PushNotificationService.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
@@ -38,18 +57,60 @@ import type { IInvocationRecordStore } from '../domains/cats/services/stores/por
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ISummaryStore } from '../domains/cats/services/stores/ports/SummaryStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import { isSystemUserMessage } from '../domains/cats/services/stores/visibility.js';
 import { mergeTokenUsage, type TokenUsage } from '../domains/cats/services/types.js';
+import { buildThreadDeepLink } from '../infrastructure/connectors/connector-command-helpers.js';
+import { createModuleLogger } from '../infrastructure/logger.js';
 import { buildCancelMessages, type SocketManager } from '../infrastructure/websocket/index.js';
+import { getDefaultUploadDir } from '../utils/upload-paths.js';
+
+/** F088 ISSUE-15: Minimal outbound delivery interface — avoids importing full OutboundDeliveryHook. */
+interface OutboundDeliveryHookLike {
+  deliver(
+    threadId: string,
+    content: string,
+    catId?: string,
+    richBlocks?: unknown[],
+    threadMeta?: { threadShortId: string; threadTitle?: string; deepLinkUrl?: string },
+    origin?: string,
+    triggerMessageId?: string,
+  ): Promise<void>;
+}
+
+/** F088 ISSUE-15: Minimal streaming hook interface. */
+interface StreamingHookLike {
+  onStreamStart(
+    threadId: string,
+    catId?: string,
+    invocationId?: string,
+    senderHint?: { id: string; name?: string },
+  ): Promise<void>;
+  onStreamChunk(threadId: string, accumulatedText: string, invocationId?: string): Promise<void>;
+  onStreamEnd(threadId: string, finalText: string, invocationId?: string): Promise<void>;
+  cleanupPlaceholders?(threadId: string, invocationId?: string): Promise<void>;
+  /** F151: Signal adapters that an invocation's delivery batch is complete. */
+  notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
+}
+
 import { normalizeErrorMessage } from '../utils/normalize-error.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { buildGameSeats, parseGameCommand, sanitizeCatIds } from './game-command-interceptor.js';
+import type { HoldBallCancelDeps } from './hold-ball-cancel.js';
+import { cancelPendingHoldsForThread } from './hold-ball-cancel.js';
 import { sendMessageSchema } from './messages.schema.js';
 import { parseMultipart } from './parse-multipart.js';
+
+const STREAM_START_TIMEOUT_MS = 5_000;
 
 /**
  * Dependencies injected via Fastify plugin options.
  * socketManager is injected to avoid circular import from index.ts.
  */
+/** F194 Phase Z3 (KD-23): process-singleton in-memory map tracking routeExecution chain
+ *  completion signals for parent recordStore invocations. Producer sets pending/succeeded/failed;
+ *  background async finally reads this to terminalize records that escaped explicit terminal write. */
+const routeChainTracker = new RouteChainCompletionTracker();
+
 export interface MessagesRoutesOptions {
   registry: InvocationRegistry;
   messageStore: IMessageStore;
@@ -61,7 +122,11 @@ export interface MessagesRoutesOptions {
   uploadDir?: string;
   invocationTracker?: InvocationTracker;
   invocationRecordStore?: IInvocationRecordStore;
-  autoSummarizer?: AutoSummarizer;
+  /** F194 AC-B7: when helper detects zombies, reconcileZombies clears their TaskProgress
+   *  snapshot so the frontend doesn't show phantom progress. Optional — cleanup still marks
+   *  records `failed` even without this. */
+  taskProgressStore?: TaskProgressStore;
+
   summaryStore?: ISummaryStore;
   /** #80: Streaming draft store for F5 recovery */
   draftStore?: IDraftStore;
@@ -71,6 +136,61 @@ export interface MessagesRoutesOptions {
   queueProcessor?: QueueProcessor;
   /** F101: Game store for /game command interception */
   gameStore?: IGameStore;
+  /** F101: Injectable auto-player for lifecycle-safe teardown in tests/routes */
+  autoPlayer?: Pick<GameDriver, 'startLoop' | 'stopLoop' | 'stopAllLoops'>;
+  /** F088 ISSUE-15: Outbound delivery hook for connector platforms (late-bound after gateway bootstrap) */
+  outboundHook?: OutboundDeliveryHookLike;
+  /** F088 ISSUE-15: Streaming hook for connector platforms (late-bound after gateway bootstrap) */
+  streamingHook?: StreamingHookLike;
+  /** F167 Phase J: deps for auto-cancelling pending hold-ball tasks on user message */
+  holdBallCancelDeps?: HoldBallCancelDeps;
+}
+
+const log = createModuleLogger('routes/messages');
+
+function tryAutoCancelPendingHolds(threadId: string, deps: HoldBallCancelDeps | undefined): void {
+  if (!deps) return;
+  try {
+    const cancelled = cancelPendingHoldsForThread(threadId, deps);
+    if (cancelled.length > 0) {
+      log.info(
+        { threadId, cancelledCount: cancelled.length, taskIds: cancelled.map((t) => t.id) },
+        'F167 Phase J: auto-cancelled pending hold-ball tasks on user message',
+      );
+    }
+  } catch (err) {
+    log.warn({ threadId, err }, 'F167 Phase J: failed to auto-cancel pending holds');
+  }
+}
+
+async function persistA2ARoutingMessage(
+  messageStore: IMessageStore,
+  msg: { catId?: string; content?: string; invocationId?: string; targetCatId?: string; timestamp: number },
+  threadId: string,
+): Promise<string | undefined> {
+  if (!msg.content) return undefined;
+  try {
+    const stored = await messageStore.append({
+      userId: 'system',
+      catId: null,
+      content: msg.content,
+      mentions: [],
+      timestamp: msg.timestamp,
+      threadId,
+      extra: {
+        systemKind: 'a2a_routing',
+        a2aRouting: {
+          fromCatId: msg.catId,
+          targetCatId: msg.targetCatId,
+          invocationId: msg.invocationId,
+        },
+      },
+    });
+    return stored.id;
+  } catch (err) {
+    log.warn({ err, threadId }, 'Failed to persist a2a_handoff');
+    return undefined;
+  }
 }
 
 const getMessagesSchema = z.object({
@@ -100,7 +220,7 @@ export function shouldMarkDecisionNotification(content: string): boolean {
 }
 
 export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (app, opts) => {
-  const uploadDir = opts.uploadDir ?? process.env.UPLOAD_DIR ?? './uploads';
+  const uploadDir = getDefaultUploadDir(opts.uploadDir ?? process.env.UPLOAD_DIR);
 
   // Register multipart parser for image uploads
   await app.register(multipart, {
@@ -109,6 +229,30 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
   // Shared AgentRouter injected via opts (created in index.ts)
   const router = opts.router;
+  const gameOrchestrator = opts.gameStore
+    ? new GameOrchestrator({
+        gameStore: opts.gameStore,
+        socketManager: opts.socketManager,
+        messageStore: opts.messageStore,
+      })
+    : null;
+  const gameAutoPlayer = gameOrchestrator
+    ? (opts.autoPlayer ??
+      createGameDriver({
+        gameNarratorEnabled: false,
+        legacyDeps: {
+          gameStore: opts.gameStore!,
+          orchestrator: gameOrchestrator,
+          messageStore: opts.messageStore,
+        },
+      }))
+    : null;
+
+  if (gameAutoPlayer) {
+    app.addHook('onClose', async () => {
+      gameAutoPlayer.stopAllLoops();
+    });
+  }
 
   // POST /api/messages - 发送消息（WebSocket 广播）
   app.post('/api/messages', async (request, reply) => {
@@ -166,11 +310,15 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     });
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (session cookie or X-Cat-Cafe-User header)' };
     }
 
     // Default to 'default' thread for lobby (prevents global broadcast)
     const resolvedThreadId = threadId ?? 'default';
+
+    // F167 L1 AC-A3: user message is a fresh turn — clear any in-flight ping-pong
+    // streak on this thread's active worklist (no-op if none).
+    resetStreak(resolvedThreadId);
 
     // Ensure thread exists and auto-title on first message
     if (resolvedThreadId !== 'default' && opts.threadStore) {
@@ -208,11 +356,19 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     // F101: /game command interception — start game directly, skip AI routing
     const parsedGame = parseGameCommand(content);
     if (parsedGame && opts.gameStore && opts.threadStore) {
+      if (!gameOrchestrator || !gameAutoPlayer) {
+        throw new Error('game auto-player is unavailable');
+      }
+
       const DEFAULT_PLAYER_COUNT = 7;
-      const allCatIds = getAllCatIdsFromConfig();
+      const allCatIds = catRegistry.getAllIds();
       const sanitized = parsedGame.catIds ? sanitizeCatIds(parsedGame.catIds, allCatIds) : [];
       // Fallback to all cats if sanitize filtered everything out (or no catIds provided)
       const catIds = sanitized.length > 0 ? sanitized : [...allCatIds];
+      if (catIds.length === 0) {
+        reply.status(400);
+        return { error: '没有可用的猫猫成员，请先在设置中添加一只猫猫', code: 'NO_TARGETS' };
+      }
       const playerCount = parsedGame.playerCount ?? DEFAULT_PLAYER_COUNT;
       const seats = buildGameSeats({
         humanRole: parsedGame.humanRole,
@@ -222,9 +378,14 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       });
 
       // Phase D: Create independent game thread with project categorization
-      const gameTitle = `狼人杀 — ${playerCount}人局`;
+      const ts = new Date()
+        .toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
+        .replace(' ', '-')
+        .replaceAll(':', '');
+      const gameTitle = `狼人杀 — ${playerCount}人局 (${ts})`;
       const gameThread = await opts.threadStore.create(userId, gameTitle, `games/${parsedGame.gameType}`);
       const gameThreadId = gameThread.id;
+      await opts.threadStore.updatePin(gameThreadId, true);
 
       // Notify source thread about the new game thread (include initiator for frontend guard)
       opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'game:thread_created', {
@@ -253,14 +414,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       });
       lobby.startGame(lobbyRuntime);
 
-      const orchestrator = new GameOrchestrator({
-        gameStore: opts.gameStore,
-        socketManager: opts.socketManager,
-      });
-
       let gameRuntime;
       try {
-        gameRuntime = await orchestrator.startGame({
+        gameRuntime = await gameOrchestrator.startGame({
           threadId: gameThreadId,
           definition: lobbyRuntime.definition,
           seats: lobbyRuntime.seats,
@@ -269,6 +425,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             voiceMode: parsedGame.voiceMode,
             humanRole: parsedGame.humanRole,
             ...(parsedGame.humanRole === 'player' ? { humanSeat: 'P1' } : {}),
+            observerUserId: userId, // H2 fix: messageStore dual-write needs userId for thread visibility
           },
         });
       } catch (err: unknown) {
@@ -281,14 +438,10 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       }
 
       // Broadcast scoped views so frontend receives game:state_update
-      await orchestrator.broadcastGameState(gameRuntime.gameId);
+      await gameOrchestrator.broadcastGameState(gameRuntime.gameId);
 
       // AC-C3: Start AI auto-play loop — cats submit actions asynchronously
-      const autoPlayer = new GameAutoPlayer({
-        gameStore: opts.gameStore,
-        orchestrator,
-      });
-      autoPlayer.startLoop(gameRuntime.gameId);
+      gameAutoPlayer.startLoop(gameRuntime.gameId);
 
       return {
         status: 'game_started',
@@ -299,7 +452,12 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     }
 
     // ADR-008 S1: Pre-resolve targets + intent, persisting @mentions as participants
-    const { targetCats: resolvedTargetCats, intent } = await router.resolveTargetsAndIntent(content, resolvedThreadId, {
+    log.debug({ threadId: resolvedThreadId, contentLen: content.length }, 'Resolving targets and intent');
+    const {
+      targetCats: resolvedTargetCats,
+      intent,
+      hasMentions,
+    } = await router.resolveTargetsAndIntent(content, resolvedThreadId, {
       persist: true,
     });
     // F35: When sending a whisper, override routing targets to only whisperTo recipients.
@@ -308,23 +466,55 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       whisperVisibility === 'whisper' && whisperRecipients?.length
         ? [...new Set(whisperRecipients)]
         : [...resolvedTargetCats];
+    if (targetCats.length === 0) {
+      reply.status(400);
+      return { error: '没有可用的猫猫成员，请先在设置中添加一只猫猫', code: 'NO_TARGETS' };
+    }
     const primaryCat = targetCats[0] ?? 'unknown';
 
     // Server-generated idempotency key if client didn't provide one
     const resolvedIdempotencyKey = idempotencyKey ?? randomUUID();
 
-    // F39+F108: Queue routing — thread-level delivery mode
-    // Any active invocation in the thread → new user messages should queue.
-    // Using thread-level check (no catId) instead of slot-level to prevent
-    // concurrent execution when different cats are active (regression fix).
-    const hasActive = opts.invocationTracker?.has(resolvedThreadId) ?? false;
+    // F39+F108B: Slot-aware delivery mode routing
+    // Whisper → check target cat's slot (side-dispatch to idle cat)
+    // Broadcast with explicit @mention → any target busy = queue (P1 review fix)
+    // Broadcast without @mention → thread-level check (any active → queue)
+    // #555: Cover the gap between one invocation ending (tracker cleared) and the
+    // next starting from queue (tracker not yet registered).
+    // Whisper / @mention use cat-specific isCatBusy; broadcast uses active execution,
+    // not queued leftovers, to avoid enqueue-only dead ends.
+    const hasActive = (() => {
+      if (!opts.invocationTracker) {
+        return opts.queueProcessor?.hasActiveExecution?.(resolvedThreadId) ?? false;
+      }
+      if (whisperVisibility === 'whisper' && primaryCat !== 'unknown') {
+        return (
+          opts.invocationTracker.has(resolvedThreadId, primaryCat) ||
+          (opts.queueProcessor?.isCatBusy?.(resolvedThreadId, primaryCat) ?? false)
+        );
+      }
+      if (hasMentions) {
+        return targetCats.some(
+          (cat) =>
+            cat !== 'unknown' &&
+            (opts.invocationTracker!.has(resolvedThreadId, cat) ||
+              (opts.queueProcessor?.isCatBusy?.(resolvedThreadId, cat) ?? false)),
+        );
+      }
+      return (
+        opts.invocationTracker.has(resolvedThreadId) ||
+        (opts.queueProcessor?.hasActiveExecution?.(resolvedThreadId) ?? false)
+      );
+    })();
     const mode = deliveryMode ?? (hasActive ? 'queue' : 'immediate');
+    log.debug({ threadId: resolvedThreadId, targetCats, intent: intent.intent, mode, hasActive }, 'Dispatch decision');
 
     if (mode === 'queue' && hasActive && opts.invocationQueue) {
       // ① Enqueue first (sync, capacity gatekeeper) — messageId is null at this point
       const enqueueResult = opts.invocationQueue.enqueue({
         threadId: resolvedThreadId,
         userId,
+        idempotencyKey: resolvedIdempotencyKey,
         content,
         source: 'user',
         targetCats,
@@ -347,44 +537,39 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         };
       }
 
-      let storedUserMessageId: string | null = null;
+      let storedUserMessageId: string | null = enqueueResult.entry?.messageId ?? null;
 
       // ② Write user message (F117: mark as queued — invisible until dequeue)
-      try {
-        const userMessage = await opts.messageStore.append({
-          userId,
-          catId: null,
-          content,
-          mentions: targetCats,
-          timestamp: Date.now(),
-          threadId: resolvedThreadId,
-          deliveryStatus: 'queued', // F117: not visible in history/context/mentions until delivered
-          ...(contentBlocks ? { contentBlocks } : {}),
-          ...(whisperVisibility && whisperRecipients
-            ? { visibility: whisperVisibility, whisperTo: whisperRecipients }
-            : {}),
-        });
-        storedUserMessageId = userMessage.id;
+      // If enqueue returned a deduped active entry, reuse existing messageId and skip append.
+      if (!enqueueResult.deduped) {
+        try {
+          const userMessage = await opts.messageStore.append({
+            userId,
+            catId: null,
+            content,
+            mentions: targetCats,
+            timestamp: Date.now(),
+            threadId: resolvedThreadId,
+            idempotencyKey: resolvedIdempotencyKey,
+            deliveryStatus: 'queued', // F117: not visible in history/context/mentions until delivered
+            ...(contentBlocks ? { contentBlocks } : {}),
+            ...(whisperVisibility && whisperRecipients
+              ? { visibility: whisperVisibility, whisperTo: whisperRecipients }
+              : {}),
+          });
+          storedUserMessageId = userMessage.id;
 
-        // ③ Backfill / append messageId — distinguish enqueued vs merged
-        const queueEntryId = enqueueResult.entry?.id;
-        if (queueEntryId) {
-          if (enqueueResult.outcome === 'enqueued') {
+          const queueEntryId = enqueueResult.entry?.id;
+          if (queueEntryId) {
             opts.invocationQueue.backfillMessageId(resolvedThreadId, userId, queueEntryId, userMessage.id);
-          } else {
-            opts.invocationQueue.appendMergedMessageId(resolvedThreadId, userId, queueEntryId, userMessage.id);
           }
+        } catch (err) {
+          const queueEntryId = enqueueResult.entry?.id;
+          if (queueEntryId) {
+            opts.invocationQueue.rollbackEnqueue(resolvedThreadId, userId, queueEntryId);
+          }
+          throw err;
         }
-      } catch (err) {
-        // Write failed → rollback queue entry (no ghost data)
-        const queueEntryId = enqueueResult.entry?.id;
-        if (queueEntryId && enqueueResult.outcome === 'enqueued') {
-          // rollbackEnqueue: preserves merged content from concurrent requests
-          opts.invocationQueue.rollbackEnqueue(resolvedThreadId, userId, queueEntryId);
-        } else if (queueEntryId) {
-          opts.invocationQueue.rollbackMerge(resolvedThreadId, userId, queueEntryId);
-        }
-        throw err;
       }
 
       // Emit queue update to this user only (privacy: scopeKey isolation)
@@ -394,12 +579,14 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         action: enqueueResult.outcome,
       });
 
+      tryAutoCancelPendingHolds(resolvedThreadId, opts.holdBallCancelDeps);
+
       reply.status(202);
       return {
         status: 'queued',
         queuePosition: enqueueResult.queuePosition,
         entryId: enqueueResult.entry?.id,
-        merged: enqueueResult.outcome === 'merged',
+        merged: false,
         ...(storedUserMessageId ? { userMessageId: storedUserMessageId } : {}),
       };
     }
@@ -436,13 +623,14 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       if (mode !== 'force' && opts.invocationTracker) {
         // F122 AC-A8: Atomic thread-level busy gate + slot registration.
         // If thread became busy since initial has() check at line 306, degrade to queue.
-        const tryResult = opts.invocationTracker.tryStartThread(resolvedThreadId, primaryCat, userId, targetCats);
+        const tryResult = opts.invocationTracker.tryStartThreadAll(resolvedThreadId, targetCats, userId);
         if (tryResult === null) {
           // TOCTOU: thread became busy between has() and here — degrade to queue
           if (opts.invocationQueue) {
             const enqueueResult = opts.invocationQueue.enqueue({
               threadId: resolvedThreadId,
               userId,
+              idempotencyKey: resolvedIdempotencyKey,
               content,
               source: 'user',
               targetCats,
@@ -460,56 +648,49 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             }
             // F122 R1-gpt52 P1-1: Wrap append+backfill in try/catch with rollback,
             // matching original queue path (lines 340-374) to prevent ghost queue entries.
-            let toctouUserMessage: { id: string };
-            try {
-              toctouUserMessage = await opts.messageStore.append({
-                userId,
-                catId: null,
-                content,
-                mentions: targetCats,
-                timestamp: Date.now(),
-                threadId: resolvedThreadId,
-                deliveryStatus: 'queued',
-                ...(contentBlocks ? { contentBlocks } : {}),
-                ...(whisperVisibility && whisperRecipients
-                  ? { visibility: whisperVisibility, whisperTo: whisperRecipients }
-                  : {}),
-              });
-              const queueEntryId = enqueueResult.entry?.id;
-              if (queueEntryId) {
-                if (enqueueResult.outcome === 'enqueued') {
+            let toctouUserMessageId: string | null = enqueueResult.entry?.messageId ?? null;
+            if (!enqueueResult.deduped) {
+              try {
+                const toctouUserMessage = await opts.messageStore.append({
+                  userId,
+                  catId: null,
+                  content,
+                  mentions: targetCats,
+                  timestamp: Date.now(),
+                  threadId: resolvedThreadId,
+                  idempotencyKey: resolvedIdempotencyKey,
+                  deliveryStatus: 'queued',
+                  ...(contentBlocks ? { contentBlocks } : {}),
+                  ...(whisperVisibility && whisperRecipients
+                    ? { visibility: whisperVisibility, whisperTo: whisperRecipients }
+                    : {}),
+                });
+                toctouUserMessageId = toctouUserMessage.id;
+                const queueEntryId = enqueueResult.entry?.id;
+                if (queueEntryId) {
                   opts.invocationQueue.backfillMessageId(resolvedThreadId, userId, queueEntryId, toctouUserMessage.id);
-                } else {
-                  opts.invocationQueue.appendMergedMessageId(
-                    resolvedThreadId,
-                    userId,
-                    queueEntryId,
-                    toctouUserMessage.id,
-                  );
                 }
+              } catch (err) {
+                const queueEntryId = enqueueResult.entry?.id;
+                if (queueEntryId) {
+                  opts.invocationQueue.rollbackEnqueue(resolvedThreadId, userId, queueEntryId);
+                }
+                throw err;
               }
-            } catch (err) {
-              // Write failed → rollback queue entry (no ghost data)
-              const queueEntryId = enqueueResult.entry?.id;
-              if (queueEntryId && enqueueResult.outcome === 'enqueued') {
-                opts.invocationQueue.rollbackEnqueue(resolvedThreadId, userId, queueEntryId);
-              } else if (queueEntryId) {
-                opts.invocationQueue.rollbackMerge(resolvedThreadId, userId, queueEntryId);
-              }
-              throw err;
             }
             opts.socketManager.emitToUser(userId, 'queue_updated', {
               threadId: resolvedThreadId,
               queue: opts.invocationQueue.list(resolvedThreadId, userId),
               action: enqueueResult.outcome,
             });
+            tryAutoCancelPendingHolds(resolvedThreadId, opts.holdBallCancelDeps);
             reply.status(202);
             return {
               status: 'queued',
               queuePosition: enqueueResult.queuePosition,
               entryId: enqueueResult.entry?.id,
-              merged: enqueueResult.outcome === 'merged',
-              userMessageId: toctouUserMessage.id,
+              merged: false,
+              ...(toctouUserMessageId ? { userMessageId: toctouUserMessageId } : {}),
             };
           }
           // No queue available — thread is busy but we can't queue. Reject.
@@ -532,25 +713,25 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           idempotencyKey: resolvedIdempotencyKey,
         });
       } catch (createErr) {
-        // Release slot occupied by tryStartThread — prevent "假忙" leak
+        // Release slots occupied by tryStartThreadAll — prevent "假忙" leak
         if (controller) {
-          opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
+          opts.invocationTracker?.completeAll(resolvedThreadId, targetCats, controller);
         }
         throw createErr;
       }
 
       if (createResult.outcome === 'duplicate') {
-        // AC-A11: tryStartThread succeeded but create returned duplicate — release slot
+        // AC-A11: tryStartThreadAll succeeded but create returned duplicate — release slots
         if (controller) {
-          opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
+          opts.invocationTracker?.completeAll(resolvedThreadId, targetCats, controller);
         }
         reply.status(200);
         return { status: 'duplicate', invocationId: createResult.invocationId };
       }
 
-      // Force path: still uses start() (preemptive — cancel already happened above)
+      // Force path: still uses startAll() (preemptive — cancel already happened above)
       if (!controller) {
-        controller = opts.invocationTracker?.start(resolvedThreadId, primaryCat, userId, targetCats);
+        controller = opts.invocationTracker?.startAll(resolvedThreadId, targetCats, userId);
       }
 
       // Race: thread entered deleting between isDeleting() and start()
@@ -589,8 +770,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           userMessageId: storedUserMessage.id,
         });
       } catch (preExecErr) {
-        // Release slot — we haven't entered background coroutine yet
-        opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
+        // Release slots — we haven't entered background coroutine yet
+        opts.invocationTracker?.completeAll(resolvedThreadId, targetCats, controller);
         // Mark record as failed if it was created
         try {
           await opts.invocationRecordStore?.update(createResult.invocationId, { status: 'failed' });
@@ -608,6 +789,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         timestamp: Date.now(),
       });
 
+      tryAutoCancelPendingHolds(resolvedThreadId, opts.holdBallCancelDeps);
+
       // ⑤ Background: execute cat invocation via routeExecution
       void (async () => {
         const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -619,28 +802,74 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         }, HEARTBEAT_INTERVAL_MS);
 
         // F39: Track final status for queue auto-dequeue
-        let finalStatus: 'succeeded' | 'failed' | 'canceled' = 'failed';
+        let finalStatus: 'succeeded' | 'failed' | 'canceled' | 'canceled_by_user' = 'failed';
+
+        // F088 ISSUE-15: Hoisted so catch/abort branches can clean up streaming sessions
+        let streamStartPromise: Promise<void> | undefined;
+
+        // F148 fix: Hoisted so abort/catch branches can ack completed cats' cursors
+        const cursorBoundaries = new Map<string, string>();
+
+        // F194 Phase Z3 (AC-Z3): mark chain start for finally fallback. routeExecution may
+        // hang / silently exit / swallow exceptions and never reach explicit terminal write
+        // (root cause of bubble-still-split symptom). Without this signal, finally would
+        // fallback failed even on success. start→succeeded/failed → finally CAS terminal.
+        routeChainTracker.start(createResult.invocationId);
 
         try {
           await opts.invocationRecordStore?.update(createResult.invocationId, {
             status: 'running',
           });
 
-          opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'intent_mode', {
-            threadId: resolvedThreadId,
-            mode: intent.intent,
-            targetCats,
-            invocationId: createResult.invocationId,
-          });
-
-          // ADR-008 S3: collect cursor boundaries; ack only after succeeded
-          const cursorBoundaries = new Map<string, string>();
+          // #768: intent_mode deferred to first CLI event (avoid "replying" when CLI never starts)
+          let intentModeBroadcast = false;
           // P1-2: track persistence failures across generator boundary
           const persistenceContext: PersistenceContext = { failed: false, errors: [] };
           // F8: collect per-cat token usage from done events
           const collectedUsage = new Map<string, TokenUsage>();
-          // Aggregate streamed assistant text for push summary/decision classification.
-          let assistantReplyContent = '';
+          // F070: track governance block errorCode for recoverable failure marking
+          let governanceErrorCode: string | undefined;
+          const continuationCapsules = new Map<string, CollaborationContinuityCapsuleV1>();
+
+          // F088 ISSUE-15: Collect per-turn content for outbound delivery to connector platforms
+          const outboundTurns: Array<{
+            catId: string;
+            textParts: string[];
+            richBlocks?: unknown[];
+          }> = [];
+          let currentTurnCatId: string | undefined;
+          const collectedTextParts: string[] = [];
+
+          // F088 ISSUE-15: Start streaming placeholder on external platforms
+          if (opts.streamingHook) {
+            streamStartPromise = opts.streamingHook
+              .onStreamStart(resolvedThreadId, primaryCat, createResult.invocationId)
+              .catch((err) => {
+                log.warn({ err, threadId: resolvedThreadId }, '[messages] StreamingHook.onStreamStart failed');
+              });
+          }
+
+          // User stop can win the race before CLI produces the first event.
+          // Do not re-arm frontend state with spawn_started/intent_mode after abort.
+          if (controller?.signal.aborted) {
+            finalStatus = controller.signal.reason === 'user_cancel' ? 'canceled_by_user' : 'canceled';
+            await opts.invocationRecordStore?.update(createResult.invocationId, {
+              status: 'canceled',
+            });
+            await cleanupStreamingOnFailure(resolvedThreadId, createResult.invocationId, streamStartPromise, opts, log);
+            return;
+          }
+
+          // F118 D2: Broadcast spawn_started immediately — fills the intent_mode blind spot.
+          // intent_mode only fires after the first CLI NDJSON event (0–2 min delay).
+          // spawn_started fires here, before routeExecution, so the UI can show
+          // per-cat "spawning" indicators without waiting for CLI to come alive.
+          opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'spawn_started', {
+            threadId: resolvedThreadId,
+            targetCats,
+            invocationId: createResult.invocationId,
+          });
+
           for await (const msg of router.routeExecution(
             userId,
             content,
@@ -654,33 +883,130 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               ...(controller?.signal ? { signal: controller.signal } : {}),
               ...(opts.invocationQueue
                 ? {
-                    queueHasQueuedMessages: (tid: string) => opts.invocationQueue?.hasQueuedForThread(tid) ?? false,
+                    queueHasQueuedMessages: (tid: string) =>
+                      opts.invocationQueue?.hasQueuedNonAgentForThread(tid) ?? false,
+                    deferA2AEnqueue: (e) => opts.invocationQueue?.enqueue(e as any),
+                    hasQueuedOrActiveAgentForCat: (tid: string, catId: string) =>
+                      opts.invocationQueue?.hasActiveOrQueuedAgentForCat(tid, catId) ?? false,
                   }
                 : {}),
+              ...(controller ? { invocationController: controller } : {}),
+              trackA2ASlot: (tid: string, catId: string, uid: string, ctrl: AbortController) => {
+                opts.invocationTracker?.trackExternalSlot(tid, catId, ctrl, uid, [catId]);
+              },
+              completeA2ASlots: (tid: string, catIds: readonly string[], ctrl: AbortController) => {
+                for (const catId of catIds) opts.invocationTracker?.completeSlot?.(tid, catId, ctrl);
+              },
               cursorBoundaries,
               persistenceContext,
               parentInvocationId: createResult.invocationId,
             },
           )) {
+            if (controller?.signal.aborted) {
+              break;
+            }
+            // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
+            if (!intentModeBroadcast) {
+              opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'intent_mode', {
+                threadId: resolvedThreadId,
+                mode: intent.intent,
+                targetCats,
+                invocationId: createResult.invocationId,
+              });
+              intentModeBroadcast = true;
+              // Push participants to sidebar. resolveTargets only calls addParticipants
+              // for @mention flows; non-mention routing (preferredCats/default) skips it.
+              // Merge stored participants with targetCats so sidebar always gets the
+              // responding cats, regardless of how they were resolved.
+              const existingParticipants = (await opts.threadStore?.get(resolvedThreadId))?.participants ?? [];
+              const mergedParticipants = [...new Set([...existingParticipants, ...targetCats])];
+              opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'thread_updated', {
+                threadId: resolvedThreadId,
+                participants: mergedParticipants,
+              });
+            }
             // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
             if (controller?.signal.aborted) break;
-            if (msg.type === 'text' && msg.content) {
-              assistantReplyContent += msg.content;
+            const continuationCapsule = extractContinuityCapsuleFromAgentMessage(msg);
+            if (continuationCapsule) {
+              continuationCapsules.set(continuationCapsule.catId, continuationCapsule);
             }
             if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
               collectedUsage.set(msg.catId, mergeTokenUsage(collectedUsage.get(msg.catId), msg.metadata.usage));
             }
-            opts.socketManager.broadcastAgentMessage(
-              { ...msg, invocationId: createResult.invocationId },
-              resolvedThreadId,
-            );
+            if (msg.type === 'done' && msg.errorCode) {
+              governanceErrorCode = msg.errorCode;
+            }
+            if ((msg.type === 'done' || msg.type === 'error') && msg.catId) {
+              opts.invocationTracker?.completeSlot?.(resolvedThreadId, msg.catId, controller);
+            }
+
+            // F088 ISSUE-15: Collect outbound turns (same pattern as QueueProcessor)
+            if (msg.type === 'done' && msg.catId) {
+              if (persistenceContext.richBlocks) {
+                const turn = outboundTurns[outboundTurns.length - 1];
+                if (turn && turn.catId === msg.catId && currentTurnCatId === msg.catId) {
+                  turn.richBlocks = [...persistenceContext.richBlocks];
+                } else {
+                  outboundTurns.push({
+                    catId: msg.catId,
+                    textParts: [],
+                    richBlocks: [...persistenceContext.richBlocks],
+                  });
+                }
+                persistenceContext.richBlocks = undefined;
+              }
+              currentTurnCatId = undefined;
+            }
+            if (msg.type === 'text' && typeof (msg as unknown as Record<string, unknown>).content === 'string') {
+              const textContent = (msg as unknown as Record<string, unknown>).content as string;
+              const textMode = (msg as { textMode?: 'append' | 'replace' }).textMode;
+              accumulateTextParts(collectedTextParts, textContent, textMode);
+              if (msg.catId) {
+                if (msg.catId !== currentTurnCatId) {
+                  outboundTurns.push({ catId: msg.catId, textParts: [] });
+                  currentTurnCatId = msg.catId;
+                }
+                const turn = outboundTurns[outboundTurns.length - 1];
+                accumulateTextParts(turn.textParts, textContent, textMode);
+              }
+              // F088 ISSUE-15: Forward streaming chunks to external platforms
+              if (opts.streamingHook) {
+                const accumulated =
+                  outboundTurns.length > 0 ? flattenTurnTextParts(outboundTurns) : flattenTextParts(collectedTextParts);
+                opts.streamingHook
+                  .onStreamChunk(resolvedThreadId, accumulated, createResult.invocationId)
+                  .catch((streamErr) => {
+                    log.warn(
+                      { err: streamErr, threadId: resolvedThreadId },
+                      '[messages] StreamingHook.onStreamChunk failed',
+                    );
+                  });
+              }
+            }
+
+            // F194 Phase Z9 (砚砚 R1 P1-2): unified visible turn stamp via helper.
+            // Route layer (R1 P1-1 fix) now stamps msg.invocationId = ownInvocationId
+            // for assistant yielded events, so helper receives a defined turn id
+            // (no parent fallback firing in practice).
+            const broadcastPayload = {
+              ...msg,
+              ...stampVisibleTurn(createResult.invocationId, msg.invocationId),
+            };
+
+            if (msg.type === 'a2a_handoff') {
+              const storedId = await persistA2ARoutingMessage(opts.messageStore, broadcastPayload, resolvedThreadId);
+              if (storedId) broadcastPayload.messageId = storedId;
+            }
+
+            opts.socketManager.broadcastAgentMessage(broadcastPayload, resolvedThreadId);
           }
 
           // F39 P1 fix (砚砚 R1): abort guard after loop — when signal is aborted
           // and the generator ends normally (no throw), the break exits the loop but
           // post-loop code would still run ack+succeeded. Guard explicitly.
           if (controller?.signal.aborted) {
-            finalStatus = 'canceled';
+            finalStatus = controller.signal.reason === 'user_cancel' ? 'canceled_by_user' : 'canceled';
             await opts.invocationRecordStore?.update(createResult.invocationId, {
               status: 'canceled',
             });
@@ -703,7 +1029,12 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
                 resolvedThreadId,
               );
             }
-            // Skip ack/succeeded/push-notify — let finally handle cleanup
+            // F148 fix: ack cursors for cats that completed before abort (monotonic CAS, safe to call)
+            if (cursorBoundaries.size > 0) {
+              await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
+            }
+            // P1 fix: finalize streaming session on abort so external placeholders are cleaned up
+            await cleanupStreamingOnFailure(resolvedThreadId, createResult.invocationId, streamStartPromise, opts, log);
           } else if (persistenceContext.failed) {
             const errorDetail = persistenceContext.errors.map((e) => `${e.catId}: ${e.error}`).join('; ');
             await opts.invocationRecordStore?.update(createResult.invocationId, {
@@ -731,6 +1062,14 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
                 })
                 .catch(() => {});
             }
+            await cleanupStreamingOnFailure(resolvedThreadId, createResult.invocationId, streamStartPromise, opts, log);
+          } else if (governanceErrorCode) {
+            // F070: Governance gate blocked — mark as failed with errorCode for retry
+            await opts.invocationRecordStore?.update(createResult.invocationId, {
+              status: 'failed',
+              error: governanceErrorCode,
+            });
+            await cleanupStreamingOnFailure(resolvedThreadId, createResult.invocationId, streamStartPromise, opts, log);
           } else {
             // ADR-008 S3: ack cursors before marking succeeded so that if ack
             // throws, the catch block sees running→failed (valid transition).
@@ -745,12 +1084,25 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
                 : {}),
             });
             finalStatus = 'succeeded';
+            // F194 Phase Z3: chain succeeded — signal for finally fallback
+            routeChainTracker.succeed(createResult.invocationId);
+
+            for (const continuationCapsule of continuationCapsules.values()) {
+              opts.queueProcessor?.enqueueContinuation({
+                threadId: resolvedThreadId,
+                userId,
+                catId: continuationCapsule.catId,
+                capsule: continuationCapsule,
+              });
+            }
 
             // Push notification: cat(s) finished responding
             const pushSvc = getPushNotificationService();
             if (pushSvc) {
               const catNames = targetCats.join(', ');
-              const assistantText = assistantReplyContent.trim();
+              const assistantText = (
+                outboundTurns.length > 0 ? flattenTurnTextParts(outboundTurns) : flattenTextParts(collectedTextParts)
+              ).trim();
               const needsDecision = assistantText.length > 0 ? shouldMarkDecisionNotification(assistantText) : false;
               const pushBodySource = assistantText || '猫猫已处理，请打开会话查看详情';
               pushSvc
@@ -770,35 +1122,57 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
                 });
             }
 
-            // Fire-and-forget: auto-summarize if threshold met (only on success)
-            if (opts.autoSummarizer) {
-              opts.autoSummarizer
-                .maybeSummarize(resolvedThreadId)
-                .then((summary) => {
-                  if (summary) {
-                    opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'thread_summary', summary);
-                  }
-                })
-                .catch(() => {
-                  /* ignore */
-                });
-            }
+            // F088 ISSUE-15: Outbound delivery to connector platforms (Feishu/Telegram)
+            // P2 fix: fire-and-forget so delivery latency doesn't block invocationTracker.complete()
+            deliverOutboundFromWeb(
+              resolvedThreadId,
+              primaryCat,
+              createResult.invocationId,
+              collectedTextParts,
+              outboundTurns,
+              persistenceContext,
+              streamStartPromise,
+              opts,
+              log,
+            ).catch((deliverErr) => {
+              log.error({ err: deliverErr, threadId: resolvedThreadId }, '[messages] deliverOutboundFromWeb failed');
+            });
           }
         } catch (err) {
           // F39 bugfix: detect abort (cancel/force) vs real failure
           if (controller?.signal.aborted) {
-            finalStatus = 'canceled';
+            finalStatus = controller.signal.reason === 'user_cancel' ? 'canceled_by_user' : 'canceled';
             await opts.invocationRecordStore?.update(createResult.invocationId, {
               status: 'canceled',
             });
+            // F148 fix: ack cursors for cats that completed before the exception
+            if (cursorBoundaries.size > 0) {
+              try {
+                await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
+              } catch {
+                /* best-effort — don't mask the original error */
+              }
+            }
             // Don't broadcast error for intentional cancel
+            // P1-A fix: clean up streaming placeholder even on abort/cancel
+            await cleanupStreamingOnFailure(resolvedThreadId, createResult.invocationId, streamStartPromise, opts, log);
           } else {
-            console.error('[messages] Background processing error:', err);
+            // F148 fix: ack cursors for cats that completed before the exception
+            if (cursorBoundaries.size > 0) {
+              try {
+                await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
+              } catch {
+                /* best-effort — don't mask the original error */
+              }
+            }
+            log.error({ err, invocationId: createResult.invocationId }, 'Background processing error');
             const errorMsg = normalizeErrorMessage(err);
             await opts.invocationRecordStore?.update(createResult.invocationId, {
               status: 'failed',
               error: errorMsg,
             });
+            // F194 Phase Z3: chain failed — diagnostic signal for finally fallback
+            routeChainTracker.fail(createResult.invocationId);
             opts.socketManager.broadcastAgentMessage(
               {
                 type: 'error',
@@ -821,28 +1195,55 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
                 })
                 .catch(() => {});
             }
+            await cleanupStreamingOnFailure(resolvedThreadId, createResult.invocationId, streamStartPromise, opts, log);
           } // end else (non-abort error)
         } finally {
           clearInterval(heartbeatInterval);
-          opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
+          opts.invocationTracker?.completeAll(resolvedThreadId, targetCats, controller);
+          // F194 Phase Z3 (AC-Z3): defensive terminal write. If routeExecution silently exited
+          // without writing terminal (the runtime split symptom root cause), CAS expectedStatus=
+          // running guarded write based on chainCompletion signal. Skips if status already terminal.
+          // Reads chainTracker → succeeded/failed/missing → CAS update or fallback. (砚砚 R1 P1-3)
+          if (opts.invocationRecordStore) {
+            try {
+              await ensureTerminalStatus(
+                createResult.invocationId,
+                {
+                  invocationRecordStore: opts.invocationRecordStore,
+                  chainCompletion: routeChainTracker,
+                  log,
+                },
+                { reqId: request.id },
+              );
+            } catch (err) {
+              log.warn(
+                { err, invocationId: createResult.invocationId, feature: 'F194' },
+                'F194 Z3 ensureTerminalStatus failed (background)',
+              );
+            }
+          }
+          routeChainTracker.release(createResult.invocationId);
           // F39: Notify queue processor for auto-dequeue chain
-          opts.queueProcessor?.onInvocationComplete(resolvedThreadId, primaryCat, finalStatus).catch(() => {
-            /* best-effort, don't crash background task */
+          opts.queueProcessor?.onInvocationComplete(resolvedThreadId, primaryCat, finalStatus).catch((err) => {
+            log.error(
+              { err, threadId: resolvedThreadId, catId: primaryCat, finalStatus },
+              '[messages] onInvocationComplete failed — queued messages may be stuck (#595)',
+            );
           });
         }
       })();
     } else {
       // Fallback: no invocationRecordStore (legacy path, uses route())
       // F122 A.1: Try non-preemptive first. Legacy path has no InvocationQueue so it
-      // cannot degrade to queue — fall back to preemptive start() as temporary compat.
+      // cannot degrade to queue — fall back to preemptive startAll() as temporary compat.
       // TODO(F122 Phase B): Legacy path should be removed or given queue support.
       let controller: AbortController | undefined;
       if (mode !== 'force' && opts.invocationTracker) {
         controller =
-          opts.invocationTracker.tryStartThread(resolvedThreadId, primaryCat, userId, targetCats) ??
-          opts.invocationTracker.start(resolvedThreadId, primaryCat, userId, targetCats);
+          opts.invocationTracker.tryStartThreadAll(resolvedThreadId, targetCats, userId) ??
+          opts.invocationTracker.startAll(resolvedThreadId, targetCats, userId);
       } else {
-        controller = opts.invocationTracker?.start(resolvedThreadId, primaryCat, userId, targetCats);
+        controller = opts.invocationTracker?.startAll(resolvedThreadId, targetCats, userId);
       }
       if (controller?.signal.aborted) {
         reply.status(409);
@@ -865,12 +1266,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         }, HEARTBEAT_INTERVAL_MS);
 
         try {
-          opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'intent_mode', {
-            threadId: resolvedThreadId,
-            mode: intent.intent,
-            targetCats,
-            // Legacy path: no invocationId (no InvocationRecord). Frontend falls back gracefully.
-          });
+          // #768: intent_mode deferred to first CLI event (legacy path)
+          let intentModeBroadcast = false;
 
           for await (const msg of router.route(
             userId,
@@ -880,10 +1277,25 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             uploadDir,
             controller?.signal,
           )) {
-            opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
+            // #768: Broadcast intent_mode on first CLI event (legacy path)
+            if (!intentModeBroadcast) {
+              opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'intent_mode', {
+                threadId: resolvedThreadId,
+                mode: intent.intent,
+                targetCats,
+                // Legacy path: no invocationId (no InvocationRecord). Frontend falls back gracefully.
+              });
+              intentModeBroadcast = true;
+            }
+            const legacyPayload = { ...msg };
+            if (msg.type === 'a2a_handoff') {
+              const storedId = await persistA2ARoutingMessage(opts.messageStore, msg, resolvedThreadId);
+              if (storedId) legacyPayload.messageId = storedId;
+            }
+            opts.socketManager.broadcastAgentMessage(legacyPayload, resolvedThreadId);
           }
         } catch (err) {
-          console.error('[messages] Background processing error:', err);
+          log.error({ err }, 'Background processing error');
           opts.socketManager.broadcastAgentMessage(
             {
               type: 'error',
@@ -896,7 +1308,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           );
         } finally {
           clearInterval(heartbeatInterval);
-          opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
+          opts.invocationTracker?.completeAll(resolvedThreadId, targetCats, controller);
         }
       })();
     }
@@ -944,7 +1356,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     // Map chat messages (union type allows summary items to be pushed later)
     type TimelineItem = {
       id: string;
-      type: 'user' | 'assistant' | 'connector' | 'summary';
+      type: 'user' | 'assistant' | 'connector' | 'summary' | 'system';
       catId: string | null;
       content: string;
       timestamp: number;
@@ -953,7 +1365,15 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     };
     const chatItems: TimelineItem[] = page.map((m) => ({
       id: m.id,
-      type: (m.catId ? 'assistant' : m.source ? 'connector' : 'user') as 'user' | 'assistant' | 'connector',
+      type: (m.catId
+        ? isSystemUserMessage(m)
+          ? 'system'
+          : 'assistant'
+        : m.source
+          ? 'connector'
+          : isSystemUserMessage(m)
+            ? 'system'
+            : 'user') as TimelineItem['type'],
       catId: m.catId,
       content: m.content,
       ...(m.contentBlocks ? { contentBlocks: m.contentBlocks } : {}),
@@ -961,13 +1381,22 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       ...(m.metadata ? { metadata: m.metadata } : {}),
       ...(m.origin ? { origin: m.origin } : {}),
       ...(m.thinking ? { thinking: m.thinking } : {}),
-      ...(m.extra?.rich || m.extra?.crossPost || m.extra?.stream || m.extra?.targetCats
+      ...(m.extra?.rich ||
+      m.extra?.crossPost ||
+      m.extra?.stream ||
+      m.extra?.targetCats ||
+      m.extra?.scheduler ||
+      m.extra?.systemKind ||
+      m.extra?.a2aRouting
         ? {
             extra: {
               ...(m.extra.rich ? { rich: m.extra.rich } : {}),
               ...(m.extra.crossPost ? { crossPost: m.extra.crossPost } : {}),
               ...(m.extra.stream ? { stream: m.extra.stream } : {}),
               ...(m.extra.targetCats ? { targetCats: m.extra.targetCats } : {}),
+              ...(m.extra.scheduler ? { scheduler: m.extra.scheduler } : {}),
+              ...(m.extra.systemKind ? { systemKind: m.extra.systemKind } : {}),
+              ...(m.extra.a2aRouting ? { a2aRouting: m.extra.a2aRouting } : {}),
             },
           }
         : {}),
@@ -1006,7 +1435,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
     // #80: Merge active streaming drafts (first page only — no before cursor)
     if (!before && opts.draftStore) {
-      const drafts = await opts.draftStore.getByThread(userId, resolvedThreadId);
+      const draftStore = opts.draftStore;
+      const drafts = await draftStore.getByThread(userId, resolvedThreadId);
+      let activeDrafts = drafts;
       // #80 fix-B diagnostic: trace draft merge for F5 recovery verification
       if (drafts.length > 0) {
         request.log.info(
@@ -1014,11 +1445,18 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           '#80 draft merge: found active drafts',
         );
         // P1-2 dedup: filter out drafts whose invocationId matches a formal message.
-        // Build invocationId set from current page first (fast path).
-        const formalInvocationIds = new Set(
-          page.map((m) => m.extra?.stream?.invocationId).filter((id): id is string => !!id),
-        );
-        let activeDrafts = drafts.filter((d) => !formalInvocationIds.has(d.invocationId));
+        // F194 Phase Z3 P1-3 (砚砚 R): formal set MUST collect both `invocationId` (parent SoT) and
+        // `turnInvocationId` (Z3 dual id, where draft.invocationId === turnInvocationId for new
+        // formal messages). Without this, append-success-but-draft-not-yet-deleted window double-shows
+        // formal + draft for the same turn.
+        const formalInvocationIds = new Set<string>();
+        for (const m of page) {
+          const parentInv = m.extra?.stream?.invocationId;
+          const turnInv = m.extra?.stream?.turnInvocationId;
+          if (parentInv) formalInvocationIds.add(parentInv);
+          if (turnInv) formalInvocationIds.add(turnInv);
+        }
+        activeDrafts = drafts.filter((d) => !formalInvocationIds.has(d.invocationId));
         // Cloud R4 P2: if drafts survive page-level dedup, widen the check to cover
         // formal messages pushed off the first page (race window: TTL > page depth).
         // Cloud R5 P2: wider window must always exceed page limit (limit max=200 → worst case 800).
@@ -1026,67 +1464,125 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           const widerLimit = Math.max(200, limit * 4);
           const wider = await opts.messageStore.getByThread(resolvedThreadId, widerLimit, userId);
           for (const m of wider) {
-            const invId = m.extra?.stream?.invocationId;
-            if (invId) formalInvocationIds.add(invId);
+            const parentInv = m.extra?.stream?.invocationId;
+            const turnInv = m.extra?.stream?.turnInvocationId;
+            if (parentInv) formalInvocationIds.add(parentInv);
+            if (turnInv) formalInvocationIds.add(turnInv);
           }
           activeDrafts = activeDrafts.filter((d) => !formalInvocationIds.has(d.invocationId));
         }
-        // P2: stable sort by updatedAt for parallel multi-cat drafts
-        activeDrafts.sort((a, b) => a.updatedAt - b.updatedAt);
-        if (activeDrafts.length > 0) {
-          request.log.info(
-            { threadId: resolvedThreadId, mergedCount: activeDrafts.length, cats: activeDrafts.map((d) => d.catId) },
-            '#80 draft merge: merging drafts into response',
+      }
+
+      // F194 Phase B step 2b: canonical getThreadLiveInvocations helper.
+      // Cloud R17 P1: helper MUST run even when activeDrafts is empty — zombies
+      // (record running + no fresh draft + age past grace) are exactly the empty-drafts
+      // case. Skipping the helper here means /messages never reconciles them; only /queue
+      // would, and a thread that's read but not queue-checked stays phantom forever.
+      //
+      // AC-B5 preservation (砚砚 R6 P1 fix): gate only requires `invocationRecordStore` —
+      // tracker is OPTIONAL. Embedded modes / legacy tests that wire recordStore but not
+      // tracker still get zombie detection + orphan filtering.
+      if (opts.invocationRecordStore) {
+        const recordStore = opts.invocationRecordStore;
+        const tracker = opts.invocationTracker;
+        const draftsForHelper = activeDrafts; // already deduped against formal messages (or empty)
+        try {
+          const liveness = await getThreadLiveInvocations(resolvedThreadId, userId, {
+            listRunningRecords: (tid, uid) => recordStore.listRunningByThread(tid, uid),
+            getActiveSlots: (tid) => tracker?.getActiveSlots(tid) ?? [],
+            getTrackerUserId: (tid, cid) => tracker?.getUserId(tid, cid) ?? null,
+            getDrafts: () => draftsForHelper,
+            // F194 Phase Z (KD-22): namespace bridge — child registry id → parent recordStore id.
+            // Wraps existing InvocationRegistry.getRecord (parentInvocationId field) + getLatestId.
+            // Helper uses these to detect parent+child execution chain liveness and cat-slot reuse
+            // zombies (砚砚 R1 P1-1: 结构化 dep, not boolean black-box).
+            getTurnInvocation: async (id) => {
+              const rec = await opts.registry.getRecord(id);
+              if (!rec) return null;
+              return {
+                parentInvocationId: rec.parentInvocationId,
+                threadId: rec.threadId,
+                userId: rec.userId,
+                catId: rec.catId,
+                createdAt: rec.createdAt,
+              };
+            },
+            getLatestTurnInvocationId: (tid, cat) => opts.registry.getLatestId(tid, cat),
+            // F194 AC-B12: route diagnostic events into request log. NB: do NOT spread
+            // `source: 'F194'` — that would clobber LivenessEvent.source (record+draft /
+            // record-only / tracker+draft / null), losing the diagnostic. Use `feature`.
+            onLog: (event) => request.log.info({ ...event, feature: 'F194' }, 'F194 liveness event'),
+          });
+          const liveInvocationIds = new Set(liveness.active.map((s) => s.invocationId));
+          const orphanDrafts = activeDrafts.filter((d) => !liveInvocationIds.has(d.invocationId));
+          activeDrafts = activeDrafts.filter((d) => liveInvocationIds.has(d.invocationId));
+          // F194 AC-B7~B10: fire-and-forget zombie cleanup so /messages read isn't blocked.
+          // Lifecycle converges to failed + TaskProgress cleared. Idempotent (state machine
+          // guard rejects double-write). reconcileZombies failure logs warn — never throws.
+          if (liveness.zombies.length > 0) {
+            void reconcileZombies(liveness.zombies, {
+              invocationRecordStore: recordStore,
+              taskProgressStore: opts.taskProgressStore,
+              log: request.log,
+            }).catch((err) => request.log.warn({ err, feature: 'F194' }, 'reconcileZombies failed'));
+          }
+          if (orphanDrafts.length > 0) {
+            request.log.info(
+              {
+                threadId: resolvedThreadId,
+                orphanCount: orphanDrafts.length,
+                draftIds: orphanDrafts.map((d) => d.invocationId),
+                cleanup: 'helper-canonical',
+              },
+              '#80 draft merge: filtered orphan drafts (F194 helper-canonical)',
+            );
+          }
+        } catch (err) {
+          // F194 AC-B13: fail-open + fallback metric — record/tracker error must not 500
+          // the read endpoint, but split-brain protection is bypassed during fallback.
+          request.log.warn(
+            {
+              err,
+              kind: 'liveness_fallback',
+              threadId: resolvedThreadId,
+              userId,
+              feature: 'F194',
+              endpoint: '/messages',
+              draftCount: activeDrafts.length,
+            },
+            '#80 draft merge: F194 helper threw, fall-open keep all drafts',
           );
         }
-        for (const d of activeDrafts) {
-          chatItems.push({
-            id: `draft-${d.invocationId}`,
-            type: 'assistant',
-            catId: d.catId as string | null,
-            content: d.content,
-            timestamp: d.updatedAt,
-            isDraft: true,
-            origin: 'stream',
-            extra: { stream: { invocationId: d.invocationId } },
-            ...(d.toolEvents ? { toolEvents: d.toolEvents } : {}),
-            ...(d.thinking ? { thinking: d.thinking } : {}),
-          });
-        }
+      }
+
+      // P2: stable sort by updatedAt for parallel multi-cat drafts
+      activeDrafts.sort((a, b) => a.updatedAt - b.updatedAt);
+      if (activeDrafts.length > 0) {
+        request.log.info(
+          { threadId: resolvedThreadId, mergedCount: activeDrafts.length, cats: activeDrafts.map((d) => d.catId) },
+          '#80 draft merge: merging drafts into response',
+        );
+      }
+      for (const d of activeDrafts) {
+        chatItems.push({
+          id: `draft-${d.invocationId}`,
+          type: 'assistant',
+          catId: d.catId as string | null,
+          content: d.content,
+          timestamp: d.updatedAt,
+          isDraft: true,
+          origin: 'stream',
+          // F194 Phase Z9 AC-Z25 (KD-28): always stamp turnInvocationId; draft has only
+          // one identity so both fields point to draft invocationId.
+          extra: { stream: { invocationId: d.invocationId, turnInvocationId: d.invocationId } },
+          ...(d.toolEvents ? { toolEvents: d.toolEvents } : {}),
+          ...(d.thinking ? { thinking: d.thinking } : {}),
+        });
       }
     }
 
-    // P1-B fix: merge summaries into history timeline
-    // First page (no cursor): include summaries >= oldest message (no max cap,
-    //   so summaries created *after* the newest message are still included).
-    // Pagination (before cursor): include summaries >= oldest message AND < beforeTs.
-    if (opts.summaryStore) {
-      const summaries = await opts.summaryStore.listByThread(resolvedThreadId);
-      const minTs = page.length > 0 ? (page[0]?.timestamp ?? null) : null;
-      for (const s of summaries) {
-        if (minTs !== null && s.createdAt < minTs) continue;
-        if (beforeTs != null && s.createdAt >= beforeTs) continue;
-        chatItems.push({
-          id: `summary-${s.id}`,
-          type: 'summary',
-          catId: null,
-          content: s.topic,
-          timestamp: s.createdAt,
-          summary: {
-            id: s.id,
-            topic: s.topic,
-            conclusions: [...s.conclusions],
-            openQuestions: [...s.openQuestions],
-            createdBy: s.createdBy,
-          },
-        });
-      }
-      chatItems.sort((a, b) => {
-        const ta = typeof a.deliveredAt === 'number' ? a.deliveredAt : a.timestamp;
-        const tb = typeof b.deliveredAt === 'number' ? b.deliveredAt : b.timestamp;
-        return ta - tb;
-      });
-    }
+    // Auto-summary disabled (clowder-ai#343): regex-based summaries removed from chat flow.
+    // Scheduled compaction (SummaryCompactionTask) continues for memory infrastructure.
 
     return {
       messages: chatItems,
@@ -1094,3 +1590,161 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     };
   });
 };
+
+/** @internal exported for testing — do not use outside of test. */
+export async function cleanupStreamingOnFailure(
+  threadId: string,
+  invocationId: string,
+  streamStartPromise: Promise<void> | undefined,
+  opts: MessagesRoutesOptions,
+  logger: typeof log,
+): Promise<void> {
+  if (!opts.streamingHook) return;
+  try {
+    if (streamStartPromise) {
+      await Promise.race([streamStartPromise, new Promise<void>((r) => setTimeout(r, STREAM_START_TIMEOUT_MS))]);
+    }
+    await opts.streamingHook.onStreamEnd(threadId, '', invocationId);
+    await opts.streamingHook.cleanupPlaceholders?.(threadId, invocationId);
+  } catch (err) {
+    logger.warn({ err, threadId }, '[messages] cleanupStreamingOnFailure failed');
+  }
+}
+
+/** @internal exported for testing — do not use outside of test. */
+export async function deliverOutboundFromWeb(
+  threadId: string,
+  primaryCat: string,
+  invocationId: string,
+  collectedTextParts: string[],
+  outboundTurns: Array<{ catId: string; textParts: string[]; richBlocks?: unknown[] }>,
+  persistenceContext: PersistenceContext,
+  streamStartPromise: Promise<void> | undefined,
+  opts: MessagesRoutesOptions,
+  logger: typeof log,
+): Promise<void> {
+  const finalContent =
+    outboundTurns.length > 0 ? flattenTurnTextParts(outboundTurns) : flattenTextParts(collectedTextParts);
+
+  if (opts.streamingHook) {
+    if (streamStartPromise) {
+      await Promise.race([
+        streamStartPromise,
+        new Promise<void>((resolve) => setTimeout(resolve, STREAM_START_TIMEOUT_MS)),
+      ]);
+    }
+    await opts.streamingHook.onStreamEnd(threadId, finalContent, invocationId).catch((err) => {
+      logger.warn({ err, threadId }, '[messages] StreamingHook.onStreamEnd failed');
+    });
+  }
+
+  const hasContent = collectedTextParts.length > 0 || outboundTurns.length > 0;
+  if (!opts.outboundHook || !hasContent) {
+    if (opts.streamingHook?.cleanupPlaceholders) {
+      await opts.streamingHook.cleanupPlaceholders(threadId, invocationId).catch((err) => {
+        logger.warn({ err, threadId }, '[messages] StreamingHook.cleanupPlaceholders failed (silent)');
+      });
+    }
+    return;
+  }
+
+  let threadMeta: { threadShortId: string; threadTitle?: string; deepLinkUrl?: string } | undefined;
+  try {
+    const LOOKUP_TIMEOUT_MS = 2000;
+    const thread = opts.threadStore?.get(threadId);
+    if (thread) {
+      const lookupPromise = Promise.resolve(thread).catch(() => undefined);
+      const timeout = new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), LOOKUP_TIMEOUT_MS));
+      const resolved = await Promise.race([lookupPromise, timeout]);
+      if (resolved) {
+        const frontendBase = resolveFrontendBaseUrl(process.env);
+        threadMeta = {
+          threadShortId: threadId.slice(0, 15),
+          threadTitle: resolved.title ?? undefined,
+          deepLinkUrl: buildThreadDeepLink(frontendBase, threadId),
+        };
+      }
+    }
+  } catch {
+    logger.warn({ threadId }, '[messages] threadMeta lookup failed');
+  }
+
+  const DELIVER_TIMEOUT_MS = 10_000;
+  const nonEmptyTurns = outboundTurns.filter(
+    (t) => t.textParts.length > 0 || (t.richBlocks && t.richBlocks.length > 0),
+  );
+
+  let deliveryFailed = false;
+  const inflightDeliverPromises: Promise<void>[] = [];
+
+  if (nonEmptyTurns.length > 1) {
+    for (const turn of nonEmptyTurns) {
+      const turnContent = turn.textParts.join('');
+      const deliverPromise = opts.outboundHook.deliver(threadId, turnContent, turn.catId, turn.richBlocks, threadMeta);
+      inflightDeliverPromises.push(deliverPromise);
+      try {
+        await Promise.race([
+          deliverPromise,
+          new Promise<void>((_, reject) => setTimeout(() => reject(new Error('deliver timeout')), DELIVER_TIMEOUT_MS)),
+        ]);
+      } catch (err) {
+        deliveryFailed = true;
+        logger.error({ err, threadId, catId: turn.catId }, '[messages] Outbound delivery error');
+      }
+    }
+  } else if (nonEmptyTurns.length === 1) {
+    const turn = nonEmptyTurns[0];
+    const richBlocks = persistenceContext.richBlocks ?? turn.richBlocks;
+    const deliverPromise = opts.outboundHook.deliver(threadId, finalContent, turn.catId, richBlocks, threadMeta);
+    inflightDeliverPromises.push(deliverPromise);
+    try {
+      await Promise.race([
+        deliverPromise,
+        new Promise<void>((_, reject) => setTimeout(() => reject(new Error('deliver timeout')), DELIVER_TIMEOUT_MS)),
+      ]);
+    } catch (err) {
+      deliveryFailed = true;
+      logger.error({ err, threadId }, '[messages] Outbound delivery error');
+    }
+  } else {
+    const richBlocks = persistenceContext.richBlocks;
+    if (richBlocks) {
+      const deliverPromise = opts.outboundHook.deliver(threadId, finalContent, primaryCat, richBlocks, threadMeta);
+      inflightDeliverPromises.push(deliverPromise);
+      try {
+        await Promise.race([
+          deliverPromise,
+          new Promise<void>((_, reject) => setTimeout(() => reject(new Error('deliver timeout')), DELIVER_TIMEOUT_MS)),
+        ]);
+      } catch (err) {
+        deliveryFailed = true;
+        logger.error({ err, threadId }, '[messages] Outbound delivery error');
+      }
+    }
+  }
+
+  if (!deliveryFailed && opts.streamingHook?.cleanupPlaceholders) {
+    await opts.streamingHook.cleanupPlaceholders(threadId, invocationId).catch((err) => {
+      logger.warn({ err, threadId }, '[messages] StreamingHook.cleanupPlaceholders failed');
+    });
+  } else if (deliveryFailed && opts.streamingHook?.cleanupPlaceholders) {
+    const cleanupFn = opts.streamingHook.cleanupPlaceholders.bind(opts.streamingHook);
+    Promise.allSettled(inflightDeliverPromises).then((results) => {
+      if (results.every((r) => r.status === 'fulfilled')) {
+        cleanupFn(threadId, invocationId).catch((err) => {
+          logger.warn({ err, threadId }, '[messages] Late-success placeholder cleanup failed');
+        });
+      }
+    });
+  }
+
+  // F151: Signal adapters that this invocation's delivery batch is complete.
+  // chainDone = no more active or queued invocations for this thread.
+  if (opts.streamingHook?.notifyDeliveryBatchDone) {
+    const threadStillBusy =
+      (opts.invocationTracker?.has(threadId) ?? false) || (opts.queueProcessor?.isThreadBusy(threadId) ?? false);
+    await opts.streamingHook.notifyDeliveryBatchDone(threadId, !threadStillBusy).catch((err) => {
+      logger.warn({ err, threadId }, '[messages] notifyDeliveryBatchDone failed');
+    });
+  }
+}

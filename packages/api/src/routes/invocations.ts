@@ -9,14 +9,20 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { getDefaultCatId } from '../config/cat-config-loader.js';
+import { createModuleLogger } from '../infrastructure/logger.js';
+
+const log = createModuleLogger('routes/invocations');
+
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
+import { stampVisibleTurn } from '../domains/cats/services/agents/invocation/visible-turn.js';
 import type { AgentRouter } from '../domains/cats/services/agents/routing/AgentRouter.js';
 import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-helpers.js';
 import { parseIntent } from '../domains/cats/services/context/IntentParser.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
+import { getDefaultUploadDir } from '../utils/upload-paths.js';
 
 export interface InvocationsRoutesOptions {
   invocationRecordStore: IInvocationRecordStore;
@@ -30,7 +36,7 @@ export interface InvocationsRoutesOptions {
 }
 
 export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = async (app, opts) => {
-  const uploadDir = opts.uploadDir ?? process.env.UPLOAD_DIR ?? './uploads';
+  const uploadDir = getDefaultUploadDir(opts.uploadDir ?? process.env.UPLOAD_DIR);
 
   // GET /api/invocations/:id — query InvocationRecord state
   app.get<{ Params: { id: string } }>('/api/invocations/:id', async (request, reply) => {
@@ -111,9 +117,9 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = a
       };
     }
 
-    // ⑥ Start invocation tracking (may abort prior invocation for this slot)
+    // ⑥ Start invocation tracking for ALL target cats (multi-cat F5 recovery)
     const primaryCat = record.targetCats[0] ?? 'unknown';
-    const controller = opts.invocationTracker.start(record.threadId, primaryCat, record.userId, record.targetCats);
+    const controller = opts.invocationTracker.startAll(record.threadId, record.targetCats, record.userId);
     if (controller.signal.aborted) {
       await opts.invocationRecordStore.update(id, { status: 'canceled' });
       reply.status(409);
@@ -133,7 +139,7 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = a
       expectedStatus: snapshotStatus,
     });
     if (!claimed) {
-      opts.invocationTracker.complete(record.threadId, primaryCat, controller);
+      opts.invocationTracker.completeAll(record.threadId, record.targetCats, controller);
       reply.status(409);
       return {
         error: `Cannot retry invocation with status '${snapshotStatus}'`,
@@ -173,6 +179,8 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = a
         const cursorBoundaries = new Map<string, string>();
         // P1-2: track persistence failures across generator boundary
         const persistenceContext: PersistenceContext = { failed: false, errors: [] };
+        // F070: track governance block errorCode (mirror messages.ts)
+        let governanceErrorCode: string | undefined;
 
         for await (const msg of opts.router.routeExecution(
           record.userId,
@@ -187,7 +195,11 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = a
             signal: controller.signal,
             ...(opts.queueProcessor
               ? {
-                  queueHasQueuedMessages: (tid: string) => opts.queueProcessor?.hasQueuedForThread(tid) ?? false,
+                  queueHasQueuedMessages: (tid: string) =>
+                    opts.queueProcessor?.hasQueuedNonAgentForThread(tid) ?? false,
+                  hasQueuedOrActiveAgentForCat: (tid: string, catId: string) =>
+                    opts.queueProcessor?.hasActiveOrQueuedAgentForCat(tid, catId) ?? false,
+                  deferA2AEnqueue: (e: any) => opts.queueProcessor?.enqueueRaw(e),
                 }
               : {}),
             cursorBoundaries,
@@ -195,7 +207,20 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = a
             parentInvocationId: id,
           },
         )) {
-          opts.socketManager.broadcastAgentMessage({ ...msg, invocationId: id }, record.threadId);
+          if (msg.type === 'done' && msg.errorCode) {
+            governanceErrorCode = msg.errorCode;
+          }
+          if ((msg.type === 'done' || msg.type === 'error') && msg.catId) {
+            opts.invocationTracker.completeSlot(record.threadId, msg.catId, controller);
+          }
+          // F194 Phase Z9 (砚砚 R1 P1-2): use stampVisibleTurn helper. After route-serial /
+          // route-parallel stamp ownInvocationId on yielded events (R1 P1-1), msg.invocationId
+          // is always defined for assistant turns; helper falls back to parent only as defense
+          // in depth for non-assistant or pre-system_info events.
+          opts.socketManager.broadcastAgentMessage(
+            { ...msg, ...stampVisibleTurn(id, msg.invocationId) },
+            record.threadId,
+          );
         }
 
         // P1-2: mark failed if any message persistence failed
@@ -214,6 +239,11 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = a
             },
             record.threadId,
           );
+        } else if (governanceErrorCode) {
+          await opts.invocationRecordStore.update(id, {
+            status: 'failed',
+            error: governanceErrorCode,
+          });
         } else {
           // ADR-008 S3: ack cursors before marking succeeded so that if ack
           // throws, the catch block sees running→failed (valid transition).
@@ -223,7 +253,7 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = a
           finalStatus = 'succeeded';
         }
       } catch (err) {
-        console.error('[invocations] Retry execution error:', err);
+        log.error({ err }, 'Retry execution error');
         const errorMsg = err instanceof Error ? err.message : 'Unknown error';
         await opts.invocationRecordStore.update(id, {
           status: 'failed',
@@ -241,7 +271,7 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> = a
         );
       } finally {
         clearInterval(heartbeatInterval);
-        opts.invocationTracker.complete(record.threadId, primaryCat, controller);
+        opts.invocationTracker.completeAll(record.threadId, record.targetCats, controller);
         // F39: Notify queue processor for auto-dequeue chain
         opts.queueProcessor?.onInvocationComplete(record.threadId, primaryCat, finalStatus).catch(() => {
           /* best-effort */

@@ -41,11 +41,11 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 
 ## Runtime 单实例保护（P0）
 
-`../cat-cafe-runtime` 是咱们的运行态单实例（通常占用 `3004/3003`），默认视为**在线服务**，不是随手重启的实验环境。
+`../cat-cafe-runtime` 是咱们的运行态单实例（通常占用 `3003/3004`），默认视为**在线服务**，不是随手重启的实验环境。
 
 硬规则：
 1. 在 runtime 会话里，禁止执行会触发重启的命令：`pnpm start`、`pnpm runtime:start`、`./scripts/start-dev.sh`
-2. 做截图/验收/排查前，先复用现有服务（先查 `curl -sf http://localhost:3003/health`）
+2. 做截图/验收/排查前，先复用现有服务（先查 `curl -sf http://localhost:3004/health`）
 3. 确实要重启，必须先拿到铲屎官明确同意，再显式设置 `CAT_CAFE_RUNTIME_RESTART_OK=1` 执行启动命令
 
 说明：`--force` 不是重启授权，不能替代第 3 条。
@@ -65,7 +65,7 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 - 铲屎官测试：稳定的测试入口，和 runtime 互不干扰
 - PR merge 后验收：确认合入 main 的改动在完整环境中工作正常
 
-**注意**：alpha = origin/main 镜像，只能验证已合入 main 的改动。未合入改动的自测仍在 feature worktree 上做。已合入改动的验收用 alpha（3011/3012），不得用 runtime（3004/3003）冒充。
+**注意**：alpha = origin/main 镜像，只能验证已合入 main 的改动。未合入改动的自测仍在 feature worktree 上做。已合入改动的验收用 alpha（3011/3012），不得用 runtime（3003/3004）冒充。
 
 ## 完整流程（5 步）
 
@@ -110,7 +110,7 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 
 ## Reviewer 配对规则
 
-动态匹配自 `cat-config.json`：
+动态匹配自运行时猫配置（repo 根 `cat-template.json` + `.cat-cafe/cat-catalog.json` overlay）：
 1. 跨 family 优先 | 2. 必须有 peer-reviewer 角色 | 3. 必须 available
 4. 优先 lead | 5. 优先活跃猫
 
@@ -170,9 +170,53 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 4. 在 clowder-ai 上开 PR、review、merge
 5. Cherry-pick fix 回 cat-cafe main
 6. `intake-from-opensource.sh --record --pr <N> --decision <absorbed|public-only>`
+   - 若 `--decision absorbed`：hotfix 是我们自己 outbound 提的（没有 cat-cafe 的 Intake Intent Issue / absorb PR），必须加 `--skip-absorbed-guard` 跳过 strict guard
+   - 若是社区 inbound PR 的 absorbed record（不是本条 hotfix 流程），参见 `cat-cafe-skills/refs/opensource-ops-inbound-pr.md`，要带 `--intent-issue <I> --absorb-pr <P> --review-proof <URL|file>`
 7. `intake-from-opensource.sh --advance-ledger`
 
 > 详见 Hotfix Lane 设计 (internal)
+
+### Full Sync Gate（Source-Owned）
+
+全量同步到 `clowder-ai` 时，**不能只看家里的 `pnpm gate` 绿不绿**。  
+`source gate green != target/public gate green`。
+
+硬规则：
+1. 先在 `cat-cafe` 导出同一份同步产物到 **temp target**
+2. 在 temp target 跑完整 public gate：`pnpm check`、`pnpm lint`、`build`、`pnpm --filter @cat-cafe/api run test:public`、startup acceptance
+3. **只有 temp target public gate 全绿，才允许碰真实 `clowder-ai`**
+4. 本机 README/macOS smoke 不属于 full sync 主路径；它必须是 sync 完成后的独立步骤，且必须显式隔离端口/Redis
+
+一句话：**不要再把真实 `clowder-ai` 当第一轮验收场，更不能把 runtime 当验收靶子。**
+
+### Release Provenance（三点映射）
+
+公开 release 不要求 `cat-cafe` 和 `clowder-ai` 同 SHA；我们要求的是**可追溯映射**。
+
+硬规则：
+1. release-intended full sync 必须从家里 source 侧显式传 `--release-tag=vX.Y.Z`
+2. `sync-to-opensource.sh` 在 temp target public gate 通过后，会自动打并 push `clowder-vX.Y.Z-source`
+3. `.sync-provenance.json` 必须记录：
+   - `source_commit_sha`
+   - `release_tag`
+   - `source_snapshot_tag`
+4. target 仓后续真正切 `vX.Y.Z` 时，必须通过：
+
+```bash
+bash scripts/publish-release-tag.sh \
+  --release-tag=vX.Y.Z \
+  --target-sha <clowder_ai_release_commit_sha> \
+  --reconciliation-report=docs/ops/reconciliation-vX.Y.Z.md \
+  --push
+```
+
+5. `publish-release-tag.sh` 会强制校验两层门禁：
+   - `source snapshot tag → .sync-provenance.json → target release tag` 三点映射
+   - `reconciliation report` 必须存在；如果报告把 issue 记为 `closed`，GitHub 上也必须已经是 `CLOSED`
+
+release notes /后续 backport 也必须引用这些锚点，而不是口头约定。
+
+一句话：**以后对齐 release，不靠“记得当时是哪次 sync”，靠 `source snapshot tag → target release tag → backport commit` 三点映射。**
 
 ### 规则
 

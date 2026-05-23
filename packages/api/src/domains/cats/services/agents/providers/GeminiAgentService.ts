@@ -4,7 +4,8 @@
  *
  * 双 Adapter 架构:
  *   gemini-cli (默认):  spawn 'gemini' CLI + NDJSON → 全自动 headless
- *   antigravity (opt-in): spawn Antigravity IDE → MCP 回传 → 半自动
+ *   antigravity-cli: spawn 'agy' CLI + plain stdout → 全自动 headless prototype
+ *   antigravity (legacy opt-in): spawn Antigravity IDE → MCP 回传 → 半自动
  *
  * gemini CLI NDJSON 事件格式 (v0.27.2):
  *   init              → session_init (含 session_id)
@@ -18,17 +19,293 @@
 
 import { spawn as nodeSpawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { basename, join } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
-import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
+import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';
+import {
+  buildChildEnv,
+  isCliError,
+  isCliPlainTextResult,
+  isCliTimeout,
+  isLivenessWarning,
+  spawnCli,
+} from '../../../../../utils/cli-spawn.js';
+import { resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
+import { readJsonlTail } from '../../../../../utils/jsonl-tail-reader.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
 import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
 import { extractImagePaths } from '../providers/image-paths.js';
+import { classifyAntigravityCliPlainText } from './antigravity-cli-event-parser.js';
 import { isKnownPostResponseCandidatesCrash, isResultErrorEvent, transformGeminiEvent } from './gemini-event-parser.js';
 
-type GeminiAdapter = 'gemini-cli' | 'antigravity';
+const log = createModuleLogger('gemini-agent');
+
+type GeminiAdapter = 'gemini-cli' | 'antigravity-cli' | 'antigravity';
+
+interface GeminiStoredThought {
+  readonly subject?: string;
+  readonly description?: string;
+}
+
+interface GeminiStoredTokenStats {
+  readonly total?: number;
+  readonly input?: number;
+  readonly output?: number;
+  readonly cached?: number;
+  readonly thoughts?: number;
+  readonly tool?: number;
+}
+
+interface GeminiStoredMessage {
+  readonly type?: string;
+  readonly content?: string;
+  readonly thoughts?: readonly GeminiStoredThought[];
+  readonly tokens?: GeminiStoredTokenStats;
+}
+
+interface GeminiStoredSession {
+  readonly sessionId?: string;
+  readonly messages?: readonly GeminiStoredMessage[];
+}
+
+function normalizeGeminiContent(value: string | undefined): string {
+  return (value ?? '').replace(/\s+/g, '');
+}
+
+function matchesCurrentAssistantText(messageContent: string | undefined, normalizedAssistantText: string): boolean {
+  if (typeof messageContent !== 'string') return false;
+  const normalizedMessageContent = normalizeGeminiContent(messageContent);
+  if (normalizedMessageContent.length === 0) return false;
+  return (
+    normalizedMessageContent === normalizedAssistantText || normalizedAssistantText.endsWith(normalizedMessageContent)
+  );
+}
+
+function formatGeminiThoughts(thoughts: readonly GeminiStoredThought[]): string {
+  return thoughts
+    .map((thought) => {
+      const subject = thought.subject?.trim();
+      const description = thought.description?.trim();
+      if (subject && description) return `**${subject}**\n${description}`;
+      if (subject) return `**${subject}**`;
+      if (description) return description;
+      return '';
+    })
+    .filter((chunk) => chunk.length > 0)
+    .join('\n\n---\n\n');
+}
+
+function readGeminiThinkingFromLocalSession(
+  sessionId: string | undefined,
+  assistantText: string,
+  workingDirectory?: string,
+): string | null {
+  const location = findGeminiSessionFile(sessionId, workingDirectory);
+  if (!location) return null;
+
+  const normalizedAssistantText = normalizeGeminiContent(assistantText);
+  const matchesThoughts = (parsed: unknown): boolean => {
+    if (parsed == null || typeof parsed !== 'object') return false;
+    const message = parsed as GeminiStoredMessage;
+    if (message.type !== 'gemini') return false;
+    if (!Array.isArray(message.thoughts) || message.thoughts.length === 0) return false;
+    if (typeof message.content !== 'string') return false;
+    if (normalizedAssistantText.length === 0) return true;
+    return matchesCurrentAssistantText(message.content, normalizedAssistantText);
+  };
+
+  if (location.ext === '.jsonl') {
+    const match = readJsonlTail<GeminiStoredMessage>(location.path, { predicate: matchesThoughts });
+    return match ? formatGeminiThoughts(match.thoughts ?? []) || null : null;
+  }
+
+  const parsed = parseGeminiSessionFile(location.path, '.json');
+  const messages = Array.isArray(parsed.messages) ? parsed.messages : [];
+  const candidates = messages.filter(
+    (message): message is GeminiStoredMessage =>
+      message?.type === 'gemini' &&
+      Array.isArray(message.thoughts) &&
+      message.thoughts.length > 0 &&
+      typeof message.content === 'string',
+  );
+  if (candidates.length === 0) return null;
+
+  const exact =
+    normalizedAssistantText.length > 0
+      ? [...candidates]
+          .reverse()
+          .find((message) => matchesCurrentAssistantText(message.content, normalizedAssistantText))
+      : candidates[candidates.length - 1];
+  return exact ? formatGeminiThoughts(exact.thoughts ?? []) || null : null;
+}
+
+function parseGeminiSessionFile(filePath: string, ext: '.json' | '.jsonl'): GeminiStoredSession {
+  try {
+    const raw = readFileSync(filePath, 'utf8');
+    if (ext === '.json') {
+      return JSON.parse(raw) as GeminiStoredSession;
+    }
+
+    let sessionId: string | undefined;
+    const messages: GeminiStoredMessage[] = [];
+    for (const line of raw.split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      try {
+        const obj = JSON.parse(line) as Record<string, unknown>;
+        if (typeof obj.sessionId === 'string' && typeof obj.type === 'undefined') {
+          sessionId = sessionId ?? obj.sessionId;
+          continue;
+        }
+        if (Object.hasOwn(obj, '$set')) continue;
+        if (typeof obj.type === 'string') {
+          messages.push(obj as unknown as GeminiStoredMessage);
+        }
+      } catch {
+        // Best effort: skip malformed/partial lines while Gemini is still writing.
+      }
+    }
+    return { sessionId, messages };
+  } catch {
+    return { messages: [] };
+  }
+}
+
+interface GeminiSessionFileLocation {
+  readonly path: string;
+  readonly ext: '.json' | '.jsonl';
+}
+
+const JSONL_HEADER_MAX_BYTES = 1024;
+
+function readJsonlHeaderSessionId(filePath: string): string | undefined {
+  let fd: number;
+  try {
+    fd = openSync(filePath, 'r');
+  } catch {
+    return undefined;
+  }
+
+  try {
+    const buffer = Buffer.alloc(JSONL_HEADER_MAX_BYTES);
+    const n = readSync(fd, buffer, 0, JSONL_HEADER_MAX_BYTES, 0);
+    if (n === 0) return undefined;
+    const text = buffer.toString('utf8', 0, n);
+    const newlineIdx = text.indexOf('\n');
+    if (newlineIdx === -1) return undefined;
+    try {
+      const parsed = JSON.parse(text.substring(0, newlineIdx)) as { sessionId?: unknown; type?: unknown };
+      if (typeof parsed.sessionId === 'string' && typeof parsed.type === 'undefined') {
+        return parsed.sessionId;
+      }
+    } catch {
+      return undefined;
+    }
+    return undefined;
+  } finally {
+    try {
+      closeSync(fd);
+    } catch {
+      /* best-effort */
+    }
+  }
+}
+
+function findGeminiSessionFile(
+  sessionId: string | undefined,
+  workingDirectory?: string,
+): GeminiSessionFileLocation | undefined {
+  if (!sessionId) return undefined;
+
+  const geminiTmpRoot = join(homedir(), '.gemini', 'tmp');
+  if (!existsSync(geminiTmpRoot)) return undefined;
+
+  const preferredProjectDir = workingDirectory ? basename(workingDirectory) : null;
+  const projectDirs = readdirSync(geminiTmpRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort((a, b) => {
+      if (preferredProjectDir && a === preferredProjectDir) return -1;
+      if (preferredProjectDir && b === preferredProjectDir) return 1;
+      return 0;
+    });
+
+  for (const projectDir of projectDirs) {
+    const chatsDir = join(geminiTmpRoot, projectDir, 'chats');
+    if (!existsSync(chatsDir)) continue;
+
+    const sessionFiles = readdirSync(chatsDir)
+      .filter((name) => name.startsWith('session-') && (name.endsWith('.json') || name.endsWith('.jsonl')))
+      .map((name) => ({
+        path: join(chatsDir, name),
+        ext: (name.endsWith('.jsonl') ? '.jsonl' : '.json') as '.json' | '.jsonl',
+        name,
+        mtimeMs: statSync(join(chatsDir, name)).mtimeMs,
+      }))
+      .sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+    for (const file of sessionFiles) {
+      if (file.ext === '.jsonl') {
+        const headerSessionId = readJsonlHeaderSessionId(file.path);
+        const headerMatch = headerSessionId === sessionId;
+        const filenameMatch = headerSessionId == null && file.name.includes(sessionId.slice(0, 8));
+        if (headerMatch || filenameMatch) return { path: file.path, ext: '.jsonl' };
+        continue;
+      }
+
+      const parsed = parseGeminiSessionFile(file.path, '.json');
+      if (parsed.sessionId === sessionId) return { path: file.path, ext: '.json' };
+    }
+  }
+
+  return undefined;
+}
+
+function readLatestGeminiContextTokens(
+  sessionId: string | undefined,
+  assistantText: string,
+  workingDirectory?: string,
+): number | undefined {
+  const location = findGeminiSessionFile(sessionId, workingDirectory);
+  if (!location) return undefined;
+
+  const normalizedAssistantText = normalizeGeminiContent(assistantText);
+  const hasInputTokens = (parsed: unknown): parsed is GeminiStoredMessage => {
+    if (parsed == null || typeof parsed !== 'object') return false;
+    const message = parsed as GeminiStoredMessage;
+    return message.type === 'gemini' && typeof message.tokens?.input === 'number';
+  };
+  const matchesAssistantText = (parsed: unknown): boolean => {
+    if (!hasInputTokens(parsed)) return false;
+    return matchesCurrentAssistantText(parsed.content, normalizedAssistantText);
+  };
+
+  if (location.ext === '.jsonl') {
+    const predicate = normalizedAssistantText.length === 0 ? hasInputTokens : matchesAssistantText;
+    return readJsonlTail<GeminiStoredMessage>(location.path, { predicate })?.tokens?.input;
+  }
+
+  const parsed = parseGeminiSessionFile(location.path, '.json');
+  const messages = Array.isArray(parsed.messages) ? parsed.messages : [];
+  const candidates = messages.filter(hasInputTokens);
+  if (candidates.length === 0) return undefined;
+  if (normalizedAssistantText.length === 0) return candidates[candidates.length - 1]?.tokens?.input;
+
+  return [...candidates]
+    .reverse()
+    .find((message) => matchesCurrentAssistantText(message.content, normalizedAssistantText))?.tokens?.input;
+}
+
+function formatAgyPrintTimeout(timeoutMs: number): string | null {
+  if (timeoutMs <= 0) return null;
+  return `${Math.max(1, Math.ceil(timeoutMs / 1000))}s`;
+}
+
 /**
  * Options for constructing GeminiAgentService (dependency injection)
  * F32-b: catId and model are constructor parameters
@@ -67,13 +344,16 @@ export class GeminiAgentService implements AgentService {
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     if (this.adapter === 'antigravity') {
       yield* this.invokeAntigravity(prompt, options);
+    } else if (this.adapter === 'antigravity-cli') {
+      yield* this.invokeAntigravityCLI(prompt, options);
     } else {
       yield* this.invokeGeminiCLI(prompt, options);
     }
   }
 
   private async *invokeGeminiCLI(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
-    const metadata: MessageMetadata = { provider: 'google', model: this.model };
+    const effectiveModel = options?.callbackEnv?.CAT_CAFE_GEMINI_MODEL_OVERRIDE ?? this.model;
+    const metadata: MessageMetadata = { provider: 'google', model: effectiveModel };
 
     // Gemini CLI has no system prompt flag; prepend identity to prompt text
     let effectivePrompt = options?.systemPrompt ? `${options.systemPrompt}\n\n${prompt}` : prompt;
@@ -88,7 +368,7 @@ export class GeminiAgentService implements AgentService {
     //   gemini --resume <sessionId> -p "<prompt>" -o stream-json
     // Prefer resume when sessionId is available so Gemini follows the same
     // session semantics as Claude/Codex (session-chain + self-heal).
-    const modelArgs = ['--model', this.model];
+    const modelArgs = effectiveModel ? ['--model', effectiveModel] : [];
     const args: string[] = options?.sessionId
       ? ['--resume', options?.sessionId!, ...modelArgs, '-p', effectivePrompt, '-o', 'stream-json', '-y']
       : [...modelArgs, '-p', effectivePrompt, '-o', 'stream-json', '-y'];
@@ -96,19 +376,56 @@ export class GeminiAgentService implements AgentService {
       args.push('--include-directories', dir);
     }
 
+    // User-defined CLI args from the member editor (#567).
+    const userParts: string[] = [];
+    for (const arg of options?.cliConfigArgs ?? []) {
+      userParts.push(...arg.trim().split(/\s+/));
+    }
+    if (userParts.length > 0) {
+      const accumulativeFlags = new Set(['--include-directories']);
+      const userFlags = new Set(userParts.filter((p) => p.startsWith('-')));
+      const deduped: string[] = [];
+      for (let i = 0; i < args.length; i++) {
+        if (args[i].startsWith('-') && userFlags.has(args[i]) && !accumulativeFlags.has(args[i])) {
+          if (i + 1 < args.length && !args[i + 1].startsWith('-')) i++;
+          continue;
+        }
+        deduped.push(args[i]);
+      }
+      args.length = 0;
+      args.push(...deduped, ...userParts);
+    }
+
     try {
+      const geminiCommand = resolveCliCommand('gemini');
+      if (!geminiCommand) {
+        yield {
+          type: 'error' as const,
+          catId: this.catId,
+          error: formatCliNotFoundError('gemini'),
+          metadata,
+          timestamp: Date.now(),
+        };
+        yield { type: 'done' as const, catId: this.catId, metadata, timestamp: Date.now() };
+        return;
+      }
+
       let sawResultError = false;
       let sawAssistantText = false;
       let suppressCliExitError = false;
+      let fullAssistantText = '';
       const cliOpts = {
-        command: 'gemini' as const,
+        command: geminiCommand,
         args,
         ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
-        ...(options?.callbackEnv ? { env: options.callbackEnv } : {}),
+        ...(options?.callbackEnv || options?.accountEnv
+          ? { env: { ...(options?.callbackEnv ?? {}), ...(options?.accountEnv ?? {}) } }
+          : {}),
         ...(options?.signal ? { signal: options.signal } : {}),
         ...(options?.invocationId ? { invocationId: options.invocationId } : {}),
         ...(options?.cliSessionId ? { cliSessionId: options.cliSessionId } : {}),
         ...(options?.livenessProbe ? { livenessProbe: options.livenessProbe } : {}),
+        ...(options?.parentSpan ? { parentSpan: options.parentSpan } : {}),
       };
       const events = options?.spawnCliOverride
         ? options.spawnCliOverride(cliOpts)
@@ -135,7 +452,7 @@ export class GeminiAgentService implements AgentService {
           yield {
             type: 'error',
             catId: this.catId,
-            error: `暹罗猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s)`,
+            error: `暹罗猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
             metadata,
             timestamp: Date.now(),
           };
@@ -143,6 +460,16 @@ export class GeminiAgentService implements AgentService {
         }
         // F118 Phase C: Forward liveness warnings to frontend with catId
         if (isLivenessWarning(event)) {
+          const warningEvent = event as { level?: string; silenceDurationMs?: number };
+          log.warn(
+            {
+              catId: this.catId,
+              invocationId: options?.invocationId,
+              level: warningEvent.level,
+              silenceMs: warningEvent.silenceDurationMs,
+            },
+            '[GeminiAgent] liveness warning — CLI may be stuck',
+          );
           yield {
             type: 'system_info' as const,
             catId: this.catId,
@@ -178,6 +505,9 @@ export class GeminiAgentService implements AgentService {
                 (typeof stats.context_window === 'number' ? stats.context_window : undefined) ??
                 (typeof stats.contextWindow === 'number' ? stats.contextWindow : undefined);
               if (contextWindow != null) usage.contextWindowSize = contextWindow;
+              // #679: Gemini CLI stats are cumulative across all turns in a session,
+              // not per-turn context fill. Flag so auto-seal doesn't misuse them.
+              usage.isCumulativeUsage = true;
               metadata.usage = usage;
             }
           }
@@ -195,14 +525,12 @@ export class GeminiAgentService implements AgentService {
             metadata.sessionId = result.sessionId;
           }
           if (result.type === 'text') {
-            // Separate consecutive assistant text turns with paragraph break.
-            // Each Gemini message/assistant is a complete turn (unlike Claude's
-            // incremental deltas), so direct concatenation loses inter-turn spacing.
-            if (sawAssistantText && result.content) {
-              yield { ...result, content: `\n\n${result.content}`, metadata };
-            } else {
-              yield { ...result, metadata };
-            }
+            // Gemini CLI stream-json emits each content chunk as a separate
+            // message/assistant event with delta:true. These are streaming
+            // deltas, not complete turns. Raw concat is correct; the model's
+            // own content includes newlines where paragraph breaks are intended.
+            fullAssistantText += result.content ?? '';
+            yield { ...result, metadata };
             sawAssistantText = true;
           } else {
             if (fromResultError && result.type === 'error') {
@@ -211,6 +539,30 @@ export class GeminiAgentService implements AgentService {
             yield { ...result, metadata };
           }
         }
+      }
+
+      const thinking = readGeminiThinkingFromLocalSession(
+        metadata.sessionId,
+        fullAssistantText,
+        options?.workingDirectory,
+      );
+      if (thinking) {
+        yield {
+          type: 'system_info',
+          catId: this.catId,
+          content: JSON.stringify({ type: 'thinking', catId: this.catId, text: thinking }),
+          metadata,
+          timestamp: Date.now(),
+        };
+      }
+
+      const lastTurnTokens = readLatestGeminiContextTokens(
+        metadata.sessionId,
+        fullAssistantText,
+        options?.workingDirectory,
+      );
+      if (lastTurnTokens != null) {
+        metadata.usage = { ...(metadata.usage ?? {}), lastTurnInputTokens: lastTurnTokens };
       }
 
       yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
@@ -223,6 +575,276 @@ export class GeminiAgentService implements AgentService {
         timestamp: Date.now(),
       };
       // Guarantee done after error so invoke-single-cat can set isFinal correctly
+      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+    }
+  }
+
+  private async *invokeAntigravityCLI(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
+    const requestedModelOverride = options?.callbackEnv?.CAT_CAFE_GEMINI_MODEL_OVERRIDE;
+    const metadata: MessageMetadata = {
+      provider: 'google',
+      model: 'account-selected (antigravity-cli)',
+      modelVerified: false,
+      diagnostics: {
+        antigravityCli: {
+          modelSelection: 'account-side selected model',
+          configuredCatModel: this.model,
+          ...(requestedModelOverride ? { unsupportedModelOverride: requestedModelOverride } : {}),
+        },
+      },
+    };
+
+    let effectivePrompt = options?.systemPrompt ? `${options.systemPrompt}\n\n${prompt}` : prompt;
+    const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
+    const imageAccessDirs = collectImageAccessDirectories(imagePaths);
+    effectivePrompt = appendLocalImagePathHints(effectivePrompt, imagePaths);
+
+    const workingDirectory = options?.workingDirectory ?? process.cwd();
+    const timeoutMs = resolveCliTimeoutMs(undefined);
+    const printTimeout = formatAgyPrintTimeout(timeoutMs);
+    const args: string[] = ['--add-dir', workingDirectory, '--dangerously-skip-permissions'];
+    for (const dir of imageAccessDirs) {
+      args.push('--add-dir', dir);
+    }
+    if (printTimeout) {
+      args.push('--print-timeout', printTimeout);
+    }
+    const sessionId = options?.sessionId ?? `agy-${randomUUID()}`;
+    metadata.sessionId = sessionId;
+    yield {
+      type: 'session_init',
+      catId: this.catId,
+      sessionId,
+      metadata,
+      timestamp: Date.now(),
+    };
+    if (requestedModelOverride) {
+      yield {
+        type: 'system_info',
+        catId: this.catId,
+        content: JSON.stringify({
+          type: 'antigravity_cli_model_override_unsupported',
+          requestedModel: requestedModelOverride,
+          reason:
+            'AGY CLI 1.0.1 uses the account-side selected model; no verified --model/env per-call override exists.',
+        }),
+        metadata,
+        timestamp: Date.now(),
+      };
+    }
+    args.push('--conversation', sessionId);
+    args.push('--print', effectivePrompt);
+
+    const userParts: string[] = [];
+    for (const arg of options?.cliConfigArgs ?? []) {
+      userParts.push(...arg.trim().split(/\s+/));
+    }
+    if (userParts.length > 0) {
+      const accumulativeFlags = new Set(['--add-dir']);
+      const userFlags = new Set(userParts.filter((p) => p.startsWith('-')));
+      const deduped: string[] = [];
+      for (let i = 0; i < args.length; i++) {
+        if (args[i].startsWith('-') && userFlags.has(args[i]) && !accumulativeFlags.has(args[i])) {
+          if (i + 1 < args.length && !args[i + 1].startsWith('-')) i++;
+          continue;
+        }
+        deduped.push(args[i]);
+      }
+      args.length = 0;
+      args.push(...deduped, ...userParts);
+    }
+
+    try {
+      const agyCommand = resolveCliCommand('agy');
+      if (!agyCommand) {
+        yield {
+          type: 'error' as const,
+          catId: this.catId,
+          error: formatCliNotFoundError('agy'),
+          metadata,
+          timestamp: Date.now(),
+        };
+        yield { type: 'done' as const, catId: this.catId, metadata, timestamp: Date.now() };
+        return;
+      }
+
+      const childEnv =
+        options?.callbackEnv || options?.accountEnv
+          ? { ...(options?.callbackEnv ?? {}), ...(options?.accountEnv ?? {}) }
+          : undefined;
+      let stdout = '';
+      let stderr = '';
+      let timeoutEvent:
+        | {
+            __cliTimeout: true;
+            timeoutMs: number;
+            message: string;
+            command: string;
+            silenceDurationMs?: number;
+            processAlive?: boolean;
+            lastEventType?: string;
+            firstEventAt?: number;
+            lastEventAt?: number;
+            cliSessionId?: string;
+            invocationId?: string;
+            rawArchivePath?: string;
+          }
+        | undefined;
+      let cliErrorEvent:
+        | {
+            __cliError: true;
+            exitCode: number | null;
+            signal: string | null;
+            message: string;
+            command: string;
+            reasonCode?: string;
+          }
+        | undefined;
+      let cancelled = false;
+      let exitCode: number | null = null;
+      let exitSignal: NodeJS.Signals | null = null;
+
+      const abortHandler = (): void => {
+        cancelled = true;
+      };
+      if (options?.signal) {
+        if (options.signal.aborted) {
+          abortHandler();
+        } else {
+          options.signal.addEventListener('abort', abortHandler, { once: true });
+        }
+      }
+
+      const cliOpts = {
+        command: agyCommand,
+        args,
+        outputMode: 'plainText' as const,
+        cwd: workingDirectory,
+        timeoutMs,
+        ...(childEnv ? { env: childEnv } : {}),
+        ...(options?.signal ? { signal: options.signal } : {}),
+        ...(options?.invocationId ? { invocationId: options.invocationId } : {}),
+        ...(options?.cliSessionId ? { cliSessionId: options.cliSessionId } : {}),
+        ...(options?.livenessProbe ? { livenessProbe: options.livenessProbe } : {}),
+        ...(options?.parentSpan ? { parentSpan: options.parentSpan } : {}),
+      };
+      const events = options?.spawnCliOverride
+        ? options.spawnCliOverride(cliOpts)
+        : spawnCli(cliOpts, this.spawnFn ? { spawnFn: this.spawnFn } : undefined);
+
+      try {
+        for await (const event of events) {
+          if (isCliPlainTextResult(event)) {
+            stdout = event.stdout;
+            stderr = event.stderr;
+            exitCode = event.exitCode;
+            exitSignal = event.signal;
+            continue;
+          }
+          if (isCliTimeout(event)) {
+            timeoutEvent = event;
+            continue;
+          }
+          if (isCliError(event)) {
+            cliErrorEvent = event;
+            continue;
+          }
+          if (isLivenessWarning(event)) {
+            yield {
+              type: 'system_info' as const,
+              catId: this.catId,
+              content: JSON.stringify({ type: 'liveness_warning', ...event }),
+              timestamp: Date.now(),
+            };
+          }
+        }
+      } finally {
+        if (options?.signal) {
+          options.signal.removeEventListener('abort', abortHandler);
+        }
+      }
+
+      const parsedPlainText = classifyAntigravityCliPlainText({
+        stdout,
+        stderr,
+        resumed: Boolean(options?.sessionId),
+      });
+
+      if (timeoutEvent) {
+        yield {
+          type: 'system_info' as const,
+          catId: this.catId,
+          content: JSON.stringify({
+            type: 'timeout_diagnostics',
+            silenceDurationMs: timeoutEvent.silenceDurationMs,
+            processAlive: timeoutEvent.processAlive,
+            lastEventType: timeoutEvent.lastEventType,
+            firstEventAt: timeoutEvent.firstEventAt,
+            lastEventAt: timeoutEvent.lastEventAt,
+            invocationId: timeoutEvent.invocationId ?? options?.invocationId,
+            cliSessionId: timeoutEvent.cliSessionId ?? options?.cliSessionId,
+            rawArchivePath: timeoutEvent.rawArchivePath,
+          }),
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'error',
+          catId: this.catId,
+          error: `Antigravity CLI 响应超时 (${Math.round(timeoutEvent.timeoutMs / 1000)}s)`,
+          metadata,
+          timestamp: Date.now(),
+        };
+      } else if (cancelled) {
+        // User-initiated cancellation should clear frontend loading without
+        // presenting a provider failure, even if AGY already wrote error text.
+      } else if (parsedPlainText.kind === 'error') {
+        yield {
+          type: 'error',
+          catId: this.catId,
+          error: parsedPlainText.error,
+          metadata,
+          timestamp: Date.now(),
+        };
+      } else if (cliErrorEvent) {
+        yield {
+          type: 'error',
+          catId: this.catId,
+          error: formatCliExitError('Antigravity CLI', cliErrorEvent),
+          metadata,
+          timestamp: Date.now(),
+        };
+      } else if (exitCode !== 0 || exitSignal !== null) {
+        yield {
+          type: 'error',
+          catId: this.catId,
+          error: formatCliExitError('Antigravity CLI', {
+            exitCode,
+            signal: exitSignal,
+            message: `CLI 异常退出 (code: ${exitCode ?? 'null'}, signal: ${exitSignal ?? 'none'})`,
+          }),
+          metadata,
+          timestamp: Date.now(),
+        };
+      } else if (parsedPlainText.kind === 'text') {
+        yield {
+          type: 'text',
+          catId: this.catId,
+          content: parsedPlainText.content,
+          ...(parsedPlainText.textMode ? { textMode: parsedPlainText.textMode } : {}),
+          metadata,
+          timestamp: Date.now(),
+        };
+      }
+
+      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+    } catch (err) {
+      yield {
+        type: 'error',
+        catId: this.catId,
+        error: err instanceof Error ? err.message : String(err),
+        metadata,
+        timestamp: Date.now(),
+      };
       yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
     }
   }
@@ -255,10 +877,14 @@ export class GeminiAgentService implements AgentService {
     let spawnError: Error | null = null;
 
     try {
+      // Clone all env, strip bloated vars (LS_COLORS etc.) to avoid E2BIG,
+      // then merge callbackEnv overrides. Preserves API keys etc. from parent env.
+      const childEnv = buildChildEnv(options.callbackEnv);
+
       const child = this.antigravitySpawnFn('antigravity', ['chat', '--mode', 'agent', prompt], {
         detached: true,
         stdio: 'ignore',
-        env: { ...process.env, ...options.callbackEnv },
+        env: childEnv as Record<string, string>,
       });
       // Capture async spawn errors (ENOENT etc.) that fire on next tick.
       child.on('error', (err: Error) => {
@@ -273,7 +899,7 @@ export class GeminiAgentService implements AgentService {
           () => {
             try {
               process.kill(-pid, 'SIGTERM');
-              console.log(`[gemini] Antigravity process group ${pid} killed via signal`);
+              log.debug({ pid }, `[gemini] Antigravity process group killed via signal`);
             } catch {
               /* already exited */
             }

@@ -9,21 +9,111 @@
  *         消息存储（由调用方在 yield 后累积并存储）。
  */
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { rm } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { type CatId, type ContextHealth, catRegistry, type MessageContent } from '@cat-cafe/shared';
+import { context, SpanStatusCode, trace } from '@opentelemetry/api';
+import {
+  resolveBuiltinClientForProvider,
+  resolveForClient,
+  validateRuntimeProviderBinding,
+} from '../../../../../config/account-resolver.js';
+import { resolveBoundAccountRefForCat } from '../../../../../config/cat-account-binding.js';
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
-import { resolveAnthropicRuntimeProfile } from '../../../../../config/provider-profiles.js';
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
+import { assertSafeTestConfigRoot } from '../../../../../config/test-config-write-guard.js';
+import { capturePromptIfEnabled } from '../../../../../infrastructure/debug/prompt-capture-bridge.js';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import {
+  AGENT_ID,
+  GENAI_MODEL,
+  GENAI_SYSTEM,
+  OPERATION_NAME,
+  STATUS,
+  TRIGGER,
+} from '../../../../../infrastructure/telemetry/genai-semconv.js';
+import {
+  activeInvocations,
+  catInvocationCount,
+  catResponseDuration,
+  geminiContextFallback,
+  invocationCompleted,
+  invocationDuration,
+  llmCallDuration,
+  sessionRounds,
+  threadDuration,
+  tokenUsage,
+} from '../../../../../infrastructure/telemetry/instruments.js';
+import { normalizeModel } from '../../../../../infrastructure/telemetry/model-normalizer.js';
+import { emitOtelLog } from '../../../../../infrastructure/telemetry/otel-logger.js';
+import {
+  recordAgentLoop,
+  recordLlmCallSpan,
+  recordToolUseSpan,
+} from '../../../../../infrastructure/telemetry/span-helpers.js';
+import { resolveActiveProjectRoot } from '../../../../../utils/active-project-root.js';
+import { resolveCliCommand } from '../../../../../utils/cli-resolve.js';
 import { DEFAULT_CLI_TIMEOUT_MS, resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
 import { findMonorepoRoot, isSameProject } from '../../../../../utils/monorepo-root.js';
 import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
 import { tcpProbe } from '../../../../../utils/tcp-probe.js';
 import type { AgentPaneRegistry } from '../../../../terminal/agent-pane-registry.js';
 import type { TmuxGateway } from '../../../../terminal/tmux-gateway.js';
+import { resolveBootcampWorkspaceRoot } from '../../bootcamp/workspace-root.js';
 import { createPromptDigest } from '../../context/prompt-digest.js';
 import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
+import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
+import {
+  deriveOpenCodeApiType,
+  OC_API_KEY_ENV,
+  OC_BASE_URL_ENV,
+  parseOpenCodeModel,
+  safeProviderName,
+  summarizeOpenCodeRuntimeConfigForDebug,
+  writeOpenCodeRuntimeConfig,
+} from '../providers/opencode-config-template.js';
+import { appendTranscriptPathHints } from '../providers/transcript-path-hints.js';
+
+const log = createModuleLogger('invoke');
+const tracer = trace.getTracer('cat-cafe-api', '0.1.0');
+const TRANSCRIPT_DIR =
+  process.env['TRANSCRIPT_DIR'] ?? resolve(findMonorepoRoot(), 'scripts', 'meeting-copilot', 'transcripts');
+let _openCodeKnownModels: Set<string> | null = null;
+
+export function getOpenCodeKnownModels(): Set<string> {
+  if (_openCodeKnownModels !== null) return _openCodeKnownModels;
+  try {
+    const opencodePath = resolveCliCommand('opencode');
+    if (!opencodePath) {
+      _openCodeKnownModels = new Set();
+      return _openCodeKnownModels;
+    }
+    const stdout = execFileSync(opencodePath, ['models'], {
+      encoding: 'utf-8',
+      timeout: 5000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    _openCodeKnownModels = new Set(
+      stdout
+        .trim()
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean),
+    );
+  } catch {
+    _openCodeKnownModels = new Set();
+  }
+  return _openCodeKnownModels;
+}
+
+/** @internal Exposed for tests */
+export function _resetOpenCodeKnownModels(override?: Set<string> | null): void {
+  _openCodeKnownModels = override ?? null;
+}
+
 import type { SessionManager } from '../../session/SessionManager.js';
 import type { ISessionSealer } from '../../session/SessionSealer.js';
 import type { TranscriptSessionInfo, TranscriptWriter } from '../../session/TranscriptWriter.js';
@@ -31,13 +121,18 @@ import type { ISessionChainStore } from '../../stores/ports/SessionChainStore.js
 import type { IThreadStore } from '../../stores/ports/ThreadStore.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
 import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
+import { completeCapsuleForSeal, type RouteStateContinuityCapsule } from './CollaborationContinuityCapsule.js';
 import type { ResumeFailureKind } from './invoke-helpers.js';
 import {
   classifyResumeFailure,
   extractTaskProgress,
+  isCliTimeoutError,
+  isContextWindowOverflowError,
   isMissingClaudeSessionError,
   isPromptTokenLimitExceededError,
+  isTransientAcpPromptFailure,
   isTransientCliExitCode1,
+  preflightRace,
 } from './invoke-helpers.js';
 import { SessionMutex } from './SessionMutex.js';
 import type { TaskProgressItem, TaskProgressStatus, TaskProgressStore } from './TaskProgressStore.js';
@@ -80,6 +175,7 @@ function deriveProxySlug(profileId: string): string {
 
 /** Register/update upstream mapping in .cat-cafe/proxy-upstreams.json (hot-reloaded by proxy). */
 function registerProxyUpstream(projectRoot: string, slug: string, targetUrl: string): void {
+  assertSafeTestConfigRoot(projectRoot, 'invoke-single-cat.registerProxyUpstream');
   const dir = resolve(projectRoot, '.cat-cafe');
   const filePath = resolve(dir, 'proxy-upstreams.json');
   let upstreams: Record<string, string> = {};
@@ -107,11 +203,21 @@ function registerProxyUpstream(projectRoot: string, slug: string, targetUrl: str
  */
 const _prevContextFill = new Map<string, number>();
 const _needsReinjection = new Set<string>();
+const _staticIdentityRegistryRevision = new Map<string, number>();
 
 /** @internal Exposed for testing */
 export function _resetCompressionDetection(): void {
   _prevContextFill.clear();
   _needsReinjection.clear();
+}
+
+/** @internal Exposed for testing */
+export function _resetStaticIdentityRegistryRevisionForTests(): void {
+  _staticIdentityRegistryRevision.clear();
+}
+
+function sessionIdentityKey(userId: string, catId: CatId, threadId: string): string {
+  return `${userId}:${catId as string}:${threadId}`;
 }
 
 /**
@@ -142,6 +248,10 @@ export interface InvocationDeps {
   readonly tmuxGateway?: TmuxGateway;
   /** F089 Phase 2: agent pane registry for observability */
   readonly agentPaneRegistry?: AgentPaneRegistry;
+  /** F155 B-4: Independent guide session store (optional, fallback to threadStore-backed bridge) */
+  readonly guideSessionStore?: import('../../../../guides/GuideSessionRepository.js').IGuideSessionStore;
+  /** F155 B-6: Dismiss tracker for guide offer suppression */
+  readonly dismissTracker?: import('../../../../guides/GuideDismissTracker.js').IGuideDismissTracker;
   /** F091: Lookup signal articles linked to a thread for context injection */
   readonly signalArticleLookup?: (threadId: string) => Promise<
     readonly {
@@ -176,6 +286,12 @@ export interface InvocationParams {
   readonly parentInvocationId?: string;
   /** F121: The A2A trigger message ID for auto-replyTo */
   readonly a2aTriggerMessageId?: string;
+  /** F153 Phase E: Parent route span — invocation span becomes its child */
+  readonly routeSpan?: import('@opentelemetry/api').Span;
+  /** F153: mutable ref so caller can capture the invocation span for trace propagation */
+  readonly invocationSpanRef?: { current?: import('@opentelemetry/api').Span };
+  /** #502 PR2: structured route control state to persist on threshold seal. */
+  readonly continuityCapsule?: RouteStateContinuityCapsule;
 }
 
 /**
@@ -190,7 +306,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   const { registry, sessionManager, threadStore, apiUrl } = deps;
   const { catId, service, prompt, userId, threadId, isLastCat, signal: callerSignal } = params;
 
-  const { invocationId, callbackToken } = registry.create(
+  const { invocationId, callbackToken } = await registry.create(
     userId,
     catId,
     threadId,
@@ -198,37 +314,35 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     params.a2aTriggerMessageId,
   );
 
+  // F153: Record cat invocation count with trigger type
+  const triggerType = params.a2aTriggerMessageId ? 'mention' : params.parentInvocationId ? 'routing' : 'default';
+  catInvocationCount.add(1, { [AGENT_ID]: catId, [TRIGGER]: triggerType });
+
   // F089: Invocation-level hard timeout — independent of NDJSON stream / CLI timeout.
   // Must be > CLI_TIMEOUT_MS to avoid racing the inner timeout.
-  // When CLI_TIMEOUT_MS=0 (disable), fall back to DEFAULT (5min) so invocation still has a ceiling.
+  // When CLI_TIMEOUT_MS=0 (disable), fall back to DEFAULT (30min) so invocation still has a ceiling.
   const INVOCATION_TIMEOUT_MULTIPLIER = 2;
   const cliTimeoutMs = resolveCliTimeoutMs(undefined);
   const invocationTimeoutMs =
     (cliTimeoutMs > 0 ? cliTimeoutMs : DEFAULT_CLI_TIMEOUT_MS) * INVOCATION_TIMEOUT_MULTIPLIER;
   const invocationAc = new AbortController();
-  const invocationTimer = setTimeout(() => {
-    console.error('[invoke-single-cat] invocation hard timeout fired', {
-      invocationId,
-      catId,
-      threadId,
-      timeoutMs: invocationTimeoutMs,
-    });
-    invocationAc.abort(new Error('invocation_timeout'));
-  }, invocationTimeoutMs);
-  invocationTimer.unref();
+  let invocationTimer: ReturnType<typeof setTimeout> | null = null;
+  const resetInvocationTimeout = (): void => {
+    if (invocationTimer) clearTimeout(invocationTimer);
+    invocationTimer = setTimeout(() => {
+      log.error({ invocationId, catId, threadId, timeoutMs: invocationTimeoutMs }, 'Invocation hard timeout fired');
+      invocationAc.abort(new Error('invocation_timeout'));
+    }, invocationTimeoutMs);
+    invocationTimer.unref();
+  };
+  resetInvocationTimeout();
 
   // Merge caller signal (user cancel) with invocation timeout — neither loses semantics.
   const signal: AbortSignal | undefined = callerSignal
     ? AbortSignal.any([callerSignal, invocationAc.signal])
     : invocationAc.signal;
 
-  // DIAG: ghost-thread bug — log invocation creation with thread binding
-  console.info('[DIAG/ghost-thread] invokeSingleCat: created invocation', {
-    invocationId,
-    catId,
-    threadId,
-    userId,
-  });
+  log.info({ invocationId, catId, threadId, userId }, 'Created invocation');
 
   // F22 R2 P1-1: Expose invocationId to caller (route-serial/parallel) so they can
   // use it for RichBlockBuffer.consume() instead of getLatestId() which is wrong
@@ -245,6 +359,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     CAT_CAFE_INVOCATION_ID: invocationId,
     CAT_CAFE_CALLBACK_TOKEN: callbackToken,
     CAT_CAFE_USER_ID: userId,
+    CAT_CAFE_CAT_ID: catId,
+    // F061 Bug-F cold-start (codex peer review on 47922fe7): cat_cafe_list_session_chain
+    // requires threadId; without it, Bengal's cold-start prompt step 1 fails with
+    // "missing required parameter". Inject the live threadId so prompt template
+    // can resolve to a concrete value.
+    CAT_CAFE_THREAD_ID: threadId,
     ...(process.env.CAT_CAFE_SIGNAL_USER ? { CAT_CAFE_SIGNAL_USER: process.env.CAT_CAFE_SIGNAL_USER } : {}),
   };
 
@@ -252,59 +372,15 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   const promptDigest = createPromptDigest(prompt);
   const startTime = Date.now();
 
+  let threadCreatedAt: number | undefined;
+
   // F118 AC-C5: Flags for finally block fallback audit (must be before any early return)
   let hadError = false;
   let didWriteAudit = false;
   let didComplete = false;
   let didResetRestoreFailures = false;
-
-  // Shared-state preflight — covers ALL cats (Claude/Codex/Gemini), vendor-agnostic.
-  // Three-layer defense model (shared-rules §14):
-  //   L1 .githooks/pre-commit = hard block (prevents committing on wrong branch)
-  //   L2 this check = see below
-  //   L3 CI guard = hard block (prevents merging PRs with shared-state changes)
-  //
-  // L2 behavior splits by issue type:
-  //   unpushedFiles → FAIL-CLOSED (stop invocation). These are committed but not
-  //     pushed — L1 can't catch them (already committed), L3 can't see them (not
-  //     pushed). L2 is the only layer that can enforce. The cat must push first.
-  //   uncommittedFiles → WARN-ONLY. Cat can still be invoked to help commit+push.
-  try {
-    const { checkSharedStatePreflight } = await import('../../../../../config/shared-state-preflight.js');
-    const projectRoot = findMonorepoRoot(process.cwd());
-    const ssCheck = checkSharedStatePreflight(projectRoot);
-    if (!ssCheck.ok) {
-      // Fail-closed: unpushed shared-state commits must be pushed before any cat runs
-      if (ssCheck.unpushedFiles?.length) {
-        const msg =
-          `Shared-state files committed but not pushed: ${ssCheck.unpushedFiles.join(', ')}. ` +
-          'Run `git push` before invoking any cat (shared-rules §14).';
-        console.warn(`[shared-state-preflight] ${catId}: BLOCKED — ${msg}`);
-        yield {
-          type: 'system_info' as const,
-          catId,
-          content: `🚫 ${msg}`,
-          timestamp: Date.now(),
-        };
-        yield { type: 'done', catId, isFinal: params.isLastCat, timestamp: Date.now() };
-        didComplete = true; // F118 AC-C5: Normal early exit (governance block), not force-return
-        return;
-      }
-      // Warn-only: uncommitted changes — cat can help fix this
-      if (ssCheck.uncommittedFiles?.length) {
-        const msg = `uncommitted shared-state files: ${ssCheck.uncommittedFiles.join(', ')}`;
-        console.warn(`[shared-state-preflight] ${catId}: ${msg} — shared-rules §14`);
-        yield {
-          type: 'system_info' as const,
-          catId,
-          content: `⚠️ Shared-state preflight: ${msg}. Please commit+push before continuing (shared-rules §14).`,
-          timestamp: Date.now(),
-        };
-      }
-    }
-  } catch {
-    // Don't block on preflight errors
-  }
+  let openCodeRuntimeConfigPath: string | undefined;
+  const hostProjectRoot = findMonorepoRoot(process.cwd());
 
   // === CAT_INVOKED 审计 (fire-and-forget, 缅因猫 review P2-3) ===
   auditLog
@@ -321,7 +397,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     })
     .catch((err) => {
       // P2-2: 打印完整错误信息 + 上下文
-      console.warn('[audit] CAT_INVOKED write failed', { threadId, invocationId, err });
+      log.warn({ threadId, invocationId, err }, 'CAT_INVOKED audit write failed');
     });
 
   let hadStreamError = false;
@@ -367,12 +443,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         lastInvocationId: invocationId,
       });
     } catch (err) {
-      console.warn('[task_progress] persist running snapshot failed (degrading)', {
-        threadId,
-        catId,
-        invocationId,
-        err,
-      });
+      log.warn({ threadId, catId, invocationId, err }, 'Task progress persist running snapshot failed');
     }
   };
 
@@ -410,25 +481,51 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       });
       finalizedTaskProgressStatus = status;
     } catch (err) {
-      console.warn('[task_progress] persist final snapshot failed (degrading)', {
-        threadId,
-        catId,
-        invocationId,
-        status,
-        err,
-      });
+      log.warn({ threadId, catId, invocationId, status, err }, 'Task progress persist final snapshot failed');
     }
   };
 
   // F118: Declared before try so it's accessible in finally
   let sessionMutexRelease: (() => void) | undefined;
 
+  // F152: Create invocation span for distributed tracing
+  // F153 Phase E: If a route span exists, make invocation its child
+  const parentCtx = params.routeSpan ? trace.setSpan(context.active(), params.routeSpan) : undefined;
+  const invocationSpan = tracer.startSpan(
+    'cat_cafe.invocation',
+    { attributes: { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke', invocationId } },
+    parentCtx,
+  );
+
+  // F153: Expose invocation span to caller + persist trace context for A2A propagation
+  if (params.invocationSpanRef) params.invocationSpanRef.current = invocationSpan;
+  const sc = invocationSpan.spanContext();
   try {
+    if (typeof deps.registry.setTraceContext === 'function') {
+      await deps.registry.setTraceContext(invocationId, {
+        traceId: sc.traceId,
+        spanId: sc.spanId,
+        traceFlags: sc.traceFlags,
+      });
+    }
+  } catch (err) {
+    log.warn({ catId, threadId, invocationId, err }, 'Trace context persistence failed, continuing invocation');
+  }
+
+  try {
+    // F152: Track active invocations — must be inside try so add/sub symmetry
+    // is guaranteed by the finally block, even on generator early abort.
+    activeInvocations.add(1, { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke' });
+
+    // F152: Emit invocation start through OTel log pipeline
+    emitOtelLog('INFO', 'invocation_started', { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke' }, invocationSpan);
+
     let sessionId: string | undefined;
     try {
-      sessionId = await sessionManager.get(userId, catId, threadId);
-    } catch {
-      // Redis read failure — continue without session
+      sessionId = await preflightRace(sessionManager.get(userId, catId, threadId), 'sessionManager.get', signal);
+    } catch (err) {
+      // Redis read failure or preflight timeout — continue without session
+      log.warn({ catId, threadId, invocationId, err }, 'Session get failed (timeout or Redis), proceeding without');
     }
 
     // R8 P1: Read-side short-circuit — if sessionChainStore has sealed/sealing sessions
@@ -449,13 +546,17 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       // Reaper: reconcile any sessions stuck in 'sealing' > 5 minutes (best-effort).
       if (deps.sessionSealer) {
         try {
-          await deps.sessionSealer.reconcileStuck(catId, threadId);
+          await preflightRace(deps.sessionSealer.reconcileStuck(catId, threadId), 'reconcileStuck', signal);
         } catch {
-          /* best-effort reconcile */
+          /* best-effort reconcile — timeout or error */
         }
       }
       try {
-        const chain = await deps.sessionChainStore.getChain(catId, threadId);
+        const chain = await preflightRace(
+          Promise.resolve(deps.sessionChainStore.getChain(catId, threadId)),
+          'getChain',
+          signal,
+        );
         if (chain.length > 0) {
           const activeRec = chain.find((s) => s.status === 'active');
           if (!activeRec) {
@@ -470,10 +571,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             if (isOverflow && deps.sessionSealer) {
               let sealOk = false;
               try {
-                const result = await deps.sessionSealer.requestSeal({
-                  sessionId: activeRec.id,
-                  reason: 'overflow_circuit_breaker',
-                });
+                const result = await preflightRace(
+                  deps.sessionSealer.requestSeal({ sessionId: activeRec.id, reason: 'overflow_circuit_breaker' }),
+                  'requestSeal',
+                  signal,
+                );
                 sealOk = result.accepted;
                 if (sealOk) {
                   // Must finalize to write transcript + digest to disk,
@@ -512,7 +614,15 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       } catch (err) {
         // Abort while queued is not a runtime error — clean exit
         if (signal?.aborted) {
-          yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
+          const sc = invocationSpan.spanContext();
+          const parentSid = params.routeSpan?.spanContext().spanId;
+          yield {
+            type: 'done' as const,
+            catId,
+            isFinal: isLastCat,
+            timestamp: Date.now(),
+            tracing: { traceId: sc.traceId, spanId: sc.spanId, ...(parentSid ? { parentSpanId: parentSid } : {}) },
+          };
           didComplete = true; // F118 AC-C5: Abort early exit, not force-return
           return;
         }
@@ -522,37 +632,125 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // Resolve workingDirectory from thread's projectPath
     let workingDirectory: string | undefined;
+    let bootcampWorkspaceError: Error | undefined;
     if (threadStore) {
-      const thread = await threadStore.get(threadId);
-      if (thread?.projectPath && thread.projectPath !== 'default') {
-        if (isUnderAllowedRoot(thread.projectPath)) {
-          workingDirectory = thread.projectPath;
+      try {
+        const thread = await preflightRace(Promise.resolve(threadStore.get(threadId)), 'threadStore.get', signal);
+        if (thread?.createdAt) threadCreatedAt = thread.createdAt;
+        if (thread?.projectPath && thread.projectPath !== 'default') {
+          // F101: Game threads use virtual projectPaths (e.g. 'games/werewolf') for
+          // categorization only — they are not real filesystem directories. Skip them
+          // to avoid triggering the F070 governance gate on a non-existent path.
+          if (!thread.projectPath.startsWith('games/') && isUnderAllowedRoot(thread.projectPath)) {
+            workingDirectory = thread.projectPath;
+          }
+        } else if (thread?.bootcampState) {
+          const bootcampWorkspace = await resolveBootcampWorkspaceRoot();
+          if (bootcampWorkspace.ok) {
+            workingDirectory = bootcampWorkspace.projectPath;
+          } else {
+            bootcampWorkspaceError = new Error(bootcampWorkspace.error);
+          }
         }
+      } catch {
+        // Thread store timeout or error — proceed without workingDirectory
+      }
+    }
+    if (bootcampWorkspaceError) {
+      throw bootcampWorkspaceError;
+    }
+    const workingProjectRoot = workingDirectory ? findMonorepoRoot(workingDirectory) : undefined;
+
+    // Shared-state preflight — covers ALL cats (Claude/Codex/Gemini), vendor-agnostic.
+    // Three-layer defense model (shared-rules §14):
+    //   L1 .githooks/pre-commit = hard block (prevents committing on wrong branch)
+    //   L2 this check = see below
+    //   L3 CI guard = hard block (prevents merging PRs with shared-state changes)
+    //
+    // Scope: only check the host Clowder AI repo (or its worktrees). External projects /
+    // fork playgrounds may be routed by this runtime, but they must not inherit
+    // shared-state warnings from the repo that launched the API process.
+    if (
+      process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT !== '1' &&
+      (!workingProjectRoot || isSameProject(workingProjectRoot, hostProjectRoot))
+    ) {
+      // L2 behavior is warn-only during interactive invocation. Hard safety still lives
+      // in L1/L3 (`pre-commit` + CI / merge gate); blocking regular chat invocations on
+      // local git state made multi-cat routing unusable whenever shared-state lagged.
+      try {
+        const { checkSharedStatePreflight } = await import('../../../../../config/shared-state-preflight.js');
+        const preflightRoot = workingProjectRoot ?? hostProjectRoot;
+        const ssCheck = checkSharedStatePreflight(preflightRoot);
+        if (!ssCheck.ok) {
+          if (ssCheck.unpushedFiles?.length) {
+            const msg =
+              `Shared-state files committed but not pushed: ${ssCheck.unpushedFiles.join(', ')}. ` +
+              'Please `git push` soon so other cats see the latest shared state (shared-rules §14).';
+            log.warn(
+              { catId, preflightRoot, unpushedFiles: ssCheck.unpushedFiles },
+              'Shared-state preflight: unpushed files',
+            );
+            yield {
+              type: 'system_info' as const,
+              catId,
+              content: `⚠️ ${msg}`,
+              timestamp: Date.now(),
+            };
+          }
+          if (ssCheck.uncommittedFiles?.length) {
+            const msg = `uncommitted shared-state files: ${ssCheck.uncommittedFiles.join(', ')}`;
+            log.warn(
+              { catId, preflightRoot, uncommittedFiles: ssCheck.uncommittedFiles },
+              'Shared-state preflight: uncommitted files',
+            );
+            yield {
+              type: 'system_info' as const,
+              catId,
+              content: `⚠️ Shared-state preflight: ${msg}. Please commit+push before continuing (shared-rules §14).`,
+              timestamp: Date.now(),
+            };
+          }
+        }
+      } catch {
+        // Don't block on preflight errors
       }
     }
 
     // F070: Governance gate for external project dispatch
-    if (workingDirectory && !isSameProject(workingDirectory, findMonorepoRoot(process.cwd()))) {
-      const catCafeRoot = findMonorepoRoot(process.cwd());
+    if (workingDirectory && !isSameProject(workingDirectory, hostProjectRoot)) {
+      const catCafeRoot = hostProjectRoot;
       const { tryGovernanceBootstrap } = await import('../../../../../config/capabilities/capability-orchestrator.js');
       await tryGovernanceBootstrap(workingDirectory, catCafeRoot);
       const { checkGovernancePreflight } = await import('../../../../../config/governance/governance-preflight.js');
       const catEntry = catRegistry.tryGet(catId as string);
-      const preflight = await checkGovernancePreflight(workingDirectory, catCafeRoot, catEntry?.config.provider);
+      const preflight = await checkGovernancePreflight(workingDirectory, catCafeRoot, catEntry?.config.clientId);
       if (!preflight.ready) {
-        const actionHint = preflight.bootstrapCommand ? `\nTo fix: ${preflight.bootstrapCommand}` : '';
-        const label = preflight.needsBootstrap
-          ? 'needs governance bootstrap'
+        const reasonKind = preflight.needsBootstrap
+          ? 'needs_bootstrap'
           : preflight.needsConfirmation
-            ? 'awaiting governance confirmation'
-            : 'governance files missing';
+            ? 'needs_confirmation'
+            : 'files_missing';
+        // F070: Structured governance_blocked event — frontend renders actionable card
         yield {
           type: 'system_info',
           catId,
-          content: `[F070] Project ${label}: ${preflight.reason}${actionHint}`,
+          content: JSON.stringify({
+            type: 'governance_blocked',
+            projectPath: workingDirectory,
+            reasonKind,
+            reason: preflight.reason,
+            invocationId: params.parentInvocationId,
+          }),
           timestamp: Date.now(),
         };
-        yield { type: 'done', catId, isFinal: params.isLastCat, timestamp: Date.now() };
+        // F070: done with errorCode so routes mark invocation as failed (retryable)
+        yield {
+          type: 'done',
+          catId,
+          isFinal: params.isLastCat,
+          errorCode: 'GOVERNANCE_BOOTSTRAP_REQUIRED',
+          timestamp: Date.now(),
+        };
         didComplete = true;
         return;
       }
@@ -561,69 +759,337 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // F070 Phase 2: Inject dispatch mission context for external projects
     let missionPrefix = '';
     let capturedMissionPack: import('@cat-cafe/shared').DispatchMissionPack | undefined;
-    if (workingDirectory && !isSameProject(workingDirectory, findMonorepoRoot(process.cwd())) && threadStore) {
-      const thread = await threadStore.get(threadId);
-      if (thread) {
-        const { buildMissionPack, formatMissionPackPrompt } = await import(
-          '../../../../../config/governance/mission-pack.js'
+    if (workingDirectory && !isSameProject(workingDirectory, hostProjectRoot) && threadStore) {
+      try {
+        const thread = await preflightRace(
+          Promise.resolve(threadStore.get(threadId)),
+          'threadStore.get:mission',
+          signal,
         );
-        capturedMissionPack = buildMissionPack({
-          title: thread.title ?? undefined,
-          phase: thread.phase ?? undefined,
-          backlogItemId: thread.backlogItemId ?? undefined,
-        });
-        missionPrefix = formatMissionPackPrompt(capturedMissionPack);
+        if (thread) {
+          const { buildMissionPack, formatMissionPackPrompt } = await import(
+            '../../../../../config/governance/mission-pack.js'
+          );
+          capturedMissionPack = buildMissionPack({
+            title: thread.title ?? undefined,
+            phase: thread.phase ?? undefined,
+            backlogItemId: thread.backlogItemId ?? undefined,
+          });
+          missionPrefix = formatMissionPackPrompt(capturedMissionPack);
+        }
+      } catch {
+        // Thread store timeout — proceed without mission context
       }
     }
 
-    // Provider profile injection (F062):
-    // Resolve active runtime profile from project-local `.cat-cafe` state and
-    // pass it to provider services via callback env.
-    // api_key profiles are automatically routed through the local anthropic-proxy
-    // gateway (started by start-dev.sh) for unified logging/fixing.
-    const provider = catRegistry.tryGet(catId as string)?.config.provider;
-    if (provider === 'anthropic' || provider === 'opencode') {
-      try {
-        const projectRoot = workingDirectory ?? findMonorepoRoot(process.cwd());
-        const profile = await resolveAnthropicRuntimeProfile(projectRoot);
-        callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = profile.mode;
-        if (profile.mode === 'api_key') {
-          if (profile.apiKey) callbackEnv.CAT_CAFE_ANTHROPIC_API_KEY = profile.apiKey;
-          if (profile.baseUrl) {
-            // Route through local proxy gateway if enabled (default: on).
-            // Proxy uses slug-based routing: /SLUG/v1/messages → upstream/v1/messages
-            const proxyPortStr = process.env.ANTHROPIC_PROXY_PORT || '9877';
-            const proxyPortNum = parseInt(proxyPortStr, 10);
-            const proxyEnabled = process.env.ANTHROPIC_PROXY_ENABLED !== '0';
-            if (proxyEnabled && !Number.isNaN(proxyPortNum) && proxyPortNum > 0 && proxyPortNum <= 65535) {
-              const proxyAlive = await tcpProbe('127.0.0.1', proxyPortNum);
-              if (proxyAlive) {
-                const slug = deriveProxySlug(profile.id);
-                registerProxyUpstream(projectRoot, slug, profile.baseUrl);
-                callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL = `http://127.0.0.1:${proxyPortStr}/${slug}`;
-              } else {
-                console.warn(
-                  `[invoke] proxy 127.0.0.1:${proxyPortStr} unreachable, falling back to direct upstream: ${profile.baseUrl}`,
-                );
-                callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL = profile.baseUrl;
-              }
+    // F127 account injection:
+    // Members bind to a concrete accountRef (builtin oauth account or generic api_key account).
+    const catConfig = catRegistry.tryGet(catId as string)?.config;
+    const provider = catConfig?.clientId;
+    const builtinClient = provider ? resolveBuiltinClientForProvider(provider) : null;
+    const defaultModel = catConfig?.defaultModel?.trim() || undefined;
+    // Account resolution, proxy registration, and runtime config always use the
+    // runtime root (process.cwd()), NOT thread.projectPath.  catRegistry loads
+    // from the runtime root at startup — reading a divergent catalog (e.g. the
+    // dev worktree pointed to by thread.projectPath) misses runtime-only accounts.
+    // workingProjectRoot is still used for shared-state preflight + cat cwd.
+    const projectRoot = resolveActiveProjectRoot(process.cwd());
+    const effectiveAccountRef = resolveBoundAccountRefForCat(projectRoot, catId, catConfig);
+    const resolveRuntimeAccount = async () => {
+      if (!builtinClient) return null;
+      // Yield to event loop so preflight warnings are delivered before account resolution.
+      await Promise.resolve();
+      const runtime = resolveForClient(projectRoot, builtinClient, effectiveAccountRef);
+      if (effectiveAccountRef && !runtime) {
+        throw new Error(`bound account "${effectiveAccountRef}" not found`);
+      }
+      return runtime;
+    };
+    const assertCompatibleRuntimeAccount = <T extends { id: string }>(
+      account: (T & Parameters<typeof validateRuntimeProviderBinding>[1]) | null,
+    ) => {
+      if (!provider || !account) return account;
+      const compatibilityError = validateRuntimeProviderBinding(provider, account, defaultModel);
+      if (compatibilityError) {
+        throw new Error(compatibilityError);
+      }
+      return account;
+    };
+    const isExplicitBindingCompatibilityError = (err: unknown): err is Error =>
+      err instanceof Error &&
+      (/bound provider profile/i.test(err.message) || /model ".+" is not available on provider/i.test(err.message));
+    const isBoundAccountResolutionError = (err: unknown): err is Error =>
+      err instanceof Error && /bound account ".+" not found/i.test(err.message);
+
+    // Resolve account first, then use its protocol for env injection.
+    // For API Key accounts, protocol is declared on the account itself.
+    // For builtin OAuth accounts, protocol comes from the provider mapping.
+    let resolvedAccount: Awaited<ReturnType<typeof resolveRuntimeAccount>> = null;
+    try {
+      resolvedAccount = assertCompatibleRuntimeAccount(await resolveRuntimeAccount());
+    } catch (err) {
+      if (isExplicitBindingCompatibilityError(err) || isBoundAccountResolutionError(err)) {
+        throw err;
+      }
+      if (effectiveAccountRef) {
+        throw new Error(`failed to resolve bound account "${effectiveAccountRef}"`);
+      }
+    }
+
+    // Fail fast when an api_key account has no credential — otherwise the child
+    // process silently receives no auth and produces cryptic errors.
+    if (resolvedAccount?.authType === 'api_key' && !resolvedAccount.apiKey) {
+      throw new Error(
+        `account "${resolvedAccount.id}" is configured as api_key but has no API key set — ` +
+          'add the key in Hub > account settings',
+      );
+    }
+
+    // clowder-ai#340: Protocol is fully derived from client/provider identity — account.protocol retired.
+    // Non-opencode clients have a fixed protocol. OpenCode derives protocol from the
+    // variant's model provider name or model string prefix, defaulting to anthropic.
+    const protocolForProvider: Record<string, string> = {
+      anthropic: 'anthropic',
+      openai: 'openai',
+      google: 'google',
+      kimi: 'kimi',
+      dare: 'openai',
+      opencode: 'anthropic',
+      openrouter: 'openai',
+    };
+    let effectiveProtocol: string | null = provider ? (protocolForProvider[provider] ?? null) : null;
+    if (provider === 'opencode') {
+      // Priority 1: explicit variant.provider field
+      const modelProviderHint = catConfig?.provider?.trim();
+      if (modelProviderHint && protocolForProvider[modelProviderHint]) {
+        effectiveProtocol = protocolForProvider[modelProviderHint];
+      } else {
+        // Priority 2: model string prefix (e.g. 'openrouter/google/model' → openrouter → openai)
+        const trimmedModel = typeof defaultModel === 'string' ? defaultModel.trim() : '';
+        const parsed = trimmedModel ? parseOpenCodeModel(trimmedModel) : null;
+        if (parsed && protocolForProvider[parsed.providerName]) {
+          effectiveProtocol = protocolForProvider[parsed.providerName];
+        }
+      }
+    }
+
+    // effectiveProtocol is used below for env injection branching (anthropic/openai/google)
+    // but is NOT passed to callbackEnv — it should not influence CLI routing decisions.
+
+    if (effectiveProtocol === 'anthropic') {
+      if (resolvedAccount?.authType === 'api_key') {
+        callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = 'api_key';
+        if (resolvedAccount.apiKey) callbackEnv.CAT_CAFE_ANTHROPIC_API_KEY = resolvedAccount.apiKey;
+        if (resolvedAccount.models?.length && provider !== 'opencode') {
+          callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE = resolvedAccount.models[0];
+        }
+        if (resolvedAccount.baseUrl) {
+          const proxyPortStr = process.env.ANTHROPIC_PROXY_PORT || '9877';
+          const proxyPortNum = parseInt(proxyPortStr, 10);
+          const proxyEnabled = process.env.ANTHROPIC_PROXY_ENABLED !== '0';
+          if (proxyEnabled && !Number.isNaN(proxyPortNum) && proxyPortNum > 0 && proxyPortNum <= 65535) {
+            const proxyAlive = await tcpProbe('127.0.0.1', proxyPortNum);
+            if (proxyAlive) {
+              const slug = deriveProxySlug(resolvedAccount.id);
+              registerProxyUpstream(projectRoot, slug, resolvedAccount.baseUrl);
+              callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL = `http://127.0.0.1:${proxyPortStr}/${slug}`;
             } else {
-              if (proxyEnabled && (Number.isNaN(proxyPortNum) || proxyPortNum <= 0 || proxyPortNum > 65535)) {
-                console.warn(
-                  `[invoke] invalid ANTHROPIC_PROXY_PORT="${proxyPortStr}", falling back to direct upstream`,
-                );
-              }
-              callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL = profile.baseUrl;
+              log.warn(
+                { proxyPort: proxyPortStr, baseUrl: resolvedAccount.baseUrl },
+                'Proxy unreachable, falling back to direct upstream',
+              );
+              callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL = resolvedAccount.baseUrl;
             }
+          } else {
+            if (proxyEnabled && (Number.isNaN(proxyPortNum) || proxyPortNum <= 0 || proxyPortNum > 65535)) {
+              log.warn({ proxyPort: proxyPortStr }, 'Invalid ANTHROPIC_PROXY_PORT, falling back to direct upstream');
+            }
+            callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL = resolvedAccount.baseUrl;
           }
         }
-        if (profile.modelOverride) {
-          callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE = profile.modelOverride;
-        }
-      } catch {
-        // Best-effort fallback: default to subscription mode when profile resolution fails.
+      } else {
         callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = 'subscription';
       }
+    } else if (effectiveProtocol === 'openai' || effectiveProtocol === 'openai-responses') {
+      if (resolvedAccount?.authType === 'api_key') {
+        callbackEnv.CODEX_AUTH_MODE = 'api_key';
+        if (resolvedAccount.apiKey) {
+          callbackEnv.OPENAI_API_KEY = resolvedAccount.apiKey;
+          // OpenCode selects provider by model prefix; `openrouter/...` models require this key name.
+          callbackEnv.OPENROUTER_API_KEY = resolvedAccount.apiKey;
+        }
+        if (resolvedAccount.baseUrl) {
+          callbackEnv.OPENAI_BASE_URL = resolvedAccount.baseUrl;
+          callbackEnv.OPENAI_API_BASE = resolvedAccount.baseUrl;
+        }
+      } else if (effectiveAccountRef) {
+        callbackEnv.CODEX_AUTH_MODE = 'oauth';
+      }
+    } else if (effectiveProtocol === 'google') {
+      if (resolvedAccount?.authType === 'api_key' && resolvedAccount.apiKey) {
+        // Gemini CLI: native Google SDK, uses GEMINI_API_KEY
+        callbackEnv.GEMINI_API_KEY = resolvedAccount.apiKey;
+        callbackEnv.GOOGLE_API_KEY = resolvedAccount.apiKey;
+        // opencode CLI: OpenRouter provider uses OPENROUTER_API_KEY
+        callbackEnv.OPENROUTER_API_KEY = resolvedAccount.apiKey;
+        if (resolvedAccount.baseUrl) {
+          callbackEnv.GEMINI_BASE_URL = resolvedAccount.baseUrl;
+        }
+      }
+    } else if (effectiveProtocol === 'kimi') {
+      if (resolvedAccount?.authType === 'api_key' && resolvedAccount.apiKey) {
+        callbackEnv.CAT_CAFE_KIMI_PROFILE_MODE = 'api_key';
+        callbackEnv.CAT_CAFE_KIMI_API_KEY = resolvedAccount.apiKey;
+        callbackEnv.MOONSHOT_API_KEY = resolvedAccount.apiKey;
+        if (resolvedAccount.baseUrl) {
+          callbackEnv.CAT_CAFE_KIMI_BASE_URL = resolvedAccount.baseUrl;
+        }
+      } else {
+        callbackEnv.CAT_CAFE_KIMI_PROFILE_MODE = 'subscription';
+      }
+    } else if (provider === 'anthropic' || provider === 'opencode') {
+      // Fallback for unresolved accounts on anthropic/opencode providers
+      callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = 'subscription';
+    }
+
+    // Dare has its own env vars regardless of protocol-based injection above
+    if (provider === 'dare' && resolvedAccount?.authType === 'api_key') {
+      if (resolvedAccount.apiKey) callbackEnv.DARE_API_KEY = resolvedAccount.apiKey;
+      if (resolvedAccount.baseUrl) callbackEnv.DARE_ENDPOINT = resolvedAccount.baseUrl;
+    }
+
+    // F171: User-defined env vars from account config.
+    // Passed separately via accountEnv — NOT injected into callbackEnv.
+    // callbackEnv is for MCP callback routing; accountEnv is applied LAST
+    // in subprocess env so user vars override provider-injected values.
+    let accountEnv: Record<string, string> | undefined;
+    if (resolvedAccount?.envVars) {
+      const validEnvKey = /^[A-Z_][A-Za-z0-9_]*$/;
+      const filtered: Record<string, string> = {};
+      for (const [k, v] of Object.entries(resolvedAccount.envVars)) {
+        if (!validEnvKey.test(k) || k.startsWith('CAT_CAFE_')) continue;
+        filtered[k] = v;
+      }
+      if (Object.keys(filtered).length > 0) accountEnv = filtered;
+    }
+
+    const trimmedDefaultModel = typeof defaultModel === 'string' ? defaultModel.trim() : undefined;
+    const modelProviderName = catConfig?.provider?.trim() || undefined;
+    const parsedOpenCodeModel =
+      provider === 'opencode' && trimmedDefaultModel ? parseOpenCodeModel(trimmedDefaultModel) : null;
+    // clowder-ai#223 intake: determine effective provider + model.
+    // Three cases for defaultModel shape:
+    //   1. Canonical "provider/model" where parsed provider === modelProviderName → use as-is
+    //   2. Namespaced "ns/model" where parsed prefix ≠ modelProviderName → prefix with modelProviderName
+    //   3. Bare "model" → prefix with modelProviderName if available
+    // When modelProviderName is absent, parseOpenCodeModel is the sole source.
+    let effectiveProviderName: string | undefined;
+    let effectiveModel: string | undefined;
+    if (parsedOpenCodeModel) {
+      if (modelProviderName && parsedOpenCodeModel.providerName !== modelProviderName) {
+        // Namespace case: model's "/" is a namespace separator, not provider prefix
+        effectiveProviderName = modelProviderName;
+        effectiveModel = `${modelProviderName}/${trimmedDefaultModel}`;
+      } else {
+        // Canonical provider/model (with or without matching modelProviderName)
+        effectiveProviderName = modelProviderName || parsedOpenCodeModel.providerName;
+        effectiveModel = trimmedDefaultModel!;
+      }
+    } else if (modelProviderName && trimmedDefaultModel) {
+      // Bare model + modelProviderName fallback
+      effectiveProviderName = modelProviderName;
+      effectiveModel = `${modelProviderName}/${trimmedDefaultModel}`;
+    }
+
+    if (provider === 'opencode') {
+      log.debug(
+        {
+          catId,
+          invocationId,
+          boundAccountRef: effectiveAccountRef ?? null,
+          resolvedAccount: resolvedAccount
+            ? {
+                id: resolvedAccount.id,
+                authType: resolvedAccount.authType,
+                baseUrl: resolvedAccount.baseUrl ?? null,
+                modelCount: resolvedAccount.models?.length ?? 0,
+                hasApiKey: Boolean(resolvedAccount.apiKey),
+              }
+            : null,
+          defaultModel: trimmedDefaultModel ?? null,
+          modelProviderName: modelProviderName ?? null,
+          parsedOpenCodeModel,
+          effectiveProviderName: effectiveProviderName ?? null,
+          effectiveModel: effectiveModel ?? null,
+        },
+        'Resolved OpenCode runtime inputs',
+      );
+    }
+    // fix(#280): explicit provider name means we must force the clowder-ai#223 path so the
+    // effective "provider/model" string is injected into opencode, even for builtin
+    // providers. For legacy members without provider name, only synthesize runtime
+    // config when the fully-qualified model is not already routable by `opencode models`.
+    //
+    // MCP injection: even known models need a runtime config to get deterministic
+    // Cat Cafe MCP server access (especially in game threads where project-level
+    // opencode.json may not be discoverable).
+    const hasExplicitOcProvider = Boolean(modelProviderName);
+    const configuredMcpServerPath = process.env.CAT_CAFE_MCP_SERVER_PATH?.trim();
+    const mcpServerPath = configuredMcpServerPath
+      ? resolve(process.cwd(), configuredMcpServerPath)
+      : resolveDefaultClaudeMcpServerPath();
+    if (
+      provider === 'opencode' &&
+      resolvedAccount != null &&
+      resolvedAccount.authType === 'api_key' &&
+      effectiveModel &&
+      effectiveProviderName &&
+      (hasExplicitOcProvider || !getOpenCodeKnownModels().has(effectiveModel) || mcpServerPath)
+    ) {
+      // Remap model prefix when provider name collides with OpenCode builtins
+      // (e.g. 'openai/gpt-4o' → 'openai-compat/gpt-4o') so the CLI -m arg
+      // matches the remapped provider key in opencode.json.
+      const safeProvider = safeProviderName(effectiveProviderName);
+      const safeModel =
+        safeProvider !== effectiveProviderName && effectiveModel.startsWith(`${effectiveProviderName}/`)
+          ? `${safeProvider}/${effectiveModel.slice(effectiveProviderName.length + 1)}`
+          : effectiveModel;
+      callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE = safeModel;
+      const apiType = deriveOpenCodeApiType(effectiveProviderName);
+      const rawModels = resolvedAccount.models?.length ? resolvedAccount.models : [effectiveModel];
+      const runtimeConfigOptions = {
+        providerName: effectiveProviderName,
+        models: rawModels,
+        defaultModel: effectiveModel,
+        apiType,
+        hasBaseUrl: Boolean(resolvedAccount.baseUrl),
+        mcpServerPath,
+      } as const;
+      openCodeRuntimeConfigPath = writeOpenCodeRuntimeConfig(
+        projectRoot,
+        catId as string,
+        invocationId,
+        runtimeConfigOptions,
+      );
+      callbackEnv.OPENCODE_CONFIG = openCodeRuntimeConfigPath;
+      if (resolvedAccount.apiKey) callbackEnv[OC_API_KEY_ENV] = resolvedAccount.apiKey;
+      if (resolvedAccount.baseUrl) callbackEnv[OC_BASE_URL_ENV] = resolvedAccount.baseUrl;
+      log.debug(
+        {
+          catId,
+          invocationId,
+          openCodeConfigPath: openCodeRuntimeConfigPath,
+          apiType,
+          callbackEnvSummary: {
+            opencodeConfig: callbackEnv.OPENCODE_CONFIG,
+            ocBaseUrl: callbackEnv[OC_BASE_URL_ENV] ?? null,
+            ocApiKeyPresent: Boolean(callbackEnv[OC_API_KEY_ENV]),
+            modelOverride: callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE ?? null,
+          },
+          runtimeConfigSummary: summarizeOpenCodeRuntimeConfigForDebug(runtimeConfigOptions),
+        },
+        'Prepared OpenCode runtime config',
+      );
     }
 
     // F-BLOAT: Only inject staticIdentity (systemPrompt) on new sessions for cats
@@ -640,15 +1106,46 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const canSkipOnResume = isSessionChainEnabled(catId);
     const compressionKey = `${userId}:${catId as string}:${threadId}`;
     const forceReinjection = _needsReinjection.delete(compressionKey);
-    const injectSystemPrompt = !canSkipOnResume || !isResume || forceReinjection;
+    const registryRevision = catRegistry.getRevision();
+    const identityKey = sessionIdentityKey(userId, catId, threadId);
+    const lastStaticIdentityRevision = _staticIdentityRegistryRevision.get(identityKey);
+    const registryChangedSinceStaticIdentity =
+      canSkipOnResume &&
+      isResume &&
+      lastStaticIdentityRevision !== undefined &&
+      lastStaticIdentityRevision !== registryRevision;
+    const injectSystemPrompt = !canSkipOnResume || !isResume || forceReinjection || registryChangedSinceStaticIdentity;
+    if (canSkipOnResume) {
+      if (injectSystemPrompt) {
+        _staticIdentityRegistryRevision.set(identityKey, registryRevision);
+      } else if (isResume && lastStaticIdentityRevision === undefined) {
+        _staticIdentityRegistryRevision.set(identityKey, registryRevision);
+      }
+    }
 
     // Prepend staticIdentity to prompt when injection is needed
     // F070-P2: missionPrefix (dispatch context) is prepended for external projects
     const promptWithMission = missionPrefix ? `${missionPrefix}\n\n${prompt}` : prompt;
-    const effectivePrompt =
+
+    let effectivePrompt =
       injectSystemPrompt && params.systemPrompt
         ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
-        : promptWithMission;
+        : `${promptWithMission}`;
+
+    effectivePrompt = appendTranscriptPathHints(effectivePrompt, TRANSCRIPT_DIR, threadId);
+
+    capturePromptIfEnabled({
+      catId: catId as string,
+      invocationId,
+      threadId,
+      userId,
+      model: resolvedAccount?.models?.[0] ?? 'unknown',
+      systemPrompt: params.systemPrompt ?? '',
+      missionPrefix: missionPrefix ?? undefined,
+      userPrompt: prompt,
+      effectivePrompt,
+      injectionDecision: { isResume, canSkipOnResume, forceReinjection, injected: injectSystemPrompt },
+    });
 
     // F089 Phase 2+3: Create tmux spawn override for agent-in-pane execution
     let spawnCliOverride: AgentServiceOptions['spawnCliOverride'];
@@ -665,14 +1162,13 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           deps.agentPaneRegistry,
         );
       } catch {
-        console.warn(
-          `[invoke-single-cat] resolveWorktreeIdByPath failed for ${workingDirectory} — skipping tmux pane (agent runs without tmux)`,
-        );
+        log.warn({ workingDirectory }, 'resolveWorktreeIdByPath failed — skipping tmux pane');
       }
     }
 
     const baseOptions: AgentServiceOptions = {
       callbackEnv,
+      ...(accountEnv ? { accountEnv } : {}),
       auditContext: {
         invocationId,
         threadId,
@@ -687,7 +1183,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       invocationId,
       ...(sessionId ? { cliSessionId: sessionId } : {}),
       // F118 Phase B: Enable liveness probe with defaults for all CLI providers
-      livenessProbe: {},
+      // #774: stallAutoKill — auto-kill on idle-silent stall (~5min) instead of waiting 30min
+      livenessProbe: { stallAutoKill: true },
+      ...(catConfig?.cliConfigArgs?.length ? { cliConfigArgs: catConfig.cliConfigArgs } : {}),
+      parentSpan: invocationSpan,
     };
 
     let lastErrorMessage: string | undefined;
@@ -701,18 +1200,25 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
 
       if (msg.type === 'session_init' && msg.sessionId) {
-        // DIAG: ghost-thread bug — log session binding to verify threadId correctness
-        console.info('[DIAG/ghost-thread] session_init: binding session', {
-          cliSessionId: msg.sessionId,
-          threadId,
-          catId,
-          userId,
-          invocationId,
-        });
+        log.info(
+          { cliSessionId: msg.sessionId, threadId, catId, userId, invocationId },
+          'Session init: binding session',
+        );
         try {
           await sessionManager.store(userId, catId, threadId, msg.sessionId);
         } catch {
           // Redis write failure — session won't persist, but chain continues
+        }
+
+        // F198 Phase C P1-1: register bg carrier daemon session for Hub observability.
+        // Only fires when the provider is claude-bg; msg.sessionId is the daemon shortId.
+        if (deps.agentPaneRegistry && msg.metadata?.provider === 'claude-bg') {
+          deps.agentPaneRegistry.registerBgCarrier({
+            invocationId,
+            catId,
+            daemonShortId: msg.sessionId,
+            threadId,
+          });
         }
 
         // F24: Ensure SessionRecord exists for this session
@@ -721,53 +1227,85 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             const existing = await deps.sessionChainStore.getActive(catId, threadId);
             if (existing) {
               if (existing.cliSessionId !== msg.sessionId) {
-                // CLI session changed → old context is lost (resume failed / CLI restarted).
-                // Use requestSeal + finalize to ensure transcript/digest are written,
-                // not bare update(status:'sealed') which skips flush.
-                let sealAccepted = false;
-                if (deps.sessionSealer) {
-                  try {
-                    const result = await deps.sessionSealer.requestSeal({
-                      sessionId: existing.id,
-                      reason: 'cli_session_replaced',
-                    });
-                    sealAccepted = result.accepted;
-                    if (sealAccepted) {
-                      deps.sessionSealer.finalize({ sessionId: existing.id }).catch(() => {});
-                    }
-                  } catch {
-                    /* best-effort seal */
-                  }
-                } else {
-                  // Fallback: no sealer available — bare update (legacy path)
-                  const now = Date.now();
+                if (msg.ephemeralSession) {
+                  // ACP transport: sessionId is per-invocation (newSession() each time).
+                  // This is normal — NOT a "session replaced" event. Just update the tracked ID.
                   await deps.sessionChainStore.update(existing.id, {
-                    status: 'sealed',
-                    sealReason: 'cli_session_replaced',
-                    sealedAt: now,
-                    updatedAt: now,
-                  });
-                  sealAccepted = true;
-                }
-                // Only create new active record if old one was successfully sealed.
-                // Otherwise we'd have two active records — a dirty state.
-                if (sealAccepted || !deps.sessionSealer) {
-                  await deps.sessionChainStore.create({
                     cliSessionId: msg.sessionId,
-                    threadId,
-                    catId,
-                    userId,
+                    ...(params.continuityCapsule ? { continuityCapsule: params.continuityCapsule } : {}),
+                    updatedAt: Date.now(),
                   });
+                } else {
+                  // CLI session changed → old context is lost (resume failed / CLI restarted).
+                  // Use requestSeal + finalize to ensure transcript/digest are written,
+                  // not bare update(status:'sealed') which skips flush.
+                  let sealAccepted = false;
+                  if (deps.sessionSealer) {
+                    try {
+                      const result = await deps.sessionSealer.requestSeal({
+                        sessionId: existing.id,
+                        reason: 'cli_session_replaced',
+                      });
+                      sealAccepted = result.accepted;
+                      if (sealAccepted) {
+                        deps.sessionSealer.finalize({ sessionId: existing.id }).catch(() => {});
+                      }
+                    } catch {
+                      /* best-effort seal */
+                    }
+                  } else {
+                    // Fallback: no sealer available — bare update (legacy path)
+                    const now = Date.now();
+                    await deps.sessionChainStore.update(existing.id, {
+                      status: 'sealed',
+                      sealReason: 'cli_session_replaced',
+                      sealedAt: now,
+                      updatedAt: now,
+                    });
+                    sealAccepted = true;
+                  }
+                  // Only create new active record if old one was successfully sealed.
+                  // Otherwise we'd have two active records — a dirty state.
+                  if (sealAccepted || !deps.sessionSealer) {
+                    // F118 D1: Inherit failure count from the replaced session.
+                    // create() doesn't accept consecutiveRestoreFailures, so use immediate update().
+                    const inheritedFailures = existing.consecutiveRestoreFailures ?? 0;
+                    const newRec = await deps.sessionChainStore.create({
+                      cliSessionId: msg.sessionId,
+                      threadId,
+                      catId,
+                      userId,
+                    });
+                    if (inheritedFailures > 0) {
+                      await deps.sessionChainStore.update(newRec.id, {
+                        consecutiveRestoreFailures: inheritedFailures,
+                        ...(params.continuityCapsule ? { continuityCapsule: params.continuityCapsule } : {}),
+                      });
+                    } else if (params.continuityCapsule) {
+                      await deps.sessionChainStore.update(newRec.id, {
+                        continuityCapsule: params.continuityCapsule,
+                      });
+                    }
+                  }
                 }
+              } else if (params.continuityCapsule) {
+                await deps.sessionChainStore.update(existing.id, {
+                  continuityCapsule: params.continuityCapsule,
+                });
               }
             } else {
               // No active session (first invocation or previous was sealed)
-              await deps.sessionChainStore.create({
+              const newRec = await deps.sessionChainStore.create({
                 cliSessionId: msg.sessionId,
                 threadId,
                 catId,
                 userId,
               });
+              if (params.continuityCapsule) {
+                await deps.sessionChainStore.update(newRec.id, {
+                  continuityCapsule: params.continuityCapsule,
+                });
+              }
             }
           } catch {
             // Best-effort — don't break the invocation chain
@@ -819,7 +1357,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             },
           })
           .catch((err) => {
-            console.warn(`[audit] ${auditType} write failed`, { threadId, invocationId, err });
+            log.warn({ threadId, invocationId, err }, `${auditType} audit write failed`);
           });
 
         // Increment session messageCount (best-effort).
@@ -829,10 +1367,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           try {
             const activeRec = await deps.sessionChainStore.getActive(catId, threadId);
             if (activeRec) {
+              const newCount = (activeRec.messageCount ?? 0) + 1;
               await deps.sessionChainStore.update(activeRec.id, {
-                messageCount: (activeRec.messageCount ?? 0) + 1,
+                messageCount: newCount,
                 updatedAt: Date.now(),
               });
+              sessionRounds.record(newCount, { [AGENT_ID]: catId });
             }
           } catch {
             /* best-effort: messageCount miss won't break invocation */
@@ -877,6 +1417,44 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
         // F8: Push token usage for frontend cost/token display
         if (msg.metadata?.usage) {
+          // F152: Record OTel token usage + LLM call duration
+          const modelBucket = normalizeModel(msg.metadata.model ?? '');
+          const providerSystem = provider ?? 'unknown';
+          const tokenAttrs = {
+            [AGENT_ID]: catId,
+            [GENAI_SYSTEM]: providerSystem,
+            [GENAI_MODEL]: modelBucket,
+            [OPERATION_NAME]: 'invoke',
+          };
+          if (msg.metadata.usage.inputTokens) {
+            tokenUsage.add(msg.metadata.usage.inputTokens, { ...tokenAttrs, [STATUS]: 'input' });
+          }
+          if (msg.metadata.usage.outputTokens) {
+            tokenUsage.add(msg.metadata.usage.outputTokens, { ...tokenAttrs, [STATUS]: 'output' });
+          }
+          if (msg.metadata.usage.durationApiMs) {
+            llmCallDuration.record(msg.metadata.usage.durationApiMs / 1000, tokenAttrs);
+          }
+
+          // F153 Phase B: Retrospective LLM call span (created after-the-fact from done event)
+          // Only create when durationApiMs is available — providers without timing data
+          // (Codex, Gemini, Kimi) would produce misleading 0-duration spans.
+          if (invocationSpan && msg.metadata.usage.durationApiMs) {
+            recordLlmCallSpan(
+              invocationSpan,
+              catId,
+              providerSystem,
+              modelBucket,
+              {
+                durationApiMs: msg.metadata.usage.durationApiMs,
+                inputTokens: msg.metadata.usage.inputTokens,
+                outputTokens: msg.metadata.usage.outputTokens,
+                cacheReadTokens: msg.metadata.usage.cacheReadTokens,
+              },
+              invocationId,
+            );
+          }
+
           outputs.push({
             type: 'system_info' as const,
             catId,
@@ -890,6 +1468,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
           // F24: Compute and emit context health (only when session chain is enabled)
           if (sessionChainActive) {
+            // #679: Gemini CLI token stats are cumulative across all turns — not usable
+            // for context fill. Skip entire context_health block (raw usage still in
+            // invocation_usage above). Guard auto-disables when lastTurnInputTokens exists.
+            const isCumulativeOnly =
+              msg.metadata.usage.isCumulativeUsage === true && msg.metadata.usage.lastTurnInputTokens == null;
             // Use lastTurnInputTokens (per-API-call) for accurate context fill,
             // then fallback to aggregated inputTokens, and finally totalTokens
             // for providers (Gemini CLI) that only expose a total count.
@@ -902,7 +1485,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                   ? 'input'
                   : msg.metadata.usage.totalTokens != null
                     ? 'total'
-                    : null;
+                    : undefined;
             const usedTokens =
               usedFrom === 'last_turn'
                 ? msg.metadata.usage.lastTurnInputTokens!
@@ -911,7 +1494,21 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                   : usedFrom === 'total'
                     ? msg.metadata.usage.totalTokens!
                     : 0;
-            if (windowSize && usedTokens > 0) {
+            if (windowSize && usedTokens > 0 && isCumulativeOnly) {
+              log.warn(
+                {
+                  catId,
+                  threadId,
+                  invocationId,
+                  cumulativeUsedTokens: usedTokens,
+                  windowSize,
+                  usedFrom,
+                },
+                'Gemini cumulative-only usage observed; skipping context_health and auto-seal',
+              );
+              geminiContextFallback.add(1, { [AGENT_ID]: catId, [TRIGGER]: 'no_per_turn_signal' });
+            }
+            if (windowSize && usedTokens > 0 && !isCumulativeOnly) {
               const source: ContextHealth['source'] =
                 msg.metadata.usage.contextWindowSize != null && usedFrom !== 'total' ? 'exact' : 'approx';
               const health: ContextHealth = {
@@ -919,6 +1516,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                 windowTokens: windowSize,
                 fillRatio: Math.min(usedTokens / windowSize, 1.0),
                 source,
+                usedFrom,
                 measuredAt: Date.now(),
               };
               // Update SessionRecord (best-effort): persist health + usage snapshot
@@ -965,7 +1563,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                   // 1) api_key + approx health can be noisy on third-party gateways
                   // 2) api_key + compress strategy should not be force-sealed here
                   // Keep context_health observability in both cases.
-                  const provider = catRegistry.tryGet(catId as string)?.config.provider;
+                  const provider = catRegistry.tryGet(catId as string)?.config.clientId;
                   const profileMode = callbackEnv[ANTHROPIC_PROFILE_MODE_KEY];
                   const strategy = getSessionStrategy(catId as string);
                   const isAnthropicApiKey = provider === 'anthropic' && profileMode === ANTHROPIC_PROFILE_MODE_API_KEY;
@@ -996,7 +1594,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                           });
                           if (sealResult.accepted) {
                             sessionManager.delete(userId, catId, threadId).catch(() => {});
-                            outputs.push({
+                            const sealTimestamp = Date.now();
+                            const continuityCapsule = params.continuityCapsule
+                              ? completeCapsuleForSeal(params.continuityCapsule, {
+                                  invocationId,
+                                  createdAt: sealTimestamp,
+                                  seal: {
+                                    sessionId: activeRecord.id,
+                                    sessionSeq: activeRecord.seq + 1,
+                                    reason: action.reason,
+                                    healthSnapshot: health,
+                                  },
+                                })
+                              : undefined;
+                            const sealInfoMessage = {
                               type: 'system_info' as const,
                               catId,
                               content: JSON.stringify({
@@ -1006,9 +1617,39 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                                 sessionSeq: activeRecord.seq + 1,
                                 reason: action.reason,
                                 healthSnapshot: health,
+                                ...(continuityCapsule
+                                  ? {
+                                      continuityCapsule,
+                                      continuityDiagnostics: {
+                                        source: 'route_state',
+                                        boundary: continuityCapsule.continuationReason,
+                                        generated: true,
+                                        persistedVia: 'session_seal_requested',
+                                        threadId,
+                                        catId,
+                                        invocationId,
+                                        sessionId: activeRecord.id,
+                                      },
+                                    }
+                                  : {}),
                               }),
-                              timestamp: Date.now(),
-                            });
+                              timestamp: sealTimestamp,
+                            };
+                            outputs.push(sealInfoMessage);
+                            if (deps.transcriptWriter) {
+                              const sessInfo: TranscriptSessionInfo = {
+                                sessionId: activeRecord.id,
+                                threadId,
+                                catId: activeRecord.catId,
+                                cliSessionId: activeRecord.cliSessionId,
+                                seq: activeRecord.seq,
+                              };
+                              deps.transcriptWriter.appendEvent(
+                                sessInfo,
+                                sealInfoMessage as unknown as Record<string, unknown>,
+                                invocationId,
+                              );
+                            }
                             deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {});
                           }
                         }
@@ -1041,7 +1682,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
         outputs.push({ ...msg, isFinal: isLastCat });
       } else {
+        // F153 Phase I: agent_loop is telemetry-only — record marker, never push to outputs
+        // (no user-visible signal, no transcript write, no downstream forwarding).
+        // processMessage is an arrow function (not a loop), so `return outputs` (empty here)
+        // is the correct way to skip the remaining branches and transcript writer below.
+        if (msg.type === 'agent_loop') {
+          if (invocationSpan) recordAgentLoop(invocationSpan);
+          return outputs;
+        }
         outputs.push(attachInvocationIdToTaskProgress(msg));
+
+        // F153 Phase E: Record tool_use as child span (zero-duration; shows in trace tree with tool name + category)
+        if (msg.type === 'tool_use' && msg.toolName && invocationSpan) {
+          recordToolUseSpan(invocationSpan, catId, msg.toolName, msg.toolInput as Record<string, unknown>);
+        }
 
         // F26: Detect task management tools and emit task_progress for frontend
         if (msg.type === 'tool_use' && msg.toolName) {
@@ -1101,7 +1755,18 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             terminalInterruptReason = null;
           }
         }
-        if (out.type === 'done') await finalizeTaskProgress();
+        if (out.type === 'done') {
+          await finalizeTaskProgress();
+          if (!out.tracing) {
+            const sc = invocationSpan.spanContext();
+            const parentSid = params.routeSpan?.spanContext().spanId;
+            out.tracing = {
+              traceId: sc.traceId,
+              spanId: sc.spanId,
+              ...(parentSid ? { parentSpanId: parentSid } : {}),
+            };
+          }
+        }
         yield out;
       }
     };
@@ -1114,6 +1779,43 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const shouldTrackGeminiResumeFailures = catId === 'gemini' && Boolean(initialResumeSessionId);
     const resumeFailureCounts: Partial<Record<ResumeFailureKind, number>> = {};
     const maxAttempts = 2;
+
+    // Universal debug log: capture everything needed to diagnose invocation issues.
+    // This is provider-agnostic — every cat (Claude, Codex, Gemini, OpenCode, etc.)
+    // passes through here before service.invoke() is called.
+    {
+      const maskEnv = (env: Record<string, string>): Record<string, string> => {
+        const masked: Record<string, string> = {};
+        for (const [k, v] of Object.entries(env)) {
+          masked[k] = '***';
+        }
+        return masked;
+      };
+      log.debug(
+        {
+          invocationId,
+          catId,
+          threadId,
+          userId,
+          provider: provider ?? 'unknown',
+          protocol: effectiveProtocol ?? 'default',
+          model: defaultModel ?? 'default',
+          accountId: resolvedAccount?.id ?? null,
+          accountAuthType: resolvedAccount?.authType ?? null,
+          sessionId: sessionId ?? null,
+          isResume,
+          injectSystemPrompt,
+          forceReinjection,
+          workingDirectory: workingDirectory ?? null,
+          promptLength: effectivePrompt.length,
+          systemPromptLength: params.systemPrompt?.length ?? 0,
+          callbackEnv: maskEnv(callbackEnv),
+          ...(accountEnv ? { accountEnv: maskEnv(accountEnv) } : {}),
+        },
+        '[invocation] service.invoke() — full context before subprocess launch',
+      );
+    }
+
     let allowSessionRetry = Boolean(sessionId);
     let allowTransientRetry = true;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -1124,10 +1826,15 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       };
       let suppressedMissingSessionError: AgentMessage | undefined;
       let suppressedPromptLimitError: AgentMessage | undefined;
+      let suppressedContextOverflowError: AgentMessage | undefined;
       let suppressedTransientCliError: AgentMessage | undefined;
+      let suppressedTimeoutError: AgentMessage | undefined;
       let shouldRetryWithoutSession = false;
       let shouldRetryOnTransientCliExit = false;
       let attemptHasContentOutput = false;
+      // Substantive = real model output (text/tool), excludes system_info/session_init/error/done.
+      // Used for timeout-retry: system_info (e.g. timeout_diagnostics) must NOT block retry.
+      let attemptHasSubstantiveOutput = false;
 
       // F089: Use abortableNext instead of `for await` so the invocation timeout
       // can break out even when the service generator is stuck on an unresolvable await.
@@ -1136,6 +1843,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         const iterResult = await abortableNext(serviceIter, signal);
         if (iterResult.done) break;
         const msg = iterResult.value;
+        // F149: provider_signal / liveness_signal must NOT reset timeout — prevents "续命"
+        // F198 Phase C P2-1: status (daemon detail progress) also must NOT reset timeout —
+        // a daemon sending frequent status updates must not evade the 30-min kill deadline.
+        if (msg.type !== 'provider_signal' && msg.type !== 'liveness_signal' && msg.type !== 'status')
+          resetInvocationTimeout();
         if (shouldTrackGeminiResumeFailures && options.sessionId && msg.type === 'error') {
           const failureKind = classifyResumeFailure(msg.error);
           if (failureKind) {
@@ -1157,18 +1869,52 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           continue;
         }
         if (
+          allowSessionRetry &&
+          !attemptHasContentOutput &&
+          msg.type === 'error' &&
+          isContextWindowOverflowError(msg.error)
+        ) {
+          suppressedContextOverflowError = msg;
+          continue;
+        }
+        if (
           allowTransientRetry &&
           !attemptHasContentOutput &&
           msg.type === 'error' &&
-          isTransientCliExitCode1(msg.error)
+          (isTransientCliExitCode1(msg.error) || isTransientAcpPromptFailure(msg.error))
         ) {
           suppressedTransientCliError = msg;
           continue;
         }
+        // #774 self-heal: CLI timeout during session resume with no substantive output
+        // → likely stale/unreachable session. Suppress and retry without session.
+        // Uses attemptHasSubstantiveOutput (not attemptHasContentOutput) because
+        // timeout_diagnostics (system_info) must NOT block the retry path.
+        if (
+          allowSessionRetry &&
+          options.sessionId &&
+          !attemptHasSubstantiveOutput &&
+          msg.type === 'error' &&
+          isCliTimeoutError(msg.error)
+        ) {
+          suppressedTimeoutError = msg;
+          continue;
+        }
 
-        if (suppressedMissingSessionError || suppressedPromptLimitError || suppressedTransientCliError) {
+        if (
+          suppressedMissingSessionError ||
+          suppressedPromptLimitError ||
+          suppressedContextOverflowError ||
+          suppressedTransientCliError ||
+          suppressedTimeoutError
+        ) {
           if (msg.type === 'done') {
-            shouldRetryWithoutSession = Boolean(suppressedMissingSessionError || suppressedPromptLimitError);
+            shouldRetryWithoutSession = Boolean(
+              suppressedMissingSessionError ||
+                suppressedPromptLimitError ||
+                suppressedContextOverflowError ||
+                suppressedTimeoutError,
+            );
             shouldRetryOnTransientCliExit = Boolean(suppressedTransientCliError);
             break;
           }
@@ -1185,19 +1931,47 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             }
             suppressedPromptLimitError = undefined;
           }
+          if (suppressedContextOverflowError) {
+            for await (const out of streamProcessedOutputs(suppressedContextOverflowError)) {
+              yield out;
+            }
+            suppressedContextOverflowError = undefined;
+          }
           if (suppressedTransientCliError) {
             for await (const out of streamProcessedOutputs(suppressedTransientCliError)) {
               yield out;
             }
             suppressedTransientCliError = undefined;
           }
+          if (suppressedTimeoutError) {
+            for await (const out of streamProcessedOutputs(suppressedTimeoutError)) {
+              yield out;
+            }
+            suppressedTimeoutError = undefined;
+          }
         }
 
-        for await (const out of streamProcessedOutputs(msg)) {
+        // F149: Map provider_signal / liveness_signal → system_info for frontend delivery
+        const deliveryMsg =
+          msg.type === 'provider_signal' || msg.type === 'liveness_signal'
+            ? { ...msg, type: 'system_info' as const }
+            : msg;
+        for await (const out of streamProcessedOutputs(deliveryMsg)) {
           yield out;
         }
-        if (msg.type !== 'error' && msg.type !== 'done' && msg.type !== 'session_init') {
+        if (
+          msg.type !== 'error' &&
+          msg.type !== 'done' &&
+          msg.type !== 'session_init' &&
+          msg.type !== 'provider_signal' &&
+          msg.type !== 'liveness_signal' &&
+          msg.type !== 'status'
+        ) {
           attemptHasContentOutput = true;
+          // Substantive = real model output, excludes system_info (e.g. timeout_diagnostics).
+          if (msg.type !== 'system_info') {
+            attemptHasSubstantiveOutput = true;
+          }
           // F118 AC-C6: Reset consecutive restore failure counter on successful content
           if (deps.sessionChainStore && !didResetRestoreFailures) {
             didResetRestoreFailures = true; // only reset once per invocation
@@ -1217,18 +1991,27 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
 
       if (shouldRetryWithoutSession && attempt + 1 < maxAttempts) {
-        if (catId === 'gemini') {
-          console.info('[diag/gemini-startup] retrying invoke', {
+        const retryReason = suppressedPromptLimitError
+          ? 'prompt_token_limit'
+          : suppressedContextOverflowError
+            ? 'context_window_overflow'
+            : suppressedTimeoutError
+              ? 'cli_timeout'
+              : 'missing_session';
+        log.info(
+          {
             catId,
             threadId,
             invocationId,
-            reason: 'missing_session',
+            reason: retryReason,
+            retryReason,
             attempt: attempt + 1,
             retryAttempt: attempt + 2,
             elapsedMs: Date.now() - attemptStartedAt,
             hadSessionId: Boolean(options.sessionId),
-          });
-        }
+          },
+          'cat retrying invoke (session self-heal)',
+        );
         try {
           await sessionManager.delete(userId, catId, threadId);
         } catch {
@@ -1261,18 +2044,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         continue;
       }
       if (shouldRetryOnTransientCliExit && attempt + 1 < maxAttempts) {
-        if (catId === 'gemini') {
-          console.info('[diag/gemini-startup] retrying invoke', {
+        log.info(
+          {
             catId,
             threadId,
             invocationId,
             reason: 'transient_cli_exit',
+            retryReason: 'transient_cli_exit',
             attempt: attempt + 1,
             retryAttempt: attempt + 2,
             elapsedMs: Date.now() - attemptStartedAt,
             hadSessionId: Boolean(options.sessionId),
-          });
-        }
+          },
+          'cat retrying invoke (transient CLI exit)',
+        );
         allowTransientRetry = false;
         continue;
       }
@@ -1284,6 +2069,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
       if (suppressedPromptLimitError) {
         for await (const out of streamProcessedOutputs(suppressedPromptLimitError)) {
+          yield out;
+        }
+      }
+      if (suppressedContextOverflowError) {
+        for await (const out of streamProcessedOutputs(suppressedContextOverflowError)) {
           yield out;
         }
       }
@@ -1316,6 +2106,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     }
     didComplete = true; // F118 AC-C5: Normal completion reached
   } catch (err) {
+    // F152: Record error on invocation span + OTel log
+    invocationSpan.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : String(err) });
+    emitOtelLog('ERROR', 'invocation_error', { [AGENT_ID]: catId, [STATUS]: 'error' }, invocationSpan);
+
     // === CAT_ERROR 审计 (fire-and-forget, 缅因猫 review P2-3) ===
     const durationMs = Date.now() - startTime;
     auditLog
@@ -1331,7 +2125,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         },
       })
       .catch((auditErr) => {
-        console.warn('[audit] CAT_ERROR write failed', { threadId, invocationId, err: auditErr });
+        log.warn({ threadId, invocationId, err: auditErr }, 'CAT_ERROR audit write failed');
       });
 
     hadError = true;
@@ -1343,13 +2137,28 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       timestamp: Date.now(),
     };
     await finalizeTaskProgress();
-    yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
+    const sc = invocationSpan.spanContext();
+    const parentSid = params.routeSpan?.spanContext().spanId;
+    yield {
+      type: 'done' as const,
+      catId,
+      isFinal: isLastCat,
+      timestamp: Date.now(),
+      tracing: { traceId: sc.traceId, spanId: sc.spanId, ...(parentSid ? { parentSpanId: parentSid } : {}) },
+    };
   } finally {
     // F089: Clear invocation hard timeout
-    clearTimeout(invocationTimer);
+    if (invocationTimer) clearTimeout(invocationTimer);
 
     // F118: Release session mutex (idempotent — safe if never acquired)
     sessionMutexRelease?.();
+
+    if (openCodeRuntimeConfigPath) {
+      const openCodeRuntimeConfigDir = dirname(openCodeRuntimeConfigPath);
+      await rm(openCodeRuntimeConfigDir, { recursive: true, force: true }).catch((err) => {
+        log.warn({ invocationId, path: openCodeRuntimeConfigDir, err }, 'Failed to remove OpenCode runtime config dir');
+      });
+    }
 
     // F118 AC-C5: Fallback audit for generator .return() path (#99)
     // If generator was force-returned (e.g. AbortController, client disconnect)
@@ -1369,19 +2178,52 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           },
         })
         .catch((auditErr) => {
-          console.warn('[audit] finally fallback CAT_ERROR write failed', { threadId, invocationId, err: auditErr });
+          log.warn({ threadId, invocationId, err: auditErr }, 'Finally fallback CAT_ERROR audit write failed');
         });
     }
 
     await finalizeTaskProgress();
 
+    // F152: Record invocation duration and decrement active count
+    const finalDurationMs = Date.now() - startTime;
+    const wasAbortedWithoutError = !didWriteAudit && !hadError && !didComplete;
+    const otelStatus = hadError || wasAbortedWithoutError ? 'error' : 'ok';
+    const otelAttrs = { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke', [STATUS]: otelStatus };
+    invocationDuration.record(finalDurationMs / 1000, otelAttrs);
+    activeInvocations.add(-1, { [AGENT_ID]: catId, [OPERATION_NAME]: 'invoke' });
+
+    // F153: Product-level instruments
+    invocationCompleted.add(1, { [AGENT_ID]: catId, [STATUS]: otelStatus });
+    catResponseDuration.record(finalDurationMs / 1000, { [AGENT_ID]: catId, [STATUS]: otelStatus });
+    if (threadCreatedAt) {
+      threadDuration.record((Date.now() - threadCreatedAt) / 1000, { [AGENT_ID]: catId, [STATUS]: otelStatus });
+    }
+
     // F089: Mark agent pane status when invocation completes
     if (deps.agentPaneRegistry?.getByInvocation(invocationId)) {
-      if (hadError) {
+      if (hadError || wasAbortedWithoutError) {
         deps.agentPaneRegistry.markCrashed(invocationId, null);
       } else {
         deps.agentPaneRegistry.markDone(invocationId, 0);
       }
     }
+    // F198 Phase C P1-1: mark bg carrier done (always, on any terminal state)
+    deps.agentPaneRegistry?.markBgCarrierDone(invocationId);
+
+    // F152: End invocation span + emit completion/error log through OTel
+    // Three paths: (1) catch already handled, (2) yielded-error, (3) abort, (4) ok
+    if (hadError && !didWriteAudit) {
+      // Yielded-error path — catch didn't fire, so emit error here
+      invocationSpan.setStatus({ code: SpanStatusCode.ERROR, message: 'invocation completed with error' });
+      emitOtelLog('ERROR', 'invocation_error', { [AGENT_ID]: catId, [STATUS]: 'error' }, invocationSpan);
+    } else if (wasAbortedWithoutError) {
+      // Abort path — generator .return()'d without completion, consistent with audit CAT_ERROR
+      invocationSpan.setStatus({ code: SpanStatusCode.ERROR, message: 'generator_returned_without_completion' });
+      emitOtelLog('ERROR', 'invocation_aborted', { [AGENT_ID]: catId, [STATUS]: 'error' }, invocationSpan);
+    } else if (didComplete) {
+      invocationSpan.setStatus({ code: SpanStatusCode.OK });
+      emitOtelLog('INFO', 'invocation_completed', { [AGENT_ID]: catId, [STATUS]: 'ok' }, invocationSpan);
+    }
+    invocationSpan.end();
   }
 }

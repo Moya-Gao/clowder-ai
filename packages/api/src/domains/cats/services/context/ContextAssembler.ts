@@ -6,7 +6,7 @@
  * formatMessage() 也被 export route 复用 (聊天记录导出)。
  */
 
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import { catRegistry } from '@cat-cafe/shared';
 import { estimateTokens } from '../../../../utils/token-counter.js';
 import { isDelivered, type StoredMessage } from '../stores/ports/MessageStore.js';
 
@@ -36,13 +36,13 @@ const DEFAULT_MAX_TOTAL_TOKENS = 2000;
 
 /**
  * Get display name for a message sender.
- * catId === null → user ("铲屎官"), otherwise look up CAT_CONFIGS.
+ * catId === null → user ("铲屎官"), otherwise look up catRegistry.
  * For variant cats (e.g. sonnet, opus-45), includes variantLabel to distinguish same-family members.
  */
-function getSenderName(catId: string | null): string {
+export function getSenderName(catId: string | null): string {
   if (catId === null) return '铲屎官';
   const entry = catRegistry.tryGet(catId);
-  const config = entry?.config ?? CAT_CONFIGS[catId];
+  const config = entry?.config;
   if (!config) return catId;
   const variantLabel = config.variantLabel?.trim();
   if (!variantLabel) return config.displayName;
@@ -106,7 +106,16 @@ export function assembleContext(messages: StoredMessage[], options?: ContextAsse
   const maxTotalTokens = options?.maxTotalTokens ?? options?.maxTotalChars ?? DEFAULT_MAX_TOTAL_TOKENS;
 
   // F117: exclude undelivered messages (queued/canceled) from prompt context
-  const deliveredMessages = messages.filter(isDelivered);
+  // Also exclude system-generated messages (userId='system') — these are display-only
+  // (e.g. persisted error badges) and must not re-enter the prompt as "铲屎官" messages.
+  // Defense: also exclude legacy error messages that were incorrectly persisted with
+  // userId=user by route-parallel.ts (context poisoning bug, fixed in PR #992).
+  // Only filter cat messages (catId !== null) starting with [错误] — user messages are legit.
+  // All 6 known contaminated records start with [错误] (no partial-text-before-error exists
+  // in practice, since stream_idle_stall means zero text was produced before the error).
+  const deliveredMessages = messages.filter(
+    (m) => isDelivered(m) && m.userId !== 'system' && !(m.catId && m.content?.startsWith('[错误]')),
+  );
 
   if (deliveredMessages.length === 0) {
     return { contextText: '', messageCount: 0, estimatedTokens: 0 };

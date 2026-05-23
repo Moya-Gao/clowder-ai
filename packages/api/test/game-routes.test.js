@@ -11,6 +11,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import Fastify from 'fastify';
+import './helpers/setup-cat-registry.js';
 import { gameRoutes } from '../dist/routes/games.js';
 
 /** In-memory GameStore stub */
@@ -71,6 +72,8 @@ function createStubThreadStore() {
     },
     async update() {},
     async delete() {},
+    async updateThinkingMode() {},
+    async updatePin() {},
   };
 }
 
@@ -89,6 +92,19 @@ function createStubMessageStore() {
     },
     async update() {},
     async delete() {},
+  };
+}
+
+function createStubAutoPlayer() {
+  return {
+    startedGameIds: [],
+    stopCalls: 0,
+    startLoop(gameId) {
+      this.startedGameIds.push(gameId);
+    },
+    stopAllLoops() {
+      this.stopCalls += 1;
+    },
   };
 }
 
@@ -184,13 +200,14 @@ describe('Game API Routes', () => {
       assert.equal(body.status, 'playing');
     });
 
-    it('returns 404 if no active game', async () => {
+    it('returns 200 null if no active game', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/threads/nonexistent/game',
       });
 
-      assert.equal(res.statusCode, 404);
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.json(), null);
     });
   });
 
@@ -262,7 +279,8 @@ describe('Game API Routes', () => {
         method: 'GET',
         url: '/api/threads/thread-route-del/game',
       });
-      assert.equal(getRes.statusCode, 404);
+      assert.equal(getRes.statusCode, 200);
+      assert.equal(getRes.json(), null);
     });
 
     it('returns 404 if no active game to abort', async () => {
@@ -368,7 +386,7 @@ describe('Game API Routes', () => {
       const res = await trackingApp.inject({
         method: 'POST',
         url: '/api/game/start',
-        headers: { 'x-cat-cafe-user': 'owner' },
+        headers: { 'x-cat-cafe-user': 'you' },
         payload: {
           gameType: 'werewolf',
           humanRole: 'player',
@@ -380,7 +398,7 @@ describe('Game API Routes', () => {
 
       assert.equal(res.statusCode, 200);
       assert.equal(trackingCalls.length, 1, 'should have called threadStore.create');
-      assert.equal(trackingCalls[0].userId, 'owner', 'userId should come from header, not hardcoded');
+      assert.equal(trackingCalls[0].userId, 'you', 'userId should come from header, not hardcoded');
 
       await trackingApp.close();
     });
@@ -471,6 +489,119 @@ describe('Game API Routes', () => {
       assert.equal(res.statusCode, 400);
       const body = JSON.parse(res.body);
       assert.ok(body.error.includes('detectiveCatId'), 'error should mention detectiveCatId');
+    });
+
+    it('stops injected auto-player loops on app close', async () => {
+      const localApp = Fastify();
+      const autoPlayer = createStubAutoPlayer();
+
+      await localApp.register(gameRoutes, {
+        gameStore: createStubGameStore(),
+        socketManager: createStubSocket(),
+        threadStore: createStubThreadStore(),
+        messageStore: createStubMessageStore(),
+        autoPlayer,
+      });
+      await localApp.ready();
+
+      const res = await localApp.inject({
+        method: 'POST',
+        url: '/api/game/start',
+        payload: {
+          gameType: 'werewolf',
+          humanRole: 'player',
+          playerCount: 7,
+          catIds: ['opus', 'sonnet', 'codex', 'gpt52', 'gemini', 'spark'],
+          voiceMode: false,
+        },
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(autoPlayer.startedGameIds.length, 1, 'should start injected auto-player');
+
+      await localApp.close();
+
+      assert.equal(autoPlayer.stopCalls, 1, 'should stop auto-player loops during close');
+    });
+  });
+
+  describe('thinkingMode: play (AC-I9)', () => {
+    it('POST /api/game/start sets thinkingMode to play on new game thread', async () => {
+      const thinkingModeCalls = [];
+      const trackingThreadStore = {
+        ...createStubThreadStore(),
+        async create(userId, title, category) {
+          return { id: 'tracked-game-thread', userId, title, category, createdAt: Date.now() };
+        },
+        async updateThinkingMode(threadId, mode) {
+          thinkingModeCalls.push({ threadId, mode });
+        },
+      };
+      const localApp = Fastify();
+      await localApp.register(gameRoutes, {
+        gameStore: createStubGameStore(),
+        socketManager: createStubSocket(),
+        threadStore: trackingThreadStore,
+        messageStore: createStubMessageStore(),
+      });
+      await localApp.ready();
+
+      const res = await localApp.inject({
+        method: 'POST',
+        url: '/api/game/start',
+        payload: {
+          gameType: 'werewolf',
+          humanRole: 'player',
+          playerCount: 7,
+          catIds: ['opus', 'sonnet', 'codex', 'gpt52', 'gemini', 'spark'],
+          voiceMode: false,
+        },
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(thinkingModeCalls.length, 1, 'should call updateThinkingMode once');
+      assert.equal(thinkingModeCalls[0].threadId, 'tracked-game-thread');
+      assert.equal(thinkingModeCalls[0].mode, 'play');
+
+      await localApp.close();
+    });
+
+    it('POST /api/threads/:threadId/game sets thinkingMode to play on existing thread', async () => {
+      const thinkingModeCalls = [];
+      const trackingThreadStore = {
+        ...createStubThreadStore(),
+        async updateThinkingMode(threadId, mode) {
+          thinkingModeCalls.push({ threadId, mode });
+        },
+      };
+      const localApp = Fastify();
+      await localApp.register(gameRoutes, {
+        gameStore: createStubGameStore(),
+        socketManager: createStubSocket(),
+        threadStore: trackingThreadStore,
+        messageStore: createStubMessageStore(),
+      });
+      await localApp.ready();
+
+      const res = await localApp.inject({
+        method: 'POST',
+        url: '/api/threads/existing-thread-42/game',
+        payload: {
+          definition: makeDefinition(),
+          seats: [
+            { seatId: 'P1', actorType: 'cat', actorId: 'opus', role: 'wolf', alive: true, properties: {} },
+            { seatId: 'P2', actorType: 'human', actorId: 'owner', role: 'villager', alive: true, properties: {} },
+          ],
+          config: { timeoutMs: 30000, voiceMode: false, humanRole: 'player', humanSeat: 'P2' },
+        },
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(thinkingModeCalls.length, 1, 'should call updateThinkingMode once');
+      assert.equal(thinkingModeCalls[0].threadId, 'existing-thread-42');
+      assert.equal(thinkingModeCalls[0].mode, 'play');
+
+      await localApp.close();
     });
   });
 });

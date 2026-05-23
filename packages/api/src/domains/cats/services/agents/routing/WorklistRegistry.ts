@@ -15,12 +15,19 @@
  */
 
 import type { CatId } from '@cat-cafe/shared';
+import { l1StreakBreakCount, l1StreakWarnCount } from '../../../../../infrastructure/telemetry/instruments.js';
 
 /** F122: Structured result from pushToWorklist — reason explains empty adds */
-export type PushReason = 'not_found' | 'depth_limit' | 'caller_mismatch' | 'all_duplicate';
+export type PushReason = 'not_found' | 'depth_limit' | 'caller_mismatch' | 'all_duplicate' | 'pingpong_terminated';
 export interface PushResult {
   added: CatId[];
   reason?: PushReason;
+  /** F167 L1: streak >= 2 but < 4 — downstream must inject ping-pong warning prompt */
+  warnPingPong?: boolean;
+  /** F167 L1: streak >= 4 — push was rejected; caller must emit pingpong_terminated system msg */
+  blockPingPong?: boolean;
+  /** F167 L1: current pair count (present when warnPingPong / blockPingPong is set) */
+  pairCount?: number;
 }
 
 export interface WorklistEntry {
@@ -45,6 +52,108 @@ export interface WorklistEntry {
    * Used by auto-replyTo to thread replies back to the triggering @mention message.
    */
   a2aTriggerMessageId: Map<CatId, string>;
+  /**
+   * F167 L1: ping-pong streak tracking — records the last same-pair (A↔B) push run.
+   * Incremented on every 1-target A2A push where {caller, target} matches this pair
+   * (order-insensitive). Reset to {new pair, count=1} when the pair changes, or
+   * cleared by `resetStreak()` (called on user messages). See `streakPair.count`
+   * thresholds: >=2 warn, >=4 block.
+   */
+  streakPair?: { from: CatId; to: CatId; count: number };
+}
+
+/** F167 L1: streak thresholds. Hardcoded per KD (YAGNI — no config). */
+const PINGPONG_WARN_THRESHOLD = 2;
+const PINGPONG_BLOCK_THRESHOLD = 4;
+
+/**
+ * F167 Phase D (KD-18): tools that are routing/holding themselves, not work evidence.
+ * These MUST NOT count as "substantive work" — otherwise MCP routing paths would
+ * always bypass the ping-pong breaker (breaker 被打穿).
+ *
+ * Match via substring so provider-prefixed names like
+ * `mcp__cat-cafe__cat_cafe_post_message` also match.
+ */
+const NON_SUBSTANTIVE_TOOL_PATTERNS: readonly string[] = [
+  'cat_cafe_post_message',
+  'cat_cafe_multi_mention',
+  'cat_cafe_hold_ball',
+] as const;
+
+/**
+ * F167 Phase D: returns true iff the given tool name represents substantive work
+ * (anything except pure routing / holding). Empty string → false (defensive).
+ */
+export function isSubstantiveTool(toolName: string): boolean {
+  if (!toolName) return false;
+  return !NON_SUBSTANTIVE_TOOL_PATTERNS.some((p) => toolName.includes(p));
+}
+
+/** F167 L1: two cat pairs are the same if they share the same unordered set of cats. */
+function samePair(a: { from: CatId; to: CatId }, bFrom: CatId, bTo: CatId): boolean {
+  return (a.from === bFrom && a.to === bTo) || (a.from === bTo && a.to === bFrom);
+}
+
+/** F167 L1: shared streak check — used by both pushToWorklist (callback path) and route-serial (inline enqueue). */
+export interface StreakResult {
+  warnPingPong: boolean;
+  blockPingPong: boolean;
+  count: number;
+}
+
+/**
+ * F167 Phase D: upstream caller's activity signature, used to decide whether
+ * a same-pair push is "work" (exempt from streak) or "language inertia" (streak++).
+ */
+export interface CallerActivity {
+  /** True iff any tool_use in this turn passed `isSubstantiveTool()` (non-routing). */
+  hadSubstantiveToolCall: boolean;
+  /** Length of the stored output text in characters. */
+  outputLength: number;
+}
+
+/** F167 Phase D: output length threshold above which text is considered real discussion. */
+const OUTPUT_LEN_T = 200;
+
+/**
+ * F167 Phase D: a same-pair push is exempt from streak accumulation iff the
+ * caller was doing real work (substantive tool call) OR producing long content
+ * (architecture discussion). Both-false (short text + only routing tools) is
+ * the "pure language inertia" signature that deserves to be counted.
+ */
+function isSubstantiveActivity(activity?: CallerActivity): boolean {
+  if (!activity) return false;
+  return activity.hadSubstantiveToolCall || activity.outputLength > OUTPUT_LEN_T;
+}
+
+export function updateStreakOnPush(
+  entry: WorklistEntry,
+  callerCatId: CatId,
+  target: CatId,
+  activity?: CallerActivity,
+): StreakResult {
+  if (entry.streakPair && samePair(entry.streakPair, callerCatId, target)) {
+    // F167 Phase D: same-pair push. On pure language inertia (short text + no
+    // substantive tool) → streak++. On substantive work / long discussion →
+    // RESET to 1 (not merely "skip increment"): a real-work round BREAKS any
+    // prior inertia streak, otherwise `3 short + 1 substantive + 1 short`
+    // would still block on round 5 (gpt52 review P1-1).
+    if (!isSubstantiveActivity(activity)) {
+      entry.streakPair.count++;
+    } else {
+      entry.streakPair.count = 1;
+    }
+    entry.streakPair.from = callerCatId;
+    entry.streakPair.to = target;
+  } else {
+    entry.streakPair = { from: callerCatId, to: target, count: 1 };
+  }
+  const count = entry.streakPair.count;
+  return {
+    warnPingPong: count >= PINGPONG_WARN_THRESHOLD && count < PINGPONG_BLOCK_THRESHOLD,
+    blockPingPong: count >= PINGPONG_BLOCK_THRESHOLD,
+    count,
+  };
 }
 
 /** Primary registry: registryKey → WorklistEntry */
@@ -137,6 +246,7 @@ export function pushToWorklist(
   callerCatId?: CatId,
   parentInvocationId?: string,
   triggerMessageId?: string,
+  callerActivity?: CallerActivity,
 ): PushResult {
   const key = registryKey(threadId, parentInvocationId);
   const entry = registry.get(key);
@@ -148,8 +258,38 @@ export function pushToWorklist(
     if (currentCat !== callerCatId) return { added: [], reason: 'caller_mismatch' };
   }
 
-  // Only dedup against pending tail (from executedIndex onward)
+  // Only dedup against pending tail (from executedIndex onward) — computed
+  // first so streak check can peek at the outcome (cloud Codex P1).
   const pending = entry.list.slice(entry.executedIndex);
+
+  // F167 L1 + Phase D: ping-pong streak — only 1:1 A2A pushes count (caller + single target).
+  // Fan-out (multi-target) and non-A2A (no caller) pushes never update or consult streak.
+  // Streak mutation MUST be gated on actual enqueue (post-dedup, post-depth) —
+  // otherwise a push that gets skipped could still reset or increment the counter,
+  // which would let repeated dedup'd long-content callbacks "clear" a near-blocked
+  // streak without a real handoff (cloud Codex P1 on PR #1349).
+  let warnPingPong = false;
+  let pairCount = 0;
+  if (callerCatId !== undefined && cats.length === 1) {
+    const target = cats[0];
+    const wouldEnqueue = entry.a2aCount < entry.maxDepth && !pending.includes(target);
+    if (wouldEnqueue) {
+      const streak = updateStreakOnPush(entry, callerCatId, target, callerActivity);
+      if (streak.blockPingPong) {
+        l1StreakBreakCount.add(1);
+        return {
+          added: [],
+          reason: 'pingpong_terminated',
+          blockPingPong: true,
+          pairCount: streak.count,
+        };
+      }
+      warnPingPong = streak.warnPingPong;
+      if (streak.warnPingPong) l1StreakWarnCount.add(1);
+      pairCount = streak.count;
+    }
+    // else: dedup or depth would skip → do not touch streak state
+  }
 
   const added: CatId[] = [];
   let hitDepthLimit = false;
@@ -187,7 +327,31 @@ export function pushToWorklist(
   if (added.length === 0) {
     return { added: [], reason: hitDepthLimit ? 'depth_limit' : 'all_duplicate' };
   }
-  return { added };
+  return warnPingPong ? { added, warnPingPong: true, pairCount } : { added };
+}
+
+/**
+ * F167 L1: Reset streak for a thread's active worklist (user-message hook).
+ * Called when a user message arrives — fresh turn, streak shouldn't carry over.
+ *
+ * When `parentInvocationId` is omitted, clears streak on ALL worklists for the
+ * thread via the reverse index. This matches the user-POST caller (messages.ts)
+ * which has no parentInvocationId — route-serial registers entries keyed by
+ * parentInvocationId (F108), so a single-key lookup would miss them.
+ */
+export function resetStreak(threadId: string, parentInvocationId?: string): void {
+  if (parentInvocationId !== undefined) {
+    const key = registryKey(threadId, parentInvocationId);
+    const entry = registry.get(key);
+    if (entry) entry.streakPair = undefined;
+    return;
+  }
+  const keys = threadIndex.get(threadId);
+  if (!keys) return;
+  for (const key of keys) {
+    const entry = registry.get(key);
+    if (entry) entry.streakPair = undefined;
+  }
 }
 
 /** Check if a thread has any active worklist (any invocation running). */

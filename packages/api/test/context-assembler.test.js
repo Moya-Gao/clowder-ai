@@ -3,6 +3,7 @@
  * 测试历史 context 组装和消息格式化
  */
 
+import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 
@@ -152,6 +153,21 @@ describe('assembleContext', () => {
     assert.ok(result.contextText.includes('猫猫回复'));
   });
 
+  test('excludes userId=system messages from prompt context (error badge pollution)', async () => {
+    const { assembleContext } = await import('../dist/domains/cats/services/context/ContextAssembler.js');
+    const msgs = [
+      mockMsg({ catId: null, userId: 'user-1', content: '你好', timestamp: 1000 }),
+      mockMsg({ catId: null, userId: 'system', content: 'Error: stream_idle_stall: Gemini stopped', timestamp: 2000 }),
+      mockMsg({ catId: 'opus', userId: 'user-1', content: '猫猫回复', timestamp: 3000 }),
+    ];
+    const result = assembleContext(msgs);
+    assert.equal(result.messageCount, 2, 'system error should be excluded from count');
+    assert.ok(result.contextText.includes('你好'), 'user message should be included');
+    assert.ok(result.contextText.includes('猫猫回复'), 'cat message should be included');
+    assert.ok(!result.contextText.includes('stream_idle_stall'), 'system error should NOT enter prompt');
+    assert.ok(!result.contextText.includes('铲屎官] Error:'), 'system error must not appear as 铲屎官');
+  });
+
   test('uses default maxMessages=20 and maxContentLength=1500', async () => {
     const { assembleContext } = await import('../dist/domains/cats/services/context/ContextAssembler.js');
     const msgs = Array.from({ length: 25 }, (_, i) => mockMsg({ content: `m${i}`, timestamp: i * 1000 }));
@@ -266,7 +282,7 @@ describe('formatMessage — head+tail truncation (#91 regression)', () => {
 describe('cross-post sender variant: distinguish same-family cats', () => {
   before(async () => {
     const { catRegistry } = await import('../node_modules/@cat-cafe/shared/dist/index.js');
-    // Register variant cats that exist in cat-config.json but not in static CAT_CONFIGS
+    // Register variant cats that may not yet be in catRegistry
     if (!catRegistry.has('sonnet')) {
       catRegistry.register('sonnet', {
         id: 'sonnet',
@@ -327,8 +343,19 @@ describe('cross-post sender variant: distinguish same-family cats', () => {
   });
 
   after(async () => {
+    // Re-populate registry after reset — the cats sonnet/opus-45/spark are already registered
+    // by setup-cat-registry.js (they still exist as variant catIds in cat-template.json breeds).
+    // The reset() was originally safe, but after roster pruning the before() is a no-op
+    // (all three are already registered), so reset() only clears everything without re-adding.
+    // Fix: restore from template after reset so subsequent describe blocks (F052) find codex etc.
     const { catRegistry } = await import('../node_modules/@cat-cafe/shared/dist/index.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const TEMPLATE_PATH = new URL('../../../cat-template.json', import.meta.url).pathname;
     catRegistry.reset();
+    const allConfigs = toAllCatConfigs(loadCatConfig(TEMPLATE_PATH));
+    for (const [id, config] of Object.entries(allConfigs)) {
+      if (!catRegistry.has(id)) catRegistry.register(id, config);
+    }
   });
 
   test('formatMessage shows 布偶猫(Sonnet) for sonnet catId', async () => {

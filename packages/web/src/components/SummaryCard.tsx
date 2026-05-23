@@ -1,7 +1,9 @@
 'use client';
 
 import { useCatData } from '@/hooks/useCatData';
+import { useCoCreatorConfig } from '@/hooks/useCoCreatorConfig';
 import { CatAvatar } from './CatAvatar';
+import { HubIcon } from './hub-icons';
 
 interface SummaryCardProps {
   topic: string;
@@ -12,7 +14,7 @@ interface SummaryCardProps {
 }
 
 function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  return new Date(ts).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 /**
@@ -22,27 +24,38 @@ function formatTime(ts: number): string {
 export function SummaryCard({ topic, conclusions, openQuestions, createdBy, timestamp }: SummaryCardProps) {
   // F032 P2: Use dynamic cat data instead of hardcoded CAT_NAMES
   const { getCatById } = useCatData();
+  const coCreator = useCoCreatorConfig();
   const catData = getCatById(createdBy);
-  // Special case: 'system' createdBy → '系统纪要', otherwise use cat displayName or '铲屎官'
-  const creatorLabel = createdBy === 'system' ? '系统纪要' : (catData?.displayName ?? '铲屎官');
+  // Special case: 'system' createdBy → '系统纪要', otherwise use cat displayName or configured co-creator name
+  const creatorLabel = createdBy === 'system' ? '系统纪要' : (catData?.displayName ?? coCreator.name);
 
   return (
     <div className="flex justify-center mb-4">
-      <div className="bg-white border-2 border-gray-200 rounded-lg shadow-md px-5 pt-4 pb-5 max-w-md w-full rotate-[-0.5deg] hover:rotate-0 transition-transform">
+      <div className="bg-cafe-surface border-2 border-cafe rounded-lg shadow-md px-5 pt-4 pb-5 max-w-md w-full rotate-[-0.5deg] hover:rotate-0 transition-transform">
         {/* Topic header */}
-        <div className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-1.5">
-          <span>📷</span>
+        <div className="text-sm font-bold text-cafe-secondary mb-3 flex items-center gap-1.5">
+          <HubIcon name="camera" className="h-3.5 w-3.5" />
           <span>{topic}</span>
         </div>
 
         {/* Conclusions */}
         {conclusions.length > 0 && (
           <div className="mb-3">
-            <div className="text-xs font-semibold text-gray-500 mb-1">结论</div>
+            <div className="text-xs font-semibold text-cafe-secondary mb-1">结论</div>
             <ul className="space-y-1">
               {conclusions.map((c, i) => (
-                <li key={i} className="text-xs text-gray-700 flex gap-1.5">
-                  <span className="text-green-500 flex-shrink-0">✓</span>
+                <li key={i} className="text-xs text-cafe-secondary flex gap-1.5">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3 w-3 text-green-500 flex-shrink-0"
+                  >
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
                   <span>{c}</span>
                 </li>
               ))}
@@ -53,10 +66,10 @@ export function SummaryCard({ topic, conclusions, openQuestions, createdBy, time
         {/* Open questions */}
         {openQuestions.length > 0 && (
           <div className="mb-3">
-            <div className="text-xs font-semibold text-gray-500 mb-1">待讨论</div>
+            <div className="text-xs font-semibold text-cafe-secondary mb-1">待讨论</div>
             <ul className="space-y-1">
               {openQuestions.map((q, i) => (
-                <li key={i} className="text-xs text-gray-500 flex gap-1.5">
+                <li key={i} className="text-xs text-cafe-secondary flex gap-1.5">
                   <span className="text-amber-400 flex-shrink-0">?</span>
                   <span>{q}</span>
                 </li>
@@ -66,15 +79,15 @@ export function SummaryCard({ topic, conclusions, openQuestions, createdBy, time
         )}
 
         {/* Footer: creator + time */}
-        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+        <div className="flex items-center gap-2 pt-2 border-t border-cafe-subtle">
           {createdBy === 'system' ? (
-            <span className="text-xs">🤖</span>
+            <HubIcon name="bot" className="h-3.5 w-3.5 text-cafe-secondary" />
           ) : catData ? (
             <CatAvatar catId={createdBy} size={16} />
           ) : (
-            <span className="text-xs">👤</span>
+            <HubIcon name="user" className="h-3.5 w-3.5 text-cafe-secondary" />
           )}
-          <span className="text-[10px] text-gray-400">
+          <span className="text-micro text-cafe-muted">
             {creatorLabel} · {formatTime(timestamp)}
           </span>
         </div>

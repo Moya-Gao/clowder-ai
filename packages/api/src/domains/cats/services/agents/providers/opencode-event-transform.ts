@@ -1,6 +1,6 @@
 /**
  * opencode Event Transformer
- * opencode JSON event stream → Cat Café AgentMessage 映射
+ * opencode JSON event stream → Clowder AI AgentMessage 映射
  *
  * opencode `run --format json` NDJSON 事件格式:
  *   { type, timestamp, sessionID, part: { type, ... } }
@@ -63,13 +63,16 @@ export function transformOpenCodeEvent(event: unknown, catId: CatId | string): A
         timestamp: ts,
       };
 
-    case 'text':
+    case 'text': {
+      const text = event.part?.text;
+      if (typeof text !== 'string' || text.length === 0) return null;
       return {
         type: 'text',
         catId: catId as CatId,
-        content: event.part?.text ?? '',
+        content: text,
         timestamp: ts,
       };
+    }
 
     case 'tool_use': {
       const msg: AgentMessage = {

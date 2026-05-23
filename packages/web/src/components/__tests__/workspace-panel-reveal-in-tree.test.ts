@@ -21,7 +21,7 @@ vi.mock('@/stores/chatStore', () => ({
   useChatStore: (sel: (s: Record<string, unknown>) => unknown) => mocks.useChatStore(sel),
 }));
 vi.mock('@/utils/api-client', () => ({
-  API_URL: 'http://localhost:3003',
+  API_URL: 'http://localhost:3004',
   apiFetch: (...args: unknown[]) => mocks.apiFetch(...args),
 }));
 vi.mock('@/hooks/usePersistedState', () => ({
@@ -144,6 +144,7 @@ function setupWithSearchResults(treeOverride?: TreeNode[]) {
       workspaceExpanded: true,
       setWorkspaceExpanded: vi.fn(),
       currentWorktree: { id: 'main', branch: 'main', root: '/tmp/repo' },
+      _workspaceFileSetAt: { ts: 0, threadId: null },
     };
     return sel(store);
   });

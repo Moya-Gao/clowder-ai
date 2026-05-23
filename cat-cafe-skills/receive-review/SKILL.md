@@ -10,6 +10,7 @@ triggers:
   - "review 意见"
   - "reviewer 说"
   - "fix these"
+  - "github-review-feedback"
 ---
 
 > **SOP 位置**: 本 skill 是 `docs/SOP.md` Step 3b 的执行细节。
@@ -18,6 +19,28 @@ triggers:
 # Receive Review
 
 处理 reviewer 反馈的完整流程。核心原则：**技术正确性 > 社交舒适，验证后再实现，禁止表演性同意。**
+
+## 触发入口
+
+| 来源 | 说明 |
+|------|------|
+| 铲屎官/猫猫转述 | 手动告知 review 结果 |
+| `github-review-feedback` connector 通知 | F140 自动投递：review decisions（approved/changes_requested）+ inline/conversation comments |
+| 云端 Codex review | 通过 ReviewRouter 投递的 email review 结果 |
+
+收到 `github-review-feedback` 通知时，按下面的核心知识处理——不区分来源，只区分反馈类型。
+
+### 自动触发处理（F140 Phase B）
+
+当 `github-review-feedback` connector 唤醒你时：
+
+1. 读取通知内容，识别 review decision 类型
+2. `CHANGES_REQUESTED` → 直接进入下方 Red→Green 流程
+3. `APPROVED` → 不需要 receive-review，检查是否可以走 merge-gate
+4. `COMMENTED` → 判断是否需要代码修改，需要则进入 Red→Green 流程
+5. 处理完成后通知铲屎官结果（KD-13: 事后通知）
+
+详见 `refs/pr-signals.md` Phase B 自动响应行为。
 
 ## 核心知识
 
@@ -51,6 +74,16 @@ triggers:
 - 建议会让实现**更偏离**铲屎官原始需求
 
 如果你 push back 了但你错了：陈述事实然后继续，不要长篇道歉。
+
+### Fallback 层数检测（F177 Phase D）🔴
+
+Review 代码时，自动执行 `node scripts/check-fallback-layers.mjs` 检测 fallback 模式增长。
+同一文件新增 ≥3 层 fallback → 触发坐标系自检（三问）：
+1. 这个 fix 是在修坐标系，还是在给错误坐标系打补丁？
+2. 能否用坐标变换（换一个问题分解方式）消除这些 fallback 层？
+3. 每一层 fallback 为什么不能去掉？
+
+review 报告中必须包含 fallback 层数分析结果。
 
 **Review 有零分歧 = 走过场**（反顺从规则）。真正的 review 需要技术争论。
 
@@ -91,6 +124,14 @@ WHEN 收到 review 反馈:
 
 对每个 P1/P2 问题：
 
+**Step 0: 创建修复任务**（F160 Phase C — 在动手修之前）
+调用 `cat_cafe_create_task` 为每个 P1/P2 创建独立跟踪任务：
+- title: `[P{N}] {问题摘要}`（如 `[P2] TaskComposer HTTP 错误时丢失输入`）
+- why: reviewer 的原始描述（≤120 字）
+- 修复完成后 `cat_cafe_update_task` 状态改为 `done`
+
+**Gotcha**: 不要为 P3 创建任务——P3 当场修或放下，不记 BACKLOG 也不记毛线球。
+
 ```
 1. 理解问题
 2. 写失败测试（Red）
@@ -126,6 +167,10 @@ Commit: {sha} — {message}
 
 请确认修复，确认后执行合入。
 ```
+
+修复完成后（F160 Phase C）：
+- 每个 P1/P2 修复任务 → `cat_cafe_update_task` 状态改为 `done`
+- 回给 reviewer 确认（硬规则不变）
 
 **云端 review 修了 P1/P2 → 必须 re-trigger 云端 review，不能自判通过直接合入。**
 
@@ -176,6 +221,16 @@ Reviewer 在 review 过程中发现 author 触发以下任一条件，可直接�
 | `request-review` | 发出 review 请求 | 自检通过之后 |
 | **receive-review（本 skill）** | 处理 reviewer 的反馈 | 收到 review 之后 |
 | `merge-gate` | 合入前门禁 + PR + 云端 review | reviewer 放行之后 |
+
+### Review 沙盒生命周期
+
+Reviewer 在 review 期间创建的沙盒：
+- **创建**：按 `request-review` 约定的路径 `/tmp/cat-cafe-review/{review-target-id}/{reviewer-handle}`
+- **回收**：**不由 reviewer 负责**。merge-gate 在 merge 后统一回收（Step 8.5）。
+- Reviewer 放行后**不需要**主动清理沙盒，也不需要报告沙盒路径。
+
+> 为什么不让 reviewer 自己清理：reviewer session 在放行后结束，下次唤醒时 context 已换，
+> 根本不记得自己在 /tmp 留了什么。merge-gate 是唯一确定性终态。
 
 ## 下一步
 

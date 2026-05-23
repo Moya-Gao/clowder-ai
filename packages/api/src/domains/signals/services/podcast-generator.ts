@@ -1,6 +1,7 @@
 import { unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CatId, StudyArtifact } from '@cat-cafe/shared';
+import { createModuleLogger } from '../../../infrastructure/logger.js';
 import { ClaudeAgentService } from '../../cats/services/agents/providers/ClaudeAgentService.js';
 import type { AgentRouter } from '../../cats/services/agents/routing/AgentRouter.js';
 import type { InvocationTracker } from '../../cats/services/index.js';
@@ -8,6 +9,8 @@ import type { AnyMessageStore } from '../../cats/services/stores/factories/Messa
 import type { IInvocationRecordStore } from '../../cats/services/stores/ports/InvocationRecordStore.js';
 import { getVoiceBlockSynthesizer } from '../../cats/services/tts/VoiceBlockSynthesizer.js';
 import { StudyMetaService } from './study-meta-service.js';
+
+const log = createModuleLogger('podcast-generator');
 
 export interface PodcastSegment {
   readonly speaker: string;
@@ -253,7 +256,7 @@ export function assembleThreadContext(
 async function synthesizeSegments(segments: readonly PodcastSegment[]): Promise<readonly PodcastSegment[]> {
   const synthesizer = getVoiceBlockSynthesizer();
   if (!synthesizer) {
-    console.warn('[podcast] TTS not available, returning text-only script');
+    log.warn('TTS not available, returning text-only script');
     return segments;
   }
 
@@ -279,11 +282,11 @@ async function synthesizeSegments(segments: readonly PodcastSegment[]): Promise<
       const resolved = blocks[0];
       const audioUrl = resolved && 'url' in resolved && typeof resolved.url === 'string' ? resolved.url : undefined;
       if (!audioUrl) {
-        console.warn(`[podcast] TTS returned no audioUrl for segment ${results.length} (${text.length} chars)`);
+        log.warn({ segmentIndex: results.length, textLength: text.length }, 'TTS returned no audioUrl for segment');
       }
       results.push({ ...segment, ...(audioUrl ? { audioUrl } : {}) });
     } catch (err) {
-      console.error(`[podcast] TTS synthesis failed for segment ${results.length}:`, err);
+      log.error({ segmentIndex: results.length, error: err }, 'TTS synthesis failed for segment');
       results.push(segment); // Keep text-only on failure
     }
   }

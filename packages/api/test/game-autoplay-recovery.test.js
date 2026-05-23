@@ -10,6 +10,8 @@ import { beforeEach, describe, it } from 'node:test';
 import { GameAutoPlayer } from '../dist/domains/cats/services/game/GameAutoPlayer.js';
 import { GameOrchestrator } from '../dist/domains/cats/services/game/GameOrchestrator.js';
 
+const disableAiFactory = () => null;
+
 function createStubGameStore() {
   const games = new Map();
   const activeByThread = new Map();
@@ -128,7 +130,7 @@ describe('AC-G1: recoverActiveGames restores auto-play loops', () => {
     const store = createStubGameStore();
     const socket = createStubSocket();
     const orchestrator = new GameOrchestrator({ gameStore: store, socketManager: socket });
-    const autoPlayer = new GameAutoPlayer({ gameStore: store, orchestrator });
+    const autoPlayer = new GameAutoPlayer({ gameStore: store, orchestrator, aiPlayerFactory: disableAiFactory });
 
     // Simulate 2 playing games in Redis (as if API restarted)
     await store.createGame(makePlayingGame('game-a', 'thread-a'));
@@ -151,7 +153,7 @@ describe('AC-G1: recoverActiveGames restores auto-play loops', () => {
     const store = createStubGameStore();
     const socket = createStubSocket();
     const orchestrator = new GameOrchestrator({ gameStore: store, socketManager: socket });
-    const autoPlayer = new GameAutoPlayer({ gameStore: store, orchestrator });
+    const autoPlayer = new GameAutoPlayer({ gameStore: store, orchestrator, aiPlayerFactory: disableAiFactory });
 
     await store.createGame(makePlayingGame('game-c', 'thread-c'));
     await store.endGame('game-c', 'village');
@@ -161,27 +163,21 @@ describe('AC-G1: recoverActiveGames restores auto-play loops', () => {
   });
 });
 
-describe('AC-G2: GameAutoPlayer has runtime logging', () => {
-  it('logs loop start and actions', async () => {
-    const logs = [];
-    const origLog = console.log;
-    console.log = (...args) => logs.push(args.join(' '));
-
+describe('AC-G2: GameAutoPlayer loop lifecycle', () => {
+  it('startLoop activates loop and stopLoop deactivates it', async () => {
     const store = createStubGameStore();
     const socket = createStubSocket();
     const orchestrator = new GameOrchestrator({ gameStore: store, socketManager: socket });
-    const autoPlayer = new GameAutoPlayer({ gameStore: store, orchestrator });
+    const autoPlayer = new GameAutoPlayer({ gameStore: store, orchestrator, aiPlayerFactory: disableAiFactory });
 
     await store.createGame(makePlayingGame('game-log', 'thread-log'));
     autoPlayer.startLoop('game-log');
 
-    // Wait for at least one tick
+    assert.ok(autoPlayer.isLoopActive('game-log'), 'loop should be active after startLoop');
+
     await new Promise((r) => setTimeout(r, 1200));
     autoPlayer.stopLoop('game-log');
 
-    console.log = origLog;
-
-    const startLog = logs.find((l) => l.includes('[GameAutoPlayer]') && l.includes('started'));
-    assert.ok(startLog, 'should log loop start with [GameAutoPlayer] tag');
+    assert.ok(!autoPlayer.isLoopActive('game-log'), 'loop should be inactive after stopLoop');
   });
 });

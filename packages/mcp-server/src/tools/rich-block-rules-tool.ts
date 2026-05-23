@@ -9,7 +9,7 @@
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
-const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3003';
+const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3004';
 
 export async function handleGetRichBlockRules(): Promise<ToolResult> {
   const url = `${API_URL}/api/callbacks/rich-block-rules`;
@@ -36,7 +36,10 @@ export const richBlockRulesTools = [
   {
     name: 'cat_cafe_get_rich_block_rules',
     description:
-      'Get the full rich block usage rules (card/diff/checklist/media_gallery/audio/interactive). Call this before creating your first rich block in a session.',
+      'Get the full rich block usage rules (card/diff/checklist/media_gallery/audio/interactive). ' +
+      'Call this BEFORE creating your first rich block in a session — it returns the full schema and constraints. ' +
+      'You only need to call this once per session; the rules do not change within a session. ' +
+      'GOTCHA: Without loading these rules first, you will likely produce invalid block JSON (wrong field names, missing required fields).',
     inputSchema: richBlockRulesInputSchema,
     handler: handleGetRichBlockRules,
   },

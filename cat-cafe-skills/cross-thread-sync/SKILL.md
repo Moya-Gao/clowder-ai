@@ -3,7 +3,7 @@ name: cross-thread-sync
 description: >
   跨 thread 协同：发现平行 session → 通知（3+2 件套）→ 争用协调 → 确认。
   Use when: 平行 session 之间需要协同、通知改动影响、共享文件争用。
-  Not for: 跨猫工作交接（用 cross-cat-handoff）、单 session 内并行（用 parallel-execution）。
+  Not for: 跨猫工作交接（用 cross-cat-handoff）。
   Output: cross-post 通知 + 争用协调完成。
 triggers:
   - "通知另一个 session"
@@ -20,7 +20,9 @@ triggers:
 
 **硬规则**：cross-post 是**通知层**，不是真相源。阻塞信息必须双写到可追溯状态（feature doc / workflow / task）。
 
-**Announce at start:** "I'm using the cross-thread-sync skill to coordinate with parallel sessions."
+> **⚠️ 路由铁律**：cross-post 消息如果**没有 @mention 也没有 targetCats**，消息会到达目标 thread 但**不会触发任何猫 session**——消息静默躺在那里，直到铲屎官手动 @ 某只猫。**必须**用以下任一方式触发目标猫：
+> 1. 在 content 末尾另起一行写 `@句柄`（如 `@目标猫句柄`）
+> 2. 传 `targetCats` 参数（如 `targetCats: ["opus"]`）
 
 ## Step 1: 发现（谁在平行工作？）
 
@@ -31,8 +33,9 @@ triggers:
 # 2. 确认哪些在活跃
 → cat_cafe_list_threads(activeSince=<2h_ago_ms>)
 
-# 3. 必要时补上下文
-→ cat_cafe_search_messages(query="F088 phase", limit=5)
+# 3. 必要时补上下文（D15: cat_cafe_search_messages 已删除，用以下两个替代）
+→ cat_cafe_search_evidence(query="F088 phase", scope="threads", depth="raw")  # 跨 thread 搜过程
+→ cat_cafe_get_thread_context(threadId="<target>", keyword="F088")  # 单 thread 取最近消息
 ```
 
 **判断是否需要同步**：
@@ -80,11 +83,12 @@ Action Needed 必须标注级别：
 ```
 → cat_cafe_cross_post_message(
     threadId: "<target_thread_id>",
+    targetCats: ["opus"],
     content: "## 🔄 Cross-Thread Sync\n\n### What Changed\n...\n\n### Impact on You\n...\n\n### Action Needed\n[ACTION] ...\n\n@opus"
   )
 ```
 
-**末尾 `@句柄` 必须写**——cross_post_message 到目标 thread 后，需要 @ 触发目标 session 感知。
+**⚠️ 必须触发目标猫**（见顶部路由铁律）：传 `targetCats` **且** 在 content 末尾 @句柄（双保险）。缺了这步 = 消息送达但无人看到。
 
 ## Step 3: 争用协调（共享文件冲突预防）
 
@@ -145,7 +149,7 @@ Action Needed 必须标注级别：
 |------|---------|
 | 在自己 thread 里说"另一个 session 注意" | 对方看不到！用 `cross_post_message` |
 | `post_message` 发到对方 thread | 用 `cross_post_message`（带 crossPost 元数据） |
-| 不写 `@句柄` | cross-post 末尾必须 @ 目标猫，否则不触发感知 |
+| 不写 `@句柄` 也不传 `targetCats` | 消息到达但**零触发**——必须至少用一种方式（推荐双保险：targetCats + content 末尾 @句柄） |
 | 以为 list_threads 能看到别人的 thread | 只能看到同 userId 的 thread |
 | 不 pull 就在 main 改共享文件 | 先 `git pull origin main` 再改（§14） |
 | 不标同步级别 | Action Needed 必须写 `[FYI]` / `[ACTION]` / `[BLOCKING]` |
@@ -158,7 +162,6 @@ Action Needed 必须标注级别：
 |-------|--------|---------|
 | **cross-thread-sync** | 平行 session 之间的持续协同 | 3+2 件套、争用协议、FYI/ACTION/BLOCKING |
 | `cross-cat-handoff` | 不同猫之间的一次性工作交接 | 完整五件套、知识转移、角色切换 |
-| `parallel-execution` | 单 session 内分发多个 subagent | session 内部调度，不涉及跨 thread |
 
 ## 下一步
 

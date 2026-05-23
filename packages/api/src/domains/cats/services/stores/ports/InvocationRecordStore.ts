@@ -33,6 +33,9 @@ export interface InvocationRecord {
   error?: string;
   /** F8: Per-cat token usage collected on invocation completion */
   usageByCat?: Record<string, import('../../types.js').TokenUsage>;
+  /** F128: Epoch ms when usageByCat was first recorded. Stable for daily bucketing
+   *  (unlike updatedAt which any subsequent update can shift). */
+  usageRecordedAt?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -80,6 +83,20 @@ export interface IInvocationRecordStore {
     userId: string,
     key: string,
   ): InvocationRecord | null | Promise<InvocationRecord | null>;
+
+  /** F128: Scan all invocation records (optional — only Redis impl provides this) */
+  scanAll?(): Promise<InvocationRecord[]>;
+
+  /**
+   * F194 Phase B: Enumerate currently running invocation records scoped to (threadId, userId).
+   *
+   * Required by `getThreadLiveInvocations` so canonical liveness read can detect zombie records
+   * even after their drafts have been TTL-reaped — the helper enumerates from records ∪ drafts.
+   * In-memory: filter the records map. Redis: SMEMBERS index Set + pipeline HGETALL on hit ids
+   * + defensive filter (Set is maintained inside ATOMIC_UPDATE_LUA on status transitions —
+   * crash-safe, no post-Lua best-effort window).
+   */
+  listRunningByThread(threadId: string, userId: string): InvocationRecord[] | Promise<InvocationRecord[]>;
 }
 
 /** Max records in memory store */
@@ -163,7 +180,11 @@ export class InvocationRecordStore implements IInvocationRecordStore {
     if (input.status !== undefined) record.status = input.status;
     if (input.userMessageId !== undefined) record.userMessageId = input.userMessageId;
     if (input.error !== undefined) record.error = input.error;
-    if (input.usageByCat !== undefined) record.usageByCat = input.usageByCat;
+    if (input.usageByCat !== undefined) {
+      record.usageByCat = input.usageByCat;
+      // F128: stamp usageRecordedAt only on first write (stable for daily bucketing)
+      if (record.usageRecordedAt == null) record.usageRecordedAt = Date.now();
+    }
     record.updatedAt = Date.now();
 
     return record;
@@ -174,6 +195,14 @@ export class InvocationRecordStore implements IInvocationRecordStore {
     const entry = this.idempotencyIndex.get(composite);
     if (!entry || entry.expiresAt <= Date.now()) return null;
     return this.records.get(entry.invocationId) ?? null;
+  }
+
+  listRunningByThread(threadId: string, userId: string): InvocationRecord[] {
+    const out: InvocationRecord[] = [];
+    for (const r of this.records.values()) {
+      if (r.status === 'running' && r.threadId === threadId && r.userId === userId) out.push(r);
+    }
+    return out;
   }
 
   /** Current record count (for testing) */

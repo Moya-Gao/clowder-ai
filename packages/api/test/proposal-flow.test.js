@@ -74,7 +74,7 @@ describe('F128 propose / approve / reject flow', () => {
   }
 
   async function propose(app, { userId, catId = 'opus', threadId, body = {} }) {
-    const { invocationId, callbackToken } = registry.create(userId, catId, threadId);
+    const { invocationId, callbackToken } = await registry.create(userId, catId, threadId);
     return app.inject({
       method: 'POST',
       url: '/api/callbacks/propose-thread',
@@ -120,8 +120,8 @@ describe('F128 propose / approve / reject flow', () => {
   test('propose returns stale_ignored when a newer invocation supersedes', async () => {
     const app = await createApp();
     const source = await threadStore.create('alice', 'Source');
-    const first = registry.create('alice', 'opus', source.id);
-    registry.create('alice', 'opus', source.id); // supersedes first
+    const first = await registry.create('alice', 'opus', source.id);
+    await registry.create('alice', 'opus', source.id); // supersedes first
 
     const res = await app.inject({
       method: 'POST',
@@ -422,7 +422,7 @@ describe('F128 propose / approve / reject flow', () => {
     proposalStore = new FlakyMarkerStore();
     const app = await createApp();
     const source = await threadStore.create('alice', 'Source');
-    const { invocationId, callbackToken } = registry.create('alice', 'opus', source.id);
+    const { invocationId, callbackToken } = await registry.create('alice', 'opus', source.id);
     const payload = {
       invocationId,
       callbackToken,
@@ -477,7 +477,7 @@ describe('F128 propose / approve / reject flow', () => {
     proposalStore = new FlakyMarkerStore();
     const app = await createApp();
     const source = await threadStore.create('alice', 'Source');
-    const { invocationId, callbackToken } = registry.create('alice', 'opus', source.id);
+    const { invocationId, callbackToken } = await registry.create('alice', 'opus', source.id);
     const payload = {
       invocationId,
       callbackToken,
@@ -536,7 +536,7 @@ describe('F128 propose / approve / reject flow', () => {
     messageStore = new BlockingMessageStore();
     const app = await createApp();
     const source = await threadStore.create('alice', 'Source');
-    const { invocationId, callbackToken } = registry.create('alice', 'opus', source.id);
+    const { invocationId, callbackToken } = await registry.create('alice', 'opus', source.id);
     const payload = {
       invocationId,
       callbackToken,
@@ -592,7 +592,7 @@ describe('F128 propose / approve / reject flow', () => {
     messageStore = new FailFirstAppendStore();
     const app = await createApp();
     const source = await threadStore.create('alice', 'Source');
-    const { invocationId, callbackToken } = registry.create('alice', 'opus', source.id);
+    const { invocationId, callbackToken } = await registry.create('alice', 'opus', source.id);
     const payload = {
       invocationId,
       callbackToken,
@@ -634,7 +634,7 @@ describe('F128 propose / approve / reject flow', () => {
     proposalStore = new FailFirstCreateStore();
     const app = await createApp();
     const source = await threadStore.create('alice', 'Source');
-    const { invocationId, callbackToken } = registry.create('alice', 'opus', source.id);
+    const { invocationId, callbackToken } = await registry.create('alice', 'opus', source.id);
     const payload = {
       invocationId,
       callbackToken,
@@ -673,7 +673,7 @@ describe('F128 propose / approve / reject flow', () => {
     // Real concurrent-retry scenario: same invocation retried twice (e.g. callbackPost retry
     // after a network hiccup), same clientRequestId. Creating two separate invocations would
     // trip the stale_ignored guard before dedup is even evaluated.
-    const { invocationId, callbackToken } = registry.create('alice', 'opus', source.id);
+    const { invocationId, callbackToken } = await registry.create('alice', 'opus', source.id);
     const send = () =>
       app.inject({
         method: 'POST',

@@ -1,30 +1,33 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import type { CatData } from '@/hooks/useCatData';
-import { type TtsState, useTts } from '@/hooks/useTts';
+import { type CatData, formatCatName } from '@/hooks/useCatData';
+import { useCoCreatorConfig } from '@/hooks/useCoCreatorConfig';
+import { useTts } from '@/hooks/useTts';
 import { hexToRgba, tintedLight } from '@/lib/color-utils';
 import { getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import { parseDirection } from '@/lib/parse-direction';
-import { type ChatMessage as ChatMessageType, type MessageContent, useChatStore } from '@/stores/chatStore';
-import { API_URL } from '@/utils/api-client';
+import { type ChatMessage as ChatMessageType, resolveBubbleExpanded, useChatStore } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
+import { CollapsibleMarkdown } from './CollapsibleMarkdown';
 import { ConnectorBubble } from './ConnectorBubble';
+import { ContentBlocks } from './ContentBlocks';
+import { CopyIdButton } from './CopyIdButton';
 import { CliOutputBlock } from './cli-output/CliOutputBlock';
 import { toCliEvents } from './cli-output/toCliEvents';
 import { DirectionPill } from './DirectionPill';
 import { EvidencePanel } from './EvidencePanel';
-import { Lightbox } from './Lightbox';
-import { MarkdownContent } from './MarkdownContent';
+import { GovernanceBlockedCard } from './GovernanceBlockedCard';
 import { MetadataBadge } from './MetadataBadge';
 import { ReplyPill } from './ReplyPill';
+import { BriefingCard } from './rich/BriefingCard';
 import { RichBlocks } from './rich/RichBlocks';
 import { SummaryCard } from './SummaryCard';
+import { SystemNoticeBar } from './SystemNoticeBar';
 import { ThinkingContent } from './ThinkingContent';
+import { pushThreadRouteWithHistory } from './ThreadSidebar/thread-navigation';
 import { TimeoutDiagnosticsPanel } from './TimeoutDiagnosticsPanel';
+import { TtsPlayButton } from './TtsPlayButton';
 
-/** Breed-level aesthetics — only changes when a new BREED is added */
 const BREED_STYLES: Record<string, { radius: string; font?: string }> = {
   ragdoll: { radius: 'rounded-2xl rounded-bl-sm' },
   'maine-coon': { radius: 'rounded-2xl rounded-br-sm', font: 'font-mono' },
@@ -32,44 +35,18 @@ const BREED_STYLES: Record<string, { radius: string; font?: string }> = {
   'dragon-li': { radius: 'rounded-lg rounded-tl-sm', font: 'font-mono' },
 };
 const DEFAULT_BREED_STYLE = { radius: 'rounded-2xl' };
-
-function ContentBlocks({ blocks }: { blocks: MessageContent[] }) {
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
-  return (
-    <>
-      {blocks.map((block, i) => {
-        if (block.type === 'text') {
-          return <MarkdownContent key={i} content={block.text} />;
-        }
-        if (block.type === 'image') {
-          const src = block.url.startsWith('/uploads/') ? `${API_URL}${block.url}` : block.url;
-          return (
-            // biome-ignore lint/performance/noImgElement: uploaded images cannot use next/image
-            <img
-              key={i}
-              src={src}
-              alt="attached image"
-              className="max-w-full sm:max-w-sm rounded-lg mt-2 border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-              onClick={() => setLightboxSrc(src)}
-            />
-          );
-        }
-        return null;
-      })}
-      {lightboxSrc && <Lightbox url={lightboxSrc} alt="attached image" onClose={() => setLightboxSrc(null)} />}
-    </>
-  );
-}
+const SCHEDULER_ACCENT_BADGE_CLASS =
+  'inline-flex w-fit items-center gap-1.5 rounded-full border border-conn-amber-ring bg-conn-amber-bg px-2.5 py-1 text-xs font-semibold text-conn-amber-text shadow-sm';
+const SCHEDULER_ACCENT_BUBBLE_CLASS =
+  'border-conn-amber-ring bg-conn-amber-bg/70 ring-1 ring-amber-200 shadow-[0_10px_24px_rgba(217,119,6,0.16)] bg-gradient-to-b from-amber-50/60 to-transparent';
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
-  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-/** F098-D: Threshold (ms) for showing dual timestamp. Gap <= this uses single timestamp. */
 const DELIVERED_AT_GAP_THRESHOLD = 5000;
 
-/** F098-D: Format dual timestamp when deliveredAt gap is significant. */
 function formatDualTime(timestamp: number, deliveredAt?: number): string {
   if (!deliveredAt || deliveredAt - timestamp <= DELIVERED_AT_GAP_THRESHOLD) {
     return formatTime(timestamp);
@@ -77,76 +54,39 @@ function formatDualTime(timestamp: number, deliveredAt?: number): string {
   return `发送 ${formatTime(timestamp)} · 收到 ${formatTime(deliveredAt)}`;
 }
 
-/** F34: Tiny TTS play button for cat messages */
-function TtsPlayButton({
-  messageId,
-  text,
-  catId,
-  ttsState,
-  activeMessageId,
-  onSynthesize,
-}: {
-  messageId: string;
-  text: string;
-  catId: string;
-  ttsState: TtsState;
-  activeMessageId: string | null;
-  onSynthesize: (messageId: string, text: string, catId?: string) => void;
-}) {
-  const isActive = activeMessageId === messageId;
-  const isLoading = isActive && ttsState === 'loading';
-  const isPlaying = isActive && ttsState === 'playing';
+function isSchedulerReplyPreview(replyPreview?: ChatMessageType['replyPreview']): boolean {
+  return replyPreview?.senderCatId === 'system' && replyPreview.kind === 'scheduler_trigger';
+}
 
-  return (
-    <button
-      onClick={() => onSynthesize(messageId, text, catId)}
-      disabled={isLoading}
-      className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 p-0.5 rounded hover:bg-black/5 text-gray-400 hover:text-gray-600"
-      title={isPlaying ? '停止' : '播放语音'}
-    >
-      {isLoading ? (
-        <svg width="12" height="12" viewBox="0 0 12 12" className="animate-spin">
-          <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="20 10" />
-        </svg>
-      ) : isPlaying ? (
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-          <rect x="2" y="1" width="3" height="10" rx="0.5" />
-          <rect x="7" y="1" width="3" height="10" rx="0.5" />
-        </svg>
-      ) : (
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-          <path d="M2.5 1L10.5 6L2.5 11V1Z" />
-        </svg>
-      )}
-    </button>
-  );
+function isConnectorSystemNotice(message: ChatMessageType): boolean {
+  if (message.type !== 'connector' || !message.source?.meta) return false;
+  return (message.source.meta as Record<string, unknown>).presentation === 'system_notice';
 }
 
 interface ChatMessageProps {
   message: ChatMessageType;
   getCatById: (id: string) => CatData | undefined;
+  onEditCat?: (catId: string) => void;
 }
 
-export function ChatMessage({ message, getCatById }: ChatMessageProps) {
-  const router = useRouter();
+export function ChatMessage({ message, getCatById, onEditCat }: ChatMessageProps) {
+  const coCreator = useCoCreatorConfig();
   const { state: ttsState, synthesize: ttsSynthesize, activeMessageId } = useTts();
+  const currentThreadId = useChatStore((s) => s.currentThreadId);
+  const isLoadingThreads = useChatStore((s) => s.isLoadingThreads);
   const threads = useChatStore((s) => s.threads);
-  const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
+  const threadMessages = useChatStore((s) => s.messages);
+  const globalBubbleDefaults = useChatStore((s) => s.globalBubbleDefaults);
   const isUser = message.type === 'user' && !message.catId;
   const isSystem = message.type === 'system';
   const isSummary = message.type === 'summary';
   const isConnector = message.type === 'connector';
 
-  // Dynamic cat data lookup — works for any catId in cat-config.json
   const catData = message.catId ? getCatById(message.catId) : undefined;
   const catStyle = catData
     ? (() => {
         const breed = BREED_STYLES[catData.breedId ?? ''] ?? DEFAULT_BREED_STYLE;
-        const idLabel = catData.id.charAt(0).toUpperCase() + catData.id.slice(1);
-        const label = catData.variantLabel
-          ? `${catData.displayName}（${catData.variantLabel}）`
-          : `${catData.displayName}（${idLabel}）`;
-        // F098-A5: callback messages get subtle tinted bubble; stream/other keep breed secondary
+        const label = formatCatName(catData);
         const isCallback = message.origin === 'callback';
         return {
           label,
@@ -158,17 +98,37 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
       })()
     : null;
   const currentThread = useChatStore((s) => s.threads.find((t) => t.id === s.currentThreadId));
+  const bubbleRestorePending = isLoadingThreads && !!currentThreadId && !currentThread;
   const hasBlocks = message.contentBlocks && message.contentBlocks.length > 0;
   const hasTextContent = message.content.trim().length > 0;
   const isWhisper = message.visibility === 'whisper';
   const isRevealed = isWhisper && !!message.revealedAt;
+  const isSchedulerReply = isSchedulerReplyPreview(message.replyPreview);
+  const showSchedulerAccent =
+    isSchedulerReply &&
+    !threadMessages.some((candidate) => {
+      if (candidate.id === message.id) return false;
+      if (candidate.replyTo !== message.replyTo) return false;
+      if (candidate.catId !== message.catId) return false;
+      if (!isSchedulerReplyPreview(candidate.replyPreview)) return false;
+      if (candidate.timestamp !== message.timestamp) {
+        return candidate.timestamp < message.timestamp;
+      }
+      return candidate.id < message.id;
+    });
 
-  // F098: Direction info for pill badge
   const direction = catData ? parseDirection(message, () => ({ toCat: getMentionToCat(), re: getMentionRe() })) : null;
 
-  // F097: CLI Output Block — merge tool events + stream content into unified CliEvent[]
   const isStreamOrigin = message.origin === 'stream';
-  const cliEvents = toCliEvents(message.toolEvents, isStreamOrigin ? message.content : undefined);
+  // F194 Phase Z11 follow-up: ordinary post_msg speech is projected as a
+  // separate callback bubble, but exact-key callback_final records can still
+  // merge into the stream bubble as terminal updates. Projection exposes the
+  // origin-split portions on extra.stream so CLI Output keeps the stream
+  // working log while the callback terminal text renders as the body.
+  const mergedCliStdout = message.extra?.stream?.cliStdout;
+  const mergedSpeechContent = message.extra?.stream?.speechContent;
+  const cliStdoutContent = mergedCliStdout ?? (isStreamOrigin ? message.content : undefined);
+  const cliEvents = toCliEvents(message.toolEvents, cliStdoutContent);
   const hasCliBlock = cliEvents.length > 0;
   const cliStatus = message.isStreaming
     ? ('streaming' as const)
@@ -191,12 +151,27 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   }
 
   if (isSystem) {
+    // F148 Phase E + VG-2: Briefing card — collapsible with source label
+    if (message.origin === 'briefing' && message.extra?.rich?.blocks?.length) {
+      return (
+        <div data-message-id={message.id} className="flex justify-center mb-3">
+          <div className="max-w-[85%] w-full opacity-80">
+            <BriefingCard block={message.extra.rich.blocks[0]} messageId={message.id} />
+          </div>
+        </div>
+      );
+    }
+
     if (message.variant === 'evidence' && message.evidence) {
       return <EvidencePanel data={message.evidence} />;
     }
 
+    if (message.variant === 'governance_blocked' && message.extra?.governanceBlocked) {
+      const { projectPath, reasonKind, invocationId } = message.extra.governanceBlocked;
+      return <GovernanceBlockedCard projectPath={projectPath} reasonKind={reasonKind} invocationId={invocationId} />;
+    }
+
     // F045: variant='thinking' is deprecated — thinking is now embedded in assistant bubbles.
-    // Legacy standalone thinking messages fall through to normal system rendering.
 
     const isLegacyError = !message.variant && message.content.trim().startsWith('Error:');
     const isError = message.variant === 'error' || isLegacyError;
@@ -215,12 +190,12 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
     }
 
     const toneClass = isTool
-      ? 'text-gray-400 bg-gray-50/50 font-mono text-xs py-1'
+      ? 'text-cafe-muted bg-cafe-surface-elevated/50 font-mono text-xs py-1'
       : isFollowup
         ? 'text-purple-700 bg-purple-50 border border-purple-200'
         : isError
-          ? 'text-red-500 bg-red-50 rounded-full'
-          : 'text-blue-700 bg-blue-50';
+          ? 'text-conn-red-text bg-conn-red-bg rounded-full'
+          : 'text-blue-700 bg-conn-blue-bg';
     return (
       <div data-message-id={message.id} className={`flex justify-center ${isTool ? 'mb-1' : 'mb-3'}`}>
         <div className={`text-sm px-4 py-2 rounded-lg whitespace-pre-wrap text-left max-w-[85%] ${toneClass}`}>
@@ -233,61 +208,106 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   }
 
   if (isConnector && message.source) {
+    if (isConnectorSystemNotice(message)) {
+      return <SystemNoticeBar message={message} />;
+    }
     return <ConnectorBubble message={message} />;
   }
 
   if (isUser) {
+    const coCreatorPrimary = coCreator.color?.primary ?? '#815b5b';
+    const coCreatorSecondary = coCreator.color?.secondary ?? '#FFDDD2';
     return (
-      <div data-message-id={message.id} className="flex justify-end gap-2 mb-4 items-start">
+      <div data-message-id={message.id} className="group flex justify-end gap-2 mb-4 items-start">
         <div className="max-w-[75%]">
           <div className="flex justify-end items-center gap-2 mb-1">
             {isWhisper && (
               <span
-                className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-600'}`}
+                className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-cafe-surface-elevated text-cafe-secondary' : 'bg-conn-amber-bg text-conn-amber-text'}`}
               >
                 {isRevealed ? '已揭秘' : `悄悄话 → ${message.whisperTo?.join(', ') ?? ''}`}
               </span>
             )}
-            {message.replyTo && message.replyPreview && (
+            {message.replyTo && message.replyPreview && !isSchedulerReply && (
               <ReplyPill replyPreview={message.replyPreview} replyToId={message.replyTo} getCatById={getCatById} />
             )}
-            <span className="text-xs text-gray-400">{formatDualTime(message.timestamp, message.deliveredAt)}</span>
-            <span className="text-xs font-semibold text-owner-dark">铲屎官</span>
+            <span className="text-xs text-cafe-muted">{formatDualTime(message.timestamp, message.deliveredAt)}</span>
+            <CopyIdButton messageId={message.id} />
+            <span className="text-xs font-semibold" style={{ color: coCreatorPrimary }}>
+              {coCreator.name}
+            </span>
           </div>
           <div
             className={`rounded-2xl rounded-br-sm px-4 py-3 transition-transform hover:-translate-y-0.5 ${
               isWhisper && !isRevealed
-                ? 'bg-amber-50 text-amber-900 border border-dashed border-amber-300'
-                : 'bg-owner-light text-owner-dark'
+                ? 'bg-conn-amber-bg text-conn-amber-text border border-dashed border-conn-amber-ring'
+                : ''
             }`}
+            style={
+              !isWhisper || isRevealed
+                ? {
+                    backgroundColor: coCreatorSecondary,
+                    color: coCreatorPrimary,
+                  }
+                : undefined
+            }
           >
             {hasBlocks ? (
               <ContentBlocks blocks={message.contentBlocks!} />
             ) : (
-              <MarkdownContent content={message.content} />
+              <CollapsibleMarkdown content={message.content} />
             )}
           </div>
         </div>
-        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-owner-light bg-owner-primary flex items-center justify-center">
-          <img
-            src="/avatars/owner.jpg"
-            alt="铲屎官"
-            width={32}
-            height={32}
-            className="object-cover w-full h-full"
-            onError={(e) => {
-              // Fallback: hide broken image, show background color
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
-          />
+        <div
+          className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 flex items-center justify-center text-xs font-bold text-white"
+          style={{ backgroundColor: coCreatorPrimary, boxShadow: `0 0 0 2px ${coCreatorSecondary}` }}
+        >
+          {coCreator.avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={coCreator.avatar}
+              alt={coCreator.name}
+              width={32}
+              height={32}
+              className="object-cover w-full h-full"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          ) : (
+            'ME'
+          )}
         </div>
       </div>
     );
   }
 
+  // Don't render completely empty non-streaming assistant messages.
+  // This can happen when a cat responds with only internal tool use and no text output.
+  // Keep messages that have thinking content — they should still show as collapsible bubbles.
+  if (
+    !message.isStreaming &&
+    !hasTextContent &&
+    !hasCliBlock &&
+    !hasBlocks &&
+    !message.extra?.rich?.blocks?.length &&
+    !message.extra?.crossPost &&
+    !message.thinking
+  ) {
+    return null;
+  }
+
   return (
     <div data-message-id={message.id} className="group flex gap-2 mb-4 items-start">
-      {catData && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} />}
+      {catData && (
+        <CatAvatar
+          catId={message.catId!}
+          size={32}
+          status={message.isStreaming ? 'streaming' : undefined}
+          onClick={onEditCat && message.catId ? () => onEditCat(message.catId!) : undefined}
+        />
+      )}
       <div className="max-w-[85%] md:max-w-[75%] min-w-0">
         {catStyle && (
           <div className="mb-1 flex flex-col gap-1 min-w-0">
@@ -295,10 +315,11 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               <span className="text-xs font-semibold" style={{ opacity: 0.8 }}>
                 {catStyle.label}
               </span>
-              <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
+              <span className="text-xs text-cafe-muted">{formatTime(message.timestamp)}</span>
+              <CopyIdButton messageId={message.id} />
               {isWhisper && (
                 <span
-                  className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-600'}`}
+                  className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-cafe-surface-elevated text-cafe-secondary' : 'bg-conn-amber-bg text-conn-amber-text'}`}
                 >
                   {isRevealed
                     ? '已揭秘'
@@ -313,7 +334,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                 </span>
               )}
               {!isWhisper && direction && <DirectionPill direction={direction} getCatById={getCatById} />}
-              {message.replyTo && message.replyPreview && (
+              {message.replyTo && message.replyPreview && !isSchedulerReply && (
                 <ReplyPill replyPreview={message.replyPreview} replyToId={message.replyTo} getCatById={getCatById} />
               )}
               {hasTextContent && !message.isStreaming && (
@@ -327,6 +348,12 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                 />
               )}
             </div>
+            {showSchedulerAccent && (
+              <div className={SCHEDULER_ACCENT_BADGE_CLASS}>
+                <span aria-hidden>⏰</span>
+                <span>定时提醒</span>
+              </div>
+            )}
             {message.extra?.crossPost &&
               (() => {
                 const sourceId = message.extra.crossPost?.sourceThreadId;
@@ -339,13 +366,13 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      router.push(`/thread/${sourceId}`);
+                      pushThreadRouteWithHistory(sourceId, typeof window !== 'undefined' ? window : undefined);
                     }}
                     className="inline-flex items-center gap-1.5 border px-3 py-1 rounded-full bg-[#FDF6ED] border-[#E8DCCF] text-[#8D6E63] hover:bg-[#F5EDE0] transition-colors cursor-pointer w-fit max-w-full"
                     title={sourceId}
                     aria-label={`跳转到来源 thread ${sourceId}`}
                   >
-                    <span className="text-[10px] font-semibold" aria-hidden>
+                    <span className="text-micro font-semibold" aria-hidden>
                       📮
                     </span>
                     <span className="min-w-0 truncate">
@@ -359,50 +386,61 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         )}
         <div
           className={`border px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden ${
-            catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-white border-gray-200 rounded-2xl'
-          }`}
+            catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-cafe-surface border-cafe rounded-2xl'
+          } ${showSchedulerAccent ? SCHEDULER_ACCENT_BUBBLE_CLASS : ''}`}
           style={
             catStyle
               ? {
                   backgroundColor: catStyle.bgColor,
-                  borderColor: catStyle.borderColor,
+                  ...(!showSchedulerAccent ? { borderColor: catStyle.borderColor } : {}),
                 }
               : undefined
           }
         >
-          {/* F097: Content first, then Thinking (reasoning before execution), then CLI output */}
-          {/* 1. Content — callback messages or non-stream text shown as normal content.
-              If CLI block exists, text is already inside it — never render outside. */}
           {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
             <ContentBlocks blocks={message.contentBlocks!} />
           ) : !isStreamOrigin && hasTextContent ? (
-            <MarkdownContent content={message.content} className={catStyle?.font} />
+            // F194 Phase Z11 follow-up: exact-key terminal callback merge keeps
+            // the stream working log in CLI Output via cliStdout; render only
+            // callback text here to avoid duplicating the stream text.
+            <CollapsibleMarkdown content={mergedSpeechContent ?? message.content} className={catStyle?.font} />
           ) : message.isStreaming ? (
-            <span className="text-xs text-gray-500">Thinking...</span>
+            <span className="text-xs text-cafe-secondary">Thinking...</span>
           ) : null}
-          {/* 2. 🧠 Thinking — reasoning happens before tool execution (AC-A3) */}
           {message.thinking && (
             <ThinkingContent
               content={message.thinking}
               className={catStyle?.font}
               label="Thinking"
-              defaultExpanded={uiThinkingExpandedByDefault}
+              defaultExpanded={
+                bubbleRestorePending
+                  ? false
+                  : resolveBubbleExpanded(currentThread?.bubbleThinking, globalBubbleDefaults.thinking)
+              }
               expandInExport={false}
               breedColor={catData?.color.primary}
             />
           )}
-          {/* 3. CLI Output Block — tools + stream content merged */}
           {hasCliBlock && (
             <CliOutputBlock
               events={cliEvents}
               status={cliStatus}
               thinkingMode={currentThread?.thinkingMode}
-              defaultExpanded={uiThinkingExpandedByDefault}
+              defaultExpanded={
+                bubbleRestorePending
+                  ? false
+                  : resolveBubbleExpanded(currentThread?.bubbleCli, globalBubbleDefaults.cliOutput)
+              }
               breedColor={catData?.color.primary}
             />
           )}
           {message.extra?.rich?.blocks && message.extra.rich.blocks.length > 0 && (
-            <RichBlocks blocks={message.extra.rich.blocks} catId={message.catId} messageId={message.id} />
+            <RichBlocks
+              blocks={message.extra.rich.blocks}
+              catId={message.catId}
+              messageId={message.id}
+              messageSource={message.source}
+            />
           )}
           {message.isStreaming && !isStreamOrigin && (
             <span className="inline-block w-1.5 h-4 bg-current animate-pulse ml-0.5 rounded-full opacity-50" />

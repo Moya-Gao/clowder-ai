@@ -11,14 +11,17 @@ import { after, before, describe, it } from 'node:test';
 describe('Signal-to-Noise: SQLite vs grep', () => {
   let SqliteEvidenceStore;
   let IndexBuilder;
+  let EVIDENCE_KINDS;
   let store;
-  const docsRoot = join(process.cwd(), 'docs');
+  const docsRoot = join(import.meta.dirname, '../../../../docs');
 
   before(async () => {
     const storeMod = await import('../../dist/domains/memory/SqliteEvidenceStore.js');
     SqliteEvidenceStore = storeMod.SqliteEvidenceStore;
     const builderMod = await import('../../dist/domains/memory/IndexBuilder.js');
     IndexBuilder = builderMod.IndexBuilder;
+    const interfacesMod = await import('../../dist/domains/memory/interfaces.js');
+    EVIDENCE_KINDS = interfacesMod.EVIDENCE_KINDS;
 
     store = new SqliteEvidenceStore(':memory:');
     await store.initialize();
@@ -84,7 +87,7 @@ describe('Signal-to-Noise: SQLite vs grep', () => {
       assert.ok(r.anchor, 'Each result must have an anchor');
       assert.ok(r.kind, 'Each result must have a kind');
       assert.ok(r.title, 'Each result must have a title');
-      assert.ok(['feature', 'decision', 'plan', 'lesson'].includes(r.kind), `Kind "${r.kind}" is valid`);
+      assert.ok(EVIDENCE_KINDS.includes(r.kind), `Kind "${r.kind}" is valid`);
     }
   });
 });

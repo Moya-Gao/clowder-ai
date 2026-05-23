@@ -8,8 +8,9 @@ created: 2026-03-07
 
 # F076: Mission Hub 跨项目作战面板 + 甲方项目治理引擎
 
-> **Status**: phase-2-done | **Owner**: Ragdoll
+> **Status**: done (superseded by F152) | **Owner**: Ragdoll | **Completed**: 2026-04-10
 > **Evolved from**: F049（Mission Control MVP）+ F058（Mission Hub 增强）+ F070（Portable Governance）
+> **Superseded by**: F152（Expedition Memory — 外部项目记忆冷启动 + 经验回流）
 
 ## Why
 
@@ -126,7 +127,7 @@ Intent Card 槽位（v2）：actor / context-trigger / goal / object-state / suc
 
 ### 案例参考：studio-flow
 
-`/home/user — 典型甲方项目：
+`/home/user/studio-flow` — 典型甲方项目：
 - 27+ features（SF-001 ~ SF-027），企业管理系统全模块
 - 甲方9点验收基线 → BACKLOG feature 映射
 - SF-025 Gap Fix Batch：6 个模块塞一个 feat（登录、工作台、客户、审核、团队、数据）

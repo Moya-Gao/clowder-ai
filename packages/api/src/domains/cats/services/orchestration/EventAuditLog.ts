@@ -19,6 +19,9 @@ import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { appendFile, mkdir, readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { createModuleLogger } from '../../../../infrastructure/logger.js';
+
+const log = createModuleLogger('audit');
 
 export interface AuditEvent {
   readonly id: string;
@@ -62,7 +65,6 @@ export class EventAuditLog {
 
     await appendFile(filepath, line, 'utf-8');
 
-    console.log(`[audit] ${new Date(event.timestamp).toISOString()} Event logged: ${event.type} (${event.id})`);
     return event;
   }
 
@@ -89,7 +91,7 @@ export class EventAuditLog {
       try {
         events.push(JSON.parse(line) as AuditEvent);
       } catch {
-        console.error(`[audit] Failed to parse line: ${line.slice(0, 100)}`);
+        log.error({ linePreview: line.slice(0, 100) }, 'Failed to parse audit line');
       }
     }
 
@@ -156,7 +158,7 @@ export class EventAuditLog {
 
     if (!existsSync(this.auditDir)) {
       await mkdir(this.auditDir, { recursive: true });
-      console.log(`[audit] Created audit log directory: ${this.auditDir}`);
+      log.info({ dir: this.auditDir }, 'Created audit log directory');
     }
 
     this.initialized = true;
@@ -175,7 +177,7 @@ export class EventAuditLog {
   }
 }
 
-/** Common event types for Cat Café */
+/** Common event types for Clowder AI */
 export const AuditEventTypes = {
   /** 辩论/讨论冠军宣判 */
   DEBATE_WINNER: 'debate_winner',
@@ -197,6 +199,8 @@ export const AuditEventTypes = {
   SERVER_SHUTDOWN: 'server_shutdown',
   /** 运行时配置被更新 */
   CONFIG_UPDATED: 'config_updated',
+  /** 敏感环境变量被写入（owner-only, keys-only audit） */
+  ENV_SENSITIVE_WRITE: 'env_sensitive_write',
 
   // === 消息级审计 (茶话会夺魂 bug fix #37) ===
 
@@ -251,6 +255,10 @@ export const AuditEventTypes = {
 
   // === Session Sealing (F118) ===
 
+  /** requestSeal() accepted — session transitioning active → sealing */
+  SEAL_REQUESTED: 'seal_requested',
+  /** finalize() completed cleanly — session sealed with transcript + digest written. Not emitted on partial finalize (doFinalize failed but status forced to sealed). */
+  SEAL_FINALIZED: 'seal_finalized',
   /** finalize() failed or timed out */
   SEAL_FINALIZE_FAILED: 'seal_finalize_failed',
 } as const;

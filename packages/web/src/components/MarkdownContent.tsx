@@ -1,11 +1,13 @@
 'use client';
 
-import { Children, type ReactNode, useCallback, useRef, useState } from 'react';
+import { Children, isValidElement, type ReactNode, useCallback, useRef, useState } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
 import { getMentionColor, getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import { useChatStore } from '@/stores/chatStore';
+import { MermaidDiagram } from './MermaidDiagram';
+import { createWorkspaceImageComponent, createWorkspaceLinkComponent } from './workspace-md-components';
 
 /* ── @mention highlighting ─────────────────────────────────── */
 
@@ -69,7 +71,7 @@ function CodeBlock({ children }: { children: ReactNode }) {
     <div className="relative group my-2">
       <button
         onClick={handleCopy}
-        className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[10px] bg-gray-700 text-gray-300 md:opacity-0 md:group-hover:opacity-100 hover:bg-gray-600 transition-opacity"
+        className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-micro bg-gray-700 text-cafe-muted md:opacity-0 md:group-hover:opacity-100 hover:bg-gray-600 transition-opacity"
       >
         {copied ? '已复制' : '复制'}
       </button>
@@ -198,6 +200,34 @@ function withMentionsAndLinks(children: ReactNode): ReactNode {
   });
 }
 
+function hasMermaidLanguage(className = ''): boolean {
+  return /\blanguage-mermaid\b/i.test(className);
+}
+
+function codeChildToString(child: ReactNode): string {
+  if (typeof child === 'string') return child;
+  if (typeof child === 'number') return String(child);
+  return '';
+}
+
+function codeChildrenToString(children: ReactNode): string {
+  return Children.toArray(children)
+    .map((child) => codeChildToString(child))
+    .join('')
+    .replace(/\n$/, '');
+}
+
+function isMermaidPre(children: ReactNode): boolean {
+  const firstChild = Children.toArray(children)[0];
+  if (!isValidElement<{ className?: string }>(firstChild)) return false;
+  if (firstChild.type === MermaidDiagram) return true;
+  return hasMermaidLanguage(firstChild.props.className);
+}
+
+function inlineCodeClassName(className = ''): string {
+  return `${className} bg-gray-200/50 rounded px-1 py-0.5 text-[0.85em] font-mono`;
+}
+
 /* ── Markdown component overrides ──────────────────────────── */
 const mdComponents: Components = {
   p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{withMentionsAndLinks(children)}</p>,
@@ -208,26 +238,51 @@ const mdComponents: Components = {
   h1: ({ children }) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0">{withMentions(children)}</h1>,
   h2: ({ children }) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0">{withMentions(children)}</h2>,
   h3: ({ children }) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0">{withMentions(children)}</h3>,
+  h4: ({ children }) => <h4 className="text-sm font-semibold mb-1 mt-2 first:mt-0">{withMentions(children)}</h4>,
+  h5: ({ children }) => (
+    <h5 className="text-xs font-semibold mb-1 mt-1.5 first:mt-0 uppercase tracking-wide">{withMentions(children)}</h5>
+  ),
+  h6: ({ children }) => (
+    <h6 className="text-xs font-medium mb-1 mt-1.5 first:mt-0 text-gray-500">{withMentions(children)}</h6>
+  ),
 
   ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-0.5">{children}</ul>,
   ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-0.5">{children}</ol>,
-  li: ({ children }) => <li>{withMentions(children)}</li>,
+  li: ({ children, className }) => (
+    <li className={className === 'task-list-item' ? 'list-none -ml-5 flex items-start gap-1.5' : undefined}>
+      {withMentions(children)}
+    </li>
+  ),
+  input: ({ type, checked }) =>
+    type === 'checkbox' ? (
+      <input
+        type="checkbox"
+        checked={checked}
+        readOnly
+        className="mt-1 h-3.5 w-3.5 rounded border-gray-300 text-conn-blue-text pointer-events-none"
+      />
+    ) : (
+      <input type={type} />
+    ),
 
   blockquote: ({ children }) => (
-    <blockquote className="border-l-[3px] border-gray-300 pl-3 my-2 italic opacity-80">{children}</blockquote>
+    <blockquote className="border-l-[3px] border-cafe pl-3 my-2 italic opacity-80">{children}</blockquote>
   ),
   a: ({ href, children }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-conn-blue-text hover:underline break-all">
       {withMentions(children)}
     </a>
   ),
-  hr: () => <hr className="my-3 border-gray-200" />,
+  hr: () => <hr className="my-3 border-cafe" />,
 
   /* Code blocks with copy button */
-  pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
-  code: ({ className, children }) => (
-    <code className={`${className ?? ''} bg-gray-200/50 rounded px-1 py-0.5 text-[0.85em] font-mono`}>{children}</code>
-  ),
+  pre: ({ children }) => (isMermaidPre(children) ? children : <CodeBlock>{children}</CodeBlock>),
+  code: ({ className = '', children }) =>
+    hasMermaidLanguage(className) ? (
+      <MermaidDiagram source={codeChildrenToString(children)} />
+    ) : (
+      <code className={inlineCodeClassName(className)}>{children}</code>
+    ),
 
   /* Tables (GFM) */
   table: ({ children }) => (
@@ -235,11 +290,11 @@ const mdComponents: Components = {
       <table className="min-w-full text-sm border-collapse">{children}</table>
     </div>
   ),
-  thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
+  thead: ({ children }) => <thead className="bg-cafe-surface-elevated">{children}</thead>,
   th: ({ children }) => (
-    <th className="border border-gray-300 px-2 py-1 text-left font-semibold text-xs">{withMentions(children)}</th>
+    <th className="border border-cafe px-2 py-1 text-left font-semibold text-xs">{withMentions(children)}</th>
   ),
-  td: ({ children }) => <td className="border border-gray-300 px-2 py-1">{withMentions(children)}</td>,
+  td: ({ children }) => <td className="border border-cafe px-2 py-1">{withMentions(children)}</td>,
 };
 
 /* ── Exported component ────────────────────────────────────── */
@@ -250,6 +305,8 @@ interface Props {
   disableCommandPrefix?: boolean;
   /** Base directory path for resolving relative links (e.g. "docs/features") */
   basePath?: string;
+  /** Worktree ID for resolving workspace-relative image paths */
+  worktreeId?: string;
 }
 
 /** Check if href is a relative markdown link (not absolute, not external) */
@@ -272,11 +329,17 @@ export function resolveRelativePath(base: string, relative: string): string {
   return parts.join('/');
 }
 
-export function MarkdownContent({ content, className, disableCommandPrefix, basePath }: Props) {
+export function MarkdownContent({ content, className, disableCommandPrefix, basePath, worktreeId }: Props) {
   const cmdMatch = disableCommandPrefix ? null : /^(\/\w+)/.exec(content);
   const md = cmdMatch ? content.slice(cmdMatch[1].length) : content;
 
-  const components = basePath != null ? { ...mdComponents, a: createWorkspaceLinkComponent(basePath) } : mdComponents;
+  let components = mdComponents;
+  if (basePath != null) {
+    components = { ...components, a: createWorkspaceLinkComponent(basePath, withMentions) };
+    if (worktreeId) {
+      components = { ...components, img: createWorkspaceImageComponent(basePath, worktreeId) };
+    }
+  }
 
   return (
     <div className={`markdown-content text-sm break-words ${className ?? ''}`}>
@@ -286,34 +349,4 @@ export function MarkdownContent({ content, className, disableCommandPrefix, base
       </ReactMarkdown>
     </div>
   );
-}
-
-/** Create an `a` override that intercepts relative .md links → workspace navigation */
-function createWorkspaceLinkComponent(basePath: string): Components['a'] {
-  return function WorkspaceLink({ href, children }) {
-    const setOpenFile = useChatStore((s) => s.setWorkspaceOpenFile);
-
-    if (isRelativeMdLink(href)) {
-      const resolved = resolveRelativePath(basePath, href);
-      return (
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setOpenFile(resolved);
-          }}
-          className="text-blue-500 hover:text-blue-400 hover:underline break-all cursor-pointer"
-          title={`在工作区中打开 ${resolved}`}
-        >
-          {withMentions(children)}
-        </a>
-      );
-    }
-
-    return (
-      <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
-        {withMentions(children)}
-      </a>
-    );
-  };
 }

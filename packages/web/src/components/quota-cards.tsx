@@ -53,6 +53,15 @@ export interface GeminiQuota {
   lastChecked: string | null;
 }
 
+export interface KimiQuota {
+  platform: 'kimi';
+  usageItems: CodexUsageItem[];
+  error?: string;
+  lastChecked: string | null;
+  status?: 'ok' | 'unavailable';
+  note?: string;
+}
+
 export interface AntigravityQuota {
   platform: 'antigravity';
   usageItems: CodexUsageItem[];
@@ -64,6 +73,7 @@ export interface QuotaResponse {
   claude: ClaudeQuota;
   codex: CodexQuota;
   gemini: GeminiQuota;
+  kimi: KimiQuota;
   antigravity: AntigravityQuota;
   fetchedAt: string;
 }
@@ -119,7 +129,7 @@ export function toUtilization(item: CodexUsageItem): number {
 
 export function riskDotClass(utilization: number): string {
   if (utilization >= 80) return 'text-rose-500';
-  if (utilization >= 50) return 'text-amber-500';
+  if (utilization >= 50) return 'text-conn-amber-text';
   return 'text-emerald-500';
 }
 
@@ -180,10 +190,10 @@ export function QuotaPoolRow({ item }: { item: CodexUsageItem }) {
           <span className={`text-sm ${dot}`} aria-hidden="true">
             {'\u25CF'}
           </span>
-          <span className="text-sm text-gray-700 truncate">{item.label}</span>
+          <span className="text-sm text-cafe-secondary truncate">{item.label}</span>
         </div>
         <span
-          className={`text-sm font-semibold whitespace-nowrap ${utilization >= 80 ? 'text-rose-600' : 'text-gray-900'}`}
+          className={`text-sm font-semibold whitespace-nowrap ${utilization >= 80 ? 'text-rose-600' : 'text-cafe'}`}
         >
           {formatPercent(item)}
         </span>
@@ -195,11 +205,11 @@ export function QuotaPoolRow({ item }: { item: CodexUsageItem }) {
         />
       </div>
       {(item.resetsText || item.resetsAt) && (
-        <div className="mt-0.5 ml-5 text-xs text-gray-400">
+        <div className="mt-0.5 ml-5 text-xs text-cafe-muted">
           {item.resetsText ?? `resets ${new Date(item.resetsAt!).toLocaleString()}`}
         </div>
       )}
-      {hint && <div className="mt-0.5 ml-5 text-xs text-amber-600">{hint}</div>}
+      {hint && <div className="mt-0.5 ml-5 text-xs text-conn-amber-text">{hint}</div>}
     </div>
   );
 }

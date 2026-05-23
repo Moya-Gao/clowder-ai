@@ -9,12 +9,53 @@ vi.mock('@/utils/api-client', () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
+const TEST_CATS = [
+  {
+    id: 'opus',
+    displayName: '布偶猫',
+    nickname: '宪宪',
+    breedId: 'ragdoll',
+    breedDisplayName: '布偶猫',
+    color: { primary: '#9B7EBD', secondary: '#E8D5F5' },
+    mentionPatterns: ['@opus'],
+    clientId: 'anthropic',
+    defaultModel: 'claude-opus-4-6',
+    avatar: '',
+    roleDescription: '',
+    personality: '',
+  },
+  {
+    id: 'codex',
+    displayName: '缅因猫',
+    nickname: '砚砚',
+    breedId: 'maine-coon',
+    breedDisplayName: '缅因猫',
+    color: { primary: '#5B8C5A', secondary: '#D5E8D4' },
+    mentionPatterns: ['@codex'],
+    clientId: 'openai',
+    defaultModel: 'gpt-5.5',
+    avatar: '',
+    roleDescription: '',
+    personality: '',
+  },
+];
+
+vi.mock('@/hooks/useCatData', () => ({
+  formatCatName: (cat: { displayName: string; variantLabel?: string }) =>
+    cat.variantLabel ? `${cat.displayName}（${cat.variantLabel}）` : cat.displayName,
+  useCatData: () => ({
+    cats: TEST_CATS,
+    isLoading: false,
+    hasFetched: true,
+    getCatById: (id: string) => TEST_CATS.find((cat) => cat.id === id),
+    getCatsByBreed: () => new Map(TEST_CATS.map((cat) => [cat.breedId, [cat]])),
+    refresh: async () => TEST_CATS,
+  }),
+}));
+
 // ── Helpers ────────────────────────────────────────────────────
 function jsonOk(data: unknown) {
   return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) });
-}
-function noContent() {
-  return Promise.resolve({ ok: false, status: 204, json: () => Promise.resolve({}) });
 }
 function jsonFail(status = 500, error = 'fail') {
   return Promise.resolve({ ok: false, status, json: () => Promise.resolve({ error }) });
@@ -82,7 +123,7 @@ describe('DirectoryPickerModal', () => {
     setupCwdSuccess();
     const fns = render();
     await flush();
-    expect(container.textContent).toContain('cat-cafe');
+    expect(container.textContent).toContain('project');
     expect(container.textContent).toContain('推荐');
     expect(container.textContent).toContain(CWD_PATH);
     expect(mockApiFetch).toHaveBeenCalledWith('/api/projects/cwd');
@@ -124,7 +165,7 @@ describe('DirectoryPickerModal', () => {
   });
 
   it('calls onSelect with existing project path when selected and confirmed', async () => {
-    const existingPath = '/home/user';
+    const existingPath = '/home/user/other';
     setupCwdSuccess();
     const fns = render({ existingProjects: [existingPath] });
     await flush();
@@ -154,9 +195,13 @@ describe('DirectoryPickerModal', () => {
     expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ projectPath: undefined }));
   });
 
-  it('confirm button is disabled when no project is selected', async () => {
-    setupCwdSuccess();
-    render();
+  it('confirm button is disabled when no project available at all', async () => {
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/projects/cwd') return jsonFail();
+      if (path === '/api/backlog/items') return jsonOk({ items: [] });
+      return jsonFail();
+    });
+    render({ existingProjects: [] });
     await flush();
     const confirmBtn = Array.from(container.querySelectorAll('button')).find((b) =>
       b.textContent?.includes('创建对话'),
@@ -165,55 +210,82 @@ describe('DirectoryPickerModal', () => {
     expect(confirmBtn.disabled).toBe(true);
   });
 
-  // ── F068: Pick directory button ────────────────────────────
-
-  it('shows "选择文件夹" button', async () => {
+  it('auto-selects cwdPath on mount so confirm button is enabled', async () => {
     setupCwdSuccess();
     render();
     await flush();
-    const pickBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('选择文件夹'));
-    expect(pickBtn).toBeTruthy();
+    const confirmBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('创建对话'),
+    ) as HTMLButtonElement;
+    expect(confirmBtn).toBeTruthy();
+    expect(confirmBtn.disabled).toBe(false);
   });
 
-  it('selects path via pick-directory and confirms to create', async () => {
-    const pickedPath = '/home/user';
-    mockApiFetch.mockImplementation((path: string, opts?: { method?: string }) => {
-      if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH });
+  it('auto-selects first existing project when cwdPath unavailable', async () => {
+    const existingPath = '/home/user/other';
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/projects/cwd') return jsonFail();
       if (path === '/api/backlog/items') return jsonOk({ items: [] });
-      if (path === '/api/projects/pick-directory' && opts?.method === 'POST') {
-        return jsonOk({ path: pickedPath, name: 'new-project' });
-      }
       return jsonFail();
     });
-    const fns = render();
+    const fns = render({ existingProjects: [existingPath] });
     await flush();
-    const pickBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('选择文件夹'),
+    clickConfirm();
+    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ projectPath: existingPath }));
+  });
+
+  it('auto-selects cwdPath over existingProjects when both available', async () => {
+    const existingPath = '/home/user/other';
+    setupCwdSuccess();
+    const fns = render({ existingProjects: [existingPath] });
+    await flush();
+    clickConfirm();
+    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ projectPath: CWD_PATH }));
+  });
+
+  // ── F113: Browse directory button (replaces F068 osascript picker) ──
+
+  it('shows "浏览文件夹" button', async () => {
+    setupCwdSuccess();
+    render();
+    await flush();
+    const browseBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('浏览文件夹'),
+    );
+    expect(browseBtn).toBeTruthy();
+  });
+
+  it('toggles inline DirectoryBrowser when browse button is clicked', async () => {
+    setupCwdSuccess();
+    render();
+    await flush();
+    const browseBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('浏览文件夹'),
     )!;
+    // Click to open browser panel
     await act(async () => {
-      pickBtn.click();
+      browseBtn.click();
       await new Promise((r) => setTimeout(r, 0));
     });
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/projects/pick-directory', { method: 'POST' });
-    expect(fns.onSelect).not.toHaveBeenCalled(); // not yet — just selected
-    clickConfirm();
-    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ projectPath: pickedPath }));
+    // Button text changes to "收起浏览" when browser is open
+    expect(browseBtn.textContent).toContain('收起浏览');
+    // Click again to close
+    await act(async () => {
+      browseBtn.click();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(browseBtn.textContent).toContain('浏览文件夹');
   });
 
-  it('does not call onSelect when user cancels native picker (204)', async () => {
-    mockApiFetch.mockImplementation((path: string, opts?: { method?: string }) => {
-      if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH });
-      if (path === '/api/backlog/items') return jsonOk({ items: [] });
-      if (path === '/api/projects/pick-directory' && opts?.method === 'POST') return noContent();
-      return jsonFail();
-    });
+  it('does not call onSelect just from toggling browser open', async () => {
+    setupCwdSuccess();
     const fns = render();
     await flush();
-    const pickBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('选择文件夹'),
+    const browseBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('浏览文件夹'),
     )!;
     await act(async () => {
-      pickBtn.click();
+      browseBtn.click();
       await new Promise((r) => setTimeout(r, 0));
     });
     expect(fns.onSelect).not.toHaveBeenCalled();
@@ -231,7 +303,7 @@ describe('DirectoryPickerModal', () => {
   });
 
   it('validates path via browse API and selects it for confirmation', async () => {
-    const canonicalPath = '/home/user';
+    const canonicalPath = '/home/user/new-path';
     mockApiFetch.mockImplementation((path: string) => {
       if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH });
       if (path === '/api/backlog/items') return jsonOk({ items: [] });
@@ -246,7 +318,7 @@ describe('DirectoryPickerModal', () => {
     ) as HTMLInputElement;
     act(() => {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
-      nativeInputValueSetter.call(input, '/home/user');
+      nativeInputValueSetter.call(input, '/home/user/new-path');
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await flush();

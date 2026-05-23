@@ -6,21 +6,24 @@
  *   node-pty attach → WebSocket → xterm.js (人类侧, read-only)
  */
 
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import type { ReadStream } from 'node:fs';
-import { createReadStream } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { closeSync, constants, createReadStream, openSync, statSync } from 'node:fs';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Interface as ReadlineInterface } from 'node:readline';
 import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
+import { createModuleLogger } from '../../infrastructure/logger.js';
 import { resolveCliTimeoutMs } from '../../utils/cli-timeout.js';
 import type { CliSpawnOptions } from '../../utils/cli-types.js';
 // parseNDJSON not used directly — we create readline inline for killability.
 import type { SpawnCliOverride } from '../cats/services/types.js';
 import type { AgentPaneRegistry } from './agent-pane-registry.js';
 import type { TmuxGateway } from './tmux-gateway.js';
+
+const log = createModuleLogger('tmux-spawner');
 
 const execAsync = promisify(execFile);
 
@@ -46,10 +49,19 @@ function shellEscape(s: string): string {
   return `'${s.replace(/'/g, "'\"'\"'")}'`;
 }
 
-/** Build: set -o pipefail; command args 2>&1 | tee $FIFO; echo "EXIT:$?" > $EXIT_FILE */
-function buildPaneCommand(opts: TmuxSpawnOptions, fifoPath: string, exitFilePath: string): string {
+/** Build: set -o pipefail; command args | tee $FIFO; echo "EXIT:$?" > $EXIT_FILE */
+function buildPaneCommand(
+  opts: TmuxSpawnOptions,
+  fifoPath: string,
+  exitFilePath: string,
+  stderrFilePath: string,
+): string {
   const parts = [shellEscape(opts.command), ...opts.args.map(shellEscape)];
   // pipefail ensures $? reflects the CLI exit code, not tee's
+  if (opts.outputMode === 'plainText') {
+    const stderrFile = shellEscape(stderrFilePath);
+    return `set -o pipefail; ${parts.join(' ')} 2> ${stderrFile} | tee ${shellEscape(fifoPath)}; echo "EXIT:$?" > ${shellEscape(exitFilePath)}; cat ${stderrFile} >&2`;
+  }
   return `set -o pipefail; ${parts.join(' ')} 2>&1 | tee ${shellEscape(fifoPath)}; echo "EXIT:$?" > ${shellEscape(exitFilePath)}`;
 }
 
@@ -78,11 +90,14 @@ export async function* spawnCliInTmux(
 ): AsyncGenerator<unknown, TmuxSpawnResult, undefined> {
   const { tmuxGateway } = deps;
   const idleTimeoutMs = resolveCliTimeoutMs(options.timeoutMs);
-  const firstEventTimeoutMs = options.firstEventTimeoutMs ?? DEFAULT_FIRST_EVENT_TIMEOUT_MS;
+  const firstEventTimeoutMs =
+    options.firstEventTimeoutMs ??
+    (options.outputMode === 'plainText' ? idleTimeoutMs : DEFAULT_FIRST_EVENT_TIMEOUT_MS);
 
   const tmpDir = await mkdtemp(join(tmpdir(), `catcafe-agent-${options.invocationId}-`));
   const fifoPath = join(tmpDir, 'output.fifo');
   const exitFilePath = join(tmpDir, 'exit-code');
+  const stderrFilePath = join(tmpDir, 'stderr.log');
   await execAsync('mkfifo', [fifoPath]);
 
   const paneId = await tmuxGateway.createAgentPane(options.worktreeId, {
@@ -99,7 +114,11 @@ export async function* spawnCliInTmux(
     await new Promise((r) => setTimeout(r, 100));
   }
 
-  await tmuxGateway.execInPane(options.worktreeId, paneId, buildPaneCommand(options, fifoPath, exitFilePath));
+  await tmuxGateway.execInPane(
+    options.worktreeId,
+    paneId,
+    buildPaneCommand(options, fifoPath, exitFilePath, stderrFilePath),
+  );
   // Set read-only AFTER command starts (select-pane -d blocks send-keys if set before)
   await tmuxGateway.setPaneReadOnly(options.worktreeId, paneId, true);
   yield { __tmuxPaneCreated: true, paneId, worktreeId: options.worktreeId } as unknown;
@@ -109,21 +128,69 @@ export async function* spawnCliInTmux(
   let gotFirstEvent = false;
   let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
   let firstEventTimer: ReturnType<typeof setTimeout> | null = null;
+  let stderrPollTimer: ReturnType<typeof setInterval> | null = null;
+  let observedStderrSize = 0;
+  let observedStderrMtimeMs = 0;
   // CRITICAL: Hold references so killAgent can close readline to unblock `for await`.
   let fifoStream: ReadStream | null = null;
   let rl: ReadlineInterface | null = null;
+  // Track floating killAgent() promises from abort/timeout handlers so the finally
+  // block can await them — prevents process.exit(0) from failing to terminate in
+  // node:test worker processes when FIFO fds are still pending cleanup.
+  let killPromise: Promise<void> | null = null;
 
   const killAgent = async (): Promise<void> => {
     if (killed) return;
     killed = true;
-    // Close readline to unblock `for await (rl)`. stream.destroy() alone
-    // doesn't unblock readline's async iterator — rl.close() is required.
+    // Step 1: Close readline FIRST to unblock `for await (rl)` in the generator.
+    // This must happen before killing the pane so the generator loop can exit
+    // and the caller can consume the __cliTimeout yield.
     if (rl) {
       try {
         rl.close();
       } catch {
         /* best-effort */
       }
+    }
+    // Step 2: Kill the tmux pane (which is the write end of the FIFO).
+    // We must kill the pane BEFORE destroying fifoStream — on macOS/Linux,
+    // destroying a ReadStream on a FIFO does not release the fd until the
+    // write end is closed. If the tmux process is still writing, the fd
+    // stays open and keeps the Node event loop alive.
+    const sock = tmuxGateway.socketName(options.worktreeId);
+    const bin = tmuxGateway.tmuxBin;
+    try {
+      execFileSync(bin, ['-L', sock, 'send-keys', '-t', paneId, 'C-c', ''], { stdio: 'ignore' });
+    } catch {
+      // Pane already dead — skip grace period, go straight to stream cleanup.
+      destroyFifoStream();
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 3000));
+    try {
+      execFileSync(bin, ['-L', sock, 'kill-pane', '-t', paneId], { stdio: 'ignore' });
+    } catch {
+      /* pane exited during grace period */
+    }
+    // Step 3: Now that the write end (tmux pane) is dead, destroy the
+    // FIFO ReadStream. The fd will release immediately since no writer remains.
+    destroyFifoStream();
+  };
+
+  /**
+   * Destroy fifoStream safely. When killAgent runs before the FIFO's
+   * writer (tee in tmux pane) has connected, the underlying fs.open()
+   * syscall blocks in the kernel indefinitely, leaving an orphaned
+   * FSReqCallback that prevents Node from exiting. Opening the write
+   * end with O_WRONLY|O_NONBLOCK unblocks that pending open() so
+   * destroy() can complete cleanly.
+   */
+  const destroyFifoStream = (): void => {
+    try {
+      const wfd = openSync(fifoPath, constants.O_WRONLY | constants.O_NONBLOCK);
+      closeSync(wfd);
+    } catch {
+      /* FIFO already deleted or no reader — safe to ignore */
     }
     if (fifoStream) {
       try {
@@ -133,56 +200,68 @@ export async function* spawnCliInTmux(
         /* best-effort */
       }
     }
-    const sock = tmuxGateway.socketName(options.worktreeId);
-    const bin = tmuxGateway.tmuxBin;
-    // Phase 1: Send C-c (graceful interrupt)
-    try {
-      await execAsync(bin, ['-L', sock, 'send-keys', '-t', paneId, 'C-c', '']);
-    } catch {
-      /* pane already dead — nothing to kill */
-      return;
-    }
-    // Phase 2: Wait 3s grace, then force kill-pane if still alive
-    await new Promise((r) => setTimeout(r, 3000));
-    try {
-      // Check if pane still exists before killing
-      await execAsync(bin, ['-L', sock, 'list-panes', '-t', paneId]);
-      await execAsync(bin, ['-L', sock, 'kill-pane', '-t', paneId]);
-    } catch {
-      /* pane exited during grace period — expected */
-    }
   };
 
   /** Reset the idle timeout (fires after each valid NDJSON event). */
   const resetIdleTimeout = (): void => {
     if (idleTimeoutMs === 0) return;
     if (timeoutTimer) clearTimeout(timeoutTimer);
-    timeoutTimer = setTimeout(async () => {
-      console.error('[tmux-agent] idle timeout fired', {
-        invocationId: options.invocationId,
-        paneId,
-        idleTimeoutMs,
-      });
+    timeoutTimer = setTimeout(() => {
+      log.error({ invocationId: options.invocationId, paneId, idleTimeoutMs }, 'Idle timeout fired');
       timedOut = true;
-      await killAgent();
+      killPromise ??= killAgent();
+      killPromise.catch(() => {});
     }, idleTimeoutMs);
     if (timeoutTimer && typeof timeoutTimer === 'object' && 'unref' in timeoutTimer) {
       timeoutTimer.unref();
     }
   };
 
+  const recordPlainTextActivity = (): void => {
+    if (!gotFirstEvent) {
+      gotFirstEvent = true;
+      if (firstEventTimer) {
+        clearTimeout(firstEventTimer);
+        firstEventTimer = null;
+      }
+    }
+    resetIdleTimeout();
+  };
+
+  const pollStderrActivity = (): void => {
+    if (options.outputMode !== 'plainText' || killed) return;
+    try {
+      const stat = statSync(stderrFilePath);
+      const changed = stat.size > observedStderrSize || stat.mtimeMs > observedStderrMtimeMs;
+      observedStderrSize = Math.max(observedStderrSize, stat.size);
+      observedStderrMtimeMs = Math.max(observedStderrMtimeMs, stat.mtimeMs);
+      if (changed && stat.size > 0) recordPlainTextActivity();
+    } catch {
+      /* stderr file may not exist before the CLI writes its first stderr byte */
+    }
+  };
+
+  const startPlainTextStderrWatcher = (): void => {
+    if (options.outputMode !== 'plainText' || idleTimeoutMs === 0) return;
+    const pollMs = Math.max(50, Math.min(250, Math.floor(idleTimeoutMs / 4)));
+    stderrPollTimer = setInterval(pollStderrActivity, pollMs);
+    if (stderrPollTimer && typeof stderrPollTimer === 'object' && 'unref' in stderrPollTimer) {
+      stderrPollTimer.unref();
+    }
+  };
+
   /** Start the first-event timeout (pane spawned but no valid NDJSON yet). */
   const startFirstEventTimeout = (): void => {
     if (firstEventTimeoutMs === 0) return;
-    firstEventTimer = setTimeout(async () => {
+    firstEventTimer = setTimeout(() => {
       if (gotFirstEvent) return; // Race: event arrived just as timer fired
-      console.error('[tmux-agent] first event timeout — CLI may have failed to start', {
-        invocationId: options.invocationId,
-        paneId,
-        firstEventTimeoutMs,
-      });
+      log.error(
+        { invocationId: options.invocationId, paneId, firstEventTimeoutMs },
+        'First event timeout — CLI may have failed to start',
+      );
       timedOut = true;
-      await killAgent();
+      killPromise ??= killAgent();
+      killPromise.catch(() => {});
     }, firstEventTimeoutMs);
     if (firstEventTimer && typeof firstEventTimer === 'object' && 'unref' in firstEventTimer) {
       firstEventTimer.unref();
@@ -190,9 +269,11 @@ export async function* spawnCliInTmux(
   };
 
   startFirstEventTimeout();
+  startPlainTextStderrWatcher();
 
   const abortHandler = (): void => {
-    killAgent().catch(() => {});
+    killPromise ??= killAgent();
+    killPromise.catch(() => {});
   };
   if (options.signal) {
     if (options.signal.aborted) await killAgent();
@@ -200,42 +281,71 @@ export async function* spawnCliInTmux(
   }
 
   try {
+    if (killed) {
+      return { paneId };
+    }
+
     // createReadStream queues open() asynchronously — it doesn't block here.
     // The actual open() blocks at the kernel level until tee connects as writer.
-    // rl.close() in killAgent unblocks `for await` even if open() is still pending.
+    // killAgent closes the active reader/stream to unblock `for await`.
     fifoStream = createReadStream(fifoPath, { encoding: 'utf-8' });
-    rl = createInterface({ input: fifoStream, crlfDelay: Infinity });
+    const plainTextChunks: string[] = [];
     try {
-      for await (const line of rl) {
-        const trimmed = line.trim();
-        if (trimmed.length === 0) continue;
-        let event: unknown;
-        try {
-          event = JSON.parse(trimmed);
-        } catch {
-          console.error(`[tmux-agent] JSON parse error: ${trimmed}`);
-          continue;
+      if (options.outputMode === 'plainText') {
+        for await (const chunk of fifoStream) {
+          const text = chunk.toString();
+          plainTextChunks.push(text);
+          if (text.length > 0) recordPlainTextActivity();
         }
-        // Mark first event and switch from first-event timeout to idle timeout.
-        if (!gotFirstEvent) {
-          gotFirstEvent = true;
-          if (firstEventTimer) {
-            clearTimeout(firstEventTimer);
-            firstEventTimer = null;
+      } else {
+        rl = createInterface({ input: fifoStream, crlfDelay: Infinity });
+        for await (const line of rl) {
+          const trimmed = line.trim();
+          if (trimmed.length === 0) continue;
+          let event: unknown;
+          try {
+            event = JSON.parse(trimmed);
+          } catch {
+            log.error({ line: trimmed }, 'JSON parse error');
+            continue;
           }
+          // Mark first event and switch from first-event timeout to idle timeout.
+          if (!gotFirstEvent) {
+            gotFirstEvent = true;
+            if (firstEventTimer) {
+              clearTimeout(firstEventTimer);
+              firstEventTimer = null;
+            }
+          }
+          // Reset idle timeout only on valid NDJSON events.
+          // Invalid output should not mask a hung CLI.
+          resetIdleTimeout();
+          yield event;
         }
-        // Reset idle timeout only on valid NDJSON events.
-        // Invalid output should not mask a hung CLI.
-        resetIdleTimeout();
-        yield event;
       }
     } catch (streamErr) {
-      // When killAgent() destroys the FIFO stream, readline throws
+      // When killAgent() destroys the FIFO stream, the active reader throws
       // ERR_STREAM_PREMATURE_CLOSE or ERR_USE_AFTER_CLOSE. This is expected.
       if (!killed) throw streamErr;
     }
 
     const exitCode = await readExitCode(exitFilePath);
+    if (options.outputMode === 'plainText') {
+      let stderr = '';
+      try {
+        stderr = await readFile(stderrFilePath, 'utf-8');
+      } catch {
+        /* stderr file may be absent if pane startup failed before redirection */
+      }
+      yield {
+        __cliPlainText: true,
+        stdout: plainTextChunks.join(''),
+        stderr,
+        exitCode,
+        signal: null,
+        command: options.command,
+      };
+    }
     if (!killed && exitCode !== null && exitCode !== 0) {
       yield {
         __cliError: true,
@@ -259,7 +369,25 @@ export async function* spawnCliInTmux(
   } finally {
     if (timeoutTimer) clearTimeout(timeoutTimer);
     if (firstEventTimer) clearTimeout(firstEventTimer);
+    if (stderrPollTimer) clearInterval(stderrPollTimer);
     if (options.signal) options.signal.removeEventListener('abort', abortHandler);
+    if (killPromise) {
+      try {
+        await killPromise;
+      } catch {
+        /* best-effort — killAgent errors are non-fatal */
+      }
+    }
+    if (rl) {
+      try {
+        rl.close();
+      } catch {
+        /* best-effort */
+      }
+      rl = null;
+    }
+    destroyFifoStream();
+    fifoStream = null;
     try {
       await rm(tmpDir, { recursive: true, force: true });
     } catch {

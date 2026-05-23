@@ -7,17 +7,20 @@
  *   - hybrid: allow N compressions, then seal (hook-capable providers only)
  *
  * Lookup order (Phase 3):
- *   test override → runtime override (Redis, per-variant) → cat-config.json (breed) → STRATEGY_BY_BREED → provider default → global default
+ *   test override → runtime override (Redis, per-variant) → resolved cat config (breed) → STRATEGY_BY_BREED → provider default → global default
  *
- * Phase 2: seal-thresholds.ts merged into this file; cat-config.json integration added.
+ * Phase 2: seal-thresholds.ts merged into this file; runtime config integration added.
  * Phase 3: Runtime override via Redis + settings UI.
  */
 
 import type { ContextHealthConfig, SessionStrategyConfig, StrategyAction } from '@cat-cafe/shared';
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import { catRegistry } from '@cat-cafe/shared';
+import { createModuleLogger } from '../infrastructure/logger.js';
 import { resolveBreedId } from './breed-resolver.js';
 import { getConfigSessionStrategy } from './cat-config-loader.js';
 import { getRuntimeOverride } from './session-strategy-overrides.js';
+
+const log = createModuleLogger('session-strategy');
 
 // ── Default Configurations ──
 
@@ -88,7 +91,7 @@ export type StrategySource = 'runtime_override' | 'config_file' | 'breed_code' |
  * Lookup order (Phase 3):
  * 1. Test override (testing only)
  * 2. Runtime override (Redis, per-variant) — Phase 3 UI writes here
- * 3. cat-config.json features.sessionStrategy (Phase 2: config-driven, breed level)
+ * 3. Resolved cat config features.sessionStrategy (Phase 2: config-driven, breed level)
  * 4. STRATEGY_BY_BREED code override
  * 5. Provider default → global default
  */
@@ -135,7 +138,7 @@ function resolveFallbackStrategy(catName: string): {
 } {
   const base = getBaseStrategy(catName);
 
-  // Phase 2: cat-config.json features.sessionStrategy (breed level)
+  // Phase 2: resolved cat config features.sessionStrategy (breed level)
   const configOverride = getConfigSessionStrategy(catName);
   if (configOverride) {
     return { effective: mergeStrategyConfig(base, configOverride), source: 'config_file' };
@@ -149,7 +152,7 @@ function resolveFallbackStrategy(catName: string): {
   }
 
   // Provider default or global default
-  const provider = catRegistry.tryGet(catName)?.config.provider ?? CAT_CONFIGS[catName]?.provider;
+  const provider = catRegistry.tryGet(catName)?.config.clientId;
   if (provider && DEFAULT_STRATEGY_BY_PROVIDER[provider]) {
     return { effective: base, source: 'provider_default' };
   }
@@ -176,8 +179,8 @@ export function mergeStrategyConfig(
 }
 
 function getBaseStrategy(catName: string): SessionStrategyConfig {
-  // Try catRegistry first (runtime, includes variants), then static CAT_CONFIGS fallback
-  const provider = catRegistry.tryGet(catName)?.config.provider ?? CAT_CONFIGS[catName]?.provider;
+  // Read from catRegistry (.cat-cafe/cat-catalog.json)
+  const provider = catRegistry.tryGet(catName)?.config.clientId;
   if (provider) {
     const providerDefault = DEFAULT_STRATEGY_BY_PROVIDER[provider];
     if (providerDefault) return providerDefault;
@@ -193,13 +196,12 @@ function validateProviderCapability(config: SessionStrategyConfig, catName: stri
   if (config.strategy !== 'hybrid') return config;
 
   const entry = catRegistry.tryGet(catName);
-  const provider = entry?.config.provider;
+  const provider = entry?.config.clientId;
 
   if (!provider || !HOOK_CAPABLE_PROVIDERS.has(provider)) {
-    console.warn(
-      `[session-strategy] hybrid strategy configured for "${catName}" ` +
-        `but provider "${provider ?? 'unknown'}" lacks compression signal hook. ` +
-        'Degrading to handoff.',
+    log.warn(
+      { catName, provider },
+      'hybrid strategy configured but provider lacks compression signal hook, degrading to handoff',
     );
     return { ...config, strategy: 'handoff' };
   }
@@ -226,8 +228,20 @@ export function shouldTakeAction(
   const safetyMargin = strategy.safetyMargin ?? 4_000;
   const remaining = windowTokens - usedTokens;
 
-  // Budget exhausted → must seal regardless of strategy
+  // Budget exhausted — strategy-aware:
+  // - compress: CLI will free space by compressing, don't pre-emptively seal
+  // - hybrid: allow compress if compressions remain, seal only when max reached
+  // - handoff: seal immediately
   if (remaining < turnBudget + safetyMargin) {
+    if (strategy.strategy === 'compress') {
+      return { type: 'allow_compress' };
+    }
+    if (strategy.strategy === 'hybrid') {
+      const max = strategy.hybrid?.maxCompressions ?? 2;
+      if (compressionCount < max) {
+        return { type: 'allow_compress' };
+      }
+    }
     return { type: 'seal', reason: 'budget_exhausted' };
   }
 

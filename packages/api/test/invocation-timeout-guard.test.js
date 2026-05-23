@@ -18,6 +18,15 @@ async function collect(iterable) {
   return msgs;
 }
 
+async function withKeepAlive(promise, ms = 1_000) {
+  const keepAlive = setTimeout(() => {}, ms);
+  try {
+    return await promise;
+  } finally {
+    clearTimeout(keepAlive);
+  }
+}
+
 let invokeSingleCat;
 let savedAuditLogDir;
 let savedCliTimeoutMs;
@@ -47,7 +56,7 @@ describe('invocation-level hard timeout (F089)', () => {
     return {
       registry: {
         create: () => ({ invocationId: `inv-timeout-${++counter}`, callbackToken: `tok-${counter}` }),
-        verify: () => null,
+        verify: async () => ({ ok: false, reason: 'unknown_invocation' }),
       },
       sessionManager: {
         get: async () => undefined,
@@ -57,7 +66,7 @@ describe('invocation-level hard timeout (F089)', () => {
         resolveWorkingDirectory: () => '/tmp/test',
       },
       threadStore: null,
-      apiUrl: 'your local Clowder API URL',
+      apiUrl: 'http://127.0.0.1:3004',
     };
   }
 
@@ -73,15 +82,17 @@ describe('invocation-level hard timeout (F089)', () => {
     };
 
     const start = Date.now();
-    const msgs = await collect(
-      invokeSingleCat(makeDeps(), {
-        catId: 'codex',
-        service: hangingService,
-        prompt: 'test',
-        userId: 'user1',
-        threadId: 'thread-hang',
-        isLastCat: true,
-      }),
+    const msgs = await withKeepAlive(
+      collect(
+        invokeSingleCat(makeDeps(), {
+          catId: 'codex',
+          service: hangingService,
+          prompt: 'test',
+          userId: 'user1',
+          threadId: 'thread-hang',
+          isLastCat: true,
+        }),
+      ),
     );
     const elapsed = Date.now() - start;
 
@@ -102,15 +113,17 @@ describe('invocation-level hard timeout (F089)', () => {
       },
     };
 
-    const msgs = await collect(
-      invokeSingleCat(makeDeps(), {
-        catId: 'codex',
-        service: hangingService,
-        prompt: 'test',
-        userId: 'user1',
-        threadId: 'thread-final',
-        isLastCat: true,
-      }),
+    const msgs = await withKeepAlive(
+      collect(
+        invokeSingleCat(makeDeps(), {
+          catId: 'codex',
+          service: hangingService,
+          prompt: 'test',
+          userId: 'user1',
+          threadId: 'thread-final',
+          isLastCat: true,
+        }),
+      ),
     );
 
     const doneMsg = msgs.find((m) => m.type === 'done');
@@ -196,5 +209,37 @@ describe('invocation-level hard timeout (F089)', () => {
       msgs.some((m) => m.type === 'error'),
       'cancel should produce error event',
     );
+  });
+
+  it('active invocations with steady progress should not hit invocation_timeout', async () => {
+    const progressiveService = {
+      async *invoke() {
+        yield { type: 'text', catId: 'codex', content: 'tick-1', timestamp: Date.now() };
+        await new Promise((r) => setTimeout(r, 150));
+        yield { type: 'text', catId: 'codex', content: 'tick-2', timestamp: Date.now() };
+        await new Promise((r) => setTimeout(r, 150));
+        yield { type: 'text', catId: 'codex', content: 'tick-3', timestamp: Date.now() };
+        await new Promise((r) => setTimeout(r, 150));
+        yield { type: 'done', catId: 'codex', isFinal: true, timestamp: Date.now() };
+      },
+    };
+
+    const msgs = await withKeepAlive(
+      collect(
+        invokeSingleCat(makeDeps(), {
+          catId: 'codex',
+          service: progressiveService,
+          prompt: 'test',
+          userId: 'user1',
+          threadId: 'thread-progress',
+          isLastCat: true,
+        }),
+      ),
+      2_000,
+    );
+
+    const hasInvocationError = msgs.some((m) => m.type === 'error' && m.error?.includes?.('invocation_timeout'));
+    assert.ok(!hasInvocationError, 'steady progress should keep invocation alive');
+    assert.equal(msgs.filter((m) => m.type === 'text').length, 3, 'should receive all progress events before done');
   });
 });

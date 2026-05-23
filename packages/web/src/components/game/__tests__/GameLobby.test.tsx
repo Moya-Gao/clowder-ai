@@ -5,14 +5,14 @@ import { GameLobby } from '../GameLobby';
 
 Object.assign(globalThis as Record<string, unknown>, { React });
 
-const mockCats = [
+const mockCats: React.ComponentProps<typeof GameLobby>['cats'] = [
   {
     id: 'opus',
     displayName: '宪宪',
     color: { primary: '#8B5CF6', secondary: '#7C3AED' },
     avatar: '/avatars/opus.png',
     mentionPatterns: ['opus'],
-    provider: 'anthropic',
+    clientId: 'anthropic',
     defaultModel: 'claude-opus-4-6',
     roleDescription: '架构',
     personality: '',
@@ -23,7 +23,7 @@ const mockCats = [
     color: { primary: '#6366F1', secondary: '#4F46E5' },
     avatar: '/avatars/sonnet.png',
     mentionPatterns: ['sonnet'],
-    provider: 'anthropic',
+    clientId: 'anthropic',
     defaultModel: 'claude-sonnet',
     roleDescription: '快速',
     personality: '',
@@ -34,23 +34,22 @@ const mockCats = [
     color: { primary: '#10B981', secondary: '#059669' },
     avatar: '/avatars/codex.png',
     mentionPatterns: ['codex'],
-    provider: 'openai',
+    clientId: 'openai',
     defaultModel: 'gpt-5.3-codex',
     roleDescription: 'review',
     personality: '',
   },
 ];
 
-function render(props: Partial<Parameters<typeof GameLobby>[0]> = {}): string {
-  return renderToStaticMarkup(
-    React.createElement(GameLobby, {
-      mode: 'player',
-      cats: mockCats,
-      onConfirm: () => {},
-      onCancel: () => {},
-      ...props,
-    }),
-  );
+function render(props: Partial<React.ComponentProps<typeof GameLobby>> = {}): string {
+  const merged: React.ComponentProps<typeof GameLobby> = {
+    mode: 'player',
+    cats: mockCats,
+    onConfirm: () => {},
+    onCancel: () => {},
+    ...props,
+  };
+  return renderToStaticMarkup(React.createElement(GameLobby, merged));
 }
 
 describe('GameLobby', () => {

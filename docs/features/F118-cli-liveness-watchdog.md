@@ -8,7 +8,7 @@ created: 2026-03-14
 
 # F118: CLI Liveness Watchdog & Session Recovery — CLI 进程活性守卫 + 会话恢复
 
-> **Status**: done | **Owner**: Ragdoll + Maine Coon | **Priority**: P0 | **Completed**: 2026-03-14 | **Follow-up Hardening**: closed (PR #492, 2026-03-16)
+> **Status**: done (Phase D closed) | **Owner**: Ragdoll + Maine Coon | **Priority**: P0 | **Completed**: 2026-03-14 | **Follow-up Hardening**: closed (PR #492, 2026-03-16) | **GAP-2**: Phase D closed — D1 merged (PR #1105), D2 merged (PR #1108), D3+D4 merged (PR #1109), all 2026-04-12
 
 ## Why
 
@@ -233,6 +233,20 @@ CLI 挂了 (liveness, Phase A+B ✅)
 - **第三刀**：`IncrementalContextResult.degradation` 字段 + route-serial/route-parallel 的 `system_info` yield
 
 **测试覆盖**：14 个测试（10 count-cap + 4 token-budget），覆盖 cursor=undefined、stale cursor 大批量、fallback 注入不回归、极端 token 压力（200 条长消息 ~500K tokens >> 160K budget）
+
+### GAP-2: Circuit Breaker failure count 在 `cli_session_replaced` 时被洗掉（2026-04-11）
+
+**现象**：两个线程的 `@gpt52` mention 5+ 分钟无响应。session chain 显示 `seq0` sealed（`cli_session_replaced`），`seq1` active 但 `messageCount=0`。
+
+**根因**：AC-C6 的 overflow circuit breaker 实现有 loophole。`invoke-single-cat.ts:1109` 在收到新 `session_init`（CLI 换了 session）时，通过 `sessionChainStore.create()` 创建新 active record，但**不继承** `consecutiveRestoreFailures`。新 record 从 0 开始 → 熔断阈值（3）永远达不到 → 循环卡死无限重复。
+
+**发现者**：Maine Coon(GPT-5.4) 在侦探猫猫调查中定位，Ragdoll(Opus) 代码验证确认。
+
+**D1 已合入**（PR #1105, 2026-04-12）：`create()` + immediate `update()` 继承 `consecutiveRestoreFailures`，熔断器现在能正确触发。
+
+**D2 已合入**（PR #1108, 2026-04-12）：`spawn_started` socket event + per-cat spawning UI + D1 P3 多轮替换回归测试。填补 intent_mode 盲区（0-2min），ThinkingIndicator 显示"启动中..."。
+
+**D3+D4 已合入**（PR #1109, 2026-04-12）：纵深防御层。D3: InvocationTracker TTL guard — `has()` 对超过 75min（2.5× CLI timeout）的 slot 自动清理返回 false。D4: QueueProcessor zombie defense — `processingSlots` 从 `Set` 改为 `Map<string, number>`（记录 startedAt），三入口加 `sweepZombieSlots()`，双重确认（TTL 超时 + tracker.has() 为 false）防误杀。Phase D 全部完成。
 
 ## Key Decisions
 

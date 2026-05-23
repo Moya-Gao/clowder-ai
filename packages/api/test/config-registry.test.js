@@ -94,7 +94,7 @@ describe('ConfigRegistry', () => {
   });
 
   it('shows redis=connected when REDIS_URL is set', async () => {
-    setEnv('REDIS_URL', 'redis://localhost:6379');
+    setEnv('REDIS_URL', 'redis://localhost:6399');
 
     const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
     const snapshot = collectConfigSnapshot();
@@ -102,15 +102,27 @@ describe('ConfigRegistry', () => {
     assert.equal(snapshot.server.redis, 'connected');
   });
 
-  it('populates cats from CAT_CONFIGS', async () => {
+  it('populates cats from runtime config', async () => {
     const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
     const snapshot = collectConfigSnapshot();
 
     assert.ok(snapshot.cats.opus, 'has opus');
     assert.ok(snapshot.cats.opus.displayName, 'opus has displayName');
-    assert.ok(snapshot.cats.opus.provider, 'opus has provider');
+    assert.ok(snapshot.cats.opus.clientId, 'opus has clientId');
     assert.ok(snapshot.cats.opus.model, 'opus has model');
     assert.equal(typeof snapshot.cats.opus.mcpSupport, 'boolean', 'opus has mcpSupport');
+  });
+
+  it('surfaces co-creator metadata for the hub overview', async () => {
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    assert.ok(snapshot.coCreator, 'has co-creator metadata');
+    assert.ok(
+      typeof snapshot.coCreator.name === 'string' && snapshot.coCreator.name.length > 0,
+      'coCreator.name is a non-empty string',
+    );
+    assert.ok(Array.isArray(snapshot.coCreator.mentionPatterns), 'coCreator.mentionPatterns is an array');
   });
 
   it('reads MAX_A2A_DEPTH from env', async () => {
@@ -165,10 +177,15 @@ describe('ConfigRegistry', () => {
     const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
     const snapshot = collectConfigSnapshot();
 
-    // gemini has highest token budget (200k), opus (150k) > codex (100k)
+    // MAX_PROMPT_TOKENS may flatten prompt budgets via env, so compare the
+    // cat-specific aggregate context budget that still differs by breed.
     assert.ok(
-      snapshot.perCatBudgets.gemini.maxPromptTokens > snapshot.perCatBudgets.opus.maxPromptTokens,
-      'gemini should have higher maxPromptTokens than opus (largest context window)',
+      snapshot.perCatBudgets.gemini.maxContextTokens > snapshot.perCatBudgets.codex.maxContextTokens,
+      'gemini should have higher maxContextTokens than codex',
+    );
+    assert.ok(
+      snapshot.perCatBudgets.codex.maxContextTokens > snapshot.perCatBudgets.opus.maxContextTokens,
+      'codex should have higher maxContextTokens than opus',
     );
   });
 
@@ -199,7 +216,7 @@ describe('ConfigRegistry', () => {
     assert.equal(snapshot.deliberate.status, 'types_only');
   });
 
-  it('snapshot contains all 11 categories (Phase 5.1, post-Hindsight)', async () => {
+  it('snapshot contains all config categories', async () => {
     const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
     const snapshot = collectConfigSnapshot();
 
@@ -216,6 +233,7 @@ describe('ConfigRegistry', () => {
       'governance',
       'deliberate',
       'codexExecution',
+      'ui',
     ];
     for (const cat of categories) {
       assert.ok(snapshot[cat], `has ${cat}`);

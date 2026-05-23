@@ -6,11 +6,15 @@
 
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, describe, it } from 'node:test';
-import { assertRedisIsolationOrThrow, cleanupPrefixedRedisKeys } from './helpers/redis-test-helpers.js';
+import {
+  assertRedisIsolationOrThrow,
+  cleanupPrefixedRedisKeys,
+  redisIsolationSkipReason,
+} from './helpers/redis-test-helpers.js';
 
 const REDIS_URL = process.env.REDIS_URL;
 
-describe('RedisSessionChainStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }, () => {
+describe('RedisSessionChainStore', { skip: redisIsolationSkipReason(REDIS_URL) }, () => {
   let RedisSessionChainStore;
   let createRedisClient;
   let redis;
@@ -164,6 +168,41 @@ describe('RedisSessionChainStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : fa
     const updated = await store.update(record.id, { contextHealth: health });
     assert.ok(updated);
     assert.deepEqual(updated.contextHealth, health);
+  });
+
+  it('update() persists continuityCapsule across hydrated lookup paths', async () => {
+    const record = await store.create(BASE_INPUT);
+    const capsule = {
+      version: 1,
+      source: 'route-state',
+      boundary: 'compact',
+      threadId: 'thread-1',
+      catId: 'opus',
+      mode: 'serial',
+      directReplyToMessageId: 'msg-direct',
+      a2a: {
+        exitCheckRequired: true,
+        nextMention: 'codex',
+      },
+      handoff: {
+        fromCatId: 'opus',
+        toCatId: 'codex',
+        reason: 'review-ready',
+      },
+    };
+
+    const updated = await store.update(record.id, { continuityCapsule: capsule });
+    assert.ok(updated);
+    assert.deepEqual(updated.continuityCapsule, capsule);
+
+    const byId = await store.get(record.id);
+    assert.deepEqual(byId.continuityCapsule, capsule);
+
+    const active = await store.getActive('opus', 'thread-1');
+    assert.deepEqual(active.continuityCapsule, capsule);
+
+    const byCli = await store.getByCliSessionId('cli-sess-1');
+    assert.deepEqual(byCli.continuityCapsule, capsule);
   });
 
   it('update() returns null for non-existent id', async () => {

@@ -27,7 +27,9 @@ triggers:
 | `quality-gate` 通过 | 有本轮 gate report | BLOCKED — 先跑 quality-gate |
 | 测试全绿 | 附测试命令输出 | BLOCKED — 修到绿灯再发 |
 | 原始需求可引用 | Discussion/Interview 文档路径 + ≤5 行摘录 | BLOCKED — reviewer 有权拒绝审查 |
+| Architecture ownership 已声明 | 附 `Architecture cell` / `Map delta` / `Why` | BLOCKED — 回 Design Gate / plan 补齐 |
 | 前端改动已浏览器实测 | Playwright/Chrome 截图证据 | BLOCKED — 涉及前端必须真实打开浏览器验证 |
+| 根目录工件闸门通过 | 无根目录媒体/设计工件（工作树 + 已提交差异） | BLOCKED — 先归档/清理再发 |
 
 > **教训（F041）**：review 信只附了 spec，没附原始 Discussion。结果 10 轮云端 review 全在抓 edge case，没有一轮说"UI 不可用"。Reviewer 没有上下文，无法做愿景验证。
 
@@ -58,10 +60,17 @@ BEFORE 发 review 请求:
 1. 确认 quality-gate 已通过（拿到本轮 gate report）
 2. 确认测试全绿（附这次真实运行的输出）
 3. 找到原始 Discussion 文档路径 + 摘录 ≤5 行铲屎官原话
-4. 检查 worktree 工具落点（git status 干净）
-5. 匹配 reviewer（跨 family 优先）
-6. 用模板写 review 请求 → 存档 mailbox
-7. 发给 reviewer
+4. 抄入 Architecture ownership 三字段（F191）：
+   - `Architecture cell: ...`
+   - `Map delta: none | update required | new cell required`
+   - `Why: ...`
+5. 检查 worktree 工具落点（git status 干净）
+5.5 检查根目录工件闸门（两条都要为空）：
+   - `git status --short | rg '^.. [^/]+\.(png|jpe?g|webp|gif|webm|mp4|mov|wav|pdf|pen)$'`
+   - `git diff --name-only origin/main...HEAD | rg '^[^/]+\.(png|jpe?g|webp|gif|webm|mp4|mov|wav|pdf|pen)$'`
+6. 匹配 reviewer（跨 family 优先）
+7. 用模板写 review 请求 → 存档 mailbox
+8. 发给 reviewer
 ```
 
 ## Review 请求
@@ -70,10 +79,46 @@ BEFORE 发 review 请求:
 
 关键字段提醒：
 - **Original Requirements**: 必填，≤5 行铲屎官原话 + 来源文档路径，并明确请 reviewer 对照判断
-- **Open Questions**: 标注 review 重点，帮 reviewer 快速定位
-- **自检证据**: 附 quality-gate report 摘要 + 测试命令输出
+- **Architecture Ownership**: 必填，列 `Architecture cell` / `Map delta` / `Why`，并请 reviewer 检查 diff 是否与 `Map delta` 一致
+- **Open Questions**: 分为两类——**技术 OQ**（给 reviewer 的，如实现正确性）和 **价值 OQ**（需要 CVO 判断的，附 Decision Packet——格式见 `refs/decision-matrix.md`）。不混在一起
+- **自检证据**: 附 quality-gate report 摘要 + 测试命令输出 + 根目录工件闸门输出
 
-存档：*(internal reference removed)*
+**F191 reviewer 视角**：
+- PR 是否新建了并行 `Store` / `Queue` / `Router` / `Adapter` / `Dispatcher` / `Binding`？
+- `Map delta: none` 是否与 diff 一致？
+- 若修改了 `docs/architecture/ownership/cells/*.md`，是否真是 owner/boundary/extension point/canonical anchor 变化？
+
+存档：`review-notes/YYYY-MM-DD-{topic}-review-request.md`
+
+### Review 沙盒约定（review-target-id）
+
+Review 请求必须包含 `review-target-id`，reviewer 据此创建标准路径的沙盒，merge-gate 回收时依赖此 ID。
+
+**review-target-id 推导规则：**
+- 分支名含 `fNNN` → 取 feature ID（如 `f113`）
+- 无 Feature ID → 取 branch slug（如 `fix-redis-keyprefix`）
+
+**在 review 请求信中附上：**
+```
+Review-Target-ID: {id}
+Branch: {branch-name}
+```
+
+**Reviewer 创建沙盒的标准路径：**
+```
+/tmp/cat-cafe-review/{review-target-id}/{reviewer-handle}
+```
+例：`/tmp/cat-cafe-review/f113/codex`
+
+**Reviewer 启动命令（统一入口）：**
+```
+pnpm review:start
+```
+说明：
+- 该入口默认在 review 沙盒内运行，自动分配隔离端口（起点 3201/3202）
+- review 请求信里必须记录实际启动端口（web/api）
+
+沙盒必须是 detached HEAD / read-only。要改代码 = TAKEOVER，开正式 worktree。
 
 ## Block 场景
 

@@ -1,14 +1,29 @@
-/**
- * Evidence Search Route
- * GET /api/evidence/search — search project knowledge via SQLite evidence store.
- *
- * Phase 5.0: Evidence-first search.
- */
-
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import type { IEvidenceStore, IIndexBuilder } from '../domains/memory/interfaces.js';
-import type { EvidenceResult } from './evidence-helpers.js';
+import { F163ExperimentLogger } from '../domains/memory/f163-experiment-logger.js';
+import {
+  applySalienceRerank,
+  computeVariantId,
+  freezeFlags,
+  getOrAssignCohort,
+  rankToConfidence,
+  type SalienceTaskContext,
+} from '../domains/memory/f163-types.js';
+import type {
+  EvidenceItem,
+  IEvidenceStore,
+  IIndexBuilder,
+  IKnowledgeResolver,
+  SearchExecutionMeta,
+  SearchOptions,
+} from '../domains/memory/interfaces.js';
+import type { RebuildJobTracker } from '../domains/memory/RebuildJobTracker.js';
+import {
+  type BoostSource,
+  type EvidenceResult,
+  mapKindToSourceType,
+  sanitizeEvidenceDrillDown,
+} from './evidence-helpers.js';
 
 /** Accepted query parameters — Phase D: scope/mode/depth added */
 const searchSchema = z.object({
@@ -17,38 +32,55 @@ const searchSchema = z.object({
   scope: z.enum(['docs', 'memory', 'threads', 'sessions', 'all']).optional(),
   mode: z.enum(['lexical', 'semantic', 'hybrid']).optional(),
   depth: z.enum(['summary', 'raw']).optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  contextWindow: z.coerce.number().int().min(1).max(5).optional(),
+  threadId: z.string().optional(),
+  dimension: z.enum(['project', 'global', 'library', 'collection', 'all']).optional(),
+  collections: z.string().optional(),
+  explain: z.enum(['true', '1']).optional(),
+  activeFeatureIds: z.string().optional(),
+  truthSourceRef: z.string().optional(),
+  recentArtifactRefs: z.string().optional(),
 });
 
-export type { EvidenceConfidence, EvidenceSourceType } from './evidence-helpers.js';
+export type {
+  EvidenceConfidence,
+  EvidenceFreshness,
+  EvidenceReimportTrigger,
+  EvidenceSourceType,
+} from './evidence-helpers.js';
 
-export interface EvidenceFreshness {
-  status: 'fresh' | 'stale' | 'unknown';
-  checkedAt: string;
-  headCommit?: string;
-  watermarkCommit?: string;
-  reason?: 'commit_match' | 'commit_mismatch' | 'watermark_missing' | 'head_unavailable';
-}
-
-export interface EvidenceReimportTrigger {
-  status: 'triggered' | 'cooldown' | 'skipped' | 'disabled' | 'failed';
-  reason?: string;
-  nextAllowedAt?: string;
-}
+import type { EvidenceFreshness, EvidenceReimportTrigger } from './evidence-helpers.js';
 
 export interface EvidenceSearchResponse {
   results: EvidenceResult[];
   degraded: boolean;
   degradeReason?: string;
+  /** Actual retrieval mode after resolver/store degradation handling. */
+  effectiveMode?: 'lexical' | 'semantic' | 'hybrid';
   freshness?: EvidenceFreshness;
   reimportTrigger?: EvidenceReimportTrigger;
+  /** F163: deterministic variant ID from frozen flag snapshot */
+  variantId: string;
+  /** F163: anchors of always_on docs injected into system prompt (not search results) */
+  injectionSources?: string[];
+  collectionGroups?: Array<{
+    collectionId: string;
+    sensitivity: string;
+    status: string;
+    itemCount: number;
+    durationMs: number;
+  }>;
+  deprecationWarnings?: string[];
 }
 
 export interface EvidenceRoutesOptions {
   docsRoot?: string;
-  /** F102: SQLite evidence store — the only backend */
   evidenceStore: IEvidenceStore;
-  /** F102 D-11: IndexBuilder for incremental reindex */
   indexBuilder?: IIndexBuilder;
+  knowledgeResolver?: IKnowledgeResolver;
+  rebuildJobTracker?: RebuildJobTracker;
 }
 
 export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (app, opts) => {
@@ -59,28 +91,192 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       return { error: 'Invalid query parameters', details: parseResult.error.issues };
     }
 
-    const { q, limit, scope, mode, depth } = parseResult.data;
+    const {
+      q,
+      limit,
+      scope,
+      mode,
+      depth,
+      dateFrom,
+      dateTo,
+      contextWindow,
+      threadId,
+      dimension,
+      collections: rawCollections,
+      explain: rawExplain,
+      activeFeatureIds: rawFeatureIds,
+      truthSourceRef,
+      recentArtifactRefs: rawArtifactRefs,
+    } = parseResult.data;
 
     const effectiveLimit = limit ?? 5;
+    // F163: freeze flags once per request, compute variant ID
+    const f163Flags = freezeFlags();
+    const rawVariantId = computeVariantId(f163Flags);
+    const anyF163Active = Object.values(f163Flags).some((v) => v !== 'off');
+    // P1-4: cohort sticky routing — same thread keeps same variant across flag changes
+    const db = (opts.evidenceStore as { getDb?: () => import('better-sqlite3').Database }).getDb?.();
+    const variantId = db && threadId ? getOrAssignCohort(db, threadId, rawVariantId) : rawVariantId;
+    const boostSource: BoostSource[] = anyF163Active
+      ? f163Flags.authorityBoost !== 'off'
+        ? ['authority_boost']
+        : ['legacy']
+      : ['legacy'];
     try {
-      const items = await opts.evidenceStore.search(q, { limit: effectiveLimit, scope, mode, depth });
-      const results: EvidenceResult[] = items.map((item) => ({
-        title: item.title,
-        anchor: item.anchor,
-        snippet: item.summary ?? '',
-        confidence: 'mid' as const,
-        sourceType: (item.kind === 'decision'
-          ? 'decision'
-          : item.kind === 'plan'
-            ? 'phase'
-            : 'discussion') as EvidenceResult['sourceType'],
+      const parsedCollections = rawCollections
+        ?.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const explain = rawExplain != null;
+      const searchOpts: SearchOptions = {
+        limit: effectiveLimit,
+        scope,
+        mode,
+        depth,
+        dateFrom,
+        dateTo,
+        contextWindow,
+        threadId,
+        dimension,
+        collections: parsedCollections,
+        explain,
+      };
+      let searchMeta: SearchExecutionMeta = { degraded: false };
+      // F-4: Use KnowledgeResolver for federated project + global search
+      const resolveResult = opts.knowledgeResolver ? await opts.knowledgeResolver.resolve(q, searchOpts) : null;
+      let items: EvidenceItem[];
+      if (resolveResult) {
+        items = resolveResult.results;
+        searchMeta = resolveResult.meta ?? missingResolverMeta(searchOpts);
+      } else {
+        if (opts.evidenceStore.searchWithMeta) {
+          const execution = await opts.evidenceStore.searchWithMeta(q, searchOpts);
+          items = execution.items;
+          searchMeta = execution.meta;
+        } else {
+          items = await opts.evidenceStore.search(q, searchOpts);
+          searchMeta = missingResolverMeta(searchOpts);
+        }
+      }
+      const resolvedSources = resolveResult?.sources;
+      // Tag per-result source when dimension is explicit (single-source)
+      const singleSource = resolvedSources && resolvedSources.length === 1 ? resolvedSources[0] : undefined;
+
+      // Phase F: assemble task context for salience gating (no-op when absent)
+      const salienceCtx: SalienceTaskContext = {
+        activeFeatureIds: rawFeatureIds
+          ? rawFeatureIds
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [],
+        truthSourceRef: truthSourceRef ?? null,
+        recentArtifactRefs: rawArtifactRefs
+          ? rawArtifactRefs
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [],
+      };
+
+      // Phase F: compute salience rerank for both shadow and on (shadow = log only)
+      const salienceResult = f163Flags.retrievalRerank !== 'off' ? applySalienceRerank(items, salienceCtx) : null;
+
+      // P1-1 fix: only apply reranked order to user-visible results when fully enabled
+      const reranked =
+        salienceResult && f163Flags.retrievalRerank === 'on' ? salienceResult : { items, scores: items.map(() => 1.0) };
+
+      const effectiveBoostSource: BoostSource[] =
+        f163Flags.retrievalRerank === 'on' ? [...boostSource, 'retrieval_rerank'] : boostSource;
+
+      const results: EvidenceResult[] = reranked.items.map((item, index) => {
+        const drillDown = sanitizeEvidenceDrillDown(item.drillDown);
+        return {
+          title: item.title,
+          anchor: item.anchor,
+          snippet: item.summary ?? '',
+          confidence: rankToConfidence(index),
+          sourceType: mapKindToSourceType(item.kind),
+          boostSource: effectiveBoostSource,
+          ...(item.authority ? { authority: item.authority } : {}),
+          ...(item.sourcePath ? { sourcePath: item.sourcePath } : {}),
+          ...(singleSource ? { source: singleSource } : {}),
+          ...(item.passages ? { passages: item.passages } : {}),
+          ...(item.matchReason ? { matchReason: item.matchReason } : {}),
+          ...(item.entityMatches ? { entityMatches: item.entityMatches } : {}),
+          ...(drillDown ? { drillDown } : {}),
+          ...(explain && item.rankingFactors ? { rankingFactors: item.rankingFactors } : {}),
+        };
+      });
+      // F163 AC-A3: report always_on injection sources in response envelope
+      let injectionSources: string[] | undefined;
+      if (f163Flags.alwaysOnInjection !== 'off') {
+        const queryAlwaysOn = (opts.evidenceStore as { queryAlwaysOn?: () => Array<{ anchor: string }> }).queryAlwaysOn;
+        if (queryAlwaysOn) {
+          injectionSources = queryAlwaysOn().map((d) => d.anchor);
+        }
+      }
+
+      // P1-5: log search to f163_logs for experiment evidence chain
+      if (anyF163Active && db) {
+        try {
+          const logger = new F163ExperimentLogger(db);
+          logger.logSearch(variantId, f163Flags, {
+            query: q,
+            resultCount: results.length,
+            limit: effectiveLimit,
+            scope,
+            dimension,
+            collections: parsedCollections,
+            topKPerCollection: Object.fromEntries(
+              (resolveResult?.collectionGroups ?? []).map((g) => [
+                g.collectionId,
+                { count: g.items.length, anchors: g.items.map((i) => i.anchor) },
+              ]),
+            ),
+          });
+          // Phase F: salience rerank shadow diff (AC-F6) — logs in both shadow and on
+          if (salienceResult) {
+            logger.logSalienceRerank(variantId, f163Flags, {
+              query: q,
+              resultCount: results.length,
+              salienceRerank: {
+                taskContext: salienceCtx,
+                before: items.map((i) => i.anchor),
+                after: salienceResult.items.map((i) => i.anchor),
+                scores: salienceResult.scores,
+              },
+            });
+          }
+        } catch {
+          /* fail-open: logging failure does not block search */
+        }
+      }
+
+      const responseGroups = resolveResult?.collectionGroups?.map((g) => ({
+        collectionId: g.collectionId,
+        sensitivity: g.sensitivity,
+        status: g.status,
+        itemCount: g.items.length,
+        durationMs: g.durationMs,
       }));
-      return { results, degraded: false } satisfies Partial<EvidenceSearchResponse>;
+
+      return {
+        results,
+        degraded: searchMeta.degraded,
+        variantId,
+        ...(searchMeta.degradeReason ? { degradeReason: searchMeta.degradeReason } : {}),
+        ...(searchMeta.effectiveMode ? { effectiveMode: searchMeta.effectiveMode } : {}),
+        ...(injectionSources && injectionSources.length > 0 ? { injectionSources } : {}),
+        ...(responseGroups && responseGroups.length > 0 ? { collectionGroups: responseGroups } : {}),
+        ...(resolveResult?.deprecationWarnings ? { deprecationWarnings: resolveResult.deprecationWarnings } : {}),
+      } satisfies Partial<EvidenceSearchResponse>;
     } catch {
       return {
         results: [],
         degraded: true,
         degradeReason: 'evidence_store_error',
+        variantId,
       } satisfies Partial<EvidenceSearchResponse>;
     }
   });
@@ -94,16 +290,41 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       if (!db) return { backend: 'sqlite', healthy: false, reason: 'no_db' };
 
       const docCount = (db.prepare('SELECT count(*) AS c FROM evidence_docs').get() as { c: number }).c;
+      const threadCount = (
+        db.prepare("SELECT count(*) AS c FROM evidence_docs WHERE kind = 'thread'").get() as { c: number }
+      ).c;
       const edgeCount = (db.prepare('SELECT count(*) AS c FROM edges').get() as { c: number }).c;
       const lastUpdated = (db.prepare('SELECT max(updated_at) AS t FROM evidence_docs').get() as { t: string | null })
         .t;
+
+      // Passages count (may not exist in older schemas)
+      let passageCount = 0;
+      try {
+        passageCount = (db.prepare('SELECT count(*) AS c FROM evidence_passages').get() as { c: number }).c;
+      } catch {
+        /* table may not exist */
+      }
+
+      // Embedding model from embedding_meta (VectorStore.initMeta writes embedding_model_id)
+      let embeddingModel: string | null = null;
+      try {
+        const row = db.prepare("SELECT value FROM embedding_meta WHERE key = 'embedding_model_id'").get() as
+          | { value: string }
+          | undefined;
+        embeddingModel = row?.value ?? null;
+      } catch {
+        /* table may not exist */
+      }
 
       return {
         backend: 'sqlite',
         healthy: true,
         docs_count: docCount,
+        threads_count: threadCount,
+        passages_count: passageCount,
         edges_count: edgeCount,
         last_rebuild_at: lastUpdated,
+        embedding_model: embeddingModel,
       };
     } catch {
       return { backend: 'sqlite', healthy: false, reason: 'query_error' };
@@ -178,4 +399,67 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       return { error: 'reindex failed', message: String(err) };
     }
   });
+
+  // F188 Phase A: Full rebuild endpoint (AC-A1)
+  app.post('/api/evidence/rebuild', async (request, reply) => {
+    const ip = request.ip;
+    if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {
+      reply.status(403);
+      return { error: 'Forbidden: localhost only' };
+    }
+    if (!opts.indexBuilder || !opts.rebuildJobTracker) {
+      reply.status(503);
+      return { error: 'rebuild not available' };
+    }
+
+    let taskId: string;
+    try {
+      taskId = opts.rebuildJobTracker.create();
+    } catch (e) {
+      reply.status(409);
+      return { error: (e as Error).message };
+    }
+
+    const tracker = opts.rebuildJobTracker;
+    const builder = opts.indexBuilder;
+    setImmediate(() => {
+      builder
+        .rebuild({
+          force: true,
+          onProgress: (phase, percent) => tracker.updateProgress(taskId, phase, percent),
+        })
+        .then(
+          (result) => tracker.complete(taskId, result),
+          (err) => tracker.fail(taskId, String(err)),
+        );
+    });
+
+    return { taskId };
+  });
+
+  // F188 Phase A: Rebuild status endpoint (AC-A2)
+  app.get<{ Params: { taskId: string } }>('/api/evidence/rebuild/:taskId', async (request, reply) => {
+    const ip = request.ip;
+    if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {
+      reply.status(403);
+      return { error: 'Forbidden: localhost only' };
+    }
+    if (!opts.rebuildJobTracker) {
+      reply.status(503);
+      return { error: 'rebuild not available' };
+    }
+    const job = opts.rebuildJobTracker.get(request.params.taskId);
+    if (!job) {
+      reply.status(404);
+      return { error: 'Task not found' };
+    }
+    return job;
+  });
 };
+
+function missingResolverMeta(options: SearchOptions): SearchExecutionMeta {
+  if (options.depth === 'raw' && (options.mode ?? 'lexical') !== 'lexical') {
+    return { degraded: true, degradeReason: 'raw_lexical_only', effectiveMode: 'lexical' };
+  }
+  return { degraded: false };
+}

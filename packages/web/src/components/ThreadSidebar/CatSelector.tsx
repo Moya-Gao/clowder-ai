@@ -24,25 +24,25 @@ export function CatSelector({ selectedCats, onSelectionChange }: CatSelectorProp
     }
   };
 
-  // Provider display name mapping
-  const providerLabel = (provider: string) => {
+  // Client display name mapping
+  const clientIdLabel = (clientId: string) => {
     const map: Record<string, string> = {
       anthropic: 'Anthropic',
       openai: 'OpenAI',
       google: 'Google',
     };
-    return map[provider] ?? provider;
+    return map[clientId] ?? clientId;
   };
 
   return (
     <div className="space-y-2">
-      <div className="text-xs text-gray-500 font-medium">默认猫猫 (可选)</div>
+      <div className="text-xs text-cafe-secondary font-medium">默认猫猫 (可选)</div>
       {[...groups.entries()].map(([breedId, cats]) => {
         const breedName = cats[0].breedDisplayName ?? cats[0].displayName;
         return (
           <div key={breedId}>
-            <div className="text-[10px] text-gray-400 mb-1">
-              {breedName}家族 · {providerLabel(cats[0].provider)}
+            <div className="text-micro text-cafe-muted mb-1">
+              {breedName}家族 · {clientIdLabel(cats[0].clientId)}
             </div>
             <div className="flex flex-wrap gap-1.5">
               {cats.map((cat) => {
@@ -53,7 +53,9 @@ export function CatSelector({ selectedCats, onSelectionChange }: CatSelectorProp
                     type="button"
                     onClick={() => toggleCat(cat.id)}
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors border ${
-                      isSelected ? 'font-medium border-current' : 'border-gray-200 text-gray-500 hover:border-gray-400'
+                      isSelected
+                        ? 'font-medium border-current'
+                        : 'border-cafe text-cafe-secondary hover:border-gray-400'
                     }`}
                     style={
                       isSelected

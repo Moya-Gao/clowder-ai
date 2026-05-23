@@ -155,7 +155,7 @@ function Get-InstallerExternalRedisUrl {
     }
     if (-not $rawUrl) { return "" }
     $redisPort = Get-InstallerEnvValueFromFile -EnvFile $envFile -Key "REDIS_PORT"
-    if (-not $redisPort) { $redisPort = "6379" }
+    if (-not $redisPort) { $redisPort = "6399" }
     if (Test-LocalRedisUrl -RedisUrl $rawUrl -RedisPort $redisPort) { return "" }
     return $rawUrl
 }
@@ -202,12 +202,18 @@ function Resolve-InstallerRedisPlan {
     if ($mode -eq "keep_local") {
         return [pscustomobject]@{ Mode = "keep_local"; RedisUrl = $anyRedisUrl }
     }
-    $redisUrl = if ($mode -eq "external") {
-        if (Test-InstallerConsoleUi) { Read-Host "  External Redis URL" } else { $defaultRedisUrl }
-    } else { "" }
-    if ($mode -eq "external" -and -not $redisUrl) {
-        Write-Warn "External Redis URL empty - using local Redis setup"
-        $mode = "portable"
+    $redisUrl = ""
+    if ($mode -eq "external") {
+        if (Test-InstallerConsoleUi) {
+            while (-not $redisUrl) {
+                $redisUrl = (Read-Host "  External Redis URL").Trim()
+                if (-not $redisUrl) {
+                    Write-Warn "External Redis URL is required when you choose external Redis."
+                }
+            }
+        } else {
+            $redisUrl = $defaultRedisUrl
+        }
     }
     return [pscustomobject]@{ Mode = $mode; RedisUrl = $redisUrl }
 }

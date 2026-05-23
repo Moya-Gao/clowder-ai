@@ -5,6 +5,7 @@
 
 import type { Readable } from 'node:stream';
 import type { CatId } from '@cat-cafe/shared';
+import type { Span } from '@opentelemetry/api';
 import type { AgentMessage } from '../domains/cats/services/types.js';
 
 /**
@@ -15,6 +16,8 @@ export interface CliSpawnOptions {
   command: string;
   /** Arguments to pass to the CLI */
   args: readonly string[];
+  /** stdout parser mode. Defaults to NDJSON for existing CLI providers. */
+  outputMode?: 'ndjson' | 'plainText';
   /** Working directory for the process */
   cwd?: string;
   /** Timeout in milliseconds before auto-kill (default: 300_000 = 5 min) */
@@ -33,6 +36,8 @@ export interface CliSpawnOptions {
     softWarningMs?: number;
     stallWarningMs?: number;
     boundedExtensionFactor?: number;
+    /** #774: Auto-kill on idle-silent suspected_stall instead of waiting for full timeout */
+    stallAutoKill?: boolean;
   };
   /** F118 Phase B: Provider-scoped raw archive path for diagnostic enrichment */
   rawArchivePath?: string;
@@ -41,6 +46,8 @@ export interface CliSpawnOptions {
    * When aborted, spawnCli skips `await exitPromise` — decouples done from process exit.
    */
   semanticCompletionSignal?: AbortSignal;
+  /** F153 Phase B: Parent OTel span for creating CLI session child span */
+  parentSpan?: Span;
 }
 
 /**

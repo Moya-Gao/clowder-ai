@@ -15,10 +15,14 @@
 
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
-import { beforeEach, describe, mock, test } from 'node:test';
+import { after, afterEach, before, beforeEach, describe, mock, test } from 'node:test';
 import Fastify from 'fastify';
 import { migrateRouterOpts } from '../helpers/agent-registry-helpers.js';
+import { fakeL0Compiler } from '../helpers/fake-l0-compiler.js';
 
 // --- Imports (from dist) ---
 
@@ -28,6 +32,7 @@ const { GeminiAgentService } = await import('../../dist/domains/cats/services/ag
 const { AgentRouter } = await import('../../dist/domains/cats/services/agents/routing/AgentRouter.js');
 const { InvocationRegistry } = await import('../../dist/domains/cats/services/agents/invocation/InvocationRegistry.js');
 const { MessageStore } = await import('../../dist/domains/cats/services/stores/ports/MessageStore.js');
+const { ThreadStore } = await import('../../dist/domains/cats/services/stores/ports/ThreadStore.js');
 const { callbacksRoutes } = await import('../../dist/routes/callbacks.js');
 
 // --- Helpers ---
@@ -46,10 +51,18 @@ function createMockProcess() {
   const stdout = new PassThrough();
   const stderr = new PassThrough();
   const emitter = new EventEmitter();
+  const originalEmit = emitter.emit.bind(emitter);
+  emitter.emit = (event, ...args) => {
+    const emitted = originalEmit(event, ...args);
+    if (event === 'exit') {
+      process.nextTick(() => originalEmit('close', ...args));
+    }
+    return emitted;
+  };
   const proc = {
     stdout,
     stderr,
-    pid: 12345,
+    pid: process.pid,
     exitCode: null,
     kill: mock.fn(() => {
       process.nextTick(() => {
@@ -136,6 +149,59 @@ function createMockSocketManager() {
   };
 }
 
+function installFakeCliPath() {
+  const dir = mkdtempSync(join(tmpdir(), 'cat-cafe-wiring-cli-'));
+  const writeExecutable = (name, content) => {
+    const file = join(dir, name);
+    writeFileSync(file, content);
+    chmodSync(file, 0o755);
+  };
+
+  if (process.platform === 'win32') {
+    const content = '@echo off\r\nexit /b 0\r\n';
+    writeExecutable('claude.cmd', content);
+    writeExecutable('codex.cmd', content);
+    writeExecutable('gemini.cmd', content);
+  } else {
+    const content = '#!/bin/sh\nexit 0\n';
+    writeExecutable('claude', content);
+    writeExecutable('codex', content);
+    writeExecutable('gemini', content);
+  }
+
+  return dir;
+}
+
+let originalGlobalConfigRoot;
+let originalHome;
+let testGlobalConfigRoot;
+
+before(() => {
+  originalGlobalConfigRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+  originalHome = process.env.HOME;
+});
+
+beforeEach(async () => {
+  // Isolate catalog/credential writes so invoke-single-cat never touches repo-root config.
+  testGlobalConfigRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-wiring-global-'));
+  process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = testGlobalConfigRoot;
+  process.env.HOME = testGlobalConfigRoot;
+
+  const { resetMigrationState } = await import('../../dist/config/catalog-accounts.js');
+  resetMigrationState();
+});
+
+afterEach(() => {
+  if (testGlobalConfigRoot) {
+    rmSync(testGlobalConfigRoot, { recursive: true, force: true });
+    testGlobalConfigRoot = undefined;
+  }
+  if (originalGlobalConfigRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+  else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = originalGlobalConfigRoot;
+  if (originalHome === undefined) delete process.env.HOME;
+  else process.env.HOME = originalHome;
+});
+
 // ===================================================================
 // Test Suite: AgentRouter + Services wiring
 // ===================================================================
@@ -143,10 +209,22 @@ function createMockSocketManager() {
 describe('AgentRouter + Services wiring', () => {
   let registry;
   let messageStore;
+  let fakeCliDir;
+  const originalPath = process.env.PATH ?? '';
+
+  before(() => {
+    fakeCliDir = installFakeCliPath();
+    process.env.PATH = `${fakeCliDir}${process.platform === 'win32' ? ';' : ':'}${originalPath}`;
+  });
 
   beforeEach(() => {
     registry = new InvocationRegistry();
     messageStore = new MessageStore();
+  });
+
+  after(() => {
+    process.env.PATH = originalPath;
+    if (fakeCliDir) rmSync(fakeCliDir, { recursive: true, force: true });
   });
 
   // --- callbackEnv 传递验证 ---
@@ -159,7 +237,7 @@ describe('AgentRouter + Services wiring', () => {
     const router = new AgentRouter(
       await migrateRouterOpts({
         claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+        codexService: new CodexAgentService({ l0CompilerFn: fakeL0Compiler, spawnFn: codexSpawn }),
         geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
         registry,
         messageStore,
@@ -184,7 +262,7 @@ describe('AgentRouter + Services wiring', () => {
     const router = new AgentRouter(
       await migrateRouterOpts({
         claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+        codexService: new CodexAgentService({ l0CompilerFn: fakeL0Compiler, spawnFn: codexSpawn }),
         geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
         registry,
         messageStore,
@@ -207,7 +285,7 @@ describe('AgentRouter + Services wiring', () => {
     const router = new AgentRouter(
       await migrateRouterOpts({
         claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+        codexService: new CodexAgentService({ l0CompilerFn: fakeL0Compiler, spawnFn: codexSpawn }),
         geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
         registry,
         messageStore,
@@ -232,7 +310,7 @@ describe('AgentRouter + Services wiring', () => {
     const router = new AgentRouter(
       await migrateRouterOpts({
         claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+        codexService: new CodexAgentService({ l0CompilerFn: fakeL0Compiler, spawnFn: codexSpawn }),
         geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
         registry,
         messageStore,
@@ -258,7 +336,7 @@ describe('AgentRouter + Services wiring', () => {
     const router = new AgentRouter(
       await migrateRouterOpts({
         claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+        codexService: new CodexAgentService({ l0CompilerFn: fakeL0Compiler, spawnFn: codexSpawn }),
         geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
         registry,
         messageStore,
@@ -268,10 +346,11 @@ describe('AgentRouter + Services wiring', () => {
     await collect(router.route('user-1', 'hello'));
 
     const env = claudeSpawn._calls[0].options.env;
-    const record = registry.verify(env.CAT_CAFE_INVOCATION_ID, env.CAT_CAFE_CALLBACK_TOKEN);
-    assert.ok(record, 'credentials should be verifiable');
-    assert.equal(record.userId, 'user-1');
-    assert.equal(record.catId, 'opus');
+    // F174 Phase A/B: verify() returns Promise<VerifyResult>
+    const result = await registry.verify(env.CAT_CAFE_INVOCATION_ID, env.CAT_CAFE_CALLBACK_TOKEN);
+    assert.equal(result.ok, true, 'credentials should be verifiable');
+    assert.equal(result.record.userId, 'user-1');
+    assert.equal(result.record.catId, 'opus');
   });
 
   // --- MessageStore 接线验证 ---
@@ -284,7 +363,7 @@ describe('AgentRouter + Services wiring', () => {
     const router = new AgentRouter(
       await migrateRouterOpts({
         claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+        codexService: new CodexAgentService({ l0CompilerFn: fakeL0Compiler, spawnFn: codexSpawn }),
         geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
         registry,
         messageStore,
@@ -308,7 +387,7 @@ describe('AgentRouter + Services wiring', () => {
     const router = new AgentRouter(
       await migrateRouterOpts({
         claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+        codexService: new CodexAgentService({ l0CompilerFn: fakeL0Compiler, spawnFn: codexSpawn }),
         geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
         registry,
         messageStore,
@@ -337,7 +416,7 @@ describe('AgentRouter + Services wiring', () => {
     const router = new AgentRouter(
       await migrateRouterOpts({
         claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+        codexService: new CodexAgentService({ l0CompilerFn: fakeL0Compiler, spawnFn: codexSpawn }),
         geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
         registry,
         messageStore,
@@ -365,17 +444,22 @@ describe('AgentRouter + Services wiring', () => {
     const codexSpawn = createTrackingSpawnFn(() => codexEvents('t-1', 'codex ack'));
     const geminiSpawn = createTrackingSpawnFn(() => geminiEvents('g-1', 'hi'));
 
+    const threadStore = new ThreadStore();
+    const thread = threadStore.create('user-1', 'serial chain test');
+    threadStore.updateThinkingMode(thread.id, 'debug');
+
     const router = new AgentRouter(
       await migrateRouterOpts({
         claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+        codexService: new CodexAgentService({ l0CompilerFn: fakeL0Compiler, spawnFn: codexSpawn }),
         geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
         registry,
         messageStore,
+        threadStore,
       }),
     );
 
-    await collect(router.route('user-1', '#execute @opus @codex hello'));
+    await collect(router.route('user-1', '#execute @opus @codex hello', thread.id));
 
     // Codex spawn should receive prompt containing opus's reply (serial chain)
     const codexArgs = codexSpawn._calls[0].args;
@@ -392,7 +476,7 @@ describe('AgentRouter + Services wiring', () => {
     const router = new AgentRouter(
       await migrateRouterOpts({
         claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+        codexService: new CodexAgentService({ l0CompilerFn: fakeL0Compiler, spawnFn: codexSpawn }),
         geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
         registry,
         messageStore,
@@ -440,7 +524,7 @@ describe('MCP callback end-to-end flow', () => {
     const router = new AgentRouter(
       await migrateRouterOpts({
         claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+        codexService: new CodexAgentService({ l0CompilerFn: fakeL0Compiler, spawnFn: codexSpawn }),
         geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
         registry,
         messageStore,
@@ -458,9 +542,8 @@ describe('MCP callback end-to-end flow', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/callbacks/post-message',
+      headers: { 'x-invocation-id': env.CAT_CAFE_INVOCATION_ID, 'x-callback-token': env.CAT_CAFE_CALLBACK_TOKEN },
       payload: {
-        invocationId: env.CAT_CAFE_INVOCATION_ID,
-        callbackToken: env.CAT_CAFE_CALLBACK_TOKEN,
         content: 'Callback message from cat!',
       },
     });
@@ -490,7 +573,7 @@ describe('MCP callback end-to-end flow', () => {
     const router = new AgentRouter(
       await migrateRouterOpts({
         claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
-        codexService: new CodexAgentService({ spawnFn: codexSpawn }),
+        codexService: new CodexAgentService({ l0CompilerFn: fakeL0Compiler, spawnFn: codexSpawn }),
         geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
         registry,
         messageStore,
@@ -501,13 +584,14 @@ describe('MCP callback end-to-end flow', () => {
     await collect(router.route('user-1', '@opus help'));
 
     // 2. Create a fresh invocation for opus (simulating a new CLI invocation)
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus');
 
     // 3. Query pending mentions
     const app = await createApp();
     const response = await app.inject({
       method: 'GET',
-      url: `/api/callbacks/pending-mentions?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+      url: '/api/callbacks/pending-mentions',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
     });
 
     assert.equal(response.statusCode, 200);

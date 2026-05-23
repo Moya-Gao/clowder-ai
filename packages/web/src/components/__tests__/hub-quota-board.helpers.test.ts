@@ -17,9 +17,11 @@ function threadState(partial: Partial<ThreadState>): ThreadState {
     isLoadingHistory: false,
     hasMore: true,
     hasActiveInvocation: false,
+    activeInvocations: {},
     intentMode: null,
     targetCats: [],
     catStatuses: {},
+    catStatusDetails: {},
     catInvocations: {},
     currentGame: null,
     unreadCount: 0,
@@ -28,6 +30,10 @@ function threadState(partial: Partial<ThreadState>): ThreadState {
     queue: [],
     queuePaused: false,
     queueFull: false,
+    workspaceWorktreeId: null,
+    workspaceOpenTabs: [],
+    workspaceOpenFilePath: null,
+    workspaceOpenFileLine: null,
     ...partial,
   };
 }

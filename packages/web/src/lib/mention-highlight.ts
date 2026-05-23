@@ -1,12 +1,11 @@
 /**
  * F32-b Phase 3: Mention highlighting data — refreshable from API.
  *
- * Initializes from static CAT_CONFIGS (zero-load working state).
- * After useCatData fetches /api/cats, calls refreshMentionData() to rebuild
- * regex with all cats (including dynamically added ones).
+ * Starts empty; useCatData calls refreshMentionData() after /api/cats fetch
+ * to populate regex with all cats from the runtime catalog.
  */
 
-import { CAT_CONFIGS, escapeRegExp } from '@cat-cafe/shared';
+import { escapeRegExp } from '@cat-cafe/shared';
 import type { CatData } from '@/hooks/useCatData';
 
 // ── Internal builders ───────────────────────────────────
@@ -29,47 +28,56 @@ function buildMentionColor(cats: Array<{ id: string; color: { primary: string } 
   return Object.fromEntries(cats.map((cat) => [cat.id, cat.color.primary]));
 }
 
-// ── Owner (铲屎官) ─────────────────────────────────────────
-const OWNER_ID = '__owner__';
-const OWNER_COLOR = '#F5A623'; // warm gold
-const OWNER_MENTIONS = ['owner', 'admin'];
+// ── Co-Creator (铲屎官) ───────────────────────────────────
+const CO_CREATOR_ID = '__co-creator__';
+const CO_CREATOR_COLOR = '#F5A623'; // warm gold
+const DEFAULT_CO_CREATOR_MENTION_PATTERNS = ['@co-creator', '@铲屎官'];
 
-// ── Module-level cache (starts from static CAT_CONFIGS) ─
+// ── Module-level cache (populated by refreshMentionData after /api/cats fetch) ─
 
-const staticCats = Object.entries(CAT_CONFIGS).map(([id, c]) => ({
-  id,
-  mentionPatterns: [...c.mentionPatterns],
-  color: { primary: c.color.primary },
-}));
-
-// Include owner as a pseudo-cat so @owner / @铲屎官 highlights gold
-const withOwner = [
-  ...staticCats,
-  {
-    id: OWNER_ID,
-    mentionPatterns: OWNER_MENTIONS.map((m) => `@${m}`),
-    color: { primary: OWNER_COLOR },
-  },
-];
-
-let _mentionToCat = buildMentionToCat(withOwner);
+// Include co-creator as pseudo-cat so @铲屎官 highlights gold
+let _cats: Array<{ id: string; mentionPatterns: string[]; color: { primary: string } }> = [];
+let _coCreatorMentionPatterns = [...DEFAULT_CO_CREATOR_MENTION_PATTERNS];
+let _mentionToCat = buildMentionToCat([]);
 let _mentionRe = buildMentionRe(_mentionToCat);
-let _mentionColor = buildMentionColor(withOwner);
+let _mentionColor = buildMentionColor([]);
 
-// ── Public API ──────────────────────────────────────────
+function normalizeCoCreatorMentionPatterns(mentionPatterns: readonly string[]): string[] {
+  const normalized = mentionPatterns
+    .map((pattern) => pattern.trim())
+    .filter((pattern) => pattern.length > 0)
+    .map((pattern) => (pattern.startsWith('@') ? pattern : `@${pattern}`));
+  const unique = new Set(DEFAULT_CO_CREATOR_MENTION_PATTERNS);
+  for (const pattern of normalized) unique.add(pattern);
+  return [...unique];
+}
 
-/** Called once by useCatData after API fetch succeeds */
-export function refreshMentionData(cats: CatData[]): void {
-  // Always include owner alongside dynamic cats
+function rebuildMentionCache(): void {
   const ownerEntry = {
-    id: OWNER_ID,
-    mentionPatterns: OWNER_MENTIONS.map((m) => `@${m}`),
-    color: { primary: OWNER_COLOR },
+    id: CO_CREATOR_ID,
+    mentionPatterns: _coCreatorMentionPatterns,
+    color: { primary: CO_CREATOR_COLOR },
   };
-  const all = [...cats, ownerEntry];
+  const all = [..._cats, ownerEntry];
   _mentionToCat = buildMentionToCat(all);
   _mentionRe = buildMentionRe(_mentionToCat);
   _mentionColor = buildMentionColor(all);
+}
+
+rebuildMentionCache();
+
+// ── Public API ──────────────────────────────────────────
+
+/** Called once by useCatData after API fetch succeeds.
+ *  Filters out disabled members (roster.available === false) so they don't highlight. */
+export function refreshMentionData(cats: CatData[]): void {
+  _cats = cats.filter((cat) => cat.roster?.available !== false);
+  rebuildMentionCache();
+}
+
+export function refreshCoCreatorMentionData(mentionPatterns: readonly string[]): void {
+  _coCreatorMentionPatterns = normalizeCoCreatorMentionPatterns(mentionPatterns);
+  rebuildMentionCache();
 }
 
 /** Get the current mention regex (refreshed after API load) */
@@ -85,4 +93,10 @@ export function getMentionToCat(): Record<string, string> {
 /** Map catId → primary color hex (e.g. "#9B7EBD") */
 export function getMentionColor(): Record<string, string> {
   return _mentionColor;
+}
+
+export function resetMentionDataForTest(): void {
+  _cats = [];
+  _coCreatorMentionPatterns = [...DEFAULT_CO_CREATOR_MENTION_PATTERNS];
+  rebuildMentionCache();
 }

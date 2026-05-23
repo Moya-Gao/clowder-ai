@@ -83,7 +83,9 @@ export function transformClaudeEvent(
 
     if (s.type === 'message_stop') {
       streamState.currentMessageId = undefined;
-      return null;
+      // F153 Phase I: emit telemetry-only agent_loop marker (provider-agnostic anchor at LLM call boundary,
+      // per KD-31/KD-33). invoke-single-cat consumes this to increment recordAgentLoop; never reaches outputs.
+      return { type: 'agent_loop' as const, catId, timestamp: Date.now() };
     }
 
     // F045: Reset thinking buffer when a thinking block starts
@@ -183,7 +185,7 @@ export function transformClaudeEvent(
       if (typeof block !== 'object' || block === null) continue;
       const b = block as Record<string, unknown>;
 
-      if (b.type === 'text' && typeof b.text === 'string') {
+      if (b.type === 'text' && typeof b.text === 'string' && b.text.length > 0) {
         if (skipFinalText) continue;
         messages.push({
           type: 'text',

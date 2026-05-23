@@ -1,11 +1,18 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import type { InteractiveOption, RichInteractiveBlock } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
 import { CafeIcon } from './CafeIcons';
+import {
+  dispatchGuideStartIfNeeded,
+  GUIDE_PREVIEW_CALLBACK_PATH,
+  resolveSafeInteractiveCallbackEndpoint,
+  shouldKeepGuideOfferInteractive,
+} from './guideClientActions';
 
 // ── Pure function (exported for testing) ────────────────────
 
@@ -55,8 +62,7 @@ function dispatchInteractiveSend(text: string) {
 
 /** Render option icon: prefer SVG icon over emoji */
 function OptionIcon({ opt, className = 'w-5 h-5' }: { opt: InteractiveOption; className?: string }) {
-  if (opt.icon)
-    return <CafeIcon name={opt.icon} className={`${className} text-amber-600 dark:text-amber-400 shrink-0`} />;
+  if (opt.icon) return <CafeIcon name={opt.icon} className={`${className} text-conn-amber-text shrink-0`} />;
   if (opt.emoji) return <span className="text-base shrink-0 leading-none">{opt.emoji}</span>;
   return null;
 }
@@ -80,6 +86,7 @@ function SelectInteraction({
 }) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [customText, setCustomText] = useState('');
+  const ime = useIMEGuard();
   const highlightId = disabled ? (selectedIds[0] ?? null) : pendingId;
   const pendingOpt = pendingId ? options.find((o) => o.id === pendingId) : null;
   const showCustomInput = !disabled && pendingOpt?.customInput;
@@ -113,24 +120,20 @@ function SelectInteraction({
             className={`w-full text-left px-4 py-3 rounded-xl border-[1.5px] text-sm transition-all flex items-center gap-2.5
               ${
                 isSelected
-                  ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30'
+                  ? 'border-conn-amber-ring bg-conn-amber-bg dark:bg-amber-950/30'
                   : disabled
-                    ? 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 cursor-pointer'
+                    ? 'border-cafe opacity-50 cursor-not-allowed'
+                    : 'border-cafe hover:border-conn-amber-ring hover:bg-conn-amber-bg/50 dark:hover:bg-amber-950/20 cursor-pointer'
               }`}
           >
             <OptionIcon opt={opt} />
             <div className="flex-1 min-w-0">
-              <span className={`font-semibold ${isSelected ? 'text-amber-700 dark:text-amber-400' : ''}`}>
-                {opt.label}
-              </span>
-              {opt.description && (
-                <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">{opt.description}</span>
-              )}
+              <span className={`font-semibold ${isSelected ? 'text-conn-amber-text' : ''}`}>{opt.label}</span>
+              {opt.description && <span className="block text-xs text-cafe-secondary mt-0.5">{opt.description}</span>}
             </div>
             {isSelected && (
               <svg
-                className="w-5 h-5 text-amber-600 shrink-0"
+                className="w-5 h-5 text-conn-amber-text shrink-0"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -151,11 +154,13 @@ function SelectInteraction({
               setCustomText(e.target.value);
               if (onCustomText) onCustomText(e.target.value);
             }}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing && customText.trim()) handleSubmit();
+              if (e.key === 'Enter' && !ime.isComposing() && customText.trim()) handleSubmit();
             }}
             placeholder={pendingOpt?.customInputPlaceholder ?? '输入你的想法...'}
-            className="w-full px-4 py-2.5 rounded-xl border-[1.5px] border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 placeholder:text-gray-400"
+            className="w-full px-4 py-2.5 rounded-xl border-[1.5px] border-conn-amber-ring bg-cafe-surface text-sm focus:outline-none focus:border-conn-amber-ring focus:ring-1 focus:ring-conn-amber-ring/30 placeholder:text-cafe-muted"
           />
         </div>
       )}
@@ -167,7 +172,7 @@ function SelectInteraction({
           className={`mt-2 w-full py-2.5 rounded-full text-sm font-semibold transition-colors flex items-center justify-center gap-1.5
             ${
               showCustomInput && !customText.trim()
-                ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                ? 'bg-cafe-surface-elevated dark:bg-cafe-surface-elevated text-cafe-muted cursor-not-allowed'
                 : 'bg-amber-600 text-white hover:bg-amber-700'
             }`}
         >
@@ -226,14 +231,14 @@ function MultiSelectInteraction({
             className={`flex items-center gap-2.5 w-full px-4 py-3 rounded-xl border-[1.5px] text-sm transition-all text-left
               ${
                 isChecked
-                  ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-amber-300'
+                  ? 'border-conn-amber-ring bg-conn-amber-bg dark:bg-amber-950/30'
+                  : 'border-cafe hover:border-conn-amber-ring'
               }
               ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           >
             <span
               className={`shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
-                isChecked ? 'bg-amber-600' : 'border-[1.5px] border-gray-300 dark:border-gray-600'
+                isChecked ? 'bg-amber-600' : 'border-[1.5px] border-cafe'
               }`}
             >
               {isChecked && (
@@ -249,9 +254,7 @@ function MultiSelectInteraction({
               )}
             </span>
             <OptionIcon opt={opt} />
-            <span className={`font-semibold ${isChecked ? 'text-amber-700 dark:text-amber-400' : ''}`}>
-              {opt.label}
-            </span>
+            <span className={`font-semibold ${isChecked ? 'text-conn-amber-text' : ''}`}>{opt.label}</span>
           </button>
         );
       })}
@@ -344,7 +347,7 @@ function CardGridInteraction({
     <div>
       {[...groups.entries()].map(([groupName, groupOpts]) => (
         <div key={groupName}>
-          {groupName && <div className="text-xs text-gray-500 mb-1 mt-2 font-medium">{groupName}</div>}
+          {groupName && <div className="text-xs text-cafe-secondary mb-1 mt-2 font-medium">{groupName}</div>}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             {groupOpts.map((opt) => {
               const isSelected = selectedIds.includes(opt.id);
@@ -359,12 +362,12 @@ function CardGridInteraction({
                   className={`p-4 rounded-2xl border-[1.5px] text-center text-sm transition-all
                     ${
                       isSelected || isPending
-                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 ring-2 ring-amber-400/50'
+                        ? 'border-conn-amber-ring bg-conn-amber-bg dark:bg-amber-950/30 ring-2 ring-conn-amber-ring/50'
                         : isHighlighted
-                          ? 'border-amber-400 bg-amber-50/80 dark:bg-amber-950/20 scale-105'
+                          ? 'border-conn-amber-ring bg-conn-amber-bg/80 dark:bg-amber-950/20 scale-105'
                           : disabled
-                            ? 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed'
-                            : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-amber-300 hover:shadow-sm cursor-pointer'
+                            ? 'border-cafe opacity-50 cursor-not-allowed'
+                            : 'border-cafe bg-cafe-surface-elevated hover:border-conn-amber-ring hover:shadow-sm cursor-pointer'
                     }`}
                 >
                   {(opt.icon || opt.emoji) && (
@@ -372,14 +375,10 @@ function CardGridInteraction({
                       <OptionIcon opt={opt} className="w-7 h-7" />
                     </div>
                   )}
-                  <div
-                    className={`font-semibold ${isSelected || isPending ? 'text-amber-700 dark:text-amber-400' : ''}`}
-                  >
+                  <div className={`font-semibold ${isSelected || isPending ? 'text-conn-amber-text' : ''}`}>
                     {opt.label}
                   </div>
-                  {opt.description && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{opt.description}</div>
-                  )}
+                  {opt.description && <div className="text-xs text-cafe-secondary mt-0.5">{opt.description}</div>}
                 </button>
               );
             })}
@@ -452,12 +451,12 @@ function ConfirmInteraction({
         className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border-[1.5px] flex items-center justify-center gap-1.5
           ${
             selectedId === '__cancel__'
-              ? 'bg-red-50 dark:bg-red-950/30 border-red-400 text-red-600 dark:text-red-400'
+              ? 'bg-conn-red-bg dark:bg-red-950/30 border-conn-red-ring text-conn-red-text dark:text-conn-red-text'
               : disabled && selectedId
-                ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 opacity-50 cursor-not-allowed'
+                ? 'bg-cafe-surface-elevated border-cafe text-cafe-muted opacity-50 cursor-not-allowed'
                 : disabled
-                  ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed'
-                  : 'bg-red-50/50 dark:bg-red-950/10 border-red-200 dark:border-red-800 text-red-500 hover:bg-red-50 hover:border-red-300 cursor-pointer'
+                  ? 'bg-cafe-surface-elevated border-cafe text-cafe-muted cursor-not-allowed'
+                  : 'bg-conn-red-bg/50 dark:bg-red-950/10 border-conn-red-ring dark:border-red-800 text-conn-red-text hover:bg-conn-red-bg hover:border-conn-red-ring cursor-pointer'
           }`}
       >
         {selectedId !== '__cancel__' && (
@@ -474,12 +473,12 @@ function ConfirmInteraction({
         className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border-[1.5px] flex items-center justify-center gap-1.5
           ${
             selectedId === '__confirm__'
-              ? 'bg-green-50 dark:bg-green-950/30 border-green-500 text-green-600 dark:text-green-400'
+              ? 'bg-conn-green-bg dark:bg-green-950/30 border-conn-green-ring text-conn-green-text dark:text-green-400'
               : disabled && selectedId
-                ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 opacity-50 cursor-not-allowed'
+                ? 'bg-cafe-surface-elevated border-cafe text-cafe-muted opacity-50 cursor-not-allowed'
                 : disabled
-                  ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed'
-                  : 'bg-green-50/50 dark:bg-green-950/10 border-green-200 dark:border-green-800 text-green-600 hover:bg-green-50 hover:border-green-300 cursor-pointer'
+                  ? 'bg-cafe-surface-elevated border-cafe text-cafe-muted cursor-not-allowed'
+                  : 'bg-conn-green-bg/50 dark:bg-green-950/10 border-conn-green-ring dark:border-green-800 text-conn-green-text hover:bg-conn-green-bg hover:border-conn-green-ring cursor-pointer'
           }`}
       >
         {selectedId !== '__confirm__' && (
@@ -543,27 +542,78 @@ export function InteractiveBlock({
         return;
       }
 
-      setLocalDisabled(true);
+      const selectedOption = block.options.find((o) => optionIds.includes(o.id));
+      const shouldDisable = !shouldKeepGuideOfferInteractive(block, selectedOption);
       setLocalSelectedIds(optionIds);
+      setLocalDisabled(shouldDisable);
 
-      // Read from ref to avoid stale closure — child calls setCustomText then onSelect
-      // in the same event loop, so state hasn't re-rendered yet
-      const ct = customTextRef.current;
-      const text = buildSelectionMessage(
-        block.interactiveType,
-        block.options,
-        optionIds,
-        block.messageTemplate,
-        block.title,
-        ct || undefined,
-      );
-      dispatchInteractiveSend(text);
+      // F155: Check if the selected option has a direct action (bypasses chat message pipeline)
+      if (selectedOption?.action?.type === 'callback') {
+        const { endpoint, payload } = selectedOption.action;
+        const safeEndpoint = resolveSafeInteractiveCallbackEndpoint(endpoint);
+        if (!safeEndpoint) {
+          console.error('[InteractiveBlock] callback action blocked by endpoint allowlist:', endpoint);
+          setLocalDisabled(false);
+          setLocalSelectedIds([]);
+          return;
+        }
+        try {
+          const response = await apiFetch(safeEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload ?? {}),
+          });
+          if (!response.ok) {
+            console.error('[InteractiveBlock] callback action rejected:', response.status, safeEndpoint);
+            setLocalDisabled(false);
+            setLocalSelectedIds([]);
+            return;
+          }
+
+          // B-5: Trigger guide start via Zustand reducer (no CustomEvent bridge)
+          await dispatchGuideStartIfNeeded(safeEndpoint, payload as Record<string, unknown> | undefined);
+
+          // F155: Preview callback self-heals state, then sends chat message
+          // so the routing layer (now with awaiting_choice state) triggers the cat
+          // to respond with a formatted step list.
+          if (safeEndpoint === GUIDE_PREVIEW_CALLBACK_PATH) {
+            const text = buildSelectionMessage(
+              block.interactiveType,
+              block.options,
+              optionIds,
+              block.messageTemplate,
+              block.title,
+            );
+            dispatchInteractiveSend(text);
+          }
+        } catch (err) {
+          console.error('[InteractiveBlock] callback action failed:', err);
+          setLocalDisabled(false);
+          setLocalSelectedIds([]);
+          return;
+        }
+      } else {
+        // Default: send selection as a chat message
+        const ct = customTextRef.current;
+        const text = buildSelectionMessage(
+          block.interactiveType,
+          block.options,
+          optionIds,
+          block.messageTemplate,
+          block.title,
+          ct || undefined,
+        );
+        dispatchInteractiveSend(text);
+      }
 
       // P2-1 fix: write back to store so re-mount/thread-switch preserves state
       if (messageId) {
-        useChatStore.getState().updateRichBlock(messageId, block.id, { disabled: true, selectedIds: optionIds });
+        useChatStore.getState().updateRichBlock(messageId, block.id, {
+          disabled: shouldDisable,
+          selectedIds: optionIds,
+        });
         // Persist to backend
-        patchBlockState(messageId, block.id, { disabled: true, selectedIds: optionIds }).catch(() => {
+        patchBlockState(messageId, block.id, { disabled: shouldDisable, selectedIds: optionIds }).catch(() => {
           // Persistence failure is non-critical — local + store state already updated
         });
       }
@@ -572,9 +622,9 @@ export function InteractiveBlock({
   );
 
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
+    <div className="rounded-2xl border border-cafe p-4">
       {block.title && <div className="font-semibold text-sm mb-1">{block.title}</div>}
-      {block.description && <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">{block.description}</div>}
+      {block.description && <div className="text-xs text-cafe-secondary mb-3">{block.description}</div>}
       {block.interactiveType === 'select' && (
         <SelectInteraction
           options={block.options}

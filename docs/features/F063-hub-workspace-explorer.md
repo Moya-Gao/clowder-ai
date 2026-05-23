@@ -85,6 +85,20 @@ team lead和猫猫是**共创伙伴**，但目前协作时team lead被挡在 IDE
    - runtime 的 uploads 目录浏览
    - 图片预览、文件下载
 
+### Post-completion Enhancement: Presentation Lock（演示锁定）
+
+team lead日常向外展示猫猫协作时，会在多个 thread 间切换讲解，但右侧 Workspace 需要保持在同一个文档/行号/滚动位置，避免每次切 thread 都恢复该 thread 自己的 Workspace 状态。
+
+**定位**：这是 F063 Workspace Explorer 的演示场景增强，不单开新 feature。现有 AC-21 的 per-thread workspace restore 仍保留；演示锁定是在其上增加一层临时 presentation override。
+
+**目标行为**：
+
+1. team lead可一键锁定当前 Workspace 文件视图（worktree + file path + line/scroll + tabs）。
+2. 锁定期间切换 thread 时，聊天区切换，右侧 Workspace 保持锁定内容。
+3. 锁定期间猫猫消息中的自动文件跳转不抢占右侧面板；需要提供“替换锁定对象”的显式入口。
+4. 退出锁定后，当前 thread 恢复它自己的 Workspace 状态，不能被锁定内容污染。
+5. 若当前处于专注模式，演示锁定应尽量保持专注视图，不因 thread 切换自动退出。
+
 ## Technical Direction
 
 ### 后端：文件系统 API（Maine Coon安全模型 v1）
@@ -199,6 +213,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 - [x] AC-19: 面板宽度（sidebar/chat-workspace/tree-viewer）刷新后保持，双击 resize handle 重置（Gap 6, PR #308）
 - [x] AC-20: 深层目录（depth≥4）展开时按需加载子节点（Gap 7, PR #311）
 - [x] AC-21: 切换线程后恢复该线程上次的文件树展开状态和打开的文件标签（Gap 7, PR #311）
+- [x] AC-22: 演示锁定模式：team lead锁定当前 Workspace 文档后，切换 thread 仍保持右侧文档/行号/滚动位置；退出锁定后恢复各 thread 原本的 Workspace 状态（PR #1570）
 
 ## 需求点 Checklist
 
@@ -219,6 +234,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | R13 | "你们发的文本里的那些地址我点击 右边这里能打开吗？" | AC-13 | manual: 点消息中路径 → workspace 面板自动打开文件 | [x] |
 | R14 | "要允许我能够调整两个的占比？或者说三个？聊天 然后文件系统 然后打开的文件" | AC-14 | manual: 拖拽分隔条调整三视图比例 | [x] |
 | R15 | "直接点击一个文件然后在 chat 里 mention，或者选中某些行某个文件点击 add to chat" | AC-15 | manual: 选中代码/文件 → 点击引用 → 插入到聊天输入框 | [x] |
+| R16 | "演示时切换 thread，右边 Workspace 仍固定在原本打开的文件/行号" | AC-22 | manual + store test: 锁定文档 → 切换 thread → 右侧不变；退出锁定 → 各 thread workspace 未被污染 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -235,6 +251,8 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 布局方案 | 侧边栏 / Tab / Modal / 可拖拽 | **顶栏按钮切换，右侧文件系统取代状态栏，聊天:文件 = 50:50** | team lead (2026-03-05) |
 | 文件编辑能力 | 只读 / 可编辑 | **可编辑** — team lead帮忙编辑后猫猫可直接 commit | team lead (2026-03-05) |
 | Worktree 感知 | 忽略 / 感知 | **必须感知 worktree** — 猫猫可能在不同 worktree 工作，文件系统需显示对应 worktree 的文件 | team lead (2026-03-05) |
+| 演示锁定追踪方式 | 单开新 feature / 作为 F063 增量 | **作为 F063 post-completion enhancement 追踪** — 不单开新 feature，避免 Workspace 能力分散 | team lead (2026-05-06) |
+| Mermaid 图表渲染 | 新 feature / 作为 F063 Markdown 渲染增量 | **作为 F063 post-completion enhancement 追踪** — workspace 已负责 Markdown rendered mode，`mermaid` fenced block 是同一渲染面的格式支持 | team lead (2026-05-19) |
 | 参考实现 | 自研 / 参考现有 | **参考 Claude.ai Project + Codex 布局**，取其精华 | team lead (2026-03-05) |
 | UI 设计语言 | 通用 / 猫猫化 | **对齐 F056 Cat Café 设计语言（猫猫化不是猫化）** | team lead (2026-03-05) |
 | 设计稿工具 | Figma / Pencil | **Pencil MCP**（用 `pencil-design` skill） | team lead (2026-03-05) |
@@ -343,6 +361,7 @@ team lead评价 Phase 1 UI："有点丑不够猫猫，感觉没有设计感"。�
 | P2B-9 | **BUG**: 引用到聊天不带 worktree 信息 — 格式改为 `` `path` (🌿 branch) ``，让猫猫知道引用的是哪个 worktree | AC-15 | **done** |
 | P2B-10 | **BUG**: "Add to chat" 按钮固定在文件查看器顶部，滚动到下方代码时按钮不可见 — 改为跟随选区浮动或 sticky 在可视区域 | AC-15 | **done** |
 | P2B-11 | **BUG**: Markdown 渲染模式下相对链接不可跳转 — `[F046](features/F046-xxx.md)` 这样的相对路径链接在 Rendered 模式下点击无效（`target="_blank"` 打开的是无意义的浏览器 URL）。应拦截相对 `.md` 链接，解析为相对于当前文件的路径，用 `setWorkspaceOpenFile` 在 workspace 内打开目标文件 | — | **done** |
+| P2B-12 | **Enhancement**: Markdown rendered mode 支持 `mermaid` fenced code block，避免长文/设计文档里的流程图退化成普通代码块 | — | **done** |
 
 ### Phase 2C: 预览能力
 
@@ -470,6 +489,113 @@ team lead反馈（2026-03-08）："调整了右边文件栏的大小，切换走
 | Task | 内容 | 优先 | 设计思路 |
 |------|------|------|----------|
 | G7-2 | 切换线程后恢复文件树展开状态 + 打开的文件标签 | P2 | 每个线程的 `expandedPaths` + `openTabs` + `openFilePath` 存到 `Map<threadId, WorkspaceState>`，切换线程时 save/restore |
+
+## Phase: Focus Mode（Intake from clowder-ai#362）
+
+> **Status**: ✅ merged | **Source**: clowder-ai#362 → cat-cafe#966 | **Strategy**: manual-port
+> **Date**: 2026-04-05 | **Owner**: Ragdoll (Opus)
+> **Reviewer**: Maine Coon/Maine Coon (codex) + 云端 Codex
+
+### Why
+
+社区贡献者在 clowder-ai#362 实现了 workspace 专注模式——展开任意 pane（浏览器/文件/变更/git/终端）到全 workspace 区域，消除周围干扰。GPT-5.4 评估后建议 intake 回家并修复 UX 问题。
+
+### What
+
+| 组件 | 职责 | 行数 |
+|------|------|------|
+| `FocusModeButton` | per-pane toolbar 行内的专注按钮，空态自动禁用 | 25 |
+| `WorkspaceFocusShell` | 共享壳：Escape 退出 + 暖色调半透明浮标退出按钮 + fade 过渡 | 55 |
+| `WorkspacePreviewOnly` | 浏览器 focus 壳：Shell > BrowserPanel(previewOnly) | 20 |
+| `WorkspaceFileViewer` | 从 WorkspacePanel 提取的文件查看器（tab bar + toolbar + 内容渲染 + 专注按钮） | 320 |
+| `FileContentRenderer` | 从 FileViewer 提取的内容渲染（binary/md/html/jsx/code） | 154 |
+| `BrowserPanel` 改动 | 新增 `previewOnly` + `onNavigate` props | 350 |
+| `WorkspacePanel` 改动 | focusedPane 状态路由 + auto-exit + per-pane FocusModeButton 集成 | 1018 |
+
+### UX 修复（相对上游）
+
+| # | 级别 | 问题 | 修复 |
+|---|------|------|------|
+| 1 | P1 | 浏览器 focus 后切回丢失预览状态 | `onNavigate` 回调同步 port/path 到父层 |
+| 2 | P1 | focus 按钮位置各 pane 不统一 | 统一放在 tab bar → **R2 移至 per-pane toolbar 行**（见 UX R2） |
+| 3 | P2 | 空态时 focus 按钮可点（误导） | `disabled` 禁用（无预览/无 worktree/无文件） |
+| 4 | P2 | 进出硬切无过渡 | `animate-fade-in` |
+| 5 | P3 | 退出按钮可能被内容遮挡 | sticky header → **R2 暖色调半透明浮标**（见 UX R2） |
+
+### Acceptance Criteria
+
+- [x] AC-F1: 任意 workspace pane 可一键展开到全区域
+- [x] AC-F2: 统一的退出方式（Escape + 可见退出按钮）
+- [x] AC-F3: 浏览器预览状态在 focus 切换间保持
+- [x] AC-F4: 空态（无预览/无文件/无 worktree）时 focus 按钮禁用
+- [x] AC-F5: 上下文切换（viewMode/file/workspaceMode 变化）自动退出 focus
+- [x] AC-F6: 10 个测试覆盖 FocusModeButton + WorkspaceFocusShell + WorkspacePreviewOnly
+
+### UX R2（team lead视觉审查 2026-04-05）
+
+team lead看到实际 UI 后指出两个层级问题：
+
+| # | 级别 | 问题 | 修复 |
+|---|------|------|------|
+| 6 | P1 | 专注按钮放在 tab bar 与 view mode 同级，层级错误（它是 pane action 不是 view mode） | 移到 per-pane toolbar 行：文件 toolbar 同行（Copy/Path/Finder/编辑 旁）、浏览器右上角浮层 |
+| 7 | P1 | 退出专注用暗色 sticky header，与 Cat Cafe 暖色设计语言冲突 | 改为暖色调半透明浮标：`bg-cocreator-light/70 rounded-full backdrop-blur-sm shadow-sm` |
+
+### Review 记录
+
+- Maine Coon(codex) R1: 2 P1（onNavigate 空态残留 + 测试 prop 名错误）→ 修复 → R2 放行
+- 云端 Codex: "Didn't find any major issues" → 0 P1/P2
+- **team lead UX R2**: 2 P1（按钮层级 + 退出样式）→ fix/focus-mode-ux 分支修复
+
+## Phase: Presentation Lock（演示锁定）
+
+> **Status**: done | **Date**: 2026-05-06 | **Owner**: Ragdoll | **PR**: #1570
+
+### Why
+
+当前 Workspace 状态按 thread 隔离保存和恢复，这是 AC-21 的正确行为。但team lead在演示猫猫协作时需要在多个 thread 之间切换，同时右侧保持同一份文档作为讲解上下文。
+
+### Design Constraints
+
+| 约束 | 说明 |
+|------|------|
+| 不污染 per-thread state | 锁定内容只是 presentation override，不能写回其他 thread 的 `workspaceOpenFilePath/openTabs/worktreeId` |
+| 自动跳转不抢占 | 猫猫消息里的文件路径、workspace:navigate 事件不能无提示替换锁定对象 |
+| 手动替换可控 | team lead显式点击“替换锁定对象”或在锁定状态下手动选择文件时，才更新锁定快照 |
+| 与 Focus Mode 兼容 | 锁定文件处于专注模式时，切 thread 不应因为目标 thread 无文件而自动退出 |
+| 可恢复 | 退出锁定后恢复当前 thread 自己的 Workspace 状态 |
+
+### Implementation Notes
+
+| Area | 方向 |
+|------|------|
+| Store | 新增 `workspacePresentationLock` 快照和 enable/disable/replace actions |
+| Thread switch | `setCurrentThread` 仍保存/恢复各 thread 状态；若 lock active，再叠加 locked workspace fields 作为可见状态 |
+| Snapshot safety | lock active 时，非 lock owner thread 的 snapshot 不能保存 locked workspace fields，避免状态污染 |
+| WorkspacePanel | 顶部或文件 toolbar 增加“演示锁定”按钮和锁定状态 pill |
+| Navigate events | lock active 时 suppress auto-open/reveal，显示可替换提示 |
+
+### Acceptance Criteria
+
+- [x] AC-PL1: 锁定当前文件后，切换 thread 右侧 Workspace 仍显示锁定文件。
+- [x] AC-PL2: 锁定包含 worktree、file path、line/scroll、tabs，刷新前的 thread 切换不丢。
+- [x] AC-PL3: 退出锁定后，当前 thread 恢复它自己的 Workspace 打开状态。
+- [x] AC-PL4: 锁定期间切到其他 thread 不会把锁定文件写入该 thread 的 `ThreadState`。
+- [x] AC-PL5: 锁定期间自动 workspace navigate 不抢占；用户可显式替换锁定对象。
+- [x] AC-PL6: 与 Focus Mode 兼容：锁定文件专注后切 thread 不自动退出。
+
+### Review 记录
+
+- Maine Coon(codex) R5: 本地 review 放行（0 P1/P2）
+- 云端 Codex R1–R8: 迭代 8 轮（R6 P1 推动 store-level lock sync 架构改进）→ R9 放行 "Didn't find any major issues"
+- `pnpm gate` 通过，PR #1570 squash merged 2026-05-06
+- 愿景守护：Maine Coon(GPT-5.4) 放行，0 P1/P2
+
+### Residual Risk（愿景守护发现）
+
+| Risk | 描述 | 当前保障 | 回归触发条件 |
+|------|------|----------|-------------|
+| AC-PL6 测试层次 | Focus Mode 兼容只有 store-level 测试（mode 不随 thread 切换变化），组件级 auto-mode-switch 抑制靠 `WorkspacePanel.tsx:258` 的 `if (presentationLock) return` | store test + code guard | 若重构 mode-sync effect 移除 lock 检查 |
+| ~~AC-PL2 scroll~~ | ~~滚动位置靠 viewer 不 remount 自然保持，无显式 state 建模~~ | **已修复 PR #1578**: scrollTop 显式存入 PresentationLockSnapshot + CodeViewer/Markdown viewport bridge | — |
 
 ## Known Bugs (Follow-up)
 

@@ -5,17 +5,20 @@
  * Includes high-level POST /api/game/start for frontend-driven game creation.
  */
 
+import { catRegistry } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { getAllCatIdsFromConfig } from '../config/cat-config-loader.js';
-import { GameAutoPlayer } from '../domains/cats/services/game/GameAutoPlayer.js';
+import { createGameDriver } from '../domains/cats/services/game/createGameDriver.js';
+import type { GameDriver } from '../domains/cats/services/game/GameDriver.js';
 import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
 import { GameViewBuilder } from '../domains/cats/services/game/GameViewBuilder.js';
+import { appendGameSystemMessage } from '../domains/cats/services/game/gameSystemMessage.js';
 import { WerewolfLobby } from '../domains/cats/services/game/werewolf/WerewolfLobby.js';
 import type { IGameStore } from '../domains/cats/services/stores/ports/GameStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { clearGameNonces } from './game-actions.js';
 import { buildGameSeats, sanitizeCatIds } from './game-command-interceptor.js';
 
 interface SocketLike {
@@ -28,6 +31,7 @@ export interface GameRoutesOptions {
   socketManager: SocketLike;
   threadStore: IThreadStore;
   messageStore: IMessageStore;
+  autoPlayer?: Pick<GameDriver, 'startLoop' | 'stopLoop' | 'stopAllLoops'>;
 }
 
 const seatSchema = z.object({
@@ -122,7 +126,17 @@ const gameStartSchema = z.object({
 
 export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opts) => {
   const { gameStore, socketManager, threadStore, messageStore } = opts;
-  const orchestrator = new GameOrchestrator({ gameStore, socketManager });
+  const orchestrator = new GameOrchestrator({ gameStore, socketManager, messageStore });
+  const autoPlayer =
+    opts.autoPlayer ??
+    createGameDriver({
+      gameNarratorEnabled: false,
+      legacyDeps: { gameStore, orchestrator, messageStore },
+    });
+
+  app.addHook('onClose', async () => {
+    autoPlayer.stopAllLoops();
+  });
 
   // POST /api/game/start — High-level game creation (frontend-driven)
   // Accepts structured payload, creates game thread, builds seats, starts game,
@@ -142,8 +156,9 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
       return { error: 'detectiveCatId is required for detective mode' };
     }
 
-    // Sanitize catIds against known config
-    const allCatIds = getAllCatIdsFromConfig();
+    // Sanitize catIds against runtime registry (catRegistry is the runtime truth,
+    // while getAllCatIdsFromConfig only reads static config and misses runtime-registered cats)
+    const allCatIds = catRegistry.getAllIds() as string[];
     const sanitized = sanitizeCatIds(rawCatIds, allCatIds);
     const catIds = sanitized.length > 0 ? sanitized : [...allCatIds];
 
@@ -156,45 +171,53 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
       reply.status(401);
       return { error: 'Could not determine user identity' };
     }
-    const seats = buildGameSeats({ humanRole, userId, catIds, playerCount: clampedCount });
 
-    // Validate detectiveCatId maps to an actual seat BEFORE creating any persistent resources
-    let resolvedDetectiveSeatId: import('@cat-cafe/shared').SeatId | undefined;
-    if (humanRole === 'detective' && detectiveCatId) {
-      const seat = seats.find((s) => s.actorId === detectiveCatId);
-      if (!seat) {
-        reply.status(400);
-        return { error: 'detectiveCatId does not match any seat in this game' };
-      }
-      resolvedDetectiveSeatId = seat.seatId;
-    }
-
-    // Create independent game thread
-    const gameTitle = `狼人杀 — ${clampedCount}人局`;
-    const gameThread = await threadStore.create(userId, gameTitle, `games/${gameType}`);
-    const gameThreadId = gameThread.id;
-
-    // Store a system message in the game thread for context
-    await messageStore.append({
-      userId,
-      catId: null,
-      content: `🎮 ${gameTitle} 开始`,
-      mentions: [],
-      timestamp: Date.now(),
-      threadId: gameThreadId,
-    });
-
-    // WerewolfLobby for role assignment, then orchestrator for persistence + broadcast
-    const lobby = new WerewolfLobby();
-    const lobbyRuntime = lobby.createLobby({
-      threadId: gameThreadId,
-      playerCount: clampedCount,
-      players: seats.map((s) => ({ actorType: s.actorType, actorId: s.actorId })),
-    });
-    lobby.startGame(lobbyRuntime);
-
+    // Wrap seat-building through game creation in try/catch so descriptive errors
+    // (e.g. "Not enough cats") reach the frontend instead of generic 500.
     let gameRuntime;
+    let gameThreadId: string;
     try {
+      const seats = buildGameSeats({ humanRole, userId, catIds, playerCount: clampedCount });
+
+      // Validate detectiveCatId maps to an actual seat BEFORE creating any persistent resources
+      let resolvedDetectiveSeatId: import('@cat-cafe/shared').SeatId | undefined;
+      if (humanRole === 'detective' && detectiveCatId) {
+        const seat = seats.find((s) => s.actorId === detectiveCatId);
+        if (!seat) {
+          reply.status(400);
+          return { error: 'detectiveCatId does not match any seat in this game' };
+        }
+        resolvedDetectiveSeatId = seat.seatId;
+      }
+
+      // Create independent game thread with play mode (Layer 1 info isolation, KD-40/AC-I9)
+      const ts = new Date()
+        .toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' })
+        .replace(' ', '-')
+        .replaceAll(':', '');
+      const gameTitle = `狼人杀 — ${clampedCount}人局 (${ts})`;
+      const gameThread = await threadStore.create(userId, gameTitle, `games/${gameType}`);
+      gameThreadId = gameThread.id;
+      await threadStore.updateThinkingMode(gameThreadId, 'play');
+      await threadStore.updatePin(gameThreadId, true);
+
+      // Store a system message in the game thread for context
+      await appendGameSystemMessage({
+        threadId: gameThreadId,
+        content: `🎮 ${gameTitle} 开始`,
+        messageStore,
+        socketManager,
+      });
+
+      // WerewolfLobby for role assignment, then orchestrator for persistence + broadcast
+      const lobby = new WerewolfLobby();
+      const lobbyRuntime = lobby.createLobby({
+        threadId: gameThreadId,
+        playerCount: clampedCount,
+        players: seats.map((s) => ({ actorType: s.actorType, actorId: s.actorId })),
+      });
+      lobby.startGame(lobbyRuntime);
+
       gameRuntime = await orchestrator.startGame({
         threadId: gameThreadId,
         definition: lobbyRuntime.definition,
@@ -205,7 +228,7 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
           humanRole,
           ...(humanRole === 'player' ? { humanSeat: 'P1' as const } : {}),
           ...(resolvedDetectiveSeatId ? { detectiveSeatId: resolvedDetectiveSeatId } : {}),
-          ...(humanRole !== 'player' ? { observerUserId: userId } : {}),
+          observerUserId: userId, // H2 fix: always set — messageStore dual-write needs userId for thread visibility
         },
       });
     } catch (err: unknown) {
@@ -222,7 +245,6 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
     await orchestrator.broadcastGameState(gameRuntime.gameId);
 
     // Start AI auto-play loop
-    const autoPlayer = new GameAutoPlayer({ gameStore, orchestrator });
     autoPlayer.startLoop(gameRuntime.gameId);
 
     return {
@@ -250,6 +272,10 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
         seats: seats as Parameters<typeof orchestrator.startGame>[0]['seats'],
         config: config as Parameters<typeof orchestrator.startGame>[0]['config'],
       });
+
+      // Set play mode on existing thread (Layer 1 info isolation, KD-40/AC-I9)
+      await threadStore.updateThinkingMode(threadId, 'play');
+
       return runtime;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -269,8 +295,7 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
       const { threadId } = request.params;
       const runtime = await gameStore.getActiveGame(threadId);
       if (!runtime) {
-        reply.status(404);
-        return { error: 'No active game in this thread' };
+        return null; // No active game — normal empty response, not 404
       }
 
       const requestedViewer = (request.query as { viewer?: string }).viewer;
@@ -365,15 +390,33 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
       return { error: 'No active game in this thread' };
     }
 
-    if (runtime.config.humanRole !== 'god-view') {
-      reply.status(403);
-      return { error: 'God actions require god-view mode' };
-    }
-
     const body = request.body as { action?: string };
     if (!body?.action) {
       reply.status(400);
       return { error: 'Missing action field' };
+    }
+
+    // 'stop' is always allowed — emergency kill switch regardless of humanRole
+    if (body.action === 'stop') {
+      try {
+        autoPlayer.stopLoop(runtime.gameId);
+        await gameStore.endGame(runtime.gameId, 'aborted');
+        clearGameNonces(runtime.gameId);
+        socketManager.broadcastToRoom(`thread:${runtime.threadId}`, 'game:aborted', {
+          gameId: runtime.gameId,
+          timestamp: Date.now(),
+        });
+        return { ok: true, action: 'stop' };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        reply.status(400);
+        return { error: message };
+      }
+    }
+
+    if (runtime.config.humanRole !== 'god-view') {
+      reply.status(403);
+      return { error: 'God actions require god-view mode' };
     }
 
     try {
@@ -407,7 +450,10 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
       return { error: 'No active game in this thread' };
     }
 
+    // Stop the auto-play/narrator loop FIRST so it doesn't keep invoking LLMs
+    autoPlayer.stopLoop(runtime.gameId);
     await gameStore.endGame(runtime.gameId, 'aborted');
+    clearGameNonces(runtime.gameId);
 
     socketManager.broadcastToRoom(`thread:${threadId}`, 'game:aborted', {
       gameId: runtime.gameId,

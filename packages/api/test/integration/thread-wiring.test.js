@@ -11,9 +11,11 @@
 
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { mkdirSync, rmSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import Fastify from 'fastify';
 import { migrateRouterOpts } from '../helpers/agent-registry-helpers.js';
 
@@ -23,6 +25,7 @@ const { MessageStore } = await import('../../dist/domains/cats/services/stores/p
 const { ThreadStore } = await import('../../dist/domains/cats/services/stores/ports/ThreadStore.js');
 const { threadsRoutes } = await import('../../dist/routes/threads.js');
 const { messagesRoutes } = await import('../../dist/routes/messages.js');
+const { findMonorepoRoot } = await import('../../dist/utils/monorepo-root.js');
 
 // --- Helpers ---
 
@@ -38,10 +41,18 @@ function createMockProcess() {
   const stdout = new PassThrough();
   const stderr = new PassThrough();
   const emitter = new EventEmitter();
+  const originalEmit = emitter.emit.bind(emitter);
+  emitter.emit = (event, ...args) => {
+    const emitted = originalEmit(event, ...args);
+    if (event === 'exit') {
+      process.nextTick(() => originalEmit('close', ...args));
+    }
+    return emitted;
+  };
   const proc = {
     stdout,
     stderr,
-    pid: 12345,
+    pid: process.pid,
     exitCode: null,
     kill: () => {
       process.nextTick(() => {
@@ -79,7 +90,43 @@ function createMockSpawnFn(events) {
   };
 }
 
+function installFakeCliPath() {
+  const dir = mkdtempSync(join(tmpdir(), 'cat-cafe-thread-cli-'));
+  const writeExecutable = (name, content) => {
+    const file = join(dir, name);
+    writeFileSync(file, content);
+    chmodSync(file, 0o755);
+  };
+
+  if (process.platform === 'win32') {
+    const content = '@echo off\r\nexit /b 0\r\n';
+    writeExecutable('claude.cmd', content);
+    writeExecutable('codex.cmd', content);
+    writeExecutable('gemini.cmd', content);
+  } else {
+    const content = '#!/bin/sh\nexit 0\n';
+    writeExecutable('claude', content);
+    writeExecutable('codex', content);
+    writeExecutable('gemini', content);
+  }
+
+  return dir;
+}
+
 // --- Tests ---
+
+let fakeCliDir;
+const originalPath = process.env.PATH ?? '';
+
+before(() => {
+  fakeCliDir = installFakeCliPath();
+  process.env.PATH = `${fakeCliDir}${process.platform === 'win32' ? ';' : ':'}${originalPath}`;
+});
+
+after(() => {
+  process.env.PATH = originalPath;
+  if (fakeCliDir) rmSync(fakeCliDir, { recursive: true, force: true });
+});
 
 describe('Thread isolation: messages stay in their thread', () => {
   let app;
@@ -141,7 +188,8 @@ describe('Thread isolation: messages stay in their thread', () => {
     // Query thread A → only msg from A
     const qA = await app.inject({
       method: 'GET',
-      url: `/api/messages?threadId=${threadA.id}&userId=alice`,
+      url: `/api/messages?threadId=${threadA.id}`,
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
     const bodyA = JSON.parse(qA.body);
     assert.equal(bodyA.messages.length, 1);
@@ -150,7 +198,8 @@ describe('Thread isolation: messages stay in their thread', () => {
     // Query thread B → only msg from B
     const qB = await app.inject({
       method: 'GET',
-      url: `/api/messages?threadId=${threadB.id}&userId=alice`,
+      url: `/api/messages?threadId=${threadB.id}`,
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
     const bodyB = JSON.parse(qB.body);
     assert.equal(bodyB.messages.length, 1);
@@ -278,7 +327,8 @@ describe('Project-scoped threads: create and list by project', () => {
     // Get all threads to find the resolved projectPath (macOS /tmp → /private/tmp)
     const resAll0 = await app.inject({
       method: 'GET',
-      url: '/api/threads?userId=alice',
+      url: '/api/threads',
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
     const allThreads0 = JSON.parse(resAll0.body).threads;
     const catCafeThread = allThreads0.find((t) => t.title === 'In cat-cafe');
@@ -288,7 +338,8 @@ describe('Project-scoped threads: create and list by project', () => {
     // Query by resolved project path
     const resCatCafe = await app.inject({
       method: 'GET',
-      url: `/api/threads?userId=alice&projectPath=${encodeURIComponent(resolvedPath)}`,
+      url: `/api/threads?projectPath=${encodeURIComponent(resolvedPath)}`,
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
     const catCafeThreads = JSON.parse(resCatCafe.body).threads;
     assert.equal(catCafeThreads.length, 1);
@@ -298,7 +349,8 @@ describe('Project-scoped threads: create and list by project', () => {
     // Query all (no projectPath filter)
     const resAll = await app.inject({
       method: 'GET',
-      url: '/api/threads?userId=alice',
+      url: '/api/threads',
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
     const allThreads = JSON.parse(resAll.body).threads;
     // Should include all 3 created + default (auto-created by list())
@@ -312,8 +364,9 @@ describe('AgentRouter passes workingDirectory from thread.projectPath', () => {
     const messageStore = new MessageStore();
     const registry = new InvocationRegistry();
 
-    // Create thread with a project path (must be under allowed root for isUnderAllowedRoot)
-    const thread = threadStore.create('alice', 'Project thread', '/tmp/test-project');
+    // Create thread with a project path under the monorepo root so isSameProject() returns true
+    // and the governance gate is skipped (otherwise checkGovernancePreflight fails for external paths)
+    const thread = threadStore.create('alice', 'Project thread', findMonorepoRoot());
 
     let receivedOptions = null;
     const mockClaudeService = {
@@ -338,7 +391,7 @@ describe('AgentRouter passes workingDirectory from thread.projectPath', () => {
     await collect(router.route('alice', '@opus hello', thread.id));
 
     assert.ok(receivedOptions);
-    assert.equal(receivedOptions.workingDirectory, '/tmp/test-project');
+    assert.equal(receivedOptions.workingDirectory, findMonorepoRoot());
   });
 });
 
@@ -366,14 +419,13 @@ describe('MCP callback stores message with threadId', () => {
   });
 
   it('post-message callback stores message with invocation threadId', async () => {
-    const { invocationId, callbackToken } = registry.create('alice', 'opus', 'thread-42');
+    const { invocationId, callbackToken } = await registry.create('alice', 'opus', 'thread-42');
 
     const res = await app.inject({
       method: 'POST',
       url: '/api/callbacks/post-message',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
       payload: {
-        invocationId,
-        callbackToken,
         content: 'callback msg',
       },
     });
@@ -469,7 +521,8 @@ describe('Default thread isolation: no cross-thread message leak', () => {
     // GET without threadId → server defaults to 'default' thread
     const res = await app.inject({
       method: 'GET',
-      url: '/api/messages?userId=alice',
+      url: '/api/messages',
+      headers: { 'x-cat-cafe-user': 'alice' },
     });
     const data = JSON.parse(res.body);
     assert.equal(data.messages.length, 1, 'Should only return default thread messages');

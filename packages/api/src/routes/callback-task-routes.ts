@@ -2,63 +2,69 @@
  * Callback task routes — MCP post_message 回传的任务更新端点
  */
 
-import { catRegistry } from '@cat-cafe/shared';
+import type { CatId } from '@cat-cafe/shared';
+import { catRegistry, createCatId } from '@cat-cafe/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
+import { resolveCatTarget } from '../domains/cats/services/agents/routing/cat-target-resolver.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
-import { callbackAuthSchema } from './callback-auth-schema.js';
-import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
+import { requireCallbackAuth } from './callback-auth-prehandler.js';
+import { deriveCallbackActor, resolveScopedThreadId } from './callback-scope-helpers.js';
 
-const updateTaskSchema = callbackAuthSchema.extend({
+const updateTaskSchema = z.object({
   taskId: z.string().min(1),
   status: z.enum(['todo', 'doing', 'blocked', 'done']).optional(),
   why: z.string().max(1000).optional(),
 });
 
-const listTasksQuerySchema = callbackAuthSchema.extend({
+const createTaskSchema = z.object({
+  title: z.string().min(1).max(200),
+  why: z.string().max(1000).optional().default(''),
+  ownerCatId: z.string().min(1).optional(),
+});
+
+const listTasksQuerySchema = z.object({
   threadId: z.string().min(1).optional(),
   catId: z.string().min(1).optional(),
   status: z.enum(['todo', 'doing', 'blocked', 'done']).optional(),
+  kind: z.enum(['work', 'pr_tracking']).optional(),
 });
 
 export function registerCallbackTaskRoutes(
   app: FastifyInstance,
   deps: {
-    registry: InvocationRegistry;
     taskStore: ITaskStore;
     socketManager: SocketManager;
     threadStore?: IThreadStore;
   },
 ): void {
-  const { registry, taskStore, socketManager, threadStore } = deps;
+  const { taskStore, socketManager, threadStore } = deps;
 
   app.post('/api/callbacks/update-task', async (request, reply) => {
+    const record = requireCallbackAuth(request, reply);
+    if (!record) return;
+    const actor = deriveCallbackActor(record);
+
     const parsed = updateTaskSchema.safeParse(request.body);
     if (!parsed.success) {
       reply.status(400);
       return { error: 'Invalid request body', details: parsed.error.issues };
     }
 
-    const { invocationId, callbackToken, taskId, status, why } = parsed.data;
-    const record = registry.verify(invocationId, callbackToken);
-    if (!record) {
-      reply.status(401);
-      return EXPIRED_CREDENTIALS_ERROR;
-    }
+    const { taskId, status, why } = parsed.data;
 
     const existing = await taskStore.get(taskId);
     if (!existing) {
       reply.status(404);
       return { error: 'Task not found' };
     }
-    if (existing.threadId !== record.threadId) {
+    if (existing.threadId !== actor.threadId) {
       reply.status(403);
       return { error: 'Task belongs to a different thread' };
     }
-    if (existing.ownerCatId && existing.ownerCatId !== record.catId) {
+    if (existing.ownerCatId && existing.ownerCatId !== actor.catId) {
       reply.status(403);
       return { error: 'Task is owned by another cat' };
     }
@@ -77,19 +83,59 @@ export function registerCallbackTaskRoutes(
     return { status: 'ok', task: updated };
   });
 
+  // F160: create-task — kind forced to 'work' (KD-4)
+  app.post('/api/callbacks/create-task', async (request, reply) => {
+    const record = requireCallbackAuth(request, reply);
+    if (!record) return;
+    const actor = deriveCallbackActor(record);
+
+    const parsed = createTaskSchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid request body', details: parsed.error.issues };
+    }
+
+    const { title, why, ownerCatId } = parsed.data;
+
+    // F182 AC-C2: B class — validate ownerCatId is available (contract 400 on disabled)
+    let resolvedOwnerCatId: CatId | null = null;
+    if (ownerCatId) {
+      const resolved = resolveCatTarget(ownerCatId);
+      if ('error' in resolved) {
+        reply.status(400);
+        return resolved.error;
+      }
+      resolvedOwnerCatId = createCatId(resolved.ok);
+    }
+
+    const task = await taskStore.create({
+      threadId: actor.threadId,
+      title,
+      why: why ?? '',
+      createdBy: actor.catId,
+      kind: 'work',
+      subjectKey: null,
+      ownerCatId: resolvedOwnerCatId,
+      userId: actor.userId,
+    });
+
+    socketManager.broadcastToRoom(`thread:${task.threadId}`, 'task_created', task);
+    reply.status(201);
+    return { status: 'ok', task };
+  });
+
   app.get('/api/callbacks/list-tasks', async (request, reply) => {
+    const record = requireCallbackAuth(request, reply);
+    if (!record) return;
+    const actor = deriveCallbackActor(record);
+
     const parsed = listTasksQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       reply.status(400);
       return { error: 'Invalid request query', details: parsed.error.issues };
     }
 
-    const { invocationId, callbackToken, threadId, catId, status } = parsed.data;
-    const record = registry.verify(invocationId, callbackToken);
-    if (!record) {
-      reply.status(401);
-      return EXPIRED_CREDENTIALS_ERROR;
-    }
+    const { threadId, catId, status, kind } = parsed.data;
 
     if (catId && !catRegistry.has(catId)) {
       reply.status(400);
@@ -98,35 +144,32 @@ export function registerCallbackTaskRoutes(
 
     let scopedThreadIds: string[] = [];
     if (threadId) {
-      if (threadId === record.threadId) {
-        scopedThreadIds = [threadId];
-      } else {
-        if (!threadStore) {
-          reply.status(503);
-          return { error: 'Thread store not configured for cross-thread task query' };
-        }
-        const targetThread = await threadStore.get(threadId);
-        if (!targetThread || targetThread.createdBy !== record.userId) {
-          reply.status(403);
-          return { error: 'Thread access denied' };
-        }
-        scopedThreadIds = [threadId];
+      const scoped = await resolveScopedThreadId(actor, threadId, {
+        threadStore,
+        threadStoreMissingError: 'Thread store not configured for cross-thread task query',
+        accessDeniedError: 'Thread access denied',
+      });
+      if (!scoped.ok) {
+        reply.status(scoped.statusCode);
+        return { error: scoped.error };
       }
+      scopedThreadIds = [scoped.threadId];
     } else if (threadStore) {
-      const userThreads = await threadStore.list(record.userId);
+      const userThreads = await threadStore.list(actor.userId);
       scopedThreadIds = userThreads.map((item) => item.id);
     } else {
       app.log.warn(
-        { userId: record.userId, invocationId },
+        { userId: actor.userId, invocationId: actor.invocationId },
         '[callbacks/list-tasks] threadStore unavailable, falling back to current thread only',
       );
-      scopedThreadIds = [record.threadId];
+      scopedThreadIds = [actor.threadId];
     }
 
     const perThreadTasks = await Promise.all(scopedThreadIds.map((id) => taskStore.listByThread(id)));
     let tasks = perThreadTasks.flat();
     if (catId) tasks = tasks.filter((item) => item.ownerCatId === catId);
     if (status) tasks = tasks.filter((item) => item.status === status);
+    if (kind) tasks = tasks.filter((item) => item.kind === kind);
     tasks.sort((a, b) => b.updatedAt - a.updatedAt || b.createdAt - a.createdAt || b.id.localeCompare(a.id));
 
     return { tasks };

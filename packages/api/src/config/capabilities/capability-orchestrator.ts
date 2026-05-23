@@ -9,54 +9,466 @@
  * 连同 Cat Cafe 自有 MCP 一起写入 capabilities.json。
  */
 
+import { existsSync, statSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { relative, resolve, sep } from 'node:path';
+import { delimiter, extname, join, relative, resolve, sep } from 'node:path';
 import type { CapabilitiesConfig, CapabilityEntry, McpServerDescriptor } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
 import {
+  cleanStaleClaudeProjectOverrides,
+  readAntigravityMcpConfig,
   readClaudeMcpConfig,
   readCodexMcpConfig,
   readGeminiMcpConfig,
+  readKimiMcpConfig,
+  writeAntigravityMcpConfig,
   writeClaudeMcpConfig,
   writeCodexMcpConfig,
   writeGeminiMcpConfig,
+  writeKimiMcpConfig,
 } from './mcp-config-adapters.js';
+
+// ────────── F146: Per-project mutex for capability config writes ──────────
+
+const capabilityLocks = new Map<string, Promise<unknown>>();
+
+export function withCapabilityLock<T>(projectRoot: string, fn: () => Promise<T>): Promise<T> {
+  const prev = capabilityLocks.get(projectRoot) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  capabilityLocks.set(projectRoot, next);
+  const cleanup = () => {
+    if (capabilityLocks.get(projectRoot) === next) capabilityLocks.delete(projectRoot);
+  };
+  next.then(cleanup, cleanup);
+  return next;
+}
 
 // ────────── Constants ──────────
 
 const CAPABILITIES_FILENAME = 'capabilities.json';
-const CAT_CAFE_DIR = '.cat-cafe';
+const CONFIG_SUBDIR = '.cat-cafe';
+const MCP_RESOLVED_FILENAME = 'mcp-resolved.json';
 
 const PENCIL_EXTENSIONS_DIR = resolve(homedir(), '.antigravity/extensions');
+const VSCODE_EXTENSIONS_DIR = resolve(homedir(), '.vscode/extensions');
+const CURSOR_EXTENSIONS_DIR = resolve(homedir(), '.cursor/extensions');
+const VSCODE_INSIDERS_EXTENSIONS_DIR = resolve(homedir(), '.vscode-insiders/extensions');
 const PENCIL_DIR_PREFIX = 'highagency.pencildev-';
-const PENCIL_BINARY_SUFFIX = '/out/mcp-server-darwin-arm64';
+const WINDOWS_DRIVE_PATH_RE = /^[A-Za-z]:[\\/]/;
+const URL_SCHEME_RE = /^[A-Za-z][A-Za-z\d+.-]*:\/\//;
+const SCHEME_LIKE_SPEC_RE = /^[A-Za-z][A-Za-z\d+.-]*:[^\\/]/;
+const LOCAL_ARTIFACT_EXTENSIONS = new Set([
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.ts',
+  '.mts',
+  '.cts',
+  '.jsx',
+  '.tsx',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.py',
+  '.sh',
+  '.bash',
+  '.zsh',
+  '.ps1',
+  '.cmd',
+  '.bat',
+]);
+/** @internal Exported for testing only */
+export function getPencilBinarySuffix(): string {
+  const os = process.platform === 'win32' ? 'windows' : process.platform === 'linux' ? 'linux' : 'darwin';
+  const arch = process.arch === 'x64' ? 'x64' : 'arm64';
+  const ext = process.platform === 'win32' ? '.exe' : '';
+  return `out/mcp-server-${os}-${arch}${ext}`;
+}
+/** @internal Exported for testing only */
+export const PENCIL_BINARY_SUFFIX = getPencilBinarySuffix();
+
+type ResolvedMcpStatus = 'resolved' | 'unresolved';
+
+export interface ResolvedMcpStateEntry {
+  resolver: string;
+  status: ResolvedMcpStatus;
+  command?: string;
+  args?: string[];
+}
+
+export type ResolvedMcpState = Record<string, ResolvedMcpStateEntry>;
+
+interface PencilResolveOptions {
+  env?: NodeJS.ProcessEnv;
+  projectRoot?: string;
+  antigravityDir?: string;
+  vscodeDir?: string;
+  cursorDir?: string;
+  vscodeInsidersDir?: string;
+}
+
+type PencilCommandResolution = { command: string; args: string[] } | null;
+type PencilCommandResolver = (options?: PencilResolveOptions) => Promise<PencilCommandResolution>;
+type PencilApp = 'antigravity' | 'vscode';
+interface PencilInstallCandidate {
+  app: PencilApp;
+  binaryPath: string;
+  dirName: string;
+}
+
+/**
+ * Parse semver-like version from a Pencil extension directory name.
+ * e.g. "highagency.pencildev-0.6.33-universal" → [0, 6, 33]
+ * Returns [0, 0, 0] if parsing fails (sorts to the bottom).
+ * @internal Exported for testing only
+ */
+export function parsePencilVersion(dirName: string): [number, number, number] {
+  const withoutPrefix = dirName.slice(PENCIL_DIR_PREFIX.length);
+  const match = withoutPrefix.match(/^(\d+)\.(\d+)\.(\d+)/);
+  if (!match) return [0, 0, 0];
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+/**
+ * Compare two Pencil extension directory names by semver.
+ * @internal Exported for testing only
+ */
+export function comparePencilDirs(a: string, b: string): number {
+  const va = parsePencilVersion(a);
+  const vb = parsePencilVersion(b);
+  for (let i = 0; i < 3; i++) {
+    if (va[i] !== vb[i]) return va[i] - vb[i];
+  }
+  return 0;
+}
 
 /** Provider → CLI config writer mapping */
 const PROVIDER_WRITERS = {
   anthropic: writeClaudeMcpConfig,
   openai: writeCodexMcpConfig,
   google: writeGeminiMcpConfig,
+  antigravity: writeAntigravityMcpConfig,
+  kimi: writeKimiMcpConfig,
 } as const;
 
-function hasUsableStdioCommand(command: string | undefined): boolean {
-  return typeof command === 'string' && command.trim().length > 0;
+/** Check if a descriptor has a usable transport (stdio command, local resolver, or streamableHttp URL). */
+export function hasUsableTransport(desc: {
+  command?: string;
+  resolver?: string;
+  transport?: string;
+  url?: string;
+}): boolean {
+  if (desc.transport === 'streamableHttp') {
+    return typeof desc.url === 'string' && desc.url.trim().length > 0;
+  }
+  if (typeof desc.resolver === 'string' && desc.resolver.trim().length > 0) {
+    return true;
+  }
+  return typeof desc.command === 'string' && desc.command.trim().length > 0;
+}
+
+export interface RequiredMcpStatus {
+  id: string;
+  status: 'ready' | 'missing' | 'unresolved';
+  reason: string;
+}
+
+function resolveHomeDir(env?: NodeJS.ProcessEnv): string {
+  return env?.HOME || env?.USERPROFILE || homedir();
+}
+
+function resolveLocalPath(projectRoot: string, value: string, env?: NodeJS.ProcessEnv): string {
+  const resolvedHome = resolveHomeDir(env);
+  if (value === '~') return resolvedHome;
+  if (value.startsWith('~/') || value.startsWith('~\\')) {
+    return join(resolvedHome, value.slice(2));
+  }
+  if (WINDOWS_DRIVE_PATH_RE.test(value) || value.startsWith('/') || value.startsWith('\\')) {
+    return value;
+  }
+  return resolve(projectRoot, value);
+}
+
+function isExecutableCommandPath(filePath: string): boolean {
+  if (!existsSync(filePath)) return false;
+  try {
+    const stats = statSync(filePath);
+    if (!stats.isFile()) return false;
+    if (process.platform === 'win32') return true;
+    return (stats.mode & 0o111) !== 0;
+  } catch {
+    return false;
+  }
+}
+
+function resolveCommandOnPath(command: string): string | null {
+  const pathEntries = (process.env.PATH ?? '').split(delimiter).filter(Boolean);
+  if (pathEntries.length === 0) return null;
+
+  const suffixes =
+    process.platform === 'win32'
+      ? extname(command)
+        ? ['']
+        : (process.env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD')
+            .split(';')
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+      : [''];
+
+  for (const dir of pathEntries) {
+    for (const suffix of suffixes) {
+      const candidate = join(dir, `${command}${suffix}`);
+      if (isExecutableCommandPath(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  return null;
+}
+
+function commandExists(projectRoot: string, command: string, env?: NodeJS.ProcessEnv): boolean {
+  if (!command) return false;
+  if (command.includes('/') || command.includes('\\') || command.startsWith('.') || command.startsWith('~')) {
+    return isExecutableCommandPath(resolveLocalPath(projectRoot, command, env));
+  }
+  return resolveCommandOnPath(command) !== null;
+}
+
+function extractArtifactCandidate(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const equalIndex = trimmed.indexOf('=');
+  if (trimmed.startsWith('--') && equalIndex > 2 && equalIndex < trimmed.length - 1) {
+    return trimmed.slice(equalIndex + 1);
+  }
+  return trimmed;
+}
+
+function isLikelyPackageSpecifier(value: string): boolean {
+  return (
+    value.startsWith('@') ||
+    (SCHEME_LIKE_SPEC_RE.test(value) && !WINDOWS_DRIVE_PATH_RE.test(value) && !value.startsWith('~/'))
+  );
+}
+
+function isLocalArtifactArg(value: unknown): boolean {
+  const candidate = extractArtifactCandidate(value);
+  if (!candidate || candidate.startsWith('-')) return false;
+  if (URL_SCHEME_RE.test(candidate)) return false;
+  if (isLikelyPackageSpecifier(candidate)) return false;
+  if (
+    candidate.startsWith('.') ||
+    candidate.startsWith('~') ||
+    candidate.startsWith('/') ||
+    candidate.startsWith('\\') ||
+    WINDOWS_DRIVE_PATH_RE.test(candidate)
+  ) {
+    return true;
+  }
+  if (candidate.includes('/') || candidate.includes('\\')) return true;
+  return LOCAL_ARTIFACT_EXTENSIONS.has(extname(candidate).toLowerCase());
+}
+
+function referencedArtifactExists(projectRoot: string, args: unknown[] | undefined, env?: NodeJS.ProcessEnv): boolean {
+  if (!Array.isArray(args)) return true;
+  const artifactArgs = args.filter(isLocalArtifactArg).map(extractArtifactCandidate);
+  if (artifactArgs.length === 0) return true;
+  return artifactArgs.every(
+    (artifactArg) => artifactArg && existsSync(resolveLocalPath(projectRoot, artifactArg, env)),
+  );
+}
+
+export async function resolveRequiredMcpStatus(
+  mcpId: string,
+  options: {
+    capabilities?: CapabilitiesConfig | null;
+    env?: NodeJS.ProcessEnv;
+    projectRoot?: string;
+  } = {},
+): Promise<RequiredMcpStatus> {
+  const projectRoot = options.projectRoot ?? process.cwd();
+  const capability = options.capabilities?.capabilities?.find((entry) => entry.id === mcpId && entry.type === 'mcp');
+  if (!capability || capability.enabled === false || !capability.mcpServer) {
+    return {
+      id: mcpId,
+      status: 'missing',
+      reason:
+        capability?.enabled === false
+          ? 'declared but disabled in capabilities.json'
+          : 'not declared in capabilities.json',
+    };
+  }
+
+  if (capability.mcpServer.resolver === 'pencil') {
+    const resolved = await resolvePencilCommand({ env: options.env, projectRoot });
+    return resolved
+      ? { id: mcpId, status: 'ready', reason: `resolved via ${resolved.args?.[1] ?? 'resolver'}` }
+      : { id: mcpId, status: 'unresolved', reason: 'resolver declared but no local Pencil installation found' };
+  }
+
+  const command = capability.mcpServer.command?.trim() ?? '';
+  if (command && !commandExists(projectRoot, command, options.env)) {
+    return {
+      id: mcpId,
+      status: 'unresolved',
+      reason: `command not found: ${command}`,
+    };
+  }
+
+  if (!referencedArtifactExists(projectRoot, capability.mcpServer.args, options.env)) {
+    return {
+      id: mcpId,
+      status: 'unresolved',
+      reason: 'command args reference missing local artifact',
+    };
+  }
+
+  if (hasUsableTransport(capability.mcpServer)) {
+    return {
+      id: mcpId,
+      status: 'ready',
+      reason:
+        capability.mcpServer.transport === 'streamableHttp'
+          ? `remote ${capability.mcpServer.url?.trim() ?? ''}`.trim()
+          : `stdio ${capability.mcpServer.command?.trim() ?? ''}`.trim(),
+    };
+  }
+
+  return {
+    id: mcpId,
+    status: 'unresolved',
+    reason: 'declared but missing usable command/url',
+  };
+}
+
+type DiscoveredMcpLike = Pick<McpServerDescriptor, 'name' | 'enabled' | 'transport'>;
+
+function shouldReplaceDiscoveredMcpServer<T extends DiscoveredMcpLike>(existing: T, incoming: T): boolean {
+  if (existing.transport === 'streamableHttp' && incoming.transport !== 'streamableHttp') {
+    return incoming.enabled !== false || existing.enabled !== true;
+  }
+  return existing.enabled === false && incoming.enabled !== false;
+}
+
+export function deduplicateDiscoveredMcpServers<T extends DiscoveredMcpLike>(servers: readonly T[]): T[] {
+  const byName = new Map<string, T>();
+  for (const server of servers) {
+    const existing = byName.get(server.name);
+    if (!existing || shouldReplaceDiscoveredMcpServer(existing, server)) {
+      byName.set(server.name, server);
+    }
+  }
+  return [...byName.values()];
+}
+
+/** Normalize a raw app name to the PencilApp union. Returns undefined for unknown values. */
+function normalizePencilApp(raw?: string): PencilApp | undefined {
+  const v = raw?.trim().toLowerCase();
+  if (v === 'antigravity') return 'antigravity';
+  if (v === 'vscode' || v === 'cursor' || v === 'vscode-insiders' || v === 'visual_studio_code') return 'vscode';
+  return undefined;
+}
+
+function inferPencilApp(command: string, envApp?: string): PencilApp {
+  const normalized = normalizePencilApp(envApp);
+  if (normalized) return normalized;
+  if (
+    command.includes(`${sep}.vscode${sep}extensions${sep}`) ||
+    command.includes(`${sep}.cursor${sep}extensions${sep}`) ||
+    command.includes(`${sep}.vscode-insiders${sep}extensions${sep}`) ||
+    command.includes('/.vscode/extensions/') ||
+    command.includes('/.cursor/extensions/') ||
+    command.includes('/.vscode-insiders/extensions/')
+  ) {
+    return 'vscode';
+  }
+  return 'antigravity';
+}
+
+async function collectAccessiblePencilCandidates(
+  extensionsDir: string,
+  app: PencilApp,
+): Promise<PencilInstallCandidate[]> {
+  try {
+    const entries = await readdir(extensionsDir);
+    const pencilDirs = entries.filter((e) => e.startsWith(PENCIL_DIR_PREFIX)).sort(comparePencilDirs);
+    const candidates: PencilInstallCandidate[] = [];
+    for (const dirName of pencilDirs) {
+      const binaryPath = resolve(extensionsDir, dirName, PENCIL_BINARY_SUFFIX);
+      if (!isExecutableCommandPath(binaryPath)) {
+        continue;
+      }
+      try {
+        candidates.push({ app, binaryPath, dirName });
+      } catch {
+        // Skip incomplete installs; a newer directory may exist without a usable binary.
+      }
+    }
+    return candidates;
+  } catch {
+    return [];
+  }
+}
+
+export async function resolvePencilCommand(
+  options: PencilResolveOptions = {},
+): Promise<{ command: string; args: string[] } | null> {
+  const env = options.env ?? process.env;
+  const projectRoot = options.projectRoot ?? process.cwd();
+  const explicitCommand = env.PENCIL_MCP_BIN?.trim();
+  if (explicitCommand) {
+    const resolvedCommand = resolveLocalPath(projectRoot, explicitCommand, env);
+    if (!isExecutableCommandPath(resolvedCommand)) {
+      return null;
+    }
+    const app = inferPencilApp(resolvedCommand, env.PENCIL_MCP_APP);
+    return { command: resolvedCommand, args: ['--app', app] };
+  }
+
+  const allCandidates = (
+    await Promise.all([
+      collectAccessiblePencilCandidates(options.antigravityDir ?? PENCIL_EXTENSIONS_DIR, 'antigravity'),
+      collectAccessiblePencilCandidates(options.vscodeDir ?? VSCODE_EXTENSIONS_DIR, 'vscode'),
+      collectAccessiblePencilCandidates(options.cursorDir ?? CURSOR_EXTENSIONS_DIR, 'vscode'),
+      collectAccessiblePencilCandidates(options.vscodeInsidersDir ?? VSCODE_INSIDERS_EXTENSIONS_DIR, 'vscode'),
+    ])
+  )
+    .flat()
+    .sort((a, b) => {
+      const versionCmp = comparePencilDirs(a.dirName, b.dirName);
+      if (versionCmp !== 0) return versionCmp;
+      // Tie-break: prefer antigravity over vscode (specialty editor; if installed, user likely prefers it)
+      return (a.app === 'antigravity' ? 1 : 0) - (b.app === 'antigravity' ? 1 : 0);
+    });
+
+  // PENCIL_MCP_APP (without PENCIL_MCP_BIN) filters candidates to the preferred app.
+  // Normalize aliases (cursor, vscode-insiders → vscode) to match candidate app values.
+  // Falls back to all candidates if the preferred app has no installations.
+  const preferredApp = normalizePencilApp(env.PENCIL_MCP_APP?.trim());
+  const candidates =
+    preferredApp && allCandidates.some((c) => c.app === preferredApp)
+      ? allCandidates.filter((c) => c.app === preferredApp)
+      : allCandidates;
+
+  const latest = candidates[candidates.length - 1];
+  if (latest) {
+    return { command: latest.binaryPath, args: ['--app', latest.app] };
+  }
+
+  return null;
 }
 
 /**
- * Resolve the latest Pencil MCP binary path by scanning ~/.antigravity/extensions/.
+ * Resolve the latest Pencil MCP binary path by scanning env override,
+ * ~/.antigravity/extensions/, then ~/.vscode/extensions/.
  * Returns null if no installation is found.
  */
-export async function resolvePencilBinary(): Promise<string | null> {
-  try {
-    const entries = await readdir(PENCIL_EXTENSIONS_DIR);
-    const pencilDirs = entries.filter((e) => e.startsWith(PENCIL_DIR_PREFIX)).sort(); // lexicographic sort works for semver with same prefix
-    if (pencilDirs.length === 0) return null;
-    const latest = pencilDirs[pencilDirs.length - 1];
-    return resolve(PENCIL_EXTENSIONS_DIR, latest, PENCIL_BINARY_SUFFIX);
-  } catch {
-    return null;
-  }
+export async function resolvePencilBinary(options: PencilResolveOptions = {}): Promise<string | null> {
+  const resolved = await resolvePencilCommand(options);
+  return resolved?.command ?? null;
 }
 
 // ────────── Core: Read / Write capabilities.json ──────────
@@ -73,7 +485,7 @@ function safePath(projectRoot: string, ...segments: string[]): string {
 }
 
 export async function readCapabilitiesConfig(projectRoot: string): Promise<CapabilitiesConfig | null> {
-  const filePath = safePath(projectRoot, CAT_CAFE_DIR, CAPABILITIES_FILENAME);
+  const filePath = safePath(projectRoot, CONFIG_SUBDIR, CAPABILITIES_FILENAME);
   try {
     const raw = await readFile(filePath, 'utf-8');
     const data = JSON.parse(raw) as CapabilitiesConfig;
@@ -85,10 +497,28 @@ export async function readCapabilitiesConfig(projectRoot: string): Promise<Capab
 }
 
 export async function writeCapabilitiesConfig(projectRoot: string, config: CapabilitiesConfig): Promise<void> {
-  const dir = safePath(projectRoot, CAT_CAFE_DIR);
+  const dir = safePath(projectRoot, CONFIG_SUBDIR);
   await mkdir(dir, { recursive: true });
-  const filePath = safePath(projectRoot, CAT_CAFE_DIR, CAPABILITIES_FILENAME);
+  const filePath = safePath(projectRoot, CONFIG_SUBDIR, CAPABILITIES_FILENAME);
   await writeFile(filePath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+}
+
+export async function readResolvedMcpState(projectRoot: string): Promise<ResolvedMcpState> {
+  const filePath = safePath(projectRoot, CONFIG_SUBDIR, MCP_RESOLVED_FILENAME);
+  try {
+    const raw = await readFile(filePath, 'utf-8');
+    const data = JSON.parse(raw) as ResolvedMcpState;
+    return data && typeof data === 'object' ? data : {};
+  } catch {
+    return {};
+  }
+}
+
+export async function writeResolvedMcpState(projectRoot: string, state: ResolvedMcpState): Promise<void> {
+  const dir = safePath(projectRoot, CONFIG_SUBDIR);
+  await mkdir(dir, { recursive: true });
+  const filePath = safePath(projectRoot, CONFIG_SUBDIR, MCP_RESOLVED_FILENAME);
+  await writeFile(filePath, `${JSON.stringify(state, null, 2)}\n`, 'utf-8');
 }
 
 // ────────── Discovery: Bootstrap from existing CLI configs ──────────
@@ -97,6 +527,8 @@ export interface DiscoveryPaths {
   claudeConfig: string; // e.g. <projectRoot>/.mcp.json
   codexConfig: string; // e.g. <projectRoot>/.codex/config.toml
   geminiConfig: string; // e.g. <projectRoot>/.gemini/settings.json
+  kimiConfig: string; // e.g. <projectRoot>/.kimi/mcp.json
+  antigravityConfig?: string; // e.g. ~/.gemini/antigravity/mcp_config.json
 }
 
 /**
@@ -104,25 +536,18 @@ export interface DiscoveryPaths {
  * Merges by name; if same name appears in multiple, first wins.
  */
 export async function discoverExternalMcpServers(paths: DiscoveryPaths): Promise<McpServerDescriptor[]> {
-  const [claude, codex, gemini] = await Promise.all([
+  const [claude, codex, gemini, kimi, antigravity] = await Promise.all([
     readClaudeMcpConfig(paths.claudeConfig),
     readCodexMcpConfig(paths.codexConfig),
     readGeminiMcpConfig(paths.geminiConfig),
+    readKimiMcpConfig(paths.kimiConfig),
+    paths.antigravityConfig ? readAntigravityMcpConfig(paths.antigravityConfig) : Promise.resolve([]),
   ]);
-
-  const seen = new Set<string>();
-  const result: McpServerDescriptor[] = [];
-
-  for (const server of [...claude, ...codex, ...gemini]) {
-    // TD104 (URL transport) is not represented in McpServerDescriptor yet.
-    // Ignore entries without stdio command to avoid writing invalid configs.
-    if (!hasUsableStdioCommand(server.command)) continue;
-    if (!seen.has(server.name)) {
-      seen.add(server.name);
-      result.push({ ...server, source: 'external' });
-    }
-  }
-  return result;
+  return deduplicateDiscoveredMcpServers(
+    [...claude, ...codex, ...gemini, ...kimi, ...antigravity]
+      .filter((server) => hasUsableTransport(server))
+      .map((server) => ({ ...server, source: 'external' as const })),
+  );
 }
 
 /**
@@ -140,35 +565,72 @@ export function buildCatCafeMcpDescriptor(projectRoot: string): McpServerDescrip
   };
 }
 
-const CAT_CAFE_SPLIT_SERVER_IDS = ['cat-cafe-collab', 'cat-cafe-memory', 'cat-cafe-signals'] as const;
+// F193 Phase C: split-only — add cat-cafe-limb (was previously hosted by all-in-one
+// `cat-cafe` server only via registerFullToolset). 4 split servers replace the legacy
+// 3-split + 1 all-in-one topology.
+const CAT_CAFE_SPLIT_SERVER_IDS = ['cat-cafe-collab', 'cat-cafe-memory', 'cat-cafe-signals', 'cat-cafe-limb'] as const;
 
-function buildCatCafeSplitMcpDescriptors(projectRoot: string): McpServerDescriptor[] {
+/**
+ * Resolve the runtime binary root (where Clowder AI MCP server code lives).
+ * codex peer review (PR #1414): explicit `opts.catCafeRepoRoot` from the
+ * production route is auto-detected via `resolveMainRepoPath()` (first git
+ * worktree line), which returns the canonical main repo even when API is
+ * running from the runtime worktree. Therefore `CAT_CAFE_RUNTIME_ROOT` must
+ * win over the explicit caller — env is the runtime-startup-explicit override
+ * of the auto-detection.
+ *
+ * Order of precedence:
+ *   1. CAT_CAFE_RUNTIME_ROOT env (highest — runtime startup script exports
+ *      `$RUNTIME_DIR` here so MCP config always points at the actual running
+ *      binary, regardless of what the calling route auto-detected)
+ *   2. explicit `catCafeRepoRoot` opt (typically `resolveMainRepoPath()` from
+ *      `routes/capabilities.ts`; correct in dev mode but stale in runtime mode
+ *      until env overrides)
+ *   3. process.cwd() fallback (the API process's cwd is by definition the
+ *      binary location when no explicit signal is set)
+ */
+export function resolveBinaryRoot(explicit?: string): string {
+  const runtimeRoot = process.env.CAT_CAFE_RUNTIME_ROOT?.trim();
+  if (runtimeRoot) return runtimeRoot;
+  if (explicit) return explicit;
+  return process.cwd();
+}
+
+function buildCatCafeSplitMcpDescriptors(binaryRoot: string): McpServerDescriptor[] {
   return [
     {
       name: 'cat-cafe-collab',
       command: 'node',
-      args: [resolve(projectRoot, 'packages/mcp-server/dist/collab.js')],
+      args: [resolve(binaryRoot, 'packages/mcp-server/dist/collab.js')],
       enabled: true,
       source: 'cat-cafe',
     },
     {
       name: 'cat-cafe-memory',
       command: 'node',
-      args: [resolve(projectRoot, 'packages/mcp-server/dist/memory.js')],
+      args: [resolve(binaryRoot, 'packages/mcp-server/dist/memory.js')],
       enabled: true,
       source: 'cat-cafe',
     },
     {
       name: 'cat-cafe-signals',
       command: 'node',
-      args: [resolve(projectRoot, 'packages/mcp-server/dist/signals.js')],
+      args: [resolve(binaryRoot, 'packages/mcp-server/dist/signals.js')],
+      enabled: true,
+      source: 'cat-cafe',
+    },
+    {
+      // F193 Phase C: limb tools get their own namespace (布偶猫专属能力).
+      name: 'cat-cafe-limb',
+      command: 'node',
+      args: [resolve(binaryRoot, 'packages/mcp-server/dist/limb.js')],
       enabled: true,
       source: 'cat-cafe',
     },
   ];
 }
 
-function toCapabilityEntry(server: McpServerDescriptor): CapabilityEntry {
+export function toCapabilityEntry(server: McpServerDescriptor): CapabilityEntry {
   const entry: CapabilityEntry = {
     id: server.name,
     type: 'mcp',
@@ -179,6 +641,10 @@ function toCapabilityEntry(server: McpServerDescriptor): CapabilityEntry {
       args: server.args,
     },
   };
+  if (server.transport) entry.mcpServer!.transport = server.transport;
+  if (server.resolver) entry.mcpServer!.resolver = server.resolver;
+  if (server.url) entry.mcpServer!.url = server.url;
+  if (server.headers) entry.mcpServer!.headers = server.headers;
   if (server.env) entry.mcpServer!.env = server.env;
   if (server.workingDir) entry.mcpServer!.workingDir = server.workingDir;
   return entry;
@@ -216,24 +682,39 @@ export function migrateLegacyCatCafeCapability(
   config: CapabilitiesConfig,
   opts?: { catCafeRepoRoot?: string; projectRoot?: string },
 ): { migrated: boolean; config: CapabilitiesConfig } {
-  const projectRoot = opts?.catCafeRepoRoot ?? opts?.projectRoot;
-  if (!projectRoot) return { migrated: false, config };
+  // `projectRoot` is workspace, NOT binary root. Use resolveBinaryRoot for the
+  // binary path (codex review on PR #1396 R3). The opts.projectRoot field is
+  // accepted for backward-compatible callers but ignored for path resolution.
+  const splitSet = new Set<string>(CAT_CAFE_SPLIT_SERVER_IDS);
 
-  const splitSet = new Set(CAT_CAFE_SPLIT_SERVER_IDS);
-  const hasSplit = config.capabilities.some((cap) =>
-    splitSet.has(cap.id as (typeof CAT_CAFE_SPLIT_SERVER_IDS)[number]),
+  // Cloud round 4 P2 (PR #1605): hasSplit must filter by source.
+  // External MCP servers reusing split ids (cat-cafe-collab/memory/signals/limb)
+  // are ID collisions, not "already split" — we should not skip migration on
+  // their account.
+  const hasManagedSplit = config.capabilities.some(
+    (cap) => cap.type === 'mcp' && cap.source === 'cat-cafe' && splitSet.has(cap.id),
   );
-  if (hasSplit) return { migrated: false, config };
+  if (hasManagedSplit) return { migrated: false, config };
 
-  const legacyCatCafe = config.capabilities.find((cap) => cap.type === 'mcp' && cap.id === 'cat-cafe');
+  const legacyCatCafe = config.capabilities.find(
+    (cap) => cap.type === 'mcp' && cap.source === 'cat-cafe' && cap.id === 'cat-cafe',
+  );
   if (!legacyCatCafe) return { migrated: false, config };
 
+  // Collision guard: if any planned managed split id is already taken by a
+  // non-managed entry, bail out. Adding duplicate ids would corrupt
+  // capabilities.json (cloud round 3 P2 + round 4 logic).
+  const existingIds = new Set(config.capabilities.filter((cap) => cap.type === 'mcp').map((cap) => cap.id));
+  const wouldCollide = CAT_CAFE_SPLIT_SERVER_IDS.some((id) => existingIds.has(id));
+  if (wouldCollide) return { migrated: false, config };
+
+  const binaryRoot = resolveBinaryRoot(opts?.catCafeRepoRoot);
   const nextCapabilities = config.capabilities.filter((cap) => cap.id !== 'cat-cafe');
   const legacySeed: LegacyCatCafeSeed = { enabled: legacyCatCafe.enabled };
   if (legacyCatCafe.overrides) legacySeed.overrides = legacyCatCafe.overrides;
   if (legacyCatCafe.mcpServer?.env) legacySeed.env = legacyCatCafe.mcpServer.env;
   if (legacyCatCafe.mcpServer?.workingDir) legacySeed.workingDir = legacyCatCafe.mcpServer.workingDir;
-  const splitEntries = buildSplitCapabilityEntries(projectRoot, legacySeed);
+  const splitEntries = buildSplitCapabilityEntries(binaryRoot, legacySeed);
   for (const splitEntry of splitEntries) {
     nextCapabilities.unshift(splitEntry);
   }
@@ -244,6 +725,221 @@ export function migrateLegacyCatCafeCapability(
       capabilities: nextCapabilities,
     },
   };
+}
+
+export function migrateResolverBackedCapabilities(config: CapabilitiesConfig): {
+  migrated: boolean;
+  config: CapabilitiesConfig;
+} {
+  let migrated = false;
+  const capabilities = config.capabilities.map((cap) => {
+    if (cap.type !== 'mcp' || cap.id !== 'pencil') return cap;
+
+    const current = cap.mcpServer;
+    const nextServer = {
+      ...(current ?? {}),
+      resolver: 'pencil',
+      command: '',
+      args: [],
+    };
+
+    const changed =
+      current?.resolver !== 'pencil' ||
+      current?.command !== '' ||
+      (current?.args?.length ?? 0) > 0 ||
+      current === undefined;
+
+    if (!changed) return cap;
+    migrated = true;
+    return { ...cap, mcpServer: nextServer };
+  });
+
+  if (!migrated) return { migrated: false, config };
+  return { migrated: true, config: { ...config, capabilities } };
+}
+
+/**
+ * F193 Phase C: Replace legacy F145 `ensureCatCafeMainServer` semantics.
+ *
+ * **Old (F145 Phase C)**: when split servers exist but main `cat-cafe` doesn't
+ * → re-add main (because limb tools were piggybacked on the all-in-one server).
+ *
+ * **New (F193 Phase C, 2026-05-08)**: split-only direction.
+ *   1. If all-in-one `cat-cafe` entry exists → REMOVE it (limb has its own server now)
+ *   2. If splits exist but `cat-cafe-limb` is missing → ADD it (covers existing
+ *      3-split installs migrating to 4-split)
+ *
+ * Splits without main is the new canonical state.
+ *
+ * Existing call sites (capabilities.ts / capabilities-mcp-write.ts / orchestrate())
+ * still call this function under its old name — Phase D follow-up may rename.
+ * For Phase C, behavior change is what matters.
+ */
+export function ensureCatCafeMainServer(
+  config: CapabilitiesConfig,
+  opts?: { catCafeRepoRoot?: string; projectRoot?: string },
+): { migrated: boolean; config: CapabilitiesConfig } {
+  const splitSet = new Set<string>(CAT_CAFE_SPLIT_SERVER_IDS);
+
+  // Cloud round 2 P2 (PR #1605): match by `source === 'cat-cafe'` AND id —
+  // an external MCP server that happens to reuse split IDs (cat-cafe-collab
+  // etc.) must NOT trigger this managed-cafe migration path. Without this
+  // filter, an ID-collision could silently remove a managed `cat-cafe` entry
+  // even though the project has no real split servers.
+  const isManagedSplit = (cap: CapabilityEntry): boolean =>
+    cap.type === 'mcp' && cap.source === 'cat-cafe' && splitSet.has(cap.id);
+  const isManagedMain = (cap: CapabilityEntry): boolean =>
+    cap.type === 'mcp' && cap.source === 'cat-cafe' && cap.id === 'cat-cafe';
+
+  // Cloud round 1 P2 (PR #1605): require the full canonical 3-split set
+  // (collab + memory + signals) before any migration. Limb is the 4th split
+  // we may add; the other three are the fundamental tool surface. Migrating
+  // a partial config (e.g. `cat-cafe + cat-cafe-collab` only) would silently
+  // remove the only source of memory/signal tools — a data-plane regression.
+  const splitIds = new Set(config.capabilities.filter(isManagedSplit).map((cap) => cap.id));
+  const hasFullSplitSet =
+    splitIds.has('cat-cafe-collab') && splitIds.has('cat-cafe-memory') && splitIds.has('cat-cafe-signals');
+  if (!hasFullSplitSet) return { migrated: false, config };
+
+  // Compute the "limb landscape" before mutating anything:
+  //   - hasManagedLimb: managed cat-cafe-limb already in config?
+  //   - hasAnyLimbId: any entry (managed OR external) using cat-cafe-limb id?
+  //   - canAddManagedLimb: we can safely add managed limb iff no ID collision
+  //   - willHaveManagedLimb: end-state will have managed limb iff already
+  //     present OR we'll add one
+  const hasManagedLimb = config.capabilities.some((cap) => isManagedSplit(cap) && cap.id === 'cat-cafe-limb');
+  const hasAnyLimbId = config.capabilities.some((cap) => cap.type === 'mcp' && cap.id === 'cat-cafe-limb');
+  const canAddManagedLimb = !hasAnyLimbId;
+  const willHaveManagedLimb = hasManagedLimb || canAddManagedLimb;
+
+  // Capture legacy managed `cat-cafe` settings BEFORE any decision. Limb
+  // tools were piggybacked on the all-in-one `cat-cafe` server (via
+  // registerFullToolset), so the legacy entry's enabled/overrides/env
+  // represent user intent for limb tools specifically (cloud round 1 P1:
+  // prevent silent re-enable when user had cat-cafe disabled).
+  const legacyMain = config.capabilities.find(isManagedMain);
+
+  // Cloud round 4 P1 (PR #1605): only remove legacy `cat-cafe` if managed
+  // limb will be available afterwards. Otherwise the user loses limb tool
+  // surface entirely (legacy `cat-cafe` was the only managed server hosting
+  // limb tools via registerFullToolset). External cat-cafe-limb is NOT a
+  // valid replacement — it's a foreign entry that happens to share the id.
+  const shouldRemoveLegacyMain = legacyMain !== undefined && willHaveManagedLimb;
+
+  // If we can't safely complete migration (legacy main exists, but managed
+  // limb can't be added because of ID collision), bail out entirely to
+  // preserve the existing tool surface.
+  if (legacyMain !== undefined && !shouldRemoveLegacyMain) {
+    return { migrated: false, config };
+  }
+
+  let migrated = false;
+  let capabilities = [...config.capabilities];
+
+  // Step 1: F193 Phase C — remove legacy all-in-one managed `cat-cafe` if
+  // present (and only if managed limb will be available, per R4 P1 above).
+  if (shouldRemoveLegacyMain) {
+    capabilities = capabilities.filter((cap) => !isManagedMain(cap));
+    migrated = true;
+  }
+
+  // Step 2: ensure managed `cat-cafe-limb` exists alongside other splits
+  // (covers the 3-split → 4-split migration for installs bootstrapped before
+  // Phase C).
+  //
+  // Cloud round 3 P2 (PR #1605): the existence check uses id alone — if ANY
+  // entry (managed OR external) already claims `cat-cafe-limb`, we must NOT
+  // add another. Capability IDs must be unique in `capabilities.json`;
+  // downstream resolvers (CLI config writers, probe routes) key by id alone
+  // and would resolve to whichever comes first, hiding the duplicate.
+  const hasLimb = !canAddManagedLimb;
+  if (!hasLimb) {
+    const binaryRoot = resolveBinaryRoot(opts?.catCafeRepoRoot);
+    const limbDescriptor = buildCatCafeSplitMcpDescriptors(binaryRoot).find((d) => d.name === 'cat-cafe-limb');
+    if (limbDescriptor) {
+      const limbEntry = toCapabilityEntry(limbDescriptor);
+      // P1 inheritance precedence:
+      //   1. legacy managed `cat-cafe` (if exists) — it hosted limb tools, so
+      //      its enabled/overrides/env represent user intent specifically for limb
+      //   2. first existing managed split (fallback for fresh 3-split install
+      //      with no legacy main to inherit from)
+      const inheritFrom = legacyMain ?? capabilities.find(isManagedSplit);
+      if (inheritFrom) {
+        limbEntry.enabled = inheritFrom.enabled;
+        if (inheritFrom.overrides) limbEntry.overrides = inheritFrom.overrides.map((o) => ({ ...o }));
+        if (inheritFrom.mcpServer?.env) limbEntry.mcpServer!.env = { ...inheritFrom.mcpServer.env };
+        if (inheritFrom.mcpServer?.workingDir) limbEntry.mcpServer!.workingDir = inheritFrom.mcpServer.workingDir;
+      }
+      // Insert near other managed splits (keep config readable)
+      const lastSplitIdx = (() => {
+        let lastIdx = -1;
+        for (let i = 0; i < capabilities.length; i++) {
+          const cap = capabilities[i];
+          if (cap && isManagedSplit(cap)) lastIdx = i;
+        }
+        return lastIdx;
+      })();
+      if (lastSplitIdx >= 0) {
+        capabilities.splice(lastSplitIdx + 1, 0, limbEntry);
+      } else {
+        capabilities.push(limbEntry);
+      }
+      migrated = true;
+    }
+  }
+
+  return migrated ? { migrated: true, config: { ...config, capabilities } } : { migrated: false, config };
+}
+
+/**
+ * Rewrite managed Cat Cafe MCP command paths to a stable repo root.
+ * This prevents global provider configs from pinning deleted feature worktrees.
+ */
+export function realignManagedCatCafeServerPaths(
+  config: CapabilitiesConfig,
+  opts?: { catCafeRepoRoot?: string; projectRoot?: string },
+): { migrated: boolean; config: CapabilitiesConfig } {
+  // Realign rewrites managed MCP paths to a stable binary root. We only act
+  // when the caller has an explicit signal (catCafeRepoRoot opt OR runtime
+  // env), because falling back to process.cwd() here could clobber valid
+  // paths every time the API process moves cwd. `opts.projectRoot` is the
+  // workspace path and is NOT a substitute for binary root (codex PR #1396 R3).
+  if (!opts?.catCafeRepoRoot && !process.env.CAT_CAFE_RUNTIME_ROOT) {
+    return { migrated: false, config };
+  }
+  const binaryRoot = resolveBinaryRoot(opts?.catCafeRepoRoot);
+
+  const desiredById = new Map<string, McpServerDescriptor>([
+    ['cat-cafe', buildCatCafeMcpDescriptor(binaryRoot)],
+    ...buildCatCafeSplitMcpDescriptors(binaryRoot).map((descriptor) => [descriptor.name, descriptor] as const),
+  ]);
+
+  let migrated = false;
+  const capabilities = config.capabilities.map((cap) => {
+    if (cap.type !== 'mcp' || cap.source !== 'cat-cafe' || !cap.mcpServer) return cap;
+    const desired = desiredById.get(cap.id);
+    if (!desired) return cap;
+
+    const currentCommand = cap.mcpServer.command ?? '';
+    const currentArgs = cap.mcpServer.args ?? [];
+    const sameCommand = currentCommand === desired.command;
+    const sameArgs =
+      currentArgs.length === desired.args.length && currentArgs.every((arg, idx) => arg === desired.args[idx]);
+    if (sameCommand && sameArgs) return cap;
+
+    migrated = true;
+    return {
+      ...cap,
+      mcpServer: {
+        ...cap.mcpServer,
+        command: desired.command,
+        args: [...desired.args],
+      },
+    };
+  });
+
+  if (!migrated) return { migrated: false, config };
+  return { migrated: true, config: { ...config, capabilities } };
 }
 
 // ────────── Bootstrap: Create initial capabilities.json ──────────
@@ -257,13 +953,23 @@ export async function bootstrapCapabilities(
   discoveryPaths: DiscoveryPaths,
   opts?: { catCafeRepoRoot?: string },
 ): Promise<CapabilitiesConfig> {
-  const catCafeServers = buildCatCafeSplitMcpDescriptors(opts?.catCafeRepoRoot ?? projectRoot);
+  // `projectRoot` is the workspace project root (where capabilities.json gets
+  // written). It is NOT the binary root — those are conceptually different
+  // since codex peer review on PR #1396 R3. Binary path resolution chain:
+  //   1. opts.catCafeRepoRoot (explicit caller intent — e.g. multi-project)
+  //   2. CAT_CAFE_RUNTIME_ROOT env (runtime startup explicit)
+  //   3. process.cwd() (API process's location — == binary root by default)
+  const catCafeRepoRoot = resolveBinaryRoot(opts?.catCafeRepoRoot);
+  const catCafeServers = buildCatCafeSplitMcpDescriptors(catCafeRepoRoot);
   const externals = await discoverExternalMcpServers(discoveryPaths);
 
   const capabilities: CapabilityEntry[] = [];
 
-  // Add Cat Cafe's own MCP (split servers)
-  for (const entry of buildSplitCapabilityEntries(opts?.catCafeRepoRoot ?? projectRoot)) {
+  // F193 Phase C: split-only direction — only the 4 split servers
+  // (collab/memory/signals/limb), no all-in-one. The legacy `cat-cafe` server
+  // (registerFullToolset) remains in code for backward compat / tests but is
+  // not generated for fresh installs.
+  for (const entry of buildSplitCapabilityEntries(catCafeRepoRoot)) {
     capabilities.push(entry);
   }
 
@@ -272,21 +978,45 @@ export async function bootstrapCapabilities(
   for (const ext of externals) {
     // Skip built-in server names if already discovered from existing config
     if (ext.name === 'cat-cafe' || splitNames.has(ext.name)) continue;
-    const entry: CapabilityEntry = {
-      id: ext.name,
-      type: 'mcp',
-      enabled: ext.enabled,
-      source: 'external',
-      mcpServer: { command: ext.command, args: ext.args },
-    };
-    if (ext.env) entry.mcpServer!.env = ext.env;
-    if (ext.workingDir) entry.mcpServer!.workingDir = ext.workingDir;
-    capabilities.push(entry);
+    capabilities.push(toCapabilityEntry(ext));
   }
 
   const config: CapabilitiesConfig = { version: 1, capabilities };
-  await writeCapabilitiesConfig(projectRoot, config);
-  return config;
+  const resolverMigrated = migrateResolverBackedCapabilities(config);
+  await writeCapabilitiesConfig(projectRoot, resolverMigrated.config);
+  return resolverMigrated.config;
+}
+
+/**
+ * F193 Phase C: shared migration chain for any code path that mutates
+ * capabilities.json or generates CLI configs from it.
+ *
+ * Codex round 7 P1 (PR #1605): the GET /api/capabilities path already ran
+ * the full chain, but `capabilities-mcp-write.ts` (MCP install/delete) and
+ * `PATCH /api/capabilities` (toggle) skipped `migrateLegacyCatCafeCapability`
+ * + `migrateResolverBackedCapabilities`. Result: a legacy-only `cat-cafe`
+ * config staying legacy-only after install/delete/toggle, even though
+ * Phase C semantics require split-only canonical state.
+ *
+ * Single source of truth: every config read → full chain → write/CLI-gen.
+ * Order matters:
+ *   1. migrateLegacyCatCafeCapability — legacy 1-server → 4 split servers
+ *   2. migrateResolverBackedCapabilities — pencil resolver-backed paths
+ *   3. ensureCatCafeMainServer — Phase C topology (remove legacy, add limb)
+ *   4. realignManagedCatCafeServerPaths — stable binary path realignment
+ */
+export function healCatCafeMcpTopology(
+  config: CapabilitiesConfig,
+  opts?: { catCafeRepoRoot?: string; projectRoot?: string },
+): { migrated: boolean; config: CapabilitiesConfig } {
+  const a = migrateLegacyCatCafeCapability(config, opts);
+  const b = migrateResolverBackedCapabilities(a.config);
+  const c = ensureCatCafeMainServer(b.config, opts);
+  const d = realignManagedCatCafeServerPaths(c.config, opts);
+  return {
+    migrated: a.migrated || b.migrated || c.migrated || d.migrated,
+    config: d.config,
+  };
 }
 
 // ────────── Orchestrate: Generate CLI configs from capabilities.json ──────────
@@ -296,13 +1026,21 @@ export interface CliConfigPaths {
   anthropic: string; // e.g. <projectRoot>/.mcp.json
   openai: string; // e.g. <projectRoot>/.codex/config.toml
   google: string; // e.g. <projectRoot>/.gemini/settings.json
+  kimi: string; // e.g. <projectRoot>/.kimi/mcp.json
+  antigravity?: string; // e.g. ~/.gemini/antigravity/mcp_config.json
 }
+
+/** Providers that support streamableHttp transport (URL-based MCP). */
+const STREAMABLE_HTTP_PROVIDERS = new Set(['anthropic', 'kimi']);
 
 /**
  * Resolve effective MCP servers for a specific cat.
- * Applies global enabled + per-cat overrides.
+ * Applies global enabled + per-cat overrides + provider transport compatibility.
  */
 export function resolveServersForCat(config: CapabilitiesConfig, catId: string): McpServerDescriptor[] {
+  const entry = catRegistry.tryGet(catId);
+  const provider = entry?.config.clientId;
+
   return config.capabilities
     .filter((cap) => cap.type === 'mcp' && cap.mcpServer)
     .map((cap) => {
@@ -313,9 +1051,13 @@ export function resolveServersForCat(config: CapabilitiesConfig, catId: string):
       // Resolve effective enabled: global + per-cat override
       const override = cap.overrides?.find((o) => o.catId === catId);
       const enabledFromConfig = override ? override.enabled : cap.enabled;
-      // Guardrail: commandless MCP entries are invalid for current stdio model.
-      // Keep descriptor for writer cleanup (disabled => remove in Gemini/Claude).
-      const enabled = enabledFromConfig && hasUsableStdioCommand(mcpServer.command);
+      // Guardrail: entries without usable transport stay disabled for writer cleanup.
+      // Also gate streamableHttp by provider — only Anthropic supports URL transport.
+      const transportSupported =
+        mcpServer.transport === 'streamableHttp'
+          ? provider !== undefined && STREAMABLE_HTTP_PROVIDERS.has(provider) && !!mcpServer.url?.trim()
+          : hasUsableTransport(mcpServer);
+      const enabled = enabledFromConfig && transportSupported;
 
       const desc: McpServerDescriptor = {
         name: cap.id,
@@ -324,6 +1066,10 @@ export function resolveServersForCat(config: CapabilitiesConfig, catId: string):
         enabled,
         source: cap.source,
       };
+      if (mcpServer.transport) desc.transport = mcpServer.transport;
+      if (mcpServer.resolver) desc.resolver = mcpServer.resolver;
+      if (mcpServer.url) desc.url = mcpServer.url;
+      if (mcpServer.headers) desc.headers = mcpServer.headers;
       if (mcpServer.env) desc.env = mcpServer.env;
       if (mcpServer.workingDir) desc.workingDir = mcpServer.workingDir;
       return desc;
@@ -340,7 +1086,7 @@ function collectServersPerProvider(config: CapabilitiesConfig): Record<string, M
   for (const catId of catRegistry.getAllIds()) {
     const entry = catRegistry.tryGet(catId as string);
     if (!entry) continue;
-    const provider = entry.config.provider;
+    const provider = entry.config.clientId;
 
     if (!providerServers[provider]) {
       providerServers[provider] = new Map();
@@ -363,6 +1109,51 @@ function collectServersPerProvider(config: CapabilitiesConfig): Record<string, M
   return result;
 }
 
+export async function resolveMachineSpecificServers(
+  perProvider: Record<string, McpServerDescriptor[]>,
+  options: {
+    projectRoot?: string;
+    env?: NodeJS.ProcessEnv;
+    resolvePencilCommandFn?: PencilCommandResolver;
+  } = {},
+): Promise<void> {
+  const resolvedState: ResolvedMcpState = {};
+  const resolvePencil = options.resolvePencilCommandFn ?? resolvePencilCommand;
+  const needsPencilResolution = Object.values(perProvider).some((servers) =>
+    servers.some((server) => server.name === 'pencil' || server.resolver === 'pencil'),
+  );
+  const pencilResolved = needsPencilResolution ? await resolvePencil({ env: options.env }) : null;
+
+  for (const servers of Object.values(perProvider)) {
+    for (const server of servers) {
+      if (server.name !== 'pencil' && server.resolver !== 'pencil') continue;
+
+      if (!pencilResolved) {
+        server.command = '';
+        server.args = [];
+        server.enabled = false;
+        server.resolver = 'pencil';
+        resolvedState[server.name] = { resolver: 'pencil', status: 'unresolved' };
+        continue;
+      }
+
+      server.command = pencilResolved.command;
+      server.args = pencilResolved.args;
+      server.resolver = 'pencil';
+      resolvedState[server.name] = {
+        resolver: 'pencil',
+        status: 'resolved',
+        command: pencilResolved.command,
+        args: pencilResolved.args,
+      };
+    }
+  }
+
+  if (options.projectRoot) {
+    await writeResolvedMcpState(options.projectRoot, resolvedState);
+  }
+}
+
 /**
  * Generate all 3 CLI config files from capabilities.json.
  *
@@ -371,18 +1162,8 @@ function collectServersPerProvider(config: CapabilitiesConfig): Record<string, M
  */
 export async function generateCliConfigs(config: CapabilitiesConfig, paths: CliConfigPaths): Promise<void> {
   const perProvider = collectServersPerProvider(config);
-
-  // Resolve dynamic paths (e.g. pencil binary) once, apply to all providers
-  const pencilBinary = await resolvePencilBinary();
-  if (pencilBinary) {
-    for (const servers of Object.values(perProvider)) {
-      for (const s of servers) {
-        if (s.name === 'pencil') {
-          s.command = pencilBinary;
-        }
-      }
-    }
-  }
+  const projectRoot = resolve(paths.anthropic, '..');
+  await resolveMachineSpecificServers(perProvider, { projectRoot });
 
   const writes: Promise<void>[] = [];
   for (const [provider, servers] of Object.entries(perProvider)) {
@@ -394,6 +1175,22 @@ export async function generateCliConfigs(config: CapabilitiesConfig, paths: CliC
   }
 
   await Promise.all(writes);
+
+  // Best-effort: clean resolver-managed per-project overrides from ~/.claude.json (F145 Phase D).
+  // Per-project mcpServers shadow .mcp.json (higher priority), causing silent MCP failures
+  // when the binary path becomes outdated. Global mcpServers are left untouched.
+  const resolverBacked = config.capabilities.filter((c) => c.type === 'mcp' && c.mcpServer?.resolver).map((c) => c.id);
+  if (resolverBacked.length > 0) {
+    try {
+      const claudeConfigPath = resolve(homedir(), '.claude.json');
+      const cleaned = await cleanStaleClaudeProjectOverrides(claudeConfigPath, projectRoot, resolverBacked);
+      if (cleaned.length > 0) {
+        console.warn(`[F145] Cleaned resolver-managed overrides from ~/.claude.json: ${cleaned.join(', ')}`);
+      }
+    } catch (err) {
+      console.warn(`[F145] Failed to clean ~/.claude.json overrides (non-blocking): ${(err as Error).message}`);
+    }
+  }
 }
 
 /**
@@ -411,12 +1208,10 @@ export async function orchestrate(
   if (!config) {
     config = await bootstrapCapabilities(projectRoot, discoveryPaths, opts);
   } else {
-    const migrated = migrateLegacyCatCafeCapability(
-      config,
-      opts?.catCafeRepoRoot ? { projectRoot, catCafeRepoRoot: opts.catCafeRepoRoot } : { projectRoot },
-    );
-    if (migrated.migrated) {
-      config = migrated.config;
+    const rootOpts = opts?.catCafeRepoRoot ? { projectRoot, catCafeRepoRoot: opts.catCafeRepoRoot } : { projectRoot };
+    const healed = healCatCafeMcpTopology(config, rootOpts);
+    config = healed.config;
+    if (healed.migrated) {
       await writeCapabilitiesConfig(projectRoot, config);
     }
   }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Cat Café MCP Server — Signals Surface
+ * Clowder AI MCP Server — Signals Surface
  * 只暴露 Signal Hunter 工具。
  */
 
@@ -9,6 +9,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { installShutdownHandlers, startRefreshLoop } from './refresh-loop.js';
 import { registerSignalToolset } from './server-toolsets.js';
 import { initCatCafeDir } from './utils/path-validator.js';
 
@@ -36,6 +37,9 @@ async function main(): Promise<void> {
   console.error('[cat-cafe-signals] MCP Server starting...');
   await server.connect(transport);
   console.error('[cat-cafe-signals] MCP Server running on stdio');
+
+  const refreshLoop = startRefreshLoop();
+  installShutdownHandlers(refreshLoop);
 }
 
 const isEntryPoint = process.argv[1] && resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);

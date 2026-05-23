@@ -1,6 +1,8 @@
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { FeishuTokenManager } from '../dist/infrastructure/connectors/adapters/FeishuTokenManager.js';
+import { TelegramAdapter } from '../dist/infrastructure/connectors/adapters/TelegramAdapter.js';
 import { startConnectorGateway } from '../dist/infrastructure/connectors/connector-gateway-bootstrap.js';
 
 function noopLog() {
@@ -39,18 +41,25 @@ const baseDeps = {
 };
 
 describe('ConnectorGateway Bootstrap', () => {
-  it('returns null when no connectors configured', async () => {
+  it('creates gateway in QR-only mode when no connectors configured', async () => {
     const result = await startConnectorGateway({}, baseDeps);
-    assert.equal(result, null);
+    assert.ok(result, 'Gateway should be created even without env tokens (for WeChat QR login)');
+    assert.ok(result.weixinAdapter);
+    assert.equal(result.weixinAdapter.hasBotToken(), false);
+    assert.equal(result.webhookHandlers.size, 0);
+    await result.stop();
   });
 
-  it('returns null when feishu credentials present but no verification token (fail-closed)', async () => {
+  it('creates gateway without feishu when verification token missing (fail-closed)', async () => {
     const config = {
       feishuAppId: 'test-app-id',
       feishuAppSecret: 'test-app-secret',
     };
     const result = await startConnectorGateway(config, baseDeps);
-    assert.equal(result, null);
+    assert.ok(result, 'Gateway should be created');
+    assert.equal(result.webhookHandlers.has('feishu'), false, 'Feishu should not be registered');
+    assert.ok(result.weixinAdapter, 'WeChat adapter should always be present');
+    await result.stop();
   });
 
   it('creates gateway handle with feishu webhook handler', async () => {
@@ -154,7 +163,7 @@ describe('ConnectorGateway Bootstrap', () => {
     await handle.stop();
   });
 
-  it('uses ownerUserId from config for thread creation instead of deps.defaultUserId', async () => {
+  it('uses coCreatorUserId from config for thread creation instead of deps.defaultUserId', async () => {
     const createdThreads = [];
     const deps = {
       ...baseDeps,
@@ -172,7 +181,7 @@ describe('ConnectorGateway Bootstrap', () => {
       feishuAppId: 'test-app-id',
       feishuAppSecret: 'test-app-secret',
       feishuVerificationToken: 'test-token',
-      ownerUserId: 'owner-real-id',
+      coCreatorUserId: 'you-real-id',
     };
     const handle = await startConnectorGateway(config, deps);
     assert.ok(handle);
@@ -198,8 +207,8 @@ describe('ConnectorGateway Bootstrap', () => {
     assert.equal(createdThreads.length, 1);
     assert.equal(
       createdThreads[0].createdBy,
-      'owner-real-id',
-      'thread should be created with ownerUserId, not fallback',
+      'you-real-id',
+      'thread should be created with coCreatorUserId, not fallback',
     );
     await handle.stop();
   });
@@ -212,13 +221,43 @@ describe('ConnectorGateway Bootstrap', () => {
     try {
       process.env.DEFAULT_OWNER_USER_ID = 'env-owner-123';
       const config = loadConnectorGatewayConfig();
-      assert.equal(config.ownerUserId, 'env-owner-123');
+      assert.equal(config.coCreatorUserId, 'env-owner-123');
     } finally {
       if (originalEnv === undefined) {
         delete process.env.DEFAULT_OWNER_USER_ID;
       } else {
         process.env.DEFAULT_OWNER_USER_ID = originalEnv;
       }
+    }
+  });
+
+  it('ignores invalid TELEGRAM_BOT_TOKEN values without starting polling', async () => {
+    const warnings = [];
+    const originalStartPolling = TelegramAdapter.prototype.startPolling;
+    TelegramAdapter.prototype.startPolling = function startPollingShouldNotRun() {
+      throw new Error('Telegram polling should not start for invalid token');
+    };
+
+    const deps = {
+      ...baseDeps,
+      log: {
+        ...noopLog(),
+        warn(...args) {
+          warnings.push(args);
+        },
+      },
+    };
+
+    try {
+      const handle = await startConnectorGateway({ telegramBotToken: 'sk-community-openai-api-key' }, deps);
+      assert.ok(handle, 'Gateway should stay available for other connector surfaces');
+      assert.ok(
+        warnings.some((entry) => String(entry.at(-1)).includes('Invalid TELEGRAM_BOT_TOKEN')),
+        'invalid token should be logged as a configuration warning',
+      );
+      await handle.stop();
+    } finally {
+      TelegramAdapter.prototype.startPolling = originalStartPolling;
     }
   });
 
@@ -252,7 +291,7 @@ describe('ConnectorGateway Bootstrap', () => {
         event: {
           operator: { open_id: 'ou_operator' },
           action: { value: { action: 'approve', threadId: 'th_123' }, tag: 'button' },
-          context: { open_chat_id: 'oc_chat_card' },
+          context: { open_chat_id: 'oc_chat_card', open_chat_type: 'p2p' },
         },
       },
       {},
@@ -260,6 +299,55 @@ describe('ConnectorGateway Bootstrap', () => {
 
     assert.equal(result.kind, 'processed');
     assert.equal(triggerCalls.length, 1, 'card action should trigger cat invocation');
+    await handle.stop();
+  });
+
+  it('feishu webhook handler rejects card action when chatType unknown (fail-closed)', async () => {
+    const triggerCalls = [];
+    const deps = {
+      ...baseDeps,
+      invokeTrigger: {
+        trigger(...args) {
+          triggerCalls.push(args);
+        },
+      },
+    };
+
+    const stubTm = new FeishuTokenManager({
+      appId: 'stub',
+      appSecret: 'stub',
+      fetchFn: async () => new Response(null, { status: 401 }),
+    });
+
+    const config = {
+      feishuAppId: 'test-app-id',
+      feishuAppSecret: 'test-app-secret',
+      feishuVerificationToken: 'test-token',
+    };
+    const handle = await startConnectorGateway(config, {
+      ...deps,
+      _feishuTokenManagerOverride: stubTm,
+    });
+
+    const feishuHandler = handle.webhookHandlers.get('feishu');
+    const result = await feishuHandler.handleWebhook(
+      {
+        header: {
+          event_type: 'card.action.trigger',
+          event_id: 'evt-card-no-ct',
+          token: 'test-token',
+        },
+        event: {
+          operator: { open_id: 'ou_operator' },
+          action: { value: { cmd: '/threads' }, tag: 'button' },
+          context: { open_chat_id: 'oc_chat_unknown' },
+        },
+      },
+      {},
+    );
+
+    assert.equal(result.kind, 'skipped', 'card action without chatType must be rejected');
+    assert.equal(triggerCalls.length, 0, 'must not invoke cat when chatType unknown');
     await handle.stop();
   });
 
@@ -392,5 +480,62 @@ describe('ConnectorGateway Bootstrap', () => {
       assert.equal(result.status, 403);
     }
     await handle.stop();
+  });
+
+  it('creates gateway with feishu in websocket mode without verificationToken', async () => {
+    const config = {
+      feishuAppId: 'test-app-id',
+      feishuAppSecret: 'test-app-secret',
+      feishuConnectionMode: 'websocket',
+    };
+    const mockWsClient = { started: false, closed: false };
+    const deps = {
+      ...baseDeps,
+      _wsClientFactory: () => ({
+        async start() {
+          mockWsClient.started = true;
+        },
+        close() {
+          mockWsClient.closed = true;
+        },
+      }),
+    };
+    const handle = await startConnectorGateway(config, deps);
+    assert.ok(handle, 'Gateway should be created with websocket mode');
+    assert.equal(handle.webhookHandlers.has('feishu'), false, 'Websocket mode should NOT register webhook handler');
+    assert.ok(mockWsClient.started, 'Mock WSClient should have been started');
+    await handle.stop();
+    assert.ok(mockWsClient.closed, 'Mock WSClient should have been closed on stop');
+  });
+
+  it('feishu websocket mode still allows webhook mode when explicitly set', async () => {
+    const config = {
+      feishuAppId: 'test-app-id',
+      feishuAppSecret: 'test-app-secret',
+      feishuVerificationToken: 'test-token',
+      feishuConnectionMode: 'webhook',
+    };
+    const handle = await startConnectorGateway(config, baseDeps);
+    assert.ok(handle);
+    assert.ok(handle.webhookHandlers.has('feishu'), 'Explicit webhook mode should register webhook handler');
+    await handle.stop();
+  });
+
+  it('loadConnectorGatewayConfig reads FEISHU_CONNECTION_MODE from env', async () => {
+    const { loadConnectorGatewayConfig } = await import(
+      '../dist/infrastructure/connectors/connector-gateway-bootstrap.js'
+    );
+
+    process.env.FEISHU_CONNECTION_MODE = 'websocket';
+    const config = loadConnectorGatewayConfig();
+    assert.equal(config.feishuConnectionMode, 'websocket');
+
+    process.env.FEISHU_CONNECTION_MODE = 'webhook';
+    const config2 = loadConnectorGatewayConfig();
+    assert.equal(config2.feishuConnectionMode, 'webhook');
+
+    delete process.env.FEISHU_CONNECTION_MODE;
+    const config3 = loadConnectorGatewayConfig();
+    assert.equal(config3.feishuConnectionMode, 'webhook', 'Should default to webhook when not set');
   });
 });

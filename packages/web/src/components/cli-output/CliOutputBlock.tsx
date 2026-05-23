@@ -149,6 +149,14 @@ const STATUS_LABEL: Record<CliStatus, string> = {
   failed: 'failed',
   interrupted: 'interrupted',
 };
+const TEXT_PREVIEW_MAX_CHARS = 48;
+
+function appendPreviewChar(preview: string, char: string): string {
+  if (/\s/.test(char)) {
+    return preview && !preview.endsWith(' ') ? `${preview} ` : preview;
+  }
+  return `${preview}${char}`;
+}
 
 function formatDuration(ms: number): string {
   const s = Math.round(ms / 1000);
@@ -156,6 +164,20 @@ function formatDuration(ms: number): string {
   const m = Math.floor(s / 60);
   const rem = s % 60;
   return rem > 0 ? `${m}m${rem}s` : `${m}m`;
+}
+
+function buildTextPreview(events: CliEvent[]): string {
+  let preview = '';
+  for (const event of events) {
+    if (event.kind !== 'text') continue;
+    for (const char of event.content ?? '') {
+      preview = appendPreviewChar(preview, char);
+      if (preview.length > TEXT_PREVIEW_MAX_CHARS) {
+        return `${preview.slice(0, TEXT_PREVIEW_MAX_CHARS)}…`;
+      }
+    }
+  }
+  return preview.trimEnd();
 }
 
 function buildSummary(events: CliEvent[], status: CliStatus): string {
@@ -170,13 +192,16 @@ function buildSummary(events: CliEvent[], status: CliStatus): string {
     const last = [...events].reverse().find((e) => e.kind === 'tool_use');
     return `CLI Output · ${statusLabel}${last ? ` · ${last.label}...` : ''}`;
   }
+  const textPreview = buildTextPreview(events);
   if (toolCount > 0) {
-    return `CLI Output · ${statusLabel} · ${toolCount} tool${toolCount > 1 ? 's' : ''}${duration}`;
+    const stdout = textPreview ? ` · stdout: ${textPreview}` : '';
+    return `CLI Output · ${statusLabel} · ${toolCount} tool${toolCount > 1 ? 's' : ''}${duration}${stdout}`;
   }
   const lineCount = events
     .filter((e) => e.kind === 'text')
     .reduce((n, e) => n + (e.content?.split('\n').length ?? 0), 0);
-  return `CLI Output · ${statusLabel} · ${lineCount} line${lineCount !== 1 ? 's' : ''}${duration}`;
+  const stdout = textPreview ? ` · ${textPreview}` : '';
+  return `CLI Output · ${statusLabel} · ${lineCount} line${lineCount !== 1 ? 's' : ''}${duration}${stdout}`;
 }
 
 /* ── Tool row — design: [status] [wrench] [name] [detail] [result] ── */
@@ -202,7 +227,7 @@ function ToolRow({
     <button
       type="button"
       data-testid={`tool-row-${event.id}`}
-      className="w-full text-left cursor-pointer rounded font-mono text-[11px] flex items-center gap-2"
+      className="w-full text-left cursor-pointer rounded font-mono text-xs flex items-center gap-2"
       style={{
         padding: '5px 8px',
         borderRadius: 4,
@@ -232,7 +257,7 @@ function ToolRow({
       {/* Detail — hidden by default, shown on click */}
       {hasResult && !rowExpanded && <ChevronIcon expanded={false} />}
       {rowExpanded && hasResult && event.detail && (
-        <div className="w-full mt-1 pl-7 whitespace-pre-wrap text-[10px]" style={{ color: '#64748B' }}>
+        <div className="w-full mt-1 pl-7 whitespace-pre-wrap text-micro" style={{ color: '#64748B' }}>
           {event.detail}
         </div>
       )}
@@ -263,13 +288,16 @@ function ToolsSection({
 
   const prevStatus = useRef(status);
   useEffect(() => {
-    if (prevStatus.current === 'streaming' && !isStreaming && !toolsUserInteracted.current) {
+    if (prevStatus.current !== 'streaming' && isStreaming) {
+      toolsUserInteracted.current = false;
+      setToolsExpanded(true);
+    } else if (prevStatus.current === 'streaming' && !isStreaming && !toolsUserInteracted.current) {
       setToolsExpanded(false);
     }
     prevStatus.current = status;
   }, [status, isStreaming]);
 
-  if (isStreaming && !toolsExpanded) {
+  if (isStreaming && !toolsExpanded && !toolsUserInteracted.current) {
     setToolsExpanded(true);
   }
 
@@ -280,7 +308,7 @@ function ToolsSection({
       <button
         type="button"
         data-testid="tools-section-toggle"
-        className="w-full flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-mono rounded transition-colors"
+        className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs font-mono rounded transition-colors"
         style={{ color: '#94A3B8' }}
         onClick={() => {
           toolsUserInteracted.current = true;
@@ -335,17 +363,27 @@ export function CliOutputBlock({
   const userInteracted = useRef(false);
   const hasMounted = useRef(false);
 
-  if (forceExpanded && !expanded) {
+  if (forceExpanded && !expanded && !userInteracted.current) {
     setExpanded(true);
   }
 
   const prevStatusRef = useRef(status);
   useEffect(() => {
-    if (prevStatusRef.current === 'streaming' && status !== 'streaming' && !userInteracted.current) {
-      setExpanded(false);
+    if (prevStatusRef.current !== 'streaming' && status === 'streaming') {
+      userInteracted.current = false;
+      setExpanded(true);
+    } else if (prevStatusRef.current === 'streaming' && status !== 'streaming' && !userInteracted.current) {
+      setExpanded(defaultExpanded);
     }
     prevStatusRef.current = status;
-  }, [status]);
+  }, [status, defaultExpanded]);
+
+  // Sync expanded state when defaultExpanded prop changes (e.g. async config load)
+  useEffect(() => {
+    if (!userInteracted.current) {
+      setExpanded(forceExpanded || defaultExpanded);
+    }
+  }, [defaultExpanded, forceExpanded]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: expanded is intentional — dispatch on toggle
   useLayoutEffect(() => {
@@ -381,14 +419,14 @@ export function CliOutputBlock({
       <button
         type="button"
         onClick={handleToggle}
-        className="w-full flex items-center gap-2 text-[11px] font-mono transition-colors"
+        className="w-full flex items-center gap-2 text-xs font-mono transition-colors"
         style={{ padding: '8px 12px', color: '#94A3B8', backgroundColor: surface }}
       >
         <span style={{ color: accent }}>
           <ChevronIcon expanded={expanded} />
         </span>
-        <span className="font-medium">{summary}</span>
-        <span className="ml-auto flex items-center gap-1" style={{ color: '#64748B', fontSize: 10 }}>
+        <span className="font-medium min-w-0 truncate text-left">{summary}</span>
+        <span className="ml-auto flex items-center gap-1 flex-shrink-0" style={{ color: '#64748B', fontSize: 10 }}>
           {thinkingMode === 'debug' ? (
             <>
               <PawPrint />
@@ -435,7 +473,7 @@ export function CliOutputBlock({
               )}
               <div
                 style={{ padding: '8px 12px 10px 12px' }}
-                className="font-mono text-[11px] leading-relaxed cli-output-md"
+                className="font-mono text-xs leading-relaxed cli-output-md"
               >
                 <span style={{ color: '#CBD5E1' }}>
                   <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />

@@ -162,7 +162,7 @@ created: 2026-02-26
 
 - 关联：
   - `cat-cafe-skills/merge-approval-gate/SKILL.md`
-  - *(internal reference removed)*
+  - `review-notes/README.md`
 
 ### LL-006: 没有新鲜验证证据，不得宣称完成
 - 状态：validated
@@ -198,7 +198,7 @@ created: 2026-02-26
 
 - 关联：
   - `cat-cafe-skills/cross-cat-handoff/SKILL.md`
-  - *(internal reference removed)*
+  - `review-notes/README.md`
 
 ### LL-008: Worktree 生命周期必须成套执行（建-收敛-合入-清理）
 - 状态：validated
@@ -328,7 +328,7 @@ created: 2026-02-26
 
 - 坑：在 worktree 工作时未设置 REDIS_URL，服务回落到默认 6399（铲屎官数据），数据从 307 keys 降至 15 keys（95% 丢失）。虽最终从 RDB 备份完全恢复，但过程惊险。
 - 根因：开发环境和生产数据共享同一个 Redis 实例，靠配置（环境变量）隔离。一旦忘设配置，默认值指向生产。
-- 触发条件：worktree 中启动服务但忘记创建 `.env` 设置 `REDIS_URL=redis://localhost:6380`。
+- 触发条件：worktree 中启动服务但忘记创建 `.env` 设置 `REDIS_URL=redis://localhost:6398`。
 - 修复：(1) 强制 worktree 使用 6398 端口 (2) 启动前验证 `echo $REDIS_URL` (3) 启动后验证数据量。
 - 防护：CLAUDE.md §10 三猫铁律 + `.env` 模板 + 启动验证步骤。
 - 来源锚点：
@@ -463,7 +463,7 @@ created: 2026-02-26
 - 防护：P0 验收前与后续回归中运行健康脚本；失败即阻断“可用”结论。
 - 来源锚点：
   - `scripts/hindsight/p0-health-check.sh`
-  - *(internal reference removed)*
+  - `project-runbooks/hindsight-p0-health-check.md`
   - *(internal reference removed)*
 - 原理：治理有效性不是“策略存在”，而是“策略被持续验证”。没有自动化检查的治理，等同于没有治理。
 
@@ -480,7 +480,7 @@ created: 2026-02-26
 - 防护：ADR-011 明确记录此决策 + `feat-kickoff` / `feat-completion` skill 不在普通文档生成 `stage` 字段。
 - 来源锚点：
   - `docs/decisions/011-metadata-contract.md` §D
-  - `docs/features/F40-backlog-reorganization.md` Frontmatter Contract 章节
+  - `docs/features/F040-backlog-reorganization.md` Frontmatter Contract 章节
   - 2026-02-26 三猫讨论（4.6 提出此问题）
 - 原理：单点真相源原则——任何状态信息都应该只有一个权威来源。多点写入 = 同步负担 + 不一致风险。静态关联可以多点存（因为不变），动态状态必须单点存。
 
@@ -624,6 +624,608 @@ created: 2026-02-26
   - PR #543: fix(F102-E): thread indexing reads message content
   - 铲屎官原话："等会！这个 codex 云端他给你提了 p1 的你怎么就合入了？"
 - 关联：merge-gate skill、云端 review 流程
+
+---
+
+### LL-034: Embedding 实现偷懒——有参考架构不参考，in-process CPU 替代独立进程 GPU
+
+- 状态：validated
+- 更新时间：2026-03-21
+- 坑：F102 Phase C 的 embedding 实现用了 `@huggingface/transformers`（Transformers.js ONNX，in-process CPU），而同一项目里 TTS/ASR 已有完整的参考架构（独立 Python 进程 + MLX GPU + HTTP /health + 端口注册 + GPU 锁）。结果：(a) CPU 和 API 进程争抢资源；(b) 无独立端口、无健康检查、dashboard 不可见；(c) 启动时同步阻塞下载 614MB 模型；(d) Mac 有 Apple Silicon GPU 不用，浪费硬件。
+- 根因：Ragdoll偷懒走了"最小实现路径"（ONNX + Transformers.js in-process），没有对照同项目已有的 TTS/ASR 架构模式。这是典型的"脚手架"——有终态参考（独立进程 GPU）还做了中间态（in-process CPU）。
+- 触发条件：新增本地模型推理能力时，没有先审视项目里已有的模型服务架构。
+- 防护：
+  - **新增任何本地模型推理 → 先看 TTS/ASR 的实现模式**（独立进程 + GPU + HTTP + /health + 端口注册）
+  - **禁止把模型推理放在 API 主进程内**（CPU 争抢 + 无隔离）
+  - **Mac 上优先用 MLX**（Apple Silicon GPU 原生支持）
+- 正确做法：写一个独立的 `scripts/embed-api.py`（参考 `scripts/tts-api.py`），用 MLX 或 sentence-transformers GPU，暴露 `/embed` + `/health`，Node.js API 只做 HTTP 客户端。
+- 铲屎官原话："你用 cpu！为什么不用 gpu 啊！！你这实现我拒绝。你这不又是脚手架，有其他同样模型的参考实现你还非得实现成现在这样。"
+- 关联：LL-029 交付物验证、F102 Phase C、TTS(scripts/tts-api.py)、ASR(scripts/whisper-api.py)
+
+---
+
+### LL-035: sync-to-opensource rsync --delete 打穿 runtime worktree——.env 全灭、2057 文件被删
+
+- 状态：validated
+- 更新时间：2026-03-21
+- 坑：Maine Coon执行 `scripts/sync-to-opensource.sh` 时，TARGET_DIR 指向了 `cat-cafe-runtime`（runtime worktree）而非 `clowder-ai`（开源仓）。脚本核心操作 `rsync -a --delete` 把 runtime 当成开源仓目标来清洗：(a) 2057 个文件从磁盘删除（296,204 行代码消失）；(b) `.env` 被开源版覆盖（端口变 3003/3004、品牌变 Clowder AI、API keys 全丢、代理关闭）；(c) `.env` 被删除；(d) `node_modules` 损坏导致服务无法启动。**`.env` 是 gitignored 的，`git checkout .` 无法恢复，API keys、飞书/Telegram/GitHub IMAP 配置均无备份。**
+- 根因：(1) sync 脚本的 TARGET_DIR 没有安全护栏，任何路径都能被当成目标；(2) `CLOWDER_AI_DIR` 环境变量被设错或在错误目录执行了脚本；(3) `rsync --delete` 是不可逆破坏性操作，无 trash/回收站。
+- 触发条件：`CLOWDER_AI_DIR` 指向内部 worktree，或在 worktree 目录下执行 sync 脚本导致相对路径解析错误。
+- 修复：
+  - 代码文件：`git checkout . && git pull origin main && pnpm install`
+  - `.env`：从 WebStorm `content.dat` 缓存逐 key 恢复（Anthropic/OpenRouter/Feishu/GitHub IMAP 找回，OpenAI/Google/Telegram 未找回需手动补）
+  - `.env`：从 `.env.example` 重建
+- 防护：
+  - **`sync-to-opensource.sh` 新增 TARGET_DIR 安全护栏**：(a) 目录名匹配 `cat-cafe*` 则拒绝；(b) 目标是当前仓库的 git worktree 则拒绝
+  - **full sync 改成 source-owned public gate**：先把导出产物打到 temp target，在 temp target 跑 `pnpm check` / `pnpm lint` / `build` / `test:public` / startup acceptance；绿了才允许碰真实 `clowder-ai`
+  - **本机 smoke 不再属于 full sync 主路径**：README/macOS 启动验收单独执行，且必须显式隔离端口/Redis，不能顺手碰 runtime
+  - **所有猫：禁止对 runtime worktree 执行任何同步/清理脚本**（runtime 是生产环境，不是测试靶子）
+  - **.env 应该有备份机制**（目前没有，gitignored 的敏感文件是单点故障）
+- 来源锚点：
+  - `scripts/sync-to-opensource.sh` L148-L164（新增 safety guard）
+  - `.sync-provenance.json`（事故证据：source_commit=aa15355e, 时间 2026-03-21T14:29）
+  - 铲屎官原话："他妈又在 runtime 改东西""什么配置都没了 这都没存档的 我都不记得有的怎么配的"
+- 原理：`rsync --delete` 对目标目录的破坏是不可逆的（不进 trash，直接 rm）。破坏性操作的目标路径必须有正面验证（allowlist），不能只靠"别填错"。gitignored 的敏感配置文件是备份盲区——git 保护不了它们，IDE 缓存是碰运气。
+
+- 关联：LL-015 Redis production Redis (sacred) | CLAUDE.md 四条铁律 | feedback_no_touch_runtime.md
+
+---
+
+### LL-036: full sync 长跑不能在 Step 5 半路报喜——必须等脚本给出成功/失败结果
+
+- 状态：validated
+- 更新时间：2026-03-24
+- 坑：`sync-to-opensource.sh` 进入 temp target public gate 后，Maine Coon多次在 `Biome check...` 或 `Smoke test (test:public)...` 阶段就回消息，误把“脚本还在跑 / 会话还活着”当成阶段完成。结果一旦执行停下，外部看到的是“同步到了 Step 5”，但真实 target 还没被碰到，PR/CI 也根本没开始。
+- 根因：(1) 把长静默门禁误当成 checkpoint；(2) 只观察到了会话状态，没有等到脚本退出码和终态输出；(3) `opensource-ops` / outbound sync 文档之前写了 temp target public gate 必须全绿，但没把“执行中的猫不得在 Step 5 半路退出”写成硬约束。
+- 触发条件：release-intended full sync / full sync 进入 temp target public gate，尤其卡在 `pnpm check`、`pnpm lint`、`build`、`test:public`、startup acceptance 这类长静默步骤时。
+- 修复：
+  - `cat-cafe-skills/opensource-ops/SKILL.md` 增加关键原则：full sync 是长跑门禁，不是中途 checkpoint
+  - `cat-cafe-skills/refs/opensource-ops-outbound-sync.md` 增加执行纪律：Step 5 只允许以 `✓ Source-owned public gate passed` 或明确红灯失败作为退出条件
+- 防护：
+  - release / full sync 期间，只要脚本还没打印 `=== Sync complete ===` 或失败红灯，就继续守在执行链上
+  - 禁止在 `Biome check...` / `Smoke test (test:public)...` / `Startup acceptance...` 这些中间状态汇报“已经到下一步”
+  - 对外状态必须基于终态：`sync completed`、`PR opened`、`CI running`、`sync failed`
+- 原理：Step 5 是 source-owned public gate 的单个阻塞门禁。它的业务含义不是“看起来跑到了哪一行日志”，而是“真实 target 是否被允许触碰”。在脚本没打印 `✓ Source-owned public gate passed` 之前，这个答案始终是否定的。
+
+### LL-037: 共享记忆塑造视角——团队文化比模型参数更能影响判断趋同
+
+- 状态：draft
+- 更新时间：2026-03-25
+- 坑：预期不同模型家族（Claude Opus vs GPT-5.4）会给出差异化观点，但本地两猫的观点反而比同模型家族的云端猫（GPT Pro）更趋同。差点把这种趋同当成"互相附和"忽略了。
+- 根因：本地猫共享 shared-rules、共同经历（120+ features 的协作历史、同一套教训沉淀），这些"共享记忆"比底层模型参数更能塑造判断框架。云端猫虽同属 GPT 家族但缺乏这些共同经历，所以反而提出了更多不同视角。
+- 触发条件：多猫独立思考/brainstorm 场景——当两只本地猫意见过度一致时，不要急于下结论是"互相附和"，也不要急于下结论是"充分验证"，需要引入无共享记忆的外部视角交叉校验。
+- 修复：F129 生态调研中增加了云端 GPT Pro Deep Research 作为独立视角；本地两猫 + 云端猫三方碰撞后才做综合。
+- 防护：
+  - 高 stakes 的多猫独立思考，默认在扇入前引入至少 1 个无共享记忆视角；该视角第一轮只看原问题和最小中性背景，不看本地综合（锁死时序：先独立出结论，再碰撞）
+  - 本地猫趋同时显式标注"⚠️ 可能受共享记忆影响"，不直接等价于"独立验证通过"
+- 来源锚点：*(internal reference removed)* §3 + *(internal reference removed)* §Local Synthesis
+- 原理：团队文化是一种隐性的 prompt——shared-rules、共同教训、协作习惯构成了比 system prompt 更深层的"预训练"。这不是坏事（恰恰说明团队文化在起作用），但在需要多元视角时必须意识到这个偏置。
+
+---
+
+### LL-038: Promise timeout 不等于 Promise 取消——并发重入的隐蔽根因
+
+- 状态：validated
+- 更新时间：2026-03-26
+
+- 坑：F139 Phase 1a 的 TaskRunnerV2 实现了 `withTimeout()` 用 `Promise.race` 给 execute 加超时。timeout reject 后 `finally` 释放了 `running` 锁，但底层 execute 仍在运行——下一个 tick 绕过 overlap guard 进入了同一 task 的并发执行。Maine Coon第二轮 review 抓出此 P1。
+- 根因：JS Promise 无法取消。`Promise.race([execute, timeout])` 只决定哪个先 settle 调用方，但输掉 race 的 promise 仍然在跑。如果 timeout 赢了就释放锁，等于告诉调度器"这个 task 空闲了"，而实际 execute 还在占用资源。
+- 触发条件：任何用 Promise.race/setTimeout 做 timeout 的场景，如果 timeout 后释放了互斥资源（锁、信号量、连接池 slot）。
+- 修复：
+  - 引入 `pendingExecutes[]` 收集所有 raw execute promise
+  - timeout 后照常记账 `RUN_FAILED`，但 `finally` 块在释放 `running` 锁前先 `await Promise.allSettled(pendingExecutes)`
+  - 代价：`triggerNow` 在超时场景不会立即返回（可接受的 tradeoff）
+- 防护：
+  - **规则**：Promise timeout wrapper 不得在 finally 中直接释放互斥资源——必须等底层 promise settle
+  - **测试**：`task-runner-v2.test.js` "concurrent reentry" 用例：gate 返回信号 + execute 永远 pending + timeout 触发 → 验证第二个 tick 被 overlap guard 拦截
+- 来源锚点：
+  - `packages/api/src/infrastructure/scheduler/TaskRunnerV2.ts` L139, L169
+  - Maine Coon Round 2 review (2026-03-25): "timeout reject → finally → running=false，但 execute 还在飞"
+- 原理：Promise 是 completion token，不是 cancellation token。race 只决定 observer 的视角，不影响 producer 的生命周期。在 JS 没有原生 AbortSignal 深度集成之前，timeout 和资源释放必须解耦。
+
+- 关联：F139 Phase 1a PR #747 | ADR-022
+
+---
+
+### LL-039: gate 里推进 cursor 等于"还没干活就划卡"——execute 失败后事件丢失
+
+- 状态：validated
+- 更新时间：2026-03-26
+
+- 坑：ReviewCommentsTaskSpec 的 gate 在筛选新评论时顺手推进了 `lastSeenCommentId` cursor。如果 execute 失败（网络超时、处理异常），这批评论就永远丢了——cursor 已经越过它们，下次 gate 不会再返回。
+- 根因：gate 和 execute 是 TaskRunnerV2 pipeline 的两个独立阶段，gate 的职责是"判断有没有活"，不是"确认活干完了"。把 cursor 推进放在 gate = 乐观假设 execute 一定成功。
+- 触发条件：任何 gate 阶段推进 cursor/offset/watermark 的模式，当 execute 可能失败时。
+- 修复：`commitCursor()` 闭包模式——gate 计算新 cursor 值但不写入，把 commit 函数作为 signal 的一部分传给 execute，execute 成功后调用 `signal.commitCursor()`。
+- 防护：
+  - **规则**：gate 只读 cursor 做筛选，cursor 推进必须在 execute 成功路径上
+  - **测试**：`review-comments-spec.test.js` "cursor not advanced on execute failure" 用例
+- 来源锚点：
+  - `packages/api/src/infrastructure/email/ReviewCommentsTaskSpec.ts` L81, L96
+  - Maine Coon Round 1 review P2-1: "gate 里推进 cursor 是 over-optimistic"
+- 原理：cursor/watermark 是"已确认处理完成"的标记，语义上等价于 Kafka consumer commit。Kafka 的 at-least-once 保证也要求 commit 在 process 之后，不在 poll 时自动推进。
+
+- 关联：F139 Phase 1a PR #747 | ReviewCommentsTaskSpec
+
+---
+
+### LL-040: AI 写文档日期不能凭内部时间感——必须先 `date` 校准
+
+- 状态：validated
+- 更新时间：2026-03-27
+
+- 坑：金渐层在 5 个文档中写入了 11 处未来日期（2026-06/07），实际当时是 2026-03。这是第二轮修复（第一轮 de2cb42f5 修了 F137）。
+- 根因：LLM 没有可靠的内部时钟。金渐层的训练数据截止日期造成系统性时间偏差（+3~4 个月），在不调用 `date` 命令校准的情况下，凭"内部时间感"直接写入日期 = 幻觉。
+- 触发条件：任何猫在文档中写入日期（timeline、changelog、KD 表、Phase 记录等）且未先确认当前日期时。
+- 偏差模式：稳定 +3~4 个月，不是随机错误，是系统性偏差。
+- 修复：commit `9f87d354e` 批量修正 5 文件 11 处（open-source-status / F048 / F055 / F121 / F134）。
+- 防护：
+  - **铁律：写日期前先 `date`** — 任何猫在文档中写入日期时，必须先执行 `date` 或从系统 prompt 中确认当前日期，禁止凭感觉写
+  - **Review 检查项**：reviewer 核对文档中新增日期是否在合理范围内（不超过当前日期）
+- 来源锚点：
+  - 金渐层自述根因：内部时间感知幻觉 + 训练截止日期偏差
+  - 第一轮修复：de2cb42f5（F137）、第二轮修复：9f87d354e（F048/F055/F121/F134/open-source-status）
+- 原理：LLM 的时间感知是从训练数据中学到的统计分布，不是真实时钟。没有外部锚定（系统 prompt 日期注入或 `date` 命令），任何模型都可能产出偏移日期。这跟"内容幻觉"本质相同——模型生成看起来合理但事实错误的信息。
+
+- 关联：金渐层日期幻觉 | 5 文件 11 处 | 两轮修复
+
+### LL-041: 写完产物不主动打开 = 做了菜不端上桌
+
+- 状态：validated
+- 更新时间：2026-03-28
+
+- 坑：Ragdoll写完诊断报告后只报了文件路径，没有帮铲屎官打开。铲屎官反问："我们有打开的能力，但你写完了竟然不帮我打开！"
+- 根因：猫的工作流在"产出文件"这一步就画了句号，没有编码"呈现给铲屎官"这一步。workspace-navigator、browser-preview、rich block 等展示能力都存在，但只在铲屎官明确要求时才被动使用——缺少"何时主动展示"的触发时机。
+- 触发条件：任何猫写完文件/跑完测试/改完前端/生成报告后，没有主动打开或展示给铲屎官。
+- 修复：当次手动用 Navigate API 打开了报告。
+- 防护：
+  - **shared-rules W8 共享视图** — 将"产物端上桌"编码为世界观级规则，通过 GOVERNANCE_L0_DIGEST 注入所有猫的每次调用
+  - **判断标准**：写完产物后问"铲屎官需要看到这个吗？"——是 → 按场景用 navigate / preview / rich block 打开
+- 来源锚点：
+  - 铲屎官原话："写完竟然不帮我打开！就和写完前端不帮我打开 preview 一样"
+  - shared-rules.md W8 新增
+  - SystemPromptBuilder.ts GOVERNANCE_L0_DIGEST W8 新增
+- 原理：人猫协作是双向共享感知，不是单向任务完成汇报。愿景写的是"共享家园"——家人做了饭会端上桌，不会只喊一声"厨房锅里有饭"。猫的能力边界不只是"能做"，还包括"做完后展示"。这是人猫协作和人用 API 的本质区别（W1）。
+
+- 关联：shared-rules W8 | workspace-navigator skill | browser-preview skill | 三天产品化诊断
+
+---
+
+### LL-042: 配置真相源不加门禁就会漂移——env 变量三处不同步
+- 状态：validated
+- 更新时间：2026-03-28
+- 坑：`env-registry.ts`（Hub 用）、`.env.example`（新用户用）、代码里的 `process.env.XXX`（实际真相）三处各自为政，无任何自动化检查。结果：25+ 个变量代码里用了但 Hub 看不到，`.env.example` 只有 21 条 vs 实际 100+，8 个 HINDSIGHT 变量在 `.env.example` 里但代码从未引用。
+- 根因：配置注册是纯文档契约（"新增 env 必须注册"写在注释里），但没有机器强制执行。人工纪律在 feature 交付压力下必然失守。
+- 触发条件：任何新增 `process.env.XXX` 时忘记在 `env-registry.ts` 注册 + 没人发现。
+- 修复：(1) 补齐 35 个漏网变量 (2) 新增 `check:env-registry`（扫描代码→registry 完整性）和 `check:env-example`（双向一致性） (3) 接入 `pnpm check` 硬门禁 (4) 新增 `exampleRecommended` 字段确保关键变量出现在 `.env.example`。
+- 防护：`pnpm check` 现在覆盖 env 注册完整性，CI / gate 自动拦截遗漏。
+- 来源锚点：
+  - TD117 in `docs/TECH-DEBT.md`
+  - `scripts/check-env-registry.test.mjs`
+  - `scripts/check-env-example.test.mjs`
+  - LL-030（同根问题：proxy 默认值改了没同步 .env）
+- 原理：**多真相源必须有机器强制同步**。注释里写"请手动保持一致"等于没写。代价最低的时间点是新增代码时立即拦截，而不是部署后发现 Hub 里看不到变量。
+
+- 关联：LL-030 | TD117 | env-registry.ts
+
+---
+
+### LL-043: 删旧层前必须证明迁移已落成，否则 startup 不能静默成功
+- 状态：validated
+- 更新时间：2026-03-28
+- 坑：F136 Phase 4 删除了旧 `provider-profiles.ts` 读取层（PR #824, -2032 行），但迁移函数（PR #818）被 best-effort `try/catch` 包裹。当迁移未执行时，旧读取层已不在、新 `accounts` 也为空，服务静默带病启动。铲屎官在 runtime 上看到账号配置页全部"暂无模型"、API key 丢失。
+- 根因：删除旧层与迁移成功之间没有 startup invariant 门禁。`accountStartupHook` 只做"迁移 + conflict scan"，不校验"旧源在但新数据缺"的不变量。非 HC-5 异常被 `index.ts:1444` 吞为 warn。
+- 触发条件：迁移因任何原因失败（构建未更新、import 报错、文件系统异常等）+ 旧读取层已被同批或先前 PR 删除。
+- 修复：(1) 手动触发迁移恢复数据 (2) PR #831 修复 per-project detection + credential clear 语义 (3) 记录 P2 follow-up: startup invariant guard（旧源在 + accounts 缺 → error/readiness fail）。
+- 防护（待实施）：`accountStartupHook` 返回前增加不变量校验——`provider-profiles.json` 存在 + `catalog.accounts` 缺失 → 至少 error 级别暴露，理想为 startup hard fail。补回归测试覆盖此场景。
+- 来源锚点：
+  - F136 spec follow-up 章节
+  - `packages/api/src/config/account-startup.ts`
+  - `packages/api/src/index.ts:1436-1452`
+  - 反思胶囊：*(internal reference removed)*
+- 原理：**删除旧读取路径和迁移成功是原子操作的两端**。只删不验 = 中间态数据丢失。删旧层的 PR 必须同时包含：迁移成功回归测试 + legacy source 存在且新数据缺失时的 startup guard。
+
+- 关联：LL-042 | F136 | account-startup.ts
+
+### LL-044: Chrome IME 回车误提交——`e.nativeEvent.isComposing` 对 Enter 无效
+- 状态：validated
+- 更新时间：2026-03-28
+- 坑：中文输入法按 Enter 选词时，Chrome 的事件顺序是 `compositionend` → `keydown(Enter, isComposing: false)`。与 Firefox 相反（Firefox 是 `keydown(isComposing: true)` → `compositionend`）。因此 `e.nativeEvent.isComposing` 守卫在 Chrome 上对 Enter 键无效，导致中文输入时按回车选词会直接提交表单。
+- 根因：Web 规范未强制 `compositionend` 与 `keydown` 的顺序，Chrome 和 Firefox 实现不同。项目内 24 个输入组件全部使用了不可靠的 `e.nativeEvent.isComposing` 守卫，包括主聊天输入框。
+- 影响范围：ChatInput（主聊天）、ActionDock（游戏发言）、ThreadItem/SectionGroup（重命名）、HistorySearchModal、SignalArticleDetail、StudyFoldArea、VoiceSettingsPanel、InlineTreeInput、BrakeModal、VoteConfigModal、BindNewSessionSection、SessionChainInputs、DirectoryBrowser、DirectoryPickerModal、InteractiveBlock、BrowserToolbar（URL 输入）、HubPermissionsTab（完全无守卫）、WorkspacePanel（搜索）、hub-tag-editor（标签提交）、SessionSearchTab（form submit）、QuickCreateForm（form submit×3）、SignalInboxView（form submit）。
+- 修复：创建 `useIMEGuard` hook（`packages/web/src/hooks/useIMEGuard.ts`）。核心思路：用 `compositionstart/end` 事件驱动 ref，在 `compositionend` 后通过 `requestAnimationFrame` 延迟一帧清除 composing 状态，使得 Chrome 紧随其后的 `keydown(Enter)` 仍能被拦截。全量替换 24 个组件。
+- 检查清单（新增 Enter 输入点必须遵守）：
+  1. 禁止裸用 `e.nativeEvent.isComposing` 或 `e.key === 'Enter'` 无守卫
+  2. 必须使用 `useIMEGuard` hook 并绑定 `onCompositionStart/End` + `ime.isComposing()` 守卫
+  3. 测试 IME 场景时，模拟 `compositionstart` → `keydown(Enter)` 序列，不要用 `Object.defineProperty(event, 'isComposing', { value: true })`
+- 关联：F080（输入历史）| ChatInput | ThreadItem
+
+### LL-045: Runtime worktree 反复被猫污染——三次误删 + 进程表爆炸导致系统重启
+- 状态：draft
+- 更新时间：2026-03-31
+
+- 坑：2026-03-29 ～ 2026-03-31 期间，runtime worktree（`cat-cafe-runtime`）被多个Ragdoll session 反复弄脏，导致 `pnpm start` 无法启动。发现三批污染：
+  1. **WeixinAdapter voice_item A/B test**（`WEIXIN_VOICE_ITEM_MODE` env 切换 `minimal` vs `metadata`）——调试微信语音问题，直接在 runtime 编辑
+  2. **invoke-single-cat.ts account resolution 调试**——插入 `appendFileSync('/tmp/cat-cafe-account-debug.log')` 文件日志 + 多个 `let→const` 误改（会导致运行时崩溃）+ proxy fallback if/else 逻辑被重构坏
+  3. **`process-liveness-probe.test.js` 进程泄漏**——同一测试文件被多实例并发运行（疑似 watch 模式反复触发），每个实例 spawn 子进程不回收，进程数飙至 10472，Load Average 199，系统进入 `EAGAIN`（fork failed: resource temporarily unavailable），最终只能重启 macOS
+  - 另有 Knowledge Feed markers（`docs/markers/*.yaml`）和开源同步残留（`LICENSE`、`ROADMAP.md`、`.sync-provenance.json`）出现在 runtime
+
+- 根因：
+  1. **P0 铁律执行失败**：`feedback_no_touch_runtime.md` 已明确"禁止直接操作 runtime worktree"，但多个 session 的Ragdoll仍然在 runtime 里直接编辑代码/运行测试/运行脚本
+  2. **runtime 无写保护**：除了 `pnpm start` 时的脏检查（`git status -uno`），runtime worktree 没有任何机制阻止猫直接写入
+  3. **测试进程无上限**：`process-liveness-probe.test.js` 涉及 spawn 子进程，但无 maxprocs / ulimit 保护，watch 模式下可指数膨胀
+  4. **清理时二次伤害**：发现污染后，当前 session 的Ragdoll三次不检查内容就执行 `git checkout --` / `git clean -fd`，导致调试进度（invoke-single-cat.ts）和 Knowledge Feed markers 不可逆丢失
+
+- 触发条件：
+  - 猫在 runtime worktree 目录下执行编辑/测试/脚本（而非 feature worktree）
+  - 测试涉及 process spawn 且在 watch 模式下运行
+  - 发现脏文件后不检查内容直接清理
+
+- 修复：
+  - 第 1 批：stash 保留（`runtime-rescue: WeixinAdapter voice_item A/B test`），记录到 F137 changelog
+  - 第 2 批：被误清理（`git checkout -- .`），diff 内容保存到 GitHub Issue #862
+  - 第 3 批（进程爆炸）：`killall -9 node` + 系统重启
+
+- 防护：
+  1. **runtime worktree 写保护**：考虑用 `chflags uchg` 或 git hook 阻止非 `runtime-worktree.sh` 的写入
+  2. **测试进程上限**：`process-liveness-probe.test.js` 需加 spawn 计数器 + `ulimit -u` 防护
+  3. **清理前必须检查**：见 `feedback_never_clean_without_checking.md`——`git checkout/clean/rm` 前先 `ls`/`cat`/`git diff` 看内容，stash 优先于 checkout
+  4. **脏检查应区分 tracked 和 untracked**：当前 `ensure_runtime_clean` 用 `-uno` 忽略 untracked 文件，markers/sync 残留不会阻止启动但会持续积累
+
+- 来源锚点：
+  - GitHub Issue: #862
+  - F137 changelog 2026-03-29 条目
+  - `feedback_never_clean_without_checking.md`
+  - `scripts/runtime-worktree.sh` ensure_runtime_clean 函数
+
+- 关联：F137（WeixinAdapter voice）| F118（invoke-single-cat audit）| #862 | feedback_no_touch_runtime.md
+
+---
+
+### LL-046: AOF/RDB 持久化脱节——冷启动加载空 AOF 导致 42K keys 归零
+- 状态：validated
+- 更新时间：2026-03-31
+
+- 坑：重启 macOS 后 `pnpm start` 冷启动 Redis 6399，发现 915 个 thread / 42,778 keys 全部消失，只剩启动后新写入的 7 个 thread。铲屎官以为数据全丢了。
+- 根因：**AOF 和 RDB 两套持久化机制脱节了 48 天**。
+  1. 2月9日 `383e23791` 给 `start-dev.sh` 加了 `--appendonly yes`
+  2. 2月10日首次带 AOF 启动，Redis 创建了 AOF base 文件（此时 DB 是空的 → base = 0 keys，88 bytes）
+  3. 之后某次 Redis 被 restore 脚本或手动方式重启，**没带 `--appendonly`**，进入纯 RDB 模式
+  4. 2月～3月：Redis 一直跑在纯 RDB 模式，数据涨到 42,778 keys。AOF 文件在 `appendonlydir/` 里吃灰，停留在 2月10日的空壳状态
+  5. 3月31日：LL-045 进程爆炸 → macOS 强制重启 → Redis 进程死亡 → `pnpm start` 用 `--appendonly yes` 冷启动 → Redis 看到 `appendonlydir/` 存在 → **优先加载 AOF（空的）→ 忽略 110MB 的 dump.rdb** → 空库
+- 以前没出事的原因：Redis 进程从来没被杀过。每次 `pnpm start` 发现 6399 已在跑就直连（`start-dev.sh:927`），不触发冷启动。这是第一次真正的冷启动。
+- 救命的备份：`archive_redis_snapshot "pre-start"` 在每次 `pnpm start` 启动前自动备份 dump.rdb 到 `~/.cat-cafe/redis-backups/dev/`（保留 20 份）。今天 07:34 的 `dev-pre-start-20260331-073456.rdb` 包含完整的 42,778 keys，恢复成功。**这个机制源自 2月10日 LL-015 事故后的加固。**
+
+- 修复（已提交 `3ae239a1a`）：
+  1. **stale AOF 冷启动防护**（`start-dev.sh:716 maybe_quarantine_stale_aof_dir`）：冷启动前比较 AOF base 与 dump.rdb 体积比，dump/base >= 100 倍判定为 stale，自动隔离 `appendonlydir/` 到 backup
+  2. **restore 脚本 AOF 盲区**（`redis-restore-from-rdb.sh:96`）：恢复后强制带 `--appendonly yes` 启动 + 旧 `appendonlydir` 迁移备份，杜绝"恢复后进入纯 RDB 模式"
+  3. **回归测试**：28/28 通过，覆盖 stale 隔离、proportional base 保留、tiny base + incr 存在仍隔离三个场景
+
+- 教训：
+  1. **"以前没事"不等于"没有 bug"**——很多配置只在冷启动时生效，如果从来没冷启动过就从来不会暴露。定期冷启动演练是必要的
+  2. **两套持久化机制必须保持同步**——Redis 的 AOF 优先于 RDB 加载，如果 AOF 是 stale 的，RDB 里的数据会被完全忽略
+  3. **所有启动 Redis 的代码路径必须统一**——restore 脚本、手动启动、start-dev.sh 如果参数不一致，就会制造 AOF/RDB 脱节的窗口
+  4. **备份机制越早建越好**——LL-015 的"坑"变成了 LL-046 的"救命稻草"
+
+- 来源锚点：
+  - 提交：`3ae239a1a fix(redis): harden stale AOF detection and restore startup`
+  - 起因：`383e23791 feat(redis): isolate personal storage and add durability guardrails`
+  - 关联：LL-015（Redis 端口误触事故）| LL-045（runtime 进程爆炸导致重启）
+
+---
+
+### LL-047: Socket.IO `cors` 不保护 WebSocket — `allowRequest` 才是安全边界
+- 状态：validated
+- 更新时间：2026-04-10
+
+- 背景：Cat Cafe Hub 的 Socket.IO 实时通道被发现存在 CSWSH（Cross-Site WebSocket Hijacking）风险。`Origin: https://evil.example` 可以成功建立 WebSocket 连接到 `127.0.0.1:3004`
+
+- 影响：恶意网页可从任意 Origin 连接本机 WebSocket，冒充用户、监听消息、干扰猫猫工作
+
+- 根因：
+  1. **Socket.IO v4 的 `cors` 配置只对 HTTP long-polling 生效**，不校验 WebSocket upgrade 请求的 Origin 头（Socket.IO 官方文档 2026-02-16 明确标注）
+  2. 身份自报（`handshake.auth.userId`）无服务端校验
+  3. Room 无 ACL，任何连接可加入任意 room
+  4. @fastify/websocket 的 plain WS 端点（terminal PTY）完全绕过 Socket.IO，无任何 Origin 检查
+
+- 修复：
+  1. **Phase A**（PR #1041）：`allowRequest` hook 显式校验 Origin + 禁止自报 userId + 私网 Origin 收紧
+  2. **Phase B**（PR #1045）：terminal WS Origin gate + cancelAll 授权 + 全局 room ACL
+  3. **Phase D**（规划中）：HTTP session 替代自报身份 + Clickjacking + CSP + Prompt Injection 降权
+
+- 教训：
+  1. **框架的 CORS 配置 ≠ WebSocket 安全**——Socket.IO/Express 的 cors 中间件只管 HTTP，WebSocket upgrade 是独立的协议切换，必须在 upgrade 层单独校验
+  2. **本机 ≠ 安全**——浏览器同源策略不阻止 JS 向 localhost 发 WebSocket 连接，任何打开的网页都是潜在攻击面
+  3. **"能连上"比"能做什么"更危险**——一旦连接建立，后续的身份/Room/事件授权都是亡羊补牢；连接层拒绝是第一道也是最关键的防线
+  4. **Agent 产品的攻击面比传统 Web 应用更大**——Prompt Injection、工具调用误用、外部内容驱动的高危操作是传统安全审计不覆盖的维度
+
+- 来源锚点：
+  - F156 spec：`docs/features/F156-websocket-security-hardening.md`
+  - 三猫安全审计：*(internal reference removed)*
+  - PR #1041（Phase A）、PR #1045（Phase B）
+  - 外部参考：OpenClaw CVE-2026-25253 + ClawJacked（同类攻击链）
+
+### LL-048: 用户可感知状态禁止默认 TTL——静默消失按 P0 治理
+- 状态：validated
+- 更新时间：2026-04-10
+
+- 坑：F100 Self-Evolution 线程在创建 30 天后突然从 Hub UI 消失——不在列表、不在垃圾桶、搜索不到。铲屎官："太恐怖了！"
+- 根因：`RedisThreadStore.ts` 硬编码 `DEFAULT_TTL = 30 * 24 * 60 * 60`（30 天），thread 创建时调用 `EXPIRE`。但 `updateLastActive()` 只更新排序分数，**从不刷新 hash TTL**。到期后 Redis 静默删除 hash，而 sorted set index 因其他 thread 操作续期而存活——形成"索引有 ID 但 hash 已消失"的孤儿状态。
+- 触发条件：任何带非零 DEFAULT_TTL 的 Redis store（thread/message/task/summary/backlog/session 等），只要用户在 TTL 窗口内未触发恰好刷新 hash TTL 的操作，就会静默丢失。
+- 修复：
+  1. 全量止血：所有 16+ Redis store 的 DEFAULT_TTL 改为 0（persistent），`EXPIRE 0` / `SET EX 0` 陷阱用条件分支防御
+  2. 自愈机制：`get()` 发现 hash 缺失时从 message timeline 重建元数据（`recoverThreadFromMessages`）
+  3. 统一 key 续期：所有 detail 变更通过 `setDetailFields()`/`deleteDetailFields()` 自动调用 `applyKeyRetention()`
+  4. 文档 + .env.example 同步更新
+- 防护：
+  1. 铁律 #5"禁止用户状态静默消失"——默认持久化，TTL 只能 opt-in
+  2. 新增 Redis store 必须 DEFAULT_TTL=0，引入非零 TTL 需 P0 级审批
+  3. 任何 `EXPIRE` / `SET EX` 调用必须有 `> 0` 守卫，防止 TTL=0 变成立即删除
+- 来源锚点：
+  - 根因文件：`packages/api/src/domains/cats/services/stores/redis/RedisThreadStore.ts:32`
+  - 丢失 thread：`thread_mmlv4v2oq6dxefr6`（2026-03-11 创建，2026-04-10 过期）
+  - Feature spec：`docs/features/F100-self-evolution.md` line 54
+- 原理：**EXPIRE 0 = 立即删除**（Redis 语义）。框架层 TTL 默认值决定了用户数据的生死线——这不是"配置"，而是产品决策。opt-out 持久化 = 用户必须知道一个他们不可能知道的配置才能保住自己的数据，这在产品层面是不可接受的。
+
+---
+
+### LL-049: `pnpm dev:direct` 无差别杀端口——review 踢翻 runtime
+- 状态：draft
+- 更新时间：2026-04-11
+
+- 坑：2026-04-10，Maine Coon在 review F152 PR (#1070) 时，在主仓库执行 `pnpm dev:direct`。`start-dev.sh` 的 `kill_managed_ports()` 无条件杀掉 3003/3004 端口上的进程——正在运行的 runtime 被踢掉，铲屎官被动中断。
+- 根因：
+  1. **`kill_port()` 不检查进程归属**：谁占着端口就杀谁，不区分是本 worktree 残留还是 runtime/alpha 等其他实例
+  2. **护栏分裂**：`runtime-worktree.sh` 有 `CAT_CAFE_RUNTIME_RESTART_OK` 授权门，但 `dev:direct` 走 `start-dev.sh`，绕过了这道门
+  3. **`guard_main_branch_start()` 盲区**：只拦 `main` 分支 + `cat-cafe` 仓库名，主仓库切到 feature branch 照样触发事故
+  4. **review 沙盒规范有文档无工具**：request-review skill 写了"在沙盒操作"，但缺少统一入口和强制机制
+- 触发条件：任何猫在非隔离环境（主仓库、错误 worktree）执行 `pnpm dev:direct` / `pnpm start`，且 runtime 正在使用相同端口
+- 修复（PR #1077，已合入 `807536df5`）：
+  1. 新增 `pid_cwd()` + `path_is_within_project()` + `guard_port_kill_ownership()`：`kill_port()` 前检查占用进程的工作目录是否属于当前 `$PROJECT_DIR`，跨 worktree 默认拒绝 kill
+  2. `CAT_CAFE_RUNTIME_RESTART_OK=1` 显式授权才放行
+  3. 新增 `scripts/review-start.sh`（`pnpm review:start`）：review 验证统一入口，自动分配 3201/3202 端口、内存 Redis、review 沙盒路径
+  4. review 模板新增"沙盒路径 + 启动命令 + 实际端口"必填字段
+- 防护：
+  1. `start-dev.sh` 端口归属 guard（基于进程 cwd，不硬编码端口号）——任何端口冲突都能防
+  2. 回归测试覆盖"默认拒绝跨 worktree kill"和"显式授权放行"两条路径
+  3. `pnpm review:start` 统一入口消除"在哪启动、用什么端口"的歧义
+  4. request-review 模板强制证据字段（reviewer 必须填沙盒路径和端口）
+- 来源锚点：
+  - 事故报告：`docs/bug-report/2026-04-10-review-dev-direct-runtime-interruption/bug-report.md`
+  - 修复 PR：zts212653/cat-cafe#1077
+  - 端口归属 guard：`scripts/start-dev.sh:450`（`guard_port_kill_ownership`）
+  - review 入口：`scripts/review-start.sh`
+- 原理：**"默认安全"优于"靠人记得"**。LL-045 证明纪律文档拦不住猫——写了"不要动 runtime"但多个 session 仍然直接操作。端口保护和 Redis production Redis (sacred)一样，必须在工具层面做到"默认不可能发生"，而非"读了文档就不会发生"。
+
+- 关联：LL-045（runtime worktree 反复被猫污染）| PR #1077 | `feedback_no_touch_runtime.md` | CLAUDE.md 铁律 #4
+
+---
+
+### LL-050: ADR 漂移 2 个月无人发现——Feature 完成不扫知识影响
+- 状态：draft
+- 更新时间：2026-04-13
+
+- 坑：ADR-009（2026-02-10）选择"仅用户级 skill 分发"，F070（2026-03-08）引入项目级 governance bootstrap，事实性推翻 ADR-009 的核心假设。但 F070 完成时未触发任何 ADR/spec 影响检查，导致 ADR-009 以 `active` 状态存续 2 个月，直到社区 issue clowder-ai#386（2026-04-08）才暴露。
+- 根因：
+  1. **Feature 完成无"知识影响扫描"**：feat-lifecycle close step 不检查新 Feature 是否推翻了现有 ADR/spec 的前提
+  2. **ADR 缺 machine-readable 状态**：无 `drifted`/`superseded` 状态字段，`search_evidence` 无法区分过时文档和当前真相
+  3. **双层挂载无一致性校验**：preflight 只检查项目级 symlink 存在，不校验跨层一致性
+- 触发条件：任何 Feature 改变了现有 ADR 的核心假设，但 Feature 完成时无人检查
+- 修复：
+  1. ADR-009 已标注 `status: drifted`（2026-04-07）
+  2. ADR-025 作为 successor ADR 已完成三猫 review（2026-04-13 收敛）
+  3. ADR/spec frontmatter 新增 `status: active|drifted|superseded|historical` + `drifted_by` + `last_reviewed` 字段
+- 防护（待落地）：
+  1. feat-lifecycle close step 增加"知识影响扫描"：新 Feature 是否改变了现有 ADR/spec 的假设？
+  2. `search_evidence` 检索排序降权 drifted/historical 文档
+  3. 定期 ADR 巡检（半年一次 `last_reviewed` 刷新）
+- 来源锚点：
+  - 社区 issue：[clowder-ai#386](https://github.com/zts212653/clowder-ai/issues/386)
+  - ADR-009 drift 标注：`docs/decisions/009-cat-cafe-skills-distribution.md`
+  - Successor ADR：`docs/decisions/025-skills-canonical-mount-policy.md`
+- 原理：**知识也有保质期**。ADR 记录的是某个时间点的决策假设，后续架构演进可能悄悄推翻这些假设。如果只靠猫的记忆发现漂移，检测延迟 = Feature 交付频率的倒数。必须在 Feature completion 工具层面做"知识影响扫描"，才能把漂移窗口从月级压到天级。
+
+- 关联：ADR-009 | ADR-025 | F070 | clowder-ai#386 | `project_knowledge_lifecycle_gap.md`
+
+---
+
+### LL-051: 实验框架空转——造了铁路没装货物
+- 状态：draft
+- 更新时间：2026-04-18
+
+- 坑：F163 记忆熵减用 3 Phase 建了完整实验基础设施（schema V14 多轴元数据 + 7 flag + experiment logger + shadow mode + Health Tab UI），shadow 模式运行 32 小时、记录 448 次搜索。诊断发现三层空转：① 1501 篇文档 authority 全部是 `observed`（默认值），boost 权重全 1.0 等于无 boost；② shadow payload 只记 `{query, resultCount}`，没记录 before/after 排序对比；③ `evidence.ts:117` 硬编码 `confidence: 'mid' as const`，前端无信号差异。
+- 根因：
+  1. **坐标系错误（Round 4 原理）**：核心需求是"重要知识排前面"，最小方案是 `pathToAuthority()` 纯函数 + backfill。但选了"先建完整实验框架再灰度上线"的路径，把 70% 工作量花在框架本身而非核心价值。
+  2. **Phase 拆分遮蔽空洞**：每个 Phase 有自己的 AC 并全部通过，但 AC 验的是"能力存在"不是"能力有效"。`applyAuthorityBoost()` 存在且可调用 → AC pass，但所有文档权重 1.0 → 实际无效。
+  3. **Shadow mode 设计半成品**：spec 要求"后台并行跑新策略，记录差异"，实现只记了 flag snapshot + query，没记排序差异——因为差异计算依赖 authority 分化，而分化从未发生。
+- 触发条件：任何 feature 用"先建框架 → 再填数据"的顺序推进，且 AC 只验证框架存在性而非端到端效果
+- 修复：
+  1. 写 `pathToAuthority()` 纯函数，索引时从路径/frontmatter 自动派生 authority（而非手动 promotion）
+  2. 修 `confidence: 'mid' as const` → 从 authority 派生 high/mid/low
+  3. 直接切 `F163_AUTHORITY_BOOST=on`（跳过无价值的 shadow）
+- 防护：
+  1. Feature AC 必须包含至少一条"端到端效果验证"（不只是"能力存在"）
+  2. 实验 flag 开 shadow 后 48h 内必须检查 payload 是否包含对比数据——空跑 shadow 浪费资源且给人虚假安全感
+- 来源锚点：
+  - F163 shadow 数据诊断：`evidence.sqlite` f163_logs 表 448 条 search、authority 分布 100% observed
+  - 硬编码 confidence：`packages/api/src/routes/evidence.ts:117`
+  - Meta-Aesthetics canon（从 Round 4 数学之美升格）：`docs/canon/meta-aesthetics.md`
+- 原理：**Agent Quality = Model Capability × Environment Fit**（Round 4）。F163 在 Environment 侧堆了大量维度（多项式拟合），但没有验证任何一个维度是否真正改善 Fit。正确的路径是坐标变换：找到"authority 信号已经在文档路径里"这个洞察，用一个纯函数解决，而不是建一整套实验框架去"发现"这个答案。最优表达在正确坐标系下必然最简。
+
+- 关联：F163 | Round 4 数学之美讨论 | LL-050（知识漂移）
+
+---
+
+### LL-052: `exec VAR=val cmd` 不设置环境变量——bash 把它当可执行名
+- 状态：draft
+- 更新时间：2026-04-18
+
+- 坑：shell 启动脚本里 `exec ${env_prefix}pnpm run start`（`env_prefix="NODE_ENV=production "`）直接启动失败，bash 报 "NODE_ENV=production: command not found"。结果不是"设置环境变量后再 exec pnpm"，而是把 `NODE_ENV=production` 当成可执行文件名去 PATH 里查找。F153 intake clowder-ai#512 合入当天社区小伙伴启动就挂。
+- 根因：
+  1. **`exec` builtin 不解析内联赋值**：bash 的 `VAR=val command arg` 形式，**只有当 command 是外部可执行程序**（如 `env`、`pnpm`）时，内联 `VAR=val` 才会作为临时环境变量传递。`exec` 是 shell builtin，走 replace-current-process 路径，第一个 token 直接被当成要 exec 的 program name——`NODE_ENV=production pnpm` 等同于 `exec 'NODE_ENV=production' pnpm`。
+  2. **字符串断言掩盖启动失败**：`test/start-dev-script.test.js` 只断言 `printf "$(api_launch_command)"` 输出 `"cd ... && exec NODE_ENV=... pnpm ..."` 这个字符串字面量，没有 `eval` 这段输出验证进程真能启动。CI 全绿但 `pnpm run start` 从未被实际执行过。
+- 触发条件：shell 脚本里 `exec ${prefix}command` 模式，`prefix` 含内联环境变量赋值（`VAR=value `）
+- 修复：改写成 `exec env ${prefix}command`——`env` 是 POSIX 外部程序，会正确解析内联赋值并把变量注入子进程
+- 防护：
+  1. Shell 启动脚本的单测不能只断言 `printf` 输出文本，至少一个 case 必须 `bash -n` 语法检查 + 在 mock 环境下 `eval` 这段命令验证 exit code（或跑 `pnpm dev:direct --dry-run`）
+  2. Intake 社区 PR 改动 `scripts/**` 尤其启动/runtime 脚本时，reviewer checklist 加一条"本地跑一次 `pnpm alpha:start` 或 `pnpm dev:direct` 确认实际能启动不报错"
+- 来源锚点：
+  - Bug report: `clowder-ai#526`（2026-04-18 社区小伙伴报挂）
+  - 引入 commit: `cat-cafe:206ae80c40`（F153 intake clowder-ai#512）
+  - 修复 commit: `cat-cafe:bf5f54b9`（PR #1257）+ `clowder-ai:6ab02c44`（PR #527）
+  - 修复位置: `scripts/start-dev.sh:683-685` `api_launch_command()`
+- 原理：**`VAR=val command arg` 语法中 `VAR=val` 是"赋值前缀"还是 argv[0] 取决于 command 的类别**——外部程序会被 shell 剥离前缀作为临时 env 传递；builtin（`exec` / `source` / `:`）则直接把前缀当成参数。`env` 这个 POSIX 工具的存在就是为了让"在指定环境下运行程序"成为一个可被任何 builtin/context 调用的显式动作。**任何需要给子进程设环境变量又必须经过 builtin（典型就是 `exec`）的场景，用 `env` 显式承接。**
+
+- 关联：F153 intake clowder-ai#512 | clowder-ai#526 | cat-cafe#1257 | clowder-ai#527
+
+---
+
+### LL-053: 无头 Codex CLI 长任务不能靠 shell 伪后台——要么守住 `session_id`，要么真正 detached spawn
+- 状态：draft
+- 更新时间：2026-04-20
+
+- 坑：在 Codex CLI 无头 `exec_command` 环境里，把长任务写成 `bash ... &`、`nohup ... &`、`disown` 或 `setsid`，CLI 返回后看起来“命令发出去了”，但后台子进程常常已经跟着父命令一起死。于是会误判“还在跑”，实际任务根本没活。
+- 根因：
+  1. **把 shell 作业控制误当成 harness 生命周期控制**：`&` / `nohup` / `disown` / `setsid` 只是 shell 级语义；在无头 CLI harness 里，顶层命令退出后，同一进程树里的后台子进程仍可能被回收。
+  2. **把轮询误当保活**：实测前台长任务拿到 `session_id` 后，即使隔 15 秒再 `write_stdin` 也能正常收尾。轮询只是读取进度/结果，不是给进程“续命”。
+- 触发条件：任何从无头 CLI 里拉 sidecar、proxy、测试服务、长脚本、fire-and-forget worker，尤其是想偷懒用 shell `&` 时。
+- 修复：
+  1. **需要交互/输出**：保持前台，接住 `session_id`，后续继续在同一个 session 上 `write_stdin`
+  2. **需要真正后台脱离**：用 Node `spawn(..., { detached: true, stdio: 'ignore' })` + `child.unref()`，并把日志/结果文件作为外部探针
+- 防护：
+  1. 原生 system prompt 明确禁用“在无头 CLI 里拿 shell 伪后台跑持久任务”
+  2. Fire-and-forget 任务必须同时定义 `pid` / `log` / `result` 探针；没有外部探针，不算启动成功
+  3. 命令已经返回 `session_id` 时，不要重开新命令抢跑；优先续同一个 session
+- 来源锚点：
+  - *(internal reference removed)*
+  - *(internal reference removed)*
+  - *(internal reference removed)*
+  - `packages/api/src/domains/cats/services/agents/providers/GeminiAgentService.ts`
+- 原理：**长任务的关键不是“后台”两个字，而是谁拥有生命周期。** 需要持续交互时，生命周期应该绑在当前 `session_id`；需要任务脱离对话继续跑时，必须显式切换到真正 detached 的进程组，并用外部探针观测。shell 伪后台只是“看起来像分叉了”，不是可靠的 liveness ownership。
+
+- 关联：`assets/system-prompts/cats/codex.md` | *(internal reference removed)*
+
+---
+
+### LL-054: 猫的 callback env 泄漏到 unit test 子进程——用真身份发出 6 条 'hi'
+- 状态：validated
+- 更新时间：2026-05-07
+
+- 坑：F193 Phase A Task 3 写 `post-message-kd1-mcp-handler.test.js` 时漏 `beforeEach` mock fetch；跑 `pnpm --filter @cat-cafe/mcp-server test` 时，`node:test` 子进程继承了 Claude Code agent process 自带的 callback env (`CAT_CAFE_API_URL=http://127.0.0.1:3004` + `CAT_CAFE_INVOCATION_ID` + `CAT_CAFE_CALLBACK_TOKEN`)。测试里那行 `handlePostMessage({ content: 'hi' })` **用了猫自己当前 invocation 的真身份**，把 'hi' 发到当前对话 thread。跑 6 次 = 6 条假 hi 出现在铲屎官 thread 里，签名"Ragdoll (Opus 4.7)"，看起来像 cron job。
+- 根因：
+  1. **根因 A（猫疏忽）**：unit test 文件没写 `beforeEach` mock + env override；只 mock 在用到的 test case 里 → 漏 mock 的 case fall-through 到真 fetch
+  2. **根因 B（结构性）**：cat agent process 自身 env 就有 callback config（这是 MCP `post_message` 工具能跑的前提），跑 child process 时**默认全继承**——和 worktree 隔离无关，main / worktree / 任何 cwd 都一样会泄漏。原先以为问题是"worktree env 泄漏"是误诊
+  3. **根因 C（错认场景）**：mcp-server unit test 不该有任何"hit 真 callback URL"的可能——目前 `callback-tools.test.js` 已经在 `beforeEach` 设了 `CAT_CAFE_API_URL=http://127.0.0.1:3004` + 加 fetch mock，但只有那一个 file 这么做，没有共享 helper 强制其他测试 file 也走同样模式
+- 触发条件：在 cat agent invocation 进程里跑 `pnpm test` / `node --test`，且测试代码会调到 `handlePostMessage` / `handleCrossPostMessage` / 任何会 read `CAT_CAFE_API_URL` env 的 callback helper，且没在 `beforeEach` mock fetch + override env。**注意**：和 cwd（main / worktree）无关，纯继承父 process env。
+- 修复（已落地）：
+  1. `packages/mcp-server/test/post-message-kd1-mcp-handler.test.js` 加 `beforeEach`：`CAT_CAFE_API_URL=http://127.0.0.1:1`（关闭端口，ECONNREFUSED 即使 mock 漏）+ stub `globalThis.fetch`，`afterEach` 还原
+  2. 加 `assert.equal(fetchCalled, false)` 断言：把"KD-1 guard 必须 reject 在 fetch 之前"变成回归保护
+  3. Commit `8fea021f1`，已 push `feat/F193-cross-thread-comm`
+- 防护（待落地）：
+  1. **shared-rules §19**（本 LL 同时落）：cat agent 进程跑 unit test 前必须在 `beforeEach` override `CAT_CAFE_API_URL` 到 closed 端口 + mock `globalThis.fetch`
+  2. **测试 helper（建议 follow-up）**：`packages/mcp-server/test/helpers/callback-test-env.js` 导出 `setupClosedCallbackEnv()` / `restoreCallbackEnv()`，新写测试 import 一行就拿到 fail-closed 默认值。F193 Phase A 完成后开 follow-up TD
+  3. **CI lint（建议 follow-up）**：扫所有 `*.test.js`，凡 import 了 `handlePostMessage` / `handleCrossPostMessage` 但没 `beforeEach` 设 closed `CAT_CAFE_API_URL` → CI fail
+- 来源锚点：
+  - `docs/features/F193-cross-thread-comm-unification.md`（事故发生在该 feature Phase A 实施期间）
+  - `packages/mcp-server/test/post-message-kd1-mcp-handler.test.js`（修复点）
+  - commit `8fea021f1` (fix(F193): mock fetch + override env in AC-A2 test)
+  - 截图证据：`/path/to/project-runtime/packages/api/uploads/1778205224706-386492e0.png`
+- 原理：**子进程默认继承父 process env，是 OS 级行为不是 shell quirk**。任何用真 callback config 跑的进程（猫的 invocation 进程）下面派生的子进程（pnpm/node test runner）天然带这套 env。Unit test 必须**显式擦除**这些可能触发 side-effect 的 env，不能依赖"测试通常不发 HTTP"的乐观假设。fail-closed 优于 fail-fast——把 URL 指向 closed 端口，比单靠 fetch mock 多一层防御。
+
+- 关联：`cat-cafe-skills/refs/shared-rules.md §19` | F193
+
+### LL-055: spawn 出的"长尾 child runtime"必须能脱离 parent 自动死亡
+- 状态：draft
+- 更新时间：2026-05-09（src extension）
+
+- 坑：两次同模式踩坑，1 天内连续暴露——
+  1. **Test infra（首次）**：`process-liveness-probe.test.js` spawn `node -e while(true){}` 作为 busy CPU child；测试异常退出（runner timeout / 用户 Ctrl+C / `pnpm gate` 中断）时漏掉 child cleanup，每次泄漏一只 PPID=1 孤儿进程。累积 4 只时占满 ~270% CPU，导致 runtime `pnpm dev:direct` 在 20s 超时窗口内起不来 3002，看起来像"启动超时 + tsx Force killing"诡异连锁，根因实际在测试设计。
+  2. **Src（次日 2026-05-09 发现）**：`packages/api/src/.../first-run-quest/client-detection.ts` 用 `execAsync('opencode version', { timeout: 5000 })` 探测 OpenCode CLI 是否安装。`opencode version` 不是简单 CLI 查询——`opencode` 是 agent runtime，`version` 子命令会拉起完整 agent process。`exec` 的 `timeout` 默认发 SIGTERM；agent process 不响应就僵住，parent promise reject 后 child 成 PPID=1 + 67% CPU 烧 50 分钟孤儿。**这是 LL 的范围扩展——同模式不限于 test，src 里"靠 SIGTERM 链 kill 复杂 child runtime"是同样系统性漏洞。**
+- 根因：
+  1. **结构性**：测试设计依赖 parent SIGTERM handler 链式 kill child；macOS 没有 Linux `PR_SET_PDEATHSIG`，parent 异常死亡（SIGKILL / runner timeout / Ctrl+C）后 child 不会自动陪葬，被 launchd 收编成 PPID=1，继续 `while(true)` 烧 CPU 直到外部干预。
+  2. **可观测性**：孤儿没有指向源头的进程链（PPID=1），仅靠 `ps` 看不出"是谁 spawn 的"，只能 grep 字面量 `while(true){}` 反查代码。
+- 触发条件：test runner 强杀整个 worker（test timeout / OOM）、用户 Ctrl+C 中断 `pnpm test` / `pnpm gate`、multi-worktree fanout 并发跑同一测试（任一进程异常退出即泄漏）、CI 任务被 cancel——四种之一即可累积。
+- 修复（已落地）：
+  - **Test 修复（PR #1607, 2026-05-08）**：busy child 自带 5–10s 自杀 deadline——`while(Date.now() < end)` 替代 `while(true)`，最坏情况下泄漏一只也只活一个测试时长，不会跨 session 累积。`packages/api/test/process-liveness-probe.test.js` 第 145 行已改。
+  - **Src 修复（2026-05-09）**：`client-detection.ts` 把"靠 `<cli> version`/`<cli> --version` 探测"换成"`command -v <cli>` 存在性探测"——`execFile` 走 `/bin/sh -c 'command -v "$1"'` 路径（POSIX 内置，不 spawn agent runtime），timeout 1s。`versionCmd` 字段从 `CliSpec` 删除，`DetectedClient.version` 字段保留为可选但永不填值（前端 `ClientStep` 已 conditional render，自然降级到只显示"已安装"）。同时把 `existsOnPath` 抽成可注入接口便于测试。
+- 防护：
+  1. **Test**：任何 `*.test.{js,ts}` 里 spawn 的 busy / long-lived 子进程必须满足两条之一：(a) 自带时间 deadline，(b) 暴露 child PID 让外部测试 finally 块独立 SIGKILL，**不依赖 parent SIGTERM handler 链式 kill**。
+  2. **Src**（新增）：低成本 detection / health probe 路径**禁止 spawn 复杂 runtime**——能用 `command -v` / `which` / `where` 就不用 `<cli> --version`。即使是看起来"应该是简单 CLI"的目标（`opencode version`），也不能假设其 child 会响应 SIGTERM；agent runtime / headless browser 这类复杂 child 的生命周期不能让 parent 信号链承担。
+  3. **回归守护**：注入式 `existsOnPath` + unit test 断言所有 spec 没有 `versionCmd` / `versionArgs` 字段，CI 直接拦截重新引入。见 `packages/api/test/client-detection.test.js`（5 个 case，含 LL-055 src-extension regression guard）。
+  4. 卡启动 / CPU 异常排查 SOP（顺序按出现频率）：
+     - 先 `ps -eo pid,etime,pcpu,command | sort -k3 -nr | head` 看孤儿（频率最高）
+     - 再按命令字面量 grep 反查 spawn 源（`while(true)` 找 test，`<cli> version`/`<cli> --version` 找 src probe）
+     - 最后才查 agent-browser headless Chrome 僵尸（`feedback_agent_browser_zombie.md`）
+  5. CI lint（建议 follow-up）：扫 `**/*.{js,ts}` 中 `exec\\(.*<cli>\\s+(version|--version)` 模式（src + test 一起），匹配上直接 fail。
+- 来源锚点：
+  - `packages/api/test/process-liveness-probe.test.js#L140-L155`（test 修复 PR #1607）
+  - `packages/api/src/domains/cats/services/first-run-quest/client-detection.ts`（src 修复 2026-05-09）
+  - `packages/api/test/client-detection.test.js`（regression guards）
+  - 2026-05-08 runtime 启动超时事件（4 只 test 孤儿 6h–19h，270% CPU，3002 无法在 20s 内监听）
+  - 2026-05-09 hub UI / first-run-quest 触发的 opencode version 孤儿（PPID=1 + 67% CPU + 50 分钟）
+- 原理：**macOS 进程孤立化默认 detach 不死链**。Linux 可通过 `PR_SET_PDEATHSIG` 让 child 在 parent 死时收到信号自杀；macOS 无此机制，child 与 parent 的生命周期完全解耦。任何"靠 parent 信号链 kill child"的设计在 macOS 上都有泄漏窗口——必须让 child 自带退出条件（test 端：deadline；src 端：根本不 spawn 复杂 child，改用存在性探测），把退出的所有权从 parent 转回 child 或干脆不创造 child。
+
+- 关联：`feedback_agent_browser_zombie.md`（同族——agent-browser headless Chrome 子进程不清理，已三次导致铲屎官电脑卡顿，是同模式 src 案例）| F171（first-run-quest 是 src 漏洞首次暴露的 feature）
+
+---
+
+### LL-056: stale browser profile 不是 orphan——cleanup 要按资源所有权分组
+- 状态：draft
+- 更新时间：2026-05-17（pattern enumeration 扩展：rod / playwright / puppeteer）
+
+- 坑：F145 的 agent-browser Chrome startup cleanup 只扫描 `ppid=1` 的 orphan Chrome 进程。第 5 次复发时，现场是 61 个 `agent-browser-chrome-*` headless Chrome 进程抢 CPU，Chrome main process 自己还活着，helper 的 `ppid` 指向 Chrome main 而不是 launchd，所以原逻辑直接漏掉。结果 `pnpm start` 的 API server 在 20s 内监听不上 3002，看起来像 runtime 启动超时，根因实际是 stale browser profile 长时间占 CPU。
+- 根因：
+  1. **对象建模错了**：F145 把问题建模成“单个进程是否 orphan”，但真实资源所有权是“同一个 `--user-data-dir=...agent-browser-chrome-*` profile 下的一组 Chrome main/helper 是否还属于活跃任务”。当 parent 关系还存在时，`ppid=1` 不是充分条件。
+  2. **上游边界混淆**：我们本地 MCP 配置跑的是 `npx agent-browser-mcp`。npm 上 `agent-browser-mcp` 最新仍是 0.1.3，wrapper 只是按工具调用 spawn `agent-browser` CLI，没有 MCP server 退出时关闭浏览器 profile 的生命周期管理。底层 `agent-browser` CLI 有更新版本，但升级 CLI 不能补齐 wrapper crash / MCP parent 死亡后的资源回收。
+- 触发条件：agent-browser MCP server / IDE / 调用进程异常退出，Chrome main 没收到完整关闭信号；或者 MCP wrapper 没显式关闭 session，`agent-browser-chrome-*` temp profile 跨天保留并持续占 CPU。
+- 修复（已落地）：
+  1. `packages/api/src/utils/orphan-chrome-cleaner.ts` 的 parser 从 `ps -eo ppid=,pid=,args=` 升级为 `ps -eo ppid=,pid=,etime=,args=`，保留旧 `ppid=1` orphan 分支。
+  2. 新增按 `user-data-dir` 分组的 stale profile 判断：同组内只要存在 `ppid != 1 && etime >= 1h` 的 agent-browser Chrome 进程，就清理该 profile 下所有 Chrome main/helper PID。
+  3. 回归测试覆盖三类边界：stale non-orphan profile 会被清；5 分钟 active non-orphan profile 不被清；normal Chrome / prompt 里含关键词的 Node/Claude 进程不被误杀。
+- 防护：
+  1. 进程 cleanup 不要只看 parent 链；先问“资源所有权边界是什么”。对浏览器这类多进程 runtime，通常是 profile/socket/session dir，而不是单个 PID。
+  2. 外部 CLI upgrade 是必要排查项，但不能代替本地 guard。wrapper 没有生命周期管理时，A 类 startup guard 和 C 类上游修复必须并存。
+  3. 启发式阈值要有测试表达 tradeoff：本次 1h 阈值只在 cat-cafe startup 时运行，不是周期清理；误杀代价是重开 agent-browser session，低于 runtime 起不来的代价。
+  4. **Owner enumeration completeness（2026-05-17 增）**：坐标系对了之后，pattern 列表必须穷举所有 known headless owner，且每条 marker 必须**具体到 owner 自动生成的 profile prefix**——不能用宽泛字串。第 6 次复发是 xiaohongshu-mcp 用 go-rod，user-data-dir 落在 `rod/user-data/...`，初版只列了 `agent-browser-chrome` 一种 owner 导致漏清。当前白名单：`agent-browser-chrome` / `rod/user-data` / `playwright_chromiumdev_profile-` / `puppeteer_dev_chrome_profile-`。**反例**：初稿用 `'playwright'` 模糊匹配会把 `/tmp/my-playwright-debug-profile` 等用户手动 debug session 误判为孤儿，被 stale≥1h 路径 SIGKILL（Maine Coon review BLOCKING）。新增任何 headless 工具 → 验证 owner 源码确认 default temp profile prefix → 加 pattern + positive fixture + 至少一条 negative fixture 防止过宽。
+  5. **Cross-platform binary matching completeness（2026-05-17 增）**：owner pattern 通过 `--user-data-dir` 命中只是第一道门，进程必须先过 `isChromeBinary` 才会被 parser 接受。macOS 用 `.app` bundle，Linux 把 Chromium 装在 `chrome-linux/` 或 `chrome-linux64/` 子目录下，**且 Playwright/Puppeteer 还把 headless-only 构建拆到单独目录** `chrome-headless-shell-{version}/chrome-headless-shell-{platform}/chrome-headless-shell`（macOS + Linux 同形态）。**而且 macOS 的 helper（Renderer/GPU/Network/Plugin）的 binary 名带空格**（`Chromium Helper (Renderer)`），用 `\S*` 风格的正则会在 framework 段就截断匹配，所以 main + helper 不能用同一条 regex 覆盖。漏掉任一变体 → owner pattern 在该环境全失效。当前 binary matcher 必须覆盖：`/Applications/{Google Chrome,Chromium}.app/` macOS bundle / `/(usr|opt|snap)/.../chrome\|chromium` Linux 系统包 / `*/Chromium.app/Contents/MacOS/Chromium` cached macOS main binary（云端 codex P1）/ `*/chrome-linux(64)?/(chrome\|headless_shell)` cached Linux binary（云端 codex P1）/ `*/chrome-headless-shell` cached headless shell（Maine Coon P1）/ `/Chromium.app/Contents/Frameworks/` cached macOS helper（云端 codex P1 二审）。**通则**：新增 binary 路径时，必须同时确认 owner 是否还有 *headless variant* 装在不同 cache dir + 有 *helper sub-binary* 在 framework 路径下（带空格无法用同一条 \S*-style regex 一并覆盖）。**Binary path 含空格时（如 macOS helper）禁止用 args 全局 substring 检查**——必须先 `args.split(' -')[0]` 截出 binary path 部分再检查；否则 Node/claude 进程的 prompt text 含同样字串 + tracked user-data-dir 时会被误杀（R2 类回归，Maine Coon P1 二审 catch）。每条带空格的 binary matcher 必须配 negative fixture：node prompt 含该 path 字串 + 带 tracked owner user-data-dir，验证不命中。
+- 来源锚点：
+  - `docs/features/F145-mcp-portable-provisioning.md` Known Issues（PR #1407 只修了 orphan cleanup）
+  - `packages/api/src/utils/orphan-chrome-cleaner.ts`
+  - `packages/api/test/orphan-chrome-cleaner.test.js`
+  - 2026-05-10 agent-browser stale Chrome 第 5 次复发交接（61 个 headless Chrome，7 个 user-data-dir，最老 4 天）
+- 原理：**cleanup 的坐标系必须贴着资源所有权，而不是贴着症状最显眼的字段。** `ppid=1` 能识别 orphan，但不能识别 stale；`user-data-dir` 才是 agent-browser Chrome profile 的真实生命周期边界。对外部工具，不能把“上游版本更新”当作本地运行时的唯一防线，因为 wrapper 与 CLI 之间可能正好是泄漏发生的所有权断点。
+
+- 关联：F145 | LL-055 | `feedback_agent_browser_zombie.md`
+
+---
+
+### LL-057: root prompt 重复可能是兼容副本，不是天然垃圾
+- 状态：draft
+- 更新时间：2026-05-15
+
+- 坑：看到 `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` 和 `shared-rules.md`、skills、runtime context 重复后，容易直接得出"删掉重复内容"的结论。但这些重复有历史原因：早期猫经常不会主动读取被引用的 `shared-rules.md` / refs，root prompt 才被迫保留精华摘要。如果直接删除，direct CLI、post-compact、未加载 runtime context 的路径会失去安全骨架。
+- 根因：
+  1. **把重复等同于浪费**：prompt 重复里混有两类东西，一类是 stale copy，另一类是 compatibility shim。两者不能同刀处理。
+  2. **引用不是加载**：自然语言里写"参考 shared-rules.md"不等于 agent 已读原文；未验证读取路径前，把 root 摘要删掉会让规则只存在于文档而不进入执行上下文。
+  3. **新注入通道建成后旧通道未退役**：`SystemPromptBuilder`、session hook、skills、MCP schema 都逐步补齐了能力，但 root prompt 的旧摘要没有按能力成熟度回收。
+- 触发条件：做 prompt/context 瘦身、把规则从 root prompt 下沉到 skills/refs/hooks、把静态 roster 迁到 runtime dynamic context、或把 review 事故教训沉淀到规则体系时。
+- 修复（本次落地）：
+  1. 新增 *(internal reference removed)*，把 root prompt、runtime static/dynamic context、session bootstrap、hooks、skills、MCP schema 等注入面列成 ownership map。
+  2. 明确迁移原则：root prompt 只保留小安全骨架；volatile facts 进 runtime；阶段性解释进 skills；deterministic enforcement 进 hooks/tests/merge gates。
+  3. 明确退役条件：只有确认替代载体在该路径实际加载，才删除 root 摘要。
+- 防护：
+  1. Prompt 瘦身先量 baseline，再删高置信 stale copy。优先删 static teammate table、长 SOP 表、重复 key-doc table。
+  2. `shared-rules.md` 不作为第一批瘦身对象。它是长文真相源；问题是 root prompt 抄太多，不是 truth source 太长。
+  3. 新规则进入 root prompt 前先问：这是每 turn 都必须加载的安全骨架，还是 skill/hook/gate 能承担的阶段性规则？
+  4. 对"猫以前不读引用"这类行为风险，用短 always-visible trigger + deterministic check 兜底，不用整段解释常驻。
+- 来源锚点：
+  - *(internal reference removed)*
+  - *(internal reference removed)*
+  - `docs/decisions/030-system-prompt-engineering.md`
+  - `docs/architecture/2026-05-05-architecture-views.md`
+  - `cat-cafe-skills/refs/shared-rules.md`
+- 原理：**Prompt 去重的单位不是字符串，而是加载路径和失效模式。** 同一句规则如果只是 stale copy，就该删；如果是某条执行路径唯一会加载到的安全骨架，就必须先提供已验证替代载体再退役。
+
+- 关联：ADR-030 | F042 | F167
 
 ---
 

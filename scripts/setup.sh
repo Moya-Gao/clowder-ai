@@ -4,18 +4,10 @@
 # Cat Cafe / Clowder AI — Interactive Setup
 # 猫猫咖啡交互式安装向导
 #
-# Usage: ./scripts/setup.sh
+# Usage: ./scripts/setup.sh [--install-missing] [--npm-registry=URL] [--pip-index-url=URL] [--pip-extra-index-url=URL] [--hf-endpoint=URL]
 # ============================================================
 
 set -e
-
-# Parse args
-INSTALL_MISSING=false
-for arg in "$@"; do
-    case $arg in
-        --install-missing) INSTALL_MISSING=true ;;
-    esac
-done
 
 # Colors
 RED='\033[0;31m'
@@ -25,15 +17,43 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$SCRIPT_DIR/download-source-overrides.sh"
 cd "$PROJECT_DIR"
+
+# Parse args
+INSTALL_MISSING=false
+for arg in "$@"; do
+    case $arg in
+        --install-missing) INSTALL_MISSING=true ;;
+        *)
+            parse_manual_download_source_arg "$arg" || true
+            ;;
+    esac
+done
+apply_manual_download_source_overrides
+
+sync_agent_hooks_best_effort() {
+    echo "  Syncing Agent CLI hooks..."
+    local log_file
+    log_file="$(mktemp)"
+    if pnpm exec tsx scripts/sync-system-prompts.ts --apply --agent-hooks-only >"$log_file" 2>&1; then
+        echo -e "  ${GREEN}✓${NC} Agent CLI hooks synced"
+    else
+        echo -e "  ${YELLOW}⚠${NC} Agent CLI hook sync failed — continuing; Hub health check can repair it later"
+        tail -5 "$log_file" 2>/dev/null | sed 's/^/    /' || true
+    fi
+    rm -f "$log_file"
+}
 
 echo ""
 echo -e "${BOLD}🐱 Cat Cafe — Interactive Setup${NC}"
 echo -e "${BOLD}猫猫咖啡 — 交互式安装向导${NC}"
 echo "=================================="
 echo ""
+print_manual_download_source_summary
+[ -n "${CAT_CAFE_NPM_REGISTRY:-}${CAT_CAFE_PIP_INDEX_URL:-}${CAT_CAFE_PIP_EXTRA_INDEX_URL:-}${CAT_CAFE_HF_ENDPOINT:-}" ] && echo ""
 
 # ── Step 1: Check prerequisites ─────────────────────────────
 
@@ -113,8 +133,8 @@ echo -e "  ${GREEN}✓${NC} Packages installed"
 echo ""
 echo -e "${CYAN}[3/6] Optional features / 可选功能${NC}"
 echo ""
-echo "Cat Cafe works with just a model API key."
-echo "猫猫咖啡只需一个模型 API Key 即可运行。"
+echo "Cat Cafe works out of the box. Add model API keys via UI after launch."
+echo "猫猫咖啡开箱即用。启动后在前端 UI 添加模型 API Key。"
 echo ""
 echo "The following features are optional. Choose what you want:"
 echo "以下功能均为可选，选择你需要的："
@@ -211,7 +231,37 @@ echo ""
 
 # --- API Gateway Proxy ---
 ENABLE_PROXY=false
-echo -e "${BOLD}  [D] API Gateway Proxy / API 网关代理${NC}"
+ENABLE_EMBED=false
+echo -e "${BOLD}  [D] Semantic Retrieval / 语义检索 (Embedding)${NC}"
+echo "      Enable local vector rerank for the memory system."
+echo "      为记忆系统启用本地向量 rerank。"
+echo ""
+if [ "$HAS_PYTHON" = true ]; then
+    echo "      Engine: Qwen3-Embedding-0.6B (MLX primary, sentence-transformers fallback)"
+    echo "      Requirements / 要求:"
+    echo "        - ~350MB disk for first model download / 首次模型下载约 350MB"
+    echo "        - 4GB+ RAM recommended / 建议 4GB+ 内存"
+    echo "        - Apple Silicon recommended / Apple Silicon 体验最佳"
+    echo ""
+    if [ "$INSTALL_MISSING" = true ]; then
+        ENABLE_EMBED=true
+        echo -e "      ${GREEN}✓${NC} Semantic retrieval enabled (--install-missing)"
+    else
+        read -p "      Enable semantic retrieval? (y/N): " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            ENABLE_EMBED=true
+            echo -e "      ${GREEN}✓${NC} Semantic retrieval enabled"
+        fi
+    fi
+else
+    echo -e "      ${YELLOW}⚠ Requires Python3 (not installed). Skipping.${NC}"
+fi
+echo ""
+
+# --- API Gateway Proxy ---
+ENABLE_PROXY=false
+echo -e "${BOLD}  [E] API Gateway Proxy / API 网关代理${NC}"
 echo "      Route Claude API calls through a custom gateway."
 echo "      通过自定义网关路由 Claude API 调用。"
 echo ""
@@ -250,18 +300,11 @@ cat > "$ENV_FILE" <<ENVEOF
 # 由 setup.sh 自动生成
 
 # ── Core 核心 ────────────────────────────────────────────────
-FRONTEND_PORT=3004
-API_SERVER_PORT=3003
-NEXT_PUBLIC_API_URL=http://localhost:3003
-REDIS_PORT=6379
-REDIS_URL=redis://localhost:6379
-
-# ── Model API Keys 模型密钥 ──────────────────────────────────
-# Optional if your CLI subscription already handles auth.
-# 如果 CLI 订阅已管理认证，这里可以留空。
-# ANTHROPIC_API_KEY=
-# OPENAI_API_KEY=
-# GOOGLE_API_KEY=
+FRONTEND_PORT=3003
+API_SERVER_PORT=3004
+NEXT_PUBLIC_API_URL=http://localhost:3004
+REDIS_PORT=6399
+REDIS_URL=redis://localhost:6399
 
 # ── API Gateway Proxy 反向代理 ───────────────────────────────
 ANTHROPIC_PROXY_ENABLED=$([ "$ENABLE_PROXY" = true ] && echo "1" || echo "0")
@@ -315,6 +358,24 @@ LLM_POSTPROCESS_ENABLED=0
 ENVEOF
 fi
 
+if [ "$ENABLE_EMBED" = true ]; then
+    cat >> "$ENV_FILE" <<ENVEOF
+
+# ── Semantic Retrieval 语义检索（Embedding）────────────────
+EMBED_MODE=on
+# EMBED_PORT=9880
+# EMBED_URL=http://127.0.0.1:9880
+ENVEOF
+else
+    cat >> "$ENV_FILE" <<ENVEOF
+
+# ── Semantic Retrieval 语义检索（Embedding）────────────────
+EMBED_MODE=off
+# EMBED_PORT=9880
+# EMBED_URL=http://127.0.0.1:9880
+ENVEOF
+fi
+
 echo -e "  ${GREEN}✓${NC} $ENV_FILE generated"
 
 # ── Step 4b: Install sidecar venvs (--install-missing) ──────
@@ -356,6 +417,21 @@ install_sidecar_venvs() {
     fi
     "$llm_venv/bin/pip" install --quiet -U pip
     "$llm_venv/bin/pip" install --quiet mlx-vlm "httpx[socks]" torchvision fastapi uvicorn pydantic
+
+    # Embedding venv
+    local embed_venv="$venv_base/embed-venv"
+    if [ ! -d "$embed_venv" ]; then
+        echo "  Creating Embedding venv: $embed_venv ..."
+        python3 -m venv "$embed_venv"
+    else
+        echo "  Updating Embedding venv: $embed_venv ..."
+    fi
+    "$embed_venv/bin/pip" install --quiet -U pip
+    if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
+        "$embed_venv/bin/pip" install --quiet mlx mlx-embeddings fastapi uvicorn numpy 'transformers<5' 'huggingface-hub<1.0'
+    else
+        "$embed_venv/bin/pip" install --quiet sentence-transformers torch fastapi uvicorn numpy
+    fi
 }
 
 if [ "$INSTALL_MISSING" = true ] && [ "$HAS_PYTHON" = true ]; then
@@ -374,7 +450,7 @@ echo ""
 
 SKILLS_SOURCE="$PROJECT_DIR/cat-cafe-skills"
 if [[ -d "$SKILLS_SOURCE" ]]; then
-    for tdir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.gemini/skills"; do
+    for tdir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.gemini/skills" "$HOME/.kimi/skills"; do
         mkdir -p "$tdir"
         for sd in "$SKILLS_SOURCE"/*/; do
             [[ -d "$sd" ]] || continue
@@ -383,11 +459,12 @@ if [[ -d "$SKILLS_SOURCE" ]]; then
             ln -sfn "$sd" "$tdir/$sn"
         done
     done
-    echo -e "  ${GREEN}✓${NC} Skills linked to ~/.claude/skills, ~/.codex/skills, ~/.gemini/skills"
+    echo -e "  ${GREEN}✓${NC} Skills linked to ~/.claude/skills, ~/.codex/skills, ~/.gemini/skills, ~/.kimi/skills"
 else
     echo -e "  ${YELLOW}⚠${NC} cat-cafe-skills/ not found — skills will not be available"
     echo "     You can link them later by re-running this script after cloning cat-cafe-skills."
 fi
+sync_agent_hooks_best_effort
 
 # ── Step 6: Summary ─────────────────────────────────────────
 
@@ -402,11 +479,12 @@ echo "    ✓ Core (API + Frontend + Redis)"
 [ "$ENABLE_ASR" = true ] && echo "    ✓ Voice Input (ASR)"
 [ "$ENABLE_TTS" = true ] && echo "    ✓ Voice Output (TTS)"
 [ "$ENABLE_LLM_PP" = true ] && echo "    ✓ Speech Correction (LLM)"
+[ "$ENABLE_EMBED" = true ] && echo "    ✓ Semantic Retrieval (Embedding)"
 [ "$ENABLE_PROXY" = true ] && echo "    ✓ API Gateway Proxy"
 echo ""
 echo "  Next steps / 下一步:"
-echo "    1. Edit $ENV_FILE and add your API key(s)"
-echo "       编辑 $ENV_FILE 填入你的 API Key"
+echo "    1. Open http://localhost:3003 → Hub → System Settings → Account Configuration"
+echo "       打开 http://localhost:3003 → Hub → 系统配置 → 账号配置，添加模型 API Key"
 echo ""
 if [ "$HAS_REDIS" = true ]; then
     echo "    2. Start: pnpm start"
@@ -416,17 +494,17 @@ else
     echo "       启动（无 Redis）: pnpm start --memory"
 fi
 echo ""
-echo "    3. Open http://localhost:3004"
-echo "       打开 http://localhost:3004"
+echo "    3. Open http://localhost:3003"
+echo "       打开 http://localhost:3003"
 echo ""
 
-if [ "$ENABLE_ASR" = true ] || [ "$ENABLE_TTS" = true ] || [ "$ENABLE_LLM_PP" = true ]; then
+if [ "$ENABLE_ASR" = true ] || [ "$ENABLE_TTS" = true ] || [ "$ENABLE_LLM_PP" = true ] || [ "$ENABLE_EMBED" = true ]; then
     if [ "$INSTALL_MISSING" = true ]; then
         echo -e "  ${GREEN}✓${NC} Sidecar venvs pre-installed. Models download on first use."
-        echo "  语音服务 venv 已预装。模型将在首次使用时下载。"
+        echo "  Sidecar venv 已预装。模型将在首次使用时下载。"
     else
-        echo -e "  ${YELLOW}Note:${NC} Voice models will be downloaded on first use."
-        echo "  语音模型将在首次使用时自动下载。"
+        echo -e "  ${YELLOW}Note:${NC} Sidecar models will be downloaded on first use."
+        echo "  Sidecar 模型将在首次使用时自动下载。"
     fi
     echo ""
 fi

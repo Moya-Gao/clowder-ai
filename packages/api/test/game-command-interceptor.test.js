@@ -165,12 +165,12 @@ describe('sanitizeCatIds', () => {
 });
 
 describe('buildGameSeats', () => {
-  const catIds = ['opus', 'sonnet', 'codex', 'gpt52', 'gemini'];
+  const catIds = ['opus', 'sonnet', 'codex', 'gpt52', 'gemini', 'dare', 'spark'];
 
   it('builds 7-player seats with human P1 for player mode', () => {
     const seats = buildGameSeats({
       humanRole: 'player',
-      userId: 'owner',
+      userId: 'you',
       catIds,
       playerCount: 7,
     });
@@ -178,7 +178,7 @@ describe('buildGameSeats', () => {
     // P1 is human
     assert.equal(seats[0].seatId, 'P1');
     assert.equal(seats[0].actorType, 'human');
-    assert.equal(seats[0].actorId, 'owner');
+    assert.equal(seats[0].actorId, 'you');
     // P2-P7 are cats
     for (let i = 1; i < 7; i++) {
       assert.equal(seats[i].seatId, `P${i + 1}`);
@@ -194,7 +194,7 @@ describe('buildGameSeats', () => {
   it('builds seats with no human seat for god-view mode', () => {
     const seats = buildGameSeats({
       humanRole: 'god-view',
-      userId: 'owner',
+      userId: 'you',
       catIds,
       playerCount: 7,
     });
@@ -205,17 +205,16 @@ describe('buildGameSeats', () => {
     }
   });
 
-  it('cycles cats when playerCount exceeds catIds length', () => {
-    const seats = buildGameSeats({
-      humanRole: 'god-view',
-      userId: 'owner',
-      catIds: ['opus', 'sonnet'],
-      playerCount: 7,
-    });
-    assert.equal(seats.length, 7);
-    // Should cycle through available cats
-    assert.equal(seats[0].actorId, 'opus');
-    assert.equal(seats[1].actorId, 'sonnet');
-    assert.equal(seats[2].actorId, 'opus');
+  it('rejects when playerCount exceeds catIds length (no seat duplication)', () => {
+    assert.throws(
+      () =>
+        buildGameSeats({
+          humanRole: 'god-view',
+          userId: 'you',
+          catIds: ['opus', 'sonnet'],
+          playerCount: 7,
+        }),
+      /Not enough cats/,
+    );
   });
 });

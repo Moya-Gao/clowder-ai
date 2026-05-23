@@ -41,7 +41,7 @@ describe('F118 overflow circuit breaker (AC-C6)', () => {
           invocationId: `inv-breaker-${++counter}`,
           callbackToken: `tok-${counter}`,
         }),
-        verify: () => null,
+        verify: async () => ({ ok: false, reason: 'unknown_invocation' }),
       },
       sessionManager: {
         get: async () => undefined,
@@ -51,7 +51,7 @@ describe('F118 overflow circuit breaker (AC-C6)', () => {
         resolveWorkingDirectory: () => '/tmp/test',
       },
       threadStore: null,
-      apiUrl: 'your local Clowder API URL',
+      apiUrl: 'http://127.0.0.1:3004',
       ...overrides,
     };
   }

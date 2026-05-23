@@ -395,6 +395,29 @@ describe('Queue Management API', () => {
     assert.equal(res.statusCode, 409);
   });
 
+  it('PATCH /queue/:entryId/move rejects system continuation entries (409)', async () => {
+    const continuation = enqueueEntry(deps.invocationQueue, {
+      content: 'continue sealed work',
+      source: 'agent',
+      sourceCategory: 'continuation',
+      continuationKey: 't1:opus:inv-1:sess-1:1',
+      autoExecute: true,
+    });
+    enqueueEntry(deps.invocationQueue, { content: 'user work', targetCats: ['codex'] });
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/t1/queue/${continuation.entry.id}/move`,
+      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      payload: { direction: 'down' },
+    });
+    const body = JSON.parse(res.body);
+
+    assert.equal(res.statusCode, 409);
+    assert.equal(body.code, 'ENTRY_POSITION_LOCKED');
+    assert.equal(deps.invocationQueue.list('t1', 'user-a')[0].id, continuation.entry.id);
+  });
+
   // ── Functional: POST steer ──
 
   it('POST /queue/:entryId/steer promote moves entry to front of queued entries', async () => {
@@ -412,6 +435,27 @@ describe('Queue Management API', () => {
     const queue = deps.invocationQueue.list('t1', 'user-a');
     assert.equal(queue[0].content, 'second');
     assert.equal(queue[1].content, 'first');
+  });
+
+  it('POST /queue/:entryId/steer promote rejects system continuation entries (409)', async () => {
+    const continuation = enqueueEntry(deps.invocationQueue, {
+      content: 'continue sealed work',
+      source: 'agent',
+      sourceCategory: 'continuation',
+      continuationKey: 't1:opus:inv-1:sess-1:1',
+      autoExecute: true,
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/threads/t1/queue/${continuation.entry.id}/steer`,
+      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      payload: { mode: 'promote' },
+    });
+    const body = JSON.parse(res.body);
+
+    assert.equal(res.statusCode, 409);
+    assert.equal(body.code, 'ENTRY_POSITION_LOCKED');
   });
 
   it('POST /queue/:entryId/steer returns 409 when entry is processing', async () => {
@@ -559,6 +603,7 @@ describe('Queue Management API', () => {
     const body = JSON.parse(res.body);
     assert.equal(body.ok, true);
     assert.equal(body.cancelled, true);
+    assert.deepEqual(deps.invocationTracker.cancel.mock.calls[0].arguments, ['t1', 'opus', 'user-a', 'user_cancel']);
 
     // Should broadcast done for opus
     const doneCalls = deps.socketManager.broadcastAgentMessage.mock.calls.filter((c) => c.arguments[0].type === 'done');
@@ -577,5 +622,104 @@ describe('Queue Management API', () => {
     assert.equal(res.statusCode, 404);
     const body = JSON.parse(res.body);
     assert.equal(body.code, 'CAT_NOT_ACTIVE');
+  });
+
+  // ── F175 Task 6: PATCH /queue/reorder ──
+
+  it('PATCH /queue/reorder sets positions on multiple entries (F175)', async () => {
+    const r1 = enqueueEntry(deps.invocationQueue, { content: 'a' });
+    const r2 = enqueueEntry(deps.invocationQueue, { content: 'b' });
+    const r3 = enqueueEntry(deps.invocationQueue, { content: 'c' });
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/threads/t1/queue/reorder',
+      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      payload: {
+        positions: [
+          { entryId: r3.entry.id, position: 0 },
+          { entryId: r1.entry.id, position: 1 },
+          { entryId: r2.entry.id, position: 2 },
+        ],
+      },
+    });
+    assert.equal(res.statusCode, 200);
+
+    const next = deps.invocationQueue.peekOldestAcrossUsers('t1');
+    assert.equal(next.content, 'c', 'entry c should be first after reorder');
+
+    const emitCalls = deps.socketManager.emitToUser.mock.calls;
+    const updateCall = emitCalls.find((c) => c.arguments[1] === 'queue_updated');
+    assert.ok(updateCall);
+    assert.equal(updateCall.arguments[2].action, 'reordered');
+  });
+
+  it('PATCH /queue/reorder rejects position on processing entry (F175)', async () => {
+    enqueueEntry(deps.invocationQueue, { content: 'a' });
+    deps.invocationQueue.markProcessing('t1', 'user-a');
+    const entries = deps.invocationQueue.list('t1', 'user-a');
+    const processingEntry = entries.find((e) => e.status === 'processing');
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/threads/t1/queue/reorder',
+      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      payload: { positions: [{ entryId: processingEntry.id, position: 0 }] },
+    });
+    assert.equal(res.statusCode, 400);
+  });
+
+  it('PATCH /queue/reorder rejects position on system continuation entry (F175)', async () => {
+    const continuation = enqueueEntry(deps.invocationQueue, {
+      content: 'continue sealed work',
+      source: 'agent',
+      sourceCategory: 'continuation',
+      continuationKey: 't1:opus:inv-1:sess-1:1',
+      autoExecute: true,
+    });
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/threads/t1/queue/reorder',
+      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      payload: { positions: [{ entryId: continuation.entry.id, position: 99 }] },
+    });
+    const body = JSON.parse(res.body);
+
+    assert.equal(res.statusCode, 409);
+    assert.equal(body.code, 'ENTRY_POSITION_LOCKED');
+    assert.equal(deps.invocationQueue.list('t1', 'user-a')[0].id, continuation.entry.id);
+  });
+
+  it('PATCH /queue/reorder rejects invalid body (F175)', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/threads/t1/queue/reorder',
+      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      payload: { positions: 'not-an-array' },
+    });
+    assert.equal(res.statusCode, 400);
+  });
+
+  it('P2-4: PATCH /queue/reorder does not partial-write on failure', async () => {
+    const r1 = enqueueEntry(deps.invocationQueue, { content: 'a' });
+    enqueueEntry(deps.invocationQueue, { content: 'b' });
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/threads/t1/queue/reorder',
+      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      payload: {
+        positions: [
+          { entryId: r1.entry.id, position: 5 },
+          { entryId: 'nonexistent', position: 0 },
+        ],
+      },
+    });
+    assert.equal(res.statusCode, 400);
+
+    const entries = deps.invocationQueue.list('t1', 'user-a');
+    const first = entries.find((e) => e.id === r1.entry.id);
+    assert.equal(first.position, undefined, 'first entry position should NOT be written when batch fails');
   });
 });

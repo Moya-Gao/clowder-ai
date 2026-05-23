@@ -45,7 +45,7 @@ describe('Evidence Panel dark theme (F098-B1)', () => {
 
     const html = container.innerHTML;
     expect(html).toContain('bg-slate-800');
-    expect(html).not.toContain('--color-owner-bg');
+    expect(html).not.toContain('--color-cocreator-bg');
   });
 
   it('EvidenceCard uses dark card styling with high-contrast text', () => {
@@ -83,8 +83,8 @@ describe('Evidence Panel dark theme (F098-B1)', () => {
     });
 
     const html = container.innerHTML;
-    // High confidence should use emerald in dark mode
-    expect(html).toContain('bg-emerald-900');
-    expect(html).toContain('text-emerald-300');
+    // High confidence should use semantic emerald tokens
+    expect(html).toContain('bg-conn-emerald-bg');
+    expect(html).toContain('text-conn-emerald-text');
   });
 });

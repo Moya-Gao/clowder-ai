@@ -82,13 +82,14 @@ export function registerCallbackProposeThreadRoutes(app: FastifyInstance, deps: 
       parentThreadId,
       clientRequestId,
     } = parsed.data;
-    const record = registry.verify(invocationId, callbackToken);
-    if (!record) {
+    const verifyResult = await registry.verify(invocationId, callbackToken);
+    if (!verifyResult.ok) {
       reply.status(401);
       return EXPIRED_CREDENTIALS_ERROR;
     }
+    const record = verifyResult.record;
 
-    if (!registry.isLatest(invocationId)) {
+    if (!(await registry.isLatest(invocationId))) {
       return { status: 'stale_ignored' };
     }
 

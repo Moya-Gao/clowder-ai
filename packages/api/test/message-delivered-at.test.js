@@ -8,10 +8,10 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+const { MessageStore, generateSortableId } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
 
 describe('MessageStore.markDelivered', () => {
-  test('sets deliveredAt on an existing message', () => {
+  test('sets deliveredAt on a queued message', () => {
     const store = new MessageStore();
     const msg = store.append({
       userId: 'u1',
@@ -19,6 +19,7 @@ describe('MessageStore.markDelivered', () => {
       content: 'queued message',
       mentions: ['opus'],
       timestamp: 1000,
+      deliveryStatus: 'queued',
     });
 
     const now = Date.now();
@@ -26,6 +27,7 @@ describe('MessageStore.markDelivered', () => {
 
     assert.ok(updated, 'should return updated message');
     assert.equal(updated.deliveredAt, now);
+    assert.equal(updated.deliveryStatus, 'delivered');
     assert.equal(updated.content, 'queued message');
   });
 
@@ -43,12 +45,14 @@ describe('MessageStore.markDelivered', () => {
       content: 'test',
       mentions: [],
       timestamp: 1000,
+      deliveryStatus: 'queued',
     });
 
     store.markDelivered(msg.id, 5000);
 
     const fetched = store.getById(msg.id);
     assert.equal(fetched.deliveredAt, 5000);
+    assert.equal(fetched.deliveryStatus, 'delivered');
   });
 
   test('deliveredAt field exists on StoredMessage type (not set by default)', () => {
@@ -63,5 +67,43 @@ describe('MessageStore.markDelivered', () => {
 
     // Immediate messages should NOT have deliveredAt
     assert.equal(msg.deliveredAt, undefined);
+  });
+});
+
+describe('MessageStore.getByThreadAfter', () => {
+  test('falls back to lexicographic ID filtering when cursor message is missing', () => {
+    const store = new MessageStore();
+    store.append({
+      threadId: 'thread-a',
+      userId: 'u1',
+      catId: null,
+      content: 'before cursor',
+      mentions: [],
+      timestamp: 1000,
+    });
+    const afterCursor = store.append({
+      threadId: 'thread-a',
+      userId: 'u1',
+      catId: null,
+      content: 'after missing cursor',
+      mentions: [],
+      timestamp: 2000,
+    });
+    store.append({
+      threadId: 'thread-b',
+      userId: 'u1',
+      catId: null,
+      content: 'other thread',
+      mentions: [],
+      timestamp: 3000,
+    });
+
+    const missingCursor = generateSortableId(1500);
+    const results = store.getByThreadAfter('thread-a', missingCursor, 5, 'u1');
+
+    assert.deepEqual(
+      results.map((m) => m.id),
+      [afterCursor.id],
+    );
   });
 });

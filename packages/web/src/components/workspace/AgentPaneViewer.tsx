@@ -4,8 +4,6 @@ import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import { useEffect, useRef, useState } from 'react';
 import { API_URL } from '@/utils/api-client';
-import { getUserId } from '@/utils/userId';
-import '@xterm/xterm/css/xterm.css';
 
 interface AgentPaneViewerProps {
   worktreeId: string;
@@ -25,6 +23,7 @@ export function AgentPaneViewer({ worktreeId, paneId, onBack }: AgentPaneViewerP
       fontSize: 13,
       fontFamily: 'JetBrains Mono, Menlo, Monaco, monospace',
       disableStdin: true,
+      /* xterm.js canvas renderer exempt: requires resolved color values, cannot use CSS vars */
       theme: {
         background: '#1a1b26',
         foreground: '#a9b1d6',
@@ -38,9 +37,8 @@ export function AgentPaneViewer({ worktreeId, paneId, onBack }: AgentPaneViewerP
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const apiUrl = new URL(API_URL);
-    const userId = encodeURIComponent(getUserId());
     const ws = new WebSocket(
-      `${wsProtocol}//${apiUrl.host}/api/terminal/agent-panes/${paneId}/ws?worktreeId=${encodeURIComponent(worktreeId)}&userId=${userId}`,
+      `${wsProtocol}//${apiUrl.host}/api/terminal/agent-panes/${paneId}/ws?worktreeId=${encodeURIComponent(worktreeId)}`,
     );
 
     ws.onopen = () => {
@@ -79,8 +77,8 @@ export function AgentPaneViewer({ worktreeId, paneId, onBack }: AgentPaneViewerP
           gap: 8,
           padding: '4px 8px',
           fontSize: 12,
-          color: '#888',
-          borderBottom: '1px solid #2a2b3d',
+          color: 'var(--terminal-text-muted)',
+          borderBottom: '1px solid var(--terminal-chrome)',
         }}
       >
         <button
@@ -88,8 +86,8 @@ export function AgentPaneViewer({ worktreeId, paneId, onBack }: AgentPaneViewerP
           onClick={onBack}
           style={{
             background: 'none',
-            border: '1px solid #444',
-            color: '#aaa',
+            border: '1px solid var(--terminal-btn-border)',
+            color: 'var(--terminal-text)',
             padding: '2px 8px',
             borderRadius: 4,
             cursor: 'pointer',
@@ -103,13 +101,18 @@ export function AgentPaneViewer({ worktreeId, paneId, onBack }: AgentPaneViewerP
             width: 8,
             height: 8,
             borderRadius: '50%',
-            background: status === 'watching' ? '#7aa2f7' : status === 'connecting' ? '#e0af68' : '#f7768e',
+            background:
+              status === 'watching'
+                ? 'var(--terminal-status-info)'
+                : status === 'connecting'
+                  ? 'var(--terminal-status-warn)'
+                  : 'var(--terminal-status-error)',
           }}
         />
         <span>
           {status === 'watching' ? `Watching ${paneId}` : status === 'connecting' ? 'Connecting\u2026' : 'Disconnected'}
         </span>
-        <span style={{ fontSize: 10, color: '#555', marginLeft: 'auto' }}>read-only</span>
+        <span style={{ fontSize: 10, color: 'var(--terminal-text-faint)', marginLeft: 'auto' }}>read-only</span>
       </div>
       <div ref={containerRef} style={{ flex: 1, overflow: 'hidden' }} />
     </div>

@@ -23,4 +23,7 @@ export const ThreadKeys = {
 
   /** F128: Sorted set of child thread IDs: thread:{parentId}:children */
   children: (parentId: string) => `thread:${parentId}:children`,
+
+  /** Tombstone left by hard-delete to prevent self-healing resurrection. */
+  tombstone: (id: string) => `thread:${id}:tombstone`,
 } as const;

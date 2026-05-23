@@ -384,10 +384,10 @@ describe('StartupReconciler', () => {
       },
     };
 
-    const broadcastedMessages = [];
+    const broadcastedEvents = [];
     const socketManager = {
-      broadcastAgentMessage(msg, threadId) {
-        broadcastedMessages.push({ msg, threadId });
+      broadcastToRoom(room, event, payload) {
+        broadcastedEvents.push({ room, event, payload });
       },
     };
 
@@ -403,13 +403,15 @@ describe('StartupReconciler', () => {
 
     assert.equal(result.notifiedThreads, 2, 'should notify 2 threads');
     assert.equal(appendedMessages.length, 2, 'should append 2 messages');
-    assert.equal(broadcastedMessages.length, 2, 'should broadcast 2 messages');
+    assert.equal(broadcastedEvents.length, 2, 'should broadcast 2 messages');
 
     // AC-A+2: Verify message uses source field (not catId: null)
     const msgA = appendedMessages.find((m) => m.threadId === 'thread-a');
     assert.ok(msgA, 'thread-a should have a message');
     assert.ok(msgA.source, 'message must have source field (not catId: null)');
     assert.equal(msgA.source.connector, 'startup-reconciler', 'source.connector must be startup-reconciler');
+    assert.equal(msgA.source.meta.presentation, 'system_notice');
+    assert.equal(msgA.source.meta.noticeTone, 'warning');
     assert.equal(msgA.catId, null, 'catId should be null (connector message)');
     assert.ok(msgA.content.includes('opus'), 'message should mention affected cat');
     assert.ok(
@@ -423,11 +425,15 @@ describe('StartupReconciler', () => {
     assert.ok(msgB, 'thread-b should have a message');
     assert.equal(msgB.userId, 'user-1', 'thread-b notification also uses record userId');
 
-    // Verify broadcast sends error type for real-time UX
-    const bcA = broadcastedMessages.find((b) => b.threadId === 'thread-a');
+    // Verify real-time broadcast uses the same connector notice protocol as persistence
+    const bcA = broadcastedEvents.find((b) => b.payload.threadId === 'thread-a');
     assert.ok(bcA);
-    assert.equal(bcA.msg.type, 'error');
-    assert.equal(bcA.msg.isFinal, true);
+    assert.equal(bcA.room, 'thread:thread-a');
+    assert.equal(bcA.event, 'connector_message');
+    assert.equal(bcA.payload.message.type, 'connector');
+    assert.equal(bcA.payload.message.source.connector, 'startup-reconciler');
+    assert.equal(bcA.payload.message.source.meta.presentation, 'system_notice');
+    assert.equal(bcA.payload.message.source.meta.noticeTone, 'warning');
   });
 
   test('AC-A+3: deduplicates notifications per thread (multiple invocations → one message)', async () => {
@@ -595,10 +601,10 @@ describe('StartupReconciler', () => {
       },
     };
 
-    const broadcastedMessages = [];
+    const broadcastedEvents = [];
     const socketManager = {
-      broadcastAgentMessage(msg, threadId) {
-        broadcastedMessages.push({ msg, threadId });
+      broadcastToRoom(room, event, payload) {
+        broadcastedEvents.push({ room, event, payload });
       },
     };
 
@@ -612,8 +618,11 @@ describe('StartupReconciler', () => {
 
     const result = await reconciler.reconcileOrphans();
 
-    assert.equal(broadcastedMessages.length, 1, 'broadcast must fire even when append throws');
-    assert.equal(broadcastedMessages[0].threadId, 'thread-p2');
+    assert.equal(broadcastedEvents.length, 1, 'broadcast must fire even when append throws');
+    assert.equal(broadcastedEvents[0].room, 'thread:thread-p2');
+    assert.equal(broadcastedEvents[0].event, 'connector_message');
+    assert.equal(broadcastedEvents[0].payload.message.type, 'connector');
+    assert.equal(broadcastedEvents[0].payload.message.source.connector, 'startup-reconciler');
     assert.equal(result.notifiedThreads, 1, 'notified=1 because broadcast succeeded despite persist failure');
     assert.ok(
       log.messages.some((m) => m.level === 'warn' && m.msg.includes('persist')),
@@ -632,7 +641,7 @@ describe('StartupReconciler', () => {
     );
 
     const socketManager = {
-      broadcastAgentMessage() {
+      broadcastToRoom() {
         throw new Error('simulated broadcast failure');
       },
     };
@@ -652,6 +661,165 @@ describe('StartupReconciler', () => {
       log.messages.some((m) => m.level === 'warn' && m.msg.includes('broadcast')),
       'should log broadcast failure warning',
     );
+  });
+
+  // ── P1-C: queued message visibility convergence ──
+
+  test('P1-C: calls ensureMessageVisible for both running and queued orphans', async () => {
+    // Running invocation — markDelivered called but store guard makes it no-op for non-queued
+    const r1 = makeRecord({
+      id: 'vis1',
+      status: 'running',
+      userMessageId: 'umsg-1',
+      targetCats: ['opus'],
+    });
+    // Stale queued invocation — message still queued, SHOULD be recovered
+    const r2 = makeRecord({
+      id: 'vis2',
+      status: 'queued',
+      userMessageId: 'umsg-2',
+      targetCats: ['codex'],
+      createdAt: Date.now() - 10 * 60_000, // stale
+    });
+    // Running, no userMessageId — should not attempt recovery
+    const r3 = makeRecord({
+      id: 'vis3',
+      status: 'running',
+      userMessageId: null,
+      targetCats: ['opus'],
+    });
+    store.seed(r1);
+    store.seed(r2);
+    store.seed(r3);
+
+    const deliveredIds = [];
+    const messageStore = {
+      append(msg) {
+        return { ...msg, id: `msg-appended`, threadId: msg.threadId ?? 'default' };
+      },
+      markDelivered(id, deliveredAt) {
+        deliveredIds.push({ id, deliveredAt });
+        return { id, deliveryStatus: 'delivered', deliveredAt };
+      },
+    };
+
+    const reconciler = new StartupReconciler({
+      invocationRecordStore: store,
+      taskProgressStore,
+      log,
+      messageStore,
+    });
+
+    const result = await reconciler.reconcileOrphans();
+
+    // Both umsg-1 (running) and umsg-2 (queued) get markDelivered called.
+    // The store's guard (deliveryStatus !== 'queued' → no-op) protects already-visible messages.
+    assert.equal(result.messagesRecovered, 2, 'ensureMessageVisible called for both');
+    assert.deepEqual(
+      deliveredIds.map((d) => d.id).sort(),
+      ['umsg-1', 'umsg-2'],
+      'markDelivered called for both (store decides actual effect)',
+    );
+  });
+
+  test('P1-C: message recovery is best-effort (failure does not block sweep)', async () => {
+    store.seed(
+      makeRecord({
+        id: 'be-msg1',
+        status: 'queued',
+        userMessageId: 'umsg-fail',
+        targetCats: ['opus'],
+        createdAt: Date.now() - 10 * 60_000, // stale
+      }),
+    );
+
+    const messageStore = {
+      append(msg) {
+        return { ...msg, id: 'msg-x', threadId: msg.threadId ?? 'default' };
+      },
+      markDelivered() {
+        throw new Error('simulated markDelivered failure');
+      },
+    };
+
+    const reconciler = new StartupReconciler({
+      invocationRecordStore: store,
+      taskProgressStore,
+      log,
+      messageStore,
+    });
+
+    const result = await reconciler.reconcileOrphans();
+
+    assert.equal(result.queued, 1, 'sweep still happens despite markDelivered failure');
+    assert.equal(result.messagesRecovered, 0, 'recovery fails gracefully');
+    assert.ok(
+      log.messages.some((m) => m.level === 'warn' && m.msg.includes('umsg-fail')),
+      'should log warning about failed recovery',
+    );
+  });
+
+  test('P1-C: messagesRecovered is 0 when messageStore has no markDelivered', async () => {
+    store.seed(
+      makeRecord({ id: 'no-md1', status: 'queued', userMessageId: 'umsg-x', createdAt: Date.now() - 10 * 60_000 }),
+    );
+
+    const messageStore = {
+      append(msg) {
+        return { ...msg, id: 'msg-x', threadId: msg.threadId ?? 'default' };
+      },
+      // No markDelivered method
+    };
+
+    const reconciler = new StartupReconciler({
+      invocationRecordStore: store,
+      taskProgressStore,
+      log,
+      messageStore,
+    });
+
+    const result = await reconciler.reconcileOrphans();
+
+    assert.equal(result.messagesRecovered, 0);
+    assert.equal(result.queued, 1, 'sweep still works');
+  });
+
+  test('P2 review fix: running invocations call markDelivered (store guard makes it safe)', async () => {
+    const r1 = makeRecord({
+      id: 'already-vis',
+      status: 'running',
+      userMessageId: 'umsg-already-delivered',
+      targetCats: ['opus'],
+    });
+    store.seed(r1);
+
+    let markDeliveredCallCount = 0;
+    const messageStore = {
+      append(msg) {
+        return { ...msg, id: 'msg-x', threadId: msg.threadId ?? 'default' };
+      },
+      markDelivered(id) {
+        markDeliveredCallCount++;
+        // Simulates store guard: message is already delivered → return as-is
+        return { id, deliveryStatus: 'delivered', deliveredAt: Date.now() - 60_000 };
+      },
+    };
+
+    const reconciler = new StartupReconciler({
+      invocationRecordStore: store,
+      taskProgressStore,
+      log,
+      messageStore,
+    });
+
+    const result = await reconciler.reconcileOrphans();
+
+    // markDelivered is called, but the store's !== 'queued' guard makes it a no-op
+    // for already-visible messages. This is safe AND catches the edge case where
+    // process crashed between invocation→running and markDelivered.
+    assert.equal(markDeliveredCallCount, 1, 'markDelivered should be called');
+    assert.equal(result.messagesRecovered, 1);
+    assert.equal(result.running, 1);
   });
 
   // ── Phase A (original) tests continue ──

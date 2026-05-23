@@ -25,6 +25,32 @@ function shouldRetryStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
 
+/**
+ * F174 Phase A: pull `reason` out of a callback_auth_failed JSON body and
+ * format it as ` [reason=X]` for inclusion in the error message. Returns
+ * empty string on any parse failure or unexpected shape — caller should
+ * not depend on the marker existing.
+ *
+ * Exported so non-retry HTTP helpers (e.g. callback-tools.ts callbackGet)
+ * can produce the same reason-tagged error format.
+ */
+export function extractReasonTag(text: string): string {
+  try {
+    const parsed = JSON.parse(text);
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      parsed.error === 'callback_auth_failed' &&
+      typeof parsed.reason === 'string'
+    ) {
+      return ` [reason=${parsed.reason}]`;
+    }
+  } catch {
+    /* not JSON — old API or other 401 shape, no reason tag */
+  }
+  return '';
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -33,6 +59,7 @@ export async function postJsonWithRetry(
   url: string,
   payload: string,
   retryDelaysMs: number[],
+  extraHeaders?: Record<string, string>,
 ): Promise<CallbackPostResult> {
   let lastError = 'Callback failed';
   let retryable = true;
@@ -41,7 +68,7 @@ export async function postJsonWithRetry(
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...extraHeaders },
         body: payload,
       });
 
@@ -50,7 +77,11 @@ export async function postJsonWithRetry(
       }
 
       const text = await response.text();
-      lastError = `Callback failed (${response.status}): ${text}`;
+      // F174 Phase A: extract structured `reason` from 401 callback_auth_failed body
+      // and tag it into the error message ([reason=X]) so downstream routing can
+      // branch on a typed marker instead of regex-matching prose.
+      const reasonTag = response.status === 401 ? extractReasonTag(text) : '';
+      lastError = `Callback failed (${response.status})${reasonTag}: ${text}`;
       retryable = shouldRetryStatus(response.status);
       if (!retryable || attempt >= retryDelaysMs.length) {
         return { ok: false, failure: { error: lastError, retryable } };

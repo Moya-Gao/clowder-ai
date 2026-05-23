@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type CatData, formatCatName, useCatData } from '@/hooks/useCatData';
+import { useCoCreatorConfig } from '@/hooks/useCoCreatorConfig';
 import type { ChatMessage as ChatMessageData } from '@/stores/chatStore';
 import { scrollToMessage } from '@/utils/scrollToMessage';
 
@@ -10,8 +11,8 @@ const MAX_DOTS = 18;
 
 type CatLookup = (id: string) => CatData | undefined;
 
-// Some variants use non-hyphen catIds (e.g. gpt52/sonnet/spark/gemini25 in cat-config.json).
-// During the brief pre-/api/cats state, we only have 3 base cats in fallback CAT_CONFIGS,
+// Some variants use non-hyphen catIds (e.g. gpt52/sonnet/spark/gemini25 in the runtime cat config).
+// During the brief pre-/api/cats state, the cat list may be empty,
 // so we map these variant ids to a base cat for color/name consistency.
 const VARIANT_BASE_FALLBACK: Record<string, string> = {
   gpt52: 'codex',
@@ -25,6 +26,7 @@ const FALLBACK_CAT_META: Record<string, { label: string; color: string }> = {
   opus: { label: '布偶猫', color: '#9B7EBD' },
   codex: { label: '缅因猫', color: '#5B8C5A' },
   gemini: { label: '暹罗猫', color: '#5B9BD5' },
+  kimi: { label: '梵花猫', color: '#4B5563' },
   dare: { label: '狸花猫', color: '#D4A76A' },
 };
 
@@ -58,10 +60,14 @@ function resolveCatById(getCatById: CatLookup, catId: string): CatData | undefin
   return undefined;
 }
 
-function getSenderLabel(msg: ChatMessageData, resolveCat: (catId: string) => CatData | undefined): string {
+function getSenderLabel(
+  msg: ChatMessageData,
+  resolveCat: (catId: string) => CatData | undefined,
+  ownerName: string,
+): string {
   const catId = msg.catId;
   const isOwner = msg.type === 'user' && !catId;
-  if (isOwner) return '铲屎官';
+  if (isOwner) return ownerName;
 
   const isAssistant = msg.type === 'assistant' || (msg.type === 'user' && !!catId);
   if (!isAssistant) return '系统';
@@ -77,7 +83,7 @@ function getSenderLabel(msg: ChatMessageData, resolveCat: (catId: string) => Cat
 }
 
 function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  return new Date(ts).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 function truncateContent(content: string, maxLen: number): string {
@@ -91,13 +97,17 @@ interface MessageNavigatorProps {
 
 export function MessageNavigator({ messages, scrollContainerRef }: MessageNavigatorProps) {
   const { getCatById } = useCatData();
+  const coCreator = useCoCreatorConfig();
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [viewport, setViewport] = useState({ top: 0, height: 1 });
   const trackRef = useRef<HTMLDivElement>(null);
 
   const resolveCat = useCallback((catId: string) => resolveCatById(getCatById, catId), [getCatById]);
 
-  const getSenderName = useCallback((msg: ChatMessageData) => getSenderLabel(msg, resolveCat), [resolveCat]);
+  const getSenderName = useCallback(
+    (msg: ChatMessageData) => getSenderLabel(msg, resolveCat, coCreator.name),
+    [coCreator.name, resolveCat],
+  );
 
   // Filter to user + assistant only
   const navItems = useMemo(() => messages.filter((m) => m.type === 'user' || m.type === 'assistant'), [messages]);
@@ -183,7 +193,7 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
           const isAssistant = msg.type === 'assistant' || (msg.type === 'user' && !!msg.catId);
           const cat = isAssistant && msg.catId ? resolveCat(msg.catId) : undefined;
           const fallback = isAssistant && msg.catId ? resolveFallbackCatMeta(msg.catId) : undefined;
-          const className = isOwner ? 'bg-owner-primary' : cat || fallback ? '' : 'bg-gray-400';
+          const className = isOwner ? 'bg-cafe-accent' : cat || fallback ? '' : 'bg-gray-400';
           const style = isOwner
             ? undefined
             : cat
@@ -210,6 +220,7 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
           <NavTooltip
             message={sampledItems[hoveredIdx].msg}
             topPercent={sampledItems.length <= 1 ? 50 : (hoveredIdx / (sampledItems.length - 1)) * 100}
+            ownerName={coCreator.name}
           />
         )}
       </div>
@@ -217,13 +228,21 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
   );
 }
 
-function NavTooltip({ message, topPercent }: { message: ChatMessageData; topPercent: number }) {
+function NavTooltip({
+  message,
+  topPercent,
+  ownerName,
+}: {
+  message: ChatMessageData;
+  topPercent: number;
+  ownerName: string;
+}) {
   const { getCatById } = useCatData();
   const resolveCat = useCallback((catId: string) => resolveCatById(getCatById, catId), [getCatById]);
 
   const senderName = useMemo(() => {
-    return getSenderLabel(message, resolveCat);
-  }, [message, resolveCat]);
+    return getSenderLabel(message, resolveCat, ownerName);
+  }, [message, ownerName, resolveCat]);
 
   return (
     <div
@@ -233,7 +252,7 @@ function NavTooltip({ message, topPercent }: { message: ChatMessageData; topPerc
       <div className="font-medium">
         {senderName} · {formatTime(message.timestamp)}
       </div>
-      <div className="text-gray-300 truncate mt-0.5">{truncateContent(message.content, 40)}</div>
+      <div className="text-cafe-muted truncate mt-0.5">{truncateContent(message.content, 40)}</div>
     </div>
   );
 }

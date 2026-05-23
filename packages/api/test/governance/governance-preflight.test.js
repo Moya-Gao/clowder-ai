@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -15,7 +15,9 @@ describe('governance-preflight', () => {
   beforeEach(async () => {
     catCafeRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-root-'));
     externalProject = await mkdtemp(join(tmpdir(), 'external-project-'));
-    await mkdir(join(catCafeRoot, 'cat-cafe-skills'), { recursive: true });
+    // ADR-025: bootstrap needs at least one skill to create per-skill symlinks
+    await mkdir(join(catCafeRoot, 'cat-cafe-skills', 'tdd'), { recursive: true });
+    await writeFile(join(catCafeRoot, 'cat-cafe-skills', 'tdd', 'SKILL.md'), '# TDD');
   });
 
   afterEach(async () => {
@@ -72,18 +74,38 @@ describe('governance-preflight', () => {
   it('fails when registry confirmed but skills symlinks removed', async () => {
     const service = new GovernanceBootstrapService(catCafeRoot);
     await service.bootstrap(externalProject, { dryRun: false });
-    for (const dir of ['.claude/skills', '.codex/skills', '.gemini/skills']) {
-      await rm(join(externalProject, dir), { force: true }).catch(() => {});
+    for (const dir of ['.claude/skills', '.codex/skills', '.gemini/skills', '.kimi/skills']) {
+      await rm(join(externalProject, dir), { recursive: true, force: true }).catch(() => {});
     }
 
     const result = await checkGovernancePreflight(externalProject, catCafeRoot);
     assert.equal(result.ready, false);
-    assert.ok(result.reason?.includes('symlink'));
+    assert.ok(result.reason?.includes('skills'));
   });
 
   it('provides actionable bootstrapCommand for new projects', async () => {
     const result = await checkGovernancePreflight(externalProject, catCafeRoot);
     assert.equal(result.ready, false);
     assert.ok(result.bootstrapCommand, 'Should include a bootstrap command hint');
+  });
+
+  it('uses KIMI.md and .kimi/skills when preflighting a kimi project', async () => {
+    const service = new GovernanceBootstrapService(catCafeRoot);
+    await service.bootstrap(externalProject, { dryRun: false });
+    await rm(join(externalProject, 'KIMI.md'));
+
+    const result = await checkGovernancePreflight(externalProject, catCafeRoot, 'kimi');
+    assert.equal(result.ready, false);
+    assert.ok(result.reason?.includes('KIMI.md'));
+  });
+
+  it('requires .kimi/skills when preflighting a kimi project', async () => {
+    const service = new GovernanceBootstrapService(catCafeRoot);
+    await service.bootstrap(externalProject, { dryRun: false });
+    await rm(join(externalProject, '.kimi/skills'), { recursive: true, force: true });
+
+    const result = await checkGovernancePreflight(externalProject, catCafeRoot, 'kimi');
+    assert.equal(result.ready, false);
+    assert.ok(result.reason?.includes('.kimi/skills'));
   });
 });

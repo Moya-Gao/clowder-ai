@@ -3,6 +3,7 @@ import type { Thread } from '@/stores/chat-types';
 import {
   formatRelativeTime,
   getProjectPaths,
+  mergeLiveActivityIntoThreads,
   projectDisplayName,
   sortAndGroupThreads,
   sortAndGroupThreadsWithWorkspace,
@@ -229,7 +230,7 @@ describe('projectDisplayName', () => {
   });
 
   it('returns last segment of path', () => {
-    expect(projectDisplayName('/home/user')).toBe('my-project');
+    expect(projectDisplayName('/home/user/my-project')).toBe('my-project');
   });
 
   it('handles trailing slash', () => {
@@ -263,6 +264,24 @@ describe('getProjectPaths', () => {
       makeThread({ id: 't3', projectPath: '/proj/gamma', lastActiveAt: 300 }),
     ];
     expect(getProjectPaths(threads)).toEqual(['/proj/beta', '/proj/gamma', '/proj/alpha']);
+  });
+});
+
+// ── mergeLiveActivityIntoThreads ─────────────────────
+
+describe('mergeLiveActivityIntoThreads', () => {
+  it('prefers newer live activity from thread state over stale summary timestamp', () => {
+    const threads = [
+      makeThread({ id: 'pinned-stale', pinned: true, lastActiveAt: NOW - 10 * DAY }),
+      makeThread({ id: 'pinned-fresh', pinned: true, lastActiveAt: NOW - 2 * DAY }),
+    ];
+
+    const merged = mergeLiveActivityIntoThreads(threads, {
+      'pinned-stale': { lastActivity: NOW - 1_000 },
+    });
+
+    expect(merged.find((thread) => thread.id === 'pinned-stale')?.lastActiveAt).toBe(NOW - 1_000);
+    expect(merged.find((thread) => thread.id === 'pinned-fresh')?.lastActiveAt).toBe(NOW - 2 * DAY);
   });
 });
 
@@ -357,5 +376,28 @@ describe('sortAndGroupThreadsWithWorkspace', () => {
     expect(types).not.toContain('archived-container');
     expect(types).toContain('recent');
     expect(types).toContain('project');
+  });
+
+  it('floats a pinned thread to the top when live sidebar activity is newer than thread summary activity', () => {
+    const threads = mergeLiveActivityIntoThreads(
+      [
+        makeThread({ id: 'pinned-old', pinned: true, lastActiveAt: NOW - 10 * DAY }),
+        makeThread({ id: 'pinned-newer', pinned: true, lastActiveAt: NOW - 2 * DAY }),
+      ],
+      {
+        'pinned-old': { lastActivity: NOW - 500 },
+      },
+    );
+
+    const groups = sortAndGroupThreadsWithWorkspace(
+      threads,
+      undefined,
+      new Set(),
+      { activeCutoffMs: 7 * DAY, recentLimit: 8 },
+      NOW,
+    );
+
+    const pinned = groups.find((group) => group.type === 'pinned');
+    expect(pinned?.threads.map((thread) => thread.id)).toEqual(['pinned-old', 'pinned-newer']);
   });
 });

@@ -5,12 +5,12 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const configPath = resolve(__dirname, '..', '..', '..', 'cat-config.json');
+const configPath = resolve(__dirname, '..', '..', '..', 'cat-template.json');
 
-describe('cat-config.json — 金渐层 (opencode) validation', () => {
+describe('cat-template.json — 金渐层 (opencode) validation', () => {
   let config;
 
-  test('cat-config.json is valid JSON', () => {
+  test('cat-template.json is valid JSON', () => {
     const raw = readFileSync(configPath, 'utf-8');
     config = JSON.parse(raw);
     assert.ok(config);
@@ -32,11 +32,11 @@ describe('cat-config.json — 金渐层 (opencode) validation', () => {
     assert.ok(breed.mentionPatterns.includes('@金渐层'));
   });
 
-  test('opencode-default variant has correct provider and model', () => {
+  test('opencode-default variant has correct clientId and model', () => {
     const breed = config.breeds.find((b) => b.id === 'golden-chinchilla');
     const variant = breed.variants.find((v) => v.id === 'opencode-default');
     assert.ok(variant, 'opencode-default variant should exist');
-    assert.strictEqual(variant.provider, 'opencode');
+    assert.strictEqual(variant.clientId, 'opencode');
     assert.strictEqual(variant.defaultModel, 'claude-opus-4-6');
     assert.strictEqual(variant.mcpSupport, true);
   });
@@ -49,7 +49,7 @@ describe('cat-config.json — 金渐层 (opencode) validation', () => {
 
   test('cat-config-loader can parse the config without errors', async () => {
     const { loadCatConfig } = await import('../dist/config/cat-config-loader.js');
-    // loadCatConfig reads from the repo root's cat-config.json
+    // loadCatConfig reads from the repo root's cat-template.json
     const result = loadCatConfig(configPath);
     assert.ok(result.breeds.length > 0);
     const goldenChinchilla = result.breeds.find((b) => b.id === 'golden-chinchilla');

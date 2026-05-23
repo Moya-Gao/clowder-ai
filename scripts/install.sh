@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Clowder AI — Linux Repo-Local Install Helper (F113)
-# Usage: bash scripts/install.sh [--start] [--memory] [--registry=URL]
-# Supported: Debian/Ubuntu, CentOS/RHEL/Fedora
+# Cat Cafe — Cross-Platform One-Click Install Helper (F113)
+# Usage: bash scripts/install.sh [--start] [--memory] [--registry=URL] [--skip-preflight]
+# Supported: macOS (Homebrew), Debian/Ubuntu, CentOS/RHEL/Fedora
 
 set -euo pipefail
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
-AUTO_START=false; MEMORY_MODE=false; NPM_REGISTRY=""; SOURCE_ONLY=false
+AUTO_START=false; MEMORY_MODE=false; NPM_REGISTRY=""; SOURCE_ONLY=false; SKIP_PREFLIGHT=false
 PROJECT_DIR=""; PROJECT_HAS_GIT_METADATA=false
 for arg in "$@"; do
     case $arg in
         --start) AUTO_START=true ;; --memory) MEMORY_MODE=true ;;
         --registry=*) NPM_REGISTRY="${arg#*=}" ;;
+        --skip-preflight) SKIP_PREFLIGHT=true ;;
         --source-only) SOURCE_ONLY=true ;;
     esac
 done
@@ -22,6 +23,12 @@ use_registry() {
     # npm/pnpm respect these env vars for all operations in this session.
     export npm_config_registry="$reg" NPM_CONFIG_REGISTRY="$reg" PNPM_CONFIG_REGISTRY="$reg"
 }
+# Registry env fallback chain: preflight.sh suggests npm_config_registry,
+# so we must honour it here too — not just CAT_CAFE_NPM_REGISTRY.
+for _reg_var in CAT_CAFE_NPM_REGISTRY npm_config_registry NPM_CONFIG_REGISTRY PNPM_CONFIG_REGISTRY; do
+    [[ -z "$NPM_REGISTRY" && -n "${!_reg_var:-}" ]] && NPM_REGISTRY="${!_reg_var}" && break
+done
+unset _reg_var
 [[ -n "$NPM_REGISTRY" ]] && use_registry "$NPM_REGISTRY"
 npm_global_install() {
     if [[ -n "$NPM_REGISTRY" ]]; then
@@ -35,10 +42,39 @@ info() { echo -e "${CYAN}$*${NC}"; }; ok() { echo -e "  ${GREEN}✓${NC} $*"; }
 warn() { echo -e "  ${YELLOW}⚠${NC} $*"; }; fail() { echo -e "  ${RED}✗${NC} $*"; }
 step() { echo ""; echo -e "${BOLD}$*${NC}"; }
 USED_FNM=false
+resolve_realpath() {
+    realpath "$1" 2>/dev/null || readlink -f "$1" 2>/dev/null || echo "$1"
+}
 persist_user_bin() {
     local bin="$1" path=""; path="$(command -v "$bin" 2>/dev/null || true)"
-    [[ -n "$path" ]] || return 0; $SUDO mkdir -p /usr/local/bin
-    $SUDO ln -sfn "$(readlink -f "$path" 2>/dev/null || echo "$path")" "/usr/local/bin/$bin"
+    [[ -n "$path" ]] || return 0
+    local real_src; real_src="$(resolve_realpath "$path")"
+    local target="$USER_BIN_DIR/$bin"
+    # Guard: GNU ln -sfn errors when source and target resolve to the same path.
+    [[ "$(resolve_realpath "$target" 2>/dev/null)" == "$real_src" ]] && return 0
+    $SUDO mkdir -p "$USER_BIN_DIR"
+    $SUDO ln -sfn "$real_src" "$target"
+}
+# Append a line to the user's shell profile (idempotent).
+append_to_profile() {
+    local line="$1" profile="$2"
+    if [[ -f "$profile" ]] && grep -qF "$line" "$profile" 2>/dev/null; then return 0; fi
+    # Ensure a leading newline if the file doesn't end with one, so we don't
+    # concatenate onto the previous line and break shell parsing.
+    if [[ -f "$profile" && -s "$profile" ]] && [[ $(tail -c 1 "$profile") ]]; then
+        echo >> "$profile"
+    fi
+    echo "$line" >> "$profile"
+}
+# Return macOS login profile paths for both zsh and bash.
+# zsh: ~/.zprofile (respects ZDOTDIR). bash: ~/.bash_profile or ~/.profile.
+darwin_login_profiles() {
+    echo "${ZDOTDIR:-$HOME}/.zprofile"
+    if [[ -f "$HOME/.bash_profile" ]]; then
+        echo "$HOME/.bash_profile"
+    else
+        echo "$HOME/.profile"
+    fi
 }
 
 # TTY-safe read + pnpm install with registry fallback
@@ -70,8 +106,22 @@ tty_read_secret() {
     local prompt="$1" var="$2"
     if [[ "$HAS_TTY" == true ]]; then
         printf '%s' "$prompt" >/dev/tty 2>/dev/null || true
-        read -rs -t 120 "$var" </dev/tty 2>/dev/null || printf -v "$var" '%s' ''
+        local input="" char
+        while IFS= read -rs -n1 -t 120 char </dev/tty 2>/dev/null; do
+            [[ -z "$char" ]] && break  # Enter pressed
+            if [[ "$char" == $'\x7f' || "$char" == $'\b' ]]; then
+                # Backspace
+                if [[ -n "$input" ]]; then
+                    input="${input%?}"
+                    printf '\b \b' >/dev/tty 2>/dev/null || true
+                fi
+            else
+                input+="$char"
+                printf '*' >/dev/tty 2>/dev/null || true
+            fi
+        done
         printf '\n' >/dev/tty 2>/dev/null || true
+        printf -v "$var" '%s' "$input"
     else
         printf -v "$var" '%s' ''
     fi
@@ -81,6 +131,21 @@ tty_read_secret() {
 # These provide a TUI-style menu: ↑↓ to move, space to toggle, enter to confirm.
 # Falls back to plain tty_read when HAS_TTY is false.
 
+tty_arrow_delta() {
+    case "$1" in
+        '[A'|'OA') printf '%s' '-1'; return 0 ;;
+        '[B'|'OB') printf '%s' '1'; return 0 ;;
+    esac
+    return 1
+}
+tty_numeric_index() {
+    local key="$1" count="$2"
+    [[ "$key" =~ ^[1-9]$ ]] || return 1
+    local idx=$((10#$key - 1))
+    (( idx >= 0 && idx < count )) || return 1
+    printf '%s' "$idx"
+}
+
 # tty_select: Single-select with arrow keys.
 #   Usage: tty_select RESULT_VAR "prompt" "option1" "option2" ...
 #   Sets RESULT_VAR to the 0-based index of the chosen option (default 0).
@@ -88,30 +153,31 @@ tty_select() {
     local result_var="$1" prompt="$2"; shift 2
     local -a options=("$@")
     local count=${#options[@]} cur=0
+    local default_index="${TTY_SELECT_DEFAULT_INDEX:-0}"
+    if [[ "$default_index" =~ ^[0-9]+$ ]]; then
+        local parsed_default=$((10#$default_index))
+        (( parsed_default >= 0 && parsed_default < count )) && cur="$parsed_default"
+    fi
 
     if [[ "$HAS_TTY" != true || $count -eq 0 ]]; then
-        printf -v "$result_var" '%s' '0'; return
+        printf -v "$result_var" '%s' "$cur"; return
     fi
 
     # Save terminal state and switch to raw mode
     local saved_tty; saved_tty="$(stty -g </dev/tty 2>/dev/null)"
     printf '\n%s\n' "$prompt" >/dev/tty
-    printf '  Use ↑↓ arrows to move, Enter to select\n\n' >/dev/tty
+    printf '  Use ↑↓ arrows or number keys to move, Enter to select\n\n' >/dev/tty
 
-    # Draw initial menu
     local i
     for ((i=0; i<count; i++)); do
         if ((i == cur)); then
-            printf '  \033[36m❯ %s\033[0m\n' "${options[$i]}" >/dev/tty
+            printf '  %d. \033[36m❯ %s\033[0m\n' "$((i+1))" "${options[$i]}" >/dev/tty
         else
-            printf '    %s\n' "${options[$i]}" >/dev/tty
+            printf '  %d.   %s\n' "$((i+1))" "${options[$i]}" >/dev/tty
         fi
     done
 
     stty -echo -icanon </dev/tty 2>/dev/null
-    # Restore terminal on signal (Ctrl-C, etc.) so it doesn't stay in raw mode.
-    # Use saved_tty captured at define-time (double-quoted trap) because local
-    # variables are not visible to signal handlers running in top-level scope.
     trap "stty '${saved_tty}' </dev/tty 2>/dev/null || true; trap - INT TERM EXIT; exit 130" INT TERM
     trap "stty '${saved_tty}' </dev/tty 2>/dev/null || true; trap - INT TERM EXIT" EXIT
     while true; do
@@ -120,22 +186,29 @@ tty_select() {
         local need_redraw=false
         if [[ "$key" == $'\x1b' ]]; then
             read -rsn2 -t 0.1 key </dev/tty 2>/dev/null || true
-            case "$key" in
-                '[A') ((cur > 0)) && ((cur--)) || true; need_redraw=true ;;   # up
-                '[B') ((cur < count-1)) && ((cur++)) || true; need_redraw=true ;;  # down
-            esac
+            local delta
+            if delta="$(tty_arrow_delta "$key")"; then
+                if ((delta < 0)); then
+                    ((cur > 0)) && ((cur--)) || true
+                elif ((delta > 0)); then
+                    ((cur < count-1)) && ((cur++)) || true
+                fi
+                need_redraw=true
+            fi
+        elif tty_numeric_index "$key" "$count" >/dev/null; then
+            cur="$(tty_numeric_index "$key" "$count")"
+            need_redraw=true
         elif [[ "$key" == '' ]]; then
-            break  # Enter
+            break
         fi
-        # Only redraw when state actually changed — ignore unrecognized keys
         [[ "$need_redraw" == true ]] || continue
         printf '\033[%dA' "$count" >/dev/tty
         for ((i=0; i<count; i++)); do
             printf '\r\033[K' >/dev/tty
             if ((i == cur)); then
-                printf '  \033[36m❯ %s\033[0m\n' "${options[$i]}" >/dev/tty
+                printf '  %d. \033[36m❯ %s\033[0m\n' "$((i+1))" "${options[$i]}" >/dev/tty
             else
-                printf '    %s\n' "${options[$i]}" >/dev/tty
+                printf '  %d.   %s\n' "$((i+1))" "${options[$i]}" >/dev/tty
             fi
         done
     done
@@ -154,30 +227,29 @@ tty_multiselect() {
     local count=${#options[@]} cur=0
 
     if [[ "$HAS_TTY" != true || $count -eq 0 ]]; then
-        # Default: all selected
         local all_indices=""
+        local i
         for ((i=0; i<count; i++)); do
-            [[ -n "$all_indices" ]] && all_indices+="," 
+            [[ -n "$all_indices" ]] && all_indices+=","
             all_indices+="$i"
         done
         printf -v "$result_var" '%s' "$all_indices"; return
     fi
 
-    # All selected by default
     local -a selected=()
+    local i
     for ((i=0; i<count; i++)); do selected+=("1"); done
 
     local saved_tty; saved_tty="$(stty -g </dev/tty 2>/dev/null)"
     printf '\n%s\n' "$prompt" >/dev/tty
-    printf '  Use ↑↓ to move, Space to toggle, Enter to confirm\n\n' >/dev/tty
+    printf '  Use ↑↓ to move, number keys to jump, Space to toggle, Enter to confirm\n\n' >/dev/tty
 
-    local i
     for ((i=0; i<count; i++)); do
         local marker="◉"; [[ "${selected[$i]}" != "1" ]] && marker="○"
         if ((i == cur)); then
-            printf '  \033[36m❯ %s %s\033[0m\n' "$marker" "${options[$i]}" >/dev/tty
+            printf '  %d. \033[36m❯ %s %s\033[0m\n' "$((i+1))" "$marker" "${options[$i]}" >/dev/tty
         else
-            printf '    %s %s\n' "$marker" "${options[$i]}" >/dev/tty
+            printf '  %d.   %s %s\n' "$((i+1))" "$marker" "${options[$i]}" >/dev/tty
         fi
     done
 
@@ -190,38 +262,43 @@ tty_multiselect() {
         local need_redraw=false
         if [[ "$key" == $'\x1b' ]]; then
             read -rsn2 -t 0.1 key </dev/tty 2>/dev/null || true
-            case "$key" in
-                '[A') ((cur > 0)) && ((cur--)) || true; need_redraw=true ;;
-                '[B') ((cur < count-1)) && ((cur++)) || true; need_redraw=true ;;
-            esac
+            local delta
+            if delta="$(tty_arrow_delta "$key")"; then
+                if ((delta < 0)); then
+                    ((cur > 0)) && ((cur--)) || true
+                elif ((delta > 0)); then
+                    ((cur < count-1)) && ((cur++)) || true
+                fi
+                need_redraw=true
+            fi
+        elif tty_numeric_index "$key" "$count" >/dev/null; then
+            cur="$(tty_numeric_index "$key" "$count")"
+            need_redraw=true
         elif [[ "$key" == ' ' ]]; then
-            # Toggle selection
             if [[ "${selected[$cur]}" == "1" ]]; then selected[$cur]="0"; else selected[$cur]="1"; fi
             need_redraw=true
         elif [[ "$key" == '' ]]; then
-            break  # Enter
+            break
         fi
-        # Only redraw when state changed — ignore unrecognized keys
         [[ "$need_redraw" == true ]] || continue
         printf '\033[%dA' "$count" >/dev/tty
         for ((i=0; i<count; i++)); do
             local marker="◉"; [[ "${selected[$i]}" != "1" ]] && marker="○"
             printf '\r\033[K' >/dev/tty
             if ((i == cur)); then
-                printf '  \033[36m❯ %s %s\033[0m\n' "$marker" "${options[$i]}" >/dev/tty
+                printf '  %d. \033[36m❯ %s %s\033[0m\n' "$((i+1))" "$marker" "${options[$i]}" >/dev/tty
             else
-                printf '    %s %s\n' "$marker" "${options[$i]}" >/dev/tty
+                printf '  %d.   %s %s\n' "$((i+1))" "$marker" "${options[$i]}" >/dev/tty
             fi
         done
     done
     stty "$saved_tty" </dev/tty 2>/dev/null || true
     trap - INT TERM EXIT
 
-    # Build result: comma-separated 0-based indices
     local result=""
     for ((i=0; i<count; i++)); do
         if [[ "${selected[$i]}" == "1" ]]; then
-            [[ -n "$result" ]] && result+="," 
+            [[ -n "$result" ]] && result+=","
             result+="$i"
         fi
     done
@@ -240,10 +317,80 @@ delete_env_key() {
     mv "$tmp" .env
 }
 env_has_key() { grep -q "^${1}=" .env 2>/dev/null; }
+read_env_key() {
+    local key="$1" line value
+    line="$(grep "^${key}=" .env 2>/dev/null | tail -n 1)" || return 1
+    value="${line#*=}"
+    if [[ "$value" =~ ^\'(.*)\'$ ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    if [[ "$value" =~ ^\"(.*)\"$ ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    printf '%s\n' "$value"
+}
 pnpm_install_with_fallback() {
-    pnpm install --frozen-lockfile && return 0; [[ -n "$NPM_REGISTRY" ]] && return 1
+    local log_file; log_file="$(mktemp)"
+    if run_pnpm_install_capture "$log_file" pnpm install --frozen-lockfile; then
+        rm -f "$log_file"
+        return 0
+    fi
+    if pnpm_install_needs_puppeteer_skip "$log_file"; then
+        warn_puppeteer_skip_fallback
+        if run_pnpm_install_capture "$log_file" env PUPPETEER_SKIP_DOWNLOAD=1 pnpm install --frozen-lockfile; then
+            rm -f "$log_file"
+            return 0
+        fi
+    fi
+    if [[ -n "$NPM_REGISTRY" ]]; then
+        rm -f "$log_file"
+        return 1
+    fi
     warn "pnpm install failed — retrying with npmmirror"; use_registry "https://registry.npmmirror.com"
-    pnpm install --frozen-lockfile
+    if run_pnpm_install_capture "$log_file" pnpm install --frozen-lockfile; then
+        rm -f "$log_file"
+        return 0
+    fi
+    if pnpm_install_needs_puppeteer_skip "$log_file"; then
+        warn_puppeteer_skip_fallback
+        if run_pnpm_install_capture "$log_file" env PUPPETEER_SKIP_DOWNLOAD=1 pnpm install --frozen-lockfile; then
+            rm -f "$log_file"
+            return 0
+        fi
+    fi
+    rm -f "$log_file"
+    return 1
+}
+run_pnpm_install_capture() {
+    local log_file="$1"; shift
+    local status=0
+    set +e
+    "$@" 2>&1 | tee "$log_file"
+    status=${PIPESTATUS[0]}
+    set -e
+    return "$status"
+}
+pnpm_install_needs_puppeteer_skip() {
+    local log_file="$1"
+    grep -Eqi 'puppeteer' "$log_file" \
+        && grep -Eqi 'Failed to set up chrome|PUPPETEER_SKIP_DOWNLOAD' "$log_file"
+}
+warn_puppeteer_skip_fallback() {
+    warn "Bundled Chrome download failed — skipped"
+    warn "Thread export / screenshot may be unavailable. To install later: npx puppeteer browsers install chrome"
+}
+sync_agent_hooks_best_effort() {
+    info "  Syncing Agent CLI hooks..."
+    local log_file; log_file="$(mktemp)"
+    if pnpm exec tsx scripts/sync-system-prompts.ts --apply --agent-hooks-only >"$log_file" 2>&1; then
+        ok "Agent CLI hooks synced"
+    else
+        warn "Agent CLI hook sync failed — continuing; Hub health check can repair it later"
+        tail -5 "$log_file" 2>/dev/null | sed 's/^/    /' || true
+    fi
+    rm -f "$log_file"
 }
 build_step() { local label="$1"; shift; info "  Building $label..."
     "$@" || { fail "$label build failed in $PROJECT_DIR"; exit 1; }; ok "$label done"; }
@@ -258,11 +405,11 @@ resolve_project_dir_from() {
 resolve_project_dir() {
     local script_source="${BASH_SOURCE[0]:-}"
     [[ -n "$script_source" ]] || {
-        fail "This helper must run from a clowder-ai source tree. Clone or download first, then run: bash scripts/install.sh"
+        fail "This helper must run from a cat-cafe source tree. Clone or download first, then run: bash scripts/install.sh"
         exit 1
     }
     PROJECT_DIR="$(resolve_project_dir_from "$script_source")" || {
-        fail "Could not locate the clowder-ai source tree from $script_source. Clone or download first, then run: bash scripts/install.sh"
+        fail "Could not locate the cat-cafe source tree from $script_source. Clone or download first, then run: bash scripts/install.sh"
         exit 1
     }
     PROJECT_HAS_GIT_METADATA=false
@@ -272,7 +419,7 @@ resolve_project_dir() {
     fi
 }
 default_project_allowed_roots() {
-    printf '%s\n' "$HOME" '/tmp' '/private/tmp'
+    printf '%s\n' "$HOME" '/tmp' '/private/tmp' '/workspace'
     [[ "$(uname -s)" == "Darwin" ]] && printf '%s\n' '/Volumes'
 }
 project_allowed_roots() {
@@ -352,21 +499,18 @@ candidate_root_is_allowed() {
     done < <(project_allowed_roots)
     return 1
 }
+provider_profiles_candidate_root_is_allowed() {
+    local candidate="$1"
+    candidate_root_is_allowed "$candidate"
+}
 resolve_provider_profiles_dir() {
-    # Mirror the runtime validation in provider-profiles-root.ts:
-    # Only redirect for validated git worktrees.  For normal repos,
-    # submodules, and nested archives, stay at $PROJECT_DIR.
-    # Security: verify gitdir back-reference and commondir to prevent
-    # forged .git files from redirecting secrets to another repo.
     local git_entry="$PROJECT_DIR/.git"
     if [[ ! -e "$git_entry" ]]; then
         printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return
     fi
-    # .git is a directory → normal repo or submodule → stay local
     if [[ -d "$git_entry" ]]; then
         printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return
     fi
-    # .git is a file → potential worktree; validate structure + back-refs
     if [[ -f "$git_entry" ]] && command -v git &>/dev/null; then
         local gitdir="" worktrees_dir="" common_git_dir="" candidate=""
         gitdir="$(git -C "$PROJECT_DIR" rev-parse --path-format=absolute --git-dir 2>/dev/null || true)"
@@ -376,8 +520,6 @@ resolve_provider_profiles_dir() {
         common_git_dir="$(dirname "$worktrees_dir" 2>/dev/null)"
         [[ "$(basename "$common_git_dir" 2>/dev/null)" == ".git" ]] || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
 
-        # Security check 1: gitdir back-reference (TS L81-82)
-        # <gitdir>/gitdir must point back to our .git file
         local backref_file="$gitdir/gitdir" backref_resolved=""
         if [[ ! -f "$backref_file" ]]; then
             printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return
@@ -387,8 +529,6 @@ resolve_provider_profiles_dir() {
         git_entry_resolved="$(realpath "$git_entry" 2>/dev/null)" || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
         [[ "$backref_resolved" == "$git_entry_resolved" ]] || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
 
-        # Security check 2: commondir consistency (TS L84-93)
-        # <gitdir>/commondir resolved relative to gitdir must equal common_git_dir
         local commondir_file="$gitdir/commondir" commondir_value="" commondir_resolved=""
         if [[ ! -f "$commondir_file" ]]; then
             printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return
@@ -402,7 +542,7 @@ resolve_provider_profiles_dir() {
 
         candidate="$(dirname "$common_git_dir_resolved")"
         candidate="$(normalize_path_for_compare "$candidate" 2>/dev/null)" || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
-        candidate_root_is_allowed "$candidate" || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
+        provider_profiles_candidate_root_is_allowed "$candidate" || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
         printf '%s/.cat-cafe\n' "$candidate"; return
     fi
     printf '%s/.cat-cafe\n' "$PROJECT_DIR"
@@ -424,96 +564,202 @@ maybe_write_docker_api_host() {
     fi
 }
 
+default_frontend_url() {
+    local frontend_port=""
+    if [[ -f .env ]]; then
+        frontend_port="$(read_env_key FRONTEND_PORT || true)"
+    fi
+    frontend_port="${frontend_port:-${FRONTEND_PORT:-3003}}"
+    printf 'http://localhost:%s\n' "$frontend_port"
+}
+
 ENV_KEYS=(); ENV_VALUES=(); ENV_DELETE_KEYS=()
 reset_env_changes() { ENV_KEYS=(); ENV_VALUES=(); ENV_DELETE_KEYS=(); }
 collect_env() { ENV_KEYS+=("$1"); ENV_VALUES+=("$2"); }
 clear_env() { ENV_DELETE_KEYS+=("$1"); }
-set_codex_oauth_mode() {
-    collect_env "CODEX_AUTH_MODE" "oauth"
-    clear_env "OPENAI_API_KEY"; clear_env "OPENAI_BASE_URL"; clear_env "CAT_CODEX_MODEL"
+# #340 P6: Dead .env auth wrappers removed — all auth now uses
+# install-auth-config.mjs client-auth set → accounts.json + credentials.json
+default_runtime_dir() {
+    local parent
+    parent="$(cd "$PROJECT_DIR/.." && pwd)"
+    printf '%s/cat-cafe-runtime\n' "$parent"
 }
-set_codex_api_key_mode() {
-    local key="$1" base_url="$2" model="$3"
-    collect_env "CODEX_AUTH_MODE" "api_key"; collect_env "OPENAI_API_KEY" "$key"
-    [[ -n "$base_url" ]] && collect_env "OPENAI_BASE_URL" "$base_url" || clear_env "OPENAI_BASE_URL"
-    [[ -n "$model" ]] && collect_env "CAT_CODEX_MODEL" "$model" || clear_env "CAT_CODEX_MODEL"
+runtime_worktree_initialized() {
+    local runtime_dir="$1"
+    [[ -d "$runtime_dir" ]] || return 1
+    [[ -e "$runtime_dir/.git" ]] || return 1
+    git -C "$runtime_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
+
+    local resolved_runtime resolved_toplevel resolved_project project_toplevel worktree_line resolved_worktree
+    resolved_runtime="$(cd "$runtime_dir" && pwd -P)"
+    resolved_toplevel="$(git -C "$runtime_dir" rev-parse --show-toplevel 2>/dev/null || true)"
+    [[ -n "$resolved_toplevel" ]] || return 1
+    resolved_toplevel="$(cd "$resolved_toplevel" && pwd -P)"
+    [[ "$resolved_runtime" == "$resolved_toplevel" ]] || return 1
+
+    [[ -d "$PROJECT_DIR" ]] || return 1
+    [[ -e "$PROJECT_DIR/.git" ]] || return 1
+    resolved_project="$(cd "$PROJECT_DIR" && pwd -P)"
+    project_toplevel="$(git -C "$PROJECT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+    [[ -n "$project_toplevel" ]] || return 1
+    project_toplevel="$(cd "$project_toplevel" && pwd -P)"
+    [[ "$resolved_project" == "$project_toplevel" ]] || return 1
+
+    while IFS= read -r worktree_line; do
+        [[ "$worktree_line" == worktree\ * ]] || continue
+        resolved_worktree="$(cd "${worktree_line#worktree }" 2>/dev/null && pwd -P)" || continue
+        [[ "$resolved_worktree" == "$resolved_runtime" ]] && return 0
+    done < <(git -C "$project_toplevel" worktree list --porcelain 2>/dev/null)
+
+    return 1
 }
-set_gemini_oauth_mode() {
-    clear_env "GEMINI_API_KEY"; clear_env "CAT_GEMINI_MODEL"
+resolve_installer_auth_config_root() {
+    if [[ -n "${CAT_CAFE_GLOBAL_CONFIG_ROOT:-}" ]]; then
+        printf '%s\n' "$CAT_CAFE_GLOBAL_CONFIG_ROOT"
+        return 0
+    fi
+
+    local runtime_dir="${CAT_CAFE_RUNTIME_DIR:-}"
+    [[ -n "$runtime_dir" ]] || runtime_dir="$(default_runtime_dir)"
+    if runtime_worktree_initialized "$runtime_dir"; then
+        (cd "$runtime_dir" && pwd)
+        return 0
+    fi
+
+    printf '%s\n' "$PROJECT_DIR"
 }
-set_gemini_api_key_mode() {
-    local key="$1" model="$2"
-    collect_env "GEMINI_API_KEY" "$key"
-    [[ -n "$model" ]] && collect_env "CAT_GEMINI_MODEL" "$model" || clear_env "CAT_GEMINI_MODEL"
+run_install_auth_config() {
+    local auth_root
+    auth_root="$(resolve_installer_auth_config_root)"
+    CAT_CAFE_GLOBAL_CONFIG_ROOT="$auth_root" node scripts/install-auth-config.mjs "$@"
+    if [[ -z "${CAT_CAFE_GLOBAL_CONFIG_ROOT:-}" && "$auth_root" != "$PROJECT_DIR" ]]; then
+        CAT_CAFE_GLOBAL_CONFIG_ROOT="$PROJECT_DIR" node scripts/install-auth-config.mjs "$@"
+    fi
 }
-write_claude_profile() {
-    local key="$1" base_url="$2" model="$3" pdir=""
-    pdir="$(resolve_provider_profiles_dir)"; mkdir -p "$pdir"
-    node - "$pdir" "$key" "${base_url:-https://api.anthropic.com}" "$model" <<'EONODE'
-const fs = require('fs'), path = require('path');
-const [dir, key, baseUrl, model] = process.argv.slice(2), id = 'installer-managed', now = new Date().toISOString();
-const pf = path.join(dir, 'provider-profiles.json'), sf = path.join(dir, 'provider-profiles.secrets.local.json');
-const read = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return { version: 1, providers: {} }; } };
-const profiles = read(pf), secrets = read(sf), anth = profiles.providers.anthropic ?? { profiles: [] };
-const keep = (anth.profiles ?? []).filter((p) => p.id !== id);
-keep.push({ id, provider: 'anthropic', name: 'Installer API Key', mode: 'api_key', baseUrl, createdAt: now, updatedAt: now, ...(model ? { modelOverride: model } : {}) });
-profiles.providers.anthropic = { ...anth, activeProfileId: id, profiles: keep };
-secrets.providers.anthropic = { ...(secrets.providers.anthropic ?? {}), [id]: { apiKey: key } };
-fs.writeFileSync(pf, JSON.stringify(profiles)); fs.writeFileSync(sf, JSON.stringify(secrets)); fs.chmodSync(sf, 0o600);
-EONODE
-}
-remove_claude_installer_profile() {
-    local pdir=""
-    pdir="$(resolve_provider_profiles_dir)"; [[ -d "$pdir" ]] || return 0
-    node - "$pdir" <<'EONODE'
-const fs = require('fs'), path = require('path');
-const [dir] = process.argv.slice(2), id = 'installer-managed';
-const pf = path.join(dir, 'provider-profiles.json'), sf = path.join(dir, 'provider-profiles.secrets.local.json');
-const read = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; } };
-const profiles = read(pf), secrets = read(sf); if (!profiles?.providers?.anthropic) process.exit(0);
-const anth = profiles.providers.anthropic, nextProfiles = (anth.profiles ?? []).filter((p) => p.id !== id);
-profiles.providers.anthropic = { ...anth, profiles: nextProfiles, ...(anth.activeProfileId === id ? { activeProfileId: nextProfiles[0]?.id ?? '' } : {}) };
-if (secrets?.providers?.anthropic?.[id]) delete secrets.providers.anthropic[id];
-fs.writeFileSync(pf, JSON.stringify(profiles)); if (secrets) fs.writeFileSync(sf, JSON.stringify(secrets));
-EONODE
-}
+
+
+PLATFORM="$(uname -s)"
 
 if [[ "$SOURCE_ONLY" == true ]]; then
     return 0 2>/dev/null || exit 0
 fi
 
-# ── [1/9] Environment detection ────────────────────────────
-step "[1/9] Detecting environment / 环境检测..."
-
-if [[ "$(uname -s)" != "Linux" ]]; then
-    fail "This script is for Linux only. Detected: $(uname -s)"; exit 1
+# ── [1/8] Environment detection ────────────────────────────
+step "[1/8] Detecting environment / 环境检测..."
+# macOS: Homebrew refuses to run as root — fail early with a clear message
+# so users don't sudo the whole script after seeing Homebrew's sudo prompt.
+if [[ "$PLATFORM" == "Darwin" && $EUID -eq 0 ]]; then
+    fail "macOS 下不要用 sudo 运行 install.sh，直接 bash scripts/install.sh 即可"
+    fail "Don't run install.sh as root on macOS — just: bash scripts/install.sh"
+    exit 1
 fi
-
 DISTRO_FAMILY=""; DISTRO_NAME=""; PKG_INSTALL=""; PKG_UPDATE=""
-if [[ -f /etc/os-release ]]; then
-    . /etc/os-release; DISTRO_NAME="${ID:-unknown}"
-    case "$DISTRO_NAME" in
-        ubuntu|debian|linuxmint|pop) DISTRO_FAMILY="debian"; PKG_UPDATE="apt-get update -qq"
-            PKG_INSTALL="apt-get install -y"; export DEBIAN_FRONTEND=noninteractive ;;
-        centos|rhel|rocky|almalinux|fedora) DISTRO_FAMILY="rhel"; PKG_UPDATE="true"
-            if command -v dnf &>/dev/null; then PKG_INSTALL="dnf install -y"; else PKG_INSTALL="yum install -y"; fi ;;
-    esac
-fi
+case "$PLATFORM" in
+    Darwin)
+        DISTRO_FAMILY="darwin"; DISTRO_NAME="macOS"
+        # Detect existing Homebrew even when PATH is not initialized (non-login shells).
+        # Pick the arch-native prefix first to avoid ARM/x86 conflicts on dual-Homebrew machines.
+        if [[ "$(uname -m)" == "arm64" ]]; then
+            _brew_candidates=(/opt/homebrew/bin/brew /usr/local/bin/brew)
+        else
+            _brew_candidates=(/usr/local/bin/brew /opt/homebrew/bin/brew)
+        fi
+        _brew_recovered=false
+        if ! command -v brew &>/dev/null; then
+            for _brew in "${_brew_candidates[@]}"; do
+                if [[ -x "$_brew" ]]; then
+                    eval "$("$_brew" shellenv)"
+                    _brew_recovered=true
+                    break
+                fi
+            done
+        fi
+        if ! command -v brew &>/dev/null; then
+            info "  Homebrew not found — installing..."
+            info "  (Homebrew may ask for your macOS password — that's normal, don't re-run with sudo)"
+            NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL --connect-timeout 15 --max-time 60 https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" </dev/null
+            for _brew in "${_brew_candidates[@]}"; do
+                if [[ -x "$_brew" ]]; then
+                    eval "$("$_brew" shellenv)"
+                    break
+                fi
+            done
+            command -v brew &>/dev/null || { fail "Homebrew install failed. Install manually: https://brew.sh"; exit 1; }
+            _brew_recovered=true
+        fi
+        # Persist brew shellenv to login profiles so new terminals find brew, node, etc.
+        if [[ "$_brew_recovered" == true ]]; then
+            _shellenv_line="eval \"\$($(command -v brew) shellenv)\"  # Homebrew (added by Cat Cafe)"
+            for _prof in $(darwin_login_profiles); do
+                append_to_profile "$_shellenv_line" "$_prof"
+            done
+            unset _shellenv_line
+        fi
+        unset _brew_candidates _brew _brew_recovered
+        PKG_INSTALL="brew install"; PKG_UPDATE="brew update"
+        ;;
+    Linux)
+        if [[ -f /etc/os-release ]]; then
+            . /etc/os-release; DISTRO_NAME="${ID:-unknown}"
+            case "$DISTRO_NAME" in
+                ubuntu|debian|linuxmint|pop) DISTRO_FAMILY="debian"; PKG_UPDATE="apt-get update -qq"
+                    PKG_INSTALL="apt-get install -y"; export DEBIAN_FRONTEND=noninteractive ;;
+                centos|rhel|rocky|almalinux|fedora) DISTRO_FAMILY="rhel"; PKG_UPDATE="true"
+                    if command -v dnf &>/dev/null; then PKG_INSTALL="dnf install -y"; else PKG_INSTALL="yum install -y"; fi ;;
+            esac
+        fi
+        ;;
+    *) fail "Unsupported platform: $PLATFORM. Need: macOS or Linux"; exit 1 ;;
+esac
 
-if [[ -z "$DISTRO_FAMILY" ]]; then fail "Unsupported: ${DISTRO_NAME:-unknown}. Need: Ubuntu/Debian or CentOS/RHEL/Fedora"; exit 1; fi
+if [[ -z "$DISTRO_FAMILY" ]]; then fail "Unsupported: ${DISTRO_NAME:-unknown}. Need: macOS, Ubuntu/Debian, or CentOS/RHEL/Fedora"; exit 1; fi
 ok "OS: ${PRETTY_NAME:-$DISTRO_NAME} ($DISTRO_FAMILY)"
 
 SUDO=""
-if [[ $EUID -ne 0 ]]; then
+if [[ "$DISTRO_FAMILY" != "darwin" && $EUID -ne 0 ]]; then
     command -v sudo &>/dev/null || { fail "Not root and sudo not found / 请以 root 运行或安装 sudo"; exit 1; }
     SUDO="sudo"
+fi
+# On Darwin, /usr/local/bin often requires sudo which we skip.
+# Use ~/.local/bin for user-local binaries.
+if [[ "$DISTRO_FAMILY" == "darwin" ]]; then
+    USER_BIN_DIR="$HOME/.local/bin"
+    mkdir -p "$USER_BIN_DIR"
+    case ":$PATH:" in
+        *":$USER_BIN_DIR:"*) ;;
+        *) export PATH="$USER_BIN_DIR:$PATH" ;;
+    esac
+    # Persist ~/.local/bin to login profiles unconditionally so that any later
+    # persist_user_bin symlinks survive in new terminals.
+    for _prof in $(darwin_login_profiles); do
+        append_to_profile 'export PATH="$HOME/.local/bin:$PATH"  # Cat Cafe user binaries' "$_prof"
+    done
+    unset _prof
 fi
 
 resolve_project_dir
 ok "Source tree: $PROJECT_DIR"
 
-# ── [2/9] Install system dependencies ──────────────────────
-step "[2/9] Checking system dependencies / 检测系统依赖..."
+# Preflight network check — fail early before installer-managed downloads.
+if [[ "$SKIP_PREFLIGHT" != true && -f "$PROJECT_DIR/scripts/preflight.sh" ]]; then
+    preflight_args=()
+    [[ -n "$NPM_REGISTRY" ]] && preflight_args+=("--registry=$NPM_REGISTRY")
+    preflight_args+=("--timeout=3")
+    if ! bash "$PROJECT_DIR/scripts/preflight.sh" "${preflight_args[@]}"; then
+        warn "Preflight detected unreachable endpoints (see above)."
+        warn "Install may fail. Fix the issues above or use --skip-preflight to bypass."
+        if [[ "$HAS_TTY" == true ]]; then
+            tty_read "  Continue anyway? [y/N] " _pf_continue
+            [[ "$_pf_continue" =~ ^[Yy] ]] || { fail "Aborted by user"; exit 1; }
+        else
+            fail "Non-interactive mode — aborting. Use --skip-preflight to force."
+            exit 1
+        fi
+    fi
+fi
+
+# ── [2/8] Install system dependencies ──────────────────────
+step "[2/8] Checking system dependencies / 检测系统依赖..."
 NEED_PKGS=()
 for cmd in git curl; do
     if command -v "$cmd" &>/dev/null; then ok "$cmd found"
@@ -521,15 +767,42 @@ for cmd in git curl; do
         NEED_PKGS+=("$cmd")
     fi
 done
-if ! command -v gcc &>/dev/null || ! command -v g++ &>/dev/null || ! command -v make &>/dev/null; then
-    warn "C/C++ build toolchain incomplete — will install"
-    case "$DISTRO_FAMILY" in debian) NEED_PKGS+=(build-essential) ;; rhel) NEED_PKGS+=(gcc gcc-c++ make) ;; esac
+if [[ "$DISTRO_FAMILY" == "darwin" ]]; then
+    # Xcode CLT provides git, make, clang — install if missing
+    if ! xcode-select -p &>/dev/null; then
+        warn "Xcode Command Line Tools not found — installing..."
+        xcode-select --install 2>/dev/null || true
+        # Wait for the installer to finish (user-interactive on macOS).
+        # Use a long, non-fatal timeout: CLT install can legitimately take
+        # longer on slow networks or first-time setups.
+        _xcode_wait=0
+        _xcode_timeout=1800
+        until xcode-select -p &>/dev/null; do
+            sleep 5; _xcode_wait=$((_xcode_wait + 5))
+            if [[ $_xcode_wait -ge $_xcode_timeout ]]; then
+                warn "Xcode CLT not ready after 30 min. Continuing setup; run again after CLT finishes if build tools are missing."
+                break
+            fi
+        done
+        if xcode-select -p &>/dev/null; then
+            ok "Xcode Command Line Tools installed"
+        else
+            warn "Xcode Command Line Tools still not ready. You may need: xcode-select --install"
+        fi
+        unset _xcode_wait _xcode_timeout
+    else ok "Xcode Command Line Tools present"
+    fi
+else
+    if ! command -v gcc &>/dev/null || ! command -v g++ &>/dev/null || ! command -v make &>/dev/null; then
+        warn "C/C++ build toolchain incomplete — will install"
+        case "$DISTRO_FAMILY" in debian) NEED_PKGS+=(build-essential) ;; rhel) NEED_PKGS+=(gcc gcc-c++ make) ;; esac
+    fi
+    # Ensure HTTPS/GPG deps exist (needed for NodeSource)
+    case "$DISTRO_FAMILY" in
+        debian) for p in ca-certificates gnupg; do dpkg -s "$p" &>/dev/null || NEED_PKGS+=("$p"); done ;;
+        rhel) rpm -q ca-certificates &>/dev/null || NEED_PKGS+=(ca-certificates); rpm -q gnupg2 &>/dev/null || NEED_PKGS+=(gnupg2) ;;
+    esac
 fi
-# Ensure HTTPS/GPG deps exist (needed for NodeSource)
-case "$DISTRO_FAMILY" in
-    debian) for p in ca-certificates gnupg; do dpkg -s "$p" &>/dev/null || NEED_PKGS+=("$p"); done ;;
-    rhel) rpm -q ca-certificates &>/dev/null || NEED_PKGS+=(ca-certificates); rpm -q gnupg2 &>/dev/null || NEED_PKGS+=(gnupg2) ;;
-esac
 if [[ ${#NEED_PKGS[@]} -gt 0 ]]; then
     info "  Installing: ${NEED_PKGS[*]}..."
     $SUDO $PKG_UPDATE 2>/dev/null || true
@@ -537,8 +810,21 @@ if [[ ${#NEED_PKGS[@]} -gt 0 ]]; then
 else ok "All system dependencies present"
 fi
 
-# ── [3/9] Install Node.js 20+ ────────────────────────────
-step "[3/9] Checking Node.js / 检测 Node.js..."
+# F088 Phase J2: pandoc for document generation (MD → PDF/DOCX)
+if command -v pandoc &>/dev/null; then
+    ok "pandoc found ($(pandoc --version | head -1))"
+else
+    info "Installing pandoc (document generation)..."
+    case "$DISTRO_FAMILY" in
+        darwin) brew install pandoc && ok "pandoc installed" || warn "pandoc install failed — document generation will fall back to .md" ;;
+        debian) $SUDO $PKG_INSTALL pandoc && ok "pandoc installed" || warn "pandoc install failed — document generation will fall back to .md" ;;
+        rhel) $SUDO $PKG_INSTALL pandoc && ok "pandoc installed" || warn "pandoc install failed — document generation will fall back to .md" ;;
+        *) warn "pandoc not installed — document generation will fall back to .md" ;;
+    esac
+fi
+
+# ── [3/8] Install Node.js 20+ ────────────────────────────
+step "[3/8] Checking Node.js / 检测 Node.js..."
 node_needs_install() {
     command -v node &>/dev/null || return 0
     local v; v=$(node -v | sed 's/v//' | cut -d. -f1)
@@ -559,6 +845,27 @@ install_node_fnm() {
 if node_needs_install; then
     NODE_OK=false
     case "$DISTRO_FAMILY" in
+        darwin)
+            # Prefer fnm for version management; fall back to Homebrew
+            install_node_fnm && NODE_OK=true
+            if [[ "$NODE_OK" == false ]]; then
+                brew install node@20 2>/dev/null || true
+                # node@20 is keg-only — Homebrew does not link it into PATH by default.
+                # Add the keg bin to PATH for this session AND persist to shell profile.
+                _keg_prefix="$(brew --prefix node@20 2>/dev/null || true)"
+                _keg_bin="${_keg_prefix:+$_keg_prefix/bin}"
+                if [[ -n "$_keg_bin" && -d "$_keg_bin" ]]; then
+                    export PATH="$_keg_bin:$PATH"
+                    _keg_line="export PATH=\"$_keg_bin:\$PATH\"  # Homebrew node@20 keg"
+                    for _prof in $(darwin_login_profiles); do
+                        append_to_profile "$_keg_line" "$_prof"
+                    done
+                    ok "Node keg PATH persisted to login profiles"
+                fi
+                unset _keg_prefix _keg_bin _keg_line _prof
+                node_needs_install || NODE_OK=true
+            fi
+            ;;
         debian)
             $SUDO mkdir -p /etc/apt/keyrings
             if timeout 15 curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
@@ -578,13 +885,25 @@ if node_needs_install; then
     esac
     node_needs_install && NODE_OK=false
     [[ "$NODE_OK" == false ]] && { fail "Could not install Node.js 20. Install manually: https://nodejs.org"; exit 1; }
+    # Persist PATH additions to login profiles (zsh + bash) for new terminals.
+    if [[ "$DISTRO_FAMILY" == "darwin" ]]; then
+        for _prof in $(darwin_login_profiles); do
+            append_to_profile 'export PATH="$HOME/.local/bin:$PATH"  # Cat Cafe user binaries' "$_prof"
+            if [[ "$USED_FNM" == true ]]; then
+                _fnm_shell="zsh"
+                [[ "$_prof" == *bash* || "$_prof" == *profile ]] && _fnm_shell="bash"
+                append_to_profile "eval \"\$(fnm env --shell $_fnm_shell 2>/dev/null)\" 2>/dev/null || true  # fnm" "$_prof"
+            fi
+        done
+        unset _prof _fnm_shell
+    fi
     ok "Node.js $(node -v) installed"
 else
     ok "Node.js $(node -v) already installed (>= 20)"
 fi
 
-# ── [4/9] Install pnpm + Redis ─────────────────────────────
-step "[4/9] Checking pnpm & Redis / 检测 pnpm 和 Redis..."
+# ── [4/8] Install pnpm + Redis ─────────────────────────────
+step "[4/8] Checking pnpm & Redis / 检测 pnpm 和 Redis..."
 if ! command -v pnpm &>/dev/null; then
     warn "pnpm not found — installing"
     if command -v corepack &>/dev/null; then
@@ -594,28 +913,56 @@ if ! command -v pnpm &>/dev/null; then
     if ! command -v pnpm &>/dev/null; then
         npm_global_install pnpm || { warn "npm failed — trying npmmirror"; $SUDO npm install -g pnpm --registry https://registry.npmmirror.com; }
     fi
-    [[ "$USED_FNM" == true ]] && persist_user_bin pnpm
+    persist_user_bin pnpm
+    # Ensure ~/.local/bin is on PATH for new terminals (may not have been written
+    # if Node was already present and the Node install step was skipped).
+    if [[ "$DISTRO_FAMILY" == "darwin" ]]; then
+        for _prof in $(darwin_login_profiles); do
+            append_to_profile 'export PATH="$HOME/.local/bin:$PATH"  # Cat Cafe user binaries' "$_prof"
+        done
+        unset _prof
+    fi
     ok "pnpm $(pnpm -v) installed"
 else ok "pnpm $(pnpm -v) already installed"
 fi
 # Redis: detect → already running / --memory skip / ask user
 install_redis_local() {
-    case "$DISTRO_FAMILY" in debian) $SUDO $PKG_INSTALL redis-server ;; rhel) $SUDO $PKG_INSTALL redis ;; esac
-    $SUDO systemctl enable redis-server 2>/dev/null || $SUDO systemctl enable redis 2>/dev/null || true
-    $SUDO systemctl start redis-server 2>/dev/null || $SUDO systemctl start redis 2>/dev/null || true; ok "Redis installed and started"
+    case "$DISTRO_FAMILY" in
+        darwin)
+            if ! brew install redis 2>/dev/null; then
+                fail "brew install redis failed"; return 1
+            fi
+            # Start is best-effort — install is what matters
+            if ! brew services start redis 2>/dev/null; then
+                warn "brew services start redis failed — you can start it later with: brew services start redis"
+            fi
+            ;;
+        debian) $SUDO $PKG_INSTALL redis-server ;;
+        rhel) $SUDO $PKG_INSTALL redis ;;
+    esac
+    if [[ "$DISTRO_FAMILY" != "darwin" ]]; then
+        $SUDO systemctl enable redis-server 2>/dev/null || $SUDO systemctl enable redis 2>/dev/null || true
+        $SUDO systemctl start redis-server 2>/dev/null || $SUDO systemctl start redis 2>/dev/null || true
+    fi
+    ok "Redis installed"
+}
+start_redis_if_stopped() {
+    if [[ "$DISTRO_FAMILY" == "darwin" ]]; then
+        brew services start redis 2>/dev/null || true
+    else
+        $SUDO systemctl start redis-server 2>/dev/null || $SUDO systemctl start redis 2>/dev/null || true
+    fi
 }
 if [[ "$MEMORY_MODE" == true ]]; then warn "Memory mode (--memory) — skipping Redis"
 elif command -v redis-server &>/dev/null; then ok "Redis already installed"
-    redis-cli ping &>/dev/null 2>&1 || {
-        warn "Redis not running — starting..."
-        $SUDO systemctl start redis-server 2>/dev/null || $SUDO systemctl start redis 2>/dev/null || true; }
+    redis-cli ping &>/dev/null 2>&1 || { warn "Redis not running — starting..."; start_redis_if_stopped; sleep 1; redis-cli ping &>/dev/null 2>&1 || warn "Redis started but not responding to ping"; }
 else
     warn "Redis not found — installing locally"
     install_redis_local
 fi
 
-# ── [5/9] Build checked-out project ────────────────────────
-step "[5/9] Preparing current repo / 准备当前仓库..."
+# ── [5/8] Build checked-out project ────────────────────────
+step "[5/8] Preparing current repo / 准备当前仓库..."
 cd "$PROJECT_DIR"
 ok "Using project: $PROJECT_DIR"
 pnpm_install_with_fallback || { fail "pnpm install failed in $PROJECT_DIR"; exit 1; }
@@ -628,38 +975,102 @@ ok "Build complete"
 # Skills: per-skill user-level symlinks (ADR-009)
 SKILLS_SOURCE="$PROJECT_DIR/cat-cafe-skills"
 if [[ -d "$SKILLS_SOURCE" ]]; then
-    for tdir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.gemini/skills"; do
+    for tdir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.gemini/skills" "$HOME/.kimi/skills"; do
         mkdir -p "$tdir"
         for sd in "$SKILLS_SOURCE"/*/; do
             [[ -d "$sd" ]] || continue; sn=$(basename "$sd"); [[ "$sn" == "refs" ]] && continue; ln -sfn "$sd" "$tdir/$sn"
         done
     done; ok "Skills linked"
 else fail "cat-cafe-skills/ not found"; exit 1; fi
+sync_agent_hooks_best_effort
 
-# ── [6/9] Install AI agent CLI tools ─────────────────────
-step "[6/9] Installing AI CLI tools / 安装 AI 命令行工具..."
-info "  Clowder spawns CLI subprocesses — these are required"
+# ── [6/8] Install AI agent CLI tools ─────────────────────
+step "[6/8] Installing AI CLI tools / 安装 AI 命令行工具..."
+info "  Cat Cafe spawns CLI subprocesses — these are required"
 install_npm_cli() {
-    local name="$1" cmd="$2" pkg="$3"; info "  Installing $name ($pkg)..."; npm_global_install "$pkg" 2>&1; hash -r 2>/dev/null || true
-    command -v "$cmd" &>/dev/null || { fail "$name install failed. Try: npm install -g $pkg"; exit 1; }; ok "$name installed"
+    local name="$1" cmd="$2" pkg="$3"
+    info "  Installing $name ($pkg)..."
+    npm_global_install "$pkg" 2>&1
+    # npm global bin may not be on PATH (custom prefix, fnm, etc.)
+    local _npm_bin; _npm_bin="$(npm config get prefix 2>/dev/null)/bin"
+    if [[ -d "$_npm_bin" ]]; then
+        case ":$PATH:" in *":$_npm_bin:"*) ;; *) export PATH="$_npm_bin:$PATH" ;; esac
+    fi
+    hash -r 2>/dev/null || true
+    command -v "$cmd" &>/dev/null || { fail "$name install failed. Try: npm install -g $pkg"; exit 1; }
+    persist_user_bin "$cmd"
+    ok "$name installed"
+}
+install_brew_cask() {
+    local name="$1" cmd="$2" cask="$3"
+    info "  Installing $name via Homebrew cask ($cask)..."
+    brew install --cask "$cask" 2>&1
+    hash -r 2>/dev/null || true
+    command -v "$cmd" &>/dev/null || { fail "$name install failed. Try: brew install --cask $cask"; exit 1; }; ok "$name installed"
+}
+install_kimi_cli() {
+    info "  Installing Kimi CLI..."
+    if command -v uv &>/dev/null; then
+        uv tool install --python 3.13 kimi-cli >/dev/null 2>&1 || uv tool upgrade kimi-cli >/dev/null 2>&1 || true
+    elif command -v pipx &>/dev/null; then
+        pipx install kimi-cli >/dev/null 2>&1 || pipx upgrade kimi-cli >/dev/null 2>&1 || true
+    elif command -v python3 &>/dev/null; then
+        python3 -m pip install --user --upgrade kimi-cli >/dev/null 2>&1 || true
+    else
+        fail "Kimi install failed. Need uv, pipx, or python3 to install kimi-cli"
+        exit 1
+    fi
+    export PATH="$HOME/.local/bin:$PATH"; hash -r 2>/dev/null || true
+    command -v kimi &>/dev/null || { fail "Kimi install failed. Try: uv tool install --python 3.13 kimi-cli"; exit 1; }; ok "Kimi CLI installed"
 }
 install_claude_cli() {
     info "  Installing Claude Code..."
-    # Download the installer to a temp file first, then run it.
-    # Running `curl ... | bash </dev/null` breaks the pipe (bash's stdin IS
-    # the pipe from curl).  A temp file avoids the stdin conflict entirely.
-    local tmp_installer; tmp_installer="$(mktemp)"
-    curl -fsSL https://claude.ai/install.sh -o "$tmp_installer" 2>&1
-    bash "$tmp_installer" </dev/null 2>&1
-    rm -f "$tmp_installer"
-    export PATH="$HOME/.local/bin:$HOME/.claude/bin:$PATH"; hash -r 2>/dev/null || true
-    command -v claude &>/dev/null || { fail "Claude install failed. Try: curl -fsSL https://claude.ai/install.sh | bash"; exit 1; }; ok "Claude Code installed"
+    if [[ "$DISTRO_FAMILY" == "darwin" ]]; then
+        # macOS: brew cask — "claude-code" is the CLI, "claude" is the desktop app
+        # claude.ai/install.sh is region-blocked in some countries
+        install_brew_cask "Claude Code" "claude" "claude-code"
+    else
+        # Linux: use npm — Homebrew is not available on most Linux servers
+        install_npm_cli "Claude Code" "claude" "@anthropic-ai/claude-code"
+    fi
+}
+install_codex_cli() {
+    info "  Installing Codex CLI..."
+    if [[ "$DISTRO_FAMILY" == "darwin" ]]; then
+        install_brew_cask "Codex CLI" "codex" "codex"
+    else
+        install_npm_cli "Codex CLI" "codex" "@openai/codex"
+    fi
+}
+antigravity_cli_available() {
+    command -v agy &>/dev/null || [[ -x "$HOME/.local/bin/agy" ]]
+}
+install_antigravity_cli() {
+    info "  Installing Antigravity CLI..."
+    local installer_url="https://antigravity.google/cli/install.sh"
+    if ! command -v curl &>/dev/null; then
+        warn "curl not found — install Antigravity CLI manually: curl -fsSL $installer_url | bash"
+        return 1
+    fi
+    if curl -fsSL "$installer_url" | bash; then
+        [[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"
+        hash -r 2>/dev/null || true
+        if antigravity_cli_available; then
+            ok "Antigravity CLI installed"
+        else
+            warn "Antigravity CLI installer completed but agy is not visible yet. Add ~/.local/bin to PATH or open a new shell."
+        fi
+    else
+        warn "Antigravity CLI install failed — run manually: curl -fsSL $installer_url | bash"
+        return 1
+    fi
 }
 # Detect missing CLIs
 MISSING_AGENTS=()
 command -v claude &>/dev/null && ok "Claude Code already installed" || MISSING_AGENTS+=("claude")
 command -v codex &>/dev/null && ok "Codex CLI already installed"  || MISSING_AGENTS+=("codex")
-command -v gemini &>/dev/null && ok "Gemini CLI already installed" || MISSING_AGENTS+=("gemini")
+antigravity_cli_available && ok "Antigravity CLI already installed" || MISSING_AGENTS+=("agy")
+command -v kimi &>/dev/null && ok "Kimi CLI already installed"   || MISSING_AGENTS+=("kimi")
 
 if [[ ${#MISSING_AGENTS[@]} -gt 0 ]]; then
     INSTALL_AGENTS=("${MISSING_AGENTS[@]}")  # default: install all missing
@@ -682,70 +1093,15 @@ if [[ ${#MISSING_AGENTS[@]} -gt 0 ]]; then
     for agent in "${INSTALL_AGENTS[@]}"; do
         case "$agent" in
             claude) install_claude_cli ;;
-            codex)  install_npm_cli "Codex CLI" "codex" "@openai/codex" ;;
-            gemini) install_npm_cli "Gemini CLI" "gemini" "@google/gemini-cli" ;;
+            codex)  install_codex_cli ;;
+            agy)    install_antigravity_cli ;;
+            kimi)   install_kimi_cli ;;
         esac
     done
 fi
 
-# ── [7/9] Authentication setup / 认证配置 ─────────────────
-step "[7/9] Authentication setup / 认证配置..."
-configure_agent_auth() {
-    local name="$1" cmd="$2"
-    command -v "$cmd" &>/dev/null || return 0
-    local auth_sel
-    tty_select auth_sel "  $name ($cmd) — auth mode:" \
-        "OAuth / Subscription (recommended / 推荐)" \
-        "API Key"
-    if [[ "$auth_sel" != "1" ]]; then
-        [[ "$cmd" == "claude" ]] && remove_claude_installer_profile
-        [[ "$cmd" == "codex" ]] && set_codex_oauth_mode
-        [[ "$cmd" == "gemini" ]] && set_gemini_oauth_mode
-        ok "$name: OAuth mode (login on first use: run '$cmd')"
-        return 0
-    fi
-    local key="" base_url="" model=""
-    tty_read_secret "    API Key: " key
-    case "$cmd" in
-        claude)
-            tty_read "    Base URL (Enter = https://api.anthropic.com): " base_url
-            tty_read "    Model (Enter = default): " model
-            if [[ -n "$key" ]]; then
-                write_claude_profile "$key" "$base_url" "$model"
-                ok "$name: API key profile created in .cat-cafe/"
-            else
-                remove_claude_installer_profile
-                warn "$name: no key provided, removed stale installer profile if any"
-            fi
-            ;;
-        codex)
-            tty_read "    Base URL (Enter = default): " base_url
-            tty_read "    Model (Enter = default): " model
-            if [[ -n "$key" ]]; then
-                set_codex_api_key_mode "$key" "$base_url" "$model"
-                ok "$name: API key collected (will write to .env)"
-            else warn "$name: no key provided, keeping OAuth"; set_codex_oauth_mode; fi
-            ;;
-        gemini)
-            tty_read "    Model (Enter = default): " model
-            if [[ -n "$key" ]]; then
-                set_gemini_api_key_mode "$key" "$model"
-                ok "$name: API key collected (will write to .env)"
-            else warn "$name: no key provided, keeping OAuth"; set_gemini_oauth_mode; fi
-            ;;
-    esac
-}
-
-if [[ "$HAS_TTY" == true ]]; then
-    info "  Configure each agent / 逐个配置每只猫的认证方式："
-    configure_agent_auth "Claude (布偶猫)" "claude"; configure_agent_auth "Codex (缅因猫)" "codex"
-    configure_agent_auth "Gemini (暹罗猫)" "gemini"
-else
-    info "  Non-interactive — skipping auth. Run each CLI to log in: claude / codex / gemini"
-fi
-
-# ── [8/9] Generate .env with all collected config ─────────
-step "[8/9] Generating config / 生成配置..."
+# ── [7/8] Generate .env with all collected config ─────────
+step "[7/8] Generating config / 生成配置..."
 if [[ -f .env ]]; then
     warn ".env already exists — not overwriting. To regenerate: cp .env.example .env"
 elif [[ -f .env.example ]]; then
@@ -753,18 +1109,39 @@ elif [[ -f .env.example ]]; then
 else fail ".env.example not found in $PROJECT_DIR"; exit 1
 fi
 # Write collected auth config + Docker detection
-for key in "${ENV_DELETE_KEYS[@]}"; do delete_env_key "$key"; done
-for i in "${!ENV_KEYS[@]}"; do write_env_key "${ENV_KEYS[$i]}" "${ENV_VALUES[$i]}"; done
+# Bash <4.4 treats empty arrays as unbound under set -u; guard with ${arr[@]+"${arr[@]}"}.
+for key in ${ENV_DELETE_KEYS[@]+"${ENV_DELETE_KEYS[@]}"}; do delete_env_key "$key"; done
+for i in ${ENV_KEYS[@]+"${!ENV_KEYS[@]}"}; do write_env_key "${ENV_KEYS[$i]}" "${ENV_VALUES[$i]}"; done
 [[ ${#ENV_KEYS[@]} -gt 0 ]] && ok "Auth config written to .env"
+# #675/#705: Generate TELEMETRY_HMAC_SALT if missing, quoted-empty, or whitespace-only
+_raw_salt="$(sed -n 's/^TELEMETRY_HMAC_SALT=//p' .env 2>/dev/null || true)"
+_trimmed_salt="$(printf '%s' "$_raw_salt" | tr -d "\"' \t\n\r")"
+if [[ -z "$_trimmed_salt" ]]; then
+    _salt="$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p -c 64 2>/dev/null || python3 -c 'import secrets;print(secrets.token_hex(32))' 2>/dev/null || echo '')"
+    if [[ -n "$_salt" ]]; then
+        write_env_key "TELEMETRY_HMAC_SALT" "$_salt"
+        ok "Generated TELEMETRY_HMAC_SALT"
+    fi
+    unset _salt
+fi
+unset _raw_salt _trimmed_salt
 # Auto-detect Docker: only set host default on a freshly generated .env.
 maybe_write_docker_api_host
 chmod 600 .env 2>/dev/null || true
 
-# ── [9/9] Done ──────────────────────────────────────────────
-step "[9/9] Installation complete! / 安装完成！"
-echo -e "\n  ${GREEN}══ Clowder AI is ready! 猫猫咖啡已就绪！══${NC}\n  Project: $PROJECT_DIR"
+# ── [8/8] Done ──────────────────────────────────────────────
+step "[8/8] Installation complete! / 安装完成！"
+echo -e "\n  ${GREEN}══ Cat Cafe is ready! 猫猫咖啡已就绪！══${NC}\n  Project: $PROJECT_DIR"
 START_CMD="cd $PROJECT_DIR && pnpm start"; [[ "$MEMORY_MODE" == true ]] && START_CMD+=" --memory"
-echo -e "  Start: $START_CMD\n  Open:  http://localhost:3003\n"
+# The script runs as a subprocess — PATH changes don't propagate to the parent
+# shell. On macOS, prefix the banner command with `source ~/.zprofile` so the
+# user can copy-paste and have the correct PATH (including ~/.local/bin).
+if [[ "$DISTRO_FAMILY" == "darwin" ]]; then
+    _profile="${ZDOTDIR:-$HOME}/.zprofile"
+    START_CMD="source $_profile && $START_CMD"
+    unset _profile
+fi
+echo -e "  Start: $START_CMD\n  Open:  $(default_frontend_url)\n"
 if [[ "$AUTO_START" == true ]]; then
     echo -e "${CYAN}Starting service (--start)...${NC}"; echo ""
     if [[ "$MEMORY_MODE" == true ]]; then exec pnpm start --memory; else exec pnpm start; fi

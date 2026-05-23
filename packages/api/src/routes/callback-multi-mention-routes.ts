@@ -9,8 +9,9 @@ import { type CatId, catRegistry, createCatId, DEFAULT_TIMEOUT_MINUTES } from '@
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
-import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
+import { stampVisibleTurn } from '../domains/cats/services/agents/invocation/visible-turn.js';
+import { resolveCatTarget } from '../domains/cats/services/agents/routing/cat-target-resolver.js';
 import {
   type MultiMentionCreateParams,
   MultiMentionOrchestrator,
@@ -20,7 +21,7 @@ import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
-import { callbackAuthSchema } from './callback-auth-schema.js';
+import { requireCallbackAuth } from './callback-auth-prehandler.js';
 
 // ── Singleton orchestrator ───────────────────────────────────────────
 let globalOrchestrator: MultiMentionOrchestrator | undefined;
@@ -36,7 +37,7 @@ export function resetMultiMentionOrchestrator(): void {
 }
 
 // ── Schema ───────────────────────────────────────────────────────────
-const multiMentionSchema = callbackAuthSchema.extend({
+const multiMentionSchema = z.object({
   targets: z.array(z.string().min(1)).min(1).max(3),
   question: z.string().min(1).max(5000),
   callbackTo: z.string().min(1),
@@ -48,13 +49,12 @@ const multiMentionSchema = callbackAuthSchema.extend({
   triggerType: z.string().optional(),
 });
 
-const multiMentionStatusSchema = callbackAuthSchema.extend({
+const multiMentionStatusSchema = z.object({
   requestId: z.string().min(1),
 });
 
 // ── Deps ─────────────────────────────────────────────────────────────
 export interface MultiMentionRouteDeps {
-  registry: InvocationRegistry;
   messageStore: IMessageStore;
   socketManager: SocketManager;
   router: AgentRouter;
@@ -67,7 +67,11 @@ export interface MultiMentionRouteDeps {
     tryAutoExecute?(threadId: string): Promise<void>;
     registerEntryCompleteHook?(
       entryId: string,
-      hook: (entryId: string, status: 'succeeded' | 'failed' | 'canceled', responseText: string) => void,
+      hook: (
+        entryId: string,
+        status: 'succeeded' | 'failed' | 'canceled' | 'canceled_by_user',
+        responseText: string,
+      ) => void,
     ): void;
     unregisterEntryCompleteHook?(entryId: string): void;
   };
@@ -140,9 +144,9 @@ function dispatchViaQueue(
       callerCatId: initiator,
     });
 
-    if ((result.outcome === 'enqueued' || result.outcome === 'merged') && result.entry) {
+    if (result.outcome === 'enqueued' && result.entry) {
       queueProcessor.registerEntryCompleteHook?.(result.entry.id, (_entryId, status, responseText) => {
-        if (status === 'canceled') {
+        if (status === 'canceled' || status === 'canceled_by_user') {
           log.info({ requestId, catId }, '[F122B B6] multi-mention queue entry canceled, skipping recordResponse');
           return;
         }
@@ -224,13 +228,11 @@ async function dispatchToTarget(
 
     orch.registerDispatch(requestId, targetCatId, controller);
 
+    let governanceErrorCode: string | undefined;
+
     try {
-      socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', {
-        threadId,
-        mode: intent.intent,
-        targetCats: [targetCatId],
-        invocationId: createResult.invocationId,
-      });
+      // #768: Defer intent_mode broadcast until CLI produces first event.
+      let intentModeBroadcast = false;
 
       for await (const msg of router.routeExecution(
         userId,
@@ -241,6 +243,16 @@ async function dispatchToTarget(
         intent,
         { signal: controller.signal, parentInvocationId: invocationId },
       )) {
+        // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
+        if (!intentModeBroadcast) {
+          socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', {
+            threadId,
+            mode: intent.intent,
+            targetCats: [targetCatId],
+            invocationId: createResult.invocationId,
+          });
+          intentModeBroadcast = true;
+        }
         if (controller.signal.aborted) break;
 
         // Capture text + tool usage for response aggregation
@@ -251,21 +263,34 @@ async function dispatchToTarget(
             toolsUsed.push(msg.toolName);
           }
         }
+        if (msg.type === 'done' && msg.errorCode) {
+          governanceErrorCode = msg.errorCode;
+        }
 
-        socketManager.broadcastAgentMessage({ ...msg, invocationId }, threadId);
+        // F194 Phase Z9 (砚砚 R1 P1-2): unified visible turn stamp via helper.
+        socketManager.broadcastAgentMessage({ ...msg, ...stampVisibleTurn(invocationId, msg.invocationId) }, threadId);
       }
 
+      const finalInvocationStatus = controller.signal.aborted
+        ? 'canceled'
+        : governanceErrorCode
+          ? 'failed'
+          : 'succeeded';
       await invocationRecordStore.update(invocationId, {
-        status: controller.signal.aborted ? 'canceled' : 'succeeded',
+        status: finalInvocationStatus,
+        ...(governanceErrorCode ? { error: governanceErrorCode } : {}),
       });
     } finally {
       orch.unregisterDispatch(requestId, targetCatId);
     }
 
-    // If aborted (stop button / preempt / thread cancel), do NOT record response
+    // If aborted or governance-blocked, do NOT record response
     // or flush result — the partial/empty text would produce a misleading summary.
-    if (controller.signal.aborted) {
-      log.info({ requestId, targetCatId }, '[F086] Multi-mention dispatch aborted, skipping recordResponse');
+    if (controller.signal.aborted || governanceErrorCode) {
+      log.info(
+        { requestId, targetCatId, governanceErrorCode },
+        '[F086] Multi-mention dispatch aborted/blocked, skipping recordResponse',
+      );
       return;
     }
 
@@ -400,29 +425,30 @@ async function flushResult(
 
 // ── Route registration ───────────────────────────────────────────────
 export function registerMultiMentionRoutes(app: FastifyInstance, deps: MultiMentionRouteDeps): void {
-  const { registry } = deps;
-
   // POST /api/callbacks/multi-mention
   app.post<{ Body: z.infer<typeof multiMentionSchema> }>('/api/callbacks/multi-mention', async (request, reply) => {
+    const record = requireCallbackAuth(request, reply);
+    if (!record) return;
+
     const body = multiMentionSchema.parse(request.body);
 
-    // Auth: verify invocation
-    const record = registry.verify(body.invocationId, body.callbackToken);
-    if (!record) {
-      return reply.status(401).send({ error: 'Invalid or expired callback credentials' });
-    }
-
-    // Validate all targets are registered cats
+    // F182 AC-C2: A' class — validate targets + callbackTo are available (contract 400 on disabled)
     const targetCatIds: CatId[] = [];
     for (const target of body.targets) {
-      if (!catRegistry.has(target)) {
+      const resolved = resolveCatTarget(target);
+      if ('error' in resolved) {
+        // cat_disabled: return full CatRoutingError (F182 AC-C2 contract, checked by C2-e)
+        // cat_not_found: backward-compat { error: 'Unknown cat: ...' } (pre-existing contract)
+        if (resolved.error.kind === 'cat_disabled') return reply.status(400).send(resolved.error);
         return reply.status(400).send({ error: `Unknown cat: ${target}` });
       }
-      targetCatIds.push(createCatId(target));
+      targetCatIds.push(createCatId(resolved.ok));
     }
 
     // Validate callbackTo
-    if (!catRegistry.has(body.callbackTo)) {
+    const callbackToResolved = resolveCatTarget(body.callbackTo);
+    if ('error' in callbackToResolved) {
+      if (callbackToResolved.error.kind === 'cat_disabled') return reply.status(400).send(callbackToResolved.error);
       return reply.status(400).send({ error: `Unknown callbackTo cat: ${body.callbackTo}` });
     }
 
@@ -440,7 +466,7 @@ export function registerMultiMentionRoutes(app: FastifyInstance, deps: MultiMent
     const createParams = {
       threadId: record.threadId,
       initiator: callerCatId,
-      callbackTo: createCatId(body.callbackTo),
+      callbackTo: createCatId(callbackToResolved.ok),
       targets: targetCatIds,
       question: body.question,
       timeoutMinutes: body.timeoutMinutes ?? DEFAULT_TIMEOUT_MINUTES,
@@ -512,12 +538,10 @@ export function registerMultiMentionRoutes(app: FastifyInstance, deps: MultiMent
   app.get<{ Querystring: z.infer<typeof multiMentionStatusSchema> }>(
     '/api/callbacks/multi-mention-status',
     async (request, reply) => {
-      const query = multiMentionStatusSchema.parse(request.query);
+      const record = requireCallbackAuth(request, reply);
+      if (!record) return;
 
-      const record = registry.verify(query.invocationId, query.callbackToken);
-      if (!record) {
-        return reply.status(401).send({ error: 'Invalid or expired callback credentials' });
-      }
+      const query = multiMentionStatusSchema.parse(request.query);
 
       const orch = getMultiMentionOrchestrator();
       try {

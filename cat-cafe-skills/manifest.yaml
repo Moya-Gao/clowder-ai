@@ -38,6 +38,46 @@ skills:
     sop_step: null
     merged_from: ["feat-kickoff", "feat-discussion", "feat-completion"]
 
+  # ── 引导流程设计 ──
+  guide-authoring:
+    description: >
+      标准引导流程设计 SOP：场景识别 → YAML 编排 → 标签标注 → 注册发现 → 测试验证。
+      Use when: 新建引导流程、添加场景引导、维护 Guide Catalog、编写引导 YAML。
+      Not for: 使用引导（用户侧）、Guide Engine 代码实现（用 tdd）、视觉设计（用 pencil-design）。
+      Output: Flow YAML + tag-manifest 更新 + registry 注册 + CI 校验通过。
+    triggers:
+      - "新建引导"
+      - "添加场景引导"
+      - "写引导流程"
+      - "guide authoring"
+      - "引导 YAML"
+    not_for:
+      - "使用引导"
+      - "Guide Engine 实现"
+      - "出设计稿"
+    output: "Flow YAML / tag-manifest / registry entry / CI green"
+    next: ["pencil-design", "tdd"]
+    sop_step: null
+
+  guide-interaction:
+    description: >
+      场景引导交互模式：用户明确在问某项功能怎么做时，先判断该直接解释还是进入交互引导；
+      系统注入了 Guide Matched / Guide Pending / Guide Selection / Guide Active / Guide Completed 时，
+      按状态驱动回复并使用对应 guide MCP 工具。
+      Use when: 系统注入了上述 guide 状态，或用户明确在问某项功能怎么操作。
+      Not for: 普通闲聊、代码实现、没有流程诉求的概念讨论。
+      Output: guide 目录判断 + 交互选择卡片 + 状态持久化 + 前端引导启动。
+    triggers:
+      - "引导流程"
+      - "怎么配置"
+      - "怎么操作"
+    not_for:
+      - "普通闲聊"
+      - "代码实现"
+    output: "Guide catalog judgment / choice card / state persistence / overlay start"
+    next: ["guide-authoring"]
+    sop_step: null
+
   # ── 协作思考 ──
   collaborative-thinking:
     description: >
@@ -59,6 +99,34 @@ skills:
     next: ["writing-plans", "feat-lifecycle"]
     sop_step: null
     merged_from: ["brainstorming", "multi-cat-brainstorm", "discussion-convergence"]
+
+  # ── 专家辩论团 ──
+  expert-panel:
+    description: >
+      多猫专家辩论团：独立分析→挑战→收敛→风险预演→语音汇报→文档交付。
+      Use when: 技术趋势判断、竞品分析、行业事件分析、需要多视角决策支持、铲屎官说"帮我分析一下"。
+      Not for: 单猫能搞定的问题、代码实现、bug fix、日常聊天。
+      Output: 洞察卡片(rich block) + 语音总结 + 会议纪要 + 正式报告(DOCX/PDF)。
+    triggers:
+      - "帮我分析一下"
+      - "专家辩论"
+      - "expert panel"
+      - "技术参谋"
+      - "竞品分析"
+      - "行业分析"
+      - "趋势判断"
+      - "多猫分析"
+      - "三猫讨论"
+      - "showcase"
+    not_for:
+      - "单猫能搞定的问题"
+      - "代码实现"
+      - "bug fix"
+      - "日常聊天"
+    output: "Insight card + voice summary + meeting notes + formal report (DOCX/PDF)"
+    next: ["feat-lifecycle", "deep-research", "collaborative-thinking"]
+    sop_step: null
+    merged_from: null
 
   # ── 计划编写 ──
   writing-plans:
@@ -219,6 +287,55 @@ skills:
     sop_step: [4, 5, 6]
     merged_from: ["merge-approval-gate", "requesting-cloud-review", "finishing-a-development-branch"]
 
+  # ── Thread 整理 ──
+  organize-threads:
+    description: >
+      猫猫辅助整理未分类 thread，分析标题和元数据，建议合适的标签。
+      Use when: 用户说"帮我整理"、"分类 thread"、点击整理按钮。
+      Not for: 创建/删除/编辑标签本身。
+      Output: 按 thread 的标签建议列表。
+    triggers:
+      - "帮我整理"
+      - "整理 thread"
+      - "organize threads"
+      - "分类建议"
+    not_for:
+      - "创建标签"
+      - "删除标签"
+    output: "Thread label suggestion list"
+    next: []
+    sop_step: null
+
+  # ── 开源项目拆解 ──
+  open-source-teardown:
+    description: >
+      明星开源项目拆解：从宣传/PPT/README 进入源码，验证真实架构、明星特性、算法含量、营销水分、可学习点和不 follow 的 tradeoff。
+      Use when: 铲屎官要求拆解热门 GitHub 项目、竞品 agent/runtime、外部 skill/tool 框架，或问“它到底有什么真本事/我们能学什么”。
+      Not for: 普通资料搜索（用 deep-research）、社区 issue/PR 运营（用 opensource-ops）、只需要架构头脑风暴（用 collaborative-thinking）。
+      Output: feature-discussions/YYYY-MM-DD-{project}-deep-dive/ 下的代码证据报告 + 对比结论 + 候选 lesson/skill。
+      GOTCHA: 不许只看 README 下判断；每个明星特性必须追到代码路径、状态突变点、反馈闭环和算法输入输出。
+    triggers:
+      - "拆解明星开源项目"
+      - "拆解开源项目"
+      - "竞品拆解"
+      - "热门 GitHub 项目"
+      - "它有什么真本事"
+      - "我们能学什么"
+      - "marketing vs reality"
+      - "算法含量"
+      - "拆解 hermes"
+      - "看看 letta 怎么做的"
+      - "codex cli 源码"
+      - "agent runtime 拆解"
+    not_for:
+      - "普通资料搜索"
+      - "社区 issue/PR 运营"
+      - "只需要架构头脑风暴"
+    output: "Code-evidence teardown report + Cat Cafe comparison + candidate lessons"
+    next: ["collaborative-thinking", "writing-skills", "deep-research"]
+    sop_step: null
+    merged_from: null
+
   # ── 自我进化 ──
   self-evolution:
     description: >
@@ -252,6 +369,39 @@ skills:
     sop_step: null
     merged_from: null
 
+  # ── 绝境反转 ──
+  vision-rescue:
+    description: >
+      绝境反转方法论：当任务似乎没有希望、反复摆动、准备放弃愿景时的五步突破框架。
+      Use when: 任务看起来无解、多次尝试失败后想放弃、输出投降修辞（"现状最优"/"没救了"/"接受现实"）、连续 3+ 轮在希望与绝望间摆动。
+      Not for: 正常 debugging（用 debugging）、常规探索/调研（用 deep-research）、CVO 已签字降级的目标、trivial 任务。
+      Output: Desperation Packet（六问证据评估）+ 新方向行动计划 / CVO 升级请求。
+    triggers:
+      - "没希望"
+      - "没救了"
+      - "无解"
+      - "死胡同"
+      - "不可能"
+      - "接受现实"
+      - "放弃"
+      - "走投无路"
+      - "都试过了"
+      - "现状最优"
+      - "不值得继续"
+      - "保守路径"
+      - "实际价值变了"
+      - "收口"
+      - "vision rescue"
+    not_for:
+      - "未出现绝境信号的常规 debugging"
+      - "常规调研"
+      - "CVO 已签字降级"
+      - "trivial 任务"
+    output: "Desperation Packet / 新方向行动计划 / CVO 升级请求"
+    next: ["deep-research", "collaborative-thinking", "self-evolution"]
+    sop_step: null
+    merged_from: null
+
   # ── 跨猫交接 ──
   cross-cat-handoff:
     description: >
@@ -276,7 +426,7 @@ skills:
     description: >
       跨 thread 协同：发现平行 session → 通知（3+2 件套）→ 争用协调 → 确认。
       Use when: 平行 session 之间需要协同、通知改动影响、共享文件争用。
-      Not for: 跨猫工作交接（用 cross-cat-handoff）、单 session 内并行（用 parallel-execution）。
+      Not for: 跨猫工作交接（用 cross-cat-handoff）。
       Output: cross-post 通知 + 争用协调完成。
     triggers:
       - "通知另一个 session"
@@ -287,7 +437,6 @@ skills:
       - "cross-thread"
     not_for:
       - "跨猫交接（用 cross-cat-handoff）"
-      - "单 session 内并行（用 parallel-execution）"
     output: "cross-post notification + contention resolution"
     next: []
     sop_step: null
@@ -355,14 +504,150 @@ skills:
     sop_step: null
     merged_from: ["deep-research-pipeline"]
 
+  # ── 记忆系统三入口路由（F188 Phase F）──
+  memory-navigation:
+    description: >
+      记忆系统三入口路由（search_evidence / graph_resolve / list_recent）决策树 + 噪音控制 + 加载时机。F188 Phase F (AC-F6) 配套 skill。
+      Use when: 没先验、压缩后回顾、"我记得最近讨论过 X"、search_evidence 反复 low-hit。
+      Not for: 已有精确 anchor 直接 Read；代码符号查 Grep/LSP。
+      Output: 选定入口 + 噪音控制参数 + 进入对应 MCP 工具。
+    triggers:
+      - "没先验"
+      - "压缩后"
+      - "我记得讨论过"
+      - "最近讨论"
+      - "找不到 anchor"
+      - "cold start"
+      - "扫一眼最近"
+      - "memory navigation"
+    not_for:
+      - "已有精确 anchor"
+      - "代码符号查找"
+    output: "Entry choice + noise control params + downstream tool call"
+    next: ["feat-lifecycle", "debugging", "cross-cat-handoff"]
+    sop_step: null
+    merged_from: null
+
+  memory-search-best-practices:
+    description: >
+      记忆系统多刀检索 + recall coverage 策略（8 类题型 recipe）。F200 v1.2 SW-1 配套 skill。
+      Use when: "哪些地方提过 X" / source-map / absence check / delta / coverage 全集 / 冷启动 onboard / 召回任务搜了 1 刀觉得不够。
+      Not for: 只是选入口走第一刀（用 memory-navigation）/ 已知精确 anchor 直接 Read / 代码符号查 Grep/LSP / 新功能开发。
+      Output: multi-query union 召回 + coverage matrix + "何时停下来"判据。
+      GOTCHA: 和 memory-navigation 互补不重叠 — memory-navigation 决定第一刀工具，本 skill 决定要不要补刀+几路+何时停。Ragdoll家族必加载：治"我能猜出来 / 碎片够了"病。
+    triggers:
+      - "哪些 thread"
+      - "哪些 md"
+      - "哪些地方提过"
+      - "所有"
+      - "历史上"
+      - "沉淀过"
+      - "source map"
+      - "provenance"
+      - "有没有提过"
+      - "absence check"
+      - "delta"
+      - "上次和现在"
+      - "新猫冷启动"
+      - "coverage"
+      - "全集"
+    not_for:
+      - "选入口（用 memory-navigation）"
+      - "已知精确 anchor 直接 Read"
+      - "代码符号查找"
+      - "新功能开发"
+    output: "Multi-query union recall + coverage matrix + stop criteria"
+    next: ["feat-lifecycle", "debugging", "cross-cat-handoff", "collaborative-thinking"]
+    sop_step: null
+    merged_from: null
+
+  # ── 知识工程（F152 Phase 0）──
+  knowledge-engineering:
+    description: >
+      猫猫指导外部项目文档重构 — AI FDE 知识工程方法论。
+      Use when: 猫猫部署到外部项目、用户项目缺少结构化文档、需要知识工程指导、冷启动理解业务。
+      Not for: cat-cafe 项目自身开发、已有完善 docs/ 结构的项目（直接用 CatCafeScanner）。
+      Output: 文档现状诊断 + 路径选择 + 三层知识注入建议 + 文档骨架模板。
+    triggers:
+      - "知识工程"
+      - "文档重构"
+      - "外部项目"
+      - "knowledge engineering"
+      - "冷启动"
+      - "AI FDE"
+      - "帮我整理文档"
+    not_for:
+      - "cat-cafe 自身开发"
+      - "已有完善 docs/ 结构"
+    output: "Documentation assessment + path selection + three-layer knowledge injection + skeleton templates"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  # ── 定时任务 ──
+  schedule-tasks:
+    description: >
+      定时任务注册、管理、能力指南。支持周期任务和一次性延迟任务。
+      Use when: 用户想设定时任务、定期提醒、周期巡检、定时发送内容、延迟执行一次性操作。
+      Not for: 已有 builtin 任务的手动触发。
+      Output: 注册/管理定时任务，任务到点唤醒猫执行。
+    triggers:
+      - "定时"
+      - "每天"
+      - "每小时"
+      - "每隔"
+      - "提醒我"
+      - "remind me"
+      - "schedule"
+      - "cron"
+      - "定期"
+      - "周期"
+      - "定时任务"
+      - "分钟后"
+      - "小时后"
+      - "之后"
+      - "later"
+      - "in 5 minutes"
+      - "once"
+    not_for:
+      - "builtin 任务手动触发"
+    output: "Registered/managed scheduled task"
+    next: ["rich-messaging"]
+    sop_step: null
+    merged_from: null
+
+  # ── 视频制作 ──
+  video-forge:
+    description: >
+      视频制作全链路：素材入库 → 剧本冻结 → 全局配音 → 对齐 → 渲染 → 审查 → 交付。
+      Use when: 做视频、做 showcase、做教程视频、录屏剪辑、video review、节奏审查。
+      Not for: 纯代码开发（用 worktree/tdd）、纯文档写作（直接写）、PPT（用 ppt-forge）。
+      Output: schema 驱动的视频成片 + 多猫审查通过 + 可发布。
+    triggers:
+      - "做视频"
+      - "showcase 视频"
+      - "教程视频"
+      - "录屏剪辑"
+      - "video review"
+      - "节奏审查"
+    not_for:
+      - "纯代码开发"
+      - "纯文档写作"
+      - "PPT"
+    output: "Schema-driven video production pipeline"
+    next: ["rich-messaging"]
+    sop_step: null
+    merged_from: null
+
   # ── Skill 编写 ──
   writing-skills:
     description: >
-      创建或修改 Cat Café skill 的元技能（含 CSO、测试、发布）。
-      Use when: 写新 skill、修改现有 skill、验证 skill 质量；
+      创建或修改 Cat Café skill / MCP tool description 的元技能（含质量标准、范本、发布）。
+      Use when: 写新 skill、修改现有 skill、写/改 MCP tool description、验证 skill 质量；
       或者功能实现中产出了 SKILL.md / cat-cafe-skills/ 新目录 / manifest.yaml skill 条目。
       Not for: 使用 skill（直接触发对应 skill）。
       Output: 新/更新的 SKILL.md + manifest 条目 + symlinks。
+      GOTCHA: 软硬同重——skill/MCP 质量 = 代码质量，写之前先看范本。
     triggers:
       - "写 skill"
       - "新 skill"
@@ -372,6 +657,9 @@ skills:
       - "manifest.yaml skill"
       - "创建 hook"
       - "新增 hook"
+      - "写 MCP"
+      - "MCP description"
+      - "tool description"
     not_for:
       - "使用 skill"
     output: "SKILL.md + manifest entry + symlinks"
@@ -393,6 +681,8 @@ skills:
     not_for:
       - "纯代码无设计"
     output: ".pen file or React/Tailwind component"
+    requires_mcp:
+      - "pencil"
     next: []
     sop_step: null
     merged_from: ["pencil-to-code", "pencil-renderer"]
@@ -435,6 +725,86 @@ skills:
     merged_from: null
     feature: "F066"
 
+  # ── 企业 IM 工作流 (F162) ──
+  enterprise-workflow:
+    description: >
+      企业 IM 工作流自动化：文档、表格、待办/任务、会议/日程一键创建。
+      Use when: 铲屎官要求创建企微/飞书的文档/表格/待办/会议/日程/幻灯片，或"一句话生成完整工作流"。
+      Not for: 普通聊天、消息收发（那是 F088 Transport Plane 的活）。
+      Output: 资源链接（文档 URL、企微会议链接、日程 summary 等）通过 callback 返回。
+    triggers:
+      - "创建文档"
+      - "写个文档"
+      - "create doc"
+      - "建个表格"
+      - "创建表格"
+      - "smart table"
+      - "多维表"
+      - "bitable"
+      - "建个待办"
+      - "创建待办"
+      - "todo"
+      - "创建任务"
+      - "task"
+      - "约个会"
+      - "创建会议"
+      - "create meeting"
+      - "创建日程"
+      - "calendar event"
+      - "幻灯片"
+      - "slides"
+      - "deck"
+      - "整理成文档"
+      - "拆成任务"
+      - "golden chain"
+      - "黄金链路"
+      - "工作流"
+      - "enterprise workflow"
+      - "飞书"
+      - "feishu"
+      - "lark"
+      - "企微"
+      - "wecom"
+      - "企业微信"
+    not_for:
+      - "普通聊天"
+      - "消息收发"
+    output: "Enterprise resource links returned through callback"
+    next: []
+    sop_step: null
+    merged_from: null
+    feature: "F162"
+
+  # ── Workspace 导航 (F131) ──
+  workspace-navigator:
+    description: >
+      猫猫可编程导航 Workspace 面板：铲屎官说模糊意图，猫猫找到路径，自动打开文件/目录。
+      Use when: 铲屎官说"打开日志""看看代码""打开设计图""帮我打开那个文档"等模糊指令。
+      Not for: 打开 localhost 前端页面（用 browser-preview）、纯代码编写（不涉及展示给铲屎官看）。
+      Output: Hub 右侧 Workspace 面板自动打开并导航到目标文件/目录。
+    triggers:
+      - "打开文件"
+      - "看看代码"
+      - "看日志"
+      - "帮我打开"
+      - "一起看看"
+      - "打开设计图"
+      - "看看这个文档"
+      - "打开 discussion"
+      - "看看 feature"
+      - "打开审计日志"
+      - "看看 spec"
+      - "帮我找到"
+      - "打开那个"
+    not_for:
+      - "打开 localhost 前端页面（用 browser-preview）"
+      - "纯代码编写不涉及展示"
+    output: "Hub Workspace panel auto-navigates to target file/directory"
+    next: []
+    sop_step: null
+    merged_from: null
+    feature: "F131"
+
   # ── 浏览器预览 (F120) ──
   browser-preview:
     description: >
@@ -463,6 +833,66 @@ skills:
     sop_step: null
     merged_from: null
     feature: "F120"
+
+  # ── Console 前端交付范式 ──
+  console-dev:
+    description: >
+      Console 前端交付范式：4 道门禁驱动的前端开发流程。
+      Use when: 新增前端能力、settings section 迁移、新增页面、重构布局、或 F190/Console 级前端流程需要 Product/Design/Implementation/Verification gate。
+      Not for: 小样式点改、纯后端 API、纯计算逻辑、独立 Design System token 定义。
+      Output: 通过 Product / Design-System / Implementation / Verification gate 的前端代码与证据。
+    triggers:
+      - "新增前端能力"
+      - "settings section 迁移"
+      - "console-dev"
+      - "前端范式"
+      - "重构布局"
+      - "新增页面"
+    not_for:
+      - "小样式点改"
+      - "纯后端 API"
+      - "纯计算逻辑"
+      - "独立 Design System token 定义"
+    output: "Frontend code + product/design/implementation/verification proof"
+    next: ["browser-preview", "quality-gate"]
+    sop_step: null
+    merged_from: null
+    feature: "F190"
+
+  browser-automation:
+    description: >
+      浏览器工作流总路由：为外部网站浏览、登录态流程、浏览器自动化、证据采集选择合适后端。
+      Use when: 需要操作外部网站、登录页、JS 重页面、没有 webfetch/VL 但需要浏览器、或需要在多种浏览器工具之间路由。
+      Not for: localhost 页面预览（用 browser-preview）、本地 WebApp 确定性测试（用 webapp-testing）、简单网页抓取/搜索。
+      Output: 选定浏览器后端 + 执行路径 + 证据/结果。
+    triggers:
+      - "浏览器自动化"
+      - "browser mcp"
+      - "浏览器 skill"
+      - "用浏览器"
+      - "外部网站"
+      - "登录网站"
+      - "登录态"
+      - "agent-browser"
+      - "pinchtab"
+      - "playwriter"
+      - "playwright mcp"
+      - "没有 webfetch"
+      - "无 webfetch"
+      - "没有 vl"
+    not_for:
+      - "localhost 页面预览（用 browser-preview）"
+      - "本地 WebApp 确定性测试（用 webapp-testing）"
+      - "简单网页抓取/搜索"
+    output: "Browser backend choice + execution path + evidence/result"
+    requires_mcp:
+      - "playwright"
+      - "claude-in-chrome"
+      - "agent-browser"
+      - "pinchtab"
+    next: []
+    sop_step: null
+    merged_from: null
 
   # ── 健康提醒 (F085) ──
   hyperfocus-brake:
@@ -551,6 +981,91 @@ skills:
     next: []
     sop_step: null
     merged_from: null
+
+  # ── PPT 制作全链路 (F144) ──
+  ppt-forge:
+    description: >
+      PPT 制作全链路：内容规划 → 风格定调 → Slide 制作 → 视觉审查 → 导出验证 → 交付。
+      Use when: 做 PPT、做演示文稿、做 slide、做海报、PPT review、视觉审查。
+      Not for: 纯代码开发（用 worktree/tdd）、纯文档写作（直接写）。
+      Output: 高密度 HTML slide + 多猫审查通过 + 导出验证。
+    triggers:
+      - "做 PPT"
+      - "做个 PPT"
+      - "做演示"
+      - "做 slide"
+      - "PPT review"
+      - "视觉审查"
+      - "ppt-forge"
+      - "做海报"
+      - "华为风格"
+      - "做个演示文稿"
+    not_for:
+      - "纯代码开发"
+      - "纯文档写作"
+    output: "High-density HTML slides + multi-cat visual review pass + export verification"
+    next: ["feat-lifecycle"]
+    sop_step: null
+    merged_from: null
+    feature: "F144"
+
+  # ── 技术文章对外写作 ──
+  tech-writing:
+    description: >
+      技术文章对外写作：从内部实践到读者能代入的叙事。
+      Use when: 写技术博客、公众号文章、社区分享、对外 longform、技术文章 review、写推广语。
+      Not for: 内部文档/spec（直接写）、PPT（用 ppt-forge）、纯调研报告（用 deep-research）。
+      Output: 读者能代入的技术文章 + AI味自检通过 + 推广语。
+    triggers:
+      - "写文章"
+      - "技术分享"
+      - "博客"
+      - "longform"
+      - "公众号"
+      - "对外发布"
+      - "社区分享"
+      - "推广语"
+      - "tech writing"
+    not_for:
+      - "内部文档"
+      - "spec"
+      - "PPT"
+      - "调研报告"
+    output: "Reader-friendly technical article + AI-flavor check passed + promo copy"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  # ── 金融数据 ──
+  ttfund-skills:
+    description: >
+      天天基金官方 Skills 网关调用封装。
+      Use when: 查询天天基金/天天财富基金数据、基金搜索、基金净值、基金持仓、基金经理、指数、黄金、债市、活期宝或官方 ttfund skills。
+      Not for: 交易执行、券商/银行账户操作、FRED/Tushare/yfinance/AKShare 结构化数据源、投资建议。
+      Output: 通过官方网关返回的结构化 JSON 事实数据，带 source/asOf 后再进入 F207 数据层。
+      GOTCHA: 必须有本机 TTFUND_APIKEY，且 key 只放环境变量或 gitignored .env，绝不写入 git 或回复全文。
+    triggers:
+      - "天天基金 skills"
+      - "ttfund"
+      - "TTFUND_APIKEY"
+      - "天天基金净值"
+      - "天天基金搜索"
+      - "天天基金经理"
+      - "天天基金持仓"
+      - "天天黄金"
+      - "天天债市"
+    not_for:
+      - "交易执行"
+      - "券商账户操作"
+      - "FRED"
+      - "Tushare"
+      - "yfinance"
+      - "AKShare"
+      - "投资建议"
+    output: "Official ttfund gateway JSON facts"
+    next: []
+    sop_step: null
+    feature: "F207"
 
 # ─── 降级为 refs/（不再是独立 skill） ─────────────────
 refs:

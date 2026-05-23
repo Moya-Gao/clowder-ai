@@ -3,6 +3,35 @@
  * 导出所有类型定义
  */
 
+// F093 World Engine types (re-exported from schemas for convenience)
+export type {
+  CanonPromotionRecord,
+  CanonStatus,
+  CanonSummaryEntry,
+  CareLoopHint,
+  CharacterCoreIdentity,
+  CharacterGrowthState,
+  CharacterInnerDrive,
+  CharacterMaskOverlay,
+  CharacterRecord,
+  CharacterRelationshipTension,
+  CharacterVoiceAndImage,
+  JsonPatchOperation,
+  RelationshipBond,
+  SceneRecord,
+  SceneStatus,
+  WorldAction,
+  WorldActionEnvelope,
+  WorldActorKind,
+  WorldActorRef,
+  WorldContextEnvelope,
+  WorldEventEntry,
+  WorldEventType,
+  WorldMode,
+  WorldRecallResult,
+  WorldRecord,
+  WorldStatus,
+} from '../schemas/world.js';
 // A2A Protocol types (F050 Phase 3)
 export type {
   A2AAgentCard,
@@ -14,6 +43,14 @@ export type {
   A2ATask,
   A2ATaskStatus,
 } from './a2a.js';
+// F178 Phase B: agent-key record + verify result
+export type { AgentKeyRecord, AgentKeyVerifyResult } from './agent-key.js';
+// F178 Phase B: agent-key reason taxonomy
+export {
+  AGENT_KEY_FAILURE_REASONS,
+  type AgentKeyFailureReason,
+  isAgentKeyFailureReason,
+} from './agent-key-reasons.js';
 // Authorization types (猫猫授权系统)
 export type {
   AuthorizationAuditEntry,
@@ -65,11 +102,35 @@ export type {
   BrakeSettings,
   BrakeState,
 } from './brake.js';
+// F183 Phase B0: Bubble pipeline identity contract + invariant diagnostics
+export {
+  BUBBLE_EVENT_TYPES,
+  BUBBLE_KINDS,
+  type BubbleEventType,
+  type BubbleInvariantViolation,
+  type BubbleKind,
+  type BubbleOriginPhase,
+  type BubbleRecoveryAction,
+  type BubbleSourcePath,
+  type BubbleStableIdentity,
+  type BubbleViolationKind,
+  isBubbleEventType,
+  isBubbleKind,
+} from './bubble-pipeline.js';
+// F174 Phase A: shared reason taxonomy for callback auth failures
+export {
+  CALLBACK_AUTH_FAILURE_REASONS,
+  type CallbackAuthFailureReason,
+  isCallbackAuthFailureReason,
+} from './callback-auth-reasons.js';
+// F178 Phase B: unified callback principal (KD-3)
+export type { CallbackPrincipal } from './callback-principal.js';
 // Capability types (F041 统一能力模型)
 export type {
   BootstrapAction,
   BootstrapReport,
   CapabilitiesConfig,
+  CapabilityAuditEntry,
   CapabilityBoardItem,
   CapabilityBoardResponse,
   CapabilityEntry,
@@ -84,25 +145,31 @@ export type {
   GovernanceHealthSummary,
   GovernancePackMeta,
   GovernanceRule,
+  LockVersion,
+  McpDeleteParams,
+  McpInstallPreview,
+  McpInstallRequest,
   McpServerDescriptor,
   McpToolInfo,
+  McpTransport,
+  ProbeState,
   SkillHealthSummary,
 } from './capability.js';
 // Cat types
 export type {
   CatColor,
   CatConfig,
+  /** @deprecated clowder-ai#340: Use ClientId instead. */
   CatProvider,
   CatState,
   CatStatus,
-} from './cat.js';
-export {
-  CAT_CONFIGS,
-  findCatByMention,
-  getAllCatIds,
+  ClientId,
 } from './cat.js';
 // Cat breed/variant types (Breed+Variant two-layer schema)
 export type {
+  // F136 Phase 4: Account config types
+  AccountConfig,
+  AccountProtocol,
   CatBreed,
   CatCafeConfig,
   CatCafeConfigV1,
@@ -110,15 +177,55 @@ export type {
   CatFeatures,
   CatVariant,
   CliConfig,
+  // F067: Co-Creator config for @ mention routing
+  CoCreatorConfig,
   ContextBudget,
+  CredentialEntry,
   MissionHubSelfClaimScope,
-  // F067: Owner config for @ mention routing
-  OwnerConfig,
   // F032: Roster types for collaboration rules
   ReviewPolicy,
   Roster,
   RosterEntry,
 } from './cat-breed.js';
+// F182: Cat routing error types
+export type { CatAlternative, CatRoutingError } from './cat-routing.js';
+export type { BuiltinAccountClient } from './client-routing.js';
+export {
+  builtinAccountFamilyForClient,
+  builtinAccountIdForClient,
+  protocolForClient,
+} from './client-routing.js';
+// Command types (F142 Phase B — slash command framework)
+export type {
+  CommandSource,
+  CommandSurface,
+  ParsedCommand,
+  SlashCommandDefinition,
+} from './command.js';
+export type {
+  CommunityIssueItem,
+  ConsensusResult,
+  ConsensusState,
+  CreateCommunityIssueInput,
+  DirectionCardPayload,
+  GuardianAssignment,
+  IntakeChecklistItem,
+  IssueState,
+  IssueType,
+  PrBoardGroup,
+  QuestionGrade,
+  QuestionId,
+  QuestionResult,
+  ReplyState,
+  TriageEntry,
+  UpdateCommunityIssueInput,
+  Verdict,
+} from './community-issue.js';
+// Community Issue types (F168 社区事务编排引擎)
+export {
+  DEFAULT_INTAKE_CHECKLIST,
+  validateIntakeChecklist,
+} from './community-issue.js';
 // Connector types (F97 外部信息源抽象)
 export type {
   ConnectorDefinition,
@@ -126,10 +233,16 @@ export type {
   ConnectorTailwindTheme,
   ConnectorThreadBinding,
   OutboundDeliveryTarget,
+  ReplyPreview,
+  ReplyPreviewKind,
+  SchedulerLifecycleEvent,
+  SchedulerMessageExtra,
+  SchedulerToastPayload,
 } from './connector.js';
 export {
   getAllConnectorDefinitions,
   getConnectorDefinition,
+  SCHEDULER_TRIGGER_PREFIX,
 } from './connector.js';
 // Deliberate types (4-E 两轮制 - 类型预埋)
 export type {
@@ -238,6 +351,41 @@ export type {
   LimbNodeRecord,
   LimbNodeStatus,
 } from './limb.js';
+// Marketplace types (F146 MCP Marketplace Control Plane)
+export type {
+  InstallMode,
+  InstallPlan,
+  MarketplaceAdapter,
+  MarketplaceArtifactKind,
+  MarketplaceEcosystem,
+  MarketplaceSearchQuery,
+  MarketplaceSearchResult,
+  TrustLevel,
+} from './marketplace.js';
+export {
+  INSTALL_MODES,
+  MARKETPLACE_ARTIFACT_KINDS,
+  MARKETPLACE_ECOSYSTEMS,
+  TRUST_LEVELS,
+} from './marketplace.js';
+// Meeting types (F195 Phase C — Meeting Copilot)
+export type {
+  MeetingParticipant,
+  MeetingSession,
+  MeetingStatus,
+  ParticipantRole,
+} from './meeting.js';
+export {
+  createMeetingSession,
+  transitionMeetingStatus,
+  validateParticipant,
+} from './meeting.js';
+// Meeting context block (F195 Phase C — untrusted transcript isolation)
+export type {
+  MeetingContextBlock,
+  MeetingContextProvenance,
+} from './meeting-context-block.js';
+export { createMeetingContextBlock } from './meeting-context-block.js';
 // Memory types (F3-lite 显式记忆)
 export type {
   MemoryEntry,
@@ -277,6 +425,27 @@ export {
   MIN_TIMEOUT_MINUTES,
   MULTI_MENTION_TERMINAL_STATES,
 } from './multi-mention.js';
+// Pack System types (F129 Multi-Agent Mod)
+export type {
+  CompiledPackBlocks,
+  ConstraintSeverity,
+  MaskActivation,
+  PackBehavior,
+  PackCompatibility,
+  PackConstraint,
+  PackDefaults,
+  PackGuardrails,
+  PackManifest,
+  PackMask,
+  PackOnDisk,
+  PackScope,
+  PackType,
+  PackWorkflow,
+  PackWorkflowStep,
+  PackWorldDriver,
+  ResolverType,
+  WorkflowAction,
+} from './pack.js';
 // Proposal types (F128 Cat Thread Proposal)
 export type {
   ProposalApproveOverrides,
@@ -306,6 +475,7 @@ export type {
   RichCardBlock,
   RichChecklistBlock,
   RichDiffBlock,
+  RichFileBlock,
   RichHtmlWidgetBlock,
   RichInteractiveBlock,
   RichMediaGalleryBlock,
@@ -339,6 +509,17 @@ export type {
   SignalSourceSchedule,
   SignalTier,
 } from './signals.js';
+// Skill security types (F146 Phase C)
+export type {
+  ContentScanFinding,
+  InstallPolicy,
+  PolicyEvaluation,
+  SkillFingerprint,
+  SkillPermissionSet,
+  SkillSecurityEntry,
+  SkillSecurityStatus,
+} from './skill-security.js';
+export { DEFAULT_INSTALL_POLICY } from './skill-security.js';
 // Slice types (F076 Phase 2 — 切片)
 export type {
   CreateSliceInput,
@@ -364,8 +545,13 @@ export type {
 } from './summary.js';
 // Task types (毛线球)
 export type {
+  AutomationState,
+  CiAutomationState,
+  ConflictAutomationState,
   CreateTaskInput,
+  ReviewAutomationState,
   TaskItem,
+  TaskKind,
   TaskStatus,
   UpdateTaskInput,
 } from './task.js';
@@ -382,6 +568,8 @@ export type {
   VoiceStreamEvent,
   VoiceStreamStartEvent,
 } from './tts.js';
+// User preferences types (F166 猫猫排序自定义)
+export type { UserPreferences } from './user-preferences.js';
 // Workflow SOP types (F073 告示牌)
 export type {
   CheckStatus,

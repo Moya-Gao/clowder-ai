@@ -1,8 +1,16 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MessageNavigator } from '@/components/MessageNavigator';
 import type { ChatMessage as ChatMessageData } from '@/stores/chatStore';
+
+vi.mock('@/hooks/useCoCreatorConfig', () => ({
+  useCoCreatorConfig: () => ({
+    name: '始皇帝',
+    aliases: ['秦始皇'],
+    mentionPatterns: ['@owner', '@me'],
+  }),
+}));
 
 function makeMsg(id: string, type: 'user' | 'assistant' | 'system', catId?: string): ChatMessageData {
   return {
@@ -59,7 +67,7 @@ describe('MessageNavigator', () => {
     const msgs = [makeMsg('m1', 'user'), makeMsg('m2', 'assistant', 'opus'), makeMsg('m3', 'assistant', 'codex')];
     const html = render(msgs);
 
-    expect(html).toContain('bg-owner-primary');
+    expect(html).toContain('bg-cafe-accent');
     expect(html).toContain('#9B7EBD');
     expect(html).toContain('#5B8C5A');
   });
@@ -68,7 +76,7 @@ describe('MessageNavigator', () => {
     const msgs = [makeMsg('m1', 'user'), makeMsg('m2', 'assistant', 'opus-45'), makeMsg('m3', 'assistant', 'spark')];
     const html = render(msgs);
 
-    // base colors come from shared fallback CAT_CONFIGS (opus/codex)
+    // base colors come from useCatData (populated by /api/cats)
     expect(html).toContain('#9B7EBD');
     expect(html).toContain('#5B8C5A');
     expect(html).toContain('跳转到 布偶猫（opus-45） 的消息');
@@ -84,7 +92,7 @@ describe('MessageNavigator', () => {
     ];
     const html = render(msgs);
 
-    // base colors come from shared fallback CAT_CONFIGS
+    // base colors come from useCatData
     expect(html).toContain('#5B8C5A'); // codex
     expect(html).toContain('#9B7EBD'); // opus
     expect(html).toContain('#5B9BD5'); // gemini
@@ -100,7 +108,7 @@ describe('MessageNavigator', () => {
 
     expect(html).toContain('跳转到 缅因猫（gpt52） 的消息');
 
-    const ownerLabels = html.match(/跳转到 铲屎官 的消息/g) ?? [];
+    const ownerLabels = html.match(/跳转到 始皇帝 的消息/g) ?? [];
     expect(ownerLabels.length).toBe(1);
   });
 
@@ -113,11 +121,18 @@ describe('MessageNavigator', () => {
     expect(html).toContain('跳转到 狸花猫（dare-agent） 的消息');
   });
 
+  it('applies kimi fallback colors and labels before /api/cats loads', () => {
+    const msgs = [makeMsg('m1', 'user'), makeMsg('m2', 'assistant', 'kimi'), makeMsg('m3', 'assistant', 'codex')];
+    const html = render(msgs);
+
+    expect(html).toContain('跳转到 梵花猫 的消息');
+  });
+
   it('includes accessibility labels', () => {
     const msgs = [makeMsg('m1', 'user'), makeMsg('m2', 'assistant', 'codex'), makeMsg('m3', 'assistant', 'opus')];
     const html = render(msgs);
 
-    expect(html).toContain('跳转到 铲屎官 的消息');
+    expect(html).toContain('跳转到 始皇帝 的消息');
     expect(html).toContain('跳转到 缅因猫 的消息');
   });
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { ExpandableText } from './ExpandableText';
 import { CommitIcon, DecisionIcon, DiscussionIcon, PhaseIcon } from './icons/EvidenceIcons';
 
 export type EvidenceConfidence = 'high' | 'mid' | 'low';
@@ -13,6 +14,7 @@ export interface EvidenceResult {
   confidence: EvidenceConfidence;
   sourceType: EvidenceSourceType;
   status?: EvidenceStatus;
+  authority?: string;
 }
 
 const SOURCE_CONFIG: Record<
@@ -36,14 +38,18 @@ const STATUS_CONFIG: Record<
     badge?: string;
   }
 > = {
-  draft: { label: '草稿', className: 'border-dashed opacity-80', badge: 'bg-gray-100 text-gray-500 border-gray-200' },
+  draft: {
+    label: '草稿',
+    className: 'border-dashed opacity-80',
+    badge: 'bg-cafe-surface-elevated text-cafe-secondary border-cafe',
+  },
   pending: {
     label: '待审',
-    className: 'ring-1 ring-amber-400/30',
-    badge: 'bg-amber-100 text-amber-700 border-amber-200 animate-pulse',
+    className: 'ring-1 ring-conn-amber-ring/30',
+    badge: 'bg-conn-amber-bg text-conn-amber-text border-conn-amber-ring animate-pulse',
   },
   published: { label: '正式', className: '', badge: '' },
-  archived: { label: '归档', className: 'grayscale-[0.5] opacity-60', badge: 'bg-gray-200 text-gray-600' },
+  archived: { label: '归档', className: 'grayscale-[0.5] opacity-60', badge: 'bg-conn-gray-bg text-cafe-secondary' },
 };
 
 const CONFIDENCE_STYLES: Record<
@@ -54,9 +60,9 @@ const CONFIDENCE_STYLES: Record<
     label: string;
   }
 > = {
-  high: { bg: 'bg-emerald-900/50', text: 'text-emerald-300', label: '高置信度' },
-  mid: { bg: 'bg-amber-900/50', text: 'text-amber-300', label: '中置信度' },
-  low: { bg: 'bg-slate-700', text: 'text-slate-400', label: '低置信度' },
+  high: { bg: 'bg-conn-emerald-bg', text: 'text-conn-emerald-text', label: '高置信度' },
+  mid: { bg: 'bg-conn-amber-bg', text: 'text-conn-amber-text', label: '中置信度' },
+  low: { bg: 'bg-conn-slate-bg', text: 'text-conn-slate-text', label: '低置信度' },
 };
 
 export function EvidenceCard({ result }: { result: EvidenceResult }) {
@@ -64,8 +70,6 @@ export function EvidenceCard({ result }: { result: EvidenceResult }) {
   const conf = CONFIDENCE_STYLES[result.confidence];
   const status = result.status ? STATUS_CONFIG[result.status] : null;
   const Icon = source.icon;
-
-  const snippet = result.snippet.length > 160 ? `${result.snippet.slice(0, 160)}...` : result.snippet;
 
   return (
     <div
@@ -82,32 +86,48 @@ export function EvidenceCard({ result }: { result: EvidenceResult }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-col gap-0.5 min-w-0">
-            <h4
-              className={`text-xs font-bold text-slate-100 leading-snug line-clamp-2 ${result.status === 'archived' ? 'line-through decoration-gray-400/50' : ''}`}
-            >
-              {result.title}
-            </h4>
+            <ExpandableText
+              text={result.title}
+              as="h4"
+              clampClass="line-clamp-2"
+              className={`text-xs font-bold text-slate-100 leading-snug ${result.status === 'archived' ? 'line-through decoration-gray-400/50' : ''}`}
+            />
           </div>
           <div className="flex flex-col items-end gap-1 flex-shrink-0">
             <span
-              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${conf.bg} ${conf.text}`}
+              className={`text-micro font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${conf.bg} ${conf.text}`}
             >
               {conf.label}
             </span>
             {status?.badge && (
-              <span className={`text-[8px] font-black px-1 py-0.25 rounded border ${status.badge}`}>
+              <span className={`text-micro font-black px-1 py-0.25 rounded border ${status.badge}`}>
                 {status.label}
               </span>
             )}
           </div>
         </div>
 
-        <p className="text-[11px] text-slate-400 leading-relaxed mt-1.5 line-clamp-2">{snippet}</p>
+        <ExpandableText
+          text={result.snippet}
+          as="p"
+          clampClass="line-clamp-2"
+          className="text-xs text-slate-400 leading-relaxed mt-1.5"
+        />
 
         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-700">
-          <span className="text-[10px] text-slate-400 font-bold">{source.label}</span>
-          <span className="text-[10px] text-gray-300">·</span>
-          <span className="text-[10px] text-gray-400 truncate font-mono opacity-70 italic">{result.anchor}</span>
+          <span className="text-micro text-slate-400 font-bold">{source.label}</span>
+          {result.authority && (
+            <>
+              <span className="text-micro text-cafe-muted">·</span>
+              <span className="text-micro text-slate-500 font-mono">{result.authority}</span>
+            </>
+          )}
+          <span className="text-micro text-cafe-muted">·</span>
+          <ExpandableText
+            text={result.anchor}
+            clampClass="truncate"
+            className="text-micro text-cafe-muted font-mono opacity-70 italic"
+          />
         </div>
       </div>
     </div>

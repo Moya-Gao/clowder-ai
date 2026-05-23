@@ -44,6 +44,19 @@ check_requirements() {
     else
         echo -e "${GREEN}✓ Redis CLI${NC}"
     fi
+
+    # F088 Phase J2: pandoc for document generation (MD → PDF/DOCX)
+    if ! command -v pandoc &> /dev/null; then
+        echo -e "${YELLOW}未找到 pandoc，正在安装...${NC}"
+        if command -v brew &> /dev/null; then
+            brew install pandoc
+        else
+            echo -e "${YELLOW}警告: 未找到 brew，请手动安装 pandoc: https://pandoc.org/installing.html${NC}"
+        fi
+    fi
+    if command -v pandoc &> /dev/null; then
+        echo -e "${GREEN}✓ pandoc $(pandoc --version | head -1 | awk '{print $2}')${NC}"
+    fi
 }
 
 # 创建数据目录
@@ -71,33 +84,16 @@ check_env() {
         if [ -f .env.example ]; then
             echo -e "${YELLOW}未找到 .env 文件，从模板创建...${NC}"
             cp .env.example .env
-            echo -e "${YELLOW}请编辑 .env 文件，填入 API Keys${NC}"
+            echo -e "${YELLOW}启动后在 Hub → 系统配置 → 账号配置 中添加 API Key${NC}"
         else
             echo -e "${RED}错误: 未找到 .env.example 模板${NC}"
             exit 1
         fi
     fi
 
-    # 检查必要的 API Keys
+    # Auth is managed via unified accounts system (~/.cat-cafe/accounts.json + credentials.json).
+    # Run `node scripts/install-auth-config.mjs` to configure API keys.
     source .env 2>/dev/null || true
-
-    if [ -z "$ANTHROPIC_API_KEY" ]; then
-        echo -e "${YELLOW}警告: ANTHROPIC_API_KEY 未设置${NC}"
-    else
-        echo -e "${GREEN}✓ ANTHROPIC_API_KEY 已设置${NC}"
-    fi
-
-    if [ -z "$OPENAI_API_KEY" ]; then
-        echo -e "${YELLOW}警告: OPENAI_API_KEY 未设置${NC}"
-    else
-        echo -e "${GREEN}✓ OPENAI_API_KEY 已设置${NC}"
-    fi
-
-    if [ -z "$GOOGLE_API_KEY" ]; then
-        echo -e "${YELLOW}警告: GOOGLE_API_KEY 未设置${NC}"
-    else
-        echo -e "${GREEN}✓ GOOGLE_API_KEY 已设置${NC}"
-    fi
 }
 
 # 安装依赖
@@ -116,12 +112,24 @@ build_project() {
     echo -e "${GREEN}✓ 项目构建完成${NC}"
 }
 
+# 安装 Git Guards（hooks + zdiff3）
+install_git_guards() {
+    echo ""
+    echo "安装 Git Guards..."
+    if [ -f "$PWD/scripts/install-git-guards.sh" ]; then
+        bash "$PWD/scripts/install-git-guards.sh"
+    else
+        echo -e "${YELLOW}警告: 未找到 install-git-guards.sh，跳过${NC}"
+    fi
+}
+
 # 主函数
 main() {
     check_requirements
     setup_data_dir
     check_env
     install_deps
+    install_git_guards
     build_project
 
     echo ""
@@ -129,7 +137,7 @@ main() {
     echo -e "${GREEN}🎉 Cat Café 初始化完成！${NC}"
     echo ""
     echo "下一步："
-    echo "  1. 编辑 .env 文件，填入 API Keys"
+    echo "  1. 打开 http://localhost:3003 → Hub → 系统配置 → 账号配置，添加 API Key"
     echo "  2. 启动 Redis: redis-server"
     echo "  3. 运行开发服务器: pnpm run start"
     echo ""

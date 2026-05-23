@@ -63,8 +63,10 @@ export function PlayerGrid({ seats, activeSeatId, gameStatus, onSeatClick }: Pla
             key={seat.seatId}
             data-testid={`seat-${seat.seatId}`}
             onClick={() => onSeatClick?.(seat.seatId)}
-            className={`flex flex-col items-center justify-center gap-0.5 rounded-lg w-14 h-16 ${
-              isActive ? 'bg-ww-cute text-ww-base' : 'bg-ww-card text-ww-muted'
+            className={`flex flex-col items-center justify-center gap-0.5 rounded-lg w-14 h-16 border-2 transition-colors ${
+              isActive
+                ? 'border-[var(--ww-state-speaking)] bg-ww-card text-ww-main'
+                : 'border-transparent bg-ww-card text-ww-muted'
             }${isDead ? ' opacity-40' : ''}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -74,12 +76,12 @@ export function PlayerGrid({ seats, activeSeatId, gameStatus, onSeatClick }: Pla
               className="w-7 h-7 rounded-full object-cover border-2 border-ww-subtle"
             />
             <span
-              className={`text-[9px] font-semibold truncate max-w-[52px] ${isActive ? 'text-ww-base font-bold' : ''}`}
+              className={`text-micro font-semibold truncate max-w-[52px] ${isActive ? 'text-ww-base font-bold' : ''}`}
             >
               {seat.seatId} {seat.displayName}
             </span>
             <span
-              className={`text-[8px] font-mono ${isActive ? 'text-ww-base font-semibold' : 'text-ww-dim'} ${deriveActionStatusClass(seat.actionStatus)}`}
+              className={`text-micro font-mono ${isActive ? 'text-ww-base font-semibold' : 'text-ww-dim'} ${deriveActionStatusClass(seat.actionStatus)}`}
             >
               {isActive
                 ? '发言中'

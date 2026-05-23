@@ -19,11 +19,14 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../types.js';
 import { transformDareEvent } from './dare-event-transform.js';
+
+const log = createModuleLogger('dare-agent');
 
 interface DareAgentServiceOptions {
   catId?: CatId;
@@ -78,16 +81,17 @@ export class DareAgentService implements AgentService {
     this.model = options?.model ?? getCatModel(this.catId as string);
     this.endpoint =
       options?.endpoint ?? process.env[DARE_ENDPOINT_ENV] ?? process.env[this.getAdapterEndpointEnvName()];
-    this.apiKey = options?.apiKey ?? process.env[DARE_API_KEY_ENV];
+    this.apiKey = options?.apiKey;
     this.darePath = options?.darePath ?? process.env.DARE_PATH ?? resolveDefaultDarePath();
     this.spawnFn = options?.spawnFn;
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
+    const effectiveModel = options?.callbackEnv?.CAT_CAFE_DARE_MODEL_OVERRIDE ?? this.model;
     // Runtime mode: require resolvable DARE module path to avoid opaque "No module named client".
     // Unit tests pass spawnFn and may not provide a real filesystem path; skip hard check there.
     if (!this.darePath && !this.spawnFn) {
-      const metadata: MessageMetadata = { provider: 'dare', model: this.model };
+      const metadata: MessageMetadata = { provider: 'dare', model: effectiveModel };
       yield {
         type: 'error',
         catId: this.catId,
@@ -99,7 +103,7 @@ export class DareAgentService implements AgentService {
       return;
     }
     if (this.darePath && !this.spawnFn && !existsSync(join(this.darePath, 'client', '__main__.py'))) {
-      const metadata: MessageMetadata = { provider: 'dare', model: this.model };
+      const metadata: MessageMetadata = { provider: 'dare', model: effectiveModel };
       yield {
         type: 'error',
         catId: this.catId,
@@ -112,13 +116,24 @@ export class DareAgentService implements AgentService {
     }
 
     const endpoint = this.resolveEndpoint(options?.callbackEnv);
-    const args = this.buildArgs(prompt, options?.workingDirectory, options?.sessionId, endpoint);
+    const args = this.buildArgs(
+      prompt,
+      options?.workingDirectory,
+      options?.sessionId,
+      endpoint,
+      effectiveModel,
+      options?.cliConfigArgs,
+    );
     // P1-1: cwd must ALWAYS be darePath (where `python -m client` can find the module).
     // Thread's workingDirectory goes to --workspace instead.
     const cwd = this.darePath;
     // P1-3: Pass API key via child env, not CLI args (avoids ps/audit leakage)
     const childEnv = this.buildEnv(options?.callbackEnv);
-    const metadata: MessageMetadata = { provider: 'dare', model: this.model };
+    // F171: Account env vars applied LAST — user overrides provider-injected values
+    if (options?.accountEnv) {
+      for (const [k, v] of Object.entries(options.accountEnv)) childEnv[k] = v;
+    }
+    const metadata: MessageMetadata = { provider: 'dare', model: effectiveModel };
 
     try {
       const cliOpts = {
@@ -130,6 +145,7 @@ export class DareAgentService implements AgentService {
         ...(options?.invocationId ? { invocationId: options.invocationId } : {}),
         ...(options?.cliSessionId ? { cliSessionId: options.cliSessionId } : {}),
         ...(options?.livenessProbe ? { livenessProbe: options.livenessProbe } : {}),
+        ...(options?.parentSpan ? { parentSpan: options.parentSpan } : {}),
       };
       const events = options?.spawnCliOverride
         ? options.spawnCliOverride(cliOpts)
@@ -156,7 +172,7 @@ export class DareAgentService implements AgentService {
           yield {
             type: 'error',
             catId: this.catId,
-            error: `DARE CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s)`,
+            error: `DARE CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
             metadata,
             timestamp: Date.now(),
           };
@@ -164,6 +180,16 @@ export class DareAgentService implements AgentService {
         }
         // F118 Phase C: Forward liveness warnings to frontend with catId
         if (isLivenessWarning(event)) {
+          const warningEvent = event as { level?: string; silenceDurationMs?: number };
+          log.warn(
+            {
+              catId: this.catId,
+              invocationId: options?.invocationId,
+              level: warningEvent.level,
+              silenceMs: warningEvent.silenceDurationMs,
+            },
+            '[DareAgent] liveness warning — CLI may be stuck',
+          );
           yield {
             type: 'system_info' as const,
             catId: this.catId,
@@ -205,11 +231,19 @@ export class DareAgentService implements AgentService {
     }
   }
 
-  private buildArgs(prompt: string, workspace?: string, sessionId?: string, endpoint?: string): string[] {
+  private buildArgs(
+    prompt: string,
+    workspace?: string,
+    sessionId?: string,
+    endpoint?: string,
+    model?: string,
+    cliConfigArgs?: readonly string[],
+  ): string[] {
     const args = ['-m', 'client'];
+    const effectiveModel = model ?? this.model;
 
     args.push('--adapter', this.adapter);
-    args.push('--model', this.model);
+    if (effectiveModel) args.push('--model', effectiveModel);
     if (endpoint) {
       args.push('--endpoint', endpoint);
     }
@@ -227,6 +261,45 @@ export class DareAgentService implements AgentService {
     }
     args.push('--task', prompt, '--auto-approve', '--headless');
 
+    // User-defined CLI args from the member editor (#567).
+    // DARE: `python -m client <root> run <sub>` — protect Python launcher,
+    // dedup root and sub segments separately so flags land in the correct position.
+    const userParts: string[] = [];
+    for (const arg of cliConfigArgs ?? []) {
+      userParts.push(...arg.trim().split(/\s+/));
+    }
+    if (userParts.length > 0) {
+      const userFlags = new Set(userParts.filter((p) => p.startsWith('-')));
+      const dedup = (seg: string[]): string[] => {
+        const out: string[] = [];
+        for (let i = 0; i < seg.length; i++) {
+          if (seg[i].startsWith('-') && userFlags.has(seg[i])) {
+            if (i + 1 < seg.length && !seg[i + 1].startsWith('-')) i++;
+            continue;
+          }
+          out.push(seg[i]);
+        }
+        return out;
+      };
+      const runIdx = args.indexOf('run');
+      const rootSeg = args.slice(2, runIdx);
+      const subSeg = args.slice(runIdx + 1);
+      const dareRootFlags = new Set(['--adapter', '--model', '--endpoint', '--workspace']);
+      const userRoot: string[] = [];
+      const userSub: string[] = [];
+      for (let i = 0; i < userParts.length; i++) {
+        if (userParts[i].startsWith('-') && dareRootFlags.has(userParts[i])) {
+          userRoot.push(userParts[i]);
+          if (i + 1 < userParts.length && !userParts[i + 1].startsWith('-')) {
+            userRoot.push(userParts[++i]);
+          }
+        } else {
+          userSub.push(userParts[i]);
+        }
+      }
+      return ['-m', 'client', ...dedup(rootSeg), ...userRoot, 'run', ...dedup(subSeg), ...userSub];
+    }
+
     return args;
   }
 
@@ -234,8 +307,7 @@ export class DareAgentService implements AgentService {
     const env: Record<string, string | null> = { ...callbackEnv };
     // P1-3: Pass API key via env vars (not CLI args) to avoid ps/audit leakage
     const apiKeyEnvName = this.getAdapterApiKeyEnvName();
-    const apiKey =
-      callbackEnv?.[DARE_API_KEY_ENV] ?? callbackEnv?.[apiKeyEnvName] ?? this.apiKey ?? process.env[apiKeyEnvName];
+    const apiKey = callbackEnv?.[DARE_API_KEY_ENV] ?? callbackEnv?.[apiKeyEnvName] ?? this.apiKey;
     if (apiKey) {
       env[apiKeyEnvName] = apiKey;
     }

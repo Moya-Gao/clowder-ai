@@ -7,7 +7,15 @@
 
 // ── Block Kinds ─────────────────────────────────────────────
 
-export type RichBlockKind = 'card' | 'diff' | 'checklist' | 'media_gallery' | 'audio' | 'interactive' | 'html_widget';
+export type RichBlockKind =
+  | 'card'
+  | 'diff'
+  | 'checklist'
+  | 'media_gallery'
+  | 'audio'
+  | 'interactive'
+  | 'html_widget'
+  | 'file';
 
 // ── Base ────────────────────────────────────────────────────
 
@@ -38,6 +46,12 @@ export interface RichCardBlock extends RichBlockBase {
   fields?: Array<{ label: string; value: string }>;
   /** F066 Phase 4: Optional action buttons displayed at the bottom of the card */
   actions?: CardAction[];
+  /**
+   * F174 D2b-1: opaque structured metadata for downstream renderers to detect
+   * specialised card sub-kinds (e.g. `meta.kind: 'callback_auth_failure'` enables
+   * the dedicated in-context observability renderer). Default cards leave it empty.
+   */
+  meta?: Record<string, unknown>;
 }
 
 export interface RichDiffBlock extends RichBlockBase {
@@ -76,6 +90,16 @@ export interface RichAudioBlock extends RichBlockBase {
   mimeType?: string;
 }
 
+/** F155: Direct action for interactive options that bypass the chat message pipeline */
+export interface OptionAction {
+  /** Action type — 'callback' calls an API endpoint directly from the frontend */
+  type: 'callback';
+  /** API endpoint path (e.g. '/api/guide-actions/start') */
+  endpoint: string;
+  /** Payload sent as JSON body to the endpoint */
+  payload?: Record<string, unknown>;
+}
+
 /** F096: Interactive rich block — user can select/confirm within the block */
 export interface InteractiveOption {
   id: string;
@@ -90,6 +114,8 @@ export interface InteractiveOption {
   customInput?: boolean;
   /** Placeholder text for the custom input field */
   customInputPlaceholder?: string;
+  /** F155: When present, clicking this option calls the endpoint directly instead of sending a chat message */
+  action?: OptionAction;
 }
 
 export interface RichInteractiveBlock extends RichBlockBase {
@@ -105,6 +131,20 @@ export interface RichInteractiveBlock extends RichBlockBase {
   selectedIds?: string[];
   /** Phase C: blocks sharing the same groupId are submitted together */
   groupId?: string;
+}
+
+/** F088 Phase J: File attachment block — generated document or uploaded file.
+ *  Backend resolves `url` to absolute path for outbound delivery. */
+export interface RichFileBlock extends RichBlockBase {
+  kind: 'file';
+  /** Local URL (e.g. /uploads/report.pdf) — resolved to absPath by mediaPathResolver */
+  url: string;
+  /** Display name shown to user (e.g. "调研报告.pdf") */
+  fileName: string;
+  /** MIME type (e.g. application/pdf) — used for file_type mapping */
+  mimeType?: string;
+  /** File size in bytes — informational */
+  fileSize?: number;
 }
 
 /** F120 Phase C: Inline HTML/JS widget rendered in sandboxed iframe (srcdoc).
@@ -128,7 +168,8 @@ export type RichBlock =
   | RichMediaGalleryBlock
   | RichAudioBlock
   | RichInteractiveBlock
-  | RichHtmlWidgetBlock;
+  | RichHtmlWidgetBlock
+  | RichFileBlock;
 
 // ── Container (stored in StoredMessage.extra.rich) ──────────
 
@@ -147,6 +188,7 @@ const VALID_KINDS: readonly string[] = [
   'audio',
   'interactive',
   'html_widget',
+  'file',
 ];
 
 /**

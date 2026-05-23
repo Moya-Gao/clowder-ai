@@ -13,7 +13,7 @@ function ensureEsbuild(): Promise<EsbuildModule> {
       .then(async (mod) => {
         await mod
           .initialize({
-            wasmURL: 'https://unpkg.com/esbuild-wasm@0.27.3/esbuild.wasm',
+            wasmURL: '/vendor/esbuild/esbuild.wasm',
           })
           .catch((err) => {
             if (!String(err).includes('already')) throw err;
@@ -175,10 +175,12 @@ export function JsxPreview({ code, filePath, worktreeId }: JsxPreviewProps) {
         const root = createRoot(document.getElementById('root'));
         root.render(createElement(Component));
       } else {
+        /* sandboxed iframe HTML exempt: cannot reference parent CSS vars */
         document.getElementById('root').innerHTML =
           '<p style="color:#888;font-size:13px">No default export or App component found to render.</p>';
       }
     } catch (err) {
+      /* sandboxed iframe HTML exempt: cannot reference parent CSS vars */
       document.getElementById('root').innerHTML =
         '<pre style="color:#e53;font-size:12px;white-space:pre-wrap">' +
         err.message + '\\n' + (err.stack || '') + '</pre>';
@@ -201,7 +203,7 @@ export function JsxPreview({ code, filePath, worktreeId }: JsxPreviewProps) {
 
   if (building) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[#1E1E24] text-gray-400 text-xs">
+      <div className="flex-1 flex items-center justify-center bg-[var(--ws-editor-bg)] text-cafe-muted text-xs">
         Bundling JSX/TSX...
       </div>
     );
@@ -209,8 +211,8 @@ export function JsxPreview({ code, filePath, worktreeId }: JsxPreviewProps) {
 
   if (error) {
     return (
-      <div className="flex-1 overflow-auto bg-[#1E1E24] p-4">
-        <div className="text-red-400 text-xs font-mono whitespace-pre-wrap">
+      <div className="flex-1 overflow-auto bg-[var(--ws-editor-bg)] p-4">
+        <div className="text-conn-red-text text-xs font-mono whitespace-pre-wrap">
           <div className="font-semibold mb-2">Bundle Error</div>
           {error}
         </div>
@@ -222,10 +224,10 @@ export function JsxPreview({ code, filePath, worktreeId }: JsxPreviewProps) {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      <div className="px-2 py-1 bg-blue-900/20 text-blue-400 text-[10px] border-b border-blue-900/30 flex-shrink-0">
+      <div className="px-2 py-1 bg-blue-900/20 text-blue-400 text-micro border-b border-blue-900/30 flex-shrink-0">
         JSX Preview (esbuild-wasm) — local imports resolved, npm packages via esm.sh
       </div>
-      <div className="flex-1 min-h-0 bg-white">
+      <div className="flex-1 min-h-0 bg-cafe-surface">
         <iframe srcDoc={html} sandbox="allow-scripts" title="JSX Preview" className="w-full h-full border-0" />
       </div>
     </div>

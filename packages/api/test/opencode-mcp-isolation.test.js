@@ -41,9 +41,9 @@ describe('MCP Tool Namespace Isolation (AC-10)', () => {
     const callbackEnv = {
       CAT_CAFE_ANTHROPIC_API_KEY: 'sk-test',
       CAT_CAFE_ANTHROPIC_BASE_URL: 'http://proxy:9877/slug',
-      CAT_CAFE_MCP_SERVER_URL: 'http://localhost:3004/mcp',
+      CAT_CAFE_MCP_SERVER_URL: 'http://localhost:3003/mcp',
       CAT_CAFE_MCP_TOKEN: 'secret-mcp-token',
-      CAT_CAFE_MCP_ENDPOINT: 'ws://localhost:3004/mcp/ws',
+      CAT_CAFE_MCP_ENDPOINT: 'ws://localhost:3003/mcp/ws',
     };
 
     const promise = collect(service.invoke('Test', { callbackEnv }));
@@ -164,7 +164,7 @@ describe('MCP Tool Namespace Isolation (AC-10)', () => {
       'cat_cafe_create_rich_block',
       'cat_cafe_request_permission',
       'cat_cafe_search_evidence',
-      'cat_cafe_reflect',
+      // cat_cafe_reflect removed in F193 Phase D AC-D1
       'cat_cafe_multi_mention',
       'cat_cafe_start_vote',
       'cat_cafe_update_workflow',

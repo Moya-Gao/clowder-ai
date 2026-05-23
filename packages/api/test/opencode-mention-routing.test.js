@@ -14,6 +14,9 @@ import {
   buildSystemPrompt,
 } from '../dist/domains/cats/services/context/SystemPromptBuilder.js';
 import { parseMentions } from '../dist/infrastructure/connectors/mention-parser.js';
+import { ensureFakeCliOnPath } from './helpers/fake-cli-path.js';
+
+ensureFakeCliOnPath('opencode');
 
 // ── Shared fixtures ──────────────────────────────────────────────
 
@@ -154,6 +157,24 @@ describe('parseA2AMentions — opencode A2A chain', () => {
     assert.deepEqual(result, ['opencode']);
   });
 
+  it('F690 intake: repairs whitespace split inside line-start CJK handles', () => {
+    const text = '交给金渐层\n@金\n\n渐\n\n层 帮忙看看这段代码';
+    const result = parseA2AMentions(text, 'opus');
+    assert.deepEqual(result, ['opencode']);
+  });
+
+  it('F690 intake: repairs whitespace split inside line-start ASCII handles', () => {
+    const text = '安全复核如下\n@co\n\ndex 请继续';
+    const result = parseA2AMentions(text, 'opus');
+    assert.deepEqual(result, ['codex']);
+  });
+
+  it('F690 intake: does not repair inline split handles into routable mentions', () => {
+    const text = '句中提一下 @co\n\ndex 但这不是行首传球';
+    const result = parseA2AMentions(text, 'opus');
+    assert.deepEqual(result, []);
+  });
+
   it('detects multi-target: @opencode and @codex', () => {
     const text = '请两位协助\n@opencode 看架构\n@codex 看安全';
     const result = parseA2AMentions(text, 'opus');
@@ -236,6 +257,14 @@ function createMockProcess(exitCode = 0) {
   const stdout = new PassThrough();
   const stderr = new PassThrough();
   const emitter = new EventEmitter();
+  const originalEmit = emitter.emit.bind(emitter);
+  emitter.emit = (event, ...args) => {
+    const emitted = originalEmit(event, ...args);
+    if (event === 'exit') {
+      process.nextTick(() => originalEmit('close', ...args));
+    }
+    return emitted;
+  };
   const proc = {
     stdout,
     stderr,
@@ -468,12 +497,12 @@ describe('OpenCodeAgentService — routed prompt with system context', () => {
   });
 });
 
-// ── P2 fix: Guard test binding fixture to cat-config.json truth source ──
+// ── P2 fix: Guard test binding fixture to cat-template.json truth source ──
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const configPath = resolve(__dirname, '..', '..', '..', 'cat-config.json');
+const configPath = resolve(__dirname, '..', '..', '..', 'cat-template.json');
 
-describe('Fixture guard — allPatterns matches cat-config.json truth source', () => {
+describe('Fixture guard — allPatterns matches cat-template.json truth source', () => {
   let catConfig;
 
   before(() => {
@@ -481,19 +510,19 @@ describe('Fixture guard — allPatterns matches cat-config.json truth source', (
     catConfig = JSON.parse(raw);
   });
 
-  it('opencode mentionPatterns in fixture match cat-config.json', () => {
+  it('opencode mentionPatterns in fixture match cat-template.json', () => {
     const breed = catConfig.breeds.find((b) => b.id === 'golden-chinchilla');
-    assert.ok(breed, 'golden-chinchilla breed exists in cat-config.json');
+    assert.ok(breed, 'golden-chinchilla breed exists in cat-template.json');
     const fixturePatterns = allPatterns.get('opencode');
     assert.ok(fixturePatterns, 'opencode exists in test fixture');
     assert.deepEqual(
       [...fixturePatterns].sort(),
       [...breed.mentionPatterns].sort(),
-      'fixture mentionPatterns must match cat-config.json truth source',
+      'fixture mentionPatterns must match cat-template.json truth source',
     );
   });
 
-  it('all fixture cats patterns are a subset of cat-config.json (no phantom patterns)', () => {
+  it('all fixture cats patterns are a subset of cat-template.json (no phantom patterns)', () => {
     // Guard: fixture patterns must exist in the truth source — prevents phantom patterns
     // that would make tests pass for patterns that were removed from production config.
     // Note: fixture may be a subset (e.g., opus fixture omits @ragdoll for simplicity)
@@ -501,12 +530,12 @@ describe('Fixture guard — allPatterns matches cat-config.json truth source', (
     for (const [catId, fixturePatterns] of allPatterns) {
       const breedId = catIdToBreed[catId];
       const breed = catConfig.breeds.find((b) => b.id === breedId);
-      assert.ok(breed, `breed ${breedId} exists in cat-config.json`);
+      assert.ok(breed, `breed ${breedId} exists in cat-template.json`);
       const configSet = new Set(breed.mentionPatterns.map((p) => p.toLowerCase()));
       for (const pattern of fixturePatterns) {
         assert.ok(
           configSet.has(pattern.toLowerCase()),
-          `fixture pattern "${pattern}" for ${catId} must exist in cat-config.json`,
+          `fixture pattern "${pattern}" for ${catId} must exist in cat-template.json`,
         );
       }
     }

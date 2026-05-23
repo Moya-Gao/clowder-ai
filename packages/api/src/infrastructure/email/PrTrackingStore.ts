@@ -1,9 +1,10 @@
 /**
  * PR Tracking Store
  * Maps (repoFullName + prNumber) → { catId, threadId, userId }
- * Used by GithubReviewWatcher to route review notifications to the correct cat/thread.
+ * Used by F140 polling (ReviewFeedbackTaskSpec / ConflictCheckTaskSpec) and
+ * F133 CI/CD tracking to route notifications to the correct cat/thread.
  *
- * BACKLOG #81
+ * BACKLOG #81, F133, F140
  */
 
 export interface PrTrackingEntry {
@@ -13,9 +14,41 @@ export interface PrTrackingEntry {
   readonly threadId: string;
   readonly userId: string;
   readonly registeredAt: number;
+  // F133: CI/CD state fields (optional — absent until first CI poll)
+  readonly headSha?: string;
+  readonly lastCiFingerprint?: string;
+  readonly lastCiBucket?: string;
+  readonly lastCiNotifiedAt?: number;
+  readonly ciTrackingEnabled?: boolean;
+  // F140: Conflict state fields (optional — absent until first conflict check)
+  readonly lastConflictFingerprint?: string;
+  readonly lastConflictNotifiedAt?: number;
+  readonly mergeState?: string;
 }
 
 export type PrTrackingInput = Omit<PrTrackingEntry, 'registeredAt'>;
+
+/**
+ * CI state fields for partial update via patchCiState().
+ * KD-7: Only updates CI-related fields, never touches registeredAt.
+ */
+export interface CiStateFields {
+  headSha?: string;
+  lastCiFingerprint?: string;
+  lastCiBucket?: string;
+  lastCiNotifiedAt?: number;
+  ciTrackingEnabled?: boolean;
+}
+
+/**
+ * F140: Conflict state fields for partial update via patchConflictState().
+ * KD-12: Independent from CiStateFields — CI and conflict are different state domains.
+ */
+export interface ConflictStateFields {
+  lastConflictFingerprint?: string;
+  lastConflictNotifiedAt?: number;
+  mergeState?: string;
+}
 
 export interface IPrTrackingStore {
   /** Register a PR for tracking. Overwrites existing entry for same repo+pr. */
@@ -29,6 +62,12 @@ export interface IPrTrackingStore {
 
   /** List all tracked PRs (for debugging/admin). */
   listAll(): PrTrackingEntry[] | Promise<PrTrackingEntry[]>;
+
+  /** F133: Partial update CI state fields without touching registration data. */
+  patchCiState(repoFullName: string, prNumber: number, ciFields: CiStateFields): void | Promise<void>;
+
+  /** F140: Partial update conflict state fields without touching registration data. */
+  patchConflictState(repoFullName: string, prNumber: number, conflictFields: ConflictStateFields): void | Promise<void>;
 }
 
 function makeKey(repoFullName: string, prNumber: number): string {
@@ -60,5 +99,19 @@ export class MemoryPrTrackingStore implements IPrTrackingStore {
 
   listAll(): PrTrackingEntry[] {
     return [...this.entries.values()].sort((a, b) => b.registeredAt - a.registeredAt);
+  }
+
+  patchCiState(repoFullName: string, prNumber: number, ciFields: CiStateFields): void {
+    const key = makeKey(repoFullName, prNumber);
+    const existing = this.entries.get(key);
+    if (!existing) return;
+    this.entries.set(key, { ...existing, ...ciFields });
+  }
+
+  patchConflictState(repoFullName: string, prNumber: number, conflictFields: ConflictStateFields): void {
+    const key = makeKey(repoFullName, prNumber);
+    const existing = this.entries.get(key);
+    if (!existing) return;
+    this.entries.set(key, { ...existing, ...conflictFields });
   }
 }

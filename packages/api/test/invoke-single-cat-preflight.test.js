@@ -2,7 +2,7 @@
  * Test 2: invoke-single-cat shared-state preflight behavior
  *
  * Covers:
- * - unpushedFiles → invocation_created → 🚫 system_info → done → return (service NOT called)
+ * - unpushedFiles → invocation_created → ⚠️ system_info → service.invoke IS called
  * - uncommittedFiles → invocation_created → ⚠️ system_info → service.invoke IS called
  * - clean → no preflight messages, service called normally
  *
@@ -21,6 +21,7 @@ import { after, before, describe, it } from 'node:test';
 let invokeSingleCat;
 const tempDirs = [];
 let originalCwd;
+let originalPreflightDisable;
 
 async function collect(iterable) {
   const msgs = [];
@@ -33,7 +34,7 @@ function makeDeps() {
   return {
     registry: {
       create: () => ({ invocationId: `inv-${++counter}`, callbackToken: `tok-${counter}` }),
-      verify: () => null,
+      verify: async () => ({ ok: false, reason: 'unknown_invocation' }),
     },
     sessionManager: {
       get: async () => undefined,
@@ -43,7 +44,7 @@ function makeDeps() {
       resolveWorkingDirectory: () => '/tmp/test',
     },
     threadStore: null,
-    apiUrl: 'your local Clowder API URL',
+    apiUrl: 'http://127.0.0.1:3004',
   };
 }
 
@@ -71,6 +72,8 @@ function addBareRemote(repoDir) {
 describe('invokeSingleCat shared-state preflight', () => {
   before(async () => {
     originalCwd = process.cwd();
+    originalPreflightDisable = process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT;
+    delete process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT;
     const auditDir = mkdtempSync(join(tmpdir(), 'cat-audit-'));
     tempDirs.push(auditDir);
     process.env.AUDIT_LOG_DIR = auditDir;
@@ -80,6 +83,11 @@ describe('invokeSingleCat shared-state preflight', () => {
 
   after(() => {
     process.chdir(originalCwd);
+    if (originalPreflightDisable === undefined) {
+      delete process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT;
+    } else {
+      process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT = originalPreflightDisable;
+    }
     for (const dir of tempDirs) {
       try {
         rmSync(dir, { recursive: true, force: true });
@@ -89,15 +97,15 @@ describe('invokeSingleCat shared-state preflight', () => {
     }
   });
 
-  it('fail-closed: unpushedFiles → invocation_created → 🚫 → done, service NOT called', async () => {
+  it('warn-only: unpushedFiles → invocation_created → ⚠️ → service.invoke called', async () => {
     const repo = createTestRepo('unpushed');
     const bare = addBareRemote(repo);
     tempDirs.push(repo, bare);
 
     // Commit shared-state file but don't push
     mkdirSync(join(repo, 'docs'), { recursive: true });
-    writeFileSync(join(repo, 'docs/BACKLOG.md'), '# Backlog');
-    execSync('git add docs/BACKLOG.md && git commit -m "add backlog"', { cwd: repo, stdio: 'ignore' });
+    writeFileSync(join(repo, 'docs/ROADMAP.md'), '# Backlog');
+    execSync('git add docs/ROADMAP.md && git commit -m "add backlog"', { cwd: repo, stdio: 'ignore' });
 
     // chdir so findMonorepoRoot(process.cwd()) resolves to this repo
     process.chdir(repo);
@@ -115,7 +123,7 @@ describe('invokeSingleCat shared-state preflight', () => {
       invokeSingleCat(makeDeps(), {
         catId: 'codex',
         service: stubService,
-        prompt: 'test preflight fail-closed',
+        prompt: 'test preflight unpushed warn',
         userId: 'user1',
         threadId: 'thread-preflight-block',
         isLastCat: true,
@@ -125,7 +133,7 @@ describe('invokeSingleCat shared-state preflight', () => {
     // Restore cwd
     process.chdir(originalCwd);
 
-    // 砚砚 钉子 1: sequence must include invocation_created before 🚫
+    // 砚砚 钉子 1: sequence must include invocation_created before ⚠️, then provider output
     const types = msgs.map((m) => m.type);
     assert.ok(types.includes('system_info'), 'should have system_info messages');
     assert.ok(types.includes('done'), 'should end with done');
@@ -141,21 +149,21 @@ describe('invokeSingleCat shared-state preflight', () => {
     });
     assert.ok(invCreated, 'should have invocation_created');
 
-    // Find the 🚫 preflight message
-    const blocked = msgs.find((m) => m.type === 'system_info' && m.content?.includes('🚫'));
-    assert.ok(blocked, 'should have 🚫 blocked message');
-    assert.ok(blocked.content.includes('docs/BACKLOG.md'), 'blocked message should name the file');
-    assert.ok(blocked.content.includes('git push'), 'blocked message should tell user to push');
+    // Find the ⚠️ preflight message
+    const warned = msgs.find((m) => m.type === 'system_info' && m.content?.includes('⚠️'));
+    assert.ok(warned, 'should have ⚠️ warning message');
+    assert.ok(warned.content.includes('docs/ROADMAP.md'), 'warning should name the file');
+    assert.ok(warned.content.includes('git push'), 'warning should tell user to push');
 
-    // Verify order: invocation_created before 🚫 before done
+    // Verify order: invocation_created before ⚠️ before provider text
     const invCreatedIdx = msgs.indexOf(invCreated);
-    const blockedIdx = msgs.indexOf(blocked);
-    const doneIdx = msgs.findIndex((m) => m.type === 'done');
-    assert.ok(invCreatedIdx < blockedIdx, 'invocation_created must come before 🚫');
-    assert.ok(blockedIdx < doneIdx, '🚫 must come before done');
+    const warnedIdx = msgs.indexOf(warned);
+    const textIdx = msgs.findIndex((m) => m.type === 'text' && m.content?.includes('hello'));
+    assert.ok(invCreatedIdx < warnedIdx, 'invocation_created must come before ⚠️');
+    assert.ok(warnedIdx < textIdx, '⚠️ must come before provider output');
 
-    // Service must NOT have been called
-    assert.equal(serviceCalled, false, 'service.invoke must NOT be called when preflight blocks');
+    // Service SHOULD have been called
+    assert.equal(serviceCalled, true, 'service.invoke MUST be called when shared-state is only warned');
   });
 
   it('warn-only: uncommittedFiles → invocation_created → ⚠️ → service.invoke called', async () => {
@@ -163,9 +171,9 @@ describe('invokeSingleCat shared-state preflight', () => {
     const bare = addBareRemote(repo);
     tempDirs.push(repo, bare);
 
-    // Stage cat-config.json but don't commit — git diff --cached catches this
-    writeFileSync(join(repo, 'cat-config.json'), '{}');
-    execSync('git add cat-config.json', { cwd: repo, stdio: 'ignore' });
+    // Stage cat-template.json but don't commit — git diff --cached catches this
+    writeFileSync(join(repo, 'cat-template.json'), '{}');
+    execSync('git add cat-template.json', { cwd: repo, stdio: 'ignore' });
 
     process.chdir(repo);
 
@@ -204,7 +212,7 @@ describe('invokeSingleCat shared-state preflight', () => {
 
     const warned = msgs.find((m) => m.type === 'system_info' && m.content?.includes('⚠️'));
     assert.ok(warned, 'should have ⚠️ warning message');
-    assert.ok(warned.content.includes('cat-config.json'), 'warning should name the file');
+    assert.ok(warned.content.includes('cat-template.json'), 'warning should name the file');
 
     // Service SHOULD have been called
     assert.equal(serviceCalled, true, 'service.invoke MUST be called when preflight only warns');

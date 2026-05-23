@@ -3,6 +3,16 @@ import type { ContextBudget } from '@cat-cafe/shared';
 export type CodexAuthMode = 'oauth' | 'api_key' | 'auto';
 
 export interface ConfigSnapshot {
+  coCreator: {
+    name: string;
+    aliases: string[];
+    mentionPatterns: string[];
+    avatar?: string;
+    color?: {
+      primary: string;
+      secondary: string;
+    };
+  };
   context: {
     /** @deprecated Use perCatBudgets for actual limits. This is assembleContext default. */
     maxMessages: number;
@@ -42,7 +52,7 @@ export interface ConfigSnapshot {
     string,
     {
       displayName: string;
-      provider: string;
+      clientId: string;
       model: string;
       mcpSupport: boolean;
     }
@@ -70,5 +80,17 @@ export interface ConfigSnapshot {
     model: string;
     authMode: CodexAuthMode;
     passModelArg: boolean;
+  };
+  /** F102 evidence/summary feature flags (Phase G) */
+  f102: {
+    embedMode: string;
+    abstractiveEnabled: boolean;
+  };
+  /** UI display preferences (bubble expand/collapse defaults) */
+  ui: {
+    bubbleDefaults: {
+      thinking: 'expanded' | 'collapsed';
+      cliOutput: 'expanded' | 'collapsed';
+    };
   };
 }

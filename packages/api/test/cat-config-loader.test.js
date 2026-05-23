@@ -1,9 +1,10 @@
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const {
   loadCatConfig,
@@ -15,13 +16,14 @@ const {
   getMissionHubSelfClaimScope,
   getDefaultCatId,
   buildCatIdToBreedIndex,
+  getCatEffort,
   _resetCachedConfig,
 } = await import('../dist/config/cat-config-loader.js');
 
 /** Create a temp JSON file with given content, return path */
 function writeTempConfig(data) {
-  const dir = mkdtempSync(join(tmpdir(), 'cat-config-'));
-  const path = join(dir, 'cat-config.json');
+  const dir = mkdtempSync(join(tmpdir(), 'cat-template-'));
+  const path = join(dir, 'cat-template.json');
   writeFileSync(path, JSON.stringify(data));
   return path;
 }
@@ -44,7 +46,7 @@ function validConfig() {
         variants: [
           {
             id: 'opus-default',
-            provider: 'anthropic',
+            clientId: 'anthropic',
             defaultModel: 'claude-sonnet-4-5-20250929',
             mcpSupport: true,
             cli: { command: 'claude', outputFormat: 'stream-json' },
@@ -66,19 +68,180 @@ describe('cat-config-loader', () => {
       assert.equal(config.breeds[0].id, 'ragdoll');
     });
 
-    it('loads default project cat-config.json when no path/env provided', () => {
-      const saved = process.env.CAT_CONFIG_PATH;
-      delete process.env.CAT_CONFIG_PATH;
+    it('loads default project config when no path/env provided', () => {
+      const saved = process.env.CAT_TEMPLATE_PATH;
+      delete process.env.CAT_TEMPLATE_PATH;
       try {
         const config = loadCatConfig();
         // F032: version can be 1 or 2 now
         assert.ok(config.version === 1 || config.version === 2);
-        assert.ok(config.breeds.length >= 1);
+        // F171: first-run empty bootstrap allows the default runtime catalog to start with zero members.
+        assert.ok(Array.isArray(config.breeds));
       } finally {
         if (saved === undefined) {
-          delete process.env.CAT_CONFIG_PATH;
+          delete process.env.CAT_TEMPLATE_PATH;
         } else {
-          process.env.CAT_CONFIG_PATH = saved;
+          process.env.CAT_TEMPLATE_PATH = saved;
+        }
+      }
+    });
+
+    it('prefers .cat-cafe/cat-catalog.json over cat-template.json for default loads', () => {
+      const projectDir = mkdtempSync(join(tmpdir(), 'cat-template-project-'));
+      const templatePath = join(projectDir, 'cat-template.json');
+      writeFileSync(templatePath, JSON.stringify(validConfig()));
+      const runtimeDir = join(projectDir, '.cat-cafe');
+      mkdirSync(runtimeDir, { recursive: true });
+      const runtimeConfig = validConfig();
+      runtimeConfig.breeds[0].displayName = '运行时布偶猫';
+      writeFileSync(join(runtimeDir, 'cat-catalog.json'), JSON.stringify(runtimeConfig));
+
+      const saved = process.env.CAT_TEMPLATE_PATH;
+      process.env.CAT_TEMPLATE_PATH = templatePath;
+      try {
+        const config = loadCatConfig();
+        assert.equal(config.breeds[0].displayName, '运行时布偶猫');
+      } finally {
+        if (saved === undefined) {
+          delete process.env.CAT_TEMPLATE_PATH;
+        } else {
+          process.env.CAT_TEMPLATE_PATH = saved;
+        }
+      }
+    });
+
+    it('deep-merges catalog overlay onto config base (preserves base-only fields)', () => {
+      const projectDir = mkdtempSync(join(tmpdir(), 'cat-merge-project-'));
+      const templatePath = join(projectDir, 'cat-template.json');
+
+      // Base config: breed has teamStrengths and caution (fields catalog might not have)
+      const base = validConfig();
+      base.breeds[0].teamStrengths = 'base-only-strength';
+      base.breeds[0].caution = 'base-only-caution';
+      writeFileSync(templatePath, JSON.stringify(base));
+
+      // Catalog: same breed with different displayName, but missing teamStrengths/caution
+      const runtimeDir = join(projectDir, '.cat-cafe');
+      mkdirSync(runtimeDir, { recursive: true });
+      const catalog = validConfig();
+      catalog.breeds[0].displayName = '运行时布偶猫';
+      delete catalog.breeds[0].teamStrengths;
+      delete catalog.breeds[0].caution;
+      writeFileSync(join(runtimeDir, 'cat-catalog.json'), JSON.stringify(catalog));
+
+      const saved = process.env.CAT_TEMPLATE_PATH;
+      process.env.CAT_TEMPLATE_PATH = templatePath;
+      try {
+        const config = loadCatConfig();
+        // Catalog override: displayName comes from catalog
+        assert.equal(config.breeds[0].displayName, '运行时布偶猫', 'catalog displayName overrides base');
+        // Base preservation: fields absent from catalog are preserved from base
+        assert.equal(
+          config.breeds[0].teamStrengths,
+          'base-only-strength',
+          'base breed field preserved when catalog lacks it',
+        );
+        assert.equal(config.breeds[0].caution, 'base-only-caution', 'base caution preserved when catalog lacks it');
+      } finally {
+        if (saved === undefined) {
+          delete process.env.CAT_TEMPLATE_PATH;
+        } else {
+          process.env.CAT_TEMPLATE_PATH = saved;
+        }
+      }
+    });
+
+    it('replaces cli object when catalog switches provider so stale effort/defaultArgs do not leak from base', () => {
+      const projectDir = mkdtempSync(join(tmpdir(), 'cat-cli-merge-project-'));
+      const templatePath = join(projectDir, 'cat-template.json');
+
+      const base = validConfig();
+      base.breeds[0].variants[0].cli = {
+        command: 'claude',
+        outputFormat: 'stream-json',
+        defaultArgs: ['--output-format', 'stream-json'],
+        effort: 'max',
+      };
+      writeFileSync(templatePath, JSON.stringify(base));
+
+      const runtimeDir = join(projectDir, '.cat-cafe');
+      mkdirSync(runtimeDir, { recursive: true });
+      const catalog = validConfig();
+      catalog.breeds[0].variants[0].provider = 'openai';
+      catalog.breeds[0].variants[0].defaultModel = 'gpt-5.4';
+      catalog.breeds[0].variants[0].cli = {
+        command: 'codex',
+        outputFormat: 'json',
+      };
+      writeFileSync(join(runtimeDir, 'cat-catalog.json'), JSON.stringify(catalog));
+
+      const saved = process.env.CAT_TEMPLATE_PATH;
+      process.env.CAT_TEMPLATE_PATH = templatePath;
+      try {
+        const config = loadCatConfig();
+        const variant = config.breeds[0].variants[0];
+        assert.equal(variant.provider, 'openai');
+        assert.deepEqual(variant.cli, {
+          command: 'codex',
+          outputFormat: 'json',
+        });
+        assert.equal('effort' in variant.cli, false, 'base cli.effort must not leak across provider switch');
+        assert.equal('defaultArgs' in variant.cli, false, 'base cli.defaultArgs must not leak across provider switch');
+      } finally {
+        if (saved === undefined) {
+          delete process.env.CAT_TEMPLATE_PATH;
+        } else {
+          process.env.CAT_TEMPLATE_PATH = saved;
+        }
+      }
+    });
+
+    it('replaces cli object when catalog switches provider from openai back to anthropic', () => {
+      const projectDir = mkdtempSync(join(tmpdir(), 'cat-cli-reverse-merge-project-'));
+      const templatePath = join(projectDir, 'cat-template.json');
+
+      const base = validConfig();
+      base.breeds[0].variants[0].provider = 'openai';
+      base.breeds[0].variants[0].defaultModel = 'gpt-5.4';
+      base.breeds[0].variants[0].cli = {
+        command: 'codex',
+        outputFormat: 'json',
+        defaultArgs: ['exec', '--json'],
+        effort: 'xhigh',
+      };
+      writeFileSync(templatePath, JSON.stringify(base));
+
+      const runtimeDir = join(projectDir, '.cat-cafe');
+      mkdirSync(runtimeDir, { recursive: true });
+      const catalog = validConfig();
+      catalog.breeds[0].variants[0].provider = 'anthropic';
+      catalog.breeds[0].variants[0].defaultModel = 'claude-opus-4-1';
+      catalog.breeds[0].variants[0].cli = {
+        command: 'claude',
+        outputFormat: 'stream-json',
+      };
+      writeFileSync(join(runtimeDir, 'cat-catalog.json'), JSON.stringify(catalog));
+
+      const saved = process.env.CAT_TEMPLATE_PATH;
+      process.env.CAT_TEMPLATE_PATH = templatePath;
+      try {
+        const config = loadCatConfig();
+        const variant = config.breeds[0].variants[0];
+        // clowder-ai#340: catalog's provider='anthropic' is kept (matches clientId, but retained to
+        // prevent template's stale provider='openai' from leaking through the merge).
+        assert.equal(variant.clientId, 'anthropic');
+        assert.equal(variant.provider, 'anthropic', 'catalog provider must override template provider');
+        assert.deepEqual(variant.cli, {
+          command: 'claude',
+          outputFormat: 'stream-json',
+        });
+        assert.equal('effort' in variant.cli, false, 'base cli.effort must not leak back to anthropic');
+        assert.equal('defaultArgs' in variant.cli, false, 'base cli.defaultArgs must not leak back to anthropic');
+      } finally {
+        if (saved === undefined) {
+          delete process.env.CAT_TEMPLATE_PATH;
+        } else {
+          process.env.CAT_TEMPLATE_PATH = saved;
         }
       }
     });
@@ -97,7 +260,7 @@ describe('cat-config-loader', () => {
     });
 
     it('throws clear error when file not found', () => {
-      assert.throws(() => loadCatConfig('/nonexistent/cat-config.json'), /Failed to read cat config/);
+      assert.throws(() => loadCatConfig('/nonexistent/cat-template.json'), /Failed to read cat config/);
     });
 
     it('rejects empty variants array', () => {
@@ -114,11 +277,12 @@ describe('cat-config-loader', () => {
       assert.throws(() => loadCatConfig(path), /defaultVariantId.*not found/);
     });
 
-    it('rejects invalid provider', () => {
-      const bad = validConfig();
-      bad.breeds[0].variants[0].provider = 'invalid-provider';
-      const path = writeTempConfig(bad);
-      assert.throws(() => loadCatConfig(path), /Invalid cat config/);
+    it('accepts unknown provider without crashing (#252)', () => {
+      const config = validConfig();
+      config.breeds[0].variants[0].clientId = 'relayclaw';
+      const path = writeTempConfig(config);
+      const result = loadCatConfig(path);
+      assert.ok(result, 'config with unknown clientId should load successfully');
     });
 
     it('accepts dare provider (F050)', () => {
@@ -136,7 +300,7 @@ describe('cat-config-loader', () => {
         variants: [
           {
             id: 'dare-default',
-            provider: 'dare',
+            clientId: 'dare',
             defaultModel: 'zhipu/glm-4.7',
             mcpSupport: false,
             cli: { command: 'python', outputFormat: 'headless-json' },
@@ -147,7 +311,7 @@ describe('cat-config-loader', () => {
       const loaded = loadCatConfig(path);
       const cats = toAllCatConfigs(loaded);
       assert.ok(cats.dare);
-      assert.strictEqual(cats.dare.provider, 'dare');
+      assert.strictEqual(cats.dare.clientId, 'dare');
     });
 
     it('accepts arbitrary catId (F32-a: any non-empty string is valid)', () => {
@@ -167,7 +331,7 @@ describe('cat-config-loader', () => {
       const config = loadCatConfig(path);
       const variant = getDefaultVariant(config.breeds[0]);
       assert.equal(variant.id, 'opus-default');
-      assert.equal(variant.provider, 'anthropic');
+      assert.equal(variant.clientId, 'anthropic');
     });
   });
 
@@ -179,7 +343,7 @@ describe('cat-config-loader', () => {
 
       assert.ok(flat.opus);
       assert.equal(flat.opus.displayName, '布偶猫');
-      assert.equal(flat.opus.provider, 'anthropic');
+      assert.equal(flat.opus.clientId, 'anthropic');
       assert.equal(flat.opus.mcpSupport, true);
       assert.deepEqual(flat.opus.mentionPatterns, ['@opus', '@布偶猫']);
       assert.equal(flat.opus.personality, '温柔');
@@ -200,7 +364,7 @@ describe('cat-config-loader', () => {
         variants: [
           {
             id: 'codex-default',
-            provider: 'openai',
+            clientId: 'openai',
             defaultModel: 'codex',
             mcpSupport: false,
             cli: { command: 'codex', outputFormat: 'json' },
@@ -214,7 +378,7 @@ describe('cat-config-loader', () => {
 
       assert.ok(flat.opus);
       assert.ok(flat.codex);
-      assert.equal(flat.codex.provider, 'openai');
+      assert.equal(flat.codex.clientId, 'openai');
     });
   });
 
@@ -293,12 +457,36 @@ describe('cat-config-loader', () => {
       assert.equal(isSessionChainEnabled('unknown-cat', config), true);
     });
 
+    it('prefers variant.sessionChain override over breed-level setting', () => {
+      const cfg = validConfig();
+      cfg.breeds[0].features = { sessionChain: true };
+      cfg.breeds[0].variants.push({
+        id: 'opus-sonnet',
+        catId: 'opus-sonnet',
+        clientId: 'anthropic',
+        defaultModel: 'claude-sonnet-4-5-20250929',
+        mcpSupport: true,
+        cli: { command: 'claude', outputFormat: 'stream-json' },
+        sessionChain: false,
+      });
+      const config = loadCatConfig(writeTempConfig(cfg));
+      assert.equal(isSessionChainEnabled('opus', config), true);
+      assert.equal(isSessionChainEnabled('opus-sonnet', config), false);
+    });
+
     it('F053: loads project config for gemini (sessionChain: true after parity fix)', () => {
-      // Uses the actual project cat-config.json
+      // Uses the actual project cat-template.json
       const config = loadCatConfig();
       assert.equal(isSessionChainEnabled('gemini', config), true);
       assert.equal(isSessionChainEnabled('opus', config), true);
       assert.equal(isSessionChainEnabled('codex', config), true);
+    });
+
+    it('project config keeps antigravity session chain enabled for both variants', () => {
+      const templatePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../cat-template.json');
+      const config = loadCatConfig(templatePath);
+      assert.equal(isSessionChainEnabled('antigravity', config), true);
+      assert.equal(isSessionChainEnabled('antig-opus', config), true);
     });
 
     it('accepts features with empty object (all defaults)', () => {
@@ -309,8 +497,8 @@ describe('cat-config-loader', () => {
     });
 
     it('Cloud P1: gracefully returns true when config file is missing (no throw)', () => {
-      const saved = process.env.CAT_CONFIG_PATH;
-      process.env.CAT_CONFIG_PATH = '/tmp/nonexistent-cat-config-12345.json';
+      const saved = process.env.CAT_TEMPLATE_PATH;
+      process.env.CAT_TEMPLATE_PATH = '/tmp/nonexistent-cat-template-12345.json';
       _resetCachedConfig();
       try {
         // Should NOT throw — should fallback to default (true)
@@ -318,9 +506,9 @@ describe('cat-config-loader', () => {
         assert.equal(result, true, 'should return true (default) when config is unreadable');
       } finally {
         if (saved === undefined) {
-          delete process.env.CAT_CONFIG_PATH;
+          delete process.env.CAT_TEMPLATE_PATH;
         } else {
-          process.env.CAT_CONFIG_PATH = saved;
+          process.env.CAT_TEMPLATE_PATH = saved;
         }
         _resetCachedConfig();
       }
@@ -366,7 +554,7 @@ function multiVariantConfig() {
         variants: [
           {
             id: 'opus-default',
-            provider: 'anthropic',
+            clientId: 'anthropic',
             defaultModel: 'claude-opus-4-6',
             mcpSupport: true,
             cli: { command: 'claude', outputFormat: 'stream-json' },
@@ -377,7 +565,7 @@ function multiVariantConfig() {
             catId: 'opus-45',
             displayName: '布偶猫 4.5',
             mentionPatterns: ['@opus-45', '@布偶猫4.5'],
-            provider: 'anthropic',
+            clientId: 'anthropic',
             defaultModel: 'claude-sonnet-4-5-20250929',
             mcpSupport: true,
             cli: { command: 'claude', outputFormat: 'stream-json' },
@@ -399,7 +587,7 @@ function multiVariantConfig() {
         variants: [
           {
             id: 'gemini-default',
-            provider: 'google',
+            clientId: 'google',
             defaultModel: 'gemini-2.5-pro',
             mcpSupport: false,
             cli: { command: 'gemini', outputFormat: 'stream-json' },
@@ -439,7 +627,7 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
     cfg.breeds[0].variants.push({
       id: 'opus-haiku',
       catId: 'opus-haiku',
-      provider: 'anthropic',
+      clientId: 'anthropic',
       defaultModel: 'claude-haiku-4-5-20251001',
       mcpSupport: false,
       cli: { command: 'claude', outputFormat: 'stream-json' },
@@ -456,7 +644,7 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
       id: 'opus-haiku-empty',
       catId: 'opus-haiku-empty',
       mentionPatterns: [],
-      provider: 'anthropic',
+      clientId: 'anthropic',
       defaultModel: 'claude-haiku-4-5-20251001',
       mcpSupport: false,
       cli: { command: 'claude', outputFormat: 'stream-json' },
@@ -498,6 +686,14 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
     assert.throws(() => toAllCatConfigs(loadCatConfig(writeTempConfig(cfg))), /Duplicate catId "opus"/);
   });
 
+  it('preserves variant cli config in flattened output', () => {
+    const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
+    const all = toAllCatConfigs(config);
+    assert.deepEqual(all.opus.cli, { command: 'claude', outputFormat: 'stream-json' });
+    assert.deepEqual(all['opus-45'].cli, { command: 'claude', outputFormat: 'stream-json' });
+    assert.deepEqual(all.gemini.cli, { command: 'gemini', outputFormat: 'stream-json' });
+  });
+
   it('toFlatConfigs is an alias for toAllCatConfigs', () => {
     const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
     const all = toAllCatConfigs(config);
@@ -528,18 +724,18 @@ describe('F32-b: isSessionChainEnabled (variant resolution)', () => {
 
 describe('F32-b: getDefaultCatId', () => {
   it('returns first breed default variant catId', () => {
-    const saved = process.env.CAT_CONFIG_PATH;
+    const saved = process.env.CAT_TEMPLATE_PATH;
     const path = writeTempConfig(multiVariantConfig());
-    process.env.CAT_CONFIG_PATH = path;
+    process.env.CAT_TEMPLATE_PATH = path;
     _resetCachedConfig();
     try {
       const id = getDefaultCatId();
       assert.equal(id, 'opus');
     } finally {
       if (saved === undefined) {
-        delete process.env.CAT_CONFIG_PATH;
+        delete process.env.CAT_TEMPLATE_PATH;
       } else {
-        process.env.CAT_CONFIG_PATH = saved;
+        process.env.CAT_TEMPLATE_PATH = saved;
       }
       _resetCachedConfig();
     }
@@ -549,18 +745,18 @@ describe('F32-b: getDefaultCatId', () => {
     const cfg = multiVariantConfig();
     // Make opus-45 the default and give it a custom catId
     cfg.breeds[0].defaultVariantId = 'opus-45';
-    const saved = process.env.CAT_CONFIG_PATH;
+    const saved = process.env.CAT_TEMPLATE_PATH;
     const path = writeTempConfig(cfg);
-    process.env.CAT_CONFIG_PATH = path;
+    process.env.CAT_TEMPLATE_PATH = path;
     _resetCachedConfig();
     try {
       const id = getDefaultCatId();
       assert.equal(id, 'opus-45');
     } finally {
       if (saved === undefined) {
-        delete process.env.CAT_CONFIG_PATH;
+        delete process.env.CAT_TEMPLATE_PATH;
       } else {
-        process.env.CAT_CONFIG_PATH = saved;
+        process.env.CAT_TEMPLATE_PATH = saved;
       }
       _resetCachedConfig();
     }
@@ -582,18 +778,22 @@ describe('F32-b: mentionPattern validation', () => {
     assert.throws(() => loadCatConfig(path), /Invalid cat config/);
   });
 
-  it('rejects breed mentionPatterns missing @catId handle', () => {
+  it('accepts breed mentionPatterns without canonical @catId (custom aliases allowed)', () => {
     const cfg = multiVariantConfig();
     cfg.breeds[0].mentionPatterns = ['@布偶猫', '@布偶'];
     const path = writeTempConfig(cfg);
-    assert.throws(() => loadCatConfig(path), /must include @opus/);
+    const config = loadCatConfig(path);
+    const allConfigs = toAllCatConfigs(config);
+    assert.deepEqual(allConfigs.opus.mentionPatterns, ['@布偶猫', '@布偶']);
   });
 
-  it('rejects variant mentionPatterns missing @catId handle', () => {
+  it('accepts variant mentionPatterns without canonical @catId (custom aliases allowed)', () => {
     const cfg = multiVariantConfig();
     cfg.breeds[0].variants[1].mentionPatterns = ['@布偶猫4.5'];
     const path = writeTempConfig(cfg);
-    assert.throws(() => loadCatConfig(path), /must include @opus-45/);
+    const config = loadCatConfig(path);
+    const allConfigs = toAllCatConfigs(config);
+    assert.deepEqual(allConfigs['opus-45'].mentionPatterns, ['@布偶猫4.5']);
   });
 });
 
@@ -656,8 +856,60 @@ describe('F32-b P4c: personality fallback to default variant', () => {
   });
 });
 
+describe('getCatEffort', () => {
+  // Note: Stale cross-provider effort values are now cleaned at write time
+  // (when switching providers via PATCH /api/cats/:id), so runtime
+  // normalization is no longer needed here.
+  it('returns effort from cli config if set', () => {
+    const cfg = validConfig();
+    cfg.breeds[0].variants[0].cli = {
+      command: 'claude',
+      outputFormat: 'stream-json',
+      effort: 'low',
+    };
+    const config = loadCatConfig(writeTempConfig(cfg));
+
+    assert.equal(getCatEffort('opus', config), 'low');
+  });
+
+  it('returns provider-aware default when not configured', () => {
+    const cfg = validConfig();
+    cfg.breeds[0].variants[0].clientId = 'openai';
+    cfg.breeds[0].variants[0].cli = {
+      command: 'codex',
+      outputFormat: 'json',
+    };
+    const config = loadCatConfig(writeTempConfig(cfg));
+
+    assert.equal(getCatEffort('opus', config), 'xhigh');
+  });
+
+  it('does not throw for variants without cli config (F061 bridge providers)', () => {
+    const config = loadCatConfig();
+    // antigravity has no cli — should not throw, returns provider default
+    const result = getCatEffort('antigravity', config);
+    assert.equal(typeof result, 'string', 'should return a string effort level');
+    assert.ok(result, 'should return a truthy default effort');
+  });
+
+  it('rejects stale cross-provider effort from historical data (defense-in-depth)', () => {
+    // Simulates a catalog written before the PATCH write-time cleanup was added:
+    // an openai cat still carrying anthropic-only effort 'max'.
+    const cfg = validConfig();
+    cfg.breeds[0].variants[0].clientId = 'openai';
+    cfg.breeds[0].variants[0].cli = {
+      command: 'codex',
+      outputFormat: 'json',
+      effort: 'max', // invalid for openai — only anthropic supports 'max'
+    };
+    const config = loadCatConfig(writeTempConfig(cfg));
+
+    // Should fall back to openai default ('xhigh'), not return 'max'
+    assert.equal(getCatEffort('opus', config), 'xhigh');
+  });
+});
 describe('F32-b P4c: Sonnet variant in project config', () => {
-  it('project cat-config.json loads with Sonnet variant', () => {
+  it('project cat-template.json loads with Sonnet variant', () => {
     const config = loadCatConfig();
     const ragdoll = config.breeds.find((b) => b.id === 'ragdoll');
     assert.ok(ragdoll, 'ragdoll breed exists');
@@ -665,7 +917,7 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.ok(sonnetVariant, 'opus-sonnet variant exists');
     assert.equal(sonnetVariant.catId, 'sonnet');
     assert.equal(sonnetVariant.variantLabel, 'Sonnet');
-    assert.equal(sonnetVariant.provider, 'anthropic');
+    assert.equal(sonnetVariant.clientId, 'anthropic');
     assert.equal(sonnetVariant.defaultModel, 'claude-sonnet-4-6');
   });
 
@@ -689,22 +941,43 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.notDeepEqual(all.sonnet.color, all.opus.color);
   });
 
-  it('total cat count is 12 (opus + sonnet + opus-45 + codex + gpt52 + spark + gemini + gemini25 + dare + antigravity + antig-opus + opencode)', () => {
-    const config = loadCatConfig();
+  it('total cat count is 14 (opus + sonnet + opus-45 + opus-47 + codex + gpt52 + spark + gemini + gemini25 + kimi + dare + antigravity + antig-opus + opencode)', () => {
+    // Use template directly to avoid catalog overlay pollution from earlier tests
+    const templatePath =
+      process.env.CAT_TEMPLATE_PATH ??
+      resolve(dirname(fileURLToPath(import.meta.url)), '../../..', 'cat-template.json');
+    const config = loadCatConfig(templatePath);
     const all = toAllCatConfigs(config);
-    assert.equal(Object.keys(all).length, 12);
+    assert.equal(Object.keys(all).length, 14);
     assert.ok(all.opus);
     assert.ok(all.sonnet);
     assert.ok(all['opus-45']);
+    assert.ok(all['opus-47']);
     assert.ok(all.codex);
     assert.ok(all.gpt52);
     assert.ok(all.spark); // F032 Phase E: new cat added
     assert.ok(all.gemini);
     assert.ok(all.gemini25);
+    assert.ok(all.kimi); // Kimi CLI cat (moonshot)
     assert.ok(all.dare); // F050: DARE external agent (dragon-li)
     assert.ok(all.antigravity); // F061: Bengal cat (Antigravity CDP bridge)
     assert.ok(all['antig-opus']); // F061: Bengal cat Claude variant
     assert.ok(all.opencode); // F105: OpenCode external agent
+  });
+
+  it('antigravity variants have no cli config (F061 Bridge replaces CDP)', () => {
+    const config = loadCatConfig();
+    const all = toAllCatConfigs(config);
+    // F061 Phase 2: CLI/CDP removed, Bridge handles communication
+    assert.equal(all.antigravity.cli, undefined);
+    assert.equal(all['antig-opus'].cli, undefined);
+  });
+
+  it('antigravity variants advertise MCP support through managed Antigravity config', () => {
+    const config = loadCatConfig();
+    const all = toAllCatConfigs(config);
+    assert.equal(all.antigravity.mcpSupport, true);
+    assert.equal(all['antig-opus'].mcpSupport, true);
   });
 });
 
@@ -767,5 +1040,55 @@ describe('GPT-5.2 variant mention aliases in project config', () => {
     const gpt52 = all.gpt52;
     assert.ok(gpt52, 'gpt52 cat config exists');
     assert.ok(gpt52.mentionPatterns.includes('@gpt'));
+  });
+});
+
+/**
+ * F167 Phase E (KD-20): data-driven hard restrictions replace L3 role-gate.
+ * Each cat MAY declare `restrictions: string[]` — natural-language bans
+ * surfaced both to teammates (via buildTeammateRoster) and to the cat itself
+ * (via buildStaticIdentity). No harness-side matching.
+ */
+describe('F167 Phase E: cat-config restrictions', () => {
+  it('variant-level restrictions are preserved in CatConfig', () => {
+    const cfg = validConfig();
+    cfg.breeds[0].variants[0].restrictions = ['禁止写代码'];
+    const loaded = loadCatConfig(writeTempConfig(cfg));
+    const all = toAllCatConfigs(loaded);
+    assert.deepStrictEqual(all.opus.restrictions, ['禁止写代码']);
+  });
+
+  it('breed-level restrictions flow to variant when variant omits them', () => {
+    const cfg = validConfig();
+    cfg.breeds[0].restrictions = ['禁止生成图片'];
+    // variant does not override
+    const loaded = loadCatConfig(writeTempConfig(cfg));
+    const all = toAllCatConfigs(loaded);
+    assert.deepStrictEqual(all.opus.restrictions, ['禁止生成图片']);
+  });
+
+  it('variant restrictions override breed restrictions (no merge)', () => {
+    const cfg = validConfig();
+    cfg.breeds[0].restrictions = ['breed-ban'];
+    cfg.breeds[0].variants[0].restrictions = ['variant-ban'];
+    const loaded = loadCatConfig(writeTempConfig(cfg));
+    const all = toAllCatConfigs(loaded);
+    assert.deepStrictEqual(all.opus.restrictions, ['variant-ban']);
+  });
+
+  it('no restrictions declared → field absent (undefined), not empty array', () => {
+    const cfg = validConfig();
+    // neither breed nor variant set restrictions
+    const loaded = loadCatConfig(writeTempConfig(cfg));
+    const all = toAllCatConfigs(loaded);
+    assert.equal(all.opus.restrictions, undefined);
+  });
+
+  it('live project config: gemini has "禁止写代码" restriction', () => {
+    // Real cat-config.json: validates KD-20 data-driven migration for the
+    // primary flagged case (gemini was being harness-blocked by L3).
+    const config = loadCatConfig();
+    const all = toAllCatConfigs(config);
+    assert.ok(all.gemini?.restrictions?.includes('禁止写代码'), 'live gemini.restrictions must include 禁止写代码');
   });
 });

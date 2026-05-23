@@ -62,6 +62,7 @@ export class ProcessLivenessProbe {
   private prevCpuTimeMs = 0;
   private currCpuTimeMs = 0;
   private cpuGrowing = false;
+  private sampling = false;
   private pidAlive = true;
   private warningQueue: LivenessWarningEvent[] = [];
   private softWarningEmitted = false;
@@ -94,6 +95,20 @@ export class ProcessLivenessProbe {
     return warnings;
   }
 
+  /**
+   * Final flush for shutdown races:
+   * stdout can close before the next generator loop drains a warning that was
+   * already queued by an in-flight sample. Wait briefly for that sample to land
+   * so callers can drain pending warnings before exit, but do not synthesize
+   * any new warnings during shutdown.
+   */
+  async flushPendingWarnings(): Promise<void> {
+    const deadline = Date.now() + Math.max(this.config.sampleIntervalMs, 50);
+    while (this.sampling && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  }
+
   /** Whether bounded extension applies (busy-silent) */
   shouldExtendTimeout(): boolean {
     return this.getState() === 'busy-silent';
@@ -121,36 +136,80 @@ export class ProcessLivenessProbe {
   }
 
   private sampleOnce(): void {
+    // Guard against concurrent samples — nested async calls (ps→pgrep→ps) can
+    // overlap when sampleIntervalMs is shorter than the async chain duration.
+    if (this.sampling) return;
+    this.sampling = true;
+
     // Check PID existence first
     try {
       process.kill(this.pid, 0); // signal 0 = existence check
     } catch {
       this.pidAlive = false;
+      this.sampling = false;
       return;
     }
 
-    // Sample CPU time via ps
-    execFile('ps', ['-o', 'cputime=', '-p', String(this.pid)], (err, stdout) => {
+    // Windows: `ps` is not available. Use process.kill(pid, 0) for liveness
+    // and skip CPU sampling. Conservative: assume idle (cpuGrowing = false)
+    // so that idle-silent → stall detection still works on Windows.
+    if (process.platform === 'win32') {
+      this.cpuGrowing = false;
+      this.emitSilenceWarnings();
+      this.sampling = false;
+      return;
+    }
+
+    // Single ps call to get CPU for process tree (main + direct children).
+    // When the CLI runs a tool call (e.g. pnpm test), the test subprocess is busy
+    // but the main CLI process is idle-waiting. Without checking children, the probe
+    // would misclassify as idle-silent and trigger stallAutoKill (false positive).
+    // Uses one `ps -A` instead of nested ps→pgrep→ps to avoid pgrep callback delays.
+    execFile('ps', ['-A', '-o', 'pid=,ppid=,cputime='], (err, stdout) => {
       if (err) {
-        // ps failed — process likely dead
         this.pidAlive = false;
+        this.sampling = false;
         return;
       }
-      this.prevCpuTimeMs = this.currCpuTimeMs;
-      this.currCpuTimeMs = parseCpuTime(stdout);
-      this.cpuGrowing = this.currCpuTimeMs > this.prevCpuTimeMs;
-
-      // Check warning thresholds
-      const silenceMs = Date.now() - this.lastActivityAt;
-
-      if (silenceMs >= this.config.stallWarningMs && !this.stallWarningEmitted) {
-        this.stallWarningEmitted = true;
-        this.warningQueue.push(this.makeWarning('suspected_stall', silenceMs));
-      } else if (silenceMs >= this.config.softWarningMs && !this.softWarningEmitted) {
-        this.softWarningEmitted = true;
-        this.warningQueue.push(this.makeWarning('alive_but_silent', silenceMs));
+      let mainCpu = -1;
+      let childCpuTotal = 0;
+      for (const line of stdout.split('\n')) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length < 3) continue;
+        const pid = Number(parts[0]);
+        const ppid = Number(parts[1]);
+        const cpu = parseCpuTime(parts[2]);
+        if (pid === this.pid) mainCpu = cpu;
+        else if (ppid === this.pid) childCpuTotal += cpu;
       }
+      if (mainCpu < 0) {
+        this.pidAlive = false;
+        this.sampling = false;
+        return;
+      }
+      this.updateCpuSample(mainCpu + childCpuTotal);
     });
+  }
+
+  /** Update CPU tracking and emit warnings after sampling */
+  private updateCpuSample(totalCpuMs: number): void {
+    this.prevCpuTimeMs = this.currCpuTimeMs;
+    this.currCpuTimeMs = totalCpuMs;
+    this.cpuGrowing = this.currCpuTimeMs > this.prevCpuTimeMs;
+    this.emitSilenceWarnings();
+    this.sampling = false;
+  }
+
+  /** Emit soft/stall warnings based on silence duration (shared by Windows and Unix paths) */
+  private emitSilenceWarnings(): void {
+    const silenceMs = Date.now() - this.lastActivityAt;
+    if (silenceMs >= this.config.stallWarningMs && !this.stallWarningEmitted) {
+      this.stallWarningEmitted = true;
+      this.warningQueue.push(this.makeWarning('suspected_stall', silenceMs));
+    } else if (silenceMs >= this.config.softWarningMs && !this.softWarningEmitted) {
+      this.softWarningEmitted = true;
+      this.warningQueue.push(this.makeWarning('alive_but_silent', silenceMs));
+    }
   }
 
   private makeWarning(level: 'alive_but_silent' | 'suspected_stall', silenceDurationMs: number): LivenessWarningEvent {

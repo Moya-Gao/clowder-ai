@@ -6,9 +6,10 @@
  * and bootstrap reporting.
  */
 
-import { lstat, mkdir, readFile, readlink, symlink, writeFile } from 'node:fs/promises';
-import { dirname, relative, resolve, sep } from 'node:path';
+import { lstat, mkdir, readdir, readFile, readlink, stat, symlink, writeFile } from 'node:fs/promises';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import type { BootstrapAction, BootstrapReport } from '@cat-cafe/shared';
+import { pathsEqual } from '../../utils/project-path.js';
 import type { Provider } from './governance-pack.js';
 import {
   computePackChecksum,
@@ -19,12 +20,16 @@ import {
 } from './governance-pack.js';
 import { GovernanceRegistry } from './governance-registry.js';
 import { getMethodologyTemplates } from './methodology-templates.js';
+import { computeSourceManifestHash, writeSkillsState } from './skills-state.js';
+
+const IS_WIN32 = process.platform === 'win32';
 
 /** Provider instruction file mapping */
 const PROVIDER_FILES: Record<Provider, string> = {
   claude: 'CLAUDE.md',
   codex: 'AGENTS.md',
   gemini: 'GEMINI.md',
+  kimi: 'KIMI.md',
 };
 
 /** Provider skills directory mapping */
@@ -32,6 +37,7 @@ const PROVIDER_SKILLS_DIRS: Record<Provider, string> = {
   claude: '.claude/skills',
   codex: '.codex/skills',
   gemini: '.gemini/skills',
+  kimi: '.kimi/skills',
 };
 
 /** Provider hooks directory mapping (F070 Phase 2) */
@@ -39,6 +45,7 @@ const PROVIDER_HOOKS_DIRS: Record<Provider, string> = {
   claude: '.claude/hooks',
   codex: '.codex/hooks',
   gemini: '.gemini/hooks',
+  kimi: '.kimi/hooks',
 };
 
 export interface BootstrapOptions {
@@ -67,10 +74,23 @@ export class GovernanceBootstrapService {
       actions.push(action);
     }
 
-    // 2. Skills symlinks for all 3 providers
-    for (const [provider, skillsDir] of Object.entries(PROVIDER_SKILLS_DIRS) as [Provider, string][]) {
-      const action = await this.symlinkSkills(targetProject, provider, skillsDir, opts.dryRun);
-      actions.push(action);
+    // 2. Per-skill symlinks for all supported providers (ADR-025)
+    const skillNames = await this.discoverSkillNames();
+    for (const [_provider, skillsDir] of Object.entries(PROVIDER_SKILLS_DIRS) as [Provider, string][]) {
+      const skillActions = await this.symlinkSkillsPerSkill(targetProject, skillsDir, skillNames, opts.dryRun);
+      actions.push(...skillActions);
+    }
+
+    // 2a. Write skills-state.json (ADR-025 Phase 1)
+    if (!opts.dryRun && skillNames.length > 0) {
+      const sourceRoot = resolve(this.catCafeRoot, 'cat-cafe-skills');
+      const hash = await computeSourceManifestHash(sourceRoot);
+      await writeSkillsState(targetProject, {
+        managedSkillNames: skillNames,
+        sourceRoot: relative(targetProject, sourceRoot),
+        sourceManifestHash: hash,
+        lastSyncedAt: new Date().toISOString(),
+      });
     }
 
     // 2b. Hooks symlinks for providers that have source hooks
@@ -159,39 +179,79 @@ export class GovernanceBootstrapService {
     };
   }
 
-  private async symlinkSkills(
-    targetProject: string,
-    _provider: Provider,
-    skillsDir: string,
-    dryRun: boolean,
-  ): Promise<BootstrapAction> {
-    const targetPath = resolve(targetProject, skillsDir);
-    const sourcePath = resolve(this.catCafeRoot, 'cat-cafe-skills');
-
-    // Check if symlink already exists and points to the right place
+  /** Scan cat-cafe-skills/ for subdirs containing SKILL.md. */
+  private async discoverSkillNames(): Promise<string[]> {
+    const sourceRoot = resolve(this.catCafeRoot, 'cat-cafe-skills');
     try {
-      const stat = await lstat(targetPath);
-      if (stat.isSymbolicLink()) {
-        const currentTarget = await readlink(targetPath);
-        const resolvedCurrent = resolve(dirname(targetPath), currentTarget);
-        if (resolvedCurrent === sourcePath) {
-          return { file: skillsDir, action: 'skipped', reason: 'symlink already correct' };
+      const entries = await readdir(sourceRoot, { withFileTypes: true });
+      const names: string[] = [];
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        try {
+          const s = await stat(join(sourceRoot, entry.name, 'SKILL.md'));
+          if (s.isFile()) names.push(entry.name);
+        } catch {
+          /* no SKILL.md — not a skill */
         }
       }
-      // Exists but not a symlink or wrong target — skip to avoid damage
-      return { file: skillsDir, action: 'skipped', reason: 'path exists but is not a symlink to cat-cafe-skills' };
+      return names.sort();
     } catch {
-      // Doesn't exist — create
+      return [];
+    }
+  }
+
+  /** ADR-025: Create per-skill symlinks instead of directory-level. */
+  private async symlinkSkillsPerSkill(
+    targetProject: string,
+    skillsDir: string,
+    skillNames: string[],
+    dryRun: boolean,
+  ): Promise<BootstrapAction[]> {
+    const targetDir = resolve(targetProject, skillsDir);
+    const sourceRoot = resolve(this.catCafeRoot, 'cat-cafe-skills');
+    const actions: BootstrapAction[] = [];
+
+    if (!dryRun) await mkdir(targetDir, { recursive: true });
+
+    for (const name of skillNames) {
+      const linkPath = join(targetDir, name);
+      const sourceSkill = join(sourceRoot, name);
+
+      try {
+        const s = await lstat(linkPath);
+        if (s.isSymbolicLink()) {
+          const current = await readlink(linkPath);
+          const resolved = resolve(dirname(linkPath), current);
+          if (pathsEqual(resolved, sourceSkill)) {
+            actions.push({ file: `${skillsDir}/${name}`, action: 'skipped', reason: 'symlink already correct' });
+            continue;
+          }
+          // Wrong target — remove and recreate
+          if (!dryRun) {
+            const { unlink } = await import('node:fs/promises');
+            await unlink(linkPath);
+          }
+        } else {
+          // Exists but not a symlink — skip to avoid damage
+          actions.push({
+            file: `${skillsDir}/${name}`,
+            action: 'skipped',
+            reason: 'path exists but is not a symlink',
+          });
+          continue;
+        }
+      } catch {
+        /* doesn't exist — create */
+      }
+
+      if (!dryRun) {
+        const relPath = IS_WIN32 ? sourceSkill : relative(dirname(linkPath), sourceSkill);
+        await symlink(relPath, linkPath, IS_WIN32 ? 'junction' : undefined);
+      }
+      actions.push({ file: `${skillsDir}/${name}`, action: 'symlinked', reason: `linked to ${sourceSkill}` });
     }
 
-    if (!dryRun) {
-      await mkdir(dirname(targetPath), { recursive: true });
-      // Use relative path for symlink portability
-      const relPath = relative(dirname(targetPath), sourcePath);
-      await symlink(relPath, targetPath);
-    }
-
-    return { file: skillsDir, action: 'symlinked', reason: `linked to ${sourcePath}` };
+    return actions;
   }
 
   private async symlinkHooks(
@@ -218,7 +278,7 @@ export class GovernanceBootstrapService {
       if (stat.isSymbolicLink()) {
         const currentTarget = await readlink(targetPath);
         const resolvedCurrent = resolve(dirname(targetPath), currentTarget);
-        if (resolvedCurrent === sourceHooksPath) {
+        if (pathsEqual(resolvedCurrent, sourceHooksPath)) {
           return { file: hooksDir, action: 'skipped', reason: 'hooks symlink already correct' };
         }
       }
@@ -229,8 +289,12 @@ export class GovernanceBootstrapService {
 
     if (!dryRun) {
       await mkdir(dirname(targetPath), { recursive: true });
-      const relPath = relative(dirname(targetPath), sourceHooksPath);
-      await symlink(relPath, targetPath);
+      if (IS_WIN32) {
+        await symlink(sourceHooksPath, targetPath, 'junction');
+      } else {
+        const relPath = relative(dirname(targetPath), sourceHooksPath);
+        await symlink(relPath, targetPath);
+      }
     }
 
     return { file: hooksDir, action: 'symlinked', reason: `hooks linked to ${sourceHooksPath}` };

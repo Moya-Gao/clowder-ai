@@ -24,7 +24,7 @@ function createMockRegistry() {
   let counter = 0;
   return {
     create: () => ({ invocationId: `inv-${++counter}`, callbackToken: `tok-${counter}` }),
-    verify: () => null,
+    verify: async () => ({ ok: false, reason: 'unknown_invocation' }),
   };
 }
 
@@ -36,6 +36,7 @@ function createMockMessageStore() {
       stored.push(msg);
       return { id: `msg-${stored.length}`, ...msg };
     },
+    getById: () => null,
     getRecent: () => [],
     getMentionsFor: () => [],
     getBefore: () => [],

@@ -128,6 +128,20 @@ function createStubThreadStore() {
         createdAt: Date.now(),
       };
     },
+    async updatePin() {},
+  };
+}
+
+function createStubAutoPlayer() {
+  return {
+    startedGameIds: [],
+    stopCalls: 0,
+    startLoop(gameId) {
+      this.startedGameIds.push(gameId);
+    },
+    stopAllLoops() {
+      this.stopCalls += 1;
+    },
   };
 }
 
@@ -156,8 +170,11 @@ describe('/game command bridge in POST /api/messages', () => {
         has: () => false,
         isDeleting: () => false,
         tryStartThread: () => new AbortController(),
+        tryStartThreadAll: () => new AbortController(),
         start: () => new AbortController(),
+        startAll: () => new AbortController(),
         complete: () => {},
+        completeAll: () => {},
       },
       invocationRecordStore: {
         create: async () => ({ outcome: 'created', invocationId: 'inv-stub' }),
@@ -176,7 +193,7 @@ describe('/game command bridge in POST /api/messages', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-cat-cafe-user': 'you' },
       payload: {
         content: '/game werewolf god-view voice',
         threadId: 'thread-test-1',
@@ -217,7 +234,7 @@ describe('/game command bridge in POST /api/messages', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-cat-cafe-user': 'you' },
       payload: {
         content: 'hello world',
         threadId: 'thread-test-2',
@@ -235,7 +252,7 @@ describe('/game command bridge in POST /api/messages', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-cat-cafe-user': 'you' },
       payload: {
         content: '/game werewolf player voice',
         threadId: 'thread-test-3',
@@ -251,7 +268,7 @@ describe('/game command bridge in POST /api/messages', () => {
     assert.equal(threadCreatedEvents[0].room, 'thread:thread-test-3');
     assert.equal(
       threadCreatedEvents[0].data.initiatorUserId,
-      'owner',
+      'you',
       'should include initiatorUserId for frontend guard',
     );
 
@@ -269,7 +286,7 @@ describe('/game command bridge in POST /api/messages', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-cat-cafe-user': 'you' },
       payload: {
         content: '/game werewolf player',
         threadId: 'thread-test-4',
@@ -287,7 +304,7 @@ describe('/game command bridge in POST /api/messages', () => {
     assert.equal(game.config.voiceMode, false);
     // P1 should be human
     assert.equal(game.seats[0].actorType, 'human');
-    assert.equal(game.seats[0].actorId, 'owner');
+    assert.equal(game.seats[0].actorId, 'you');
   });
 
   it('each /game command creates a separate game thread (no 409 conflict)', async () => {
@@ -295,7 +312,7 @@ describe('/game command bridge in POST /api/messages', () => {
     const res1 = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-cat-cafe-user': 'you' },
       payload: {
         content: '/game werewolf player',
         threadId: 'thread-test-multi',
@@ -308,7 +325,7 @@ describe('/game command bridge in POST /api/messages', () => {
     const res2 = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-cat-cafe-user': 'you' },
       payload: {
         content: '/game werewolf god-view',
         threadId: 'thread-test-multi',
@@ -317,5 +334,52 @@ describe('/game command bridge in POST /api/messages', () => {
     assert.equal(res2.json().status, 'game_started');
     const threadId2 = res2.json().gameThreadId;
     assert.notEqual(threadId1, threadId2, 'each game should get its own thread');
+  });
+
+  it('stops injected auto-player loops on app close', async () => {
+    const localApp = Fastify();
+    const autoPlayer = createStubAutoPlayer();
+
+    await localApp.register(messagesRoutes, {
+      registry: createStubRegistry(),
+      messageStore: createStubMessageStore(),
+      socketManager: createStubSocket(),
+      router: createStubRouter(),
+      threadStore: createStubThreadStore(),
+      gameStore: createStubGameStore(),
+      autoPlayer,
+      invocationTracker: {
+        has: () => false,
+        isDeleting: () => false,
+        tryStartThread: () => new AbortController(),
+        tryStartThreadAll: () => new AbortController(),
+        start: () => new AbortController(),
+        startAll: () => new AbortController(),
+        complete: () => {},
+        completeAll: () => {},
+      },
+      invocationRecordStore: {
+        create: async () => ({ outcome: 'created', invocationId: 'inv-stub' }),
+        update: async () => {},
+      },
+    });
+    await localApp.ready();
+
+    const res = await localApp.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { 'x-cat-cafe-user': 'you' },
+      payload: {
+        content: '/game werewolf player',
+        threadId: 'thread-test-close',
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(autoPlayer.startedGameIds.length, 1, 'should start injected auto-player');
+
+    await localApp.close();
+
+    assert.equal(autoPlayer.stopCalls, 1, 'should stop auto-player loops during close');
   });
 });

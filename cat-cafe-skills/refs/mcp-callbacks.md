@@ -19,8 +19,7 @@ curl -sS -X POST $CAT_CAFE_API_URL/api/callbacks/post-message \
   -d "$(jq -nc --arg i "$CAT_CAFE_INVOCATION_ID" --arg t "$CAT_CAFE_CALLBACK_TOKEN" --arg c "消息内容" '{invocationId:$i,callbackToken:$t,content:$c}')"
 ```
 
-可选 body 参数：
-- `threadId`：跨 thread 发消息。省略时默认发到当前 invocation 的 thread。
+post-message 始终发到当前 invocation 的 thread。跨 thread 发消息请用 `cross-post-message`（需传 `threadId`）。
 
 ### Get Thread Context
 ```bash
@@ -148,8 +147,25 @@ curl -sS -X POST $CAT_CAFE_API_URL/api/callbacks/create-rich-block \
 ```
 **注意**：字段是 `"kind"` 不是 `"type"`！必须有 `"v": 1`。
 
+### Submit Game Action (F101)
+```bash
+curl -sS -X POST $CAT_CAFE_API_URL/api/callbacks/submit-game-action \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -nc --arg i "$CAT_CAFE_INVOCATION_ID" --arg t "$CAT_CAFE_CALLBACK_TOKEN" --arg gid "游戏ID" --argjson round 1 --arg phase "night_wolf" --argjson seat 3 --arg action "kill" --argjson target 5 --arg nonce "唯一字符串" '{invocationId:$i,callbackToken:$t,gameId:$gid,round:$round,phase:$phase,seat:$seat,action:$action,target:$target,nonce:$nonce}')"
+```
+
+参数说明：
+- `gameId`：游戏 UUID
+- `round`：当前轮次
+- `phase`：当前阶段（`night_wolf`/`night_witch`/`night_seer`/`night_guard`/`day_vote`/`day_discuss`/`day_last_words`）
+- `seat`：你的座位号
+- `action`：行动类型（`kill`/`guard`/`divine`/`vote`/`speak`/`last_words`/`heal`/`poison`）
+- `target`（可选）：目标座位号
+- `text`（可选）：发言内容
+- `nonce`：唯一字符串，防重复提交
+
 ## Notes
 
 - 仅用于异步场景（mid-task progress）。正常回复直接输出文本。
-- `$CAT_CAFE_API_URL` 自动设置（通常 `your local Clowder API URL`）。
+- `$CAT_CAFE_API_URL` 自动设置（通常 `http://127.0.0.1:3004`）。
 - HTTP 不可用时可用 `cc_rich` 文本 fallback。

@@ -77,8 +77,8 @@ export function ThreadCatSettings({ threadId, currentCats, onSave }: ThreadCatSe
         }}
         className={`p-0.5 rounded transition-all ${
           currentCats.length > 0
-            ? 'text-owner-primary'
-            : 'opacity-0 group-hover:opacity-100 text-gray-300 hover:text-owner-primary'
+            ? 'text-cafe-accent'
+            : 'opacity-0 group-hover:opacity-100 text-cafe-muted hover:text-cafe-accent'
         }`}
         title="设置默认猫猫"
       >
@@ -89,14 +89,19 @@ export function ThreadCatSettings({ threadId, currentCats, onSave }: ThreadCatSe
       {isOpen && (
         <div
           style={getPopoverStyle()}
-          className="bg-white rounded-lg shadow-lg border border-gray-200 p-3 z-50"
+          className="bg-cafe-surface rounded-lg shadow-lg border border-cafe z-50 flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
-          <CatSelector selectedCats={selectedCats} onSelectionChange={setSelectedCats} />
-          {saveError && <p className="text-[10px] text-red-500 mt-1">保存失败，请重试</p>}
-          <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
+          <div className="p-3 overflow-y-auto max-h-[50vh]">
+            <CatSelector selectedCats={selectedCats} onSelectionChange={setSelectedCats} />
+          </div>
+          {saveError && <p className="text-micro text-conn-red-text px-3 mt-1">保存失败，请重试</p>}
+          <div className="flex items-center justify-between px-3 pb-3 pt-2 border-t border-cafe-subtle flex-shrink-0">
             {selectedCats.length > 0 && (
-              <button onClick={() => setSelectedCats([])} className="text-[10px] text-gray-400 hover:text-red-400">
+              <button
+                onClick={() => setSelectedCats([])}
+                className="text-micro text-cafe-muted hover:text-conn-red-text"
+              >
                 清除
               </button>
             )}
@@ -106,14 +111,14 @@ export function ThreadCatSettings({ threadId, currentCats, onSave }: ThreadCatSe
                   setIsOpen(false);
                   setSelectedCats(currentCats);
                 }}
-                className="text-xs px-2 py-0.5 rounded text-gray-500 hover:bg-gray-100"
+                className="text-xs px-2 py-0.5 rounded text-cafe-secondary hover:bg-cafe-surface-elevated"
               >
                 取消
               </button>
               <button
                 onClick={() => void handleSave()}
                 disabled={!hasChanged || isSaving}
-                className="text-xs px-2 py-0.5 rounded bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40"
+                className="text-xs px-2 py-0.5 rounded bg-cafe-accent text-white hover:bg-cafe-interactive disabled:opacity-40"
               >
                 {isSaving ? '...' : '保存'}
               </button>

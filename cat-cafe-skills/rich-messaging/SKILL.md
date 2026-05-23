@@ -36,6 +36,8 @@ triggers:
 
 你可以发送富媒体消息——语音、图片、卡片、清单、代码 diff、交互选择。不只是打字！
 
+**不只是对话**：定时任务唤醒你后，你依然拥有全部 rich block 能力——发图、发语音、发 HTML 面板、发交互选择，都可以。
+
 ## 首次使用
 
 **每个 session 首次发 rich block 前，先调 `get_rich_block_rules` 获取完整字段规格。**
@@ -45,13 +47,13 @@ triggers:
 
 | Kind | 什么时候用 | 关键字段 |
 |------|-----------|---------|
-| **audio** | 打招呼、表达情感、庆祝、鼓励 | `text`（短句口语化） |
+| **audio** | 打招呼、表达情感、庆祝、鼓励、定时播报 | `text`（短句口语化） |
 | **card** | 状态报告、决策摘要、review 结论 | `title` + `tone` |
 | **checklist** | 待办、验证步骤、行动项 | `items` |
 | **diff** | 代码修改建议、重构对比 | `filePath` + `diff` |
-| **media_gallery** | 截图、设计稿、多图对比 | `items` (url) |
+| **media_gallery** | 发送已有图片（头像、照片）、截图、设计稿、多图对比 | `items` (url) |
 | **interactive** | 让用户选方案、勾选项、确认操作 | `interactiveType` + `options` (id+label) |
-| **html_widget** | 简单可视化：图表、计算器、CSS 动画、可交互 HTML 组件 | `html`（完整 HTML/JS/CSS 代码字符串） |
+| **html_widget** | 你写的 HTML 直接挂上去：图表、计算器、CSS 动画、数据面板 | `html`（完整 HTML/JS/CSS 代码字符串） |
 
 ## 最小工作示例
 
@@ -108,7 +110,18 @@ triggers:
 ## 发送方式
 
 用 MCP 工具 `cat_cafe_create_rich_block`，参数 `block` 传 JSON 字符串。
-发 block 前**先写 1-2 句自然语言摘要**（post_message），再发 block。
+发 block 前**先写 1-2 句自然语言摘要**，再发 block。
+
+如果图片来源是本地文件（例如 Codex CLI / 本地脚本刚生成的 PNG）：
+
+**优先使用 F172 共享发布合约**（自动处理 uploadDir 解析 + 幂等 + 富块生成）：
+- Codex `image_gen`：自动扫描 `~/.codex/generated_images/<sessionId>/`，无需手动操作
+- Antigravity 生成：工具结果中的文件路径自动检测并发布
+- 其他来源：调用 `publishGeneratedImage({ sourcePath, mimeType, publicationKey, provider, toolName })` 手动发布
+
+发布后自动获得 `/uploads/...` 稳定 URL + `media_gallery` 富块，无需手动复制或验证。
+
+**仅当共享合约不可用时**才手动复制到 runtime 的 uploadDir。
 
 ## 三条纪律
 
@@ -121,9 +134,12 @@ triggers:
 | 错误 | 后果 | 正确做法 |
 |------|------|----------|
 | 不知道自己能发语音 | 铲屎官说"发语音"你说"我是文字猫" | 你可以！用 audio block |
+| "发图"只想到 image-generation | 走 Chrome MCP 现场生成，慢且不稳定 | 先看家里有没有已有图片（`/avatars/`、`/uploads/`），有就 media_gallery 直接发 |
+| 本地生成图直接用 `file://` 或源码仓路径 | rich block 发得出去，但前端取不到 | 用 `publishGeneratedImage()` 发布到 `/uploads/...`（F172 共享合约自动解析 uploadDir） |
 | audio 写长段话 | 合成效果差 | 短句口语化，1-2 句 |
-| 只发 block 不写文字 | 猫猫朋友看不懂上下文 | 先 post_message 再 block |
+| 只发 block 不写文字 | 猫猫朋友看不懂上下文 | 先写 1-2 句自然语言摘要，再发 block |
 | `"type"` 而不是 `"kind"` | block 创建失败 | 字段是 `kind` 不是 `type` |
+| 播客生成超时就重复提交 | 产生多个重复 artifact | `signal_generate_podcast` 是异步落库——MCP 120s 超时 ≠ 任务失败，TTS 合成需 3-5 分钟。超时后用 `signal_list_studies` 检查 artifact 状态，不要重复调用 |
 
 ## 和其他 skill 的区别
 

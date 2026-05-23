@@ -10,6 +10,11 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { createModuleLogger } from '../infrastructure/logger.js';
+import { resolveHeaderUserId } from '../utils/request-identity.js';
+
+const log = createModuleLogger('routes/votes');
+
 import {
   buildVoteTally,
   checkVoteCompletion,
@@ -37,9 +42,8 @@ const castVoteSchema = z.object({
   option: z.string().min(1).max(100),
 });
 
-function resolveUserId(request: { headers: Record<string, string | string[] | undefined> }): string {
-  const header = request.headers['x-cat-cafe-user'];
-  return (Array.isArray(header) ? header[0] : header) ?? 'anonymous';
+function resolveUserId(request: import('fastify').FastifyRequest): string {
+  return resolveHeaderUserId(request) ?? 'anonymous';
 }
 
 /** Phase 2: In-memory timeout timers. Cleared on close/auto-close. Lost on restart (acceptable). */
@@ -109,7 +113,7 @@ export async function closeVoteInternal(
         },
       });
     } catch (err) {
-      console.warn(`[votes] Failed to persist vote result for ${threadId}:`, err);
+      log.warn({ threadId, err }, 'Failed to persist vote result');
     }
   }
 }
@@ -171,7 +175,7 @@ export const voteRoutes: FastifyPluginAsync<VoteRoutesOptions> = async (app, opt
     clearVoteTimer(threadId);
     const timer = setTimeout(() => {
       closeVoteInternal(threadId, threadStore, socketManager, messageStore).catch((err) => {
-        console.error(`[votes] Timeout auto-close failed for ${threadId}:`, err);
+        log.error({ threadId, err }, 'Timeout auto-close failed');
       });
     }, timeoutSec * 1000);
     // unref so timer doesn't keep process alive (important for tests)
@@ -222,7 +226,12 @@ export const voteRoutes: FastifyPluginAsync<VoteRoutesOptions> = async (app, opt
     }
 
     // P1-2 fix: enforce voters restriction
-    if (votingState.voters && votingState.voters.length > 0 && !votingState.voters.includes(userId)) {
+    if (
+      votingState.voters &&
+      votingState.voters.length > 0 &&
+      !votingState.voters.includes(userId) &&
+      userId !== votingState.initiatedByCat
+    ) {
       reply.status(403);
       return { error: '你不在投票人名单中', code: 'NOT_DESIGNATED_VOTER' };
     }
@@ -302,7 +311,7 @@ export const voteRoutes: FastifyPluginAsync<VoteRoutesOptions> = async (app, opt
             },
           });
         } catch (err) {
-          console.warn(`[votes] Failed to persist vote result for ${threadId}:`, err);
+          log.warn({ threadId, err }, 'Failed to persist vote result');
         }
       }
 
@@ -411,7 +420,7 @@ export const voteRoutes: FastifyPluginAsync<VoteRoutesOptions> = async (app, opt
           },
         });
       } catch (err) {
-        console.warn(`[votes] Failed to persist vote result for ${threadId}:`, err);
+        log.warn({ threadId, err }, 'Failed to persist vote result');
       }
     }
 

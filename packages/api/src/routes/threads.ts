@@ -13,6 +13,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { TaskProgressStore } from '../domains/cats/services/agents/invocation/TaskProgressStore.js';
+import { resolveBootcampWorkspaceRoot } from '../domains/cats/services/bootcamp/workspace-root.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
@@ -23,12 +24,22 @@ import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore
 import type { IThreadReadStateStore } from '../domains/cats/services/stores/ports/ThreadReadStateStore.js';
 import type {
   BootcampStateV1,
+  ILabelStore,
   IThreadStore,
+  Thread,
   ThreadRoutingPolicyV1,
 } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import { createModuleLogger } from '../infrastructure/logger.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { getMultiMentionOrchestrator } from './callback-multi-mention-routes.js';
+
+const log = createModuleLogger('routes/threads');
+
+interface ThreadIndexBuilder {
+  markThreadDirty(threadId: string): void;
+  flushDirtyThreads?(): number | Promise<number>;
+}
 
 export interface ThreadsRoutesOptions {
   threadStore: IThreadStore;
@@ -50,20 +61,25 @@ export interface ThreadsRoutesOptions {
   readStateStore?: IThreadReadStateStore;
   /** F095 Phase C: validate backlogItemId on thread creation */
   backlogStore?: IBacklogStore;
+  /** B-4: Cascade delete guide session when thread is deleted */
+  guideSessionStore?: import('../domains/guides/GuideSessionRepository.js').IGuideSessionStore;
+  /** F187: Label store for validating label IDs on thread update */
+  labelStore?: ILabelStore;
+  /** F102: keep thread evidence search in sync after title-only updates */
+  indexBuilder?: ThreadIndexBuilder;
 }
 
-/** F087: Bootcamp state Zod schema */
+/** F087: Bootcamp state Zod schema (F171 v2 flow) */
 const bootcampPhaseSchema = z.enum([
-  'phase-0-select-cat',
   'phase-1-intro',
   'phase-2-env-check',
   'phase-3-config-help',
-  'phase-3.5-advanced',
   'phase-4-task-select',
   'phase-5-kickoff',
   'phase-6-design',
   'phase-7-dev',
-  'phase-8-review',
+  'phase-7.5-add-teammate',
+  'phase-8-collab',
   'phase-9-complete',
   'phase-10-retro',
   'phase-11-farewell',
@@ -74,6 +90,9 @@ const bootcampStateSchema = z
     phase: bootcampPhaseSchema,
     leadCat: catIdSchema().optional(),
     selectedTaskId: z.string().max(50).optional(),
+    /** F171: sub-step for add-teammate / farewell console guide overlay.
+     *  Free-form string — guide flows evolve and rigid enums cause silent PATCH failures. */
+    guideStep: z.string().max(50).nullable().optional(),
     envCheck: z
       .record(z.object({ ok: z.boolean(), version: z.string().optional(), note: z.string().optional() }))
       .optional(),
@@ -83,20 +102,22 @@ const bootcampStateSchema = z
   })
   .strict();
 
-const createThreadSchema = z.object({
-  /** Legacy fallback only; preferred identity source is X-Cat-Cafe-User header. */
-  userId: z.string().min(1).max(100).optional(),
-  title: z.string().min(1).max(200).optional(),
-  projectPath: z.string().min(1).max(500).optional(),
-  /** F32-b Phase 2: Thread-level cat preference (validated against catRegistry) */
-  preferredCats: z.array(catIdSchema()).max(10).optional(),
-  /** F095 Phase C: Pin thread on creation */
-  pinned: z.boolean().optional(),
-  /** F095 Phase C: Associate thread with a backlog item at creation */
-  backlogItemId: z.string().min(1).max(100).optional(),
-  /** F087: Initial bootcamp state */
-  bootcampState: bootcampStateSchema.optional(),
-});
+const createThreadSchema = z
+  .object({
+    /** Legacy fallback only; preferred identity source is X-Cat-Cafe-User header. */
+    userId: z.string().min(1).max(100).optional(),
+    title: z.string().min(1).max(200).optional(),
+    projectPath: z.string().min(1).max(500).optional(),
+    /** F32-b Phase 2: Thread-level cat preference (validated against catRegistry) */
+    preferredCats: z.array(catIdSchema()).max(10).optional(),
+    /** F095 Phase C: Pin thread on creation */
+    pinned: z.boolean().optional(),
+    /** F095 Phase C: Associate thread with a backlog item at creation */
+    backlogItemId: z.string().min(1).max(100).optional(),
+    /** F087: Initial bootcamp state */
+    bootcampState: bootcampStateSchema.optional(),
+  })
+  .strict();
 
 const listThreadsSchema = z.object({
   projectPath: z.string().min(1).max(500).optional(),
@@ -109,6 +130,38 @@ const listThreadsSchema = z.object({
   deleted: z.union([z.boolean(), z.string().trim().min(1).max(8)]).optional(),
 });
 
+async function resolveCreateThreadProjectPath(
+  projectPath: string | undefined,
+  bootcampState: BootcampStateV1 | undefined,
+): Promise<{ ok: true; projectPath: string | undefined } | { ok: false; statusCode: number; error: string }> {
+  if (bootcampState && (!projectPath || projectPath === 'default')) {
+    const bootcampWorkspace = await resolveBootcampWorkspaceRoot();
+    if (!bootcampWorkspace.ok) {
+      return {
+        ok: false,
+        statusCode: 500,
+        error: bootcampWorkspace.error,
+      };
+    }
+
+    return { ok: true, projectPath: bootcampWorkspace.projectPath };
+  }
+
+  if (projectPath && projectPath !== 'default') {
+    const validated = await validateProjectPath(projectPath);
+    if (!validated) {
+      return {
+        ok: false,
+        statusCode: 400,
+        error: 'Invalid projectPath: must be an existing directory under allowed roots',
+      };
+    }
+    return { ok: true, projectPath: validated };
+  }
+
+  return { ok: true, projectPath };
+}
+
 function parseOptionalBooleanQuery(value: string | boolean | undefined): boolean | undefined {
   if (value === undefined) return undefined;
   if (typeof value === 'boolean') return value;
@@ -116,6 +169,10 @@ function parseOptionalBooleanQuery(value: string | boolean | undefined): boolean
   if (normalized === 'true' || normalized === '1') return true;
   if (normalized === 'false' || normalized === '0') return false;
   return undefined;
+}
+
+function sanitizeThreadForResponse(thread: Thread, _userId: string): Thread {
+  return thread;
 }
 
 const threadRoutingRuleSchema = z
@@ -160,7 +217,16 @@ const updateThreadSchema = z
     voiceMode: z.boolean().optional(),
     /** F087: Update bootcamp state. null clears. */
     bootcampState: bootcampStateSchema.nullable().optional(),
+    /** Bubble display overrides: thinking block expand/collapse. */
+    bubbleThinking: z.enum(['global', 'expanded', 'collapsed']).optional(),
+    /** Bubble display overrides: CLI output block expand/collapse. */
+    bubbleCli: z.enum(['global', 'expanded', 'collapsed']).optional(),
+    /** F168: Preferred workspace mode for auto-switch on thread open. null clears. */
+    preferredWorkspaceMode: z.enum(['dev', 'recall', 'schedule', 'tasks', 'community']).nullable().optional(),
+    /** F187: Thread label IDs. */
+    labels: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
   })
+  .strict()
   .refine(
     (data) =>
       data.title !== undefined ||
@@ -170,7 +236,11 @@ const updateThreadSchema = z
       data.preferredCats !== undefined ||
       data.routingPolicy !== undefined ||
       data.voiceMode !== undefined ||
-      data.bootcampState !== undefined,
+      data.bootcampState !== undefined ||
+      data.bubbleThinking !== undefined ||
+      data.bubbleCli !== undefined ||
+      data.preferredWorkspaceMode !== undefined ||
+      data.labels !== undefined,
     {
       message: 'At least one field must be provided',
     },
@@ -187,25 +257,28 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
       return { error: 'Invalid request body', details: parseResult.error.issues };
     }
 
-    const { userId: legacyUserId, title, projectPath, preferredCats, pinned, backlogItemId } = parseResult.data;
+    const {
+      userId: legacyUserId,
+      title,
+      projectPath,
+      preferredCats,
+      pinned,
+      backlogItemId,
+      bootcampState,
+    } = parseResult.data;
     const userId = resolveUserId(request, { fallbackUserId: legacyUserId });
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (session cookie or X-Cat-Cafe-User header)' };
     }
 
-    // Validate projectPath is a real directory under allowed roots
-    let thread;
-    if (projectPath && projectPath !== 'default') {
-      const validated = await validateProjectPath(projectPath);
-      if (!validated) {
-        reply.status(400);
-        return { error: 'Invalid projectPath: must be an existing directory under allowed roots' };
-      }
-      thread = await threadStore.create(userId, title, validated);
-    } else {
-      thread = await threadStore.create(userId, title, projectPath);
+    const resolvedProjectPath = await resolveCreateThreadProjectPath(projectPath, bootcampState as BootcampStateV1);
+    if (!resolvedProjectPath.ok) {
+      reply.status(resolvedProjectPath.statusCode);
+      return { error: resolvedProjectPath.error };
     }
+
+    let thread: Thread = await threadStore.create(userId, title, resolvedProjectPath.projectPath);
 
     // F32-b Phase 2: Set preferred cats if provided at creation time
     if (preferredCats && preferredCats.length > 0) {
@@ -235,7 +308,6 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
     }
 
     // F087: Set bootcamp state if provided at creation time
-    const { bootcampState } = parseResult.data;
     if (bootcampState) {
       await threadStore.updateBootcampState(thread.id, bootcampState as BootcampStateV1);
       thread = (await threadStore.get(thread.id)) ?? thread;
@@ -267,11 +339,14 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
 
     // F095 Phase D: Return soft-deleted threads when deleted=true
     if (showDeleted) {
-      const deletedThreads = await threadStore.listDeleted(userId);
+      const deletedThreads = (await threadStore.listDeleted(userId)).map((thread) =>
+        sanitizeThreadForResponse(thread, userId),
+      );
       return { threads: deletedThreads };
     }
 
     let threads = projectPath ? await threadStore.listByProject(userId, projectPath) : await threadStore.list(userId);
+    threads = threads.map((thread) => sanitizeThreadForResponse(thread, userId));
 
     // F058 Phase G: Match threads by feature IDs in titles
     if (featureIds) {
@@ -378,7 +453,8 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
       reply.status(404);
       return { error: 'Thread not found' };
     }
-    return thread;
+    const userId = resolveUserId(request, { defaultUserId: 'default-user' }) ?? 'default-user';
+    return sanitizeThreadForResponse(thread, userId);
   });
 
   // PATCH /api/threads/:id - 更新标题/置顶/收藏
@@ -396,9 +472,29 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
       return { error: 'Thread not found' };
     }
 
-    const { title, pinned, favorited, thinkingMode, preferredCats, routingPolicy, voiceMode, bootcampState } =
-      parseResult.data;
-    if (title !== undefined) await threadStore.updateTitle(id, title);
+    const {
+      title,
+      pinned,
+      favorited,
+      thinkingMode,
+      preferredCats,
+      routingPolicy,
+      voiceMode,
+      bootcampState,
+      bubbleThinking,
+      bubbleCli,
+      preferredWorkspaceMode,
+      labels,
+    } = parseResult.data;
+    if (title !== undefined) {
+      await threadStore.updateTitle(id, title);
+      try {
+        opts.indexBuilder?.markThreadDirty(id);
+        await opts.indexBuilder?.flushDirtyThreads?.();
+      } catch (err) {
+        log.warn({ err, threadId: id }, 'failed to refresh thread evidence index after title update');
+      }
+    }
     if (pinned !== undefined) await threadStore.updatePin(id, pinned);
     if (favorited !== undefined) await threadStore.updateFavorite(id, favorited);
     if (thinkingMode !== undefined) await threadStore.updateThinkingMode(id, thinkingMode);
@@ -409,6 +505,24 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
     if (voiceMode !== undefined) await threadStore.updateVoiceMode(id, voiceMode);
     if (bootcampState !== undefined) {
       await threadStore.updateBootcampState(id, bootcampState as BootcampStateV1 | null);
+    }
+    if (bubbleThinking !== undefined) await threadStore.updateBubbleDisplay(id, 'bubbleThinking', bubbleThinking);
+    if (bubbleCli !== undefined) await threadStore.updateBubbleDisplay(id, 'bubbleCli', bubbleCli);
+    if (preferredWorkspaceMode !== undefined) {
+      await threadStore.updatePreferredWorkspaceMode(id, preferredWorkspaceMode);
+    }
+    if (labels !== undefined) {
+      if (labels.length > 0 && opts.labelStore) {
+        const userId = resolveUserId(request) ?? 'default-user';
+        const userLabels = await opts.labelStore.list(userId);
+        const validIds = new Set(userLabels.map((l) => l.id));
+        const invalid = labels.filter((lid) => !validIds.has(lid));
+        if (invalid.length > 0) {
+          reply.status(400);
+          return { error: 'Invalid label IDs', invalidIds: invalid };
+        }
+      }
+      await threadStore.updateLabels(id, labels);
     }
 
     const updated = await threadStore.get(id);
@@ -443,12 +557,29 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
     try {
       const thread = await threadStore.get(id);
 
+      // F095 Phase G: Protect system threads (connectorHubState) from casual deletion.
+      // Requires explicit ?force=true query param to proceed.
+      if (thread?.connectorHubState) {
+        const { force } = request.query as { force?: string };
+        if (force !== 'true') {
+          reply.status(403);
+          return {
+            error: 'System thread protected',
+            detail: '系统级 thread 需要确认才能删除',
+            code: 'SYSTEM_THREAD_PROTECTED',
+          };
+        }
+      }
+
       // F095 Phase D: Soft-delete instead of hard delete — data preserved for trash bin
       const deleted = await threadStore.softDelete(id);
       if (!deleted) {
         reply.status(400);
         return { error: 'Cannot delete this thread' };
       }
+
+      // B-4: Cascade delete guide session to prevent stale sessions on deleted threads
+      void opts.guideSessionStore?.delete(id).catch(() => {});
 
       // I-2: Audit thread deletion for traceability (best-effort, don't block response)
       const userId = resolveUserId(request, {});
@@ -464,7 +595,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
           },
         })
         .catch((err) => {
-          console.warn(`[threads] Audit log warning for ${id}:`, err);
+          log.warn({ err, threadId: id }, 'Audit log warning');
         });
 
       reply.status(204);

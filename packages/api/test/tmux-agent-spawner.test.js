@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
-import { after, before, describe, it } from 'node:test';
-import { AgentPaneRegistry } from '../dist/domains/terminal/agent-pane-registry.js';
-import { createTmuxSpawnOverride, spawnCliInTmux } from '../dist/domains/terminal/tmux-agent-spawner.js';
+import { afterEach, before, describe, it } from 'node:test';
+import { spawnCliInTmux } from '../dist/domains/terminal/tmux-agent-spawner.js';
 import { TmuxGateway } from '../dist/domains/terminal/tmux-gateway.js';
 
 describe('spawnCliInTmux', () => {
@@ -12,7 +11,7 @@ describe('spawnCliInTmux', () => {
     gateway = new TmuxGateway();
   });
 
-  after(async () => {
+  afterEach(async () => {
     await gateway.destroyServer(WORKTREE);
   });
 
@@ -89,6 +88,87 @@ describe('spawnCliInTmux', () => {
 
     const errEvent = events.find((e) => e.__cliError);
     assert.equal(errEvent, undefined, 'should NOT yield __cliError on exit 0');
+  });
+
+  it('plainText mode yields raw stdout without NDJSON parsing', async () => {
+    const events = [];
+    const gen = spawnCliInTmux(
+      {
+        command: '/bin/sh',
+        args: ['-c', 'echo plain-output; echo debug-log >&2'],
+        outputMode: 'plainText',
+        worktreeId: WORKTREE,
+        invocationId: 'test-inv-plaintext',
+        cwd: '/tmp',
+        timeoutMs: 5000,
+      },
+      { tmuxGateway: gateway },
+    );
+
+    for await (const event of gen) {
+      events.push(event);
+    }
+
+    const plain = events.find((e) => e.__cliPlainText);
+    assert.ok(plain, 'should yield raw plain-text stdout result');
+    assert.equal(plain.stdout, 'plain-output\n');
+    assert.equal(plain.stderr, 'debug-log\n');
+    assert.equal(plain.exitCode, 0);
+  });
+
+  it('plainText mode resets timeout on stdout chunks without newline', async () => {
+    const events = [];
+    const gen = spawnCliInTmux(
+      {
+        command: '/bin/sh',
+        args: ['-c', 'printf part1; sleep 1; printf part2; sleep 1; printf done'],
+        outputMode: 'plainText',
+        worktreeId: WORKTREE,
+        invocationId: 'test-inv-plaintext-no-newline',
+        cwd: '/tmp',
+        timeoutMs: 1500,
+      },
+      { tmuxGateway: gateway },
+    );
+
+    for await (const event of gen) {
+      events.push(event);
+    }
+
+    const timeout = events.find((e) => e.__cliTimeout);
+    assert.equal(timeout, undefined, 'stdout chunks without newline should keep the process alive');
+    const plain = events.find((e) => e.__cliPlainText);
+    assert.ok(plain, 'should yield raw plain-text stdout result');
+    assert.equal(plain.stdout, 'part1part2done');
+    assert.equal(plain.exitCode, 0);
+  });
+
+  it('plainText mode resets timeout on stderr activity before final stdout', async () => {
+    const events = [];
+    const gen = spawnCliInTmux(
+      {
+        command: '/bin/sh',
+        args: ['-c', 'for i in 1 2 3 4; do echo "progress-$i" >&2; sleep 0.25; done; echo done'],
+        outputMode: 'plainText',
+        worktreeId: WORKTREE,
+        invocationId: 'test-inv-plaintext-stderr-progress',
+        cwd: '/tmp',
+        timeoutMs: 400,
+      },
+      { tmuxGateway: gateway },
+    );
+
+    for await (const event of gen) {
+      events.push(event);
+    }
+
+    const timeout = events.find((e) => e.__cliTimeout);
+    assert.equal(timeout, undefined, 'stderr activity should keep plainText tmux command alive before final stdout');
+    const plain = events.find((e) => e.__cliPlainText);
+    assert.ok(plain, 'should yield raw plain-text stdout result');
+    assert.equal(plain.stdout, 'done\n');
+    assert.match(plain.stderr, /progress-4/);
+    assert.equal(plain.exitCode, 0);
   });
 
   it('sets environment variables in pane', async () => {
@@ -194,8 +274,8 @@ describe('spawnCliInTmux', () => {
     // Should have received the init event before timeout
     const initEvent = events.find((e) => e.type === 'init');
     assert.ok(initEvent, 'should have received the init event before idle timeout fired');
-    // killAgent's C-c + 3s grace + kill-pane adds overhead, especially when
-    // the tmux server has accumulated panes from previous tests. 15s is generous.
+    // killAgent's C-c + 3s grace + kill-pane adds overhead; we tear down the
+    // tmux server after each test to keep this bound stable across the suite.
     assert.ok(elapsed < 15000, `should converge via idleTimeout, took ${elapsed}ms`);
   });
 
@@ -241,58 +321,5 @@ describe('spawnCliInTmux', () => {
     const sock = gateway.socketName(WORKTREE);
     const { stdout } = await exec('tmux', ['-L', sock, 'show-option', '-t', paneId, 'remain-on-exit']);
     assert.match(stdout.trim(), /on/, 'remain-on-exit should be on');
-  });
-});
-
-describe('createTmuxSpawnOverride', () => {
-  const WORKTREE = `test-override-${Date.now()}`;
-  let gateway;
-  let registry;
-
-  before(() => {
-    gateway = new TmuxGateway();
-    registry = new AgentPaneRegistry();
-  });
-
-  after(async () => {
-    await gateway.destroyServer(WORKTREE);
-  });
-
-  it('override yields events and registers pane in AgentPaneRegistry', async () => {
-    const invocationId = 'override-inv-1';
-    const override = createTmuxSpawnOverride(WORKTREE, invocationId, 'test-user', gateway, registry);
-
-    const events = [];
-    for await (const event of override({
-      command: '/bin/sh',
-      args: ['-c', 'echo \'{"type":"hello"}\''],
-    })) {
-      events.push(event);
-    }
-
-    // Should have yielded events including __tmuxPaneCreated
-    const paneEvent = events.find((e) => e.__tmuxPaneCreated);
-    assert.ok(paneEvent, 'should yield __tmuxPaneCreated');
-
-    // AgentPaneRegistry should have the pane registered
-    const pane = registry.getByInvocation(invocationId);
-    assert.ok(pane, 'pane should be registered');
-    assert.equal(pane.worktreeId, WORKTREE);
-    assert.equal(pane.status, 'running'); // markDone called by invoke-single-cat.ts, not override
-  });
-
-  it('override works without AgentPaneRegistry', async () => {
-    const override = createTmuxSpawnOverride(WORKTREE, 'override-inv-2', 'test-user', gateway);
-
-    const events = [];
-    for await (const event of override({
-      command: '/bin/sh',
-      args: ['-c', 'echo \'{"type":"ok"}\''],
-    })) {
-      events.push(event);
-    }
-
-    const jsonEvents = events.filter((e) => e.type === 'ok');
-    assert.equal(jsonEvents.length, 1);
   });
 });

@@ -17,12 +17,20 @@ import type { FastifyBaseLogger } from 'fastify';
 import { getDefaultCatId } from '../config/cat-config-loader.js';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
-import { hasWorklist, pushToWorklist } from '../domains/cats/services/agents/routing/WorklistRegistry.js';
+import { stampVisibleTurn } from '../domains/cats/services/agents/invocation/visible-turn.js';
+import {
+  getWorklist,
+  hasWorklist,
+  pushToWorklist,
+  updateStreakOnPush,
+} from '../domains/cats/services/agents/routing/WorklistRegistry.js';
 import { parseIntent } from '../domains/cats/services/context/IntentParser.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { StoredMessage } from '../domains/cats/services/stores/ports/MessageStore.js';
+import { wrapWithDispatchSpan } from '../infrastructure/telemetry/dispatch-span.js';
+import type { CallerTraceContext } from '../infrastructure/telemetry/genai-semconv.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 
 export interface QueueProcessorLike {
@@ -40,7 +48,7 @@ export interface A2ATriggerDeps {
   /** F122B: InvocationQueue for agent-sourced entries */
   invocationQueue?: Pick<
     InvocationQueue,
-    'enqueue' | 'countAgentEntriesForThread' | 'hasQueuedAgentForCat' | 'backfillMessageId' | 'appendMergedMessageId'
+    'enqueue' | 'countAgentEntriesForThread' | 'hasQueuedAgentForCat' | 'backfillMessageId' | 'list'
   >;
   log: FastifyBaseLogger;
 }
@@ -63,12 +71,33 @@ export async function enqueueA2ATargets(
     callerCatId?: CatId;
     /** F108: parentInvocationId for concurrent worklist isolation. */
     parentInvocationId?: string;
+    /** F153: caller trace context for cross-route A2A propagation */
+    callerTraceContext?: CallerTraceContext;
   },
 ): Promise<{ enqueued: CatId[]; fallback: boolean }> {
   const { log } = deps;
-  const { targetCats, threadId, callerCatId } = opts;
+  const { threadId, callerCatId } = opts;
   const triggerMessageId = opts.triggerMessage.id;
   const { deliveryCursorStore } = deps;
+
+  // F167 Phase E (KD-20): L3 role-gate retired. Role-based handoff permission is
+  // no longer harness-enforced — cat-config.restrictions flows into sender & target
+  // prompts (buildTeammateRoster / buildStaticIdentity); cats self-regulate.
+  const fromCatId = callerCatId ?? opts.triggerMessage.catId ?? getDefaultCatId();
+  const targetCats = opts.targetCats;
+
+  // F153 Phase I (Maine Coon P1): Lazy-create mention_dispatch span + a2a.dispatch.count counter
+  // ONLY when a target is about to actually dispatch (passes all guards and reaches a real enqueue
+  // or fallback invocation). Pre-creating would mint span/counter even when ALL cats are blocked
+  // by depth limit / dedup / ping-pong streak / empty-conflict fallback — polluting Step Summary
+  // a2a_dispatch_count with phantom dispatches.
+  let dispatchTraceContext: CallerTraceContext | undefined;
+  const ensureDispatchTraceContext = (): CallerTraceContext | undefined => {
+    if (dispatchTraceContext === undefined && opts.callerTraceContext) {
+      dispatchTraceContext = wrapWithDispatchSpan(opts.callerTraceContext, targetCats.length, fromCatId);
+    }
+    return dispatchTraceContext;
+  };
 
   // F122B: If InvocationQueue is available, enqueue as agent entry (unified dispatch).
   // This replaces both the worklist path and the fallback standalone invocation.
@@ -76,7 +105,21 @@ export async function enqueueA2ATargets(
   if (deps.invocationQueue) {
     const MAX_A2A_DEPTH = 10;
 
+    // F167 L1 AC-A4 + Phase D (cloud Codex P1): streak check must cover modern path
+    // AND only fire when we know the target is actually about to enqueue — otherwise
+    // a callback that hits depth/dedup would still mutate the counter (reset by
+    // substantive content, ++ by inertia), weakening the breaker.
+    // Pre-resolve worklist entry once; updateStreakOnPush is called inside the loop.
+    const canTrackStreak = callerCatId !== undefined && targetCats.length === 1;
+    const streakEntry = canTrackStreak ? getWorklist(threadId, opts.parentInvocationId) : null;
+
     const enqueued: CatId[] = [];
+    const queueDiagnostics: Array<{
+      catId: CatId;
+      outcome: string;
+      entryId?: string;
+      createdAt?: number;
+    }> = [];
     for (const catId of targetCats) {
       // Guard 1: A2A depth limit — re-check per target to prevent multi-target overflow
       const currentDepth = deps.invocationQueue.countAgentEntriesForThread(threadId);
@@ -92,6 +135,38 @@ export async function enqueueA2ATargets(
         log.info({ threadId, triggerMessageId, catId }, '[F122B] A2A callback: skipping duplicate agent entry for cat');
         continue;
       }
+      // Guard 3 (F167 Phase D cloud Codex P1): streak check fires here — after
+      // depth + dedup — so a would-be-skipped target never mutates the counter.
+      // Callback path has no tool_use stream → fail-closed on hadSubstantiveToolCall
+      // (routing tool ≠ work). outputLength from content still exempts long-form MCP.
+      if (canTrackStreak && streakEntry) {
+        const streak = updateStreakOnPush(streakEntry, callerCatId!, catId, {
+          hadSubstantiveToolCall: false,
+          outputLength: opts.content.length,
+        });
+        if (streak.blockPingPong) {
+          log.info(
+            { threadId, triggerMessageId, fromCatId, catId, pairCount: streak.count },
+            'F167 L1: callback A2A (invocationQueue) ping-pong terminated (streak >= 4)',
+          );
+          deps.socketManager.broadcastAgentMessage(
+            {
+              type: 'system_info',
+              catId: fromCatId,
+              content: JSON.stringify({
+                type: 'a2a_pingpong_terminated',
+                fromCatId,
+                targetCatId: catId,
+                pairCount: streak.count,
+              }),
+              timestamp: Date.now(),
+            },
+            threadId,
+          );
+          break;
+        }
+        // streak.warnPingPong → injected via buildInvocationContext on next turn, no-op here.
+      }
       const result = deps.invocationQueue.enqueue({
         threadId,
         userId: opts.userId,
@@ -101,18 +176,18 @@ export async function enqueueA2ATargets(
         intent: 'execute',
         autoExecute: true,
         callerCatId: callerCatId ?? undefined,
+        callerTraceContext: ensureDispatchTraceContext(),
       });
-      if (result.outcome === 'enqueued' || result.outcome === 'merged') {
+      queueDiagnostics.push({
+        catId,
+        outcome: result.outcome,
+        entryId: result.entry?.id,
+        createdAt: result.entry?.createdAt,
+      });
+      if (result.outcome === 'enqueued') {
         enqueued.push(catId);
-        // AC-B6-P1: Link triggerMessage.id so QueueProcessor.executeEntry can markDelivered.
-        // Use backfillMessageId for new entries, appendMergedMessageId for merged entries
-        // to avoid overwriting the first entry's messageId (cloud P1).
         if (result.entry) {
-          if (result.outcome === 'enqueued') {
-            deps.invocationQueue.backfillMessageId(threadId, opts.userId, result.entry.id, triggerMessageId);
-          } else {
-            deps.invocationQueue.appendMergedMessageId(threadId, opts.userId, result.entry.id, triggerMessageId);
-          }
+          deps.invocationQueue.backfillMessageId(threadId, opts.userId, result.entry.id, triggerMessageId);
         }
       }
     }
@@ -123,18 +198,52 @@ export async function enqueueA2ATargets(
         ackTargets.map((catId) => deliveryCursorStore.ackMentionCursor(opts.userId, catId, threadId, triggerMessageId)),
       );
     }
+    if (enqueued.length > 0) {
+      deps.socketManager.emitToUser(opts.userId, 'queue_updated', {
+        threadId,
+        queue: deps.invocationQueue.list(threadId, opts.userId),
+        action: 'enqueued',
+      });
+    }
+    log.info(
+      {
+        threadId,
+        triggerMessageId,
+        callerCatId,
+        targetCats,
+        queueDiagnostics,
+        enqueued,
+      },
+      '[DIAG/a2a] enqueueA2ATargets queue scan',
+    );
     // Trigger auto-execute for entries whose target slot is free
     await deps.queueProcessor?.tryAutoExecute?.(threadId);
-    log.info({ threadId, triggerMessageId, enqueued, targetCats }, '[F122B] A2A callback: enqueued to InvocationQueue');
+    log.info(
+      { threadId, triggerMessageId, enqueued, targetCats },
+      enqueued.length > 0
+        ? '[F122B] A2A callback: enqueued to InvocationQueue'
+        : '[F122B] A2A callback: no new InvocationQueue entries enqueued',
+    );
     return { enqueued, fallback: false };
   }
 
   // Legacy path: F27 worklist + standalone fallback (when invocationQueue dep not wired)
   // F27: Try to push to parent worklist first
   if (hasWorklist(threadId)) {
-    const pushResult = pushToWorklist(threadId, targetCats, callerCatId, opts.parentInvocationId, triggerMessageId);
+    // F167 Phase D: fail-closed callerActivity — callback has no tool_use stream,
+    // outputLength from content exempts long-form discussion.
+    const pushResult = pushToWorklist(threadId, targetCats, callerCatId, opts.parentInvocationId, triggerMessageId, {
+      hadSubstantiveToolCall: false,
+      outputLength: opts.content.length,
+    });
     const enqueued = pushResult.added;
     if (enqueued.length > 0) {
+      // F153 Phase I (Maine Coon round-2 P2): legacy worklist callback dispatch must also
+      // mint the mention_dispatch span + a2a.dispatch.count counter. Use the lazy helper for
+      // its side-effects; the returned trace context is unused here because route-serial
+      // (which consumes the worklist) doesn't accept a callerTraceContext at worklist-push
+      // time. Empty added / blocked branches still skip this (lazy = idempotent on first call).
+      ensureDispatchTraceContext();
       if (deliveryCursorStore) {
         // F27 + #77: Best-effort auto-ack to prevent surprise backlog when cats later
         // call pending-mentions. This intentionally advances the mention-ack cursor
@@ -180,15 +289,38 @@ export async function enqueueA2ATargets(
         '[F27] A2A callback: worklist vanished between has/push, falling back to standalone',
       );
     } else {
-      log.info(
-        {
+      if (pushResult.blockPingPong) {
+        // F167 L1 AC-A4: streak=4 — callback path must broadcast termination,
+        // parity with route-serial's inline block emit.
+        log.info(
+          { threadId, triggerMessageId, fromCatId, targetCats, pairCount: pushResult.pairCount },
+          'F167 L1: callback A2A ping-pong terminated (streak >= 4)',
+        );
+        deps.socketManager.broadcastAgentMessage(
+          {
+            type: 'system_info',
+            catId: fromCatId,
+            content: JSON.stringify({
+              type: 'a2a_pingpong_terminated',
+              fromCatId,
+              targetCatId: targetCats[0],
+              pairCount: pushResult.pairCount ?? 0,
+            }),
+            timestamp: Date.now(),
+          },
           threadId,
-          triggerMessageId,
-          targetCats,
-          reason: pushResult.reason,
-        },
-        `[F27] A2A callback: targets not enqueued (${pushResult.reason})`,
-      );
+        );
+      } else {
+        log.info(
+          {
+            threadId,
+            triggerMessageId,
+            targetCats,
+            reason: pushResult.reason,
+          },
+          `[F27] A2A callback: targets not enqueued (${pushResult.reason})`,
+        );
+      }
       return { enqueued, fallback: false };
     }
   }
@@ -199,23 +331,29 @@ export async function enqueueA2ATargets(
   const { invocationTracker } = deps;
   if (invocationTracker?.has(threadId)) {
     // Guard: shims may not implement getActiveSlots — fall back to empty (allow all)
-    const activeSlots = invocationTracker.getActiveSlots?.(threadId) ?? [];
-    const nonConflicting = targetCats.filter((catId) => !activeSlots.includes(catId));
+    const activeSlotIds = (invocationTracker.getActiveSlots?.(threadId) ?? []).map((s) =>
+      typeof s === 'string' ? s : s.catId,
+    );
+    const nonConflicting = targetCats.filter((catId) => !activeSlotIds.includes(catId));
     if (nonConflicting.length === 0) {
       log.info(
-        { threadId, targetCats, activeSlots },
+        { threadId, targetCats, activeSlotIds },
         '[F27] A2A fallback skipped: all targets already active in thread slots',
       );
       return { enqueued: [], fallback: true };
     }
     if (nonConflicting.length < targetCats.length) {
       log.info(
-        { threadId, targetCats, activeSlots, nonConflicting },
+        { threadId, targetCats, activeSlotIds, nonConflicting },
         '[F27] A2A fallback: filtered already-active targets, proceeding with remaining',
       );
     }
     // Proceed with non-conflicting targets only
-    await triggerA2AInvocation(deps, { ...opts, targetCats: nonConflicting });
+    await triggerA2AInvocation(deps, {
+      ...opts,
+      targetCats: nonConflicting,
+      callerTraceContext: ensureDispatchTraceContext(),
+    });
     return { enqueued: nonConflicting, fallback: true };
   }
 
@@ -228,7 +366,10 @@ export async function enqueueA2ATargets(
     '[F27] A2A callback: no parent worklist found, falling back to standalone invocation',
   );
 
-  await triggerA2AInvocation(deps, opts);
+  // F167 PR1 history note: originally this path filtered role-gated targets before
+  // fallback; Phase E retires L3, so targetCats == opts.targetCats now. Kept the
+  // explicit spread for intent clarity and future filter hooks.
+  await triggerA2AInvocation(deps, { ...opts, targetCats, callerTraceContext: ensureDispatchTraceContext() });
   return { enqueued: targetCats, fallback: true };
 }
 
@@ -244,6 +385,8 @@ export async function triggerA2AInvocation(
     userId: string;
     threadId: string;
     triggerMessage: StoredMessage;
+    /** F153: caller trace context for cross-route A2A propagation */
+    callerTraceContext?: CallerTraceContext;
   },
 ): Promise<void> {
   const { router, invocationRecordStore, socketManager, invocationTracker, log } = deps;
@@ -256,7 +399,9 @@ export async function triggerA2AInvocation(
   // are already covered by active slots (redundancy short-circuit).
   const parentActive = invocationTracker?.has(threadId) ?? false;
   if (parentActive) {
-    const activeCats = invocationTracker?.getActiveSlots?.(threadId) ?? [];
+    const activeCats = (invocationTracker?.getActiveSlots?.(threadId) ?? []).map((s) =>
+      typeof s === 'string' ? s : s.catId,
+    );
     // Redundant A2A short-circuit (砚砚 4ee660b defense-in-depth):
     // if parent already includes all targets, skip entirely.
     if (targetCats.length > 0 && targetCats.every((catId) => activeCats.includes(catId))) {
@@ -318,20 +463,49 @@ export async function triggerA2AInvocation(
         status: 'running',
       });
 
-      socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', { threadId, mode: intent.intent, targetCats });
+      // #768: Defer intent_mode broadcast until CLI produces first event.
+      let intentModeBroadcast = false;
+
+      // F070: track governance block errorCode for recoverable failure marking
+      let governanceErrorCode: string | undefined;
 
       for await (const msg of router.routeExecution(userId, content, threadId, triggerMessage.id, targetCats, intent, {
         ...(controller?.signal ? { signal: controller.signal } : {}),
         parentInvocationId: createResult.invocationId,
+        callerTraceContext: opts.callerTraceContext,
       })) {
+        // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
+        if (!intentModeBroadcast) {
+          socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', {
+            threadId,
+            mode: intent.intent,
+            targetCats,
+            invocationId: createResult.invocationId,
+          });
+          intentModeBroadcast = true;
+        }
         if (controller?.signal.aborted) break;
-        socketManager.broadcastAgentMessage({ ...msg, invocationId: createResult.invocationId }, threadId);
+        if (msg.type === 'done' && msg.errorCode) {
+          governanceErrorCode = msg.errorCode;
+        }
+        // F194 Phase Z9 (砚砚 R1 P1-2): unified visible turn stamp via helper.
+        socketManager.broadcastAgentMessage(
+          { ...msg, ...stampVisibleTurn(createResult.invocationId, msg.invocationId) },
+          threadId,
+        );
       }
 
       if (controller?.signal.aborted) {
         finalStatus = 'canceled';
         await invocationRecordStore.update(createResult.invocationId, {
           status: 'canceled',
+        });
+      } else if (governanceErrorCode) {
+        // F070: Governance gate blocked — mark as failed with errorCode for retry
+        finalStatus = 'failed';
+        await invocationRecordStore.update(createResult.invocationId, {
+          status: 'failed',
+          error: governanceErrorCode,
         });
       } else {
         await invocationRecordStore.update(createResult.invocationId, {
