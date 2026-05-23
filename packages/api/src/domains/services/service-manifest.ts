@@ -311,9 +311,10 @@ export async function resolveServiceState(
     config?: ServiceConfig;
   } = {},
 ): Promise<ServiceState> {
+  const configExists = options.config !== undefined;
   const config = options.config ?? { enabled: false };
   const installable = !!service.scripts?.install;
-  const installed = config.installed ?? (installable ? config.enabled === true : true);
+  const installed = config.installed ?? (installable ? configExists : true);
   const enabled = config.enabled;
   const endpoint = resolveServiceEndpoint(service, options.env);
   if (!endpoint) {
@@ -366,7 +367,7 @@ export async function resolveServiceState(
 export async function resolveServiceStates(options: {
   env?: NodeJS.ProcessEnv;
   fetchHealth?: FetchServiceHealth;
-  getConfig?: (id: string) => ServiceConfig;
+  getConfig?: (id: string) => ServiceConfig | undefined;
 }): Promise<ServiceState[]> {
   const getConfig = options.getConfig;
   return Promise.all(

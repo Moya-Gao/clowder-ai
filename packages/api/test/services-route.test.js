@@ -400,6 +400,50 @@ describe('services routes', () => {
     }
   });
 
+  it('legacy config { enabled:false } treated as installed (config record exists)', async () => {
+    setServiceConfig('whisper-stt', { enabled: false });
+    const app = await buildApp({
+      env: { WHISPER_URL: 'http://127.0.0.1:19999/healthy' },
+      fetchHealth: async () => ({ ok: true, status: 200, error: null }),
+    });
+    try {
+      const listRes = await app.inject({
+        method: 'GET',
+        url: '/api/services',
+        headers: SESSION_HEADERS,
+      });
+      const whisper = JSON.parse(listRes.payload).services.find((s) => s.id === 'whisper-stt');
+      assert.equal(whisper.installed, true, 'legacy disabled config should still be installed');
+      assert.equal(whisper.enabled, false, 'enabled should be false');
+      assert.equal(whisper.status, 'not_configured', 'installed but disabled = not probed');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('fresh service (no config record) treated as not installed', async () => {
+    const freshConfigDir = mkdtempSync(join(tmpdir(), 'services-fresh-'));
+    const prevConfig = process.env.CAT_CAFE_SERVICES_CONFIG;
+    process.env.CAT_CAFE_SERVICES_CONFIG = join(freshConfigDir, 'services.json');
+    const app = await buildApp({
+      env: { WHISPER_URL: 'http://127.0.0.1:19999/healthy' },
+      fetchHealth: async () => ({ ok: true, status: 200, error: null }),
+    });
+    try {
+      const listRes = await app.inject({
+        method: 'GET',
+        url: '/api/services',
+        headers: SESSION_HEADERS,
+      });
+      const whisper = JSON.parse(listRes.payload).services.find((s) => s.id === 'whisper-stt');
+      assert.equal(whisper.installed, false, 'no config record = not installed');
+      assert.equal(whisper.status, 'not_configured', 'not installed = not probed');
+    } finally {
+      process.env.CAT_CAFE_SERVICES_CONFIG = prevConfig;
+      await app.close();
+    }
+  });
+
   it('scriptless service (audio-capture) treated as installed when enabled', async () => {
     setServiceConfig('audio-capture', { enabled: true });
     let probed = false;

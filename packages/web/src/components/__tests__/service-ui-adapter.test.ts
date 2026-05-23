@@ -111,6 +111,43 @@ describe('adaptServiceState', () => {
     expect(result.enabled).toBe(false);
     expect(result.status).toBe('not_configured');
   });
+
+  it('scriptless healthy maps to running regardless of enabled', () => {
+    const result = adaptServiceState(
+      makeHome({ id: 'audio-capture', status: 'healthy', installable: false, enabled: false }),
+    );
+    expect(result.status).toBe('running');
+    expect(result.running).toBe(true);
+  });
+
+  it('scriptless unhealthy+configured maps to error with message', () => {
+    const result = adaptServiceState(
+      makeHome({
+        id: 'audio-capture',
+        status: 'unhealthy',
+        installable: false,
+        enabled: false,
+        configured: true,
+        error: 'ECONNREFUSED',
+      }),
+    );
+    expect(result.status).toBe('error');
+    expect(result.error).toBe('ECONNREFUSED');
+  });
+
+  it('scriptless unconfigured maps to not_configured', () => {
+    const result = adaptServiceState(
+      makeHome({
+        id: 'audio-capture',
+        status: 'not_configured',
+        installable: false,
+        enabled: false,
+        configured: false,
+        endpoint: null,
+      }),
+    );
+    expect(result.status).toBe('not_configured');
+  });
 });
 
 describe('adaptServiceToPlugin', () => {

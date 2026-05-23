@@ -260,7 +260,7 @@ export async function registerServiceLifecycleRoutes(
         const startEnv: NodeJS.ProcessEnv = { ...(options.env ?? process.env) };
         const savedConfig = serviceConfigStore.get(service.id);
         const modelEnvKey = MODEL_ENV_VARS[service.id];
-        if (modelEnvKey && savedConfig.selectedModel) {
+        if (modelEnvKey && savedConfig?.selectedModel) {
           startEnv[modelEnvKey] = savedConfig.selectedModel;
         }
         await audit({ serviceId: service.id, action: 'start', operator, status: 'started' });

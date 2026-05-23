@@ -75,6 +75,8 @@ export function adaptServiceState(home: HomeServiceState): ServiceUiState {
   let status: ServiceUiStatus;
   if (!installed) {
     status = 'not_configured';
+  } else if (!home.installable) {
+    status = running ? 'running' : home.configured ? 'error' : 'not_configured';
   } else if (enabled && running) {
     status = 'running';
   } else if (enabled) {
@@ -97,7 +99,7 @@ export function adaptServiceState(home: HomeServiceState): ServiceUiState {
     installable: home.installable,
     running,
     prerequisites: home.prerequisites,
-    error: installed && enabled ? home.error : undefined,
+    error: (installed && enabled) || !home.installable ? home.error : undefined,
   };
 }
 

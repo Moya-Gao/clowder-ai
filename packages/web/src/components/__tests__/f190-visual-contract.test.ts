@@ -1359,7 +1359,7 @@ describe('#723 round 9 — install button, error suppression, breadcrumb, tab/ca
 
   it('service-ui-adapter suppresses error when not installed or not enabled', () => {
     const src = readSrc('settings/service-ui-adapter.ts');
-    expect(src).toContain('installed && enabled ? home.error');
+    expect(src).toContain('(installed && enabled) || !home.installable ? home.error');
   });
 
   it('HubPermissionsTab: no breadcrumb separator', () => {
