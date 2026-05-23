@@ -166,7 +166,7 @@ describe('ServiceStatusPanel', () => {
     expect(container.querySelector('[data-testid="voice-settings-panel"]')).toBeTruthy();
   });
 
-  it('does not call start/stop when toggle API returns error', async () => {
+  it('shows error and does not call /toggle when /stop fails', async () => {
     const enabledPayload = {
       services: [
         {
@@ -192,8 +192,8 @@ describe('ServiceStatusPanel', () => {
       if (path === '/api/services') {
         return { ok: true, json: async () => enabledPayload };
       }
-      if (path.includes('/toggle')) {
-        return { ok: false, status: 422, json: async () => ({ error: 'Toggle refused' }) };
+      if (path.includes('/stop')) {
+        return { ok: true, json: async () => ({ ok: false, error: 'Stop failed: process busy' }) };
       }
       return { ok: true, json: async () => ({ ok: true }) };
     });
@@ -210,9 +210,40 @@ describe('ServiceStatusPanel', () => {
       await Promise.resolve();
     });
 
-    expect(callLog.some((p) => p.includes('/toggle'))).toBe(true);
-    expect(callLog.some((p) => p.includes('/stop'))).toBe(false);
-    expect(container.textContent).toContain('Toggle refused');
+    expect(callLog.some((p) => p.includes('/stop'))).toBe(true);
+    expect(callLog.some((p) => p.includes('/toggle'))).toBe(false);
+    expect(container.textContent).toContain('Stop failed: process busy');
+  });
+
+  it('does not render lifecycle controls for scriptless (installable=false) services', async () => {
+    const scriptlessPayload = {
+      services: [
+        {
+          id: 'audio-capture',
+          name: 'Audio Capture',
+          description: 'System audio capture',
+          category: 'audio',
+          features: ['voice-input'],
+          endpoint: null,
+          configured: true,
+          status: 'healthy',
+          httpStatus: 200,
+          error: null,
+          installed: true,
+          enabled: true,
+          installable: false,
+        },
+      ],
+    };
+    mockFetch.mockResolvedValue({ ok: true, json: async () => scriptlessPayload });
+
+    await render(React.createElement(ServiceStatusPanel, { filterFeatures: ['voice-input'], title: '音频' }));
+
+    expect(container.textContent).toContain('音频采集');
+    const toggle = container.querySelector('.settings-resource-toggle');
+    expect(toggle).toBeFalsy();
+    const trashBtn = Array.from(container.querySelectorAll('button')).find((b) => b.title === '卸载');
+    expect(trashBtn).toBeFalsy();
   });
 
   it('reads lines field from /logs DTO during install polling', async () => {
