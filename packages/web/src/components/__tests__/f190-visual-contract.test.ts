@@ -88,10 +88,9 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).not.toContain('borderColor:');
   });
 
-  it('SettingsShell uses unified shell-bg + vertical divider, not panel-bg', () => {
+  it('SettingsShell nav uses --console-panel-bg, not border-r', () => {
     const src = readSrc('settings/SettingsShell.tsx');
-    expect(src).toContain('bg-[var(--console-shell-bg)]');
-    expect(src).toContain('bg-[var(--console-border-soft)]');
+    expect(src).toContain('bg-[var(--console-panel-bg)]');
     expect(src).not.toMatch(/md:border-r/);
   });
 
@@ -613,31 +612,6 @@ describe('F723 IM connector — typography and card guard', () => {
   it('FeishuQrPanel QR card uses shadow, not border', () => {
     const src = readSrc('FeishuQrPanel.tsx');
     expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
-  });
-
-  it('all non-chat pages use unified shell-bg, not panel-bg for root container', () => {
-    for (const file of [
-      'settings/SettingsShell.tsx',
-      'memory/MemoryHub.tsx',
-      'signals/SignalInboxView.tsx',
-      'signals/SignalSourcesView.tsx',
-      'mission-control/MissionControlPage.tsx',
-    ]) {
-      const src = readSrc(file);
-      expect(src).toContain('bg-[var(--console-shell-bg)]');
-    }
-  });
-
-  it('non-chat pages have no floating content-surface card (no rounded-[18px] + shadow)', () => {
-    for (const file of [
-      'memory/MemoryHub.tsx',
-      'signals/SignalInboxView.tsx',
-      'signals/SignalSourcesView.tsx',
-      'mission-control/MissionControlPage.tsx',
-    ]) {
-      const src = readSrc(file);
-      expect(src).not.toMatch(/CONTENT_SURFACE_CLASS[\s\S]{0,80}rounded-\[18px\]/);
-    }
   });
 });
 

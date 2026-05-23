@@ -35,7 +35,8 @@ const initialFilters: SignalArticleFilters = {
   tier: 'all',
 };
 
-const CONTENT_SURFACE_CLASS = 'px-9 py-8';
+const CONTENT_SURFACE_CLASS =
+  'rounded-[18px] bg-[var(--console-shell-bg)] shadow-[var(--console-shadow-soft)] m-3 px-9 py-8';
 
 function uniqueSources(items: readonly SignalArticle[]): readonly string[] {
   return Array.from(new Set(items.map((item) => item.source))).sort();
@@ -279,7 +280,7 @@ export function SignalInboxView({ initialReferrerThread = null }: { initialRefer
   }, []);
 
   return (
-    <div className="flex h-full flex-col bg-[var(--console-shell-bg)]">
+    <div className="flex h-full flex-col bg-[var(--console-panel-bg)]">
       <main className="flex min-h-0 flex-1">
         <div
           className={`flex min-h-0 flex-1 flex-col gap-4 overflow-hidden ${CONTENT_SURFACE_CLASS}`}

@@ -7,7 +7,8 @@ import { groupSignalSourcesByTierAndCategory } from '@/utils/signals-view';
 import { SignalNav } from './SignalNav';
 import { SignalTierBadge } from './SignalTierBadge';
 
-const CONTENT_SURFACE_CLASS = 'px-9 py-8';
+const CONTENT_SURFACE_CLASS =
+  'rounded-[18px] bg-[var(--console-shell-bg)] shadow-[var(--console-shadow-soft)] m-3 px-9 py-8';
 
 export function SignalSourcesView({ initialReferrerThread = null }: { initialReferrerThread?: string | null }) {
   const [sources, setSources] = useState<readonly SignalSource[]>([]);
@@ -87,7 +88,7 @@ export function SignalSourcesView({ initialReferrerThread = null }: { initialRef
   );
 
   return (
-    <div className="flex h-full flex-col bg-[var(--console-shell-bg)]">
+    <div className="flex h-full flex-col bg-[var(--console-panel-bg)]">
       <main className="flex-1 overflow-y-auto">
         <div className={`${CONTENT_SURFACE_CLASS} space-y-4`} data-testid="signal-sources-content-surface">
           <div>

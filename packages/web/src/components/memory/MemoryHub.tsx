@@ -18,10 +18,10 @@ interface MemoryHubProps {
 
 export function MemoryHub({ activeTab = 'feed', initialQuery, initialReferrerThread = null }: MemoryHubProps) {
   return (
-    <div className="flex h-full flex-col bg-[var(--console-shell-bg)]" data-testid="memory-hub">
+    <div className="flex h-full flex-col bg-[var(--console-panel-bg)]" data-testid="memory-hub">
       <main className="flex-1 overflow-y-auto">
         <div
-          className="flex flex-col gap-[18px] px-9 py-8"
+          className="m-3 flex flex-col gap-[18px] rounded-[18px] bg-[var(--console-shell-bg)] px-9 py-8 shadow-[var(--console-shadow-soft)]"
           data-testid="memory-content-surface"
         >
           <header className="flex items-center gap-4">

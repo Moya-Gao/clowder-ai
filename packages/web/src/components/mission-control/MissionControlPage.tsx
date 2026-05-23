@@ -37,7 +37,8 @@ interface ThreadListResponse {
 
 type SelfClaimPolicyBlocker = 'once' | 'thread' | null;
 
-const CONTENT_SURFACE_CLASS = 'px-9 py-8';
+const CONTENT_SURFACE_CLASS =
+  'rounded-[18px] bg-[var(--console-shell-bg)] shadow-[var(--console-shadow-soft)] m-3 px-9 py-8';
 
 function detectSelfClaimPolicyBlocker(rawError: string): SelfClaimPolicyBlocker {
   if (rawError.includes('Self-claim once policy already consumed')) return 'once';
@@ -435,7 +436,7 @@ export function MissionControlPage() {
   }, [activeProject, setActiveProjectId]);
 
   return (
-    <div className="flex h-screen bg-[var(--console-shell-bg)]">
+    <div className="flex h-screen bg-[var(--console-panel-bg)]">
       <main className="min-w-0 flex-1 overflow-y-auto">
         <div className={`${CONTENT_SURFACE_CLASS} flex min-h-full flex-col`} data-testid="mission-content-surface">
           <header className="flex flex-wrap items-center justify-between gap-3">
