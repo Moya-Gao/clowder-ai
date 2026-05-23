@@ -18,7 +18,12 @@ import type {
   SearchOptions,
 } from '../domains/memory/interfaces.js';
 import type { RebuildJobTracker } from '../domains/memory/RebuildJobTracker.js';
-import { type BoostSource, type EvidenceResult, mapKindToSourceType } from './evidence-helpers.js';
+import {
+  type BoostSource,
+  type EvidenceResult,
+  mapKindToSourceType,
+  sanitizeEvidenceDrillDown,
+} from './evidence-helpers.js';
 
 /** Accepted query parameters — Phase D: scope/mode/depth added */
 const searchSchema = z.object({
@@ -184,21 +189,25 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       const effectiveBoostSource: BoostSource[] =
         f163Flags.retrievalRerank === 'on' ? [...boostSource, 'retrieval_rerank'] : boostSource;
 
-      const results: EvidenceResult[] = reranked.items.map((item, index) => ({
-        title: item.title,
-        anchor: item.anchor,
-        snippet: item.summary ?? '',
-        confidence: rankToConfidence(index),
-        sourceType: mapKindToSourceType(item.kind),
-        boostSource: effectiveBoostSource,
-        ...(item.authority ? { authority: item.authority } : {}),
-        ...(item.sourcePath ? { sourcePath: item.sourcePath } : {}),
-        ...(singleSource ? { source: singleSource } : {}),
-        ...(item.passages ? { passages: item.passages } : {}),
-        ...(item.matchReason ? { matchReason: item.matchReason } : {}),
-        ...(item.entityMatches ? { entityMatches: item.entityMatches } : {}),
-        ...(explain && item.rankingFactors ? { rankingFactors: item.rankingFactors } : {}),
-      }));
+      const results: EvidenceResult[] = reranked.items.map((item, index) => {
+        const drillDown = sanitizeEvidenceDrillDown(item.drillDown);
+        return {
+          title: item.title,
+          anchor: item.anchor,
+          snippet: item.summary ?? '',
+          confidence: rankToConfidence(index),
+          sourceType: mapKindToSourceType(item.kind),
+          boostSource: effectiveBoostSource,
+          ...(item.authority ? { authority: item.authority } : {}),
+          ...(item.sourcePath ? { sourcePath: item.sourcePath } : {}),
+          ...(singleSource ? { source: singleSource } : {}),
+          ...(item.passages ? { passages: item.passages } : {}),
+          ...(item.matchReason ? { matchReason: item.matchReason } : {}),
+          ...(item.entityMatches ? { entityMatches: item.entityMatches } : {}),
+          ...(drillDown ? { drillDown } : {}),
+          ...(explain && item.rankingFactors ? { rankingFactors: item.rankingFactors } : {}),
+        };
+      });
       // F163 AC-A3: report always_on injection sources in response envelope
       let injectionSources: string[] | undefined;
       if (f163Flags.alwaysOnInjection !== 'off') {

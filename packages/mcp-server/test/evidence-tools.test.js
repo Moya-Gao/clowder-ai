@@ -165,6 +165,41 @@ describe('MCP Evidence Tools', () => {
     assert.ok(text.includes('provenance: F209 Phase B MCP contract test'), 'should render entity match provenance');
   });
 
+  test('renders typed drillDown hints returned by search_evidence API', async () => {
+    const { handleSearchEvidence } = await import('../dist/tools/evidence-tools.js');
+
+    globalThis.fetch = async () => ({
+      ok: true,
+      json: async () => ({
+        degraded: false,
+        results: [
+          {
+            title: 'Vision discussion',
+            anchor: 'thread:vision',
+            snippet: 'CVO asked about drill-down readers',
+            confidence: 'high',
+            sourceType: 'discussion',
+            drillDown: {
+              tool: 'cat_cafe_get_thread_context',
+              params: { threadId: 'thread_vision', messageId: 'msg-42', before: '3', after: '3' },
+              hint: 'get_thread_context(threadId="thread_vision", messageId="msg-42", before=3, after=3)',
+            },
+          },
+        ],
+      }),
+    });
+
+    const result = await handleSearchEvidence({ query: 'drill-down', mode: 'hybrid' });
+    const text = result.content[0].text;
+
+    assert.ok(text.includes('drillDown: cat_cafe_get_thread_context'), 'should render drillDown tool');
+    assert.ok(text.includes('threadId=thread_vision'), 'should render threadId param');
+    assert.ok(text.includes('messageId=msg-42'), 'should render messageId param');
+    assert.ok(text.includes('before=3'), 'should render before window');
+    assert.ok(text.includes('after=3'), 'should render after window');
+    assert.ok(text.includes('hint: get_thread_context'), 'should render drillDown hint');
+  });
+
   test('Hook F-1: appends Read reminder when high/mid doc anchors present', async () => {
     const { handleSearchEvidence } = await import('../dist/tools/evidence-tools.js');
 

@@ -69,6 +69,12 @@ export const IRepoScannerSymbol = Symbol.for('IRepoScanner');
 
 // ── Data types ───────────────────────────────────────────────────────
 
+export interface EvidenceDrillDown {
+  tool: string;
+  params: Record<string, string>;
+  hint: string;
+}
+
 export interface EvidenceItem {
   anchor: string;
   kind: EvidenceKind;
@@ -84,11 +90,7 @@ export interface EvidenceItem {
   /** F129: Pack scope — when set, this evidence belongs to a specific pack */
   packId?: string;
   /** G-4: drill-down hint — tells the cat what tool to use to see full details */
-  drillDown?: {
-    tool: string;
-    params: Record<string, string>;
-    hint: string;
-  };
+  drillDown?: EvidenceDrillDown;
   /** F163 Phase A: knowledge authority level */
   authority?: F163Authority;
   /** F163 Phase A: knowledge activation mode */

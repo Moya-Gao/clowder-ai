@@ -76,6 +76,8 @@ export interface MemoryConfig {
   skillsRoot?: string;
   /** F-4: Claude projects memory root (default: ~/.claude/projects/) */
   memoryRoot?: string;
+  /** F186: External collection data directory (default: ~/.cat-cafe) */
+  dataDir?: string;
 }
 
 export function computeChildExcludes(parentRoot: string, children: Array<{ root: string }>): string[] {
@@ -137,7 +139,7 @@ export async function createMemoryServices(config: MemoryConfig): Promise<Memory
 
   // Pre-load external manifests to compute child excludes (AC-H1)
   // Must happen before IndexBuilder so CatCafeScanner gets the exclude patterns
-  const dataDir = join(homedir(), '.cat-cafe');
+  const dataDir = config.dataDir ?? join(homedir(), '.cat-cafe');
   const externals = loadExternalCollections(dataDir);
   const childExcludes = computeChildExcludes(docsRoot, externals);
 
@@ -226,7 +228,10 @@ export async function createMemoryServices(config: MemoryConfig): Promise<Memory
       if (manifest.status === 'archived') continue;
       const storePath = resolveCollectionStorePath(dataDir, manifest.id);
       mkdirSync(dirname(storePath), { recursive: true });
-      const extStore = new SqliteEvidenceStore(storePath);
+      const extStore = new SqliteEvidenceStore(storePath, undefined, {
+        sourceRoot: manifest.root,
+        sourceRef: manifest.id,
+      });
       await extStore.initialize();
       stores.set(manifest.id, extStore);
     } catch {

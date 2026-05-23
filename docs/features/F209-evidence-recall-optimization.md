@@ -1,14 +1,14 @@
 ---
 feature_ids: [F209]
 related_features: [F102, F188, F200, F192, F208]
-topics: [memory, evidence-recall, passage-vector, entity-anchor, perspective, eval]
+topics: [memory, evidence-recall, passage-vector, entity-anchor, drill-down, perspective, eval]
 doc_kind: spec
 created: 2026-05-21
 ---
 
 # F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤
 
-> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; AC-B6 waits F208 consumer integration) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C implementation in review branch; AC-B6 waits F208 consumer integration) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -103,11 +103,11 @@ Phase C 的默认方向是**扩展现有读取工具**，不是重复造一套 r
 
 ### Acceptance Criteria
 
-- [ ] AC-C1: 支持 message window reader：按 `threadId + messageId + before/after` 打开上下文。
-- [ ] AC-C2: 支持 invocation detail reader：按 invocationId 打开工具调用 / 输出 / 状态细节。
-- [ ] AC-C3: 支持 file slice reader：按 path + line range 打开文档或代码切片。
-- [ ] AC-C4: `search_evidence` 结果为不同 sourceType 给明确 drill-down hint。
-- [ ] AC-C5: 大文件 / 大 thread 默认窗口化，不一次塞全文。
+- [x] AC-C1: 支持 message window reader：按 `threadId + messageId + before/after` 打开上下文。
+- [x] AC-C2: 支持 invocation detail reader：按 invocationId 打开工具调用 / 输出 / 状态细节。
+- [x] AC-C3: 支持 file slice reader：按 path + line range 打开文档或代码切片。
+- [x] AC-C4: `search_evidence` 结果为不同 sourceType 给明确 drill-down hint。
+- [x] AC-C5: 大文件 / 大 thread 默认窗口化，不一次塞全文。
 
 ## Phase D: Perspective Live Query Plans
 
@@ -218,7 +218,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 |----|------|
 | **Primary Users** | 需要从旧 thread/docs/sessions 找证据的猫；Activation Signal：`search_evidence` 在复杂 thread recall 中被调用 |
 | **Friction Metric** | 搜到摘要但打不开原文窗口的比例；raw 搜不到但人工能在 transcript 找到的比例；>3 轮 query reformulation |
-| **Regression Fixture** | Phase A fixture: `docs/eval/f209-phase-a-raw-retrieval-fixtures.md`（raw semantic 非字面消息召回；raw hybrid 保留 lexical + semantic passage hits）。Phase B fixture: `docs/eval/f209-phase-b-entity-anchor-fixtures.md`（`landy/铲屎官/CVO` alias 归一、raw entity passage anchor、private collection redaction）。后续 Phase 继续贡献：Perspective 现场重跑、Perspective run 可见层 step / hits / opened anchors。F209 贡献 fixture，F200 统一纳入 golden set |
+| **Regression Fixture** | Phase A fixture: `docs/eval/f209-phase-a-raw-retrieval-fixtures.md`（raw semantic 非字面消息召回；raw hybrid 保留 lexical + semantic passage hits）。Phase B fixture: `docs/eval/f209-phase-b-entity-anchor-fixtures.md`（`landy/铲屎官/CVO` alias 归一、raw entity passage anchor、private collection redaction）。Phase C fixture: `docs/eval/f209-phase-c-drilldown-fixtures.md`（message window / invocation detail chain / file slice bounded readers）。后续 Phase 继续贡献：Perspective 现场重跑、Perspective run 可见层 step / hits / opened anchors。F209 贡献 fixture，F200 统一纳入 golden set |
 | **Sunset Signal** | 6 个月内 golden query recall@k 无提升，或猫仍主要绕过 F209 直接人工 grep transcript → 回滚 Perspective / entity layer，仅保留 passage vector |
 
 ## 需求点 Checklist
@@ -252,6 +252,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | 2026-05-22 | Phase B implementation branch opened — SQLite entity registry + deterministic alias expansion + entity mention index + F200 fixtures; AC-B6 left open for F208 consumer integration |
 | 2026-05-22 | Phase B merged (PR #1846) — entity registry + deterministic alias expansion + entity mention index + collection-safe redaction contract + F200 fixtures; AC-B6 remains open for F208 consumer integration |
 | 2026-05-22 | Phase B contract fix merged (PR #1851) — REST / MCP `search_evidence` now surfaces `entityMatches` explanation details for AC-B3 |
+| 2026-05-22 | Phase C implementation branch opened — typed `drillDown` REST/MCP contract + message window reader + read-only file slice reader + Phase C F200 fixtures |
 
 ## Review Gate
 

@@ -161,6 +161,7 @@ export class IndexBuilder implements IIndexBuilder {
       this.scanner = detected.scanner;
       this.scanRoot = detected.scanRoot;
     }
+    this.store.setSourceRoot(this.scanRoot);
   }
 
   setEmbedDeps(deps: {

@@ -131,6 +131,11 @@ describe('raw passage semantic and hybrid retrieval', () => {
     assert.equal(results[0].passages?.[0]?.threadId, 'thread_semantic');
     assert.equal(results[0].passages?.[0]?.messageId, 'semantic');
     assert.equal(results[0].passages?.[0]?.context?.length, 2);
+    assert.equal(results[0].drillDown?.tool, 'cat_cafe_get_thread_context');
+    assert.equal(results[0].drillDown?.params.threadId, 'thread_semantic');
+    assert.equal(results[0].drillDown?.params.messageId, 'semantic');
+    assert.equal(results[0].drillDown?.params.before, '3');
+    assert.equal(results[0].drillDown?.params.after, '3');
   });
 
   it('hybrid raw mode fuses lexical-only and semantic-only passage hits', async () => {

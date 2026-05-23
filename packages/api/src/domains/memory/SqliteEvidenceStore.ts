@@ -1,5 +1,6 @@
 // F102: SQLite implementation of IEvidenceStore
 
+import { isAbsolute, relative, resolve } from 'node:path';
 import Database from 'better-sqlite3';
 import { computeConsumptionPrior } from './consumption-prior.js';
 import { type EntityMentionPassageHit, EntityRegistryStore } from './EntityRegistry.js';
@@ -59,6 +60,11 @@ export interface EmbedDeps {
   mode: 'off' | 'shadow' | 'on';
 }
 
+export interface SqliteEvidenceStoreOptions {
+  sourceRoot?: string;
+  sourceRef?: string;
+}
+
 interface SearchFilterContext {
   effectiveKind?: EvidenceKind;
   excludeSessionAndThread: boolean;
@@ -71,18 +77,28 @@ export class SqliteEvidenceStore implements IEvidenceStore {
   private db: Database.Database | null = null;
   private readonly dbPath: string;
   private embedDeps?: EmbedDeps;
+  private sourceRoot?: string;
+  private sourceRef?: string;
   private entityRegistry?: EntityRegistryStore;
   /** F163: single-writer queue serializes all evidence.sqlite mutations */
   private readonly writeQueue = new EvidenceWriteQueue();
 
-  constructor(dbPath: string, embedDeps?: EmbedDeps) {
+  constructor(dbPath: string, embedDeps?: EmbedDeps, options?: SqliteEvidenceStoreOptions) {
     this.dbPath = dbPath;
     this.embedDeps = embedDeps;
+    this.sourceRoot = options?.sourceRoot ? resolve(options.sourceRoot) : undefined;
+    this.sourceRef = options?.sourceRoot ? options.sourceRef : undefined;
   }
 
   /** @internal Allow late-binding of embed deps (factory sets after construction) */
   setEmbedDeps(deps: EmbedDeps): void {
     this.embedDeps = deps;
+  }
+
+  /** @internal Bind relative sourcePath values to the scanner/collection root that produced them. */
+  setSourceRoot(sourceRoot?: string, sourceRef?: string): void {
+    this.sourceRoot = sourceRoot ? resolve(sourceRoot) : undefined;
+    this.sourceRef = sourceRoot ? sourceRef : undefined;
   }
 
   async initialize(): Promise<void> {
@@ -989,7 +1005,19 @@ export class SqliteEvidenceStore implements IEvidenceStore {
     if (targetLimit && results.length > targetLimit) results.length = targetLimit;
     annotateMatchReasons(results, query, options?.explain);
     for (const item of results) {
-      if (item.kind === 'thread' && item.anchor.startsWith('thread-')) {
+      const primaryPassage = item.passages?.find((p) => p.threadId && p.messageId);
+      if (primaryPassage?.threadId && primaryPassage.messageId) {
+        item.drillDown = {
+          tool: 'cat_cafe_get_thread_context',
+          params: {
+            threadId: primaryPassage.threadId,
+            messageId: primaryPassage.messageId,
+            before: '3',
+            after: '3',
+          },
+          hint: `打开原文窗口：get_thread_context(threadId="${primaryPassage.threadId}", messageId="${primaryPassage.messageId}", before=3, after=3)`,
+        };
+      } else if (item.kind === 'thread' && item.anchor.startsWith('thread-')) {
         const threadId = item.anchor.replace('thread-', '');
         item.drillDown = {
           tool: 'cat_cafe_get_thread_context',
@@ -1003,9 +1031,32 @@ export class SqliteEvidenceStore implements IEvidenceStore {
           params: { sessionId },
           hint: `查看 session 摘要：read_session_digest(sessionId="${sessionId}")`,
         };
+      } else if (item.sourcePath) {
+        const filePath = this.resolveSourcePathForDrillDown(item.sourcePath);
+        if (filePath) {
+          item.drillDown = {
+            tool: 'cat_cafe_read_file_slice',
+            params: { path: filePath, startLine: '1', endLine: '120' },
+            hint: `打开文件切片：read_file_slice(path="${filePath}", startLine=1, endLine=120)`,
+          };
+        }
       }
     }
     return results;
+  }
+
+  private resolveSourcePathForDrillDown(sourcePath: string): string | null {
+    if (!this.sourceRoot) return null;
+    const resolved = isAbsolute(sourcePath) ? resolve(sourcePath) : resolve(this.sourceRoot, sourcePath);
+    const rel = relative(this.sourceRoot, resolved);
+    if (!rel || rel.startsWith('..') || isAbsolute(rel)) return null;
+    const publicRel = rel
+      .split(/[\\/]+/)
+      .filter(Boolean)
+      .join('/');
+    if (!this.sourceRef) return publicRel;
+    const encodedPath = publicRel.split('/').map(encodeURIComponent).join('/');
+    return `cat-cafe://collection/${encodeURIComponent(this.sourceRef)}/${encodedPath}`;
   }
 
   /**

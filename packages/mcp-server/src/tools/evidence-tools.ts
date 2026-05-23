@@ -30,6 +30,12 @@ type EvidenceEntityMatch = {
   provenance?: Array<{ source?: string; anchor?: string; note?: string; date?: string }>;
 };
 
+type EvidenceDrillDown = {
+  tool: string;
+  params?: Record<string, string>;
+  hint?: string;
+};
+
 export const searchEvidenceInputSchema = {
   query: z.string().min(1).describe('Search query for project knowledge'),
   limit: z.number().int().min(1).max(20).optional().describe('Max results (default 5)'),
@@ -126,6 +132,7 @@ export async function handleSearchEvidence(input: {
         boostSource?: string[];
         matchReason?: string;
         entityMatches?: EvidenceEntityMatch[];
+        drillDown?: EvidenceDrillDown;
         sourcePath?: string;
         rankingFactors?: { bm25Score?: number; consumptionPrior?: number; mmrPenalty?: number };
         passages?: Array<{
@@ -213,6 +220,9 @@ export async function handleSearchEvidence(input: {
         for (const entityMatch of r.entityMatches) {
           lines.push(...formatEntityMatchLines(entityMatch));
         }
+      }
+      if (r.drillDown) {
+        lines.push(...formatDrillDownLines(r.drillDown));
       }
       if (r.rankingFactors) {
         const factors = Object.entries(r.rankingFactors)
@@ -356,6 +366,17 @@ function formatEntityMatchLines(match: EvidenceEntityMatch): string[] {
     lines.push(`    provenance: ${provenance.join('; ')}`);
   }
 
+  return lines;
+}
+
+function formatDrillDownLines(drillDown: EvidenceDrillDown): string[] {
+  const params = Object.entries(drillDown.params ?? {})
+    .map(([key, value]) => `${key}=${value}`)
+    .join(', ');
+  const lines = [`  drillDown: ${drillDown.tool}${params ? ` (${params})` : ''}`];
+  if (drillDown.hint) {
+    lines.push(`    hint: ${drillDown.hint}`);
+  }
   return lines;
 }
 
