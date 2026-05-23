@@ -433,6 +433,29 @@ describe('services routes', () => {
     }
   });
 
+  it('scriptless service probed when endpoint configured even if enabled=false', async () => {
+    setServiceConfig('audio-capture', { enabled: false });
+    let probed = false;
+    const app = await buildApp({
+      env: { AUDIO_SERVICE_URL: 'http://127.0.0.1:19995/healthy' },
+      fetchHealth: async () => {
+        probed = true;
+        return { ok: true, status: 200, error: null };
+      },
+    });
+    try {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/services/audio-capture/health',
+        headers: SESSION_HEADERS,
+      });
+      assert.equal(res.statusCode, 200, res.payload);
+      assert.equal(probed, true, 'scriptless service should be probed regardless of enabled flag');
+    } finally {
+      await app.close();
+    }
+  });
+
   it('returns 404 for unknown service health lookups', async () => {
     const app = await buildApp();
     try {

@@ -170,7 +170,6 @@ export async function registerServiceLifecycleRoutes(
           const selectedModel = typeof model === 'string' && model.length > 0 ? model : undefined;
           serviceConfigStore.set(service.id, {
             installed: true,
-            enabled: false,
             ...(selectedModel ? { selectedModel } : {}),
           });
         }

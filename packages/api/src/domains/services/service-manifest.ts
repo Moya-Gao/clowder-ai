@@ -331,7 +331,7 @@ export async function resolveServiceState(
     };
   }
 
-  if (!(installed && enabled)) {
+  if (installable && !(installed && enabled)) {
     return {
       ...buildClientServiceManifest(service),
       endpoint: maskServiceEndpoint(endpoint),

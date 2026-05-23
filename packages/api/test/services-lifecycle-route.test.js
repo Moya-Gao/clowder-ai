@@ -359,6 +359,40 @@ describe('service lifecycle write routes', () => {
     }
   });
 
+  it('install preserves existing enabled=true for running services', async () => {
+    const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
+    const configs = new Map();
+    configs.set('whisper-stt', { installed: true, enabled: true });
+    const app = await buildApp({
+      lifecycle: {
+        serviceConfig: {
+          get: (id) => configs.get(id) ?? { enabled: false },
+          set: (id, patch) => {
+            const updated = { ...(configs.get(id) ?? { enabled: false }), ...patch };
+            configs.set(id, updated);
+            return updated;
+          },
+        },
+        runScript: async () => ({ code: 0, output: 'reinstalled' }),
+      },
+    });
+    try {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/services/whisper-stt/install',
+        headers: SESSION_HEADERS,
+        payload: { model: 'mlx-community/whisper-large-v3-turbo' },
+      });
+      assert.equal(res.statusCode, 200, res.payload);
+      assert.equal(configs.get('whisper-stt').installed, true);
+      assert.equal(configs.get('whisper-stt').enabled, true, 'reinstall should preserve enabled=true');
+    } finally {
+      await app.close();
+      restoreOwner(previousOwner);
+    }
+  });
+
   it('persists enabled=true after successful start', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
     process.env.DEFAULT_OWNER_USER_ID = 'you';
