@@ -44,6 +44,8 @@ managed_files:
   # F180 user-level hook templates for open-source users
   - .claude/hooks/user-level/README.md
   - .claude/hooks/user-level/claude-settings.template.json
+  # Public test fixture required by packages/api test:public
+  - docs/harness-feedback/eval-domains/eval-a2a.yaml
   # docs/ 单文件导出（需 transform）
   - docs/VISION.md
   - docs/SOP.md
