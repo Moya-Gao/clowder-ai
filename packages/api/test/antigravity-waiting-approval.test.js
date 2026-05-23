@@ -352,6 +352,160 @@ describe('Antigravity waiting approval', () => {
     assert.equal(text?.content, 'write approved by LS');
   });
 
+  test('service does not generic-probe a still-waiting CODE_ACTION after auto-approve stall', async () => {
+    const resolveOutstandingSteps = mock.fn(async () => {});
+    const approvePendingInteraction = mock.fn(async () => {});
+    const waitingStep = {
+      type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+      status: 'CORTEX_STEP_STATUS_WAITING',
+      metadata: {
+        sourceTrajectoryStepInfo: { trajectoryId: 'traj-1', stepIndex: 7 },
+        toolCall: {
+          id: 'toolu_write_to_file_still_waiting',
+          name: 'write_to_file',
+          argumentsJson: JSON.stringify({
+            TargetFile: '.scratch/antigravity-write-smoke-test.txt',
+            CodeContent: 'smoke\n',
+          }),
+        },
+      },
+      requestedInteraction: {
+        permission: {
+          resource: {
+            action: 'write_file',
+            target: '.scratch/antigravity-write-smoke-test.txt',
+          },
+        },
+      },
+    };
+    let pollCount = 0;
+    const bridge = {
+      ...createMockServiceBridge({ resolveOutstandingSteps, approvePendingInteraction }),
+      getTrajectory: mock.fn(async () => ({
+        status: 'CASCADE_RUN_STATUS_RUNNING',
+        numTotalSteps: 1,
+        awaitingUserInput: false,
+        trajectory: { steps: [waitingStep] },
+        updatedAt: Date.now(),
+      })),
+      nativeExecuteAndPush: mock.fn(async (step) => (step === waitingStep ? 'approval_pending' : false)),
+      pollForSteps: mock.fn(async function* () {
+        pollCount += 1;
+        if (pollCount === 1) {
+          yield {
+            steps: [waitingStep],
+            cursor: {
+              baselineStepCount: 0,
+              lastDeliveredStepCount: 1,
+              terminalSeen: false,
+              lastActivityAt: Date.now(),
+              awaitingUserInput: false,
+            },
+          };
+          throw new Error('Antigravity stall: no activity for 60213ms (steps=1, status=CASCADE_RUN_STATUS_RUNNING)');
+        }
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+              status: 'DONE',
+              plannerResponse: { response: 'write eventually applied by LS' },
+            },
+          ],
+          cursor: {
+            baselineStepCount: 1,
+            lastDeliveredStepCount: 2,
+            terminalSeen: true,
+            lastActivityAt: Date.now(),
+          },
+        };
+      }),
+    };
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'claude-opus-4-6', bridge });
+
+    const messages = await collect(service.invoke('write file'));
+
+    assert.equal(approvePendingInteraction.mock.calls.length, 1, 'CODE_ACTION should be auto-approved once');
+    assert.equal(
+      resolveOutstandingSteps.mock.calls.length,
+      0,
+      'still-waiting CODE_ACTION must not be canceled by generic stall probe',
+    );
+    assert.equal(bridge.pollForSteps.mock.calls.length, 2, 'service should keep polling after CODE_ACTION stall');
+    const text = messages.find((msg) => msg.type === 'text');
+    assert.equal(text?.content, 'write eventually applied by LS');
+  });
+
+  test('service bounds repeated CODE_ACTION wait stalls without generic resolve', async () => {
+    const resolveOutstandingSteps = mock.fn(async () => {});
+    const approvePendingInteraction = mock.fn(async () => {});
+    const waitingStep = {
+      type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+      status: 'CORTEX_STEP_STATUS_WAITING',
+      metadata: {
+        sourceTrajectoryStepInfo: { trajectoryId: 'traj-1', stepIndex: 7 },
+        toolCall: {
+          id: 'toolu_write_to_file_never_applies',
+          name: 'write_to_file',
+          argumentsJson: JSON.stringify({
+            TargetFile: '.scratch/antigravity-write-smoke-test.txt',
+            CodeContent: 'smoke\n',
+          }),
+        },
+      },
+      requestedInteraction: {
+        permission: {
+          resource: {
+            action: 'write_file',
+            target: '.scratch/antigravity-write-smoke-test.txt',
+          },
+        },
+      },
+    };
+    let pollCount = 0;
+    const bridge = {
+      ...createMockServiceBridge({ resolveOutstandingSteps, approvePendingInteraction }),
+      getTrajectory: mock.fn(async () => ({
+        status: 'CASCADE_RUN_STATUS_RUNNING',
+        numTotalSteps: 1,
+        awaitingUserInput: false,
+        trajectory: { steps: [waitingStep] },
+        updatedAt: Date.now(),
+      })),
+      nativeExecuteAndPush: mock.fn(async (step) => (step === waitingStep ? 'approval_pending' : false)),
+      pollForSteps: mock.fn(async function* () {
+        pollCount += 1;
+        if (pollCount > 3) {
+          throw new Error('unbounded CODE_ACTION wait loop');
+        }
+        if (pollCount === 1) {
+          yield {
+            steps: [waitingStep],
+            cursor: {
+              baselineStepCount: 0,
+              lastDeliveredStepCount: 1,
+              terminalSeen: false,
+              lastActivityAt: Date.now(),
+              awaitingUserInput: false,
+            },
+          };
+        }
+        throw new Error('Antigravity stall: no activity for 60213ms (steps=1, status=CASCADE_RUN_STATUS_RUNNING)');
+      }),
+    };
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'claude-opus-4-6', bridge });
+
+    const messages = await collect(service.invoke('write file'));
+
+    assert.equal(approvePendingInteraction.mock.calls.length, 1, 'CODE_ACTION should be auto-approved once');
+    assert.equal(resolveOutstandingSteps.mock.calls.length, 0, 'CODE_ACTION wait stalls must not use generic resolve');
+    assert.equal(bridge.pollForSteps.mock.calls.length, 3, 'CODE_ACTION wait stalls must be bounded');
+    const errors = messages.filter((msg) => msg.type === 'error');
+    assert.ok(errors.length >= 1, 'bounded CODE_ACTION wait should surface a stall error');
+    assert.match(errors[0].error, /Antigravity stall/i);
+    assert.doesNotMatch(errors[0].error, /unbounded CODE_ACTION wait loop/);
+  });
+
   test('service auto-approves multiple approval_pending steps in the same batch', async () => {
     const resolveOutstandingSteps = mock.fn(async () => {});
     const approvePendingInteraction = mock.fn(async (cascadeId, step) => {

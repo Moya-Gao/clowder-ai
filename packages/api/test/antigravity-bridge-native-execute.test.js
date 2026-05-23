@@ -127,7 +127,7 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
     assert.deepEqual(payload, {
       cascadeId: 'c1',
       interaction: {
-        permission: { allowed: true },
+        permission: { allow: true },
         trajectoryId: 'traj-1',
         stepIndex: 23,
       },
@@ -243,7 +243,7 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
     }
   });
 
-  test('acknowledges CODE_ACTION approvals with Antigravity code-action RPC', async () => {
+  test('approves CODE_ACTION write permissions through Antigravity user interaction RPC', async () => {
     const { bridge, rpcMock } = makeBridge();
     const step = {
       type: 'CORTEX_STEP_TYPE_CODE_ACTION',
@@ -255,6 +255,49 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
           argumentsJson: JSON.stringify({ Path: 'src/index.ts', Content: 'safe probe' }),
         },
         sourceTrajectoryStepInfo: { trajectoryId: 'traj-1', stepIndex: 9, cascadeId: 'c1' },
+      },
+      requestedInteraction: {
+        permission: {
+          resource: {
+            action: 'write_file',
+            target: '/tmp/src/index.ts',
+          },
+        },
+      },
+    };
+
+    await bridge.approvePendingInteraction('c1', step);
+
+    const methods = rpcMock.mock.calls.map((c) => {
+      const args = c.arguments;
+      return typeof args[0] === 'string' ? args[0] : args[1];
+    });
+    assert.deepEqual(methods, ['HandleCascadeUserInteraction']);
+
+    const payload = rpcMock.mock.calls[0].arguments[2];
+    assert.deepEqual(payload, {
+      cascadeId: 'c1',
+      interaction: {
+        permission: { allow: true },
+        trajectoryId: 'traj-1',
+        stepIndex: 9,
+      },
+    });
+    assert.equal(bridge.sendMessage.mock.callCount(), 0, 'code action approval must not synthetic-writeback');
+  });
+
+  test('acknowledges non-permission CODE_ACTION steps without requiring trajectoryId', async () => {
+    const { bridge, rpcMock } = makeBridge();
+    const step = {
+      type: 'CORTEX_STEP_TYPE_CODE_ACTION',
+      status: 'CORTEX_STEP_STATUS_WAITING',
+      metadata: {
+        toolCall: {
+          id: 'toolu_code_action_ack',
+          name: 'show_diff',
+          argumentsJson: JSON.stringify({ Path: 'src/index.ts' }),
+        },
+        sourceTrajectoryStepInfo: { stepIndex: 4, cascadeId: 'c1' },
       },
     };
 
@@ -270,9 +313,8 @@ describe('AntigravityBridge.nativeExecuteAndPush', () => {
     assert.deepEqual(payload, {
       cascadeId: 'c1',
       accept: true,
-      stepIndices: [9],
+      stepIndices: [4],
     });
-    assert.equal(bridge.sendMessage.mock.callCount(), 0, 'code action approval must not synthetic-writeback');
   });
 
   test('executes Antigravity 2.x call_mcp_tool wrapper using the nested MCP tool payload', async () => {

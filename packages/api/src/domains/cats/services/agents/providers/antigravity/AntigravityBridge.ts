@@ -87,6 +87,12 @@ export interface TrajectoryStep {
     };
     [key: string]: unknown;
   };
+  requestedInteraction?: {
+    permission?: unknown;
+    filePermission?: unknown;
+    approvalInteraction?: unknown;
+    [key: string]: unknown;
+  };
   runCommand?: {
     commandLine?: string;
     proposedCommandLine?: string;
@@ -429,7 +435,7 @@ export class AntigravityBridge {
     // If the hint RPC itself fails, still continue to the writeback fallback path.
     try {
       await this.approveInteraction(opts.cascadeId, {
-        permission: { allowed: true },
+        permission: { allow: true },
         trajectoryId,
         stepIndex,
       });
@@ -755,16 +761,43 @@ export class AntigravityBridge {
 
   async approvePendingInteraction(cascadeId: string, step: TrajectoryStep): Promise<void> {
     if (step.type === 'CORTEX_STEP_TYPE_CODE_ACTION') {
-      await this.acknowledgeCodeActionStep(cascadeId, step);
+      await this.approveCodeActionStep(cascadeId, step);
       return;
     }
     await this.resolveOutstandingSteps(cascadeId);
   }
 
+  private async approveCodeActionStep(cascadeId: string, step: TrajectoryStep): Promise<void> {
+    const sourceStepInfo = step.metadata?.sourceTrajectoryStepInfo;
+    const stepIndex = sourceStepInfo?.stepIndex;
+    if (typeof stepIndex !== 'number') {
+      throw new Error('CODE_ACTION approval requires sourceTrajectoryStepInfo stepIndex');
+    }
+
+    if (objectRecord(step.requestedInteraction?.permission)) {
+      const trajectoryId = nonEmptyString(sourceStepInfo?.trajectoryId);
+      if (!trajectoryId) {
+        throw new Error('CODE_ACTION permission approval requires sourceTrajectoryStepInfo trajectoryId');
+      }
+      await this.approveInteraction(cascadeId, {
+        permission: { allow: true },
+        trajectoryId,
+        stepIndex,
+      });
+      log.info(`approved code action permission for cascade ${cascadeId} step ${stepIndex}`);
+      return;
+    }
+
+    await this.acknowledgeCodeActionStep(cascadeId, step);
+  }
+
   private async acknowledgeCodeActionStep(cascadeId: string, step: TrajectoryStep): Promise<void> {
     const stepIndex = step.metadata?.sourceTrajectoryStepInfo?.stepIndex;
+    if (typeof stepIndex !== 'number') {
+      throw new Error('CODE_ACTION acknowledgement requires sourceTrajectoryStepInfo stepIndex');
+    }
     const payload: Record<string, unknown> = { cascadeId, accept: true };
-    if (typeof stepIndex === 'number') payload.stepIndices = [stepIndex];
+    payload.stepIndices = [stepIndex];
     await this.rpcSafe('AcknowledgeCodeActionStep', payload);
     log.info(
       `acknowledged code action step for cascade ${cascadeId}${
