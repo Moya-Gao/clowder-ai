@@ -157,9 +157,13 @@ The prototype intentionally maps `antigravity-cli` to the standalone `agy` binar
 
 ### Phase C（Parser / Session Migration）
 
-- [ ] AC-C1: Parser tests cover actual Antigravity CLI event fixtures; no unverified Gemini fixture reuse.
-- [ ] AC-C2: Session metadata and final `done` semantics match existing Cat Cafe `AgentMessage` invariants.
-- [ ] AC-C3: Unsupported resume/model/image features have explicit degradation behavior and tests.
+- [x] AC-C1: Parser tests cover actual Antigravity CLI event fixtures; no unverified Gemini fixture reuse.
+- [x] AC-C2: Session metadata and final `done` semantics match existing Cat Cafe `AgentMessage` invariants.
+- [x] AC-C3: Unsupported resume/model/image features have explicit degradation behavior and tests.
+
+Phase C parser/session source: `packages/api/src/domains/cats/services/agents/providers/antigravity-cli-event-parser.ts`, with fixture-backed tests in `packages/api/test/antigravity-cli-event-parser.test.js` and service boundary tests in `packages/api/test/gemini-agent-service.test.js`.
+
+`agy --conversation <id>` is the supported stable session path. Because F210 resume fixtures showed print-mode stdout can replay previous assistant text plus the new answer, resumed AGY text is emitted with `textMode: replace` rather than treated as a streaming delta. AGY per-call model override remains unsupported in 1.0.1: adapter metadata marks the model unverified/account-selected, and a requested Cat Cafe model override produces `system_info` diagnostics instead of silently pretending `--model` was applied. Image inputs degrade to local path hints plus `--add-dir` access; no native image flag is invented.
 
 ### Phase D（Install / Packaging）
 
@@ -210,7 +214,7 @@ The prototype intentionally maps `antigravity-cli` to the standalone `agy` binar
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | What exact headless command and subprocess-friendly output mode, if any, does `agy` support? | Answered for prototype — `--print` / `--prompt`; stdout is plain final text for new successful runs; no JSON/NDJSON flag; timeout prints stdout error and exits 0 |
-| OQ-2 | Does `agy` support session resume with stable IDs? | Partial — `--conversation <id>` resumes, but stdout fixture included prior assistant text plus new text; `--continue` still needs delta behavior check |
+| OQ-2 | Does `agy` support session resume with stable IDs? | Answered for implementation — use `--conversation <id>`; resumed stdout may replay previous assistant text, so Cat Cafe emits it as `textMode: replace` rather than assuming delta-only output |
 | OQ-3 | Does `agy` support model override, and how does that map to Cat Cafe cat identity? | Partial — no top-level `--model`; real HOME succeeded via account-side selected model override after keyring auth; deterministic per-cat model selection still unverified |
 | OQ-4 | What is the correct Windows install / binary path? | Answered for installer default: `%LOCALAPPDATA%\agy\bin\agy.exe`; packaging verification still Phase D |
 | OQ-5 | Should the old `antigravity` adapter be renamed in env values or kept as legacy alias only? | Answered — legacy `antigravity` remains the Desktop/MCP callback adapter; `antigravity-cli` is the new headless `agy` adapter name (KD-3) |
@@ -237,6 +241,7 @@ The prototype intentionally maps `antigravity-cli` to the standalone `agy` binar
 | 2026-05-22 | Phase A recon partial merged via PR #1841; AC-A1/A2/A4/A6 closed, AC-A3/A5 remain blocked by missing default model and unverified MCP runtime loading |
 | 2026-05-22 | Follow-up headless spike：`agy --print` success/tool/resume/timeout fixtures captured; OQ-1 answered for prototype, OQ-3 downgraded to deterministic model-selection preflight |
 | 2026-05-22 | Phase B adapter prototype：`GEMINI_ADAPTER=antigravity-cli` spawns `agy --print`; direct service smoke returned `CAT_CAFE_AGY_ADAPTER_OK`; full Cat Cafe E2E/default switch still blocked by AC-E1/AC-E4 |
+| 2026-05-23 | Phase C parser/session：dedicated AGY plain-text parser added; F210 fixtures cover success/resume/timeout/missing-model; resume/model/image degradation behavior tested |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |

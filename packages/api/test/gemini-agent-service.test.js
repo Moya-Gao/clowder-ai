@@ -508,6 +508,79 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
     assert.equal(args[args.indexOf('--conversation') + 1], msgs[0].sessionId);
   });
 
+  test('marks resumed agy stdout as replace because print mode can replay prior text', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'antigravity-cli' });
+
+    const promise = collect(service.invoke('resume agy thread', { sessionId: 'agy-existing-session' }));
+    emitPlainText(proc, 'OLD_ASSISTANT_TEXT\nNEW_ASSISTANT_TEXT\n');
+
+    const msgs = await promise;
+    const text = msgs.find((m) => m.type === 'text');
+    assert.equal(text?.content, 'OLD_ASSISTANT_TEXT\nNEW_ASSISTANT_TEXT');
+    assert.equal(text?.textMode, 'replace');
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    assert.equal(args[args.indexOf('--conversation') + 1], 'agy-existing-session');
+  });
+
+  test('reports per-call model override as unsupported without passing --model to agy', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'antigravity-cli' });
+
+    const promise = collect(
+      service.invoke('model override check', {
+        callbackEnv: { CAT_CAFE_GEMINI_MODEL_OVERRIDE: 'gemini-override-should-not-be-used' },
+      }),
+    );
+    emitPlainText(proc, 'AGY_MODEL_BOUNDARY_OK\n');
+
+    const msgs = await promise;
+    const info = msgs.find((m) => {
+      if (m.type !== 'system_info' || typeof m.content !== 'string') return false;
+      return JSON.parse(m.content).type === 'antigravity_cli_model_override_unsupported';
+    });
+    assert.ok(info, 'unsupported model override should be explicit system_info');
+    const payload = JSON.parse(info.content);
+    assert.equal(payload.requestedModel, 'gemini-override-should-not-be-used');
+    assert.match(payload.reason, /account-side selected model/);
+
+    const done = msgs.find((m) => m.type === 'done');
+    assert.equal(done?.metadata?.modelVerified, false);
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    assert.equal(args.includes('--model'), false);
+  });
+
+  test('passes image inputs as local path hints and add-dir access, not native image flags', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'antigravity-cli' });
+    const workDir = mkdtempSync(join(tmpdir(), 'agy-image-workdir-'));
+    const uploadDir = join(workDir, 'uploads');
+    mkdirSync(uploadDir, { recursive: true });
+
+    const promise = collect(
+      service.invoke('describe this image', {
+        workingDirectory: workDir,
+        uploadDir,
+        contentBlocks: [{ type: 'image', url: '/uploads/example.png' }],
+      }),
+    );
+    emitPlainText(proc, 'AGY_IMAGE_HINT_OK\n');
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const addDirs = args.flatMap((arg, index) => (arg === '--add-dir' ? [args[index + 1]] : []));
+    assert.ok(addDirs.includes(workDir), 'repo workdir should remain accessible');
+    assert.ok(addDirs.includes(uploadDir), 'image upload dir should be accessible');
+    assert.equal(args.includes('--image'), false);
+    assert.equal(args.includes('-i'), false);
+    assert.match(args[args.indexOf('--print') + 1], /\[Local image path: .*example\.png\]/);
+  });
+
   test('uses spawnCliOverride for agy plain stdout execution', async () => {
     const spawnFn = mock.fn(() => {
       throw new Error('direct spawn should not be used when spawnCliOverride is present');

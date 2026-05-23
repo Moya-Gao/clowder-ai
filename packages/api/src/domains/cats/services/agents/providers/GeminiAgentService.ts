@@ -41,6 +41,7 @@ import { readJsonlTail } from '../../../../../utils/jsonl-tail-reader.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
 import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
 import { extractImagePaths } from '../providers/image-paths.js';
+import { classifyAntigravityCliPlainText } from './antigravity-cli-event-parser.js';
 import { isKnownPostResponseCandidatesCrash, isResultErrorEvent, transformGeminiEvent } from './gemini-event-parser.js';
 
 const log = createModuleLogger('gemini-agent');
@@ -305,25 +306,6 @@ function formatAgyPrintTimeout(timeoutMs: number): string | null {
   return `${Math.max(1, Math.ceil(timeoutMs / 1000))}s`;
 }
 
-function isAgyPrintTimeoutOutput(stdout: string): boolean {
-  return /^Error:\s*timed out waiting for response\.?$/i.test(stdout.trim());
-}
-
-function isAgyMissingModel(text: string): boolean {
-  const trimmed = text.trim();
-  return (
-    /^(?:Error:|E\.\.\.)\s*(?:failed to construct executor:\s*)?neither PlanModel nor RequestedModel specified\b/im.test(
-      trimmed,
-    ) || /^(?:Error:|E\.\.\.).*\bPlease use the \/model command\b/im.test(trimmed)
-  );
-}
-
-function formatAgyMissingModelError(): string {
-  return [
-    'Antigravity CLI 没有可用的账号侧默认模型。',
-    'AGY CLI 1.0.1 没有已验证的 --model/env per-call 模型覆盖；请先运行 `agy` 进入交互模式，用 `/model` 选择默认模型后再重试。',
-  ].join(' ');
-}
 /**
  * Options for constructing GeminiAgentService (dependency injection)
  * F32-b: catId and model are constructor parameters
@@ -598,8 +580,19 @@ export class GeminiAgentService implements AgentService {
   }
 
   private async *invokeAntigravityCLI(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
-    const effectiveModel = options?.callbackEnv?.CAT_CAFE_GEMINI_MODEL_OVERRIDE ?? this.model;
-    const metadata: MessageMetadata = { provider: 'google', model: `${effectiveModel} (antigravity-cli)` };
+    const requestedModelOverride = options?.callbackEnv?.CAT_CAFE_GEMINI_MODEL_OVERRIDE;
+    const metadata: MessageMetadata = {
+      provider: 'google',
+      model: 'account-selected (antigravity-cli)',
+      modelVerified: false,
+      diagnostics: {
+        antigravityCli: {
+          modelSelection: 'account-side selected model',
+          configuredCatModel: this.model,
+          ...(requestedModelOverride ? { unsupportedModelOverride: requestedModelOverride } : {}),
+        },
+      },
+    };
 
     let effectivePrompt = options?.systemPrompt ? `${options.systemPrompt}\n\n${prompt}` : prompt;
     const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
@@ -625,6 +618,20 @@ export class GeminiAgentService implements AgentService {
       metadata,
       timestamp: Date.now(),
     };
+    if (requestedModelOverride) {
+      yield {
+        type: 'system_info',
+        catId: this.catId,
+        content: JSON.stringify({
+          type: 'antigravity_cli_model_override_unsupported',
+          requestedModel: requestedModelOverride,
+          reason:
+            'AGY CLI 1.0.1 uses the account-side selected model; no verified --model/env per-call override exists.',
+        }),
+        metadata,
+        timestamp: Date.now(),
+      };
+    }
     args.push('--conversation', sessionId);
     args.push('--print', effectivePrompt);
 
@@ -757,8 +764,11 @@ export class GeminiAgentService implements AgentService {
         }
       }
 
-      const trimmedStdout = stdout.trim();
-      const diagnosticText = `${trimmedStdout}\n${stderr.trim()}`;
+      const parsedPlainText = classifyAntigravityCliPlainText({
+        stdout,
+        stderr,
+        resumed: Boolean(options?.sessionId),
+      });
 
       if (timeoutEvent) {
         yield {
@@ -787,19 +797,11 @@ export class GeminiAgentService implements AgentService {
       } else if (cancelled) {
         // User-initiated cancellation should clear frontend loading without
         // presenting a provider failure, even if AGY already wrote error text.
-      } else if (isAgyPrintTimeoutOutput(trimmedStdout)) {
+      } else if (parsedPlainText.kind === 'error') {
         yield {
           type: 'error',
           catId: this.catId,
-          error: 'Antigravity CLI 响应超时：agy --print-timeout 返回了 timeout 文本但进程可能仍是 exit 0。',
-          metadata,
-          timestamp: Date.now(),
-        };
-      } else if (isAgyMissingModel(diagnosticText)) {
-        yield {
-          type: 'error',
-          catId: this.catId,
-          error: formatAgyMissingModelError(),
+          error: parsedPlainText.error,
           metadata,
           timestamp: Date.now(),
         };
@@ -823,11 +825,12 @@ export class GeminiAgentService implements AgentService {
           metadata,
           timestamp: Date.now(),
         };
-      } else if (trimmedStdout) {
+      } else if (parsedPlainText.kind === 'text') {
         yield {
           type: 'text',
           catId: this.catId,
-          content: trimmedStdout,
+          content: parsedPlainText.content,
+          ...(parsedPlainText.textMode ? { textMode: parsedPlainText.textMode } : {}),
           metadata,
           timestamp: Date.now(),
         };
