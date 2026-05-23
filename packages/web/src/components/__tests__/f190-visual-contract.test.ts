@@ -537,7 +537,7 @@ describe('F190 divider guard — console-scope dividers use semantic class', () 
   }
 });
 
-describe('F723 Mission Hub — card/border unification guard', () => {
+describe('#723 Mission Hub — card/border unification guard', () => {
   const MC_CARD_SCOPE = [
     'mission-control/CreateIntentCardForm.tsx',
     'mission-control/IntentCardDetail.tsx',
@@ -595,7 +595,7 @@ describe('F723 Mission Hub — card/border unification guard', () => {
   });
 });
 
-describe('F723 IM connector — typography and card guard', () => {
+describe('#723 IM connector — typography and card guard', () => {
   it('HubConnectorConfigTab heading uses text-sm font-semibold, not text-base font-extrabold', () => {
     const src = readSrc('HubConnectorConfigTab.tsx');
     expect(src).toContain('text-sm font-semibold');
@@ -615,7 +615,7 @@ describe('F723 IM connector — typography and card guard', () => {
   });
 });
 
-describe('F723 cross-page typography consistency', () => {
+describe('#723 cross-page typography consistency', () => {
   it('all console page h1 titles use text-xl font-bold', () => {
     for (const file of [
       'memory/MemoryHub.tsx',
@@ -717,7 +717,7 @@ describe('F723 cross-page typography consistency', () => {
   });
 });
 
-describe('F723 interactive button guard — no grey pill on action/toggle controls', () => {
+describe('#723 interactive button guard — no grey pill on action/toggle controls', () => {
   it('ExportButton: no console-pill-bg on the toggle button', () => {
     const src = readSrc('ExportButton.tsx');
     expect(src).not.toContain('console-pill-bg');
@@ -766,7 +766,7 @@ describe('F723 interactive button guard — no grey pill on action/toggle contro
   });
 });
 
-describe('F723 round 3 — input/select/stat unification guard', () => {
+describe('#723 round 3 — input/select/stat unification guard', () => {
   it('PushServiceConfig: no right-side status block (公钥/PushService)', () => {
     const src = readSrc('settings/PushServiceConfig.tsx');
     expect(src).not.toContain('公钥：');
@@ -848,7 +848,7 @@ describe('F723 round 3 — input/select/stat unification guard', () => {
   });
 });
 
-describe('F723 round 4 — primitive convergence guard', () => {
+describe('#723 round 4 — primitive convergence guard', () => {
   it('MarketplaceSearch: no bg-white, no purple focus, no bg-cafe-text chip', () => {
     const src = readSrc('marketplace/marketplace-search.tsx');
     expect(src).not.toContain('bg-white');
@@ -918,7 +918,7 @@ describe('F723 round 4 — primitive convergence guard', () => {
   });
 });
 
-describe('F723 round 4.1 — deeper primitive convergence guard', () => {
+describe('#723 round 4.1 — deeper primitive convergence guard', () => {
   it('SignalFilterBar: search on first row, selects on second, source has max-w', () => {
     const src = readSrc('signals/SignalFilterBar.tsx');
     expect(src).toMatch(/space-y/);
@@ -950,7 +950,7 @@ describe('F723 round 4.1 — deeper primitive convergence guard', () => {
   });
 });
 
-describe('F723 round 5 — ops tab/button convergence guard', () => {
+describe('#723 round 5 — ops tab/button convergence guard', () => {
   it('OpsContent tabs: active uses Memory underline style, no pill bg', () => {
     const src = readSrc('settings/OpsContent.tsx');
     expect(src).toContain('border-b-2');
@@ -1032,7 +1032,7 @@ describe('F723 round 5 — ops tab/button convergence guard', () => {
   });
 });
 
-describe('F723 round 6 — select/toggle/button primitive convergence', () => {
+describe('#723 round 6 — select/toggle/button primitive convergence', () => {
   it('formInputClass uses input-stroke focus, not cafe-accent ring', () => {
     const src = readSrc('mcp-form-helpers.tsx');
     expect(src).toContain('focus:ring-[var(--console-input-stroke)]');
@@ -1133,7 +1133,7 @@ describe('F723 round 6 — select/toggle/button primitive convergence', () => {
   });
 });
 
-describe('F723 round 7 — CVO visual convergence: tabs, search, selects, buttons, cards', () => {
+describe('#723 round 7 — CVO visual convergence: tabs, search, selects, buttons, cards', () => {
   it('OpsContent: active tab uses Memory underline (border-b-2 + emphasis)', () => {
     const src = readSrc('settings/OpsContent.tsx');
     expect(src).toContain('border-b-2');
@@ -1276,7 +1276,7 @@ describe('F723 round 7 — CVO visual convergence: tabs, search, selects, button
   });
 });
 
-describe('F723 round 8 — CVO: refresh button, ops underline tabs, service toggle state machine', () => {
+describe('#723 round 8 — CVO: refresh button, ops underline tabs, service toggle state machine', () => {
   it('HubGovernanceTab refresh: standard secondary pattern (px-3 py-1.5 + transition-colors)', () => {
     const src = readSrc('HubGovernanceTab.tsx');
     const refreshBtn = src.match(/<button[^>]*onClick=\{fetchHealth\}[^>]*>/);
@@ -1327,7 +1327,7 @@ describe('F723 round 8 — CVO: refresh button, ops underline tabs, service togg
   });
 });
 
-describe('F723 round 8.2 — toggle uses enabled (not running), adapter preserves explicit fields', () => {
+describe('#723 round 8.2 — toggle uses enabled (not running), adapter preserves explicit fields', () => {
   it('ServiceStatusPanel toggle reads service.enabled, not service.running', () => {
     const src = readSrc('settings/ServiceStatusPanel.tsx');
     expect(src).toContain('enabled={service.enabled}');
@@ -1345,7 +1345,7 @@ describe('F723 round 8.2 — toggle uses enabled (not running), adapter preserve
   });
 });
 
-describe('F723 round 9 — install button, error suppression, breadcrumb, tab/card convergence', () => {
+describe('#723 round 9 — install button, error suppression, breadcrumb, tab/card convergence', () => {
   it('ServiceStatusPanel install: accent button with disabled, not SettingsBadge', () => {
     const src = readSrc('settings/ServiceStatusPanel.tsx');
     expect(src).not.toContain('SettingsBadge');

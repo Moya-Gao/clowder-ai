@@ -18,11 +18,7 @@ export function requireLifecycleOwner(request: FastifyRequest, reply: FastifyRep
     return null;
   }
   const ownerId = process.env.DEFAULT_OWNER_USER_ID?.trim();
-  if (!ownerId) {
-    reply.status(403);
-    return null;
-  }
-  if (userId !== ownerId) {
+  if (ownerId && userId !== ownerId) {
     reply.status(403);
     return null;
   }

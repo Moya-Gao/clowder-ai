@@ -62,7 +62,7 @@ describe('service lifecycle write routes', () => {
     }
   });
 
-  it('rejects lifecycle writes when DEFAULT_OWNER_USER_ID is unset (fail-closed)', async () => {
+  it('allows lifecycle writes when DEFAULT_OWNER_USER_ID is unset (permissive mode)', async () => {
     delete process.env.DEFAULT_OWNER_USER_ID;
     const app = await buildApp({
       lifecycle: {
@@ -77,7 +77,8 @@ describe('service lifecycle write routes', () => {
         payload: { model: 'mlx-community/whisper-large-v3-turbo' },
       });
 
-      assert.equal(res.statusCode, 403, `expected 403 but got ${res.statusCode}: ${res.payload}`);
+      assert.notEqual(res.statusCode, 403, `should not 403 in permissive mode: ${res.payload}`);
+      assert.notEqual(res.statusCode, 401, `should not 401 with valid session: ${res.payload}`);
     } finally {
       await app.close();
       restoreOwner(ORIGINAL_OWNER_ID);
