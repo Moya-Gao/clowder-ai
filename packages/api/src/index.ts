@@ -12,8 +12,7 @@ import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify, { type FastifyReply } from 'fastify';
 import { resolveAnthropicRuntimeProfile, resolveForClient } from './config/account-resolver.js';
-import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
-import { resolveStartupCliConfigContext } from './config/capabilities/startup-cli-config.js';
+import { regenerateStartupCliConfigs } from './config/capabilities/startup-cli-config.js';
 import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
 import {
@@ -2214,10 +2213,8 @@ async function main(): Promise<void> {
   // Best-effort: regenerate CLI configs at startup so runtime-derived env
   // (Gemini placeholders, Antigravity sidecar key files) reaches CLI config.
   try {
-    const { projectRoot, paths } = resolveStartupCliConfigContext(process.cwd());
-    const capConfig = await readCapabilitiesConfig(projectRoot);
-    if (capConfig) {
-      await generateCliConfigs(capConfig, paths);
+    const result = await regenerateStartupCliConfigs(process.cwd());
+    if (result.generated) {
       app.log.info('[api] CLI configs regenerated at startup');
     }
   } catch (err) {
