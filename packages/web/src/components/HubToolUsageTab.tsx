@@ -1,5 +1,6 @@
 'use client';
 
+import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { HubIcon } from './hub-icons';
@@ -27,11 +28,19 @@ const CAT_LABELS: Record<string, string> = {
   opencode: '金渐层',
 };
 
-/* Cozy Swiss palette — warm tones aligned with Clowder AI design language */
+const DATAVIZ_TOKENS = {
+  '--dataviz-native': '#7C6CA8',
+  '--dataviz-native-bg': '#F3F0FA',
+  '--dataviz-mcp': '#D4915A',
+  '--dataviz-mcp-bg': '#FDF3EB',
+  '--dataviz-skill': '#6BA589',
+  '--dataviz-skill-bg': '#EDF7F2',
+} as React.CSSProperties;
+
 const CATEGORY_STYLE: Record<string, { color: string; bg: string; label: string; iconName: string }> = {
-  native: { color: '#7C6CA8', bg: '#F3F0FA', label: '原生工具', iconName: 'wrench' },
-  mcp: { color: '#D4915A', bg: '#FDF3EB', label: 'MCP 桥接', iconName: 'store' },
-  skill: { color: '#6BA589', bg: '#EDF7F2', label: '技能调用', iconName: 'sparkles' },
+  native: { color: 'var(--dataviz-native)', bg: 'var(--dataviz-native-bg)', label: '原生工具', iconName: 'wrench' },
+  mcp: { color: 'var(--dataviz-mcp)', bg: 'var(--dataviz-mcp-bg)', label: 'MCP 桥接', iconName: 'store' },
+  skill: { color: 'var(--dataviz-skill)', bg: 'var(--dataviz-skill-bg)', label: '技能调用', iconName: 'sparkles' },
 };
 
 const CATEGORIES = ['native', 'mcp', 'skill'] as const;
@@ -80,7 +89,7 @@ export function HubToolUsageTab() {
   const byCat = report?.summary.byCategory ?? { native: 0, mcp: 0, skill: 0 };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" style={DATAVIZ_TOKENS}>
       {/* Header — cafe menu style */}
       <div className="flex items-center justify-between rounded-xl bg-[var(--console-card-bg)] px-4 py-3">
         <div>
@@ -123,7 +132,7 @@ export function HubToolUsageTab() {
             type="button"
             onClick={() => fetchData(true)}
             disabled={loading}
-            className="rounded-lg bg-[var(--console-card-bg)] px-3 py-1 text-xs text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] hover:bg-[var(--console-hover-bg)] disabled:opacity-50"
+            className="rounded-lg bg-[var(--console-card-bg)] px-3 py-1.5 text-xs text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] transition-colors hover:bg-[var(--console-hover-bg)] disabled:opacity-50"
           >
             {loading ? '冲泡中...' : '刷新'}
           </button>
@@ -160,7 +169,7 @@ export function HubToolUsageTab() {
 function SummaryCards({ total, byCategory }: { total: number; byCategory: Record<string, number> }) {
   return (
     <div className="grid grid-cols-4 gap-3">
-      <div className="console-list-card rounded-2xl shadow-[0_12px_30px_rgba(43,33,26,0.08)] p-3 text-center">
+      <div className="console-list-card rounded-xl shadow-[0_8px_22px_rgba(43,33,26,0.04)] p-3 text-center">
         <div className="text-2xl font-bold text-cafe">{total.toLocaleString()}</div>
         <div className="text-label text-cafe-muted">总调用</div>
       </div>
@@ -170,7 +179,7 @@ function SummaryCards({ total, byCategory }: { total: number; byCategory: Record
         return (
           <div
             key={cat}
-            className="rounded-2xl p-3 text-center shadow-[0_12px_30px_rgba(43,33,26,0.08)]"
+            className="rounded-xl p-3 text-center shadow-[0_8px_22px_rgba(43,33,26,0.04)]"
             style={{ backgroundColor: style.bg }}
           >
             <HubIcon name={style.iconName} className="h-5 w-5" />
@@ -196,7 +205,7 @@ function DailyTrend({ daily }: { daily: ToolUsageReport['daily'] }) {
   const sorted = [...daily].reverse();
 
   return (
-    <section className="space-y-3 console-list-card rounded-2xl shadow-[0_12px_30px_rgba(43,33,26,0.08)] p-4">
+    <section className="space-y-3 console-list-card rounded-xl shadow-[0_8px_22px_rgba(43,33,26,0.04)] p-4">
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-semibold text-cafe">每日使用趋势</h4>
         <div className="flex gap-4 text-micro">
@@ -269,7 +278,7 @@ function TopToolsTable({ tools }: { tools: ToolUsageReport['topTools'] }) {
         return (
           <section
             key={cat}
-            className="space-y-2 console-list-card rounded-2xl shadow-[0_12px_30px_rgba(43,33,26,0.08)] p-3"
+            className="space-y-2 console-list-card rounded-xl shadow-[0_8px_22px_rgba(43,33,26,0.04)] p-3"
           >
             <h4 className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: style.color }}>
               <HubIcon name={style.iconName} className="h-3.5 w-3.5" />
@@ -313,7 +322,7 @@ function ByCatSection({ byCat }: { byCat: Record<string, Record<string, number>>
   if (entries.length === 0) return null;
 
   return (
-    <section className="space-y-3 console-list-card rounded-2xl shadow-[0_12px_30px_rgba(43,33,26,0.08)] p-4">
+    <section className="space-y-3 console-list-card rounded-xl shadow-[0_8px_22px_rgba(43,33,26,0.04)] p-4">
       <h4 className="text-xs font-semibold text-cafe">猫猫工具使用分布</h4>
       <div className="space-y-2">
         {entries.map(([catId, cats]) => {

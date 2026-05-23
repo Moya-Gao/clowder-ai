@@ -124,12 +124,6 @@ export default function HubPermissionsTab({ connectorId, connectorLabel }: HubPe
 
   return (
     <div className="space-y-4">
-      <div className="text-xs text-cafe-muted flex items-center gap-1">
-        <span className="text-cafe-interactive cursor-pointer">{connectorLabel}</span>
-        <span>›</span>
-        <span>群聊权限</span>
-      </div>
-
       <div className={`console-list-card rounded-xl overflow-hidden ${CARD_SHADOW}`}>
         {/* Header */}
         <div className="bg-conn-emerald-bg px-4 py-3 flex items-center gap-3">

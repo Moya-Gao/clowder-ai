@@ -1,5 +1,6 @@
 'use client';
 
+import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { HubCallbackAuthPanel } from './HubCallbackAuthPanel';
@@ -165,11 +166,10 @@ function TrendChart({
   const points = values.map((v, i) => `${i * step},${height - (v / max) * height}`).join(' ');
 
   return (
-    <div className="rounded-lg bg-cafe-surface-elevated p-3">
+    <div className="rounded-lg bg-cafe-surface-elevated p-3" style={{ '--dataviz-trend-line': '#5B9BD5' } as React.CSSProperties}>
       <div className="mb-2 text-xs text-cafe-muted">{label}</div>
       <svg viewBox={`0 0 ${width} ${height}`} className="h-20 w-full" preserveAspectRatio="none">
-        {/* F206 exempt: data-viz chart stroke — fixed per visualization identity */}
-        <polyline points={points} fill="none" stroke="#5B9BD5" strokeWidth="2" />
+        <polyline points={points} fill="none" stroke="var(--dataviz-trend-line)" strokeWidth="2" />
       </svg>
     </div>
   );

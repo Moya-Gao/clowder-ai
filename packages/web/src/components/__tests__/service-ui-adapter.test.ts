@@ -51,12 +51,22 @@ describe('adaptServiceState', () => {
     expect(result.enabled).toBe(false);
   });
 
+  it('suppresses error when installed but disabled', () => {
+    const result = adaptServiceState(makeHome({ status: 'unhealthy', installed: true, enabled: false, error: 'fetch failed' }));
+    expect(result.error).toBeUndefined();
+  });
+
   it('maps not installed to not_configured', () => {
     const result = adaptServiceState(makeHome({ status: 'not_configured', configured: false, endpoint: null, installed: false, enabled: false }));
     expect(result.status).toBe('not_configured');
     expect(result.statusLabel).toBe('未配置');
     expect(result.running).toBe(false);
     expect(result.installed).toBe(false);
+  });
+
+  it('suppresses error when not installed', () => {
+    const result = adaptServiceState(makeHome({ status: 'not_configured', configured: false, endpoint: null, installed: false, enabled: false, error: 'fetch failed' }));
+    expect(result.error).toBeUndefined();
   });
 
   it('passes through prerequisites', () => {

@@ -97,7 +97,7 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
   it('DefaultCatSelector uses console-card-bg shadow, not border-cafe', () => {
     const src = readSrc('DefaultCatSelector.tsx');
     expect(src).toContain('bg-[var(--console-card-bg)]');
-    expect(src).toContain('shadow-[0_12px_30px_rgba(43,33,26,0.08)]');
+    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
     expect(src).not.toMatch(/border border-cafe bg-cafe-surface/);
   });
 
@@ -246,7 +246,7 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
   it('DefaultCatSelector has no fixed height, uses shadow', () => {
     const src = readSrc('DefaultCatSelector.tsx');
     expect(src).not.toContain('h-[72px]');
-    expect(src).toContain('shadow-[0_12px_30px_rgba(43,33,26,0.08)]');
+    expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
   });
 
   it('SettingsRow has default shadow and text-compact font-bold title', () => {
@@ -1341,5 +1341,68 @@ describe('F723 round 8.2 — toggle uses enabled (not running), adapter preserve
     expect(src).toContain('const enabled = home.enabled');
     expect(src).not.toMatch(/installed\s*=\s*true/);
     expect(src).not.toMatch(/enabled\s*=\s*true/);
+  });
+});
+
+describe('F723 round 9 — install button, error suppression, breadcrumb, tab/card convergence', () => {
+  it('ServiceStatusPanel install: standard secondary button, not SettingsBadge', () => {
+    const src = readSrc('settings/ServiceStatusPanel.tsx');
+    expect(src).not.toContain('SettingsBadge');
+    expect(src).toContain("'安装'");
+    expect(src).toContain('transition-colors');
+  });
+
+  it('service-ui-adapter suppresses error when not installed or not enabled', () => {
+    const src = readSrc('settings/service-ui-adapter.ts');
+    expect(src).toContain('installed && enabled ? home.error');
+  });
+
+  it('HubPermissionsTab: no breadcrumb separator', () => {
+    const src = readSrc('HubPermissionsTab.tsx');
+    expect(src).not.toContain('›');
+    expect(src).not.toMatch(/connectorLabel.*群聊权限/);
+  });
+
+  it('KnowledgeFeed tabs: underline emphasis tokens, no cafe-accent tab styling', () => {
+    const src = readSrc('workspace/KnowledgeFeed.tsx');
+    expect(src).toContain('console-button-emphasis');
+    expect(src).not.toMatch(/text-cafe-accent.*border/);
+    expect(src).not.toContain('bg-cafe-accent text-white');
+  });
+
+  it('HubToolUsageTab: dataviz tokens, no inline hex in CATEGORY_STYLE values', () => {
+    const src = readSrc('HubToolUsageTab.tsx');
+    expect(src).toContain('DATAVIZ_TOKENS');
+    expect(src).toContain('var(--dataviz-native)');
+    expect(src).not.toMatch(/color: '#[0-9A-Fa-f]{6}'/);
+    expect(src).not.toContain('rounded-2xl');
+    expect(src).not.toContain('0_12px_30px');
+  });
+
+  it('HubObservabilityTab chart stroke: CSS variable, not raw hex', () => {
+    const src = readSrc('HubObservabilityTab.tsx');
+    expect(src).toContain('var(--dataviz-trend-line)');
+    expect(src).not.toMatch(/stroke="#[0-9A-Fa-f]{6}"/);
+  });
+
+  it('visible Settings primitives: rounded-xl (modals exempt)', () => {
+    for (const file of ['settings/primitives/SettingsSection.tsx', 'settings/primitives/SettingsToolbar.tsx', 'settings/PushDiagnosticsSection.tsx']) {
+      const src = readSrc(file);
+      expect(src).not.toContain('rounded-2xl');
+    }
+  });
+
+  it('DefaultCatSelector: rounded-xl + standard shadow', () => {
+    const src = readSrc('DefaultCatSelector.tsx');
+    expect(src).toContain('rounded-xl');
+    expect(src).not.toContain('rounded-[14px]');
+    expect(src).not.toContain('0_12px_30px');
+  });
+
+  it('modals keep rounded-2xl (whitelisted elevation)', () => {
+    for (const file of ['settings/InstallPreviewModal.tsx', 'settings/SkillPreviewModal.tsx']) {
+      const src = readSrc(file);
+      expect(src).toContain('rounded-2xl');
+    }
   });
 });

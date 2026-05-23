@@ -97,7 +97,7 @@ export function adaptServiceState(home: HomeServiceState): ServiceUiState {
     installable: home.installable,
     running,
     prerequisites: home.prerequisites,
-    error: home.error,
+    error: installed && enabled ? home.error : undefined,
   };
 }
 

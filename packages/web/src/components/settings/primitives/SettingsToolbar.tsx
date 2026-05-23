@@ -6,7 +6,7 @@ interface SettingsToolbarProps {
 
 export function SettingsToolbar({ children }: SettingsToolbarProps) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl bg-[var(--console-panel-bg)] p-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-xl bg-[var(--console-panel-bg)] p-3 sm:flex-row sm:items-center sm:justify-between">
       {children}
     </div>
   );

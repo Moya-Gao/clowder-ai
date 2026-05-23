@@ -5,7 +5,7 @@ import { apiFetch } from '@/utils/api-client';
 import { HubIcon } from '../hub-icons';
 import { SettingsResourceIconButton, SettingsResourceToggleSwitch, settingsResourceCardClass } from '../SettingsResourceCard';
 import { InstallPreviewModal } from './InstallPreviewModal';
-import { SettingsBadge, SettingsText } from './primitives';
+import { SettingsText } from './primitives';
 import { adaptServiceState, type HomeServiceState, type ServiceUiState } from './service-ui-adapter';
 
 const STATUS_DOT_COLOR: Record<string, string> = {
@@ -193,15 +193,14 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
 
               <div className="flex shrink-0 items-center gap-2">
                 {!service.installed && service.installable && (
-                  <SettingsBadge
-                    tone="blue"
-                    as="button"
+                  <button
+                    type="button"
                     disabled={isBusy}
                     onClick={() => handleAction(service, 'install')}
-                    className="font-bold"
+                    className="rounded-lg bg-[var(--console-card-bg)] px-3 py-1.5 text-xs font-medium text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] transition-colors hover:bg-[var(--console-hover-bg)] disabled:opacity-50"
                   >
                     {isBusy ? '...' : '安装'}
-                  </SettingsBadge>
+                  </button>
                 )}
                 {service.installed && (
                   <>
