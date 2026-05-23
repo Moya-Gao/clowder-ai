@@ -442,6 +442,31 @@ describe('G-4: drillDown hints', () => {
     assert.equal(docResult.drillDown.params.endLine, '120');
   });
 
+  it('docs-root sourcePath results get repo-readable file slice drillDown path', async () => {
+    const docsRoot = join(process.cwd(), 'docs');
+    const store = new SqliteEvidenceStore(':memory:', undefined, { sourceRoot: docsRoot });
+    await store.initialize();
+
+    await store.upsert([
+      {
+        anchor: 'doc-f209-docs-root',
+        kind: 'feature',
+        status: 'active',
+        title: 'F209 Evidence Recall Docs Root',
+        summary: 'typed drill-down readers from docs root',
+        sourcePath: 'features/F209-evidence-recall-optimization.md',
+        updatedAt: new Date().toISOString(),
+      },
+    ]);
+
+    const results = await store.search('docs root', { limit: 5 });
+    const docResult = results.find((r) => r.anchor === 'doc-f209-docs-root');
+
+    assert.ok(docResult?.drillDown, 'docs-root sourcePath result should have drillDown');
+    assert.equal(docResult.drillDown.tool, 'cat_cafe_read_file_slice');
+    assert.equal(docResult.drillDown.params.path, 'docs/features/F209-evidence-recall-optimization.md');
+  });
+
   it('sourcePath file slice drillDown is omitted when a relative path has no source root', async () => {
     const store = new SqliteEvidenceStore(':memory:');
     await store.initialize();

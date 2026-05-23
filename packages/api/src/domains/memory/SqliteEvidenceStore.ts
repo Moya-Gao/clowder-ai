@@ -1,6 +1,6 @@
 // F102: SQLite implementation of IEvidenceStore
 
-import { isAbsolute, relative, resolve } from 'node:path';
+import { basename, isAbsolute, relative, resolve } from 'node:path';
 import Database from 'better-sqlite3';
 import { computeConsumptionPrior } from './consumption-prior.js';
 import { type EntityMentionPassageHit, EntityRegistryStore } from './EntityRegistry.js';
@@ -1054,7 +1054,9 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       .split(/[\\/]+/)
       .filter(Boolean)
       .join('/');
-    if (!this.sourceRef) return publicRel;
+    if (!this.sourceRef) {
+      return basename(this.sourceRoot) === 'docs' && !publicRel.startsWith('docs/') ? `docs/${publicRel}` : publicRel;
+    }
     const encodedPath = publicRel.split('/').map(encodeURIComponent).join('/');
     return `cat-cafe://collection/${encodeURIComponent(this.sourceRef)}/${encodedPath}`;
   }

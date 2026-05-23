@@ -40,6 +40,29 @@ describe('MCP file slice tools', () => {
     assert.ok(!text.includes('4: delta'));
   });
 
+  test('handleReadFileSlice reads repo-relative docs paths when cwd is allowed', async () => {
+    const { handleReadFileSlice } = await import('../dist/tools/file-tools.js');
+    const originalCwd = process.cwd();
+    mkdirSync(join(tempDir, 'docs', 'features'), { recursive: true });
+    writeFileSync(join(tempDir, 'docs', 'features', 'F209.md'), ['alpha', 'beta', 'gamma'].join('\n'));
+
+    try {
+      process.chdir(tempDir);
+      const result = await handleReadFileSlice({
+        path: 'docs/features/F209.md',
+        startLine: 2,
+        endLine: 2,
+      });
+
+      assert.equal(result.isError, undefined);
+      const text = result.content[0].text;
+      assert.ok(text.includes('File slice:'));
+      assert.ok(text.includes('2: beta'));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
   test('handleReadFileSlice rejects oversized ranges', async () => {
     const { handleReadFileSlice } = await import('../dist/tools/file-tools.js');
     const filePath = join(tempDir, 'source.md');
