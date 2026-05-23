@@ -9,37 +9,55 @@ created: 2026-05-22
 
 **Feature:** F192 — `docs/features/F192-socio-technical-harness-eval.md`
 **Goal:** Turn the merged `eval:a2a` contract mechanics into the first live, evidence-resolvable A2A verdict artifact without starting Eval Hub UI.
-**Acceptance Criteria:** Extends Phase E-pilot AC-E8 and prepares AC-E9 by producing a live `eval:a2a` verdict from real snapshot / attribution artifacts; preserves AC-E3/E7 invariants.
+**Acceptance Criteria:** Extends Phase E-pilot AC-E8 and prepares AC-E9 by producing a live `eval:a2a` verdict from real runtime snapshot / attribution artifacts via a committed sanitized evidence bundle; preserves AC-E3/E7 invariants.
 **Architecture cell:** harness-eval
 **Map delta:** none
 **Map delta why:** F192 Phase E already introduced the harness-eval cell; this slice only connects existing F167 snapshot / attribution artifacts to the existing Verdict Handoff Packet contract.
-**Architecture:** Add an artifact resolver that parses `docs/harness-feedback/snapshots/*.yaml` and `docs/harness-feedback/attributions/*.yaml`, validates their cross-refs, then feeds the existing `buildA2aVerdictHandoff()` adapter. Live verdict documents may be written only when every snapshot / attribution / metric / sample trace ref resolves; fixtures remain explicitly marked as fixtures.
+**Architecture:** Add a bundle resolver for `docs/harness-feedback/bundles/<verdict-id>/` and a generator that derives that bundle from raw runtime `snapshots/` + `attributions/`. Live verdict documents may cite `snapshot:` / `attribution:` only when those refs resolve to a committed sanitized bundle in the same PR; raw runtime artifacts stay gitignored.
 **Tech Stack:** TypeScript, Zod, `yaml`, node:test, existing F192 harness-eval modules.
 **前端验证:** No
 
 ---
 
-## Pre-flight Blocker（2026-05-22 spike）
+## OQ-15 Decision: Hybrid Bundle Evidence SOT
 
-Task 1 RED test uncovered an architecture blocker before implementation:
+Task 1 RED test uncovered an architecture blocker before implementation, and F192 owner decided **Option 3 hybrid**:
 
-- `docs/harness-feedback/snapshots/` and `docs/harness-feedback/attributions/` are gitignored generated artifacts.
-- A clean worktree / reviewer checkout does not contain the real `2026-05-22` snapshot and attribution files.
-- Therefore a committed live verdict under `docs/harness-feedback/verdicts/` cannot safely cite `snapshot:*` / `attribution:*` refs unless those refs resolve from a tracked evidence bundle or from an explicit runtime store.
+```text
+docs/harness-feedback/
+  verdicts/<verdict-id>.md
+  bundles/<verdict-id>/
+    snapshot.json
+    attribution.json
+    provenance.json
+  snapshots/      # raw runtime generated, gitignored
+  attributions/   # raw runtime generated, gitignored
+```
 
-Do **not** implement the parser/generator as originally written until F192 owner decides the evidence SOT:
+Hard properties:
 
-1. **Tracked evidence bundle**: commit a sanitized snapshot + attribution bundle alongside each live verdict.
-2. **Runtime read model**: keep verdicts out of git and let Eval Hub read generated artifacts from runtime storage.
-3. **Hybrid**: commit only curated verdict bundles; keep daily raw snapshots ignored.
+1. Bundle is the evidence SOT for `snapshot:` / `attribution:` refs. Verdict docs must point to bundle refs, not raw runtime paths.
+2. Bundle is a sanitized subset: only fields / findings actually cited by the verdict are committed.
+3. Bundle is re-derivable: `provenance.json` records raw input path, content hash, generatedAt, generator commit / version, and sanitize rules version.
+4. Bundle and verdict are same-commit artifacts with a 1:1 `verdict-id` binding enforced by invariant tests.
 
-This is not a code parser problem. It is the same evidence-integrity issue that blocked the E-pilot demo from pretending fixture data was live.
+Ref SOT classification:
+
+| Ref 类型 | SOT |
+|---|---|
+| `snapshot:` / `attribution:` | committed `bundles/<verdict-id>/` |
+| `trace:` | F153 trace store |
+| `thread:` / `message:` | runtime DB |
+| `pr:` / `commit:` | git / GitHub |
+
+This is not a parser detail. It is the same evidence-integrity issue that blocked the E-pilot demo from pretending fixture data was live.
 
 ## Finish Line
 
-One live verdict document exists under `docs/harness-feedback/verdicts/` for the latest available `eval:a2a` snapshot / attribution pair, and tests prove:
+One live verdict document exists under `docs/harness-feedback/verdicts/` with a matching `docs/harness-feedback/bundles/<verdict-id>/` bundle derived from the latest available `eval:a2a` snapshot / attribution pair, and tests prove:
 
-- live verdict refs resolve to real snapshot / attribution artifacts;
+- live verdict `snapshot:` / `attribution:` refs resolve to the committed bundle;
+- bundle provenance can identify the raw runtime inputs and hashes;
 - fixture verdicts cannot be mistaken for live verdicts;
 - the live packet passes Verdict Handoff Packet schema + Verdict Matrix invariants;
 - no cross-thread owner message is auto-sent in this slice.
@@ -54,14 +72,35 @@ One live verdict document exists under `docs/harness-feedback/verdicts/` for the
 
 ## Terminal Schemas
 
+### VerdictEvidenceBundle
+
+```ts
+interface VerdictEvidenceBundle {
+  verdictId: string;
+  bundleDir: string;
+  snapshotPath: `${string}/snapshot.json`;
+  attributionPath: `${string}/attribution.json`;
+  provenancePath: `${string}/provenance.json`;
+  snapshotRef: `snapshot:bundle/${string}/snapshot`;
+  attributionRefs: `attribution:bundle/${string}/${string}`[];
+  snapshot: A2aSnapshotSubset;
+  attributionReport: AttributionReportSubset;
+  provenance: {
+    rawInputs: Array<{ path: string; sha256: string }>;
+    generatedAt: string;
+    generator: { name: string; version: string; commit?: string };
+    sanitizeRulesVersion: string;
+  };
+}
+```
+
 ### ResolvedHarnessEvalArtifacts
 
 ```ts
 interface ResolvedHarnessEvalArtifacts {
-  snapshotPath: string;
-  attributionPath: string;
-  snapshotRef: `snapshot:${string}`;
-  attributionRefs: `attribution:${string}`[];
+  bundle: VerdictEvidenceBundle;
+  snapshotRef: `snapshot:bundle/${string}/snapshot`;
+  attributionRefs: `attribution:bundle/${string}/${string}`[];
   snapshot: A2aSnapshotLike;
   attributionReport: AttributionReportLike;
 }
@@ -75,8 +114,9 @@ interface LiveVerdictArtifact {
   packet: VerdictHandoffPacket;
   markdown: string;
   refs: {
-    snapshotPath: string;
-    attributionPath: string;
+    bundleDir: string;
+    snapshotRef: string;
+    attributionRefs: string[];
   };
   isLive: true;
 }
@@ -84,7 +124,7 @@ interface LiveVerdictArtifact {
 
 ---
 
-## Task 1: Artifact Resolver for Real F167 Snapshot / Attribution Docs
+## Task 1: Bundle Artifact Resolver for Live Verdict Evidence
 
 **Files:**
 - Create: `packages/api/src/infrastructure/harness-eval/eval-a2a-artifact-resolver.ts`
@@ -93,11 +133,13 @@ interface LiveVerdictArtifact {
 **Step 1: Write failing resolver tests**
 
 Tests:
-- loads a snapshot YAML file and maps `components[].id/name` to `componentId/componentName`.
-- loads an attribution YAML file and maps snake_case doc fields to the adapter shape.
-- rejects snapshot / attribution feature mismatch.
-- rejects `eval_snapshot_id` that does not match the snapshot date/id.
-- rejects attribution evidence anchors that do not match any snapshot component.
+- loads `bundles/<verdict-id>/snapshot.json`, `attribution.json`, and `provenance.json`.
+- maps bundle snapshot / attribution subset fields to the existing adapter shape.
+- resolves canonical refs `snapshot:bundle/<verdict-id>/snapshot` and `attribution:bundle/<verdict-id>/<finding-id>`.
+- rejects refs that point to raw `snapshots/` / `attributions/` paths.
+- rejects bundle / verdict id mismatch.
+- rejects attribution evidence anchors that do not match any bundled snapshot component.
+- rejects provenance missing raw input hashes or sanitize rules version.
 
 Run:
 
@@ -108,32 +150,35 @@ node --test packages/api/test/harness-eval/eval-a2a-artifact-resolver.test.js
 
 Expected: FAIL because resolver does not exist.
 
-**Step 2: Implement parser + resolver**
+**Step 2: Implement bundle resolver**
 
-Use `yaml` and a small frontmatter splitter. Keep parsing narrow to current F167 artifacts; do not create a generic markdown ingestion framework.
+Use plain JSON reads and Zod validation. Keep resolving narrow to F192 bundle refs; do not create a generic evidence URI framework.
 
 **Step 3: Verify and commit**
 
 ```bash
 pnpm --filter @cat-cafe/api build
 node --test packages/api/test/harness-eval/eval-a2a-artifact-resolver.test.js
-git commit -m "feat(F192): resolve live eval:a2a artifacts [砚砚/GPT-5.5🐾]"
+git commit -m "feat(F192): resolve live eval:a2a evidence bundles [砚砚/GPT-5.5🐾]"
 ```
 
 ---
 
-## Task 2: Live Verdict Generator
+## Task 2: Live Verdict + Bundle Generator
 
 **Files:**
 - Create: `packages/api/src/infrastructure/harness-eval/eval-a2a-live-verdict.ts`
 - Test: `packages/api/test/harness-eval/eval-a2a-live-verdict.test.js`
 - Create: `docs/harness-feedback/verdicts/2026-05-22-eval-a2a-live-verdict.md`
+- Create: `docs/harness-feedback/bundles/2026-05-22-eval-a2a-live-verdict/{snapshot.json,attribution.json,provenance.json}`
 
 **Step 1: Write failing generator tests**
 
 Tests:
-- builds a `VerdictHandoffPacket` from the latest real snapshot / attribution pair.
+- builds a `VerdictHandoffPacket` from a committed bundle derived from a real raw snapshot / attribution pair.
+- writes the sanitized bundle subset and provenance alongside the verdict.
 - writes markdown with YAML frontmatter `feedback_type: live-verdict`, `domain_id: eval:a2a`, `packet_id`, and `source_snapshot`.
+- uses bundle refs (`snapshot:bundle/...`, `attribution:bundle/...`) in the packet / markdown.
 - includes a clear "Live Verdict" banner, not "Contract Demo Fixture".
 - does not send or simulate a cross-thread message.
 
@@ -148,7 +193,7 @@ Expected: FAIL because generator does not exist.
 
 **Step 2: Implement generator**
 
-Call the existing `buildA2aVerdictHandoff()` after resolver validation. The markdown body should summarize:
+Read raw runtime snapshot / attribution paths only as generator inputs, sanitize them into `bundles/<verdict-id>/`, then call the existing `buildA2aVerdictHandoff()` through the bundle resolver. The markdown body should summarize:
 
 - phenomenon;
 - verdict;
@@ -166,7 +211,7 @@ docs/harness-feedback/snapshots/2026-05-22-F167-eval.yaml
 docs/harness-feedback/attributions/2026-05-22-F167-attribution.yaml
 ```
 
-Do not auto-post to F167 owner. This slice creates an auditable artifact only.
+Do not cite those raw paths from the verdict. The generator must commit only the sanitized bundle + verdict. Do not auto-post to F167 owner. This slice creates an auditable artifact only.
 
 **Step 4: Verify and commit**
 
@@ -187,8 +232,11 @@ git commit -m "feat(F192): generate first live eval:a2a verdict [砚砚/GPT-5.5�
 
 Tests:
 - scans `docs/harness-feedback/verdicts/*.md` excluding `fixtures/`.
-- every live verdict `snapshot:*` ref resolves to `docs/harness-feedback/snapshots/<date>-F167-eval.yaml`.
-- every live verdict `attribution:*` ref resolves to a finding id or no-finding record in the matching attribution file.
+- every live verdict has a same-id `docs/harness-feedback/bundles/<verdict-id>/` directory.
+- every live verdict `snapshot:*` ref resolves to `bundles/<verdict-id>/snapshot.json`.
+- every live verdict `attribution:*` ref resolves to a finding id or no-finding record in `bundles/<verdict-id>/attribution.json`.
+- no live verdict cites raw `docs/harness-feedback/snapshots/` or `docs/harness-feedback/attributions/` paths.
+- bundle `provenance.json` includes raw input hashes and sanitize rules version.
 - fixture verdicts must include "Contract Demo Fixture" and "representative data".
 
 Run:

@@ -284,6 +284,39 @@ Sunset 判断规则：
 4. `triggerScenarios` 为空时 Trial Plan schema reject；没有原始 failure pattern 的 harness 先补 Eval Contract，不许 sunset。
 5. 进入 `dormant` 不是失败，是正常释放注意力预算；进入 `retired` 才是不可逆删除门，必须 CVO accept。
 
+### Phase E Live Verdict Evidence Bundle Contract（OQ-15）
+
+Live verdict 不是单独一篇 markdown。若 verdict 引用 `snapshot:` / `attribution:` evidence ref，必须随 verdict 提交一个 sanitized evidence bundle；bundle 是这两类 ref 的证据真相源，raw runtime snapshot / attribution 只作为派生输入，继续保持 gitignored。
+
+```text
+docs/harness-feedback/
+  verdicts/
+    <verdict-id>.md
+  bundles/
+    <verdict-id>/
+      snapshot.json
+      attribution.json
+      provenance.json
+  snapshots/      # raw runtime generated, gitignored
+  attributions/   # raw runtime generated, gitignored
+```
+
+Bundle contract：
+
+1. **Bundle 是 `snapshot:` / `attribution:` 的 SOT**。Live verdict 文档中的 `snapshot:` / `attribution:` ref 必须解析到 `docs/harness-feedback/bundles/<verdict-id>/`；不得引用 raw runtime `snapshots/` 或 `attributions/` 路径。
+2. **Bundle 是 sanitized subset**。`snapshot.json` 只包含 verdict 实际引用的 domain / window / components / metrics / trend 字段；`attribution.json` 只包含 verdict 实际引用的 finding / no-finding record / evidence anchors；未引用组件、自由文本样本、临时 runtime noise 不进入 bundle。若必须保留 user text，先脱敏或降级为 trace / thread / message ref。
+3. **Bundle 可从 raw 重派生**。`provenance.json` 必须记录 raw input path、content hash、generatedAt、generator version / commit、sanitize rules version。相同 raw input + 相同规则应能生成 bit-identical bundle。
+4. **Bundle 与 verdict 同提交**。`verdicts/<verdict-id>.md` 与 `bundles/<verdict-id>/` 1:1 绑定；invariant test 必须拒绝 live verdict 缺 bundle、bundle 缺 verdict、或 ref 指向不存在 bundle item。
+
+Evidence ref SOT 分类：
+
+| Ref 类型 | SOT | 说明 |
+|---|---|---|
+| `snapshot:` / `attribution:` | `docs/harness-feedback/bundles/<verdict-id>/` | 本 contract 覆盖；committed sanitized subset |
+| `trace:` | F153 trace store | 已有 canonical SOT，不复制进 bundle |
+| `thread:` / `message:` | runtime DB | 已有 canonical SOT，不复制进 bundle |
+| `pr:` / `commit:` | git / GitHub | 已有 canonical SOT，不复制进 bundle |
+
 ### Phase D Digest Conclusions (AC-D8)
 
 Based on the first micro fit digest (2026-05-11):
@@ -338,7 +371,7 @@ Based on the first micro fit digest (2026-05-11):
 | OQ-12 | Eval Hub 与 F188 Health Dashboard / badge 的关系：吸收、替代还是共存？ | ⬜ E-hub/E-scale Design Gate |
 | OQ-13 | `delete_sunset` 的 CVO gate 现在是 fail-safe text gate（要求 `cvo accept` 文本）；E-scale 前是否改成结构化 `governance.requiresCvoAccept` 字段？ | ⬜ E-scale hardening before second domain |
 | OQ-14 | Sunset Trial 的 `triggerScenarios` 自己会不会过期？旧 failure pattern 可能已不代表当前模型 / 猫猫能力 | ⬜ E-scale 前定 refresh policy；trial 可先要求引用原 Eval Contract pattern |
-| OQ-15 | live verdict 的 evidence SOT 是什么？当前 `docs/harness-feedback/snapshots/` 与 `attributions/` 是 gitignored generated artifacts，干净 worktree 无法解析 committed verdict refs | ⬜ E-hub 前定：tracked sanitized bundle vs runtime read model vs hybrid curated bundle |
+| OQ-15 | live verdict 的 evidence SOT 是什么？当前 `docs/harness-feedback/snapshots/` 与 `attributions/` 是 gitignored generated artifacts，干净 worktree 无法解析 committed verdict refs | ✅ Option 3 hybrid：raw runtime artifacts 继续 gitignored；每个 live verdict 同提交 sanitized `bundles/<verdict-id>/`，`snapshot:` / `attribution:` 只解析 bundle |
 
 ## Key Decisions
 
@@ -356,6 +389,7 @@ Based on the first micro fit digest (2026-05-11):
 | KD-10 | 旧 scheduled task 清理是接入 AC，不是收尾优化 | F192/F200/F188 已有各自定时/报告机制；不迁移清理会双触发，导致猫猫收到重复 verdict，破坏信任 | 2026-05-21 |
 | KD-11 | Phase E 拆为 E-pilot → E-hub → E-scale → E-community；先一个真实 domain 跑通闭环，再做 Hub UI 和多域扩展 | owner review 指出 10 AC 单 Phase 违反 F192 KD-6；Hub 必须由真实 verdict 驱动，避免 F188 dashboard-before-verdict 反模式 | 2026-05-21 |
 | KD-12 | Verdict Matrix + Sunset Trial 是 E-hub 前的 contract hardening，不是 UI 后补 | E-pilot review 连续暴露 `fix/build/delete_sunset/keep_observe` 语义洞；应把四类 verdict 的证据门槛、handoff ask、closure 和 CVO 门固化成 contract，避免靠 review 逐条补锅。`delete_sunset` 只能触发可逆 trial，默认终态是 dormant，不直接删除 | 2026-05-22 |
+| KD-13 | Live verdict 的 `snapshot:` / `attribution:` evidence SOT 是 committed sanitized bundle，不是 raw runtime artifacts | raw `snapshots/` / `attributions/` 是 gitignored generated artifacts；直接引用会让 clean checkout / reviewer 无法解析 refs。Hybrid bundle 保留审计证据、脱敏边界和可重派生 provenance，同时避免把全量 runtime dump 提交进 repo | 2026-05-22 |
 
 ## Timeline
 
@@ -378,6 +412,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-21 | Phase E-pilot implemented — `eval:a2a` docs-backed registry, Verdict Handoff Packet schema, invocation packet, legacy cleanup dry-run, re-eval closure state machine, and representative contract demo fixture |
 | 2026-05-22 | Phase E-pilot merged (PR #1835) — `eval:a2a` contract→verdict→handoff→re-eval loop landed with cloud review pass and `pnpm gate` green |
 | 2026-05-22 | Phase E contract hardening added — Verdict Matrix Contract + Sunset Trial Contract, clarifying `fix/build/delete_sunset/keep_observe` evidence gates and reversible sunset lifecycle before E-hub |
+| 2026-05-22 | Live verdict evidence SOT decided — `snapshot:` / `attribution:` refs resolve to committed sanitized per-verdict bundles; raw runtime snapshots remain ignored (KD-13) |
 
 ## Review Gate
 
