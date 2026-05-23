@@ -125,7 +125,7 @@ export function HubGovernanceTab() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-cafe-secondary">外部项目治理状态</h3>
-        <button type="button" onClick={fetchHealth} className="rounded-lg bg-[var(--console-card-bg)] px-3 py-1.5 text-xs text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] transition-colors hover:bg-[var(--console-hover-bg)]">
+        <button type="button" onClick={fetchHealth} className="rounded-lg bg-cafe-accent px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-cafe-interactive">
           刷新
         </button>
       </div>

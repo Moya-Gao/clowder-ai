@@ -294,7 +294,7 @@ export function IndexStatus() {
         <button
           type="button"
           onClick={fetchAll}
-          className="rounded-lg bg-[var(--console-card-bg)] px-3 py-1.5 text-xs text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] transition-colors hover:bg-[var(--console-hover-bg)]"
+          className="rounded-lg bg-cafe-accent px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-cafe-interactive"
         >
           刷新状态
         </button>

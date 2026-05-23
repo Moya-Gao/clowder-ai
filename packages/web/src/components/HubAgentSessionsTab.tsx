@@ -81,7 +81,7 @@ export function HubAgentSessionsTab() {
         <button
           onClick={() => void refresh()}
           disabled={loading}
-          className="text-xs px-2 py-1 rounded-lg bg-[var(--console-card-bg)] text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] hover:bg-[var(--console-hover-bg)] disabled:opacity-50"
+          className="rounded-lg bg-cafe-accent px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-cafe-interactive disabled:opacity-50"
         >
           {loading ? '加载中…' : '刷新'}
         </button>

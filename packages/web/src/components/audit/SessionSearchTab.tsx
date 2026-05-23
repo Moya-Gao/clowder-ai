@@ -77,7 +77,7 @@ export function SessionSearchTab({ threadId, onViewSession }: SessionSearchTabPr
         <button
           type="submit"
           disabled={loading || !query.trim()}
-          className="text-xs px-2 py-1 rounded bg-conn-blue-text text-white hover:bg-conn-blue-hover disabled:opacity-50 transition-colors"
+          className="rounded-lg bg-cafe-accent px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-cafe-interactive disabled:opacity-50"
         >
           搜索
         </button>

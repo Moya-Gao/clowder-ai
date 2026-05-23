@@ -979,11 +979,13 @@ describe('F723 round 5 — ops tab/button convergence guard', () => {
     expect(src).toContain('shadow-[0_8px_22px_rgba(43,33,26,0.04)]');
   });
 
-  it('HubAgentSessionsTab: all buttons use secondary card-bg pattern, no cafe-surface/shell-bg', () => {
+  it('HubAgentSessionsTab: refresh accent, secondary buttons card-bg, no cafe-surface/shell-bg', () => {
     const src = readSrc('HubAgentSessionsTab.tsx');
     expect(src).not.toMatch(/rounded bg-cafe-surface hover:bg-cafe-surface-hover/);
     expect(src).not.toContain('console-shell-bg');
     expect(src).not.toMatch(/rounded bg-cafe-surface text-cafe-muted/);
+    expect(src).toContain('bg-cafe-accent');
+    expect(src).toContain('hover:bg-cafe-interactive');
     expect(src).toContain('console-card-bg');
     expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
   });
@@ -1146,7 +1148,7 @@ describe('F723 round 7 — CVO visual convergence: tabs, search, selects, button
     expect(src).not.toContain('bg-[var(--console-active-bg)]');
   });
 
-  it('HubTraceTree: search input uses field-bg, button is secondary, no blue', () => {
+  it('HubTraceTree: search input uses field-bg, button accent, no blue', () => {
     const src = readSrc('HubTraceTree.tsx');
     const searchBlock = src.match(/<input[\s\S]*?Search[\s\S]*?<\/button>/);
     expect(searchBlock).not.toBeNull();
@@ -1155,7 +1157,8 @@ describe('F723 round 7 — CVO visual convergence: tabs, search, selects, button
     expect(searchBlock![0]).not.toContain('conn-blue-ring');
     expect(searchBlock![0]).not.toContain('bg-conn-blue-bg');
     expect(searchBlock![0]).toContain('console-field-bg');
-    expect(searchBlock![0]).toContain('console-card-bg');
+    expect(searchBlock![0]).toContain('bg-cafe-accent');
+    expect(searchBlock![0]).toContain('hover:bg-cafe-interactive');
   });
 
   it('DependencyGraphTab: scope pills no mc-accent/white, use console-active-bg', () => {
@@ -1179,7 +1182,7 @@ describe('F723 round 7 — CVO visual convergence: tabs, search, selects, button
     expect(src).not.toMatch(/class(?:Name)?="flex w-full/);
   });
 
-  it('EvidenceSearch: search input field-bg no border, button secondary, filter selects self-describing labels', () => {
+  it('EvidenceSearch: search input field-bg no border, button accent with disabled, filter selects self-describing labels', () => {
     const src = readSrc('memory/EvidenceSearch.tsx');
     const searchInput = src.match(/<input[\s\S]*?data-testid="evidence-search-input"[\s\S]*?\/>/);
     expect(searchInput).not.toBeNull();
@@ -1188,8 +1191,8 @@ describe('F723 round 7 — CVO visual convergence: tabs, search, selects, button
     expect(searchInput![0]).toContain('console-field-bg');
     const searchBtn = src.match(/<button[\s\S]*?data-testid="evidence-search-button"[\s\S]*?<\/button>/);
     expect(searchBtn).not.toBeNull();
-    expect(searchBtn![0]).not.toContain('bg-cafe-accent');
-    expect(searchBtn![0]).toContain('console-card-bg');
+    expect(searchBtn![0]).toContain('bg-cafe-accent');
+    expect(searchBtn![0]).toContain('disabled:opacity-50');
     expect(src).toContain('混合检索');
     expect(src).toContain('全部维度');
     expect(src).toContain('全部范围');
@@ -1345,10 +1348,13 @@ describe('F723 round 8.2 — toggle uses enabled (not running), adapter preserve
 });
 
 describe('F723 round 9 — install button, error suppression, breadcrumb, tab/card convergence', () => {
-  it('ServiceStatusPanel install: standard secondary button, not SettingsBadge', () => {
+  it('ServiceStatusPanel install: accent button with disabled, not SettingsBadge', () => {
     const src = readSrc('settings/ServiceStatusPanel.tsx');
     expect(src).not.toContain('SettingsBadge');
     expect(src).toContain("'安装'");
+    expect(src).toContain('bg-cafe-accent');
+    expect(src).toContain('hover:bg-cafe-interactive');
+    expect(src).toContain('disabled:opacity-50');
     expect(src).toContain('transition-colors');
   });
 
@@ -1412,8 +1418,10 @@ describe('F723 round 9 — install button, error suppression, breadcrumb, tab/ca
     expect(src).not.toContain('0_12px_30px');
   });
 
-  it('DailyUsageSection refresh: standard secondary (py-1.5 + transition-colors)', () => {
+  it('DailyUsageSection refresh: accent button (py-1.5 + transition-colors)', () => {
     const src = readSrc('DailyUsageSection.tsx');
+    expect(src).toContain('bg-cafe-accent');
+    expect(src).toContain('hover:bg-cafe-interactive');
     expect(src).toContain('py-1.5');
     expect(src).toContain('transition-colors');
   });
