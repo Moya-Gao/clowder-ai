@@ -1293,7 +1293,7 @@
     {
       "id": "F209",
       "name": "Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤",
-      "status": "in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint 待启动) | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
+      "status": "in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed with BLOCK verdict — Phase D blocked on D.0 readiness gaps per `docs/decisions/2026-05-23-f209-d0-readiness.md`) | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
       "file": "F209-evidence-recall-optimization.md"
     },
     {

@@ -8,7 +8,7 @@ created: 2026-05-21
 
 # F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤
 
-> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint 待启动) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed with BLOCK verdict — Phase D blocked on D.0 readiness gaps per `docs/decisions/2026-05-23-f209-d0-readiness.md`) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -64,7 +64,7 @@ F209 完整终态包含五层：
    - Phase A: 真实 raw `semantic`/`hybrid` query 找到一条**无字面命中**的旧消息。
    - Phase B: 至少 seed 1 个真实实体（如 `person:landy`），搜别名能命中只提及别名的原消息。
    - Phase C: 真实 `search_evidence → drillDown → typed reader` 端到端打开原文窗口闭环。
-   - Phase D: TBD per Phase D.0 readiness（见下）。
+   - Phase D: BLOCKED per Phase D.0 readiness report（见 `docs/decisions/2026-05-23-f209-d0-readiness.md`）。
 
 > **来源**：2026-05-23 F209 post-Phase-C dogfood 反思（47 / 砚砚 alignment + 铲屎官指示）。Phase B alias registry 在生产里**机制 ship 但字典为空**、Phase C drillDown **post-merge 才被 author 真用一次抓到 file-slice bug** —— 都是"AC pass ≠ 用户感受到"的同型走偏。该定义钉死后，未来 Phase close 必须证据双足。
 
@@ -171,9 +171,9 @@ D.0 是 **1-2 天的小切片 eval**（不是 1 周大工程），用既有 F200
 
 ### Phase D.0 Acceptance Criteria
 
-- [ ] AC-D0.1: 跑完 Phase A/B/C 既有 fixture + 3 条真实 dogfood query，证据写进 D.0 report。
-- [ ] AC-D0.2: 上述四项 observability 指标拉出实际数字（不能"看着差不多"）。
-- [ ] AC-D0.3: 通过 / 不通过结论 + 下一步（推 Phase D / 回头修哪段）由 47/砚砚 共同决定，结论 commit 进 docs/decisions/。
+- [x] AC-D0.1: 跑完 Phase A/B/C 既有 fixture + 3 条真实 dogfood query，证据写进 D.0 report。
+- [x] AC-D0.2: 上述四项 observability 指标拉出实际数字（不能"看着差不多"）。
+- [x] AC-D0.3: 通过 / 不通过结论 + 下一步（推 Phase D / 回头修哪段）由 47/砚砚 共同决定，结论 commit 进 docs/decisions/。
 
 ## Phase D: Perspective Live Query Plans
 
@@ -329,6 +329,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | 2026-05-22 | Phase C merged (PR #1853) — typed `drillDown` REST/MCP contract + message window / invocation / file-slice readers + source-root-safe collection file hints + Phase C F200 fixtures |
 | 2026-05-22 | Phase C dogfood hotfix merged (PR #1854) — docs-root file-slice `drillDown` hints now resolve to repo-readable `docs/...` paths while collection hints stay on virtual URIs |
 | 2026-05-23 | F209 post-Phase-C 反思 alignment（47/砚砚/铲屎官）— spec patch: KD-11 Phase close 双足定义；AC-B6 transferred to F208 AC-A5（KD-12）；Phase B.1 minimal seed follow-up 新立子段；Phase D.0 readiness eval sprint 新立前置（KD-13）；OQ-11 invocation-level、OQ-12 inline-content-threshold 加入观察；quality-gate skill Step 4.5 Dogfood-Your-Slice |
+| 2026-05-23 | Phase D.0 readiness eval report committed — 47/砚砚 jointly signed off **BLOCK Phase D**; readiness gaps: stale runtime caveat, raw passage embeddings unavailable, file-slice MCP access denied, MCP `entityMatches` surface missing, no F200 recall@k wrapper for F209 fixtures |
 | 2026-05-23 | Phase B.1 implementation branch opened — `config/entity-seeds.json` explicit seed + one-way F032 roster → F209 `cat:*` retrieval anchors + alias dogfood regression |
 | 2026-05-23 | Phase B.1 merged (PR #1867) — explicit entity seed + one-way F032 roster → F209 `cat:*` retrieval anchors + alias dogfood regression |
 
