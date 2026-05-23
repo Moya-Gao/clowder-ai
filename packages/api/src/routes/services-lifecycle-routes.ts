@@ -238,6 +238,7 @@ export async function registerServiceLifecycleRoutes(
       return { error: `Service port ${service.port} is already owned by another process` };
     }
     if (portProbe.owned.length > 0) {
+      serviceConfigStore.set(service.id, { installed: true, enabled: true });
       await audit({
         serviceId: service.id,
         action: 'start',
@@ -296,6 +297,7 @@ export async function registerServiceLifecycleRoutes(
             output: result.output?.slice(-2000),
           };
         }
+        serviceConfigStore.set(service.id, { installed: true, enabled: true });
         await audit({ serviceId: service.id, action: 'start', operator, status: 'completed', code: result.code });
         const success = { ok: true, message: `${service.name} start initiated`, pid: result.pid };
         return holdStartupGrace(success, options.lifecycle?.startupGraceMs);
@@ -358,6 +360,7 @@ export async function registerServiceLifecycleRoutes(
           failed,
         };
       }
+      serviceConfigStore.set(service.id, { enabled: false });
       await audit({ serviceId: service.id, action: 'stop', operator, status: 'completed' });
       return { ok: true, message: `${service.name} stopped (${stopped.length} process(es))`, stopped };
     });

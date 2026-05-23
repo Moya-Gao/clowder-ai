@@ -358,6 +358,77 @@ describe('service lifecycle write routes', () => {
     }
   });
 
+  it('persists enabled=true after successful start', async () => {
+    const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
+    const configs = new Map();
+    const app = await buildApp({
+      lifecycle: {
+        serviceConfig: {
+          get: (id) => configs.get(id) ?? { enabled: false },
+          set: (id, patch) => {
+            const updated = { ...(configs.get(id) ?? { enabled: false }), ...patch };
+            configs.set(id, updated);
+            return updated;
+          },
+        },
+        runScript: async () => ({ code: 0, output: 'ok' }),
+        findPidsByPort: async () => [],
+        readProcessCommand: async () => null,
+      },
+    });
+    try {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/services/whisper-stt/start',
+        headers: SESSION_HEADERS,
+      });
+      assert.equal(res.statusCode, 200, res.payload);
+      const config = configs.get('whisper-stt');
+      assert.equal(config.installed, true, 'should persist installed=true after start');
+      assert.equal(config.enabled, true, 'should persist enabled=true after start');
+    } finally {
+      await app.close();
+      restoreOwner(previousOwner);
+    }
+  });
+
+  it('persists enabled=false after successful stop', async () => {
+    const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
+    const configs = new Map();
+    configs.set('whisper-stt', { installed: true, enabled: true });
+    const resolvedScript = resolveServiceScriptPath('scripts/services/whisper-server.sh');
+    const app = await buildApp({
+      lifecycle: {
+        serviceConfig: {
+          get: (id) => configs.get(id) ?? { enabled: false },
+          set: (id, patch) => {
+            const updated = { ...(configs.get(id) ?? { enabled: false }), ...patch };
+            configs.set(id, updated);
+            return updated;
+          },
+        },
+        findPidsByPort: async () => [12345],
+        readProcessCommand: async () => `/bin/bash ${resolvedScript}`,
+        killPid: () => {},
+      },
+    });
+    try {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/services/whisper-stt/stop',
+        headers: SESSION_HEADERS,
+      });
+      assert.equal(res.statusCode, 200, res.payload);
+      const config = configs.get('whisper-stt');
+      assert.equal(config.enabled, false, 'should persist enabled=false after stop');
+    } finally {
+      await app.close();
+      restoreOwner(previousOwner);
+    }
+  });
+
   it('keeps service script paths inside the repository services directory', () => {
     assert.match(
       resolveServiceScriptPath('scripts/services/whisper-install.sh'),
