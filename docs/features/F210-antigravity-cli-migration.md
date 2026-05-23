@@ -18,7 +18,7 @@ Why: F210 replaces the headless Google agent carrier behind the existing Siamese
 
 Google announced on 2026-05-19 that Antigravity CLI is the new terminal experience for Google Antigravity, and that consumer Gemini CLI / Gemini Code Assist IDE requests stop being served on 2026-06-18 for Google AI Pro, Ultra, and Gemini Code Assist for individuals users. Enterprise/Google Cloud access is explicitly different: Gemini CLI remains accessible for Standard/Enterprise licenses and via paid Gemini / Gemini Enterprise Agent Platform API keys.
 
-Cat Cafe currently invokes Siamese through `GeminiAgentService` with `GEMINI_ADAPTER=gemini-cli`, spawning the local `gemini` binary with `-p ... -o stream-json -y`. If we leave that as the default carrier, consumer users hit a hard service deadline in less than one month. This is not an Antigravity Desktop reliability bug: F201 closed the Desktop/MCP callback reliability contract; F210 is the headless Google CLI carrier migration.
+Before F210, Cat Cafe invoked Siamese through `GeminiAgentService` with `GEMINI_ADAPTER=gemini-cli`, spawning the local `gemini` binary with `-p ... -o stream-json -y`. Phase F migrates the default carrier to `GEMINI_ADAPTER=antigravity-cli` / `agy --print` while preserving `gemini-cli` as an explicit fallback for enterprise/API-key cases. This is not an Antigravity Desktop reliability bug: F201 closed the Desktop/MCP callback reliability contract; F210 is the headless Google CLI carrier migration.
 
 ## Current Fact Baseline
 
@@ -117,10 +117,10 @@ Offline packaging must explicitly decide whether to vendor the native `agy` bina
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
 | R1 | “Gemini CLI 要落日了，直接换 Antigravity CLI？” | AC-A1, AC-E1 | official source + E2E smoke | [x] |
-| R2 | “改成符合现在事实的版本” | AC-A1, AC-F1 | source-linked spec + review | [ ] |
-| R3 | “孟加拉猫可以 review 你的版本” | AC-F2 | cross-cat review note | [ ] |
-| R4 | 现有 `antigravity` adapter 名称会和新 CLI 混淆 | AC-B1, AC-B2 | adapter unit tests | [ ] |
-| R5 | 不要把企业例外/旧 fallback 写没 | AC-E2, AC-E4 | fallback tests + docs | [ ] |
+| R2 | “改成符合现在事实的版本” | AC-A1, AC-F1 | source-linked spec + review | [x] |
+| R3 | “孟加拉猫可以 review 你的版本” | AC-F2 | cross-cat review note | [x] |
+| R4 | 现有 `antigravity` adapter 名称会和新 CLI 混淆 | AC-B1, AC-B2 | adapter unit tests | [x] |
+| R5 | 不要把企业例外/旧 fallback 写没 | AC-E2, AC-E4 | fallback tests + docs | [x] |
 
 ### 覆盖检查
 
@@ -180,19 +180,23 @@ Cat Cafe installers now provision `agy` through Google's native bootstrapper (`h
 - [x] AC-E1: `GEMINI_ADAPTER=antigravity-cli` can invoke Siamese end-to-end from Cat Cafe.
 - [x] AC-E2: `GEMINI_ADAPTER=gemini-cli` remains explicitly testable as fallback.
 - [x] AC-E3: Existing wiring tests no longer assume `gemini-cli` is the only headless Google carrier.
-- [ ] AC-E4: Default adapter changes only after AC-E1 is green.
+- [x] AC-E4: Default adapter changes only after AC-E1 is green.
 
 Phase E E2E source: `docs/features/assets/F210/phase-e-e2e-smoke-2026-05-23.md`.
 
 The live smoke routed `@gemini` through the Cat Cafe routing layer with `GEMINI_ADAPTER=antigravity-cli`, process-local `PATH=/tmp/cat-cafe-f210-agy-bin:$PATH`, `agy 1.0.1`, and real HOME keyring auth. It returned a normal final reply containing `CAT_CAFE_AGY_E2E_OK` in about 14.3s, with `session_init` metadata `modelVerified: false` and no leaked fresh-conversation warning after the parser regression fix.
 
-AC-E4 remains open intentionally: the gate condition is now satisfied, but the default adapter is still `gemini-cli` pending Phase F docs/default-switch review.
+AC-E4 is closed in Phase F: after AC-E1 live smoke passed, the default adapter changed to `antigravity-cli`. `GEMINI_ADAPTER=gemini-cli` remains an explicit fallback and is still covered by wiring/service tests.
 
 ### Phase F（Docs / Truth Sync）
 
-- [ ] AC-F1: README/env/architecture docs explain consumer deadline, enterprise exception, and Antigravity CLI default.
-- [ ] AC-F2: Review request to `@antig-opus` includes the fact corrections from this spec.
-- [ ] AC-F3: `docs/features/index.json` and `docs/BACKLOG.md` are in sync with F210.
+- [x] AC-F1: README/env/architecture docs explain consumer deadline, enterprise exception, and Antigravity CLI default.
+- [x] AC-F2: Review request to `@antig-opus` includes the fact corrections from this spec.
+- [x] AC-F3: `docs/features/index.json` and `docs/BACKLOG.md` are in sync with F210.
+
+Phase F source: `packages/api/src/domains/cats/services/agents/providers/GeminiAgentService.ts`, `packages/api/src/config/env-registry.ts`, README variants, `docs/env-reference.md`, `docs/architecture/cli-integration.md`, and `docs/mailbox/2026-05-23-f210-phase-f-review-request-to-antig-opus.md`.
+
+The default route is now `antigravity-cli` when neither constructor options nor `GEMINI_ADAPTER` override it. The explicit fallback remains `GEMINI_ADAPTER=gemini-cli`, preserving enterprise/API-key access and the old NDJSON parser path. The legacy `GEMINI_ADAPTER=antigravity` value still means Desktop/MCP callback and is not silently repointed to `agy`.
 
 ## Dependencies
 
@@ -253,7 +257,8 @@ AC-E4 remains open intentionally: the gate condition is now satisfied, but the d
 | 2026-05-22 | Phase B adapter prototype：`GEMINI_ADAPTER=antigravity-cli` spawns `agy --print`; direct service smoke returned `CAT_CAFE_AGY_ADAPTER_OK`; full Cat Cafe E2E/default switch still blocked by AC-E1/AC-E4 |
 | 2026-05-23 | Phase C parser/session merged via PR #1857：dedicated AGY plain-text parser added; F210 fixtures cover success/resume/timeout/missing-model; resume/model/image degradation behavior tested |
 | 2026-05-23 | Phase D install/packaging merged via PR #1858：source installers use official `agy` native bootstrapper; Windows resolver covers `%LOCALAPPDATA%\agy\bin\agy.exe`; desktop offline packages ship explicit AGY install instructions instead of vendoring Gemini CLI npm tarball |
-| 2026-05-23 | Phase E E2E smoke merged via PR #1861：`GEMINI_ADAPTER=antigravity-cli` routes Siamese through Cat Cafe and returns `CAT_CAFE_AGY_E2E_OK`; wiring tests keep explicit `gemini-cli` fallback; default remains unchanged pending AC-E4/Phase F |
+| 2026-05-23 | Phase E E2E smoke merged via PR #1861：`GEMINI_ADAPTER=antigravity-cli` routes Siamese through Cat Cafe and returns `CAT_CAFE_AGY_E2E_OK`; wiring tests keep explicit `gemini-cli` fallback; default stayed unchanged at that point until the Phase F default-switch review |
+| 2026-05-23 | Phase F docs/default branch：default Siamese adapter changed to `antigravity-cli`; README/env/architecture docs synced; explicit `gemini-cli` fallback and legacy Desktop `antigravity` adapter preserved |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |

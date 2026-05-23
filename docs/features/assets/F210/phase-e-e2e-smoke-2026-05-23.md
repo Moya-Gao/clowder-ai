@@ -22,7 +22,7 @@ Phase E verifies that the Phase B/C/D `antigravity-cli` path works through the C
 
 `packages/api/test/integration/wiring.test.js` now covers both Google carrier routes:
 
-- explicit/default `gemini-cli` fallback still spawns `gemini`, requests `-o stream-json`, and does not use `--print`.
+- explicit `gemini-cli` fallback still spawns `gemini`, requests `-o stream-json`, and does not use `--print`.
 - env-selected `antigravity-cli` routes `@gemini` through `agy --print`, binds `--add-dir`, does not pass an unverified `--model`, and surfaces plain-text stdout.
 
 ## Live Cat Cafe Route Smoke
@@ -56,4 +56,4 @@ before the successful answer. This is an infrastructure warning for the first us
 
 ## Default Switch
 
-Phase E proves the opt-in route is usable. It does not flip the default adapter: `gemini-cli` remains the default until AC-E4/Phase F review explicitly changes it.
+Phase E proved the opt-in route was usable. Phase F later used this evidence to flip the default adapter to `antigravity-cli`; `gemini-cli` remains an explicit fallback.

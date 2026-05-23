@@ -462,6 +462,10 @@ chore(api): remove SDK dependencies and update docs for CLI mode [布偶猫🐾]
 
 通过环境变量 `GEMINI_ADAPTER` 切换。
 
+> 2026-05-23 / F210 更新：Google headless 默认 carrier 已从 `gemini-cli`
+> 切到官方 Antigravity CLI (`GEMINI_ADAPTER=antigravity-cli`, `agy --print`)。
+> `gemini-cli` 仍保留为显式 fallback，legacy `antigravity` 仍指向 Desktop/MCP callback。
+
 ---
 
 ## 这课的教训
