@@ -147,9 +147,13 @@ AC-A5 remains open because successful `agy --print` now shows runtime MCP schema
 
 ### Phase B（Adapter Contract）
 
-- [ ] AC-B1: `GeminiAdapter` supports `antigravity-cli` distinctly from Desktop callback.
-- [ ] AC-B2: Existing `GEMINI_ADAPTER=antigravity` behavior is preserved via alias or migration warning, not silently repointed to `agy`.
-- [ ] AC-B3: Missing CLI error for `antigravity-cli` names the official install route and `agy` binary.
+- [x] AC-B1: `GeminiAdapter` supports `antigravity-cli` distinctly from Desktop callback.
+- [x] AC-B2: Existing `GEMINI_ADAPTER=antigravity` behavior is preserved via alias or migration warning, not silently repointed to `agy`.
+- [x] AC-B3: Missing CLI error for `antigravity-cli` names the official install route and `agy` binary.
+
+Phase B adapter prototype source: `packages/api/src/domains/cats/services/agents/providers/GeminiAgentService.ts`.
+
+The prototype intentionally maps `antigravity-cli` to the standalone `agy` binary while keeping legacy `antigravity` on the Desktop/MCP callback path. `agy --print` stdout is treated as plain final text via the shared CLI spawn layer's `plainText` mode so tmux `spawnCliOverride` / observability remains available. New AGY turns generate an `agy-*` conversation id, emit `session_init`, and pass the same id to `--conversation`; stdout timeout and missing-model strings are classified as first-class errors because AGY 1.0.1 can emit those on stdout and still exit 0.
 
 ### Phase C（Parser / Session Migration）
 
@@ -232,6 +236,7 @@ AC-A5 remains open because successful `agy --print` now shows runtime MCP schema
 | 2026-05-22 | Phase A recon partial：`agy 1.0.1` installed/probed; auth/MCP/sandbox/install facts frozen; success fixture blocked by missing default model |
 | 2026-05-22 | Phase A recon partial merged via PR #1841; AC-A1/A2/A4/A6 closed, AC-A3/A5 remain blocked by missing default model and unverified MCP runtime loading |
 | 2026-05-22 | Follow-up headless spike：`agy --print` success/tool/resume/timeout fixtures captured; OQ-1 answered for prototype, OQ-3 downgraded to deterministic model-selection preflight |
+| 2026-05-22 | Phase B adapter prototype：`GEMINI_ADAPTER=antigravity-cli` spawns `agy --print`; direct service smoke returned `CAT_CAFE_AGY_ADAPTER_OK`; full Cat Cafe E2E/default switch still blocked by AC-E1/AC-E4 |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |

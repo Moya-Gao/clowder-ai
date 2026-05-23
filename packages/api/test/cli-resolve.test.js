@@ -16,6 +16,19 @@ test('formatCliNotFoundError returns install hint for known CLI', () => {
   assert.match(msg, /npm install -g @openai\/codex/);
 });
 
+test('formatCliNotFoundError returns native installer hint for agy', () => {
+  const msg = formatCliNotFoundError('agy');
+  assert.match(msg, /agy CLI 未找到/);
+  assert.match(msg, /https:\/\/antigravity\.google\/cli\/install\.sh/);
+});
+
+test('formatCliNotFoundError returns Windows installer hint for agy on win32', () => {
+  const msg = formatCliNotFoundError('agy', 'win32');
+  assert.match(msg, /agy CLI 未找到/);
+  assert.match(msg, /install\.cmd/);
+  assert.doesNotMatch(msg, /install\.sh/);
+});
+
 test('formatCliNotFoundError returns generic hint for unknown CLI', () => {
   const msg = formatCliNotFoundError('unknown-tool');
   assert.match(msg, /unknown-tool CLI 未找到/);

@@ -44,15 +44,24 @@ async function collect(iterable) {
 
 /**
  * Create a mock child process for testing.
- * @param {{ exitOnKill?: boolean, exitCode?: number }} opts
+ * @param {{ exitOnKill?: boolean, exitCode?: number, autoCloseOnExit?: boolean }} opts
  *   exitOnKill: if true (default), killing closes stdout and emits exit.
  *   exitCode: the code to emit on exit (default null for signal kills).
+ *   autoCloseOnExit: if true (default), emitting exit schedules close like Node child_process.
  */
 function createMockProcess(opts = {}) {
-  const { exitOnKill = true, exitCode = null, pid = 12345 } = opts;
+  const { exitOnKill = true, exitCode = null, pid = 12345, autoCloseOnExit = true } = opts;
   const stdout = new PassThrough();
   const stderr = new PassThrough();
   const emitter = new EventEmitter();
+  const originalEmit = emitter.emit.bind(emitter);
+  emitter.emit = (event, ...args) => {
+    const emitted = originalEmit(event, ...args);
+    if (event === 'exit' && autoCloseOnExit) {
+      process.nextTick(() => originalEmit('close', ...args));
+    }
+    return emitted;
+  };
   const proc = {
     stdout,
     stderr,
@@ -292,6 +301,144 @@ test('spawnCli skips parse errors in stdout', async () => {
   assert.equal(isParseError(results[1]), true);
   assert.equal(results[1].line, 'not-json-line');
   assert.deepEqual(results[2], { also: 'valid' });
+});
+
+test('spawnCli plainText mode buffers raw stdout without NDJSON parsing', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+
+  const promise = collect(spawnCli({ command: 'test-cli', args: ['--print'], outputMode: 'plainText' }, { spawnFn }));
+
+  proc.stdout.write('plain ');
+  proc.stdout.write('response\n');
+  proc.stderr.write('debug log\n');
+  proc.stdout.end();
+  proc._emitter.emit('exit', 0, null);
+
+  const results = await promise;
+  assert.equal(results.length, 1);
+  assert.deepEqual(results[0], {
+    __cliPlainText: true,
+    stdout: 'plain response\n',
+    stderr: 'debug log\n',
+    exitCode: 0,
+    signal: null,
+    command: 'test-cli',
+  });
+});
+
+test('spawnCli plainText mode waits for close before emitting trailing stderr', async () => {
+  const proc = createMockProcess({ autoCloseOnExit: false });
+  const spawnFn = createMockSpawnFn(proc);
+
+  const promise = collect(
+    spawnCli({ command: 'agy', args: ['--print', 'hello'], outputMode: 'plainText' }, { spawnFn }),
+  );
+
+  proc.stdout.write('plain response\n');
+  proc.stdout.end();
+  proc._emitter.emit('exit', 0, null);
+  setImmediate(() => {
+    proc.stderr.write('Error: neither PlanModel nor RequestedModel specified\n');
+    proc.stderr.end();
+    proc._emitter.emit('close', 0, null);
+  });
+
+  const results = await promise;
+  assert.equal(results.length, 1);
+  assert.deepEqual(results[0], {
+    __cliPlainText: true,
+    stdout: 'plain response\n',
+    stderr: 'Error: neither PlanModel nor RequestedModel specified\n',
+    exitCode: 0,
+    signal: null,
+    command: 'agy',
+  });
+});
+
+test('spawnCli plainText mode waits for delayed close without fixed fallback', async () => {
+  const proc = createMockProcess({ autoCloseOnExit: false });
+  const spawnFn = createMockSpawnFn(proc);
+
+  const promise = collect(
+    spawnCli({ command: 'agy', args: ['--print', 'hello'], outputMode: 'plainText' }, { spawnFn }),
+  );
+
+  proc.stdout.write('plain response\n');
+  proc.stdout.end();
+  proc._emitter.emit('exit', 0, null);
+  setTimeout(() => {
+    proc.stderr.write('Error: delayed diagnostic after exit\n');
+    proc.stderr.end();
+    proc._emitter.emit('close', 0, null);
+  }, 80);
+
+  const results = await promise;
+  assert.equal(results.length, 1);
+  assert.deepEqual(results[0], {
+    __cliPlainText: true,
+    stdout: 'plain response\n',
+    stderr: 'Error: delayed diagnostic after exit\n',
+    exitCode: 0,
+    signal: null,
+    command: 'agy',
+  });
+});
+
+test('spawnCli plainText mode drains liveness warnings before stdout closes', async (t) => {
+  const stallWarningMs = 120;
+  const stallWarning = {
+    __livenessWarning: true,
+    state: 'idle-silent',
+    silenceDurationMs: stallWarningMs,
+    level: 'suspected_stall',
+    cpuTimeMs: 0,
+    processAlive: true,
+  };
+  let drainCalls = 0;
+
+  t.mock.method(ProcessLivenessProbe.prototype, 'start', () => {});
+  t.mock.method(ProcessLivenessProbe.prototype, 'getState', () => 'idle-silent');
+  t.mock.method(ProcessLivenessProbe.prototype, 'drainWarnings', () => {
+    drainCalls += 1;
+    return drainCalls === 2 ? [stallWarning] : [];
+  });
+
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const startedAt = Date.now();
+
+  const promise = collect(
+    spawnCli(
+      {
+        command: 'agy',
+        args: ['--print', 'hello'],
+        outputMode: 'plainText',
+        timeoutMs: 800,
+        livenessProbe: {
+          sampleIntervalMs: 30,
+          softWarningMs: 60,
+          stallWarningMs,
+          stallAutoKill: true,
+        },
+      },
+      { spawnFn },
+    ),
+  );
+
+  proc.stdout.write('partial plain text');
+
+  const results = await promise;
+  const elapsedMs = Date.now() - startedAt;
+  const timeout = results.find(isCliTimeout);
+  const warnings = results.filter(isLivenessWarning);
+
+  assert.ok(timeout, 'should yield __cliTimeout event');
+  assert.equal(timeout.stallKill, true, 'plainText stall warning should trigger stall auto-kill');
+  assert.equal(timeout.timeoutMs, stallWarningMs, 'reported timeout should use stallWarningMs');
+  assert.equal(warnings.length, 1, 'plainText path should surface liveness warning before stdout closes');
+  assert.ok(elapsedMs < 500, `plainText stallAutoKill should fire before full timeout, took ${elapsedMs}ms`);
+  assert.ok(proc.kill.mock.callCount() >= 1, 'should kill process on plainText stall');
 });
 
 test('parse-error noise does not reset timeout forever', async () => {
