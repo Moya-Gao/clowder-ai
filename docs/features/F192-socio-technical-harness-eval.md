@@ -204,6 +204,86 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 | Regression Fixture | 1) F192 `harness-fit-digest` 迁入后旧 scheduled task 不再重复发；2) F200 memory eval 产出 verdict 后必须带 evidence packet；3) F188 orphan-edge health finding 不能只显示指标，必须能形成 owner ask + re-eval plan |
 | Sunset Signal | 若 Phase E 连续 2 个 eval domain 接入后，verdict handoff acted-on rate < 50% 且 duplicate_trigger_count > 0，说明控制面比旧竖井更重，必须进入 simplify / sunset review |
 
+### Phase E Verdict Matrix Contract（E-hub 前硬化）
+
+Verdict 不是自由文案。每个 verdict 都必须满足对应证据门槛、handoff ask 和 closure 规则；不满足时 schema / review 必须拒绝，而不是靠 reviewer 一条条补语义洞。
+
+| Verdict | 合法触发条件 | 必填证据 | Handoff ask | Closure / re-eval | Governance |
+|---|---|---|---|---|---|
+| `fix` | 已有 harness 目标正确，但实现 / prompt / workflow 没做到位；出现 regression、false positive、bypass 或 owner friction | phenomenon、affected harness、metric refs、day-over-day trend、root-cause hypothesis、counterarguments | 请 feature owner 修正现有 harness 或其接线 | 后续 eval 对同一 failure pattern 复验通过；owner 不能自报 resolved | 默认 eval owner + feature owner 闭环；高影响行为变更走 Design Gate |
+| `build` | 反复出现的 failure pattern 没有现有 harness 覆盖，或现有 harness 边界外出现新场景 | missing-coverage evidence、candidate harness scope、expected activation signal、success metric、counterarguments | 请 feature owner 设计 / 扩展 harness，并补 Eval Contract | 新 harness 有 Eval Contract + 首次 eval snapshot；未接入前不得标 resolved | 新增规则 / SOP / MCP 行为变化必须过 Design Gate |
+| `delete_sunset` | harness 的边际效果低或成本高，且可能已被模型 / 猫猫能力内化；**不能仅因最近没触发就判 sunset** | cost/effect trend、activation history、原始 failure pattern refs、Sunset Trial Plan、counterarguments | 请 owner 启动 sunset trial；verdict 本身不执行删除 | trial 满足 criteria 后进入 `dormant`；真正 `retired` 需额外 CVO accept | `toDormant` 可按 criteria 自动；`toRetired` 必须 CVO accept |
+| `keep_observe` | 当前证据不足以改变 harness，或 harness 仍健康；不是“什么都不做”的永久终态 | current metric refs、why-no-action、next observation window、known blind spots | 继续观察 / 补 instrumentation / 等下一窗口 | 到期必须重新 eval；若无 next window 则不合法 | 可由 eval owner 自决；不能用来掩盖缺数据 |
+
+不变式：
+
+1. live verdict 的 evidence refs 必须可解析；fixture / demo 必须显式标注，不能伪装成真实 telemetry verdict。
+2. `delete_sunset` verdict 只能触发 Sunset Trial，不能直接关闭或删除 harness。
+3. `keep_observe` 必须带 next observation window；否则就是把未知包装成结论。
+4. `build` 必须补 Eval Contract；没有可观测 success metric 的新 harness 不得进入 active。
+
+### Phase E Sunset Trial Contract（`delete_sunset` 展开）
+
+Sunset 是对 harness 的可逆退役试验，不是直接删 guardrail。默认生命周期：
+
+```
+active -> trial -> dormant -> retired
+            ^         |
+            |_________|  任一 regression signal 回退 active
+```
+
+- `active`: harness 在 prompt / SOP / tool / hook 的正常路径里生效。
+- `trial`: harness 从主动路径中撤出或降级，只按 Trial Plan 观测。
+- `dormant`: 默认 sunset 终态。harness 不再消耗 active 注意力预算，但配置、文档、revival path 保留，目标是 24h 内可恢复。
+- `retired`: 真的删除代码 / skill / SOP。只在 dormant 连续通过多个周期后考虑，且必须 CVO accept。
+
+Trial Plan schema：
+
+```ts
+{
+  harnessId: string;
+  ablationMode: 'log_only' | 'ab_cohort' | 'full_ablation';
+  triggerScenarios: AdversarialProbeRef[]; // 必填：复用 Eval Contract 原始 failure pattern
+  trialWindow: {
+    minDays: number;
+    minSessions: number;
+    minCatsSampled: number;
+  };
+  successCriteria: {
+    minProbePassRate: number;
+    maxNaturalRegressionCount: number;
+  };
+  failureCriteria: {
+    anyProbeFail: boolean;
+    maxNaturalRegressionCount: number;
+  };
+  revertPlan: {
+    snapBackPath: string;
+    slaHours: number; // must be <= 24
+  };
+  governance: {
+    toDormant: 'auto-if-criteria-met';
+    toRetired: 'cvo_accept_required';
+  };
+}
+```
+
+Trial mode 选择：
+
+| Harness type | Preferred ablationMode | 原因 |
+|---|---|---|
+| tool / hook / MCP guard | `log_only` | 可以“本该拦截但不拦截”，记录 would-have-fired |
+| prompt / SOP / skill thinking harness | `ab_cohort` 或 `full_ablation` + adversarial probes | prompt 在上下文里就会影响行为，不能真正 shadow，只能移除后主动 probe |
+| high-risk guardrail | `full_ablation` only in isolated fixture / alpha | 生产路径不允许无保护试验 |
+
+Sunset 判断规则：
+
+1. **低触发率不是 sunset 证据**。低触发只说明场景少，不能区分“能力内化”与“问题间歇出现”。
+2. 思考类 harness 的效果用 adversarial probe pass rate 衡量：把当初 harness 要防的 failure pattern 重新呈现给不带 harness 的猫，观察是否仍能正确处理。
+3. 任何 probe fail、真实 regression、或 CVO / feature owner 指出关键反例，都立即回退 `active`。
+4. `triggerScenarios` 为空时 Trial Plan schema reject；没有原始 failure pattern 的 harness 先补 Eval Contract，不许 sunset。
+5. 进入 `dormant` 不是失败，是正常释放注意力预算；进入 `retired` 才是不可逆删除门，必须 CVO accept。
+
 ### Phase D Digest Conclusions (AC-D8)
 
 Based on the first micro fit digest (2026-05-11):
@@ -257,6 +337,7 @@ Based on the first micro fit digest (2026-05-11):
 | OQ-11 | eval 猫 invocation 模型：统一 scheduled task 如何唤醒指定 eval 猫进入对应 domain thread，并加载纵向上下文做 day-over-day analysis？ | ✅ E-pilot: AC-E5 mandates unified scheduled invocation packet for `eval:a2a` |
 | OQ-12 | Eval Hub 与 F188 Health Dashboard / badge 的关系：吸收、替代还是共存？ | ⬜ E-hub/E-scale Design Gate |
 | OQ-13 | `delete_sunset` 的 CVO gate 现在是 fail-safe text gate（要求 `cvo accept` 文本）；E-scale 前是否改成结构化 `governance.requiresCvoAccept` 字段？ | ⬜ E-scale hardening before second domain |
+| OQ-14 | Sunset Trial 的 `triggerScenarios` 自己会不会过期？旧 failure pattern 可能已不代表当前模型 / 猫猫能力 | ⬜ E-scale 前定 refresh policy；trial 可先要求引用原 Eval Contract pattern |
 
 ## Key Decisions
 
@@ -273,6 +354,7 @@ Based on the first micro fit digest (2026-05-11):
 | KD-9 | 每个 eval domain 要有专属 system thread，但 thread 不是状态真相源 | 深度分析需要长期上下文；状态和趋势仍进入 registry/Eval Hub，避免 thread 变垃圾桶 | 2026-05-21 |
 | KD-10 | 旧 scheduled task 清理是接入 AC，不是收尾优化 | F192/F200/F188 已有各自定时/报告机制；不迁移清理会双触发，导致猫猫收到重复 verdict，破坏信任 | 2026-05-21 |
 | KD-11 | Phase E 拆为 E-pilot → E-hub → E-scale → E-community；先一个真实 domain 跑通闭环，再做 Hub UI 和多域扩展 | owner review 指出 10 AC 单 Phase 违反 F192 KD-6；Hub 必须由真实 verdict 驱动，避免 F188 dashboard-before-verdict 反模式 | 2026-05-21 |
+| KD-12 | Verdict Matrix + Sunset Trial 是 E-hub 前的 contract hardening，不是 UI 后补 | E-pilot review 连续暴露 `fix/build/delete_sunset/keep_observe` 语义洞；应把四类 verdict 的证据门槛、handoff ask、closure 和 CVO 门固化成 contract，避免靠 review 逐条补锅。`delete_sunset` 只能触发可逆 trial，默认终态是 dormant，不直接删除 | 2026-05-22 |
 
 ## Timeline
 
@@ -294,6 +376,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-21 | Phase E Design Gate passed — owner review verified E-pilot sequencing, Verdict Handoff Packet contract, eval-cat invocation primitive, and F188 Health boundary guard；AC-E1 complete |
 | 2026-05-21 | Phase E-pilot implemented — `eval:a2a` docs-backed registry, Verdict Handoff Packet schema, invocation packet, legacy cleanup dry-run, re-eval closure state machine, and representative contract demo fixture |
 | 2026-05-22 | Phase E-pilot merged (PR #1835) — `eval:a2a` contract→verdict→handoff→re-eval loop landed with cloud review pass and `pnpm gate` green |
+| 2026-05-22 | Phase E contract hardening added — Verdict Matrix Contract + Sunset Trial Contract, clarifying `fix/build/delete_sunset/keep_observe` evidence gates and reversible sunset lifecycle before E-hub |
 
 ## Review Gate
 
