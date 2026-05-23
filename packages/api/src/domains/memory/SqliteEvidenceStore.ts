@@ -114,8 +114,8 @@ export class SqliteEvidenceStore implements IEvidenceStore {
   async upsertEntities(entities: EntityRecord[]): Promise<void> {
     return this.writeQueue.enqueue(() => {
       this.ensureOpen();
-      this.entityRegistry?.upsert(entities);
-      this.entityRegistry?.refreshMentions();
+      const changed = this.entityRegistry?.upsert(entities) ?? false;
+      if (changed) this.entityRegistry?.refreshMentions();
     });
   }
 

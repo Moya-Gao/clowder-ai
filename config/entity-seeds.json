@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "entities": [
+    {
+      "entityId": "person:landy",
+      "type": "person",
+      "canonicalName": "Landy",
+      "aliases": ["landy", "铲屎官", "CVO", "l.s.", "L.S.", "Lysander", "@landy", "@l.s.", "@lysander"],
+      "provenance": [
+        {
+          "source": "F209 Phase B.1 explicit seed",
+          "anchor": "F209",
+          "note": "CVO-approved seed from Cat Cafe runtime catalog / post-Phase-C reflection; F209 owns retrieval anchors only, not roster truth.",
+          "date": "2026-05-23"
+        }
+      ],
+      "updatedAt": "2026-05-23T00:00:00.000Z"
+    }
+  ]
+}

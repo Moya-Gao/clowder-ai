@@ -8,7 +8,7 @@ created: 2026-05-21
 
 # F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤
 
-> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed + Phase D.0 readiness sprint 待启动) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ implemented; Phase D.0 readiness sprint 待启动) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -109,17 +109,17 @@ Phase B 隐私模型：entity registry 跟随所属 evidence store / collection 
 Phase B 机制完成（registry + alias expansion + mention index）后，**生产 entity_registry 仍为空**——`upsertEntities` 只有测试在调，对真实用户来说 alias 召回功能 inert。Phase D Perspective 若建在空 registry 上会继承 Phase B 的空心状态。B.1 在 D.0 readiness sprint 之前先填这个坑。
 
 边界：
-- **真相源是 git-tracked explicit seed**（路径由 B.1 Design Gate 拍：`docs/team/entity-seeds.md` / `config/entity-seeds.json` / 等价位置）。
+- **真相源是 git-tracked explicit seed**：`config/entity-seeds.json`（B.1 Design Gate 选定为 machine-readable runtime seed）。
 - **猫 roster aliases 单向从 F032 roster 同步**：roster 仍是 truth，registry 只做 retrieval anchor 镜像（KD-7 / ownership map 已钉）。**不允许反写 roster**。
 - **不做自动推断**：不从聊天里"猜别名"。守 KD-8（给数据不给结论）。
 
 ### Acceptance Criteria
 
-- [ ] AC-B1.1: explicit seed 真相源存在并 git-tracked（路径由 B.1 Design Gate 拍）。
-- [ ] AC-B1.2: 至少 1 个真实 `person:` 实体 seeded，覆盖 ≥ 4 个 alias（如 `person:landy ← landy / 铲屎官 / CVO / l.s.`）。
-- [ ] AC-B1.3: 真实 `search_evidence("CVO")` / `search_evidence("铲屎官")` 能命中只提及另一 alias 的旧消息（dogfood demo）。
-- [ ] AC-B1.4: 猫 roster aliases 同步是 **roster → registry 单向**，registry 不反写 cat-config.json / AgentRegistry。
-- [ ] AC-B1.5: seed 真相源带 provenance（来源 + 日期 + 维护者），编辑历史进 git log。
+- [x] AC-B1.1: explicit seed 真相源存在并 git-tracked（`config/entity-seeds.json`）。
+- [x] AC-B1.2: 至少 1 个真实 `person:` 实体 seeded，覆盖 ≥ 4 个 alias（`person:landy ← landy / 铲屎官 / CVO / l.s. / L.S. / Lysander / @landy / @l.s. / @lysander`）。
+- [x] AC-B1.3: 真实 `search_evidence("CVO")` / `search_evidence("铲屎官")` 能命中只提及另一 alias 的旧消息（`entity-seeds.test.js` 通过 `/api/evidence/search?q=CVO` 覆盖 dogfood 路径）。
+- [x] AC-B1.4: 猫 roster aliases 同步是 **roster → registry 单向**，registry 不反写 cat-config.json / AgentRegistry。
+- [x] AC-B1.5: seed 真相源带 provenance（来源 + 日期 + 维护者），编辑历史进 git log。
 
 ## Phase C: Typed Drill-down Readers
 
@@ -329,6 +329,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | 2026-05-22 | Phase C merged (PR #1853) — typed `drillDown` REST/MCP contract + message window / invocation / file-slice readers + source-root-safe collection file hints + Phase C F200 fixtures |
 | 2026-05-22 | Phase C dogfood hotfix merged (PR #1854) — docs-root file-slice `drillDown` hints now resolve to repo-readable `docs/...` paths while collection hints stay on virtual URIs |
 | 2026-05-23 | F209 post-Phase-C 反思 alignment（47/砚砚/铲屎官）— spec patch: KD-11 Phase close 双足定义；AC-B6 transferred to F208 AC-A5（KD-12）；Phase B.1 minimal seed follow-up 新立子段；Phase D.0 readiness eval sprint 新立前置（KD-13）；OQ-11 invocation-level、OQ-12 inline-content-threshold 加入观察；quality-gate skill Step 4.5 Dogfood-Your-Slice |
+| 2026-05-23 | Phase B.1 implementation branch opened — `config/entity-seeds.json` explicit seed + one-way F032 roster → F209 `cat:*` retrieval anchors + alias dogfood regression |
 
 ## Review Gate
 
