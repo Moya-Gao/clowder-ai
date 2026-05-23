@@ -760,6 +760,10 @@ export class AntigravityBridge {
   }
 
   async approvePendingInteraction(cascadeId: string, step: TrajectoryStep): Promise<void> {
+    if (objectRecord(step.requestedInteraction?.permission)) {
+      await this.approvePermissionInteractionStep(cascadeId, step);
+      return;
+    }
     if (step.type === 'CORTEX_STEP_TYPE_CODE_ACTION') {
       await this.approveCodeActionStep(cascadeId, step);
       return;
@@ -767,27 +771,27 @@ export class AntigravityBridge {
     await this.resolveOutstandingSteps(cascadeId);
   }
 
-  private async approveCodeActionStep(cascadeId: string, step: TrajectoryStep): Promise<void> {
+  private async approvePermissionInteractionStep(cascadeId: string, step: TrajectoryStep): Promise<void> {
     const sourceStepInfo = step.metadata?.sourceTrajectoryStepInfo;
     const stepIndex = sourceStepInfo?.stepIndex;
     if (typeof stepIndex !== 'number') {
-      throw new Error('CODE_ACTION approval requires sourceTrajectoryStepInfo stepIndex');
+      throw new Error('permission approval requires sourceTrajectoryStepInfo stepIndex');
     }
 
-    if (objectRecord(step.requestedInteraction?.permission)) {
-      const trajectoryId = nonEmptyString(sourceStepInfo?.trajectoryId);
-      if (!trajectoryId) {
-        throw new Error('CODE_ACTION permission approval requires sourceTrajectoryStepInfo trajectoryId');
-      }
-      await this.approveInteraction(cascadeId, {
-        permission: { allow: true },
-        trajectoryId,
-        stepIndex,
-      });
-      log.info(`approved code action permission for cascade ${cascadeId} step ${stepIndex}`);
-      return;
+    const trajectoryId = nonEmptyString(sourceStepInfo?.trajectoryId);
+    if (!trajectoryId) {
+      throw new Error('permission approval requires sourceTrajectoryStepInfo trajectoryId');
     }
 
+    await this.approveInteraction(cascadeId, {
+      permission: { allow: true },
+      trajectoryId,
+      stepIndex,
+    });
+    log.info(`approved pending permission for cascade ${cascadeId} step ${stepIndex}`);
+  }
+
+  private async approveCodeActionStep(cascadeId: string, step: TrajectoryStep): Promise<void> {
     await this.acknowledgeCodeActionStep(cascadeId, step);
   }
 
