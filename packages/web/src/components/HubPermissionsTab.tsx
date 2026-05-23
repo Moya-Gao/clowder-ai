@@ -40,7 +40,7 @@ interface HubPermissionsTabProps {
   connectorLabel: string;
 }
 
-export default function HubPermissionsTab({ connectorId, connectorLabel }: HubPermissionsTabProps) {
+export default function HubPermissionsTab({ connectorId }: HubPermissionsTabProps) {
   const [config, setConfig] = useState<PermissionConfig>(EMPTY_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

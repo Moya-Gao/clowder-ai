@@ -177,7 +177,7 @@ export function EvidenceSearch({ initialQuery }: EvidenceSearchProps = {}) {
           type="button"
           onClick={handleSearch}
           disabled={isSearching || !query.trim()}
-          className="h-8 shrink-0 rounded-lg bg-cafe-accent px-4 text-compact font-semibold text-white transition-colors hover:bg-cafe-interactive disabled:opacity-50"
+          className="h-8 shrink-0 rounded-lg bg-cafe-accent px-4 text-compact font-semibold text-[var(--cafe-surface)] transition-colors hover:bg-cafe-accent-hover disabled:opacity-50"
           data-testid="evidence-search-button"
         >
           {isSearching ? '...' : '搜索'}

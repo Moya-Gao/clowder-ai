@@ -985,18 +985,19 @@ describe('F723 round 5 — ops tab/button convergence guard', () => {
     expect(src).not.toContain('console-shell-bg');
     expect(src).not.toMatch(/rounded bg-cafe-surface text-cafe-muted/);
     expect(src).toContain('bg-cafe-accent');
-    expect(src).toContain('hover:bg-cafe-interactive');
+    expect(src).toContain('hover:bg-cafe-accent-hover');
     expect(src).toContain('console-card-bg');
     expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
   });
 
-  it('HubGovernanceTab: no blue refresh link, sync button uses cafe-accent, refresh uses px-3 py-1.5 + transition', () => {
+  it('HubGovernanceTab: no blue refresh link, accent buttons use cafe-accent-hover, px-3 py-1.5 + transition', () => {
     const src = readSrc('HubGovernanceTab.tsx');
     expect(src).not.toContain('text-conn-blue-text hover:text-blue-700');
     expect(src).not.toContain('bg-conn-blue-text');
     expect(src).not.toContain('hover:bg-conn-blue-hover');
     expect(src).toContain('bg-cafe-accent');
-    expect(src).toContain('hover:bg-cafe-interactive');
+    expect(src).toContain('hover:bg-cafe-accent-hover');
+    expect(src).not.toContain('text-white');
     expect(src).toContain('px-3 py-1.5');
     expect(src).toContain('transition-colors');
   });
@@ -1158,7 +1159,7 @@ describe('F723 round 7 — CVO visual convergence: tabs, search, selects, button
     expect(searchBlock![0]).not.toContain('bg-conn-blue-bg');
     expect(searchBlock![0]).toContain('console-field-bg');
     expect(searchBlock![0]).toContain('bg-cafe-accent');
-    expect(searchBlock![0]).toContain('hover:bg-cafe-interactive');
+    expect(searchBlock![0]).toContain('hover:bg-cafe-accent-hover');
   });
 
   it('DependencyGraphTab: scope pills no mc-accent/white, use console-active-bg', () => {
@@ -1353,7 +1354,8 @@ describe('F723 round 9 — install button, error suppression, breadcrumb, tab/ca
     expect(src).not.toContain('SettingsBadge');
     expect(src).toContain("'安装'");
     expect(src).toContain('bg-cafe-accent');
-    expect(src).toContain('hover:bg-cafe-interactive');
+    expect(src).toContain('hover:bg-cafe-accent-hover');
+    expect(src).not.toContain('text-white');
     expect(src).toContain('disabled:opacity-50');
     expect(src).toContain('transition-colors');
   });
@@ -1421,7 +1423,8 @@ describe('F723 round 9 — install button, error suppression, breadcrumb, tab/ca
   it('DailyUsageSection refresh: accent button (py-1.5 + transition-colors)', () => {
     const src = readSrc('DailyUsageSection.tsx');
     expect(src).toContain('bg-cafe-accent');
-    expect(src).toContain('hover:bg-cafe-interactive');
+    expect(src).toContain('hover:bg-cafe-accent-hover');
+    expect(src).not.toContain('text-white');
     expect(src).toContain('py-1.5');
     expect(src).toContain('transition-colors');
   });

@@ -9,7 +9,6 @@ import {
   SettingsFilterTabs,
   SettingsPrimaryButton,
   SettingsRow,
-  SettingsStatusStrip,
   SettingsText,
 } from './settings/primitives';
 

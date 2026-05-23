@@ -92,13 +92,6 @@ function needsRestart(variable: EnvVar): boolean {
   return variable.runtimeEditable === false || RESTART_REQUIRED_ENV_VARS.has(variable.name);
 }
 
-function buildVariableHint(variable: EnvVar): string | null {
-  const hints: string[] = [];
-  if (needsRestart(variable)) hints.push('写回 .env 后需重启相关服务生效。');
-  if (variable.maskMode === 'url') hints.push('当前值已做凭证脱敏；修改时请填写完整连接串。');
-  return hints.length > 0 ? hints.join(' ') : null;
-}
-
 export function isEditableVariable(variable: EnvVar): boolean {
   if (variable.runtimeEditable === true) return true;
   if (variable.runtimeEditable === false) return false;

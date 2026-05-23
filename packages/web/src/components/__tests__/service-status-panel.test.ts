@@ -160,6 +160,53 @@ describe('ServiceStatusPanel', () => {
     expect(container.querySelector('[data-testid="voice-settings-panel"]')).toBeTruthy();
   });
 
+  it('does not call start/stop when toggle API returns error', async () => {
+    const enabledPayload = {
+      services: [
+        {
+          id: 'whisper-stt',
+          name: 'Whisper STT',
+          description: 'Local speech-to-text endpoint',
+          category: 'voice',
+          features: ['voice-input'],
+          endpoint: 'http://localhost:9876',
+          configured: true,
+          status: 'healthy',
+          httpStatus: 200,
+          error: null,
+          installed: true, enabled: true, installable: true,
+        },
+      ],
+    };
+    const callLog: string[] = [];
+    mockFetch.mockImplementation(async (path: string) => {
+      callLog.push(path);
+      if (path === '/api/services') {
+        return { ok: true, json: async () => enabledPayload };
+      }
+      if (path.includes('/toggle')) {
+        return { ok: false, status: 422, json: async () => ({ error: 'Toggle refused' }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+
+    await render(React.createElement(ServiceStatusPanel, { filterFeatures: ['voice-input'], title: '语音服务' }));
+
+    const toggle = container.querySelector('.settings-resource-toggle') as HTMLButtonElement;
+    expect(toggle).toBeTruthy();
+
+    await act(async () => {
+      toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(callLog.some((p) => p.includes('/toggle'))).toBe(true);
+    expect(callLog.some((p) => p.includes('/stop'))).toBe(false);
+    expect(container.textContent).toContain('Toggle refused');
+  });
+
   it('reads lines field from /logs DTO during install polling', async () => {
     const installablePayload = {
       services: [

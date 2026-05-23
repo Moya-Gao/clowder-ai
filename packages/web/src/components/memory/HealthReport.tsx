@@ -282,7 +282,7 @@ export function HealthReport() {
         <button
           type="button"
           onClick={fetchReport}
-          className="rounded-lg bg-cafe-accent px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-cafe-interactive"
+          className="rounded-lg bg-cafe-accent px-3 py-1.5 text-xs font-semibold text-[var(--cafe-surface)] transition-colors hover:bg-cafe-accent-hover"
         >
           刷新
         </button>

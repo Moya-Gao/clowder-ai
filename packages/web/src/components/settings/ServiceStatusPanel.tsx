@@ -127,17 +127,21 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
 
   async function handleToggle(service: ServiceUiState) {
     const enabling = !service.enabled;
-    const res = await apiFetch(`/api/services/${service.id}/toggle`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: enabling }),
-    });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      setActionError({ id: service.id, message: body.error ?? `Toggle failed (${res.status})` });
-      return;
+    try {
+      const res = await apiFetch(`/api/services/${service.id}/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: enabling }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        setActionError({ id: service.id, message: body.error ?? `Toggle failed (${res.status})` });
+        return;
+      }
+      await executeAction(service.id, enabling ? 'start' : 'stop');
+    } catch {
+      setActionError({ id: service.id, message: 'Network error' });
     }
-    await executeAction(service.id, enabling ? 'start' : 'stop');
   }
 
   function handleAction(service: ServiceUiState, action: string) {
@@ -202,7 +206,7 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
                     type="button"
                     disabled={isBusy}
                     onClick={() => handleAction(service, 'install')}
-                    className="rounded-lg bg-cafe-accent px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-cafe-interactive disabled:opacity-50"
+                    className="rounded-lg bg-cafe-accent px-3 py-1.5 text-xs font-semibold text-[var(--cafe-surface)] transition-colors hover:bg-cafe-accent-hover disabled:opacity-50"
                   >
                     {isBusy ? '...' : '安装'}
                   </button>
