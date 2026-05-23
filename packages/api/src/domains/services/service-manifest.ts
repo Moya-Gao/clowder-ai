@@ -331,6 +331,21 @@ export async function resolveServiceState(
     };
   }
 
+  if (!(installed && enabled)) {
+    return {
+      ...buildClientServiceManifest(service),
+      endpoint: maskServiceEndpoint(endpoint),
+      configured: true,
+      status: 'not_configured',
+      httpStatus: null,
+      error: null,
+      installed,
+      enabled,
+      installable,
+      ...(service.prerequisites ? { prerequisites: (({ venvPath: _, ...r }) => r)(service.prerequisites) } : {}),
+    };
+  }
+
   const healthProbe = options.fetchHealth ?? fetchServiceHealth;
   const health = await healthProbe(resolveServiceHealthUrl(service, endpoint), service);
   const status: ServiceStatus = health.ok ? 'healthy' : 'unhealthy';

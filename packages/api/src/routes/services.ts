@@ -59,6 +59,7 @@ export const servicesRoutes: FastifyPluginAsync<ServicesRouteOptions> = async (a
     const state = await resolveServiceState(service, {
       env: options.env,
       fetchHealth: options.fetchHealth,
+      config: getServiceConfig(request.params.id),
     });
     return {
       id: state.id,

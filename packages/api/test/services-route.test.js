@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import Fastify from 'fastify';
 import { servicesRoutes } from '../dist/routes/services.js';
+import { setServiceConfig } from '../dist/domains/services/service-config.js';
+
+const testConfigDir = mkdtempSync(join(tmpdir(), 'services-test-'));
+process.env.CAT_CAFE_SERVICES_CONFIG = join(testConfigDir, 'services.json');
 
 const SESSION_HEADERS = { 'x-test-session-user': 'you' };
 const TRUSTED_ORIGIN_HEADERS = { origin: 'http://localhost:3003', host: 'localhost:3003' };
@@ -62,6 +69,7 @@ describe('services routes', () => {
   });
 
   it('returns a read-only service manifest without lifecycle script handles', async () => {
+    setServiceConfig('whisper-stt', { installed: true, enabled: true });
     const app = await buildApp({
       env: { WHISPER_URL: 'http://127.0.0.1:19999/healthy' },
     });
@@ -203,6 +211,9 @@ describe('services routes', () => {
   });
 
   it('probes service-specific health URLs instead of base endpoints', async () => {
+    for (const id of ['whisper-stt', 'mlx-tts', 'embedding-model', 'llm-postprocess', 'audio-capture']) {
+      setServiceConfig(id, { installed: true, enabled: true });
+    }
     const probedUrls = new Map();
     const app = await buildApp({
       env: {
@@ -238,6 +249,7 @@ describe('services routes', () => {
   });
 
   it('does not append duplicate health paths when endpoint already points at health', async () => {
+    setServiceConfig('whisper-stt', { installed: true, enabled: true });
     let probedUrl = null;
     const app = await buildApp({
       env: { WHISPER_URL: 'http://127.0.0.1:19999/health' },
@@ -261,6 +273,7 @@ describe('services routes', () => {
   });
 
   it('returns positive health for a known configured service', async () => {
+    setServiceConfig('whisper-stt', { installed: true, enabled: true });
     const app = await buildApp({
       env: { WHISPER_URL: 'http://127.0.0.1:19999/healthy' },
     });
@@ -284,7 +297,8 @@ describe('services routes', () => {
     }
   });
 
-  it('includes install in available actions for unhealthy services with scripts', async () => {
+  it('reports not_configured for services that are not installed and enabled', async () => {
+    setServiceConfig('whisper-stt', { installed: false, enabled: false });
     const app = await buildApp({
       env: { WHISPER_URL: 'http://127.0.0.1:19999/down' },
     });
@@ -296,11 +310,59 @@ describe('services routes', () => {
       });
       assert.equal(res.statusCode, 200, res.payload);
       const whisper = JSON.parse(res.payload).services.find((s) => s.id === 'whisper-stt');
-      assert.equal(whisper.status, 'unhealthy');
+      assert.equal(whisper.status, 'not_configured');
       assert.equal(whisper.installable, true);
       assert.equal(typeof whisper.installed, 'boolean');
       assert.equal(typeof whisper.enabled, 'boolean');
       assert.equal('availableActions' in whisper, false);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('does not probe health when service is not installed', async () => {
+    setServiceConfig('whisper-stt', { installed: false, enabled: false });
+    let probed = false;
+    const app = await buildApp({
+      env: { WHISPER_URL: 'http://127.0.0.1:19999/healthy' },
+      fetchHealth: async () => {
+        probed = true;
+        return { ok: true, status: 200, error: null };
+      },
+    });
+    try {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/services/whisper-stt/health',
+        headers: SESSION_HEADERS,
+      });
+      assert.equal(res.statusCode, 200, res.payload);
+      assert.equal(JSON.parse(res.payload).status, 'not_configured');
+      assert.equal(probed, false, 'should not probe health for non-installed service');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('does not probe health when service is installed but disabled', async () => {
+    setServiceConfig('whisper-stt', { installed: true, enabled: false });
+    let probed = false;
+    const app = await buildApp({
+      env: { WHISPER_URL: 'http://127.0.0.1:19999/healthy' },
+      fetchHealth: async () => {
+        probed = true;
+        return { ok: true, status: 200, error: null };
+      },
+    });
+    try {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/services/whisper-stt/health',
+        headers: SESSION_HEADERS,
+      });
+      assert.equal(res.statusCode, 200, res.payload);
+      assert.equal(JSON.parse(res.payload).status, 'not_configured');
+      assert.equal(probed, false, 'should not probe health for disabled service');
     } finally {
       await app.close();
     }
