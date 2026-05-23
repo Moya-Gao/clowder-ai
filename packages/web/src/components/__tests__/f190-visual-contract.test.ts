@@ -1405,4 +1405,16 @@ describe('F723 round 9 — install button, error suppression, breadcrumb, tab/ca
       expect(src).toContain('rounded-2xl');
     }
   });
+
+  it('HubQuotaBoardTab: rounded-xl + standard shadow, no heavy shadow', () => {
+    const src = readSrc('HubQuotaBoardTab.tsx');
+    expect(src).not.toContain('rounded-2xl');
+    expect(src).not.toContain('0_12px_30px');
+  });
+
+  it('DailyUsageSection refresh: standard secondary (py-1.5 + transition-colors)', () => {
+    const src = readSrc('DailyUsageSection.tsx');
+    expect(src).toContain('py-1.5');
+    expect(src).toContain('transition-colors');
+  });
 });

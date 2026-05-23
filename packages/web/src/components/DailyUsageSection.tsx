@@ -94,7 +94,7 @@ export function DailyUsageSection() {
           type="button"
           onClick={() => fetchUsage(true)}
           disabled={loading}
-          className="px-3 py-1 text-xs rounded-lg bg-[var(--console-card-bg)] text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] hover:bg-[var(--console-hover-bg)] disabled:opacity-50"
+          className="rounded-lg bg-[var(--console-card-bg)] px-3 py-1.5 text-xs text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] transition-colors hover:bg-[var(--console-hover-bg)] disabled:opacity-50"
         >
           {loading ? '加载中...' : '刷新'}
         </button>
