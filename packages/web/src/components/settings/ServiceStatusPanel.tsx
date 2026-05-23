@@ -125,6 +125,16 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
     }
   }
 
+  async function handleToggle(service: ServiceUiState) {
+    const enabling = !service.running;
+    await apiFetch(`/api/services/${service.id}/toggle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enabling }),
+    });
+    await executeAction(service.id, enabling ? 'start' : 'stop');
+  }
+
   function handleAction(service: ServiceUiState, action: string) {
     if (action === 'install' && service.prerequisites?.models?.length) {
       setInstallTarget(service);
@@ -182,7 +192,7 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
-                {!service.installedKnown && service.availableActions.includes('install') && (
+                {!service.installed && service.installable && (
                   <SettingsBadge
                     tone="blue"
                     as="button"
@@ -193,12 +203,12 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
                     {isBusy ? '...' : '安装'}
                   </SettingsBadge>
                 )}
-                {service.installedKnown && (
+                {service.installed && (
                   <>
                     <SettingsResourceToggleSwitch
                       enabled={service.running}
                       busy={isBusy}
-                      onClick={() => void executeAction(service.id, service.running ? 'stop' : 'start')}
+                      onClick={() => void handleToggle(service)}
                       title={service.running ? '停止服务' : '启动服务'}
                     />
                     {!service.running && (

@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import { getServiceConfig } from '../domains/services/service-config.js';
 import {
   type FetchServiceHealth,
   getServiceManifest,
@@ -35,6 +36,7 @@ export const servicesRoutes: FastifyPluginAsync<ServicesRouteOptions> = async (a
     const services = await resolveServiceStates({
       env: options.env,
       fetchHealth: options.fetchHealth,
+      getConfig: getServiceConfig,
     });
     return { services };
   });

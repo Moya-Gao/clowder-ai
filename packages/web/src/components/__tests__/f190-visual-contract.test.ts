@@ -1304,13 +1304,24 @@ describe('F723 round 8 — CVO: refresh button, ops underline tabs, service togg
     }
   });
 
-  it('ServiceStatusPanel: toggle-based state machine, no start/stop badges', () => {
+  it('ServiceStatusPanel: toggle-based state machine with explicit installed/enabled state, no availableActions', () => {
     const src = readSrc('settings/ServiceStatusPanel.tsx');
     expect(src).toContain('SettingsResourceToggleSwitch');
-    expect(src).toContain('installedKnown');
+    expect(src).toContain('service.installed');
+    expect(src).toContain('service.installable');
+    expect(src).toContain('handleToggle');
     expect(src).not.toMatch(/ACTION_CONFIG/);
-    expect(src).not.toMatch(/label:\s*'启动'/);
-    expect(src).not.toMatch(/label:\s*'停止'/);
+    expect(src).not.toContain('availableActions');
+    expect(src).not.toContain('installedKnown');
     expect(src).toContain("'安装'");
+  });
+
+  it('service-ui-adapter: no availableActions type or passthrough', () => {
+    const src = readSrc('settings/service-ui-adapter.ts');
+    expect(src).not.toContain('availableActions');
+    expect(src).not.toContain('HomeServiceAction');
+    expect(src).toContain('installed: boolean');
+    expect(src).toContain('enabled: boolean');
+    expect(src).toContain('installable: boolean');
   });
 });

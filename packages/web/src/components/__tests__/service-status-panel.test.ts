@@ -27,7 +27,7 @@ const servicesPayload = {
       status: 'healthy',
       httpStatus: 200,
       error: null,
-      availableActions: [],
+      installed: true, enabled: true, installable: true,
     },
     {
       id: 'embedding-model',
@@ -40,7 +40,7 @@ const servicesPayload = {
       status: 'unhealthy',
       httpStatus: 503,
       error: 'HTTP 503',
-      availableActions: [],
+      installed: true, enabled: true, installable: true,
     },
   ],
 };
@@ -140,7 +140,7 @@ describe('ServiceStatusPanel', () => {
           configured: false,
           status: 'not_configured',
           error: null,
-          availableActions: ['install'],
+          installed: false, enabled: false, installable: true,
         },
       ],
     };

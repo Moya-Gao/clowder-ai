@@ -39,8 +39,8 @@ export interface ServiceLifecycleRouteOptions {
   serviceConfig?: {
     set(
       id: string,
-      patch: { enabled?: boolean; selectedModel?: string; port?: number },
-    ): { enabled: boolean; selectedModel?: string; port?: number };
+      patch: { installed?: boolean; enabled?: boolean; selectedModel?: string; port?: number },
+    ): { installed?: boolean; enabled: boolean; selectedModel?: string; port?: number };
   };
   auditLog?: ServiceLifecycleAuditLog;
 }
@@ -162,7 +162,11 @@ export async function registerServiceLifecycleRoutes(
           operator,
           env: envResult.env,
         });
-        if (!result.ok) reply.status(lifecycleFailureStatus(result.error));
+        if (!result.ok) {
+          reply.status(lifecycleFailureStatus(result.error));
+        } else {
+          serviceConfigStore.set(service.id, { installed: true, enabled: false });
+        }
         return result;
       });
     },
@@ -187,7 +191,11 @@ export async function registerServiceLifecycleRoutes(
         operator,
         env: { ...(options.env ?? process.env) },
       });
-      if (!result.ok) reply.status(lifecycleFailureStatus(result.error));
+      if (!result.ok) {
+        reply.status(lifecycleFailureStatus(result.error));
+      } else {
+        serviceConfigStore.set(service.id, { installed: false, enabled: false });
+      }
       return result;
     });
   });

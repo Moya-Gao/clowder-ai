@@ -79,7 +79,10 @@ describe('services routes', () => {
       assert.equal(whisper.endpoint, 'http://127.0.0.1:19999/healthy');
       assert.equal(whisper.configured, true);
       assert.equal(whisper.status, 'healthy');
-      assert.deepEqual(whisper.availableActions, ['stop', 'uninstall']);
+      assert.equal(whisper.installable, true);
+      assert.equal(typeof whisper.installed, 'boolean');
+      assert.equal(typeof whisper.enabled, 'boolean');
+      assert.equal('availableActions' in whisper, false);
       assert.equal('scripts' in whisper, false);
       assert.equal('installScript' in whisper, false);
       assert.equal('startScript' in whisper, false);
@@ -294,7 +297,10 @@ describe('services routes', () => {
       assert.equal(res.statusCode, 200, res.payload);
       const whisper = JSON.parse(res.payload).services.find((s) => s.id === 'whisper-stt');
       assert.equal(whisper.status, 'unhealthy');
-      assert.deepEqual(whisper.availableActions, ['install', 'start', 'uninstall']);
+      assert.equal(whisper.installable, true);
+      assert.equal(typeof whisper.installed, 'boolean');
+      assert.equal(typeof whisper.enabled, 'boolean');
+      assert.equal('availableActions' in whisper, false);
     } finally {
       await app.close();
     }
