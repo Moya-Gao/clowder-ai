@@ -1,6 +1,6 @@
 ---
 feature_ids: [F210]
-related_features: [F053, F061, F118, F149, F161, F179, F197, F201]
+related_features: [F053, F061, F089, F118, F149, F161, F179, F197, F198, F201]
 topics: [antigravity, gemini, cli, migration, provider]
 doc_kind: spec
 created: 2026-05-22
@@ -34,6 +34,8 @@ Before F210, Cat Cafe's non-ACP Siamese path used `GeminiAgentService` with `GEM
 | Antigravity reasoning models include Gemini 3.1 Pro (high/low), Gemini 3 Flash, Claude Sonnet 4.6 (thinking), Claude Opus 4.6 (thinking), and GPT-OSS-120b | `https://antigravity.google/docs/models`, fetched 2026-05-23 | Multi-model targets are real product surfaces, but Cat Cafe still needs a deterministic model-selection contract before exposing per-cat AGY profiles |
 | Antigravity CLI exposes `/model` as an interactive persistent configuration command | `https://antigravity.google/docs/cli-features`, fetched 2026-05-23 | A sticky default model is not the same as a per-invocation `--model` flag; do not claim per-cat isolation until settings behavior is verified |
 | Antigravity pricing currently lists Gemini 3.5 Flash access | `https://antigravity.google/pricing`, fetched 2026-05-23 | Treat `gemini-3.5-flash` as a desired profile pending exact selector/settings id verification |
+| AGY starts a local language-server control plane during CLI runs | Local `agy 1.0.1` logs show random localhost HTTPS/gRPC and HTTP ports; `docs/features/assets/F210/phase-g-interactive-api-probe-2026-05-23.md` | An F198-like AGY carrier should investigate the structured local API before falling back to PTY/tmux screen scraping |
+| AGY's local HTTP/Connect API exposes read-only model/conversation/MCP state | `GetConversationMetadata`, `GetCascadeModelConfigData`, `GetAvailableModels`, and `GetMcpServerStates` responded over the logged HTTP port | Candidate model ids and MCP state are discoverable, but send/stream/model-select semantics are not proven enough for runtime routing |
 | Runtime catalog ACP takes precedence over `GeminiAgentService` adapter selection | `packages/api/src/index.ts` calls `getAcpConfig(id)` first and instantiates `GeminiAcpAdapter` when present | The Phase F default switch affects non-ACP Google routes; it does not automatically move existing ACP cats from `gemini --acp` to `agy` |
 | Gemini CLI exposes ACP (`gemini --acp`), but AGY CLI `1.0.1` does not expose a supported/documented ACP server mode | `gemini --help`; `agy --help`; `agy help acp`; `docs/features/assets/F210/phase-g-acp-probe-2026-05-23.md` | If AGY later ships ACP, prefer that route; until then do not swap `agy` into `GeminiAcpAdapter` or claim `/model` is programmatically controllable |
 
@@ -124,9 +126,11 @@ Add deterministic Cat Cafe profiles for Antigravity CLI only after the model-sel
 - Minimum target profile set: Claude Opus 4.6 (thinking), Gemini 3.1 Pro, and Gemini 3.5 Flash.
 - Prefer an ACP-based integration if AGY adds a supported ACP server mode, because Gemini ACP already gives Cat Cafe a programmatic session/model/tool lifecycle.
 - Verify whether `~/.gemini/antigravity-cli/settings.json`, `/model`, statusline metadata, or another supported surface exposes stable model ids.
+- Probe AGY's local language-server API before adopting an interactive PTY bridge: message send, update stream, cancellation, model selection, and MCP/tool event visibility must be proven from structured APIs first.
 - Verify Cat Cafe can run AGY with auto-approval (`--dangerously-skip-permissions`, the AGY equivalent of yolo) for unattended agent turns. Human approval prompts are not a viable runtime boundary for Cat Cafe cats executing scripts.
 - Verify per-cat profile sandboxing: each logical AGY cat must have isolated HOME / AGY config state, model setting, trusted worktree, MCP config, and permission posture before Cat Cafe exposes multiple AGY profiles.
 - Prove profile isolation before adding user-facing cats: one Cat Cafe invocation must not silently inherit another profile's sticky AGY default.
+- Keep PTY/tmux wrapping as an F089/F198-style rescue/oversight fallback only if the structured API is insufficient; ANSI terminal output is not a primary event protocol.
 - If AGY remains sticky/global without a per-invocation override, expose a preflight/onboarding warning instead of pretending per-cat model routing is deterministic.
 
 ## 需求点 Checklist
@@ -140,6 +144,7 @@ Add deterministic Cat Cafe profiles for Antigravity CLI only after the model-sel
 | R5 | 不要把企业例外/旧 fallback 写没 | AC-E2, AC-E4 | fallback tests + docs | [x] |
 | R6 | “antigravity-cli 至少要接入 Opus / Gemini 3.1 Pro / 3.5 Flash” | AC-G1, AC-G2, AC-G3 | official model docs + local AGY settings/probe + E2E smoke per profile | [ ] |
 | R7 | “AGY 也得开 yolo；隔离不同猫要验证 HOME/AGY config sandbox，并给 worktree 权限” | AC-G4, AC-G5 | profile-sandbox smoke with `--dangerously-skip-permissions`, isolated settings/MCP/trusted workspace, and worktree access probe | [ ] |
+| R8 | “像 F198 拯救布偶猫那样接入 AGY 互动式 CLI？” | AC-G6 | local language-server API probe + PTY fallback smoke + carrier decision packet | [ ] |
 
 ### 覆盖检查
 
@@ -224,10 +229,13 @@ The non-ACP `GeminiAgentService` default route is now `antigravity-cli` when nei
 - [ ] AC-G3: Runtime preflight reports a clear actionable warning when AGY is missing, no default model is selected, or requested profile selection cannot be verified.
 - [ ] AC-G4: Cat Cafe AGY invocations run with an explicit auto-approval policy (`--dangerously-skip-permissions`) only inside an isolated AGY profile sandbox; no unattended runtime path may depend on interactive permission prompts.
 - [ ] AC-G5: Profile-sandbox smoke proves each AGY profile can access its assigned worktree and MCP config while keeping `~/.gemini/antigravity-cli/settings.json` / `trustedWorkspaces` / permissions isolated from other profiles.
+- [ ] AC-G6: Interactive-carrier spike proves the preferred structured control plane, or explicitly rejects it and documents the PTY/tmux fallback boundaries before any user-facing AGY interactive bridge ships.
 
 Phase G starts from the current constraint: `GeminiAgentService.invokeAntigravityCLI()` intentionally reports `model: account-selected (antigravity-cli)` and emits `antigravity_cli_model_override_unsupported` when a Cat Cafe model override is requested. This is correct until a stable model id/config contract is proven. The immediate runtime update after PR #1863 only switches the non-ACP Google service default to AGY; it does not move catalog ACP cats off `gemini --acp`, and it does not mean Opus/Gemini profile routing is deterministic.
 
 Phase G ACP probe source: `docs/features/assets/F210/phase-g-acp-probe-2026-05-23.md`. Current result: `agy 1.0.1` is globally installed and `agy --print` works, but AGY does not expose a supported/documented ACP server mode. Gemini CLI `0.42.0` still exposes `--acp`, `--model`, and `stream-json`; AGY exposes interactive `/model` plus persistent `~/.gemini/antigravity-cli/settings.json` model selection instead. Do not route AGY through `GeminiAcpAdapter` unless a future AGY release adds a compatible ACP surface.
+
+Phase G interactive/API probe source: `docs/features/assets/F210/phase-g-interactive-api-probe-2026-05-23.md`. Current result: AGY interactive mode can be driven from a PTY, but the stronger F198-like lead is AGY's local language-server HTTP/Connect API. Read-only endpoints expose conversation metadata, model catalog/config, and MCP server state. Message send/update-stream/model-selection semantics remain unproven, so this is a spike lead rather than a runtime carrier yet.
 
 Phase G must treat approval policy and model isolation as the same design surface: `--dangerously-skip-permissions` is required for unattended Cat Cafe operation, but it is only acceptable after the invocation is confined to a per-cat AGY profile sandbox with explicit worktree/MCP access. A shared global HOME with a shared `settings.json` would couple model choice, workspace trust, and permission posture across cats, so it is not a valid multi-profile architecture.
 
@@ -259,6 +267,8 @@ Phase G must treat approval policy and model isolation as the same design surfac
 | Treating AGY `/model` as equivalent to Gemini ACP `unstable_setSessionModel` would create false per-cat isolation | Phase G ACP probe confirms AGY 1.0.1 has no supported ACP server mode; only use ACP semantics after AGY exposes a compatible server surface |
 | AGY interactive permission prompts block unattended Cat Cafe turns and train users to approve unread scripts | Phase G requires `--dangerously-skip-permissions` for AGY runtime paths, paired with profile sandboxing and explicit worktree/MCP scoping |
 | Isolating HOME/AGY config may accidentally remove trusted workspace or MCP access | Profile-sandbox smoke must prove `trustedWorkspaces`, MCP config, and assigned worktree access are present for each cat profile before enabling it |
+| AGY local language-server API is undocumented and may change | Treat it as a spike candidate, not a production contract, until message send/stream/cancel/model-select semantics are fixture-backed and version-guarded |
+| PTY/tmux interactive wrapping loses structured events | Use PTY for observation/manual takeover only unless no structured carrier exists; ANSI screen parsing must not silently replace AgentMessage/tool event semantics |
 
 ## Open Questions
 
@@ -273,6 +283,8 @@ Phase G must treat approval policy and model isolation as the same design surfac
 | OQ-7 | Can AGY reuse Cat Cafe's existing Gemini ACP adapter? | Answered no for AGY `1.0.1` — no supported/documented `agy --acp` or ACP subcommand exists; keep plain-text adapter until AGY exposes ACP or an equivalent programmatic lifecycle |
 | OQ-8 | Can Cat Cafe isolate AGY profiles by HOME / `~/.gemini/antigravity-cli` config while preserving auth, model selection, trusted worktree, and MCP access? | Open — required for Opus/Gemini multi-profile routing; must be proven before user-facing cats |
 | OQ-9 | What is the minimum safe AGY permission posture for unattended runtime calls? | Open policy detail — CVO direction is yolo/auto-approve for usability, implemented as `--dangerously-skip-permissions` only inside a scoped profile sandbox |
+| OQ-10 | Can AGY's local language-server API send user messages, stream updates, cancel turns, and set/verify selected models? | Open — read-only endpoints work, but write/stream request schemas and lifecycle semantics are not proven |
+| OQ-11 | If the structured local API is insufficient, what is the smallest acceptable PTY/tmux bridge? | Open — initial PTY smoke works; acceptable fallback must define ANSI parsing limits, attach/read-only takeover, and resume handling |
 
 ## Key Decisions
 
@@ -289,6 +301,7 @@ Phase G must treat approval policy and model isolation as the same design surfac
 | KD-9 | Prefer AGY ACP only if AGY ships a compatible server mode | Gemini CLI ACP has the lifecycle Cat Cafe wants, but AGY 1.0.1 does not expose that surface; swapping `command: "agy"` into the ACP pool would be a false integration | 2026-05-23 |
 | KD-10 | ACP catalog precedence is a separate routing layer from `GEMINI_ADAPTER` | `index.ts` instantiates `GeminiAcpAdapter` before falling back to `GeminiAgentService`; adapter defaults do not affect existing ACP cats | 2026-05-23 |
 | KD-11 | AGY yolo is required but must be sandbox-scoped | Interactive approval prompts are unusable for Cat Cafe agent turns; auto-approval is acceptable only when HOME/config, worktree, MCP, and model profile isolation are proven | 2026-05-23 |
+| KD-12 | For an F198-like AGY carrier, structured local API beats PTY | AGY exposes a localhost HTTP/Connect language-server API with conversation/model/MCP read paths; PTY works but is an ANSI UI fallback, not a durable event protocol | 2026-05-23 |
 
 ## Timeline
 
@@ -308,6 +321,7 @@ Phase G must treat approval policy and model isolation as the same design surfac
 | 2026-05-23 | Phase G ACP probe：global `agy 1.0.1` installed and `agy --print` smoke passed; Gemini CLI exposes `--acp`, but AGY does not expose supported/documented ACP, so Phase G cannot close deterministic Opus/Gemini profile routing through ACP |
 | 2026-05-23 | Runtime correction：alpha start on `8cdc573bd` confirmed Gemini ACP pool still initializes from catalog `acp` config; the AGY default does not replace existing `gemini --acp` cats |
 | 2026-05-23 | CVO scope add: AGY Cat Cafe runtime must use yolo/auto-approval and must validate HOME/AGY config profile sandboxing with worktree/MCP permissions before multi-cat exposure |
+| 2026-05-23 | Phase G interactive/API probe：PTY `--prompt-interactive` smoke returned `AGY_PTY_PROBE_OK`; AGY local HTTP/Connect API exposed conversation metadata, model catalog/config, and MCP server states; send/stream/model-select remains open |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |
@@ -329,6 +343,7 @@ Phase G must treat approval policy and model isolation as the same design surfac
 | Official | https://antigravity.google/pricing | Antigravity plan model-access list including Gemini 3.5 Flash; fetched 2026-05-23 |
 | Recon | `docs/features/assets/F210/phase-a-recon-2026-05-22.md` | Phase A `agy 1.0.1` facts and fixture index |
 | Recon | `docs/features/assets/F210/phase-g-acp-probe-2026-05-23.md` | Phase G global install, ACP absence, and AGY print smoke evidence |
+| Recon | `docs/features/assets/F210/phase-g-interactive-api-probe-2026-05-23.md` | Phase G F198-like interactive carrier probe, local language-server API evidence, and PTY fallback boundary |
 | Fixture | `docs/features/assets/F210/agy-help.txt` / `agy-unsupported-flags.txt` / `agy-print-auth-required.txt` / `agy-real-home-no-default-model.txt` | Raw CLI evidence, sanitized |
 | Code | `packages/api/src/domains/cats/services/agents/providers/GeminiAgentService.ts` | Current Gemini CLI and Desktop adapter split |
 | Code | `packages/api/src/utils/cli-resolve.ts` | CLI install hints |
