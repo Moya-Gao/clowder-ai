@@ -338,6 +338,7 @@ Based on the first micro fit digest (2026-05-11):
 | OQ-12 | Eval Hub 与 F188 Health Dashboard / badge 的关系：吸收、替代还是共存？ | ⬜ E-hub/E-scale Design Gate |
 | OQ-13 | `delete_sunset` 的 CVO gate 现在是 fail-safe text gate（要求 `cvo accept` 文本）；E-scale 前是否改成结构化 `governance.requiresCvoAccept` 字段？ | ⬜ E-scale hardening before second domain |
 | OQ-14 | Sunset Trial 的 `triggerScenarios` 自己会不会过期？旧 failure pattern 可能已不代表当前模型 / 猫猫能力 | ⬜ E-scale 前定 refresh policy；trial 可先要求引用原 Eval Contract pattern |
+| OQ-15 | live verdict 的 evidence SOT 是什么？当前 `docs/harness-feedback/snapshots/` 与 `attributions/` 是 gitignored generated artifacts，干净 worktree 无法解析 committed verdict refs | ⬜ E-hub 前定：tracked sanitized bundle vs runtime read model vs hybrid curated bundle |
 
 ## Key Decisions
 

@@ -19,6 +19,22 @@ created: 2026-05-22
 
 ---
 
+## Pre-flight Blocker（2026-05-22 spike）
+
+Task 1 RED test uncovered an architecture blocker before implementation:
+
+- `docs/harness-feedback/snapshots/` and `docs/harness-feedback/attributions/` are gitignored generated artifacts.
+- A clean worktree / reviewer checkout does not contain the real `2026-05-22` snapshot and attribution files.
+- Therefore a committed live verdict under `docs/harness-feedback/verdicts/` cannot safely cite `snapshot:*` / `attribution:*` refs unless those refs resolve from a tracked evidence bundle or from an explicit runtime store.
+
+Do **not** implement the parser/generator as originally written until F192 owner decides the evidence SOT:
+
+1. **Tracked evidence bundle**: commit a sanitized snapshot + attribution bundle alongside each live verdict.
+2. **Runtime read model**: keep verdicts out of git and let Eval Hub read generated artifacts from runtime storage.
+3. **Hybrid**: commit only curated verdict bundles; keep daily raw snapshots ignored.
+
+This is not a code parser problem. It is the same evidence-integrity issue that blocked the E-pilot demo from pretending fixture data was live.
+
 ## Finish Line
 
 One live verdict document exists under `docs/harness-feedback/verdicts/` for the latest available `eval:a2a` snapshot / attribution pair, and tests prove:
