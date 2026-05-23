@@ -113,7 +113,8 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 1. **E-pilot**：只接 `eval:a2a`，无新 UI，验证 registry / handoff / legacy cleanup / re-eval closure
 2. **E-hub**：用 E-pilot contract mechanics + 后续真实 verdict 驱动 Eval Hub v1
 3. **E-scale**：接 `eval:memory`（F200 + F188 adapter）并迁移对应旧任务
-4. **E-community**：开放社区 issue packet / custom domain path
+4. **E-sop**：接 `eval:sop`（cat-cafe SOP compliance；ground truth = `SopDefinition.hard_rules/pitfalls` per F203 #748；domain-generic schema 从 day 1 支持 development / video-cocreation / tech-article / family-office 等多 domain）
+5. **E-community**：开放社区 issue packet / custom domain path
 
 ## Acceptance Criteria
 
@@ -172,6 +173,22 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 - [ ] AC-E11: Unified Eval Runtime 接入 `eval:memory` adapter：F200 memory recall eval + F188 library health governance 只产出标准 verdict / finding，不复制各自业务数据真相源
 - [ ] AC-E12: F188 Health Dashboard / badge 与 Eval Hub 边界决议落地：F188 health 是 memory-domain adapter 输入；Eval Hub 聚合 verdict / handoff / closure，不替代 F188 的现场健康入口，除非 Design Gate 明确迁移
 - [ ] AC-E13: `eval:memory` legacy scheduled-task cleanup：列出现有 F200/F188 相关 scheduled tasks / health repair reminders；接入后 disable / redirect 对应旧任务，并有 regression test 或 dry-run report 证明不会双触发
+
+#### E-sop（`eval:sop`，domain-generic SOP compliance）
+
+来源 2026-05-23 #748 设计讨论（clowder-ai 社区 terrenceeLeung 提议外化 SOP stage 定义；CVO 反思 "skill = 软约束（猫可加载可不加载），需硬约束兜底"）。Phase D AC-D1 「hard / soft / eval 三栏 registry」正是答案：`SopDefinition.hard_rules / pitfalls` 是 ground truth，eval 跑 runtime trace 检测违规；hook 注入与否由 eval 数据驱动 (per AC-D9 acted-on rate)，不预判。**Domain-generic from day 1**：schema 不绑 coding，`development` 只是第一个 domain，video co-creation / tech article / family office 同 schema 不同实例（消除「多阶段 skill 如 video-forge / ppt-forge / tech-writing / expert-panel 本质是 SOP 错位写进 skill body」的归位错位）。
+
+- [ ] AC-E16: Architecture Decision——`eval:sop` 是 F192 内部 domain 扩展（同 E-pilot/E-scale，不是新 F 号）；复用 Verdict Handoff / re-eval closure pattern；明确三件套定位（skill = 软约束 / SopDefinition = 硬约束 ground truth / eval = 观测层）
+- [ ] AC-E17: SOP Trace Adapter——从 F153 telemetry / session events / git state 抽 stage transition + tool-call sequence + repo state，喂 predicate evaluator
+- [ ] AC-E18: Predicate Evaluator——接 SopDefinition 里的机器可检测 predicate（基础 type 集：command_pattern / command_sequence / sha_dedup / env_check / git_state_predicate / handle_check），输出 violation 列表带 trace anchor
+- [ ] AC-E19: `eval:sop` domain registry + system thread bootstrap：复用 AC-E2/E4 pattern；first SOP scope = `development`（cat-cafe 开发 SOP，从 #748 SopDefinition 读取）
+- [ ] AC-E20: Eval cat invocation：周度 scheduled task 唤醒 eval 猫，per-stage / per-rule 出 violation verdict
+- [ ] AC-E21: Verdict Handoff target resolver：rule owner = SOP 维护者 / skill 维护者（按 rule 归属解析；development.yaml 的 owner 在 cat-cafe-skills/refs/）
+- [ ] AC-E22: First batch machine-checkable predicates 覆盖 sop_navigation 现存 12 条规则（merge `--squash` / `closed≠merged` / self-review / Redis 6398 / main 双向同步 等）；每条 rule 跑通过/未通过判定
+- [ ] AC-E23: Cross-domain schema validation——用 stub `video-cocreation.yaml` / `tech-article.yaml` / `family-office.yaml` 跑 schema 校验，证明 schema generic 不绑 coding；不实做这些 domain，只验 schema
+- [ ] AC-E24: Re-eval closure——与 E-pilot 同 pattern（owner 处理 handoff → 复验 verdict pass / CVO accept / suppress）
+
+依赖：#748（cat-cafe）merge 后再 register（需 SopDefinition + predicate schema 着陆）；与 E-hub / E-scale / E-community 可并行（不依赖 UI / memory adapter / community path）。
 
 #### E-community
 - [ ] AC-E14: Community path：支持社区实例把本地 eval finding 导出为脱敏 issue packet；也支持社区项目注册自有 eval domain，不 fork Cat Café core
@@ -415,6 +432,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-22 | Live verdict evidence SOT decided — `snapshot:` / `attribution:` refs resolve to committed sanitized per-verdict bundles; raw runtime snapshots remain ignored (KD-13) |
 | 2026-05-23 | First live `eval:a2a` verdict generated — runtime F167 telemetry produced a `keep_observe` verdict with committed sanitized bundle under `docs/harness-feedback/bundles/2026-05-23-eval-a2a-live-verdict/` |
 | 2026-05-23 | Phase E live verdict evidence slice merged (PR #1856) — resolver/generator/invariant tests landed for committed `snapshot:` / `attribution:` bundle refs |
+| 2026-05-23 | **Phase E-sop scoped (AC-E16-E24)**——CVO 反思 "skill = 软约束需硬约束兜底" → `SopDefinition.hard_rules/pitfalls` 作 ground truth，`eval:sop` domain 跑 runtime trace 检测违规，hook 注入决策由 eval 数据驱动 (AC-D9)。Schema **domain-generic from day 1**（cross-domain schema 校验作 AC-E23 硬验证），消除多阶段 skill（video-forge / ppt-forge / tech-writing / expert-panel）= SOP 错位写进 skill body 的归位错位。依赖 F203 #748 merge 提供 SopDefinition + predicate schema。 |
 
 ## Review Gate
 
