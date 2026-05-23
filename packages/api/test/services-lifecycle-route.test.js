@@ -310,6 +310,54 @@ describe('service lifecycle write routes', () => {
     }
   });
 
+  it('persists selectedModel on install and injects it into start env', async () => {
+    const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
+    const configs = new Map();
+    let startEnv = null;
+    const app = await buildApp({
+      lifecycle: {
+        serviceConfig: {
+          get: (id) => configs.get(id) ?? { enabled: false },
+          set: (id, patch) => {
+            const updated = { ...(configs.get(id) ?? { enabled: false }), ...patch };
+            configs.set(id, updated);
+            return updated;
+          },
+        },
+        runScript: async (input) => {
+          if (input.action === 'start') startEnv = input.env;
+          return { code: 0, output: 'ok' };
+        },
+        findPidsByPort: async () => [],
+        readProcessCommand: async () => null,
+      },
+    });
+    try {
+      const installRes = await app.inject({
+        method: 'POST',
+        url: '/api/services/whisper-stt/install',
+        headers: SESSION_HEADERS,
+        payload: { model: 'mlx-community/whisper-large-v3-turbo' },
+      });
+      assert.equal(installRes.statusCode, 200, installRes.payload);
+      assert.equal(configs.get('whisper-stt').selectedModel, 'mlx-community/whisper-large-v3-turbo');
+      assert.equal(configs.get('whisper-stt').installed, true);
+      assert.equal(configs.get('whisper-stt').enabled, false);
+
+      const startRes = await app.inject({
+        method: 'POST',
+        url: '/api/services/whisper-stt/start',
+        headers: SESSION_HEADERS,
+      });
+      assert.equal(startRes.statusCode, 200, startRes.payload);
+      assert.equal(startEnv?.WHISPER_MODEL, 'mlx-community/whisper-large-v3-turbo');
+    } finally {
+      await app.close();
+      restoreOwner(previousOwner);
+    }
+  });
+
   it('keeps service script paths inside the repository services directory', () => {
     assert.match(
       resolveServiceScriptPath('scripts/services/whisper-install.sh'),

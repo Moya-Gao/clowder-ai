@@ -68,26 +68,19 @@ const DISPLAY_NAMES: Record<string, string> = {
 };
 
 export function adaptServiceState(home: HomeServiceState): ServiceUiState {
-  let status: ServiceUiStatus;
-  let running: boolean;
-  let installed: boolean;
-  let enabled: boolean;
+  const installed = home.installed;
+  const enabled = home.enabled;
+  const running = home.status === 'healthy';
 
-  if (home.status === 'healthy') {
-    status = 'running';
-    running = true;
-    installed = true;
-    enabled = true;
-  } else if (home.installed) {
-    installed = true;
-    enabled = home.enabled;
-    running = false;
-    status = home.enabled ? 'error' : 'stopped';
-  } else {
+  let status: ServiceUiStatus;
+  if (!installed) {
     status = 'not_configured';
-    running = false;
-    installed = false;
-    enabled = false;
+  } else if (enabled && running) {
+    status = 'running';
+  } else if (enabled) {
+    status = 'error';
+  } else {
+    status = 'stopped';
   }
 
   return {

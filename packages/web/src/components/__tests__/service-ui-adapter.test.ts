@@ -79,11 +79,12 @@ describe('adaptServiceState', () => {
     expect(result.installable).toBe(false);
   });
 
-  it('healthy overrides installed/enabled to true', () => {
+  it('healthy does not override installed/enabled from API', () => {
     const result = adaptServiceState(makeHome({ status: 'healthy', installed: false, enabled: false }));
     expect(result.running).toBe(true);
-    expect(result.installed).toBe(true);
-    expect(result.enabled).toBe(true);
+    expect(result.installed).toBe(false);
+    expect(result.enabled).toBe(false);
+    expect(result.status).toBe('not_configured');
   });
 });
 

@@ -126,7 +126,7 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
   }
 
   async function handleToggle(service: ServiceUiState) {
-    const enabling = !service.running;
+    const enabling = !service.enabled;
     await apiFetch(`/api/services/${service.id}/toggle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -206,12 +206,12 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
                 {service.installed && (
                   <>
                     <SettingsResourceToggleSwitch
-                      enabled={service.running}
+                      enabled={service.enabled}
                       busy={isBusy}
                       onClick={() => void handleToggle(service)}
-                      title={service.running ? '停止服务' : '启动服务'}
+                      title={service.enabled ? '停止服务' : '启动服务'}
                     />
-                    {!service.running && (
+                    {!service.enabled && (
                       <SettingsResourceIconButton
                         tone="danger"
                         disabled={isBusy}

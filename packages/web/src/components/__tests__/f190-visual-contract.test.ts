@@ -1325,3 +1325,21 @@ describe('F723 round 8 — CVO: refresh button, ops underline tabs, service togg
     expect(src).toContain('installable: boolean');
   });
 });
+
+describe('F723 round 8.2 — toggle uses enabled (not running), adapter preserves explicit fields', () => {
+  it('ServiceStatusPanel toggle reads service.enabled, not service.running', () => {
+    const src = readSrc('settings/ServiceStatusPanel.tsx');
+    expect(src).toContain('enabled={service.enabled}');
+    expect(src).not.toContain('enabled={service.running}');
+    expect(src).toContain('!service.enabled');
+    expect(src).not.toMatch(/!service\.running/);
+  });
+
+  it('service-ui-adapter does not override installed/enabled from health status', () => {
+    const src = readSrc('settings/service-ui-adapter.ts');
+    expect(src).toContain('const installed = home.installed');
+    expect(src).toContain('const enabled = home.enabled');
+    expect(src).not.toMatch(/installed\s*=\s*true/);
+    expect(src).not.toMatch(/enabled\s*=\s*true/);
+  });
+});

@@ -109,6 +109,39 @@ describe('ServiceStatusPanel', () => {
     expect(container.textContent).not.toContain('语音识别 (Whisper)');
   });
 
+  it('shows toggle ON and no trash for enabled+unhealthy service', async () => {
+    const unhealthyEnabledPayload = {
+      services: [
+        {
+          id: 'embedding-model',
+          name: 'Embedding Model',
+          description: 'Semantic memory embedding endpoint',
+          category: 'memory',
+          features: ['memory-semantic-search'],
+          endpoint: 'http://127.0.0.1:9880',
+          configured: true,
+          status: 'unhealthy',
+          httpStatus: 503,
+          error: 'HTTP 503',
+          installed: true, enabled: true, installable: true,
+        },
+      ],
+    };
+    mockFetch.mockResolvedValue({ ok: true, json: async () => unhealthyEnabledPayload });
+
+    await render(
+      React.createElement(ServiceStatusPanel, { filterFeatures: ['memory-semantic-search'], title: '记忆服务' }),
+    );
+
+    const toggle = container.querySelector('.settings-resource-toggle') as HTMLButtonElement;
+    expect(toggle).toBeTruthy();
+    expect(toggle.title).toBe('停止服务');
+    expect(toggle.className).toContain('cafe-accent');
+
+    const trashBtn = Array.from(container.querySelectorAll('button')).find((b) => b.title === '卸载');
+    expect(trashBtn).toBeFalsy();
+  });
+
   it('renders nothing while the service request is pending', () => {
     mockFetch.mockReturnValue(new Promise(() => undefined));
 
