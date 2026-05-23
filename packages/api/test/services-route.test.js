@@ -368,6 +368,71 @@ describe('services routes', () => {
     }
   });
 
+  it('probes health for legacy config with only enabled (no installed field)', async () => {
+    setServiceConfig('whisper-stt', { enabled: true });
+    let probed = false;
+    const app = await buildApp({
+      env: { WHISPER_URL: 'http://127.0.0.1:19999/healthy' },
+      fetchHealth: async () => {
+        probed = true;
+        return { ok: true, status: 200, error: null };
+      },
+    });
+    try {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/services/whisper-stt/health',
+        headers: SESSION_HEADERS,
+      });
+      assert.equal(res.statusCode, 200, res.payload);
+      assert.equal(JSON.parse(res.payload).status, 'healthy');
+      assert.equal(probed, true, 'should probe health for legacy enabled-only config');
+
+      const listRes = await app.inject({
+        method: 'GET',
+        url: '/api/services',
+        headers: SESSION_HEADERS,
+      });
+      const whisper = JSON.parse(listRes.payload).services.find((s) => s.id === 'whisper-stt');
+      assert.equal(whisper.installed, true, 'installed derived from enabled for installable services');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('scriptless service (audio-capture) treated as installed when enabled', async () => {
+    setServiceConfig('audio-capture', { enabled: true });
+    let probed = false;
+    const app = await buildApp({
+      env: { AUDIO_SERVICE_URL: 'http://127.0.0.1:19995/healthy' },
+      fetchHealth: async () => {
+        probed = true;
+        return { ok: true, status: 200, error: null };
+      },
+    });
+    try {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/services/audio-capture/health',
+        headers: SESSION_HEADERS,
+      });
+      assert.equal(res.statusCode, 200, res.payload);
+      assert.equal(JSON.parse(res.payload).status, 'healthy');
+      assert.equal(probed, true, 'should probe health for scriptless enabled service');
+
+      const listRes = await app.inject({
+        method: 'GET',
+        url: '/api/services',
+        headers: SESSION_HEADERS,
+      });
+      const audioCap = JSON.parse(listRes.payload).services.find((s) => s.id === 'audio-capture');
+      assert.equal(audioCap.installed, true, 'scriptless services treated as installed');
+      assert.equal(audioCap.installable, false, 'audio-capture has no install scripts');
+    } finally {
+      await app.close();
+    }
+  });
+
   it('returns 404 for unknown service health lookups', async () => {
     const app = await buildApp();
     try {

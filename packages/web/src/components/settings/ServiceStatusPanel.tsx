@@ -127,11 +127,16 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
 
   async function handleToggle(service: ServiceUiState) {
     const enabling = !service.enabled;
-    await apiFetch(`/api/services/${service.id}/toggle`, {
+    const res = await apiFetch(`/api/services/${service.id}/toggle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: enabling }),
     });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setActionError({ id: service.id, message: body.error ?? `Toggle failed (${res.status})` });
+      return;
+    }
     await executeAction(service.id, enabling ? 'start' : 'stop');
   }
 
@@ -197,7 +202,7 @@ export function ServiceStatusPanel({ filterFeatures, title }: ServiceStatusPanel
                     type="button"
                     disabled={isBusy}
                     onClick={() => handleAction(service, 'install')}
-                    className="rounded-lg bg-[var(--console-card-bg)] px-3 py-1.5 text-xs font-medium text-cafe-secondary shadow-[0_1px_3px_rgba(43,33,26,0.06)] transition-colors hover:bg-[var(--console-hover-bg)] disabled:opacity-50"
+                    className="rounded-lg bg-cafe-accent px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-cafe-interactive disabled:opacity-50"
                   >
                     {isBusy ? '...' : '安装'}
                   </button>

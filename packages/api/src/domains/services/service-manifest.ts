@@ -312,9 +312,9 @@ export async function resolveServiceState(
   } = {},
 ): Promise<ServiceState> {
   const config = options.config ?? { enabled: false };
-  const installed = config.installed === true;
-  const enabled = config.enabled;
   const installable = !!service.scripts?.install;
+  const installed = config.installed ?? (installable ? config.enabled === true : true);
+  const enabled = config.enabled;
   const endpoint = resolveServiceEndpoint(service, options.env);
   if (!endpoint) {
     return {
