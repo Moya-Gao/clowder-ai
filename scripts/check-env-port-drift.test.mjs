@@ -724,6 +724,10 @@ excluded:
       const fixturePaths = [
         'docs/harness-feedback/eval-domains/eval-a2a.yaml',
         'docs/harness-feedback/verdicts/fixtures/2026-05-21-eval-a2a-contract-demo.md',
+        'docs/features/assets/F210/agy-conversation-resume.txt',
+        'docs/features/assets/F210/agy-print-timeout.txt',
+        'docs/features/assets/F210/agy-real-home-no-default-model.txt',
+        'docs/features/assets/F210/agy-real-home-print-success.txt',
       ];
 
       for (const fixturePath of fixturePaths) {
