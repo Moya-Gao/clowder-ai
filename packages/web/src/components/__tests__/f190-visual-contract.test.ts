@@ -951,22 +951,22 @@ describe('F723 round 4.1 — deeper primitive convergence guard', () => {
 });
 
 describe('F723 round 5 — ops tab/button convergence guard', () => {
-  it('OpsContent tabs: active has bg highlight, no underline/emphasis, inactive has hover bg', () => {
+  it('OpsContent tabs: active uses Memory underline style, no pill bg', () => {
     const src = readSrc('settings/OpsContent.tsx');
-    expect(src).toContain('bg-[var(--console-active-bg)]');
-    expect(src).not.toContain('border-b-2');
-    expect(src).not.toContain('console-button-emphasis');
-    expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
+    expect(src).toContain('border-b-2');
+    expect(src).toContain('console-button-emphasis');
+    expect(src).not.toContain('bg-[var(--console-active-bg)]');
   });
 
-  it('HubObservabilityTab sub-tabs: no blue pill, no accent text, active uses console-active-bg + bold', () => {
+  it('HubObservabilityTab sub-tabs: active uses underline + bold, no pill bg', () => {
     const src = readSrc('HubObservabilityTab.tsx');
     expect(src).not.toContain('bg-conn-blue-bg');
     expect(src).not.toContain('text-blue-700');
     expect(src).not.toContain('text-cafe-accent');
-    expect(src).not.toContain('border-b');
-    expect(src).toContain('bg-[var(--console-active-bg)] font-semibold text-cafe');
-    expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
+    expect(src).toContain('border-b-2');
+    expect(src).toContain('font-semibold');
+    expect(src).toContain('console-button-emphasis');
+    expect(src).not.toContain('bg-[var(--console-active-bg)]');
   });
 
   it('DailyUsageSection: no bg-gray-800 button, section uses rounded-xl + 0.04 shadow', () => {
@@ -988,13 +988,15 @@ describe('F723 round 5 — ops tab/button convergence guard', () => {
     expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
   });
 
-  it('HubGovernanceTab: no blue refresh link, sync button uses cafe-accent', () => {
+  it('HubGovernanceTab: no blue refresh link, sync button uses cafe-accent, refresh uses px-3 py-1.5 + transition', () => {
     const src = readSrc('HubGovernanceTab.tsx');
     expect(src).not.toContain('text-conn-blue-text hover:text-blue-700');
     expect(src).not.toContain('bg-conn-blue-text');
     expect(src).not.toContain('hover:bg-conn-blue-hover');
     expect(src).toContain('bg-cafe-accent');
     expect(src).toContain('hover:bg-cafe-interactive');
+    expect(src).toContain('px-3 py-1.5');
+    expect(src).toContain('transition-colors');
   });
 
   it('HubRoutingPolicyTab: no bg-blue-600 save, section uses rounded-xl + 0.04 shadow', () => {
@@ -1129,20 +1131,19 @@ describe('F723 round 6 — select/toggle/button primitive convergence', () => {
 });
 
 describe('F723 round 7 — CVO visual convergence: tabs, search, selects, buttons, cards', () => {
-  it('OpsContent: no border-b-2 underline or console-button-emphasis on active tab', () => {
+  it('OpsContent: active tab uses Memory underline (border-b-2 + emphasis)', () => {
     const src = readSrc('settings/OpsContent.tsx');
-    expect(src).not.toContain('border-b-2');
-    expect(src).not.toContain('console-button-emphasis');
-    expect(src).toContain("text-cafe'");
+    expect(src).toContain('border-b-2');
+    expect(src).toContain('console-button-emphasis');
+    expect(src).not.toContain('bg-[var(--console-active-bg)]');
   });
 
-  it('HubObservabilityTab: sub-tabs no accent color, no border-b, active uses bold', () => {
+  it('HubObservabilityTab: sub-tabs use underline + bold, no pill bg', () => {
     const src = readSrc('HubObservabilityTab.tsx');
     expect(src).not.toContain('text-cafe-accent');
-    const subtabContainer = src.match(/data-guide-id="observability\.subtabs"[\s\S]*?<\/div>/);
-    expect(subtabContainer).not.toBeNull();
-    expect(subtabContainer![0]).not.toContain('border-b');
-    expect(src).toContain('font-semibold text-cafe');
+    expect(src).toContain('border-b-2');
+    expect(src).toContain('font-semibold');
+    expect(src).not.toContain('bg-[var(--console-active-bg)]');
   });
 
   it('HubTraceTree: search input uses field-bg, button is secondary, no blue', () => {
@@ -1271,5 +1272,45 @@ describe('F723 round 7 — CVO visual convergence: tabs, search, selects, button
     expect(src).not.toContain('console-button-emphasis');
     expect(src).toContain("rounded-lg bg-[var(--console-active-bg)] text-cafe'");
     expect(src).toContain('hover:bg-[var(--console-hover-bg)]');
+  });
+});
+
+describe('F723 round 8 — CVO: refresh button, ops underline tabs, service toggle state machine', () => {
+  it('HubGovernanceTab refresh: standard secondary pattern (px-3 py-1.5 + transition-colors)', () => {
+    const src = readSrc('HubGovernanceTab.tsx');
+    const refreshBtn = src.match(/<button[^>]*onClick=\{fetchHealth\}[^>]*>/);
+    expect(refreshBtn).not.toBeNull();
+    expect(refreshBtn![0]).toContain('px-3 py-1.5');
+    expect(refreshBtn![0]).toContain('transition-colors');
+  });
+
+  it('OpsContent tabs: Memory underline style (border-b-2 + emphasis), no pill bg', () => {
+    const src = readSrc('settings/OpsContent.tsx');
+    expect(src).toContain('border-b-2');
+    expect(src).toContain('border-[var(--console-button-emphasis)]');
+    expect(src).toContain('text-[var(--console-button-emphasis)]');
+    expect(src).not.toContain('bg-[var(--console-active-bg)]');
+    expect(src).not.toContain('rounded-lg');
+  });
+
+  it('HubObservabilityTab sub-tabs: underline style, no pill bg or rounded-lg', () => {
+    const src = readSrc('HubObservabilityTab.tsx');
+    expect(src).toContain('border-b-2');
+    expect(src).toContain('console-button-emphasis');
+    expect(src).not.toContain('bg-[var(--console-active-bg)]');
+    const subtabButtons = src.match(/className=\{`[^`]*subTab[^`]*`\}/g) ?? [];
+    for (const btn of subtabButtons) {
+      expect(btn).not.toContain('rounded-lg');
+    }
+  });
+
+  it('ServiceStatusPanel: toggle-based state machine, no start/stop badges', () => {
+    const src = readSrc('settings/ServiceStatusPanel.tsx');
+    expect(src).toContain('SettingsResourceToggleSwitch');
+    expect(src).toContain('installedKnown');
+    expect(src).not.toMatch(/ACTION_CONFIG/);
+    expect(src).not.toMatch(/label:\s*'启动'/);
+    expect(src).not.toMatch(/label:\s*'停止'/);
+    expect(src).toContain("'安装'");
   });
 });
