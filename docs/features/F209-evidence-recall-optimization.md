@@ -8,7 +8,7 @@ created: 2026-05-21
 
 # F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤
 
-> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed with BLOCK verdict — Phase D blocked on D.0 readiness gaps per `docs/decisions/2026-05-23-f209-d0-readiness.md`) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed with BLOCK verdict — runtime config root-cause fix merged PR #1873, Phase D still blocked pending Codex/MCP restart + D.0 retry per `docs/decisions/2026-05-23-f209-d0-readiness.md`) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -332,6 +332,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | 2026-05-23 | Phase D.0 readiness eval report committed — 47/砚砚 jointly signed off **BLOCK Phase D**; readiness gaps: stale runtime caveat, raw passage embeddings unavailable, file-slice MCP access denied, MCP `entityMatches` surface missing, no F200 recall@k wrapper for F209 fixtures |
 | 2026-05-23 | Phase B.1 implementation branch opened — `config/entity-seeds.json` explicit seed + one-way F032 roster → F209 `cat:*` retrieval anchors + alias dogfood regression |
 | 2026-05-23 | Phase B.1 merged (PR #1867) — explicit entity seed + one-way F032 roster → F209 `cat:*` retrieval anchors + alias dogfood regression |
+| 2026-05-23 | D.0 runtime sync fix merged (PR #1873) — startup regeneration now heals managed Codex/Claude MCP configs with current workspace `ALLOWED_WORKSPACE_DIRS` under the capability lock; next step is Codex/MCP restart + D.0 retry |
 
 ## Review Gate
 
