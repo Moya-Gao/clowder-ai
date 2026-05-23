@@ -220,7 +220,7 @@ Cat Cafe installers now provision `agy` through Google's native bootstrapper (`h
 | OQ-1 | What exact headless command and subprocess-friendly output mode, if any, does `agy` support? | Answered for prototype — `--print` / `--prompt`; stdout is plain final text for new successful runs; no JSON/NDJSON flag; timeout prints stdout error and exits 0 |
 | OQ-2 | Does `agy` support session resume with stable IDs? | Answered for implementation — use `--conversation <id>`; resumed stdout may replay previous assistant text, so Cat Cafe emits it as `textMode: replace` rather than assuming delta-only output |
 | OQ-3 | Does `agy` support model override, and how does that map to Cat Cafe cat identity? | Partial — no top-level `--model`; real HOME succeeded via account-side selected model override after keyring auth; deterministic per-cat model selection still unverified |
-| OQ-4 | What is the correct Windows install / binary path? | Answered for installer default: `%LOCALAPPDATA%\agy\bin\agy.exe`; packaging verification still Phase D |
+| OQ-4 | What is the correct Windows install / binary path? | Answered — source and desktop installers resolve `%LOCALAPPDATA%\agy\bin\agy.exe`, matching Phase D packaging verification |
 | OQ-5 | Should the old `antigravity` adapter be renamed in env values or kept as legacy alias only? | Answered — legacy `antigravity` remains the Desktop/MCP callback adapter; `antigravity-cli` is the new headless `agy` adapter name (KD-3) |
 
 ## Key Decisions
@@ -246,7 +246,7 @@ Cat Cafe installers now provision `agy` through Google's native bootstrapper (`h
 | 2026-05-22 | Follow-up headless spike：`agy --print` success/tool/resume/timeout fixtures captured; OQ-1 answered for prototype, OQ-3 downgraded to deterministic model-selection preflight |
 | 2026-05-22 | Phase B adapter prototype：`GEMINI_ADAPTER=antigravity-cli` spawns `agy --print`; direct service smoke returned `CAT_CAFE_AGY_ADAPTER_OK`; full Cat Cafe E2E/default switch still blocked by AC-E1/AC-E4 |
 | 2026-05-23 | Phase C parser/session merged via PR #1857：dedicated AGY plain-text parser added; F210 fixtures cover success/resume/timeout/missing-model; resume/model/image degradation behavior tested |
-| 2026-05-23 | Phase D install/packaging implemented：source installers use official `agy` native bootstrapper; Windows resolver covers `%LOCALAPPDATA%\agy\bin\agy.exe`; desktop offline packages ship explicit AGY install instructions instead of vendoring Gemini CLI npm tarball |
+| 2026-05-23 | Phase D install/packaging merged via PR #1858：source installers use official `agy` native bootstrapper; Windows resolver covers `%LOCALAPPDATA%\agy\bin\agy.exe`; desktop offline packages ship explicit AGY install instructions instead of vendoring Gemini CLI npm tarball |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |
