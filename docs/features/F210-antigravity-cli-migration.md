@@ -213,7 +213,7 @@ The prototype intentionally maps `antigravity-cli` to the standalone `agy` binar
 | OQ-2 | Does `agy` support session resume with stable IDs? | Partial — `--conversation <id>` resumes, but stdout fixture included prior assistant text plus new text; `--continue` still needs delta behavior check |
 | OQ-3 | Does `agy` support model override, and how does that map to Cat Cafe cat identity? | Partial — no top-level `--model`; real HOME succeeded via account-side selected model override after keyring auth; deterministic per-cat model selection still unverified |
 | OQ-4 | What is the correct Windows install / binary path? | Answered for installer default: `%LOCALAPPDATA%\agy\bin\agy.exe`; packaging verification still Phase D |
-| OQ-5 | Should the old `antigravity` adapter be renamed in env values or kept as legacy alias only? | ⬜ Phase B |
+| OQ-5 | Should the old `antigravity` adapter be renamed in env values or kept as legacy alias only? | Answered — legacy `antigravity` remains the Desktop/MCP callback adapter; `antigravity-cli` is the new headless `agy` adapter name (KD-3) |
 
 ## Key Decisions
 
