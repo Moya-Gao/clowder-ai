@@ -414,6 +414,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-22 | Phase E contract hardening added — Verdict Matrix Contract + Sunset Trial Contract, clarifying `fix/build/delete_sunset/keep_observe` evidence gates and reversible sunset lifecycle before E-hub |
 | 2026-05-22 | Live verdict evidence SOT decided — `snapshot:` / `attribution:` refs resolve to committed sanitized per-verdict bundles; raw runtime snapshots remain ignored (KD-13) |
 | 2026-05-23 | First live `eval:a2a` verdict generated — runtime F167 telemetry produced a `keep_observe` verdict with committed sanitized bundle under `docs/harness-feedback/bundles/2026-05-23-eval-a2a-live-verdict/` |
+| 2026-05-23 | Phase E live verdict evidence slice merged (PR #1856) — resolver/generator/invariant tests landed for committed `snapshot:` / `attribution:` bundle refs |
 
 ## Review Gate
 
