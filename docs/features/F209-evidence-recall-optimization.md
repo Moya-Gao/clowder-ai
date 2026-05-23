@@ -8,7 +8,7 @@ created: 2026-05-21
 
 # F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤
 
-> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C implementation in review branch; AC-B6 waits F208 consumer integration) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853; AC-B6 waits F208 consumer integration) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -253,6 +253,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | 2026-05-22 | Phase B merged (PR #1846) — entity registry + deterministic alias expansion + entity mention index + collection-safe redaction contract + F200 fixtures; AC-B6 remains open for F208 consumer integration |
 | 2026-05-22 | Phase B contract fix merged (PR #1851) — REST / MCP `search_evidence` now surfaces `entityMatches` explanation details for AC-B3 |
 | 2026-05-22 | Phase C implementation branch opened — typed `drillDown` REST/MCP contract + message window reader + read-only file slice reader + Phase C F200 fixtures |
+| 2026-05-22 | Phase C merged (PR #1853) — typed `drillDown` REST/MCP contract + message window / invocation / file-slice readers + source-root-safe collection file hints + Phase C F200 fixtures |
 
 ## Review Gate
 
@@ -272,7 +273,9 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | Design Gate | `docs/discussions/2026-05-22-F209-design-gate/README.md` | F209 架构归属、Phase 顺序、CVO decision packet |
 | Plan | `docs/plans/2026-05-22-f209-phase-a-passage-recall.md` | Phase A passage-level semantic / hybrid raw retrieval implementation plan |
 | Plan | `docs/plans/2026-05-22-f209-phase-b-entity-anchor.md` | Phase B entity registry / alias expansion implementation plan |
+| Plan | `docs/plans/2026-05-22-f209-phase-c-drilldown-readers.md` | Phase C typed drill-down reader implementation plan |
 | Eval fixture | `docs/eval/f209-phase-a-raw-retrieval-fixtures.md` | Phase A raw semantic / hybrid retrieval fixtures for F200 |
 | Eval fixture | `docs/eval/f209-phase-b-entity-anchor-fixtures.md` | Phase B entity alias / privacy retrieval fixtures for F200 |
+| Eval fixture | `docs/eval/f209-phase-c-drilldown-fixtures.md` | Phase C typed drill-down retrieval fixtures for F200 |
 | Feature | `docs/features/F102-memory-adapter-refactor.md` | evidence store / passage / raw lexical 基座 |
 | Feature | `docs/features/F200-memory-recall-eval.md` | retrieval consumption / eval 反馈 |
