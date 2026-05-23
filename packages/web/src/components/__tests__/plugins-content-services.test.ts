@@ -9,7 +9,7 @@ vi.mock('@/utils/api-client', () => ({
 import { apiFetch } from '@/utils/api-client';
 import { PluginsContent } from '../settings/PluginsContent';
 
-describe('PluginsContent — GitHub-only plugin page', () => {
+describe('PluginsContent — GitHub plugin + non-voice/memory services', () => {
   let container: HTMLDivElement;
   let root: Root;
   const mockFetch = apiFetch as ReturnType<typeof vi.fn>;
@@ -24,6 +24,12 @@ describe('PluginsContent — GitHub-only plugin page', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     mockFetch.mockReset();
+    mockFetch.mockImplementation(async (path: string) => {
+      if (path === '/api/services') {
+        return { ok: true, json: async () => ({ services: [] }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
   });
 
   afterEach(() => {
@@ -42,12 +48,12 @@ describe('PluginsContent — GitHub-only plugin page', () => {
     });
   }
 
-  it('renders GitHub plugin without calling /api/services', async () => {
+  it('renders GitHub plugin and fetches services for non-voice/memory panel', async () => {
     await renderPluginsContent();
 
     expect(container.textContent).toContain('GitHub');
     expect(container.textContent).toContain('内置插件');
-    expect(mockFetch).not.toHaveBeenCalledWith('/api/services');
+    expect(mockFetch).toHaveBeenCalledWith('/api/services');
   });
 
   it('renders expandable GitHub token config', async () => {

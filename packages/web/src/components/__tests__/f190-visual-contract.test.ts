@@ -273,11 +273,11 @@ describe('F190 visual contract — no hard borders in card/panel components', ()
     expect(src).toContain('focus:ring-[var(--console-input-stroke)]');
   });
 
-  it('PluginsContent shows only GitHub, no service-ui-adapter', () => {
+  it('PluginsContent shows GitHub + ServiceStatusPanel for non-voice/memory services', () => {
     const src = readSrc('settings/PluginsContent.tsx');
     expect(src).toContain('GitHub');
+    expect(src).toContain('ServiceStatusPanel');
     expect(src).not.toContain('adaptServiceToPlugin');
-    expect(src).not.toContain('/api/services');
   });
 
   it('SettingsDeleteButton uses HubIcon trash, not inline SVG', () => {
