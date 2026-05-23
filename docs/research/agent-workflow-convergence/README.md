@@ -13,6 +13,7 @@ Agent 与 Workflow 的融合是 2025-2026 agentic 生态的核心张力之一：
 | 文件 | 项目 | 核心思想 | 日期 |
 |------|------|----------|------|
 | [bridgic-amphiflow.md](bridgic-amphiflow.md) | [Bridgic](https://github.com/bitsky-tech/bridgic) | AmphiFlow: workflow-first + agent fallback | 2026-05-22 |
+| [openflow-teardown.md](openflow-teardown.md) | [OpenFlow](https://github.com/xmkid/OpenFlow) | 三模式执行：ad-hoc / suggested / bound | 2026-05-22 |
 
 ## 我们家的相关讨论
 
@@ -29,4 +30,13 @@ Cat Cafe 的实践是一种**隐式融合**：
 - **Workflow 侧**：Skill/SOP 系统是确定性流水线（feat-lifecycle → tdd → quality-gate → merge-gate）
 - **融合方式**：Agent 在 Workflow 框架内保留判断力。SOP 是轨道，猫是司机——Rule 0「规则是边界不是全部」
 
-与 AmphiFlow 的区别：我们在**多 agent 编排层**融合，AmphiFlow 在**单 agent 内部**融合。两者互补。
+### 三个项目的融合光谱
+
+| 维度 | Bridgic AmphiFlow | OpenFlow | Cat Cafe |
+|------|-------------------|----------|----------|
+| **融合层次** | 单 agent 内部 | 多 agent 编排层 | 多 agent 编排层 |
+| **Workflow 表达** | Python 代码 | YAML 模板 | SOP 文档 + Skill 纪律 |
+| **切换方式** | 异常驱动自动降级 | 用户确认显式绑定 | Agent 自主判断（Rule 0） |
+| **约束强度** | 运行时硬约束 | 系统级半硬约束 | 文化级软约束 + 门禁硬约束 |
+
+三者从不同方向走向同一个终态：让 agent 和 workflow 自然共存。
