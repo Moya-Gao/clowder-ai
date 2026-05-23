@@ -241,7 +241,7 @@ Phase C parser/session source: `packages/api/src/domains/cats/services/agents/pr
 | 2026-05-22 | Phase A recon partial merged via PR #1841; AC-A1/A2/A4/A6 closed, AC-A3/A5 remain blocked by missing default model and unverified MCP runtime loading |
 | 2026-05-22 | Follow-up headless spike：`agy --print` success/tool/resume/timeout fixtures captured; OQ-1 answered for prototype, OQ-3 downgraded to deterministic model-selection preflight |
 | 2026-05-22 | Phase B adapter prototype：`GEMINI_ADAPTER=antigravity-cli` spawns `agy --print`; direct service smoke returned `CAT_CAFE_AGY_ADAPTER_OK`; full Cat Cafe E2E/default switch still blocked by AC-E1/AC-E4 |
-| 2026-05-23 | Phase C parser/session：dedicated AGY plain-text parser added; F210 fixtures cover success/resume/timeout/missing-model; resume/model/image degradation behavior tested |
+| 2026-05-23 | Phase C parser/session merged via PR #1857：dedicated AGY plain-text parser added; F210 fixtures cover success/resume/timeout/missing-model; resume/model/image degradation behavior tested |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |
