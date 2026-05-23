@@ -101,7 +101,7 @@ describe('PATCH /api/config/env — sensitive env owner gate', () => {
     }
   });
 
-  it('allows session-auth sensitive env writes when owner is not configured', async () => {
+  it('rejects sensitive env writes when DEFAULT_OWNER_USER_ID is not configured', async () => {
     const { configRoutes } = await import('../dist/routes/config.js');
     const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-'));
     const envFilePath = resolve(tempRoot, '.env');
@@ -125,7 +125,7 @@ describe('PATCH /api/config/env — sensitive env owner gate', () => {
         payload: { updates: [{ name: 'F102_API_KEY', value: 'sk-new' }] },
       });
 
-      assert.equal(res.statusCode, 200, res.payload);
+      assert.equal(res.statusCode, 403, res.payload);
     } finally {
       await app.close();
       rmSync(tempRoot, { recursive: true, force: true });

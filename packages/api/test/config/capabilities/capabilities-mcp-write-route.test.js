@@ -147,7 +147,7 @@ describe('capabilities MCP write routes', () => {
     assert.ok(!config?.capabilities.some((entry) => entry.id === 'new-mcp'));
   });
 
-  it('allows session MCP preview/install/delete when DEFAULT_OWNER_USER_ID is not configured', async () => {
+  it('rejects MCP preview/install/delete when DEFAULT_OWNER_USER_ID is not configured', async () => {
     await writeCapabilitiesConfig(projectRoot, {
       version: 1,
       capabilities: [
@@ -185,12 +185,8 @@ describe('capabilities MCP write routes', () => {
         headers: OWNER_HEADERS,
         payload: testCase.payload,
       });
-      assert.equal(res.statusCode, 200, `${testCase.method} ${testCase.url} should allow session owner fallback`);
+      assert.equal(res.statusCode, 403, `${testCase.method} ${testCase.url} should fail-closed without owner`);
     }
-
-    const config = await readCapabilitiesConfig(projectRoot);
-    assert.equal(config?.capabilities.length, 1);
-    assert.equal(config?.capabilities[0]?.id, 'new-mcp');
   });
 
   it('rejects non-owner MCP deletes when DEFAULT_OWNER_USER_ID is configured', async () => {
@@ -393,7 +389,7 @@ describe('capabilities MCP write routes', () => {
     assert.equal(cap?.mcpServer?.env?.API_KEY, 'install-secret');
   });
 
-  it('allows session env patch when DEFAULT_OWNER_USER_ID is not configured', async () => {
+  it('rejects env patch when DEFAULT_OWNER_USER_ID is not configured', async () => {
     await writeCapabilitiesConfig(projectRoot, {
       version: 1,
       capabilities: [
@@ -418,10 +414,7 @@ describe('capabilities MCP write routes', () => {
       payload: { env: { API_KEY: 'new-secret' } },
     });
 
-    assert.equal(res.statusCode, 200, res.payload);
-    const config = await readCapabilitiesConfig(projectRoot);
-    const cap = config?.capabilities.find((entry) => entry.id === 'secret-mcp');
-    assert.deepEqual(cap?.mcpServer?.env, { API_KEY: 'new-secret', KEEP: 'yes' });
+    assert.equal(res.statusCode, 403, res.payload);
   });
 
   it('rejects malformed env patch payloads before touching config', async () => {

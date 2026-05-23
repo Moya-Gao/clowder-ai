@@ -13,7 +13,12 @@ export function resolveCapabilityWriteSessionUserId(request: FastifyRequest): st
 
 export function requireCapabilityWriteOwner(userId: string): CapabilityWriteRouteError | null {
   const ownerId = process.env.DEFAULT_OWNER_USER_ID?.trim();
-  if (!ownerId) return null;
+  if (!ownerId) {
+    return {
+      status: 403,
+      error: 'Capability writes require DEFAULT_OWNER_USER_ID to be configured',
+    };
+  }
   if (userId !== ownerId) {
     return {
       status: 403,
