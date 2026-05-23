@@ -8,7 +8,7 @@ created: 2026-05-21
 
 # F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤
 
-> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ implemented; Phase D.0 readiness sprint 待启动) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint 待启动) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -330,6 +330,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | 2026-05-22 | Phase C dogfood hotfix merged (PR #1854) — docs-root file-slice `drillDown` hints now resolve to repo-readable `docs/...` paths while collection hints stay on virtual URIs |
 | 2026-05-23 | F209 post-Phase-C 反思 alignment（47/砚砚/铲屎官）— spec patch: KD-11 Phase close 双足定义；AC-B6 transferred to F208 AC-A5（KD-12）；Phase B.1 minimal seed follow-up 新立子段；Phase D.0 readiness eval sprint 新立前置（KD-13）；OQ-11 invocation-level、OQ-12 inline-content-threshold 加入观察；quality-gate skill Step 4.5 Dogfood-Your-Slice |
 | 2026-05-23 | Phase B.1 implementation branch opened — `config/entity-seeds.json` explicit seed + one-way F032 roster → F209 `cat:*` retrieval anchors + alias dogfood regression |
+| 2026-05-23 | Phase B.1 merged (PR #1867) — explicit entity seed + one-way F032 roster → F209 `cat:*` retrieval anchors + alias dogfood regression |
 
 ## Review Gate
 
